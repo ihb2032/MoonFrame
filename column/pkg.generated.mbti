@@ -1,11 +1,46 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "ihb2032/MoonFrame/column"
 
+import {
+  "ihb2032/MoonFrame/types",
+  "moonbitlang/core/debug",
+}
+
 // Values
 
 // Errors
 
 // Types and methods
+pub(all) enum BuiltinColumn {
+  Int(Array[Int?])
+  Float(Array[Double?])
+  Bool(Array[Bool?])
+  String(Array[String?])
+} derive(Eq, @debug.Debug)
+pub fn BuiltinColumn::bool_values(Self) -> Result[Array[Bool?], @types.DataError]
+pub fn BuiltinColumn::cast(Self, @types.DataType) -> Result[Self, @types.DataError]
+pub fn BuiltinColumn::dtype(Self) -> @types.DataType
+pub fn BuiltinColumn::float_values(Self) -> Result[Array[Double?], @types.DataError]
+pub fn BuiltinColumn::from_bool_options(Array[Bool?]) -> Self
+pub fn BuiltinColumn::from_bools(Array[Bool]) -> Self
+pub fn BuiltinColumn::from_float_options(Array[Double?]) -> Self
+pub fn BuiltinColumn::from_floats(Array[Double]) -> Self
+pub fn BuiltinColumn::from_int_options(Array[Int?]) -> Self
+pub fn BuiltinColumn::from_ints(Array[Int]) -> Self
+pub fn BuiltinColumn::from_string_options(Array[String?]) -> Self
+pub fn BuiltinColumn::from_strings(Array[String]) -> Self
+pub fn BuiltinColumn::get(Self, Int) -> Result[@types.Scalar, @types.DataError]
+pub fn BuiltinColumn::int_values(Self) -> Result[Array[Int?], @types.DataError]
+pub fn BuiltinColumn::is_empty(Self) -> Bool
+pub fn BuiltinColumn::is_null(Self, Int) -> Result[Bool, @types.DataError]
+pub fn BuiltinColumn::len(Self) -> Int
+pub fn BuiltinColumn::null_count(Self) -> Int
+pub fn BuiltinColumn::slice(Self, Int, Int) -> Result[Self, @types.DataError]
+pub fn BuiltinColumn::string_values(Self) -> Result[Array[String?], @types.DataError]
+pub fn BuiltinColumn::take(Self, Array[Int]) -> Result[Self, @types.DataError]
+pub fn BuiltinColumn::to_float(Self) -> Result[Self, @types.DataError]
+pub fn BuiltinColumn::to_int(Self) -> Result[Self, @types.DataError]
+pub fn BuiltinColumn::to_string_column(Self) -> Result[Self, @types.DataError]
 
 // Type aliases
 

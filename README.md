@@ -15,6 +15,19 @@ Under active development toward **v0.1**. The current focus is the
 [`docs/api.md`](docs/api.md). See that document for the authoritative
 public-API surface.
 
+v0.1 progress against [`PLAN_v0.1.md`](PLAN_v0.1.md):
+
+- [x] P0 — project skeleton
+- [x] P1 — `types/` core (`DataError`, `DataType`, `Scalar`)
+- [x] P2 — `column/` `BuiltinColumn` (constructors, accessors, slice /
+      take, casts, typed zero-boxing accessors)
+- [ ] P3 — `types/` `Field` + `Schema`
+- [ ] P4 — `frame/` `Series` + stats
+- [ ] P5 — `frame/` `DataFrame` + `RowView`
+- [ ] P6 – P10 — `ops/`
+- [ ] P11 – P12 — `io/` CSV / Markdown / JSON
+- [ ] P13 — facade re-exports, integration, examples
+
 GroupBy and Join land in v0.2; NDJSON also v0.2; HTML and chart-data
 export in v0.3; an expression / lazy query layer in v0.4.
 

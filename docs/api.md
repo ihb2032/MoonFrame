@@ -30,9 +30,30 @@ Re-exported from the facade package `ihb2032/MoonFrame`. Sub-packages
 
 > Implemented in **P2** (`builtin.mbt`).
 
-- `enum BuiltinColumn` — (pending) `Int | Float | Bool | String` over
-  `Array[Option[T]]`; eight `from_*` constructors, typed accessors for
-  zero-boxing iteration
+- `enum BuiltinColumn` — `Int(Array[Int?]) | Float(Array[Double?]) |
+  Bool(Array[Bool?]) | String(Array[String?])`. `None` denotes a null
+  cell. Single-backend v0.1 storage; v0.2 will add a `ColumnStorage`
+  abstraction over this enum.
+- Constructors (8): `from_ints` / `from_int_options` /
+  `from_floats` / `from_float_options` / `from_bools` /
+  `from_bool_options` / `from_strings` / `from_string_options`.
+- Inspection: `dtype` / `len` / `is_empty` / `null_count` /
+  `is_null(i)` / `get(i)`. Index-based accessors return
+  `Err(IndexOutOfBounds(i))` outside `[0, len)`.
+- Sub-views: `slice(start, end)` (half-open, copy) / `take(indices)`
+  (gather with duplicates allowed; first out-of-bounds index wins).
+- Cast: `cast(target)` dispatches to one of
+  - `to_int` — identity on Int; Float truncates towards zero; Bool maps
+    `true → 1`, `false → 0`; String parses (non-numeric →
+    `ParseError`).
+  - `to_float` — Int promoted; identity on Float; Bool maps to `1.0` /
+    `0.0`; String parses (non-numeric → `ParseError`).
+  - `to_string_column` — every dtype rendered with `Scalar::to_string`
+    semantics (e.g. `Int(42) → "42"`, `Bool(true) → "true"`).
+  - `Bool` / `Null` targets return `Err(Unsupported)`.
+- Typed accessors (zero-boxing fast path for ops): `int_values` /
+  `float_values` / `bool_values` / `string_values` return
+  `Result[Array[T?], DataError]`. Wrong dtype → `Err(TypeMismatch)`.
 
 ---
 

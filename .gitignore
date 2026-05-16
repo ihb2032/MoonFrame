@@ -3,3 +3,5 @@ _build/
 .mooncakes/
 .moonagent/
 *.txt
+.claude/
+PLAN*.md

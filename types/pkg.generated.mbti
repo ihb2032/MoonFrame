@@ -1,0 +1,66 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ihb2032/MoonFrame/types"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub(all) enum DataError {
+  ColumnNotFound(String)
+  DuplicateColumn(String)
+  TypeMismatch(String)
+  LengthMismatch
+  IndexOutOfBounds(Int)
+  ParseError(String)
+  InvalidOperation(String)
+  IoError(String)
+  EmptyDataFrame
+  Unsupported(String)
+} derive(Eq, @debug.Debug)
+pub fn DataError::message(Self) -> String
+pub impl Show for DataError
+
+pub(all) enum DataType {
+  Int
+  Float
+  Bool
+  String
+  Null
+} derive(Eq, @debug.Debug)
+pub fn DataType::is_bool(Self) -> Bool
+pub fn DataType::is_float(Self) -> Bool
+pub fn DataType::is_integer(Self) -> Bool
+pub fn DataType::is_numeric(Self) -> Bool
+pub fn DataType::is_string(Self) -> Bool
+pub impl Show for DataType
+
+pub(all) enum Scalar {
+  Int(Int)
+  Float(Double)
+  Bool(Bool)
+  String(String)
+  Null
+} derive(Eq, @debug.Debug)
+pub fn Scalar::as_bool(Self) -> Result[Bool, DataError]
+pub fn Scalar::as_float(Self) -> Result[Double, DataError]
+pub fn Scalar::as_int(Self) -> Result[Int, DataError]
+pub fn Scalar::as_string(Self) -> Result[String, DataError]
+pub fn Scalar::dtype(Self) -> DataType
+pub fn Scalar::eq(Self, Self) -> Result[Bool, DataError]
+pub fn Scalar::gt(Self, Self) -> Result[Bool, DataError]
+pub fn Scalar::gte(Self, Self) -> Result[Bool, DataError]
+pub fn Scalar::is_null(Self) -> Bool
+pub fn Scalar::lt(Self, Self) -> Result[Bool, DataError]
+pub fn Scalar::lte(Self, Self) -> Result[Bool, DataError]
+pub fn Scalar::to_string(Self) -> String
+pub impl Show for Scalar
+
+// Type aliases
+
+// Traits
+

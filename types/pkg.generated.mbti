@@ -39,6 +39,19 @@ pub fn DataType::is_numeric(Self) -> Bool
 pub fn DataType::is_string(Self) -> Bool
 pub impl Show for DataType
 
+pub(all) struct Field {
+  name : String
+  dtype : DataType
+  nullable : Bool
+} derive(Eq, @debug.Debug)
+pub fn Field::dtype(Self) -> DataType
+pub fn Field::name(Self) -> String
+pub fn Field::new(String, DataType) -> Self
+pub fn Field::nullable(Self) -> Bool
+pub fn Field::rename(Self, String) -> Self
+pub fn Field::with_nullable(String, DataType, Bool) -> Self
+pub impl Show for Field
+
 pub(all) enum Scalar {
   Int(Int)
   Float(Double)
@@ -59,6 +72,21 @@ pub fn Scalar::lt(Self, Self) -> Result[Bool, DataError]
 pub fn Scalar::lte(Self, Self) -> Result[Bool, DataError]
 pub fn Scalar::to_string(Self) -> String
 pub impl Show for Scalar
+
+pub(all) struct Schema {
+  fields : Array[Field]
+} derive(Eq, @debug.Debug)
+pub fn Schema::field(Self, String) -> Result[Field, DataError]
+pub fn Schema::field_at(Self, Int) -> Result[Field, DataError]
+pub fn Schema::field_names(Self) -> Array[String]
+pub fn Schema::fields(Self) -> Array[Field]
+pub fn Schema::index_of(Self, String) -> Result[Int, DataError]
+pub fn Schema::is_empty(Self) -> Bool
+pub fn Schema::len(Self) -> Int
+pub fn Schema::new(Array[Field]) -> Result[Self, DataError]
+pub fn Schema::rename(Self, String, String) -> Result[Self, DataError]
+pub fn Schema::select(Self, Array[String]) -> Result[Self, DataError]
+pub impl Show for Schema
 
 // Type aliases
 

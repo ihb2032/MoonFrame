@@ -14,15 +14,33 @@ Re-exported from the facade package `ihb2032/MoonFrame`. Sub-packages
 > Implemented in **P1** (`error.mbt`, `dtype.mbt`, `scalar.mbt`) and
 > **P3** (`field.mbt`, `schema.mbt`).
 
-- `enum DataError` — (pending) variants for column lookup, dtype mismatch,
+- `enum DataError` — variants for column lookup, dtype mismatch,
   length mismatch, bounds, parse errors, I/O errors, unsupported ops
-- `enum DataType` — (pending) `Int | Float | Bool | String | Null`, with
+- `enum DataType` — `Int | Float | Bool | String | Null`, with
   `is_numeric` / `is_integer` / `is_float` / `is_string` / `is_bool`
-- `enum Scalar` — (pending) cell value; `dtype`, `is_null`, `as_*` accessors,
+- `enum Scalar` — cell value; `dtype`, `is_null`, `as_*` accessors,
   total/partial comparisons
-- `struct Field` — (pending) column metadata: `name`, `dtype`, `nullable`
-- `struct Schema` — (pending) ordered list of `Field`s with duplicate-name
-  detection
+- `struct Field` — column metadata: `name`, `dtype`, `nullable`.
+  - Constructors: `Field::new(name, dtype)` (defaults `nullable = true`),
+    `Field::with_nullable(name, dtype, nullable)`.
+  - Accessors: `name` / `dtype` / `nullable`.
+  - `rename(new_name)` returns a copy with a different name.
+- `struct Schema` — ordered list of `Field`s with duplicate-name
+  detection.
+  - `Schema::new(fields)` — returns `Err(DuplicateColumn(name))` on the
+    first repeated name; otherwise `Ok(schema)`. An empty input is
+    valid.
+  - Inspection: `fields` / `field_names` / `len` / `is_empty`.
+  - Lookup: `index_of(name)` and `field(name)` return
+    `Err(ColumnNotFound(name))` for unknown columns; `field_at(i)`
+    returns `Err(IndexOutOfBounds(i))` outside `[0, len)`.
+  - `select(names)` — project a sub-schema preserving the order of
+    `names`. Missing names → `ColumnNotFound`; duplicates inside the
+    pick list → `DuplicateColumn`.
+  - `rename(old_name, new_name)` — `ColumnNotFound` if `old_name` is
+    missing; `DuplicateColumn` if `new_name` collides with another
+    existing column. Renaming to the same name is a no-op (but still
+    validates `old_name` exists).
 
 ---
 

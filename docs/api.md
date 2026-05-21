@@ -4,8 +4,10 @@
 > v0.1 public surface. Each phase fills in its section as it ships.
 > When a symbol is published in code, it must appear here.
 
-Re-exported from the facade package `ihb2032/MoonFrame`. Sub-packages
-(`types`, `column`, `frame`, `ops`, `io`) are also importable directly.
+Once **P13** lands, the facade package `ihb2032/MoonFrame` will re-export
+all symbols below. Until then, import the sub-packages
+(`types`, `column`, `frame`, `ops`, `io`) directly — sub-package imports
+remain supported even after the facade ships.
 
 ---
 
@@ -14,12 +16,18 @@ Re-exported from the facade package `ihb2032/MoonFrame`. Sub-packages
 > Implemented in **P1** (`error.mbt`, `dtype.mbt`, `scalar.mbt`) and
 > **P3** (`field.mbt`, `schema.mbt`).
 
-- `enum DataError` — variants for column lookup, dtype mismatch,
-  length mismatch, bounds, parse errors, I/O errors, unsupported ops
+- `enum DataError` — 10 variants: `ColumnNotFound` / `DuplicateColumn` /
+  `TypeMismatch` / `LengthMismatch` / `IndexOutOfBounds` / `ParseError` /
+  `InvalidOperation` / `IoError` / `EmptyDataFrame` / `Unsupported`.
+  `DataError::message()` renders a human-readable description; the
+  `Show` impl renders the variant form for assertion snapshots.
 - `enum DataType` — `Int | Float | Bool | String | Null`, with
   `is_numeric` / `is_integer` / `is_float` / `is_string` / `is_bool`
-- `enum Scalar` — cell value; `dtype`, `is_null`, `as_*` accessors,
-  total/partial comparisons
+- `enum Scalar` — cell value; `dtype` / `is_null` / `to_string` (value
+  form, e.g. `Int(42) → "42"`, `Null → ""`) / `as_int` / `as_float` /
+  `as_bool` / `as_string` accessors; total ordering via `eq` / `lt` /
+  `lte` / `gt` / `gte` (each returns `Result[Bool, DataError]` so that
+  `Null` short-circuits to `Err(TypeMismatch)`)
 - `struct Field` — column metadata: `name`, `dtype`, `nullable`.
   - Constructors: `Field::new(name, dtype)` (defaults `nullable = true`),
     `Field::with_nullable(name, dtype, nullable)`.
@@ -46,32 +54,72 @@ Re-exported from the facade package `ihb2032/MoonFrame`. Sub-packages
 
 ## `column` — Column storage backends
 
-> Implemented in **P2** (`builtin.mbt`).
+> Implemented in **P2** (initial Option-based draft) and **P3.5**
+> (`bitmap.mbt`, `builtin.mbt` rewritten to Apache Arrow style: a raw
+> data buffer plus a separate bit-packed validity bitmap).
 
-- `enum BuiltinColumn` — `Int(Array[Int?]) | Float(Array[Double?]) |
-  Bool(Array[Bool?]) | String(Array[String?])`. `None` denotes a null
-  cell. Single-backend v0.1 storage; v0.2 will add a `ColumnStorage`
-  abstraction over this enum.
-- Constructors (8): `from_ints` / `from_int_options` /
-  `from_floats` / `from_float_options` / `from_bools` /
-  `from_bool_options` / `from_strings` / `from_string_options`.
+### Validity bitmap
+
+- `struct Bitmap { bits : Bytes, len : Int }` — Arrow-compatible
+  validity bitmap, byte-packed at **1 bit per row, 1 = valid, 0 = null**.
+  Slot `i` lives in `bits[i / 8]` at bit `i % 8` (LSB first), and a
+  bitmap of `len` slots occupies exactly `⌈len / 8⌉` bytes. Trailing
+  bits past `len` are kept zero so popcount is safe over the whole
+  buffer. Note: some MoonBit ecosystem libraries (e.g.
+  `smallbearrr/pandas`) use the opposite convention (`true = null`).
+- Constructors: `Bitmap::all_valid(len)` / `Bitmap::all_null(len)` /
+  `Bitmap::from_bools(Array[Bool])` (`true ↦ valid`) /
+  `Bitmap::from_options[T](Array[T?])` (`Some(_) ↦ valid`).
+- Inspection: `len` / `is_valid(i)` / `is_null(i)` / `null_count()`.
+  Index-based accessors return `Err(IndexOutOfBounds(i))` outside
+  `[0, len)`.
+- Transforms: `slice(start, length)` (rebuilds by repacking — no
+  zero-copy view; v0.2 may optimise), `take(indices)` (gather with
+  duplicates allowed; first out-of-bounds index wins),
+  `bit_and(other)` (`LengthMismatch` if lengths differ — `and` is a
+  reserved keyword in MoonBit, hence `bit_and`).
+
+### BuiltinColumn
+
+- `struct BuiltinColumn { data : ColumnData, validity : Bitmap }` —
+  Arrow-style column. The `data` array holds raw values (no `Option`
+  boxing); null slots carry per-dtype placeholders (`Int = 0`,
+  `Float = 0.0`, `Bool = false`, `String = ""`) that never leak through
+  public methods, because every read consults `validity` first. v0.2
+  will add a `ColumnStorage` abstraction over this struct without
+  changing the public API.
+- `pub(all) enum ColumnData` — `Int(Array[Int]) | Float(Array[Float]) |
+  Bool(Array[Bool]) | String(Array[String])`. Element type is the raw
+  value; nullability lives on the enclosing column.
+- Constructors (8, signatures unchanged from P2): `from_ints` /
+  `from_int_options` / `from_floats` / `from_float_options` /
+  `from_bools` / `from_bool_options` / `from_strings` /
+  `from_string_options`. The `*_options` constructors build the
+  validity bitmap from the `Some/None` pattern and place placeholder
+  values in the data buffer at null slots.
 - Inspection: `dtype` / `len` / `is_empty` / `null_count` /
   `is_null(i)` / `get(i)`. Index-based accessors return
   `Err(IndexOutOfBounds(i))` outside `[0, len)`.
-- Sub-views: `slice(start, end)` (half-open, copy) / `take(indices)`
-  (gather with duplicates allowed; first out-of-bounds index wins).
-- Cast: `cast(target)` dispatches to one of
-  - `to_int` — identity on Int; Float truncates towards zero; Bool maps
-    `true → 1`, `false → 0`; String parses (non-numeric →
-    `ParseError`).
-  - `to_float` — Int promoted; identity on Float; Bool maps to `1.0` /
-    `0.0`; String parses (non-numeric → `ParseError`).
+- Sub-views: `slice(start, end)` (half-open, copies both data and
+  validity) / `take(indices)` (gather with duplicates allowed; first
+  out-of-bounds index wins).
+- Cast: `cast(target)` dispatches to one of — validity is preserved
+  verbatim across every cast.
+  - `to_int` — identity on Int; Float truncates towards zero (`NaN`,
+    `±Inf`, and values outside `Int32` range → `ParseError`); Bool maps
+    `true → 1`, `false → 0`; String parses with `@string.parse_int`
+    (non-numeric on a valid slot → `ParseError`).
+  - `to_float` — Int promoted via `Float::from_int`; identity on
+    Float; Bool maps to `1.0` / `0.0`; String parses with
+    `@string.parse_double` then narrowed to 32-bit.
   - `to_string_column` — every dtype rendered with `Scalar::to_string`
     semantics (e.g. `Int(42) → "42"`, `Bool(true) → "true"`).
   - `Bool` / `Null` targets return `Err(Unsupported)`.
 - Typed accessors (zero-boxing fast path for ops): `int_values` /
   `float_values` / `bool_values` / `string_values` return
-  `Result[Array[T?], DataError]`. Wrong dtype → `Err(TypeMismatch)`.
+  `Result[(Array[T], Bitmap), DataError]`. Wrong dtype →
+  `Err(TypeMismatch)`. Always consult the returned `Bitmap` before
+  reading the data array — null slots hold the dtype placeholder.
 
 ---
 

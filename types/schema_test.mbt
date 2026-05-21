@@ -129,3 +129,16 @@ test "Schema Show renders fields in order" {
     content="Schema([Field { name: \"x\", dtype: Int, nullable: true }, Field { name: \"y\", dtype: String, nullable: false }])",
   )
 }
+
+///|
+test "Schema::fields returns a snapshot, mutating it does not break the schema" {
+  let s = sample_schema()
+  let copy = s.fields()
+  assert_eq(copy.length(), 3)
+  assert_eq(copy[0].name(), "a")
+  // Mutate the returned array; the schema must remain intact.
+  copy.push(Field::new("a", DataType::Float))
+  assert_eq(copy.length(), 4)
+  assert_eq(s.len(), 3)
+  assert_eq(s.field_names(), ["a", "b", "c"])
+}

@@ -4,9 +4,13 @@
 /// Each variant wraps `Array[Option[T]]` directly — `None` denotes a null
 /// cell. v0.2 will introduce a `ColumnStorage` abstraction over this enum
 /// (and a `NumericColumn` variant) without changing this layer's API.
+///
+/// The `Float` variant stores 32-bit `Float` values to keep the column
+/// footprint compact; `Series`-level promotion to 64-bit should be done at
+/// the stats layer if needed.
 pub(all) enum BuiltinColumn {
   Int(Array[Int?])
-  Float(Array[Double?])
+  Float(Array[Float?])
   Bool(Array[Bool?])
   String(Array[String?])
 } derive(Eq, Debug)
@@ -27,14 +31,14 @@ pub fn BuiltinColumn::from_int_options(values : Array[Int?]) -> BuiltinColumn {
 
 ///|
 /// Build a `Float` column from raw values (no nulls).
-pub fn BuiltinColumn::from_floats(values : Array[Double]) -> BuiltinColumn {
+pub fn BuiltinColumn::from_floats(values : Array[Float]) -> BuiltinColumn {
   Float(values.map(fn(v) { Some(v) }))
 }
 
 ///|
 /// Build a `Float` column where `None` entries are nulls.
 pub fn BuiltinColumn::from_float_options(
-  values : Array[Double?],
+  values : Array[Float?],
 ) -> BuiltinColumn {
   Float(values)
 }
@@ -181,15 +185,32 @@ pub fn BuiltinColumn::get(
 
 ///|
 /// Half-open `[start, end)` slice. Requires `0 <= start <= end <= len`.
+///
+/// Errors:
+/// - `IndexOutOfBounds(start)` when `start < 0` or `start > len`.
+/// - `IndexOutOfBounds(end)` when `end > len`.
+/// - `InvalidOperation("slice start > end: ...")` when `start > end`.
 pub fn BuiltinColumn::slice(
   self : BuiltinColumn,
   start : Int,
   end : Int,
 ) -> Result[BuiltinColumn, @types.DataError] {
   let len = self.len()
-  if start < 0 || start > end || end > len {
+  if start < 0 {
     return Err(@types.DataError::IndexOutOfBounds(start))
   }
+  if end > len {
+    return Err(@types.DataError::IndexOutOfBounds(end))
+  }
+  if start > end {
+    return Err(
+      @types.DataError::InvalidOperation(
+        "slice start > end: " + start.to_string() + " > " + end.to_string(),
+      ),
+    )
+  }
+  // After the three checks above, `0 <= start <= end <= len` holds, so the
+  // `for i in start..<end { a[i] }` loops below are always in bounds.
   let out : BuiltinColumn = match self {
     Int(a) => {
       let buf : Array[Int?] = Array::new(capacity=end - start)
@@ -199,7 +220,7 @@ pub fn BuiltinColumn::slice(
       Int(buf)
     }
     Float(a) => {
-      let buf : Array[Double?] = Array::new(capacity=end - start)
+      let buf : Array[Float?] = Array::new(capacity=end - start)
       for i in start..<end {
         buf.push(a[i])
       }
@@ -246,7 +267,7 @@ pub fn BuiltinColumn::take(
       Int(buf)
     }
     Float(a) => {
-      let buf : Array[Double?] = Array::new(capacity=n)
+      let buf : Array[Float?] = Array::new(capacity=n)
       for i in indices {
         buf.push(a[i])
       }
@@ -290,9 +311,16 @@ pub fn BuiltinColumn::cast(
 }
 
 ///|
-/// Convert to `Int`. Supported sources: `Int` (identity), `Float`
-/// (truncated towards zero), `Bool` (`true` → 1, `false` → 0),
-/// `String` (parsed; non-numeric values return `ParseError`).
+/// Convert to `Int`. Supported sources:
+/// - `Int`: identity, no copy.
+/// - `Float`: truncated towards zero. `NaN`, `+Inf`, `-Inf`, and values
+///   outside the `Int` (`Int32`) range are rejected with `ParseError` —
+///   the underlying `Float::to_int` is implementation-defined on those
+///   inputs, so the cast layer guards against them explicitly.
+/// - `Bool`: `true` → 1, `false` → 0.
+/// - `String`: parsed with `@string.parse_int`; any failure returns
+///   `ParseError`. The parser is strict — leading/trailing whitespace,
+///   non-numeric suffixes, and empty strings all error.
 pub fn BuiltinColumn::to_int(
   self : BuiltinColumn,
 ) -> Result[BuiltinColumn, @types.DataError] {
@@ -302,7 +330,22 @@ pub fn BuiltinColumn::to_int(
       let buf : Array[Int?] = Array::new(capacity=a.length())
       for v in a {
         match v {
-          Some(x) => buf.push(Some(x.to_int()))
+          Some(x) =>
+            if x.is_nan() {
+              return Err(@types.DataError::ParseError("cannot cast NaN to Int"))
+            } else if x.is_inf() {
+              return Err(
+                @types.DataError::ParseError("cannot cast Infinity to Int"),
+              )
+            } else if x < min_int_as_float || x > max_int_as_float {
+              return Err(
+                @types.DataError::ParseError(
+                  "Float value out of Int range: " + x.to_double().to_string(),
+                ),
+              )
+            } else {
+              buf.push(Some(x.to_int()))
+            }
           None => buf.push(None)
         }
       }
@@ -344,44 +387,66 @@ pub fn BuiltinColumn::to_int(
 }
 
 ///|
-/// Convert to `Float`. Supported sources: `Int` (promoted), `Float`
-/// (identity), `Bool` (`true` → 1.0, `false` → 0.0), `String` (parsed;
-/// non-numeric values return `ParseError`).
+/// `Int::MIN` / `Int::MAX` projected into `Float` space, used to reject
+/// out-of-range `Float`→`Int` casts before `Float::to_int` (which is
+/// implementation-defined outside the representable range).
+///
+/// `MAX_INT_AS_FLOAT` is the largest 32-bit `Float` that does not overflow
+/// `Int` after truncation — `Int::MAX = 2^31 - 1 = 2147483647` is not
+/// exactly representable as `Float`, the next representable value below
+/// it is `2147483520`. Anything above this rounds up to a Float ≥ 2^31 and
+/// would overflow.
+let min_int_as_float : Float = -2147483648.0
+
+///|
+let max_int_as_float : Float = 2147483520.0
+
+///|
+/// Convert to `Float`. Supported sources:
+/// - `Float`: identity, no copy.
+/// - `Int`: promoted via `Float::from_int` (32-bit `Float` has 24 bits of
+///   significand, so Ints with magnitude > 2^24 lose precision — this is
+///   inherent to the target type and not flagged as an error).
+/// - `Bool`: `true` → 1.0, `false` → 0.0.
+/// - `String`: parsed via `@string.parse_double` (since the standard
+///   library exposes no `parse_float`) and narrowed with
+///   `Float::from_double`. Malformed strings return `ParseError`; values
+///   beyond the `Float` range collapse to `±Infinity` per IEEE 754.
 pub fn BuiltinColumn::to_float(
   self : BuiltinColumn,
 ) -> Result[BuiltinColumn, @types.DataError] {
   match self {
     Float(_) => Ok(self)
     Int(a) => {
-      let buf : Array[Double?] = Array::new(capacity=a.length())
+      let buf : Array[Float?] = Array::new(capacity=a.length())
       for v in a {
         match v {
-          Some(x) => buf.push(Some(x.to_double()))
+          Some(x) => buf.push(Some(Float::from_int(x)))
           None => buf.push(None)
         }
       }
       Ok(Float(buf))
     }
     Bool(a) => {
-      let buf : Array[Double?] = Array::new(capacity=a.length())
+      let buf : Array[Float?] = Array::new(capacity=a.length())
       for v in a {
         match v {
-          Some(true) => buf.push(Some(1.0))
-          Some(false) => buf.push(Some(0.0))
+          Some(true) => buf.push(Some((1.0 : Float)))
+          Some(false) => buf.push(Some((0.0 : Float)))
           None => buf.push(None)
         }
       }
       Ok(Float(buf))
     }
     String(a) => {
-      let buf : Array[Double?] = Array::new(capacity=a.length())
+      let buf : Array[Float?] = Array::new(capacity=a.length())
       for v in a {
         match v {
           None => buf.push(None)
           Some(s) => {
             let parsed = try? @string.parse_double(s.view())
             match parsed {
-              Ok(x) => buf.push(Some(x))
+              Ok(x) => buf.push(Some(Float::from_double(x)))
               Err(_) =>
                 return Err(
                   @types.DataError::ParseError(
@@ -460,11 +525,11 @@ pub fn BuiltinColumn::int_values(
 }
 
 ///|
-/// Borrow the underlying `Array[Option[Double]]`. Returns
+/// Borrow the underlying `Array[Option[Float]]`. Returns
 /// `Err(TypeMismatch)` when the column is not a `Float` column.
 pub fn BuiltinColumn::float_values(
   self : BuiltinColumn,
-) -> Result[Array[Double?], @types.DataError] {
+) -> Result[Array[Float?], @types.DataError] {
   match self {
     Float(a) => Ok(a)
     other =>

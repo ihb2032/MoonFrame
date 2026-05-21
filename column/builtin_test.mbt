@@ -132,11 +132,15 @@ test "slice full range equals self length" {
 }
 
 ///|
-test "slice invalid bounds is IndexOutOfBounds" {
+test "slice invalid bounds report the actual offender" {
   let col = BuiltinColumn::from_ints([1, 2, 3])
-  assert_true(col.slice(-1, 2) is Err(_))
-  assert_true(col.slice(0, 5) is Err(_))
-  assert_true(col.slice(2, 1) is Err(_))
+  // Negative start: IndexOutOfBounds(start).
+  assert_eq(col.slice(-1, 2), Err(@types.DataError::IndexOutOfBounds(-1)))
+  // End past len: IndexOutOfBounds(end), not (start).
+  assert_eq(col.slice(0, 5), Err(@types.DataError::IndexOutOfBounds(5)))
+  // start > end is reported as InvalidOperation, not IndexOutOfBounds —
+  // both indices are technically in range, the relationship is wrong.
+  assert_true(col.slice(2, 1) is Err(InvalidOperation(_)))
 }
 
 // ── take ─────────────────────────────────────────────────────────────
@@ -315,5 +319,181 @@ test "typed accessors reject the wrong dtype" {
   assert_true(col.bool_values() is Err(TypeMismatch(_)))
   assert_true(
     BuiltinColumn::from_ints([1]).string_values() is Err(TypeMismatch(_)),
+  )
+}
+
+// ── coverage fill: per-dtype is_null / get null branches ─────────────
+
+///|
+test "is_null covers Float, Bool, and String columns" {
+  let f = BuiltinColumn::from_float_options([Some(1.5), None])
+  assert_eq(f.is_null(0), Ok(false))
+  assert_eq(f.is_null(1), Ok(true))
+  let b = BuiltinColumn::from_bool_options([Some(true), None])
+  assert_eq(b.is_null(0), Ok(false))
+  assert_eq(b.is_null(1), Ok(true))
+  let s = BuiltinColumn::from_string_options([None, Some("ok")])
+  assert_eq(s.is_null(0), Ok(true))
+  assert_eq(s.is_null(1), Ok(false))
+}
+
+///|
+test "get null branch fires on every dtype" {
+  assert_eq(
+    BuiltinColumn::from_int_options([None]).get(0),
+    Ok(@types.Scalar::Null),
+  )
+  assert_eq(
+    BuiltinColumn::from_float_options([None]).get(0),
+    Ok(@types.Scalar::Null),
+  )
+  assert_eq(
+    BuiltinColumn::from_bool_options([None]).get(0),
+    Ok(@types.Scalar::Null),
+  )
+  assert_eq(
+    BuiltinColumn::from_string_options([None]).get(0),
+    Ok(@types.Scalar::Null),
+  )
+}
+
+// ── coverage fill: slice / take across every dtype ───────────────────
+
+///|
+test "slice produces a sub-column for every dtype" {
+  let i = BuiltinColumn::from_ints([1, 2, 3, 4]).slice(1, 3).unwrap()
+  assert_eq(i.get(0), Ok(@types.Scalar::Int(2)))
+  assert_eq(i.get(1), Ok(@types.Scalar::Int(3)))
+  let f = BuiltinColumn::from_floats([1.0, 2.0, 3.0]).slice(0, 2).unwrap()
+  assert_eq(f.len(), 2)
+  assert_eq(f.get(1), Ok(@types.Scalar::Float(2.0)))
+  let b = BuiltinColumn::from_bools([true, false, true]).slice(1, 3).unwrap()
+  assert_eq(b.get(0), Ok(@types.Scalar::Bool(false)))
+  assert_eq(b.get(1), Ok(@types.Scalar::Bool(true)))
+  let s = BuiltinColumn::from_strings(["a", "b", "c", "d"]).slice(1, 4).unwrap()
+  assert_eq(s.len(), 3)
+  assert_eq(s.get(0), Ok(@types.Scalar::String("b")))
+  assert_eq(s.get(2), Ok(@types.Scalar::String("d")))
+}
+
+///|
+test "take gathers across every dtype" {
+  let i = BuiltinColumn::from_ints([10, 20, 30]).take([2, 0]).unwrap()
+  assert_eq(i.get(0), Ok(@types.Scalar::Int(30)))
+  assert_eq(i.get(1), Ok(@types.Scalar::Int(10)))
+  let f = BuiltinColumn::from_float_options([Some(1.0), None, Some(3.0)])
+    .take([1, 2, 0])
+    .unwrap()
+  assert_eq(f.get(0), Ok(@types.Scalar::Null))
+  assert_eq(f.get(1), Ok(@types.Scalar::Float(3.0)))
+  assert_eq(f.get(2), Ok(@types.Scalar::Float(1.0)))
+  let b = BuiltinColumn::from_bools([true, false]).take([1, 0, 1]).unwrap()
+  assert_eq(b.get(0), Ok(@types.Scalar::Bool(false)))
+  assert_eq(b.get(2), Ok(@types.Scalar::Bool(false)))
+  let s = BuiltinColumn::from_strings(["x", "y"]).take([0]).unwrap()
+  assert_eq(s.get(0), Ok(@types.Scalar::String("x")))
+}
+
+// ── coverage fill: cast None paths ───────────────────────────────────
+
+///|
+test "to_float preserves None across every supported source" {
+  let from_bool = BuiltinColumn::from_bool_options([
+      Some(true),
+      None,
+      Some(false),
+    ])
+    .to_float()
+    .unwrap()
+  assert_eq(from_bool.get(0), Ok(@types.Scalar::Float(1.0)))
+  assert_eq(from_bool.get(1), Ok(@types.Scalar::Null))
+  assert_eq(from_bool.get(2), Ok(@types.Scalar::Float(0.0)))
+  let from_string = BuiltinColumn::from_string_options([
+      Some("1.5"),
+      None,
+      Some("-2"),
+    ])
+    .to_float()
+    .unwrap()
+  assert_eq(from_string.get(0), Ok(@types.Scalar::Float(1.5)))
+  assert_eq(from_string.get(1), Ok(@types.Scalar::Null))
+  assert_eq(from_string.get(2), Ok(@types.Scalar::Float(-2.0)))
+}
+
+///|
+test "to_string_column preserves None for Float" {
+  let out = BuiltinColumn::from_float_options([Some(1.5), None])
+    .to_string_column()
+    .unwrap()
+  assert_eq(out.get(0), Ok(@types.Scalar::String("1.5")))
+  assert_eq(out.get(1), Ok(@types.Scalar::Null))
+}
+
+// ── Float -> Int cast: NaN / Inf / range guarded ─────────────────────
+
+///|
+test "to_int rejects NaN" {
+  let nan : Float = @float.not_a_number
+  let col = BuiltinColumn::from_floats([nan])
+  assert_true(col.to_int() is Err(ParseError(_)))
+}
+
+///|
+test "to_int rejects positive and negative Infinity" {
+  let pos_inf : Float = @float.infinity
+  let neg_inf : Float = @float.neg_infinity
+  assert_true(
+    BuiltinColumn::from_floats([pos_inf]).to_int() is Err(ParseError(_)),
+  )
+  assert_true(
+    BuiltinColumn::from_floats([neg_inf]).to_int() is Err(ParseError(_)),
+  )
+}
+
+///|
+test "to_int rejects values outside the Int range" {
+  // Float doesn't have enough mantissa bits to distinguish every Int near
+  // 2^31, so picking the *next* integer past Int::MAX is unreliable — it
+  // rounds back to Int::MAX when narrowed. Use values far enough away that
+  // narrowing cannot snap them back into range.
+  let too_big : Float = Float::from_double(1.0e10)
+  let too_small : Float = Float::from_double(-1.0e10)
+  assert_true(
+    BuiltinColumn::from_floats([too_big]).to_int() is Err(ParseError(_)),
+  )
+  assert_true(
+    BuiltinColumn::from_floats([too_small]).to_int() is Err(ParseError(_)),
+  )
+}
+
+///|
+test "to_int from Float skips None and truncates valid cells" {
+  let col = BuiltinColumn::from_float_options([Some(1.9), None, Some(-2.5)])
+  let out = col.to_int().unwrap()
+  assert_eq(out.get(0), Ok(@types.Scalar::Int(1)))
+  assert_eq(out.get(1), Ok(@types.Scalar::Null))
+  assert_eq(out.get(2), Ok(@types.Scalar::Int(-2)))
+}
+
+// ── String -> numeric parse strictness ───────────────────────────────
+
+///|
+test "to_int rejects malformed strings" {
+  assert_true(
+    BuiltinColumn::from_strings(["42abc"]).to_int() is Err(ParseError(_)),
+  )
+  assert_true(BuiltinColumn::from_strings([""]).to_int() is Err(ParseError(_)))
+  assert_true(
+    BuiltinColumn::from_strings(["  42"]).to_int() is Err(ParseError(_)),
+  )
+}
+
+///|
+test "to_float rejects malformed strings" {
+  assert_true(
+    BuiltinColumn::from_strings(["1.5x"]).to_float() is Err(ParseError(_)),
+  )
+  assert_true(
+    BuiltinColumn::from_strings([""]).to_float() is Err(ParseError(_)),
   )
 }

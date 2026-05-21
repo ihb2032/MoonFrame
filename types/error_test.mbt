@@ -56,3 +56,29 @@ test "DataError Show uses variant form" {
   inspect(DataError::LengthMismatch, content="LengthMismatch")
   inspect(DataError::IndexOutOfBounds(3), content="IndexOutOfBounds(3)")
 }
+
+///|
+test "DataError Show covers every remaining variant" {
+  inspect(DataError::DuplicateColumn("x"), content="DuplicateColumn(\"x\")")
+  inspect(
+    DataError::TypeMismatch("expected Int, got String"),
+    content="TypeMismatch(\"expected Int, got String\")",
+  )
+  inspect(
+    DataError::ParseError("bad token"),
+    content="ParseError(\"bad token\")",
+  )
+  inspect(
+    DataError::InvalidOperation("mean of String column"),
+    content="InvalidOperation(\"mean of String column\")",
+  )
+  inspect(
+    DataError::IoError("file not found"),
+    content="IoError(\"file not found\")",
+  )
+  inspect(DataError::EmptyDataFrame, content="EmptyDataFrame")
+  inspect(
+    DataError::Unsupported("Arrow backend"),
+    content="Unsupported(\"Arrow backend\")",
+  )
+}

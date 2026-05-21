@@ -177,14 +177,76 @@ remain supported even after the facade ships.
   equality test; all `Float` `NaN` cells collapse into a single bucket
   (matching pandas' `nunique` on NaN).
 
-> **Deferred:** `Series::describe` is listed in the plan but returns a
-> 1×N `DataFrame`, so it lands together with the DataFrame surface in
-> P5.
+- `describe()` — one-row summary `DataFrame`. Every series gets
+  `count` / `null_count` / `unique_count` (`Int`). Numeric series add
+  `mean` (`Float`, `Null` for empty / all-null). All dtypes add `min`
+  and `max`, typed to match the source series (`Null` cells when the
+  reduction has no value). Column order: numeric — `count`,
+  `null_count`, `unique_count`, `mean`, `min`, `max`; `Bool` / `String`
+  — `count`, `null_count`, `unique_count`, `min`, `max`.
 
-### DataFrame / RowView
+### DataFrame
 
-- `struct DataFrame` — (pending, P5) collection of `Series` with shared `Schema`
-- `struct RowView` — (pending, P5) lightweight per-row accessor used by `filter`
+- `struct DataFrame` — column-oriented table. Fields are private
+  outside the package: `schema : Schema`, `columns : Array[Series]`,
+  `nrows : Int`, plus a private `name_to_index : Map[String, Int]`
+  cache so name-based column lookup is `O(1)`. Constructors keep the
+  schema, the column vector, and the cache in lock-step, preserving:
+  `schema.field_names() == columns.map(.name)`,
+  `columns.all(c => c.len() == nrows)`, and
+  `name_to_index[name] == i ⇔ columns[i].name == name`.
+- Constructors (3):
+  - `DataFrame::new(columns)` — `Err(LengthMismatch)` if any column
+    differs in length from `columns[0]`; `Err(DuplicateColumn(name))`
+    on a repeated name (via `Schema::new`). Zero columns is valid and
+    produces a `0×0` frame.
+  - `DataFrame::empty(schema)` — zero-row frame matching `schema`.
+    Each column is built via the corresponding `BuiltinColumn::from_*`
+    constructor with an empty array. `Err(Unsupported(...))` if any
+    field carries `DataType::Null` (no concrete Null backend in v0.1).
+  - `DataFrame::from_rows(schema, rows)` — row-major build. Each row
+    must have `schema.len()` cells; each cell must either match the
+    column's dtype or be `Scalar::Null`. Errors:
+    `LengthMismatch` (row width), `TypeMismatch(...)` (cell vs column
+    dtype), `Unsupported(...)` (Null-dtype field).
+- Inspection: `shape() -> (Int, Int)` (rows, cols) / `schema()` /
+  `columns() -> Array[String]` (fresh per call — caller can mutate
+  without affecting the frame) / `nrows()` / `ncols()` /
+  `is_empty()` (`nrows == 0`).
+- Accessors:
+  - `get_column(name)` — `O(1)` via the cache;
+    `Err(ColumnNotFound(name))` if missing.
+  - `get_column_at(i)` — positional lookup with
+    `Err(IndexOutOfBounds(i))` outside `[0, ncols)`.
+  - `get(row, name)` — single-cell `Scalar` read. Forwards
+    `ColumnNotFound` from `get_column` and `IndexOutOfBounds` from
+    `Series::get`.
+  - `row(i)` — open a `RowView` over the given row; row indices
+    outside `[0, nrows)` return `Err(IndexOutOfBounds(i))`.
+- Transforms (all keep the schema and `name_to_index` intact):
+  - `head(n)` / `tail(n)` — first / last `n` rows; `n` is clamped to
+    `[0, nrows]`, so both are total.
+  - `slice(start, end)` — half-open row slice. Same diagnostics as
+    `Series::slice`: `IndexOutOfBounds` on out-of-range bounds,
+    `InvalidOperation(...)` when `start > end`.
+  - `take(indices)` — row-wise gather (duplicates allowed); first
+    out-of-bounds index surfaces as `IndexOutOfBounds(idx)`.
+
+### RowView
+
+- `struct RowView { df : DataFrame, row_index : Int }` — borrowed
+  view of a single row; no per-row allocation. Built via
+  `DataFrame::row(i)`, which validates the row index up front.
+- `index()` — the row position the view was opened at.
+- `get(name)` — `Scalar` cell read; null cells return
+  `Ok(Scalar::Null)`. `Err(ColumnNotFound(name))` for unknown columns.
+- `is_null(name)` — `Bool` per cell; same error path as `get`.
+- Typed accessors (`get_int` / `get_float` / `get_bool` /
+  `get_string`) compose `get(name)` with `Scalar::as_int` /
+  `as_float` / `as_bool` / `as_string`, so they inherit the
+  `Scalar::as_*` rules: `Err(TypeMismatch(...))` for the wrong dtype
+  **or** a null cell. `get_float` additionally promotes `Int` cells
+  via `Scalar::as_float`.
 
 ---
 

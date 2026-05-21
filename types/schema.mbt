@@ -22,8 +22,12 @@ pub fn Schema::new(fields : Array[Field]) -> Result[Schema, DataError] {
 }
 
 ///|
+/// Return a snapshot of the schema's fields.
+///
+/// A fresh array is returned so callers cannot mutate the schema in place
+/// and break the "no duplicate names" invariant enforced by `Schema::new`.
 pub fn Schema::fields(self : Schema) -> Array[Field] {
-  self.fields
+  self.fields.map(fn(f) { f })
 }
 
 ///|

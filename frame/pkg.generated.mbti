@@ -12,12 +12,49 @@ import {
 // Errors
 
 // Types and methods
+pub struct DataFrame {
+  schema : @types.Schema
+  columns : Array[Series]
+  nrows : Int
+  name_to_index : Map[String, Int]
+} derive(Eq, @debug.Debug)
+pub fn DataFrame::columns(Self) -> Array[String]
+pub fn DataFrame::empty(@types.Schema) -> Result[Self, @types.DataError]
+pub fn DataFrame::from_rows(@types.Schema, Array[Array[@types.Scalar]]) -> Result[Self, @types.DataError]
+pub fn DataFrame::get(Self, Int, String) -> Result[@types.Scalar, @types.DataError]
+pub fn DataFrame::get_column(Self, String) -> Result[Series, @types.DataError]
+pub fn DataFrame::get_column_at(Self, Int) -> Result[Series, @types.DataError]
+pub fn DataFrame::head(Self, Int) -> Self
+pub fn DataFrame::is_empty(Self) -> Bool
+pub fn DataFrame::ncols(Self) -> Int
+pub fn DataFrame::new(Array[Series]) -> Result[Self, @types.DataError]
+pub fn DataFrame::nrows(Self) -> Int
+pub fn DataFrame::row(Self, Int) -> Result[RowView, @types.DataError]
+pub fn DataFrame::schema(Self) -> @types.Schema
+pub fn DataFrame::shape(Self) -> (Int, Int)
+pub fn DataFrame::slice(Self, Int, Int) -> Result[Self, @types.DataError]
+pub fn DataFrame::tail(Self, Int) -> Self
+pub fn DataFrame::take(Self, Array[Int]) -> Result[Self, @types.DataError]
+
+pub struct RowView {
+  df : DataFrame
+  row_index : Int
+} derive(Eq, @debug.Debug)
+pub fn RowView::get(Self, String) -> Result[@types.Scalar, @types.DataError]
+pub fn RowView::get_bool(Self, String) -> Result[Bool, @types.DataError]
+pub fn RowView::get_float(Self, String) -> Result[Float, @types.DataError]
+pub fn RowView::get_int(Self, String) -> Result[Int, @types.DataError]
+pub fn RowView::get_string(Self, String) -> Result[String, @types.DataError]
+pub fn RowView::index(Self) -> Int
+pub fn RowView::is_null(Self, String) -> Result[Bool, @types.DataError]
+
 pub struct Series {
   name : String
   storage : @column.BuiltinColumn
 } derive(Eq, @debug.Debug)
 pub fn Series::cast(Self, @types.DataType) -> Result[Self, @types.DataError]
 pub fn Series::count(Self) -> Int
+pub fn Series::describe(Self) -> DataFrame
 pub fn Series::drop_nulls(Self) -> Self
 pub fn Series::dtype(Self) -> @types.DataType
 pub fn Series::fill_null(Self, @types.Scalar) -> Result[Self, @types.DataError]

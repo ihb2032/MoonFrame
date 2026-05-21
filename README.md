@@ -19,10 +19,13 @@ v0.1 progress:
 
 - [x] P0 — project skeleton
 - [x] P1 — `types/` core (`DataError`, `DataType`, `Scalar`)
-- [x] P2 — `column/` `BuiltinColumn` (constructors, accessors, slice /
-      take, casts, typed zero-boxing accessors)
+- [x] P2 — `column/` `BuiltinColumn` (initial Option-based draft;
+      rewritten in P3.5)
 - [x] P3 — `types/` `Field` + `Schema` (duplicate-name detection,
       select, rename, index_of)
+- [x] P3.5 — `column/` Apache Arrow layout: byte-packed `Bitmap`
+      (1 = valid) plus `BuiltinColumn { data, validity }`; typed
+      accessors return `(Array[T], Bitmap)` for zero-boxing ops
 - [ ] P4 — `frame/` `Series` + stats
 - [ ] P5 — `frame/` `DataFrame` + `RowView`
 - [ ] P6 – P10 — `ops/`

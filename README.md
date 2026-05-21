@@ -26,7 +26,10 @@ v0.1 progress:
 - [x] P3.5 — `column/` Apache Arrow layout: byte-packed `Bitmap`
       (1 = valid) plus `BuiltinColumn { data, validity }`; typed
       accessors return `(Array[T], Bitmap)` for zero-boxing ops
-- [ ] P4 — `frame/` `Series` + stats
+- [x] P4 — `frame/` `Series` core + stats: 10 constructors,
+      inspection / transforms / casts / null handling, plus reductions
+      (`count` / `sum` / `mean` / `min` / `max` / `unique_count`).
+      `Series::describe` deferred to P5 because it returns a `DataFrame`
 - [ ] P5 — `frame/` `DataFrame` + `RowView`
 - [ ] P6 – P10 — `ops/`
 - [ ] P11 – P12 — `io/` CSV / Markdown / JSON

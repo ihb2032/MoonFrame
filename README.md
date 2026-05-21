@@ -30,7 +30,12 @@ v0.1 progress:
       inspection / transforms / casts / null handling, plus reductions
       (`count` / `sum` / `mean` / `min` / `max` / `unique_count`).
       `Series::describe` deferred to P5 because it returns a `DataFrame`
-- [ ] P5 — `frame/` `DataFrame` + `RowView`
+- [x] P5 — `frame/` `DataFrame` + `RowView` + `Series::describe`:
+      `DataFrame` with an `O(1)` `name_to_index` cache, three
+      constructors (`new` / `empty` / `from_rows`), `shape` /
+      `schema` / `columns` / `get_column` / `get` / `head` / `tail` /
+      `slice` / `take`; `RowView` with `get` / `is_null` /
+      `get_int` / `get_float` / `get_bool` / `get_string`
 - [ ] P6 – P10 — `ops/`
 - [ ] P11 – P12 — `io/` CSV / Markdown / JSON
 - [ ] P13 — facade re-exports, integration, examples

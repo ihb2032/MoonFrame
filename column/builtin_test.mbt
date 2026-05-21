@@ -1,4 +1,6 @@
-// Blackbox tests for `BuiltinColumn`. Only the public API is used.
+// Blackbox tests for `BuiltinColumn` (Arrow layout). Only the public API
+// is used; the `data` and `validity` fields are observed indirectly via
+// `int_values` / `float_values` / `bool_values` / `string_values`.
 
 // ── Constructors ─────────────────────────────────────────────────────
 
@@ -48,12 +50,13 @@ test "is_empty" {
 }
 
 ///|
-test "structural equality compares cells, not identity" {
+test "structural equality compares data and validity, not identity" {
   assert_eq(BuiltinColumn::from_ints([1, 2]), BuiltinColumn::from_ints([1, 2]))
   assert_not_eq(
     BuiltinColumn::from_ints([1, 2]),
     BuiltinColumn::from_ints([1, 3]),
   )
+  // Two columns with the same data but different validity must not be equal.
   assert_not_eq(
     BuiltinColumn::from_int_options([Some(1), None]),
     BuiltinColumn::from_int_options([Some(1), Some(1)]),
@@ -134,12 +137,8 @@ test "slice full range equals self length" {
 ///|
 test "slice invalid bounds report the actual offender" {
   let col = BuiltinColumn::from_ints([1, 2, 3])
-  // Negative start: IndexOutOfBounds(start).
   assert_eq(col.slice(-1, 2), Err(@types.DataError::IndexOutOfBounds(-1)))
-  // End past len: IndexOutOfBounds(end), not (start).
   assert_eq(col.slice(0, 5), Err(@types.DataError::IndexOutOfBounds(5)))
-  // start > end is reported as InvalidOperation, not IndexOutOfBounds —
-  // both indices are technically in range, the relationship is wrong.
   assert_true(col.slice(2, 1) is Err(InvalidOperation(_)))
 }
 
@@ -293,22 +292,25 @@ test "cast dispatches by dtype and rejects Bool / Null targets" {
 // ── typed accessors ──────────────────────────────────────────────────
 
 ///|
-test "int_values returns the underlying array" {
+test "int_values returns (data, validity); placeholders at null slots are 0" {
   let col = BuiltinColumn::from_int_options([Some(1), None, Some(3)])
-  let arr = col.int_values().unwrap()
-  assert_eq(arr.length(), 3)
-  assert_eq(arr[0], Some(1))
-  assert_eq(arr[1], None)
+  let (data, validity) = col.int_values().unwrap()
+  // The data buffer is dense — null slot uses the per-dtype placeholder (0).
+  assert_eq(data, [1, 0, 3])
+  assert_eq(validity.len(), 3)
+  assert_eq(validity.is_valid(0), Ok(true))
+  assert_eq(validity.is_valid(1), Ok(false))
+  assert_eq(validity.is_valid(2), Ok(true))
 }
 
 ///|
 test "float_values / bool_values / string_values happy path" {
-  let f = BuiltinColumn::from_floats([1.0, 2.0]).float_values().unwrap()
+  let (f, _) = BuiltinColumn::from_floats([1.0, 2.0]).float_values().unwrap()
   assert_eq(f.length(), 2)
-  let b = BuiltinColumn::from_bools([true]).bool_values().unwrap()
-  assert_eq(b[0], Some(true))
-  let s = BuiltinColumn::from_strings(["x"]).string_values().unwrap()
-  assert_eq(s[0], Some("x"))
+  let (b, _) = BuiltinColumn::from_bools([true]).bool_values().unwrap()
+  assert_eq(b[0], true)
+  let (s, _) = BuiltinColumn::from_strings(["x"]).string_values().unwrap()
+  assert_eq(s[0], "x")
 }
 
 ///|
@@ -452,10 +454,6 @@ test "to_int rejects positive and negative Infinity" {
 
 ///|
 test "to_int rejects values outside the Int range" {
-  // Float doesn't have enough mantissa bits to distinguish every Int near
-  // 2^31, so picking the *next* integer past Int::MAX is unreliable — it
-  // rounds back to Int::MAX when narrowed. Use values far enough away that
-  // narrowing cannot snap them back into range.
   let too_big : Float = Float::from_double(1.0e10)
   let too_small : Float = Float::from_double(-1.0e10)
   assert_true(
@@ -496,4 +494,149 @@ test "to_float rejects malformed strings" {
   assert_true(
     BuiltinColumn::from_strings([""]).to_float() is Err(ParseError(_)),
   )
+}
+
+// ── Arrow layout invariants ──────────────────────────────────────────
+
+///|
+test "from_int_options stores 0 placeholder at null slots" {
+  let col = BuiltinColumn::from_int_options([Some(1), None, Some(3)])
+  let (data, validity) = col.int_values().unwrap()
+  assert_eq(data, [1, 0, 3])
+  assert_eq(validity.is_valid(0), Ok(true))
+  assert_eq(validity.is_valid(1), Ok(false))
+  assert_eq(validity.is_valid(2), Ok(true))
+}
+
+///|
+test "from_float_options stores 0.0 placeholder at null slots" {
+  let col = BuiltinColumn::from_float_options([None, Some(2.5)])
+  let (data, validity) = col.float_values().unwrap()
+  assert_eq(data, [(0.0 : Float), (2.5 : Float)])
+  assert_eq(validity.is_valid(0), Ok(false))
+  assert_eq(validity.is_valid(1), Ok(true))
+}
+
+///|
+test "from_bool_options stores false placeholder at null slots" {
+  let col = BuiltinColumn::from_bool_options([Some(true), None])
+  let (data, validity) = col.bool_values().unwrap()
+  assert_eq(data, [true, false])
+  assert_eq(validity.is_valid(1), Ok(false))
+}
+
+///|
+test "from_string_options stores \"\" placeholder at null slots" {
+  let col = BuiltinColumn::from_string_options([None, Some("hi")])
+  let (data, validity) = col.string_values().unwrap()
+  assert_eq(data, ["", "hi"])
+  assert_eq(validity.is_valid(0), Ok(false))
+  assert_eq(validity.is_valid(1), Ok(true))
+}
+
+///|
+test "data buffer length matches validity length for every constructor" {
+  // Raw constructors → all-valid bitmap of the right length.
+  let raw_i = BuiltinColumn::from_ints([1, 2, 3, 4, 5])
+  let (data, validity) = raw_i.int_values().unwrap()
+  assert_eq(data.length(), 5)
+  assert_eq(validity.len(), 5)
+  assert_eq(validity.null_count(), 0)
+  // Option constructors → validity reflects the Some/None mask exactly.
+  let opt = BuiltinColumn::from_int_options([Some(1), None, Some(3), None])
+  let (d2, v2) = opt.int_values().unwrap()
+  assert_eq(d2.length(), 4)
+  assert_eq(v2.len(), 4)
+  assert_eq(v2.null_count(), 2)
+}
+
+///|
+test "cast Int -> Float preserves the validity bitmap" {
+  let col = BuiltinColumn::from_int_options([
+    Some(1),
+    None,
+    Some(3),
+    None,
+    Some(5),
+  ])
+  let out = col.to_float().unwrap()
+  // Validity is unchanged across the cast.
+  let (_, src_validity) = col.int_values().unwrap()
+  let (_, dst_validity) = out.float_values().unwrap()
+  assert_eq(src_validity, dst_validity)
+  // And the null slots in the output read as Null, not 0.0.
+  assert_eq(out.get(1), Ok(@types.Scalar::Null))
+  assert_eq(out.get(3), Ok(@types.Scalar::Null))
+}
+
+///|
+test "cast Bool -> Int and Bool -> Float preserve validity" {
+  let col = BuiltinColumn::from_bool_options([
+    Some(true),
+    None,
+    Some(false),
+    None,
+  ])
+  let as_int = col.to_int().unwrap()
+  assert_eq(as_int.null_count(), 2)
+  assert_eq(as_int.get(0), Ok(@types.Scalar::Int(1)))
+  assert_eq(as_int.get(2), Ok(@types.Scalar::Int(0)))
+  let as_float = col.to_float().unwrap()
+  assert_eq(as_float.null_count(), 2)
+  assert_eq(as_float.get(0), Ok(@types.Scalar::Float(1.0)))
+}
+
+///|
+test "to_string_column on Int with nulls preserves validity" {
+  let col = BuiltinColumn::from_int_options([Some(7), None, Some(-3)])
+  let out = col.to_string_column().unwrap()
+  assert_eq(out.null_count(), 1)
+  assert_eq(out.get(0), Ok(@types.Scalar::String("7")))
+  assert_eq(out.get(1), Ok(@types.Scalar::Null))
+  assert_eq(out.get(2), Ok(@types.Scalar::String("-3")))
+}
+
+///|
+test "to_string_column on Bool with nulls preserves validity" {
+  let col = BuiltinColumn::from_bool_options([Some(true), None, Some(false)])
+  let out = col.to_string_column().unwrap()
+  assert_eq(out.get(0), Ok(@types.Scalar::String("true")))
+  assert_eq(out.get(1), Ok(@types.Scalar::Null))
+  assert_eq(out.get(2), Ok(@types.Scalar::String("false")))
+}
+
+///|
+test "slice preserves nulls in the sub-window" {
+  let col = BuiltinColumn::from_int_options([
+    Some(1),
+    None,
+    Some(3),
+    None,
+    Some(5),
+  ])
+  let part = col.slice(1, 4).unwrap()
+  assert_eq(part.len(), 3)
+  assert_eq(part.null_count(), 2)
+  assert_eq(part.get(0), Ok(@types.Scalar::Null))
+  assert_eq(part.get(1), Ok(@types.Scalar::Int(3)))
+  assert_eq(part.get(2), Ok(@types.Scalar::Null))
+}
+
+///|
+test "to_int from String skips null slots without parsing the placeholder" {
+  // The placeholder for null String slots is "" (empty), which is itself
+  // unparseable as an Int. The cast must short-circuit on null so the
+  // placeholder is never parsed.
+  let col = BuiltinColumn::from_string_options([None, Some("42")])
+  let out = col.to_int().unwrap()
+  assert_eq(out.get(0), Ok(@types.Scalar::Null))
+  assert_eq(out.get(1), Ok(@types.Scalar::Int(42)))
+}
+
+///|
+test "to_float from String skips null slots without parsing the placeholder" {
+  let col = BuiltinColumn::from_string_options([None, Some("1.5")])
+  let out = col.to_float().unwrap()
+  assert_eq(out.get(0), Ok(@types.Scalar::Null))
+  assert_eq(out.get(1), Ok(@types.Scalar::Float(1.5)))
 }

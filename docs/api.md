@@ -125,11 +125,66 @@ remain supported even after the facade ships.
 
 ## `frame` — Series, DataFrame, RowView
 
-> Implemented in **P4** (Series) and **P5** (DataFrame, RowView).
+> Implemented in **P4** (Series + stats) and **P5** (DataFrame,
+> RowView).
 
-- `struct Series` — (pending) named column wrapping `BuiltinColumn`
-- `struct DataFrame` — (pending) collection of `Series` with shared `Schema`
-- `struct RowView` — (pending) lightweight per-row accessor used by `filter`
+### Series
+
+- `struct Series { name : String, storage : @column.BuiltinColumn }` —
+  named column wrapping a `BuiltinColumn`. The struct is `pub` (fields
+  private outside the package), so callers always go through the
+  constructors and accessors below.
+- Constructors (10):
+  - `Series::new(name, storage)` — wrap an existing `BuiltinColumn`.
+  - `Series::from_builtin(name, storage)` — explicit alias for `new`.
+  - `from_ints` / `from_int_options` / `from_floats` /
+    `from_float_options` / `from_bools` / `from_bool_options` /
+    `from_strings` / `from_string_options` — dtype shortcuts that
+    delegate to the matching `BuiltinColumn::from_*` constructor.
+- Inspection: `name` / `dtype` / `len` / `is_empty` / `null_count` /
+  `null_rate` / `is_null(i)` / `get(i)` / `storage`. `null_rate`
+  returns `0.0` for an empty series (avoids a `0/0` NaN that would
+  propagate through downstream stats). `storage` exposes the
+  underlying column so ops can reach the typed accessors.
+- Transforms:
+  - `rename(new_name)` — `O(1)`; storage is shared.
+  - `slice(start, end)` / `take(indices)` — delegate to
+    `BuiltinColumn` and bubble the same `IndexOutOfBounds` /
+    `InvalidOperation` diagnostics.
+  - `drop_nulls()` — gather non-null indices; result has a fully-valid
+    bitmap and `len = original.len - original.null_count`.
+  - `fill_null(value : Scalar)` — replace every null cell with
+    `value`. `Scalar::Null` and dtype-mismatched scalars return
+    `Err(TypeMismatch)`.
+  - `cast(target)` / `to_int` / `to_float` / `to_string_series` —
+    forward to the underlying column. `to_string_series` is total
+    (always `Ok`).
+
+### Stats (file: `series_stats.mbt`)
+
+- `count()` — non-null count.
+- `sum()` — `Int` / `Float` series return `Scalar::Int` /
+  `Scalar::Float`; empty / all-null is the additive identity (`0` /
+  `0.0`). `Bool` / `String` → `Err(TypeMismatch)`.
+- `mean()` — `Float` result (Int sums promoted). Empty / all-null
+  numeric → `Err(InvalidOperation)`. Non-numeric → `Err(TypeMismatch)`.
+- `min()` / `max()` — supported on every dtype; empty / all-null returns
+  `Ok(Scalar::Null)`. `Float` NaN follows IEEE 754: `<` / `>` against
+  NaN is `false`, so NaN never displaces a non-NaN best. `Bool` order
+  is `false < true`.
+- `unique_count()` — distinct non-null values, keyed by
+  `Scalar::to_string`. Within a fixed-dtype series this is a precise
+  equality test; all `Float` `NaN` cells collapse into a single bucket
+  (matching pandas' `nunique` on NaN).
+
+> **Deferred:** `Series::describe` is listed in the plan but returns a
+> 1×N `DataFrame`, so it lands together with the DataFrame surface in
+> P5.
+
+### DataFrame / RowView
+
+- `struct DataFrame` — (pending, P5) collection of `Series` with shared `Schema`
+- `struct RowView` — (pending, P5) lightweight per-row accessor used by `filter`
 
 ---
 

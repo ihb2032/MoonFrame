@@ -106,3 +106,61 @@ test "Scalar equality" {
   assert_not_eq(Scalar::Int(1), Scalar::Float(1.0))
   assert_eq(Scalar::Null, Scalar::Null)
 }
+
+///|
+test "Scalar::eq Float-Float and IEEE 754 NaN semantics" {
+  assert_eq(Scalar::Float(1.5).eq(Scalar::Float(1.5)), Ok(true))
+  assert_eq(Scalar::Float(1.5).eq(Scalar::Float(2.0)), Ok(false))
+  // NaN never equals anything, including itself.
+  let nan : Float = @float.not_a_number
+  assert_eq(Scalar::Float(nan).eq(Scalar::Float(nan)), Ok(false))
+  assert_eq(Scalar::Float(nan).eq(Scalar::Float(1.0)), Ok(false))
+}
+
+///|
+test "Scalar::lt Float-Float and Float-Int both directions" {
+  assert_eq(Scalar::Float(1.0).lt(Scalar::Float(2.0)), Ok(true))
+  assert_eq(Scalar::Float(2.0).lt(Scalar::Float(2.0)), Ok(false))
+  assert_eq(Scalar::Float(2.0).lt(Scalar::Int(3)), Ok(true))
+  assert_eq(Scalar::Int(3).lt(Scalar::Float(2.5)), Ok(false))
+  // NaN comparisons are always false per IEEE 754.
+  let nan : Float = @float.not_a_number
+  assert_eq(Scalar::Float(nan).lt(Scalar::Float(1.0)), Ok(false))
+  assert_eq(Scalar::Float(1.0).lt(Scalar::Float(nan)), Ok(false))
+}
+
+///|
+test "Scalar::lt cross-type returns Err" {
+  assert_true(Scalar::Int(0).lt(Scalar::String("0")) is Err(_))
+  assert_true(Scalar::Bool(true).lt(Scalar::String("x")) is Err(_))
+  assert_true(Scalar::Float(1.0).lt(Scalar::Bool(true)) is Err(_))
+}
+
+///|
+test "Scalar::lte / gt / gte all guard Null" {
+  assert_true(Scalar::Null.lte(Scalar::Int(0)) is Err(_))
+  assert_true(Scalar::Int(0).lte(Scalar::Null) is Err(_))
+  assert_true(Scalar::Null.gt(Scalar::Int(0)) is Err(_))
+  assert_true(Scalar::Int(0).gt(Scalar::Null) is Err(_))
+  assert_true(Scalar::Null.gte(Scalar::Int(0)) is Err(_))
+  assert_true(Scalar::Int(0).gte(Scalar::Null) is Err(_))
+}
+
+///|
+test "Scalar::lte short-circuits at equality" {
+  // Equal values: result is true; lt never needs to fire.
+  assert_eq(Scalar::Int(5).lte(Scalar::Int(5)), Ok(true))
+  // Strictly less: falls through to lt.
+  assert_eq(Scalar::Int(4).lte(Scalar::Int(5)), Ok(true))
+  // Strictly greater: lt returns false.
+  assert_eq(Scalar::Int(6).lte(Scalar::Int(5)), Ok(false))
+}
+
+///|
+test "Scalar::as_bool / as_string remaining error paths" {
+  // as_bool: Null branch.
+  assert_true(Scalar::Null.as_bool() is Err(_))
+  // as_string: non-String non-Null branch.
+  assert_true(Scalar::Float(1.5).as_string() is Err(_))
+  assert_true(Scalar::Int(0).as_string() is Err(_))
+}

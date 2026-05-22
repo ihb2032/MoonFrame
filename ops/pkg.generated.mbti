@@ -1,7 +1,21 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "ihb2032/MoonFrame/ops"
 
+import {
+  "ihb2032/MoonFrame/frame",
+  "ihb2032/MoonFrame/types",
+}
+
 // Values
+pub fn drop(@frame.DataFrame, Array[String]) -> Result[@frame.DataFrame, @types.DataError]
+
+pub fn rename(@frame.DataFrame, Array[(String, String)]) -> Result[@frame.DataFrame, @types.DataError]
+
+pub fn replace_column(@frame.DataFrame, String, @frame.Series) -> Result[@frame.DataFrame, @types.DataError]
+
+pub fn select(@frame.DataFrame, Array[String]) -> Result[@frame.DataFrame, @types.DataError]
+
+pub fn with_column(@frame.DataFrame, @frame.Series) -> Result[@frame.DataFrame, @types.DataError]
 
 // Errors
 

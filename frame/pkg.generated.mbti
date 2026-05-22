@@ -18,6 +18,7 @@ pub struct DataFrame {
   nrows : Int
   name_to_index : Map[String, Int]
 } derive(Eq, @debug.Debug)
+pub fn DataFrame::check_invariants(Self) -> Result[Unit, String]
 pub fn DataFrame::columns(Self) -> Array[String]
 pub fn DataFrame::empty(@types.Schema) -> Result[Self, @types.DataError]
 pub fn DataFrame::from_rows(@types.Schema, Array[Array[@types.Scalar]]) -> Result[Self, @types.DataError]

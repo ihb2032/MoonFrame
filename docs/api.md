@@ -231,6 +231,18 @@ remain supported even after the facade ships.
     `InvalidOperation(...)` when `start > end`.
   - `take(indices)` — row-wise gather (duplicates allowed); first
     out-of-bounds index surfaces as `IndexOutOfBounds(idx)`.
+- `check_invariants()` — verification helper. Returns `Ok(())` exactly
+  when the frame satisfies its six structural invariants (schema /
+  columns / `name_to_index` lock-step, per-column length `== nrows`,
+  no out-of-range or mismatched cache entries); otherwise
+  `Err(String)` describing the first violation. Defined as the formal
+  specification of "a well-formed DataFrame" in `frame/invariants.mbt`
+  and asserted by every `ops/` test on the operator's output. Public
+  API constructors (`new` / `empty` / `from_rows`) and transforms
+  (`head` / `tail` / `slice` / `take`) can never produce an
+  invariant-violating frame — the failure branches exist to catch
+  internal bugs and to be exercised by whitebox tests that bypass the
+  constructors.
 
 ### RowView
 
@@ -254,7 +266,48 @@ remain supported even after the facade ships.
 
 > Implemented in **P6 – P10**. One operator per file.
 
-- `select` / `drop` / `rename` / `with_column` / `replace_column` — (pending, P6)
+### Column ops (P6)
+
+Each op is a **free function** rather than a `DataFrame` method.
+MoonBit's orphan rule prevents adding inherent methods to
+`@frame.DataFrame` from a sibling package, and trait dispatch doesn't
+extend to method-call syntax on foreign impls. The call site is
+therefore `@ops.select(df, ["a", "b"])` rather than
+`df.select(["a", "b"])`. Every op routes its result through
+`DataFrame::new`, so the returned frame is guaranteed to satisfy
+`check_invariants()`.
+
+- `select(df, names) -> Result[DataFrame, DataError]` — project
+  columns in the requested order. `Err(ColumnNotFound(name))` for
+  unknown names; `Err(DuplicateColumn(name))` for duplicates in the
+  pick list. First-error wins is positional.
+- `drop(df, names) -> Result[DataFrame, DataError]` — remove the named
+  columns, preserving the remaining order. Duplicates in `names` are
+  tolerated (idempotent). `Err(ColumnNotFound(name))` on the first
+  unknown entry.
+- `rename(df, mapping : Array[(String, String)]) -> Result[DataFrame, DataError]`
+  — apply renames in input order, so each step's `new_name` becomes
+  visible to subsequent steps (which is what makes the three-step
+  swap `[(a, _t), (b, a), (_t, b)]` work). `Err(ColumnNotFound)` for
+  an unknown source; `Err(DuplicateColumn)` if a `new_name` collides
+  with another current column. `(name, name)` is a no-op that still
+  validates existence.
+- `with_column(df, series) -> Result[DataFrame, DataError]` — append
+  `series` as the rightmost column. `Err(DuplicateColumn(name))` if
+  `series.name()` already exists; `Err(LengthMismatch)` if
+  `series.len() != df.nrows()`. For a `0×0` frame, `nrows == 0`, so
+  only an empty series is accepted — bootstrap with `DataFrame::new`
+  instead.
+- `replace_column(df, name, series) -> Result[DataFrame, DataError]`
+  — swap the named column in place. The target `name` is preserved on
+  the new column (i.e. `series.name()` is ignored for naming
+  purposes), so the schema name order stays stable when a caller only
+  wants to swap data / dtype. Cross-dtype replacement is allowed.
+  `Err(ColumnNotFound(name))` if `name` doesn't exist;
+  `Err(LengthMismatch)` if `series.len() != df.nrows()`.
+
+### Pending in later phases
+
 - `filter` / `filter_try` — (pending, P7)
 - `enum SortOrder` / `enum NullOrder` / `struct SortSpec` —
   (pending, P8)

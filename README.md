@@ -36,7 +36,13 @@ v0.1 progress:
       `schema` / `columns` / `get_column` / `get` / `head` / `tail` /
       `slice` / `take`; `RowView` with `get` / `is_null` /
       `get_int` / `get_float` / `get_bool` / `get_string`
-- [ ] P6 – P10 — `ops/`
+- [x] P6 — `ops/` column ops: `select` / `drop` / `rename` /
+      `with_column` / `replace_column` as free functions in `@ops`.
+      Ships alongside `DataFrame::check_invariants()` — a formal
+      structural specification (INV1–INV6) of a well-formed DataFrame,
+      asserted by every op test as the practical equivalent of formal
+      verification in MoonBit v0.1
+- [ ] P7 – P10 — `ops/`
 - [ ] P11 – P12 — `io/` CSV / Markdown / JSON
 - [ ] P13 — facade re-exports, integration, examples
 

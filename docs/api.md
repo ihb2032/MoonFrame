@@ -335,11 +335,47 @@ collapses the columns.
   those in `match … { Ok(v) => v, Err(_) => false }` would silently
   downgrade real bugs into "row excluded".
 
+### Sort (P8)
+
+Row reordering by one or more sort keys. The sort routes its result
+through `DataFrame::take`, so the schema (names, dtypes, order) is
+preserved verbatim and every output passes `check_invariants()`.
+
+- `enum SortOrder` — `Asc` (smaller first) / `Desc` (larger first).
+  The direction applies to every dtype: `Int` / `Float` use numeric
+  ordering, `Bool` uses `false < true`, `String` uses lexicographic
+  comparison by UTF-16 code unit. MoonBit's built-in `<` on `String`
+  is *shortlex* (length first), which would surprise callers used to
+  pandas / polars / SQL ordering; the sort intentionally bypasses it.
+- `enum NullOrder` — `NullsFirst` / `NullsLast`. Governs where
+  "missing" cells go relative to non-missing ones. For `Float`
+  columns, `NaN` is treated identically to `Null` for ordering
+  (IEEE 754 would otherwise scatter NaNs unpredictably since `<` /
+  `>` against NaN return `false`); the validity bit on a NaN cell is
+  unchanged, so reading the cell back still yields `Scalar::Float`.
+- `struct SortSpec` — a single sort key. Fields are private; build via
+  the constructors below.
+  - `SortSpec::asc(column)` — ascending order, `NullsLast` default
+    (matching pandas / polars).
+  - `SortSpec::desc(column)` — descending order, `NullsLast` default
+    (the dimension that flips is value ordering, not null placement).
+  - `SortSpec::with_null_order(null_order)` — override the null
+    placement; chainable, last call wins.
+- `sort_by(df, spec) -> Result[DataFrame, DataError]` — single-key
+  convenience over `sort_by_many(df, [spec])`.
+- `sort_by_many(df, specs) -> Result[DataFrame, DataError]` —
+  lexicographic multi-key sort. Earlier specs dominate; later specs
+  only break ties between rows that compare equal under all earlier
+  keys. The implementation is a bottom-up **stable mergesort** on row
+  indices, so rows that tie under every key keep their original
+  relative order. Empty `specs` is the identity sort. The only error
+  path is `Err(ColumnNotFound(name))` for an unknown spec column —
+  every column in a `DataFrame` is `Int` / `Float` / `Bool` / `String`
+  by construction, so a successful lookup always yields a sortable
+  column.
+
 ### Pending in later phases
 
-- `enum SortOrder` / `enum NullOrder` / `struct SortSpec` —
-  (pending, P8)
-- `sort_by` / `sort_by_many` — (pending, P8) stable mergesort
 - `drop_nulls` / `drop_nulls_in` / `fill_null` / `null_count` — (pending, P9)
 - `sum` / `mean` / `min` / `max` / `count` / `describe` — (pending, P10),
   return 1×N DataFrames

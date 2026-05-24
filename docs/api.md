@@ -264,18 +264,18 @@ remain supported even after the facade ships.
 
 ## `ops` — Operations
 
-> Implemented in **P6 – P10**. One operator per file.
+> Implemented in **P6 – P10**. One operator per file. Each op is a
+> **free function** rather than a `DataFrame` method (MoonBit's orphan
+> rule prevents adding inherent methods to `@frame.DataFrame` from a
+> sibling package), so the call site is `@ops.filter(df, ...)` rather
+> than `df.filter(...)`. Every op routes its result through the
+> `frame` package's invariant-preserving constructors / transforms,
+> so the returned frame is guaranteed to satisfy `check_invariants()`.
 
 ### Column ops (P6)
 
-Each op is a **free function** rather than a `DataFrame` method.
-MoonBit's orphan rule prevents adding inherent methods to
-`@frame.DataFrame` from a sibling package, and trait dispatch doesn't
-extend to method-call syntax on foreign impls. The call site is
-therefore `@ops.select(df, ["a", "b"])` rather than
-`df.select(["a", "b"])`. Every op routes its result through
-`DataFrame::new`, so the returned frame is guaranteed to satisfy
-`check_invariants()`.
+Routed through `DataFrame::new`, which rebuilds the schema and
+`name_to_index` cache.
 
 - `select(df, names) -> Result[DataFrame, DataError]` — project
   columns in the requested order. `Err(ColumnNotFound(name))` for
@@ -306,9 +306,37 @@ therefore `@ops.select(df, ["a", "b"])` rather than
   `Err(ColumnNotFound(name))` if `name` doesn't exist;
   `Err(LengthMismatch)` if `series.len() != df.nrows()`.
 
+### Row filter (P7)
+
+Both filter ops route their result through `DataFrame::take`, so the
+returned frame keeps the input's schema verbatim (column names,
+dtypes, nullability, order) and only the row count changes. Filtering
+every row out collapses to a 0-row frame **with the original
+schema** — the meaningful distinction from `select(df, [])`, which
+collapses the columns.
+
+- `filter(df, predicate : (RowView) -> Bool) -> Result[DataFrame, DataError]`
+  — keep rows for which `predicate` returns `true`. The predicate
+  receives a `RowView` borrowed from `df` (the frame is shared by
+  value; per-row access is `O(1)` and allocates nothing). `filter`
+  itself never fails on a well-formed `df`: every row index it
+  forwards to `take` is in `[0, nrows)` by construction. The
+  `Result` shape is preserved for parity with the other ops so call
+  sites chain uniformly. The predicate is **not** invoked on a
+  zero-row frame.
+- `filter_try(df, predicate : (RowView) -> Result[Bool, DataError]) -> Result[DataFrame, DataError]`
+  — fallible variant. The first `Err` the predicate returns
+  short-circuits the scan and propagates verbatim; rows accepted
+  before the failing row are discarded (no partial frame). Use this
+  whenever the predicate calls a fallible `RowView` accessor —
+  `get_int` / `get_float` / `get_bool` / `get_string` all return
+  `Result[T, DataError]` and surface `ColumnNotFound` on misspelled
+  names and `TypeMismatch` on dtype / null mismatches. Wrapping
+  those in `match … { Ok(v) => v, Err(_) => false }` would silently
+  downgrade real bugs into "row excluded".
+
 ### Pending in later phases
 
-- `filter` / `filter_try` — (pending, P7)
 - `enum SortOrder` / `enum NullOrder` / `struct SortSpec` —
   (pending, P8)
 - `sort_by` / `sort_by_many` — (pending, P8) stable mergesort

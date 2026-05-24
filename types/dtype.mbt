@@ -54,7 +54,7 @@ pub fn DataType::is_string(self : DataType) -> Bool {
 }
 
 ///|
-pub impl Show for DataType with output(self, logger) {
+pub impl Show for DataType with fn output(self, logger) {
   let name = match self {
     Int => "Int"
     Float => "Float"

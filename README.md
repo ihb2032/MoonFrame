@@ -42,7 +42,13 @@ v0.1 progress:
       structural specification (INV1–INV6) of a well-formed DataFrame,
       asserted by every op test as the practical equivalent of formal
       verification in MoonBit v0.1
-- [ ] P7 – P10 — `ops/`
+- [x] P7 — `ops/` row filter: `filter` (`(RowView) -> Bool`) and
+      `filter_try` (`(RowView) -> Result[Bool, DataError]`). Both
+      preserve the input schema verbatim and route the kept rows
+      through `DataFrame::take`; `filter_try` short-circuits on the
+      first predicate error so a misspelled column or dtype mismatch
+      surfaces instead of silently excluding the row
+- [ ] P8 – P10 — `ops/`
 - [ ] P11 – P12 — `io/` CSV / Markdown / JSON
 - [ ] P13 — facade re-exports, integration, examples
 

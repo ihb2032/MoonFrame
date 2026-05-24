@@ -9,6 +9,10 @@ import {
 // Values
 pub fn drop(@frame.DataFrame, Array[String]) -> Result[@frame.DataFrame, @types.DataError]
 
+pub fn filter(@frame.DataFrame, (@frame.RowView) -> Bool) -> Result[@frame.DataFrame, @types.DataError]
+
+pub fn filter_try(@frame.DataFrame, (@frame.RowView) -> Result[Bool, @types.DataError]) -> Result[@frame.DataFrame, @types.DataError]
+
 pub fn rename(@frame.DataFrame, Array[(String, String)]) -> Result[@frame.DataFrame, @types.DataError]
 
 pub fn replace_column(@frame.DataFrame, String, @frame.Series) -> Result[@frame.DataFrame, @types.DataError]

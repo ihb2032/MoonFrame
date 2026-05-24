@@ -48,7 +48,15 @@ v0.1 progress:
       through `DataFrame::take`; `filter_try` short-circuits on the
       first predicate error so a misspelled column or dtype mismatch
       surfaces instead of silently excluding the row
-- [ ] P8 – P10 — `ops/`
+- [x] P8 — `ops/` sort: `SortOrder` / `NullOrder` / `SortSpec` plus
+      `sort_by` (single key) and `sort_by_many` (lexicographic
+      multi-key). Stable bottom-up mergesort on row indices, then a
+      single `DataFrame::take` to reorder — so the schema is preserved
+      verbatim and `check_invariants()` holds on every result. NaN in
+      `Float` columns is treated identically to `Null` for ordering,
+      and `String` keys sort lexicographically by UTF-16 code unit
+      (not MoonBit's built-in shortlex `<`)
+- [ ] P9 – P10 — `ops/`
 - [ ] P11 – P12 — `io/` CSV / Markdown / JSON
 - [ ] P13 — facade re-exports, integration, examples
 

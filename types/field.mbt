@@ -51,7 +51,7 @@ pub fn Field::rename(self : Field, new_name : String) -> Field {
 ///|
 /// `Show` renders the struct form (`Field { name: "age", dtype: Int,
 /// nullable: true }`), useful for assertion snapshots.
-pub impl Show for Field with output(self, logger) {
+pub impl Show for Field with fn output(self, logger) {
   logger.write_string("Field { name: \"")
   logger.write_string(self.name)
   logger.write_string("\", dtype: ")

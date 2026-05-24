@@ -170,7 +170,7 @@ fn bool_to_int(b : Bool) -> Int {
 ///|
 /// `Show` renders the variant form (`Int(42)`, `String("ab")`, `Null`).
 /// For value-style rendering use `to_string()`.
-pub impl Show for Scalar with output(self, logger) {
+pub impl Show for Scalar with fn output(self, logger) {
   match self {
     Int(v) => logger.write_string("Int(" + v.to_string() + ")")
     Float(v) => logger.write_string("Float(" + v.to_string() + ")")

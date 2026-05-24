@@ -33,7 +33,7 @@ pub fn DataError::message(self : DataError) -> String {
 ///|
 /// `Show` renders the variant form (`ColumnNotFound("age")`), useful for
 /// assertions and snapshots. The user-facing description is `message()`.
-pub impl Show for DataError with output(self, logger) {
+pub impl Show for DataError with fn output(self, logger) {
   match self {
     ColumnNotFound(name) =>
       logger.write_string("ColumnNotFound(\"" + name + "\")")

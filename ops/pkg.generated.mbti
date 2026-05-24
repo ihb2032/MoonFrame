@@ -4,6 +4,7 @@ package "ihb2032/MoonFrame/ops"
 import {
   "ihb2032/MoonFrame/frame",
   "ihb2032/MoonFrame/types",
+  "moonbitlang/core/debug",
 }
 
 // Values
@@ -19,11 +20,33 @@ pub fn replace_column(@frame.DataFrame, String, @frame.Series) -> Result[@frame.
 
 pub fn select(@frame.DataFrame, Array[String]) -> Result[@frame.DataFrame, @types.DataError]
 
+pub fn sort_by(@frame.DataFrame, SortSpec) -> Result[@frame.DataFrame, @types.DataError]
+
+pub fn sort_by_many(@frame.DataFrame, Array[SortSpec]) -> Result[@frame.DataFrame, @types.DataError]
+
 pub fn with_column(@frame.DataFrame, @frame.Series) -> Result[@frame.DataFrame, @types.DataError]
 
 // Errors
 
 // Types and methods
+pub(all) enum NullOrder {
+  NullsFirst
+  NullsLast
+} derive(Eq, @debug.Debug)
+
+pub(all) enum SortOrder {
+  Asc
+  Desc
+} derive(Eq, @debug.Debug)
+
+pub struct SortSpec {
+  column : String
+  order : SortOrder
+  null_order : NullOrder
+} derive(Eq, @debug.Debug)
+pub fn SortSpec::asc(String) -> Self
+pub fn SortSpec::desc(String) -> Self
+pub fn SortSpec::with_null_order(Self, NullOrder) -> Self
 
 // Type aliases
 

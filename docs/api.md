@@ -415,10 +415,61 @@ table for inspection.
   Total — cannot fail (column names from `df.columns()` are unique
   and every output column has length 1).
 
-### Pending in later phases
+### Column statistics + describe (P10)
 
-- `sum` / `mean` / `min` / `max` / `count` / `describe` — (pending, P10),
-  return 1×N DataFrames
+Free-function reductions on a single column and a per-frame summary
+table. The reductions delegate to the matching `Series` stats via a
+shared `dispatch_stat` helper, so per-dtype semantics (null skipping,
+empty / all-null fallbacks, `Float` NaN handling, `Bool` / `String`
+rejection for numeric ops) match the Series API exactly. `describe`
+materialises one row per source column into a fixed-shape result so
+the summary itself is a regular `DataFrame` callers can chain through
+further ops or IO.
+
+- `count(df, column) -> Result[Int, DataError]` — non-null cell count.
+  `Series::count` is total, so the only failure path is
+  `Err(ColumnNotFound(column))`.
+- `sum(df, column) -> Result[Scalar, DataError]` — additive reduction.
+  `Int` / `Float` columns return `Scalar::Int` / `Scalar::Float`;
+  empty / all-null numeric is the additive identity (`0` / `0.0`).
+  Errors: `Err(ColumnNotFound(column))` for unknown names,
+  `Err(TypeMismatch(...))` for `Bool` / `String` columns.
+- `mean(df, column) -> Result[Float, DataError]` — arithmetic mean,
+  `Float`-typed (`Int` sums promoted). Errors:
+  `Err(ColumnNotFound(column))` for unknown names,
+  `Err(InvalidOperation(...))` for empty / all-null numeric columns,
+  `Err(TypeMismatch(...))` for non-numeric columns.
+- `min(df, column) -> Result[Scalar, DataError]` /
+  `max(df, column) -> Result[Scalar, DataError]` — supported on every
+  dtype. Empty / all-null columns return `Ok(Scalar::Null)`. `Float`
+  NaN follows IEEE 754 (`<` / `>` against NaN is `false`, so NaN never
+  displaces a non-NaN best); `Bool` order is `false < true`. The only
+  failure path is `Err(ColumnNotFound(column))`.
+- `describe(df) -> DataFrame` — per-column summary, one row per source
+  column. Fixed `N × 8` schema (`N == df.ncols()`); column dtypes are
+  pinned regardless of the source frame:
+  - `column` (`String`) — source column name, in declaration order
+  - `dtype` (`String`) — source column dtype rendered via `Show`
+  - `count` (`Int`) — non-null cell count
+  - `null_count` (`Int`) — null cell count
+  - `unique_count` (`Int`) — distinct non-null values
+    (`Scalar::to_string` keying, so `Float` NaN collapses to one bucket)
+  - `mean` (`Float`, nullable) — arithmetic mean for numeric columns;
+    `Null` for non-numeric or empty / all-null numeric (both `mean`
+    error modes collapse into the same null cell — the diagnostic
+    distinction stays at the per-column API)
+  - `min` (`String`, nullable) — minimum rendered via
+    `Scalar::to_string`; `Null` for empty / all-null columns
+  - `max` (`String`, nullable) — maximum rendered via
+    `Scalar::to_string`; `Null` for empty / all-null columns
+
+  `min` / `max` are stored as `String` so the summary can carry
+  extrema for every source dtype in a single column without forcing
+  a uniform value type. Callers that need a typed extremum should use
+  `@ops.min` / `@ops.max` directly. `describe` is total — every
+  well-formed `df` produces a well-formed result; a 0-column frame
+  collapses to a `0 × 8` result so downstream code can still rely on
+  the schema.
 
 ---
 
@@ -436,8 +487,9 @@ table for inspection.
 
 ## Out of scope for v0.1
 
-- `GroupBy`, aggregation specs, free `count` / `sum` / `mean` / `min` /
-  `max` functions — deferred to v0.2
+- `GroupBy`, aggregation specs, free `AggKind` / `AggSpec` constructors
+  (the `count` / `sum` / `mean` / `min` / `max` AggSpec variants — the
+  free reduction functions land in P10 above) — deferred to v0.2
 - `JoinType`, `JoinOptions`, `inner_join`, `left_join` — deferred to v0.2
 - `NumericColumn`, `ColumnStorage` abstraction — deferred to v0.2
 - HTML output, chart-data export — deferred to v0.3

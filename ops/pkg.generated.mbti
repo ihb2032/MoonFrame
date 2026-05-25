@@ -10,6 +10,8 @@ import {
 // Values
 pub fn count(@frame.DataFrame, String) -> Result[Int, @types.DataError]
 
+pub fn describe(@frame.DataFrame) -> @frame.DataFrame
+
 pub fn drop(@frame.DataFrame, Array[String]) -> Result[@frame.DataFrame, @types.DataError]
 
 pub fn drop_nulls(@frame.DataFrame) -> Result[@frame.DataFrame, @types.DataError]

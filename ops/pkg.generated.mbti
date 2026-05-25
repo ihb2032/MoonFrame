@@ -10,6 +10,10 @@ import {
 // Values
 pub fn drop(@frame.DataFrame, Array[String]) -> Result[@frame.DataFrame, @types.DataError]
 
+pub fn drop_nulls(@frame.DataFrame) -> Result[@frame.DataFrame, @types.DataError]
+
+pub fn drop_nulls_in(@frame.DataFrame, Array[String]) -> Result[@frame.DataFrame, @types.DataError]
+
 pub fn filter(@frame.DataFrame, (@frame.RowView) -> Bool) -> Result[@frame.DataFrame, @types.DataError]
 
 pub fn filter_try(@frame.DataFrame, (@frame.RowView) -> Result[Bool, @types.DataError]) -> Result[@frame.DataFrame, @types.DataError]

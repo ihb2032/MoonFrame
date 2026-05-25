@@ -8,6 +8,10 @@ import {
 }
 
 // Values
+pub fn count(@frame.DataFrame, String) -> Result[Int, @types.DataError]
+
+pub fn describe(@frame.DataFrame) -> @frame.DataFrame
+
 pub fn drop(@frame.DataFrame, Array[String]) -> Result[@frame.DataFrame, @types.DataError]
 
 pub fn drop_nulls(@frame.DataFrame) -> Result[@frame.DataFrame, @types.DataError]
@@ -20,6 +24,12 @@ pub fn filter(@frame.DataFrame, (@frame.RowView) -> Bool) -> Result[@frame.DataF
 
 pub fn filter_try(@frame.DataFrame, (@frame.RowView) -> Result[Bool, @types.DataError]) -> Result[@frame.DataFrame, @types.DataError]
 
+pub fn max(@frame.DataFrame, String) -> Result[@types.Scalar, @types.DataError]
+
+pub fn mean(@frame.DataFrame, String) -> Result[Float, @types.DataError]
+
+pub fn min(@frame.DataFrame, String) -> Result[@types.Scalar, @types.DataError]
+
 pub fn null_count(@frame.DataFrame) -> @frame.DataFrame
 
 pub fn rename(@frame.DataFrame, Array[(String, String)]) -> Result[@frame.DataFrame, @types.DataError]
@@ -31,6 +41,8 @@ pub fn select(@frame.DataFrame, Array[String]) -> Result[@frame.DataFrame, @type
 pub fn sort_by(@frame.DataFrame, SortSpec) -> Result[@frame.DataFrame, @types.DataError]
 
 pub fn sort_by_many(@frame.DataFrame, Array[SortSpec]) -> Result[@frame.DataFrame, @types.DataError]
+
+pub fn sum(@frame.DataFrame, String) -> Result[@types.Scalar, @types.DataError]
 
 pub fn with_column(@frame.DataFrame, @frame.Series) -> Result[@frame.DataFrame, @types.DataError]
 

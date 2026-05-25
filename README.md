@@ -63,7 +63,17 @@ v0.1 progress:
       frame). Row-coordinated ops route through `DataFrame::take`;
       `fill_null` reuses the underlying `Series::fill_null` so dtype
       mismatches surface the same diagnostic
-- [ ] P10 — `ops/` stats + describe
+- [x] P10 — `ops/` column statistics + describe:
+      `count` / `sum` / `mean` / `min` / `max` as free functions taking
+      `(df, column)` and delegating to the matching `Series` reduction
+      via a shared `dispatch_stat` helper, so per-dtype semantics
+      (null skipping, empty-series fallbacks, `Float` NaN handling,
+      `Bool` / `String` rejection for numeric ops) stay in lock-step
+      with the Series API. `describe(df)` returns a fixed `N × 8`
+      summary — one row per source column with `column` / `dtype` /
+      `count` / `null_count` / `unique_count` / `mean` / `min` / `max`;
+      `min` and `max` render via `Scalar::to_string` so the summary
+      can carry extrema for any dtype in a single column
 - [ ] P11 – P12 — `io/` CSV / Markdown / JSON
 - [ ] P13 — facade re-exports, integration, examples
 

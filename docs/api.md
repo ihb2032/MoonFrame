@@ -374,9 +374,49 @@ preserved verbatim and every output passes `check_invariants()`.
   by construction, so a successful lookup always yields a sortable
   column.
 
+### Null handling (P9)
+
+DataFrame-level null operations. Per-cell null logic delegates to
+`Series::drop_nulls` / `Series::fill_null` / `Series::null_count`; the
+ops here lift those into row-coordinated transforms (a row that fails
+the null gate in *any* column drops as a whole) and into a summary
+table for inspection.
+
+- `drop_nulls(df) -> Result[DataFrame, DataError]` — drop every row in
+  which **any** column carries a null. Routes through
+  `drop_nulls_in(df, df.columns())` so the gating logic is single-sourced.
+  A 0-column frame has no columns to gate on and stays structurally
+  identical to the input; a 0-row frame is a no-op that preserves the
+  schema. The `Result` shape is preserved for parity with other ops —
+  `drop_nulls` itself cannot fail on a well-formed input.
+- `drop_nulls_in(df, names) -> Result[DataFrame, DataError]` — drop
+  rows whose nulls fall in any of the listed columns. Other columns
+  are not consulted, so a row with a null in an *unlisted* column can
+  still survive (and its cell still reads back as `Scalar::Null` — no
+  cell rewriting). Duplicates in `names` are tolerated (idempotent
+  gating); an empty `names` list is a no-op identity.
+  `Err(ColumnNotFound(name))` on the first unknown entry.
+- `fill_null(df, column, value : Scalar) -> Result[DataFrame, DataError]`
+  — replace every null cell in the named column with `value`. The
+  column's dtype is preserved — `value`'s dtype must match. Errors:
+  `Err(ColumnNotFound(column))` for unknown names;
+  `Err(TypeMismatch(...))` for `Scalar::Null` fills or for a
+  dtype-mismatched scalar (both bubble unchanged from
+  `Series::fill_null`, so the diagnostic text matches the Series API).
+  Column-lookup runs before the fill so a missing name is surfaced
+  ahead of a type-mismatch error. Other columns and the schema's
+  column order are untouched.
+- `null_count(df) -> DataFrame` — per-column summary as a `1 × ncols`
+  frame. Column names mirror `df.columns()` in order; every cell is
+  an `Int` count of nulls in the source column. The 0-column case
+  collapses to `0 × 0` — `DataFrame::new`'s "empty column list ⇒
+  nrows = 0" rule kicks in and there's no anchor column to set `nrows`
+  on. A 0-row source produces a `(1, ncols)` summary of all zeros.
+  Total — cannot fail (column names from `df.columns()` are unique
+  and every output column has length 1).
+
 ### Pending in later phases
 
-- `drop_nulls` / `drop_nulls_in` / `fill_null` / `null_count` — (pending, P9)
 - `sum` / `mean` / `min` / `max` / `count` / `describe` — (pending, P10),
   return 1×N DataFrames
 

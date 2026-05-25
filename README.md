@@ -56,7 +56,14 @@ v0.1 progress:
       `Float` columns is treated identically to `Null` for ordering,
       and `String` keys sort lexicographically by UTF-16 code unit
       (not MoonBit's built-in shortlex `<`)
-- [ ] P9 – P10 — `ops/`
+- [x] P9 — `ops/` null handling: `drop_nulls` (drop rows with any
+      null) / `drop_nulls_in` (gate on a column subset) /
+      `fill_null(df, column, value)` (per-column, dtype-preserving) /
+      `null_count(df)` (per-column summary as a `1 × ncols` `Int`
+      frame). Row-coordinated ops route through `DataFrame::take`;
+      `fill_null` reuses the underlying `Series::fill_null` so dtype
+      mismatches surface the same diagnostic
+- [ ] P10 — `ops/` stats + describe
 - [ ] P11 – P12 — `io/` CSV / Markdown / JSON
 - [ ] P13 — facade re-exports, integration, examples
 

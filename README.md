@@ -83,7 +83,18 @@ v0.1 progress:
       mapping via `CsvReadOptions::null_values`, header on/off
       handling, and RFC 4180 quoting on the writer. Filesystem errors
       surface as `Err(DataError::IoError(_))`
-- [ ] P12 — `io/` Markdown / JSON
+- [x] P12 — `io/` Markdown + JSON: `to_markdown` /
+      `to_markdown_with_limit` render a GFM pipe-table (column-width
+      aligned, 3-char dash minimum, null as the empty string, optional
+      `... (N more rows)` truncation banner). `format_json_records` /
+      `write_json_records` emit records-shape JSON
+      (`[{...}, ...]`) via the builtin `@json` package, so escaping
+      and `NaN` / `Infinity` rendering follow the standard library.
+      `parse_json_records_str` / `read_json` /
+      `read_json_with_options` + `JsonReadOptions` parse records back
+      with the same `Int → Float → Bool → String` inference the CSV
+      reader uses; sparse records are tolerated (missing fields →
+      null, late-appearing columns still surface)
 - [ ] P13 — facade re-exports, integration, examples
 
 GroupBy and Join land in v0.2; NDJSON also v0.2; HTML and chart-data

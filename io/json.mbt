@@ -81,20 +81,25 @@ pub fn parse_json_records_str(
   if records.is_empty() {
     return @frame.DataFrame::new([])
   }
-  // First pass: collect headers in first-seen order. We walk every
-  // record (not just the first) so a sparse-on-the-left record set
-  // still produces every column the data contains.
+  // First pass: validate that every element is an object, pull the
+  // inner `Map` out for downstream passes (so inference / build don't
+  // have to re-match), and collect headers in first-seen order across
+  // *all* records. Walking every record means a sparse-on-the-left
+  // set still produces every column the data contains.
+  let objs : Array[Map[String, Json]] = Array::new(capacity=records.length())
   let headers : Array[String] = []
   let header_set : Map[String, Unit] = {}
   for rec in records {
     match rec {
-      Object(obj) =>
+      Object(obj) => {
         for k, _ in obj {
           if !header_set.contains(k) {
             header_set[k] = ()
             headers.push(k)
           }
         }
+        objs.push(obj)
+      }
       _ =>
         return Err(
           @types.DataError::ParseError(
@@ -112,8 +117,8 @@ pub fn parse_json_records_str(
   }
   let series : Array[@frame.Series] = []
   for name in headers {
-    let dt = infer_json_column_dtype(records, name, options.infer_schema_rows)
-    match build_json_column(name, dt, records) {
+    let dt = infer_json_column_dtype(objs, name, options.infer_schema_rows)
+    match build_json_column(name, dt, objs) {
       Err(e) => return Err(e)
       Ok(s) => series.push(s)
     }
@@ -236,19 +241,15 @@ priv enum InferredJsonDtype {
 }
 
 ///|
-/// Fetch the value of `name` from `record`. A non-object record (or
-/// an object missing the field) is treated as a null cell — the
-/// reader has already verified that every top-level element is an
-/// object before reaching this helper, so the non-object branch is
-/// only reachable for a missing field on a sparse record.
-fn lookup_field(record : Json, name : String) -> Json {
-  match record {
-    Object(obj) =>
-      match obj.get(name) {
-        Some(v) => v
-        None => Json::null()
-      }
-    _ => Json::null()
+/// Fetch the value of `name` from `obj`. A missing field on a sparse
+/// record is treated as a null cell — every record was already
+/// validated as a JSON object by `parse_json_records_str` before
+/// reaching this helper, so the lookup boils down to a single map
+/// access.
+fn lookup_field(obj : Map[String, Json], name : String) -> Json {
+  match obj.get(name) {
+    Some(v) => v
+    None => Json::null()
   }
 }
 
@@ -258,11 +259,11 @@ fn lookup_field(record : Json, name : String) -> Json {
 /// the CSV reader: `Int → Float → Bool → String`. A column whose
 /// probe window is entirely null falls back to `String` (no signal).
 fn infer_json_column_dtype(
-  records : Array[Json],
+  objs : Array[Map[String, Json]],
   name : String,
   limit : Int,
 ) -> InferredJsonDtype {
-  let n = records.length()
+  let n = objs.length()
   let scan = if limit > n { n } else { limit }
   let mut all_int = true
   let mut all_float = true
@@ -270,7 +271,7 @@ fn infer_json_column_dtype(
   let mut all_string = true
   let mut saw_any = false
   for i in 0..<scan {
-    let value = lookup_field(records[i], name)
+    let value = lookup_field(objs[i], name)
     if value is Null {
       continue
     }
@@ -312,24 +313,21 @@ fn infer_json_column_dtype(
 }
 
 ///|
-/// Try to read `j` as an `Int`. Accepts:
-/// - `Number(n, repr=Some(s))` when `s` is integral (no `.`, `e`,
-///   `E`) and `n` fits in `[Int::MIN, Int::MAX]`;
-/// - `Number(n, repr=None)` when `n` is exactly integer-valued and in
-///   range (programmatic JSON values without a textual repr go
-///   through the value-shape test).
+/// Try to read `j` as an `Int`. Accepts `Number` values that are
+/// exactly integer-valued (`n == n.trunc()`) and fit in
+/// `[Int::MIN, Int::MAX]`. The check is value-based rather than
+/// repr-based because `@json.parse` only populates `Number.repr` for
+/// overflow corner cases (Infinity / -Infinity), so anything written
+/// like `1.0e2` lands as `Number(100.0, None)` — which we treat as
+/// `Int(100)`, matching pandas / polars behaviour on equivalent CSV.
 ///
 /// Booleans, strings, and null are intentionally rejected — JSON has
 /// strong types and silently promoting `true → 1` would surprise
 /// callers used to pandas / polars semantics.
 fn json_value_as_int(j : Json) -> Int? {
   match j {
-    Number(n, repr~) => {
-      let integral = match repr {
-        Some(s) => is_integral_literal(s)
-        None => n == n.trunc()
-      }
-      if !integral {
+    Number(n, ..) => {
+      if n != n.trunc() {
         return None
       }
       if n < -2147483648.0 || n > 2147483647.0 {
@@ -379,38 +377,21 @@ fn json_value_as_string(j : Json) -> String? {
 }
 
 ///|
-/// Render any JSON value as a flat string for the
-/// `String`-fallback column builder. Numbers go through their
-/// canonical `Double.to_string` form, booleans render `true` /
-/// `false`, strings pass through verbatim, and null is filtered out
-/// upstream — so this helper is only called on non-null cells.
+/// Render any JSON value as a flat string for the `String`-fallback
+/// column builder. Numbers render via `Double::to_string`, booleans
+/// render `true` / `false`, strings pass through verbatim, and any
+/// composite (`Array` / `Object`) falls through to `@json.stringify`.
+/// `Null` is filtered out upstream — the build loop calls
+/// `values.push(None)` for null cells without invoking this helper —
+/// so the catch-all only fires on composites in practice.
 fn json_value_to_string_fallback(j : Json) -> String {
   match j {
-    Null => ""
     True => "true"
     False => "false"
-    Number(n, repr~) =>
-      match repr {
-        Some(s) => s
-        None => n.to_string()
-      }
+    Number(n, ..) => n.to_string()
     String(s) => s
-    Array(_) | Object(_) => (j : Json).stringify()
+    _ => (j : Json).stringify()
   }
-}
-
-///|
-/// Whether `s` looks like an integer literal (only digits, optional
-/// leading `-`). The check is conservative — JSON's grammar allows
-/// `1e2` to denote 100 but we treat it as Float because the textual
-/// form carries the exponent.
-fn is_integral_literal(s : String) -> Bool {
-  for ch in s.iter() {
-    if ch == '.' || ch == 'e' || ch == 'E' {
-      return false
-    }
-  }
-  true
 }
 
 ///|
@@ -422,14 +403,14 @@ fn is_integral_literal(s : String) -> Bool {
 fn build_json_column(
   name : String,
   dtype : InferredJsonDtype,
-  records : Array[Json],
+  objs : Array[Map[String, Json]],
 ) -> Result[@frame.Series, @types.DataError] {
-  let n = records.length()
+  let n = objs.length()
   match dtype {
     JsonInt => {
       let values : Array[Int?] = Array::new(capacity=n)
       for i in 0..<n {
-        let cell = lookup_field(records[i], name)
+        let cell = lookup_field(objs[i], name)
         if cell is Null {
           values.push(None)
           continue
@@ -455,7 +436,7 @@ fn build_json_column(
     JsonFloat => {
       let values : Array[Float?] = Array::new(capacity=n)
       for i in 0..<n {
-        let cell = lookup_field(records[i], name)
+        let cell = lookup_field(objs[i], name)
         if cell is Null {
           values.push(None)
           continue
@@ -481,7 +462,7 @@ fn build_json_column(
     JsonBool => {
       let values : Array[Bool?] = Array::new(capacity=n)
       for i in 0..<n {
-        let cell = lookup_field(records[i], name)
+        let cell = lookup_field(objs[i], name)
         if cell is Null {
           values.push(None)
           continue
@@ -507,7 +488,7 @@ fn build_json_column(
     JsonString => {
       let values : Array[String?] = Array::new(capacity=n)
       for i in 0..<n {
-        let cell = lookup_field(records[i], name)
+        let cell = lookup_field(objs[i], name)
         if cell is Null {
           values.push(None)
         } else {

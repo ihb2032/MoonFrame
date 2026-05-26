@@ -210,6 +210,124 @@ test "parse_json_records_str: typed mismatch past inference window errors" {
   assert_true(result is Err(@types.DataError::ParseError(_)))
 }
 
+///|
+test "parse_json_records_str: Float column with non-number past inference errors" {
+  // Inference locks Float on the first two records; the third
+  // sneaks a string in, which `json_value_as_float` rejects.
+  let content = "[{\"x\":1.5},{\"x\":2.5},{\"x\":\"oops\"}]"
+  let result = @io.parse_json_records_str(content, { infer_schema_rows: 2 })
+  assert_true(result is Err(@types.DataError::ParseError(_)))
+}
+
+///|
+test "parse_json_records_str: Bool column with non-bool past inference errors" {
+  // Locks Bool on the first two records, then rejects the numeric
+  // cell — `json_value_as_bool` refuses `Number(1)` per the same
+  // convention `parse_csv_str` uses for `parse_bool_opt`.
+  let content = "[{\"x\":true},{\"x\":false},{\"x\":1}]"
+  let result = @io.parse_json_records_str(content, { infer_schema_rows: 2 })
+  assert_true(result is Err(@types.DataError::ParseError(_)))
+}
+
+// ── inference edge cases ────────────────────────────────────────────
+
+///|
+test "parse_json_records_str: all-null column defaults to String dtype" {
+  // No non-null cell exists to disambiguate the dtype, so the
+  // inference pass falls back to the same `String` default the CSV
+  // reader uses for an entirely-null probe window.
+  let content = "[{\"x\":null},{\"x\":null}]"
+  let df = @io.parse_json_records_str(content, @io.JsonReadOptions::default()).unwrap()
+  assert_eq(df.get_column("x").unwrap().dtype(), @types.DataType::String)
+  assert_eq(df.get_column("x").unwrap().null_count(), 2)
+}
+
+///|
+test "parse_json_records_str: Bool + Int mix collapses to String" {
+  // `true` kills the Int / Float / String candidates while keeping
+  // Bool; `1` then kills Bool. With every candidate false, the
+  // final `else` branch in the dtype cascade returns `JsonString`
+  // and the build pass restringifies each cell via the fallback
+  // (`True → "true"`, `Number(1, ..) → "1"`).
+  let content = "[{\"x\":true},{\"x\":false},{\"x\":1}]"
+  let df = @io.parse_json_records_str(content, @io.JsonReadOptions::default()).unwrap()
+  assert_eq(df.get_column("x").unwrap().dtype(), @types.DataType::String)
+  assert_eq(df.get(0, "x"), Ok(@types.Scalar::String("true")))
+  assert_eq(df.get(1, "x"), Ok(@types.Scalar::String("false")))
+  assert_eq(df.get(2, "x"), Ok(@types.Scalar::String("1")))
+}
+
+///|
+test "parse_json_records_str: nested array / object cells fall back to String" {
+  // Nested composites have no scalar dtype to slot under, so the
+  // inference pass strikes out on every candidate and falls back
+  // to `String`. The build pass then serialises the composites via
+  // `@json.stringify` so the cell still carries the original shape.
+  let content =
+    #|[{"x":[1,2,3]},{"x":{"k":1}}]
+  let df = @io.parse_json_records_str(content, @io.JsonReadOptions::default()).unwrap()
+  assert_eq(df.get_column("x").unwrap().dtype(), @types.DataType::String)
+  assert_eq(df.get(0, "x"), Ok(@types.Scalar::String("[1,2,3]")))
+  assert_eq(df.get(1, "x"), Ok(@types.Scalar::String("{\"k\":1}")))
+}
+
+// ── read_json / write_json_records: file-system path ────────────────
+
+///|
+test "write_json_records then read_json round-trips a small frame on disk" {
+  let path = "_build/io_json_test_roundtrip.json"
+  let df = @frame.DataFrame::new([
+    @frame.Series::from_ints("n", [1, 2, 3]),
+    @frame.Series::from_strings("s", ["x", "y", "z"]),
+  ]).unwrap()
+  assert_eq(@io.write_json_records(path, df), Ok(()))
+  let parsed = @io.read_json(path).unwrap()
+  assert_eq(parsed.check_invariants(), Ok(()))
+  assert_eq(parsed.shape(), (3, 2))
+  assert_eq(parsed.columns(), ["n", "s"])
+  assert_eq(parsed.get(2, "n"), Ok(@types.Scalar::Int(3)))
+  assert_eq(parsed.get(0, "s"), Ok(@types.Scalar::String("x")))
+}
+
+///|
+test "read_json_with_options honours a custom inference window" {
+  let path = "_build/io_json_test_custom.json"
+  let df = @frame.DataFrame::new([
+    @frame.Series::from_int_options("a", [Some(1), Some(2), Some(3)]),
+  ]).unwrap()
+  assert_eq(@io.write_json_records(path, df), Ok(()))
+  let parsed = @io.read_json_with_options(path, { infer_schema_rows: 1 }).unwrap()
+  assert_eq(parsed.check_invariants(), Ok(()))
+  assert_eq(parsed.get_column("a").unwrap().dtype(), @types.DataType::Int)
+}
+
+///|
+test "read_json: missing file surfaces as IoError, not panic" {
+  let result = @io.read_json("_build/io_json_test_does_not_exist.json")
+  assert_true(result is Err(@types.DataError::IoError(_)))
+}
+
+///|
+test "read_json_with_options: missing file surfaces as IoError" {
+  let result = @io.read_json_with_options(
+    "_build/io_json_test_does_not_exist.json",
+    @io.JsonReadOptions::default(),
+  )
+  assert_true(result is Err(@types.DataError::IoError(_)))
+}
+
+///|
+test "write_json_records: invalid path surfaces as IoError" {
+  // Same shape as the CSV writer error test: aim the writer at a
+  // directory that doesn't exist so the underlying `@fs` call
+  // surfaces `IOError`, which we promote to `DataError::IoError`.
+  let df = @frame.DataFrame::new([@frame.Series::from_ints("a", [1])]).unwrap()
+  let result = @io.write_json_records(
+    "_build/no_such_dir_io_json_test/file.json", df,
+  )
+  assert_true(result is Err(@types.DataError::IoError(_)))
+}
+
 // ── round-trip ──────────────────────────────────────────────────────
 
 ///|

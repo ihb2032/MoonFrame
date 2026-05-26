@@ -548,10 +548,83 @@ toggling, and quoting.
   `Err(DataError::IoError(message))`. `write_csv*` returns
   `Result[Unit, DataError]`.
 
-### Markdown + JSON (P12)
+### Markdown (P12)
 
-- `DataFrame::to_markdown` / `DataFrame::to_markdown_with_limit` — (pending)
-- `DataFrame::to_json_records` — (pending)
+Render a `DataFrame` as a GitHub-flavored pipe-table. The renderer is
+in-tree (no third-party Markdown library) and produces deterministic
+bytes for a given frame, so callers can pin output via exact-string
+assertions. Null cells render as the empty string, matching
+`Scalar::to_string`.
+
+- `to_markdown(df) -> String` — three blocks of pipe-bounded rows:
+  header (column names), separator (dashes), and one row per record
+  in declaration order. Column widths are
+  `max(header, every rendered cell)` with a 3-character minimum so
+  the separator never collapses below the GFM-required floor.
+  An empty 0-column frame returns the empty string; a 0-row frame
+  with N columns returns header + separator only.
+- `to_markdown_with_limit(df, limit) -> String` — same renderer but
+  capped at the first `limit` rows. If `df.nrows() > limit`, the
+  output appends `... (N more rows)` after the table. Negative
+  `limit` is clamped to 0 (header + separator + banner).
+
+### JSON (P12)
+
+Records-shape JSON (`[{...}, ...]`) round-trips a `DataFrame` against
+the builtin `@json` package, so string escaping / `NaN` / `Infinity`
+rendering / number formatting follow the standard library. The
+reader's dtype inference mirrors `parse_csv_str`
+(`Int → Float → Bool → String`) — the same CSV→JSON pipeline lands on
+the same dtypes.
+
+- `struct JsonReadOptions` — `infer_schema_rows` (default `100`).
+  - `JsonReadOptions::default()` — the defaults above.
+- `parse_json_records_str(content, options) -> Result[DataFrame, DataError]`
+  — string entry point. Pipeline:
+  1. `@json.parse` produces a `Json` AST. Anything other than a
+     top-level array surfaces as `Err(ParseError(...))`.
+  2. Every element must be a `Json::Object`; the underlying map is
+     extracted once so downstream passes can index by name without
+     re-matching the variant.
+  3. Headers are collected in first-seen order across **all** records
+     (not just the first), so a sparse record set still produces
+     every column the data contains. Missing fields on a record
+     become null cells.
+  4. Per-column dtype inference walks the first `infer_schema_rows`
+     non-null cells in priority order `Int → Float → Bool → String`.
+     `Number` cells lock to Int when `n == n.trunc()` and the value
+     fits `[Int::MIN, Int::MAX]`, otherwise Float — the same `1.0e2`
+     handling pandas uses. The Bool candidate accepts only JSON
+     `true` / `false` (numeric `0` / `1` round-trip as Int, matching
+     `parse_csv_str`). Mixed dtype within a single column collapses
+     to the String fallback, with numeric / boolean cells
+     re-serialised via `Double::to_string` / `"true"` / `"false"`
+     and nested arrays / objects round-tripped through
+     `@json.stringify`. An all-null probe window defaults to String
+     (same rule as the CSV reader).
+  5. Each column is wrapped as a `Series` and assembled through
+     `DataFrame::new`.
+  - Errors:
+    - `Err(ParseError(...))` — malformed JSON, top-level not an
+      array, a record that is not an object, or a non-null cell that
+      contradicts the column's inferred dtype (typed mismatch past
+      the inference window).
+    - `Err(DataError::IoError(_))` is **not** produced by
+      `parse_json_records_str` — it's reserved for the file wrappers.
+- `format_json_records(df) -> String` — string exit point. Each row
+  becomes a JSON object whose keys appear in `df.columns()` order
+  (preserved by the builtin linked-hash-map `Map`). Per cell:
+  `Null → null`; `Int` / `Float → number` (Float widened to Double
+  for serialisation); `Bool → true` / `false`; `String → JSON string`
+  with escaping delegated to the stringifier. Output is the compact
+  form `@json.stringify` produces by default (no spaces between
+  tokens).
+- `read_json(path)` / `read_json_with_options(path, options)` — file
+  wrappers around `parse_json_records_str`. Filesystem errors from
+  `moonbitlang/x/fs` surface as `Err(DataError::IoError(message))`.
+- `write_json_records(path, df)` — file wrapper around
+  `format_json_records`. Returns `Result[Unit, DataError]`; write
+  errors surface as `Err(DataError::IoError(message))`.
 
 ---
 

@@ -1,11 +1,41 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "ihb2032/MoonFrame/io"
 
+import {
+  "ihb2032/MoonFrame/frame",
+  "ihb2032/MoonFrame/types",
+}
+
 // Values
+pub fn format_csv_str(@frame.DataFrame, CsvWriteOptions) -> String
+
+pub fn parse_csv_str(String, CsvReadOptions) -> Result[@frame.DataFrame, @types.DataError]
+
+pub fn read_csv(String) -> Result[@frame.DataFrame, @types.DataError]
+
+pub fn read_csv_with_options(String, CsvReadOptions) -> Result[@frame.DataFrame, @types.DataError]
+
+pub fn write_csv(String, @frame.DataFrame) -> Result[Unit, @types.DataError]
+
+pub fn write_csv_with_options(String, @frame.DataFrame, CsvWriteOptions) -> Result[Unit, @types.DataError]
 
 // Errors
 
 // Types and methods
+pub(all) struct CsvReadOptions {
+  has_header : Bool
+  delimiter : Char
+  infer_schema_rows : Int
+  null_values : Array[String]
+}
+pub fn CsvReadOptions::default() -> Self
+
+pub(all) struct CsvWriteOptions {
+  header : Bool
+  delimiter : Char
+  null_value : String
+}
+pub fn CsvWriteOptions::default() -> Self
 
 // Type aliases
 

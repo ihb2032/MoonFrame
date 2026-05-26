@@ -74,7 +74,16 @@ v0.1 progress:
       `count` / `null_count` / `unique_count` / `mean` / `min` / `max`;
       `min` and `max` render via `Scalar::to_string` so the summary
       can carry extrema for any dtype in a single column
-- [ ] P11 – P12 — `io/` CSV / Markdown / JSON
+- [x] P11 — `io/` CSV: `parse_csv_str` / `format_csv_str` as the
+      string-in / string-out core, plus file wrappers `read_csv` /
+      `read_csv_with_options` / `write_csv` / `write_csv_with_options`
+      around `moonbitlang/x/fs`. Tokenisation delegates to
+      `moonbit-community/NyaCSV`; v0.1's contribution is per-column type
+      inference (`Int → Float → Bool → String`), configurable null
+      mapping via `CsvReadOptions::null_values`, header on/off
+      handling, and RFC 4180 quoting on the writer. Filesystem errors
+      surface as `Err(DataError::IoError(_))`
+- [ ] P12 — `io/` Markdown / JSON
 - [ ] P13 — facade re-exports, integration, examples
 
 GroupBy and Join land in v0.2; NDJSON also v0.2; HTML and chart-data
@@ -106,7 +115,8 @@ moon fmt       # format sources
 
 ## Dependencies
 
-- [`xunyoyo/NyaCSV`](https://mooncakes.io/docs/xunyoyo/NyaCSV) — CSV parser
+- [`moonbit-community/NyaCSV`](https://mooncakes.io/docs/moonbit-community/NyaCSV) —
+  CSV parser
 - [`moonbitlang/x`](https://mooncakes.io/docs/moonbitlang/x) — extra
   standard-library utilities (`@fs` for filesystem I/O)
 

@@ -3,8 +3,8 @@ name = "ihb2032/MoonFrame"
 version = "0.1.0"
 
 import {
-  "xunyoyo/NyaCSV@0.3.3",
   "moonbitlang/x@0.4.43",
+  "moonbit-community/NyaCSV@0.3.3",
 }
 
 readme = "README.md"

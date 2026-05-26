@@ -477,9 +477,79 @@ further ops or IO.
 
 > Implemented in **P11** (CSV) and **P12** (Markdown, JSON).
 
-- `struct CsvReadOptions` / `struct CsvWriteOptions` — (pending)
-- `read_csv` / `read_csv_with_options` — (pending)
-- `write_csv` / `write_csv_with_options` — (pending)
+### CSV (P11)
+
+Read and write CSV text against a `DataFrame`. Two layers ship: a
+string-in / string-out core (`parse_csv_str`, `format_csv_str`) so
+callers that already hold the bytes can stay off the file system, plus
+file-backed wrappers (`read_csv*`, `write_csv*`) that delegate to
+`moonbitlang/x/fs` and surface its `IOError` as
+`Err(DataError::IoError(message))`. The tokeniser is
+`moonbit-community/NyaCSV`;
+v0.1's contribution is type inference, null mapping, header
+toggling, and quoting.
+
+- `struct CsvReadOptions` — `has_header` / `delimiter` /
+  `infer_schema_rows` / `null_values`.
+  - `has_header` — when `true` (default), the first row supplies
+    column names. When `false`, every row is data and column names
+    are synthesised as `"column1"`, `"column2"`, … in declaration
+    order.
+  - `delimiter` — field separator passed straight through to NyaCSV.
+    Default `','`.
+  - `infer_schema_rows` — number of leading rows scanned when
+    inferring each column's dtype (default `100`). Cells past the
+    limit are parsed under the chosen dtype, so a cell that doesn't
+    fit surfaces as `ParseError` rather than silently dropping the
+    column to `String`.
+  - `null_values` — raw strings to treat as null (default `[""]`).
+    Null cells are skipped during inference and become `None` in
+    the typed column.
+  - `CsvReadOptions::default()` — the defaults above.
+- `struct CsvWriteOptions` — `header` / `delimiter` / `null_value`.
+  - `header` — when `true` (default), the first emitted row is the
+    column names. When `false`, only data rows are written.
+  - `delimiter` — field separator written between cells. Default
+    `','`.
+  - `null_value` — literal string for null cells (default `""`).
+    Round-trips with the reader's default `null_values`.
+  - `CsvWriteOptions::default()` — the defaults above.
+- `parse_csv_str(content, options) -> Result[DataFrame, DataError]`
+  — string entry point. The pipeline is:
+  1. NyaCSV tokenises the text. NyaCSV always lifts the first row
+     into the header position; when `has_header = false`, we fold
+     it back into the data section and synthesise column names.
+  2. Per-column inference walks the first `infer_schema_rows`
+     non-null cells in order `Int → Float → Bool → String`. The
+     first dtype that accepts every probed cell wins; a column with
+     no non-null probes lands on `String`.
+  3. Null mapping replaces any cell whose raw text sits in
+     `null_values` with `None`. Both quoted empty cells (`""`) and
+     bare empty cells are honoured.
+  4. Each column is wrapped as a `Series` and assembled through
+     `DataFrame::new`.
+  - Errors:
+    - `Err(DuplicateColumn(name))` — two headers share a name.
+    - `Err(ParseError(...))` — a non-null cell does not parse under
+      its column's inferred dtype (typically because a later cell
+      contradicts the inference window).
+    - `Err(DataError::IoError(_))` is **not** produced by
+      `parse_csv_str` — it's reserved for the file-backed wrappers.
+- `format_csv_str(df, options) -> String` — string exit point. Cells
+  render via `Scalar::to_string`; null cells use `options.null_value`.
+  Cells / headers that contain `options.delimiter`, a double quote,
+  CR, or LF are wrapped in double quotes, with interior `"` doubled
+  per RFC 4180. Lines are terminated with LF (`\n`).
+- `read_csv(path)` / `read_csv_with_options(path, options)` — file
+  wrappers around `parse_csv_str`. Read errors from the underlying
+  `moonbitlang/x/fs` surface as `Err(DataError::IoError(message))`.
+- `write_csv(path, df)` / `write_csv_with_options(path, df, options)`
+  — file wrappers around `format_csv_str`. Write errors surface as
+  `Err(DataError::IoError(message))`. `write_csv*` returns
+  `Result[Unit, DataError]`.
+
+### Markdown + JSON (P12)
+
 - `DataFrame::to_markdown` / `DataFrame::to_markdown_with_limit` — (pending)
 - `DataFrame::to_json_records` — (pending)
 

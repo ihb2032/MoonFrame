@@ -1,13 +1,117 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "ihb2032/MoonFrame"
 
+import {
+  "ihb2032/MoonFrame/column",
+  "ihb2032/MoonFrame/frame",
+  "ihb2032/MoonFrame/io",
+  "ihb2032/MoonFrame/ops",
+  "ihb2032/MoonFrame/types",
+}
+
 // Values
+pub fn count(@frame.DataFrame, String) -> Result[Int, @types.DataError]
+
+pub fn describe(@frame.DataFrame) -> @frame.DataFrame
+
+pub fn drop(@frame.DataFrame, Array[String]) -> Result[@frame.DataFrame, @types.DataError]
+
+pub fn drop_nulls(@frame.DataFrame) -> Result[@frame.DataFrame, @types.DataError]
+
+pub fn drop_nulls_in(@frame.DataFrame, Array[String]) -> Result[@frame.DataFrame, @types.DataError]
+
+pub fn fill_null(@frame.DataFrame, String, @types.Scalar) -> Result[@frame.DataFrame, @types.DataError]
+
+pub fn filter(@frame.DataFrame, (@frame.RowView) -> Bool) -> Result[@frame.DataFrame, @types.DataError]
+
+pub fn filter_try(@frame.DataFrame, (@frame.RowView) -> Result[Bool, @types.DataError]) -> Result[@frame.DataFrame, @types.DataError]
+
+pub fn format_csv_str(@frame.DataFrame, @io.CsvWriteOptions) -> String
+
+pub fn format_json_records(@frame.DataFrame) -> String
+
+pub fn max(@frame.DataFrame, String) -> Result[@types.Scalar, @types.DataError]
+
+pub fn mean(@frame.DataFrame, String) -> Result[Float, @types.DataError]
+
+pub fn min(@frame.DataFrame, String) -> Result[@types.Scalar, @types.DataError]
+
+pub fn null_count(@frame.DataFrame) -> @frame.DataFrame
+
+pub fn parse_csv_str(String, @io.CsvReadOptions) -> Result[@frame.DataFrame, @types.DataError]
+
+pub fn parse_json_records_str(String, @io.JsonReadOptions) -> Result[@frame.DataFrame, @types.DataError]
+
+pub fn read_csv(String) -> Result[@frame.DataFrame, @types.DataError]
+
+pub fn read_csv_with_options(String, @io.CsvReadOptions) -> Result[@frame.DataFrame, @types.DataError]
+
+pub fn read_json(String) -> Result[@frame.DataFrame, @types.DataError]
+
+pub fn read_json_with_options(String, @io.JsonReadOptions) -> Result[@frame.DataFrame, @types.DataError]
+
+pub fn rename(@frame.DataFrame, Array[(String, String)]) -> Result[@frame.DataFrame, @types.DataError]
+
+pub fn replace_column(@frame.DataFrame, String, @frame.Series) -> Result[@frame.DataFrame, @types.DataError]
+
+pub fn select(@frame.DataFrame, Array[String]) -> Result[@frame.DataFrame, @types.DataError]
+
+pub fn sort_by(@frame.DataFrame, @ops.SortSpec) -> Result[@frame.DataFrame, @types.DataError]
+
+pub fn sort_by_many(@frame.DataFrame, Array[@ops.SortSpec]) -> Result[@frame.DataFrame, @types.DataError]
+
+pub fn sum(@frame.DataFrame, String) -> Result[@types.Scalar, @types.DataError]
+
+pub fn to_markdown(@frame.DataFrame) -> String
+
+pub fn to_markdown_with_limit(@frame.DataFrame, Int) -> String
+
+pub fn with_column(@frame.DataFrame, @frame.Series) -> Result[@frame.DataFrame, @types.DataError]
+
+pub fn write_csv(String, @frame.DataFrame) -> Result[Unit, @types.DataError]
+
+pub fn write_csv_with_options(String, @frame.DataFrame, @io.CsvWriteOptions) -> Result[Unit, @types.DataError]
+
+pub fn write_json_records(String, @frame.DataFrame) -> Result[Unit, @types.DataError]
 
 // Errors
 
 // Types and methods
 
 // Type aliases
+pub using @column {type Bitmap}
+
+pub using @column {type BuiltinColumn}
+
+pub using @column {type ColumnData}
+
+pub using @io {type CsvReadOptions}
+
+pub using @io {type CsvWriteOptions}
+
+pub using @types {type DataError}
+
+pub using @frame {type DataFrame}
+
+pub using @types {type DataType}
+
+pub using @types {type Field}
+
+pub using @io {type JsonReadOptions}
+
+pub using @ops {type NullOrder}
+
+pub using @frame {type RowView}
+
+pub using @types {type Scalar}
+
+pub using @types {type Schema}
+
+pub using @frame {type Series}
+
+pub using @ops {type SortOrder}
+
+pub using @ops {type SortSpec}
 
 // Traits
 

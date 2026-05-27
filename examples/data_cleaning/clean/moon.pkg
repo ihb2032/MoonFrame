@@ -1,0 +1,7 @@
+import {
+  "ihb2032/MoonFrame" @moonframe,
+}
+
+import {
+  "moonbitlang/core/test",
+} for "test"

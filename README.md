@@ -95,7 +95,24 @@ v0.1 progress:
       with the same `Int → Float → Bool → String` inference the CSV
       reader uses; sparse records are tolerated (missing fields →
       null, late-appearing columns still surface)
-- [ ] P13 — facade re-exports, integration, examples
+- [x] P13 — facade re-exports + integration tests + runnable
+      examples: `moonframe.mbt` re-exports every v0.1 public symbol
+      from the five sub-packages via `pub using`, so callers can
+      `import "ihb2032/MoonFrame" @moonframe` and reach the whole
+      surface as `@moonframe.DataFrame` / `@moonframe.parse_csv_str`
+      / `@moonframe.SortSpec::desc(...)` / etc. Sub-package imports
+      (`@types` / `@column` / `@frame` / `@ops` / `@io`) remain
+      supported for callers who only need a slice. A
+      `pipeline_test.mbt` exercises every layer through the facade
+      (read → filter → select → sort → describe → markdown) so a
+      missing re-export surfaces as a compile error instead of a
+      silent gap. Two runnable examples ship under `examples/`:
+      `sales_analysis` (widgets-only filter + sort + describe) and
+      `data_cleaning` (null gating + fill + CSV round-trip). Each
+      example splits its logic into a library sub-package with full
+      blackbox tests; the `main.mbt` orchestrator is
+      `#coverage.skip`-marked since the meaningful behaviour lives
+      in the tested helpers
 
 GroupBy and Join land in v0.2; NDJSON also v0.2; HTML and chart-data
 export in v0.3; an expression / lazy query layer in v0.4.
@@ -114,6 +131,44 @@ docs/api.md     public API reference (source of truth)
 
 Each subpackage carries its sources, its `*_test.mbt` blackbox tests, and
 its `pkg.generated.mbti` interface snapshot.
+
+## Usage
+
+```moonbit
+// One import covers the whole v0.1 surface — the facade re-exports
+// every public symbol from types / column / frame / ops / io.
+import "ihb2032/MoonFrame" @moonframe
+
+fn run(
+  path : String,
+) -> Result[String, @moonframe.DataError] {
+  @moonframe.read_csv(path)
+    .bind(df => @moonframe.filter_try(df, row =>
+      row.get_string("product").map(name => name == "widget")))
+    .bind(widgets => @moonframe.sort_by(
+      widgets,
+      @moonframe.SortSpec::desc("quantity"),
+    ))
+    .map(sorted => @moonframe.to_markdown(@moonframe.describe(sorted)))
+}
+```
+
+Sub-package imports (`@types`, `@column`, `@frame`, `@ops`, `@io`)
+remain supported for callers who only need a slice.
+
+## Examples
+
+Run the bundled examples from the project root:
+
+```sh
+moon run examples/sales_analysis    # read_csv → filter → select → sort → describe → markdown
+moon run examples/data_cleaning     # read_csv → drop_nulls_in → fill_null → write_csv round-trip
+```
+
+Each example splits its pipeline logic into a library sub-package
+(`examples/<name>/<logic>/`) tested via blackbox `*_test.mbt`,
+while the top-level `main.mbt` is a thin `read → run → println`
+orchestrator (`#coverage.skip`-marked).
 
 ## Building
 

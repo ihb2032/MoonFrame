@@ -1,0 +1,21 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ihb2032/MoonFrame/examples/sales_analysis/pipeline"
+
+import {
+  "ihb2032/MoonFrame/frame",
+  "ihb2032/MoonFrame/types",
+}
+
+// Values
+pub fn is_widget_row(@frame.RowView) -> Result[Bool, @types.DataError]
+
+pub fn widget_report(@frame.DataFrame) -> Result[(@frame.DataFrame, @frame.DataFrame), @types.DataError]
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

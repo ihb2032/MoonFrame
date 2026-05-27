@@ -1,13 +1,16 @@
 # MoonFrame v0.1 — Public API
 
-> Status: **skeleton only.** This document is the source of truth for the
-> v0.1 public surface. Each phase fills in its section as it ships.
+> Status: **complete** (P13 shipped). This document is the source of
+> truth for the v0.1 public surface. Each phase filled in its section
+> as it shipped; the facade re-exports them all in one place.
 > When a symbol is published in code, it must appear here.
 
-Once **P13** lands, the facade package `ihb2032/MoonFrame` will re-export
-all symbols below. Until then, import the sub-packages
-(`types`, `column`, `frame`, `ops`, `io`) directly — sub-package imports
-remain supported even after the facade ships.
+The facade package `ihb2032/MoonFrame` re-exports every symbol below
+via `pub using @<subpkg> { ... }`, so a single
+`import "ihb2032/MoonFrame" @moonframe` is enough to reach the whole
+v0.1 surface. Sub-package imports (`@types`, `@column`, `@frame`,
+`@ops`, `@io`) remain supported for callers that only need a slice —
+the facade is additive.
 
 ---
 
@@ -625,6 +628,50 @@ the same dtypes.
 - `write_json_records(path, df)` — file wrapper around
   `format_json_records`. Returns `Result[Unit, DataError]`; write
   errors surface as `Err(DataError::IoError(message))`.
+
+---
+
+## `moonframe` — Facade package
+
+> Implemented in **P13** (`moonframe.mbt`). Every symbol listed
+> above is re-exported from this package via `pub using` so callers
+> can reach the whole v0.1 surface through one import; the facade
+> adds no symbols of its own. Sub-package imports remain supported.
+
+### From `@types`
+
+`type DataError` · `type DataType` · `type Scalar` · `type Field` ·
+`type Schema`
+
+### From `@column`
+
+`type Bitmap` · `type BuiltinColumn` · `type ColumnData`
+
+### From `@frame`
+
+`type Series` · `type DataFrame` · `type RowView`
+
+### From `@ops`
+
+`type SortOrder` · `type NullOrder` · `type SortSpec` ·
+`count` · `describe` · `drop` · `drop_nulls` · `drop_nulls_in` ·
+`fill_null` · `filter` · `filter_try` · `max` · `mean` · `min` ·
+`null_count` · `rename` · `replace_column` · `select` · `sort_by` ·
+`sort_by_many` · `sum` · `with_column`
+
+### From `@io`
+
+`type CsvReadOptions` · `type CsvWriteOptions` ·
+`type JsonReadOptions` · `format_csv_str` · `format_json_records` ·
+`parse_csv_str` · `parse_json_records_str` · `read_csv` ·
+`read_csv_with_options` · `read_json` · `read_json_with_options` ·
+`to_markdown` · `to_markdown_with_limit` · `write_csv` ·
+`write_csv_with_options` · `write_json_records`
+
+> `using @pkg { type T }` automatically creates constructor aliases,
+> so `@moonframe.Scalar::Int(42)`, `@moonframe.SortSpec::desc("x")`,
+> `@moonframe.DataError::ColumnNotFound("y")` etc. all resolve
+> through the facade without an additional re-export entry.
 
 ---
 

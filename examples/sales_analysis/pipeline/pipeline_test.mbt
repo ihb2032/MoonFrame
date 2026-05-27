@@ -1,0 +1,113 @@
+// Blackbox tests for the sales-analysis pipeline helpers. The CSV
+// inputs are driven through `parse_csv_str` so the tests are
+// deterministic and file-free; `main.mbt` is the only piece that
+// touches `read_csv`.
+
+///|
+test "widget_report: keeps widget rows, projects 4 cols, sorts by quantity desc" {
+  let csv =
+    #|region,product,price,quantity,revenue,active
+    #|west,widget,9.5,12,114.0,true
+    #|east,gadget,12.0,8,96.0,true
+    #|north,widget,9.5,5,47.5,false
+    #|south,gadget,12.0,10,120.0,true
+    #|east,widget,9.5,7,66.5,false
+    #|
+  let df = @moonframe.parse_csv_str(csv, @moonframe.CsvReadOptions::default()).unwrap()
+  let (sorted, summary) = widget_report(df).unwrap()
+
+  // The filter kept the three widget rows; select pinned the 4
+  // columns in declaration order; sort_by put quantity = 12 first.
+  assert_eq(sorted.shape(), (3, 4))
+  assert_eq(sorted.columns(), ["region", "price", "quantity", "revenue"])
+  assert_eq(sorted.get(0, "region"), Ok(@moonframe.Scalar::String("west")))
+  assert_eq(sorted.get(0, "quantity"), Ok(@moonframe.Scalar::Int(12)))
+  assert_eq(sorted.get(2, "quantity"), Ok(@moonframe.Scalar::Int(5)))
+  assert_eq(sorted.check_invariants(), Ok(()))
+
+  // `describe` returns the fixed 8-column summary, one row per
+  // projected source column.
+  assert_eq(summary.shape(), (4, 8))
+  assert_eq(summary.get(0, "column"), Ok(@moonframe.Scalar::String("region")))
+  assert_eq(summary.check_invariants(), Ok(()))
+}
+
+///|
+test "widget_report: empty product set collapses to a 0-row widget frame" {
+  let csv =
+    #|region,product,price,quantity,revenue,active
+    #|west,gadget,12.0,8,96.0,true
+    #|south,gizmo,15.0,3,45.0,true
+    #|
+  let df = @moonframe.parse_csv_str(csv, @moonframe.CsvReadOptions::default()).unwrap()
+  let (sorted, summary) = widget_report(df).unwrap()
+  // No widgets in the source → kept row count is zero, but the
+  // projection keeps the schema verbatim.
+  assert_eq(sorted.shape(), (0, 4))
+  assert_eq(sorted.columns(), ["region", "price", "quantity", "revenue"])
+  // `describe` still produces an N×8 row-per-column summary.
+  assert_eq(summary.shape(), (4, 8))
+}
+
+///|
+test "widget_report: missing `product` column surfaces as ColumnNotFound" {
+  // The pipeline reads `product` to decide row inclusion; if the
+  // source frame is missing it, `is_widget_row` should bubble the
+  // accessor error up through `filter_try` rather than silently
+  // exclude every row.
+  let df = @moonframe.DataFrame::new([
+    @moonframe.Series::from_ints("id", [1, 2, 3]),
+  ]).unwrap()
+  assert_true(
+    widget_report(df) is Err(@moonframe.DataError::ColumnNotFound("product")),
+  )
+}
+
+///|
+test "widget_report: select error surfaces when a required column is missing" {
+  // `product` exists (so the filter succeeds) but `region` does not
+  // — the next step (`select`) must propagate the ColumnNotFound.
+  let df = @moonframe.DataFrame::new([
+    @moonframe.Series::from_strings("product", ["widget", "gadget"]),
+  ]).unwrap()
+  assert_true(
+    widget_report(df) is Err(@moonframe.DataError::ColumnNotFound("region")),
+  )
+}
+
+///|
+test "widget_report: sort_by error surfaces when `quantity` is missing post-filter" {
+  // Hand-build a frame that has `product` + `region` + `price` +
+  // `revenue` but no `quantity`. `select` fails when it asks for
+  // `quantity` — so this also exercises the `select` error path,
+  // but with a different missing column from the previous case.
+  let df = @moonframe.DataFrame::new([
+    @moonframe.Series::from_strings("product", ["widget"]),
+    @moonframe.Series::from_strings("region", ["west"]),
+    @moonframe.Series::from_floats("price", [9.5]),
+    @moonframe.Series::from_floats("revenue", [114.0]),
+  ]).unwrap()
+  assert_true(
+    widget_report(df) is Err(@moonframe.DataError::ColumnNotFound("quantity")),
+  )
+}
+
+///|
+test "is_widget_row: predicate returns true/false for matching / non-matching cells" {
+  // Hand-construct a tiny frame so we can open RowViews directly
+  // and exercise both branches of the predicate.
+  let df = @moonframe.DataFrame::new([
+    @moonframe.Series::from_strings("product", ["widget", "gadget"]),
+  ]).unwrap()
+  assert_eq(is_widget_row(df.row(0).unwrap()), Ok(true))
+  assert_eq(is_widget_row(df.row(1).unwrap()), Ok(false))
+}
+
+///|
+test "is_widget_row: surfaces accessor error when `product` column is absent" {
+  let df = @moonframe.DataFrame::new([@moonframe.Series::from_ints("id", [1])]).unwrap()
+  assert_true(
+    is_widget_row(df.row(0).unwrap())
+    is Err(@moonframe.DataError::ColumnNotFound("product")),
+  )
+}

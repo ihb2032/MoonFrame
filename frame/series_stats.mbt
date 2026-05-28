@@ -77,8 +77,12 @@ pub fn Series::sum(self : Series) -> Result[@types.Scalar, @types.DataError] {
 }
 
 ///|
-/// Arithmetic mean of non-null cells, returned as `Float` (`Int` sums
-/// are promoted).
+/// Arithmetic mean of non-null cells, returned as `Float`.
+///
+/// The division is performed in 64-bit `Double` and narrowed to `Float`
+/// on return — for both `Int` and `Float` columns — so a long column
+/// whose sum exceeds the 24-bit `Float` significand (`> 2^24`) does not
+/// lose precision the way a 32-bit `Float::from_int(sum) / cnt` would.
 ///
 /// - Empty / all-null numeric series → `Err(InvalidOperation(...))`.
 /// - Non-numeric series → `Err(TypeMismatch(...))`.
@@ -89,8 +93,12 @@ pub fn Series::mean(self : Series) -> Result[Float, @types.DataError] {
       if cnt == 0 {
         Err(@types.DataError::InvalidOperation("mean of empty/all-null series"))
       } else {
+        // Accumulate / divide in Double, then narrow — keeps the result
+        // accurate for sums beyond the 24-bit Float significand.
         Ok(
-          Float::from_int(sum_int_valid(data, validity)) / Float::from_int(cnt),
+          Float::from_double(
+            sum_int_valid(data, validity).to_double() / cnt.to_double(),
+          ),
         )
       }
     Err(_) =>

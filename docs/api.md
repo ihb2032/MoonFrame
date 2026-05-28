@@ -179,9 +179,12 @@ the facade is additive.
   accumulate in 64-bit `Double` (then narrow to `Float`) to limit
   rounding drift; `NaN` cells are skipped (treated as missing, like
   `min` / `max` and `@ops.sort_by`).
-- `mean()` — `Float` result (Int sums promoted; `Float` accumulates in
-  64-bit `Double` and skips `NaN`, dividing by the non-NaN count).
-  Empty / all-null / all-NaN numeric → `Err(InvalidOperation)`.
+- `mean()` — `Float` result. The division is done in 64-bit `Double`
+  (then narrowed) for **both** `Int` and `Float` columns, so a long
+  column whose sum exceeds the 24-bit `Float` significand (`> 2^24`)
+  stays accurate instead of drifting through a 32-bit
+  `Float::from_int(sum)`. `Float` skips `NaN`, dividing by the non-NaN
+  count. Empty / all-null / all-NaN numeric → `Err(InvalidOperation)`.
   Non-numeric → `Err(TypeMismatch)`.
 - `min()` / `max()` — supported on every dtype; empty / all-null returns
   `Ok(Scalar::Null)`. `Float` NaN is treated as missing (skipped),
@@ -540,7 +543,13 @@ toggling, and quoting.
   2. Per-column inference walks the first `infer_schema_rows`
      non-null cells in order `Int → Float → Bool → String`. The
      first dtype that accepts every probed cell wins; a column with
-     no non-null probes lands on `String`.
+     no non-null probes lands on `String`. `Int` / `Float` accept
+     only plain base-10 numbers: `0x` / `0o` / `0b` prefixes and
+     underscore grouping (`1_000`) are **rejected** and kept as
+     `String` (matching pandas / polars), while the `Float` literals
+     `inf` / `-inf` / `nan` are accepted as ±Infinity / NaN values.
+     A decimal integer that overflows 32-bit `Int` falls through to
+     `Float`.
   3. Null mapping replaces any cell whose raw text sits in
      `null_values` with `None`. Both quoted empty cells (`""`) and
      bare empty cells are honoured.
@@ -572,7 +581,10 @@ Render a `DataFrame` as a GitHub-flavored pipe-table. The renderer is
 in-tree (no third-party Markdown library) and produces deterministic
 bytes for a given frame, so callers can pin output via exact-string
 assertions. Null cells render as the empty string, matching
-`Scalar::to_string`.
+`Scalar::to_string`. Cell values and column names are GFM-escaped: a
+literal `|` becomes `\|` and CR / LF collapse to a single space, so
+data containing pipes or newlines can't corrupt the table structure
+(column widths are measured on the escaped text).
 
 - `to_markdown(df) -> String` — three blocks of pipe-bounded rows:
   header (column names), separator (dashes), and one row per record

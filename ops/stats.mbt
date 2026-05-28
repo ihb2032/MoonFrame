@@ -67,7 +67,8 @@ pub fn mean(
 ///|
 /// Minimum non-null cell in `column`, by the natural order of the
 /// column's dtype. Empty or all-null columns return `Ok(Scalar::Null)`.
-/// `Float` NaN follows IEEE 754 — see `Series::min` for the details.
+/// `Float` NaN is treated as missing (skipped), matching `sort_by` and
+/// pandas — see `Series::min` for the details.
 ///
 /// Errors:
 /// - `Err(ColumnNotFound(column))` — `column` doesn't exist in `df`.

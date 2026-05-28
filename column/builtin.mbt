@@ -169,10 +169,14 @@ pub fn BuiltinColumn::get(
 ///|
 /// Half-open `[start, end)` slice. Requires `0 <= start <= end <= len`.
 ///
-/// Errors:
-/// - `IndexOutOfBounds(start)` when `start < 0` or `start > len`.
+/// Errors (checked in this order):
+/// - `IndexOutOfBounds(start)` when `start < 0`.
 /// - `IndexOutOfBounds(end)` when `end > len`.
 /// - `InvalidOperation("slice start > end: ...")` when `start > end`.
+///
+/// `start > len` is not a separate case: it can only occur together with
+/// `end > len` (→ `IndexOutOfBounds(end)`) or `start > end`
+/// (→ `InvalidOperation`), both already rejected above.
 pub fn BuiltinColumn::slice(
   self : BuiltinColumn,
   start : Int,

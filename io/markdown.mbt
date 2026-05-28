@@ -59,11 +59,15 @@ pub fn to_markdown_with_limit(df : @frame.DataFrame, limit : Int) -> String {
 /// column, regardless of `shown` — a header-only table is still
 /// useful shape information for callers limiting output.
 fn format_markdown(df : @frame.DataFrame, shown : Int) -> String {
-  let names = df.columns()
-  let ncols = names.length()
+  // `raw_names` is used to look cells up in the frame; `names` is the
+  // GFM-escaped form used for both width computation and rendering, so
+  // a column name containing `|` / newline can't corrupt the table.
+  let raw_names = df.columns()
+  let ncols = raw_names.length()
   if ncols == 0 {
     return ""
   }
+  let names = raw_names.map(escape_md_cell)
   // Pre-render every visible cell so column widths can be computed in
   // one forward pass before any layout. The cost is one `Scalar`
   // allocation per cell, which is negligible compared to the I/O the
@@ -71,12 +75,12 @@ fn format_markdown(df : @frame.DataFrame, shown : Int) -> String {
   let cells : Array[Array[String]] = []
   for r in 0..<shown {
     let row : Array[String] = []
-    for name in names {
+    for name in raw_names {
       // `df.get(r, name)` cannot fail here: `name` comes from
       // `df.columns()` (so it exists) and `r` ranges over `[0, shown)`
       // where `shown <= df.nrows()`.
       let scalar = df.get(r, name).unwrap()
-      row.push(scalar.to_string())
+      row.push(escape_md_cell(scalar.to_string()))
     }
     cells.push(row)
   }
@@ -147,4 +151,26 @@ fn write_row(
 /// supplementary-plane glyph lines up with shorter ASCII neighbours.
 fn char_count(s : String) -> Int {
   s.iter().count()
+}
+
+///|
+/// Escape a value for a GFM table cell. A literal `|` is rewritten to
+/// `\|` so it doesn't split the cell into extra columns, and CR / LF
+/// are collapsed to a single space so a multi-line value can't
+/// terminate the table row mid-cell. Everything else passes through.
+/// Width alignment runs on the escaped form (callers escape before
+/// measuring), so the `\|` two-character expansion is accounted for.
+fn escape_md_cell(s : String) -> String {
+  let buf = StringBuilder::new()
+  for ch in s.iter() {
+    if ch == '|' {
+      buf.write_char('\\')
+      buf.write_char('|')
+    } else if ch == '\n' || ch == '\r' {
+      buf.write_char(' ')
+    } else {
+      buf.write_char(ch)
+    }
+  }
+  buf.to_string()
 }

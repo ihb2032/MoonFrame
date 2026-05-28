@@ -65,6 +65,24 @@ test "to_markdown: null cells render as the empty string" {
   assert_eq(@io.to_markdown(df), expected)
 }
 
+///|
+test "to_markdown: escapes pipe and newline in headers and cells" {
+  // A `|` in a header or cell is escaped to `\|` so it doesn't split
+  // the GFM cell; CR / LF become a space so a multi-line value can't
+  // terminate the row mid-cell. Width alignment runs on the escaped
+  // text, so the `\|` expansion is measured correctly.
+  let df = @frame.DataFrame::new([
+    @frame.Series::from_strings("a|b", ["x|y", "p\r\nq"]),
+  ]).unwrap()
+  let expected =
+    #|| a\|b |
+    #|| ---- |
+    #|| x\|y |
+    #|| p  q |
+    #|
+  assert_eq(@io.to_markdown(df), expected)
+}
+
 // ── width / alignment ───────────────────────────────────────────────
 
 ///|

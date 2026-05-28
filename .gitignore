@@ -5,3 +5,4 @@ _build/
 *.txt
 .claude/
 PLAN*.md
+REVIEW_FINDINGS.md

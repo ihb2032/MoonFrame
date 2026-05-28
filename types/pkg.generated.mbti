@@ -6,6 +6,7 @@ import {
 }
 
 // Values
+pub fn compare_string_lex(String, String) -> Int
 
 // Errors
 

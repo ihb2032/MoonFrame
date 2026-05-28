@@ -279,10 +279,7 @@ pub fn DataFrame::get(
   row : Int,
   name : String,
 ) -> Result[@types.Scalar, @types.DataError] {
-  match self.get_column(name) {
-    Err(e) => Err(e)
-    Ok(s) => s.get(row)
-  }
+  self.get_column(name).bind(s => s.get(row))
 }
 
 ///|
@@ -388,12 +385,9 @@ pub fn DataFrame::take(
       return Err(@types.DataError::IndexOutOfBounds(i))
     }
   }
-  let new_cols : Array[Series] = []
-  for c in self.columns {
-    // Indices were just validated against `self.nrows`; per-column
-    // `take` cannot fail.
-    new_cols.push(c.take(indices).unwrap())
-  }
+  // Indices were just validated against `self.nrows`; per-column `take`
+  // cannot fail.
+  let new_cols = self.columns.map(c => c.take(indices).unwrap())
   Ok({
     schema: self.schema,
     columns: new_cols,

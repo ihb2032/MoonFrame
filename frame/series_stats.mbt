@@ -9,37 +9,62 @@ pub fn Series::count(self : Series) -> Int {
 }
 
 ///|
+/// Sum of the valid (non-null) cells of an `Int` buffer. Factored out so
+/// `sum` and `mean` share a single null-skipping accumulation instead of
+/// each carrying its own copy.
+fn sum_int_valid(data : Array[Int], validity : @column.Bitmap) -> Int {
+  data.foldi(init=0, (i, acc, x) => {
+    if validity.is_valid(i).unwrap() {
+      acc + x
+    } else {
+      acc
+    }
+  })
+}
+
+///|
+/// Sum and count of the valid, non-`NaN` cells of a `Float` buffer.
+/// `NaN` is treated as missing (skipped), matching `min` / `max` and
+/// `@ops.sort_by`. The sum accumulates in 64-bit `Double` to limit
+/// rounding error — the column stores 32-bit `Float`, and naive 32-bit
+/// accumulation drifts as the column grows; callers narrow back to
+/// `Float`. The returned count excludes both nulls and `NaN`s, which is
+/// the denominator `mean` needs (`Series::count` would over-count NaN).
+fn sum_count_float_valid(
+  data : Array[Float],
+  validity : @column.Bitmap,
+) -> (Double, Int) {
+  data.foldi(init=((0.0 : Double), 0), (i, acc, x) => {
+    let (s, c) = acc
+    if validity.is_valid(i).unwrap() && !x.is_nan() {
+      (s + x.to_double(), c + 1)
+    } else {
+      (s, c)
+    }
+  })
+}
+
+///|
 /// Sum of non-null cells.
 ///
 /// - `Int` series → `Scalar::Int(sum)`. MoonBit's default `Int` is
 ///   32-bit so very large inputs wrap silently (no overflow trap in
 ///   v0.1).
-/// - `Float` series → `Scalar::Float(sum)`. NaN follows IEEE 754
-///   (any NaN addend yields NaN).
-/// - Empty / all-null numeric series → `Scalar::Int(0)` or
-///   `Scalar::Float(0.0)` (additive identity).
+/// - `Float` series → `Scalar::Float(sum)`, accumulated in 64-bit
+///   `Double` then narrowed. `NaN` cells are skipped (treated as
+///   missing, matching `min` / `max` and `@ops.sort_by`).
+/// - Empty / all-null (or all-`NaN` `Float`) numeric series →
+///   `Scalar::Int(0)` or `Scalar::Float(0.0)` (additive identity).
 /// - Non-numeric series (`Bool`, `String`) → `Err(TypeMismatch)`.
 pub fn Series::sum(self : Series) -> Result[@types.Scalar, @types.DataError] {
   match self.storage.int_values() {
-    Ok((data, validity)) => {
-      let mut s = 0
-      for i in 0..<data.length() {
-        if validity.is_valid(i).unwrap() {
-          s = s + data[i]
-        }
-      }
-      Ok(@types.Scalar::Int(s))
-    }
+    Ok((data, validity)) =>
+      Ok(@types.Scalar::Int(sum_int_valid(data, validity)))
     Err(_) =>
       match self.storage.float_values() {
         Ok((data, validity)) => {
-          let mut s : Float = 0.0
-          for i in 0..<data.length() {
-            if validity.is_valid(i).unwrap() {
-              s = s + data[i]
-            }
-          }
-          Ok(@types.Scalar::Float(s))
+          let (s, _) = sum_count_float_valid(data, validity)
+          Ok(@types.Scalar::Float(Float::from_double(s)))
         }
         Err(_) =>
           Err(
@@ -64,32 +89,26 @@ pub fn Series::mean(self : Series) -> Result[Float, @types.DataError] {
       if cnt == 0 {
         Err(@types.DataError::InvalidOperation("mean of empty/all-null series"))
       } else {
-        let mut s = 0
-        for i in 0..<data.length() {
-          if validity.is_valid(i).unwrap() {
-            s = s + data[i]
-          }
-        }
-        Ok(Float::from_int(s) / Float::from_int(cnt))
+        Ok(
+          Float::from_int(sum_int_valid(data, validity)) / Float::from_int(cnt),
+        )
       }
     Err(_) =>
       match self.storage.float_values() {
-        Ok((data, validity)) =>
-          if cnt == 0 {
+        Ok((data, validity)) => {
+          // NaN cells are skipped, so divide by the non-NaN count, not
+          // `cnt` (which counts NaN as present).
+          let (s, c) = sum_count_float_valid(data, validity)
+          if c == 0 {
             Err(
               @types.DataError::InvalidOperation(
-                "mean of empty/all-null series",
+                "mean of empty / all-null / all-NaN series",
               ),
             )
           } else {
-            let mut s : Float = 0.0
-            for i in 0..<data.length() {
-              if validity.is_valid(i).unwrap() {
-                s = s + data[i]
-              }
-            }
-            Ok(s / Float::from_int(cnt))
+            Ok(Float::from_double(s / c.to_double()))
           }
+        }
         Err(_) =>
           Err(
             @types.DataError::TypeMismatch(
@@ -104,21 +123,23 @@ pub fn Series::mean(self : Series) -> Result[Float, @types.DataError] {
 /// Minimum non-null cell, by the natural order of the series' dtype.
 ///
 /// - Empty / all-null → `Ok(Scalar::Null)`.
-/// - `Float` NaN: `<` against NaN is `false`, so NaN never displaces a
-///   non-NaN best. A series of only NaN returns the first NaN.
+/// - `Float` NaN is treated as missing (skipped), matching `@ops.sort_by`
+///   and pandas. A series of only NaN (and/or nulls) returns
+///   `Ok(Scalar::Null)`.
 /// - `Bool` order: `false < true`.
 pub fn Series::min(self : Series) -> Result[@types.Scalar, @types.DataError] {
   match self.storage.int_values() {
     Ok((data, validity)) => {
-      let mut best : Int? = None
-      for i in 0..<data.length() {
+      let best = data.foldi(init=(None : Int?), (i, acc, x) => {
         if validity.is_valid(i).unwrap() {
-          match best {
-            None => best = Some(data[i])
-            Some(b) => if data[i] < b { best = Some(data[i]) }
+          match acc {
+            None => Some(x)
+            Some(b) => Some(if x < b { x } else { b })
           }
+        } else {
+          acc
         }
-      }
+      })
       Ok(
         match best {
           None => @types.Scalar::Null
@@ -129,15 +150,17 @@ pub fn Series::min(self : Series) -> Result[@types.Scalar, @types.DataError] {
     Err(_) =>
       match self.storage.float_values() {
         Ok((data, validity)) => {
-          let mut best : Float? = None
-          for i in 0..<data.length() {
-            if validity.is_valid(i).unwrap() {
-              match best {
-                None => best = Some(data[i])
-                Some(b) => if data[i] < b { best = Some(data[i]) }
+          let best = data.foldi(init=(None : Float?), (i, acc, x) => {
+            // NaN is treated as missing (skipped), matching `@ops.sort_by`.
+            if validity.is_valid(i).unwrap() && !x.is_nan() {
+              match acc {
+                None => Some(x)
+                Some(b) => Some(if x < b { x } else { b })
               }
+            } else {
+              acc
             }
-          }
+          })
           Ok(
             match best {
               None => @types.Scalar::Null
@@ -148,17 +171,18 @@ pub fn Series::min(self : Series) -> Result[@types.Scalar, @types.DataError] {
         Err(_) =>
           match self.storage.bool_values() {
             Ok((data, validity)) => {
-              let mut best : Bool? = None
-              for i in 0..<data.length() {
+              let best = data.foldi(init=(None : Bool?), (i, acc, x) => {
                 if validity.is_valid(i).unwrap() {
-                  match best {
-                    None => best = Some(data[i])
-                    // `false < true`: update only when current is false
-                    // and best is true.
-                    Some(b) => if !data[i] && b { best = Some(false) }
+                  match acc {
+                    None => Some(x)
+                    // `false < true`: switch to false the first time one
+                    // is seen, then stay there.
+                    Some(b) => Some(if !x && b { false } else { b })
                   }
+                } else {
+                  acc
                 }
-              }
+              })
               Ok(
                 match best {
                   None => @types.Scalar::Null
@@ -170,15 +194,23 @@ pub fn Series::min(self : Series) -> Result[@types.Scalar, @types.DataError] {
               // The remaining dtype is `String` — `string_values`
               // cannot fail here.
               let (data, validity) = self.storage.string_values().unwrap()
-              let mut best : String? = None
-              for i in 0..<data.length() {
+              let best = data.foldi(init=(None : String?), (i, acc, x) => {
                 if validity.is_valid(i).unwrap() {
-                  match best {
-                    None => best = Some(data[i])
-                    Some(b) => if data[i] < b { best = Some(data[i]) }
+                  match acc {
+                    None => Some(x)
+                    Some(b) =>
+                      Some(
+                        if @types.compare_string_lex(x, b) < 0 {
+                          x
+                        } else {
+                          b
+                        },
+                      )
                   }
+                } else {
+                  acc
                 }
-              }
+              })
               Ok(
                 match best {
                   None => @types.Scalar::Null
@@ -197,15 +229,16 @@ pub fn Series::min(self : Series) -> Result[@types.Scalar, @types.DataError] {
 pub fn Series::max(self : Series) -> Result[@types.Scalar, @types.DataError] {
   match self.storage.int_values() {
     Ok((data, validity)) => {
-      let mut best : Int? = None
-      for i in 0..<data.length() {
+      let best = data.foldi(init=(None : Int?), (i, acc, x) => {
         if validity.is_valid(i).unwrap() {
-          match best {
-            None => best = Some(data[i])
-            Some(b) => if data[i] > b { best = Some(data[i]) }
+          match acc {
+            None => Some(x)
+            Some(b) => Some(if x > b { x } else { b })
           }
+        } else {
+          acc
         }
-      }
+      })
       Ok(
         match best {
           None => @types.Scalar::Null
@@ -216,15 +249,17 @@ pub fn Series::max(self : Series) -> Result[@types.Scalar, @types.DataError] {
     Err(_) =>
       match self.storage.float_values() {
         Ok((data, validity)) => {
-          let mut best : Float? = None
-          for i in 0..<data.length() {
-            if validity.is_valid(i).unwrap() {
-              match best {
-                None => best = Some(data[i])
-                Some(b) => if data[i] > b { best = Some(data[i]) }
+          let best = data.foldi(init=(None : Float?), (i, acc, x) => {
+            // NaN is treated as missing (skipped), matching `@ops.sort_by`.
+            if validity.is_valid(i).unwrap() && !x.is_nan() {
+              match acc {
+                None => Some(x)
+                Some(b) => Some(if x > b { x } else { b })
               }
+            } else {
+              acc
             }
-          }
+          })
           Ok(
             match best {
               None => @types.Scalar::Null
@@ -235,17 +270,18 @@ pub fn Series::max(self : Series) -> Result[@types.Scalar, @types.DataError] {
         Err(_) =>
           match self.storage.bool_values() {
             Ok((data, validity)) => {
-              let mut best : Bool? = None
-              for i in 0..<data.length() {
+              let best = data.foldi(init=(None : Bool?), (i, acc, x) => {
                 if validity.is_valid(i).unwrap() {
-                  match best {
-                    None => best = Some(data[i])
-                    // `true > false`: update only when current is true
-                    // and best is false.
-                    Some(b) => if data[i] && !b { best = Some(true) }
+                  match acc {
+                    None => Some(x)
+                    // `true > false`: switch to true the first time one
+                    // is seen, then stay there.
+                    Some(b) => Some(if x && !b { true } else { b })
                   }
+                } else {
+                  acc
                 }
-              }
+              })
               Ok(
                 match best {
                   None => @types.Scalar::Null
@@ -254,16 +290,26 @@ pub fn Series::max(self : Series) -> Result[@types.Scalar, @types.DataError] {
               )
             }
             Err(_) => {
+              // The remaining dtype is `String` — `string_values`
+              // cannot fail here.
               let (data, validity) = self.storage.string_values().unwrap()
-              let mut best : String? = None
-              for i in 0..<data.length() {
+              let best = data.foldi(init=(None : String?), (i, acc, x) => {
                 if validity.is_valid(i).unwrap() {
-                  match best {
-                    None => best = Some(data[i])
-                    Some(b) => if data[i] > b { best = Some(data[i]) }
+                  match acc {
+                    None => Some(x)
+                    Some(b) =>
+                      Some(
+                        if @types.compare_string_lex(x, b) > 0 {
+                          x
+                        } else {
+                          b
+                        },
+                      )
                   }
+                } else {
+                  acc
                 }
-              }
+              })
               Ok(
                 match best {
                   None => @types.Scalar::Null

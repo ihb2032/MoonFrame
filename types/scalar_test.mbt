@@ -83,6 +83,10 @@ test "Scalar::lt / lte / gt / gte" {
   assert_eq(Scalar::Int(2).gt(Scalar::Int(1)), Ok(true))
   assert_eq(Scalar::Int(2).gte(Scalar::Int(2)), Ok(true))
   assert_eq(Scalar::String("a").lt(Scalar::String("b")), Ok(true))
+  // Lexicographic, not shortlex: "apple" < "fig" even though "fig" is
+  // shorter (the built-in `<` would rank the shorter "fig" first).
+  assert_eq(Scalar::String("fig").lt(Scalar::String("apple")), Ok(false))
+  assert_eq(Scalar::String("apple").lt(Scalar::String("fig")), Ok(true))
   assert_eq(Scalar::Bool(false).lt(Scalar::Bool(true)), Ok(true))
   // Mixed numeric works.
   assert_eq(Scalar::Int(1).lt(Scalar::Float(1.5)), Ok(true))

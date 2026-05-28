@@ -58,15 +58,9 @@ pub fn drop_nulls_in(
   let n = df.nrows()
   let kept : Array[Int] = []
   for i in 0..<n {
-    let mut all_valid = true
-    for s in series_list {
-      // `is_null` cannot fail in `[0, nrows)` because every series in
-      // a well-formed frame has `len == nrows`.
-      if s.storage().is_null(i).unwrap() {
-        all_valid = false
-        break
-      }
-    }
+    // `is_null` cannot fail in `[0, nrows)` because every series in a
+    // well-formed frame has `len == nrows`.
+    let all_valid = series_list.all(s => !s.storage().is_null(i).unwrap())
     if all_valid {
       kept.push(i)
     }

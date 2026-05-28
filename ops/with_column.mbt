@@ -27,12 +27,8 @@ pub fn with_column(
   if series.len() != df.nrows() {
     return Err(@types.DataError::LengthMismatch)
   }
-  let new_cols : Array[@frame.Series] = []
-  let originals = df.columns()
-  for i, _ in originals {
-    // `get_column_at` cannot fail in [0, ncols).
-    new_cols.push(df.get_column_at(i).unwrap())
-  }
+  // `get_column_at` cannot fail in [0, ncols).
+  let new_cols = Array::makei(df.ncols(), i => df.get_column_at(i).unwrap())
   new_cols.push(series)
   @frame.DataFrame::new(new_cols)
 }

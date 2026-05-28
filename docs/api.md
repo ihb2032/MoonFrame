@@ -30,7 +30,14 @@ the facade is additive.
   form, e.g. `Int(42) → "42"`, `Null → ""`) / `as_int` / `as_float` /
   `as_bool` / `as_string` accessors; total ordering via `eq` / `lt` /
   `lte` / `gt` / `gte` (each returns `Result[Bool, DataError]` so that
-  `Null` short-circuits to `Err(TypeMismatch)`)
+  `Null` short-circuits to `Err(TypeMismatch)`). `String` comparisons
+  use lexicographic order (see `compare_string_lex`), **not** the
+  built-in shortlex `<`.
+- `fn compare_string_lex(a, b) -> Int` — lexicographic string comparison
+  by UTF-16 code unit (`-1` / `0` / `1`). MoonBit's built-in `<` on
+  `String` is *shortlex* (length first), which surprises pandas / SQL
+  users; every user-facing ordering (`Scalar::lt`, `Series::min` /
+  `max`, `@ops.sort_by`) routes through this helper so they all agree.
 - `struct Field` — column metadata: `name`, `dtype`, `nullable`.
   - Constructors: `Field::new(name, dtype)` (defaults `nullable = true`),
     `Field::with_nullable(name, dtype, nullable)`.
@@ -168,13 +175,20 @@ the facade is additive.
 - `count()` — non-null count.
 - `sum()` — `Int` / `Float` series return `Scalar::Int` /
   `Scalar::Float`; empty / all-null is the additive identity (`0` /
-  `0.0`). `Bool` / `String` → `Err(TypeMismatch)`.
-- `mean()` — `Float` result (Int sums promoted). Empty / all-null
-  numeric → `Err(InvalidOperation)`. Non-numeric → `Err(TypeMismatch)`.
+  `0.0`). `Bool` / `String` → `Err(TypeMismatch)`. `Float` sums
+  accumulate in 64-bit `Double` (then narrow to `Float`) to limit
+  rounding drift; `NaN` cells are skipped (treated as missing, like
+  `min` / `max` and `@ops.sort_by`).
+- `mean()` — `Float` result (Int sums promoted; `Float` accumulates in
+  64-bit `Double` and skips `NaN`, dividing by the non-NaN count).
+  Empty / all-null / all-NaN numeric → `Err(InvalidOperation)`.
+  Non-numeric → `Err(TypeMismatch)`.
 - `min()` / `max()` — supported on every dtype; empty / all-null returns
-  `Ok(Scalar::Null)`. `Float` NaN follows IEEE 754: `<` / `>` against
-  NaN is `false`, so NaN never displaces a non-NaN best. `Bool` order
-  is `false < true`.
+  `Ok(Scalar::Null)`. `Float` NaN is treated as missing (skipped),
+  matching `@ops.sort_by` and pandas, so an all-NaN / all-null series
+  returns `Ok(Scalar::Null)`. `String` uses lexicographic order
+  (`@types.compare_string_lex`, by UTF-16 code unit), **not** the
+  built-in shortlex `<`. `Bool` order is `false < true`.
 - `unique_count()` — distinct non-null values, keyed by
   `Scalar::to_string`. Within a fixed-dtype series this is a precise
   equality test; all `Float` `NaN` cells collapse into a single bucket
@@ -444,10 +458,11 @@ further ops or IO.
   `Err(TypeMismatch(...))` for non-numeric columns.
 - `min(df, column) -> Result[Scalar, DataError]` /
   `max(df, column) -> Result[Scalar, DataError]` — supported on every
-  dtype. Empty / all-null columns return `Ok(Scalar::Null)`. `Float`
-  NaN follows IEEE 754 (`<` / `>` against NaN is `false`, so NaN never
-  displaces a non-NaN best); `Bool` order is `false < true`. The only
-  failure path is `Err(ColumnNotFound(column))`.
+  dtype; delegate to `Series::min` / `max`. Empty / all-null columns
+  return `Ok(Scalar::Null)`. `Float` NaN is skipped (treated as missing,
+  matching `sort_by`); `String` uses lexicographic order; `Bool` order
+  is `false < true`. The only failure path is
+  `Err(ColumnNotFound(column))`.
 - `describe(df) -> DataFrame` — per-column summary, one row per source
   column. Fixed `N × 8` schema (`N == df.ncols()`); column dtypes are
   pinned regardless of the source frame:

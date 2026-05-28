@@ -294,12 +294,7 @@ fn cell_value(rows : Array[Array[String]], row_idx : Int, col : Int) -> String {
 ///|
 /// Whether a raw cell value should be treated as null.
 fn is_null_value(value : String, null_values : Array[String]) -> Bool {
-  for s in null_values {
-    if value == s {
-      return true
-    }
-  }
-  false
+  null_values.contains(value)
 }
 
 ///|
@@ -504,13 +499,9 @@ fn build_column(
 /// quoting iff it contains the delimiter, a double quote, `\r`, or
 /// `\n`. Interior double quotes are doubled per RFC 4180.
 fn write_quoted(buf : StringBuilder, cell : String, delimiter : Char) -> Unit {
-  let mut needs_quote = false
-  for ch in cell.iter() {
-    if ch == delimiter || ch == '"' || ch == '\n' || ch == '\r' {
-      needs_quote = true
-      break
-    }
-  }
+  let needs_quote = cell
+    .iter()
+    .any(ch => ch == delimiter || ch == '"' || ch == '\n' || ch == '\r')
   if !needs_quote {
     buf.write_string(cell)
     return

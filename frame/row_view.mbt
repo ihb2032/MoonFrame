@@ -28,13 +28,10 @@ pub fn RowView::get(
   self : RowView,
   name : String,
 ) -> Result[@types.Scalar, @types.DataError] {
-  match self.df.get_column(name) {
-    Err(e) => Err(e)
-    // The row index was validated when the view was created (by
-    // `DataFrame::row`), so `Series::get` cannot return
-    // `IndexOutOfBounds` here.
-    Ok(s) => s.get(self.row_index)
-  }
+  // The row index was validated when the view was created (by
+  // `DataFrame::row`), so `Series::get` cannot return `IndexOutOfBounds`
+  // here.
+  self.df.get_column(name).bind(s => s.get(self.row_index))
 }
 
 ///|
@@ -44,10 +41,7 @@ pub fn RowView::is_null(
   self : RowView,
   name : String,
 ) -> Result[Bool, @types.DataError] {
-  match self.df.get_column(name) {
-    Err(e) => Err(e)
-    Ok(s) => s.is_null(self.row_index)
-  }
+  self.df.get_column(name).bind(s => s.is_null(self.row_index))
 }
 
 ///|
@@ -59,10 +53,7 @@ pub fn RowView::get_int(
   self : RowView,
   name : String,
 ) -> Result[Int, @types.DataError] {
-  match self.get(name) {
-    Err(e) => Err(e)
-    Ok(v) => v.as_int()
-  }
+  self.get(name).bind(v => v.as_int())
 }
 
 ///|
@@ -73,10 +64,7 @@ pub fn RowView::get_float(
   self : RowView,
   name : String,
 ) -> Result[Float, @types.DataError] {
-  match self.get(name) {
-    Err(e) => Err(e)
-    Ok(v) => v.as_float()
-  }
+  self.get(name).bind(v => v.as_float())
 }
 
 ///|
@@ -86,10 +74,7 @@ pub fn RowView::get_bool(
   self : RowView,
   name : String,
 ) -> Result[Bool, @types.DataError] {
-  match self.get(name) {
-    Err(e) => Err(e)
-    Ok(v) => v.as_bool()
-  }
+  self.get(name).bind(v => v.as_bool())
 }
 
 ///|
@@ -100,8 +85,5 @@ pub fn RowView::get_string(
   self : RowView,
   name : String,
 ) -> Result[String, @types.DataError] {
-  match self.get(name) {
-    Err(e) => Err(e)
-    Ok(v) => v.as_string()
-  }
+  self.get(name).bind(v => v.as_string())
 }

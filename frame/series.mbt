@@ -185,10 +185,7 @@ pub fn Series::slice(
   start : Int,
   end : Int,
 ) -> Result[Series, @types.DataError] {
-  match self.storage.slice(start, end) {
-    Err(e) => Err(e)
-    Ok(s) => Ok({ name: self.name, storage: s })
-  }
+  self.storage.slice(start, end).map(s => { name: self.name, storage: s })
 }
 
 ///|
@@ -198,10 +195,7 @@ pub fn Series::take(
   self : Series,
   indices : Array[Int],
 ) -> Result[Series, @types.DataError] {
-  match self.storage.take(indices) {
-    Err(e) => Err(e)
-    Ok(s) => Ok({ name: self.name, storage: s })
-  }
+  self.storage.take(indices).map(s => { name: self.name, storage: s })
 }
 
 ///|
@@ -243,15 +237,13 @@ pub fn Series::fill_null(
             ),
           )
         Ok((data, validity)) => {
-          let n = data.length()
-          let buf : Array[Int] = Array::new(capacity=n)
-          for i in 0..<n {
+          let buf = data.mapi((i, x) => {
             if validity.is_valid(i).unwrap() {
-              buf.push(data[i])
+              x
             } else {
-              buf.push(v)
+              v
             }
-          }
+          })
           Ok({ name: self.name, storage: @column.BuiltinColumn::from_ints(buf) })
         }
       }
@@ -265,15 +257,13 @@ pub fn Series::fill_null(
             ),
           )
         Ok((data, validity)) => {
-          let n = data.length()
-          let buf : Array[Float] = Array::new(capacity=n)
-          for i in 0..<n {
+          let buf = data.mapi((i, x) => {
             if validity.is_valid(i).unwrap() {
-              buf.push(data[i])
+              x
             } else {
-              buf.push(v)
+              v
             }
-          }
+          })
           Ok({
             name: self.name,
             storage: @column.BuiltinColumn::from_floats(buf),
@@ -289,15 +279,13 @@ pub fn Series::fill_null(
             ),
           )
         Ok((data, validity)) => {
-          let n = data.length()
-          let buf : Array[Bool] = Array::new(capacity=n)
-          for i in 0..<n {
+          let buf = data.mapi((i, x) => {
             if validity.is_valid(i).unwrap() {
-              buf.push(data[i])
+              x
             } else {
-              buf.push(v)
+              v
             }
-          }
+          })
           Ok({
             name: self.name,
             storage: @column.BuiltinColumn::from_bools(buf),
@@ -314,15 +302,13 @@ pub fn Series::fill_null(
             ),
           )
         Ok((data, validity)) => {
-          let n = data.length()
-          let buf : Array[String] = Array::new(capacity=n)
-          for i in 0..<n {
+          let buf = data.mapi((i, x) => {
             if validity.is_valid(i).unwrap() {
-              buf.push(data[i])
+              x
             } else {
-              buf.push(v)
+              v
             }
-          }
+          })
           Ok({
             name: self.name,
             storage: @column.BuiltinColumn::from_strings(buf),
@@ -340,10 +326,7 @@ pub fn Series::cast(
   self : Series,
   target : @types.DataType,
 ) -> Result[Series, @types.DataError] {
-  match self.storage.cast(target) {
-    Err(e) => Err(e)
-    Ok(s) => Ok({ name: self.name, storage: s })
-  }
+  self.storage.cast(target).map(s => { name: self.name, storage: s })
 }
 
 ///|
@@ -351,19 +334,13 @@ pub fn Series::cast(
 /// per-source-dtype semantics (truncation, range-rejection, parse
 /// strictness).
 pub fn Series::to_int(self : Series) -> Result[Series, @types.DataError] {
-  match self.storage.to_int() {
-    Err(e) => Err(e)
-    Ok(s) => Ok({ name: self.name, storage: s })
-  }
+  self.storage.to_int().map(s => { name: self.name, storage: s })
 }
 
 ///|
 /// Convenience: cast to `Float`.
 pub fn Series::to_float(self : Series) -> Result[Series, @types.DataError] {
-  match self.storage.to_float() {
-    Err(e) => Err(e)
-    Ok(s) => Ok({ name: self.name, storage: s })
-  }
+  self.storage.to_float().map(s => { name: self.name, storage: s })
 }
 
 ///|

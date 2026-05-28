@@ -48,12 +48,9 @@ pub fn rename(
   // Rebuild the column list with the final names. The original column
   // ordering and identity are preserved; only the per-column `name` is
   // refreshed via `Series::rename`.
-  let new_cols : Array[@frame.Series] = []
-  let originals = df.columns()
-  for i, _ in originals {
-    // `get_column_at` cannot fail in [0, ncols).
-    let original = df.get_column_at(i).unwrap()
-    new_cols.push(original.rename(names[i]))
-  }
+  // `get_column_at` cannot fail in [0, ncols).
+  let new_cols = names.mapi((i, name) => {
+    df.get_column_at(i).unwrap().rename(name)
+  })
   @frame.DataFrame::new(new_cols)
 }

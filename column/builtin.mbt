@@ -43,15 +43,10 @@ pub fn BuiltinColumn::from_ints(values : Array[Int]) -> BuiltinColumn {
 /// Build an `Int` column where `None` entries are nulls. `None` slots
 /// receive `0` as the data placeholder; public APIs never expose it.
 pub fn BuiltinColumn::from_int_options(values : Array[Int?]) -> BuiltinColumn {
-  let n = values.length()
-  let data : Array[Int] = Array::new(capacity=n)
-  for v in values {
-    match v {
-      Some(x) => data.push(x)
-      None => data.push(0)
-    }
+  {
+    data: Int(values.map(v => v.unwrap_or(0))),
+    validity: Bitmap::from_options(values),
   }
-  { data: Int(data), validity: Bitmap::from_options(values) }
 }
 
 ///|
@@ -66,15 +61,10 @@ pub fn BuiltinColumn::from_floats(values : Array[Float]) -> BuiltinColumn {
 pub fn BuiltinColumn::from_float_options(
   values : Array[Float?],
 ) -> BuiltinColumn {
-  let n = values.length()
-  let data : Array[Float] = Array::new(capacity=n)
-  for v in values {
-    match v {
-      Some(x) => data.push(x)
-      None => data.push((0.0 : Float))
-    }
+  {
+    data: Float(values.map(v => v.unwrap_or((0.0 : Float)))),
+    validity: Bitmap::from_options(values),
   }
-  { data: Float(data), validity: Bitmap::from_options(values) }
 }
 
 ///|
@@ -87,15 +77,10 @@ pub fn BuiltinColumn::from_bools(values : Array[Bool]) -> BuiltinColumn {
 /// Build a `Bool` column where `None` entries are nulls. `None` slots
 /// receive `false` as the data placeholder.
 pub fn BuiltinColumn::from_bool_options(values : Array[Bool?]) -> BuiltinColumn {
-  let n = values.length()
-  let data : Array[Bool] = Array::new(capacity=n)
-  for v in values {
-    match v {
-      Some(x) => data.push(x)
-      None => data.push(false)
-    }
+  {
+    data: Bool(values.map(v => v.unwrap_or(false))),
+    validity: Bitmap::from_options(values),
   }
-  { data: Bool(data), validity: Bitmap::from_options(values) }
 }
 
 ///|
@@ -110,15 +95,10 @@ pub fn BuiltinColumn::from_strings(values : Array[String]) -> BuiltinColumn {
 pub fn BuiltinColumn::from_string_options(
   values : Array[String?],
 ) -> BuiltinColumn {
-  let n = values.length()
-  let data : Array[String] = Array::new(capacity=n)
-  for v in values {
-    match v {
-      Some(x) => data.push(x)
-      None => data.push("")
-    }
+  {
+    data: String(values.map(v => v.unwrap_or(""))),
+    validity: Bitmap::from_options(values),
   }
-  { data: String(data), validity: Bitmap::from_options(values) }
 }
 
 // ── Inspection ────────────────────────────────────────────────────────
@@ -214,34 +194,10 @@ pub fn BuiltinColumn::slice(
   }
   let n = end - start
   let data_out : ColumnData = match self.data {
-    Int(a) => {
-      let buf : Array[Int] = Array::new(capacity=n)
-      for i in start..<end {
-        buf.push(a[i])
-      }
-      Int(buf)
-    }
-    Float(a) => {
-      let buf : Array[Float] = Array::new(capacity=n)
-      for i in start..<end {
-        buf.push(a[i])
-      }
-      Float(buf)
-    }
-    Bool(a) => {
-      let buf : Array[Bool] = Array::new(capacity=n)
-      for i in start..<end {
-        buf.push(a[i])
-      }
-      Bool(buf)
-    }
-    String(a) => {
-      let buf : Array[String] = Array::new(capacity=n)
-      for i in start..<end {
-        buf.push(a[i])
-      }
-      String(buf)
-    }
+    Int(a) => Int(Array::makei(n, i => a[start + i]))
+    Float(a) => Float(Array::makei(n, i => a[start + i]))
+    Bool(a) => Bool(Array::makei(n, i => a[start + i]))
+    String(a) => String(Array::makei(n, i => a[start + i]))
   }
   // `validity.slice` repeats the same bounds checks against the same logical
   // length, so it cannot fail here.
@@ -262,36 +218,11 @@ pub fn BuiltinColumn::take(
       return Err(@types.DataError::IndexOutOfBounds(i))
     }
   }
-  let n = indices.length()
   let data_out : ColumnData = match self.data {
-    Int(a) => {
-      let buf : Array[Int] = Array::new(capacity=n)
-      for i in indices {
-        buf.push(a[i])
-      }
-      Int(buf)
-    }
-    Float(a) => {
-      let buf : Array[Float] = Array::new(capacity=n)
-      for i in indices {
-        buf.push(a[i])
-      }
-      Float(buf)
-    }
-    Bool(a) => {
-      let buf : Array[Bool] = Array::new(capacity=n)
-      for i in indices {
-        buf.push(a[i])
-      }
-      Bool(buf)
-    }
-    String(a) => {
-      let buf : Array[String] = Array::new(capacity=n)
-      for i in indices {
-        buf.push(a[i])
-      }
-      String(buf)
-    }
+    Int(a) => Int(indices.map(i => a[i]))
+    Float(a) => Float(indices.map(i => a[i]))
+    Bool(a) => Bool(indices.map(i => a[i]))
+    String(a) => String(indices.map(i => a[i]))
   }
   // Same indices were already validated against the same `len`; the validity
   // gather cannot fail.

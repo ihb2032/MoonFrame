@@ -91,10 +91,7 @@ pub fn Bitmap::is_null(
   self : Bitmap,
   index : Int,
 ) -> Result[Bool, @types.DataError] {
-  match self.is_valid(index) {
-    Ok(v) => Ok(!v)
-    Err(e) => Err(e)
-  }
+  self.is_valid(index).map(v => !v)
 }
 
 ///|

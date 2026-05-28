@@ -15,10 +15,7 @@ fn[T] dispatch_stat(
   column : String,
   f : (@frame.Series) -> Result[T, @types.DataError],
 ) -> Result[T, @types.DataError] {
-  match df.get_column(column) {
-    Err(e) => Err(e)
-    Ok(s) => f(s)
-  }
+  df.get_column(column).bind(f)
 }
 
 ///|

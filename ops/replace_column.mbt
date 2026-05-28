@@ -20,16 +20,9 @@ pub fn replace_column(
 ) -> Result[@frame.DataFrame, @types.DataError] {
   // Find the target slot up front so the length check below has a
   // valid index to report against.
-  let names = df.columns()
-  let mut idx = -1
-  for i, n in names {
-    if n == name {
-      idx = i
-      break
-    }
-  }
-  if idx < 0 {
-    return Err(@types.DataError::ColumnNotFound(name))
+  let idx = match df.schema().index_of(name) {
+    Ok(i) => i
+    Err(e) => return Err(e)
   }
   if series.len() != df.nrows() {
     return Err(@types.DataError::LengthMismatch)
@@ -38,14 +31,13 @@ pub fn replace_column(
   // name slot stays put even if the caller passed a series named
   // differently.
   let renamed = series.rename(name)
-  let new_cols : Array[@frame.Series] = []
-  for i, _ in names {
+  // `get_column_at` cannot fail in [0, ncols).
+  let new_cols = Array::makei(df.ncols(), i => {
     if i == idx {
-      new_cols.push(renamed)
+      renamed
     } else {
-      // `get_column_at` cannot fail in [0, ncols).
-      new_cols.push(df.get_column_at(i).unwrap())
+      df.get_column_at(i).unwrap()
     }
-  }
+  })
   @frame.DataFrame::new(new_cols)
 }

@@ -49,6 +49,30 @@ test "sum on Bool / String is TypeMismatch" {
   assert_true(Series::from_strings("x", ["a"]).sum() is Err(TypeMismatch(_)))
 }
 
+///|
+test "sum on Float accumulates in 64-bit to limit drift" {
+  // 16777216 = 2^24. In 32-bit Float, 2^24 + 1 rounds back to 2^24, so a
+  // naive 32-bit accumulator would lose both 1.0s and report 16777216.
+  // Accumulating in Double keeps them: the result is 16777218.
+  let s = Series::from_floats("x", [16777216.0, 1.0, 1.0])
+  assert_eq(s.sum(), Ok(@types.Scalar::Float(16777218.0)))
+}
+
+///|
+test "sum / mean skip Float NaN (treated as missing)" {
+  let nan : Float = @float.not_a_number
+  // NaN cells are skipped: sum over the non-NaN cells, mean divides by
+  // the non-NaN count (so mean here is (1 + 3) / 2 = 2, not / 3).
+  let s = Series::from_floats("x", [1.0, nan, 3.0])
+  assert_eq(s.sum(), Ok(@types.Scalar::Float(4.0)))
+  assert_eq(s.mean(), Ok((2.0 : Float)))
+  // All-NaN behaves like all-null: sum is the additive identity, mean
+  // has nothing to average.
+  let all_nan = Series::from_floats("x", [nan, nan])
+  assert_eq(all_nan.sum(), Ok(@types.Scalar::Float(0.0)))
+  assert_true(all_nan.mean() is Err(InvalidOperation(_)))
+}
+
 // ── mean ─────────────────────────────────────────────────────────────
 
 ///|
@@ -124,6 +148,12 @@ test "min / max on String series use lexicographic order" {
   ])
   assert_eq(s.min(), Ok(@types.Scalar::String("apple")))
   assert_eq(s.max(), Ok(@types.Scalar::String("cherry")))
+  // Length-differing case: true lexicographic ranks "apple" before "fig"
+  // (a < f), whereas the built-in shortlex `<` would rank the shorter
+  // "fig" first. Pins the dictionary-order contract.
+  let lens = Series::from_strings("x", ["fig", "apple"])
+  assert_eq(lens.min(), Ok(@types.Scalar::String("apple")))
+  assert_eq(lens.max(), Ok(@types.Scalar::String("fig")))
 }
 
 ///|
@@ -176,23 +206,20 @@ test "min / max on empty / all-null return Null across every dtype" {
 }
 
 ///|
-test "min on Float NaN does not displace a non-NaN best" {
+test "min / max skip Float NaN (treated as missing, like sort_by)" {
   let nan : Float = @float.not_a_number
-  // First cell is NaN — best initialises to NaN, then 1.0 < NaN is false
-  // (IEEE 754), so best stays NaN. Document the corner via behaviour.
+  // A leading NaN is skipped, so it does not become the result.
   let nan_first = Series::from_floats("x", [nan, 1.0])
-  // `<` against NaN is `false`, so 1.0 cannot displace NaN as the
-  // current best; the function returns the first NaN encountered.
-  assert_true(
-    match nan_first.min().unwrap() {
-      @types.Scalar::Float(v) => v.is_nan()
-      _ => false
-    },
-  )
-  // Non-NaN first → NaN cells cannot displace it (NaN < x is false).
+  assert_eq(nan_first.min(), Ok(@types.Scalar::Float(1.0)))
+  assert_eq(nan_first.max(), Ok(@types.Scalar::Float(1.0)))
+  // Interior NaN cells are ignored.
   let nan_later = Series::from_floats("x", [1.0, nan, 0.5])
   assert_eq(nan_later.min(), Ok(@types.Scalar::Float(0.5)))
   assert_eq(nan_later.max(), Ok(@types.Scalar::Float(1.0)))
+  // All-NaN collapses to Null (every cell skipped), like an all-null series.
+  let all_nan = Series::from_floats("x", [nan, nan])
+  assert_eq(all_nan.min(), Ok(@types.Scalar::Null))
+  assert_eq(all_nan.max(), Ok(@types.Scalar::Null))
 }
 
 // ── unique_count ─────────────────────────────────────────────────────

@@ -193,8 +193,8 @@ fn compare_one_key(key : SortKey, i : Int, j : Int) -> Int {
     Int(data, validity, order, null_order) => {
       // `is_valid` cannot fail: i, j come from the [0, n) permutation
       // and the bitmap length matches the column length == nrows.
-      let mi = not(validity.is_valid(i).unwrap())
-      let mj = not(validity.is_valid(j).unwrap())
+      let mi = !validity.is_valid(i).unwrap()
+      let mj = !validity.is_valid(j).unwrap()
       compare_with_missing(mi, mj, null_order, order, fn() {
         let a = data[i]
         let b = data[j]
@@ -213,8 +213,8 @@ fn compare_one_key(key : SortKey, i : Int, j : Int) -> Int {
       // NaN behaves like Null for ordering — IEEE 754 would otherwise
       // make NaN incomparable, and downstream stats already treat NaN
       // as "the absence of a numeric value" in `min` / `max` etc.
-      let mi = not(validity.is_valid(i).unwrap()) || a.is_nan()
-      let mj = not(validity.is_valid(j).unwrap()) || b.is_nan()
+      let mi = !validity.is_valid(i).unwrap() || a.is_nan()
+      let mj = !validity.is_valid(j).unwrap() || b.is_nan()
       compare_with_missing(mi, mj, null_order, order, fn() {
         if a < b {
           -1
@@ -226,15 +226,15 @@ fn compare_one_key(key : SortKey, i : Int, j : Int) -> Int {
       })
     }
     Bool(data, validity, order, null_order) => {
-      let mi = not(validity.is_valid(i).unwrap())
-      let mj = not(validity.is_valid(j).unwrap())
+      let mi = !validity.is_valid(i).unwrap()
+      let mj = !validity.is_valid(j).unwrap()
       compare_with_missing(mi, mj, null_order, order, fn() {
         let a = data[i]
         let b = data[j]
         // `false < true`, matching `Scalar::lt` on Bool.
-        if not(a) && b {
+        if !a && b {
           -1
-        } else if a && not(b) {
+        } else if a && !b {
           1
         } else {
           0
@@ -242,10 +242,10 @@ fn compare_one_key(key : SortKey, i : Int, j : Int) -> Int {
       })
     }
     String(data, validity, order, null_order) => {
-      let mi = not(validity.is_valid(i).unwrap())
-      let mj = not(validity.is_valid(j).unwrap())
+      let mi = !validity.is_valid(i).unwrap()
+      let mj = !validity.is_valid(j).unwrap()
       compare_with_missing(mi, mj, null_order, order, fn() {
-        compare_string_lex(data[i], data[j])
+        @types.compare_string_lex(data[i], data[j])
       })
     }
   }
@@ -284,50 +284,6 @@ fn missing_offset(null_order : NullOrder) -> Int {
   match null_order {
     NullsFirst => -1
     NullsLast => 1
-  }
-}
-
-///|
-/// Lexicographic string comparison by UTF-16 code unit, returning the
-/// usual `-1` / `0` / `1` triple. MoonBit's built-in `<` on `String`
-/// implements **shortlex** order (length first, then code unit) — so
-/// `"apple" < "fig"` is `false`, which would surprise a user expecting
-/// pandas / polars / SQL semantics. Sort keys care about reading
-/// order, not collation length, so we use this helper instead of `<`.
-fn compare_string_lex(a : String, b : String) -> Int {
-  let la = a.length()
-  let lb = b.length()
-  let n = if la < lb { la } else { lb }
-  for i in 0..<n {
-    let ca = a[i]
-    let cb = b[i]
-    if ca < cb {
-      return -1
-    }
-    if ca > cb {
-      return 1
-    }
-  }
-  // Equal up to the shorter length — the shorter string sorts first.
-  if la < lb {
-    -1
-  } else if la > lb {
-    1
-  } else {
-    0
-  }
-}
-
-///|
-/// Local `Bool` negation used by the comparator. MoonBit doesn't have
-/// a prefix `!` for `Bool` in expression position, so we wrap the
-/// builtin `not` operator in a small function name that reads
-/// naturally inside boolean expressions.
-fn not(b : Bool) -> Bool {
-  if b {
-    false
-  } else {
-    true
   }
 }
 

@@ -146,9 +146,5 @@ fn write_row(
 /// pass wants one column per visual codepoint so a name containing a
 /// supplementary-plane glyph lines up with shorter ASCII neighbours.
 fn char_count(s : String) -> Int {
-  let mut n = 0
-  for _ in s.iter() {
-    n = n + 1
-  }
-  n
+  s.iter().count()
 }

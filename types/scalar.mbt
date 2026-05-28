@@ -134,7 +134,7 @@ pub fn Scalar::lt(self : Scalar, other : Scalar) -> Result[Bool, DataError] {
     (Int(a), Float(b)) => Ok(Float::from_int(a) < b)
     (Float(a), Int(b)) => Ok(a < Float::from_int(b))
     (Bool(a), Bool(b)) => Ok((a |> bool_to_int) < (b |> bool_to_int))
-    (String(a), String(b)) => Ok(a < b)
+    (String(a), String(b)) => Ok(compare_string_lex(a, b) < 0)
     _ => type_mismatch_for_compare(self, other)
   }
 }
@@ -161,6 +161,37 @@ pub fn Scalar::gte(self : Scalar, other : Scalar) -> Result[Bool, DataError] {
 ///|
 fn bool_to_int(b : Bool) -> Int {
   if b {
+    1
+  } else {
+    0
+  }
+}
+
+///|
+/// Lexicographic string comparison by UTF-16 code unit, returning the
+/// usual `-1` / `0` / `1`. MoonBit's built-in `<` / `Compare` on `String`
+/// is **shortlex** (length first, then code unit) — e.g. `"fig" < "apple"`
+/// is `true` because `"fig"` is shorter, which surprises users expecting
+/// pandas / SQL dictionary order. Every user-facing ordering in MoonFrame
+/// (`Scalar::lt`, `Series::min` / `max`, `@ops.sort_by`) routes through
+/// this helper instead of the built-in operator so they all agree.
+pub fn compare_string_lex(a : String, b : String) -> Int {
+  let la = a.length()
+  let lb = b.length()
+  let n = if la < lb { la } else { lb }
+  for i in 0..<n {
+    let ca = a[i]
+    let cb = b[i]
+    if ca < cb {
+      return -1
+    }
+    if ca > cb {
+      return 1
+    }
+  }
+  if la < lb {
+    -1
+  } else if la > lb {
     1
   } else {
     0

@@ -26,12 +26,10 @@ pub fn drop(
       Err(e) => return Err(e)
     }
   }
-  let survivors : Array[@frame.Series] = []
-  for name in df.columns() {
-    if !to_drop.contains(name) {
-      // `get_column` cannot fail: name came from `df.columns()`.
-      survivors.push(df.get_column(name).unwrap())
-    }
-  }
+  // `get_column` cannot fail: name came from `df.columns()`.
+  let survivors = df
+    .columns()
+    .filter(name => !to_drop.contains(name))
+    .map(name => df.get_column(name).unwrap())
   @frame.DataFrame::new(survivors)
 }

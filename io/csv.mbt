@@ -230,14 +230,15 @@ pub fn format_csv_str(
     buf.write_char('\n')
   }
   let nrows = df.nrows()
+  // Materialise each column's cells once (column-major); `cols[c][r]` is
+  // then a plain in-bounds read, so no per-cell `get` `Result`.
+  let cols = df.column_series().map(s => s.to_scalars())
   for r in 0..<nrows {
-    for c, name in names {
+    for c in 0..<names.length() {
       if c > 0 {
         buf.write_char(options.delimiter)
       }
-      // `get(r, name)` cannot fail here: every column came from
-      // `df.columns()` (so it exists) and `r` ranges over `[0, nrows)`.
-      let scalar = df.get(r, name).unwrap()
+      let scalar = cols[c][r]
       let rendered = if scalar.is_null() {
         options.null_value
       } else {

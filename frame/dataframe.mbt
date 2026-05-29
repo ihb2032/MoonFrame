@@ -104,9 +104,11 @@ pub fn DataFrame::from_rows(
   }
   let nrows = rows.length()
   let columns : Array[Series] = []
+  // `fields()` materialises all fields; indexing `[0, ncols)` is in-bounds
+  // (`fields.length() == schema.len() == ncols`).
+  let fields = schema.fields()
   for i in 0..<ncols {
-    // `field_at(i)` cannot fail in `[0, ncols)`.
-    let field = schema.field_at(i).unwrap()
+    let field = fields[i]
     let dt = field.dtype()
     let series = match dt {
       @types.DataType::Int => {
@@ -223,6 +225,16 @@ pub fn DataFrame::columns(self : DataFrame) -> Array[String] {
 }
 
 ///|
+/// The columns as `Series`, in declaration order. A fresh array is
+/// returned (the `Series` themselves are immutable, storage shared), so
+/// ops / IO layers can iterate columns directly instead of repeatedly
+/// looking each up by name; mutating the returned array can't perturb the
+/// frame's invariants.
+pub fn DataFrame::column_series(self : DataFrame) -> Array[Series] {
+  self.columns.copy()
+}
+
+///|
 /// Number of rows. Equal to every column's `len()`.
 pub fn DataFrame::nrows(self : DataFrame) -> Int {
   self.nrows
@@ -283,6 +295,16 @@ pub fn DataFrame::get(
 }
 
 ///|
+/// Borrow row `i` without bounds-checking the index. This is total — it
+/// never aborts — because every `RowView` accessor re-validates the row
+/// index and returns `Err(IndexOutOfBounds)` for an out-of-range view. It
+/// is the companion to `row` for call sites (like `filter`) that already
+/// iterate `[0, nrows)` and so don't need the eager check.
+pub fn DataFrame::row_view(self : DataFrame, i : Int) -> RowView {
+  { df: self, row_index: i }
+}
+
+///|
 /// Lightweight view of a single row. The view borrows the underlying
 /// frame, so accessors stay `O(1)` and there's no per-row allocation.
 /// Row indices outside `[0, nrows)` return `Err(IndexOutOfBounds(i))`.
@@ -293,7 +315,7 @@ pub fn DataFrame::row(
   if i < 0 || i >= self.nrows {
     return Err(@types.DataError::IndexOutOfBounds(i))
   }
-  Ok({ df: self, row_index: i })
+  Ok(self.row_view(i))
 }
 
 // ── Transforms ────────────────────────────────────────────────────────
@@ -303,10 +325,9 @@ pub fn DataFrame::row(
 /// `0`. Total — never fails.
 pub fn DataFrame::head(self : DataFrame, n : Int) -> DataFrame {
   let m = clamp_take(n, self.nrows)
-  let new_cols : Array[Series] = self.columns.map(fn(c) {
-    // `slice(0, m)` cannot fail because `0 <= m <= nrows == c.len()`.
-    c.slice(0, m).unwrap()
-  })
+  // `0 <= m <= nrows == c.len()`, so the contiguous row slice is in-bounds
+  // and needs no bounds-checking `Result`.
+  let new_cols : Array[Series] = self.columns.map(c => slice_series(c, 0, m))
   // Names and schema are unchanged — reuse the cache verbatim.
   {
     schema: self.schema,
@@ -322,10 +343,8 @@ pub fn DataFrame::head(self : DataFrame, n : Int) -> DataFrame {
 pub fn DataFrame::tail(self : DataFrame, n : Int) -> DataFrame {
   let m = clamp_take(n, self.nrows)
   let start = self.nrows - m
-  let new_cols : Array[Series] = self.columns.map(fn(c) {
-    // `slice(start, nrows)` cannot fail by the same argument as `head`.
-    c.slice(start, self.nrows).unwrap()
-  })
+  // Same in-bounds argument as `head`: `start + m == nrows == c.len()`.
+  let new_cols : Array[Series] = self.columns.map(c => slice_series(c, start, m))
   {
     schema: self.schema,
     columns: new_cols,
@@ -359,10 +378,10 @@ pub fn DataFrame::slice(
       ),
     )
   }
-  let new_cols : Array[Series] = self.columns.map(fn(c) {
-    // Bounds were already validated against `self.nrows`, which equals
-    // every column's length.
-    c.slice(start, end).unwrap()
+  // Bounds were already validated against `self.nrows`, which equals every
+  // column's length, so the contiguous slice is in-bounds.
+  let new_cols : Array[Series] = self.columns.map(c => {
+    slice_series(c, start, end - start)
   })
   Ok({
     schema: self.schema,
@@ -385,9 +404,9 @@ pub fn DataFrame::take(
       return Err(@types.DataError::IndexOutOfBounds(i))
     }
   }
-  // Indices were just validated against `self.nrows`; per-column `take`
-  // cannot fail.
-  let new_cols = self.columns.map(c => c.take(indices).unwrap())
+  // Indices were just validated against `self.nrows`, so the per-column
+  // gather is in-bounds.
+  let new_cols = self.columns.map(c => gather_series(c, indices))
   Ok({
     schema: self.schema,
     columns: new_cols,

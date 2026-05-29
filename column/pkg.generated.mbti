@@ -26,6 +26,7 @@ pub fn Bitmap::len(Self) -> Int
 pub fn Bitmap::null_count(Self) -> Int
 pub fn Bitmap::slice(Self, Int, Int) -> Result[Self, @types.DataError]
 pub fn Bitmap::take(Self, Array[Int]) -> Result[Self, @types.DataError]
+pub fn Bitmap::to_bools(Self) -> Array[Bool]
 
 pub struct BuiltinColumn {
   data : ColumnData
@@ -33,6 +34,7 @@ pub struct BuiltinColumn {
 } derive(Eq, @debug.Debug)
 pub fn BuiltinColumn::bool_values(Self) -> Result[(Array[Bool], Bitmap), @types.DataError]
 pub fn BuiltinColumn::cast(Self, @types.DataType) -> Result[Self, @types.DataError]
+pub fn BuiltinColumn::data(Self) -> ColumnData
 pub fn BuiltinColumn::dtype(Self) -> @types.DataType
 pub fn BuiltinColumn::float_values(Self) -> Result[(Array[Double], Bitmap), @types.DataError]
 pub fn BuiltinColumn::from_bool_options(Array[Bool?]) -> Self
@@ -55,6 +57,7 @@ pub fn BuiltinColumn::take(Self, Array[Int]) -> Result[Self, @types.DataError]
 pub fn BuiltinColumn::to_float(Self) -> Result[Self, @types.DataError]
 pub fn BuiltinColumn::to_int(Self) -> Result[Self, @types.DataError]
 pub fn BuiltinColumn::to_string_column(Self) -> Result[Self, @types.DataError]
+pub fn BuiltinColumn::validity(Self) -> Bitmap
 
 pub(all) enum ColumnData {
   Int(Array[Int64])

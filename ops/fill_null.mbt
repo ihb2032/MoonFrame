@@ -31,15 +31,8 @@ pub fn fill_null(
     Ok(s) => s
     Err(e) => return Err(e)
   }
-  // `get_column` cannot fail: the name came from `df.columns()`.
   let new_cols = df
-    .columns()
-    .map(name => {
-      if name == column {
-        filled
-      } else {
-        df.get_column(name).unwrap()
-      }
-    })
+    .column_series()
+    .map(s => if s.name() == column { filled } else { s })
   @frame.DataFrame::new(new_cols)
 }

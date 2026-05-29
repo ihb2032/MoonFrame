@@ -122,52 +122,64 @@ pub fn sort_by_many(
 }
 
 ///|
-/// Resolve a `BuiltinColumn` into a typed `SortKey`. The dispatch
-/// cascades through the four typed accessors — `BuiltinColumn` is
-/// always one of `Int` / `Float` / `Bool` / `String` (per
-/// `ColumnData`'s four variants), so the last branch must succeed
-/// and `unwrap()` is safe. Routing the dispatch through the typed
-/// accessors avoids re-matching `DataType` (whose `Null` variant
-/// can never appear here) and keeps the public surface tight.
+/// Resolve a `BuiltinColumn` into a typed `SortKey`, matching on the
+/// concrete backing array via `storage.data()` — `ColumnData`'s four
+/// variants are exhaustive, so there's no fallback branch to `unwrap`.
+/// Missingness (`Null`, plus `NaN` for `Float`) is pre-computed into a
+/// dense `Array[Bool]` here, once per key, so the comparator reads it by
+/// plain index instead of repeating a bitmap lookup on every comparison.
 fn build_sort_key(
   storage : @column.BuiltinColumn,
   order : SortOrder,
   null_order : NullOrder,
 ) -> SortKey {
-  match storage.int_values() {
-    Ok((data, validity)) => SortKey::Int(data, validity, order, null_order)
-    Err(_) =>
-      match storage.float_values() {
-        Ok((data, validity)) =>
-          SortKey::Float(data, validity, order, null_order)
-        Err(_) =>
-          match storage.bool_values() {
-            Ok((data, validity)) =>
-              SortKey::Bool(data, validity, order, null_order)
-            Err(_) => {
-              // Exhaustive: the remaining `ColumnData` variant is
-              // `String`, so `string_values` must succeed.
-              let (data, validity) = storage.string_values().unwrap()
-              SortKey::String(data, validity, order, null_order)
-            }
-          }
-      }
+  let valid = storage.validity().to_bools()
+  match storage.data() {
+    @column.ColumnData::Int(a) =>
+      SortKey::Int(
+        a,
+        Array::makei(a.length(), i => !valid[i]),
+        order,
+        null_order,
+      )
+    @column.ColumnData::Float(a) =>
+      // NaN behaves like Null for ordering (see `sort_by_many`).
+      SortKey::Float(
+        a,
+        Array::makei(a.length(), i => !valid[i] || a[i].is_nan()),
+        order,
+        null_order,
+      )
+    @column.ColumnData::Bool(a) =>
+      SortKey::Bool(
+        a,
+        Array::makei(a.length(), i => !valid[i]),
+        order,
+        null_order,
+      )
+    @column.ColumnData::String(a) =>
+      SortKey::String(
+        a,
+        Array::makei(a.length(), i => !valid[i]),
+        order,
+        null_order,
+      )
   }
 }
 
 // ── Internal: comparator + stable mergesort ───────────────────────────
 
 ///|
-/// Package-private resolved form of a `SortSpec`: the raw data buffer,
-/// the validity bitmap, and the per-spec direction / null placement.
-/// Keeping the dtype tag here lets the comparator stay branch-free per
-/// element type (no `Scalar` boxing, no re-dispatch through
-/// `BuiltinColumn::get`).
+/// Package-private resolved form of a `SortSpec`: the raw data buffer, a
+/// dense per-row `missing` mask (`Null`, or `NaN` for `Float`), and the
+/// per-spec direction / null placement. Pre-resolving missingness lets
+/// the comparator stay branch-free per element type (no `Scalar` boxing,
+/// no per-comparison bitmap lookup).
 priv enum SortKey {
-  Int(Array[Int64], @column.Bitmap, SortOrder, NullOrder)
-  Float(Array[Double], @column.Bitmap, SortOrder, NullOrder)
-  Bool(Array[Bool], @column.Bitmap, SortOrder, NullOrder)
-  String(Array[String], @column.Bitmap, SortOrder, NullOrder)
+  Int(Array[Int64], Array[Bool], SortOrder, NullOrder)
+  Float(Array[Double], Array[Bool], SortOrder, NullOrder)
+  Bool(Array[Bool], Array[Bool], SortOrder, NullOrder)
+  String(Array[String], Array[Bool], SortOrder, NullOrder)
 }
 
 ///|
@@ -190,11 +202,11 @@ fn compare_rows(keys : Array[SortKey], i : Int, j : Int) -> Int {
 /// reach the value comparison + `order` flip.
 fn compare_one_key(key : SortKey, i : Int, j : Int) -> Int {
   match key {
-    Int(data, validity, order, null_order) => {
-      // `is_valid` cannot fail: i, j come from the [0, n) permutation
-      // and the bitmap length matches the column length == nrows.
-      let mi = !validity.is_valid(i).unwrap()
-      let mj = !validity.is_valid(j).unwrap()
+    Int(data, missing, order, null_order) => {
+      // `missing` was materialised over `[0, n)`; `i`, `j` come from the
+      // `[0, n)` permutation, so the index is in-bounds (like `data[i]`).
+      let mi = missing[i]
+      let mj = missing[j]
       compare_with_missing(mi, mj, null_order, order, fn() {
         let a = data[i]
         let b = data[j]
@@ -207,15 +219,14 @@ fn compare_one_key(key : SortKey, i : Int, j : Int) -> Int {
         }
       })
     }
-    Float(data, validity, order, null_order) => {
-      let a = data[i]
-      let b = data[j]
-      // NaN behaves like Null for ordering — IEEE 754 would otherwise
-      // make NaN incomparable, and downstream stats already treat NaN
-      // as "the absence of a numeric value" in `min` / `max` etc.
-      let mi = !validity.is_valid(i).unwrap() || a.is_nan()
-      let mj = !validity.is_valid(j).unwrap() || b.is_nan()
+    Float(data, missing, order, null_order) => {
+      // NaN was already folded into `missing` at build time, so the value
+      // comparison below only runs on two non-NaN, non-null cells.
+      let mi = missing[i]
+      let mj = missing[j]
       compare_with_missing(mi, mj, null_order, order, fn() {
+        let a = data[i]
+        let b = data[j]
         if a < b {
           -1
         } else if a > b {
@@ -225,9 +236,9 @@ fn compare_one_key(key : SortKey, i : Int, j : Int) -> Int {
         }
       })
     }
-    Bool(data, validity, order, null_order) => {
-      let mi = !validity.is_valid(i).unwrap()
-      let mj = !validity.is_valid(j).unwrap()
+    Bool(data, missing, order, null_order) => {
+      let mi = missing[i]
+      let mj = missing[j]
       compare_with_missing(mi, mj, null_order, order, fn() {
         let a = data[i]
         let b = data[j]
@@ -241,9 +252,9 @@ fn compare_one_key(key : SortKey, i : Int, j : Int) -> Int {
         }
       })
     }
-    String(data, validity, order, null_order) => {
-      let mi = !validity.is_valid(i).unwrap()
-      let mj = !validity.is_valid(j).unwrap()
+    String(data, missing, order, null_order) => {
+      let mi = missing[i]
+      let mj = missing[j]
       compare_with_missing(mi, mj, null_order, order, fn() {
         @types.compare_string_lex(data[i], data[j])
       })

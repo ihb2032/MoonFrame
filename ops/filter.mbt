@@ -29,8 +29,8 @@ pub fn filter(
   let n = df.nrows()
   let kept : Array[Int] = []
   for i in 0..<n {
-    // `df.row(i)` cannot fail in `[0, nrows)`.
-    let view = df.row(i).unwrap()
+    // `i` is in `[0, nrows)`, so the borrowed row view is valid.
+    let view = df.row_view(i)
     if predicate(view) {
       kept.push(i)
     }
@@ -61,7 +61,7 @@ pub fn filter_try(
   let n = df.nrows()
   let kept : Array[Int] = []
   for i in 0..<n {
-    let view = df.row(i).unwrap()
+    let view = df.row_view(i)
     match predicate(view) {
       Err(e) => return Err(e)
       Ok(true) => kept.push(i)

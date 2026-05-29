@@ -91,6 +91,11 @@ the facade is additive.
 - Inspection: `len` / `is_valid(i)` / `is_null(i)` / `null_count()`.
   Index-based accessors return `Err(IndexOutOfBounds(i))` outside
   `[0, len)`.
+- `to_bools() -> Array[Bool]` — materialise the whole mask (`true =
+  valid`) in one pass. Total: a loop that has already bounded its index
+  to `[0, len)` indexes the result directly (`mask[i]`) instead of
+  threading a per-slot `is_valid` `Result` (and an `unwrap` / dead `Err`
+  arm) through every iteration.
 - Transforms: `slice(start, length)` (rebuilds by repacking — no
   zero-copy view; v0.2 may optimise), `take(indices)` (gather with
   duplicates allowed; first out-of-bounds index wins),
@@ -120,6 +125,12 @@ the facade is additive.
 - Inspection: `dtype` / `len` / `is_empty` / `null_count` /
   `is_null(i)` / `get(i)`. Index-based accessors return
   `Err(IndexOutOfBounds(i))` outside `[0, len)`.
+- Total backing accessors: `data() -> ColumnData` and
+  `validity() -> Bitmap` expose the raw column so callers in other
+  packages match the four `ColumnData` variants once and read values /
+  validity totally (paired with `Bitmap::to_bools()`), instead of
+  cascading through the `*_values` accessors and unwrapping the branch
+  the type system can't see is exhaustive.
 - Sub-views: `slice(start, end)` (half-open, copies both data and
   validity) / `take(indices)` (gather with duplicates allowed; first
   out-of-bounds index wins).
@@ -183,6 +194,10 @@ the facade is additive.
   - `cast(target)` / `to_int` / `to_float` / `to_string_series` —
     forward to the underlying column. `to_string_series` is total
     (always `Ok`).
+  - `to_scalars() -> Array[Scalar]` — materialise every cell as a
+    `Scalar` (`Null` for null cells) in one pass. Total; the renderers
+    (CSV / JSON / Markdown) walk a column through this instead of a
+    per-cell bounds-checked `get`.
 
 ### Stats (file: `series_stats.mbt`)
 
@@ -199,24 +214,32 @@ the facade is additive.
   `Float` skips `NaN`, dividing by the non-NaN count. Empty / all-null /
   all-NaN numeric → `Err(InvalidOperation)`. Non-numeric →
   `Err(TypeMismatch)`.
-- `min()` / `max()` — supported on every dtype; empty / all-null returns
-  `Ok(Scalar::Null)`. `Float` NaN is treated as missing (skipped),
-  matching `@ops.sort_by` and pandas, so an all-NaN / all-null series
-  returns `Ok(Scalar::Null)`. `String` uses lexicographic order
-  (`@types.compare_string_lex`, by UTF-16 code unit), **not** the
-  built-in shortlex `<`. `Bool` order is `false < true`.
+- `min_value()` / `max_value()` — the reduction proper, returning a
+  `Scalar` directly. Total: every v0.1 dtype has an order, so they never
+  fail. Empty / all-null returns `Scalar::Null`. `Float` NaN is treated
+  as missing (skipped), matching `@ops.sort_by` and pandas, so an
+  all-NaN / all-null series returns `Scalar::Null`. `String` uses
+  lexicographic order (`@types.compare_string_lex`, by UTF-16 code
+  unit), **not** the built-in shortlex `<`. `Bool` order is
+  `false < true`.
+- `min()` / `max()` — `Ok`-wrapped `min_value` / `max_value`, kept
+  `Result`-shaped for parity with the reductions that genuinely can fail.
 - `unique_count()` — distinct non-null values, keyed by
   `Scalar::to_string`. Within a fixed-dtype series this is a precise
   equality test; all `Float` `NaN` cells collapse into a single bucket
   (matching pandas' `nunique` on NaN).
 
-- `describe()` — one-row summary `DataFrame` with a uniform six-column
-  layout across every dtype, in order: `count` / `null_count` /
-  `unique_count` (`Int`), `mean` (`Double`, `Null` for non-numeric or
-  empty / all-null numeric), then `min` and `max` typed to match the
-  source series (`Null` cells when the reduction has no value).
-  Non-numeric series still carry the `mean` column (always `Null`) so the
-  layout doesn't depend on dtype.
+- `describe() -> Result[DataFrame, DataError]` — one-row summary
+  `DataFrame` with a uniform six-column layout across every dtype, in
+  order: `count` / `null_count` / `unique_count` (`Int`), `mean`
+  (`Double`, `Null` for non-numeric or empty / all-null numeric), then
+  `min` and `max` typed to match the source series (`Null` cells when the
+  reduction has no value). Non-numeric series still carry the `mean`
+  column (always `Null`) so the layout doesn't depend on dtype. Returns
+  `Result` only because it builds through the fallible `DataFrame::new`;
+  the columns are hardcoded-unique and equal length, so the value is
+  always `Ok` — it's forwarded rather than `unwrap`ped so no panic path
+  crosses the public API.
 
 ### DataFrame
 
@@ -244,8 +267,10 @@ the facade is additive.
     dtype), `Unsupported(...)` (Null-dtype field).
 - Inspection: `shape() -> (Int, Int)` (rows, cols) / `schema()` /
   `columns() -> Array[String]` (fresh per call — caller can mutate
-  without affecting the frame) / `nrows()` / `ncols()` /
-  `is_empty()` (`nrows == 0`).
+  without affecting the frame) / `column_series() -> Array[Series]`
+  (the columns themselves, fresh array, `Series` immutable; ops / IO
+  iterate this instead of repeated name lookups) / `nrows()` /
+  `ncols()` / `is_empty()` (`nrows == 0`).
 - Accessors:
   - `get_column(name)` — `O(1)` via the cache;
     `Err(ColumnNotFound(name))` if missing.
@@ -256,6 +281,10 @@ the facade is additive.
     `Series::get`.
   - `row(i)` — open a `RowView` over the given row; row indices
     outside `[0, nrows)` return `Err(IndexOutOfBounds(i))`.
+  - `row_view(i)` — the same borrow without the eager bounds check.
+    Total (never aborts): every `RowView` accessor re-validates the row
+    index, so an out-of-range view surfaces `Err(IndexOutOfBounds)` on
+    access. `filter`, which already iterates `[0, nrows)`, uses it.
 - Transforms (all keep the schema and `name_to_index` intact):
   - `head(n)` / `tail(n)` — first / last `n` rows; `n` is clamped to
     `[0, nrows]`, so both are total.
@@ -281,7 +310,8 @@ the facade is additive.
 
 - `struct RowView { df : DataFrame, row_index : Int }` — borrowed
   view of a single row; no per-row allocation. Built via
-  `DataFrame::row(i)`, which validates the row index up front.
+  `DataFrame::row(i)` (validates the index up front) or the total
+  `DataFrame::row_view(i)` (defers validation to the accessors below).
 - `index()` — the row position the view was opened at.
 - `get(name)` — `Scalar` cell read; null cells return
   `Ok(Scalar::Null)`. `Err(ColumnNotFound(name))` for unknown columns.
@@ -439,14 +469,15 @@ table for inspection.
   Column-lookup runs before the fill so a missing name is surfaced
   ahead of a type-mismatch error. Other columns and the schema's
   column order are untouched.
-- `null_count(df) -> DataFrame` — per-column summary as a `1 × ncols`
-  frame. Column names mirror `df.columns()` in order; every cell is
-  an `Int` count of nulls in the source column. The 0-column case
-  collapses to `0 × 0` — `DataFrame::new`'s "empty column list ⇒
-  nrows = 0" rule kicks in and there's no anchor column to set `nrows`
-  on. A 0-row source produces a `(1, ncols)` summary of all zeros.
-  Total — cannot fail (column names from `df.columns()` are unique
-  and every output column has length 1).
+- `null_count(df) -> Result[DataFrame, DataError]` — per-column summary
+  as a `1 × ncols` frame. Column names mirror `df.columns()` in order;
+  every cell is an `Int` count of nulls in the source column. The
+  0-column case collapses to `0 × 0` — `DataFrame::new`'s "empty column
+  list ⇒ nrows = 0" rule kicks in and there's no anchor column to set
+  `nrows` on. A 0-row source produces a `(1, ncols)` summary of all
+  zeros. Returns `Result` because it builds through `DataFrame::new`;
+  the value is always `Ok` (names from `df.columns()` are unique and
+  every output column has length 1), forwarded rather than `unwrap`ped.
 
 ### Column statistics + describe (P10)
 
@@ -479,9 +510,9 @@ further ops or IO.
   matching `sort_by`); `String` uses lexicographic order; `Bool` order
   is `false < true`. The only failure path is
   `Err(ColumnNotFound(column))`.
-- `describe(df) -> DataFrame` — per-column summary, one row per source
-  column. Fixed `N × 8` schema (`N == df.ncols()`); column dtypes are
-  pinned regardless of the source frame:
+- `describe(df) -> Result[DataFrame, DataError]` — per-column summary,
+  one row per source column. Fixed `N × 8` schema (`N == df.ncols()`);
+  column dtypes are pinned regardless of the source frame:
   - `column` (`String`) — source column name, in declaration order
   - `dtype` (`String`) — source column dtype rendered via `Show`
   - `count` (`Int`) — non-null cell count

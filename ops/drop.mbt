@@ -26,10 +26,6 @@ pub fn drop(
       Err(e) => return Err(e)
     }
   }
-  // `get_column` cannot fail: name came from `df.columns()`.
-  let survivors = df
-    .columns()
-    .filter(name => !to_drop.contains(name))
-    .map(name => df.get_column(name).unwrap())
+  let survivors = df.column_series().filter(s => !to_drop.contains(s.name()))
   @frame.DataFrame::new(survivors)
 }

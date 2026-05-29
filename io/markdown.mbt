@@ -73,15 +73,15 @@ fn format_markdown(df : @frame.DataFrame, shown : Int) -> String {
   // one forward pass before any layout. The cost is one `Scalar`
   // allocation per cell, which is negligible compared to the I/O the
   // caller is about to do with the resulting string.
+  // Materialise each column's cells once (column-major). `shown <= nrows`
+  // and each `col_scalars[c]` has length `nrows`, so `col_scalars[c][r]`
+  // is in-bounds for `r in [0, shown)`.
+  let col_scalars = df.column_series().map(s => s.to_scalars())
   let cells : Array[Array[String]] = []
   for r in 0..<shown {
     let row : Array[String] = []
-    for name in raw_names {
-      // `df.get(r, name)` cannot fail here: `name` comes from
-      // `df.columns()` (so it exists) and `r` ranges over `[0, shown)`
-      // where `shown <= df.nrows()`.
-      let scalar = df.get(r, name).unwrap()
-      row.push(escape_md_cell(scalar.to_string()))
+    for c in 0..<ncols {
+      row.push(escape_md_cell(col_scalars[c][r].to_string()))
     }
     cells.push(row)
   }

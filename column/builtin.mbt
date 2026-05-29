@@ -115,6 +115,26 @@ pub fn BuiltinColumn::dtype(self : BuiltinColumn) -> @types.DataType {
 }
 
 ///|
+/// The raw backing storage, discriminated by dtype. `ColumnData` is
+/// `pub(all)`, so callers in other packages (sort, stats) match on the
+/// concrete element type once and read values totally, rather than
+/// cascading through the `*_values` accessors and `unwrap`-ing the final
+/// branch the type system can't see is exhaustive. The element arrays are
+/// shared (read-only), matching `int_values` / `float_values` / etc.
+pub fn BuiltinColumn::data(self : BuiltinColumn) -> ColumnData {
+  self.data
+}
+
+///|
+/// The validity bitmap (`1 = valid`). Paired with `data` for callers that
+/// read every slot in order: `validity().to_bools()` materialises the mask
+/// once so a bounded loop indexes it totally, instead of `unwrap`-ing a
+/// per-slot `is_valid` `Result`. The bitmap is shared (read-only).
+pub fn BuiltinColumn::validity(self : BuiltinColumn) -> Bitmap {
+  self.validity
+}
+
+///|
 pub fn BuiltinColumn::len(self : BuiltinColumn) -> Int {
   match self.data {
     Int(a) => a.length()
@@ -205,9 +225,12 @@ pub fn BuiltinColumn::slice(
     String(a) => String(Array::makei(n, i => a[start + i]))
   }
   // `validity.slice` repeats the same bounds checks against the same logical
-  // length, so it cannot fail here.
-  let validity_out = self.validity.slice(start, n).unwrap()
-  Ok({ data: data_out, validity: validity_out })
+  // length, so it returns `Ok` here. Threading it through `.map` keeps the
+  // (unreachable) `Err` inside `Result::map` rather than as a local arm that
+  // could never be covered.
+  self.validity
+  .slice(start, n)
+  .map(validity_out => { data: data_out, validity: validity_out })
 }
 
 ///|
@@ -230,9 +253,11 @@ pub fn BuiltinColumn::take(
     String(a) => String(indices.map(i => a[i]))
   }
   // Same indices were already validated against the same `len`; the validity
-  // gather cannot fail.
-  let validity_out = self.validity.take(indices).unwrap()
-  Ok({ data: data_out, validity: validity_out })
+  // gather returns `Ok`. Thread it through `.map` so the unreachable `Err`
+  // stays inside `Result::map`, not as an uncoverable local arm.
+  self.validity
+  .take(indices)
+  .map(validity_out => { data: data_out, validity: validity_out })
 }
 
 // ── Cast ──────────────────────────────────────────────────────────────
@@ -276,9 +301,10 @@ pub fn BuiltinColumn::to_int(
   match self.data {
     Int(_) => Ok(self)
     Float(a) => {
+      let valid = self.validity.to_bools()
       let buf : Array[Int64] = Array::new(capacity=a.length())
       for i in 0..<a.length() {
-        if self.validity.is_valid(i).unwrap() {
+        if valid[i] {
           let x = a[i]
           if x.is_nan() {
             return Err(@types.DataError::ParseError("cannot cast NaN to Int"))
@@ -302,9 +328,10 @@ pub fn BuiltinColumn::to_int(
       Ok({ data: Int(buf), validity: self.validity })
     }
     Bool(a) => {
+      let valid = self.validity.to_bools()
       let buf : Array[Int64] = Array::new(capacity=a.length())
       for i in 0..<a.length() {
-        if self.validity.is_valid(i).unwrap() {
+        if valid[i] {
           buf.push(if a[i] { 1 } else { 0 })
         } else {
           buf.push(0)
@@ -313,9 +340,10 @@ pub fn BuiltinColumn::to_int(
       Ok({ data: Int(buf), validity: self.validity })
     }
     String(a) => {
+      let valid = self.validity.to_bools()
       let buf : Array[Int64] = Array::new(capacity=a.length())
       for i in 0..<a.length() {
-        if self.validity.is_valid(i).unwrap() {
+        if valid[i] {
           let s = a[i]
           // Only plain base-10 integers are accepted, matching the CSV
           // reader's inference — both route through
@@ -384,9 +412,10 @@ pub fn BuiltinColumn::to_float(
   match self.data {
     Float(_) => Ok(self)
     Int(a) => {
+      let valid = self.validity.to_bools()
       let buf : Array[Double] = Array::new(capacity=a.length())
       for i in 0..<a.length() {
-        if self.validity.is_valid(i).unwrap() {
+        if valid[i] {
           buf.push(a[i].to_double())
         } else {
           buf.push(0.0)
@@ -395,9 +424,10 @@ pub fn BuiltinColumn::to_float(
       Ok({ data: Float(buf), validity: self.validity })
     }
     Bool(a) => {
+      let valid = self.validity.to_bools()
       let buf : Array[Double] = Array::new(capacity=a.length())
       for i in 0..<a.length() {
-        if self.validity.is_valid(i).unwrap() {
+        if valid[i] {
           buf.push(if a[i] { 1.0 } else { 0.0 })
         } else {
           buf.push(0.0)
@@ -406,9 +436,10 @@ pub fn BuiltinColumn::to_float(
       Ok({ data: Float(buf), validity: self.validity })
     }
     String(a) => {
+      let valid = self.validity.to_bools()
       let buf : Array[Double] = Array::new(capacity=a.length())
       for i in 0..<a.length() {
-        if self.validity.is_valid(i).unwrap() {
+        if valid[i] {
           let s = a[i]
           // Reject `1_000`-style underscore grouping to match the CSV
           // reader (`parse_float_opt` in `io/csv.mbt`):
@@ -452,9 +483,10 @@ pub fn BuiltinColumn::to_string_column(
   match self.data {
     String(_) => Ok(self)
     Int(a) => {
+      let valid = self.validity.to_bools()
       let buf : Array[String] = Array::new(capacity=a.length())
       for i in 0..<a.length() {
-        if self.validity.is_valid(i).unwrap() {
+        if valid[i] {
           buf.push(a[i].to_string())
         } else {
           buf.push("")
@@ -463,9 +495,10 @@ pub fn BuiltinColumn::to_string_column(
       Ok({ data: String(buf), validity: self.validity })
     }
     Float(a) => {
+      let valid = self.validity.to_bools()
       let buf : Array[String] = Array::new(capacity=a.length())
       for i in 0..<a.length() {
-        if self.validity.is_valid(i).unwrap() {
+        if valid[i] {
           buf.push(a[i].to_string())
         } else {
           buf.push("")
@@ -474,9 +507,10 @@ pub fn BuiltinColumn::to_string_column(
       Ok({ data: String(buf), validity: self.validity })
     }
     Bool(a) => {
+      let valid = self.validity.to_bools()
       let buf : Array[String] = Array::new(capacity=a.length())
       for i in 0..<a.length() {
-        if self.validity.is_valid(i).unwrap() {
+        if valid[i] {
           buf.push(if a[i] { "true" } else { "false" })
         } else {
           buf.push("")

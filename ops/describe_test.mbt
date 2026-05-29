@@ -53,7 +53,7 @@ fn describe_df() -> @frame.DataFrame {
 ///|
 test "describe schema is fixed regardless of source shape" {
   let df = describe_df()
-  let out = describe(df)
+  let out = describe(df).unwrap()
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.columns(), describe_schema())
   // One row per source column, eight schema columns.
@@ -63,7 +63,7 @@ test "describe schema is fixed regardless of source shape" {
 ///|
 test "describe column dtypes are pinned" {
   let df = describe_df()
-  let out = describe(df)
+  let out = describe(df).unwrap()
   assert_eq(out.get_column("column").unwrap().dtype(), @types.DataType::String)
   assert_eq(out.get_column("dtype").unwrap().dtype(), @types.DataType::String)
   assert_eq(out.get_column("count").unwrap().dtype(), @types.DataType::Int)
@@ -82,7 +82,7 @@ test "describe column dtypes are pinned" {
 ///|
 test "describe row 0 summarises the Int column" {
   let df = describe_df()
-  let out = describe(df)
+  let out = describe(df).unwrap()
   // Column "i": values [1, None, 3, 5] → count=3, null=1, unique=3,
   // mean=3.0, min=1, max=5.
   assert_eq(out.get(0, "column"), Ok(@types.Scalar::String("i")))
@@ -98,7 +98,7 @@ test "describe row 0 summarises the Int column" {
 ///|
 test "describe row 1 summarises the Float column" {
   let df = describe_df()
-  let out = describe(df)
+  let out = describe(df).unwrap()
   // Column "f": values [1.0, 2.0, None, 3.0] → count=3, null=1,
   // unique=3, mean=2.0, min=1.0, max=3.0.
   assert_eq(out.get(1, "column"), Ok(@types.Scalar::String("f")))
@@ -118,7 +118,7 @@ test "describe row 1 summarises the Float column" {
 ///|
 test "describe row 2 summarises the Bool column (mean is Null)" {
   let df = describe_df()
-  let out = describe(df)
+  let out = describe(df).unwrap()
   // Column "b": values [true, false, true, true] → count=4, null=0,
   // unique=2 (true / false), mean=Null (TypeMismatch collapses to
   // null), min=false, max=true.
@@ -136,7 +136,7 @@ test "describe row 2 summarises the Bool column (mean is Null)" {
 ///|
 test "describe row 3 summarises the String column (mean is Null)" {
   let df = describe_df()
-  let out = describe(df)
+  let out = describe(df).unwrap()
   // Column "s": values ["banana","apple","cherry","banana"] → count=4,
   // null=0, unique=3, mean=Null, min="apple", max="cherry".
   assert_eq(out.get(3, "column"), Ok(@types.Scalar::String("s")))
@@ -161,7 +161,7 @@ test "describe on a 0-row numeric frame routes mean / min / max to Null" {
     @types.Field::new("b", @types.DataType::Float),
   ]).unwrap()
   let df = @frame.DataFrame::empty(schema).unwrap()
-  let out = describe(df)
+  let out = describe(df).unwrap()
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.shape(), (2, 8))
   // Both rows: count=0, null=0, unique=0, mean=Null, min=Null, max=Null.
@@ -183,7 +183,7 @@ test "describe on an all-null numeric column routes mean / min / max to Null" {
   let df = @frame.DataFrame::new([
     @frame.Series::from_int_options("a", [None, None, None]),
   ]).unwrap()
-  let out = describe(df)
+  let out = describe(df).unwrap()
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.get(0, "count"), Ok(@types.Scalar::Int(0)))
   assert_eq(out.get(0, "null_count"), Ok(@types.Scalar::Int(3)))
@@ -200,7 +200,7 @@ test "describe on an all-null String column produces typed-null extrema" {
   let df = @frame.DataFrame::new([
     @frame.Series::from_string_options("s", [None, None]),
   ]).unwrap()
-  let out = describe(df)
+  let out = describe(df).unwrap()
   assert_eq(out.get(0, "dtype"), Ok(@types.Scalar::String("String")))
   assert_eq(out.get(0, "count"), Ok(@types.Scalar::Int(0)))
   assert_eq(out.get(0, "null_count"), Ok(@types.Scalar::Int(2)))
@@ -213,7 +213,7 @@ test "describe on an all-null String column produces typed-null extrema" {
 ///|
 test "describe on a 0-column frame collapses to a 0x8 result" {
   let df = @frame.DataFrame::new([]).unwrap()
-  let out = describe(df)
+  let out = describe(df).unwrap()
   assert_eq(out.check_invariants(), Ok(()))
   // No source columns → no output rows, but the eight schema columns
   // are still present so downstream code can rely on the result shape.
@@ -231,7 +231,7 @@ test "describe on an all-String frame leaves mean Null for every row" {
     @frame.Series::from_strings("a", ["x", "y"]),
     @frame.Series::from_strings("b", ["m", "n"]),
   ]).unwrap()
-  let out = describe(df)
+  let out = describe(df).unwrap()
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.shape(), (2, 8))
   for i in 0..<2 {
@@ -248,7 +248,7 @@ test "describe preserves source column order in the `column` row labels" {
     @frame.Series::from_ints("a", [3, 4]),
     @frame.Series::from_ints("m", [5, 6]),
   ]).unwrap()
-  let out = describe(df)
+  let out = describe(df).unwrap()
   // Source declaration order is z, a, m — preserved verbatim, not
   // lexicographic.
   assert_eq(out.get(0, "column"), Ok(@types.Scalar::String("z")))

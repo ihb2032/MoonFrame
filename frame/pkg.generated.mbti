@@ -19,6 +19,7 @@ pub struct DataFrame {
   name_to_index : Map[String, Int]
 } derive(Eq, @debug.Debug)
 pub fn DataFrame::check_invariants(Self) -> Result[Unit, String]
+pub fn DataFrame::column_series(Self) -> Array[Series]
 pub fn DataFrame::columns(Self) -> Array[String]
 pub fn DataFrame::empty(@types.Schema) -> Result[Self, @types.DataError]
 pub fn DataFrame::from_rows(@types.Schema, Array[Array[@types.Scalar]]) -> Result[Self, @types.DataError]
@@ -31,6 +32,7 @@ pub fn DataFrame::ncols(Self) -> Int
 pub fn DataFrame::new(Array[Series]) -> Result[Self, @types.DataError]
 pub fn DataFrame::nrows(Self) -> Int
 pub fn DataFrame::row(Self, Int) -> Result[RowView, @types.DataError]
+pub fn DataFrame::row_view(Self, Int) -> RowView
 pub fn DataFrame::schema(Self) -> @types.Schema
 pub fn DataFrame::shape(Self) -> (Int, Int)
 pub fn DataFrame::slice(Self, Int, Int) -> Result[Self, @types.DataError]
@@ -55,7 +57,7 @@ pub struct Series {
 } derive(Eq, @debug.Debug)
 pub fn Series::cast(Self, @types.DataType) -> Result[Self, @types.DataError]
 pub fn Series::count(Self) -> Int
-pub fn Series::describe(Self) -> DataFrame
+pub fn Series::describe(Self) -> Result[DataFrame, @types.DataError]
 pub fn Series::drop_nulls(Self) -> Self
 pub fn Series::dtype(Self) -> @types.DataType
 pub fn Series::fill_null(Self, @types.Scalar) -> Result[Self, @types.DataError]
@@ -73,8 +75,10 @@ pub fn Series::is_empty(Self) -> Bool
 pub fn Series::is_null(Self, Int) -> Result[Bool, @types.DataError]
 pub fn Series::len(Self) -> Int
 pub fn Series::max(Self) -> Result[@types.Scalar, @types.DataError]
+pub fn Series::max_value(Self) -> @types.Scalar
 pub fn Series::mean(Self) -> Result[Double, @types.DataError]
 pub fn Series::min(Self) -> Result[@types.Scalar, @types.DataError]
+pub fn Series::min_value(Self) -> @types.Scalar
 pub fn Series::name(Self) -> String
 pub fn Series::new(String, @column.BuiltinColumn) -> Self
 pub fn Series::null_count(Self) -> Int
@@ -86,6 +90,7 @@ pub fn Series::sum(Self) -> Result[@types.Scalar, @types.DataError]
 pub fn Series::take(Self, Array[Int]) -> Result[Self, @types.DataError]
 pub fn Series::to_float(Self) -> Result[Self, @types.DataError]
 pub fn Series::to_int(Self) -> Result[Self, @types.DataError]
+pub fn Series::to_scalars(Self) -> Array[@types.Scalar]
 pub fn Series::to_string_series(Self) -> Result[Self, @types.DataError]
 pub fn Series::unique_count(Self) -> Int
 

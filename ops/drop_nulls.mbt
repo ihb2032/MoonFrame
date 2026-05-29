@@ -55,13 +55,13 @@ pub fn drop_nulls_in(
       Err(e) => return Err(e)
     }
   }
+  // Materialise each gating column's validity mask once; `mask[i]` is then
+  // a plain in-bounds read (every mask has `len == nrows`).
+  let masks = series_list.map(s => s.storage().validity().to_bools())
   let n = df.nrows()
   let kept : Array[Int] = []
   for i in 0..<n {
-    // `is_null` cannot fail in `[0, nrows)` because every series in a
-    // well-formed frame has `len == nrows`.
-    let all_valid = series_list.all(s => !s.storage().is_null(i).unwrap())
-    if all_valid {
+    if masks.all(m => m[i]) {
       kept.push(i)
     }
   }

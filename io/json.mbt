@@ -165,15 +165,14 @@ pub fn read_json_with_options(
 pub fn format_json_records(df : @frame.DataFrame) -> String {
   let names = df.columns()
   let nrows = df.nrows()
+  // Materialise each column's cells once (column-major) so a record is
+  // assembled by plain `cols[c][r]` reads rather than per-cell `get`.
+  let cols = df.column_series().map(s => s.to_scalars())
   let arr : Array[Json] = Array::new(capacity=nrows)
   for r in 0..<nrows {
     let obj : Map[String, Json] = {}
-    for name in names {
-      // Same safety argument as the Markdown renderer: every `name`
-      // comes from `df.columns()` and `r` ranges over `[0, nrows)`,
-      // so `df.get` cannot fail here.
-      let scalar = df.get(r, name).unwrap()
-      obj[name] = scalar_to_json(scalar)
+    for c, name in names {
+      obj[name] = scalar_to_json(cols[c][r])
     }
     arr.push(Json::object(obj))
   }

@@ -8,6 +8,15 @@ Markdown / JSON export. The goal is not to clone every pandas feature, but
 to give MoonBit a small, well-tested, extensible foundation for data
 analysis.
 
+**Error model.** Anything that can fail on bad input or I/O returns
+`Result[_, DataError]`; the library never aborts the host process on a
+recoverable error, and there are no `unwrap` panic paths hidden behind
+total-looking signatures. Operations that are provably total (`head` /
+`tail` / `Series::min_value` / `drop_nulls` / …) return their value
+directly and read through total accessors (`Bitmap::to_bools`,
+`BuiltinColumn::data`, `DataFrame::column_series`) rather than
+`unwrap`-ing an "impossible" `Result`.
+
 ## Status
 
 Under active development toward **v0.1**. The current focus is the
@@ -149,7 +158,8 @@ fn run(
       widgets,
       @moonframe.SortSpec::desc("quantity"),
     ))
-    .map(sorted => @moonframe.to_markdown(@moonframe.describe(sorted)))
+    .bind(sorted => @moonframe.describe(sorted).map(summary =>
+      @moonframe.to_markdown(summary)))
 }
 ```
 

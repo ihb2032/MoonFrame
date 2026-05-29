@@ -28,9 +28,9 @@ pub fn RowView::get(
   self : RowView,
   name : String,
 ) -> Result[@types.Scalar, @types.DataError] {
-  // The row index was validated when the view was created (by
-  // `DataFrame::row`), so `Series::get` cannot return `IndexOutOfBounds`
-  // here.
+  // `Series::get` re-validates `row_index`, so a view built by the
+  // unchecked `DataFrame::row_view` surfaces an out-of-range index as
+  // `Err(IndexOutOfBounds)` here rather than aborting.
   self.df.get_column(name).bind(s => s.get(self.row_index))
 }
 

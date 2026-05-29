@@ -31,12 +31,12 @@ pub fn replace_column(
   // name slot stays put even if the caller passed a series named
   // differently.
   let renamed = series.rename(name)
-  // `get_column_at` cannot fail in [0, ncols).
+  let cols = df.column_series()
   let new_cols = Array::makei(df.ncols(), i => {
     if i == idx {
       renamed
     } else {
-      df.get_column_at(i).unwrap()
+      cols[i]
     }
   })
   @frame.DataFrame::new(new_cols)

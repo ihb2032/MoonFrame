@@ -8,6 +8,8 @@ import {
 // Values
 pub fn compare_string_lex(String, String) -> Int
 
+pub fn is_decimal_int_literal(String) -> Bool
+
 // Errors
 
 // Types and methods

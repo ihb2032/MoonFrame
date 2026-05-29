@@ -262,10 +262,13 @@ pub fn BuiltinColumn::cast(
 ///   inputs, so the cast layer guards against them explicitly. Null
 ///   slots skip the conversion entirely.
 /// - `Bool`: `true` → 1, `false` → 0.
-/// - `String`: parsed with `@string.parse_int`; any failure on a valid
-///   (non-null) slot returns `ParseError`. The parser is strict —
-///   leading/trailing whitespace, non-numeric suffixes, and empty
-///   strings all error.
+/// - `String`: only plain base-10 integers are accepted — an optional
+///   `+` / `-` sign followed by ASCII digits. Any other form on a valid
+///   (non-null) slot returns `ParseError`, mirroring the CSV reader's
+///   inference: `0x` / `0o` / `0b` base prefixes and `1_000` underscore
+///   grouping are rejected (pandas / polars keep them as strings), as are
+///   leading/trailing whitespace, non-numeric suffixes, empty strings,
+///   and decimal integers that overflow 32-bit `Int`.
 pub fn BuiltinColumn::to_int(
   self : BuiltinColumn,
 ) -> Result[BuiltinColumn, @types.DataError] {
@@ -313,6 +316,21 @@ pub fn BuiltinColumn::to_int(
       for i in 0..<a.length() {
         if self.validity.is_valid(i).unwrap() {
           let s = a[i]
+          // Only plain base-10 integers are accepted, matching the CSV
+          // reader's inference — both route through
+          // `@types.is_decimal_int_literal`. `@string.parse_int` defaults
+          // to base=0, which would otherwise accept `0x` / `0o` / `0b`
+          // prefixes and `1_000` underscore grouping (forms pandas /
+          // polars keep as strings); screening first keeps an explicit
+          // `to_int` cast consistent with what the reader inferred for the
+          // same text.
+          if !@types.is_decimal_int_literal(s) {
+            return Err(
+              @types.DataError::ParseError(
+                "cannot parse Int from \"" + s + "\"",
+              ),
+            )
+          }
           let parsed = try? @string.parse_int(s.view())
           match parsed {
             Ok(n) => buf.push(n)
@@ -356,9 +374,12 @@ let max_int_as_float : Float = 2147483520.0
 /// - `Bool`: `true` → 1.0, `false` → 0.0.
 /// - `String`: parsed via `@string.parse_double` (since the standard
 ///   library exposes no `parse_float`) and narrowed with
-///   `Float::from_double`. Malformed strings on valid slots return
-///   `ParseError`; values beyond the `Float` range collapse to
-///   `±Infinity` per IEEE 754.
+///   `Float::from_double`. `1_000`-style underscore grouping is rejected
+///   to match the CSV reader (pandas / polars keep such cells as
+///   strings); the `inf` / `-inf` / `nan` literals are still accepted.
+///   Other malformed strings on valid slots return `ParseError`; finite
+///   values beyond the `Float` range collapse to `±Infinity` per
+///   IEEE 754.
 pub fn BuiltinColumn::to_float(
   self : BuiltinColumn,
 ) -> Result[BuiltinColumn, @types.DataError] {
@@ -391,6 +412,18 @@ pub fn BuiltinColumn::to_float(
       for i in 0..<a.length() {
         if self.validity.is_valid(i).unwrap() {
           let s = a[i]
+          // Reject `1_000`-style underscore grouping to match the CSV
+          // reader (`parse_float_opt` in `io/csv.mbt`):
+          // `@string.parse_double` accepts underscores, but pandas /
+          // polars keep such cells as strings. The `inf` / `-inf` / `nan`
+          // literals stay accepted.
+          if s.iter().any(c => c == '_') {
+            return Err(
+              @types.DataError::ParseError(
+                "cannot parse Float from \"" + s + "\"",
+              ),
+            )
+          }
           let parsed = try? @string.parse_double(s.view())
           match parsed {
             Ok(x) => buf.push(Float::from_double(x))

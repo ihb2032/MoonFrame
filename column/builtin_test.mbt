@@ -496,6 +496,45 @@ test "to_float rejects malformed strings" {
   )
 }
 
+///|
+test "to_int rejects base prefixes and underscore grouping" {
+  // `@string.parse_int` defaults to base=0 and would accept these; the
+  // cast screens them out so it agrees with CSV inference, which keeps
+  // `0xFF` / `1_000` as String.
+  assert_true(
+    BuiltinColumn::from_strings(["0xFF"]).to_int() is Err(ParseError(_)),
+  )
+  assert_true(
+    BuiltinColumn::from_strings(["0o17"]).to_int() is Err(ParseError(_)),
+  )
+  assert_true(
+    BuiltinColumn::from_strings(["0b101"]).to_int() is Err(ParseError(_)),
+  )
+  assert_true(
+    BuiltinColumn::from_strings(["1_000"]).to_int() is Err(ParseError(_)),
+  )
+}
+
+///|
+test "to_int rejects decimal integers overflowing Int32" {
+  // Passes the decimal-literal screen but overflows `@string.parse_int`,
+  // exercising the parse-failure branch after the screen.
+  assert_true(
+    BuiltinColumn::from_strings(["99999999999999999999"]).to_int()
+    is Err(ParseError(_)),
+  )
+}
+
+///|
+test "to_float rejects underscore grouping but keeps scientific notation" {
+  assert_true(
+    BuiltinColumn::from_strings(["1_000"]).to_float() is Err(ParseError(_)),
+  )
+  // No underscore → still parsed; scientific notation is unaffected.
+  let out = BuiltinColumn::from_strings(["1e3"]).to_float().unwrap()
+  assert_eq(out.get(0), Ok(@types.Scalar::Float(1000.0)))
+}
+
 // ── Arrow layout invariants ──────────────────────────────────────────
 
 ///|

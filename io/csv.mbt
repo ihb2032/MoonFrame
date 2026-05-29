@@ -351,14 +351,16 @@ fn infer_column_dtype(
 /// `Some(value)` when `s` is a plain base-10 integer literal that fits in
 /// a 32-bit `Int`; `None` otherwise.
 ///
-/// We pre-screen with `is_decimal_int_literal` because `@string.parse_int`
-/// defaults to `base=0`, which would otherwise accept `0x` / `0o` / `0b`
-/// prefixes (`0xFF` → 255) and underscore grouping (`1_000` → 1000).
-/// Those forms are kept as strings by pandas / polars, so accepting them
-/// during inference would silently retype columns of hex codes, IDs, or
-/// formatted numbers. Restricting to decimal keeps inference predictable.
+/// We pre-screen with `@types.is_decimal_int_literal` because
+/// `@string.parse_int` defaults to `base=0`, which would otherwise accept
+/// `0x` / `0o` / `0b` prefixes (`0xFF` → 255) and underscore grouping
+/// (`1_000` → 1000). Those forms are kept as strings by pandas / polars,
+/// so accepting them during inference would silently retype columns of
+/// hex codes, IDs, or formatted numbers. Restricting to decimal keeps
+/// inference predictable. The same predicate gates the `@column`
+/// String→`Int` cast, so inference and an explicit cast agree.
 fn parse_int_opt(s : String) -> Int? {
-  if !is_decimal_int_literal(s) {
+  if !@types.is_decimal_int_literal(s) {
     return None
   }
   try @string.parse_int(s.view()) catch {
@@ -366,27 +368,6 @@ fn parse_int_opt(s : String) -> Int? {
   } noraise {
     n => Some(n)
   }
-}
-
-///|
-/// `true` when `s` is an optional `+` / `-` sign followed by one or more
-/// ASCII decimal digits and nothing else. Rejects empty / sign-only
-/// strings, base prefixes (`0x` / `0o` / `0b`), and underscore grouping.
-fn is_decimal_int_literal(s : String) -> Bool {
-  let mut seen_digit = false
-  let mut first = true
-  for ch in s.iter() {
-    if first && (ch == '+' || ch == '-') {
-      first = false
-      continue
-    }
-    first = false
-    if ch < '0' || ch > '9' {
-      return false
-    }
-    seen_digit = true
-  }
-  seen_digit
 }
 
 ///|

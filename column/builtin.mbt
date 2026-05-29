@@ -12,9 +12,10 @@
 /// `NumericColumn` for unboxed-numeric fast paths) without changing this
 /// layer's public API.
 ///
-/// The `Float` variant stores 32-bit `Float` values to keep the column
-/// footprint compact; `Series`-level promotion to 64-bit should be done
-/// at the stats layer if needed.
+/// Numeric columns are 64-bit: the `Int` variant stores `Int64` and the
+/// `Float` variant stores `Double`, matching `Scalar`'s payloads and the
+/// pandas / polars `int64` / `float64` defaults so reductions neither
+/// silently overflow nor lose precision.
 pub struct BuiltinColumn {
   data : ColumnData
   validity : Bitmap
@@ -25,8 +26,8 @@ pub struct BuiltinColumn {
 /// value; nullability is tracked in the enclosing column's `validity`
 /// bitmap.
 pub(all) enum ColumnData {
-  Int(Array[Int])
-  Float(Array[Float])
+  Int(Array[Int64])
+  Float(Array[Double])
   Bool(Array[Bool])
   String(Array[String])
 } derive(Eq, Debug)
@@ -35,14 +36,14 @@ pub(all) enum ColumnData {
 
 ///|
 /// Build an `Int` column from raw values (no nulls).
-pub fn BuiltinColumn::from_ints(values : Array[Int]) -> BuiltinColumn {
+pub fn BuiltinColumn::from_ints(values : Array[Int64]) -> BuiltinColumn {
   { data: Int(values), validity: Bitmap::all_valid(values.length()) }
 }
 
 ///|
 /// Build an `Int` column where `None` entries are nulls. `None` slots
 /// receive `0` as the data placeholder; public APIs never expose it.
-pub fn BuiltinColumn::from_int_options(values : Array[Int?]) -> BuiltinColumn {
+pub fn BuiltinColumn::from_int_options(values : Array[Int64?]) -> BuiltinColumn {
   {
     data: Int(values.map(v => v.unwrap_or(0))),
     validity: Bitmap::from_options(values),
@@ -51,7 +52,7 @@ pub fn BuiltinColumn::from_int_options(values : Array[Int?]) -> BuiltinColumn {
 
 ///|
 /// Build a `Float` column from raw values (no nulls).
-pub fn BuiltinColumn::from_floats(values : Array[Float]) -> BuiltinColumn {
+pub fn BuiltinColumn::from_floats(values : Array[Double]) -> BuiltinColumn {
   { data: Float(values), validity: Bitmap::all_valid(values.length()) }
 }
 
@@ -59,10 +60,10 @@ pub fn BuiltinColumn::from_floats(values : Array[Float]) -> BuiltinColumn {
 /// Build a `Float` column where `None` entries are nulls. `None` slots
 /// receive `0.0` as the data placeholder.
 pub fn BuiltinColumn::from_float_options(
-  values : Array[Float?],
+  values : Array[Double?],
 ) -> BuiltinColumn {
   {
-    data: Float(values.map(v => v.unwrap_or((0.0 : Float)))),
+    data: Float(values.map(v => v.unwrap_or(0.0))),
     validity: Bitmap::from_options(values),
   }
 }
@@ -257,8 +258,8 @@ pub fn BuiltinColumn::cast(
 /// Convert to `Int`. Validity is preserved verbatim. Supported sources:
 /// - `Int`: identity, no copy.
 /// - `Float`: truncated towards zero. `NaN`, `+Inf`, `-Inf`, and values
-///   outside the `Int` (`Int32`) range are rejected with `ParseError` —
-///   the underlying `Float::to_int` is implementation-defined on those
+///   outside the `Int64` range are rejected with `ParseError` — the
+///   underlying `Double::to_int64` is implementation-defined on those
 ///   inputs, so the cast layer guards against them explicitly. Null
 ///   slots skip the conversion entirely.
 /// - `Bool`: `true` → 1, `false` → 0.
@@ -268,14 +269,14 @@ pub fn BuiltinColumn::cast(
 ///   inference: `0x` / `0o` / `0b` base prefixes and `1_000` underscore
 ///   grouping are rejected (pandas / polars keep them as strings), as are
 ///   leading/trailing whitespace, non-numeric suffixes, empty strings,
-///   and decimal integers that overflow 32-bit `Int`.
+///   and decimal integers that overflow 64-bit `Int64`.
 pub fn BuiltinColumn::to_int(
   self : BuiltinColumn,
 ) -> Result[BuiltinColumn, @types.DataError] {
   match self.data {
     Int(_) => Ok(self)
     Float(a) => {
-      let buf : Array[Int] = Array::new(capacity=a.length())
+      let buf : Array[Int64] = Array::new(capacity=a.length())
       for i in 0..<a.length() {
         if self.validity.is_valid(i).unwrap() {
           let x = a[i]
@@ -285,14 +286,14 @@ pub fn BuiltinColumn::to_int(
             return Err(
               @types.DataError::ParseError("cannot cast Infinity to Int"),
             )
-          } else if x < min_int_as_float || x > max_int_as_float {
+          } else if x < min_int_as_double || x > max_int_as_double {
             return Err(
               @types.DataError::ParseError(
-                "Float value out of Int range: " + x.to_double().to_string(),
+                "Float value out of Int range: " + x.to_string(),
               ),
             )
           } else {
-            buf.push(x.to_int())
+            buf.push(x.to_int64())
           }
         } else {
           buf.push(0)
@@ -301,7 +302,7 @@ pub fn BuiltinColumn::to_int(
       Ok({ data: Int(buf), validity: self.validity })
     }
     Bool(a) => {
-      let buf : Array[Int] = Array::new(capacity=a.length())
+      let buf : Array[Int64] = Array::new(capacity=a.length())
       for i in 0..<a.length() {
         if self.validity.is_valid(i).unwrap() {
           buf.push(if a[i] { 1 } else { 0 })
@@ -312,7 +313,7 @@ pub fn BuiltinColumn::to_int(
       Ok({ data: Int(buf), validity: self.validity })
     }
     String(a) => {
-      let buf : Array[Int] = Array::new(capacity=a.length())
+      let buf : Array[Int64] = Array::new(capacity=a.length())
       for i in 0..<a.length() {
         if self.validity.is_valid(i).unwrap() {
           let s = a[i]
@@ -331,7 +332,7 @@ pub fn BuiltinColumn::to_int(
               ),
             )
           }
-          let parsed = try? @string.parse_int(s.view())
+          let parsed = try? @string.parse_int64(s.view())
           match parsed {
             Ok(n) => buf.push(n)
             Err(_) =>
@@ -351,34 +352,31 @@ pub fn BuiltinColumn::to_int(
 }
 
 ///|
-/// `Int::MIN` / `Int::MAX` projected into `Float` space, used to reject
-/// out-of-range `Float`→`Int` casts before `Float::to_int` (which is
-/// implementation-defined outside the representable range).
+/// `Int64::MIN` / `Int64::MAX` projected into `Double` space, used to
+/// reject out-of-range `Float`→`Int` casts before `Double::to_int64`
+/// (which is implementation-defined outside the representable range).
 ///
-/// `MAX_INT_AS_FLOAT` is the largest 32-bit `Float` that does not overflow
-/// `Int` after truncation — `Int::MAX = 2^31 - 1 = 2147483647` is not
-/// exactly representable as `Float`, the next representable value below
-/// it is `2147483520`. Anything above this rounds up to a Float ≥ 2^31
-/// and would overflow.
-let min_int_as_float : Float = -2147483648.0
+/// `Int64::MIN = -2^63` is exactly representable as a `Double`;
+/// `Int64::MAX = 2^63 - 1` is not — the largest `Double` strictly below
+/// `2^63` is `9223372036854774784` (`2^63 - 1024`). Anything above it
+/// rounds to a `Double` ≥ `2^63` and would overflow `Int64`.
+let min_int_as_double : Double = -9223372036854775808.0
 
 ///|
-let max_int_as_float : Float = 2147483520.0
+let max_int_as_double : Double = 9223372036854774784.0
 
 ///|
 /// Convert to `Float`. Validity is preserved verbatim. Supported sources:
 /// - `Float`: identity, no copy.
-/// - `Int`: promoted via `Float::from_int` (32-bit `Float` has 24 bits of
-///   significand, so Ints with magnitude > 2^24 lose precision — this is
-///   inherent to the target type and not flagged as an error).
+/// - `Int`: promoted via `Int64::to_double` (a `Double` has 52 bits of
+///   significand, so `Int64`s with magnitude > 2^53 lose precision — this
+///   is inherent to the target type and not flagged as an error).
 /// - `Bool`: `true` → 1.0, `false` → 0.0.
-/// - `String`: parsed via `@string.parse_double` (since the standard
-///   library exposes no `parse_float`) and narrowed with
-///   `Float::from_double`. `1_000`-style underscore grouping is rejected
-///   to match the CSV reader (pandas / polars keep such cells as
-///   strings); the `inf` / `-inf` / `nan` literals are still accepted.
-///   Other malformed strings on valid slots return `ParseError`; finite
-///   values beyond the `Float` range collapse to `±Infinity` per
+/// - `String`: parsed via `@string.parse_double`. `1_000`-style underscore
+///   grouping is rejected to match the CSV reader (pandas / polars keep
+///   such cells as strings); the `inf` / `-inf` / `nan` literals are still
+///   accepted. Other malformed strings on valid slots return `ParseError`;
+///   finite values beyond the `Double` range collapse to `±Infinity` per
 ///   IEEE 754.
 pub fn BuiltinColumn::to_float(
   self : BuiltinColumn,
@@ -386,29 +384,29 @@ pub fn BuiltinColumn::to_float(
   match self.data {
     Float(_) => Ok(self)
     Int(a) => {
-      let buf : Array[Float] = Array::new(capacity=a.length())
+      let buf : Array[Double] = Array::new(capacity=a.length())
       for i in 0..<a.length() {
         if self.validity.is_valid(i).unwrap() {
-          buf.push(Float::from_int(a[i]))
+          buf.push(a[i].to_double())
         } else {
-          buf.push((0.0 : Float))
+          buf.push(0.0)
         }
       }
       Ok({ data: Float(buf), validity: self.validity })
     }
     Bool(a) => {
-      let buf : Array[Float] = Array::new(capacity=a.length())
+      let buf : Array[Double] = Array::new(capacity=a.length())
       for i in 0..<a.length() {
         if self.validity.is_valid(i).unwrap() {
-          buf.push(if a[i] { (1.0 : Float) } else { (0.0 : Float) })
+          buf.push(if a[i] { 1.0 } else { 0.0 })
         } else {
-          buf.push((0.0 : Float))
+          buf.push(0.0)
         }
       }
       Ok({ data: Float(buf), validity: self.validity })
     }
     String(a) => {
-      let buf : Array[Float] = Array::new(capacity=a.length())
+      let buf : Array[Double] = Array::new(capacity=a.length())
       for i in 0..<a.length() {
         if self.validity.is_valid(i).unwrap() {
           let s = a[i]
@@ -426,7 +424,7 @@ pub fn BuiltinColumn::to_float(
           }
           let parsed = try? @string.parse_double(s.view())
           match parsed {
-            Ok(x) => buf.push(Float::from_double(x))
+            Ok(x) => buf.push(x)
             Err(_) =>
               return Err(
                 @types.DataError::ParseError(
@@ -435,7 +433,7 @@ pub fn BuiltinColumn::to_float(
               )
           }
         } else {
-          buf.push((0.0 : Float))
+          buf.push(0.0)
         }
       }
       Ok({ data: Float(buf), validity: self.validity })
@@ -498,7 +496,7 @@ pub fn BuiltinColumn::to_string_column(
 /// column is not an `Int` column.
 pub fn BuiltinColumn::int_values(
   self : BuiltinColumn,
-) -> Result[(Array[Int], Bitmap), @types.DataError] {
+) -> Result[(Array[Int64], Bitmap), @types.DataError] {
   match self.data {
     Int(a) => Ok((a, self.validity))
     _ =>
@@ -514,7 +512,7 @@ pub fn BuiltinColumn::int_values(
 /// Like `int_values` but for `Float` columns.
 pub fn BuiltinColumn::float_values(
   self : BuiltinColumn,
-) -> Result[(Array[Float], Bitmap), @types.DataError] {
+) -> Result[(Array[Double], Bitmap), @types.DataError] {
   match self.data {
     Float(a) => Ok((a, self.validity))
     _ =>

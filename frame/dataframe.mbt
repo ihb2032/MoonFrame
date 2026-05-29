@@ -110,7 +110,7 @@ pub fn DataFrame::from_rows(
     let dt = field.dtype()
     let series = match dt {
       @types.DataType::Int => {
-        let buf : Array[Int?] = Array::new(capacity=nrows)
+        let buf : Array[Int64?] = Array::new(capacity=nrows)
         for row in rows {
           match row[i] {
             @types.Scalar::Int(v) => buf.push(Some(v))
@@ -129,7 +129,7 @@ pub fn DataFrame::from_rows(
         Series::from_int_options(field.name(), buf)
       }
       @types.DataType::Float => {
-        let buf : Array[Float?] = Array::new(capacity=nrows)
+        let buf : Array[Double?] = Array::new(capacity=nrows)
         for row in rows {
           match row[i] {
             @types.Scalar::Float(v) => buf.push(Some(v))

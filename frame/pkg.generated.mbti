@@ -43,8 +43,8 @@ pub struct RowView {
 } derive(Eq, @debug.Debug)
 pub fn RowView::get(Self, String) -> Result[@types.Scalar, @types.DataError]
 pub fn RowView::get_bool(Self, String) -> Result[Bool, @types.DataError]
-pub fn RowView::get_float(Self, String) -> Result[Float, @types.DataError]
-pub fn RowView::get_int(Self, String) -> Result[Int, @types.DataError]
+pub fn RowView::get_float(Self, String) -> Result[Double, @types.DataError]
+pub fn RowView::get_int(Self, String) -> Result[Int64, @types.DataError]
 pub fn RowView::get_string(Self, String) -> Result[String, @types.DataError]
 pub fn RowView::index(Self) -> Int
 pub fn RowView::is_null(Self, String) -> Result[Bool, @types.DataError]
@@ -62,10 +62,10 @@ pub fn Series::fill_null(Self, @types.Scalar) -> Result[Self, @types.DataError]
 pub fn Series::from_bool_options(String, Array[Bool?]) -> Self
 pub fn Series::from_bools(String, Array[Bool]) -> Self
 pub fn Series::from_builtin(String, @column.BuiltinColumn) -> Self
-pub fn Series::from_float_options(String, Array[Float?]) -> Self
-pub fn Series::from_floats(String, Array[Float]) -> Self
-pub fn Series::from_int_options(String, Array[Int?]) -> Self
-pub fn Series::from_ints(String, Array[Int]) -> Self
+pub fn Series::from_float_options(String, Array[Double?]) -> Self
+pub fn Series::from_floats(String, Array[Double]) -> Self
+pub fn Series::from_int_options(String, Array[Int64?]) -> Self
+pub fn Series::from_ints(String, Array[Int64]) -> Self
 pub fn Series::from_string_options(String, Array[String?]) -> Self
 pub fn Series::from_strings(String, Array[String]) -> Self
 pub fn Series::get(Self, Int) -> Result[@types.Scalar, @types.DataError]
@@ -73,12 +73,12 @@ pub fn Series::is_empty(Self) -> Bool
 pub fn Series::is_null(Self, Int) -> Result[Bool, @types.DataError]
 pub fn Series::len(Self) -> Int
 pub fn Series::max(Self) -> Result[@types.Scalar, @types.DataError]
-pub fn Series::mean(Self) -> Result[Float, @types.DataError]
+pub fn Series::mean(Self) -> Result[Double, @types.DataError]
 pub fn Series::min(Self) -> Result[@types.Scalar, @types.DataError]
 pub fn Series::name(Self) -> String
 pub fn Series::new(String, @column.BuiltinColumn) -> Self
 pub fn Series::null_count(Self) -> Int
-pub fn Series::null_rate(Self) -> Float
+pub fn Series::null_rate(Self) -> Double
 pub fn Series::rename(Self, String) -> Self
 pub fn Series::slice(Self, Int, Int) -> Result[Self, @types.DataError]
 pub fn Series::storage(Self) -> @column.BuiltinColumn

@@ -213,7 +213,7 @@ fn parse_json_payload(content : String) -> Result[Json, @types.DataError] {
 ///|
 /// Map a `@types.Scalar` into the corresponding `Json` value. The
 /// promotion is straight-line: `Int` and `Float` both land on JSON
-/// numbers (with `Float` widened to `Double` before stringification);
+/// numbers (`Int64` widened to `Double`; `Float` is already `Double`);
 /// `Bool` lands on the `true` / `false` variants; `String` passes
 /// through unchanged and is escaped by the stringifier; `Null` lands
 /// on JSON `null`.
@@ -221,7 +221,7 @@ fn scalar_to_json(s : @types.Scalar) -> Json {
   match s {
     @types.Scalar::Null => Json::null()
     @types.Scalar::Int(v) => Json::number(v.to_double())
-    @types.Scalar::Float(v) => Json::number(v.to_double())
+    @types.Scalar::Float(v) => Json::number(v)
     @types.Scalar::Bool(v) => Json::boolean(v)
     @types.Scalar::String(v) => Json::string(v)
   }
@@ -313,9 +313,11 @@ fn infer_json_column_dtype(
 }
 
 ///|
-/// Try to read `j` as an `Int`. Accepts `Number` values that are
-/// exactly integer-valued (`n == n.trunc()`) and fit in
-/// `[Int::MIN, Int::MAX]`. The check is value-based rather than
+/// Try to read `j` as an `Int64`. Accepts `Number` values that are
+/// exactly integer-valued (`n == n.trunc()`) and within `Int64` range —
+/// guarded by the largest `Double` strictly below `2^63`
+/// (`9223372036854774784`), since `Int64::MAX` isn't exactly
+/// representable as a `Double`. The check is value-based rather than
 /// repr-based because `@json.parse` only populates `Number.repr` for
 /// overflow corner cases (Infinity / -Infinity), so anything written
 /// like `1.0e2` lands as `Number(100.0, None)` — which we treat as
@@ -324,28 +326,28 @@ fn infer_json_column_dtype(
 /// Booleans, strings, and null are intentionally rejected — JSON has
 /// strong types and silently promoting `true → 1` would surprise
 /// callers used to pandas / polars semantics.
-fn json_value_as_int(j : Json) -> Int? {
+fn json_value_as_int(j : Json) -> Int64? {
   match j {
     Number(n, ..) => {
       if n != n.trunc() {
         return None
       }
-      if n < -2147483648.0 || n > 2147483647.0 {
+      if n < -9223372036854775808.0 || n > 9223372036854774784.0 {
         return None
       }
-      Some(n.to_int())
+      Some(n.to_int64())
     }
     _ => None
   }
 }
 
 ///|
-/// Try to read `j` as a `Float`. Accepts any `Number`, narrowing the
-/// underlying `Double` to `Float`. Booleans, strings, and null are
-/// rejected for the same reason as `json_value_as_int`.
-fn json_value_as_float(j : Json) -> Float? {
+/// Try to read `j` as a `Double`. Accepts any `Number`. Booleans,
+/// strings, and null are rejected for the same reason as
+/// `json_value_as_int`.
+fn json_value_as_float(j : Json) -> Double? {
   match j {
-    Number(n, ..) => Some(Float::from_double(n))
+    Number(n, ..) => Some(n)
     _ => None
   }
 }
@@ -408,7 +410,7 @@ fn build_json_column(
   let n = objs.length()
   match dtype {
     JsonInt => {
-      let values : Array[Int?] = Array::new(capacity=n)
+      let values : Array[Int64?] = Array::new(capacity=n)
       for i in 0..<n {
         let cell = lookup_field(objs[i], name)
         if cell is Null {
@@ -434,7 +436,7 @@ fn build_json_column(
       Ok(@frame.Series::from_int_options(name, values))
     }
     JsonFloat => {
-      let values : Array[Float?] = Array::new(capacity=n)
+      let values : Array[Double?] = Array::new(capacity=n)
       for i in 0..<n {
         let cell = lookup_field(objs[i], name)
         if cell is Null {

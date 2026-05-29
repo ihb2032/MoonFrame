@@ -45,25 +45,25 @@ pub fn RowView::is_null(
 }
 
 ///|
-/// Read the cell as an `Int`. Returns:
+/// Read the cell as an `Int64`. Returns:
 /// - `Err(ColumnNotFound(name))` for unknown columns;
 /// - `Err(TypeMismatch(...))` when the column's dtype isn't `Int` or
 ///   the cell is null (mirrors `Scalar::as_int`).
 pub fn RowView::get_int(
   self : RowView,
   name : String,
-) -> Result[Int, @types.DataError] {
+) -> Result[Int64, @types.DataError] {
   self.get(name).bind(v => v.as_int())
 }
 
 ///|
-/// Read the cell as a `Float`. `Int` cells are promoted via
+/// Read the cell as a `Double`. `Int` cells are promoted via
 /// `Scalar::as_float`. Null cells and non-numeric dtypes return
 /// `Err(TypeMismatch(...))`.
 pub fn RowView::get_float(
   self : RowView,
   name : String,
-) -> Result[Float, @types.DataError] {
+) -> Result[Double, @types.DataError] {
   self.get(name).bind(v => v.as_float())
 }
 

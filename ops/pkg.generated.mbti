@@ -26,7 +26,7 @@ pub fn filter_try(@frame.DataFrame, (@frame.RowView) -> Result[Bool, @types.Data
 
 pub fn max(@frame.DataFrame, String) -> Result[@types.Scalar, @types.DataError]
 
-pub fn mean(@frame.DataFrame, String) -> Result[Float, @types.DataError]
+pub fn mean(@frame.DataFrame, String) -> Result[Double, @types.DataError]
 
 pub fn min(@frame.DataFrame, String) -> Result[@types.Scalar, @types.DataError]
 

@@ -34,17 +34,17 @@ pub struct BuiltinColumn {
 pub fn BuiltinColumn::bool_values(Self) -> Result[(Array[Bool], Bitmap), @types.DataError]
 pub fn BuiltinColumn::cast(Self, @types.DataType) -> Result[Self, @types.DataError]
 pub fn BuiltinColumn::dtype(Self) -> @types.DataType
-pub fn BuiltinColumn::float_values(Self) -> Result[(Array[Float], Bitmap), @types.DataError]
+pub fn BuiltinColumn::float_values(Self) -> Result[(Array[Double], Bitmap), @types.DataError]
 pub fn BuiltinColumn::from_bool_options(Array[Bool?]) -> Self
 pub fn BuiltinColumn::from_bools(Array[Bool]) -> Self
-pub fn BuiltinColumn::from_float_options(Array[Float?]) -> Self
-pub fn BuiltinColumn::from_floats(Array[Float]) -> Self
-pub fn BuiltinColumn::from_int_options(Array[Int?]) -> Self
-pub fn BuiltinColumn::from_ints(Array[Int]) -> Self
+pub fn BuiltinColumn::from_float_options(Array[Double?]) -> Self
+pub fn BuiltinColumn::from_floats(Array[Double]) -> Self
+pub fn BuiltinColumn::from_int_options(Array[Int64?]) -> Self
+pub fn BuiltinColumn::from_ints(Array[Int64]) -> Self
 pub fn BuiltinColumn::from_string_options(Array[String?]) -> Self
 pub fn BuiltinColumn::from_strings(Array[String]) -> Self
 pub fn BuiltinColumn::get(Self, Int) -> Result[@types.Scalar, @types.DataError]
-pub fn BuiltinColumn::int_values(Self) -> Result[(Array[Int], Bitmap), @types.DataError]
+pub fn BuiltinColumn::int_values(Self) -> Result[(Array[Int64], Bitmap), @types.DataError]
 pub fn BuiltinColumn::is_empty(Self) -> Bool
 pub fn BuiltinColumn::is_null(Self, Int) -> Result[Bool, @types.DataError]
 pub fn BuiltinColumn::len(Self) -> Int
@@ -57,8 +57,8 @@ pub fn BuiltinColumn::to_int(Self) -> Result[Self, @types.DataError]
 pub fn BuiltinColumn::to_string_column(Self) -> Result[Self, @types.DataError]
 
 pub(all) enum ColumnData {
-  Int(Array[Int])
-  Float(Array[Float])
+  Int(Array[Int64])
+  Float(Array[Double])
   Bool(Array[Bool])
   String(Array[String])
 } derive(Eq, @debug.Debug)

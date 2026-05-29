@@ -21,7 +21,7 @@ pub fn null_count(df : @frame.DataFrame) -> @frame.DataFrame {
     .map(name => {
       // `get_column` cannot fail: name came from `df.columns()`.
       let s = df.get_column(name).unwrap()
-      @frame.Series::from_ints(name, [s.null_count()])
+      @frame.Series::from_ints(name, [s.null_count().to_int64()])
     })
   // Names are unique (inherited from `df.columns()`), every column
   // has the same length (1) — the constructor cannot fail. `unwrap`

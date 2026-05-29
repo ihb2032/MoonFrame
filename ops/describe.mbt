@@ -28,10 +28,10 @@
 pub fn describe(df : @frame.DataFrame) -> @frame.DataFrame {
   let names : Array[String] = []
   let dtypes : Array[String] = []
-  let counts : Array[Int] = []
-  let null_counts : Array[Int] = []
-  let unique_counts : Array[Int] = []
-  let means : Array[Float?] = []
+  let counts : Array[Int64] = []
+  let null_counts : Array[Int64] = []
+  let unique_counts : Array[Int64] = []
+  let means : Array[Double?] = []
   let mins : Array[String?] = []
   let maxs : Array[String?] = []
   for name in df.columns() {
@@ -39,9 +39,9 @@ pub fn describe(df : @frame.DataFrame) -> @frame.DataFrame {
     let s = df.get_column(name).unwrap()
     names.push(name)
     dtypes.push(s.dtype().to_string())
-    counts.push(s.count())
-    null_counts.push(s.null_count())
-    unique_counts.push(s.unique_count())
+    counts.push(s.count().to_int64())
+    null_counts.push(s.null_count().to_int64())
+    unique_counts.push(s.unique_count().to_int64())
     // Both `Series::mean` failure modes (TypeMismatch for non-numeric,
     // InvalidOperation for empty / all-null numeric) collapse to a
     // null cell here — the diagnostic distinction is preserved at the

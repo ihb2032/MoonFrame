@@ -164,8 +164,8 @@ fn build_sort_key(
 /// element type (no `Scalar` boxing, no re-dispatch through
 /// `BuiltinColumn::get`).
 priv enum SortKey {
-  Int(Array[Int], @column.Bitmap, SortOrder, NullOrder)
-  Float(Array[Float], @column.Bitmap, SortOrder, NullOrder)
+  Int(Array[Int64], @column.Bitmap, SortOrder, NullOrder)
+  Float(Array[Double], @column.Bitmap, SortOrder, NullOrder)
   Bool(Array[Bool], @column.Bitmap, SortOrder, NullOrder)
   String(Array[String], @column.Bitmap, SortOrder, NullOrder)
 }

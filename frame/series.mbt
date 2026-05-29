@@ -38,19 +38,22 @@ pub fn Series::from_builtin(
 
 ///|
 /// Build an `Int` series from raw values (no nulls).
-pub fn Series::from_ints(name : String, values : Array[Int]) -> Series {
+pub fn Series::from_ints(name : String, values : Array[Int64]) -> Series {
   { name, storage: @column.BuiltinColumn::from_ints(values) }
 }
 
 ///|
 /// Build an `Int` series where `None` entries are nulls.
-pub fn Series::from_int_options(name : String, values : Array[Int?]) -> Series {
+pub fn Series::from_int_options(
+  name : String,
+  values : Array[Int64?],
+) -> Series {
   { name, storage: @column.BuiltinColumn::from_int_options(values) }
 }
 
 ///|
 /// Build a `Float` series from raw values (no nulls).
-pub fn Series::from_floats(name : String, values : Array[Float]) -> Series {
+pub fn Series::from_floats(name : String, values : Array[Double]) -> Series {
   { name, storage: @column.BuiltinColumn::from_floats(values) }
 }
 
@@ -58,7 +61,7 @@ pub fn Series::from_floats(name : String, values : Array[Float]) -> Series {
 /// Build a `Float` series where `None` entries are nulls.
 pub fn Series::from_float_options(
   name : String,
-  values : Array[Float?],
+  values : Array[Double?],
 ) -> Series {
   { name, storage: @column.BuiltinColumn::from_float_options(values) }
 }
@@ -127,15 +130,15 @@ pub fn Series::null_count(self : Series) -> Int {
 }
 
 ///|
-/// Fraction of cells that are null, as a `Float`. Returns `0.0` for an
+/// Fraction of cells that are null, as a `Double`. Returns `0.0` for an
 /// empty series rather than a 0/0 NaN — the latter would propagate
 /// through downstream summary stats.
-pub fn Series::null_rate(self : Series) -> Float {
+pub fn Series::null_rate(self : Series) -> Double {
   let n = self.len()
   if n == 0 {
-    (0.0 : Float)
+    0.0
   } else {
-    Float::from_int(self.null_count()) / Float::from_int(n)
+    self.null_count().to_double() / n.to_double()
   }
 }
 

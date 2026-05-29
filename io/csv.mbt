@@ -349,21 +349,21 @@ fn infer_column_dtype(
 
 ///|
 /// `Some(value)` when `s` is a plain base-10 integer literal that fits in
-/// a 32-bit `Int`; `None` otherwise.
+/// a 64-bit `Int64`; `None` otherwise.
 ///
 /// We pre-screen with `@types.is_decimal_int_literal` because
-/// `@string.parse_int` defaults to `base=0`, which would otherwise accept
+/// `@string.parse_int64` defaults to `base=0`, which would otherwise accept
 /// `0x` / `0o` / `0b` prefixes (`0xFF` → 255) and underscore grouping
 /// (`1_000` → 1000). Those forms are kept as strings by pandas / polars,
 /// so accepting them during inference would silently retype columns of
 /// hex codes, IDs, or formatted numbers. Restricting to decimal keeps
 /// inference predictable. The same predicate gates the `@column`
 /// String→`Int` cast, so inference and an explicit cast agree.
-fn parse_int_opt(s : String) -> Int? {
+fn parse_int_opt(s : String) -> Int64? {
   if !@types.is_decimal_int_literal(s) {
     return None
   }
-  try @string.parse_int(s.view()) catch {
+  try @string.parse_int64(s.view()) catch {
     _ => None
   } noraise {
     n => Some(n)
@@ -371,23 +371,23 @@ fn parse_int_opt(s : String) -> Int? {
 }
 
 ///|
-/// `Some(value)` when `s` parses as a `Float` via `@string.parse_double`
-/// (then narrowed). `None` on parse failure.
+/// `Some(value)` when `s` parses as a `Double` via `@string.parse_double`;
+/// `None` on parse failure.
 ///
 /// Strings containing `_` are rejected up front: `@string.parse_double`
 /// accepts underscore grouping (`1_000` → `1000.0`), but — like the
 /// `0x` / `0o` / `0b` forms screened out of `parse_int_opt` — that is not
 /// how CSV numbers are written, and pandas / polars keep such cells as
 /// strings. The `inf` / `nan` literals that `parse_double` recognises
-/// are still accepted and become `Float` ±Infinity / NaN values.
-fn parse_float_opt(s : String) -> Float? {
+/// are still accepted and become `Double` ±Infinity / NaN values.
+fn parse_float_opt(s : String) -> Double? {
   if s.iter().any(c => c == '_') {
     return None
   }
   try @string.parse_double(s.view()) catch {
     _ => None
   } noraise {
-    x => Some(Float::from_double(x))
+    x => Some(x)
   }
 }
 
@@ -422,7 +422,7 @@ fn build_column(
   let n = rows.length()
   match dtype {
     InferredInt => {
-      let values : Array[Int?] = Array::new(capacity=n)
+      let values : Array[Int64?] = Array::new(capacity=n)
       for i in 0..<n {
         let v = cell_value(rows, i, col)
         if is_null_value(v, null_values) {
@@ -448,7 +448,7 @@ fn build_column(
       Ok(@frame.Series::from_int_options(name, values))
     }
     InferredFloat => {
-      let values : Array[Float?] = Array::new(capacity=n)
+      let values : Array[Double?] = Array::new(capacity=n)
       for i in 0..<n {
         let v = cell_value(rows, i, col)
         if is_null_value(v, null_values) {

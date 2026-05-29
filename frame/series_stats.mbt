@@ -12,7 +12,7 @@ pub fn Series::count(self : Series) -> Int {
 /// Sum of the valid (non-null) cells of an `Int` buffer. Factored out so
 /// `sum` and `mean` share a single null-skipping accumulation instead of
 /// each carrying its own copy.
-fn sum_int_valid(data : Array[Int], validity : @column.Bitmap) -> Int {
+fn sum_int_valid(data : Array[Int64], validity : @column.Bitmap) -> Int64 {
   data.foldi(init=0, (i, acc, x) => {
     if validity.is_valid(i).unwrap() {
       acc + x
@@ -25,19 +25,18 @@ fn sum_int_valid(data : Array[Int], validity : @column.Bitmap) -> Int {
 ///|
 /// Sum and count of the valid, non-`NaN` cells of a `Float` buffer.
 /// `NaN` is treated as missing (skipped), matching `min` / `max` and
-/// `@ops.sort_by`. The sum accumulates in 64-bit `Double` to limit
-/// rounding error — the column stores 32-bit `Float`, and naive 32-bit
-/// accumulation drifts as the column grows; callers narrow back to
-/// `Float`. The returned count excludes both nulls and `NaN`s, which is
-/// the denominator `mean` needs (`Series::count` would over-count NaN).
+/// `@ops.sort_by`. The column stores 64-bit `Double`, so the sum
+/// accumulates directly in `Double` with no narrowing. The returned
+/// count excludes both nulls and `NaN`s, which is the denominator `mean`
+/// needs (`Series::count` would over-count NaN).
 fn sum_count_float_valid(
-  data : Array[Float],
+  data : Array[Double],
   validity : @column.Bitmap,
 ) -> (Double, Int) {
   data.foldi(init=((0.0 : Double), 0), (i, acc, x) => {
     let (s, c) = acc
     if validity.is_valid(i).unwrap() && !x.is_nan() {
-      (s + x.to_double(), c + 1)
+      (s + x, c + 1)
     } else {
       (s, c)
     }
@@ -47,12 +46,11 @@ fn sum_count_float_valid(
 ///|
 /// Sum of non-null cells.
 ///
-/// - `Int` series → `Scalar::Int(sum)`. MoonBit's default `Int` is
-///   32-bit so very large inputs wrap silently (no overflow trap in
-///   v0.1).
+/// - `Int` series → `Scalar::Int(sum)`, accumulated in 64-bit `Int64`
+///   (so only sums past 2^63 overflow, not the old 32-bit ceiling).
 /// - `Float` series → `Scalar::Float(sum)`, accumulated in 64-bit
-///   `Double` then narrowed. `NaN` cells are skipped (treated as
-///   missing, matching `min` / `max` and `@ops.sort_by`).
+///   `Double`. `NaN` cells are skipped (treated as missing, matching
+///   `min` / `max` and `@ops.sort_by`).
 /// - Empty / all-null (or all-`NaN` `Float`) numeric series →
 ///   `Scalar::Int(0)` or `Scalar::Float(0.0)` (additive identity).
 /// - Non-numeric series (`Bool`, `String`) → `Err(TypeMismatch)`.
@@ -64,7 +62,7 @@ pub fn Series::sum(self : Series) -> Result[@types.Scalar, @types.DataError] {
       match self.storage.float_values() {
         Ok((data, validity)) => {
           let (s, _) = sum_count_float_valid(data, validity)
-          Ok(@types.Scalar::Float(Float::from_double(s)))
+          Ok(@types.Scalar::Float(s))
         }
         Err(_) =>
           Err(
@@ -77,16 +75,16 @@ pub fn Series::sum(self : Series) -> Result[@types.Scalar, @types.DataError] {
 }
 
 ///|
-/// Arithmetic mean of non-null cells, returned as `Float`.
+/// Arithmetic mean of non-null cells, returned as `Double`.
 ///
-/// The division is performed in 64-bit `Double` and narrowed to `Float`
-/// on return — for both `Int` and `Float` columns — so a long column
-/// whose sum exceeds the 24-bit `Float` significand (`> 2^24`) does not
-/// lose precision the way a 32-bit `Float::from_int(sum) / cnt` would.
+/// Reductions run in 64-bit — an `Int64` sum for `Int` columns, `Double`
+/// accumulation for `Float` columns — and the division is performed in
+/// `Double`, so a long column does not lose precision the way a 32-bit
+/// accumulation would.
 ///
 /// - Empty / all-null numeric series → `Err(InvalidOperation(...))`.
 /// - Non-numeric series → `Err(TypeMismatch(...))`.
-pub fn Series::mean(self : Series) -> Result[Float, @types.DataError] {
+pub fn Series::mean(self : Series) -> Result[Double, @types.DataError] {
   let cnt = self.count()
   match self.storage.int_values() {
     Ok((data, validity)) =>
@@ -95,11 +93,7 @@ pub fn Series::mean(self : Series) -> Result[Float, @types.DataError] {
       } else {
         // Accumulate / divide in Double, then narrow — keeps the result
         // accurate for sums beyond the 24-bit Float significand.
-        Ok(
-          Float::from_double(
-            sum_int_valid(data, validity).to_double() / cnt.to_double(),
-          ),
-        )
+        Ok(sum_int_valid(data, validity).to_double() / cnt.to_double())
       }
     Err(_) =>
       match self.storage.float_values() {
@@ -114,7 +108,7 @@ pub fn Series::mean(self : Series) -> Result[Float, @types.DataError] {
               ),
             )
           } else {
-            Ok(Float::from_double(s / c.to_double()))
+            Ok(s / c.to_double())
           }
         }
         Err(_) =>
@@ -138,7 +132,7 @@ pub fn Series::mean(self : Series) -> Result[Float, @types.DataError] {
 pub fn Series::min(self : Series) -> Result[@types.Scalar, @types.DataError] {
   match self.storage.int_values() {
     Ok((data, validity)) => {
-      let best = data.foldi(init=(None : Int?), (i, acc, x) => {
+      let best = data.foldi(init=(None : Int64?), (i, acc, x) => {
         if validity.is_valid(i).unwrap() {
           match acc {
             None => Some(x)
@@ -158,7 +152,7 @@ pub fn Series::min(self : Series) -> Result[@types.Scalar, @types.DataError] {
     Err(_) =>
       match self.storage.float_values() {
         Ok((data, validity)) => {
-          let best = data.foldi(init=(None : Float?), (i, acc, x) => {
+          let best = data.foldi(init=(None : Double?), (i, acc, x) => {
             // NaN is treated as missing (skipped), matching `@ops.sort_by`.
             if validity.is_valid(i).unwrap() && !x.is_nan() {
               match acc {
@@ -237,7 +231,7 @@ pub fn Series::min(self : Series) -> Result[@types.Scalar, @types.DataError] {
 pub fn Series::max(self : Series) -> Result[@types.Scalar, @types.DataError] {
   match self.storage.int_values() {
     Ok((data, validity)) => {
-      let best = data.foldi(init=(None : Int?), (i, acc, x) => {
+      let best = data.foldi(init=(None : Int64?), (i, acc, x) => {
         if validity.is_valid(i).unwrap() {
           match acc {
             None => Some(x)
@@ -257,7 +251,7 @@ pub fn Series::max(self : Series) -> Result[@types.Scalar, @types.DataError] {
     Err(_) =>
       match self.storage.float_values() {
         Ok((data, validity)) => {
-          let best = data.foldi(init=(None : Float?), (i, acc, x) => {
+          let best = data.foldi(init=(None : Double?), (i, acc, x) => {
             // NaN is treated as missing (skipped), matching `@ops.sort_by`.
             if validity.is_valid(i).unwrap() && !x.is_nan() {
               match acc {
@@ -375,9 +369,9 @@ pub fn Series::unique_count(self : Series) -> Int {
 /// and there's no dead `Null`-dtype arm to keep in sync.
 pub fn Series::describe(self : Series) -> DataFrame {
   let cols : Array[Series] = []
-  cols.push(Series::from_ints("count", [self.count()]))
-  cols.push(Series::from_ints("null_count", [self.null_count()]))
-  cols.push(Series::from_ints("unique_count", [self.unique_count()]))
+  cols.push(Series::from_ints("count", [self.count().to_int64()]))
+  cols.push(Series::from_ints("null_count", [self.null_count().to_int64()]))
+  cols.push(Series::from_ints("unique_count", [self.unique_count().to_int64()]))
   match self.storage.int_values() {
     Ok(_) => describe_push_int_stats(self, cols)
     Err(_) =>
@@ -406,11 +400,11 @@ fn describe_push_int_stats(s : Series, cols : Array[Series]) -> Unit {
     Err(_) => Series::from_float_options("mean", [None])
   }
   cols.push(mean_col)
-  let min_cell : Int? = match s.min().unwrap() {
+  let min_cell : Int64? = match s.min().unwrap() {
     @types.Scalar::Int(x) => Some(x)
     _ => None
   }
-  let max_cell : Int? = match s.max().unwrap() {
+  let max_cell : Int64? = match s.max().unwrap() {
     @types.Scalar::Int(x) => Some(x)
     _ => None
   }
@@ -426,11 +420,11 @@ fn describe_push_float_stats(s : Series, cols : Array[Series]) -> Unit {
     Err(_) => Series::from_float_options("mean", [None])
   }
   cols.push(mean_col)
-  let min_cell : Float? = match s.min().unwrap() {
+  let min_cell : Double? = match s.min().unwrap() {
     @types.Scalar::Float(x) => Some(x)
     _ => None
   }
-  let max_cell : Float? = match s.max().unwrap() {
+  let max_cell : Double? = match s.max().unwrap() {
     @types.Scalar::Float(x) => Some(x)
     _ => None
   }

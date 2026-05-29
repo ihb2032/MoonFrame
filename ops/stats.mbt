@@ -48,7 +48,7 @@ pub fn sum(
 }
 
 ///|
-/// Arithmetic mean of `column`, returned as `Float` (`Int` sums are
+/// Arithmetic mean of `column`, returned as `Double` (`Int` sums are
 /// promoted). Empty or all-null numeric columns surface as
 /// `Err(InvalidOperation(...))`; non-numeric columns as
 /// `Err(TypeMismatch(...))`.
@@ -60,7 +60,7 @@ pub fn sum(
 pub fn mean(
   df : @frame.DataFrame,
   column : String,
-) -> Result[Float, @types.DataError] {
+) -> Result[Double, @types.DataError] {
   dispatch_stat(df, column, fn(s) { s.mean() })
 }
 

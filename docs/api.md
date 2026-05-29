@@ -38,6 +38,13 @@ the facade is additive.
   `String` is *shortlex* (length first), which surprises pandas / SQL
   users; every user-facing ordering (`Scalar::lt`, `Series::min` /
   `max`, `@ops.sort_by`) routes through this helper so they all agree.
+- `fn is_decimal_int_literal(s) -> Bool` — `true` when `s` is an optional
+  `+` / `-` sign followed by ASCII digits and nothing else (rejects
+  `0x` / `0o` / `0b` base prefixes and `1_000` underscore grouping). The
+  CSV / JSON readers' type inference and the `@column` String→`Int` cast
+  both route through this predicate so they agree on what counts as an
+  integer literal — `@string.parse_int` defaults to `base = 0` and would
+  otherwise accept those forms.
 - `struct Field` — column metadata: `name`, `dtype`, `nullable`.
   - Constructors: `Field::new(name, dtype)` (defaults `nullable = true`),
     `Field::with_nullable(name, dtype, nullable)`.
@@ -117,11 +124,15 @@ the facade is additive.
   verbatim across every cast.
   - `to_int` — identity on Int; Float truncates towards zero (`NaN`,
     `±Inf`, and values outside `Int32` range → `ParseError`); Bool maps
-    `true → 1`, `false → 0`; String parses with `@string.parse_int`
-    (non-numeric on a valid slot → `ParseError`).
+    `true → 1`, `false → 0`; String accepts only plain base-10 integers
+    (optional `+` / `-` sign then digits) — `0x` / `0o` / `0b` prefixes,
+    `1_000` underscore grouping, and 32-bit overflow → `ParseError`,
+    matching the CSV reader's inference.
   - `to_float` — Int promoted via `Float::from_int`; identity on
     Float; Bool maps to `1.0` / `0.0`; String parses with
-    `@string.parse_double` then narrowed to 32-bit.
+    `@string.parse_double` then narrowed to 32-bit. `1_000`-style
+    underscore grouping → `ParseError` (matching the CSV reader);
+    `inf` / `-inf` / `nan` literals are accepted.
   - `to_string_column` — every dtype rendered with `Scalar::to_string`
     semantics (e.g. `Int(42) → "42"`, `Bool(true) → "true"`).
   - `Bool` / `Null` targets return `Err(Unsupported)`.
@@ -582,9 +593,10 @@ in-tree (no third-party Markdown library) and produces deterministic
 bytes for a given frame, so callers can pin output via exact-string
 assertions. Null cells render as the empty string, matching
 `Scalar::to_string`. Cell values and column names are GFM-escaped: a
-literal `|` becomes `\|` and CR / LF collapse to a single space, so
-data containing pipes or newlines can't corrupt the table structure
-(column widths are measured on the escaped text).
+literal backslash is doubled (`\` → `\\`), a literal `|` becomes `\|`,
+and CR / LF collapse to a single space, so data containing backslashes,
+pipes, or newlines can't corrupt the table structure (column widths are
+measured on the escaped text).
 
 - `to_markdown(df) -> String` — three blocks of pipe-bounded rows:
   header (column names), separator (dashes), and one row per record

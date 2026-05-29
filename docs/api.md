@@ -210,13 +210,13 @@ the facade is additive.
   equality test; all `Float` `NaN` cells collapse into a single bucket
   (matching pandas' `nunique` on NaN).
 
-- `describe()` — one-row summary `DataFrame`. Every series gets
-  `count` / `null_count` / `unique_count` (`Int`). Numeric series add
-  `mean` (`Double`, `Null` for empty / all-null). All dtypes add `min`
-  and `max`, typed to match the source series (`Null` cells when the
-  reduction has no value). Column order: numeric — `count`,
-  `null_count`, `unique_count`, `mean`, `min`, `max`; `Bool` / `String`
-  — `count`, `null_count`, `unique_count`, `min`, `max`.
+- `describe()` — one-row summary `DataFrame` with a uniform six-column
+  layout across every dtype, in order: `count` / `null_count` /
+  `unique_count` (`Int`), `mean` (`Double`, `Null` for non-numeric or
+  empty / all-null numeric), then `min` and `max` typed to match the
+  source series (`Null` cells when the reduction has no value).
+  Non-numeric series still carry the `mean` column (always `Null`) so the
+  layout doesn't depend on dtype.
 
 ### DataFrame
 

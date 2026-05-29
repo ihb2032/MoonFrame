@@ -297,6 +297,21 @@ test "parse_csv_str: whitespace-only content collapses to a 0x0 frame" {
 }
 
 ///|
+test "parse_csv_str: has_header=false on row-less (whitespace) input yields 0x0" {
+  // Non-empty content skips the empty-input short-circuit, but NyaCSV
+  // reduces "\n" to zero rows; the has_header=false branch then takes the
+  // `rows.is_empty()` path and synthesises zero column names → 0×0.
+  let df = @io.parse_csv_str("\n", {
+    has_header: false,
+    delimiter: ',',
+    infer_schema_rows: 100,
+    null_values: [""],
+  }).unwrap()
+  assert_eq(df.check_invariants(), Ok(()))
+  assert_eq(df.shape(), (0, 0))
+}
+
+///|
 test "parse_csv_str: single column, single row" {
   let df = @io.parse_csv_str("only\n42\n", @io.CsvReadOptions::default()).unwrap()
   assert_eq(df.check_invariants(), Ok(()))

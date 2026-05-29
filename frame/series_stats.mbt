@@ -349,17 +349,13 @@ pub fn Series::unique_count(self : Series) -> Int {
 ///|
 /// One-row summary `DataFrame`.
 ///
-/// Every series produces `count`, `null_count`, and `unique_count`
-/// (`Int`). Numeric series additionally carry `mean` (`Float`, `Null`
-/// when the series is empty / all-null). All dtypes carry `min` and
-/// `max` in the source dtype, with `Null` cells when the reduction has
-/// no value (empty / all-null).
-///
-/// Column order:
-/// - numeric (`Int` / `Float`): `count`, `null_count`, `unique_count`,
-///   `mean`, `min`, `max`.
-/// - `Bool` / `String`: `count`, `null_count`, `unique_count`, `min`,
-///   `max`.
+/// Every series produces the same six columns in the same order, so the
+/// summary shape is uniform across dtypes: `count`, `null_count`,
+/// `unique_count` (`Int`), then `mean` (`Double`, `Null` for non-numeric
+/// or empty / all-null numeric), then `min` and `max` in the source
+/// dtype (`Null` cells when the reduction has no value). Non-numeric
+/// series still carry the `mean` column (always `Null`) so callers can
+/// rely on a fixed layout regardless of dtype.
 ///
 /// The dispatch chains through the typed accessors
 /// (`int_values` / `float_values` / `bool_values` / `string_values`)
@@ -372,17 +368,26 @@ pub fn Series::describe(self : Series) -> DataFrame {
   cols.push(Series::from_ints("count", [self.count().to_int64()]))
   cols.push(Series::from_ints("null_count", [self.null_count().to_int64()]))
   cols.push(Series::from_ints("unique_count", [self.unique_count().to_int64()]))
+  // `mean` is always present (Null for non-numeric / empty / all-null),
+  // so the summary shape is uniform across dtypes.
+  let mean_col = match self.mean() {
+    Ok(v) => Series::from_float_options("mean", [Some(v)])
+    Err(_) => Series::from_float_options("mean", [None])
+  }
+  cols.push(mean_col)
+  // `min` / `max` keep the source dtype, so dispatch on the concrete
+  // backing array.
   match self.storage.int_values() {
-    Ok(_) => describe_push_int_stats(self, cols)
+    Ok(_) => describe_push_int_extrema(self, cols)
     Err(_) =>
       match self.storage.float_values() {
-        Ok(_) => describe_push_float_stats(self, cols)
+        Ok(_) => describe_push_float_extrema(self, cols)
         Err(_) =>
           match self.storage.bool_values() {
-            Ok(_) => describe_push_bool_stats(self, cols)
+            Ok(_) => describe_push_bool_extrema(self, cols)
             // The remaining dtype is `String` — `string_values`
             // cannot fail here.
-            Err(_) => describe_push_string_stats(self, cols)
+            Err(_) => describe_push_string_extrema(self, cols)
           }
       }
   }
@@ -393,13 +398,8 @@ pub fn Series::describe(self : Series) -> DataFrame {
 }
 
 ///|
-/// Append `mean`, `min`, `max` columns for an `Int` series.
-fn describe_push_int_stats(s : Series, cols : Array[Series]) -> Unit {
-  let mean_col = match s.mean() {
-    Ok(v) => Series::from_float_options("mean", [Some(v)])
-    Err(_) => Series::from_float_options("mean", [None])
-  }
-  cols.push(mean_col)
+/// Append `min` / `max` columns (source dtype) for an `Int` series.
+fn describe_push_int_extrema(s : Series, cols : Array[Series]) -> Unit {
   let min_cell : Int64? = match s.min().unwrap() {
     @types.Scalar::Int(x) => Some(x)
     _ => None
@@ -413,13 +413,8 @@ fn describe_push_int_stats(s : Series, cols : Array[Series]) -> Unit {
 }
 
 ///|
-/// Append `mean`, `min`, `max` columns for a `Float` series.
-fn describe_push_float_stats(s : Series, cols : Array[Series]) -> Unit {
-  let mean_col = match s.mean() {
-    Ok(v) => Series::from_float_options("mean", [Some(v)])
-    Err(_) => Series::from_float_options("mean", [None])
-  }
-  cols.push(mean_col)
+/// Append `min` / `max` columns (source dtype) for a `Float` series.
+fn describe_push_float_extrema(s : Series, cols : Array[Series]) -> Unit {
   let min_cell : Double? = match s.min().unwrap() {
     @types.Scalar::Float(x) => Some(x)
     _ => None
@@ -433,8 +428,8 @@ fn describe_push_float_stats(s : Series, cols : Array[Series]) -> Unit {
 }
 
 ///|
-/// Append `min`, `max` columns for a `Bool` series (no `mean`).
-fn describe_push_bool_stats(s : Series, cols : Array[Series]) -> Unit {
+/// Append `min` / `max` columns for a `Bool` series.
+fn describe_push_bool_extrema(s : Series, cols : Array[Series]) -> Unit {
   let min_cell : Bool? = match s.min().unwrap() {
     @types.Scalar::Bool(x) => Some(x)
     _ => None
@@ -448,8 +443,8 @@ fn describe_push_bool_stats(s : Series, cols : Array[Series]) -> Unit {
 }
 
 ///|
-/// Append `min`, `max` columns for a `String` series (no `mean`).
-fn describe_push_string_stats(s : Series, cols : Array[Series]) -> Unit {
+/// Append `min` / `max` columns for a `String` series.
+fn describe_push_string_extrema(s : Series, cols : Array[Series]) -> Unit {
   let min_cell : String? = match s.min().unwrap() {
     @types.Scalar::String(x) => Some(x)
     _ => None

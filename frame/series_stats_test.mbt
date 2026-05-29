@@ -222,6 +222,22 @@ test "min / max skip Float NaN (treated as missing, like sort_by)" {
   assert_eq(all_nan.max(), Ok(@types.Scalar::Null))
 }
 
+///|
+test "min / max Bool flip when the running extremum must change" {
+  // Exercises the tie-break `then` arms: `max` starts at `false` and must
+  // switch up to `true`; `min` starts at `true` and must switch down to
+  // `false`. (When `true` precedes `false` for `max`, the running max is
+  // already `true` and the `then` arm never fires.)
+  assert_eq(
+    Series::from_bools("x", [false, true]).max(),
+    Ok(@types.Scalar::Bool(true)),
+  )
+  assert_eq(
+    Series::from_bools("y", [true, false]).min(),
+    Ok(@types.Scalar::Bool(false)),
+  )
+}
+
 // ── unique_count ─────────────────────────────────────────────────────
 
 ///|
@@ -331,7 +347,7 @@ test "describe on all-null Float series mirrors the empty path" {
 }
 
 ///|
-test "describe on Bool series omits mean and uses Bool min/max" {
+test "describe on Bool series carries a Null mean and Bool min/max" {
   let s = Series::from_bool_options("x", [
     Some(true),
     None,
@@ -339,11 +355,16 @@ test "describe on Bool series omits mean and uses Bool min/max" {
     Some(true),
   ])
   let df = s.describe()
-  assert_eq(df.columns(), ["count", "null_count", "unique_count", "min", "max"])
-  assert_eq(df.shape(), (1, 5))
+  // Non-numeric series still carry the `mean` column (always Null) so the
+  // summary layout is uniform across dtypes.
+  assert_eq(df.columns(), [
+    "count", "null_count", "unique_count", "mean", "min", "max",
+  ])
+  assert_eq(df.shape(), (1, 6))
   assert_eq(df.get(0, "count"), Ok(@types.Scalar::Int(3)))
   assert_eq(df.get(0, "null_count"), Ok(@types.Scalar::Int(1)))
   assert_eq(df.get(0, "unique_count"), Ok(@types.Scalar::Int(2)))
+  assert_eq(df.get(0, "mean"), Ok(@types.Scalar::Null))
   assert_eq(df.get(0, "min"), Ok(@types.Scalar::Bool(false)))
   assert_eq(df.get(0, "max"), Ok(@types.Scalar::Bool(true)))
 }
@@ -358,7 +379,7 @@ test "describe on all-null Bool series produces typed-null min/max" {
 }
 
 ///|
-test "describe on String series omits mean and uses String min/max" {
+test "describe on String series carries a Null mean and String min/max" {
   let s = Series::from_string_options("x", [
     Some("banana"),
     None,
@@ -366,9 +387,12 @@ test "describe on String series omits mean and uses String min/max" {
     Some("cherry"),
   ])
   let df = s.describe()
-  assert_eq(df.columns(), ["count", "null_count", "unique_count", "min", "max"])
+  assert_eq(df.columns(), [
+    "count", "null_count", "unique_count", "mean", "min", "max",
+  ])
   assert_eq(df.get(0, "count"), Ok(@types.Scalar::Int(3)))
   assert_eq(df.get(0, "unique_count"), Ok(@types.Scalar::Int(3)))
+  assert_eq(df.get(0, "mean"), Ok(@types.Scalar::Null))
   assert_eq(df.get(0, "min"), Ok(@types.Scalar::String("apple")))
   assert_eq(df.get(0, "max"), Ok(@types.Scalar::String("cherry")))
 }

@@ -83,6 +83,21 @@ test "to_markdown: escapes pipe and newline in headers and cells" {
   assert_eq(@io.to_markdown(df), expected)
 }
 
+///|
+test "to_markdown: a backslash before a pipe can't split the row" {
+  // The cell `\|` must not render as `\\|` (escaped backslash + a bare,
+  // table-splitting pipe). The backslash is doubled and the pipe escaped,
+  // so the rendered cell is `\\\|` and the data row keeps exactly its two
+  // bounding pipes.
+  let df = @frame.DataFrame::new([@frame.Series::from_strings("v", ["\\|"])]).unwrap()
+  let expected =
+    #|| v    |
+    #|| ---- |
+    #|| \\\| |
+    #|
+  assert_eq(@io.to_markdown(df), expected)
+}
+
 // ── width / alignment ───────────────────────────────────────────────
 
 ///|

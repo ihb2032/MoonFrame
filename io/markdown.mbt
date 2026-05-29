@@ -37,8 +37,9 @@ pub fn to_markdown(df : @frame.DataFrame) -> String {
 /// Render a `DataFrame` as a Markdown table, capping the output at the
 /// first `limit` rows. When `df` has more rows than `limit`, the
 /// truncated count is appended below the table as
-/// `... (N more rows)`. Negative `limit` is clamped to 0 (header +
-/// separator only).
+/// `... (N more rows)`. Negative `limit` is clamped to 0, so a frame that
+/// has rows still renders as header + separator + the `... (N more rows)`
+/// banner; only a genuinely 0-row frame is header + separator alone.
 pub fn to_markdown_with_limit(df : @frame.DataFrame, limit : Int) -> String {
   let nrows = df.nrows()
   let shown = if limit < 0 { 0 } else if limit > nrows { nrows } else { limit }
@@ -154,16 +155,23 @@ fn char_count(s : String) -> Int {
 }
 
 ///|
-/// Escape a value for a GFM table cell. A literal `|` is rewritten to
-/// `\|` so it doesn't split the cell into extra columns, and CR / LF
-/// are collapsed to a single space so a multi-line value can't
-/// terminate the table row mid-cell. Everything else passes through.
-/// Width alignment runs on the escaped form (callers escape before
-/// measuring), so the `\|` two-character expansion is accounted for.
+/// Escape a value for a GFM table cell. A literal backslash is doubled
+/// (`\` → `\\`) and a literal `|` is rewritten to `\|`, so neither a bare
+/// pipe nor a backslash sitting just before a pipe can split the cell
+/// into extra columns. (Without the backslash rule, a cell containing
+/// `\|` would emit `\\|` — an escaped backslash followed by a *bare*,
+/// table-splitting pipe.) CR / LF collapse to a single space so a
+/// multi-line value can't terminate the table row mid-cell. Everything
+/// else passes through. Width alignment runs on the escaped form (callers
+/// escape before measuring), so the two-character expansions are
+/// accounted for.
 fn escape_md_cell(s : String) -> String {
   let buf = StringBuilder::new()
   for ch in s.iter() {
-    if ch == '|' {
+    if ch == '\\' {
+      buf.write_char('\\')
+      buf.write_char('\\')
+    } else if ch == '|' {
       buf.write_char('\\')
       buf.write_char('|')
     } else if ch == '\n' || ch == '\r' {

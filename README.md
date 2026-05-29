@@ -156,6 +156,20 @@ fn run(
 Sub-package imports (`@types`, `@column`, `@frame`, `@ops`, `@io`)
 remain supported for callers who only need a slice.
 
+## Type inference (CSV / JSON)
+
+`read_csv` / `read_json` infer each column's dtype from the first
+`infer_schema_rows` rows (default `100`), in the order
+`Int → Float → Bool → String`. **A non-null cell *beyond* that window
+that does not fit the inferred dtype is a hard `ParseError` — not a
+silent fallback to `String`.** A column that looks numeric in its first
+rows but holds text later fails loudly rather than being quietly
+retyped; raise `infer_schema_rows` (or build the column with an explicit
+dtype) for inputs whose type only becomes clear further down. Numeric
+forms follow pandas / polars conventions: `0x` / `0o` / `0b` prefixes
+and `1_000` underscore grouping stay `String`; integers up to the
+`Int64` range stay `Int` and overflow into `Float` only beyond it.
+
 ## Examples
 
 Run the bundled examples from the project root:

@@ -435,15 +435,15 @@ test "to_string_column preserves None for Float" {
 
 ///|
 test "to_int rejects NaN" {
-  let nan : Float = @float.not_a_number
+  let nan : Double = @double.not_a_number
   let col = BuiltinColumn::from_floats([nan])
   assert_true(col.to_int() is Err(ParseError(_)))
 }
 
 ///|
 test "to_int rejects positive and negative Infinity" {
-  let pos_inf : Float = @float.infinity
-  let neg_inf : Float = @float.neg_infinity
+  let pos_inf : Double = @double.infinity
+  let neg_inf : Double = @double.neg_infinity
   assert_true(
     BuiltinColumn::from_floats([pos_inf]).to_int() is Err(ParseError(_)),
   )
@@ -454,8 +454,8 @@ test "to_int rejects positive and negative Infinity" {
 
 ///|
 test "to_int rejects values outside the Int range" {
-  let too_big : Float = Float::from_double(1.0e10)
-  let too_small : Float = Float::from_double(-1.0e10)
+  let too_big : Double = 1.0e30
+  let too_small : Double = -1.0e30
   assert_true(
     BuiltinColumn::from_floats([too_big]).to_int() is Err(ParseError(_)),
   )
@@ -551,7 +551,7 @@ test "from_int_options stores 0 placeholder at null slots" {
 test "from_float_options stores 0.0 placeholder at null slots" {
   let col = BuiltinColumn::from_float_options([None, Some(2.5)])
   let (data, validity) = col.float_values().unwrap()
-  assert_eq(data, [(0.0 : Float), (2.5 : Float)])
+  assert_eq(data, [(0.0 : Double), (2.5 : Double)])
   assert_eq(validity.is_valid(0), Ok(false))
   assert_eq(validity.is_valid(1), Ok(true))
 }

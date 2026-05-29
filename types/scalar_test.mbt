@@ -116,7 +116,7 @@ test "Scalar::eq Float-Float and IEEE 754 NaN semantics" {
   assert_eq(Scalar::Float(1.5).eq(Scalar::Float(1.5)), Ok(true))
   assert_eq(Scalar::Float(1.5).eq(Scalar::Float(2.0)), Ok(false))
   // NaN never equals anything, including itself.
-  let nan : Float = @float.not_a_number
+  let nan : Double = @double.not_a_number
   assert_eq(Scalar::Float(nan).eq(Scalar::Float(nan)), Ok(false))
   assert_eq(Scalar::Float(nan).eq(Scalar::Float(1.0)), Ok(false))
 }
@@ -128,7 +128,7 @@ test "Scalar::lt Float-Float and Float-Int both directions" {
   assert_eq(Scalar::Float(2.0).lt(Scalar::Int(3)), Ok(true))
   assert_eq(Scalar::Int(3).lt(Scalar::Float(2.5)), Ok(false))
   // NaN comparisons are always false per IEEE 754.
-  let nan : Float = @float.not_a_number
+  let nan : Double = @double.not_a_number
   assert_eq(Scalar::Float(nan).lt(Scalar::Float(1.0)), Ok(false))
   assert_eq(Scalar::Float(1.0).lt(Scalar::Float(nan)), Ok(false))
 }

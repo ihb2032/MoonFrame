@@ -23,9 +23,9 @@ fn with_col_df() -> @frame.DataFrame {
 test "with_column appends a new column on the right" {
   let df = with_col_df()
   let extra = @frame.Series::from_floats("c", [
-    (1.5 : Float),
-    (2.5 : Float),
-    (3.5 : Float),
+    (1.5 : Double),
+    (2.5 : Double),
+    (3.5 : Double),
   ])
   let out = with_column(df, extra).unwrap()
   assert_eq(out.check_invariants(), Ok(()))

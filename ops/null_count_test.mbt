@@ -15,10 +15,10 @@ test "null_count summarises each column into a single-cell Int" {
   let df = @frame.DataFrame::new([
     @frame.Series::from_int_options("a", [Some(1), None, Some(3), None]),
     @frame.Series::from_float_options("b", [
-      Some((1.5 : Float)),
-      Some((2.5 : Float)),
+      Some((1.5 : Double)),
+      Some((2.5 : Double)),
       None,
-      Some((4.5 : Float)),
+      Some((4.5 : Double)),
     ]),
     @frame.Series::from_strings("s", ["w", "x", "y", "z"]),
   ]).unwrap()
@@ -121,7 +121,7 @@ test "null_count covers every dtype branch" {
   // a regression here would silently miss one branch).
   let df = @frame.DataFrame::new([
     @frame.Series::from_int_options("i", [Some(1), None]),
-    @frame.Series::from_float_options("f", [None, Some((2.0 : Float))]),
+    @frame.Series::from_float_options("f", [None, Some((2.0 : Double))]),
     @frame.Series::from_bool_options("b", [None, Some(true)]),
     @frame.Series::from_string_options("s", [Some("x"), None]),
   ]).unwrap()
@@ -139,12 +139,12 @@ test "null_count covers every dtype branch" {
 test "null_count cell value equals the source series' null_count" {
   let df = @frame.DataFrame::new([
     @frame.Series::from_int_options("a", [Some(1), None, Some(3)]),
-    @frame.Series::from_float_options("b", [None, None, Some((1.0 : Float))]),
+    @frame.Series::from_float_options("b", [None, None, Some((1.0 : Double))]),
   ]).unwrap()
   let out = null_count(df)
   assert_eq(out.check_invariants(), Ok(()))
   for name in df.columns() {
     let expected = df.get_column(name).unwrap().null_count()
-    assert_eq(out.get(0, name), Ok(@types.Scalar::Int(expected)))
+    assert_eq(out.get(0, name), Ok(@types.Scalar::Int(expected.to_int64())))
   }
 }

@@ -84,10 +84,10 @@ fn sort_df() -> @frame.DataFrame {
   @frame.DataFrame::new([
     @frame.Series::from_ints("a", [3, 1, 4, 1, 5]),
     @frame.Series::from_float_options("b", [
-      Some((2.5 : Float)),
+      Some((2.5 : Double)),
       None,
-      Some((1.5 : Float)),
-      Some((4.5 : Float)),
+      Some((1.5 : Double)),
+      Some((4.5 : Double)),
       None,
     ]),
     @frame.Series::from_strings("s", ["pear", "apple", "fig", "date", "berry"]),
@@ -401,12 +401,12 @@ test "sort_by on an all-null Int column is a stable identity" {
 
 ///|
 test "sort_by Float treats NaN identically to Null (NullsLast)" {
-  let nan = (0.0 : Float) / (0.0 : Float)
+  let nan = (0.0 : Double) / (0.0 : Double)
   let df = @frame.DataFrame::new([
     @frame.Series::from_float_options("v", [
-      Some((1.0 : Float)),
+      Some((1.0 : Double)),
       Some(nan),
-      Some((2.0 : Float)),
+      Some((2.0 : Double)),
       None,
     ]),
     @frame.Series::from_strings("s", ["one", "nan", "two", "null"]),
@@ -435,10 +435,10 @@ test "sort_by Float treats NaN identically to Null (NullsLast)" {
 
 ///|
 test "sort_by Float NullsFirst groups NaN with Null at the top" {
-  let nan = (0.0 : Float) / (0.0 : Float)
+  let nan = (0.0 : Double) / (0.0 : Double)
   let df = @frame.DataFrame::new([
     @frame.Series::from_float_options("v", [
-      Some((1.0 : Float)),
+      Some((1.0 : Double)),
       Some(nan),
       None,
     ]),
@@ -485,7 +485,7 @@ test "sort_by exercises the build_sort_key dispatch on each dtype" {
   // `Bool` to the third, and `String` reaches the terminal unwrap.
   let df = @frame.DataFrame::new([
     @frame.Series::from_ints("i", [2, 1]),
-    @frame.Series::from_floats("f", [(2.0 : Float), (1.0 : Float)]),
+    @frame.Series::from_floats("f", [(2.0 : Double), (1.0 : Double)]),
     @frame.Series::from_bools("b", [true, false]),
     @frame.Series::from_strings("s", ["y", "x"]),
   ]).unwrap()

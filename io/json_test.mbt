@@ -107,12 +107,20 @@ test "parse_json_records_str: mixed Int + Float promotes to Float" {
 }
 
 ///|
-test "parse_json_records_str: out-of-Int32 number falls to Float" {
-  // 3_000_000_000 doesn't fit in Int32, so the Int candidate is
-  // rejected even though the repr is integral.
-  let content = "[{\"big\":3000000000}]"
-  let df = @io.parse_json_records_str(content, @io.JsonReadOptions::default()).unwrap()
-  assert_eq(df.get_column("big").unwrap().dtype(), @types.DataType::Float)
+test "parse_json_records_str: large ints stay Int up to the Int64 range" {
+  // 3_000_000_000 overflows Int32 but fits Int64, so it stays an Int
+  // column — the Int->Int64 migration removed the old demotion to Float.
+  let in_range = @io.parse_json_records_str(
+    "[{\"big\":3000000000}]",
+    @io.JsonReadOptions::default(),
+  ).unwrap()
+  assert_eq(in_range.get_column("big").unwrap().dtype(), @types.DataType::Int)
+  // A value past the Int64 range still falls through to Float.
+  let beyond = @io.parse_json_records_str(
+    "[{\"big\":1e30}]",
+    @io.JsonReadOptions::default(),
+  ).unwrap()
+  assert_eq(beyond.get_column("big").unwrap().dtype(), @types.DataType::Float)
 }
 
 ///|
@@ -335,9 +343,9 @@ test "format_json_records / parse_json_records_str round-trip preserves data" {
   let df = @frame.DataFrame::new([
     @frame.Series::from_int_options("n", [Some(1), None, Some(3)]),
     @frame.Series::from_floats("r", [
-      (1.5 : Float),
-      (2.5 : Float),
-      (3.5 : Float),
+      (1.5 : Double),
+      (2.5 : Double),
+      (3.5 : Double),
     ]),
     @frame.Series::from_bool_options("b", [Some(true), Some(false), None]),
     @frame.Series::from_strings("s", ["a", "b", "c"]),

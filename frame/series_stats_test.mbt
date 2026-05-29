@@ -60,12 +60,12 @@ test "sum on Float accumulates in 64-bit to limit drift" {
 
 ///|
 test "sum / mean skip Float NaN (treated as missing)" {
-  let nan : Float = @float.not_a_number
+  let nan : Double = @double.not_a_number
   // NaN cells are skipped: sum over the non-NaN cells, mean divides by
   // the non-NaN count (so mean here is (1 + 3) / 2 = 2, not / 3).
   let s = Series::from_floats("x", [1.0, nan, 3.0])
   assert_eq(s.sum(), Ok(@types.Scalar::Float(4.0)))
-  assert_eq(s.mean(), Ok((2.0 : Float)))
+  assert_eq(s.mean(), Ok((2.0 : Double)))
   // All-NaN behaves like all-null: sum is the additive identity, mean
   // has nothing to average.
   let all_nan = Series::from_floats("x", [nan, nan])
@@ -78,13 +78,13 @@ test "sum / mean skip Float NaN (treated as missing)" {
 ///|
 test "mean on Int series promotes to Float" {
   let s = Series::from_int_options("x", [Some(1), None, Some(3)])
-  assert_eq(s.mean(), Ok((2.0 : Float)))
+  assert_eq(s.mean(), Ok((2.0 : Double)))
 }
 
 ///|
 test "mean on Float series ignores nulls" {
   let s = Series::from_float_options("x", [Some(1.0), Some(2.0), None])
-  assert_eq(s.mean(), Ok((1.5 : Float)))
+  assert_eq(s.mean(), Ok((1.5 : Double)))
 }
 
 ///|
@@ -207,7 +207,7 @@ test "min / max on empty / all-null return Null across every dtype" {
 
 ///|
 test "min / max skip Float NaN (treated as missing, like sort_by)" {
-  let nan : Float = @float.not_a_number
+  let nan : Double = @double.not_a_number
   // A leading NaN is skipped, so it does not become the result.
   let nan_first = Series::from_floats("x", [nan, 1.0])
   assert_eq(nan_first.min(), Ok(@types.Scalar::Float(1.0)))
@@ -255,7 +255,7 @@ test "unique_count works on every dtype" {
 
 ///|
 test "unique_count collapses all NaN Float cells into a single bucket" {
-  let nan : Float = @float.not_a_number
+  let nan : Double = @double.not_a_number
   let s = Series::from_floats("x", [nan, nan, 1.0])
   assert_eq(s.unique_count(), 2)
 }

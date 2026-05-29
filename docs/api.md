@@ -26,7 +26,8 @@ the facade is additive.
   `Show` impl renders the variant form for assertion snapshots.
 - `enum DataType` — `Int | Float | Bool | String | Null`, with
   `is_numeric` / `is_integer` / `is_float` / `is_string` / `is_bool`
-- `enum Scalar` — cell value; `dtype` / `is_null` / `to_string` (value
+- `enum Scalar` — cell value (`Int` carries `Int64`, `Float` carries
+  `Double`); `dtype` / `is_null` / `to_string` (value
   form, e.g. `Int(42) → "42"`, `Null → ""`) / `as_int` / `as_float` /
   `as_bool` / `as_string` accessors; total ordering via `eq` / `lt` /
   `lte` / `gt` / `gte` (each returns `Result[Bool, DataError]` so that
@@ -105,9 +106,11 @@ the facade is additive.
   public methods, because every read consults `validity` first. v0.2
   will add a `ColumnStorage` abstraction over this struct without
   changing the public API.
-- `pub(all) enum ColumnData` — `Int(Array[Int]) | Float(Array[Float]) |
-  Bool(Array[Bool]) | String(Array[String])`. Element type is the raw
-  value; nullability lives on the enclosing column.
+- `pub(all) enum ColumnData` — `Int(Array[Int64]) | Float(Array[Double]) |
+  Bool(Array[Bool]) | String(Array[String])`. Numeric columns are 64-bit
+  (`Int64` / `Double`), matching `Scalar` and the pandas / polars
+  `int64` / `float64` defaults. Element type is the raw value;
+  nullability lives on the enclosing column.
 - Constructors (8, signatures unchanged from P2): `from_ints` /
   `from_int_options` / `from_floats` / `from_float_options` /
   `from_bools` / `from_bool_options` / `from_strings` /
@@ -123,16 +126,16 @@ the facade is additive.
 - Cast: `cast(target)` dispatches to one of — validity is preserved
   verbatim across every cast.
   - `to_int` — identity on Int; Float truncates towards zero (`NaN`,
-    `±Inf`, and values outside `Int32` range → `ParseError`); Bool maps
+    `±Inf`, and values outside `Int64` range → `ParseError`); Bool maps
     `true → 1`, `false → 0`; String accepts only plain base-10 integers
     (optional `+` / `-` sign then digits) — `0x` / `0o` / `0b` prefixes,
-    `1_000` underscore grouping, and 32-bit overflow → `ParseError`,
+    `1_000` underscore grouping, and `Int64` overflow → `ParseError`,
     matching the CSV reader's inference.
-  - `to_float` — Int promoted via `Float::from_int`; identity on
+  - `to_float` — Int promoted via `Int64::to_double`; identity on
     Float; Bool maps to `1.0` / `0.0`; String parses with
-    `@string.parse_double` then narrowed to 32-bit. `1_000`-style
-    underscore grouping → `ParseError` (matching the CSV reader);
-    `inf` / `-inf` / `nan` literals are accepted.
+    `@string.parse_double`. `1_000`-style underscore grouping →
+    `ParseError` (matching the CSV reader); `inf` / `-inf` / `nan`
+    literals are accepted.
   - `to_string_column` — every dtype rendered with `Scalar::to_string`
     semantics (e.g. `Int(42) → "42"`, `Bool(true) → "true"`).
   - `Bool` / `Null` targets return `Err(Unsupported)`.
@@ -186,17 +189,16 @@ the facade is additive.
 - `count()` — non-null count.
 - `sum()` — `Int` / `Float` series return `Scalar::Int` /
   `Scalar::Float`; empty / all-null is the additive identity (`0` /
-  `0.0`). `Bool` / `String` → `Err(TypeMismatch)`. `Float` sums
-  accumulate in 64-bit `Double` (then narrow to `Float`) to limit
-  rounding drift; `NaN` cells are skipped (treated as missing, like
-  `min` / `max` and `@ops.sort_by`).
-- `mean()` — `Float` result. The division is done in 64-bit `Double`
-  (then narrowed) for **both** `Int` and `Float` columns, so a long
-  column whose sum exceeds the 24-bit `Float` significand (`> 2^24`)
-  stays accurate instead of drifting through a 32-bit
-  `Float::from_int(sum)`. `Float` skips `NaN`, dividing by the non-NaN
-  count. Empty / all-null / all-NaN numeric → `Err(InvalidOperation)`.
-  Non-numeric → `Err(TypeMismatch)`.
+  `0.0`). `Bool` / `String` → `Err(TypeMismatch)`. `Int` sums accumulate
+  in 64-bit `Int64` (only sums past 2^63 overflow); `Float` sums
+  accumulate in 64-bit `Double`. `NaN` cells are skipped (treated as
+  missing, like `min` / `max` and `@ops.sort_by`).
+- `mean()` — `Double` result. Reductions run in 64-bit (an `Int64` sum
+  for `Int` columns, `Double` accumulation for `Float` columns) and the
+  division is performed in `Double`, so a long column stays accurate.
+  `Float` skips `NaN`, dividing by the non-NaN count. Empty / all-null /
+  all-NaN numeric → `Err(InvalidOperation)`. Non-numeric →
+  `Err(TypeMismatch)`.
 - `min()` / `max()` — supported on every dtype; empty / all-null returns
   `Ok(Scalar::Null)`. `Float` NaN is treated as missing (skipped),
   matching `@ops.sort_by` and pandas, so an all-NaN / all-null series
@@ -210,7 +212,7 @@ the facade is additive.
 
 - `describe()` — one-row summary `DataFrame`. Every series gets
   `count` / `null_count` / `unique_count` (`Int`). Numeric series add
-  `mean` (`Float`, `Null` for empty / all-null). All dtypes add `min`
+  `mean` (`Double`, `Null` for empty / all-null). All dtypes add `min`
   and `max`, typed to match the source series (`Null` cells when the
   reduction has no value). Column order: numeric — `count`,
   `null_count`, `unique_count`, `mean`, `min`, `max`; `Bool` / `String`
@@ -465,8 +467,8 @@ further ops or IO.
   empty / all-null numeric is the additive identity (`0` / `0.0`).
   Errors: `Err(ColumnNotFound(column))` for unknown names,
   `Err(TypeMismatch(...))` for `Bool` / `String` columns.
-- `mean(df, column) -> Result[Float, DataError]` — arithmetic mean,
-  `Float`-typed (`Int` sums promoted). Errors:
+- `mean(df, column) -> Result[Double, DataError]` — arithmetic mean,
+  `Double`-typed (`Int` sums promoted). Errors:
   `Err(ColumnNotFound(column))` for unknown names,
   `Err(InvalidOperation(...))` for empty / all-null numeric columns,
   `Err(TypeMismatch(...))` for non-numeric columns.
@@ -486,7 +488,7 @@ further ops or IO.
   - `null_count` (`Int`) — null cell count
   - `unique_count` (`Int`) — distinct non-null values
     (`Scalar::to_string` keying, so `Float` NaN collapses to one bucket)
-  - `mean` (`Float`, nullable) — arithmetic mean for numeric columns;
+  - `mean` (`Double`, nullable) — arithmetic mean for numeric columns;
     `Null` for non-numeric or empty / all-null numeric (both `mean`
     error modes collapse into the same null cell — the diagnostic
     distinction stays at the per-column API)
@@ -559,7 +561,7 @@ toggling, and quoting.
      underscore grouping (`1_000`) are **rejected** and kept as
      `String` (matching pandas / polars), while the `Float` literals
      `inf` / `-inf` / `nan` are accepted as ±Infinity / NaN values.
-     A decimal integer that overflows 32-bit `Int` falls through to
+     A decimal integer that overflows `Int64` falls through to
      `Float`.
   3. Null mapping replaces any cell whose raw text sits in
      `null_values` with `None`. Both quoted empty cells (`""`) and
@@ -656,8 +658,9 @@ the same dtypes.
 - `format_json_records(df) -> String` — string exit point. Each row
   becomes a JSON object whose keys appear in `df.columns()` order
   (preserved by the builtin linked-hash-map `Map`). Per cell:
-  `Null → null`; `Int` / `Float → number` (Float widened to Double
-  for serialisation); `Bool → true` / `false`; `String → JSON string`
+  `Null → null`; `Int` / `Float → number` (`Int64` widened to `Double`;
+  `Float` is already `Double`); `Bool → true` / `false`; `String → JSON
+  string`
   with escaping delegated to the stringifier. Output is the compact
   form `@json.stringify` produces by default (no spaces between
   tokens).

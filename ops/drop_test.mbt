@@ -12,9 +12,9 @@ fn drop_df() -> @frame.DataFrame {
     @frame.Series::from_ints("a", [1, 2, 3]),
     @frame.Series::from_strings("b", ["x", "y", "z"]),
     @frame.Series::from_floats("c", [
-      (1.5 : Float),
-      (2.5 : Float),
-      (3.5 : Float),
+      (1.5 : Double),
+      (2.5 : Double),
+      (3.5 : Double),
     ]),
   ]).unwrap()
 }

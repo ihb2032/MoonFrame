@@ -525,9 +525,9 @@ test "parse_csv_str ∘ format_csv_str: round-trip preserves dtypes and values" 
   let df = @frame.DataFrame::new([
     @frame.Series::from_int_options("n", [Some(1), None, Some(3)]),
     @frame.Series::from_floats("r", [
-      (1.5 : Float),
-      (2.5 : Float),
-      (3.5 : Float),
+      (1.5 : Double),
+      (2.5 : Double),
+      (3.5 : Double),
     ]),
     @frame.Series::from_bool_options("b", [Some(true), Some(false), None]),
     @frame.Series::from_strings("s", ["alpha", "beta", "gamma"]),

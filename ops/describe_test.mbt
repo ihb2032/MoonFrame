@@ -38,10 +38,10 @@ fn describe_df() -> @frame.DataFrame {
   @frame.DataFrame::new([
     @frame.Series::from_int_options("i", [Some(1), None, Some(3), Some(5)]),
     @frame.Series::from_float_options("f", [
-      Some((1.0 : Float)),
-      Some((2.0 : Float)),
+      Some((1.0 : Double)),
+      Some((2.0 : Double)),
       None,
-      Some((3.0 : Float)),
+      Some((3.0 : Double)),
     ]),
     @frame.Series::from_bools("b", [true, false, true, true]),
     @frame.Series::from_strings("s", ["banana", "apple", "cherry", "banana"]),
@@ -107,7 +107,7 @@ test "describe row 1 summarises the Float column" {
   assert_eq(out.get(1, "null_count"), Ok(@types.Scalar::Int(1)))
   assert_eq(out.get(1, "unique_count"), Ok(@types.Scalar::Int(3)))
   assert_eq(out.get(1, "mean"), Ok(@types.Scalar::Float(2.0)))
-  // Float::to_string emits "1" / "3" — pin the rendered text so a
+  // Double::to_string emits "1" / "3" — pin the rendered text so a
   // future Float formatter change is announced.
   let min_cell = out.get(1, "min").unwrap()
   let max_cell = out.get(1, "max").unwrap()

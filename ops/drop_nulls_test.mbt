@@ -19,10 +19,10 @@ fn drop_nulls_df() -> @frame.DataFrame {
   @frame.DataFrame::new([
     @frame.Series::from_int_options("a", [Some(1), None, Some(3), Some(4)]),
     @frame.Series::from_float_options("b", [
-      Some((1.5 : Float)),
-      Some((2.5 : Float)),
+      Some((1.5 : Double)),
+      Some((2.5 : Double)),
       None,
-      Some((4.5 : Float)),
+      Some((4.5 : Double)),
     ]),
     @frame.Series::from_strings("s", ["w", "x", "y", "z"]),
   ]).unwrap()
@@ -65,7 +65,7 @@ test "drop_nulls is a no-op on a fully-valid frame" {
 test "drop_nulls collapses to a 0-row frame when every row has at least one null" {
   let df = @frame.DataFrame::new([
     @frame.Series::from_int_options("a", [Some(1), None]),
-    @frame.Series::from_float_options("b", [None, Some((2.0 : Float))]),
+    @frame.Series::from_float_options("b", [None, Some((2.0 : Double))]),
   ]).unwrap()
   let out = drop_nulls(df).unwrap()
   assert_eq(out.check_invariants(), Ok(()))

@@ -18,10 +18,10 @@ fn stats_df() -> @frame.DataFrame {
   @frame.DataFrame::new([
     @frame.Series::from_int_options("i", [Some(1), None, Some(2), Some(3)]),
     @frame.Series::from_float_options("f", [
-      Some((1.0 : Float)),
-      Some((2.0 : Float)),
+      Some((1.0 : Double)),
+      Some((2.0 : Double)),
       None,
-      Some((4.0 : Float)),
+      Some((4.0 : Double)),
     ]),
     @frame.Series::from_bools("b", [true, false, true, true]),
     @frame.Series::from_strings("s", ["banana", "apple", "cherry", "banana"]),
@@ -105,7 +105,7 @@ test "sum on an empty Int column is the additive identity" {
 test "mean on an Int column promotes to Float" {
   let df = stats_df()
   // (1 + 2 + 3) / 3 = 2.0.
-  assert_eq(mean(df, "i"), Ok((2.0 : Float)))
+  assert_eq(mean(df, "i"), Ok((2.0 : Double)))
 }
 
 ///|

@@ -17,8 +17,8 @@ fn fill_null_df() -> @frame.DataFrame {
   @frame.DataFrame::new([
     @frame.Series::from_int_options("a", [Some(1), None, Some(3), None]),
     @frame.Series::from_float_options("b", [
-      Some((1.5 : Float)),
-      Some((2.5 : Float)),
+      Some((1.5 : Double)),
+      Some((2.5 : Double)),
       None,
       None,
     ]),

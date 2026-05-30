@@ -15,10 +15,7 @@ fn[T] dispatch_stat(
   column : String,
   f : (@frame.Series) -> Result[T, @types.DataError],
 ) -> Result[T, @types.DataError] {
-  match df.get_column(column) {
-    Err(e) => Err(e)
-    Ok(s) => f(s)
-  }
+  df.get_column(column).bind(f)
 }
 
 ///|
@@ -51,7 +48,7 @@ pub fn sum(
 }
 
 ///|
-/// Arithmetic mean of `column`, returned as `Float` (`Int` sums are
+/// Arithmetic mean of `column`, returned as `Double` (`Int` sums are
 /// promoted). Empty or all-null numeric columns surface as
 /// `Err(InvalidOperation(...))`; non-numeric columns as
 /// `Err(TypeMismatch(...))`.
@@ -63,14 +60,15 @@ pub fn sum(
 pub fn mean(
   df : @frame.DataFrame,
   column : String,
-) -> Result[Float, @types.DataError] {
+) -> Result[Double, @types.DataError] {
   dispatch_stat(df, column, fn(s) { s.mean() })
 }
 
 ///|
 /// Minimum non-null cell in `column`, by the natural order of the
 /// column's dtype. Empty or all-null columns return `Ok(Scalar::Null)`.
-/// `Float` NaN follows IEEE 754 — see `Series::min` for the details.
+/// `Float` NaN is treated as missing (skipped), matching `sort_by` and
+/// pandas — see `Series::min` for the details.
 ///
 /// Errors:
 /// - `Err(ColumnNotFound(column))` — `column` doesn't exist in `df`.

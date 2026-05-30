@@ -49,18 +49,42 @@ test "sum on Bool / String is TypeMismatch" {
   assert_true(Series::from_strings("x", ["a"]).sum() is Err(TypeMismatch(_)))
 }
 
+///|
+test "sum on Float accumulates in 64-bit to limit drift" {
+  // 16777216 = 2^24. In 32-bit Float, 2^24 + 1 rounds back to 2^24, so a
+  // naive 32-bit accumulator would lose both 1.0s and report 16777216.
+  // Accumulating in Double keeps them: the result is 16777218.
+  let s = Series::from_floats("x", [16777216.0, 1.0, 1.0])
+  assert_eq(s.sum(), Ok(@types.Scalar::Float(16777218.0)))
+}
+
+///|
+test "sum / mean skip Float NaN (treated as missing)" {
+  let nan : Double = @double.not_a_number
+  // NaN cells are skipped: sum over the non-NaN cells, mean divides by
+  // the non-NaN count (so mean here is (1 + 3) / 2 = 2, not / 3).
+  let s = Series::from_floats("x", [1.0, nan, 3.0])
+  assert_eq(s.sum(), Ok(@types.Scalar::Float(4.0)))
+  assert_eq(s.mean(), Ok((2.0 : Double)))
+  // All-NaN behaves like all-null: sum is the additive identity, mean
+  // has nothing to average.
+  let all_nan = Series::from_floats("x", [nan, nan])
+  assert_eq(all_nan.sum(), Ok(@types.Scalar::Float(0.0)))
+  assert_true(all_nan.mean() is Err(InvalidOperation(_)))
+}
+
 // ── mean ─────────────────────────────────────────────────────────────
 
 ///|
 test "mean on Int series promotes to Float" {
   let s = Series::from_int_options("x", [Some(1), None, Some(3)])
-  assert_eq(s.mean(), Ok((2.0 : Float)))
+  assert_eq(s.mean(), Ok((2.0 : Double)))
 }
 
 ///|
 test "mean on Float series ignores nulls" {
   let s = Series::from_float_options("x", [Some(1.0), Some(2.0), None])
-  assert_eq(s.mean(), Ok((1.5 : Float)))
+  assert_eq(s.mean(), Ok((1.5 : Double)))
 }
 
 ///|
@@ -124,6 +148,12 @@ test "min / max on String series use lexicographic order" {
   ])
   assert_eq(s.min(), Ok(@types.Scalar::String("apple")))
   assert_eq(s.max(), Ok(@types.Scalar::String("cherry")))
+  // Length-differing case: true lexicographic ranks "apple" before "fig"
+  // (a < f), whereas the built-in shortlex `<` would rank the shorter
+  // "fig" first. Pins the dictionary-order contract.
+  let lens = Series::from_strings("x", ["fig", "apple"])
+  assert_eq(lens.min(), Ok(@types.Scalar::String("apple")))
+  assert_eq(lens.max(), Ok(@types.Scalar::String("fig")))
 }
 
 ///|
@@ -176,23 +206,36 @@ test "min / max on empty / all-null return Null across every dtype" {
 }
 
 ///|
-test "min on Float NaN does not displace a non-NaN best" {
-  let nan : Float = @float.not_a_number
-  // First cell is NaN — best initialises to NaN, then 1.0 < NaN is false
-  // (IEEE 754), so best stays NaN. Document the corner via behaviour.
+test "min / max skip Float NaN (treated as missing, like sort_by)" {
+  let nan : Double = @double.not_a_number
+  // A leading NaN is skipped, so it does not become the result.
   let nan_first = Series::from_floats("x", [nan, 1.0])
-  // `<` against NaN is `false`, so 1.0 cannot displace NaN as the
-  // current best; the function returns the first NaN encountered.
-  assert_true(
-    match nan_first.min().unwrap() {
-      @types.Scalar::Float(v) => v.is_nan()
-      _ => false
-    },
-  )
-  // Non-NaN first → NaN cells cannot displace it (NaN < x is false).
+  assert_eq(nan_first.min(), Ok(@types.Scalar::Float(1.0)))
+  assert_eq(nan_first.max(), Ok(@types.Scalar::Float(1.0)))
+  // Interior NaN cells are ignored.
   let nan_later = Series::from_floats("x", [1.0, nan, 0.5])
   assert_eq(nan_later.min(), Ok(@types.Scalar::Float(0.5)))
   assert_eq(nan_later.max(), Ok(@types.Scalar::Float(1.0)))
+  // All-NaN collapses to Null (every cell skipped), like an all-null series.
+  let all_nan = Series::from_floats("x", [nan, nan])
+  assert_eq(all_nan.min(), Ok(@types.Scalar::Null))
+  assert_eq(all_nan.max(), Ok(@types.Scalar::Null))
+}
+
+///|
+test "min / max Bool flip when the running extremum must change" {
+  // Exercises the tie-break `then` arms: `max` starts at `false` and must
+  // switch up to `true`; `min` starts at `true` and must switch down to
+  // `false`. (When `true` precedes `false` for `max`, the running max is
+  // already `true` and the `then` arm never fires.)
+  assert_eq(
+    Series::from_bools("x", [false, true]).max(),
+    Ok(@types.Scalar::Bool(true)),
+  )
+  assert_eq(
+    Series::from_bools("y", [true, false]).min(),
+    Ok(@types.Scalar::Bool(false)),
+  )
 }
 
 // ── unique_count ─────────────────────────────────────────────────────
@@ -228,7 +271,7 @@ test "unique_count works on every dtype" {
 
 ///|
 test "unique_count collapses all NaN Float cells into a single bucket" {
-  let nan : Float = @float.not_a_number
+  let nan : Double = @double.not_a_number
   let s = Series::from_floats("x", [nan, nan, 1.0])
   assert_eq(s.unique_count(), 2)
 }
@@ -238,7 +281,7 @@ test "unique_count collapses all NaN Float cells into a single bucket" {
 ///|
 test "describe on Int series exposes count/null_count/unique_count/mean/min/max" {
   let s = Series::from_int_options("x", [Some(1), None, Some(3), Some(5), None])
-  let df = s.describe()
+  let df = s.describe().unwrap()
   // Schema: 6 columns in fixed order.
   assert_eq(df.columns(), [
     "count", "null_count", "unique_count", "mean", "min", "max",
@@ -265,7 +308,7 @@ test "describe on Float series uses Float for mean, min, max" {
     Some(2.0),
     Some(3.0),
   ])
-  let df = s.describe()
+  let df = s.describe().unwrap()
   assert_eq(df.columns(), [
     "count", "null_count", "unique_count", "mean", "min", "max",
   ])
@@ -278,7 +321,7 @@ test "describe on Float series uses Float for mean, min, max" {
 ///|
 test "describe on empty Int series sets stats / mean / min / max to Null" {
   let s = Series::from_ints("x", [])
-  let df = s.describe()
+  let df = s.describe().unwrap()
   assert_eq(df.get(0, "count"), Ok(@types.Scalar::Int(0)))
   assert_eq(df.get(0, "null_count"), Ok(@types.Scalar::Int(0)))
   assert_eq(df.get(0, "unique_count"), Ok(@types.Scalar::Int(0)))
@@ -293,7 +336,7 @@ test "describe on empty Int series sets stats / mean / min / max to Null" {
 ///|
 test "describe on all-null Float series mirrors the empty path" {
   let s = Series::from_float_options("x", [None, None])
-  let df = s.describe()
+  let df = s.describe().unwrap()
   assert_eq(df.get(0, "count"), Ok(@types.Scalar::Int(0)))
   assert_eq(df.get(0, "null_count"), Ok(@types.Scalar::Int(2)))
   assert_eq(df.get(0, "mean"), Ok(@types.Scalar::Null))
@@ -304,19 +347,24 @@ test "describe on all-null Float series mirrors the empty path" {
 }
 
 ///|
-test "describe on Bool series omits mean and uses Bool min/max" {
+test "describe on Bool series carries a Null mean and Bool min/max" {
   let s = Series::from_bool_options("x", [
     Some(true),
     None,
     Some(false),
     Some(true),
   ])
-  let df = s.describe()
-  assert_eq(df.columns(), ["count", "null_count", "unique_count", "min", "max"])
-  assert_eq(df.shape(), (1, 5))
+  let df = s.describe().unwrap()
+  // Non-numeric series still carry the `mean` column (always Null) so the
+  // summary layout is uniform across dtypes.
+  assert_eq(df.columns(), [
+    "count", "null_count", "unique_count", "mean", "min", "max",
+  ])
+  assert_eq(df.shape(), (1, 6))
   assert_eq(df.get(0, "count"), Ok(@types.Scalar::Int(3)))
   assert_eq(df.get(0, "null_count"), Ok(@types.Scalar::Int(1)))
   assert_eq(df.get(0, "unique_count"), Ok(@types.Scalar::Int(2)))
+  assert_eq(df.get(0, "mean"), Ok(@types.Scalar::Null))
   assert_eq(df.get(0, "min"), Ok(@types.Scalar::Bool(false)))
   assert_eq(df.get(0, "max"), Ok(@types.Scalar::Bool(true)))
 }
@@ -324,24 +372,27 @@ test "describe on Bool series omits mean and uses Bool min/max" {
 ///|
 test "describe on all-null Bool series produces typed-null min/max" {
   let s = Series::from_bool_options("x", [None, None])
-  let df = s.describe()
+  let df = s.describe().unwrap()
   assert_eq(df.get(0, "min"), Ok(@types.Scalar::Null))
   assert_eq(df.get(0, "max"), Ok(@types.Scalar::Null))
   assert_eq(df.get_column("min").unwrap().dtype(), @types.DataType::Bool)
 }
 
 ///|
-test "describe on String series omits mean and uses String min/max" {
+test "describe on String series carries a Null mean and String min/max" {
   let s = Series::from_string_options("x", [
     Some("banana"),
     None,
     Some("apple"),
     Some("cherry"),
   ])
-  let df = s.describe()
-  assert_eq(df.columns(), ["count", "null_count", "unique_count", "min", "max"])
+  let df = s.describe().unwrap()
+  assert_eq(df.columns(), [
+    "count", "null_count", "unique_count", "mean", "min", "max",
+  ])
   assert_eq(df.get(0, "count"), Ok(@types.Scalar::Int(3)))
   assert_eq(df.get(0, "unique_count"), Ok(@types.Scalar::Int(3)))
+  assert_eq(df.get(0, "mean"), Ok(@types.Scalar::Null))
   assert_eq(df.get(0, "min"), Ok(@types.Scalar::String("apple")))
   assert_eq(df.get(0, "max"), Ok(@types.Scalar::String("cherry")))
 }
@@ -349,7 +400,7 @@ test "describe on String series omits mean and uses String min/max" {
 ///|
 test "describe on all-null String series produces typed-null min/max" {
   let s = Series::from_string_options("x", [None])
-  let df = s.describe()
+  let df = s.describe().unwrap()
   assert_eq(df.get(0, "min"), Ok(@types.Scalar::Null))
   assert_eq(df.get(0, "max"), Ok(@types.Scalar::Null))
   assert_eq(df.get_column("min").unwrap().dtype(), @types.DataType::String)

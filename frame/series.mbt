@@ -38,19 +38,22 @@ pub fn Series::from_builtin(
 
 ///|
 /// Build an `Int` series from raw values (no nulls).
-pub fn Series::from_ints(name : String, values : Array[Int]) -> Series {
+pub fn Series::from_ints(name : String, values : Array[Int64]) -> Series {
   { name, storage: @column.BuiltinColumn::from_ints(values) }
 }
 
 ///|
 /// Build an `Int` series where `None` entries are nulls.
-pub fn Series::from_int_options(name : String, values : Array[Int?]) -> Series {
+pub fn Series::from_int_options(
+  name : String,
+  values : Array[Int64?],
+) -> Series {
   { name, storage: @column.BuiltinColumn::from_int_options(values) }
 }
 
 ///|
 /// Build a `Float` series from raw values (no nulls).
-pub fn Series::from_floats(name : String, values : Array[Float]) -> Series {
+pub fn Series::from_floats(name : String, values : Array[Double]) -> Series {
   { name, storage: @column.BuiltinColumn::from_floats(values) }
 }
 
@@ -58,7 +61,7 @@ pub fn Series::from_floats(name : String, values : Array[Float]) -> Series {
 /// Build a `Float` series where `None` entries are nulls.
 pub fn Series::from_float_options(
   name : String,
-  values : Array[Float?],
+  values : Array[Double?],
 ) -> Series {
   { name, storage: @column.BuiltinColumn::from_float_options(values) }
 }
@@ -127,15 +130,15 @@ pub fn Series::null_count(self : Series) -> Int {
 }
 
 ///|
-/// Fraction of cells that are null, as a `Float`. Returns `0.0` for an
+/// Fraction of cells that are null, as a `Double`. Returns `0.0` for an
 /// empty series rather than a 0/0 NaN — the latter would propagate
 /// through downstream summary stats.
-pub fn Series::null_rate(self : Series) -> Float {
+pub fn Series::null_rate(self : Series) -> Double {
   let n = self.len()
   if n == 0 {
-    (0.0 : Float)
+    0.0
   } else {
-    Float::from_int(self.null_count()) / Float::from_int(n)
+    self.null_count().to_double() / n.to_double()
   }
 }
 
@@ -157,6 +160,49 @@ pub fn Series::get(
   i : Int,
 ) -> Result[@types.Scalar, @types.DataError] {
   self.storage.get(i)
+}
+
+///|
+/// Materialise every cell as a `Scalar` (`Null` for null cells), in order.
+/// Total — reads the backing array and validity mask once. Renderers (CSV
+/// / JSON / Markdown) use this to walk a column without a per-cell
+/// bounds-checked `get`.
+pub fn Series::to_scalars(self : Series) -> Array[@types.Scalar] {
+  let valid = self.storage.validity().to_bools()
+  match self.storage.data() {
+    @column.ColumnData::Int(a) =>
+      Array::makei(a.length(), i => {
+        if valid[i] {
+          @types.Scalar::Int(a[i])
+        } else {
+          @types.Scalar::Null
+        }
+      })
+    @column.ColumnData::Float(a) =>
+      Array::makei(a.length(), i => {
+        if valid[i] {
+          @types.Scalar::Float(a[i])
+        } else {
+          @types.Scalar::Null
+        }
+      })
+    @column.ColumnData::Bool(a) =>
+      Array::makei(a.length(), i => {
+        if valid[i] {
+          @types.Scalar::Bool(a[i])
+        } else {
+          @types.Scalar::Null
+        }
+      })
+    @column.ColumnData::String(a) =>
+      Array::makei(a.length(), i => {
+        if valid[i] {
+          @types.Scalar::String(a[i])
+        } else {
+          @types.Scalar::Null
+        }
+      })
+  }
 }
 
 ///|
@@ -185,10 +231,7 @@ pub fn Series::slice(
   start : Int,
   end : Int,
 ) -> Result[Series, @types.DataError] {
-  match self.storage.slice(start, end) {
-    Err(e) => Err(e)
-    Ok(s) => Ok({ name: self.name, storage: s })
-  }
+  self.storage.slice(start, end).map(s => { name: self.name, storage: s })
 }
 
 ///|
@@ -198,9 +241,93 @@ pub fn Series::take(
   self : Series,
   indices : Array[Int],
 ) -> Result[Series, @types.DataError] {
-  match self.storage.take(indices) {
-    Err(e) => Err(e)
-    Ok(s) => Ok({ name: self.name, storage: s })
+  self.storage.take(indices).map(s => { name: self.name, storage: s })
+}
+
+///|
+/// Total contiguous slice `[start, start + len)`, rebuilt through the
+/// option constructors. The caller guarantees `0 <= start` and
+/// `start + len <= self.len()`; under that contract every `start + k`
+/// read is in-bounds, so the row copy needs no bounds-checking `Result`
+/// (it reads `data` / validity arrays the same way value comparisons read
+/// `data[i]` elsewhere). Backs `head` / `tail` / `slice` row transforms.
+fn slice_series(s : Series, start : Int, len : Int) -> Series {
+  let valid = s.storage.validity().to_bools()
+  match s.storage.data() {
+    @column.ColumnData::Int(a) =>
+      Series::from_int_options(
+        s.name,
+        Array::makei(len, k => {
+          if valid[start + k] {
+            Some(a[start + k])
+          } else {
+            None
+          }
+        }),
+      )
+    @column.ColumnData::Float(a) =>
+      Series::from_float_options(
+        s.name,
+        Array::makei(len, k => {
+          if valid[start + k] {
+            Some(a[start + k])
+          } else {
+            None
+          }
+        }),
+      )
+    @column.ColumnData::Bool(a) =>
+      Series::from_bool_options(
+        s.name,
+        Array::makei(len, k => {
+          if valid[start + k] {
+            Some(a[start + k])
+          } else {
+            None
+          }
+        }),
+      )
+    @column.ColumnData::String(a) =>
+      Series::from_string_options(
+        s.name,
+        Array::makei(len, k => {
+          if valid[start + k] {
+            Some(a[start + k])
+          } else {
+            None
+          }
+        }),
+      )
+  }
+}
+
+///|
+/// Total gather: position `k` of the result is `s[idx[k]]`. The caller
+/// guarantees every index is in `[0, s.len())`. Backs `drop_nulls`,
+/// `take`, and the row-gather DataFrame transforms.
+fn gather_series(s : Series, idx : Array[Int]) -> Series {
+  let valid = s.storage.validity().to_bools()
+  match s.storage.data() {
+    @column.ColumnData::Int(a) =>
+      Series::from_int_options(
+        s.name,
+        idx.map(k => if valid[k] { Some(a[k]) } else { None }),
+      )
+    @column.ColumnData::Float(a) =>
+      Series::from_float_options(
+        s.name,
+        idx.map(k => if valid[k] { Some(a[k]) } else { None }),
+      )
+    @column.ColumnData::Bool(a) =>
+      Series::from_bool_options(
+        s.name,
+        idx.map(k => if valid[k] { Some(a[k]) } else { None }),
+      )
+    @column.ColumnData::String(a) =>
+      Series::from_string_options(
+        s.name,
+        idx.map(k => if valid[k] { Some(a[k]) } else { None }),
+      )
   }
 }
 
@@ -208,17 +335,14 @@ pub fn Series::take(
 /// Drop every null cell. Returned series has `len = original.len -
 /// original.null_count` and a fully-valid bitmap.
 pub fn Series::drop_nulls(self : Series) -> Series {
-  let n = self.len()
+  let valid = self.storage.validity().to_bools()
   let kept : Array[Int] = []
-  for i in 0..<n {
-    // `is_null` cannot fail in `[0, n)`.
-    if !self.storage.is_null(i).unwrap() {
+  for i in 0..<valid.length() {
+    if valid[i] {
       kept.push(i)
     }
   }
-  // `take` cannot fail because we only pushed in-bound indices.
-  let storage = self.storage.take(kept).unwrap()
-  { name: self.name, storage }
+  gather_series(self, kept)
 }
 
 ///|
@@ -243,15 +367,8 @@ pub fn Series::fill_null(
             ),
           )
         Ok((data, validity)) => {
-          let n = data.length()
-          let buf : Array[Int] = Array::new(capacity=n)
-          for i in 0..<n {
-            if validity.is_valid(i).unwrap() {
-              buf.push(data[i])
-            } else {
-              buf.push(v)
-            }
-          }
+          let valid = validity.to_bools()
+          let buf = data.mapi((i, x) => if valid[i] { x } else { v })
           Ok({ name: self.name, storage: @column.BuiltinColumn::from_ints(buf) })
         }
       }
@@ -265,15 +382,8 @@ pub fn Series::fill_null(
             ),
           )
         Ok((data, validity)) => {
-          let n = data.length()
-          let buf : Array[Float] = Array::new(capacity=n)
-          for i in 0..<n {
-            if validity.is_valid(i).unwrap() {
-              buf.push(data[i])
-            } else {
-              buf.push(v)
-            }
-          }
+          let valid = validity.to_bools()
+          let buf = data.mapi((i, x) => if valid[i] { x } else { v })
           Ok({
             name: self.name,
             storage: @column.BuiltinColumn::from_floats(buf),
@@ -289,15 +399,8 @@ pub fn Series::fill_null(
             ),
           )
         Ok((data, validity)) => {
-          let n = data.length()
-          let buf : Array[Bool] = Array::new(capacity=n)
-          for i in 0..<n {
-            if validity.is_valid(i).unwrap() {
-              buf.push(data[i])
-            } else {
-              buf.push(v)
-            }
-          }
+          let valid = validity.to_bools()
+          let buf = data.mapi((i, x) => if valid[i] { x } else { v })
           Ok({
             name: self.name,
             storage: @column.BuiltinColumn::from_bools(buf),
@@ -314,15 +417,8 @@ pub fn Series::fill_null(
             ),
           )
         Ok((data, validity)) => {
-          let n = data.length()
-          let buf : Array[String] = Array::new(capacity=n)
-          for i in 0..<n {
-            if validity.is_valid(i).unwrap() {
-              buf.push(data[i])
-            } else {
-              buf.push(v)
-            }
-          }
+          let valid = validity.to_bools()
+          let buf = data.mapi((i, x) => if valid[i] { x } else { v })
           Ok({
             name: self.name,
             storage: @column.BuiltinColumn::from_strings(buf),
@@ -340,10 +436,7 @@ pub fn Series::cast(
   self : Series,
   target : @types.DataType,
 ) -> Result[Series, @types.DataError] {
-  match self.storage.cast(target) {
-    Err(e) => Err(e)
-    Ok(s) => Ok({ name: self.name, storage: s })
-  }
+  self.storage.cast(target).map(s => { name: self.name, storage: s })
 }
 
 ///|
@@ -351,19 +444,13 @@ pub fn Series::cast(
 /// per-source-dtype semantics (truncation, range-rejection, parse
 /// strictness).
 pub fn Series::to_int(self : Series) -> Result[Series, @types.DataError] {
-  match self.storage.to_int() {
-    Err(e) => Err(e)
-    Ok(s) => Ok({ name: self.name, storage: s })
-  }
+  self.storage.to_int().map(s => { name: self.name, storage: s })
 }
 
 ///|
 /// Convenience: cast to `Float`.
 pub fn Series::to_float(self : Series) -> Result[Series, @types.DataError] {
-  match self.storage.to_float() {
-    Err(e) => Err(e)
-    Ok(s) => Ok({ name: self.name, storage: s })
-  }
+  self.storage.to_float().map(s => { name: self.name, storage: s })
 }
 
 ///|
@@ -371,12 +458,12 @@ pub fn Series::to_float(self : Series) -> Result[Series, @types.DataError] {
 /// name.
 ///
 /// `BuiltinColumn::to_string_column` is total today (every dtype has a
-/// value-form rendering), so we unwrap its `Result` and re-wrap. The
-/// signature stays `Result`-shaped for parity with `to_int` /
-/// `to_float`, both of which do have failure paths.
+/// value-form rendering), so the `.map` below only ever takes the `Ok`
+/// branch — the `Err` stays inside `Result::map`. The signature stays
+/// `Result`-shaped for parity with `to_int` / `to_float`, both of which do
+/// have failure paths.
 pub fn Series::to_string_series(
   self : Series,
 ) -> Result[Series, @types.DataError] {
-  let s = self.storage.to_string_column().unwrap()
-  Ok({ name: self.name, storage: s })
+  self.storage.to_string_column().map(s => { name: self.name, storage: s })
 }

@@ -10,11 +10,13 @@
 /// both lets `main` print them and the test assert on them without
 /// the helper having to know about either side.
 ///
-/// The three fallible steps are chained with `Result::bind` /
-/// `Result::map` so error propagation is structural — there's no
-/// explicit `Err(e) => return Err(e)` arm that the type system
-/// would let us write but that coverage could never reach (the
-/// `select` step guarantees `quantity` exists by the time we sort).
+/// The fallible steps — `filter_try`, `select`, `sort_by`, and the now
+/// `Result`-returning `describe` — are chained with `Result::bind` /
+/// `Result::map` so error propagation is structural: there's no explicit
+/// `Err(e) => return Err(e)` arm that the type system would let us write
+/// but that coverage could never reach (`describe` here only builds a
+/// fixed-schema summary, so its `Err` is unreachable, and `bind` keeps
+/// that branch inside the stdlib rather than in our code).
 pub fn widget_report(
   df : @moonframe.DataFrame,
 ) -> Result[(@moonframe.DataFrame, @moonframe.DataFrame), @moonframe.DataError] {
@@ -25,7 +27,7 @@ pub fn widget_report(
   .bind(projected => {
     @moonframe.sort_by(projected, @moonframe.SortSpec::desc("quantity"))
   })
-  .map(sorted => (sorted, @moonframe.describe(sorted)))
+  .bind(sorted => @moonframe.describe(sorted).map(summary => (sorted, summary)))
 }
 
 ///|

@@ -91,10 +91,7 @@ pub fn Bitmap::is_null(
   self : Bitmap,
   index : Int,
 ) -> Result[Bool, @types.DataError] {
-  match self.is_valid(index) {
-    Ok(v) => Ok(!v)
-    Err(e) => Err(e)
-  }
+  self.is_valid(index).map(v => !v)
 }
 
 ///|
@@ -112,6 +109,25 @@ pub fn Bitmap::null_count(self : Bitmap) -> Int {
     }
   }
   nulls
+}
+
+///|
+/// Materialise the validity mask as a dense `Array[Bool]` (`true = valid`),
+/// one entry per logical slot in `[0, len)`.
+///
+/// This is the total counterpart to `is_valid` for the common case of
+/// scanning every slot in order. A loop that has already bounded its index
+/// to `[0, len)` reads the returned array directly (`mask[i]`, the same
+/// trust level as the parallel `data[i]` access) instead of threading a
+/// per-element `Result` through every iteration — which would otherwise
+/// force either an `unwrap` (a panic path) or an unreachable `Err` arm.
+pub fn Bitmap::to_bools(self : Bitmap) -> Array[Bool] {
+  let n = self.len
+  let out : Array[Bool] = Array::new(capacity=n)
+  for i in 0..<n {
+    out.push(bit_at(self.bits, i))
+  }
+  out
 }
 
 // ── Transforms ────────────────────────────────────────────────────────

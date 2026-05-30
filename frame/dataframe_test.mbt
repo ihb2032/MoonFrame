@@ -418,6 +418,41 @@ test "head / tail / slice / take all keep get_column working" {
   )
 }
 
+///|
+test "head / tail / slice rebuild every dtype, valid and null cells" {
+  // `head` / `tail` / `slice` route each column through `slice_series`,
+  // which has a branch per `ColumnData` dtype and a Some/None split per
+  // cell. Slice a frame whose four columns each carry a null inside the
+  // kept range so every dtype branch and both row-copy paths run.
+  let df = DataFrame::new([
+    Series::from_int_options("i", [Some(1), None, Some(3), Some(4)]),
+    Series::from_float_options("f", [Some(1.0), Some(2.0), None, Some(4.0)]),
+    Series::from_bool_options("b", [None, Some(true), Some(false), Some(true)]),
+    Series::from_string_options("s", [Some("a"), Some("b"), None, Some("d")]),
+  ]).unwrap()
+  // head(3) keeps rows [0, 3): each column has both a valid and a null
+  // cell in that range.
+  let h = df.head(3)
+  assert_eq(h.nrows(), 3)
+  assert_eq(h.check_invariants(), Ok(()))
+  assert_eq(h.get(0, "i"), Ok(@types.Scalar::Int(1)))
+  assert_eq(h.get(1, "i"), Ok(@types.Scalar::Null))
+  assert_eq(h.get(0, "f"), Ok(@types.Scalar::Float(1.0)))
+  assert_eq(h.get(2, "f"), Ok(@types.Scalar::Null))
+  assert_eq(h.get(0, "b"), Ok(@types.Scalar::Null))
+  assert_eq(h.get(1, "b"), Ok(@types.Scalar::Bool(true)))
+  assert_eq(h.get(0, "s"), Ok(@types.Scalar::String("a")))
+  assert_eq(h.get(2, "s"), Ok(@types.Scalar::Null))
+  // tail / slice exercise the same helper with a non-zero start offset.
+  let t = df.tail(2)
+  assert_eq(t.get(0, "f"), Ok(@types.Scalar::Null))
+  assert_eq(t.check_invariants(), Ok(()))
+  let sl = df.slice(1, 4).unwrap()
+  assert_eq(sl.nrows(), 3)
+  assert_eq(sl.get(1, "f"), Ok(@types.Scalar::Null))
+  assert_eq(sl.check_invariants(), Ok(()))
+}
+
 // ── structural equality ──────────────────────────────────────────────
 
 ///|

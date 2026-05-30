@@ -230,14 +230,15 @@ pub fn format_csv_str(
     buf.write_char('\n')
   }
   let nrows = df.nrows()
+  // Materialise each column's cells once (column-major); `cols[c][r]` is
+  // then a plain in-bounds read, so no per-cell `get` `Result`.
+  let cols = df.column_series().map(s => s.to_scalars())
   for r in 0..<nrows {
-    for c, name in names {
+    for c in 0..<names.length() {
       if c > 0 {
         buf.write_char(options.delimiter)
       }
-      // `get(r, name)` cannot fail here: every column came from
-      // `df.columns()` (so it exists) and `r` ranges over `[0, nrows)`.
-      let scalar = df.get(r, name).unwrap()
+      let scalar = cols[c][r]
       let rendered = if scalar.is_null() {
         options.null_value
       } else {
@@ -294,12 +295,7 @@ fn cell_value(rows : Array[Array[String]], row_idx : Int, col : Int) -> String {
 ///|
 /// Whether a raw cell value should be treated as null.
 fn is_null_value(value : String, null_values : Array[String]) -> Bool {
-  for s in null_values {
-    if value == s {
-      return true
-    }
-  }
-  false
+  null_values.contains(value)
 }
 
 ///|
@@ -353,10 +349,22 @@ fn infer_column_dtype(
 }
 
 ///|
-/// `Some(value)` when `s` parses as a 32-bit signed integer with the
-/// stdlib's base-10 parser; `None` on any failure.
-fn parse_int_opt(s : String) -> Int? {
-  try @string.parse_int(s.view()) catch {
+/// `Some(value)` when `s` is a plain base-10 integer literal that fits in
+/// a 64-bit `Int64`; `None` otherwise.
+///
+/// We pre-screen with `@types.is_decimal_int_literal` because
+/// `@string.parse_int64` defaults to `base=0`, which would otherwise accept
+/// `0x` / `0o` / `0b` prefixes (`0xFF` → 255) and underscore grouping
+/// (`1_000` → 1000). Those forms are kept as strings by pandas / polars,
+/// so accepting them during inference would silently retype columns of
+/// hex codes, IDs, or formatted numbers. Restricting to decimal keeps
+/// inference predictable. The same predicate gates the `@column`
+/// String→`Int` cast, so inference and an explicit cast agree.
+fn parse_int_opt(s : String) -> Int64? {
+  if !@types.is_decimal_int_literal(s) {
+    return None
+  }
+  try @string.parse_int64(s.view()) catch {
     _ => None
   } noraise {
     n => Some(n)
@@ -364,15 +372,23 @@ fn parse_int_opt(s : String) -> Int? {
 }
 
 ///|
-/// `Some(value)` when `s` parses as a finite `Float` via
-/// `@string.parse_double` (then narrowed). `None` on parse failure.
-/// `±Infinity` / `NaN` literals follow `parse_double`'s rules; the
-/// caller has no special handling beyond "this column is Float".
-fn parse_float_opt(s : String) -> Float? {
+/// `Some(value)` when `s` parses as a `Double` via `@string.parse_double`;
+/// `None` on parse failure.
+///
+/// Strings containing `_` are rejected up front: `@string.parse_double`
+/// accepts underscore grouping (`1_000` → `1000.0`), but — like the
+/// `0x` / `0o` / `0b` forms screened out of `parse_int_opt` — that is not
+/// how CSV numbers are written, and pandas / polars keep such cells as
+/// strings. The `inf` / `nan` literals that `parse_double` recognises
+/// are still accepted and become `Double` ±Infinity / NaN values.
+fn parse_float_opt(s : String) -> Double? {
+  if s.iter().any(c => c == '_') {
+    return None
+  }
   try @string.parse_double(s.view()) catch {
     _ => None
   } noraise {
-    x => Some(Float::from_double(x))
+    x => Some(x)
   }
 }
 
@@ -407,7 +423,7 @@ fn build_column(
   let n = rows.length()
   match dtype {
     InferredInt => {
-      let values : Array[Int?] = Array::new(capacity=n)
+      let values : Array[Int64?] = Array::new(capacity=n)
       for i in 0..<n {
         let v = cell_value(rows, i, col)
         if is_null_value(v, null_values) {
@@ -433,7 +449,7 @@ fn build_column(
       Ok(@frame.Series::from_int_options(name, values))
     }
     InferredFloat => {
-      let values : Array[Float?] = Array::new(capacity=n)
+      let values : Array[Double?] = Array::new(capacity=n)
       for i in 0..<n {
         let v = cell_value(rows, i, col)
         if is_null_value(v, null_values) {
@@ -504,13 +520,9 @@ fn build_column(
 /// quoting iff it contains the delimiter, a double quote, `\r`, or
 /// `\n`. Interior double quotes are doubled per RFC 4180.
 fn write_quoted(buf : StringBuilder, cell : String, delimiter : Char) -> Unit {
-  let mut needs_quote = false
-  for ch in cell.iter() {
-    if ch == delimiter || ch == '"' || ch == '\n' || ch == '\r' {
-      needs_quote = true
-      break
-    }
-  }
+  let needs_quote = cell
+    .iter()
+    .any(ch => ch == delimiter || ch == '"' || ch == '\n' || ch == '\r')
   if !needs_quote {
     buf.write_string(cell)
     return

@@ -32,6 +32,59 @@ test "parse_csv_str infers Int / Float / Bool / String in declaration order" {
 }
 
 ///|
+test "parse_csv_str: signed integers (+ / -) infer as Int" {
+  // Exercises the sign-aware decimal screen in `parse_int_opt`: a
+  // leading + or - is part of a valid base-10 integer literal.
+  let content =
+    #|n
+    #|-5
+    #|+7
+    #|10
+    #|
+  let df = @io.parse_csv_str(content, @io.CsvReadOptions::default()).unwrap()
+  assert_eq(df.check_invariants(), Ok(()))
+  assert_eq(df.get_column("n").unwrap().dtype(), @types.DataType::Int)
+  assert_eq(df.get(0, "n"), Ok(@types.Scalar::Int(-5)))
+  assert_eq(df.get(1, "n"), Ok(@types.Scalar::Int(7)))
+  assert_eq(df.get(2, "n"), Ok(@types.Scalar::Int(10)))
+}
+
+///|
+test "parse_csv_str: non-decimal numeric forms stay String (no 0x / underscore)" {
+  // `@string.parse_int` / `parse_double` accept 0x / 0o / 0b prefixes and
+  // underscore grouping under their default rules; CSV inference must
+  // not, so columns of hex codes or grouped numbers stay String
+  // (matching pandas / polars) instead of being silently retyped.
+  let content =
+    #|hex,grouped
+    #|0xFF,1_000
+    #|0x10,2_000
+    #|
+  let df = @io.parse_csv_str(content, @io.CsvReadOptions::default()).unwrap()
+  assert_eq(df.check_invariants(), Ok(()))
+  assert_eq(df.get_column("hex").unwrap().dtype(), @types.DataType::String)
+  assert_eq(df.get_column("grouped").unwrap().dtype(), @types.DataType::String)
+  assert_eq(df.get(0, "hex"), Ok(@types.Scalar::String("0xFF")))
+  assert_eq(df.get(1, "grouped"), Ok(@types.Scalar::String("2_000")))
+}
+
+///|
+test "parse_csv_str: decimal integer overflowing Int32 falls back to Float" {
+  // A well-formed decimal literal passes the decimal screen but
+  // overflows 32-bit `Int`, so `@string.parse_int` raises and the cell
+  // is rejected as Int; inference then falls through to Float rather
+  // than erroring or keeping it as String.
+  let content =
+    #|big
+    #|99999999999999999999
+    #|1
+    #|
+  let df = @io.parse_csv_str(content, @io.CsvReadOptions::default()).unwrap()
+  assert_eq(df.check_invariants(), Ok(()))
+  assert_eq(df.get_column("big").unwrap().dtype(), @types.DataType::Float)
+}
+
+///|
 test "parse_csv_str: null values map to None for every inferred dtype" {
   // Empty cells in numeric / bool columns become null without
   // forcing the column down to String — they are skipped by the
@@ -239,6 +292,21 @@ test "parse_csv_str: whitespace-only content collapses to a 0x0 frame" {
   // to a 0×0 frame via the `ncols == 0` early-return rather than
   // hand `DataFrame::new` an empty schema with synthesised names.
   let df = @io.parse_csv_str("\n", @io.CsvReadOptions::default()).unwrap()
+  assert_eq(df.check_invariants(), Ok(()))
+  assert_eq(df.shape(), (0, 0))
+}
+
+///|
+test "parse_csv_str: has_header=false on row-less (whitespace) input yields 0x0" {
+  // Non-empty content skips the empty-input short-circuit, but NyaCSV
+  // reduces "\n" to zero rows; the has_header=false branch then takes the
+  // `rows.is_empty()` path and synthesises zero column names → 0×0.
+  let df = @io.parse_csv_str("\n", {
+    has_header: false,
+    delimiter: ',',
+    infer_schema_rows: 100,
+    null_values: [""],
+  }).unwrap()
   assert_eq(df.check_invariants(), Ok(()))
   assert_eq(df.shape(), (0, 0))
 }
@@ -472,9 +540,9 @@ test "parse_csv_str ∘ format_csv_str: round-trip preserves dtypes and values" 
   let df = @frame.DataFrame::new([
     @frame.Series::from_int_options("n", [Some(1), None, Some(3)]),
     @frame.Series::from_floats("r", [
-      (1.5 : Float),
-      (2.5 : Float),
-      (3.5 : Float),
+      (1.5 : Double),
+      (2.5 : Double),
+      (3.5 : Double),
     ]),
     @frame.Series::from_bool_options("b", [Some(true), Some(false), None]),
     @frame.Series::from_strings("s", ["alpha", "beta", "gamma"]),

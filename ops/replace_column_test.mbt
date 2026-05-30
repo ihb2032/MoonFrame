@@ -36,9 +36,9 @@ test "replace_column swaps in a same-dtype column without changing position" {
 test "replace_column allows cross-dtype replacement (Int → Float)" {
   let df = replace_df()
   let fresh = @frame.Series::from_floats("ignored", [
-    (0.5 : Float),
-    (1.5 : Float),
-    (2.5 : Float),
+    (0.5 : Double),
+    (1.5 : Double),
+    (2.5 : Double),
   ])
   let out = replace_column(df, "a", fresh).unwrap()
   assert_eq(out.check_invariants(), Ok(()))

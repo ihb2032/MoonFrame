@@ -37,8 +37,9 @@ pub fn to_markdown(df : @frame.DataFrame) -> String {
 /// Render a `DataFrame` as a Markdown table, capping the output at the
 /// first `limit` rows. When `df` has more rows than `limit`, the
 /// truncated count is appended below the table as
-/// `... (N more rows)`. Negative `limit` is clamped to 0 (header +
-/// separator only).
+/// `... (N more rows)`. Negative `limit` is clamped to 0, so a frame that
+/// has rows still renders as header + separator + the `... (N more rows)`
+/// banner; only a genuinely 0-row frame is header + separator alone.
 pub fn to_markdown_with_limit(df : @frame.DataFrame, limit : Int) -> String {
   let nrows = df.nrows()
   let shown = if limit < 0 { 0 } else if limit > nrows { nrows } else { limit }
@@ -59,24 +60,28 @@ pub fn to_markdown_with_limit(df : @frame.DataFrame, limit : Int) -> String {
 /// column, regardless of `shown` — a header-only table is still
 /// useful shape information for callers limiting output.
 fn format_markdown(df : @frame.DataFrame, shown : Int) -> String {
-  let names = df.columns()
-  let ncols = names.length()
+  // `raw_names` is used to look cells up in the frame; `names` is the
+  // GFM-escaped form used for both width computation and rendering, so
+  // a column name containing `|` / newline can't corrupt the table.
+  let raw_names = df.columns()
+  let ncols = raw_names.length()
   if ncols == 0 {
     return ""
   }
+  let names = raw_names.map(escape_md_cell)
   // Pre-render every visible cell so column widths can be computed in
   // one forward pass before any layout. The cost is one `Scalar`
   // allocation per cell, which is negligible compared to the I/O the
   // caller is about to do with the resulting string.
+  // Materialise each column's cells once (column-major). `shown <= nrows`
+  // and each `col_scalars[c]` has length `nrows`, so `col_scalars[c][r]`
+  // is in-bounds for `r in [0, shown)`.
+  let col_scalars = df.column_series().map(s => s.to_scalars())
   let cells : Array[Array[String]] = []
   for r in 0..<shown {
     let row : Array[String] = []
-    for name in names {
-      // `df.get(r, name)` cannot fail here: `name` comes from
-      // `df.columns()` (so it exists) and `r` ranges over `[0, shown)`
-      // where `shown <= df.nrows()`.
-      let scalar = df.get(r, name).unwrap()
-      row.push(scalar.to_string())
+    for c in 0..<ncols {
+      row.push(escape_md_cell(col_scalars[c][r].to_string()))
     }
     cells.push(row)
   }
@@ -146,9 +151,34 @@ fn write_row(
 /// pass wants one column per visual codepoint so a name containing a
 /// supplementary-plane glyph lines up with shorter ASCII neighbours.
 fn char_count(s : String) -> Int {
-  let mut n = 0
-  for _ in s.iter() {
-    n = n + 1
+  s.iter().count()
+}
+
+///|
+/// Escape a value for a GFM table cell. A literal backslash is doubled
+/// (`\` → `\\`) and a literal `|` is rewritten to `\|`, so neither a bare
+/// pipe nor a backslash sitting just before a pipe can split the cell
+/// into extra columns. (Without the backslash rule, a cell containing
+/// `\|` would emit `\\|` — an escaped backslash followed by a *bare*,
+/// table-splitting pipe.) CR / LF collapse to a single space so a
+/// multi-line value can't terminate the table row mid-cell. Everything
+/// else passes through. Width alignment runs on the escaped form (callers
+/// escape before measuring), so the two-character expansions are
+/// accounted for.
+fn escape_md_cell(s : String) -> String {
+  let buf = StringBuilder::new()
+  for ch in s.iter() {
+    if ch == '\\' {
+      buf.write_char('\\')
+      buf.write_char('\\')
+    } else if ch == '|' {
+      buf.write_char('\\')
+      buf.write_char('|')
+    } else if ch == '\n' || ch == '\r' {
+      buf.write_char(' ')
+    } else {
+      buf.write_char(ch)
+    }
   }
-  n
+  buf.to_string()
 }

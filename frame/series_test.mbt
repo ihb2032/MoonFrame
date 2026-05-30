@@ -77,16 +77,16 @@ test "is_empty true on zero-length, false otherwise" {
 test "null_rate covers empty / no-null / mixed / all-null" {
   // Empty: 0 / 0 collapses to 0.0 (avoid NaN propagation).
   let empty = Series::from_int_options("x", [])
-  assert_eq(empty.null_rate(), (0.0 : Float))
+  assert_eq(empty.null_rate(), (0.0 : Double))
   // No nulls.
   let dense = Series::from_ints("x", [1, 2, 3, 4])
-  assert_eq(dense.null_rate(), (0.0 : Float))
+  assert_eq(dense.null_rate(), (0.0 : Double))
   // Mixed.
   let mixed = Series::from_int_options("x", [Some(1), None, Some(3), None])
-  assert_eq(mixed.null_rate(), (0.5 : Float))
+  assert_eq(mixed.null_rate(), (0.5 : Double))
   // All-null.
   let all_null = Series::from_int_options("x", [None, None])
-  assert_eq(all_null.null_rate(), (1.0 : Float))
+  assert_eq(all_null.null_rate(), (1.0 : Double))
 }
 
 ///|

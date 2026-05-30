@@ -1,4 +1,4 @@
 import {
-  "moonbitlang/core/float",
+  "moonbitlang/core/double",
   "moonbitlang/core/test",
 } for "test"

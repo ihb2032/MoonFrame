@@ -6,6 +6,9 @@ import {
 }
 
 // Values
+pub fn compare_string_lex(String, String) -> Int
+
+pub fn is_decimal_int_literal(String) -> Bool
 
 // Errors
 
@@ -53,15 +56,15 @@ pub fn Field::with_nullable(String, DataType, Bool) -> Self
 pub impl Show for Field
 
 pub(all) enum Scalar {
-  Int(Int)
-  Float(Float)
+  Int(Int64)
+  Float(Double)
   Bool(Bool)
   String(String)
   Null
 } derive(Eq, @debug.Debug)
 pub fn Scalar::as_bool(Self) -> Result[Bool, DataError]
-pub fn Scalar::as_float(Self) -> Result[Float, DataError]
-pub fn Scalar::as_int(Self) -> Result[Int, DataError]
+pub fn Scalar::as_float(Self) -> Result[Double, DataError]
+pub fn Scalar::as_int(Self) -> Result[Int64, DataError]
 pub fn Scalar::as_string(Self) -> Result[String, DataError]
 pub fn Scalar::dtype(Self) -> DataType
 pub fn Scalar::eq(Self, Self) -> Result[Bool, DataError]

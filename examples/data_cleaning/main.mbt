@@ -28,7 +28,10 @@ fn main {
   println("Source frame:")
   println(@moonframe.to_markdown(df))
   println("\nNulls per column:")
-  println(@moonframe.to_markdown(@moonframe.null_count(df)))
+  match @moonframe.null_count(df) {
+    Ok(counts) => println(@moonframe.to_markdown(counts))
+    Err(e) => println("null_count failed: \{e.message()}")
+  }
   let cleaned = match @clean.clean(df) {
     Ok(d) => d
     Err(e) => {

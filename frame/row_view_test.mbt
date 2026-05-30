@@ -89,9 +89,9 @@ test "get_int reads Int cells and rejects mismatched / null cells" {
 ///|
 test "get_float reads Float cells and promotes Int cells" {
   let df = sample_frame()
-  assert_eq(df.row(0).unwrap().get_float("f"), Ok((1.5 : Float)))
+  assert_eq(df.row(0).unwrap().get_float("f"), Ok((1.5 : Double)))
   // Int promoted to Float via Scalar::as_float.
-  assert_eq(df.row(0).unwrap().get_float("i"), Ok((7.0 : Float)))
+  assert_eq(df.row(0).unwrap().get_float("i"), Ok((7.0 : Double)))
   // Null cell → TypeMismatch.
   assert_true(df.row(1).unwrap().get_float("f") is Err(TypeMismatch(_)))
   // Wrong dtype (Bool column) → TypeMismatch.

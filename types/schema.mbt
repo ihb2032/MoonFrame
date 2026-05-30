@@ -27,7 +27,7 @@ pub fn Schema::new(fields : Array[Field]) -> Result[Schema, DataError] {
 /// A fresh array is returned so callers cannot mutate the schema in place
 /// and break the "no duplicate names" invariant enforced by `Schema::new`.
 pub fn Schema::fields(self : Schema) -> Array[Field] {
-  self.fields.map(fn(f) { f })
+  self.fields.copy()
 }
 
 ///|
@@ -111,10 +111,7 @@ pub fn Schema::rename(
 ) -> Result[Schema, DataError] {
   if old_name == new_name {
     // No-op rename: still validate that old_name exists.
-    return match self.index_of(old_name) {
-      Ok(_) => Ok(self)
-      Err(e) => Err(e)
-    }
+    return self.index_of(old_name).map(_ => self)
   }
   let idx = match self.index_of(old_name) {
     Ok(i) => i
@@ -124,7 +121,7 @@ pub fn Schema::rename(
     Ok(_) => return Err(DuplicateColumn(new_name))
     Err(_) => ()
   }
-  let next : Array[Field] = self.fields.map(fn(f) { f })
+  let next = self.fields.copy()
   next[idx] = self.fields[idx].rename(new_name)
   Ok({ fields: next })
 }

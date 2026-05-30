@@ -26,11 +26,26 @@ the facade is additive.
   `Show` impl renders the variant form for assertion snapshots.
 - `enum DataType` — `Int | Float | Bool | String | Null`, with
   `is_numeric` / `is_integer` / `is_float` / `is_string` / `is_bool`
-- `enum Scalar` — cell value; `dtype` / `is_null` / `to_string` (value
+- `enum Scalar` — cell value (`Int` carries `Int64`, `Float` carries
+  `Double`); `dtype` / `is_null` / `to_string` (value
   form, e.g. `Int(42) → "42"`, `Null → ""`) / `as_int` / `as_float` /
   `as_bool` / `as_string` accessors; total ordering via `eq` / `lt` /
   `lte` / `gt` / `gte` (each returns `Result[Bool, DataError]` so that
-  `Null` short-circuits to `Err(TypeMismatch)`)
+  `Null` short-circuits to `Err(TypeMismatch)`). `String` comparisons
+  use lexicographic order (see `compare_string_lex`), **not** the
+  built-in shortlex `<`.
+- `fn compare_string_lex(a, b) -> Int` — lexicographic string comparison
+  by UTF-16 code unit (`-1` / `0` / `1`). MoonBit's built-in `<` on
+  `String` is *shortlex* (length first), which surprises pandas / SQL
+  users; every user-facing ordering (`Scalar::lt`, `Series::min` /
+  `max`, `@ops.sort_by`) routes through this helper so they all agree.
+- `fn is_decimal_int_literal(s) -> Bool` — `true` when `s` is an optional
+  `+` / `-` sign followed by ASCII digits and nothing else (rejects
+  `0x` / `0o` / `0b` base prefixes and `1_000` underscore grouping). The
+  CSV / JSON readers' type inference and the `@column` String→`Int` cast
+  both route through this predicate so they agree on what counts as an
+  integer literal — `@string.parse_int` defaults to `base = 0` and would
+  otherwise accept those forms.
 - `struct Field` — column metadata: `name`, `dtype`, `nullable`.
   - Constructors: `Field::new(name, dtype)` (defaults `nullable = true`),
     `Field::with_nullable(name, dtype, nullable)`.
@@ -76,6 +91,11 @@ the facade is additive.
 - Inspection: `len` / `is_valid(i)` / `is_null(i)` / `null_count()`.
   Index-based accessors return `Err(IndexOutOfBounds(i))` outside
   `[0, len)`.
+- `to_bools() -> Array[Bool]` — materialise the whole mask (`true =
+  valid`) in one pass. Total: a loop that has already bounded its index
+  to `[0, len)` indexes the result directly (`mask[i]`) instead of
+  threading a per-slot `is_valid` `Result` (and an `unwrap` / dead `Err`
+  arm) through every iteration.
 - Transforms: `slice(start, length)` (rebuilds by repacking — no
   zero-copy view; v0.2 may optimise), `take(indices)` (gather with
   duplicates allowed; first out-of-bounds index wins),
@@ -91,9 +111,11 @@ the facade is additive.
   public methods, because every read consults `validity` first. v0.2
   will add a `ColumnStorage` abstraction over this struct without
   changing the public API.
-- `pub(all) enum ColumnData` — `Int(Array[Int]) | Float(Array[Float]) |
-  Bool(Array[Bool]) | String(Array[String])`. Element type is the raw
-  value; nullability lives on the enclosing column.
+- `pub(all) enum ColumnData` — `Int(Array[Int64]) | Float(Array[Double]) |
+  Bool(Array[Bool]) | String(Array[String])`. Numeric columns are 64-bit
+  (`Int64` / `Double`), matching `Scalar` and the pandas / polars
+  `int64` / `float64` defaults. Element type is the raw value;
+  nullability lives on the enclosing column.
 - Constructors (8, signatures unchanged from P2): `from_ints` /
   `from_int_options` / `from_floats` / `from_float_options` /
   `from_bools` / `from_bool_options` / `from_strings` /
@@ -103,18 +125,28 @@ the facade is additive.
 - Inspection: `dtype` / `len` / `is_empty` / `null_count` /
   `is_null(i)` / `get(i)`. Index-based accessors return
   `Err(IndexOutOfBounds(i))` outside `[0, len)`.
+- Total backing accessors: `data() -> ColumnData` and
+  `validity() -> Bitmap` expose the raw column so callers in other
+  packages match the four `ColumnData` variants once and read values /
+  validity totally (paired with `Bitmap::to_bools()`), instead of
+  cascading through the `*_values` accessors and unwrapping the branch
+  the type system can't see is exhaustive.
 - Sub-views: `slice(start, end)` (half-open, copies both data and
   validity) / `take(indices)` (gather with duplicates allowed; first
   out-of-bounds index wins).
 - Cast: `cast(target)` dispatches to one of — validity is preserved
   verbatim across every cast.
   - `to_int` — identity on Int; Float truncates towards zero (`NaN`,
-    `±Inf`, and values outside `Int32` range → `ParseError`); Bool maps
-    `true → 1`, `false → 0`; String parses with `@string.parse_int`
-    (non-numeric on a valid slot → `ParseError`).
-  - `to_float` — Int promoted via `Float::from_int`; identity on
+    `±Inf`, and values outside `Int64` range → `ParseError`); Bool maps
+    `true → 1`, `false → 0`; String accepts only plain base-10 integers
+    (optional `+` / `-` sign then digits) — `0x` / `0o` / `0b` prefixes,
+    `1_000` underscore grouping, and `Int64` overflow → `ParseError`,
+    matching the CSV reader's inference.
+  - `to_float` — Int promoted via `Int64::to_double`; identity on
     Float; Bool maps to `1.0` / `0.0`; String parses with
-    `@string.parse_double` then narrowed to 32-bit.
+    `@string.parse_double`. `1_000`-style underscore grouping →
+    `ParseError` (matching the CSV reader); `inf` / `-inf` / `nan`
+    literals are accepted.
   - `to_string_column` — every dtype rendered with `Scalar::to_string`
     semantics (e.g. `Int(42) → "42"`, `Bool(true) → "true"`).
   - `Bool` / `Null` targets return `Err(Unsupported)`.
@@ -162,31 +194,52 @@ the facade is additive.
   - `cast(target)` / `to_int` / `to_float` / `to_string_series` —
     forward to the underlying column. `to_string_series` is total
     (always `Ok`).
+  - `to_scalars() -> Array[Scalar]` — materialise every cell as a
+    `Scalar` (`Null` for null cells) in one pass. Total; the renderers
+    (CSV / JSON / Markdown) walk a column through this instead of a
+    per-cell bounds-checked `get`.
 
 ### Stats (file: `series_stats.mbt`)
 
 - `count()` — non-null count.
 - `sum()` — `Int` / `Float` series return `Scalar::Int` /
   `Scalar::Float`; empty / all-null is the additive identity (`0` /
-  `0.0`). `Bool` / `String` → `Err(TypeMismatch)`.
-- `mean()` — `Float` result (Int sums promoted). Empty / all-null
-  numeric → `Err(InvalidOperation)`. Non-numeric → `Err(TypeMismatch)`.
-- `min()` / `max()` — supported on every dtype; empty / all-null returns
-  `Ok(Scalar::Null)`. `Float` NaN follows IEEE 754: `<` / `>` against
-  NaN is `false`, so NaN never displaces a non-NaN best. `Bool` order
-  is `false < true`.
+  `0.0`). `Bool` / `String` → `Err(TypeMismatch)`. `Int` sums accumulate
+  in 64-bit `Int64` (only sums past 2^63 overflow); `Float` sums
+  accumulate in 64-bit `Double`. `NaN` cells are skipped (treated as
+  missing, like `min` / `max` and `@ops.sort_by`).
+- `mean()` — `Double` result. Reductions run in 64-bit (an `Int64` sum
+  for `Int` columns, `Double` accumulation for `Float` columns) and the
+  division is performed in `Double`, so a long column stays accurate.
+  `Float` skips `NaN`, dividing by the non-NaN count. Empty / all-null /
+  all-NaN numeric → `Err(InvalidOperation)`. Non-numeric →
+  `Err(TypeMismatch)`.
+- `min_value()` / `max_value()` — the reduction proper, returning a
+  `Scalar` directly. Total: every v0.1 dtype has an order, so they never
+  fail. Empty / all-null returns `Scalar::Null`. `Float` NaN is treated
+  as missing (skipped), matching `@ops.sort_by` and pandas, so an
+  all-NaN / all-null series returns `Scalar::Null`. `String` uses
+  lexicographic order (`@types.compare_string_lex`, by UTF-16 code
+  unit), **not** the built-in shortlex `<`. `Bool` order is
+  `false < true`.
+- `min()` / `max()` — `Ok`-wrapped `min_value` / `max_value`, kept
+  `Result`-shaped for parity with the reductions that genuinely can fail.
 - `unique_count()` — distinct non-null values, keyed by
   `Scalar::to_string`. Within a fixed-dtype series this is a precise
   equality test; all `Float` `NaN` cells collapse into a single bucket
   (matching pandas' `nunique` on NaN).
 
-- `describe()` — one-row summary `DataFrame`. Every series gets
-  `count` / `null_count` / `unique_count` (`Int`). Numeric series add
-  `mean` (`Float`, `Null` for empty / all-null). All dtypes add `min`
-  and `max`, typed to match the source series (`Null` cells when the
-  reduction has no value). Column order: numeric — `count`,
-  `null_count`, `unique_count`, `mean`, `min`, `max`; `Bool` / `String`
-  — `count`, `null_count`, `unique_count`, `min`, `max`.
+- `describe() -> Result[DataFrame, DataError]` — one-row summary
+  `DataFrame` with a uniform six-column layout across every dtype, in
+  order: `count` / `null_count` / `unique_count` (`Int`), `mean`
+  (`Double`, `Null` for non-numeric or empty / all-null numeric), then
+  `min` and `max` typed to match the source series (`Null` cells when the
+  reduction has no value). Non-numeric series still carry the `mean`
+  column (always `Null`) so the layout doesn't depend on dtype. Returns
+  `Result` only because it builds through the fallible `DataFrame::new`;
+  the columns are hardcoded-unique and equal length, so the value is
+  always `Ok` — it's forwarded rather than `unwrap`ped so no panic path
+  crosses the public API.
 
 ### DataFrame
 
@@ -214,8 +267,10 @@ the facade is additive.
     dtype), `Unsupported(...)` (Null-dtype field).
 - Inspection: `shape() -> (Int, Int)` (rows, cols) / `schema()` /
   `columns() -> Array[String]` (fresh per call — caller can mutate
-  without affecting the frame) / `nrows()` / `ncols()` /
-  `is_empty()` (`nrows == 0`).
+  without affecting the frame) / `column_series() -> Array[Series]`
+  (the columns themselves, fresh array, `Series` immutable; ops / IO
+  iterate this instead of repeated name lookups) / `nrows()` /
+  `ncols()` / `is_empty()` (`nrows == 0`).
 - Accessors:
   - `get_column(name)` — `O(1)` via the cache;
     `Err(ColumnNotFound(name))` if missing.
@@ -226,6 +281,10 @@ the facade is additive.
     `Series::get`.
   - `row(i)` — open a `RowView` over the given row; row indices
     outside `[0, nrows)` return `Err(IndexOutOfBounds(i))`.
+  - `row_view(i)` — the same borrow without the eager bounds check.
+    Total (never aborts): every `RowView` accessor re-validates the row
+    index, so an out-of-range view surfaces `Err(IndexOutOfBounds)` on
+    access. `filter`, which already iterates `[0, nrows)`, uses it.
 - Transforms (all keep the schema and `name_to_index` intact):
   - `head(n)` / `tail(n)` — first / last `n` rows; `n` is clamped to
     `[0, nrows]`, so both are total.
@@ -251,7 +310,8 @@ the facade is additive.
 
 - `struct RowView { df : DataFrame, row_index : Int }` — borrowed
   view of a single row; no per-row allocation. Built via
-  `DataFrame::row(i)`, which validates the row index up front.
+  `DataFrame::row(i)` (validates the index up front) or the total
+  `DataFrame::row_view(i)` (defers validation to the accessors below).
 - `index()` — the row position the view was opened at.
 - `get(name)` — `Scalar` cell read; null cells return
   `Ok(Scalar::Null)`. `Err(ColumnNotFound(name))` for unknown columns.
@@ -409,14 +469,15 @@ table for inspection.
   Column-lookup runs before the fill so a missing name is surfaced
   ahead of a type-mismatch error. Other columns and the schema's
   column order are untouched.
-- `null_count(df) -> DataFrame` — per-column summary as a `1 × ncols`
-  frame. Column names mirror `df.columns()` in order; every cell is
-  an `Int` count of nulls in the source column. The 0-column case
-  collapses to `0 × 0` — `DataFrame::new`'s "empty column list ⇒
-  nrows = 0" rule kicks in and there's no anchor column to set `nrows`
-  on. A 0-row source produces a `(1, ncols)` summary of all zeros.
-  Total — cannot fail (column names from `df.columns()` are unique
-  and every output column has length 1).
+- `null_count(df) -> Result[DataFrame, DataError]` — per-column summary
+  as a `1 × ncols` frame. Column names mirror `df.columns()` in order;
+  every cell is an `Int` count of nulls in the source column. The
+  0-column case collapses to `0 × 0` — `DataFrame::new`'s "empty column
+  list ⇒ nrows = 0" rule kicks in and there's no anchor column to set
+  `nrows` on. A 0-row source produces a `(1, ncols)` summary of all
+  zeros. Returns `Result` because it builds through `DataFrame::new`;
+  the value is always `Ok` (names from `df.columns()` are unique and
+  every output column has length 1), forwarded rather than `unwrap`ped.
 
 ### Column statistics + describe (P10)
 
@@ -437,27 +498,28 @@ further ops or IO.
   empty / all-null numeric is the additive identity (`0` / `0.0`).
   Errors: `Err(ColumnNotFound(column))` for unknown names,
   `Err(TypeMismatch(...))` for `Bool` / `String` columns.
-- `mean(df, column) -> Result[Float, DataError]` — arithmetic mean,
-  `Float`-typed (`Int` sums promoted). Errors:
+- `mean(df, column) -> Result[Double, DataError]` — arithmetic mean,
+  `Double`-typed (`Int` sums promoted). Errors:
   `Err(ColumnNotFound(column))` for unknown names,
   `Err(InvalidOperation(...))` for empty / all-null numeric columns,
   `Err(TypeMismatch(...))` for non-numeric columns.
 - `min(df, column) -> Result[Scalar, DataError]` /
   `max(df, column) -> Result[Scalar, DataError]` — supported on every
-  dtype. Empty / all-null columns return `Ok(Scalar::Null)`. `Float`
-  NaN follows IEEE 754 (`<` / `>` against NaN is `false`, so NaN never
-  displaces a non-NaN best); `Bool` order is `false < true`. The only
-  failure path is `Err(ColumnNotFound(column))`.
-- `describe(df) -> DataFrame` — per-column summary, one row per source
-  column. Fixed `N × 8` schema (`N == df.ncols()`); column dtypes are
-  pinned regardless of the source frame:
+  dtype; delegate to `Series::min` / `max`. Empty / all-null columns
+  return `Ok(Scalar::Null)`. `Float` NaN is skipped (treated as missing,
+  matching `sort_by`); `String` uses lexicographic order; `Bool` order
+  is `false < true`. The only failure path is
+  `Err(ColumnNotFound(column))`.
+- `describe(df) -> Result[DataFrame, DataError]` — per-column summary,
+  one row per source column. Fixed `N × 8` schema (`N == df.ncols()`);
+  column dtypes are pinned regardless of the source frame:
   - `column` (`String`) — source column name, in declaration order
   - `dtype` (`String`) — source column dtype rendered via `Show`
   - `count` (`Int`) — non-null cell count
   - `null_count` (`Int`) — null cell count
   - `unique_count` (`Int`) — distinct non-null values
     (`Scalar::to_string` keying, so `Float` NaN collapses to one bucket)
-  - `mean` (`Float`, nullable) — arithmetic mean for numeric columns;
+  - `mean` (`Double`, nullable) — arithmetic mean for numeric columns;
     `Null` for non-numeric or empty / all-null numeric (both `mean`
     error modes collapse into the same null cell — the diagnostic
     distinction stays at the per-column API)
@@ -525,7 +587,13 @@ toggling, and quoting.
   2. Per-column inference walks the first `infer_schema_rows`
      non-null cells in order `Int → Float → Bool → String`. The
      first dtype that accepts every probed cell wins; a column with
-     no non-null probes lands on `String`.
+     no non-null probes lands on `String`. `Int` / `Float` accept
+     only plain base-10 numbers: `0x` / `0o` / `0b` prefixes and
+     underscore grouping (`1_000`) are **rejected** and kept as
+     `String` (matching pandas / polars), while the `Float` literals
+     `inf` / `-inf` / `nan` are accepted as ±Infinity / NaN values.
+     A decimal integer that overflows `Int64` falls through to
+     `Float`.
   3. Null mapping replaces any cell whose raw text sits in
      `null_values` with `None`. Both quoted empty cells (`""`) and
      bare empty cells are honoured.
@@ -557,7 +625,11 @@ Render a `DataFrame` as a GitHub-flavored pipe-table. The renderer is
 in-tree (no third-party Markdown library) and produces deterministic
 bytes for a given frame, so callers can pin output via exact-string
 assertions. Null cells render as the empty string, matching
-`Scalar::to_string`.
+`Scalar::to_string`. Cell values and column names are GFM-escaped: a
+literal backslash is doubled (`\` → `\\`), a literal `|` becomes `\|`,
+and CR / LF collapse to a single space, so data containing backslashes,
+pipes, or newlines can't corrupt the table structure (column widths are
+measured on the escaped text).
 
 - `to_markdown(df) -> String` — three blocks of pipe-bounded rows:
   header (column names), separator (dashes), and one row per record
@@ -617,8 +689,9 @@ the same dtypes.
 - `format_json_records(df) -> String` — string exit point. Each row
   becomes a JSON object whose keys appear in `df.columns()` order
   (preserved by the builtin linked-hash-map `Map`). Per cell:
-  `Null → null`; `Int` / `Float → number` (Float widened to Double
-  for serialisation); `Bool → true` / `false`; `String → JSON string`
+  `Null → null`; `Int` / `Float → number` (`Int64` widened to `Double`;
+  `Float` is already `Double`); `Bool → true` / `false`; `String → JSON
+  string`
   with escaping delegated to the stringifier. Output is the compact
   form `@json.stringify` produces by default (no spaces between
   tokens).

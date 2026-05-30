@@ -435,15 +435,15 @@ test "to_string_column preserves None for Float" {
 
 ///|
 test "to_int rejects NaN" {
-  let nan : Float = @float.not_a_number
+  let nan : Double = @double.not_a_number
   let col = BuiltinColumn::from_floats([nan])
   assert_true(col.to_int() is Err(ParseError(_)))
 }
 
 ///|
 test "to_int rejects positive and negative Infinity" {
-  let pos_inf : Float = @float.infinity
-  let neg_inf : Float = @float.neg_infinity
+  let pos_inf : Double = @double.infinity
+  let neg_inf : Double = @double.neg_infinity
   assert_true(
     BuiltinColumn::from_floats([pos_inf]).to_int() is Err(ParseError(_)),
   )
@@ -454,8 +454,8 @@ test "to_int rejects positive and negative Infinity" {
 
 ///|
 test "to_int rejects values outside the Int range" {
-  let too_big : Float = Float::from_double(1.0e10)
-  let too_small : Float = Float::from_double(-1.0e10)
+  let too_big : Double = 1.0e30
+  let too_small : Double = -1.0e30
   assert_true(
     BuiltinColumn::from_floats([too_big]).to_int() is Err(ParseError(_)),
   )
@@ -496,6 +496,45 @@ test "to_float rejects malformed strings" {
   )
 }
 
+///|
+test "to_int rejects base prefixes and underscore grouping" {
+  // `@string.parse_int` defaults to base=0 and would accept these; the
+  // cast screens them out so it agrees with CSV inference, which keeps
+  // `0xFF` / `1_000` as String.
+  assert_true(
+    BuiltinColumn::from_strings(["0xFF"]).to_int() is Err(ParseError(_)),
+  )
+  assert_true(
+    BuiltinColumn::from_strings(["0o17"]).to_int() is Err(ParseError(_)),
+  )
+  assert_true(
+    BuiltinColumn::from_strings(["0b101"]).to_int() is Err(ParseError(_)),
+  )
+  assert_true(
+    BuiltinColumn::from_strings(["1_000"]).to_int() is Err(ParseError(_)),
+  )
+}
+
+///|
+test "to_int rejects decimal integers overflowing Int32" {
+  // Passes the decimal-literal screen but overflows `@string.parse_int`,
+  // exercising the parse-failure branch after the screen.
+  assert_true(
+    BuiltinColumn::from_strings(["99999999999999999999"]).to_int()
+    is Err(ParseError(_)),
+  )
+}
+
+///|
+test "to_float rejects underscore grouping but keeps scientific notation" {
+  assert_true(
+    BuiltinColumn::from_strings(["1_000"]).to_float() is Err(ParseError(_)),
+  )
+  // No underscore → still parsed; scientific notation is unaffected.
+  let out = BuiltinColumn::from_strings(["1e3"]).to_float().unwrap()
+  assert_eq(out.get(0), Ok(@types.Scalar::Float(1000.0)))
+}
+
 // ── Arrow layout invariants ──────────────────────────────────────────
 
 ///|
@@ -512,7 +551,7 @@ test "from_int_options stores 0 placeholder at null slots" {
 test "from_float_options stores 0.0 placeholder at null slots" {
   let col = BuiltinColumn::from_float_options([None, Some(2.5)])
   let (data, validity) = col.float_values().unwrap()
-  assert_eq(data, [(0.0 : Float), (2.5 : Float)])
+  assert_eq(data, [(0.0 : Double), (2.5 : Double)])
   assert_eq(validity.is_valid(0), Ok(false))
   assert_eq(validity.is_valid(1), Ok(true))
 }

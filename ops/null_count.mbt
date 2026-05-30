@@ -10,20 +10,16 @@
 /// any column to anchor it. Callers that need a guaranteed-nonempty
 /// summary should attach a sentinel column before calling.
 ///
-/// `null_count` is total — every input that's a well-formed
-/// `DataFrame` produces a well-formed result, and `DataFrame::new`'s
-/// failure paths (duplicate-name, length-mismatch) cannot fire here
-/// because the names come from `df.columns()` (already unique) and
-/// every output column has length 1 (or 0 in the 0-column case).
-pub fn null_count(df : @frame.DataFrame) -> @frame.DataFrame {
-  let cols : Array[@frame.Series] = []
-  for name in df.columns() {
-    // `get_column` cannot fail: name came from `df.columns()`.
-    let s = df.get_column(name).unwrap()
-    cols.push(@frame.Series::from_ints(name, [s.null_count()]))
-  }
-  // Names are unique (inherited from `df.columns()`), every column
-  // has the same length (1) — the constructor cannot fail. `unwrap`
-  // here is a structural assertion, not a real error path.
-  @frame.DataFrame::new(cols).unwrap()
+/// Returns `Result` because the summary is built through the fallible
+/// `DataFrame::new`; its failure paths (duplicate-name, length-mismatch)
+/// cannot fire here — the names come from `df.column_series()` (already
+/// unique) and every output column has length 1 (or 0 in the 0-column
+/// case) — so the value is always `Ok`, forwarded rather than `unwrap`ped.
+pub fn null_count(
+  df : @frame.DataFrame,
+) -> Result[@frame.DataFrame, @types.DataError] {
+  let cols = df
+    .column_series()
+    .map(s => @frame.Series::from_ints(s.name(), [s.null_count().to_int64()]))
+  @frame.DataFrame::new(cols)
 }

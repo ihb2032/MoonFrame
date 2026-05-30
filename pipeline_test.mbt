@@ -30,7 +30,7 @@ test "pipeline: read_csv → filter → select → sort_by → describe → to_m
   }).unwrap()
   let projected = select(widgets, ["region", "quantity", "revenue"]).unwrap()
   let sorted = sort_by(projected, SortSpec::desc("quantity")).unwrap()
-  let summary = describe(sorted)
+  let summary = describe(sorted).unwrap()
 
   // Quantity desc puts west first; describe should surface that.
   assert_eq(sorted.get(0, "region"), Ok(Scalar::String("west")))
@@ -38,15 +38,15 @@ test "pipeline: read_csv → filter → select → sort_by → describe → to_m
   assert_eq(sorted.nrows(), 3)
 
   // Snapshot the full markdown — the renderer is deterministic for a
-  // given frame, so a snapshot pins both the schema (header / dash
-  // row) and the column-width logic (`max` widens to 5 because of
-  // "north" in the region row).
+  // given frame, so this pins both the schema (header / dash row) and
+  // the column-width logic. String min/max use lexicographic order, so
+  // the region `max` is "west" (not shortlex's longest, "north").
   let expected =
-    #|| column   | dtype  | count | null_count | unique_count | mean | min  | max   |
-    #|| -------- | ------ | ----- | ---------- | ------------ | ---- | ---- | ----- |
-    #|| region   | String | 3     | 0          | 3            |      | east | north |
-    #|| quantity | Int    | 3     | 0          | 3            | 8    | 5    | 12    |
-    #|| revenue  | Float  | 3     | 0          | 3            | 76   | 47.5 | 114   |
+    #|| column   | dtype  | count | null_count | unique_count | mean | min  | max  |
+    #|| -------- | ------ | ----- | ---------- | ------------ | ---- | ---- | ---- |
+    #|| region   | String | 3     | 0          | 3            |      | east | west |
+    #|| quantity | Int    | 3     | 0          | 3            | 8    | 5    | 12   |
+    #|| revenue  | Float  | 3     | 0          | 3            | 76   | 47.5 | 114  |
     #|
   assert_eq(to_markdown(summary), expected)
 }
@@ -94,7 +94,7 @@ test "pipeline: parse_csv_str → filter → select → sort_by → describe →
   assert_eq(sorted.get(2, "quantity"), Ok(Scalar::Int(5)))
 
   // Per-column summary — fixed N×8 schema, one row per source column.
-  let summary = describe(sorted)
+  let summary = describe(sorted).unwrap()
   assert_eq(summary.shape(), (4, 8))
   assert_eq(summary.columns(), [
     "column", "dtype", "count", "null_count", "unique_count", "mean", "min", "max",
@@ -105,14 +105,15 @@ test "pipeline: parse_csv_str → filter → select → sort_by → describe →
   // came from non-null rows, so the projection has full coverage.
   assert_eq(summary.get(3, "null_count"), Ok(Scalar::Int(0)))
 
-  // Snapshot the full markdown table — pins both schema and width logic.
+  // Snapshot the full markdown table — pins schema + width logic. String
+  // min/max are lexicographic, so the region `max` is "west", not "north".
   let expected =
-    #|| column   | dtype  | count | null_count | unique_count | mean | min  | max   |
-    #|| -------- | ------ | ----- | ---------- | ------------ | ---- | ---- | ----- |
-    #|| region   | String | 3     | 0          | 3            |      | east | north |
-    #|| price    | Float  | 3     | 0          | 1            | 9.5  | 9.5  | 9.5   |
-    #|| quantity | Int    | 3     | 0          | 3            | 8    | 5    | 12    |
-    #|| revenue  | Float  | 3     | 0          | 3            | 76   | 47.5 | 114   |
+    #|| column   | dtype  | count | null_count | unique_count | mean | min  | max  |
+    #|| -------- | ------ | ----- | ---------- | ------------ | ---- | ---- | ---- |
+    #|| region   | String | 3     | 0          | 3            |      | east | west |
+    #|| price    | Float  | 3     | 0          | 1            | 9.5  | 9.5  | 9.5  |
+    #|| quantity | Int    | 3     | 0          | 3            | 8    | 5    | 12   |
+    #|| revenue  | Float  | 3     | 0          | 3            | 76   | 47.5 | 114  |
     #|
   assert_eq(to_markdown(summary), expected)
 }
@@ -150,7 +151,7 @@ test "pipeline: drop_nulls_in / fill_null / null_count compose via the facade" {
   ]).unwrap()
 
   // Per-column null counts up-front: 1 / 1 / 1.
-  let counts = null_count(df)
+  let counts = null_count(df).unwrap()
   assert_eq(counts.shape(), (1, 3))
   assert_eq(counts.get(0, "a"), Ok(Scalar::Int(1)))
   assert_eq(counts.get(0, "b"), Ok(Scalar::Int(1)))
@@ -173,7 +174,7 @@ test "pipeline: drop_nulls_in / fill_null / null_count compose via the facade" {
   assert_eq(filled.check_invariants(), Ok(()))
 
   // After filling, every column reports zero nulls.
-  let after = null_count(filled)
+  let after = null_count(filled).unwrap()
   assert_eq(after.get(0, "a"), Ok(Scalar::Int(0)))
   assert_eq(after.get(0, "b"), Ok(Scalar::Int(0)))
   assert_eq(after.get(0, "c"), Ok(Scalar::Int(0)))

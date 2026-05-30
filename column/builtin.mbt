@@ -12,9 +12,10 @@
 /// `NumericColumn` for unboxed-numeric fast paths) without changing this
 /// layer's public API.
 ///
-/// The `Float` variant stores 32-bit `Float` values to keep the column
-/// footprint compact; `Series`-level promotion to 64-bit should be done
-/// at the stats layer if needed.
+/// Numeric columns are 64-bit: the `Int` variant stores `Int64` and the
+/// `Float` variant stores `Double`, matching `Scalar`'s payloads and the
+/// pandas / polars `int64` / `float64` defaults so reductions neither
+/// silently overflow nor lose precision.
 pub struct BuiltinColumn {
   data : ColumnData
   validity : Bitmap
@@ -25,8 +26,8 @@ pub struct BuiltinColumn {
 /// value; nullability is tracked in the enclosing column's `validity`
 /// bitmap.
 pub(all) enum ColumnData {
-  Int(Array[Int])
-  Float(Array[Float])
+  Int(Array[Int64])
+  Float(Array[Double])
   Bool(Array[Bool])
   String(Array[String])
 } derive(Eq, Debug)
@@ -35,28 +36,23 @@ pub(all) enum ColumnData {
 
 ///|
 /// Build an `Int` column from raw values (no nulls).
-pub fn BuiltinColumn::from_ints(values : Array[Int]) -> BuiltinColumn {
+pub fn BuiltinColumn::from_ints(values : Array[Int64]) -> BuiltinColumn {
   { data: Int(values), validity: Bitmap::all_valid(values.length()) }
 }
 
 ///|
 /// Build an `Int` column where `None` entries are nulls. `None` slots
 /// receive `0` as the data placeholder; public APIs never expose it.
-pub fn BuiltinColumn::from_int_options(values : Array[Int?]) -> BuiltinColumn {
-  let n = values.length()
-  let data : Array[Int] = Array::new(capacity=n)
-  for v in values {
-    match v {
-      Some(x) => data.push(x)
-      None => data.push(0)
-    }
+pub fn BuiltinColumn::from_int_options(values : Array[Int64?]) -> BuiltinColumn {
+  {
+    data: Int(values.map(v => v.unwrap_or(0))),
+    validity: Bitmap::from_options(values),
   }
-  { data: Int(data), validity: Bitmap::from_options(values) }
 }
 
 ///|
 /// Build a `Float` column from raw values (no nulls).
-pub fn BuiltinColumn::from_floats(values : Array[Float]) -> BuiltinColumn {
+pub fn BuiltinColumn::from_floats(values : Array[Double]) -> BuiltinColumn {
   { data: Float(values), validity: Bitmap::all_valid(values.length()) }
 }
 
@@ -64,17 +60,12 @@ pub fn BuiltinColumn::from_floats(values : Array[Float]) -> BuiltinColumn {
 /// Build a `Float` column where `None` entries are nulls. `None` slots
 /// receive `0.0` as the data placeholder.
 pub fn BuiltinColumn::from_float_options(
-  values : Array[Float?],
+  values : Array[Double?],
 ) -> BuiltinColumn {
-  let n = values.length()
-  let data : Array[Float] = Array::new(capacity=n)
-  for v in values {
-    match v {
-      Some(x) => data.push(x)
-      None => data.push((0.0 : Float))
-    }
+  {
+    data: Float(values.map(v => v.unwrap_or(0.0))),
+    validity: Bitmap::from_options(values),
   }
-  { data: Float(data), validity: Bitmap::from_options(values) }
 }
 
 ///|
@@ -87,15 +78,10 @@ pub fn BuiltinColumn::from_bools(values : Array[Bool]) -> BuiltinColumn {
 /// Build a `Bool` column where `None` entries are nulls. `None` slots
 /// receive `false` as the data placeholder.
 pub fn BuiltinColumn::from_bool_options(values : Array[Bool?]) -> BuiltinColumn {
-  let n = values.length()
-  let data : Array[Bool] = Array::new(capacity=n)
-  for v in values {
-    match v {
-      Some(x) => data.push(x)
-      None => data.push(false)
-    }
+  {
+    data: Bool(values.map(v => v.unwrap_or(false))),
+    validity: Bitmap::from_options(values),
   }
-  { data: Bool(data), validity: Bitmap::from_options(values) }
 }
 
 ///|
@@ -110,15 +96,10 @@ pub fn BuiltinColumn::from_strings(values : Array[String]) -> BuiltinColumn {
 pub fn BuiltinColumn::from_string_options(
   values : Array[String?],
 ) -> BuiltinColumn {
-  let n = values.length()
-  let data : Array[String] = Array::new(capacity=n)
-  for v in values {
-    match v {
-      Some(x) => data.push(x)
-      None => data.push("")
-    }
+  {
+    data: String(values.map(v => v.unwrap_or(""))),
+    validity: Bitmap::from_options(values),
   }
-  { data: String(data), validity: Bitmap::from_options(values) }
 }
 
 // ── Inspection ────────────────────────────────────────────────────────
@@ -131,6 +112,26 @@ pub fn BuiltinColumn::dtype(self : BuiltinColumn) -> @types.DataType {
     Bool(_) => @types.DataType::Bool
     String(_) => @types.DataType::String
   }
+}
+
+///|
+/// The raw backing storage, discriminated by dtype. `ColumnData` is
+/// `pub(all)`, so callers in other packages (sort, stats) match on the
+/// concrete element type once and read values totally, rather than
+/// cascading through the `*_values` accessors and `unwrap`-ing the final
+/// branch the type system can't see is exhaustive. The element arrays are
+/// shared (read-only), matching `int_values` / `float_values` / etc.
+pub fn BuiltinColumn::data(self : BuiltinColumn) -> ColumnData {
+  self.data
+}
+
+///|
+/// The validity bitmap (`1 = valid`). Paired with `data` for callers that
+/// read every slot in order: `validity().to_bools()` materialises the mask
+/// once so a bounded loop indexes it totally, instead of `unwrap`-ing a
+/// per-slot `is_valid` `Result`. The bitmap is shared (read-only).
+pub fn BuiltinColumn::validity(self : BuiltinColumn) -> Bitmap {
+  self.validity
 }
 
 ///|
@@ -189,10 +190,14 @@ pub fn BuiltinColumn::get(
 ///|
 /// Half-open `[start, end)` slice. Requires `0 <= start <= end <= len`.
 ///
-/// Errors:
-/// - `IndexOutOfBounds(start)` when `start < 0` or `start > len`.
+/// Errors (checked in this order):
+/// - `IndexOutOfBounds(start)` when `start < 0`.
 /// - `IndexOutOfBounds(end)` when `end > len`.
 /// - `InvalidOperation("slice start > end: ...")` when `start > end`.
+///
+/// `start > len` is not a separate case: it can only occur together with
+/// `end > len` (→ `IndexOutOfBounds(end)`) or `start > end`
+/// (→ `InvalidOperation`), both already rejected above.
 pub fn BuiltinColumn::slice(
   self : BuiltinColumn,
   start : Int,
@@ -214,39 +219,18 @@ pub fn BuiltinColumn::slice(
   }
   let n = end - start
   let data_out : ColumnData = match self.data {
-    Int(a) => {
-      let buf : Array[Int] = Array::new(capacity=n)
-      for i in start..<end {
-        buf.push(a[i])
-      }
-      Int(buf)
-    }
-    Float(a) => {
-      let buf : Array[Float] = Array::new(capacity=n)
-      for i in start..<end {
-        buf.push(a[i])
-      }
-      Float(buf)
-    }
-    Bool(a) => {
-      let buf : Array[Bool] = Array::new(capacity=n)
-      for i in start..<end {
-        buf.push(a[i])
-      }
-      Bool(buf)
-    }
-    String(a) => {
-      let buf : Array[String] = Array::new(capacity=n)
-      for i in start..<end {
-        buf.push(a[i])
-      }
-      String(buf)
-    }
+    Int(a) => Int(Array::makei(n, i => a[start + i]))
+    Float(a) => Float(Array::makei(n, i => a[start + i]))
+    Bool(a) => Bool(Array::makei(n, i => a[start + i]))
+    String(a) => String(Array::makei(n, i => a[start + i]))
   }
   // `validity.slice` repeats the same bounds checks against the same logical
-  // length, so it cannot fail here.
-  let validity_out = self.validity.slice(start, n).unwrap()
-  Ok({ data: data_out, validity: validity_out })
+  // length, so it returns `Ok` here. Threading it through `.map` keeps the
+  // (unreachable) `Err` inside `Result::map` rather than as a local arm that
+  // could never be covered.
+  self.validity
+  .slice(start, n)
+  .map(validity_out => { data: data_out, validity: validity_out })
 }
 
 ///|
@@ -262,41 +246,18 @@ pub fn BuiltinColumn::take(
       return Err(@types.DataError::IndexOutOfBounds(i))
     }
   }
-  let n = indices.length()
   let data_out : ColumnData = match self.data {
-    Int(a) => {
-      let buf : Array[Int] = Array::new(capacity=n)
-      for i in indices {
-        buf.push(a[i])
-      }
-      Int(buf)
-    }
-    Float(a) => {
-      let buf : Array[Float] = Array::new(capacity=n)
-      for i in indices {
-        buf.push(a[i])
-      }
-      Float(buf)
-    }
-    Bool(a) => {
-      let buf : Array[Bool] = Array::new(capacity=n)
-      for i in indices {
-        buf.push(a[i])
-      }
-      Bool(buf)
-    }
-    String(a) => {
-      let buf : Array[String] = Array::new(capacity=n)
-      for i in indices {
-        buf.push(a[i])
-      }
-      String(buf)
-    }
+    Int(a) => Int(indices.map(i => a[i]))
+    Float(a) => Float(indices.map(i => a[i]))
+    Bool(a) => Bool(indices.map(i => a[i]))
+    String(a) => String(indices.map(i => a[i]))
   }
   // Same indices were already validated against the same `len`; the validity
-  // gather cannot fail.
-  let validity_out = self.validity.take(indices).unwrap()
-  Ok({ data: data_out, validity: validity_out })
+  // gather returns `Ok`. Thread it through `.map` so the unreachable `Err`
+  // stays inside `Result::map`, not as an uncoverable local arm.
+  self.validity
+  .take(indices)
+  .map(validity_out => { data: data_out, validity: validity_out })
 }
 
 // ── Cast ──────────────────────────────────────────────────────────────
@@ -322,24 +283,28 @@ pub fn BuiltinColumn::cast(
 /// Convert to `Int`. Validity is preserved verbatim. Supported sources:
 /// - `Int`: identity, no copy.
 /// - `Float`: truncated towards zero. `NaN`, `+Inf`, `-Inf`, and values
-///   outside the `Int` (`Int32`) range are rejected with `ParseError` —
-///   the underlying `Float::to_int` is implementation-defined on those
+///   outside the `Int64` range are rejected with `ParseError` — the
+///   underlying `Double::to_int64` is implementation-defined on those
 ///   inputs, so the cast layer guards against them explicitly. Null
 ///   slots skip the conversion entirely.
 /// - `Bool`: `true` → 1, `false` → 0.
-/// - `String`: parsed with `@string.parse_int`; any failure on a valid
-///   (non-null) slot returns `ParseError`. The parser is strict —
-///   leading/trailing whitespace, non-numeric suffixes, and empty
-///   strings all error.
+/// - `String`: only plain base-10 integers are accepted — an optional
+///   `+` / `-` sign followed by ASCII digits. Any other form on a valid
+///   (non-null) slot returns `ParseError`, mirroring the CSV reader's
+///   inference: `0x` / `0o` / `0b` base prefixes and `1_000` underscore
+///   grouping are rejected (pandas / polars keep them as strings), as are
+///   leading/trailing whitespace, non-numeric suffixes, empty strings,
+///   and decimal integers that overflow 64-bit `Int64`.
 pub fn BuiltinColumn::to_int(
   self : BuiltinColumn,
 ) -> Result[BuiltinColumn, @types.DataError] {
   match self.data {
     Int(_) => Ok(self)
     Float(a) => {
-      let buf : Array[Int] = Array::new(capacity=a.length())
+      let valid = self.validity.to_bools()
+      let buf : Array[Int64] = Array::new(capacity=a.length())
       for i in 0..<a.length() {
-        if self.validity.is_valid(i).unwrap() {
+        if valid[i] {
           let x = a[i]
           if x.is_nan() {
             return Err(@types.DataError::ParseError("cannot cast NaN to Int"))
@@ -347,14 +312,14 @@ pub fn BuiltinColumn::to_int(
             return Err(
               @types.DataError::ParseError("cannot cast Infinity to Int"),
             )
-          } else if x < min_int_as_float || x > max_int_as_float {
+          } else if x < min_int_as_double || x > max_int_as_double {
             return Err(
               @types.DataError::ParseError(
-                "Float value out of Int range: " + x.to_double().to_string(),
+                "Float value out of Int range: " + x.to_string(),
               ),
             )
           } else {
-            buf.push(x.to_int())
+            buf.push(x.to_int64())
           }
         } else {
           buf.push(0)
@@ -363,9 +328,10 @@ pub fn BuiltinColumn::to_int(
       Ok({ data: Int(buf), validity: self.validity })
     }
     Bool(a) => {
-      let buf : Array[Int] = Array::new(capacity=a.length())
+      let valid = self.validity.to_bools()
+      let buf : Array[Int64] = Array::new(capacity=a.length())
       for i in 0..<a.length() {
-        if self.validity.is_valid(i).unwrap() {
+        if valid[i] {
           buf.push(if a[i] { 1 } else { 0 })
         } else {
           buf.push(0)
@@ -374,11 +340,27 @@ pub fn BuiltinColumn::to_int(
       Ok({ data: Int(buf), validity: self.validity })
     }
     String(a) => {
-      let buf : Array[Int] = Array::new(capacity=a.length())
+      let valid = self.validity.to_bools()
+      let buf : Array[Int64] = Array::new(capacity=a.length())
       for i in 0..<a.length() {
-        if self.validity.is_valid(i).unwrap() {
+        if valid[i] {
           let s = a[i]
-          let parsed = try? @string.parse_int(s.view())
+          // Only plain base-10 integers are accepted, matching the CSV
+          // reader's inference — both route through
+          // `@types.is_decimal_int_literal`. `@string.parse_int` defaults
+          // to base=0, which would otherwise accept `0x` / `0o` / `0b`
+          // prefixes and `1_000` underscore grouping (forms pandas /
+          // polars keep as strings); screening first keeps an explicit
+          // `to_int` cast consistent with what the reader inferred for the
+          // same text.
+          if !@types.is_decimal_int_literal(s) {
+            return Err(
+              @types.DataError::ParseError(
+                "cannot parse Int from \"" + s + "\"",
+              ),
+            )
+          }
+          let parsed = try? @string.parse_int64(s.view())
           match parsed {
             Ok(n) => buf.push(n)
             Err(_) =>
@@ -398,67 +380,82 @@ pub fn BuiltinColumn::to_int(
 }
 
 ///|
-/// `Int::MIN` / `Int::MAX` projected into `Float` space, used to reject
-/// out-of-range `Float`→`Int` casts before `Float::to_int` (which is
-/// implementation-defined outside the representable range).
+/// `Int64::MIN` / `Int64::MAX` projected into `Double` space, used to
+/// reject out-of-range `Float`→`Int` casts before `Double::to_int64`
+/// (which is implementation-defined outside the representable range).
 ///
-/// `MAX_INT_AS_FLOAT` is the largest 32-bit `Float` that does not overflow
-/// `Int` after truncation — `Int::MAX = 2^31 - 1 = 2147483647` is not
-/// exactly representable as `Float`, the next representable value below
-/// it is `2147483520`. Anything above this rounds up to a Float ≥ 2^31
-/// and would overflow.
-let min_int_as_float : Float = -2147483648.0
+/// `Int64::MIN = -2^63` is exactly representable as a `Double`;
+/// `Int64::MAX = 2^63 - 1` is not — the largest `Double` strictly below
+/// `2^63` is `9223372036854774784` (`2^63 - 1024`). Anything above it
+/// rounds to a `Double` ≥ `2^63` and would overflow `Int64`.
+let min_int_as_double : Double = -9223372036854775808.0
 
 ///|
-let max_int_as_float : Float = 2147483520.0
+let max_int_as_double : Double = 9223372036854774784.0
 
 ///|
 /// Convert to `Float`. Validity is preserved verbatim. Supported sources:
 /// - `Float`: identity, no copy.
-/// - `Int`: promoted via `Float::from_int` (32-bit `Float` has 24 bits of
-///   significand, so Ints with magnitude > 2^24 lose precision — this is
-///   inherent to the target type and not flagged as an error).
+/// - `Int`: promoted via `Int64::to_double` (a `Double` has 52 bits of
+///   significand, so `Int64`s with magnitude > 2^53 lose precision — this
+///   is inherent to the target type and not flagged as an error).
 /// - `Bool`: `true` → 1.0, `false` → 0.0.
-/// - `String`: parsed via `@string.parse_double` (since the standard
-///   library exposes no `parse_float`) and narrowed with
-///   `Float::from_double`. Malformed strings on valid slots return
-///   `ParseError`; values beyond the `Float` range collapse to
-///   `±Infinity` per IEEE 754.
+/// - `String`: parsed via `@string.parse_double`. `1_000`-style underscore
+///   grouping is rejected to match the CSV reader (pandas / polars keep
+///   such cells as strings); the `inf` / `-inf` / `nan` literals are still
+///   accepted. Other malformed strings on valid slots return `ParseError`;
+///   finite values beyond the `Double` range collapse to `±Infinity` per
+///   IEEE 754.
 pub fn BuiltinColumn::to_float(
   self : BuiltinColumn,
 ) -> Result[BuiltinColumn, @types.DataError] {
   match self.data {
     Float(_) => Ok(self)
     Int(a) => {
-      let buf : Array[Float] = Array::new(capacity=a.length())
+      let valid = self.validity.to_bools()
+      let buf : Array[Double] = Array::new(capacity=a.length())
       for i in 0..<a.length() {
-        if self.validity.is_valid(i).unwrap() {
-          buf.push(Float::from_int(a[i]))
+        if valid[i] {
+          buf.push(a[i].to_double())
         } else {
-          buf.push((0.0 : Float))
+          buf.push(0.0)
         }
       }
       Ok({ data: Float(buf), validity: self.validity })
     }
     Bool(a) => {
-      let buf : Array[Float] = Array::new(capacity=a.length())
+      let valid = self.validity.to_bools()
+      let buf : Array[Double] = Array::new(capacity=a.length())
       for i in 0..<a.length() {
-        if self.validity.is_valid(i).unwrap() {
-          buf.push(if a[i] { (1.0 : Float) } else { (0.0 : Float) })
+        if valid[i] {
+          buf.push(if a[i] { 1.0 } else { 0.0 })
         } else {
-          buf.push((0.0 : Float))
+          buf.push(0.0)
         }
       }
       Ok({ data: Float(buf), validity: self.validity })
     }
     String(a) => {
-      let buf : Array[Float] = Array::new(capacity=a.length())
+      let valid = self.validity.to_bools()
+      let buf : Array[Double] = Array::new(capacity=a.length())
       for i in 0..<a.length() {
-        if self.validity.is_valid(i).unwrap() {
+        if valid[i] {
           let s = a[i]
+          // Reject `1_000`-style underscore grouping to match the CSV
+          // reader (`parse_float_opt` in `io/csv.mbt`):
+          // `@string.parse_double` accepts underscores, but pandas /
+          // polars keep such cells as strings. The `inf` / `-inf` / `nan`
+          // literals stay accepted.
+          if s.iter().any(c => c == '_') {
+            return Err(
+              @types.DataError::ParseError(
+                "cannot parse Float from \"" + s + "\"",
+              ),
+            )
+          }
           let parsed = try? @string.parse_double(s.view())
           match parsed {
-            Ok(x) => buf.push(Float::from_double(x))
+            Ok(x) => buf.push(x)
             Err(_) =>
               return Err(
                 @types.DataError::ParseError(
@@ -467,7 +464,7 @@ pub fn BuiltinColumn::to_float(
               )
           }
         } else {
-          buf.push((0.0 : Float))
+          buf.push(0.0)
         }
       }
       Ok({ data: Float(buf), validity: self.validity })
@@ -486,9 +483,10 @@ pub fn BuiltinColumn::to_string_column(
   match self.data {
     String(_) => Ok(self)
     Int(a) => {
+      let valid = self.validity.to_bools()
       let buf : Array[String] = Array::new(capacity=a.length())
       for i in 0..<a.length() {
-        if self.validity.is_valid(i).unwrap() {
+        if valid[i] {
           buf.push(a[i].to_string())
         } else {
           buf.push("")
@@ -497,9 +495,10 @@ pub fn BuiltinColumn::to_string_column(
       Ok({ data: String(buf), validity: self.validity })
     }
     Float(a) => {
+      let valid = self.validity.to_bools()
       let buf : Array[String] = Array::new(capacity=a.length())
       for i in 0..<a.length() {
-        if self.validity.is_valid(i).unwrap() {
+        if valid[i] {
           buf.push(a[i].to_string())
         } else {
           buf.push("")
@@ -508,9 +507,10 @@ pub fn BuiltinColumn::to_string_column(
       Ok({ data: String(buf), validity: self.validity })
     }
     Bool(a) => {
+      let valid = self.validity.to_bools()
       let buf : Array[String] = Array::new(capacity=a.length())
       for i in 0..<a.length() {
-        if self.validity.is_valid(i).unwrap() {
+        if valid[i] {
           buf.push(if a[i] { "true" } else { "false" })
         } else {
           buf.push("")
@@ -530,7 +530,7 @@ pub fn BuiltinColumn::to_string_column(
 /// column is not an `Int` column.
 pub fn BuiltinColumn::int_values(
   self : BuiltinColumn,
-) -> Result[(Array[Int], Bitmap), @types.DataError] {
+) -> Result[(Array[Int64], Bitmap), @types.DataError] {
   match self.data {
     Int(a) => Ok((a, self.validity))
     _ =>
@@ -546,7 +546,7 @@ pub fn BuiltinColumn::int_values(
 /// Like `int_values` but for `Float` columns.
 pub fn BuiltinColumn::float_values(
   self : BuiltinColumn,
-) -> Result[(Array[Float], Bitmap), @types.DataError] {
+) -> Result[(Array[Double], Bitmap), @types.DataError] {
   match self.data {
     Float(a) => Ok((a, self.validity))
     _ =>

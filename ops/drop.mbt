@@ -26,12 +26,6 @@ pub fn drop(
       Err(e) => return Err(e)
     }
   }
-  let survivors : Array[@frame.Series] = []
-  for name in df.columns() {
-    if !to_drop.contains(name) {
-      // `get_column` cannot fail: name came from `df.columns()`.
-      survivors.push(df.get_column(name).unwrap())
-    }
-  }
+  let survivors = df.column_series().filter(s => !to_drop.contains(s.name()))
   @frame.DataFrame::new(survivors)
 }

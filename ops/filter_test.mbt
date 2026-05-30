@@ -18,10 +18,10 @@ fn filter_df() -> @frame.DataFrame {
     @frame.Series::from_ints("a", [1, 2, 3, 4]),
     @frame.Series::from_strings("b", ["w", "x", "y", "z"]),
     @frame.Series::from_float_options("c", [
-      Some((1.5 : Float)),
+      Some((1.5 : Double)),
       None,
-      Some((3.5 : Float)),
-      Some((4.5 : Float)),
+      Some((3.5 : Double)),
+      Some((4.5 : Double)),
     ]),
   ]).unwrap()
 }

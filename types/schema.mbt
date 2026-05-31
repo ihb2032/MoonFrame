@@ -8,17 +8,17 @@ pub(all) struct Schema {
 } derive(Eq, Debug)
 
 ///|
-/// Build a schema from a list of fields. Returns `Err(DuplicateColumn(name))`
-/// on the first repeated name.
-pub fn Schema::new(fields : Array[Field]) -> Result[Schema, DataError] {
+/// Build a schema from a list of fields. `raise DuplicateColumn(name)` on
+/// the first repeated name.
+pub fn Schema::new(fields : Array[Field]) -> Schema raise DataError {
   let seen : Map[String, Unit] = {}
   for f in fields {
     if seen.contains(f.name) {
-      return Err(DuplicateColumn(f.name))
+      raise DuplicateColumn(f.name)
     }
     seen[f.name] = ()
   }
-  Ok({ fields, })
+  { fields, }
 }
 
 ///|
@@ -48,82 +48,80 @@ pub fn Schema::field_names(self : Schema) -> Array[String] {
 }
 
 ///|
-/// `Ok(index)` of the column named `name`, or `Err(ColumnNotFound(name))`.
-pub fn Schema::index_of(self : Schema, name : String) -> Result[Int, DataError] {
+/// The index of the column named `name`, or `raise ColumnNotFound(name)`.
+pub fn Schema::index_of(self : Schema, name : String) -> Int raise DataError {
   for i, f in self.fields {
     if f.name == name {
-      return Ok(i)
+      return i
     }
   }
-  Err(ColumnNotFound(name))
+  raise ColumnNotFound(name)
 }
 
 ///|
-/// Return the `Field` for `name`, or `Err(ColumnNotFound(name))`.
-pub fn Schema::field(self : Schema, name : String) -> Result[Field, DataError] {
+/// Return the `Field` for `name`, or `raise ColumnNotFound(name)`.
+pub fn Schema::field(self : Schema, name : String) -> Field raise DataError {
   for f in self.fields {
     if f.name == name {
-      return Ok(f)
+      return f
     }
   }
-  Err(ColumnNotFound(name))
+  raise ColumnNotFound(name)
 }
 
 ///|
-/// Return the `Field` at position `i`, or `Err(IndexOutOfBounds(i))`.
-pub fn Schema::field_at(self : Schema, i : Int) -> Result[Field, DataError] {
+/// Return the `Field` at position `i`, or `raise IndexOutOfBounds(i)`.
+pub fn Schema::field_at(self : Schema, i : Int) -> Field raise DataError {
   if i < 0 || i >= self.fields.length() {
-    return Err(IndexOutOfBounds(i))
+    raise IndexOutOfBounds(i)
   }
-  Ok(self.fields[i])
+  self.fields[i]
 }
 
 ///|
 /// Project a sub-schema by name, preserving the order of `names`. Missing
-/// names yield `Err(ColumnNotFound(name))`; duplicates inside `names`
-/// yield `Err(DuplicateColumn(name))`.
+/// names `raise ColumnNotFound(name)`; duplicates inside `names`
+/// `raise DuplicateColumn(name)`.
 pub fn Schema::select(
   self : Schema,
   names : Array[String],
-) -> Result[Schema, DataError] {
+) -> Schema raise DataError {
   let picked : Array[Field] = []
   let seen : Map[String, Unit] = {}
   for n in names {
     if seen.contains(n) {
-      return Err(DuplicateColumn(n))
+      raise DuplicateColumn(n)
     }
     seen[n] = ()
-    match self.field(n) {
-      Ok(f) => picked.push(f)
-      Err(e) => return Err(e)
-    }
+    // `field` raises `ColumnNotFound(n)` for an unknown name; it propagates.
+    picked.push(self.field(n))
   }
-  Ok({ fields: picked })
+  { fields: picked }
 }
 
 ///|
-/// Rename `old_name` to `new_name`. Errors if `old_name` is missing or
+/// Rename `old_name` to `new_name`. Raises if `old_name` is missing or
 /// `new_name` collides with another existing column.
 pub fn Schema::rename(
   self : Schema,
   old_name : String,
   new_name : String,
-) -> Result[Schema, DataError] {
+) -> Schema raise DataError {
   if old_name == new_name {
-    // No-op rename: still validate that old_name exists.
-    return self.index_of(old_name).map(_ => self)
+    // No-op rename: still validate that old_name exists (raises if not).
+    let _ = self.index_of(old_name)
+    return self
   }
-  let idx = match self.index_of(old_name) {
-    Ok(i) => i
-    Err(e) => return Err(e)
-  }
-  match self.index_of(new_name) {
-    Ok(_) => return Err(DuplicateColumn(new_name))
-    Err(_) => ()
+  let idx = self.index_of(old_name)
+  // A *present* `new_name` is the collision case. `index_of` raises when
+  // the name is absent (the path we want to continue on), so probe with
+  // `try?` and treat the `Ok` branch as the duplicate.
+  if (try? self.index_of(new_name)) is Ok(_) {
+    raise DuplicateColumn(new_name)
   }
   let next = self.fields.copy()
   next[idx] = self.fields[idx].rename(new_name)
-  Ok({ fields: next })
+  { fields: next }
 }
 
 ///|

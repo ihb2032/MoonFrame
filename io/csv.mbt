@@ -94,7 +94,7 @@ pub fn CsvWriteOptions::default() -> CsvWriteOptions {
 pub fn parse_csv_str(
   content : String,
   options : CsvReadOptions,
-) -> Result[@frame.DataFrame, @types.DataError] {
+) -> @frame.DataFrame raise @types.DataError {
   // Short-circuit empty input. NyaCSV would otherwise produce a CSV
   // with no headers and no rows, which would collapse to an empty
   // 0×0 frame — handled the same way here, just without the parse.
@@ -145,7 +145,7 @@ pub fn parse_csv_str(
   let seen : Map[String, Unit] = {}
   for name in headers {
     if seen.contains(name) {
-      return Err(@types.DataError::DuplicateColumn(name))
+      raise @types.DataError::DuplicateColumn(name)
     }
     seen[name] = ()
   }
@@ -159,10 +159,9 @@ pub fn parse_csv_str(
       options.infer_schema_rows,
       options.null_values,
     )
-    match build_column(name, dt, rows, col, options.null_values) {
-      Err(e) => return Err(e)
-      Ok(s) => series.push(s)
-    }
+    // `build_column` raises `ParseError` for a cell that doesn't fit the
+    // inferred dtype.
+    series.push(build_column(name, dt, rows, col, options.null_values))
   }
   @frame.DataFrame::new(series)
 }
@@ -182,22 +181,21 @@ priv enum InferredDtype {
 
 ///|
 /// Read a CSV file using the default options.
-pub fn read_csv(path : String) -> Result[@frame.DataFrame, @types.DataError] {
+pub fn read_csv(path : String) -> @frame.DataFrame raise @types.DataError {
   read_csv_with_options(path, CsvReadOptions::default())
 }
 
 ///|
 /// Read a CSV file with custom options. `IOError` from the file system
-/// surfaces as `Err(IoError(message))`.
+/// surfaces as `raise IoError(message)`.
 pub fn read_csv_with_options(
   path : String,
   options : CsvReadOptions,
-) -> Result[@frame.DataFrame, @types.DataError] {
-  try @fs.read_file_to_string(path) catch {
-    @fs.IOError(msg) => Err(@types.DataError::IoError(msg))
-  } noraise {
-    content => parse_csv_str(content, options)
+) -> @frame.DataFrame raise @types.DataError {
+  let content = @fs.read_file_to_string(path) catch {
+    @fs.IOError(msg) => raise @types.DataError::IoError(msg)
   }
+  parse_csv_str(content, options)
 }
 
 ///|
@@ -256,23 +254,21 @@ pub fn format_csv_str(
 pub fn write_csv(
   path : String,
   df : @frame.DataFrame,
-) -> Result[Unit, @types.DataError] {
+) -> Unit raise @types.DataError {
   write_csv_with_options(path, df, CsvWriteOptions::default())
 }
 
 ///|
 /// Write a `DataFrame` to a CSV file with custom options. `IOError`
-/// from the file system surfaces as `Err(IoError(message))`.
+/// from the file system surfaces as `raise IoError(message)`.
 pub fn write_csv_with_options(
   path : String,
   df : @frame.DataFrame,
   options : CsvWriteOptions,
-) -> Result[Unit, @types.DataError] {
+) -> Unit raise @types.DataError {
   let content = format_csv_str(df, options)
-  try @fs.write_string_to_file(path, content) catch {
-    @fs.IOError(msg) => Err(@types.DataError::IoError(msg))
-  } noraise {
-    _ => Ok(())
+  @fs.write_string_to_file(path, content) catch {
+    @fs.IOError(msg) => raise @types.DataError::IoError(msg)
   }
 }
 
@@ -419,7 +415,7 @@ fn build_column(
   rows : Array[Array[String]],
   col : Int,
   null_values : Array[String],
-) -> Result[@frame.Series, @types.DataError] {
+) -> @frame.Series raise @types.DataError {
   let n = rows.length()
   match dtype {
     InferredInt => {
@@ -432,21 +428,19 @@ fn build_column(
           match parse_int_opt(v) {
             Some(x) => values.push(Some(x))
             None =>
-              return Err(
-                @types.DataError::ParseError(
-                  "column \"" +
-                  name +
-                  "\" row " +
-                  i.to_string() +
-                  ": cannot parse \"" +
-                  v +
-                  "\" as Int",
-                ),
+              raise @types.DataError::ParseError(
+                "column \"" +
+                name +
+                "\" row " +
+                i.to_string() +
+                ": cannot parse \"" +
+                v +
+                "\" as Int",
               )
           }
         }
       }
-      Ok(@frame.Series::from_int_options(name, values))
+      @frame.Series::from_int_options(name, values)
     }
     InferredFloat => {
       let values : Array[Double?] = Array::new(capacity=n)
@@ -458,21 +452,19 @@ fn build_column(
           match parse_float_opt(v) {
             Some(x) => values.push(Some(x))
             None =>
-              return Err(
-                @types.DataError::ParseError(
-                  "column \"" +
-                  name +
-                  "\" row " +
-                  i.to_string() +
-                  ": cannot parse \"" +
-                  v +
-                  "\" as Float",
-                ),
+              raise @types.DataError::ParseError(
+                "column \"" +
+                name +
+                "\" row " +
+                i.to_string() +
+                ": cannot parse \"" +
+                v +
+                "\" as Float",
               )
           }
         }
       }
-      Ok(@frame.Series::from_float_options(name, values))
+      @frame.Series::from_float_options(name, values)
     }
     InferredBool => {
       let values : Array[Bool?] = Array::new(capacity=n)
@@ -484,21 +476,19 @@ fn build_column(
           match parse_bool_opt(v) {
             Some(x) => values.push(Some(x))
             None =>
-              return Err(
-                @types.DataError::ParseError(
-                  "column \"" +
-                  name +
-                  "\" row " +
-                  i.to_string() +
-                  ": cannot parse \"" +
-                  v +
-                  "\" as Bool",
-                ),
+              raise @types.DataError::ParseError(
+                "column \"" +
+                name +
+                "\" row " +
+                i.to_string() +
+                ": cannot parse \"" +
+                v +
+                "\" as Bool",
               )
           }
         }
       }
-      Ok(@frame.Series::from_bool_options(name, values))
+      @frame.Series::from_bool_options(name, values)
     }
     InferredString => {
       let values : Array[String?] = Array::new(capacity=n)
@@ -510,7 +500,7 @@ fn build_column(
           values.push(Some(v))
         }
       }
-      Ok(@frame.Series::from_string_options(name, values))
+      @frame.Series::from_string_options(name, values)
     }
   }
 }

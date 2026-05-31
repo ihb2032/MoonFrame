@@ -13,13 +13,13 @@ test "check_invariants holds for DataFrame::new with several columns" {
     Series::from_ints("a", [1, 2, 3]),
     Series::from_strings("b", ["x", "y", "z"]),
     Series::from_float_options("c", [Some(1.5), None, Some(2.5)]),
-  ]).unwrap()
+  ])
   assert_eq(df.check_invariants(), Ok(()))
 }
 
 ///|
 test "check_invariants holds for the zero-column frame" {
-  let df = DataFrame::new([]).unwrap()
+  let df = DataFrame::new([])
   assert_eq(df.check_invariants(), Ok(()))
 }
 
@@ -30,8 +30,8 @@ test "check_invariants holds for empty(schema) with every dtype" {
     @types.Field::new("f", @types.DataType::Float),
     @types.Field::new("b", @types.DataType::Bool),
     @types.Field::new("s", @types.DataType::String),
-  ]).unwrap()
-  let df = DataFrame::empty(schema).unwrap()
+  ])
+  let df = DataFrame::empty(schema)
   assert_eq(df.check_invariants(), Ok(()))
 }
 
@@ -40,11 +40,11 @@ test "check_invariants holds for from_rows with nulls" {
   let schema = @types.Schema::new([
     @types.Field::new("i", @types.DataType::Int),
     @types.Field::new("s", @types.DataType::String),
-  ]).unwrap()
+  ])
   let df = DataFrame::from_rows(schema, [
     [@types.Scalar::Int(1), @types.Scalar::String("a")],
     [@types.Scalar::Null, @types.Scalar::Null],
-  ]).unwrap()
+  ])
   assert_eq(df.check_invariants(), Ok(()))
 }
 
@@ -55,17 +55,17 @@ test "check_invariants holds after head / tail / slice / take" {
   let df = DataFrame::new([
     Series::from_ints("a", [1, 2, 3, 4]),
     Series::from_strings("b", ["w", "x", "y", "z"]),
-  ]).unwrap()
+  ])
   assert_eq(df.head(2).check_invariants(), Ok(()))
   assert_eq(df.tail(2).check_invariants(), Ok(()))
-  assert_eq(df.slice(1, 3).unwrap().check_invariants(), Ok(()))
-  assert_eq(df.take([3, 0, 0]).unwrap().check_invariants(), Ok(()))
+  assert_eq(df.slice(1, 3).check_invariants(), Ok(()))
+  assert_eq(df.take([3, 0, 0]).check_invariants(), Ok(()))
   // Clamping edges still produce well-formed frames.
   assert_eq(df.head(0).check_invariants(), Ok(()))
   assert_eq(df.head(100).check_invariants(), Ok(()))
   assert_eq(df.tail(-1).check_invariants(), Ok(()))
-  assert_eq(df.slice(2, 2).unwrap().check_invariants(), Ok(()))
-  assert_eq(df.take([]).unwrap().check_invariants(), Ok(()))
+  assert_eq(df.slice(2, 2).check_invariants(), Ok(()))
+  assert_eq(df.take([]).check_invariants(), Ok(()))
 }
 
 // ── Error-message shape sanity ───────────────────────────────────────

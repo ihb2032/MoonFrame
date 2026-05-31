@@ -17,18 +17,18 @@ test "parse_csv_str infers Int / Float / Bool / String in declaration order" {
     #|2,2.5,false,beta
     #|3,3.5,true,gamma
     #|
-  let df = @io.parse_csv_str(content, @io.CsvReadOptions::default()).unwrap()
+  let df = @io.parse_csv_str(content, @io.CsvReadOptions::default())
   assert_eq(df.check_invariants(), Ok(()))
   assert_eq(df.shape(), (3, 4))
   assert_eq(df.columns(), ["n", "r", "b", "s"])
-  assert_eq(df.get_column("n").unwrap().dtype(), @types.DataType::Int)
-  assert_eq(df.get_column("r").unwrap().dtype(), @types.DataType::Float)
-  assert_eq(df.get_column("b").unwrap().dtype(), @types.DataType::Bool)
-  assert_eq(df.get_column("s").unwrap().dtype(), @types.DataType::String)
-  assert_eq(df.get(1, "n"), Ok(@types.Scalar::Int(2)))
-  assert_eq(df.get(1, "r"), Ok(@types.Scalar::Float(2.5)))
-  assert_eq(df.get(2, "b"), Ok(@types.Scalar::Bool(true)))
-  assert_eq(df.get(0, "s"), Ok(@types.Scalar::String("alpha")))
+  assert_eq(df.get_column("n").dtype(), @types.DataType::Int)
+  assert_eq(df.get_column("r").dtype(), @types.DataType::Float)
+  assert_eq(df.get_column("b").dtype(), @types.DataType::Bool)
+  assert_eq(df.get_column("s").dtype(), @types.DataType::String)
+  assert_eq(df.get(1, "n"), @types.Scalar::Int(2))
+  assert_eq(df.get(1, "r"), @types.Scalar::Float(2.5))
+  assert_eq(df.get(2, "b"), @types.Scalar::Bool(true))
+  assert_eq(df.get(0, "s"), @types.Scalar::String("alpha"))
 }
 
 ///|
@@ -41,12 +41,12 @@ test "parse_csv_str: signed integers (+ / -) infer as Int" {
     #|+7
     #|10
     #|
-  let df = @io.parse_csv_str(content, @io.CsvReadOptions::default()).unwrap()
+  let df = @io.parse_csv_str(content, @io.CsvReadOptions::default())
   assert_eq(df.check_invariants(), Ok(()))
-  assert_eq(df.get_column("n").unwrap().dtype(), @types.DataType::Int)
-  assert_eq(df.get(0, "n"), Ok(@types.Scalar::Int(-5)))
-  assert_eq(df.get(1, "n"), Ok(@types.Scalar::Int(7)))
-  assert_eq(df.get(2, "n"), Ok(@types.Scalar::Int(10)))
+  assert_eq(df.get_column("n").dtype(), @types.DataType::Int)
+  assert_eq(df.get(0, "n"), @types.Scalar::Int(-5))
+  assert_eq(df.get(1, "n"), @types.Scalar::Int(7))
+  assert_eq(df.get(2, "n"), @types.Scalar::Int(10))
 }
 
 ///|
@@ -60,28 +60,28 @@ test "parse_csv_str: non-decimal numeric forms stay String (no 0x / underscore)"
     #|0xFF,1_000
     #|0x10,2_000
     #|
-  let df = @io.parse_csv_str(content, @io.CsvReadOptions::default()).unwrap()
+  let df = @io.parse_csv_str(content, @io.CsvReadOptions::default())
   assert_eq(df.check_invariants(), Ok(()))
-  assert_eq(df.get_column("hex").unwrap().dtype(), @types.DataType::String)
-  assert_eq(df.get_column("grouped").unwrap().dtype(), @types.DataType::String)
-  assert_eq(df.get(0, "hex"), Ok(@types.Scalar::String("0xFF")))
-  assert_eq(df.get(1, "grouped"), Ok(@types.Scalar::String("2_000")))
+  assert_eq(df.get_column("hex").dtype(), @types.DataType::String)
+  assert_eq(df.get_column("grouped").dtype(), @types.DataType::String)
+  assert_eq(df.get(0, "hex"), @types.Scalar::String("0xFF"))
+  assert_eq(df.get(1, "grouped"), @types.Scalar::String("2_000"))
 }
 
 ///|
-test "parse_csv_str: decimal integer overflowing Int32 falls back to Float" {
+test "parse_csv_str: decimal integer overflowing Int64 falls back to Float" {
   // A well-formed decimal literal passes the decimal screen but
-  // overflows 32-bit `Int`, so `@string.parse_int` raises and the cell
-  // is rejected as Int; inference then falls through to Float rather
-  // than erroring or keeping it as String.
+  // overflows 64-bit `Int64`, so `@string.parse_int64` raises and the
+  // cell is rejected as Int; inference then falls through to Float
+  // rather than erroring or keeping it as String.
   let content =
     #|big
     #|99999999999999999999
     #|1
     #|
-  let df = @io.parse_csv_str(content, @io.CsvReadOptions::default()).unwrap()
+  let df = @io.parse_csv_str(content, @io.CsvReadOptions::default())
   assert_eq(df.check_invariants(), Ok(()))
-  assert_eq(df.get_column("big").unwrap().dtype(), @types.DataType::Float)
+  assert_eq(df.get_column("big").dtype(), @types.DataType::Float)
 }
 
 ///|
@@ -95,16 +95,16 @@ test "parse_csv_str: null values map to None for every inferred dtype" {
     #|,,,
     #|3,3.5,false,c
     #|
-  let df = @io.parse_csv_str(content, @io.CsvReadOptions::default()).unwrap()
+  let df = @io.parse_csv_str(content, @io.CsvReadOptions::default())
   assert_eq(df.check_invariants(), Ok(()))
   assert_eq(df.shape(), (3, 4))
-  assert_eq(df.get_column("i").unwrap().dtype(), @types.DataType::Int)
-  assert_eq(df.get_column("f").unwrap().dtype(), @types.DataType::Float)
-  assert_eq(df.get_column("b").unwrap().dtype(), @types.DataType::Bool)
-  assert_eq(df.get_column("s").unwrap().dtype(), @types.DataType::String)
+  assert_eq(df.get_column("i").dtype(), @types.DataType::Int)
+  assert_eq(df.get_column("f").dtype(), @types.DataType::Float)
+  assert_eq(df.get_column("b").dtype(), @types.DataType::Bool)
+  assert_eq(df.get_column("s").dtype(), @types.DataType::String)
   for name in ["i", "f", "b", "s"] {
-    assert_eq(df.get(1, name), Ok(@types.Scalar::Null))
-    assert_eq(df.get_column(name).unwrap().null_count(), 1)
+    assert_eq(df.get(1, name), @types.Scalar::Null)
+    assert_eq(df.get_column(name).null_count(), 1)
   }
 }
 
@@ -119,12 +119,12 @@ test "parse_csv_str: has_header=false synthesises column1, column2, …" {
     delimiter: ',',
     infer_schema_rows: 100,
     null_values: [""],
-  }).unwrap()
+  })
   assert_eq(df.check_invariants(), Ok(()))
   assert_eq(df.columns(), ["column1", "column2", "column3"])
   assert_eq(df.shape(), (2, 3))
-  assert_eq(df.get(0, "column1"), Ok(@types.Scalar::Int(10)))
-  assert_eq(df.get(1, "column3"), Ok(@types.Scalar::Int(31)))
+  assert_eq(df.get(0, "column1"), @types.Scalar::Int(10))
+  assert_eq(df.get(1, "column3"), @types.Scalar::Int(31))
 }
 
 ///|
@@ -139,12 +139,12 @@ test "parse_csv_str: custom delimiter (semicolon) splits cells correctly" {
     delimiter: ';',
     infer_schema_rows: 100,
     null_values: [""],
-  }).unwrap()
+  })
   assert_eq(df.check_invariants(), Ok(()))
   assert_eq(df.shape(), (2, 3))
   assert_eq(df.columns(), ["a", "b", "c"])
-  assert_eq(df.get(0, "a"), Ok(@types.Scalar::Int(1)))
-  assert_eq(df.get(1, "c"), Ok(@types.Scalar::Int(6)))
+  assert_eq(df.get(0, "a"), @types.Scalar::Int(1))
+  assert_eq(df.get(1, "c"), @types.Scalar::Int(6))
 }
 
 ///|
@@ -160,14 +160,14 @@ test "parse_csv_str: custom null_values let NA / N/A become null" {
     delimiter: ',',
     infer_schema_rows: 100,
     null_values: ["NA", "N/A"],
-  }).unwrap()
+  })
   assert_eq(df.check_invariants(), Ok(()))
   // "a" is Int because NA was skipped during inference; "b" is
   // String because non-null cells "x"/"z" never parse as Int/Float/Bool.
-  assert_eq(df.get_column("a").unwrap().dtype(), @types.DataType::Int)
-  assert_eq(df.get_column("b").unwrap().dtype(), @types.DataType::String)
-  assert_eq(df.get(1, "a"), Ok(@types.Scalar::Null))
-  assert_eq(df.get(1, "b"), Ok(@types.Scalar::Null))
+  assert_eq(df.get_column("a").dtype(), @types.DataType::Int)
+  assert_eq(df.get_column("b").dtype(), @types.DataType::String)
+  assert_eq(df.get(1, "a"), @types.Scalar::Null)
+  assert_eq(df.get(1, "b"), @types.Scalar::Null)
 }
 
 ///|
@@ -180,12 +180,12 @@ test "parse_csv_str: Int promotes to Float when later rows mix in 1.5" {
     #|1.5
     #|2
     #|
-  let df = @io.parse_csv_str(content, @io.CsvReadOptions::default()).unwrap()
+  let df = @io.parse_csv_str(content, @io.CsvReadOptions::default())
   assert_eq(df.check_invariants(), Ok(()))
-  assert_eq(df.get_column("x").unwrap().dtype(), @types.DataType::Float)
-  assert_eq(df.get(0, "x"), Ok(@types.Scalar::Float(1.0)))
-  assert_eq(df.get(1, "x"), Ok(@types.Scalar::Float(1.5)))
-  assert_eq(df.get(2, "x"), Ok(@types.Scalar::Float(2.0)))
+  assert_eq(df.get_column("x").dtype(), @types.DataType::Float)
+  assert_eq(df.get(0, "x"), @types.Scalar::Float(1.0))
+  assert_eq(df.get(1, "x"), @types.Scalar::Float(1.5))
+  assert_eq(df.get(2, "x"), @types.Scalar::Float(2.0))
 }
 
 ///|
@@ -196,12 +196,12 @@ test "parse_csv_str: Bool inference accepts mixed casing (TRUE / False)" {
     #|False
     #|true
     #|
-  let df = @io.parse_csv_str(content, @io.CsvReadOptions::default()).unwrap()
+  let df = @io.parse_csv_str(content, @io.CsvReadOptions::default())
   assert_eq(df.check_invariants(), Ok(()))
-  assert_eq(df.get_column("b").unwrap().dtype(), @types.DataType::Bool)
-  assert_eq(df.get(0, "b"), Ok(@types.Scalar::Bool(true)))
-  assert_eq(df.get(1, "b"), Ok(@types.Scalar::Bool(false)))
-  assert_eq(df.get(2, "b"), Ok(@types.Scalar::Bool(true)))
+  assert_eq(df.get_column("b").dtype(), @types.DataType::Bool)
+  assert_eq(df.get(0, "b"), @types.Scalar::Bool(true))
+  assert_eq(df.get(1, "b"), @types.Scalar::Bool(false))
+  assert_eq(df.get(2, "b"), @types.Scalar::Bool(true))
 }
 
 ///|
@@ -211,14 +211,14 @@ test "parse_csv_str: a column with no non-null samples defaults to String" {
     #|,1
     #|,2
     #|
-  let df = @io.parse_csv_str(content, @io.CsvReadOptions::default()).unwrap()
+  let df = @io.parse_csv_str(content, @io.CsvReadOptions::default())
   assert_eq(df.check_invariants(), Ok(()))
   // The "empty" column has nothing to disambiguate on, so inference
   // lands on String (and every cell is null because the empty
   // string is in the default null_values).
-  assert_eq(df.get_column("empty").unwrap().dtype(), @types.DataType::String)
-  assert_eq(df.get_column("empty").unwrap().null_count(), 2)
-  assert_eq(df.get_column("real").unwrap().dtype(), @types.DataType::Int)
+  assert_eq(df.get_column("empty").dtype(), @types.DataType::String)
+  assert_eq(df.get_column("empty").null_count(), 2)
+  assert_eq(df.get_column("real").dtype(), @types.DataType::Int)
 }
 
 ///|
@@ -231,19 +231,13 @@ test "parse_csv_str: infer_schema_rows limits the inference window" {
     #|1
     #|1.5
     #|
-  let result = @io.parse_csv_str(content, {
+  let result = try? @io.parse_csv_str(content, {
     has_header: true,
     delimiter: ',',
     infer_schema_rows: 1,
     null_values: [""],
   })
-  match result {
-    Err(@types.DataError::ParseError(_)) => ()
-    other => {
-      let _ = other
-      assert_eq(true, false)
-    }
-  }
+  assert_true(result is Err(@types.DataError::ParseError(_)))
 }
 
 ///|
@@ -257,18 +251,18 @@ test "parse_csv_str: short data rows pad to null cells" {
     #|4,5
     #|7,8,9
     #|
-  let df = @io.parse_csv_str(content, @io.CsvReadOptions::default()).unwrap()
+  let df = @io.parse_csv_str(content, @io.CsvReadOptions::default())
   assert_eq(df.check_invariants(), Ok(()))
   assert_eq(df.shape(), (3, 3))
-  assert_eq(df.get_column("c").unwrap().dtype(), @types.DataType::Int)
-  assert_eq(df.get(1, "c"), Ok(@types.Scalar::Null))
+  assert_eq(df.get_column("c").dtype(), @types.DataType::Int)
+  assert_eq(df.get(1, "c"), @types.Scalar::Null)
 }
 
 // ── parse_csv_str: edge / error paths ─────────────────────────────────
 
 ///|
 test "parse_csv_str: empty content yields a 0x0 frame" {
-  let df = @io.parse_csv_str("", @io.CsvReadOptions::default()).unwrap()
+  let df = @io.parse_csv_str("", @io.CsvReadOptions::default())
   assert_eq(df.check_invariants(), Ok(()))
   assert_eq(df.shape(), (0, 0))
 }
@@ -280,7 +274,7 @@ test "parse_csv_str: has_header=false on empty input also yields 0x0" {
     delimiter: ',',
     infer_schema_rows: 100,
     null_values: [""],
-  }).unwrap()
+  })
   assert_eq(df.check_invariants(), Ok(()))
   assert_eq(df.shape(), (0, 0))
 }
@@ -291,7 +285,7 @@ test "parse_csv_str: whitespace-only content collapses to a 0x0 frame" {
   // newline parses to zero headers and zero rows; we collapse that
   // to a 0×0 frame via the `ncols == 0` early-return rather than
   // hand `DataFrame::new` an empty schema with synthesised names.
-  let df = @io.parse_csv_str("\n", @io.CsvReadOptions::default()).unwrap()
+  let df = @io.parse_csv_str("\n", @io.CsvReadOptions::default())
   assert_eq(df.check_invariants(), Ok(()))
   assert_eq(df.shape(), (0, 0))
 }
@@ -306,17 +300,17 @@ test "parse_csv_str: has_header=false on row-less (whitespace) input yields 0x0"
     delimiter: ',',
     infer_schema_rows: 100,
     null_values: [""],
-  }).unwrap()
+  })
   assert_eq(df.check_invariants(), Ok(()))
   assert_eq(df.shape(), (0, 0))
 }
 
 ///|
 test "parse_csv_str: single column, single row" {
-  let df = @io.parse_csv_str("only\n42\n", @io.CsvReadOptions::default()).unwrap()
+  let df = @io.parse_csv_str("only\n42\n", @io.CsvReadOptions::default())
   assert_eq(df.check_invariants(), Ok(()))
   assert_eq(df.shape(), (1, 1))
-  assert_eq(df.get(0, "only"), Ok(@types.Scalar::Int(42)))
+  assert_eq(df.get(0, "only"), @types.Scalar::Int(42))
 }
 
 ///|
@@ -325,8 +319,10 @@ test "parse_csv_str: duplicate header is rejected up front" {
     #|a,a
     #|1,2
     #|
-  let result = @io.parse_csv_str(content, @io.CsvReadOptions::default())
-  assert_eq(result, Err(@types.DataError::DuplicateColumn("a")))
+  assert_eq(
+    try? @io.parse_csv_str(content, @io.CsvReadOptions::default()),
+    Err(@types.DataError::DuplicateColumn("a")),
+  )
 }
 
 ///|
@@ -339,19 +335,13 @@ test "parse_csv_str: non-numeric in a Float-locked column becomes ParseError" {
     #|2.5
     #|oops
     #|
-  let result = @io.parse_csv_str(content, {
+  let result = try? @io.parse_csv_str(content, {
     has_header: true,
     delimiter: ',',
     infer_schema_rows: 2,
     null_values: [""],
   })
-  match result {
-    Err(@types.DataError::ParseError(_)) => ()
-    other => {
-      let _ = other
-      assert_eq(true, false)
-    }
-  }
+  assert_true(result is Err(@types.DataError::ParseError(_)))
 }
 
 ///|
@@ -363,19 +353,13 @@ test "parse_csv_str: non-bool value outside the inference window is ParseError" 
     #|false
     #|maybe
     #|
-  let result = @io.parse_csv_str(content, {
+  let result = try? @io.parse_csv_str(content, {
     has_header: true,
     delimiter: ',',
     infer_schema_rows: 2,
     null_values: [""],
   })
-  match result {
-    Err(@types.DataError::ParseError(_)) => ()
-    other => {
-      let _ = other
-      assert_eq(true, false)
-    }
-  }
+  assert_true(result is Err(@types.DataError::ParseError(_)))
 }
 
 ///|
@@ -386,19 +370,13 @@ test "parse_csv_str: non-int outside the inference window is ParseError" {
     #|2
     #|x
     #|
-  let result = @io.parse_csv_str(content, {
+  let result = try? @io.parse_csv_str(content, {
     has_header: true,
     delimiter: ',',
     infer_schema_rows: 2,
     null_values: [""],
   })
-  match result {
-    Err(@types.DataError::ParseError(_)) => ()
-    other => {
-      let _ = other
-      assert_eq(true, false)
-    }
-  }
+  assert_true(result is Err(@types.DataError::ParseError(_)))
 }
 
 // ── format_csv_str: happy paths ───────────────────────────────────────
@@ -408,7 +386,7 @@ test "format_csv_str: header on, mixed dtypes, null cell becomes empty" {
   let df = @frame.DataFrame::new([
     @frame.Series::from_int_options("n", [Some(1), Some(2), None]),
     @frame.Series::from_strings("s", ["a", "b", "c"]),
-  ]).unwrap()
+  ])
   let out = @io.format_csv_str(df, @io.CsvWriteOptions::default())
   let expected =
     #|n,s
@@ -424,7 +402,7 @@ test "format_csv_str: header off skips the first row" {
   let df = @frame.DataFrame::new([
     @frame.Series::from_ints("a", [1, 2]),
     @frame.Series::from_ints("b", [3, 4]),
-  ]).unwrap()
+  ])
   let out = @io.format_csv_str(df, {
     header: false,
     delimiter: ',',
@@ -442,7 +420,7 @@ test "format_csv_str: custom delimiter (semicolon)" {
   let df = @frame.DataFrame::new([
     @frame.Series::from_ints("a", [1, 2]),
     @frame.Series::from_strings("b", ["x", "y"]),
-  ]).unwrap()
+  ])
   let out = @io.format_csv_str(df, {
     header: true,
     delimiter: ';',
@@ -460,7 +438,7 @@ test "format_csv_str: custom delimiter (semicolon)" {
 test "format_csv_str: custom null_value rendering" {
   let df = @frame.DataFrame::new([
     @frame.Series::from_int_options("n", [Some(1), None, Some(3)]),
-  ]).unwrap()
+  ])
   let out = @io.format_csv_str(df, {
     header: true,
     delimiter: ',',
@@ -481,7 +459,7 @@ test "format_csv_str: quotes cells with delimiter, quote, newline, or CR" {
     @frame.Series::from_strings("a", [
       "needs,comma", "needs\"quote", "needs\nlf", "needs\rcr",
     ]),
-  ]).unwrap()
+  ])
   let out = @io.format_csv_str(df, @io.CsvWriteOptions::default())
   // Every body cell is quoted; the embedded double quote in row 2
   // is doubled per RFC 4180.
@@ -493,7 +471,7 @@ test "format_csv_str: quotes cells with delimiter, quote, newline, or CR" {
 test "format_csv_str: also quotes header names that contain the delimiter" {
   let df = @frame.DataFrame::new([
     @frame.Series::from_ints("hello,world", [1, 2]),
-  ]).unwrap()
+  ])
   let out = @io.format_csv_str(df, @io.CsvWriteOptions::default())
   let expected =
     #|"hello,world"
@@ -506,7 +484,7 @@ test "format_csv_str: also quotes header names that contain the delimiter" {
 ///|
 test "format_csv_str: empty frame produces just the header row (or nothing)" {
   // 0 columns, 0 rows: nothing to emit even with header on.
-  let empty = @frame.DataFrame::new([]).unwrap()
+  let empty = @frame.DataFrame::new([])
   let out = @io.format_csv_str(empty, @io.CsvWriteOptions::default())
   assert_eq(out, "\n")
   // header off + empty frame: still emits one blank record terminator
@@ -524,8 +502,8 @@ test "format_csv_str: 0 rows with declared schema emits header only" {
   let schema = @types.Schema::new([
     @types.Field::new("a", @types.DataType::Int),
     @types.Field::new("b", @types.DataType::String),
-  ]).unwrap()
-  let df = @frame.DataFrame::empty(schema).unwrap()
+  ])
+  let df = @frame.DataFrame::empty(schema)
   let out = @io.format_csv_str(df, @io.CsvWriteOptions::default())
   let expected =
     #|a,b
@@ -546,17 +524,14 @@ test "parse_csv_str ∘ format_csv_str: round-trip preserves dtypes and values" 
     ]),
     @frame.Series::from_bool_options("b", [Some(true), Some(false), None]),
     @frame.Series::from_strings("s", ["alpha", "beta", "gamma"]),
-  ]).unwrap()
+  ])
   let text = @io.format_csv_str(df, @io.CsvWriteOptions::default())
-  let parsed = @io.parse_csv_str(text, @io.CsvReadOptions::default()).unwrap()
+  let parsed = @io.parse_csv_str(text, @io.CsvReadOptions::default())
   assert_eq(parsed.check_invariants(), Ok(()))
   assert_eq(parsed.shape(), df.shape())
   assert_eq(parsed.columns(), df.columns())
   for name in df.columns() {
-    assert_eq(
-      parsed.get_column(name).unwrap().dtype(),
-      df.get_column(name).unwrap().dtype(),
-    )
+    assert_eq(parsed.get_column(name).dtype(), df.get_column(name).dtype())
     for i in 0..<df.nrows() {
       assert_eq(parsed.get(i, name), df.get(i, name))
     }
@@ -571,14 +546,14 @@ test "write_csv then read_csv round-trips a small frame on disk" {
   let df = @frame.DataFrame::new([
     @frame.Series::from_ints("n", [1, 2, 3]),
     @frame.Series::from_strings("s", ["x", "y", "z"]),
-  ]).unwrap()
-  assert_eq(@io.write_csv(path, df), Ok(()))
-  let parsed = @io.read_csv(path).unwrap()
+  ])
+  @io.write_csv(path, df)
+  let parsed = @io.read_csv(path)
   assert_eq(parsed.check_invariants(), Ok(()))
   assert_eq(parsed.shape(), (3, 2))
   assert_eq(parsed.columns(), ["n", "s"])
-  assert_eq(parsed.get(2, "n"), Ok(@types.Scalar::Int(3)))
-  assert_eq(parsed.get(0, "s"), Ok(@types.Scalar::String("x")))
+  assert_eq(parsed.get(2, "n"), @types.Scalar::Int(3))
+  assert_eq(parsed.get(0, "s"), @types.Scalar::String("x"))
 }
 
 ///|
@@ -587,7 +562,7 @@ test "write_csv_with_options + read_csv_with_options honour custom shape" {
   let df = @frame.DataFrame::new([
     @frame.Series::from_int_options("a", [Some(1), None]),
     @frame.Series::from_strings("b", ["p", "q"]),
-  ]).unwrap()
+  ])
   let write_opts : @io.CsvWriteOptions = {
     header: true,
     delimiter: ';',
@@ -599,39 +574,27 @@ test "write_csv_with_options + read_csv_with_options honour custom shape" {
     infer_schema_rows: 100,
     null_values: ["NA"],
   }
-  assert_eq(@io.write_csv_with_options(path, df, write_opts), Ok(()))
-  let parsed = @io.read_csv_with_options(path, read_opts).unwrap()
+  @io.write_csv_with_options(path, df, write_opts)
+  let parsed = @io.read_csv_with_options(path, read_opts)
   assert_eq(parsed.check_invariants(), Ok(()))
-  assert_eq(parsed.get(0, "a"), Ok(@types.Scalar::Int(1)))
-  assert_eq(parsed.get(1, "a"), Ok(@types.Scalar::Null))
-  assert_eq(parsed.get(0, "b"), Ok(@types.Scalar::String("p")))
+  assert_eq(parsed.get(0, "a"), @types.Scalar::Int(1))
+  assert_eq(parsed.get(1, "a"), @types.Scalar::Null)
+  assert_eq(parsed.get(0, "b"), @types.Scalar::String("p"))
 }
 
 ///|
 test "read_csv: missing file surfaces as IoError, not panic" {
-  let result = @io.read_csv("_build/io_csv_test_does_not_exist.csv")
-  match result {
-    Err(@types.DataError::IoError(_)) => ()
-    other => {
-      let _ = other
-      assert_eq(true, false)
-    }
-  }
+  let result = try? @io.read_csv("_build/io_csv_test_does_not_exist.csv")
+  assert_true(result is Err(@types.DataError::IoError(_)))
 }
 
 ///|
 test "read_csv_with_options: missing file surfaces as IoError" {
-  let result = @io.read_csv_with_options(
+  let result = try? @io.read_csv_with_options(
     "_build/io_csv_test_does_not_exist.csv",
     @io.CsvReadOptions::default(),
   )
-  match result {
-    Err(@types.DataError::IoError(_)) => ()
-    other => {
-      let _ = other
-      assert_eq(true, false)
-    }
-  }
+  assert_true(result is Err(@types.DataError::IoError(_)))
 }
 
 ///|
@@ -639,32 +602,20 @@ test "write_csv: invalid path surfaces as IoError" {
   // Write into a directory that does not exist. The native fs
   // backend rejects the open call with an IOError; we promote it
   // to the DataError variant.
-  let df = @frame.DataFrame::new([@frame.Series::from_ints("a", [1])]).unwrap()
-  let result = @io.write_csv("_build/no_such_dir_io_test/file.csv", df)
-  match result {
-    Err(@types.DataError::IoError(_)) => ()
-    other => {
-      let _ = other
-      assert_eq(true, false)
-    }
-  }
+  let df = @frame.DataFrame::new([@frame.Series::from_ints("a", [1])])
+  let result = try? @io.write_csv("_build/no_such_dir_io_test/file.csv", df)
+  assert_true(result is Err(@types.DataError::IoError(_)))
 }
 
 ///|
 test "write_csv_with_options: invalid path surfaces as IoError" {
-  let df = @frame.DataFrame::new([@frame.Series::from_ints("a", [1])]).unwrap()
-  let result = @io.write_csv_with_options(
+  let df = @frame.DataFrame::new([@frame.Series::from_ints("a", [1])])
+  let result = try? @io.write_csv_with_options(
     "_build/no_such_dir_io_test_2/file.csv",
     df,
     @io.CsvWriteOptions::default(),
   )
-  match result {
-    Err(@types.DataError::IoError(_)) => ()
-    other => {
-      let _ = other
-      assert_eq(true, false)
-    }
-  }
+  assert_true(result is Err(@types.DataError::IoError(_)))
 }
 
 // ── CsvReadOptions / CsvWriteOptions defaults ─────────────────────────

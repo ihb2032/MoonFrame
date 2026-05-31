@@ -8,163 +8,122 @@ Markdown / JSON export. The goal is not to clone every pandas feature, but
 to give MoonBit a small, well-tested, extensible foundation for data
 analysis.
 
-**Error model.** Anything that can fail on bad input or I/O returns
-`Result[_, DataError]`; the library never aborts the host process on a
-recoverable error, and there are no `unwrap` panic paths hidden behind
-total-looking signatures. Operations that are provably total (`head` /
-`tail` / `Series::min_value` / `drop_nulls` / …) return their value
-directly and read through total accessors (`Bitmap::to_bools`,
-`BuiltinColumn::data`, `DataFrame::column_series`) rather than
-`unwrap`-ing an "impossible" `Result`.
+**Method-chain API (v0.2).** Transformations are methods on `DataFrame`, so
+pipelines read top-to-bottom like pandas / polars:
+
+```moonbit
+read_csv(path)
+  .filter(row => row.get_string("product") == "widget")
+  .select(["region", "quantity", "revenue"])
+  .sort_by(SortSpec::desc("quantity"))
+  .describe()
+  .to_markdown()
+```
+
+**Error model.** Anything that can fail on bad input or I/O is an effectful
+function that `raise DataError`; the library never aborts the host process on
+a recoverable error, and there are no `unwrap` panic paths hidden behind
+total-looking signatures. Use `try?` to bridge a chain back to a
+`Result[_, DataError]` when you need a value (`let r = try? read_csv(path)`).
+Operations that are provably total (`head` / `tail` / `Series::min_value` /
+`drop_nulls` / `to_markdown` / …) return their value directly and read through
+total accessors (`Bitmap::to_bools`, `BuiltinColumn::data`,
+`DataFrame::column_series`) rather than catching an "impossible" raise.
+`DataError` is a `pub(all) suberror`, so callers can both construct its
+variants and match on them after a `try?`.
 
 ## Status
 
-Under active development toward **v0.1**. The current focus is the
-`types` / `column` / `frame` / `ops` / `io` layering described in
-[`docs/api.md`](docs/api.md). See that document for the authoritative
-public-API surface.
+**v0.2 (method-chain migration) — shipped.** The whole v0.1 surface moved to
+the method-chain + `raise` form described in [`docs/api.md`](docs/api.md), the
+authoritative public-API reference:
 
-v0.1 progress:
+- The operator verbs (`select` / `drop` / `rename` / `with_column` /
+  `replace_column` / `filter` / `sort_by` / `drop_nulls` / `drop_nulls_in` /
+  `fill_null` / `null_count` / `count` / `sum` / `mean` / `min` / `max` /
+  `describe`) are now **methods on `DataFrame`**; the old `ops` package is
+  folded into `frame`.
+- Every fallible operation returns `T raise DataError` instead of
+  `Result[T, DataError]`.
+- `filter` takes a single `(RowView) -> Bool raise DataError` predicate (the
+  v0.1 `filter` / `filter_try` split is gone — a fallible accessor in the
+  predicate just raises).
+- `sort_by` is one generic method accepting either a single `SortSpec` or an
+  `Array[SortSpec]` via the new `IntoSortSpecs` trait (`sort_by_many` is gone).
+- `to_markdown` / `to_markdown_with_limit` are `DataFrame` methods; the
+  CSV / JSON string serialisers (`format_csv_str` / `format_json_records`)
+  stay as `io` free functions.
 
-- [x] P0 — project skeleton
-- [x] P1 — `types/` core (`DataError`, `DataType`, `Scalar`)
-- [x] P2 — `column/` `BuiltinColumn` (initial Option-based draft;
-      rewritten in P3.5)
-- [x] P3 — `types/` `Field` + `Schema` (duplicate-name detection,
-      select, rename, index_of)
-- [x] P3.5 — `column/` Apache Arrow layout: byte-packed `Bitmap`
-      (1 = valid) plus `BuiltinColumn { data, validity }`; typed
-      accessors return `(Array[T], Bitmap)` for zero-boxing ops
-- [x] P4 — `frame/` `Series` core + stats: 10 constructors,
-      inspection / transforms / casts / null handling, plus reductions
-      (`count` / `sum` / `mean` / `min` / `max` / `unique_count`).
-      `Series::describe` deferred to P5 because it returns a `DataFrame`
-- [x] P5 — `frame/` `DataFrame` + `RowView` + `Series::describe`:
-      `DataFrame` with an `O(1)` `name_to_index` cache, three
-      constructors (`new` / `empty` / `from_rows`), `shape` /
-      `schema` / `columns` / `get_column` / `get` / `head` / `tail` /
-      `slice` / `take`; `RowView` with `get` / `is_null` /
-      `get_int` / `get_float` / `get_bool` / `get_string`
-- [x] P6 — `ops/` column ops: `select` / `drop` / `rename` /
-      `with_column` / `replace_column` as free functions in `@ops`.
-      Ships alongside `DataFrame::check_invariants()` — a formal
-      structural specification (INV1–INV6) of a well-formed DataFrame,
-      asserted by every op test as the practical equivalent of formal
-      verification in MoonBit v0.1
-- [x] P7 — `ops/` row filter: `filter` (`(RowView) -> Bool`) and
-      `filter_try` (`(RowView) -> Result[Bool, DataError]`). Both
-      preserve the input schema verbatim and route the kept rows
-      through `DataFrame::take`; `filter_try` short-circuits on the
-      first predicate error so a misspelled column or dtype mismatch
-      surfaces instead of silently excluding the row
-- [x] P8 — `ops/` sort: `SortOrder` / `NullOrder` / `SortSpec` plus
-      `sort_by` (single key) and `sort_by_many` (lexicographic
-      multi-key). Stable bottom-up mergesort on row indices, then a
-      single `DataFrame::take` to reorder — so the schema is preserved
-      verbatim and `check_invariants()` holds on every result. NaN in
-      `Float` columns is treated identically to `Null` for ordering,
-      and `String` keys sort lexicographically by UTF-16 code unit
-      (not MoonBit's built-in shortlex `<`)
-- [x] P9 — `ops/` null handling: `drop_nulls` (drop rows with any
-      null) / `drop_nulls_in` (gate on a column subset) /
-      `fill_null(df, column, value)` (per-column, dtype-preserving) /
-      `null_count(df)` (per-column summary as a `1 × ncols` `Int`
-      frame). Row-coordinated ops route through `DataFrame::take`;
-      `fill_null` reuses the underlying `Series::fill_null` so dtype
-      mismatches surface the same diagnostic
-- [x] P10 — `ops/` column statistics + describe:
-      `count` / `sum` / `mean` / `min` / `max` as free functions taking
-      `(df, column)` and delegating to the matching `Series` reduction
-      via a shared `dispatch_stat` helper, so per-dtype semantics
-      (null skipping, empty-series fallbacks, `Float` NaN handling,
-      `Bool` / `String` rejection for numeric ops) stay in lock-step
-      with the Series API. `describe(df)` returns a fixed `N × 8`
-      summary — one row per source column with `column` / `dtype` /
-      `count` / `null_count` / `unique_count` / `mean` / `min` / `max`;
-      `min` and `max` render via `Scalar::to_string` so the summary
-      can carry extrema for any dtype in a single column
-- [x] P11 — `io/` CSV: `parse_csv_str` / `format_csv_str` as the
-      string-in / string-out core, plus file wrappers `read_csv` /
-      `read_csv_with_options` / `write_csv` / `write_csv_with_options`
-      around `moonbitlang/x/fs`. Tokenisation delegates to
-      `moonbit-community/NyaCSV`; v0.1's contribution is per-column type
-      inference (`Int → Float → Bool → String`), configurable null
-      mapping via `CsvReadOptions::null_values`, header on/off
-      handling, and RFC 4180 quoting on the writer. Filesystem errors
-      surface as `Err(DataError::IoError(_))`
-- [x] P12 — `io/` Markdown + JSON: `to_markdown` /
-      `to_markdown_with_limit` render a GFM pipe-table (column-width
-      aligned, 3-char dash minimum, null as the empty string, optional
-      `... (N more rows)` truncation banner). `format_json_records` /
-      `write_json_records` emit records-shape JSON
-      (`[{...}, ...]`) via the builtin `@json` package, so escaping
-      and `NaN` / `Infinity` rendering follow the standard library.
-      `parse_json_records_str` / `read_json` /
-      `read_json_with_options` + `JsonReadOptions` parse records back
-      with the same `Int → Float → Bool → String` inference the CSV
-      reader uses; sparse records are tolerated (missing fields →
-      null, late-appearing columns still surface)
-- [x] P13 — facade re-exports + integration tests + runnable
-      examples: `moonframe.mbt` re-exports every v0.1 public symbol
-      from the five sub-packages via `pub using`, so callers can
-      `import "ihb2032/MoonFrame" @moonframe` and reach the whole
-      surface as `@moonframe.DataFrame` / `@moonframe.parse_csv_str`
-      / `@moonframe.SortSpec::desc(...)` / etc. Sub-package imports
-      (`@types` / `@column` / `@frame` / `@ops` / `@io`) remain
-      supported for callers who only need a slice. A
-      `pipeline_test.mbt` exercises every layer through the facade
-      (read → filter → select → sort → describe → markdown) so a
-      missing re-export surfaces as a compile error instead of a
-      silent gap. Two runnable examples ship under `examples/`:
-      `sales_analysis` (widgets-only filter + sort + describe) and
-      `data_cleaning` (null gating + fill + CSV round-trip). Each
-      example splits its logic into a library sub-package with full
-      blackbox tests; the `main.mbt` orchestrator is
-      `#coverage.skip`-marked since the meaningful behaviour lives
-      in the tested helpers
+The data model is unchanged: an Apache Arrow-style column layout (byte-packed
+validity `Bitmap`, `1 = valid`) under `Series` / `DataFrame`, an `O(1)`
+`name_to_index` cache, and `DataFrame::check_invariants()` as a formal
+structural spec (INV1–INV6) asserted by every operator test.
 
-GroupBy and Join land in v0.2; NDJSON also v0.2; HTML and chart-data
-export in v0.3; an expression / lazy query layer in v0.4.
+Roadmap: GroupBy / Join / NDJSON in the rest of v0.2; an
+`ColumnStorage` / `NumericColumn` storage abstraction in v0.3 alongside HTML
+and chart-data export; an expression / lazy query layer in v0.4.
+
+## v0.1 → v0.2 migration
+
+| v0.1 | v0.2 |
+|---|---|
+| `@ops.select(df, names)` (free function) | `df.select(names)` (method) |
+| `op(df, ...) -> Result[T, DataError]` + `.bind` / `.map` / `.unwrap` | `df.op(...) -> T raise DataError`, chained directly |
+| pattern-match `Ok(x)` / `Err(e)` on the result | call directly in a `raise` context, or `try? expr` for a `Result` |
+| `filter_try(df, row => row.get_int("x").map(v => v > 0))` | `df.filter(row => row.get_int("x") > 0)` |
+| `sort_by(df, spec)` / `sort_by_many(df, specs)` | `df.sort_by(spec)` / `df.sort_by(specs)` |
+| `Series::min()` / `max()` (`Result`-wrapped) | `Series::min_value()` / `max_value()` (total) |
+| `@io.to_markdown(df)` | `df.to_markdown()` |
+| `import ... @ops` | gone — verbs live on `DataFrame` in `@frame` |
+
+`format_csv_str` / `format_json_records` / `parse_csv_str` / `read_csv` /
+`write_csv` and the JSON equivalents are still `io` free functions (the
+`read_*` / `write_*` / `parse_*` ones now `raise`; the `format_*` ones are
+total and return a `String`).
 
 ## Layout
 
 ```
 moonframe/      facade package — re-exports the public API
-types/          value types, errors, schemas
-column/         column storage backends
-frame/          Series, DataFrame, RowView
-ops/            select / filter / sort / null / stats / describe
-io/             CSV (NyaCSV-backed), Markdown, JSON
+types/          value types, errors (DataError suberror), schemas
+column/         column storage backends (Arrow-style Bitmap + BuiltinColumn)
+frame/          Series, DataFrame, RowView + all DataFrame operators + to_markdown
+io/             CSV (NyaCSV-backed) and JSON read / write
 docs/api.md     public API reference (source of truth)
 ```
 
 Each subpackage carries its sources, its `*_test.mbt` blackbox tests, and
-its `pkg.generated.mbti` interface snapshot.
+its `pkg.generated.mbti` interface snapshot. (`frame` follows a
+one-operator-one-file layout — `frame/select.mbt`, `frame/sort.mbt`, … — even
+though they share the package.)
 
 ## Usage
 
 ```moonbit
-// One import covers the whole v0.1 surface — the facade re-exports
-// every public symbol from types / column / frame / ops / io.
+// One import covers the whole surface — the facade re-exports every
+// public symbol from types / column / frame / io. The operator verbs and
+// `to_markdown` are methods on `DataFrame`, reached automatically through
+// the re-exported `type DataFrame`.
 import "ihb2032/MoonFrame" @moonframe
 
-fn run(
-  path : String,
-) -> Result[String, @moonframe.DataError] {
+fn report(path : String) -> String raise @moonframe.DataError {
   @moonframe.read_csv(path)
-    .bind(df => @moonframe.filter_try(df, row =>
-      row.get_string("product").map(name => name == "widget")))
-    .bind(widgets => @moonframe.sort_by(
-      widgets,
-      @moonframe.SortSpec::desc("quantity"),
-    ))
-    .bind(sorted => @moonframe.describe(sorted).map(summary =>
-      @moonframe.to_markdown(summary)))
+  .filter(row => row.get_string("product") == "widget")
+  .select(["region", "quantity", "revenue"])
+  .sort_by(@moonframe.SortSpec::desc("quantity"))
+  .describe()
+  .to_markdown()
+}
+
+// Bridge back to a Result at the call site when you want a value rather
+// than to propagate the effect:
+fn report_or_error(path : String) -> Result[String, @moonframe.DataError] {
+  try? report(path)
 }
 ```
 
-Sub-package imports (`@types`, `@column`, `@frame`, `@ops`, `@io`)
-remain supported for callers who only need a slice.
+Sub-package imports (`@types`, `@column`, `@frame`, `@io`) remain supported
+for callers who only need a slice.
 
 ## Type inference (CSV / JSON)
 
@@ -185,14 +144,15 @@ and `1_000` underscore grouping stay `String`; integers up to the
 Run the bundled examples from the project root:
 
 ```sh
-moon run examples/sales_analysis    # read_csv → filter → select → sort → describe → markdown
+moon run examples/sales_analysis    # read_csv → filter → select → sort_by → describe → markdown
 moon run examples/data_cleaning     # read_csv → drop_nulls_in → fill_null → write_csv round-trip
 ```
 
 Each example splits its pipeline logic into a library sub-package
 (`examples/<name>/<logic>/`) tested via blackbox `*_test.mbt`,
 while the top-level `main.mbt` is a thin `read → run → println`
-orchestrator (`#coverage.skip`-marked).
+orchestrator (`#coverage.skip`-marked, with a single top-level
+`try` / `catch` that prints a diagnostic on any `DataError`).
 
 ## Building
 

@@ -7,9 +7,9 @@ import {
 }
 
 // Values
-pub fn is_widget_row(@frame.RowView) -> Result[Bool, @types.DataError]
+pub fn is_widget_row(@frame.RowView) -> Bool raise @types.DataError
 
-pub fn widget_report(@frame.DataFrame) -> Result[(@frame.DataFrame, @frame.DataFrame), @types.DataError]
+pub fn widget_report(@frame.DataFrame) -> (@frame.DataFrame, @frame.DataFrame) raise @types.DataError
 
 // Errors
 

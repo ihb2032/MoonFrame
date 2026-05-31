@@ -2,7 +2,6 @@ import {
   "ihb2032/MoonFrame/column",
   "ihb2032/MoonFrame/frame",
   "ihb2032/MoonFrame/io",
-  "ihb2032/MoonFrame/ops",
   "ihb2032/MoonFrame/types",
 }
 

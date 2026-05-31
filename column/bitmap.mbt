@@ -72,26 +72,26 @@ pub fn Bitmap::len(self : Bitmap) -> Int {
 }
 
 ///|
-/// `true` when slot `index` is valid (bit is 1). Out-of-bounds returns
-/// `Err(IndexOutOfBounds)`.
+/// `true` when slot `index` is valid (bit is 1). Out-of-bounds
+/// `raise IndexOutOfBounds`.
 pub fn Bitmap::is_valid(
   self : Bitmap,
   index : Int,
-) -> Result[Bool, @types.DataError] {
+) -> Bool raise @types.DataError {
   if index < 0 || index >= self.len {
-    return Err(@types.DataError::IndexOutOfBounds(index))
+    raise @types.DataError::IndexOutOfBounds(index)
   }
-  Ok(bit_at(self.bits, index))
+  bit_at(self.bits, index)
 }
 
 ///|
-/// `true` when slot `index` is null (bit is 0). Out-of-bounds returns
-/// `Err(IndexOutOfBounds)`.
+/// `true` when slot `index` is null (bit is 0). Out-of-bounds
+/// `raise IndexOutOfBounds`.
 pub fn Bitmap::is_null(
   self : Bitmap,
   index : Int,
-) -> Result[Bool, @types.DataError] {
-  self.is_valid(index).map(v => !v)
+) -> Bool raise @types.DataError {
+  !self.is_valid(index)
 }
 
 ///|
@@ -142,19 +142,17 @@ pub fn Bitmap::slice(
   self : Bitmap,
   start : Int,
   length : Int,
-) -> Result[Bitmap, @types.DataError] {
+) -> Bitmap raise @types.DataError {
   if start < 0 || start > self.len {
-    return Err(@types.DataError::IndexOutOfBounds(start))
+    raise @types.DataError::IndexOutOfBounds(start)
   }
   if length < 0 {
-    return Err(
-      @types.DataError::InvalidOperation(
-        "slice length < 0: " + length.to_string(),
-      ),
+    raise @types.DataError::InvalidOperation(
+      "slice length < 0: " + length.to_string(),
     )
   }
   if start + length > self.len {
-    return Err(@types.DataError::IndexOutOfBounds(start + length))
+    raise @types.DataError::IndexOutOfBounds(start + length)
   }
   let buf = FixedArray::make(bytes_needed(length), Byte::default())
   for i in 0..<length {
@@ -162,7 +160,7 @@ pub fn Bitmap::slice(
       set_bit_unchecked(buf, i)
     }
   }
-  Ok({ bits: buffer_to_bytes(buf), len: length })
+  { bits: buffer_to_bytes(buf), len: length }
 }
 
 ///|
@@ -171,10 +169,10 @@ pub fn Bitmap::slice(
 pub fn Bitmap::take(
   self : Bitmap,
   indices : Array[Int],
-) -> Result[Bitmap, @types.DataError] {
+) -> Bitmap raise @types.DataError {
   for i in indices {
     if i < 0 || i >= self.len {
-      return Err(@types.DataError::IndexOutOfBounds(i))
+      raise @types.DataError::IndexOutOfBounds(i)
     }
   }
   let n = indices.length()
@@ -184,7 +182,7 @@ pub fn Bitmap::take(
       set_bit_unchecked(buf, j)
     }
   }
-  Ok({ bits: buffer_to_bytes(buf), len: n })
+  { bits: buffer_to_bytes(buf), len: n }
 }
 
 ///|
@@ -195,9 +193,9 @@ pub fn Bitmap::take(
 pub fn Bitmap::bit_and(
   self : Bitmap,
   other : Bitmap,
-) -> Result[Bitmap, @types.DataError] {
+) -> Bitmap raise @types.DataError {
   if self.len != other.len {
-    return Err(@types.DataError::LengthMismatch)
+    raise @types.DataError::LengthMismatch
   }
   let n = self.len
   let buf = FixedArray::make(bytes_needed(n), Byte::default())
@@ -206,7 +204,7 @@ pub fn Bitmap::bit_and(
       set_bit_unchecked(buf, i)
     }
   }
-  Ok({ bits: buffer_to_bytes(buf), len: n })
+  { bits: buffer_to_bytes(buf), len: n }
 }
 
 // ── Internal helpers ──────────────────────────────────────────────────

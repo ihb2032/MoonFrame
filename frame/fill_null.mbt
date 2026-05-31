@@ -6,33 +6,29 @@
 /// is not supported in v0.1 (callers can build a new series and pipe it
 /// through `replace_column` if they need that).
 ///
-/// Errors:
-/// - `Err(ColumnNotFound(column))` — `column` doesn't exist in `df`.
-/// - `Err(TypeMismatch(...))` — `value` is `Scalar::Null` (filling
-///   nulls with null is meaningless), or `value.dtype()` differs from
-///   the target column's dtype. Both diagnostics bubble unchanged from
+/// Raises:
+/// - `ColumnNotFound(column)` — `column` doesn't exist in `self`.
+/// - `TypeMismatch(...)` — `value` is `Scalar::Null` (filling nulls with
+///   null is meaningless), or `value.dtype()` differs from the target
+///   column's dtype. Both diagnostics bubble unchanged from
 ///   `Series::fill_null` so the message text matches the Series API.
+///   Column-lookup runs before the fill so a missing name is surfaced
+///   ahead of a type-mismatch error.
 ///
 /// Structural invariants on the returned frame follow from
 /// `DataFrame::new`, which rebuilds the schema and `name_to_index`
 /// cache in lock-step with the column vector.
-pub fn fill_null(
-  df : @frame.DataFrame,
+pub fn DataFrame::fill_null(
+  self : DataFrame,
   column : String,
   value : @types.Scalar,
-) -> Result[@frame.DataFrame, @types.DataError] {
+) -> DataFrame raise @types.DataError {
   // Look up the target column first so a missing-column error fires
   // before the (more expensive) `Series::fill_null` traversal runs.
-  let target = match df.get_column(column) {
-    Ok(s) => s
-    Err(e) => return Err(e)
-  }
-  let filled = match target.fill_null(value) {
-    Ok(s) => s
-    Err(e) => return Err(e)
-  }
-  let new_cols = df
+  let target = self.get_column(column)
+  let filled = target.fill_null(value)
+  let new_cols = self
     .column_series()
     .map(s => if s.name() == column { filled } else { s })
-  @frame.DataFrame::new(new_cols)
+  DataFrame::new(new_cols)
 }

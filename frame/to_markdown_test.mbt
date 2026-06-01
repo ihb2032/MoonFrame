@@ -1,4 +1,4 @@
-// Blackbox tests for `@io.to_markdown` / `@io.to_markdown_with_limit`.
+// Blackbox tests for `DataFrame::to_markdown` / `to_markdown_with_limit`.
 //
 // The renderer is deterministic — given a DataFrame, the output bytes
 // are fixed — so we exercise it primarily through exact-string
@@ -10,8 +10,8 @@
 
 ///|
 test "to_markdown: empty frame returns the empty string" {
-  let df = @frame.DataFrame::new([]).unwrap()
-  assert_eq(@io.to_markdown(df), "")
+  let df = DataFrame::new([])
+  assert_eq(df.to_markdown(), "")
 }
 
 ///|
@@ -22,23 +22,23 @@ test "to_markdown: zero rows still emits header + separator" {
   let schema = @types.Schema::new([
     @types.Field::new("a", @types.DataType::Int),
     @types.Field::new("b", @types.DataType::String),
-  ]).unwrap()
-  let df = @frame.DataFrame::empty(schema).unwrap()
+  ])
+  let df = DataFrame::empty(schema)
   let expected =
     #|| a   | b   |
     #|| --- | --- |
     #|
-  assert_eq(@io.to_markdown(df), expected)
+  assert_eq(df.to_markdown(), expected)
 }
 
 // ── basic rendering ─────────────────────────────────────────────────
 
 ///|
 test "to_markdown: simple Int + String frame" {
-  let df = @frame.DataFrame::new([
-    @frame.Series::from_ints("a", [1, 2, 3]),
-    @frame.Series::from_strings("b", ["x", "y", "z"]),
-  ]).unwrap()
+  let df = DataFrame::new([
+    Series::from_ints("a", [1, 2, 3]),
+    Series::from_strings("b", ["x", "y", "z"]),
+  ])
   let expected =
     #|| a   | b   |
     #|| --- | --- |
@@ -46,15 +46,15 @@ test "to_markdown: simple Int + String frame" {
     #|| 2   | y   |
     #|| 3   | z   |
     #|
-  assert_eq(@io.to_markdown(df), expected)
+  assert_eq(df.to_markdown(), expected)
 }
 
 ///|
 test "to_markdown: null cells render as the empty string" {
-  let df = @frame.DataFrame::new([
-    @frame.Series::from_int_options("n", [Some(1), None, Some(3)]),
-    @frame.Series::from_string_options("s", [Some("a"), Some("b"), None]),
-  ]).unwrap()
+  let df = DataFrame::new([
+    Series::from_int_options("n", [Some(1), None, Some(3)]),
+    Series::from_string_options("s", [Some("a"), Some("b"), None]),
+  ])
   let expected =
     #|| n   | s   |
     #|| --- | --- |
@@ -62,7 +62,7 @@ test "to_markdown: null cells render as the empty string" {
     #||     | b   |
     #|| 3   |     |
     #|
-  assert_eq(@io.to_markdown(df), expected)
+  assert_eq(df.to_markdown(), expected)
 }
 
 ///|
@@ -71,16 +71,14 @@ test "to_markdown: escapes pipe and newline in headers and cells" {
   // the GFM cell; CR / LF become a space so a multi-line value can't
   // terminate the row mid-cell. Width alignment runs on the escaped
   // text, so the `\|` expansion is measured correctly.
-  let df = @frame.DataFrame::new([
-    @frame.Series::from_strings("a|b", ["x|y", "p\r\nq"]),
-  ]).unwrap()
+  let df = DataFrame::new([Series::from_strings("a|b", ["x|y", "p\r\nq"])])
   let expected =
     #|| a\|b |
     #|| ---- |
     #|| x\|y |
     #|| p  q |
     #|
-  assert_eq(@io.to_markdown(df), expected)
+  assert_eq(df.to_markdown(), expected)
 }
 
 ///|
@@ -89,13 +87,13 @@ test "to_markdown: a backslash before a pipe can't split the row" {
   // table-splitting pipe). The backslash is doubled and the pipe escaped,
   // so the rendered cell is `\\\|` and the data row keeps exactly its two
   // bounding pipes.
-  let df = @frame.DataFrame::new([@frame.Series::from_strings("v", ["\\|"])]).unwrap()
+  let df = DataFrame::new([Series::from_strings("v", ["\\|"])])
   let expected =
     #|| v    |
     #|| ---- |
     #|| \\\| |
     #|
-  assert_eq(@io.to_markdown(df), expected)
+  assert_eq(df.to_markdown(), expected)
 }
 
 // ── width / alignment ───────────────────────────────────────────────
@@ -106,10 +104,10 @@ test "to_markdown: column width aligns to widest header / cell" {
   // chars; widths for the numeric column come from the header (1)
   // and the widest cell ("22" → 2) and then bump to the 3-char
   // separator minimum.
-  let df = @frame.DataFrame::new([
-    @frame.Series::from_strings("identifier", ["x", "yyy", "zzzzz"]),
-    @frame.Series::from_ints("n", [1, 22, 3]),
-  ]).unwrap()
+  let df = DataFrame::new([
+    Series::from_strings("identifier", ["x", "yyy", "zzzzz"]),
+    Series::from_ints("n", [1, 22, 3]),
+  ])
   let expected =
     #|| identifier | n   |
     #|| ---------- | --- |
@@ -117,7 +115,7 @@ test "to_markdown: column width aligns to widest header / cell" {
     #|| yyy        | 22  |
     #|| zzzzz      | 3   |
     #|
-  assert_eq(@io.to_markdown(df), expected)
+  assert_eq(df.to_markdown(), expected)
 }
 
 ///|
@@ -125,23 +123,21 @@ test "to_markdown: column width respects the 3-char dash minimum" {
   // The header and every cell are single characters; without the
   // minimum the separator would collapse to `|-|` which stricter
   // CommonMark parsers reject. The renderer pads to 3 dashes.
-  let df = @frame.DataFrame::new([@frame.Series::from_strings("a", ["1", "2"])]).unwrap()
+  let df = DataFrame::new([Series::from_strings("a", ["1", "2"])])
   let expected =
     #|| a   |
     #|| --- |
     #|| 1   |
     #|| 2   |
     #|
-  assert_eq(@io.to_markdown(df), expected)
+  assert_eq(df.to_markdown(), expected)
 }
 
 // ── to_markdown_with_limit ──────────────────────────────────────────
 
 ///|
 test "to_markdown_with_limit: truncates and appends `... (N more rows)`" {
-  let df = @frame.DataFrame::new([
-    @frame.Series::from_ints("n", [1, 2, 3, 4, 5]),
-  ]).unwrap()
+  let df = DataFrame::new([Series::from_ints("n", [1, 2, 3, 4, 5])])
   let expected =
     #|| n   |
     #|| --- |
@@ -149,12 +145,12 @@ test "to_markdown_with_limit: truncates and appends `... (N more rows)`" {
     #|| 2   |
     #|... (3 more rows)
     #|
-  assert_eq(@io.to_markdown_with_limit(df, 2), expected)
+  assert_eq(df.to_markdown_with_limit(2), expected)
 }
 
 ///|
 test "to_markdown_with_limit: limit >= nrows shows every row, no banner" {
-  let df = @frame.DataFrame::new([@frame.Series::from_ints("n", [1, 2])]).unwrap()
+  let df = DataFrame::new([Series::from_ints("n", [1, 2])])
   let expected =
     #|| n   |
     #|| --- |
@@ -162,30 +158,30 @@ test "to_markdown_with_limit: limit >= nrows shows every row, no banner" {
     #|| 2   |
     #|
   // limit == nrows and limit > nrows must produce identical output.
-  assert_eq(@io.to_markdown_with_limit(df, 2), expected)
-  assert_eq(@io.to_markdown_with_limit(df, 100), expected)
+  assert_eq(df.to_markdown_with_limit(2), expected)
+  assert_eq(df.to_markdown_with_limit(100), expected)
 }
 
 ///|
 test "to_markdown_with_limit: limit=0 shows header + separator + banner" {
   // shown=0 means the width pass only sees the header, so the
   // column width is just the header width bumped to the 3-char min.
-  let df = @frame.DataFrame::new([@frame.Series::from_ints("n", [1, 2, 3])]).unwrap()
+  let df = DataFrame::new([Series::from_ints("n", [1, 2, 3])])
   let expected =
     #|| n   |
     #|| --- |
     #|... (3 more rows)
     #|
-  assert_eq(@io.to_markdown_with_limit(df, 0), expected)
+  assert_eq(df.to_markdown_with_limit(0), expected)
 }
 
 ///|
 test "to_markdown_with_limit: negative limit is clamped to 0" {
-  let df = @frame.DataFrame::new([@frame.Series::from_ints("n", [1, 2])]).unwrap()
+  let df = DataFrame::new([Series::from_ints("n", [1, 2])])
   let expected =
     #|| n   |
     #|| --- |
     #|... (2 more rows)
     #|
-  assert_eq(@io.to_markdown_with_limit(df, -5), expected)
+  assert_eq(df.to_markdown_with_limit(-5), expected)
 }

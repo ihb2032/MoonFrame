@@ -24,7 +24,7 @@ test "from_ints / from_int_options" {
   assert_eq(raw.null_count(), 0)
   let opt = Series::from_int_options("x", [Some(1), None, Some(3)])
   assert_eq(opt.null_count(), 1)
-  assert_eq(opt.get(1), Ok(@types.Scalar::Null))
+  assert_eq(opt.get(1), @types.Scalar::Null)
 }
 
 ///|
@@ -90,20 +90,20 @@ test "null_rate covers empty / no-null / mixed / all-null" {
 }
 
 ///|
-test "is_null returns Ok for in-bounds, IndexOutOfBounds otherwise" {
+test "is_null returns the validity for in-bounds, IndexOutOfBounds otherwise" {
   let s = Series::from_int_options("x", [Some(1), None, Some(3)])
-  assert_eq(s.is_null(0), Ok(false))
-  assert_eq(s.is_null(1), Ok(true))
-  assert_eq(s.is_null(-1), Err(@types.DataError::IndexOutOfBounds(-1)))
-  assert_eq(s.is_null(3), Err(@types.DataError::IndexOutOfBounds(3)))
+  assert_eq(s.is_null(0), false)
+  assert_eq(s.is_null(1), true)
+  assert_eq(try? s.is_null(-1), Err(@types.DataError::IndexOutOfBounds(-1)))
+  assert_eq(try? s.is_null(3), Err(@types.DataError::IndexOutOfBounds(3)))
 }
 
 ///|
 test "get returns Scalar / Null / IndexOutOfBounds" {
   let s = Series::from_int_options("x", [Some(7), None])
-  assert_eq(s.get(0), Ok(@types.Scalar::Int(7)))
-  assert_eq(s.get(1), Ok(@types.Scalar::Null))
-  assert_eq(s.get(5), Err(@types.DataError::IndexOutOfBounds(5)))
+  assert_eq(s.get(0), @types.Scalar::Int(7))
+  assert_eq(s.get(1), @types.Scalar::Null)
+  assert_eq(try? s.get(5), Err(@types.DataError::IndexOutOfBounds(5)))
 }
 
 ///|
@@ -130,19 +130,19 @@ test "rename returns a new series with the new name, sharing storage" {
 ///|
 test "slice mid-range produces a sub-series preserving name + nulls" {
   let s = Series::from_int_options("x", [Some(10), None, Some(30), Some(40)])
-  let part = s.slice(1, 3).unwrap()
+  let part = s.slice(1, 3)
   assert_eq(part.name(), "x")
   assert_eq(part.len(), 2)
-  assert_eq(part.get(0), Ok(@types.Scalar::Null))
-  assert_eq(part.get(1), Ok(@types.Scalar::Int(30)))
+  assert_eq(part.get(0), @types.Scalar::Null)
+  assert_eq(part.get(1), @types.Scalar::Int(30))
 }
 
 ///|
 test "slice bubbles column-level errors" {
   let s = Series::from_ints("x", [1, 2, 3])
-  assert_eq(s.slice(-1, 2), Err(@types.DataError::IndexOutOfBounds(-1)))
-  assert_eq(s.slice(0, 5), Err(@types.DataError::IndexOutOfBounds(5)))
-  assert_true(s.slice(2, 1) is Err(InvalidOperation(_)))
+  assert_eq(try? s.slice(-1, 2), Err(@types.DataError::IndexOutOfBounds(-1)))
+  assert_eq(try? s.slice(0, 5), Err(@types.DataError::IndexOutOfBounds(5)))
+  assert_true((try? s.slice(2, 1)) is Err(InvalidOperation(_)))
 }
 
 // ── take ─────────────────────────────────────────────────────────────
@@ -150,18 +150,18 @@ test "slice bubbles column-level errors" {
 ///|
 test "take gathers with duplicates and preserves nulls" {
   let s = Series::from_int_options("x", [Some(1), None, Some(3)])
-  let out = s.take([2, 1, 0, 1]).unwrap()
+  let out = s.take([2, 1, 0, 1])
   assert_eq(out.name(), "x")
   assert_eq(out.len(), 4)
-  assert_eq(out.get(0), Ok(@types.Scalar::Int(3)))
-  assert_eq(out.get(1), Ok(@types.Scalar::Null))
-  assert_eq(out.get(3), Ok(@types.Scalar::Null))
+  assert_eq(out.get(0), @types.Scalar::Int(3))
+  assert_eq(out.get(1), @types.Scalar::Null)
+  assert_eq(out.get(3), @types.Scalar::Null)
 }
 
 ///|
 test "take with empty index array returns empty series" {
   let s = Series::from_ints("x", [1, 2])
-  let out = s.take([]).unwrap()
+  let out = s.take([])
   assert_true(out.is_empty())
   assert_eq(out.name(), "x")
   assert_eq(out.dtype(), @types.DataType::Int)
@@ -170,8 +170,8 @@ test "take with empty index array returns empty series" {
 ///|
 test "take out-of-bounds reports the first offender" {
   let s = Series::from_ints("x", [1, 2])
-  assert_eq(s.take([0, 5]), Err(@types.DataError::IndexOutOfBounds(5)))
-  assert_eq(s.take([-1]), Err(@types.DataError::IndexOutOfBounds(-1)))
+  assert_eq(try? s.take([0, 5]), Err(@types.DataError::IndexOutOfBounds(5)))
+  assert_eq(try? s.take([-1]), Err(@types.DataError::IndexOutOfBounds(-1)))
 }
 
 // ── drop_nulls ───────────────────────────────────────────────────────
@@ -183,9 +183,9 @@ test "drop_nulls removes every null, shrinking length" {
   assert_eq(cleaned.name(), "x")
   assert_eq(cleaned.len(), 3)
   assert_eq(cleaned.null_count(), 0)
-  assert_eq(cleaned.get(0), Ok(@types.Scalar::Int(1)))
-  assert_eq(cleaned.get(1), Ok(@types.Scalar::Int(3)))
-  assert_eq(cleaned.get(2), Ok(@types.Scalar::Int(5)))
+  assert_eq(cleaned.get(0), @types.Scalar::Int(1))
+  assert_eq(cleaned.get(1), @types.Scalar::Int(3))
+  assert_eq(cleaned.get(2), @types.Scalar::Int(5))
 }
 
 ///|
@@ -215,67 +215,73 @@ test "drop_nulls on empty series returns empty series" {
 ///|
 test "fill_null on Int series fills nulls with the given Int" {
   let s = Series::from_int_options("x", [Some(1), None, Some(3), None])
-  let out = s.fill_null(@types.Scalar::Int(0)).unwrap()
+  let out = s.fill_null(@types.Scalar::Int(0))
   assert_eq(out.null_count(), 0)
-  assert_eq(out.get(0), Ok(@types.Scalar::Int(1)))
-  assert_eq(out.get(1), Ok(@types.Scalar::Int(0)))
-  assert_eq(out.get(2), Ok(@types.Scalar::Int(3)))
-  assert_eq(out.get(3), Ok(@types.Scalar::Int(0)))
+  assert_eq(out.get(0), @types.Scalar::Int(1))
+  assert_eq(out.get(1), @types.Scalar::Int(0))
+  assert_eq(out.get(2), @types.Scalar::Int(3))
+  assert_eq(out.get(3), @types.Scalar::Int(0))
 }
 
 ///|
 test "fill_null on Float series fills nulls with the given Float" {
   let s = Series::from_float_options("x", [None, Some(2.5)])
-  let out = s.fill_null(@types.Scalar::Float(1.5)).unwrap()
-  assert_eq(out.get(0), Ok(@types.Scalar::Float(1.5)))
-  assert_eq(out.get(1), Ok(@types.Scalar::Float(2.5)))
+  let out = s.fill_null(@types.Scalar::Float(1.5))
+  assert_eq(out.get(0), @types.Scalar::Float(1.5))
+  assert_eq(out.get(1), @types.Scalar::Float(2.5))
 }
 
 ///|
 test "fill_null on Bool series fills nulls with the given Bool" {
   let s = Series::from_bool_options("x", [Some(true), None, None])
-  let out = s.fill_null(@types.Scalar::Bool(false)).unwrap()
-  assert_eq(out.get(0), Ok(@types.Scalar::Bool(true)))
-  assert_eq(out.get(1), Ok(@types.Scalar::Bool(false)))
-  assert_eq(out.get(2), Ok(@types.Scalar::Bool(false)))
+  let out = s.fill_null(@types.Scalar::Bool(false))
+  assert_eq(out.get(0), @types.Scalar::Bool(true))
+  assert_eq(out.get(1), @types.Scalar::Bool(false))
+  assert_eq(out.get(2), @types.Scalar::Bool(false))
 }
 
 ///|
 test "fill_null on String series fills nulls with the given String" {
   let s = Series::from_string_options("x", [Some("a"), None])
-  let out = s.fill_null(@types.Scalar::String("z")).unwrap()
-  assert_eq(out.get(0), Ok(@types.Scalar::String("a")))
-  assert_eq(out.get(1), Ok(@types.Scalar::String("z")))
+  let out = s.fill_null(@types.Scalar::String("z"))
+  assert_eq(out.get(0), @types.Scalar::String("a"))
+  assert_eq(out.get(1), @types.Scalar::String("z"))
 }
 
 ///|
 test "fill_null rejects Scalar::Null fill values" {
   let s = Series::from_int_options("x", [Some(1), None])
-  assert_true(s.fill_null(@types.Scalar::Null) is Err(TypeMismatch(_)))
+  assert_true((try? s.fill_null(@types.Scalar::Null)) is Err(TypeMismatch(_)))
 }
 
 ///|
 test "fill_null rejects dtype-mismatched Int fill" {
   let s = Series::from_floats("x", [1.0])
-  assert_true(s.fill_null(@types.Scalar::Int(0)) is Err(TypeMismatch(_)))
+  assert_true((try? s.fill_null(@types.Scalar::Int(0))) is Err(TypeMismatch(_)))
 }
 
 ///|
 test "fill_null rejects dtype-mismatched Float fill" {
   let s = Series::from_ints("x", [1])
-  assert_true(s.fill_null(@types.Scalar::Float(0.0)) is Err(TypeMismatch(_)))
+  assert_true(
+    (try? s.fill_null(@types.Scalar::Float(0.0))) is Err(TypeMismatch(_)),
+  )
 }
 
 ///|
 test "fill_null rejects dtype-mismatched Bool fill" {
   let s = Series::from_ints("x", [1])
-  assert_true(s.fill_null(@types.Scalar::Bool(true)) is Err(TypeMismatch(_)))
+  assert_true(
+    (try? s.fill_null(@types.Scalar::Bool(true))) is Err(TypeMismatch(_)),
+  )
 }
 
 ///|
 test "fill_null rejects dtype-mismatched String fill" {
   let s = Series::from_ints("x", [1])
-  assert_true(s.fill_null(@types.Scalar::String("z")) is Err(TypeMismatch(_)))
+  assert_true(
+    (try? s.fill_null(@types.Scalar::String("z"))) is Err(TypeMismatch(_)),
+  )
 }
 
 // ── cast / to_int / to_float / to_string_series ──────────────────────
@@ -283,63 +289,54 @@ test "fill_null rejects dtype-mismatched String fill" {
 ///|
 test "cast dispatches by target dtype" {
   let s = Series::from_ints("x", [1, 2, 3])
-  assert_eq(s.cast(@types.DataType::Int).unwrap().dtype(), @types.DataType::Int)
-  assert_eq(
-    s.cast(@types.DataType::Float).unwrap().dtype(),
-    @types.DataType::Float,
-  )
-  assert_eq(
-    s.cast(@types.DataType::String).unwrap().dtype(),
-    @types.DataType::String,
-  )
-  assert_true(s.cast(@types.DataType::Bool) is Err(Unsupported(_)))
-  assert_true(s.cast(@types.DataType::Null) is Err(Unsupported(_)))
+  assert_eq(s.cast(@types.DataType::Int).dtype(), @types.DataType::Int)
+  assert_eq(s.cast(@types.DataType::Float).dtype(), @types.DataType::Float)
+  assert_eq(s.cast(@types.DataType::String).dtype(), @types.DataType::String)
+  assert_true((try? s.cast(@types.DataType::Bool)) is Err(Unsupported(_)))
+  assert_true((try? s.cast(@types.DataType::Null)) is Err(Unsupported(_)))
 }
 
 ///|
 test "to_int identity / Float→Int / Bool→Int / String→Int" {
   let i = Series::from_ints("x", [1, 2])
-  assert_eq(i.to_int().unwrap(), i)
+  assert_eq(i.to_int(), i)
   let f = Series::from_floats("x", [1.5, 2.7])
-  let f_to_i = f.to_int().unwrap()
-  assert_eq(f_to_i.get(0), Ok(@types.Scalar::Int(1)))
+  let f_to_i = f.to_int()
+  assert_eq(f_to_i.get(0), @types.Scalar::Int(1))
   let b = Series::from_bools("x", [true, false])
-  let b_to_i = b.to_int().unwrap()
-  assert_eq(b_to_i.get(0), Ok(@types.Scalar::Int(1)))
-  assert_eq(b_to_i.get(1), Ok(@types.Scalar::Int(0)))
+  let b_to_i = b.to_int()
+  assert_eq(b_to_i.get(0), @types.Scalar::Int(1))
+  assert_eq(b_to_i.get(1), @types.Scalar::Int(0))
   let bad = Series::from_strings("x", ["nope"])
-  assert_true(bad.to_int() is Err(ParseError(_)))
+  assert_true((try? bad.to_int()) is Err(ParseError(_)))
 }
 
 ///|
 test "to_float identity / Int→Float / Bool→Float / String→Float" {
   let f = Series::from_floats("x", [1.0])
-  assert_eq(f.to_float().unwrap(), f)
+  assert_eq(f.to_float(), f)
   let i = Series::from_ints("x", [3])
-  assert_eq(i.to_float().unwrap().get(0), Ok(@types.Scalar::Float(3.0)))
+  assert_eq(i.to_float().get(0), @types.Scalar::Float(3.0))
   let b = Series::from_bools("x", [true, false])
-  let b_to_f = b.to_float().unwrap()
-  assert_eq(b_to_f.get(0), Ok(@types.Scalar::Float(1.0)))
-  assert_eq(b_to_f.get(1), Ok(@types.Scalar::Float(0.0)))
+  let b_to_f = b.to_float()
+  assert_eq(b_to_f.get(0), @types.Scalar::Float(1.0))
+  assert_eq(b_to_f.get(1), @types.Scalar::Float(0.0))
   let bad = Series::from_strings("x", ["x"])
-  assert_true(bad.to_float() is Err(ParseError(_)))
+  assert_true((try? bad.to_float()) is Err(ParseError(_)))
 }
 
 ///|
 test "to_string_series renders value-style across dtypes" {
   let i = Series::from_int_options("x", [Some(7), None])
-  let s_i = i.to_string_series().unwrap()
-  assert_eq(s_i.get(0), Ok(@types.Scalar::String("7")))
-  assert_eq(s_i.get(1), Ok(@types.Scalar::Null))
+  let s_i = i.to_string_series()
+  assert_eq(s_i.get(0), @types.Scalar::String("7"))
+  assert_eq(s_i.get(1), @types.Scalar::Null)
   let f = Series::from_floats("x", [1.5])
-  assert_eq(
-    f.to_string_series().unwrap().get(0),
-    Ok(@types.Scalar::String("1.5")),
-  )
+  assert_eq(f.to_string_series().get(0), @types.Scalar::String("1.5"))
   let b = Series::from_bools("x", [true, false])
-  let s_b = b.to_string_series().unwrap()
-  assert_eq(s_b.get(0), Ok(@types.Scalar::String("true")))
-  assert_eq(s_b.get(1), Ok(@types.Scalar::String("false")))
+  let s_b = b.to_string_series()
+  assert_eq(s_b.get(0), @types.Scalar::String("true"))
+  assert_eq(s_b.get(1), @types.Scalar::String("false"))
   let s = Series::from_strings("x", ["already"])
-  assert_eq(s.to_string_series().unwrap(), s)
+  assert_eq(s.to_string_series(), s)
 }

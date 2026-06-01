@@ -17,26 +17,26 @@ pub struct Bitmap {
 } derive(Eq, @debug.Debug)
 pub fn Bitmap::all_null(Int) -> Self
 pub fn Bitmap::all_valid(Int) -> Self
-pub fn Bitmap::bit_and(Self, Self) -> Result[Self, @types.DataError]
+pub fn Bitmap::bit_and(Self, Self) -> Self raise @types.DataError
 pub fn Bitmap::from_bools(Array[Bool]) -> Self
 pub fn[T] Bitmap::from_options(Array[T?]) -> Self
-pub fn Bitmap::is_null(Self, Int) -> Result[Bool, @types.DataError]
-pub fn Bitmap::is_valid(Self, Int) -> Result[Bool, @types.DataError]
+pub fn Bitmap::is_null(Self, Int) -> Bool raise @types.DataError
+pub fn Bitmap::is_valid(Self, Int) -> Bool raise @types.DataError
 pub fn Bitmap::len(Self) -> Int
 pub fn Bitmap::null_count(Self) -> Int
-pub fn Bitmap::slice(Self, Int, Int) -> Result[Self, @types.DataError]
-pub fn Bitmap::take(Self, Array[Int]) -> Result[Self, @types.DataError]
+pub fn Bitmap::slice(Self, Int, Int) -> Self raise @types.DataError
+pub fn Bitmap::take(Self, Array[Int]) -> Self raise @types.DataError
 pub fn Bitmap::to_bools(Self) -> Array[Bool]
 
 pub struct BuiltinColumn {
   data : ColumnData
   validity : Bitmap
 } derive(Eq, @debug.Debug)
-pub fn BuiltinColumn::bool_values(Self) -> Result[(Array[Bool], Bitmap), @types.DataError]
-pub fn BuiltinColumn::cast(Self, @types.DataType) -> Result[Self, @types.DataError]
+pub fn BuiltinColumn::bool_values(Self) -> (Array[Bool], Bitmap) raise @types.DataError
+pub fn BuiltinColumn::cast(Self, @types.DataType) -> Self raise @types.DataError
 pub fn BuiltinColumn::data(Self) -> ColumnData
 pub fn BuiltinColumn::dtype(Self) -> @types.DataType
-pub fn BuiltinColumn::float_values(Self) -> Result[(Array[Double], Bitmap), @types.DataError]
+pub fn BuiltinColumn::float_values(Self) -> (Array[Double], Bitmap) raise @types.DataError
 pub fn BuiltinColumn::from_bool_options(Array[Bool?]) -> Self
 pub fn BuiltinColumn::from_bools(Array[Bool]) -> Self
 pub fn BuiltinColumn::from_float_options(Array[Double?]) -> Self
@@ -45,18 +45,18 @@ pub fn BuiltinColumn::from_int_options(Array[Int64?]) -> Self
 pub fn BuiltinColumn::from_ints(Array[Int64]) -> Self
 pub fn BuiltinColumn::from_string_options(Array[String?]) -> Self
 pub fn BuiltinColumn::from_strings(Array[String]) -> Self
-pub fn BuiltinColumn::get(Self, Int) -> Result[@types.Scalar, @types.DataError]
-pub fn BuiltinColumn::int_values(Self) -> Result[(Array[Int64], Bitmap), @types.DataError]
+pub fn BuiltinColumn::get(Self, Int) -> @types.Scalar raise @types.DataError
+pub fn BuiltinColumn::int_values(Self) -> (Array[Int64], Bitmap) raise @types.DataError
 pub fn BuiltinColumn::is_empty(Self) -> Bool
-pub fn BuiltinColumn::is_null(Self, Int) -> Result[Bool, @types.DataError]
+pub fn BuiltinColumn::is_null(Self, Int) -> Bool raise @types.DataError
 pub fn BuiltinColumn::len(Self) -> Int
 pub fn BuiltinColumn::null_count(Self) -> Int
-pub fn BuiltinColumn::slice(Self, Int, Int) -> Result[Self, @types.DataError]
-pub fn BuiltinColumn::string_values(Self) -> Result[(Array[String], Bitmap), @types.DataError]
-pub fn BuiltinColumn::take(Self, Array[Int]) -> Result[Self, @types.DataError]
-pub fn BuiltinColumn::to_float(Self) -> Result[Self, @types.DataError]
-pub fn BuiltinColumn::to_int(Self) -> Result[Self, @types.DataError]
-pub fn BuiltinColumn::to_string_column(Self) -> Result[Self, @types.DataError]
+pub fn BuiltinColumn::slice(Self, Int, Int) -> Self raise @types.DataError
+pub fn BuiltinColumn::string_values(Self) -> (Array[String], Bitmap) raise @types.DataError
+pub fn BuiltinColumn::take(Self, Array[Int]) -> Self raise @types.DataError
+pub fn BuiltinColumn::to_float(Self) -> Self raise @types.DataError
+pub fn BuiltinColumn::to_int(Self) -> Self raise @types.DataError
+pub fn BuiltinColumn::to_string_column(Self) -> Self
 pub fn BuiltinColumn::validity(Self) -> Bitmap
 
 pub(all) enum ColumnData {

@@ -2,8 +2,8 @@
 /// A single cell value in a DataFrame.
 ///
 /// `Null` represents a missing value. All `as_*` conversions and comparisons
-/// involving `Null` return `Err(TypeMismatch(...))` — callers must check
-/// `is_null()` first or accept the error.
+/// involving `Null` `raise TypeMismatch(...)` — callers must check
+/// `is_null()` first or handle the error.
 ///
 /// The `Float` variant carries a 64-bit `Double`; the `Int` variant carries
 /// a 64-bit `Int64`. Use `as_float` for explicit access; `Int` is also
@@ -50,112 +50,116 @@ pub fn Scalar::to_string(self : Scalar) -> String {
 }
 
 ///|
-pub fn Scalar::as_int(self : Scalar) -> Result[Int64, DataError] {
+/// `Int` cells return their `Int64`; other concrete variants and `Null`
+/// `raise TypeMismatch(...)`.
+pub fn Scalar::as_int(self : Scalar) -> Int64 raise DataError {
   match self {
-    Int(v) => Ok(v)
-    Null => Err(TypeMismatch("expected Int, got Null"))
-    other => Err(TypeMismatch("expected Int, got " + other.dtype().to_string()))
-  }
-}
-
-///|
-/// `Int` values are promoted to `Double`; other concrete variants and `Null`
-/// return `Err(TypeMismatch(...))`.
-pub fn Scalar::as_float(self : Scalar) -> Result[Double, DataError] {
-  match self {
-    Float(v) => Ok(v)
-    Int(v) => Ok(v.to_double())
-    Null => Err(TypeMismatch("expected Float, got Null"))
+    Int(v) => v
+    Null => raise TypeMismatch("expected Int, got Null")
     other =>
-      Err(TypeMismatch("expected Float, got " + other.dtype().to_string()))
+      raise TypeMismatch("expected Int, got " + other.dtype().to_string())
   }
 }
 
 ///|
-pub fn Scalar::as_bool(self : Scalar) -> Result[Bool, DataError] {
+/// `Float` cells return their `Double`; `Int` cells are promoted to
+/// `Double`; other concrete variants and `Null` `raise TypeMismatch(...)`.
+pub fn Scalar::as_float(self : Scalar) -> Double raise DataError {
   match self {
-    Bool(v) => Ok(v)
-    Null => Err(TypeMismatch("expected Bool, got Null"))
+    Float(v) => v
+    Int(v) => v.to_double()
+    Null => raise TypeMismatch("expected Float, got Null")
     other =>
-      Err(TypeMismatch("expected Bool, got " + other.dtype().to_string()))
+      raise TypeMismatch("expected Float, got " + other.dtype().to_string())
   }
 }
 
 ///|
-pub fn Scalar::as_string(self : Scalar) -> Result[String, DataError] {
+pub fn Scalar::as_bool(self : Scalar) -> Bool raise DataError {
   match self {
-    String(v) => Ok(v)
-    Null => Err(TypeMismatch("expected String, got Null"))
+    Bool(v) => v
+    Null => raise TypeMismatch("expected Bool, got Null")
     other =>
-      Err(TypeMismatch("expected String, got " + other.dtype().to_string()))
+      raise TypeMismatch("expected Bool, got " + other.dtype().to_string())
   }
 }
 
 ///|
+pub fn Scalar::as_string(self : Scalar) -> String raise DataError {
+  match self {
+    String(v) => v
+    Null => raise TypeMismatch("expected String, got Null")
+    other =>
+      raise TypeMismatch("expected String, got " + other.dtype().to_string())
+  }
+}
+
+///|
+/// Always raises — the shared failure path for `eq` / `lt` on two
+/// incomparable concrete dtypes. The `Bool` result type lets it slot into
+/// the comparison match arms that produce a `Bool`.
 fn type_mismatch_for_compare(
   left : Scalar,
   right : Scalar,
-) -> Result[Bool, DataError] {
-  Err(
-    TypeMismatch(
-      "cannot compare " +
-      left.dtype().to_string() +
-      " and " +
-      right.dtype().to_string(),
-    ),
+) -> Bool raise DataError {
+  raise TypeMismatch(
+    "cannot compare " +
+    left.dtype().to_string() +
+    " and " +
+    right.dtype().to_string(),
   )
 }
 
 ///|
 /// Equality between two `Scalar`s. Two `Null`s, or `Null` and a value,
-/// return `Err` — callers must guard nullability explicitly. Mixed numeric
-/// types (`Int` vs `Float`) compare after promoting `Int` to `Double`; NaN
-/// follows IEEE 754 semantics (`NaN == NaN` is `Ok(false)`).
-pub fn Scalar::eq(self : Scalar, other : Scalar) -> Result[Bool, DataError] {
+/// `raise TypeMismatch` — callers must guard nullability explicitly. Mixed
+/// numeric types (`Int` vs `Float`) compare after promoting `Int` to
+/// `Double`; NaN follows IEEE 754 semantics (`NaN == NaN` is `false`).
+pub fn Scalar::eq(self : Scalar, other : Scalar) -> Bool raise DataError {
   match (self, other) {
-    (Null, _) | (_, Null) => Err(TypeMismatch("cannot compare with Null"))
-    (Int(a), Int(b)) => Ok(a == b)
-    (Float(a), Float(b)) => Ok(a == b)
-    (Int(a), Float(b)) => Ok(a.to_double() == b)
-    (Float(a), Int(b)) => Ok(a == b.to_double())
-    (Bool(a), Bool(b)) => Ok(a == b)
-    (String(a), String(b)) => Ok(a == b)
+    (Null, _) | (_, Null) => raise TypeMismatch("cannot compare with Null")
+    (Int(a), Int(b)) => a == b
+    (Float(a), Float(b)) => a == b
+    (Int(a), Float(b)) => a.to_double() == b
+    (Float(a), Int(b)) => a == b.to_double()
+    (Bool(a), Bool(b)) => a == b
+    (String(a), String(b)) => a == b
     _ => type_mismatch_for_compare(self, other)
   }
 }
 
 ///|
 /// Strict less-than. NaN follows IEEE 754: any comparison involving `NaN`
-/// returns `Ok(false)`. `Null` short-circuits to `Err`.
-pub fn Scalar::lt(self : Scalar, other : Scalar) -> Result[Bool, DataError] {
+/// returns `false`. `Null` short-circuits to `raise`.
+pub fn Scalar::lt(self : Scalar, other : Scalar) -> Bool raise DataError {
   match (self, other) {
-    (Null, _) | (_, Null) => Err(TypeMismatch("cannot compare with Null"))
-    (Int(a), Int(b)) => Ok(a < b)
-    (Float(a), Float(b)) => Ok(a < b)
-    (Int(a), Float(b)) => Ok(a.to_double() < b)
-    (Float(a), Int(b)) => Ok(a < b.to_double())
-    (Bool(a), Bool(b)) => Ok((a |> bool_to_int) < (b |> bool_to_int))
-    (String(a), String(b)) => Ok(compare_string_lex(a, b) < 0)
+    (Null, _) | (_, Null) => raise TypeMismatch("cannot compare with Null")
+    (Int(a), Int(b)) => a < b
+    (Float(a), Float(b)) => a < b
+    (Int(a), Float(b)) => a.to_double() < b
+    (Float(a), Int(b)) => a < b.to_double()
+    (Bool(a), Bool(b)) => (a |> bool_to_int) < (b |> bool_to_int)
+    (String(a), String(b)) => compare_string_lex(a, b) < 0
     _ => type_mismatch_for_compare(self, other)
   }
 }
 
 ///|
-pub fn Scalar::lte(self : Scalar, other : Scalar) -> Result[Bool, DataError] {
-  match self.eq(other) {
-    Err(e) => Err(e)
-    Ok(true) => Ok(true)
-    Ok(false) => self.lt(other)
+pub fn Scalar::lte(self : Scalar, other : Scalar) -> Bool raise DataError {
+  if self.eq(other) {
+    true
+  } else {
+    self.lt(other)
   }
 }
 
 ///|
-pub fn Scalar::gt(self : Scalar, other : Scalar) -> Result[Bool, DataError] {
+pub fn Scalar::gt(self : Scalar, other : Scalar) -> Bool raise DataError {
   other.lt(self)
 }
 
 ///|
-pub fn Scalar::gte(self : Scalar, other : Scalar) -> Result[Bool, DataError] {
+pub fn Scalar::gte(self : Scalar, other : Scalar) -> Bool raise DataError {
   other.lte(self)
 }
 
@@ -174,7 +178,7 @@ fn bool_to_int(b : Bool) -> Int {
 /// is **shortlex** (length first, then code unit) — e.g. `"fig" < "apple"`
 /// is `true` because `"fig"` is shorter, which surprises users expecting
 /// pandas / SQL dictionary order. Every user-facing ordering in MoonFrame
-/// (`Scalar::lt`, `Series::min` / `max`, `@ops.sort_by`) routes through
+/// (`Scalar::lt`, `Series::min` / `max`, `DataFrame::sort_by`) routes through
 /// this helper instead of the built-in operator so they all agree.
 pub fn compare_string_lex(a : String, b : String) -> Int {
   let la = a.length()

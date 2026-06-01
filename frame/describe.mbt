@@ -18,19 +18,18 @@
 ///
 /// `min` / `max` are rendered as `String` so the summary can carry
 /// extrema for every dtype in a single column without forcing a
-/// uniform value type. The per-column reductions (`@ops.min`,
-/// `@ops.max`) keep the original dtype if a caller needs it typed.
+/// uniform value type. The per-column reductions (`min`, `max`) keep the
+/// original dtype if a caller needs it typed.
 ///
-/// Returns `Result` because the summary frame is built through the
-/// fallible `DataFrame::new`; the output columns are hardcoded-unique and
-/// equal length, so the value is always `Ok`, but it is forwarded rather
-/// than `unwrap`ped so no panic path crosses the public API. The 0-column
+/// Raises only because the summary frame is built through the fallible
+/// `DataFrame::new`; the output columns are hardcoded-unique and equal
+/// length, so the raise is forwarded, never actually taken. The 0-column
 /// case collapses to a `0×8` frame: zero source columns ⇒ zero output
 /// rows, but the eight schema columns are still present so downstream
 /// code can rely on the result's column layout.
-pub fn describe(
-  df : @frame.DataFrame,
-) -> Result[@frame.DataFrame, @types.DataError] {
+pub fn DataFrame::describe(
+  self : DataFrame,
+) -> DataFrame raise @types.DataError {
   let names : Array[String] = []
   let dtypes : Array[String] = []
   let counts : Array[Int64] = []
@@ -39,7 +38,7 @@ pub fn describe(
   let means : Array[Double?] = []
   let mins : Array[String?] = []
   let maxs : Array[String?] = []
-  for s in df.column_series() {
+  for s in self.column_series() {
     names.push(s.name())
     dtypes.push(s.dtype().to_string())
     counts.push(s.count().to_int64())
@@ -49,9 +48,10 @@ pub fn describe(
     // InvalidOperation for empty / all-null numeric) collapse to a
     // null cell here — the diagnostic distinction is preserved at the
     // per-column API and would be noise in the aggregate view.
-    let mean_cell = match s.mean() {
-      Ok(v) => Some(v)
-      Err(_) => None
+    let mean_cell = try s.mean() catch {
+      _ => None
+    } noraise {
+      v => Some(v)
     }
     means.push(mean_cell)
     // `min_value` / `max_value` are total; they return `Scalar::Null` to
@@ -60,25 +60,25 @@ pub fn describe(
     mins.push(render_extremum(s.min_value()))
     maxs.push(render_extremum(s.max_value()))
   }
-  // The output columns share a length (`df.ncols()`) and the names are
-  // hardcoded-unique, so `DataFrame::new` always returns `Ok`; the value
-  // is forwarded rather than `unwrap`ped.
-  @frame.DataFrame::new([
-    @frame.Series::from_strings("column", names),
-    @frame.Series::from_strings("dtype", dtypes),
-    @frame.Series::from_ints("count", counts),
-    @frame.Series::from_ints("null_count", null_counts),
-    @frame.Series::from_ints("unique_count", unique_counts),
-    @frame.Series::from_float_options("mean", means),
-    @frame.Series::from_string_options("min", mins),
-    @frame.Series::from_string_options("max", maxs),
+  // The output columns share a length (`self.ncols()`) and the names are
+  // hardcoded-unique, so `DataFrame::new` always succeeds; the raise is
+  // forwarded rather than caught.
+  DataFrame::new([
+    Series::from_strings("column", names),
+    Series::from_strings("dtype", dtypes),
+    Series::from_ints("count", counts),
+    Series::from_ints("null_count", null_counts),
+    Series::from_ints("unique_count", unique_counts),
+    Series::from_float_options("mean", means),
+    Series::from_string_options("min", mins),
+    Series::from_string_options("max", maxs),
   ])
 }
 
 ///|
-/// Map a `Series::min` / `Series::max` result into a nullable `String`
-/// cell. `Scalar::Null` becomes a null cell; every concrete variant
-/// renders via `Scalar::to_string`.
+/// Map a `Series::min_value` / `Series::max_value` result into a nullable
+/// `String` cell. `Scalar::Null` becomes a null cell; every concrete
+/// variant renders via `Scalar::to_string`.
 fn render_extremum(scalar : @types.Scalar) -> String? {
   if scalar.is_null() {
     None

@@ -17,21 +17,18 @@
 #coverage.skip
 fn main {
   let path = "examples/sales_analysis/sales.csv"
-  let df = match @moonframe.read_csv(path) {
-    Ok(d) => d
-    Err(e) => {
-      println("failed to read \{path}: \{e.message()}")
-      return
-    }
-  }
-  match @pipeline.widget_report(df) {
-    Ok((sorted, summary)) => {
-      println("Loaded \{df.nrows()} rows, \{df.ncols()} columns from \{path}")
-      println("\nWidget rows, sorted by quantity (desc):")
-      println(@moonframe.to_markdown(sorted))
-      println("\nPer-column summary:")
-      println(@moonframe.to_markdown(summary))
-    }
-    Err(e) => println("pipeline failed: \{e.message()}")
+  // The whole pipeline raises `DataError`; a single `try`/`catch` at the
+  // top of `main` keeps the happy path a flat method chain and prints a
+  // diagnostic on any failure (read error, bad column, …).
+  try {
+    let df = @moonframe.read_csv(path)
+    let (sorted, summary) = @pipeline.widget_report(df)
+    println("Loaded \{df.nrows()} rows, \{df.ncols()} columns from \{path}")
+    println("\nWidget rows, sorted by quantity (desc):")
+    println(sorted.to_markdown())
+    println("\nPer-column summary:")
+    println(summary.to_markdown())
+  } catch {
+    e => println("pipeline failed: \{e.message()}")
   }
 }

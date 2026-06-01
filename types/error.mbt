@@ -1,6 +1,6 @@
 ///|
 /// Unified error type for all MoonFrame operations.
-pub(all) enum DataError {
+pub(all) suberror DataError {
   ColumnNotFound(String)
   DuplicateColumn(String)
   TypeMismatch(String)

@@ -11,9 +11,7 @@ pub fn compare_string_lex(String, String) -> Int
 pub fn is_decimal_int_literal(String) -> Bool
 
 // Errors
-
-// Types and methods
-pub(all) enum DataError {
+pub(all) suberror DataError {
   ColumnNotFound(String)
   DuplicateColumn(String)
   TypeMismatch(String)
@@ -28,6 +26,7 @@ pub(all) enum DataError {
 pub fn DataError::message(Self) -> String
 pub impl Show for DataError
 
+// Types and methods
 pub(all) enum DataType {
   Int
   Float
@@ -62,33 +61,33 @@ pub(all) enum Scalar {
   String(String)
   Null
 } derive(Eq, @debug.Debug)
-pub fn Scalar::as_bool(Self) -> Result[Bool, DataError]
-pub fn Scalar::as_float(Self) -> Result[Double, DataError]
-pub fn Scalar::as_int(Self) -> Result[Int64, DataError]
-pub fn Scalar::as_string(Self) -> Result[String, DataError]
+pub fn Scalar::as_bool(Self) -> Bool raise DataError
+pub fn Scalar::as_float(Self) -> Double raise DataError
+pub fn Scalar::as_int(Self) -> Int64 raise DataError
+pub fn Scalar::as_string(Self) -> String raise DataError
 pub fn Scalar::dtype(Self) -> DataType
-pub fn Scalar::eq(Self, Self) -> Result[Bool, DataError]
-pub fn Scalar::gt(Self, Self) -> Result[Bool, DataError]
-pub fn Scalar::gte(Self, Self) -> Result[Bool, DataError]
+pub fn Scalar::eq(Self, Self) -> Bool raise DataError
+pub fn Scalar::gt(Self, Self) -> Bool raise DataError
+pub fn Scalar::gte(Self, Self) -> Bool raise DataError
 pub fn Scalar::is_null(Self) -> Bool
-pub fn Scalar::lt(Self, Self) -> Result[Bool, DataError]
-pub fn Scalar::lte(Self, Self) -> Result[Bool, DataError]
+pub fn Scalar::lt(Self, Self) -> Bool raise DataError
+pub fn Scalar::lte(Self, Self) -> Bool raise DataError
 pub fn Scalar::to_string(Self) -> String
 pub impl Show for Scalar
 
 pub(all) struct Schema {
   fields : Array[Field]
 } derive(Eq, @debug.Debug)
-pub fn Schema::field(Self, String) -> Result[Field, DataError]
-pub fn Schema::field_at(Self, Int) -> Result[Field, DataError]
+pub fn Schema::field(Self, String) -> Field raise DataError
+pub fn Schema::field_at(Self, Int) -> Field raise DataError
 pub fn Schema::field_names(Self) -> Array[String]
 pub fn Schema::fields(Self) -> Array[Field]
-pub fn Schema::index_of(Self, String) -> Result[Int, DataError]
+pub fn Schema::index_of(Self, String) -> Int raise DataError
 pub fn Schema::is_empty(Self) -> Bool
 pub fn Schema::len(Self) -> Int
-pub fn Schema::new(Array[Field]) -> Result[Self, DataError]
-pub fn Schema::rename(Self, String, String) -> Result[Self, DataError]
-pub fn Schema::select(Self, Array[String]) -> Result[Self, DataError]
+pub fn Schema::new(Array[Field]) -> Self raise DataError
+pub fn Schema::rename(Self, String, String) -> Self raise DataError
+pub fn Schema::select(Self, Array[String]) -> Self raise DataError
 pub impl Show for Schema
 
 // Type aliases

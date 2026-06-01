@@ -18,48 +18,30 @@
 #coverage.skip
 fn main {
   let path = "examples/data_cleaning/data.csv"
-  let df = match @moonframe.read_csv(path) {
-    Ok(d) => d
-    Err(e) => {
-      println("failed to read \{path}: \{e.message()}")
-      return
-    }
-  }
-  println("Source frame:")
-  println(@moonframe.to_markdown(df))
-  println("\nNulls per column:")
-  match @moonframe.null_count(df) {
-    Ok(counts) => println(@moonframe.to_markdown(counts))
-    Err(e) => println("null_count failed: \{e.message()}")
-  }
-  let cleaned = match @clean.clean(df) {
-    Ok(d) => d
-    Err(e) => {
-      println("clean failed: \{e.message()}")
-      return
-    }
-  }
-  println("\nCleaned frame:")
-  println(@moonframe.to_markdown(cleaned))
-
-  // Round-trip the cleaned frame through `_build/` to demonstrate the
-  // writer / reader staying in lock-step. The directory is created by
-  // `moon test` runs as well, so it always exists.
   let out_path = "_build/data_cleaning_cleaned.csv"
-  match @moonframe.write_csv(out_path, cleaned) {
-    Ok(_) => println("\nWrote cleaned frame to \{out_path}")
-    Err(e) => {
-      println("write failed: \{e.message()}")
-      return
-    }
-  }
-  match @moonframe.read_csv(out_path) {
-    Ok(restored) => {
-      println(
-        "Round-trip readback shape: \{restored.nrows()} rows, \{restored.ncols()} columns",
-      )
-      println(@moonframe.to_markdown(restored))
-    }
-    Err(e) => println("readback failed: \{e.message()}")
+  // The whole round trip raises `DataError`; a single `try`/`catch` at
+  // the top of `main` keeps the happy path a flat method chain and
+  // prints a diagnostic on any failure.
+  try {
+    let df = @moonframe.read_csv(path)
+    println("Source frame:")
+    println(df.to_markdown())
+    println("\nNulls per column:")
+    println(df.null_count().to_markdown())
+    let cleaned = @clean.clean(df)
+    println("\nCleaned frame:")
+    println(cleaned.to_markdown())
+    // Round-trip the cleaned frame through `_build/` to demonstrate the
+    // writer / reader staying in lock-step. The directory is created by
+    // `moon test` runs as well, so it always exists.
+    @moonframe.write_csv(out_path, cleaned)
+    println("\nWrote cleaned frame to \{out_path}")
+    let restored = @moonframe.read_csv(out_path)
+    println(
+      "Round-trip readback shape: \{restored.nrows()} rows, \{restored.ncols()} columns",
+    )
+    println(restored.to_markdown())
+  } catch {
+    e => println("data_cleaning failed: \{e.message()}")
   }
 }

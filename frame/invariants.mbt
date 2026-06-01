@@ -20,6 +20,8 @@
 ///   INV5  name_to_index.length() == columns.length()
 ///   INV6  for every (name, i) in name_to_index:
 ///           0 ≤ i < ncols AND columns[i].name() == name
+///   INV7  ncols == 0  ⇒  nrows == 0  (a column-less frame is row-less,
+///           the `0×0` convention `new` / `empty` / `from_rows` keep)
 ///
 /// Soundness lemma — INV5 ∧ INV6 imply the cache is a *bijection*
 /// onto column indices, hence:
@@ -129,6 +131,17 @@ pub fn DataFrame::check_invariants(self : DataFrame) -> Result[Unit, String] {
         "\"",
       )
     }
+  }
+
+  // ── INV7: a column-less frame carries no rows ──────────────────────
+  // With no columns to pin a length, `nrows` is otherwise unconstrained
+  // (INV2 only ranges over existing columns). `new` / `empty` always
+  // produce `0×0`; this rejects a stray `0×N` that bypassed them.
+  if ncols == 0 && self.nrows != 0 {
+    return Err(
+      "INV7 violated: frame has 0 columns but nrows is " +
+      self.nrows.to_string(),
+    )
   }
   Ok(())
 }

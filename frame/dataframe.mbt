@@ -97,7 +97,12 @@ pub fn DataFrame::from_rows(
       raise @types.DataError::LengthMismatch
     }
   }
-  let nrows = rows.length()
+  // A schema with zero columns cannot anchor a positive row count: every
+  // row had to be width-0 to pass the check above, and `DataFrame::new`'s
+  // convention is that a column-less frame is row-less (`0×0`). Normalise
+  // `nrows` to 0 there so `from_rows` agrees with `new` / `empty` and the
+  // result satisfies INV7 in `check_invariants`.
+  let nrows = if ncols == 0 { 0 } else { rows.length() }
   let columns : Array[Series] = []
   // `fields()` materialises all fields; indexing `[0, ncols)` is in-bounds
   // (`fields.length() == schema.len() == ncols`).

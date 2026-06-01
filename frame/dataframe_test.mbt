@@ -136,6 +136,19 @@ test "from_rows with empty rows produces a 0×N frame" {
 }
 
 ///|
+/// A zero-column schema collapses to `0×0` no matter how many
+/// (necessarily width-0) rows are passed — `from_rows` agrees with
+/// `DataFrame::new([])` rather than minting a column-less `N×0` frame
+/// (which would report `is_empty() == false` and violate INV7).
+test "from_rows with an empty schema collapses to 0×0" {
+  let schema = @types.Schema::new([])
+  let df = DataFrame::from_rows(schema, [[], [], []])
+  assert_eq(df.shape(), (0, 0))
+  assert_true(df.is_empty())
+  assert_eq(df.check_invariants(), Ok(()))
+}
+
+///|
 test "from_rows rejects rows of the wrong width" {
   let schema = @types.Schema::new([
     @types.Field::new("a", @types.DataType::Int),

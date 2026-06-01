@@ -226,7 +226,7 @@ dependencies** (NyaCSV / fs / @json live only in `io`).
   (`LengthMismatch` / `DuplicateColumn`; zero columns → `0×0`);
   `empty(schema)` (0-row frame; `Unsupported` for a `Null`-dtype field);
   `from_rows(schema, rows)` (`LengthMismatch` / `TypeMismatch` /
-  `Unsupported`).
+  `Unsupported`; zero-column schema → `0×0`, like `new`).
 - Total inspection: `shape()` / `schema()` / `columns()` (fresh array) /
   `column_series()` (fresh array of the immutable `Series`) / `nrows()` /
   `ncols()` / `is_empty()`.
@@ -239,7 +239,7 @@ dependencies** (NyaCSV / fs / @json live only in `io`).
   `IndexOutOfBounds` / `InvalidOperation`).
 - `check_invariants() -> Result[Unit, String]` — verification helper
   (deliberately **not** migrated to `raise`). `Ok(())` iff the frame
-  satisfies its six structural invariants; otherwise `Err(msg)`.
+  satisfies its seven structural invariants; otherwise `Err(msg)`.
 
 ### DataFrame operator methods (folded-in `ops`)
 
@@ -358,8 +358,10 @@ to `raise DataError::IoError(message)`.
   else `Float`; `true` / `false` only for `Bool`; mixed → `String`
   fallback) → `DataFrame::new`. `ParseError`.
 - `format_json_records(df) -> String` — **total**. One object per row,
-  keys in `df.columns()` order; `Null → null`, numbers / bools / strings
-  via `@json`.
+  keys in `df.columns()` order; `Null → null`, bools / strings / finite
+  numbers via `@json`. A non-finite `Float` (`NaN` / `±Infinity`) has no
+  JSON literal, so it is emitted as `null` (like pandas' `to_json`),
+  keeping the output valid JSON; a round-trip reads it back as a null.
 - `read_json(path)` / `read_json_with_options(path, options) -> DataFrame
   raise DataError`; `write_json_records(path, df) -> Unit raise
   DataError` — file wrappers (`IoError`).

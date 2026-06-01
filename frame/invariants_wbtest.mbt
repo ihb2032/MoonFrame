@@ -120,3 +120,18 @@ test "check_invariants reports INV6 when a cache key does not match its target c
   }
   assert_true(bad.check_invariants() is Err(msg) && msg.has_prefix("INV6"))
 }
+
+// ── INV7: 0 columns but a positive row count ────────────────────────
+
+///|
+test "check_invariants reports INV7 when a column-less frame has rows" {
+  let bad : DataFrame = {
+    // Zero columns can't anchor a row count; the only well-formed shape
+    // for a column-less frame is 0×0.
+    schema: @types.Schema::new([]),
+    columns: [],
+    nrows: 1,
+    name_to_index: {},
+  }
+  assert_true(bad.check_invariants() is Err(msg) && msg.has_prefix("INV7"))
+}

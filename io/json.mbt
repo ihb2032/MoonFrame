@@ -59,23 +59,18 @@ pub fn JsonReadOptions::default() -> JsonReadOptions {
 pub fn parse_json_records_str(
   content : String,
   options : JsonReadOptions,
-) -> Result[@frame.DataFrame, @types.DataError] {
+) -> @frame.DataFrame raise @types.DataError {
   // Mirror `parse_csv_str`'s empty-input short-circuit so callers can
   // stream JSON without special-casing the "no payload" case.
   if content.is_empty() {
     return @frame.DataFrame::new([])
   }
-  let json = match parse_json_payload(content) {
-    Err(e) => return Err(e)
-    Ok(v) => v
-  }
+  let json = parse_json_payload(content)
   let records = match json {
     Array(arr) => arr
     _ =>
-      return Err(
-        @types.DataError::ParseError(
-          "expected a JSON array of objects at the top level",
-        ),
+      raise @types.DataError::ParseError(
+        "expected a JSON array of objects at the top level",
       )
   }
   if records.is_empty() {
@@ -101,10 +96,8 @@ pub fn parse_json_records_str(
         objs.push(obj)
       }
       _ =>
-        return Err(
-          @types.DataError::ParseError(
-            "expected each record to be a JSON object",
-          ),
+        raise @types.DataError::ParseError(
+          "expected each record to be a JSON object",
         )
     }
   }
@@ -118,32 +111,30 @@ pub fn parse_json_records_str(
   let series : Array[@frame.Series] = []
   for name in headers {
     let dt = infer_json_column_dtype(objs, name, options.infer_schema_rows)
-    match build_json_column(name, dt, objs) {
-      Err(e) => return Err(e)
-      Ok(s) => series.push(s)
-    }
+    // `build_json_column` raises `ParseError` for a cell that doesn't fit
+    // the inferred dtype.
+    series.push(build_json_column(name, dt, objs))
   }
   @frame.DataFrame::new(series)
 }
 
 ///|
 /// Read a JSON records file using the default options.
-pub fn read_json(path : String) -> Result[@frame.DataFrame, @types.DataError] {
+pub fn read_json(path : String) -> @frame.DataFrame raise @types.DataError {
   read_json_with_options(path, JsonReadOptions::default())
 }
 
 ///|
 /// Read a JSON records file with custom options. Filesystem errors
-/// surface as `Err(IoError(message))`.
+/// surface as `raise IoError(message)`.
 pub fn read_json_with_options(
   path : String,
   options : JsonReadOptions,
-) -> Result[@frame.DataFrame, @types.DataError] {
-  try @fs.read_file_to_string(path) catch {
-    @fs.IOError(msg) => Err(@types.DataError::IoError(msg))
-  } noraise {
-    content => parse_json_records_str(content, options)
+) -> @frame.DataFrame raise @types.DataError {
+  let content = @fs.read_file_to_string(path) catch {
+    @fs.IOError(msg) => raise @types.DataError::IoError(msg)
   }
+  parse_json_records_str(content, options)
 }
 
 ///|
@@ -181,16 +172,14 @@ pub fn format_json_records(df : @frame.DataFrame) -> String {
 
 ///|
 /// Write a `DataFrame` to a JSON records file. Filesystem errors
-/// surface as `Err(IoError(message))`.
+/// surface as `raise IoError(message)`.
 pub fn write_json_records(
   path : String,
   df : @frame.DataFrame,
-) -> Result[Unit, @types.DataError] {
+) -> Unit raise @types.DataError {
   let content = format_json_records(df)
-  try @fs.write_string_to_file(path, content) catch {
-    @fs.IOError(msg) => Err(@types.DataError::IoError(msg))
-  } noraise {
-    _ => Ok(())
+  @fs.write_string_to_file(path, content) catch {
+    @fs.IOError(msg) => raise @types.DataError::IoError(msg)
   }
 }
 
@@ -201,11 +190,10 @@ pub fn write_json_records(
 /// parser's main pipeline stays in straight-line `match` form. The
 /// concrete `ParseError` is rendered through its `Show` impl so the
 /// caller sees the same diagnostic the standard library would.
-fn parse_json_payload(content : String) -> Result[Json, @types.DataError] {
-  try @json.parse(content.view()) catch {
-    err => Err(@types.DataError::ParseError("invalid JSON: " + err.to_string()))
-  } noraise {
-    v => Ok(v)
+fn parse_json_payload(content : String) -> Json raise @types.DataError {
+  @json.parse(content.view()) catch {
+    err =>
+      raise @types.DataError::ParseError("invalid JSON: " + err.to_string())
   }
 }
 
@@ -405,7 +393,7 @@ fn build_json_column(
   name : String,
   dtype : InferredJsonDtype,
   objs : Array[Map[String, Json]],
-) -> Result[@frame.Series, @types.DataError] {
+) -> @frame.Series raise @types.DataError {
   let n = objs.length()
   match dtype {
     JsonInt => {
@@ -419,20 +407,18 @@ fn build_json_column(
         match json_value_as_int(cell) {
           Some(x) => values.push(Some(x))
           None =>
-            return Err(
-              @types.DataError::ParseError(
-                "column \"" +
-                name +
-                "\" record " +
-                i.to_string() +
-                ": JSON value is not an Int (\"" +
-                json_value_to_string_fallback(cell) +
-                "\")",
-              ),
+            raise @types.DataError::ParseError(
+              "column \"" +
+              name +
+              "\" record " +
+              i.to_string() +
+              ": JSON value is not an Int (\"" +
+              json_value_to_string_fallback(cell) +
+              "\")",
             )
         }
       }
-      Ok(@frame.Series::from_int_options(name, values))
+      @frame.Series::from_int_options(name, values)
     }
     JsonFloat => {
       let values : Array[Double?] = Array::new(capacity=n)
@@ -445,20 +431,18 @@ fn build_json_column(
         match json_value_as_float(cell) {
           Some(x) => values.push(Some(x))
           None =>
-            return Err(
-              @types.DataError::ParseError(
-                "column \"" +
-                name +
-                "\" record " +
-                i.to_string() +
-                ": JSON value is not a number (\"" +
-                json_value_to_string_fallback(cell) +
-                "\")",
-              ),
+            raise @types.DataError::ParseError(
+              "column \"" +
+              name +
+              "\" record " +
+              i.to_string() +
+              ": JSON value is not a number (\"" +
+              json_value_to_string_fallback(cell) +
+              "\")",
             )
         }
       }
-      Ok(@frame.Series::from_float_options(name, values))
+      @frame.Series::from_float_options(name, values)
     }
     JsonBool => {
       let values : Array[Bool?] = Array::new(capacity=n)
@@ -471,20 +455,18 @@ fn build_json_column(
         match json_value_as_bool(cell) {
           Some(x) => values.push(Some(x))
           None =>
-            return Err(
-              @types.DataError::ParseError(
-                "column \"" +
-                name +
-                "\" record " +
-                i.to_string() +
-                ": JSON value is not a Bool (\"" +
-                json_value_to_string_fallback(cell) +
-                "\")",
-              ),
+            raise @types.DataError::ParseError(
+              "column \"" +
+              name +
+              "\" record " +
+              i.to_string() +
+              ": JSON value is not a Bool (\"" +
+              json_value_to_string_fallback(cell) +
+              "\")",
             )
         }
       }
-      Ok(@frame.Series::from_bool_options(name, values))
+      @frame.Series::from_bool_options(name, values)
     }
     JsonString => {
       let values : Array[String?] = Array::new(capacity=n)
@@ -496,7 +478,7 @@ fn build_json_column(
           values.push(Some(json_value_to_string_fallback(cell)))
         }
       }
-      Ok(@frame.Series::from_string_options(name, values))
+      @frame.Series::from_string_options(name, values)
     }
   }
 }

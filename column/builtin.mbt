@@ -128,8 +128,8 @@ pub fn BuiltinColumn::data(self : BuiltinColumn) -> ColumnData {
 ///|
 /// The validity bitmap (`1 = valid`). Paired with `data` for callers that
 /// read every slot in order: `validity().to_bools()` materialises the mask
-/// once so a bounded loop indexes it totally, instead of `unwrap`-ing a
-/// per-slot `is_valid` `Result`. The bitmap is shared (read-only).
+/// once so a bounded loop indexes it totally, instead of catching a
+/// per-slot `is_valid` raise. The bitmap is shared (read-only).
 pub fn BuiltinColumn::validity(self : BuiltinColumn) -> Bitmap {
   self.validity
 }
@@ -155,32 +155,29 @@ pub fn BuiltinColumn::null_count(self : BuiltinColumn) -> Int {
 }
 
 ///|
-/// `Err(IndexOutOfBounds)` if `index` is outside `[0, len)`.
+/// `raise IndexOutOfBounds` if `index` is outside `[0, len)`.
 pub fn BuiltinColumn::is_null(
   self : BuiltinColumn,
   index : Int,
-) -> Result[Bool, @types.DataError] {
+) -> Bool raise @types.DataError {
   self.validity.is_null(index)
 }
 
 ///|
-/// Read a single cell as a `Scalar`. Out-of-bounds index returns
-/// `Err(IndexOutOfBounds)`.
+/// Read a single cell as a `Scalar`. Out-of-bounds index
+/// `raise IndexOutOfBounds`.
 pub fn BuiltinColumn::get(
   self : BuiltinColumn,
   index : Int,
-) -> Result[@types.Scalar, @types.DataError] {
-  match self.validity.is_null(index) {
-    Err(e) => Err(e)
-    Ok(true) => Ok(@types.Scalar::Null)
-    Ok(false) => {
-      let s = match self.data {
-        Int(a) => @types.Scalar::Int(a[index])
-        Float(a) => @types.Scalar::Float(a[index])
-        Bool(a) => @types.Scalar::Bool(a[index])
-        String(a) => @types.Scalar::String(a[index])
-      }
-      Ok(s)
+) -> @types.Scalar raise @types.DataError {
+  if self.validity.is_null(index) {
+    @types.Scalar::Null
+  } else {
+    match self.data {
+      Int(a) => @types.Scalar::Int(a[index])
+      Float(a) => @types.Scalar::Float(a[index])
+      Bool(a) => @types.Scalar::Bool(a[index])
+      String(a) => @types.Scalar::String(a[index])
     }
   }
 }
@@ -202,19 +199,17 @@ pub fn BuiltinColumn::slice(
   self : BuiltinColumn,
   start : Int,
   end : Int,
-) -> Result[BuiltinColumn, @types.DataError] {
+) -> BuiltinColumn raise @types.DataError {
   let len = self.len()
   if start < 0 {
-    return Err(@types.DataError::IndexOutOfBounds(start))
+    raise @types.DataError::IndexOutOfBounds(start)
   }
   if end > len {
-    return Err(@types.DataError::IndexOutOfBounds(end))
+    raise @types.DataError::IndexOutOfBounds(end)
   }
   if start > end {
-    return Err(
-      @types.DataError::InvalidOperation(
-        "slice start > end: " + start.to_string() + " > " + end.to_string(),
-      ),
+    raise @types.DataError::InvalidOperation(
+      "slice start > end: " + start.to_string() + " > " + end.to_string(),
     )
   }
   let n = end - start
@@ -225,12 +220,9 @@ pub fn BuiltinColumn::slice(
     String(a) => String(Array::makei(n, i => a[start + i]))
   }
   // `validity.slice` repeats the same bounds checks against the same logical
-  // length, so it returns `Ok` here. Threading it through `.map` keeps the
-  // (unreachable) `Err` inside `Result::map` rather than as a local arm that
-  // could never be covered.
-  self.validity
-  .slice(start, n)
-  .map(validity_out => { data: data_out, validity: validity_out })
+  // length, so it never raises here — the raise effect just forwards the
+  // (unreachable) error rather than forcing a local `unwrap` / dead arm.
+  { data: data_out, validity: self.validity.slice(start, n) }
 }
 
 ///|
@@ -239,11 +231,11 @@ pub fn BuiltinColumn::slice(
 pub fn BuiltinColumn::take(
   self : BuiltinColumn,
   indices : Array[Int],
-) -> Result[BuiltinColumn, @types.DataError] {
+) -> BuiltinColumn raise @types.DataError {
   let len = self.len()
   for i in indices {
     if i < 0 || i >= len {
-      return Err(@types.DataError::IndexOutOfBounds(i))
+      raise @types.DataError::IndexOutOfBounds(i)
     }
   }
   let data_out : ColumnData = match self.data {
@@ -253,11 +245,9 @@ pub fn BuiltinColumn::take(
     String(a) => String(indices.map(i => a[i]))
   }
   // Same indices were already validated against the same `len`; the validity
-  // gather returns `Ok`. Thread it through `.map` so the unreachable `Err`
-  // stays inside `Result::map`, not as an uncoverable local arm.
-  self.validity
-  .take(indices)
-  .map(validity_out => { data: data_out, validity: validity_out })
+  // gather never raises here — the raise effect just forwards the
+  // (unreachable) error rather than forcing a local `unwrap` / dead arm.
+  { data: data_out, validity: self.validity.take(indices) }
 }
 
 // ── Cast ──────────────────────────────────────────────────────────────
@@ -269,13 +259,13 @@ pub fn BuiltinColumn::take(
 pub fn BuiltinColumn::cast(
   self : BuiltinColumn,
   target : @types.DataType,
-) -> Result[BuiltinColumn, @types.DataError] {
+) -> BuiltinColumn raise @types.DataError {
   match target {
     Int => self.to_int()
     Float => self.to_float()
     String => self.to_string_column()
-    Bool => Err(@types.DataError::Unsupported("cast to Bool"))
-    Null => Err(@types.DataError::Unsupported("cast to Null"))
+    Bool => raise @types.DataError::Unsupported("cast to Bool")
+    Null => raise @types.DataError::Unsupported("cast to Null")
   }
 }
 
@@ -297,9 +287,9 @@ pub fn BuiltinColumn::cast(
 ///   and decimal integers that overflow 64-bit `Int64`.
 pub fn BuiltinColumn::to_int(
   self : BuiltinColumn,
-) -> Result[BuiltinColumn, @types.DataError] {
+) -> BuiltinColumn raise @types.DataError {
   match self.data {
-    Int(_) => Ok(self)
+    Int(_) => self
     Float(a) => {
       let valid = self.validity.to_bools()
       let buf : Array[Int64] = Array::new(capacity=a.length())
@@ -307,16 +297,12 @@ pub fn BuiltinColumn::to_int(
         if valid[i] {
           let x = a[i]
           if x.is_nan() {
-            return Err(@types.DataError::ParseError("cannot cast NaN to Int"))
+            raise @types.DataError::ParseError("cannot cast NaN to Int")
           } else if x.is_inf() {
-            return Err(
-              @types.DataError::ParseError("cannot cast Infinity to Int"),
-            )
+            raise @types.DataError::ParseError("cannot cast Infinity to Int")
           } else if x < min_int_as_double || x > max_int_as_double {
-            return Err(
-              @types.DataError::ParseError(
-                "Float value out of Int range: " + x.to_string(),
-              ),
+            raise @types.DataError::ParseError(
+              "Float value out of Int range: " + x.to_string(),
             )
           } else {
             buf.push(x.to_int64())
@@ -325,7 +311,7 @@ pub fn BuiltinColumn::to_int(
           buf.push(0)
         }
       }
-      Ok({ data: Int(buf), validity: self.validity })
+      { data: Int(buf), validity: self.validity }
     }
     Bool(a) => {
       let valid = self.validity.to_bools()
@@ -337,7 +323,7 @@ pub fn BuiltinColumn::to_int(
           buf.push(0)
         }
       }
-      Ok({ data: Int(buf), validity: self.validity })
+      { data: Int(buf), validity: self.validity }
     }
     String(a) => {
       let valid = self.validity.to_bools()
@@ -354,27 +340,23 @@ pub fn BuiltinColumn::to_int(
           // `to_int` cast consistent with what the reader inferred for the
           // same text.
           if !@types.is_decimal_int_literal(s) {
-            return Err(
-              @types.DataError::ParseError(
-                "cannot parse Int from \"" + s + "\"",
-              ),
+            raise @types.DataError::ParseError(
+              "cannot parse Int from \"" + s + "\"",
             )
           }
           let parsed = try? @string.parse_int64(s.view())
           match parsed {
             Ok(n) => buf.push(n)
             Err(_) =>
-              return Err(
-                @types.DataError::ParseError(
-                  "cannot parse Int from \"" + s + "\"",
-                ),
+              raise @types.DataError::ParseError(
+                "cannot parse Int from \"" + s + "\"",
               )
           }
         } else {
           buf.push(0)
         }
       }
-      Ok({ data: Int(buf), validity: self.validity })
+      { data: Int(buf), validity: self.validity }
     }
   }
 }
@@ -408,9 +390,9 @@ let max_int_as_double : Double = 9223372036854774784.0
 ///   IEEE 754.
 pub fn BuiltinColumn::to_float(
   self : BuiltinColumn,
-) -> Result[BuiltinColumn, @types.DataError] {
+) -> BuiltinColumn raise @types.DataError {
   match self.data {
-    Float(_) => Ok(self)
+    Float(_) => self
     Int(a) => {
       let valid = self.validity.to_bools()
       let buf : Array[Double] = Array::new(capacity=a.length())
@@ -421,7 +403,7 @@ pub fn BuiltinColumn::to_float(
           buf.push(0.0)
         }
       }
-      Ok({ data: Float(buf), validity: self.validity })
+      { data: Float(buf), validity: self.validity }
     }
     Bool(a) => {
       let valid = self.validity.to_bools()
@@ -433,7 +415,7 @@ pub fn BuiltinColumn::to_float(
           buf.push(0.0)
         }
       }
-      Ok({ data: Float(buf), validity: self.validity })
+      { data: Float(buf), validity: self.validity }
     }
     String(a) => {
       let valid = self.validity.to_bools()
@@ -447,27 +429,23 @@ pub fn BuiltinColumn::to_float(
           // polars keep such cells as strings. The `inf` / `-inf` / `nan`
           // literals stay accepted.
           if s.iter().any(c => c == '_') {
-            return Err(
-              @types.DataError::ParseError(
-                "cannot parse Float from \"" + s + "\"",
-              ),
+            raise @types.DataError::ParseError(
+              "cannot parse Float from \"" + s + "\"",
             )
           }
           let parsed = try? @string.parse_double(s.view())
           match parsed {
             Ok(x) => buf.push(x)
             Err(_) =>
-              return Err(
-                @types.DataError::ParseError(
-                  "cannot parse Float from \"" + s + "\"",
-                ),
+              raise @types.DataError::ParseError(
+                "cannot parse Float from \"" + s + "\"",
               )
           }
         } else {
           buf.push(0.0)
         }
       }
-      Ok({ data: Float(buf), validity: self.validity })
+      { data: Float(buf), validity: self.validity }
     }
   }
 }
@@ -477,11 +455,13 @@ pub fn BuiltinColumn::to_float(
 /// value-form used by `Scalar::to_string` (e.g. `Int(42)` → `"42"`,
 /// `Bool(true)` → `"true"`). Null slots get an empty placeholder and
 /// remain null in the validity bitmap.
-pub fn BuiltinColumn::to_string_column(
-  self : BuiltinColumn,
-) -> Result[BuiltinColumn, @types.DataError] {
+///
+/// Total: every dtype has a value-form rendering, so there is no failure
+/// path. Unlike `to_int` / `to_float` (which can fail on out-of-range or
+/// malformed input) this never raises.
+pub fn BuiltinColumn::to_string_column(self : BuiltinColumn) -> BuiltinColumn {
   match self.data {
-    String(_) => Ok(self)
+    String(_) => self
     Int(a) => {
       let valid = self.validity.to_bools()
       let buf : Array[String] = Array::new(capacity=a.length())
@@ -492,7 +472,7 @@ pub fn BuiltinColumn::to_string_column(
           buf.push("")
         }
       }
-      Ok({ data: String(buf), validity: self.validity })
+      { data: String(buf), validity: self.validity }
     }
     Float(a) => {
       let valid = self.validity.to_bools()
@@ -504,7 +484,7 @@ pub fn BuiltinColumn::to_string_column(
           buf.push("")
         }
       }
-      Ok({ data: String(buf), validity: self.validity })
+      { data: String(buf), validity: self.validity }
     }
     Bool(a) => {
       let valid = self.validity.to_bools()
@@ -516,7 +496,7 @@ pub fn BuiltinColumn::to_string_column(
           buf.push("")
         }
       }
-      Ok({ data: String(buf), validity: self.validity })
+      { data: String(buf), validity: self.validity }
     }
   }
 }
@@ -526,18 +506,16 @@ pub fn BuiltinColumn::to_string_column(
 ///|
 /// Return the underlying raw data array and validity bitmap (no `Option`
 /// boxing). Data at null slots is a placeholder — always consult
-/// `validity` before reading. Returns `Err(TypeMismatch)` when the
-/// column is not an `Int` column.
+/// `validity` before reading. `raise TypeMismatch` when the column is not
+/// an `Int` column.
 pub fn BuiltinColumn::int_values(
   self : BuiltinColumn,
-) -> Result[(Array[Int64], Bitmap), @types.DataError] {
+) -> (Array[Int64], Bitmap) raise @types.DataError {
   match self.data {
-    Int(a) => Ok((a, self.validity))
+    Int(a) => (a, self.validity)
     _ =>
-      Err(
-        @types.DataError::TypeMismatch(
-          "expected Int column, got " + self.dtype().to_string(),
-        ),
+      raise @types.DataError::TypeMismatch(
+        "expected Int column, got " + self.dtype().to_string(),
       )
   }
 }
@@ -546,14 +524,12 @@ pub fn BuiltinColumn::int_values(
 /// Like `int_values` but for `Float` columns.
 pub fn BuiltinColumn::float_values(
   self : BuiltinColumn,
-) -> Result[(Array[Double], Bitmap), @types.DataError] {
+) -> (Array[Double], Bitmap) raise @types.DataError {
   match self.data {
-    Float(a) => Ok((a, self.validity))
+    Float(a) => (a, self.validity)
     _ =>
-      Err(
-        @types.DataError::TypeMismatch(
-          "expected Float column, got " + self.dtype().to_string(),
-        ),
+      raise @types.DataError::TypeMismatch(
+        "expected Float column, got " + self.dtype().to_string(),
       )
   }
 }
@@ -562,14 +538,12 @@ pub fn BuiltinColumn::float_values(
 /// Like `int_values` but for `Bool` columns.
 pub fn BuiltinColumn::bool_values(
   self : BuiltinColumn,
-) -> Result[(Array[Bool], Bitmap), @types.DataError] {
+) -> (Array[Bool], Bitmap) raise @types.DataError {
   match self.data {
-    Bool(a) => Ok((a, self.validity))
+    Bool(a) => (a, self.validity)
     _ =>
-      Err(
-        @types.DataError::TypeMismatch(
-          "expected Bool column, got " + self.dtype().to_string(),
-        ),
+      raise @types.DataError::TypeMismatch(
+        "expected Bool column, got " + self.dtype().to_string(),
       )
   }
 }
@@ -578,14 +552,12 @@ pub fn BuiltinColumn::bool_values(
 /// Like `int_values` but for `String` columns.
 pub fn BuiltinColumn::string_values(
   self : BuiltinColumn,
-) -> Result[(Array[String], Bitmap), @types.DataError] {
+) -> (Array[String], Bitmap) raise @types.DataError {
   match self.data {
-    String(a) => Ok((a, self.validity))
+    String(a) => (a, self.validity)
     _ =>
-      Err(
-        @types.DataError::TypeMismatch(
-          "expected String column, got " + self.dtype().to_string(),
-        ),
+      raise @types.DataError::TypeMismatch(
+        "expected String column, got " + self.dtype().to_string(),
       )
   }
 }

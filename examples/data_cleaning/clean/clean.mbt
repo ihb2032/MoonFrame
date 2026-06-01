@@ -11,13 +11,13 @@
 /// `main` orchestrator round-trips it through `write_csv` /
 /// `read_csv`; tests assert on it directly).
 ///
-/// The two fallible steps chain through `Result::bind` so error
-/// propagation is structural — no `Err(e) => return Err(e)` arm
-/// for coverage to skip.
+/// The two fallible steps chain as `DataFrame` methods that raise on
+/// failure — no `.bind` plumbing, no `Err(e) => return Err(e)` arm for
+/// coverage to skip.
 pub fn clean(
   df : @moonframe.DataFrame,
-) -> Result[@moonframe.DataFrame, @moonframe.DataError] {
-  @moonframe.drop_nulls_in(df, ["score"]).bind(gated => {
-    @moonframe.fill_null(gated, "note", @moonframe.Scalar::String("n/a"))
-  })
+) -> @moonframe.DataFrame raise @moonframe.DataError {
+  df
+  .drop_nulls_in(["score"])
+  .fill_null("note", @moonframe.Scalar::String("n/a"))
 }

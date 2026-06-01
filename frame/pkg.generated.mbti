@@ -21,46 +21,70 @@ pub struct DataFrame {
 pub fn DataFrame::check_invariants(Self) -> Result[Unit, String]
 pub fn DataFrame::column_series(Self) -> Array[Series]
 pub fn DataFrame::columns(Self) -> Array[String]
-pub fn DataFrame::empty(@types.Schema) -> Result[Self, @types.DataError]
-pub fn DataFrame::from_rows(@types.Schema, Array[Array[@types.Scalar]]) -> Result[Self, @types.DataError]
-pub fn DataFrame::get(Self, Int, String) -> Result[@types.Scalar, @types.DataError]
-pub fn DataFrame::get_column(Self, String) -> Result[Series, @types.DataError]
-pub fn DataFrame::get_column_at(Self, Int) -> Result[Series, @types.DataError]
+pub fn DataFrame::count(Self, String) -> Int raise @types.DataError
+pub fn DataFrame::describe(Self) -> Self raise @types.DataError
+pub fn DataFrame::drop(Self, Array[String]) -> Self raise @types.DataError
+pub fn DataFrame::drop_nulls(Self) -> Self raise @types.DataError
+pub fn DataFrame::drop_nulls_in(Self, Array[String]) -> Self raise @types.DataError
+pub fn DataFrame::empty(@types.Schema) -> Self raise @types.DataError
+pub fn DataFrame::fill_null(Self, String, @types.Scalar) -> Self raise @types.DataError
+pub fn DataFrame::filter(Self, (RowView) -> Bool raise @types.DataError) -> Self raise @types.DataError
+pub fn DataFrame::from_rows(@types.Schema, Array[Array[@types.Scalar]]) -> Self raise @types.DataError
+pub fn DataFrame::get(Self, Int, String) -> @types.Scalar raise @types.DataError
+pub fn DataFrame::get_column(Self, String) -> Series raise @types.DataError
+pub fn DataFrame::get_column_at(Self, Int) -> Series raise @types.DataError
 pub fn DataFrame::head(Self, Int) -> Self
 pub fn DataFrame::is_empty(Self) -> Bool
+pub fn DataFrame::max(Self, String) -> @types.Scalar raise @types.DataError
+pub fn DataFrame::mean(Self, String) -> Double raise @types.DataError
+pub fn DataFrame::min(Self, String) -> @types.Scalar raise @types.DataError
 pub fn DataFrame::ncols(Self) -> Int
-pub fn DataFrame::new(Array[Series]) -> Result[Self, @types.DataError]
+pub fn DataFrame::new(Array[Series]) -> Self raise @types.DataError
 pub fn DataFrame::nrows(Self) -> Int
-pub fn DataFrame::row(Self, Int) -> Result[RowView, @types.DataError]
+pub fn DataFrame::null_count(Self) -> Self raise @types.DataError
+pub fn DataFrame::rename(Self, Array[(String, String)]) -> Self raise @types.DataError
+pub fn DataFrame::replace_column(Self, String, Series) -> Self raise @types.DataError
+pub fn DataFrame::row(Self, Int) -> RowView raise @types.DataError
 pub fn DataFrame::row_view(Self, Int) -> RowView
 pub fn DataFrame::schema(Self) -> @types.Schema
+pub fn DataFrame::select(Self, Array[String]) -> Self raise @types.DataError
 pub fn DataFrame::shape(Self) -> (Int, Int)
-pub fn DataFrame::slice(Self, Int, Int) -> Result[Self, @types.DataError]
+pub fn DataFrame::slice(Self, Int, Int) -> Self raise @types.DataError
+pub fn[K : IntoSortSpecs] DataFrame::sort_by(Self, K) -> Self raise @types.DataError
+pub fn DataFrame::sum(Self, String) -> @types.Scalar raise @types.DataError
 pub fn DataFrame::tail(Self, Int) -> Self
-pub fn DataFrame::take(Self, Array[Int]) -> Result[Self, @types.DataError]
+pub fn DataFrame::take(Self, Array[Int]) -> Self raise @types.DataError
+pub fn DataFrame::to_markdown(Self) -> String
+pub fn DataFrame::to_markdown_with_limit(Self, Int) -> String
+pub fn DataFrame::with_column(Self, Series) -> Self raise @types.DataError
+
+pub(all) enum NullOrder {
+  NullsFirst
+  NullsLast
+} derive(Eq, @debug.Debug)
 
 pub struct RowView {
   df : DataFrame
   row_index : Int
 } derive(Eq, @debug.Debug)
-pub fn RowView::get(Self, String) -> Result[@types.Scalar, @types.DataError]
-pub fn RowView::get_bool(Self, String) -> Result[Bool, @types.DataError]
-pub fn RowView::get_float(Self, String) -> Result[Double, @types.DataError]
-pub fn RowView::get_int(Self, String) -> Result[Int64, @types.DataError]
-pub fn RowView::get_string(Self, String) -> Result[String, @types.DataError]
+pub fn RowView::get(Self, String) -> @types.Scalar raise @types.DataError
+pub fn RowView::get_bool(Self, String) -> Bool raise @types.DataError
+pub fn RowView::get_float(Self, String) -> Double raise @types.DataError
+pub fn RowView::get_int(Self, String) -> Int64 raise @types.DataError
+pub fn RowView::get_string(Self, String) -> String raise @types.DataError
 pub fn RowView::index(Self) -> Int
-pub fn RowView::is_null(Self, String) -> Result[Bool, @types.DataError]
+pub fn RowView::is_null(Self, String) -> Bool raise @types.DataError
 
 pub struct Series {
   name : String
   storage : @column.BuiltinColumn
 } derive(Eq, @debug.Debug)
-pub fn Series::cast(Self, @types.DataType) -> Result[Self, @types.DataError]
+pub fn Series::cast(Self, @types.DataType) -> Self raise @types.DataError
 pub fn Series::count(Self) -> Int
-pub fn Series::describe(Self) -> Result[DataFrame, @types.DataError]
+pub fn Series::describe(Self) -> DataFrame raise @types.DataError
 pub fn Series::drop_nulls(Self) -> Self
 pub fn Series::dtype(Self) -> @types.DataType
-pub fn Series::fill_null(Self, @types.Scalar) -> Result[Self, @types.DataError]
+pub fn Series::fill_null(Self, @types.Scalar) -> Self raise @types.DataError
 pub fn Series::from_bool_options(String, Array[Bool?]) -> Self
 pub fn Series::from_bools(String, Array[Bool]) -> Self
 pub fn Series::from_builtin(String, @column.BuiltinColumn) -> Self
@@ -70,31 +94,48 @@ pub fn Series::from_int_options(String, Array[Int64?]) -> Self
 pub fn Series::from_ints(String, Array[Int64]) -> Self
 pub fn Series::from_string_options(String, Array[String?]) -> Self
 pub fn Series::from_strings(String, Array[String]) -> Self
-pub fn Series::get(Self, Int) -> Result[@types.Scalar, @types.DataError]
+pub fn Series::get(Self, Int) -> @types.Scalar raise @types.DataError
 pub fn Series::is_empty(Self) -> Bool
-pub fn Series::is_null(Self, Int) -> Result[Bool, @types.DataError]
+pub fn Series::is_null(Self, Int) -> Bool raise @types.DataError
 pub fn Series::len(Self) -> Int
-pub fn Series::max(Self) -> Result[@types.Scalar, @types.DataError]
 pub fn Series::max_value(Self) -> @types.Scalar
-pub fn Series::mean(Self) -> Result[Double, @types.DataError]
-pub fn Series::min(Self) -> Result[@types.Scalar, @types.DataError]
+pub fn Series::mean(Self) -> Double raise @types.DataError
 pub fn Series::min_value(Self) -> @types.Scalar
 pub fn Series::name(Self) -> String
 pub fn Series::new(String, @column.BuiltinColumn) -> Self
 pub fn Series::null_count(Self) -> Int
 pub fn Series::null_rate(Self) -> Double
 pub fn Series::rename(Self, String) -> Self
-pub fn Series::slice(Self, Int, Int) -> Result[Self, @types.DataError]
+pub fn Series::slice(Self, Int, Int) -> Self raise @types.DataError
 pub fn Series::storage(Self) -> @column.BuiltinColumn
-pub fn Series::sum(Self) -> Result[@types.Scalar, @types.DataError]
-pub fn Series::take(Self, Array[Int]) -> Result[Self, @types.DataError]
-pub fn Series::to_float(Self) -> Result[Self, @types.DataError]
-pub fn Series::to_int(Self) -> Result[Self, @types.DataError]
+pub fn Series::sum(Self) -> @types.Scalar raise @types.DataError
+pub fn Series::take(Self, Array[Int]) -> Self raise @types.DataError
+pub fn Series::to_float(Self) -> Self raise @types.DataError
+pub fn Series::to_int(Self) -> Self raise @types.DataError
 pub fn Series::to_scalars(Self) -> Array[@types.Scalar]
-pub fn Series::to_string_series(Self) -> Result[Self, @types.DataError]
+pub fn Series::to_string_series(Self) -> Self
 pub fn Series::unique_count(Self) -> Int
+
+pub(all) enum SortOrder {
+  Asc
+  Desc
+} derive(Eq, @debug.Debug)
+
+pub struct SortSpec {
+  column : String
+  order : SortOrder
+  null_order : NullOrder
+} derive(Eq, @debug.Debug)
+pub fn SortSpec::asc(String) -> Self
+pub fn SortSpec::desc(String) -> Self
+pub fn SortSpec::with_null_order(Self, NullOrder) -> Self
+pub impl IntoSortSpecs for SortSpec
 
 // Type aliases
 
 // Traits
+pub trait IntoSortSpecs {
+  fn to_sort_specs(Self) -> Array[SortSpec]
+}
+pub impl IntoSortSpecs for Array[SortSpec]
 

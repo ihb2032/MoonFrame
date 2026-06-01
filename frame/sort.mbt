@@ -57,27 +57,39 @@ pub fn SortSpec::with_null_order(
   { column: self.column, order: self.order, null_order }
 }
 
-// ── Operations ────────────────────────────────────────────────────────
-
 ///|
-/// Sort `df` by a single column. Convenience wrapper around
-/// `sort_by_many` for the common single-key case. See `sort_by_many`
-/// for the contract on stability, null placement, and error reporting.
-pub fn sort_by(
-  df : @frame.DataFrame,
-  spec : SortSpec,
-) -> Result[@frame.DataFrame, @types.DataError] {
-  sort_by_many(df, [spec])
+/// Lets `sort_by` accept either a single `SortSpec` or an
+/// `Array[SortSpec]` under one method name. A single key needs no `[]`
+/// wrapper (`df.sort_by(SortSpec::desc("x"))`); a multi-key sort passes
+/// the array (`df.sort_by([asc("a"), desc("b")])`). Both impl bodies are
+/// trivial, so the two call shapes fully cover them.
+pub trait IntoSortSpecs {
+  fn to_sort_specs(Self) -> Array[SortSpec]
 }
 
 ///|
-/// Sort `df` by a sequence of keys, applied in order. Earlier specs
-/// dominate; later specs only break ties between rows that compare
-/// equal under all earlier keys.
+pub impl IntoSortSpecs for SortSpec with fn to_sort_specs(self) {
+  [self]
+}
+
+///|
+pub impl IntoSortSpecs for Array[SortSpec] with fn to_sort_specs(self) {
+  self
+}
+
+// ── Operations ────────────────────────────────────────────────────────
+
+///|
+/// Sort `self` by one or more keys, applied in order. A single key may
+/// be passed directly (`df.sort_by(SortSpec::desc("q"))`); multiple keys
+/// pass an array (`df.sort_by([asc("dept"), desc("salary")])`) — both go
+/// through the `IntoSortSpecs` trait. Earlier specs dominate; later
+/// specs only break ties between rows that compare equal under all
+/// earlier keys.
 ///
 /// The sort is **stable** (bottom-up merge sort on row indices): two
 /// rows that compare equal under every key keep their original
-/// relative order. This is what makes `sort_by_many([asc("dept"),
+/// relative order. This is what makes `sort_by([asc("dept"),
 /// desc("salary")])` behave the same as "sort by dept, then within
 /// each dept sort by salary descending".
 ///
@@ -90,35 +102,38 @@ pub fn sort_by(
 /// (column names, dtypes, order) is preserved verbatim and only the
 /// row order changes. Every output passes `check_invariants()`.
 ///
-/// Errors:
-/// - `Err(ColumnNotFound(name))` — `name` doesn't appear in `df`.
-///   Reported on the first offending spec in `specs`. v0.1 columns
-///   are always one of `Int` / `Float` / `Bool` / `String` (Null-dtype
-///   columns aren't constructible through any `DataFrame` constructor),
-///   so a successful column lookup always yields a sortable column.
+/// Raises:
+/// - `ColumnNotFound(name)` — `name` doesn't appear in `self`.
+///   Reported on the first offending spec. v0.1 columns are always one
+///   of `Int` / `Float` / `Bool` / `String` (Null-dtype columns aren't
+///   constructible through any `DataFrame` constructor), so a successful
+///   column lookup always yields a sortable column.
 ///
-/// An empty `specs` is a no-op identity: zero keys ⇒ every comparison
+/// An empty key set is a no-op identity: zero keys ⇒ every comparison
 /// returns 0 ⇒ stability preserves the input order.
-pub fn sort_by_many(
-  df : @frame.DataFrame,
-  specs : Array[SortSpec],
-) -> Result[@frame.DataFrame, @types.DataError] {
-  let n = df.nrows()
+pub fn[K : IntoSortSpecs] DataFrame::sort_by(
+  self : DataFrame,
+  keys : K,
+) -> DataFrame raise @types.DataError {
+  let specs = keys.to_sort_specs()
+  let n = self.nrows()
   // Resolve each spec to its typed buffer + bitmap once, up front.
   // The dispatch then happens per-spec, not per-comparison.
-  let keys : Array[SortKey] = []
+  let sort_keys : Array[SortKey] = []
   for spec in specs {
-    let series = match df.get_column(spec.column) {
-      Ok(s) => s
-      Err(e) => return Err(e)
-    }
-    keys.push(build_sort_key(series.storage(), spec.order, spec.null_order))
+    // `get_column` raises `ColumnNotFound` for an unknown spec column.
+    let series = self.get_column(spec.column)
+    sort_keys.push(
+      build_sort_key(series.storage(), spec.order, spec.null_order),
+    )
   }
   // Stable mergesort produces the permutation; `take` applies it.
   // Every index in the permutation is in `[0, n)` by construction, so
   // `take` cannot fail.
-  let perm = stable_mergesort_indices(n, fn(i, j) { compare_rows(keys, i, j) })
-  df.take(perm)
+  let perm = stable_mergesort_indices(n, fn(i, j) {
+    compare_rows(sort_keys, i, j)
+  })
+  self.take(perm)
 }
 
 ///|
@@ -143,7 +158,7 @@ fn build_sort_key(
         null_order,
       )
     @column.ColumnData::Float(a) =>
-      // NaN behaves like Null for ordering (see `sort_by_many`).
+      // NaN behaves like Null for ordering (see `sort_by`).
       SortKey::Float(
         a,
         Array::makei(a.length(), i => !valid[i] || a[i].is_nan()),

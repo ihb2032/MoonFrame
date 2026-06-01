@@ -26,7 +26,7 @@ fn sum_int_valid(data : Array[Int64], validity : @column.Bitmap) -> Int64 {
 ///|
 /// Sum and count of the valid, non-`NaN` cells of a `Float` buffer.
 /// `NaN` is treated as missing (skipped), matching `min` / `max` and
-/// `@ops.sort_by`. The column stores 64-bit `Double`, so the sum
+/// `sort_by`. The column stores 64-bit `Double`, so the sum
 /// accumulates directly in `Double` with no narrowing. The returned
 /// count excludes both nulls and `NaN`s, which is the denominator `mean`
 /// needs (`Series::count` would over-count NaN).
@@ -53,27 +53,24 @@ fn sum_count_float_valid(
 ///   (so only sums past 2^63 overflow, not the old 32-bit ceiling).
 /// - `Float` series → `Scalar::Float(sum)`, accumulated in 64-bit
 ///   `Double`. `NaN` cells are skipped (treated as missing, matching
-///   `min` / `max` and `@ops.sort_by`).
+///   `min` / `max` and `sort_by`).
 /// - Empty / all-null (or all-`NaN` `Float`) numeric series →
 ///   `Scalar::Int(0)` or `Scalar::Float(0.0)` (additive identity).
 /// - Non-numeric series (`Bool`, `String`) → `Err(TypeMismatch)`.
-pub fn Series::sum(self : Series) -> Result[@types.Scalar, @types.DataError] {
-  match self.storage.int_values() {
-    Ok((data, validity)) =>
-      Ok(@types.Scalar::Int(sum_int_valid(data, validity)))
-    Err(_) =>
-      match self.storage.float_values() {
-        Ok((data, validity)) => {
-          let (s, _) = sum_count_float_valid(data, validity)
-          Ok(@types.Scalar::Float(s))
-        }
-        Err(_) =>
-          Err(
-            @types.DataError::TypeMismatch(
-              "sum undefined for " + self.dtype().to_string(),
-            ),
-          )
-      }
+pub fn Series::sum(self : Series) -> @types.Scalar raise @types.DataError {
+  // Match the backing array directly (total) — the `Int` / `Float` arms
+  // reduce, every other dtype raises. No `*_values` raise to bridge.
+  match self.storage.data() {
+    @column.ColumnData::Int(data) =>
+      @types.Scalar::Int(sum_int_valid(data, self.storage.validity()))
+    @column.ColumnData::Float(data) => {
+      let (s, _) = sum_count_float_valid(data, self.storage.validity())
+      @types.Scalar::Float(s)
+    }
+    _ =>
+      raise @types.DataError::TypeMismatch(
+        "sum undefined for " + self.dtype().to_string(),
+      )
   }
 }
 
@@ -87,51 +84,46 @@ pub fn Series::sum(self : Series) -> Result[@types.Scalar, @types.DataError] {
 ///
 /// - Empty / all-null numeric series → `Err(InvalidOperation(...))`.
 /// - Non-numeric series → `Err(TypeMismatch(...))`.
-pub fn Series::mean(self : Series) -> Result[Double, @types.DataError] {
+pub fn Series::mean(self : Series) -> Double raise @types.DataError {
   let cnt = self.count()
-  match self.storage.int_values() {
-    Ok((data, validity)) =>
+  match self.storage.data() {
+    @column.ColumnData::Int(data) =>
       if cnt == 0 {
-        Err(@types.DataError::InvalidOperation("mean of empty/all-null series"))
+        raise @types.DataError::InvalidOperation(
+          "mean of empty/all-null series",
+        )
       } else {
         // Accumulate / divide in Double, then narrow — keeps the result
         // accurate for sums beyond the 24-bit Float significand.
-        Ok(sum_int_valid(data, validity).to_double() / cnt.to_double())
+        sum_int_valid(data, self.storage.validity()).to_double() /
+        cnt.to_double()
       }
-    Err(_) =>
-      match self.storage.float_values() {
-        Ok((data, validity)) => {
-          // NaN cells are skipped, so divide by the non-NaN count, not
-          // `cnt` (which counts NaN as present).
-          let (s, c) = sum_count_float_valid(data, validity)
-          if c == 0 {
-            Err(
-              @types.DataError::InvalidOperation(
-                "mean of empty / all-null / all-NaN series",
-              ),
-            )
-          } else {
-            Ok(s / c.to_double())
-          }
-        }
-        Err(_) =>
-          Err(
-            @types.DataError::TypeMismatch(
-              "mean undefined for " + self.dtype().to_string(),
-            ),
-          )
+    @column.ColumnData::Float(data) => {
+      // NaN cells are skipped, so divide by the non-NaN count, not
+      // `cnt` (which counts NaN as present).
+      let (s, c) = sum_count_float_valid(data, self.storage.validity())
+      if c == 0 {
+        raise @types.DataError::InvalidOperation(
+          "mean of empty / all-null / all-NaN series",
+        )
+      } else {
+        s / c.to_double()
       }
+    }
+    _ =>
+      raise @types.DataError::TypeMismatch(
+        "mean undefined for " + self.dtype().to_string(),
+      )
   }
 }
 
 ///|
 /// Minimum non-null cell as a `Scalar`, by the natural order of the
 /// series' dtype. Total — every v0.1 dtype has an order, so it never
-/// fails; `min` is the `Result`-wrapped form kept for API parity with
-/// reductions that genuinely can.
+/// fails (the v0.1 `Result`-wrapped `min` has been dropped in v0.2).
 ///
 /// - Empty / all-null → `Scalar::Null`.
-/// - `Float` NaN is treated as missing (skipped), matching `@ops.sort_by`
+/// - `Float` NaN is treated as missing (skipped), matching `sort_by`
 ///   and pandas. A series of only NaN (and/or nulls) → `Scalar::Null`.
 /// - `Bool` order: `false < true`.
 pub fn Series::min_value(self : Series) -> @types.Scalar {
@@ -155,7 +147,7 @@ pub fn Series::min_value(self : Series) -> @types.Scalar {
     @column.ColumnData::Float(a) => {
       let mut best : Double? = None
       for i in 0..<a.length() {
-        // NaN is treated as missing (skipped), matching `@ops.sort_by`.
+        // NaN is treated as missing (skipped), matching `sort_by`.
         if valid[i] && !a[i].is_nan() {
           best = match best {
             None => Some(a[i])
@@ -210,16 +202,9 @@ pub fn Series::min_value(self : Series) -> @types.Scalar {
 }
 
 ///|
-/// Minimum non-null cell. `Ok`-wraps `min_value`; see it for the per-dtype
-/// ordering and the empty / NaN rules.
-pub fn Series::min(self : Series) -> Result[@types.Scalar, @types.DataError] {
-  Ok(self.min_value())
-}
-
-///|
 /// Maximum non-null cell as a `Scalar`. Mirrors `min_value` with `>` in
 /// place of `<`; the `Float` NaN and empty-series rules are identical.
-/// Total; `max` is the `Result`-wrapped form.
+/// Total — the v0.1 `Result`-wrapped `max` has been dropped in v0.2.
 pub fn Series::max_value(self : Series) -> @types.Scalar {
   let valid = self.storage.validity().to_bools()
   match self.storage.data() {
@@ -241,7 +226,7 @@ pub fn Series::max_value(self : Series) -> @types.Scalar {
     @column.ColumnData::Float(a) => {
       let mut best : Double? = None
       for i in 0..<a.length() {
-        // NaN is treated as missing (skipped), matching `@ops.sort_by`.
+        // NaN is treated as missing (skipped), matching `sort_by`.
         if valid[i] && !a[i].is_nan() {
           best = match best {
             None => Some(a[i])
@@ -293,12 +278,6 @@ pub fn Series::max_value(self : Series) -> @types.Scalar {
       }
     }
   }
-}
-
-///|
-/// Maximum non-null cell. `Ok`-wraps `max_value`.
-pub fn Series::max(self : Series) -> Result[@types.Scalar, @types.DataError] {
-  Ok(self.max_value())
 }
 
 ///|
@@ -358,21 +337,21 @@ pub fn Series::unique_count(self : Series) -> Int {
 /// `storage.data()` — `ColumnData`'s four variants are exhaustive, so
 /// there's no `Null`-dtype arm and no fallback branch to keep in sync.
 ///
-/// Returns `Result` because the summary frame is built through the
-/// fallible `DataFrame::new`. The columns are hardcoded-unique and equal
-/// length, so the constructor always succeeds — but the value is
-/// forwarded rather than `unwrap`ped, so no panic path crosses the public
-/// API.
-pub fn Series::describe(self : Series) -> Result[DataFrame, @types.DataError] {
+/// Raises only because the summary frame is built through the fallible
+/// `DataFrame::new`. The columns are hardcoded-unique and equal length, so
+/// the constructor always succeeds — the raise is forwarded rather than
+/// caught, so no panic path crosses the public API.
+pub fn Series::describe(self : Series) -> DataFrame raise @types.DataError {
   let cols : Array[Series] = []
   cols.push(Series::from_ints("count", [self.count().to_int64()]))
   cols.push(Series::from_ints("null_count", [self.null_count().to_int64()]))
   cols.push(Series::from_ints("unique_count", [self.unique_count().to_int64()]))
   // `mean` is always present (Null for non-numeric / empty / all-null),
   // so the summary shape is uniform across dtypes.
-  let mean_col = match self.mean() {
-    Ok(v) => Series::from_float_options("mean", [Some(v)])
-    Err(_) => Series::from_float_options("mean", [None])
+  let mean_col = try self.mean() catch {
+    _ => Series::from_float_options("mean", [None])
+  } noraise {
+    v => Series::from_float_options("mean", [Some(v)])
   }
   cols.push(mean_col)
   // `min` / `max` keep the source dtype, so dispatch on the concrete

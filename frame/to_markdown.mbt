@@ -9,9 +9,10 @@
 // franca of MoonFrame's two output targets — `README.md` snippets and
 // JupyterBook-style notebooks — and they round-trip through every
 // Markdown parser we care about without a dedicated renderer
-// dependency. The renderer therefore lives in-tree as a small,
-// self-contained function rather than pulling in a third-party
-// Markdown crate.
+// dependency. v0.2 moves the renderer onto `DataFrame` as a method (the
+// IO-1 boundary: pure rendering lives in `frame`, only external
+// serialisation stays in `io`); it remains a small, self-contained,
+// dependency-free function.
 
 ///|
 /// Render a `DataFrame` as a GitHub-flavored Markdown table.
@@ -29,21 +30,26 @@
 /// Empty frames degrade gracefully:
 ///   - 0 columns → returns the empty string;
 ///   - N columns / 0 rows → header + separator with no data rows.
-pub fn to_markdown(df : @frame.DataFrame) -> String {
-  format_markdown(df, df.nrows())
+///
+/// Total — pure string assembly over already-validated frame data.
+pub fn DataFrame::to_markdown(self : DataFrame) -> String {
+  format_markdown(self, self.nrows())
 }
 
 ///|
 /// Render a `DataFrame` as a Markdown table, capping the output at the
-/// first `limit` rows. When `df` has more rows than `limit`, the
+/// first `limit` rows. When `self` has more rows than `limit`, the
 /// truncated count is appended below the table as
 /// `... (N more rows)`. Negative `limit` is clamped to 0, so a frame that
 /// has rows still renders as header + separator + the `... (N more rows)`
 /// banner; only a genuinely 0-row frame is header + separator alone.
-pub fn to_markdown_with_limit(df : @frame.DataFrame, limit : Int) -> String {
-  let nrows = df.nrows()
+pub fn DataFrame::to_markdown_with_limit(
+  self : DataFrame,
+  limit : Int,
+) -> String {
+  let nrows = self.nrows()
   let shown = if limit < 0 { 0 } else if limit > nrows { nrows } else { limit }
-  let body = format_markdown(df, shown)
+  let body = format_markdown(self, shown)
   if shown < nrows {
     let extra = nrows - shown
     body + "... (" + extra.to_string() + " more rows)\n"
@@ -59,7 +65,7 @@ pub fn to_markdown_with_limit(df : @frame.DataFrame, limit : Int) -> String {
 /// header / separator are emitted whenever `df` has at least one
 /// column, regardless of `shown` — a header-only table is still
 /// useful shape information for callers limiting output.
-fn format_markdown(df : @frame.DataFrame, shown : Int) -> String {
+fn format_markdown(df : DataFrame, shown : Int) -> String {
   // `raw_names` is used to look cells up in the frame; `names` is the
   // GFM-escaped form used for both width computation and rendering, so
   // a column name containing `|` / newline can't corrupt the table.
@@ -70,12 +76,10 @@ fn format_markdown(df : @frame.DataFrame, shown : Int) -> String {
   }
   let names = raw_names.map(escape_md_cell)
   // Pre-render every visible cell so column widths can be computed in
-  // one forward pass before any layout. The cost is one `Scalar`
-  // allocation per cell, which is negligible compared to the I/O the
-  // caller is about to do with the resulting string.
-  // Materialise each column's cells once (column-major). `shown <= nrows`
-  // and each `col_scalars[c]` has length `nrows`, so `col_scalars[c][r]`
-  // is in-bounds for `r in [0, shown)`.
+  // one forward pass before any layout. Materialise each column's cells
+  // once (column-major). `shown <= nrows` and each `col_scalars[c]` has
+  // length `nrows`, so `col_scalars[c][r]` is in-bounds for
+  // `r in [0, shown)`.
   let col_scalars = df.column_series().map(s => s.to_scalars())
   let cells : Array[Array[String]] = []
   for r in 0..<shown {

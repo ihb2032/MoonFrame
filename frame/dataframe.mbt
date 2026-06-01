@@ -27,25 +27,22 @@ pub struct DataFrame {
 /// Zero columns is valid and produces a 0×0 frame.
 pub fn DataFrame::new(
   columns : Array[Series],
-) -> Result[DataFrame, @types.DataError] {
+) -> DataFrame raise @types.DataError {
   let nrows = if columns.is_empty() { 0 } else { columns[0].len() }
   for c in columns {
     if c.len() != nrows {
-      return Err(@types.DataError::LengthMismatch)
+      raise @types.DataError::LengthMismatch
     }
   }
   let fields : Array[@types.Field] = columns.map(fn(c) {
     @types.Field::new(c.name(), c.dtype())
   })
-  let schema = match @types.Schema::new(fields) {
-    Ok(s) => s
-    Err(e) => return Err(e)
-  }
+  let schema = @types.Schema::new(fields)
   let name_to_index : Map[String, Int] = {}
   for i, c in columns {
     name_to_index[c.name()] = i
   }
-  Ok({ schema, columns, nrows, name_to_index })
+  { schema, columns, nrows, name_to_index }
 }
 
 ///|
@@ -57,7 +54,7 @@ pub fn DataFrame::new(
 /// nothing to materialise into).
 pub fn DataFrame::empty(
   schema : @types.Schema,
-) -> Result[DataFrame, @types.DataError] {
+) -> DataFrame raise @types.DataError {
   let columns : Array[Series] = []
   for f in schema.fields() {
     let storage = match f.dtype() {
@@ -66,10 +63,8 @@ pub fn DataFrame::empty(
       @types.DataType::Bool => @column.BuiltinColumn::from_bools([])
       @types.DataType::String => @column.BuiltinColumn::from_strings([])
       @types.DataType::Null =>
-        return Err(
-          @types.DataError::Unsupported(
-            "cannot build empty DataFrame column of dtype Null: " + f.name(),
-          ),
+        raise @types.DataError::Unsupported(
+          "cannot build empty DataFrame column of dtype Null: " + f.name(),
         )
     }
     columns.push(Series::from_builtin(f.name(), storage))
@@ -78,7 +73,7 @@ pub fn DataFrame::empty(
   for i, c in columns {
     name_to_index[c.name()] = i
   }
-  Ok({ schema, columns, nrows: 0, name_to_index })
+  { schema, columns, nrows: 0, name_to_index }
 }
 
 ///|
@@ -95,11 +90,11 @@ pub fn DataFrame::empty(
 pub fn DataFrame::from_rows(
   schema : @types.Schema,
   rows : Array[Array[@types.Scalar]],
-) -> Result[DataFrame, @types.DataError] {
+) -> DataFrame raise @types.DataError {
   let ncols = schema.len()
   for row in rows {
     if row.length() != ncols {
-      return Err(@types.DataError::LengthMismatch)
+      raise @types.DataError::LengthMismatch
     }
   }
   let nrows = rows.length()
@@ -118,13 +113,11 @@ pub fn DataFrame::from_rows(
             @types.Scalar::Int(v) => buf.push(Some(v))
             @types.Scalar::Null => buf.push(None)
             other =>
-              return Err(
-                @types.DataError::TypeMismatch(
-                  "column \"" +
-                  field.name() +
-                  "\" expects Int, got " +
-                  other.dtype().to_string(),
-                ),
+              raise @types.DataError::TypeMismatch(
+                "column \"" +
+                field.name() +
+                "\" expects Int, got " +
+                other.dtype().to_string(),
               )
           }
         }
@@ -137,13 +130,11 @@ pub fn DataFrame::from_rows(
             @types.Scalar::Float(v) => buf.push(Some(v))
             @types.Scalar::Null => buf.push(None)
             other =>
-              return Err(
-                @types.DataError::TypeMismatch(
-                  "column \"" +
-                  field.name() +
-                  "\" expects Float, got " +
-                  other.dtype().to_string(),
-                ),
+              raise @types.DataError::TypeMismatch(
+                "column \"" +
+                field.name() +
+                "\" expects Float, got " +
+                other.dtype().to_string(),
               )
           }
         }
@@ -156,13 +147,11 @@ pub fn DataFrame::from_rows(
             @types.Scalar::Bool(v) => buf.push(Some(v))
             @types.Scalar::Null => buf.push(None)
             other =>
-              return Err(
-                @types.DataError::TypeMismatch(
-                  "column \"" +
-                  field.name() +
-                  "\" expects Bool, got " +
-                  other.dtype().to_string(),
-                ),
+              raise @types.DataError::TypeMismatch(
+                "column \"" +
+                field.name() +
+                "\" expects Bool, got " +
+                other.dtype().to_string(),
               )
           }
         }
@@ -175,23 +164,19 @@ pub fn DataFrame::from_rows(
             @types.Scalar::String(v) => buf.push(Some(v))
             @types.Scalar::Null => buf.push(None)
             other =>
-              return Err(
-                @types.DataError::TypeMismatch(
-                  "column \"" +
-                  field.name() +
-                  "\" expects String, got " +
-                  other.dtype().to_string(),
-                ),
+              raise @types.DataError::TypeMismatch(
+                "column \"" +
+                field.name() +
+                "\" expects String, got " +
+                other.dtype().to_string(),
               )
           }
         }
         Series::from_string_options(field.name(), buf)
       }
       @types.DataType::Null =>
-        return Err(
-          @types.DataError::Unsupported(
-            "cannot build DataFrame column of dtype Null: " + field.name(),
-          ),
+        raise @types.DataError::Unsupported(
+          "cannot build DataFrame column of dtype Null: " + field.name(),
         )
     }
     columns.push(series)
@@ -200,7 +185,7 @@ pub fn DataFrame::from_rows(
   for i, c in columns {
     name_to_index[c.name()] = i
   }
-  Ok({ schema, columns, nrows, name_to_index })
+  { schema, columns, nrows, name_to_index }
 }
 
 // ── Inspection ────────────────────────────────────────────────────────
@@ -262,10 +247,10 @@ pub fn DataFrame::is_empty(self : DataFrame) -> Bool {
 pub fn DataFrame::get_column(
   self : DataFrame,
   name : String,
-) -> Result[Series, @types.DataError] {
+) -> Series raise @types.DataError {
   match self.name_to_index.get(name) {
-    Some(i) => Ok(self.columns[i])
-    None => Err(@types.DataError::ColumnNotFound(name))
+    Some(i) => self.columns[i]
+    None => raise @types.DataError::ColumnNotFound(name)
   }
 }
 
@@ -275,11 +260,11 @@ pub fn DataFrame::get_column(
 pub fn DataFrame::get_column_at(
   self : DataFrame,
   i : Int,
-) -> Result[Series, @types.DataError] {
+) -> Series raise @types.DataError {
   if i < 0 || i >= self.columns.length() {
-    return Err(@types.DataError::IndexOutOfBounds(i))
+    raise @types.DataError::IndexOutOfBounds(i)
   }
-  Ok(self.columns[i])
+  self.columns[i]
 }
 
 ///|
@@ -290,8 +275,8 @@ pub fn DataFrame::get(
   self : DataFrame,
   row : Int,
   name : String,
-) -> Result[@types.Scalar, @types.DataError] {
-  self.get_column(name).bind(s => s.get(row))
+) -> @types.Scalar raise @types.DataError {
+  self.get_column(name).get(row)
 }
 
 ///|
@@ -311,11 +296,11 @@ pub fn DataFrame::row_view(self : DataFrame, i : Int) -> RowView {
 pub fn DataFrame::row(
   self : DataFrame,
   i : Int,
-) -> Result[RowView, @types.DataError] {
+) -> RowView raise @types.DataError {
   if i < 0 || i >= self.nrows {
-    return Err(@types.DataError::IndexOutOfBounds(i))
+    raise @types.DataError::IndexOutOfBounds(i)
   }
-  Ok(self.row_view(i))
+  self.row_view(i)
 }
 
 // ── Transforms ────────────────────────────────────────────────────────
@@ -362,20 +347,18 @@ pub fn DataFrame::slice(
   self : DataFrame,
   start : Int,
   end : Int,
-) -> Result[DataFrame, @types.DataError] {
+) -> DataFrame raise @types.DataError {
   // Validate bounds once using the first column (or against `nrows` if
   // there are no columns).
   if start < 0 {
-    return Err(@types.DataError::IndexOutOfBounds(start))
+    raise @types.DataError::IndexOutOfBounds(start)
   }
   if end > self.nrows {
-    return Err(@types.DataError::IndexOutOfBounds(end))
+    raise @types.DataError::IndexOutOfBounds(end)
   }
   if start > end {
-    return Err(
-      @types.DataError::InvalidOperation(
-        "slice start > end: " + start.to_string() + " > " + end.to_string(),
-      ),
+    raise @types.DataError::InvalidOperation(
+      "slice start > end: " + start.to_string() + " > " + end.to_string(),
     )
   }
   // Bounds were already validated against `self.nrows`, which equals every
@@ -383,12 +366,12 @@ pub fn DataFrame::slice(
   let new_cols : Array[Series] = self.columns.map(c => {
     slice_series(c, start, end - start)
   })
-  Ok({
+  {
     schema: self.schema,
     columns: new_cols,
     nrows: end - start,
     name_to_index: self.name_to_index,
-  })
+  }
 }
 
 ///|
@@ -398,21 +381,21 @@ pub fn DataFrame::slice(
 pub fn DataFrame::take(
   self : DataFrame,
   indices : Array[Int],
-) -> Result[DataFrame, @types.DataError] {
+) -> DataFrame raise @types.DataError {
   for i in indices {
     if i < 0 || i >= self.nrows {
-      return Err(@types.DataError::IndexOutOfBounds(i))
+      raise @types.DataError::IndexOutOfBounds(i)
     }
   }
   // Indices were just validated against `self.nrows`, so the per-column
   // gather is in-bounds.
   let new_cols = self.columns.map(c => gather_series(c, indices))
-  Ok({
+  {
     schema: self.schema,
     columns: new_cols,
     nrows: indices.length(),
     name_to_index: self.name_to_index,
-  })
+  }
 }
 
 // ── Internal helpers ──────────────────────────────────────────────────

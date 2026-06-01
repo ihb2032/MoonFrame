@@ -10,32 +10,27 @@
 /// both lets `main` print them and the test assert on them without
 /// the helper having to know about either side.
 ///
-/// The fallible steps — `filter_try`, `select`, `sort_by`, and the now
-/// `Result`-returning `describe` — are chained with `Result::bind` /
-/// `Result::map` so error propagation is structural: there's no explicit
-/// `Err(e) => return Err(e)` arm that the type system would let us write
-/// but that coverage could never reach (`describe` here only builds a
-/// fixed-schema summary, so its `Err` is unreachable, and `bind` keeps
-/// that branch inside the stdlib rather than in our code).
+/// v0.2 method-chain form: every step is a `DataFrame` method that
+/// raises on failure, so the four fallible steps (`filter`, `select`,
+/// `sort_by`, and the always-`Ok`-in-practice `describe`) chain
+/// directly. No `.bind` / `.map` plumbing and no explicit
+/// `Err(e) => return Err(e)` arm for coverage to skip.
 pub fn widget_report(
   df : @moonframe.DataFrame,
-) -> Result[(@moonframe.DataFrame, @moonframe.DataFrame), @moonframe.DataError] {
-  @moonframe.filter_try(df, is_widget_row)
-  .bind(widgets => {
-    @moonframe.select(widgets, ["region", "price", "quantity", "revenue"])
-  })
-  .bind(projected => {
-    @moonframe.sort_by(projected, @moonframe.SortSpec::desc("quantity"))
-  })
-  .bind(sorted => @moonframe.describe(sorted).map(summary => (sorted, summary)))
+) -> (@moonframe.DataFrame, @moonframe.DataFrame) raise @moonframe.DataError {
+  let sorted = df
+    .filter(is_widget_row)
+    .select(["region", "price", "quantity", "revenue"])
+    .sort_by(@moonframe.SortSpec::desc("quantity"))
+  (sorted, sorted.describe())
 }
 
 ///|
-/// Row predicate for `filter_try`. Surfaces the `RowView` accessor
-/// error verbatim so a misspelled column or a dtype mismatch becomes
-/// a `DataError`, not a silent "row excluded".
+/// Row predicate for `filter`. The fallible `RowView::get_string`
+/// raises straight through, so a misspelled column or a dtype mismatch
+/// becomes a `DataError`, not a silent "row excluded".
 pub fn is_widget_row(
   row : @moonframe.RowView,
-) -> Result[Bool, @moonframe.DataError] {
-  row.get_string("product").map(name => name == "widget")
+) -> Bool raise @moonframe.DataError {
+  row.get_string("product") == "widget"
 }

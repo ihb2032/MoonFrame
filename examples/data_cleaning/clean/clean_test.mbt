@@ -18,8 +18,8 @@ test "clean: drops rows with null `score` and fills remaining null `note` cells"
     #|5,dave,,fifth
     #|6,erin,68.5,
     #|
-  let df = @moonframe.parse_csv_str(csv, @moonframe.CsvReadOptions::default()).unwrap()
-  let cleaned = clean(df).unwrap()
+  let df = @moonframe.parse_csv_str(csv, @moonframe.CsvReadOptions::default())
+  let cleaned = clean(df)
 
   // 4 rows survive the `score` gate; columns stay in declaration order.
   assert_eq(cleaned.shape(), (4, 4))
@@ -27,25 +27,25 @@ test "clean: drops rows with null `score` and fills remaining null `note` cells"
   assert_eq(cleaned.check_invariants(), Ok(()))
 
   // `score` survivors are 1 / 3 / 4 / 6, in source order.
-  assert_eq(cleaned.get(0, "id"), Ok(@moonframe.Scalar::Int(1)))
-  assert_eq(cleaned.get(1, "id"), Ok(@moonframe.Scalar::Int(3)))
-  assert_eq(cleaned.get(2, "id"), Ok(@moonframe.Scalar::Int(4)))
-  assert_eq(cleaned.get(3, "id"), Ok(@moonframe.Scalar::Int(6)))
+  assert_eq(cleaned.get(0, "id"), @moonframe.Scalar::Int(1))
+  assert_eq(cleaned.get(1, "id"), @moonframe.Scalar::Int(3))
+  assert_eq(cleaned.get(2, "id"), @moonframe.Scalar::Int(4))
+  assert_eq(cleaned.get(3, "id"), @moonframe.Scalar::Int(6))
 
   // The `score` column has no nulls left.
-  assert_eq(cleaned.get_column("score").unwrap().null_count(), 0)
+  assert_eq(cleaned.get_column("score").null_count(), 0)
 
   // The previously-null `note` cells (rows 3 and 6 in the source)
   // were filled with the sentinel; row 4's `note = "fourth"` was
   // untouched.
-  assert_eq(cleaned.get(1, "note"), Ok(@moonframe.Scalar::String("n/a")))
-  assert_eq(cleaned.get(3, "note"), Ok(@moonframe.Scalar::String("n/a")))
-  assert_eq(cleaned.get(2, "note"), Ok(@moonframe.Scalar::String("fourth")))
-  assert_eq(cleaned.get_column("note").unwrap().null_count(), 0)
+  assert_eq(cleaned.get(1, "note"), @moonframe.Scalar::String("n/a"))
+  assert_eq(cleaned.get(3, "note"), @moonframe.Scalar::String("n/a"))
+  assert_eq(cleaned.get(2, "note"), @moonframe.Scalar::String("fourth"))
+  assert_eq(cleaned.get_column("note").null_count(), 0)
 
   // `name` was not part of the cleaning contract — row 4's null name
   // survives because gating is on `score` only.
-  assert_eq(cleaned.get(2, "name"), Ok(@moonframe.Scalar::Null))
+  assert_eq(cleaned.get(2, "name"), @moonframe.Scalar::Null)
 }
 
 ///|
@@ -55,8 +55,10 @@ test "clean: surfaces ColumnNotFound when the `score` column is missing" {
   // silently-mangled frame.
   let df = @moonframe.DataFrame::new([
     @moonframe.Series::from_ints("id", [1, 2]),
-  ]).unwrap()
-  assert_true(clean(df) is Err(@moonframe.DataError::ColumnNotFound("score")))
+  ])
+  assert_true(
+    (try? clean(df)) is Err(@moonframe.DataError::ColumnNotFound("score")),
+  )
 }
 
 ///|
@@ -66,8 +68,10 @@ test "clean: surfaces ColumnNotFound when the `note` column is missing" {
   // `ColumnNotFound("note")`, not a silent no-op.
   let df = @moonframe.DataFrame::new([
     @moonframe.Series::from_int_options("score", [Some(1), None, Some(3)]),
-  ]).unwrap()
-  assert_true(clean(df) is Err(@moonframe.DataError::ColumnNotFound("note")))
+  ])
+  assert_true(
+    (try? clean(df)) is Err(@moonframe.DataError::ColumnNotFound("note")),
+  )
 }
 
 ///|
@@ -79,10 +83,10 @@ test "clean: passes through a frame that already has no nulls" {
     @moonframe.Series::from_ints("id", [1, 2]),
     @moonframe.Series::from_strings("note", ["a", "b"]),
     @moonframe.Series::from_floats("score", [1.0, 2.0]),
-  ]).unwrap()
-  let cleaned = clean(df).unwrap()
+  ])
+  let cleaned = clean(df)
   assert_eq(cleaned.shape(), (2, 3))
   assert_eq(cleaned.columns(), ["id", "note", "score"])
-  assert_eq(cleaned.get(0, "note"), Ok(@moonframe.Scalar::String("a")))
+  assert_eq(cleaned.get(0, "note"), @moonframe.Scalar::String("a"))
   assert_eq(cleaned.check_invariants(), Ok(()))
 }

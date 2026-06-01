@@ -57,7 +57,7 @@ authoritative public-API reference:
 The data model is unchanged: an Apache Arrow-style column layout (byte-packed
 validity `Bitmap`, `1 = valid`) under `Series` / `DataFrame`, an `O(1)`
 `name_to_index` cache, and `DataFrame::check_invariants()` as a formal
-structural spec (INV1–INV6) asserted by every operator test.
+structural spec (INV1–INV7) asserted by every operator test.
 
 Roadmap: GroupBy / Join / NDJSON in the rest of v0.2; an
 `ColumnStorage` / `NumericColumn` storage abstraction in v0.3 alongside HTML

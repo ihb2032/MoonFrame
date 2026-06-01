@@ -56,6 +56,35 @@ test "format_json_records: zero-row frame emits an empty array" {
   assert_eq(@io.format_json_records(df), "[]")
 }
 
+///|
+/// Identity that defeats compile-time constant folding, so `x / 0.0`
+/// evaluates to a runtime ±Infinity / NaN rather than being rejected as
+/// a constant division by zero.
+fn id_double(x : Double) -> Double {
+  x
+}
+
+///|
+/// JSON has no `NaN` / `Infinity` literal, so a non-finite `Float` cell is
+/// emitted as `null` (matching pandas' `to_json`). Regression guard: the
+/// renderer used to emit the bare tokens `Infinity` / `NaN`, producing
+/// invalid JSON that the reader below could not round-trip.
+test "format_json_records: non-finite floats emit JSON null" {
+  let inf = id_double(1.0) / id_double(0.0)
+  let nan = id_double(0.0) / id_double(0.0)
+  let df = @frame.DataFrame::new([
+    @frame.Series::from_floats("x", [1.5, inf, -inf, nan]),
+  ])
+  let js = @io.format_json_records(df)
+  assert_eq(js, "[{\"x\":1.5},{\"x\":null},{\"x\":null},{\"x\":null}]")
+  // The emitted text is valid JSON: the library's own reader round-trips
+  // it, reading the three non-finite cells back as nulls in a Float column.
+  let back = @io.parse_json_records_str(js, @io.JsonReadOptions::default())
+  assert_eq(back.nrows(), 4)
+  assert_eq(back.get_column("x").dtype(), @types.DataType::Float)
+  assert_eq(back.null_count().get(0, "x"), @types.Scalar::Int(3))
+}
+
 // ── parse_json_records_str: happy paths ─────────────────────────────
 
 ///|

@@ -143,9 +143,10 @@ pub fn read_json_with_options(
 /// Per cell:
 /// - `Null` → JSON `null`
 /// - `Int`  → JSON number (no fractional part)
-/// - `Float`→ JSON number (NaN / ±Infinity rendered per `@json`'s
-///   convention as the strings `"NaN"`, `"Infinity"`, `"-Infinity"`,
-///   matching the builtin `ToJson for Double` impl)
+/// - `Float`→ JSON number for finite values. `NaN` / `±Infinity` have
+///   no JSON literal, so they are emitted as `null` (matching pandas'
+///   `to_json`) to keep the output valid JSON — a round-trip reads a
+///   non-finite cell back as a null.
 /// - `Bool` → JSON `true` / `false`
 /// - `String` → JSON string (escaping `"`, `\`, control chars via the
 ///   builtin stringifier — we deliberately do **not** roll our own
@@ -198,17 +199,26 @@ fn parse_json_payload(content : String) -> Json raise @types.DataError {
 }
 
 ///|
-/// Map a `@types.Scalar` into the corresponding `Json` value. The
-/// promotion is straight-line: `Int` and `Float` both land on JSON
-/// numbers (`Int64` widened to `Double`; `Float` is already `Double`);
-/// `Bool` lands on the `true` / `false` variants; `String` passes
-/// through unchanged and is escaped by the stringifier; `Null` lands
-/// on JSON `null`.
+/// Map a `@types.Scalar` into the corresponding `Json` value. `Int` is
+/// widened to a JSON number; a finite `Float` becomes a JSON number. A
+/// non-finite `Float` (`NaN` / `±Infinity`) has no JSON literal —
+/// `@json.stringify` would emit the bare tokens `NaN` / `Infinity` /
+/// `-Infinity`, which is invalid JSON that neither
+/// `parse_json_records_str` nor a standards-compliant parser can read
+/// back — so it is mapped to `null` (matching pandas' `to_json`),
+/// keeping the emitted text valid JSON. `Bool` lands on the `true` /
+/// `false` variants; `String` passes through and is escaped by the
+/// stringifier; `Null` lands on JSON `null`.
 fn scalar_to_json(s : @types.Scalar) -> Json {
   match s {
     @types.Scalar::Null => Json::null()
     @types.Scalar::Int(v) => Json::number(v.to_double())
-    @types.Scalar::Float(v) => Json::number(v)
+    @types.Scalar::Float(v) =>
+      if v.is_nan() || v.is_inf() {
+        Json::null()
+      } else {
+        Json::number(v)
+      }
     @types.Scalar::Bool(v) => Json::boolean(v)
     @types.Scalar::String(v) => Json::string(v)
   }

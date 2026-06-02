@@ -262,19 +262,18 @@ pub fn Series::max_value(self : Series) -> @types.Scalar {
 /// a single bucket (its `to_string` is `"NaN"`), matching pandas'
 /// `nunique` behaviour on NaN-only inputs.
 pub fn Series::unique_count(self : Series) -> Int {
-  // Render each non-null cell with `Scalar::to_string` as the canonical
-  // key — within a fixed-dtype series two cells collide only when their
-  // values are equal. Walking `to_scalars()` keeps a single source of
-  // truth for the value-form rendering, and the deliberate `Float` NaN
-  // bucketing (every NaN renders `"NaN"`, matching pandas' `nunique`)
-  // is unchanged.
-  let seen : Map[String, Unit] = {}
-  for sc in self.to_scalars() {
-    if !sc.is_null() {
-      seen[sc.to_string()] = ()
-    }
-  }
-  seen.length()
+  // Distinct count of the non-null cells, keyed by `Scalar::to_string`
+  // (the canonical value form): within a fixed-dtype series two cells
+  // collide only when their values are equal, and every `Float` NaN
+  // renders `"NaN"` so they collapse into one bucket (matching pandas'
+  // `nunique`). `Map::from_array` folds the keys into a set; its size is
+  // the distinct count.
+  Map::from_array(
+    self
+    .to_scalars()
+    .filter(sc => !sc.is_null())
+    .map(sc => (sc.to_string(), ())),
+  ).length()
 }
 
 ///|

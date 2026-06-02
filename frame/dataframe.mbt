@@ -41,16 +41,11 @@ pub fn DataFrame::new(
 
 ///|
 /// Build the name→index lookup cache from a column vector: position `i` maps
-/// from `columns[i].name()`. A later duplicate name would overwrite an
-/// earlier index, but every constructor routes through `Schema::new`, which
-/// rejects duplicate names before this runs — so the cache is 1:1 with the
-/// columns. Shared by `new`, `empty`, and `from_rows`.
+/// from `columns[i].name()`. Every constructor routes through `Schema::new`,
+/// which rejects duplicate names before this runs, so the `(name, i)` pairs
+/// are 1:1 with the columns. Shared by `new`, `empty`, and `from_rows`.
 fn index_by_name(columns : Array[Series]) -> Map[String, Int] {
-  let name_to_index : Map[String, Int] = {}
-  for i, c in columns {
-    name_to_index[c.name()] = i
-  }
-  name_to_index
+  Map::from_array(columns.mapi((i, c) => (c.name(), i)))
 }
 
 ///|

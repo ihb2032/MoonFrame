@@ -326,17 +326,11 @@ fn missing_offset(null_order : NullOrder) -> Int {
 /// Complexity: `O(n log n)` comparisons, `O(n)` auxiliary memory
 /// (two buffers of length `n`).
 fn stable_mergesort_indices(n : Int, cmp : (Int, Int) -> Int) -> Array[Int] {
-  let buf : Array[Int] = Array::new(capacity=n)
-  for i in 0..<n {
-    buf.push(i)
-  }
+  let buf = Array::makei(n, i => i)
   if n <= 1 {
     return buf
   }
-  let aux : Array[Int] = Array::new(capacity=n)
-  for _ in 0..<n {
-    aux.push(0)
-  }
+  let aux = Array::make(n, 0)
   let mut width = 1
   while width < n {
     let mut start = 0

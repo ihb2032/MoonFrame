@@ -29,10 +29,8 @@ pub fn DataFrame::new(
   columns : Array[Series],
 ) -> DataFrame raise @types.DataError {
   let nrows = if columns.is_empty() { 0 } else { columns[0].len() }
-  for c in columns {
-    if c.len() != nrows {
-      raise @types.DataError::LengthMismatch
-    }
+  if !columns.all(c => c.len() == nrows) {
+    raise @types.DataError::LengthMismatch
   }
   let fields : Array[@types.Field] = columns.map(fn(c) {
     @types.Field::new(c.name(), c.dtype())
@@ -99,10 +97,8 @@ pub fn DataFrame::from_rows(
   rows : Array[Array[@types.Scalar]],
 ) -> DataFrame raise @types.DataError {
   let ncols = schema.len()
-  for row in rows {
-    if row.length() != ncols {
-      raise @types.DataError::LengthMismatch
-    }
+  if !rows.all(row => row.length() == ncols) {
+    raise @types.DataError::LengthMismatch
   }
   // A schema with zero columns cannot anchor a positive row count: every
   // row had to be width-0 to pass the check above, and `DataFrame::new`'s

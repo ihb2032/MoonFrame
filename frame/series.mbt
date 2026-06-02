@@ -343,6 +343,14 @@ pub fn Series::drop_nulls(self : Series) -> Series {
 }
 
 ///|
+/// Build the fill buffer for `fill_null`: keep each valid cell, replace
+/// every null slot (`valid[i] == false`) with `v`. The four per-dtype
+/// arms share this closure instead of repeating the `mapi` verbatim.
+fn[T] fill_buffer(data : Array[T], valid : Array[Bool], v : T) -> Array[T] {
+  data.mapi((i, x) => if valid[i] { x } else { v })
+}
+
+///|
 /// Replace every null cell with `value`. `raise TypeMismatch(...)` if
 /// `value` is `Scalar::Null` (filling nulls with null is meaningless) or
 /// if its dtype differs from the series'. The returned series has a
@@ -352,14 +360,14 @@ pub fn Series::fill_null(
   value : @types.Scalar,
 ) -> Series raise @types.DataError {
   let dt = self.dtype()
+  let valid = self.storage.validity().to_bools()
   match value {
     @types.Scalar::Null =>
       raise @types.DataError::TypeMismatch("cannot fill nulls with Null")
     @types.Scalar::Int(v) =>
       match self.storage.data() {
         @column.ColumnData::Int(data) => {
-          let valid = self.storage.validity().to_bools()
-          let buf = data.mapi((i, x) => if valid[i] { x } else { v })
+          let buf = fill_buffer(data, valid, v)
           { name: self.name, storage: @column.BuiltinColumn::from_ints(buf) }
         }
         _ =>
@@ -370,8 +378,7 @@ pub fn Series::fill_null(
     @types.Scalar::Float(v) =>
       match self.storage.data() {
         @column.ColumnData::Float(data) => {
-          let valid = self.storage.validity().to_bools()
-          let buf = data.mapi((i, x) => if valid[i] { x } else { v })
+          let buf = fill_buffer(data, valid, v)
           { name: self.name, storage: @column.BuiltinColumn::from_floats(buf) }
         }
         _ =>
@@ -382,8 +389,7 @@ pub fn Series::fill_null(
     @types.Scalar::Bool(v) =>
       match self.storage.data() {
         @column.ColumnData::Bool(data) => {
-          let valid = self.storage.validity().to_bools()
-          let buf = data.mapi((i, x) => if valid[i] { x } else { v })
+          let buf = fill_buffer(data, valid, v)
           { name: self.name, storage: @column.BuiltinColumn::from_bools(buf) }
         }
         _ =>
@@ -394,8 +400,7 @@ pub fn Series::fill_null(
     @types.Scalar::String(v) =>
       match self.storage.data() {
         @column.ColumnData::String(data) => {
-          let valid = self.storage.validity().to_bools()
-          let buf = data.mapi((i, x) => if valid[i] { x } else { v })
+          let buf = fill_buffer(data, valid, v)
           { name: self.name, storage: @column.BuiltinColumn::from_strings(buf) }
         }
         _ =>

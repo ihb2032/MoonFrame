@@ -510,3 +510,19 @@ test "sort_by is idempotent — sorting an already-sorted frame is a no-op" {
   let twice = once.sort_by(SortSpec::asc("a"))
   assert_eq(once, twice)
 }
+
+///|
+test "sort_by gathers a nullable Bool column including its null cell" {
+  // `sort_by` routes through `DataFrame::take` → `gather_series`, which
+  // must copy a Bool column's *null* cell (not only its valid cells) when
+  // that row is permuted. Sorting by `k` moves the `None` flag into the
+  // lead row, exercising the null arm of the Bool gather.
+  let df = DataFrame::new([
+    Series::from_int_options("k", [Some(2), Some(1)]),
+    Series::from_bool_options("flag", [Some(true), None]),
+  ])
+  let out = df.sort_by(SortSpec::asc("k"))
+  // k ascends → row (k=1, flag=None) leads, (k=2, flag=true) follows.
+  assert_eq(out.get(0, "flag"), @types.Scalar::Null)
+  assert_eq(out.get(1, "flag"), @types.Scalar::Bool(true))
+}

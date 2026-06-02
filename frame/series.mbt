@@ -332,13 +332,10 @@ fn gather_series(s : Series, idx : Array[Int]) -> Series {
 /// Drop every null cell. Returned series has `len = original.len -
 /// original.null_count` and a fully-valid bitmap.
 pub fn Series::drop_nulls(self : Series) -> Series {
+  // Keep the indices of the valid cells, in order, then gather them —
+  // `gather_series` rebuilds the series with a fully-valid bitmap.
   let valid = self.storage.validity().to_bools()
-  let kept : Array[Int] = []
-  for i in 0..<valid.length() {
-    if valid[i] {
-      kept.push(i)
-    }
-  }
+  let kept = Array::makei(valid.length(), i => i).filter(i => valid[i])
   gather_series(self, kept)
 }
 

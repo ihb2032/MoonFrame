@@ -17,13 +17,17 @@ pub fn DataFrame::drop(
   self : DataFrame,
   names : Array[String],
 ) -> DataFrame raise @types.DataError {
-  // Validate every requested drop name actually exists before building
-  // the survivor list — `get_column` raises on the first unknown name.
-  let to_drop : Map[String, Unit] = {}
-  for n in names {
-    let _ = self.get_column(n)
-    to_drop[n] = ()
-  }
+  // Validate-and-collect in one pass: mapping each name through
+  // `get_column` raises `ColumnNotFound` on the first unknown name — so a
+  // bad name surfaces before any survivor list is built — and
+  // `Map::from_array` folds the names into a drop set where duplicate
+  // entries collapse (matching the idempotent-drop contract).
+  let to_drop : Map[String, Unit] = Map::from_array(
+    names.map(n => {
+      let _ = self.get_column(n)
+      (n, ())
+    }),
+  )
   let survivors = self.column_series().filter(s => !to_drop.contains(s.name()))
   DataFrame::new(survivors)
 }

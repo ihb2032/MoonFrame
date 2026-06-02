@@ -19,15 +19,19 @@ pub fn DataFrame::select(
   self : DataFrame,
   names : Array[String],
 ) -> DataFrame raise @types.DataError {
-  let picked : Array[Series] = []
+  // Map each name to its column, in order. The running `seen` set makes a
+  // repeated name raise `DuplicateColumn` at the repeat — before any later
+  // name is examined — matching the documented "first error in name order"
+  // contract; `get_column` raises `ColumnNotFound` for an unknown name.
+  // `Array::map` is left-to-right and forwards the raise, so the first
+  // offending name short-circuits the scan.
   let seen : Map[String, Unit] = {}
-  for n in names {
+  let picked = names.map(n => {
     if seen.contains(n) {
       raise @types.DataError::DuplicateColumn(n)
     }
     seen[n] = ()
-    // `get_column` raises `ColumnNotFound(n)` for an unknown name.
-    picked.push(self.get_column(n))
-  }
+    self.get_column(n)
+  })
   DataFrame::new(picked)
 }

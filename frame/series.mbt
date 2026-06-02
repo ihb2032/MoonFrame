@@ -359,7 +359,6 @@ pub fn Series::fill_null(
   self : Series,
   value : @types.Scalar,
 ) -> Series raise @types.DataError {
-  let dt = self.dtype()
   let valid = self.storage.validity().to_bools()
   match value {
     @types.Scalar::Null =>
@@ -372,7 +371,8 @@ pub fn Series::fill_null(
         }
         _ =>
           raise @types.DataError::TypeMismatch(
-            "fill_null type Int does not match column type " + dt.to_string(),
+            "fill_null type Int does not match column type " +
+            self.dtype().to_string(),
           )
       }
     @types.Scalar::Float(v) =>
@@ -383,7 +383,8 @@ pub fn Series::fill_null(
         }
         _ =>
           raise @types.DataError::TypeMismatch(
-            "fill_null type Float does not match column type " + dt.to_string(),
+            "fill_null type Float does not match column type " +
+            self.dtype().to_string(),
           )
       }
     @types.Scalar::Bool(v) =>
@@ -394,7 +395,8 @@ pub fn Series::fill_null(
         }
         _ =>
           raise @types.DataError::TypeMismatch(
-            "fill_null type Bool does not match column type " + dt.to_string(),
+            "fill_null type Bool does not match column type " +
+            self.dtype().to_string(),
           )
       }
     @types.Scalar::String(v) =>
@@ -405,7 +407,8 @@ pub fn Series::fill_null(
         }
         _ =>
           raise @types.DataError::TypeMismatch(
-            "fill_null type String does not match column type " + dt.to_string(),
+            "fill_null type String does not match column type " +
+            self.dtype().to_string(),
           )
       }
   }

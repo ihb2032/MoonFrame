@@ -149,9 +149,9 @@ pub fn parse_csv_str(
     }
     seen[name] = ()
   }
-  // Infer one dtype per column, then build the column.
-  let series : Array[@frame.Series] = []
-  for col in 0..<ncols {
+  // Infer one dtype per column, then build the column. `build_column`
+  // raises `ParseError` for a cell that doesn't fit the inferred dtype.
+  let series : Array[@frame.Series] = Array::makei(ncols, col => {
     let name = headers[col]
     let dt = infer_column_dtype(
       rows,
@@ -159,10 +159,8 @@ pub fn parse_csv_str(
       options.infer_schema_rows,
       options.null_values,
     )
-    // `build_column` raises `ParseError` for a cell that doesn't fit the
-    // inferred dtype.
-    series.push(build_column(name, dt, rows, col, options.null_values))
-  }
+    build_column(name, dt, rows, col, options.null_values)
+  })
   @frame.DataFrame::new(series)
 }
 
@@ -419,14 +417,13 @@ fn build_column(
   let n = rows.length()
   match dtype {
     InferredInt => {
-      let values : Array[Int64?] = Array::new(capacity=n)
-      for i in 0..<n {
+      let values : Array[Int64?] = Array::makei(n, i => {
         let v = cell_value(rows, i, col)
         if is_null_value(v, null_values) {
-          values.push(None)
+          None
         } else {
           match parse_int_opt(v) {
-            Some(x) => values.push(Some(x))
+            Some(x) => Some(x)
             None =>
               raise @types.DataError::ParseError(
                 "column \"" +
@@ -439,18 +436,17 @@ fn build_column(
               )
           }
         }
-      }
+      })
       @frame.Series::from_int_options(name, values)
     }
     InferredFloat => {
-      let values : Array[Double?] = Array::new(capacity=n)
-      for i in 0..<n {
+      let values : Array[Double?] = Array::makei(n, i => {
         let v = cell_value(rows, i, col)
         if is_null_value(v, null_values) {
-          values.push(None)
+          None
         } else {
           match parse_float_opt(v) {
-            Some(x) => values.push(Some(x))
+            Some(x) => Some(x)
             None =>
               raise @types.DataError::ParseError(
                 "column \"" +
@@ -463,18 +459,17 @@ fn build_column(
               )
           }
         }
-      }
+      })
       @frame.Series::from_float_options(name, values)
     }
     InferredBool => {
-      let values : Array[Bool?] = Array::new(capacity=n)
-      for i in 0..<n {
+      let values : Array[Bool?] = Array::makei(n, i => {
         let v = cell_value(rows, i, col)
         if is_null_value(v, null_values) {
-          values.push(None)
+          None
         } else {
           match parse_bool_opt(v) {
-            Some(x) => values.push(Some(x))
+            Some(x) => Some(x)
             None =>
               raise @types.DataError::ParseError(
                 "column \"" +
@@ -487,19 +482,18 @@ fn build_column(
               )
           }
         }
-      }
+      })
       @frame.Series::from_bool_options(name, values)
     }
     InferredString => {
-      let values : Array[String?] = Array::new(capacity=n)
-      for i in 0..<n {
+      let values : Array[String?] = Array::makei(n, i => {
         let v = cell_value(rows, i, col)
         if is_null_value(v, null_values) {
-          values.push(None)
+          None
         } else {
-          values.push(Some(v))
+          Some(v)
         }
-      }
+      })
       @frame.Series::from_string_options(name, values)
     }
   }

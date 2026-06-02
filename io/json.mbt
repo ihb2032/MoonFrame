@@ -108,13 +108,12 @@ pub fn parse_json_records_str(
     // — the same shape the empty-input branch produces.
     return @frame.DataFrame::new([])
   }
-  let series : Array[@frame.Series] = []
-  for name in headers {
+  // `build_json_column` raises `ParseError` for a cell that doesn't fit
+  // the inferred dtype.
+  let series : Array[@frame.Series] = headers.map(name => {
     let dt = infer_json_column_dtype(objs, name, options.infer_schema_rows)
-    // `build_json_column` raises `ParseError` for a cell that doesn't fit
-    // the inferred dtype.
-    series.push(build_json_column(name, dt, objs))
-  }
+    build_json_column(name, dt, objs)
+  })
   @frame.DataFrame::new(series)
 }
 
@@ -160,14 +159,13 @@ pub fn format_json_records(df : @frame.DataFrame) -> String {
   // Materialise each column's cells once (column-major) so a record is
   // assembled by plain `cols[c][r]` reads rather than per-cell `get`.
   let cols = df.column_series().map(s => s.to_scalars())
-  let arr : Array[Json] = Array::new(capacity=nrows)
-  for r in 0..<nrows {
+  let arr : Array[Json] = Array::makei(nrows, r => {
     let obj : Map[String, Json] = {}
     for c, name in names {
       obj[name] = scalar_to_json(cols[c][r])
     }
-    arr.push(Json::object(obj))
-  }
+    Json::object(obj)
+  })
   Json::array(arr).stringify()
 }
 
@@ -407,87 +405,83 @@ fn build_json_column(
   let n = objs.length()
   match dtype {
     JsonInt => {
-      let values : Array[Int64?] = Array::new(capacity=n)
-      for i in 0..<n {
+      let values : Array[Int64?] = Array::makei(n, i => {
         let cell = lookup_field(objs[i], name)
         if cell is Null {
-          values.push(None)
-          continue
+          None
+        } else {
+          match json_value_as_int(cell) {
+            Some(x) => Some(x)
+            None =>
+              raise @types.DataError::ParseError(
+                "column \"" +
+                name +
+                "\" record " +
+                i.to_string() +
+                ": JSON value is not an Int (\"" +
+                json_value_to_string_fallback(cell) +
+                "\")",
+              )
+          }
         }
-        match json_value_as_int(cell) {
-          Some(x) => values.push(Some(x))
-          None =>
-            raise @types.DataError::ParseError(
-              "column \"" +
-              name +
-              "\" record " +
-              i.to_string() +
-              ": JSON value is not an Int (\"" +
-              json_value_to_string_fallback(cell) +
-              "\")",
-            )
-        }
-      }
+      })
       @frame.Series::from_int_options(name, values)
     }
     JsonFloat => {
-      let values : Array[Double?] = Array::new(capacity=n)
-      for i in 0..<n {
+      let values : Array[Double?] = Array::makei(n, i => {
         let cell = lookup_field(objs[i], name)
         if cell is Null {
-          values.push(None)
-          continue
+          None
+        } else {
+          match json_value_as_float(cell) {
+            Some(x) => Some(x)
+            None =>
+              raise @types.DataError::ParseError(
+                "column \"" +
+                name +
+                "\" record " +
+                i.to_string() +
+                ": JSON value is not a number (\"" +
+                json_value_to_string_fallback(cell) +
+                "\")",
+              )
+          }
         }
-        match json_value_as_float(cell) {
-          Some(x) => values.push(Some(x))
-          None =>
-            raise @types.DataError::ParseError(
-              "column \"" +
-              name +
-              "\" record " +
-              i.to_string() +
-              ": JSON value is not a number (\"" +
-              json_value_to_string_fallback(cell) +
-              "\")",
-            )
-        }
-      }
+      })
       @frame.Series::from_float_options(name, values)
     }
     JsonBool => {
-      let values : Array[Bool?] = Array::new(capacity=n)
-      for i in 0..<n {
+      let values : Array[Bool?] = Array::makei(n, i => {
         let cell = lookup_field(objs[i], name)
         if cell is Null {
-          values.push(None)
-          continue
+          None
+        } else {
+          match json_value_as_bool(cell) {
+            Some(x) => Some(x)
+            None =>
+              raise @types.DataError::ParseError(
+                "column \"" +
+                name +
+                "\" record " +
+                i.to_string() +
+                ": JSON value is not a Bool (\"" +
+                json_value_to_string_fallback(cell) +
+                "\")",
+              )
+          }
         }
-        match json_value_as_bool(cell) {
-          Some(x) => values.push(Some(x))
-          None =>
-            raise @types.DataError::ParseError(
-              "column \"" +
-              name +
-              "\" record " +
-              i.to_string() +
-              ": JSON value is not a Bool (\"" +
-              json_value_to_string_fallback(cell) +
-              "\")",
-            )
-        }
-      }
+      })
       @frame.Series::from_bool_options(name, values)
     }
     JsonString => {
-      let values : Array[String?] = Array::new(capacity=n)
-      for i in 0..<n {
+      let values : Array[String?] = Array::makei(n, i => {
         let cell = lookup_field(objs[i], name)
         if cell is Null {
-          values.push(None)
+          None
         } else {
-          values.push(Some(json_value_to_string_fallback(cell)))
+          Some(json_value_to_string_fallback(cell))
         }
-      }
+      })
       @frame.Series::from_string_options(name, values)
     }
   }

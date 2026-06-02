@@ -39,28 +39,14 @@ pub fn Bitmap::all_null(len : Int) -> Bitmap {
 ///|
 /// `true` ↦ valid, `false` ↦ null.
 pub fn Bitmap::from_bools(values : Array[Bool]) -> Bitmap {
-  let len = values.length()
-  let buf = FixedArray::make(bytes_needed(len), Byte::default())
-  for i in 0..<len {
-    if values[i] {
-      set_bit_unchecked(buf, i)
-    }
-  }
-  { bits: buffer_to_bytes(buf), len }
+  pack(values.length(), i => values[i])
 }
 
 ///|
 /// `Some(_)` ↦ valid, `None` ↦ null. Works for any element type because
 /// only the `Some/None` shape is inspected.
 pub fn[T] Bitmap::from_options(values : Array[T?]) -> Bitmap {
-  let len = values.length()
-  let buf = FixedArray::make(bytes_needed(len), Byte::default())
-  for i in 0..<len {
-    if values[i] is Some(_) {
-      set_bit_unchecked(buf, i)
-    }
-  }
-  { bits: buffer_to_bytes(buf), len }
+  pack(values.length(), i => values[i] is Some(_))
 }
 
 // ── Inspection ────────────────────────────────────────────────────────
@@ -122,12 +108,7 @@ pub fn Bitmap::null_count(self : Bitmap) -> Int {
 /// per-element `Result` through every iteration — which would otherwise
 /// force either an `unwrap` (a panic path) or an unreachable `Err` arm.
 pub fn Bitmap::to_bools(self : Bitmap) -> Array[Bool] {
-  let n = self.len
-  let out : Array[Bool] = Array::new(capacity=n)
-  for i in 0..<n {
-    out.push(bit_at(self.bits, i))
-  }
-  out
+  Array::makei(self.len, i => bit_at(self.bits, i))
 }
 
 // ── Transforms ────────────────────────────────────────────────────────
@@ -154,13 +135,7 @@ pub fn Bitmap::slice(
   if start + length > self.len {
     raise @types.DataError::IndexOutOfBounds(start + length)
   }
-  let buf = FixedArray::make(bytes_needed(length), Byte::default())
-  for i in 0..<length {
-    if bit_at(self.bits, start + i) {
-      set_bit_unchecked(buf, i)
-    }
-  }
-  { bits: buffer_to_bytes(buf), len: length }
+  pack(length, i => bit_at(self.bits, start + i))
 }
 
 ///|
@@ -175,14 +150,7 @@ pub fn Bitmap::take(
       raise @types.DataError::IndexOutOfBounds(i)
     }
   }
-  let n = indices.length()
-  let buf = FixedArray::make(bytes_needed(n), Byte::default())
-  for j in 0..<n {
-    if bit_at(self.bits, indices[j]) {
-      set_bit_unchecked(buf, j)
-    }
-  }
-  { bits: buffer_to_bytes(buf), len: n }
+  pack(indices.length(), i => bit_at(self.bits, indices[i]))
 }
 
 ///|
@@ -197,17 +165,28 @@ pub fn Bitmap::bit_and(
   if self.len != other.len {
     raise @types.DataError::LengthMismatch
   }
-  let n = self.len
-  let buf = FixedArray::make(bytes_needed(n), Byte::default())
-  for i in 0..<n {
-    if bit_at(self.bits, i) && bit_at(other.bits, i) {
-      set_bit_unchecked(buf, i)
-    }
-  }
-  { bits: buffer_to_bytes(buf), len: n }
+  pack(self.len, i => bit_at(self.bits, i) && bit_at(other.bits, i))
 }
 
 // ── Internal helpers ──────────────────────────────────────────────────
+
+///|
+/// Build a bitmap of `len` slots whose `i`-th bit is `1` (valid) exactly
+/// when `valid(i)` is true. This is the closure-parameterised core shared by
+/// every constructor and transform that packs per-slot validity into the
+/// byte buffer (`from_bools`, `from_options`, `slice`, `take`, `bit_and`);
+/// each caller supplies only its own `valid` predicate. `valid` runs once per
+/// slot in `[0, len)`, so the caller must keep every index it reads
+/// (e.g. `start + i`, `indices[i]`) within bounds.
+fn pack(len : Int, valid : (Int) -> Bool) -> Bitmap {
+  let buf = FixedArray::make(bytes_needed(len), Byte::default())
+  for i in 0..<len {
+    if valid(i) {
+      set_bit_unchecked(buf, i)
+    }
+  }
+  { bits: buffer_to_bytes(buf), len }
+}
 
 ///|
 /// `⌈len / 8⌉`, clamped to 0 for non-positive `len`.

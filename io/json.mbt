@@ -7,6 +7,12 @@
 // `read_csv → write_json_records → read_json` preserves dtypes for
 // any frame whose JSON values stay within the four v0.1 dtypes.
 //
+// Caveat — JSON numbers (and `@json`'s reader) are IEEE-754 `Double`, so
+// an `Int64` whose magnitude exceeds 2^53 keeps its `Int` dtype but loses
+// value precision on a write → read round-trip (see `scalar_to_json`).
+// This matches pandas' `to_json` against JavaScript consumers; values
+// within ±2^53 round-trip exactly.
+//
 // All parsing and stringification goes through the builtin `@json`
 // package so we get standards-conformant string escaping, the
 // `NaN` / `Infinity` rendering convention, and number formatting for
@@ -198,7 +204,10 @@ fn parse_json_payload(content : String) -> Json raise @types.DataError {
 
 ///|
 /// Map a `@types.Scalar` into the corresponding `Json` value. `Int` is
-/// widened to a JSON number; a finite `Float` becomes a JSON number. A
+/// widened to a JSON number — exact up to magnitude 2^53; an `Int64`
+/// beyond that cannot be represented by a `Double` and loses precision on
+/// a write → read round-trip (the `Int` dtype survives, the value may
+/// not). A finite `Float` becomes a JSON number. A
 /// non-finite `Float` (`NaN` / `±Infinity`) has no JSON literal —
 /// `@json.stringify` would emit the bare tokens `NaN` / `Infinity` /
 /// `-Infinity`, which is invalid JSON that neither
@@ -223,19 +232,6 @@ fn scalar_to_json(s : @types.Scalar) -> Json {
 }
 
 ///|
-/// Internal enumeration of the four dtypes JSON inference can pick.
-/// Kept separate from `@types.DataType` for the same reason the CSV
-/// reader keeps its own `InferredDtype`: inference never produces
-/// `Null`, and propagating that fact through the type system is
-/// cheaper than guarding every call site.
-priv enum InferredJsonDtype {
-  JsonInt
-  JsonFloat
-  JsonBool
-  JsonString
-}
-
-///|
 /// Fetch the value of `name` from `obj`. A missing field on a sparse
 /// record is treated as a null cell — every record was already
 /// validated as a JSON object by `parse_json_records_str` before
@@ -253,58 +249,24 @@ fn lookup_field(obj : Map[String, Json], name : String) -> Json {
 /// dtype that accepts every non-null cell. Priority order matches
 /// the CSV reader: `Int → Float → Bool → String`. A column whose
 /// probe window is entirely null falls back to `String` (no signal).
+/// A column that mixes dtypes (e.g. `1` then `"hi"`) also lands on
+/// `String`, where `build_json_column` re-renders numeric cells via their
+/// string form. Adapts the JSON cell source (`Json` values looked up by
+/// key) onto the shared `infer_dtype` core.
 fn infer_json_column_dtype(
   objs : Array[Map[String, Json]],
   name : String,
   limit : Int,
-) -> InferredJsonDtype {
-  let n = objs.length()
-  let scan = if limit > n { n } else { limit }
-  let mut all_int = true
-  let mut all_float = true
-  let mut all_bool = true
-  let mut all_string = true
-  let mut saw_any = false
-  for i in 0..<scan {
-    let value = lookup_field(objs[i], name)
-    if value is Null {
-      continue
-    }
-    saw_any = true
-    if all_int && json_value_as_int(value) is None {
-      all_int = false
-    }
-    if all_float && json_value_as_float(value) is None {
-      all_float = false
-    }
-    if all_bool && json_value_as_bool(value) is None {
-      all_bool = false
-    }
-    if all_string && json_value_as_string(value) is None {
-      all_string = false
-    }
-    if !all_int && !all_float && !all_bool && !all_string {
-      break
-    }
-  }
-  if !saw_any {
-    return JsonString
-  }
-  if all_int {
-    JsonInt
-  } else if all_float {
-    JsonFloat
-  } else if all_bool {
-    JsonBool
-  } else if all_string {
-    JsonString
-  } else {
-    // Mixed dtype within a single column (e.g. `1` then `"hi"`):
-    // fall back to String. `build_json_column` will then re-render
-    // numeric cells via their string form, matching the CSV
-    // reader's behaviour when its inference window is mixed.
-    JsonString
-  }
+) -> InferredDtype {
+  infer_dtype(
+    objs.length(),
+    limit,
+    i => lookup_field(objs[i], name),
+    j => j is Null,
+    j => json_value_as_int(j) is Some(_),
+    j => json_value_as_float(j) is Some(_),
+    j => json_value_as_bool(j) is Some(_),
+  )
 }
 
 ///|
@@ -362,18 +324,6 @@ fn json_value_as_bool(j : Json) -> Bool? {
 }
 
 ///|
-/// Try to read `j` as a `String`. Only the JSON `String` variant is
-/// accepted; numbers / booleans / null are rejected so the inference
-/// pass can distinguish "pure string column" from "mixed column that
-/// should fall back to string".
-fn json_value_as_string(j : Json) -> String? {
-  match j {
-    String(s) => Some(s)
-    _ => None
-  }
-}
-
-///|
 /// Render any JSON value as a flat string for the `String`-fallback
 /// column builder. Numbers render via `Double::to_string`, booleans
 /// render `true` / `false`, strings pass through verbatim, and any
@@ -399,87 +349,62 @@ fn json_value_to_string_fallback(j : Json) -> String {
 /// inference window fails to match the locked-in dtype.
 fn build_json_column(
   name : String,
-  dtype : InferredJsonDtype,
+  dtype : InferredDtype,
   objs : Array[Map[String, Json]],
 ) -> @frame.Series raise @types.DataError {
   let n = objs.length()
+  let cell = fn(i : Int) -> Json { lookup_field(objs[i], name) }
+  let isnull = fn(c : Json) -> Bool { c is Null }
   match dtype {
-    JsonInt => {
-      let values : Array[Int64?] = Array::makei(n, i => {
-        let cell = lookup_field(objs[i], name)
-        if cell is Null {
-          None
-        } else {
-          match json_value_as_int(cell) {
-            Some(x) => Some(x)
-            None =>
-              raise @types.DataError::ParseError(
-                "column \"" +
-                name +
-                "\" record " +
-                i.to_string() +
-                ": JSON value is not an Int (\"" +
-                json_value_to_string_fallback(cell) +
-                "\")",
-              )
-          }
-        }
-      })
-      @frame.Series::from_int_options(name, values)
-    }
-    JsonFloat => {
-      let values : Array[Double?] = Array::makei(n, i => {
-        let cell = lookup_field(objs[i], name)
-        if cell is Null {
-          None
-        } else {
-          match json_value_as_float(cell) {
-            Some(x) => Some(x)
-            None =>
-              raise @types.DataError::ParseError(
-                "column \"" +
-                name +
-                "\" record " +
-                i.to_string() +
-                ": JSON value is not a number (\"" +
-                json_value_to_string_fallback(cell) +
-                "\")",
-              )
-          }
-        }
-      })
-      @frame.Series::from_float_options(name, values)
-    }
-    JsonBool => {
-      let values : Array[Bool?] = Array::makei(n, i => {
-        let cell = lookup_field(objs[i], name)
-        if cell is Null {
-          None
-        } else {
-          match json_value_as_bool(cell) {
-            Some(x) => Some(x)
-            None =>
-              raise @types.DataError::ParseError(
-                "column \"" +
-                name +
-                "\" record " +
-                i.to_string() +
-                ": JSON value is not a Bool (\"" +
-                json_value_to_string_fallback(cell) +
-                "\")",
-              )
-          }
-        }
-      })
-      @frame.Series::from_bool_options(name, values)
-    }
-    JsonString => {
+    InferInt =>
+      build_typed_column(
+        name,
+        n,
+        cell,
+        isnull,
+        json_value_as_int,
+        (i, c) => {
+          @types.DataError::ParseError(
+            "column \"\{name}\" record \{i}: JSON value is not an Int (\"\{json_value_to_string_fallback(c)}\")",
+          )
+        },
+        @frame.Series::from_int_options,
+      )
+    InferFloat =>
+      build_typed_column(
+        name,
+        n,
+        cell,
+        isnull,
+        json_value_as_float,
+        (i, c) => {
+          @types.DataError::ParseError(
+            "column \"\{name}\" record \{i}: JSON value is not a number (\"\{json_value_to_string_fallback(c)}\")",
+          )
+        },
+        @frame.Series::from_float_options,
+      )
+    InferBool =>
+      build_typed_column(
+        name,
+        n,
+        cell,
+        isnull,
+        json_value_as_bool,
+        (i, c) => {
+          @types.DataError::ParseError(
+            "column \"\{name}\" record \{i}: JSON value is not a Bool (\"\{json_value_to_string_fallback(c)}\")",
+          )
+        },
+        @frame.Series::from_bool_options,
+      )
+    InferString => {
       let values : Array[String?] = Array::makei(n, i => {
-        let cell = lookup_field(objs[i], name)
-        if cell is Null {
+        let c = cell(i)
+        if isnull(c) {
           None
         } else {
-          Some(json_value_to_string_fallback(cell))
+          Some(json_value_to_string_fallback(c))
         }
       })
       @frame.Series::from_string_options(name, values)

@@ -362,6 +362,9 @@ to `raise DataError::IoError(message)`.
   numbers via `@json`. A non-finite `Float` (`NaN` / `±Infinity`) has no
   JSON literal, so it is emitted as `null` (like pandas' `to_json`),
   keeping the output valid JSON; a round-trip reads it back as a null.
+  `Int` cells render as JSON numbers; a magnitude beyond 2^53 keeps its
+  `Int` dtype but loses precision on a JSON round-trip (the `@json` number
+  model is `Double`), as in pandas' `to_json`.
 - `read_json(path)` / `read_json_with_options(path, options) -> DataFrame
   raise DataError`; `write_json_records(path, df) -> Unit raise
   DataError` — file wrappers (`IoError`).

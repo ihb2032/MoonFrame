@@ -132,7 +132,7 @@ pub fn parse_csv_str(
     }
     let ncols_local = if rows.is_empty() { 0 } else { rows[0].length() }
     for i in 0..<ncols_local {
-      headers.push("column" + (i + 1).to_string())
+      headers.push("column\{i + 1}")
     }
   }
   let ncols = headers.length()
@@ -162,19 +162,6 @@ pub fn parse_csv_str(
     build_column(name, dt, rows, col, options.null_values)
   })
   @frame.DataFrame::new(series)
-}
-
-///|
-/// Internal enumeration of the four dtypes CSV inference can pick. We
-/// keep this separate from `@types.DataType` so the builder match is
-/// exhaustive without an unreachable `Null` arm — inference never
-/// produces `Null`, and propagating that fact through the type system
-/// is cheaper than guarding every call site.
-priv enum InferredDtype {
-  InferredInt
-  InferredFloat
-  InferredBool
-  InferredString
 }
 
 ///|
@@ -296,50 +283,23 @@ fn is_null_value(value : String, null_values : Array[String]) -> Bool {
 /// Probe the first `limit` non-null cells of `col` to pick a dtype.
 /// `Int → Float → Bool → String` in order; whichever option accepts
 /// every probed cell wins. A column whose probe window is entirely
-/// null defaults to `String`.
+/// null defaults to `String`. Adapts the CSV cell source (`String`
+/// cells from the row matrix) onto the shared `infer_dtype` core.
 fn infer_column_dtype(
   rows : Array[Array[String]],
   col : Int,
   limit : Int,
   null_values : Array[String],
 ) -> InferredDtype {
-  let n = rows.length()
-  let scan = if limit > n { n } else { limit }
-  let mut all_int = true
-  let mut all_float = true
-  let mut all_bool = true
-  let mut saw_any = false
-  for i in 0..<scan {
-    let v = cell_value(rows, i, col)
-    if is_null_value(v, null_values) {
-      continue
-    }
-    saw_any = true
-    if all_int && parse_int_opt(v) is None {
-      all_int = false
-    }
-    if all_float && parse_float_opt(v) is None {
-      all_float = false
-    }
-    if all_bool && parse_bool_opt(v) is None {
-      all_bool = false
-    }
-    if !all_int && !all_float && !all_bool {
-      break
-    }
-  }
-  if !saw_any {
-    return InferredString
-  }
-  if all_int {
-    InferredInt
-  } else if all_float {
-    InferredFloat
-  } else if all_bool {
-    InferredBool
-  } else {
-    InferredString
-  }
+  infer_dtype(
+    rows.length(),
+    limit,
+    i => cell_value(rows, i, col),
+    v => is_null_value(v, null_values),
+    v => parse_int_opt(v) is Some(_),
+    v => parse_float_opt(v) is Some(_),
+    v => parse_bool_opt(v) is Some(_),
+  )
 }
 
 ///|
@@ -415,80 +375,55 @@ fn build_column(
   null_values : Array[String],
 ) -> @frame.Series raise @types.DataError {
   let n = rows.length()
+  let cell = fn(i : Int) -> String { cell_value(rows, i, col) }
+  let isnull = fn(v : String) -> Bool { is_null_value(v, null_values) }
   match dtype {
-    InferredInt => {
-      let values : Array[Int64?] = Array::makei(n, i => {
-        let v = cell_value(rows, i, col)
-        if is_null_value(v, null_values) {
-          None
-        } else {
-          match parse_int_opt(v) {
-            Some(x) => Some(x)
-            None =>
-              raise @types.DataError::ParseError(
-                "column \"" +
-                name +
-                "\" row " +
-                i.to_string() +
-                ": cannot parse \"" +
-                v +
-                "\" as Int",
-              )
-          }
-        }
-      })
-      @frame.Series::from_int_options(name, values)
-    }
-    InferredFloat => {
-      let values : Array[Double?] = Array::makei(n, i => {
-        let v = cell_value(rows, i, col)
-        if is_null_value(v, null_values) {
-          None
-        } else {
-          match parse_float_opt(v) {
-            Some(x) => Some(x)
-            None =>
-              raise @types.DataError::ParseError(
-                "column \"" +
-                name +
-                "\" row " +
-                i.to_string() +
-                ": cannot parse \"" +
-                v +
-                "\" as Float",
-              )
-          }
-        }
-      })
-      @frame.Series::from_float_options(name, values)
-    }
-    InferredBool => {
-      let values : Array[Bool?] = Array::makei(n, i => {
-        let v = cell_value(rows, i, col)
-        if is_null_value(v, null_values) {
-          None
-        } else {
-          match parse_bool_opt(v) {
-            Some(x) => Some(x)
-            None =>
-              raise @types.DataError::ParseError(
-                "column \"" +
-                name +
-                "\" row " +
-                i.to_string() +
-                ": cannot parse \"" +
-                v +
-                "\" as Bool",
-              )
-          }
-        }
-      })
-      @frame.Series::from_bool_options(name, values)
-    }
-    InferredString => {
+    InferInt =>
+      build_typed_column(
+        name,
+        n,
+        cell,
+        isnull,
+        parse_int_opt,
+        (i, v) => {
+          @types.DataError::ParseError(
+            "column \"\{name}\" row \{i}: cannot parse \"\{v}\" as Int",
+          )
+        },
+        @frame.Series::from_int_options,
+      )
+    InferFloat =>
+      build_typed_column(
+        name,
+        n,
+        cell,
+        isnull,
+        parse_float_opt,
+        (i, v) => {
+          @types.DataError::ParseError(
+            "column \"\{name}\" row \{i}: cannot parse \"\{v}\" as Float",
+          )
+        },
+        @frame.Series::from_float_options,
+      )
+    InferBool =>
+      build_typed_column(
+        name,
+        n,
+        cell,
+        isnull,
+        parse_bool_opt,
+        (i, v) => {
+          @types.DataError::ParseError(
+            "column \"\{name}\" row \{i}: cannot parse \"\{v}\" as Bool",
+          )
+        },
+        @frame.Series::from_bool_options,
+      )
+    InferString => {
       let values : Array[String?] = Array::makei(n, i => {
-        let v = cell_value(rows, i, col)
-        if is_null_value(v, null_values) {
+        let v = cell(i)
+        if isnull(v) {
           None
         } else {
           Some(v)

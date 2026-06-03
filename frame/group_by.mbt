@@ -64,22 +64,21 @@ pub fn DataFrame::group_by(
     seen[k] = ()
     self.get_column(k).to_scalars()
   })
-  // `index_of` maps a composite key to its group's slot in `groups`;
-  // `groups` grows in first-appearance order. A row whose key is already
-  // present appends to that group, otherwise it opens a new one.
-  let index_of : Map[String, Int] = {}
-  let groups : Array[Array[Int]] = []
+  // `by_key` maps a composite key to that key's row indices, growing each
+  // group in place (`Array` is a mutable reference, so the cell fetched by
+  // `get` is the stored one). MoonBit's `Map` iterates in first-insertion
+  // order, so `.values()` reproduces first-appearance group order (pandas
+  // `sort=False`) with no separate slot-tracking array; within a group the
+  // indices stay ascending because `i` only grows.
+  let by_key : Map[String, Array[Int]] = {}
   for i in 0..<self.nrows() {
     let id = row_group_key(key_scalars, i)
-    match index_of.get(id) {
-      Some(g) => groups[g].push(i)
-      None => {
-        index_of[id] = groups.length()
-        groups.push([i])
-      }
+    match by_key.get(id) {
+      Some(g) => g.push(i)
+      None => by_key[id] = [i]
     }
   }
-  { source: self, keys, groups }
+  { source: self, keys, groups: by_key.values().collect() }
 }
 
 ///|

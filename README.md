@@ -60,7 +60,14 @@ validity `Bitmap`, `1 = valid`) under `Series` / `DataFrame`, an `O(1)`
 `name_to_index` cache, and `DataFrame::check_invariants()` as a formal
 structural spec (INV1–INV7) asserted by every operator test.
 
-Roadmap: GroupBy / Join / NDJSON in the rest of v0.2; an
+**GroupBy has landed** — the first of the v0.2 split-apply-combine features.
+`df.group_by(keys).agg([AggSpec::sum("x"), AggSpec::mean("y"), ...])` returns a
+one-row-per-group summary with `Count` / `Sum` / `Mean` / `Min` / `Max`
+reductions (reusing the `Series` statistics, so null / `NaN` rules carry over),
+optional per-column aliases via `with_alias`, deterministic first-appearance
+group order, and null keys kept as their own group.
+
+Roadmap: Join / NDJSON in the rest of v0.2; a
 `ColumnStorage` / `NumericColumn` storage abstraction in v0.3 alongside HTML
 and chart-data export; an expression / lazy query layer in v0.4.
 
@@ -88,7 +95,7 @@ total and return a `String`).
 moonframe/      facade package — re-exports the public API
 types/          value types, errors (DataError suberror), schemas
 column/         column storage backends (Arrow-style Bitmap + BuiltinColumn)
-frame/          Series, DataFrame, RowView + all DataFrame operators + to_markdown
+frame/          Series, DataFrame, RowView + all DataFrame operators + group_by + to_markdown
 io/             CSV (NyaCSV-backed) and JSON read / write
 docs/api.md     public API reference (source of truth)
 ```
@@ -113,6 +120,21 @@ fn report(path : String) -> String raise @moonframe.DataError {
   .select(["region", "quantity", "revenue"])
   .sort_by([("quantity", @moonframe.SortOrder::Desc, @moonframe.NullOrder::NullsLast)])
   .describe()
+  .to_markdown()
+}
+
+// GroupBy: one row per region with a total and an average, sorted by the
+// total quantity descending. `with_alias` renames the aggregated columns.
+fn sales_by_region(path : String) -> String raise @moonframe.DataError {
+  @moonframe.read_csv(path)
+  .group_by(["region"])
+  .agg([
+    @moonframe.AggSpec::sum("quantity").with_alias("total_quantity"),
+    @moonframe.AggSpec::mean("revenue").with_alias("avg_revenue"),
+  ])
+  .sort_by([
+    ("total_quantity", @moonframe.SortOrder::Desc, @moonframe.NullOrder::NullsLast),
+  ])
   .to_markdown()
 }
 

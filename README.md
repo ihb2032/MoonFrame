@@ -69,13 +69,14 @@ group order, and null keys kept as their own group.
 
 **Join has landed too.** `left.inner_join(right, ["id"])` /
 `left.left_join(right, ["id"])` (or the configurable
-`left.join(right, JoinOptions::on(["id"]).with_how(Left).with_suffix("_r"))`)
-do a hash equi-join: output is the left columns followed by the right's
-non-key columns (key columns once, colliding right names suffixed), rows in
-deterministic left-then-right-match order. It reuses `group_by`'s composite-key
-encoding, with one deliberate twist — a **null** key matches nothing
-(`null != null`, like pandas), whereas `group_by` keeps nulls as their own
-group. An empty key list is a cross join.
+`left.join(right, JoinOptions::on(["id"]).with_how(Left).with_coalesce(true))`)
+do a hash equi-join with Polars-aligned semantics: a **null** key matches
+nothing (`null != null`, as in SQL / Polars), a `NaN` key matches other NaNs,
+the right-column collision suffix defaults to `"_right"`, and key columns are
+coalesced on an inner join but kept (the right as `id_right`) on a left join —
+`coalesce` defaults to Polars' per-`how` rule and is overridable via
+`with_coalesce`. Output is the left columns then the right columns, rows in
+deterministic left-then-right-match order. An empty key list is a cross join.
 
 Roadmap: NDJSON in the rest of v0.2; a
 `ColumnStorage` / `NumericColumn` storage abstraction in v0.3 alongside HTML

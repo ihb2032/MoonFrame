@@ -7,19 +7,22 @@
 /// `Scalar::to_string`, length-prefixed so the multi-key composite is
 /// injective across field boundaries). The one deliberate difference from
 /// `group_by`: a **null** key cell matches **nothing** (`null != null`,
-/// pandas semantics) — for `Inner` such a left row is dropped, for `Left`
-/// it is kept with null right columns. A `Float` `NaN` key is *not* null,
-/// so — exactly as in `group_by` — it renders `"NaN"` and matches other
-/// `NaN` keys (this diverges from pandas' `merge`, where `NaN != NaN`; the
-/// trade is internal consistency with `group_by`'s key model).
+/// the SQL / Polars default) — for `Inner` such a left row is dropped, for
+/// `Left` it is kept with null right columns. A `Float` `NaN` key is *not*
+/// null, so — as in `group_by`, and matching Polars' "NaN compares equal"
+/// rule — it renders `"NaN"` and matches other `NaN` keys.
 ///
 /// Output shape:
 ///   * **columns** = the left columns (original order and names) followed
-///     by the right frame's **non-key** columns (original order). The key
-///     columns appear once, taken from the left (keeping the left dtype).
-///     A right non-key column whose name also occurs in the left frame is
-///     renamed by appending `options.suffix` (default `"_right"`); the
-///     left column keeps its name.
+///     by the right frame's columns (original order). Whether each right
+///     **key** column is kept is governed by `options.coalesce` (`None` =
+///     auto by `how`, matching Polars: an inner join coalesces, a left join
+///     does not). When coalesced, the key appears once, taken from the left
+///     (keeping the left dtype). When not coalesced, the right key column is
+///     kept too — it clashes with the left key name, so it gains
+///     `options.suffix` (e.g. `id_right`) and is null wherever a left row
+///     had no match. Any other right column whose name occurs in the left
+///     frame is likewise suffixed; the left column keeps its name.
 ///   * **rows** = left rows in their original order; within one left row,
 ///     its right matches appear in ascending right-row order. `Inner`
 ///     emits only matched pairs; `Left` additionally emits every
@@ -126,6 +129,17 @@ pub fn DataFrame::join(
   for col in self.column_series() {
     out_cols.push(gather_series(col, left_rows))
   }
+  // Resolve key coalescing: an explicit `with_coalesce` wins, else auto by
+  // `how` (inner coalesces → key once; left does not → right key kept),
+  // matching Polars' `coalesce = None`.
+  let coalesce = match options.coalesce {
+    Some(b) => b
+    None =>
+      match options.how {
+        Inner => true
+        Left => false
+      }
+  }
   let on_set : Map[String, Unit] = {}
   for k in options.on {
     on_set[k] = ()
@@ -135,8 +149,11 @@ pub fn DataFrame::join(
     left_names[n] = ()
   }
   for col in other.column_series() {
-    // Key columns are already present (once) from the left side.
-    if !on_set.contains(col.name()) {
+    // A right key column is dropped only when coalescing (its values are
+    // already in the kept left key column); otherwise every right column is
+    // emitted, suffixed on a name clash with the left frame — a kept key
+    // column always clashes, so it becomes `<key><suffix>`.
+    if !(coalesce && on_set.contains(col.name())) {
       let out_name = if left_names.contains(col.name()) {
         col.name() + options.suffix
       } else {
@@ -162,7 +179,10 @@ pub fn DataFrame::inner_join(
 ///|
 /// Left join convenience: keep every left row, filling the right columns
 /// with nulls where it has no match. Equivalent to
-/// `self.join(other, JoinOptions::on(on).with_how(Left))`.
+/// `self.join(other, JoinOptions::on(on).with_how(Left))` — so, per the
+/// auto-coalesce default, **both** key columns are kept (the right one as
+/// `<key><suffix>`, null on unmatched rows); use the options form with
+/// `with_coalesce(true)` to merge the key into one column instead.
 pub fn DataFrame::left_join(
   self : DataFrame,
   other : DataFrame,

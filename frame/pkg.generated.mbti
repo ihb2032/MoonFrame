@@ -93,8 +93,10 @@ pub struct JoinOptions {
   on : Array[String]
   how : JoinType
   suffix : String
+  coalesce : Bool?
 } derive(Eq, @debug.Debug)
 pub fn JoinOptions::on(Array[String]) -> Self
+pub fn JoinOptions::with_coalesce(Self, Bool) -> Self
 pub fn JoinOptions::with_how(Self, JoinType) -> Self
 pub fn JoinOptions::with_suffix(Self, String) -> Self
 

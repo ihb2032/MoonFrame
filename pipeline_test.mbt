@@ -275,10 +275,16 @@ test "pipeline: join enriches a frame then sorts via the facade" {
   assert_eq(enriched.get(0, "region"), Scalar::String("west"))
   assert_eq(enriched.get(2, "region"), Scalar::String("east"))
 
-  // The convenience left join keeps the unmatched order with a null region.
+  // The convenience left join keeps the unmatched order; per the Polars
+  // auto-coalesce default it also keeps the right key as customer_id_right,
+  // null on the unmatched row (order 4, customer 99).
   let all_orders = orders.left_join(customers, ["customer_id"])
-  assert_eq(all_orders.shape(), (4, 4))
+  assert_eq(all_orders.columns(), [
+    "order_id", "customer_id", "amount", "customer_id_right", "region",
+  ])
+  assert_eq(all_orders.shape(), (4, 5))
   assert_eq(all_orders.get(3, "order_id"), Scalar::Int(4))
+  assert_eq(all_orders.get(3, "customer_id_right"), Scalar::Null)
   assert_eq(all_orders.get(3, "region"), Scalar::Null)
 }
 

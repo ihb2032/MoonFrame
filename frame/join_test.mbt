@@ -66,17 +66,40 @@ test "inner_join convenience equals join with default options" {
 test "left join keeps every left row, nulling unmatched right columns" {
   let out = employees().left_join(departments(), ["dept_id"])
   assert_eq(out.check_invariants(), Ok(()))
-  assert_eq(out.columns(), ["emp_id", "name", "dept_id", "dept_name"])
-  // All four employees survive; Dave's dept_name is null.
-  assert_eq(out.shape(), (4, 4))
+  // A left join does NOT coalesce by default (Polars), so the right key is
+  // kept as `dept_id_right` (null where the left row had no match), letting
+  // matched and unmatched rows be told apart.
+  assert_eq(out.columns(), [
+    "emp_id", "name", "dept_id", "dept_id_right", "dept_name",
+  ])
+  // All four employees survive; Dave (dept 99) has no match.
+  assert_eq(out.shape(), (4, 5))
   assert_eq(out.get(0, "dept_name"), @types.Scalar::String("Eng"))
   assert_eq(out.get(1, "dept_name"), @types.Scalar::String("Sales"))
   assert_eq(out.get(2, "dept_name"), @types.Scalar::String("Eng"))
+  // Matched rows carry the right key; Dave's right key + dept_name are null.
+  assert_eq(out.get(0, "dept_id_right"), @types.Scalar::Int(10))
   assert_eq(out.get(3, "name"), @types.Scalar::String("Dave"))
-  assert_eq(out.get(3, "dept_id"), @types.Scalar::Int(99))
+  assert_eq(out.get(3, "dept_id"), @types.Scalar::Int(99)) // left key kept
+  assert_eq(out.get(3, "dept_id_right"), @types.Scalar::Null) // no match
   assert_eq(out.get(3, "dept_name"), @types.Scalar::Null)
   // The nulled right column keeps its source dtype.
   assert_eq(out.get_column("dept_name").dtype(), @types.DataType::String)
+}
+
+///|
+test "left join with coalesce=true merges the key into one column" {
+  // Opting back into coalescing reproduces the inner-join key layout: the
+  // key appears once (the left's value, always present on a left row).
+  let out = employees().join(
+    departments(),
+    JoinOptions::on(["dept_id"]).with_how(JoinType::Left).with_coalesce(true),
+  )
+  assert_eq(out.check_invariants(), Ok(()))
+  assert_eq(out.columns(), ["emp_id", "name", "dept_id", "dept_name"])
+  assert_eq(out.shape(), (4, 4))
+  assert_eq(out.get(3, "dept_id"), @types.Scalar::Int(99))
+  assert_eq(out.get(3, "dept_name"), @types.Scalar::Null)
 }
 
 ///|
@@ -87,6 +110,24 @@ test "left_join convenience equals join with how = Left" {
     JoinOptions::on(["dept_id"]).with_how(JoinType::Left),
   )
   assert_eq(viamethod, viaoptions)
+}
+
+///|
+test "inner join with coalesce=false keeps both key columns" {
+  // The opt-out direction: force a non-coalescing inner join, so the right
+  // key is kept (suffixed). Every row matched, so the two key columns hold
+  // equal values.
+  let out = employees().join(
+    departments(),
+    JoinOptions::on(["dept_id"]).with_coalesce(false),
+  )
+  assert_eq(out.check_invariants(), Ok(()))
+  assert_eq(out.columns(), [
+    "emp_id", "name", "dept_id", "dept_id_right", "dept_name",
+  ])
+  assert_eq(out.shape(), (3, 5))
+  assert_eq(out.get(0, "dept_id"), @types.Scalar::Int(10))
+  assert_eq(out.get(0, "dept_id_right"), @types.Scalar::Int(10))
 }
 
 // ── One-to-many + row-order determinism ──────────────────────────────
@@ -255,13 +296,18 @@ test "inner join drops rows with a null key on either side" {
 test "left join keeps a null-keyed left row with null right columns" {
   let out = left_nullable().left_join(right_nullable(), ["k"])
   assert_eq(out.check_invariants(), Ok(()))
-  // All three left rows survive; the null-keyed one (row 1) gets null rv
-  // even though the right frame also has a null-keyed row (null != null).
-  assert_eq(out.shape(), (3, 3))
+  // Left join keeps the right key (k_right); all three left rows survive.
+  assert_eq(out.columns(), ["k", "lv", "k_right", "rv"])
+  // The null-keyed left row (row 1) gets null k_right + rv even though the
+  // right frame also has a null-keyed row (null != null).
+  assert_eq(out.shape(), (3, 4))
+  assert_eq(out.get(0, "k_right"), @types.Scalar::Int(1))
   assert_eq(out.get(0, "rv"), @types.Scalar::String("x"))
-  assert_eq(out.get(1, "k"), @types.Scalar::Null)
+  assert_eq(out.get(1, "k"), @types.Scalar::Null) // left key, was null
   assert_eq(out.get(1, "lv"), @types.Scalar::String("b"))
+  assert_eq(out.get(1, "k_right"), @types.Scalar::Null) // no match
   assert_eq(out.get(1, "rv"), @types.Scalar::Null)
+  assert_eq(out.get(2, "k_right"), @types.Scalar::Int(2))
   assert_eq(out.get(2, "rv"), @types.Scalar::String("z"))
 }
 
@@ -353,11 +399,15 @@ test "left join with a 0-row right frame keeps all left rows, null right" {
   ])
   let out = left.left_join(right, ["k"])
   assert_eq(out.check_invariants(), Ok(()))
-  assert_eq(out.shape(), (2, 3))
+  // Nothing matches, so the kept right key (k_right) and rv are all null.
+  assert_eq(out.columns(), ["k", "lv", "k_right", "rv"])
+  assert_eq(out.shape(), (2, 4))
   assert_eq(out.get(0, "lv"), @types.Scalar::String("a"))
+  assert_eq(out.get(0, "k_right"), @types.Scalar::Null)
   assert_eq(out.get(0, "rv"), @types.Scalar::Null)
   assert_eq(out.get(1, "rv"), @types.Scalar::Null)
-  // The all-null gathered right column still carries its source dtype.
+  // The all-null gathered right columns still carry their source dtype.
+  assert_eq(out.get_column("k_right").dtype(), @types.DataType::Int)
   assert_eq(out.get_column("rv").dtype(), @types.DataType::String)
 }
 
@@ -371,8 +421,9 @@ test "join of two 0-row frames is empty with the joined schema" {
     Series::from_ints("k", []),
     Series::from_ints("rv", []),
   ])
+  // Inner coalesces the key (3 cols); left keeps the right key too (4 cols).
   assert_eq(left.inner_join(right, ["k"]).shape(), (0, 3))
-  assert_eq(left.left_join(right, ["k"]).shape(), (0, 3))
+  assert_eq(left.left_join(right, ["k"]).shape(), (0, 4))
 }
 
 // ── Right non-key columns of every dtype ─────────────────────────────
@@ -408,11 +459,14 @@ test "join gathers Int / Float / Bool right columns: valid, null, unmatched" {
   assert_eq(inner.get_column("ri").dtype(), @types.DataType::Int)
   assert_eq(inner.get_column("rf").dtype(), @types.DataType::Float)
   assert_eq(inner.get_column("rb").dtype(), @types.DataType::Bool)
-  // Left join: k=3 is unmatched, so ri/rf/rb are null via the None branch.
+  // Left join: k=3 is unmatched, so k_right/ri/rf/rb are null via the None
+  // branch. The kept right key adds a column, hence 6 not 5.
   let out = left.left_join(right, ["k"])
   assert_eq(out.check_invariants(), Ok(()))
-  assert_eq(out.shape(), (3, 5))
+  assert_eq(out.columns(), ["k", "lv", "k_right", "ri", "rf", "rb"])
+  assert_eq(out.shape(), (3, 6))
   assert_eq(out.get(2, "lv"), @types.Scalar::String("c"))
+  assert_eq(out.get(2, "k_right"), @types.Scalar::Null)
   assert_eq(out.get(2, "ri"), @types.Scalar::Null)
   assert_eq(out.get(2, "rf"), @types.Scalar::Null)
   assert_eq(out.get(2, "rb"), @types.Scalar::Null)

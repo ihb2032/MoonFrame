@@ -58,6 +58,25 @@ test "with_how and with_suffix are independent" {
 }
 
 ///|
+test "with_coalesce forces the coalesce flag, last write wins" {
+  let base = JoinOptions::on(["id"])
+  // The bare `on` leaves coalesce auto (None), distinct from either forced
+  // value, and the two forced values differ from each other.
+  assert_not_eq(base.with_coalesce(true), base)
+  assert_not_eq(base.with_coalesce(false), base)
+  assert_not_eq(base.with_coalesce(true), base.with_coalesce(false))
+  // Last write wins, and it is independent of how / suffix.
+  assert_eq(
+    base.with_coalesce(false).with_coalesce(true),
+    base.with_coalesce(true),
+  )
+  assert_eq(
+    base.with_how(JoinType::Left).with_coalesce(true),
+    base.with_coalesce(true).with_how(JoinType::Left),
+  )
+}
+
+///|
 test "on carries the key list (distinct key sets give distinct options)" {
   assert_eq(JoinOptions::on(["a", "b"]), JoinOptions::on(["a", "b"]))
   assert_not_eq(JoinOptions::on(["a", "b"]), JoinOptions::on(["b", "a"]))

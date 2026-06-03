@@ -349,20 +349,24 @@ Hash equi-join, native to the method chain (`left.join(right, options)`).
   composite-key encoding as `group_by`** (each cell's `Scalar::to_string`,
   length-prefixed so a multi-key composite is injective). The one
   deliberate difference from `group_by`: a **null** key matches **nothing**
-  (`null != null`, pandas semantics) — an unmatched left row is dropped by
-  `Inner` and kept with null right columns by `Left`. A `Float` `NaN` key
-  is not null, so (as in `group_by`) it renders `"NaN"` and **matches other
-  `NaN` keys** — this diverges from pandas' `merge` (`NaN != NaN`), trading
-  pandas-parity for internal consistency with `group_by`'s key model.
+  (`null != null`, the SQL / Polars default) — an unmatched left row is
+  dropped by `Inner` and kept with null right columns by `Left`. A `Float`
+  `NaN` key is not null, so (as in `group_by`, matching Polars' "NaN
+  compares equal" rule) it renders `"NaN"` and **matches other `NaN`
+  keys**.
   - **Columns** = left columns (original order and names) then the right
-    frame's **non-key** columns (original order). Key columns appear once,
-    from the left (keeping the left dtype). A right non-key column whose
-    name also occurs in the left frame is renamed by appending
-    `options.suffix` (default `"_right"`); the left column keeps its name.
+    frame's columns (original order), governed by `options.coalesce`. When
+    a key is **coalesced** it appears once, from the left (keeping the left
+    dtype) — the right key column is dropped. When **not** coalesced, the
+    right key column is kept, suffixed (`<key>` + `options.suffix`, default
+    `"_right"`) and null wherever a left row had no match. Any other right
+    column whose name occurs in the left frame is likewise suffixed; the
+    left column keeps its name.
   - **Rows** = left rows in order; within one left row, its right matches
     appear in ascending right-row order. `Inner` emits only matched pairs;
     `Left` additionally emits every unmatched left row once with null right
-    columns. Fully determined by input order (snapshot-stable).
+    columns. Fully determined by input order (snapshot-stable; equivalent
+    to Polars' `maintain_order="left_right"`).
   - An **empty** `on` is a **cross join** (Cartesian product) — the natural
     dual of `group_by([])`'s single grand-total group.
   - Routes through `DataFrame::new`, so every output satisfies
@@ -372,14 +376,21 @@ Hash equi-join, native to the method chain (`left.join(right, options)`).
     frames), `DuplicateColumn` (two output columns still collide after
     suffixing — surfaced by `DataFrame::new`).
 - `inner_join(other, on : Array[String]) -> DataFrame raise DataError` —
-  `self.join(other, JoinOptions::on(on))`.
+  `self.join(other, JoinOptions::on(on))` (auto-coalesces, so the key
+  appears once).
 - `left_join(other, on : Array[String]) -> DataFrame raise DataError` —
-  `self.join(other, JoinOptions::on(on).with_how(Left))`.
+  `self.join(other, JoinOptions::on(on).with_how(Left))`. Per the
+  auto-coalesce default this keeps **both** key columns (the right as
+  `<key><suffix>`, null on unmatched rows); pass `with_coalesce(true)` to
+  merge them.
 - `enum JoinType` — `Inner` / `Left` (`Right` / `Outer` deferred to v0.3).
 - `struct JoinOptions` (fields private) — built via `JoinOptions::on(keys)`
-  (defaults to `Inner`, suffix `"_right"`), with `with_how(JoinType)` and
-  `with_suffix(name)` to override. Chainable:
-  `JoinOptions::on(["id"]).with_how(Left).with_suffix("_r")`.
+  (defaults to `Inner`, suffix `"_right"`, `coalesce` auto), with
+  `with_how(JoinType)` / `with_suffix(name)` / `with_coalesce(Bool)` to
+  override. `coalesce` defaults to `None` (auto: coalesce on an inner join,
+  keep both keys otherwise — Polars' rule); `with_coalesce(true|false)`
+  forces it. Chainable:
+  `JoinOptions::on(["id"]).with_how(Left).with_coalesce(true)`.
 
 ### Sorting types
 

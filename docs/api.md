@@ -311,7 +311,8 @@ Split-apply-combine, native to the method chain
   group rather than being dropped (the deliberate difference from a future
   `join`, where `null` matches nothing). One key or several; an empty
   `keys` list makes a single grand-total group; a 0-row frame yields zero
-  groups. `ColumnNotFound` on the first unknown key.
+  groups. `ColumnNotFound` on the first unknown key; `DuplicateColumn` if a
+  key is named twice (rejected up front, mirroring `select`).
 - `GroupedDataFrame::agg(specs : Array[AggSpec]) -> DataFrame raise
   DataError` — reduce each group to a row. Output columns are the key
   columns (in `keys` order, original dtype) followed by one column per

@@ -66,9 +66,10 @@ pub fn DataFrame::to_markdown_with_limit(
 /// column, regardless of `shown` — a header-only table is still
 /// useful shape information for callers limiting output.
 fn format_markdown(df : DataFrame, shown : Int) -> String {
-  // `raw_names` is used to look cells up in the frame; `names` is the
-  // GFM-escaped form used for both width computation and rendering, so
-  // a column name containing `|` / newline can't corrupt the table.
+  // `raw_names` supplies the column count and the unescaped header text;
+  // `names` is the GFM-escaped form used for both width computation and
+  // rendering, so a column name containing `|` / newline can't corrupt the
+  // table. Cell values come from `col_scalars` below, not a name lookup.
   let raw_names = df.columns()
   let ncols = raw_names.length()
   if ncols == 0 {

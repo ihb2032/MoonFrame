@@ -40,15 +40,30 @@ pub struct GroupedDataFrame {
 /// Raises:
 /// - `ColumnNotFound(name)` — `name` is not a column of `self`. Reported
 ///   on the first offending key, in `keys` order.
+/// - `DuplicateColumn(name)` — `name` appears twice in `keys` (which would
+///   otherwise have `agg` emit two identically-named key columns and fail
+///   late with a confusing collision). Reported at the repeat, in `keys`
+///   order; like `select`, a key that is *missing* surfaces as
+///   `ColumnNotFound` at its first appearance before any later duplicate is
+///   examined.
 pub fn DataFrame::group_by(
   self : DataFrame,
   keys : Array[String],
 ) -> GroupedDataFrame raise @types.DataError {
-  // Resolve + materialise each key column's cells once. `get_column`
-  // raises `ColumnNotFound` on the first unknown name (in `keys` order);
-  // `to_scalars` is total, so per-row key assembly below reads by plain
-  // index with no bounds-checked `get`.
-  let key_scalars = keys.map(k => self.get_column(k).to_scalars())
+  // Resolve + materialise each key column's cells once. The running `seen`
+  // set makes a key repeated in `keys` raise `DuplicateColumn` at the
+  // repeat — before `agg` could build two same-named key columns — matching
+  // `select`'s contract; `get_column` raises `ColumnNotFound` on the first
+  // unknown name (in `keys` order). `to_scalars` is total, so per-row key
+  // assembly below reads by plain index with no bounds-checked `get`.
+  let seen : Map[String, Unit] = {}
+  let key_scalars = keys.map(k => {
+    if seen.contains(k) {
+      raise @types.DataError::DuplicateColumn(k)
+    }
+    seen[k] = ()
+    self.get_column(k).to_scalars()
+  })
   // `index_of` maps a composite key to its group's slot in `groups`;
   // `groups` grows in first-appearance order. A row whose key is already
   // present appends to that group, otherwise it opens a new one.

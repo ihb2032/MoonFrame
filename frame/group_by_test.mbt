@@ -415,6 +415,24 @@ test "group_by raises ColumnNotFound for an unknown key column" {
 }
 
 ///|
+test "group_by raises DuplicateColumn for a key column named twice" {
+  let df = sales_df()
+  // A key repeated in `keys` would otherwise have `agg` emit two
+  // identically-named "region" columns; it is rejected up front at the
+  // repeat, in `keys` order.
+  assert_eq(
+    try? df.group_by(["region", "region"]),
+    Err(@types.DataError::DuplicateColumn("region")),
+  )
+  // A *missing* key still surfaces as ColumnNotFound at its first
+  // appearance, before the duplicate at the second is examined.
+  assert_eq(
+    try? df.group_by(["nope", "nope"]),
+    Err(@types.DataError::ColumnNotFound("nope")),
+  )
+}
+
+///|
 test "agg raises ColumnNotFound for an unknown spec column" {
   let grouped = sales_df().group_by(["region"])
   assert_eq(

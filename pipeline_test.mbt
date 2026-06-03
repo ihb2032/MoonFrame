@@ -242,6 +242,56 @@ test "pipeline: group_by → agg → sort_by produces a grouped summary via the 
   assert_eq(summary.get(1, "avg_rev"), Scalar::Float(57.0)) // (66.5+47.5)/2
 }
 
+// ── Join via the facade ───────────────────────────────────────────────
+
+///|
+test "pipeline: join enriches a frame then sorts via the facade" {
+  // Orders (left) reference a customer by id; customers (right) carry the
+  // region. `JoinType` / `JoinOptions` are named explicitly so a missing
+  // facade re-export surfaces as a type error in this file.
+  let _ : JoinType = JoinType::Inner
+  let orders = DataFrame::new([
+    Series::from_ints("order_id", [1, 2, 3, 4]),
+    Series::from_ints("customer_id", [10, 20, 10, 99]),
+    Series::from_ints("amount", [100, 50, 70, 30]),
+  ])
+  let customers = DataFrame::new([
+    Series::from_ints("customer_id", [10, 20, 30]),
+    Series::from_strings("region", ["west", "east", "north"]),
+  ])
+
+  // Inner join via the explicit options form, then sort by amount desc.
+  let opts : JoinOptions = JoinOptions::on(["customer_id"])
+  let enriched = orders
+    .join(customers, opts)
+    .sort_by([("amount", SortOrder::Desc, NullOrder::NullsLast)])
+  assert_eq(enriched.check_invariants(), Ok(()))
+  // Order 4 (customer 99) has no matching customer → dropped by inner join;
+  // the key column appears once, then the right's non-key "region".
+  assert_eq(enriched.columns(), ["order_id", "customer_id", "amount", "region"])
+  assert_eq(enriched.shape(), (3, 4))
+  // amount desc: 100 (west) → 70 (west) → 50 (east).
+  assert_eq(enriched.get(0, "amount"), Scalar::Int(100))
+  assert_eq(enriched.get(0, "region"), Scalar::String("west"))
+  assert_eq(enriched.get(2, "region"), Scalar::String("east"))
+
+  // The convenience left join keeps the unmatched order; per the Polars
+  // auto-coalesce default it also keeps the right key as customer_id_right,
+  // null on the unmatched row (order 4, customer 99).
+  let all_orders = orders.left_join(customers, ["customer_id"])
+  assert_eq(all_orders.columns(), [
+    "order_id", "customer_id", "amount", "customer_id_right", "region",
+  ])
+  assert_eq(all_orders.shape(), (4, 5))
+  assert_eq(all_orders.get(3, "order_id"), Scalar::Int(4))
+  assert_eq(all_orders.get(3, "customer_id_right"), Scalar::Null)
+  assert_eq(all_orders.get(3, "region"), Scalar::Null)
+
+  // Cross join reachable through the facade (JoinType::Cross + cross_join).
+  let _ : JoinType = JoinType::Cross
+  assert_eq(orders.cross_join(customers).shape(), (12, 5)) // 4 x 3
+}
+
 // ── Column ops + with_column / replace_column via the facade ──────────
 
 ///|

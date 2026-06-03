@@ -286,6 +286,10 @@ test "pipeline: join enriches a frame then sorts via the facade" {
   assert_eq(all_orders.get(3, "order_id"), Scalar::Int(4))
   assert_eq(all_orders.get(3, "customer_id_right"), Scalar::Null)
   assert_eq(all_orders.get(3, "region"), Scalar::Null)
+
+  // Cross join reachable through the facade (JoinType::Cross + cross_join).
+  let _ : JoinType = JoinType::Cross
+  assert_eq(orders.cross_join(customers).shape(), (12, 5)) // 4 x 3
 }
 
 // ── Column ops + with_column / replace_column via the facade ──────────

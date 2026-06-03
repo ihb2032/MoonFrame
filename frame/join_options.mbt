@@ -3,15 +3,18 @@
 ///
 /// `pub(all)` so callers can name the variants directly (e.g.
 /// `JoinOptions::on(keys).with_how(Left)`), matching `AggKind` /
-/// `SortOrder`. v0.2 ships the two most common joins:
+/// `SortOrder`. v0.2 ships:
 ///   * `Inner` — keep only rows whose key matches on both sides.
 ///   * `Left` — keep every left row; where it has no right match, the
 ///     right-hand columns are filled with nulls.
+///   * `Cross` — the Cartesian product (every left row paired with every
+///     right row); takes **no** key columns.
 ///
 /// `Right` / `Outer` are deferred to v0.3.
 pub(all) enum JoinType {
   Inner
   Left
+  Cross
 } derive(Eq, Debug)
 
 ///|
@@ -51,6 +54,17 @@ pub struct JoinOptions {
 /// `JoinOptions::on(["id"]).with_how(Left).with_coalesce(true)`.
 pub fn JoinOptions::on(keys : Array[String]) -> JoinOptions {
   { on: keys, how: Inner, suffix: "_right", coalesce: None }
+}
+
+///|
+/// Start a cross-join specification — the Cartesian product of the two
+/// frames, with no key columns (`how = Cross`, `on = []`). Keeps the
+/// default `"_right"` collision suffix; `coalesce` is irrelevant (there
+/// are no keys to merge). `with_suffix` still applies to right columns
+/// whose names clash with the left. The convenience `DataFrame::cross_join`
+/// wraps this.
+pub fn JoinOptions::cross() -> JoinOptions {
+  { on: [], how: Cross, suffix: "_right", coalesce: None }
 }
 
 ///|

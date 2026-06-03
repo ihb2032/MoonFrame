@@ -335,13 +335,13 @@ test "Float NaN keys match each other (group_by-consistent, not pandas)" {
   assert_eq(out.get(1, "rv"), @types.Scalar::Int(200))
 }
 
-// ── Cross join (empty key list) ──────────────────────────────────────
+// ── Cross join (how = Cross) ─────────────────────────────────────────
 
 ///|
-test "an empty key list produces the Cartesian product" {
+test "cross_join produces the Cartesian product" {
   let left = DataFrame::new([Series::from_strings("lv", ["a", "b"])])
   let right = DataFrame::new([Series::from_ints("rv", [10, 20, 30])])
-  let out = left.join(right, JoinOptions::on([]))
+  let out = left.cross_join(right)
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.columns(), ["lv", "rv"])
   // 2 x 3 = 6 rows: each left row paired with every right row, in order.
@@ -352,6 +352,59 @@ test "an empty key list produces the Cartesian product" {
   assert_eq(out.get(3, "lv"), @types.Scalar::String("b"))
   assert_eq(out.get(3, "rv"), @types.Scalar::Int(10))
   assert_eq(out.get(5, "rv"), @types.Scalar::Int(30))
+  // The convenience method equals the explicit options form.
+  assert_eq(out, left.join(right, JoinOptions::cross()))
+}
+
+///|
+test "cross join suffixes a right column clashing with a left name" {
+  // No keys, so a shared column name is resolved purely by the suffix.
+  let left = DataFrame::new([
+    Series::from_ints("x", [1, 2]),
+    Series::from_strings("lv", ["a", "b"]),
+  ])
+  let right = DataFrame::new([Series::from_ints("x", [10, 20])])
+  let out = left.join(right, JoinOptions::cross().with_suffix("_r"))
+  assert_eq(out.check_invariants(), Ok(()))
+  assert_eq(out.columns(), ["x", "lv", "x_r"])
+  assert_eq(out.shape(), (4, 3))
+  assert_eq(out.get(0, "x"), @types.Scalar::Int(1))
+  assert_eq(out.get(0, "x_r"), @types.Scalar::Int(10))
+}
+
+///|
+test "cross join with an empty operand is empty" {
+  let left = DataFrame::new([Series::from_ints("lv", [1, 2])])
+  let right = DataFrame::new([Series::from_ints("rv", [])])
+  // n x 0 = 0 rows, schema preserved.
+  assert_eq(left.cross_join(right).shape(), (0, 2))
+  assert_eq(right.cross_join(left).shape(), (0, 2))
+}
+
+///|
+test "cross join rejects key columns" {
+  let left = DataFrame::new([Series::from_ints("k", [1])])
+  let right = DataFrame::new([Series::from_ints("k", [2])])
+  // Passing keys to a cross join is a usage error (Polars rejects it too).
+  assert_true(
+    (try? left.join(right, JoinOptions::on(["k"]).with_how(JoinType::Cross)))
+    is Err(@types.DataError::InvalidOperation(_)),
+  )
+}
+
+///|
+test "a non-cross join with an empty key list is rejected" {
+  let left = DataFrame::new([Series::from_ints("k", [1])])
+  let right = DataFrame::new([Series::from_ints("k", [2])])
+  // Empty `on` no longer silently cross-joins — it must be `how = Cross`.
+  assert_true(
+    (try? left.inner_join(right, []))
+    is Err(@types.DataError::InvalidOperation(_)),
+  )
+  assert_true(
+    (try? left.join(right, JoinOptions::on([]).with_how(JoinType::Left)))
+    is Err(@types.DataError::InvalidOperation(_)),
+  )
 }
 
 // ── Empty / degenerate frames ────────────────────────────────────────

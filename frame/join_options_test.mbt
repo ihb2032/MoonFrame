@@ -11,6 +11,17 @@
 test "JoinType equality" {
   assert_eq(JoinType::Inner, JoinType::Inner)
   assert_not_eq(JoinType::Inner, JoinType::Left)
+  assert_not_eq(JoinType::Inner, JoinType::Cross)
+  assert_not_eq(JoinType::Left, JoinType::Cross)
+}
+
+///|
+test "cross builds a keyless Cross spec" {
+  // `cross()` is `on([])` switched to `how = Cross` (same default suffix /
+  // coalesce), and differs from a keyed inner spec.
+  assert_eq(JoinOptions::cross(), JoinOptions::on([]).with_how(JoinType::Cross))
+  assert_not_eq(JoinOptions::cross(), JoinOptions::on([]))
+  assert_not_eq(JoinOptions::cross(), JoinOptions::on(["id"]))
 }
 
 ///|

@@ -76,7 +76,8 @@ the right-column collision suffix defaults to `"_right"`, and key columns are
 coalesced on an inner join but kept (the right as `id_right`) on a left join —
 `coalesce` defaults to Polars' per-`how` rule and is overridable via
 `with_coalesce`. Output is the left columns then the right columns, rows in
-deterministic left-then-right-match order. An empty key list is a cross join.
+deterministic left-then-right-match order. `left.cross_join(right)`
+(`JoinType::Cross`) gives the keyless Cartesian product.
 
 Roadmap: NDJSON in the rest of v0.2; a
 `ColumnStorage` / `NumericColumn` storage abstraction in v0.3 alongside HTML

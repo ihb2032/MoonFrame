@@ -7,15 +7,18 @@
 // v0.2 note: the operator verbs (`select` / `drop` / `rename` /
 // `with_column` / `replace_column` / `filter` / `sort_by` /
 // `drop_nulls` / `drop_nulls_in` / `fill_null` / `null_count` /
-// `count` / `sum` / `mean` / `min` / `max` / `describe` / `group_by`)
-// and the `to_markdown` renderers are now methods on `DataFrame`, so
-// re-exporting `type DataFrame` makes them automatically reachable
-// through the facade — there is nothing to list for them here.
-// Likewise `GroupedDataFrame::agg` and the `AggSpec` constructors come
-// for free once their types are re-exported. Only the value types
-// (including the GroupBy `AggKind` / `AggSpec` / `GroupedDataFrame`)
-// and the `io` free functions need explicit re-export. The `@ops`
-// package no longer exists (it was folded into `@frame`).
+// `count` / `sum` / `mean` / `min` / `max` / `describe` / `group_by` /
+// `join` / `inner_join` / `left_join` / `cross_join`) and the
+// `to_markdown` renderers
+// are now methods on `DataFrame`, so re-exporting `type DataFrame`
+// makes them automatically reachable through the facade — there is
+// nothing to list for them here. Likewise `GroupedDataFrame::agg`, the
+// `AggSpec` constructors, and the `JoinOptions` builders come for free
+// once their types are re-exported. Only the value types (including the
+// GroupBy `AggKind` / `AggSpec` / `GroupedDataFrame` and the Join
+// `JoinType` / `JoinOptions`) and the `io` free functions need explicit
+// re-export. The `@ops` package no longer exists (it was folded into
+// `@frame`).
 
 ///|
 pub using @types {
@@ -39,6 +42,8 @@ pub using @frame {
   type AggKind,
   type AggSpec,
   type GroupedDataFrame,
+  type JoinType,
+  type JoinOptions,
 }
 
 ///|

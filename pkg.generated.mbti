@@ -60,6 +60,10 @@ pub using @types {type Field}
 
 pub using @frame {type GroupedDataFrame}
 
+pub using @frame {type JoinOptions}
+
+pub using @frame {type JoinType}
+
 pub using @io {type JsonReadOptions}
 
 pub using @frame {type NullOrder}

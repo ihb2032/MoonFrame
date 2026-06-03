@@ -32,7 +32,7 @@ test "pipeline: read_csv → filter → select → sort_by → describe → to_m
   let report = df
     .filter(row => row.get_string("product") == "widget")
     .select(["region", "quantity", "revenue"])
-    .sort_by(SortSpec::desc("quantity"))
+    .sort_by([("quantity", SortOrder::Desc, NullOrder::NullsLast)])
   let summary = report.describe()
 
   // Quantity desc puts west first; describe should surface that.
@@ -88,7 +88,9 @@ test "pipeline: parse_csv_str → filter → select → sort_by → describe →
   assert_eq(projected.check_invariants(), Ok(()))
 
   // Sort by quantity descending — stable mergesort + NullsLast.
-  let sorted = projected.sort_by(SortSpec::desc("quantity"))
+  let sorted = projected.sort_by([
+    ("quantity", SortOrder::Desc, NullOrder::NullsLast),
+  ])
   assert_eq(sorted.check_invariants(), Ok(()))
   assert_eq(sorted.get(0, "region"), Scalar::String("west"))
   assert_eq(sorted.get(0, "quantity"), Scalar::Int(12))

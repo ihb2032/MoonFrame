@@ -28,16 +28,15 @@ pub fn DataFrame::filter(
   self : DataFrame,
   predicate : (RowView) -> Bool raise @types.DataError,
 ) -> DataFrame raise @types.DataError {
-  let n = self.nrows()
-  let kept : Array[Int] = []
-  for i in 0..<n {
-    // `i` is in `[0, nrows)`, so the borrowed row view is valid.
-    let view = self.row_view(i)
-    if predicate(view) {
-      kept.push(i)
-    }
-  }
-  // `take` cannot fail because every pushed index came from the
-  // `[0, nrows)` loop above.
+  // Keep the indices whose borrowed row view satisfies `predicate`. Each
+  // `i` is in `[0, nrows)`, so the view is valid; `filter` walks them in
+  // order, so the first predicate error short-circuits the scan and
+  // propagates verbatim (rows accepted earlier are discarded — no partial
+  // frame). On a zero-row frame the index array is empty, so the predicate
+  // is never invoked.
+  let kept = Array::makei(self.nrows(), i => i).filter(i => {
+    predicate(self.row_view(i))
+  })
+  // Every kept index came from `[0, nrows)`, so `take` cannot fail.
   self.take(kept)
 }

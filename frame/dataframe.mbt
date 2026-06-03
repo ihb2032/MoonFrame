@@ -29,20 +29,23 @@ pub fn DataFrame::new(
   columns : Array[Series],
 ) -> DataFrame raise @types.DataError {
   let nrows = if columns.is_empty() { 0 } else { columns[0].len() }
-  for c in columns {
-    if c.len() != nrows {
-      raise @types.DataError::LengthMismatch
-    }
+  if !columns.all(c => c.len() == nrows) {
+    raise @types.DataError::LengthMismatch
   }
   let fields : Array[@types.Field] = columns.map(fn(c) {
     @types.Field::new(c.name(), c.dtype())
   })
   let schema = @types.Schema::new(fields)
-  let name_to_index : Map[String, Int] = {}
-  for i, c in columns {
-    name_to_index[c.name()] = i
-  }
-  { schema, columns, nrows, name_to_index }
+  { schema, columns, nrows, name_to_index: index_by_name(columns) }
+}
+
+///|
+/// Build the name→index lookup cache from a column vector: position `i` maps
+/// from `columns[i].name()`. Every constructor routes through `Schema::new`,
+/// which rejects duplicate names before this runs, so the `(name, i)` pairs
+/// are 1:1 with the columns. Shared by `new`, `empty`, and `from_rows`.
+fn index_by_name(columns : Array[Series]) -> Map[String, Int] {
+  Map::from_array(columns.mapi((i, c) => (c.name(), i)))
 }
 
 ///|
@@ -55,25 +58,22 @@ pub fn DataFrame::new(
 pub fn DataFrame::empty(
   schema : @types.Schema,
 ) -> DataFrame raise @types.DataError {
-  let columns : Array[Series] = []
-  for f in schema.fields() {
-    let storage = match f.dtype() {
-      @types.DataType::Int => @column.BuiltinColumn::from_ints([])
-      @types.DataType::Float => @column.BuiltinColumn::from_floats([])
-      @types.DataType::Bool => @column.BuiltinColumn::from_bools([])
-      @types.DataType::String => @column.BuiltinColumn::from_strings([])
-      @types.DataType::Null =>
-        raise @types.DataError::Unsupported(
-          "cannot build empty DataFrame column of dtype Null: " + f.name(),
-        )
-    }
-    columns.push(Series::from_builtin(f.name(), storage))
-  }
-  let name_to_index : Map[String, Int] = {}
-  for i, c in columns {
-    name_to_index[c.name()] = i
-  }
-  { schema, columns, nrows: 0, name_to_index }
+  let columns : Array[Series] = schema
+    .fields()
+    .map(f => {
+      let storage = match f.dtype() {
+        @types.DataType::Int => @column.BuiltinColumn::from_ints([])
+        @types.DataType::Float => @column.BuiltinColumn::from_floats([])
+        @types.DataType::Bool => @column.BuiltinColumn::from_bools([])
+        @types.DataType::String => @column.BuiltinColumn::from_strings([])
+        @types.DataType::Null =>
+          raise @types.DataError::Unsupported(
+            "cannot build empty DataFrame column of dtype Null: " + f.name(),
+          )
+      }
+      Series::from_builtin(f.name(), storage)
+    })
+  { schema, columns, nrows: 0, name_to_index: index_by_name(columns) }
 }
 
 ///|
@@ -92,10 +92,8 @@ pub fn DataFrame::from_rows(
   rows : Array[Array[@types.Scalar]],
 ) -> DataFrame raise @types.DataError {
   let ncols = schema.len()
-  for row in rows {
-    if row.length() != ncols {
-      raise @types.DataError::LengthMismatch
-    }
+  if !rows.all(row => row.length() == ncols) {
+    raise @types.DataError::LengthMismatch
   }
   // A schema with zero columns cannot anchor a positive row count: every
   // row had to be width-0 to pass the check above, and `DataFrame::new`'s
@@ -103,94 +101,87 @@ pub fn DataFrame::from_rows(
   // `nrows` to 0 there so `from_rows` agrees with `new` / `empty` and the
   // result satisfies INV7 in `check_invariants`.
   let nrows = if ncols == 0 { 0 } else { rows.length() }
-  let columns : Array[Series] = []
   // `fields()` materialises all fields; indexing `[0, ncols)` is in-bounds
   // (`fields.length() == schema.len() == ncols`).
   let fields = schema.fields()
-  for i in 0..<ncols {
+  let columns : Array[Series] = Array::makei(ncols, i => {
     let field = fields[i]
-    let dt = field.dtype()
-    let series = match dt {
-      @types.DataType::Int => {
-        let buf : Array[Int64?] = Array::new(capacity=nrows)
-        for row in rows {
-          match row[i] {
-            @types.Scalar::Int(v) => buf.push(Some(v))
-            @types.Scalar::Null => buf.push(None)
-            other =>
-              raise @types.DataError::TypeMismatch(
-                "column \"" +
-                field.name() +
-                "\" expects Int, got " +
-                other.dtype().to_string(),
-              )
-          }
-        }
-        Series::from_int_options(field.name(), buf)
-      }
-      @types.DataType::Float => {
-        let buf : Array[Double?] = Array::new(capacity=nrows)
-        for row in rows {
-          match row[i] {
-            @types.Scalar::Float(v) => buf.push(Some(v))
-            @types.Scalar::Null => buf.push(None)
-            other =>
-              raise @types.DataError::TypeMismatch(
-                "column \"" +
-                field.name() +
-                "\" expects Float, got " +
-                other.dtype().to_string(),
-              )
-          }
-        }
-        Series::from_float_options(field.name(), buf)
-      }
-      @types.DataType::Bool => {
-        let buf : Array[Bool?] = Array::new(capacity=nrows)
-        for row in rows {
-          match row[i] {
-            @types.Scalar::Bool(v) => buf.push(Some(v))
-            @types.Scalar::Null => buf.push(None)
-            other =>
-              raise @types.DataError::TypeMismatch(
-                "column \"" +
-                field.name() +
-                "\" expects Bool, got " +
-                other.dtype().to_string(),
-              )
-          }
-        }
-        Series::from_bool_options(field.name(), buf)
-      }
-      @types.DataType::String => {
-        let buf : Array[String?] = Array::new(capacity=nrows)
-        for row in rows {
-          match row[i] {
-            @types.Scalar::String(v) => buf.push(Some(v))
-            @types.Scalar::Null => buf.push(None)
-            other =>
-              raise @types.DataError::TypeMismatch(
-                "column \"" +
-                field.name() +
-                "\" expects String, got " +
-                other.dtype().to_string(),
-              )
-          }
-        }
-        Series::from_string_options(field.name(), buf)
-      }
+    match field.dtype() {
+      @types.DataType::Int =>
+        Series::from_int_options(
+          field.name(),
+          rows.map(row => {
+            match row[i] {
+              @types.Scalar::Int(v) => Some(v)
+              @types.Scalar::Null => None
+              other =>
+                raise @types.DataError::TypeMismatch(
+                  "column \"" +
+                  field.name() +
+                  "\" expects Int, got " +
+                  other.dtype().to_string(),
+                )
+            }
+          }),
+        )
+      @types.DataType::Float =>
+        Series::from_float_options(
+          field.name(),
+          rows.map(row => {
+            match row[i] {
+              @types.Scalar::Float(v) => Some(v)
+              @types.Scalar::Null => None
+              other =>
+                raise @types.DataError::TypeMismatch(
+                  "column \"" +
+                  field.name() +
+                  "\" expects Float, got " +
+                  other.dtype().to_string(),
+                )
+            }
+          }),
+        )
+      @types.DataType::Bool =>
+        Series::from_bool_options(
+          field.name(),
+          rows.map(row => {
+            match row[i] {
+              @types.Scalar::Bool(v) => Some(v)
+              @types.Scalar::Null => None
+              other =>
+                raise @types.DataError::TypeMismatch(
+                  "column \"" +
+                  field.name() +
+                  "\" expects Bool, got " +
+                  other.dtype().to_string(),
+                )
+            }
+          }),
+        )
+      @types.DataType::String =>
+        Series::from_string_options(
+          field.name(),
+          rows.map(row => {
+            match row[i] {
+              @types.Scalar::String(v) => Some(v)
+              @types.Scalar::Null => None
+              other =>
+                raise @types.DataError::TypeMismatch(
+                  "column \"" +
+                  field.name() +
+                  "\" expects String, got " +
+                  other.dtype().to_string(),
+                )
+            }
+          }),
+        )
       @types.DataType::Null =>
         raise @types.DataError::Unsupported(
           "cannot build DataFrame column of dtype Null: " + field.name(),
         )
     }
-    columns.push(series)
-  }
-  let name_to_index : Map[String, Int] = {}
-  for i, c in columns {
-    name_to_index[c.name()] = i
-  }
-  { schema, columns, nrows, name_to_index }
+  })
+  { schema, columns, nrows, name_to_index: index_by_name(columns) }
 }
 
 // ── Inspection ────────────────────────────────────────────────────────

@@ -40,29 +40,16 @@ pub fn DataFrame::drop_nulls_in(
   self : DataFrame,
   names : Array[String],
 ) -> DataFrame raise @types.DataError {
-  // Validate every requested name up front so a missing column is
-  // surfaced before any per-row work runs.
-  let series_list : Array[Series] = []
-  let seen : Map[String, Unit] = {}
-  for n in names {
-    if seen.contains(n) {
-      continue
-    }
-    seen[n] = ()
-    // `get_column` raises `ColumnNotFound(n)` for an unknown name.
-    series_list.push(self.get_column(n))
-  }
-  // Materialise each gating column's validity mask once; `mask[i]` is then
-  // a plain in-bounds read (every mask has `len == nrows`).
-  let masks = series_list.map(s => s.storage().validity().to_bools())
-  let n = self.nrows()
-  let kept : Array[Int] = []
-  for i in 0..<n {
-    if masks.all(m => m[i]) {
-      kept.push(i)
-    }
-  }
-  // Indices were produced by a `[0, nrows)` loop, so `take` cannot
-  // fail here.
+  // Materialise each gating column's validity mask, in `names` order;
+  // `get_column` raises `ColumnNotFound` on the first unknown name, so a
+  // bad name surfaces before any per-row work runs. A name repeated in
+  // `names` just contributes its mask twice, which the AND below absorbs —
+  // drops stay idempotent, matching the documented contract (and the
+  // primary caller `drop_nulls` passes the already-unique `columns()`).
+  let masks = names.map(n => self.get_column(n).storage().validity().to_bools())
+  // Keep row `i` when every gating mask is valid there — vacuously true
+  // when `names` is empty, so an empty gate set is the identity. The kept
+  // indices come straight from `[0, nrows)`, so `take` cannot fail.
+  let kept = Array::makei(self.nrows(), i => i).filter(i => masks.all(m => m[i]))
   self.take(kept)
 }

@@ -42,9 +42,9 @@ violated invariant), not a data transform.
   `Result`.
 - `filter` + `filter_try` → a single `filter(self, (RowView) -> Bool
   raise DataError)`.
-- `sort_by` + `sort_by_many` → a single generic
-  `sort_by[K : IntoSortSpecs](self, keys : K)` accepting one `SortSpec`
-  or an `Array[SortSpec]`.
+- `sort_by` + `sort_by_many` → a single
+  `sort_by(self, keys : Array[(String, SortOrder, NullOrder)])`; multi-key
+  sort is just a longer tuple list.
 - `Series::min()` / `max()` (`Result`-wrapped) removed → `min_value()` /
   `max_value()` (total, return `Scalar`).
 - `to_markdown(df)` / `to_markdown_with_limit(df, n)` → `df.to_markdown()`
@@ -264,11 +264,11 @@ transforms, so every output satisfies `check_invariants()`.
   may raise (a typed `RowView` accessor surfaces `ColumnNotFound` /
   `TypeMismatch`); the first raise short-circuits the scan. Schema
   preserved verbatim; the predicate is not invoked on a 0-row frame.
-- `sort_by[K : IntoSortSpecs](keys : K) -> DataFrame raise DataError` —
-  stable multi-key sort. `keys` is a single `SortSpec` or an
-  `Array[SortSpec]` (via the `IntoSortSpecs` trait). Earlier keys
-  dominate; `ColumnNotFound` on the first unknown spec column. Empty key
-  set is the identity.
+- `sort_by(keys : Array[(String, SortOrder, NullOrder)]) -> DataFrame raise
+  DataError` — stable multi-key sort. Each key is a
+  `(column, order, null_order)` tuple; earlier keys dominate. A single-key
+  sort passes a one-element array. `ColumnNotFound` on the first unknown key
+  column. Empty key set is the identity.
 - `drop_nulls() -> DataFrame raise DataError` — drop rows null in **any**
   column. `drop_nulls_in(names) -> DataFrame raise DataError` — gate only
   on the listed columns (`ColumnNotFound` on the first unknown; empty
@@ -301,12 +301,9 @@ transforms, so every output satisfies `check_invariants()`.
 
 - `enum SortOrder` — `Asc` / `Desc`. `enum NullOrder` — `NullsFirst` /
   `NullsLast` (for `Float`, `NaN` is treated as missing, like `Null`).
-- `struct SortSpec` — one sort key. `SortSpec::asc(column)` /
-  `SortSpec::desc(column)` (both default `NullsLast`);
-  `with_null_order(null_order)` overrides null placement (chainable).
-- `trait IntoSortSpecs { to_sort_specs(Self) -> Array[SortSpec] }` with
-  public impls for `SortSpec` (→ `[self]`) and `Array[SortSpec]` (→
-  `self`), so `sort_by` accepts a single key or an array under one name.
+- A sort key is a `(column, SortOrder, NullOrder)` tuple; `sort_by` takes an
+  `Array` of them. Multi-key sort lists several; a single-key sort passes a
+  one-element array (e.g. `[("score", Desc, NullsLast)]`).
 
 ### RowView
 
@@ -362,6 +359,9 @@ to `raise DataError::IoError(message)`.
   numbers via `@json`. A non-finite `Float` (`NaN` / `±Infinity`) has no
   JSON literal, so it is emitted as `null` (like pandas' `to_json`),
   keeping the output valid JSON; a round-trip reads it back as a null.
+  `Int` cells render as JSON numbers; a magnitude beyond 2^53 keeps its
+  `Int` dtype but loses precision on a JSON round-trip (the `@json` number
+  model is `Double`), as in pandas' `to_json`.
 - `read_json(path)` / `read_json_with_options(path, options) -> DataFrame
   raise DataError`; `write_json_records(path, df) -> Unit raise
   DataError` — file wrappers (`IoError`).
@@ -380,7 +380,7 @@ explicitly.
 - From `@types`: `DataError` · `DataType` · `Scalar` · `Field` · `Schema`
 - From `@column`: `Bitmap` · `BuiltinColumn` · `ColumnData`
 - From `@frame`: `Series` · `DataFrame` · `RowView` · `SortOrder` ·
-  `NullOrder` · `SortSpec` · `IntoSortSpecs`
+  `NullOrder`
 - From `@io`: `CsvReadOptions` · `CsvWriteOptions` · `JsonReadOptions` ·
   `format_csv_str` · `format_json_records` · `parse_csv_str` ·
   `parse_json_records_str` · `read_csv` · `read_csv_with_options` ·
@@ -388,7 +388,7 @@ explicitly.
   `write_csv_with_options` · `write_json_records`
 
 `using @pkg { type T }` also creates constructor aliases, so
-`@moonframe.Scalar::Int(42)`, `@moonframe.SortSpec::desc("x")`,
+`@moonframe.Scalar::Int(42)`, `@moonframe.SortOrder::Desc`,
 `@moonframe.DataError::ColumnNotFound("y")` all resolve through the
 facade.
 

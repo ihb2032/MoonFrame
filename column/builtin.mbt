@@ -292,8 +292,7 @@ pub fn BuiltinColumn::to_int(
     Int(_) => self
     Float(a) => {
       let valid = self.validity.to_bools()
-      let buf : Array[Int64] = Array::new(capacity=a.length())
-      for i in 0..<a.length() {
+      let buf : Array[Int64] = Array::makei(a.length(), i => {
         if valid[i] {
           let x = a[i]
           if x.is_nan() {
@@ -305,30 +304,32 @@ pub fn BuiltinColumn::to_int(
               "Float value out of Int range: " + x.to_string(),
             )
           } else {
-            buf.push(x.to_int64())
+            x.to_int64()
           }
         } else {
-          buf.push(0)
+          0
         }
-      }
+      })
       { data: Int(buf), validity: self.validity }
     }
     Bool(a) => {
       let valid = self.validity.to_bools()
-      let buf : Array[Int64] = Array::new(capacity=a.length())
-      for i in 0..<a.length() {
+      let buf : Array[Int64] = Array::makei(a.length(), i => {
         if valid[i] {
-          buf.push(if a[i] { 1 } else { 0 })
+          if a[i] {
+            1
+          } else {
+            0
+          }
         } else {
-          buf.push(0)
+          0
         }
-      }
+      })
       { data: Int(buf), validity: self.validity }
     }
     String(a) => {
       let valid = self.validity.to_bools()
-      let buf : Array[Int64] = Array::new(capacity=a.length())
-      for i in 0..<a.length() {
+      let buf : Array[Int64] = Array::makei(a.length(), i => {
         if valid[i] {
           let s = a[i]
           // Only plain base-10 integers are accepted, matching the CSV
@@ -346,16 +347,16 @@ pub fn BuiltinColumn::to_int(
           }
           let parsed = try? @string.parse_int64(s.view())
           match parsed {
-            Ok(n) => buf.push(n)
+            Ok(n) => n
             Err(_) =>
               raise @types.DataError::ParseError(
                 "cannot parse Int from \"" + s + "\"",
               )
           }
         } else {
-          buf.push(0)
+          0
         }
-      }
+      })
       { data: Int(buf), validity: self.validity }
     }
   }
@@ -395,32 +396,33 @@ pub fn BuiltinColumn::to_float(
     Float(_) => self
     Int(a) => {
       let valid = self.validity.to_bools()
-      let buf : Array[Double] = Array::new(capacity=a.length())
-      for i in 0..<a.length() {
+      let buf : Array[Double] = Array::makei(a.length(), i => {
         if valid[i] {
-          buf.push(a[i].to_double())
+          a[i].to_double()
         } else {
-          buf.push(0.0)
+          0.0
         }
-      }
+      })
       { data: Float(buf), validity: self.validity }
     }
     Bool(a) => {
       let valid = self.validity.to_bools()
-      let buf : Array[Double] = Array::new(capacity=a.length())
-      for i in 0..<a.length() {
+      let buf : Array[Double] = Array::makei(a.length(), i => {
         if valid[i] {
-          buf.push(if a[i] { 1.0 } else { 0.0 })
+          if a[i] {
+            1.0
+          } else {
+            0.0
+          }
         } else {
-          buf.push(0.0)
+          0.0
         }
-      }
+      })
       { data: Float(buf), validity: self.validity }
     }
     String(a) => {
       let valid = self.validity.to_bools()
-      let buf : Array[Double] = Array::new(capacity=a.length())
-      for i in 0..<a.length() {
+      let buf : Array[Double] = Array::makei(a.length(), i => {
         if valid[i] {
           let s = a[i]
           // Reject `1_000`-style underscore grouping to match the CSV
@@ -435,16 +437,16 @@ pub fn BuiltinColumn::to_float(
           }
           let parsed = try? @string.parse_double(s.view())
           match parsed {
-            Ok(x) => buf.push(x)
+            Ok(x) => x
             Err(_) =>
               raise @types.DataError::ParseError(
                 "cannot parse Float from \"" + s + "\"",
               )
           }
         } else {
-          buf.push(0.0)
+          0.0
         }
-      }
+      })
       { data: Float(buf), validity: self.validity }
     }
   }
@@ -464,38 +466,39 @@ pub fn BuiltinColumn::to_string_column(self : BuiltinColumn) -> BuiltinColumn {
     String(_) => self
     Int(a) => {
       let valid = self.validity.to_bools()
-      let buf : Array[String] = Array::new(capacity=a.length())
-      for i in 0..<a.length() {
+      let buf : Array[String] = Array::makei(a.length(), i => {
         if valid[i] {
-          buf.push(a[i].to_string())
+          a[i].to_string()
         } else {
-          buf.push("")
+          ""
         }
-      }
+      })
       { data: String(buf), validity: self.validity }
     }
     Float(a) => {
       let valid = self.validity.to_bools()
-      let buf : Array[String] = Array::new(capacity=a.length())
-      for i in 0..<a.length() {
+      let buf : Array[String] = Array::makei(a.length(), i => {
         if valid[i] {
-          buf.push(a[i].to_string())
+          a[i].to_string()
         } else {
-          buf.push("")
+          ""
         }
-      }
+      })
       { data: String(buf), validity: self.validity }
     }
     Bool(a) => {
       let valid = self.validity.to_bools()
-      let buf : Array[String] = Array::new(capacity=a.length())
-      for i in 0..<a.length() {
+      let buf : Array[String] = Array::makei(a.length(), i => {
         if valid[i] {
-          buf.push(if a[i] { "true" } else { "false" })
+          if a[i] {
+            "true"
+          } else {
+            "false"
+          }
         } else {
-          buf.push("")
+          ""
         }
-      }
+      })
       { data: String(buf), validity: self.validity }
     }
   }

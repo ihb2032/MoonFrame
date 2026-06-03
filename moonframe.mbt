@@ -34,8 +34,6 @@ pub using @frame {
   type RowView,
   type SortOrder,
   type NullOrder,
-  type SortSpec,
-  trait IntoSortSpecs,
 }
 
 ///|

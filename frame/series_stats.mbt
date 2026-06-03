@@ -118,6 +118,34 @@ pub fn Series::mean(self : Series) -> Double raise @types.DataError {
 }
 
 ///|
+/// Fold the non-missing cells of a length-`n` column to an extremum.
+/// `get(i)` reads cell `i`; `missing(i)` is `true` when cell `i` is
+/// skipped (a null slot, plus `NaN` for `Float`); `better(candidate,
+/// best)` is `true` when `candidate` should replace the running best.
+/// Returns `None` when every cell is missing.
+///
+/// `min_value` / `max_value` share this so each per-dtype arm supplies
+/// only its reader, missing test, and comparator instead of repeating
+/// the `best : T?` accumulation eight times over.
+fn[T] fold_extremum(
+  n : Int,
+  get : (Int) -> T,
+  missing : (Int) -> Bool,
+  better : (T, T) -> Bool,
+) -> T? {
+  let mut best : T? = None
+  for i in 0..<n {
+    if !missing(i) {
+      best = match best {
+        None => Some(get(i))
+        Some(b) => if better(get(i), b) { Some(get(i)) } else { Some(b) }
+      }
+    }
+  }
+  best
+}
+
+///|
 /// Minimum non-null cell as a `Scalar`, by the natural order of the
 /// series' dtype. Total — every v0.1 dtype has an order, so it never
 /// fails (the v0.1 `Result`-wrapped `min` has been dropped in v0.2).
@@ -130,69 +158,42 @@ pub fn Series::min_value(self : Series) -> @types.Scalar {
   let valid = self.storage.validity().to_bools()
   match self.storage.data() {
     @column.ColumnData::Int(a) => {
-      let mut best : Int64? = None
-      for i in 0..<a.length() {
-        if valid[i] {
-          best = match best {
-            None => Some(a[i])
-            Some(b) => Some(if a[i] < b { a[i] } else { b })
-          }
-        }
-      }
+      let best = fold_extremum(a.length(), i => a[i], i => !valid[i], (x, y) => {
+        x < y
+      })
       match best {
         None => @types.Scalar::Null
         Some(b) => @types.Scalar::Int(b)
       }
     }
     @column.ColumnData::Float(a) => {
-      let mut best : Double? = None
-      for i in 0..<a.length() {
-        // NaN is treated as missing (skipped), matching `sort_by`.
-        if valid[i] && !a[i].is_nan() {
-          best = match best {
-            None => Some(a[i])
-            Some(b) => Some(if a[i] < b { a[i] } else { b })
-          }
-        }
-      }
+      // NaN is treated as missing (skipped), matching `sort_by`.
+      let best = fold_extremum(
+        a.length(),
+        i => a[i],
+        i => !valid[i] || a[i].is_nan(),
+        (x, y) => x < y,
+      )
       match best {
         None => @types.Scalar::Null
         Some(b) => @types.Scalar::Float(b)
       }
     }
     @column.ColumnData::Bool(a) => {
-      let mut best : Bool? = None
-      for i in 0..<a.length() {
-        if valid[i] {
-          best = match best {
-            None => Some(a[i])
-            // `false < true`: switch to false the first time one is seen.
-            Some(b) => Some(if !a[i] && b { false } else { b })
-          }
-        }
-      }
+      // `false < true`: a candidate beats the best only when it is `false`
+      // and the best is `true`.
+      let best = fold_extremum(a.length(), i => a[i], i => !valid[i], (x, y) => {
+        !x && y
+      })
       match best {
         None => @types.Scalar::Null
         Some(b) => @types.Scalar::Bool(b)
       }
     }
     @column.ColumnData::String(a) => {
-      let mut best : String? = None
-      for i in 0..<a.length() {
-        if valid[i] {
-          best = match best {
-            None => Some(a[i])
-            Some(b) =>
-              Some(
-                if @types.compare_string_lex(a[i], b) < 0 {
-                  a[i]
-                } else {
-                  b
-                },
-              )
-          }
-        }
-      }
+      let best = fold_extremum(a.length(), i => a[i], i => !valid[i], (x, y) => {
+        @types.compare_string_lex(x, y) < 0
+      })
       match best {
         None => @types.Scalar::Null
         Some(b) => @types.Scalar::String(b)
@@ -209,69 +210,42 @@ pub fn Series::max_value(self : Series) -> @types.Scalar {
   let valid = self.storage.validity().to_bools()
   match self.storage.data() {
     @column.ColumnData::Int(a) => {
-      let mut best : Int64? = None
-      for i in 0..<a.length() {
-        if valid[i] {
-          best = match best {
-            None => Some(a[i])
-            Some(b) => Some(if a[i] > b { a[i] } else { b })
-          }
-        }
-      }
+      let best = fold_extremum(a.length(), i => a[i], i => !valid[i], (x, y) => {
+        x > y
+      })
       match best {
         None => @types.Scalar::Null
         Some(b) => @types.Scalar::Int(b)
       }
     }
     @column.ColumnData::Float(a) => {
-      let mut best : Double? = None
-      for i in 0..<a.length() {
-        // NaN is treated as missing (skipped), matching `sort_by`.
-        if valid[i] && !a[i].is_nan() {
-          best = match best {
-            None => Some(a[i])
-            Some(b) => Some(if a[i] > b { a[i] } else { b })
-          }
-        }
-      }
+      // NaN is treated as missing (skipped), matching `sort_by`.
+      let best = fold_extremum(
+        a.length(),
+        i => a[i],
+        i => !valid[i] || a[i].is_nan(),
+        (x, y) => x > y,
+      )
       match best {
         None => @types.Scalar::Null
         Some(b) => @types.Scalar::Float(b)
       }
     }
     @column.ColumnData::Bool(a) => {
-      let mut best : Bool? = None
-      for i in 0..<a.length() {
-        if valid[i] {
-          best = match best {
-            None => Some(a[i])
-            // `true > false`: switch to true the first time one is seen.
-            Some(b) => Some(if a[i] && !b { true } else { b })
-          }
-        }
-      }
+      // `true > false`: a candidate beats the best only when it is `true`
+      // and the best is `false`.
+      let best = fold_extremum(a.length(), i => a[i], i => !valid[i], (x, y) => {
+        x && !y
+      })
       match best {
         None => @types.Scalar::Null
         Some(b) => @types.Scalar::Bool(b)
       }
     }
     @column.ColumnData::String(a) => {
-      let mut best : String? = None
-      for i in 0..<a.length() {
-        if valid[i] {
-          best = match best {
-            None => Some(a[i])
-            Some(b) =>
-              Some(
-                if @types.compare_string_lex(a[i], b) > 0 {
-                  a[i]
-                } else {
-                  b
-                },
-              )
-          }
-        }
-      }
+      let best = fold_extremum(a.length(), i => a[i], i => !valid[i], (x, y) => {
+        @types.compare_string_lex(x, y) > 0
+      })
       match best {
         None => @types.Scalar::Null
         Some(b) => @types.Scalar::String(b)
@@ -288,38 +262,18 @@ pub fn Series::max_value(self : Series) -> @types.Scalar {
 /// a single bucket (its `to_string` is `"NaN"`), matching pandas'
 /// `nunique` behaviour on NaN-only inputs.
 pub fn Series::unique_count(self : Series) -> Int {
-  let valid = self.storage.validity().to_bools()
-  let seen : Map[String, Unit] = {}
-  // Read each non-null cell totally via the backing array and render it
-  // with the same `Scalar::to_string` form the old `get(i)` path used, so
-  // the canonical key (and the `Float` NaN bucketing) is unchanged.
-  match self.storage.data() {
-    @column.ColumnData::Int(a) =>
-      for i in 0..<a.length() {
-        if valid[i] {
-          seen[@types.Scalar::Int(a[i]).to_string()] = ()
-        }
-      }
-    @column.ColumnData::Float(a) =>
-      for i in 0..<a.length() {
-        if valid[i] {
-          seen[@types.Scalar::Float(a[i]).to_string()] = ()
-        }
-      }
-    @column.ColumnData::Bool(a) =>
-      for i in 0..<a.length() {
-        if valid[i] {
-          seen[@types.Scalar::Bool(a[i]).to_string()] = ()
-        }
-      }
-    @column.ColumnData::String(a) =>
-      for i in 0..<a.length() {
-        if valid[i] {
-          seen[@types.Scalar::String(a[i]).to_string()] = ()
-        }
-      }
-  }
-  seen.length()
+  // Distinct count of the non-null cells, keyed by `Scalar::to_string`
+  // (the canonical value form): within a fixed-dtype series two cells
+  // collide only when their values are equal, and every `Float` NaN
+  // renders `"NaN"` so they collapse into one bucket (matching pandas'
+  // `nunique`). `Map::from_array` folds the keys into a set; its size is
+  // the distinct count.
+  Map::from_array(
+    self
+    .to_scalars()
+    .filter(sc => !sc.is_null())
+    .map(sc => (sc.to_string(), ())),
+  ).length()
 }
 
 ///|
@@ -357,70 +311,70 @@ pub fn Series::describe(self : Series) -> DataFrame raise @types.DataError {
   // `min` / `max` keep the source dtype, so dispatch on the concrete
   // backing array.
   match self.storage.data() {
-    @column.ColumnData::Int(_) => describe_push_int_extrema(self, cols)
-    @column.ColumnData::Float(_) => describe_push_float_extrema(self, cols)
-    @column.ColumnData::Bool(_) => describe_push_bool_extrema(self, cols)
-    @column.ColumnData::String(_) => describe_push_string_extrema(self, cols)
+    @column.ColumnData::Int(_) =>
+      push_extrema(
+        self,
+        cols,
+        fn(sc) {
+          match sc {
+            @types.Scalar::Int(x) => Some(x)
+            _ => None
+          }
+        },
+        Series::from_int_options,
+      )
+    @column.ColumnData::Float(_) =>
+      push_extrema(
+        self,
+        cols,
+        fn(sc) {
+          match sc {
+            @types.Scalar::Float(x) => Some(x)
+            _ => None
+          }
+        },
+        Series::from_float_options,
+      )
+    @column.ColumnData::Bool(_) =>
+      push_extrema(
+        self,
+        cols,
+        fn(sc) {
+          match sc {
+            @types.Scalar::Bool(x) => Some(x)
+            _ => None
+          }
+        },
+        Series::from_bool_options,
+      )
+    @column.ColumnData::String(_) =>
+      push_extrema(
+        self,
+        cols,
+        fn(sc) {
+          match sc {
+            @types.Scalar::String(x) => Some(x)
+            _ => None
+          }
+        },
+        Series::from_string_options,
+      )
   }
   DataFrame::new(cols)
 }
 
 ///|
-/// Append `min` / `max` columns (source dtype) for an `Int` series.
-fn describe_push_int_extrema(s : Series, cols : Array[Series]) -> Unit {
-  let min_cell : Int64? = match s.min_value() {
-    @types.Scalar::Int(x) => Some(x)
-    _ => None
-  }
-  let max_cell : Int64? = match s.max_value() {
-    @types.Scalar::Int(x) => Some(x)
-    _ => None
-  }
-  cols.push(Series::from_int_options("min", [min_cell]))
-  cols.push(Series::from_int_options("max", [max_cell]))
-}
-
-///|
-/// Append `min` / `max` columns (source dtype) for a `Float` series.
-fn describe_push_float_extrema(s : Series, cols : Array[Series]) -> Unit {
-  let min_cell : Double? = match s.min_value() {
-    @types.Scalar::Float(x) => Some(x)
-    _ => None
-  }
-  let max_cell : Double? = match s.max_value() {
-    @types.Scalar::Float(x) => Some(x)
-    _ => None
-  }
-  cols.push(Series::from_float_options("min", [min_cell]))
-  cols.push(Series::from_float_options("max", [max_cell]))
-}
-
-///|
-/// Append `min` / `max` columns for a `Bool` series.
-fn describe_push_bool_extrema(s : Series, cols : Array[Series]) -> Unit {
-  let min_cell : Bool? = match s.min_value() {
-    @types.Scalar::Bool(x) => Some(x)
-    _ => None
-  }
-  let max_cell : Bool? = match s.max_value() {
-    @types.Scalar::Bool(x) => Some(x)
-    _ => None
-  }
-  cols.push(Series::from_bool_options("min", [min_cell]))
-  cols.push(Series::from_bool_options("max", [max_cell]))
-}
-
-///|
-/// Append `min` / `max` columns for a `String` series.
-fn describe_push_string_extrema(s : Series, cols : Array[Series]) -> Unit {
-  let min_cell : String? = match s.min_value() {
-    @types.Scalar::String(x) => Some(x)
-    _ => None
-  }
-  let max_cell : String? = match s.max_value() {
-    @types.Scalar::String(x) => Some(x)
-    _ => None
-  }
-  cols.push(Series::from_string_options("min", [min_cell]))
-  cols.push(Series::from_string_options("max", [max_cell]))
+/// Push the source-dtype `min` / `max` summary columns for `describe`.
+/// `extract` projects a `min_value` / `max_value` `Scalar` into the typed
+/// cell (`None` for the no-value / wrong-variant case), and `build` is the
+/// matching option constructor — so the four dtype arms share one body
+/// instead of four near-identical helpers.
+fn[T] push_extrema(
+  s : Series,
+  cols : Array[Series],
+  extract : (@types.Scalar) -> T?,
+  build : (String, Array[T?]) -> Series,
+) -> Unit {
+  cols.push(build("min", [extract(s.min_value())]))
+  cols.push(build("max", [extract(s.max_value())]))
 }

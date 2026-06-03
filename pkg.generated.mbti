@@ -68,9 +68,5 @@ pub using @frame {type Series}
 
 pub using @frame {type SortOrder}
 
-pub using @frame {type SortSpec}
-
-pub using @frame {trait IntoSortSpecs}
-
 // Traits
 

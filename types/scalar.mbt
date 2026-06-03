@@ -177,9 +177,15 @@ fn bool_to_int(b : Bool) -> Int {
 /// usual `-1` / `0` / `1`. MoonBit's built-in `<` / `Compare` on `String`
 /// is **shortlex** (length first, then code unit) — e.g. `"fig" < "apple"`
 /// is `true` because `"fig"` is shorter, which surprises users expecting
-/// pandas / SQL dictionary order. Every user-facing ordering in MoonFrame
-/// (`Scalar::lt`, `Series::min` / `max`, `DataFrame::sort_by`) routes through
-/// this helper instead of the built-in operator so they all agree.
+/// dictionary order. Every user-facing ordering in MoonFrame (`Scalar::lt`,
+/// `Series::min` / `max`, `DataFrame::sort_by`) routes through this helper
+/// instead of the built-in operator so they all agree.
+///
+/// Ordering is by UTF-16 code unit, so it matches pandas / SQL dictionary
+/// order across the Basic Multilingual Plane (the common case). It can
+/// diverge for supplementary-plane characters, whose surrogate code units
+/// (`0xD800`–`0xDBFF`) sort *below* high-BMP code points rather than above
+/// them — a code-point-accurate comparison is a v0.2 concern.
 pub fn compare_string_lex(a : String, b : String) -> Int {
   let la = a.length()
   let lb = b.length()

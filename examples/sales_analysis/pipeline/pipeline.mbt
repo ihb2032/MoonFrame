@@ -21,7 +21,9 @@ pub fn widget_report(
   let sorted = df
     .filter(is_widget_row)
     .select(["region", "price", "quantity", "revenue"])
-    .sort_by(@moonframe.SortSpec::desc("quantity"))
+    .sort_by([
+      ("quantity", @moonframe.SortOrder::Desc, @moonframe.NullOrder::NullsLast),
+    ])
   (sorted, sorted.describe())
 }
 

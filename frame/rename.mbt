@@ -24,24 +24,17 @@ pub fn DataFrame::rename(
   let names : Array[String] = self.columns()
   for pair in mapping {
     let (old_name, new_name) = pair
-    // Find the position of old_name in the current name vector.
-    let mut idx = -1
-    for i, n in names {
-      if n == old_name {
-        idx = i
-        break
-      }
+    // Locate old_name in the current name vector.
+    let idx = match names.search(old_name) {
+      Some(i) => i
+      None => raise @types.DataError::ColumnNotFound(old_name)
     }
-    if idx < 0 {
-      raise @types.DataError::ColumnNotFound(old_name)
-    }
-    if old_name != new_name {
-      // Reject collisions with any *other* current name.
-      for i, n in names {
-        if i != idx && n == new_name {
-          raise @types.DataError::DuplicateColumn(new_name)
-        }
-      }
+    // Reject a collision with any *other* current name. `names[idx]` is
+    // still `old_name` here (≠ `new_name` in this branch), so any
+    // occurrence of `new_name` must sit at a different slot — a plain
+    // membership test is therefore equivalent to "exists at some i ≠ idx".
+    if old_name != new_name && names.contains(new_name) {
+      raise @types.DataError::DuplicateColumn(new_name)
     }
     names[idx] = new_name
   }

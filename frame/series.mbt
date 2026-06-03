@@ -332,14 +332,19 @@ fn gather_series(s : Series, idx : Array[Int]) -> Series {
 /// Drop every null cell. Returned series has `len = original.len -
 /// original.null_count` and a fully-valid bitmap.
 pub fn Series::drop_nulls(self : Series) -> Series {
+  // Keep the indices of the valid cells, in order, then gather them —
+  // `gather_series` rebuilds the series with a fully-valid bitmap.
   let valid = self.storage.validity().to_bools()
-  let kept : Array[Int] = []
-  for i in 0..<valid.length() {
-    if valid[i] {
-      kept.push(i)
-    }
-  }
+  let kept = Array::makei(valid.length(), i => i).filter(i => valid[i])
   gather_series(self, kept)
+}
+
+///|
+/// Build the fill buffer for `fill_null`: keep each valid cell, replace
+/// every null slot (`valid[i] == false`) with `v`. The four per-dtype
+/// arms share this closure instead of repeating the `mapi` verbatim.
+fn[T] fill_buffer(data : Array[T], valid : Array[Bool], v : T) -> Array[T] {
+  data.mapi((i, x) => if valid[i] { x } else { v })
 }
 
 ///|
@@ -351,56 +356,56 @@ pub fn Series::fill_null(
   self : Series,
   value : @types.Scalar,
 ) -> Series raise @types.DataError {
-  let dt = self.dtype()
+  let valid = self.storage.validity().to_bools()
   match value {
     @types.Scalar::Null =>
       raise @types.DataError::TypeMismatch("cannot fill nulls with Null")
     @types.Scalar::Int(v) =>
       match self.storage.data() {
         @column.ColumnData::Int(data) => {
-          let valid = self.storage.validity().to_bools()
-          let buf = data.mapi((i, x) => if valid[i] { x } else { v })
+          let buf = fill_buffer(data, valid, v)
           { name: self.name, storage: @column.BuiltinColumn::from_ints(buf) }
         }
         _ =>
           raise @types.DataError::TypeMismatch(
-            "fill_null type Int does not match column type " + dt.to_string(),
+            "fill_null type Int does not match column type " +
+            self.dtype().to_string(),
           )
       }
     @types.Scalar::Float(v) =>
       match self.storage.data() {
         @column.ColumnData::Float(data) => {
-          let valid = self.storage.validity().to_bools()
-          let buf = data.mapi((i, x) => if valid[i] { x } else { v })
+          let buf = fill_buffer(data, valid, v)
           { name: self.name, storage: @column.BuiltinColumn::from_floats(buf) }
         }
         _ =>
           raise @types.DataError::TypeMismatch(
-            "fill_null type Float does not match column type " + dt.to_string(),
+            "fill_null type Float does not match column type " +
+            self.dtype().to_string(),
           )
       }
     @types.Scalar::Bool(v) =>
       match self.storage.data() {
         @column.ColumnData::Bool(data) => {
-          let valid = self.storage.validity().to_bools()
-          let buf = data.mapi((i, x) => if valid[i] { x } else { v })
+          let buf = fill_buffer(data, valid, v)
           { name: self.name, storage: @column.BuiltinColumn::from_bools(buf) }
         }
         _ =>
           raise @types.DataError::TypeMismatch(
-            "fill_null type Bool does not match column type " + dt.to_string(),
+            "fill_null type Bool does not match column type " +
+            self.dtype().to_string(),
           )
       }
     @types.Scalar::String(v) =>
       match self.storage.data() {
         @column.ColumnData::String(data) => {
-          let valid = self.storage.validity().to_bools()
-          let buf = data.mapi((i, x) => if valid[i] { x } else { v })
+          let buf = fill_buffer(data, valid, v)
           { name: self.name, storage: @column.BuiltinColumn::from_strings(buf) }
         }
         _ =>
           raise @types.DataError::TypeMismatch(
-            "fill_null type String does not match column type " + dt.to_string(),
+            "fill_null type String does not match column type " +
+            self.dtype().to_string(),
           )
       }
   }

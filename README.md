@@ -15,7 +15,7 @@ pipelines read top-to-bottom like pandas / polars:
 read_csv(path)
   .filter(row => row.get_string("product") == "widget")
   .select(["region", "quantity", "revenue"])
-  .sort_by(SortSpec::desc("quantity"))
+  .sort_by([("quantity", SortOrder::Desc, NullOrder::NullsLast)])
   .describe()
   .to_markdown()
 ```
@@ -48,8 +48,9 @@ authoritative public-API reference:
 - `filter` takes a single `(RowView) -> Bool raise DataError` predicate (the
   v0.1 `filter` / `filter_try` split is gone — a fallible accessor in the
   predicate just raises).
-- `sort_by` is one generic method accepting either a single `SortSpec` or an
-  `Array[SortSpec]` via the new `IntoSortSpecs` trait (`sort_by_many` is gone).
+- `sort_by` takes an `Array[(column, SortOrder, NullOrder)]`; multi-key sort
+  falls out of listing several tuples (`sort_by_many`, the `SortSpec` struct,
+  and the `IntoSortSpecs` trait are all gone).
 - `to_markdown` / `to_markdown_with_limit` are `DataFrame` methods; the
   CSV / JSON string serialisers (`format_csv_str` / `format_json_records`)
   stay as `io` free functions.
@@ -71,7 +72,7 @@ and chart-data export; an expression / lazy query layer in v0.4.
 | `op(df, ...) -> Result[T, DataError]` + `.bind` / `.map` / `.unwrap` | `df.op(...) -> T raise DataError`, chained directly |
 | pattern-match `Ok(x)` / `Err(e)` on the result | call directly in a `raise` context, or `try? expr` for a `Result` |
 | `filter_try(df, row => row.get_int("x").map(v => v > 0))` | `df.filter(row => row.get_int("x") > 0)` |
-| `sort_by(df, spec)` / `sort_by_many(df, specs)` | `df.sort_by(spec)` / `df.sort_by(specs)` |
+| `sort_by(df, spec)` / `sort_by_many(df, specs)` | `df.sort_by([(col, order, nulls), ...])` |
 | `Series::min()` / `max()` (`Result`-wrapped) | `Series::min_value()` / `max_value()` (total) |
 | `@io.to_markdown(df)` | `df.to_markdown()` |
 | `import ... @ops` | gone — verbs live on `DataFrame` in `@frame` |
@@ -110,7 +111,7 @@ fn report(path : String) -> String raise @moonframe.DataError {
   @moonframe.read_csv(path)
   .filter(row => row.get_string("product") == "widget")
   .select(["region", "quantity", "revenue"])
-  .sort_by(@moonframe.SortSpec::desc("quantity"))
+  .sort_by([("quantity", @moonframe.SortOrder::Desc, @moonframe.NullOrder::NullsLast)])
   .describe()
   .to_markdown()
 }

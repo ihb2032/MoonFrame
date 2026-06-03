@@ -23,10 +23,10 @@ pub fn DataFrame::fill_null(
   column : String,
   value : @types.Scalar,
 ) -> DataFrame raise @types.DataError {
-  // Look up the target column first so a missing-column error fires
-  // before the (more expensive) `Series::fill_null` traversal runs.
-  let target = self.get_column(column)
-  let filled = target.fill_null(value)
+  // `get_column` is the receiver, so it is evaluated first: a missing
+  // column raises `ColumnNotFound` before the (more expensive)
+  // `Series::fill_null` traversal runs.
+  let filled = self.get_column(column).fill_null(value)
   let new_cols = self
     .column_series()
     .map(s => if s.name() == column { filled } else { s })

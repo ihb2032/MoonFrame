@@ -1,6 +1,6 @@
-// Blackbox tests for `DataFrame::sort_by` (single-key and multi-key via
-// the `IntoSortSpecs` trait — `sort_by(spec)` and `sort_by([spec, ...])`
-// share one method).
+// Blackbox tests for `DataFrame::sort_by`. Each key is a
+// `(column, order, null_order)` tuple; a single-key sort passes a
+// one-element array and a multi-key sort lists several.
 //
 // Invariants asserted on every successful sort:
 //   (1) check_invariants() == Ok(()) — formal spec from invariants.mbt
@@ -14,17 +14,14 @@
 // stable-sort guarantee carry a "stability" tag in the test name and
 // inspect a tiebreaker column.
 
-// ── SortSpec — builder semantics, exercised behaviorally ─────────────
+// ── Order / null-placement semantics, exercised behaviorally ─────────
 
 ///|
-test "SortSpec::asc produces ascending order with NullsLast as default" {
-  // The builder's contract is verified by the resulting permutation:
-  // ascending puts smaller real values first, default null placement
-  // pushes missing rows to the end.
+test "sort_by ascending with NullsLast puts smaller values first, nulls last" {
   let df = DataFrame::new([
     Series::from_int_options("a", [Some(2), None, Some(1), Some(3)]),
   ])
-  let out = df.sort_by(SortSpec::asc("a"))
+  let out = df.sort_by([("a", Asc, NullsLast)])
   assert_eq(out.get(0, "a"), @types.Scalar::Int(1))
   assert_eq(out.get(1, "a"), @types.Scalar::Int(2))
   assert_eq(out.get(2, "a"), @types.Scalar::Int(3))
@@ -32,11 +29,11 @@ test "SortSpec::asc produces ascending order with NullsLast as default" {
 }
 
 ///|
-test "SortSpec::desc produces descending order with NullsLast as default" {
+test "sort_by descending with NullsLast reverses the value order, nulls last" {
   let df = DataFrame::new([
     Series::from_int_options("a", [Some(2), None, Some(1), Some(3)]),
   ])
-  let out = df.sort_by(SortSpec::desc("a"))
+  let out = df.sort_by([("a", Desc, NullsLast)])
   assert_eq(out.get(0, "a"), @types.Scalar::Int(3))
   assert_eq(out.get(1, "a"), @types.Scalar::Int(2))
   assert_eq(out.get(2, "a"), @types.Scalar::Int(1))
@@ -44,33 +41,21 @@ test "SortSpec::desc produces descending order with NullsLast as default" {
 }
 
 ///|
-test "SortSpec::with_null_order overrides null placement without touching the direction" {
+test "sort_by NullsFirst moves missing values to the head, either direction" {
   let df = DataFrame::new([
     Series::from_int_options("a", [Some(2), None, Some(1)]),
   ])
   // asc + NullsFirst — value order still ascending, but null moves
   // to the head.
-  let out_asc = df.sort_by(SortSpec::asc("a").with_null_order(NullsFirst))
+  let out_asc = df.sort_by([("a", Asc, NullsFirst)])
   assert_eq(out_asc.get(0, "a"), @types.Scalar::Null)
   assert_eq(out_asc.get(1, "a"), @types.Scalar::Int(1))
   assert_eq(out_asc.get(2, "a"), @types.Scalar::Int(2))
   // desc + NullsFirst — value order descends but null still leads.
-  let out_desc = df.sort_by(SortSpec::desc("a").with_null_order(NullsFirst))
+  let out_desc = df.sort_by([("a", Desc, NullsFirst)])
   assert_eq(out_desc.get(0, "a"), @types.Scalar::Null)
   assert_eq(out_desc.get(1, "a"), @types.Scalar::Int(2))
   assert_eq(out_desc.get(2, "a"), @types.Scalar::Int(1))
-}
-
-///|
-test "SortSpec::with_null_order applied twice keeps the last assignment" {
-  // Idempotence proof for the builder: the final `NullsLast` overrides
-  // the earlier `NullsFirst`, so the result must equal `SortSpec::asc`
-  // applied directly (its default is NullsLast).
-  let direct = SortSpec::asc("z")
-  let chained = SortSpec::asc("z")
-    .with_null_order(NullsFirst)
-    .with_null_order(NullsLast)
-  assert_eq(direct, chained)
 }
 
 // ── Fixture ──────────────────────────────────────────────────────────
@@ -100,7 +85,7 @@ fn sort_df() -> DataFrame raise @types.DataError {
 ///|
 test "sort_by Int ascending reorders rows by the key" {
   let df = sort_df()
-  let out = df.sort_by(SortSpec::asc("a"))
+  let out = df.sort_by([("a", Asc, NullsLast)])
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.schema(), df.schema())
   assert_eq(out.columns(), df.columns())
@@ -121,7 +106,7 @@ test "sort_by Int ascending reorders rows by the key" {
 ///|
 test "sort_by Int descending mirrors the ascending order" {
   let df = sort_df()
-  let out = df.sort_by(SortSpec::desc("a"))
+  let out = df.sort_by([("a", Desc, NullsLast)])
   assert_eq(out.check_invariants(), Ok(()))
   // a sorted descending: 5, 4, 3, 1, 1. Stability still holds on
   // the two 1s (apple before date — original row order).
@@ -139,7 +124,7 @@ test "sort_by Int descending mirrors the ascending order" {
 ///|
 test "sort_by Float ascending places nulls last by default" {
   let df = sort_df()
-  let out = df.sort_by(SortSpec::asc("b"))
+  let out = df.sort_by([("b", Asc, NullsLast)])
   assert_eq(out.check_invariants(), Ok(()))
   // b values: 2.5, Null, 1.5, 4.5, Null → asc/NullsLast = 1.5, 2.5,
   // 4.5, Null, Null.
@@ -157,7 +142,7 @@ test "sort_by Float ascending places nulls last by default" {
 ///|
 test "sort_by Float NullsFirst pushes missing values to the top" {
   let df = sort_df()
-  let out = df.sort_by(SortSpec::asc("b").with_null_order(NullsFirst))
+  let out = df.sort_by([("b", Asc, NullsFirst)])
   assert_eq(out.check_invariants(), Ok(()))
   // asc/NullsFirst = Null, Null, 1.5, 2.5, 4.5.
   assert_eq(out.get(0, "b"), @types.Scalar::Null)
@@ -180,7 +165,7 @@ test "sort_by Float with equal values preserves original order (stability)" {
     Series::from_floats("v", [3.0, 1.0, 1.0, 2.0]),
     Series::from_strings("tag", ["a", "b", "c", "d"]),
   ])
-  let out = df.sort_by(SortSpec::asc("v"))
+  let out = df.sort_by([("v", Asc, NullsLast)])
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.get(0, "v"), @types.Scalar::Float(1.0))
   assert_eq(out.get(1, "v"), @types.Scalar::Float(1.0))
@@ -193,7 +178,7 @@ test "sort_by Float with equal values preserves original order (stability)" {
 ///|
 test "sort_by Float descending NullsLast" {
   let df = sort_df()
-  let out = df.sort_by(SortSpec::desc("b"))
+  let out = df.sort_by([("b", Desc, NullsLast)])
   assert_eq(out.check_invariants(), Ok(()))
   // desc/NullsLast = 4.5, 2.5, 1.5, Null, Null.
   assert_eq(out.get(0, "b"), @types.Scalar::Float(4.5))
@@ -206,7 +191,7 @@ test "sort_by Float descending NullsLast" {
 ///|
 test "sort_by Float descending NullsFirst" {
   let df = sort_df()
-  let out = df.sort_by(SortSpec::desc("b").with_null_order(NullsFirst))
+  let out = df.sort_by([("b", Desc, NullsFirst)])
   assert_eq(out.check_invariants(), Ok(()))
   // desc/NullsFirst = Null, Null, 4.5, 2.5, 1.5.
   assert_eq(out.get(0, "b"), @types.Scalar::Null)
@@ -221,7 +206,7 @@ test "sort_by Float descending NullsFirst" {
 ///|
 test "sort_by String ascending is lexicographic" {
   let df = sort_df()
-  let out = df.sort_by(SortSpec::asc("s"))
+  let out = df.sort_by([("s", Asc, NullsLast)])
   assert_eq(out.check_invariants(), Ok(()))
   // "apple" < "berry" < "date" < "fig" < "pear".
   assert_eq(out.get(0, "s"), @types.Scalar::String("apple"))
@@ -237,7 +222,7 @@ test "sort_by String ascending is lexicographic" {
 ///|
 test "sort_by String descending reverses the lexicographic order" {
   let df = sort_df()
-  let out = df.sort_by(SortSpec::desc("s"))
+  let out = df.sort_by([("s", Desc, NullsLast)])
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.get(0, "s"), @types.Scalar::String("pear"))
   assert_eq(out.get(4, "s"), @types.Scalar::String("apple"))
@@ -255,7 +240,7 @@ test "sort_by String breaks length ties lexicographically (shorter wins on prefi
   // `<` on `String`) would put "ab" before "abd" *and* before "abc",
   // not catching the char-by-char difference between "abc" and "abd".
   let df = DataFrame::new([Series::from_strings("s", ["abd", "ab", "abc"])])
-  let out = df.sort_by(SortSpec::asc("s"))
+  let out = df.sort_by([("s", Asc, NullsLast)])
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.get(0, "s"), @types.Scalar::String("ab"))
   assert_eq(out.get(1, "s"), @types.Scalar::String("abc"))
@@ -267,7 +252,7 @@ test "sort_by String breaks length ties lexicographically (shorter wins on prefi
 ///|
 test "sort_by Bool ascending puts false before true (stable)" {
   let df = sort_df()
-  let out = df.sort_by(SortSpec::asc("t"))
+  let out = df.sort_by([("t", Asc, NullsLast)])
   assert_eq(out.check_invariants(), Ok(()))
   // t = [true, false, true, false, true].
   // asc: false, false, true, true, true. Stable: rows 1, 3, then
@@ -293,7 +278,7 @@ test "sort_by multi-key: secondary key only matters for tied primaries" {
     Series::from_strings("a", ["X", "X", "Y", "Y"]),
     Series::from_ints("b", [2, 1, 2, 1]),
   ])
-  let out = df.sort_by([SortSpec::asc("a"), SortSpec::asc("b")])
+  let out = df.sort_by([("a", Asc, NullsLast), ("b", Asc, NullsLast)])
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.get(0, "a"), @types.Scalar::String("X"))
   assert_eq(out.get(0, "b"), @types.Scalar::Int(1))
@@ -311,7 +296,7 @@ test "sort_by multi-key: primary asc + secondary desc" {
     Series::from_strings("dept", ["eng", "eng", "ops", "ops", "ops"]),
     Series::from_ints("salary", [100, 200, 50, 150, 75]),
   ])
-  let out = df.sort_by([SortSpec::asc("dept"), SortSpec::desc("salary")])
+  let out = df.sort_by([("dept", Asc, NullsLast), ("salary", Desc, NullsLast)])
   assert_eq(out.check_invariants(), Ok(()))
   // Within eng (sorted asc), salaries desc: 200, 100.
   assert_eq(out.get(0, "dept"), @types.Scalar::String("eng"))
@@ -325,9 +310,9 @@ test "sort_by multi-key: primary asc + secondary desc" {
 }
 
 ///|
-test "sort_by multi-key: empty specs is an identity sort" {
+test "sort_by multi-key: empty key set is an identity sort" {
   let df = sort_df()
-  let out = df.sort_by(([] : Array[SortSpec]))
+  let out = df.sort_by(([] : Array[(String, SortOrder, NullOrder)]))
   assert_eq(out.check_invariants(), Ok(()))
   // Stability turns "no keys, every comparison ties" into the
   // identity permutation.
@@ -342,7 +327,7 @@ test "sort_by on an all-equal column is the identity (stability)" {
     Series::from_ints("k", [7, 7, 7, 7, 7]),
     Series::from_strings("tag", ["a", "b", "c", "d", "e"]),
   ])
-  let out = df.sort_by(SortSpec::asc("k"))
+  let out = df.sort_by([("k", Asc, NullsLast)])
   assert_eq(out.check_invariants(), Ok(()))
   // Every row tied → original order preserved.
   assert_eq(out, df)
@@ -353,7 +338,7 @@ test "sort_by on an all-equal column is the identity (stability)" {
 ///|
 test "sort_by on a 0x0 frame returns the same 0x0 frame" {
   let df = DataFrame::new([])
-  let out = df.sort_by(([] : Array[SortSpec]))
+  let out = df.sort_by(([] : Array[(String, SortOrder, NullOrder)]))
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.shape(), (0, 0))
 }
@@ -365,7 +350,7 @@ test "sort_by on a 0-row frame preserves the schema and stays empty" {
     @types.Field::new("b", @types.DataType::String),
   ])
   let df = DataFrame::empty(schema)
-  let out = df.sort_by(SortSpec::asc("a"))
+  let out = df.sort_by([("a", Asc, NullsLast)])
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.schema(), schema)
   assert_eq(out.shape(), (0, 2))
@@ -374,7 +359,7 @@ test "sort_by on a 0-row frame preserves the schema and stays empty" {
 ///|
 test "sort_by on a single-row frame is the identity" {
   let df = DataFrame::new([Series::from_ints("a", [42])])
-  let out = df.sort_by(SortSpec::desc("a"))
+  let out = df.sort_by([("a", Desc, NullsLast)])
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out, df)
 }
@@ -385,13 +370,13 @@ test "sort_by on an all-null Int column is a stable identity" {
     Series::from_int_options("a", [None, None, None]),
     Series::from_strings("s", ["x", "y", "z"]),
   ])
-  let out = df.sort_by(SortSpec::asc("a"))
+  let out = df.sort_by([("a", Asc, NullsLast)])
   assert_eq(out.check_invariants(), Ok(()))
   // Every row is missing → null-vs-null is a tie → stability preserves
   // the original order regardless of NullsFirst / NullsLast.
   assert_eq(out, df)
   // Same outcome with NullsFirst.
-  let out_first = df.sort_by(SortSpec::asc("a").with_null_order(NullsFirst))
+  let out_first = df.sort_by([("a", Asc, NullsFirst)])
   assert_eq(out_first, df)
 }
 
@@ -409,7 +394,7 @@ test "sort_by Float treats NaN identically to Null (NullsLast)" {
     ]),
     Series::from_strings("s", ["one", "nan", "two", "null"]),
   ])
-  let out = df.sort_by(SortSpec::asc("v"))
+  let out = df.sort_by([("v", Asc, NullsLast)])
   assert_eq(out.check_invariants(), Ok(()))
   // Reals first (1.0, 2.0) then NaN-and-Null bucket in original order
   // (nan came before null in the source).
@@ -438,7 +423,7 @@ test "sort_by Float NullsFirst groups NaN with Null at the top" {
     Series::from_float_options("v", [Some((1.0 : Double)), Some(nan), None]),
     Series::from_strings("s", ["one", "nan", "null"]),
   ])
-  let out = df.sort_by(SortSpec::asc("v").with_null_order(NullsFirst))
+  let out = df.sort_by([("v", Asc, NullsFirst)])
   assert_eq(out.check_invariants(), Ok(()))
   // NullsFirst groups NaN + Null at the start (stable: nan first,
   // then null).
@@ -453,7 +438,7 @@ test "sort_by Float NullsFirst groups NaN with Null at the top" {
 test "sort_by rejects an unknown column with ColumnNotFound" {
   let df = sort_df()
   assert_eq(
-    try? df.sort_by(SortSpec::asc("missing")),
+    try? df.sort_by([("missing", Asc, NullsLast)]),
     Err(@types.DataError::ColumnNotFound("missing")),
   )
   // The input frame stays well-formed (the validator runs before any
@@ -462,11 +447,11 @@ test "sort_by rejects an unknown column with ColumnNotFound" {
 }
 
 ///|
-test "sort_by multi-key surfaces ColumnNotFound on the first offending spec" {
+test "sort_by multi-key surfaces ColumnNotFound on the first offending key" {
   let df = sort_df()
-  // The first spec is fine; the second has the missing name.
+  // The first key is fine; the second has the missing name.
   assert_eq(
-    try? df.sort_by([SortSpec::asc("a"), SortSpec::asc("missing")]),
+    try? df.sort_by([("a", Asc, NullsLast), ("missing", Asc, NullsLast)]),
     Err(@types.DataError::ColumnNotFound("missing")),
   )
 }
@@ -483,30 +468,36 @@ test "sort_by exercises the build_sort_key dispatch on each dtype" {
     Series::from_bools("b", [true, false]),
     Series::from_strings("s", ["y", "x"]),
   ])
-  let by_int = df.sort_by(SortSpec::asc("i"))
+  let by_int = df.sort_by([("i", Asc, NullsLast)])
   assert_eq(by_int.get(0, "i"), @types.Scalar::Int(1))
-  let by_float = df.sort_by(SortSpec::asc("f"))
+  let by_float = df.sort_by([("f", Asc, NullsLast)])
   assert_eq(by_float.get(0, "f"), @types.Scalar::Float(1.0))
-  let by_bool = df.sort_by(SortSpec::asc("b"))
+  let by_bool = df.sort_by([("b", Asc, NullsLast)])
   assert_eq(by_bool.get(0, "b"), @types.Scalar::Bool(false))
-  let by_string = df.sort_by(SortSpec::asc("s"))
+  let by_string = df.sort_by([("s", Asc, NullsLast)])
   assert_eq(by_string.get(0, "s"), @types.Scalar::String("x"))
-}
-
-// ── IntoSortSpecs: single spec and one-element array agree ───────────
-
-///|
-test "sort_by(spec) == sort_by([spec]) for any spec" {
-  let df = sort_df()
-  let single = df.sort_by(SortSpec::desc("b"))
-  let many = df.sort_by([SortSpec::desc("b")])
-  assert_eq(single, many)
 }
 
 ///|
 test "sort_by is idempotent — sorting an already-sorted frame is a no-op" {
   let df = sort_df()
-  let once = df.sort_by(SortSpec::asc("a"))
-  let twice = once.sort_by(SortSpec::asc("a"))
+  let once = df.sort_by([("a", Asc, NullsLast)])
+  let twice = once.sort_by([("a", Asc, NullsLast)])
   assert_eq(once, twice)
+}
+
+///|
+test "sort_by gathers a nullable Bool column including its null cell" {
+  // `sort_by` routes through `DataFrame::take` → `gather_series`, which
+  // must copy a Bool column's *null* cell (not only its valid cells) when
+  // that row is permuted. Sorting by `k` moves the `None` flag into the
+  // lead row, exercising the null arm of the Bool gather.
+  let df = DataFrame::new([
+    Series::from_int_options("k", [Some(2), Some(1)]),
+    Series::from_bool_options("flag", [Some(true), None]),
+  ])
+  let out = df.sort_by([("k", Asc, NullsLast)])
+  // k ascends → row (k=1, flag=None) leads, (k=2, flag=true) follows.
+  assert_eq(out.get(0, "flag"), @types.Scalar::Null)
+  assert_eq(out.get(1, "flag"), @types.Scalar::Bool(true))
 }

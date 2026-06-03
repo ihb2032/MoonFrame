@@ -81,16 +81,10 @@ fn format_markdown(df : DataFrame, shown : Int) -> String {
   // length `nrows`, so `col_scalars[c][r]` is in-bounds for
   // `r in [0, shown)`.
   let col_scalars = df.column_series().map(s => s.to_scalars())
-  let cells : Array[Array[String]] = []
-  for r in 0..<shown {
-    let row : Array[String] = []
-    for c in 0..<ncols {
-      row.push(escape_md_cell(col_scalars[c][r].to_string()))
-    }
-    cells.push(row)
-  }
-  let widths : Array[Int] = []
-  for c, name in names {
+  let cells : Array[Array[String]] = Array::makei(shown, r => {
+    Array::makei(ncols, c => escape_md_cell(col_scalars[c][r].to_string()))
+  })
+  let widths : Array[Int] = names.mapi((c, name) => {
     let mut w = char_count(name)
     for r in 0..<shown {
       let cw = char_count(cells[r][c])
@@ -105,8 +99,8 @@ fn format_markdown(df : DataFrame, shown : Int) -> String {
     if w < 3 {
       w = 3
     }
-    widths.push(w)
-  }
+    w
+  })
   let buf = StringBuilder::new()
   write_row(buf, names, widths)
   // Separator row: dashes of `widths[c]` per column, padded with one

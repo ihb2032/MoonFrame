@@ -50,7 +50,7 @@ pub fn DataFrame::schema(Self) -> @types.Schema
 pub fn DataFrame::select(Self, Array[String]) -> Self raise @types.DataError
 pub fn DataFrame::shape(Self) -> (Int, Int)
 pub fn DataFrame::slice(Self, Int, Int) -> Self raise @types.DataError
-pub fn[K : IntoSortSpecs] DataFrame::sort_by(Self, K) -> Self raise @types.DataError
+pub fn DataFrame::sort_by(Self, Array[(String, SortOrder, NullOrder)]) -> Self raise @types.DataError
 pub fn DataFrame::sum(Self, String) -> @types.Scalar raise @types.DataError
 pub fn DataFrame::tail(Self, Int) -> Self
 pub fn DataFrame::take(Self, Array[Int]) -> Self raise @types.DataError
@@ -121,21 +121,7 @@ pub(all) enum SortOrder {
   Desc
 } derive(Eq, @debug.Debug)
 
-pub struct SortSpec {
-  column : String
-  order : SortOrder
-  null_order : NullOrder
-} derive(Eq, @debug.Debug)
-pub fn SortSpec::asc(String) -> Self
-pub fn SortSpec::desc(String) -> Self
-pub fn SortSpec::with_null_order(Self, NullOrder) -> Self
-pub impl IntoSortSpecs for SortSpec
-
 // Type aliases
 
 // Traits
-pub trait IntoSortSpecs {
-  fn to_sort_specs(Self) -> Array[SortSpec]
-}
-pub impl IntoSortSpecs for Array[SortSpec]
 

@@ -67,7 +67,17 @@ reductions (reusing the `Series` statistics, so null / `NaN` rules carry over),
 optional per-column aliases via `with_alias`, deterministic first-appearance
 group order, and null keys kept as their own group.
 
-Roadmap: Join / NDJSON in the rest of v0.2; a
+**Join has landed too.** `left.inner_join(right, ["id"])` /
+`left.left_join(right, ["id"])` (or the configurable
+`left.join(right, JoinOptions::on(["id"]).with_how(Left).with_suffix("_r"))`)
+do a hash equi-join: output is the left columns followed by the right's
+non-key columns (key columns once, colliding right names suffixed), rows in
+deterministic left-then-right-match order. It reuses `group_by`'s composite-key
+encoding, with one deliberate twist — a **null** key matches nothing
+(`null != null`, like pandas), whereas `group_by` keeps nulls as their own
+group. An empty key list is a cross join.
+
+Roadmap: NDJSON in the rest of v0.2; a
 `ColumnStorage` / `NumericColumn` storage abstraction in v0.3 alongside HTML
 and chart-data export; an expression / lazy query layer in v0.4.
 
@@ -95,7 +105,7 @@ total and return a `String`).
 moonframe/      facade package — re-exports the public API
 types/          value types, errors (DataError suberror), schemas
 column/         column storage backends (Arrow-style Bitmap + BuiltinColumn)
-frame/          Series, DataFrame, RowView + all DataFrame operators + group_by + to_markdown
+frame/          Series, DataFrame, RowView + all DataFrame operators + group_by + join + to_markdown
 io/             CSV (NyaCSV-backed) and JSON read / write
 docs/api.md     public API reference (source of truth)
 ```
@@ -136,6 +146,16 @@ fn sales_by_region(path : String) -> String raise @moonframe.DataError {
     ("total_quantity", @moonframe.SortOrder::Desc, @moonframe.NullOrder::NullsLast),
   ])
   .to_markdown()
+}
+
+// Join: enrich an orders frame with its customers' regions. Inner join
+// keeps only orders whose customer_id matches; a colliding right column
+// would gain the "_right" suffix (here there is none).
+fn orders_with_region(
+  orders : @moonframe.DataFrame,
+  customers : @moonframe.DataFrame,
+) -> @moonframe.DataFrame raise @moonframe.DataError {
+  orders.inner_join(customers, ["customer_id"])
 }
 
 // Bridge back to a Result at the call site when you want a value rather

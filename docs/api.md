@@ -339,6 +339,48 @@ Split-apply-combine, native to the method chain
   output column name. The default output name is `"<column>_<kind>"` (e.g.
   `AggSpec::sum("quantity")` → `quantity_sum`).
 
+### Join (`join` / `inner_join` / `left_join`)
+
+Hash equi-join, native to the method chain (`left.join(right, options)`).
+
+- `join(other, options : JoinOptions) -> DataFrame raise DataError` — join
+  `self` (left) with `other` (right) on the `options.on` key columns. Two
+  rows match when every key holds an equal value, using the **same
+  composite-key encoding as `group_by`** (each cell's `Scalar::to_string`,
+  length-prefixed so a multi-key composite is injective). The one
+  deliberate difference from `group_by`: a **null** key matches **nothing**
+  (`null != null`, pandas semantics) — an unmatched left row is dropped by
+  `Inner` and kept with null right columns by `Left`. A `Float` `NaN` key
+  is not null, so (as in `group_by`) it renders `"NaN"` and **matches other
+  `NaN` keys** — this diverges from pandas' `merge` (`NaN != NaN`), trading
+  pandas-parity for internal consistency with `group_by`'s key model.
+  - **Columns** = left columns (original order and names) then the right
+    frame's **non-key** columns (original order). Key columns appear once,
+    from the left (keeping the left dtype). A right non-key column whose
+    name also occurs in the left frame is renamed by appending
+    `options.suffix` (default `"_right"`); the left column keeps its name.
+  - **Rows** = left rows in order; within one left row, its right matches
+    appear in ascending right-row order. `Inner` emits only matched pairs;
+    `Left` additionally emits every unmatched left row once with null right
+    columns. Fully determined by input order (snapshot-stable).
+  - An **empty** `on` is a **cross join** (Cartesian product) — the natural
+    dual of `group_by([])`'s single grand-total group.
+  - Routes through `DataFrame::new`, so every output satisfies
+    `check_invariants()`. Raises: `ColumnNotFound` (a key absent from the
+    left or the right; first offending key in `on` order, left checked
+    before right), `TypeMismatch` (a key's dtype differs across the two
+    frames), `DuplicateColumn` (two output columns still collide after
+    suffixing — surfaced by `DataFrame::new`).
+- `inner_join(other, on : Array[String]) -> DataFrame raise DataError` —
+  `self.join(other, JoinOptions::on(on))`.
+- `left_join(other, on : Array[String]) -> DataFrame raise DataError` —
+  `self.join(other, JoinOptions::on(on).with_how(Left))`.
+- `enum JoinType` — `Inner` / `Left` (`Right` / `Outer` deferred to v0.3).
+- `struct JoinOptions` (fields private) — built via `JoinOptions::on(keys)`
+  (defaults to `Inner`, suffix `"_right"`), with `with_how(JoinType)` and
+  `with_suffix(name)` to override. Chainable:
+  `JoinOptions::on(["id"]).with_how(Left).with_suffix("_r")`.
+
 ### Sorting types
 
 - `enum SortOrder` — `Asc` / `Desc`. `enum NullOrder` — `NullsFirst` /
@@ -422,7 +464,8 @@ explicitly.
 - From `@types`: `DataError` · `DataType` · `Scalar` · `Field` · `Schema`
 - From `@column`: `Bitmap` · `BuiltinColumn` · `ColumnData`
 - From `@frame`: `Series` · `DataFrame` · `RowView` · `SortOrder` ·
-  `NullOrder` · `AggKind` · `AggSpec` · `GroupedDataFrame`
+  `NullOrder` · `AggKind` · `AggSpec` · `GroupedDataFrame` · `JoinType` ·
+  `JoinOptions`
 - From `@io`: `CsvReadOptions` · `CsvWriteOptions` · `JsonReadOptions` ·
   `format_csv_str` · `format_json_records` · `parse_csv_str` ·
   `parse_json_records_str` · `read_csv` · `read_csv_with_options` ·
@@ -438,8 +481,6 @@ facade.
 
 ## Out of scope for v0.2 (so far)
 
-- `JoinType`, `JoinOptions`, `join` / `inner_join` / `left_join` —
-  rest of v0.2
 - NDJSON (`parse_ndjson_str` / `format_ndjson` / `read_ndjson` /
   `write_ndjson`) — rest of v0.2
 - `NumericColumn`, `ColumnStorage` abstraction — v0.3

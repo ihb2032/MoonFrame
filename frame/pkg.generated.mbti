@@ -55,7 +55,10 @@ pub fn DataFrame::get_column(Self, String) -> Series raise @types.DataError
 pub fn DataFrame::get_column_at(Self, Int) -> Series raise @types.DataError
 pub fn DataFrame::group_by(Self, Array[String]) -> GroupedDataFrame raise @types.DataError
 pub fn DataFrame::head(Self, Int) -> Self
+pub fn DataFrame::inner_join(Self, Self, Array[String]) -> Self raise @types.DataError
 pub fn DataFrame::is_empty(Self) -> Bool
+pub fn DataFrame::join(Self, Self, JoinOptions) -> Self raise @types.DataError
+pub fn DataFrame::left_join(Self, Self, Array[String]) -> Self raise @types.DataError
 pub fn DataFrame::max(Self, String) -> @types.Scalar raise @types.DataError
 pub fn DataFrame::mean(Self, String) -> Double raise @types.DataError
 pub fn DataFrame::min(Self, String) -> @types.Scalar raise @types.DataError
@@ -85,6 +88,20 @@ pub struct GroupedDataFrame {
   groups : Array[Array[Int]]
 } derive(Eq, @debug.Debug)
 pub fn GroupedDataFrame::agg(Self, Array[AggSpec]) -> DataFrame raise @types.DataError
+
+pub struct JoinOptions {
+  on : Array[String]
+  how : JoinType
+  suffix : String
+} derive(Eq, @debug.Debug)
+pub fn JoinOptions::on(Array[String]) -> Self
+pub fn JoinOptions::with_how(Self, JoinType) -> Self
+pub fn JoinOptions::with_suffix(Self, String) -> Self
+
+pub(all) enum JoinType {
+  Inner
+  Left
+} derive(Eq, @debug.Debug)
 
 pub(all) enum NullOrder {
   NullsFirst

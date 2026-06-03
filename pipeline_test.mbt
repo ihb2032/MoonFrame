@@ -205,6 +205,43 @@ test "pipeline: count / sum / mean / min / max all reach Series-equivalent resul
   assert_true((try? df.mean("tag")) is Err(_))
 }
 
+// ── GroupBy via the facade ────────────────────────────────────────────
+
+///|
+test "pipeline: group_by → agg → sort_by produces a grouped summary via the facade" {
+  let df = DataFrame::new([
+    Series::from_strings("region", ["west", "east", "west", "east", "west"]),
+    Series::from_ints("quantity", [12, 7, 4, 5, 8]),
+    Series::from_floats("revenue", [120.0, 66.5, 30.0, 47.5, 90.0]),
+  ])
+  // `group_by` returns a `GroupedDataFrame` (re-exported type), `AggSpec`
+  // builds the reductions, and `AggKind` is reachable for callers who name
+  // kinds directly — all through the facade. A missing re-export would
+  // surface as a type error in this file.
+  let _ : AggKind = AggKind::Sum
+  let grouped : GroupedDataFrame = df.group_by(["region"])
+  let summary = grouped
+    .agg([
+      AggSpec::count("quantity"),
+      AggSpec::sum("quantity").with_alias("total_q"),
+      AggSpec::mean("revenue").with_alias("avg_rev"),
+    ])
+    .sort_by([("total_q", SortOrder::Desc, NullOrder::NullsLast)])
+  assert_eq(summary.check_invariants(), Ok(()))
+  assert_eq(summary.columns(), [
+    "region", "quantity_count", "total_q", "avg_rev",
+  ])
+  assert_eq(summary.shape(), (2, 4))
+  // total_q descending puts west (24) before east (12).
+  assert_eq(summary.get(0, "region"), Scalar::String("west"))
+  assert_eq(summary.get(0, "quantity_count"), Scalar::Int(3))
+  assert_eq(summary.get(0, "total_q"), Scalar::Int(24))
+  assert_eq(summary.get(0, "avg_rev"), Scalar::Float(80.0)) // (120+30+90)/3
+  assert_eq(summary.get(1, "region"), Scalar::String("east"))
+  assert_eq(summary.get(1, "total_q"), Scalar::Int(12))
+  assert_eq(summary.get(1, "avg_rev"), Scalar::Float(57.0)) // (66.5+47.5)/2
+}
+
 // ── Column ops + with_column / replace_column via the facade ──────────
 
 ///|

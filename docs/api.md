@@ -297,6 +297,48 @@ transforms, so every output satisfies `check_invariants()`.
   GFM-escaped. `with_limit` appends `... (N more rows)` when truncated
   (negative `limit` clamps to 0).
 
+### GroupBy (`group_by` / `agg`)
+
+Split-apply-combine, native to the method chain
+(`df.group_by(keys).agg(specs)`).
+
+- `group_by(keys : Array[String]) -> GroupedDataFrame raise DataError` —
+  partition the frame by one or more key columns. Group order is **first
+  appearance** (pandas `sort=False`), so the result is deterministic.
+  Group identity is the composite of each key cell's `Scalar::to_string`
+  (the canonical value form `unique_count` keys on), so a `Float` `NaN`
+  collapses all NaNs into one group, and a **null** key forms its **own**
+  group rather than being dropped (the deliberate difference from a future
+  `join`, where `null` matches nothing). One key or several; an empty
+  `keys` list makes a single grand-total group; a 0-row frame yields zero
+  groups. `ColumnNotFound` on the first unknown key; `DuplicateColumn` if a
+  key is named twice (rejected up front, mirroring `select`).
+- `GroupedDataFrame::agg(specs : Array[AggSpec]) -> DataFrame raise
+  DataError` — reduce each group to a row. Output columns are the key
+  columns (in `keys` order, original dtype) followed by one column per
+  spec (in `specs` order); one row per group, in group order. Each
+  reduction reuses the matching `Series` statistic, inheriting its null /
+  `NaN` / dtype rules:
+  - `Count` → `Int`, non-null cells only (like `Series::count`, **not**
+    pandas' `size`);
+  - `Sum` → source numeric dtype (`Int`/`Float`), additive identity for an
+    empty / all-null group;
+  - `Mean` → nullable `Float`, a null cell for an all-null / all-`NaN`
+    group;
+  - `Min` / `Max` → source dtype, a null cell for an empty / all-null
+    group (every dtype is ordered, so they apply to all four).
+  An empty `specs` list degenerates to a **distinct** over the key columns
+  (the unique key tuples). Routes through `DataFrame::new`, so every output
+  satisfies `check_invariants()`. Raises: `TypeMismatch` (a `Sum` / `Mean`
+  on a non-numeric column), `ColumnNotFound` (a spec's column is absent),
+  `DuplicateColumn` (two output names collide — e.g. two default-named
+  specs, or an alias shadowing a key column).
+- `enum AggKind` — `Count` / `Sum` / `Mean` / `Min` / `Max`.
+- `struct AggSpec` (fields private) — built via `AggSpec::count` / `sum` /
+  `mean` / `min` / `max(column)`, with `with_alias(name)` to override the
+  output column name. The default output name is `"<column>_<kind>"` (e.g.
+  `AggSpec::sum("quantity")` → `quantity_sum`).
+
 ### Sorting types
 
 - `enum SortOrder` — `Asc` / `Desc`. `enum NullOrder` — `NullsFirst` /
@@ -380,7 +422,7 @@ explicitly.
 - From `@types`: `DataError` · `DataType` · `Scalar` · `Field` · `Schema`
 - From `@column`: `Bitmap` · `BuiltinColumn` · `ColumnData`
 - From `@frame`: `Series` · `DataFrame` · `RowView` · `SortOrder` ·
-  `NullOrder`
+  `NullOrder` · `AggKind` · `AggSpec` · `GroupedDataFrame`
 - From `@io`: `CsvReadOptions` · `CsvWriteOptions` · `JsonReadOptions` ·
   `format_csv_str` · `format_json_records` · `parse_csv_str` ·
   `parse_json_records_str` · `read_csv` · `read_csv_with_options` ·
@@ -396,8 +438,6 @@ facade.
 
 ## Out of scope for v0.2 (so far)
 
-- `GroupBy`, aggregation specs (`AggKind` / `AggSpec` /
-  `GroupedDataFrame`) — rest of v0.2
 - `JoinType`, `JoinOptions`, `join` / `inner_join` / `left_join` —
   rest of v0.2
 - NDJSON (`parse_ndjson_str` / `format_ndjson` / `read_ndjson` /

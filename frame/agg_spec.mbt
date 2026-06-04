@@ -48,8 +48,8 @@ pub struct AggSpec {
 
 ///|
 /// Count of non-null cells in `column` within each group. The result is an
-/// `Int` column (matching `Series::count`), so — unlike pandas' `size` —
-/// nulls are not counted.
+/// `Int` column (matching `Series::count` and Polars' `count`) — nulls are
+/// not counted, unlike a plain row count (`len`).
 pub fn AggSpec::count(column : String) -> AggSpec {
   { column, kind: Count, alias_name: None }
 }
@@ -58,16 +58,18 @@ pub fn AggSpec::count(column : String) -> AggSpec {
 /// Sum of `column` within each group. The result keeps the source numeric
 /// dtype (`Int → Int`, `Float → Float`); a non-numeric column raises
 /// `TypeMismatch` at `agg` time. Empty / all-null groups reduce to the
-/// additive identity (`0` / `0.0`), matching `Series::sum`.
+/// additive identity (`0` / `0.0`); a `Float` `NaN` cell propagates to a
+/// `NaN` total (matching `Series::sum` — `NaN` is a value, not missing).
 pub fn AggSpec::sum(column : String) -> AggSpec {
   { column, kind: Sum, alias_name: None }
 }
 
 ///|
 /// Arithmetic mean of `column` within each group, as a nullable `Float`
-/// column. A group with no non-null (and, for `Float`, non-`NaN`) cell
-/// yields a null mean rather than failing the whole aggregation; a
-/// non-numeric column raises `TypeMismatch` at `agg` time.
+/// column. An all-null (or empty) group yields a null mean rather than
+/// failing the whole aggregation; a `Float` `NaN` cell propagates to a
+/// `NaN` mean (matching `Series::mean` — `NaN` is a value, only `Null` is
+/// missing). A non-numeric column raises `TypeMismatch` at `agg` time.
 pub fn AggSpec::mean(column : String) -> AggSpec {
   { column, kind: Mean, alias_name: None }
 }
@@ -75,8 +77,9 @@ pub fn AggSpec::mean(column : String) -> AggSpec {
 ///|
 /// Minimum cell of `column` within each group, in the source dtype. Every
 /// dtype has a natural order (`String` lexicographic, `Bool` `false <
-/// true`), so `min` is defined for all of them; `Float` `NaN` is skipped.
-/// An empty / all-null group yields a null cell.
+/// true`), so `min` is defined for all of them; `Float` `NaN` is skipped
+/// (as in Polars' regular `min` / `max`, which ignore `NaN`). An empty /
+/// all-null group yields a null cell.
 pub fn AggSpec::min(column : String) -> AggSpec {
   { column, kind: Min, alias_name: None }
 }

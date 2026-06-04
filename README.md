@@ -63,9 +63,11 @@ structural spec (INV1–INV7) asserted by every operator test.
 **GroupBy has landed** — the first of the v0.2 split-apply-combine features.
 `df.group_by(keys).agg([AggSpec::sum("x"), AggSpec::mean("y"), ...])` returns a
 one-row-per-group summary with `Count` / `Sum` / `Mean` / `Min` / `Max`
-reductions (reusing the `Series` statistics, so null / `NaN` rules carry over),
+reductions (reusing the `Series` statistics, with Polars-aligned `NaN` rules: a
+`NaN` propagates through `Sum` / `Mean` but is skipped by `Min` / `Max`),
 optional per-column aliases via `with_alias`, deterministic first-appearance
-group order, and null keys kept as their own group.
+group order (Polars' `maintain_order=True`), and null keys kept as their own
+group.
 
 **Join has landed too.** `left.inner_join(right, ["id"])` /
 `left.left_join(right, ["id"])` (or the configurable

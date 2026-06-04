@@ -63,18 +63,23 @@ test "sum on Float accumulates in 64-bit to limit drift" {
 }
 
 ///|
-test "sum / mean skip Float NaN (treated as missing)" {
+test "sum / mean propagate Float NaN as a value (only Null is missing)" {
   let nan : Double = @double.not_a_number
-  // NaN cells are skipped: sum over the non-NaN cells, mean divides by
-  // the non-NaN count (so mean here is (1 + 3) / 2 = 2, not / 3).
+  // Polars semantics: NaN is a valid float value, so it is summed in and
+  // propagates — any non-null NaN makes the whole sum / mean NaN. (Null,
+  // by contrast, is still skipped.)
   let s = Series::from_floats("x", [1.0, nan, 3.0])
-  assert_eq(s.sum(), @types.Scalar::Float(4.0))
-  assert_eq(s.mean(), (2.0 : Double))
-  // All-NaN behaves like all-null: sum is the additive identity, mean
-  // has nothing to average.
+  assert_true(s.sum().as_float().is_nan())
+  assert_true(s.mean().is_nan())
+  // Null is skipped while the NaN still propagates through the rest.
+  let mixed = Series::from_float_options("x", [Some(1.0), None, Some(nan)])
+  assert_true(mixed.sum().as_float().is_nan())
+  assert_true(mixed.mean().is_nan())
+  // All-NaN is all-values, not all-missing: sum and mean are NaN, not the
+  // additive identity / InvalidOperation an all-NULL column would give.
   let all_nan = Series::from_floats("x", [nan, nan])
-  assert_eq(all_nan.sum(), @types.Scalar::Float(0.0))
-  assert_true((try? all_nan.mean()) is Err(InvalidOperation(_)))
+  assert_true(all_nan.sum().as_float().is_nan())
+  assert_true(all_nan.mean().is_nan())
 }
 
 // ── mean ─────────────────────────────────────────────────────────────

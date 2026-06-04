@@ -214,8 +214,11 @@ dependencies** (NyaCSV / fs / @json live only in `io`).
   `TypeMismatch`; `describe() -> DataFrame` — one-row six-column summary
   (`count` / `null_count` / `unique_count` / `mean` / `min` / `max`),
   raising only because it builds through `DataFrame::new` (always
-  succeeds in practice). `NaN` cells are skipped by `sum` / `mean` /
-  `min_value` / `max_value`, matching `sort_by` and pandas.
+  succeeds in practice). `Float` `NaN` is a value, not missing: it
+  **propagates** through `sum` / `mean` (any non-null `NaN` ⇒ `NaN`) but is
+  **skipped** by `min_value` / `max_value` (and `sort_by`) — matching
+  Polars, whose `sum`/`mean` propagate `NaN` while its regular `min`/`max`
+  ignore it (only `Null` is ever treated as missing).
 
 ### DataFrame
 
@@ -304,29 +307,33 @@ Split-apply-combine, native to the method chain
 
 - `group_by(keys : Array[String]) -> GroupedDataFrame raise DataError` —
   partition the frame by one or more key columns. Group order is **first
-  appearance** (pandas `sort=False`), so the result is deterministic.
-  Group identity is the composite of each key cell's `Scalar::to_string`
-  (the canonical value form `unique_count` keys on), so a `Float` `NaN`
-  collapses all NaNs into one group, and a **null** key forms its **own**
-  group rather than being dropped (the deliberate difference from a future
-  `join`, where `null` matches nothing). One key or several; an empty
-  `keys` list makes a single grand-total group; a 0-row frame yields zero
-  groups. `ColumnNotFound` on the first unknown key; `DuplicateColumn` if a
-  key is named twice (rejected up front, mirroring `select`).
+  appearance** (equivalent to Polars' `maintain_order=True`), so the result
+  is deterministic. Group identity is the composite of each key cell's
+  `Scalar::to_string` (the canonical value form `unique_count` keys on), so
+  a `Float` `NaN` collapses all NaNs into one group (Polars treats `NaN` as
+  equal for grouping), and a **null** key forms its **own** group rather
+  than being dropped (the Polars default — pandas drops null keys — and the
+  deliberate difference from `join`, where `null` matches nothing). One key
+  or several; an empty `keys` list makes a single grand-total group; a
+  0-row frame yields zero groups. `ColumnNotFound` on the first unknown
+  key; `DuplicateColumn` if a key is named twice (rejected up front,
+  mirroring `select`).
 - `GroupedDataFrame::agg(specs : Array[AggSpec]) -> DataFrame raise
   DataError` — reduce each group to a row. Output columns are the key
   columns (in `keys` order, original dtype) followed by one column per
   spec (in `specs` order); one row per group, in group order. Each
   reduction reuses the matching `Series` statistic, inheriting its null /
   `NaN` / dtype rules:
-  - `Count` → `Int`, non-null cells only (like `Series::count`, **not**
-    pandas' `size`);
+  - `Count` → `Int`, non-null cells only (like `Series::count` / Polars'
+    `count`, **not** a row count like `len`);
   - `Sum` → source numeric dtype (`Int`/`Float`), additive identity for an
-    empty / all-null group;
-  - `Mean` → nullable `Float`, a null cell for an all-null / all-`NaN`
-    group;
+    empty / all-null group; a `NaN` cell propagates to a `NaN` total (`NaN`
+    is a value, not missing);
+  - `Mean` → nullable `Float`, a null cell for an all-null group; a `NaN`
+    cell propagates to a `NaN` mean;
   - `Min` / `Max` → source dtype, a null cell for an empty / all-null
-    group (every dtype is ordered, so they apply to all four).
+    group, `NaN` skipped — like Polars' regular `min`/`max` (every dtype is
+    ordered, so they apply to all four).
   An empty `specs` list degenerates to a **distinct** over the key columns
   (the unique key tuples). Routes through `DataFrame::new`, so every output
   satisfies `check_invariants()`. Raises: `TypeMismatch` (a `Sum` / `Mean`

@@ -24,26 +24,21 @@ fn sum_int_valid(data : Array[Int64], validity : @column.Bitmap) -> Int64 {
 }
 
 ///|
-/// Sum and count of the valid, non-`NaN` cells of a `Float` buffer.
-/// `NaN` is treated as missing (skipped), matching `min` / `max` and
-/// `sort_by`. The column stores 64-bit `Double`, so the sum
-/// accumulates directly in `Double` with no narrowing. The returned
-/// count excludes both nulls and `NaN`s, which is the denominator `mean`
-/// needs (`Series::count` would over-count NaN).
-fn sum_count_float_valid(
-  data : Array[Double],
-  validity : @column.Bitmap,
-) -> (Double, Int) {
+/// Sum of the non-null cells of a `Float` buffer. Unlike a missing-value
+/// skip, `NaN` is **not** filtered out: it is a valid floating-point value
+/// that participates in the addition, so a single non-null `NaN` cell
+/// propagates to a `NaN` total (Polars semantics — `NaN` is a value, only
+/// `Null` is missing). The column stores 64-bit `Double`, so the sum
+/// accumulates directly in `Double` with no narrowing.
+fn sum_float_valid(data : Array[Double], validity : @column.Bitmap) -> Double {
   let valid = validity.to_bools()
   let mut s : Double = 0.0
-  let mut c = 0
   for i in 0..<data.length() {
-    if valid[i] && !data[i].is_nan() {
+    if valid[i] {
       s = s + data[i]
-      c = c + 1
     }
   }
-  (s, c)
+  s
 }
 
 ///|
@@ -52,10 +47,12 @@ fn sum_count_float_valid(
 /// - `Int` series → `Scalar::Int(sum)`, accumulated in 64-bit `Int64`
 ///   (so only sums past 2^63 overflow, not the old 32-bit ceiling).
 /// - `Float` series → `Scalar::Float(sum)`, accumulated in 64-bit
-///   `Double`. `NaN` cells are skipped (treated as missing, matching
-///   `min` / `max` and `sort_by`).
-/// - Empty / all-null (or all-`NaN` `Float`) numeric series →
-///   `Scalar::Int(0)` or `Scalar::Float(0.0)` (additive identity).
+///   `Double`. A `NaN` cell is a valid value, not missing, so it
+///   participates and **propagates**: any non-null `NaN` makes the sum
+///   `NaN` (Polars semantics; only `Null` is skipped).
+/// - Empty / all-null numeric series → `Scalar::Int(0)` or
+///   `Scalar::Float(0.0)` (additive identity). An all-`NaN` `Float` series
+///   sums to `NaN`, not the identity — every cell is a present value.
 /// - Non-numeric series (`Bool`, `String`) → `Err(TypeMismatch)`.
 pub fn Series::sum(self : Series) -> @types.Scalar raise @types.DataError {
   // Match the backing array directly (total) — the `Int` / `Float` arms
@@ -63,10 +60,8 @@ pub fn Series::sum(self : Series) -> @types.Scalar raise @types.DataError {
   match self.storage.data() {
     @column.ColumnData::Int(data) =>
       @types.Scalar::Int(sum_int_valid(data, self.storage.validity()))
-    @column.ColumnData::Float(data) => {
-      let (s, _) = sum_count_float_valid(data, self.storage.validity())
-      @types.Scalar::Float(s)
-    }
+    @column.ColumnData::Float(data) =>
+      @types.Scalar::Float(sum_float_valid(data, self.storage.validity()))
     _ =>
       raise @types.DataError::TypeMismatch(
         "sum undefined for " + self.dtype().to_string(),
@@ -82,39 +77,35 @@ pub fn Series::sum(self : Series) -> @types.Scalar raise @types.DataError {
 /// `Double`, so a long column does not lose precision the way a 32-bit
 /// accumulation would.
 ///
+/// The denominator is the **non-null** count (`Series::count`), so a
+/// `Float` `NaN` is a present value that both counts toward the divisor
+/// and **propagates**: any non-null `NaN` makes the mean `NaN` (Polars
+/// semantics; only `Null` is skipped).
+///
 /// - Empty / all-null numeric series → `Err(InvalidOperation(...))`.
 /// - Non-numeric series → `Err(TypeMismatch(...))`.
 pub fn Series::mean(self : Series) -> Double raise @types.DataError {
   let cnt = self.count()
-  match self.storage.data() {
+  // Sum the non-null cells per dtype. A non-numeric column raises here,
+  // before the empty check — `mean` is undefined for it regardless of
+  // length. `NaN` is summed in rather than skipped (see `sum_float_valid`),
+  // so it carries through to the result.
+  let total = match self.storage.data() {
     @column.ColumnData::Int(data) =>
-      if cnt == 0 {
-        raise @types.DataError::InvalidOperation(
-          "mean of empty/all-null series",
-        )
-      } else {
-        // Accumulate / divide in Double, then narrow — keeps the result
-        // accurate for sums beyond the 24-bit Float significand.
-        sum_int_valid(data, self.storage.validity()).to_double() /
-        cnt.to_double()
-      }
-    @column.ColumnData::Float(data) => {
-      // NaN cells are skipped, so divide by the non-NaN count, not
-      // `cnt` (which counts NaN as present).
-      let (s, c) = sum_count_float_valid(data, self.storage.validity())
-      if c == 0 {
-        raise @types.DataError::InvalidOperation(
-          "mean of empty / all-null / all-NaN series",
-        )
-      } else {
-        s / c.to_double()
-      }
-    }
+      sum_int_valid(data, self.storage.validity()).to_double()
+    @column.ColumnData::Float(data) =>
+      sum_float_valid(data, self.storage.validity())
     _ =>
       raise @types.DataError::TypeMismatch(
         "mean undefined for " + self.dtype().to_string(),
       )
   }
+  if cnt == 0 {
+    raise @types.DataError::InvalidOperation("mean of empty/all-null series")
+  }
+  // Divide in Double, then narrow — accurate for sums beyond the 24-bit
+  // Float significand. A `NaN` numerator divides through to a `NaN` mean.
+  total / cnt.to_double()
 }
 
 ///|
@@ -151,8 +142,11 @@ fn[T] fold_extremum(
 /// fails (the v0.1 `Result`-wrapped `min` has been dropped in v0.2).
 ///
 /// - Empty / all-null → `Scalar::Null`.
-/// - `Float` NaN is treated as missing (skipped), matching `sort_by`
-///   and pandas. A series of only NaN (and/or nulls) → `Scalar::Null`.
+/// - `Float` NaN is skipped (treated as missing), matching `sort_by` and
+///   Polars' regular `min` / `max`, which ignore `NaN` — distinct from the
+///   propagating `nan_min` / `nan_max`. (This differs from `sum` / `mean`,
+///   where `NaN` propagates — exactly as in Polars.) A series of only NaN
+///   (and/or nulls) → `Scalar::Null`.
 /// - `Bool` order: `false < true`.
 pub fn Series::min_value(self : Series) -> @types.Scalar {
   let valid = self.storage.validity().to_bools()
@@ -258,16 +252,17 @@ pub fn Series::max_value(self : Series) -> @types.Scalar {
 /// Number of distinct non-null values. The value-form rendering
 /// (`Scalar::to_string`) is used as the canonical key — within a
 /// fixed-dtype series two cells collide only when their values are
-/// equal. As a deliberate consequence, every `Float` NaN collapses to
-/// a single bucket (its `to_string` is `"NaN"`), matching pandas'
-/// `nunique` behaviour on NaN-only inputs.
+/// equal. As a deliberate consequence, every `Float` `NaN` renders
+/// `"NaN"` and collapses to a single bucket, so `NaN` counts as one
+/// distinct value (it is a value, not missing — the same rule that puts
+/// every `NaN` key in one `group_by` group).
 pub fn Series::unique_count(self : Series) -> Int {
   // Distinct count of the non-null cells, keyed by `Scalar::to_string`
   // (the canonical value form): within a fixed-dtype series two cells
-  // collide only when their values are equal, and every `Float` NaN
-  // renders `"NaN"` so they collapse into one bucket (matching pandas'
-  // `nunique`). `Map::from_array` folds the keys into a set; its size is
-  // the distinct count.
+  // collide only when their values are equal, and every `Float` `NaN`
+  // renders `"NaN"` so they collapse into one bucket (one distinct value).
+  // `Map::from_array` folds the keys into a set; its size is the distinct
+  // count.
   Map::from_array(
     self
     .to_scalars()

@@ -21,16 +21,18 @@ pub struct GroupedDataFrame {
 ///|
 /// Partition `self` into groups by the `keys` columns. Rows sharing the
 /// same key tuple land in the same group; group order is **first
-/// appearance** (pandas `sort=False`), so the result is deterministic and
-/// snapshot-stable without a sort.
+/// appearance** (equivalent to Polars' `maintain_order=True`), so the
+/// result is deterministic and snapshot-stable without a sort.
 ///
 /// Group identity is the composite of each key cell's `Scalar::to_string`
 /// (the same canonical value form `unique_count` keys on), so:
 ///   * a `Float` `NaN` renders `"NaN"` and all NaNs collapse into one
-///     group, matching `unique_count` / pandas;
+///     group — matching Polars, where `NaN` compares equal for grouping
+///     (the same rule `join` keys on);
 ///   * a **null** key cell forms its **own** group rather than being
-///     dropped — this is the deliberate semantic difference from `join`,
-///     where a null key matches nothing (`null != null`).
+///     dropped — the Polars default (pandas drops null keys), and the
+///     deliberate semantic difference from `join`, where a null key
+///     matches nothing (`null != null`).
 ///
 /// `keys` may name one column (`group_by(["region"])`) or several
 /// (`group_by(["region", "product"])`). An empty `keys` list places every
@@ -119,11 +121,13 @@ fn row_group_key(key_scalars : Array[Array[@types.Scalar]], i : Int) -> String {
 /// null / `NaN` / dtype rules are inherited verbatim:
 ///   * `Count` → `Int`, non-null cells only (like `Series::count`);
 ///   * `Sum` → source numeric dtype (`Int`/`Float`), additive identity
-///     for an empty / all-null group;
-///   * `Mean` → nullable `Float`, a null cell for an all-null / all-`NaN`
-///     group;
+///     for an empty / all-null group; a `NaN` cell propagates to a `NaN`
+///     total (`NaN` is a value, not missing);
+///   * `Mean` → nullable `Float`, a null cell for an all-null group; a
+///     `NaN` cell propagates to a `NaN` mean;
 ///   * `Min` / `Max` → source dtype, a null cell for an empty / all-null
-///     group (every dtype is ordered, so they apply to all four).
+///     group, `NaN` skipped (every dtype is ordered, so they apply to all
+///     four).
 ///
 /// An empty `specs` list degenerates to a **distinct** over the key
 /// columns: the output is just the unique key tuples (zero specs ⇒ zero
@@ -206,10 +210,11 @@ fn count_groups(
 
 ///|
 /// Per-group sum, keeping the source numeric dtype. `Int` accumulates in
-/// `Int64`, `Float` in `Double` with `NaN` skipped (treated as missing,
-/// matching `Series::sum` / `sort_by`); a non-numeric column raises
-/// `TypeMismatch`. Reads the raw buffer + validity directly so no `Scalar`
-/// boxing or unreachable match arm is introduced.
+/// `Int64`, `Float` in `Double` with `NaN` propagated as a value rather
+/// than skipped (matching `Series::sum` — Polars treats `NaN` as a value,
+/// only `Null` as missing); a non-numeric column raises `TypeMismatch`.
+/// Reads the raw buffer + validity directly so no `Scalar` boxing or
+/// unreachable match arm is introduced.
 fn sum_groups(
   col : Series,
   groups : Array[Array[Int]],
@@ -236,8 +241,10 @@ fn sum_groups(
         groups.map(g => {
           let mut acc = 0.0
           for idx in g {
-            // NaN is skipped, matching Series::sum.
-            if valid[idx] && !data[idx].is_nan() {
+            // NaN is a value, not missing: it participates and propagates
+            // to a NaN group total, matching Series::sum (Polars
+            // semantics). Only a null cell is skipped.
+            if valid[idx] {
               acc = acc + data[idx]
             }
           }
@@ -259,8 +266,10 @@ fn sum_groups(
 /// Per-group arithmetic mean — a nullable `Float` column. Rejects a
 /// non-numeric column up front with one `TypeMismatch` (rather than per
 /// group). Within each group, `Series::mean`'s `InvalidOperation` on an
-/// all-null / all-`NaN` group is caught and surfaced as a null cell, so a
-/// single empty group never fails the whole aggregation.
+/// all-null group is caught and surfaced as a null cell, so a single
+/// all-null group never fails the whole aggregation. A group that holds a
+/// `NaN` (alongside any non-null cell) means `NaN` — `NaN` propagates
+/// rather than being skipped, matching `Series::mean`.
 fn mean_groups(
   col : Series,
   groups : Array[Array[Int]],
@@ -276,8 +285,9 @@ fn mean_groups(
     )
   }
   // TypeMismatch cannot fire below (numeric guaranteed above); the only
-  // catchable failure is the all-null / all-NaN `InvalidOperation`, which
-  // becomes a null cell.
+  // catchable failure is the all-null / empty `InvalidOperation`, which
+  // becomes a null cell. A NaN-bearing group means `NaN` (a value), not
+  // null, so it takes the `noraise` arm.
   Series::from_float_options(
     out_name,
     groups.map(g => {

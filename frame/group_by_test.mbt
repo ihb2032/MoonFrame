@@ -243,12 +243,22 @@ test "count excludes nulls; an all-null group reduces to identity / null" {
 }
 
 ///|
-test "Float NaN is skipped by sum / mean / min / max within a group" {
+test "Float NaN propagates through sum / mean but is skipped by min / max within a group" {
   let nan : Double = @double.not_a_number
-  // Group "a": [1.0, NaN]. Group "b": [NaN, NaN] (all missing).
+  // The null / NaN distinction, per group:
+  //   "a" = [1.0, NaN]      — a value plus a NaN
+  //   "b" = [2.0, null]     — a value plus a missing cell
+  //   "c" = [NaN, NaN]      — all NaN
   let df = DataFrame::new([
-    Series::from_strings("k", ["a", "a", "b", "b"]),
-    Series::from_floats("v", [1.0, nan, nan, nan]),
+    Series::from_strings("k", ["a", "a", "b", "b", "c", "c"]),
+    Series::from_float_options("v", [
+      Some(1.0),
+      Some(nan),
+      Some(2.0),
+      None,
+      Some(nan),
+      Some(nan),
+    ]),
   ])
   let out = df
     .group_by(["k"])
@@ -259,16 +269,24 @@ test "Float NaN is skipped by sum / mean / min / max within a group" {
       AggSpec::max("v"),
     ])
   assert_eq(out.check_invariants(), Ok(()))
-  // Group a: NaN skipped → sum 1.0, mean 1.0, min 1.0, max 1.0.
-  assert_eq(out.get(0, "v_sum"), @types.Scalar::Float(1.0))
-  assert_eq(out.get(0, "v_mean"), @types.Scalar::Float(1.0))
+  // Group a: NaN is a value that propagates → sum and mean are NaN; min /
+  // max skip NaN (Polars' regular min / max) → 1.0.
+  assert_true(out.get(0, "v_sum").as_float().is_nan())
+  assert_true(out.get(0, "v_mean").as_float().is_nan())
   assert_eq(out.get(0, "v_min"), @types.Scalar::Float(1.0))
   assert_eq(out.get(0, "v_max"), @types.Scalar::Float(1.0))
-  // Group b (all NaN): sum 0.0 (identity), mean/min/max null.
-  assert_eq(out.get(1, "v_sum"), @types.Scalar::Float(0.0))
-  assert_eq(out.get(1, "v_mean"), @types.Scalar::Null)
-  assert_eq(out.get(1, "v_min"), @types.Scalar::Null)
-  assert_eq(out.get(1, "v_max"), @types.Scalar::Null)
+  // Group b: the null is skipped (not propagated like NaN) → a finite sum
+  // and mean of 2.0, min / max 2.0.
+  assert_eq(out.get(1, "v_sum"), @types.Scalar::Float(2.0))
+  assert_eq(out.get(1, "v_mean"), @types.Scalar::Float(2.0))
+  assert_eq(out.get(1, "v_min"), @types.Scalar::Float(2.0))
+  assert_eq(out.get(1, "v_max"), @types.Scalar::Float(2.0))
+  // Group c (all NaN): sum / mean propagate to NaN; min / max skip every
+  // cell → null (as for an all-null group).
+  assert_true(out.get(2, "v_sum").as_float().is_nan())
+  assert_true(out.get(2, "v_mean").as_float().is_nan())
+  assert_eq(out.get(2, "v_min"), @types.Scalar::Null)
+  assert_eq(out.get(2, "v_max"), @types.Scalar::Null)
 }
 
 // ── min / max over every dtype ───────────────────────────────────────

@@ -27,8 +27,8 @@ jobs:
       - name: Type check
         run: moon check --deny-warn
 
-      - name: Run tests
-        run: moon test
+      - name: Run tests (wasm, wasm-gc, js, native)
+        run: moon test --target all
 
       - name: Format check
         run: |

@@ -5,6 +5,7 @@ version = "0.2.0"
 import {
   "moonbitlang/x@0.4.43",
   "moonbit-community/NyaCSV@0.3.3",
+  "moonbitlang/quickcheck@0.14.0",
 }
 
 readme = "README.md"

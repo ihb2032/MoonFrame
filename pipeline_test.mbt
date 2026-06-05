@@ -143,6 +143,29 @@ test "pipeline: format_json_records → parse_json_records_str round-trip" {
   assert_eq(restored.check_invariants(), Ok(()))
 }
 
+// ── NDJSON round-trip via the facade ──────────────────────────────────
+
+///|
+test "pipeline: format_ndjson → parse_ndjson_str round-trip" {
+  // Exercises the re-exported NDJSON surface (`format_ndjson` /
+  // `parse_ndjson_str` / `NdjsonReadOptions`); a missing facade
+  // re-export would surface as a type error in this file.
+  let df = DataFrame::new([
+    Series::from_ints("id", [1, 2, 3]),
+    Series::from_strings("name", ["alice", "bob", "carol"]),
+    Series::from_float_options("score", [Some(91.5), None, Some(73.0)]),
+  ])
+  assert_eq(df.check_invariants(), Ok(()))
+  let ndjson = format_ndjson(df)
+  let restored = parse_ndjson_str(ndjson, NdjsonReadOptions::default())
+  assert_eq(restored.shape(), df.shape())
+  assert_eq(restored.columns(), df.columns())
+  assert_eq(restored.get(0, "id"), Scalar::Int(1))
+  assert_eq(restored.get(1, "score"), Scalar::Null)
+  assert_eq(restored.get(2, "name"), Scalar::String("carol"))
+  assert_eq(restored.check_invariants(), Ok(()))
+}
+
 // ── Null-handling pipeline ────────────────────────────────────────────
 
 ///|

@@ -4,8 +4,8 @@ A lightweight DataFrame and tabular-data library for the MoonBit ecosystem.
 
 MoonFrame provides column-oriented `DataFrame` / `Series` types together with
 CSV reading, filtering, sorting, null handling, summary statistics, and
-Markdown / JSON export. The goal is not to clone every pandas feature, but
-to give MoonBit a small, well-tested, extensible foundation for data
+Markdown / JSON / NDJSON export. The goal is not to clone every pandas feature,
+but to give MoonBit a small, well-tested, extensible foundation for data
 analysis.
 
 **Method-chain API (v0.2).** Transformations are methods on `DataFrame`, so
@@ -81,9 +81,16 @@ coalesced on an inner join but kept (the right as `id_right`) on a left join —
 deterministic left-then-right-match order. `left.cross_join(right)`
 (`JoinType::Cross`) gives the keyless Cartesian product.
 
-Roadmap: NDJSON in the rest of v0.2; a
-`ColumnStorage` / `NumericColumn` storage abstraction in v0.3 alongside HTML
-and chart-data export; an expression / lazy query layer in v0.4.
+**NDJSON I/O has landed.** `read_ndjson` / `write_ndjson` (and the
+string-level `parse_ndjson_str` / `format_ndjson`) read and write the JSON
+Lines format — one JSON object per line — reusing the JSON-records type
+inference and `scalar_to_json` cell conventions. Reading is lenient (blank
+lines skipped, CRLF tolerated); writing emits one compact object per row,
+each terminated by `\n`.
+
+Roadmap: a `ColumnStorage` / `NumericColumn` storage abstraction in v0.3
+alongside HTML and chart-data export; an expression / lazy query layer in
+v0.4.
 
 ## v0.1 → v0.2 migration
 
@@ -99,9 +106,9 @@ and chart-data export; an expression / lazy query layer in v0.4.
 | `import ... @ops` | gone — verbs live on `DataFrame` in `@frame` |
 
 `format_csv_str` / `format_json_records` / `parse_csv_str` / `read_csv` /
-`write_csv` and the JSON equivalents are still `io` free functions (the
-`read_*` / `write_*` / `parse_*` ones now `raise`; the `format_*` ones are
-total and return a `String`).
+`write_csv` and the JSON / NDJSON equivalents are still `io` free functions
+(the `read_*` / `write_*` / `parse_*` ones now `raise`; the `format_*` ones
+are total and return a `String`).
 
 ## Layout
 
@@ -110,7 +117,7 @@ moonframe/      facade package — re-exports the public API
 types/          value types, errors (DataError suberror), schemas
 column/         column storage backends (Arrow-style Bitmap + BuiltinColumn)
 frame/          Series, DataFrame, RowView + all DataFrame operators + group_by + join + to_markdown
-io/             CSV (NyaCSV-backed) and JSON read / write
+io/             CSV (NyaCSV-backed), JSON, and NDJSON read / write
 docs/api.md     public API reference (source of truth)
 ```
 
@@ -172,10 +179,10 @@ fn report_or_error(path : String) -> Result[String, @moonframe.DataError] {
 Sub-package imports (`@types`, `@column`, `@frame`, `@io`) remain supported
 for callers who only need a slice.
 
-## Type inference (CSV / JSON)
+## Type inference (CSV / JSON / NDJSON)
 
-`read_csv` / `read_json` infer each column's dtype from the first
-`infer_schema_rows` rows (default `100`), in the order
+`read_csv` / `read_json` / `read_ndjson` infer each column's dtype from the
+first `infer_schema_rows` rows (default `100`), in the order
 `Int → Float → Bool → String`. **A non-null cell *beyond* that window
 that does not fit the inferred dtype is a hard `ParseError` — not a
 silent fallback to `String`.** A column that looks numeric in its first

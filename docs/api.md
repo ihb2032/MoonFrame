@@ -481,6 +481,39 @@ to `raise DataError::IoError(message)`.
   raise DataError`; `write_json_records(path, df) -> Unit raise
   DataError` — file wrappers (`IoError`).
 
+### NDJSON (JSON Lines, one object per line `{...}\n{...}\n…`)
+
+The streaming-friendly sibling of the JSON-records shape (Polars'
+`read_ndjson` / `write_ndjson`, pandas' `read_json(lines=True)`).
+Everything after the line framing is shared with the records
+reader / writer — header collection (first-seen order across all lines,
+sparse lines → null cells), the `Int → Float → Bool → String` inference,
+and the `scalar_to_json` cell conventions — so a column inferred from
+NDJSON matches the same data read as a JSON array.
+
+- `struct NdjsonReadOptions` — `infer_schema_rows` (`100`).
+  `NdjsonReadOptions::default()`. Structurally identical to
+  `JsonReadOptions`; kept a separate type so the two formats can diverge
+  later.
+- `parse_ndjson_str(content, options) -> DataFrame raise DataError` —
+  split on `\n` → parse each non-blank line (`@json.parse`) → the shared
+  records → frame core. Blank / whitespace-only lines are skipped and a
+  trailing `\r` (CRLF) is tolerated as JSON whitespace, so the writer's
+  trailing newline (and incidental blank lines) round-trip without
+  phantom rows. A malformed line surfaces as `ParseError("line N: …")`
+  (1-based); a line whose value is not an object, or a typed mismatch
+  past the inference window, is also `ParseError`. Empty / all-blank
+  input → 0×0 frame.
+- `format_ndjson(df) -> String` — **total**. One compact object per row,
+  keys in `df.columns()` order, each line terminated by `\n` (including
+  the last — matching the CSV writer's per-row LF and Polars'
+  `write_ndjson`); a 0-row frame renders the empty string. Per-cell
+  rules match `format_json_records` (non-finite `Float` → `null`; `Int`
+  beyond ±2^53 keeps its dtype but loses precision on a round-trip).
+- `read_ndjson(path)` / `read_ndjson_with_options(path, options) ->
+  DataFrame raise DataError`; `write_ndjson(path, df) -> Unit raise
+  DataError` — file wrappers (`IoError`).
+
 ---
 
 ## `moonframe` — Facade package
@@ -498,10 +531,12 @@ explicitly.
   `NullOrder` · `AggKind` · `AggSpec` · `GroupedDataFrame` · `JoinType` ·
   `JoinOptions`
 - From `@io`: `CsvReadOptions` · `CsvWriteOptions` · `JsonReadOptions` ·
-  `format_csv_str` · `format_json_records` · `parse_csv_str` ·
-  `parse_json_records_str` · `read_csv` · `read_csv_with_options` ·
-  `read_json` · `read_json_with_options` · `write_csv` ·
-  `write_csv_with_options` · `write_json_records`
+  `NdjsonReadOptions` · `format_csv_str` · `format_json_records` ·
+  `format_ndjson` · `parse_csv_str` · `parse_json_records_str` ·
+  `parse_ndjson_str` · `read_csv` · `read_csv_with_options` ·
+  `read_json` · `read_json_with_options` · `read_ndjson` ·
+  `read_ndjson_with_options` · `write_csv` · `write_csv_with_options` ·
+  `write_json_records` · `write_ndjson`
 
 `using @pkg { type T }` also creates constructor aliases, so
 `@moonframe.Scalar::Int(42)`, `@moonframe.SortOrder::Desc`,
@@ -512,8 +547,6 @@ facade.
 
 ## Out of scope for v0.2 (so far)
 
-- NDJSON (`parse_ndjson_str` / `format_ndjson` / `read_ndjson` /
-  `write_ndjson`) — rest of v0.2
 - `NumericColumn`, `ColumnStorage` abstraction — v0.3
 - HTML output, chart-data export — v0.3
 - Expression / lazy query API — v0.4

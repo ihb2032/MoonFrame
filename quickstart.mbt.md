@@ -142,3 +142,40 @@ test "quickstart: csv round-trip" {
   )
 }
 ```
+
+## NDJSON (JSON Lines) round-trip
+
+`format_ndjson` / `parse_ndjson_str` are the string-level NDJSON serialisers
+(the file-backed `read_ndjson` / `write_ndjson` wrap them). Each row is one JSON
+object on its own line, terminated by `\n`; reading infers dtypes exactly as the
+JSON-records reader does.
+
+```moonbit check
+///|
+test "quickstart: ndjson round-trip" {
+  let df = DataFrame::new([
+    Series::from_strings("region", ["west", "east"]),
+    Series::from_ints("quantity", [10, 5]),
+  ])
+  let ndjson = format_ndjson(df)
+  inspect(
+    ndjson,
+    content=(
+      #|{"region":"west","quantity":10}
+      #|{"region":"east","quantity":5}
+      #|
+    ),
+  )
+  let parsed = parse_ndjson_str(ndjson, NdjsonReadOptions::default())
+  inspect(
+    parsed.to_markdown(),
+    content=(
+      #|| region | quantity |
+      #|| ------ | -------- |
+      #|| west   | 10       |
+      #|| east   | 5        |
+      #|
+    ),
+  )
+}
+```

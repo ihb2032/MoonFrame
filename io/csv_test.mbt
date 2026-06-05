@@ -119,6 +119,7 @@ test "parse_csv_str: has_header=false synthesises column1, column2, …" {
     delimiter: ',',
     infer_schema_rows: 100,
     null_values: [""],
+    strict_column_count: false,
   })
   assert_eq(df.check_invariants(), Ok(()))
   assert_eq(df.columns(), ["column1", "column2", "column3"])
@@ -139,6 +140,7 @@ test "parse_csv_str: custom delimiter (semicolon) splits cells correctly" {
     delimiter: ';',
     infer_schema_rows: 100,
     null_values: [""],
+    strict_column_count: false,
   })
   assert_eq(df.check_invariants(), Ok(()))
   assert_eq(df.shape(), (2, 3))
@@ -160,6 +162,7 @@ test "parse_csv_str: custom null_values let NA / N/A become null" {
     delimiter: ',',
     infer_schema_rows: 100,
     null_values: ["NA", "N/A"],
+    strict_column_count: false,
   })
   assert_eq(df.check_invariants(), Ok(()))
   // "a" is Int because NA was skipped during inference; "b" is
@@ -236,6 +239,7 @@ test "parse_csv_str: infer_schema_rows limits the inference window" {
     delimiter: ',',
     infer_schema_rows: 1,
     null_values: [""],
+    strict_column_count: false,
   })
   assert_true(result is Err(@types.DataError::ParseError(_)))
 }
@@ -258,6 +262,48 @@ test "parse_csv_str: short data rows pad to null cells" {
   assert_eq(df.get(1, "c"), @types.Scalar::Null)
 }
 
+///|
+test "parse_csv_str: strict_column_count rejects a ragged row" {
+  // With the strict guard on, a data row whose width differs from the
+  // header (row 2 here has 2 cells, not 3) surfaces as ParseError
+  // instead of being silently null-padded by the lenient path above.
+  let content =
+    #|a,b,c
+    #|1,2,3
+    #|4,5
+    #|7,8,9
+    #|
+  let result = try? @io.parse_csv_str(content, {
+    has_header: true,
+    delimiter: ',',
+    infer_schema_rows: 100,
+    null_values: [""],
+    strict_column_count: true,
+  })
+  assert_true(result is Err(@types.DataError::ParseError(_)))
+}
+
+///|
+test "parse_csv_str: strict_column_count passes a uniform-width frame" {
+  // Every data row matches the header width, so the strict guard is a
+  // no-op and parsing proceeds exactly as the lenient path would.
+  let content =
+    #|a,b,c
+    #|1,2,3
+    #|4,5,6
+    #|
+  let df = @io.parse_csv_str(content, {
+    has_header: true,
+    delimiter: ',',
+    infer_schema_rows: 100,
+    null_values: [""],
+    strict_column_count: true,
+  })
+  assert_eq(df.check_invariants(), Ok(()))
+  assert_eq(df.shape(), (2, 3))
+  assert_eq(df.get(1, "c"), @types.Scalar::Int(6))
+}
+
 // ── parse_csv_str: edge / error paths ─────────────────────────────────
 
 ///|
@@ -274,6 +320,7 @@ test "parse_csv_str: has_header=false on empty input also yields 0x0" {
     delimiter: ',',
     infer_schema_rows: 100,
     null_values: [""],
+    strict_column_count: false,
   })
   assert_eq(df.check_invariants(), Ok(()))
   assert_eq(df.shape(), (0, 0))
@@ -300,6 +347,7 @@ test "parse_csv_str: has_header=false on row-less (whitespace) input yields 0x0"
     delimiter: ',',
     infer_schema_rows: 100,
     null_values: [""],
+    strict_column_count: false,
   })
   assert_eq(df.check_invariants(), Ok(()))
   assert_eq(df.shape(), (0, 0))
@@ -340,6 +388,7 @@ test "parse_csv_str: non-numeric in a Float-locked column becomes ParseError" {
     delimiter: ',',
     infer_schema_rows: 2,
     null_values: [""],
+    strict_column_count: false,
   })
   assert_true(result is Err(@types.DataError::ParseError(_)))
 }
@@ -358,6 +407,7 @@ test "parse_csv_str: non-bool value outside the inference window is ParseError" 
     delimiter: ',',
     infer_schema_rows: 2,
     null_values: [""],
+    strict_column_count: false,
   })
   assert_true(result is Err(@types.DataError::ParseError(_)))
 }
@@ -375,6 +425,7 @@ test "parse_csv_str: non-int outside the inference window is ParseError" {
     delimiter: ',',
     infer_schema_rows: 2,
     null_values: [""],
+    strict_column_count: false,
   })
   assert_true(result is Err(@types.DataError::ParseError(_)))
 }
@@ -573,6 +624,7 @@ test "write_csv_with_options + read_csv_with_options honour custom shape" {
     delimiter: ';',
     infer_schema_rows: 100,
     null_values: ["NA"],
+    strict_column_count: false,
   }
   @io.write_csv_with_options(path, df, write_opts)
   let parsed = @io.read_csv_with_options(path, read_opts)
@@ -627,6 +679,7 @@ test "CsvReadOptions::default exposes expected defaults" {
   assert_eq(opts.delimiter, ',')
   assert_eq(opts.infer_schema_rows, 100)
   assert_eq(opts.null_values, [""])
+  assert_eq(opts.strict_column_count, false)
 }
 
 ///|

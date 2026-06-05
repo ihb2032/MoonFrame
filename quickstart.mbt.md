@@ -1,0 +1,144 @@
+# MoonFrame quickstart (runnable)
+
+Every code block below is a **doc test**: `moon test` compiles and runs it on
+all four backends (wasm / wasm-gc / js / native), so these examples cannot
+silently rot — if the public API or its output changes, CI fails here until the
+example (and its expected output) is updated with `moon test --update`.
+
+These blocks use the sub-package aliases (`Series`, `DataFrame`, `AggSpec`, …)
+re-exported by the facade. In application code you would
+`import "ihb2032/MoonFrame" @moonframe` and prefix the same names with
+`@moonframe.` (see [`README.md`](README.md)), or import a single sub-package
+(`@frame`, `@io`, …) for a slice of the surface.
+
+## Build a frame, then group and aggregate
+
+`group_by(keys).agg([...])` returns one row per group. `with_alias` renames an
+aggregated column; `sort_by` orders the summary. (Means are chosen here to be
+exact so the rendered table is identical on every backend.)
+
+```moonbit check
+///|
+test "quickstart: group_by + agg" {
+  let sales = DataFrame::new([
+    Series::from_strings("region", ["west", "east", "west", "east"]),
+    Series::from_ints("quantity", [10, 5, 7, 3]),
+    Series::from_floats("revenue", [100.0, 50.0, 70.0, 30.0]),
+  ])
+  let summary = sales
+    .group_by(["region"])
+    .agg([
+      AggSpec::sum("quantity").with_alias("total_quantity"),
+      AggSpec::mean("revenue").with_alias("avg_revenue"),
+    ])
+    .sort_by([("total_quantity", SortOrder::Desc, NullOrder::NullsLast)])
+  inspect(
+    summary.to_markdown(),
+    content=(
+      #|| region | total_quantity | avg_revenue |
+      #|| ------ | -------------- | ----------- |
+      #|| west   | 17             | 85          |
+      #|| east   | 8              | 40          |
+      #|
+    ),
+  )
+}
+```
+
+## Filter, select, sort, render
+
+The operator verbs are methods on `DataFrame`, so a pipeline reads
+top-to-bottom. A fallible accessor inside the `filter` predicate (here
+`get_string`) simply raises.
+
+```moonbit check
+///|
+test "quickstart: filter + select + sort" {
+  let df = DataFrame::new([
+    Series::from_strings("product", ["widget", "gadget", "widget"]),
+    Series::from_strings("region", ["west", "east", "east"]),
+    Series::from_ints("quantity", [10, 5, 7]),
+  ])
+  let out = df
+    .filter(row => row.get_string("product") == "widget")
+    .select(["region", "quantity"])
+    .sort_by([("quantity", SortOrder::Desc, NullOrder::NullsLast)])
+  inspect(
+    out.to_markdown(),
+    content=(
+      #|| region | quantity |
+      #|| ------ | -------- |
+      #|| west   | 10       |
+      #|| east   | 7        |
+      #|
+    ),
+  )
+}
+```
+
+## Join two frames
+
+`inner_join` keeps only rows whose key matches on both sides; the result is the
+left columns followed by the right columns.
+
+```moonbit check
+///|
+test "quickstart: inner_join" {
+  let orders = DataFrame::new([
+    Series::from_ints("customer_id", [1, 2, 1]),
+    Series::from_ints("amount", [100, 50, 70]),
+  ])
+  let customers = DataFrame::new([
+    Series::from_ints("customer_id", [1, 2]),
+    Series::from_strings("region", ["west", "east"]),
+  ])
+  inspect(
+    orders.inner_join(customers, ["customer_id"]).to_markdown(),
+    content=(
+      #|| customer_id | amount | region |
+      #|| ----------- | ------ | ------ |
+      #|| 1           | 100    | west   |
+      #|| 2           | 50     | east   |
+      #|| 1           | 70     | west   |
+      #|
+    ),
+  )
+}
+```
+
+## CSV round-trip without touching the filesystem
+
+`format_csv_str` / `parse_csv_str` are the string-level serialisers (the
+file-backed `read_csv` / `write_csv` wrap them). Round-tripping is faithful for
+inferable dtypes — the property tests assert this over random input.
+
+```moonbit check
+///|
+test "quickstart: csv round-trip" {
+  let df = DataFrame::new([
+    Series::from_strings("region", ["west", "east"]),
+    Series::from_ints("quantity", [10, 5]),
+  ])
+  let csv = format_csv_str(df, CsvWriteOptions::default())
+  inspect(
+    csv,
+    content=(
+      #|region,quantity
+      #|west,10
+      #|east,5
+      #|
+    ),
+  )
+  let parsed = parse_csv_str(csv, CsvReadOptions::default())
+  inspect(
+    parsed.to_markdown(),
+    content=(
+      #|| region | quantity |
+      #|| ------ | -------- |
+      #|| west   | 10       |
+      #|| east   | 5        |
+      #|
+    ),
+  )
+}
+```

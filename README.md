@@ -188,7 +188,12 @@ and `1_000` underscore grouping stay `String`; integers up to the
 
 ## Examples
 
-Run the bundled examples from the project root:
+**Runnable API tour:** [`quickstart.mbt.md`](quickstart.mbt.md) is a set of doc
+tests — `moon test` compiles and runs every snippet on all four backends, so the
+group-by / filter / join / CSV-round-trip examples there (with their rendered
+output) are verified in CI and cannot go stale.
+
+For end-to-end CLI programs, run the bundled examples from the project root:
 
 ```sh
 moon run examples/sales_analysis    # read_csv → filter → select → sort_by → describe → markdown

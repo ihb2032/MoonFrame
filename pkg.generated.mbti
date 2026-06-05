@@ -13,9 +13,13 @@ pub fn format_csv_str(@frame.DataFrame, @io.CsvWriteOptions) -> String
 
 pub fn format_json_records(@frame.DataFrame) -> String
 
+pub fn format_ndjson(@frame.DataFrame) -> String
+
 pub fn parse_csv_str(String, @io.CsvReadOptions) -> @frame.DataFrame raise @types.DataError
 
 pub fn parse_json_records_str(String, @io.JsonReadOptions) -> @frame.DataFrame raise @types.DataError
+
+pub fn parse_ndjson_str(String, @io.NdjsonReadOptions) -> @frame.DataFrame raise @types.DataError
 
 pub fn read_csv(String) -> @frame.DataFrame raise @types.DataError
 
@@ -25,11 +29,17 @@ pub fn read_json(String) -> @frame.DataFrame raise @types.DataError
 
 pub fn read_json_with_options(String, @io.JsonReadOptions) -> @frame.DataFrame raise @types.DataError
 
+pub fn read_ndjson(String) -> @frame.DataFrame raise @types.DataError
+
+pub fn read_ndjson_with_options(String, @io.NdjsonReadOptions) -> @frame.DataFrame raise @types.DataError
+
 pub fn write_csv(String, @frame.DataFrame) -> Unit raise @types.DataError
 
 pub fn write_csv_with_options(String, @frame.DataFrame, @io.CsvWriteOptions) -> Unit raise @types.DataError
 
 pub fn write_json_records(String, @frame.DataFrame) -> Unit raise @types.DataError
+
+pub fn write_ndjson(String, @frame.DataFrame) -> Unit raise @types.DataError
 
 // Errors
 
@@ -65,6 +75,8 @@ pub using @frame {type JoinOptions}
 pub using @frame {type JoinType}
 
 pub using @io {type JsonReadOptions}
+
+pub using @io {type NdjsonReadOptions}
 
 pub using @frame {type NullOrder}
 

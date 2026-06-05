@@ -17,6 +17,11 @@
 // package so we get standards-conformant string escaping, the
 // `NaN` / `Infinity` rendering convention, and number formatting for
 // free.
+//
+// The line-delimited sibling (NDJSON / JSON Lines) lives in
+// `ndjson.mbt`; it shares this file's `frame_from_json_records` records
+// → frame core and `scalar_to_json` cell mapping, differing only in the
+// framing (one object per line vs. one top-level array).
 
 ///|
 /// Options that control how a JSON records payload is parsed into a
@@ -39,21 +44,13 @@ pub fn JsonReadOptions::default() -> JsonReadOptions {
 ///|
 /// Parse a JSON records string (`[ {...}, ... ]`) into a `DataFrame`.
 ///
-/// Pipeline:
-///   1. `@json.parse` produces a `Json` AST. Anything other than a
-///      top-level array surfaces as `ParseError`.
-///   2. Each element must be a `Json::Object`. Headers are collected
-///      in first-seen order across **all** records, so a sparse
-///      record (missing some keys) still contributes its own columns
-///      and gets nulls for the missing fields.
-///   3. Per-column dtype inference walks the first
-///      `infer_schema_rows` non-null cells in priority order
-///      `Int → Float → Bool → String`. The first dtype that accepts
-///      every probed cell wins; an all-null column defaults to
-///      `String` (same convention as the CSV reader — no information
-///      to disambiguate).
-///   4. Each column is materialised into a typed `Series` and wrapped
-///      through `DataFrame::new`.
+/// `@json.parse` produces the `Json` AST; a top-level value that is not
+/// an array surfaces as `ParseError`. The array's elements are then
+/// handed to `frame_from_json_records`, which validates each is an
+/// object, collects headers in first-seen order across all records,
+/// infers one dtype per column, and materialises the frame (see that
+/// helper for the per-column rules). An empty array — like empty input
+/// — yields a 0×0 frame.
 ///
 /// Errors:
 /// - `Err(ParseError(...))` — malformed JSON, a top-level value that
@@ -79,14 +76,40 @@ pub fn parse_json_records_str(
         "expected a JSON array of objects at the top level",
       )
   }
+  frame_from_json_records(records, options.infer_schema_rows)
+}
+
+///|
+/// Shared "records → `DataFrame`" core for the JSON-records and NDJSON
+/// readers. Both produce an `Array[Json]` of candidate records — the
+/// array reader from one top-level `[...]`, the NDJSON reader from one
+/// object per line — and from there the pipeline is identical:
+///   1. Validate every element is a `Json::Object`, pulling the inner
+///      `Map` out for downstream passes (so inference / build don't
+///      have to re-match).
+///   2. Collect headers in first-seen order across **all** records, so
+///      a sparse record (missing some keys) still contributes its own
+///      columns and gets nulls for the missing fields.
+///   3. Infer each column's dtype over the first `infer_schema_rows`
+///      non-null cells in priority order `Int → Float → Bool → String`;
+///      the first dtype that accepts every probed cell wins, and an
+///      all-null column defaults to `String` (same convention as the
+///      CSV reader — no information to disambiguate).
+///   4. Materialise each column into a typed `Series` and wrap through
+///      `DataFrame::new`.
+///
+/// An empty record set, or records that are all empty objects
+/// (`[{}, {}, ...]`, which would be N rows of zero columns that
+/// `DataFrame::new` cannot model), collapse to a 0×0 frame — the same
+/// shape both readers' empty-input paths produce. `build_json_column`
+/// raises `ParseError` for a cell that doesn't fit the inferred dtype.
+fn frame_from_json_records(
+  records : Array[Json],
+  infer_schema_rows : Int,
+) -> @frame.DataFrame raise @types.DataError {
   if records.is_empty() {
     return @frame.DataFrame::new([])
   }
-  // First pass: validate that every element is an object, pull the
-  // inner `Map` out for downstream passes (so inference / build don't
-  // have to re-match), and collect headers in first-seen order across
-  // *all* records. Walking every record means a sparse-on-the-left
-  // set still produces every column the data contains.
   let objs : Array[Map[String, Json]] = Array::new(capacity=records.length())
   let headers : Array[String] = []
   let header_set : Map[String, Unit] = {}
@@ -109,15 +132,10 @@ pub fn parse_json_records_str(
   }
   let ncols = headers.length()
   if ncols == 0 {
-    // `[{}, {}, ...]` degenerates to N rows of zero columns, which
-    // `DataFrame::new` cannot model. Collapse to an empty 0×0 frame
-    // — the same shape the empty-input branch produces.
     return @frame.DataFrame::new([])
   }
-  // `build_json_column` raises `ParseError` for a cell that doesn't fit
-  // the inferred dtype.
   let series : Array[@frame.Series] = headers.map(name => {
-    let dt = infer_json_column_dtype(objs, name, options.infer_schema_rows)
+    let dt = infer_json_column_dtype(objs, name, infer_schema_rows)
     build_json_column(name, dt, objs)
   })
   @frame.DataFrame::new(series)

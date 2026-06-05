@@ -7,16 +7,32 @@ on:
   workflow_dispatch:
 
 jobs:
-  linux-x86_64:
-    runs-on: ubuntu-latest
+  build:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # Don't cancel the other OSes when one fails — we want the full
+      # cross-platform picture on every run.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
     steps:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Install MoonBit
+      - name: Install MoonBit (Unix)
+        if: runner.os != 'Windows'
         run: |
           curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
           echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+
+      - name: Install MoonBit (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          irm https://cli.moonbitlang.com/install/powershell.ps1 | iex
+          "$env:USERPROFILE\.moon\bin" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
 
       - name: Show versions
         run: moon version --all
@@ -24,13 +40,30 @@ jobs:
       - name: Update package index
         run: moon update
 
-      - name: Type check
+      - name: Type check (deny warnings)
         run: moon check --deny-warn
 
-      - name: Run tests (wasm, wasm-gc, js, native)
+      # Every OS runs the default target so platform-specific behaviour
+      # (notably the filesystem-backed read/write paths) is exercised on
+      # Windows / macOS too. The full multi-backend matrix and the
+      # fmt/coverage gates run on Linux to keep CI fast and reliable; drop
+      # the `if:` guards below to widen them to every OS.
+      - name: Run tests (default target)
+        run: moon test
+
+      - name: Run tests (all backends)
+        if: runner.os == 'Linux'
         run: moon test --target all
 
-      - name: Format check
+      - name: Format + interface check
+        if: runner.os == 'Linux'
         run: |
           moon fmt
+          moon info
           git diff --exit-code
+
+      - name: Coverage (line coverage must be complete)
+        if: runner.os == 'Linux'
+        run: |
+          moon coverage analyze | tee coverage-analyze.txt
+          grep -q "All source files are fully covered" coverage-analyze.txt

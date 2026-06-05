@@ -22,22 +22,31 @@
 ///   typed column, where they become `None`). The default `[""]`
 ///   matches the empty string only, which is how an absent CSV cell is
 ///   typically represented.
+/// - `strict_column_count` — when `true`, every data row must have
+///   exactly as many cells as the header declares; a ragged row (too
+///   few or too many cells) `raise ParseError` instead of being
+///   silently null-padded (short row) or truncated (long row). Defaults
+///   to `false`, preserving the lenient behaviour that tolerates ragged
+///   rows (a permissive CSV idiom, and what the v0.1 reader did).
 pub(all) struct CsvReadOptions {
   has_header : Bool
   delimiter : Char
   infer_schema_rows : Int
   null_values : Array[String]
+  strict_column_count : Bool
 }
 
 ///|
 /// Default read options: header on, comma delimiter, scan the first
-/// 100 rows for inference, and treat the empty string as null.
+/// 100 rows for inference, treat the empty string as null, and tolerate
+/// ragged rows (`strict_column_count = false`).
 pub fn CsvReadOptions::default() -> CsvReadOptions {
   {
     has_header: true,
     delimiter: ',',
     infer_schema_rows: 100,
     null_values: [""],
+    strict_column_count: false,
   }
 }
 
@@ -86,7 +95,9 @@ pub fn CsvWriteOptions::default() -> CsvWriteOptions {
 /// - `Err(ParseError(...))` — a non-null cell does not parse under
 ///   the inferred dtype for its column (typically because a sample
 ///   row outside the inference window is malformed for the inferred
-///   type).
+///   type), or — when `options.strict_column_count` is `true` — a data
+///   row's cell count differs from the header's (reported as
+///   `row N: expected C columns, got G`, 1-based over the data rows).
 /// - Whatever `DataFrame::new` propagates — for v0.1 this is limited
 ///   to `DuplicateColumn` / `LengthMismatch`, neither of which can
 ///   actually fire here (uniqueness is checked above; every column
@@ -148,6 +159,21 @@ pub fn parse_csv_str(
       raise @types.DataError::DuplicateColumn(name)
     }
     seen[name] = ()
+  }
+  // Optional ragged-row guard. When `strict_column_count` is on, a data
+  // row whose cell count differs from the header's `raise ParseError`
+  // rather than being silently null-padded (short row) or truncated
+  // (long row) by the lenient `cell_value` path below. Checked after the
+  // header validates, so a malformed header surfaces first; the 1-based
+  // index is over the data rows (the header is not counted).
+  if options.strict_column_count {
+    for i, row in rows {
+      if row.length() != ncols {
+        raise @types.DataError::ParseError(
+          "row \{i + 1}: expected \{ncols} columns, got \{row.length()}",
+        )
+      }
+    }
   }
   // Infer one dtype per column, then build the column. `build_column`
   // raises `ParseError` for a cell that doesn't fit the inferred dtype.

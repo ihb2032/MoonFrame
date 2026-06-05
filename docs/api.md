@@ -445,12 +445,16 @@ to `raise DataError::IoError(message)`.
 
 - `struct CsvReadOptions` — `has_header` (default `true`; `false`
   synthesises `"column1"`, …) / `delimiter` (`,`) / `infer_schema_rows`
-  (`100`) / `null_values` (`[""]`). `CsvReadOptions::default()`.
+  (`100`) / `null_values` (`[""]`) / `strict_column_count` (`false`;
+  when `true`, a ragged data row — cell count ≠ header width — raises
+  `ParseError` instead of being null-padded / truncated).
+  `CsvReadOptions::default()`.
 - `struct CsvWriteOptions` — `header` (`true`) / `delimiter` (`,`) /
   `null_value` (`""`). `CsvWriteOptions::default()`.
 - `parse_csv_str(content, options) -> DataFrame raise DataError` —
   tokenise → per-column inference (`Int → Float → Bool → String`) → null
-  mapping → `DataFrame::new`. `DuplicateColumn` / `ParseError`.
+  mapping → `DataFrame::new`. `DuplicateColumn` / `ParseError` (the
+  latter also covers a ragged row when `options.strict_column_count`).
 - `format_csv_str(df, options) -> String` — **total**. Cells render via
   `Scalar::to_string`; null → `options.null_value`; RFC 4180 quoting;
   LF-terminated.

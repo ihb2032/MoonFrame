@@ -47,6 +47,7 @@ pub(all) struct CsvReadOptions {
   delimiter : Char
   infer_schema_rows : Int
   null_values : Array[String]
+  strict_column_count : Bool
 }
 pub fn CsvReadOptions::default() -> Self
 

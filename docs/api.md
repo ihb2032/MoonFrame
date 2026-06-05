@@ -11,6 +11,10 @@ surface. Sub-package imports (`@types`, `@column`, `@frame`, `@io`)
 remain supported for callers that only need a slice — the facade is
 additive.
 
+Runnable, CI-verified examples of the surface below live in
+[`quickstart.mbt.md`](../quickstart.mbt.md) (doc tests executed by `moon test`
+on every backend).
+
 ## Error model (v0.2)
 
 Every operation that can fail on bad input or I/O is an effectful

@@ -185,7 +185,7 @@ fn bool_to_int(b : Bool) -> Int {
 /// order across the Basic Multilingual Plane (the common case). It can
 /// diverge for supplementary-plane characters, whose surrogate code units
 /// (`0xD800`–`0xDBFF`) sort *below* high-BMP code points rather than above
-/// them — a code-point-accurate comparison is a v0.2 concern.
+/// them — a code-point-accurate comparison is deferred to a later release.
 pub fn compare_string_lex(a : String, b : String) -> Int {
   let la = a.length()
   let lb = b.length()

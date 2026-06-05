@@ -1,3 +1,24 @@
 #!/bin/sh
+#
+# Pre-commit quality gate. Mirrors the machine-checked gates CI enforces,
+# so a bad commit is caught locally before it is pushed:
+#   1. type-check with warnings treated as errors (0 warnings);
+#   2. refresh formatting and the generated `.mbti` interfaces, failing if
+#      either leaves changes you haven't staged (run `moon fmt && moon info`
+#      and stage the result, then re-commit);
+#   3. run the test suite.
+#
+# Coverage is deliberately left to CI (`moon coverage analyze`): it is too
+# slow to run on every commit. To skip this hook in a pinch use
+# `git commit --no-verify`.
+set -e
 
-moon check
+moon check --deny-warn
+moon fmt
+moon info
+if ! git diff --quiet; then
+  echo "pre-commit: 'moon fmt' / 'moon info' produced changes. Review and stage them, then re-commit:" >&2
+  git --no-pager diff --name-only >&2
+  exit 1
+fi
+moon test

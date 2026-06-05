@@ -1,8 +1,9 @@
-// Property-based tests (quickcheck) for the `io` package: CSV and JSON are
-// faithful round-trips. We check a *text fixpoint* — parsing emitted text and
-// re-emitting it reproduces the text exactly — which validates that reader and
-// writer agree on the wire format, without coupling the property to the
-// DataFrame's internal schema-flag representation.
+// Property-based tests (quickcheck) for the `io` package: CSV, JSON, and
+// NDJSON are faithful round-trips. We check a *text fixpoint* — parsing
+// emitted text and re-emitting it reproduces the text exactly — which
+// validates that reader and writer agree on the wire format, without
+// coupling the property to the DataFrame's internal schema-flag
+// representation.
 
 ///|
 /// A non-empty `Array[Int64]` of length `1..=max_len`. We avoid the 0-row
@@ -39,6 +40,18 @@ fn prop_json_roundtrip(xs : Array[Int64]) -> Bool {
 }
 
 ///|
+fn prop_ndjson_roundtrip(xs : Array[Int64]) -> Bool {
+  try {
+    let df = @frame.DataFrame::new([@frame.Series::from_ints("x", xs)])
+    let text = @io.format_ndjson(df)
+    let back = @io.parse_ndjson_str(text, @io.NdjsonReadOptions::default())
+    @io.format_ndjson(back) == text
+  } catch {
+    _ => false
+  }
+}
+
+///|
 test "property: CSV round-trips a single Int column" {
   @qc.quick_check(@qc.forall(gen_i64_array(30), prop_csv_roundtrip))
 }
@@ -46,4 +59,9 @@ test "property: CSV round-trips a single Int column" {
 ///|
 test "property: JSON round-trips a single Int column" {
   @qc.quick_check(@qc.forall(gen_i64_array(30), prop_json_roundtrip))
+}
+
+///|
+test "property: NDJSON round-trips a single Int column" {
+  @qc.quick_check(@qc.forall(gen_i64_array(30), prop_ndjson_roundtrip))
 }

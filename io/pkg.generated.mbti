@@ -11,9 +11,13 @@ pub fn format_csv_str(@frame.DataFrame, CsvWriteOptions) -> String
 
 pub fn format_json_records(@frame.DataFrame) -> String
 
+pub fn format_ndjson(@frame.DataFrame) -> String
+
 pub fn parse_csv_str(String, CsvReadOptions) -> @frame.DataFrame raise @types.DataError
 
 pub fn parse_json_records_str(String, JsonReadOptions) -> @frame.DataFrame raise @types.DataError
+
+pub fn parse_ndjson_str(String, NdjsonReadOptions) -> @frame.DataFrame raise @types.DataError
 
 pub fn read_csv(String) -> @frame.DataFrame raise @types.DataError
 
@@ -23,11 +27,17 @@ pub fn read_json(String) -> @frame.DataFrame raise @types.DataError
 
 pub fn read_json_with_options(String, JsonReadOptions) -> @frame.DataFrame raise @types.DataError
 
+pub fn read_ndjson(String) -> @frame.DataFrame raise @types.DataError
+
+pub fn read_ndjson_with_options(String, NdjsonReadOptions) -> @frame.DataFrame raise @types.DataError
+
 pub fn write_csv(String, @frame.DataFrame) -> Unit raise @types.DataError
 
 pub fn write_csv_with_options(String, @frame.DataFrame, CsvWriteOptions) -> Unit raise @types.DataError
 
 pub fn write_json_records(String, @frame.DataFrame) -> Unit raise @types.DataError
+
+pub fn write_ndjson(String, @frame.DataFrame) -> Unit raise @types.DataError
 
 // Errors
 
@@ -51,6 +61,11 @@ pub(all) struct JsonReadOptions {
   infer_schema_rows : Int
 }
 pub fn JsonReadOptions::default() -> Self
+
+pub(all) struct NdjsonReadOptions {
+  infer_schema_rows : Int
+}
+pub fn NdjsonReadOptions::default() -> Self
 
 // Type aliases
 

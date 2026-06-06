@@ -3,10 +3,10 @@
 A lightweight DataFrame and tabular-data library for the MoonBit ecosystem.
 
 MoonFrame provides column-oriented `DataFrame` / `Series` types together with
-CSV reading, filtering, sorting, null handling, summary statistics, and
-Markdown / JSON / NDJSON export. The goal is not to clone every pandas feature,
-but to give MoonBit a small, well-tested, extensible foundation for data
-analysis.
+CSV / JSON / NDJSON reading, filtering, sorting, null handling, group-by, joins,
+summary statistics, and Markdown / HTML / JSON / NDJSON / Vega-Lite export. The
+goal is not to clone every pandas feature, but to give MoonBit a small,
+well-tested, extensible foundation for data analysis.
 
 **Method-chain API (v0.2).** Transformations are methods on `DataFrame`, so
 pipelines read top-to-bottom like pandas / polars:

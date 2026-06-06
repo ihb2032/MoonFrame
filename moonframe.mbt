@@ -13,11 +13,12 @@
 // are now methods on `DataFrame`, so re-exporting `type DataFrame`
 // makes them automatically reachable through the facade — there is
 // nothing to list for them here. Likewise `GroupedDataFrame::agg`, the
-// `AggSpec` constructors, the `JoinOptions` builders, and the
-// `HtmlOptions` builders come for free once their types are re-exported.
-// Only the value types (including the GroupBy `AggKind` / `AggSpec` /
-// `GroupedDataFrame`, the Join `JoinType` / `JoinOptions`, and the HTML
-// `HtmlOptions`) and the `io` free functions need explicit re-export.
+// `AggSpec` constructors, the `JoinOptions` builders, the `HtmlOptions`
+// builders, and the `ChartSpec` constructors come for free once their
+// types are re-exported. Only the value types (including the GroupBy
+// `AggKind` / `AggSpec` / `GroupedDataFrame`, the Join `JoinType` /
+// `JoinOptions`, the HTML `HtmlOptions`, and the Chart `ChartKind` /
+// `ChartSpec`) and the `io` free functions need explicit re-export.
 // The `@ops` package no longer exists (it was folded into `@frame`).
 
 ///|
@@ -53,9 +54,12 @@ pub using @io {
   type CsvWriteOptions,
   type JsonReadOptions,
   type NdjsonReadOptions,
+  type ChartKind,
+  type ChartSpec,
   format_csv_str,
   format_json_records,
   format_ndjson,
+  format_vega_lite,
   parse_csv_str,
   parse_json_records_str,
   parse_ndjson_str,
@@ -69,4 +73,5 @@ pub using @io {
   write_csv_with_options,
   write_json_records,
   write_ndjson,
+  write_vega_lite,
 }

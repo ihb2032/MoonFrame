@@ -112,6 +112,35 @@ test "quickstart: render to HTML" {
 }
 ```
 
+## Export a Vega-Lite chart spec
+
+`format_vega_lite(df, spec)` produces a complete Vega-Lite v5 specification — a
+JSON string you can paste into the [Vega editor](https://vega.github.io/editor/)
+or hand to any Vega-Lite runtime. `ChartSpec::bar` / `line` / `point` / `area`
+choose the mark; each channel's field `type` is inferred from the column dtype
+(numeric → `quantitative`, else `nominal`). A spec that names a missing column
+raises `ColumnNotFound`.
+
+```moonbit check
+///|
+test "quickstart: export a Vega-Lite chart spec" {
+  let sales = DataFrame::new([
+    Series::from_strings("region", ["west", "east"]),
+    Series::from_ints("revenue", [100, 50]),
+  ])
+  let spec = format_vega_lite(
+    sales,
+    ChartSpec::bar("region", "revenue").with_title("Revenue by region"),
+  )
+  inspect(
+    spec,
+    content=(
+      #|{"$schema":"https://vega.github.io/schema/vega-lite/v5.json","title":"Revenue by region","mark":"bar","encoding":{"x":{"field":"region","type":"nominal"},"y":{"field":"revenue","type":"quantitative"}},"data":{"values":[{"region":"west","revenue":100},{"region":"east","revenue":50}]}}
+    ),
+  )
+}
+```
+
 ## Join two frames
 
 `inner_join` keeps only rows whose key matches on both sides; the result is the

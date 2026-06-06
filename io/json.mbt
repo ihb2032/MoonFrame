@@ -4,10 +4,20 @@
 // JSON-Lines tooling produce by default. Per-column type inference
 // mirrors the CSV reader — Int → Float → Bool → String, with nulls
 // passing through transparently — so the round-trip
-// `read_csv → write_json_records → read_json` preserves dtypes for
-// any frame whose JSON values stay within the four v0.1 dtypes.
+// `read_csv → write_json_records → read_json` preserves dtypes for most
+// frames whose JSON values stay within the four v0.1 dtypes.
 //
-// Caveat — JSON numbers (and `@json`'s reader) are IEEE-754 `Double`, so
+// Caveat 1 — integral-valued `Float`. JSON has a single number type and
+// `Double::to_string` drops the fractional part of a whole value
+// (`2.0` → `"2"`), so a `Float` column whose cells are all integral is
+// re-inferred as `Int` on read-back (`json_value_as_int` accepts any
+// `Number` equal to its truncation). The dtype narrows `Float → Int`;
+// the values themselves are unchanged. This is inherent to JSON's
+// typeless numbers — and it is the one place CSV and JSON inference
+// diverge: the CSV reader keeps `"2.0"` as `Float` only because the
+// *text* still carries the decimal point, which a JSON number does not.
+//
+// Caveat 2 — JSON numbers (and `@json`'s reader) are IEEE-754 `Double`, so
 // an `Int64` whose magnitude exceeds 2^53 keeps its `Int` dtype but loses
 // value precision on a write → read round-trip (see `scalar_to_json`).
 // This matches pandas' `to_json` against JavaScript consumers; values
@@ -395,7 +405,7 @@ fn build_json_column(
         json_value_as_int,
         (i, c) => {
           @types.DataError::ParseError(
-            "column \"\{name}\" record \{i}: JSON value is not an Int (\"\{json_value_to_string_fallback(c)}\")",
+            "column \"\{name}\" record \{i + 1}: JSON value is not an Int (\"\{json_value_to_string_fallback(c)}\")",
           )
         },
         @frame.Series::from_int_options,
@@ -409,7 +419,7 @@ fn build_json_column(
         json_value_as_float,
         (i, c) => {
           @types.DataError::ParseError(
-            "column \"\{name}\" record \{i}: JSON value is not a number (\"\{json_value_to_string_fallback(c)}\")",
+            "column \"\{name}\" record \{i + 1}: JSON value is not a number (\"\{json_value_to_string_fallback(c)}\")",
           )
         },
         @frame.Series::from_float_options,
@@ -423,7 +433,7 @@ fn build_json_column(
         json_value_as_bool,
         (i, c) => {
           @types.DataError::ParseError(
-            "column \"\{name}\" record \{i}: JSON value is not a Bool (\"\{json_value_to_string_fallback(c)}\")",
+            "column \"\{name}\" record \{i + 1}: JSON value is not a Bool (\"\{json_value_to_string_fallback(c)}\")",
           )
         },
         @frame.Series::from_bool_options,

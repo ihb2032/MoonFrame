@@ -76,6 +76,42 @@ test "quickstart: filter + select + sort" {
 }
 ```
 
+## Render to HTML
+
+`to_html()` renders a plain `<table>`; `to_html_with_options` adds a CSS
+`class`, a `<caption>`, and an optional row cap (a `<tfoot>` banner reports the
+remainder). Header and cell text is HTML-escaped by default, so untrusted data
+can't inject markup.
+
+```moonbit check
+///|
+test "quickstart: render to HTML" {
+  let df = DataFrame::new([
+    Series::from_strings("region", ["west", "east"]),
+    Series::from_ints("quantity", [10, 5]),
+  ])
+  let opts = HtmlOptions::default()
+    .with_table_class("dataframe")
+    .with_caption("Quantities by region")
+  inspect(
+    df.to_html_with_options(opts),
+    content=(
+      #|<table class="dataframe">
+      #|<caption>Quantities by region</caption>
+      #|<thead>
+      #|<tr><th>region</th><th>quantity</th></tr>
+      #|</thead>
+      #|<tbody>
+      #|<tr><td>west</td><td>10</td></tr>
+      #|<tr><td>east</td><td>5</td></tr>
+      #|</tbody>
+      #|</table>
+      #|
+    ),
+  )
+}
+```
+
 ## Join two frames
 
 `inner_join` keeps only rows whose key matches on both sides; the result is the

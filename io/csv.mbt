@@ -413,7 +413,7 @@ fn build_column(
         parse_int_opt,
         (i, v) => {
           @types.DataError::ParseError(
-            "column \"\{name}\" row \{i}: cannot parse \"\{v}\" as Int",
+            "column \"\{name}\" row \{i + 1}: cannot parse \"\{v}\" as Int",
           )
         },
         @frame.Series::from_int_options,
@@ -427,7 +427,7 @@ fn build_column(
         parse_float_opt,
         (i, v) => {
           @types.DataError::ParseError(
-            "column \"\{name}\" row \{i}: cannot parse \"\{v}\" as Float",
+            "column \"\{name}\" row \{i + 1}: cannot parse \"\{v}\" as Float",
           )
         },
         @frame.Series::from_float_options,
@@ -441,7 +441,7 @@ fn build_column(
         parse_bool_opt,
         (i, v) => {
           @types.DataError::ParseError(
-            "column \"\{name}\" row \{i}: cannot parse \"\{v}\" as Bool",
+            "column \"\{name}\" row \{i + 1}: cannot parse \"\{v}\" as Bool",
           )
         },
         @frame.Series::from_bool_options,

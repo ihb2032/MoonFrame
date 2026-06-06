@@ -243,6 +243,24 @@ test "count excludes nulls; an all-null group reduces to identity / null" {
 }
 
 ///|
+test "agg: an all-null Float group means a null cell" {
+  // The all-null *Int* group above exercises the Int mean arm's empty-group
+  // path; the per-dtype `mean_groups` reduction means the Float arm needs its
+  // own: a group whose Float cells are all null (validity 0, distinct from a
+  // NaN value) has no present cell, so its mean is a null cell rather than NaN
+  // or a hard failure.
+  let df = DataFrame::new([
+    Series::from_strings("k", ["a", "a", "b"]),
+    Series::from_float_options("v", [Some(1.0), Some(3.0), None]),
+  ])
+  let out = df.group_by(["k"]).agg([AggSpec::mean("v")])
+  assert_eq(out.check_invariants(), Ok(()))
+  // Group a = [1.0, 3.0] → mean 2.0; group b = [null] → null mean.
+  assert_eq(out.get(0, "v_mean"), @types.Scalar::Float(2.0))
+  assert_eq(out.get(1, "v_mean"), @types.Scalar::Null)
+}
+
+///|
 test "Float NaN propagates through sum / mean but is skipped by min / max within a group" {
   let nan : Double = @double.not_a_number
   // The null / NaN distinction, per group:

@@ -180,8 +180,8 @@ fn aggregate_column(
     Count => count_groups(col, groups, out_name)
     Sum => sum_groups(col, groups, out_name)
     Mean => mean_groups(col, groups, out_name)
-    Min => extrema_groups(col, groups, out_name, s => s.min_value())
-    Max => extrema_groups(col, groups, out_name, s => s.max_value())
+    Min => extrema_groups(col, groups, out_name, want_min=true)
+    Max => extrema_groups(col, groups, out_name, want_min=false)
   }
 }
 
@@ -275,29 +275,67 @@ fn mean_groups(
   groups : Array[Array[Int]],
   out_name : String,
 ) -> Series raise @types.DataError {
-  if !col.dtype().is_numeric() {
-    raise @types.DataError::TypeMismatch(
-      "mean undefined for " +
-      col.dtype().to_string() +
-      " column \"" +
-      col.name() +
-      "\"",
-    )
+  // Hoist the validity mask once (O(n)) and fold each group over its own
+  // indices, so the reduction is linear in the column length rather than
+  // O(groups × n) — the per-group `gather_series(col, g).mean()` it replaced
+  // re-materialised the whole-column mask on every group. The semantics are
+  // unchanged from `Series::mean`: a null cell is skipped; a `Float` `NaN` is
+  // a present value that is summed in and propagates to a `NaN` mean (Polars
+  // rule — only `Null` is missing); an all-null / empty group has no present
+  // cell and yields a null mean rather than failing the whole aggregation.
+  // The non-numeric `_` arm raises one `TypeMismatch` (reached before any
+  // group work, like `sum_groups`).
+  let valid = col.storage().validity().to_bools()
+  match col.storage().data() {
+    @column.ColumnData::Int(data) =>
+      Series::from_float_options(
+        out_name,
+        groups.map(g => {
+          let mut acc : Int64 = 0
+          let mut cnt = 0
+          for idx in g {
+            if valid[idx] {
+              acc = acc + data[idx]
+              cnt = cnt + 1
+            }
+          }
+          if cnt == 0 {
+            None
+          } else {
+            Some(acc.to_double() / cnt.to_double())
+          }
+        }),
+      )
+    @column.ColumnData::Float(data) =>
+      Series::from_float_options(
+        out_name,
+        groups.map(g => {
+          let mut acc = 0.0
+          let mut cnt = 0
+          for idx in g {
+            // NaN is a value, not missing: summed in, propagating to a NaN
+            // mean (matching Series::mean). Only a null cell is skipped.
+            if valid[idx] {
+              acc = acc + data[idx]
+              cnt = cnt + 1
+            }
+          }
+          if cnt == 0 {
+            None
+          } else {
+            Some(acc / cnt.to_double())
+          }
+        }),
+      )
+    _ =>
+      raise @types.DataError::TypeMismatch(
+        "mean undefined for " +
+        col.dtype().to_string() +
+        " column \"" +
+        col.name() +
+        "\"",
+      )
   }
-  // TypeMismatch cannot fire below (numeric guaranteed above); the only
-  // catchable failure is the all-null / empty `InvalidOperation`, which
-  // becomes a null cell. A NaN-bearing group means `NaN` (a value), not
-  // null, so it takes the `noraise` arm.
-  Series::from_float_options(
-    out_name,
-    groups.map(g => {
-      try gather_series(col, g).mean() catch {
-        _ => None
-      } noraise {
-        v => Some(v)
-      }
-    }),
-  )
 }
 
 ///|
@@ -311,49 +349,94 @@ fn extrema_groups(
   col : Series,
   groups : Array[Array[Int]],
   out_name : String,
-  reduce : (Series) -> @types.Scalar,
+  want_min~ : Bool,
 ) -> Series {
-  let scalars = groups.map(g => reduce(gather_series(col, g)))
+  // Hoist the validity mask once (O(n)); each group then folds over its own
+  // indices, so the reduction is linear in the column length rather than
+  // O(groups × n) — the per-group `gather_series` it replaced re-materialised
+  // the whole-column mask every time. `min_value` / `max_value` semantics are
+  // preserved: a null cell is skipped, a `Float` `NaN` is treated as missing
+  // (so an all-NaN / all-null group yields a null cell), and every dtype is
+  // ordered (`Bool` `false < true`, `String` lexicographic), so this is total.
+  let valid = col.storage().validity().to_bools()
   match col.storage().data() {
-    @column.ColumnData::Int(_) =>
+    @column.ColumnData::Int(a) =>
       Series::from_int_options(
         out_name,
-        scalars.map(sc => {
-          match sc {
-            @types.Scalar::Int(v) => Some(v)
-            _ => None
-          }
+        groups.map(g => {
+          group_extremum(g, idx => valid[idx], idx => a[idx], (x, y) => {
+            if want_min {
+              x < y
+            } else {
+              x > y
+            }
+          })
         }),
       )
-    @column.ColumnData::Float(_) =>
+    @column.ColumnData::Float(a) =>
       Series::from_float_options(
         out_name,
-        scalars.map(sc => {
-          match sc {
-            @types.Scalar::Float(v) => Some(v)
-            _ => None
-          }
+        groups.map(g => {
+          group_extremum(
+            g,
+            // NaN is treated as missing (skipped), matching Series::min_value /
+            // max_value and sort_by.
+            idx => valid[idx] && !a[idx].is_nan(),
+            idx => a[idx],
+            (x, y) => if want_min { x < y } else { x > y },
+          )
         }),
       )
-    @column.ColumnData::Bool(_) =>
+    @column.ColumnData::Bool(a) =>
       Series::from_bool_options(
         out_name,
-        scalars.map(sc => {
-          match sc {
-            @types.Scalar::Bool(v) => Some(v)
-            _ => None
-          }
+        groups.map(g => {
+          group_extremum(
+            g,
+            idx => valid[idx],
+            idx => a[idx],
+            // false < true: under min `false` beats `true`; under max the reverse.
+            (x, y) => if want_min { !x && y } else { x && !y },
+          )
         }),
       )
-    @column.ColumnData::String(_) =>
+    @column.ColumnData::String(a) =>
       Series::from_string_options(
         out_name,
-        scalars.map(sc => {
-          match sc {
-            @types.Scalar::String(v) => Some(v)
-            _ => None
-          }
+        groups.map(g => {
+          group_extremum(g, idx => valid[idx], idx => a[idx], (x, y) => {
+            if want_min {
+              @types.compare_string_lex(x, y) < 0
+            } else {
+              @types.compare_string_lex(x, y) > 0
+            }
+          })
         }),
       )
   }
+}
+
+///|
+/// Fold one group's cells to an extremum option. `present(idx)` gates the
+/// non-missing cells, `get(idx)` reads the raw value, and `better(cand, best)`
+/// is `true` when `cand` should replace the running best. Returns `None` when
+/// every cell in the group is missing. Shared by the four `extrema_groups`
+/// dtype arms so each supplies only its presence test, reader, and comparator
+/// — the group analog of `series_stats.mbt`'s `fold_extremum`.
+fn[T] group_extremum(
+  g : Array[Int],
+  present : (Int) -> Bool,
+  get : (Int) -> T,
+  better : (T, T) -> Bool,
+) -> T? {
+  let mut best : T? = None
+  for idx in g {
+    if present(idx) {
+      best = match best {
+        None => Some(get(idx))
+        Some(b) => if better(get(idx), b) { Some(get(idx)) } else { Some(b) }
+      }
+    }
+  }
+  best
 }

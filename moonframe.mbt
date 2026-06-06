@@ -1,10 +1,10 @@
-// MoonFrame — facade package. Re-exports the v0.2 public API from the
+// MoonFrame — facade package. Re-exports the public API from the
 // four sub-packages so callers can `import "ihb2032/MoonFrame"` and
 // access every symbol in one place. Sub-packages remain directly
 // importable for callers who only need a slice of the surface (e.g.
 // just `@types` for the value types).
 //
-// v0.2 note: the operator verbs (`select` / `drop` / `rename` /
+// Note: the operator verbs (`select` / `drop` / `rename` /
 // `with_column` / `replace_column` / `filter` / `sort_by` /
 // `drop_nulls` / `drop_nulls_in` / `fill_null` / `null_count` /
 // `count` / `sum` / `mean` / `min` / `max` / `describe` / `group_by` /

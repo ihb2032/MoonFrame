@@ -128,18 +128,12 @@ pub fn read_ndjson_with_options(
 /// `df.columns()` order, preserved by the linked-hash-map `Map` backing
 /// each record object.
 pub fn format_ndjson(df : @frame.DataFrame) -> String {
-  let names = df.columns()
-  let nrows = df.nrows()
-  // Materialise each column's cells once (column-major) so a record is
-  // assembled by plain `cols[c][r]` reads rather than per-cell `get`.
-  let cols = df.column_series().map(s => s.to_scalars())
+  // Share the column-major record walk with `format_json_records` /
+  // `format_vega_lite` (see `df_to_json_records`); NDJSON differs only in
+  // the framing — one object per line, each terminated by `\n`.
   let buf = StringBuilder::new()
-  for r in 0..<nrows {
-    let obj : Map[String, Json] = {}
-    for c, name in names {
-      obj[name] = scalar_to_json(cols[c][r])
-    }
-    buf.write_string(Json::object(obj).stringify())
+  for obj in df_to_json_records(df) {
+    buf.write_string(obj.stringify())
     buf.write_char('\n')
   }
   buf.to_string()

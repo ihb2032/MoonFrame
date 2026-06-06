@@ -29,8 +29,8 @@ function with signature `... -> T raise DataError`. There is no
 - **Handle inline** with `try expr catch { e => ... }`.
 
 Provably-total operations (`head` / `tail` / `Series::min_value` /
-`drop_nulls` / `to_markdown` / the inspection accessors / …) return
-their value directly and never raise.
+`drop_nulls` / `to_markdown` / `to_html` / the inspection accessors / …)
+return their value directly and never raise.
 
 The one deliberate exception is `DataFrame::check_invariants()`, which
 keeps its `Result[Unit, String]` shape — it is a verification /
@@ -303,6 +303,21 @@ transforms, so every output satisfies `check_invariants()`.
   3-char minimum; null cells render empty; `|` / `\` / CR / LF are
   GFM-escaped. `with_limit` appends `... (N more rows)` when truncated
   (negative `limit` clamps to 0).
+- `to_html() -> String` / `to_html_with_options(options : HtmlOptions) ->
+  String` — **total** HTML `<table>` renderers (IO-1: pure rendering lives
+  in `frame`, parallel to `to_markdown`). `to_html` emits a `<thead>` +
+  `<tbody>`, one `<td>` per cell in declaration order; a null cell renders
+  as `<td></td>`; `&` / `<` / `>` / `"` are escaped to HTML entities.
+  0 columns → empty string; N columns / 0 rows → header + empty `<tbody>`.
+  `to_html_with_options` adds a `class` / `<caption>` and, via `max_rows`,
+  a row cap with a `<tfoot>` `... (K more rows)` banner (negative
+  `max_rows` clamps to 0).
+- `struct HtmlOptions` (fields private) — built via `HtmlOptions::default()`
+  (all rows, no `class` / `caption`, `escape = true`) and chained
+  `with_max_rows(n)` / `with_table_class(cls)` / `with_caption(text)` /
+  `with_escape(flag)`. `with_escape(false)` emits caption / header / cell
+  / class strings verbatim, for trusted input that intentionally carries
+  HTML.
 
 ### GroupBy (`group_by` / `agg`)
 
@@ -552,5 +567,5 @@ facade.
 ## Out of scope for v0.2 (so far)
 
 - `NumericColumn`, `ColumnStorage` abstraction — v0.3
-- HTML output, chart-data export — v0.3
+- Chart-data export (Vega-Lite) — v0.3 (HTML output landed)
 - Expression / lazy query API — v0.4

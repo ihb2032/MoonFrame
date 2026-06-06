@@ -79,6 +79,8 @@ pub fn DataFrame::sort_by(Self, Array[(String, SortOrder, NullOrder)]) -> Self r
 pub fn DataFrame::sum(Self, String) -> @types.Scalar raise @types.DataError
 pub fn DataFrame::tail(Self, Int) -> Self
 pub fn DataFrame::take(Self, Array[Int]) -> Self raise @types.DataError
+pub fn DataFrame::to_html(Self) -> String
+pub fn DataFrame::to_html_with_options(Self, HtmlOptions) -> String
 pub fn DataFrame::to_markdown(Self) -> String
 pub fn DataFrame::to_markdown_with_limit(Self, Int) -> String
 pub fn DataFrame::with_column(Self, Series) -> Self raise @types.DataError
@@ -89,6 +91,18 @@ pub struct GroupedDataFrame {
   groups : Array[Array[Int]]
 } derive(Eq, @debug.Debug)
 pub fn GroupedDataFrame::agg(Self, Array[AggSpec]) -> DataFrame raise @types.DataError
+
+pub struct HtmlOptions {
+  max_rows : Int?
+  table_class : String?
+  caption : String?
+  escape : Bool
+} derive(Eq, @debug.Debug)
+pub fn HtmlOptions::default() -> Self
+pub fn HtmlOptions::with_caption(Self, String) -> Self
+pub fn HtmlOptions::with_escape(Self, Bool) -> Self
+pub fn HtmlOptions::with_max_rows(Self, Int) -> Self
+pub fn HtmlOptions::with_table_class(Self, String) -> Self
 
 pub struct JoinOptions {
   on : Array[String]

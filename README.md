@@ -88,8 +88,18 @@ inference and `scalar_to_json` cell conventions. Reading is lenient (blank
 lines skipped, CRLF tolerated); writing emits one compact object per row,
 each terminated by `\n`.
 
-Roadmap: a `ColumnStorage` / `NumericColumn` storage abstraction in v0.3
-alongside HTML and chart-data export; an expression / lazy query layer in
+**HTML rendering has landed** (first of the v0.3 output formats).
+`df.to_html()` renders a `<table>` — a `<thead>` header over a `<tbody>` of
+rows, with a null cell rendered as `<td></td>` — and
+`df.to_html_with_options(...)` adds a CSS `class`, a `<caption>`, and (via
+`HtmlOptions::with_max_rows`) a row cap with a `<tfoot>` `... (K more rows)`
+banner. Header and cell text is HTML-escaped (`&` / `<` / `>` / `"`) by
+default; `with_escape(false)` passes trusted markup through. Like
+`to_markdown`, it is a pure, dependency-free `DataFrame` method (the IO-1
+boundary keeps rendering in `frame`).
+
+Roadmap: the rest of v0.3 — a `ColumnStorage` / `NumericColumn` storage
+abstraction and Vega-Lite chart export; an expression / lazy query layer in
 v0.4.
 
 ## v0.1 → v0.2 migration
@@ -116,7 +126,7 @@ are total and return a `String`).
 moonframe/      facade package — re-exports the public API
 types/          value types, errors (DataError suberror), schemas
 column/         column storage backends (Arrow-style Bitmap + BuiltinColumn)
-frame/          Series, DataFrame, RowView + all DataFrame operators + group_by + join + to_markdown
+frame/          Series, DataFrame, RowView + all DataFrame operators + group_by + join + to_markdown/to_html
 io/             CSV (NyaCSV-backed), JSON, and NDJSON read / write
 docs/api.md     public API reference (source of truth)
 ```

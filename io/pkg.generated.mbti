@@ -4,6 +4,7 @@ package "ihb2032/MoonFrame/io"
 import {
   "ihb2032/MoonFrame/frame",
   "ihb2032/MoonFrame/types",
+  "moonbitlang/core/debug",
 }
 
 // Values
@@ -12,6 +13,8 @@ pub fn format_csv_str(@frame.DataFrame, CsvWriteOptions) -> String
 pub fn format_json_records(@frame.DataFrame) -> String
 
 pub fn format_ndjson(@frame.DataFrame) -> String
+
+pub fn format_vega_lite(@frame.DataFrame, ChartSpec) -> String raise @types.DataError
 
 pub fn parse_csv_str(String, CsvReadOptions) -> @frame.DataFrame raise @types.DataError
 
@@ -39,9 +42,32 @@ pub fn write_json_records(String, @frame.DataFrame) -> Unit raise @types.DataErr
 
 pub fn write_ndjson(String, @frame.DataFrame) -> Unit raise @types.DataError
 
+pub fn write_vega_lite(String, @frame.DataFrame, ChartSpec) -> Unit raise @types.DataError
+
 // Errors
 
 // Types and methods
+pub(all) enum ChartKind {
+  Bar
+  Line
+  Point
+  Area
+} derive(Eq, @debug.Debug)
+
+pub struct ChartSpec {
+  kind : ChartKind
+  x : String
+  y : String
+  color : String?
+  title : String?
+} derive(Eq, @debug.Debug)
+pub fn ChartSpec::area(String, String) -> Self
+pub fn ChartSpec::bar(String, String) -> Self
+pub fn ChartSpec::line(String, String) -> Self
+pub fn ChartSpec::point(String, String) -> Self
+pub fn ChartSpec::with_color(Self, String) -> Self
+pub fn ChartSpec::with_title(Self, String) -> Self
+
 pub(all) struct CsvReadOptions {
   has_header : Bool
   delimiter : Char

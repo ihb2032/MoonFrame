@@ -451,10 +451,13 @@ Hash equi-join, native to the method chain (`left.join(right, options)`).
 ## `io` — Serialization (IO-1 boundary)
 
 Read / parse / write functions `raise DataError`; the string serialisers
-(`format_*`) are **total** and return a `String`. Tokenisation delegates
-to `moonbit-community/NyaCSV`; JSON goes through the builtin `@json`;
-file wrappers delegate to `moonbitlang/x/fs` and promote its `IOError`
-to `raise DataError::IoError(message)`.
+(`format_csv_str` / `format_json_records` / `format_ndjson`) are **total**
+and return a `String`. The one exception is `format_vega_lite`, which
+`raise`s — a `ChartSpec` names the columns to plot, and a missing name is
+`ColumnNotFound`. Tokenisation delegates to `moonbit-community/NyaCSV`;
+JSON / Vega-Lite specs go through the builtin `@json`; file wrappers
+delegate to `moonbitlang/x/fs` and promote its `IOError` to
+`raise DataError::IoError(message)`.
 
 ### CSV
 
@@ -533,6 +536,36 @@ NDJSON matches the same data read as a JSON array.
   DataFrame raise DataError`; `write_ndjson(path, df) -> Unit raise
   DataError` — file wrappers (`IoError`).
 
+### Chart export (Vega-Lite v5)
+
+`format_vega_lite` emits a complete, standalone [Vega-Lite v5](https://vega.github.io/vega-lite/)
+specification as a JSON string — `$schema` + optional `title` + `mark` +
+`encoding` + an inline `data.values` array — that drops straight into the
+[Vega editor](https://vega.github.io/editor/) or any Vega-Lite runtime.
+It is a serialiser (the IO-1 boundary keeps it in `io`, parallel to
+`format_json_records`), and it shares that emitter's `scalar_to_json` cell
+mapping, so a `data.values` cell follows the same rules (null and
+non-finite-float cells → JSON `null`).
+
+- `enum ChartKind { Bar; Line; Point; Area }` (`pub(all)`) — the mark
+  type, mapped to the Vega-Lite `mark` (`"bar"` / `"line"` / `"point"` /
+  `"area"`).
+- `struct ChartSpec` (fields private) — built via a mark-named
+  constructor `ChartSpec::bar(x, y)` / `line(x, y)` / `point(x, y)` /
+  `area(x, y)` (`x` / `y` are column names) and chained
+  `with_color(column)` (a grouping / colour column) / `with_title(text)`.
+- `format_vega_lite(df, spec) -> String raise DataError` — **not total**.
+  Resolves the spec's `x` / `y` / `color` columns against `df`
+  left-to-right; the first name absent from the frame raises
+  `ColumnNotFound(name)`. Each channel's Vega-Lite field `type` is
+  inferred from the column dtype: numeric (`Int` / `Float`) →
+  `"quantitative"`, otherwise (`String` / `Bool`, and an all-null `Null`
+  column) → `"nominal"`. The frame is inlined as `data.values` (a frame
+  with the encoded columns but zero rows yields `"values":[]`). The output
+  is always valid JSON.
+- `write_vega_lite(path, df, spec) -> Unit raise DataError` — file wrapper
+  (propagates `ColumnNotFound`; filesystem failure → `IoError`).
+
 ---
 
 ## `moonframe` — Facade package
@@ -550,12 +583,13 @@ explicitly.
   `NullOrder` · `AggKind` · `AggSpec` · `GroupedDataFrame` · `JoinType` ·
   `JoinOptions`
 - From `@io`: `CsvReadOptions` · `CsvWriteOptions` · `JsonReadOptions` ·
-  `NdjsonReadOptions` · `format_csv_str` · `format_json_records` ·
-  `format_ndjson` · `parse_csv_str` · `parse_json_records_str` ·
-  `parse_ndjson_str` · `read_csv` · `read_csv_with_options` ·
-  `read_json` · `read_json_with_options` · `read_ndjson` ·
-  `read_ndjson_with_options` · `write_csv` · `write_csv_with_options` ·
-  `write_json_records` · `write_ndjson`
+  `NdjsonReadOptions` · `ChartKind` · `ChartSpec` · `format_csv_str` ·
+  `format_json_records` · `format_ndjson` · `format_vega_lite` ·
+  `parse_csv_str` · `parse_json_records_str` · `parse_ndjson_str` ·
+  `read_csv` · `read_csv_with_options` · `read_json` ·
+  `read_json_with_options` · `read_ndjson` · `read_ndjson_with_options` ·
+  `write_csv` · `write_csv_with_options` · `write_json_records` ·
+  `write_ndjson` · `write_vega_lite`
 
 `using @pkg { type T }` also creates constructor aliases, so
 `@moonframe.Scalar::Int(42)`, `@moonframe.SortOrder::Desc`,
@@ -567,5 +601,6 @@ facade.
 ## Out of scope for v0.2 (so far)
 
 - `NumericColumn`, `ColumnStorage` abstraction — v0.3
-- Chart-data export (Vega-Lite) — v0.3 (HTML output landed)
 - Expression / lazy query API — v0.4
+
+(HTML output and Vega-Lite chart export have since landed in v0.3.)

@@ -98,9 +98,21 @@ default; `with_escape(false)` passes trusted markup through. Like
 `to_markdown`, it is a pure, dependency-free `DataFrame` method (the IO-1
 boundary keeps rendering in `frame`).
 
+**Vega-Lite chart export has landed** (the second v0.3 output format).
+`format_vega_lite(df, ChartSpec::bar("region", "revenue"))` emits a complete
+[Vega-Lite v5](https://vega.github.io/vega-lite/) specification — `$schema` +
+optional `title` + `mark` + `encoding` + an inline `data.values` array — as a
+JSON string you can paste straight into the [Vega editor](https://vega.github.io/editor/)
+or feed to any Vega-Lite runtime. `ChartSpec::bar` / `line` / `point` / `area`
+choose the mark; `with_color` adds a grouping column and `with_title` a heading;
+each channel's field `type` is inferred from the column dtype (numeric →
+`quantitative`, else `nominal`), and cells follow the JSON-records conventions
+(null / non-finite floats → JSON `null`). Being an `io` serialiser (parallel to
+`format_json_records`), a spec that names a missing column raises
+`ColumnNotFound`; `write_vega_lite` is the file wrapper.
+
 Roadmap: the rest of v0.3 — a `ColumnStorage` / `NumericColumn` storage
-abstraction and Vega-Lite chart export; an expression / lazy query layer in
-v0.4.
+abstraction; an expression / lazy query layer in v0.4.
 
 ## v0.1 → v0.2 migration
 
@@ -127,7 +139,7 @@ moonframe/      facade package — re-exports the public API
 types/          value types, errors (DataError suberror), schemas
 column/         column storage backends (Arrow-style Bitmap + BuiltinColumn)
 frame/          Series, DataFrame, RowView + all DataFrame operators + group_by + join + to_markdown/to_html
-io/             CSV (NyaCSV-backed), JSON, and NDJSON read / write
+io/             CSV (NyaCSV-backed), JSON, NDJSON read / write + Vega-Lite chart export
 docs/api.md     public API reference (source of truth)
 ```
 

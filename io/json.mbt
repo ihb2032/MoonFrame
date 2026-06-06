@@ -178,19 +178,7 @@ pub fn read_json_with_options(
 /// Keys appear in the column declaration order, preserved by the
 /// builtin `Map` (linked-hash-map) used for each record object.
 pub fn format_json_records(df : @frame.DataFrame) -> String {
-  let names = df.columns()
-  let nrows = df.nrows()
-  // Materialise each column's cells once (column-major) so a record is
-  // assembled by plain `cols[c][r]` reads rather than per-cell `get`.
-  let cols = df.column_series().map(s => s.to_scalars())
-  let arr : Array[Json] = Array::makei(nrows, r => {
-    let obj : Map[String, Json] = {}
-    for c, name in names {
-      obj[name] = scalar_to_json(cols[c][r])
-    }
-    Json::object(obj)
-  })
-  Json::array(arr).stringify()
+  Json::array(df_to_json_records(df)).stringify()
 }
 
 ///|
@@ -218,6 +206,30 @@ fn parse_json_payload(content : String) -> Json raise @types.DataError {
     err =>
       raise @types.DataError::ParseError("invalid JSON: " + err.to_string())
   }
+}
+
+///|
+/// Materialise `df` as an array of flat JSON record objects — one
+/// `Json::object` per row, keys in column-declaration order, every cell
+/// mapped through `scalar_to_json` (so nulls and non-finite floats land on
+/// JSON `null`). Shared by the three records-shaped emitters:
+/// `format_json_records` wraps the array in one top-level `[...]`,
+/// `format_ndjson` stringifies one object per line, and `format_vega_lite`
+/// inlines it as a Vega-Lite `data.values` array — so the cell conventions
+/// stay identical across all three without re-implementing the row walk.
+fn df_to_json_records(df : @frame.DataFrame) -> Array[Json] {
+  let names = df.columns()
+  let nrows = df.nrows()
+  // Materialise each column's cells once (column-major) so a record is
+  // assembled by plain `cols[c][r]` reads rather than per-cell `get`.
+  let cols = df.column_series().map(s => s.to_scalars())
+  Array::makei(nrows, r => {
+    let obj : Map[String, Json] = {}
+    for c, name in names {
+      obj[name] = scalar_to_json(cols[c][r])
+    }
+    Json::object(obj)
+  })
 }
 
 ///|

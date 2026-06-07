@@ -562,3 +562,430 @@ test "join raises TypeMismatch when a key's dtype differs across frames" {
     is Err(@types.DataError::TypeMismatch(_)),
   )
 }
+
+// ── Right join, single key ───────────────────────────────────────────
+
+///|
+test "right join keeps every right row, nulling unmatched left columns" {
+  let out = employees().right_join(departments(), ["dept_id"])
+  assert_eq(out.check_invariants(), Ok(()))
+  // Mirror of left: column order is still left then right, and a right join
+  // does NOT coalesce by default, so the left key (dept_id) and right key
+  // (dept_id_right) are both kept.
+  assert_eq(out.columns(), [
+    "emp_id", "name", "dept_id", "dept_id_right", "dept_name",
+  ])
+  // Row set = every right department, in right order. Eng (dept 10) fans out
+  // to its two employees in ascending left-row order (Alice then Carol),
+  // then Sales (dept 20), then HR (dept 30) with no employee.
+  assert_eq(out.shape(), (4, 5))
+  assert_eq(out.get(0, "name"), @types.Scalar::String("Alice"))
+  assert_eq(out.get(0, "dept_name"), @types.Scalar::String("Eng"))
+  assert_eq(out.get(1, "name"), @types.Scalar::String("Carol"))
+  assert_eq(out.get(1, "dept_name"), @types.Scalar::String("Eng"))
+  assert_eq(out.get(2, "name"), @types.Scalar::String("Bob"))
+  assert_eq(out.get(2, "dept_name"), @types.Scalar::String("Sales"))
+  // HR has no employee: the left columns (incl. the left key) are null, the
+  // right key + dept_name carry the right row.
+  assert_eq(out.get(3, "emp_id"), @types.Scalar::Null)
+  assert_eq(out.get(3, "name"), @types.Scalar::Null)
+  assert_eq(out.get(3, "dept_id"), @types.Scalar::Null) // left key, unmatched
+  assert_eq(out.get(3, "dept_id_right"), @types.Scalar::Int(30))
+  assert_eq(out.get(3, "dept_name"), @types.Scalar::String("HR"))
+  // The all-null gathered left columns still carry their source dtype.
+  assert_eq(out.get_column("emp_id").dtype(), @types.DataType::Int)
+  assert_eq(out.get_column("name").dtype(), @types.DataType::String)
+}
+
+///|
+test "right_join convenience equals join with how = Right" {
+  let viamethod = employees().right_join(departments(), ["dept_id"])
+  let viaoptions = employees().join(
+    departments(),
+    JoinOptions::on(["dept_id"]).with_how(JoinType::Right),
+  )
+  assert_eq(viamethod, viaoptions)
+}
+
+///|
+test "right join with coalesce=true takes the key from the right side" {
+  // Coalescing a right join keeps the key once, from the always-present
+  // right side — so the unmatched HR row carries dept 30 in the single key.
+  let out = employees().join(
+    departments(),
+    JoinOptions::on(["dept_id"]).with_how(JoinType::Right).with_coalesce(true),
+  )
+  assert_eq(out.check_invariants(), Ok(()))
+  assert_eq(out.columns(), ["emp_id", "name", "dept_id", "dept_name"])
+  assert_eq(out.shape(), (4, 4))
+  assert_eq(out.get(0, "dept_id"), @types.Scalar::Int(10))
+  // HR: no employee, but the coalesced key still shows dept 30 (right side).
+  assert_eq(out.get(3, "name"), @types.Scalar::Null)
+  assert_eq(out.get(3, "dept_id"), @types.Scalar::Int(30))
+  assert_eq(out.get(3, "dept_name"), @types.Scalar::String("HR"))
+}
+
+// ── Outer (full) join, single key ────────────────────────────────────
+
+///|
+test "outer join keeps unmatched rows from both sides" {
+  let out = employees().outer_join(departments(), ["dept_id"])
+  assert_eq(out.check_invariants(), Ok(()))
+  // Full outer does NOT coalesce by default — both keys kept.
+  assert_eq(out.columns(), [
+    "emp_id", "name", "dept_id", "dept_id_right", "dept_name",
+  ])
+  // Left rows first (Alice, Bob, Carol matched; Dave unmatched-left), then
+  // the unmatched right row (HR).
+  assert_eq(out.shape(), (5, 5))
+  assert_eq(out.get(0, "name"), @types.Scalar::String("Alice"))
+  assert_eq(out.get(0, "dept_name"), @types.Scalar::String("Eng"))
+  assert_eq(out.get(1, "name"), @types.Scalar::String("Bob"))
+  assert_eq(out.get(2, "name"), @types.Scalar::String("Carol"))
+  // Dave (dept 99) unmatched-left: right key + dept_name null.
+  assert_eq(out.get(3, "name"), @types.Scalar::String("Dave"))
+  assert_eq(out.get(3, "dept_id"), @types.Scalar::Int(99))
+  assert_eq(out.get(3, "dept_id_right"), @types.Scalar::Null)
+  assert_eq(out.get(3, "dept_name"), @types.Scalar::Null)
+  // HR unmatched-right (appended last): left columns null.
+  assert_eq(out.get(4, "emp_id"), @types.Scalar::Null)
+  assert_eq(out.get(4, "name"), @types.Scalar::Null)
+  assert_eq(out.get(4, "dept_id"), @types.Scalar::Null)
+  assert_eq(out.get(4, "dept_id_right"), @types.Scalar::Int(30))
+  assert_eq(out.get(4, "dept_name"), @types.Scalar::String("HR"))
+}
+
+///|
+test "outer_join convenience equals join with how = Outer" {
+  let viamethod = employees().outer_join(departments(), ["dept_id"])
+  let viaoptions = employees().join(
+    departments(),
+    JoinOptions::on(["dept_id"]).with_how(JoinType::Outer),
+  )
+  assert_eq(viamethod, viaoptions)
+}
+
+///|
+test "outer join with coalesce=true takes the present side per row" {
+  // The full-outer coalesce semantic: the single key takes the left value
+  // where the left row is present (matched / unmatched-left) and the right
+  // value otherwise (an unmatched-right row).
+  let out = employees().join(
+    departments(),
+    JoinOptions::on(["dept_id"]).with_how(JoinType::Outer).with_coalesce(true),
+  )
+  assert_eq(out.check_invariants(), Ok(()))
+  assert_eq(out.columns(), ["emp_id", "name", "dept_id", "dept_name"])
+  assert_eq(out.shape(), (5, 4))
+  // Matched rows: key from either side (equal).
+  assert_eq(out.get(0, "dept_id"), @types.Scalar::Int(10))
+  // Dave unmatched-left: key from the (present) left side = 99.
+  assert_eq(out.get(3, "name"), @types.Scalar::String("Dave"))
+  assert_eq(out.get(3, "dept_id"), @types.Scalar::Int(99))
+  assert_eq(out.get(3, "dept_name"), @types.Scalar::Null)
+  // HR unmatched-right: left absent, so the key comes from the right = 30.
+  assert_eq(out.get(4, "name"), @types.Scalar::Null)
+  assert_eq(out.get(4, "dept_id"), @types.Scalar::Int(30))
+  assert_eq(out.get(4, "dept_name"), @types.Scalar::String("HR"))
+}
+
+// ── Coalesced-key merge across all four dtypes ───────────────────────
+
+///|
+/// A coalesced outer join exercises every branch of the per-row key merge
+/// for one dtype: a matched row (value from the present base/left side), an
+/// unmatched-**right** row (base null → value filled from the right), and a
+/// null-keyed unmatched-**left** row (both sides null → key stays null).
+/// Run once per dtype (Int / Float / Bool / String) so the merge's four
+/// storage arms are all covered. The left key carries the null (row 1, which
+/// matches nothing), the right key the extra value (row "2", unmatched).
+fn coalesce_probe(
+  left_key : Series,
+  right_key : Series,
+) -> DataFrame raise @types.DataError {
+  let left = DataFrame::new([left_key, Series::from_strings("v_l", ["a", "b"])])
+  let right = DataFrame::new([
+    right_key,
+    Series::from_strings("v_r", ["x", "y"]),
+  ])
+  left.join(
+    right,
+    JoinOptions::on(["k"]).with_how(JoinType::Outer).with_coalesce(true),
+  )
+}
+
+///|
+test "coalesced outer key merge over an Int key" {
+  let out = coalesce_probe(
+    Series::from_int_options("k", [Some(1), None]),
+    Series::from_ints("k", [1, 2]),
+  )
+  assert_eq(out.check_invariants(), Ok(()))
+  assert_eq(out.columns(), ["k", "v_l", "v_r"])
+  assert_eq(out.shape(), (3, 3))
+  assert_eq(out.get_column("k").dtype(), @types.DataType::Int)
+  // row 0 matched (key from left), row 1 unmatched-left null key, row 2
+  // unmatched-right (key filled from the right).
+  assert_eq(out.get(0, "k"), @types.Scalar::Int(1))
+  assert_eq(out.get(0, "v_l"), @types.Scalar::String("a"))
+  assert_eq(out.get(0, "v_r"), @types.Scalar::String("x"))
+  assert_eq(out.get(1, "k"), @types.Scalar::Null)
+  assert_eq(out.get(1, "v_l"), @types.Scalar::String("b"))
+  assert_eq(out.get(1, "v_r"), @types.Scalar::Null)
+  assert_eq(out.get(2, "k"), @types.Scalar::Int(2))
+  assert_eq(out.get(2, "v_l"), @types.Scalar::Null)
+  assert_eq(out.get(2, "v_r"), @types.Scalar::String("y"))
+}
+
+///|
+test "coalesced outer key merge over a Float key" {
+  let out = coalesce_probe(
+    Series::from_float_options("k", [Some(1.0), None]),
+    Series::from_floats("k", [1.0, 2.0]),
+  )
+  assert_eq(out.check_invariants(), Ok(()))
+  assert_eq(out.get_column("k").dtype(), @types.DataType::Float)
+  assert_eq(out.get(0, "k"), @types.Scalar::Float(1.0))
+  assert_eq(out.get(1, "k"), @types.Scalar::Null)
+  assert_eq(out.get(2, "k"), @types.Scalar::Float(2.0))
+}
+
+///|
+test "coalesced outer key merge over a Bool key" {
+  let out = coalesce_probe(
+    Series::from_bool_options("k", [Some(true), None]),
+    Series::from_bools("k", [true, false]),
+  )
+  assert_eq(out.check_invariants(), Ok(()))
+  assert_eq(out.get_column("k").dtype(), @types.DataType::Bool)
+  assert_eq(out.get(0, "k"), @types.Scalar::Bool(true))
+  assert_eq(out.get(1, "k"), @types.Scalar::Null)
+  assert_eq(out.get(2, "k"), @types.Scalar::Bool(false))
+}
+
+///|
+test "coalesced outer key merge over a String key" {
+  let out = coalesce_probe(
+    Series::from_string_options("k", [Some("p"), None]),
+    Series::from_strings("k", ["p", "q"]),
+  )
+  assert_eq(out.check_invariants(), Ok(()))
+  assert_eq(out.get_column("k").dtype(), @types.DataType::String)
+  assert_eq(out.get(0, "k"), @types.Scalar::String("p"))
+  assert_eq(out.get(1, "k"), @types.Scalar::Null)
+  assert_eq(out.get(2, "k"), @types.Scalar::String("q"))
+}
+
+// ── Right / Outer multi key ──────────────────────────────────────────
+
+///|
+test "outer join on a key tuple keeps unmatched rows from both sides" {
+  let left = DataFrame::new([
+    Series::from_strings("a", ["x", "x", "y"]),
+    Series::from_ints("b", [1, 2, 1]),
+    Series::from_strings("lv", ["p", "q", "r"]),
+  ])
+  let right = DataFrame::new([
+    Series::from_strings("a", ["x", "y", "z"]),
+    Series::from_ints("b", [1, 1, 2]),
+    Series::from_ints("rv", [100, 200, 300]),
+  ])
+  let out = left.outer_join(right, ["a", "b"])
+  assert_eq(out.check_invariants(), Ok(()))
+  // Both keys kept (no coalesce by default), each suffixed on the right.
+  assert_eq(out.columns(), ["a", "b", "lv", "a_right", "b_right", "rv"])
+  // (x,1) matches; (x,2) unmatched-left; (y,1) matches; (z,2) unmatched-right.
+  assert_eq(out.shape(), (4, 6))
+  assert_eq(out.get(0, "lv"), @types.Scalar::String("p"))
+  assert_eq(out.get(0, "rv"), @types.Scalar::Int(100))
+  assert_eq(out.get(1, "lv"), @types.Scalar::String("q"))
+  assert_eq(out.get(1, "a_right"), @types.Scalar::Null) // (x,2) unmatched-left
+  assert_eq(out.get(1, "rv"), @types.Scalar::Null)
+  assert_eq(out.get(2, "lv"), @types.Scalar::String("r"))
+  assert_eq(out.get(2, "rv"), @types.Scalar::Int(200))
+  // (z,2) unmatched-right: left columns null, right key suffixes carry it.
+  assert_eq(out.get(3, "a"), @types.Scalar::Null)
+  assert_eq(out.get(3, "b"), @types.Scalar::Null)
+  assert_eq(out.get(3, "a_right"), @types.Scalar::String("z"))
+  assert_eq(out.get(3, "b_right"), @types.Scalar::Int(2))
+  assert_eq(out.get(3, "rv"), @types.Scalar::Int(300))
+}
+
+///|
+test "right join on a key tuple keeps every right row" {
+  let left = DataFrame::new([
+    Series::from_strings("a", ["x", "y"]),
+    Series::from_ints("b", [1, 1]),
+    Series::from_strings("lv", ["p", "r"]),
+  ])
+  let right = DataFrame::new([
+    Series::from_strings("a", ["x", "z"]),
+    Series::from_ints("b", [1, 2]),
+    Series::from_ints("rv", [100, 300]),
+  ])
+  let out = left.right_join(right, ["a", "b"])
+  assert_eq(out.check_invariants(), Ok(()))
+  assert_eq(out.columns(), ["a", "b", "lv", "a_right", "b_right", "rv"])
+  // (x,1) matches l0; (z,2) has no left row.
+  assert_eq(out.shape(), (2, 6))
+  assert_eq(out.get(0, "lv"), @types.Scalar::String("p"))
+  assert_eq(out.get(0, "rv"), @types.Scalar::Int(100))
+  assert_eq(out.get(1, "a"), @types.Scalar::Null) // (z,2) no left match
+  assert_eq(out.get(1, "lv"), @types.Scalar::Null)
+  assert_eq(out.get(1, "a_right"), @types.Scalar::String("z"))
+  assert_eq(out.get(1, "rv"), @types.Scalar::Int(300))
+}
+
+// ── Right / Outer null keys: null matches nothing ────────────────────
+
+///|
+test "right join: a null right key matches nothing, kept with null left" {
+  let out = left_nullable().right_join(right_nullable(), ["k"])
+  assert_eq(out.check_invariants(), Ok(()))
+  assert_eq(out.columns(), ["k", "lv", "k_right", "rv"])
+  // Every right row survives, in right order. The null-keyed right row (1)
+  // matches nothing — not even the left's null-keyed row (null != null).
+  assert_eq(out.shape(), (3, 4))
+  assert_eq(out.get(0, "lv"), @types.Scalar::String("a"))
+  assert_eq(out.get(0, "rv"), @types.Scalar::String("x"))
+  assert_eq(out.get(1, "k"), @types.Scalar::Null) // left absent
+  assert_eq(out.get(1, "lv"), @types.Scalar::Null)
+  assert_eq(out.get(1, "k_right"), @types.Scalar::Null) // right key was null
+  assert_eq(out.get(1, "rv"), @types.Scalar::String("y"))
+  assert_eq(out.get(2, "lv"), @types.Scalar::String("c"))
+  assert_eq(out.get(2, "rv"), @types.Scalar::String("z"))
+}
+
+///|
+test "outer join: null keys on both sides each stay unmatched" {
+  let out = left_nullable().outer_join(right_nullable(), ["k"])
+  assert_eq(out.check_invariants(), Ok(()))
+  assert_eq(out.columns(), ["k", "lv", "k_right", "rv"])
+  // k=1 and k=2 match; the two null-keyed rows (left row 1, right row 1)
+  // each surface unmatched — left's first (in place), right's appended last.
+  assert_eq(out.shape(), (4, 4))
+  assert_eq(out.get(0, "rv"), @types.Scalar::String("x")) // k=1 matched
+  assert_eq(out.get(1, "k"), @types.Scalar::Null) // left null key, unmatched
+  assert_eq(out.get(1, "lv"), @types.Scalar::String("b"))
+  assert_eq(out.get(1, "rv"), @types.Scalar::Null)
+  assert_eq(out.get(2, "rv"), @types.Scalar::String("z")) // k=2 matched
+  assert_eq(out.get(3, "lv"), @types.Scalar::Null) // right null key, appended
+  assert_eq(out.get(3, "rv"), @types.Scalar::String("y"))
+}
+
+// ── Right / Outer suffix + empty frames ──────────────────────────────
+
+///|
+test "right join suffixes a right non-key column clashing with a left name" {
+  let left = DataFrame::new([
+    Series::from_ints("id", [1, 2]),
+    Series::from_ints("value", [100, 200]),
+  ])
+  let right = DataFrame::new([
+    Series::from_ints("id", [1, 3]),
+    Series::from_ints("value", [9, 8]),
+  ])
+  let out = left.right_join(right, ["id"])
+  assert_eq(out.check_invariants(), Ok(()))
+  assert_eq(out.columns(), ["id", "value", "id_right", "value_right"])
+  // id=1 matches l0; id=3 has no left row.
+  assert_eq(out.shape(), (2, 4))
+  assert_eq(out.get(0, "value"), @types.Scalar::Int(100))
+  assert_eq(out.get(0, "value_right"), @types.Scalar::Int(9))
+  assert_eq(out.get(1, "value"), @types.Scalar::Null) // left absent
+  assert_eq(out.get(1, "id_right"), @types.Scalar::Int(3))
+  assert_eq(out.get(1, "value_right"), @types.Scalar::Int(8))
+}
+
+///|
+test "right join with a 0-row left frame keeps all right rows, null left" {
+  let left = DataFrame::new([
+    Series::from_ints("k", []),
+    Series::from_strings("lv", []),
+  ])
+  let right = DataFrame::new([
+    Series::from_ints("k", [1, 2]),
+    Series::from_strings("rv", ["x", "y"]),
+  ])
+  let out = left.right_join(right, ["k"])
+  assert_eq(out.check_invariants(), Ok(()))
+  assert_eq(out.columns(), ["k", "lv", "k_right", "rv"])
+  // No left rows, so every right row is unmatched: left key + lv all null.
+  assert_eq(out.shape(), (2, 4))
+  assert_eq(out.get(0, "k"), @types.Scalar::Null)
+  assert_eq(out.get(0, "lv"), @types.Scalar::Null)
+  assert_eq(out.get(0, "k_right"), @types.Scalar::Int(1))
+  assert_eq(out.get(0, "rv"), @types.Scalar::String("x"))
+  assert_eq(out.get(1, "k_right"), @types.Scalar::Int(2))
+}
+
+///|
+test "outer join of two 0-row frames is empty with the joined schema" {
+  let left = DataFrame::new([
+    Series::from_ints("k", []),
+    Series::from_strings("lv", []),
+  ])
+  let right = DataFrame::new([
+    Series::from_ints("k", []),
+    Series::from_ints("rv", []),
+  ])
+  // No coalesce by default, so both keys are kept (4 cols), zero rows.
+  let out = left.outer_join(right, ["k"])
+  assert_eq(out.check_invariants(), Ok(()))
+  assert_eq(out.shape(), (0, 4))
+  assert_eq(out.columns(), ["k", "lv", "k_right", "rv"])
+  // Coalesced outer over empty frames keeps the key once (3 cols), 0 rows.
+  let merged = left.join(
+    right,
+    JoinOptions::on(["k"]).with_how(JoinType::Outer).with_coalesce(true),
+  )
+  assert_eq(merged.shape(), (0, 3))
+  assert_eq(merged.columns(), ["k", "lv", "rv"])
+}
+
+///|
+test "a right join with an empty key list is rejected" {
+  let left = DataFrame::new([Series::from_ints("k", [1])])
+  let right = DataFrame::new([Series::from_ints("k", [2])])
+  // The Right planner guards an empty `on` the same way the others do.
+  assert_true(
+    (try? left.right_join(right, []))
+    is Err(@types.DataError::InvalidOperation(_)),
+  )
+}
+
+///|
+test "right / outer join raise ColumnNotFound for a missing key" {
+  // The shared key resolver fires for both planners (left frame checked
+  // before right): "nope" is absent on the left.
+  assert_true(
+    (try? employees().right_join(departments(), ["nope"]))
+    is Err(@types.DataError::ColumnNotFound("nope")),
+  )
+  assert_true(
+    (try? employees().outer_join(departments(), ["nope"]))
+    is Err(@types.DataError::ColumnNotFound("nope")),
+  )
+}
+
+///|
+test "right / outer join raise TypeMismatch when a key dtype differs" {
+  let left = DataFrame::new([
+    Series::from_ints("k", [1, 2]),
+    Series::from_strings("lv", ["a", "b"]),
+  ])
+  // Right "k" is a String column — the shared resolver rejects the join
+  // before any row work, the same as for inner / left.
+  let right = DataFrame::new([
+    Series::from_strings("k", ["1", "2"]),
+    Series::from_ints("rv", [10, 20]),
+  ])
+  assert_true(
+    (try? left.right_join(right, ["k"]))
+    is Err(@types.DataError::TypeMismatch(_)),
+  )
+  assert_true(
+    (try? left.outer_join(right, ["k"]))
+    is Err(@types.DataError::TypeMismatch(_)),
+  )
+}

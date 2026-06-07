@@ -365,7 +365,7 @@ Split-apply-combine, native to the method chain
   output column name. The default output name is `"<column>_<kind>"` (e.g.
   `AggSpec::sum("quantity")` → `quantity_sum`).
 
-### Join (`join` / `inner_join` / `left_join` / `cross_join`)
+### Join (`join` / `inner_join` / `left_join` / `right_join` / `outer_join` / `cross_join`)
 
 Hash equi-join, native to the method chain (`left.join(right, options)`).
 
@@ -375,24 +375,32 @@ Hash equi-join, native to the method chain (`left.join(right, options)`).
   composite-key encoding as `group_by`** (each cell's `Scalar::to_string`,
   length-prefixed so a multi-key composite is injective). The one
   deliberate difference from `group_by`: a **null** key matches **nothing**
-  (`null != null`, the SQL / Polars default) — an unmatched left row is
-  dropped by `Inner` and kept with null right columns by `Left`. A `Float`
-  `NaN` key is not null, so (as in `group_by`, matching Polars' "NaN
-  compares equal" rule) it renders `"NaN"` and **matches other `NaN`
-  keys**.
+  (`null != null`, the SQL / Polars default) — such an unmatched row is
+  dropped by `Inner` and kept (with the other side's columns null) by
+  `Left` / `Right` / `Outer`. A `Float` `NaN` key is not null, so (as in
+  `group_by`, matching Polars' "NaN compares equal" rule) it renders
+  `"NaN"` and **matches other `NaN` keys**.
+  - **`how`** selects which unmatched rows survive: `Inner` (matched pairs
+    only), `Left` (+ unmatched left rows, right null), `Right` (+ unmatched
+    right rows, left null — the mirror of `Left`), `Outer` (+ unmatched rows
+    from **both** sides), `Cross` (the keyless Cartesian product, below).
   - **Columns** = left columns (original order and names) then the right
     frame's columns (original order), governed by `options.coalesce`. When
-    a key is **coalesced** it appears once, from the left (keeping the left
-    dtype) — the right key column is dropped. When **not** coalesced, the
-    right key column is kept, suffixed (`<key>` + `options.suffix`, default
-    `"_right"`) and null wherever a left row had no match. Any other right
-    column whose name occurs in the left frame is likewise suffixed; the
-    left column keeps its name.
-  - **Rows** = left rows in order; within one left row, its right matches
-    appear in ascending right-row order. `Inner` emits only matched pairs;
-    `Left` additionally emits every unmatched left row once with null right
-    columns. Fully determined by input order (snapshot-stable; equivalent
-    to Polars' `maintain_order="left_right"`).
+    a key is **coalesced** it appears once at the left key's position,
+    taking each row's value from whichever side is present — the left on
+    `Inner` / `Left`, the right on `Right`, the present side per row on
+    `Outer` (the two are equal on a matched pair) — and the right key column
+    is dropped. When **not** coalesced, the right key column is kept,
+    suffixed (`<key>` + `options.suffix`, default `"_right"`) and null
+    wherever its row had no match. Any other right column whose name occurs
+    in the left frame is likewise suffixed; the left column keeps its name.
+  - **Rows** = left rows in order (each with its right matches in ascending
+    right-row order, then — for `Left` / `Outer` — unmatched left rows in
+    place with null right columns), followed for `Outer` by the unmatched
+    right rows in right-row order. `Right` instead emits every right row in
+    right-row order (each with its left matches in ascending left-row order,
+    else the right row alone with null left columns). Fully determined by
+    input order (snapshot-stable).
   - `how = Cross` is the **Cartesian product** (every left row × every
     right row); it takes **no** keys, ignores `coalesce`, and keeps every
     column of both frames (a clashing right column is suffixed). This is the
@@ -402,8 +410,8 @@ Hash equi-join, native to the method chain (`left.join(right, options)`).
     `check_invariants()`. Raises: `ColumnNotFound` (a key absent from the
     left or the right; first offending key in `on` order, left checked
     before right), `TypeMismatch` (a key's dtype differs across the two
-    frames), `InvalidOperation` (empty `on` for an `Inner` / `Left` join —
-    use `Cross` for a product — or a non-empty `on` for a `Cross` join),
+    frames), `InvalidOperation` (empty `on` for a non-`Cross` join — use
+    `Cross` for a product — or a non-empty `on` for a `Cross` join),
     `DuplicateColumn` (two output columns still collide after suffixing —
     surfaced by `DataFrame::new`).
 - `inner_join(other, on : Array[String]) -> DataFrame raise DataError` —
@@ -414,18 +422,27 @@ Hash equi-join, native to the method chain (`left.join(right, options)`).
   auto-coalesce default this keeps **both** key columns (the right as
   `<key><suffix>`, null on unmatched rows); pass `with_coalesce(true)` to
   merge them.
+- `right_join(other, on : Array[String]) -> DataFrame raise DataError` —
+  `self.join(other, JoinOptions::on(on).with_how(Right))`; the mirror of
+  `left_join` (keep every right row, left columns null on no match). Keeps
+  both keys by default; `with_coalesce(true)` merges them from the
+  always-present right side.
+- `outer_join(other, on : Array[String]) -> DataFrame raise DataError` —
+  `self.join(other, JoinOptions::on(on).with_how(Outer))`; the full outer
+  join (every unmatched row from both sides kept). Keeps both keys by
+  default; `with_coalesce(true)` merges them, each cell from whichever side
+  is present.
 - `cross_join(other) -> DataFrame raise DataError` —
   `self.join(other, JoinOptions::cross())`; the Cartesian product, no keys.
-- `enum JoinType` — `Inner` / `Left` / `Cross` (`Right` / `Outer` deferred
-  to v0.3).
+- `enum JoinType` — `Inner` / `Left` / `Right` / `Outer` / `Cross`.
 - `struct JoinOptions` (fields private) — built via `JoinOptions::on(keys)`
   (defaults to `Inner`, suffix `"_right"`, `coalesce` auto) or
   `JoinOptions::cross()` (keyless `Cross`), with
   `with_how(JoinType)` / `with_suffix(name)` / `with_coalesce(Bool)` to
   override. `coalesce` defaults to `None` (auto: coalesce on an inner join,
-  keep both keys otherwise — Polars' rule); `with_coalesce(true|false)`
-  forces it. Chainable:
-  `JoinOptions::on(["id"]).with_how(Left).with_coalesce(true)`.
+  keep both keys on a `Left` / `Right` / `Outer` join — Polars' rule);
+  `with_coalesce(true|false)` forces it. Chainable:
+  `JoinOptions::on(["id"]).with_how(Outer).with_coalesce(true)`.
 
 ### Sorting types
 

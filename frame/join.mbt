@@ -7,28 +7,44 @@
 /// `Scalar::to_string`, length-prefixed so the multi-key composite is
 /// injective across field boundaries). The one deliberate difference from
 /// `group_by`: a **null** key cell matches **nothing** (`null != null`,
-/// the SQL / Polars default) — for `Inner` such a left row is dropped, for
-/// `Left` it is kept with null right columns. A `Float` `NaN` key is *not*
-/// null, so — as in `group_by`, and matching Polars' "NaN compares equal"
-/// rule — it renders `"NaN"` and matches other `NaN` keys.
+/// the SQL / Polars default) — such an unmatched row is dropped by `Inner`
+/// and kept (with the other side's columns null) by `Left` / `Right` /
+/// `Outer`. A `Float` `NaN` key is *not* null, so — as in `group_by`, and
+/// matching Polars' "NaN compares equal" rule — it renders `"NaN"` and
+/// matches other `NaN` keys.
+///
+/// `how` selects which unmatched rows survive:
+///   * `Inner` — only matched pairs.
+///   * `Left` — matched pairs plus every unmatched **left** row (right
+///     columns null).
+///   * `Right` — matched pairs plus every unmatched **right** row (left
+///     columns null); the mirror of `Left`.
+///   * `Outer` — matched pairs plus every unmatched row from **both** sides.
+///   * `Cross` — the keyless Cartesian product (see below).
 ///
 /// Output shape:
 ///   * **columns** = the left columns (original order and names) followed
 ///     by the right frame's columns (original order). Whether each right
 ///     **key** column is kept is governed by `options.coalesce` (`None` =
-///     auto by `how`, matching Polars: an inner join coalesces, a left join
-///     does not). When coalesced, the key appears once, taken from the left
-///     (keeping the left dtype). When not coalesced, the right key column is
-///     kept too — it clashes with the left key name, so it gains
-///     `options.suffix` (e.g. `id_right`) and is null wherever a left row
-///     had no match. Any other right column whose name occurs in the left
-///     frame is likewise suffixed; the left column keeps its name.
-///   * **rows** = left rows in their original order; within one left row,
-///     its right matches appear in ascending right-row order. `Inner`
-///     emits only matched pairs; `Left` additionally emits every
-///     unmatched left row once, with the right columns null. The order is
-///     fully determined by the input order, so results are
-///     snapshot-stable.
+///     auto by `how`, matching Polars: an inner join coalesces, a
+///     left / right / outer join does not). When coalesced, the key appears
+///     once at the left key's position, taking each row's value from
+///     whichever side is present (the left on `Inner` / `Left`, the right
+///     on `Right`, the present side per row on `Outer` — the two are equal
+///     on a matched pair); the right key column is dropped. When not
+///     coalesced, the right key column is kept too — it clashes with the
+///     left key name, so it gains `options.suffix` (e.g. `id_right`) and is
+///     null wherever its row had no match. Any other right column whose
+///     name occurs in the left frame is likewise suffixed; the left column
+///     keeps its name.
+///   * **rows** = left rows in their original order (each with its right
+///     matches in ascending right-row order, then — for `Left` / `Outer` —
+///     unmatched left rows in place with null right columns), followed for
+///     `Outer` by the unmatched right rows in right-row order. A `Right`
+///     join instead emits every right row in right-row order (each with its
+///     left matches in ascending left-row order, else the right row alone
+///     with null left columns). The order is fully determined by the input
+///     order, so results are snapshot-stable.
 ///
 /// `how = Cross` is the **Cartesian product** (every left row paired with
 /// every right row); it takes no keys, ignores `coalesce`, and keeps all
@@ -41,14 +57,14 @@
 ///
 /// Raises:
 /// - `ColumnNotFound(name)` — a key in `options.on` is absent from `self`
-///   or from `other` (`Inner` / `Left`). Reported on the first offending
+///   or from `other` (a non-`Cross` join). Reported on the first offending
 ///   key, in `on` order, checking the left frame before the right.
 /// - `TypeMismatch(detail)` — a key column's dtype differs between the two
 ///   frames (so its values could never compare equal). Reported on the
 ///   first such key, in `on` order.
-/// - `InvalidOperation(detail)` — `on` is empty for an `Inner` / `Left`
-///   join (use `how = Cross` for a Cartesian product), or non-empty for a
-///   `Cross` join (which takes no keys).
+/// - `InvalidOperation(detail)` — `on` is empty for a non-`Cross` join (use
+///   `how = Cross` for a Cartesian product), or non-empty for a `Cross`
+///   join (which takes no keys).
 /// - `DuplicateColumn(name)` — two output columns still collide after
 ///   suffixing (e.g. the left frame already has both `value` and
 ///   `value_right`, and the right contributes a non-key `value`). Surfaced
@@ -58,12 +74,13 @@ pub fn DataFrame::join(
   other : DataFrame,
   options : JoinOptions,
 ) -> DataFrame raise @types.DataError {
-  // Build the output row plan as parallel index vectors: `left_rows[r]` is
-  // the left row feeding output row `r`, `right_rows[r]` its right row
-  // (`None` for a left row kept without a match). A `Cross` join is the
-  // keyless Cartesian product; `Inner` / `Left` hash the right frame by key
-  // and probe it.
-  let left_rows : Array[Int] = []
+  // Build the output row plan as parallel optional-index vectors: for output
+  // row `r`, `left_rows[r]` is its left row (`None` = a right row kept with
+  // no left match) and `right_rows[r]` its right row (`None` = a left row
+  // kept with no right match). At least one side is always `Some`. A `Cross`
+  // join is the keyless Cartesian product; the key joins hash one frame by
+  // key and probe it with the other.
+  let left_rows : Array[Int?] = []
   let right_rows : Array[Int?] = []
   match options.how {
     Cross => {
@@ -77,12 +94,63 @@ pub fn DataFrame::join(
       // Every left row paired with every right row, both in input order.
       for i in 0..<self.nrows() {
         for j in 0..<other.nrows() {
-          left_rows.push(i)
+          left_rows.push(Some(i))
           right_rows.push(Some(j))
         }
       }
     }
-    Inner | Left => {
+    Right => {
+      // Mirror of `Left`: hash the LEFT frame by key, then probe it with
+      // each right row in order. The row set is every right row — its left
+      // matches (in ascending left-row order), else the right row alone with
+      // null left columns. Output column order is unchanged (left then
+      // right); only the surviving rows differ.
+      if options.on.is_empty() {
+        raise @types.DataError::InvalidOperation(
+          "a non-cross join requires at least one key column in `on`; use how = Cross for a Cartesian product",
+        )
+      }
+      let (left_key_scalars, right_key_scalars) = resolve_join_keys(
+        self,
+        other,
+        options.on,
+      )
+      // Hash the left frame: composite key -> matching left row indices, in
+      // ascending order (`i` only grows). A left row with a null key cell is
+      // unmatchable, so it is never indexed.
+      let left_index : Map[String, Array[Int]] = {}
+      for i in 0..<self.nrows() {
+        match join_row_key(left_key_scalars, i) {
+          Some(k) =>
+            match left_index.get(k) {
+              Some(rows) => rows.push(i)
+              None => left_index[k] = [i]
+            }
+          None => ()
+        }
+      }
+      // Probe each right row in order. A null right key (`None`) and a key
+      // with no left entry are the same case: no match, keep the right row
+      // with null left columns.
+      for j in 0..<other.nrows() {
+        let matches = match join_row_key(right_key_scalars, j) {
+          Some(k) => left_index.get(k)
+          None => None
+        }
+        match matches {
+          Some(rows) =>
+            for i in rows {
+              left_rows.push(Some(i))
+              right_rows.push(Some(j))
+            }
+          None => {
+            left_rows.push(None)
+            right_rows.push(Some(j))
+          }
+        }
+      }
+    }
+    Inner | Left | Outer => {
       // A key join needs at least one key; an empty list would otherwise be
       // a silent Cartesian product — require `how = Cross` for that.
       if options.on.is_empty() {
@@ -90,30 +158,11 @@ pub fn DataFrame::join(
           "a non-cross join requires at least one key column in `on`; use how = Cross for a Cartesian product",
         )
       }
-      // Resolve each key in both frames once, validating existence (in `on`
-      // order, left before right) and matching dtypes up front. `get_column`
-      // raises `ColumnNotFound`; a dtype clash raises `TypeMismatch`. The
-      // per-row key cells are materialised here so the loops below index by
-      // plain `[i]` with no bounds-checked `get`.
-      let left_key_scalars : Array[Array[@types.Scalar]] = []
-      let right_key_scalars : Array[Array[@types.Scalar]] = []
-      for key in options.on {
-        let lcol = self.get_column(key)
-        let rcol = other.get_column(key)
-        if lcol.dtype() != rcol.dtype() {
-          raise @types.DataError::TypeMismatch(
-            "join key \"" +
-            key +
-            "\" has dtype " +
-            lcol.dtype().to_string() +
-            " on the left but " +
-            rcol.dtype().to_string() +
-            " on the right",
-          )
-        }
-        left_key_scalars.push(lcol.to_scalars())
-        right_key_scalars.push(rcol.to_scalars())
-      }
+      let (left_key_scalars, right_key_scalars) = resolve_join_keys(
+        self,
+        other,
+        options.on,
+      )
       // Hash the right frame: composite key -> matching right row indices,
       // in ascending order (`j` only grows). A right row with a null key
       // cell is unmatchable, so it is never indexed.
@@ -128,11 +177,18 @@ pub fn DataFrame::join(
           None => ()
         }
       }
-      // `Left` keeps an unmatched left row (null right); `Inner` drops it.
-      let keep_unmatched = match options.how {
-        Left => true
+      // `Left` / `Outer` keep an unmatched left row (null right); `Inner`
+      // drops it. `Outer` additionally appends the unmatched right rows.
+      let keep_unmatched_left = match options.how {
+        Left | Outer => true
         _ => false
       }
+      let emit_unmatched_right = match options.how {
+        Outer => true
+        _ => false
+      }
+      // Track which right rows were paired, so `Outer` can emit the rest.
+      let right_matched = Array::make(other.nrows(), false)
       // Probe each left row in order. A null left key (`None`) and a key
       // with no right entry are the same case: no match.
       for i in 0..<self.nrows() {
@@ -143,36 +199,39 @@ pub fn DataFrame::join(
         match matches {
           Some(rows) =>
             for j in rows {
-              left_rows.push(i)
+              left_rows.push(Some(i))
               right_rows.push(Some(j))
+              right_matched[j] = true
             }
           None =>
-            if keep_unmatched {
-              left_rows.push(i)
+            if keep_unmatched_left {
+              left_rows.push(Some(i))
               right_rows.push(None)
             }
         }
       }
+      // Full outer: append every right row that never paired, in right-row
+      // order, with null left columns.
+      if emit_unmatched_right {
+        for j in 0..<other.nrows() {
+          if !right_matched[j] {
+            left_rows.push(None)
+            right_rows.push(Some(j))
+          }
+        }
+      }
     }
   }
-  // Assemble the output columns. Left columns keep their name and dtype
-  // (`gather_series` is total — every index in `left_rows` is a valid left
-  // row). Right columns are gathered with `None -> null` and renamed on a
-  // name collision with the left frame.
-  let out_cols : Array[Series] = []
-  for col in self.column_series() {
-    out_cols.push(gather_series(col, left_rows))
-  }
   // Resolve key coalescing: an explicit `with_coalesce` wins, else auto by
-  // `how` (inner coalesces → key once; left / cross do not), matching
-  // Polars' `coalesce = None`. `on_set` is empty for a cross join, so the
-  // value is moot there.
+  // `how` (inner coalesces → key once; left / right / outer / cross do not),
+  // matching Polars' `coalesce = None`. `on_set` is empty for a cross join,
+  // so the value is moot there.
   let coalesce = match options.coalesce {
     Some(b) => b
     None =>
       match options.how {
         Inner => true
-        Left | Cross => false
+        _ => false
       }
   }
   let on_set : Map[String, Unit] = {}
@@ -183,11 +242,33 @@ pub fn DataFrame::join(
   for n in self.columns() {
     left_names[n] = ()
   }
+  // Assemble the output columns. Left columns are gathered with `None ->
+  // null` (a kept unmatched-right row has no left cell). A coalesced key
+  // sits in its left position but draws each cell from whichever side is
+  // present (`coalesce_into`); the matching right key column is then dropped
+  // below.
+  let out_cols : Array[Series] = []
+  for col in self.column_series() {
+    if coalesce && on_set.contains(col.name()) {
+      // `other` has this key (validated above), so `get_column`'s
+      // `ColumnNotFound` is forwarded but never taken.
+      let left_key = gather_series_opt(col, left_rows, col.name())
+      let right_key = gather_series_opt(
+        other.get_column(col.name()),
+        right_rows,
+        col.name(),
+      )
+      out_cols.push(coalesce_into(left_key, right_key, col.name()))
+    } else {
+      out_cols.push(gather_series_opt(col, left_rows, col.name()))
+    }
+  }
+  // Right columns are gathered with `None -> null` and renamed on a name
+  // collision with the left frame. A right key column is dropped only when
+  // coalescing (its values are already in the kept key); otherwise every
+  // right column is emitted, suffixed on a clash — a kept key column always
+  // clashes, so it becomes `<key><suffix>`.
   for col in other.column_series() {
-    // A right key column is dropped only when coalescing (its values are
-    // already in the kept left key column); otherwise every right column is
-    // emitted, suffixed on a name clash with the left frame — a kept key
-    // column always clashes, so it becomes `<key><suffix>`.
     if !(coalesce && on_set.contains(col.name())) {
       let out_name = if left_names.contains(col.name()) {
         col.name() + options.suffix
@@ -227,6 +308,38 @@ pub fn DataFrame::left_join(
 }
 
 ///|
+/// Right join convenience: the mirror of `left_join` — keep every right
+/// row, filling the left columns with nulls where it has no match.
+/// Equivalent to `self.join(other, JoinOptions::on(on).with_how(Right))` —
+/// so, per the auto-coalesce default, **both** key columns are kept (the
+/// right one as `<key><suffix>`); use the options form with
+/// `with_coalesce(true)` to merge the key into one column (taken from the
+/// always-present right side).
+pub fn DataFrame::right_join(
+  self : DataFrame,
+  other : DataFrame,
+  on : Array[String],
+) -> DataFrame raise @types.DataError {
+  self.join(other, JoinOptions::on(on).with_how(Right))
+}
+
+///|
+/// Outer (full) join convenience: keep matched pairs plus every unmatched
+/// row from both sides, the missing side's columns null. Equivalent to
+/// `self.join(other, JoinOptions::on(on).with_how(Outer))` — so, per the
+/// auto-coalesce default, **both** key columns are kept (the right one as
+/// `<key><suffix>`); use the options form with `with_coalesce(true)` to
+/// merge the key into one column, taking each row's value from whichever
+/// side is present (a full-outer row can be present on either side only).
+pub fn DataFrame::outer_join(
+  self : DataFrame,
+  other : DataFrame,
+  on : Array[String],
+) -> DataFrame raise @types.DataError {
+  self.join(other, JoinOptions::on(on).with_how(Outer))
+}
+
+///|
 /// Cross join convenience: the Cartesian product of `self` and `other`
 /// (every left row paired with every right row), with no key columns.
 /// Equivalent to `self.join(other, JoinOptions::cross())`. A right column
@@ -238,6 +351,46 @@ pub fn DataFrame::cross_join(
   other : DataFrame,
 ) -> DataFrame raise @types.DataError {
   self.join(other, JoinOptions::cross())
+}
+
+///|
+/// Resolve and materialise the join key columns of both frames. Validates
+/// that each key in `on` exists in **both** (the left checked before the
+/// right, in `on` order) and that its dtype matches across the two frames
+/// (so the values could compare equal), then returns the per-key left and
+/// right cell vectors (`to_scalars`, total — callers index by plain `[i]`).
+/// Shared by the `Right` and `Inner` / `Left` / `Outer` row planners.
+///
+/// Raises:
+/// - `ColumnNotFound(name)` — a key absent from `left` or `right`, first
+///   offending key in `on` order (left before right).
+/// - `TypeMismatch(detail)` — a key whose dtype differs between the frames,
+///   first such key in `on` order.
+fn resolve_join_keys(
+  left : DataFrame,
+  right : DataFrame,
+  on : Array[String],
+) -> (Array[Array[@types.Scalar]], Array[Array[@types.Scalar]]) raise @types.DataError {
+  let left_key_scalars : Array[Array[@types.Scalar]] = []
+  let right_key_scalars : Array[Array[@types.Scalar]] = []
+  for key in on {
+    let lcol = left.get_column(key)
+    let rcol = right.get_column(key)
+    if lcol.dtype() != rcol.dtype() {
+      raise @types.DataError::TypeMismatch(
+        "join key \"" +
+        key +
+        "\" has dtype " +
+        lcol.dtype().to_string() +
+        " on the left but " +
+        rcol.dtype().to_string() +
+        " on the right",
+      )
+    }
+    left_key_scalars.push(lcol.to_scalars())
+    right_key_scalars.push(rcol.to_scalars())
+  }
+  (left_key_scalars, right_key_scalars)
 }
 
 ///|
@@ -270,11 +423,11 @@ fn join_row_key(key_scalars : Array[Array[@types.Scalar]], i : Int) -> String? {
 ///|
 /// Gather a column by optional row indices: output cell `k` is
 /// `s[idx[k]]` when `idx[k]` is `Some`, or a null cell when it is `None`.
-/// Total — the caller (`join`) only ever stores in-bounds right-row
-/// indices, and `None` marks an unmatched left row in a `Left` join. The
-/// result is named `out_name` (so a colliding right column can be
-/// suffixed) and keeps the source dtype, matching on `data()` exactly as
-/// the total `gather_series` does.
+/// Total — the caller (`join`) only ever stores in-bounds row indices, and
+/// `None` marks a row kept without a match on this side. The result is named
+/// `out_name` (so a colliding right column can be suffixed) and keeps the
+/// source dtype, matching on `data()` exactly as the total `gather_series`
+/// does.
 fn gather_series_opt(
   s : Series,
   idx : Array[Int?],
@@ -319,6 +472,81 @@ fn gather_series_opt(
           match o {
             Some(k) => if valid[k] { Some(a[k]) } else { None }
             None => None
+          }
+        }),
+      )
+  }
+}
+
+///|
+/// Merge two gathered, equal-dtype, equal-length key columns into one,
+/// taking `base`'s cell where it is non-null and `fill`'s otherwise. Used
+/// for a coalesced join key: `base` is the left key gathered over the output
+/// rows, `fill` the right key. On a matched row the two are equal, so the
+/// choice only shows where the row is present on a single side (`base` null
+/// → take `fill`); a row null on **both** sides (a kept null-keyed row)
+/// stays null. Dispatches on `base`'s storage variant — the four arms cover
+/// the four dtypes, reading `fill` through the total `to_scalars` so no
+/// unreachable error arm is introduced (the pre-checked equal key dtype
+/// guarantees the matching `Scalar` variant, the `_` arm catching only the
+/// both-null case).
+fn coalesce_into(base : Series, fill : Series, name : String) -> Series {
+  let base_valid = base.storage().validity().to_bools()
+  let fills = fill.to_scalars()
+  match base.storage().data() {
+    @column.ColumnData::Int(a) =>
+      Series::from_int_options(
+        name,
+        Array::makei(a.length(), i => {
+          if base_valid[i] {
+            Some(a[i])
+          } else {
+            match fills[i] {
+              @types.Scalar::Int(v) => Some(v)
+              _ => None
+            }
+          }
+        }),
+      )
+    @column.ColumnData::Float(a) =>
+      Series::from_float_options(
+        name,
+        Array::makei(a.length(), i => {
+          if base_valid[i] {
+            Some(a[i])
+          } else {
+            match fills[i] {
+              @types.Scalar::Float(v) => Some(v)
+              _ => None
+            }
+          }
+        }),
+      )
+    @column.ColumnData::Bool(a) =>
+      Series::from_bool_options(
+        name,
+        Array::makei(a.length(), i => {
+          if base_valid[i] {
+            Some(a[i])
+          } else {
+            match fills[i] {
+              @types.Scalar::Bool(v) => Some(v)
+              _ => None
+            }
+          }
+        }),
+      )
+    @column.ColumnData::String(a) =>
+      Series::from_string_options(
+        name,
+        Array::makei(a.length(), i => {
+          if base_valid[i] {
+            Some(a[i])
+          } else {
+            match fills[i] {
+              @types.Scalar::String(v) => Some(v)
+              _ => None
+            }
           }
         }),
       )

@@ -114,6 +114,24 @@ each channel's field `type` is inferred from the column dtype (numeric →
 `format_json_records`), a spec that names a missing column raises
 `ColumnNotFound`; `write_vega_lite` is the file wrapper.
 
+**CSV / JSON / NDJSON read resilience has landed.** All three readers'
+option structs gained escape hatches for messy inputs. `infer_schema_rows
+= 0` (or any value `<= 0`) now scans *every* row rather than a leading
+window (Polars' `infer_schema_length=None`), so a dtype that only resolves
+deep in the data is inferred instead of guessed from a prefix.
+`on_parse_error` (`OnParseError::Raise`, the default, or `Null`) chooses
+what happens when a non-null cell past the inference window doesn't fit its
+column's locked-in dtype: fail the whole read with `ParseError` (lossless)
+or downgrade that one cell to a null and keep going (Polars'
+`ignore_errors=True`), with the column keeping its inferred dtype. CSV
+additionally gains `allow_nonfinite_floats` (default `true`): set it
+`false` to stop a column of `nan` / `inf` / `infinity` tokens from being
+silently inferred as `Float`, falling back to `String` instead. These are
+`pub(all)` struct field additions, so code that builds a `CsvReadOptions` /
+`JsonReadOptions` / `NdjsonReadOptions` from a full struct literal must add
+the new fields (or switch to `::default()`); the defaults reproduce the
+prior behaviour exactly.
+
 Roadmap: the rest of v0.3 — a `ColumnStorage` / `NumericColumn` storage
 abstraction; an expression / lazy query layer in v0.4.
 

@@ -120,6 +120,8 @@ test "parse_csv_str: has_header=false synthesises column1, column2, …" {
     infer_schema_rows: 100,
     null_values: [""],
     strict_column_count: false,
+    on_parse_error: @io.OnParseError::Raise,
+    allow_nonfinite_floats: true,
   })
   assert_eq(df.check_invariants(), Ok(()))
   assert_eq(df.columns(), ["column1", "column2", "column3"])
@@ -141,6 +143,8 @@ test "parse_csv_str: custom delimiter (semicolon) splits cells correctly" {
     infer_schema_rows: 100,
     null_values: [""],
     strict_column_count: false,
+    on_parse_error: @io.OnParseError::Raise,
+    allow_nonfinite_floats: true,
   })
   assert_eq(df.check_invariants(), Ok(()))
   assert_eq(df.shape(), (2, 3))
@@ -163,6 +167,8 @@ test "parse_csv_str: custom null_values let NA / N/A become null" {
     infer_schema_rows: 100,
     null_values: ["NA", "N/A"],
     strict_column_count: false,
+    on_parse_error: @io.OnParseError::Raise,
+    allow_nonfinite_floats: true,
   })
   assert_eq(df.check_invariants(), Ok(()))
   // "a" is Int because NA was skipped during inference; "b" is
@@ -240,6 +246,8 @@ test "parse_csv_str: infer_schema_rows limits the inference window" {
     infer_schema_rows: 1,
     null_values: [""],
     strict_column_count: false,
+    on_parse_error: @io.OnParseError::Raise,
+    allow_nonfinite_floats: true,
   })
   assert_true(result is Err(@types.DataError::ParseError(_)))
 }
@@ -279,6 +287,8 @@ test "parse_csv_str: strict_column_count rejects a ragged row" {
     infer_schema_rows: 100,
     null_values: [""],
     strict_column_count: true,
+    on_parse_error: @io.OnParseError::Raise,
+    allow_nonfinite_floats: true,
   })
   assert_true(result is Err(@types.DataError::ParseError(_)))
 }
@@ -298,6 +308,8 @@ test "parse_csv_str: strict_column_count passes a uniform-width frame" {
     infer_schema_rows: 100,
     null_values: [""],
     strict_column_count: true,
+    on_parse_error: @io.OnParseError::Raise,
+    allow_nonfinite_floats: true,
   })
   assert_eq(df.check_invariants(), Ok(()))
   assert_eq(df.shape(), (2, 3))
@@ -321,6 +333,8 @@ test "parse_csv_str: has_header=false on empty input also yields 0x0" {
     infer_schema_rows: 100,
     null_values: [""],
     strict_column_count: false,
+    on_parse_error: @io.OnParseError::Raise,
+    allow_nonfinite_floats: true,
   })
   assert_eq(df.check_invariants(), Ok(()))
   assert_eq(df.shape(), (0, 0))
@@ -348,6 +362,8 @@ test "parse_csv_str: has_header=false on row-less (whitespace) input yields 0x0"
     infer_schema_rows: 100,
     null_values: [""],
     strict_column_count: false,
+    on_parse_error: @io.OnParseError::Raise,
+    allow_nonfinite_floats: true,
   })
   assert_eq(df.check_invariants(), Ok(()))
   assert_eq(df.shape(), (0, 0))
@@ -389,6 +405,8 @@ test "parse_csv_str: non-numeric in a Float-locked column becomes ParseError" {
     infer_schema_rows: 2,
     null_values: [""],
     strict_column_count: false,
+    on_parse_error: @io.OnParseError::Raise,
+    allow_nonfinite_floats: true,
   })
   assert_true(result is Err(@types.DataError::ParseError(_)))
 }
@@ -408,6 +426,8 @@ test "parse_csv_str: non-bool value outside the inference window is ParseError" 
     infer_schema_rows: 2,
     null_values: [""],
     strict_column_count: false,
+    on_parse_error: @io.OnParseError::Raise,
+    allow_nonfinite_floats: true,
   })
   assert_true(result is Err(@types.DataError::ParseError(_)))
 }
@@ -426,8 +446,104 @@ test "parse_csv_str: non-int outside the inference window is ParseError" {
     infer_schema_rows: 2,
     null_values: [""],
     strict_column_count: false,
+    on_parse_error: @io.OnParseError::Raise,
+    allow_nonfinite_floats: true,
   })
   assert_true(result is Err(@types.DataError::ParseError(_)))
+}
+
+// ── parse_csv_str: O4 read resilience (scan-all / on_parse_error / nan) ──
+
+///|
+test "parse_csv_str: infer_schema_rows=0 scans every row to fix late dtype shifts" {
+  // Row 1 looks Int; row 2 is a Float. A 1-row window locks Int and then
+  // rejects the Float (the `infer_schema_rows=1` test above). Scanning every
+  // row (`0`, Polars' `infer_schema_length=None`) sees the Float during
+  // inference and types the column Float — no ParseError, no prefix
+  // mis-guess. (Under the old `0 → all-null window → String` rule this
+  // column would have come back String, so the Float dtype also pins the
+  // redefined `0` semantics.)
+  let content =
+    #|x
+    #|1
+    #|1.5
+    #|
+  let df = @io.parse_csv_str(content, {
+    has_header: true,
+    delimiter: ',',
+    infer_schema_rows: 0,
+    null_values: [""],
+    strict_column_count: false,
+    on_parse_error: @io.OnParseError::Raise,
+    allow_nonfinite_floats: true,
+  })
+  assert_eq(df.check_invariants(), Ok(()))
+  assert_eq(df.get_column("x").dtype(), @types.DataType::Float)
+  assert_eq(df.get(0, "x"), @types.Scalar::Float(1.0))
+  assert_eq(df.get(1, "x"), @types.Scalar::Float(1.5))
+}
+
+///|
+test "parse_csv_str: on_parse_error=Null downgrades an out-of-window misfit to null" {
+  // Inference locks Int on the first two rows; row 3 ("x") can't parse as
+  // Int. With `Raise` (the default, exercised above) this is a ParseError;
+  // with `Null` the offending cell becomes null and the column keeps its
+  // inferred Int dtype — Polars' `ignore_errors=True`.
+  let content =
+    #|n
+    #|1
+    #|2
+    #|x
+    #|
+  let df = @io.parse_csv_str(content, {
+    has_header: true,
+    delimiter: ',',
+    infer_schema_rows: 2,
+    null_values: [""],
+    strict_column_count: false,
+    on_parse_error: @io.OnParseError::Null,
+    allow_nonfinite_floats: true,
+  })
+  assert_eq(df.check_invariants(), Ok(()))
+  assert_eq(df.get_column("n").dtype(), @types.DataType::Int)
+  assert_eq(df.get(0, "n"), @types.Scalar::Int(1))
+  assert_eq(df.get(2, "n"), @types.Scalar::Null)
+  assert_eq(df.get_column("n").null_count(), 1)
+}
+
+///|
+test "parse_csv_str: allow_nonfinite_floats gates nan / inf float inference" {
+  // `nan` / `inf` are literals `@string.parse_double` accepts, so by
+  // default a column of them infers Float (the non-finite cells become
+  // Double NaN / ±Infinity). Turning the gate off rejects those literals
+  // during inference, so the column falls back to String instead of being
+  // silently retyped — the F5 escape hatch.
+  let content =
+    #|x
+    #|nan
+    #|1.5
+    #|inf
+    #|
+  let as_float = @io.parse_csv_str(content, @io.CsvReadOptions::default())
+  assert_eq(as_float.check_invariants(), Ok(()))
+  assert_eq(as_float.get_column("x").dtype(), @types.DataType::Float)
+  assert_eq(as_float.get(1, "x"), @types.Scalar::Float(1.5))
+  // The non-finite cells stay Float (NaN / +Infinity), not null.
+  assert_true(as_float.get(0, "x") is @types.Scalar::Float(_))
+  assert_true(as_float.get(2, "x") is @types.Scalar::Float(_))
+  let as_string = @io.parse_csv_str(content, {
+    has_header: true,
+    delimiter: ',',
+    infer_schema_rows: 100,
+    null_values: [""],
+    strict_column_count: false,
+    on_parse_error: @io.OnParseError::Raise,
+    allow_nonfinite_floats: false,
+  })
+  assert_eq(as_string.get_column("x").dtype(), @types.DataType::String)
+  assert_eq(as_string.get(0, "x"), @types.Scalar::String("nan"))
+  assert_eq(as_string.get(1, "x"), @types.Scalar::String("1.5"))
+  assert_eq(as_string.get(2, "x"), @types.Scalar::String("inf"))
 }
 
 // ── format_csv_str: happy paths ───────────────────────────────────────
@@ -625,6 +741,8 @@ test "write_csv_with_options + read_csv_with_options honour custom shape" {
     infer_schema_rows: 100,
     null_values: ["NA"],
     strict_column_count: false,
+    on_parse_error: @io.OnParseError::Raise,
+    allow_nonfinite_floats: true,
   }
   @io.write_csv_with_options(path, df, write_opts)
   let parsed = @io.read_csv_with_options(path, read_opts)
@@ -680,6 +798,8 @@ test "CsvReadOptions::default exposes expected defaults" {
   assert_eq(opts.infer_schema_rows, 100)
   assert_eq(opts.null_values, [""])
   assert_eq(opts.strict_column_count, false)
+  assert_eq(opts.on_parse_error, @io.OnParseError::Raise)
+  assert_eq(opts.allow_nonfinite_floats, true)
 }
 
 ///|

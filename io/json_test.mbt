@@ -246,7 +246,10 @@ test "parse_json_records_str: typed mismatch past inference window errors" {
   // string. The builder rejects the unparseable cell with
   // ParseError rather than silently widening the column.
   let content = "[{\"x\":1},{\"x\":2},{\"x\":\"three\"}]"
-  let result = try? @io.parse_json_records_str(content, { infer_schema_rows: 2 })
+  let result = try? @io.parse_json_records_str(content, {
+    infer_schema_rows: 2,
+    on_parse_error: @io.OnParseError::Raise,
+  })
   assert_true(result is Err(@types.DataError::ParseError(_)))
 }
 
@@ -255,7 +258,10 @@ test "parse_json_records_str: Float column with non-number past inference errors
   // Inference locks Float on the first two records; the third
   // sneaks a string in, which `json_value_as_float` rejects.
   let content = "[{\"x\":1.5},{\"x\":2.5},{\"x\":\"oops\"}]"
-  let result = try? @io.parse_json_records_str(content, { infer_schema_rows: 2 })
+  let result = try? @io.parse_json_records_str(content, {
+    infer_schema_rows: 2,
+    on_parse_error: @io.OnParseError::Raise,
+  })
   assert_true(result is Err(@types.DataError::ParseError(_)))
 }
 
@@ -265,8 +271,44 @@ test "parse_json_records_str: Bool column with non-bool past inference errors" {
   // cell — `json_value_as_bool` refuses `Number(1)` per the same
   // convention `parse_csv_str` uses for `parse_bool_opt`.
   let content = "[{\"x\":true},{\"x\":false},{\"x\":1}]"
-  let result = try? @io.parse_json_records_str(content, { infer_schema_rows: 2 })
+  let result = try? @io.parse_json_records_str(content, {
+    infer_schema_rows: 2,
+    on_parse_error: @io.OnParseError::Raise,
+  })
   assert_true(result is Err(@types.DataError::ParseError(_)))
+}
+
+// ── O4 read resilience (scan-all / on_parse_error) ──────────────────
+
+///|
+test "parse_json_records_str: infer_schema_rows=0 scans every record" {
+  // Record 1 is an integral number, record 2 fractional. A 1-record window
+  // would lock Int and reject 2.5; scanning every record (`0`, Polars'
+  // `infer_schema_length=None`) types the column Float up front.
+  let content = "[{\"x\":1},{\"x\":2.5}]"
+  let df = @io.parse_json_records_str(content, {
+    infer_schema_rows: 0,
+    on_parse_error: @io.OnParseError::Raise,
+  })
+  assert_eq(df.get_column("x").dtype(), @types.DataType::Float)
+  assert_eq(df.get(0, "x"), @types.Scalar::Float(1.0))
+  assert_eq(df.get(1, "x"), @types.Scalar::Float(2.5))
+}
+
+///|
+test "parse_json_records_str: on_parse_error=Null nulls an out-of-window misfit" {
+  // First two records lock Int; the third is a string. `Raise` (the
+  // default, exercised above) errors; `Null` keeps the Int column and
+  // downgrades the bad cell to null (Polars' `ignore_errors=True`).
+  let content = "[{\"x\":1},{\"x\":2},{\"x\":\"three\"}]"
+  let df = @io.parse_json_records_str(content, {
+    infer_schema_rows: 2,
+    on_parse_error: @io.OnParseError::Null,
+  })
+  assert_eq(df.get_column("x").dtype(), @types.DataType::Int)
+  assert_eq(df.get(0, "x"), @types.Scalar::Int(1))
+  assert_eq(df.get(2, "x"), @types.Scalar::Null)
+  assert_eq(df.get_column("x").null_count(), 1)
 }
 
 // ── inference edge cases ────────────────────────────────────────────
@@ -336,7 +378,10 @@ test "read_json_with_options honours a custom inference window" {
     @frame.Series::from_int_options("a", [Some(1), Some(2), Some(3)]),
   ])
   @io.write_json_records(path, df)
-  let parsed = @io.read_json_with_options(path, { infer_schema_rows: 1 })
+  let parsed = @io.read_json_with_options(path, {
+    infer_schema_rows: 1,
+    on_parse_error: @io.OnParseError::Raise,
+  })
   assert_eq(parsed.check_invariants(), Ok(()))
   assert_eq(parsed.get_column("a").dtype(), @types.DataType::Int)
 }

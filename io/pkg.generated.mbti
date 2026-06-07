@@ -74,6 +74,8 @@ pub(all) struct CsvReadOptions {
   infer_schema_rows : Int
   null_values : Array[String]
   strict_column_count : Bool
+  on_parse_error : OnParseError
+  allow_nonfinite_floats : Bool
 }
 pub fn CsvReadOptions::default() -> Self
 
@@ -86,13 +88,20 @@ pub fn CsvWriteOptions::default() -> Self
 
 pub(all) struct JsonReadOptions {
   infer_schema_rows : Int
+  on_parse_error : OnParseError
 }
 pub fn JsonReadOptions::default() -> Self
 
 pub(all) struct NdjsonReadOptions {
   infer_schema_rows : Int
+  on_parse_error : OnParseError
 }
 pub fn NdjsonReadOptions::default() -> Self
+
+pub(all) enum OnParseError {
+  Raise
+  Null
+} derive(Eq, @debug.Debug)
 
 // Type aliases
 

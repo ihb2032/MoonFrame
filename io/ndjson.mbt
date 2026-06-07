@@ -27,19 +27,29 @@
 /// `DataFrame`.
 ///
 /// - `infer_schema_rows` — number of leading records inspected when
-///   guessing each column's dtype. Records past this window are still
-///   parsed under the chosen dtype, so a misdetected column surfaces
-///   as `ParseError` rather than a silent string fallback. (Same
-///   meaning and default as `JsonReadOptions` / the CSV reader — NDJSON
-///   keeps its own options type so the two formats can diverge later.)
+///   guessing each column's dtype. `0` (or any value `<= 0`) lifts the
+///   cap and scans every record (Polars' `infer_schema_length=None`).
+///   Records past a finite window are still parsed under the chosen
+///   dtype; one that doesn't fit is handled per `on_parse_error`.
+/// - `on_parse_error` — what to do when a non-null cell past the
+///   inference window fails to parse under its column's locked-in dtype:
+///   `Raise` (default) fails the whole read with `ParseError`; `Null`
+///   downgrades the offending cell to a null and continues (Polars'
+///   `ignore_errors=True`). See `OnParseError`.
+///
+/// (Same meanings and defaults as `JsonReadOptions` / the CSV reader —
+/// NDJSON keeps its own options type so the two formats can diverge later.)
 pub(all) struct NdjsonReadOptions {
   infer_schema_rows : Int
+  on_parse_error : OnParseError
 }
 
 ///|
-/// Default read options: scan the first 100 records for inference.
+/// Default read options: scan the first 100 records for inference and
+/// fail the read on a cell that doesn't fit its inferred dtype
+/// (`on_parse_error = Raise`).
 pub fn NdjsonReadOptions::default() -> NdjsonReadOptions {
-  { infer_schema_rows: 100 }
+  { infer_schema_rows: 100, on_parse_error: Raise }
 }
 
 ///|
@@ -64,7 +74,8 @@ pub fn NdjsonReadOptions::default() -> NdjsonReadOptions {
 /// Errors:
 /// - `Err(ParseError(...))` — a malformed line, a line whose value is
 ///   not a JSON object, or a non-null cell that does not fit its
-///   column's inferred dtype.
+///   column's inferred dtype (the last unless `options.on_parse_error`
+///   is `Null`, which downgrades that cell to a null instead).
 /// - Whatever `DataFrame::new` propagates.
 pub fn parse_ndjson_str(
   content : String,
@@ -92,7 +103,11 @@ pub fn parse_ndjson_str(
     }
     records.push(json)
   }
-  frame_from_json_records(records, options.infer_schema_rows)
+  frame_from_json_records(
+    records,
+    options.infer_schema_rows,
+    options.on_parse_error,
+  )
 }
 
 ///|

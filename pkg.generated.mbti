@@ -90,6 +90,8 @@ pub using @io {type NdjsonReadOptions}
 
 pub using @frame {type NullOrder}
 
+pub using @io {type OnParseError}
+
 pub using @frame {type RowView}
 
 pub using @types {type Scalar}

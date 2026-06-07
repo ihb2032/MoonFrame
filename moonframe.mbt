@@ -54,6 +54,7 @@ pub using @io {
   type CsvWriteOptions,
   type JsonReadOptions,
   type NdjsonReadOptions,
+  type OnParseError,
   type ChartKind,
   type ChartSpec,
   format_csv_str,

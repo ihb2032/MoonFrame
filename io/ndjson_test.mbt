@@ -303,8 +303,50 @@ test "parse_ndjson_str: typed mismatch past inference window errors" {
     #|{"x":1}
     #|{"x":2}
     #|{"x":"three"}
-  let result = try? @io.parse_ndjson_str(content, { infer_schema_rows: 2 })
+  let result = try? @io.parse_ndjson_str(content, {
+    infer_schema_rows: 2,
+    on_parse_error: @io.OnParseError::Raise,
+  })
   assert_true(result is Err(@types.DataError::ParseError(_)))
+}
+
+// ── O4 read resilience (scan-all / on_parse_error) ──────────────────
+
+///|
+test "parse_ndjson_str: infer_schema_rows=0 scans every line" {
+  // Line 1 is integral, line 2 fractional. A 1-line window would lock Int
+  // and reject 2.5; scanning every line (`0`, Polars'
+  // `infer_schema_length=None`) types the column Float up front. Shares the
+  // `frame_from_json_records` core with the JSON-array reader, so the two
+  // formats agree.
+  let content =
+    #|{"x":1}
+    #|{"x":2.5}
+  let df = @io.parse_ndjson_str(content, {
+    infer_schema_rows: 0,
+    on_parse_error: @io.OnParseError::Raise,
+  })
+  assert_eq(df.get_column("x").dtype(), @types.DataType::Float)
+  assert_eq(df.get(0, "x"), @types.Scalar::Float(1.0))
+  assert_eq(df.get(1, "x"), @types.Scalar::Float(2.5))
+}
+
+///|
+test "parse_ndjson_str: on_parse_error=Null nulls an out-of-window misfit" {
+  // First two lines lock Int; the third is a string. `Raise` (the default,
+  // exercised above) errors; `Null` keeps the Int column and downgrades the
+  // bad cell to null.
+  let content =
+    #|{"x":1}
+    #|{"x":2}
+    #|{"x":"three"}
+  let df = @io.parse_ndjson_str(content, {
+    infer_schema_rows: 2,
+    on_parse_error: @io.OnParseError::Null,
+  })
+  assert_eq(df.get_column("x").dtype(), @types.DataType::Int)
+  assert_eq(df.get(2, "x"), @types.Scalar::Null)
+  assert_eq(df.get_column("x").null_count(), 1)
 }
 
 // ── read_ndjson / write_ndjson: file-system path ────────────────────
@@ -332,7 +374,10 @@ test "read_ndjson_with_options honours a custom inference window" {
     @frame.Series::from_int_options("a", [Some(1), Some(2), Some(3)]),
   ])
   @io.write_ndjson(path, df)
-  let parsed = @io.read_ndjson_with_options(path, { infer_schema_rows: 1 })
+  let parsed = @io.read_ndjson_with_options(path, {
+    infer_schema_rows: 1,
+    on_parse_error: @io.OnParseError::Raise,
+  })
   assert_eq(parsed.check_invariants(), Ok(()))
   assert_eq(parsed.get_column("a").dtype(), @types.DataType::Int)
 }

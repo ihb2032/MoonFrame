@@ -480,16 +480,28 @@ delegate to `moonbitlang/x/fs` and promote its `IOError` to
 
 - `struct CsvReadOptions` — `has_header` (default `true`; `false`
   synthesises `"column1"`, …) / `delimiter` (`,`) / `infer_schema_rows`
-  (`100`) / `null_values` (`[""]`) / `strict_column_count` (`false`;
-  when `true`, a ragged data row — cell count ≠ header width — raises
-  `ParseError` instead of being null-padded / truncated).
+  (`100`; `0` or any value `<= 0` lifts the cap and scans every row —
+  Polars' `infer_schema_length=None`) / `null_values` (`[""]`) /
+  `strict_column_count` (`false`; when `true`, a ragged data row — cell
+  count ≠ header width — raises `ParseError` instead of being null-padded /
+  truncated) / `on_parse_error` (`Raise`; see `OnParseError` below) /
+  `allow_nonfinite_floats` (`true`; when `false`, the `nan` / `inf` /
+  `infinity` float literals are rejected during inference, so a column of
+  them falls back to `String` instead of being retyped to `Float`).
   `CsvReadOptions::default()`.
+- `enum OnParseError { Raise; Null }` (`pub(all)`) — the parse-failure
+  policy shared by the three readers' options. A non-null cell past the
+  inference window that doesn't fit its column's locked-in dtype either
+  fails the whole read with `ParseError` (`Raise`, the default — strict and
+  lossless) or is downgraded to a null cell, keeping the column's inferred
+  dtype (`Null`, Polars' `ignore_errors=True`).
 - `struct CsvWriteOptions` — `header` (`true`) / `delimiter` (`,`) /
   `null_value` (`""`). `CsvWriteOptions::default()`.
 - `parse_csv_str(content, options) -> DataFrame raise DataError` —
   tokenise → per-column inference (`Int → Float → Bool → String`) → null
-  mapping → `DataFrame::new`. `DuplicateColumn` / `ParseError` (the
-  latter also covers a ragged row when `options.strict_column_count`).
+  mapping → `DataFrame::new`. `DuplicateColumn` / `ParseError` (the latter
+  also covers a ragged row when `options.strict_column_count`, and a cell
+  that doesn't fit its dtype unless `options.on_parse_error = Null`).
 - `format_csv_str(df, options) -> String` — **total**. Cells render via
   `Scalar::to_string`; null → `options.null_value`; RFC 4180 quoting;
   LF-terminated.
@@ -500,8 +512,9 @@ delegate to `moonbitlang/x/fs` and promote its `IOError` to
 
 ### JSON (records shape `[{...}, ...]`)
 
-- `struct JsonReadOptions` — `infer_schema_rows` (`100`).
-  `JsonReadOptions::default()`.
+- `struct JsonReadOptions` — `infer_schema_rows` (`100`; `0` or `<= 0`
+  scans every record) / `on_parse_error` (`Raise`; the shared
+  `OnParseError`, documented under CSV). `JsonReadOptions::default()`.
 - `parse_json_records_str(content, options) -> DataFrame raise DataError`
   — `@json.parse` → object validation → headers in first-seen order
   across all records (sparse records → null cells) → inference (same
@@ -530,10 +543,11 @@ sparse lines → null cells), the `Int → Float → Bool → String` inference,
 and the `scalar_to_json` cell conventions — so a column inferred from
 NDJSON matches the same data read as a JSON array.
 
-- `struct NdjsonReadOptions` — `infer_schema_rows` (`100`).
-  `NdjsonReadOptions::default()`. Structurally identical to
-  `JsonReadOptions`; kept a separate type so the two formats can diverge
-  later.
+- `struct NdjsonReadOptions` — `infer_schema_rows` (`100`; `0` or `<= 0`
+  scans every record) / `on_parse_error` (`Raise`; the shared
+  `OnParseError`, documented under CSV). `NdjsonReadOptions::default()`.
+  Structurally identical to `JsonReadOptions`; kept a separate type so the
+  two formats can diverge later.
 - `parse_ndjson_str(content, options) -> DataFrame raise DataError` —
   split on `\n` → parse each non-blank line (`@json.parse`) → the shared
   records → frame core. Blank / whitespace-only lines are skipped and a
@@ -541,8 +555,8 @@ NDJSON matches the same data read as a JSON array.
   trailing newline (and incidental blank lines) round-trip without
   phantom rows. A malformed line surfaces as `ParseError("line N: …")`
   (1-based); a line whose value is not an object, or a typed mismatch
-  past the inference window, is also `ParseError`. Empty / all-blank
-  input → 0×0 frame.
+  past the inference window (unless `options.on_parse_error = Null`), is
+  also `ParseError`. Empty / all-blank input → 0×0 frame.
 - `format_ndjson(df) -> String` — **total**. One compact object per row,
   keys in `df.columns()` order, each line terminated by `\n` (including
   the last — matching the CSV writer's per-row LF and Polars'

@@ -18,8 +18,10 @@
 // types are re-exported. Only the value types (including the GroupBy
 // `AggKind` / `AggSpec` / `GroupedDataFrame`, the Join `JoinType` /
 // `JoinOptions`, the HTML `HtmlOptions`, and the Chart `ChartKind` /
-// `ChartSpec`) and the `io` free functions need explicit re-export.
-// The `@ops` package no longer exists (it was folded into `@frame`).
+// `ChartSpec`), the `@types` free functions (`compare_string_lex` /
+// `is_decimal_int_literal`), and the `io` free functions need explicit
+// re-export. The `@ops` package no longer exists (it was folded into
+// `@frame`).
 
 ///|
 pub using @types {
@@ -28,6 +30,8 @@ pub using @types {
   type Scalar,
   type Field,
   type Schema,
+  compare_string_lex,
+  is_decimal_int_literal,
 }
 
 ///|

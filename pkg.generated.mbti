@@ -9,6 +9,8 @@ import {
 }
 
 // Values
+pub fn compare_string_lex(String, String) -> Int
+
 pub fn format_csv_str(@frame.DataFrame, @io.CsvWriteOptions) -> String
 
 pub fn format_json_records(@frame.DataFrame) -> String
@@ -16,6 +18,8 @@ pub fn format_json_records(@frame.DataFrame) -> String
 pub fn format_ndjson(@frame.DataFrame) -> String
 
 pub fn format_vega_lite(@frame.DataFrame, @io.ChartSpec) -> String raise @types.DataError
+
+pub fn is_decimal_int_literal(String) -> Bool
 
 pub fn parse_csv_str(String, @io.CsvReadOptions) -> @frame.DataFrame raise @types.DataError
 

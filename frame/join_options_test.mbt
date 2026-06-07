@@ -10,9 +10,17 @@
 ///|
 test "JoinType equality" {
   assert_eq(JoinType::Inner, JoinType::Inner)
+  assert_eq(JoinType::Right, JoinType::Right)
+  assert_eq(JoinType::Outer, JoinType::Outer)
   assert_not_eq(JoinType::Inner, JoinType::Left)
   assert_not_eq(JoinType::Inner, JoinType::Cross)
   assert_not_eq(JoinType::Left, JoinType::Cross)
+  // The two v0.3 additions are distinct from each other and the v0.2 set.
+  assert_not_eq(JoinType::Inner, JoinType::Right)
+  assert_not_eq(JoinType::Inner, JoinType::Outer)
+  assert_not_eq(JoinType::Left, JoinType::Right)
+  assert_not_eq(JoinType::Right, JoinType::Outer)
+  assert_not_eq(JoinType::Outer, JoinType::Cross)
 }
 
 ///|

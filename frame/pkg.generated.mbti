@@ -67,8 +67,10 @@ pub fn DataFrame::ncols(Self) -> Int
 pub fn DataFrame::new(Array[Series]) -> Self raise @types.DataError
 pub fn DataFrame::nrows(Self) -> Int
 pub fn DataFrame::null_count(Self) -> Self raise @types.DataError
+pub fn DataFrame::outer_join(Self, Self, Array[String]) -> Self raise @types.DataError
 pub fn DataFrame::rename(Self, Array[(String, String)]) -> Self raise @types.DataError
 pub fn DataFrame::replace_column(Self, String, Series) -> Self raise @types.DataError
+pub fn DataFrame::right_join(Self, Self, Array[String]) -> Self raise @types.DataError
 pub fn DataFrame::row(Self, Int) -> RowView raise @types.DataError
 pub fn DataFrame::row_view(Self, Int) -> RowView
 pub fn DataFrame::schema(Self) -> @types.Schema
@@ -119,6 +121,8 @@ pub fn JoinOptions::with_suffix(Self, String) -> Self
 pub(all) enum JoinType {
   Inner
   Left
+  Right
+  Outer
   Cross
 } derive(Eq, @debug.Debug)
 

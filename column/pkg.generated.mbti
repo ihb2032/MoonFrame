@@ -66,6 +66,43 @@ pub(all) enum ColumnData {
   String(Array[String])
 } derive(Eq, @debug.Debug)
 
+pub(all) enum ColumnStorage {
+  Builtin(BuiltinColumn)
+  Numeric(NumericColumn)
+} derive(Eq, @debug.Debug)
+pub fn ColumnStorage::data(Self) -> ColumnData
+pub fn ColumnStorage::dtype(Self) -> @types.DataType
+pub fn ColumnStorage::from_builtin(BuiltinColumn) -> Self
+pub fn ColumnStorage::from_numeric(NumericColumn) -> Self
+pub fn ColumnStorage::get(Self, Int) -> @types.Scalar raise @types.DataError
+pub fn ColumnStorage::is_empty(Self) -> Bool
+pub fn ColumnStorage::kind(Self) -> StorageKind
+pub fn ColumnStorage::len(Self) -> Int
+pub fn ColumnStorage::null_count(Self) -> Int
+pub fn ColumnStorage::validity(Self) -> Bitmap
+
+pub struct NumericColumn {
+  data : NumericData
+} derive(Eq, @debug.Debug)
+pub fn NumericColumn::data(Self) -> ColumnData
+pub fn NumericColumn::dtype(Self) -> @types.DataType
+pub fn NumericColumn::from_int64s(Array[Int64]) -> Self
+pub fn NumericColumn::get(Self, Int) -> @types.Scalar raise @types.DataError
+pub fn NumericColumn::is_empty(Self) -> Bool
+pub fn NumericColumn::len(Self) -> Int
+pub fn NumericColumn::null_count(Self) -> Int
+pub fn NumericColumn::sum(Self) -> @types.Scalar
+pub fn NumericColumn::to_builtin(Self) -> BuiltinColumn
+
+pub(all) enum NumericData {
+  Int(Array[Int64])
+} derive(Eq, @debug.Debug)
+
+pub(all) enum StorageKind {
+  Builtin
+  Numeric
+} derive(Eq, @debug.Debug)
+
 // Type aliases
 
 // Traits

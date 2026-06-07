@@ -14,14 +14,18 @@
 ///      `from_int64s` / `from_doubles` are just the data array, and `slice` /
 ///      `take` repack only the data — `BuiltinColumn` additionally allocates
 ///      (`from_ints`) or repacks (`slice` / `take`) a `Bitmap`;
-///   2. **reductions** (`sum` / `mean` / `min_value` / `max_value`) fold the
-///      raw array directly, with no `validity().to_bools()` materialisation
-///      and no per-slot `if valid[i]` branch that `Series`' reductions run.
+///   2. **reductions** read the raw array with no `validity().to_bools()`
+///      materialisation and no per-slot `if valid[i]` branch that `Series`'
+///      reductions run: `sum` / `mean` are a tight fold over the array, and
+///      `min_value` / `max_value` share one `fold_extremum` pass whose only
+///      per-slot test is the `Float` `NaN`-skip (a no-op on the `Int` arm).
 ///
-/// The accessor surface is deliberately the **numeric subset** of
-/// `BuiltinColumn`'s, named identically so `ColumnStorage::Numeric` can
-/// forward to it verbatim (S2) and the `Series.storage` flip (S3) stays
-/// mechanical. Cross-dtype transforms (`cast` / `to_int` / `to_float`) are
+/// The accessor surface is named identically to `BuiltinColumn`'s numeric
+/// accessors so `ColumnStorage::Numeric` can forward to it verbatim (S2) and
+/// the `Series.storage` flip (S3) stays mechanical; the reductions (`sum` /
+/// `mean` / `min_value` / `max_value`) instead mirror `Series`' own, since
+/// `BuiltinColumn` itself carries no reductions. Cross-dtype transforms
+/// (`cast` / `to_int` / `to_float`) are
 /// intentionally absent: a caller that needs them goes through `to_builtin()`
 /// and lets `BuiltinColumn` do the work, keeping this type's surface to the
 /// fast-path operations that actually benefit from the missing bitmap.
@@ -42,9 +46,9 @@ pub(all) enum NumericData {
 // ── Constructors ──────────────────────────────────────────────────────
 
 ///|
-/// Build an `Int` column from raw values. There is no null path — go through
-/// `BuiltinColumn::from_int_options` (then `ColumnStorage::to_numeric`) if
-/// any cell may be missing. No validity `Bitmap` is allocated.
+/// Build an `Int` column from raw values. There is no null path — if any cell
+/// may be missing, build a `BuiltinColumn` (`from_int_options`) and keep the
+/// column `Builtin` instead. No validity `Bitmap` is allocated.
 pub fn NumericColumn::from_int64s(values : Array[Int64]) -> NumericColumn {
   { data: Int(values) }
 }
@@ -128,19 +132,12 @@ pub fn NumericColumn::get(
   self : NumericColumn,
   index : Int,
 ) -> @types.Scalar raise @types.DataError {
+  if index < 0 || index >= self.len() {
+    raise @types.DataError::IndexOutOfBounds(index)
+  }
   match self.data {
-    Int(a) => {
-      if index < 0 || index >= a.length() {
-        raise @types.DataError::IndexOutOfBounds(index)
-      }
-      @types.Scalar::Int(a[index])
-    }
-    Float(a) => {
-      if index < 0 || index >= a.length() {
-        raise @types.DataError::IndexOutOfBounds(index)
-      }
-      @types.Scalar::Float(a[index])
-    }
+    Int(a) => @types.Scalar::Int(a[index])
+    Float(a) => @types.Scalar::Float(a[index])
   }
 }
 
@@ -263,9 +260,9 @@ pub fn NumericColumn::string_values(
 ///|
 /// Widen to a `BuiltinColumn` with an all-valid validity bitmap. Total and
 /// lossless: the data array is reused and `Bitmap::all_valid(len)` records
-/// that every slot is present. This is the inverse of `to_numeric` on an
-/// all-valid numeric `BuiltinColumn` — round-tripping either way is
-/// value-preserving (proven in `numeric_test.mbt`).
+/// that every slot is present. The widening is value-preserving — it equals
+/// `BuiltinColumn::from_ints` / `from_floats` on the same data (proven in
+/// `numeric_test.mbt`).
 pub fn NumericColumn::to_builtin(self : NumericColumn) -> BuiltinColumn {
   match self.data {
     Int(a) => BuiltinColumn::from_ints(a)

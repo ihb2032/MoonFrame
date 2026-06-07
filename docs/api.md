@@ -612,9 +612,10 @@ explicitly.
 - From `@column`: `Bitmap` · `BuiltinColumn` · `ColumnData`
 - From `@frame`: `Series` · `DataFrame` · `RowView` · `SortOrder` ·
   `NullOrder` · `AggKind` · `AggSpec` · `GroupedDataFrame` · `JoinType` ·
-  `JoinOptions`
+  `JoinOptions` · `HtmlOptions`
 - From `@io`: `CsvReadOptions` · `CsvWriteOptions` · `JsonReadOptions` ·
-  `NdjsonReadOptions` · `ChartKind` · `ChartSpec` · `format_csv_str` ·
+  `NdjsonReadOptions` · `OnParseError` · `ChartKind` · `ChartSpec` ·
+  `format_csv_str` ·
   `format_json_records` · `format_ndjson` · `format_vega_lite` ·
   `parse_csv_str` · `parse_json_records_str` · `parse_ndjson_str` ·
   `read_csv` · `read_csv_with_options` · `read_json` ·

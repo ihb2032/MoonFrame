@@ -25,7 +25,8 @@ pub struct GroupedDataFrame {
 /// result is deterministic and snapshot-stable without a sort.
 ///
 /// Group identity is the composite of each key cell's `Scalar::to_string`
-/// (the same canonical value form `unique_count` keys on), so:
+/// (the same per-cell rendering `unique_count` keys on, here composed
+/// injectively — see `row_group_key`), so:
 ///   * a `Float` `NaN` renders `"NaN"` and all NaNs collapse into one
 ///     group — matching Polars, where `NaN` compares equal for grouping
 ///     (the same rule `join` keys on);

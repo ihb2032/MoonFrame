@@ -69,16 +69,19 @@ optional per-column aliases via `with_alias`, deterministic first-appearance
 group order (Polars' `maintain_order=True`), and null keys kept as their own
 group.
 
-**Join has landed too.** `left.inner_join(right, ["id"])` /
-`left.left_join(right, ["id"])` (or the configurable
-`left.join(right, JoinOptions::on(["id"]).with_how(Left).with_coalesce(true))`)
+**Join has landed too** — the full matrix `inner` / `left` / `right` /
+`outer` / `cross`. `left.inner_join(right, ["id"])`, `.left_join` /
+`.right_join` / `.outer_join`, or the configurable
+`left.join(right, JoinOptions::on(["id"]).with_how(Outer).with_coalesce(true))`
 do a hash equi-join with Polars-aligned semantics: a **null** key matches
 nothing (`null != null`, as in SQL / Polars), a `NaN` key matches other NaNs,
 the right-column collision suffix defaults to `"_right"`, and key columns are
-coalesced on an inner join but kept (the right as `id_right`) on a left join —
-`coalesce` defaults to Polars' per-`how` rule and is overridable via
-`with_coalesce`. Output is the left columns then the right columns, rows in
-deterministic left-then-right-match order. `left.cross_join(right)`
+coalesced on an inner join but kept (the right as `id_right`) on a
+left / right / outer join — `coalesce` defaults to Polars' per-`how` rule and
+is overridable via `with_coalesce` (a coalesced key takes each row's value
+from whichever side is present: the left for `inner` / `left`, the right for
+`right`, the present side per row for `outer`). Output is the left columns
+then the right columns, rows in deterministic order. `left.cross_join(right)`
 (`JoinType::Cross`) gives the keyless Cartesian product.
 
 **NDJSON I/O has landed.** `read_ndjson` / `write_ndjson` (and the

@@ -171,6 +171,45 @@ test "quickstart: inner_join" {
 }
 ```
 
+The matrix also has `right_join` and `outer_join`. A full **outer** join keeps
+the unmatched rows from *both* sides; coalescing the key
+(`with_coalesce(true)`) merges it into one column, taking each row's value from
+whichever side is present — so the order with no customer and the customer with
+no order both survive.
+
+```moonbit check
+///|
+test "quickstart: outer_join" {
+  let orders = DataFrame::new([
+    Series::from_ints("customer_id", [1, 2, 3]),
+    Series::from_ints("amount", [100, 50, 70]),
+  ])
+  let customers = DataFrame::new([
+    Series::from_ints("customer_id", [1, 2, 4]),
+    Series::from_strings("region", ["west", "east", "north"]),
+  ])
+  inspect(
+    orders
+    .join(
+      customers,
+      JoinOptions::on(["customer_id"])
+      .with_how(JoinType::Outer)
+      .with_coalesce(true),
+    )
+    .to_markdown(),
+    content=(
+      #|| customer_id | amount | region |
+      #|| ----------- | ------ | ------ |
+      #|| 1           | 100    | west   |
+      #|| 2           | 50     | east   |
+      #|| 3           | 70     |        |
+      #|| 4           |        | north  |
+      #|
+    ),
+  )
+}
+```
+
 ## CSV round-trip without touching the filesystem
 
 `format_csv_str` / `parse_csv_str` are the string-level serialisers (the

@@ -38,17 +38,26 @@
 /// `DataFrame`.
 ///
 /// - `infer_schema_rows` — number of leading records inspected when
-///   guessing each column's dtype. Records past this window are still
-///   parsed under the chosen dtype, so a misdetected column surfaces
-///   as `ParseError` rather than a silent string fallback.
+///   guessing each column's dtype. `0` (or any value `<= 0`) lifts the
+///   cap and scans every record (Polars' `infer_schema_length=None`).
+///   Records past a finite window are still parsed under the chosen
+///   dtype; one that doesn't fit is handled per `on_parse_error`.
+/// - `on_parse_error` — what to do when a non-null cell past the
+///   inference window fails to parse under its column's locked-in dtype:
+///   `Raise` (default) fails the whole read with `ParseError`; `Null`
+///   downgrades the offending cell to a null and continues (Polars'
+///   `ignore_errors=True`). See `OnParseError`.
 pub(all) struct JsonReadOptions {
   infer_schema_rows : Int
+  on_parse_error : OnParseError
 }
 
 ///|
-/// Default read options: scan the first 100 records for inference.
+/// Default read options: scan the first 100 records for inference and
+/// fail the read on a cell that doesn't fit its inferred dtype
+/// (`on_parse_error = Raise`).
 pub fn JsonReadOptions::default() -> JsonReadOptions {
-  { infer_schema_rows: 100 }
+  { infer_schema_rows: 100, on_parse_error: Raise }
 }
 
 ///|
@@ -65,7 +74,9 @@ pub fn JsonReadOptions::default() -> JsonReadOptions {
 /// Errors:
 /// - `Err(ParseError(...))` — malformed JSON, a top-level value that
 ///   is not an array, a record that is not an object, or a non-null
-///   cell that does not fit the column's inferred dtype.
+///   cell that does not fit the column's inferred dtype (the last
+///   unless `options.on_parse_error` is `Null`, which downgrades that
+///   cell to a null instead of failing the read).
 /// - Whatever `DataFrame::new` propagates (duplicate-header is
 ///   pre-empted upstream; length-mismatch cannot fire because every
 ///   column is built off `records.length()`).
@@ -86,7 +97,11 @@ pub fn parse_json_records_str(
         "expected a JSON array of objects at the top level",
       )
   }
-  frame_from_json_records(records, options.infer_schema_rows)
+  frame_from_json_records(
+    records,
+    options.infer_schema_rows,
+    options.on_parse_error,
+  )
 }
 
 ///|
@@ -111,11 +126,14 @@ pub fn parse_json_records_str(
 /// An empty record set, or records that are all empty objects
 /// (`[{}, {}, ...]`, which would be N rows of zero columns that
 /// `DataFrame::new` cannot model), collapse to a 0×0 frame — the same
-/// shape both readers' empty-input paths produce. `build_json_column`
-/// raises `ParseError` for a cell that doesn't fit the inferred dtype.
+/// shape both readers' empty-input paths produce. A cell that doesn't
+/// fit its column's inferred dtype is handled per `on_parse_error`
+/// (raise `ParseError`, or downgrade the cell to a null), shared by both
+/// readers so JSON-array and NDJSON input agree on the policy.
 fn frame_from_json_records(
   records : Array[Json],
   infer_schema_rows : Int,
+  on_parse_error : OnParseError,
 ) -> @frame.DataFrame raise @types.DataError {
   if records.is_empty() {
     return @frame.DataFrame::new([])
@@ -146,7 +164,7 @@ fn frame_from_json_records(
   }
   let series : Array[@frame.Series] = headers.map(name => {
     let dt = infer_json_column_dtype(objs, name, infer_schema_rows)
-    build_json_column(name, dt, objs)
+    build_json_column(name, dt, objs, on_parse_error)
   })
   @frame.DataFrame::new(series)
 }
@@ -385,12 +403,14 @@ fn json_value_to_string_fallback(j : Json) -> String {
 /// Materialise one column from the record array using the dtype
 /// chosen by inference. Mirrors `build_column` in `csv.mbt`: each
 /// branch walks the records in row order and converts the cell into
-/// the typed array slot, producing a `ParseError` if a value past the
-/// inference window fails to match the locked-in dtype.
+/// the typed array slot; a value past the inference window that fails
+/// to match the locked-in dtype is handled per `on_parse_error`
+/// (`Raise` → `ParseError`, `Null` → a null cell).
 fn build_json_column(
   name : String,
   dtype : InferredDtype,
   objs : Array[Map[String, Json]],
+  on_parse_error : OnParseError,
 ) -> @frame.Series raise @types.DataError {
   let n = objs.length()
   let cell = fn(i : Int) -> Json { lookup_field(objs[i], name) }
@@ -408,6 +428,7 @@ fn build_json_column(
             "column \"\{name}\" record \{i + 1}: JSON value is not an Int (\"\{json_value_to_string_fallback(c)}\")",
           )
         },
+        on_parse_error,
         @frame.Series::from_int_options,
       )
     InferFloat =>
@@ -422,6 +443,7 @@ fn build_json_column(
             "column \"\{name}\" record \{i + 1}: JSON value is not a number (\"\{json_value_to_string_fallback(c)}\")",
           )
         },
+        on_parse_error,
         @frame.Series::from_float_options,
       )
     InferBool =>
@@ -436,6 +458,7 @@ fn build_json_column(
             "column \"\{name}\" record \{i + 1}: JSON value is not a Bool (\"\{json_value_to_string_fallback(c)}\")",
           )
         },
+        on_parse_error,
         @frame.Series::from_bool_options,
       )
     InferString => {

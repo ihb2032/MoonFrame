@@ -14,9 +14,11 @@
 ///   synthesised as `"column1"`, `"column2"`, … in declaration order.
 /// - `delimiter` — field separator passed through to NyaCSV.
 /// - `infer_schema_rows` — number of leading rows scanned when guessing
-///   each column's dtype. Cells past the limit are still parsed under
-///   the chosen dtype, so a misdetected column surfaces as
-///   `ParseError` rather than a silent string fallback.
+///   each column's dtype. `0` (or any value `<= 0`) lifts the cap and
+///   scans every row (Polars' `infer_schema_length=None`), trading a
+///   slower inference pass for never mis-guessing a column from a prefix.
+///   Cells past a finite window are still parsed under the chosen dtype;
+///   one that doesn't fit is handled per `on_parse_error`.
 /// - `null_values` — raw strings that should be treated as null cells
 ///   (both for type inference, which skips them, and for the final
 ///   typed column, where they become `None`). The default `[""]`
@@ -28,18 +30,34 @@
 ///   silently null-padded (short row) or truncated (long row). Defaults
 ///   to `false`, preserving the lenient behaviour that tolerates ragged
 ///   rows (a permissive CSV idiom, and what the v0.1 reader did).
+/// - `on_parse_error` — what to do when a non-null cell past the
+///   inference window fails to parse under its column's locked-in dtype.
+///   `Raise` (default) fails the whole read with `ParseError`; `Null`
+///   downgrades the offending cell to a null cell and keeps the column's
+///   inferred dtype (Polars' `ignore_errors=True`). See `OnParseError`.
+/// - `allow_nonfinite_floats` — when `true` (default), the float probe
+///   accepts the `nan` / `inf` / `infinity` literals `@string.parse_double`
+///   recognises, so a column of those tokens infers as `Float`. When
+///   `false`, the probe rejects them, so such a column falls back to
+///   `String` instead of being silently retyped to `Float` (a
+///   non-finite token past the window is then a parse failure handled per
+///   `on_parse_error`).
 pub(all) struct CsvReadOptions {
   has_header : Bool
   delimiter : Char
   infer_schema_rows : Int
   null_values : Array[String]
   strict_column_count : Bool
+  on_parse_error : OnParseError
+  allow_nonfinite_floats : Bool
 }
 
 ///|
 /// Default read options: header on, comma delimiter, scan the first
-/// 100 rows for inference, treat the empty string as null, and tolerate
-/// ragged rows (`strict_column_count = false`).
+/// 100 rows for inference, treat the empty string as null, tolerate
+/// ragged rows (`strict_column_count = false`), fail the read on a cell
+/// that doesn't fit its inferred dtype (`on_parse_error = Raise`), and
+/// accept non-finite float literals (`allow_nonfinite_floats = true`).
 pub fn CsvReadOptions::default() -> CsvReadOptions {
   {
     has_header: true,
@@ -47,6 +65,8 @@ pub fn CsvReadOptions::default() -> CsvReadOptions {
     infer_schema_rows: 100,
     null_values: [""],
     strict_column_count: false,
+    on_parse_error: Raise,
+    allow_nonfinite_floats: true,
   }
 }
 
@@ -95,9 +115,11 @@ pub fn CsvWriteOptions::default() -> CsvWriteOptions {
 /// - `Err(ParseError(...))` — a non-null cell does not parse under
 ///   the inferred dtype for its column (typically because a sample
 ///   row outside the inference window is malformed for the inferred
-///   type), or — when `options.strict_column_count` is `true` — a data
-///   row's cell count differs from the header's (reported as
-///   `row N: expected C columns, got G`, 1-based over the data rows).
+///   type), unless `options.on_parse_error` is `Null`, which downgrades
+///   that cell to a null instead of failing the read; or — when
+///   `options.strict_column_count` is `true` — a data row's cell count
+///   differs from the header's (reported as `row N: expected C columns,
+///   got G`, 1-based over the data rows).
 /// - Whatever `DataFrame::new` propagates — for v0.1 this is limited
 ///   to `DuplicateColumn` / `LengthMismatch`, neither of which can
 ///   actually fire here (uniqueness is checked above; every column
@@ -184,8 +206,17 @@ pub fn parse_csv_str(
       col,
       options.infer_schema_rows,
       options.null_values,
+      options.allow_nonfinite_floats,
     )
-    build_column(name, dt, rows, col, options.null_values)
+    build_column(
+      name,
+      dt,
+      rows,
+      col,
+      options.null_values,
+      options.on_parse_error,
+      options.allow_nonfinite_floats,
+    )
   })
   @frame.DataFrame::new(series)
 }
@@ -316,6 +347,7 @@ fn infer_column_dtype(
   col : Int,
   limit : Int,
   null_values : Array[String],
+  allow_nonfinite_floats : Bool,
 ) -> InferredDtype {
   infer_dtype(
     rows.length(),
@@ -323,7 +355,7 @@ fn infer_column_dtype(
     i => cell_value(rows, i, col),
     v => is_null_value(v, null_values),
     v => parse_int_opt(v) is Some(_),
-    v => parse_float_opt(v) is Some(_),
+    v => parse_float_opt(v, allow_nonfinite_floats) is Some(_),
     v => parse_bool_opt(v) is Some(_),
   )
 }
@@ -359,16 +391,28 @@ fn parse_int_opt(s : String) -> Int64? {
 /// accepts underscore grouping (`1_000` → `1000.0`), but — like the
 /// `0x` / `0o` / `0b` forms screened out of `parse_int_opt` — that is not
 /// how CSV numbers are written, and pandas / polars keep such cells as
-/// strings. The `inf` / `nan` literals that `parse_double` recognises
-/// are still accepted and become `Double` ±Infinity / NaN values.
-fn parse_float_opt(s : String) -> Double? {
+/// strings.
+///
+/// `allow_nonfinite` gates the `nan` / `inf` / `infinity` literals
+/// `parse_double` recognises: when `true` they are accepted and become
+/// `Double` NaN / ±Infinity (the historical default); when `false` they
+/// are rejected (`None`), so a column of such tokens stays `String` rather
+/// than being silently retyped to `Float`. The same predicate gates both
+/// the inference probe and the typed-column build, so the two agree on
+/// whether a non-finite literal counts as a `Float`.
+fn parse_float_opt(s : String, allow_nonfinite : Bool) -> Double? {
   if s.iter().any(c => c == '_') {
     return None
   }
   try @string.parse_double(s.view()) catch {
     _ => None
   } noraise {
-    x => Some(x)
+    x =>
+      if !allow_nonfinite && (x.is_nan() || x.is_inf()) {
+        None
+      } else {
+        Some(x)
+      }
   }
 }
 
@@ -390,15 +434,19 @@ fn parse_bool_opt(s : String) -> Bool? {
 ///|
 /// Materialise one column from the raw row matrix using the dtype
 /// chosen by inference. The same null-mapping rules used by inference
-/// run here; non-null cells that fail to parse become
-/// `Err(ParseError(...))` since the type was already locked in by the
-/// inference pass.
+/// run here; a non-null cell that fails to parse (the type was already
+/// locked in by the inference pass) is handled per `on_parse_error` —
+/// `Raise` surfaces `ParseError`, `Null` downgrades it to a null cell.
+/// `allow_nonfinite_floats` matches the inference probe so a `Float`
+/// column accepts (or rejects) `nan` / `inf` consistently on both passes.
 fn build_column(
   name : String,
   dtype : InferredDtype,
   rows : Array[Array[String]],
   col : Int,
   null_values : Array[String],
+  on_parse_error : OnParseError,
+  allow_nonfinite_floats : Bool,
 ) -> @frame.Series raise @types.DataError {
   let n = rows.length()
   let cell = fn(i : Int) -> String { cell_value(rows, i, col) }
@@ -416,6 +464,7 @@ fn build_column(
             "column \"\{name}\" row \{i + 1}: cannot parse \"\{v}\" as Int",
           )
         },
+        on_parse_error,
         @frame.Series::from_int_options,
       )
     InferFloat =>
@@ -424,12 +473,13 @@ fn build_column(
         n,
         cell,
         isnull,
-        parse_float_opt,
+        v => parse_float_opt(v, allow_nonfinite_floats),
         (i, v) => {
           @types.DataError::ParseError(
             "column \"\{name}\" row \{i + 1}: cannot parse \"\{v}\" as Float",
           )
         },
+        on_parse_error,
         @frame.Series::from_float_options,
       )
     InferBool =>
@@ -444,6 +494,7 @@ fn build_column(
             "column \"\{name}\" row \{i + 1}: cannot parse \"\{v}\" as Bool",
           )
         },
+        on_parse_error,
         @frame.Series::from_bool_options,
       )
     InferString => {

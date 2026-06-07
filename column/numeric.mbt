@@ -10,21 +10,21 @@
 /// the hot path.
 ///
 /// The win is twofold and measurable (see `numeric_test.mbt`):
-///   1. **construction** allocates no validity `Bytes` (`from_int64s` is just
-///      the data array — `BuiltinColumn::from_ints` additionally allocates
-///      `Bitmap::all_valid(len)`);
-///   2. **reductions** (`sum`) fold the raw array directly, with no
-///      `validity().to_bools()` materialisation and no per-slot `if valid[i]`
-///      branch that `Series::sum`'s `sum_int_valid` must run.
+///   1. **construction / sub-views** allocate no validity `Bytes`:
+///      `from_int64s` / `from_doubles` are just the data array, and `slice` /
+///      `take` repack only the data — `BuiltinColumn` additionally allocates
+///      (`from_ints`) or repacks (`slice` / `take`) a `Bitmap`;
+///   2. **reductions** (`sum` / `mean` / `min_value` / `max_value`) fold the
+///      raw array directly, with no `validity().to_bools()` materialisation
+///      and no per-slot `if valid[i]` branch that `Series`' reductions run.
 ///
-/// ── S0 spike scope ─────────────────────────────────────────────────────
-/// This is the Stage 2 spike (`PLAN_v0.3.md` §3 S0): the minimal slice
-/// needed to validate the three uncertain points before the `Series.storage`
-/// flip — `from_int64s` + `sum` + `to_builtin` + `get`, plus the accessors
-/// `ColumnStorage` forwards through (`len` / `dtype` / `null_count` / `data`).
-/// S1 extends `NumericData` with the `Float(Array[Double])` variant
-/// (`from_doubles`, Float reductions, `mean`/`min_value`/`max_value`,
-/// `slice`/`take`/`*_values`). Folds forward additively — no rewrite.
+/// The accessor surface is deliberately the **numeric subset** of
+/// `BuiltinColumn`'s, named identically so `ColumnStorage::Numeric` can
+/// forward to it verbatim (S2) and the `Series.storage` flip (S3) stays
+/// mechanical. Cross-dtype transforms (`cast` / `to_int` / `to_float`) are
+/// intentionally absent: a caller that needs them goes through `to_builtin()`
+/// and lets `BuiltinColumn` do the work, keeping this type's surface to the
+/// fast-path operations that actually benefit from the missing bitmap.
 pub struct NumericColumn {
   data : NumericData
 } derive(Eq, Debug)
@@ -32,19 +32,32 @@ pub struct NumericColumn {
 ///|
 /// Backing storage for `NumericColumn`, discriminated by dtype. The element
 /// type is the raw value; there is no nullability to track (every slot is
-/// valid). S0 ships the `Int` arm only; S1 adds `Float(Array[Double])`.
+/// valid). Numeric only — `Bool` / `String` columns are always backed by a
+/// `BuiltinColumn`, so `NumericData` has just the two numeric arms.
 pub(all) enum NumericData {
   Int(Array[Int64])
+  Float(Array[Double])
 } derive(Eq, Debug)
 
 // ── Constructors ──────────────────────────────────────────────────────
 
 ///|
-/// Build an `Int` column from raw values. There is no null path — pass
-/// through `BuiltinColumn::from_int_options` (then `to_numeric`) if any cell
-/// may be missing. No validity `Bitmap` is allocated.
+/// Build an `Int` column from raw values. There is no null path — go through
+/// `BuiltinColumn::from_int_options` (then `ColumnStorage::to_numeric`) if
+/// any cell may be missing. No validity `Bitmap` is allocated.
 pub fn NumericColumn::from_int64s(values : Array[Int64]) -> NumericColumn {
   { data: Int(values) }
+}
+
+///|
+/// Build a `Float` column from raw values. As with `from_int64s` there is no
+/// null path and no validity `Bitmap`. `NaN` is a perfectly valid stored
+/// value here — it is *not* a missing marker (only an absent slot is, and
+/// this column has none) — and it participates in reductions exactly as
+/// Polars treats it: propagating through `sum` / `mean`, skipped by
+/// `min_value` / `max_value`.
+pub fn NumericColumn::from_doubles(values : Array[Double]) -> NumericColumn {
+  { data: Float(values) }
 }
 
 // ── Inspection ────────────────────────────────────────────────────────
@@ -53,6 +66,7 @@ pub fn NumericColumn::from_int64s(values : Array[Int64]) -> NumericColumn {
 pub fn NumericColumn::dtype(self : NumericColumn) -> @types.DataType {
   match self.data {
     Int(_) => @types.DataType::Int
+    Float(_) => @types.DataType::Float
   }
 }
 
@@ -60,6 +74,7 @@ pub fn NumericColumn::dtype(self : NumericColumn) -> @types.DataType {
 pub fn NumericColumn::len(self : NumericColumn) -> Int {
   match self.data {
     Int(a) => a.length()
+    Float(a) => a.length()
   }
 }
 
@@ -77,19 +92,37 @@ pub fn NumericColumn::null_count(_self : NumericColumn) -> Int {
 
 ///|
 /// The raw backing storage as a `ColumnData`, so callers (and the
-/// `ColumnStorage::Numeric` arm) read values through the same total
-/// `data()` surface `BuiltinColumn` exposes. The element array is shared
-/// (read-only).
+/// `ColumnStorage::Numeric` arm) read values through the same total `data()`
+/// surface `BuiltinColumn` exposes. The element array is shared (read-only).
 pub fn NumericColumn::data(self : NumericColumn) -> ColumnData {
   match self.data {
     Int(a) => ColumnData::Int(a)
+    Float(a) => ColumnData::Float(a)
   }
+}
+
+// ── Cell access ───────────────────────────────────────────────────────
+
+///|
+/// Whether cell `index` is null — structurally **always `false`** for an
+/// all-valid column. Out-of-bounds `index` `raise IndexOutOfBounds`; the
+/// bounds check is the method's only real work. It mirrors
+/// `BuiltinColumn::is_null`'s diagnostic so the two are interchangeable
+/// through `ColumnStorage`.
+pub fn NumericColumn::is_null(
+  self : NumericColumn,
+  index : Int,
+) -> Bool raise @types.DataError {
+  if index < 0 || index >= self.len() {
+    raise @types.DataError::IndexOutOfBounds(index)
+  }
+  false
 }
 
 ///|
 /// Read a single cell as a `Scalar`. Out-of-bounds index
-/// `raise IndexOutOfBounds`. No null branch: a slot in `[0, len)` is always
-/// a present value, so the read skips the validity check `BuiltinColumn::get`
+/// `raise IndexOutOfBounds`. No null branch: a slot in `[0, len)` is always a
+/// present value, so the read skips the validity check `BuiltinColumn::get`
 /// must perform.
 pub fn NumericColumn::get(
   self : NumericColumn,
@@ -102,7 +135,127 @@ pub fn NumericColumn::get(
       }
       @types.Scalar::Int(a[index])
     }
+    Float(a) => {
+      if index < 0 || index >= a.length() {
+        raise @types.DataError::IndexOutOfBounds(index)
+      }
+      @types.Scalar::Float(a[index])
+    }
   }
+}
+
+// ── Sub-views (no bitmap to repack — the construction win) ─────────────
+
+///|
+/// Half-open `[start, end)` slice. Requires `0 <= start <= end <= len`, with
+/// the same diagnostics (and check order) as `BuiltinColumn::slice`:
+/// - `IndexOutOfBounds(start)` when `start < 0`.
+/// - `IndexOutOfBounds(end)` when `end > len`.
+/// - `InvalidOperation("slice start > end: ...")` when `start > end`.
+///
+/// Stays a `NumericColumn` — a sub-range of an all-valid column is itself
+/// all-valid, so there is no bitmap to slice (the win over
+/// `BuiltinColumn::slice`, which repacks one).
+pub fn NumericColumn::slice(
+  self : NumericColumn,
+  start : Int,
+  end : Int,
+) -> NumericColumn raise @types.DataError {
+  let len = self.len()
+  if start < 0 {
+    raise @types.DataError::IndexOutOfBounds(start)
+  }
+  if end > len {
+    raise @types.DataError::IndexOutOfBounds(end)
+  }
+  if start > end {
+    raise @types.DataError::InvalidOperation(
+      "slice start > end: " + start.to_string() + " > " + end.to_string(),
+    )
+  }
+  let n = end - start
+  match self.data {
+    Int(a) => { data: Int(Array::makei(n, i => a[start + i])) }
+    Float(a) => { data: Float(Array::makei(n, i => a[start + i])) }
+  }
+}
+
+///|
+/// Gather: produce a new column whose i-th entry is `self[indices[i]]`. Any
+/// out-of-bounds index `raise IndexOutOfBounds(idx)`, matching
+/// `BuiltinColumn::take`. Stays a `NumericColumn` (no bitmap to gather).
+pub fn NumericColumn::take(
+  self : NumericColumn,
+  indices : Array[Int],
+) -> NumericColumn raise @types.DataError {
+  let len = self.len()
+  for i in indices {
+    if i < 0 || i >= len {
+      raise @types.DataError::IndexOutOfBounds(i)
+    }
+  }
+  match self.data {
+    Int(a) => { data: Int(indices.map(i => a[i])) }
+    Float(a) => { data: Float(indices.map(i => a[i])) }
+  }
+}
+
+// ── Typed accessors (zero-boxing; all-valid bitmap synthesised) ────────
+
+///|
+/// Return the raw `Int64` array paired with an all-valid `Bitmap` sized to
+/// the column, matching `BuiltinColumn::int_values`' `(data, validity)` shape
+/// so the two are interchangeable through `ColumnStorage`. The bitmap is
+/// synthesised on demand — the column stores none. `raise TypeMismatch` when
+/// this is a `Float` column.
+pub fn NumericColumn::int_values(
+  self : NumericColumn,
+) -> (Array[Int64], Bitmap) raise @types.DataError {
+  match self.data {
+    Int(a) => (a, Bitmap::all_valid(a.length()))
+    _ =>
+      raise @types.DataError::TypeMismatch(
+        "expected Int column, got " + self.dtype().to_string(),
+      )
+  }
+}
+
+///|
+/// Like `int_values` but for `Float` columns. `raise TypeMismatch` when this
+/// is an `Int` column.
+pub fn NumericColumn::float_values(
+  self : NumericColumn,
+) -> (Array[Double], Bitmap) raise @types.DataError {
+  match self.data {
+    Float(a) => (a, Bitmap::all_valid(a.length()))
+    _ =>
+      raise @types.DataError::TypeMismatch(
+        "expected Float column, got " + self.dtype().to_string(),
+      )
+  }
+}
+
+///|
+/// Always `raise TypeMismatch` — a `NumericColumn` is numeric by
+/// construction, so it never holds `Bool` cells. Present so
+/// `ColumnStorage::bool_values` can forward to both arms uniformly.
+pub fn NumericColumn::bool_values(
+  self : NumericColumn,
+) -> (Array[Bool], Bitmap) raise @types.DataError {
+  raise @types.DataError::TypeMismatch(
+    "expected Bool column, got " + self.dtype().to_string(),
+  )
+}
+
+///|
+/// Always `raise TypeMismatch` — a `NumericColumn` never holds `String`
+/// cells. Present so `ColumnStorage::string_values` forwards uniformly.
+pub fn NumericColumn::string_values(
+  self : NumericColumn,
+) -> (Array[String], Bitmap) raise @types.DataError {
+  raise @types.DataError::TypeMismatch(
+    "expected String column, got " + self.dtype().to_string(),
+  )
 }
 
 // ── Materialise ───────────────────────────────────────────────────────
@@ -116,33 +269,169 @@ pub fn NumericColumn::get(
 pub fn NumericColumn::to_builtin(self : NumericColumn) -> BuiltinColumn {
   match self.data {
     Int(a) => BuiltinColumn::from_ints(a)
+    Float(a) => BuiltinColumn::from_floats(a)
   }
+}
+
+///|
+/// Render every cell to its `String` value-form, yielding a `String`
+/// `BuiltinColumn` (a numeric column cannot stay `Numeric` once stringified).
+/// Total: an all-valid numeric column has no null placeholder and no
+/// non-renderable cell, so this routes through `to_builtin` and reuses
+/// `BuiltinColumn::to_string_column` rather than duplicating the rendering.
+pub fn NumericColumn::to_string_column(self : NumericColumn) -> BuiltinColumn {
+  self.to_builtin().to_string_column()
 }
 
 // ── Reductions (all-valid fast path) ──────────────────────────────────
 
 ///|
-/// Sum of every cell, accumulated in 64-bit `Int64`.
+/// Plain `Int64` fold over the whole array — every slot is present, so unlike
+/// `Series`' `sum_int_valid` there is no `validity().to_bools()` and no
+/// per-slot `if valid[i]` branch. Shared by `sum` and `mean`.
+fn fold_int64(a : Array[Int64]) -> Int64 {
+  let mut acc : Int64 = 0
+  for x in a {
+    acc = acc + x
+  }
+  acc
+}
+
+///|
+/// Plain `Double` fold over the whole array. `NaN` participates (it is a
+/// present value, not missing), so a single `NaN` cell propagates to a `NaN`
+/// total — Polars `sum` / `mean` semantics. Shared by `sum` and `mean`.
+fn fold_double(a : Array[Double]) -> Double {
+  let mut acc : Double = 0.0
+  for x in a {
+    acc = acc + x
+  }
+  acc
+}
+
+///|
+/// Sum of every cell.
 ///
-/// Total — there is no missing value to skip and no non-numeric dtype to
-/// reject, so unlike `Series::sum` (which `raise`s `TypeMismatch` for
-/// `Bool` / `String`) this never fails. An empty column sums to the additive
-/// identity `Scalar::Int(0)`. The fold reads the raw array with no
-/// `validity().to_bools()` materialisation and no per-slot validity branch —
-/// the measurable reduction win over the `BuiltinColumn` path.
+/// - `Int` → `Scalar::Int`, accumulated in 64-bit `Int64` (sums past the
+///   32-bit ceiling do not overflow).
+/// - `Float` → `Scalar::Float`, accumulated in `Double`; a `NaN` cell
+///   propagates (Polars semantics — `NaN` is a value, not missing).
+/// - Empty → the additive identity (`Scalar::Int(0)` / `Scalar::Float(0.0)`).
 ///
-/// (`PLAN_v0.3.md` §6 lists `sum` as `raise`; the spike keeps it **total**
-/// per `feedback_lib_no_abort` — an always-numeric, all-valid column has no
-/// failure mode, and a propagated impossible `raise` would leave a dead
-/// `Err` arm that breaks 100% coverage. Recorded in `SPIKE_S0.md`.)
+/// Total. There is no missing value to skip and no non-numeric dtype to
+/// reject, so — unlike `Series::sum`, which `raise`s `TypeMismatch` for
+/// `Bool` / `String` — this never fails. Keeping it total rather than
+/// propagating an impossible `raise` avoids a dead `Err` arm that would break
+/// 100% coverage (`feedback_lib_no_abort`).
 pub fn NumericColumn::sum(self : NumericColumn) -> @types.Scalar {
   match self.data {
-    Int(a) => {
-      let mut acc : Int64 = 0
-      for x in a {
-        acc = acc + x
+    Int(a) => @types.Scalar::Int(fold_int64(a))
+    Float(a) => @types.Scalar::Float(fold_double(a))
+  }
+}
+
+///|
+/// Arithmetic mean of every cell, as a `Double` (matching `Series::mean`).
+///
+/// The denominator is the cell count `len` — every slot is present, so there
+/// is no non-null count to compute. A `Float` `NaN` propagates through the
+/// sum to a `NaN` mean (Polars semantics).
+///
+/// `raise InvalidOperation` on an empty column: the mean of zero values is
+/// undefined (`0 / 0`), a genuine failure mode (unlike `sum`'s identity), so
+/// the `raise` is real rather than an impossible one — it does not leave a
+/// dead arm.
+pub fn NumericColumn::mean(
+  self : NumericColumn,
+) -> Double raise @types.DataError {
+  let n = self.len()
+  if n == 0 {
+    raise @types.DataError::InvalidOperation("mean of empty column")
+  }
+  let total = match self.data {
+    Int(a) => fold_int64(a).to_double()
+    Float(a) => fold_double(a)
+  }
+  total / n.to_double()
+}
+
+///|
+/// Fold the cells to an extremum, skipping those `skip(i)` marks (always
+/// `false` for `Int`; `NaN` for `Float`). `better(candidate, best)` decides
+/// replacement. Returns `None` when every cell is skipped (an empty column,
+/// or an all-`NaN` `Float` column). `min_value` / `max_value` share this so
+/// each dtype arm supplies only its reader, skip test, and comparator instead
+/// of repeating the `best : T?` accumulation four times.
+fn[T] fold_extremum(
+  n : Int,
+  get : (Int) -> T,
+  skip : (Int) -> Bool,
+  better : (T, T) -> Bool,
+) -> T? {
+  let mut best : T? = None
+  for i in 0..<n {
+    if !skip(i) {
+      best = match best {
+        None => Some(get(i))
+        Some(b) => if better(get(i), b) { Some(get(i)) } else { Some(b) }
       }
-      @types.Scalar::Int(acc)
+    }
+  }
+  best
+}
+
+///|
+/// Minimum cell as a `Scalar`, by the dtype's natural order. Total, matching
+/// `Series::min_value`:
+/// - Empty column → `Scalar::Null`.
+/// - `Float` `NaN` is skipped (treated as missing for the extremum, as in
+///   `sort_by` and Polars' regular `min` — distinct from `sum` / `mean`,
+///   where it propagates). An all-`NaN` `Float` column → `Scalar::Null`.
+pub fn NumericColumn::min_value(self : NumericColumn) -> @types.Scalar {
+  match self.data {
+    Int(a) => {
+      let best = fold_extremum(a.length(), i => a[i], fn(_i) { false }, (x, y) => {
+        x < y
+      })
+      match best {
+        None => @types.Scalar::Null
+        Some(b) => @types.Scalar::Int(b)
+      }
+    }
+    Float(a) => {
+      let best = fold_extremum(a.length(), i => a[i], i => a[i].is_nan(), (x, y) => {
+        x < y
+      })
+      match best {
+        None => @types.Scalar::Null
+        Some(b) => @types.Scalar::Float(b)
+      }
+    }
+  }
+}
+
+///|
+/// Maximum cell as a `Scalar`. Mirrors `min_value` with `>` for `<`; the
+/// `Float` `NaN`-skip and empty rules are identical. Total.
+pub fn NumericColumn::max_value(self : NumericColumn) -> @types.Scalar {
+  match self.data {
+    Int(a) => {
+      let best = fold_extremum(a.length(), i => a[i], fn(_i) { false }, (x, y) => {
+        x > y
+      })
+      match best {
+        None => @types.Scalar::Null
+        Some(b) => @types.Scalar::Int(b)
+      }
+    }
+    Float(a) => {
+      let best = fold_extremum(a.length(), i => a[i], i => a[i].is_nan(), (x, y) => {
+        x > y
+      })
+      match best {
+        None => @types.Scalar::Null
+        Some(b) => @types.Scalar::Float(b)
+      }
     }
   }
 }

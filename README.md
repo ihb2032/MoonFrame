@@ -132,8 +132,36 @@ silently inferred as `Float`, falling back to `String` instead. These are
 the new fields (or switch to `::default()`); the defaults reproduce the
 prior behaviour exactly.
 
-Roadmap: the rest of v0.3 — a `ColumnStorage` / `NumericColumn` storage
-abstraction; an expression / lazy query layer in v0.4.
+**Pluggable column storage has landed** (the v0.3 engineering depth). A
+`Series` now holds a `ColumnStorage` — a closed `{ Builtin; Numeric }` seam
+— instead of a bare `BuiltinColumn`. `Builtin` is the general-purpose
+Arrow column (any dtype, nullable); `Numeric` is an all-valid, unboxed
+`Int64` / `Double` column that carries **no validity bitmap**, so it skips
+the bitmap allocation on construction and the per-slot validity check in
+its reductions (the `null_count == 0` fast path). The no-null
+`Series::from_ints` / `from_floats` build `Numeric` automatically, and
+structural transforms (`slice` / `take` / `drop_nulls` / `head` / `tail` /
+`filter` / `sort_by`) keep a column on the fast path. `storage_kind()`
+reports the backend; `to_numeric()` / `to_builtin()` move between them
+(per-column on a `Series`, whole-frame on a `DataFrame`) — a lossless
+representation swap that leaves names, dtypes, and values unchanged.
+
+Roadmap: an expression / lazy query layer in v0.4.
+
+## v0.2 → v0.3 migration
+
+v0.3 is a pre-1.0 breaking release (breaking changes ride the minor
+version). The source-level breaks:
+
+| v0.2 | v0.3 |
+|---|---|
+| `Series::storage() -> @column.BuiltinColumn` | `-> @column.ColumnStorage`; the `.data()` / `.validity()` reading surface is unchanged, so column-reading call sites still compile. Use `.to_builtin()` when you need the concrete `BuiltinColumn` |
+| `Series::new(name, BuiltinColumn)` | `Series::new(name, ColumnStorage)`; pass `ColumnStorage::from_builtin(col)`, or keep `Series::from_builtin(name, col)` (signature unchanged) |
+| `pub(all) enum JoinType { Inner; Left; Cross }` | gained `Right` / `Outer`; an exhaustive `match` over `JoinType` must now handle the two new variants |
+
+The CSV / JSON / NDJSON `*ReadOptions` structs also gained `pub(all)`
+fields (read resilience, above): a full struct literal must add them or
+switch to `::default()`.
 
 ## v0.1 → v0.2 migration
 
@@ -158,7 +186,7 @@ are total and return a `String`).
 ```
 moonframe/      facade package — re-exports the public API
 types/          value types, errors (DataError suberror), schemas
-column/         column storage backends (Arrow-style Bitmap + BuiltinColumn)
+column/         column storage backends (Arrow Bitmap + BuiltinColumn, Numeric fast path, ColumnStorage seam)
 frame/          Series, DataFrame, RowView + all DataFrame operators + group_by + join + to_markdown/to_html
 io/             CSV (NyaCSV-backed), JSON, NDJSON read / write + Vega-Lite chart export
 docs/api.md     public API reference (source of truth)

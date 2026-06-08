@@ -176,6 +176,60 @@ validity bitmap (`1 = valid`, `0 = null`).
   every dtype has a value-form rendering, so unlike `to_int` / `to_float`
   it never raises.
 
+### NumericColumn
+
+- `struct NumericColumn { data : NumericData }` — the **all-valid** unboxed
+  numeric column (the `null_count == 0` fast path). Unlike `BuiltinColumn`
+  it carries **no validity bitmap**: every slot is present by construction,
+  so construction and sub-views allocate no validity `Bytes` and the
+  reductions skip the per-slot validity check. The moment a null would
+  enter, the column materialises back to a `BuiltinColumn`.
+- `pub(all) enum NumericData` — `Int(Array[Int64]) | Float(Array[Double])`
+  (numeric only; `Bool` / `String` are always `Builtin`).
+- Total constructors: `from_int64s` / `from_doubles` (no null path).
+- Total inspection: `dtype` / `len` / `is_empty` / `null_count` (always
+  `0`) / `data() -> ColumnData` / `to_builtin() -> BuiltinColumn` (widen
+  with an all-valid bitmap — lossless, `== from_ints` / `from_floats`) /
+  `to_string_column() -> BuiltinColumn`.
+- Fallible (`raise DataError`): `is_null(i)` (bounds only; the value is
+  always `false`) / `get(i)` / `slice(start, end)` / `take(indices)` (same
+  diagnostics as `BuiltinColumn`); `int_values()` / `float_values()` (the
+  raw array paired with a synthesised all-valid bitmap); `bool_values()` /
+  `string_values()` always `raise TypeMismatch` (numeric by construction).
+- Reductions (the fast path — no validity scan): **total** `sum() ->
+  Scalar` / `min_value() -> Scalar` / `max_value() -> Scalar`; fallible
+  `mean() -> Double` (`InvalidOperation` on an empty column). `NaN`
+  propagates through `sum` / `mean` but is skipped by `min_value` /
+  `max_value` (Polars semantics).
+
+### ColumnStorage / StorageKind
+
+- `pub(all) enum ColumnStorage { Builtin(BuiltinColumn);
+  Numeric(NumericColumn) }` — the pluggable backend seam a `Series` holds.
+  Every accessor forwards to both arms, so reading a column through
+  `.data()` / `.validity()` is backend-transparent (the `Numeric` arm
+  synthesises an all-valid `validity()` on demand — the one point the
+  backends diverge).
+- `pub(all) enum StorageKind { Builtin; Numeric }` — the backend
+  discriminant (`kind()`). The original draft's `ArrowLike` is intentionally
+  absent: post-P3.5 `Builtin` *is* the Arrow layout (data + validity
+  bitmap, `1 = valid`).
+- Constructors: `from_builtin(BuiltinColumn)` / `from_numeric(NumericColumn)`.
+- Total inspection: `kind()` / `dtype` / `len` / `is_empty` / `null_count`
+  / `data() -> ColumnData` / `validity() -> Bitmap` / `to_builtin() ->
+  BuiltinColumn` / `to_string_column() -> BuiltinColumn`.
+- Fallible (`raise DataError`): `is_null(i)` / `get(i)`; backend-preserving
+  `slice(start, end)` / `take(indices)` (a sub-range of a `Numeric` column
+  stays `Numeric`); `int_values()` / `float_values()` / `bool_values()` /
+  `string_values()`. Cross-dtype `cast(target)` / `to_int()` / `to_float()`
+  route through `to_builtin()`, so the result is `Builtin`-backed — a caller
+  re-converges with `to_numeric` if a numeric target should land back on
+  the fast path.
+- `to_numeric() -> ColumnStorage raise DataError` — move an all-valid Int /
+  Float `Builtin` column onto the `Numeric` fast path: `InvalidOperation`
+  if it carries nulls, `TypeMismatch` if non-numeric, identity if already
+  `Numeric`.
+
 ---
 
 ## `frame` — Series, DataFrame, RowView, and operators
@@ -186,22 +240,38 @@ dependencies** (NyaCSV / fs / @json live only in `io`).
 
 ### Series
 
-- `struct Series { name, storage : @column.BuiltinColumn }`.
-- Total constructors (10): `new` / `from_builtin` / `from_ints` /
-  `from_int_options` / `from_floats` / `from_float_options` /
+- `struct Series { name, storage : @column.ColumnStorage }` — the `storage`
+  field holds the pluggable backend (`Builtin` or `Numeric`). It was a bare
+  `@column.BuiltinColumn` through v0.2; this is the v0.3 core breaking
+  change (`from_builtin` and `storage().to_builtin()` bridge old call
+  sites).
+- Total constructors (10): `new(name, ColumnStorage)` (canonical, at the
+  seam) / `from_builtin(name, BuiltinColumn)` (source-compatible wrapper) /
+  `from_ints` / `from_int_options` / `from_floats` / `from_float_options` /
   `from_bools` / `from_bool_options` / `from_strings` /
-  `from_string_options`.
+  `from_string_options`. **Backend selection**: the no-null `from_ints` /
+  `from_floats` land on the `Numeric` fast path; every other constructor
+  (the nullable `*_options`, `Bool`, `String`, and `from_builtin`) lands on
+  `Builtin`.
 - Total inspection: `name` / `dtype` / `len` / `is_empty` /
-  `null_count` / `null_rate` (`0.0` for an empty series) / `storage` /
+  `null_count` / `null_rate` (`0.0` for an empty series) /
+  `storage() -> ColumnStorage` / `storage_kind() -> StorageKind` /
   `to_scalars() -> Array[Scalar]` (materialise every cell, `Null` for
   null cells).
 - Fallible (`raise DataError`): `is_null(i) -> Bool` / `get(i) -> Scalar`
   (`IndexOutOfBounds`); `slice(start, end)` / `take(indices)`;
   `fill_null(value)` (`TypeMismatch` for `Scalar::Null` or a
-  dtype-mismatched value); `cast(target)` / `to_int()` / `to_float()`.
+  dtype-mismatched value); `cast(target)` / `to_int()` / `to_float()`;
+  `to_numeric()` (move onto the `Numeric` backend — `TypeMismatch` for a
+  non-numeric column, `InvalidOperation` for one with nulls).
 - Total transforms: `rename(new_name)` (`O(1)`, storage shared);
   `drop_nulls()` (gather non-null cells); `to_string_series()` (every
-  dtype renders, so total).
+  dtype renders, so total); `to_builtin()` (materialise onto the `Builtin`
+  backend — lossless inverse of `to_numeric`). Structural transforms
+  (`slice` / `take` / `drop_nulls` / `fill_null`, and `head` / `tail` /
+  `filter` / `sort_by` at the frame level) **preserve the backend** — a
+  `Numeric` column stays on the fast path; cross-dtype casts borrow the
+  `Builtin` road.
 
 ### Series stats (`series_stats.mbt`)
 
@@ -244,6 +314,13 @@ dependencies** (NyaCSV / fs / @json live only in `io`).
 - Structural transforms: total `head(n)` / `tail(n)` (clamp `n` to
   `[0, nrows]`); `slice(start, end)` / `take(indices)` (`raise`,
   `IndexOutOfBounds` / `InvalidOperation`).
+- Storage backend control (all **total**): `storage_kinds() ->
+  Array[StorageKind]` (per-column backend, parallel to `columns()`);
+  `to_numeric()` (best-effort — move every all-valid Int / Float column
+  onto the `Numeric` fast path, keep nullable / non-numeric / already-
+  `Numeric` columns); `to_builtin()` (materialise every column onto
+  `Builtin`, the inverse). Names / dtypes / values are unchanged, so the
+  schema and lookup cache are reused verbatim.
 - `check_invariants() -> Result[Unit, String]` — verification helper
   (deliberately **not** migrated to `raise`). `Ok(())` iff the frame
   satisfies its seven structural invariants; otherwise `Err(msg)`.
@@ -609,7 +686,8 @@ reachable — only the value types and the `io` free functions are listed
 explicitly.
 
 - From `@types`: `DataError` · `DataType` · `Scalar` · `Field` · `Schema`
-- From `@column`: `Bitmap` · `BuiltinColumn` · `ColumnData`
+- From `@column`: `Bitmap` · `BuiltinColumn` · `ColumnData` ·
+  `NumericColumn` · `NumericData` · `ColumnStorage` · `StorageKind`
 - From `@frame`: `Series` · `DataFrame` · `RowView` · `SortOrder` ·
   `NullOrder` · `AggKind` · `AggSpec` · `GroupedDataFrame` · `JoinType` ·
   `JoinOptions` · `HtmlOptions`
@@ -632,7 +710,7 @@ facade.
 
 ## Out of scope for v0.2 (so far)
 
-- `NumericColumn`, `ColumnStorage` abstraction — v0.3
 - Expression / lazy query API — v0.4
 
-(HTML output and Vega-Lite chart export have since landed in v0.3.)
+(HTML output, Vega-Lite chart export, and the `ColumnStorage` /
+`NumericColumn` pluggable storage backend have since landed in v0.3.)

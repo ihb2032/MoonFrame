@@ -394,6 +394,50 @@ pub fn DataFrame::take(
   }
 }
 
+// ── Storage backend control ───────────────────────────────────────────
+
+///|
+/// The storage backend of each column, in declaration order — `Numeric`
+/// for all-valid unboxed numeric columns, `Builtin` otherwise. Parallel to
+/// `columns()` / the schema's fields.
+pub fn DataFrame::storage_kinds(self : DataFrame) -> Array[@column.StorageKind] {
+  self.columns.map(c => c.storage_kind())
+}
+
+///|
+/// Move every eligible column onto the `Numeric` fast-path backend,
+/// best-effort and **total**: an all-valid Int / Float column converts; a
+/// column carrying nulls, a non-numeric column, or one already `Numeric` is
+/// kept unchanged (via the non-raising `try_column_to_numeric`, so a column
+/// that cannot move never fails the whole frame). Names, dtypes, and values
+/// are unchanged — only the backing representation of the converted columns
+/// — so the schema and `O(1)` lookup cache are reused verbatim.
+pub fn DataFrame::to_numeric(self : DataFrame) -> DataFrame {
+  let new_cols = self.columns.map(try_column_to_numeric)
+  {
+    schema: self.schema,
+    columns: new_cols,
+    nrows: self.nrows,
+    name_to_index: self.name_to_index,
+  }
+}
+
+///|
+/// Materialise every column onto the general-purpose `Builtin` backend (the
+/// inverse of `to_numeric`). Total and lossless — `Numeric` columns widen
+/// with an all-valid bitmap, `Builtin` columns are unchanged — so names,
+/// dtypes, and values are preserved and the schema / lookup cache are
+/// reused verbatim.
+pub fn DataFrame::to_builtin(self : DataFrame) -> DataFrame {
+  let new_cols = self.columns.map(c => c.to_builtin())
+  {
+    schema: self.schema,
+    columns: new_cols,
+    nrows: self.nrows,
+    name_to_index: self.name_to_index,
+  }
+}
+
 // ── Internal helpers ──────────────────────────────────────────────────
 
 ///|

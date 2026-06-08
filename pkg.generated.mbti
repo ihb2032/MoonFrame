@@ -68,6 +68,8 @@ pub using @io {type ChartSpec}
 
 pub using @column {type ColumnData}
 
+pub using @column {type ColumnStorage}
+
 pub using @io {type CsvReadOptions}
 
 pub using @io {type CsvWriteOptions}
@@ -94,6 +96,10 @@ pub using @io {type NdjsonReadOptions}
 
 pub using @frame {type NullOrder}
 
+pub using @column {type NumericColumn}
+
+pub using @column {type NumericData}
+
 pub using @io {type OnParseError}
 
 pub using @frame {type RowView}
@@ -105,6 +111,8 @@ pub using @types {type Schema}
 pub using @frame {type Series}
 
 pub using @frame {type SortOrder}
+
+pub using @column {type StorageKind}
 
 // Traits
 

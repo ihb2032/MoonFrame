@@ -283,3 +283,48 @@ test "quickstart: ndjson round-trip" {
   )
 }
 ```
+
+## Choose a column-storage backend
+
+A `Series` holds a pluggable `ColumnStorage` — either the general-purpose
+`Builtin` Arrow column or the all-valid, unboxed `Numeric` fast path (no
+validity bitmap). The no-null `from_ints` / `from_floats` pick `Numeric`
+automatically; nullable columns stay `Builtin`. `to_numeric()` /
+`to_builtin()` move a column (or, on a `DataFrame`, every eligible column)
+between backends without changing any value.
+
+```moonbit check
+///|
+test "quickstart: pluggable column storage" {
+  let df = DataFrame::new([
+    Series::from_ints("id", [1, 2, 3]),
+    Series::from_int_options("score", [Some(10), None, Some(30)]),
+  ])
+  // A no-null numeric column lands on the unboxed Numeric fast path; a
+  // nullable column stays on the general-purpose Builtin backend.
+  inspect(
+    df.get_column("id").storage_kind() == StorageKind::Numeric,
+    content="true",
+  )
+  inspect(
+    df.get_column("score").storage_kind() == StorageKind::Builtin,
+    content="true",
+  )
+  // `to_builtin()` materialises every column onto Builtin; the values are
+  // untouched (only the backing representation changes).
+  let widened = df.to_builtin()
+  inspect(
+    widened.get_column("id").storage_kind() == StorageKind::Builtin,
+    content="true",
+  )
+  inspect(
+    widened.get_column("id").to_scalars() == df.get_column("id").to_scalars(),
+    content="true",
+  )
+  // `to_numeric()` moves the eligible (all-valid, numeric) columns back.
+  inspect(
+    widened.to_numeric().get_column("id").storage_kind() == StorageKind::Numeric,
+    content="true",
+  )
+}
+```

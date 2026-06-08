@@ -6,13 +6,15 @@
 ///|
 test "new / from_builtin wrap an existing column" {
   let col = @column.BuiltinColumn::from_int_options([Some(1), None, Some(3)])
-  let a = Series::new("age", col)
+  // `new` takes a `ColumnStorage` (v0.3); `from_builtin` wraps a
+  // `BuiltinColumn` into one — the two end up equal.
+  let a = Series::new("age", @column.ColumnStorage::from_builtin(col))
   let b = Series::from_builtin("age", col)
   assert_eq(a.name(), "age")
   assert_eq(a.dtype(), @types.DataType::Int)
   assert_eq(a.len(), 3)
   assert_eq(a.null_count(), 1)
-  // `from_builtin` is purely a naming alias — the two values are equal.
+  assert_eq(a.storage_kind(), @column.StorageKind::Builtin)
   assert_eq(a, b)
 }
 
@@ -22,9 +24,13 @@ test "from_ints / from_int_options" {
   assert_eq(raw.dtype(), @types.DataType::Int)
   assert_eq(raw.len(), 3)
   assert_eq(raw.null_count(), 0)
+  // No-null raw constructor lands on the Numeric fast path...
+  assert_eq(raw.storage_kind(), @column.StorageKind::Numeric)
   let opt = Series::from_int_options("x", [Some(1), None, Some(3)])
   assert_eq(opt.null_count(), 1)
   assert_eq(opt.get(1), @types.Scalar::Null)
+  // ...the nullable option constructor stays Builtin.
+  assert_eq(opt.storage_kind(), @column.StorageKind::Builtin)
 }
 
 ///|
@@ -110,7 +116,8 @@ test "get returns Scalar / Null / IndexOutOfBounds" {
 test "storage exposes the underlying column unchanged" {
   let col = @column.BuiltinColumn::from_strings(["x", "y"])
   let s = Series::from_builtin("c", col)
-  assert_eq(s.storage(), col)
+  // `storage()` returns a `ColumnStorage` (v0.3) — the Builtin column wrapped.
+  assert_eq(s.storage(), @column.ColumnStorage::from_builtin(col))
 }
 
 // ── rename ───────────────────────────────────────────────────────────
@@ -299,7 +306,10 @@ test "cast dispatches by target dtype" {
 ///|
 test "to_int identity / Float→Int / Bool→Int / String→Int" {
   let i = Series::from_ints("x", [1, 2])
-  assert_eq(i.to_int(), i)
+  // to_int borrows the Builtin road, so an identity Int→Int cast materialises
+  // onto the Builtin backend — it equals the widened original, not `i` itself.
+  assert_eq(i.to_int(), i.to_builtin())
+  assert_eq(i.to_int().storage_kind(), @column.StorageKind::Builtin)
   let f = Series::from_floats("x", [1.5, 2.7])
   let f_to_i = f.to_int()
   assert_eq(f_to_i.get(0), @types.Scalar::Int(1))
@@ -314,7 +324,8 @@ test "to_int identity / Float→Int / Bool→Int / String→Int" {
 ///|
 test "to_float identity / Int→Float / Bool→Float / String→Float" {
   let f = Series::from_floats("x", [1.0])
-  assert_eq(f.to_float(), f)
+  // Same as to_int: identity Float→Float materialises onto the Builtin backend.
+  assert_eq(f.to_float(), f.to_builtin())
   let i = Series::from_ints("x", [3])
   assert_eq(i.to_float().get(0), @types.Scalar::Float(3.0))
   let b = Series::from_bools("x", [true, false])
@@ -339,4 +350,63 @@ test "to_string_series renders value-style across dtypes" {
   assert_eq(s_b.get(1), @types.Scalar::String("false"))
   let s = Series::from_strings("x", ["already"])
   assert_eq(s.to_string_series(), s)
+}
+
+// ── storage backend control: storage_kind / to_numeric / to_builtin ──
+
+///|
+test "structural transforms preserve the Numeric backend" {
+  // A no-null numeric column is Numeric; slicing / gathering / dropping
+  // nulls keeps it on the fast path (a row subset is still all-valid).
+  let s = Series::from_ints("x", [10, 20, 30, 40])
+  assert_eq(s.storage_kind(), @column.StorageKind::Numeric)
+  assert_eq(s.slice(1, 3).storage_kind(), @column.StorageKind::Numeric)
+  assert_eq(s.take([3, 0, 0]).storage_kind(), @column.StorageKind::Numeric)
+  assert_eq(s.drop_nulls().storage_kind(), @column.StorageKind::Numeric)
+  // A Builtin column stays Builtin through the same transforms.
+  let b = Series::from_int_options("x", [Some(1), None, Some(3)])
+  assert_eq(b.storage_kind(), @column.StorageKind::Builtin)
+  assert_eq(b.slice(0, 2).storage_kind(), @column.StorageKind::Builtin)
+  assert_eq(b.drop_nulls().storage_kind(), @column.StorageKind::Builtin)
+}
+
+///|
+test "to_numeric: success, already-Numeric, and round-trip equivalence" {
+  // Builtin all-valid Int / Float move to the fast path.
+  let bi = Series::from_int_options("x", [Some(1), Some(2), Some(3)])
+  assert_eq(bi.storage_kind(), @column.StorageKind::Builtin)
+  let ni = bi.to_numeric()
+  assert_eq(ni.storage_kind(), @column.StorageKind::Numeric)
+  // Values are unchanged by the backend swap.
+  assert_eq(ni.to_scalars(), bi.to_scalars())
+  let bf = Series::from_float_options("y", [Some(1.5), Some(2.5)])
+  assert_eq(bf.to_numeric().storage_kind(), @column.StorageKind::Numeric)
+  // Already Numeric → returned unchanged.
+  let already = Series::from_ints("z", [7, 8])
+  assert_eq(already.to_numeric(), already)
+}
+
+///|
+test "to_numeric: rejects nulls and non-numeric columns" {
+  let with_null = Series::from_int_options("x", [Some(1), None])
+  assert_true(
+    (try? with_null.to_numeric()) is Err(@types.DataError::InvalidOperation(_)),
+  )
+  let strings = Series::from_strings("x", ["a", "b"])
+  assert_true(
+    (try? strings.to_numeric()) is Err(@types.DataError::TypeMismatch(_)),
+  )
+}
+
+///|
+test "to_builtin: total, lossless round-trip from Numeric" {
+  let n = Series::from_ints("x", [1, 2, 3])
+  let b = n.to_builtin()
+  assert_eq(b.storage_kind(), @column.StorageKind::Builtin)
+  assert_eq(b.to_scalars(), n.to_scalars())
+  // Numeric → Builtin → Numeric returns to the original.
+  assert_eq(b.to_numeric(), n)
+  // Already Builtin → unchanged.
+  let already = Series::from_int_options("x", [Some(1), None])
+  assert_eq(already.to_builtin(), already)
 }

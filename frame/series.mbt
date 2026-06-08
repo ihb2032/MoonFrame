@@ -1,75 +1,97 @@
 ///|
 /// A one-dimensional, dtype-aware column with a name. `Series` is the
-/// per-column unit behind `DataFrame`: it bundles a `BuiltinColumn`
-/// (Arrow-style storage with an explicit validity bitmap) with a column
-/// name, and exposes the structural, nullability, transform, and cast
-/// surface that ops / IO layers rely on. Statistics live in
+/// per-column unit behind `DataFrame`: it bundles a `ColumnStorage` (the
+/// pluggable backend seam — `Builtin` Arrow storage with an explicit
+/// validity bitmap, or the all-valid unboxed `Numeric` fast path) with a
+/// column name, and exposes the structural, nullability, transform, and
+/// cast surface that ops / IO layers rely on. Statistics live in
 /// `series_stats.mbt`.
+///
+/// The `storage` field is a `ColumnStorage` as of v0.3 (it was a bare
+/// `BuiltinColumn` through v0.2). Every accessor forwards to the
+/// identically-named `ColumnStorage` method, so the backend is transparent
+/// to readers — `storage_kind` / `to_numeric` / `to_builtin` are the only
+/// surface that observes or chooses it.
 ///
 /// The struct is read-only from outside this package — always go
 /// through the named constructors so the underlying column maintains
 /// its data-and-validity invariants.
 pub struct Series {
   name : String
-  storage : @column.BuiltinColumn
+  storage : @column.ColumnStorage
 } derive(Eq, Debug)
 
 // ── Constructors ──────────────────────────────────────────────────────
 
 ///|
-/// Wrap an existing `BuiltinColumn` under the given name. The validity
-/// bitmap (and therefore the null-count) is whatever the column already
-/// carries.
-pub fn Series::new(name : String, storage : @column.BuiltinColumn) -> Series {
+/// Wrap an existing `ColumnStorage` under the given name — the canonical
+/// constructor at the backend seam. The backend (and validity / null-count)
+/// is whatever the storage already carries. Callers holding a
+/// `BuiltinColumn` use `from_builtin` instead.
+pub fn Series::new(name : String, storage : @column.ColumnStorage) -> Series {
   { name, storage }
 }
 
 ///|
-/// Explicit alias for `new`. Useful at call sites where readers might
-/// otherwise wonder whether the caller is about to pass raw values —
-/// this name picks out the case where a `BuiltinColumn` has already
-/// been built.
+/// Wrap an existing `BuiltinColumn` under the given name, behind a
+/// `ColumnStorage::Builtin`. The source-compatible path for callers that
+/// already hold a `BuiltinColumn` (the v0.2 `new` signature).
 pub fn Series::from_builtin(
   name : String,
   storage : @column.BuiltinColumn,
 ) -> Series {
-  { name, storage }
+  { name, storage: @column.ColumnStorage::from_builtin(storage) }
 }
 
 ///|
-/// Build an `Int` series from raw values (no nulls).
+/// Build an `Int` series from raw values (no nulls). Lands on the `Numeric`
+/// fast-path backend — no validity bitmap is allocated.
 pub fn Series::from_ints(name : String, values : Array[Int64]) -> Series {
-  { name, storage: @column.BuiltinColumn::from_ints(values) }
+  Series::new(
+    name,
+    @column.ColumnStorage::from_numeric(
+      @column.NumericColumn::from_int64s(values),
+    ),
+  )
 }
 
 ///|
-/// Build an `Int` series where `None` entries are nulls.
+/// Build an `Int` series where `None` entries are nulls. Nullable, so it
+/// lands on the general-purpose `Builtin` backend.
 pub fn Series::from_int_options(
   name : String,
   values : Array[Int64?],
 ) -> Series {
-  { name, storage: @column.BuiltinColumn::from_int_options(values) }
+  Series::from_builtin(name, @column.BuiltinColumn::from_int_options(values))
 }
 
 ///|
-/// Build a `Float` series from raw values (no nulls).
+/// Build a `Float` series from raw values (no nulls). Lands on the
+/// `Numeric` fast-path backend.
 pub fn Series::from_floats(name : String, values : Array[Double]) -> Series {
-  { name, storage: @column.BuiltinColumn::from_floats(values) }
+  Series::new(
+    name,
+    @column.ColumnStorage::from_numeric(
+      @column.NumericColumn::from_doubles(values),
+    ),
+  )
 }
 
 ///|
-/// Build a `Float` series where `None` entries are nulls.
+/// Build a `Float` series where `None` entries are nulls. Nullable, so it
+/// lands on the `Builtin` backend.
 pub fn Series::from_float_options(
   name : String,
   values : Array[Double?],
 ) -> Series {
-  { name, storage: @column.BuiltinColumn::from_float_options(values) }
+  Series::from_builtin(name, @column.BuiltinColumn::from_float_options(values))
 }
 
 ///|
-/// Build a `Bool` series from raw values (no nulls).
+/// Build a `Bool` series from raw values (no nulls). `Bool` is non-numeric,
+/// so it lands on the `Builtin` backend.
 pub fn Series::from_bools(name : String, values : Array[Bool]) -> Series {
-  { name, storage: @column.BuiltinColumn::from_bools(values) }
+  Series::from_builtin(name, @column.BuiltinColumn::from_bools(values))
 }
 
 ///|
@@ -78,13 +100,14 @@ pub fn Series::from_bool_options(
   name : String,
   values : Array[Bool?],
 ) -> Series {
-  { name, storage: @column.BuiltinColumn::from_bool_options(values) }
+  Series::from_builtin(name, @column.BuiltinColumn::from_bool_options(values))
 }
 
 ///|
-/// Build a `String` series from raw values (no nulls).
+/// Build a `String` series from raw values (no nulls). `String` is
+/// non-numeric, so it lands on the `Builtin` backend.
 pub fn Series::from_strings(name : String, values : Array[String]) -> Series {
-  { name, storage: @column.BuiltinColumn::from_strings(values) }
+  Series::from_builtin(name, @column.BuiltinColumn::from_strings(values))
 }
 
 ///|
@@ -93,7 +116,7 @@ pub fn Series::from_string_options(
   name : String,
   values : Array[String?],
 ) -> Series {
-  { name, storage: @column.BuiltinColumn::from_string_options(values) }
+  Series::from_builtin(name, @column.BuiltinColumn::from_string_options(values))
 }
 
 // ── Inspection ────────────────────────────────────────────────────────
@@ -203,10 +226,13 @@ pub fn Series::to_scalars(self : Series) -> Array[@types.Scalar] {
 }
 
 ///|
-/// Expose the underlying `BuiltinColumn`. Ops layers use this to reach
-/// the typed (`int_values` / `float_values` / ...) accessors and
-/// bypass `Scalar` boxing.
-pub fn Series::storage(self : Series) -> @column.BuiltinColumn {
+/// Expose the underlying `ColumnStorage`. Ops layers use this to reach the
+/// typed (`int_values` / `float_values` / ...) accessors and the
+/// `data()` / `validity()` reads, bypassing `Scalar` boxing. The return
+/// type changed from `BuiltinColumn` to `ColumnStorage` in v0.3; the
+/// `data()` / `validity()` surface is identical, so column-reading call
+/// sites are unaffected.
+pub fn Series::storage(self : Series) -> @column.ColumnStorage {
   self.storage
 }
 
@@ -242,15 +268,72 @@ pub fn Series::take(
 }
 
 ///|
+/// Best-effort, **total** move of one column onto the `Numeric` fast-path
+/// backend: an all-valid Int / Float `Builtin` column is rebuilt on
+/// `NumericColumn`; every other column — already `Numeric`, carrying nulls,
+/// or non-numeric — is returned unchanged. Unlike `Series::to_numeric` this
+/// never raises: it is the per-column step behind the total
+/// `DataFrame::to_numeric` and the backend-preserving re-convergence in
+/// `slice_series` / `gather_series`, so a column that cannot move is simply
+/// kept rather than failing (and rather than leaving a dead error arm,
+/// `feedback_lib_no_abort`). The null-free Int / Float arms reuse the raw
+/// data array — every slot being valid, it is the true data.
+fn try_column_to_numeric(s : Series) -> Series {
+  match s.storage.kind() {
+    @column.StorageKind::Numeric => s
+    @column.StorageKind::Builtin =>
+      if s.storage.null_count() > 0 {
+        s
+      } else {
+        match s.storage.data() {
+          @column.ColumnData::Int(a) =>
+            Series::new(
+              s.name,
+              @column.ColumnStorage::from_numeric(
+                @column.NumericColumn::from_int64s(a),
+              ),
+            )
+          @column.ColumnData::Float(a) =>
+            Series::new(
+              s.name,
+              @column.ColumnStorage::from_numeric(
+                @column.NumericColumn::from_doubles(a),
+              ),
+            )
+          _ => s
+        }
+      }
+  }
+}
+
+///|
+/// Re-converge a freshly rebuilt (`Builtin`-backed) column to `source`'s
+/// backend. The structural rebuilders below always materialise through the
+/// option constructors (→ `Builtin`); when the `source` they sliced /
+/// gathered was `Numeric`, the result is necessarily all-valid (a row
+/// subset of an all-valid column has no nulls), so it moves back onto the
+/// `Numeric` fast path. A `Builtin` source stays `Builtin`. Keeping the
+/// backend stable across `head` / `tail` / `slice` / `filter` / `sort` /
+/// `drop_nulls` means those transforms preserve `storage_kind` rather than
+/// silently demoting the fast path.
+fn preserve_backend(source : Series, rebuilt : Series) -> Series {
+  match source.storage.kind() {
+    @column.StorageKind::Numeric => try_column_to_numeric(rebuilt)
+    @column.StorageKind::Builtin => rebuilt
+  }
+}
+
+///|
 /// Total contiguous slice `[start, start + len)`, rebuilt through the
 /// option constructors. The caller guarantees `0 <= start` and
 /// `start + len <= self.len()`; under that contract every `start + k`
 /// read is in-bounds, so the row copy needs no bounds-checking `Result`
 /// (it reads `data` / validity arrays the same way value comparisons read
-/// `data[i]` elsewhere). Backs `head` / `tail` / `slice` row transforms.
+/// `data[i]` elsewhere). The result keeps the source backend
+/// (`preserve_backend`). Backs `head` / `tail` / `slice` row transforms.
 fn slice_series(s : Series, start : Int, len : Int) -> Series {
   let valid = s.storage.validity().to_bools()
-  match s.storage.data() {
+  let rebuilt = match s.storage.data() {
     @column.ColumnData::Int(a) =>
       Series::from_int_options(
         s.name,
@@ -296,15 +379,17 @@ fn slice_series(s : Series, start : Int, len : Int) -> Series {
         }),
       )
   }
+  preserve_backend(s, rebuilt)
 }
 
 ///|
 /// Total gather: position `k` of the result is `s[idx[k]]`. The caller
-/// guarantees every index is in `[0, s.len())`. Backs `drop_nulls`,
-/// `take`, and the row-gather DataFrame transforms.
+/// guarantees every index is in `[0, s.len())`. The result keeps the source
+/// backend (`preserve_backend`). Backs `drop_nulls`, `take`, and the
+/// row-gather DataFrame transforms.
 fn gather_series(s : Series, idx : Array[Int]) -> Series {
   let valid = s.storage.validity().to_bools()
-  match s.storage.data() {
+  let rebuilt = match s.storage.data() {
     @column.ColumnData::Int(a) =>
       Series::from_int_options(
         s.name,
@@ -326,6 +411,7 @@ fn gather_series(s : Series, idx : Array[Int]) -> Series {
         idx.map(k => if valid[k] { Some(a[k]) } else { None }),
       )
   }
+  preserve_backend(s, rebuilt)
 }
 
 ///|
@@ -351,20 +437,22 @@ fn[T] fill_buffer(data : Array[T], valid : Array[Bool], v : T) -> Array[T] {
 /// Replace every null cell with `value`. `raise TypeMismatch(...)` if
 /// `value` is `Scalar::Null` (filling nulls with null is meaningless) or
 /// if its dtype differs from the series'. The returned series has a
-/// fully-valid bitmap.
+/// fully-valid bitmap and keeps the source storage backend
+/// (`preserve_backend`) — a no-op fill on an all-valid `Numeric` column
+/// stays `Numeric`.
 pub fn Series::fill_null(
   self : Series,
   value : @types.Scalar,
 ) -> Series raise @types.DataError {
   let valid = self.storage.validity().to_bools()
-  match value {
+  let filled = match value {
     @types.Scalar::Null =>
       raise @types.DataError::TypeMismatch("cannot fill nulls with Null")
     @types.Scalar::Int(v) =>
       match self.storage.data() {
         @column.ColumnData::Int(data) => {
           let buf = fill_buffer(data, valid, v)
-          { name: self.name, storage: @column.BuiltinColumn::from_ints(buf) }
+          Series::from_builtin(self.name, @column.BuiltinColumn::from_ints(buf))
         }
         _ =>
           raise @types.DataError::TypeMismatch(
@@ -376,7 +464,10 @@ pub fn Series::fill_null(
       match self.storage.data() {
         @column.ColumnData::Float(data) => {
           let buf = fill_buffer(data, valid, v)
-          { name: self.name, storage: @column.BuiltinColumn::from_floats(buf) }
+          Series::from_builtin(
+            self.name,
+            @column.BuiltinColumn::from_floats(buf),
+          )
         }
         _ =>
           raise @types.DataError::TypeMismatch(
@@ -388,7 +479,10 @@ pub fn Series::fill_null(
       match self.storage.data() {
         @column.ColumnData::Bool(data) => {
           let buf = fill_buffer(data, valid, v)
-          { name: self.name, storage: @column.BuiltinColumn::from_bools(buf) }
+          Series::from_builtin(
+            self.name,
+            @column.BuiltinColumn::from_bools(buf),
+          )
         }
         _ =>
           raise @types.DataError::TypeMismatch(
@@ -400,7 +494,10 @@ pub fn Series::fill_null(
       match self.storage.data() {
         @column.ColumnData::String(data) => {
           let buf = fill_buffer(data, valid, v)
-          { name: self.name, storage: @column.BuiltinColumn::from_strings(buf) }
+          Series::from_builtin(
+            self.name,
+            @column.BuiltinColumn::from_strings(buf),
+          )
         }
         _ =>
           raise @types.DataError::TypeMismatch(
@@ -409,6 +506,7 @@ pub fn Series::fill_null(
           )
       }
   }
+  preserve_backend(self, filled)
 }
 
 ///|
@@ -438,8 +536,38 @@ pub fn Series::to_float(self : Series) -> Series raise @types.DataError {
 
 ///|
 /// Convenience: cast to `String`. The output series keeps the same
-/// name. Total — `BuiltinColumn::to_string_column` never fails (every
-/// dtype has a value-form rendering), unlike `to_int` / `to_float`.
+/// name and lands on the `Builtin` backend (a stringified column is
+/// non-numeric). Total — `ColumnStorage::to_string_column` never fails
+/// (every dtype has a value-form rendering), unlike `to_int` / `to_float`.
 pub fn Series::to_string_series(self : Series) -> Series {
-  { name: self.name, storage: self.storage.to_string_column() }
+  Series::from_builtin(self.name, self.storage.to_string_column())
+}
+
+// ── Storage backend control ───────────────────────────────────────────
+
+///|
+/// Which storage backend currently backs this column: `Numeric` for the
+/// all-valid unboxed fast path (built by `from_ints` / `from_floats`, and
+/// preserved through structural transforms), `Builtin` otherwise.
+pub fn Series::storage_kind(self : Series) -> @column.StorageKind {
+  self.storage.kind()
+}
+
+///|
+/// Move this column onto the `Numeric` fast-path backend. The values are
+/// unchanged — only the backing representation. `raise TypeMismatch` for a
+/// non-numeric column and `raise InvalidOperation` for one carrying nulls
+/// (a `NumericColumn` has no validity bitmap to record them); an
+/// already-`Numeric` column is returned unchanged.
+pub fn Series::to_numeric(self : Series) -> Series raise @types.DataError {
+  Series::new(self.name, self.storage.to_numeric())
+}
+
+///|
+/// Materialise this column onto the general-purpose `Builtin` backend (the
+/// inverse of `to_numeric`). Total and lossless: an all-valid `Numeric`
+/// column widens to a `BuiltinColumn` with an all-valid bitmap; a `Builtin`
+/// column is returned unchanged.
+pub fn Series::to_builtin(self : Series) -> Series {
+  Series::from_builtin(self.name, self.storage.to_builtin())
 }

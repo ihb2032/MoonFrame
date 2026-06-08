@@ -482,3 +482,72 @@ test "structural equality compares schema + columns + nrows" {
   ])
   assert_not_eq(a, c)
 }
+
+// ── storage backend control: storage_kinds / to_numeric / to_builtin ──
+
+///|
+test "to_numeric converts eligible columns and keeps the rest (storage_kinds reflects it)" {
+  let df = DataFrame::new([
+    // Builtin, all-valid Int → converts to Numeric.
+    Series::from_int_options("vi", [Some(1), Some(2), Some(3)]),
+    // Builtin, all-valid Float → converts to Numeric.
+    Series::from_float_options("vf", [Some(1.5), Some(2.5), Some(3.5)]),
+    // Builtin, carries a null → kept (a NumericColumn can't hold nulls).
+    Series::from_int_options("ni", [Some(1), None, Some(3)]),
+    // Builtin, non-numeric → kept.
+    Series::from_strings("s", ["a", "b", "c"]),
+    // Already Numeric → returned unchanged.
+    Series::from_ints("ai", [7, 8, 9]),
+  ])
+  assert_eq(df.storage_kinds(), [
+    @column.StorageKind::Builtin,
+    @column.StorageKind::Builtin,
+    @column.StorageKind::Builtin,
+    @column.StorageKind::Builtin,
+    @column.StorageKind::Numeric,
+  ])
+  let n = df.to_numeric()
+  // Eligible columns moved; nullable / non-numeric / already-Numeric kept.
+  assert_eq(n.storage_kinds(), [
+    @column.StorageKind::Numeric,
+    @column.StorageKind::Numeric,
+    @column.StorageKind::Builtin,
+    @column.StorageKind::Builtin,
+    @column.StorageKind::Numeric,
+  ])
+  // Total: a backend swap preserves names, dtypes, values, and invariants.
+  assert_eq(n.schema(), df.schema())
+  assert_eq(n.check_invariants(), Ok(()))
+  for name in ["vi", "vf", "ni", "s", "ai"] {
+    assert_eq(n.get_column(name).to_scalars(), df.get_column(name).to_scalars())
+  }
+}
+
+///|
+test "to_builtin materialises every column to Builtin and round-trips with to_numeric" {
+  let df = DataFrame::new([
+    Series::from_ints("a", [1, 2]),
+    Series::from_floats("b", [1.5, 2.5]),
+    Series::from_strings("c", ["x", "y"]),
+  ])
+  assert_eq(df.storage_kinds(), [
+    @column.StorageKind::Numeric,
+    @column.StorageKind::Numeric,
+    @column.StorageKind::Builtin,
+  ])
+  let b = df.to_builtin()
+  assert_eq(b.storage_kinds(), [
+    @column.StorageKind::Builtin,
+    @column.StorageKind::Builtin,
+    @column.StorageKind::Builtin,
+  ])
+  // Lossless: values + invariants preserved, and to_numeric reverses it on
+  // the numeric columns.
+  assert_eq(b.check_invariants(), Ok(()))
+  assert_eq(b.get_column("a").to_scalars(), df.get_column("a").to_scalars())
+  assert_eq(b.to_numeric().storage_kinds(), [
+    @column.StorageKind::Numeric,
+    @column.StorageKind::Numeric,
+    @column.StorageKind::Builtin,
+  ])
+}

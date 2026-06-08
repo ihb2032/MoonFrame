@@ -1,27 +1,34 @@
 ///|
 /// Pluggable column-storage seam. `ColumnStorage` is the closed enum a
-/// `Series` will hold instead of a bare `BuiltinColumn` (the v0.3 core
-/// breaking change, landed in S3): one arm per backend, each forwarding the
-/// shared accessor surface to the column it wraps.
+/// `Series` holds instead of a bare `BuiltinColumn` (the v0.3 core breaking
+/// change, wired in S3): one arm per backend, each forwarding the shared
+/// accessor surface to the column it wraps.
 ///
 /// The design discipline is **transparent forwarding**: every accessor here
 /// matches both arms and delegates to the identically-named method on the
 /// underlying column, so the call sites that read a column through
-/// `.storage().data()` / `.storage().validity()` keep compiling verbatim
-/// when `Series::storage()` flips its return type. The `Numeric` arm has no
+/// `.storage().data()` / `.storage().validity()` (in `drop_nulls` /
+/// `group_by` / `join` / `sort`) keep compiling verbatim once
+/// `Series::storage()` flips its return type. The `Numeric` arm has no
 /// stored bitmap, so `validity()` synthesises an all-valid one on demand
-/// (`Bitmap::all_valid(len)`) — the only place the two backends diverge.
+/// (`Bitmap::all_valid(len)`) — the one point the two backends diverge.
 ///
-/// ── S0 spike scope ─────────────────────────────────────────────────────
-/// This is the Stage 2 spike (`PLAN_v0.3.md` §3 S0): the minimal accessor
-/// slice needed to validate, before the `Series.storage` flip, that (1) a
-/// closed `{ Builtin; Numeric }` enum's `match` arms are each reachable so
-/// coverage stays 100% with no dead arm, and (2) the `data()` / `validity()`
-/// forwarders the four ops files (`drop_nulls` / `group_by` / `join` /
-/// `sort`) actually call are signature-identical to `BuiltinColumn`'s. S2
-/// extends this with the full surface (`slice` / `take` / `cast` / `to_int`
-/// / `to_float` / `*_values` / `to_builtin` / `to_string_column` /
-/// `to_numeric`). Folds forward additively.
+/// Two shapes of accessor:
+///   * **structural / value reads** (`dtype` / `len` / `get` / `slice` /
+///     `take` / `*_values` …) forward to both arms; `slice` / `take` keep
+///     the backend (a sub-range of an all-valid `Numeric` column is itself
+///     all-valid, so it stays `Numeric` — the fast path survives the
+///     transform).
+///   * **cross-dtype transforms** (`cast` / `to_int` / `to_float`) route
+///     through `to_builtin()` and let `BuiltinColumn` do the work, returning
+///     a `Builtin`-backed result rather than re-implementing the whole cast
+///     machine on the `Numeric` arm. This keeps `NumericColumn`'s surface
+///     lean (the numeric fast path only); a caller that wants the result
+///     back on the `Numeric` backend re-converges with `to_numeric()`.
+///
+/// `to_numeric()` is the convergence direction: an all-valid Int / Float
+/// `Builtin` column moves onto `NumericColumn`; a column with nulls or a
+/// non-numeric dtype `raise`s rather than silently losing information.
 
 ///|
 /// Which backend a `ColumnStorage` (or `Series`) currently uses. `ArrowLike`
@@ -59,8 +66,8 @@ pub fn ColumnStorage::from_numeric(column : NumericColumn) -> ColumnStorage {
 // ── Inspection (transparent forwarding, both arms) ────────────────────
 
 ///|
-/// Which backend is in use — the discriminant `Series::storage_kind` will
-/// surface (S3).
+/// Which backend is in use — the discriminant `Series::storage_kind`
+/// surfaces (S3).
 pub fn ColumnStorage::kind(self : ColumnStorage) -> StorageKind {
   match self {
     Builtin(_) => StorageKind::Builtin
@@ -124,6 +131,23 @@ pub fn ColumnStorage::validity(self : ColumnStorage) -> Bitmap {
   }
 }
 
+// ── Cell access ───────────────────────────────────────────────────────
+
+///|
+/// Whether cell `index` is null. Out-of-bounds index `raise
+/// IndexOutOfBounds`. The `Numeric` arm is structurally always valid (its
+/// `is_null` only does the bounds check), so the two backends agree on the
+/// diagnostic.
+pub fn ColumnStorage::is_null(
+  self : ColumnStorage,
+  index : Int,
+) -> Bool raise @types.DataError {
+  match self {
+    Builtin(c) => c.is_null(index)
+    Numeric(c) => c.is_null(index)
+  }
+}
+
 ///|
 /// Read a single cell as a `Scalar`. Out-of-bounds index
 /// `raise IndexOutOfBounds`.
@@ -134,5 +158,182 @@ pub fn ColumnStorage::get(
   match self {
     Builtin(c) => c.get(index)
     Numeric(c) => c.get(index)
+  }
+}
+
+// ── Sub-views (backend-preserving) ────────────────────────────────────
+
+///|
+/// Half-open `[start, end)` slice, keeping the backend: a sub-range of an
+/// all-valid `Numeric` column is itself all-valid, so it stays `Numeric`
+/// (no bitmap to repack). Bounds diagnostics match `BuiltinColumn::slice` /
+/// `NumericColumn::slice`.
+pub fn ColumnStorage::slice(
+  self : ColumnStorage,
+  start : Int,
+  end : Int,
+) -> ColumnStorage raise @types.DataError {
+  match self {
+    Builtin(c) => Builtin(c.slice(start, end))
+    Numeric(c) => Numeric(c.slice(start, end))
+  }
+}
+
+///|
+/// Gather: output cell `i` is `self[indices[i]]`, keeping the backend (a
+/// gather of an all-valid `Numeric` column is still all-valid). Any
+/// out-of-bounds index `raise IndexOutOfBounds(idx)`.
+pub fn ColumnStorage::take(
+  self : ColumnStorage,
+  indices : Array[Int],
+) -> ColumnStorage raise @types.DataError {
+  match self {
+    Builtin(c) => Builtin(c.take(indices))
+    Numeric(c) => Numeric(c.take(indices))
+  }
+}
+
+// ── Typed accessors (zero-boxing; forwarded to both arms) ─────────────
+
+///|
+/// Raw `Int64` array + validity bitmap (the `Numeric` arm synthesises an
+/// all-valid one). `raise TypeMismatch` on a non-`Int` column.
+pub fn ColumnStorage::int_values(
+  self : ColumnStorage,
+) -> (Array[Int64], Bitmap) raise @types.DataError {
+  match self {
+    Builtin(c) => c.int_values()
+    Numeric(c) => c.int_values()
+  }
+}
+
+///|
+/// Like `int_values` but for `Float` columns.
+pub fn ColumnStorage::float_values(
+  self : ColumnStorage,
+) -> (Array[Double], Bitmap) raise @types.DataError {
+  match self {
+    Builtin(c) => c.float_values()
+    Numeric(c) => c.float_values()
+  }
+}
+
+///|
+/// Like `int_values` but for `Bool` columns. A `Numeric` column is never
+/// `Bool`, so its arm always `raise TypeMismatch`.
+pub fn ColumnStorage::bool_values(
+  self : ColumnStorage,
+) -> (Array[Bool], Bitmap) raise @types.DataError {
+  match self {
+    Builtin(c) => c.bool_values()
+    Numeric(c) => c.bool_values()
+  }
+}
+
+///|
+/// Like `int_values` but for `String` columns. A `Numeric` column is never
+/// `String`, so its arm always `raise TypeMismatch`.
+pub fn ColumnStorage::string_values(
+  self : ColumnStorage,
+) -> (Array[String], Bitmap) raise @types.DataError {
+  match self {
+    Builtin(c) => c.string_values()
+    Numeric(c) => c.string_values()
+  }
+}
+
+// ── Materialise ───────────────────────────────────────────────────────
+
+///|
+/// The column as a `BuiltinColumn` (the general-purpose Arrow backend).
+/// Total: a `Builtin` is already one; a `Numeric` widens losslessly via
+/// `NumericColumn::to_builtin` (an all-valid bitmap is synthesised). The
+/// escape hatch the cross-dtype transforms route through.
+pub fn ColumnStorage::to_builtin(self : ColumnStorage) -> BuiltinColumn {
+  match self {
+    Builtin(c) => c
+    Numeric(c) => c.to_builtin()
+  }
+}
+
+///|
+/// Render every cell to its `String` value-form, yielding a `String`
+/// `BuiltinColumn`. Total — every dtype has a value-form rendering. The
+/// result is non-numeric so it is necessarily a `BuiltinColumn`.
+pub fn ColumnStorage::to_string_column(self : ColumnStorage) -> BuiltinColumn {
+  match self {
+    Builtin(c) => c.to_string_column()
+    Numeric(c) => c.to_string_column()
+  }
+}
+
+// ── Cross-dtype transforms (borrow the Builtin road) ──────────────────
+
+///|
+/// Cast to `target`, routing through `to_builtin()` so `BuiltinColumn`'s
+/// cast machine is reused rather than duplicated on the `Numeric` arm. The
+/// result is `Builtin`-backed; re-converge with `to_numeric()` if a numeric
+/// target should land back on the fast path. Supported targets and failure
+/// modes match `BuiltinColumn::cast`.
+pub fn ColumnStorage::cast(
+  self : ColumnStorage,
+  target : @types.DataType,
+) -> ColumnStorage raise @types.DataError {
+  ColumnStorage::from_builtin(self.to_builtin().cast(target))
+}
+
+///|
+/// Convenience: cast to `Int` (borrowing the Builtin road, as `cast`).
+pub fn ColumnStorage::to_int(
+  self : ColumnStorage,
+) -> ColumnStorage raise @types.DataError {
+  ColumnStorage::from_builtin(self.to_builtin().to_int())
+}
+
+///|
+/// Convenience: cast to `Float` (borrowing the Builtin road, as `cast`).
+pub fn ColumnStorage::to_float(
+  self : ColumnStorage,
+) -> ColumnStorage raise @types.DataError {
+  ColumnStorage::from_builtin(self.to_builtin().to_float())
+}
+
+// ── Converge onto the Numeric backend ─────────────────────────────────
+
+///|
+/// Move an all-valid Int / Float column onto the `Numeric` fast-path
+/// backend. An already-`Numeric` column is returned as-is. A `Builtin`
+/// column converts only when it can do so without loss:
+/// - `raise InvalidOperation` when it carries any null (a `NumericColumn`
+///   has no validity bitmap, so nulls cannot be represented);
+/// - `raise TypeMismatch` when its dtype is `Bool` / `String` (the fast
+///   path is numeric-only).
+///
+/// The null-free Int / Float arms reuse the raw data array (it is the true
+/// data, every slot being valid), so the move allocates no new buffer.
+pub fn ColumnStorage::to_numeric(
+  self : ColumnStorage,
+) -> ColumnStorage raise @types.DataError {
+  match self {
+    Numeric(_) => self
+    Builtin(c) =>
+      if c.null_count() > 0 {
+        raise @types.DataError::InvalidOperation(
+          "cannot convert a column with nulls to Numeric (null_count=" +
+          c.null_count().to_string() +
+          ")",
+        )
+      } else {
+        match c.data() {
+          ColumnData::Int(a) => Numeric(NumericColumn::from_int64s(a))
+          ColumnData::Float(a) => Numeric(NumericColumn::from_doubles(a))
+          _ =>
+            raise @types.DataError::TypeMismatch(
+              "cannot convert a " +
+              c.dtype().to_string() +
+              " column to Numeric (only Int / Float)",
+            )
+        }
+      }
   }
 }

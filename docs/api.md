@@ -286,9 +286,12 @@ dependencies** (NyaCSV / fs / @json live only in `io`).
   identity, `Bool` / `String` → `TypeMismatch`; `mean()` — `Double`,
   empty / all-null numeric → `InvalidOperation`, non-numeric →
   `TypeMismatch`; `describe() -> DataFrame` — one-row six-column summary
-  (`count` / `null_count` / `unique_count` / `mean` / `min` / `max`),
-  raising only because it builds through `DataFrame::new` (always
-  succeeds in practice). `Float` `NaN` is a value, not missing: it
+  (`count` / `null_count` / `unique_count` / `mean` / `min` / `max`); a
+  single series carries one dtype, so `min` / `max` keep that **source
+  dtype** here (contrast `DataFrame::describe`, which stringifies them to
+  span columns of differing dtype in one summary column). Raises only
+  because it builds through `DataFrame::new` (always succeeds in
+  practice). `Float` `NaN` is a value, not missing: it
   **propagates** through `sum` / `mean` (any non-null `NaN` ⇒ `NaN`) but is
   **skipped** by `min_value` / `max_value` (and `sort_by`) — matching
   Polars, whose `sum`/`mean` propagate `NaN` while its regular `min`/`max`
@@ -373,7 +376,9 @@ transforms, so every output satisfies `check_invariants()`.
   per source column, fixed `N × 8` schema (`column` / `dtype` / `count` /
   `null_count` / `unique_count` (`Int`); `mean` (`Float`, nullable);
   `min` / `max` (`String`, nullable, rendered via `Scalar::to_string`)).
-  0-column collapses to `0 × 8`.
+  Unlike the typed `Series::describe`, `min` / `max` are stringified so a
+  single column can carry extrema across source columns of differing
+  dtype. 0-column collapses to `0 × 8`.
 - `to_markdown() -> String` / `to_markdown_with_limit(limit) -> String`
   — **total** GitHub-flavored pipe-table renderers (IO-1: pure rendering
   lives in `frame`). Column widths align to `max(header, cells)` with a

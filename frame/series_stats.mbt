@@ -296,7 +296,11 @@ pub fn Series::describe(self : Series) -> DataFrame raise @types.DataError {
   cols.push(Series::from_ints("null_count", [self.null_count().to_int64()]))
   cols.push(Series::from_ints("unique_count", [self.unique_count().to_int64()]))
   // `mean` is always present (Null for non-numeric / empty / all-null),
-  // so the summary shape is uniform across dtypes.
+  // so the summary shape is uniform across dtypes. `Series::mean` raises
+  // only `TypeMismatch` (non-numeric) or `InvalidOperation` (empty /
+  // all-null numeric); the wildcard catches exactly those two. Spelling
+  // them out and re-raising the rest would leave an unreachable arm that
+  // breaks the 100% line-coverage gate, so the wide catch stays.
   let mean_col = try self.mean() catch {
     _ => Series::from_float_options("mean", [None])
   } noraise {

@@ -7,7 +7,7 @@
 /// Numeric recognition lives here, in `types`, so every layer agrees on
 /// what counts as an integer literal: the CSV / JSON readers' type
 /// inference and the `@column` String→`Int` cast all route through this
-/// one predicate before handing the text to `@string.parse_int`. That
+/// one predicate before handing the text to `@string.parse_int64`. That
 /// parser defaults to `base = 0` and would otherwise silently accept hex
 /// / octal / binary prefixes (`0xFF` → 255) and underscores (`1_000` →
 /// 1000) — forms pandas / polars keep as strings. Sharing the screen (the

@@ -69,8 +69,8 @@ test "check_invariants holds after head / tail / slice / take" {
 }
 
 // ── Error-message shape sanity ───────────────────────────────────────
-// We can't easily *induce* an invariant violation without exposing
-// private constructors, but we can sanity-check that `Ok(())` is the
-// only expected output by relying on the Result equality assertion
-// above. The error-message branches are exercised indirectly when
-// future ops regress: a failing invariant test will print the message.
+// Inducing an invariant violation requires building a malformed
+// `DataFrame` directly, which only same-package code can do — see
+// `invariants_wbtest.mbt`, whose white-box tests construct illegal
+// frames via struct literals and assert each INV1–INV7 error branch.
+// The black-box tests here instead confirm the happy path stays `Ok(())`.

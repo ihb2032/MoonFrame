@@ -546,6 +546,32 @@ test "parse_csv_str: allow_nonfinite_floats gates nan / inf float inference" {
   assert_eq(as_string.get(2, "x"), @types.Scalar::String("inf"))
 }
 
+///|
+test "parse_csv_str: allow_nonfinite=false rejects a leading inf (is_inf gate)" {
+  // Regression for the `parse_float_opt` non-finite gate: its `x.is_inf()`
+  // arm is only reached when a cell parses to ±Infinity *without* a NaN
+  // ahead of it short-circuiting `is_nan() || is_inf()`. With `inf` as the
+  // first cell, float inference probes it directly, hits `is_inf()`, rejects
+  // it, and the column falls back to String instead of Float.
+  let content =
+    #|x
+    #|inf
+    #|2.5
+    #|
+  let df = @io.parse_csv_str(content, {
+    has_header: true,
+    delimiter: ',',
+    infer_schema_rows: 100,
+    null_values: [""],
+    strict_column_count: false,
+    on_parse_error: @io.OnParseError::Raise,
+    allow_nonfinite_floats: false,
+  })
+  assert_eq(df.get_column("x").dtype(), @types.DataType::String)
+  assert_eq(df.get(0, "x"), @types.Scalar::String("inf"))
+  assert_eq(df.get(1, "x"), @types.Scalar::String("2.5"))
+}
+
 // ── format_csv_str: happy paths ───────────────────────────────────────
 
 ///|

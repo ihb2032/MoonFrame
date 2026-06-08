@@ -81,20 +81,19 @@ pub fn Bitmap::is_null(
 }
 
 ///|
-/// Number of null (0) bits in the logical range `[0, len)`. Trailing bits
-/// past `len` in the final byte are kept zero by all constructors, so this
-/// can safely popcount the entire byte buffer; we still walk bit-by-bit
-/// rather than rely on that invariant because the cost is negligible for
-/// v0.1 sizes and the implementation stays trivially correct.
+/// Number of null (0) bits in the logical range `[0, len)`. Every
+/// constructor keeps the trailing bits past `len` in the final byte zero
+/// (the type invariant), so the 1 bits in the whole buffer are exactly the
+/// valid slots in `[0, len)`: popcount the buffer a byte at a time and the
+/// nulls are `len` minus that. This replaces the per-bit scan with one
+/// `popcount_byte` per 8 slots — same answer, ~8× fewer iterations and no
+/// per-slot branch.
 pub fn Bitmap::null_count(self : Bitmap) -> Int {
-  let n = self.len
-  let mut nulls = 0
-  for i in 0..<n {
-    if !bit_at(self.bits, i) {
-      nulls = nulls + 1
-    }
+  let mut valid = 0
+  for i in 0..<self.bits.length() {
+    valid = valid + popcount_byte(self.bits[i])
   }
-  nulls
+  self.len - valid
 }
 
 ///|
@@ -217,6 +216,18 @@ fn bit_at(bytes : Bytes, i : Int) -> Bool {
   let byte_idx = i / 8
   let bit_idx = i % 8
   ((bytes[byte_idx].to_int() >> bit_idx) & 1) == 1
+}
+
+///|
+/// Population count of one byte (number of 1 bits) via the classic SWAR
+/// bit-folding — no lookup table and no backend-specific intrinsic, so it is
+/// identical across wasm / wasm-gc / js / native. Backs `null_count`'s
+/// byte-at-a-time valid-bit count.
+fn popcount_byte(b : Byte) -> Int {
+  let mut x = b.to_int() & 0xff
+  x = x - ((x >> 1) & 0x55)
+  x = (x & 0x33) + ((x >> 2) & 0x33)
+  (x + (x >> 4)) & 0x0f
 }
 
 ///|

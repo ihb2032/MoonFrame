@@ -34,9 +34,14 @@ variants and match on them after a `try?`.
 
 ## Status
 
-**v0.2 (method-chain migration) — shipped.** The whole v0.1 surface moved to
-the method-chain + `raise` form described in [`docs/api.md`](docs/api.md), the
-authoritative public-API reference:
+**v0.3 — shipped.** Output formats (HTML + Vega-Lite), the full join matrix
+(Right / Outer), CSV / JSON / NDJSON read resilience, and a pluggable
+column-storage backend (`ColumnStorage` / `NumericColumn`) land on top of the
+v0.2 method-chain core. [`docs/api.md`](docs/api.md) is the authoritative
+public-API reference.
+
+**v0.2 (method-chain migration).** The whole v0.1 surface moved to the
+method-chain + `raise` form:
 
 - The operator verbs (`select` / `drop` / `rename` / `with_column` /
   `replace_column` / `filter` / `sort_by` / `drop_nulls` / `drop_nulls_in` /
@@ -276,6 +281,7 @@ For end-to-end CLI programs, run the bundled examples from the project root:
 ```sh
 moon run examples/sales_analysis    # read_csv → filter → select → sort_by → describe → markdown
 moon run examples/data_cleaning     # read_csv → drop_nulls_in → fill_null → write_csv round-trip
+moon run examples/reporting         # read_csv → group_by/agg → sort_by → to_html + Vega-Lite spec
 ```
 
 Each example splits its pipeline logic into a library sub-package

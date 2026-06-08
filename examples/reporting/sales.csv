@@ -1,0 +1,9 @@
+region,product,revenue,quantity
+west,widget,100,10
+east,gadget,50,5
+west,gadget,70,7
+east,widget,30,3
+north,widget,40,4
+north,gadget,60,6
+west,gizmo,90,9
+east,gizmo,20,2

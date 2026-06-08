@@ -1,8 +1,8 @@
-# MoonFrame v0.2 — Public API
+# MoonFrame v0.3 — Public API
 
-> Status: **method-chain migration shipped**. This document is the
-> source of truth for the v0.2 public surface. When a symbol is
-> published in code, it must appear here.
+> Status: **v0.3 shipped** (output formats, full join matrix, pluggable
+> column storage). This document is the source of truth for the v0.3
+> public surface. When a symbol is published in code, it must appear here.
 
 The facade package `ihb2032/MoonFrame` re-exports every symbol below
 via `pub using @<subpkg> { ... }`, so a single
@@ -15,7 +15,7 @@ Runnable, CI-verified examples of the surface below live in
 [`quickstart.mbt.md`](../quickstart.mbt.md) (doc tests executed by `moon test`
 on every backend).
 
-## Error model (v0.2)
+## Error model
 
 Every operation that can fail on bad input or I/O is an effectful
 function with signature `... -> T raise DataError`. There is no
@@ -708,9 +708,6 @@ facade.
 
 ---
 
-## Out of scope for v0.2 (so far)
+## Out of scope for v0.3 (so far)
 
 - Expression / lazy query API — v0.4
-
-(HTML output, Vega-Lite chart export, and the `ColumnStorage` /
-`NumericColumn` pluggable storage backend have since landed in v0.3.)

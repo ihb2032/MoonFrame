@@ -35,7 +35,15 @@ pub using @types {
 }
 
 ///|
-pub using @column {type Bitmap, type BuiltinColumn, type ColumnData}
+pub using @column {
+  type Bitmap,
+  type BuiltinColumn,
+  type ColumnData,
+  type NumericColumn,
+  type NumericData,
+  type ColumnStorage,
+  type StorageKind,
+}
 
 ///|
 pub using @frame {

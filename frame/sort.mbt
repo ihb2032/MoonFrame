@@ -75,14 +75,17 @@ pub fn DataFrame::sort_by(
 }
 
 ///|
-/// Resolve a `BuiltinColumn` into a typed `SortKey`, matching on the
-/// concrete backing array via `storage.data()` — `ColumnData`'s four
+/// Resolve a column's `ColumnStorage` into a typed `SortKey`, matching on
+/// the concrete backing array via `storage.data()` — `ColumnData`'s four
 /// variants are exhaustive, so there's no fallback branch to `unwrap`.
 /// Missingness (`Null`, plus `NaN` for `Float`) is pre-computed into a
 /// dense `Array[Bool]` here, once per key, so the comparator reads it by
 /// plain index instead of repeating a bitmap lookup on every comparison.
+/// Reads only `validity()` / `data()`, both of which `ColumnStorage`
+/// forwards, so the v0.3 `Series::storage()` flip needed no logic change
+/// here — only this parameter's type.
 fn build_sort_key(
-  storage : @column.BuiltinColumn,
+  storage : @column.ColumnStorage,
   order : SortOrder,
   null_order : NullOrder,
 ) -> SortKey {

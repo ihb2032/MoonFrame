@@ -78,13 +78,16 @@ pub fn DataFrame::select(Self, Array[String]) -> Self raise @types.DataError
 pub fn DataFrame::shape(Self) -> (Int, Int)
 pub fn DataFrame::slice(Self, Int, Int) -> Self raise @types.DataError
 pub fn DataFrame::sort_by(Self, Array[(String, SortOrder, NullOrder)]) -> Self raise @types.DataError
+pub fn DataFrame::storage_kinds(Self) -> Array[@column.StorageKind]
 pub fn DataFrame::sum(Self, String) -> @types.Scalar raise @types.DataError
 pub fn DataFrame::tail(Self, Int) -> Self
 pub fn DataFrame::take(Self, Array[Int]) -> Self raise @types.DataError
+pub fn DataFrame::to_builtin(Self) -> Self
 pub fn DataFrame::to_html(Self) -> String
 pub fn DataFrame::to_html_with_options(Self, HtmlOptions) -> String
 pub fn DataFrame::to_markdown(Self) -> String
 pub fn DataFrame::to_markdown_with_limit(Self, Int) -> String
+pub fn DataFrame::to_numeric(Self) -> Self
 pub fn DataFrame::with_column(Self, Series) -> Self raise @types.DataError
 
 pub struct GroupedDataFrame {
@@ -145,7 +148,7 @@ pub fn RowView::is_null(Self, String) -> Bool raise @types.DataError
 
 pub struct Series {
   name : String
-  storage : @column.BuiltinColumn
+  storage : @column.ColumnStorage
 } derive(Eq, @debug.Debug)
 pub fn Series::cast(Self, @types.DataType) -> Self raise @types.DataError
 pub fn Series::count(Self) -> Int
@@ -170,16 +173,19 @@ pub fn Series::max_value(Self) -> @types.Scalar
 pub fn Series::mean(Self) -> Double raise @types.DataError
 pub fn Series::min_value(Self) -> @types.Scalar
 pub fn Series::name(Self) -> String
-pub fn Series::new(String, @column.BuiltinColumn) -> Self
+pub fn Series::new(String, @column.ColumnStorage) -> Self
 pub fn Series::null_count(Self) -> Int
 pub fn Series::null_rate(Self) -> Double
 pub fn Series::rename(Self, String) -> Self
 pub fn Series::slice(Self, Int, Int) -> Self raise @types.DataError
-pub fn Series::storage(Self) -> @column.BuiltinColumn
+pub fn Series::storage(Self) -> @column.ColumnStorage
+pub fn Series::storage_kind(Self) -> @column.StorageKind
 pub fn Series::sum(Self) -> @types.Scalar raise @types.DataError
 pub fn Series::take(Self, Array[Int]) -> Self raise @types.DataError
+pub fn Series::to_builtin(Self) -> Self
 pub fn Series::to_float(Self) -> Self raise @types.DataError
 pub fn Series::to_int(Self) -> Self raise @types.DataError
+pub fn Series::to_numeric(Self) -> Self raise @types.DataError
 pub fn Series::to_scalars(Self) -> Array[@types.Scalar]
 pub fn Series::to_string_series(Self) -> Self
 pub fn Series::unique_count(Self) -> Int

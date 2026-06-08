@@ -426,5 +426,8 @@ test "format_ndjson / parse_ndjson_str round-trip preserves data" {
   ])
   let text = @io.format_ndjson(df)
   let df2 = @io.parse_ndjson_str(text, @io.NdjsonReadOptions::default())
-  assert_eq(df, df2)
+  // The reader produces Builtin-backed columns; the round-trip preserves the
+  // *data*, so compare on a common backend (the original's `r`, built with
+  // `from_floats`, is on the Numeric fast path).
+  assert_eq(df.to_builtin(), df2.to_builtin())
 }

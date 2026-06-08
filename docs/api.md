@@ -119,9 +119,13 @@ validity bitmap (`1 = valid`, `0 = null`).
 
 ### Validity bitmap
 
-- `struct Bitmap { bits : Bytes, len : Int }` — byte-packed at 1 bit per
-  row, `1 = valid`. Slot `i` lives in `bits[i / 8]` at bit `i % 8` (LSB
-  first); a bitmap of `len` slots occupies exactly `⌈len / 8⌉` bytes.
+- `struct Bitmap { bits : Bytes, offset : Int, len : Int }` — byte-packed
+  at 1 bit per row, `1 = valid`. Logical slot `i` lives at physical bit
+  `offset + i` (`bits[(offset + i) / 8]`, bit `(offset + i) % 8`, LSB
+  first). A constructor builds a tight `⌈len / 8⌉`-byte buffer with
+  `offset = 0`; `slice` is a zero-copy view that shares the parent buffer
+  and advances `offset`, so equality is logical over the
+  `[offset, offset + len)` window rather than structural.
   Note: some MoonBit ecosystem libraries (e.g. `smallbearrr/pandas`) use
   the **opposite** convention (`true = null`).
 - Total constructors: `all_valid(len)` / `all_null(len)` /
@@ -409,10 +413,11 @@ Split-apply-combine, native to the method chain
 - `group_by(keys : Array[String]) -> GroupedDataFrame raise DataError` —
   partition the frame by one or more key columns. Group order is **first
   appearance** (equivalent to Polars' `maintain_order=True`), so the result
-  is deterministic. Group identity is the composite of each key cell's
-  `Scalar::to_string` (the canonical value form `unique_count` keys on), so
-  a `Float` `NaN` collapses all NaNs into one group (Polars treats `NaN` as
-  equal for grouping), and a **null** key forms its **own** group rather
+  is deterministic. Group identity is the composite tuple of the key cells,
+  hashed on each cell's native value, so a `Float` `NaN` collapses all NaNs
+  into one group (Polars treats `NaN` as equal for grouping; `-0.0` and
+  `+0.0` likewise share a group), and a **null** key forms its **own** group
+  rather
   than being dropped (the Polars default — pandas drops null keys — and the
   deliberate difference from `join`, where `null` matches nothing). One key
   or several; an empty `keys` list makes a single grand-total group; a
@@ -454,8 +459,8 @@ Hash equi-join, native to the method chain (`left.join(right, options)`).
 - `join(other, options : JoinOptions) -> DataFrame raise DataError` — join
   `self` (left) with `other` (right) on the `options.on` key columns. Two
   rows match when every key holds an equal value, using the **same
-  composite-key encoding as `group_by`** (each cell's `Scalar::to_string`,
-  length-prefixed so a multi-key composite is injective). The one
+  composite-key encoding as `group_by`** (a tuple of the key cells, keyed
+  on each native value, structurally injective across key columns). The one
   deliberate difference from `group_by`: a **null** key matches **nothing**
   (`null != null`, the SQL / Polars default) — such an unmatched row is
   dropped by `Inner` and kept (with the other side's columns null) by

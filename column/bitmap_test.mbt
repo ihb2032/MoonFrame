@@ -240,3 +240,38 @@ test "bit_and on two empty bitmaps yields an empty bitmap" {
   let c = a.bit_and(b)
   assert_eq(c.len(), 0)
 }
+
+// ── zero-copy slice views (P3) ───────────────────────────────────────
+
+///|
+test "sliced view equals a freshly packed bitmap and counts its own window" {
+  // slice(3, 5) is a zero-copy view (offset 3 into the parent's buffer); it
+  // must compare logically equal to the same five bits packed standalone,
+  // and null_count must count only the view's window — not the parent's
+  // other bits.
+  let bm = Bitmap::from_bools([
+    true, false, true, // bits 0..2
+     false, true, true, false, true, // bits 3..7  (the window starts at 3)
+     false, false, // bits 8..9
+  ])
+  let view = bm.slice(3, 5) // bits 3..7 = [false, true, true, false, true]
+  let fresh = Bitmap::from_bools([false, true, true, false, true])
+  assert_eq(view, fresh)
+  assert_eq(view.null_count(), 2)
+  assert_eq(fresh.null_count(), 2)
+  // A view of a view composes the offsets.
+  let inner = view.slice(1, 3) // [true, true, false]
+  assert_eq(inner, Bitmap::from_bools([true, true, false]))
+  assert_eq(inner.null_count(), 1)
+}
+
+///|
+test "bitmap equality is logical, not structural" {
+  let a = Bitmap::from_bools([true, false, true])
+  // Same length, one differing bit → not equal.
+  assert_eq(a == Bitmap::from_bools([true, true, true]), false)
+  // Different length → not equal.
+  assert_eq(a == Bitmap::from_bools([true, false]), false)
+  // Same bits → equal.
+  assert_eq(a == Bitmap::from_bools([true, false, true]), true)
+}

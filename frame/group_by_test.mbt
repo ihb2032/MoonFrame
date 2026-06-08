@@ -177,6 +177,27 @@ test "Float NaN keys collapse into a single group" {
   assert_eq(out.get(1, "v_sum"), @types.Scalar::Int(2))
 }
 
+///|
+test "Float -0.0 and +0.0 keys collapse into a single group" {
+  // +0.0 and -0.0 are IEEE-equal and both render "0", so they must land in
+  // the SAME group — exercising the `KFloat` zero-fold in `row_key.mbt`
+  // (without it the two would hash to distinct keys). Keys 0.0, -0.0, 1.5,
+  // 0.0 give two groups: the zero group (rows 0, 1, 3) then the 1.5 group
+  // (row 2).
+  let df = DataFrame::new([
+    Series::from_floats("k", [0.0, -0.0, 1.5, 0.0]),
+    Series::from_ints("v", [1, 2, 3, 4]),
+  ])
+  let out = df.group_by(["k"]).agg([AggSpec::sum("v")])
+  assert_eq(out.check_invariants(), Ok(()))
+  assert_eq(out.shape(), (2, 2))
+  // Zero group first (sum 1 + 2 + 4 = 7), then the 1.5 group (3).
+  assert_eq(out.get(0, "k"), @types.Scalar::Float(0.0))
+  assert_eq(out.get(0, "v_sum"), @types.Scalar::Int(7))
+  assert_eq(out.get(1, "k"), @types.Scalar::Float(1.5))
+  assert_eq(out.get(1, "v_sum"), @types.Scalar::Int(3))
+}
+
 // ── Dtype preservation ───────────────────────────────────────────────
 
 ///|

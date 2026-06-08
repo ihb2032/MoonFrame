@@ -2,16 +2,15 @@
 /// Equi-join `self` (the left frame) with `other` (the right frame) on
 /// the key columns named in `options.on`, producing a new `DataFrame`.
 ///
-/// Two rows match when every key column holds an equal value, with the
-/// same composite-key encoding `group_by` uses (each cell's
-/// `Scalar::to_string`, length-prefixed so the multi-key composite is
-/// injective across field boundaries). The one deliberate difference from
-/// `group_by`: a **null** key cell matches **nothing** (`null != null`,
-/// the SQL / Polars default) — such an unmatched row is dropped by `Inner`
-/// and kept (with the other side's columns null) by `Left` / `Right` /
-/// `Outer`. A `Float` `NaN` key is *not* null, so — as in `group_by`, and
-/// matching Polars' "NaN compares equal" rule — it renders `"NaN"` and
-/// matches other `NaN` keys.
+/// Two rows match when every key column holds an equal value, using the
+/// same composite-`KeyCell`-tuple encoding `group_by` uses (see
+/// `frame/row_key.mbt`; the tuple is structurally injective across key
+/// columns). The one deliberate difference from `group_by`: a **null** key
+/// cell matches **nothing** (`null != null`, the SQL / Polars default) —
+/// such an unmatched row is dropped by `Inner` and kept (with the other
+/// side's columns null) by `Left` / `Right` / `Outer`. A `Float` `NaN` key
+/// is *not* null, so — as in `group_by`, and matching Polars' "NaN compares
+/// equal" rule — all `NaN` keys match each other.
 ///
 /// `how` selects which unmatched rows survive:
 ///   * `Inner` — only matched pairs.
@@ -118,7 +117,7 @@ pub fn DataFrame::join(
       // Hash the left frame: composite key -> matching left row indices, in
       // ascending order (`i` only grows). A left row with a null key cell is
       // unmatchable, so it is never indexed.
-      let left_index : Map[String, Array[Int]] = {}
+      let left_index : Map[Array[KeyCell], Array[Int]] = {}
       for i in 0..<self.nrows() {
         match join_row_key(left_key_scalars, i) {
           Some(k) =>
@@ -166,7 +165,7 @@ pub fn DataFrame::join(
       // Hash the right frame: composite key -> matching right row indices,
       // in ascending order (`j` only grows). A right row with a null key
       // cell is unmatchable, so it is never indexed.
-      let right_index : Map[String, Array[Int]] = {}
+      let right_index : Map[Array[KeyCell], Array[Int]] = {}
       for j in 0..<other.nrows() {
         match join_row_key(right_key_scalars, j) {
           Some(k) =>
@@ -391,33 +390,6 @@ fn resolve_join_keys(
     right_key_scalars.push(rcol.to_scalars())
   }
   (left_key_scalars, right_key_scalars)
-}
-
-///|
-/// Build row `i`'s composite join key, or `None` if any key cell is null
-/// (a null key matches nothing). For non-null cells the encoding matches
-/// `group_by`'s `row_group_key`: each cell contributes a length-prefixed
-/// `"V" + len + ":" + Scalar::to_string` token, so the composite is
-/// injective — `("a", "bc")` and `("ab", "c")` never collide. Both frames
-/// run through this same function, so a left and a right key match iff
-/// they encode identically (dtypes are pre-checked equal per key, so an
-/// `Int` `5` and a `Float` `5.0` are never compared in the first place).
-fn join_row_key(key_scalars : Array[Array[@types.Scalar]], i : Int) -> String? {
-  let buf = StringBuilder::new()
-  for col in key_scalars {
-    // `col` has `nrows` cells and `i` ranges over `[0, nrows)`, so the read
-    // is in-bounds.
-    let sc = col[i]
-    if sc.is_null() {
-      return None
-    }
-    let s = sc.to_string()
-    buf.write_string("V")
-    buf.write_string(s.length().to_string())
-    buf.write_string(":")
-    buf.write_string(s)
-  }
-  Some(buf.to_string())
 }
 
 ///|

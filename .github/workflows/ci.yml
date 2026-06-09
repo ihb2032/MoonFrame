@@ -60,7 +60,17 @@ jobs:
         run: |
           moon fmt
           moon info
-          git diff --exit-code
+          # `git diff --exit-code` only inspects *tracked* files, so a newly
+          # added package whose generated `pkg.generated.mbti` was never
+          # committed — or any other untracked drift — would slip through
+          # green. Check the full porcelain status so uncommitted *and*
+          # untracked output from `moon fmt` / `moon info` both fail the gate.
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "::error::'moon fmt' / 'moon info' left uncommitted changes — run them locally and commit the result."
+            git status --short
+            git --no-pager diff
+            exit 1
+          fi
 
       - name: Coverage (line coverage must be complete)
         if: runner.os == 'Linux'

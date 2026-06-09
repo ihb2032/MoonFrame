@@ -9,8 +9,8 @@ version.
 ## v0.3 — shipped
 
 Output formats, the full join matrix, read resilience, and a pluggable
-column-storage backend, all on top of the v0.2 method-chain core. See the
-[release notes](release-notes.md) for the announcement and upgrade steps.
+column-storage backend, all on top of the v0.2 method-chain core. The
+source-level upgrade steps are in [`migration.md`](migration.md).
 
 ### HTML rendering (output format)
 

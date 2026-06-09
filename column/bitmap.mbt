@@ -116,18 +116,26 @@ pub fn Bitmap::is_null(
 ///|
 /// Number of null (0) bits in the logical range `[offset, offset + len)`.
 ///
-/// A bitmap a constructor built is *tight* — `offset == 0` and the buffer
-/// is exactly `⌈len / 8⌉` bytes with the trailing bits zero — so its valid
-/// slots are precisely the 1 bits of the whole buffer: popcount it a byte
-/// at a time (one `popcount_byte` per 8 slots) and the nulls are `len`
-/// minus that. A zero-copy `slice` view shares a parent buffer where the
-/// bits outside the window belong to siblings, so a view counts its own
-/// `[offset, offset + len)` window bit by bit instead.
+/// When `offset == 0` the window is byte-aligned at the front, so the full
+/// bytes `[0, len / 8)` are popcounted whole (one `popcount_byte` per 8
+/// slots) and only the final partial byte is masked down to its in-window
+/// bits `[0, len % 8)`. That mask is essential: a zero-copy `slice` view
+/// shares its parent's buffer, so the bits past `len` in that last byte may
+/// be live sibling bits — popcounting them unmasked would over-count valids
+/// (and a constructor-built bitmap keeps those bits zero, so the mask is a
+/// no-op there). An `offset != 0` view has no byte-aligned start, so it
+/// counts its window bit by bit.
 pub fn Bitmap::null_count(self : Bitmap) -> Int {
-  if self.offset == 0 && self.bits.length() == bytes_needed(self.len) {
+  if self.offset == 0 {
+    let full = self.len / 8
     let mut valid = 0
-    for i in 0..<self.bits.length() {
+    for i in 0..<full {
       valid = valid + popcount_byte(self.bits[i])
+    }
+    let tail = self.len % 8
+    if tail != 0 {
+      let mask = (1 << tail) - 1
+      valid = valid + popcount_byte((self.bits[full].to_int() & mask).to_byte())
     }
     self.len - valid
   } else {
@@ -181,6 +189,16 @@ pub fn Bitmap::slice(
   if start + length > self.len {
     raise @types.DataError::IndexOutOfBounds(start + length)
   }
+  self.slice_view(start, length)
+}
+
+///|
+/// Total zero-copy view of `[start, start + length)` — the shared core
+/// behind `slice` (which validates the bounds then calls this) and the total
+/// `BuiltinColumn::slice_unchecked`. It just shares the buffer and advances
+/// `offset`, so the caller must keep `0 <= start` and
+/// `start + length <= len`; both delegators guarantee that.
+fn Bitmap::slice_view(self : Bitmap, start : Int, length : Int) -> Bitmap {
   { bits: self.bits, offset: self.offset + start, len: length }
 }
 

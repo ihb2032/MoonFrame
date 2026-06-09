@@ -87,6 +87,7 @@ pub fn ColumnStorage::kind(Self) -> StorageKind
 pub fn ColumnStorage::len(Self) -> Int
 pub fn ColumnStorage::null_count(Self) -> Int
 pub fn ColumnStorage::slice(Self, Int, Int) -> Self raise @types.DataError
+pub fn ColumnStorage::slice_total(Self, Int, Int) -> Self
 pub fn ColumnStorage::string_values(Self) -> (Array[String], Bitmap) raise @types.DataError
 pub fn ColumnStorage::take(Self, Array[Int]) -> Self raise @types.DataError
 pub fn ColumnStorage::to_builtin(Self) -> BuiltinColumn

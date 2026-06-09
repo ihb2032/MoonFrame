@@ -371,6 +371,23 @@ test "structural transforms preserve the Numeric backend" {
 }
 
 ///|
+test "Series::slice(0, k) null_count counts only the window (zero-copy view)" {
+  // `Series::slice` shares the validity buffer (zero-copy), so a slice that
+  // starts at row 0 is an offset-0 view over the parent's buffer. null_count
+  // / count must see only the kept window, not the parent's rows past `k`.
+  let allv = Series::from_bools("b", [true, true, true]).slice(0, 2)
+  assert_eq(allv.null_count(), 0)
+  assert_eq(allv.count(), 2)
+  // A null inside the window stays counted; the valid row just past it must
+  // not mask it.
+  let withnull = Series::from_int_options("i", [Some(1), None, Some(3)]).slice(
+    0, 2,
+  )
+  assert_eq(withnull.null_count(), 1)
+  assert_eq(withnull.count(), 1)
+}
+
+///|
 test "to_numeric: success, already-Numeric, and round-trip equivalence" {
   // Builtin all-valid Int / Float move to the fast path.
   let bi = Series::from_int_options("x", [Some(1), Some(2), Some(3)])

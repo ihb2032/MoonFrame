@@ -324,62 +324,14 @@ fn preserve_backend(source : Series, rebuilt : Series) -> Series {
 }
 
 ///|
-/// Total contiguous slice `[start, start + len)`, rebuilt through the
-/// option constructors. The caller guarantees `0 <= start` and
-/// `start + len <= self.len()`; under that contract every `start + k`
-/// read is in-bounds, so the row copy needs no bounds-checking `Result`
-/// (it reads `data` / validity arrays the same way value comparisons read
-/// `data[i]` elsewhere). The result keeps the source backend
-/// (`preserve_backend`). Backs `head` / `tail` / `slice` row transforms.
+/// Total contiguous slice `[start, start + len)`. Delegates to the zero-copy
+/// `ColumnStorage::slice_total`, which keeps the source backend and shares
+/// the validity buffer — the single slice path behind `head` / `tail` /
+/// `DataFrame::slice` (no rebuild, no `Result`). The caller guarantees
+/// `0 <= start` and `start + len <= self.len()`; `slice_total` clamps anyway,
+/// so a stray bound can never abort.
 fn slice_series(s : Series, start : Int, len : Int) -> Series {
-  let valid = s.storage.validity().to_bools()
-  let rebuilt = match s.storage.data() {
-    @column.ColumnData::Int(a) =>
-      Series::from_int_options(
-        s.name,
-        Array::makei(len, k => {
-          if valid[start + k] {
-            Some(a[start + k])
-          } else {
-            None
-          }
-        }),
-      )
-    @column.ColumnData::Float(a) =>
-      Series::from_float_options(
-        s.name,
-        Array::makei(len, k => {
-          if valid[start + k] {
-            Some(a[start + k])
-          } else {
-            None
-          }
-        }),
-      )
-    @column.ColumnData::Bool(a) =>
-      Series::from_bool_options(
-        s.name,
-        Array::makei(len, k => {
-          if valid[start + k] {
-            Some(a[start + k])
-          } else {
-            None
-          }
-        }),
-      )
-    @column.ColumnData::String(a) =>
-      Series::from_string_options(
-        s.name,
-        Array::makei(len, k => {
-          if valid[start + k] {
-            Some(a[start + k])
-          } else {
-            None
-          }
-        }),
-      )
-  }
-  preserve_backend(s, rebuilt)
+  { name: s.name, storage: s.storage.slice_total(start, start + len) }
 }
 
 ///|

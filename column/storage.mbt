@@ -180,6 +180,45 @@ pub fn ColumnStorage::slice(
 }
 
 ///|
+/// Total `[start, end)` slice — the no-raise counterpart of `slice`. Keeps
+/// the backend and shares the validity buffer (zero-copy view) on the
+/// `Builtin` arm, exactly as `slice` does, but out-of-range bounds are
+/// clamped into `[0, len]` (with `end` lifted to at least `start`) so it is
+/// genuinely total: it never raises and never aborts on a stray index. This
+/// is the single slice path behind the total row transforms `head` / `tail`
+/// / `DataFrame::slice`, which validate their window once against `nrows`
+/// before slicing each column — so the clamp is a no-op for them, while
+/// keeping this public entry abort-free for any other caller
+/// (`feedback_lib_no_abort`).
+pub fn ColumnStorage::slice_total(
+  self : ColumnStorage,
+  start : Int,
+  end : Int,
+) -> ColumnStorage {
+  let len = self.len()
+  let s = clamp_bound(start, len)
+  let e0 = clamp_bound(end, len)
+  let e = if e0 < s { s } else { e0 }
+  match self {
+    Builtin(c) => Builtin(c.slice_unchecked(s, e))
+    Numeric(c) => Numeric(c.slice_unchecked(s, e))
+  }
+}
+
+///|
+/// Clamp an index into `[0, len]` — the valid range for a half-open slice
+/// bound. Backs `slice_total`'s total guarantee.
+fn clamp_bound(i : Int, len : Int) -> Int {
+  if i < 0 {
+    0
+  } else if i > len {
+    len
+  } else {
+    i
+  }
+}
+
+///|
 /// Gather: output cell `i` is `self[indices[i]]`, keeping the backend (a
 /// gather of an all-valid `Numeric` column is still all-valid). Any
 /// out-of-bounds index `raise IndexOutOfBounds(idx)`.

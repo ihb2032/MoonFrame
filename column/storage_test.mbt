@@ -189,6 +189,38 @@ test "slice keeps the backend on both arms" {
 }
 
 ///|
+test "slice_total keeps the backend, shares validity, and is total" {
+  // Builtin arm: zero-copy validity view; the null inside the window must be
+  // counted (offset-0 sub-window null_count, exercised at the storage layer).
+  let b = ColumnStorage::from_builtin(
+    BuiltinColumn::from_int_options([Some(1), None, Some(3)]),
+  )
+  let bs = b.slice_total(0, 2)
+  assert_eq(bs.kind(), StorageKind::Builtin)
+  assert_eq(bs.len(), 2)
+  assert_eq(bs.null_count(), 1)
+  // Numeric arm stays Numeric for both Int and Float backings.
+  let ni = ColumnStorage::from_numeric(NumericColumn::from_int64s([10, 20, 30]))
+  let nis = ni.slice_total(1, 3)
+  assert_eq(nis.kind(), StorageKind::Numeric)
+  assert_eq(nis.len(), 2)
+  assert_eq(nis.get(0), @types.Scalar::Int(20))
+  let nf = ColumnStorage::from_numeric(NumericColumn::from_doubles([1.0, 2.0]))
+  assert_eq(nf.slice_total(0, 1).get(0), @types.Scalar::Float(1.0))
+}
+
+///|
+test "slice_total clamps out-of-range bounds instead of raising" {
+  let b = ColumnStorage::from_builtin(BuiltinColumn::from_ints([1, 2, 3]))
+  // start < 0 -> 0 and end > len -> len: the whole column.
+  assert_eq(b.slice_total(-2, 99).len(), 3)
+  // start > len -> len: an empty tail slice.
+  assert_eq(b.slice_total(5, 7).len(), 0)
+  // end < start -> empty (end lifted to start).
+  assert_eq(b.slice_total(2, 1).len(), 0)
+}
+
+///|
 test "take keeps the backend on both arms" {
   let builtin = ColumnStorage::from_builtin(
     BuiltinColumn::from_int_options([Some(1), None, Some(3)]),

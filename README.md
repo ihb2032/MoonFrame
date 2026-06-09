@@ -1,310 +1,239 @@
 # MoonFrame
 
-A lightweight DataFrame and tabular-data library for the MoonBit ecosystem.
-
-MoonFrame provides column-oriented `DataFrame` / `Series` types together with
-CSV / JSON / NDJSON reading, filtering, sorting, null handling, group-by, joins,
-summary statistics, and Markdown / HTML / JSON / NDJSON / Vega-Lite export. The
-goal is not to clone every pandas feature, but to give MoonBit a small,
-well-tested, extensible foundation for data analysis.
-
-**Method-chain API (v0.2).** Transformations are methods on `DataFrame`, so
-pipelines read top-to-bottom like pandas / polars:
+**A small, friendly DataFrame library for MoonBit.** Read a CSV, reshape it with
+a few chained methods, and print or export the result. If you have used pandas or
+polars, the shape of the API will feel familiar:
 
 ```moonbit
-read_csv(path)
+read_csv("sales.csv")
   .filter(row => row.get_string("product") == "widget")
-  .select(["region", "quantity", "revenue"])
-  .sort_by([("quantity", SortOrder::Desc, NullOrder::NullsLast)])
-  .describe()
+  .group_by(["region"])
+  .agg([AggSpec::sum("revenue")])
   .to_markdown()
 ```
 
-**Error model.** Anything that can fail on bad input or I/O is an effectful
-function that `raise DataError`; the library never aborts the host process on
-a recoverable error, and there are no `unwrap` panic paths hidden behind
-total-looking signatures. Use `try?` to bridge a chain back to a
-`Result[_, DataError]` when you need a value (`let r = try? read_csv(path)`).
-Operations that are provably total (`head` / `tail` / `Series::min_value` /
-`drop_nulls` / `to_markdown` / …) return their value directly and read through
-total accessors (`Bitmap::to_bools`, `BuiltinColumn::data`,
-`DataFrame::column_series`) rather than catching an "impossible" raise.
-`DataError` is a `pub(all) suberror`, so callers can both construct its
-variants and match on them after a `try?`.
+It covers CSV / JSON / NDJSON I/O, filtering, sorting, null handling, group-by,
+joins, and summary statistics, and exports to Markdown, HTML, JSON, NDJSON, and
+Vega-Lite charts — a focused foundation for everyday tabular work, not a full
+pandas clone.
+
+## Install
+
+MoonFrame isn't published to [mooncakes.io](https://mooncakes.io) yet, so add it
+as a **local dependency** from a clone of this repo:
+
+```sh
+git clone https://github.com/ihb2032/MoonFrame
+```
+
+Point your module's `moon.mod.json` at the clone (adjust the path to wherever
+you cloned it):
+
+```json
+{
+  "deps": {
+    "ihb2032/MoonFrame": { "path": "../MoonFrame" }
+  }
+}
+```
+
+Then import it (with the `@moonframe` alias) in the `moon.pkg.json` of the
+package that uses it:
+
+```json
+{
+  "import": [
+    { "path": "ihb2032/MoonFrame", "alias": "moonframe" }
+  ]
+}
+```
+
+Now `@moonframe.read_csv`, the `DataFrame` / `Series` types, and every operator
+method are available in that package.
+
+## Quick start
+
+Suppose you have a `sales.csv`:
+
+```
+region,product,revenue,quantity
+west,widget,100,10
+east,gadget,50,5
+west,gadget,70,7
+east,widget,30,3
+north,widget,40,4
+north,gadget,60,6
+west,gizmo,90,9
+east,gizmo,20,2
+```
+
+Keep the widget rows, pick a few columns, and sort by quantity:
+
+```moonbit
+fn widgets(path : String) -> String raise @moonframe.DataError {
+  @moonframe.read_csv(path)
+  .filter(row => row.get_string("product") == "widget")
+  .select(["region", "revenue", "quantity"])
+  .sort_by([
+    ("quantity", @moonframe.SortOrder::Desc, @moonframe.NullOrder::NullsLast),
+  ])
+  .to_markdown()
+}
+```
+
+`widgets("sales.csv")` returns a ready-to-print table:
+
+```
+| region | revenue | quantity |
+| ------ | ------- | -------- |
+| west   | 100     | 10       |
+| north  | 40      | 4        |
+| east   | 30      | 3        |
+```
+
+Every transformation is a method on `DataFrame`, so pipelines read
+top-to-bottom. Anything that can fail — a missing file, an unknown column —
+raises `DataError` rather than crashing (see [Error handling](#error-handling)).
+
+For a fuller hands-on tour — group-by, joins, CSV round-trips, and more — see
+[`quickstart.mbt.md`](quickstart.mbt.md): every snippet there runs as a doc test
+on all four backends, so it always matches the current API.
+
+## What you can do
+
+- **Read & write** CSV, JSON, and NDJSON — `read_csv` / `read_json` /
+  `read_ndjson` and their `write_*` counterparts, with tunable
+  [type inference](docs/type-inference.md).
+- **Reshape** — `filter`, `select`, `drop`, `rename`, `with_column`, multi-key
+  `sort_by`, and null handling (`drop_nulls`, `fill_null`).
+- **Group & aggregate** — `group_by(keys).agg([...])` with `sum` / `mean` /
+  `min` / `max` / `count`.
+- **Join** — the full `inner` / `left` / `right` / `outer` / `cross` matrix, e.g.
+  `orders.inner_join(customers, ["customer_id"])`.
+- **Summarize** — `describe()` for a per-column summary, or single statistics
+  (`sum` / `mean` / `min_value` / …).
+- **Export** — `to_markdown()`, `to_html()`, `format_json_records`,
+  `format_ndjson`, and `format_vega_lite` (a Vega-Lite v5 chart spec).
+
+For example, group the same data by region and render it three ways:
+
+```moonbit
+let summary = @moonframe.read_csv("sales.csv")
+  .group_by(["region"])
+  .agg([
+    @moonframe.AggSpec::sum("revenue").with_alias("revenue"),
+    @moonframe.AggSpec::sum("quantity").with_alias("quantity"),
+  ])
+  .sort_by([
+    ("revenue", @moonframe.SortOrder::Desc, @moonframe.NullOrder::NullsLast),
+  ])
+```
+
+A Markdown table for a report or notebook — `summary.to_markdown()`:
+
+```
+| region | revenue | quantity |
+| ------ | ------- | -------- |
+| west   | 260     | 26       |
+| east   | 100     | 10       |
+| north  | 100     | 10       |
+```
+
+A styled HTML table for a web page —
+`summary.to_html_with_options(HtmlOptions::default().with_table_class("dataframe").with_caption("Revenue by region"))`:
+
+```html
+<table class="dataframe">
+<caption>Revenue by region</caption>
+<thead>
+<tr><th>region</th><th>revenue</th><th>quantity</th></tr>
+</thead>
+<tbody>
+<tr><td>west</td><td>260</td><td>26</td></tr>
+<tr><td>east</td><td>100</td><td>10</td></tr>
+<tr><td>north</td><td>100</td><td>10</td></tr>
+</tbody>
+</table>
+```
+
+Or a chart — `format_vega_lite(summary, ChartSpec::bar("region", "revenue"))`
+emits a complete [Vega-Lite v5](https://vega.github.io/vega-lite/) spec you can
+paste straight into the [Vega editor](https://vega.github.io/editor/) to get a
+real bar chart.
+
+## Error handling
+
+Anything that can fail on bad input or I/O raises `DataError`; the library never
+aborts your program on a recoverable error. Call such functions inside a `raise`
+context (as the examples above do), or bridge back to a `Result` with `try?`:
+
+```moonbit
+let result : Result[String, @moonframe.DataError] = try? widgets("sales.csv")
+```
+
+Operations that are provably total (`head`, `drop_nulls`, `to_markdown`, …) just
+return their value. `DataError` is a `pub(all) suberror`, so you can match its
+variants (`ColumnNotFound`, `ParseError`, …) after a `try?`. The full model is in
+[`docs/api.md`](docs/api.md).
+
+## Documentation
+
+- [`quickstart.mbt.md`](quickstart.mbt.md) — a runnable tour; every snippet is
+  executed by `moon test` on all four backends, so it never goes stale
+- [`docs/api.md`](docs/api.md) — the complete public-API reference
+- [`docs/type-inference.md`](docs/type-inference.md) — how CSV / JSON / NDJSON
+  columns get their dtypes
+- [`docs/migration.md`](docs/migration.md) — upgrading across breaking releases
+- [`docs/changelog.md`](docs/changelog.md) — version-by-version feature history
+
+Three runnable end-to-end programs live in [`examples/`](examples):
+
+```sh
+moon run examples/sales_analysis    # filter → select → sort → describe → markdown
+moon run examples/data_cleaning     # drop_nulls → fill_null → CSV round-trip
+moon run examples/reporting         # group_by → to_html + Vega-Lite spec
+```
 
 ## Status
 
-**v0.3 — shipped.** Output formats (HTML + Vega-Lite), the full join matrix
-(Right / Outer), CSV / JSON / NDJSON read resilience, and a pluggable
-column-storage backend (`ColumnStorage` / `NumericColumn`) land on top of the
-v0.2 method-chain core. [`docs/api.md`](docs/api.md) is the authoritative
-public-API reference.
+**v0.3 — shipped:** output formats (HTML + Vega-Lite), the full join matrix,
+CSV / JSON / NDJSON read resilience, and a pluggable column-storage backend.
+**Next (v0.4):** an expression / lazy query layer. See the
+[v0.3 release notes](docs/release-notes.md) for highlights and upgrade steps, or
+the [changelog](docs/changelog.md) for the full version history.
 
-**v0.2 (method-chain migration).** The whole v0.1 surface moved to the
-method-chain + `raise` form:
+## Contributing
 
-- The operator verbs (`select` / `drop` / `rename` / `with_column` /
-  `replace_column` / `filter` / `sort_by` / `drop_nulls` / `drop_nulls_in` /
-  `fill_null` / `null_count` / `count` / `sum` / `mean` / `min` / `max` /
-  `describe`) are now **methods on `DataFrame`**; the old `ops` package is
-  folded into `frame`.
-- Every fallible operation returns `T raise DataError` instead of
-  `Result[T, DataError]`.
-- `filter` takes a single `(RowView) -> Bool raise DataError` predicate (the
-  v0.1 `filter` / `filter_try` split is gone — a fallible accessor in the
-  predicate just raises).
-- `sort_by` takes an `Array[(column, SortOrder, NullOrder)]`; multi-key sort
-  falls out of listing several tuples (`sort_by_many`, the `SortSpec` struct,
-  and the `IntoSortSpecs` trait are all gone).
-- `to_markdown` / `to_markdown_with_limit` are `DataFrame` methods; the
-  CSV / JSON string serialisers (`format_csv_str` / `format_json_records`)
-  stay as `io` free functions.
-
-The data model is unchanged: an Apache Arrow-style column layout (byte-packed
-validity `Bitmap`, `1 = valid`) under `Series` / `DataFrame`, an `O(1)`
-`name_to_index` cache, and `DataFrame::check_invariants()` as a formal
-structural spec (INV1–INV7) asserted by every operator test.
-
-**GroupBy has landed** — the first of the v0.2 split-apply-combine features.
-`df.group_by(keys).agg([AggSpec::sum("x"), AggSpec::mean("y"), ...])` returns a
-one-row-per-group summary with `Count` / `Sum` / `Mean` / `Min` / `Max`
-reductions (reusing the `Series` statistics, with Polars-aligned `NaN` rules: a
-`NaN` propagates through `Sum` / `Mean` but is skipped by `Min` / `Max`),
-optional per-column aliases via `with_alias`, deterministic first-appearance
-group order (Polars' `maintain_order=True`), and null keys kept as their own
-group.
-
-**Join has landed too** — the full matrix `inner` / `left` / `right` /
-`outer` / `cross`. `left.inner_join(right, ["id"])`, `.left_join` /
-`.right_join` / `.outer_join`, or the configurable
-`left.join(right, JoinOptions::on(["id"]).with_how(Outer).with_coalesce(true))`
-do a hash equi-join with Polars-aligned semantics: a **null** key matches
-nothing (`null != null`, as in SQL / Polars), a `NaN` key matches other NaNs,
-the right-column collision suffix defaults to `"_right"`, and key columns are
-coalesced on an inner join but kept (the right as `id_right`) on a
-left / right / outer join — `coalesce` defaults to Polars' per-`how` rule and
-is overridable via `with_coalesce` (a coalesced key takes each row's value
-from whichever side is present: the left for `inner` / `left`, the right for
-`right`, the present side per row for `outer`). Output is the left columns
-then the right columns, rows in deterministic order. `left.cross_join(right)`
-(`JoinType::Cross`) gives the keyless Cartesian product.
-
-**NDJSON I/O has landed.** `read_ndjson` / `write_ndjson` (and the
-string-level `parse_ndjson_str` / `format_ndjson`) read and write the JSON
-Lines format — one JSON object per line — reusing the JSON-records type
-inference and `scalar_to_json` cell conventions. Reading is lenient (blank
-lines skipped, CRLF tolerated); writing emits one compact object per row,
-each terminated by `\n`.
-
-**HTML rendering has landed** (first of the v0.3 output formats).
-`df.to_html()` renders a `<table>` — a `<thead>` header over a `<tbody>` of
-rows, with a null cell rendered as `<td></td>` — and
-`df.to_html_with_options(...)` adds a CSS `class`, a `<caption>`, and (via
-`HtmlOptions::with_max_rows`) a row cap with a `<tfoot>` `... (K more rows)`
-banner. Header and cell text is HTML-escaped (`&` / `<` / `>` / `"`) by
-default; `with_escape(false)` passes trusted markup through. Like
-`to_markdown`, it is a pure, dependency-free `DataFrame` method (the IO-1
-boundary keeps rendering in `frame`).
-
-**Vega-Lite chart export has landed** (the second v0.3 output format).
-`format_vega_lite(df, ChartSpec::bar("region", "revenue"))` emits a complete
-[Vega-Lite v5](https://vega.github.io/vega-lite/) specification — `$schema` +
-optional `title` + `mark` + `encoding` + an inline `data.values` array — as a
-JSON string you can paste straight into the [Vega editor](https://vega.github.io/editor/)
-or feed to any Vega-Lite runtime. `ChartSpec::bar` / `line` / `point` / `area`
-choose the mark; `with_color` adds a grouping column and `with_title` a heading;
-each channel's field `type` is inferred from the column dtype (numeric →
-`quantitative`, else `nominal`), and cells follow the JSON-records conventions
-(null / non-finite floats → JSON `null`). Being an `io` serialiser (parallel to
-`format_json_records`), a spec that names a missing column raises
-`ColumnNotFound`; `write_vega_lite` is the file wrapper.
-
-**CSV / JSON / NDJSON read resilience has landed.** All three readers'
-option structs gained escape hatches for messy inputs. `infer_schema_rows
-= 0` (or any value `<= 0`) now scans *every* row rather than a leading
-window (Polars' `infer_schema_length=None`), so a dtype that only resolves
-deep in the data is inferred instead of guessed from a prefix.
-`on_parse_error` (`OnParseError::Raise`, the default, or `Null`) chooses
-what happens when a non-null cell past the inference window doesn't fit its
-column's locked-in dtype: fail the whole read with `ParseError` (lossless)
-or downgrade that one cell to a null and keep going (Polars'
-`ignore_errors=True`), with the column keeping its inferred dtype. CSV
-additionally gains `allow_nonfinite_floats` (default `true`): set it
-`false` to stop a column of `nan` / `inf` / `infinity` tokens from being
-silently inferred as `Float`, falling back to `String` instead. These are
-`pub(all)` struct field additions, so code that builds a `CsvReadOptions` /
-`JsonReadOptions` / `NdjsonReadOptions` from a full struct literal must add
-the new fields (or switch to `::default()`); the defaults reproduce the
-prior behaviour exactly.
-
-**Pluggable column storage has landed** (the v0.3 engineering depth). A
-`Series` now holds a `ColumnStorage` — a closed `{ Builtin; Numeric }` seam
-— instead of a bare `BuiltinColumn`. `Builtin` is the general-purpose
-Arrow column (any dtype, nullable); `Numeric` is an all-valid, unboxed
-`Int64` / `Double` column that carries **no validity bitmap**, so it skips
-the bitmap allocation on construction and the per-slot validity check in
-its reductions (the `null_count == 0` fast path). The no-null
-`Series::from_ints` / `from_floats` build `Numeric` automatically, and
-structural transforms (`slice` / `take` / `drop_nulls` / `head` / `tail` /
-`filter` / `sort_by`) keep a column on the fast path. `storage_kind()`
-reports the backend; `to_numeric()` / `to_builtin()` move between them
-(per-column on a `Series`, whole-frame on a `DataFrame`) — a lossless
-representation swap that leaves names, dtypes, and values unchanged.
-
-Roadmap: an expression / lazy query layer in v0.4.
-
-## v0.2 → v0.3 migration
-
-v0.3 is a pre-1.0 breaking release (breaking changes ride the minor
-version). The source-level breaks:
-
-| v0.2 | v0.3 |
-|---|---|
-| `Series::storage() -> @column.BuiltinColumn` | `-> @column.ColumnStorage`; the `.data()` / `.validity()` reading surface is unchanged, so column-reading call sites still compile. Use `.to_builtin()` when you need the concrete `BuiltinColumn` |
-| `Series::new(name, BuiltinColumn)` | `Series::new(name, ColumnStorage)`; pass `ColumnStorage::from_builtin(col)`, or keep `Series::from_builtin(name, col)` (signature unchanged) |
-| `pub(all) enum JoinType { Inner; Left; Cross }` | gained `Right` / `Outer`; an exhaustive `match` over `JoinType` must now handle the two new variants |
-
-The CSV / JSON / NDJSON `*ReadOptions` structs also gained `pub(all)`
-fields (read resilience, above): a full struct literal must add them or
-switch to `::default()`.
-
-## v0.1 → v0.2 migration
-
-| v0.1 | v0.2 |
-|---|---|
-| `@ops.select(df, names)` (free function) | `df.select(names)` (method) |
-| `op(df, ...) -> Result[T, DataError]` + `.bind` / `.map` / `.unwrap` | `df.op(...) -> T raise DataError`, chained directly |
-| pattern-match `Ok(x)` / `Err(e)` on the result | call directly in a `raise` context, or `try? expr` for a `Result` |
-| `filter_try(df, row => row.get_int("x").map(v => v > 0))` | `df.filter(row => row.get_int("x") > 0)` |
-| `sort_by(df, spec)` / `sort_by_many(df, specs)` | `df.sort_by([(col, order, nulls), ...])` |
-| `Series::min()` / `max()` (`Result`-wrapped) | `Series::min_value()` / `max_value()` (total) |
-| `@io.to_markdown(df)` | `df.to_markdown()` |
-| `import ... @ops` | gone — verbs live on `DataFrame` in `@frame` |
-
-`format_csv_str` / `format_json_records` / `parse_csv_str` / `read_csv` /
-`write_csv` and the JSON / NDJSON equivalents are still `io` free functions
-(the `read_*` / `write_*` / `parse_*` ones now `raise`; the `format_*` ones
-are total and return a `String`).
-
-## Layout
+The codebase is a small five-layer stack; each layer is a package with its own
+sources, blackbox `*_test.mbt` tests, and a `pkg.generated.mbti` interface
+snapshot:
 
 ```
-moonframe/      facade package — re-exports the public API
-types/          value types, errors (DataError suberror), schemas
-column/         column storage backends (Arrow Bitmap + BuiltinColumn, Numeric fast path, ColumnStorage seam)
-frame/          Series, DataFrame, RowView + all DataFrame operators + group_by + join + to_markdown/to_html
-io/             CSV (NyaCSV-backed), JSON, NDJSON read / write + Vega-Lite chart export
-docs/api.md     public API reference (source of truth)
+types/      value types, errors (DataError), schemas
+column/     Arrow-style storage — validity Bitmap, BuiltinColumn, Numeric fast path, ColumnStorage seam
+frame/      Series, DataFrame, RowView + every operator (one per file) + group_by + join + to_markdown / to_html
+io/         CSV (NyaCSV-backed), JSON, NDJSON read / write + Vega-Lite export
+moonframe/  facade — re-exports the whole public API
 ```
 
-Each subpackage carries its sources, its `*_test.mbt` blackbox tests, and
-its `pkg.generated.mbti` interface snapshot. (`frame` follows a
-one-operator-one-file layout — `frame/select.mbt`, `frame/sort.mbt`, … — even
-though they share the package.)
-
-## Usage
-
-```moonbit
-// One import covers the whole surface — the facade re-exports every
-// public symbol from types / column / frame / io. The operator verbs and
-// `to_markdown` are methods on `DataFrame`, reached automatically through
-// the re-exported `type DataFrame`.
-import "ihb2032/MoonFrame" @moonframe
-
-fn report(path : String) -> String raise @moonframe.DataError {
-  @moonframe.read_csv(path)
-  .filter(row => row.get_string("product") == "widget")
-  .select(["region", "quantity", "revenue"])
-  .sort_by([("quantity", @moonframe.SortOrder::Desc, @moonframe.NullOrder::NullsLast)])
-  .describe()
-  .to_markdown()
-}
-
-// GroupBy: one row per region with a total and an average, sorted by the
-// total quantity descending. `with_alias` renames the aggregated columns.
-fn sales_by_region(path : String) -> String raise @moonframe.DataError {
-  @moonframe.read_csv(path)
-  .group_by(["region"])
-  .agg([
-    @moonframe.AggSpec::sum("quantity").with_alias("total_quantity"),
-    @moonframe.AggSpec::mean("revenue").with_alias("avg_revenue"),
-  ])
-  .sort_by([
-    ("total_quantity", @moonframe.SortOrder::Desc, @moonframe.NullOrder::NullsLast),
-  ])
-  .to_markdown()
-}
-
-// Join: enrich an orders frame with its customers' regions. Inner join
-// keeps only orders whose customer_id matches; a colliding right column
-// would gain the "_right" suffix (here there is none).
-fn orders_with_region(
-  orders : @moonframe.DataFrame,
-  customers : @moonframe.DataFrame,
-) -> @moonframe.DataFrame raise @moonframe.DataError {
-  orders.inner_join(customers, ["customer_id"])
-}
-
-// Bridge back to a Result at the call site when you want a value rather
-// than to propagate the effect:
-fn report_or_error(path : String) -> Result[String, @moonframe.DataError] {
-  try? report(path)
-}
-```
-
-Sub-package imports (`@types`, `@column`, `@frame`, `@io`) remain supported
-for callers who only need a slice.
-
-## Type inference (CSV / JSON / NDJSON)
-
-`read_csv` / `read_json` / `read_ndjson` infer each column's dtype from the
-first `infer_schema_rows` rows (default `100`), in the order
-`Int → Float → Bool → String`. **A non-null cell *beyond* that window
-that does not fit the inferred dtype is a hard `ParseError` — not a
-silent fallback to `String`.** A column that looks numeric in its first
-rows but holds text later fails loudly rather than being quietly
-retyped; raise `infer_schema_rows` (or build the column with an explicit
-dtype) for inputs whose type only becomes clear further down. Numeric
-forms follow pandas / polars conventions: `0x` / `0o` / `0b` prefixes
-and `1_000` underscore grouping stay `String`; integers up to the
-`Int64` range stay `Int` and overflow into `Float` only beyond it.
-
-## Examples
-
-**Runnable API tour:** [`quickstart.mbt.md`](quickstart.mbt.md) is a set of doc
-tests — `moon test` compiles and runs every snippet on all four backends, so the
-group-by / filter / join / CSV-round-trip examples there (with their rendered
-output) are verified in CI and cannot go stale.
-
-For end-to-end CLI programs, run the bundled examples from the project root:
-
-```sh
-moon run examples/sales_analysis    # read_csv → filter → select → sort_by → describe → markdown
-moon run examples/data_cleaning     # read_csv → drop_nulls_in → fill_null → write_csv round-trip
-moon run examples/reporting         # read_csv → group_by/agg → sort_by → to_html + Vega-Lite spec
-```
-
-Each example splits its pipeline logic into a library sub-package
-(`examples/<name>/<logic>/`) tested via blackbox `*_test.mbt`,
-while the top-level `main.mbt` is a thin `read → run → println`
-orchestrator (`#coverage.skip`-marked, with a single top-level
-`try` / `catch` that prints a diagnostic on any `DataError`).
-
-## Building
+The data model is an Apache Arrow-style column layout (a byte-packed validity
+bitmap, `1 = valid`) with an `O(1)` name→index cache;
+`DataFrame::check_invariants()` is a formal structural spec (INV1–INV7) asserted
+by every operator test. The usual loop:
 
 ```sh
 moon check     # type-check the workspace
-moon test      # run all blackbox tests
-moon info      # regenerate per-package .mbti interfaces
+moon test      # run all tests (add --target all for every backend)
 moon fmt       # format sources
+moon info      # regenerate .mbti interface snapshots
 ```
+
+Contributions keep 100% line coverage and a warning-free `moon check`.
 
 ## Dependencies
 
-- [`moonbit-community/NyaCSV`](https://mooncakes.io/docs/moonbit-community/NyaCSV) —
-  CSV parser
-- [`moonbitlang/x`](https://mooncakes.io/docs/moonbitlang/x) — extra
-  standard-library utilities (`@fs` for filesystem I/O)
+- [`moonbit-community/NyaCSV`](https://mooncakes.io/docs/moonbit-community/NyaCSV) — CSV parser
+- [`moonbitlang/x`](https://mooncakes.io/docs/moonbitlang/x) — `@fs` filesystem I/O
 
 ## License
 

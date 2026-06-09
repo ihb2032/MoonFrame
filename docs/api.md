@@ -37,24 +37,11 @@ keeps its `Result[Unit, String]` shape — it is a verification /
 diagnostic affordance (its error is a `String` describing the first
 violated invariant), not a data transform.
 
-### v0.1 → v0.2 migration
+### Migration
 
-- `@ops.op(df, args)` (free function) → `df.op(args)` (method); the
-  `ops` package is folded into `frame`.
-- `op(...) -> Result[T, DataError]` + `.bind` / `.map` / `.unwrap` →
-  `op(...) -> T raise DataError`, chained directly; use `try?` to land a
-  `Result`.
-- `filter` + `filter_try` → a single `filter(self, (RowView) -> Bool
-  raise DataError)`.
-- `sort_by` + `sort_by_many` → a single
-  `sort_by(self, keys : Array[(String, SortOrder, NullOrder)])`; multi-key
-  sort is just a longer tuple list.
-- `Series::min()` / `max()` (`Result`-wrapped) removed → `min_value()` /
-  `max_value()` (total, return `Scalar`).
-- `to_markdown(df)` / `to_markdown_with_limit(df, n)` → `df.to_markdown()`
-  / `df.to_markdown_with_limit(n)` (now `DataFrame` methods).
-- `enum DataError` → `pub(all) suberror DataError` (same variants,
-  `message()`, and `Show`).
+Source-level changes from earlier releases — the `ops` → method move and the
+`Result` → `raise` shift (v0.1 → v0.2), and the `Series::storage` / `JoinType`
+breaks (v0.2 → v0.3) — are collected in [`migration.md`](migration.md).
 
 ---
 
@@ -222,6 +209,12 @@ validity bitmap (`1 = valid`, `0 = null`).
 - Total inspection: `kind()` / `dtype` / `len` / `is_empty` / `null_count`
   / `data() -> ColumnData` / `validity() -> Bitmap` / `to_builtin() ->
   BuiltinColumn` / `to_string_column() -> BuiltinColumn`.
+- Total `slice_total(start, end) -> ColumnStorage` — the no-raise
+  counterpart of `slice`, backing the total row transforms `head` / `tail`
+  / `DataFrame::slice`. Keeps the backend and shares the validity buffer
+  (zero-copy view) exactly like `slice`, but clamps out-of-range bounds into
+  `[0, len]` (with `end` lifted to at least `start`) rather than raising, so
+  it never raises or aborts.
 - Fallible (`raise DataError`): `is_null(i)` / `get(i)`; backend-preserving
   `slice(start, end)` / `take(indices)` (a sub-range of a `Numeric` column
   stays `Numeric`); `int_values()` / `float_values()` / `bool_values()` /
@@ -562,6 +555,12 @@ and return a `String`. The one exception is `format_vega_lite`, which
 JSON / Vega-Lite specs go through the builtin `@json`; file wrappers
 delegate to `moonbitlang/x/fs` and promote its `IOError` to
 `raise DataError::IoError(message)`.
+
+The dtype-inference rules these readers share — the `Int → Float → Bool →
+String` order, what happens to a cell past the inference window, and the
+accepted numeric forms — are explained in
+[`type-inference.md`](type-inference.md); the per-reader options that tune them
+are documented below.
 
 ### CSV
 

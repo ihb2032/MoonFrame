@@ -428,11 +428,13 @@ test "head / tail / slice / take all keep get_column working" {
 }
 
 ///|
-test "head / tail / slice rebuild every dtype, valid and null cells" {
-  // `head` / `tail` / `slice` route each column through `slice_series`,
-  // which has a branch per `ColumnData` dtype and a Some/None split per
-  // cell. Slice a frame whose four columns each carry a null inside the
-  // kept range so every dtype branch and both row-copy paths run.
+test "head / tail / slice copy every dtype, valid and null cells" {
+  // `head` / `tail` / `slice` route each column through `slice_series` →
+  // `ColumnStorage::slice_total` → `BuiltinColumn::slice_unchecked`, whose
+  // data copy has a branch per `ColumnData` dtype (the validity is a shared
+  // zero-copy view). Slice a frame whose four columns each carry a null
+  // inside the kept range so every dtype branch runs and the view carries
+  // the nulls through.
   let df = DataFrame::new([
     Series::from_int_options("i", [Some(1), None, Some(3), Some(4)]),
     Series::from_float_options("f", [Some(1.0), Some(2.0), None, Some(4.0)]),
@@ -460,6 +462,26 @@ test "head / tail / slice rebuild every dtype, valid and null cells" {
   assert_eq(sl.nrows(), 3)
   assert_eq(sl.get(1, "f"), @types.Scalar::Null)
   assert_eq(sl.check_invariants(), Ok(()))
+}
+
+///|
+test "head null_count is correct on Builtin columns (zero-copy view)" {
+  // After the slice unification `head` / `tail` / `slice` share the validity
+  // buffer (zero-copy). `head(k)` yields an offset-0 view, so null_count /
+  // count must count only the kept window — not the parent's rows past `k`
+  // that linger in the shared final byte.
+  let df = DataFrame::new([
+    Series::from_bools("b", [true, true, true]),
+    Series::from_int_options("i", [Some(1), None, Some(3)]),
+  ])
+  let h = df.head(2)
+  assert_eq(h.get_column("b").null_count(), 0)
+  assert_eq(h.get_column("b").count(), 2)
+  // The null at row 1 is inside head(2) and must survive; the valid row 2
+  // (just outside the window) must not mask it.
+  assert_eq(h.get_column("i").null_count(), 1)
+  // The DataFrame-level null_count surfaces the same per-column truth.
+  assert_eq(h.null_count().get(0, "i"), @types.Scalar::Int(1))
 }
 
 // ── structural equality ──────────────────────────────────────────────

@@ -199,8 +199,8 @@ moon run examples/reporting         # group_by → to_html + Vega-Lite spec
 **v0.3 — shipped:** output formats (HTML + Vega-Lite), the full join matrix,
 CSV / JSON / NDJSON read resilience, and a pluggable column-storage backend.
 **Next (v0.4):** an expression / lazy query layer. See the
-[v0.3 release notes](docs/release-notes.md) for highlights and upgrade steps, or
-the [changelog](docs/changelog.md) for the full version history.
+[changelog](docs/changelog.md) for the full version history and
+[`docs/migration.md`](docs/migration.md) for the v0.2 → v0.3 upgrade steps.
 
 ## Contributing
 

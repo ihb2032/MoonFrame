@@ -16,9 +16,16 @@ set -e
 moon check --deny-warn
 moon fmt
 moon info
-if ! git diff --quiet; then
+# `git diff --quiet` only inspects tracked files, so a newly added package
+# whose generated `.mbti` was never staged would slip through. Treat any
+# untracked generated interface as drift too, mirroring the CI gate.
+untracked_mbti=$(git ls-files --others --exclude-standard -- '*.mbti')
+if ! git diff --quiet || [ -n "$untracked_mbti" ]; then
   echo "pre-commit: 'moon fmt' / 'moon info' produced changes. Review and stage them, then re-commit:" >&2
   git --no-pager diff --name-only >&2
+  if [ -n "$untracked_mbti" ]; then
+    printf '%s\n' "$untracked_mbti" >&2
+  fi
   exit 1
 fi
 moon test

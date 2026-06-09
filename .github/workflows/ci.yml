@@ -6,6 +6,17 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Pin the MoonBit toolchain so CI matches the version this project is built
+# and gated against locally. The official install scripts
+# (cli.moonbitlang.com) read MOONBIT_INSTALL_VERSION and URL-encode the `+`
+# themselves. Left on "latest", a newer release regressed `moon test` across
+# every OS even though the suite is green on this toolchain. To adopt a newer
+# toolchain, bump this to a version published under
+# https://cli.moonbitlang.com/binaries/<version>/ and re-run the full local
+# gate (moon check --deny-warn && moon test && moon fmt && moon info) first.
+env:
+  MOONBIT_INSTALL_VERSION: "0.9.3+3d4544a9e" # == moon 0.1.20260522 (2026-05-22)
+
 jobs:
   build:
     name: ${{ matrix.os }}
@@ -60,7 +71,17 @@ jobs:
         run: |
           moon fmt
           moon info
-          git diff --exit-code
+          # `git diff --exit-code` only inspects *tracked* files, so a newly
+          # added package whose generated `pkg.generated.mbti` was never
+          # committed — or any other untracked drift — would slip through
+          # green. Check the full porcelain status so uncommitted *and*
+          # untracked output from `moon fmt` / `moon info` both fail the gate.
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "::error::'moon fmt' / 'moon info' left uncommitted changes — run them locally and commit the result."
+            git status --short
+            git --no-pager diff
+            exit 1
+          fi
 
       - name: Coverage (line coverage must be complete)
         if: runner.os == 'Linux'

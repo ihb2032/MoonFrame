@@ -2,19 +2,51 @@
 /// Apache Arrow compatible validity bitmap.
 ///
 /// Bits are packed into bytes, **1 bit per row, 1 = valid, 0 = null**.
-/// Slot `i` lives in `bits[i / 8]` at bit position `i % 8`, where bit `0`
-/// is the least-significant bit of the byte. A bitmap of `len` slots
-/// occupies exactly `⌈len / 8⌉` bytes — trailing bits past `len` in the
-/// final byte are kept zero so that `null_count()` may safely popcount the
-/// entire buffer.
+/// Logical slot `i` lives at physical bit `offset + i`: byte
+/// `bits[(offset + i) / 8]`, bit position `(offset + i) % 8`, where bit `0`
+/// is the least-significant bit of the byte. `offset` is `0` for every
+/// bitmap a constructor builds (each packs a tight buffer of exactly
+/// `⌈len / 8⌉` bytes, with the trailing bits past `len` kept zero); a
+/// zero-copy `slice` instead shares its parent's buffer and advances
+/// `offset`, so a view's buffer may be longer than `⌈len / 8⌉` bytes and
+/// hold sibling bits outside `[offset, offset + len)`. `Bytes` is
+/// immutable, so sharing one buffer across views is safe. Equality is
+/// logical — over the `[offset, offset + len)` window — and `null_count`
+/// counts only that window.
 ///
 /// The convention `1 = valid` matches the Apache Arrow specification (and
 /// `arrow-rs`, `pyarrow`); note that some MoonBit ecosystem libraries (e.g.
 /// `smallbearrr/pandas`) use the opposite convention.
 pub struct Bitmap {
   bits : Bytes
+  offset : Int
   len : Int
-} derive(Eq, Debug)
+} derive(Debug)
+
+///|
+/// Logical equality: two bitmaps are equal iff they have the same length
+/// and the same validity bit at every logical slot. The comparison walks
+/// the `[offset, offset + len)` windows rather than the raw buffers, so a
+/// zero-copy `slice` view equals a freshly packed bitmap with the same bits
+/// (a derived structural `Eq` would compare `offset` / buffer identity and
+/// wrongly call them unequal). For two tight, offset-0 bitmaps — every
+/// bitmap before `slice` views existed — this agrees bit-for-bit with the
+/// old structural equality.
+pub impl Eq for Bitmap with fn equal(self, other) {
+  if self.len != other.len {
+    false
+  } else {
+    let mut equal = true
+    for i in 0..<self.len {
+      if bit_at(self.bits, self.offset + i) !=
+        bit_at(other.bits, other.offset + i) {
+        equal = false
+        break
+      }
+    }
+    equal
+  }
+}
 
 // ── Constructors ──────────────────────────────────────────────────────
 
@@ -24,7 +56,7 @@ pub fn Bitmap::all_valid(len : Int) -> Bitmap {
   let n = bytes_needed(len)
   let buf = FixedArray::make(n, (0xff : Int).to_byte())
   mask_tail(buf, len)
-  { bits: buffer_to_bytes(buf), len }
+  { bits: buffer_to_bytes(buf), offset: 0, len }
 }
 
 ///|
@@ -32,6 +64,7 @@ pub fn Bitmap::all_valid(len : Int) -> Bitmap {
 pub fn Bitmap::all_null(len : Int) -> Bitmap {
   {
     bits: buffer_to_bytes(FixedArray::make(bytes_needed(len), Byte::default())),
+    offset: 0,
     len,
   }
 }
@@ -67,7 +100,7 @@ pub fn Bitmap::is_valid(
   if index < 0 || index >= self.len {
     raise @types.DataError::IndexOutOfBounds(index)
   }
-  bit_at(self.bits, index)
+  bit_at(self.bits, self.offset + index)
 }
 
 ///|
@@ -81,19 +114,39 @@ pub fn Bitmap::is_null(
 }
 
 ///|
-/// Number of null (0) bits in the logical range `[0, len)`. Every
-/// constructor keeps the trailing bits past `len` in the final byte zero
-/// (the type invariant), so the 1 bits in the whole buffer are exactly the
-/// valid slots in `[0, len)`: popcount the buffer a byte at a time and the
-/// nulls are `len` minus that. This replaces the per-bit scan with one
-/// `popcount_byte` per 8 slots — same answer, ~8× fewer iterations and no
-/// per-slot branch.
+/// Number of null (0) bits in the logical range `[offset, offset + len)`.
+///
+/// When `offset == 0` the window is byte-aligned at the front, so the full
+/// bytes `[0, len / 8)` are popcounted whole (one `popcount_byte` per 8
+/// slots) and only the final partial byte is masked down to its in-window
+/// bits `[0, len % 8)`. That mask is essential: a zero-copy `slice` view
+/// shares its parent's buffer, so the bits past `len` in that last byte may
+/// be live sibling bits — popcounting them unmasked would over-count valids
+/// (and a constructor-built bitmap keeps those bits zero, so the mask is a
+/// no-op there). An `offset != 0` view has no byte-aligned start, so it
+/// counts its window bit by bit.
 pub fn Bitmap::null_count(self : Bitmap) -> Int {
-  let mut valid = 0
-  for i in 0..<self.bits.length() {
-    valid = valid + popcount_byte(self.bits[i])
+  if self.offset == 0 {
+    let full = self.len / 8
+    let mut valid = 0
+    for i in 0..<full {
+      valid = valid + popcount_byte(self.bits[i])
+    }
+    let tail = self.len % 8
+    if tail != 0 {
+      let mask = (1 << tail) - 1
+      valid = valid + popcount_byte((self.bits[full].to_int() & mask).to_byte())
+    }
+    self.len - valid
+  } else {
+    let mut valid = 0
+    for i in 0..<self.len {
+      if bit_at(self.bits, self.offset + i) {
+        valid = valid + 1
+      }
+    }
+    self.len - valid
   }
-  self.len - valid
 }
 
 ///|
@@ -107,14 +160,16 @@ pub fn Bitmap::null_count(self : Bitmap) -> Int {
 /// per-element `Result` through every iteration — which would otherwise
 /// force either an `unwrap` (a panic path) or an unreachable `Err` arm.
 pub fn Bitmap::to_bools(self : Bitmap) -> Array[Bool] {
-  Array::makei(self.len, i => bit_at(self.bits, i))
+  Array::makei(self.len, i => bit_at(self.bits, self.offset + i))
 }
 
 // ── Transforms ────────────────────────────────────────────────────────
 
 ///|
-/// Half-open `[start, start + length)` slice, rebuilt by repacking — no
-/// zero-copy view (v0.2 may optimise). Errors:
+/// Half-open `[start, start + length)` slice as a **zero-copy view**: the
+/// result shares this bitmap's underlying buffer and only advances `offset`
+/// by `start`, so a slice is `O(1)` with no repacking. Safe because `Bytes`
+/// is immutable. Errors:
 /// - `IndexOutOfBounds(start)` if `start < 0` or `start > len`.
 /// - `IndexOutOfBounds(start + length)` if `start + length > len`.
 /// - `InvalidOperation` if `length < 0`.
@@ -134,12 +189,25 @@ pub fn Bitmap::slice(
   if start + length > self.len {
     raise @types.DataError::IndexOutOfBounds(start + length)
   }
-  pack(length, i => bit_at(self.bits, start + i))
+  self.slice_view(start, length)
+}
+
+///|
+/// Total zero-copy view of `[start, start + length)` — the shared core
+/// behind `slice` (which validates the bounds then calls this) and the total
+/// `BuiltinColumn::slice_unchecked`. It just shares the buffer and advances
+/// `offset`, so the caller must keep `0 <= start` and
+/// `start + length <= len`; both delegators guarantee that.
+fn Bitmap::slice_view(self : Bitmap, start : Int, length : Int) -> Bitmap {
+  { bits: self.bits, offset: self.offset + start, len: length }
 }
 
 ///|
 /// Gather: produce a new bitmap whose i-th bit is `self[indices[i]]`. Any
-/// out-of-bounds index returns `Err(IndexOutOfBounds(idx))`.
+/// out-of-bounds index returns `Err(IndexOutOfBounds(idx))`. Unlike
+/// `slice`, an arbitrary gather can't be expressed as a contiguous view, so
+/// `take` repacks into a fresh tight buffer (reading each source bit through
+/// this bitmap's `offset`).
 pub fn Bitmap::take(
   self : Bitmap,
   indices : Array[Int],
@@ -149,7 +217,7 @@ pub fn Bitmap::take(
       raise @types.DataError::IndexOutOfBounds(i)
     }
   }
-  pack(indices.length(), i => bit_at(self.bits, indices[i]))
+  pack(indices.length(), i => bit_at(self.bits, self.offset + indices[i]))
 }
 
 ///|
@@ -164,7 +232,9 @@ pub fn Bitmap::bit_and(
   if self.len != other.len {
     raise @types.DataError::LengthMismatch
   }
-  pack(self.len, i => bit_at(self.bits, i) && bit_at(other.bits, i))
+  pack(self.len, i => {
+    bit_at(self.bits, self.offset + i) && bit_at(other.bits, other.offset + i)
+  })
 }
 
 // ── Internal helpers ──────────────────────────────────────────────────
@@ -172,11 +242,12 @@ pub fn Bitmap::bit_and(
 ///|
 /// Build a bitmap of `len` slots whose `i`-th bit is `1` (valid) exactly
 /// when `valid(i)` is true. This is the closure-parameterised core shared by
-/// every constructor and transform that packs per-slot validity into the
-/// byte buffer (`from_bools`, `from_options`, `slice`, `take`, `bit_and`);
-/// each caller supplies only its own `valid` predicate. `valid` runs once per
-/// slot in `[0, len)`, so the caller must keep every index it reads
-/// (e.g. `start + i`, `indices[i]`) within bounds.
+/// every constructor and transform that packs per-slot validity into a fresh
+/// byte buffer (`from_bools`, `from_options`, `take`, `bit_and`); each caller
+/// supplies only its own `valid` predicate. The result is tight (`offset =
+/// 0`, buffer exactly `⌈len / 8⌉` bytes). `valid` runs once per slot in
+/// `[0, len)`, so the caller must keep every index it reads (e.g.
+/// `offset + indices[i]`, `offset + i`) within bounds.
 fn pack(len : Int, valid : (Int) -> Bool) -> Bitmap {
   let buf = FixedArray::make(bytes_needed(len), Byte::default())
   for i in 0..<len {
@@ -184,7 +255,7 @@ fn pack(len : Int, valid : (Int) -> Bool) -> Bitmap {
       set_bit_unchecked(buf, i)
     }
   }
-  { bits: buffer_to_bytes(buf), len }
+  { bits: buffer_to_bytes(buf), offset: 0, len }
 }
 
 ///|

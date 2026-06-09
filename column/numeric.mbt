@@ -170,6 +170,20 @@ pub fn NumericColumn::slice(
       "slice start > end: " + start.to_string() + " > " + end.to_string(),
     )
   }
+  self.slice_unchecked(start, end)
+}
+
+///|
+/// Total `[start, end)` slice — the shared core behind `slice` (which
+/// validates the bounds then calls this). Copies the sub-range; an all-valid
+/// column stays all-valid, so there is still no bitmap. The caller must
+/// guarantee `0 <= start <= end <= len` (enforced by `slice`, clamped by
+/// `ColumnStorage::slice_total`).
+fn NumericColumn::slice_unchecked(
+  self : NumericColumn,
+  start : Int,
+  end : Int,
+) -> NumericColumn {
   let n = end - start
   match self.data {
     Int(a) => { data: Int(Array::makei(n, i => a[start + i])) }

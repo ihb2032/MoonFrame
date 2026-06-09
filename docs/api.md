@@ -1,8 +1,8 @@
-# MoonFrame v0.2 — Public API
+# MoonFrame v0.3 — Public API
 
-> Status: **method-chain migration shipped**. This document is the
-> source of truth for the v0.2 public surface. When a symbol is
-> published in code, it must appear here.
+> Status: **v0.3 shipped** (output formats, full join matrix, pluggable
+> column storage). This document is the source of truth for the v0.3
+> public surface. When a symbol is published in code, it must appear here.
 
 The facade package `ihb2032/MoonFrame` re-exports every symbol below
 via `pub using @<subpkg> { ... }`, so a single
@@ -15,7 +15,7 @@ Runnable, CI-verified examples of the surface below live in
 [`quickstart.mbt.md`](../quickstart.mbt.md) (doc tests executed by `moon test`
 on every backend).
 
-## Error model (v0.2)
+## Error model
 
 Every operation that can fail on bad input or I/O is an effectful
 function with signature `... -> T raise DataError`. There is no
@@ -37,24 +37,11 @@ keeps its `Result[Unit, String]` shape — it is a verification /
 diagnostic affordance (its error is a `String` describing the first
 violated invariant), not a data transform.
 
-### v0.1 → v0.2 migration
+### Migration
 
-- `@ops.op(df, args)` (free function) → `df.op(args)` (method); the
-  `ops` package is folded into `frame`.
-- `op(...) -> Result[T, DataError]` + `.bind` / `.map` / `.unwrap` →
-  `op(...) -> T raise DataError`, chained directly; use `try?` to land a
-  `Result`.
-- `filter` + `filter_try` → a single `filter(self, (RowView) -> Bool
-  raise DataError)`.
-- `sort_by` + `sort_by_many` → a single
-  `sort_by(self, keys : Array[(String, SortOrder, NullOrder)])`; multi-key
-  sort is just a longer tuple list.
-- `Series::min()` / `max()` (`Result`-wrapped) removed → `min_value()` /
-  `max_value()` (total, return `Scalar`).
-- `to_markdown(df)` / `to_markdown_with_limit(df, n)` → `df.to_markdown()`
-  / `df.to_markdown_with_limit(n)` (now `DataFrame` methods).
-- `enum DataError` → `pub(all) suberror DataError` (same variants,
-  `message()`, and `Show`).
+Source-level changes from earlier releases — the `ops` → method move and the
+`Result` → `raise` shift (v0.1 → v0.2), and the `Series::storage` / `JoinType`
+breaks (v0.2 → v0.3) — are collected in [`migration.md`](migration.md).
 
 ---
 
@@ -119,9 +106,13 @@ validity bitmap (`1 = valid`, `0 = null`).
 
 ### Validity bitmap
 
-- `struct Bitmap { bits : Bytes, len : Int }` — byte-packed at 1 bit per
-  row, `1 = valid`. Slot `i` lives in `bits[i / 8]` at bit `i % 8` (LSB
-  first); a bitmap of `len` slots occupies exactly `⌈len / 8⌉` bytes.
+- `struct Bitmap { bits : Bytes, offset : Int, len : Int }` — byte-packed
+  at 1 bit per row, `1 = valid`. Logical slot `i` lives at physical bit
+  `offset + i` (`bits[(offset + i) / 8]`, bit `(offset + i) % 8`, LSB
+  first). A constructor builds a tight `⌈len / 8⌉`-byte buffer with
+  `offset = 0`; `slice` is a zero-copy view that shares the parent buffer
+  and advances `offset`, so equality is logical over the
+  `[offset, offset + len)` window rather than structural.
   Note: some MoonBit ecosystem libraries (e.g. `smallbearrr/pandas`) use
   the **opposite** convention (`true = null`).
 - Total constructors: `all_valid(len)` / `all_null(len)` /
@@ -218,6 +209,12 @@ validity bitmap (`1 = valid`, `0 = null`).
 - Total inspection: `kind()` / `dtype` / `len` / `is_empty` / `null_count`
   / `data() -> ColumnData` / `validity() -> Bitmap` / `to_builtin() ->
   BuiltinColumn` / `to_string_column() -> BuiltinColumn`.
+- Total `slice_total(start, end) -> ColumnStorage` — the no-raise
+  counterpart of `slice`, backing the total row transforms `head` / `tail`
+  / `DataFrame::slice`. Keeps the backend and shares the validity buffer
+  (zero-copy view) exactly like `slice`, but clamps out-of-range bounds into
+  `[0, len]` (with `end` lifted to at least `start`) rather than raising, so
+  it never raises or aborts.
 - Fallible (`raise DataError`): `is_null(i)` / `get(i)`; backend-preserving
   `slice(start, end)` / `take(indices)` (a sub-range of a `Numeric` column
   stays `Numeric`); `int_values()` / `float_values()` / `bool_values()` /
@@ -286,9 +283,12 @@ dependencies** (NyaCSV / fs / @json live only in `io`).
   identity, `Bool` / `String` → `TypeMismatch`; `mean()` — `Double`,
   empty / all-null numeric → `InvalidOperation`, non-numeric →
   `TypeMismatch`; `describe() -> DataFrame` — one-row six-column summary
-  (`count` / `null_count` / `unique_count` / `mean` / `min` / `max`),
-  raising only because it builds through `DataFrame::new` (always
-  succeeds in practice). `Float` `NaN` is a value, not missing: it
+  (`count` / `null_count` / `unique_count` / `mean` / `min` / `max`); a
+  single series carries one dtype, so `min` / `max` keep that **source
+  dtype** here (contrast `DataFrame::describe`, which stringifies them to
+  span columns of differing dtype in one summary column). Raises only
+  because it builds through `DataFrame::new` (always succeeds in
+  practice). `Float` `NaN` is a value, not missing: it
   **propagates** through `sum` / `mean` (any non-null `NaN` ⇒ `NaN`) but is
   **skipped** by `min_value` / `max_value` (and `sort_by`) — matching
   Polars, whose `sum`/`mean` propagate `NaN` while its regular `min`/`max`
@@ -373,7 +373,9 @@ transforms, so every output satisfies `check_invariants()`.
   per source column, fixed `N × 8` schema (`column` / `dtype` / `count` /
   `null_count` / `unique_count` (`Int`); `mean` (`Float`, nullable);
   `min` / `max` (`String`, nullable, rendered via `Scalar::to_string`)).
-  0-column collapses to `0 × 8`.
+  Unlike the typed `Series::describe`, `min` / `max` are stringified so a
+  single column can carry extrema across source columns of differing
+  dtype. 0-column collapses to `0 × 8`.
 - `to_markdown() -> String` / `to_markdown_with_limit(limit) -> String`
   — **total** GitHub-flavored pipe-table renderers (IO-1: pure rendering
   lives in `frame`). Column widths align to `max(header, cells)` with a
@@ -404,10 +406,11 @@ Split-apply-combine, native to the method chain
 - `group_by(keys : Array[String]) -> GroupedDataFrame raise DataError` —
   partition the frame by one or more key columns. Group order is **first
   appearance** (equivalent to Polars' `maintain_order=True`), so the result
-  is deterministic. Group identity is the composite of each key cell's
-  `Scalar::to_string` (the canonical value form `unique_count` keys on), so
-  a `Float` `NaN` collapses all NaNs into one group (Polars treats `NaN` as
-  equal for grouping), and a **null** key forms its **own** group rather
+  is deterministic. Group identity is the composite tuple of the key cells,
+  hashed on each cell's native value, so a `Float` `NaN` collapses all NaNs
+  into one group (Polars treats `NaN` as equal for grouping; `-0.0` and
+  `+0.0` likewise share a group), and a **null** key forms its **own** group
+  rather
   than being dropped (the Polars default — pandas drops null keys — and the
   deliberate difference from `join`, where `null` matches nothing). One key
   or several; an empty `keys` list makes a single grand-total group; a
@@ -449,8 +452,8 @@ Hash equi-join, native to the method chain (`left.join(right, options)`).
 - `join(other, options : JoinOptions) -> DataFrame raise DataError` — join
   `self` (left) with `other` (right) on the `options.on` key columns. Two
   rows match when every key holds an equal value, using the **same
-  composite-key encoding as `group_by`** (each cell's `Scalar::to_string`,
-  length-prefixed so a multi-key composite is injective). The one
+  composite-key encoding as `group_by`** (a tuple of the key cells, keyed
+  on each native value, structurally injective across key columns). The one
   deliberate difference from `group_by`: a **null** key matches **nothing**
   (`null != null`, the SQL / Polars default) — such an unmatched row is
   dropped by `Inner` and kept (with the other side's columns null) by
@@ -552,6 +555,12 @@ and return a `String`. The one exception is `format_vega_lite`, which
 JSON / Vega-Lite specs go through the builtin `@json`; file wrappers
 delegate to `moonbitlang/x/fs` and promote its `IOError` to
 `raise DataError::IoError(message)`.
+
+The dtype-inference rules these readers share — the `Int → Float → Bool →
+String` order, what happens to a cell past the inference window, and the
+accepted numeric forms — are explained in
+[`type-inference.md`](type-inference.md); the per-reader options that tune them
+are documented below.
 
 ### CSV
 
@@ -708,9 +717,6 @@ facade.
 
 ---
 
-## Out of scope for v0.2 (so far)
+## Out of scope for v0.3 (so far)
 
 - Expression / lazy query API — v0.4
-
-(HTML output, Vega-Lite chart export, and the `ColumnStorage` /
-`NumericColumn` pluggable storage backend have since landed in v0.3.)

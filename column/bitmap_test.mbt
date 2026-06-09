@@ -240,3 +240,79 @@ test "bit_and on two empty bitmaps yields an empty bitmap" {
   let c = a.bit_and(b)
   assert_eq(c.len(), 0)
 }
+
+// ── zero-copy slice views (P3) ───────────────────────────────────────
+
+///|
+test "sliced view equals a freshly packed bitmap and counts its own window" {
+  // slice(3, 5) is a zero-copy view (offset 3 into the parent's buffer); it
+  // must compare logically equal to the same five bits packed standalone,
+  // and null_count must count only the view's window — not the parent's
+  // other bits.
+  let bm = Bitmap::from_bools([
+    true, false, true, // bits 0..2
+     false, true, true, false, true, // bits 3..7  (the window starts at 3)
+     false, false, // bits 8..9
+  ])
+  let view = bm.slice(3, 5) // bits 3..7 = [false, true, true, false, true]
+  let fresh = Bitmap::from_bools([false, true, true, false, true])
+  assert_eq(view, fresh)
+  assert_eq(view.null_count(), 2)
+  assert_eq(fresh.null_count(), 2)
+  // A view of a view composes the offsets.
+  let inner = view.slice(1, 3) // [true, true, false]
+  assert_eq(inner, Bitmap::from_bools([true, true, false]))
+  assert_eq(inner.null_count(), 1)
+}
+
+///|
+test "bitmap equality is logical, not structural" {
+  let a = Bitmap::from_bools([true, false, true])
+  // Same length, one differing bit → not equal.
+  assert_eq(a == Bitmap::from_bools([true, true, true]), false)
+  // Different length → not equal.
+  assert_eq(a == Bitmap::from_bools([true, false]), false)
+  // Same bits → equal.
+  assert_eq(a == Bitmap::from_bools([true, false, true]), true)
+}
+
+///|
+test "null_count of an offset-0 sub-window masks the shared tail byte (P3 regression)" {
+  // A slice that starts at bit 0 but is shorter than its parent, yet rounds
+  // up to the same byte count, shares the parent's final byte — where the
+  // bits past `len` are live sibling bits. The popcount fast path must mask
+  // them; before the fix this returned a too-small (even negative) count.
+  let all3 = Bitmap::all_valid(3) // 1 byte, bits 0,1,2 set
+  assert_eq(all3.slice(0, 2).null_count(), 0)
+  assert_eq(all3.slice(0, 1).null_count(), 0)
+  let mixed = Bitmap::from_bools([true, false, true]) // bit 1 is null
+  assert_eq(mixed.slice(0, 2).null_count(), 1) // window [0, 2) keeps the null
+  // `len` a multiple of 8 exercises the `tail == 0` fast path (no mask).
+  assert_eq(Bitmap::all_valid(8).null_count(), 0)
+  assert_eq(Bitmap::all_null(8).null_count(), 8)
+}
+
+///|
+test "null_count over every slice agrees with a naive bit-by-bit count" {
+  // Property: for a fixed pattern the null_count of every
+  // `[start, start + len)` slice equals the per-bit count — covering offset 0
+  // and offset != 0, full bytes and masked tails, all against the
+  // shared-buffer fast path.
+  let pattern = [
+    true, false, true, true, false, false, true, false, true, true, false, true,
+    false,
+  ]
+  let bm = Bitmap::from_bools(pattern)
+  let n = pattern.length()
+  for start in 0..<(n + 1) {
+    for len in 0..<(n - start + 1) {
+      let mut expected = 0
+      for k in 0..<len {
+        if !pattern[start + k] {
+          expected = expected + 1
+        }
+      }
+      assert_eq(bm.slice(start, len).null_count(), expected)
+    }
+  }
+}

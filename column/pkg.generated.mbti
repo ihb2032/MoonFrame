@@ -13,8 +13,9 @@ import {
 // Types and methods
 pub struct Bitmap {
   bits : Bytes
+  offset : Int
   len : Int
-} derive(Eq, @debug.Debug)
+} derive(@debug.Debug)
 pub fn Bitmap::all_null(Int) -> Self
 pub fn Bitmap::all_valid(Int) -> Self
 pub fn Bitmap::bit_and(Self, Self) -> Self raise @types.DataError
@@ -27,6 +28,7 @@ pub fn Bitmap::null_count(Self) -> Int
 pub fn Bitmap::slice(Self, Int, Int) -> Self raise @types.DataError
 pub fn Bitmap::take(Self, Array[Int]) -> Self raise @types.DataError
 pub fn Bitmap::to_bools(Self) -> Array[Bool]
+pub impl Eq for Bitmap
 
 pub struct BuiltinColumn {
   data : ColumnData
@@ -85,6 +87,7 @@ pub fn ColumnStorage::kind(Self) -> StorageKind
 pub fn ColumnStorage::len(Self) -> Int
 pub fn ColumnStorage::null_count(Self) -> Int
 pub fn ColumnStorage::slice(Self, Int, Int) -> Self raise @types.DataError
+pub fn ColumnStorage::slice_total(Self, Int, Int) -> Self
 pub fn ColumnStorage::string_values(Self) -> (Array[String], Bitmap) raise @types.DataError
 pub fn ColumnStorage::take(Self, Array[Int]) -> Self raise @types.DataError
 pub fn ColumnStorage::to_builtin(Self) -> BuiltinColumn

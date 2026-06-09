@@ -129,6 +129,8 @@ pub(all) enum JoinType {
   Cross
 } derive(Eq, @debug.Debug)
 
+type KeyCell derive(Eq, Hash)
+
 pub(all) enum NullOrder {
   NullsFirst
   NullsLast

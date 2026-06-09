@@ -24,12 +24,11 @@ pub struct GroupedDataFrame {
 /// appearance** (equivalent to Polars' `maintain_order=True`), so the
 /// result is deterministic and snapshot-stable without a sort.
 ///
-/// Group identity is the composite of each key cell's `Scalar::to_string`
-/// (the same per-cell rendering `unique_count` keys on, here composed
-/// injectively — see `row_group_key`), so:
-///   * a `Float` `NaN` renders `"NaN"` and all NaNs collapse into one
-///     group — matching Polars, where `NaN` compares equal for grouping
-///     (the same rule `join` keys on);
+/// Group identity is the composite `KeyCell` tuple of the row's key cells
+/// (see `frame/row_key.mbt`), hashed on the native cell values, so:
+///   * a `Float` `NaN` collapses into one group — matching Polars, where
+///     `NaN` compares equal for grouping (the same rule `join` keys on);
+///     `-0.0` and `+0.0` likewise share a group;
 ///   * a **null** key cell forms its **own** group rather than being
 ///     dropped — the Polars default (pandas drops null keys), and the
 ///     deliberate semantic difference from `join`, where a null key
@@ -73,7 +72,7 @@ pub fn DataFrame::group_by(
   // order, so `.values()` reproduces first-appearance group order (pandas
   // `sort=False`) with no separate slot-tracking array; within a group the
   // indices stay ascending because `i` only grows.
-  let by_key : Map[String, Array[Int]] = {}
+  let by_key : Map[Array[KeyCell], Array[Int]] = {}
   for i in 0..<self.nrows() {
     let id = row_group_key(key_scalars, i)
     match by_key.get(id) {
@@ -82,34 +81,6 @@ pub fn DataFrame::group_by(
     }
   }
   { source: self, keys, groups: by_key.values().collect() }
-}
-
-///|
-/// Build row `i`'s composite group key from the pre-materialised key
-/// columns. Each key cell contributes a self-delimiting token so the
-/// encoding is injective — distinct key tuples never collide:
-///   * a null cell → `"N;"` (a tag that no value token can produce), so a
-///     null is distinct from an empty string and forms its own group;
-///   * a value cell → `"V" + len + ":" + Scalar::to_string`, length-
-///     prefixed so a `String` cell containing the delimiter can't be
-///     confused with a field boundary.
-fn row_group_key(key_scalars : Array[Array[@types.Scalar]], i : Int) -> String {
-  let buf = StringBuilder::new()
-  for col in key_scalars {
-    // `col` has `nrows` cells and `i` ranges over `[0, nrows)`, so the
-    // read is in-bounds.
-    let sc = col[i]
-    if sc.is_null() {
-      buf.write_string("N;")
-    } else {
-      let s = sc.to_string()
-      buf.write_string("V")
-      buf.write_string(s.length().to_string())
-      buf.write_string(":")
-      buf.write_string(s)
-    }
-  }
-  buf.to_string()
 }
 
 ///|

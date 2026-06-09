@@ -212,6 +212,21 @@ pub fn BuiltinColumn::slice(
       "slice start > end: " + start.to_string() + " > " + end.to_string(),
     )
   }
+  self.slice_unchecked(start, end)
+}
+
+///|
+/// Total `[start, end)` slice — the shared core behind `slice` (which
+/// validates the bounds then calls this). Copies the row data and takes a
+/// zero-copy validity view (`Bitmap::slice_view`). The caller must guarantee
+/// `0 <= start <= end <= len`; `slice` enforces that, and `ColumnStorage`'s
+/// total `slice_total` clamps before delegating, so this never reads out of
+/// bounds.
+fn BuiltinColumn::slice_unchecked(
+  self : BuiltinColumn,
+  start : Int,
+  end : Int,
+) -> BuiltinColumn {
   let n = end - start
   let data_out : ColumnData = match self.data {
     Int(a) => Int(Array::makei(n, i => a[start + i]))
@@ -219,10 +234,7 @@ pub fn BuiltinColumn::slice(
     Bool(a) => Bool(Array::makei(n, i => a[start + i]))
     String(a) => String(Array::makei(n, i => a[start + i]))
   }
-  // `validity.slice` repeats the same bounds checks against the same logical
-  // length, so it never raises here — the raise effect just forwards the
-  // (unreachable) error rather than forcing a local `unwrap` / dead arm.
-  { data: data_out, validity: self.validity.slice(start, n) }
+  { data: data_out, validity: self.validity.slice_view(start, n) }
 }
 
 ///|

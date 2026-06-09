@@ -44,10 +44,13 @@ pub fn DataFrame::describe(
     counts.push(s.count().to_int64())
     null_counts.push(s.null_count().to_int64())
     unique_counts.push(s.unique_count().to_int64())
-    // Both `Series::mean` failure modes (TypeMismatch for non-numeric,
-    // InvalidOperation for empty / all-null numeric) collapse to a
-    // null cell here — the diagnostic distinction is preserved at the
-    // per-column API and would be noise in the aggregate view.
+    // Both `Series::mean` failure modes — `TypeMismatch` (non-numeric) and
+    // `InvalidOperation` (empty / all-null numeric) — collapse to a null
+    // cell here; the per-column API keeps the distinction, which would be
+    // noise in the aggregate view. Those are the only two errors mean
+    // raises, so the wildcard catches exactly them: spelling them out and
+    // re-raising the rest would leave an unreachable arm that breaks the
+    // 100% line-coverage gate.
     let mean_cell = try s.mean() catch {
       _ => None
     } noraise {

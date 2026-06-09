@@ -6,6 +6,17 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Pin the MoonBit toolchain so CI matches the version this project is built
+# and gated against locally. The official install scripts
+# (cli.moonbitlang.com) read MOONBIT_INSTALL_VERSION and URL-encode the `+`
+# themselves. Left on "latest", a newer release regressed `moon test` across
+# every OS even though the suite is green on this toolchain. To adopt a newer
+# toolchain, bump this to a version published under
+# https://cli.moonbitlang.com/binaries/<version>/ and re-run the full local
+# gate (moon check --deny-warn && moon test && moon fmt && moon info) first.
+env:
+  MOONBIT_INSTALL_VERSION: "0.9.3+3d4544a9e" # == moon 0.1.20260522 (2026-05-22)
+
 jobs:
   build:
     name: ${{ matrix.os }}

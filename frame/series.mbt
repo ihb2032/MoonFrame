@@ -337,33 +337,56 @@ fn slice_series(s : Series, start : Int, len : Int) -> Series {
 ///|
 /// Total gather: position `k` of the result is `s[idx[k]]`. The caller
 /// guarantees every index is in `[0, s.len())`. The result keeps the source
-/// backend (`preserve_backend`). Backs `drop_nulls`, `take`, and the
-/// row-gather DataFrame transforms.
+/// backend — a `Numeric` source rebuilds straight onto the `Numeric` fast
+/// path, a `Builtin` source stays `Builtin`. Backs `drop_nulls`, `take`, and
+/// the row-gather DataFrame transforms.
 fn gather_series(s : Series, idx : Array[Int]) -> Series {
-  let valid = s.storage.validity().to_bools()
-  let rebuilt = match s.storage.data() {
+  // A `Numeric` source is all-valid and the caller guarantees in-bounds
+  // indices, so its gather is itself all-valid: the `Int` / `Float` arms
+  // rebuild directly onto the `Numeric` backend, materialising no validity
+  // mask and allocating no transient bitmap. The option-constructor path the
+  // `Builtin` arms take would, for a `Numeric` source, round-trip `Numeric` →
+  // `Builtin` → `try_column_to_numeric` → `Numeric`, allocating an `Array[T?]`
+  // and a `Bitmap` only to drop them on re-convergence — skipped here. A
+  // `Builtin` source (any dtype) stays `Builtin`; `valid` is read on that path
+  // alone.
+  let numeric = s.storage.kind() is @column.StorageKind::Numeric
+  match s.storage.data() {
     @column.ColumnData::Int(a) =>
-      Series::from_int_options(
-        s.name,
-        idx.map(k => if valid[k] { Some(a[k]) } else { None }),
-      )
+      if numeric {
+        Series::from_ints(s.name, idx.map(k => a[k]))
+      } else {
+        let valid = s.storage.validity().to_bools()
+        Series::from_int_options(
+          s.name,
+          idx.map(k => if valid[k] { Some(a[k]) } else { None }),
+        )
+      }
     @column.ColumnData::Float(a) =>
-      Series::from_float_options(
-        s.name,
-        idx.map(k => if valid[k] { Some(a[k]) } else { None }),
-      )
-    @column.ColumnData::Bool(a) =>
+      if numeric {
+        Series::from_floats(s.name, idx.map(k => a[k]))
+      } else {
+        let valid = s.storage.validity().to_bools()
+        Series::from_float_options(
+          s.name,
+          idx.map(k => if valid[k] { Some(a[k]) } else { None }),
+        )
+      }
+    @column.ColumnData::Bool(a) => {
+      let valid = s.storage.validity().to_bools()
       Series::from_bool_options(
         s.name,
         idx.map(k => if valid[k] { Some(a[k]) } else { None }),
       )
-    @column.ColumnData::String(a) =>
+    }
+    @column.ColumnData::String(a) => {
+      let valid = s.storage.validity().to_bools()
       Series::from_string_options(
         s.name,
         idx.map(k => if valid[k] { Some(a[k]) } else { None }),
       )
+    }
   }
-  preserve_backend(s, rebuilt)
 }
 
 ///|

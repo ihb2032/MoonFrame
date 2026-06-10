@@ -32,6 +32,28 @@ test "all_null marks every slot null across packing-edge lengths" {
 }
 
 ///|
+test "all_valid clamps a negative len to an empty bitmap" {
+  // Stored verbatim, a negative `len` would desynchronise from the empty
+  // buffer and make `null_count` read past it (an abort, the failure mode
+  // the never-abort rule forbids). Clamped, the result is exactly the
+  // empty bitmap.
+  let bm = Bitmap::all_valid(-3)
+  assert_eq(bm.len(), 0)
+  assert_eq(bm.null_count(), 0)
+  assert_eq(bm.to_bools(), [])
+  assert_eq(bm, Bitmap::all_valid(0))
+}
+
+///|
+test "all_null clamps a negative len to an empty bitmap" {
+  let bm = Bitmap::all_null(-1)
+  assert_eq(bm.len(), 0)
+  assert_eq(bm.null_count(), 0)
+  assert_eq(bm.to_bools(), [])
+  assert_eq(bm, Bitmap::all_null(0))
+}
+
+///|
 test "from_bools mirrors the input vector exactly" {
   let bm = Bitmap::from_bools([
     true, false, true, true, false, false, true, true, false,

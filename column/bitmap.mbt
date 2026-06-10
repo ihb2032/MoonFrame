@@ -51,8 +51,14 @@ pub impl Eq for Bitmap with fn equal(self, other) {
 // ── Constructors ──────────────────────────────────────────────────────
 
 ///|
-/// All `len` slots marked valid.
+/// All `len` slots marked valid. A negative `len` clamps to 0 (an empty
+/// bitmap): these two constructors are the only place a caller-supplied
+/// length becomes a bitmap's `len`, and a negative `len` stored verbatim
+/// would desynchronise `len` from the (empty) buffer — `null_count`'s
+/// tail-byte read would then index past it and abort, the one failure mode
+/// the never-abort rule forbids.
 pub fn Bitmap::all_valid(len : Int) -> Bitmap {
+  let len = if len < 0 { 0 } else { len }
   let n = bytes_needed(len)
   let buf = FixedArray::make(n, (0xff : Int).to_byte())
   mask_tail(buf, len)
@@ -60,8 +66,10 @@ pub fn Bitmap::all_valid(len : Int) -> Bitmap {
 }
 
 ///|
-/// All `len` slots marked null.
+/// All `len` slots marked null. A negative `len` clamps to 0, exactly as
+/// in `all_valid` (and for the same reason).
 pub fn Bitmap::all_null(len : Int) -> Bitmap {
+  let len = if len < 0 { 0 } else { len }
   {
     bits: buffer_to_bytes(FixedArray::make(bytes_needed(len), Byte::default())),
     offset: 0,

@@ -22,9 +22,13 @@
 ///
 /// The accessor surface is named identically to `BuiltinColumn`'s numeric
 /// accessors so `ColumnStorage::Numeric` can forward to it verbatim (S2) and
-/// the `Series.storage` flip (S3) stays mechanical; the reductions (`sum` /
-/// `mean` / `min_value` / `max_value`) instead mirror `Series`' own, since
-/// `BuiltinColumn` itself carries no reductions. Cross-dtype transforms
+/// the `Series.storage` flip (S3) stays mechanical. The reductions (`sum` /
+/// `mean` / `min_value` / `max_value`) match `Series`' own semantics
+/// (`BuiltinColumn` carries none of its own), and `Series::sum` / `mean` /
+/// `min_value` / `max_value` dispatch straight here on a `Numeric`-backed
+/// column — so the bitmap-free fold is the path actually taken for an
+/// all-valid numeric `Series`, not just a parallel implementation. Cross-dtype
+/// transforms
 /// (`cast` / `to_int` / `to_float`) are
 /// intentionally absent: a caller that needs them goes through `to_builtin()`
 /// and lets `BuiltinColumn` do the work, keeping this type's surface to the

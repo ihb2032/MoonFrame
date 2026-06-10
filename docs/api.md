@@ -115,7 +115,8 @@ validity bitmap (`1 = valid`, `0 = null`).
   `[offset, offset + len)` window rather than structural.
   Note: some MoonBit ecosystem libraries (e.g. `smallbearrr/pandas`) use
   the **opposite** convention (`true = null`).
-- Total constructors: `all_valid(len)` / `all_null(len)` /
+- Total constructors: `all_valid(len)` / `all_null(len)` (a negative
+  `len` clamps to 0, the empty bitmap) /
   `from_bools(Array[Bool])` (`true ↦ valid`) /
   `from_options[T](Array[T?])` (`Some(_) ↦ valid`).
 - Total inspection: `len` / `null_count()` / `to_bools()` (materialise

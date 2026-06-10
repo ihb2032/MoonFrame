@@ -186,7 +186,7 @@ test "multi-key join matches on the key tuple" {
 ///|
 test "multi-key composite is injective across field boundaries" {
   // ("a","bc") vs ("ab","c"): naive concatenation would collide and join
-  // them spuriously; the length-prefixed composite keeps them apart.
+  // them spuriously; the composite key-cell tuple keeps them apart.
   let left = DataFrame::new([
     Series::from_strings("k1", ["a", "ab"]),
     Series::from_strings("k2", ["bc", "c"]),

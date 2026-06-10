@@ -55,8 +55,16 @@ fn sum_float_valid(data : Array[Double], validity : @column.Bitmap) -> Double {
 ///   sums to `NaN`, not the identity — every cell is a present value.
 /// - Non-numeric series (`Bool`, `String`) → `Err(TypeMismatch)`.
 pub fn Series::sum(self : Series) -> @types.Scalar raise @types.DataError {
-  // Match the backing array directly (total) — the `Int` / `Float` arms
-  // reduce, every other dtype raises. No `*_values` raise to bridge.
+  // Numeric fast path: a bitmap-free tight fold over the raw array — no
+  // `validity().to_bools()` materialisation and no per-slot `if valid[i]`
+  // branch (the `NumericColumn` reduction win, S1). Total there: every dtype
+  // a `NumericColumn` holds is numeric, so it never raises.
+  if self.storage is @column.ColumnStorage::Numeric(nc) {
+    return nc.sum()
+  }
+  // General `Builtin` backend: match the backing array directly (total) —
+  // the `Int` / `Float` arms reduce over the validity mask, every other
+  // dtype raises. No `*_values` raise to bridge.
   match self.storage.data() {
     @column.ColumnData::Int(data) =>
       @types.Scalar::Int(sum_int_valid(data, self.storage.validity()))
@@ -85,6 +93,12 @@ pub fn Series::sum(self : Series) -> @types.Scalar raise @types.DataError {
 /// - Empty / all-null numeric series → `Err(InvalidOperation(...))`.
 /// - Non-numeric series → `Err(TypeMismatch(...))`.
 pub fn Series::mean(self : Series) -> Double raise @types.DataError {
+  // Numeric fast path: bitmap-free fold with an all-valid denominator
+  // (`len`), raising `InvalidOperation` on an empty column exactly as the
+  // `Builtin` path below does. No validity materialisation.
+  if self.storage is @column.ColumnStorage::Numeric(nc) {
+    return nc.mean()
+  }
   let cnt = self.count()
   // Sum the non-null cells per dtype. A non-numeric column raises here,
   // before the empty check — `mean` is undefined for it regardless of
@@ -149,6 +163,11 @@ fn[T] fold_extremum(
 ///   (and/or nulls) → `Scalar::Null`.
 /// - `Bool` order: `false < true`.
 pub fn Series::min_value(self : Series) -> @types.Scalar {
+  // Numeric fast path: bitmap-free extremum fold (NaN still skipped, empty
+  // → `Null`). No validity materialisation.
+  if self.storage is @column.ColumnStorage::Numeric(nc) {
+    return nc.min_value()
+  }
   let valid = self.storage.validity().to_bools()
   match self.storage.data() {
     @column.ColumnData::Int(a) => {
@@ -201,6 +220,11 @@ pub fn Series::min_value(self : Series) -> @types.Scalar {
 /// place of `<`; the `Float` NaN and empty-series rules are identical.
 /// Total — the v0.1 `Result`-wrapped `max` has been dropped in v0.2.
 pub fn Series::max_value(self : Series) -> @types.Scalar {
+  // Numeric fast path: bitmap-free extremum fold (NaN still skipped, empty
+  // → `Null`). No validity materialisation.
+  if self.storage is @column.ColumnStorage::Numeric(nc) {
+    return nc.max_value()
+  }
   let valid = self.storage.validity().to_bools()
   match self.storage.data() {
     @column.ColumnData::Int(a) => {

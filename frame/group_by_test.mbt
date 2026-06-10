@@ -448,7 +448,7 @@ test "empty keys and empty specs collapse to a 0x0 frame" {
 ///|
 test "multi-key composite is injective across field boundaries" {
   // Naively concatenated, ("a","bc") and ("ab","c") both spell "abc" and
-  // would collapse into one group. The length-prefixed encoding keeps
+  // would collapse into one group. The composite key-cell tuple keeps
   // them apart → two groups.
   let df = DataFrame::new([
     Series::from_strings("k1", ["a", "ab"]),

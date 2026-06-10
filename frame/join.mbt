@@ -187,7 +187,13 @@ pub fn DataFrame::join(
         _ => false
       }
       // Track which right rows were paired, so `Outer` can emit the rest.
-      let right_matched = Array::make(other.nrows(), false)
+      // Only `Outer` reads this, so `Inner` / `Left` skip both the buffer and
+      // the per-match write below.
+      let right_matched = if emit_unmatched_right {
+        Array::make(other.nrows(), false)
+      } else {
+        []
+      }
       // Probe each left row in order. A null left key (`None`) and a key
       // with no right entry are the same case: no match.
       for i in 0..<self.nrows() {
@@ -200,7 +206,9 @@ pub fn DataFrame::join(
             for j in rows {
               left_rows.push(Some(i))
               right_rows.push(Some(j))
-              right_matched[j] = true
+              if emit_unmatched_right {
+                right_matched[j] = true
+              }
             }
           None =>
             if keep_unmatched_left {

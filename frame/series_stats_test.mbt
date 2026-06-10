@@ -254,6 +254,33 @@ test "min_value / max_value Bool flip when the running extremum must change" {
   )
 }
 
+// ── backend equivalence (Numeric fast path vs Builtin) ────────────────
+
+///|
+test "reductions agree on the Numeric fast path and the Builtin path" {
+  // The v0.3 fix routes a `Numeric`-backed series' reductions to the
+  // bitmap-free fold; this pins that the fast path can never diverge from the
+  // general `Builtin` path on the same values (`to_builtin()` forces Builtin).
+  let ints = Series::from_ints("x", [3, 1, 4, 1, 5, 9, 2, 6])
+  let bints = ints.to_builtin()
+  assert_eq(ints.storage_kind(), @column.StorageKind::Numeric)
+  assert_eq(bints.storage_kind(), @column.StorageKind::Builtin)
+  assert_eq(ints.sum(), bints.sum())
+  assert_eq(ints.mean(), bints.mean())
+  assert_eq(ints.min_value(), bints.min_value())
+  assert_eq(ints.max_value(), bints.max_value())
+  // Float with a NaN cell: sum / mean propagate NaN, min / max skip it — both
+  // backends must reach the same verdict on every reduction.
+  let nan : Double = @double.not_a_number
+  let flts = Series::from_floats("x", [2.5, nan, 1.0, 4.0])
+  let bflts = flts.to_builtin()
+  assert_eq(flts.storage_kind(), @column.StorageKind::Numeric)
+  assert_true(flts.sum().as_float().is_nan() && bflts.sum().as_float().is_nan())
+  assert_true(flts.mean().is_nan() && bflts.mean().is_nan())
+  assert_eq(flts.min_value(), bflts.min_value())
+  assert_eq(flts.max_value(), bflts.max_value())
+}
+
 // ── unique_count ─────────────────────────────────────────────────────
 
 ///|

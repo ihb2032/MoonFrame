@@ -100,6 +100,7 @@ pub struct GroupedDataFrame {
   groups : Array[Array[Int]]
 } derive(Eq, @debug.Debug)
 pub fn GroupedDataFrame::agg(Self, Array[AggSpec]) -> DataFrame raise @types.DataError
+pub fn GroupedDataFrame::agg_exprs(Self, Array[@expr.Expr]) -> DataFrame raise @types.DataError
 
 pub struct HtmlOptions {
   max_rows : Int?

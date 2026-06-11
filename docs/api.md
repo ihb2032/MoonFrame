@@ -725,8 +725,16 @@ facade.
   arithmetic `+ - * /` and Kleene-logical `&` / `|` operators, the
   comparison / `not` / null-probe / aggregation / `cast` / `with_alias`
   methods, `when/then/otherwise`, plus `Show`-based `explain` and
-  `referenced_columns`), and `DataFrame::with_columns` evaluates the spike
-  subset (`+`, `&`) — every other form raises `Unsupported` until the full
-  vectorized evaluator lands. The remaining eager consumers
+  `referenced_columns`), and the full vectorized evaluator behind
+  `DataFrame::with_columns` evaluates all of it: `Int`/`Float`-promoting
+  arithmetic with an always-`Float` `/` (division by zero → IEEE
+  `±inf` / `NaN`, never a trap), null-propagating comparisons (IEEE NaN,
+  dictionary-order strings, `false < true`), Kleene `&` / `|` / `not`,
+  total null probes, aggregations with the `Series` reduction semantics
+  (length-1, broadcast back over the frame; an all-null `mean` is a null
+  cell), `cast` delegation, and `when/then/otherwise` selection with
+  `Int`/`Float` branch promotion. Computed results land on the `Numeric`
+  backend when all-valid numeric, `Builtin` otherwise; `col(...)`
+  references preserve their source backend. The remaining eager consumers
   (`select_exprs` / `filter_where` / `agg_exprs`) and the lazy layer
   follow; the v0.4 API reference lands with the release.

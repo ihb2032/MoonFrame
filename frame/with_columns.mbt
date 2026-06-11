@@ -2,10 +2,10 @@
 /// Evaluate each expression against `self` and add the results as
 /// columns — the expression twin of `with_column(Series)`: derived columns
 /// are *declared* (`col("a") + col("b")`) rather than pre-materialised.
-/// The full E1 construction surface is accepted; evaluation currently
-/// ships the S0 kernels (`+` numeric, `&` Kleene logical AND) — every
-/// other operator and form raises `Unsupported` until the full evaluator
-/// (E2) lands.
+/// The full construction surface evaluates — arithmetic, comparisons,
+/// Kleene logic, `not` / null probes, aggregations (length-1, broadcast
+/// back over the frame), `cast`, `with_alias`, `when/then/otherwise` —
+/// under the dtype / null / NaN rules documented in `expr_eval.mbt`.
 ///
 /// Naming and placement:
 /// - each result takes its expression's output name — the leftmost column

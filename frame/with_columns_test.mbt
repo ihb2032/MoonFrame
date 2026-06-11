@@ -87,66 +87,41 @@ test "with_columns([]) returns an equal frame" {
 }
 
 ///|
-test "binary operators beyond the S0 kernels raise Unsupported at evaluation" {
-  // The E1 construction surface is wider than the interim evaluator: every
-  // non-S0 operator is an explicit, tested stub arm until E2 lands.
-  let pending : Array[@expr.Expr] = [
-    @expr.col("a") - @expr.col("b"),
-    @expr.col("a") * @expr.col("b"),
-    @expr.col("a") / @expr.col("b"),
-    @expr.col("a").eq(@expr.col("b")),
-    @expr.col("a").ne(@expr.col("b")),
-    @expr.col("a").lt(@expr.col("b")),
-    @expr.col("a").le(@expr.col("b")),
-    @expr.col("a").gt(@expr.col("b")),
-    @expr.col("a").ge(@expr.col("b")),
-    @expr.col("a").lor(@expr.col("b")),
-  ]
-  for e in pending {
-    assert_eq(
-      try? base_df().with_columns([e]),
-      Err(
-        @types.DataError::Unsupported(
-          "operator not yet evaluated: only `+` and `&` ship ahead of the full v0.4 evaluator",
-        ),
-      ),
-    )
-  }
-}
-
-///|
-test "expression forms beyond Col/Lit/Binary raise Unsupported at evaluation" {
-  let pending : Array[@expr.Expr] = [
-    -@expr.col("a"),
-    @expr.col("a").not(),
-    @expr.col("a").sum(),
-    @expr.col("a").cast(@types.DataType::Float),
-    @expr.col("a").with_alias("x"),
-    @expr.when(@expr.col("a").gt(@expr.lit_int(0)))
-    .then(@expr.lit_int(1))
-    .otherwise(@expr.lit_int(0)),
-  ]
-  for e in pending {
-    assert_eq(
-      try? base_df().with_columns([e]),
-      Err(
-        @types.DataError::Unsupported(
-          "expression form not yet evaluated: unary / aggregation / cast / alias / when-then-otherwise land with the full v0.4 evaluator",
-        ),
-      ),
-    )
-  }
+test "alias drives naming: a fresh alias appends, an existing one replaces" {
+  let appended = base_df().with_columns([
+    (@expr.col("a") + @expr.col("b")).with_alias("net"),
+  ])
+  assert_eq(appended.columns(), ["a", "b", "net"])
+  assert_eq(appended.get_column("net").to_scalars(), [
+    @types.Scalar::Int(11),
+    @types.Scalar::Int(22),
+    @types.Scalar::Int(33),
+  ])
+  // The source columns are untouched by an aliased derivation.
+  assert_eq(appended.get_column("a").to_scalars(), [
+    @types.Scalar::Int(1),
+    @types.Scalar::Int(2),
+    @types.Scalar::Int(3),
+  ])
+  let replaced = base_df().with_columns([
+    (@expr.col("a") + @expr.col("b")).with_alias("b"),
+  ])
+  assert_eq(replaced.columns(), ["a", "b"])
+  assert_eq(replaced.get_column("b").to_scalars(), [
+    @types.Scalar::Int(11),
+    @types.Scalar::Int(22),
+    @types.Scalar::Int(33),
+  ])
 }
 
 ///|
 test "expression result equals the equivalent materialised with_column" {
   // The closure-era path: precompute the series, then attach it. The
-  // expression path must produce the identical column.
+  // expression path must produce the identical column — backend included:
+  // an all-valid numeric result converges onto `Numeric`, exactly where
+  // `from_ints` would have put the hand-built series.
   let derived = base_df()
     .with_columns([@expr.col("a") + @expr.col("b")])
     .get_column("a")
-  assert_eq(
-    derived,
-    Series::from_int_options("a", [Some(11), Some(22), Some(33)]),
-  )
+  assert_eq(derived, Series::from_ints("a", [11, 22, 33]))
 }

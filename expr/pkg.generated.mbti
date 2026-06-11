@@ -1,0 +1,43 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ihb2032/MoonFrame/expr"
+
+import {
+  "ihb2032/MoonFrame/types",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn col(String) -> Expr
+
+pub fn lit(@types.Scalar) -> Expr
+
+pub fn lit_bool(Bool) -> Expr
+
+pub fn lit_float(Double) -> Expr
+
+pub fn lit_int(Int64) -> Expr
+
+pub fn lit_str(String) -> Expr
+
+// Errors
+
+// Types and methods
+pub enum BinOp {
+  Add
+  And
+} derive(Eq, @debug.Debug)
+
+pub enum Expr {
+  Col(String)
+  Lit(@types.Scalar)
+  Binary(BinOp, Expr, Expr)
+} derive(Eq, @debug.Debug)
+pub fn Expr::col(String) -> Self
+pub fn Expr::lit(@types.Scalar) -> Self
+pub impl Add for Expr
+pub impl BitAnd for Expr
+
+// Type aliases
+
+// Traits
+

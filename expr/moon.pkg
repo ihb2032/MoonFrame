@@ -1,0 +1,7 @@
+import {
+  "ihb2032/MoonFrame/types",
+}
+
+import {
+  "moonbitlang/core/test",
+} for "test"

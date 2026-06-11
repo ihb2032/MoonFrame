@@ -735,13 +735,19 @@ facade.
   cell), `cast` delegation, and `when/then/otherwise` selection with
   `Int`/`Float` branch promotion. Computed results land on the `Numeric`
   backend when all-valid numeric, `Builtin` otherwise; `col(...)`
-  references preserve their source backend. Three eager consumers are
-  live: `DataFrame::with_columns` (derive / replace columns),
+  references preserve their source backend. The eager consumer surface is
+  complete: `DataFrame::with_columns` (derive / replace columns),
   `DataFrame::select_exprs` (project the frame down to the evaluated
   expressions — an all-scalar selection collapses to a one-row summary,
-  otherwise scalars broadcast beside frame-tall results), and
+  otherwise scalars broadcast beside frame-tall results),
   `DataFrame::filter_where` (vectorized boolean row selection — `false` /
   null predicate cells drop the row, length-1 predicates broadcast over
-  the frame). The remaining eager consumer (`GroupedDataFrame::agg_exprs`)
-  and the lazy layer follow; the v0.4 API reference lands with the
-  release.
+  the frame), and `GroupedDataFrame::agg_exprs` (expression aggregation —
+  each expression evaluates once per group, generalising `AggSpec` to
+  compound reductions like `(col("revenue") - col("cost")).sum()` or a
+  `max() - min()` range; every expression must be reduction-shaped —
+  aggregations / literals composed through the operators, `cast`,
+  `with_alias`, `when/then/otherwise` — and a bare column raises
+  `InvalidOperation`, structurally, regardless of group sizes: implicit
+  Polars-style list-aggregation is out of scope). The lazy layer follows;
+  the v0.4 API reference lands with the release.

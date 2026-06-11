@@ -1,0 +1,35 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ihb2032/MoonFrame/lazy"
+
+import {
+  "ihb2032/MoonFrame/expr",
+  "ihb2032/MoonFrame/frame",
+  "ihb2032/MoonFrame/types",
+}
+
+// Values
+pub fn lazy_frame(@frame.DataFrame) -> LazyFrame
+
+// Errors
+
+// Types and methods
+pub struct LazyFrame {
+  // private fields
+}
+pub fn LazyFrame::collect(Self) -> @frame.DataFrame raise @types.DataError
+pub fn LazyFrame::explain(Self) -> String
+pub fn LazyFrame::filter_where(Self, @expr.Expr) -> Self
+pub fn LazyFrame::from(@frame.DataFrame) -> Self
+pub fn LazyFrame::head(Self, Int) -> Self
+pub fn LazyFrame::join(Self, Self, @frame.JoinOptions) -> Self
+pub fn LazyFrame::limit(Self, Int) -> Self
+pub fn LazyFrame::select_exprs(Self, Array[@expr.Expr]) -> Self
+pub fn LazyFrame::slice(Self, Int, Int) -> Self
+pub fn LazyFrame::sort_by(Self, Array[(String, @frame.SortOrder, @frame.NullOrder)]) -> Self
+pub fn LazyFrame::tail(Self, Int) -> Self
+pub fn LazyFrame::with_columns(Self, Array[@expr.Expr]) -> Self
+
+// Type aliases
+
+// Traits
+

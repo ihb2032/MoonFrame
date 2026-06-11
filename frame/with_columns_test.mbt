@@ -87,6 +87,58 @@ test "with_columns([]) returns an equal frame" {
 }
 
 ///|
+test "binary operators beyond the S0 kernels raise Unsupported at evaluation" {
+  // The E1 construction surface is wider than the interim evaluator: every
+  // non-S0 operator is an explicit, tested stub arm until E2 lands.
+  let pending : Array[@expr.Expr] = [
+    @expr.col("a") - @expr.col("b"),
+    @expr.col("a") * @expr.col("b"),
+    @expr.col("a") / @expr.col("b"),
+    @expr.col("a").eq(@expr.col("b")),
+    @expr.col("a").ne(@expr.col("b")),
+    @expr.col("a").lt(@expr.col("b")),
+    @expr.col("a").le(@expr.col("b")),
+    @expr.col("a").gt(@expr.col("b")),
+    @expr.col("a").ge(@expr.col("b")),
+    @expr.col("a").lor(@expr.col("b")),
+  ]
+  for e in pending {
+    assert_eq(
+      try? base_df().with_columns([e]),
+      Err(
+        @types.DataError::Unsupported(
+          "operator not yet evaluated: only `+` and `&` ship ahead of the full v0.4 evaluator",
+        ),
+      ),
+    )
+  }
+}
+
+///|
+test "expression forms beyond Col/Lit/Binary raise Unsupported at evaluation" {
+  let pending : Array[@expr.Expr] = [
+    -@expr.col("a"),
+    @expr.col("a").not(),
+    @expr.col("a").sum(),
+    @expr.col("a").cast(@types.DataType::Float),
+    @expr.col("a").with_alias("x"),
+    @expr.when(@expr.col("a").gt(@expr.lit_int(0)))
+    .then(@expr.lit_int(1))
+    .otherwise(@expr.lit_int(0)),
+  ]
+  for e in pending {
+    assert_eq(
+      try? base_df().with_columns([e]),
+      Err(
+        @types.DataError::Unsupported(
+          "expression form not yet evaluated: unary / aggregation / cast / alias / when-then-otherwise land with the full v0.4 evaluator",
+        ),
+      ),
+    )
+  }
+}
+
+///|
 test "expression result equals the equivalent materialised with_column" {
   // The closure-era path: precompute the series, then attach it. The
   // expression path must produce the identical column.

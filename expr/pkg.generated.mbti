@@ -4,6 +4,7 @@ package "ihb2032/MoonFrame/expr"
 import {
   "ihb2032/MoonFrame/types",
   "moonbitlang/core/debug",
+  "moonbitlang/core/set",
 }
 
 // Values
@@ -19,23 +20,90 @@ pub fn lit_int(Int64) -> Expr
 
 pub fn lit_str(String) -> Expr
 
+pub fn when(Expr) -> WhenThen
+
 // Errors
 
 // Types and methods
+pub enum AggOp {
+  Sum
+  Mean
+  Min
+  Max
+  Count
+} derive(Eq, @debug.Debug)
+
 pub enum BinOp {
   Add
+  Sub
+  Mul
+  Div
+  Eq
+  Ne
+  Lt
+  Le
+  Gt
+  Ge
   And
+  Or
 } derive(Eq, @debug.Debug)
 
 pub enum Expr {
   Col(String)
   Lit(@types.Scalar)
   Binary(BinOp, Expr, Expr)
+  Unary(UnOp, Expr)
+  Agg(AggOp, Expr)
+  Cast(Expr, @types.DataType)
+  Alias(Expr, String)
+  Ternary(Expr, Expr, Expr)
 } derive(Eq, @debug.Debug)
+pub fn Expr::cast(Self, @types.DataType) -> Self
 pub fn Expr::col(String) -> Self
+pub fn Expr::count(Self) -> Self
+pub fn Expr::eq(Self, Self) -> Self
+pub fn Expr::explain(Self) -> String
+pub fn Expr::ge(Self, Self) -> Self
+pub fn Expr::gt(Self, Self) -> Self
+pub fn Expr::is_not_null(Self) -> Self
+pub fn Expr::is_null(Self) -> Self
+pub fn Expr::le(Self, Self) -> Self
 pub fn Expr::lit(@types.Scalar) -> Self
+pub fn Expr::lt(Self, Self) -> Self
+pub fn Expr::max(Self) -> Self
+pub fn Expr::mean(Self) -> Self
+pub fn Expr::min(Self) -> Self
+pub fn Expr::ne(Self, Self) -> Self
+pub fn Expr::not(Self) -> Self
+pub fn Expr::referenced_columns(Self) -> @set.Set[String]
+pub fn Expr::sum(Self) -> Self
+pub fn Expr::with_alias(Self, String) -> Self
 pub impl Add for Expr
 pub impl BitAnd for Expr
+pub impl BitOr for Expr
+pub impl Div for Expr
+pub impl Mul for Expr
+pub impl Neg for Expr
+pub impl Show for Expr
+pub impl Sub for Expr
+
+pub enum UnOp {
+  Neg
+  Not
+  IsNull
+  IsNotNull
+} derive(Eq, @debug.Debug)
+
+pub struct WhenThen {
+  cond : Expr
+}
+pub fn WhenThen::then(Self, Expr) -> WhenThenElse
+
+pub struct WhenThenElse {
+  cond : Expr
+  then_value : Expr
+}
+pub fn WhenThenElse::otherwise(Self, Expr) -> Expr
 
 // Type aliases
 

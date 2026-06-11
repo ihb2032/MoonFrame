@@ -720,4 +720,13 @@ facade.
 
 ## Out of scope for v0.3 (so far)
 
-- Expression / lazy query API — v0.4
+- Expression / lazy query API — v0.4, in development on `main`: the `expr`
+  package's construction surface is complete (`col` / `lit` / `lit_*`,
+  arithmetic `+ - * /` and Kleene-logical `&` / `|` operators, the
+  comparison / `not` / null-probe / aggregation / `cast` / `with_alias`
+  methods, `when/then/otherwise`, plus `Show`-based `explain` and
+  `referenced_columns`), and `DataFrame::with_columns` evaluates the spike
+  subset (`+`, `&`) — every other form raises `Unsupported` until the full
+  vectorized evaluator lands. The remaining eager consumers
+  (`select_exprs` / `filter_where` / `agg_exprs`) and the lazy layer
+  follow; the v0.4 API reference lands with the release.

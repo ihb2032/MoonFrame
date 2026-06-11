@@ -21,6 +21,11 @@
 /// `nrows` themselves). Errors — unknown column, dtype mismatch, the
 /// unrepresentable `Null` literal — surface here; building the tree was
 /// total.
+///
+/// E1 interim: the full E1 construction surface is matched exhaustively,
+/// but only the S0 kernels (`+`, `&`) evaluate. Every other form raises
+/// `Unsupported` — an explicit, tested arm rather than a wildcard, so the
+/// full evaluator (E2) replaces stubs the compiler still tracks.
 fn eval_expr(
   expr : @expr.Expr,
   df : DataFrame,
@@ -36,8 +41,29 @@ fn eval_expr(
       match op {
         @expr.BinOp::Add => eval_add(left, right)
         @expr.BinOp::And => eval_and(left, right)
+        @expr.BinOp::Sub
+        | @expr.BinOp::Mul
+        | @expr.BinOp::Div
+        | @expr.BinOp::Eq
+        | @expr.BinOp::Ne
+        | @expr.BinOp::Lt
+        | @expr.BinOp::Le
+        | @expr.BinOp::Gt
+        | @expr.BinOp::Ge
+        | @expr.BinOp::Or =>
+          raise @types.DataError::Unsupported(
+            "operator not yet evaluated: only `+` and `&` ship ahead of the full v0.4 evaluator",
+          )
       }
     }
+    @expr.Expr::Unary(_, _)
+    | @expr.Expr::Agg(_, _)
+    | @expr.Expr::Cast(_, _)
+    | @expr.Expr::Alias(_, _)
+    | @expr.Expr::Ternary(_, _, _) =>
+      raise @types.DataError::Unsupported(
+        "expression form not yet evaluated: unary / aggregation / cast / alias / when-then-otherwise land with the full v0.4 evaluator",
+      )
   }
 }
 
@@ -211,27 +237,41 @@ fn kleene_and(a : Bool?, b : Bool?) -> Bool? {
 }
 
 ///|
-/// The output column name for an expression (Polars' naming rule, S0
-/// subset): the leftmost `Col` reference's name, or `"literal"` for a
-/// column-less (pure literal) tree. E1's `Alias` variant takes precedence
-/// over both once it lands.
+/// The output column name for an expression (Polars' naming rule): an
+/// alias wins, otherwise the leftmost column reference's name, otherwise
+/// `"literal"` for a column-less tree.
 fn expr_output_name(expr : @expr.Expr) -> String {
-  match leftmost_col_name(expr) {
+  match leftmost_name(expr) {
     Some(name) => name
     None => "literal"
   }
 }
 
 ///|
-/// Depth-first, left-to-right search for the first `Col` in the tree.
-fn leftmost_col_name(expr : @expr.Expr) -> String? {
+/// Depth-first, left-to-right search for the first *naming* node. An
+/// `Alias` names its whole subtree, so an alias anywhere on the leftmost
+/// path wins over the `Col` beneath it; the wrappers (`Unary` / `Agg` /
+/// `Cast`) are name-transparent. A `Ternary` draws its name from the value
+/// branches — `then` first, `otherwise` as fallback — never from the
+/// condition: the condition gates rows, it does not produce output values.
+/// (`Expr::referenced_columns`, by contrast, includes condition columns —
+/// pushdown must keep them alive.)
+fn leftmost_name(expr : @expr.Expr) -> String? {
   match expr {
     @expr.Expr::Col(name) => Some(name)
     @expr.Expr::Lit(_) => None
     @expr.Expr::Binary(_, l, r) =>
-      match leftmost_col_name(l) {
+      match leftmost_name(l) {
         Some(name) => Some(name)
-        None => leftmost_col_name(r)
+        None => leftmost_name(r)
+      }
+    @expr.Expr::Unary(_, e) | @expr.Expr::Agg(_, e) | @expr.Expr::Cast(e, _) =>
+      leftmost_name(e)
+    @expr.Expr::Alias(_, name) => Some(name)
+    @expr.Expr::Ternary(_, t, f) =>
+      match leftmost_name(t) {
+        Some(name) => Some(name)
+        None => leftmost_name(f)
       }
   }
 }

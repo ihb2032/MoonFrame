@@ -51,6 +51,7 @@ pub fn DataFrame::drop_nulls_in(Self, Array[String]) -> Self raise @types.DataEr
 pub fn DataFrame::empty(@types.Schema) -> Self raise @types.DataError
 pub fn DataFrame::fill_null(Self, String, @types.Scalar) -> Self raise @types.DataError
 pub fn DataFrame::filter(Self, (RowView) -> Bool raise @types.DataError) -> Self raise @types.DataError
+pub fn DataFrame::filter_where(Self, @expr.Expr) -> Self raise @types.DataError
 pub fn DataFrame::from_rows(@types.Schema, Array[Array[@types.Scalar]]) -> Self raise @types.DataError
 pub fn DataFrame::get(Self, Int, String) -> @types.Scalar raise @types.DataError
 pub fn DataFrame::get_column(Self, String) -> Series raise @types.DataError
@@ -76,6 +77,7 @@ pub fn DataFrame::row(Self, Int) -> RowView raise @types.DataError
 pub fn DataFrame::row_view(Self, Int) -> RowView
 pub fn DataFrame::schema(Self) -> @types.Schema
 pub fn DataFrame::select(Self, Array[String]) -> Self raise @types.DataError
+pub fn DataFrame::select_exprs(Self, Array[@expr.Expr]) -> Self raise @types.DataError
 pub fn DataFrame::shape(Self) -> (Int, Int)
 pub fn DataFrame::slice(Self, Int, Int) -> Self raise @types.DataError
 pub fn DataFrame::sort_by(Self, Array[(String, SortOrder, NullOrder)]) -> Self raise @types.DataError

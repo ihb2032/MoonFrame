@@ -725,8 +725,8 @@ facade.
   arithmetic `+ - * /` and Kleene-logical `&` / `|` operators, the
   comparison / `not` / null-probe / aggregation / `cast` / `with_alias`
   methods, `when/then/otherwise`, plus `Show`-based `explain` and
-  `referenced_columns`), and the full vectorized evaluator behind
-  `DataFrame::with_columns` evaluates all of it: `Int`/`Float`-promoting
+  `referenced_columns`), and the full vectorized evaluator behind the
+  whole-frame eager consumers evaluates all of it: `Int`/`Float`-promoting
   arithmetic with an always-`Float` `/` (division by zero → IEEE
   `±inf` / `NaN`, never a trap), null-propagating comparisons (IEEE NaN,
   dictionary-order strings, `false < true`), Kleene `&` / `|` / `not`,
@@ -735,6 +735,13 @@ facade.
   cell), `cast` delegation, and `when/then/otherwise` selection with
   `Int`/`Float` branch promotion. Computed results land on the `Numeric`
   backend when all-valid numeric, `Builtin` otherwise; `col(...)`
-  references preserve their source backend. The remaining eager consumers
-  (`select_exprs` / `filter_where` / `agg_exprs`) and the lazy layer
-  follow; the v0.4 API reference lands with the release.
+  references preserve their source backend. Three eager consumers are
+  live: `DataFrame::with_columns` (derive / replace columns),
+  `DataFrame::select_exprs` (project the frame down to the evaluated
+  expressions — an all-scalar selection collapses to a one-row summary,
+  otherwise scalars broadcast beside frame-tall results), and
+  `DataFrame::filter_where` (vectorized boolean row selection — `false` /
+  null predicate cells drop the row, length-1 predicates broadcast over
+  the frame). The remaining eager consumer (`GroupedDataFrame::agg_exprs`)
+  and the lazy layer follow; the v0.4 API reference lands with the
+  release.

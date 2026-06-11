@@ -749,5 +749,21 @@ facade.
   aggregations / literals composed through the operators, `cast`,
   `with_alias`, `when/then/otherwise` — and a bare column raises
   `InvalidOperation`, structurally, regardless of group sizes: implicit
-  Polars-style list-aggregation is out of scope). The lazy layer follows;
+  Polars-style list-aggregation is out of scope). The lazy layer's
+  deferred executor is in: the `lazy` package's `LazyFrame` (entry points
+  `LazyFrame::from(df)` and the free-function alias `lazy_frame(df)` —
+  `lazy` itself is a MoonBit reserved word) wraps a private logical plan
+  grown by total builder methods that mirror the eager verbs
+  name-for-name — `filter_where` / `with_columns` / `select_exprs` /
+  `sort_by` / `head` / `tail` / `limit` (≡ `head`) / `slice` / `join`
+  (the second `LazyFrame` carrying its own deferred pipeline) — so
+  building and introspecting a plan never fail. `collect()` interprets
+  the plan bottom-up through the public eager operators and is
+  bitwise-equal to running the same verbs eagerly in the same order;
+  every failure a pipeline can produce (missing columns, type
+  mismatches, slice bounds) is the eager operator's `DataError`,
+  surfacing at collect time. `explain()` renders the plan as an
+  indented tree — root verb first, inputs two spaces deeper, compact
+  `SCAN [rows×cols]` leaves, expressions in their documented `Show`
+  form. Lazy `group_by` / `agg` and the gated query optimizer follow;
   the v0.4 API reference lands with the release.

@@ -177,8 +177,9 @@ pub fn LazyGroupBy::agg(
 /// node to the public eager operator it defers, so the result is
 /// bitwise-equal to running the same verbs eagerly in the same order,
 /// and the errors are exactly the eager operators' errors
-/// (`ColumnNotFound`, `TypeMismatch`, `IndexOutOfBounds`, …). `explain`
-/// is untouched: it renders the plan as built.
+/// (`ColumnNotFound`, `TypeMismatch`, `IndexOutOfBounds`, …). To see the
+/// rewritten plan this method actually runs, render it with
+/// `explain(optimized=true)`.
 pub fn LazyFrame::collect(
   self : LazyFrame,
 ) -> @frame.DataFrame raise @types.DataError {
@@ -197,10 +198,24 @@ pub fn LazyFrame::collect(
 ///       SCAN [4×3]
 /// ```
 ///
-/// Total — a plan that would fail to `collect` still explains, which is
-/// the point: inspect first, compute later.
-pub fn LazyFrame::explain(self : LazyFrame) -> String {
+/// By default this is the plan **as built** — a faithful mirror of the
+/// chained verbs, which is the package's contract. Pass `optimized=true`
+/// to render the plan `collect` actually runs instead: the projection
+/// pushdown's narrowing `SELECT` (when one fires) appears directly over
+/// the `SCAN`, so printing both forms is the before/after view of what
+/// the optimizer pruned. (Polars' `LazyFrame::explain(optimized)` is the
+/// namesake; plans are immutable, so the flag rewrites a copy and never
+/// perturbs this frame.)
+///
+/// Total either way — the rewrite is a pure tree walk, so a plan that
+/// would fail to `collect` still explains, which is the point: inspect
+/// first, compute later.
+pub fn LazyFrame::explain(
+  self : LazyFrame,
+  optimized? : Bool = false,
+) -> String {
+  let plan = if optimized { optimize(self.plan) } else { self.plan }
   let buf = StringBuilder::new()
-  render(self.plan, buf, 0)
+  render(plan, buf, 0)
   buf.to_string()
 }

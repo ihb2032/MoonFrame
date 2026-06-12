@@ -1,12 +1,13 @@
 ///|
-/// Blackbox equivalence battery for the projection pushdown `collect`
-/// runs in front of the executor. Narrowing is invisible by design — the
-/// optimizer's whole contract is that `collect` stays bitwise-equal to
-/// the eager chain — so these tests pin the contract on exactly the
-/// pipelines where the rewrite fires (and on the guards where it must
-/// not), plus error parity at collect time. The structural before/after
-/// shape of the rewrite itself is pinned in `optimize_wbtest.mbt`; the
-/// shared fixture frames live in `lazy_test.mbt`.
+/// Blackbox battery for the projection pushdown `collect` runs in front
+/// of the executor. Two halves. The *equivalence* tests pin the
+/// optimizer's contract — `collect` stays bitwise-equal to the eager
+/// chain, with error parity, exactly on the pipelines where the rewrite
+/// fires and on the guards where it must not. The *structural* tests pin
+/// what the rewrite did to the tree — which scans narrowed, in which
+/// column order, and which arms must stay no-ops — by snapshotting
+/// `explain(optimized=true)` against the as-built `explain()`: the
+/// before/after pair. The shared fixture frames live in `lazy_test.mbt`.
 
 ///|
 test "narrowed scan: a single-column selection still collects equal" {
@@ -208,9 +209,242 @@ test "errors keep surfacing at collect time, unchanged by the rewrite" {
 }
 
 ///|
-test "explain still renders the plan as built, not the optimized one" {
+test "explain defaults to the plan as built; optimized=true is the before/after pair" {
   let plan = lazy_frame(sales_df()).select_exprs([@expr.col("qty")])
-  // No inserted narrowing select is visible: optimization happens inside
-  // collect, on a copy of the plan.
+  // Before: the chain verbatim — and the default is pinned to
+  // `optimized=false` explicitly.
   assert_eq(plan.explain(), "SELECT [col(qty)]\n  SCAN [4×3]")
+  assert_eq(plan.explain(), plan.explain(optimized=false))
+  // After: the narrowing select `collect` actually runs is visible.
+  assert_eq(
+    plan.explain(optimized=true),
+    "SELECT [col(qty)]\n" + "  SELECT [col(qty)]\n" + "    SCAN [4×3]",
+  )
+}
+
+///|
+test "explain(optimized=true) rewrites a copy: the plan itself is unperturbed" {
+  let df = sales_df()
+  let plan = lazy_frame(df).select_exprs([@expr.col("region")])
+  let optimized = plan.explain(optimized=true)
+  // Rendering the optimized form is stable across calls, and it perturbs
+  // neither the as-built rendering nor what collect returns.
+  assert_eq(plan.explain(optimized=true), optimized)
+  assert_eq(plan.explain(), "SELECT [col(region)]\n  SCAN [4×3]")
+  assert_eq(plan.collect(), df.select_exprs([@expr.col("region")]))
+}
+
+///|
+test "a bare scan is untouched (no requirement at the root)" {
+  assert_eq(lazy_frame(sales_df()).explain(optimized=true), "SCAN [4×3]")
+}
+
+///|
+test "select: a proper-subset requirement narrows the scan, in scan column order" {
+  let plan = lazy_frame(sales_df()).select_exprs([
+    (@expr.col("bonus") + @expr.col("qty")).with_alias("t"),
+  ])
+  // The inserted projection follows the *frame's* column order
+  // (qty before bonus), not the expression's reference order.
+  assert_eq(
+    plan.explain(optimized=true),
+    "SELECT [(col(bonus) + col(qty)) as t]\n" +
+    "  SELECT [col(qty), col(bonus)]\n" +
+    "    SCAN [4×3]",
+  )
+}
+
+///|
+test "select guard: reading every column inserts nothing" {
+  let plan = lazy_frame(sales_df()).select_exprs([
+    @expr.col("qty"),
+    @expr.col("bonus"),
+    @expr.col("region"),
+  ])
+  assert_eq(plan.explain(optimized=true), plan.explain())
+}
+
+///|
+test "select guard: an all-literal selection inserts nothing" {
+  let plan = lazy_frame(sales_df()).select_exprs([
+    @expr.lit_int(1).with_alias("one"),
+  ])
+  assert_eq(plan.explain(optimized=true), "SELECT [1 as one]\n  SCAN [4×3]")
+}
+
+///|
+test "select: a missing column is not kept alive, the rest narrow as usual" {
+  let plan = lazy_frame(sales_df()).select_exprs([
+    @expr.col("qty"),
+    @expr.col("ghost"),
+  ])
+  // `ghost` exists nowhere, so only `qty` survives at the scan; the
+  // user's expression still raises its own `ColumnNotFound` at collect.
+  assert_eq(
+    plan.explain(optimized=true),
+    "SELECT [col(qty), col(ghost)]\n" +
+    "  SELECT [col(qty)]\n" +
+    "    SCAN [4×3]",
+  )
+}
+
+///|
+test "filter: the requirement passes through, widened by the predicate's columns" {
+  let predicate = @expr.col("qty").gt(@expr.lit_int(50))
+  let plan = lazy_frame(sales_df())
+    .filter_where(predicate)
+    .select_exprs([@expr.col("region")])
+  assert_eq(
+    plan.explain(optimized=true),
+    "SELECT [col(region)]\n" +
+    "  FILTER (col(qty) > 50)\n" +
+    "    SELECT [col(qty), col(region)]\n" +
+    "      SCAN [4×3]",
+  )
+  // At the root the requirement is unbounded: a bare filter's layout may
+  // be observed in full, so nothing narrows.
+  let bare = lazy_frame(sales_df()).filter_where(predicate)
+  assert_eq(bare.explain(optimized=true), bare.explain())
+}
+
+///|
+test "sort: the requirement passes through, widened by the sort keys" {
+  let plan = lazy_frame(sales_df())
+    .sort_by([("bonus", @frame.SortOrder::Asc, @frame.NullOrder::NullsLast)])
+    .select_exprs([@expr.col("qty")])
+  assert_eq(
+    plan.explain(optimized=true),
+    "SELECT [col(qty)]\n" +
+    "  SORT [bonus Asc NullsLast]\n" +
+    "    SELECT [col(qty), col(bonus)]\n" +
+    "      SCAN [4×3]",
+  )
+}
+
+///|
+test "row windows pass the requirement through verbatim" {
+  let base = lazy_frame(sales_df())
+  let qty = [@expr.col("qty")]
+  assert_eq(
+    base.head(2).select_exprs(qty).explain(optimized=true),
+    "SELECT [col(qty)]\n" +
+    "  HEAD 2\n" +
+    "    SELECT [col(qty)]\n" +
+    "      SCAN [4×3]",
+  )
+  assert_eq(
+    base.tail(1).select_exprs(qty).explain(optimized=true),
+    "SELECT [col(qty)]\n" +
+    "  TAIL 1\n" +
+    "    SELECT [col(qty)]\n" +
+    "      SCAN [4×3]",
+  )
+  assert_eq(
+    base.slice(1, 3).select_exprs(qty).explain(optimized=true),
+    "SELECT [col(qty)]\n" +
+    "  SLICE [1, 3)\n" +
+    "    SELECT [col(qty)]\n" +
+    "      SCAN [4×3]",
+  )
+}
+
+///|
+test "with_columns: defined names are subtracted, read names added" {
+  let plan = lazy_frame(sales_df())
+    .with_columns([(@expr.col("qty") * @expr.lit_int(2)).with_alias("dbl")])
+    .select_exprs([@expr.col("dbl"), @expr.col("region")])
+  // `dbl` is served by the with_columns stage itself; the scan only owes
+  // `region` (selected) and `qty` (read by the derivation).
+  assert_eq(
+    plan.explain(optimized=true),
+    "SELECT [col(dbl), col(region)]\n" +
+    "  WITH_COLUMNS [(col(qty) * 2) as dbl]\n" +
+    "    SELECT [col(qty), col(region)]\n" +
+    "      SCAN [4×3]",
+  )
+}
+
+///|
+test "with_columns: redefining a selected column keeps only what it reads" {
+  let plan = lazy_frame(sales_df())
+    .with_columns([(@expr.col("qty") * @expr.lit_int(2)).with_alias("bonus")])
+    .select_exprs([@expr.col("bonus")])
+  // The selected `bonus` is a *defined* name: the original scan column
+  // is dead, and only the derivation's input `qty` survives.
+  assert_eq(
+    plan.explain(optimized=true),
+    "SELECT [col(bonus)]\n" +
+    "  WITH_COLUMNS [(col(qty) * 2) as bonus]\n" +
+    "    SELECT [col(qty)]\n" +
+    "      SCAN [4×3]",
+  )
+}
+
+///|
+test "with_columns at the root is a no-op (its full layout is the result)" {
+  let plan = lazy_frame(sales_df()).with_columns([
+    (@expr.col("qty") * @expr.lit_int(2)).with_alias("dbl"),
+  ])
+  assert_eq(plan.explain(optimized=true), plan.explain())
+}
+
+///|
+test "join is a barrier, but each side restarts its own pass" {
+  let opts = @frame.JoinOptions::on(["id"])
+  // A selection *below* the left side narrows that side's scan.
+  let narrowed_side = lazy_frame(orders_df())
+    .select_exprs([@expr.col("id")])
+    .join(lazy_frame(cities_df()), opts)
+  assert_eq(
+    narrowed_side.explain(optimized=true),
+    "JOIN Inner on [id]\n" +
+    "  SELECT [col(id)]\n" +
+    "    SELECT [col(id)]\n" +
+    "      SCAN [3×2]\n" +
+    "  SCAN [3×2]",
+  )
+  // A selection *above* the join narrows neither side: splitting a
+  // requirement across suffix-renamed sides is O2-grade provenance.
+  let above = lazy_frame(orders_df())
+    .join(lazy_frame(cities_df()), opts)
+    .select_exprs([@expr.col("city")])
+  assert_eq(above.explain(optimized=true), above.explain())
+}
+
+///|
+test "aggregate: keys and aggregation reads survive, the rest narrows" {
+  let plan = lazy_frame(sales_df())
+    .group_by(["region"])
+    .agg([@expr.col("qty").sum().with_alias("total")])
+  assert_eq(
+    plan.explain(optimized=true),
+    "AGGREGATE [col(qty).sum() as total] BY [region]\n" +
+    "  SELECT [col(qty), col(region)]\n" +
+    "    SCAN [4×3]",
+  )
+}
+
+///|
+test "aggregate guard: reading every column inserts nothing" {
+  let plan = lazy_frame(sales_df())
+    .group_by(["region"])
+    .agg([
+      @expr.col("qty").sum().with_alias("a"),
+      @expr.col("bonus").max().with_alias("b"),
+    ])
+  assert_eq(plan.explain(optimized=true), plan.explain())
+}
+
+///|
+test "nested selects: the outer requirement never prunes the inner expression list" {
+  let plan = lazy_frame(sales_df())
+    .select_exprs([
+      (@expr.col("qty") + @expr.col("bonus")).with_alias("t"),
+      @expr.col("region"),
+    ])
+    .select_exprs([@expr.col("t")])
+  // Dead-expression elimination is deferred to O2: the inner select
+  // still evaluates `region`, and — reading every scan column — it also
+  // inserts nothing below itself.
+  assert_eq(plan.explain(optimized=true), plan.explain())
 }

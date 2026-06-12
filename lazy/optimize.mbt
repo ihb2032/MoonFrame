@@ -1,7 +1,8 @@
 ///|
-/// The query optimizer (S-opt spike: projection pushdown). A **total**
-/// plan→plan rewrite — pure tree walking, no raise, no abort — that
-/// `collect` runs in front of the executor. Its one inviolable contract
+/// The query optimizer (O1: projection pushdown). A **total** plan→plan
+/// rewrite — pure tree walking, no raise, no abort — that `collect` runs
+/// in front of the executor and `explain(optimized=true)` renders for
+/// inspection. Its one inviolable contract
 /// is the executor's own: `execute(optimize(p))` is bitwise-equal to
 /// `execute(p)` for every plan that collects, and a failing plan still
 /// fails with the same eager operator error. The rewrite never touches a
@@ -24,11 +25,11 @@
 ///   `Head` / `Tail` / `Slice`) pass the requirement through, widened by
 ///   the columns they read themselves; `WithColumns` subtracts the names
 ///   its expressions *define* (those need not exist in its input) and
-///   adds the names they *read*. `Join` stays a barrier in the spike —
-///   splitting a requirement across two sides whose outputs interleave
-///   under suffix renaming is O2-grade column provenance — but both
-///   sides restart their own pass, so a `Select` deep under a join still
-///   narrows its own scan.
+///   adds the names they *read*. `Join` stays a barrier — splitting a
+///   requirement across two sides whose outputs interleave under suffix
+///   renaming is O2-grade column provenance — but both sides restart
+///   their own pass, so a `Select` deep under a join still narrows its
+///   own scan.
 ///
 /// Why the order insensitivity matters: narrowing a `with_columns` input
 /// can turn an in-place column *replacement* into an *append* (the
@@ -38,14 +39,14 @@
 /// root, which always starts at `None`. The `Aggregate` executor reads
 /// its keys in key-list order, not input order, so it qualifies too.
 ///
-/// Deliberately out of spike scope (O1/O2 follow-ups): pruning dead
-/// expressions from `Select` / `WithColumns` lists (changes which
-/// expressions evaluate, hence which *errors* a failing plan reports),
-/// narrowing through `Join`, predicate pushdown, and an `explain`
-/// before/after view. `optimize` is also not idempotent — re-optimizing
-/// an already-rewritten plan would stack another (harmless) narrowing
-/// select — which is moot in practice: plans are immutable and `collect`
-/// optimizes the as-built plan exactly once per call.
+/// Deliberately deferred (O2 follow-ups): pruning dead expressions from
+/// `Select` / `WithColumns` lists (changes which expressions evaluate,
+/// hence which *errors* a failing plan reports), narrowing through
+/// `Join`, and predicate pushdown. `optimize` is also not idempotent —
+/// re-optimizing an already-rewritten plan would stack another
+/// (harmless) narrowing select — which is moot in practice: plans are
+/// immutable, and each `collect` or `explain(optimized=true)` call
+/// rewrites the as-built plan exactly once.
 fn optimize(plan : LogicalPlan) -> LogicalPlan {
   push_projection(plan, None)
 }
@@ -131,10 +132,10 @@ fn push_projection(
     Tail(input, n) => Tail(push_projection(input, required), n)
     Slice(input, start, end) =>
       Slice(push_projection(input, required), start, end)
-    // Barrier (spike scope): both sides must keep their full output —
-    // join key resolution, suffix renaming, and the left-then-right
-    // output layout all read the whole frame — but each side restarts
-    // its own top-down pass.
+    // Barrier (narrowing through a join is O2-grade provenance): both
+    // sides must keep their full output — join key resolution, suffix
+    // renaming, and the left-then-right output layout all read the whole
+    // frame — but each side restarts its own top-down pass.
     Join(left, right, options) =>
       Join(push_projection(left, None), push_projection(right, None), options)
     // By-name originator, like `Select`: the output is the key columns

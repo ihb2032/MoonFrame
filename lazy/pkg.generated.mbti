@@ -17,7 +17,7 @@ pub struct LazyFrame {
   // private fields
 }
 pub fn LazyFrame::collect(Self) -> @frame.DataFrame raise @types.DataError
-pub fn LazyFrame::explain(Self) -> String
+pub fn LazyFrame::explain(Self, optimized? : Bool) -> String
 pub fn LazyFrame::filter_where(Self, @expr.Expr) -> Self
 pub fn LazyFrame::from(@frame.DataFrame) -> Self
 pub fn LazyFrame::group_by(Self, Array[String]) -> LazyGroupBy

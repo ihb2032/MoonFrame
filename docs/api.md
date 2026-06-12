@@ -777,22 +777,25 @@ facade.
   rule and every eager error (`ColumnNotFound` / `DuplicateColumn` on
   the keys, `InvalidOperation` / `TypeMismatch` / `DuplicateColumn`
   from the aggregation) at collect time; `explain()` renders it as
-  `AGGREGATE [exprs] BY [keys]`. The S-opt spike landed the first
-  optimizer pass: `collect()` now runs a total projection-pushdown
-  rewrite over the plan before executing it — a top-down
-  required-columns analysis (via `Expr::referenced_columns` /
-  `Expr::output_name`) that inserts a narrowing selection of bare
-  column references directly over a scan whose consumers provably read
-  a proper subset of its columns, so dead columns drop before any
-  row-level work. `Select` and `Aggregate` originate requirements
-  (their outputs are fully determined by their expression / key
-  lists); `Filter` and `Sort` pass the requirement through widened by
-  the columns they read; the row windows pass it through verbatim; a
-  deferred `with_columns` subtracts the names it defines and adds the
-  names it reads; `Join` is a barrier (each side restarts its own
-  pass). The rewrite is invisible by contract: collecting stays
-  bitwise-equal to the eager chain, a failing plan reports the same
-  eager error, and `explain()` still renders the plan as built.
-  Dead-expression elimination, narrowing through joins, predicate
-  pushdown, and an `explain` before/after view are the O1/O2
-  follow-ups; the v0.4 API reference lands with the release.
+  `AGGREGATE [exprs] BY [keys]`. The first optimizer pass (O1,
+  projection pushdown) is in: `collect()` runs a total rewrite over the
+  plan before executing it — a top-down required-columns analysis (via
+  `Expr::referenced_columns` / `Expr::output_name`) that inserts a
+  narrowing selection of bare column references directly over a scan
+  whose consumers provably read a proper subset of its columns, so dead
+  columns drop before any row-level work. `Select` and `Aggregate`
+  originate requirements (their outputs are fully determined by their
+  expression / key lists); `Filter` and `Sort` pass the requirement
+  through widened by the columns they read; the row windows pass it
+  through verbatim; a deferred `with_columns` subtracts the names it
+  defines and adds the names it reads; `Join` is a barrier (each side
+  restarts its own pass). The rewrite never changes results — collecting
+  stays bitwise-equal to the eager chain, and a failing plan reports the
+  same eager error — but it is inspectable on demand:
+  `explain(optimized=true)` renders the rewritten plan `collect`
+  actually runs, the narrowing selection visible over the scan, while
+  the plain `explain()` keeps rendering the plan as built — the
+  before/after pair showing exactly which columns the optimizer pruned.
+  Dead-expression elimination, narrowing through joins, and predicate
+  pushdown are the O2 follow-ups; the v0.4 API reference lands with the
+  release.

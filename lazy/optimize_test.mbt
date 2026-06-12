@@ -1,10 +1,15 @@
 ///|
-/// Blackbox battery for the projection pushdown `collect` runs in front
-/// of the executor. Two halves. The *equivalence* tests pin the
+/// Blackbox battery for the optimizer rewrites `collect` runs in front
+/// of the executor — the predicate pass that sinks filters toward the
+/// scan, and the projection pushdown that narrows scans to the columns
+/// actually read. Two halves. The *equivalence* tests pin the
 /// optimizer's contract — `collect` stays bitwise-equal to the eager
-/// chain, with error parity, exactly on the pipelines where the rewrite
-/// fires and on the guards where it must not. The *structural* tests pin
-/// what the rewrite did to the tree — which scans narrowed, in which
+/// chain, with error parity, exactly on the pipelines where a rewrite
+/// fires and on the fences where it must not (several fences guard real
+/// divergences: a broadcast aggregation's scope, a `mean`'s
+/// backend-flipping null cell, a `cast`'s value-dependent rejection).
+/// The *structural* tests pin what the rewrites did to the tree — which
+/// filters sank below which stages, which scans narrowed, in which
 /// column order, and which arms must stay no-ops — by snapshotting
 /// `explain(optimized=true)` against the as-built `explain()`: the
 /// before/after pair. The shared fixture frames live in `lazy_test.mbt`.
@@ -443,8 +448,590 @@ test "nested selects: the outer requirement never prunes the inner expression li
       @expr.col("region"),
     ])
     .select_exprs([@expr.col("t")])
-  // Dead-expression elimination is deferred to O2: the inner select
-  // still evaluates `region`, and — reading every scan column — it also
+  // Dead-expression elimination is deferred: the inner select still
+  // evaluates `region`, and — reading every scan column — it also
   // inserts nothing below itself.
   assert_eq(plan.explain(optimized=true), plan.explain())
+}
+
+// ── The predicate pass ──────────────────────────────────────────────────
+
+///|
+test "a trailing filter sinks below a bare-column selection" {
+  let df = sales_df()
+  let projection = [@expr.col("qty"), @expr.col("region")]
+  let predicate = @expr.col("qty").gt(@expr.lit_int(50))
+  let plan = lazy_frame(df).select_exprs(projection).filter_where(predicate)
+  // The filter lands between the selection and the (narrowed) scan: rows
+  // drop before the projection evaluates, columns before the rows load.
+  assert_eq(
+    plan.explain(optimized=true),
+    "SELECT [col(qty), col(region)]\n" +
+    "  FILTER (col(qty) > 50)\n" +
+    "    SELECT [col(qty), col(region)]\n" +
+    "      SCAN [4×3]",
+  )
+  let out = plan.collect()
+  assert_eq(out, df.select_exprs(projection).filter_where(predicate))
+  assert_eq(out.check_invariants(), Ok(()))
+}
+
+///|
+test "a trailing filter sinks below a derived-column stage" {
+  let df = sales_df()
+  let derived = [(@expr.col("qty") * @expr.lit_int(2)).with_alias("dbl")]
+  let predicate = @expr.col("region").eq(@expr.lit_str("west"))
+  let plan = lazy_frame(df).with_columns(derived).filter_where(predicate)
+  // `dbl` is defined by the stage but not read by the predicate, so the
+  // filter crosses; at the root nothing requires columns, so no scan
+  // narrowing fires.
+  assert_eq(
+    plan.explain(optimized=true),
+    "WITH_COLUMNS [(col(qty) * 2) as dbl]\n" +
+    "  FILTER (col(region) == \"west\")\n" +
+    "    SCAN [4×3]",
+  )
+  assert_eq(plan.collect(), df.with_columns(derived).filter_where(predicate))
+}
+
+///|
+test "fence: a predicate reading a name the stage defines stays above" {
+  let df = sales_df()
+  let derived = [(@expr.col("qty") * @expr.lit_int(2)).with_alias("dbl")]
+  let predicate = @expr.col("dbl").gt(@expr.lit_int(100))
+  let plan = lazy_frame(df).with_columns(derived).filter_where(predicate)
+  // Below the stage `dbl` does not exist: the filter must wait for it.
+  assert_eq(plan.explain(optimized=true), plan.explain())
+  assert_eq(plan.collect(), df.with_columns(derived).filter_where(predicate))
+}
+
+///|
+test "fence: a broadcast aggregation inside with_columns pins the filter above" {
+  let df = sales_df()
+  // `total` broadcasts sum(qty) over *all* rows; filtering first would
+  // recompute it over the survivors (85, not 405).
+  let derived = [@expr.col("qty").sum().with_alias("total")]
+  let predicate = @expr.col("region").eq(@expr.lit_str("west"))
+  let plan = lazy_frame(df).with_columns(derived).filter_where(predicate)
+  assert_eq(plan.explain(optimized=true), plan.explain())
+  assert_eq(plan.collect(), df.with_columns(derived).filter_where(predicate))
+}
+
+///|
+test "fence: a cast inside the stage pins the filter above" {
+  let df = sales_df()
+  // A cast's parse / range rejection raises on the values it meets:
+  // filtering first could drop the very row that raises, so no filter
+  // crosses a cast-bearing stage even when (as here) every cast succeeds.
+  let derived = [@expr.col("qty").cast(@types.DataType::Float).with_alias("f")]
+  let predicate = @expr.col("region").eq(@expr.lit_str("west"))
+  let plan = lazy_frame(df).with_columns(derived).filter_where(predicate)
+  assert_eq(plan.explain(optimized=true), plan.explain())
+  assert_eq(plan.collect(), df.with_columns(derived).filter_where(predicate))
+}
+
+///|
+test "fence: a computed occurrence of the predicate's column is not a bare pass-through" {
+  let df = sales_df()
+  let projection = [
+    (@expr.col("qty") * @expr.lit_int(2)).with_alias("qty2"),
+    @expr.col("region"),
+  ]
+  let predicate = @expr.col("qty2").gt(@expr.lit_int(100))
+  let plan = lazy_frame(df).select_exprs(projection).filter_where(predicate)
+  // `qty2` exists only above the selection, so the filter stays at the
+  // root — while the projection pass still narrows the scan below.
+  assert_eq(
+    plan.explain(optimized=true),
+    "FILTER (col(qty2) > 100)\n" +
+    "  SELECT [(col(qty) * 2) as qty2, col(region)]\n" +
+    "    SELECT [col(qty), col(region)]\n" +
+    "      SCAN [4×3]",
+  )
+  assert_eq(plan.collect(), df.select_exprs(projection).filter_where(predicate))
+}
+
+///|
+test "fence: an aggregating selection pins the filter above" {
+  let df = sales_df()
+  // The selection broadcasts sum(qty) beside `region`: dropping rows
+  // first would change the broadcast value, so the filter stays above.
+  let projection = [
+    @expr.col("region"),
+    @expr.col("qty").sum().with_alias("total"),
+  ]
+  let predicate = @expr.col("region").eq(@expr.lit_str("west"))
+  let plan = lazy_frame(df).select_exprs(projection).filter_where(predicate)
+  assert_eq(
+    plan.explain(optimized=true),
+    "FILTER (col(region) == \"west\")\n" +
+    "  SELECT [col(region), col(qty).sum() as total]\n" +
+    "    SELECT [col(qty), col(region)]\n" +
+    "      SCAN [4×3]",
+  )
+  assert_eq(plan.collect(), df.select_exprs(projection).filter_where(predicate))
+}
+
+///|
+test "a scope-dependent predicate still crosses a bare selection" {
+  let df = sales_df()
+  // The predicate's own mean is computed over the filter's input scope —
+  // and a bare selection neither adds nor drops rows, so that scope is
+  // identical on both sides of the swap.
+  let projection = [@expr.col("qty"), @expr.col("region")]
+  let predicate = @expr.col("qty").gt(@expr.col("qty").mean())
+  let plan = lazy_frame(df).select_exprs(projection).filter_where(predicate)
+  assert_eq(
+    plan.explain(optimized=true),
+    "SELECT [col(qty), col(region)]\n" +
+    "  FILTER (col(qty) > col(qty).mean())\n" +
+    "    SELECT [col(qty), col(region)]\n" +
+    "      SCAN [4×3]",
+  )
+  assert_eq(plan.collect(), df.select_exprs(projection).filter_where(predicate))
+}
+
+///|
+test "a key predicate sinks below an aggregation" {
+  let df = sales_df()
+  let aggs = [
+    @expr.col("qty").sum().with_alias("total"),
+    @expr.col("bonus").count().with_alias("n"),
+  ]
+  let predicate = @expr.col("region").eq(@expr.lit_str("west"))
+  let plan = lazy_frame(df)
+    .group_by(["region"])
+    .agg(aggs)
+    .filter_where(predicate)
+  // Every row of a group shares its key tuple, so filtering rows by key
+  // before grouping drops exactly the groups the filter would have
+  // dropped after — and sum / count cells can never be null, so the
+  // stitched columns' backend cannot flip when groups disappear.
+  assert_eq(
+    plan.explain(optimized=true),
+    "AGGREGATE [col(qty).sum() as total, col(bonus).count() as n] BY [region]\n" +
+    "  FILTER (col(region) == \"west\")\n" +
+    "    SCAN [4×3]",
+  )
+  let out = plan.collect()
+  assert_eq(
+    out,
+    df.group_by(["region"]).agg_exprs(aggs).filter_where(predicate),
+  )
+  assert_eq(out.check_invariants(), Ok(()))
+}
+
+///|
+test "a key predicate that empties every group still collects equal" {
+  let df = sales_df()
+  let aggs = [@expr.col("qty").sum().with_alias("total")]
+  let predicate = @expr.col("region").eq(@expr.lit_str("north"))
+  let plan = lazy_frame(df)
+    .group_by(["region"])
+    .agg(aggs)
+    .filter_where(predicate)
+  // Below the aggregation the filter leaves zero rows, so the executor
+  // aggregates zero groups — the empty-scope probe in `agg_exprs` pins
+  // the output dtype, keeping the 0-row frames bitwise-equal.
+  let out = plan.collect()
+  assert_eq(
+    out,
+    df.group_by(["region"]).agg_exprs(aggs).filter_where(predicate),
+  )
+  assert_eq(out.nrows(), 0)
+  assert_eq(out.check_invariants(), Ok(()))
+}
+
+///|
+test "fence: a predicate reading an aggregation output stays above" {
+  let df = sales_df()
+  let aggs = [@expr.col("qty").sum().with_alias("total")]
+  let predicate = @expr.col("total").gt(@expr.lit_int(100))
+  let plan = lazy_frame(df)
+    .group_by(["region"])
+    .agg(aggs)
+    .filter_where(predicate)
+  // `total` is not a key: it only exists above the aggregation.
+  assert_eq(
+    plan.explain(optimized=true),
+    "FILTER (col(total) > 100)\n" +
+    "  AGGREGATE [col(qty).sum() as total] BY [region]\n" +
+    "    SELECT [col(qty), col(region)]\n" +
+    "      SCAN [4×3]",
+  )
+  assert_eq(
+    plan.collect(),
+    df.group_by(["region"]).agg_exprs(aggs).filter_where(predicate),
+  )
+}
+
+///|
+test "fence: a mean aggregation pins the filter above the group stage" {
+  let df = sales_df()
+  // The east group's bonus cells are all null, so its mean is a null
+  // cell and the stitched column stays `Builtin`. Filtering rows first
+  // would erase that group, leave only valid cells, and converge the
+  // column onto the `Numeric` backend — bitwise-unequal output. The
+  // fence is what keeps this assertion true.
+  let aggs = [@expr.col("bonus").mean().with_alias("avg")]
+  let predicate = @expr.col("region").eq(@expr.lit_str("west"))
+  let plan = lazy_frame(df)
+    .group_by(["region"])
+    .agg(aggs)
+    .filter_where(predicate)
+  assert_eq(
+    plan.explain(optimized=true),
+    "FILTER (col(region) == \"west\")\n" +
+    "  AGGREGATE [col(bonus).mean() as avg] BY [region]\n" +
+    "    SELECT [col(bonus), col(region)]\n" +
+    "      SCAN [4×3]",
+  )
+  assert_eq(
+    plan.collect(),
+    df.group_by(["region"]).agg_exprs(aggs).filter_where(predicate),
+  )
+}
+
+///|
+test "fence: a cast in the aggregation list pins the filter above" {
+  let df = sales_df()
+  let aggs = [
+    @expr.col("qty").sum().cast(@types.DataType::Float).with_alias("totalf"),
+  ]
+  let predicate = @expr.col("region").eq(@expr.lit_str("west"))
+  let plan = lazy_frame(df)
+    .group_by(["region"])
+    .agg(aggs)
+    .filter_where(predicate)
+  assert_eq(
+    plan.explain(optimized=true),
+    "FILTER (col(region) == \"west\")\n" +
+    "  AGGREGATE [col(qty).sum().cast(Float) as totalf] BY [region]\n" +
+    "    SELECT [col(qty), col(region)]\n" +
+    "      SCAN [4×3]",
+  )
+  assert_eq(
+    plan.collect(),
+    df.group_by(["region"]).agg_exprs(aggs).filter_where(predicate),
+  )
+}
+
+///|
+test "fence: a scope-dependent key predicate stays above the aggregation" {
+  let df = sales_df()
+  let aggs = [@expr.col("qty").sum().with_alias("total")]
+  // Reads only the key — but its count runs over the aggregation's
+  // output rows (one per group), not the raw rows, so it must not move.
+  let predicate = @expr.col("region").count().gt(@expr.lit_int(1))
+  let plan = lazy_frame(df)
+    .group_by(["region"])
+    .agg(aggs)
+    .filter_where(predicate)
+  assert_eq(
+    plan.explain(optimized=true),
+    "FILTER (col(region).count() > 1)\n" +
+    "  AGGREGATE [col(qty).sum() as total] BY [region]\n" +
+    "    SELECT [col(qty), col(region)]\n" +
+    "      SCAN [4×3]",
+  )
+  assert_eq(
+    plan.collect(),
+    df.group_by(["region"]).agg_exprs(aggs).filter_where(predicate),
+  )
+}
+
+///|
+test "fence: a non-reduction aggregation keeps its error and its filter in place" {
+  let df = sales_df()
+  let aggs = [@expr.col("qty")]
+  let predicate = @expr.col("region").eq(@expr.lit_str("west"))
+  let plan = lazy_frame(df)
+    .group_by(["region"])
+    .agg(aggs)
+    .filter_where(predicate)
+  // A bare column is not reduction-shaped; the fence holds the filter
+  // above, and collect reports the executor's own `InvalidOperation`.
+  assert_eq(
+    plan.explain(optimized=true),
+    "FILTER (col(region) == \"west\")\n" +
+    "  AGGREGATE [col(qty)] BY [region]\n" +
+    "    SELECT [col(qty), col(region)]\n" +
+    "      SCAN [4×3]",
+  )
+  assert_eq(
+    try? plan.collect(),
+    try? df.group_by(["region"]).agg_exprs(aggs).filter_where(predicate),
+  )
+}
+
+///|
+test "fence: a null literal in the aggregation list pins the filter above" {
+  let df = sales_df()
+  let aggs = [@expr.lit(@types.Scalar::Null).with_alias("z")]
+  let predicate = @expr.col("region").eq(@expr.lit_str("west"))
+  let plan = lazy_frame(df)
+    .group_by(["region"])
+    .agg(aggs)
+    .filter_where(predicate)
+  // A null literal is a null cell by definition — the backend-flip
+  // hazard in its purest form — so the filter stays above, and collect
+  // behaves exactly as the as-built plan does.
+  assert_eq(
+    plan.explain(optimized=true),
+    "FILTER (col(region) == \"west\")\n" +
+    "  AGGREGATE [null as z] BY [region]\n" +
+    "    SELECT [col(region)]\n" +
+    "      SCAN [4×3]",
+  )
+  assert_eq(
+    try? plan.collect(),
+    try? df.group_by(["region"]).agg_exprs(aggs).filter_where(predicate),
+  )
+}
+
+///|
+test "reduction combinators pass the aggregation crossing gate" {
+  let df = sales_df()
+  // Ternary selection, comparisons, literals, and negation over sum
+  // cells are all null-free and value-safe, so the key filter crosses.
+  let aggs = [
+    @expr.when(@expr.col("qty").sum().gt(@expr.lit_int(100)))
+    .then(@expr.lit_int(1))
+    .otherwise(@expr.lit_int(0))
+    .with_alias("flag"),
+    (-@expr.col("qty").sum()).with_alias("neg"),
+  ]
+  let predicate = @expr.col("region").eq(@expr.lit_str("west"))
+  let plan = lazy_frame(df)
+    .group_by(["region"])
+    .agg(aggs)
+    .filter_where(predicate)
+  assert_eq(
+    plan.explain(optimized=true),
+    "AGGREGATE [when((col(qty).sum() > 100)).then(1).otherwise(0) as flag, (-col(qty).sum()) as neg] BY [region]\n" +
+    "  FILTER (col(region) == \"west\")\n" +
+    "    SELECT [col(qty), col(region)]\n" +
+    "      SCAN [4×3]",
+  )
+  let out = plan.collect()
+  assert_eq(
+    out,
+    df.group_by(["region"]).agg_exprs(aggs).filter_where(predicate),
+  )
+  assert_eq(out.check_invariants(), Ok(()))
+}
+
+///|
+test "row windows stop the descent" {
+  let df = sales_df()
+  // Positions are not values: head(2) then filter keeps [120], while
+  // filtering first would re-number the rows and keep [120, 200].
+  let predicate = @expr.col("qty").gt(@expr.lit_int(100))
+  let on_head = lazy_frame(df).head(2).filter_where(predicate)
+  assert_eq(on_head.explain(optimized=true), on_head.explain())
+  assert_eq(on_head.collect(), df.head(2).filter_where(predicate))
+  assert_eq(
+    lazy_frame(df).tail(2).filter_where(predicate).collect(),
+    df.tail(2).filter_where(predicate),
+  )
+  assert_eq(
+    lazy_frame(df).slice(1, 3).filter_where(predicate).collect(),
+    df.slice(1, 3).filter_where(predicate),
+  )
+}
+
+///|
+test "sort stops the descent" {
+  let df = sales_df()
+  let keys = [("qty", @frame.SortOrder::Asc, @frame.NullOrder::NullsLast)]
+  let predicate = @expr.col("qty").gt(@expr.lit_int(100))
+  let plan = lazy_frame(df).sort_by(keys).filter_where(predicate)
+  // Crossing a sort is deliberately deferred — the filter stays put.
+  assert_eq(plan.explain(optimized=true), plan.explain())
+  assert_eq(plan.collect(), df.sort_by(keys).filter_where(predicate))
+}
+
+///|
+test "stacked filters sink together and keep their order" {
+  let df = sales_df()
+  let projection = [@expr.col("qty"), @expr.col("bonus")]
+  let first = @expr.col("bonus").is_not_null()
+  let second = @expr.col("qty").gt(@expr.lit_int(50))
+  let plan = lazy_frame(df)
+    .select_exprs(projection)
+    .filter_where(first)
+    .filter_where(second)
+  // Both predicates cross the selection; one filter never crosses
+  // another, so the earlier one stays the deeper (first-evaluated) one.
+  assert_eq(
+    plan.explain(optimized=true),
+    "SELECT [col(qty), col(bonus)]\n" +
+    "  FILTER (col(qty) > 50)\n" +
+    "    FILTER col(bonus).is_not_null()\n" +
+    "      SELECT [col(qty), col(bonus)]\n" +
+    "        SCAN [4×3]",
+  )
+  assert_eq(
+    plan.collect(),
+    df.select_exprs(projection).filter_where(first).filter_where(second),
+  )
+}
+
+///|
+test "a filter above a join stays; one inside a side still sinks" {
+  let l = orders_df()
+  let r = cities_df()
+  let opts = @frame.JoinOptions::on(["id"])
+  // Above: splitting a predicate across suffix-renamed sides is column
+  // provenance, deferred — the join is a barrier.
+  let above = lazy_frame(l)
+    .join(lazy_frame(r), opts)
+    .filter_where(@expr.col("amount").gt(@expr.lit_int(15)))
+  assert_eq(above.explain(optimized=true), above.explain())
+  assert_eq(
+    above.collect(),
+    l.join(r, opts).filter_where(@expr.col("amount").gt(@expr.lit_int(15))),
+  )
+  // Inside: each side restarts its own descent, so a filter built into
+  // the left pipeline sinks below that side's selection.
+  let gate = @expr.col("amount").gt(@expr.lit_int(15))
+  let inside = lazy_frame(l)
+    .select_exprs([@expr.col("id"), @expr.col("amount")])
+    .filter_where(gate)
+    .join(lazy_frame(r), opts)
+  assert_eq(
+    inside.explain(optimized=true),
+    "JOIN Inner on [id]\n" +
+    "  SELECT [col(id), col(amount)]\n" +
+    "    FILTER (col(amount) > 15)\n" +
+    "      SCAN [3×2]\n" +
+    "  SCAN [3×2]",
+  )
+  assert_eq(
+    inside.collect(),
+    l
+    .select_exprs([@expr.col("id"), @expr.col("amount")])
+    .filter_where(gate)
+    .join(r, opts),
+  )
+}
+
+///|
+test "a doubly-broken plan may report the sunk filter's error first" {
+  let df = sales_df()
+  // Both stages are independently broken. As built, the derivation
+  // evaluates first and reports `ghost1`; once the filter sinks below
+  // it, the filter evaluates first and reports `ghost2`. Which of a
+  // plan's several real errors surfaces was an artifact of stage order
+  // to begin with — single-fault plans keep their exact error (next
+  // test).
+  let broken_stage = [(@expr.col("ghost1") + @expr.lit_int(1)).with_alias("g")]
+  let broken_predicate = @expr.col("ghost2").is_null()
+  let plan = lazy_frame(df)
+    .with_columns(broken_stage)
+    .filter_where(broken_predicate)
+  assert_eq(
+    try? plan.collect(),
+    Err(@types.DataError::ColumnNotFound("ghost2")),
+  )
+  assert_eq(
+    try? df.with_columns(broken_stage).filter_where(broken_predicate),
+    Err(@types.DataError::ColumnNotFound("ghost1")),
+  )
+}
+
+///|
+test "single-fault errors survive the crossing unchanged" {
+  let df = sales_df()
+  // Broken stage, sound predicate: the sunk filter runs first and
+  // passes; the stage still reports its own missing column.
+  let broken_stage = [(@expr.col("ghost") + @expr.lit_int(1)).with_alias("g")]
+  let key_predicate = @expr.col("region").eq(@expr.lit_str("west"))
+  assert_eq(
+    try? lazy_frame(df)
+    .with_columns(broken_stage)
+    .filter_where(key_predicate)
+    .collect(),
+    try? df.with_columns(broken_stage).filter_where(key_predicate),
+  )
+  // Sound stage, broken predicate: the predicate's missing column is
+  // missing below the stage too — same error, earlier.
+  let derived = [(@expr.col("qty") * @expr.lit_int(2)).with_alias("dbl")]
+  let broken_predicate = @expr.col("ghost").gt(@expr.lit_int(1))
+  assert_eq(
+    try? lazy_frame(df)
+    .with_columns(derived)
+    .filter_where(broken_predicate)
+    .collect(),
+    try? df.with_columns(derived).filter_where(broken_predicate),
+  )
+}
+
+///|
+test "the flagship pipeline sinks its filter and narrows its scan" {
+  let df = sales_df()
+  let derived = [(@expr.col("qty") * @expr.lit_int(3)).with_alias("adj")]
+  let projection = [@expr.col("adj"), @expr.col("region")]
+  let predicate = @expr.col("region").eq(@expr.lit_str("west"))
+  let plan = lazy_frame(df)
+    .with_columns(derived)
+    .select_exprs(projection)
+    .filter_where(predicate)
+  // The trailing filter crosses both stages down to the scan, and the
+  // projection pass narrows the scan beneath it: rows and columns both
+  // drop before any stage computes.
+  assert_eq(
+    plan.explain(optimized=true),
+    "SELECT [col(adj), col(region)]\n" +
+    "  WITH_COLUMNS [(col(qty) * 3) as adj]\n" +
+    "    FILTER (col(region) == \"west\")\n" +
+    "      SELECT [col(qty), col(region)]\n" +
+    "        SCAN [4×3]",
+  )
+  let out = plan.collect()
+  assert_eq(
+    out,
+    df.with_columns(derived).select_exprs(projection).filter_where(predicate),
+  )
+  assert_eq(out.check_invariants(), Ok(()))
+}
+
+///|
+test "an all-literal predicate crosses vacuously" {
+  let df = sales_df()
+  let projection = [@expr.col("qty")]
+  let predicate = @expr.lit_bool(true)
+  let plan = lazy_frame(df).select_exprs(projection).filter_where(predicate)
+  // No columns read means nothing to fence on: the filter sinks.
+  assert_eq(
+    plan.explain(optimized=true),
+    "SELECT [col(qty)]\n" +
+    "  FILTER true\n" +
+    "    SELECT [col(qty)]\n" +
+    "      SCAN [4×3]",
+  )
+  assert_eq(plan.collect(), df.select_exprs(projection).filter_where(predicate))
+}
+
+///|
+test "row-local probes and ternaries cross with their stage" {
+  let df = sales_df()
+  // A null probe and a when/then/otherwise are row-local (no
+  // aggregation, no cast), so the stage lets the key filter through.
+  let derived = [
+    @expr.col("bonus").is_null().with_alias("nb"),
+    @expr.when(@expr.col("qty").gt(@expr.lit_int(100)))
+    .then(@expr.lit_str("big"))
+    .otherwise(@expr.col("region"))
+    .with_alias("size"),
+  ]
+  let predicate = @expr.col("region").eq(@expr.lit_str("west"))
+  let plan = lazy_frame(df).with_columns(derived).filter_where(predicate)
+  assert_eq(
+    plan.explain(optimized=true),
+    "WITH_COLUMNS [col(bonus).is_null() as nb, when((col(qty) > 100)).then(\"big\").otherwise(col(region)) as size]\n" +
+    "  FILTER (col(region) == \"west\")\n" +
+    "    SCAN [4×3]",
+  )
+  assert_eq(plan.collect(), df.with_columns(derived).filter_where(predicate))
 }

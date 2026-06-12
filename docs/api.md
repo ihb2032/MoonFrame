@@ -777,25 +777,42 @@ facade.
   rule and every eager error (`ColumnNotFound` / `DuplicateColumn` on
   the keys, `InvalidOperation` / `TypeMismatch` / `DuplicateColumn`
   from the aggregation) at collect time; `explain()` renders it as
-  `AGGREGATE [exprs] BY [keys]`. The first optimizer pass (O1,
-  projection pushdown) is in: `collect()` runs a total rewrite over the
-  plan before executing it — a top-down required-columns analysis (via
-  `Expr::referenced_columns` / `Expr::output_name`) that inserts a
-  narrowing selection of bare column references directly over a scan
-  whose consumers provably read a proper subset of its columns, so dead
-  columns drop before any row-level work. `Select` and `Aggregate`
-  originate requirements (their outputs are fully determined by their
-  expression / key lists); `Filter` and `Sort` pass the requirement
-  through widened by the columns they read; the row windows pass it
-  through verbatim; a deferred `with_columns` subtracts the names it
-  defines and adds the names it reads; `Join` is a barrier (each side
-  restarts its own pass). The rewrite never changes results — collecting
-  stays bitwise-equal to the eager chain, and a failing plan reports the
-  same eager error — but it is inspectable on demand:
-  `explain(optimized=true)` renders the rewritten plan `collect`
-  actually runs, the narrowing selection visible over the scan, while
-  the plain `explain()` keeps rendering the plan as built — the
-  before/after pair showing exactly which columns the optimizer pruned.
-  Dead-expression elimination, narrowing through joins, and predicate
-  pushdown are the O2 follow-ups; the v0.4 API reference lands with the
-  release.
+  `AGGREGATE [exprs] BY [keys]`. The query optimizer is in: `collect()`
+  runs two total rewrites over the plan before executing it. The
+  predicate pass sinks each deferred `filter_where` toward the scan so
+  rows drop as early as possible — below a selection when its
+  expressions are row-local (no aggregation, no `cast`) and every
+  predicate column appears as a bare `col(name)`, below a deferred
+  `with_columns` under the same row-local rule when the stage defines
+  none of the predicate's columns, and below an aggregation when the
+  predicate is row-local, reads key columns only (a predicate over an
+  aggregation output stays above), and every aggregation cell is
+  provably null-free and value-safe (`sum` / `count` and non-null
+  literal combinators qualify; `mean` / `min` / `max` can go null on an
+  all-null group, and a `cast` can reject a value, so they pin the
+  filter above). Row windows are positional, so they stop the descent;
+  so do `sort`, `join`, and another filter (relative filter order never
+  changes). The projection pass then runs a top-down required-columns
+  analysis (via `Expr::referenced_columns` / `Expr::output_name`) that
+  inserts a narrowing selection of bare column references directly over
+  a scan whose consumers provably read a proper subset of its columns,
+  so dead columns drop before any row-level work. `Select` and
+  `Aggregate` originate requirements (their outputs are fully
+  determined by their expression / key lists); `Filter` and `Sort` pass
+  the requirement through widened by the columns they read; the row
+  windows pass it through verbatim; a deferred `with_columns` subtracts
+  the names it defines and adds the names it reads; `Join` is a barrier
+  (each side restarts its own pass, so pipelines inside either side
+  still optimize). The rewrites never change results — collecting stays
+  bitwise-equal to the eager chain, and a failing plan still fails: a
+  plan with a single broken stage reports the same eager error, while a
+  plan with several independently broken stages may report a different
+  one of its own errors once a filter sinks past a broken stage (which
+  error won was an artifact of stage order to begin with). Everything is
+  inspectable on demand: `explain(optimized=true)` renders the rewritten
+  plan `collect` actually runs — sunk filters below the stages they
+  crossed, the narrowing selection over the scan — while the plain
+  `explain()` keeps rendering the plan as built, the two forms making
+  the before/after pair. Dead-expression elimination, narrowing and
+  predicate-splitting through joins, and sinking filters below sorts
+  are deferred; the v0.4 API reference lands with the release.

@@ -1,17 +1,78 @@
 ///|
-/// The query optimizer (O1: projection pushdown). A **total** plan→plan
-/// rewrite — pure tree walking, no raise, no abort — that `collect` runs
-/// in front of the executor and `explain(optimized=true)` renders for
-/// inspection. Its one inviolable contract
-/// is the executor's own: `execute(optimize(p))` is bitwise-equal to
-/// `execute(p)` for every plan that collects, and a failing plan still
-/// fails with the same eager operator error. The rewrite never touches a
-/// user-written node — it only *inserts* a narrowing `Select` of bare
-/// column references directly over a `Scan` whose consumers provably read
-/// a proper subset of its columns, so unused columns are dropped before
-/// any row-level work instead of riding through every stage.
+/// The query optimizer: two **total** plan→plan rewrites — pure tree
+/// walking, no raise, no abort — that `collect` runs in front of the
+/// executor and `explain(optimized=true)` renders for inspection. The
+/// predicate pass runs first and sinks `Filter` nodes toward the scan so
+/// rows drop as early as possible; the projection pass then runs a
+/// required-columns analysis and narrows each `Scan` to the columns its
+/// consumers provably read, so dead columns never ride through row-level
+/// work. The inviolable contract is the executor's own:
+/// `execute(optimize(p))` is bitwise-equal to `execute(p)` for every plan
+/// that collects. Neither pass ever alters a user-written node's *content*
+/// (predicates, expression lists, keys stay verbatim); the predicate pass
+/// re-orders whole `Filter` nodes downward, and the projection pass only
+/// *inserts* a narrowing `Select` of bare column references directly over
+/// a `Scan`.
 ///
-/// The analysis runs top-down as a "required columns" pass:
+/// Error faithfulness under re-ordering: a plan that fails to collect
+/// still fails after optimization. When exactly one stage is broken, it
+/// fails with the *same* `DataError` — every error the evaluator can
+/// produce (`ColumnNotFound`, dtype-level `TypeMismatch`,
+/// `DuplicateColumn`, the reduction-shape `InvalidOperation`) is decided
+/// by names, dtypes, and expression shape, none of which the rewrites
+/// disturb. When *several* stages are independently broken, sinking a
+/// filter below another broken stage can change which of their errors
+/// surfaces first — both are real errors of the same plan, and which one
+/// wins was an artifact of stage order to begin with. The one failure
+/// mode that would be value-dependent — `cast`'s parse / range rejection,
+/// where dropping a row could drop the very cell that raises — is fenced
+/// off entirely: no `Filter` ever crosses a stage whose expressions
+/// contain a `Cast` (see `row_stable`).
+///
+/// # The predicate pass
+///
+/// A filter may sink below a stage only when dropping rows first provably
+/// cannot change the stage's output on the surviving rows, its errors, or
+/// the filter's own verdicts:
+///
+/// - `Select` — crossed when every selected expression is `row_stable`
+///   (so the stage maps rows one-to-one and commutes with dropping any
+///   row subset) and every column the predicate reads appears in the
+///   selection as a *bare* `col(name)` (so the predicate sees the same
+///   values below, and a predicate the selection would have starved of
+///   its column still fails identically — a computed or renamed column
+///   fences the filter above).
+/// - `WithColumns` — crossed under the same `row_stable` rule when the
+///   stage *defines* none of the predicate's columns (a defined name has
+///   different values — or no existence at all — below the stage; its
+///   pass-through columns are identical on both sides by construction).
+/// - `Aggregate` — crossed when the predicate is `row_stable` and reads
+///   only *key* columns (every row of a group shares its key tuple, so
+///   filtering groups after aggregation and filtering their rows before
+///   it drop exactly the same groups, in the same first-appearance
+///   order), and every aggregation is `group_cell_stable` — its per-group
+///   cell can neither be null nor raise on values: `sum` / `count` and
+///   non-null literals qualify, `mean` / `min` / `max` do not (an
+///   all-null group yields a null cell, and dropping that group would
+///   flip the stitched column's backend from `Builtin` to `Numeric`,
+///   which the structural `Series` equality observes), and `cast` does
+///   not (a dropped group could be the one whose value fails to
+///   convert). Predicates over aggregation *outputs* read non-key names,
+///   so they stay above the aggregation by the key-only rule.
+/// - Everything else stops the descent. `Head` / `Tail` / `Slice` pick
+///   rows by *position*, and filtering re-numbers positions. `Sort` and
+///   another `Filter` are value-safe to cross for row-stable predicates
+///   but are deliberately left in place: crossing a filter re-orders
+///   which predicate evaluates first, and crossing a sort buys nothing
+///   until the executor can exploit sortedness. `Join` needs column
+///   provenance through suffix renaming to split a predicate across its
+///   sides, deferred with the projection pass's join narrowing — but
+///   both sides restart their own descent, so filters inside either
+///   side still sink. `Scan` is the floor.
+///
+/// # The projection pass
+///
+/// A top-down "required columns" analysis:
 ///
 /// - `None` — the consumer may observe this node's *entire* output
 ///   (the plan root, or anything under a barrier node): its layout must
@@ -27,7 +88,7 @@
 ///   its expressions *define* (those need not exist in its input) and
 ///   adds the names they *read*. `Join` stays a barrier — splitting a
 ///   requirement across two sides whose outputs interleave under suffix
-///   renaming is O2-grade column provenance — but both sides restart
+///   renaming is column provenance, deferred — but both sides restart
 ///   their own pass, so a `Select` deep under a join still narrows its
 ///   own scan.
 ///
@@ -39,17 +100,238 @@
 /// root, which always starts at `None`. The `Aggregate` executor reads
 /// its keys in key-list order, not input order, so it qualifies too.
 ///
-/// Deliberately deferred (O2 follow-ups): pruning dead expressions from
-/// `Select` / `WithColumns` lists (changes which expressions evaluate,
-/// hence which *errors* a failing plan reports), narrowing through
-/// `Join`, and predicate pushdown. `optimize` is also not idempotent —
-/// re-optimizing an already-rewritten plan would stack another
-/// (harmless) narrowing select — which is moot in practice: plans are
-/// immutable, and each `collect` or `explain(optimized=true)` call
-/// rewrites the as-built plan exactly once.
+/// Running the predicate pass first keeps the analysis honest: a sunk
+/// filter is just another layout-preserving node by the time the
+/// projection pass sees it, so its predicate columns stay alive at the
+/// scan, and the narrowing `Select` lands *under* the sunk filter.
+///
+/// Deliberately deferred: pruning dead expressions from `Select` /
+/// `WithColumns` lists (changes which expressions evaluate, hence which
+/// *errors* a failing plan reports), narrowing or predicate-splitting
+/// through `Join`, and sinking filters below `Sort`. `optimize` is also
+/// not idempotent — re-optimizing an already-rewritten plan would stack
+/// another (harmless) narrowing select — which is moot in practice:
+/// plans are immutable, and each `collect` or `explain(optimized=true)`
+/// call rewrites the as-built plan exactly once.
 fn optimize(plan : LogicalPlan) -> LogicalPlan {
-  push_projection(plan, None)
+  push_projection(push_predicates(plan), None)
 }
+
+// ── The predicate pass ──────────────────────────────────────────────────
+
+///|
+/// One bottom-up recursion of the predicate pass: rebuild `plan` with
+/// every input pushed first, then sink each `Filter` into its (already
+/// rewritten) input through `place_filter`. Bottom-up order is what lets
+/// a stack of filters sink as a unit — the lower filter is already in
+/// place when the upper one descends onto it — while their relative
+/// evaluation order never changes. Total: every arm is plain data work.
+fn push_predicates(plan : LogicalPlan) -> LogicalPlan {
+  match plan {
+    Scan(df) => Scan(df)
+    Select(input, exprs) => Select(push_predicates(input), exprs)
+    WithColumns(input, exprs) => WithColumns(push_predicates(input), exprs)
+    Filter(input, predicate) => place_filter(push_predicates(input), predicate)
+    Sort(input, by) => Sort(push_predicates(input), by)
+    Head(input, n) => Head(push_predicates(input), n)
+    Tail(input, n) => Tail(push_predicates(input), n)
+    Slice(input, start, end) => Slice(push_predicates(input), start, end)
+    Join(left, right, options) =>
+      Join(push_predicates(left), push_predicates(right), options)
+    Aggregate(input, keys, exprs) =>
+      Aggregate(push_predicates(input), keys, exprs)
+  }
+}
+
+///|
+/// Sink one predicate into `input` as deep as the crossing rules allow
+/// (see the header), wrapping the floor it reaches in the `Filter` node.
+/// Each hop reproduces the crossed stage verbatim above the descending
+/// filter, so `place_filter(input, p)` is always plan-equivalent to
+/// `Filter(input, p)` — the hops are exactly the swaps proven safe.
+fn place_filter(input : LogicalPlan, predicate : @expr.Expr) -> LogicalPlan {
+  match input {
+    Select(inner, exprs) =>
+      if all_row_stable(exprs) && reads_only_bare_columns(predicate, exprs) {
+        Select(place_filter(inner, predicate), exprs)
+      } else {
+        Filter(input, predicate)
+      }
+    WithColumns(inner, exprs) =>
+      if all_row_stable(exprs) && defines_none_of(exprs, predicate) {
+        WithColumns(place_filter(inner, predicate), exprs)
+      } else {
+        Filter(input, predicate)
+      }
+    Aggregate(inner, keys, exprs) =>
+      if row_stable(predicate) &&
+        reads_only_keys(predicate, keys) &&
+        all_group_cells_stable(exprs) {
+        Aggregate(place_filter(inner, predicate), keys, exprs)
+      } else {
+        Filter(input, predicate)
+      }
+    Scan(_)
+    | Filter(_, _)
+    | Sort(_, _)
+    | Head(_, _)
+    | Tail(_, _)
+    | Slice(_, _, _)
+    | Join(_, _, _) => Filter(input, predicate)
+  }
+}
+
+///|
+/// Whether evaluating `expr` is invariant under dropping *other* rows of
+/// its scope: each output cell depends only on its own row (literals
+/// broadcast), and no cell can raise on a value. Aggregations fail the
+/// first half — their value is computed over the whole scope, so a
+/// filtered scope changes it. `Cast` fails the second half — its parse /
+/// range rejection raises on the *values* it meets, so dropping a row
+/// can drop the very cell that would have raised. Everything else
+/// (column reads, literals, the operators, the total unary probes,
+/// aliasing, ternary selection) is row-local and raises only on
+/// scope-independent facts (names, dtypes).
+fn row_stable(expr : @expr.Expr) -> Bool {
+  match expr {
+    @expr.Expr::Col(_) | @expr.Expr::Lit(_) => true
+    @expr.Expr::Agg(_, _) => false
+    @expr.Expr::Cast(_, _) => false
+    @expr.Expr::Binary(_, l, r) => row_stable(l) && row_stable(r)
+    @expr.Expr::Unary(_, e) | @expr.Expr::Alias(e, _) => row_stable(e)
+    @expr.Expr::Ternary(c, t, f) =>
+      row_stable(c) && row_stable(t) && row_stable(f)
+  }
+}
+
+///|
+/// `row_stable` over a stage's whole expression list — one scope-bound or
+/// value-raising expression fences the stage.
+fn all_row_stable(exprs : Array[@expr.Expr]) -> Bool {
+  for expr in exprs {
+    if !row_stable(expr) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+/// Whether an aggregation expression's per-group cell is provably
+/// independent of *which other groups exist*: never null (so the stitched
+/// column's `Builtin` / `Numeric` backend cannot flip when groups
+/// disappear — `agg_exprs` converges an all-valid numeric column onto
+/// `Numeric`, and structural equality sees the difference) and never
+/// raising on values (so a dropped group cannot take its error with it).
+/// `sum` / `count` always produce a value; `mean` / `min` / `max` go null
+/// on an all-null group; a `cast`'s rejection is value-dependent; the
+/// null literal is a null cell by definition; a bare column is not
+/// reduction-shaped at all (the executor raises structurally — fencing
+/// keeps that error exactly where the as-built plan reports it). The
+/// combinators preserve the property cell-wise: arithmetic, comparison,
+/// and the Kleene connectives over non-null cells stay non-null, as do
+/// the unary wrappers and a ternary over a non-null condition.
+fn group_cell_stable(expr : @expr.Expr) -> Bool {
+  match expr {
+    @expr.Expr::Col(_) => false
+    @expr.Expr::Lit(value) =>
+      match value {
+        @types.Scalar::Null => false
+        @types.Scalar::Int(_)
+        | @types.Scalar::Float(_)
+        | @types.Scalar::Bool(_)
+        | @types.Scalar::String(_) => true
+      }
+    @expr.Expr::Agg(op, _) =>
+      match op {
+        @expr.AggOp::Sum | @expr.AggOp::Count => true
+        @expr.AggOp::Mean | @expr.AggOp::Min | @expr.AggOp::Max => false
+      }
+    @expr.Expr::Cast(_, _) => false
+    @expr.Expr::Binary(_, l, r) => group_cell_stable(l) && group_cell_stable(r)
+    @expr.Expr::Unary(_, e) | @expr.Expr::Alias(e, _) => group_cell_stable(e)
+    @expr.Expr::Ternary(c, t, f) =>
+      group_cell_stable(c) && group_cell_stable(t) && group_cell_stable(f)
+  }
+}
+
+///|
+/// `group_cell_stable` over an aggregation's whole expression list — one
+/// unstable cell fences the aggregation (an empty list is vacuously
+/// stable: a keys-only aggregation has no stitched columns to flip).
+fn all_group_cells_stable(exprs : Array[@expr.Expr]) -> Bool {
+  for expr in exprs {
+    if !group_cell_stable(expr) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+/// Whether every column the predicate reads appears in the selection as
+/// a *bare* `col(name)` — the pass-through that guarantees the predicate
+/// sees identical values below the stage, and that a column the
+/// selection does not output stays missing for the predicate on both
+/// sides of the swap. A computed or renamed occurrence does not count,
+/// even under the same output name: its values are the stage's, not the
+/// input's. Vacuously true for a column-less (all-literal) predicate.
+fn reads_only_bare_columns(
+  predicate : @expr.Expr,
+  exprs : Array[@expr.Expr],
+) -> Bool {
+  for name in predicate.referenced_columns() {
+    if !has_bare_column(exprs, name) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+/// Whether the selection list contains `name` as a bare `col(name)` item.
+fn has_bare_column(exprs : Array[@expr.Expr], name : String) -> Bool {
+  for expr in exprs {
+    match expr {
+      @expr.Expr::Col(n) => if n == name { return true }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+/// Whether the stage defines none of the predicate's columns — the
+/// `WithColumns` crossing rule. A defined name is served by the stage
+/// itself: below it, the name either does not exist or (a replacement)
+/// holds the original values the stage was about to overwrite, so a
+/// predicate reading one must stay above.
+fn defines_none_of(exprs : Array[@expr.Expr], predicate : @expr.Expr) -> Bool {
+  let refs = predicate.referenced_columns()
+  for expr in exprs {
+    if refs.contains(expr.output_name()) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+/// Whether the predicate reads key columns only — the `Aggregate`
+/// crossing rule. Key columns are the one part of an aggregation's
+/// output whose cells exist verbatim in its input, row for row across
+/// each group; everything else (the aggregation outputs — and any name
+/// that exists nowhere) keeps the filter above.
+fn reads_only_keys(predicate : @expr.Expr, keys : Array[String]) -> Bool {
+  for name in predicate.referenced_columns() {
+    if !keys.contains(name) {
+      return false
+    }
+  }
+  true
+}
+
+// ── The projection pass ─────────────────────────────────────────────────
 
 ///|
 /// One recursion of the required-columns pass: rebuild `plan` with every
@@ -132,10 +414,10 @@ fn push_projection(
     Tail(input, n) => Tail(push_projection(input, required), n)
     Slice(input, start, end) =>
       Slice(push_projection(input, required), start, end)
-    // Barrier (narrowing through a join is O2-grade provenance): both
-    // sides must keep their full output — join key resolution, suffix
-    // renaming, and the left-then-right output layout all read the whole
-    // frame — but each side restarts its own top-down pass.
+    // Barrier (narrowing through a join is deferred column provenance):
+    // both sides must keep their full output — join key resolution,
+    // suffix renaming, and the left-then-right output layout all read the
+    // whole frame — but each side restarts its own top-down pass.
     Join(left, right, options) =>
       Join(push_projection(left, None), push_projection(right, None), options)
     // By-name originator, like `Select`: the output is the key columns

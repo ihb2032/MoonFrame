@@ -823,39 +823,11 @@ fn eval_ternary(
 ///|
 /// The output column name for an expression (Polars' naming rule): an
 /// alias wins, otherwise the leftmost column reference's name, otherwise
-/// `"literal"` for a column-less tree.
+/// `"literal"` for a column-less tree. Delegates to `Expr::output_name` —
+/// the rule lives in `expr`, beside `referenced_columns`, so the eager
+/// materialisers here and the lazy optimizer's column pruning (which must
+/// know the names a deferred `with_columns` defines) can never drift
+/// apart.
 fn expr_output_name(expr : @expr.Expr) -> String {
-  match leftmost_name(expr) {
-    Some(name) => name
-    None => "literal"
-  }
-}
-
-///|
-/// Depth-first, left-to-right search for the first *naming* node. An
-/// `Alias` names its whole subtree, so an alias anywhere on the leftmost
-/// path wins over the `Col` beneath it; the wrappers (`Unary` / `Agg` /
-/// `Cast`) are name-transparent. A `Ternary` draws its name from the value
-/// branches — `then` first, `otherwise` as fallback — never from the
-/// condition: the condition gates rows, it does not produce output values.
-/// (`Expr::referenced_columns`, by contrast, includes condition columns —
-/// pushdown must keep them alive.)
-fn leftmost_name(expr : @expr.Expr) -> String? {
-  match expr {
-    @expr.Expr::Col(name) => Some(name)
-    @expr.Expr::Lit(_) => None
-    @expr.Expr::Binary(_, l, r) =>
-      match leftmost_name(l) {
-        Some(name) => Some(name)
-        None => leftmost_name(r)
-      }
-    @expr.Expr::Unary(_, e) | @expr.Expr::Agg(_, e) | @expr.Expr::Cast(e, _) =>
-      leftmost_name(e)
-    @expr.Expr::Alias(_, name) => Some(name)
-    @expr.Expr::Ternary(_, t, f) =>
-      match leftmost_name(t) {
-        Some(name) => Some(name)
-        None => leftmost_name(f)
-      }
-  }
+  expr.output_name()
 }

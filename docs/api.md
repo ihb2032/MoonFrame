@@ -765,5 +765,14 @@ facade.
   surfacing at collect time. `explain()` renders the plan as an
   indented tree — root verb first, inputs two spaces deeper, compact
   `SCAN [rows×cols]` leaves, expressions in their documented `Show`
-  form. Lazy `group_by` / `agg` and the gated query optimizer follow;
+  form. The lazy grouping surface mirrors the eager one:
+  `LazyFrame::group_by(keys)` returns a `LazyGroupBy` (an opaque
+  builder step — keys attached, nothing partitioned), and
+  `LazyGroupBy::agg(exprs)` completes it into a single deferred
+  `Aggregate` node that collects through
+  `group_by(keys).agg_exprs(exprs)`, inheriting the reduction-shape
+  rule and every eager error (`ColumnNotFound` / `DuplicateColumn` on
+  the keys, `InvalidOperation` / `TypeMismatch` / `DuplicateColumn`
+  from the aggregation) at collect time; `explain()` renders it as
+  `AGGREGATE [exprs] BY [keys]`. The gated query optimizer follows;
   the v0.4 API reference lands with the release.

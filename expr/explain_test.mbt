@@ -1,9 +1,12 @@
 ///|
 /// Blackbox snapshots for the handwritten `Show` / `explain` rendering and
-/// behaviour tests for `referenced_columns`. Every rendering arm — the
-/// twelve binary symbols, four unary forms, five aggregation suffixes,
-/// cast / alias / ternary, and each literal kind — is pinned here, since
-/// `explain` output is demo- and (from L1 on) plan-printer-facing.
+/// behaviour tests for the introspection pair `referenced_columns` /
+/// `output_name`. Every rendering arm — the twelve binary symbols, four
+/// unary forms, five aggregation suffixes, cast / alias / ternary, and
+/// each literal kind — is pinned here, since `explain` output is demo-
+/// and (from L1 on) plan-printer-facing; the naming rule's clauses are
+/// pinned clause by clause, since the eager materialisers in `frame` and
+/// the lazy optimizer's pruning both lean on them.
 
 ///|
 test "show: the documented alias form" {
@@ -114,4 +117,42 @@ test "referenced_columns: wrappers are transparent" {
     ["x"],
   )
   assert_eq(col("x").is_null().referenced_columns().to_array(), ["x"])
+}
+
+///|
+test "output_name: an alias wins anywhere on the naming path" {
+  assert_eq((col("a") + col("b")).with_alias("net").output_name(), "net")
+  // A nested alias on the leftmost path outranks the column beneath it.
+  assert_eq((col("a").with_alias("x") + col("b")).output_name(), "x")
+}
+
+///|
+test "output_name: otherwise the leftmost column reference names the tree" {
+  assert_eq((col("a") + col("b")).output_name(), "a")
+  // A literal left arm is nameless, so the right arm gets to name it.
+  assert_eq((lit_int(1) + col("b")).output_name(), "b")
+}
+
+///|
+test "output_name: unary, aggregation, and cast wrappers are transparent" {
+  assert_eq((-col("a")).output_name(), "a")
+  assert_eq(col("a").sum().output_name(), "a")
+  assert_eq(col("a").cast(@types.DataType::Float).output_name(), "a")
+}
+
+///|
+test "output_name: ternary names from then, falls back to otherwise, never the condition" {
+  let cond = col("c").gt(lit_int(0))
+  assert_eq(when(cond).then(col("t")).otherwise(col("f")).output_name(), "t")
+  assert_eq(when(cond).then(lit_int(1)).otherwise(col("f")).output_name(), "f")
+  assert_eq(
+    when(cond).then(lit_int(1)).otherwise(lit_int(0)).output_name(),
+    "literal",
+  )
+}
+
+///|
+test "output_name: a column-less tree falls back to \"literal\"" {
+  assert_eq(lit_int(42).output_name(), "literal")
+  assert_eq((lit_int(1) + lit_float(0.5)).output_name(), "literal")
 }

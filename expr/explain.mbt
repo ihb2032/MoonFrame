@@ -61,6 +61,51 @@ fn collect_columns(expr : Expr, acc : @set.Set[String]) -> Unit {
 }
 
 ///|
+/// The output-column name this expression produces — Polars' naming rule:
+/// an alias wins, otherwise the leftmost column reference's name,
+/// otherwise `"literal"` for a column-less tree. One rule, two consumers
+/// that must never drift apart: the eager materialisers in `frame`
+/// (`with_columns` / `select_exprs` / `agg_exprs`) name their output
+/// columns with it, and the lazy optimizer's projection pushdown uses it
+/// to know which names a deferred `with_columns` stage *defines* — a
+/// defined name need not exist in the stage's input, so pruning must not
+/// require it there. Total — naming walks plain data.
+pub fn Expr::output_name(self : Expr) -> String {
+  match leftmost_name(self) {
+    Some(name) => name
+    None => "literal"
+  }
+}
+
+///|
+/// Depth-first, left-to-right search for the first *naming* node behind
+/// `output_name`. An `Alias` names its whole subtree, so an alias anywhere
+/// on the leftmost path wins over the `Col` beneath it; the wrappers
+/// (`Unary` / `Agg` / `Cast`) are name-transparent. A `Ternary` draws its
+/// name from the value branches — `then` first, `otherwise` as fallback —
+/// never from the condition: the condition gates rows, it does not produce
+/// output values. (`referenced_columns`, by contrast, includes condition
+/// columns — pushdown must keep them alive.)
+fn leftmost_name(expr : Expr) -> String? {
+  match expr {
+    Col(name) => Some(name)
+    Lit(_) => None
+    Binary(_, l, r) =>
+      match leftmost_name(l) {
+        Some(name) => Some(name)
+        None => leftmost_name(r)
+      }
+    Unary(_, e) | Agg(_, e) | Cast(e, _) => leftmost_name(e)
+    Alias(_, name) => Some(name)
+    Ternary(_, t, f) =>
+      match leftmost_name(t) {
+        Some(name) => Some(name)
+        None => leftmost_name(f)
+      }
+  }
+}
+
+///|
 /// Recursive renderer behind `Show` — every composite form is
 /// self-delimiting (parentheses or a closing `)` of a method call), so
 /// nesting never needs context from above.

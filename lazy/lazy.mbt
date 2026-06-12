@@ -169,15 +169,20 @@ pub fn LazyGroupBy::agg(
 
 ///|
 /// Run the plan and materialize the result — the only point in the lazy
-/// layer that computes (or fails). Walks the plan bottom-up, delegating
-/// each node to the public eager operator it defers, so the result is
-/// bitwise-equal to running the same verbs eagerly in the same order, and
-/// the errors are exactly the eager operators' errors (`ColumnNotFound`,
-/// `TypeMismatch`, `IndexOutOfBounds`, …).
+/// layer that computes (or fails). The plan first passes through the
+/// total projection-pushdown rewrite (`optimize.mbt`), which drops scan
+/// columns nothing downstream reads; the rewrite's contract is exactly
+/// this method's, so it changes what work happens, never what comes
+/// back. The (optimized) plan is then walked bottom-up, delegating each
+/// node to the public eager operator it defers, so the result is
+/// bitwise-equal to running the same verbs eagerly in the same order,
+/// and the errors are exactly the eager operators' errors
+/// (`ColumnNotFound`, `TypeMismatch`, `IndexOutOfBounds`, …). `explain`
+/// is untouched: it renders the plan as built.
 pub fn LazyFrame::collect(
   self : LazyFrame,
 ) -> @frame.DataFrame raise @types.DataError {
-  execute(self.plan)
+  execute(optimize(self.plan))
 }
 
 ///|

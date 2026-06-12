@@ -15,6 +15,12 @@
 /// would trade the clamp for a spurious `IndexOutOfBounds` at collect
 /// time — breaking the executor's faithfulness contract. One node per
 /// distinct eager semantic keeps `collect ≡ eager` literally true.
+///
+/// `Aggregate` is the one *fused* node — `group_by(keys).agg_exprs(exprs)`
+/// in a single step — because the eager intermediate (`GroupedDataFrame`)
+/// is not a frame: every plan stage must output rows, so the keys ride on
+/// `LazyGroupBy` (plain builder state, no node) until `agg` completes
+/// them into a plan stage that does.
 priv enum LogicalPlan {
   Scan(@frame.DataFrame)
   Select(LogicalPlan, Array[@expr.Expr])
@@ -25,6 +31,7 @@ priv enum LogicalPlan {
   Tail(LogicalPlan, Int)
   Slice(LogicalPlan, Int, Int)
   Join(LogicalPlan, LogicalPlan, @frame.JoinOptions)
+  Aggregate(LogicalPlan, Array[String], Array[@expr.Expr])
 }
 
 ///|
@@ -47,6 +54,8 @@ fn execute(plan : LogicalPlan) -> @frame.DataFrame raise @types.DataError {
     Tail(input, n) => execute(input).tail(n)
     Slice(input, start, end) => execute(input).slice(start, end)
     Join(left, right, options) => execute(left).join(execute(right), options)
+    Aggregate(input, keys, exprs) =>
+      execute(input).group_by(keys).agg_exprs(exprs)
   }
 }
 
@@ -112,6 +121,13 @@ fn render(plan : LogicalPlan, buf : StringBuilder, depth : Int) -> Unit {
       buf.write_string(join_label(options))
       render_input(left, buf, depth)
       render_input(right, buf, depth)
+    }
+    Aggregate(input, keys, exprs) => {
+      buf.write_string("AGGREGATE ")
+      buf.write_string(exprs_label(exprs))
+      buf.write_string(" BY ")
+      buf.write_string(list_label(keys))
+      render_input(input, buf, depth)
     }
   }
 }

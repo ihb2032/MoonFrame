@@ -83,6 +83,33 @@ test "explain: every join type's label, with and without keys" {
 }
 
 ///|
+test "explain: aggregate prints its expressions and keys" {
+  let plan = lazy_frame(sales_df())
+    .group_by(["region"])
+    .agg([@expr.col("qty").sum().with_alias("total")])
+  assert_eq(
+    plan.explain(),
+    "AGGREGATE [col(qty).sum() as total] BY [region]\n  SCAN [4×3]",
+  )
+}
+
+///|
+test "explain: aggregate composes mid-pipeline with multiple keys and expressions" {
+  let plan = lazy_frame(sales_df())
+    .filter_where(@expr.col("qty").gt(@expr.lit_int(10)))
+    .group_by(["region", "bonus"])
+    .agg([@expr.col("qty").mean().with_alias("avg"), @expr.col("qty").count()])
+    .head(3)
+  assert_eq(
+    plan.explain(),
+    "HEAD 3\n" +
+    "  AGGREGATE [col(qty).mean() as avg, col(qty).count()] BY [region, bonus]\n" +
+    "    FILTER (col(qty) > 10)\n" +
+    "      SCAN [4×3]",
+  )
+}
+
+///|
 test "explain: join inputs stack at the same depth with their own sub-pipelines" {
   let l = lazy_frame(orders_df()).filter_where(
     @expr.col("amount").gt(@expr.lit_int(10)),

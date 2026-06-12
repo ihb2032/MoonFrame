@@ -213,6 +213,121 @@ test "collect surfaces the eager operators' errors unchanged" {
 }
 
 ///|
+test "a deferred group-by collects to the eager agg_exprs equivalent" {
+  let df = sales_df()
+  let aggs = [
+    @expr.col("qty").sum().with_alias("total"),
+    @expr.col("bonus").mean().with_alias("avg_bonus"),
+    (@expr.col("qty") * @expr.col("bonus")).sum().with_alias("weighted"),
+    (@expr.col("qty").max() - @expr.col("qty").min()).with_alias("spread"),
+  ]
+  let lazy_out = lazy_frame(df).group_by(["region"]).agg(aggs).collect()
+  assert_eq(lazy_out, df.group_by(["region"]).agg_exprs(aggs))
+  assert_eq(lazy_out.check_invariants(), Ok(()))
+}
+
+///|
+test "multi-key and empty aggregation lists mirror eager group-by" {
+  let df = sales_df()
+  let count = [@expr.col("bonus").count().with_alias("n")]
+  assert_eq(
+    lazy_frame(df).group_by(["region", "qty"]).agg(count).collect(),
+    df.group_by(["region", "qty"]).agg_exprs(count),
+  )
+  // No aggregations: the distinct-over-keys frame, exactly as eager.
+  assert_eq(
+    lazy_frame(df).group_by(["region"]).agg([]).collect(),
+    df.group_by(["region"]).agg_exprs([]),
+  )
+}
+
+///|
+test "a group-by pipeline composes with the other deferred verbs" {
+  let df = sales_df()
+  let predicate = @expr.col("qty").gt(@expr.lit_int(10))
+  let derived = [(@expr.col("qty") * @expr.lit_int(2)).with_alias("dbl")]
+  let aggs = [@expr.col("dbl").sum().with_alias("total")]
+  let keys = [("total", @frame.SortOrder::Desc, @frame.NullOrder::NullsLast)]
+  let lazy_out = lazy_frame(df)
+    .filter_where(predicate)
+    .with_columns(derived)
+    .group_by(["region"])
+    .agg(aggs)
+    .sort_by(keys)
+    .head(1)
+    .collect()
+  let eager_out = df
+    .filter_where(predicate)
+    .with_columns(derived)
+    .group_by(["region"])
+    .agg_exprs(aggs)
+    .sort_by(keys)
+    .head(1)
+  assert_eq(lazy_out, eager_out)
+  assert_eq(lazy_out.check_invariants(), Ok(()))
+}
+
+///|
+test "one LazyGroupBy serves diverging aggregations" {
+  let df = sales_df()
+  let grouped = lazy_frame(df).group_by(["region"])
+  let total = [@expr.col("qty").sum().with_alias("total")]
+  let n = [@expr.col("qty").count().with_alias("n")]
+  // Two aggregations off the same LazyGroupBy fork the plan — neither
+  // disturbs the other, like every other shared builder.
+  assert_eq(
+    grouped.agg(total).collect(),
+    df.group_by(["region"]).agg_exprs(total),
+  )
+  assert_eq(grouped.agg(n).collect(), df.group_by(["region"]).agg_exprs(n))
+}
+
+///|
+test "group-by building is total; the errors wait for collect" {
+  let df = sales_df()
+  // Missing key: the plan builds and explains, then collect surfaces the
+  // eager group_by's ColumnNotFound.
+  let missing = lazy_frame(df).group_by(["zzz"]).agg([])
+  assert_eq(missing.explain(), "AGGREGATE [] BY [zzz]\n  SCAN [4×3]")
+  assert_eq(
+    try? missing.collect(),
+    Err(@types.DataError::ColumnNotFound("zzz")),
+  )
+  // Repeated key → the eager group_by DuplicateColumn, at the repeat.
+  assert_eq(
+    try? lazy_frame(df).group_by(["region", "region"]).agg([]).collect(),
+    Err(@types.DataError::DuplicateColumn("region")),
+  )
+  // A bare column is not reduction-shaped → the eager agg_exprs
+  // InvalidOperation, message for message.
+  assert_eq(
+    try? lazy_frame(df).group_by(["region"]).agg([@expr.col("qty")]).collect(),
+    try? df.group_by(["region"]).agg_exprs([@expr.col("qty")]),
+  )
+  // Summing a String column → the eager agg_exprs TypeMismatch.
+  assert_eq(
+    try? lazy_frame(df)
+    .group_by(["qty"])
+    .agg([@expr.col("region").sum()])
+    .collect(),
+    try? df.group_by(["qty"]).agg_exprs([@expr.col("region").sum()]),
+  )
+}
+
+///|
+test "a zero-row source aggregates to zero groups" {
+  let df = @frame.DataFrame::new([
+    @frame.Series::from_ints("qty", []),
+    @frame.Series::from_strings("region", []),
+  ])
+  let aggs = [@expr.col("qty").sum().with_alias("total")]
+  let lazy_out = lazy_frame(df).group_by(["region"]).agg(aggs).collect()
+  assert_eq(lazy_out, df.group_by(["region"]).agg_exprs(aggs))
+  assert_eq(lazy_out.shape(), (0, 2))
+  assert_eq(lazy_out.check_invariants(), Ok(()))
+}
+
+///|
 test "a zero-row source flows through the whole pipeline" {
   let df = @frame.DataFrame::new([
     @frame.Series::from_ints("qty", []),

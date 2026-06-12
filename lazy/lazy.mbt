@@ -124,6 +124,50 @@ pub fn LazyFrame::join(
 }
 
 ///|
+/// Defer `DataFrame::group_by`: attach grouping keys to the plan and
+/// return a `LazyGroupBy` waiting for its aggregations. Nothing is
+/// partitioned yet — like every builder this is total, so missing or
+/// repeated key names only surface at collect time, as the eager
+/// `group_by`'s `ColumnNotFound` / `DuplicateColumn`. Only
+/// `LazyGroupBy::agg` grows the plan; a `LazyGroupBy` is never itself
+/// collectable, mirroring how the eager `GroupedDataFrame` is not a frame.
+pub fn LazyFrame::group_by(
+  self : LazyFrame,
+  keys : Array[String],
+) -> LazyGroupBy {
+  { plan: self.plan, keys }
+}
+
+///|
+/// A deferred `group_by` awaiting its aggregations — the lazy mirror of
+/// the eager `GroupedDataFrame` stage in `group_by(keys).agg_exprs(…)`,
+/// except it holds no groups: just the input plan and the key names,
+/// which `agg` completes into a single `Aggregate` node. Both fields stay
+/// private — a `LazyGroupBy` is only ever the step between
+/// `LazyFrame::group_by` and `LazyGroupBy::agg`, and sharing one across
+/// several `agg` calls just forks the plan, like every other builder.
+pub struct LazyGroupBy {
+  priv plan : LogicalPlan
+  priv keys : Array[String]
+}
+
+///|
+/// Complete the deferred group-by: defer `group_by(keys).agg_exprs(exprs)`
+/// as one `Aggregate` node and return to the `LazyFrame` chain. Each
+/// expression must be reduction-shaped (aggregations / literals and their
+/// combinators — a bare column reference is not); building stays total,
+/// so a non-reduction expression, a missing column, a dtype clash, or an
+/// output-name collision waits for collect and surfaces as the eager
+/// `agg_exprs` error (`InvalidOperation` / `ColumnNotFound` /
+/// `TypeMismatch` / `DuplicateColumn`).
+pub fn LazyGroupBy::agg(
+  self : LazyGroupBy,
+  exprs : Array[@expr.Expr],
+) -> LazyFrame {
+  { plan: Aggregate(self.plan, self.keys, exprs) }
+}
+
+///|
 /// Run the plan and materialize the result — the only point in the lazy
 /// layer that computes (or fails). Walks the plan bottom-up, delegating
 /// each node to the public eager operator it defers, so the result is

@@ -174,6 +174,26 @@ fn broadcast_pair(
 }
 
 ///|
+/// Stretch one evaluation result onto a frame-tall column slot of `target`
+/// rows: an already-matching length passes through, a length-1 result (a
+/// literal or aggregation) is gathered at index 0 over every row —
+/// including to zero rows, where the empty gather never touches the value.
+/// As with `broadcast_pair`, evaluation invariants make any other length
+/// impossible (a result's length is drawn from `{1, |scope|}` and `target`
+/// is `|scope|`), but the guard stays: raising `LengthMismatch` keeps the
+/// helper total for any input rather than indexing out of bounds. No public
+/// call chain reaches that arm, so it is pinned by `expr_eval_wbtest.mbt`.
+fn broadcast_series(s : Series, target : Int) -> Series raise @types.DataError {
+  if s.len() == target {
+    s
+  } else if s.len() == 1 {
+    gather_series(s, Array::make(target, 0))
+  } else {
+    raise @types.DataError::LengthMismatch
+  }
+}
+
+///|
 /// Shared kernel for `+` / `-` / `*` over two equal-length operands
 /// (post-`broadcast_pair`); each operator supplies its `Int64` and
 /// `Double` cell ops plus the verb its `TypeMismatch` message uses.

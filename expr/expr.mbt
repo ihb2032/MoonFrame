@@ -17,7 +17,8 @@
 /// Variant tour (construction route in parentheses):
 /// - `Col` / `Lit` — leaves (`col`, `lit` / `lit_*`);
 /// - `Binary` — arithmetic `+ - * /`, comparisons `eq/ne/lt/le/gt/ge`,
-///   Kleene logic `&`/`|` (also `.and()`/`.or()`);
+///   Kleene logic `&`/`|` (also `.land()`/`.lor()` — `and`/`or` are
+///   reserved words);
 /// - `Unary` — `-e`, `.not()`, `.is_null()`, `.is_not_null()`;
 /// - `Agg` — `.sum()/.mean()/.min()/.max()/.count()`, reducing its operand
 ///   to a single value per evaluation scope;

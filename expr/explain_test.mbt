@@ -52,6 +52,13 @@ test "show: a string literal escapes embedded quotes and backslashes" {
 }
 
 ///|
+test "show: a string literal escapes control characters" {
+  // Control characters become `\n` / `\r` / `\t` so a literal can never
+  // inject a spurious line into the `explain` tree.
+  inspect(lit_str("a\nb\tc\rd"), content="\"a\\nb\\tc\\rd\"")
+}
+
+///|
 test "show: every unary form" {
   inspect(-col("x"), content="(-col(x))")
   inspect(col("p").not(), content="(not col(p))")

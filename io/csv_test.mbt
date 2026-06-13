@@ -731,6 +731,28 @@ test "parse_csv_str ∘ format_csv_str: round-trip preserves dtypes and values" 
   }
 }
 
+///|
+test "parse_csv_str ∘ format_csv_str: round-trips quoted delimiters, quotes, and newlines" {
+  // The highest-risk RFC-4180 feature: a String cell holding the
+  // delimiter, an embedded double quote, or a line break must survive a
+  // write→read round trip — the writer quotes/escapes it, and the reader
+  // (NyaCSV with newlines-in-quotes) reassembles the multi-line record.
+  let df = @frame.DataFrame::new([
+    @frame.Series::from_strings("text", [
+      "needs,comma", "has \"quote\"", "two\nlines",
+    ]),
+    @frame.Series::from_ints("n", [1, 2, 3]),
+  ])
+  let text = @io.format_csv_str(df, @io.CsvWriteOptions::default())
+  let parsed = @io.parse_csv_str(text, @io.CsvReadOptions::default())
+  assert_eq(parsed.check_invariants(), Ok(()))
+  assert_eq(parsed.shape(), (3, 2))
+  assert_eq(parsed.get(0, "text"), @types.Scalar::String("needs,comma"))
+  assert_eq(parsed.get(1, "text"), @types.Scalar::String("has \"quote\""))
+  assert_eq(parsed.get(2, "text"), @types.Scalar::String("two\nlines"))
+  assert_eq(parsed.get(2, "n"), @types.Scalar::Int(3))
+}
+
 // ── read_csv / write_csv: file-system path ────────────────────────────
 
 ///|

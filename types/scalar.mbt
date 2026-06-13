@@ -180,7 +180,7 @@ pub impl Show for Scalar with fn output(self, logger) {
     Int(v) => logger.write_string("Int(" + v.to_string() + ")")
     Float(v) => logger.write_string("Float(" + v.to_string() + ")")
     Bool(v) => logger.write_string("Bool(" + v.to_string() + ")")
-    String(v) => logger.write_string("String(\"" + v + "\")")
+    String(v) => logger.write_string("String(\"" + escape_debug(v) + "\")")
     Null => logger.write_string("Null")
   }
 }

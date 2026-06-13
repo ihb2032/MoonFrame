@@ -45,6 +45,13 @@ test "show: every literal kind" {
 }
 
 ///|
+test "show: a string literal escapes embedded quotes and backslashes" {
+  // The quoted literal form escapes `"` / `\` so a literal stays
+  // distinguishable and unambiguous in `explain` output.
+  inspect(lit_str("a\"b\\c"), content="\"a\\\"b\\\\c\"")
+}
+
+///|
 test "show: every unary form" {
   inspect(-col("x"), content="(-col(x))")
   inspect(col("p").not(), content="(not col(p))")

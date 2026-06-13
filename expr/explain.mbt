@@ -186,7 +186,7 @@ fn write_scalar(logger : &Logger, value : @types.Scalar) -> Unit {
     Bool(v) => logger.write_string(v.to_string())
     String(v) => {
       logger.write_string("\"")
-      logger.write_string(v)
+      logger.write_string(escape_debug(v))
       logger.write_string("\"")
     }
     Null => logger.write_string("null")
@@ -223,4 +223,27 @@ fn agg_suffix(op : AggOp) -> String {
     Max => ".max()"
     Count => ".count()"
   }
+}
+
+///|
+/// Escape a string literal for the quoted form `write_scalar` emits
+/// (`"a\"b"`), so a literal containing a `"` or `\` stays unambiguous in
+/// `explain` output. A single forward pass: `\` → `\\`, `"` → `\"`. Mirrors
+/// the identically-named helper behind `@types`' `Show` impls — kept a
+/// private duplicate here rather than a shared public symbol so neither
+/// package's interface grows for a presentation-only concern. Total.
+fn escape_debug(s : String) -> String {
+  let buf = StringBuilder::new()
+  for ch in s.iter() {
+    if ch == '\\' {
+      buf.write_char('\\')
+      buf.write_char('\\')
+    } else if ch == '"' {
+      buf.write_char('\\')
+      buf.write_char('"')
+    } else {
+      buf.write_char(ch)
+    }
+  }
+  buf.to_string()
 }

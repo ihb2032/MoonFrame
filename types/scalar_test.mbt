@@ -104,6 +104,15 @@ test "Scalar Show variant-style" {
 }
 
 ///|
+test "Scalar Show escapes embedded quotes and backslashes" {
+  // The variant form quotes the payload, so a `"` or `\` inside it is
+  // escaped (`\"` / `\\`) to keep the rendering unambiguous — debug-string
+  // style, distinct from the unquoted value form `to_string` produces.
+  inspect(Scalar::String("a\"b\\c"), content="String(\"a\\\"b\\\\c\")")
+  inspect(Scalar::String("a\"b\\c").to_string(), content="a\"b\\c")
+}
+
+///|
 test "Scalar equality" {
   assert_eq(Scalar::Int(1), Scalar::Int(1))
   assert_not_eq(Scalar::Int(1), Scalar::Int(2))

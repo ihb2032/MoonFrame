@@ -319,6 +319,15 @@ test "unique_count collapses all NaN Float cells into a single bucket" {
   assert_eq(s.unique_count(), 2)
 }
 
+///|
+test "unique_count folds -0.0 and +0.0 into one value (matching group_by)" {
+  // `-0.0` and `+0.0` are IEEE-equal and share a `group_by` group, so they
+  // are one distinct value: `unique_count` keys by the same `KeyCell`
+  // normalisation rather than `Double::to_string`, which could split them.
+  let s = Series::from_floats("x", [0.0, -0.0, 1.0])
+  assert_eq(s.unique_count(), 2)
+}
+
 // ── describe ─────────────────────────────────────────────────────────
 
 ///|

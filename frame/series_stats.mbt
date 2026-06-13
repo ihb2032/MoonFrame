@@ -276,25 +276,25 @@ pub fn Series::max_value(self : Series) -> @types.Scalar {
 }
 
 ///|
-/// Number of distinct non-null values. The value-form rendering
-/// (`Scalar::to_string`) is used as the canonical key — within a
-/// fixed-dtype series two cells collide only when their values are
-/// equal. As a deliberate consequence, every `Float` `NaN` renders
-/// `"NaN"` and collapses to a single bucket, so `NaN` counts as one
-/// distinct value (it is a value, not missing — the same rule that puts
-/// every `NaN` key in one `group_by` group).
+/// Number of distinct non-null values. Cells are keyed by the same
+/// composite-key normalisation `group_by` / `join` use (`key_cell`), so the
+/// distinct count agrees with grouping cell-for-cell: two cells collide
+/// exactly when they would share a `group_by` group. Two `Float`
+/// normalisations follow from that shared key — every `NaN` collapses into
+/// one bucket (it is a value, not missing, so it is one distinct value, the
+/// rule that also puts every `NaN` key in one `group_by` group), and `-0.0`
+/// folds into `+0.0` (they are IEEE-equal and share a group, hence one
+/// distinct value). Keying by `Scalar::to_string` would instead let the
+/// `-0.0` rendering split them, diverging from `group_by`.
 pub fn Series::unique_count(self : Series) -> Int {
-  // Distinct count of the non-null cells, keyed by `Scalar::to_string`
-  // (the canonical value form): within a fixed-dtype series two cells
-  // collide only when their values are equal, and every `Float` `NaN`
-  // renders `"NaN"` so they collapse into one bucket (one distinct value).
-  // `Map::from_array` folds the keys into a set; its size is the distinct
-  // count.
+  // Key the non-null cells by `key_cell` — the same `KeyCell` encoding
+  // `group_by` / `join` hash on (frame/row_key.mbt) — so "distinct value"
+  // means exactly "distinct group": `NaN` collapses to one `KNaN` and `-0.0`
+  // folds into `+0.0`, matching the grouping semantics rather than diverging
+  // on `Double::to_string`'s `-0.0` rendering. `Map::from_array` folds the
+  // keys into a set; its size is the distinct count.
   Map::from_array(
-    self
-    .to_scalars()
-    .filter(sc => !sc.is_null())
-    .map(sc => (sc.to_string(), ())),
+    self.to_scalars().filter(sc => !sc.is_null()).map(sc => (key_cell(sc), ())),
   ).length()
 }
 

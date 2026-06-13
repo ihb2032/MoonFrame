@@ -227,11 +227,13 @@ fn agg_suffix(op : AggOp) -> String {
 
 ///|
 /// Escape a string literal for the quoted form `write_scalar` emits
-/// (`"a\"b"`), so a literal containing a `"` or `\` stays unambiguous in
-/// `explain` output. A single forward pass: `\` → `\\`, `"` → `\"`. Mirrors
-/// the identically-named helper behind `@types`' `Show` impls — kept a
-/// private duplicate here rather than a shared public symbol so neither
-/// package's interface grows for a presentation-only concern. Total.
+/// (`"a\"b"`), so a literal containing a `"`, `\`, or a control character
+/// stays unambiguous and on one line in `explain` output. A single forward
+/// pass: `\` → `\\`, `"` → `\"`, and newline / carriage-return / tab →
+/// `\n` / `\r` / `\t`. Mirrors the identically-named helper behind
+/// `@types`' `Show` impls — kept a private duplicate here rather than a
+/// shared public symbol so neither package's interface grows for a
+/// presentation-only concern. Total.
 fn escape_debug(s : String) -> String {
   let buf = StringBuilder::new()
   for ch in s.iter() {
@@ -241,6 +243,15 @@ fn escape_debug(s : String) -> String {
     } else if ch == '"' {
       buf.write_char('\\')
       buf.write_char('"')
+    } else if ch == '\n' {
+      buf.write_char('\\')
+      buf.write_char('n')
+    } else if ch == '\r' {
+      buf.write_char('\\')
+      buf.write_char('r')
+    } else if ch == '\t' {
+      buf.write_char('\\')
+      buf.write_char('t')
     } else {
       buf.write_char(ch)
     }

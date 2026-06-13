@@ -113,6 +113,13 @@ test "Scalar Show escapes embedded quotes and backslashes" {
 }
 
 ///|
+test "Scalar Show escapes control characters" {
+  // Newline / carriage-return / tab become `\n` / `\r` / `\t` so the quoted
+  // debug form stays on one line and round-trippable.
+  inspect(Scalar::String("a\nb\tc\rd"), content="String(\"a\\nb\\tc\\rd\")")
+}
+
+///|
 test "Scalar equality" {
   assert_eq(Scalar::Int(1), Scalar::Int(1))
   assert_not_eq(Scalar::Int(1), Scalar::Int(2))

@@ -23,15 +23,13 @@ pub fn DataFrame::filter_where(
   predicate : @expr.Expr,
 ) -> DataFrame raise @types.DataError {
   let n = self.nrows()
-  let evaluated = eval_expr(predicate, self, Array::makei(n, i => i))
   // Evaluation yields a frame-tall or length-1 column — stretch a
   // length-1 mask (literal / aggregation) over the frame, down to zero
   // rows on an empty one.
-  let mask = if evaluated.len() == n {
-    evaluated
-  } else {
-    gather_series(evaluated, Array::make(n, 0))
-  }
+  let mask = broadcast_series(
+    eval_expr(predicate, self, Array::makei(n, i => i)),
+    n,
+  )
   let cells = match mask.storage().data() {
     @column.ColumnData::Bool(a) => a
     _ =>

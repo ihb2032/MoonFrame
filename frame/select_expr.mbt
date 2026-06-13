@@ -50,13 +50,9 @@ pub fn DataFrame::select_exprs(
       height = column.len()
     }
   }
-  DataFrame::new(
-    evaluated.map(column => {
-      if column.len() == height {
-        column
-      } else {
-        gather_series(column, Array::make(height, 0))
-      }
-    }),
-  )
+  let broadcasted : Array[Series] = []
+  for column in evaluated {
+    broadcasted.push(broadcast_series(column, height))
+  }
+  DataFrame::new(broadcasted)
 }

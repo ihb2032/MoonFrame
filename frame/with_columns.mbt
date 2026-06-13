@@ -32,14 +32,7 @@ pub fn DataFrame::with_columns(
   let out = self.column_series()
   let seen : Map[String, Unit] = {}
   for expr in exprs {
-    let evaluated = eval_expr(expr, self, scope)
-    let column = if evaluated.len() == n {
-      evaluated
-    } else {
-      // Evaluation yields |scope| or 1 — anything shorter than the frame
-      // is a length-1 literal / aggregate, broadcast to every row.
-      gather_series(evaluated, Array::make(n, 0))
-    }
+    let column = broadcast_series(eval_expr(expr, self, scope), n)
     let name = expr_output_name(expr)
     if seen.contains(name) {
       raise @types.DataError::DuplicateColumn(name)

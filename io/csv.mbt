@@ -124,6 +124,11 @@ pub fn CsvWriteOptions::default() -> CsvWriteOptions {
 ///   to `DuplicateColumn` / `LengthMismatch`, neither of which can
 ///   actually fire here (uniqueness is checked above; every column
 ///   is built off the same `rows.length()`).
+///
+/// Limitation: tokenisation is delegated to NyaCSV, which treats an
+/// unterminated quoted field at end-of-input as a complete field rather
+/// than a malformed one — `1,"unclosed` reads as a row whose last cell is
+/// `unclosed`, not a `ParseError`. No quote-balance pre-scan is performed.
 pub fn parse_csv_str(
   content : String,
   options : CsvReadOptions,
@@ -254,6 +259,11 @@ pub fn read_csv_with_options(
 ///   doubled (`"` → `""`). Cells that need no quoting are written
 ///   verbatim so the output matches the simple "no quotes" CSV idiom
 ///   whenever possible.
+/// - Round-trip caveat: cells render via `Scalar::to_string`, so a `Float`
+///   whose value is a whole number is written without a fractional part
+///   (`2.0` → `2`) and is re-inferred as `Int` on read — the same dtype
+///   narrowing the JSON writer documents. Quote / escape handling is
+///   otherwise round-trip safe.
 pub fn format_csv_str(
   df : @frame.DataFrame,
   options : CsvWriteOptions,

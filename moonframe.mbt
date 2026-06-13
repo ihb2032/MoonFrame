@@ -8,8 +8,8 @@
 // `with_column` / `replace_column` / `filter` / `sort_by` /
 // `drop_nulls` / `drop_nulls_in` / `fill_null` / `null_count` /
 // `count` / `sum` / `mean` / `min` / `max` / `describe` / `group_by` /
-// `join` / `inner_join` / `left_join` / `cross_join`) and the
-// `to_markdown` / `to_html` renderers
+// `join` / `inner_join` / `left_join` / `right_join` / `outer_join` /
+// `cross_join`) and the `to_markdown` / `to_html` renderers
 // are now methods on `DataFrame`, so re-exporting `type DataFrame`
 // makes them automatically reachable through the facade — there is
 // nothing to list for them here. Likewise `GroupedDataFrame::agg`, the

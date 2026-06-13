@@ -64,10 +64,12 @@
 /// - `InvalidOperation(detail)` — `on` is empty for a non-`Cross` join (use
 ///   `how = Cross` for a Cartesian product), or non-empty for a `Cross`
 ///   join (which takes no keys).
-/// - `DuplicateColumn(name)` — two output columns still collide after
+/// - `DuplicateColumn(name)` — either a key **repeated in `options.on`**
+///   (rejected at the repeat during key resolution, like
+///   `group_by(["id", "id"])`), or two output columns still colliding after
 ///   suffixing (e.g. the left frame already has both `value` and
-///   `value_right`, and the right contributes a non-key `value`). Surfaced
-///   by `DataFrame::new`.
+///   `value_right`, and the right contributes a non-key `value`; surfaced by
+///   `DataFrame::new`).
 pub fn DataFrame::join(
   self : DataFrame,
   other : DataFrame,
@@ -254,6 +256,16 @@ pub fn DataFrame::join(
   // sits in its left position but draws each cell from whichever side is
   // present (`coalesce_into`); the matching right key column is then dropped
   // below.
+  //
+  // Each assembled column is re-converged to its source's backend with
+  // `preserve_backend`, so a `Numeric` source column that picks up no null
+  // (no `None` row injected on this side, and `Numeric` sources carry none
+  // of their own) stays on the `Numeric` fast path rather than silently
+  // demoting to `Builtin` — matching `filter` / `sort_by` / `take` /
+  // `drop_nulls` / `fill_null`, which all preserve the backend. A column
+  // that does pick up a null (an unmatched row's `None`) is necessarily
+  // nullable and stays `Builtin`. The coalesced key follows the **left** key
+  // column's backend (its values share the pre-checked-equal key dtype).
   let out_cols : Array[Series] = []
   for col in self.column_series() {
     if coalesce && on_set.contains(col.name()) {
@@ -265,9 +277,13 @@ pub fn DataFrame::join(
         right_rows,
         col.name(),
       )
-      out_cols.push(coalesce_into(left_key, right_key, col.name()))
+      out_cols.push(
+        preserve_backend(col, coalesce_into(left_key, right_key, col.name())),
+      )
     } else {
-      out_cols.push(gather_series_opt(col, left_rows, col.name()))
+      out_cols.push(
+        preserve_backend(col, gather_series_opt(col, left_rows, col.name())),
+      )
     }
   }
   // Right columns are gathered with `None -> null` and renamed on a name
@@ -282,7 +298,9 @@ pub fn DataFrame::join(
       } else {
         col.name()
       }
-      out_cols.push(gather_series_opt(col, right_rows, out_name))
+      out_cols.push(
+        preserve_backend(col, gather_series_opt(col, right_rows, out_name)),
+      )
     }
   }
   DataFrame::new(out_cols)
@@ -369,6 +387,12 @@ pub fn DataFrame::cross_join(
 /// Shared by the `Right` and `Inner` / `Left` / `Outer` row planners.
 ///
 /// Raises:
+/// - `DuplicateColumn(name)` — `name` appears twice in `on`. Reported at the
+///   repeat, in `on` order, mirroring `group_by`'s key-list contract (a
+///   repeated key would otherwise resolve to the same column twice, the
+///   second occurrence silently redundant). Like `group_by`, a key that is
+///   *missing* surfaces as `ColumnNotFound` at its first appearance before a
+///   later duplicate is examined.
 /// - `ColumnNotFound(name)` — a key absent from `left` or `right`, first
 ///   offending key in `on` order (left before right).
 /// - `TypeMismatch(detail)` — a key whose dtype differs between the frames,
@@ -380,7 +404,18 @@ fn resolve_join_keys(
 ) -> (Array[Array[@types.Scalar]], Array[Array[@types.Scalar]]) raise @types.DataError {
   let left_key_scalars : Array[Array[@types.Scalar]] = []
   let right_key_scalars : Array[Array[@types.Scalar]] = []
+  // The running `seen` set raises `DuplicateColumn` at a key repeated in
+  // `on` — before its columns are resolved a second time — so `join` matches
+  // `group_by` / `select`'s "no duplicate keys" contract instead of silently
+  // treating `["id", "id"]` as the single key `["id"]`. Checked before the
+  // lookups, so a *missing* repeated key still surfaces as `ColumnNotFound`
+  // at its first appearance.
+  let seen : Map[String, Unit] = {}
   for key in on {
+    if seen.contains(key) {
+      raise @types.DataError::DuplicateColumn(key)
+    }
+    seen[key] = ()
     let lcol = left.get_column(key)
     let rcol = right.get_column(key)
     if lcol.dtype() != rcol.dtype() {
@@ -407,13 +442,16 @@ fn resolve_join_keys(
 /// `None` marks a row kept without a match on this side. The result is named
 /// `out_name` (so a colliding right column can be suffixed) and keeps the
 /// source dtype, matching on `data()` exactly as the total `gather_series`
-/// does.
+/// does. It always materialises through the option constructors (→ a
+/// `Builtin` column); `join` wraps the result in `preserve_backend` to
+/// re-converge a no-null gather of a `Numeric` source back onto the fast
+/// path.
 fn gather_series_opt(
   s : Series,
   idx : Array[Int?],
   out_name : String,
 ) -> Series {
-  let valid = s.storage().validity().to_bools()
+  let valid = validity_bools(s.storage())
   match s.storage().data() {
     @column.ColumnData::Int(a) =>
       Series::from_int_options(
@@ -471,7 +509,7 @@ fn gather_series_opt(
 /// guarantees the matching `Scalar` variant, the `_` arm catching only the
 /// both-null case).
 fn coalesce_into(base : Series, fill : Series, name : String) -> Series {
-  let base_valid = base.storage().validity().to_bools()
+  let base_valid = validity_bools(base.storage())
   let fills = fill.to_scalars()
   match base.storage().data() {
     @column.ColumnData::Int(a) =>

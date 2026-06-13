@@ -53,7 +53,7 @@ fn sum_float_valid(data : Array[Double], validity : @column.Bitmap) -> Double {
 /// - Empty / all-null numeric series → `Scalar::Int(0)` or
 ///   `Scalar::Float(0.0)` (additive identity). An all-`NaN` `Float` series
 ///   sums to `NaN`, not the identity — every cell is a present value.
-/// - Non-numeric series (`Bool`, `String`) → `Err(TypeMismatch)`.
+/// - Non-numeric series (`Bool`, `String`) → `raise TypeMismatch`.
 pub fn Series::sum(self : Series) -> @types.Scalar raise @types.DataError {
   // Numeric fast path: a bitmap-free tight fold over the raw array — no
   // `validity().to_bools()` materialisation and no per-slot `if valid[i]`
@@ -90,8 +90,8 @@ pub fn Series::sum(self : Series) -> @types.Scalar raise @types.DataError {
 /// and **propagates**: any non-null `NaN` makes the mean `NaN` (Polars
 /// semantics; only `Null` is skipped).
 ///
-/// - Empty / all-null numeric series → `Err(InvalidOperation(...))`.
-/// - Non-numeric series → `Err(TypeMismatch(...))`.
+/// - Empty / all-null numeric series → `raise InvalidOperation(...)`.
+/// - Non-numeric series → `raise TypeMismatch(...)`.
 pub fn Series::mean(self : Series) -> Double raise @types.DataError {
   // Numeric fast path: bitmap-free fold with an all-valid denominator
   // (`len`), raising `InvalidOperation` on an empty column exactly as the
@@ -141,9 +141,12 @@ fn[T] fold_extremum(
   let mut best : T? = None
   for i in 0..<n {
     if !missing(i) {
+      // Bind the cell once: the `Some` arm would otherwise evaluate `get(i)`
+      // up to twice per non-missing element.
+      let v = get(i)
       best = match best {
-        None => Some(get(i))
-        Some(b) => if better(get(i), b) { Some(get(i)) } else { Some(b) }
+        None => Some(v)
+        Some(b) => if better(v, b) { Some(v) } else { Some(b) }
       }
     }
   }

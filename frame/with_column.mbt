@@ -17,9 +17,11 @@ pub fn DataFrame::with_column(
 ) -> DataFrame raise @types.DataError {
   // Duplicate-name check before length so the diagnostic matches what
   // the caller most likely cares about first (collisions tend to be
-  // build-once mistakes, length to be data-shape mistakes).
+  // build-once mistakes, length to be data-shape mistakes). The `O(1)`
+  // `name_to_index` lookup avoids `columns().contains`, which allocated a
+  // fresh name array and scanned it linearly.
   let name = series.name()
-  if self.columns().contains(name) {
+  if self.name_to_index.contains(name) {
     raise @types.DataError::DuplicateColumn(name)
   }
   if series.len() != self.nrows() {

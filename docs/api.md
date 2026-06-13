@@ -145,6 +145,12 @@ validity bitmap (`1 = valid`, `0 = null`).
   `validity()` accessors expose the raw backing so callers in other
   packages match `ColumnData` once and read values / validity totally,
   instead of cascading through `*_values`.
+  - ⚠ **`data()` shares the live backing array zero-copy** — the `Array`
+    inside the returned `ColumnData` is the column's own buffer, *not* a
+    defensive copy (a deliberate departure from `Schema::fields()`, which
+    copies, traded for hot-path reads with no per-call allocation). Treat it
+    as **read-only**: mutating it would corrupt the owning column's
+    data/validity invariants. The same applies to `ColumnStorage::data()`.
 - Fallible (`raise DataError`):
   - `is_null(i) -> Bool` / `get(i) -> Scalar` —
     `raise IndexOutOfBounds` outside `[0, len)`; `get` returns
@@ -267,9 +273,9 @@ dependencies** (NyaCSV / fs / @json live only in `io`).
   dtype renders, so total); `to_builtin()` (materialise onto the `Builtin`
   backend — lossless inverse of `to_numeric`). Structural transforms
   (`slice` / `take` / `drop_nulls` / `fill_null`, and `head` / `tail` /
-  `filter` / `sort_by` at the frame level) **preserve the backend** — a
-  `Numeric` column stays on the fast path; cross-dtype casts borrow the
-  `Builtin` road.
+  `filter` / `sort_by` / `join` at the frame level) **preserve the backend**
+  — a `Numeric` column stays on the fast path where it gains no null;
+  cross-dtype casts borrow the `Builtin` road.
 
 ### Series stats (`series_stats.mbt`)
 
@@ -487,14 +493,21 @@ Hash equi-join, native to the method chain (`left.join(right, options)`).
     column of both frames (a clashing right column is suffixed). This is the
     explicit form of what `group_by([])`'s grand-total group is for
     aggregation.
+  - **Backend**: like the other structural transforms (`filter` / `sort_by`
+    / `take` / `drop_nulls`), each output column keeps its source's storage
+    backend where it picks up no unmatched-row null — an all-valid `Numeric`
+    source column stays `Numeric`; a column that gains a null from an
+    unmatched row (or whose source was already `Builtin`) is `Builtin`. Only
+    the representation is affected; values and dtypes are unchanged.
   - Routes through `DataFrame::new`, so every output satisfies
     `check_invariants()`. Raises: `ColumnNotFound` (a key absent from the
     left or the right; first offending key in `on` order, left checked
     before right), `TypeMismatch` (a key's dtype differs across the two
     frames), `InvalidOperation` (empty `on` for a non-`Cross` join — use
     `Cross` for a product — or a non-empty `on` for a `Cross` join),
-    `DuplicateColumn` (two output columns still collide after suffixing —
-    surfaced by `DataFrame::new`).
+    `DuplicateColumn` (a key **repeated in `on`** — rejected at the repeat,
+    like `group_by(["id", "id"])`; or two output columns still colliding
+    after suffixing — surfaced by `DataFrame::new`).
 - `inner_join(other, on : Array[String]) -> DataFrame raise DataError` —
   `self.join(other, JoinOptions::on(on))` (auto-coalesces, so the key
   appears once).

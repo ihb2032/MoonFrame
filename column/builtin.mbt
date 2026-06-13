@@ -8,9 +8,10 @@
 /// `Bool = false`, `String = ""`); public methods always consult
 /// `validity` before reading `data`, so the placeholder never leaks.
 ///
-/// v0.2 will introduce a `ColumnStorage` abstraction (plus a
-/// `NumericColumn` for unboxed-numeric fast paths) without changing this
-/// layer's public API.
+/// As of v0.3 a `ColumnStorage` abstraction (plus a `NumericColumn` for
+/// unboxed-numeric fast paths) sits above this layer at the `Series` backend
+/// seam (see `storage.mbt`); it leaves `BuiltinColumn`'s own public API
+/// unchanged — a `Series` simply holds one of the two backends behind it.
 ///
 /// Numeric columns are 64-bit: the `Int` variant stores `Int64` and the
 /// `Float` variant stores `Double`, matching `Scalar`'s payloads and the
@@ -239,7 +240,7 @@ fn BuiltinColumn::slice_unchecked(
 
 ///|
 /// Gather: produce a new column whose i-th entry is `self[indices[i]]`.
-/// Any out-of-bounds index returns `Err(IndexOutOfBounds(idx))`.
+/// Any out-of-bounds index `raise IndexOutOfBounds(idx)`.
 pub fn BuiltinColumn::take(
   self : BuiltinColumn,
   indices : Array[Int],

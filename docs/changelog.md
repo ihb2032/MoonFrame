@@ -6,6 +6,26 @@ breaking-change steps for each release are collected in
 [`migration.md`](migration.md). Pre-1.0, breaking changes ride the minor
 version.
 
+## Unreleased
+
+Incremental follow-ups from the post-v0.3 whole-library review. Additive and
+non-breaking (no signature or enum changes — nothing for
+[`migration.md`](migration.md)); the headline expression / lazy query layer
+lands with the v0.4 release notes.
+
+### Join — duplicate-key check and backend preservation
+
+- `join` now rejects a **key repeated in `on`** with `DuplicateColumn`,
+  matching `group_by(["id", "id"])` and `select`'s "no duplicate keys"
+  contract (previously `on = ["id", "id"]` silently behaved as the single key
+  `["id"]`). A *missing* repeated key still surfaces as `ColumnNotFound` at its
+  first appearance.
+- Join output columns now **preserve the storage backend** of their source
+  where they pick up no unmatched-row null — an all-valid `Numeric` source
+  column stays `Numeric` instead of demoting to `Builtin`, matching `filter` /
+  `sort_by` / `take` / `drop_nulls` / `fill_null`. Only the representation
+  changes; values and dtypes are identical.
+
 ## v0.3 — shipped
 
 Output formats, the full join matrix, read resilience, and a pluggable

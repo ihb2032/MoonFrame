@@ -40,16 +40,24 @@ pub fn DataFrame::drop_nulls_in(
   self : DataFrame,
   names : Array[String],
 ) -> DataFrame raise @types.DataError {
-  // Materialise each gating column's validity mask, in `names` order;
-  // `get_column` raises `ColumnNotFound` on the first unknown name, so a
-  // bad name surfaces before any per-row work runs. A name repeated in
-  // `names` just contributes its mask twice, which the AND below absorbs —
-  // drops stay idempotent, matching the documented contract (and the
-  // primary caller `drop_nulls` passes the already-unique `columns()`).
-  let masks = names.map(n => self.get_column(n).storage().validity().to_bools())
-  // Keep row `i` when every gating mask is valid there — vacuously true
-  // when `names` is empty, so an empty gate set is the identity. The kept
-  // indices come straight from `[0, nrows)`, so `take` cannot fail.
+  // Resolve every gating column first, in `names` order; `get_column` raises
+  // `ColumnNotFound` on the first unknown name, so a bad name surfaces before
+  // any per-row work runs. A name repeated in `names` just resolves the same
+  // column twice, which the AND below absorbs — drops stay idempotent,
+  // matching the documented contract (and the primary caller `drop_nulls`
+  // passes the already-unique `columns()`).
+  let gating = names.map(n => self.get_column(n))
+  // No gating column carries a null (so also: an empty gate set) → no row can
+  // be dropped. Return `self` rather than materialising masks and gathering
+  // an identical copy; `null_count` is O(1) for a `Numeric` column.
+  if gating.all(c => c.storage().null_count() == 0) {
+    return self
+  }
+  // Materialise each gating column's validity mask (`validity_bools` skips the
+  // throwaway bitmap for any `Numeric` gating column in the mix).
+  let masks = gating.map(c => validity_bools(c.storage()))
+  // Keep row `i` when every gating mask is valid there. The kept indices come
+  // straight from `[0, nrows)`, so `take` cannot fail.
   let kept = Array::makei(self.nrows(), i => i).filter(i => masks.all(m => m[i]))
   self.take(kept)
 }

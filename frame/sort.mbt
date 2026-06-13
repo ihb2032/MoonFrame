@@ -57,6 +57,12 @@ pub fn DataFrame::sort_by(
   self : DataFrame,
   keys : Array[(String, SortOrder, NullOrder)],
 ) -> DataFrame raise @types.DataError {
+  // No keys ⇒ every comparison returns 0 ⇒ a stable sort is the identity.
+  // Return `self` rather than building an identity permutation and gathering
+  // a copy (the comparator + mergesort + `take` would all be no-ops).
+  if keys.is_empty() {
+    return self
+  }
   // Resolve each key to its typed buffer + missing mask once, up front,
   // so the dispatch happens per-key rather than per-comparison.
   // `get_column` raises `ColumnNotFound` on the first unknown column (in
@@ -89,7 +95,7 @@ fn build_sort_key(
   order : SortOrder,
   null_order : NullOrder,
 ) -> SortKey {
-  let valid = storage.validity().to_bools()
+  let valid = validity_bools(storage)
   match storage.data() {
     @column.ColumnData::Int(a) =>
       SortKey::Int(

@@ -8,6 +8,10 @@
 // the build-time parse-failure policy (`OnParseError`: raise vs. null the
 // offending cell) — defined in exactly one place; each reader supplies only
 // its own cell accessor, null test, per-dtype probes, and error wording.
+//
+// One-file-one-test exemption: this shared inference skeleton has no
+// dedicated `infer_test.mbt`. It is covered through the CSV / JSON / NDJSON
+// reader blackbox tests that drive it.
 
 ///|
 /// The four dtypes inference can pick. `Null` is intentionally absent —

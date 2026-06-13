@@ -71,8 +71,8 @@ pub fn NdjsonReadOptions::default() -> NdjsonReadOptions {
 /// Empty input — or input that is entirely blank lines — yields a 0×0
 /// frame, matching `parse_json_records_str`'s empty-array behaviour.
 ///
-/// Errors:
-/// - `Err(ParseError(...))` — a malformed line, a line whose value is
+/// Raises:
+/// - `ParseError(...)` — a malformed line, a line whose value is
 ///   not a JSON object, or a non-null cell that does not fit its
 ///   column's inferred dtype (the last unless `options.on_parse_error`
 ///   is `Null`, which downgrades that cell to a null instead).

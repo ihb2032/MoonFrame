@@ -324,6 +324,23 @@ fn preserve_backend(source : Series, rebuilt : Series) -> Series {
 }
 
 ///|
+/// Materialise a column's validity as a dense `Array[Bool]` (`true = valid`)
+/// for a bounded scan. The `Numeric` arm builds the all-`true` array
+/// directly, skipping the synthetic all-valid `Bitmap` that
+/// `ColumnStorage::validity()` would allocate for a backend that has none —
+/// a `Numeric` column is present in every slot by construction. Equivalent
+/// to `storage.validity().to_bools()` but without the intermediate bitmap on
+/// the fast path. The row-level scanners (`sort_by` / `group_by` / `join` /
+/// `drop_nulls_in`) read the mask by plain index, so they share this instead
+/// of each repacking a throwaway bitmap for a `Numeric` column.
+fn validity_bools(storage : @column.ColumnStorage) -> Array[Bool] {
+  match storage.kind() {
+    @column.StorageKind::Numeric => Array::make(storage.len(), true)
+    @column.StorageKind::Builtin => storage.validity().to_bools()
+  }
+}
+
+///|
 /// Total contiguous slice `[start, start + len)`. Delegates to the zero-copy
 /// `ColumnStorage::slice_total`, which keeps the source backend and shares
 /// the validity buffer — the single slice path behind `head` / `tail` /
@@ -390,9 +407,20 @@ fn gather_series(s : Series, idx : Array[Int]) -> Series {
 }
 
 ///|
-/// Drop every null cell. Returned series has `len = original.len -
-/// original.null_count` and a fully-valid bitmap.
+/// Drop every null cell. The returned series has `len = original.len -
+/// original.null_count` and no null cells left. A source that already has no
+/// nulls is returned unchanged — so an all-valid `Numeric` column stays on
+/// the fast path (no bitmap to carry); otherwise the kept cells are gathered
+/// onto the `Builtin` backend with a fully-valid bitmap.
 pub fn Series::drop_nulls(self : Series) -> Series {
+  // No nulls → nothing to drop; return `self` instead of gathering every row
+  // into an identical rebuild. `null_count` is O(1) for a `Numeric` column
+  // (always 0, so it short-circuits here and stays on the fast path) and a
+  // bitmap popcount for `Builtin`. Past this guard the column carries a null,
+  // so it is necessarily `Builtin` — the mask read below sees a real bitmap.
+  if self.storage.null_count() == 0 {
+    return self
+  }
   // Keep the indices of the valid cells, in order, then gather them —
   // `gather_series` rebuilds the series with a fully-valid bitmap.
   let valid = self.storage.validity().to_bools()
@@ -487,7 +515,7 @@ pub fn Series::fill_null(
 ///|
 /// Cast to the target dtype. Delegates to `BuiltinColumn::cast`; the
 /// supported targets are `Int`, `Float`, and `String`. `Bool` and
-/// `Null` targets return `Err(Unsupported(_))`.
+/// `Null` targets `raise Unsupported(_)`.
 pub fn Series::cast(
   self : Series,
   target : @types.DataType,

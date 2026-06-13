@@ -989,3 +989,143 @@ test "right / outer join raise TypeMismatch when a key dtype differs" {
     is Err(@types.DataError::TypeMismatch(_)),
   )
 }
+
+// ── Duplicate key in `on` (aligns with group_by / select) ────────────
+
+///|
+test "join raises DuplicateColumn for a key repeated in `on`" {
+  // `["dept_id", "dept_id"]` would otherwise resolve the same column twice
+  // and silently behave as the single key `["dept_id"]`. Like
+  // `group_by(["id", "id"])`, the repeat is rejected. Both resolver call
+  // sites are covered: inner (the Inner / Left / Outer planner) and right.
+  assert_eq(
+    try? employees().inner_join(departments(), ["dept_id", "dept_id"]),
+    Err(@types.DataError::DuplicateColumn("dept_id")),
+  )
+  assert_eq(
+    try? employees().right_join(departments(), ["dept_id", "dept_id"]),
+    Err(@types.DataError::DuplicateColumn("dept_id")),
+  )
+  assert_eq(
+    try? employees().join(
+      departments(),
+      JoinOptions::on(["dept_id", "dept_id"]).with_how(JoinType::Outer),
+    ),
+    Err(@types.DataError::DuplicateColumn("dept_id")),
+  )
+}
+
+///|
+test "a repeated MISSING key surfaces as ColumnNotFound, not DuplicateColumn" {
+  // The duplicate check runs before the column lookups, so a missing key
+  // still fails at its first appearance — matching `group_by`'s contract
+  // that a missing key beats a later duplicate.
+  assert_eq(
+    try? employees().inner_join(departments(), ["nope", "nope"]),
+    Err(@types.DataError::ColumnNotFound("nope")),
+  )
+}
+
+// ── Output column backend preserved (Q2: no silent Numeric demotion) ──
+
+///|
+test "join keeps all-valid numeric output columns on the Numeric fast path" {
+  // Every column is an all-valid numeric `Series` (the `from_ints` /
+  // `from_floats` constructors land on `Numeric`). An inner join injects no
+  // `None` on either side, so each gathered column — including the coalesced
+  // key — re-converges to `Numeric` rather than demoting to `Builtin`,
+  // matching filter / sort / take / drop_nulls / fill_null.
+  let left = DataFrame::new([
+    Series::from_ints("k", [1, 2]),
+    Series::from_floats("lv", [1.5, 2.5]),
+  ])
+  let right = DataFrame::new([
+    Series::from_ints("k", [1, 2]),
+    Series::from_ints("rv", [10, 20]),
+  ])
+  let out = left.inner_join(right, ["k"])
+  assert_eq(out.columns(), ["k", "lv", "rv"])
+  assert_eq(out.storage_kinds(), [
+    @column.StorageKind::Numeric, // coalesced key (left Numeric, all matched)
+    @column.StorageKind::Numeric, // left non-key
+    @column.StorageKind::Numeric, // right non-key, no None injected
+  ])
+  // Values are unchanged by the backend choice.
+  assert_eq(out.get(0, "rv"), @types.Scalar::Int(10))
+  // A cross join likewise injects no None: every numeric column stays Numeric.
+  let crossed = DataFrame::new([Series::from_ints("a", [1, 2])]).cross_join(
+    DataFrame::new([Series::from_floats("b", [3.0])]),
+  )
+  assert_eq(crossed.storage_kinds(), [
+    @column.StorageKind::Numeric,
+    @column.StorageKind::Numeric,
+  ])
+}
+
+///|
+test "join demotes only the columns that pick up an unmatched-row null" {
+  // Dave (dept 99) is unmatched, so the left join injects a `None` into the
+  // right columns at his row — those become nullable and stay `Builtin`. The
+  // left columns (always present) keep their `Numeric` backend; the kept
+  // left key `dept_id` is not coalesced on a left join, so it too stays
+  // `Numeric`.
+  let out = employees().left_join(departments(), ["dept_id"])
+  assert_eq(out.columns(), [
+    "emp_id", "name", "dept_id", "dept_id_right", "dept_name",
+  ])
+  assert_eq(
+    out.get_column("emp_id").storage_kind(),
+    @column.StorageKind::Numeric,
+  )
+  // Left key, kept (not coalesced), every left row present → no None.
+  assert_eq(
+    out.get_column("dept_id").storage_kind(),
+    @column.StorageKind::Numeric,
+  )
+  // Right key gathered over output rows: null at Dave → nullable → Builtin.
+  assert_eq(
+    out.get_column("dept_id_right").storage_kind(),
+    @column.StorageKind::Builtin,
+  )
+  // `name` / `dept_name` are String columns — always Builtin.
+  assert_eq(out.get_column("name").storage_kind(), @column.StorageKind::Builtin)
+}
+
+///|
+test "a right numeric column with no unmatched-left rows stays Numeric" {
+  // Every left row matches, so `right_rows` carries no `None`: the gathered
+  // right key and right non-key numeric columns stay on the `Numeric` fast
+  // path even though the join could have injected nulls.
+  let left = DataFrame::new([
+    Series::from_ints("k", [1, 2]),
+    Series::from_ints("lv", [5, 6]),
+  ])
+  let right = DataFrame::new([
+    Series::from_ints("k", [1, 2]),
+    Series::from_ints("rv", [10, 20]),
+  ])
+  let out = left.left_join(right, ["k"])
+  assert_eq(out.columns(), ["k", "lv", "k_right", "rv"])
+  assert_eq(out.storage_kinds(), [
+    @column.StorageKind::Numeric, // left key
+    @column.StorageKind::Numeric, // left non-key
+    @column.StorageKind::Numeric, // right key, all matched → no None
+    @column.StorageKind::Numeric, // right non-key, all matched → no None
+  ])
+}
+
+///|
+test "join leaves a Builtin (nullable) source column on Builtin" {
+  // A source column carrying a null is `Builtin`; preserving the backend
+  // keeps it there (there is no all-valid Numeric form to move to). The
+  // gathered output is still correct — only the representation is unchanged.
+  let left = DataFrame::new([
+    Series::from_ints("k", [1, 2]),
+    Series::from_int_options("lv", [Some(5), None]), // Builtin (has a null)
+  ])
+  let right = DataFrame::new([Series::from_ints("k", [1, 2])])
+  let out = left.inner_join(right, ["k"])
+  assert_eq(out.get_column("lv").storage_kind(), @column.StorageKind::Builtin)
+  assert_eq(out.get(0, "lv"), @types.Scalar::Int(5))
+  assert_eq(out.get(1, "lv"), @types.Scalar::Null)
+}

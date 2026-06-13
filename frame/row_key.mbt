@@ -17,6 +17,10 @@
 // Multi-key injectivity is structural: a tuple `[a, b]` equals only
 // another `[a, b]`, so distinct key tuples never collide the way a naive
 // delimiter-joined string might.
+//
+// One-file-one-test exemption: this internal encoding has no dedicated
+// `row_key_test.mbt`. It is exercised to full coverage through the
+// `group_by` and `join` blackbox tests that depend on it.
 
 ///|
 /// One cell of a composite key, normalised for hashing / equality. Kept

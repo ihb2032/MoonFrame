@@ -71,8 +71,8 @@ pub fn JsonReadOptions::default() -> JsonReadOptions {
 /// helper for the per-column rules). An empty array — like empty input
 /// — yields a 0×0 frame.
 ///
-/// Errors:
-/// - `Err(ParseError(...))` — malformed JSON, a top-level value that
+/// Raises:
+/// - `ParseError(...)` — malformed JSON, a top-level value that
 ///   is not an array, a record that is not an object, or a non-null
 ///   cell that does not fit the column's inferred dtype (the last
 ///   unless `options.on_parse_error` is `Null`, which downgrades that

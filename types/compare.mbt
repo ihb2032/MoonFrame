@@ -5,6 +5,10 @@
 // `parse.mbt`'s `is_decimal_int_literal` — rather than inside `scalar.mbt`,
 // because it is a free string-ordering function, not part of the `Scalar`
 // value type.
+//
+// One-file-one-test exemption: this free helper has no dedicated
+// `compare_test.mbt`. It is covered through the `Scalar::lt`, `Series::min` /
+// `max`, and `sort_by` tests that route their string ordering through it.
 
 ///|
 /// Lexicographic string comparison by UTF-16 code unit, returning the

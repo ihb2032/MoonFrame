@@ -21,8 +21,8 @@ pub struct DataFrame {
 
 ///|
 /// Build a `DataFrame` from a list of `Series`. Validates:
-/// - all columns have the same length (`Err(LengthMismatch)` otherwise);
-/// - no two columns share a name (`Err(DuplicateColumn(name))`).
+/// - all columns have the same length (`raise LengthMismatch` otherwise);
+/// - no two columns share a name (`raise DuplicateColumn(name)`).
 ///
 /// Zero columns is valid and produces a 0×0 frame.
 pub fn DataFrame::new(
@@ -52,9 +52,9 @@ fn index_by_name(columns : Array[Series]) -> Map[String, Int] {
 /// Build a 0-row `DataFrame` matching `schema`. Each column is an empty
 /// `Series` of the field's declared dtype.
 ///
-/// Returns `Err(Unsupported(...))` if any field carries `DataType::Null` —
-/// v0.1 has no concrete Null backend (and a CSV-inferred Null column has
-/// nothing to materialise into).
+/// `raise Unsupported(...)` if any field carries `DataType::Null` — v0.1 has
+/// no concrete Null backend (and a CSV-inferred Null column has nothing to
+/// materialise into).
 pub fn DataFrame::empty(
   schema : @types.Schema,
 ) -> DataFrame raise @types.DataError {
@@ -81,12 +81,12 @@ pub fn DataFrame::empty(
 /// must have exactly `schema.len()` cells, and each cell must either
 /// match the column's declared dtype or be `Scalar::Null`.
 ///
-/// Errors:
-/// - `Err(LengthMismatch)` — a row's width differs from `schema.len()`.
-/// - `Err(TypeMismatch(...))` — a non-null cell's dtype doesn't match
-///   the schema's dtype for that column.
-/// - `Err(Unsupported(...))` — schema declares a `Null`-dtype column
-///   (same reason as `empty`).
+/// Raises:
+/// - `LengthMismatch` — a row's width differs from `schema.len()`.
+/// - `TypeMismatch(...)` — a non-null cell's dtype doesn't match the
+///   schema's dtype for that column.
+/// - `Unsupported(...)` — schema declares a `Null`-dtype column (same
+///   reason as `empty`).
 pub fn DataFrame::from_rows(
   schema : @types.Schema,
   rows : Array[Array[@types.Scalar]],
@@ -238,8 +238,8 @@ pub fn DataFrame::is_empty(self : DataFrame) -> Bool {
 // ── Accessors ─────────────────────────────────────────────────────────
 
 ///|
-/// `O(1)` lookup of the column named `name`. Returns
-/// `Err(ColumnNotFound(name))` if the column is missing.
+/// `O(1)` lookup of the column named `name`. `raise ColumnNotFound(name)`
+/// if the column is missing.
 pub fn DataFrame::get_column(
   self : DataFrame,
   name : String,
@@ -251,8 +251,7 @@ pub fn DataFrame::get_column(
 }
 
 ///|
-/// Column at position `i`. Out-of-bounds returns
-/// `Err(IndexOutOfBounds(i))`.
+/// Column at position `i`. Out-of-bounds `raise IndexOutOfBounds(i)`.
 pub fn DataFrame::get_column_at(
   self : DataFrame,
   i : Int,
@@ -278,9 +277,9 @@ pub fn DataFrame::get(
 ///|
 /// Borrow row `i` without bounds-checking the index. This is total — it
 /// never aborts — because every `RowView` accessor re-validates the row
-/// index and returns `Err(IndexOutOfBounds)` for an out-of-range view. It
-/// is the companion to `row` for call sites (like `filter`) that already
-/// iterate `[0, nrows)` and so don't need the eager check.
+/// index and `raise IndexOutOfBounds` for an out-of-range view. It is the
+/// companion to `row` for call sites (like `filter`) that already iterate
+/// `[0, nrows)` and so don't need the eager check.
 pub fn DataFrame::row_view(self : DataFrame, i : Int) -> RowView {
   { df: self, row_index: i }
 }
@@ -288,7 +287,7 @@ pub fn DataFrame::row_view(self : DataFrame, i : Int) -> RowView {
 ///|
 /// Lightweight view of a single row. The view borrows the underlying
 /// frame, so accessors stay `O(1)` and there's no per-row allocation.
-/// Row indices outside `[0, nrows)` return `Err(IndexOutOfBounds(i))`.
+/// Row indices outside `[0, nrows)` `raise IndexOutOfBounds(i)`.
 pub fn DataFrame::row(
   self : DataFrame,
   i : Int,
@@ -383,6 +382,14 @@ pub fn DataFrame::take(
       raise @types.DataError::IndexOutOfBounds(i)
     }
   }
+  // An identity permutation (`indices == [0, nrows)`) gathers every row in
+  // place — a no-op rebuild — so return `self`. The check is `O(n)` with an
+  // early exit, dwarfed by the gather it can skip; a genuine reorder or a
+  // strict subset (a `filter` / `drop_nulls` that drops rows) fails it on the
+  // length test or the first out-of-place index.
+  if is_identity_perm(indices, self.nrows) {
+    return self
+  }
   // Indices were just validated against `self.nrows`, so the per-column
   // gather is in-bounds.
   let new_cols = self.columns.map(c => gather_series(c, indices))
@@ -392,6 +399,24 @@ pub fn DataFrame::take(
     nrows: indices.length(),
     name_to_index: self.name_to_index,
   }
+}
+
+///|
+/// Whether `indices` is the identity permutation `[0, 1, ..., nrows - 1]` —
+/// the case where a gather reproduces the frame unchanged. Lets `take`
+/// short-circuit a no-op gather (an already-ordered `sort_by`, a `filter`
+/// that keeps every row). Fails fast: a length mismatch or the first
+/// out-of-place index returns `false` before the rest is scanned.
+fn is_identity_perm(indices : Array[Int], nrows : Int) -> Bool {
+  if indices.length() != nrows {
+    return false
+  }
+  for i in 0..<indices.length() {
+    if indices[i] != i {
+      return false
+    }
+  }
+  true
 }
 
 // ── Storage backend control ───────────────────────────────────────────

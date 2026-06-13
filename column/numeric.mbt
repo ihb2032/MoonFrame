@@ -386,9 +386,12 @@ fn[T] fold_extremum(
   let mut best : T? = None
   for i in 0..<n {
     if !skip(i) {
+      // Bind the cell once: the `Some` arm would otherwise evaluate `get(i)`
+      // up to twice per kept element.
+      let v = get(i)
       best = match best {
-        None => Some(get(i))
-        Some(b) => if better(get(i), b) { Some(get(i)) } else { Some(b) }
+        None => Some(v)
+        Some(b) => if better(v, b) { Some(v) } else { Some(b) }
       }
     }
   }

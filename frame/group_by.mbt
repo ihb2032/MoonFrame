@@ -165,7 +165,7 @@ fn count_groups(
   groups : Array[Array[Int]],
   out_name : String,
 ) -> Series {
-  let valid = col.storage().validity().to_bools()
+  let valid = validity_bools(col.storage())
   Series::from_ints(
     out_name,
     groups.map(g => {
@@ -192,7 +192,7 @@ fn sum_groups(
   groups : Array[Array[Int]],
   out_name : String,
 ) -> Series raise @types.DataError {
-  let valid = col.storage().validity().to_bools()
+  let valid = validity_bools(col.storage())
   match col.storage().data() {
     @column.ColumnData::Int(data) =>
       Series::from_ints(
@@ -257,7 +257,7 @@ fn mean_groups(
   // cell and yields a null mean rather than failing the whole aggregation.
   // The non-numeric `_` arm raises one `TypeMismatch` (reached before any
   // group work, like `sum_groups`).
-  let valid = col.storage().validity().to_bools()
+  let valid = validity_bools(col.storage())
   match col.storage().data() {
     @column.ColumnData::Int(data) =>
       Series::from_float_options(
@@ -330,7 +330,7 @@ fn extrema_groups(
   // preserved: a null cell is skipped, a `Float` `NaN` is treated as missing
   // (so an all-NaN / all-null group yields a null cell), and every dtype is
   // ordered (`Bool` `false < true`, `String` lexicographic), so this is total.
-  let valid = col.storage().validity().to_bools()
+  let valid = validity_bools(col.storage())
   match col.storage().data() {
     @column.ColumnData::Int(a) =>
       Series::from_int_options(
@@ -404,9 +404,12 @@ fn[T] group_extremum(
   let mut best : T? = None
   for idx in g {
     if present(idx) {
+      // Bind the cell once: the `Some` arm would otherwise evaluate `get(idx)`
+      // up to twice per present element.
+      let v = get(idx)
       best = match best {
-        None => Some(get(idx))
-        Some(b) => if better(get(idx), b) { Some(get(idx)) } else { Some(b) }
+        None => Some(v)
+        Some(b) => if better(v, b) { Some(v) } else { Some(b) }
       }
     }
   }

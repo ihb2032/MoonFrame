@@ -212,7 +212,7 @@ fn Bitmap::slice_view(self : Bitmap, start : Int, length : Int) -> Bitmap {
 
 ///|
 /// Gather: produce a new bitmap whose i-th bit is `self[indices[i]]`. Any
-/// out-of-bounds index returns `Err(IndexOutOfBounds(idx))`. Unlike
+/// out-of-bounds index `raise IndexOutOfBounds(idx)`. Unlike
 /// `slice`, an arbitrary gather can't be expressed as a contiguous view, so
 /// `take` repacks into a fresh tight buffer (reading each source bit through
 /// this bitmap's `offset`).

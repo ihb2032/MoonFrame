@@ -110,9 +110,9 @@ pub fn CsvWriteOptions::default() -> CsvWriteOptions {
 ///   4. Each column is assembled into a typed `Series` and the result
 ///      is wrapped through `DataFrame::new`.
 ///
-/// Errors:
-/// - `Err(DuplicateColumn(name))` — two headers share a name.
-/// - `Err(ParseError(...))` — a non-null cell does not parse under
+/// Raises:
+/// - `DuplicateColumn(name)` — two headers share a name.
+/// - `ParseError(...)` — a non-null cell does not parse under
 ///   the inferred dtype for its column (typically because a sample
 ///   row outside the inference window is malformed for the inferred
 ///   type), unless `options.on_parse_error` is `Null`, which downgrades

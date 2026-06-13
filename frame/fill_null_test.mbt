@@ -49,6 +49,25 @@ test "fill_null on an Int column replaces nulls and leaves other columns untouch
 }
 
 ///|
+test "fill_null leaves non-null NaN cells untouched: only nulls are filled" {
+  let nan : Double = @double.not_a_number
+  // `b` holds a value, a non-null NaN, a null, a value. Filling with 0.0
+  // replaces only the null cell; the NaN is a value (validity 1) and must
+  // survive the fill unchanged.
+  let df = DataFrame::new([
+    Series::from_float_options("b", [Some(1.0), Some(nan), None, Some(4.0)]),
+  ])
+  let out = df.fill_null("b", @types.Scalar::Float(0.0))
+  assert_eq(out.check_invariants(), Ok(()))
+  assert_eq(out.shape(), df.shape())
+  assert_eq(out.get_column("b").null_count(), 0)
+  assert_eq(out.get(0, "b"), @types.Scalar::Float(1.0))
+  assert_true(out.get(1, "b").as_float().is_nan()) // NaN preserved, not filled
+  assert_eq(out.get(2, "b"), @types.Scalar::Float(0.0)) // null filled
+  assert_eq(out.get(3, "b"), @types.Scalar::Float(4.0))
+}
+
+///|
 test "fill_null on a Float column replaces nulls with the given Float" {
   let df = fill_null_df()
   let out = df.fill_null("b", @types.Scalar::Float(0.0))

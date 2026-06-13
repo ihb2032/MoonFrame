@@ -60,6 +60,26 @@ test "drop_nulls is a no-op on a fully-valid frame" {
 }
 
 ///|
+test "drop_nulls keeps non-null NaN cells: NaN is a value, not a null" {
+  let nan : Double = @double.not_a_number
+  // `nf` is a Numeric-backed (all-valid) column carrying a NaN *value*;
+  // `of` is option-backed with a genuine null at row 2 and a NaN value at
+  // row 3. drop_nulls drops only the missing row — both NaN rows survive,
+  // because NaN is a value and only validity-0 cells count as null.
+  let df = DataFrame::new([
+    Series::from_floats("nf", [1.0, nan, 3.0, 4.0]),
+    Series::from_float_options("of", [Some(1.0), Some(2.0), None, Some(nan)]),
+  ])
+  let out = df.drop_nulls()
+  assert_eq(out.check_invariants(), Ok(()))
+  assert_eq(out.schema(), df.schema())
+  // Only row 2 (of is null) drops; rows 0, 1 and 3 survive.
+  assert_eq(out.nrows(), 3)
+  assert_true(out.get(1, "nf").as_float().is_nan()) // Numeric NaN kept
+  assert_true(out.get(2, "of").as_float().is_nan()) // option NaN kept (was row 3)
+}
+
+///|
 test "drop_nulls collapses to a 0-row frame when every row has at least one null" {
   let df = DataFrame::new([
     Series::from_int_options("a", [Some(1), None]),

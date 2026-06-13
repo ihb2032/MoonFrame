@@ -36,12 +36,15 @@
 /// the filter's own verdicts:
 ///
 /// - `Select` — crossed when every selected expression is `row_stable`
-///   (so the stage maps rows one-to-one and commutes with dropping any
-///   row subset) and every column the predicate reads appears in the
-///   selection as a *bare* `col(name)` (so the predicate sees the same
-///   values below, and a predicate the selection would have starved of
-///   its column still fails identically — a computed or renamed column
-///   fences the filter above).
+///   *and* the selection preserves its input's row count (it reads at
+///   least one column, mapping rows one-to-one rather than collapsing to a
+///   single literal row: an all-constant selection collapses any input,
+///   even zero rows, to one row, so a dropping filter must stay above it),
+///   and every column the predicate reads appears in the selection as a
+///   *bare* `col(name)` (so the predicate sees the same values below, and
+///   a predicate the selection would have starved of its column still
+///   fails identically — a computed or renamed column fences the filter
+///   above).
 /// - `WithColumns` — crossed under the same `row_stable` rule when the
 ///   stage *defines* none of the predicate's columns (a defined name has
 ///   different values — or no existence at all — below the stage; its
@@ -152,7 +155,9 @@ fn push_predicates(plan : LogicalPlan) -> LogicalPlan {
 fn place_filter(input : LogicalPlan, predicate : @expr.Expr) -> LogicalPlan {
   match input {
     Select(inner, exprs) =>
-      if all_row_stable(exprs) && reads_only_bare_columns(predicate, exprs) {
+      if all_row_stable(exprs) &&
+        preserves_row_count(exprs) &&
+        reads_only_bare_columns(predicate, exprs) {
         Select(place_filter(inner, predicate), exprs)
       } else {
         Filter(input, predicate)
@@ -295,6 +300,27 @@ fn has_bare_column(exprs : Array[@expr.Expr], name : String) -> Bool {
     match expr {
       @expr.Expr::Col(n) => if n == name { return true }
       _ => ()
+    }
+  }
+  false
+}
+
+///|
+/// Whether the selection's output height tracks its input's — i.e. it is
+/// *not* an all-constant projection. `select_exprs` collapses any input,
+/// even zero rows, to a single row when every expression is column-free (a
+/// literal or an arithmetic of literals), because each such column is
+/// length 1 and nothing fixes the height at the frame's. A filter may only
+/// sink past a selection that keeps rows one-for-one: pushing a *dropping*
+/// predicate below a collapsing selection would let it act on the
+/// pre-collapse rows, then re-materialise the one literal row the as-built
+/// collapse-then-filter had dropped (0 rows built, 1 row optimized).
+/// Reached only after `all_row_stable` has excluded aggregations and
+/// casts, so an expression is frame-tall exactly when it reads a column.
+fn preserves_row_count(exprs : Array[@expr.Expr]) -> Bool {
+  for expr in exprs {
+    if !expr.referenced_columns().is_empty() {
+      return true
     }
   }
   false

@@ -1014,6 +1014,26 @@ test "an all-literal predicate crosses vacuously" {
 }
 
 ///|
+test "a dropping predicate cannot sink past a collapsing constant selection" {
+  let df = sales_df()
+  // An all-constant selection collapses any input — even zero rows — to a
+  // single row, so a column-less predicate must NOT cross it: filtering
+  // 4→0 first and then re-materialising the one literal row (1 row) would
+  // disagree with the as-built collapse-then-drop (0 rows). The filter
+  // stays put; only its harmless `true` counterpart above could sink.
+  let one = [@expr.lit_int(1).with_alias("one")]
+  let predicate = @expr.lit_bool(false)
+  let plan = lazy_frame(df).select_exprs(one).filter_where(predicate)
+  assert_eq(
+    plan.explain(optimized=true),
+    "FILTER false\n" + "  SELECT [1 as one]\n" + "    SCAN [4×3]",
+  )
+  let out = plan.collect()
+  assert_eq(out, df.select_exprs(one).filter_where(predicate))
+  assert_eq(out.nrows(), 0)
+}
+
+///|
 test "row-local probes and ternaries cross with their stage" {
   let df = sales_df()
   // A null probe and a when/then/otherwise are row-local (no

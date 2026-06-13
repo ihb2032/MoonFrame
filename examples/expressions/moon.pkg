@@ -1,0 +1,8 @@
+import {
+  "ihb2032/MoonFrame" @moonframe,
+  "ihb2032/MoonFrame/examples/expressions/analysis",
+}
+
+options(
+  "is-main": true,
+)

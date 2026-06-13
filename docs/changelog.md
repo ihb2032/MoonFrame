@@ -6,12 +6,53 @@ breaking-change steps for each release are collected in
 [`migration.md`](migration.md). Pre-1.0, breaking changes ride the minor
 version.
 
-## Unreleased
+## v0.4 — shipped
 
-Incremental follow-ups from the post-v0.3 whole-library review. Additive and
-non-breaking (no signature or enum changes — nothing for
-[`migration.md`](migration.md)); the headline expression / lazy query layer
-lands with the v0.4 release notes.
+A Polars-style expression engine and a lazy query layer, both **purely
+additive** on top of the v0.3 core — two new packages (`expr`, `lazy`) and new
+`DataFrame` / `GroupedDataFrame` methods, with nothing changed in the v0.2 /
+v0.3 surface (nothing for [`migration.md`](migration.md)). Also folds in the
+post-v0.3 whole-library review's join follow-ups.
+
+### Expression engine (the `expr` package)
+
+A reified, composable column expression. `col("name")` and `lit_int` /
+`lit_float` / `lit_str` / `lit_bool` / `lit` build the leaves; the overloaded
+operators `+ - * /` (arithmetic — `/` is always `Float`, dividing by zero to
+IEEE `±inf` / `NaN` rather than trapping), `&` / `|` (Kleene-logical, **not**
+bitwise), and unary `-` compose them; and the methods `eq` / `ne` / `lt` /
+`le` / `gt` / `ge` (comparisons → `Bool`), `not` / `is_null` / `is_not_null`,
+the aggregations `sum` / `mean` / `min` / `max` / `count`, `cast`, and
+`with_alias` extend them. `when(cond).then(a).otherwise(b)` is a row-wise
+conditional. Building a tree is **total** (it never fails); `explain()` and the
+`Show` impl render the operator form, and `referenced_columns` / `output_name`
+introspect it. An `Expr` is read-only outside `expr` — built through the
+surface above, never by naming a variant.
+
+### Eager expression consumers (the `frame` package)
+
+The whole-frame evaluator and its `DataFrame` / `GroupedDataFrame` consumers:
+`with_columns` (derive or replace columns), `select_exprs` (project to the
+evaluated expressions — an all-aggregation selection collapses to one row),
+`filter_where` (vectorized boolean row selection — a reified, pushdown-able
+alternative to the closure `filter`), and `agg_exprs` (the expression form of
+`agg`, generalising `AggSpec` to compound reductions like
+`(col("revenue") - col("cost")).sum()`). Evaluation is vectorized with
+`Int` / `Float` promotion, null propagation, Kleene logic, and the `Series`
+reduction's `NaN` rules.
+
+### Lazy query layer (the `lazy` package)
+
+`lazy_frame(df)` (or `LazyFrame::from(df)`) starts a deferred plan; total
+builder methods mirroring the eager verbs grow it; `explain()` prints it; and
+`collect()` runs it. With no optimizer in front, a collect is bitwise-equal to
+the eager pipeline. The optimizer adds two result-preserving rewrites —
+**predicate pushdown** (sink each filter toward the scan, past the stages it
+provably commutes with) and **projection pushdown** (insert a narrowing
+selection over a scan whose consumers read only a subset of its columns) — so
+`explain()` versus `explain(optimized=true)` is a before/after view of what the
+optimizer moved and pruned. `LazyFrame::group_by(keys).agg(exprs)` is the lazy
+mirror of the eager grouping.
 
 ### Join — duplicate-key check and backend preservation
 

@@ -1,15 +1,16 @@
-# MoonFrame v0.3 — Public API
+# MoonFrame v0.4 — Public API
 
-> Status: **v0.3 shipped** (output formats, full join matrix, pluggable
-> column storage). This document is the source of truth for the v0.3
-> public surface. When a symbol is published in code, it must appear here.
+> Status: **v0.4 shipped** (expression engine + lazy query layer, on top
+> of v0.3's output formats, full join matrix, and pluggable column
+> storage). This document is the source of truth for the v0.4 public
+> surface. When a symbol is published in code, it must appear here.
 
 The facade package `ihb2032/MoonFrame` re-exports every symbol below
 via `pub using @<subpkg> { ... }`, so a single
 `import "ihb2032/MoonFrame" @moonframe` is enough to reach the whole
-surface. Sub-package imports (`@types`, `@column`, `@frame`, `@io`)
-remain supported for callers that only need a slice — the facade is
-additive.
+surface. Sub-package imports (`@types`, `@column`, `@expr`, `@frame`,
+`@io`, `@lazy`) remain supported for callers that only need a slice — the
+facade is additive.
 
 Runnable, CI-verified examples of the surface below live in
 [`quickstart.mbt.md`](../quickstart.mbt.md) (doc tests executed by `moon test`
@@ -236,10 +237,114 @@ validity bitmap (`1 = valid`, `0 = null`).
 
 ---
 
+## `expr` — Expression engine
+
+A reified, composable column expression. Where the closure `filter` is an
+opaque host-language function, an `Expr` is **data**: a small recursive
+tree you build with constructors, operators, and methods, then evaluate
+eagerly (`with_columns` / `select_exprs` / `filter_where` / `agg_exprs`,
+in `frame`), introspect (`explain`), or defer and optimize (`lazy`).
+Building a tree is **total** — every constructor and combinator just
+allocates a node, so an expression can always be built; every failure (a
+missing column, a type clash) waits for evaluation. `expr` depends only on
+`types`.
+
+- `enum Expr` — the expression tree, **read-only** outside the package:
+  callers construct it through `col` / `lit_*` / operators / methods and
+  cannot match or build a variant directly, but `frame`'s evaluator reads
+  its variants across the package boundary. The payload tag enums `BinOp`
+  / `UnOp` / `AggOp` are likewise read-only and inert — no public API
+  names a tag value, so the facade does not re-export them.
+
+### Constructors (static methods + free-function aliases)
+
+- `col(name) -> Expr` / `Expr::col(name)` — a column reference.
+- `lit(s : Scalar) -> Expr` / `Expr::lit(s)` — a literal from any scalar.
+- `lit_int(Int64)` / `lit_float(Double)` / `lit_str(String)` /
+  `lit_bool(Bool) -> Expr` — typed literal shorthands (skip the
+  `Scalar::Int(...)` noise).
+
+### Operators (trait impls, in scope through `type Expr`)
+
+- Arithmetic `+` `-` `*` `/` (`Add` / `Sub` / `Mul` / `Div`):
+  `col("a") + col("b")`. `/` is **always `Float`** — integer operands are
+  promoted — matching Polars; division by zero yields IEEE `±inf` / `NaN`,
+  never a trap.
+- Logical `&` `|` (`BitAnd` / `BitOr`, **not** bitwise): Kleene
+  three-valued `and` / `or`. The equivalent methods are `land` / `lor`
+  (the impls' own spelling — `and` is a reserved word, so there is no
+  `Expr::and` / `Expr::or`).
+- Unary `-` (`Neg`): `-col("x")`.
+
+### Methods
+
+- Comparisons `eq` / `ne` / `lt` / `le` / `gt` / `ge(other) -> Expr` —
+  produce a `Bool` column. They are methods, not operators, because `==`
+  / `<` are pinned to `Bool` / `Int` returns; the upside is that a method
+  binds tighter than `&`, so `a.gt(x) & b.lt(y)` needs no parentheses.
+- `not() -> Expr` (no overloadable unary `!`); null probes `is_null()` /
+  `is_not_null() -> Expr` (total — the result is never null).
+- Aggregations `sum` / `mean` / `min` / `max` / `count() -> Expr` — wrap
+  the expression in a reduction (evaluation semantics below).
+- `cast(target : DataType) -> Expr`; `with_alias(name : String) -> Expr`
+  (names the output column; `alias` is a reserved word).
+
+### Conditional
+
+- `when(cond : Expr) -> WhenThen`, then `WhenThen::then(value) ->
+  WhenThenElse`, then `WhenThenElse::otherwise(value) -> Expr` — a
+  row-wise conditional lowering to a ternary node: the value is the `then`
+  branch where `cond` is `true`, the `otherwise` branch otherwise.
+  `WhenThen` / `WhenThenElse` are opaque builder steps (only `when` starts
+  the chain).
+
+### Introspection (all total)
+
+- `explain(self) -> String`, and the `Show` impl, render the documented
+  operator form: `col(name)`, quoted string literals, parenthesised infix
+  binaries `(l op r)`, prefix `(-e)` / `(not e)`, postfix `e.is_null()` /
+  `e.sum()` / `e.cast(T)`, `e as name`, and
+  `when(c).then(a).otherwise(b)`. `LazyFrame::explain` reuses it for plan
+  lines.
+- `referenced_columns(self) -> Set[String]` — every column the tree reads,
+  including a ternary's condition (the lazy optimizer must keep it alive
+  even when only the condition reads it).
+- `output_name(self) -> String` — the output column name under Polars'
+  rule: an alias wins, else the leftmost column reference, else
+  `"literal"` for a column-less tree (a ternary draws its name from the
+  value branches, never the condition). The eager materialisers in `frame`
+  and the lazy optimizer share this one rule.
+
+### Evaluation semantics
+
+Applied by the `frame` evaluator, vectorized (whole-column at a time),
+raising `DataError` at evaluation time — building the tree never fails:
+
+- **Type promotion**: `Int op Int → Int`, `Float op Float → Float`, mixed
+  promotes `Int → Float`; non-numeric arithmetic → `TypeMismatch`.
+- **Null propagation**: any null operand of an arithmetic or comparison
+  makes the result null (Arrow / Polars).
+- **Kleene `&` / `|`**: `true | null = true`, `false & null = false`,
+  otherwise null; `not(null) = null`. Non-`Bool` operands → `TypeMismatch`.
+- **Comparisons**: cross-numeric is legal, strings compare by
+  `compare_string_lex`, `Bool` as `false < true`; the result is a `Bool`
+  column.
+- **NaN** inherits the `Series` reduction rules — `sum` / `mean`
+  propagate a `NaN`, `min` / `max` skip it; in comparisons `NaN` is a
+  value.
+- **Aggregations** reduce their input to length 1 (reusing the matching
+  `Series` statistic, so an all-null `mean` is a null cell and `count` is
+  the non-null count); a length-1 result broadcasts against frame-tall
+  results.
+
+---
+
 ## `frame` — Series, DataFrame, RowView, and operators
 
 The `ops` verbs are folded in here as `DataFrame` methods (one operator
-per file), so a pipeline is a method chain. `frame` has **zero external
+per file), so a pipeline is a method chain. `frame`'s only **internal**
+dependency beyond `types` / `column` is `expr` (it reads `@expr.Expr` to
+evaluate the expression consumers below); it has **zero external
 dependencies** (NyaCSV / fs / @json live only in `io`).
 
 ### Series
@@ -405,6 +510,39 @@ transforms, so every output satisfies `check_invariants()`.
   / class strings verbatim, for trusted input that intentionally carries
   HTML.
 
+### Expression consumers (`with_columns` / `select_exprs` / `filter_where`)
+
+The eager face of the `expr` engine — `DataFrame` methods that evaluate
+`@expr.Expr` trees over the whole frame. (The evaluator and these
+consumers live in `frame` because a method is package-bound to its type
+and the evaluator reads `Series` internals.) All route through
+`DataFrame::new`, so every output satisfies `check_invariants()`; all
+raise the evaluator's `DataError` (`ColumnNotFound` / `TypeMismatch` /
+`LengthMismatch`), plus `DuplicateColumn` on an output-name clash.
+
+- `with_columns(exprs : Array[Expr]) -> DataFrame raise DataError` —
+  evaluate each expression and append it (or, on a name clash with an
+  existing column, replace it in place); every other column is kept. Each
+  result is named by `Expr::output_name`. A length-1 (literal /
+  aggregation) result broadcasts to the frame height; on a 0-row frame it
+  broadcasts to 0.
+- `select_exprs(exprs : Array[Expr]) -> DataFrame raise DataError` — the
+  output is **only** the evaluated expressions (a fresh frame). A mix of
+  aggregations and element-wise expressions broadcasts the aggregations to
+  the frame height; an **all-aggregation** selection collapses to a single
+  row (Polars' `select(sum)` shape).
+- `filter_where(predicate : Expr) -> DataFrame raise DataError` —
+  vectorized boolean row selection: evaluate `predicate` (which must be a
+  `Bool` column of frame height; non-`Bool` → `TypeMismatch`) and keep the
+  `true` rows (a `false` / null cell drops the row, matching the closure
+  `filter` and Polars). A length-1 predicate broadcasts. This is the eager
+  executor the lazy `Filter` node defers — and, being a reified `Expr`
+  rather than a closure, the predicate the optimizer can push down.
+
+A computed numeric result lands on the `Numeric` backend when all-valid,
+`Builtin` otherwise; a `col(...)` reference preserves its source column's
+backend.
+
 ### GroupBy (`group_by` / `agg`)
 
 Split-apply-combine, native to the method chain
@@ -446,6 +584,21 @@ Split-apply-combine, native to the method chain
   on a non-numeric column), `ColumnNotFound` (a spec's column is absent),
   `DuplicateColumn` (two output names collide — e.g. two default-named
   specs, or an alias shadowing a key column).
+- `GroupedDataFrame::agg_exprs(exprs : Array[Expr]) -> DataFrame raise
+  DataError` — the **expression** form of `agg`: each `@expr.Expr` is
+  evaluated once per group (the group's row indices as the evaluation
+  scope) and must reduce to a single value, generalising `AggSpec` to the
+  *compound* reductions a single spec cannot express —
+  `(col("revenue") - col("cost")).sum()`, or a
+  `col("x").max() - col("x").min()` range. Output columns are the key
+  columns (in `keys` order) followed by one column per expression (named by
+  `Expr::output_name`), one row per group in group order;
+  `AggSpec::sum("r").with_alias("x")` is exactly
+  `col("r").sum().with_alias("x")`. Raises `InvalidOperation` if an
+  expression is not reduction-shaped (it must reduce every group to one
+  value structurally — a bare column reference does not; implicit
+  Polars-style list-aggregation is out of scope), plus the eager
+  `TypeMismatch` / `ColumnNotFound` / `DuplicateColumn`.
 - `enum AggKind` — `Count` / `Sum` / `Mean` / `Min` / `Max`.
 - `struct AggSpec` (fields private) — built via `AggSpec::count` / `sum` /
   `mean` / `min` / `max(column)`, with `with_alias(name)` to override the
@@ -699,18 +852,120 @@ non-finite-float cells → JSON `null`).
 
 ---
 
+## `lazy` — Lazy query layer
+
+A deferred query plan over an in-memory frame. `lazy_frame(df)` (or
+`LazyFrame::from(df)`) starts a plan; builder methods that mirror the
+eager verbs name-for-name grow it without computing anything; `collect()`
+optimizes and runs it. Building is **total** — a `LazyFrame` is plain data
+— so a plan can always be built, chained, and `explain`ed; every failure
+waits for `collect`. `lazy` depends on `frame` + `expr` (it interprets a
+plan through the public eager operators and holds `@expr.Expr` nodes);
+`frame` does **not** depend on `lazy`, so there is no cycle.
+
+- `struct LazyFrame` (fields private) — wraps a private `LogicalPlan` (one
+  node per eager verb; the IR never leaks into the public surface).
+- `struct LazyGroupBy` (fields private) — the deferred `group_by` step
+  (keys attached, nothing partitioned), produced by `LazyFrame::group_by`
+  and completed by `agg`.
+
+### Entry points
+
+- `LazyFrame::from(df : DataFrame) -> LazyFrame` — the static constructor
+  (a `Scan` leaf over the captured frame). Named after the
+  `Series::from_*` / `DataFrame::from_rows` family; **not** a
+  `DataFrame::lazy` method (that would force a `frame ↔ lazy` import
+  cycle).
+- `lazy_frame(df : DataFrame) -> LazyFrame` — a free-function alias for
+  `from`, for the `read_csv(path)` hand-feel. (`lazy(df)` would be the
+  obvious name, but `lazy` is a MoonBit reserved word.)
+
+### Builders (all total — a plan is just data)
+
+Each returns a new `LazyFrame` wrapping one more node:
+
+- `filter_where(predicate : Expr)` · `with_columns(exprs : Array[Expr])` ·
+  `select_exprs(exprs : Array[Expr])` — defer the eager expression
+  consumers.
+- `sort_by(by : Array[(String, SortOrder, NullOrder)])` · `head(n)` ·
+  `tail(n)` · `limit(n)` (≡ `head`) · `slice(start, end)`.
+- `join(other : LazyFrame, options : JoinOptions)` — the right side
+  carries its own deferred pipeline.
+- `group_by(keys : Array[String]) -> LazyGroupBy`, then
+  `LazyGroupBy::agg(exprs : Array[Expr]) -> LazyFrame` — mirrors
+  `group_by(keys).agg_exprs(exprs)` as one fused `Aggregate` node.
+
+### Running and inspecting
+
+- `collect(self) -> DataFrame raise DataError` — optimize the plan (below),
+  then interpret it bottom-up through the public eager operators. With the
+  optimizer's equivalence guarantee, the result is **bitwise-equal** to
+  running the same verbs eagerly in the same order; every failure (missing
+  columns, type mismatches, slice bounds) is the eager operator's
+  `DataError`, surfacing here rather than at build time.
+- `explain(self, optimized? : Bool = false) -> String` — render the plan
+  as an indented tree: root verb first, inputs two spaces deeper,
+  expressions in their `Expr::explain` form, compact `SCAN [rows×cols]`
+  leaves (never the data), `AGGREGATE [exprs] BY [keys]` for a group-by.
+  The default renders the plan **as built** (the package's contract — a
+  faithful mirror of the chain); `optimized=true` renders the rewritten
+  plan `collect` actually runs, so printing both is the before/after view.
+  Total either way (the rewrite is a pure tree walk, and a plan that would
+  fail to `collect` still explains).
+
+### Query optimizer
+
+`collect` runs two total, result-preserving rewrites before executing:
+
+- **Predicate pushdown** sinks each `filter_where` toward the scan so rows
+  drop as early as possible — below a selection when its expressions are
+  row-local (no aggregation, no `cast`) and every predicate column is a
+  bare `col(name)`; below a `with_columns` (same row-local rule) when the
+  stage defines none of the predicate's columns; below an aggregation when
+  the predicate is row-local, reads key columns only, and every
+  aggregation cell is provably null-free and value-safe (`sum` / `count`
+  and non-null literal combinators qualify; `mean` / `min` / `max` can go
+  null on an all-null group and a `cast` can reject a value, so they pin
+  the filter above). Positional row windows, `sort`, `join`, and another
+  filter stop the descent.
+- **Projection pushdown** then runs a top-down required-columns analysis
+  (via `Expr::referenced_columns` / `Expr::output_name`) and inserts a
+  narrowing selection of bare column references directly over a scan whose
+  consumers read a proper subset of its columns, dropping dead columns
+  before any row-level work. `Select` / `Aggregate` originate requirements;
+  `Filter` / `Sort` widen the requirement by what they read; row windows
+  pass it through; a `with_columns` subtracts the names it defines and adds
+  the names it reads; `Join` is a barrier (each side restarts its own
+  pass).
+
+The rewrites never change results: `collect` stays bitwise-equal to the
+eager chain, and a failing plan still fails (a single broken stage reports
+the same eager error; a plan with several independently broken stages may
+report a different one of its own errors once a filter sinks past a broken
+stage — which error surfaced was an artifact of stage order to begin
+with). Deferred (out of scope): dead-expression elimination, narrowing /
+predicate-splitting through joins, and sinking filters below sorts.
+
+---
+
 ## `moonframe` — Facade package
 
 `moonframe.mbt` re-exports every symbol above via `pub using`, so a
 single `import "ihb2032/MoonFrame" @moonframe` reaches the whole surface.
 Because the operator verbs and `to_markdown` are **methods on
 `DataFrame`**, re-exporting `type DataFrame` makes them automatically
-reachable — only the value types and the `io` free functions are listed
-explicitly.
+reachable; likewise the `Expr` operators / methods ride along with
+`type Expr`, and the `LazyFrame` / `LazyGroupBy` methods (including the
+`LazyFrame::from` constructor) with their types — so only the value types
+and the free functions are listed explicitly. The inert `BinOp` / `UnOp`
+/ `AggOp` tag enums are deliberately **not** re-exported (no public API
+names them).
 
 - From `@types`: `DataError` · `DataType` · `Scalar` · `Field` · `Schema`
 - From `@column`: `Bitmap` · `BuiltinColumn` · `ColumnData` ·
   `NumericColumn` · `NumericData` · `ColumnStorage` · `StorageKind`
+- From `@expr`: `Expr` · `WhenThen` · `WhenThenElse` · `col` · `lit` ·
+  `lit_int` · `lit_float` · `lit_str` · `lit_bool` · `when`
 - From `@frame`: `Series` · `DataFrame` · `RowView` · `SortOrder` ·
   `NullOrder` · `AggKind` · `AggSpec` · `GroupedDataFrame` · `JoinType` ·
   `JoinOptions` · `HtmlOptions`
@@ -723,6 +978,7 @@ explicitly.
   `read_json_with_options` · `read_ndjson` · `read_ndjson_with_options` ·
   `write_csv` · `write_csv_with_options` · `write_json_records` ·
   `write_ndjson` · `write_vega_lite`
+- From `@lazy`: `LazyFrame` · `LazyGroupBy` · `lazy_frame`
 
 `using @pkg { type T }` also creates constructor aliases, so
 `@moonframe.Scalar::Int(42)`, `@moonframe.SortOrder::Desc`,
@@ -731,101 +987,30 @@ facade.
 
 ---
 
-## Out of scope for v0.3 (so far)
+## Out of scope for v0.4 (so far)
 
-- Expression / lazy query API — v0.4, in development on `main`: the `expr`
-  package's construction surface is complete (`col` / `lit` / `lit_*`,
-  arithmetic `+ - * /` and Kleene-logical `&` / `|` operators, the
-  comparison / `not` / null-probe / aggregation / `cast` / `with_alias`
-  methods, `when/then/otherwise`, plus `Show`-based `explain` and the
-  introspection pair `referenced_columns` / `output_name` — the columns a
-  tree reads, including a ternary's condition, and the output name it
-  produces under the Polars rule: alias wins, else the leftmost column
-  reference, else `"literal"`), and the full vectorized evaluator behind the
-  whole-frame eager consumers evaluates all of it: `Int`/`Float`-promoting
-  arithmetic with an always-`Float` `/` (division by zero → IEEE
-  `±inf` / `NaN`, never a trap), null-propagating comparisons (IEEE NaN,
-  dictionary-order strings, `false < true`), Kleene `&` / `|` / `not`,
-  total null probes, aggregations with the `Series` reduction semantics
-  (length-1, broadcast back over the frame; an all-null `mean` is a null
-  cell), `cast` delegation, and `when/then/otherwise` selection with
-  `Int`/`Float` branch promotion. Computed results land on the `Numeric`
-  backend when all-valid numeric, `Builtin` otherwise; `col(...)`
-  references preserve their source backend. The eager consumer surface is
-  complete: `DataFrame::with_columns` (derive / replace columns),
-  `DataFrame::select_exprs` (project the frame down to the evaluated
-  expressions — an all-scalar selection collapses to a one-row summary,
-  otherwise scalars broadcast beside frame-tall results),
-  `DataFrame::filter_where` (vectorized boolean row selection — `false` /
-  null predicate cells drop the row, length-1 predicates broadcast over
-  the frame), and `GroupedDataFrame::agg_exprs` (expression aggregation —
-  each expression evaluates once per group, generalising `AggSpec` to
-  compound reductions like `(col("revenue") - col("cost")).sum()` or a
-  `max() - min()` range; every expression must be reduction-shaped —
-  aggregations / literals composed through the operators, `cast`,
-  `with_alias`, `when/then/otherwise` — and a bare column raises
-  `InvalidOperation`, structurally, regardless of group sizes: implicit
-  Polars-style list-aggregation is out of scope). The lazy layer's
-  deferred executor is in: the `lazy` package's `LazyFrame` (entry points
-  `LazyFrame::from(df)` and the free-function alias `lazy_frame(df)` —
-  `lazy` itself is a MoonBit reserved word) wraps a private logical plan
-  grown by total builder methods that mirror the eager verbs
-  name-for-name — `filter_where` / `with_columns` / `select_exprs` /
-  `sort_by` / `head` / `tail` / `limit` (≡ `head`) / `slice` / `join`
-  (the second `LazyFrame` carrying its own deferred pipeline) — so
-  building and introspecting a plan never fail. `collect()` interprets
-  the plan bottom-up through the public eager operators and is
-  bitwise-equal to running the same verbs eagerly in the same order;
-  every failure a pipeline can produce (missing columns, type
-  mismatches, slice bounds) is the eager operator's `DataError`,
-  surfacing at collect time. `explain()` renders the plan as an
-  indented tree — root verb first, inputs two spaces deeper, compact
-  `SCAN [rows×cols]` leaves, expressions in their documented `Show`
-  form. The lazy grouping surface mirrors the eager one:
-  `LazyFrame::group_by(keys)` returns a `LazyGroupBy` (an opaque
-  builder step — keys attached, nothing partitioned), and
-  `LazyGroupBy::agg(exprs)` completes it into a single deferred
-  `Aggregate` node that collects through
-  `group_by(keys).agg_exprs(exprs)`, inheriting the reduction-shape
-  rule and every eager error (`ColumnNotFound` / `DuplicateColumn` on
-  the keys, `InvalidOperation` / `TypeMismatch` / `DuplicateColumn`
-  from the aggregation) at collect time; `explain()` renders it as
-  `AGGREGATE [exprs] BY [keys]`. The query optimizer is in: `collect()`
-  runs two total rewrites over the plan before executing it. The
-  predicate pass sinks each deferred `filter_where` toward the scan so
-  rows drop as early as possible — below a selection when its
-  expressions are row-local (no aggregation, no `cast`) and every
-  predicate column appears as a bare `col(name)`, below a deferred
-  `with_columns` under the same row-local rule when the stage defines
-  none of the predicate's columns, and below an aggregation when the
-  predicate is row-local, reads key columns only (a predicate over an
-  aggregation output stays above), and every aggregation cell is
-  provably null-free and value-safe (`sum` / `count` and non-null
-  literal combinators qualify; `mean` / `min` / `max` can go null on an
-  all-null group, and a `cast` can reject a value, so they pin the
-  filter above). Row windows are positional, so they stop the descent;
-  so do `sort`, `join`, and another filter (relative filter order never
-  changes). The projection pass then runs a top-down required-columns
-  analysis (via `Expr::referenced_columns` / `Expr::output_name`) that
-  inserts a narrowing selection of bare column references directly over
-  a scan whose consumers provably read a proper subset of its columns,
-  so dead columns drop before any row-level work. `Select` and
-  `Aggregate` originate requirements (their outputs are fully
-  determined by their expression / key lists); `Filter` and `Sort` pass
-  the requirement through widened by the columns they read; the row
-  windows pass it through verbatim; a deferred `with_columns` subtracts
-  the names it defines and adds the names it reads; `Join` is a barrier
-  (each side restarts its own pass, so pipelines inside either side
-  still optimize). The rewrites never change results — collecting stays
-  bitwise-equal to the eager chain, and a failing plan still fails: a
-  plan with a single broken stage reports the same eager error, while a
-  plan with several independently broken stages may report a different
-  one of its own errors once a filter sinks past a broken stage (which
-  error won was an artifact of stage order to begin with). Everything is
-  inspectable on demand: `explain(optimized=true)` renders the rewritten
-  plan `collect` actually runs — sunk filters below the stages they
-  crossed, the narrowing selection over the scan — while the plain
-  `explain()` keeps rendering the plan as built, the two forms making
-  the before/after pair. Dead-expression elimination, narrowing and
-  predicate-splitting through joins, and sinking filters below sorts
-  are deferred; the v0.4 API reference lands with the release.
+The v0.4 expression / lazy surface above is **shipped** (see the `expr`,
+the `frame` expression-consumer, and the `lazy` sections); these are the
+deferrals, tracked for v0.5+:
+
+- **`Series` as its own package** — `frame` keeps growing (Series +
+  DataFrame + every operator), and splitting `Series` out (`frame` →
+  `series` → `column` → `types`) is its one structural fix. It moves
+  existing code, so unlike v0.4 it is **not** additive — a dedicated
+  refactor milestone, with the facade absorbing the churn for downstream
+  callers.
+- **Lazy CSV scan (`scan_csv`)** — a streaming `io` → `frame` lazy source,
+  so a plan can read from a file lazily rather than only from an in-memory
+  frame.
+- **More expression families** — window functions, string methods, and
+  datetime expressions (the repo has no datetime type yet). The v0.4
+  operator / method set is frozen; these extend it.
+- **Floor division (`//`)** — deferred along with its integer
+  zero-division raise/abort decision (v0.4's `/` is always `Float`, which
+  sidesteps it).
+- **Optimizer extensions** — dead-expression elimination, narrowing /
+  predicate-splitting through joins, and sinking filters below sorts (v0.4
+  pushes predicates and projections only).
+- **Rewriting `agg` over `Expr`** — `AggSpec` and `col(...).sum()` already
+  coexist; folding the former onto the latter internally is an optional
+  cleanup, not a surface change.

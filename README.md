@@ -13,9 +13,9 @@ read_csv("sales.csv")
 ```
 
 It covers CSV / JSON / NDJSON I/O, filtering, sorting, null handling, group-by,
-joins, and summary statistics, and exports to Markdown, HTML, JSON, NDJSON, and
-Vega-Lite charts — a focused foundation for everyday tabular work, not a full
-pandas clone.
+joins, summary statistics, a composable expression engine, and a lazy query
+layer, and exports to Markdown, HTML, JSON, NDJSON, and Vega-Lite charts — a
+focused foundation for everyday tabular work, not a full pandas clone.
 
 ## Install
 
@@ -108,6 +108,14 @@ on all four backends, so it always matches the current API.
   `sort_by`, and null handling (`drop_nulls`, `fill_null`).
 - **Group & aggregate** — `group_by(keys).agg([...])` with `sum` / `mean` /
   `min` / `max` / `count`.
+- **Express** — build composable column expressions
+  (`col("revenue") - col("cost")`, `&` / `|` logic, `when / then / otherwise`)
+  and feed them to `with_columns`, `filter_where`, or
+  `group_by(...).agg_exprs([...])` for compound aggregations a single spec
+  can't reach.
+- **Defer & optimize** — `lazy_frame(df)` builds a query plan you can
+  `explain()`; `collect()` runs it through a predicate- and
+  projection-pushdown optimizer, bitwise-equal to the eager pipeline.
 - **Join** — the full `inner` / `left` / `right` / `outer` / `cross` matrix, e.g.
   `orders.inner_join(customers, ["customer_id"])`.
 - **Summarize** — `describe()` for a per-column summary, or single statistics
@@ -192,27 +200,34 @@ Three runnable end-to-end programs live in [`examples/`](examples):
 moon run examples/sales_analysis    # filter → select → sort → describe → markdown
 moon run examples/data_cleaning     # drop_nulls → fill_null → CSV round-trip
 moon run examples/reporting         # group_by → to_html + Vega-Lite spec
+moon run examples/expressions       # with_columns → filter_where → agg_exprs → lazy + explain
 ```
 
 ## Status
 
-**v0.3 — shipped:** output formats (HTML + Vega-Lite), the full join matrix,
-CSV / JSON / NDJSON read resilience, and a pluggable column-storage backend.
-**Next (v0.4):** an expression / lazy query layer. See the
-[changelog](docs/changelog.md) for the full version history and
-[`docs/migration.md`](docs/migration.md) for the v0.2 → v0.3 upgrade steps.
+**v0.4 — shipped:** a Polars-style expression engine (`Expr` with operators,
+methods, and `when / then / otherwise`) feeding `with_columns` / `filter_where`
+/ `agg_exprs`, plus a lazy query layer (`lazy_frame(df)` → `explain` →
+`collect`) with a predicate- and projection-pushdown optimizer — all purely
+additive on top of v0.3's output formats, full join matrix, read resilience,
+and pluggable column storage. **Next (v0.5):** splitting `Series` into its own
+package, lazy CSV scanning, and more expression families (window / string /
+datetime). See the [changelog](docs/changelog.md) for the full version history
+and [`docs/migration.md`](docs/migration.md) for upgrade steps (v0.3 → v0.4 is
+additive — nothing to change).
 
 ## Contributing
 
-The codebase is a small five-layer stack; each layer is a package with its own
-sources, blackbox `*_test.mbt` tests, and a `pkg.generated.mbti` interface
-snapshot:
+The codebase is a small, layered stack of packages; each has its own sources,
+blackbox `*_test.mbt` tests, and a `pkg.generated.mbti` interface snapshot:
 
 ```
 types/      value types, errors (DataError), schemas
 column/     Arrow-style storage — validity Bitmap, BuiltinColumn, Numeric fast path, ColumnStorage seam
-frame/      Series, DataFrame, RowView + every operator (one per file) + group_by + join + to_markdown / to_html
+expr/       composable column expressions — Expr AST, operators / methods, when/then/otherwise, explain
+frame/      Series, DataFrame, RowView + every operator (one per file) + group_by + join + the expression evaluator (with_columns / select_exprs / filter_where / agg_exprs) + to_markdown / to_html
 io/         CSV (NyaCSV-backed), JSON, NDJSON read / write + Vega-Lite export
+lazy/       deferred query plan — LazyFrame builders, collect / explain, predicate + projection pushdown
 moonframe/  facade — re-exports the whole public API
 ```
 

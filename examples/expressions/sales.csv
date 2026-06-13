@@ -1,0 +1,7 @@
+region,product,revenue,cost,quantity
+west,widget,100,60,10
+east,gadget,80,30,5
+west,gadget,72,40,6
+east,widget,30,45,3
+north,widget,40,20,4
+north,gadget,90,55,6

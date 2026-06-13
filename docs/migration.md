@@ -5,6 +5,18 @@ changes ride the minor version. For the feature history behind each release see
 [`changelog.md`](changelog.md); for the current public surface see
 [`api.md`](api.md).
 
+## v0.3 → v0.4
+
+**Additive — nothing to change.** v0.4 only *adds* symbols: the new `expr`
+package (`Expr`, `col` / `lit_*` / `when`, the operators and methods), the new
+`lazy` package (`LazyFrame` / `LazyGroupBy`, `lazy_frame`), and new `DataFrame`
+/ `GroupedDataFrame` methods (`with_columns` / `select_exprs` / `filter_where`
+/ `agg_exprs`). No v0.2 / v0.3 type, method, or enum variant changed, so
+existing code compiles and behaves identically, and the two new internal
+packages are invisible to callers who import only the facade
+`ihb2032/MoonFrame`. (The `Series`-into-its-own-package split, which *will*
+touch existing code, is deferred to v0.5.)
+
 ## v0.2 → v0.3
 
 v0.3 is a pre-1.0 breaking release. The source-level breaks:

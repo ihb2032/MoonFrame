@@ -1,0 +1,28 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ihb2032/MoonFrame/examples/expressions/analysis"
+
+import {
+  "ihb2032/MoonFrame/frame",
+  "ihb2032/MoonFrame/lazy",
+  "ihb2032/MoonFrame/types",
+}
+
+// Values
+pub fn enrich(@frame.DataFrame) -> @frame.DataFrame raise @types.DataError
+
+pub fn graded(@frame.DataFrame) -> @frame.DataFrame raise @types.DataError
+
+pub fn margins(@frame.DataFrame) -> @frame.DataFrame raise @types.DataError
+
+pub fn report_plan(@frame.DataFrame) -> @lazy.LazyFrame
+
+pub fn top_west(@frame.DataFrame) -> @frame.DataFrame raise @types.DataError
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

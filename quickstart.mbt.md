@@ -76,6 +76,189 @@ test "quickstart: filter + select + sort" {
 }
 ```
 
+## Derive columns with expressions
+
+An `Expr` is a composable, inspectable column computation. `with_columns`
+evaluates a list of them against the frame and appends (or, on a name clash,
+replaces) the result. Arithmetic is the overloaded operators (`+` `-` `*` `/`);
+`with_alias` names the output. Division is always `Float` (the integer operands
+are promoted), matching Polars.
+
+```moonbit check
+///|
+test "quickstart: derive columns with with_columns" {
+  let sales = DataFrame::new([
+    Series::from_strings("region", ["west", "east", "north"]),
+    Series::from_ints("revenue", [100, 80, 40]),
+    Series::from_ints("cost", [60, 30, 20]),
+  ])
+  let enriched = sales.with_columns([
+    (col("revenue") - col("cost")).with_alias("profit"),
+  ])
+  inspect(
+    enriched.to_markdown(),
+    content=(
+      #|| region | revenue | cost | profit |
+      #|| ------ | ------- | ---- | ------ |
+      #|| west   | 100     | 60   | 40     |
+      #|| east   | 80      | 30   | 50     |
+      #|| north  | 40      | 20   | 20     |
+      #|
+    ),
+  )
+}
+```
+
+## Filter with an expression predicate
+
+`filter_where` keeps the rows where an `Expr` evaluates to `true` (a `false` or
+null cell drops the row, like the closure `filter`). Comparisons are methods
+(`eq` / `ne` / `lt` / `le` / `gt` / `ge`), and the logical connectives are the
+`&` (and) / `|` (or) operators — methods bind tighter than `&`, so the two
+comparisons below need no parentheses. Unlike the closure `filter`, this
+predicate is *data* the lazy layer can inspect and push down.
+
+```moonbit check
+///|
+test "quickstart: filter_where with an expression predicate" {
+  let df = DataFrame::new([
+    Series::from_strings("region", ["west", "east", "west", "west"]),
+    Series::from_ints("revenue", [100, 80, 30, 70]),
+  ])
+  let out = df.filter_where(
+    col("region").eq(lit_str("west")) & col("revenue").gt(lit_int(50)),
+  )
+  inspect(
+    out.to_markdown(),
+    content=(
+      #|| region | revenue |
+      #|| ------ | ------- |
+      #|| west   | 100     |
+      #|| west   | 70      |
+      #|
+    ),
+  )
+}
+```
+
+## Composite aggregation with `agg_exprs`
+
+`agg_exprs` is the expression form of `group_by(...).agg([...])`. Because each
+aggregation is a full `Expr`, it can express things a single `AggSpec` cannot —
+here `(revenue - cost).sum()`, a reduction over a *derived* column.
+
+```moonbit check
+///|
+test "quickstart: composite aggregation with agg_exprs" {
+  let sales = DataFrame::new([
+    Series::from_strings("region", ["west", "east", "west", "east"]),
+    Series::from_ints("revenue", [100, 50, 70, 30]),
+    Series::from_ints("cost", [60, 20, 40, 25]),
+  ])
+  let summary = sales
+    .group_by(["region"])
+    .agg_exprs([
+      (col("revenue") - col("cost")).sum().with_alias("total_profit"),
+      col("revenue").mean().with_alias("avg_revenue"),
+    ])
+  inspect(
+    summary.to_markdown(),
+    content=(
+      #|| region | total_profit | avg_revenue |
+      #|| ------ | ------------ | ----------- |
+      #|| west   | 70           | 85          |
+      #|| east   | 35           | 40          |
+      #|
+    ),
+  )
+}
+```
+
+## Conditional columns with `when` / `then` / `otherwise`
+
+`when(cond).then(a).otherwise(b)` builds a row-wise conditional expression —
+the value is `a` where `cond` is `true`, `b` otherwise.
+
+```moonbit check
+///|
+test "quickstart: conditional column with when/then/otherwise" {
+  let df = DataFrame::new([
+    Series::from_strings("product", ["widget", "gadget", "gizmo"]),
+    Series::from_ints("score", [80, 55, 60]),
+  ])
+  let graded = df.with_columns([
+    when(col("score").ge(lit_int(60)))
+    .then(lit_str("pass"))
+    .otherwise(lit_str("fail"))
+    .with_alias("grade"),
+  ])
+  inspect(
+    graded.to_markdown(),
+    content=(
+      #|| product | score | grade |
+      #|| ------- | ----- | ----- |
+      #|| widget  | 80    | pass  |
+      #|| gadget  | 55    | fail  |
+      #|| gizmo   | 60    | pass  |
+      #|
+    ),
+  )
+}
+```
+
+## Build a lazy plan, explain it, then collect
+
+`lazy_frame(df)` starts a deferred query: the builder methods grow a logical
+plan instead of computing anything, and `collect()` is the single step that
+runs it. `explain()` prints the plan as built; `explain(optimized=true)` prints
+the plan `collect` actually runs — here the optimizer has inserted a narrowing
+`SELECT` over the scan, pruning the `product` column the query never reads.
+Collecting is bitwise-equal to the same verbs run eagerly.
+
+```moonbit check
+///|
+test "quickstart: build a lazy plan, explain it, then collect" {
+  let df = DataFrame::new([
+    Series::from_strings("region", ["west", "east", "west"]),
+    Series::from_strings("product", ["widget", "gadget", "gizmo"]),
+    Series::from_ints("revenue", [100, 50, 70]),
+  ])
+  let plan = lazy_frame(df)
+    .filter_where(col("region").eq(lit_str("west")))
+    .select_exprs([col("region"), col("revenue")])
+  // The plan as built — a faithful mirror of the chained verbs.
+  inspect(
+    plan.explain(),
+    content=(
+      #|SELECT [col(region), col(revenue)]
+      #|  FILTER (col(region) == "west")
+      #|    SCAN [3×3]
+    ),
+  )
+  // The optimized plan: a narrowing SELECT prunes `product` at the scan.
+  inspect(
+    plan.explain(optimized=true),
+    content=(
+      #|SELECT [col(region), col(revenue)]
+      #|  FILTER (col(region) == "west")
+      #|    SELECT [col(region), col(revenue)]
+      #|      SCAN [3×3]
+    ),
+  )
+  // collect runs the query (and is the only step that can fail).
+  inspect(
+    plan.collect().to_markdown(),
+    content=(
+      #|| region | revenue |
+      #|| ------ | ------- |
+      #|| west   | 100     |
+      #|| west   | 70      |
+      #|
+    ),
+  )
+}
+```
+
 ## Render to HTML
 
 `to_html()` renders a plain `<table>`; `to_html_with_options` adds a CSS

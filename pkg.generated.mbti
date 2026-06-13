@@ -3,12 +3,16 @@ package "ihb2032/MoonFrame"
 
 import {
   "ihb2032/MoonFrame/column",
+  "ihb2032/MoonFrame/expr",
   "ihb2032/MoonFrame/frame",
   "ihb2032/MoonFrame/io",
+  "ihb2032/MoonFrame/lazy",
   "ihb2032/MoonFrame/types",
 }
 
 // Values
+pub fn col(String) -> @expr.Expr
+
 pub fn compare_string_lex(String, String) -> Int
 
 pub fn format_csv_str(@frame.DataFrame, @io.CsvWriteOptions) -> String
@@ -20,6 +24,18 @@ pub fn format_ndjson(@frame.DataFrame) -> String
 pub fn format_vega_lite(@frame.DataFrame, @io.ChartSpec) -> String raise @types.DataError
 
 pub fn is_decimal_int_literal(String) -> Bool
+
+pub fn lazy_frame(@frame.DataFrame) -> @lazy.LazyFrame
+
+pub fn lit(@types.Scalar) -> @expr.Expr
+
+pub fn lit_bool(Bool) -> @expr.Expr
+
+pub fn lit_float(Double) -> @expr.Expr
+
+pub fn lit_int(Int64) -> @expr.Expr
+
+pub fn lit_str(String) -> @expr.Expr
 
 pub fn parse_csv_str(String, @io.CsvReadOptions) -> @frame.DataFrame raise @types.DataError
 
@@ -38,6 +54,8 @@ pub fn read_json_with_options(String, @io.JsonReadOptions) -> @frame.DataFrame r
 pub fn read_ndjson(String) -> @frame.DataFrame raise @types.DataError
 
 pub fn read_ndjson_with_options(String, @io.NdjsonReadOptions) -> @frame.DataFrame raise @types.DataError
+
+pub fn when(@expr.Expr) -> @expr.WhenThen
 
 pub fn write_csv(String, @frame.DataFrame) -> Unit raise @types.DataError
 
@@ -80,6 +98,8 @@ pub using @frame {type DataFrame}
 
 pub using @types {type DataType}
 
+pub using @expr {type Expr}
+
 pub using @types {type Field}
 
 pub using @frame {type GroupedDataFrame}
@@ -91,6 +111,10 @@ pub using @frame {type JoinOptions}
 pub using @frame {type JoinType}
 
 pub using @io {type JsonReadOptions}
+
+pub using @lazy {type LazyFrame}
+
+pub using @lazy {type LazyGroupBy}
 
 pub using @io {type NdjsonReadOptions}
 
@@ -113,6 +137,10 @@ pub using @frame {type Series}
 pub using @frame {type SortOrder}
 
 pub using @column {type StorageKind}
+
+pub using @expr {type WhenThen}
+
+pub using @expr {type WhenThenElse}
 
 // Traits
 

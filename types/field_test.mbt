@@ -53,3 +53,12 @@ test "Field Show uses struct form" {
     content="Field { name: \"id\", dtype: String, nullable: false }",
   )
 }
+
+///|
+test "Field Show escapes quotes and backslashes in the name" {
+  // The struct form quotes the name, so a `"` / `\` in it is escaped.
+  inspect(
+    Field::new("a\"b", DataType::Int),
+    content="Field { name: \"a\\\"b\", dtype: Int, nullable: true }",
+  )
+}

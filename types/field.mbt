@@ -53,7 +53,7 @@ pub fn Field::rename(self : Field, new_name : String) -> Field {
 /// nullable: true }`), useful for assertion snapshots.
 pub impl Show for Field with fn output(self, logger) {
   logger.write_string("Field { name: \"")
-  logger.write_string(self.name)
+  logger.write_string(escape_debug(self.name))
   logger.write_string("\", dtype: ")
   self.dtype.output(logger)
   logger.write_string(", nullable: ")

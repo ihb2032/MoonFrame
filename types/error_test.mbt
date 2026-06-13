@@ -82,3 +82,14 @@ test "DataError Show covers every remaining variant" {
     content="Unsupported(\"Arrow backend\")",
   )
 }
+
+///|
+test "DataError Show escapes quotes and backslashes in the payload" {
+  // A payload carrying a `"` (e.g. a column name) or `\` is escaped inside
+  // the quoted variant form so the rendering stays unambiguous.
+  inspect(
+    DataError::ColumnNotFound("a\"b"),
+    content="ColumnNotFound(\"a\\\"b\")",
+  )
+  inspect(DataError::ParseError("path\\x"), content="ParseError(\"path\\\\x\")")
+}

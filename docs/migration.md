@@ -12,9 +12,10 @@ package (`Expr`, `col` / `lit_*` / `when`, the operators and methods), the new
 `lazy` package (`LazyFrame` / `LazyGroupBy`, `lazy_frame`), and new `DataFrame`
 / `GroupedDataFrame` methods (`with_columns` / `select_exprs` / `filter_where`
 / `agg_exprs`). No v0.2 / v0.3 type, method, or enum variant changed, so
-existing code compiles and behaves identically, and the two new internal
-packages are invisible to callers who import only the facade
-`ihb2032/MoonFrame`. (The `Series`-into-its-own-package split, which *will*
+existing code compiles and behaves identically. The two new public
+sub-packages are available directly for callers who want a slice of the
+surface, while callers who import only the facade `ihb2032/MoonFrame` get the
+same symbols there. (The `Series`-into-its-own-package split, which *will*
 touch existing code, is deferred to v0.5.)
 
 ## v0.2 → v0.3

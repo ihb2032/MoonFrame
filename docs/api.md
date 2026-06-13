@@ -250,11 +250,12 @@ missing column, a type clash) waits for evaluation. `expr` depends only on
 `types`.
 
 - `enum Expr` — the expression tree, **read-only** outside the package:
-  callers construct it through `col` / `lit_*` / operators / methods and
-  cannot match or build a variant directly, but `frame`'s evaluator reads
-  its variants across the package boundary. The payload tag enums `BinOp`
-  / `UnOp` / `AggOp` are likewise read-only and inert — no public API
-  names a tag value, so the facade does not re-export them.
+  callers can inspect it by pattern matching, and `frame`'s evaluator does
+  exactly that across the package boundary. Construct expressions through
+  `col` / `lit_*` / operators / methods rather than by spelling variants
+  directly, so trees stay on the documented surface. The payload tag enums
+  `BinOp` / `UnOp` / `AggOp` are likewise read-only implementation tags —
+  no public API names a tag value, so the facade does not re-export them.
 
 ### Constructors (static methods + free-function aliases)
 

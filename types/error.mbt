@@ -36,20 +36,22 @@ pub fn DataError::message(self : DataError) -> String {
 pub impl Show for DataError with fn output(self, logger) {
   match self {
     ColumnNotFound(name) =>
-      logger.write_string("ColumnNotFound(\"" + name + "\")")
+      logger.write_string("ColumnNotFound(\"" + escape_debug(name) + "\")")
     DuplicateColumn(name) =>
-      logger.write_string("DuplicateColumn(\"" + name + "\")")
+      logger.write_string("DuplicateColumn(\"" + escape_debug(name) + "\")")
     TypeMismatch(detail) =>
-      logger.write_string("TypeMismatch(\"" + detail + "\")")
+      logger.write_string("TypeMismatch(\"" + escape_debug(detail) + "\")")
     LengthMismatch => logger.write_string("LengthMismatch")
     IndexOutOfBounds(i) =>
       logger.write_string("IndexOutOfBounds(" + i.to_string() + ")")
-    ParseError(detail) => logger.write_string("ParseError(\"" + detail + "\")")
+    ParseError(detail) =>
+      logger.write_string("ParseError(\"" + escape_debug(detail) + "\")")
     InvalidOperation(detail) =>
-      logger.write_string("InvalidOperation(\"" + detail + "\")")
-    IoError(detail) => logger.write_string("IoError(\"" + detail + "\")")
+      logger.write_string("InvalidOperation(\"" + escape_debug(detail) + "\")")
+    IoError(detail) =>
+      logger.write_string("IoError(\"" + escape_debug(detail) + "\")")
     EmptyDataFrame => logger.write_string("EmptyDataFrame")
     Unsupported(detail) =>
-      logger.write_string("Unsupported(\"" + detail + "\")")
+      logger.write_string("Unsupported(\"" + escape_debug(detail) + "\")")
   }
 }

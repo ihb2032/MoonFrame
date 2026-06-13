@@ -1031,6 +1031,75 @@ test "ternary: branches that do not unify raise TypeMismatch" {
   )
 }
 
+///|
+test "ternary: a null branch cell nulls the output (Int and Int×Float arms)" {
+  // The other ternary tests put a null only in the *then* branch and leave
+  // the *otherwise* column fully valid, so each arm's otherwise-branch null
+  // path — and the Int×Float / Float×Int then-branch null path — never ran.
+  // Here every *selected* branch cell is null: row 0 takes `then` (null),
+  // row 1 takes `otherwise` (null), so both branch readers' `else { None }`
+  // arms fire and the output is null on both rows.
+  let df = DataFrame::new([
+    Series::from_bools("c", [true, false]),
+    Series::from_int_options("ai", [None, Some(2)]),
+    Series::from_int_options("bi", [Some(9), None]),
+    Series::from_float_options("af", [None, Some(2.0)]),
+    Series::from_float_options("bf", [Some(9.0), None]),
+  ])
+  let out = df.with_columns([
+    @expr.when(@expr.col("c"))
+    .then(@expr.col("ai"))
+    .otherwise(@expr.col("bi"))
+    .with_alias("ii"),
+    @expr.when(@expr.col("c"))
+    .then(@expr.col("ai"))
+    .otherwise(@expr.col("bf"))
+    .with_alias("if_"),
+    @expr.when(@expr.col("c"))
+    .then(@expr.col("af"))
+    .otherwise(@expr.col("bi"))
+    .with_alias("fi_"),
+  ])
+  let both_null = [@types.Scalar::Null, @types.Scalar::Null]
+  assert_eq(out.get_column("ii").to_scalars(), both_null)
+  assert_eq(out.get_column("if_").to_scalars(), both_null)
+  assert_eq(out.get_column("fi_").to_scalars(), both_null)
+}
+
+///|
+test "ternary: a null branch cell nulls the output (Float, Bool, String arms)" {
+  // Same idea for the remaining arms: a null `then` cell (row 0, condition
+  // true) and a null `otherwise` cell (row 1, condition false) exercise the
+  // `else { None }` arm of both branch readers for Float, Bool, and String.
+  let df = DataFrame::new([
+    Series::from_bools("c", [true, false]),
+    Series::from_float_options("af", [None, Some(2.0)]),
+    Series::from_float_options("bf", [Some(9.0), None]),
+    Series::from_bool_options("tb", [None, Some(true)]),
+    Series::from_bool_options("eb", [Some(false), None]),
+    Series::from_string_options("ts", [None, Some("x")]),
+    Series::from_string_options("es", [Some("y"), None]),
+  ])
+  let out = df.with_columns([
+    @expr.when(@expr.col("c"))
+    .then(@expr.col("af"))
+    .otherwise(@expr.col("bf"))
+    .with_alias("ff"),
+    @expr.when(@expr.col("c"))
+    .then(@expr.col("tb"))
+    .otherwise(@expr.col("eb"))
+    .with_alias("bb"),
+    @expr.when(@expr.col("c"))
+    .then(@expr.col("ts"))
+    .otherwise(@expr.col("es"))
+    .with_alias("ss"),
+  ])
+  let both_null = [@types.Scalar::Null, @types.Scalar::Null]
+  assert_eq(out.get_column("ff").to_scalars(), both_null)
+  assert_eq(out.get_column("bb").to_scalars(), both_null)
+  assert_eq(out.get_column("ss").to_scalars(), both_null)
+}
+
 // ── Backend convention ───────────────────────────────────────────────
 
 ///|

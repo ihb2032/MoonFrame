@@ -106,6 +106,18 @@ pub fn DataFrame::group_by(
 /// agg columns). The result routes through `DataFrame::new`, so every
 /// output satisfies `check_invariants()`.
 ///
+/// `agg` and `GroupedDataFrame::agg_exprs` are deliberately separate twins,
+/// not a duplication to fold together. `agg` is the fast single-column path
+/// — single-pass per-group reducers with no per-group temporaries — while
+/// `agg_exprs` evaluates arbitrary reduction-shaped expressions through the
+/// general per-group evaluator. Their single-reduction forms agree cell for
+/// cell (`AggSpec::sum("r")` ≡ `col("r").sum()`), but they deliberately
+/// differ in backend: this path leaves `Mean` / `Min` / `Max` on `Builtin`,
+/// where `agg_exprs` converges an all-valid numeric result onto `Numeric`
+/// (see `agg_expr.mbt`). Routing `agg` through `agg_exprs` would trade the
+/// single-pass reducers for per-group evaluation and flip those backends, so
+/// the two are kept distinct.
+///
 /// Raises:
 /// - `TypeMismatch(...)` — a `Sum` / `Mean` spec targets a non-numeric
 ///   (`Bool` / `String`) column.

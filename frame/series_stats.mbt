@@ -123,6 +123,37 @@ pub fn Series::mean(self : Series) -> Double raise @types.DataError {
 }
 
 ///|
+/// Total arithmetic mean: `Some(mean)` for a numeric series with at least
+/// one non-null cell, `None` for a non-numeric, empty, or all-null series —
+/// i.e. `None` exactly where `Series::mean` raises (`TypeMismatch` /
+/// `InvalidOperation`). This is the catch-free form `describe` summarises
+/// with, mirroring the total `min_value` / `max_value`; `Series::mean`
+/// remains the raising public form that distinguishes the two failure
+/// causes. A `Float` `NaN` is summed in and propagates to `Some(NaN)`,
+/// matching `mean` (Polars — only `Null` is missing). Package-private:
+/// exercised to full coverage through the `describe` tests.
+fn Series::mean_opt(self : Series) -> Double? {
+  // Sum the non-null cells per dtype, reusing `mean`'s fold helpers. A
+  // non-numeric column has no mean (`_` arm → `None`); an empty / all-null
+  // numeric column folds to `cnt == 0` → `None`. Reads the general validity
+  // path rather than `mean`'s `Numeric` fast path — `describe` is not a hot
+  // path, and this keeps the helper backend-agnostic.
+  let cnt = self.count()
+  let total = match self.storage.data() {
+    @column.ColumnData::Int(data) =>
+      sum_int_valid(data, self.storage.validity()).to_double()
+    @column.ColumnData::Float(data) =>
+      sum_float_valid(data, self.storage.validity())
+    _ => return None
+  }
+  if cnt == 0 {
+    None
+  } else {
+    Some(total / cnt.to_double())
+  }
+}
+
+///|
 /// Fold the non-missing cells of a length-`n` column to an extremum.
 /// `get(i)` reads cell `i`; `missing(i)` is `true` when cell `i` is
 /// skipped (a null slot, plus `NaN` for `Float`); `better(candidate,
@@ -322,18 +353,12 @@ pub fn Series::describe(self : Series) -> DataFrame raise @types.DataError {
   cols.push(Series::from_ints("count", [self.count().to_int64()]))
   cols.push(Series::from_ints("null_count", [self.null_count().to_int64()]))
   cols.push(Series::from_ints("unique_count", [self.unique_count().to_int64()]))
-  // `mean` is always present (Null for non-numeric / empty / all-null),
-  // so the summary shape is uniform across dtypes. `Series::mean` raises
-  // only `TypeMismatch` (non-numeric) or `InvalidOperation` (empty /
-  // all-null numeric); the wildcard catches exactly those two. Spelling
-  // them out and re-raising the rest would leave an unreachable arm that
-  // breaks the 100% line-coverage gate, so the wide catch stays.
-  let mean_col = try self.mean() catch {
-    _ => Series::from_float_options("mean", [None])
-  } noraise {
-    v => Series::from_float_options("mean", [Some(v)])
-  }
-  cols.push(mean_col)
+  // `mean` is always present (Null for non-numeric / empty / all-null), so
+  // the summary shape is uniform across dtypes. `mean_opt` is the total form
+  // of `Series::mean` — `None` exactly where `mean` would raise (non-numeric
+  // or empty / all-null) — so the summary reads it directly and needs no
+  // error catch, mirroring the total `min_value` / `max_value` used below.
+  cols.push(Series::from_float_options("mean", [self.mean_opt()]))
   // `min` / `max` keep the source dtype, so dispatch on the concrete
   // backing array.
   match self.storage.data() {

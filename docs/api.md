@@ -964,7 +964,8 @@ and the free functions are listed explicitly. The inert `BinOp` / `UnOp`
 / `AggOp` tag enums are deliberately **not** re-exported (no public API
 names them).
 
-- From `@types`: `DataError` · `DataType` · `Scalar` · `Field` · `Schema`
+- From `@types`: `DataError` · `DataType` · `Scalar` · `Field` · `Schema` ·
+  `compare_string_lex` · `is_decimal_int_literal`
 - From `@column`: `Bitmap` · `BuiltinColumn` · `ColumnData` ·
   `NumericColumn` · `NumericData` · `ColumnStorage` · `StorageKind`
 - From `@expr`: `Expr` · `WhenThen` · `WhenThenElse` · `col` · `lit` ·

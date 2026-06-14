@@ -386,8 +386,10 @@ dependencies** (NyaCSV / fs / @json live only in `io`).
 ### Series stats (`series_stats.mbt`)
 
 - Total: `count()` (non-null count); `unique_count()` (distinct non-null
-  values keyed by `Scalar::to_string`, so all `Float` NaN collapse to one
-  bucket); `min_value()` / `max_value()` — the reduction proper,
+  values, keyed by the same composite `key_cell` normalisation `group_by` /
+  `join` use, so the distinct count agrees with grouping cell-for-cell —
+  every `Float` `NaN` collapses to one bucket and `-0.0` folds into `+0.0`);
+  `min_value()` / `max_value()` — the reduction proper,
   returning a `Scalar` directly (every v0.1 dtype has an order, so they
   never fail; empty / all-null / all-NaN → `Scalar::Null`; `String` uses
   lexicographic order; `Bool` is `false < true`).

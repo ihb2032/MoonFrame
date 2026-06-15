@@ -427,6 +427,12 @@ dependencies** (NyaCSV / fs / @json live only in `io`).
 - Total inspection: `shape()` / `schema()` / `columns()` (fresh array) /
   `column_series()` (fresh array of the immutable `Series`) / `nrows()` /
   `ncols()` / `is_empty()`.
+- `to_scalar_matrix() -> Array[Array[Scalar]]` (**total**) — every column's
+  cells column-major (`result[c][r]` is column `c` / row `r`, `Null` for a
+  null slot). The one-pass bulk read the row-oriented serialisers /
+  renderers (`format_csv_str` / the JSON record emitter / `to_html` /
+  `to_markdown`) share, so a record is assembled by plain `[c][r]` indexing
+  rather than a per-cell `get`.
 - Accessors (`raise DataError`): `get_column(name)`
   (`ColumnNotFound`); `get_column_at(i)` (`IndexOutOfBounds`);
   `get(row, name) -> Scalar`; `row(i) -> RowView` (`IndexOutOfBounds`).

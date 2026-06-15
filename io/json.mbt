@@ -248,9 +248,10 @@ fn parse_json_payload(content : String) -> Json raise @types.DataError {
 fn df_to_json_records(df : @frame.DataFrame) -> Array[Json] {
   let names = df.columns()
   let nrows = df.nrows()
-  // Materialise each column's cells once (column-major) so a record is
-  // assembled by plain `cols[c][r]` reads rather than per-cell `get`.
-  let cols = df.column_series().map(s => s.to_scalars())
+  // Materialise the whole frame once (column-major) through the shared
+  // `to_scalar_matrix` so a record is assembled by plain `cols[c][r]` reads
+  // rather than per-cell `get`.
+  let cols = df.to_scalar_matrix()
   Array::makei(nrows, r => {
     let obj : Map[String, Json] = {}
     for c, name in names {

@@ -164,12 +164,12 @@ fn format_html(df : DataFrame, shown : Int, options : HtmlOptions) -> String {
     return ""
   }
   let escape = options.escape
-  // Materialise each column's cells once (column-major), exactly as
-  // `to_markdown` does, so this renderer never touches the storage
+  // Materialise the whole frame once (column-major) through the shared
+  // `to_scalar_matrix`, so this renderer never touches the storage
   // representation. `shown <= df.nrows()` and each `col_scalars[c]` has
   // length `df.nrows()`, so `col_scalars[c][r]` is in-bounds for
   // `r in [0, shown)`.
-  let col_scalars = df.column_series().map(s => s.to_scalars())
+  let col_scalars = df.to_scalar_matrix()
   let buf = StringBuilder::new()
   buf.write_string("<table")
   if options.table_class is Some(cls) {

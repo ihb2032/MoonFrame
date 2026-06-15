@@ -216,6 +216,24 @@ pub fn DataFrame::column_series(self : DataFrame) -> Array[Series] {
 }
 
 ///|
+/// Materialise every column's cells as a column-major matrix of `Scalar`s:
+/// `result[c][r]` is the cell at column `c`, row `r`, with `Scalar::Null`
+/// for a null slot (one inner array per column, each `nrows` long).
+/// Equivalent to `column_series().map(s => s.to_scalars())`, and **total** —
+/// `Series::to_scalars` is total over every backend.
+///
+/// This is the one-pass bulk read the row-oriented serialisers and renderers
+/// (`format_csv_str` / the JSON record emitter / `to_html` / `to_markdown`)
+/// share: each materialises the whole frame once, then assembles a record by
+/// plain `[c][r]` indexing rather than a per-cell `get`, so no row walk pays
+/// a repeated bounds-checked lookup.
+pub fn DataFrame::to_scalar_matrix(
+  self : DataFrame,
+) -> Array[Array[@types.Scalar]] {
+  self.columns.map(s => s.to_scalars())
+}
+
+///|
 /// Number of rows. Equal to every column's `len()`.
 pub fn DataFrame::nrows(self : DataFrame) -> Int {
   self.nrows

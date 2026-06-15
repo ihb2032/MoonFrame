@@ -100,13 +100,10 @@ fn eval_expr(
         @expr.UnOp::IsNull =>
           Series::from_bools(
             operand.name(),
-            operand.storage().validity().to_bools().map(v => !v),
+            validity_bools(operand.storage()).map(v => !v),
           )
         @expr.UnOp::IsNotNull =>
-          Series::from_bools(
-            operand.name(),
-            operand.storage().validity().to_bools(),
-          )
+          Series::from_bools(operand.name(), validity_bools(operand.storage()))
       }
     }
     @expr.Expr::Agg(op, e) => eval_agg(op, eval_expr(e, df, scope))
@@ -211,8 +208,8 @@ fn eval_arith(
   int_op : (Int64, Int64) -> Int64,
   float_op : (Double, Double) -> Double,
 ) -> Series raise @types.DataError {
-  let lv = left.storage().validity().to_bools()
-  let rv = right.storage().validity().to_bools()
+  let lv = validity_bools(left.storage())
+  let rv = validity_bools(right.storage())
   let out = match (left.storage().data(), right.storage().data()) {
     (@column.ColumnData::Int(a), @column.ColumnData::Int(b)) =>
       Series::from_int_options(
@@ -282,8 +279,8 @@ fn eval_arith(
 /// non-numeric `TypeMismatch`, and the `Numeric` re-convergence match
 /// `eval_arith`.
 fn eval_div(left : Series, right : Series) -> Series raise @types.DataError {
-  let lv = left.storage().validity().to_bools()
-  let rv = right.storage().validity().to_bools()
+  let lv = validity_bools(left.storage())
+  let rv = validity_bools(right.storage())
   let out = match (left.storage().data(), right.storage().data()) {
     (@column.ColumnData::Int(a), @column.ColumnData::Int(b)) =>
       Series::from_float_options(
@@ -408,8 +405,8 @@ fn eval_compare(
   right : Series,
   verb : CmpVerb,
 ) -> Series raise @types.DataError {
-  let lv = left.storage().validity().to_bools()
-  let rv = right.storage().validity().to_bools()
+  let lv = validity_bools(left.storage())
+  let rv = validity_bools(right.storage())
   let cells = match (left.storage().data(), right.storage().data()) {
     (@column.ColumnData::Int(a), @column.ColumnData::Int(b)) =>
       compare_cells(
@@ -500,8 +497,8 @@ fn eval_logic(
   verb : String,
   combine : (Bool?, Bool?) -> Bool?,
 ) -> Series raise @types.DataError {
-  let lv = left.storage().validity().to_bools()
-  let rv = right.storage().validity().to_bools()
+  let lv = validity_bools(left.storage())
+  let rv = validity_bools(right.storage())
   match (left.storage().data(), right.storage().data()) {
     (@column.ColumnData::Bool(a), @column.ColumnData::Bool(b)) =>
       Series::from_bool_options(
@@ -566,7 +563,7 @@ fn kleene_or(a : Bool?, b : Bool?) -> Bool? {
 /// stays null; non-numeric operands raise. An all-valid result converges
 /// onto the `Numeric` backend, as for binary arithmetic.
 fn eval_neg(operand : Series) -> Series raise @types.DataError {
-  let valid = operand.storage().validity().to_bools()
+  let valid = validity_bools(operand.storage())
   let out = match operand.storage().data() {
     @column.ColumnData::Int(a) =>
       Series::from_int_options(
@@ -590,7 +587,7 @@ fn eval_neg(operand : Series) -> Series raise @types.DataError {
 /// Kleene logical negation kernel: `not(true) = false`, `not(false) =
 /// true`, `not(null) = null`. Non-`Bool` operands raise.
 fn eval_not(operand : Series) -> Series raise @types.DataError {
-  let valid = operand.storage().validity().to_bools()
+  let valid = validity_bools(operand.storage())
   match operand.storage().data() {
     @column.ColumnData::Bool(a) =>
       Series::from_bool_options(
@@ -695,9 +692,9 @@ fn eval_ternary(
         "when condition must be Bool, got " + c2.dtype().to_string(),
       )
   }
-  let cv = c2.storage().validity().to_bools()
-  let tv = t2.storage().validity().to_bools()
-  let ev = e2.storage().validity().to_bools()
+  let cv = validity_bools(c2.storage())
+  let tv = validity_bools(t2.storage())
+  let ev = validity_bools(e2.storage())
   let out = match (t2.storage().data(), e2.storage().data()) {
     (@column.ColumnData::Int(a), @column.ColumnData::Int(b)) =>
       Series::from_int_options(

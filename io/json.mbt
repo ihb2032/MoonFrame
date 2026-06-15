@@ -162,7 +162,7 @@ fn frame_from_json_records(
   if ncols == 0 {
     return @frame.DataFrame::new([])
   }
-  let series : Array[@frame.Series] = headers.map(name => {
+  let series : Array[@series.Series] = headers.map(name => {
     let dt = infer_json_column_dtype(objs, name, infer_schema_rows)
     build_json_column(name, dt, objs, on_parse_error)
   })
@@ -412,7 +412,7 @@ fn build_json_column(
   dtype : InferredDtype,
   objs : Array[Map[String, Json]],
   on_parse_error : OnParseError,
-) -> @frame.Series raise @types.DataError {
+) -> @series.Series raise @types.DataError {
   let n = objs.length()
   let cell = fn(i : Int) -> Json { lookup_field(objs[i], name) }
   let isnull = fn(c : Json) -> Bool { c is Null }
@@ -430,7 +430,7 @@ fn build_json_column(
           )
         },
         on_parse_error,
-        @frame.Series::from_int_options,
+        @series.Series::from_int_options,
       )
     InferFloat =>
       build_typed_column(
@@ -445,7 +445,7 @@ fn build_json_column(
           )
         },
         on_parse_error,
-        @frame.Series::from_float_options,
+        @series.Series::from_float_options,
       )
     InferBool =>
       build_typed_column(
@@ -460,7 +460,7 @@ fn build_json_column(
           )
         },
         on_parse_error,
-        @frame.Series::from_bool_options,
+        @series.Series::from_bool_options,
       )
     InferString => {
       let values : Array[String?] = Array::makei(n, i => {
@@ -471,7 +471,7 @@ fn build_json_column(
           Some(json_value_to_string_fallback(c))
         }
       })
-      @frame.Series::from_string_options(name, values)
+      @series.Series::from_string_options(name, values)
     }
   }
 }

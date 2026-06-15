@@ -127,8 +127,8 @@ fn[Cell, T] build_typed_column(
   parse : (Cell) -> T?,
   err : (Int, Cell) -> @types.DataError,
   on_parse_error : OnParseError,
-  build : (String, Array[T?]) -> @frame.Series,
-) -> @frame.Series raise @types.DataError {
+  build : (String, Array[T?]) -> @series.Series,
+) -> @series.Series raise @types.DataError {
   let values : Array[T?] = Array::makei(n, i => {
     let c = cell(i)
     if is_null(c) {

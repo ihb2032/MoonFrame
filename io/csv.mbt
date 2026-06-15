@@ -204,7 +204,7 @@ pub fn parse_csv_str(
   }
   // Infer one dtype per column, then build the column. `build_column`
   // raises `ParseError` for a cell that doesn't fit the inferred dtype.
-  let series : Array[@frame.Series] = Array::makei(ncols, col => {
+  let series : Array[@series.Series] = Array::makei(ncols, col => {
     let name = headers[col]
     let dt = infer_column_dtype(
       rows,
@@ -458,7 +458,7 @@ fn build_column(
   null_values : Array[String],
   on_parse_error : OnParseError,
   allow_nonfinite_floats : Bool,
-) -> @frame.Series raise @types.DataError {
+) -> @series.Series raise @types.DataError {
   let n = rows.length()
   let cell = fn(i : Int) -> String { cell_value(rows, i, col) }
   let isnull = fn(v : String) -> Bool { is_null_value(v, null_values) }
@@ -476,7 +476,7 @@ fn build_column(
           )
         },
         on_parse_error,
-        @frame.Series::from_int_options,
+        @series.Series::from_int_options,
       )
     InferFloat =>
       build_typed_column(
@@ -491,7 +491,7 @@ fn build_column(
           )
         },
         on_parse_error,
-        @frame.Series::from_float_options,
+        @series.Series::from_float_options,
       )
     InferBool =>
       build_typed_column(
@@ -506,7 +506,7 @@ fn build_column(
           )
         },
         on_parse_error,
-        @frame.Series::from_bool_options,
+        @series.Series::from_bool_options,
       )
     InferString => {
       let values : Array[String?] = Array::makei(n, i => {
@@ -517,7 +517,7 @@ fn build_column(
           Some(v)
         }
       })
-      @frame.Series::from_string_options(name, values)
+      @series.Series::from_string_options(name, values)
     }
   }
 }

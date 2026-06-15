@@ -7,6 +7,7 @@ import {
   "ihb2032/MoonFrame/frame",
   "ihb2032/MoonFrame/io",
   "ihb2032/MoonFrame/lazy",
+  "ihb2032/MoonFrame/series",
   "ihb2032/MoonFrame/types",
 }
 
@@ -132,7 +133,7 @@ pub using @types {type Scalar}
 
 pub using @types {type Schema}
 
-pub using @frame {type Series}
+pub using @series {type Series}
 
 pub using @frame {type SortOrder}
 

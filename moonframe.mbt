@@ -74,8 +74,14 @@ pub using @expr {
 }
 
 ///|
+/// `Series` lives in its own `@series` package (extracted in v0.5 so the
+/// expression layer can build on the per-column unit); re-exporting the type
+/// carries its constructors (`from_ints` / …) and methods along, so the facade
+/// name `@moonframe.Series` is unchanged for callers.
+pub using @series {type Series}
+
+///|
 pub using @frame {
-  type Series,
   type DataFrame,
   type RowView,
   type SortOrder,

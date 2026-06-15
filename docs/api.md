@@ -8,9 +8,9 @@
 The facade package `ihb2032/MoonFrame` re-exports every symbol below
 via `pub using @<subpkg> { ... }`, so a single
 `import "ihb2032/MoonFrame" @moonframe` is enough to reach the whole
-surface. Sub-package imports (`@types`, `@column`, `@expr`, `@frame`,
-`@io`, `@lazy`) remain supported for callers that only need a slice — the
-facade is additive.
+surface. Sub-package imports (`@types`, `@column`, `@series`, `@expr`,
+`@frame`, `@io`, `@lazy`) remain supported for callers that only need a
+slice — the facade is additive.
 
 Runnable, CI-verified examples of the surface below live in
 [`quickstart.mbt.md`](../quickstart.mbt.md) (doc tests executed by `moon test`
@@ -345,13 +345,14 @@ raising `DataError` at evaluation time — building the tree never fails:
 
 ---
 
-## `frame` — Series, DataFrame, RowView, and operators
+## `series` — Series and the column-level kernels
 
-The `ops` verbs are folded in here as `DataFrame` methods (one operator
-per file), so a pipeline is a method chain. `frame`'s only **internal**
-dependency beyond `types` / `column` is `expr` (it reads `@expr.Expr` to
-evaluate the expression consumers below); it has **zero external
-dependencies** (NyaCSV / fs / @json live only in `io`).
+`Series` — the per-column unit `DataFrame` wraps — lives in its own package
+(extracted in v0.5) so the expression layer can build on it. Beyond the type
+and its statistics, `series` owns the column-level kernels the frame transforms
+reuse: the shared reduction kernel (`reduce.mbt`), the row gather / slice /
+rebuild and backend-convergence helpers, and the composite-key cell encoding
+(`key_cell` / `KeyCell`). It depends only on `types` / `column`.
 
 ### Series
 
@@ -402,17 +403,24 @@ dependencies** (NyaCSV / fs / @json live only in `io`).
   `Scalar::Int` / `Scalar::Float`, empty / all-null is the additive
   identity, `Bool` / `String` → `TypeMismatch`; `mean()` — `Double`,
   empty / all-null numeric → `InvalidOperation`, non-numeric →
-  `TypeMismatch`; `describe() -> DataFrame` — one-row six-column summary
-  (`count` / `null_count` / `unique_count` / `mean` / `min` / `max`); a
-  single series carries one dtype, so `min` / `max` keep that **source
-  dtype** here (contrast `DataFrame::describe`, which stringifies them to
-  span columns of differing dtype in one summary column). Raises only
-  because it builds through `DataFrame::new` (always succeeds in
-  practice). `Float` `NaN` is a value, not missing: it
-  **propagates** through `sum` / `mean` (any non-null `NaN` ⇒ `NaN`) but is
-  **skipped** by `min_value` / `max_value` (and `sort_by`) — matching
-  Polars, whose `sum`/`mean` propagate `NaN` while its regular `min`/`max`
-  ignore it (only `Null` is ever treated as missing).
+  `TypeMismatch`. `mean_opt() -> Double?` is the **total** form of `mean`
+  (`Some(mean)`, or `None` exactly where `mean` would raise) — the accessor
+  `frame`'s `DataFrame::describe` reads across the package boundary. `Float`
+  `NaN` is a value, not missing: it **propagates** through `sum` / `mean`
+  (any non-null `NaN` ⇒ `NaN`) but is **skipped** by `min_value` /
+  `max_value` (and `sort_by`) — matching Polars, whose `sum`/`mean`
+  propagate `NaN` while its regular `min`/`max` ignore it (only `Null` is
+  ever treated as missing).
+
+---
+
+## `frame` — DataFrame, RowView, and operators
+
+The `ops` verbs are folded in here as `DataFrame` methods (one operator
+per file), so a pipeline is a method chain. `frame` reads `@series.Series`
+(the column unit it wraps) and `@expr.Expr` (to evaluate the expression
+consumers below) on top of `types` / `column`; it has **zero external
+dependencies** (NyaCSV / fs / @json live only in `io`).
 
 ### DataFrame
 
@@ -499,9 +507,8 @@ transforms, so every output satisfies `check_invariants()`.
   per source column, fixed `N × 8` schema (`column` / `dtype` / `count` /
   `null_count` / `unique_count` (`Int`); `mean` (`Float`, nullable);
   `min` / `max` (`String`, nullable, rendered via `Scalar::to_string`)).
-  Unlike the typed `Series::describe`, `min` / `max` are stringified so a
-  single column can carry extrema across source columns of differing
-  dtype. 0-column collapses to `0 × 8`.
+  `min` / `max` are stringified so a single column can carry extrema across
+  source columns of differing dtype. 0-column collapses to `0 × 8`.
 - `to_markdown() -> String` / `to_markdown_with_limit(limit) -> String`
   — **total** GitHub-flavored pipe-table renderers (IO-1: pure rendering
   lives in `frame`). Column widths align to `max(header, cells)` with a
@@ -981,7 +988,8 @@ names them).
   `NumericColumn` · `NumericData` · `ColumnStorage` · `StorageKind`
 - From `@expr`: `Expr` · `WhenThen` · `WhenThenElse` · `col` · `lit` ·
   `lit_int` · `lit_float` · `lit_str` · `lit_bool` · `when`
-- From `@frame`: `Series` · `DataFrame` · `RowView` · `SortOrder` ·
+- From `@series`: `Series`
+- From `@frame`: `DataFrame` · `RowView` · `SortOrder` ·
   `NullOrder` · `AggKind` · `AggSpec` · `GroupedDataFrame` · `JoinType` ·
   `JoinOptions` · `HtmlOptions`
 - From `@io`: `CsvReadOptions` · `CsvWriteOptions` · `JsonReadOptions` ·
@@ -1008,12 +1016,6 @@ The v0.4 expression / lazy surface above is **shipped** (see the `expr`,
 the `frame` expression-consumer, and the `lazy` sections); these are the
 deferrals, tracked for v0.5+:
 
-- **`Series` as its own package** — `frame` keeps growing (Series +
-  DataFrame + every operator), and splitting `Series` out (`frame` →
-  `series` → `column` → `types`) is its one structural fix. It moves
-  existing code, so unlike v0.4 it is **not** additive — a dedicated
-  refactor milestone, with the facade absorbing the churn for downstream
-  callers.
 - **Lazy CSV scan (`scan_csv`)** — a streaming `io` → `frame` lazy source,
   so a plan can read from a file lazily rather than only from an in-memory
   frame.

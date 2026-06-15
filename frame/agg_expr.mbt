@@ -86,7 +86,14 @@ pub fn GroupedDataFrame::agg_exprs(
     let cells = self.groups.map(g => {
       eval_expr(expr, self.source, g).to_scalars()[0]
     })
-    out_cols.push(stitch_group_cells(probe, cells, expr_output_name(expr)))
+    out_cols.push(
+      scalars_to_series(
+        probe.storage().data(),
+        expr_output_name(expr),
+        cells,
+        converge=true,
+      ),
+    )
   }
   DataFrame::new(out_cols)
 }
@@ -109,66 +116,4 @@ fn reduces_per_group(expr : @expr.Expr) -> Bool {
     @expr.Expr::Ternary(c, t, f) =>
       reduces_per_group(c) && reduces_per_group(t) && reduces_per_group(f)
   }
-}
-
-///|
-/// Stitch one expression's per-group scalar cells into its output column.
-/// `probe` (the empty-scope evaluation of the same expression) anchors
-/// the dtype dispatch, so zero groups still produce a correctly-typed
-/// empty column. The cells are dtype-consistent with the probe because
-/// dtype is scope-independent, so each typed arm only ever meets its own
-/// variant or `Null` (an all-null group's `mean` / extremum); the
-/// catch-all maps `Null` to a null cell — the `agg_extremum` trick,
-/// leaving no dead arm. An all-valid numeric result converges onto the
-/// `Numeric` backend, the expression-engine convention for computed
-/// columns.
-fn stitch_group_cells(
-  probe : Series,
-  cells : Array[@types.Scalar],
-  name : String,
-) -> Series {
-  try_column_to_numeric(
-    match probe.storage().data() {
-      @column.ColumnData::Int(_) =>
-        Series::from_int_options(
-          name,
-          cells.map(c => {
-            match c {
-              @types.Scalar::Int(v) => Some(v)
-              _ => None
-            }
-          }),
-        )
-      @column.ColumnData::Float(_) =>
-        Series::from_float_options(
-          name,
-          cells.map(c => {
-            match c {
-              @types.Scalar::Float(v) => Some(v)
-              _ => None
-            }
-          }),
-        )
-      @column.ColumnData::Bool(_) =>
-        Series::from_bool_options(
-          name,
-          cells.map(c => {
-            match c {
-              @types.Scalar::Bool(v) => Some(v)
-              _ => None
-            }
-          }),
-        )
-      @column.ColumnData::String(_) =>
-        Series::from_string_options(
-          name,
-          cells.map(c => {
-            match c {
-              @types.Scalar::String(v) => Some(v)
-              _ => None
-            }
-          }),
-        )
-    },
-  )
 }

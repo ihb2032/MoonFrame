@@ -9,39 +9,6 @@ pub fn Series::count(self : Series) -> Int {
 }
 
 ///|
-/// Sum of the valid (non-null) cells of an `Int` buffer. Factored out so
-/// `sum` and `mean` share a single null-skipping accumulation instead of
-/// each carrying its own copy.
-fn sum_int_valid(data : Array[Int64], validity : @column.Bitmap) -> Int64 {
-  let valid = validity.to_bools()
-  let mut acc : Int64 = 0
-  for i in 0..<data.length() {
-    if valid[i] {
-      acc = acc + data[i]
-    }
-  }
-  acc
-}
-
-///|
-/// Sum of the non-null cells of a `Float` buffer. Unlike a missing-value
-/// skip, `NaN` is **not** filtered out: it is a valid floating-point value
-/// that participates in the addition, so a single non-null `NaN` cell
-/// propagates to a `NaN` total (Polars semantics — `NaN` is a value, only
-/// `Null` is missing). The column stores 64-bit `Double`, so the sum
-/// accumulates directly in `Double` with no narrowing.
-fn sum_float_valid(data : Array[Double], validity : @column.Bitmap) -> Double {
-  let valid = validity.to_bools()
-  let mut s : Double = 0.0
-  for i in 0..<data.length() {
-    if valid[i] {
-      s = s + data[i]
-    }
-  }
-  s
-}
-
-///|
 /// Sum of non-null cells.
 ///
 /// - `Int` series → `Scalar::Int(sum)`, accumulated in 64-bit `Int64`
@@ -62,19 +29,11 @@ pub fn Series::sum(self : Series) -> @types.Scalar raise @types.DataError {
   if self.storage is @column.ColumnStorage::Numeric(nc) {
     return nc.sum()
   }
-  // General `Builtin` backend: match the backing array directly (total) —
-  // the `Int` / `Float` arms reduce over the validity mask, every other
-  // dtype raises. No `*_values` raise to bridge.
-  match self.storage.data() {
-    @column.ColumnData::Int(data) =>
-      @types.Scalar::Int(sum_int_valid(data, self.storage.validity()))
-    @column.ColumnData::Float(data) =>
-      @types.Scalar::Float(sum_float_valid(data, self.storage.validity()))
-    _ =>
-      raise @types.DataError::TypeMismatch(
-        "sum undefined for " + self.dtype().to_string(),
-      )
-  }
+  // General `Builtin` backend: the shared `reduce_arith` fold over the whole
+  // column (`0 ..< len`) — `Int` / `Float` reduce over the validity mask,
+  // every other dtype raises `TypeMismatch`, all from the one kernel `agg`
+  // and `eval_agg` also reduce through.
+  reduce_arith(self.storage, want_mean=false)(self.len(), k => k)
 }
 
 ///|
@@ -99,89 +58,35 @@ pub fn Series::mean(self : Series) -> Double raise @types.DataError {
   if self.storage is @column.ColumnStorage::Numeric(nc) {
     return nc.mean()
   }
-  let cnt = self.count()
-  // Sum the non-null cells per dtype. A non-numeric column raises here,
-  // before the empty check — `mean` is undefined for it regardless of
-  // length. `NaN` is summed in rather than skipped (see `sum_float_valid`),
-  // so it carries through to the result.
-  let total = match self.storage.data() {
-    @column.ColumnData::Int(data) =>
-      sum_int_valid(data, self.storage.validity()).to_double()
-    @column.ColumnData::Float(data) =>
-      sum_float_valid(data, self.storage.validity())
+  // General `Builtin` backend: the shared `reduce_arith` mean reduces the
+  // whole column to a `Scalar`, raising `TypeMismatch` for a non-numeric
+  // dtype (before producing a value) and returning `Scalar::Null` for an
+  // empty / all-null column — which this surface translates to
+  // `InvalidOperation`, the distinction `mean_opt` / the grouped reducer
+  // resolve differently.
+  match reduce_arith(self.storage, want_mean=true)(self.len(), k => k) {
+    @types.Scalar::Float(m) => m
     _ =>
-      raise @types.DataError::TypeMismatch(
-        "mean undefined for " + self.dtype().to_string(),
-      )
+      raise @types.DataError::InvalidOperation("mean of empty/all-null series")
   }
-  if cnt == 0 {
-    raise @types.DataError::InvalidOperation("mean of empty/all-null series")
-  }
-  // Divide in Double, then narrow — accurate for sums beyond the 24-bit
-  // Float significand. A `NaN` numerator divides through to a `NaN` mean.
-  total / cnt.to_double()
 }
 
 ///|
 /// Total arithmetic mean: `Some(mean)` for a numeric series with at least
 /// one non-null cell, `None` for a non-numeric, empty, or all-null series —
 /// i.e. `None` exactly where `Series::mean` raises (`TypeMismatch` /
-/// `InvalidOperation`). This is the catch-free form `describe` summarises
-/// with, mirroring the total `min_value` / `max_value`; `Series::mean`
-/// remains the raising public form that distinguishes the two failure
-/// causes. A `Float` `NaN` is summed in and propagates to `Some(NaN)`,
-/// matching `mean` (Polars — only `Null` is missing). Package-private:
-/// exercised to full coverage through the `describe` tests.
+/// `InvalidOperation`). This is the total form `describe` summarises with,
+/// mirroring the total `min_value` / `max_value`; `Series::mean` remains the
+/// raising public form that distinguishes the two failure causes, and this
+/// folds both of them into `None`. A `Float` `NaN` is summed in and
+/// propagates to `Some(NaN)`, matching `mean` (Polars — only `Null` is
+/// missing). Package-private: exercised to full coverage through the
+/// `describe` tests (which summarise numeric, non-numeric, and all-null
+/// columns, so both arms below are reached).
 fn Series::mean_opt(self : Series) -> Double? {
-  // Sum the non-null cells per dtype, reusing `mean`'s fold helpers. A
-  // non-numeric column has no mean (`_` arm → `None`); an empty / all-null
-  // numeric column folds to `cnt == 0` → `None`. Reads the general validity
-  // path rather than `mean`'s `Numeric` fast path — `describe` is not a hot
-  // path, and this keeps the helper backend-agnostic.
-  let cnt = self.count()
-  let total = match self.storage.data() {
-    @column.ColumnData::Int(data) =>
-      sum_int_valid(data, self.storage.validity()).to_double()
-    @column.ColumnData::Float(data) =>
-      sum_float_valid(data, self.storage.validity())
-    _ => return None
+  Some(self.mean()) catch {
+    _ => None
   }
-  if cnt == 0 {
-    None
-  } else {
-    Some(total / cnt.to_double())
-  }
-}
-
-///|
-/// Fold the non-missing cells of a length-`n` column to an extremum.
-/// `get(i)` reads cell `i`; `missing(i)` is `true` when cell `i` is
-/// skipped (a null slot, plus `NaN` for `Float`); `better(candidate,
-/// best)` is `true` when `candidate` should replace the running best.
-/// Returns `None` when every cell is missing.
-///
-/// `min_value` / `max_value` share this so each per-dtype arm supplies
-/// only its reader, missing test, and comparator instead of repeating
-/// the `best : T?` accumulation eight times over.
-fn[T] fold_extremum(
-  n : Int,
-  get : (Int) -> T,
-  missing : (Int) -> Bool,
-  better : (T, T) -> Bool,
-) -> T? {
-  let mut best : T? = None
-  for i in 0..<n {
-    if !missing(i) {
-      // Bind the cell once: the `Some` arm would otherwise evaluate `get(i)`
-      // up to twice per non-missing element.
-      let v = get(i)
-      best = match best {
-        None => Some(v)
-        Some(b) => if better(v, b) { Some(v) } else { Some(b) }
-      }
-    }
-  }
-  best
 }
 
 ///|
@@ -202,108 +107,22 @@ pub fn Series::min_value(self : Series) -> @types.Scalar {
   if self.storage is @column.ColumnStorage::Numeric(nc) {
     return nc.min_value()
   }
-  let valid = self.storage.validity().to_bools()
-  match self.storage.data() {
-    @column.ColumnData::Int(a) => {
-      let best = fold_extremum(a.length(), i => a[i], i => !valid[i], (x, y) => {
-        x < y
-      })
-      match best {
-        None => @types.Scalar::Null
-        Some(b) => @types.Scalar::Int(b)
-      }
-    }
-    @column.ColumnData::Float(a) => {
-      // NaN is treated as missing (skipped), matching `sort_by`.
-      let best = fold_extremum(
-        a.length(),
-        i => a[i],
-        i => !valid[i] || a[i].is_nan(),
-        (x, y) => x < y,
-      )
-      match best {
-        None => @types.Scalar::Null
-        Some(b) => @types.Scalar::Float(b)
-      }
-    }
-    @column.ColumnData::Bool(a) => {
-      // `false < true`: a candidate beats the best only when it is `false`
-      // and the best is `true`.
-      let best = fold_extremum(a.length(), i => a[i], i => !valid[i], (x, y) => {
-        !x && y
-      })
-      match best {
-        None => @types.Scalar::Null
-        Some(b) => @types.Scalar::Bool(b)
-      }
-    }
-    @column.ColumnData::String(a) => {
-      let best = fold_extremum(a.length(), i => a[i], i => !valid[i], (x, y) => {
-        @types.compare_string_lex(x, y) < 0
-      })
-      match best {
-        None => @types.Scalar::Null
-        Some(b) => @types.Scalar::String(b)
-      }
-    }
-  }
+  // General `Builtin` backend: the shared `reduce_extremum` fold over the
+  // whole column — total over every dtype (`Bool` `false < true`, `String`
+  // lexicographic), the same kernel the grouped / scoped `min` reduce
+  // through, with `NaN` skipped and empty / all-null → `Null`.
+  reduce_extremum(self.storage, want_min=true)(self.len(), k => k)
 }
 
 ///|
-/// Maximum non-null cell as a `Scalar`. Mirrors `min_value` with `>` in
-/// place of `<`; the `Float` NaN and empty-series rules are identical.
+/// Maximum non-null cell as a `Scalar`. Mirrors `min_value` with the order
+/// reversed; the `Float` NaN and empty-series rules are identical.
 /// Total — the v0.1 `Result`-wrapped `max` has been dropped in v0.2.
 pub fn Series::max_value(self : Series) -> @types.Scalar {
-  // Numeric fast path: bitmap-free extremum fold (NaN still skipped, empty
-  // → `Null`). No validity materialisation.
   if self.storage is @column.ColumnStorage::Numeric(nc) {
     return nc.max_value()
   }
-  let valid = self.storage.validity().to_bools()
-  match self.storage.data() {
-    @column.ColumnData::Int(a) => {
-      let best = fold_extremum(a.length(), i => a[i], i => !valid[i], (x, y) => {
-        x > y
-      })
-      match best {
-        None => @types.Scalar::Null
-        Some(b) => @types.Scalar::Int(b)
-      }
-    }
-    @column.ColumnData::Float(a) => {
-      // NaN is treated as missing (skipped), matching `sort_by`.
-      let best = fold_extremum(
-        a.length(),
-        i => a[i],
-        i => !valid[i] || a[i].is_nan(),
-        (x, y) => x > y,
-      )
-      match best {
-        None => @types.Scalar::Null
-        Some(b) => @types.Scalar::Float(b)
-      }
-    }
-    @column.ColumnData::Bool(a) => {
-      // `true > false`: a candidate beats the best only when it is `true`
-      // and the best is `false`.
-      let best = fold_extremum(a.length(), i => a[i], i => !valid[i], (x, y) => {
-        x && !y
-      })
-      match best {
-        None => @types.Scalar::Null
-        Some(b) => @types.Scalar::Bool(b)
-      }
-    }
-    @column.ColumnData::String(a) => {
-      let best = fold_extremum(a.length(), i => a[i], i => !valid[i], (x, y) => {
-        @types.compare_string_lex(x, y) > 0
-      })
-      match best {
-        None => @types.Scalar::Null
-        Some(b) => @types.Scalar::String(b)
-      }
-    }
-  }
+  reduce_extremum(self.storage, want_min=false)(self.len(), k => k)
 }
 
 ///|

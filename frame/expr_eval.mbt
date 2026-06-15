@@ -620,16 +620,16 @@ fn eval_not(operand : Series) -> Series raise @types.DataError {
 /// - `Min` / `Max`: total over every dtype in the operand's own dtype, `NaN`
 ///   skipped; empty / all-null / all-`NaN` reduces to a null cell.
 /// - `Count`: the non-null cell count, never null.
-/// Numeric outputs converge onto the `Numeric` backend (`converge=true`), the
-/// expression-engine convention for computed columns; consumers broadcast the
-/// length-1 result back over their scope.
+/// Numeric outputs converge onto the `Numeric` backend, the expression-engine
+/// convention for computed columns; consumers broadcast the length-1 result
+/// back over their scope.
 fn eval_agg(
   op : @expr.AggOp,
   operand : Series,
 ) -> Series raise @types.DataError {
   let (reducer, probe) = reducer_for(operand.storage(), reduce_op_of_agg(op))
   let cell = reducer(operand.len(), k => k)
-  scalars_to_series(probe, operand.name(), [cell], converge=true)
+  scalars_to_series(probe, operand.name(), [cell])
 }
 
 ///|

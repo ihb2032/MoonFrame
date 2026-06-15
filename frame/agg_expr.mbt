@@ -42,10 +42,9 @@
 /// the probe also fixes the output dtype when a 0-row source produced
 /// zero groups. Computed columns follow the expression-engine backend
 /// convention: an all-valid numeric column converges onto `Numeric`,
-/// anything nullable (or `Bool` / `String`) stays `Builtin`. (The
-/// `AggSpec` path leaves `mean` / `min` / `max` on `Builtin` even when
-/// all-valid, so the two paths agree on every cell value but can differ
-/// in backend.)
+/// anything nullable (or `Bool` / `String`) stays `Builtin`. The
+/// `AggSpec` path (`agg`) now follows the same convention, so the two
+/// paths agree on every cell value *and* backend.
 ///
 /// An aggregation directly over a bare column — `col(name).sum()` and the
 /// four other reductions, the common case once aliases are peeled — takes a
@@ -82,9 +81,10 @@ pub fn GroupedDataFrame::agg_exprs(
     let out_name = expr_output_name(expr)
     // `(probe, cells)`: the `ColumnData` fixing the output dtype (so a
     // zero-group result still types) plus one reduced `Scalar` per group, in
-    // group order. Both branches pass `converge=true`, the expression-engine
-    // convention, so the fast path is cell-for-cell *and backend* identical
-    // to the general one — it only changes how the cells are computed.
+    // group order. Both branches feed the same `scalars_to_series`, which
+    // converges an all-valid numeric result onto `Numeric`, so the fast path
+    // is cell-for-cell *and backend* identical to the general one — it only
+    // changes how the cells are computed.
     let (probe, cells) = match bare_col_agg(expr) {
       // Fast path: an aggregation over a bare column, `col(name).<agg>()`.
       // Resolve the reducer and validity mask once through the shared kernel
@@ -120,7 +120,7 @@ pub fn GroupedDataFrame::agg_exprs(
         )
       }
     }
-    out_cols.push(scalars_to_series(probe, out_name, cells, converge=true))
+    out_cols.push(scalars_to_series(probe, out_name, cells))
   }
   DataFrame::new(out_cols)
 }

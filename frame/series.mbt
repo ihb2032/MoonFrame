@@ -352,6 +352,43 @@ fn slice_series(s : Series, start : Int, len : Int) -> Series {
 }
 
 ///|
+/// Rebuild a column cell-by-cell through the option constructors, dispatching
+/// on `source`'s storage variant exactly once. Output cell `k` (for `k` in
+/// `0 ..< n`) is produced by the dtype-matching closure applied to `source`'s
+/// typed data array — `int_cell` for an `Int` column, `string_cell` for a
+/// `String` one, and so on — each returning `Some(v)` for a value or `None`
+/// for a null slot. The result lands on the `Builtin` backend (the option
+/// constructors' backend); callers that want a `Numeric` source to re-converge
+/// onto the fast path wrap the result in `preserve_backend`, which the join
+/// assembly does and which `gather_series` short-circuits before reaching here.
+///
+/// This is the single 4-arm `match data() -> from_*_options` skeleton behind
+/// `gather_series`' nullable path, `gather_series_opt`, and `coalesce_into`:
+/// the per-caller cell logic is all that differs between them, so it is all
+/// each caller supplies. The `match` stays exhaustive over the four dtypes —
+/// every arm is the live path for a column of that dtype, so none is dead.
+fn rebuild_options(
+  source : Series,
+  name : String,
+  n : Int,
+  int_cell : (Array[Int64], Int) -> Int64?,
+  float_cell : (Array[Double], Int) -> Double?,
+  bool_cell : (Array[Bool], Int) -> Bool?,
+  string_cell : (Array[String], Int) -> String?,
+) -> Series {
+  match source.storage.data() {
+    @column.ColumnData::Int(a) =>
+      Series::from_int_options(name, Array::makei(n, k => int_cell(a, k)))
+    @column.ColumnData::Float(a) =>
+      Series::from_float_options(name, Array::makei(n, k => float_cell(a, k)))
+    @column.ColumnData::Bool(a) =>
+      Series::from_bool_options(name, Array::makei(n, k => bool_cell(a, k)))
+    @column.ColumnData::String(a) =>
+      Series::from_string_options(name, Array::makei(n, k => string_cell(a, k)))
+  }
+}
+
+///|
 /// Total gather: position `k` of the result is `s[idx[k]]`. The caller
 /// guarantees every index is in `[0, s.len())`. The result keeps the source
 /// backend — a `Numeric` source rebuilds straight onto the `Numeric` fast
@@ -359,48 +396,32 @@ fn slice_series(s : Series, start : Int, len : Int) -> Series {
 /// the row-gather DataFrame transforms.
 fn gather_series(s : Series, idx : Array[Int]) -> Series {
   // A `Numeric` source is all-valid and the caller guarantees in-bounds
-  // indices, so its gather is itself all-valid: the `Int` / `Float` arms
-  // rebuild directly onto the `Numeric` backend, materialising no validity
-  // mask and allocating no transient bitmap. The option-constructor path the
-  // `Builtin` arms take would, for a `Numeric` source, round-trip `Numeric` →
-  // `Builtin` → `try_column_to_numeric` → `Numeric`, allocating an `Array[T?]`
-  // and a `Bitmap` only to drop them on re-convergence — skipped here. A
-  // `Builtin` source (any dtype) stays `Builtin`; `valid` is read on that path
-  // alone.
+  // indices, so its gather is itself all-valid: rebuild directly onto the
+  // `Numeric` backend, materialising no validity mask and allocating no
+  // transient bitmap. A `Numeric` column only ever backs `Int` / `Float`, so
+  // the two guarded arms are the whole `Numeric` case (`Bool` / `String` are
+  // always `Builtin`). Routing a `Numeric` source through the option
+  // constructors instead would round-trip `Numeric` → `Builtin` →
+  // `try_column_to_numeric` → `Numeric`, allocating an `Array[T?]` and a
+  // `Bitmap` only to drop them on re-convergence. A `Builtin` source (any
+  // dtype) falls to the `_` arm and shares the `rebuild_options` skeleton,
+  // reading its validity mask once.
   let numeric = s.storage.kind() is @column.StorageKind::Numeric
   match s.storage.data() {
-    @column.ColumnData::Int(a) =>
-      if numeric {
-        Series::from_ints(s.name, idx.map(k => a[k]))
-      } else {
-        let valid = s.storage.validity().to_bools()
-        Series::from_int_options(
-          s.name,
-          idx.map(k => if valid[k] { Some(a[k]) } else { None }),
-        )
-      }
-    @column.ColumnData::Float(a) =>
-      if numeric {
-        Series::from_floats(s.name, idx.map(k => a[k]))
-      } else {
-        let valid = s.storage.validity().to_bools()
-        Series::from_float_options(
-          s.name,
-          idx.map(k => if valid[k] { Some(a[k]) } else { None }),
-        )
-      }
-    @column.ColumnData::Bool(a) => {
-      let valid = s.storage.validity().to_bools()
-      Series::from_bool_options(
+    @column.ColumnData::Int(a) if numeric =>
+      Series::from_ints(s.name, idx.map(k => a[k]))
+    @column.ColumnData::Float(a) if numeric =>
+      Series::from_floats(s.name, idx.map(k => a[k]))
+    _ => {
+      let valid = validity_bools(s.storage)
+      rebuild_options(
+        s,
         s.name,
-        idx.map(k => if valid[k] { Some(a[k]) } else { None }),
-      )
-    }
-    @column.ColumnData::String(a) => {
-      let valid = s.storage.validity().to_bools()
-      Series::from_string_options(
-        s.name,
-        idx.map(k => if valid[k] { Some(a[k]) } else { None }),
+        idx.length(),
+        (a, k) => if valid[idx[k]] { Some(a[idx[k]]) } else { None },
+        (a, k) => if valid[idx[k]] { Some(a[idx[k]]) } else { None },
+        (a, k) => if valid[idx[k]] { Some(a[idx[k]]) } else { None },
+        (a, k) => if valid[idx[k]] { Some(a[idx[k]]) } else { None },
       )
     }
   }

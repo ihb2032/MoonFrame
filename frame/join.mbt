@@ -441,59 +441,48 @@ fn resolve_join_keys(
 /// Total — the caller (`join`) only ever stores in-bounds row indices, and
 /// `None` marks a row kept without a match on this side. The result is named
 /// `out_name` (so a colliding right column can be suffixed) and keeps the
-/// source dtype, matching on `data()` exactly as the total `gather_series`
-/// does. It always materialises through the option constructors (→ a
-/// `Builtin` column); `join` wraps the result in `preserve_backend` to
-/// re-converge a no-null gather of a `Numeric` source back onto the fast
-/// path.
+/// source dtype. It always materialises through the option constructors (the
+/// shared `rebuild_options` skeleton → a `Builtin` column); `join` wraps the
+/// result in `preserve_backend` to re-converge a no-null gather of a `Numeric`
+/// source back onto the fast path.
 fn gather_series_opt(
   s : Series,
   idx : Array[Int?],
   out_name : String,
 ) -> Series {
   let valid = validity_bools(s.storage())
-  match s.storage().data() {
-    @column.ColumnData::Int(a) =>
-      Series::from_int_options(
-        out_name,
-        idx.map(o => {
-          match o {
-            Some(k) => if valid[k] { Some(a[k]) } else { None }
-            None => None
-          }
-        }),
-      )
-    @column.ColumnData::Float(a) =>
-      Series::from_float_options(
-        out_name,
-        idx.map(o => {
-          match o {
-            Some(k) => if valid[k] { Some(a[k]) } else { None }
-            None => None
-          }
-        }),
-      )
-    @column.ColumnData::Bool(a) =>
-      Series::from_bool_options(
-        out_name,
-        idx.map(o => {
-          match o {
-            Some(k) => if valid[k] { Some(a[k]) } else { None }
-            None => None
-          }
-        }),
-      )
-    @column.ColumnData::String(a) =>
-      Series::from_string_options(
-        out_name,
-        idx.map(o => {
-          match o {
-            Some(k) => if valid[k] { Some(a[k]) } else { None }
-            None => None
-          }
-        }),
-      )
-  }
+  // Output cell `k` reads source row `idx[k]` when it is `Some` (and the cell
+  // there is valid), else a null. The four closures are identical bar their
+  // element type; `rebuild_options` picks the one matching `s`'s dtype.
+  rebuild_options(
+    s,
+    out_name,
+    idx.length(),
+    (a, k) => {
+      match idx[k] {
+        Some(j) => if valid[j] { Some(a[j]) } else { None }
+        None => None
+      }
+    },
+    (a, k) => {
+      match idx[k] {
+        Some(j) => if valid[j] { Some(a[j]) } else { None }
+        None => None
+      }
+    },
+    (a, k) => {
+      match idx[k] {
+        Some(j) => if valid[j] { Some(a[j]) } else { None }
+        None => None
+      }
+    },
+    (a, k) => {
+      match idx[k] {
+        Some(j) => if valid[j] { Some(a[j]) } else { None }
+        None => None
+      }
+    },
+  )
 }
 
 ///|
@@ -503,70 +492,60 @@ fn gather_series_opt(
 /// rows, `fill` the right key. On a matched row the two are equal, so the
 /// choice only shows where the row is present on a single side (`base` null
 /// → take `fill`); a row null on **both** sides (a kept null-keyed row)
-/// stays null. Dispatches on `base`'s storage variant — the four arms cover
-/// the four dtypes, reading `fill` through the total `to_scalars` so no
-/// unreachable error arm is introduced (the pre-checked equal key dtype
-/// guarantees the matching `Scalar` variant, the `_` arm catching only the
-/// both-null case).
+/// stays null. Builds through the shared `rebuild_options` skeleton
+/// (dispatching on `base`'s storage variant once), reading `fill` through the
+/// total `to_scalars` so no unreachable error arm is introduced — the
+/// pre-checked equal key dtype guarantees the matching `Scalar` variant, the
+/// `_` arm catching only the both-null case.
 fn coalesce_into(base : Series, fill : Series, name : String) -> Series {
   let base_valid = validity_bools(base.storage())
   let fills = fill.to_scalars()
-  match base.storage().data() {
-    @column.ColumnData::Int(a) =>
-      Series::from_int_options(
-        name,
-        Array::makei(a.length(), i => {
-          if base_valid[i] {
-            Some(a[i])
-          } else {
-            match fills[i] {
-              @types.Scalar::Int(v) => Some(v)
-              _ => None
-            }
-          }
-        }),
-      )
-    @column.ColumnData::Float(a) =>
-      Series::from_float_options(
-        name,
-        Array::makei(a.length(), i => {
-          if base_valid[i] {
-            Some(a[i])
-          } else {
-            match fills[i] {
-              @types.Scalar::Float(v) => Some(v)
-              _ => None
-            }
-          }
-        }),
-      )
-    @column.ColumnData::Bool(a) =>
-      Series::from_bool_options(
-        name,
-        Array::makei(a.length(), i => {
-          if base_valid[i] {
-            Some(a[i])
-          } else {
-            match fills[i] {
-              @types.Scalar::Bool(v) => Some(v)
-              _ => None
-            }
-          }
-        }),
-      )
-    @column.ColumnData::String(a) =>
-      Series::from_string_options(
-        name,
-        Array::makei(a.length(), i => {
-          if base_valid[i] {
-            Some(a[i])
-          } else {
-            match fills[i] {
-              @types.Scalar::String(v) => Some(v)
-              _ => None
-            }
-          }
-        }),
-      )
-  }
+  // Each output cell takes `base`'s value where present, else `fill`'s; a
+  // both-null cell falls through both to a null. The four closures differ only
+  // in the `Scalar` variant they read `fill` as.
+  rebuild_options(
+    base,
+    name,
+    base.len(),
+    (a, i) => {
+      if base_valid[i] {
+        Some(a[i])
+      } else {
+        match fills[i] {
+          @types.Scalar::Int(v) => Some(v)
+          _ => None
+        }
+      }
+    },
+    (a, i) => {
+      if base_valid[i] {
+        Some(a[i])
+      } else {
+        match fills[i] {
+          @types.Scalar::Float(v) => Some(v)
+          _ => None
+        }
+      }
+    },
+    (a, i) => {
+      if base_valid[i] {
+        Some(a[i])
+      } else {
+        match fills[i] {
+          @types.Scalar::Bool(v) => Some(v)
+          _ => None
+        }
+      }
+    },
+    (a, i) => {
+      if base_valid[i] {
+        Some(a[i])
+      } else {
+        match fills[i] {
+          @types.Scalar::String(v) => Some(v)
+          _ => None
+        }
+      }
+    },
+  )
 }

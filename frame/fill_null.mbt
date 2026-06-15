@@ -15,9 +15,12 @@
 ///   Column-lookup runs before the fill so a missing name is surfaced
 ///   ahead of a type-mismatch error.
 ///
-/// Structural invariants on the returned frame follow from
-/// `DataFrame::new`, which rebuilds the schema and `name_to_index`
-/// cache in lock-step with the column vector.
+/// `fill_null` rewrites cells in place — the target column keeps its name
+/// and dtype (a cross-dtype fill is rejected upstream) and every other
+/// column is untouched — so names, dtypes, and the row count are unchanged.
+/// The returned frame therefore reuses `self`'s schema and `O(1)`
+/// name→index cache verbatim (the same same-schema rebuild `head` / `tail`
+/// / `to_numeric` use) rather than re-deriving them through `DataFrame::new`.
 pub fn DataFrame::fill_null(
   self : DataFrame,
   column : String,
@@ -27,8 +30,22 @@ pub fn DataFrame::fill_null(
   // column raises `ColumnNotFound` before the (more expensive)
   // `Series::fill_null` traversal runs.
   let filled = self.get_column(column).fill_null(value)
-  let new_cols = self
-    .column_series()
-    .map(s => if s.name() == column { filled } else { s })
-  DataFrame::new(new_cols)
+  // Same-schema rebuild: only the target column's cells change, so names,
+  // dtypes, and the row count are unchanged — reuse the schema and the
+  // name→index cache verbatim (as `head` / `tail` / `to_numeric` do),
+  // dropping `DataFrame::new`'s unreachable `LengthMismatch` /
+  // `DuplicateColumn` arms with it.
+  let new_cols = self.columns.map(s => {
+    if s.name() == column {
+      filled
+    } else {
+      s
+    }
+  })
+  {
+    schema: self.schema,
+    columns: new_cols,
+    nrows: self.nrows,
+    name_to_index: self.name_to_index,
+  }
 }

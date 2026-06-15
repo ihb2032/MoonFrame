@@ -77,11 +77,11 @@ fn format_markdown(df : DataFrame, shown : Int) -> String {
   }
   let names = raw_names.map(escape_md_cell)
   // Pre-render every visible cell so column widths can be computed in
-  // one forward pass before any layout. Materialise each column's cells
-  // once (column-major). `shown <= nrows` and each `col_scalars[c]` has
-  // length `nrows`, so `col_scalars[c][r]` is in-bounds for
-  // `r in [0, shown)`.
-  let col_scalars = df.column_series().map(s => s.to_scalars())
+  // one forward pass before any layout. Materialise the whole frame once
+  // (column-major) through the shared `to_scalar_matrix`. `shown <= nrows`
+  // and each `col_scalars[c]` has length `nrows`, so `col_scalars[c][r]`
+  // is in-bounds for `r in [0, shown)`.
+  let col_scalars = df.to_scalar_matrix()
   let cells : Array[Array[String]] = Array::makei(shown, r => {
     Array::makei(ncols, c => escape_md_cell(col_scalars[c][r].to_string()))
   })

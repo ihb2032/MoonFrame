@@ -225,6 +225,23 @@ test "columns returns names in declaration order, fresh array per call" {
 }
 
 ///|
+test "to_scalar_matrix materialises every cell column-major, Null for nulls" {
+  let df = DataFrame::new([
+    Series::from_int_options("a", [Some(1), None]),
+    Series::from_strings("s", ["x", "y"]),
+  ])
+  // One inner array per column, each `nrows` long; `m[c][r]` is the cell at
+  // column c, row r, and a null slot reads as `Scalar::Null`.
+  let m = df.to_scalar_matrix()
+  assert_eq(m, [
+    [@types.Scalar::Int(1), @types.Scalar::Null],
+    [@types.Scalar::String("x"), @types.Scalar::String("y")],
+  ])
+  // Same result as the column-wise materialisation it factors out.
+  assert_eq(m, df.column_series().map(s => s.to_scalars()))
+}
+
+///|
 test "is_empty fires on 0 rows even with columns declared" {
   let df = DataFrame::new([Series::from_ints("x", [])])
   assert_true(df.is_empty())

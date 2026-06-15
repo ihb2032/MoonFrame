@@ -280,9 +280,10 @@ pub fn format_csv_str(
     buf.write_char('\n')
   }
   let nrows = df.nrows()
-  // Materialise each column's cells once (column-major); `cols[c][r]` is
-  // then a plain in-bounds read, so no per-cell `get` `Result`.
-  let cols = df.column_series().map(s => s.to_scalars())
+  // Materialise the whole frame once (column-major) through the shared
+  // `to_scalar_matrix`; `cols[c][r]` is then a plain in-bounds read, so no
+  // per-cell `get` `Result`.
+  let cols = df.to_scalar_matrix()
   for r in 0..<nrows {
     for c in 0..<names.length() {
       if c > 0 {

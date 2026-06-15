@@ -91,6 +91,7 @@ pub fn DataFrame::to_html_with_options(Self, HtmlOptions) -> String
 pub fn DataFrame::to_markdown(Self) -> String
 pub fn DataFrame::to_markdown_with_limit(Self, Int) -> String
 pub fn DataFrame::to_numeric(Self) -> Self
+pub fn DataFrame::to_scalar_matrix(Self) -> Array[Array[@types.Scalar]]
 pub fn DataFrame::with_column(Self, Series) -> Self raise @types.DataError
 pub fn DataFrame::with_columns(Self, Array[@expr.Expr]) -> Self raise @types.DataError
 

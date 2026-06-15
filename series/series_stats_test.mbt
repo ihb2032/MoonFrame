@@ -328,132 +328,22 @@ test "unique_count folds -0.0 and +0.0 into one value (matching group_by)" {
   assert_eq(s.unique_count(), 2)
 }
 
-// ── describe ─────────────────────────────────────────────────────────
+// ── mean_opt ─────────────────────────────────────────────────────────
 
 ///|
-test "describe on Int series exposes count/null_count/unique_count/mean/min/max" {
-  let s = Series::from_int_options("x", [Some(1), None, Some(3), Some(5), None])
-  let df = s.describe()
-  // Schema: 6 columns in fixed order.
-  assert_eq(df.columns(), [
-    "count", "null_count", "unique_count", "mean", "min", "max",
-  ])
-  assert_eq(df.shape(), (1, 6))
-  // count/null_count/unique_count.
-  assert_eq(df.get(0, "count"), @types.Scalar::Int(3))
-  assert_eq(df.get(0, "null_count"), @types.Scalar::Int(2))
-  assert_eq(df.get(0, "unique_count"), @types.Scalar::Int(3))
-  // mean = (1+3+5)/3 = 3.0 (promoted to Float).
-  assert_eq(df.get(0, "mean"), @types.Scalar::Float(3.0))
-  // min/max preserve the source dtype.
-  assert_eq(df.get(0, "min"), @types.Scalar::Int(1))
-  assert_eq(df.get(0, "max"), @types.Scalar::Int(5))
-  // min/max columns are Int, not Float.
-  assert_eq(df.get_column("min").dtype(), @types.DataType::Int)
-}
-
-///|
-test "describe on Float series uses Float for mean, min, max" {
-  let s = Series::from_float_options("x", [
-    Some(1.0),
-    None,
+/// `mean_opt` is the total form of `Series::mean`: `Some(mean)` for a numeric
+/// series with at least one non-null cell, `None` exactly where `mean` raises
+/// (non-numeric `TypeMismatch`, empty / all-null `InvalidOperation`). Hitting
+/// both the `Some` and the `None` arms keeps this package's own suite covering
+/// the accessor `frame`'s `DataFrame::describe` reads across the boundary.
+test "mean_opt is Some for numeric-with-values and None where mean would raise" {
+  assert_eq(Series::from_ints("x", [1, 2, 3]).mean_opt(), Some(2.0))
+  assert_eq(
+    Series::from_float_options("x", [Some(1.0), None, Some(3.0)]).mean_opt(),
     Some(2.0),
-    Some(3.0),
-  ])
-  let df = s.describe()
-  assert_eq(df.columns(), [
-    "count", "null_count", "unique_count", "mean", "min", "max",
-  ])
-  assert_eq(df.get(0, "count"), @types.Scalar::Int(3))
-  assert_eq(df.get(0, "mean"), @types.Scalar::Float(2.0))
-  assert_eq(df.get(0, "min"), @types.Scalar::Float(1.0))
-  assert_eq(df.get(0, "max"), @types.Scalar::Float(3.0))
-}
-
-///|
-test "describe on empty Int series sets stats / mean / min / max to Null" {
-  let s = Series::from_ints("x", [])
-  let df = s.describe()
-  assert_eq(df.get(0, "count"), @types.Scalar::Int(0))
-  assert_eq(df.get(0, "null_count"), @types.Scalar::Int(0))
-  assert_eq(df.get(0, "unique_count"), @types.Scalar::Int(0))
-  // mean errors on empty → encoded as a null cell.
-  assert_eq(df.get(0, "mean"), @types.Scalar::Null)
-  // min/max on empty return Scalar::Null → null cells with the source dtype.
-  assert_eq(df.get(0, "min"), @types.Scalar::Null)
-  assert_eq(df.get(0, "max"), @types.Scalar::Null)
-  assert_eq(df.get_column("min").dtype(), @types.DataType::Int)
-}
-
-///|
-test "describe on all-null Float series mirrors the empty path" {
-  let s = Series::from_float_options("x", [None, None])
-  let df = s.describe()
-  assert_eq(df.get(0, "count"), @types.Scalar::Int(0))
-  assert_eq(df.get(0, "null_count"), @types.Scalar::Int(2))
-  assert_eq(df.get(0, "mean"), @types.Scalar::Null)
-  assert_eq(df.get(0, "min"), @types.Scalar::Null)
-  assert_eq(df.get(0, "max"), @types.Scalar::Null)
-  // Null cell still typed as Float at the column level.
-  assert_eq(df.get_column("min").dtype(), @types.DataType::Float)
-}
-
-///|
-test "describe on Bool series carries a Null mean and Bool min/max" {
-  let s = Series::from_bool_options("x", [
-    Some(true),
-    None,
-    Some(false),
-    Some(true),
-  ])
-  let df = s.describe()
-  // Non-numeric series still carry the `mean` column (always Null) so the
-  // summary layout is uniform across dtypes.
-  assert_eq(df.columns(), [
-    "count", "null_count", "unique_count", "mean", "min", "max",
-  ])
-  assert_eq(df.shape(), (1, 6))
-  assert_eq(df.get(0, "count"), @types.Scalar::Int(3))
-  assert_eq(df.get(0, "null_count"), @types.Scalar::Int(1))
-  assert_eq(df.get(0, "unique_count"), @types.Scalar::Int(2))
-  assert_eq(df.get(0, "mean"), @types.Scalar::Null)
-  assert_eq(df.get(0, "min"), @types.Scalar::Bool(false))
-  assert_eq(df.get(0, "max"), @types.Scalar::Bool(true))
-}
-
-///|
-test "describe on all-null Bool series produces typed-null min/max" {
-  let s = Series::from_bool_options("x", [None, None])
-  let df = s.describe()
-  assert_eq(df.get(0, "min"), @types.Scalar::Null)
-  assert_eq(df.get(0, "max"), @types.Scalar::Null)
-  assert_eq(df.get_column("min").dtype(), @types.DataType::Bool)
-}
-
-///|
-test "describe on String series carries a Null mean and String min/max" {
-  let s = Series::from_string_options("x", [
-    Some("banana"),
-    None,
-    Some("apple"),
-    Some("cherry"),
-  ])
-  let df = s.describe()
-  assert_eq(df.columns(), [
-    "count", "null_count", "unique_count", "mean", "min", "max",
-  ])
-  assert_eq(df.get(0, "count"), @types.Scalar::Int(3))
-  assert_eq(df.get(0, "unique_count"), @types.Scalar::Int(3))
-  assert_eq(df.get(0, "mean"), @types.Scalar::Null)
-  assert_eq(df.get(0, "min"), @types.Scalar::String("apple"))
-  assert_eq(df.get(0, "max"), @types.Scalar::String("cherry"))
-}
-
-///|
-test "describe on all-null String series produces typed-null min/max" {
-  let s = Series::from_string_options("x", [None])
-  let df = s.describe()
-  assert_eq(df.get(0, "min"), @types.Scalar::Null)
-  assert_eq(df.get(0, "max"), @types.Scalar::Null)
-  assert_eq(df.get_column("min").dtype(), @types.DataType::String)
+  )
+  // `None` exactly where `Series::mean` raises:
+  assert_eq(Series::from_strings("s", ["a", "b"]).mean_opt(), None) // TypeMismatch
+  assert_eq(Series::from_int_options("e", []).mean_opt(), None) // empty
+  assert_eq(Series::from_int_options("n", [None, None]).mean_opt(), None) // all-null
 }

@@ -228,12 +228,13 @@ fn reduce_count(
 }
 
 ///|
-/// The five reductions the shared kernel resolves, frame-local so it is
-/// constructible here — `@expr.AggOp` is a read-only enum (matchable but not
-/// constructible outside `expr`), and `AggKind` is tied to the `AggSpec`
+/// The five reductions the shared kernel resolves. Lives here in `series` and
+/// is `pub(all)` so the `frame`-side aggregations can construct it — they can't
+/// reuse their own op tags: `@expr.AggOp` is a read-only enum (matchable but
+/// not constructible outside `expr`), and `AggKind` is tied to the `AggSpec`
 /// surface. The grouped (`agg`, from `AggKind`) and scoped (`eval_agg`, from
 /// `@expr.AggOp`) reductions both map their own op into this one vocabulary.
-priv enum ReduceOp {
+pub(all) enum ReduceOp {
   Sum
   Mean
   Min
@@ -248,7 +249,7 @@ priv enum ReduceOp {
 /// and scoped (`eval_agg`) reductions so the op → reducer mapping lives in one
 /// place. `Sum` / `Mean` `raise` `TypeMismatch` here for a non-numeric column,
 /// before any window work.
-fn reducer_for(
+pub fn reducer_for(
   storage : @column.ColumnStorage,
   op : ReduceOp,
 ) -> ((Int, (Int) -> Int) -> @types.Scalar, @column.ColumnData) raise @types.DataError {
@@ -275,7 +276,7 @@ fn reducer_for(
 /// `max` pass `converge=false` to stay on `Builtin` (the documented divergence
 /// from the converging expression path); `count` / `sum` and every scoped
 /// reduction pass `converge=true`.
-fn scalars_to_series(
+pub fn scalars_to_series(
   probe : @column.ColumnData,
   name : String,
   cells : Array[@types.Scalar],

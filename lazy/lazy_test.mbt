@@ -11,9 +11,9 @@
 /// String key column — enough surface for every deferred verb.
 fn sales_df() -> @frame.DataFrame raise @types.DataError {
   @frame.DataFrame::new([
-    @frame.Series::from_ints("qty", [5, 120, 80, 200]),
-    @frame.Series::from_int_options("bonus", [Some(1), None, Some(3), None]),
-    @frame.Series::from_strings("region", ["west", "east", "west", "east"]),
+    @series.Series::from_ints("qty", [5, 120, 80, 200]),
+    @series.Series::from_int_options("bonus", [Some(1), None, Some(3), None]),
+    @series.Series::from_strings("region", ["west", "east", "west", "east"]),
   ])
 }
 
@@ -21,8 +21,8 @@ fn sales_df() -> @frame.DataFrame raise @types.DataError {
 /// Join left side: order ids and amounts (3×2).
 fn orders_df() -> @frame.DataFrame raise @types.DataError {
   @frame.DataFrame::new([
-    @frame.Series::from_ints("id", [1, 2, 3]),
-    @frame.Series::from_ints("amount", [10, 20, 30]),
+    @series.Series::from_ints("id", [1, 2, 3]),
+    @series.Series::from_ints("amount", [10, 20, 30]),
   ])
 }
 
@@ -31,8 +31,8 @@ fn orders_df() -> @frame.DataFrame raise @types.DataError {
 /// left, id 4 only here, so Inner / Left / Right / Outer all differ.
 fn cities_df() -> @frame.DataFrame raise @types.DataError {
   @frame.DataFrame::new([
-    @frame.Series::from_ints("id", [2, 3, 4]),
-    @frame.Series::from_strings("city", ["bern", "cork", "delft"]),
+    @series.Series::from_ints("id", [2, 3, 4]),
+    @series.Series::from_strings("city", ["bern", "cork", "delft"]),
   ])
 }
 
@@ -317,8 +317,8 @@ test "group-by building is total; the errors wait for collect" {
 ///|
 test "a zero-row source aggregates to zero groups" {
   let df = @frame.DataFrame::new([
-    @frame.Series::from_ints("qty", []),
-    @frame.Series::from_strings("region", []),
+    @series.Series::from_ints("qty", []),
+    @series.Series::from_strings("region", []),
   ])
   let aggs = [@expr.col("qty").sum().with_alias("total")]
   let lazy_out = lazy_frame(df).group_by(["region"]).agg(aggs).collect()
@@ -330,8 +330,8 @@ test "a zero-row source aggregates to zero groups" {
 ///|
 test "a zero-row source flows through the whole pipeline" {
   let df = @frame.DataFrame::new([
-    @frame.Series::from_ints("qty", []),
-    @frame.Series::from_strings("region", []),
+    @series.Series::from_ints("qty", []),
+    @series.Series::from_strings("region", []),
   ])
   let predicate = @expr.col("qty").gt(@expr.lit_int(0))
   let derived = [(@expr.col("qty") * @expr.lit_int(2)).with_alias("dbl")]

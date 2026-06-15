@@ -182,8 +182,8 @@ test "the flagship pipeline narrows through every stage" {
 ///|
 test "a zero-row frame narrows and collects equal" {
   let df = @frame.DataFrame::new([
-    @frame.Series::from_ints("a", []),
-    @frame.Series::from_strings("b", []),
+    @series.Series::from_ints("a", []),
+    @series.Series::from_strings("b", []),
   ])
   let projection = [@expr.col("a")]
   let out = lazy_frame(df).select_exprs(projection).collect()

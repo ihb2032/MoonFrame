@@ -75,15 +75,15 @@ pub fn Series::mean(self : Series) -> Double raise @types.DataError {
 /// Total arithmetic mean: `Some(mean)` for a numeric series with at least
 /// one non-null cell, `None` for a non-numeric, empty, or all-null series —
 /// i.e. `None` exactly where `Series::mean` raises (`TypeMismatch` /
-/// `InvalidOperation`). This is the total form `describe` summarises with,
-/// mirroring the total `min_value` / `max_value`; `Series::mean` remains the
-/// raising public form that distinguishes the two failure causes, and this
-/// folds both of them into `None`. A `Float` `NaN` is summed in and
-/// propagates to `Some(NaN)`, matching `mean` (Polars — only `Null` is
-/// missing). Package-private: exercised to full coverage through the
-/// `describe` tests (which summarise numeric, non-numeric, and all-null
-/// columns, so both arms below are reached).
-fn Series::mean_opt(self : Series) -> Double? {
+/// `InvalidOperation`). This is the total form `frame`'s `DataFrame::describe`
+/// summarises with, mirroring the total `min_value` / `max_value`;
+/// `Series::mean` remains the raising public form that distinguishes the two
+/// failure causes, and this folds both of them into `None`. A `Float` `NaN` is
+/// summed in and propagates to `Some(NaN)`, matching `mean` (Polars — only
+/// `Null` is missing). Exercised directly by this package's tests and, across
+/// the package boundary, by `DataFrame::describe` (which summarises numeric,
+/// non-numeric, and all-null columns, so both arms below are reached).
+pub fn Series::mean_opt(self : Series) -> Double? {
   Some(self.mean()) catch {
     _ => None
   }
@@ -146,105 +146,4 @@ pub fn Series::unique_count(self : Series) -> Int {
   Map::from_array(
     self.to_scalars().filter(sc => !sc.is_null()).map(sc => (key_cell(sc), ())),
   ).length()
-}
-
-///|
-/// One-row summary `DataFrame`.
-///
-/// Every series produces the same six columns in the same order, so the
-/// summary shape is uniform across dtypes: `count`, `null_count`,
-/// `unique_count` (`Int`), then `mean` (`Double`, `Null` for non-numeric
-/// or empty / all-null numeric), then `min` and `max` in the source
-/// dtype (`Null` cells when the reduction has no value). Non-numeric
-/// series still carry the `mean` column (always `Null`) so callers can
-/// rely on a fixed layout regardless of dtype.
-///
-/// The dtype dispatch matches on the concrete backing array via
-/// `storage.data()` — `ColumnData`'s four variants are exhaustive, so
-/// there's no `Null`-dtype arm and no fallback branch to keep in sync.
-///
-/// Raises only because the summary frame is built through the fallible
-/// `DataFrame::new`. The columns are hardcoded-unique and equal length, so
-/// the constructor always succeeds — the raise is forwarded rather than
-/// caught, so no panic path crosses the public API.
-pub fn Series::describe(self : Series) -> DataFrame raise @types.DataError {
-  let cols : Array[Series] = []
-  cols.push(Series::from_ints("count", [self.count().to_int64()]))
-  cols.push(Series::from_ints("null_count", [self.null_count().to_int64()]))
-  cols.push(Series::from_ints("unique_count", [self.unique_count().to_int64()]))
-  // `mean` is always present (Null for non-numeric / empty / all-null), so
-  // the summary shape is uniform across dtypes. `mean_opt` is the total form
-  // of `Series::mean` — `None` exactly where `mean` would raise (non-numeric
-  // or empty / all-null) — so the summary reads it directly and needs no
-  // error catch, mirroring the total `min_value` / `max_value` used below.
-  cols.push(Series::from_float_options("mean", [self.mean_opt()]))
-  // `min` / `max` keep the source dtype, so dispatch on the concrete
-  // backing array.
-  match self.storage.data() {
-    @column.ColumnData::Int(_) =>
-      push_extrema(
-        self,
-        cols,
-        fn(sc) {
-          match sc {
-            @types.Scalar::Int(x) => Some(x)
-            _ => None
-          }
-        },
-        Series::from_int_options,
-      )
-    @column.ColumnData::Float(_) =>
-      push_extrema(
-        self,
-        cols,
-        fn(sc) {
-          match sc {
-            @types.Scalar::Float(x) => Some(x)
-            _ => None
-          }
-        },
-        Series::from_float_options,
-      )
-    @column.ColumnData::Bool(_) =>
-      push_extrema(
-        self,
-        cols,
-        fn(sc) {
-          match sc {
-            @types.Scalar::Bool(x) => Some(x)
-            _ => None
-          }
-        },
-        Series::from_bool_options,
-      )
-    @column.ColumnData::String(_) =>
-      push_extrema(
-        self,
-        cols,
-        fn(sc) {
-          match sc {
-            @types.Scalar::String(x) => Some(x)
-            _ => None
-          }
-        },
-        Series::from_string_options,
-      )
-  }
-  DataFrame::new(cols)
-}
-
-///|
-/// Push the source-dtype `min` / `max` summary columns for `describe`.
-/// `extract` projects a `min_value` / `max_value` `Scalar` into the typed
-/// cell (`None` for the no-value / wrong-variant case), and `build` is the
-/// matching option constructor — so the four dtype arms share one body
-/// instead of four near-identical helpers.
-fn[T] push_extrema(
-  s : Series,
-  cols : Array[Series],
-  extract : (@types.Scalar) -> T?,
-  build : (String, Array[T?]) -> Series,
-) -> Unit {
-  cols.push(build("min", [extract(s.min_value())]))
-  cols.push(build("max", [extract(s.max_value())]))
 }

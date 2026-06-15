@@ -1,0 +1,89 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ihb2032/MoonFrame/series"
+
+import {
+  "ihb2032/MoonFrame/column",
+  "ihb2032/MoonFrame/types",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn gather_series(Series, Array[Int]) -> Series
+
+pub fn key_cell(@types.Scalar) -> KeyCell
+
+pub fn preserve_backend(Series, Series) -> Series
+
+pub fn rebuild_options(Series, String, Int, (Array[Int64], Int) -> Int64?, (Array[Double], Int) -> Double?, (Array[Bool], Int) -> Bool?, (Array[String], Int) -> String?) -> Series
+
+pub fn reducer_for(@column.ColumnStorage, ReduceOp) -> ((Int, (Int) -> Int) -> @types.Scalar, @column.ColumnData) raise @types.DataError
+
+pub fn scalars_to_series(@column.ColumnData, String, Array[@types.Scalar], converge~ : Bool) -> Series
+
+pub fn slice_series(Series, Int, Int) -> Series
+
+pub fn try_column_to_numeric(Series) -> Series
+
+pub fn validity_bools(@column.ColumnStorage) -> Array[Bool]
+
+// Errors
+
+// Types and methods
+type KeyCell derive(Eq, Hash)
+
+pub(all) enum ReduceOp {
+  Sum
+  Mean
+  Min
+  Max
+  Count
+}
+
+pub struct Series {
+  name : String
+  storage : @column.ColumnStorage
+} derive(Eq, @debug.Debug)
+pub fn Series::cast(Self, @types.DataType) -> Self raise @types.DataError
+pub fn Series::count(Self) -> Int
+pub fn Series::drop_nulls(Self) -> Self
+pub fn Series::dtype(Self) -> @types.DataType
+pub fn Series::fill_null(Self, @types.Scalar) -> Self raise @types.DataError
+pub fn Series::from_bool_options(String, Array[Bool?]) -> Self
+pub fn Series::from_bools(String, Array[Bool]) -> Self
+pub fn Series::from_builtin(String, @column.BuiltinColumn) -> Self
+pub fn Series::from_float_options(String, Array[Double?]) -> Self
+pub fn Series::from_floats(String, Array[Double]) -> Self
+pub fn Series::from_int_options(String, Array[Int64?]) -> Self
+pub fn Series::from_ints(String, Array[Int64]) -> Self
+pub fn Series::from_string_options(String, Array[String?]) -> Self
+pub fn Series::from_strings(String, Array[String]) -> Self
+pub fn Series::get(Self, Int) -> @types.Scalar raise @types.DataError
+pub fn Series::is_empty(Self) -> Bool
+pub fn Series::is_null(Self, Int) -> Bool raise @types.DataError
+pub fn Series::len(Self) -> Int
+pub fn Series::max_value(Self) -> @types.Scalar
+pub fn Series::mean(Self) -> Double raise @types.DataError
+pub fn Series::mean_opt(Self) -> Double?
+pub fn Series::min_value(Self) -> @types.Scalar
+pub fn Series::name(Self) -> String
+pub fn Series::new(String, @column.ColumnStorage) -> Self
+pub fn Series::null_count(Self) -> Int
+pub fn Series::null_rate(Self) -> Double
+pub fn Series::rename(Self, String) -> Self
+pub fn Series::slice(Self, Int, Int) -> Self raise @types.DataError
+pub fn Series::storage(Self) -> @column.ColumnStorage
+pub fn Series::storage_kind(Self) -> @column.StorageKind
+pub fn Series::sum(Self) -> @types.Scalar raise @types.DataError
+pub fn Series::take(Self, Array[Int]) -> Self raise @types.DataError
+pub fn Series::to_builtin(Self) -> Self
+pub fn Series::to_float(Self) -> Self raise @types.DataError
+pub fn Series::to_int(Self) -> Self raise @types.DataError
+pub fn Series::to_numeric(Self) -> Self raise @types.DataError
+pub fn Series::to_scalars(Self) -> Array[@types.Scalar]
+pub fn Series::to_string_series(Self) -> Self
+pub fn Series::unique_count(Self) -> Int
+
+// Type aliases
+
+// Traits
+

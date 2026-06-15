@@ -20,8 +20,8 @@
 /// encoding-`type` branches.
 fn catval_df() -> @frame.DataFrame raise @types.DataError {
   @frame.DataFrame::new([
-    @frame.Series::from_strings("cat", ["x"]),
-    @frame.Series::from_ints("val", [1]),
+    @series.Series::from_strings("cat", ["x"]),
+    @series.Series::from_ints("val", [1]),
   ])
 }
 
@@ -30,9 +30,9 @@ fn catval_df() -> @frame.DataFrame raise @types.DataError {
 /// encoding.
 fn catvalgrp_df() -> @frame.DataFrame raise @types.DataError {
   @frame.DataFrame::new([
-    @frame.Series::from_strings("cat", ["x"]),
-    @frame.Series::from_ints("val", [1]),
-    @frame.Series::from_strings("grp", ["a"]),
+    @series.Series::from_strings("cat", ["x"]),
+    @series.Series::from_ints("val", [1]),
+    @series.Series::from_strings("grp", ["a"]),
   ])
 }
 
@@ -108,8 +108,8 @@ test "format_vega_lite: field type follows column dtype (Float→quantitative, B
   // Complements the canonical case (Int→quantitative, String→nominal): a
   // Float column is quantitative and a Bool column is nominal.
   let df = @frame.DataFrame::new([
-    @frame.Series::from_floats("ratio", [1.5]),
-    @frame.Series::from_bools("flag", [true]),
+    @series.Series::from_floats("ratio", [1.5]),
+    @series.Series::from_bools("flag", [true]),
   ])
   inspect(
     @io.format_vega_lite(df, @io.ChartSpec::point("ratio", "flag")),
@@ -127,8 +127,8 @@ test "format_vega_lite: null and non-finite float cells become JSON null" {
   let inf = id_double(1.0) / id_double(0.0)
   let nan = id_double(0.0) / id_double(0.0)
   let df = @frame.DataFrame::new([
-    @frame.Series::from_strings("label", ["a", "b", "c", "d"]),
-    @frame.Series::from_float_options("amount", [
+    @series.Series::from_strings("label", ["a", "b", "c", "d"]),
+    @series.Series::from_float_options("amount", [
       Some(1.5),
       None,
       Some(inf),

@@ -278,7 +278,7 @@ pub fn Series::take(
 /// kept rather than failing (and rather than leaving a dead error arm,
 /// `feedback_lib_no_abort`). The null-free Int / Float arms reuse the raw
 /// data array — every slot being valid, it is the true data.
-fn try_column_to_numeric(s : Series) -> Series {
+pub fn try_column_to_numeric(s : Series) -> Series {
   match s.storage.kind() {
     @column.StorageKind::Numeric => s
     @column.StorageKind::Builtin =>
@@ -316,7 +316,7 @@ fn try_column_to_numeric(s : Series) -> Series {
 /// backend stable across `head` / `tail` / `slice` / `filter` / `sort` /
 /// `drop_nulls` means those transforms preserve `storage_kind` rather than
 /// silently demoting the fast path.
-fn preserve_backend(source : Series, rebuilt : Series) -> Series {
+pub fn preserve_backend(source : Series, rebuilt : Series) -> Series {
   match source.storage.kind() {
     @column.StorageKind::Numeric => try_column_to_numeric(rebuilt)
     @column.StorageKind::Builtin => rebuilt
@@ -335,7 +335,7 @@ fn preserve_backend(source : Series, rebuilt : Series) -> Series {
 /// whose operands are frequently `Numeric`) read the mask by plain index, so
 /// they share this instead of each repacking a throwaway bitmap for a
 /// `Numeric` column.
-fn validity_bools(storage : @column.ColumnStorage) -> Array[Bool] {
+pub fn validity_bools(storage : @column.ColumnStorage) -> Array[Bool] {
   match storage.kind() {
     @column.StorageKind::Numeric => Array::make(storage.len(), true)
     @column.StorageKind::Builtin => storage.validity().to_bools()
@@ -349,7 +349,7 @@ fn validity_bools(storage : @column.ColumnStorage) -> Array[Bool] {
 /// `DataFrame::slice` (no rebuild, no `Result`). The caller guarantees
 /// `0 <= start` and `start + len <= self.len()`; `slice_total` clamps anyway,
 /// so a stray bound can never abort.
-fn slice_series(s : Series, start : Int, len : Int) -> Series {
+pub fn slice_series(s : Series, start : Int, len : Int) -> Series {
   { name: s.name, storage: s.storage.slice_total(start, start + len) }
 }
 
@@ -369,7 +369,7 @@ fn slice_series(s : Series, start : Int, len : Int) -> Series {
 /// the per-caller cell logic is all that differs between them, so it is all
 /// each caller supplies. The `match` stays exhaustive over the four dtypes —
 /// every arm is the live path for a column of that dtype, so none is dead.
-fn rebuild_options(
+pub fn rebuild_options(
   source : Series,
   name : String,
   n : Int,
@@ -396,7 +396,7 @@ fn rebuild_options(
 /// backend — a `Numeric` source rebuilds straight onto the `Numeric` fast
 /// path, a `Builtin` source stays `Builtin`. Backs `drop_nulls`, `take`, and
 /// the row-gather DataFrame transforms.
-fn gather_series(s : Series, idx : Array[Int]) -> Series {
+pub fn gather_series(s : Series, idx : Array[Int]) -> Series {
   // A `Numeric` source is all-valid and the caller guarantees in-bounds
   // indices, so its gather is itself all-valid: rebuild directly onto the
   // `Numeric` backend, materialising no validity mask and allocating no

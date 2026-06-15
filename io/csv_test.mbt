@@ -577,8 +577,8 @@ test "parse_csv_str: allow_nonfinite=false rejects a leading inf (is_inf gate)" 
 ///|
 test "format_csv_str: header on, mixed dtypes, null cell becomes empty" {
   let df = @frame.DataFrame::new([
-    @frame.Series::from_int_options("n", [Some(1), Some(2), None]),
-    @frame.Series::from_strings("s", ["a", "b", "c"]),
+    @series.Series::from_int_options("n", [Some(1), Some(2), None]),
+    @series.Series::from_strings("s", ["a", "b", "c"]),
   ])
   let out = @io.format_csv_str(df, @io.CsvWriteOptions::default())
   let expected =
@@ -593,8 +593,8 @@ test "format_csv_str: header on, mixed dtypes, null cell becomes empty" {
 ///|
 test "format_csv_str: header off skips the first row" {
   let df = @frame.DataFrame::new([
-    @frame.Series::from_ints("a", [1, 2]),
-    @frame.Series::from_ints("b", [3, 4]),
+    @series.Series::from_ints("a", [1, 2]),
+    @series.Series::from_ints("b", [3, 4]),
   ])
   let out = @io.format_csv_str(df, {
     header: false,
@@ -611,8 +611,8 @@ test "format_csv_str: header off skips the first row" {
 ///|
 test "format_csv_str: custom delimiter (semicolon)" {
   let df = @frame.DataFrame::new([
-    @frame.Series::from_ints("a", [1, 2]),
-    @frame.Series::from_strings("b", ["x", "y"]),
+    @series.Series::from_ints("a", [1, 2]),
+    @series.Series::from_strings("b", ["x", "y"]),
   ])
   let out = @io.format_csv_str(df, {
     header: true,
@@ -630,7 +630,7 @@ test "format_csv_str: custom delimiter (semicolon)" {
 ///|
 test "format_csv_str: custom null_value rendering" {
   let df = @frame.DataFrame::new([
-    @frame.Series::from_int_options("n", [Some(1), None, Some(3)]),
+    @series.Series::from_int_options("n", [Some(1), None, Some(3)]),
   ])
   let out = @io.format_csv_str(df, {
     header: true,
@@ -649,7 +649,7 @@ test "format_csv_str: custom null_value rendering" {
 ///|
 test "format_csv_str: quotes cells with delimiter, quote, newline, or CR" {
   let df = @frame.DataFrame::new([
-    @frame.Series::from_strings("a", [
+    @series.Series::from_strings("a", [
       "needs,comma", "needs\"quote", "needs\nlf", "needs\rcr",
     ]),
   ])
@@ -663,7 +663,7 @@ test "format_csv_str: quotes cells with delimiter, quote, newline, or CR" {
 ///|
 test "format_csv_str: also quotes header names that contain the delimiter" {
   let df = @frame.DataFrame::new([
-    @frame.Series::from_ints("hello,world", [1, 2]),
+    @series.Series::from_ints("hello,world", [1, 2]),
   ])
   let out = @io.format_csv_str(df, @io.CsvWriteOptions::default())
   let expected =
@@ -709,14 +709,14 @@ test "format_csv_str: 0 rows with declared schema emits header only" {
 ///|
 test "parse_csv_str ∘ format_csv_str: round-trip preserves dtypes and values" {
   let df = @frame.DataFrame::new([
-    @frame.Series::from_int_options("n", [Some(1), None, Some(3)]),
-    @frame.Series::from_floats("r", [
+    @series.Series::from_int_options("n", [Some(1), None, Some(3)]),
+    @series.Series::from_floats("r", [
       (1.5 : Double),
       (2.5 : Double),
       (3.5 : Double),
     ]),
-    @frame.Series::from_bool_options("b", [Some(true), Some(false), None]),
-    @frame.Series::from_strings("s", ["alpha", "beta", "gamma"]),
+    @series.Series::from_bool_options("b", [Some(true), Some(false), None]),
+    @series.Series::from_strings("s", ["alpha", "beta", "gamma"]),
   ])
   let text = @io.format_csv_str(df, @io.CsvWriteOptions::default())
   let parsed = @io.parse_csv_str(text, @io.CsvReadOptions::default())
@@ -738,10 +738,10 @@ test "parse_csv_str ∘ format_csv_str: round-trips quoted delimiters, quotes, a
   // write→read round trip — the writer quotes/escapes it, and the reader
   // (NyaCSV with newlines-in-quotes) reassembles the multi-line record.
   let df = @frame.DataFrame::new([
-    @frame.Series::from_strings("text", [
+    @series.Series::from_strings("text", [
       "needs,comma", "has \"quote\"", "two\nlines",
     ]),
-    @frame.Series::from_ints("n", [1, 2, 3]),
+    @series.Series::from_ints("n", [1, 2, 3]),
   ])
   let text = @io.format_csv_str(df, @io.CsvWriteOptions::default())
   let parsed = @io.parse_csv_str(text, @io.CsvReadOptions::default())
@@ -759,8 +759,8 @@ test "parse_csv_str ∘ format_csv_str: round-trips quoted delimiters, quotes, a
 test "write_csv then read_csv round-trips a small frame on disk" {
   let path = "_build/io_csv_test_roundtrip.csv"
   let df = @frame.DataFrame::new([
-    @frame.Series::from_ints("n", [1, 2, 3]),
-    @frame.Series::from_strings("s", ["x", "y", "z"]),
+    @series.Series::from_ints("n", [1, 2, 3]),
+    @series.Series::from_strings("s", ["x", "y", "z"]),
   ])
   @io.write_csv(path, df)
   let parsed = @io.read_csv(path)
@@ -775,8 +775,8 @@ test "write_csv then read_csv round-trips a small frame on disk" {
 test "write_csv_with_options + read_csv_with_options honour custom shape" {
   let path = "_build/io_csv_test_custom.csv"
   let df = @frame.DataFrame::new([
-    @frame.Series::from_int_options("a", [Some(1), None]),
-    @frame.Series::from_strings("b", ["p", "q"]),
+    @series.Series::from_int_options("a", [Some(1), None]),
+    @series.Series::from_strings("b", ["p", "q"]),
   ])
   let write_opts : @io.CsvWriteOptions = {
     header: true,
@@ -820,14 +820,14 @@ test "write_csv: invalid path surfaces as IoError" {
   // Write into a directory that does not exist. The native fs
   // backend rejects the open call with an IOError; we promote it
   // to the DataError variant.
-  let df = @frame.DataFrame::new([@frame.Series::from_ints("a", [1])])
+  let df = @frame.DataFrame::new([@series.Series::from_ints("a", [1])])
   let result = try? @io.write_csv("_build/no_such_dir_io_test/file.csv", df)
   assert_true(result is Err(@types.DataError::IoError(_)))
 }
 
 ///|
 test "write_csv_with_options: invalid path surfaces as IoError" {
-  let df = @frame.DataFrame::new([@frame.Series::from_ints("a", [1])])
+  let df = @frame.DataFrame::new([@series.Series::from_ints("a", [1])])
   let result = try? @io.write_csv_with_options(
     "_build/no_such_dir_io_test_2/file.csv",
     df,

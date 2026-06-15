@@ -14,8 +14,8 @@
 ///|
 test "format_json_records: simple Int + String frame" {
   let df = @frame.DataFrame::new([
-    @frame.Series::from_ints("n", [1, 2, 3]),
-    @frame.Series::from_strings("s", ["a", "b", "c"]),
+    @series.Series::from_ints("n", [1, 2, 3]),
+    @series.Series::from_strings("s", ["a", "b", "c"]),
   ])
   // `@json.stringify` emits compact JSON with no spaces. Column
   // order matches DataFrame column declaration order — the
@@ -29,8 +29,8 @@ test "format_json_records: simple Int + String frame" {
 ///|
 test "format_json_records: null cells emit JSON null" {
   let df = @frame.DataFrame::new([
-    @frame.Series::from_int_options("n", [Some(1), None]),
-    @frame.Series::from_string_options("s", [None, Some("x")]),
+    @series.Series::from_int_options("n", [Some(1), None]),
+    @series.Series::from_string_options("s", [None, Some("x")]),
   ])
   assert_eq(
     @io.format_json_records(df),
@@ -44,7 +44,7 @@ test "format_json_records: special characters get standard escapes" {
   // pins explicitly. We rely on the builtin stringifier, so the
   // assertion locks in the convention rather than re-deriving it.
   let df = @frame.DataFrame::new([
-    @frame.Series::from_strings("s", ["a\"b\\c\nd\te"]),
+    @series.Series::from_strings("s", ["a\"b\\c\nd\te"]),
   ])
   assert_eq(@io.format_json_records(df), "[{\"s\":\"a\\\"b\\\\c\\nd\\te\"}]")
 }
@@ -73,7 +73,7 @@ test "format_json_records: non-finite floats emit JSON null" {
   let inf = id_double(1.0) / id_double(0.0)
   let nan = id_double(0.0) / id_double(0.0)
   let df = @frame.DataFrame::new([
-    @frame.Series::from_floats("x", [1.5, inf, -inf, nan]),
+    @series.Series::from_floats("x", [1.5, inf, -inf, nan]),
   ])
   let js = @io.format_json_records(df)
   assert_eq(js, "[{\"x\":1.5},{\"x\":null},{\"x\":null},{\"x\":null}]")
@@ -359,8 +359,8 @@ test "parse_json_records_str: nested array / object cells fall back to String" {
 test "write_json_records then read_json round-trips a small frame on disk" {
   let path = "_build/io_json_test_roundtrip.json"
   let df = @frame.DataFrame::new([
-    @frame.Series::from_ints("n", [1, 2, 3]),
-    @frame.Series::from_strings("s", ["x", "y", "z"]),
+    @series.Series::from_ints("n", [1, 2, 3]),
+    @series.Series::from_strings("s", ["x", "y", "z"]),
   ])
   @io.write_json_records(path, df)
   let parsed = @io.read_json(path)
@@ -375,7 +375,7 @@ test "write_json_records then read_json round-trips a small frame on disk" {
 test "read_json_with_options honours a custom inference window" {
   let path = "_build/io_json_test_custom.json"
   let df = @frame.DataFrame::new([
-    @frame.Series::from_int_options("a", [Some(1), Some(2), Some(3)]),
+    @series.Series::from_int_options("a", [Some(1), Some(2), Some(3)]),
   ])
   @io.write_json_records(path, df)
   let parsed = @io.read_json_with_options(path, {
@@ -406,7 +406,7 @@ test "write_json_records: invalid path surfaces as IoError" {
   // Same shape as the CSV writer error test: aim the writer at a
   // directory that doesn't exist so the underlying `@fs` call
   // surfaces `IOError`, which we promote to `DataError::IoError`.
-  let df = @frame.DataFrame::new([@frame.Series::from_ints("a", [1])])
+  let df = @frame.DataFrame::new([@series.Series::from_ints("a", [1])])
   let result = try? @io.write_json_records(
     "_build/no_such_dir_io_json_test/file.json", df,
   )
@@ -418,14 +418,14 @@ test "write_json_records: invalid path surfaces as IoError" {
 ///|
 test "format_json_records / parse_json_records_str round-trip preserves data" {
   let df = @frame.DataFrame::new([
-    @frame.Series::from_int_options("n", [Some(1), None, Some(3)]),
-    @frame.Series::from_floats("r", [
+    @series.Series::from_int_options("n", [Some(1), None, Some(3)]),
+    @series.Series::from_floats("r", [
       (1.5 : Double),
       (2.5 : Double),
       (3.5 : Double),
     ]),
-    @frame.Series::from_bool_options("b", [Some(true), Some(false), None]),
-    @frame.Series::from_strings("s", ["a", "b", "c"]),
+    @series.Series::from_bool_options("b", [Some(true), Some(false), None]),
+    @series.Series::from_strings("s", ["a", "b", "c"]),
   ])
   let json = @io.format_json_records(df)
   let df2 = @io.parse_json_records_str(json, @io.JsonReadOptions::default())
@@ -445,7 +445,7 @@ test "round-trip narrows an all-integral Float column to Int (documented caveat)
   // header (Caveat 1) — and is why the round-trip test above uses fractional
   // cells (1.5 / 2.5 / 3.5), which stay `Float`.
   let df = @frame.DataFrame::new([
-    @frame.Series::from_floats("r", [(2.0 : Double), (3.0 : Double)]),
+    @series.Series::from_floats("r", [(2.0 : Double), (3.0 : Double)]),
   ])
   assert_eq(df.get_column("r").dtype(), @types.DataType::Float)
   let df2 = @io.parse_json_records_str(

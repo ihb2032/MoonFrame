@@ -18,8 +18,8 @@
 ///|
 test "format_ndjson: simple Int + String frame" {
   let df = @frame.DataFrame::new([
-    @frame.Series::from_ints("n", [1, 2, 3]),
-    @frame.Series::from_strings("s", ["a", "b", "c"]),
+    @series.Series::from_ints("n", [1, 2, 3]),
+    @series.Series::from_strings("s", ["a", "b", "c"]),
   ])
   // One compact object per row, each terminated by `\n` (including the
   // last). Keys follow column declaration order.
@@ -32,8 +32,8 @@ test "format_ndjson: simple Int + String frame" {
 ///|
 test "format_ndjson: null cells emit JSON null" {
   let df = @frame.DataFrame::new([
-    @frame.Series::from_int_options("n", [Some(1), None]),
-    @frame.Series::from_string_options("s", [None, Some("x")]),
+    @series.Series::from_int_options("n", [Some(1), None]),
+    @series.Series::from_string_options("s", [None, Some("x")]),
   ])
   assert_eq(
     @io.format_ndjson(df),
@@ -46,7 +46,7 @@ test "format_ndjson: special characters get standard escapes" {
   // Same four escapes the JSON-records writer pins; the builtin
   // stringifier produces them, so this locks in the convention.
   let df = @frame.DataFrame::new([
-    @frame.Series::from_strings("s", ["a\"b\\c\nd\te"]),
+    @series.Series::from_strings("s", ["a\"b\\c\nd\te"]),
   ])
   assert_eq(@io.format_ndjson(df), "{\"s\":\"a\\\"b\\\\c\\nd\\te\"}\n")
 }
@@ -68,7 +68,7 @@ test "format_ndjson: non-finite floats emit JSON null" {
   let inf = id_double(1.0) / id_double(0.0)
   let nan = id_double(0.0) / id_double(0.0)
   let df = @frame.DataFrame::new([
-    @frame.Series::from_floats("x", [1.5, inf, -inf, nan]),
+    @series.Series::from_floats("x", [1.5, inf, -inf, nan]),
   ])
   let text = @io.format_ndjson(df)
   assert_eq(text, "{\"x\":1.5}\n{\"x\":null}\n{\"x\":null}\n{\"x\":null}\n")
@@ -355,8 +355,8 @@ test "parse_ndjson_str: on_parse_error=Null nulls an out-of-window misfit" {
 test "write_ndjson then read_ndjson round-trips a small frame on disk" {
   let path = "_build/io_ndjson_test_roundtrip.ndjson"
   let df = @frame.DataFrame::new([
-    @frame.Series::from_ints("n", [1, 2, 3]),
-    @frame.Series::from_strings("s", ["x", "y", "z"]),
+    @series.Series::from_ints("n", [1, 2, 3]),
+    @series.Series::from_strings("s", ["x", "y", "z"]),
   ])
   @io.write_ndjson(path, df)
   let parsed = @io.read_ndjson(path)
@@ -371,7 +371,7 @@ test "write_ndjson then read_ndjson round-trips a small frame on disk" {
 test "read_ndjson_with_options honours a custom inference window" {
   let path = "_build/io_ndjson_test_custom.ndjson"
   let df = @frame.DataFrame::new([
-    @frame.Series::from_int_options("a", [Some(1), Some(2), Some(3)]),
+    @series.Series::from_int_options("a", [Some(1), Some(2), Some(3)]),
   ])
   @io.write_ndjson(path, df)
   let parsed = @io.read_ndjson_with_options(path, {
@@ -403,7 +403,7 @@ test "read_ndjson_with_options: missing file surfaces as IoError" {
 test "write_ndjson: invalid path surfaces as IoError" {
   // Aim the writer at a directory that doesn't exist so the underlying
   // `@fs` call surfaces `IOError`, promoted to `DataError::IoError`.
-  let df = @frame.DataFrame::new([@frame.Series::from_ints("a", [1])])
+  let df = @frame.DataFrame::new([@series.Series::from_ints("a", [1])])
   let result = try? @io.write_ndjson(
     "_build/no_such_dir_io_ndjson_test/file.ndjson", df,
   )
@@ -415,14 +415,14 @@ test "write_ndjson: invalid path surfaces as IoError" {
 ///|
 test "format_ndjson / parse_ndjson_str round-trip preserves data" {
   let df = @frame.DataFrame::new([
-    @frame.Series::from_int_options("n", [Some(1), None, Some(3)]),
-    @frame.Series::from_floats("r", [
+    @series.Series::from_int_options("n", [Some(1), None, Some(3)]),
+    @series.Series::from_floats("r", [
       (1.5 : Double),
       (2.5 : Double),
       (3.5 : Double),
     ]),
-    @frame.Series::from_bool_options("b", [Some(true), Some(false), None]),
-    @frame.Series::from_strings("s", ["a", "b", "c"]),
+    @series.Series::from_bool_options("b", [Some(true), Some(false), None]),
+    @series.Series::from_strings("s", ["a", "b", "c"]),
   ])
   let text = @io.format_ndjson(df)
   let df2 = @io.parse_ndjson_str(text, @io.NdjsonReadOptions::default())

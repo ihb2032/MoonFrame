@@ -6,5 +6,6 @@ import {
 }
 
 import {
+  "ihb2032/MoonFrame/series",
   "moonbitlang/core/test",
 } for "test"

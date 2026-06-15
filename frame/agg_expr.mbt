@@ -47,6 +47,17 @@
 /// all-valid, so the two paths agree on every cell value but can differ
 /// in backend.)
 ///
+/// An aggregation directly over a bare column — `col(name).sum()` and the
+/// four other reductions, the common case once aliases are peeled — takes a
+/// single-pass fast path (`bare_col_agg`): the shared reduction kernel
+/// resolves its reducer and validity mask once and folds each group's row
+/// indices straight off the source column, instead of gathering a fresh
+/// sub-column per group through the general evaluator. It is purely an
+/// optimization — the result is cell-for-cell and backend identical to the
+/// general path, with the same dtype / null / NaN rules and the same up-front
+/// error surfacing — so an aggregation over a *derived* operand
+/// (`(col("a") - col("b")).sum()`) transparently falls back to it.
+///
 /// Raises:
 /// - `InvalidOperation(...)` — an expression is not reduction-shaped.
 /// - `ColumnNotFound(name)` — an expression references an absent column.
@@ -68,32 +79,48 @@ pub fn GroupedDataFrame::agg_exprs(
     out_cols.push(gather_series(self.source.get_column(key), reps))
   }
   for expr in exprs {
-    if !reduces_per_group(expr) {
-      raise @types.DataError::InvalidOperation(
-        "aggregate expression must reduce each group to a single value: " +
-        expr.explain(),
-      )
+    let out_name = expr_output_name(expr)
+    // `(probe, cells)`: the `ColumnData` fixing the output dtype (so a
+    // zero-group result still types) plus one reduced `Scalar` per group, in
+    // group order. Both branches pass `converge=true`, the expression-engine
+    // convention, so the fast path is cell-for-cell *and backend* identical
+    // to the general one — it only changes how the cells are computed.
+    let (probe, cells) = match bare_col_agg(expr) {
+      // Fast path: an aggregation over a bare column, `col(name).<agg>()`.
+      // Resolve the reducer and validity mask once through the shared kernel
+      // (which raises `ColumnNotFound` on the absent column and `TypeMismatch`
+      // for a non-numeric `sum` / `mean`, both up front before any group
+      // work), then fold each group's row indices straight off the source
+      // column — no per-group sub-column is gathered.
+      Some((name, rop)) => {
+        let (reducer, probe) = reducer_for(
+          self.source.get_column(name).storage(),
+          rop,
+        )
+        (probe, self.groups.map(g => reducer(g.length(), k => g[k])))
+      }
+      // General path: a derived or compound reduction such as
+      // `(col("a") - col("b")).sum()` or `col("x").max() - col("x").min()`.
+      // The shape gate rejects non-reductions first; the empty-scope probe
+      // then surfaces `ColumnNotFound` / `TypeMismatch` once and pins the
+      // output dtype even when a 0-row source produced zero groups; each group
+      // is evaluated through the general engine and its length-1 result read
+      // off the total `to_scalars` by plain index.
+      None => {
+        if !reduces_per_group(expr) {
+          raise @types.DataError::InvalidOperation(
+            "aggregate expression must reduce each group to a single value: " +
+            expr.explain(),
+          )
+        }
+        let probe = eval_expr(expr, self.source, [])
+        (
+          probe.storage().data(),
+          self.groups.map(g => eval_expr(expr, self.source, g).to_scalars()[0]),
+        )
+      }
     }
-    // Probe under the empty scope: dtype rules are scope-independent, so
-    // this surfaces `ColumnNotFound` / `TypeMismatch` once, before any
-    // per-group evaluation (the `sum_groups` convention), and pins the
-    // output dtype even when a 0-row source produced zero groups.
-    let probe = eval_expr(expr, self.source, [])
-    // A reduction-shaped expression evaluates to length 1 under any scope
-    // (aggregations and literals are length-1, and the combinators only
-    // ever broadcast 1 against 1), so the lone cell is read off the total
-    // `to_scalars` by plain index.
-    let cells = self.groups.map(g => {
-      eval_expr(expr, self.source, g).to_scalars()[0]
-    })
-    out_cols.push(
-      scalars_to_series(
-        probe.storage().data(),
-        expr_output_name(expr),
-        cells,
-        converge=true,
-      ),
-    )
+    out_cols.push(scalars_to_series(probe, out_name, cells, converge=true))
   }
   DataFrame::new(out_cols)
 }
@@ -115,5 +142,25 @@ fn reduces_per_group(expr : @expr.Expr) -> Bool {
     | @expr.Expr::Alias(e, _) => reduces_per_group(e)
     @expr.Expr::Ternary(c, t, f) =>
       reduces_per_group(c) && reduces_per_group(t) && reduces_per_group(f)
+  }
+}
+
+///|
+/// Recognise the single-pass fast-path shape — an aggregation directly over
+/// a bare column reference, `col(name).sum()` / `.mean()` / `.min()` /
+/// `.max()` / `.count()` — returning the source column name and reduction op,
+/// else `None`. Top-level aliases are peeled first: `col(name).sum()
+/// .with_alias("total")` is the common idiom and an alias only renames the
+/// result (the output name comes from `expr_output_name` either way). The
+/// aggregation's operand must be a *bare* `Col`; an aggregation over a
+/// derived operand (`(col("a") - col("b")).sum()`, `col("x").cast(...).sum()`)
+/// or any non-aggregation returns `None` and takes the general per-group
+/// evaluator — which the fast path reproduces cell for cell.
+fn bare_col_agg(expr : @expr.Expr) -> (String, ReduceOp)? {
+  match expr {
+    @expr.Expr::Alias(inner, _) => bare_col_agg(inner)
+    @expr.Expr::Agg(op, @expr.Expr::Col(name)) =>
+      Some((name, reduce_op_of_agg(op)))
+    _ => None
   }
 }

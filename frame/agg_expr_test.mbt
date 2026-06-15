@@ -53,6 +53,49 @@ test "single-column reductions match the AggSpec agg cell for cell" {
 }
 
 ///|
+test "the single-pass fast path matches the general evaluator, values and backend" {
+  // `col("v").<agg>()` takes the bare-column single-pass fast path; the same
+  // reduction over the identity-derived operand `col("v") + lit_int(0)` is no
+  // longer a bare column, so it falls to the general per-group evaluator —
+  // yet `+ 0` changes no cell (`Int` identity, and a null stays null). The
+  // optimization is sound only if the two paths agree on every value *and* on
+  // the backend, so pin both. The "c" group is all-null, forcing
+  // `mean` / `min` / `max` onto a null cell (the `Builtin` result) while
+  // `sum` / `count` stay all-valid (the `Numeric` result), so both backends
+  // are exercised on both paths.
+  let df = DataFrame::new([
+    Series::from_strings("k", ["a", "b", "a", "c", "b", "a"]),
+    Series::from_int_options("v", [
+      Some(1),
+      Some(4),
+      None,
+      None,
+      Some(2),
+      Some(3),
+    ]),
+  ])
+  let builders : Array[(@expr.Expr) -> @expr.Expr] = [
+    e => e.sum(),
+    e => e.mean(),
+    e => e.min(),
+    e => e.max(),
+    e => e.count(),
+  ]
+  for agg in builders {
+    let fast = df
+      .group_by(["k"])
+      .agg_exprs([agg(@expr.col("v")).with_alias("r")])
+      .get_column("r")
+    let slow = df
+      .group_by(["k"])
+      .agg_exprs([agg(@expr.col("v") + @expr.lit_int(0)).with_alias("r")])
+      .get_column("r")
+    assert_eq(fast.to_scalars(), slow.to_scalars())
+    assert_eq(fast.storage_kind(), slow.storage_kind())
+  }
+}
+
+///|
 test "compound aggregations express what AggSpec cannot" {
   let out = agg_expr_df()
     .group_by(["region"])

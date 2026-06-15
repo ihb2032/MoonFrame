@@ -1,37 +1,61 @@
 ///|
-/// Project the frame down to the columns named in `names`, in the
-/// order they appear in `names`. The result is a new `DataFrame`
-/// whose row count is unchanged.
+/// Project the frame to exactly the evaluated expressions — MoonFrame's
+/// single `select` verb (Polars' `df.select(...)`). Each expression is
+/// evaluated over the whole frame under the dtype / null / NaN rules in
+/// `expr_eval.mbt`, so a projection can pick an existing column
+/// (`col("a")`), compute a new one (`col("a") + col("b")`), aggregate
+/// (`col("a").sum()`), or inject a literal. The plain names-only projection
+/// of earlier versions is `select([col("a"), col("b")])` — or, equivalently,
+/// `select(cols(["a", "b"]))` — and behaves identically: a list of bare
+/// `col` references projects those columns in that order.
 ///
-/// Raises:
-/// - `ColumnNotFound(name)` — `name` does not exist in `self`.
-/// - `DuplicateColumn(name)` — `names` contains the same name twice
-///   (which would otherwise produce a frame with a duplicate column).
+/// Output height (the Polars `select` rule). Evaluation yields columns
+/// that are frame-tall or length-1 (literals and aggregations):
+/// - any frame-tall result fixes the height at `self.nrows()`, and every
+///   length-1 result broadcasts up to it — down to zero rows on an empty
+///   frame;
+/// - if **every** expression reduces to length 1, the output is a single
+///   row: `df.select([col("a").sum()])` is the one-row summary frame, not
+///   `nrows` copies of it.
 ///
-/// Errors are reported in the order names are processed, so a missing
-/// name encountered before a duplicate surfaces as `ColumnNotFound`
-/// first.
+/// Naming follows `with_columns`: each column takes its expression's
+/// output name (alias, else leftmost column reference, else `"literal"`),
+/// and a name produced twice raises `DuplicateColumn` at the second
+/// expression — errors surface in expression order, before later
+/// expressions are evaluated. `select([])` collapses to the 0×0 frame.
 ///
-/// All structural invariants on the returned frame are guaranteed by
-/// routing the new column list through `DataFrame::new`, which
-/// rebuilds the `schema` and `name_to_index` cache in lock-step.
+/// Evaluation errors (unknown columns, dtype mismatches, the
+/// unrepresentable `Null` literal) surface here; building the expressions
+/// was total.
 pub fn DataFrame::select(
   self : DataFrame,
-  names : Array[String],
+  exprs : Array[@expr.Expr],
 ) -> DataFrame raise @types.DataError {
-  // Map each name to its column, in order. The running `seen` set makes a
-  // repeated name raise `DuplicateColumn` at the repeat — before any later
-  // name is examined — matching the documented "first error in name order"
-  // contract; `get_column` raises `ColumnNotFound` for an unknown name.
-  // `Array::map` is left-to-right and forwards the raise, so the first
-  // offending name short-circuits the scan.
+  let scope = Array::makei(self.nrows(), i => i)
+  let evaluated : Array[Series] = []
   let seen : Map[String, Unit] = {}
-  let picked = names.map(n => {
-    if seen.contains(n) {
-      raise @types.DataError::DuplicateColumn(n)
+  for expr in exprs {
+    let column = eval_expr(expr, self, scope)
+    let name = expr_output_name(expr)
+    if seen.contains(name) {
+      raise @types.DataError::DuplicateColumn(name)
     }
-    seen[n] = ()
-    self.get_column(n)
-  })
-  DataFrame::new(picked)
+    seen[name] = ()
+    evaluated.push(column.rename(name))
+  }
+  // Lengths are drawn from {1, nrows} (every expression evaluated under
+  // the same whole-frame scope), so any non-1 length *is* the frame
+  // height; only when every expression reduced to a scalar does the
+  // output collapse to one row.
+  let mut height = 1
+  for column in evaluated {
+    if column.len() != 1 {
+      height = column.len()
+    }
+  }
+  let broadcasted : Array[Series] = []
+  for column in evaluated {
+    broadcasted.push(broadcast_series(column, height))
+  }
+  DataFrame::new(broadcasted)
 }

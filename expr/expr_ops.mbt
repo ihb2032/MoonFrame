@@ -15,6 +15,17 @@ pub fn col(name : String) -> Expr {
 }
 
 ///|
+/// Build a column-reference list from names: `cols(["a", "b"])` is exactly
+/// `[col("a"), col("b")]`. The ergonomic shorthand for the common case of
+/// projecting (or dropping) several existing columns by name through the
+/// expression verbs — `df.select(cols(["a", "b"]))` reads almost like the
+/// names-only projection it replaces. Each name resolves at evaluation
+/// time, exactly like `col`; building the list is total.
+pub fn cols(names : Array[String]) -> Array[Expr] {
+  names.map(name => Expr::col(name))
+}
+
+///|
 /// Embed a literal `Scalar`. At evaluation it becomes a length-1 column
 /// broadcast against its siblings. Prefer the typed shorthands
 /// (`lit_int` / `lit_float` / `lit_str` / `lit_bool`), which avoid

@@ -144,7 +144,7 @@ test "report_plan: collect runs the plan and equals the eager pipeline" {
       ),
     ])
     .filter_where(@moonframe.col("region").eq(@moonframe.lit_str("west")))
-    .select_exprs([@moonframe.col("region"), @moonframe.col("revenue_adj")])
+    .select([@moonframe.col("region"), @moonframe.col("revenue_adj")])
   assert_eq(out, eager)
   assert_eq(out.check_invariants(), Ok(()))
 }

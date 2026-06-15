@@ -1,7 +1,7 @@
 ///|
 /// Vectorized evaluation of `@expr.Expr` against a `DataFrame` — the
 /// engine behind `DataFrame::with_columns` (and, as v0.4 grows, every
-/// expression consumer: `select_exprs` / `filter_where` / `agg_exprs`).
+/// expression consumer: `select` / `filter_where` / `agg_exprs`).
 ///
 /// This lives in `frame`, not `expr`: evaluation reads `Series` internals
 /// (raw `data()` buffers plus validity bitmaps), and that capability —

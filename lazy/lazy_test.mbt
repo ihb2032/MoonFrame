@@ -68,10 +68,7 @@ test "each deferred verb collects to its eager equivalent" {
     @expr.col("region"),
     @expr.col("qty").sum().with_alias("total"),
   ]
-  assert_eq(
-    lazy_frame(df).select_exprs(projection).collect(),
-    df.select_exprs(projection),
-  )
+  assert_eq(lazy_frame(df).select(projection).collect(), df.select(projection))
   let keys = [
     ("bonus", @frame.SortOrder::Asc, @frame.NullOrder::NullsLast),
     ("qty", @frame.SortOrder::Desc, @frame.NullOrder::NullsFirst),
@@ -131,14 +128,14 @@ test "a composite pipeline collects bitwise-equal to the eager chain" {
     .filter_where(predicate)
     .with_columns(derived)
     .sort_by(keys)
-    .select_exprs(projection)
+    .select(projection)
     .head(2)
     .collect()
   let eager_out = df
     .filter_where(predicate)
     .with_columns(derived)
     .sort_by(keys)
-    .select_exprs(projection)
+    .select(projection)
     .head(2)
   assert_eq(lazy_out, eager_out)
   assert_eq(lazy_out.check_invariants(), Ok(()))

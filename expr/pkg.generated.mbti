@@ -10,6 +10,8 @@ import {
 // Values
 pub fn col(String) -> Expr
 
+pub fn cols(Array[String]) -> Array[Expr]
+
 pub fn lit(@types.Scalar) -> Expr
 
 pub fn lit_bool(Bool) -> Expr

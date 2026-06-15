@@ -31,7 +31,7 @@ test "pipeline: read_csv → filter → select → sort_by → describe → to_m
   // predicate, so no `.map` / `filter_try` is needed.
   let report = df
     .filter(row => row.get_string("product") == "widget")
-    .select(["region", "quantity", "revenue"])
+    .select(cols(["region", "quantity", "revenue"]))
     .sort_by([("quantity", SortOrder::Desc, NullOrder::NullsLast)])
   let summary = report.describe()
 
@@ -83,7 +83,9 @@ test "pipeline: parse_csv_str → filter → select → sort_by → describe →
 
   // Project a subset of columns to demonstrate `select` keeps the
   // requested column order.
-  let projected = widgets.select(["region", "price", "quantity", "revenue"])
+  let projected = widgets.select(
+    cols(["region", "price", "quantity", "revenue"]),
+  )
   assert_eq(projected.columns(), ["region", "price", "quantity", "revenue"])
   assert_eq(projected.check_invariants(), Ok(()))
 

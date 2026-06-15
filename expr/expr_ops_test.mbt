@@ -14,6 +14,13 @@ test "col and lit: static methods and free aliases build the same nodes" {
 }
 
 ///|
+test "cols: maps names to a column-reference list, preserving order" {
+  assert_eq(cols(["a", "b", "c"]), [col("a"), col("b"), col("c")])
+  // The empty list is the empty projection, not an error.
+  assert_eq(cols([]), [])
+}
+
+///|
 test "lit: typed shorthands agree with the generic form" {
   assert_eq(lit_int(7), lit(@types.Scalar::Int(7)))
   assert_eq(lit_float(0.5), lit(@types.Scalar::Float(0.5)))

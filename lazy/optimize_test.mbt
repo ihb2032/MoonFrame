@@ -19,8 +19,8 @@ test "narrowed scan: a single-column selection still collects equal" {
   let df = sales_df()
   // Only `qty` is read; `bonus` / `region` are pruned at the scan.
   let exprs = [(@expr.col("qty") * @expr.lit_int(2)).with_alias("dbl")]
-  let out = lazy_frame(df).select_exprs(exprs).collect()
-  assert_eq(out, df.select_exprs(exprs))
+  let out = lazy_frame(df).select(exprs).collect()
+  assert_eq(out, df.select(exprs))
   assert_eq(out.check_invariants(), Ok(()))
 }
 
@@ -32,8 +32,8 @@ test "filter predicate columns stay alive through the pushdown" {
   let predicate = @expr.col("qty").gt(@expr.lit_int(50))
   let projection = [@expr.col("region")]
   assert_eq(
-    lazy_frame(df).filter_where(predicate).select_exprs(projection).collect(),
-    df.filter_where(predicate).select_exprs(projection),
+    lazy_frame(df).filter_where(predicate).select(projection).collect(),
+    df.filter_where(predicate).select(projection),
   )
 }
 
@@ -46,10 +46,7 @@ test "a ternary's condition columns stay alive through the pushdown" {
     .then(@expr.lit_str("big"))
     .otherwise(@expr.col("region"))
     .with_alias("label")
-  assert_eq(
-    lazy_frame(df).select_exprs([label]).collect(),
-    df.select_exprs([label]),
-  )
+  assert_eq(lazy_frame(df).select([label]).collect(), df.select([label]))
 }
 
 ///|
@@ -63,8 +60,8 @@ test "with_columns replacement: narrowing turns replace into append, by-name rea
   let redefine = [(@expr.col("qty") * @expr.lit_int(2)).with_alias("bonus")]
   let projection = [@expr.col("bonus"), @expr.col("region")]
   assert_eq(
-    lazy_frame(df).with_columns(redefine).select_exprs(projection).collect(),
-    df.with_columns(redefine).select_exprs(projection),
+    lazy_frame(df).with_columns(redefine).select(projection).collect(),
+    df.with_columns(redefine).select(projection),
   )
 }
 
@@ -74,8 +71,8 @@ test "with_columns: a brand-new derived name needs nothing from the scan" {
   let fresh = [(@expr.col("qty") + @expr.lit_int(1)).with_alias("next")]
   let projection = [@expr.col("next")]
   assert_eq(
-    lazy_frame(df).with_columns(fresh).select_exprs(projection).collect(),
-    df.with_columns(fresh).select_exprs(projection),
+    lazy_frame(df).with_columns(fresh).select(projection).collect(),
+    df.with_columns(fresh).select(projection),
   )
 }
 
@@ -99,8 +96,8 @@ test "sort keys stay alive through the pushdown" {
   let keys = [("bonus", @frame.SortOrder::Asc, @frame.NullOrder::NullsLast)]
   let projection = [@expr.col("region")]
   assert_eq(
-    lazy_frame(df).sort_by(keys).select_exprs(projection).collect(),
-    df.sort_by(keys).select_exprs(projection),
+    lazy_frame(df).sort_by(keys).select(projection).collect(),
+    df.sort_by(keys).select(projection),
   )
 }
 
@@ -109,16 +106,16 @@ test "row windows pass the requirement through to the scan" {
   let df = sales_df()
   let projection = [@expr.col("qty")]
   assert_eq(
-    lazy_frame(df).head(2).select_exprs(projection).collect(),
-    df.head(2).select_exprs(projection),
+    lazy_frame(df).head(2).select(projection).collect(),
+    df.head(2).select(projection),
   )
   assert_eq(
-    lazy_frame(df).tail(2).select_exprs(projection).collect(),
-    df.tail(2).select_exprs(projection),
+    lazy_frame(df).tail(2).select(projection).collect(),
+    df.tail(2).select(projection),
   )
   assert_eq(
-    lazy_frame(df).slice(1, 3).select_exprs(projection).collect(),
-    df.slice(1, 3).select_exprs(projection),
+    lazy_frame(df).slice(1, 3).select(projection).collect(),
+    df.slice(1, 3).select(projection),
   )
 }
 
@@ -129,19 +126,16 @@ test "join sides narrow independently below the barrier" {
   let opts = @frame.JoinOptions::on(["id"])
   // The left side's own selection prunes `amount` before the join.
   assert_eq(
-    lazy_frame(l)
-    .select_exprs([@expr.col("id")])
-    .join(lazy_frame(r), opts)
-    .collect(),
-    l.select_exprs([@expr.col("id")]).join(r, opts),
+    lazy_frame(l).select([@expr.col("id")]).join(lazy_frame(r), opts).collect(),
+    l.select([@expr.col("id")]).join(r, opts),
   )
   // A selection *above* the join must not narrow either side.
   assert_eq(
     lazy_frame(l)
     .join(lazy_frame(r), opts)
-    .select_exprs([@expr.col("city")])
+    .select([@expr.col("city")])
     .collect(),
-    l.join(r, opts).select_exprs([@expr.col("city")]),
+    l.join(r, opts).select([@expr.col("city")]),
   )
 }
 
@@ -149,8 +143,8 @@ test "join sides narrow independently below the barrier" {
 test "guard: an all-literal selection inserts nothing and still collapses to one row" {
   let df = sales_df()
   let one = [@expr.lit_int(1).with_alias("one")]
-  let out = lazy_frame(df).select_exprs(one).collect()
-  assert_eq(out, df.select_exprs(one))
+  let out = lazy_frame(df).select(one).collect()
+  assert_eq(out, df.select(one))
   assert_eq(out.nrows(), 1)
 }
 
@@ -158,7 +152,7 @@ test "guard: an all-literal selection inserts nothing and still collapses to one
 test "guard: a selection reading every column leaves the scan whole" {
   let df = sales_df()
   let all = [@expr.col("qty"), @expr.col("bonus"), @expr.col("region")]
-  assert_eq(lazy_frame(df).select_exprs(all).collect(), df.select_exprs(all))
+  assert_eq(lazy_frame(df).select(all).collect(), df.select(all))
 }
 
 ///|
@@ -170,11 +164,11 @@ test "the flagship pipeline narrows through every stage" {
   let out = lazy_frame(df)
     .filter_where(predicate)
     .with_columns(derived)
-    .select_exprs(projection)
+    .select(projection)
     .collect()
   assert_eq(
     out,
-    df.filter_where(predicate).with_columns(derived).select_exprs(projection),
+    df.filter_where(predicate).with_columns(derived).select(projection),
   )
   assert_eq(out.check_invariants(), Ok(()))
 }
@@ -186,8 +180,8 @@ test "a zero-row frame narrows and collects equal" {
     @series.Series::from_strings("b", []),
   ])
   let projection = [@expr.col("a")]
-  let out = lazy_frame(df).select_exprs(projection).collect()
-  assert_eq(out, df.select_exprs(projection))
+  let out = lazy_frame(df).select(projection).collect()
+  assert_eq(out, df.select(projection))
   assert_eq(out.nrows(), 0)
 }
 
@@ -198,24 +192,21 @@ test "errors keep surfacing at collect time, unchanged by the rewrite" {
   // keeps only existing columns, so the user's expression still reports
   // the same `ColumnNotFound`.
   assert_eq(
-    try? lazy_frame(df).select_exprs([@expr.col("ghost")]).collect(),
+    try? lazy_frame(df).select([@expr.col("ghost")]).collect(),
     Err(@types.DataError::ColumnNotFound("ghost")),
   )
   // A missing column in a filter under a selection: parity with eager.
   let predicate = @expr.col("ghost").is_null()
   let projection = [@expr.col("qty")]
   assert_eq(
-    try? lazy_frame(df)
-    .filter_where(predicate)
-    .select_exprs(projection)
-    .collect(),
-    try? df.filter_where(predicate).select_exprs(projection),
+    try? lazy_frame(df).filter_where(predicate).select(projection).collect(),
+    try? df.filter_where(predicate).select(projection),
   )
 }
 
 ///|
 test "explain defaults to the plan as built; optimized=true is the before/after pair" {
-  let plan = lazy_frame(sales_df()).select_exprs([@expr.col("qty")])
+  let plan = lazy_frame(sales_df()).select([@expr.col("qty")])
   // Before: the chain verbatim — and the default is pinned to
   // `optimized=false` explicitly.
   assert_eq(plan.explain(), "SELECT [col(qty)]\n  SCAN [4×3]")
@@ -230,13 +221,13 @@ test "explain defaults to the plan as built; optimized=true is the before/after 
 ///|
 test "explain(optimized=true) rewrites a copy: the plan itself is unperturbed" {
   let df = sales_df()
-  let plan = lazy_frame(df).select_exprs([@expr.col("region")])
+  let plan = lazy_frame(df).select([@expr.col("region")])
   let optimized = plan.explain(optimized=true)
   // Rendering the optimized form is stable across calls, and it perturbs
   // neither the as-built rendering nor what collect returns.
   assert_eq(plan.explain(optimized=true), optimized)
   assert_eq(plan.explain(), "SELECT [col(region)]\n  SCAN [4×3]")
-  assert_eq(plan.collect(), df.select_exprs([@expr.col("region")]))
+  assert_eq(plan.collect(), df.select([@expr.col("region")]))
 }
 
 ///|
@@ -246,7 +237,7 @@ test "a bare scan is untouched (no requirement at the root)" {
 
 ///|
 test "select: a proper-subset requirement narrows the scan, in scan column order" {
-  let plan = lazy_frame(sales_df()).select_exprs([
+  let plan = lazy_frame(sales_df()).select([
     (@expr.col("bonus") + @expr.col("qty")).with_alias("t"),
   ])
   // The inserted projection follows the *frame's* column order
@@ -261,7 +252,7 @@ test "select: a proper-subset requirement narrows the scan, in scan column order
 
 ///|
 test "select guard: reading every column inserts nothing" {
-  let plan = lazy_frame(sales_df()).select_exprs([
+  let plan = lazy_frame(sales_df()).select([
     @expr.col("qty"),
     @expr.col("bonus"),
     @expr.col("region"),
@@ -271,15 +262,13 @@ test "select guard: reading every column inserts nothing" {
 
 ///|
 test "select guard: an all-literal selection inserts nothing" {
-  let plan = lazy_frame(sales_df()).select_exprs([
-    @expr.lit_int(1).with_alias("one"),
-  ])
+  let plan = lazy_frame(sales_df()).select([@expr.lit_int(1).with_alias("one")])
   assert_eq(plan.explain(optimized=true), "SELECT [1 as one]\n  SCAN [4×3]")
 }
 
 ///|
 test "select: a missing column is not kept alive, the rest narrow as usual" {
-  let plan = lazy_frame(sales_df()).select_exprs([
+  let plan = lazy_frame(sales_df()).select([
     @expr.col("qty"),
     @expr.col("ghost"),
   ])
@@ -298,7 +287,7 @@ test "filter: the requirement passes through, widened by the predicate's columns
   let predicate = @expr.col("qty").gt(@expr.lit_int(50))
   let plan = lazy_frame(sales_df())
     .filter_where(predicate)
-    .select_exprs([@expr.col("region")])
+    .select([@expr.col("region")])
   assert_eq(
     plan.explain(optimized=true),
     "SELECT [col(region)]\n" +
@@ -316,7 +305,7 @@ test "filter: the requirement passes through, widened by the predicate's columns
 test "sort: the requirement passes through, widened by the sort keys" {
   let plan = lazy_frame(sales_df())
     .sort_by([("bonus", @frame.SortOrder::Asc, @frame.NullOrder::NullsLast)])
-    .select_exprs([@expr.col("qty")])
+    .select([@expr.col("qty")])
   assert_eq(
     plan.explain(optimized=true),
     "SELECT [col(qty)]\n" +
@@ -331,21 +320,21 @@ test "row windows pass the requirement through verbatim" {
   let base = lazy_frame(sales_df())
   let qty = [@expr.col("qty")]
   assert_eq(
-    base.head(2).select_exprs(qty).explain(optimized=true),
+    base.head(2).select(qty).explain(optimized=true),
     "SELECT [col(qty)]\n" +
     "  HEAD 2\n" +
     "    SELECT [col(qty)]\n" +
     "      SCAN [4×3]",
   )
   assert_eq(
-    base.tail(1).select_exprs(qty).explain(optimized=true),
+    base.tail(1).select(qty).explain(optimized=true),
     "SELECT [col(qty)]\n" +
     "  TAIL 1\n" +
     "    SELECT [col(qty)]\n" +
     "      SCAN [4×3]",
   )
   assert_eq(
-    base.slice(1, 3).select_exprs(qty).explain(optimized=true),
+    base.slice(1, 3).select(qty).explain(optimized=true),
     "SELECT [col(qty)]\n" +
     "  SLICE [1, 3)\n" +
     "    SELECT [col(qty)]\n" +
@@ -357,7 +346,7 @@ test "row windows pass the requirement through verbatim" {
 test "with_columns: defined names are subtracted, read names added" {
   let plan = lazy_frame(sales_df())
     .with_columns([(@expr.col("qty") * @expr.lit_int(2)).with_alias("dbl")])
-    .select_exprs([@expr.col("dbl"), @expr.col("region")])
+    .select([@expr.col("dbl"), @expr.col("region")])
   // `dbl` is served by the with_columns stage itself; the scan only owes
   // `region` (selected) and `qty` (read by the derivation).
   assert_eq(
@@ -373,7 +362,7 @@ test "with_columns: defined names are subtracted, read names added" {
 test "with_columns: redefining a selected column keeps only what it reads" {
   let plan = lazy_frame(sales_df())
     .with_columns([(@expr.col("qty") * @expr.lit_int(2)).with_alias("bonus")])
-    .select_exprs([@expr.col("bonus")])
+    .select([@expr.col("bonus")])
   // The selected `bonus` is a *defined* name: the original scan column
   // is dead, and only the derivation's input `qty` survives.
   assert_eq(
@@ -398,7 +387,7 @@ test "join is a barrier, but each side restarts its own pass" {
   let opts = @frame.JoinOptions::on(["id"])
   // A selection *below* the left side narrows that side's scan.
   let narrowed_side = lazy_frame(orders_df())
-    .select_exprs([@expr.col("id")])
+    .select([@expr.col("id")])
     .join(lazy_frame(cities_df()), opts)
   assert_eq(
     narrowed_side.explain(optimized=true),
@@ -412,7 +401,7 @@ test "join is a barrier, but each side restarts its own pass" {
   // requirement across suffix-renamed sides is O2-grade provenance.
   let above = lazy_frame(orders_df())
     .join(lazy_frame(cities_df()), opts)
-    .select_exprs([@expr.col("city")])
+    .select([@expr.col("city")])
   assert_eq(above.explain(optimized=true), above.explain())
 }
 
@@ -443,11 +432,11 @@ test "aggregate guard: reading every column inserts nothing" {
 ///|
 test "nested selects: the outer requirement never prunes the inner expression list" {
   let plan = lazy_frame(sales_df())
-    .select_exprs([
+    .select([
       (@expr.col("qty") + @expr.col("bonus")).with_alias("t"),
       @expr.col("region"),
     ])
-    .select_exprs([@expr.col("t")])
+    .select([@expr.col("t")])
   // Dead-expression elimination is deferred: the inner select still
   // evaluates `region`, and — reading every scan column — it also
   // inserts nothing below itself.
@@ -461,7 +450,7 @@ test "a trailing filter sinks below a bare-column selection" {
   let df = sales_df()
   let projection = [@expr.col("qty"), @expr.col("region")]
   let predicate = @expr.col("qty").gt(@expr.lit_int(50))
-  let plan = lazy_frame(df).select_exprs(projection).filter_where(predicate)
+  let plan = lazy_frame(df).select(projection).filter_where(predicate)
   // The filter lands between the selection and the (narrowed) scan: rows
   // drop before the projection evaluates, columns before the rows load.
   assert_eq(
@@ -472,7 +461,7 @@ test "a trailing filter sinks below a bare-column selection" {
     "      SCAN [4×3]",
   )
   let out = plan.collect()
-  assert_eq(out, df.select_exprs(projection).filter_where(predicate))
+  assert_eq(out, df.select(projection).filter_where(predicate))
   assert_eq(out.check_invariants(), Ok(()))
 }
 
@@ -538,7 +527,7 @@ test "fence: a computed occurrence of the predicate's column is not a bare pass-
     @expr.col("region"),
   ]
   let predicate = @expr.col("qty2").gt(@expr.lit_int(100))
-  let plan = lazy_frame(df).select_exprs(projection).filter_where(predicate)
+  let plan = lazy_frame(df).select(projection).filter_where(predicate)
   // `qty2` exists only above the selection, so the filter stays at the
   // root — while the projection pass still narrows the scan below.
   assert_eq(
@@ -548,7 +537,7 @@ test "fence: a computed occurrence of the predicate's column is not a bare pass-
     "    SELECT [col(qty), col(region)]\n" +
     "      SCAN [4×3]",
   )
-  assert_eq(plan.collect(), df.select_exprs(projection).filter_where(predicate))
+  assert_eq(plan.collect(), df.select(projection).filter_where(predicate))
 }
 
 ///|
@@ -561,7 +550,7 @@ test "fence: an aggregating selection pins the filter above" {
     @expr.col("qty").sum().with_alias("total"),
   ]
   let predicate = @expr.col("region").eq(@expr.lit_str("west"))
-  let plan = lazy_frame(df).select_exprs(projection).filter_where(predicate)
+  let plan = lazy_frame(df).select(projection).filter_where(predicate)
   assert_eq(
     plan.explain(optimized=true),
     "FILTER (col(region) == \"west\")\n" +
@@ -569,7 +558,7 @@ test "fence: an aggregating selection pins the filter above" {
     "    SELECT [col(qty), col(region)]\n" +
     "      SCAN [4×3]",
   )
-  assert_eq(plan.collect(), df.select_exprs(projection).filter_where(predicate))
+  assert_eq(plan.collect(), df.select(projection).filter_where(predicate))
 }
 
 ///|
@@ -580,7 +569,7 @@ test "a scope-dependent predicate still crosses a bare selection" {
   // identical on both sides of the swap.
   let projection = [@expr.col("qty"), @expr.col("region")]
   let predicate = @expr.col("qty").gt(@expr.col("qty").mean())
-  let plan = lazy_frame(df).select_exprs(projection).filter_where(predicate)
+  let plan = lazy_frame(df).select(projection).filter_where(predicate)
   assert_eq(
     plan.explain(optimized=true),
     "SELECT [col(qty), col(region)]\n" +
@@ -588,7 +577,7 @@ test "a scope-dependent predicate still crosses a bare selection" {
     "    SELECT [col(qty), col(region)]\n" +
     "      SCAN [4×3]",
   )
-  assert_eq(plan.collect(), df.select_exprs(projection).filter_where(predicate))
+  assert_eq(plan.collect(), df.select(projection).filter_where(predicate))
 }
 
 ///|
@@ -858,7 +847,7 @@ test "stacked filters sink together and keep their order" {
   let first = @expr.col("bonus").is_not_null()
   let second = @expr.col("qty").gt(@expr.lit_int(50))
   let plan = lazy_frame(df)
-    .select_exprs(projection)
+    .select(projection)
     .filter_where(first)
     .filter_where(second)
   // Both predicates cross the selection; one filter never crosses
@@ -873,7 +862,7 @@ test "stacked filters sink together and keep their order" {
   )
   assert_eq(
     plan.collect(),
-    df.select_exprs(projection).filter_where(first).filter_where(second),
+    df.select(projection).filter_where(first).filter_where(second),
   )
 }
 
@@ -896,7 +885,7 @@ test "a filter above a join stays; one inside a side still sinks" {
   // the left pipeline sinks below that side's selection.
   let gate = @expr.col("amount").gt(@expr.lit_int(15))
   let inside = lazy_frame(l)
-    .select_exprs([@expr.col("id"), @expr.col("amount")])
+    .select([@expr.col("id"), @expr.col("amount")])
     .filter_where(gate)
     .join(lazy_frame(r), opts)
   assert_eq(
@@ -910,7 +899,7 @@ test "a filter above a join stays; one inside a side still sinks" {
   assert_eq(
     inside.collect(),
     l
-    .select_exprs([@expr.col("id"), @expr.col("amount")])
+    .select([@expr.col("id"), @expr.col("amount")])
     .filter_where(gate)
     .join(r, opts),
   )
@@ -975,7 +964,7 @@ test "the flagship pipeline sinks its filter and narrows its scan" {
   let predicate = @expr.col("region").eq(@expr.lit_str("west"))
   let plan = lazy_frame(df)
     .with_columns(derived)
-    .select_exprs(projection)
+    .select(projection)
     .filter_where(predicate)
   // The trailing filter crosses both stages down to the scan, and the
   // projection pass narrows the scan beneath it: rows and columns both
@@ -991,7 +980,7 @@ test "the flagship pipeline sinks its filter and narrows its scan" {
   let out = plan.collect()
   assert_eq(
     out,
-    df.with_columns(derived).select_exprs(projection).filter_where(predicate),
+    df.with_columns(derived).select(projection).filter_where(predicate),
   )
   assert_eq(out.check_invariants(), Ok(()))
 }
@@ -1001,7 +990,7 @@ test "an all-literal predicate crosses vacuously" {
   let df = sales_df()
   let projection = [@expr.col("qty")]
   let predicate = @expr.lit_bool(true)
-  let plan = lazy_frame(df).select_exprs(projection).filter_where(predicate)
+  let plan = lazy_frame(df).select(projection).filter_where(predicate)
   // No columns read means nothing to fence on: the filter sinks.
   assert_eq(
     plan.explain(optimized=true),
@@ -1010,7 +999,7 @@ test "an all-literal predicate crosses vacuously" {
     "    SELECT [col(qty)]\n" +
     "      SCAN [4×3]",
   )
-  assert_eq(plan.collect(), df.select_exprs(projection).filter_where(predicate))
+  assert_eq(plan.collect(), df.select(projection).filter_where(predicate))
 }
 
 ///|
@@ -1023,13 +1012,13 @@ test "a dropping predicate cannot sink past a collapsing constant selection" {
   // stays put; only its harmless `true` counterpart above could sink.
   let one = [@expr.lit_int(1).with_alias("one")]
   let predicate = @expr.lit_bool(false)
-  let plan = lazy_frame(df).select_exprs(one).filter_where(predicate)
+  let plan = lazy_frame(df).select(one).filter_where(predicate)
   assert_eq(
     plan.explain(optimized=true),
     "FILTER false\n" + "  SELECT [1 as one]\n" + "    SCAN [4×3]",
   )
   let out = plan.collect()
-  assert_eq(out, df.select_exprs(one).filter_where(predicate))
+  assert_eq(out, df.select(one).filter_where(predicate))
   assert_eq(out.nrows(), 0)
 }
 

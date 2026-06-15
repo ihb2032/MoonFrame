@@ -300,8 +300,8 @@ test "an empty key list reduces the whole frame as one grand-total group" {
   assert_eq(out.shape(), (1, 1))
   assert_eq(out.get_column("total").get(0), @types.Scalar::Int(150))
   // The grand-total group is the whole-frame scope: identical to the
-  // one-row summary select_exprs produces, backend included.
-  assert_eq(out, df.select_exprs([total]))
+  // one-row summary select produces, backend included.
+  assert_eq(out, df.select([total]))
 }
 
 ///|
@@ -410,7 +410,7 @@ test "output name collisions raise DuplicateColumn via DataFrame::new" {
   )
   // Collisions surface at DataFrame::new, after every expression has
   // evaluated — so a later evaluation error wins over an earlier name
-  // collision (unlike select_exprs, whose seen-check fires per expression).
+  // collision (unlike select, whose seen-check fires per expression).
   assert_eq(
     try? agg_expr_df()
     .group_by(["region"])

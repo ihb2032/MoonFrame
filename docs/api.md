@@ -242,7 +242,7 @@ validity bitmap (`1 = valid`, `0 = null`).
 A reified, composable column expression. Where the closure `filter` is an
 opaque host-language function, an `Expr` is **data**: a small recursive
 tree you build with constructors, operators, and methods, then evaluate
-eagerly (`with_columns` / `select_exprs` / `filter_where` / `agg_exprs`,
+eagerly (`with_columns` / `select` / `filter_where` / `agg_exprs`,
 in `frame`), introspect (`explain`), or defer and optimize (`lazy`).
 Building a tree is **total** — every constructor and combinator just
 allocates a node, so an expression can always be built; every failure (a
@@ -260,6 +260,9 @@ missing column, a type clash) waits for evaluation. `expr` depends only on
 ### Constructors (static methods + free-function aliases)
 
 - `col(name) -> Expr` / `Expr::col(name)` — a column reference.
+- `cols(names : Array[String]) -> Array[Expr]` — `[col(n) for n in names]`,
+  the shorthand for projecting / dropping several columns by name through
+  the expression verbs (`df.select(cols(["a", "b"]))`).
 - `lit(s : Scalar) -> Expr` / `Expr::lit(s)` — a literal from any scalar.
 - `lit_int(Int64)` / `lit_float(Double)` / `lit_str(String)` /
   `lit_bool(Bool) -> Expr` — typed literal shorthands (skip the
@@ -464,8 +467,6 @@ dependencies** (NyaCSV / fs / @json live only in `io`).
 All route their result through invariant-preserving constructors /
 transforms, so every output satisfies `check_invariants()`.
 
-- `select(names) -> DataFrame raise DataError` — project columns in
-  `names` order. `ColumnNotFound` (missing) / `DuplicateColumn` (repeat).
 - `drop(names) -> DataFrame raise DataError` — remove named columns,
   order preserved; duplicates in `names` idempotent; `ColumnNotFound` on
   the first unknown.
@@ -531,7 +532,7 @@ transforms, so every output satisfies `check_invariants()`.
   / class strings verbatim, for trusted input that intentionally carries
   HTML.
 
-### Expression consumers (`with_columns` / `select_exprs` / `filter_where`)
+### Expression consumers (`with_columns` / `select` / `filter_where`)
 
 The eager face of the `expr` engine — `DataFrame` methods that evaluate
 `@expr.Expr` trees over the whole frame. (The evaluator and these
@@ -547,11 +548,13 @@ raise the evaluator's `DataError` (`ColumnNotFound` / `TypeMismatch` /
   result is named by `Expr::output_name`. A length-1 (literal /
   aggregation) result broadcasts to the frame height; on a 0-row frame it
   broadcasts to 0.
-- `select_exprs(exprs : Array[Expr]) -> DataFrame raise DataError` — the
-  output is **only** the evaluated expressions (a fresh frame). A mix of
-  aggregations and element-wise expressions broadcasts the aggregations to
-  the frame height; an **all-aggregation** selection collapses to a single
-  row (Polars' `select(sum)` shape).
+- `select(exprs : Array[Expr]) -> DataFrame raise DataError` — the output
+  is **only** the evaluated expressions (a fresh frame). MoonFrame's single
+  `select` verb: a names-only projection is `select(cols(["a", "b"]))` (or
+  `select([col("a"), col("b")])`). A mix of aggregations and element-wise
+  expressions broadcasts the aggregations to the frame height; an
+  **all-aggregation** selection collapses to a single row (Polars'
+  `select(sum)` shape).
 - `filter_where(predicate : Expr) -> DataFrame raise DataError` —
   vectorized boolean row selection: evaluate `predicate` (which must be a
   `Bool` column of frame height; non-`Bool` → `TypeMismatch`) and keep the
@@ -906,8 +909,7 @@ plan through the public eager operators and holds `@expr.Expr` nodes);
 Each returns a new `LazyFrame` wrapping one more node:
 
 - `filter_where(predicate : Expr)` · `with_columns(exprs : Array[Expr])` ·
-  `select_exprs(exprs : Array[Expr])` — defer the eager expression
-  consumers.
+  `select(exprs : Array[Expr])` — defer the eager expression consumers.
 - `sort_by(by : Array[(String, SortOrder, NullOrder)])` · `head(n)` ·
   `tail(n)` · `limit(n)` (≡ `head`) · `slice(start, end)`.
 - `join(other : LazyFrame, options : JoinOptions)` — the right side

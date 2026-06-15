@@ -59,10 +59,10 @@ pub fn LazyFrame::with_columns(
 }
 
 ///|
-/// Defer `DataFrame::select_exprs`: project the frame down to exactly the
+/// Defer `DataFrame::select`: project the frame down to exactly the
 /// evaluated expressions (an all-scalar selection collapses to one row,
 /// like its eager counterpart).
-pub fn LazyFrame::select_exprs(
+pub fn LazyFrame::select(
   self : LazyFrame,
   exprs : Array[@expr.Expr],
 ) -> LazyFrame {

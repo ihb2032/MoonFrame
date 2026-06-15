@@ -14,6 +14,8 @@ import {
 // Values
 pub fn col(String) -> @expr.Expr
 
+pub fn cols(Array[String]) -> Array[@expr.Expr]
+
 pub fn compare_string_lex(String, String) -> Int
 
 pub fn format_csv_str(@frame.DataFrame, @io.CsvWriteOptions) -> String

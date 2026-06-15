@@ -94,5 +94,5 @@ pub fn report_plan(df : @moonframe.DataFrame) -> @moonframe.LazyFrame {
     ),
   ])
   .filter_where(@moonframe.col("region").eq(@moonframe.lit_str("west")))
-  .select_exprs([@moonframe.col("region"), @moonframe.col("revenue_adj")])
+  .select([@moonframe.col("region"), @moonframe.col("revenue_adj")])
 }

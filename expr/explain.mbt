@@ -80,7 +80,7 @@ fn collect_columns(expr : Expr, acc : @set.Set[String]) -> Unit {
 /// an alias wins, otherwise the leftmost column reference's name,
 /// otherwise `"literal"` for a column-less tree. One rule, two consumers
 /// that must never drift apart: the eager materialisers in `frame`
-/// (`with_columns` / `select_exprs` / `agg_exprs`) name their output
+/// (`with_columns` / `select` / `agg_exprs`) name their output
 /// columns with it, and the lazy optimizer's projection pushdown uses it
 /// to know which names a deferred `with_columns` stage *defines* — a
 /// defined name need not exist in the stage's input, so pruning must not

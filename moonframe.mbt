@@ -6,7 +6,7 @@
 //
 // Note: the operator verbs (`select` / `drop` / `rename` /
 // `with_column` / `replace_column` / `filter` / `with_columns` /
-// `select_exprs` / `filter_where` / `sort_by` / `drop_nulls` /
+// `filter_where` / `sort_by` / `drop_nulls` /
 // `drop_nulls_in` / `fill_null` / `null_count` / `count` / `sum` /
 // `mean` / `min` / `max` / `describe` / `group_by` / `join` /
 // `inner_join` / `left_join` / `right_join` / `outer_join` /
@@ -30,10 +30,11 @@
 // with `type Expr`; the `LazyFrame` / `LazyGroupBy` methods (including the
 // `LazyFrame::from` constructor) ride along with their types. So `@expr`
 // needs explicit re-export only for the free constructors (`col` /
-// `lit` / `lit_int` / `lit_float` / `lit_str` / `lit_bool` / `when`) and
-// the two builder types `WhenThen` / `WhenThenElse`; the `BinOp` / `UnOp`
-// / `AggOp` tag enums are inert (no public API names them), so they are
-// deliberately *not* re-exported. `@lazy` needs only `lazy_frame` (the
+// `cols` / `lit` / `lit_int` / `lit_float` / `lit_str` / `lit_bool` /
+// `when`) and the two builder types `WhenThen` / `WhenThenElse`; the
+// `BinOp` / `UnOp` / `AggOp` tag enums are inert (no public API names
+// them), so they are deliberately *not* re-exported. `@lazy` needs only
+// `lazy_frame` (the
 // free-function alias for `LazyFrame::from` — the bare identifier `lazy`
 // is a reserved word, so the alias is spelled `lazy_frame`).
 
@@ -65,6 +66,7 @@ pub using @expr {
   type WhenThen,
   type WhenThenElse,
   col,
+  cols,
   lit,
   lit_int,
   lit_float,

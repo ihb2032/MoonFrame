@@ -107,16 +107,15 @@ pub fn DataFrame::group_by(
 /// output satisfies `check_invariants()`.
 ///
 /// `agg` and `GroupedDataFrame::agg_exprs` are deliberately separate twins,
-/// not a duplication to fold together. `agg` is the fast single-column path
-/// — single-pass per-group reducers with no per-group temporaries — while
-/// `agg_exprs` evaluates arbitrary reduction-shaped expressions through the
-/// general per-group evaluator. Their single-reduction forms agree cell for
-/// cell (`AggSpec::sum("r")` ≡ `col("r").sum()`), but they deliberately
-/// differ in backend: this path leaves `Mean` / `Min` / `Max` on `Builtin`,
+/// not a duplication to fold together. Both reduce a bare single-column
+/// aggregation through the same single-pass kernel — `reducer_for` hoists one
+/// validity mask over one linear pass with no per-group temporaries — so
+/// `AggSpec::sum("r")` and `col("r").sum()` agree cell for cell, while
+/// `agg_exprs` additionally states the derived / compound reductions no
+/// `AggSpec` can (`(col("a") - col("b")).sum()`). They deliberately differ
+/// only in backend: this path leaves `Mean` / `Min` / `Max` on `Builtin`,
 /// where `agg_exprs` converges an all-valid numeric result onto `Numeric`
-/// (see `agg_expr.mbt`). Routing `agg` through `agg_exprs` would trade the
-/// single-pass reducers for per-group evaluation and flip those backends, so
-/// the two are kept distinct.
+/// (the expression-engine convention; see `agg_expr.mbt`).
 ///
 /// Raises:
 /// - `TypeMismatch(...)` — a `Sum` / `Mean` spec targets a non-numeric

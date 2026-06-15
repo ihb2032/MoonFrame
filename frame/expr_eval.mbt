@@ -627,18 +627,26 @@ fn eval_agg(
   op : @expr.AggOp,
   operand : Series,
 ) -> Series raise @types.DataError {
-  // Map the read-only `@expr.AggOp` (matchable here, constructible only in
-  // `expr`) into the frame-local `ReduceOp` the shared kernel speaks.
-  let rop = match op {
+  let (reducer, probe) = reducer_for(operand.storage(), reduce_op_of_agg(op))
+  let cell = reducer(operand.len(), k => k)
+  scalars_to_series(probe, operand.name(), [cell], converge=true)
+}
+
+///|
+/// Map the read-only `@expr.AggOp` (matchable here, constructible only in
+/// `expr`) into the frame-local `ReduceOp` the shared reduction kernel
+/// speaks. Shared by the scoped `eval_agg` and the grouped `agg_exprs`
+/// single-pass fast path (`bare_col_agg`), so the two map the same op the
+/// same way. Exhaustive with no wildcard: a future `AggOp` variant fails
+/// compilation here rather than silently routing to a wrong reduction.
+fn reduce_op_of_agg(op : @expr.AggOp) -> ReduceOp {
+  match op {
     @expr.AggOp::Sum => ReduceOp::Sum
     @expr.AggOp::Mean => ReduceOp::Mean
     @expr.AggOp::Min => ReduceOp::Min
     @expr.AggOp::Max => ReduceOp::Max
     @expr.AggOp::Count => ReduceOp::Count
   }
-  let (reducer, probe) = reducer_for(operand.storage(), rop)
-  let cell = reducer(operand.len(), k => k)
-  scalars_to_series(probe, operand.name(), [cell], converge=true)
 }
 
 ///|

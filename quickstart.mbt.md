@@ -49,7 +49,9 @@ test "quickstart: group_by + agg" {
 
 The operator verbs are methods on `DataFrame`, so a pipeline reads
 top-to-bottom. A fallible accessor inside the `filter` predicate (here
-`get_string`) simply raises.
+`get_string`) simply raises. `select` takes expressions (see the next
+section); `cols([...])` is the shorthand that turns a list of names into
+a plain column projection.
 
 ```moonbit check
 ///|
@@ -61,7 +63,7 @@ test "quickstart: filter + select + sort" {
   ])
   let out = df
     .filter(row => row.get_string("product") == "widget")
-    .select(["region", "quantity"])
+    .select(cols(["region", "quantity"]))
     .sort_by([("quantity", SortOrder::Desc, NullOrder::NullsLast)])
   inspect(
     out.to_markdown(),
@@ -225,7 +227,7 @@ test "quickstart: build a lazy plan, explain it, then collect" {
   ])
   let plan = lazy_frame(df)
     .filter_where(col("region").eq(lit_str("west")))
-    .select_exprs([col("region"), col("revenue")])
+    .select([col("region"), col("revenue")])
   // The plan as built — a faithful mirror of the chained verbs.
   inspect(
     plan.explain(),

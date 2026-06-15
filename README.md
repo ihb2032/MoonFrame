@@ -73,7 +73,7 @@ Keep the widget rows, pick a few columns, and sort by quantity:
 fn widgets(path : String) -> String raise @moonframe.DataError {
   @moonframe.read_csv(path)
   .filter(row => row.get_string("product") == "widget")
-  .select(["region", "revenue", "quantity"])
+  .select(@moonframe.cols(["region", "revenue", "quantity"]))
   .sort_by([
     ("quantity", @moonframe.SortOrder::Desc, @moonframe.NullOrder::NullsLast),
   ])
@@ -226,7 +226,7 @@ types/      value types, errors (DataError), schemas
 column/     Arrow-style storage — validity Bitmap, BuiltinColumn, Numeric fast path, ColumnStorage seam
 series/     Series + column-level stats + the shared reduction / rebuild / key-cell kernels
 expr/       composable column expressions — Expr AST, operators / methods, when/then/otherwise, explain
-frame/      DataFrame, RowView + every operator (one per file) + group_by + join + the expression evaluator (with_columns / select_exprs / filter_where / agg_exprs) + to_markdown / to_html
+frame/      DataFrame, RowView + every operator (one per file) + group_by + join + the expression evaluator (with_columns / select / filter_where / agg_exprs) + to_markdown / to_html
 io/         CSV (NyaCSV-backed), JSON, NDJSON read / write + Vega-Lite export
 lazy/       deferred query plan — LazyFrame builders, collect / explain, predicate + projection pushdown
 moonframe/  facade — re-exports the whole public API

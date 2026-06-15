@@ -340,7 +340,7 @@ fn has_bare_column(exprs : Array[@expr.Expr], name : String) -> Bool {
 
 ///|
 /// Whether the selection's output height tracks its input's — i.e. it is
-/// *not* an all-constant projection. `select_exprs` collapses any input,
+/// *not* an all-constant projection. `select` collapses any input,
 /// even zero rows, to a single row when every expression is column-free (a
 /// literal or an arithmetic of literals), because each such column is
 /// length 1 and nothing fixes the height at the frame's. A filter may only

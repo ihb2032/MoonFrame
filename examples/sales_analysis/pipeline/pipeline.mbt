@@ -20,7 +20,7 @@ pub fn widget_report(
 ) -> (@moonframe.DataFrame, @moonframe.DataFrame) raise @moonframe.DataError {
   let sorted = df
     .filter(is_widget_row)
-    .select(["region", "price", "quantity", "revenue"])
+    .select(@moonframe.cols(["region", "price", "quantity", "revenue"]))
     .sort_by([
       ("quantity", @moonframe.SortOrder::Desc, @moonframe.NullOrder::NullsLast),
     ])

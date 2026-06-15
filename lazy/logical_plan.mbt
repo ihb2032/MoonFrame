@@ -46,7 +46,7 @@ priv enum LogicalPlan {
 fn execute(plan : LogicalPlan) -> @frame.DataFrame raise @types.DataError {
   match plan {
     Scan(df) => df
-    Select(input, exprs) => execute(input).select_exprs(exprs)
+    Select(input, exprs) => execute(input).select(exprs)
     WithColumns(input, exprs) => execute(input).with_columns(exprs)
     Filter(input, predicate) => execute(input).filter_where(predicate)
     Sort(input, by) => execute(input).sort_by(by)

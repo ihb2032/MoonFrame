@@ -24,7 +24,7 @@ pub fn LazyFrame::group_by(Self, Array[String]) -> LazyGroupBy
 pub fn LazyFrame::head(Self, Int) -> Self
 pub fn LazyFrame::join(Self, Self, @frame.JoinOptions) -> Self
 pub fn LazyFrame::limit(Self, Int) -> Self
-pub fn LazyFrame::select_exprs(Self, Array[@expr.Expr]) -> Self
+pub fn LazyFrame::select(Self, Array[@expr.Expr]) -> Self
 pub fn LazyFrame::slice(Self, Int, Int) -> Self
 pub fn LazyFrame::sort_by(Self, Array[(String, @frame.SortOrder, @frame.NullOrder)]) -> Self
 pub fn LazyFrame::tail(Self, Int) -> Self

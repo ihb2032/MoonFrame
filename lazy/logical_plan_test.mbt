@@ -17,7 +17,7 @@ test "explain: a linear pipeline reads top-down from the last verb" {
   let plan = lazy_frame(sales_df())
     .filter_where(@expr.col("qty").gt(@expr.lit_int(50)))
     .with_columns([(@expr.col("qty") * @expr.lit_int(2)).with_alias("dbl")])
-    .select_exprs([@expr.col("dbl"), @expr.col("region")])
+    .select([@expr.col("dbl"), @expr.col("region")])
   assert_eq(
     plan.explain(),
     "SELECT [col(dbl), col(region)]\n" +

@@ -59,6 +59,7 @@ pub enum Expr {
   Ternary(Expr, Expr, Expr)
 } derive(Eq, @debug.Debug)
 pub fn Expr::cast(Self, @types.DataType) -> Self
+pub fn Expr::children(Self) -> Array[Self]
 pub fn Expr::col(String) -> Self
 pub fn Expr::count(Self) -> Self
 pub fn Expr::eq(Self, Self) -> Self

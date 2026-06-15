@@ -123,26 +123,45 @@ fn optimize(plan : LogicalPlan) -> LogicalPlan {
 // ── The predicate pass ──────────────────────────────────────────────────
 
 ///|
-/// One bottom-up recursion of the predicate pass: rebuild `plan` with
-/// every input pushed first, then sink each `Filter` into its (already
-/// rewritten) input through `place_filter`. Bottom-up order is what lets
-/// a stack of filters sink as a unit — the lower filter is already in
-/// place when the upper one descends onto it — while their relative
-/// evaluation order never changes. Total: every arm is plain data work.
+/// One bottom-up recursion of the predicate pass: push every input first
+/// (`map_children` carries the recursion to each child), then sink a
+/// `Filter` into its now-rewritten input through `place_filter`. Every
+/// other node is already done once its children are pushed, so only
+/// `Filter` needs a local step. Bottom-up order is what lets a stack of
+/// filters sink as a unit — the lower filter is already in place when the
+/// upper one descends onto it — while their relative evaluation order never
+/// changes. Total: every arm is plain data work.
 fn push_predicates(plan : LogicalPlan) -> LogicalPlan {
+  let pushed = map_children(plan, push_predicates)
+  match pushed {
+    Filter(input, predicate) => place_filter(input, predicate)
+    _ => pushed
+  }
+}
+
+///|
+/// Rebuild `plan` with `f` applied to each of its child plans, leaving the
+/// node's own payload (expression lists, keys, predicate, sort spec, join
+/// options) verbatim — the structural-recursion primitive the plan→plan
+/// passes share, the `LogicalPlan` analogue of `Expr::children`. A leaf
+/// (`Scan`) has no child plans and returns unchanged; `Join` maps both
+/// sides. The one place that enumerates the IR's recursive shape, so a new
+/// node declares its recursion here once rather than in every pass. Total.
+fn map_children(
+  plan : LogicalPlan,
+  f : (LogicalPlan) -> LogicalPlan,
+) -> LogicalPlan {
   match plan {
-    Scan(df) => Scan(df)
-    Select(input, exprs) => Select(push_predicates(input), exprs)
-    WithColumns(input, exprs) => WithColumns(push_predicates(input), exprs)
-    Filter(input, predicate) => place_filter(push_predicates(input), predicate)
-    Sort(input, by) => Sort(push_predicates(input), by)
-    Head(input, n) => Head(push_predicates(input), n)
-    Tail(input, n) => Tail(push_predicates(input), n)
-    Slice(input, start, end) => Slice(push_predicates(input), start, end)
-    Join(left, right, options) =>
-      Join(push_predicates(left), push_predicates(right), options)
-    Aggregate(input, keys, exprs) =>
-      Aggregate(push_predicates(input), keys, exprs)
+    Scan(_) => plan
+    Select(input, exprs) => Select(f(input), exprs)
+    WithColumns(input, exprs) => WithColumns(f(input), exprs)
+    Filter(input, predicate) => Filter(f(input), predicate)
+    Sort(input, by) => Sort(f(input), by)
+    Head(input, n) => Head(f(input), n)
+    Tail(input, n) => Tail(f(input), n)
+    Slice(input, start, end) => Slice(f(input), start, end)
+    Join(left, right, options) => Join(f(left), f(right), options)
+    Aggregate(input, keys, exprs) => Aggregate(f(input), keys, exprs)
   }
 }
 
@@ -199,13 +218,20 @@ fn place_filter(input : LogicalPlan, predicate : @expr.Expr) -> LogicalPlan {
 /// scope-independent facts (names, dtypes).
 fn row_stable(expr : @expr.Expr) -> Bool {
   match expr {
-    @expr.Expr::Col(_) | @expr.Expr::Lit(_) => true
-    @expr.Expr::Agg(_, _) => false
-    @expr.Expr::Cast(_, _) => false
-    @expr.Expr::Binary(_, l, r) => row_stable(l) && row_stable(r)
-    @expr.Expr::Unary(_, e) | @expr.Expr::Alias(e, _) => row_stable(e)
-    @expr.Expr::Ternary(c, t, f) =>
-      row_stable(c) && row_stable(t) && row_stable(f)
+    @expr.Expr::Agg(_, _) | @expr.Expr::Cast(_, _) => false
+    @expr.Expr::Col(_)
+    | @expr.Expr::Lit(_)
+    | @expr.Expr::Binary(_, _, _)
+    | @expr.Expr::Unary(_, _)
+    | @expr.Expr::Alias(_, _)
+    | @expr.Expr::Ternary(_, _, _) => {
+      for child in expr.children() {
+        if !row_stable(child) {
+          return false
+        }
+      }
+      true
+    }
   }
 }
 
@@ -253,10 +279,17 @@ fn group_cell_stable(expr : @expr.Expr) -> Bool {
         @expr.AggOp::Mean | @expr.AggOp::Min | @expr.AggOp::Max => false
       }
     @expr.Expr::Cast(_, _) => false
-    @expr.Expr::Binary(_, l, r) => group_cell_stable(l) && group_cell_stable(r)
-    @expr.Expr::Unary(_, e) | @expr.Expr::Alias(e, _) => group_cell_stable(e)
-    @expr.Expr::Ternary(c, t, f) =>
-      group_cell_stable(c) && group_cell_stable(t) && group_cell_stable(f)
+    @expr.Expr::Binary(_, _, _)
+    | @expr.Expr::Unary(_, _)
+    | @expr.Expr::Alias(_, _)
+    | @expr.Expr::Ternary(_, _, _) => {
+      for child in expr.children() {
+        if !group_cell_stable(child) {
+          return false
+        }
+      }
+      true
+    }
   }
 }
 

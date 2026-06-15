@@ -315,6 +315,11 @@ missing column, a type clash) waits for evaluation. `expr` depends only on
   `"literal"` for a column-less tree (a ternary draws its name from the
   value branches, never the condition). The eager materialisers in `frame`
   and the lazy optimizer share this one rule.
+- `children(self) -> Array[Expr]` — the immediate sub-expressions of a
+  node, left to right (a ternary lists its condition first); leaves return
+  none. The shared structural primitive the two walks above and the lazy
+  optimizer's stability analyses all recurse through, so the tree's
+  recursive shape is declared in exactly one place.
 
 ### Evaluation semantics
 

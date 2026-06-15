@@ -29,6 +29,26 @@ pub fn Expr::explain(self : Expr) -> String {
 }
 
 ///|
+/// The immediate sub-expressions of a node, left to right — the single
+/// place that encodes the tree's recursive shape. Every tree walk that
+/// recurses uniformly rides this: `referenced_columns` and `output_name`
+/// here, and the lazy optimizer's `row_stable` / `group_cell_stable`
+/// analyses across the package boundary (hence `pub` — methods live with
+/// their type). A new variant declares its child structure once, here,
+/// rather than in every walk. A `Ternary` lists all three arms with the
+/// condition first; the one walk that must skip the condition — output
+/// *naming* — special-cases it rather than reading children. Leaves
+/// (`Col` / `Lit`) have none. Total — it only inspects shape.
+pub fn Expr::children(self : Expr) -> Array[Expr] {
+  match self {
+    Col(_) | Lit(_) => []
+    Binary(_, l, r) => [l, r]
+    Unary(_, e) | Agg(_, e) | Cast(e, _) | Alias(e, _) => [e]
+    Ternary(c, t, f) => [c, t, f]
+  }
+}
+
+///|
 /// Every column name the tree references, in first-reference order
 /// (depth-first, left to right). A `Ternary`'s condition counts — the
 /// optimizer must keep a column alive even if only the condition reads
@@ -41,22 +61,17 @@ pub fn Expr::referenced_columns(self : Expr) -> @set.Set[String] {
 }
 
 ///|
-/// Depth-first, left-to-right accumulation behind `referenced_columns`.
+/// Depth-first, left-to-right accumulation behind `referenced_columns`:
+/// record a `Col`'s name, then recurse into every child. Only the naming
+/// leaf is special-cased; the recursion rides `Expr::children`, so a new
+/// variant is covered the moment it declares its children there.
 fn collect_columns(expr : Expr, acc : @set.Set[String]) -> Unit {
   match expr {
     Col(name) => acc.add(name)
-    Lit(_) => ()
-    Binary(_, l, r) => {
-      collect_columns(l, acc)
-      collect_columns(r, acc)
-    }
-    Unary(_, e) | Agg(_, e) | Cast(e, _) | Alias(e, _) =>
-      collect_columns(e, acc)
-    Ternary(c, t, f) => {
-      collect_columns(c, acc)
-      collect_columns(t, acc)
-      collect_columns(f, acc)
-    }
+    _ => ()
+  }
+  for child in expr.children() {
+    collect_columns(child, acc)
   }
 }
 
@@ -81,27 +96,32 @@ pub fn Expr::output_name(self : Expr) -> String {
 /// Depth-first, left-to-right search for the first *naming* node behind
 /// `output_name`. An `Alias` names its whole subtree, so an alias anywhere
 /// on the leftmost path wins over the `Col` beneath it; the wrappers
-/// (`Unary` / `Agg` / `Cast`) are name-transparent. A `Ternary` draws its
-/// name from the value branches — `then` first, `otherwise` as fallback —
-/// never from the condition: the condition gates rows, it does not produce
-/// output values. (`referenced_columns`, by contrast, includes condition
-/// columns — pushdown must keep them alive.)
+/// (`Unary` / `Agg` / `Cast`) and the binary operands are name-transparent,
+/// so the search rides `Expr::children` for them, taking the first child to
+/// yield a name. A `Ternary` draws its name from the value branches —
+/// `then` first, `otherwise` as fallback — never from the condition (the
+/// condition gates rows, it does not produce output values), so it is
+/// matched explicitly rather than walking all of its children.
+/// (`referenced_columns`, by contrast, includes condition columns —
+/// pushdown must keep them alive.)
 fn leftmost_name(expr : Expr) -> String? {
   match expr {
     Col(name) => Some(name)
-    Lit(_) => None
-    Binary(_, l, r) =>
-      match leftmost_name(l) {
-        Some(name) => Some(name)
-        None => leftmost_name(r)
-      }
-    Unary(_, e) | Agg(_, e) | Cast(e, _) => leftmost_name(e)
     Alias(_, name) => Some(name)
     Ternary(_, t, f) =>
       match leftmost_name(t) {
         Some(name) => Some(name)
         None => leftmost_name(f)
       }
+    Lit(_) | Binary(_, _, _) | Unary(_, _) | Agg(_, _) | Cast(_, _) => {
+      for child in expr.children() {
+        match leftmost_name(child) {
+          Some(name) => return Some(name)
+          None => ()
+        }
+      }
+      None
+    }
   }
 }
 

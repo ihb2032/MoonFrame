@@ -1,7 +1,7 @@
 ///|
 /// Blackbox snapshots for the handwritten `Show` / `explain` rendering and
-/// behaviour tests for the introspection pair `referenced_columns` /
-/// `output_name`. Every rendering arm — the twelve binary symbols, four
+/// behaviour tests for the introspection primitive `children` and the pair
+/// `referenced_columns` / `output_name` built on it. Every rendering arm — the twelve binary symbols, four
 /// unary forms, five aggregation suffixes, cast / alias / ternary, and
 /// each literal kind — is pinned here, since `explain` output is demo-
 /// and (from L1 on) plan-printer-facing; the naming rule's clauses are
@@ -169,4 +169,24 @@ test "output_name: ternary names from then, falls back to otherwise, never the c
 test "output_name: a column-less tree falls back to \"literal\"" {
   assert_eq(lit_int(42).output_name(), "literal")
   assert_eq((lit_int(1) + lit_float(0.5)).output_name(), "literal")
+}
+
+///|
+test "children: each variant exposes its immediate sub-expressions, left to right" {
+  let a = col("a")
+  let b = col("b")
+  // Leaves have no children.
+  assert_eq(col("x").children(), [])
+  assert_eq(lit_int(1).children(), [])
+  // A binary lists both operands, left to right.
+  assert_eq((a + b).children(), [a, b])
+  // The single-child wrappers expose their one operand.
+  assert_eq((-a).children(), [a])
+  assert_eq(a.is_null().children(), [a])
+  assert_eq(a.sum().children(), [a])
+  assert_eq(a.cast(@types.DataType::Float).children(), [a])
+  assert_eq(a.with_alias("x").children(), [a])
+  // A ternary lists all three arms, condition first.
+  let cond = a.gt(lit_int(0))
+  assert_eq(when(cond).then(a).otherwise(b).children(), [cond, a, b])
 }

@@ -606,112 +606,42 @@ fn eval_not(operand : Series) -> Series raise @types.DataError {
 }
 
 ///|
-/// Reduce an evaluated operand (length `|scope|`) to a length-1 column —
-/// the point where group scopes (E4) and whole-frame scopes share one
-/// path. Each reduction reuses the `Series` reduction semantics:
-/// - `Sum`: `Int → Int`, `Float → Float`, nulls skipped, NaN propagates
-///   (`sum_int_valid` / `sum_float_valid`, the same folds behind
-///   `Series::sum`); an empty / all-null operand sums to the additive
-///   identity. Non-numeric raises `TypeMismatch`.
+/// Reduce an evaluated operand (length `|scope|`) to a length-1 column — the
+/// point where group scopes (E4) and whole-frame scopes share one path.
+/// Delegates to the shared `reducer_for` kernel (the same one `Series::sum` /
+/// `mean` / `min_value` / `max_value` and the grouped `agg` reduce through),
+/// then projects the reduced `Scalar` into a length-1 column with
+/// `scalars_to_series`. Inherits the kernel's dtype / null / `NaN` rules:
+/// - `Sum`: `Int → Int`, `Float → Float`, nulls skipped, `NaN` propagates;
+///   an empty / all-null operand sums to the additive identity. Non-numeric
+///   raises `TypeMismatch`.
 /// - `Mean`: always `Float`, nulls skipped from both numerator and
-///   denominator, NaN propagates. An empty / all-null operand yields a
-///   **null cell** — deliberately not `Series::mean`'s
-///   `InvalidOperation`, because a per-group reduction must produce a
-///   value slot for an all-null group (Polars `mean` semantics).
-///   Non-numeric raises `TypeMismatch`.
-/// - `Min` / `Max`: total over every dtype in the operand's own dtype,
-///   NaN skipped (`Series::min_value` / `max_value`); empty / all-null /
-///   all-NaN reduces to a null cell (`agg_extremum`).
+///   denominator, `NaN` propagates. An empty / all-null operand yields a
+///   **null cell** — deliberately not `Series::mean`'s `InvalidOperation`,
+///   because a per-group reduction must produce a value slot for an all-null
+///   group (Polars `mean` semantics). Non-numeric raises `TypeMismatch`.
+/// - `Min` / `Max`: total over every dtype in the operand's own dtype, `NaN`
+///   skipped; empty / all-null / all-`NaN` reduces to a null cell.
 /// - `Count`: the non-null cell count, never null.
-/// Numeric outputs land on the `Numeric` backend (directly via
-/// `from_ints` / `from_floats`, or re-converged in `agg_extremum`);
-/// consumers broadcast the length-1 result back over their scope.
+/// Numeric outputs converge onto the `Numeric` backend (`converge=true`), the
+/// expression-engine convention for computed columns; consumers broadcast the
+/// length-1 result back over their scope.
 fn eval_agg(
   op : @expr.AggOp,
   operand : Series,
 ) -> Series raise @types.DataError {
-  match op {
-    @expr.AggOp::Sum =>
-      match operand.storage().data() {
-        @column.ColumnData::Int(data) =>
-          Series::from_ints(operand.name(), [
-            sum_int_valid(data, operand.storage().validity()),
-          ])
-        @column.ColumnData::Float(data) =>
-          Series::from_floats(operand.name(), [
-            sum_float_valid(data, operand.storage().validity()),
-          ])
-        _ =>
-          raise @types.DataError::TypeMismatch(
-            "sum undefined for " + operand.dtype().to_string(),
-          )
-      }
-    @expr.AggOp::Mean => {
-      let total = match operand.storage().data() {
-        @column.ColumnData::Int(data) =>
-          sum_int_valid(data, operand.storage().validity()).to_double()
-        @column.ColumnData::Float(data) =>
-          sum_float_valid(data, operand.storage().validity())
-        _ =>
-          raise @types.DataError::TypeMismatch(
-            "mean undefined for " + operand.dtype().to_string(),
-          )
-      }
-      let cnt = operand.count()
-      if cnt == 0 {
-        Series::from_float_options(operand.name(), [None])
-      } else {
-        Series::from_floats(operand.name(), [total / cnt.to_double()])
-      }
-    }
-    @expr.AggOp::Min => agg_extremum(operand, operand.min_value())
-    @expr.AggOp::Max => agg_extremum(operand, operand.max_value())
-    @expr.AggOp::Count =>
-      Series::from_ints(operand.name(), [operand.count().to_int64()])
+  // Map the read-only `@expr.AggOp` (matchable here, constructible only in
+  // `expr`) into the frame-local `ReduceOp` the shared kernel speaks.
+  let rop = match op {
+    @expr.AggOp::Sum => ReduceOp::Sum
+    @expr.AggOp::Mean => ReduceOp::Mean
+    @expr.AggOp::Min => ReduceOp::Min
+    @expr.AggOp::Max => ReduceOp::Max
+    @expr.AggOp::Count => ReduceOp::Count
   }
-}
-
-///|
-/// Wrap an extremum `Scalar` (`Series::min_value` / `max_value`) as a
-/// length-1 column in the operand's own dtype. The reduction is total: it
-/// returns the operand-dtype variant or `Null` (empty / all-null /
-/// all-NaN `Float`), so each dtype arm projects "my variant or anything
-/// else" into `Some` / `None` — the `describe` extremum trick, leaving no
-/// dead arm because `Null` lands in the catch-all. A valid numeric
-/// extremum re-converges onto the `Numeric` backend.
-fn agg_extremum(operand : Series, extremum : @types.Scalar) -> Series {
-  try_column_to_numeric(
-    match operand.storage().data() {
-      @column.ColumnData::Int(_) =>
-        Series::from_int_options(operand.name(), [
-          match extremum {
-            @types.Scalar::Int(v) => Some(v)
-            _ => None
-          },
-        ])
-      @column.ColumnData::Float(_) =>
-        Series::from_float_options(operand.name(), [
-          match extremum {
-            @types.Scalar::Float(v) => Some(v)
-            _ => None
-          },
-        ])
-      @column.ColumnData::Bool(_) =>
-        Series::from_bool_options(operand.name(), [
-          match extremum {
-            @types.Scalar::Bool(v) => Some(v)
-            _ => None
-          },
-        ])
-      @column.ColumnData::String(_) =>
-        Series::from_string_options(operand.name(), [
-          match extremum {
-            @types.Scalar::String(v) => Some(v)
-            _ => None
-          },
-        ])
-    },
-  )
+  let (reducer, probe) = reducer_for(operand.storage(), rop)
+  let cell = reducer(operand.len(), k => k)
+  scalars_to_series(probe, operand.name(), [cell], converge=true)
 }
 
 ///|

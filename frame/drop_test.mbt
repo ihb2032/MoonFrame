@@ -1,5 +1,10 @@
 // Blackbox tests for `DataFrame::drop`.
 //
+// `drop` takes `Array[Expr]` keys, each resolved to a column name via the
+// §0 naming rule (`Expr::output_name`); the `col(name)` keys here also pin
+// the historical name-keyed drop behavior, and the aliased key pins the
+// output-name resolution that keeps the container open for future selectors.
+//
 // Invariants asserted on every successful drop:
 //   (1) check_invariants() == Ok(())
 //   (2) result.columns() preserves the original relative order
@@ -20,7 +25,7 @@ fn drop_df() -> DataFrame raise @types.DataError {
 ///|
 test "drop removes a single column, preserving the remaining order" {
   let df = drop_df()
-  let out = df.drop(["b"])
+  let out = df.drop([@expr.col("b")])
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.columns(), ["a", "c"])
   assert_eq(out.shape(), (3, 2))
@@ -32,7 +37,7 @@ test "drop removes a single column, preserving the remaining order" {
 ///|
 test "drop removes multiple columns at once" {
   let df = drop_df()
-  let out = df.drop(["a", "c"])
+  let out = df.drop([@expr.col("a"), @expr.col("c")])
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.columns(), ["b"])
 }
@@ -48,20 +53,35 @@ test "drop with an empty list is a structural identity" {
 ///|
 test "drop of every column yields a 0-column frame" {
   let df = drop_df()
-  let out = df.drop(["a", "b", "c"])
+  let out = df.drop([@expr.col("a"), @expr.col("b"), @expr.col("c")])
   assert_eq(out.check_invariants(), Ok(()))
   // 0-column case: DataFrame::new clamps nrows to 0 per the v0.1
   // contract.
   assert_eq(out.shape(), (0, 0))
 }
 
+// ── Output-name resolution (selector-ready container) ────────────────
+
+///|
+test "drop resolves each key by output_name, not by the columns it reads" {
+  let df = drop_df()
+  // An aliased key drops the column named by the alias (`output_name`'s
+  // alias-wins rule), regardless of which column the expression references.
+  // `col("a").with_alias("b")` therefore drops "b", leaving "a" and "c".
+  let out = df.drop([@expr.col("a").with_alias("b")])
+  assert_eq(out.check_invariants(), Ok(()))
+  assert_eq(out.columns(), ["a", "c"])
+  // A plain `col("b")` drops the same column — the two routes agree.
+  assert_eq(out, df.drop([@expr.col("b")]))
+}
+
 // ── Idempotency property ─────────────────────────────────────────────
 
 ///|
-test "drop is idempotent under duplicate names in input" {
+test "drop is idempotent under duplicate keys in input" {
   let df = drop_df()
-  let once = df.drop(["b"])
-  let twice = df.drop(["b", "b"])
+  let once = df.drop([@expr.col("b")])
+  let twice = df.drop([@expr.col("b"), @expr.col("b")])
   assert_eq(twice.check_invariants(), Ok(()))
   assert_eq(once, twice)
 }
@@ -72,11 +92,11 @@ test "drop is idempotent under duplicate names in input" {
 test "drop rejects unknown columns with ColumnNotFound" {
   let df = drop_df()
   assert_eq(
-    try? df.drop(["missing"]),
+    try? df.drop([@expr.col("missing")]),
     Err(@types.DataError::ColumnNotFound("missing")),
   )
   assert_eq(
-    try? df.drop(["a", "z"]),
+    try? df.drop([@expr.col("a"), @expr.col("z")]),
     Err(@types.DataError::ColumnNotFound("z")),
   )
 }

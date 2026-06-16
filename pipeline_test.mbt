@@ -328,10 +328,10 @@ test "pipeline: join enriches a frame then sorts via the facade" {
   assert_eq(orders.join(customers, JoinOptions::cross()).shape(), (12, 5)) // 4 x 3
 }
 
-// ── Column ops + with_column / replace_column via the facade ──────────
+// ── Column ops + with_columns / replace_column via the facade ─────────
 
 ///|
-test "pipeline: rename / drop / with_column / replace_column compose cleanly" {
+test "pipeline: rename / drop / with_columns / replace_column compose cleanly" {
   let df = DataFrame::new([
     Series::from_ints("x", [1, 2, 3]),
     Series::from_ints("y", [10, 20, 30]),
@@ -339,7 +339,7 @@ test "pipeline: rename / drop / with_column / replace_column compose cleanly" {
 
   // Append a derived column then rename it.
   let renamed = df
-    .with_column(Series::from_ints("sum", [11, 22, 33]))
+    .with_columns([lit_series(Series::from_ints("sum", [11, 22, 33]))])
     .rename([("sum", "total")])
   assert_eq(renamed.columns(), ["x", "y", "total"])
 

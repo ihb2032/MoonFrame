@@ -1,7 +1,7 @@
 ///|
 /// Blackbox tests for the `LitSeries` literal-series node — `lit_series(s)` —
-/// driven through the expression verbs. Covers the frame-tall append / the
-/// in-place replace (the `with_column(Series)` it succeeds), the length-1
+/// driven through the expression verbs. Covers the frame-tall append, the
+/// in-place replace, the preserved nulls on the embedded series, the length-1
 /// broadcast and the length-mismatch error, use inside a compound expression
 /// and as a precomputed filter mask, standalone projection with naming, the
 /// preserved backend, an aggregation over the literal, the empty-frame edge,
@@ -18,8 +18,8 @@ fn lit_series_df() -> DataFrame raise @types.DataError {
 
 ///|
 test "lit_series: a frame-tall series appends as a new named column" {
-  // The expression face of `with_column(s)`: a ready-made column joins the
-  // frame, named after the series, at the rightmost position.
+  // A ready-made column joins the frame, named after the series, at the
+  // rightmost position.
   let extra = Series::from_floats("c", [
     (1.5 : Double),
     (2.5 : Double),
@@ -36,9 +36,23 @@ test "lit_series: a frame-tall series appends as a new named column" {
 }
 
 ///|
+test "lit_series: the embedded series keeps its nulls" {
+  // The series is handed through verbatim, so a nullable column arrives with
+  // its validity bitmap intact.
+  let extra = Series::from_int_options("d", [Some(7), None, Some(9)])
+  let out = lit_series_df().with_columns([@expr.lit_series(extra)])
+  assert_eq(out.get_column("d").null_count(), 1)
+  assert_eq(out.get_column("d").to_scalars(), [
+    @types.Scalar::Int(7),
+    @types.Scalar::Null,
+    @types.Scalar::Int(9),
+  ])
+}
+
+///|
 test "lit_series: a frame-tall series replaces an existing column in place" {
-  // Unlike `with_column` (which raised `DuplicateColumn`), `with_columns`
-  // replaces a same-named column, keeping its original position.
+  // A same-named series replaces the existing column in place through
+  // `with_columns`, keeping its original position (a fresh name appends).
   let replacement = Series::from_ints("a", [10, 20, 30])
   let out = lit_series_df().with_columns([@expr.lit_series(replacement)])
   assert_eq(out.columns(), ["a", "b"])

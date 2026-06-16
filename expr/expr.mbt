@@ -1,7 +1,7 @@
 ///|
 /// A composable, introspectable column expression tree — the reified
 /// upgrade over the closure-based surfaces (the v0.1 row-predicate
-/// closure, `with_column`'s pre-materialised `Series`). An `Expr` is *data*: the
+/// closure) and pre-materialised `Series` columns. An `Expr` is *data*: the
 /// evaluator in `frame` pattern-matches
 /// it, and the v0.4 lazy layer will print and rewrite it — none of which a
 /// closure can offer.
@@ -17,11 +17,11 @@
 /// Variant tour (construction route in parentheses):
 /// - `Col` / `Lit` / `LitSeries` — leaves (`col`, `lit` / `lit_*`,
 ///   `lit_series`). `LitSeries` embeds a whole pre-materialised
-///   `@series.Series` as a literal column — the expression face of the old
-///   `with_column(Series)`: at evaluation it is used as-is, broadcasting
-///   when length 1 and otherwise matching the frame height (`LengthMismatch`
-///   on any other length). It is named after the series it carries, so its
-///   output column keeps the series' name unless an alias overrides it;
+///   `@series.Series` as a literal column: at evaluation it is used as-is,
+///   broadcasting when length 1 and otherwise matching the frame height
+///   (`LengthMismatch` on any other length). It is named after the series it
+///   carries, so its output column keeps the series' name unless an alias
+///   overrides it;
 /// - `Binary` — arithmetic `+ - * /`, comparisons `eq/ne/lt/le/gt/ge`,
 ///   Kleene logic `&`/`|` (also `.land()`/`.lor()` — `and`/`or` are
 ///   reserved words);

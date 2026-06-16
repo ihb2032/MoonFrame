@@ -293,27 +293,33 @@ pub fn DataFrame::get(
 }
 
 ///|
-/// Borrow row `i` without bounds-checking the index. This is total — it
-/// never aborts — because every `RowView` accessor re-validates the row
-/// index and `raise IndexOutOfBounds` for an out-of-range view. It is the
-/// companion to `row` for call sites (like `filter`) that already iterate
-/// `[0, nrows)` and so don't need the eager check.
-pub fn DataFrame::row_view(self : DataFrame, i : Int) -> RowView {
-  { df: self, row_index: i }
-}
-
-///|
-/// Lightweight view of a single row. The view borrows the underlying
-/// frame, so accessors stay `O(1)` and there's no per-row allocation.
-/// Row indices outside `[0, nrows)` `raise IndexOutOfBounds(i)`.
+/// Row `i`'s cells as a `Scalar` tuple in column order (a null cell as
+/// `Scalar::Null`), mirroring Polars' `DataFrame.row`. Row indices outside
+/// `[0, nrows)` `raise IndexOutOfBounds(i)`; for many rows, `rows()` reads
+/// the whole frame in one pass instead.
 pub fn DataFrame::row(
   self : DataFrame,
   i : Int,
-) -> RowView raise @types.DataError {
+) -> Array[@types.Scalar] raise @types.DataError {
   if i < 0 || i >= self.nrows {
     raise @types.DataError::IndexOutOfBounds(i)
   }
-  self.row_view(i)
+  // `i` is in range and every column has `nrows` cells, so `Series::get`
+  // never raises here — the bound is checked once, up front.
+  let cells : Array[@types.Scalar] = []
+  for s in self.columns {
+    cells.push(s.get(i))
+  }
+  cells
+}
+
+///|
+/// Every row as a `Scalar` tuple in column order (`result[r][c]`), the
+/// row-major transpose of `to_scalar_matrix`, mirroring Polars'
+/// `DataFrame.rows`. Total — materialises the frame once.
+pub fn DataFrame::rows(self : DataFrame) -> Array[Array[@types.Scalar]] {
+  let cols = self.to_scalar_matrix()
+  Array::makei(self.nrows, r => cols.map(c => c[r]))
 }
 
 // ── Transforms ────────────────────────────────────────────────────────

@@ -127,8 +127,6 @@ pub using @column {type NumericData}
 
 pub using @io {type OnParseError}
 
-pub using @frame {type RowView}
-
 pub using @types {type Scalar}
 
 pub using @types {type Schema}

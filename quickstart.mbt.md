@@ -329,12 +329,12 @@ test "quickstart: export a Vega-Lite chart spec" {
 
 ## Join two frames
 
-`inner_join` keeps only rows whose key matches on both sides; the result is the
+An inner join keeps only rows whose key matches on both sides; the result is the
 left columns followed by the right columns.
 
 ```moonbit check
 ///|
-test "quickstart: inner_join" {
+test "quickstart: inner join" {
   let orders = DataFrame::new([
     Series::from_ints("customer_id", [1, 2, 1]),
     Series::from_ints("amount", [100, 50, 70]),
@@ -344,7 +344,7 @@ test "quickstart: inner_join" {
     Series::from_strings("region", ["west", "east"]),
   ])
   inspect(
-    orders.inner_join(customers, ["customer_id"]).to_markdown(),
+    orders.join(customers, JoinOptions::on(["customer_id"])).to_markdown(),
     content=(
       #|| customer_id | amount | region |
       #|| ----------- | ------ | ------ |
@@ -357,7 +357,7 @@ test "quickstart: inner_join" {
 }
 ```
 
-The matrix also has `right_join` and `outer_join`. A full **outer** join keeps
+`with_how(Right)` and `with_how(Outer)` select the other join types. A full **outer** join keeps
 the unmatched rows from *both* sides; coalescing the key
 (`with_coalesce(true)`) merges it into one column, taking each row's value from
 whichever side is present — so the order with no customer and the customer with
@@ -365,7 +365,7 @@ no order both survive.
 
 ```moonbit check
 ///|
-test "quickstart: outer_join" {
+test "quickstart: outer join" {
   let orders = DataFrame::new([
     Series::from_ints("customer_id", [1, 2, 3]),
     Series::from_ints("amount", [100, 50, 70]),

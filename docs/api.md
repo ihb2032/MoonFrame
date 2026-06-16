@@ -268,12 +268,12 @@ missing column, a type clash) waits for evaluation. `expr` depends only on
   `lit_bool(Bool) -> Expr` — typed literal shorthands (skip the
   `Scalar::Int(...)` noise).
 - `lit_series(s : Series) -> Expr` — embed a pre-materialised `Series` as a
-  literal column, the expression face of the old `with_column(Series)` (so a
-  ready-made column joins a pipeline beside the declarative expressions). At
-  evaluation it is used as-is: a length-1 series broadcasts, a frame-tall one
-  maps row for row, any other length is `LengthMismatch`. It is named after
-  the series unless `with_alias` overrides, so `with_columns([lit_series(s)])`
-  adds — or in-place replaces — a column named `s.name()`.
+  literal column, so a ready-made column joins a pipeline beside the
+  declarative expressions. At evaluation it is used as-is: a length-1 series
+  broadcasts, a frame-tall one maps row for row, any other length is
+  `LengthMismatch`. It is named after the series unless `with_alias`
+  overrides, so `with_columns([lit_series(s)])` adds — or in-place replaces —
+  a column named `s.name()`.
 
 ### Operators (trait impls, in scope through `type Expr`)
 
@@ -524,8 +524,6 @@ transforms, so every output satisfies `check_invariants()`.
 - `rename(mapping : Array[(String, String)]) -> DataFrame raise DataError`
   — apply renames in order (each step's `new_name` is visible to later
   steps, enabling a 3-step swap). `ColumnNotFound` / `DuplicateColumn`.
-- `with_column(series) -> DataFrame raise DataError` — append rightmost.
-  `DuplicateColumn` / `LengthMismatch`.
 - `replace_column(name, series) -> DataFrame raise DataError` —
   positional in-place swap; the target `name` wins over `series.name()`;
   cross-dtype allowed. `ColumnNotFound` / `LengthMismatch`.

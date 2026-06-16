@@ -108,7 +108,7 @@ on all four backends, so it always matches the current API.
 - **Read & write** CSV, JSON, and NDJSON — `read_csv` / `read_json` /
   `read_ndjson` and their `write_*` counterparts, with tunable
   [type inference](docs/type-inference.md).
-- **Reshape** — `filter`, `select`, `drop`, `rename`, `with_column`, multi-key
+- **Reshape** — `filter`, `select`, `drop`, `rename`, `with_columns`, multi-key
   `sort`, and null handling (`drop_nulls`, `fill_null`).
 - **Group & aggregate** — `group_by(keys).agg([...])` with `sum` / `mean` /
   `min` / `max` / `count`.

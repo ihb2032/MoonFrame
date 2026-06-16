@@ -17,7 +17,7 @@ fn agg_expr_df() -> DataFrame raise @types.DataError {
 }
 
 ///|
-test "single-column reductions match the AggSpec agg cell for cell" {
+test "single-column reductions match the AggSpec agg exactly, cells and backend" {
   let df = agg_expr_df()
   let by_spec = df
     .group_by(["region"])
@@ -37,18 +37,11 @@ test "single-column reductions match the AggSpec agg cell for cell" {
       @expr.col("revenue").max().with_alias("revenue_max"),
       @expr.col("revenue").count().with_alias("revenue_count"),
     ])
-  assert_eq(by_expr.columns(), by_spec.columns())
-  assert_eq(by_expr.shape(), by_spec.shape())
-  // Cell-for-cell equivalence. Whole-column equality would be too strong:
-  // computed expression columns converge onto the `Numeric` backend when
-  // all-valid, while the AggSpec path leaves `mean` / `min` / `max` on
-  // `Builtin` — same values, deliberately different representation.
-  for name in by_spec.columns() {
-    assert_eq(
-      by_expr.get_column(name).to_scalars(),
-      by_spec.get_column(name).to_scalars(),
-    )
-  }
+  // The two paths reduce through one kernel and both converge an all-valid
+  // numeric result onto `Numeric`. This fixture has no null cell, so every
+  // reduction is all-valid and the frames are equal whole-cloth — names,
+  // shapes, values, *and* backend — not merely cell for cell.
+  assert_eq(by_expr, by_spec)
   assert_eq(by_expr.check_invariants(), Ok(()))
 }
 
@@ -308,8 +301,9 @@ test "computed columns converge onto Numeric when all-valid, Builtin when not" {
     ])
   assert_eq(out.get_column("s").storage_kind(), @column.StorageKind::Numeric)
   assert_eq(out.get_column("m").storage_kind(), @column.StorageKind::Builtin)
-  // The AggSpec path keeps even an all-valid mean on Builtin — the value
-  // equivalence holds (see the cross-validation test) but not the backend.
+  // The AggSpec path now converges identically: an all-valid mean lands on
+  // `Numeric` whether reached through `agg_exprs` or `agg` (the two always
+  // agreed on the value; they now agree on the backend too).
   let by_expr = agg_expr_df()
     .group_by(["region"])
     .agg_exprs([@expr.col("revenue").mean().with_alias("revenue_mean")])
@@ -322,7 +316,7 @@ test "computed columns converge onto Numeric when all-valid, Builtin when not" {
   )
   assert_eq(
     by_spec.get_column("revenue_mean").storage_kind(),
-    @column.StorageKind::Builtin,
+    @column.StorageKind::Numeric,
   )
 }
 

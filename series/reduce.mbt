@@ -267,20 +267,18 @@ pub fn reducer_for(
 /// Project per-window reduction `Scalar`s into a typed output column. `probe`
 /// fixes the output dtype, so an all-null result (every cell `Null`) still
 /// types correctly; each cell is projected "matching variant → `Some`,
-/// anything else (including `Null`) → `None`"; and `converge` decides whether
-/// an all-valid numeric result moves onto the `Numeric` fast path. This is the
-/// single column builder behind the grouped (`agg`) and scoped (`eval_agg`)
-/// reductions and the expression aggregator (`agg_exprs`): the catch-all `None`
+/// anything else (including `Null`) → `None`"; and an all-valid numeric result
+/// then converges onto the `Numeric` fast path (`try_column_to_numeric`, a
+/// no-op for a nullable, `Bool`, or `String` column, which keeps `Builtin`).
+/// This is the single column builder behind the grouped (`agg`) and scoped
+/// (`eval_agg`) reductions and the expression aggregator (`agg_exprs`), so all
+/// three agree on backend as well as on every cell value: the catch-all `None`
 /// arm is reached by the nullable reductions (`mean` / `min` / `max` over an
-/// empty / all-null window), so no arm is dead. The grouped `mean` / `min` /
-/// `max` pass `converge=false` to stay on `Builtin` (the documented divergence
-/// from the converging expression path); `count` / `sum` and every scoped
-/// reduction pass `converge=true`.
+/// empty / all-null window), so no arm is dead.
 pub fn scalars_to_series(
   probe : @column.ColumnData,
   name : String,
   cells : Array[@types.Scalar],
-  converge~ : Bool,
 ) -> Series {
   let built = match probe {
     @column.ColumnData::Int(_) =>
@@ -324,9 +322,5 @@ pub fn scalars_to_series(
         }),
       )
   }
-  if converge {
-    try_column_to_numeric(built)
-  } else {
-    built
-  }
+  try_column_to_numeric(built)
 }

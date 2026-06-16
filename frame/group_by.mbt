@@ -110,12 +110,11 @@ pub fn DataFrame::group_by(
 /// not a duplication to fold together. Both reduce a bare single-column
 /// aggregation through the same single-pass kernel — `reducer_for` hoists one
 /// validity mask over one linear pass with no per-group temporaries — so
-/// `AggSpec::sum("r")` and `col("r").sum()` agree cell for cell, while
-/// `agg_exprs` additionally states the derived / compound reductions no
-/// `AggSpec` can (`(col("a") - col("b")).sum()`). They deliberately differ
-/// only in backend: this path leaves `Mean` / `Min` / `Max` on `Builtin`,
-/// where `agg_exprs` converges an all-valid numeric result onto `Numeric`
-/// (the expression-engine convention; see `agg_expr.mbt`).
+/// `AggSpec::sum("r")` and `col("r").sum()` agree cell for cell *and* backend
+/// (both converge an all-valid numeric result onto the `Numeric` fast path,
+/// the expression-engine convention; see `agg_expr.mbt`), while `agg_exprs`
+/// additionally states the derived / compound reductions no `AggSpec` can
+/// (`(col("a") - col("b")).sum()`).
 ///
 /// Raises:
 /// - `TypeMismatch(...)` — a `Sum` / `Mean` spec targets a non-numeric
@@ -165,10 +164,12 @@ pub fn GroupedDataFrame::agg(
 /// with `NaN` propagated and the additive identity for an empty / all-null
 /// group; `Mean` is a nullable `Float` (null cell for an all-null group, `NaN`
 /// propagated); `Min` / `Max` keep the source dtype (null cell for an empty /
-/// all-null group, `NaN` skipped). `Count` / `Sum` are never null and converge
-/// onto the `Numeric` fast path; `Mean` / `Min` / `Max` stay on `Builtin` —
-/// the deliberate backend divergence from `agg_exprs`, which converges all of
-/// them (the two agree on every cell value; see `agg_expr.mbt`).
+/// all-null group, `NaN` skipped). Every reduction converges an all-valid
+/// numeric result onto the `Numeric` fast path, exactly as `agg_exprs` and
+/// `eval_agg` do; a `Mean` / `Min` / `Max` that yields a null cell (an empty /
+/// all-null group) or a `Bool` / `String` extremum stays on `Builtin`. So the
+/// two paths agree on backend as well as on every cell value (see
+/// `agg_expr.mbt`).
 fn agg_groups(
   col : Series,
   groups : Array[Array[Int]],
@@ -184,10 +185,6 @@ fn agg_groups(
   }
   // `Sum` / `Mean` over a non-numeric column raise here, before any group work.
   let (reducer, probe) = reducer_for(col.storage(), op)
-  let converge = match kind {
-    Count | Sum => true
-    Mean | Min | Max => false
-  }
   let cells = groups.map(g => reducer(g.length(), k => g[k]))
-  scalars_to_series(probe, out_name, cells, converge~)
+  scalars_to_series(probe, out_name, cells)
 }

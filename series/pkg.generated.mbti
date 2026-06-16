@@ -18,7 +18,7 @@ pub fn rebuild_options(Series, String, Int, (Array[Int64], Int) -> Int64?, (Arra
 
 pub fn reducer_for(@column.ColumnStorage, ReduceOp) -> ((Int, (Int) -> Int) -> @types.Scalar, @column.ColumnData) raise @types.DataError
 
-pub fn scalars_to_series(@column.ColumnData, String, Array[@types.Scalar], converge~ : Bool) -> Series
+pub fn scalars_to_series(@column.ColumnData, String, Array[@types.Scalar]) -> Series
 
 pub fn slice_series(Series, Int, Int) -> Series
 

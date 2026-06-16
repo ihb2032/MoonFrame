@@ -40,6 +40,8 @@ pub fn lit_int(Int64) -> @expr.Expr
 
 pub fn lit_str(String) -> @expr.Expr
 
+pub fn map_many(label~ : String, Array[@expr.Expr], (Array[@types.Scalar]) -> @types.Scalar raise @types.DataError) -> @expr.Expr
+
 pub fn parse_csv_str(String, @io.CsvReadOptions) -> @frame.DataFrame raise @types.DataError
 
 pub fn parse_json_records_str(String, @io.JsonReadOptions) -> @frame.DataFrame raise @types.DataError

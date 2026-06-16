@@ -46,6 +46,12 @@
 ///   empty / all-null `mean` is a **null cell**, not
 ///   `InvalidOperation` — per-group reductions (E4) must be able to
 ///   produce a null for an all-null group, mirroring Polars.
+/// - **Map** (`map_elements` / `map_many`, the closure escape hatch): apply
+///   an opaque host closure row by row across the input columns (each cell a
+///   `Scalar`, a null as `Scalar::Null`, the closure called for every row
+///   and free to `raise`). The output dtype is the first non-null result's;
+///   an all-null / empty result raises `Unsupported`, having no
+///   representable dtype (no Null-dtype backend, as for the `Null` literal).
 /// - **Backend convention** (the v0.3 review Q2 decision): a *computed*
 ///   result converges onto the `Numeric` fast path whenever it is an
 ///   all-valid numeric column (`try_column_to_numeric`), and lands on
@@ -116,6 +122,7 @@ fn eval_expr(
         eval_expr(t, df, scope),
         eval_expr(f, df, scope),
       )
+    @expr.Expr::Map(_, inputs, f) => eval_map(inputs, f, df, scope)
   }
 }
 
@@ -773,6 +780,76 @@ fn eval_ternary(
       )
   }
   try_column_to_numeric(out)
+}
+
+///|
+/// Evaluate a `Map` escape-hatch node: apply the opaque closure `f` to each
+/// row across `inputs`. Every input is evaluated under the shared `scope`
+/// (so a failing input — unknown column, dtype mismatch — propagates), then
+/// stretched to a common height: any column-tall input fixes it (all share
+/// `scope`, so a non-1 length is `|scope|`), while all-length-1 inputs (or
+/// none at all) keep height 1 — the literal / aggregation broadcast rule.
+/// Each row hands `f` one cell per input, in order, a null cell as
+/// `Scalar::Null`; `f` runs for every row and may `raise`.
+///
+/// The output dtype is inferred from the first non-null `Scalar` the closure
+/// returns, then `scalars_to_series` projects the cells onto it (an off-type
+/// cell becomes null; an all-valid numeric result converges onto `Numeric`).
+/// An all-null or empty result has no representable dtype — there is no
+/// Null-dtype column backend — so it raises `Unsupported`, exactly as the
+/// `Null` literal does. The column is named after the leftmost input (or
+/// `"literal"` when there are none), agreeing with `Expr::output_name`; the
+/// consuming verb renames it through `expr_output_name` regardless.
+fn eval_map(
+  inputs : Array[@expr.Expr],
+  f : (Array[@types.Scalar]) -> @types.Scalar raise @types.DataError,
+  df : DataFrame,
+  scope : Array[Int],
+) -> Series raise @types.DataError {
+  let evaluated : Array[Series] = []
+  for input in inputs {
+    evaluated.push(eval_expr(input, df, scope))
+  }
+  let mut height = 1
+  for s in evaluated {
+    if s.len() != 1 {
+      height = s.len()
+    }
+  }
+  let columns : Array[Array[@types.Scalar]] = []
+  for s in evaluated {
+    columns.push(broadcast_series(s, height).to_scalars())
+  }
+  let width = columns.length()
+  let cells : Array[@types.Scalar] = []
+  for i in 0..<height {
+    cells.push(f(Array::makei(width, k => columns[k][i])))
+  }
+  let name = if evaluated.is_empty() { "literal" } else { evaluated[0].name() }
+  match infer_map_dtype(cells) {
+    Some(probe) => scalars_to_series(probe, name, cells)
+    None =>
+      raise @types.DataError::Unsupported(
+        "cannot infer the dtype of a map result with no non-null cell: no Null-dtype column backend",
+      )
+  }
+}
+
+///|
+/// The output-column probe for a map result: the first non-null cell fixes
+/// the dtype (`Int` / `Float` / `Bool` / `String`); an all-null or empty
+/// cell list yields `None`, which `eval_map` turns into `Unsupported`.
+fn infer_map_dtype(cells : Array[@types.Scalar]) -> @column.ColumnData? {
+  for cell in cells {
+    match cell {
+      @types.Scalar::Int(_) => return Some(@column.ColumnData::Int([]))
+      @types.Scalar::Float(_) => return Some(@column.ColumnData::Float([]))
+      @types.Scalar::Bool(_) => return Some(@column.ColumnData::Bool([]))
+      @types.Scalar::String(_) => return Some(@column.ColumnData::String([]))
+      @types.Scalar::Null => ()
+    }
+  }
+  None
 }
 
 ///|

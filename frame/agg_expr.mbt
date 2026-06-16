@@ -126,11 +126,13 @@ pub fn GroupedDataFrame::agg(
 /// structural gate `agg` applies before evaluating. Aggregations
 /// and literals are scalars; the combinators preserve scalarness over
 /// their operands; a bare column reference pins the result to the scope
-/// height, so it is not a reduction. Structural (data-independent) on
-/// purpose: group sizes never change the verdict.
+/// height, so it is not a reduction — and a `Map` is row-wise the same way
+/// (one cell per row), so a bare `map(...)` is not a reduction either,
+/// though `map(...).sum()` is, by the enclosing `Agg`. Structural
+/// (data-independent) on purpose: group sizes never change the verdict.
 fn reduces_per_group(expr : @expr.Expr) -> Bool {
   match expr {
-    @expr.Expr::Col(_) => false
+    @expr.Expr::Col(_) | @expr.Expr::Map(_, _, _) => false
     @expr.Expr::Lit(_) | @expr.Expr::Agg(_, _) => true
     @expr.Expr::Binary(_, l, r) => reduces_per_group(l) && reduces_per_group(r)
     @expr.Expr::Unary(_, e)

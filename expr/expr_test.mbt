@@ -105,6 +105,28 @@ test "ternary: condition and both branches each distinguish nodes" {
 }
 
 ///|
+test "map: label and inputs distinguish nodes; the closure is opaque" {
+  let same_a = map_many(label="m", [col("a")], fn(vs) { vs[0] })
+  // Two maps with the same label and inputs are equal even when they hold
+  // *different* closures — equality reads `(label, inputs)`, never the
+  // (uncomparable) function.
+  assert_eq(
+    same_a,
+    map_many(label="m", [col("a")], fn(_vs) { @types.Scalar::Null }),
+  )
+  // The label distinguishes.
+  assert_not_eq(same_a, map_many(label="n", [col("a")], fn(vs) { vs[0] }))
+  // The inputs distinguish — both by content and by arity.
+  assert_not_eq(same_a, map_many(label="m", [col("b")], fn(vs) { vs[0] }))
+  assert_not_eq(
+    same_a,
+    map_many(label="m", [col("a"), col("b")], fn(vs) { vs[0] }),
+  )
+  // A map is never equal to a non-map (the mismatched-variant fallthrough).
+  assert_not_eq(same_a, col("a"))
+}
+
+///|
 test "construction is total: nonsense trees still build" {
   // `((p & false) + 1.5).sum().cast(Bool)` cannot evaluate, but building
   // it is fine — every error belongs to evaluation, none to construction.

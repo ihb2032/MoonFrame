@@ -21,6 +21,19 @@ pub impl Show for Expr with fn output(self, logger) {
 }
 
 ///|
+/// Handwritten `@debug.Debug`: the `Map` variant's closure payload has no
+/// `Debug`, so the enum cannot `derive` one. The debug form delegates to
+/// the `Show` rendering (`explain`), which already presents every variant —
+/// `Map` by its `(label, inputs)`, the closure opaque — in the documented
+/// operator form. Debug output surfaces only in `assert_eq` failure messages
+/// and `debug_inspect`; the structural comparison itself rides the
+/// handwritten `Eq`. `Repr` has no public constructor, so delegating to an
+/// existing `Debug` (here `String`'s) is the one way to build one.
+pub impl @debug.Debug for Expr with fn to_repr(self) {
+  @debug.Debug::to_repr(self.explain())
+}
+
+///|
 /// The `Show` rendering as a `String` — the human-readable face of an
 /// expression for demos, docs, and (from L1 on) per-node plan lines in
 /// `LazyFrame::explain`.
@@ -37,14 +50,17 @@ pub fn Expr::explain(self : Expr) -> String {
 /// their type). A new variant declares its child structure once, here,
 /// rather than in every walk. A `Ternary` lists all three arms with the
 /// condition first; the one walk that must skip the condition — output
-/// *naming* — special-cases it rather than reading children. Leaves
-/// (`Col` / `Lit`) have none. Total — it only inspects shape.
+/// *naming* — special-cases it rather than reading children. A `Map` lists
+/// its input expressions (a fresh copy, so a caller can never alias — and
+/// mutate — the node's own `inputs`). Leaves (`Col` / `Lit`) have none.
+/// Total — it only inspects shape.
 pub fn Expr::children(self : Expr) -> Array[Expr] {
   match self {
     Col(_) | Lit(_) => []
     Binary(_, l, r) => [l, r]
     Unary(_, e) | Agg(_, e) | Cast(e, _) | Alias(e, _) => [e]
     Ternary(c, t, f) => [c, t, f]
+    Map(_, inputs, _) => inputs.copy()
   }
 }
 
@@ -96,9 +112,10 @@ pub fn Expr::output_name(self : Expr) -> String {
 /// Depth-first, left-to-right search for the first *naming* node behind
 /// `output_name`. An `Alias` names its whole subtree, so an alias anywhere
 /// on the leftmost path wins over the `Col` beneath it; the wrappers
-/// (`Unary` / `Agg` / `Cast`) and the binary operands are name-transparent,
-/// so the search rides `Expr::children` for them, taking the first child to
-/// yield a name. A `Ternary` draws its name from the value branches —
+/// (`Unary` / `Agg` / `Cast`) and the binary / map operands are
+/// name-transparent, so the search rides `Expr::children` for them, taking
+/// the first child to yield a name (a `Map` is thus named after its leftmost
+/// input, like Polars' `map_elements`). A `Ternary` draws its name from the value branches —
 /// `then` first, `otherwise` as fallback — never from the condition (the
 /// condition gates rows, it does not produce output values), so it is
 /// matched explicitly rather than walking all of its children.
@@ -113,7 +130,12 @@ fn leftmost_name(expr : Expr) -> String? {
         Some(name) => Some(name)
         None => leftmost_name(f)
       }
-    Lit(_) | Binary(_, _, _) | Unary(_, _) | Agg(_, _) | Cast(_, _) => {
+    Lit(_)
+    | Binary(_, _, _)
+    | Unary(_, _)
+    | Agg(_, _)
+    | Cast(_, _)
+    | Map(_, _, _) => {
       for child in expr.children() {
         match leftmost_name(child) {
           Some(name) => return Some(name)
@@ -190,6 +212,21 @@ fn write_expr(logger : &Logger, expr : Expr) -> Unit {
       logger.write_string(").otherwise(")
       write_expr(logger, f)
       logger.write_string(")")
+    }
+    // The closure is opaque, so a `Map` renders by its label and inputs:
+    // `map("label", [in1, in2])`. The label is quoted / escaped like a
+    // string literal so it stays on one unambiguous line.
+    Map(label, inputs, _) => {
+      logger.write_string("map(\"")
+      logger.write_string(escape_debug(label))
+      logger.write_string("\", [")
+      for i in 0..<inputs.length() {
+        if i > 0 {
+          logger.write_string(", ")
+        }
+        write_expr(logger, inputs[i])
+      }
+      logger.write_string("])")
     }
   }
 }

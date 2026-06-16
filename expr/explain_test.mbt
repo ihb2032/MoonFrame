@@ -99,6 +99,39 @@ test "show: deep nesting stays fully parenthesised" {
 }
 
 ///|
+test "show: a map renders by label and inputs, the closure opaque" {
+  inspect(
+    map_many(label="combine", [col("a"), col("b")], fn(vs) { vs[0] }),
+    content="map(\"combine\", [col(a), col(b)])",
+  )
+  // `map_elements` is a single-input map.
+  inspect(
+    col("x").map_elements(label="round", fn(s) { s }),
+    content="map(\"round\", [col(x)])",
+  )
+  // The label is quoted and escaped like a string literal, and an empty
+  // input list renders as `[]`.
+  inspect(
+    map_many(label="a\"b", [], fn(_vs) { @types.Scalar::Null }),
+    content="map(\"a\\\"b\", [])",
+  )
+}
+
+///|
+test "debug: an expression's repr is its quoted operator form" {
+  // `@debug.Debug` (what `assert_eq` uses for failure messages) is
+  // handwritten — the `Map` closure blocks `derive` — and delegates to the
+  // `Show` rendering. This pins it and, more to the point, covers the
+  // handwritten `to_repr`, which `assert_eq` reaches only on failure.
+  @debug.debug_inspect(
+    col("x").map_elements(label="m", fn(s) { s }),
+    content=(
+      #|"map(\"m\", [col(x)])"
+    ),
+  )
+}
+
+///|
 test "referenced_columns: depth-first, first-reference order, deduplicated" {
   let cols = ((col("revenue") - col("cost")) / col("revenue"))
     .with_alias("margin")
@@ -189,4 +222,61 @@ test "children: each variant exposes its immediate sub-expressions, left to righ
   // A ternary lists all three arms, condition first.
   let cond = a.gt(lit_int(0))
   assert_eq(when(cond).then(a).otherwise(b).children(), [cond, a, b])
+  // A map lists its input expressions (none for an empty input list).
+  assert_eq(map_many(label="m", [a, b], fn(vs) { vs[0] }).children(), [a, b])
+  assert_eq(
+    map_many(label="m", [], fn(_vs) { @types.Scalar::Null }).children(),
+    [],
+  )
+}
+
+///|
+test "children: a map's returned array never aliases the node's inputs" {
+  // `children()` hands back a fresh copy, so mutating it cannot corrupt the
+  // (immutable-by-construction) expression tree.
+  let m = map_many(label="m", [col("a")], fn(vs) { vs[0] })
+  let kids = m.children()
+  kids.push(col("injected"))
+  assert_eq(m.children(), [col("a")])
+}
+
+///|
+test "map: output_name is the leftmost input, else \"literal\", alias wins" {
+  assert_eq(
+    map_many(label="m", [col("a"), col("b")], fn(vs) { vs[0] }).output_name(),
+    "a",
+  )
+  assert_eq(col("x").map_elements(label="m", fn(s) { s }).output_name(), "x")
+  // No inputs, or a column-less input, leaves the tree nameless.
+  assert_eq(
+    map_many(label="m", [], fn(_vs) { @types.Scalar::Null }).output_name(),
+    "literal",
+  )
+  assert_eq(
+    map_many(label="m", [lit_int(1)], fn(vs) { vs[0] }).output_name(),
+    "literal",
+  )
+  // An alias on the map still wins.
+  assert_eq(
+    map_many(label="m", [col("a")], fn(vs) { vs[0] })
+    .with_alias("z")
+    .output_name(),
+    "z",
+  )
+}
+
+///|
+test "map: referenced_columns gathers every column its inputs read" {
+  assert_eq(
+    map_many(label="m", [col("a") + col("b"), col("c")], fn(vs) { vs[0] })
+    .referenced_columns()
+    .to_array(),
+    ["a", "b", "c"],
+  )
+  assert_eq(
+    map_many(label="m", [], fn(_vs) { @types.Scalar::Null })
+    .referenced_columns()
+    .to_array(),
+    [],
+  )
 }

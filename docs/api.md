@@ -302,14 +302,40 @@ missing column, a type clash) waits for evaluation. `expr` depends only on
   `WhenThen` / `WhenThenElse` are opaque builder steps (only `when` starts
   the chain).
 
+### Closure escape hatch
+
+Where the operators and methods above cover the documented algebra, two
+constructors reach past it to an arbitrary host closure applied row by row —
+the reified replacement for the v0.1 closure `filter` predicate. The closure
+is opaque to introspection, equality, and the optimizer: a map node is
+identified by its `label` and inputs.
+
+- `Expr::map_elements(self, label~ : String, f : (Scalar) -> Scalar raise)
+  -> Expr` — single input: `f` receives each cell of `self` as a `Scalar`
+  (a null cell as `Scalar::Null`) and returns the output cell.
+- `map_many(label~ : String, inputs : Array[Expr], f : (Array[Scalar]) ->
+  Scalar raise) -> Expr` — several inputs: `f` receives one cell per input,
+  in order; `inputs` may mix columns, literals, and aggregations (length-1
+  results broadcast over the row count). A row predicate is `map_many(...)`
+  returning `Scalar::Bool`.
+
+The closure runs once per row at evaluation and may `raise` (propagating from
+the consuming verb). The output column's dtype is the first non-null `Scalar`
+returned — an all-null or empty result raises `Unsupported` (there is no
+Null-dtype backend, the same limit as a `Null` literal). The result is named
+after the leftmost input; `label` shows only in `explain`. Because the
+closure can raise on the values it meets, the optimizer treats a map as a
+value barrier (like `cast`): no filter sinks across it.
+
 ### Introspection (all total)
 
 - `explain(self) -> String`, and the `Show` impl, render the documented
   operator form: `col(name)`, quoted string literals, parenthesised infix
   binaries `(l op r)`, prefix `(-e)` / `(not e)`, postfix `e.is_null()` /
-  `e.sum()` / `e.cast(T)`, `e as name`, and
-  `when(c).then(a).otherwise(b)`. `LazyFrame::explain` reuses it for plan
-  lines.
+  `e.sum()` / `e.cast(T)`, `e as name`,
+  `when(c).then(a).otherwise(b)`, and `map("label", [inputs])` for the
+  closure escape hatch (the closure opaque). `LazyFrame::explain` reuses it
+  for plan lines.
 - `referenced_columns(self) -> Set[String]` — every column the tree reads,
   including a ternary's condition (the lazy optimizer must keep it alive
   even when only the condition reads it).
@@ -345,6 +371,10 @@ raising `DataError` at evaluation time — building the tree never fails:
   `Series` statistic, so an all-null `mean` is a null cell and `count` is
   the non-null count); a length-1 result broadcasts against frame-tall
   results.
+- **Map** (`map_elements` / `map_many`) runs the closure once per row over
+  the input cells (each a `Scalar`, a null as `Scalar::Null`); the output
+  dtype is the first non-null result's, and an all-null / empty result
+  raises `Unsupported`.
 
 ---
 

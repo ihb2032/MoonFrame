@@ -122,8 +122,10 @@ on all four backends, so it always matches the current API.
 - **Defer & optimize** — `lazy_frame(df)` builds a query plan you can
   `explain()`; `collect()` runs it through a predicate- and
   projection-pushdown optimizer, bitwise-equal to the eager pipeline.
-- **Join** — the full `inner` / `left` / `right` / `outer` / `cross` matrix, e.g.
-  `orders.join(customers, JoinOptions::on(["customer_id"]))`.
+- **Join** — the full `inner` / `left` / `right` / `outer` / `cross` matrix on
+  expression keys, e.g.
+  `orders.join(customers, JoinOptions::on([col("customer_id")]))` (or
+  `left_on` / `right_on` for differently-named or derived keys).
 - **Summarize** — `describe()` for a per-column summary, or single statistics
   (`sum` / `mean` / `min_value` / …).
 - **Export** — `to_markdown()`, `to_html()`, `format_json_records`,

@@ -344,7 +344,7 @@ test "quickstart: inner join" {
     Series::from_strings("region", ["west", "east"]),
   ])
   inspect(
-    orders.join(customers, JoinOptions::on(["customer_id"])).to_markdown(),
+    orders.join(customers, JoinOptions::on([col("customer_id")])).to_markdown(),
     content=(
       #|| customer_id | amount | region |
       #|| ----------- | ------ | ------ |
@@ -378,7 +378,7 @@ test "quickstart: outer join" {
     orders
     .join(
       customers,
-      JoinOptions::on(["customer_id"])
+      JoinOptions::on([col("customer_id")])
       .with_how(JoinType::Outer)
       .with_coalesce(true),
     )

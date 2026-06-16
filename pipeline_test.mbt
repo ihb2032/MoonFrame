@@ -284,7 +284,7 @@ test "pipeline: join enriches a frame then sorts via the facade" {
   ])
 
   // Inner join via the explicit options form, then sort by amount desc.
-  let opts : JoinOptions = JoinOptions::on(["customer_id"])
+  let opts : JoinOptions = JoinOptions::on([col("customer_id")])
   let enriched = orders
     .join(customers, opts)
     .sort([(col("amount"), SortOrder::Desc, NullOrder::NullsLast)])
@@ -303,7 +303,7 @@ test "pipeline: join enriches a frame then sorts via the facade" {
   // unmatched row (order 4, customer 99).
   let all_orders = orders.join(
     customers,
-    JoinOptions::on(["customer_id"]).with_how(JoinType::Left),
+    JoinOptions::on([col("customer_id")]).with_how(JoinType::Left),
   )
   assert_eq(all_orders.columns(), [
     "order_id", "customer_id", "amount", "customer_id_right", "region",

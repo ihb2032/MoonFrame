@@ -54,19 +54,19 @@ test "explain: every join type's label, with and without keys" {
   let l = lazy_frame(orders_df())
   let r = lazy_frame(cities_df())
   let scans = "\n  SCAN [3×2]\n  SCAN [3×2]"
-  let on_id = @frame.JoinOptions::on(["id"])
-  assert_eq(l.join(r, on_id).explain(), "JOIN Inner on [id]" + scans)
+  let on_id = @frame.JoinOptions::on([@expr.col("id")])
+  assert_eq(l.join(r, on_id).explain(), "JOIN Inner on [col(id)]" + scans)
   assert_eq(
     l.join(r, on_id.with_how(@frame.JoinType::Left)).explain(),
-    "JOIN Left on [id]" + scans,
+    "JOIN Left on [col(id)]" + scans,
   )
   assert_eq(
     l.join(r, on_id.with_how(@frame.JoinType::Right)).explain(),
-    "JOIN Right on [id]" + scans,
+    "JOIN Right on [col(id)]" + scans,
   )
   assert_eq(
     l.join(r, on_id.with_how(@frame.JoinType::Outer)).explain(),
-    "JOIN Outer on [id]" + scans,
+    "JOIN Outer on [col(id)]" + scans,
   )
   // The keyless Cartesian product renders without an `on` list…
   assert_eq(
@@ -77,8 +77,23 @@ test "explain: every join type's label, with and without keys" {
   // to the stored options and total — whether the keys resolve is purely
   // collect's business.
   assert_eq(
-    l.join(r, @frame.JoinOptions::on(["id", "city"])).explain(),
-    "JOIN Inner on [id, city]" + scans,
+    l
+    .join(r, @frame.JoinOptions::on([@expr.col("id"), @expr.col("city")]))
+    .explain(),
+    "JOIN Inner on [col(id), col(city)]" + scans,
+  )
+  // Paired keys render as `left_on … right_on …` (faithful to the stored
+  // options; whether the keys resolve is collect's business).
+  assert_eq(
+    l
+    .join(
+      r,
+      @frame.JoinOptions::left_on([@expr.col("id")]).with_right_on([
+        @expr.col("city"),
+      ]),
+    )
+    .explain(),
+    "JOIN Inner left_on [col(id)] right_on [col(city)]" + scans,
   )
 }
 
@@ -116,8 +131,8 @@ test "explain: join inputs stack at the same depth with their own sub-pipelines"
   )
   let r = lazy_frame(cities_df()).head(2)
   assert_eq(
-    l.join(r, @frame.JoinOptions::on(["id"])).explain(),
-    "JOIN Inner on [id]\n" +
+    l.join(r, @frame.JoinOptions::on([@expr.col("id")])).explain(),
+    "JOIN Inner on [col(id)]\n" +
     "  FILTER (col(amount) > 10)\n" +
     "    SCAN [3×2]\n" +
     "  HEAD 2\n" +

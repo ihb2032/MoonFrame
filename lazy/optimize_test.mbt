@@ -125,7 +125,7 @@ test "row windows pass the requirement through to the scan" {
 test "join sides narrow independently below the barrier" {
   let l = orders_df()
   let r = cities_df()
-  let opts = @frame.JoinOptions::on(["id"])
+  let opts = @frame.JoinOptions::on([@expr.col("id")])
   // The left side's own selection prunes `amount` before the join.
   assert_eq(
     lazy_frame(l).select([@expr.col("id")]).join(lazy_frame(r), opts).collect(),
@@ -385,14 +385,14 @@ test "with_columns at the root is a no-op (its full layout is the result)" {
 
 ///|
 test "join is a barrier, but each side restarts its own pass" {
-  let opts = @frame.JoinOptions::on(["id"])
+  let opts = @frame.JoinOptions::on([@expr.col("id")])
   // A selection *below* the left side narrows that side's scan.
   let narrowed_side = lazy_frame(orders_df())
     .select([@expr.col("id")])
     .join(lazy_frame(cities_df()), opts)
   assert_eq(
     narrowed_side.explain(optimized=true),
-    "JOIN Inner on [id]\n" +
+    "JOIN Inner on [col(id)]\n" +
     "  SELECT [col(id)]\n" +
     "    SELECT [col(id)]\n" +
     "      SCAN [3×2]\n" +
@@ -904,7 +904,7 @@ test "stacked filters sink together and keep their order" {
 test "a filter above a join stays; one inside a side still sinks" {
   let l = orders_df()
   let r = cities_df()
-  let opts = @frame.JoinOptions::on(["id"])
+  let opts = @frame.JoinOptions::on([@expr.col("id")])
   // Above: splitting a predicate across suffix-renamed sides is column
   // provenance, deferred — the join is a barrier.
   let above = lazy_frame(l)
@@ -924,7 +924,7 @@ test "a filter above a join stays; one inside a side still sinks" {
     .join(lazy_frame(r), opts)
   assert_eq(
     inside.explain(optimized=true),
-    "JOIN Inner on [id]\n" +
+    "JOIN Inner on [col(id)]\n" +
     "  SELECT [col(id), col(amount)]\n" +
     "    FILTER (col(amount) > 15)\n" +
     "      SCAN [3×2]\n" +

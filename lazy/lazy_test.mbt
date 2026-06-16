@@ -93,7 +93,7 @@ test "head, tail, and limit inherit the eager total clamp" {
 test "every join type collects to its eager equivalent" {
   let l = orders_df()
   let r = cities_df()
-  let on_id = @frame.JoinOptions::on(["id"])
+  let on_id = @frame.JoinOptions::on([@expr.col("id")])
   for
     how in [
       @frame.JoinType::Inner,
@@ -145,13 +145,43 @@ test "join inputs run their own deferred sub-pipelines" {
   let l = orders_df()
   let r = cities_df()
   let amount_gate = @expr.col("amount").ge(@expr.lit_int(20))
-  let opts = @frame.JoinOptions::on(["id"]).with_how(@frame.JoinType::Left)
+  let opts = @frame.JoinOptions::on([@expr.col("id")]).with_how(
+    @frame.JoinType::Left,
+  )
   let lazy_out = lazy_frame(l)
     .filter(amount_gate)
     .join(lazy_frame(r).head(2), opts)
     .collect()
   assert_eq(lazy_out, l.filter(amount_gate).join(r.head(2), opts))
   assert_eq(lazy_out.check_invariants(), Ok(()))
+}
+
+///|
+test "join on left_on / right_on and derived keys collects to the eager equivalent" {
+  let l = @frame.DataFrame::new([
+    @series.Series::from_ints("lk", [1, 2, 3]),
+    @series.Series::from_strings("lv", ["a", "b", "c"]),
+  ])
+  let r = @frame.DataFrame::new([
+    @series.Series::from_ints("rk", [2, 3, 4]),
+    @series.Series::from_ints("rv", [20, 30, 40]),
+  ])
+  // Differently-named keys via left_on / right_on.
+  let sided = @frame.JoinOptions::left_on([@expr.col("lk")]).with_right_on([
+    @expr.col("rk"),
+  ])
+  assert_eq(
+    lazy_frame(l).join(lazy_frame(r), sided).collect(),
+    l.join(r, sided),
+  )
+  // A derived key on the right side, paired with a bare left key.
+  let derived = @frame.JoinOptions::left_on([@expr.col("lk")]).with_right_on([
+    @expr.col("rk") - @expr.lit_int(1),
+  ])
+  assert_eq(
+    lazy_frame(l).join(lazy_frame(r), derived).collect(),
+    l.join(r, derived),
+  )
 }
 
 ///|

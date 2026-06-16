@@ -123,7 +123,7 @@ on all four backends, so it always matches the current API.
   `explain()`; `collect()` runs it through a predicate- and
   projection-pushdown optimizer, bitwise-equal to the eager pipeline.
 - **Join** — the full `inner` / `left` / `right` / `outer` / `cross` matrix, e.g.
-  `orders.inner_join(customers, ["customer_id"])`.
+  `orders.join(customers, JoinOptions::on(["customer_id"]))`.
 - **Summarize** — `describe()` for a per-column summary, or single statistics
   (`sum` / `mean` / `min_value` / …).
 - **Export** — `to_markdown()`, `to_html()`, `format_json_records`,

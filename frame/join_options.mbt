@@ -73,8 +73,7 @@ pub fn JoinOptions::on(keys : Array[String]) -> JoinOptions {
 /// frames, with no key columns (`how = Cross`, `on = []`). Keeps the
 /// default `"_right"` collision suffix; `coalesce` is irrelevant (there
 /// are no keys to merge). `with_suffix` still applies to right columns
-/// whose names clash with the left. The convenience `DataFrame::cross_join`
-/// wraps this.
+/// whose names clash with the left.
 pub fn JoinOptions::cross() -> JoinOptions {
   { on: [], how: Cross, suffix: "_right", coalesce: None }
 }

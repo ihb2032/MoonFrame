@@ -659,7 +659,7 @@ Split-apply-combine, native to the method chain
   column is absent), `DuplicateColumn` (two output names collide — e.g. two
   reductions over the same column, or an alias shadowing a key column).
 
-### Join (`join` / `inner_join` / `left_join` / `right_join` / `outer_join` / `cross_join`)
+### Join (`join`)
 
 Hash equi-join, native to the method chain (`left.join(right, options)`).
 
@@ -715,26 +715,6 @@ Hash equi-join, native to the method chain (`left.join(right, options)`).
     `DuplicateColumn` (a key **repeated in `on`** — rejected at the repeat,
     like `group_by(["id", "id"])`; or two output columns still colliding
     after suffixing — surfaced by `DataFrame::new`).
-- `inner_join(other, on : Array[String]) -> DataFrame raise DataError` —
-  `self.join(other, JoinOptions::on(on))` (auto-coalesces, so the key
-  appears once).
-- `left_join(other, on : Array[String]) -> DataFrame raise DataError` —
-  `self.join(other, JoinOptions::on(on).with_how(Left))`. Per the
-  auto-coalesce default this keeps **both** key columns (the right as
-  `<key><suffix>`, null on unmatched rows); pass `with_coalesce(true)` to
-  merge them.
-- `right_join(other, on : Array[String]) -> DataFrame raise DataError` —
-  `self.join(other, JoinOptions::on(on).with_how(Right))`; the mirror of
-  `left_join` (keep every right row, left columns null on no match). Keeps
-  both keys by default; `with_coalesce(true)` merges them from the
-  always-present right side.
-- `outer_join(other, on : Array[String]) -> DataFrame raise DataError` —
-  `self.join(other, JoinOptions::on(on).with_how(Outer))`; the full outer
-  join (every unmatched row from both sides kept). Keeps both keys by
-  default; `with_coalesce(true)` merges them, each cell from whichever side
-  is present.
-- `cross_join(other) -> DataFrame raise DataError` —
-  `self.join(other, JoinOptions::cross())`; the Cartesian product, no keys.
 - `enum JoinType` — `Inner` / `Left` / `Right` / `Outer` / `Cross`.
 - `struct JoinOptions` (fields private) — built via `JoinOptions::on(keys)`
   (defaults to `Inner`, suffix `"_right"`, `coalesce` auto) or

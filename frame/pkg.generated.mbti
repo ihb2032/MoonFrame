@@ -24,7 +24,6 @@ pub fn DataFrame::check_invariants(Self) -> Result[Unit, String]
 pub fn DataFrame::column_series(Self) -> Array[@series.Series]
 pub fn DataFrame::columns(Self) -> Array[String]
 pub fn DataFrame::count(Self, String) -> Int raise @types.DataError
-pub fn DataFrame::cross_join(Self, Self) -> Self raise @types.DataError
 pub fn DataFrame::describe(Self) -> Self raise @types.DataError
 pub fn DataFrame::drop(Self, Array[String]) -> Self raise @types.DataError
 pub fn DataFrame::drop_nulls(Self) -> Self raise @types.DataError
@@ -38,10 +37,8 @@ pub fn DataFrame::get_column(Self, String) -> @series.Series raise @types.DataEr
 pub fn DataFrame::get_column_at(Self, Int) -> @series.Series raise @types.DataError
 pub fn DataFrame::group_by(Self, Array[@expr.Expr]) -> GroupedDataFrame raise @types.DataError
 pub fn DataFrame::head(Self, Int) -> Self
-pub fn DataFrame::inner_join(Self, Self, Array[String]) -> Self raise @types.DataError
 pub fn DataFrame::is_empty(Self) -> Bool
 pub fn DataFrame::join(Self, Self, JoinOptions) -> Self raise @types.DataError
-pub fn DataFrame::left_join(Self, Self, Array[String]) -> Self raise @types.DataError
 pub fn DataFrame::max(Self, String) -> @types.Scalar raise @types.DataError
 pub fn DataFrame::mean(Self, String) -> Double raise @types.DataError
 pub fn DataFrame::min(Self, String) -> @types.Scalar raise @types.DataError
@@ -49,10 +46,8 @@ pub fn DataFrame::ncols(Self) -> Int
 pub fn DataFrame::new(Array[@series.Series]) -> Self raise @types.DataError
 pub fn DataFrame::nrows(Self) -> Int
 pub fn DataFrame::null_count(Self) -> Self raise @types.DataError
-pub fn DataFrame::outer_join(Self, Self, Array[String]) -> Self raise @types.DataError
 pub fn DataFrame::rename(Self, Array[(String, String)]) -> Self raise @types.DataError
 pub fn DataFrame::replace_column(Self, String, @series.Series) -> Self raise @types.DataError
-pub fn DataFrame::right_join(Self, Self, Array[String]) -> Self raise @types.DataError
 pub fn DataFrame::row(Self, Int) -> Array[@types.Scalar] raise @types.DataError
 pub fn DataFrame::rows(Self) -> Array[Array[@types.Scalar]]
 pub fn DataFrame::schema(Self) -> @types.Schema

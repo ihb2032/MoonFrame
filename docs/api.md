@@ -267,6 +267,13 @@ missing column, a type clash) waits for evaluation. `expr` depends only on
 - `lit_int(Int64)` / `lit_float(Double)` / `lit_str(String)` /
   `lit_bool(Bool) -> Expr` — typed literal shorthands (skip the
   `Scalar::Int(...)` noise).
+- `lit_series(s : Series) -> Expr` — embed a pre-materialised `Series` as a
+  literal column, the expression face of the old `with_column(Series)` (so a
+  ready-made column joins a pipeline beside the declarative expressions). At
+  evaluation it is used as-is: a length-1 series broadcasts, a frame-tall one
+  maps row for row, any other length is `LengthMismatch`. It is named after
+  the series unless `with_alias` overrides, so `with_columns([lit_series(s)])`
+  adds — or in-place replaces — a column named `s.name()`.
 
 ### Operators (trait impls, in scope through `type Expr`)
 
@@ -333,9 +340,10 @@ value barrier (like `cast`): no filter sinks across it.
   operator form: `col(name)`, quoted string literals, parenthesised infix
   binaries `(l op r)`, prefix `(-e)` / `(not e)`, postfix `e.is_null()` /
   `e.sum()` / `e.cast(T)`, `e as name`,
-  `when(c).then(a).otherwise(b)`, and `map("label", [inputs])` for the
-  closure escape hatch (the closure opaque). `LazyFrame::explain` reuses it
-  for plan lines.
+  `when(c).then(a).otherwise(b)`, `map("label", [inputs])` for the
+  closure escape hatch (the closure opaque), and `lit_series("name", len)`
+  for an embedded literal series (its data opaque). `LazyFrame::explain`
+  reuses it for plan lines.
 - `referenced_columns(self) -> Set[String]` — every column the tree reads,
   including a ternary's condition (the lazy optimizer must keep it alive
   even when only the condition reads it).
@@ -375,6 +383,11 @@ raising `DataError` at evaluation time — building the tree never fails:
   the input cells (each a `Scalar`, a null as `Scalar::Null`); the output
   dtype is the first non-null result's, and an all-null / empty result
   raises `Unsupported`.
+- **Literal series** (`lit_series`) is used verbatim — the data analogue of a
+  scalar literal's length-1 column — and the consumers broadcast it: a
+  length-1 series fills the scope, a frame-tall one passes through, anything
+  else is `LengthMismatch`. Its backend is preserved (it is handed through,
+  not re-derived), and it reads no frame column.
 
 ---
 
@@ -1018,8 +1031,9 @@ names them).
   `compare_string_lex` · `is_decimal_int_literal`
 - From `@column`: `Bitmap` · `BuiltinColumn` · `ColumnData` ·
   `NumericColumn` · `NumericData` · `ColumnStorage` · `StorageKind`
-- From `@expr`: `Expr` · `WhenThen` · `WhenThenElse` · `col` · `lit` ·
-  `lit_int` · `lit_float` · `lit_str` · `lit_bool` · `when`
+- From `@expr`: `Expr` · `WhenThen` · `WhenThenElse` · `col` · `cols` ·
+  `lit` · `lit_int` · `lit_float` · `lit_str` · `lit_bool` · `lit_series` ·
+  `when` · `map_many`
 - From `@series`: `Series`
 - From `@frame`: `DataFrame` · `SortOrder` ·
   `NullOrder` · `GroupedDataFrame` · `JoinType` ·

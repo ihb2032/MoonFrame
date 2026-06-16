@@ -211,22 +211,32 @@ test "pipeline: drop_nulls / fill_null / null_count compose via the facade" {
 // ── Stats + describe via the facade ───────────────────────────────────
 
 ///|
-test "pipeline: count / sum / mean / min / max all reach Series-equivalent results" {
+test "pipeline: per-column scalars and whole-frame reductions via the facade" {
   let df = DataFrame::new([
     Series::from_int_options("n", [Some(1), Some(2), None, Some(4)]),
     Series::from_strings("tag", ["a", "b", "c", "d"]),
   ])
-  assert_eq(df.count("n"), 3)
-  assert_eq(df.sum("n"), Scalar::Int(7))
+  // A single column's scalar reduction reads through its Series (the v0.4
+  // `df.sum("n")` migration target).
+  assert_eq(df.get_column("n").count(), 3)
+  assert_eq(df.get_column("n").sum(), Scalar::Int(7))
   // 1 + 2 + 4 == 7, n_non_null == 3 → mean == 7 / 3.
-  let m = df.mean("n")
+  let m = df.get_column("n").mean()
   assert_true((m - 7.0 / 3.0).abs() < 1.0e-6)
-  assert_eq(df.min("n"), Scalar::Int(1))
-  assert_eq(df.max("n"), Scalar::Int(4))
+  assert_eq(df.get_column("n").min_value(), Scalar::Int(1))
+  assert_eq(df.get_column("n").max_value(), Scalar::Int(4))
 
-  // Non-numeric column rejects the numeric reductions.
-  assert_true((try? df.sum("tag")) is Err(_))
-  assert_true((try? df.mean("tag")) is Err(_))
+  // The whole-frame reductions return a 1-row frame: the numeric column
+  // reduces, the non-numeric column becomes a Null cell, count counts both.
+  let summed = df.sum()
+  assert_eq(summed.shape(), (1, 2))
+  assert_eq(summed.get(0, "n"), Scalar::Int(7))
+  assert_eq(summed.get(0, "tag"), Scalar::Null)
+  assert_eq(df.count().get(0, "tag"), Scalar::Int(4))
+
+  // The explicit per-column sum still rejects a non-numeric column, while the
+  // whole-frame sum above tolerates it by nulling.
+  assert_true((try? df.get_column("tag").sum()) is Err(_))
 }
 
 // ── GroupBy via the facade ────────────────────────────────────────────

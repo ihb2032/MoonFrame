@@ -408,7 +408,7 @@ rebuild and backend-convergence helpers, and the composite-key cell encoding
   `to_scalars() -> Array[Scalar]` (materialise every cell, `Null` for
   null cells).
 - Fallible (`raise DataError`): `is_null(i) -> Bool` / `get(i) -> Scalar`
-  (`IndexOutOfBounds`); `slice(start, end)` / `take(indices)`;
+  (`IndexOutOfBounds`); `slice(start, end)` / `gather(indices)`;
   `fill_null(value)` (`TypeMismatch` for `Scalar::Null` or a
   dtype-mismatched value); `cast(target)` / `to_int()` / `to_float()`;
   `to_numeric()` (move onto the `Numeric` backend — `TypeMismatch` for a
@@ -417,14 +417,14 @@ rebuild and backend-convergence helpers, and the composite-key cell encoding
   `drop_nulls()` (gather non-null cells); `to_string_series()` (every
   dtype renders, so total); `to_builtin()` (materialise onto the `Builtin`
   backend — lossless inverse of `to_numeric`). Structural transforms
-  (`slice` / `take` / `drop_nulls` / `fill_null`, and `head` / `tail` /
+  (`slice` / `gather` / `drop_nulls` / `fill_null`, and `head` / `tail` /
   `filter` / `sort` / `join` at the frame level) **preserve the backend**
   — a `Numeric` column stays on the fast path where it gains no null;
   cross-dtype casts borrow the `Builtin` road.
 
 ### Series stats (`series_stats.mbt`)
 
-- Total: `count()` (non-null count); `unique_count()` (distinct non-null
+- Total: `count()` (non-null count); `n_unique()` (distinct non-null
   values, keyed by the same composite `key_cell` normalisation `group_by` /
   `join` use, so the distinct count agrees with grouping cell-for-cell —
   every `Float` `NaN` collapses to one bucket and `-0.0` folds into `+0.0`);
@@ -555,7 +555,7 @@ transforms, so every output satisfies `check_invariants()`.
   (= Polars `df[c].sum()`).
 - `describe() -> DataFrame raise DataError` — per-column summary, one row
   per source column, fixed `N × 8` schema (`column` / `dtype` / `count` /
-  `null_count` / `unique_count` (`Int`); `mean` (`Float`, nullable);
+  `null_count` / `n_unique` (`Int`); `mean` (`Float`, nullable);
   `min` / `max` (`String`, nullable, rendered via `Scalar::to_string`)).
   `min` / `max` are stringified so a single column can carry extrema across
   source columns of differing dtype. 0-column collapses to `0 × 8`.

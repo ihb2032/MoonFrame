@@ -183,10 +183,13 @@ fn sort_label(
 
 ///|
 /// `JOIN` line: the join type plus the key list when there is one —
-/// `JOIN Left on [id]` — and just `JOIN Cross` for the keyless Cartesian
-/// product. Faithful to the stored `JoinOptions`: a malformed combination
-/// (say, keys with `Cross`) renders as stored and only fails at collect,
-/// exactly like the eager `join` it defers.
+/// `JOIN Left on [col(id)]`, or `JOIN Inner left_on [col(a)] right_on
+/// [col(b)]` for paired keys — and just `JOIN Cross` for the keyless
+/// Cartesian product. Keys render through `@expr.Expr`'s `Show` (the
+/// documented operator form, like the `SELECT` / `SORT` lists). Faithful to
+/// the stored `JoinOptions`: a malformed combination (say, keys with
+/// `Cross`) renders as stored and only fails at collect, exactly like the
+/// eager `join` it defers.
 fn join_label(options : @frame.JoinOptions) -> String {
   let how = match options.how {
     @frame.JoinType::Inner => "Inner"
@@ -195,10 +198,17 @@ fn join_label(options : @frame.JoinOptions) -> String {
     @frame.JoinType::Outer => "Outer"
     @frame.JoinType::Cross => "Cross"
   }
-  if options.on.is_empty() {
-    "JOIN " + how
+  if !options.on.is_empty() {
+    "JOIN " + how + " on " + exprs_label(options.on)
+  } else if !options.left_on.is_empty() || !options.right_on.is_empty() {
+    "JOIN " +
+    how +
+    " left_on " +
+    exprs_label(options.left_on) +
+    " right_on " +
+    exprs_label(options.right_on)
   } else {
-    "JOIN " + how + " on " + list_label(options.on)
+    "JOIN " + how
   }
 }
 

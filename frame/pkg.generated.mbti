@@ -36,7 +36,7 @@ pub fn DataFrame::from_rows(@types.Schema, Array[Array[@types.Scalar]]) -> Self 
 pub fn DataFrame::get(Self, Int, String) -> @types.Scalar raise @types.DataError
 pub fn DataFrame::get_column(Self, String) -> @series.Series raise @types.DataError
 pub fn DataFrame::get_column_at(Self, Int) -> @series.Series raise @types.DataError
-pub fn DataFrame::group_by(Self, Array[String]) -> GroupedDataFrame raise @types.DataError
+pub fn DataFrame::group_by(Self, Array[@expr.Expr]) -> GroupedDataFrame raise @types.DataError
 pub fn DataFrame::head(Self, Int) -> Self
 pub fn DataFrame::inner_join(Self, Self, Array[String]) -> Self raise @types.DataError
 pub fn DataFrame::is_empty(Self) -> Bool
@@ -76,7 +76,7 @@ pub fn DataFrame::with_columns(Self, Array[@expr.Expr]) -> Self raise @types.Dat
 
 pub struct GroupedDataFrame {
   source : DataFrame
-  keys : Array[String]
+  key_columns : Array[@series.Series]
   groups : Array[Array[Int]]
 } derive(Eq, @debug.Debug)
 pub fn GroupedDataFrame::agg(Self, Array[@expr.Expr]) -> DataFrame raise @types.DataError

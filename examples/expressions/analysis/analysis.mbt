@@ -50,7 +50,7 @@ pub fn margins(
   df : @moonframe.DataFrame,
 ) -> @moonframe.DataFrame raise @moonframe.DataError {
   df
-  .group_by(["region"])
+  .group_by([@moonframe.col("region")])
   .agg([
     (@moonframe.col("revenue") - @moonframe.col("cost"))
     .sum()

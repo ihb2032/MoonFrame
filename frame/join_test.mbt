@@ -996,7 +996,7 @@ test "right / outer join raise TypeMismatch when a key dtype differs" {
 test "join raises DuplicateColumn for a key repeated in `on`" {
   // `["dept_id", "dept_id"]` would otherwise resolve the same column twice
   // and silently behave as the single key `["dept_id"]`. Like
-  // `group_by(["id", "id"])`, the repeat is rejected. Both resolver call
+  // `group_by([col("id"), col("id")])`, the repeat is rejected. Both resolver call
   // sites are covered: inner (the Inner / Left / Outer planner) and right.
   assert_eq(
     try? employees().inner_join(departments(), ["dept_id", "dept_id"]),

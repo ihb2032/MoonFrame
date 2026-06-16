@@ -85,11 +85,11 @@ test "explain: every join type's label, with and without keys" {
 ///|
 test "explain: aggregate prints its expressions and keys" {
   let plan = lazy_frame(sales_df())
-    .group_by(["region"])
+    .group_by([@expr.col("region")])
     .agg([@expr.col("qty").sum().with_alias("total")])
   assert_eq(
     plan.explain(),
-    "AGGREGATE [col(qty).sum() as total] BY [region]\n  SCAN [4×3]",
+    "AGGREGATE [col(qty).sum() as total] BY [col(region)]\n  SCAN [4×3]",
   )
 }
 
@@ -97,13 +97,13 @@ test "explain: aggregate prints its expressions and keys" {
 test "explain: aggregate composes mid-pipeline with multiple keys and expressions" {
   let plan = lazy_frame(sales_df())
     .filter(@expr.col("qty").gt(@expr.lit_int(10)))
-    .group_by(["region", "bonus"])
+    .group_by([@expr.col("region"), @expr.col("bonus")])
     .agg([@expr.col("qty").mean().with_alias("avg"), @expr.col("qty").count()])
     .head(3)
   assert_eq(
     plan.explain(),
     "HEAD 3\n" +
-    "  AGGREGATE [col(qty).mean() as avg, col(qty).count()] BY [region, bonus]\n" +
+    "  AGGREGATE [col(qty).mean() as avg, col(qty).count()] BY [col(region), col(bonus)]\n" +
     "    FILTER (col(qty) > 10)\n" +
     "      SCAN [4×3]",
   )

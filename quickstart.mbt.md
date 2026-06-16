@@ -27,7 +27,7 @@ test "quickstart: group_by + agg" {
     Series::from_floats("revenue", [100.0, 50.0, 70.0, 30.0]),
   ])
   let summary = sales
-    .group_by(["region"])
+    .group_by([col("region")])
     .agg([
       col("quantity").sum().with_alias("total_quantity"),
       col("revenue").mean().with_alias("avg_revenue"),
@@ -159,7 +159,7 @@ test "quickstart: composite aggregation" {
     Series::from_ints("cost", [60, 20, 40, 25]),
   ])
   let summary = sales
-    .group_by(["region"])
+    .group_by([col("region")])
     .agg([
       (col("revenue") - col("cost")).sum().with_alias("total_profit"),
       col("revenue").mean().with_alias("avg_revenue"),

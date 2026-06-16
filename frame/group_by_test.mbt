@@ -40,7 +40,7 @@ fn sales_df() -> DataFrame raise @types.DataError {
 ///|
 test "group_by single key with all five default-named aggregations" {
   let out = sales_df()
-    .group_by(["region"])
+    .group_by([@expr.col("region")])
     .agg([
       @expr.col("quantity").count().with_alias("quantity_count"),
       @expr.col("quantity").sum().with_alias("quantity_sum"),
@@ -75,7 +75,7 @@ test "group_by single key with all five default-named aggregations" {
 ///|
 test "group_by aggregates a second measure column (Float sum)" {
   let out = sales_df()
-    .group_by(["region"])
+    .group_by([@expr.col("region")])
     .agg([@expr.col("revenue").sum().with_alias("revenue_sum")])
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.columns(), ["region", "revenue_sum"])
@@ -89,7 +89,7 @@ test "group_by aggregates a second measure column (Float sum)" {
 ///|
 test "group_by multiple keys partitions by the key tuple" {
   let out = sales_df()
-    .group_by(["region", "product"])
+    .group_by([@expr.col("region"), @expr.col("product")])
     .agg([@expr.col("quantity").sum().with_alias("quantity_sum")])
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.columns(), ["region", "product", "quantity_sum"])
@@ -115,7 +115,7 @@ test "group_by multiple keys partitions by the key tuple" {
 ///|
 test "with_alias overrides the aggregated column name" {
   let out = sales_df()
-    .group_by(["region"])
+    .group_by([@expr.col("region")])
     .agg([
       @expr.col("quantity").sum().with_alias("total_q"),
       @expr.col("revenue").mean().with_alias("avg_rev"),
@@ -135,7 +135,9 @@ test "group order follows first appearance, not sorted order" {
     Series::from_strings("g", ["z", "a", "z", "a", "m"]),
     Series::from_ints("v", [1, 2, 3, 4, 5]),
   ])
-  let out = df.group_by(["g"]).agg([@expr.col("v").sum().with_alias("v_sum")])
+  let out = df
+    .group_by([@expr.col("g")])
+    .agg([@expr.col("v").sum().with_alias("v_sum")])
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.get(0, "g"), @types.Scalar::String("z"))
   assert_eq(out.get(1, "g"), @types.Scalar::String("a"))
@@ -156,7 +158,9 @@ test "a null key forms its own group, distinct from an empty string" {
     Series::from_string_options("k", [Some("a"), None, Some(""), Some("a")]),
     Series::from_ints("v", [1, 2, 3, 4]),
   ])
-  let out = df.group_by(["k"]).agg([@expr.col("v").sum().with_alias("v_sum")])
+  let out = df
+    .group_by([@expr.col("k")])
+    .agg([@expr.col("v").sum().with_alias("v_sum")])
   assert_eq(out.check_invariants(), Ok(()))
   // Three groups in first-appearance order: "a", null, "".
   assert_eq(out.shape(), (3, 2))
@@ -179,7 +183,9 @@ test "Float NaN keys collapse into a single group" {
     Series::from_floats("k", [nan, 1.0, nan]),
     Series::from_ints("v", [1, 2, 3]),
   ])
-  let out = df.group_by(["k"]).agg([@expr.col("v").sum().with_alias("v_sum")])
+  let out = df
+    .group_by([@expr.col("k")])
+    .agg([@expr.col("v").sum().with_alias("v_sum")])
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.shape(), (2, 2))
   // NaN group (rows 0,2) first, then the 1.0 group (row 1).
@@ -198,7 +204,9 @@ test "Float -0.0 and +0.0 keys collapse into a single group" {
     Series::from_floats("k", [0.0, -0.0, 1.5, 0.0]),
     Series::from_ints("v", [1, 2, 3, 4]),
   ])
-  let out = df.group_by(["k"]).agg([@expr.col("v").sum().with_alias("v_sum")])
+  let out = df
+    .group_by([@expr.col("k")])
+    .agg([@expr.col("v").sum().with_alias("v_sum")])
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.shape(), (2, 2))
   // Zero group first (sum 1 + 2 + 4 = 7), then the 1.5 group (3).
@@ -216,7 +224,9 @@ test "group_by preserves the key column dtype (Int key)" {
     Series::from_ints("k", [1, 1, 2]),
     Series::from_ints("v", [10, 20, 30]),
   ])
-  let out = df.group_by(["k"]).agg([@expr.col("v").sum().with_alias("v_sum")])
+  let out = df
+    .group_by([@expr.col("k")])
+    .agg([@expr.col("v").sum().with_alias("v_sum")])
   assert_eq(out.check_invariants(), Ok(()))
   // Key column keeps Int dtype (not stringified).
   assert_eq(out.get_column("k").dtype(), @types.DataType::Int)
@@ -229,7 +239,7 @@ test "group_by preserves the key column dtype (Int key)" {
 ///|
 test "sum keeps the source numeric dtype; mean is always Float" {
   let out = sales_df()
-    .group_by(["region"])
+    .group_by([@expr.col("region")])
     .agg([
       @expr.col("quantity").sum().with_alias("quantity_sum"), // Int source → Int
       @expr.col("revenue").sum().with_alias("revenue_sum"), // Float source → Float
@@ -250,7 +260,7 @@ test "count excludes nulls; an all-null group reduces to identity / null" {
     Series::from_int_options("v", [Some(1), None, None, None]),
   ])
   let out = df
-    .group_by(["k"])
+    .group_by([@expr.col("k")])
     .agg([
       @expr.col("v").count().with_alias("v_count"),
       @expr.col("v").sum().with_alias("v_sum"),
@@ -283,7 +293,9 @@ test "agg: an all-null Float group means a null cell" {
     Series::from_strings("k", ["a", "a", "b"]),
     Series::from_float_options("v", [Some(1.0), Some(3.0), None]),
   ])
-  let out = df.group_by(["k"]).agg([@expr.col("v").mean().with_alias("v_mean")])
+  let out = df
+    .group_by([@expr.col("k")])
+    .agg([@expr.col("v").mean().with_alias("v_mean")])
   assert_eq(out.check_invariants(), Ok(()))
   // Group a = [1.0, 3.0] → mean 2.0; group b = [null] → null mean.
   assert_eq(out.get(0, "v_mean"), @types.Scalar::Float(2.0))
@@ -309,7 +321,7 @@ test "Float NaN propagates through sum / mean but is skipped by min / max within
     ]),
   ])
   let out = df
-    .group_by(["k"])
+    .group_by([@expr.col("k")])
     .agg([
       @expr.col("v").sum().with_alias("v_sum"),
       @expr.col("v").mean().with_alias("v_mean"),
@@ -355,7 +367,7 @@ fn extrema_df() -> DataFrame raise @types.DataError {
 ///|
 test "min over Int / Float / Bool / String, all-null group → null" {
   let out = extrema_df()
-    .group_by(["k"])
+    .group_by([@expr.col("k")])
     .agg([
       @expr.col("vi").min().with_alias("vi_min"),
       @expr.col("vf").min().with_alias("vf_min"),
@@ -381,7 +393,7 @@ test "min over Int / Float / Bool / String, all-null group → null" {
 ///|
 test "max over Int / Float / Bool / String, all-null group → null" {
   let out = extrema_df()
-    .group_by(["k"])
+    .group_by([@expr.col("k")])
     .agg([
       @expr.col("vi").max().with_alias("vi_max"),
       @expr.col("vf").max().with_alias("vf_max"),
@@ -404,14 +416,16 @@ test "max over Int / Float / Bool / String, all-null group → null" {
 ///|
 test "empty specs degenerates to distinct key combinations" {
   // Single key: distinct regions, in first-appearance order.
-  let one = sales_df().group_by(["region"]).agg([])
+  let one = sales_df().group_by([@expr.col("region")]).agg([])
   assert_eq(one.check_invariants(), Ok(()))
   assert_eq(one.columns(), ["region"])
   assert_eq(one.shape(), (2, 1))
   assert_eq(one.get(0, "region"), @types.Scalar::String("east"))
   assert_eq(one.get(1, "region"), @types.Scalar::String("west"))
   // Multi key: distinct (region, product) tuples.
-  let many = sales_df().group_by(["region", "product"]).agg([])
+  let many = sales_df()
+    .group_by([@expr.col("region"), @expr.col("product")])
+    .agg([])
   assert_eq(many.check_invariants(), Ok(()))
   assert_eq(many.columns(), ["region", "product"])
   assert_eq(many.shape(), (4, 2))
@@ -426,7 +440,7 @@ test "group_by on a 0-row frame yields 0 groups with the key+agg schema" {
     Series::from_ints("v", []),
   ])
   let out = df
-    .group_by(["k"])
+    .group_by([@expr.col("k")])
     .agg([
       @expr.col("v").sum().with_alias("v_sum"),
       @expr.col("v").count().with_alias("v_count"),
@@ -472,7 +486,7 @@ test "multi-key composite is injective across field boundaries" {
     Series::from_strings("k2", ["bc", "c"]),
     Series::from_ints("v", [1, 2]),
   ])
-  let out = df.group_by(["k1", "k2"]).agg([])
+  let out = df.group_by([@expr.col("k1"), @expr.col("k2")]).agg([])
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.shape(), (2, 2))
 }
@@ -483,7 +497,7 @@ test "multi-key composite is injective across field boundaries" {
 test "group_by raises ColumnNotFound for an unknown key column" {
   let df = sales_df()
   assert_eq(
-    try? df.group_by(["nope"]),
+    try? df.group_by([@expr.col("nope")]),
     Err(@types.DataError::ColumnNotFound("nope")),
   )
 }
@@ -495,20 +509,20 @@ test "group_by raises DuplicateColumn for a key column named twice" {
   // identically-named "region" columns; it is rejected up front at the
   // repeat, in `keys` order.
   assert_eq(
-    try? df.group_by(["region", "region"]),
+    try? df.group_by([@expr.col("region"), @expr.col("region")]),
     Err(@types.DataError::DuplicateColumn("region")),
   )
   // A *missing* key still surfaces as ColumnNotFound at its first
   // appearance, before the duplicate at the second is examined.
   assert_eq(
-    try? df.group_by(["nope", "nope"]),
+    try? df.group_by([@expr.col("nope"), @expr.col("nope")]),
     Err(@types.DataError::ColumnNotFound("nope")),
   )
 }
 
 ///|
 test "agg raises ColumnNotFound for an unknown aggregation column" {
-  let grouped = sales_df().group_by(["region"])
+  let grouped = sales_df().group_by([@expr.col("region")])
   assert_eq(
     try? grouped.agg([@expr.col("nope").sum()]),
     Err(@types.DataError::ColumnNotFound("nope")),
@@ -517,7 +531,7 @@ test "agg raises ColumnNotFound for an unknown aggregation column" {
 
 ///|
 test "Sum / Mean on a non-numeric column raises TypeMismatch" {
-  let grouped = sales_df().group_by(["region"])
+  let grouped = sales_df().group_by([@expr.col("region")])
   // product is a String column.
   assert_true(
     (try? grouped.agg([@expr.col("product").sum()]))
@@ -528,7 +542,7 @@ test "Sum / Mean on a non-numeric column raises TypeMismatch" {
     is Err(@types.DataError::TypeMismatch(_)),
   )
   // Also a Bool column: sum and mean are both undefined.
-  let bgrouped = extrema_df().group_by(["k"])
+  let bgrouped = extrema_df().group_by([@expr.col("k")])
   assert_true(
     (try? bgrouped.agg([@expr.col("vb").sum()]))
     is Err(@types.DataError::TypeMismatch(_)),
@@ -541,7 +555,7 @@ test "Sum / Mean on a non-numeric column raises TypeMismatch" {
 
 ///|
 test "colliding output column names raise DuplicateColumn" {
-  let grouped = sales_df().group_by(["region"])
+  let grouped = sales_df().group_by([@expr.col("region")])
   // Two expressions with the same aliased name.
   assert_eq(
     try? grouped.agg([
@@ -554,5 +568,104 @@ test "colliding output column names raise DuplicateColumn" {
   assert_eq(
     try? grouped.agg([@expr.col("quantity").sum().with_alias("region")]),
     Err(@types.DataError::DuplicateColumn("region")),
+  )
+}
+
+// ── Expression keys ──────────────────────────────────────────────────
+
+///|
+test "a derived key buckets rows by the computed value, named by its alias" {
+  // The key is an expression, not a bare column: group by whether quantity
+  // exceeds 5. quantity = [10, 5, 2, 6, 4] ⇒ gt(5) = [T, F, F, T, F], so two
+  // groups in first-appearance order: big=true (rows 0, 3), big=false
+  // (rows 1, 2, 4).
+  let out = sales_df()
+    .group_by([@expr.col("quantity").gt(@expr.lit_int(5)).with_alias("big")])
+    .agg([@expr.col("quantity").sum().with_alias("q")])
+  assert_eq(out.check_invariants(), Ok(()))
+  // The materialised key column heads the output, named by its alias and
+  // carrying the derived (Bool) dtype.
+  assert_eq(out.columns(), ["big", "q"])
+  assert_eq(out.get_column("big").dtype(), @types.DataType::Bool)
+  assert_eq(out.shape(), (2, 2))
+  assert_eq(out.get(0, "big"), @types.Scalar::Bool(true))
+  assert_eq(out.get(0, "q"), @types.Scalar::Int(16)) // 10 + 6
+  assert_eq(out.get(1, "big"), @types.Scalar::Bool(false))
+  assert_eq(out.get(1, "q"), @types.Scalar::Int(11)) // 5 + 2 + 4
+}
+
+///|
+test "a derived key with no alias takes its leftmost column's name" {
+  // No alias ⇒ the output-name rule falls through to the leftmost column
+  // reference (`quantity`), even though the key's value is a derived Bool.
+  let out = sales_df()
+    .group_by([@expr.col("quantity").gt(@expr.lit_int(5))])
+    .agg([@expr.col("revenue").sum().with_alias("r")])
+  assert_eq(out.check_invariants(), Ok(()))
+  assert_eq(out.columns(), ["quantity", "r"])
+  assert_eq(out.get_column("quantity").dtype(), @types.DataType::Bool)
+}
+
+///|
+test "a length-1 key broadcasts every row into one group named literal" {
+  // A literal key evaluates to length 1, broadcasting over the frame, so
+  // every row shares it: one grand group, the key column named `"literal"`.
+  let out = sales_df()
+    .group_by([@expr.lit_int(1)])
+    .agg([@expr.col("quantity").sum().with_alias("q")])
+  assert_eq(out.check_invariants(), Ok(()))
+  assert_eq(out.columns(), ["literal", "q"])
+  assert_eq(out.shape(), (1, 2))
+  assert_eq(out.get(0, "literal"), @types.Scalar::Int(1))
+  assert_eq(out.get(0, "q"), @types.Scalar::Int(27)) // 10 + 5 + 2 + 6 + 4
+}
+
+///|
+test "group_by mixes a bare key and a derived key in a composite tuple" {
+  // region = [east, west, east, east, west], quantity > 5 = [T, F, F, T, F].
+  // Composite (region, big) groups, in first-appearance order:
+  //   (east, true)  rows 0, 3 → 16
+  //   (west, false) rows 1, 4 → 9
+  //   (east, false) row 2     → 2
+  let out = sales_df()
+    .group_by([
+      @expr.col("region"),
+      @expr.col("quantity").gt(@expr.lit_int(5)).with_alias("big"),
+    ])
+    .agg([@expr.col("quantity").sum().with_alias("q")])
+  assert_eq(out.check_invariants(), Ok(()))
+  assert_eq(out.columns(), ["region", "big", "q"])
+  assert_eq(out.shape(), (3, 3))
+  assert_eq(out.get(0, "region"), @types.Scalar::String("east"))
+  assert_eq(out.get(0, "big"), @types.Scalar::Bool(true))
+  assert_eq(out.get(0, "q"), @types.Scalar::Int(16))
+  assert_eq(out.get(1, "region"), @types.Scalar::String("west"))
+  assert_eq(out.get(1, "big"), @types.Scalar::Bool(false))
+  assert_eq(out.get(1, "q"), @types.Scalar::Int(9))
+  assert_eq(out.get(2, "region"), @types.Scalar::String("east"))
+  assert_eq(out.get(2, "big"), @types.Scalar::Bool(false))
+  assert_eq(out.get(2, "q"), @types.Scalar::Int(2))
+}
+
+///|
+test "a key expression whose dtypes do not unify raises TypeMismatch" {
+  // region is String, quantity is Int — `+` cannot unify them, and the key
+  // evaluation surfaces the error at `group_by`, in `keys` order.
+  assert_true(
+    (try? sales_df().group_by([@expr.col("region") + @expr.col("quantity")]))
+    is Err(@types.DataError::TypeMismatch(_)),
+  )
+}
+
+///|
+test "two keys producing the same output name raise DuplicateColumn" {
+  // Distinct expressions, same alias ⇒ two identically-named key columns,
+  // rejected up front at the second key (its evaluation succeeds first).
+  assert_eq(
+    try? sales_df().group_by([
+      @expr.col("region").with_alias("k"),
+      @expr.col("product").with_alias("k"),
+    ]),
+    Err(@types.DataError::DuplicateColumn("k")),
   )
 }

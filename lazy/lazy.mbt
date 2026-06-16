@@ -123,16 +123,19 @@ pub fn LazyFrame::join(
 }
 
 ///|
-/// Defer `DataFrame::group_by`: attach grouping keys to the plan and
-/// return a `LazyGroupBy` waiting for its aggregations. Nothing is
-/// partitioned yet — like every builder this is total, so missing or
-/// repeated key names only surface at collect time, as the eager
-/// `group_by`'s `ColumnNotFound` / `DuplicateColumn`. Only
+/// Defer `DataFrame::group_by`: attach grouping key expressions to the plan
+/// and return a `LazyGroupBy` waiting for its aggregations. Each key is an
+/// `Expr` evaluated over the whole frame at collect time (a bare `col`, a
+/// derived key, or a length-1 key broadcasting to one group), exactly like
+/// the eager verb. Nothing is partitioned yet — like every builder this is
+/// total, so a missing column, a dtype clash, or a repeated output name
+/// only surfaces at collect time, as the eager `group_by`'s
+/// `ColumnNotFound` / `TypeMismatch` / `DuplicateColumn`. Only
 /// `LazyGroupBy::agg` grows the plan; a `LazyGroupBy` is never itself
 /// collectable, mirroring how the eager `GroupedDataFrame` is not a frame.
 pub fn LazyFrame::group_by(
   self : LazyFrame,
-  keys : Array[String],
+  keys : Array[@expr.Expr],
 ) -> LazyGroupBy {
   { plan: self.plan, keys }
 }
@@ -140,14 +143,14 @@ pub fn LazyFrame::group_by(
 ///|
 /// A deferred `group_by` awaiting its aggregations — the lazy mirror of
 /// the eager `GroupedDataFrame` stage in `group_by(keys).agg(…)`,
-/// except it holds no groups: just the input plan and the key names,
-/// which `agg` completes into a single `Aggregate` node. Both fields stay
-/// private — a `LazyGroupBy` is only ever the step between
+/// except it holds no groups: just the input plan and the key
+/// expressions, which `agg` completes into a single `Aggregate` node. Both
+/// fields stay private — a `LazyGroupBy` is only ever the step between
 /// `LazyFrame::group_by` and `LazyGroupBy::agg`, and sharing one across
 /// several `agg` calls just forks the plan, like every other builder.
 pub struct LazyGroupBy {
   priv plan : LogicalPlan
-  priv keys : Array[String]
+  priv keys : Array[@expr.Expr]
 }
 
 ///|

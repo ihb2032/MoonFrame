@@ -43,7 +43,7 @@ fn prop_group_by_no_row_loss(keys : Array[Int64]) -> Bool {
       Series::from_ints("ones", Array::make(n, (1 : Int64))),
     ])
     let summed = df
-      .group_by(["k"])
+      .group_by([@expr.col("k")])
       .agg([@expr.col("ones").sum().with_alias("ones_sum")])
       .sum("ones_sum")
     summed == @types.Scalar::Int(n.to_int64())

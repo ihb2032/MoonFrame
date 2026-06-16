@@ -66,7 +66,7 @@
 ///   join (which takes no keys).
 /// - `DuplicateColumn(name)` — either a key **repeated in `options.on`**
 ///   (rejected at the repeat during key resolution, like
-///   `group_by(["id", "id"])`), or two output columns still colliding after
+///   `group_by([col("id"), col("id")])`), or two output columns still colliding after
 ///   suffixing (e.g. the left frame already has both `value` and
 ///   `value_right`, and the right contributes a non-key `value`; surfaced by
 ///   `DataFrame::new`).

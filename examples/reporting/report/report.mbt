@@ -17,7 +17,7 @@ pub fn revenue_by_region(
   df : @moonframe.DataFrame,
 ) -> @moonframe.DataFrame raise @moonframe.DataError {
   df
-  .group_by(["region"])
+  .group_by([@moonframe.col("region")])
   .agg([
     @moonframe.col("revenue").sum().with_alias("revenue"),
     @moonframe.col("quantity").sum().with_alias("quantity"),

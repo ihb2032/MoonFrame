@@ -86,7 +86,6 @@ pub using @series {type Series}
 ///|
 pub using @frame {
   type DataFrame,
-  type RowView,
   type SortOrder,
   type NullOrder,
   type GroupedDataFrame,

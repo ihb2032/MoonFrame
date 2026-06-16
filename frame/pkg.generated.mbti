@@ -53,8 +53,8 @@ pub fn DataFrame::outer_join(Self, Self, Array[String]) -> Self raise @types.Dat
 pub fn DataFrame::rename(Self, Array[(String, String)]) -> Self raise @types.DataError
 pub fn DataFrame::replace_column(Self, String, @series.Series) -> Self raise @types.DataError
 pub fn DataFrame::right_join(Self, Self, Array[String]) -> Self raise @types.DataError
-pub fn DataFrame::row(Self, Int) -> RowView raise @types.DataError
-pub fn DataFrame::row_view(Self, Int) -> RowView
+pub fn DataFrame::row(Self, Int) -> Array[@types.Scalar] raise @types.DataError
+pub fn DataFrame::rows(Self) -> Array[Array[@types.Scalar]]
 pub fn DataFrame::schema(Self) -> @types.Schema
 pub fn DataFrame::select(Self, Array[@expr.Expr]) -> Self raise @types.DataError
 pub fn DataFrame::shape(Self) -> (Int, Int)
@@ -117,18 +117,6 @@ pub(all) enum NullOrder {
   NullsFirst
   NullsLast
 } derive(Eq, @debug.Debug)
-
-pub struct RowView {
-  df : DataFrame
-  row_index : Int
-} derive(Eq, @debug.Debug)
-pub fn RowView::get(Self, String) -> @types.Scalar raise @types.DataError
-pub fn RowView::get_bool(Self, String) -> Bool raise @types.DataError
-pub fn RowView::get_float(Self, String) -> Double raise @types.DataError
-pub fn RowView::get_int(Self, String) -> Int64 raise @types.DataError
-pub fn RowView::get_string(Self, String) -> String raise @types.DataError
-pub fn RowView::index(Self) -> Int
-pub fn RowView::is_null(Self, String) -> Bool raise @types.DataError
 
 pub(all) enum SortOrder {
   Asc

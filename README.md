@@ -228,7 +228,7 @@ types/      value types, errors (DataError), schemas
 column/     Arrow-style storage — validity Bitmap, BuiltinColumn, Numeric fast path, ColumnStorage seam
 series/     Series + column-level stats + the shared reduction / rebuild / key-cell kernels
 expr/       composable column expressions — Expr AST, operators / methods, when/then/otherwise, explain
-frame/      DataFrame, RowView + every operator (one per file) + group_by + join + the expression evaluator (with_columns / select / filter / agg) + to_markdown / to_html
+frame/      DataFrame + every operator (one per file) + group_by + join + the expression evaluator (with_columns / select / filter / agg) + to_markdown / to_html
 io/         CSV (NyaCSV-backed), JSON, NDJSON read / write + Vega-Lite export
 lazy/       deferred query plan — LazyFrame builders, collect / explain, predicate + projection pushdown
 moonframe/  facade — re-exports the whole public API

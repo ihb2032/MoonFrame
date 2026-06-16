@@ -1,4 +1,5 @@
-// Blackbox tests for `DataFrame`. RowView lives in `row_view_test.mbt`.
+// Blackbox tests for `DataFrame`. Row access (`row` / `rows`) lives in
+// `row_test.mbt`.
 
 // ── Constructors: new ────────────────────────────────────────────────
 
@@ -297,17 +298,6 @@ test "get returns Scalar / Null and surfaces the right error variant" {
     try? df.get(0, "missing"),
     Err(@types.DataError::ColumnNotFound("missing")),
   )
-}
-
-// ── row / RowView is integration-tested in row_view_test.mbt ─────────
-
-///|
-test "row validates the row index before handing out a view" {
-  let df = DataFrame::new([Series::from_ints("a", [1, 2])])
-  assert_eq(df.row(0).index(), 0)
-  assert_eq(df.row(1).index(), 1)
-  assert_eq(try? df.row(-1), Err(@types.DataError::IndexOutOfBounds(-1)))
-  assert_eq(try? df.row(2), Err(@types.DataError::IndexOutOfBounds(2)))
 }
 
 // ── head / tail ──────────────────────────────────────────────────────

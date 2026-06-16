@@ -447,7 +447,7 @@ rebuild and backend-convergence helpers, and the composite-key cell encoding
 
 ---
 
-## `frame` — DataFrame, RowView, and operators
+## `frame` — DataFrame and operators
 
 The `ops` verbs are folded in here as `DataFrame` methods (one operator
 per file), so a pipeline is a method chain. `frame` reads `@series.Series`
@@ -476,8 +476,13 @@ dependencies** (NyaCSV / fs / @json live only in `io`).
   rather than a per-cell `get`.
 - Accessors (`raise DataError`): `get_column(name)`
   (`ColumnNotFound`); `get_column_at(i)` (`IndexOutOfBounds`);
-  `get(row, name) -> Scalar`; `row(i) -> RowView` (`IndexOutOfBounds`).
-  Total: `row_view(i)` (defers the bounds check to the accessors).
+  `get(row, name) -> Scalar`; `row(i) -> Array[Scalar]` — row `i`'s cells in
+  column order, a Polars-style tuple (`Null` for a null cell;
+  `IndexOutOfBounds`).
+- `rows() -> Array[Array[Scalar]]` (**total**) — every row as a tuple
+  (`result[r][c]`), the row-major transpose of `to_scalar_matrix`. For more
+  than a handful of rows, prefer this over a `row(i)` loop — it reads the
+  frame once.
 - Structural transforms: total `head(n)` / `tail(n)` (clamp `n` to
   `[0, nrows]`); `slice(start, end)` / `take(indices)` (`raise`,
   `IndexOutOfBounds` / `InvalidOperation`).
@@ -737,17 +742,6 @@ Hash equi-join, native to the method chain (`left.join(right, options)`).
   `Array` of them. Multi-key sort lists several; a single-key sort passes a
   one-element array (e.g. `[("score", Desc, NullsLast)]`).
 
-### RowView
-
-- `struct RowView` — borrowed single-row view; no per-row allocation.
-  Built via `DataFrame::row(i)` (eager bounds check) or `row_view(i)`.
-- Total: `index() -> Int`.
-- Fallible (`raise DataError`): `get(name) -> Scalar` (null →
-  `Scalar::Null`; `ColumnNotFound`); `is_null(name) -> Bool`;
-  `get_int` / `get_float` / `get_bool` / `get_string` compose `get` with
-  the matching `Scalar::as_*`, so they `raise TypeMismatch` on the wrong
-  dtype or a null cell (`get_float` promotes `Int`).
-
 ---
 
 ## `io` — Serialization (IO-1 boundary)
@@ -1005,7 +999,7 @@ names them).
 - From `@expr`: `Expr` · `WhenThen` · `WhenThenElse` · `col` · `lit` ·
   `lit_int` · `lit_float` · `lit_str` · `lit_bool` · `when`
 - From `@series`: `Series`
-- From `@frame`: `DataFrame` · `RowView` · `SortOrder` ·
+- From `@frame`: `DataFrame` · `SortOrder` ·
   `NullOrder` · `GroupedDataFrame` · `JoinType` ·
   `JoinOptions` · `HtmlOptions`
 - From `@io`: `CsvReadOptions` · `CsvWriteOptions` · `JsonReadOptions` ·

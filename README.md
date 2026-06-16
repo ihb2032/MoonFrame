@@ -8,7 +8,7 @@ polars, the shape of the API will feel familiar:
 read_csv("sales.csv")
   .filter(row => row.get_string("product") == "widget")
   .group_by(["region"])
-  .agg([AggSpec::sum("revenue")])
+  .agg([col("revenue").sum()])
   .to_markdown()
 ```
 
@@ -111,8 +111,8 @@ on all four backends, so it always matches the current API.
 - **Express** — build composable column expressions
   (`col("revenue") - col("cost")`, `&` / `|` logic, `when / then / otherwise`)
   and feed them to `with_columns`, `filter_where`, or
-  `group_by(...).agg_exprs([...])` for compound aggregations a single spec
-  can't reach.
+  `group_by(...).agg([...])`, including compound aggregations like
+  `(col("revenue") - col("cost")).sum()`.
 - **Defer & optimize** — `lazy_frame(df)` builds a query plan you can
   `explain()`; `collect()` runs it through a predicate- and
   projection-pushdown optimizer, bitwise-equal to the eager pipeline.
@@ -129,8 +129,8 @@ For example, group the same data by region and render it three ways:
 let summary = @moonframe.read_csv("sales.csv")
   .group_by(["region"])
   .agg([
-    @moonframe.AggSpec::sum("revenue").with_alias("revenue"),
-    @moonframe.AggSpec::sum("quantity").with_alias("quantity"),
+    @moonframe.col("revenue").sum().with_alias("revenue"),
+    @moonframe.col("quantity").sum().with_alias("quantity"),
   ])
   .sort_by([
     ("revenue", @moonframe.SortOrder::Desc, @moonframe.NullOrder::NullsLast),
@@ -200,14 +200,14 @@ Three runnable end-to-end programs live in [`examples/`](examples):
 moon run examples/sales_analysis    # filter → select → sort → describe → markdown
 moon run examples/data_cleaning     # drop_nulls → fill_null → CSV round-trip
 moon run examples/reporting         # group_by → to_html + Vega-Lite spec
-moon run examples/expressions       # with_columns → filter_where → agg_exprs → lazy + explain
+moon run examples/expressions       # with_columns → filter_where → agg → lazy + explain
 ```
 
 ## Status
 
 **v0.4 — shipped:** a Polars-style expression engine (`Expr` with operators,
 methods, and `when / then / otherwise`) feeding `with_columns` / `filter_where`
-/ `agg_exprs`, plus a lazy query layer (`lazy_frame(df)` → `explain` →
+/ `agg`, plus a lazy query layer (`lazy_frame(df)` → `explain` →
 `collect`) with a predicate- and projection-pushdown optimizer — all purely
 additive on top of v0.3's output formats, full join matrix, read resilience,
 and pluggable column storage. **Next (v0.5):** splitting `Series` into its own
@@ -226,7 +226,7 @@ types/      value types, errors (DataError), schemas
 column/     Arrow-style storage — validity Bitmap, BuiltinColumn, Numeric fast path, ColumnStorage seam
 series/     Series + column-level stats + the shared reduction / rebuild / key-cell kernels
 expr/       composable column expressions — Expr AST, operators / methods, when/then/otherwise, explain
-frame/      DataFrame, RowView + every operator (one per file) + group_by + join + the expression evaluator (with_columns / select / filter_where / agg_exprs) + to_markdown / to_html
+frame/      DataFrame, RowView + every operator (one per file) + group_by + join + the expression evaluator (with_columns / select / filter_where / agg) + to_markdown / to_html
 io/         CSV (NyaCSV-backed), JSON, NDJSON read / write + Vega-Lite export
 lazy/       deferred query plan — LazyFrame builders, collect / explain, predicate + projection pushdown
 moonframe/  facade — re-exports the whole public API

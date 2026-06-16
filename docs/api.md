@@ -242,7 +242,7 @@ validity bitmap (`1 = valid`, `0 = null`).
 A reified, composable column expression. Where the closure `filter` is an
 opaque host-language function, an `Expr` is **data**: a small recursive
 tree you build with constructors, operators, and methods, then evaluate
-eagerly (`with_columns` / `select` / `filter_where` / `agg_exprs`,
+eagerly (`with_columns` / `select` / `filter_where` / `agg`,
 in `frame`), introspect (`explain`), or defer and optimize (`lazy`).
 Building a tree is **total** — every constructor and combinator just
 allocates a node, so an expression can always be built; every failure (a
@@ -586,48 +586,36 @@ Split-apply-combine, native to the method chain
   0-row frame yields zero groups. `ColumnNotFound` on the first unknown
   key; `DuplicateColumn` if a key is named twice (rejected up front,
   mirroring `select`).
-- `GroupedDataFrame::agg(specs : Array[AggSpec]) -> DataFrame raise
-  DataError` — reduce each group to a row. Output columns are the key
+- `GroupedDataFrame::agg(exprs : Array[Expr]) -> DataFrame raise DataError`
+  — reduce each group to a row. Each `@expr.Expr` is evaluated once per
+  group (the group's row indices as the evaluation scope) and must reduce
+  to a single value: a bare-column reduction such as `col("revenue").sum()`,
+  or a *compound* one such as `(col("revenue") - col("cost")).sum()` or a
+  `col("x").max() - col("x").min()` range. Output columns are the key
   columns (in `keys` order, original dtype) followed by one column per
-  spec (in `specs` order); one row per group, in group order. Each
-  reduction reuses the matching `Series` statistic, inheriting its null /
-  `NaN` / dtype rules:
-  - `Count` → `Int`, non-null cells only (like `Series::count` / Polars'
+  expression (in expression order, named by `Expr::output_name` — alias,
+  else leftmost column reference, else `"literal"`); one row per group, in
+  group order. Each reduction inherits the matching `Series` statistic's
+  null / `NaN` / dtype rules:
+  - `count()` → `Int`, non-null cells only (like `Series::count` / Polars'
     `count`, **not** a row count like `len`);
-  - `Sum` → source numeric dtype (`Int`/`Float`), additive identity for an
+  - `sum()` → source numeric dtype (`Int`/`Float`), additive identity for an
     empty / all-null group; a `NaN` cell propagates to a `NaN` total (`NaN`
     is a value, not missing);
-  - `Mean` → nullable `Float`, a null cell for an all-null group; a `NaN`
+  - `mean()` → nullable `Float`, a null cell for an all-null group; a `NaN`
     cell propagates to a `NaN` mean;
-  - `Min` / `Max` → source dtype, a null cell for an empty / all-null
+  - `min()` / `max()` → source dtype, a null cell for an empty / all-null
     group, `NaN` skipped — like Polars' regular `min`/`max` (every dtype is
     ordered, so they apply to all four).
-  An empty `specs` list degenerates to a **distinct** over the key columns
+  An empty `exprs` list degenerates to a **distinct** over the key columns
   (the unique key tuples). Routes through `DataFrame::new`, so every output
-  satisfies `check_invariants()`. Raises: `TypeMismatch` (a `Sum` / `Mean`
-  on a non-numeric column), `ColumnNotFound` (a spec's column is absent),
-  `DuplicateColumn` (two output names collide — e.g. two default-named
-  specs, or an alias shadowing a key column).
-- `GroupedDataFrame::agg_exprs(exprs : Array[Expr]) -> DataFrame raise
-  DataError` — the **expression** form of `agg`: each `@expr.Expr` is
-  evaluated once per group (the group's row indices as the evaluation
-  scope) and must reduce to a single value, generalising `AggSpec` to the
-  *compound* reductions a single spec cannot express —
-  `(col("revenue") - col("cost")).sum()`, or a
-  `col("x").max() - col("x").min()` range. Output columns are the key
-  columns (in `keys` order) followed by one column per expression (named by
-  `Expr::output_name`), one row per group in group order;
-  `AggSpec::sum("r").with_alias("x")` is exactly
-  `col("r").sum().with_alias("x")`. Raises `InvalidOperation` if an
+  satisfies `check_invariants()`. Raises: `InvalidOperation` if an
   expression is not reduction-shaped (it must reduce every group to one
   value structurally — a bare column reference does not; implicit
-  Polars-style list-aggregation is out of scope), plus the eager
-  `TypeMismatch` / `ColumnNotFound` / `DuplicateColumn`.
-- `enum AggKind` — `Count` / `Sum` / `Mean` / `Min` / `Max`.
-- `struct AggSpec` (fields private) — built via `AggSpec::count` / `sum` /
-  `mean` / `min` / `max(column)`, with `with_alias(name)` to override the
-  output column name. The default output name is `"<column>_<kind>"` (e.g.
-  `AggSpec::sum("quantity")` → `quantity_sum`).
+  Polars-style list-aggregation is out of scope), `TypeMismatch` (e.g.
+  `sum()` on a non-numeric column), `ColumnNotFound` (an expression's
+  column is absent), `DuplicateColumn` (two output names collide — e.g. two
+  reductions over the same column, or an alias shadowing a key column).
 
 ### Join (`join` / `inner_join` / `left_join` / `right_join` / `outer_join` / `cross_join`)
 
@@ -916,7 +904,7 @@ Each returns a new `LazyFrame` wrapping one more node:
   carries its own deferred pipeline.
 - `group_by(keys : Array[String]) -> LazyGroupBy`, then
   `LazyGroupBy::agg(exprs : Array[Expr]) -> LazyFrame` — mirrors
-  `group_by(keys).agg_exprs(exprs)` as one fused `Aggregate` node.
+  `group_by(keys).agg(exprs)` as one fused `Aggregate` node.
 
 ### Running and inspecting
 
@@ -992,7 +980,7 @@ names them).
   `lit_int` · `lit_float` · `lit_str` · `lit_bool` · `when`
 - From `@series`: `Series`
 - From `@frame`: `DataFrame` · `RowView` · `SortOrder` ·
-  `NullOrder` · `AggKind` · `AggSpec` · `GroupedDataFrame` · `JoinType` ·
+  `NullOrder` · `GroupedDataFrame` · `JoinType` ·
   `JoinOptions` · `HtmlOptions`
 - From `@io`: `CsvReadOptions` · `CsvWriteOptions` · `JsonReadOptions` ·
   `NdjsonReadOptions` · `OnParseError` · `ChartKind` · `ChartSpec` ·
@@ -1030,6 +1018,3 @@ deferrals, tracked for v0.5+:
 - **Optimizer extensions** — dead-expression elimination, narrowing /
   predicate-splitting through joins, and sinking filters below sorts (v0.4
   pushes predicates and projections only).
-- **Rewriting `agg` over `Expr`** — `AggSpec` and `col(...).sum()` already
-  coexist; folding the former onto the latter internally is an optional
-  cleanup, not a surface change.

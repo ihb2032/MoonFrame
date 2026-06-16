@@ -79,6 +79,22 @@ test "when/then/otherwise: held builder steps equal the one-shot chain" {
 }
 
 ///|
+test "map_elements builds the single-input map_many node" {
+  // `map_elements(self, label, f)` is `map_many(label, [self], _)`; the
+  // closures differ (one adapts a single cell), but they are opaque to
+  // `Eq`, so the construction routes compare equal on `(label, inputs)`.
+  assert_eq(
+    col("x").map_elements(label="m", fn(s) { s }),
+    map_many(label="m", [col("x")], fn(vs) { vs[0] }),
+  )
+  // `inputs` order is preserved, like every other multi-operand node.
+  assert_not_eq(
+    map_many(label="m", [col("a"), col("b")], fn(vs) { vs[0] }),
+    map_many(label="m", [col("b"), col("a")], fn(vs) { vs[0] }),
+  )
+}
+
+///|
 test "when/then/otherwise: the conditional is an ordinary expression" {
   // The lowered conditional composes like any other node — method chains
   // and operators apply to it directly, and it occupies an operand slot

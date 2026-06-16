@@ -212,13 +212,16 @@ fn place_filter(input : LogicalPlan, predicate : @expr.Expr) -> LogicalPlan {
 /// first half — their value is computed over the whole scope, so a
 /// filtered scope changes it. `Cast` fails the second half — its parse /
 /// range rejection raises on the *values* it meets, so dropping a row
-/// can drop the very cell that would have raised. Everything else
-/// (column reads, literals, the operators, the total unary probes,
-/// aliasing, ternary selection) is row-local and raises only on
-/// scope-independent facts (names, dtypes).
+/// can drop the very cell that would have raised. `Map` fails it the same
+/// way — its opaque closure can `raise` on the values it meets — so a `Map`
+/// is a value barrier, exactly like `Cast`. Everything else (column reads,
+/// literals, the operators, the total unary probes, aliasing, ternary
+/// selection) is row-local and raises only on scope-independent facts
+/// (names, dtypes).
 fn row_stable(expr : @expr.Expr) -> Bool {
   match expr {
-    @expr.Expr::Agg(_, _) | @expr.Expr::Cast(_, _) => false
+    @expr.Expr::Agg(_, _) | @expr.Expr::Cast(_, _) | @expr.Expr::Map(_, _, _) =>
+      false
     @expr.Expr::Col(_)
     | @expr.Expr::Lit(_)
     | @expr.Expr::Binary(_, _, _)
@@ -255,8 +258,9 @@ fn all_row_stable(exprs : Array[@expr.Expr]) -> Bool {
 /// `Numeric`, and structural equality sees the difference) and never
 /// raising on values (so a dropped group cannot take its error with it).
 /// `sum` / `count` always produce a value; `mean` / `min` / `max` go null
-/// on an all-null group; a `cast`'s rejection is value-dependent; the
-/// null literal is a null cell by definition; a bare column is not
+/// on an all-null group; a `cast`'s rejection is value-dependent, as is a
+/// `map`'s opaque closure (null- or raise-valued on the cells it meets);
+/// the null literal is a null cell by definition; a bare column is not
 /// reduction-shaped at all (the executor raises structurally — fencing
 /// keeps that error exactly where the as-built plan reports it). The
 /// combinators preserve the property cell-wise: arithmetic, comparison,
@@ -278,7 +282,7 @@ fn group_cell_stable(expr : @expr.Expr) -> Bool {
         @expr.AggOp::Sum | @expr.AggOp::Count => true
         @expr.AggOp::Mean | @expr.AggOp::Min | @expr.AggOp::Max => false
       }
-    @expr.Expr::Cast(_, _) => false
+    @expr.Expr::Cast(_, _) | @expr.Expr::Map(_, _, _) => false
     @expr.Expr::Binary(_, _, _)
     | @expr.Expr::Unary(_, _)
     | @expr.Expr::Alias(_, _)

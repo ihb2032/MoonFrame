@@ -278,3 +278,48 @@ pub fn WhenThen::then(self : WhenThen, value : Expr) -> WhenThenElse {
 pub fn WhenThenElse::otherwise(self : WhenThenElse, value : Expr) -> Expr {
   Ternary(self.cond, self.then_value, value)
 }
+
+///|
+/// Apply a host closure to each row of `self` — the single-input escape
+/// hatch (Polars' `map_elements`). Where the operators and methods above
+/// cover the documented algebra, `map_elements` reaches past it: `f`
+/// receives the operand's cell as a `@types.Scalar` (a null cell as
+/// `Scalar::Null`) and returns the output cell. `label` names the step in
+/// `explain` / `Show` output — the function itself is opaque to
+/// introspection, equality, and the optimizer.
+///
+/// Building the node is total; `f` runs at evaluation, once per row, and
+/// may `raise` (the error propagates from the consuming verb). The output
+/// column's dtype is that of the first non-null `Scalar` the closure
+/// returns — an all-null (or empty) result has no representable dtype and
+/// raises `Unsupported`, exactly as the `Null` literal does. The result is
+/// named after `self` (its leftmost column), so `with_alias` renames it.
+/// Use it inside `with_columns` / `select` / `filter_where` like any other
+/// expression; the optimizer treats it as a value barrier (it can raise on
+/// values), so no filter sinks across it.
+pub fn Expr::map_elements(
+  self : Expr,
+  label~ : String,
+  f : (@types.Scalar) -> @types.Scalar raise @types.DataError,
+) -> Expr {
+  Map(label, [self], vs => f(vs[0]))
+}
+
+///|
+/// Apply a host closure across several input columns, row by row — the
+/// multi-input escape hatch, and the reified replacement for the v0.1
+/// `RowView` row predicate: `f` is handed one `@types.Scalar` per input in
+/// `inputs` order (null cells as `Scalar::Null`) and is called for every
+/// row, so a row predicate is `map_many(..., f).` returning a `Bool`. A
+/// free function rather than a method (there is no single `self`); `inputs`
+/// may mix columns, literals, and aggregations, the length-1 results
+/// broadcasting over the row count. Same opacity, totality, dtype
+/// inference, naming (after the leftmost input), and value-barrier rules as
+/// `map_elements`.
+pub fn map_many(
+  label~ : String,
+  inputs : Array[Expr],
+  f : (Array[@types.Scalar]) -> @types.Scalar raise @types.DataError,
+) -> Expr {
+  Map(label, inputs, f)
+}

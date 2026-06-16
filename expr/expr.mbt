@@ -25,7 +25,14 @@
 /// - `Cast` — `.cast(dtype)`;
 /// - `Alias` — `.with_alias(name)` (`alias` is a reserved word), naming the
 ///   result column;
-/// - `Ternary` — `when(cond).then(a).otherwise(b)`.
+/// - `Ternary` — `when(cond).then(a).otherwise(b)`;
+/// - `Map` — the closure escape hatch (`.map_elements()` / `map_many()`),
+///   applying an opaque host function row by row over its input columns.
+///   It carries a `label` (for `Show` / `explain`), the input expressions,
+///   and the function `(Array[Scalar]) -> Scalar raise`. The closure makes
+///   the variant un-`derive`-able, so `Expr` hand-writes `Eq` (below),
+///   `@debug.Debug` and `Show` (in `explain.mbt`), each treating the
+///   function as opaque — a `Map` is identified by its `(label, inputs)`.
 pub enum Expr {
   Col(String)
   Lit(@types.Scalar)
@@ -35,7 +42,39 @@ pub enum Expr {
   Cast(Expr, @types.DataType)
   Alias(Expr, String)
   Ternary(Expr, Expr, Expr)
-} derive(Eq, Debug)
+  Map(
+    String,
+    Array[Expr],
+    (Array[@types.Scalar]) -> @types.Scalar raise @types.DataError
+  )
+}
+
+///|
+/// Structural equality, handwritten because the `Map` variant's closure
+/// payload has no `Eq` (so the enum cannot `derive` one). Every other
+/// variant compares exactly as the derived impl would — operands and tags
+/// recursively — and two `Map` nodes are equal when their `label` and
+/// `inputs` match: the function is **opaque** (functions have no equality),
+/// so identically-built maps compare equal regardless of which closure
+/// instance they hold. The mismatched-variant fallthrough is the lone
+/// wildcard; a *new* `Expr` variant is forced to declare itself at
+/// `Expr::children` (wildcard-free) and `eval_expr` first, which is where
+/// the reminder to extend this match lands.
+pub impl Eq for Expr with fn equal(self, other) {
+  match (self, other) {
+    (Col(a), Col(b)) => a == b
+    (Lit(a), Lit(b)) => a == b
+    (Binary(o1, l1, r1), Binary(o2, l2, r2)) => o1 == o2 && l1 == l2 && r1 == r2
+    (Unary(o1, e1), Unary(o2, e2)) => o1 == o2 && e1 == e2
+    (Agg(o1, e1), Agg(o2, e2)) => o1 == o2 && e1 == e2
+    (Cast(e1, t1), Cast(e2, t2)) => e1 == e2 && t1 == t2
+    (Alias(e1, n1), Alias(e2, n2)) => e1 == e2 && n1 == n2
+    (Ternary(c1, t1, f1), Ternary(c2, t2, f2)) =>
+      c1 == c2 && t1 == t2 && f1 == f2
+    (Map(l1, i1, _), Map(l2, i2, _)) => l1 == l2 && i1 == i2
+    _ => false
+  }
+}
 
 ///|
 /// Binary operator tag carried by `Expr::Binary`. `pub` read-only rather

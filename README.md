@@ -112,7 +112,9 @@ on all four backends, so it always matches the current API.
   (`col("revenue") - col("cost")`, `&` / `|` logic, `when / then / otherwise`)
   and feed them to `with_columns`, `filter_where`, or
   `group_by(...).agg([...])`, including compound aggregations like
-  `(col("revenue") - col("cost")).sum()`.
+  `(col("revenue") - col("cost")).sum()`. For logic past the built-in
+  algebra, the `map_elements` / `map_many` escape hatch applies a host
+  closure row by row.
 - **Defer & optimize** — `lazy_frame(df)` builds a query plan you can
   `explain()`; `collect()` runs it through a predicate- and
   projection-pushdown optimizer, bitwise-equal to the eager pipeline.

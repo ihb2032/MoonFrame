@@ -1035,3 +1035,32 @@ test "row-local probes and ternaries cross with their stage" {
   )
   assert_eq(plan.collect(), df.with_columns(derived).filter_where(predicate))
 }
+
+///|
+test "a map is a value barrier: it blocks the filter sink, like cast" {
+  let df = sales_df()
+  // A `Map`'s opaque closure can raise on the values it meets, so a `Map` is
+  // a value barrier (exactly like `cast`): the filter cannot sink past a
+  // with_columns that contains one, even though the predicate reads a column
+  // the stage does not define. Contrast the row-local case above, where the
+  // filter sinks below the stage.
+  let derived = [
+    @expr.col("qty").map_elements(label="x10", s => {
+      match s {
+        @types.Scalar::Int(v) => @types.Scalar::Int(v * 10)
+        _ => @types.Scalar::Null
+      }
+    }),
+  ]
+  let predicate = @expr.col("region").eq(@expr.lit_str("west"))
+  let plan = lazy_frame(df).with_columns(derived).filter_where(predicate)
+  // The FILTER stays *above* the WITH_COLUMNS.
+  assert_eq(
+    plan.explain(optimized=true),
+    "FILTER (col(region) == \"west\")\n" +
+    "  WITH_COLUMNS [map(\"x10\", [col(qty)])]\n" +
+    "    SCAN [4×3]",
+  )
+  // ...and collect stays bitwise-equal to the eager chain through it.
+  assert_eq(plan.collect(), df.with_columns(derived).filter_where(predicate))
+}

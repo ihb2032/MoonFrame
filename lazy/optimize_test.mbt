@@ -86,7 +86,7 @@ test "aggregate prunes columns no key or aggregation reads" {
   ]
   assert_eq(
     lazy_frame(df).group_by(["region"]).agg(aggs).collect(),
-    df.group_by(["region"]).agg_exprs(aggs),
+    df.group_by(["region"]).agg(aggs),
   )
 }
 
@@ -603,10 +603,7 @@ test "a key predicate sinks below an aggregation" {
     "    SCAN [4×3]",
   )
   let out = plan.collect()
-  assert_eq(
-    out,
-    df.group_by(["region"]).agg_exprs(aggs).filter_where(predicate),
-  )
+  assert_eq(out, df.group_by(["region"]).agg(aggs).filter_where(predicate))
   assert_eq(out.check_invariants(), Ok(()))
 }
 
@@ -620,13 +617,10 @@ test "a key predicate that empties every group still collects equal" {
     .agg(aggs)
     .filter_where(predicate)
   // Below the aggregation the filter leaves zero rows, so the executor
-  // aggregates zero groups — the empty-scope probe in `agg_exprs` pins
+  // aggregates zero groups — the empty-scope probe in `agg` pins
   // the output dtype, keeping the 0-row frames bitwise-equal.
   let out = plan.collect()
-  assert_eq(
-    out,
-    df.group_by(["region"]).agg_exprs(aggs).filter_where(predicate),
-  )
+  assert_eq(out, df.group_by(["region"]).agg(aggs).filter_where(predicate))
   assert_eq(out.nrows(), 0)
   assert_eq(out.check_invariants(), Ok(()))
 }
@@ -650,7 +644,7 @@ test "fence: a predicate reading an aggregation output stays above" {
   )
   assert_eq(
     plan.collect(),
-    df.group_by(["region"]).agg_exprs(aggs).filter_where(predicate),
+    df.group_by(["region"]).agg(aggs).filter_where(predicate),
   )
 }
 
@@ -677,7 +671,7 @@ test "fence: a mean aggregation pins the filter above the group stage" {
   )
   assert_eq(
     plan.collect(),
-    df.group_by(["region"]).agg_exprs(aggs).filter_where(predicate),
+    df.group_by(["region"]).agg(aggs).filter_where(predicate),
   )
 }
 
@@ -701,7 +695,7 @@ test "fence: a cast in the aggregation list pins the filter above" {
   )
   assert_eq(
     plan.collect(),
-    df.group_by(["region"]).agg_exprs(aggs).filter_where(predicate),
+    df.group_by(["region"]).agg(aggs).filter_where(predicate),
   )
 }
 
@@ -725,7 +719,7 @@ test "fence: a scope-dependent key predicate stays above the aggregation" {
   )
   assert_eq(
     plan.collect(),
-    df.group_by(["region"]).agg_exprs(aggs).filter_where(predicate),
+    df.group_by(["region"]).agg(aggs).filter_where(predicate),
   )
 }
 
@@ -749,7 +743,7 @@ test "fence: a non-reduction aggregation keeps its error and its filter in place
   )
   assert_eq(
     try? plan.collect(),
-    try? df.group_by(["region"]).agg_exprs(aggs).filter_where(predicate),
+    try? df.group_by(["region"]).agg(aggs).filter_where(predicate),
   )
 }
 
@@ -774,7 +768,7 @@ test "fence: a null literal in the aggregation list pins the filter above" {
   )
   assert_eq(
     try? plan.collect(),
-    try? df.group_by(["region"]).agg_exprs(aggs).filter_where(predicate),
+    try? df.group_by(["region"]).agg(aggs).filter_where(predicate),
   )
 }
 
@@ -803,10 +797,7 @@ test "reduction combinators pass the aggregation crossing gate" {
     "      SCAN [4×3]",
   )
   let out = plan.collect()
-  assert_eq(
-    out,
-    df.group_by(["region"]).agg_exprs(aggs).filter_where(predicate),
-  )
+  assert_eq(out, df.group_by(["region"]).agg(aggs).filter_where(predicate))
   assert_eq(out.check_invariants(), Ok(()))
 }
 

@@ -1,8 +1,8 @@
 ///|
 /// A composable, introspectable column expression tree — the reified
 /// upgrade over the closure-based surfaces (`filter`'s row predicate,
-/// `AggSpec`'s single-column reductions, `with_column`'s pre-materialised
-/// `Series`). An `Expr` is *data*: the evaluator in `frame` pattern-matches
+/// `with_column`'s pre-materialised `Series`). An `Expr` is *data*: the
+/// evaluator in `frame` pattern-matches
 /// it, and the v0.4 lazy layer will print and rewrite it — none of which a
 /// closure can offer.
 ///

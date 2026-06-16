@@ -251,7 +251,7 @@ fn all_row_stable(exprs : Array[@expr.Expr]) -> Bool {
 /// Whether an aggregation expression's per-group cell is provably
 /// independent of *which other groups exist*: never null (so the stitched
 /// column's `Builtin` / `Numeric` backend cannot flip when groups
-/// disappear — `agg_exprs` converges an all-valid numeric column onto
+/// disappear — `agg` converges an all-valid numeric column onto
 /// `Numeric`, and structural equality sees the difference) and never
 /// raising on values (so a dropped group cannot take its error with it).
 /// `sum` / `count` always produce a value; `mean` / `min` / `max` go null

@@ -75,10 +75,6 @@ pub fn write_vega_lite(String, @frame.DataFrame, @io.ChartSpec) -> Unit raise @t
 // Types and methods
 
 // Type aliases
-pub using @frame {type AggKind}
-
-pub using @frame {type AggSpec}
-
 pub using @column {type Bitmap}
 
 pub using @column {type BuiltinColumn}

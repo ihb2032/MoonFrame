@@ -230,10 +230,9 @@ fn reduce_count(
 ///|
 /// The five reductions the shared kernel resolves. Lives here in `series` and
 /// is `pub(all)` so the `frame`-side aggregations can construct it — they can't
-/// reuse their own op tags: `@expr.AggOp` is a read-only enum (matchable but
-/// not constructible outside `expr`), and `AggKind` is tied to the `AggSpec`
-/// surface. The grouped (`agg`, from `AggKind`) and scoped (`eval_agg`, from
-/// `@expr.AggOp`) reductions both map their own op into this one vocabulary.
+/// reuse `@expr.AggOp`, a read-only enum (matchable but not constructible
+/// outside `expr`). The grouped (`agg`) and scoped (`eval_agg`) reductions both
+/// map `@expr.AggOp` into this one vocabulary.
 pub(all) enum ReduceOp {
   Sum
   Mean
@@ -271,10 +270,9 @@ pub fn reducer_for(
 /// then converges onto the `Numeric` fast path (`try_column_to_numeric`, a
 /// no-op for a nullable, `Bool`, or `String` column, which keeps `Builtin`).
 /// This is the single column builder behind the grouped (`agg`) and scoped
-/// (`eval_agg`) reductions and the expression aggregator (`agg_exprs`), so all
-/// three agree on backend as well as on every cell value: the catch-all `None`
-/// arm is reached by the nullable reductions (`mean` / `min` / `max` over an
-/// empty / all-null window), so no arm is dead.
+/// (`eval_agg`) reductions, so both agree on backend as well as on every cell
+/// value: the catch-all `None` arm is reached by the nullable reductions
+/// (`mean` / `min` / `max` over an empty / all-null window), so no arm is dead.
 pub fn scalars_to_series(
   probe : @column.ColumnData,
   name : String,

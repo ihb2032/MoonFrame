@@ -5,7 +5,7 @@ all four backends (wasm / wasm-gc / js / native), so these examples cannot
 silently rot — if the public API or its output changes, CI fails here until the
 example (and its expected output) is updated with `moon test --update`.
 
-These blocks use the sub-package aliases (`Series`, `DataFrame`, `AggSpec`, …)
+These blocks use the sub-package aliases (`Series`, `DataFrame`, `col`, …)
 re-exported by the facade. In application code you would
 `import "ihb2032/MoonFrame" @moonframe` and prefix the same names with
 `@moonframe.` (see [`README.md`](README.md)), or import a single sub-package
@@ -13,9 +13,10 @@ re-exported by the facade. In application code you would
 
 ## Build a frame, then group and aggregate
 
-`group_by(keys).agg([...])` returns one row per group. `with_alias` renames an
-aggregated column; `sort_by` orders the summary. (Means are chosen here to be
-exact so the rendered table is identical on every backend.)
+`group_by(keys).agg([...])` returns one row per group; each aggregation is a
+reduction expression such as `col(c).sum()`, and `with_alias` names its column.
+`sort_by` orders the summary. (Means are chosen here to be exact so the rendered
+table is identical on every backend.)
 
 ```moonbit check
 ///|
@@ -28,8 +29,8 @@ test "quickstart: group_by + agg" {
   let summary = sales
     .group_by(["region"])
     .agg([
-      AggSpec::sum("quantity").with_alias("total_quantity"),
-      AggSpec::mean("revenue").with_alias("avg_revenue"),
+      col("quantity").sum().with_alias("total_quantity"),
+      col("revenue").mean().with_alias("avg_revenue"),
     ])
     .sort_by([("total_quantity", SortOrder::Desc, NullOrder::NullsLast)])
   inspect(
@@ -143,15 +144,15 @@ test "quickstart: filter_where with an expression predicate" {
 }
 ```
 
-## Composite aggregation with `agg_exprs`
+## Composite aggregation
 
-`agg_exprs` is the expression form of `group_by(...).agg([...])`. Because each
-aggregation is a full `Expr`, it can express things a single `AggSpec` cannot —
-here `(revenue - cost).sum()`, a reduction over a *derived* column.
+Each aggregation passed to `agg` is a full `Expr`, so beyond the bare-column
+reductions above it can reduce a *derived* column — here `(revenue - cost)
+.sum()`, the per-group total profit.
 
 ```moonbit check
 ///|
-test "quickstart: composite aggregation with agg_exprs" {
+test "quickstart: composite aggregation" {
   let sales = DataFrame::new([
     Series::from_strings("region", ["west", "east", "west", "east"]),
     Series::from_ints("revenue", [100, 50, 70, 30]),
@@ -159,7 +160,7 @@ test "quickstart: composite aggregation with agg_exprs" {
   ])
   let summary = sales
     .group_by(["region"])
-    .agg_exprs([
+    .agg([
       (col("revenue") - col("cost")).sum().with_alias("total_profit"),
       col("revenue").mean().with_alias("avg_revenue"),
     ])

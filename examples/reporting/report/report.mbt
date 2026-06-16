@@ -19,8 +19,8 @@ pub fn revenue_by_region(
   df
   .group_by(["region"])
   .agg([
-    @moonframe.AggSpec::sum("revenue").with_alias("revenue"),
-    @moonframe.AggSpec::sum("quantity").with_alias("quantity"),
+    @moonframe.col("revenue").sum().with_alias("revenue"),
+    @moonframe.col("quantity").sum().with_alias("quantity"),
   ])
   .sort_by([
     ("revenue", @moonframe.SortOrder::Desc, @moonframe.NullOrder::NullsLast),

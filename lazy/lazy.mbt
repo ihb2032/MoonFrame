@@ -140,7 +140,7 @@ pub fn LazyFrame::group_by(
 
 ///|
 /// A deferred `group_by` awaiting its aggregations — the lazy mirror of
-/// the eager `GroupedDataFrame` stage in `group_by(keys).agg_exprs(…)`,
+/// the eager `GroupedDataFrame` stage in `group_by(keys).agg(…)`,
 /// except it holds no groups: just the input plan and the key names,
 /// which `agg` completes into a single `Aggregate` node. Both fields stay
 /// private — a `LazyGroupBy` is only ever the step between
@@ -152,13 +152,13 @@ pub struct LazyGroupBy {
 }
 
 ///|
-/// Complete the deferred group-by: defer `group_by(keys).agg_exprs(exprs)`
+/// Complete the deferred group-by: defer `group_by(keys).agg(exprs)`
 /// as one `Aggregate` node and return to the `LazyFrame` chain. Each
 /// expression must be reduction-shaped (aggregations / literals and their
 /// combinators — a bare column reference is not); building stays total,
 /// so a non-reduction expression, a missing column, a dtype clash, or an
 /// output-name collision waits for collect and surfaces as the eager
-/// `agg_exprs` error (`InvalidOperation` / `ColumnNotFound` /
+/// `agg` error (`InvalidOperation` / `ColumnNotFound` /
 /// `TypeMismatch` / `DuplicateColumn`).
 pub fn LazyGroupBy::agg(
   self : LazyGroupBy,

@@ -16,7 +16,7 @@
 /// time — breaking the executor's faithfulness contract. One node per
 /// distinct eager semantic keeps `collect ≡ eager` literally true.
 ///
-/// `Aggregate` is the one *fused* node — `group_by(keys).agg_exprs(exprs)`
+/// `Aggregate` is the one *fused* node — `group_by(keys).agg(exprs)`
 /// in a single step — because the eager intermediate (`GroupedDataFrame`)
 /// is not a frame: every plan stage must output rows, so the keys ride on
 /// `LazyGroupBy` (plain builder state, no node) until `agg` completes
@@ -54,8 +54,7 @@ fn execute(plan : LogicalPlan) -> @frame.DataFrame raise @types.DataError {
     Tail(input, n) => execute(input).tail(n)
     Slice(input, start, end) => execute(input).slice(start, end)
     Join(left, right, options) => execute(left).join(execute(right), options)
-    Aggregate(input, keys, exprs) =>
-      execute(input).group_by(keys).agg_exprs(exprs)
+    Aggregate(input, keys, exprs) => execute(input).group_by(keys).agg(exprs)
   }
 }
 

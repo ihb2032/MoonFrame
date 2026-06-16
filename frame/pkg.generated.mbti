@@ -14,26 +14,6 @@ import {
 // Errors
 
 // Types and methods
-pub(all) enum AggKind {
-  Count
-  Sum
-  Mean
-  Min
-  Max
-} derive(Eq, @debug.Debug)
-
-pub struct AggSpec {
-  column : String
-  kind : AggKind
-  alias_name : String?
-} derive(Eq, @debug.Debug)
-pub fn AggSpec::count(String) -> Self
-pub fn AggSpec::max(String) -> Self
-pub fn AggSpec::mean(String) -> Self
-pub fn AggSpec::min(String) -> Self
-pub fn AggSpec::sum(String) -> Self
-pub fn AggSpec::with_alias(Self, String) -> Self
-
 pub struct DataFrame {
   schema : @types.Schema
   columns : Array[@series.Series]
@@ -100,8 +80,7 @@ pub struct GroupedDataFrame {
   keys : Array[String]
   groups : Array[Array[Int]]
 } derive(Eq, @debug.Debug)
-pub fn GroupedDataFrame::agg(Self, Array[AggSpec]) -> DataFrame raise @types.DataError
-pub fn GroupedDataFrame::agg_exprs(Self, Array[@expr.Expr]) -> DataFrame raise @types.DataError
+pub fn GroupedDataFrame::agg(Self, Array[@expr.Expr]) -> DataFrame raise @types.DataError
 
 pub struct HtmlOptions {
   max_rows : Int?

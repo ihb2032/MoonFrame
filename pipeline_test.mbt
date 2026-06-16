@@ -239,17 +239,16 @@ test "pipeline: group_by → agg → sort_by produces a grouped summary via the 
     Series::from_ints("quantity", [12, 7, 4, 5, 8]),
     Series::from_floats("revenue", [120.0, 66.5, 30.0, 47.5, 90.0]),
   ])
-  // `group_by` returns a `GroupedDataFrame` (re-exported type), `AggSpec`
-  // builds the reductions, and `AggKind` is reachable for callers who name
-  // kinds directly — all through the facade. A missing re-export would
-  // surface as a type error in this file.
-  let _ : AggKind = AggKind::Sum
+  // `group_by` returns a `GroupedDataFrame` (re-exported type) and `agg`
+  // takes reduction expressions built from the re-exported `col` — all
+  // through the facade. A missing re-export would surface as a type error
+  // in this file.
   let grouped : GroupedDataFrame = df.group_by(["region"])
   let summary = grouped
     .agg([
-      AggSpec::count("quantity"),
-      AggSpec::sum("quantity").with_alias("total_q"),
-      AggSpec::mean("revenue").with_alias("avg_rev"),
+      col("quantity").count().with_alias("quantity_count"),
+      col("quantity").sum().with_alias("total_q"),
+      col("revenue").mean().with_alias("avg_rev"),
     ])
     .sort_by([("total_q", SortOrder::Desc, NullOrder::NullsLast)])
   assert_eq(summary.check_invariants(), Ok(()))

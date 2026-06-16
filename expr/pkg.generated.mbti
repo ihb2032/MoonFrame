@@ -2,6 +2,7 @@
 package "ihb2032/MoonFrame/expr"
 
 import {
+  "ihb2032/MoonFrame/series",
   "ihb2032/MoonFrame/types",
   "moonbitlang/core/debug",
   "moonbitlang/core/set",
@@ -19,6 +20,8 @@ pub fn lit_bool(Bool) -> Expr
 pub fn lit_float(Double) -> Expr
 
 pub fn lit_int(Int64) -> Expr
+
+pub fn lit_series(@series.Series) -> Expr
 
 pub fn lit_str(String) -> Expr
 
@@ -55,6 +58,7 @@ pub enum BinOp {
 pub enum Expr {
   Col(String)
   Lit(@types.Scalar)
+  LitSeries(@series.Series)
   Binary(BinOp, Expr, Expr)
   Unary(UnOp, Expr)
   Agg(AggOp, Expr)

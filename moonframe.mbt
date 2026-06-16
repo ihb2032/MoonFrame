@@ -29,8 +29,9 @@
 // `LazyFrame::from` constructor) ride along with their types. So `@expr`
 // needs explicit re-export only for the free constructors (`col` /
 // `cols` / `lit` / `lit_int` / `lit_float` / `lit_str` / `lit_bool` /
-// `when` / `map_many` — `map_elements` is a method, riding along with
-// `type Expr`) and the two builder types `WhenThen` / `WhenThenElse`; the
+// `lit_series` / `when` / `map_many` — `map_elements` is a method, riding
+// along with `type Expr`) and the two builder types `WhenThen` /
+// `WhenThenElse`; the
 // `BinOp` / `UnOp` / `AggOp` tag enums are inert (no public API names
 // them), so they are deliberately *not* re-exported. `@lazy` needs only
 // `lazy_frame` (the
@@ -71,6 +72,7 @@ pub using @expr {
   lit_float,
   lit_str,
   lit_bool,
+  lit_series,
   when,
   map_many,
 }

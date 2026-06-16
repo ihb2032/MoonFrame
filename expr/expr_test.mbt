@@ -127,6 +127,24 @@ test "map: label and inputs distinguish nodes; the closure is opaque" {
 }
 
 ///|
+test "lit_series: equal when the embedded series is equal, distinct otherwise" {
+  let s = Series::from_ints("v", [1, 2, 3])
+  // Two literal-series nodes over equal series are equal nodes (`Series` has
+  // structural `Eq`); a series differing by name, cells, or dtype is a
+  // different node.
+  assert_eq(lit_series(s), lit_series(Series::from_ints("v", [1, 2, 3])))
+  assert_not_eq(lit_series(s), lit_series(Series::from_ints("w", [1, 2, 3])))
+  assert_not_eq(lit_series(s), lit_series(Series::from_ints("v", [1, 2, 4])))
+  assert_not_eq(
+    lit_series(s),
+    lit_series(Series::from_bools("v", [true, false, true])),
+  )
+  // A literal series is never equal to a non-`LitSeries` (the mismatched-
+  // variant fallthrough).
+  assert_not_eq(lit_series(s), col("v"))
+}
+
+///|
 test "construction is total: nonsense trees still build" {
   // `((p & false) + 1.5).sum().cast(Bool)` cannot evaluate, but building
   // it is fine — every error belongs to evaluation, none to construction.

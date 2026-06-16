@@ -38,6 +38,8 @@ pub fn lit_float(Double) -> @expr.Expr
 
 pub fn lit_int(Int64) -> @expr.Expr
 
+pub fn lit_series(@series.Series) -> @expr.Expr
+
 pub fn lit_str(String) -> @expr.Expr
 
 pub fn map_many(label~ : String, Array[@expr.Expr], (Array[@types.Scalar]) -> @types.Scalar raise @types.DataError) -> @expr.Expr

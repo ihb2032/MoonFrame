@@ -1,0 +1,148 @@
+///|
+/// Blackbox tests for the `LitSeries` literal-series node — `lit_series(s)` —
+/// driven through the expression verbs. Covers the frame-tall append / the
+/// in-place replace (the `with_column(Series)` it succeeds), the length-1
+/// broadcast and the length-mismatch error, use inside a compound expression
+/// and as a precomputed filter mask, standalone projection with naming, the
+/// preserved backend, an aggregation over the literal, the empty-frame edge,
+/// and the not-reduction-shaped rejection under `agg`.
+
+///|
+/// Three-row base frame for the literal-series tests.
+fn lit_series_df() -> DataFrame raise @types.DataError {
+  DataFrame::new([
+    Series::from_ints("a", [1, 2, 3]),
+    Series::from_strings("b", ["x", "y", "z"]),
+  ])
+}
+
+///|
+test "lit_series: a frame-tall series appends as a new named column" {
+  // The expression face of `with_column(s)`: a ready-made column joins the
+  // frame, named after the series, at the rightmost position.
+  let extra = Series::from_floats("c", [
+    (1.5 : Double),
+    (2.5 : Double),
+    (3.5 : Double),
+  ])
+  let out = lit_series_df().with_columns([@expr.lit_series(extra)])
+  assert_eq(out.columns(), ["a", "b", "c"])
+  assert_eq(out.get_column("c").dtype(), @types.DataType::Float)
+  assert_eq(out.get_column("c").to_scalars(), [
+    @types.Scalar::Float(1.5),
+    @types.Scalar::Float(2.5),
+    @types.Scalar::Float(3.5),
+  ])
+}
+
+///|
+test "lit_series: a frame-tall series replaces an existing column in place" {
+  // Unlike `with_column` (which raised `DuplicateColumn`), `with_columns`
+  // replaces a same-named column, keeping its original position.
+  let replacement = Series::from_ints("a", [10, 20, 30])
+  let out = lit_series_df().with_columns([@expr.lit_series(replacement)])
+  assert_eq(out.columns(), ["a", "b"])
+  assert_eq(out.get_column("a").to_scalars(), [
+    @types.Scalar::Int(10),
+    @types.Scalar::Int(20),
+    @types.Scalar::Int(30),
+  ])
+}
+
+///|
+test "lit_series: a length-1 series broadcasts over the frame" {
+  // Like a scalar literal, a one-row series fills every row.
+  let one = Series::from_ints("k", [7])
+  let out = lit_series_df().with_columns([@expr.lit_series(one)])
+  assert_eq(out.get_column("k").to_scalars(), [
+    @types.Scalar::Int(7),
+    @types.Scalar::Int(7),
+    @types.Scalar::Int(7),
+  ])
+}
+
+///|
+test "lit_series: a length neither 1 nor the frame height raises LengthMismatch" {
+  let two = Series::from_ints("k", [1, 2])
+  assert_eq(
+    try? lit_series_df().with_columns([@expr.lit_series(two)]),
+    Err(@types.DataError::LengthMismatch),
+  )
+}
+
+///|
+test "lit_series: combines positionally inside a compound expression" {
+  // A frame-tall literal column is row-aligned with the frame, so it adds to
+  // a column cell for cell.
+  let bonus = Series::from_ints("bonus", [100, 200, 300])
+  let out = lit_series_df().with_columns([
+    (@expr.col("a") + @expr.lit_series(bonus)).with_alias("total"),
+  ])
+  assert_eq(out.get_column("total").to_scalars(), [
+    @types.Scalar::Int(101),
+    @types.Scalar::Int(202),
+    @types.Scalar::Int(303),
+  ])
+}
+
+///|
+test "lit_series: a Bool series is usable as a precomputed filter mask" {
+  let mask = Series::from_bools("keep", [true, false, true])
+  let kept = lit_series_df().filter(@expr.lit_series(mask))
+  assert_eq(kept.get_column("a").to_scalars(), [
+    @types.Scalar::Int(1),
+    @types.Scalar::Int(3),
+  ])
+}
+
+///|
+test "lit_series: projects standalone, named after the series unless aliased" {
+  let s = Series::from_ints("vals", [1, 2, 3])
+  let out = lit_series_df().select([@expr.lit_series(s)])
+  assert_eq(out.columns(), ["vals"])
+  let aliased = lit_series_df().select([
+    @expr.lit_series(s).with_alias("renamed"),
+  ])
+  assert_eq(aliased.columns(), ["renamed"])
+}
+
+///|
+test "lit_series: returned verbatim, so its backend is preserved" {
+  // A Numeric, all-valid series stays Numeric — `eval` hands it through, it
+  // is not re-derived through `try_column_to_numeric` like a computed column.
+  let num = Series::from_ints("n", [1, 2, 3])
+  assert_eq(num.storage_kind(), @column.StorageKind::Numeric)
+  let out = lit_series_df().with_columns([@expr.lit_series(num)])
+  assert_eq(out.get_column("n").storage_kind(), @column.StorageKind::Numeric)
+}
+
+///|
+test "lit_series: an aggregation over a literal series reduces it whole" {
+  // `lit_series(s).sum()` is reduction-shaped (the enclosing `Agg`): it sums
+  // the literal series itself — all four of its cells, independent of the
+  // base frame's three rows — to one cell.
+  let s = Series::from_ints("s", [10, 20, 30, 40])
+  let out = lit_series_df().select([@expr.lit_series(s).sum().with_alias("t")])
+  assert_eq(out.shape(), (1, 1))
+  assert_eq(out.get_column("t").to_scalars(), [@types.Scalar::Int(100)])
+}
+
+///|
+test "lit_series: a bare literal series is not reduction-shaped under agg" {
+  // Row-wise like a bare column, so `agg([lit_series(s)])` raises — the shape
+  // gate fires before any group work.
+  let s = Series::from_ints("s", [1, 2, 3])
+  let grouped = lit_series_df().group_by([@expr.col("b")])
+  assert_true(
+    (try? grouped.agg([@expr.lit_series(s)]))
+    is Err(@types.DataError::InvalidOperation(_)),
+  )
+}
+
+///|
+test "lit_series on an empty frame accepts a 0-length series" {
+  let empty = DataFrame::new([Series::from_ints("i", [])])
+  let out = empty.with_columns([@expr.lit_series(Series::from_ints("z", []))])
+  assert_eq(out.shape(), (0, 2))
+  assert_eq(out.columns(), ["i", "z"])
+}

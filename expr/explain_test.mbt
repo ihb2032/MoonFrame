@@ -280,3 +280,33 @@ test "map: referenced_columns gathers every column its inputs read" {
     [],
   )
 }
+
+///|
+test "show: a literal series renders by name and length, the data opaque" {
+  let s = Series::from_ints("flag", [1, 2, 3, 4])
+  inspect(lit_series(s), content="lit_series(\"flag\", 4)")
+  // The name is quoted and escaped like a string literal, so it can never
+  // inject a spurious line into the `explain` tree.
+  inspect(
+    lit_series(Series::from_ints("a\"b", [1])),
+    content="lit_series(\"a\\\"b\", 1)",
+  )
+}
+
+///|
+test "lit_series: a leaf with no child expressions and no column references" {
+  let s = Series::from_ints("v", [1, 2, 3])
+  // It carries materialised data, not sub-expressions, and reads no frame
+  // column — so the optimizer's pruning keeps nothing alive for it.
+  assert_eq(lit_series(s).children(), [])
+  assert_eq(lit_series(s).referenced_columns().to_array(), [])
+}
+
+///|
+test "lit_series: output_name is the series name, an alias overrides it" {
+  let s = Series::from_ints("vals", [1, 2, 3])
+  assert_eq(lit_series(s).output_name(), "vals")
+  assert_eq(lit_series(s).with_alias("renamed").output_name(), "renamed")
+  // On a binary's leftmost path it names the whole tree, like a `Col`.
+  assert_eq((lit_series(s) + col("b")).output_name(), "vals")
+}

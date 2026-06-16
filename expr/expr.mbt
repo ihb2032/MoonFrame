@@ -15,7 +15,13 @@
 /// dtype mismatches surface at evaluation time (in `frame`), never here.
 ///
 /// Variant tour (construction route in parentheses):
-/// - `Col` / `Lit` — leaves (`col`, `lit` / `lit_*`);
+/// - `Col` / `Lit` / `LitSeries` — leaves (`col`, `lit` / `lit_*`,
+///   `lit_series`). `LitSeries` embeds a whole pre-materialised
+///   `@series.Series` as a literal column — the expression face of the old
+///   `with_column(Series)`: at evaluation it is used as-is, broadcasting
+///   when length 1 and otherwise matching the frame height (`LengthMismatch`
+///   on any other length). It is named after the series it carries, so its
+///   output column keeps the series' name unless an alias overrides it;
 /// - `Binary` — arithmetic `+ - * /`, comparisons `eq/ne/lt/le/gt/ge`,
 ///   Kleene logic `&`/`|` (also `.land()`/`.lor()` — `and`/`or` are
 ///   reserved words);
@@ -36,6 +42,7 @@
 pub enum Expr {
   Col(String)
   Lit(@types.Scalar)
+  LitSeries(@series.Series)
   Binary(BinOp, Expr, Expr)
   Unary(UnOp, Expr)
   Agg(AggOp, Expr)
@@ -64,6 +71,7 @@ pub impl Eq for Expr with fn equal(self, other) {
   match (self, other) {
     (Col(a), Col(b)) => a == b
     (Lit(a), Lit(b)) => a == b
+    (LitSeries(a), LitSeries(b)) => a == b
     (Binary(o1, l1, r1), Binary(o2, l2, r2)) => o1 == o2 && l1 == l2 && r1 == r2
     (Unary(o1, e1), Unary(o2, e2)) => o1 == o2 && e1 == e2
     (Agg(o1, e1), Agg(o2, e2)) => o1 == o2 && e1 == e2

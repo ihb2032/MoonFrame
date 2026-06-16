@@ -158,21 +158,21 @@ validity bitmap (`1 = valid`, `0 = null`).
     `Scalar::Null` for null slots.
   - `slice(start, end)` / `take(indices)` — sub-views; same bounds
     diagnostics as the bitmap.
-  - `cast(target)` dispatches to `to_int` / `to_float` /
-    `to_string_column`; `Bool` / `Null` targets `raise Unsupported`.
-  - `to_int()` — identity on Int; Float truncates toward zero (`NaN`,
-    `±Inf`, out-of-`Int64`-range → `ParseError`); Bool `true → 1`,
-    `false → 0`; String accepts only plain base-10 integers (others →
-    `ParseError`). Validity preserved.
-  - `to_float()` — Int promoted; identity on Float; Bool → `1.0` /
-    `0.0`; String parsed (`1_000` underscore grouping rejected; `inf` /
-    `-inf` / `nan` accepted; other malformed → `ParseError`).
+  - `cast(target)` — the single cross-dtype conversion. `Int`: identity on
+    Int, Float truncates toward zero (`NaN` / `±Inf` / out-of-`Int64`-range
+    → `ParseError`), Bool `true → 1` / `false → 0`, String accepts only
+    plain base-10 integers (others → `ParseError`). `Float`: Int promoted,
+    identity on Float, Bool → `1.0` / `0.0`, String parsed (`1_000`
+    underscore grouping rejected; `inf` / `-inf` / `nan` accepted; other
+    malformed → `ParseError`). `String`: every dtype renders (via the total
+    `to_string_column`). Validity is preserved; `Bool` / `Null` targets
+    `raise Unsupported`.
   - `int_values()` / `float_values()` / `bool_values()` /
     `string_values()` — return `(Array[T], Bitmap)`; wrong dtype →
     `raise TypeMismatch`. Always consult the returned bitmap before
     reading the data array.
 - **Total** (no failure path): `to_string_column() -> BuiltinColumn` —
-  every dtype has a value-form rendering, so unlike `to_int` / `to_float`
+  every dtype has a value-form rendering, so unlike a numeric `cast`
   it never raises.
 
 ### NumericColumn
@@ -196,10 +196,10 @@ validity bitmap (`1 = valid`, `0 = null`).
   raw array paired with a synthesised all-valid bitmap); `bool_values()` /
   `string_values()` always `raise TypeMismatch` (numeric by construction).
 - Reductions (the fast path — no validity scan): **total** `sum() ->
-  Scalar` / `min_value() -> Scalar` / `max_value() -> Scalar`; fallible
+  Scalar` / `min() -> Scalar` / `max() -> Scalar`; fallible
   `mean() -> Double` (`InvalidOperation` on an empty column). `NaN`
-  propagates through `sum` / `mean` but is skipped by `min_value` /
-  `max_value` (Polars semantics).
+  propagates through `sum` / `mean` but is skipped by `min` /
+  `max` (Polars semantics).
 
 ### ColumnStorage / StorageKind
 
@@ -226,8 +226,8 @@ validity bitmap (`1 = valid`, `0 = null`).
 - Fallible (`raise DataError`): `is_null(i)` / `get(i)`; backend-preserving
   `slice(start, end)` / `take(indices)` (a sub-range of a `Numeric` column
   stays `Numeric`); `int_values()` / `float_values()` / `bool_values()` /
-  `string_values()`. Cross-dtype `cast(target)` / `to_int()` / `to_float()`
-  route through `to_builtin()`, so the result is `Builtin`-backed — a caller
+  `string_values()`. The cross-dtype `cast(target)` routes through
+  `to_builtin()`, so the result is `Builtin`-backed — a caller
   re-converges with `to_numeric` if a numeric target should land back on
   the fast path.
 - `to_numeric() -> ColumnStorage raise DataError` — move an all-valid Int /

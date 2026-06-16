@@ -1,8 +1,8 @@
 ///|
 /// Blackbox behavior tests for `DataFrame::with_columns`: naming,
 /// replace-in-place vs append, within-call duplicate detection, identity
-/// on an empty expression list, and equivalence with the materialised
-/// `with_column` path. The evaluator's dtype / null / broadcast semantics
+/// on an empty expression list, and equivalence with a hand-built
+/// materialised series. The evaluator's dtype / null / broadcast semantics
 /// live in `expr_eval_test.mbt`.
 
 ///|
@@ -115,11 +115,10 @@ test "alias drives naming: a fresh alias appends, an existing one replaces" {
 }
 
 ///|
-test "expression result equals the equivalent materialised with_column" {
-  // The closure-era path: precompute the series, then attach it. The
-  // expression path must produce the identical column — backend included:
-  // an all-valid numeric result converges onto `Numeric`, exactly where
-  // `from_ints` would have put the hand-built series.
+test "a derived column equals the equivalent hand-built series" {
+  // The expression path must produce the identical column to a precomputed,
+  // hand-built series — backend included: an all-valid numeric result
+  // converges onto `Numeric`, exactly where `from_ints` would have put it.
   let derived = base_df()
     .with_columns([@expr.col("a") + @expr.col("b")])
     .get_column("a")

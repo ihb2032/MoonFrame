@@ -119,7 +119,7 @@ pub fn Expr::output_name(self : Expr) -> String {
 /// the first child to yield a name (a `Map` is thus named after its leftmost
 /// input, like Polars' `map_elements`). A `LitSeries` names itself after the
 /// series it carries — like a `Col`, so a bare `lit_series(s)` outputs a
-/// column named `s.name()` (matching the old `with_column(s)`). A `Ternary` draws its name from the value branches —
+/// column named `s.name()`. A `Ternary` draws its name from the value branches —
 /// `then` first, `otherwise` as fallback — never from the condition (the
 /// condition gates rows, it does not produce output values), so it is
 /// matched explicitly rather than walking all of its children.

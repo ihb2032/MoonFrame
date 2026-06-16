@@ -65,19 +65,18 @@ pub fn lit_bool(value : Bool) -> Expr {
 }
 
 ///|
-/// Embed a pre-materialised `Series` as a literal column — the expression
-/// face of the old `with_column(Series)`, so a ready-made column joins a
-/// pipeline beside the declarative `col(...) ...` expressions
+/// Embed a pre-materialised `Series` as a literal column, so a ready-made
+/// column joins a pipeline beside the declarative `col(...) ...` expressions
 /// (`df.with_columns([lit_series(s), (col("a") + col("b")).with_alias("c")])`).
 /// At evaluation the series is used as-is: a length-1 series broadcasts over
 /// the evaluation height (like a scalar `lit`), a series whose length matches
 /// the frame supplies one cell per row, and any other length raises
 /// `LengthMismatch`. The result column keeps the series' own name unless
 /// `with_alias` overrides it — so `with_columns([lit_series(s)])` adds, or
-/// in-place replaces, a column named `s.name()`, exactly as `with_column(s)`
-/// did. A free function (the argument is a `Series`, not an `Expr`), like the
-/// `lit_*` family and `map_many`. Building the node is total; the length
-/// check happens at evaluation, in `frame`.
+/// in-place replaces, a column named `s.name()`. A free function (the argument
+/// is a `Series`, not an `Expr`), like the `lit_*` family and `map_many`.
+/// Building the node is total; the length check happens at evaluation, in
+/// `frame`.
 pub fn lit_series(series : @series.Series) -> Expr {
   LitSeries(series)
 }

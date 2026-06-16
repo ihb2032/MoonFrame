@@ -1,7 +1,7 @@
 ///|
 /// Evaluate each expression against `self` and add the results as
-/// columns — the expression twin of `with_column(Series)`: derived columns
-/// are *declared* (`col("a") + col("b")`) rather than pre-materialised.
+/// columns. Derived columns are *declared* (`col("a") + col("b")`) rather
+/// than pre-materialised (a `lit_series(s)` carries a ready-made `Series`).
 /// The full construction surface evaluates — arithmetic, comparisons,
 /// Kleene logic, `not` / null probes, aggregations (length-1, broadcast
 /// back over the frame), `cast`, `with_alias`, `when/then/otherwise` —
@@ -27,8 +27,8 @@ pub fn DataFrame::with_columns(
 ) -> DataFrame raise @types.DataError {
   let n = self.nrows()
   let scope = Array::makei(n, i => i)
-  // `column_series` returns a fresh, owned array (the same guarantee
-  // `with_column` relies on), so in-place replacement can't perturb `self`.
+  // `column_series` returns a fresh, owned array, so in-place replacement
+  // can't perturb `self`.
   let out = self.column_series()
   let seen : Map[String, Unit] = {}
   for expr in exprs {

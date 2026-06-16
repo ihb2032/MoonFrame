@@ -13,7 +13,7 @@
 //
 // The `NaN` rules live here in one place: `sum` / `mean` add `NaN` in (it is a
 // value, only `Null` is missing) so it propagates; the extremum fold skips it
-// (treated as missing, matching Polars' regular `min` / `max` and `sort_by`).
+// (treated as missing, matching Polars' regular `min` / `max` and `sort`).
 // An all-valid `Numeric` column has no bitmap, so `reduce_present` hands back a
 // constant-`true` predicate for it — no mask is allocated, and the `Series`
 // reductions still dispatch to `NumericColumn`'s bitmap-free fast path before
@@ -141,7 +141,7 @@ fn reduce_arith(
 /// `false < true`, `String` by `compare_string_lex` — returning the dtype's
 /// `Scalar` variant or `Scalar::Null` for an empty / all-null / all-`NaN`
 /// (`Float`) window. `NaN` is treated as missing (skipped), matching
-/// `Series::min_value` / `max_value` and `sort_by`; only a null slot is
+/// `Series::min_value` / `max_value` and `sort`; only a null slot is
 /// otherwise skipped. Shares the single `fold_extremum` accumulation.
 fn reduce_extremum(
   storage : @column.ColumnStorage,

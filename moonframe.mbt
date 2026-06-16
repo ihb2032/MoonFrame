@@ -6,7 +6,7 @@
 //
 // Note: the operator verbs (`select` / `drop` / `rename` /
 // `with_column` / `replace_column` / `filter` / `with_columns` /
-// `sort_by` / `drop_nulls` /
+// `sort` / `drop_nulls` /
 // `drop_nulls_in` / `fill_null` / `null_count` / `count` / `sum` /
 // `mean` / `min` / `max` / `describe` / `group_by` / `join` /
 // `inner_join` / `left_join` / `right_join` / `outer_join` /

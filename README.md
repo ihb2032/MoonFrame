@@ -74,8 +74,12 @@ fn widgets(path : String) -> String raise @moonframe.DataError {
   @moonframe.read_csv(path)
   .filter(@moonframe.col("product").eq(@moonframe.lit_str("widget")))
   .select(@moonframe.cols(["region", "revenue", "quantity"]))
-  .sort_by([
-    ("quantity", @moonframe.SortOrder::Desc, @moonframe.NullOrder::NullsLast),
+  .sort([
+    (
+      @moonframe.col("quantity"),
+      @moonframe.SortOrder::Desc,
+      @moonframe.NullOrder::NullsLast,
+    ),
   ])
   .to_markdown()
 }
@@ -105,7 +109,7 @@ on all four backends, so it always matches the current API.
   `read_ndjson` and their `write_*` counterparts, with tunable
   [type inference](docs/type-inference.md).
 - **Reshape** — `filter`, `select`, `drop`, `rename`, `with_column`, multi-key
-  `sort_by`, and null handling (`drop_nulls`, `fill_null`).
+  `sort`, and null handling (`drop_nulls`, `fill_null`).
 - **Group & aggregate** — `group_by(keys).agg([...])` with `sum` / `mean` /
   `min` / `max` / `count`.
 - **Express** — build composable column expressions
@@ -134,8 +138,12 @@ let summary = @moonframe.read_csv("sales.csv")
     @moonframe.col("revenue").sum().with_alias("revenue"),
     @moonframe.col("quantity").sum().with_alias("quantity"),
   ])
-  .sort_by([
-    ("revenue", @moonframe.SortOrder::Desc, @moonframe.NullOrder::NullsLast),
+  .sort([
+    (
+      @moonframe.col("revenue"),
+      @moonframe.SortOrder::Desc,
+      @moonframe.NullOrder::NullsLast,
+    ),
   ])
 ```
 

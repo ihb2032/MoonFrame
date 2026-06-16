@@ -93,11 +93,13 @@ test "aggregate prunes columns no key or aggregation reads" {
 ///|
 test "sort keys stay alive through the pushdown" {
   let df = sales_df()
-  let keys = [("bonus", @frame.SortOrder::Asc, @frame.NullOrder::NullsLast)]
+  let keys = [
+    (@expr.col("bonus"), @frame.SortOrder::Asc, @frame.NullOrder::NullsLast),
+  ]
   let projection = [@expr.col("region")]
   assert_eq(
-    lazy_frame(df).sort_by(keys).select(projection).collect(),
-    df.sort_by(keys).select(projection),
+    lazy_frame(df).sort(keys).select(projection).collect(),
+    df.sort(keys).select(projection),
   )
 }
 
@@ -301,12 +303,14 @@ test "filter: the requirement passes through, widened by the predicate's columns
 ///|
 test "sort: the requirement passes through, widened by the sort keys" {
   let plan = lazy_frame(sales_df())
-    .sort_by([("bonus", @frame.SortOrder::Asc, @frame.NullOrder::NullsLast)])
+    .sort([
+      (@expr.col("bonus"), @frame.SortOrder::Asc, @frame.NullOrder::NullsLast),
+    ])
     .select([@expr.col("qty")])
   assert_eq(
     plan.explain(optimized=true),
     "SELECT [col(qty)]\n" +
-    "  SORT [bonus Asc NullsLast]\n" +
+    "  SORT [col(bonus) Asc NullsLast]\n" +
     "    SELECT [col(qty), col(bonus)]\n" +
     "      SCAN [4×3]",
   )
@@ -781,12 +785,14 @@ test "row windows stop the descent" {
 ///|
 test "sort stops the descent" {
   let df = sales_df()
-  let keys = [("qty", @frame.SortOrder::Asc, @frame.NullOrder::NullsLast)]
+  let keys = [
+    (@expr.col("qty"), @frame.SortOrder::Asc, @frame.NullOrder::NullsLast),
+  ]
   let predicate = @expr.col("qty").gt(@expr.lit_int(100))
-  let plan = lazy_frame(df).sort_by(keys).filter(predicate)
+  let plan = lazy_frame(df).sort(keys).filter(predicate)
   // Crossing a sort is deliberately deferred — the filter stays put.
   assert_eq(plan.explain(optimized=true), plan.explain())
-  assert_eq(plan.collect(), df.sort_by(keys).filter(predicate))
+  assert_eq(plan.collect(), df.sort(keys).filter(predicate))
 }
 
 ///|

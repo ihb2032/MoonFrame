@@ -18,15 +18,15 @@ fn gen_i64_array(max_len : Int, lo : Int, hi : Int) -> @gen.Gen[Array[Int64]] {
 fn prop_sort_idempotent(xs : Array[Int64]) -> Bool {
   try {
     let df = DataFrame::new([Series::from_ints("x", xs)])
-    let once = df.sort_by([("x", Asc, NullsLast)])
-    once == once.sort_by([("x", Asc, NullsLast)])
+    let once = df.sort([(@expr.col("x"), Asc, NullsLast)])
+    once == once.sort([(@expr.col("x"), Asc, NullsLast)])
   } catch {
     _ => false
   }
 }
 
 ///|
-test "property: sort_by is idempotent" {
+test "property: sort is idempotent" {
   @qc.quick_check(
     @qc.forall(gen_i64_array(30, -1000, 1000), prop_sort_idempotent),
   )

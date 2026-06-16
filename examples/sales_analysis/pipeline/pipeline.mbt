@@ -12,7 +12,7 @@
 ///
 /// v0.2 method-chain form: every step is a `DataFrame` method that
 /// raises on failure, so the four fallible steps (`filter`, `select`,
-/// `sort_by`, and the always-`Ok`-in-practice `describe`) chain
+/// `sort`, and the always-`Ok`-in-practice `describe`) chain
 /// directly. No `.bind` / `.map` plumbing and no explicit
 /// `Err(e) => return Err(e)` arm for coverage to skip.
 pub fn widget_report(
@@ -21,8 +21,12 @@ pub fn widget_report(
   let sorted = df
     .filter(is_widget_row())
     .select(@moonframe.cols(["region", "price", "quantity", "revenue"]))
-    .sort_by([
-      ("quantity", @moonframe.SortOrder::Desc, @moonframe.NullOrder::NullsLast),
+    .sort([
+      (
+        @moonframe.col("quantity"),
+        @moonframe.SortOrder::Desc,
+        @moonframe.NullOrder::NullsLast,
+      ),
     ])
   (sorted, sorted.describe())
 }

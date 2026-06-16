@@ -10,7 +10,7 @@
 // ── End-to-end file-backed pipeline (matches PLAN §6.4) ──────────────
 
 ///|
-test "pipeline: read_csv → filter → select → sort_by → describe → to_markdown" {
+test "pipeline: read_csv → filter → select → sort → describe → to_markdown" {
   // Stage a fixture in `_build/` via the public `write_csv` API so the
   // test stays self-contained — no checked-in fixture file required.
   // The pipeline then runs against `read_csv`, which is the exact path
@@ -26,13 +26,13 @@ test "pipeline: read_csv → filter → select → sort_by → describe → to_m
   let df = read_csv(path)
   assert_eq(df.check_invariants(), Ok(()))
 
-  // filter (widgets only) → select → sort_by → describe → to_markdown.
+  // filter (widgets only) → select → sort → describe → to_markdown.
   // The predicate is an `Expr` the evaluator runs vectorized; an unknown
   // column surfaces as `ColumnNotFound`.
   let report = df
     .filter(col("product").eq(lit_str("widget")))
     .select(cols(["region", "quantity", "revenue"]))
-    .sort_by([("quantity", SortOrder::Desc, NullOrder::NullsLast)])
+    .sort([(col("quantity"), SortOrder::Desc, NullOrder::NullsLast)])
   let summary = report.describe()
 
   // Quantity desc puts west first; describe should surface that.
@@ -57,7 +57,7 @@ test "pipeline: read_csv → filter → select → sort_by → describe → to_m
 // ── End-to-end string-in CSV pipeline ─────────────────────────────────
 
 ///|
-test "pipeline: parse_csv_str → filter → select → sort_by → describe → to_markdown" {
+test "pipeline: parse_csv_str → filter → select → sort → describe → to_markdown" {
   // Synthetic sales rows: 4 numeric / 1 boolean / 1 string column,
   // mixed nulls in `revenue` so the downstream describe has something
   // to summarise.
@@ -89,8 +89,8 @@ test "pipeline: parse_csv_str → filter → select → sort_by → describe →
   assert_eq(projected.check_invariants(), Ok(()))
 
   // Sort by quantity descending — stable mergesort + NullsLast.
-  let sorted = projected.sort_by([
-    ("quantity", SortOrder::Desc, NullOrder::NullsLast),
+  let sorted = projected.sort([
+    (col("quantity"), SortOrder::Desc, NullOrder::NullsLast),
   ])
   assert_eq(sorted.check_invariants(), Ok(()))
   assert_eq(sorted.get(0, "region"), Scalar::String("west"))
@@ -232,7 +232,7 @@ test "pipeline: count / sum / mean / min / max all reach Series-equivalent resul
 // ── GroupBy via the facade ────────────────────────────────────────────
 
 ///|
-test "pipeline: group_by → agg → sort_by produces a grouped summary via the facade" {
+test "pipeline: group_by → agg → sort produces a grouped summary via the facade" {
   let df = DataFrame::new([
     Series::from_strings("region", ["west", "east", "west", "east", "west"]),
     Series::from_ints("quantity", [12, 7, 4, 5, 8]),
@@ -249,7 +249,7 @@ test "pipeline: group_by → agg → sort_by produces a grouped summary via the 
       col("quantity").sum().with_alias("total_q"),
       col("revenue").mean().with_alias("avg_rev"),
     ])
-    .sort_by([("total_q", SortOrder::Desc, NullOrder::NullsLast)])
+    .sort([(col("total_q"), SortOrder::Desc, NullOrder::NullsLast)])
   assert_eq(summary.check_invariants(), Ok(()))
   assert_eq(summary.columns(), [
     "region", "quantity_count", "total_q", "avg_rev",
@@ -287,7 +287,7 @@ test "pipeline: join enriches a frame then sorts via the facade" {
   let opts : JoinOptions = JoinOptions::on(["customer_id"])
   let enriched = orders
     .join(customers, opts)
-    .sort_by([("amount", SortOrder::Desc, NullOrder::NullsLast)])
+    .sort([(col("amount"), SortOrder::Desc, NullOrder::NullsLast)])
   assert_eq(enriched.check_invariants(), Ok(()))
   // Order 4 (customer 99) has no matching customer → dropped by inner join;
   // the key column appears once, then the right's non-key "region".

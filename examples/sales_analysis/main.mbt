@@ -1,7 +1,7 @@
 // MoonFrame example: end-to-end sales pipeline.
 //
 //   read_csv → filter (widget rows only) → select (4 columns)
-//            → sort_by (quantity desc)
+//            → sort (quantity desc)
 //            → describe (per-column summary)
 //            → to_markdown (printable report)
 //

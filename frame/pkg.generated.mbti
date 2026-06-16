@@ -59,7 +59,7 @@ pub fn DataFrame::schema(Self) -> @types.Schema
 pub fn DataFrame::select(Self, Array[@expr.Expr]) -> Self raise @types.DataError
 pub fn DataFrame::shape(Self) -> (Int, Int)
 pub fn DataFrame::slice(Self, Int, Int) -> Self raise @types.DataError
-pub fn DataFrame::sort_by(Self, Array[(String, SortOrder, NullOrder)]) -> Self raise @types.DataError
+pub fn DataFrame::sort(Self, Array[(@expr.Expr, SortOrder, NullOrder)]) -> Self raise @types.DataError
 pub fn DataFrame::storage_kinds(Self) -> Array[@column.StorageKind]
 pub fn DataFrame::sum(Self, String) -> @types.Scalar raise @types.DataError
 pub fn DataFrame::tail(Self, Int) -> Self

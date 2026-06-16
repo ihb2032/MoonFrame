@@ -403,7 +403,7 @@ fn[T] fold_extremum(
 /// `Series::min_value`:
 /// - Empty column → `Scalar::Null`.
 /// - `Float` `NaN` is skipped (treated as missing for the extremum, as in
-///   `sort_by` and Polars' regular `min` — distinct from `sum` / `mean`,
+///   `sort` and Polars' regular `min` — distinct from `sum` / `mean`,
 ///   where it propagates). An all-`NaN` `Float` column → `Scalar::Null`.
 pub fn NumericColumn::min_value(self : NumericColumn) -> @types.Scalar {
   match self.data {

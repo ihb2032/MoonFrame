@@ -17,7 +17,7 @@ test "widget_report: keeps widget rows, projects 4 cols, sorts by quantity desc"
   let (sorted, summary) = widget_report(df)
 
   // The filter kept the three widget rows; select pinned the 4
-  // columns in declaration order; sort_by put quantity = 12 first.
+  // columns in declaration order; sort put quantity = 12 first.
   assert_eq(sorted.shape(), (3, 4))
   assert_eq(sorted.columns(), ["region", "price", "quantity", "revenue"])
   assert_eq(sorted.get(0, "region"), @moonframe.Scalar::String("west"))
@@ -78,7 +78,7 @@ test "widget_report: select error surfaces when a required column is missing" {
 }
 
 ///|
-test "widget_report: sort_by error surfaces when `quantity` is missing post-filter" {
+test "widget_report: sort error surfaces when `quantity` is missing post-filter" {
   // Hand-build a frame that has `product` + `region` + `price` +
   // `revenue` but no `quantity`. `select` fails when it asks for
   // `quantity` — so this also exercises the `select` error path,

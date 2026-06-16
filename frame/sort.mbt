@@ -21,41 +21,54 @@ pub(all) enum NullOrder {
 // ── Operations ────────────────────────────────────────────────────────
 
 ///|
-/// Sort `self` by one or more keys, applied in order. `keys` is an array
-/// of `(column, order, null_order)` tuples: a single-key sort passes a
-/// one-element array (`df.sort_by([("q", Desc, NullsLast)])`), a
+/// Sort `self` by one or more `Expr` keys, applied in order — MoonFrame's
+/// single sort verb (Polars' `df.sort(...)`). `keys` is an array of
+/// `(key, order, null_order)` tuples: a single-key sort passes a
+/// one-element array (`df.sort([(col("q"), Desc, NullsLast)])`), a
 /// multi-key sort lists several
-/// (`df.sort_by([("dept", Asc, NullsLast), ("salary", Desc, NullsLast)])`).
+/// (`df.sort([(col("dept"), Asc, NullsLast), (col("salary"), Desc, NullsLast)])`).
 /// Earlier keys dominate; later keys only break ties between rows that
 /// compare equal under all earlier keys.
 ///
+/// Each key is an arbitrary expression, evaluated over the whole frame
+/// under the rules in `expr_eval.mbt`: a bare `col("q")` sorts by an
+/// existing column, a derived key like `col("a") + col("b")` sorts by the
+/// computed value without materialising it into the output. A key that
+/// reduces to a single cell (a literal, or an aggregation such as
+/// `col("q").sum()`) broadcasts over the frame — every row shares it, so
+/// it is a stable no-op that leaves earlier keys and the input order
+/// untouched.
+///
 /// The sort is **stable** (bottom-up merge sort on row indices): two
 /// rows that compare equal under every key keep their original relative
-/// order. This is what makes `[("dept", Asc, _), ("salary", Desc, _)]`
+/// order. This is what makes `[(col("dept"), Asc, _), (col("salary"), Desc, _)]`
 /// behave the same as "sort by dept, then within each dept sort by
 /// salary descending".
 ///
 /// Null and `NaN` placement is governed by each key's `null_order`.
-/// `NaN` in `Float` columns is treated identically to `Null` for
+/// `NaN` in a `Float` key is treated identically to `Null` for
 /// ordering — IEEE 754 makes `<` / `>` against NaN return `false`, so a
-/// naive comparator would scatter NaNs unpredictably.
+/// naive comparator would scatter NaNs unpredictably. (This is the one
+/// deliberate departure from Polars, which orders `NaN` as the largest
+/// value and treats only `Null` as missing.)
 ///
 /// The returned frame routes through `DataFrame::take`, so the schema
 /// (column names, dtypes, order) is preserved verbatim and only the row
-/// order changes. Every output passes `check_invariants()`.
+/// order changes — the key expressions decide the permutation but never
+/// appear in the output. Every output passes `check_invariants()`.
 ///
-/// Raises:
-/// - `ColumnNotFound(name)` — `name` doesn't appear in `self`. Reported
-///   on the first offending key. v0.1 columns are always one of `Int` /
-///   `Float` / `Bool` / `String` (Null-dtype columns aren't constructible
-///   through any `DataFrame` constructor), so a successful column lookup
-///   always yields a sortable column.
+/// Evaluation errors surface here (building the keys was total): a key
+/// referencing an unknown column raises `ColumnNotFound` on the first
+/// offending key, a dtype clash raises `TypeMismatch`, and the
+/// unrepresentable `Null` literal raises `Unsupported`. Every evaluated
+/// key is one of `Int` / `Float` / `Bool` / `String` (there is no
+/// Null-dtype backend), so it is always sortable.
 ///
 /// An empty key set is a no-op identity: zero keys ⇒ every comparison
 /// returns 0 ⇒ stability preserves the input order.
-pub fn DataFrame::sort_by(
+pub fn DataFrame::sort(
   self : DataFrame,
-  keys : Array[(String, SortOrder, NullOrder)],
+  keys : Array[(@expr.Expr, SortOrder, NullOrder)],
 ) -> DataFrame raise @types.DataError {
   // No keys ⇒ every comparison returns 0 ⇒ a stable sort is the identity.
   // Return `self` rather than building an identity permutation and gathering
@@ -63,20 +76,23 @@ pub fn DataFrame::sort_by(
   if keys.is_empty() {
     return self
   }
-  // Resolve each key to its typed buffer + missing mask once, up front,
-  // so the dispatch happens per-key rather than per-comparison.
-  // `get_column` raises `ColumnNotFound` on the first unknown column (in
-  // `keys` order); `Array::map` forwards that raise.
+  // Evaluate each key over the whole frame, then resolve it to its typed
+  // buffer + missing mask once, up front, so the dispatch happens per-key
+  // rather than per-comparison. A length-1 key (literal / aggregation)
+  // broadcasts to frame height — a stable no-op. Evaluation raises on the
+  // first offending key (unknown column, dtype clash); `Array::map`
+  // forwards that raise.
+  let n = self.nrows()
+  let scope = Array::makei(n, i => i)
   let sort_keys = keys.map(key => {
-    let (column, order, null_order) = key
-    build_sort_key(self.get_column(column).storage(), order, null_order)
+    let (expr, order, null_order) = key
+    let column = broadcast_series(eval_expr(expr, self, scope), n)
+    build_sort_key(column.storage(), order, null_order)
   })
-  // Stable mergesort produces the permutation; `take` applies it. Every
-  // index in the permutation is in `[0, nrows)` by construction, so
-  // `take` cannot fail.
-  let perm = stable_mergesort_indices(self.nrows(), (i, j) => {
-    compare_rows(sort_keys, i, j)
-  })
+  // Stable mergesort produces the permutation; `take` applies it to the
+  // original frame. Every index in the permutation is in `[0, nrows)` by
+  // construction, so `take` cannot fail.
+  let perm = stable_mergesort_indices(n, (i, j) => compare_rows(sort_keys, i, j))
   self.take(perm)
 }
 
@@ -105,7 +121,7 @@ fn build_sort_key(
         null_order,
       )
     @column.ColumnData::Float(a) =>
-      // NaN behaves like Null for ordering (see `sort_by`).
+      // NaN behaves like Null for ordering (see `sort`).
       SortKey::Float(
         a,
         Array::makei(a.length(), i => !valid[i] || a[i].is_nan()),

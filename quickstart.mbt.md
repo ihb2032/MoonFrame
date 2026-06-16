@@ -15,7 +15,7 @@ re-exported by the facade. In application code you would
 
 `group_by(keys).agg([...])` returns one row per group; each aggregation is a
 reduction expression such as `col(c).sum()`, and `with_alias` names its column.
-`sort_by` orders the summary. (Means are chosen here to be exact so the rendered
+`sort` orders the summary. (Means are chosen here to be exact so the rendered
 table is identical on every backend.)
 
 ```moonbit check
@@ -32,7 +32,7 @@ test "quickstart: group_by + agg" {
       col("quantity").sum().with_alias("total_quantity"),
       col("revenue").mean().with_alias("avg_revenue"),
     ])
-    .sort_by([("total_quantity", SortOrder::Desc, NullOrder::NullsLast)])
+    .sort([(col("total_quantity"), SortOrder::Desc, NullOrder::NullsLast)])
   inspect(
     summary.to_markdown(),
     content=(
@@ -65,7 +65,7 @@ test "quickstart: filter + select + sort" {
   let out = df
     .filter(col("product").eq(lit_str("widget")))
     .select(cols(["region", "quantity"]))
-    .sort_by([("quantity", SortOrder::Desc, NullOrder::NullsLast)])
+    .sort([(col("quantity"), SortOrder::Desc, NullOrder::NullsLast)])
   inspect(
     out.to_markdown(),
     content=(

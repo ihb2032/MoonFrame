@@ -29,13 +29,13 @@ test "explain: a linear pipeline reads top-down from the last verb" {
 
 ///|
 test "explain: sort keys carry their order and null placement" {
-  let plan = lazy_frame(sales_df()).sort_by([
-    ("qty", @frame.SortOrder::Asc, @frame.NullOrder::NullsFirst),
-    ("region", @frame.SortOrder::Desc, @frame.NullOrder::NullsLast),
+  let plan = lazy_frame(sales_df()).sort([
+    (@expr.col("qty"), @frame.SortOrder::Asc, @frame.NullOrder::NullsFirst),
+    (@expr.col("region"), @frame.SortOrder::Desc, @frame.NullOrder::NullsLast),
   ])
   assert_eq(
     plan.explain(),
-    "SORT [qty Asc NullsFirst, region Desc NullsLast]\n  SCAN [4×3]",
+    "SORT [col(qty) Asc NullsFirst, col(region) Desc NullsLast]\n  SCAN [4×3]",
   )
 }
 

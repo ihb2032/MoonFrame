@@ -330,7 +330,7 @@ pub fn preserve_backend(source : Series, rebuilt : Series) -> Series {
 /// `ColumnStorage::validity()` would allocate for a backend that has none —
 /// a `Numeric` column is present in every slot by construction. Equivalent
 /// to `storage.validity().to_bools()` but without the intermediate bitmap on
-/// the fast path. The row-level scanners (`sort_by` / `group_by` / `join` /
+/// the fast path. The row-level scanners (`sort` / `group_by` / `join` /
 /// `drop_nulls_in`) and the elementwise expression kernels (`expr_eval`,
 /// whose operands are frequently `Numeric`) read the mask by plain index, so
 /// they share this instead of each repacking a throwaway bitmap for a

@@ -6,9 +6,10 @@
 /// col("cost")).sum()` (a reduction over a *derived* column) — the group
 /// collapses to a single cell per expression.
 ///
-/// Output shape: the key columns head the frame (in `keys` order, source
-/// dtype and backend, one representative row per group), followed by one
-/// column per expression (in expression order), named by the expression's
+/// Output shape: the key columns head the frame (in key order, each named
+/// by its key expression's output name and keeping its evaluated dtype and
+/// backend, one representative row per group), followed by one column per
+/// expression (in expression order), named by the expression's
 /// output name (alias, else leftmost column reference, else `"literal"`);
 /// one row per group, in the first-appearance group order fixed by
 /// `group_by`. The result routes through `DataFrame::new`, so name
@@ -64,14 +65,14 @@ pub fn GroupedDataFrame::agg(
   exprs : Array[@expr.Expr],
 ) -> DataFrame raise @types.DataError {
   let out_cols : Array[Series] = []
-  // Key columns: gather one representative cell per group — `g[0]` is
-  // in-bounds since `group_by` never stores an empty group, and
-  // `gather_series` keeps the key's dtype and backend. The key came from
-  // `group_by`, which already validated it, so `get_column`'s raise is
-  // forwarded but never taken.
+  // Key columns: gather one representative cell per group from the
+  // materialised key columns `group_by` already built (each named by its
+  // expression's output name and carrying its evaluated dtype / backend) —
+  // `g[0]` is in-bounds since `group_by` never stores an empty group, and
+  // `gather_series` keeps the key column's name, dtype, and backend.
   let reps = self.groups.map(g => g[0])
-  for key in self.keys {
-    out_cols.push(gather_series(self.source.get_column(key), reps))
+  for key_column in self.key_columns {
+    out_cols.push(gather_series(key_column, reps))
   }
   for expr in exprs {
     let out_name = expr_output_name(expr)

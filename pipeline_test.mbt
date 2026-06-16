@@ -242,7 +242,7 @@ test "pipeline: group_by → agg → sort produces a grouped summary via the fac
   // takes reduction expressions built from the re-exported `col` — all
   // through the facade. A missing re-export would surface as a type error
   // in this file.
-  let grouped : GroupedDataFrame = df.group_by(["region"])
+  let grouped : GroupedDataFrame = df.group_by([col("region")])
   let summary = grouped
     .agg([
       col("quantity").count().with_alias("quantity_count"),

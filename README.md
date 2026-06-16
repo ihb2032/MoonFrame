@@ -7,7 +7,7 @@ polars, the shape of the API will feel familiar:
 ```moonbit
 read_csv("sales.csv")
   .filter(col("product").eq(lit_str("widget")))
-  .group_by(["region"])
+  .group_by([col("region")])
   .agg([col("revenue").sum()])
   .to_markdown()
 ```
@@ -133,7 +133,7 @@ For example, group the same data by region and render it three ways:
 
 ```moonbit
 let summary = @moonframe.read_csv("sales.csv")
-  .group_by(["region"])
+  .group_by([@moonframe.col("region")])
   .agg([
     @moonframe.col("revenue").sum().with_alias("revenue"),
     @moonframe.col("quantity").sum().with_alias("quantity"),

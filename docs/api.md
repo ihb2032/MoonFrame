@@ -605,29 +605,36 @@ backend.
 ### GroupBy (`group_by` / `agg`)
 
 Split-apply-combine, native to the method chain
-(`df.group_by(keys).agg(specs)`).
+(`df.group_by(keys).agg(exprs)`).
 
-- `group_by(keys : Array[String]) -> GroupedDataFrame raise DataError` —
-  partition the frame by one or more key columns. Group order is **first
-  appearance** (equivalent to Polars' `maintain_order=True`), so the result
-  is deterministic. Group identity is the composite tuple of the key cells,
-  hashed on each cell's native value, so a `Float` `NaN` collapses all NaNs
-  into one group (Polars treats `NaN` as equal for grouping; `-0.0` and
-  `+0.0` likewise share a group), and a **null** key forms its **own** group
-  rather
-  than being dropped (the Polars default — pandas drops null keys — and the
-  deliberate difference from `join`, where `null` matches nothing). One key
-  or several; an empty `keys` list makes a single grand-total group; a
-  0-row frame yields zero groups. `ColumnNotFound` on the first unknown
-  key; `DuplicateColumn` if a key is named twice (rejected up front,
-  mirroring `select`).
+- `group_by(keys : Array[Expr]) -> GroupedDataFrame raise DataError` —
+  partition the frame by one or more key **expressions**. Each key is
+  evaluated over the whole frame like a `sort` key: a bare `col("region")`
+  groups by an existing column, a derived key such as `(col("a") + col("b"))`
+  groups by the computed value, and a length-1 key (a literal, or an
+  aggregation like `col("x").sum()`) broadcasts over the frame, collapsing it
+  into one group. The materialised key columns head the `agg` output, each
+  named by its expression's output name (alias, else leftmost column
+  reference, else `"literal"`) and keeping its evaluated dtype. Group order
+  is **first appearance** (equivalent to Polars' `maintain_order=True`), so
+  the result is deterministic. Group identity is the composite tuple of the
+  key cells, hashed on each cell's native value, so a `Float` `NaN` collapses
+  all NaNs into one group (Polars treats `NaN` as equal for grouping; `-0.0`
+  and `+0.0` likewise share a group), and a **null** key forms its **own**
+  group rather than being dropped (the Polars default — pandas drops null
+  keys — and the deliberate difference from `join`, where `null` matches
+  nothing). One key or several; an empty `keys` list makes a single
+  grand-total group; a 0-row frame yields zero groups. `ColumnNotFound` /
+  `TypeMismatch` on the first offending key; `DuplicateColumn` if two keys
+  produce the same output name (rejected up front, mirroring `select`).
 - `GroupedDataFrame::agg(exprs : Array[Expr]) -> DataFrame raise DataError`
   — reduce each group to a row. Each `@expr.Expr` is evaluated once per
   group (the group's row indices as the evaluation scope) and must reduce
   to a single value: a bare-column reduction such as `col("revenue").sum()`,
   or a *compound* one such as `(col("revenue") - col("cost")).sum()` or a
   `col("x").max() - col("x").min()` range. Output columns are the key
-  columns (in `keys` order, original dtype) followed by one column per
+  columns (in key order, named by each key's output name and keeping its
+  evaluated dtype) followed by one column per
   expression (in expression order, named by `Expr::output_name` — alias,
   else leftmost column reference, else `"literal"`); one row per group, in
   group order. Each reduction inherits the matching `Series` statistic's
@@ -926,9 +933,10 @@ Each returns a new `LazyFrame` wrapping one more node:
   `tail(n)` · `limit(n)` (≡ `head`) · `slice(start, end)`.
 - `join(other : LazyFrame, options : JoinOptions)` — the right side
   carries its own deferred pipeline.
-- `group_by(keys : Array[String]) -> LazyGroupBy`, then
+- `group_by(keys : Array[Expr]) -> LazyGroupBy`, then
   `LazyGroupBy::agg(exprs : Array[Expr]) -> LazyFrame` — mirrors
-  `group_by(keys).agg(exprs)` as one fused `Aggregate` node.
+  `group_by(keys).agg(exprs)` as one fused `Aggregate` node (key
+  expressions and aggregations evaluated at collect time).
 
 ### Running and inspecting
 
@@ -941,7 +949,8 @@ Each returns a new `LazyFrame` wrapping one more node:
 - `explain(self, optimized? : Bool = false) -> String` — render the plan
   as an indented tree: root verb first, inputs two spaces deeper,
   expressions in their `Expr::explain` form, compact `SCAN [rows×cols]`
-  leaves (never the data), `AGGREGATE [exprs] BY [keys]` for a group-by.
+  leaves (never the data), `AGGREGATE [exprs] BY [keys]` for a group-by
+  (both `exprs` and `keys` rendered as expression lists).
   The default renders the plan **as built** (the package's contract — a
   faithful mirror of the chain); `optimized=true` renders the rewritten
   plan `collect` actually runs, so printing both is the before/after view.

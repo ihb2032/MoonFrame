@@ -217,8 +217,24 @@ test "a deferred group-by collects to the eager agg equivalent" {
     (@expr.col("qty") * @expr.col("bonus")).sum().with_alias("weighted"),
     (@expr.col("qty").max() - @expr.col("qty").min()).with_alias("spread"),
   ]
-  let lazy_out = lazy_frame(df).group_by(["region"]).agg(aggs).collect()
-  assert_eq(lazy_out, df.group_by(["region"]).agg(aggs))
+  let lazy_out = lazy_frame(df)
+    .group_by([@expr.col("region")])
+    .agg(aggs)
+    .collect()
+  assert_eq(lazy_out, df.group_by([@expr.col("region")]).agg(aggs))
+  assert_eq(lazy_out.check_invariants(), Ok(()))
+}
+
+///|
+test "a deferred derived-key group-by collects to the eager equivalent" {
+  let df = sales_df()
+  // The grouping key is an expression, not a bare column: bucket on
+  // qty > 50. Both faces evaluate it at collect / call time, so the lazy
+  // result stays bitwise-equal to the eager one.
+  let keys = [@expr.col("qty").gt(@expr.lit_int(50)).with_alias("big")]
+  let aggs = [@expr.col("qty").sum().with_alias("total")]
+  let lazy_out = lazy_frame(df).group_by(keys).agg(aggs).collect()
+  assert_eq(lazy_out, df.group_by(keys).agg(aggs))
   assert_eq(lazy_out.check_invariants(), Ok(()))
 }
 
@@ -227,13 +243,16 @@ test "multi-key and empty aggregation lists mirror eager group-by" {
   let df = sales_df()
   let count = [@expr.col("bonus").count().with_alias("n")]
   assert_eq(
-    lazy_frame(df).group_by(["region", "qty"]).agg(count).collect(),
-    df.group_by(["region", "qty"]).agg(count),
+    lazy_frame(df)
+    .group_by([@expr.col("region"), @expr.col("qty")])
+    .agg(count)
+    .collect(),
+    df.group_by([@expr.col("region"), @expr.col("qty")]).agg(count),
   )
   // No aggregations: the distinct-over-keys frame, exactly as eager.
   assert_eq(
-    lazy_frame(df).group_by(["region"]).agg([]).collect(),
-    df.group_by(["region"]).agg([]),
+    lazy_frame(df).group_by([@expr.col("region")]).agg([]).collect(),
+    df.group_by([@expr.col("region")]).agg([]),
   )
 }
 
@@ -249,7 +268,7 @@ test "a group-by pipeline composes with the other deferred verbs" {
   let lazy_out = lazy_frame(df)
     .filter(predicate)
     .with_columns(derived)
-    .group_by(["region"])
+    .group_by([@expr.col("region")])
     .agg(aggs)
     .sort(keys)
     .head(1)
@@ -257,7 +276,7 @@ test "a group-by pipeline composes with the other deferred verbs" {
   let eager_out = df
     .filter(predicate)
     .with_columns(derived)
-    .group_by(["region"])
+    .group_by([@expr.col("region")])
     .agg(aggs)
     .sort(keys)
     .head(1)
@@ -268,13 +287,16 @@ test "a group-by pipeline composes with the other deferred verbs" {
 ///|
 test "one LazyGroupBy serves diverging aggregations" {
   let df = sales_df()
-  let grouped = lazy_frame(df).group_by(["region"])
+  let grouped = lazy_frame(df).group_by([@expr.col("region")])
   let total = [@expr.col("qty").sum().with_alias("total")]
   let n = [@expr.col("qty").count().with_alias("n")]
   // Two aggregations off the same LazyGroupBy fork the plan — neither
   // disturbs the other, like every other shared builder.
-  assert_eq(grouped.agg(total).collect(), df.group_by(["region"]).agg(total))
-  assert_eq(grouped.agg(n).collect(), df.group_by(["region"]).agg(n))
+  assert_eq(
+    grouped.agg(total).collect(),
+    df.group_by([@expr.col("region")]).agg(total),
+  )
+  assert_eq(grouped.agg(n).collect(), df.group_by([@expr.col("region")]).agg(n))
 }
 
 ///|
@@ -282,30 +304,36 @@ test "group-by building is total; the errors wait for collect" {
   let df = sales_df()
   // Missing key: the plan builds and explains, then collect surfaces the
   // eager group_by's ColumnNotFound.
-  let missing = lazy_frame(df).group_by(["zzz"]).agg([])
-  assert_eq(missing.explain(), "AGGREGATE [] BY [zzz]\n  SCAN [4×3]")
+  let missing = lazy_frame(df).group_by([@expr.col("zzz")]).agg([])
+  assert_eq(missing.explain(), "AGGREGATE [] BY [col(zzz)]\n  SCAN [4×3]")
   assert_eq(
     try? missing.collect(),
     Err(@types.DataError::ColumnNotFound("zzz")),
   )
   // Repeated key → the eager group_by DuplicateColumn, at the repeat.
   assert_eq(
-    try? lazy_frame(df).group_by(["region", "region"]).agg([]).collect(),
+    try? lazy_frame(df)
+    .group_by([@expr.col("region"), @expr.col("region")])
+    .agg([])
+    .collect(),
     Err(@types.DataError::DuplicateColumn("region")),
   )
   // A bare column is not reduction-shaped → the eager agg
   // InvalidOperation, message for message.
   assert_eq(
-    try? lazy_frame(df).group_by(["region"]).agg([@expr.col("qty")]).collect(),
-    try? df.group_by(["region"]).agg([@expr.col("qty")]),
+    try? lazy_frame(df)
+    .group_by([@expr.col("region")])
+    .agg([@expr.col("qty")])
+    .collect(),
+    try? df.group_by([@expr.col("region")]).agg([@expr.col("qty")]),
   )
   // Summing a String column → the eager agg TypeMismatch.
   assert_eq(
     try? lazy_frame(df)
-    .group_by(["qty"])
+    .group_by([@expr.col("qty")])
     .agg([@expr.col("region").sum()])
     .collect(),
-    try? df.group_by(["qty"]).agg([@expr.col("region").sum()]),
+    try? df.group_by([@expr.col("qty")]).agg([@expr.col("region").sum()]),
   )
 }
 
@@ -316,8 +344,11 @@ test "a zero-row source aggregates to zero groups" {
     @series.Series::from_strings("region", []),
   ])
   let aggs = [@expr.col("qty").sum().with_alias("total")]
-  let lazy_out = lazy_frame(df).group_by(["region"]).agg(aggs).collect()
-  assert_eq(lazy_out, df.group_by(["region"]).agg(aggs))
+  let lazy_out = lazy_frame(df)
+    .group_by([@expr.col("region")])
+    .agg(aggs)
+    .collect()
+  assert_eq(lazy_out, df.group_by([@expr.col("region")]).agg(aggs))
   assert_eq(lazy_out.shape(), (0, 2))
   assert_eq(lazy_out.check_invariants(), Ok(()))
 }

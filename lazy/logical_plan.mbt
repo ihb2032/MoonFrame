@@ -31,7 +31,7 @@ priv enum LogicalPlan {
   Tail(LogicalPlan, Int)
   Slice(LogicalPlan, Int, Int)
   Join(LogicalPlan, LogicalPlan, @frame.JoinOptions)
-  Aggregate(LogicalPlan, Array[String], Array[@expr.Expr])
+  Aggregate(LogicalPlan, Array[@expr.Expr], Array[@expr.Expr])
 }
 
 ///|
@@ -125,7 +125,7 @@ fn render(plan : LogicalPlan, buf : StringBuilder, depth : Int) -> Unit {
       buf.write_string("AGGREGATE ")
       buf.write_string(exprs_label(exprs))
       buf.write_string(" BY ")
-      buf.write_string(list_label(keys))
+      buf.write_string(exprs_label(keys))
       render_input(input, buf, depth)
     }
   }

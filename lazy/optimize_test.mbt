@@ -85,8 +85,8 @@ test "aggregate prunes columns no key or aggregation reads" {
     (@expr.col("qty").max() - @expr.col("qty").min()).with_alias("spread"),
   ]
   assert_eq(
-    lazy_frame(df).group_by(["region"]).agg(aggs).collect(),
-    df.group_by(["region"]).agg(aggs),
+    lazy_frame(df).group_by([@expr.col("region")]).agg(aggs).collect(),
+    df.group_by([@expr.col("region")]).agg(aggs),
   )
 }
 
@@ -409,11 +409,11 @@ test "join is a barrier, but each side restarts its own pass" {
 ///|
 test "aggregate: keys and aggregation reads survive, the rest narrows" {
   let plan = lazy_frame(sales_df())
-    .group_by(["region"])
+    .group_by([@expr.col("region")])
     .agg([@expr.col("qty").sum().with_alias("total")])
   assert_eq(
     plan.explain(optimized=true),
-    "AGGREGATE [col(qty).sum() as total] BY [region]\n" +
+    "AGGREGATE [col(qty).sum() as total] BY [col(region)]\n" +
     "  SELECT [col(qty), col(region)]\n" +
     "    SCAN [4×3]",
   )
@@ -422,7 +422,7 @@ test "aggregate: keys and aggregation reads survive, the rest narrows" {
 ///|
 test "aggregate guard: reading every column inserts nothing" {
   let plan = lazy_frame(sales_df())
-    .group_by(["region"])
+    .group_by([@expr.col("region")])
     .agg([
       @expr.col("qty").sum().with_alias("a"),
       @expr.col("bonus").max().with_alias("b"),
@@ -589,19 +589,22 @@ test "a key predicate sinks below an aggregation" {
     @expr.col("bonus").count().with_alias("n"),
   ]
   let predicate = @expr.col("region").eq(@expr.lit_str("west"))
-  let plan = lazy_frame(df).group_by(["region"]).agg(aggs).filter(predicate)
+  let plan = lazy_frame(df)
+    .group_by([@expr.col("region")])
+    .agg(aggs)
+    .filter(predicate)
   // Every row of a group shares its key tuple, so filtering rows by key
   // before grouping drops exactly the groups the filter would have
   // dropped after — and sum / count cells can never be null, so the
   // stitched columns' backend cannot flip when groups disappear.
   assert_eq(
     plan.explain(optimized=true),
-    "AGGREGATE [col(qty).sum() as total, col(bonus).count() as n] BY [region]\n" +
+    "AGGREGATE [col(qty).sum() as total, col(bonus).count() as n] BY [col(region)]\n" +
     "  FILTER (col(region) == \"west\")\n" +
     "    SCAN [4×3]",
   )
   let out = plan.collect()
-  assert_eq(out, df.group_by(["region"]).agg(aggs).filter(predicate))
+  assert_eq(out, df.group_by([@expr.col("region")]).agg(aggs).filter(predicate))
   assert_eq(out.check_invariants(), Ok(()))
 }
 
@@ -610,12 +613,15 @@ test "a key predicate that empties every group still collects equal" {
   let df = sales_df()
   let aggs = [@expr.col("qty").sum().with_alias("total")]
   let predicate = @expr.col("region").eq(@expr.lit_str("north"))
-  let plan = lazy_frame(df).group_by(["region"]).agg(aggs).filter(predicate)
+  let plan = lazy_frame(df)
+    .group_by([@expr.col("region")])
+    .agg(aggs)
+    .filter(predicate)
   // Below the aggregation the filter leaves zero rows, so the executor
   // aggregates zero groups — the empty-scope probe in `agg` pins
   // the output dtype, keeping the 0-row frames bitwise-equal.
   let out = plan.collect()
-  assert_eq(out, df.group_by(["region"]).agg(aggs).filter(predicate))
+  assert_eq(out, df.group_by([@expr.col("region")]).agg(aggs).filter(predicate))
   assert_eq(out.nrows(), 0)
   assert_eq(out.check_invariants(), Ok(()))
 }
@@ -625,16 +631,22 @@ test "fence: a predicate reading an aggregation output stays above" {
   let df = sales_df()
   let aggs = [@expr.col("qty").sum().with_alias("total")]
   let predicate = @expr.col("total").gt(@expr.lit_int(100))
-  let plan = lazy_frame(df).group_by(["region"]).agg(aggs).filter(predicate)
+  let plan = lazy_frame(df)
+    .group_by([@expr.col("region")])
+    .agg(aggs)
+    .filter(predicate)
   // `total` is not a key: it only exists above the aggregation.
   assert_eq(
     plan.explain(optimized=true),
     "FILTER (col(total) > 100)\n" +
-    "  AGGREGATE [col(qty).sum() as total] BY [region]\n" +
+    "  AGGREGATE [col(qty).sum() as total] BY [col(region)]\n" +
     "    SELECT [col(qty), col(region)]\n" +
     "      SCAN [4×3]",
   )
-  assert_eq(plan.collect(), df.group_by(["region"]).agg(aggs).filter(predicate))
+  assert_eq(
+    plan.collect(),
+    df.group_by([@expr.col("region")]).agg(aggs).filter(predicate),
+  )
 }
 
 ///|
@@ -647,15 +659,21 @@ test "fence: a mean aggregation pins the filter above the group stage" {
   // fence is what keeps this assertion true.
   let aggs = [@expr.col("bonus").mean().with_alias("avg")]
   let predicate = @expr.col("region").eq(@expr.lit_str("west"))
-  let plan = lazy_frame(df).group_by(["region"]).agg(aggs).filter(predicate)
+  let plan = lazy_frame(df)
+    .group_by([@expr.col("region")])
+    .agg(aggs)
+    .filter(predicate)
   assert_eq(
     plan.explain(optimized=true),
     "FILTER (col(region) == \"west\")\n" +
-    "  AGGREGATE [col(bonus).mean() as avg] BY [region]\n" +
+    "  AGGREGATE [col(bonus).mean() as avg] BY [col(region)]\n" +
     "    SELECT [col(bonus), col(region)]\n" +
     "      SCAN [4×3]",
   )
-  assert_eq(plan.collect(), df.group_by(["region"]).agg(aggs).filter(predicate))
+  assert_eq(
+    plan.collect(),
+    df.group_by([@expr.col("region")]).agg(aggs).filter(predicate),
+  )
 }
 
 ///|
@@ -665,15 +683,21 @@ test "fence: a cast in the aggregation list pins the filter above" {
     @expr.col("qty").sum().cast(@types.DataType::Float).with_alias("totalf"),
   ]
   let predicate = @expr.col("region").eq(@expr.lit_str("west"))
-  let plan = lazy_frame(df).group_by(["region"]).agg(aggs).filter(predicate)
+  let plan = lazy_frame(df)
+    .group_by([@expr.col("region")])
+    .agg(aggs)
+    .filter(predicate)
   assert_eq(
     plan.explain(optimized=true),
     "FILTER (col(region) == \"west\")\n" +
-    "  AGGREGATE [col(qty).sum().cast(Float) as totalf] BY [region]\n" +
+    "  AGGREGATE [col(qty).sum().cast(Float) as totalf] BY [col(region)]\n" +
     "    SELECT [col(qty), col(region)]\n" +
     "      SCAN [4×3]",
   )
-  assert_eq(plan.collect(), df.group_by(["region"]).agg(aggs).filter(predicate))
+  assert_eq(
+    plan.collect(),
+    df.group_by([@expr.col("region")]).agg(aggs).filter(predicate),
+  )
 }
 
 ///|
@@ -683,15 +707,21 @@ test "fence: a scope-dependent key predicate stays above the aggregation" {
   // Reads only the key — but its count runs over the aggregation's
   // output rows (one per group), not the raw rows, so it must not move.
   let predicate = @expr.col("region").count().gt(@expr.lit_int(1))
-  let plan = lazy_frame(df).group_by(["region"]).agg(aggs).filter(predicate)
+  let plan = lazy_frame(df)
+    .group_by([@expr.col("region")])
+    .agg(aggs)
+    .filter(predicate)
   assert_eq(
     plan.explain(optimized=true),
     "FILTER (col(region).count() > 1)\n" +
-    "  AGGREGATE [col(qty).sum() as total] BY [region]\n" +
+    "  AGGREGATE [col(qty).sum() as total] BY [col(region)]\n" +
     "    SELECT [col(qty), col(region)]\n" +
     "      SCAN [4×3]",
   )
-  assert_eq(plan.collect(), df.group_by(["region"]).agg(aggs).filter(predicate))
+  assert_eq(
+    plan.collect(),
+    df.group_by([@expr.col("region")]).agg(aggs).filter(predicate),
+  )
 }
 
 ///|
@@ -699,19 +729,22 @@ test "fence: a non-reduction aggregation keeps its error and its filter in place
   let df = sales_df()
   let aggs = [@expr.col("qty")]
   let predicate = @expr.col("region").eq(@expr.lit_str("west"))
-  let plan = lazy_frame(df).group_by(["region"]).agg(aggs).filter(predicate)
+  let plan = lazy_frame(df)
+    .group_by([@expr.col("region")])
+    .agg(aggs)
+    .filter(predicate)
   // A bare column is not reduction-shaped; the fence holds the filter
   // above, and collect reports the executor's own `InvalidOperation`.
   assert_eq(
     plan.explain(optimized=true),
     "FILTER (col(region) == \"west\")\n" +
-    "  AGGREGATE [col(qty)] BY [region]\n" +
+    "  AGGREGATE [col(qty)] BY [col(region)]\n" +
     "    SELECT [col(qty), col(region)]\n" +
     "      SCAN [4×3]",
   )
   assert_eq(
     try? plan.collect(),
-    try? df.group_by(["region"]).agg(aggs).filter(predicate),
+    try? df.group_by([@expr.col("region")]).agg(aggs).filter(predicate),
   )
 }
 
@@ -720,20 +753,23 @@ test "fence: a null literal in the aggregation list pins the filter above" {
   let df = sales_df()
   let aggs = [@expr.lit(@types.Scalar::Null).with_alias("z")]
   let predicate = @expr.col("region").eq(@expr.lit_str("west"))
-  let plan = lazy_frame(df).group_by(["region"]).agg(aggs).filter(predicate)
+  let plan = lazy_frame(df)
+    .group_by([@expr.col("region")])
+    .agg(aggs)
+    .filter(predicate)
   // A null literal is a null cell by definition — the backend-flip
   // hazard in its purest form — so the filter stays above, and collect
   // behaves exactly as the as-built plan does.
   assert_eq(
     plan.explain(optimized=true),
     "FILTER (col(region) == \"west\")\n" +
-    "  AGGREGATE [null as z] BY [region]\n" +
+    "  AGGREGATE [null as z] BY [col(region)]\n" +
     "    SELECT [col(region)]\n" +
     "      SCAN [4×3]",
   )
   assert_eq(
     try? plan.collect(),
-    try? df.group_by(["region"]).agg(aggs).filter(predicate),
+    try? df.group_by([@expr.col("region")]).agg(aggs).filter(predicate),
   )
 }
 
@@ -750,16 +786,65 @@ test "reduction combinators pass the aggregation crossing gate" {
     (-@expr.col("qty").sum()).with_alias("neg"),
   ]
   let predicate = @expr.col("region").eq(@expr.lit_str("west"))
-  let plan = lazy_frame(df).group_by(["region"]).agg(aggs).filter(predicate)
+  let plan = lazy_frame(df)
+    .group_by([@expr.col("region")])
+    .agg(aggs)
+    .filter(predicate)
   assert_eq(
     plan.explain(optimized=true),
-    "AGGREGATE [when((col(qty).sum() > 100)).then(1).otherwise(0) as flag, (-col(qty).sum()) as neg] BY [region]\n" +
+    "AGGREGATE [when((col(qty).sum() > 100)).then(1).otherwise(0) as flag, (-col(qty).sum()) as neg] BY [col(region)]\n" +
     "  FILTER (col(region) == \"west\")\n" +
     "    SELECT [col(qty), col(region)]\n" +
     "      SCAN [4×3]",
   )
   let out = plan.collect()
-  assert_eq(out, df.group_by(["region"]).agg(aggs).filter(predicate))
+  assert_eq(out, df.group_by([@expr.col("region")]).agg(aggs).filter(predicate))
+  assert_eq(out.check_invariants(), Ok(()))
+}
+
+///|
+test "fence: a predicate on a derived key stays above the aggregation" {
+  let df = sales_df()
+  // The group key is *derived* (`qty > 50`, aliased `big`): its output
+  // column does not exist below the aggregation, so a predicate reading it
+  // cannot sink — only a *bare-column* key opens the crossing. The
+  // projection pass still narrows the scan to the key's source column.
+  let aggs = [@expr.col("qty").sum().with_alias("total")]
+  let keys = [@expr.col("qty").gt(@expr.lit_int(50)).with_alias("big")]
+  let predicate = @expr.col("big")
+  let plan = lazy_frame(df).group_by(keys).agg(aggs).filter(predicate)
+  assert_eq(
+    plan.explain(optimized=true),
+    "FILTER col(big)\n" +
+    "  AGGREGATE [col(qty).sum() as total] BY [(col(qty) > 50) as big]\n" +
+    "    SELECT [col(qty)]\n" +
+    "      SCAN [4×3]",
+  )
+  assert_eq(plan.collect(), df.group_by(keys).agg(aggs).filter(predicate))
+}
+
+///|
+test "a bare-column key predicate still sinks past a mixed-key aggregation" {
+  let df = sales_df()
+  // Two keys: a bare `region` and a derived bucket. A predicate on the bare
+  // key sinks (its column is present verbatim below, one value per group),
+  // while the derived key keeps its own source `qty` alive at the scan.
+  let aggs = [@expr.col("qty").sum().with_alias("total")]
+  let keys = [
+    @expr.col("region"),
+    @expr.col("qty").gt(@expr.lit_int(50)).with_alias("big"),
+  ]
+  let predicate = @expr.col("region").eq(@expr.lit_str("west"))
+  let plan = lazy_frame(df).group_by(keys).agg(aggs).filter(predicate)
+  assert_eq(
+    plan.explain(optimized=true),
+    "AGGREGATE [col(qty).sum() as total] BY [col(region), (col(qty) > 50) as big]\n" +
+    "  FILTER (col(region) == \"west\")\n" +
+    "    SELECT [col(qty), col(region)]\n" +
+    "      SCAN [4×3]",
+  )
+  let out = plan.collect()
+  assert_eq(out, df.group_by(keys).agg(aggs).filter(predicate))
   assert_eq(out.check_invariants(), Ok(()))
 }
 

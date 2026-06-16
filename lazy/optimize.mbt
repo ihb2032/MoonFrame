@@ -50,18 +50,22 @@
 ///   different values — or no existence at all — below the stage; its
 ///   pass-through columns are identical on both sides by construction).
 /// - `Aggregate` — crossed when the predicate is `row_stable` and reads
-///   only *key* columns (every row of a group shares its key tuple, so
-///   filtering groups after aggregation and filtering their rows before
-///   it drop exactly the same groups, in the same first-appearance
-///   order), and every aggregation is `group_cell_stable` — its per-group
-///   cell can neither be null nor raise on values: `sum` / `count` and
-///   non-null literals qualify, `mean` / `min` / `max` do not (an
-///   all-null group yields a null cell, and dropping that group would
-///   flip the stitched column's backend from `Builtin` to `Numeric`,
-///   which the structural `Series` equality observes), and `cast` does
-///   not (a dropped group could be the one whose value fails to
-///   convert). Predicates over aggregation *outputs* read non-key names,
-///   so they stay above the aggregation by the key-only rule.
+///   only *bare-column* keys (a key written as `col(name)`: every row of a
+///   group shares its key tuple, so filtering groups after aggregation and
+///   filtering their rows before it drop exactly the same groups, in the
+///   same first-appearance order — and a bare key's output column holds its
+///   input column verbatim, so the predicate reads identical values below).
+///   A *derived* key (any non-`Col` expression) outputs a computed column
+///   whose name need not exist in the input at all, so a predicate over it
+///   stays above; predicates over aggregation *outputs* read non-key names
+///   and stay above the same way. Every aggregation must also be
+///   `group_cell_stable` — its per-group cell can neither be null nor raise
+///   on values: `sum` / `count` and non-null literals qualify, `mean` /
+///   `min` / `max` do not (an all-null group yields a null cell, and
+///   dropping that group would flip the stitched column's backend from
+///   `Builtin` to `Numeric`, which the structural `Series` equality
+///   observes), and `cast` does not (a dropped group could be the one whose
+///   value fails to convert).
 /// - Everything else stops the descent. `Head` / `Tail` / `Slice` pick
 ///   rows by *position*, and filtering re-numbers positions. `Sort` and
 ///   another `Filter` are value-safe to cross for row-stable predicates
@@ -380,14 +384,19 @@ fn defines_none_of(exprs : Array[@expr.Expr], predicate : @expr.Expr) -> Bool {
 }
 
 ///|
-/// Whether the predicate reads key columns only — the `Aggregate`
-/// crossing rule. Key columns are the one part of an aggregation's
-/// output whose cells exist verbatim in its input, row for row across
-/// each group; everything else (the aggregation outputs — and any name
-/// that exists nowhere) keeps the filter above.
-fn reads_only_keys(predicate : @expr.Expr, keys : Array[String]) -> Bool {
+/// Whether the predicate reads *bare-column* group keys only — the
+/// `Aggregate` crossing rule. A key written as a bare `col(name)` produces
+/// an output column whose cells are its input column `name` verbatim, row
+/// for row across each group, so a predicate over it sees identical values
+/// below the stage. A *derived* key (any non-`Col` expression) outputs a
+/// computed column whose name need not exist in the input at all, so a
+/// predicate over it could not be evaluated below — it must stay above.
+/// Aggregation outputs, and names that exist nowhere, likewise keep the
+/// filter above. Reuses `has_bare_column`, the same bare-pass-through test
+/// the `Select` crossing rule applies to its projection list.
+fn reads_only_keys(predicate : @expr.Expr, keys : Array[@expr.Expr]) -> Bool {
   for name in predicate.referenced_columns() {
-    if !keys.contains(name) {
+    if !has_bare_column(keys, name) {
       return false
     }
   }
@@ -485,13 +494,12 @@ fn push_projection(
       Join(push_projection(left, None), push_projection(right, None), options)
     // By-name originator, like `Select`: the output is the key columns
     // (gathered in key-list order, not input order) plus the aggregated
-    // expressions, so the input needs exactly the keys and the columns
-    // the expressions read.
+    // expressions, so the input needs exactly the columns the keys and the
+    // expressions read — a derived key keeps its source columns alive the
+    // same way an aggregation does.
     Aggregate(input, keys, exprs) => {
       let needed = columns_read(exprs)
-      for key in keys {
-        needed.add(key)
-      }
+      add_all(needed, columns_read(keys))
       Aggregate(push_projection(input, Some(needed)), keys, exprs)
     }
   }

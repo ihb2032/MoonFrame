@@ -23,7 +23,7 @@ fn group_cell(
   df : DataFrame,
   e : @expr.Expr,
 ) -> @types.Scalar raise @types.DataError {
-  df.group_by(["k"]).agg([e.with_alias("r")]).get_column("r").get(0)
+  df.group_by([@expr.col("k")]).agg([e.with_alias("r")]).get_column("r").get(0)
 }
 
 ///|

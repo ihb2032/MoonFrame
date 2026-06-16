@@ -428,7 +428,7 @@ pub fn DataFrame::take(
 ///|
 /// Whether `indices` is the identity permutation `[0, 1, ..., nrows - 1]` —
 /// the case where a gather reproduces the frame unchanged. Lets `take`
-/// short-circuit a no-op gather (an already-ordered `sort_by`, a `filter`
+/// short-circuit a no-op gather (an already-ordered `sort`, a `filter`
 /// that keeps every row). Fails fast: a length mismatch or the first
 /// out-of-place index returns `false` before the rest is scanned.
 fn is_identity_perm(indices : Array[Int], nrows : Int) -> Bool {

@@ -26,7 +26,7 @@ priv enum LogicalPlan {
   Select(LogicalPlan, Array[@expr.Expr])
   WithColumns(LogicalPlan, Array[@expr.Expr])
   Filter(LogicalPlan, @expr.Expr)
-  Sort(LogicalPlan, Array[(String, @frame.SortOrder, @frame.NullOrder)])
+  Sort(LogicalPlan, Array[(@expr.Expr, @frame.SortOrder, @frame.NullOrder)])
   Head(LogicalPlan, Int)
   Tail(LogicalPlan, Int)
   Slice(LogicalPlan, Int, Int)
@@ -49,7 +49,7 @@ fn execute(plan : LogicalPlan) -> @frame.DataFrame raise @types.DataError {
     Select(input, exprs) => execute(input).select(exprs)
     WithColumns(input, exprs) => execute(input).with_columns(exprs)
     Filter(input, predicate) => execute(input).filter(predicate)
-    Sort(input, by) => execute(input).sort_by(by)
+    Sort(input, by) => execute(input).sort(by)
     Head(input, n) => execute(input).head(n)
     Tail(input, n) => execute(input).tail(n)
     Slice(input, start, end) => execute(input).slice(start, end)
@@ -166,15 +166,17 @@ fn exprs_label(exprs : Array[@expr.Expr]) -> String {
 }
 
 ///|
-/// `SORT` key list, e.g. `[qty Asc NullsFirst, region Desc NullsLast]` —
-/// one `name order nulls` triple per key, in sort precedence order.
+/// `SORT` key list, e.g. `[col(qty) Asc NullsFirst, col(region) Desc NullsLast]`
+/// — one `key order nulls` triple per key, in sort precedence order, the
+/// key rendered through `@expr.Expr`'s `Show` (the documented operator
+/// form, like the `SELECT` / `WITH_COLUMNS` expression lists).
 fn sort_label(
-  by : Array[(String, @frame.SortOrder, @frame.NullOrder)],
+  by : Array[(@expr.Expr, @frame.SortOrder, @frame.NullOrder)],
 ) -> String {
   list_label(
     by.map(key => {
-      let (name, order, nulls) = key
-      name + " " + order_label(order) + " " + nulls_label(nulls)
+      let (expr, order, nulls) = key
+      expr.explain() + " " + order_label(order) + " " + nulls_label(nulls)
     }),
   )
 }

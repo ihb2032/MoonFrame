@@ -69,7 +69,7 @@ breaks (v0.2 → v0.3) — are collected in [`migration.md`](migration.md).
   order (see `compare_string_lex`), **not** the built-in shortlex `<`.
 - `fn compare_string_lex(a, b) -> Int` — lexicographic string comparison
   by UTF-16 code unit (`-1` / `0` / `1`). Every user-facing ordering
-  (`Scalar::lt`, `Series::min_value` / `max_value`, `DataFrame::sort_by`)
+  (`Scalar::lt`, `Series::min_value` / `max_value`, `DataFrame::sort`)
   routes through this so they all agree.
 - `fn is_decimal_int_literal(s) -> Bool` — `true` when `s` is an optional
   `+` / `-` sign followed by ASCII digits and nothing else (rejects
@@ -418,7 +418,7 @@ rebuild and backend-convergence helpers, and the composite-key cell encoding
   dtype renders, so total); `to_builtin()` (materialise onto the `Builtin`
   backend — lossless inverse of `to_numeric`). Structural transforms
   (`slice` / `take` / `drop_nulls` / `fill_null`, and `head` / `tail` /
-  `filter` / `sort_by` / `join` at the frame level) **preserve the backend**
+  `filter` / `sort` / `join` at the frame level) **preserve the backend**
   — a `Numeric` column stays on the fast path where it gains no null;
   cross-dtype casts borrow the `Builtin` road.
 
@@ -441,7 +441,7 @@ rebuild and backend-convergence helpers, and the composite-key cell encoding
   `frame`'s `DataFrame::describe` reads across the package boundary. `Float`
   `NaN` is a value, not missing: it **propagates** through `sum` / `mean`
   (any non-null `NaN` ⇒ `NaN`) but is **skipped** by `min_value` /
-  `max_value` (and `sort_by`) — matching Polars, whose `sum`/`mean`
+  `max_value` (and `sort`) — matching Polars, whose `sum`/`mean`
   propagate `NaN` while its regular `min`/`max` ignore it (only `Null` is
   ever treated as missing).
 
@@ -513,11 +513,15 @@ transforms, so every output satisfies `check_invariants()`.
 - `replace_column(name, series) -> DataFrame raise DataError` —
   positional in-place swap; the target `name` wins over `series.name()`;
   cross-dtype allowed. `ColumnNotFound` / `LengthMismatch`.
-- `sort_by(keys : Array[(String, SortOrder, NullOrder)]) -> DataFrame raise
-  DataError` — stable multi-key sort. Each key is a
-  `(column, order, null_order)` tuple; earlier keys dominate. A single-key
-  sort passes a one-element array. `ColumnNotFound` on the first unknown key
-  column. Empty key set is the identity.
+- `sort(keys : Array[(Expr, SortOrder, NullOrder)]) -> DataFrame raise
+  DataError` — stable multi-key sort. Each key is an `(Expr, order,
+  null_order)` tuple, the expression evaluated over the whole frame: a bare
+  `col("c")`, or a derived key like `col("a") + col("b")` that sorts by the
+  computed value without materialising it into the output. Earlier keys
+  dominate; a length-1 key (a literal or an aggregation like `col("c").sum()`)
+  broadcasts as a stable no-op. A single-key sort passes a one-element array.
+  Evaluation errors surface here — `ColumnNotFound` on the first unknown key,
+  `TypeMismatch` on a dtype clash. Empty key set is the identity.
 - `drop_nulls() -> DataFrame raise DataError` — drop rows null in **any**
   column. `drop_nulls_in(names) -> DataFrame raise DataError` — gate only
   on the listed columns (`ColumnNotFound` on the first unknown; empty
@@ -689,7 +693,7 @@ Hash equi-join, native to the method chain (`left.join(right, options)`).
     column of both frames (a clashing right column is suffixed). This is the
     explicit form of what `group_by([])`'s grand-total group is for
     aggregation.
-  - **Backend**: like the other structural transforms (`filter` / `sort_by`
+  - **Backend**: like the other structural transforms (`filter` / `sort`
     / `take` / `drop_nulls`), each output column keeps its source's storage
     backend where it picks up no unmatched-row null — an all-valid `Numeric`
     source column stays `Numeric`; a column that gains a null from an
@@ -738,9 +742,9 @@ Hash equi-join, native to the method chain (`left.join(right, options)`).
 
 - `enum SortOrder` — `Asc` / `Desc`. `enum NullOrder` — `NullsFirst` /
   `NullsLast` (for `Float`, `NaN` is treated as missing, like `Null`).
-- A sort key is a `(column, SortOrder, NullOrder)` tuple; `sort_by` takes an
+- A sort key is an `(Expr, SortOrder, NullOrder)` tuple; `sort` takes an
   `Array` of them. Multi-key sort lists several; a single-key sort passes a
-  one-element array (e.g. `[("score", Desc, NullsLast)]`).
+  one-element array (e.g. `[(col("score"), Desc, NullsLast)]`).
 
 ---
 
@@ -918,7 +922,7 @@ Each returns a new `LazyFrame` wrapping one more node:
 
 - `filter(predicate : Expr)` · `with_columns(exprs : Array[Expr])` ·
   `select(exprs : Array[Expr])` — defer the eager expression consumers.
-- `sort_by(by : Array[(String, SortOrder, NullOrder)])` · `head(n)` ·
+- `sort(by : Array[(Expr, SortOrder, NullOrder)])` · `head(n)` ·
   `tail(n)` · `limit(n)` (≡ `head`) · `slice(start, end)`.
 - `join(other : LazyFrame, options : JoinOptions)` — the right side
   carries its own deferred pipeline.

@@ -9,7 +9,7 @@
 //     value-preserving.
 // Reductions inherit v0.2 / Polars NaN semantics: `NaN` propagates through
 // `sum` / `mean` (it is a value, not missing) but is skipped by `min_value` /
-// `max_value` (treated as missing, like `sort_by`).
+// `max_value` (treated as missing, like `sort`).
 
 // ── Construction + inspection ─────────────────────────────────────────
 

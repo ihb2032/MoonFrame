@@ -8,7 +8,7 @@
 //
 // One-file-one-test exemption: this free helper has no dedicated
 // `compare_test.mbt`. It is covered through the `Scalar::lt`, `Series::min` /
-// `max`, and `sort_by` tests that route their string ordering through it.
+// `max`, and `sort` tests that route their string ordering through it.
 
 ///|
 /// Lexicographic string comparison by UTF-16 code unit, returning the
@@ -16,7 +16,7 @@
 /// is **shortlex** (length first, then code unit) — e.g. `"fig" < "apple"`
 /// is `true` because `"fig"` is shorter, which surprises users expecting
 /// dictionary order. Every user-facing ordering in MoonFrame (`Scalar::lt`,
-/// `Series::min` / `max`, `DataFrame::sort_by`) routes through this helper
+/// `Series::min` / `max`, `DataFrame::sort`) routes through this helper
 /// instead of the built-in operator so they all agree.
 ///
 /// Ordering is by UTF-16 code unit, so it matches pandas / SQL dictionary

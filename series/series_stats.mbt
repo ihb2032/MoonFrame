@@ -95,7 +95,7 @@ pub fn Series::mean_opt(self : Series) -> Double? {
 /// fails (the v0.1 `Result`-wrapped `min` has been dropped in v0.2).
 ///
 /// - Empty / all-null → `Scalar::Null`.
-/// - `Float` NaN is skipped (treated as missing), matching `sort_by` and
+/// - `Float` NaN is skipped (treated as missing), matching `sort` and
 ///   Polars' regular `min` / `max`, which ignore `NaN` — distinct from the
 ///   propagating `nan_min` / `nan_max`. (This differs from `sum` / `mean`,
 ///   where `NaN` propagates — exactly as in Polars.) A series of only NaN

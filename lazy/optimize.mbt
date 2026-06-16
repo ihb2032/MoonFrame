@@ -466,8 +466,8 @@ fn push_projection(
     Sort(input, by) => {
       let keys : @set.Set[String] = @set.Set([])
       for key in by {
-        let (name, _, _) = key
-        keys.add(name)
+        let (expr, _, _) = key
+        add_all(keys, expr.referenced_columns())
       }
       Sort(push_projection(input, widened(required, keys)), by)
     }

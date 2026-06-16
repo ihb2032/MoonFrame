@@ -222,7 +222,7 @@ test "min_value / max_value on empty / all-null return Null across every dtype" 
 }
 
 ///|
-test "min_value / max_value skip Float NaN (treated as missing, like sort_by)" {
+test "min_value / max_value skip Float NaN (treated as missing, like sort)" {
   let nan : Double = @double.not_a_number
   // A leading NaN is skipped, so it does not become the result.
   let nan_first = Series::from_floats("x", [nan, 1.0])

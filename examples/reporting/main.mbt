@@ -2,7 +2,7 @@
 // into the v0.3 output formats.
 //
 //   read_csv → group_by(region) + agg(sum revenue, sum quantity)
-//            → sort_by(revenue desc)
+//            → sort(revenue desc)
 //            → to_html            (a styled <table> for a web page / notebook)
 //            → format_vega_lite   (a Vega-Lite v5 bar-chart spec)
 //

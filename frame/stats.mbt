@@ -54,7 +54,7 @@ pub fn DataFrame::mean(
 ///|
 /// Minimum non-null cell in `column`, by the natural order of the
 /// column's dtype. Empty or all-null columns return `Scalar::Null`.
-/// `Float` NaN is treated as missing (skipped), matching `sort_by` and
+/// `Float` NaN is treated as missing (skipped), matching `sort` and
 /// pandas — see `Series::min_value` for the details. Total beyond the
 /// column lookup, so the only failure path is a missing column.
 ///

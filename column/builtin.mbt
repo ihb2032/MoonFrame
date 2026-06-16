@@ -266,9 +266,11 @@ pub fn BuiltinColumn::take(
 // ── Cast ──────────────────────────────────────────────────────────────
 
 ///|
-/// Dispatch a cast by target dtype. `Bool` and `Null` targets are not
-/// supported in v0.1 — see `to_int` / `to_float` / `to_string_column`
-/// for the supported targets.
+/// Cast by target dtype — the single public cross-dtype conversion. `Int`
+/// truncates / parses, `Float` promotes / parses (per the file-private
+/// `to_int` / `to_float` helpers this dispatches to), and `String` renders
+/// every dtype through the total `to_string_column`. `Bool` and `Null`
+/// targets are unsupported and `raise Unsupported`.
 pub fn BuiltinColumn::cast(
   self : BuiltinColumn,
   target : @types.DataType,
@@ -283,7 +285,8 @@ pub fn BuiltinColumn::cast(
 }
 
 ///|
-/// Convert to `Int`. Validity is preserved verbatim. Supported sources:
+/// Convert to `Int` — the file-private implementation behind `cast(Int)`.
+/// Validity is preserved verbatim. Supported sources:
 /// - `Int`: identity, no copy.
 /// - `Float`: truncated towards zero. `NaN`, `+Inf`, `-Inf`, and values
 ///   outside the `Int64` range are rejected with `ParseError` — the
@@ -298,7 +301,7 @@ pub fn BuiltinColumn::cast(
 ///   grouping are rejected (pandas / polars keep them as strings), as are
 ///   leading/trailing whitespace, non-numeric suffixes, empty strings,
 ///   and decimal integers that overflow 64-bit `Int64`.
-pub fn BuiltinColumn::to_int(
+fn BuiltinColumn::to_int(
   self : BuiltinColumn,
 ) -> BuiltinColumn raise @types.DataError {
   match self.data {
@@ -390,7 +393,8 @@ let min_int_as_double : Double = -9223372036854775808.0
 let max_int_as_double : Double = 9223372036854774784.0
 
 ///|
-/// Convert to `Float`. Validity is preserved verbatim. Supported sources:
+/// Convert to `Float` — the file-private implementation behind `cast(Float)`.
+/// Validity is preserved verbatim. Supported sources:
 /// - `Float`: identity, no copy.
 /// - `Int`: promoted via `Int64::to_double` (a `Double` has 52 bits of
 ///   significand, so `Int64`s with magnitude > 2^53 lose precision — this
@@ -402,7 +406,7 @@ let max_int_as_double : Double = 9223372036854774784.0
 ///   accepted. Other malformed strings on valid slots return `ParseError`;
 ///   finite values beyond the `Double` range collapse to `±Infinity` per
 ///   IEEE 754.
-pub fn BuiltinColumn::to_float(
+fn BuiltinColumn::to_float(
   self : BuiltinColumn,
 ) -> BuiltinColumn raise @types.DataError {
   match self.data {

@@ -8,8 +8,8 @@
 //     `from_floats` (the bitmap allocation the numeric path avoided), and is
 //     value-preserving.
 // Reductions inherit v0.2 / Polars NaN semantics: `NaN` propagates through
-// `sum` / `mean` (it is a value, not missing) but is skipped by `min_value` /
-// `max_value` (treated as missing, like `sort`).
+// `sum` / `mean` (it is a value, not missing) but is skipped by `min` /
+// `max` (treated as missing, like `sort`).
 
 // ── Construction + inspection ─────────────────────────────────────────
 
@@ -259,38 +259,32 @@ test "mean: Float NaN propagates to a NaN mean" {
   assert_true(NumericColumn::from_doubles([1.0, nan]).mean().is_nan())
 }
 
-// ── Reductions: min_value / max_value (skip NaN, total) ───────────────
+// ── Reductions: min / max (skip NaN, total) ───────────────
 
 ///|
-test "min_value / max_value: Int, both fold branches, empty → Null" {
+test "min / max: Int, both fold branches, empty → Null" {
   let col = NumericColumn::from_int64s([3, 1, 2])
   // min: None→Some(3); 1<3 replaces; 2<1 keeps — exercises both fold arms.
-  assert_eq(col.min_value(), @types.Scalar::Int(1))
-  assert_eq(col.max_value(), @types.Scalar::Int(3))
+  assert_eq(col.min(), @types.Scalar::Int(1))
+  assert_eq(col.max(), @types.Scalar::Int(3))
   // Empty column → Null on both reductions.
-  assert_eq(NumericColumn::from_int64s([]).min_value(), @types.Scalar::Null)
-  assert_eq(NumericColumn::from_int64s([]).max_value(), @types.Scalar::Null)
+  assert_eq(NumericColumn::from_int64s([]).min(), @types.Scalar::Null)
+  assert_eq(NumericColumn::from_int64s([]).max(), @types.Scalar::Null)
 }
 
 ///|
-test "min_value / max_value: Float skips NaN, all-NaN / empty → Null" {
+test "min / max: Float skips NaN, all-NaN / empty → Null" {
   let nan : Double = @double.not_a_number
   let col = NumericColumn::from_doubles([3.0, nan, 1.0, 2.0])
   // NaN is skipped (treated as missing), unlike sum / mean where it
   // propagates — exactly Polars' regular min / max.
-  assert_eq(col.min_value(), @types.Scalar::Float(1.0))
-  assert_eq(col.max_value(), @types.Scalar::Float(3.0))
+  assert_eq(col.min(), @types.Scalar::Float(1.0))
+  assert_eq(col.max(), @types.Scalar::Float(3.0))
   // Every cell skipped → Null (all-NaN, and empty).
-  assert_eq(
-    NumericColumn::from_doubles([nan, nan]).min_value(),
-    @types.Scalar::Null,
-  )
-  assert_eq(
-    NumericColumn::from_doubles([nan, nan]).max_value(),
-    @types.Scalar::Null,
-  )
-  assert_eq(NumericColumn::from_doubles([]).min_value(), @types.Scalar::Null)
-  assert_eq(NumericColumn::from_doubles([]).max_value(), @types.Scalar::Null)
+  assert_eq(NumericColumn::from_doubles([nan, nan]).min(), @types.Scalar::Null)
+  assert_eq(NumericColumn::from_doubles([nan, nan]).max(), @types.Scalar::Null)
+  assert_eq(NumericColumn::from_doubles([]).min(), @types.Scalar::Null)
+  assert_eq(NumericColumn::from_doubles([]).max(), @types.Scalar::Null)
 }
 
 // ── Eq derive ─────────────────────────────────────────────────────────

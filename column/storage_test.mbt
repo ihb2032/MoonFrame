@@ -307,17 +307,17 @@ test "to_string_column renders both arms to a String column" {
 // ── Cross-dtype transforms borrow the Builtin road ────────────────────
 
 ///|
-test "cast / to_int / to_float route through Builtin (result is Builtin-backed)" {
+test "cast routes through Builtin (result is Builtin-backed)" {
   let numeric = ColumnStorage::from_numeric(NumericColumn::from_int64s([1, 2]))
   let builtin = ColumnStorage::from_builtin(
     BuiltinColumn::from_floats([1.5, 2.5]),
   )
   // A numeric source comes back Builtin-backed (the documented discipline).
-  let as_float = numeric.to_float()
+  let as_float = numeric.cast(@types.DataType::Float)
   assert_eq(as_float.kind(), StorageKind::Builtin)
   assert_eq(as_float.dtype(), @types.DataType::Float)
   assert_eq(as_float.get(0), @types.Scalar::Float(1.0))
-  let as_int = builtin.to_int()
+  let as_int = builtin.cast(@types.DataType::Int)
   assert_eq(as_int.kind(), StorageKind::Builtin)
   assert_eq(as_int.get(1), @types.Scalar::Int(2))
   // cast dispatches by target; String target renders, Bool target unsupported.

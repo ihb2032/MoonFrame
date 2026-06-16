@@ -19,7 +19,7 @@
 ///     the backend (a sub-range of an all-valid `Numeric` column is itself
 ///     all-valid, so it stays `Numeric` — the fast path survives the
 ///     transform).
-///   * **cross-dtype transforms** (`cast` / `to_int` / `to_float`) route
+///   * **cross-dtype transforms** (`cast`) route
 ///     through `to_builtin()` and let `BuiltinColumn` do the work, returning
 ///     a `Builtin`-backed result rather than re-implementing the whole cast
 ///     machine on the `Numeric` arm. This keeps `NumericColumn`'s surface
@@ -309,32 +309,17 @@ pub fn ColumnStorage::to_string_column(self : ColumnStorage) -> BuiltinColumn {
 // ── Cross-dtype transforms (borrow the Builtin road) ──────────────────
 
 ///|
-/// Cast to `target`, routing through `to_builtin()` so `BuiltinColumn`'s
-/// cast machine is reused rather than duplicated on the `Numeric` arm. The
-/// result is `Builtin`-backed; re-converge with `to_numeric()` if a numeric
-/// target should land back on the fast path. Supported targets and failure
-/// modes match `BuiltinColumn::cast`.
+/// Cast to `target` — the single cross-dtype conversion — routing through
+/// `to_builtin()` so `BuiltinColumn`'s cast machine is reused rather than
+/// duplicated on the `Numeric` arm. The result is `Builtin`-backed;
+/// re-converge with `to_numeric()` if a numeric target should land back on
+/// the fast path. Supported targets and failure modes match
+/// `BuiltinColumn::cast`.
 pub fn ColumnStorage::cast(
   self : ColumnStorage,
   target : @types.DataType,
 ) -> ColumnStorage raise @types.DataError {
   ColumnStorage::from_builtin(self.to_builtin().cast(target))
-}
-
-///|
-/// Convenience: cast to `Int` (borrowing the Builtin road, as `cast`).
-pub fn ColumnStorage::to_int(
-  self : ColumnStorage,
-) -> ColumnStorage raise @types.DataError {
-  ColumnStorage::from_builtin(self.to_builtin().to_int())
-}
-
-///|
-/// Convenience: cast to `Float` (borrowing the Builtin road, as `cast`).
-pub fn ColumnStorage::to_float(
-  self : ColumnStorage,
-) -> ColumnStorage raise @types.DataError {
-  ColumnStorage::from_builtin(self.to_builtin().to_float())
 }
 
 // ── Converge onto the Numeric backend ─────────────────────────────────

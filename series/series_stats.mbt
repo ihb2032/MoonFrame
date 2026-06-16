@@ -106,7 +106,7 @@ pub fn Series::min(self : Series) -> @types.Scalar {
   // Numeric fast path: bitmap-free extremum fold (NaN still skipped, empty
   // → `Null`). No validity materialisation.
   if self.storage is @column.ColumnStorage::Numeric(nc) {
-    return nc.min_value()
+    return nc.min()
   }
   // General `Builtin` backend: the shared `reduce_extremum` fold over the
   // whole column — total over every dtype (`Bool` `false < true`, `String`
@@ -122,7 +122,7 @@ pub fn Series::min(self : Series) -> @types.Scalar {
 /// replaces.
 pub fn Series::max(self : Series) -> @types.Scalar {
   if self.storage is @column.ColumnStorage::Numeric(nc) {
-    return nc.max_value()
+    return nc.max()
   }
   reduce_extremum(self.storage, want_min=false)(self.len(), k => k)
 }

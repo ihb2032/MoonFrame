@@ -27,10 +27,10 @@ test "sort ascending with NullsLast puts smaller values first, nulls last" {
     Series::from_int_options("a", [Some(2), None, Some(1), Some(3)]),
   ])
   let out = df.sort([(@expr.col("a"), Asc, NullsLast)])
-  assert_eq(out.get(0, "a"), @types.Scalar::Int(1))
-  assert_eq(out.get(1, "a"), @types.Scalar::Int(2))
-  assert_eq(out.get(2, "a"), @types.Scalar::Int(3))
-  assert_eq(out.get(3, "a"), @types.Scalar::Null)
+  assert_eq(out.item(0, "a"), @types.Scalar::Int(1))
+  assert_eq(out.item(1, "a"), @types.Scalar::Int(2))
+  assert_eq(out.item(2, "a"), @types.Scalar::Int(3))
+  assert_eq(out.item(3, "a"), @types.Scalar::Null)
 }
 
 ///|
@@ -39,10 +39,10 @@ test "sort descending with NullsLast reverses the value order, nulls last" {
     Series::from_int_options("a", [Some(2), None, Some(1), Some(3)]),
   ])
   let out = df.sort([(@expr.col("a"), Desc, NullsLast)])
-  assert_eq(out.get(0, "a"), @types.Scalar::Int(3))
-  assert_eq(out.get(1, "a"), @types.Scalar::Int(2))
-  assert_eq(out.get(2, "a"), @types.Scalar::Int(1))
-  assert_eq(out.get(3, "a"), @types.Scalar::Null)
+  assert_eq(out.item(0, "a"), @types.Scalar::Int(3))
+  assert_eq(out.item(1, "a"), @types.Scalar::Int(2))
+  assert_eq(out.item(2, "a"), @types.Scalar::Int(1))
+  assert_eq(out.item(3, "a"), @types.Scalar::Null)
 }
 
 ///|
@@ -53,14 +53,14 @@ test "sort NullsFirst moves missing values to the head, either direction" {
   // asc + NullsFirst — value order still ascending, but null moves
   // to the head.
   let out_asc = df.sort([(@expr.col("a"), Asc, NullsFirst)])
-  assert_eq(out_asc.get(0, "a"), @types.Scalar::Null)
-  assert_eq(out_asc.get(1, "a"), @types.Scalar::Int(1))
-  assert_eq(out_asc.get(2, "a"), @types.Scalar::Int(2))
+  assert_eq(out_asc.item(0, "a"), @types.Scalar::Null)
+  assert_eq(out_asc.item(1, "a"), @types.Scalar::Int(1))
+  assert_eq(out_asc.item(2, "a"), @types.Scalar::Int(2))
   // desc + NullsFirst — value order descends but null still leads.
   let out_desc = df.sort([(@expr.col("a"), Desc, NullsFirst)])
-  assert_eq(out_desc.get(0, "a"), @types.Scalar::Null)
-  assert_eq(out_desc.get(1, "a"), @types.Scalar::Int(2))
-  assert_eq(out_desc.get(2, "a"), @types.Scalar::Int(1))
+  assert_eq(out_desc.item(0, "a"), @types.Scalar::Null)
+  assert_eq(out_desc.item(1, "a"), @types.Scalar::Int(2))
+  assert_eq(out_desc.item(2, "a"), @types.Scalar::Int(1))
 }
 
 // ── Fixture ──────────────────────────────────────────────────────────
@@ -98,14 +98,14 @@ test "sort Int ascending reorders rows by the key" {
   // a sorted ascending: 1, 1, 3, 4, 5 — and the two 1s keep their
   // original relative order (stability) so the tiebreaker `s` reads
   // "apple" (row 1) then "date" (row 3).
-  assert_eq(out.get(0, "a"), @types.Scalar::Int(1))
-  assert_eq(out.get(1, "a"), @types.Scalar::Int(1))
-  assert_eq(out.get(2, "a"), @types.Scalar::Int(3))
-  assert_eq(out.get(3, "a"), @types.Scalar::Int(4))
-  assert_eq(out.get(4, "a"), @types.Scalar::Int(5))
+  assert_eq(out.item(0, "a"), @types.Scalar::Int(1))
+  assert_eq(out.item(1, "a"), @types.Scalar::Int(1))
+  assert_eq(out.item(2, "a"), @types.Scalar::Int(3))
+  assert_eq(out.item(3, "a"), @types.Scalar::Int(4))
+  assert_eq(out.item(4, "a"), @types.Scalar::Int(5))
   // Stability witness via the secondary column `s`.
-  assert_eq(out.get(0, "s"), @types.Scalar::String("apple"))
-  assert_eq(out.get(1, "s"), @types.Scalar::String("date"))
+  assert_eq(out.item(0, "s"), @types.Scalar::String("apple"))
+  assert_eq(out.item(1, "s"), @types.Scalar::String("date"))
 }
 
 ///|
@@ -115,13 +115,13 @@ test "sort Int descending mirrors the ascending order" {
   assert_eq(out.check_invariants(), Ok(()))
   // a sorted descending: 5, 4, 3, 1, 1. Stability still holds on
   // the two 1s (apple before date — original row order).
-  assert_eq(out.get(0, "a"), @types.Scalar::Int(5))
-  assert_eq(out.get(1, "a"), @types.Scalar::Int(4))
-  assert_eq(out.get(2, "a"), @types.Scalar::Int(3))
-  assert_eq(out.get(3, "a"), @types.Scalar::Int(1))
-  assert_eq(out.get(4, "a"), @types.Scalar::Int(1))
-  assert_eq(out.get(3, "s"), @types.Scalar::String("apple"))
-  assert_eq(out.get(4, "s"), @types.Scalar::String("date"))
+  assert_eq(out.item(0, "a"), @types.Scalar::Int(5))
+  assert_eq(out.item(1, "a"), @types.Scalar::Int(4))
+  assert_eq(out.item(2, "a"), @types.Scalar::Int(3))
+  assert_eq(out.item(3, "a"), @types.Scalar::Int(1))
+  assert_eq(out.item(4, "a"), @types.Scalar::Int(1))
+  assert_eq(out.item(3, "s"), @types.Scalar::String("apple"))
+  assert_eq(out.item(4, "s"), @types.Scalar::String("date"))
 }
 
 // ── Single-key sort: Float with nulls ────────────────────────────────
@@ -133,15 +133,15 @@ test "sort Float ascending places nulls last by default" {
   assert_eq(out.check_invariants(), Ok(()))
   // b values: 2.5, Null, 1.5, 4.5, Null → asc/NullsLast = 1.5, 2.5,
   // 4.5, Null, Null.
-  assert_eq(out.get(0, "b"), @types.Scalar::Float(1.5))
-  assert_eq(out.get(1, "b"), @types.Scalar::Float(2.5))
-  assert_eq(out.get(2, "b"), @types.Scalar::Float(4.5))
-  assert_eq(out.get(3, "b"), @types.Scalar::Null)
-  assert_eq(out.get(4, "b"), @types.Scalar::Null)
+  assert_eq(out.item(0, "b"), @types.Scalar::Float(1.5))
+  assert_eq(out.item(1, "b"), @types.Scalar::Float(2.5))
+  assert_eq(out.item(2, "b"), @types.Scalar::Float(4.5))
+  assert_eq(out.item(3, "b"), @types.Scalar::Null)
+  assert_eq(out.item(4, "b"), @types.Scalar::Null)
   // Stability between the two nulls (original rows 1 and 4 → s =
   // "apple" then s = "berry").
-  assert_eq(out.get(3, "s"), @types.Scalar::String("apple"))
-  assert_eq(out.get(4, "s"), @types.Scalar::String("berry"))
+  assert_eq(out.item(3, "s"), @types.Scalar::String("apple"))
+  assert_eq(out.item(4, "s"), @types.Scalar::String("berry"))
 }
 
 ///|
@@ -150,14 +150,14 @@ test "sort Float NullsFirst pushes missing values to the top" {
   let out = df.sort([(@expr.col("b"), Asc, NullsFirst)])
   assert_eq(out.check_invariants(), Ok(()))
   // asc/NullsFirst = Null, Null, 1.5, 2.5, 4.5.
-  assert_eq(out.get(0, "b"), @types.Scalar::Null)
-  assert_eq(out.get(1, "b"), @types.Scalar::Null)
-  assert_eq(out.get(2, "b"), @types.Scalar::Float(1.5))
-  assert_eq(out.get(3, "b"), @types.Scalar::Float(2.5))
-  assert_eq(out.get(4, "b"), @types.Scalar::Float(4.5))
+  assert_eq(out.item(0, "b"), @types.Scalar::Null)
+  assert_eq(out.item(1, "b"), @types.Scalar::Null)
+  assert_eq(out.item(2, "b"), @types.Scalar::Float(1.5))
+  assert_eq(out.item(3, "b"), @types.Scalar::Float(2.5))
+  assert_eq(out.item(4, "b"), @types.Scalar::Float(4.5))
   // Stability among the nulls preserves original order.
-  assert_eq(out.get(0, "s"), @types.Scalar::String("apple"))
-  assert_eq(out.get(1, "s"), @types.Scalar::String("berry"))
+  assert_eq(out.item(0, "s"), @types.Scalar::String("apple"))
+  assert_eq(out.item(1, "s"), @types.Scalar::String("berry"))
 }
 
 ///|
@@ -172,12 +172,12 @@ test "sort Float with equal values preserves original order (stability)" {
   ])
   let out = df.sort([(@expr.col("v"), Asc, NullsLast)])
   assert_eq(out.check_invariants(), Ok(()))
-  assert_eq(out.get(0, "v"), @types.Scalar::Float(1.0))
-  assert_eq(out.get(1, "v"), @types.Scalar::Float(1.0))
-  assert_eq(out.get(0, "tag"), @types.Scalar::String("b"))
-  assert_eq(out.get(1, "tag"), @types.Scalar::String("c"))
-  assert_eq(out.get(2, "v"), @types.Scalar::Float(2.0))
-  assert_eq(out.get(3, "v"), @types.Scalar::Float(3.0))
+  assert_eq(out.item(0, "v"), @types.Scalar::Float(1.0))
+  assert_eq(out.item(1, "v"), @types.Scalar::Float(1.0))
+  assert_eq(out.item(0, "tag"), @types.Scalar::String("b"))
+  assert_eq(out.item(1, "tag"), @types.Scalar::String("c"))
+  assert_eq(out.item(2, "v"), @types.Scalar::Float(2.0))
+  assert_eq(out.item(3, "v"), @types.Scalar::Float(3.0))
 }
 
 ///|
@@ -186,11 +186,11 @@ test "sort Float descending NullsLast" {
   let out = df.sort([(@expr.col("b"), Desc, NullsLast)])
   assert_eq(out.check_invariants(), Ok(()))
   // desc/NullsLast = 4.5, 2.5, 1.5, Null, Null.
-  assert_eq(out.get(0, "b"), @types.Scalar::Float(4.5))
-  assert_eq(out.get(1, "b"), @types.Scalar::Float(2.5))
-  assert_eq(out.get(2, "b"), @types.Scalar::Float(1.5))
-  assert_eq(out.get(3, "b"), @types.Scalar::Null)
-  assert_eq(out.get(4, "b"), @types.Scalar::Null)
+  assert_eq(out.item(0, "b"), @types.Scalar::Float(4.5))
+  assert_eq(out.item(1, "b"), @types.Scalar::Float(2.5))
+  assert_eq(out.item(2, "b"), @types.Scalar::Float(1.5))
+  assert_eq(out.item(3, "b"), @types.Scalar::Null)
+  assert_eq(out.item(4, "b"), @types.Scalar::Null)
 }
 
 ///|
@@ -199,11 +199,11 @@ test "sort Float descending NullsFirst" {
   let out = df.sort([(@expr.col("b"), Desc, NullsFirst)])
   assert_eq(out.check_invariants(), Ok(()))
   // desc/NullsFirst = Null, Null, 4.5, 2.5, 1.5.
-  assert_eq(out.get(0, "b"), @types.Scalar::Null)
-  assert_eq(out.get(1, "b"), @types.Scalar::Null)
-  assert_eq(out.get(2, "b"), @types.Scalar::Float(4.5))
-  assert_eq(out.get(3, "b"), @types.Scalar::Float(2.5))
-  assert_eq(out.get(4, "b"), @types.Scalar::Float(1.5))
+  assert_eq(out.item(0, "b"), @types.Scalar::Null)
+  assert_eq(out.item(1, "b"), @types.Scalar::Null)
+  assert_eq(out.item(2, "b"), @types.Scalar::Float(4.5))
+  assert_eq(out.item(3, "b"), @types.Scalar::Float(2.5))
+  assert_eq(out.item(4, "b"), @types.Scalar::Float(1.5))
 }
 
 // ── Single-key sort: String ──────────────────────────────────────────
@@ -214,14 +214,14 @@ test "sort String ascending is lexicographic" {
   let out = df.sort([(@expr.col("s"), Asc, NullsLast)])
   assert_eq(out.check_invariants(), Ok(()))
   // "apple" < "berry" < "date" < "fig" < "pear".
-  assert_eq(out.get(0, "s"), @types.Scalar::String("apple"))
-  assert_eq(out.get(1, "s"), @types.Scalar::String("berry"))
-  assert_eq(out.get(2, "s"), @types.Scalar::String("date"))
-  assert_eq(out.get(3, "s"), @types.Scalar::String("fig"))
-  assert_eq(out.get(4, "s"), @types.Scalar::String("pear"))
+  assert_eq(out.item(0, "s"), @types.Scalar::String("apple"))
+  assert_eq(out.item(1, "s"), @types.Scalar::String("berry"))
+  assert_eq(out.item(2, "s"), @types.Scalar::String("date"))
+  assert_eq(out.item(3, "s"), @types.Scalar::String("fig"))
+  assert_eq(out.item(4, "s"), @types.Scalar::String("pear"))
   // And `a` follows along: 1, 5, 1, 4, 3.
-  assert_eq(out.get(0, "a"), @types.Scalar::Int(1))
-  assert_eq(out.get(4, "a"), @types.Scalar::Int(3))
+  assert_eq(out.item(0, "a"), @types.Scalar::Int(1))
+  assert_eq(out.item(4, "a"), @types.Scalar::Int(3))
 }
 
 ///|
@@ -229,8 +229,8 @@ test "sort String descending reverses the lexicographic order" {
   let df = sort_df()
   let out = df.sort([(@expr.col("s"), Desc, NullsLast)])
   assert_eq(out.check_invariants(), Ok(()))
-  assert_eq(out.get(0, "s"), @types.Scalar::String("pear"))
-  assert_eq(out.get(4, "s"), @types.Scalar::String("apple"))
+  assert_eq(out.item(0, "s"), @types.Scalar::String("pear"))
+  assert_eq(out.item(4, "s"), @types.Scalar::String("apple"))
 }
 
 ///|
@@ -247,9 +247,9 @@ test "sort String breaks length ties lexicographically (shorter wins on prefix m
   let df = DataFrame::new([Series::from_strings("s", ["abd", "ab", "abc"])])
   let out = df.sort([(@expr.col("s"), Asc, NullsLast)])
   assert_eq(out.check_invariants(), Ok(()))
-  assert_eq(out.get(0, "s"), @types.Scalar::String("ab"))
-  assert_eq(out.get(1, "s"), @types.Scalar::String("abc"))
-  assert_eq(out.get(2, "s"), @types.Scalar::String("abd"))
+  assert_eq(out.item(0, "s"), @types.Scalar::String("ab"))
+  assert_eq(out.item(1, "s"), @types.Scalar::String("abc"))
+  assert_eq(out.item(2, "s"), @types.Scalar::String("abd"))
 }
 
 // ── Single-key sort: Bool ────────────────────────────────────────────
@@ -262,16 +262,16 @@ test "sort Bool ascending puts false before true (stable)" {
   // t = [true, false, true, false, true].
   // asc: false, false, true, true, true. Stable: rows 1, 3, then
   // 0, 2, 4 (in their original relative order).
-  assert_eq(out.get(0, "t"), @types.Scalar::Bool(false))
-  assert_eq(out.get(1, "t"), @types.Scalar::Bool(false))
-  assert_eq(out.get(2, "t"), @types.Scalar::Bool(true))
-  assert_eq(out.get(3, "t"), @types.Scalar::Bool(true))
-  assert_eq(out.get(4, "t"), @types.Scalar::Bool(true))
-  assert_eq(out.get(0, "s"), @types.Scalar::String("apple"))
-  assert_eq(out.get(1, "s"), @types.Scalar::String("date"))
-  assert_eq(out.get(2, "s"), @types.Scalar::String("pear"))
-  assert_eq(out.get(3, "s"), @types.Scalar::String("fig"))
-  assert_eq(out.get(4, "s"), @types.Scalar::String("berry"))
+  assert_eq(out.item(0, "t"), @types.Scalar::Bool(false))
+  assert_eq(out.item(1, "t"), @types.Scalar::Bool(false))
+  assert_eq(out.item(2, "t"), @types.Scalar::Bool(true))
+  assert_eq(out.item(3, "t"), @types.Scalar::Bool(true))
+  assert_eq(out.item(4, "t"), @types.Scalar::Bool(true))
+  assert_eq(out.item(0, "s"), @types.Scalar::String("apple"))
+  assert_eq(out.item(1, "s"), @types.Scalar::String("date"))
+  assert_eq(out.item(2, "s"), @types.Scalar::String("pear"))
+  assert_eq(out.item(3, "s"), @types.Scalar::String("fig"))
+  assert_eq(out.item(4, "s"), @types.Scalar::String("berry"))
 }
 
 // ── Multi-key sort ───────────────────────────────────────────────────
@@ -288,14 +288,14 @@ test "sort multi-key: secondary key only matters for tied primaries" {
     (@expr.col("b"), Asc, NullsLast),
   ])
   assert_eq(out.check_invariants(), Ok(()))
-  assert_eq(out.get(0, "a"), @types.Scalar::String("X"))
-  assert_eq(out.get(0, "b"), @types.Scalar::Int(1))
-  assert_eq(out.get(1, "a"), @types.Scalar::String("X"))
-  assert_eq(out.get(1, "b"), @types.Scalar::Int(2))
-  assert_eq(out.get(2, "a"), @types.Scalar::String("Y"))
-  assert_eq(out.get(2, "b"), @types.Scalar::Int(1))
-  assert_eq(out.get(3, "a"), @types.Scalar::String("Y"))
-  assert_eq(out.get(3, "b"), @types.Scalar::Int(2))
+  assert_eq(out.item(0, "a"), @types.Scalar::String("X"))
+  assert_eq(out.item(0, "b"), @types.Scalar::Int(1))
+  assert_eq(out.item(1, "a"), @types.Scalar::String("X"))
+  assert_eq(out.item(1, "b"), @types.Scalar::Int(2))
+  assert_eq(out.item(2, "a"), @types.Scalar::String("Y"))
+  assert_eq(out.item(2, "b"), @types.Scalar::Int(1))
+  assert_eq(out.item(3, "a"), @types.Scalar::String("Y"))
+  assert_eq(out.item(3, "b"), @types.Scalar::Int(2))
 }
 
 ///|
@@ -310,14 +310,14 @@ test "sort multi-key: primary asc + secondary desc" {
   ])
   assert_eq(out.check_invariants(), Ok(()))
   // Within eng (sorted asc), salaries desc: 200, 100.
-  assert_eq(out.get(0, "dept"), @types.Scalar::String("eng"))
-  assert_eq(out.get(0, "salary"), @types.Scalar::Int(200))
-  assert_eq(out.get(1, "salary"), @types.Scalar::Int(100))
+  assert_eq(out.item(0, "dept"), @types.Scalar::String("eng"))
+  assert_eq(out.item(0, "salary"), @types.Scalar::Int(200))
+  assert_eq(out.item(1, "salary"), @types.Scalar::Int(100))
   // Within ops, salaries desc: 150, 75, 50.
-  assert_eq(out.get(2, "dept"), @types.Scalar::String("ops"))
-  assert_eq(out.get(2, "salary"), @types.Scalar::Int(150))
-  assert_eq(out.get(3, "salary"), @types.Scalar::Int(75))
-  assert_eq(out.get(4, "salary"), @types.Scalar::Int(50))
+  assert_eq(out.item(2, "dept"), @types.Scalar::String("ops"))
+  assert_eq(out.item(2, "salary"), @types.Scalar::Int(150))
+  assert_eq(out.item(3, "salary"), @types.Scalar::Int(75))
+  assert_eq(out.item(4, "salary"), @types.Scalar::Int(50))
 }
 
 ///|
@@ -409,22 +409,22 @@ test "sort Float treats NaN identically to Null (NullsLast)" {
   assert_eq(out.check_invariants(), Ok(()))
   // Reals first (1.0, 2.0) then NaN-and-Null bucket in original order
   // (nan came before null in the source).
-  assert_eq(out.get(0, "v"), @types.Scalar::Float(1.0))
-  assert_eq(out.get(0, "s"), @types.Scalar::String("one"))
-  assert_eq(out.get(1, "v"), @types.Scalar::Float(2.0))
-  assert_eq(out.get(1, "s"), @types.Scalar::String("two"))
+  assert_eq(out.item(0, "v"), @types.Scalar::Float(1.0))
+  assert_eq(out.item(0, "s"), @types.Scalar::String("one"))
+  assert_eq(out.item(1, "v"), @types.Scalar::Float(2.0))
+  assert_eq(out.item(1, "s"), @types.Scalar::String("two"))
   // Position 2: the NaN. Reading it back as Scalar yields a non-null
   // Float because the validity bit is still 1 — NaN is *valid* in
   // Arrow terms, the sort treats it as missing only for ordering.
-  assert_eq(out.get(2, "s"), @types.Scalar::String("nan"))
-  let v2 = out.get(2, "v")
+  assert_eq(out.item(2, "s"), @types.Scalar::String("nan"))
+  let v2 = out.item(2, "v")
   match v2 {
     @types.Scalar::Float(f) => assert_true(f.is_nan())
     _ => abort("unreachable: NaN slot should still read back as Scalar::Float")
   }
   // Position 3: the actual Null.
-  assert_eq(out.get(3, "v"), @types.Scalar::Null)
-  assert_eq(out.get(3, "s"), @types.Scalar::String("null"))
+  assert_eq(out.item(3, "v"), @types.Scalar::Null)
+  assert_eq(out.item(3, "s"), @types.Scalar::String("null"))
 }
 
 ///|
@@ -438,9 +438,9 @@ test "sort Float NullsFirst groups NaN with Null at the top" {
   assert_eq(out.check_invariants(), Ok(()))
   // NullsFirst groups NaN + Null at the start (stable: nan first,
   // then null).
-  assert_eq(out.get(0, "s"), @types.Scalar::String("nan"))
-  assert_eq(out.get(1, "s"), @types.Scalar::String("null"))
-  assert_eq(out.get(2, "v"), @types.Scalar::Float(1.0))
+  assert_eq(out.item(0, "s"), @types.Scalar::String("nan"))
+  assert_eq(out.item(1, "s"), @types.Scalar::String("null"))
+  assert_eq(out.item(2, "v"), @types.Scalar::Float(1.0))
 }
 
 // ── Computed keys: sort by a value that never lands in the output ─────
@@ -459,10 +459,10 @@ test "sort by a derived key orders rows by the computed value" {
   assert_eq(out.check_invariants(), Ok(()))
   // Schema is untouched — the `a + b` key produced no column.
   assert_eq(out.columns(), ["a", "b", "tag"])
-  assert_eq(out.get(0, "tag"), @types.Scalar::String("three"))
-  assert_eq(out.get(1, "tag"), @types.Scalar::String("four"))
-  assert_eq(out.get(2, "tag"), @types.Scalar::String("five"))
-  assert_eq(out.get(3, "tag"), @types.Scalar::String("six"))
+  assert_eq(out.item(0, "tag"), @types.Scalar::String("three"))
+  assert_eq(out.item(1, "tag"), @types.Scalar::String("four"))
+  assert_eq(out.item(2, "tag"), @types.Scalar::String("five"))
+  assert_eq(out.item(3, "tag"), @types.Scalar::String("six"))
 }
 
 ///|
@@ -480,12 +480,12 @@ test "sort by a derived key descending and as a multi-key tiebreaker" {
   ])
   assert_eq(out.check_invariants(), Ok(()))
   // eng first (200 then 100), ops next (150 then 50).
-  assert_eq(out.get(0, "dept"), @types.Scalar::String("eng"))
-  assert_eq(out.get(0, "salary"), @types.Scalar::Int(200))
-  assert_eq(out.get(1, "salary"), @types.Scalar::Int(100))
-  assert_eq(out.get(2, "dept"), @types.Scalar::String("ops"))
-  assert_eq(out.get(2, "salary"), @types.Scalar::Int(150))
-  assert_eq(out.get(3, "salary"), @types.Scalar::Int(50))
+  assert_eq(out.item(0, "dept"), @types.Scalar::String("eng"))
+  assert_eq(out.item(0, "salary"), @types.Scalar::Int(200))
+  assert_eq(out.item(1, "salary"), @types.Scalar::Int(100))
+  assert_eq(out.item(2, "dept"), @types.Scalar::String("ops"))
+  assert_eq(out.item(2, "salary"), @types.Scalar::Int(150))
+  assert_eq(out.item(3, "salary"), @types.Scalar::Int(50))
 }
 
 ///|
@@ -559,13 +559,13 @@ test "sort exercises the build_sort_key dispatch on each dtype" {
     Series::from_strings("s", ["y", "x"]),
   ])
   let by_int = df.sort([(@expr.col("i"), Asc, NullsLast)])
-  assert_eq(by_int.get(0, "i"), @types.Scalar::Int(1))
+  assert_eq(by_int.item(0, "i"), @types.Scalar::Int(1))
   let by_float = df.sort([(@expr.col("f"), Asc, NullsLast)])
-  assert_eq(by_float.get(0, "f"), @types.Scalar::Float(1.0))
+  assert_eq(by_float.item(0, "f"), @types.Scalar::Float(1.0))
   let by_bool = df.sort([(@expr.col("b"), Asc, NullsLast)])
-  assert_eq(by_bool.get(0, "b"), @types.Scalar::Bool(false))
+  assert_eq(by_bool.item(0, "b"), @types.Scalar::Bool(false))
   let by_string = df.sort([(@expr.col("s"), Asc, NullsLast)])
-  assert_eq(by_string.get(0, "s"), @types.Scalar::String("x"))
+  assert_eq(by_string.item(0, "s"), @types.Scalar::String("x"))
 }
 
 ///|
@@ -588,6 +588,6 @@ test "sort gathers a nullable Bool column including its null cell" {
   ])
   let out = df.sort([(@expr.col("k"), Asc, NullsLast)])
   // k ascends → row (k=1, flag=None) leads, (k=2, flag=true) follows.
-  assert_eq(out.get(0, "flag"), @types.Scalar::Null)
-  assert_eq(out.get(1, "flag"), @types.Scalar::Bool(true))
+  assert_eq(out.item(0, "flag"), @types.Scalar::Null)
+  assert_eq(out.item(1, "flag"), @types.Scalar::Bool(true))
 }

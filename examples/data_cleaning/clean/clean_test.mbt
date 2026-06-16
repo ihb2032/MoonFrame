@@ -27,10 +27,10 @@ test "clean: drops rows with null `score` and fills remaining null `note` cells"
   assert_eq(cleaned.check_invariants(), Ok(()))
 
   // `score` survivors are 1 / 3 / 4 / 6, in source order.
-  assert_eq(cleaned.get(0, "id"), @moonframe.Scalar::Int(1))
-  assert_eq(cleaned.get(1, "id"), @moonframe.Scalar::Int(3))
-  assert_eq(cleaned.get(2, "id"), @moonframe.Scalar::Int(4))
-  assert_eq(cleaned.get(3, "id"), @moonframe.Scalar::Int(6))
+  assert_eq(cleaned.item(0, "id"), @moonframe.Scalar::Int(1))
+  assert_eq(cleaned.item(1, "id"), @moonframe.Scalar::Int(3))
+  assert_eq(cleaned.item(2, "id"), @moonframe.Scalar::Int(4))
+  assert_eq(cleaned.item(3, "id"), @moonframe.Scalar::Int(6))
 
   // The `score` column has no nulls left.
   assert_eq(cleaned.get_column("score").null_count(), 0)
@@ -38,14 +38,14 @@ test "clean: drops rows with null `score` and fills remaining null `note` cells"
   // The previously-null `note` cells (rows 3 and 6 in the source)
   // were filled with the sentinel; row 4's `note = "fourth"` was
   // untouched.
-  assert_eq(cleaned.get(1, "note"), @moonframe.Scalar::String("n/a"))
-  assert_eq(cleaned.get(3, "note"), @moonframe.Scalar::String("n/a"))
-  assert_eq(cleaned.get(2, "note"), @moonframe.Scalar::String("fourth"))
+  assert_eq(cleaned.item(1, "note"), @moonframe.Scalar::String("n/a"))
+  assert_eq(cleaned.item(3, "note"), @moonframe.Scalar::String("n/a"))
+  assert_eq(cleaned.item(2, "note"), @moonframe.Scalar::String("fourth"))
   assert_eq(cleaned.get_column("note").null_count(), 0)
 
   // `name` was not part of the cleaning contract — row 4's null name
   // survives because gating is on `score` only.
-  assert_eq(cleaned.get(2, "name"), @moonframe.Scalar::Null)
+  assert_eq(cleaned.item(2, "name"), @moonframe.Scalar::Null)
 }
 
 ///|
@@ -87,6 +87,6 @@ test "clean: passes through a frame that already has no nulls" {
   let cleaned = clean(df)
   assert_eq(cleaned.shape(), (2, 3))
   assert_eq(cleaned.columns(), ["id", "note", "score"])
-  assert_eq(cleaned.get(0, "note"), @moonframe.Scalar::String("a"))
+  assert_eq(cleaned.item(0, "note"), @moonframe.Scalar::String("a"))
   assert_eq(cleaned.check_invariants(), Ok(()))
 }

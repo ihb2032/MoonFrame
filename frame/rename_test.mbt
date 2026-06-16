@@ -27,7 +27,7 @@ test "rename renames a single column without changing position" {
   assert_eq(out.columns(), ["alpha", "b"])
   assert_eq(out.ncols(), df.ncols())
   // Data and dtype follow the new name.
-  assert_eq(out.get(0, "alpha"), @types.Scalar::Int(1))
+  assert_eq(out.item(0, "alpha"), @types.Scalar::Int(1))
   assert_eq(out.get_column("alpha").dtype(), @types.DataType::Int)
   // The renamed series also reports the new name.
   assert_eq(out.get_column("alpha").name(), "alpha")
@@ -58,8 +58,8 @@ test "rename allows swapping two column names via a temporary" {
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.columns(), ["b", "a"])
   // Underlying data did NOT permute — only names did.
-  assert_eq(out.get(0, "b"), @types.Scalar::Int(1))
-  assert_eq(out.get(0, "a"), @types.Scalar::String("x"))
+  assert_eq(out.item(0, "b"), @types.Scalar::Int(1))
+  assert_eq(out.item(0, "a"), @types.Scalar::String("x"))
 }
 
 ///|

@@ -27,11 +27,11 @@ test "fill_null fills every Int column and leaves other dtypes untouched" {
   // Both Int columns are filled — the fill reaches all compatible columns.
   assert_eq(out.get_column("a").null_count(), 0)
   assert_eq(out.get_column("a2").null_count(), 0)
-  assert_eq(out.get(1, "a"), @types.Scalar::Int(0))
-  assert_eq(out.get(0, "a2"), @types.Scalar::Int(0))
+  assert_eq(out.item(1, "a"), @types.Scalar::Int(0))
+  assert_eq(out.item(0, "a2"), @types.Scalar::Int(0))
   // Float / String columns keep their nulls — they are not Int-compatible.
-  assert_eq(out.get(1, "b"), @types.Scalar::Null)
-  assert_eq(out.get(1, "s"), @types.Scalar::Null)
+  assert_eq(out.item(1, "b"), @types.Scalar::Null)
+  assert_eq(out.item(1, "s"), @types.Scalar::Null)
   // In-place cell rewrite: names, dtypes, and the row count are unchanged.
   assert_eq(out.schema(), df.schema())
   assert_eq(out.columns(), df.columns())
@@ -43,20 +43,20 @@ test "fill_null fills every Int column and leaves other dtypes untouched" {
 test "fill_null with a Float value fills only the Float columns" {
   let out = fill_df().fill_null(@types.Scalar::Float(0.0))
   assert_eq(out.get_column("b").null_count(), 0)
-  assert_eq(out.get(1, "b"), @types.Scalar::Float(0.0))
+  assert_eq(out.item(1, "b"), @types.Scalar::Float(0.0))
   // Int / String columns keep their nulls.
-  assert_eq(out.get(1, "a"), @types.Scalar::Null)
-  assert_eq(out.get(1, "s"), @types.Scalar::Null)
+  assert_eq(out.item(1, "a"), @types.Scalar::Null)
+  assert_eq(out.item(1, "s"), @types.Scalar::Null)
 }
 
 ///|
 test "fill_null with a String value fills only the String columns" {
   let out = fill_df().fill_null(@types.Scalar::String("?"))
   assert_eq(out.get_column("s").null_count(), 0)
-  assert_eq(out.get(1, "s"), @types.Scalar::String("?"))
+  assert_eq(out.item(1, "s"), @types.Scalar::String("?"))
   // Int / Float columns keep their nulls.
-  assert_eq(out.get(1, "a"), @types.Scalar::Null)
-  assert_eq(out.get(1, "b"), @types.Scalar::Null)
+  assert_eq(out.item(1, "a"), @types.Scalar::Null)
+  assert_eq(out.item(1, "b"), @types.Scalar::Null)
 }
 
 ///|
@@ -67,10 +67,10 @@ test "fill_null with a Bool value fills only the Bool columns" {
   ])
   let out = df.fill_null(@types.Scalar::Bool(false))
   assert_eq(out.get_column("flag").null_count(), 0)
-  assert_eq(out.get(1, "flag"), @types.Scalar::Bool(false))
-  assert_eq(out.get(2, "flag"), @types.Scalar::Bool(false))
+  assert_eq(out.item(1, "flag"), @types.Scalar::Bool(false))
+  assert_eq(out.item(2, "flag"), @types.Scalar::Bool(false))
   // The Int column is left untouched.
-  assert_eq(out.get(1, "n"), @types.Scalar::Null)
+  assert_eq(out.item(1, "n"), @types.Scalar::Null)
 }
 
 ///|
@@ -151,9 +151,9 @@ test "Expr fill_null keeps a non-null NaN, filling only true nulls" {
     Series::from_float_options("b", [Some(1.0), Some(nan), None]),
   ])
   let out = df.with_columns([@expr.col("b").fill_null(@expr.lit_float(0.0))])
-  assert_eq(out.get(0, "b"), @types.Scalar::Float(1.0))
-  assert_true(out.get(1, "b").as_float().is_nan()) // NaN preserved, not filled
-  assert_eq(out.get(2, "b"), @types.Scalar::Float(0.0)) // null filled
+  assert_eq(out.item(0, "b"), @types.Scalar::Float(1.0))
+  assert_true(out.item(1, "b").as_float().is_nan()) // NaN preserved, not filled
+  assert_eq(out.item(2, "b"), @types.Scalar::Float(0.0)) // null filled
 }
 
 ///|

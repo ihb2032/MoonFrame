@@ -153,19 +153,6 @@ pub fn Series::null_count(self : Series) -> Int {
 }
 
 ///|
-/// Fraction of cells that are null, as a `Double`. Returns `0.0` for an
-/// empty series rather than a 0/0 NaN — the latter would propagate
-/// through downstream summary stats.
-pub fn Series::null_rate(self : Series) -> Double {
-  let n = self.len()
-  if n == 0 {
-    0.0
-  } else {
-    self.null_count().to_double() / n.to_double()
-  }
-}
-
-///|
 /// Whether cell `i` is null. Out-of-bounds indices bubble the
 /// underlying `IndexOutOfBounds` error.
 pub fn Series::is_null(self : Series, i : Int) -> Bool raise @types.DataError {
@@ -536,37 +523,26 @@ pub fn Series::fill_null(
 }
 
 ///|
-/// Cast to the target dtype. Delegates to `BuiltinColumn::cast`; the
-/// supported targets are `Int`, `Float`, and `String`. `Bool` and
-/// `Null` targets `raise Unsupported(_)`.
+/// Cast to the target dtype, the single cross-dtype conversion entry
+/// (Polars' `Series.cast`). Delegates to `BuiltinColumn::cast`; the
+/// supported targets are:
+///
+/// - `Int` — identity on Int; Float truncates toward zero (`NaN`, `±Inf`,
+///   and out-of-`Int64`-range values `raise ParseError`); Bool → `1` / `0`;
+///   String parses plain base-10 integers (other forms `raise ParseError`).
+/// - `Float` — Int promoted; identity on Float; Bool → `1.0` / `0.0`;
+///   String parses decimals / scientific notation.
+/// - `String` — every dtype renders to its value form; never rejects a
+///   value, so the only failure is the unsupported-target guard below.
+///
+/// Null slots are preserved verbatim. A numeric result lands on the
+/// `Builtin` backend (re-converge with `to_numeric` for the fast path).
+/// `Bool` and `Null` targets `raise Unsupported(_)`.
 pub fn Series::cast(
   self : Series,
   target : @types.DataType,
 ) -> Series raise @types.DataError {
   { name: self.name, storage: self.storage.cast(target) }
-}
-
-///|
-/// Convenience: cast to `Int`. See `BuiltinColumn::to_int` for the
-/// per-source-dtype semantics (truncation, range-rejection, parse
-/// strictness).
-pub fn Series::to_int(self : Series) -> Series raise @types.DataError {
-  { name: self.name, storage: self.storage.to_int() }
-}
-
-///|
-/// Convenience: cast to `Float`.
-pub fn Series::to_float(self : Series) -> Series raise @types.DataError {
-  { name: self.name, storage: self.storage.to_float() }
-}
-
-///|
-/// Convenience: cast to `String`. The output series keeps the same
-/// name and lands on the `Builtin` backend (a stringified column is
-/// non-numeric). Total — `ColumnStorage::to_string_column` never fails
-/// (every dtype has a value-form rendering), unlike `to_int` / `to_float`.
-pub fn Series::to_string_series(self : Series) -> Series {
-  Series::from_builtin(self.name, self.storage.to_string_column())
 }
 
 // ── Storage backend control ───────────────────────────────────────────

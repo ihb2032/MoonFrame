@@ -112,15 +112,15 @@ test "from_rows builds a frame, mixing nulls and concrete cells" {
   ])
   assert_eq(df.shape(), (3, 4))
   // Row 0 was concrete in every column.
-  assert_eq(df.get(0, "i"), @types.Scalar::Int(1))
-  assert_eq(df.get(0, "f"), @types.Scalar::Float(1.5))
-  assert_eq(df.get(0, "b"), @types.Scalar::Bool(true))
-  assert_eq(df.get(0, "s"), @types.Scalar::String("a"))
+  assert_eq(df.item(0, "i"), @types.Scalar::Int(1))
+  assert_eq(df.item(0, "f"), @types.Scalar::Float(1.5))
+  assert_eq(df.item(0, "b"), @types.Scalar::Bool(true))
+  assert_eq(df.item(0, "s"), @types.Scalar::String("a"))
   // Row 1 was all-null.
-  assert_eq(df.get(1, "i"), @types.Scalar::Null)
-  assert_eq(df.get(1, "f"), @types.Scalar::Null)
-  assert_eq(df.get(1, "b"), @types.Scalar::Null)
-  assert_eq(df.get(1, "s"), @types.Scalar::Null)
+  assert_eq(df.item(1, "i"), @types.Scalar::Null)
+  assert_eq(df.item(1, "f"), @types.Scalar::Null)
+  assert_eq(df.item(1, "b"), @types.Scalar::Null)
+  assert_eq(df.item(1, "s"), @types.Scalar::Null)
   // Per-column null_count == 1 in every column.
   assert_eq(df.get_column("i").null_count(), 1)
   assert_eq(df.get_column("f").null_count(), 1)
@@ -289,13 +289,13 @@ test "get returns Scalar / Null and surfaces the right error variant" {
   let df = DataFrame::new([
     Series::from_int_options("x", [Some(7), None, Some(9)]),
   ])
-  assert_eq(df.get(0, "x"), @types.Scalar::Int(7))
-  assert_eq(df.get(1, "x"), @types.Scalar::Null)
+  assert_eq(df.item(0, "x"), @types.Scalar::Int(7))
+  assert_eq(df.item(1, "x"), @types.Scalar::Null)
   // Row OOB bubbles IndexOutOfBounds from Series::get.
-  assert_eq(try? df.get(5, "x"), Err(@types.DataError::IndexOutOfBounds(5)))
+  assert_eq(try? df.item(5, "x"), Err(@types.DataError::IndexOutOfBounds(5)))
   // Column missing bubbles ColumnNotFound from get_column.
   assert_eq(
-    try? df.get(0, "missing"),
+    try? df.item(0, "missing"),
     Err(@types.DataError::ColumnNotFound("missing")),
   )
 }
@@ -310,8 +310,8 @@ test "head returns the first n rows with the same schema" {
   ])
   let two = df.head(2)
   assert_eq(two.shape(), (2, 2))
-  assert_eq(two.get(0, "a"), @types.Scalar::Int(1))
-  assert_eq(two.get(1, "b"), @types.Scalar::String("x"))
+  assert_eq(two.item(0, "a"), @types.Scalar::Int(1))
+  assert_eq(two.item(1, "b"), @types.Scalar::String("x"))
   // Schema is preserved verbatim.
   assert_eq(two.schema(), df.schema())
 }
@@ -339,8 +339,8 @@ test "tail returns the last n rows with the same schema" {
   ])
   let two = df.tail(2)
   assert_eq(two.shape(), (2, 2))
-  assert_eq(two.get(0, "a"), @types.Scalar::Int(3))
-  assert_eq(two.get(1, "b"), @types.Scalar::String("z"))
+  assert_eq(two.item(0, "a"), @types.Scalar::Int(3))
+  assert_eq(two.item(1, "b"), @types.Scalar::String("z"))
 }
 
 ///|
@@ -362,9 +362,9 @@ test "slice mid-range produces a sub-frame preserving names + nulls" {
   ])
   let part = df.slice(1, 3)
   assert_eq(part.shape(), (2, 2))
-  assert_eq(part.get(0, "a"), @types.Scalar::Null)
-  assert_eq(part.get(1, "a"), @types.Scalar::Int(30))
-  assert_eq(part.get(0, "b"), @types.Scalar::String("x"))
+  assert_eq(part.item(0, "a"), @types.Scalar::Null)
+  assert_eq(part.item(1, "a"), @types.Scalar::Int(30))
+  assert_eq(part.item(0, "b"), @types.Scalar::String("x"))
 }
 
 ///|
@@ -392,9 +392,9 @@ test "take gathers rows in arbitrary order across every column" {
   ])
   let out = df.take([2, 0, 0])
   assert_eq(out.shape(), (3, 2))
-  assert_eq(out.get(0, "a"), @types.Scalar::Int(30))
-  assert_eq(out.get(0, "b"), @types.Scalar::String("z"))
-  assert_eq(out.get(2, "a"), @types.Scalar::Int(10))
+  assert_eq(out.item(0, "a"), @types.Scalar::Int(30))
+  assert_eq(out.item(0, "b"), @types.Scalar::String("z"))
+  assert_eq(out.item(2, "a"), @types.Scalar::Int(10))
 }
 
 ///|
@@ -453,21 +453,21 @@ test "head / tail / slice copy every dtype, valid and null cells" {
   let h = df.head(3)
   assert_eq(h.nrows(), 3)
   assert_eq(h.check_invariants(), Ok(()))
-  assert_eq(h.get(0, "i"), @types.Scalar::Int(1))
-  assert_eq(h.get(1, "i"), @types.Scalar::Null)
-  assert_eq(h.get(0, "f"), @types.Scalar::Float(1.0))
-  assert_eq(h.get(2, "f"), @types.Scalar::Null)
-  assert_eq(h.get(0, "b"), @types.Scalar::Null)
-  assert_eq(h.get(1, "b"), @types.Scalar::Bool(true))
-  assert_eq(h.get(0, "s"), @types.Scalar::String("a"))
-  assert_eq(h.get(2, "s"), @types.Scalar::Null)
+  assert_eq(h.item(0, "i"), @types.Scalar::Int(1))
+  assert_eq(h.item(1, "i"), @types.Scalar::Null)
+  assert_eq(h.item(0, "f"), @types.Scalar::Float(1.0))
+  assert_eq(h.item(2, "f"), @types.Scalar::Null)
+  assert_eq(h.item(0, "b"), @types.Scalar::Null)
+  assert_eq(h.item(1, "b"), @types.Scalar::Bool(true))
+  assert_eq(h.item(0, "s"), @types.Scalar::String("a"))
+  assert_eq(h.item(2, "s"), @types.Scalar::Null)
   // tail / slice exercise the same helper with a non-zero start offset.
   let t = df.tail(2)
-  assert_eq(t.get(0, "f"), @types.Scalar::Null)
+  assert_eq(t.item(0, "f"), @types.Scalar::Null)
   assert_eq(t.check_invariants(), Ok(()))
   let sl = df.slice(1, 4)
   assert_eq(sl.nrows(), 3)
-  assert_eq(sl.get(1, "f"), @types.Scalar::Null)
+  assert_eq(sl.item(1, "f"), @types.Scalar::Null)
   assert_eq(sl.check_invariants(), Ok(()))
 }
 
@@ -488,7 +488,7 @@ test "head null_count is correct on Builtin columns (zero-copy view)" {
   // (just outside the window) must not mask it.
   assert_eq(h.get_column("i").null_count(), 1)
   // The DataFrame-level null_count surfaces the same per-column truth.
-  assert_eq(h.null_count().get(0, "i"), @types.Scalar::Int(1))
+  assert_eq(h.null_count().item(0, "i"), @types.Scalar::Int(1))
 }
 
 // ── structural equality ──────────────────────────────────────────────

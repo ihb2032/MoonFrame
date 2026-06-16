@@ -49,13 +49,13 @@ pub fn DataFrame::describe(
     // numeric one), `Some(mean)` otherwise. The aggregate view wants that
     // single null cell either way (the per-column API keeps the
     // distinction), so it reads the total accessor and skips the error
-    // catch, like the `min_value` / `max_value` reads just below.
+    // catch, like the `min` / `max` reads just below.
     means.push(s.mean_opt())
-    // `min_value` / `max_value` are total; they return `Scalar::Null` to
+    // `min` / `max` are total; they return `Scalar::Null` to
     // signal "no value", which `render_extremum` maps to a null cell and
     // otherwise renders via `Scalar::to_string`.
-    mins.push(render_extremum(s.min_value()))
-    maxs.push(render_extremum(s.max_value()))
+    mins.push(render_extremum(s.min()))
+    maxs.push(render_extremum(s.max()))
   }
   // The output columns share a length (`self.ncols()`) and the names are
   // hardcoded-unique, so `DataFrame::new` always succeeds; the raise is
@@ -73,7 +73,7 @@ pub fn DataFrame::describe(
 }
 
 ///|
-/// Map a `Series::min_value` / `Series::max_value` result into a nullable
+/// Map a `Series::min` / `Series::max` result into a nullable
 /// `String` cell. `Scalar::Null` becomes a null cell; every concrete
 /// variant renders via `Scalar::to_string`.
 fn render_extremum(scalar : @types.Scalar) -> String? {

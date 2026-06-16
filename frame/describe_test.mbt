@@ -80,14 +80,14 @@ test "describe row 0 summarises the Int column" {
   let out = df.describe()
   // Column "i": values [1, None, 3, 5] → count=3, null=1, unique=3,
   // mean=3.0, min=1, max=5.
-  assert_eq(out.get(0, "column"), @types.Scalar::String("i"))
-  assert_eq(out.get(0, "dtype"), @types.Scalar::String("Int"))
-  assert_eq(out.get(0, "count"), @types.Scalar::Int(3))
-  assert_eq(out.get(0, "null_count"), @types.Scalar::Int(1))
-  assert_eq(out.get(0, "n_unique"), @types.Scalar::Int(3))
-  assert_eq(out.get(0, "mean"), @types.Scalar::Float(3.0))
-  assert_eq(out.get(0, "min"), @types.Scalar::String("1"))
-  assert_eq(out.get(0, "max"), @types.Scalar::String("5"))
+  assert_eq(out.item(0, "column"), @types.Scalar::String("i"))
+  assert_eq(out.item(0, "dtype"), @types.Scalar::String("Int"))
+  assert_eq(out.item(0, "count"), @types.Scalar::Int(3))
+  assert_eq(out.item(0, "null_count"), @types.Scalar::Int(1))
+  assert_eq(out.item(0, "n_unique"), @types.Scalar::Int(3))
+  assert_eq(out.item(0, "mean"), @types.Scalar::Float(3.0))
+  assert_eq(out.item(0, "min"), @types.Scalar::String("1"))
+  assert_eq(out.item(0, "max"), @types.Scalar::String("5"))
 }
 
 ///|
@@ -96,15 +96,15 @@ test "describe row 1 summarises the Float column" {
   let out = df.describe()
   // Column "f": values [1.0, 2.0, None, 3.0] → count=3, null=1,
   // unique=3, mean=2.0, min=1.0, max=3.0.
-  assert_eq(out.get(1, "column"), @types.Scalar::String("f"))
-  assert_eq(out.get(1, "dtype"), @types.Scalar::String("Float"))
-  assert_eq(out.get(1, "count"), @types.Scalar::Int(3))
-  assert_eq(out.get(1, "null_count"), @types.Scalar::Int(1))
-  assert_eq(out.get(1, "n_unique"), @types.Scalar::Int(3))
-  assert_eq(out.get(1, "mean"), @types.Scalar::Float(2.0))
+  assert_eq(out.item(1, "column"), @types.Scalar::String("f"))
+  assert_eq(out.item(1, "dtype"), @types.Scalar::String("Float"))
+  assert_eq(out.item(1, "count"), @types.Scalar::Int(3))
+  assert_eq(out.item(1, "null_count"), @types.Scalar::Int(1))
+  assert_eq(out.item(1, "n_unique"), @types.Scalar::Int(3))
+  assert_eq(out.item(1, "mean"), @types.Scalar::Float(2.0))
   // Double::to_string emits "1" / "3" — confirm the cells are non-null.
-  let min_cell = out.get(1, "min")
-  let max_cell = out.get(1, "max")
+  let min_cell = out.item(1, "min")
+  let max_cell = out.item(1, "max")
   assert_true(not(min_cell.is_null()))
   assert_true(not(max_cell.is_null()))
 }
@@ -116,15 +116,15 @@ test "describe row 2 summarises the Bool column (mean is Null)" {
   // Column "b": values [true, false, true, true] → count=4, null=0,
   // unique=2 (true / false), mean=Null (TypeMismatch collapses to
   // null), min=false, max=true.
-  assert_eq(out.get(2, "column"), @types.Scalar::String("b"))
-  assert_eq(out.get(2, "dtype"), @types.Scalar::String("Bool"))
-  assert_eq(out.get(2, "count"), @types.Scalar::Int(4))
-  assert_eq(out.get(2, "null_count"), @types.Scalar::Int(0))
-  assert_eq(out.get(2, "n_unique"), @types.Scalar::Int(2))
-  assert_eq(out.get(2, "mean"), @types.Scalar::Null)
+  assert_eq(out.item(2, "column"), @types.Scalar::String("b"))
+  assert_eq(out.item(2, "dtype"), @types.Scalar::String("Bool"))
+  assert_eq(out.item(2, "count"), @types.Scalar::Int(4))
+  assert_eq(out.item(2, "null_count"), @types.Scalar::Int(0))
+  assert_eq(out.item(2, "n_unique"), @types.Scalar::Int(2))
+  assert_eq(out.item(2, "mean"), @types.Scalar::Null)
   // Bool::to_string emits "true" / "false".
-  assert_eq(out.get(2, "min"), @types.Scalar::String("false"))
-  assert_eq(out.get(2, "max"), @types.Scalar::String("true"))
+  assert_eq(out.item(2, "min"), @types.Scalar::String("false"))
+  assert_eq(out.item(2, "max"), @types.Scalar::String("true"))
 }
 
 ///|
@@ -133,14 +133,14 @@ test "describe row 3 summarises the String column (mean is Null)" {
   let out = df.describe()
   // Column "s": values ["banana","apple","cherry","banana"] → count=4,
   // null=0, unique=3, mean=Null, min="apple", max="cherry".
-  assert_eq(out.get(3, "column"), @types.Scalar::String("s"))
-  assert_eq(out.get(3, "dtype"), @types.Scalar::String("String"))
-  assert_eq(out.get(3, "count"), @types.Scalar::Int(4))
-  assert_eq(out.get(3, "null_count"), @types.Scalar::Int(0))
-  assert_eq(out.get(3, "n_unique"), @types.Scalar::Int(3))
-  assert_eq(out.get(3, "mean"), @types.Scalar::Null)
-  assert_eq(out.get(3, "min"), @types.Scalar::String("apple"))
-  assert_eq(out.get(3, "max"), @types.Scalar::String("cherry"))
+  assert_eq(out.item(3, "column"), @types.Scalar::String("s"))
+  assert_eq(out.item(3, "dtype"), @types.Scalar::String("String"))
+  assert_eq(out.item(3, "count"), @types.Scalar::Int(4))
+  assert_eq(out.item(3, "null_count"), @types.Scalar::Int(0))
+  assert_eq(out.item(3, "n_unique"), @types.Scalar::Int(3))
+  assert_eq(out.item(3, "mean"), @types.Scalar::Null)
+  assert_eq(out.item(3, "min"), @types.Scalar::String("apple"))
+  assert_eq(out.item(3, "max"), @types.Scalar::String("cherry"))
 }
 
 // ── Empty / all-null branches ────────────────────────────────────────
@@ -148,7 +148,7 @@ test "describe row 3 summarises the String column (mean is Null)" {
 ///|
 test "describe on a 0-row numeric frame routes mean / min / max to Null" {
   // Empty Int column → Series::mean raises InvalidOperation,
-  // Series::min_value / max_value return Scalar::Null. Both map to the
+  // Series::min / max return Scalar::Null. Both map to the
   // `render_extremum` is_null=true branch.
   let schema = @types.Schema::new([
     @types.Field::new("a", @types.DataType::Int),
@@ -160,12 +160,12 @@ test "describe on a 0-row numeric frame routes mean / min / max to Null" {
   assert_eq(out.shape(), (2, 8))
   // Both rows: count=0, null=0, unique=0, mean=Null, min=Null, max=Null.
   for i in 0..<2 {
-    assert_eq(out.get(i, "count"), @types.Scalar::Int(0))
-    assert_eq(out.get(i, "null_count"), @types.Scalar::Int(0))
-    assert_eq(out.get(i, "n_unique"), @types.Scalar::Int(0))
-    assert_eq(out.get(i, "mean"), @types.Scalar::Null)
-    assert_eq(out.get(i, "min"), @types.Scalar::Null)
-    assert_eq(out.get(i, "max"), @types.Scalar::Null)
+    assert_eq(out.item(i, "count"), @types.Scalar::Int(0))
+    assert_eq(out.item(i, "null_count"), @types.Scalar::Int(0))
+    assert_eq(out.item(i, "n_unique"), @types.Scalar::Int(0))
+    assert_eq(out.item(i, "mean"), @types.Scalar::Null)
+    assert_eq(out.item(i, "min"), @types.Scalar::Null)
+    assert_eq(out.item(i, "max"), @types.Scalar::Null)
   }
 }
 
@@ -177,12 +177,12 @@ test "describe on an all-null numeric column routes mean / min / max to Null" {
   let df = DataFrame::new([Series::from_int_options("a", [None, None, None])])
   let out = df.describe()
   assert_eq(out.check_invariants(), Ok(()))
-  assert_eq(out.get(0, "count"), @types.Scalar::Int(0))
-  assert_eq(out.get(0, "null_count"), @types.Scalar::Int(3))
-  assert_eq(out.get(0, "n_unique"), @types.Scalar::Int(0))
-  assert_eq(out.get(0, "mean"), @types.Scalar::Null)
-  assert_eq(out.get(0, "min"), @types.Scalar::Null)
-  assert_eq(out.get(0, "max"), @types.Scalar::Null)
+  assert_eq(out.item(0, "count"), @types.Scalar::Int(0))
+  assert_eq(out.item(0, "null_count"), @types.Scalar::Int(3))
+  assert_eq(out.item(0, "n_unique"), @types.Scalar::Int(0))
+  assert_eq(out.item(0, "mean"), @types.Scalar::Null)
+  assert_eq(out.item(0, "min"), @types.Scalar::Null)
+  assert_eq(out.item(0, "max"), @types.Scalar::Null)
 }
 
 ///|
@@ -191,11 +191,11 @@ test "describe on an all-null String column produces typed-null extrema" {
   // is_null=true branch still applies to a non-numeric column.
   let df = DataFrame::new([Series::from_string_options("s", [None, None])])
   let out = df.describe()
-  assert_eq(out.get(0, "dtype"), @types.Scalar::String("String"))
-  assert_eq(out.get(0, "count"), @types.Scalar::Int(0))
-  assert_eq(out.get(0, "null_count"), @types.Scalar::Int(2))
-  assert_eq(out.get(0, "min"), @types.Scalar::Null)
-  assert_eq(out.get(0, "max"), @types.Scalar::Null)
+  assert_eq(out.item(0, "dtype"), @types.Scalar::String("String"))
+  assert_eq(out.item(0, "count"), @types.Scalar::Int(0))
+  assert_eq(out.item(0, "null_count"), @types.Scalar::Int(2))
+  assert_eq(out.item(0, "min"), @types.Scalar::Null)
+  assert_eq(out.item(0, "max"), @types.Scalar::Null)
 }
 
 // ── Edge: zero columns ───────────────────────────────────────────────
@@ -225,7 +225,7 @@ test "describe on an all-String frame leaves mean Null for every row" {
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.shape(), (2, 8))
   for i in 0..<2 {
-    assert_eq(out.get(i, "mean"), @types.Scalar::Null)
+    assert_eq(out.item(i, "mean"), @types.Scalar::Null)
   }
 }
 
@@ -241,9 +241,9 @@ test "describe preserves source column order in the `column` row labels" {
   let out = df.describe()
   // Source declaration order is z, a, m — preserved verbatim, not
   // lexicographic.
-  assert_eq(out.get(0, "column"), @types.Scalar::String("z"))
-  assert_eq(out.get(1, "column"), @types.Scalar::String("a"))
-  assert_eq(out.get(2, "column"), @types.Scalar::String("m"))
+  assert_eq(out.item(0, "column"), @types.Scalar::String("z"))
+  assert_eq(out.item(1, "column"), @types.Scalar::String("a"))
+  assert_eq(out.item(2, "column"), @types.Scalar::String("m"))
 }
 
 // ── Local helpers ────────────────────────────────────────────────────

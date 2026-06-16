@@ -1,6 +1,6 @@
 // Cross-surface reduction equivalence.
 //
-// `Series::sum` / `mean` / `min_value` / `max_value` / `count` (whole column)
+// `Series::sum` / `mean` / `min` / `max` / `count` (whole column)
 // and the grouped `agg` (the expression evaluator) reduce through one shared
 // index-generic kernel (`reduce.mbt`). On a single-group frame both reduce
 // exactly the same cells, so they must agree cell-for-cell. These tests pin
@@ -42,9 +42,9 @@ fn reductions_agree(a : @types.Scalar, b : @types.Scalar) -> Bool {
 /// `min` / `max` / `count` (total over every dtype) agree across both surfaces
 /// for the value column `x` of one-group frame `df`.
 fn check_min_max_count(x : Series, df : DataFrame) -> Unit raise Error {
-  let whole_min = x.min_value()
+  let whole_min = x.min()
   assert_true(reductions_agree(whole_min, group_cell(df, @expr.col("x").min())))
-  let whole_max = x.max_value()
+  let whole_max = x.max()
   assert_true(reductions_agree(whole_max, group_cell(df, @expr.col("x").max())))
   let whole_count = @types.Scalar::Int(x.count().to_int64())
   assert_true(
@@ -105,8 +105,8 @@ test "two surfaces agree: Float with NaN and nulls (propagate vs skip)" {
   // Pin the `NaN` rules explicitly: `sum` / `mean` propagate `NaN`, `min` /
   // `max` skip it (so they return the finite extrema).
   assert_true(x.sum().as_float().is_nan())
-  assert_eq(x.min_value(), @types.Scalar::Float(1.0))
-  assert_eq(x.max_value(), @types.Scalar::Float(4.0))
+  assert_eq(x.min(), @types.Scalar::Float(1.0))
+  assert_eq(x.max(), @types.Scalar::Float(4.0))
 }
 
 ///|

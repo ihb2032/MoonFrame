@@ -281,10 +281,10 @@ pub fn DataFrame::get_column_at(
 }
 
 ///|
-/// Read the cell at `(row, name)` as a `Scalar`. Surfaces
-/// `ColumnNotFound` for unknown names and `IndexOutOfBounds` for
-/// row indices outside `[0, nrows)`.
-pub fn DataFrame::get(
+/// Read the cell at `(row, name)` as a `Scalar`, mirroring Polars'
+/// `DataFrame.item(row, column)`. Surfaces `ColumnNotFound` for unknown
+/// names and `IndexOutOfBounds` for row indices outside `[0, nrows)`.
+pub fn DataFrame::item(
   self : DataFrame,
   row : Int,
   name : String,

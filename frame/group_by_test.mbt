@@ -56,20 +56,20 @@ test "group_by single key with all five default-named aggregations" {
   ])
   // Two groups, in first-appearance order: east, west.
   assert_eq(out.shape(), (2, 6))
-  assert_eq(out.get(0, "region"), @types.Scalar::String("east"))
-  assert_eq(out.get(1, "region"), @types.Scalar::String("west"))
+  assert_eq(out.item(0, "region"), @types.Scalar::String("east"))
+  assert_eq(out.item(1, "region"), @types.Scalar::String("west"))
   // east: quantity = [10, 2, 6] → count 3, sum 18, mean 6.0, min 2, max 10.
-  assert_eq(out.get(0, "quantity_count"), @types.Scalar::Int(3))
-  assert_eq(out.get(0, "quantity_sum"), @types.Scalar::Int(18))
-  assert_eq(out.get(0, "quantity_mean"), @types.Scalar::Float(6.0))
-  assert_eq(out.get(0, "quantity_min"), @types.Scalar::Int(2))
-  assert_eq(out.get(0, "quantity_max"), @types.Scalar::Int(10))
+  assert_eq(out.item(0, "quantity_count"), @types.Scalar::Int(3))
+  assert_eq(out.item(0, "quantity_sum"), @types.Scalar::Int(18))
+  assert_eq(out.item(0, "quantity_mean"), @types.Scalar::Float(6.0))
+  assert_eq(out.item(0, "quantity_min"), @types.Scalar::Int(2))
+  assert_eq(out.item(0, "quantity_max"), @types.Scalar::Int(10))
   // west: quantity = [5, 4] → count 2, sum 9, mean 4.5, min 4, max 5.
-  assert_eq(out.get(1, "quantity_count"), @types.Scalar::Int(2))
-  assert_eq(out.get(1, "quantity_sum"), @types.Scalar::Int(9))
-  assert_eq(out.get(1, "quantity_mean"), @types.Scalar::Float(4.5))
-  assert_eq(out.get(1, "quantity_min"), @types.Scalar::Int(4))
-  assert_eq(out.get(1, "quantity_max"), @types.Scalar::Int(5))
+  assert_eq(out.item(1, "quantity_count"), @types.Scalar::Int(2))
+  assert_eq(out.item(1, "quantity_sum"), @types.Scalar::Int(9))
+  assert_eq(out.item(1, "quantity_mean"), @types.Scalar::Float(4.5))
+  assert_eq(out.item(1, "quantity_min"), @types.Scalar::Int(4))
+  assert_eq(out.item(1, "quantity_max"), @types.Scalar::Int(5))
 }
 
 ///|
@@ -80,8 +80,8 @@ test "group_by aggregates a second measure column (Float sum)" {
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.columns(), ["region", "revenue_sum"])
   // east revenue = [100, 30, 70] → 200.0; west = [50, 20] → 70.0.
-  assert_eq(out.get(0, "revenue_sum"), @types.Scalar::Float(200.0))
-  assert_eq(out.get(1, "revenue_sum"), @types.Scalar::Float(70.0))
+  assert_eq(out.item(0, "revenue_sum"), @types.Scalar::Float(200.0))
+  assert_eq(out.item(1, "revenue_sum"), @types.Scalar::Float(70.0))
 }
 
 // ── Multi key ────────────────────────────────────────────────────────
@@ -96,18 +96,18 @@ test "group_by multiple keys partitions by the key tuple" {
   // Four distinct (region, product) tuples, in first-appearance order:
   // (east,widget), (west,widget), (east,gadget), (west,gadget).
   assert_eq(out.shape(), (4, 3))
-  assert_eq(out.get(0, "region"), @types.Scalar::String("east"))
-  assert_eq(out.get(0, "product"), @types.Scalar::String("widget"))
-  assert_eq(out.get(0, "quantity_sum"), @types.Scalar::Int(16)) // rows 0,3 → 10+6
-  assert_eq(out.get(1, "region"), @types.Scalar::String("west"))
-  assert_eq(out.get(1, "product"), @types.Scalar::String("widget"))
-  assert_eq(out.get(1, "quantity_sum"), @types.Scalar::Int(5))
-  assert_eq(out.get(2, "region"), @types.Scalar::String("east"))
-  assert_eq(out.get(2, "product"), @types.Scalar::String("gadget"))
-  assert_eq(out.get(2, "quantity_sum"), @types.Scalar::Int(2))
-  assert_eq(out.get(3, "region"), @types.Scalar::String("west"))
-  assert_eq(out.get(3, "product"), @types.Scalar::String("gadget"))
-  assert_eq(out.get(3, "quantity_sum"), @types.Scalar::Int(4))
+  assert_eq(out.item(0, "region"), @types.Scalar::String("east"))
+  assert_eq(out.item(0, "product"), @types.Scalar::String("widget"))
+  assert_eq(out.item(0, "quantity_sum"), @types.Scalar::Int(16)) // rows 0,3 → 10+6
+  assert_eq(out.item(1, "region"), @types.Scalar::String("west"))
+  assert_eq(out.item(1, "product"), @types.Scalar::String("widget"))
+  assert_eq(out.item(1, "quantity_sum"), @types.Scalar::Int(5))
+  assert_eq(out.item(2, "region"), @types.Scalar::String("east"))
+  assert_eq(out.item(2, "product"), @types.Scalar::String("gadget"))
+  assert_eq(out.item(2, "quantity_sum"), @types.Scalar::Int(2))
+  assert_eq(out.item(3, "region"), @types.Scalar::String("west"))
+  assert_eq(out.item(3, "product"), @types.Scalar::String("gadget"))
+  assert_eq(out.item(3, "quantity_sum"), @types.Scalar::Int(4))
 }
 
 // ── Aliases ──────────────────────────────────────────────────────────
@@ -122,7 +122,7 @@ test "with_alias overrides the aggregated column name" {
     ])
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.columns(), ["region", "total_q", "avg_rev"])
-  assert_eq(out.get(0, "total_q"), @types.Scalar::Int(18))
+  assert_eq(out.item(0, "total_q"), @types.Scalar::Int(18))
 }
 
 // ── Group order (first appearance) ───────────────────────────────────
@@ -139,12 +139,12 @@ test "group order follows first appearance, not sorted order" {
     .group_by([@expr.col("g")])
     .agg([@expr.col("v").sum().with_alias("v_sum")])
   assert_eq(out.check_invariants(), Ok(()))
-  assert_eq(out.get(0, "g"), @types.Scalar::String("z"))
-  assert_eq(out.get(1, "g"), @types.Scalar::String("a"))
-  assert_eq(out.get(2, "g"), @types.Scalar::String("m"))
-  assert_eq(out.get(0, "v_sum"), @types.Scalar::Int(4)) // rows 0,2 → 1+3
-  assert_eq(out.get(1, "v_sum"), @types.Scalar::Int(6)) // rows 1,3 → 2+4
-  assert_eq(out.get(2, "v_sum"), @types.Scalar::Int(5)) // row 4
+  assert_eq(out.item(0, "g"), @types.Scalar::String("z"))
+  assert_eq(out.item(1, "g"), @types.Scalar::String("a"))
+  assert_eq(out.item(2, "g"), @types.Scalar::String("m"))
+  assert_eq(out.item(0, "v_sum"), @types.Scalar::Int(4)) // rows 0,2 → 1+3
+  assert_eq(out.item(1, "v_sum"), @types.Scalar::Int(6)) // rows 1,3 → 2+4
+  assert_eq(out.item(2, "v_sum"), @types.Scalar::Int(5)) // row 4
 }
 
 // ── Null keys ────────────────────────────────────────────────────────
@@ -164,12 +164,12 @@ test "a null key forms its own group, distinct from an empty string" {
   assert_eq(out.check_invariants(), Ok(()))
   // Three groups in first-appearance order: "a", null, "".
   assert_eq(out.shape(), (3, 2))
-  assert_eq(out.get(0, "k"), @types.Scalar::String("a"))
-  assert_eq(out.get(1, "k"), @types.Scalar::Null)
-  assert_eq(out.get(2, "k"), @types.Scalar::String(""))
-  assert_eq(out.get(0, "v_sum"), @types.Scalar::Int(5)) // rows 0,3 → 1+4
-  assert_eq(out.get(1, "v_sum"), @types.Scalar::Int(2)) // row 1
-  assert_eq(out.get(2, "v_sum"), @types.Scalar::Int(3)) // row 2
+  assert_eq(out.item(0, "k"), @types.Scalar::String("a"))
+  assert_eq(out.item(1, "k"), @types.Scalar::Null)
+  assert_eq(out.item(2, "k"), @types.Scalar::String(""))
+  assert_eq(out.item(0, "v_sum"), @types.Scalar::Int(5)) // rows 0,3 → 1+4
+  assert_eq(out.item(1, "v_sum"), @types.Scalar::Int(2)) // row 1
+  assert_eq(out.item(2, "v_sum"), @types.Scalar::Int(3)) // row 2
 }
 
 // ── Float NaN keys collapse into one group ───────────────────────────
@@ -189,8 +189,8 @@ test "Float NaN keys collapse into a single group" {
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.shape(), (2, 2))
   // NaN group (rows 0,2) first, then the 1.0 group (row 1).
-  assert_eq(out.get(0, "v_sum"), @types.Scalar::Int(4))
-  assert_eq(out.get(1, "v_sum"), @types.Scalar::Int(2))
+  assert_eq(out.item(0, "v_sum"), @types.Scalar::Int(4))
+  assert_eq(out.item(1, "v_sum"), @types.Scalar::Int(2))
 }
 
 ///|
@@ -210,10 +210,10 @@ test "Float -0.0 and +0.0 keys collapse into a single group" {
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.shape(), (2, 2))
   // Zero group first (sum 1 + 2 + 4 = 7), then the 1.5 group (3).
-  assert_eq(out.get(0, "k"), @types.Scalar::Float(0.0))
-  assert_eq(out.get(0, "v_sum"), @types.Scalar::Int(7))
-  assert_eq(out.get(1, "k"), @types.Scalar::Float(1.5))
-  assert_eq(out.get(1, "v_sum"), @types.Scalar::Int(3))
+  assert_eq(out.item(0, "k"), @types.Scalar::Float(0.0))
+  assert_eq(out.item(0, "v_sum"), @types.Scalar::Int(7))
+  assert_eq(out.item(1, "k"), @types.Scalar::Float(1.5))
+  assert_eq(out.item(1, "v_sum"), @types.Scalar::Int(3))
 }
 
 // ── Dtype preservation ───────────────────────────────────────────────
@@ -230,10 +230,10 @@ test "group_by preserves the key column dtype (Int key)" {
   assert_eq(out.check_invariants(), Ok(()))
   // Key column keeps Int dtype (not stringified).
   assert_eq(out.get_column("k").dtype(), @types.DataType::Int)
-  assert_eq(out.get(0, "k"), @types.Scalar::Int(1))
-  assert_eq(out.get(1, "k"), @types.Scalar::Int(2))
-  assert_eq(out.get(0, "v_sum"), @types.Scalar::Int(30))
-  assert_eq(out.get(1, "v_sum"), @types.Scalar::Int(30))
+  assert_eq(out.item(0, "k"), @types.Scalar::Int(1))
+  assert_eq(out.item(1, "k"), @types.Scalar::Int(2))
+  assert_eq(out.item(0, "v_sum"), @types.Scalar::Int(30))
+  assert_eq(out.item(1, "v_sum"), @types.Scalar::Int(30))
 }
 
 ///|
@@ -270,17 +270,17 @@ test "count excludes nulls; an all-null group reduces to identity / null" {
     ])
   assert_eq(out.check_invariants(), Ok(()))
   // Group a: count 1 (null skipped), sum 1, mean 1.0, min 1, max 1.
-  assert_eq(out.get(0, "v_count"), @types.Scalar::Int(1))
-  assert_eq(out.get(0, "v_sum"), @types.Scalar::Int(1))
-  assert_eq(out.get(0, "v_mean"), @types.Scalar::Float(1.0))
-  assert_eq(out.get(0, "v_min"), @types.Scalar::Int(1))
-  assert_eq(out.get(0, "v_max"), @types.Scalar::Int(1))
+  assert_eq(out.item(0, "v_count"), @types.Scalar::Int(1))
+  assert_eq(out.item(0, "v_sum"), @types.Scalar::Int(1))
+  assert_eq(out.item(0, "v_mean"), @types.Scalar::Float(1.0))
+  assert_eq(out.item(0, "v_min"), @types.Scalar::Int(1))
+  assert_eq(out.item(0, "v_max"), @types.Scalar::Int(1))
   // Group b (all null): count 0, sum 0 (identity), mean/min/max null.
-  assert_eq(out.get(1, "v_count"), @types.Scalar::Int(0))
-  assert_eq(out.get(1, "v_sum"), @types.Scalar::Int(0))
-  assert_eq(out.get(1, "v_mean"), @types.Scalar::Null)
-  assert_eq(out.get(1, "v_min"), @types.Scalar::Null)
-  assert_eq(out.get(1, "v_max"), @types.Scalar::Null)
+  assert_eq(out.item(1, "v_count"), @types.Scalar::Int(0))
+  assert_eq(out.item(1, "v_sum"), @types.Scalar::Int(0))
+  assert_eq(out.item(1, "v_mean"), @types.Scalar::Null)
+  assert_eq(out.item(1, "v_min"), @types.Scalar::Null)
+  assert_eq(out.item(1, "v_max"), @types.Scalar::Null)
 }
 
 ///|
@@ -298,8 +298,8 @@ test "agg: an all-null Float group means a null cell" {
     .agg([@expr.col("v").mean().with_alias("v_mean")])
   assert_eq(out.check_invariants(), Ok(()))
   // Group a = [1.0, 3.0] → mean 2.0; group b = [null] → null mean.
-  assert_eq(out.get(0, "v_mean"), @types.Scalar::Float(2.0))
-  assert_eq(out.get(1, "v_mean"), @types.Scalar::Null)
+  assert_eq(out.item(0, "v_mean"), @types.Scalar::Float(2.0))
+  assert_eq(out.item(1, "v_mean"), @types.Scalar::Null)
 }
 
 ///|
@@ -331,22 +331,22 @@ test "Float NaN propagates through sum / mean but is skipped by min / max within
   assert_eq(out.check_invariants(), Ok(()))
   // Group a: NaN is a value that propagates → sum and mean are NaN; min /
   // max skip NaN (Polars' regular min / max) → 1.0.
-  assert_true(out.get(0, "v_sum").as_float().is_nan())
-  assert_true(out.get(0, "v_mean").as_float().is_nan())
-  assert_eq(out.get(0, "v_min"), @types.Scalar::Float(1.0))
-  assert_eq(out.get(0, "v_max"), @types.Scalar::Float(1.0))
+  assert_true(out.item(0, "v_sum").as_float().is_nan())
+  assert_true(out.item(0, "v_mean").as_float().is_nan())
+  assert_eq(out.item(0, "v_min"), @types.Scalar::Float(1.0))
+  assert_eq(out.item(0, "v_max"), @types.Scalar::Float(1.0))
   // Group b: the null is skipped (not propagated like NaN) → a finite sum
   // and mean of 2.0, min / max 2.0.
-  assert_eq(out.get(1, "v_sum"), @types.Scalar::Float(2.0))
-  assert_eq(out.get(1, "v_mean"), @types.Scalar::Float(2.0))
-  assert_eq(out.get(1, "v_min"), @types.Scalar::Float(2.0))
-  assert_eq(out.get(1, "v_max"), @types.Scalar::Float(2.0))
+  assert_eq(out.item(1, "v_sum"), @types.Scalar::Float(2.0))
+  assert_eq(out.item(1, "v_mean"), @types.Scalar::Float(2.0))
+  assert_eq(out.item(1, "v_min"), @types.Scalar::Float(2.0))
+  assert_eq(out.item(1, "v_max"), @types.Scalar::Float(2.0))
   // Group c (all NaN): sum / mean propagate to NaN; min / max skip every
   // cell → null (as for an all-null group).
-  assert_true(out.get(2, "v_sum").as_float().is_nan())
-  assert_true(out.get(2, "v_mean").as_float().is_nan())
-  assert_eq(out.get(2, "v_min"), @types.Scalar::Null)
-  assert_eq(out.get(2, "v_max"), @types.Scalar::Null)
+  assert_true(out.item(2, "v_sum").as_float().is_nan())
+  assert_true(out.item(2, "v_mean").as_float().is_nan())
+  assert_eq(out.item(2, "v_min"), @types.Scalar::Null)
+  assert_eq(out.item(2, "v_max"), @types.Scalar::Null)
 }
 
 // ── min / max over every dtype ───────────────────────────────────────
@@ -376,15 +376,15 @@ test "min over Int / Float / Bool / String, all-null group → null" {
     ])
   assert_eq(out.check_invariants(), Ok(()))
   // Group A has values; each min keeps the source dtype.
-  assert_eq(out.get(0, "vi_min"), @types.Scalar::Int(1))
-  assert_eq(out.get(0, "vf_min"), @types.Scalar::Float(1.5))
-  assert_eq(out.get(0, "vb_min"), @types.Scalar::Bool(false)) // false < true
-  assert_eq(out.get(0, "vs_min"), @types.Scalar::String("x"))
+  assert_eq(out.item(0, "vi_min"), @types.Scalar::Int(1))
+  assert_eq(out.item(0, "vf_min"), @types.Scalar::Float(1.5))
+  assert_eq(out.item(0, "vb_min"), @types.Scalar::Bool(false)) // false < true
+  assert_eq(out.item(0, "vs_min"), @types.Scalar::String("x"))
   // Group B is all null → null cell for every dtype.
-  assert_eq(out.get(1, "vi_min"), @types.Scalar::Null)
-  assert_eq(out.get(1, "vf_min"), @types.Scalar::Null)
-  assert_eq(out.get(1, "vb_min"), @types.Scalar::Null)
-  assert_eq(out.get(1, "vs_min"), @types.Scalar::Null)
+  assert_eq(out.item(1, "vi_min"), @types.Scalar::Null)
+  assert_eq(out.item(1, "vf_min"), @types.Scalar::Null)
+  assert_eq(out.item(1, "vb_min"), @types.Scalar::Null)
+  assert_eq(out.item(1, "vs_min"), @types.Scalar::Null)
   // Result dtypes match the source columns.
   assert_eq(out.get_column("vb_min").dtype(), @types.DataType::Bool)
   assert_eq(out.get_column("vs_min").dtype(), @types.DataType::String)
@@ -401,14 +401,14 @@ test "max over Int / Float / Bool / String, all-null group → null" {
       @expr.col("vs").max().with_alias("vs_max"),
     ])
   assert_eq(out.check_invariants(), Ok(()))
-  assert_eq(out.get(0, "vi_max"), @types.Scalar::Int(3))
-  assert_eq(out.get(0, "vf_max"), @types.Scalar::Float(2.5))
-  assert_eq(out.get(0, "vb_max"), @types.Scalar::Bool(true)) // true > false
-  assert_eq(out.get(0, "vs_max"), @types.Scalar::String("z"))
-  assert_eq(out.get(1, "vi_max"), @types.Scalar::Null)
-  assert_eq(out.get(1, "vf_max"), @types.Scalar::Null)
-  assert_eq(out.get(1, "vb_max"), @types.Scalar::Null)
-  assert_eq(out.get(1, "vs_max"), @types.Scalar::Null)
+  assert_eq(out.item(0, "vi_max"), @types.Scalar::Int(3))
+  assert_eq(out.item(0, "vf_max"), @types.Scalar::Float(2.5))
+  assert_eq(out.item(0, "vb_max"), @types.Scalar::Bool(true)) // true > false
+  assert_eq(out.item(0, "vs_max"), @types.Scalar::String("z"))
+  assert_eq(out.item(1, "vi_max"), @types.Scalar::Null)
+  assert_eq(out.item(1, "vf_max"), @types.Scalar::Null)
+  assert_eq(out.item(1, "vb_max"), @types.Scalar::Null)
+  assert_eq(out.item(1, "vs_max"), @types.Scalar::Null)
 }
 
 // ── Empty aggregations → distinct ────────────────────────────────────
@@ -420,8 +420,8 @@ test "empty specs degenerates to distinct key combinations" {
   assert_eq(one.check_invariants(), Ok(()))
   assert_eq(one.columns(), ["region"])
   assert_eq(one.shape(), (2, 1))
-  assert_eq(one.get(0, "region"), @types.Scalar::String("east"))
-  assert_eq(one.get(1, "region"), @types.Scalar::String("west"))
+  assert_eq(one.item(0, "region"), @types.Scalar::String("east"))
+  assert_eq(one.item(1, "region"), @types.Scalar::String("west"))
   // Multi key: distinct (region, product) tuples.
   let many = sales_df()
     .group_by([@expr.col("region"), @expr.col("product")])
@@ -463,8 +463,8 @@ test "empty keys aggregate the whole frame as a single group" {
   // No key columns; one grand-total row.
   assert_eq(out.shape(), (1, 2))
   assert_eq(out.columns(), ["quantity_sum", "quantity_count"])
-  assert_eq(out.get(0, "quantity_sum"), @types.Scalar::Int(27)) // 10+5+2+6+4
-  assert_eq(out.get(0, "quantity_count"), @types.Scalar::Int(5))
+  assert_eq(out.item(0, "quantity_sum"), @types.Scalar::Int(27)) // 10+5+2+6+4
+  assert_eq(out.item(0, "quantity_count"), @types.Scalar::Int(5))
 }
 
 ///|
@@ -588,10 +588,10 @@ test "a derived key buckets rows by the computed value, named by its alias" {
   assert_eq(out.columns(), ["big", "q"])
   assert_eq(out.get_column("big").dtype(), @types.DataType::Bool)
   assert_eq(out.shape(), (2, 2))
-  assert_eq(out.get(0, "big"), @types.Scalar::Bool(true))
-  assert_eq(out.get(0, "q"), @types.Scalar::Int(16)) // 10 + 6
-  assert_eq(out.get(1, "big"), @types.Scalar::Bool(false))
-  assert_eq(out.get(1, "q"), @types.Scalar::Int(11)) // 5 + 2 + 4
+  assert_eq(out.item(0, "big"), @types.Scalar::Bool(true))
+  assert_eq(out.item(0, "q"), @types.Scalar::Int(16)) // 10 + 6
+  assert_eq(out.item(1, "big"), @types.Scalar::Bool(false))
+  assert_eq(out.item(1, "q"), @types.Scalar::Int(11)) // 5 + 2 + 4
 }
 
 ///|
@@ -616,8 +616,8 @@ test "a length-1 key broadcasts every row into one group named literal" {
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.columns(), ["literal", "q"])
   assert_eq(out.shape(), (1, 2))
-  assert_eq(out.get(0, "literal"), @types.Scalar::Int(1))
-  assert_eq(out.get(0, "q"), @types.Scalar::Int(27)) // 10 + 5 + 2 + 6 + 4
+  assert_eq(out.item(0, "literal"), @types.Scalar::Int(1))
+  assert_eq(out.item(0, "q"), @types.Scalar::Int(27)) // 10 + 5 + 2 + 6 + 4
 }
 
 ///|
@@ -636,15 +636,15 @@ test "group_by mixes a bare key and a derived key in a composite tuple" {
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.columns(), ["region", "big", "q"])
   assert_eq(out.shape(), (3, 3))
-  assert_eq(out.get(0, "region"), @types.Scalar::String("east"))
-  assert_eq(out.get(0, "big"), @types.Scalar::Bool(true))
-  assert_eq(out.get(0, "q"), @types.Scalar::Int(16))
-  assert_eq(out.get(1, "region"), @types.Scalar::String("west"))
-  assert_eq(out.get(1, "big"), @types.Scalar::Bool(false))
-  assert_eq(out.get(1, "q"), @types.Scalar::Int(9))
-  assert_eq(out.get(2, "region"), @types.Scalar::String("east"))
-  assert_eq(out.get(2, "big"), @types.Scalar::Bool(false))
-  assert_eq(out.get(2, "q"), @types.Scalar::Int(2))
+  assert_eq(out.item(0, "region"), @types.Scalar::String("east"))
+  assert_eq(out.item(0, "big"), @types.Scalar::Bool(true))
+  assert_eq(out.item(0, "q"), @types.Scalar::Int(16))
+  assert_eq(out.item(1, "region"), @types.Scalar::String("west"))
+  assert_eq(out.item(1, "big"), @types.Scalar::Bool(false))
+  assert_eq(out.item(1, "q"), @types.Scalar::Int(9))
+  assert_eq(out.item(2, "region"), @types.Scalar::String("east"))
+  assert_eq(out.item(2, "big"), @types.Scalar::Bool(false))
+  assert_eq(out.item(2, "q"), @types.Scalar::Int(2))
 }
 
 ///|

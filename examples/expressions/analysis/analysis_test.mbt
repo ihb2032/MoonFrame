@@ -30,11 +30,11 @@ test "enrich: appends profit and unit_price, keeping every source column" {
     "region", "product", "revenue", "cost", "quantity", "profit", "unit_price",
   ])
   // profit = revenue - cost (Int); unit_price = revenue / quantity (Float).
-  assert_eq(out.get(0, "profit"), @moonframe.Scalar::Int(40))
-  assert_eq(out.get(0, "unit_price"), @moonframe.Scalar::Float(10.0))
-  assert_eq(out.get(1, "profit"), @moonframe.Scalar::Int(50))
-  assert_eq(out.get(1, "unit_price"), @moonframe.Scalar::Float(16.0))
-  assert_eq(out.get(3, "profit"), @moonframe.Scalar::Int(-15))
+  assert_eq(out.item(0, "profit"), @moonframe.Scalar::Int(40))
+  assert_eq(out.item(0, "unit_price"), @moonframe.Scalar::Float(10.0))
+  assert_eq(out.item(1, "profit"), @moonframe.Scalar::Int(50))
+  assert_eq(out.item(1, "unit_price"), @moonframe.Scalar::Float(16.0))
+  assert_eq(out.item(3, "profit"), @moonframe.Scalar::Int(-15))
   assert_eq(out.check_invariants(), Ok(()))
 }
 
@@ -44,10 +44,10 @@ test "top_west: keeps only the profitable western rows" {
   // Rows 0 (west widget, profit 40) and 2 (west gadget, profit 32) pass;
   // eastern rows and the loss-making row are dropped.
   assert_eq(out.shape(), (2, 7))
-  assert_eq(out.get(0, "product"), @moonframe.Scalar::String("widget"))
-  assert_eq(out.get(0, "profit"), @moonframe.Scalar::Int(40))
-  assert_eq(out.get(1, "product"), @moonframe.Scalar::String("gadget"))
-  assert_eq(out.get(1, "profit"), @moonframe.Scalar::Int(32))
+  assert_eq(out.item(0, "product"), @moonframe.Scalar::String("widget"))
+  assert_eq(out.item(0, "profit"), @moonframe.Scalar::Int(40))
+  assert_eq(out.item(1, "product"), @moonframe.Scalar::String("gadget"))
+  assert_eq(out.item(1, "profit"), @moonframe.Scalar::Int(32))
   assert_eq(out.check_invariants(), Ok(()))
 }
 
@@ -57,18 +57,18 @@ test "margins: composite aggregation per region, first-appearance order" {
   assert_eq(out.shape(), (3, 4))
   assert_eq(out.columns(), ["region", "total_profit", "avg_revenue", "n"])
   // west: profit 40 + 32 = 72, mean revenue (100 + 72) / 2 = 86, 2 rows.
-  assert_eq(out.get(0, "region"), @moonframe.Scalar::String("west"))
-  assert_eq(out.get(0, "total_profit"), @moonframe.Scalar::Int(72))
-  assert_eq(out.get(0, "avg_revenue"), @moonframe.Scalar::Float(86.0))
-  assert_eq(out.get(0, "n"), @moonframe.Scalar::Int(2))
+  assert_eq(out.item(0, "region"), @moonframe.Scalar::String("west"))
+  assert_eq(out.item(0, "total_profit"), @moonframe.Scalar::Int(72))
+  assert_eq(out.item(0, "avg_revenue"), @moonframe.Scalar::Float(86.0))
+  assert_eq(out.item(0, "n"), @moonframe.Scalar::Int(2))
   // east: profit 50 + (-15) = 35, mean (80 + 30) / 2 = 55.
-  assert_eq(out.get(1, "region"), @moonframe.Scalar::String("east"))
-  assert_eq(out.get(1, "total_profit"), @moonframe.Scalar::Int(35))
-  assert_eq(out.get(1, "avg_revenue"), @moonframe.Scalar::Float(55.0))
+  assert_eq(out.item(1, "region"), @moonframe.Scalar::String("east"))
+  assert_eq(out.item(1, "total_profit"), @moonframe.Scalar::Int(35))
+  assert_eq(out.item(1, "avg_revenue"), @moonframe.Scalar::Float(55.0))
   // north: profit 20 + 35 = 55, mean (40 + 90) / 2 = 65.
-  assert_eq(out.get(2, "region"), @moonframe.Scalar::String("north"))
-  assert_eq(out.get(2, "total_profit"), @moonframe.Scalar::Int(55))
-  assert_eq(out.get(2, "avg_revenue"), @moonframe.Scalar::Float(65.0))
+  assert_eq(out.item(2, "region"), @moonframe.Scalar::String("north"))
+  assert_eq(out.item(2, "total_profit"), @moonframe.Scalar::Int(55))
+  assert_eq(out.item(2, "avg_revenue"), @moonframe.Scalar::Float(65.0))
   assert_eq(out.check_invariants(), Ok(()))
 }
 
@@ -92,10 +92,10 @@ test "graded: tags each row high/low with when/then/otherwise" {
   let out = graded(read_sample())
   // One extra column on top of the five source columns.
   assert_eq(out.shape(), (6, 6))
-  assert_eq(out.get(0, "tier"), @moonframe.Scalar::String("high")) // 100 >= 60
-  assert_eq(out.get(3, "tier"), @moonframe.Scalar::String("low")) // 30 < 60
-  assert_eq(out.get(4, "tier"), @moonframe.Scalar::String("low")) // 40 < 60
-  assert_eq(out.get(5, "tier"), @moonframe.Scalar::String("high")) // 90 >= 60
+  assert_eq(out.item(0, "tier"), @moonframe.Scalar::String("high")) // 100 >= 60
+  assert_eq(out.item(3, "tier"), @moonframe.Scalar::String("low")) // 30 < 60
+  assert_eq(out.item(4, "tier"), @moonframe.Scalar::String("low")) // 40 < 60
+  assert_eq(out.item(5, "tier"), @moonframe.Scalar::String("high")) // 90 >= 60
   assert_eq(out.check_invariants(), Ok(()))
 }
 
@@ -134,8 +134,8 @@ test "report_plan: collect runs the plan and equals the eager pipeline" {
   // west rows only, revenue scaled by 1.5, projected to two columns.
   assert_eq(out.shape(), (2, 2))
   assert_eq(out.columns(), ["region", "revenue_adj"])
-  assert_eq(out.get(0, "revenue_adj"), @moonframe.Scalar::Float(150.0))
-  assert_eq(out.get(1, "revenue_adj"), @moonframe.Scalar::Float(108.0))
+  assert_eq(out.item(0, "revenue_adj"), @moonframe.Scalar::Float(150.0))
+  assert_eq(out.item(1, "revenue_adj"), @moonframe.Scalar::Float(108.0))
   // The optimizer's contract: collecting equals the eager equivalent.
   let eager = read_sample()
     .with_columns([

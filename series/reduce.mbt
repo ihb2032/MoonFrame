@@ -1,6 +1,6 @@
 // One index-generic reduction kernel behind every column reduction.
 //
-// `Series::sum` / `mean` / `min_value` / `max_value`, the grouped `agg`
+// `Series::sum` / `mean` / `min` / `max`, the grouped `agg`
 // reducers, and the scoped `eval_agg` each used to carry their own
 // null-skipping / `NaN`-handling fold. They now share the factories here: each
 // resolves the dtype dispatch and (for the `Builtin` backend) the validity
@@ -141,7 +141,7 @@ fn reduce_arith(
 /// `false < true`, `String` by `compare_string_lex` — returning the dtype's
 /// `Scalar` variant or `Scalar::Null` for an empty / all-null / all-`NaN`
 /// (`Float`) window. `NaN` is treated as missing (skipped), matching
-/// `Series::min_value` / `max_value` and `sort`; only a null slot is
+/// `Series::min` / `max` and `sort`; only a null slot is
 /// otherwise skipped. Shares the single `fold_extremum` accumulation.
 fn reduce_extremum(
   storage : @column.ColumnStorage,
@@ -169,7 +169,7 @@ fn reduce_extremum(
           fold_extremum(
             n,
             k => a[at(k)],
-            // `NaN` is treated as missing (skipped), as in `Series::min_value`.
+            // `NaN` is treated as missing (skipped), as in `Series::min`.
             k => !present(at(k)) || a[at(k)].is_nan(),
             (x, y) => if want_min { x < y } else { x > y },
           ) {

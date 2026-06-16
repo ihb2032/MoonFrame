@@ -627,7 +627,7 @@ fn eval_not(operand : Series) -> Series raise @types.DataError {
 /// Reduce an evaluated operand (length `|scope|`) to a length-1 column — the
 /// point where group scopes (E4) and whole-frame scopes share one path.
 /// Delegates to the shared `reducer_for` kernel (the same one `Series::sum` /
-/// `mean` / `min_value` / `max_value` and the grouped `agg` reduce through),
+/// `mean` / `min` / `max` and the grouped `agg` reduce through),
 /// then projects the reduced `Scalar` into a length-1 column with
 /// `scalars_to_series`. Inherits the kernel's dtype / null / `NaN` rules:
 /// - `Sum`: `Int → Int`, `Float → Float`, nulls skipped, `NaN` propagates;

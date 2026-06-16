@@ -46,7 +46,6 @@ pub fn DataFrame::new(Array[@series.Series]) -> Self raise @types.DataError
 pub fn DataFrame::nrows(Self) -> Int
 pub fn DataFrame::null_count(Self) -> Self raise @types.DataError
 pub fn DataFrame::rename(Self, Array[(String, String)]) -> Self raise @types.DataError
-pub fn DataFrame::replace_column(Self, String, @series.Series) -> Self raise @types.DataError
 pub fn DataFrame::row(Self, Int) -> Array[@types.Scalar] raise @types.DataError
 pub fn DataFrame::rows(Self) -> Array[Array[@types.Scalar]]
 pub fn DataFrame::schema(Self) -> @types.Schema

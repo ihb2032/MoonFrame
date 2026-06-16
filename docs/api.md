@@ -531,9 +531,6 @@ transforms, so every output satisfies `check_invariants()`.
 - `rename(mapping : Array[(String, String)]) -> DataFrame raise DataError`
   — apply renames in order (each step's `new_name` is visible to later
   steps, enabling a 3-step swap). `ColumnNotFound` / `DuplicateColumn`.
-- `replace_column(name, series) -> DataFrame raise DataError` —
-  positional in-place swap; the target `name` wins over `series.name()`;
-  cross-dtype allowed. `ColumnNotFound` / `LengthMismatch`.
 - `sort(keys : Array[(Expr, SortOrder, NullOrder)]) -> DataFrame raise
   DataError` — stable multi-key sort. Each key is an `(Expr, order,
   null_order)` tuple, the expression evaluated over the whole frame: a bare

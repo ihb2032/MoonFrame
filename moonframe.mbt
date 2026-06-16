@@ -5,7 +5,7 @@
 // just `@types` for the value types).
 //
 // Note: the operator verbs (`select` / `drop` / `rename` /
-// `replace_column` / `filter` / `with_columns` /
+// `filter` / `with_columns` /
 // `sort` / `drop_nulls` /
 // `fill_null` / `null_count` / `count` / `sum` /
 // `mean` / `min` / `max` / `describe` / `group_by` / `join`) and the

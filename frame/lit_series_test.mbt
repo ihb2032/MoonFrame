@@ -64,6 +64,27 @@ test "lit_series: a frame-tall series replaces an existing column in place" {
 }
 
 ///|
+test "lit_series: a renamed series swaps a column in place, dtype and all" {
+  // The retired `replace_column(name, s)` is `with_columns([lit_series(s.rename(name))])`:
+  // renaming a differently-named series onto an existing column swaps it in
+  // place — position and name preserved — with the dtype following the new
+  // data (a cross-dtype swap, here Int → Float).
+  let fresh = Series::from_floats("ignored", [
+    (0.5 : Double),
+    (1.5 : Double),
+    (2.5 : Double),
+  ])
+  let out = lit_series_df().with_columns([@expr.lit_series(fresh.rename("a"))])
+  assert_eq(out.columns(), ["a", "b"])
+  assert_eq(out.get_column("a").dtype(), @types.DataType::Float)
+  assert_eq(out.get_column("a").to_scalars(), [
+    @types.Scalar::Float(0.5),
+    @types.Scalar::Float(1.5),
+    @types.Scalar::Float(2.5),
+  ])
+}
+
+///|
 test "lit_series: a length-1 series broadcasts over the frame" {
   // Like a scalar literal, a one-row series fills every row.
   let one = Series::from_ints("k", [7])

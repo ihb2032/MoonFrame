@@ -338,10 +338,10 @@ test "pipeline: join enriches a frame then sorts via the facade" {
   assert_eq(orders.join(customers, JoinOptions::cross()).shape(), (12, 5)) // 4 x 3
 }
 
-// ── Column ops + with_columns / replace_column via the facade ─────────
+// ── Column ops + with_columns via the facade ─────────
 
 ///|
-test "pipeline: rename / drop / with_columns / replace_column compose cleanly" {
+test "pipeline: rename / drop / with_columns compose cleanly" {
   let df = DataFrame::new([
     Series::from_ints("x", [1, 2, 3]),
     Series::from_ints("y", [10, 20, 30]),
@@ -358,11 +358,11 @@ test "pipeline: rename / drop / with_columns / replace_column compose cleanly" {
   assert_eq(dropped.columns(), ["x", "total"])
   assert_eq(dropped.check_invariants(), Ok(()))
 
-  // Replace "x" with a new dtype (cross-dtype swap is allowed).
-  let swapped = dropped.replace_column(
-    "x",
-    Series::from_strings("x", ["a", "b", "c"]),
-  )
+  // Replace "x" with a new dtype: a same-named `lit_series` swaps in place
+  // (cross-dtype swap is allowed).
+  let swapped = dropped.with_columns([
+    lit_series(Series::from_strings("x", ["a", "b", "c"])),
+  ])
   assert_eq(swapped.get_column("x").dtype(), DataType::String)
   assert_eq(swapped.check_invariants(), Ok(()))
 }

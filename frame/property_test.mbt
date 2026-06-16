@@ -45,7 +45,8 @@ fn prop_group_by_no_row_loss(keys : Array[Int64]) -> Bool {
     let summed = df
       .group_by([@expr.col("k")])
       .agg([@expr.col("ones").sum().with_alias("ones_sum")])
-      .sum("ones_sum")
+      .get_column("ones_sum")
+      .sum()
     summed == @types.Scalar::Int(n.to_int64())
   } catch {
     _ => false

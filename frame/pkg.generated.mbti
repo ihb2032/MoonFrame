@@ -23,7 +23,7 @@ pub struct DataFrame {
 pub fn DataFrame::check_invariants(Self) -> Result[Unit, String]
 pub fn DataFrame::column_series(Self) -> Array[@series.Series]
 pub fn DataFrame::columns(Self) -> Array[String]
-pub fn DataFrame::count(Self, String) -> Int raise @types.DataError
+pub fn DataFrame::count(Self) -> Self raise @types.DataError
 pub fn DataFrame::describe(Self) -> Self raise @types.DataError
 pub fn DataFrame::drop(Self, Array[@expr.Expr]) -> Self raise @types.DataError
 pub fn DataFrame::drop_nulls(Self, subset? : Array[@expr.Expr]) -> Self raise @types.DataError
@@ -38,9 +38,9 @@ pub fn DataFrame::group_by(Self, Array[@expr.Expr]) -> GroupedDataFrame raise @t
 pub fn DataFrame::head(Self, Int) -> Self
 pub fn DataFrame::is_empty(Self) -> Bool
 pub fn DataFrame::join(Self, Self, JoinOptions) -> Self raise @types.DataError
-pub fn DataFrame::max(Self, String) -> @types.Scalar raise @types.DataError
-pub fn DataFrame::mean(Self, String) -> Double raise @types.DataError
-pub fn DataFrame::min(Self, String) -> @types.Scalar raise @types.DataError
+pub fn DataFrame::max(Self) -> Self raise @types.DataError
+pub fn DataFrame::mean(Self) -> Self raise @types.DataError
+pub fn DataFrame::min(Self) -> Self raise @types.DataError
 pub fn DataFrame::ncols(Self) -> Int
 pub fn DataFrame::new(Array[@series.Series]) -> Self raise @types.DataError
 pub fn DataFrame::nrows(Self) -> Int
@@ -55,7 +55,7 @@ pub fn DataFrame::shape(Self) -> (Int, Int)
 pub fn DataFrame::slice(Self, Int, Int) -> Self raise @types.DataError
 pub fn DataFrame::sort(Self, Array[(@expr.Expr, SortOrder, NullOrder)]) -> Self raise @types.DataError
 pub fn DataFrame::storage_kinds(Self) -> Array[@column.StorageKind]
-pub fn DataFrame::sum(Self, String) -> @types.Scalar raise @types.DataError
+pub fn DataFrame::sum(Self) -> Self raise @types.DataError
 pub fn DataFrame::tail(Self, Int) -> Self
 pub fn DataFrame::take(Self, Array[Int]) -> Self raise @types.DataError
 pub fn DataFrame::to_builtin(Self) -> Self

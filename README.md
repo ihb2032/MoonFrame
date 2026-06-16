@@ -127,7 +127,7 @@ on all four backends, so it always matches the current API.
   `orders.join(customers, JoinOptions::on([col("customer_id")]))` (or
   `left_on` / `right_on` for differently-named or derived keys).
 - **Summarize** — `describe()` for a per-column summary, or single statistics
-  (`sum` / `mean` / `min_value` / …).
+  (`sum` / `mean` / `min` / `max` / …).
 - **Export** — `to_markdown()`, `to_html()`, `format_json_records`,
   `format_ndjson`, and `format_vega_lite` (a Vega-Lite v5 chart spec).
 

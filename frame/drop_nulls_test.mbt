@@ -41,12 +41,12 @@ test "drop_nulls keeps only rows that are valid in every column" {
   // Row 0 (a=1, b=1.5, s="w") and row 3 (a=4, b=4.5, s="z") survive;
   // rows 1 and 2 each carry one null and are dropped.
   assert_eq(out.shape(), (2, 3))
-  assert_eq(out.get(0, "a"), @types.Scalar::Int(1))
-  assert_eq(out.get(0, "b"), @types.Scalar::Float(1.5))
-  assert_eq(out.get(0, "s"), @types.Scalar::String("w"))
-  assert_eq(out.get(1, "a"), @types.Scalar::Int(4))
-  assert_eq(out.get(1, "b"), @types.Scalar::Float(4.5))
-  assert_eq(out.get(1, "s"), @types.Scalar::String("z"))
+  assert_eq(out.item(0, "a"), @types.Scalar::Int(1))
+  assert_eq(out.item(0, "b"), @types.Scalar::Float(1.5))
+  assert_eq(out.item(0, "s"), @types.Scalar::String("w"))
+  assert_eq(out.item(1, "a"), @types.Scalar::Int(4))
+  assert_eq(out.item(1, "b"), @types.Scalar::Float(4.5))
+  assert_eq(out.item(1, "s"), @types.Scalar::String("z"))
 }
 
 ///|
@@ -78,8 +78,8 @@ test "drop_nulls keeps non-null NaN cells: NaN is a value, not a null" {
   assert_eq(out.schema(), df.schema())
   // Only row 2 (of is null) drops; rows 0, 1 and 3 survive.
   assert_eq(out.nrows(), 3)
-  assert_true(out.get(1, "nf").as_float().is_nan()) // Numeric NaN kept
-  assert_true(out.get(2, "of").as_float().is_nan()) // option NaN kept (was row 3)
+  assert_true(out.item(1, "nf").as_float().is_nan()) // Numeric NaN kept
+  assert_true(out.item(2, "of").as_float().is_nan()) // option NaN kept (was row 3)
 }
 
 ///|
@@ -138,12 +138,12 @@ test "drop_nulls(subset) only consults the listed columns" {
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.schema(), df.schema())
   assert_eq(out.shape(), (3, 3))
-  assert_eq(out.get(0, "a"), @types.Scalar::Int(1))
-  assert_eq(out.get(1, "a"), @types.Scalar::Int(3))
-  assert_eq(out.get(2, "a"), @types.Scalar::Int(4))
+  assert_eq(out.item(0, "a"), @types.Scalar::Int(1))
+  assert_eq(out.item(1, "a"), @types.Scalar::Int(3))
+  assert_eq(out.item(2, "a"), @types.Scalar::Int(4))
   // The b=Null cell on the surviving row 2 must still read as Null
   // — drop_nulls does not fill or alter cells.
-  assert_eq(out.get(1, "b"), @types.Scalar::Null)
+  assert_eq(out.item(1, "b"), @types.Scalar::Null)
 }
 
 ///|
@@ -194,7 +194,7 @@ test "drop_nulls(subset) reads only the listed columns' validity bitmaps" {
   let out = df.drop_nulls(subset=[@expr.col("s")])
   // All four rows survive.
   assert_eq(out.shape(), (4, 3))
-  assert_eq(out.get(2, "b"), @types.Scalar::Null)
+  assert_eq(out.item(2, "b"), @types.Scalar::Null)
 }
 
 ///|
@@ -208,7 +208,7 @@ test "drop_nulls(subset) resolves each key by output_name" {
   assert_eq(out, df.drop_nulls(subset=[@expr.col("a")]))
   // Row 2 (b=Null but a non-null) survives, proving "b" never gated.
   assert_eq(out.shape(), (3, 3))
-  assert_eq(out.get(1, "b"), @types.Scalar::Null)
+  assert_eq(out.item(1, "b"), @types.Scalar::Null)
 }
 
 // ── drop_nulls(subset=...) — error cases ─────────────────────────────
@@ -255,6 +255,6 @@ test "drop_nulls on a single-column frame matches Series::drop_nulls cell-by-cel
   let cleaned = series.drop_nulls()
   assert_eq(out.shape(), (cleaned.len(), 1))
   for i in 0..<cleaned.len() {
-    assert_eq(out.get(i, "a"), cleaned.get(i))
+    assert_eq(out.item(i, "a"), cleaned.get(i))
   }
 }

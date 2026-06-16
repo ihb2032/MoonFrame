@@ -36,8 +36,8 @@ test "pipeline: read_csv → filter → select → sort → describe → to_mark
   let summary = report.describe()
 
   // Quantity desc puts west first; describe should surface that.
-  assert_eq(report.get(0, "region"), Scalar::String("west"))
-  assert_eq(report.get(0, "quantity"), Scalar::Int(12))
+  assert_eq(report.item(0, "region"), Scalar::String("west"))
+  assert_eq(report.item(0, "quantity"), Scalar::Int(12))
   assert_eq(report.nrows(), 3)
 
   // Snapshot the full markdown — the renderer is deterministic for a
@@ -93,9 +93,9 @@ test "pipeline: parse_csv_str → filter → select → sort → describe → to
     (col("quantity"), SortOrder::Desc, NullOrder::NullsLast),
   ])
   assert_eq(sorted.check_invariants(), Ok(()))
-  assert_eq(sorted.get(0, "region"), Scalar::String("west"))
-  assert_eq(sorted.get(0, "quantity"), Scalar::Int(12))
-  assert_eq(sorted.get(2, "quantity"), Scalar::Int(5))
+  assert_eq(sorted.item(0, "region"), Scalar::String("west"))
+  assert_eq(sorted.item(0, "quantity"), Scalar::Int(12))
+  assert_eq(sorted.item(2, "quantity"), Scalar::Int(5))
 
   // Per-column summary — fixed N×8 schema, one row per source column.
   let summary = sorted.describe()
@@ -103,11 +103,11 @@ test "pipeline: parse_csv_str → filter → select → sort → describe → to
   assert_eq(summary.columns(), [
     "column", "dtype", "count", "null_count", "n_unique", "mean", "min", "max",
   ])
-  assert_eq(summary.get(0, "column"), Scalar::String("region"))
-  assert_eq(summary.get(1, "dtype"), Scalar::String("Float"))
+  assert_eq(summary.item(0, "column"), Scalar::String("region"))
+  assert_eq(summary.item(1, "dtype"), Scalar::String("Float"))
   // `revenue` had one null in the original frame; the kept widgets
   // came from non-null rows, so the projection has full coverage.
-  assert_eq(summary.get(3, "null_count"), Scalar::Int(0))
+  assert_eq(summary.item(3, "null_count"), Scalar::Int(0))
 
   // Snapshot the full markdown table — pins schema + width logic. String
   // min/max are lexicographic, so the region `max` is "west", not "north".
@@ -138,9 +138,9 @@ test "pipeline: format_json_records → parse_json_records_str round-trip" {
   let restored = parse_json_records_str(json, JsonReadOptions::default())
   assert_eq(restored.shape(), df.shape())
   assert_eq(restored.columns(), df.columns())
-  assert_eq(restored.get(0, "id"), Scalar::Int(1))
-  assert_eq(restored.get(1, "score"), Scalar::Null)
-  assert_eq(restored.get(2, "name"), Scalar::String("carol"))
+  assert_eq(restored.item(0, "id"), Scalar::Int(1))
+  assert_eq(restored.item(1, "score"), Scalar::Null)
+  assert_eq(restored.item(2, "name"), Scalar::String("carol"))
   assert_eq(restored.check_invariants(), Ok(()))
 }
 
@@ -161,9 +161,9 @@ test "pipeline: format_ndjson → parse_ndjson_str round-trip" {
   let restored = parse_ndjson_str(ndjson, NdjsonReadOptions::default())
   assert_eq(restored.shape(), df.shape())
   assert_eq(restored.columns(), df.columns())
-  assert_eq(restored.get(0, "id"), Scalar::Int(1))
-  assert_eq(restored.get(1, "score"), Scalar::Null)
-  assert_eq(restored.get(2, "name"), Scalar::String("carol"))
+  assert_eq(restored.item(0, "id"), Scalar::Int(1))
+  assert_eq(restored.item(1, "score"), Scalar::Null)
+  assert_eq(restored.item(2, "name"), Scalar::String("carol"))
   assert_eq(restored.check_invariants(), Ok(()))
 }
 
@@ -180,9 +180,9 @@ test "pipeline: drop_nulls / fill_null / null_count compose via the facade" {
   // Per-column null counts up-front: 1 / 1 / 1.
   let counts = df.null_count()
   assert_eq(counts.shape(), (1, 3))
-  assert_eq(counts.get(0, "a"), Scalar::Int(1))
-  assert_eq(counts.get(0, "b"), Scalar::Int(1))
-  assert_eq(counts.get(0, "c"), Scalar::Int(1))
+  assert_eq(counts.item(0, "a"), Scalar::Int(1))
+  assert_eq(counts.item(0, "b"), Scalar::Int(1))
+  assert_eq(counts.item(0, "c"), Scalar::Int(1))
 
   // Gate only on `a` — rows 0/2/3 survive (row 1 has a null `a`); the
   // null `b` on row 2 and the null `c` on row 3 are tolerated because
@@ -190,8 +190,8 @@ test "pipeline: drop_nulls / fill_null / null_count compose via the facade" {
   let gated = df.drop_nulls(subset=[col("a")])
   assert_eq(gated.nrows(), 3)
   assert_eq(gated.check_invariants(), Ok(()))
-  assert_eq(gated.get(1, "b"), Scalar::Null)
-  assert_eq(gated.get(2, "c"), Scalar::Null)
+  assert_eq(gated.item(1, "b"), Scalar::Null)
+  assert_eq(gated.item(2, "c"), Scalar::Null)
 
   // Fill the surviving null cells with the per-column `Expr::fill_null`
   // through `with_columns` — each replaces its own column in place.
@@ -199,22 +199,22 @@ test "pipeline: drop_nulls / fill_null / null_count compose via the facade" {
     col("b").fill_null(lit_str("-")),
     col("c").fill_null(lit_float(0.0)),
   ])
-  assert_eq(filled.get(1, "b"), Scalar::String("-"))
-  assert_eq(filled.get(2, "c"), Scalar::Float(0.0))
+  assert_eq(filled.item(1, "b"), Scalar::String("-"))
+  assert_eq(filled.item(2, "c"), Scalar::Float(0.0))
   assert_eq(filled.check_invariants(), Ok(()))
 
   // After filling, every column reports zero nulls.
   let after = filled.null_count()
-  assert_eq(after.get(0, "a"), Scalar::Int(0))
-  assert_eq(after.get(0, "b"), Scalar::Int(0))
-  assert_eq(after.get(0, "c"), Scalar::Int(0))
+  assert_eq(after.item(0, "a"), Scalar::Int(0))
+  assert_eq(after.item(0, "b"), Scalar::Int(0))
+  assert_eq(after.item(0, "c"), Scalar::Int(0))
 
   // The frame-wide `fill_null(value)` fills only the dtype-compatible
   // columns: a String value fills `b`, leaving the Int `a` and Float `c`
   // columns untouched.
   let bonly = gated.fill_null(Scalar::String("?"))
-  assert_eq(bonly.get(1, "b"), Scalar::String("?"))
-  assert_eq(bonly.get(2, "c"), Scalar::Null)
+  assert_eq(bonly.item(1, "b"), Scalar::String("?"))
+  assert_eq(bonly.item(2, "c"), Scalar::Null)
   assert_eq(bonly.check_invariants(), Ok(()))
 }
 
@@ -233,16 +233,16 @@ test "pipeline: per-column scalars and whole-frame reductions via the facade" {
   // 1 + 2 + 4 == 7, n_non_null == 3 → mean == 7 / 3.
   let m = df.get_column("n").mean()
   assert_true((m - 7.0 / 3.0).abs() < 1.0e-6)
-  assert_eq(df.get_column("n").min_value(), Scalar::Int(1))
-  assert_eq(df.get_column("n").max_value(), Scalar::Int(4))
+  assert_eq(df.get_column("n").min(), Scalar::Int(1))
+  assert_eq(df.get_column("n").max(), Scalar::Int(4))
 
   // The whole-frame reductions return a 1-row frame: the numeric column
   // reduces, the non-numeric column becomes a Null cell, count counts both.
   let summed = df.sum()
   assert_eq(summed.shape(), (1, 2))
-  assert_eq(summed.get(0, "n"), Scalar::Int(7))
-  assert_eq(summed.get(0, "tag"), Scalar::Null)
-  assert_eq(df.count().get(0, "tag"), Scalar::Int(4))
+  assert_eq(summed.item(0, "n"), Scalar::Int(7))
+  assert_eq(summed.item(0, "tag"), Scalar::Null)
+  assert_eq(df.count().item(0, "tag"), Scalar::Int(4))
 
   // The explicit per-column sum still rejects a non-numeric column, while the
   // whole-frame sum above tolerates it by nulling.
@@ -276,13 +276,13 @@ test "pipeline: group_by → agg → sort produces a grouped summary via the fac
   ])
   assert_eq(summary.shape(), (2, 4))
   // total_q descending puts west (24) before east (12).
-  assert_eq(summary.get(0, "region"), Scalar::String("west"))
-  assert_eq(summary.get(0, "quantity_count"), Scalar::Int(3))
-  assert_eq(summary.get(0, "total_q"), Scalar::Int(24))
-  assert_eq(summary.get(0, "avg_rev"), Scalar::Float(80.0)) // (120+30+90)/3
-  assert_eq(summary.get(1, "region"), Scalar::String("east"))
-  assert_eq(summary.get(1, "total_q"), Scalar::Int(12))
-  assert_eq(summary.get(1, "avg_rev"), Scalar::Float(57.0)) // (66.5+47.5)/2
+  assert_eq(summary.item(0, "region"), Scalar::String("west"))
+  assert_eq(summary.item(0, "quantity_count"), Scalar::Int(3))
+  assert_eq(summary.item(0, "total_q"), Scalar::Int(24))
+  assert_eq(summary.item(0, "avg_rev"), Scalar::Float(80.0)) // (120+30+90)/3
+  assert_eq(summary.item(1, "region"), Scalar::String("east"))
+  assert_eq(summary.item(1, "total_q"), Scalar::Int(12))
+  assert_eq(summary.item(1, "avg_rev"), Scalar::Float(57.0)) // (66.5+47.5)/2
 }
 
 // ── Join via the facade ───────────────────────────────────────────────
@@ -314,9 +314,9 @@ test "pipeline: join enriches a frame then sorts via the facade" {
   assert_eq(enriched.columns(), ["order_id", "customer_id", "amount", "region"])
   assert_eq(enriched.shape(), (3, 4))
   // amount desc: 100 (west) → 70 (west) → 50 (east).
-  assert_eq(enriched.get(0, "amount"), Scalar::Int(100))
-  assert_eq(enriched.get(0, "region"), Scalar::String("west"))
-  assert_eq(enriched.get(2, "region"), Scalar::String("east"))
+  assert_eq(enriched.item(0, "amount"), Scalar::Int(100))
+  assert_eq(enriched.item(0, "region"), Scalar::String("west"))
+  assert_eq(enriched.item(2, "region"), Scalar::String("east"))
 
   // The left join keeps the unmatched order; per the Polars auto-coalesce
   // default it also keeps the right key as customer_id_right, null on the
@@ -329,9 +329,9 @@ test "pipeline: join enriches a frame then sorts via the facade" {
     "order_id", "customer_id", "amount", "customer_id_right", "region",
   ])
   assert_eq(all_orders.shape(), (4, 5))
-  assert_eq(all_orders.get(3, "order_id"), Scalar::Int(4))
-  assert_eq(all_orders.get(3, "customer_id_right"), Scalar::Null)
-  assert_eq(all_orders.get(3, "region"), Scalar::Null)
+  assert_eq(all_orders.item(3, "order_id"), Scalar::Int(4))
+  assert_eq(all_orders.item(3, "customer_id_right"), Scalar::Null)
+  assert_eq(all_orders.item(3, "region"), Scalar::Null)
 
   // Cross join reachable through the facade (JoinType::Cross + JoinOptions).
   let _ : JoinType = JoinType::Cross

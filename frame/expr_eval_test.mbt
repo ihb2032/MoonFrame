@@ -745,8 +745,8 @@ test "min/max: skip nulls and NaN, match the Series reductions, keep the dtype" 
   assert_eq(out.get_column("smin").get(0), @types.Scalar::String("apple"))
   assert_eq(out.get_column("bmin").get(0), @types.Scalar::Bool(false))
   assert_eq(out.get_column("bmax").get(0), @types.Scalar::Bool(true))
-  assert_eq(out.get_column("imin").get(0), df.get_column("i").min_value())
-  assert_eq(out.get_column("hmax").get(0), df.get_column("h").max_value())
+  assert_eq(out.get_column("imin").get(0), df.get_column("i").min())
+  assert_eq(out.get_column("hmax").get(0), df.get_column("h").max())
 }
 
 ///|

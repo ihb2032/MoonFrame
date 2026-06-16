@@ -20,15 +20,15 @@ test "widget_report: keeps widget rows, projects 4 cols, sorts by quantity desc"
   // columns in declaration order; sort put quantity = 12 first.
   assert_eq(sorted.shape(), (3, 4))
   assert_eq(sorted.columns(), ["region", "price", "quantity", "revenue"])
-  assert_eq(sorted.get(0, "region"), @moonframe.Scalar::String("west"))
-  assert_eq(sorted.get(0, "quantity"), @moonframe.Scalar::Int(12))
-  assert_eq(sorted.get(2, "quantity"), @moonframe.Scalar::Int(5))
+  assert_eq(sorted.item(0, "region"), @moonframe.Scalar::String("west"))
+  assert_eq(sorted.item(0, "quantity"), @moonframe.Scalar::Int(12))
+  assert_eq(sorted.item(2, "quantity"), @moonframe.Scalar::Int(5))
   assert_eq(sorted.check_invariants(), Ok(()))
 
   // `describe` returns the fixed 8-column summary, one row per
   // projected source column.
   assert_eq(summary.shape(), (4, 8))
-  assert_eq(summary.get(0, "column"), @moonframe.Scalar::String("region"))
+  assert_eq(summary.item(0, "column"), @moonframe.Scalar::String("region"))
   assert_eq(summary.check_invariants(), Ok(()))
 }
 
@@ -104,7 +104,7 @@ test "is_widget_row: keeps matching rows and drops the rest" {
   ])
   let kept = df.filter(is_widget_row())
   assert_eq(kept.nrows(), 1)
-  assert_eq(kept.get(0, "product"), @moonframe.Scalar::String("widget"))
+  assert_eq(kept.item(0, "product"), @moonframe.Scalar::String("widget"))
 }
 
 ///|

@@ -172,18 +172,18 @@ test "take out-of-bounds index reports first offender" {
   assert_eq(try? col.take([-1]), Err(@types.DataError::IndexOutOfBounds(-1)))
 }
 
-// ── cast / to_int / to_float / to_string_column ─────────────────────
+// ── cast (Int / Float / String) / to_string_column ──────────────────
 
 ///|
-test "to_int identity on Int" {
+test "cast Int identity on Int" {
   let col = BuiltinColumn::from_int_options([Some(1), None])
-  assert_eq(col.to_int(), col)
+  assert_eq(col.cast(@types.DataType::Int), col)
 }
 
 ///|
-test "to_int from Float truncates and preserves null" {
+test "cast Int from Float truncates and preserves null" {
   let col = BuiltinColumn::from_float_options([Some(1.9), None, Some(-2.5)])
-  let out = col.to_int()
+  let out = col.cast(@types.DataType::Int)
   assert_eq(out.dtype(), @types.DataType::Int)
   assert_eq(out.get(0), @types.Scalar::Int(1))
   assert_eq(out.get(1), @types.Scalar::Null)
@@ -191,56 +191,56 @@ test "to_int from Float truncates and preserves null" {
 }
 
 ///|
-test "to_int from Bool maps true/false to 1/0" {
+test "cast Int from Bool maps true/false to 1/0" {
   let col = BuiltinColumn::from_bool_options([Some(true), Some(false), None])
-  let out = col.to_int()
+  let out = col.cast(@types.DataType::Int)
   assert_eq(out.get(0), @types.Scalar::Int(1))
   assert_eq(out.get(1), @types.Scalar::Int(0))
   assert_eq(out.get(2), @types.Scalar::Null)
 }
 
 ///|
-test "to_int from String parses numerics, errors on garbage" {
+test "cast Int from String parses numerics, errors on garbage" {
   let ok = BuiltinColumn::from_string_options([Some("42"), None, Some("-7")])
-  let out = ok.to_int()
+  let out = ok.cast(@types.DataType::Int)
   assert_eq(out.get(0), @types.Scalar::Int(42))
   assert_eq(out.get(1), @types.Scalar::Null)
   assert_eq(out.get(2), @types.Scalar::Int(-7))
   let bad = BuiltinColumn::from_strings(["nope"])
-  assert_true((try? bad.to_int()) is Err(ParseError(_)))
+  assert_true((try? bad.cast(@types.DataType::Int)) is Err(ParseError(_)))
 }
 
 ///|
-test "to_float promotes Int" {
+test "cast Float promotes Int" {
   let col = BuiltinColumn::from_int_options([Some(3), None])
-  let out = col.to_float()
+  let out = col.cast(@types.DataType::Float)
   assert_eq(out.dtype(), @types.DataType::Float)
   assert_eq(out.get(0), @types.Scalar::Float(3.0))
   assert_eq(out.get(1), @types.Scalar::Null)
 }
 
 ///|
-test "to_float identity on Float" {
+test "cast Float identity on Float" {
   let col = BuiltinColumn::from_floats([1.0, 2.0])
-  assert_eq(col.to_float(), col)
+  assert_eq(col.cast(@types.DataType::Float), col)
 }
 
 ///|
-test "to_float from Bool" {
+test "cast Float from Bool" {
   let col = BuiltinColumn::from_bools([true, false])
-  let out = col.to_float()
+  let out = col.cast(@types.DataType::Float)
   assert_eq(out.get(0), @types.Scalar::Float(1.0))
   assert_eq(out.get(1), @types.Scalar::Float(0.0))
 }
 
 ///|
-test "to_float from String parses, errors on garbage" {
+test "cast Float from String parses, errors on garbage" {
   let ok = BuiltinColumn::from_strings(["1.5", "-2"])
-  let out = ok.to_float()
+  let out = ok.cast(@types.DataType::Float)
   assert_eq(out.get(0), @types.Scalar::Float(1.5))
   assert_eq(out.get(1), @types.Scalar::Float(-2.0))
   let bad = BuiltinColumn::from_strings(["nope"])
-  assert_true((try? bad.to_float()) is Err(ParseError(_)))
+  assert_true((try? bad.cast(@types.DataType::Float)) is Err(ParseError(_)))
 }
 
 ///|
@@ -380,12 +380,12 @@ test "take gathers across every dtype" {
 // ── coverage fill: cast None paths ───────────────────────────────────
 
 ///|
-test "to_float preserves None across every supported source" {
+test "cast Float preserves None across every supported source" {
   let from_bool = BuiltinColumn::from_bool_options([
     Some(true),
     None,
     Some(false),
-  ]).to_float()
+  ]).cast(@types.DataType::Float)
   assert_eq(from_bool.get(0), @types.Scalar::Float(1.0))
   assert_eq(from_bool.get(1), @types.Scalar::Null)
   assert_eq(from_bool.get(2), @types.Scalar::Float(0.0))
@@ -393,7 +393,7 @@ test "to_float preserves None across every supported source" {
     Some("1.5"),
     None,
     Some("-2"),
-  ]).to_float()
+  ]).cast(@types.DataType::Float)
   assert_eq(from_string.get(0), @types.Scalar::Float(1.5))
   assert_eq(from_string.get(1), @types.Scalar::Null)
   assert_eq(from_string.get(2), @types.Scalar::Float(-2.0))
@@ -409,41 +409,44 @@ test "to_string_column preserves None for Float" {
 // ── Float -> Int cast: NaN / Inf / range guarded ─────────────────────
 
 ///|
-test "to_int rejects NaN" {
+test "cast Int rejects NaN" {
   let nan : Double = @double.not_a_number
   let col = BuiltinColumn::from_floats([nan])
-  assert_true((try? col.to_int()) is Err(ParseError(_)))
+  assert_true((try? col.cast(@types.DataType::Int)) is Err(ParseError(_)))
 }
 
 ///|
-test "to_int rejects positive and negative Infinity" {
+test "cast Int rejects positive and negative Infinity" {
   let pos_inf : Double = @double.infinity
   let neg_inf : Double = @double.neg_infinity
   assert_true(
-    (try? BuiltinColumn::from_floats([pos_inf]).to_int()) is Err(ParseError(_)),
+    (try? BuiltinColumn::from_floats([pos_inf]).cast(@types.DataType::Int))
+    is Err(ParseError(_)),
   )
   assert_true(
-    (try? BuiltinColumn::from_floats([neg_inf]).to_int()) is Err(ParseError(_)),
-  )
-}
-
-///|
-test "to_int rejects values outside the Int range" {
-  let too_big : Double = 1.0e30
-  let too_small : Double = -1.0e30
-  assert_true(
-    (try? BuiltinColumn::from_floats([too_big]).to_int()) is Err(ParseError(_)),
-  )
-  assert_true(
-    (try? BuiltinColumn::from_floats([too_small]).to_int())
+    (try? BuiltinColumn::from_floats([neg_inf]).cast(@types.DataType::Int))
     is Err(ParseError(_)),
   )
 }
 
 ///|
-test "to_int from Float skips None and truncates valid cells" {
+test "cast Int rejects values outside the Int range" {
+  let too_big : Double = 1.0e30
+  let too_small : Double = -1.0e30
+  assert_true(
+    (try? BuiltinColumn::from_floats([too_big]).cast(@types.DataType::Int))
+    is Err(ParseError(_)),
+  )
+  assert_true(
+    (try? BuiltinColumn::from_floats([too_small]).cast(@types.DataType::Int))
+    is Err(ParseError(_)),
+  )
+}
+
+///|
+test "cast Int from Float skips None and truncates valid cells" {
   let col = BuiltinColumn::from_float_options([Some(1.9), None, Some(-2.5)])
-  let out = col.to_int()
+  let out = col.cast(@types.DataType::Int)
   assert_eq(out.get(0), @types.Scalar::Int(1))
   assert_eq(out.get(1), @types.Scalar::Null)
   assert_eq(out.get(2), @types.Scalar::Int(-2))
@@ -452,66 +455,76 @@ test "to_int from Float skips None and truncates valid cells" {
 // ── String -> numeric parse strictness ───────────────────────────────
 
 ///|
-test "to_int rejects malformed strings" {
+test "cast Int rejects malformed strings" {
   assert_true(
-    (try? BuiltinColumn::from_strings(["42abc"]).to_int()) is Err(ParseError(_)),
-  )
-  assert_true(
-    (try? BuiltinColumn::from_strings([""]).to_int()) is Err(ParseError(_)),
-  )
-  assert_true(
-    (try? BuiltinColumn::from_strings(["  42"]).to_int()) is Err(ParseError(_)),
-  )
-}
-
-///|
-test "to_float rejects malformed strings" {
-  assert_true(
-    (try? BuiltinColumn::from_strings(["1.5x"]).to_float())
+    (try? BuiltinColumn::from_strings(["42abc"]).cast(@types.DataType::Int))
     is Err(ParseError(_)),
   )
   assert_true(
-    (try? BuiltinColumn::from_strings([""]).to_float()) is Err(ParseError(_)),
+    (try? BuiltinColumn::from_strings([""]).cast(@types.DataType::Int))
+    is Err(ParseError(_)),
+  )
+  assert_true(
+    (try? BuiltinColumn::from_strings(["  42"]).cast(@types.DataType::Int))
+    is Err(ParseError(_)),
   )
 }
 
 ///|
-test "to_int rejects base prefixes and underscore grouping" {
+test "cast Float rejects malformed strings" {
+  assert_true(
+    (try? BuiltinColumn::from_strings(["1.5x"]).cast(@types.DataType::Float))
+    is Err(ParseError(_)),
+  )
+  assert_true(
+    (try? BuiltinColumn::from_strings([""]).cast(@types.DataType::Float))
+    is Err(ParseError(_)),
+  )
+}
+
+///|
+test "cast Int rejects base prefixes and underscore grouping" {
   // `@string.parse_int` defaults to base=0 and would accept these; the
   // cast screens them out so it agrees with CSV inference, which keeps
   // `0xFF` / `1_000` as String.
   assert_true(
-    (try? BuiltinColumn::from_strings(["0xFF"]).to_int()) is Err(ParseError(_)),
+    (try? BuiltinColumn::from_strings(["0xFF"]).cast(@types.DataType::Int))
+    is Err(ParseError(_)),
   )
   assert_true(
-    (try? BuiltinColumn::from_strings(["0o17"]).to_int()) is Err(ParseError(_)),
+    (try? BuiltinColumn::from_strings(["0o17"]).cast(@types.DataType::Int))
+    is Err(ParseError(_)),
   )
   assert_true(
-    (try? BuiltinColumn::from_strings(["0b101"]).to_int()) is Err(ParseError(_)),
+    (try? BuiltinColumn::from_strings(["0b101"]).cast(@types.DataType::Int))
+    is Err(ParseError(_)),
   )
   assert_true(
-    (try? BuiltinColumn::from_strings(["1_000"]).to_int()) is Err(ParseError(_)),
+    (try? BuiltinColumn::from_strings(["1_000"]).cast(@types.DataType::Int))
+    is Err(ParseError(_)),
   )
 }
 
 ///|
-test "to_int rejects decimal integers overflowing Int64" {
+test "cast Int rejects decimal integers overflowing Int64" {
   // Passes the decimal-literal screen but overflows `@string.parse_int64`,
   // exercising the parse-failure branch after the screen.
   assert_true(
-    (try? BuiltinColumn::from_strings(["99999999999999999999"]).to_int())
+    (try? BuiltinColumn::from_strings(["99999999999999999999"]).cast(
+      @types.DataType::Int,
+    ))
     is Err(ParseError(_)),
   )
 }
 
 ///|
-test "to_float rejects underscore grouping but keeps scientific notation" {
+test "cast Float rejects underscore grouping but keeps scientific notation" {
   assert_true(
-    (try? BuiltinColumn::from_strings(["1_000"]).to_float())
+    (try? BuiltinColumn::from_strings(["1_000"]).cast(@types.DataType::Float))
     is Err(ParseError(_)),
   )
   // No underscore → still parsed; scientific notation is unaffected.
-  let out = BuiltinColumn::from_strings(["1e3"]).to_float()
+  let out = BuiltinColumn::from_strings(["1e3"]).cast(@types.DataType::Float)
   assert_eq(out.get(0), @types.Scalar::Float(1000.0))
 }
 
@@ -578,7 +591,7 @@ test "cast Int -> Float preserves the validity bitmap" {
     None,
     Some(5),
   ])
-  let out = col.to_float()
+  let out = col.cast(@types.DataType::Float)
   // Validity is unchanged across the cast.
   let (_, src_validity) = col.int_values()
   let (_, dst_validity) = out.float_values()
@@ -596,11 +609,11 @@ test "cast Bool -> Int and Bool -> Float preserve validity" {
     Some(false),
     None,
   ])
-  let as_int = col.to_int()
+  let as_int = col.cast(@types.DataType::Int)
   assert_eq(as_int.null_count(), 2)
   assert_eq(as_int.get(0), @types.Scalar::Int(1))
   assert_eq(as_int.get(2), @types.Scalar::Int(0))
-  let as_float = col.to_float()
+  let as_float = col.cast(@types.DataType::Float)
   assert_eq(as_float.null_count(), 2)
   assert_eq(as_float.get(0), @types.Scalar::Float(1.0))
 }
@@ -642,20 +655,20 @@ test "slice preserves nulls in the sub-window" {
 }
 
 ///|
-test "to_int from String skips null slots without parsing the placeholder" {
+test "cast Int from String skips null slots without parsing the placeholder" {
   // The placeholder for null String slots is "" (empty), which is itself
   // unparseable as an Int. The cast must short-circuit on null so the
   // placeholder is never parsed.
   let col = BuiltinColumn::from_string_options([None, Some("42")])
-  let out = col.to_int()
+  let out = col.cast(@types.DataType::Int)
   assert_eq(out.get(0), @types.Scalar::Null)
   assert_eq(out.get(1), @types.Scalar::Int(42))
 }
 
 ///|
-test "to_float from String skips null slots without parsing the placeholder" {
+test "cast Float from String skips null slots without parsing the placeholder" {
   let col = BuiltinColumn::from_string_options([None, Some("1.5")])
-  let out = col.to_float()
+  let out = col.cast(@types.DataType::Float)
   assert_eq(out.get(0), @types.Scalar::Null)
   assert_eq(out.get(1), @types.Scalar::Float(1.5))
 }

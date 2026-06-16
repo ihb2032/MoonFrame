@@ -80,22 +80,6 @@ test "is_empty true on zero-length, false otherwise" {
 }
 
 ///|
-test "null_rate covers empty / no-null / mixed / all-null" {
-  // Empty: 0 / 0 collapses to 0.0 (avoid NaN propagation).
-  let empty = Series::from_int_options("x", [])
-  assert_eq(empty.null_rate(), (0.0 : Double))
-  // No nulls.
-  let dense = Series::from_ints("x", [1, 2, 3, 4])
-  assert_eq(dense.null_rate(), (0.0 : Double))
-  // Mixed.
-  let mixed = Series::from_int_options("x", [Some(1), None, Some(3), None])
-  assert_eq(mixed.null_rate(), (0.5 : Double))
-  // All-null.
-  let all_null = Series::from_int_options("x", [None, None])
-  assert_eq(all_null.null_rate(), (1.0 : Double))
-}
-
-///|
 test "is_null returns the validity for in-bounds, IndexOutOfBounds otherwise" {
   let s = Series::from_int_options("x", [Some(1), None, Some(3)])
   assert_eq(s.is_null(0), false)
@@ -291,7 +275,10 @@ test "fill_null rejects dtype-mismatched String fill" {
   )
 }
 
-// ── cast / to_int / to_float / to_string_series ──────────────────────
+// ── cast (Int / Float / String targets) ──────────────────────────────
+// `cast(dtype)` is the single cross-dtype entry; the per-source-dtype
+// behaviour pinned below is what the retired `to_int` / `to_float` /
+// `to_string_series` convenience wrappers used to expose.
 
 ///|
 test "cast dispatches by target dtype" {
@@ -304,52 +291,59 @@ test "cast dispatches by target dtype" {
 }
 
 ///|
-test "to_int identity / Float→Int / Bool→Int / String→Int" {
+test "cast to Int: identity / Float→Int / Bool→Int / String→Int" {
   let i = Series::from_ints("x", [1, 2])
-  // to_int borrows the Builtin road, so an identity Int→Int cast materialises
+  // cast borrows the Builtin road, so an identity Int→Int cast materialises
   // onto the Builtin backend — it equals the widened original, not `i` itself.
-  assert_eq(i.to_int(), i.to_builtin())
-  assert_eq(i.to_int().storage_kind(), @column.StorageKind::Builtin)
+  assert_eq(i.cast(@types.DataType::Int), i.to_builtin())
+  assert_eq(
+    i.cast(@types.DataType::Int).storage_kind(),
+    @column.StorageKind::Builtin,
+  )
   let f = Series::from_floats("x", [1.5, 2.7])
-  let f_to_i = f.to_int()
+  let f_to_i = f.cast(@types.DataType::Int)
   assert_eq(f_to_i.get(0), @types.Scalar::Int(1))
   let b = Series::from_bools("x", [true, false])
-  let b_to_i = b.to_int()
+  let b_to_i = b.cast(@types.DataType::Int)
   assert_eq(b_to_i.get(0), @types.Scalar::Int(1))
   assert_eq(b_to_i.get(1), @types.Scalar::Int(0))
   let bad = Series::from_strings("x", ["nope"])
-  assert_true((try? bad.to_int()) is Err(ParseError(_)))
+  assert_true((try? bad.cast(@types.DataType::Int)) is Err(ParseError(_)))
 }
 
 ///|
-test "to_float identity / Int→Float / Bool→Float / String→Float" {
+test "cast to Float: identity / Int→Float / Bool→Float / String→Float" {
   let f = Series::from_floats("x", [1.0])
-  // Same as to_int: identity Float→Float materialises onto the Builtin backend.
-  assert_eq(f.to_float(), f.to_builtin())
+  // Same as the Int cast: identity Float→Float materialises onto the Builtin
+  // backend.
+  assert_eq(f.cast(@types.DataType::Float), f.to_builtin())
   let i = Series::from_ints("x", [3])
-  assert_eq(i.to_float().get(0), @types.Scalar::Float(3.0))
+  assert_eq(i.cast(@types.DataType::Float).get(0), @types.Scalar::Float(3.0))
   let b = Series::from_bools("x", [true, false])
-  let b_to_f = b.to_float()
+  let b_to_f = b.cast(@types.DataType::Float)
   assert_eq(b_to_f.get(0), @types.Scalar::Float(1.0))
   assert_eq(b_to_f.get(1), @types.Scalar::Float(0.0))
   let bad = Series::from_strings("x", ["x"])
-  assert_true((try? bad.to_float()) is Err(ParseError(_)))
+  assert_true((try? bad.cast(@types.DataType::Float)) is Err(ParseError(_)))
 }
 
 ///|
-test "to_string_series renders value-style across dtypes" {
+test "cast to String renders value-style across dtypes" {
   let i = Series::from_int_options("x", [Some(7), None])
-  let s_i = i.to_string_series()
+  let s_i = i.cast(@types.DataType::String)
   assert_eq(s_i.get(0), @types.Scalar::String("7"))
   assert_eq(s_i.get(1), @types.Scalar::Null)
   let f = Series::from_floats("x", [1.5])
-  assert_eq(f.to_string_series().get(0), @types.Scalar::String("1.5"))
+  assert_eq(
+    f.cast(@types.DataType::String).get(0),
+    @types.Scalar::String("1.5"),
+  )
   let b = Series::from_bools("x", [true, false])
-  let s_b = b.to_string_series()
+  let s_b = b.cast(@types.DataType::String)
   assert_eq(s_b.get(0), @types.Scalar::String("true"))
   assert_eq(s_b.get(1), @types.Scalar::String("false"))
   let s = Series::from_strings("x", ["already"])
-  assert_eq(s.to_string_series(), s)
+  assert_eq(s.cast(@types.DataType::String), s)
 }
 
 // ── storage backend control: storage_kind / to_numeric / to_builtin ──

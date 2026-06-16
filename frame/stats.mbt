@@ -19,8 +19,8 @@
 //   - `min` / `max` null out `Bool` / `String` columns, where Polars would
 //     instead order them. The numeric-only rule is kept uniform across the
 //     four reductions for one predictable frame shape; a caller who wants a
-//     `Bool` / `String` extremum reads the column's total `Series::min_value`
-//     / `max_value`, which order every dtype.
+//     `Bool` / `String` extremum reads the column's total `Series::min`
+//     / `max`, which order every dtype.
 //   - an empty / all-null numeric column follows the per-group / per-scope
 //     reducers, not the `Series` API: `sum` is the additive identity
 //     (`0` / `0.0`), while `mean` / `min` / `max` yield a `Null` cell rather
@@ -57,7 +57,7 @@ pub fn DataFrame::mean(self : DataFrame) -> DataFrame raise @types.DataError {
 /// Minimum of every column as a 1-row `DataFrame`: numeric columns hold their
 /// minimum non-null cell (`Float` `NaN` skipped, source dtype preserved),
 /// non-numeric columns a `Null` cell. Note this nulls `Bool` / `String`
-/// columns rather than ordering them — use `Series::min_value` for a typed
+/// columns rather than ordering them — use `Series::min` for a typed
 /// extremum over any dtype.
 pub fn DataFrame::min(self : DataFrame) -> DataFrame raise @types.DataError {
   self.reduce_to_row(ReduceOp::Min)
@@ -130,10 +130,8 @@ fn reduce_column(s : Series, op : ReduceOp) -> Series raise @types.DataError {
     // `Series::sum` only raises for a non-numeric dtype, which the `numeric`
     // guard excludes — so the call never actually raises here.
     ReduceOp::Sum => (if numeric { s.sum() } else { @types.Scalar::Null }, data)
-    ReduceOp::Min =>
-      (if numeric { s.min_value() } else { @types.Scalar::Null }, data)
-    ReduceOp::Max =>
-      (if numeric { s.max_value() } else { @types.Scalar::Null }, data)
+    ReduceOp::Min => (if numeric { s.min() } else { @types.Scalar::Null }, data)
+    ReduceOp::Max => (if numeric { s.max() } else { @types.Scalar::Null }, data)
     ReduceOp::Mean => {
       // `mean_opt` is the total form of `Series::mean`: `Some` for a numeric
       // column with a non-null cell, `None` for an empty / all-null one (where

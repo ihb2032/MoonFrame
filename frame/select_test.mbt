@@ -235,7 +235,7 @@ test "historical pin: a single bare column yields a one-column frame" {
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.shape(), (3, 1))
   assert_eq(out.columns(), ["b"])
-  assert_eq(out.get(0, "b"), @types.Scalar::String("x"))
+  assert_eq(out.item(0, "b"), @types.Scalar::String("x"))
 }
 
 ///|
@@ -250,10 +250,10 @@ test "historical pin: selecting every column in order equals the original" {
 test "historical pin: bare-column select preserves cells, nulls included" {
   let out = select_df().select([@expr.col("a"), @expr.col("c")])
   assert_eq(out.check_invariants(), Ok(()))
-  assert_eq(out.get(0, "a"), @types.Scalar::Int(1))
-  assert_eq(out.get(2, "a"), @types.Scalar::Int(3))
-  assert_eq(out.get(1, "c"), @types.Scalar::Null)
-  assert_eq(out.get(0, "c"), @types.Scalar::Float(1.5))
+  assert_eq(out.item(0, "a"), @types.Scalar::Int(1))
+  assert_eq(out.item(2, "a"), @types.Scalar::Int(3))
+  assert_eq(out.item(1, "c"), @types.Scalar::Null)
+  assert_eq(out.item(0, "c"), @types.Scalar::Float(1.5))
 }
 
 ///|

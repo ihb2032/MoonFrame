@@ -40,12 +40,12 @@ test "sum reduces numeric columns and nulls non-numeric, as a 1-row frame" {
   assert_eq(r.shape(), (1, 4))
   assert_eq(r.columns(), ["i", "f", "b", "s"])
   // 1 + 2 + 3 = 6 (the null is skipped); 1.0 + 2.0 + 4.0 = 7.0.
-  assert_eq(r.get(0, "i"), @types.Scalar::Int(6))
-  assert_eq(r.get(0, "f"), @types.Scalar::Float(7.0))
+  assert_eq(r.item(0, "i"), @types.Scalar::Int(6))
+  assert_eq(r.item(0, "f"), @types.Scalar::Float(7.0))
   // Non-numeric columns become a Null cell, kept in their source dtype, so
   // the result schema matches the source schema.
-  assert_eq(r.get(0, "b"), @types.Scalar::Null)
-  assert_eq(r.get(0, "s"), @types.Scalar::Null)
+  assert_eq(r.item(0, "b"), @types.Scalar::Null)
+  assert_eq(r.item(0, "s"), @types.Scalar::Null)
   assert_eq(r.get_column("i").dtype(), @types.DataType::Int)
   assert_eq(r.get_column("f").dtype(), @types.DataType::Float)
   assert_eq(r.get_column("b").dtype(), @types.DataType::Bool)
@@ -59,18 +59,18 @@ test "mean reduces numeric columns to Float, nulls non-numeric" {
   let r = stats_df().mean()
   assert_eq(r.shape(), (1, 4))
   // Int column promoted to Float, nulls skipped: (1 + 2 + 3) / 3 = 2.0.
-  assert_eq(r.get(0, "i"), @types.Scalar::Float(2.0))
+  assert_eq(r.item(0, "i"), @types.Scalar::Float(2.0))
   assert_eq(r.get_column("i").dtype(), @types.DataType::Float)
   // Float column: (1.0 + 2.0 + 4.0) / 3 ≈ 2.333 — avoid pinning the digits.
   assert_true(
-    match r.get(0, "f") {
+    match r.item(0, "f") {
       @types.Scalar::Float(m) => m > 2.3 && m < 2.4
       _ => false
     },
   )
   // Non-numeric → Null cell, kept in source dtype (mean retypes only numeric).
-  assert_eq(r.get(0, "b"), @types.Scalar::Null)
-  assert_eq(r.get(0, "s"), @types.Scalar::Null)
+  assert_eq(r.item(0, "b"), @types.Scalar::Null)
+  assert_eq(r.item(0, "s"), @types.Scalar::Null)
   assert_eq(r.get_column("b").dtype(), @types.DataType::Bool)
   assert_eq(r.get_column("s").dtype(), @types.DataType::String)
 }
@@ -85,14 +85,14 @@ test "mean of an empty / all-null numeric column is a Null cell" {
   ])
   let r = allnull.mean()
   assert_eq(r.shape(), (1, 2))
-  assert_eq(r.get(0, "a"), @types.Scalar::Null)
-  assert_eq(r.get(0, "b"), @types.Scalar::Null)
+  assert_eq(r.item(0, "a"), @types.Scalar::Null)
+  assert_eq(r.item(0, "b"), @types.Scalar::Null)
   assert_eq(r.get_column("a").dtype(), @types.DataType::Float)
   // An empty (0-row) numeric column likewise → Null mean cell.
   let empty = DataFrame::empty(
     @types.Schema::new([@types.Field::new("a", @types.DataType::Int)]),
   )
-  assert_eq(empty.mean().get(0, "a"), @types.Scalar::Null)
+  assert_eq(empty.mean().item(0, "a"), @types.Scalar::Null)
 }
 
 // ── min / max ────────────────────────────────────────────────────────
@@ -101,12 +101,12 @@ test "mean of an empty / all-null numeric column is a Null cell" {
 test "min reduces numeric columns and nulls non-numeric" {
   let r = stats_df().min()
   assert_eq(r.shape(), (1, 4))
-  assert_eq(r.get(0, "i"), @types.Scalar::Int(1))
-  assert_eq(r.get(0, "f"), @types.Scalar::Float(1.0))
+  assert_eq(r.item(0, "i"), @types.Scalar::Int(1))
+  assert_eq(r.item(0, "f"), @types.Scalar::Float(1.0))
   // Bool / String are nulled, not ordered — the uniform numeric-only rule
-  // (a typed extremum over any dtype is `Series::min_value`).
-  assert_eq(r.get(0, "b"), @types.Scalar::Null)
-  assert_eq(r.get(0, "s"), @types.Scalar::Null)
+  // (a typed extremum over any dtype is `Series::min`).
+  assert_eq(r.item(0, "b"), @types.Scalar::Null)
+  assert_eq(r.item(0, "s"), @types.Scalar::Null)
   assert_eq(r.get_column("b").dtype(), @types.DataType::Bool)
   assert_eq(r.get_column("s").dtype(), @types.DataType::String)
 }
@@ -115,10 +115,10 @@ test "min reduces numeric columns and nulls non-numeric" {
 test "max reduces numeric columns and nulls non-numeric" {
   let r = stats_df().max()
   assert_eq(r.shape(), (1, 4))
-  assert_eq(r.get(0, "i"), @types.Scalar::Int(3))
-  assert_eq(r.get(0, "f"), @types.Scalar::Float(4.0))
-  assert_eq(r.get(0, "b"), @types.Scalar::Null)
-  assert_eq(r.get(0, "s"), @types.Scalar::Null)
+  assert_eq(r.item(0, "i"), @types.Scalar::Int(3))
+  assert_eq(r.item(0, "f"), @types.Scalar::Float(4.0))
+  assert_eq(r.item(0, "b"), @types.Scalar::Null)
+  assert_eq(r.item(0, "s"), @types.Scalar::Null)
 }
 
 // ── count ────────────────────────────────────────────────────────────
@@ -128,10 +128,10 @@ test "count is the non-null cell count for every column, as a 1-row Int frame" {
   let r = stats_df().count()
   assert_eq(r.shape(), (1, 4))
   // "i" and "f" carry one null each → 3; "b" and "s" have none → 4.
-  assert_eq(r.get(0, "i"), @types.Scalar::Int(3))
-  assert_eq(r.get(0, "f"), @types.Scalar::Int(3))
-  assert_eq(r.get(0, "b"), @types.Scalar::Int(4))
-  assert_eq(r.get(0, "s"), @types.Scalar::Int(4))
+  assert_eq(r.item(0, "i"), @types.Scalar::Int(3))
+  assert_eq(r.item(0, "f"), @types.Scalar::Int(3))
+  assert_eq(r.item(0, "b"), @types.Scalar::Int(4))
+  assert_eq(r.item(0, "s"), @types.Scalar::Int(4))
   // Every output column is Int, regardless of the source dtype.
   for name in ["i", "f", "b", "s"] {
     assert_eq(r.get_column(name).dtype(), @types.DataType::Int)
@@ -152,17 +152,17 @@ test "reductions on a 0-row frame: sum is the identity, count is zero" {
   // sum → additive identity for numeric, Null for non-numeric; still 1 row.
   let s = df.sum()
   assert_eq(s.shape(), (1, 3))
-  assert_eq(s.get(0, "i"), @types.Scalar::Int(0))
-  assert_eq(s.get(0, "f"), @types.Scalar::Float(0.0))
-  assert_eq(s.get(0, "s"), @types.Scalar::Null)
+  assert_eq(s.item(0, "i"), @types.Scalar::Int(0))
+  assert_eq(s.item(0, "f"), @types.Scalar::Float(0.0))
+  assert_eq(s.item(0, "s"), @types.Scalar::Null)
   // count → 0 for every column.
   let c = df.count()
   assert_eq(c.shape(), (1, 3))
-  assert_eq(c.get(0, "i"), @types.Scalar::Int(0))
-  assert_eq(c.get(0, "s"), @types.Scalar::Int(0))
+  assert_eq(c.item(0, "i"), @types.Scalar::Int(0))
+  assert_eq(c.item(0, "s"), @types.Scalar::Int(0))
   // min / max on an empty numeric column → Null cell.
-  assert_eq(df.min().get(0, "i"), @types.Scalar::Null)
-  assert_eq(df.max().get(0, "f"), @types.Scalar::Null)
+  assert_eq(df.min().item(0, "i"), @types.Scalar::Null)
+  assert_eq(df.max().item(0, "f"), @types.Scalar::Null)
 }
 
 ///|
@@ -181,9 +181,9 @@ test "reductions on a 0-column frame collapse to 0x0" {
 test "a single column's scalar reduction goes through its Series" {
   let df = stats_df()
   // The retired `df.sum("i")` is now `df.get_column("i").sum()`
-  // (= Polars `df["i"].sum()`); `min_value` / `count` are likewise total.
+  // (= Polars `df["i"].sum()`); `min` / `count` are likewise total.
   assert_eq(df.get_column("i").sum(), @types.Scalar::Int(6))
-  assert_eq(df.get_column("i").min_value(), @types.Scalar::Int(1))
+  assert_eq(df.get_column("i").min(), @types.Scalar::Int(1))
   assert_eq(df.get_column("b").count(), 4)
   // An unknown column still raises `ColumnNotFound` at the lookup.
   assert_eq(

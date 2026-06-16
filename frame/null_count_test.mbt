@@ -33,9 +33,9 @@ test "null_count summarises each column into a single-cell Int" {
     assert_eq(out.get_column(name).dtype(), @types.DataType::Int)
   }
   // Per-cell values: 2 nulls in "a", 1 null in "b", 0 nulls in "s".
-  assert_eq(out.get(0, "a"), @types.Scalar::Int(2))
-  assert_eq(out.get(0, "b"), @types.Scalar::Int(1))
-  assert_eq(out.get(0, "s"), @types.Scalar::Int(0))
+  assert_eq(out.item(0, "a"), @types.Scalar::Int(2))
+  assert_eq(out.item(0, "b"), @types.Scalar::Int(1))
+  assert_eq(out.item(0, "s"), @types.Scalar::Int(0))
 }
 
 ///|
@@ -47,8 +47,8 @@ test "null_count on a fully-valid frame returns all-zero counts" {
   let out = df.null_count()
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.shape(), (1, 2))
-  assert_eq(out.get(0, "a"), @types.Scalar::Int(0))
-  assert_eq(out.get(0, "s"), @types.Scalar::Int(0))
+  assert_eq(out.item(0, "a"), @types.Scalar::Int(0))
+  assert_eq(out.item(0, "s"), @types.Scalar::Int(0))
 }
 
 ///|
@@ -65,8 +65,8 @@ test "null_count on an all-null column reports the full row count" {
   ])
   let out = df.null_count()
   assert_eq(out.check_invariants(), Ok(()))
-  assert_eq(out.get(0, "a"), @types.Scalar::Int(5))
-  assert_eq(out.get(0, "s"), @types.Scalar::Int(2))
+  assert_eq(out.item(0, "a"), @types.Scalar::Int(5))
+  assert_eq(out.item(0, "s"), @types.Scalar::Int(2))
 }
 
 ///|
@@ -81,8 +81,8 @@ test "null_count on a 0-row frame reports zero for every column" {
   // Shape is (1, 2): the summary always has one row per source column,
   // independent of the source row count.
   assert_eq(out.shape(), (1, 2))
-  assert_eq(out.get(0, "a"), @types.Scalar::Int(0))
-  assert_eq(out.get(0, "b"), @types.Scalar::Int(0))
+  assert_eq(out.item(0, "a"), @types.Scalar::Int(0))
+  assert_eq(out.item(0, "b"), @types.Scalar::Int(0))
 }
 
 ///|
@@ -108,9 +108,9 @@ test "null_count preserves column order even when names sort differently" {
   let out = df.null_count()
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.columns(), ["z", "a", "m"])
-  assert_eq(out.get(0, "z"), @types.Scalar::Int(1))
-  assert_eq(out.get(0, "a"), @types.Scalar::Int(2))
-  assert_eq(out.get(0, "m"), @types.Scalar::Int(0))
+  assert_eq(out.item(0, "z"), @types.Scalar::Int(1))
+  assert_eq(out.item(0, "a"), @types.Scalar::Int(2))
+  assert_eq(out.item(0, "m"), @types.Scalar::Int(0))
 }
 
 ///|
@@ -127,10 +127,10 @@ test "null_count covers every dtype branch" {
   ])
   let out = df.null_count()
   assert_eq(out.check_invariants(), Ok(()))
-  assert_eq(out.get(0, "i"), @types.Scalar::Int(1))
-  assert_eq(out.get(0, "f"), @types.Scalar::Int(1))
-  assert_eq(out.get(0, "b"), @types.Scalar::Int(1))
-  assert_eq(out.get(0, "s"), @types.Scalar::Int(1))
+  assert_eq(out.item(0, "i"), @types.Scalar::Int(1))
+  assert_eq(out.item(0, "f"), @types.Scalar::Int(1))
+  assert_eq(out.item(0, "b"), @types.Scalar::Int(1))
+  assert_eq(out.item(0, "s"), @types.Scalar::Int(1))
 }
 
 // ── Per-cell consistency with Series::null_count ─────────────────────
@@ -145,6 +145,6 @@ test "null_count cell value equals the source series' null_count" {
   assert_eq(out.check_invariants(), Ok(()))
   for name in df.columns() {
     let expected = df.get_column(name).null_count()
-    assert_eq(out.get(0, name), @types.Scalar::Int(expected.to_int64()))
+    assert_eq(out.item(0, name), @types.Scalar::Int(expected.to_int64()))
   }
 }

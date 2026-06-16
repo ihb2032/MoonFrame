@@ -17,15 +17,15 @@
 ///   2. **reductions** read the raw array with no `validity().to_bools()`
 ///      materialisation and no per-slot `if valid[i]` branch that `Series`'
 ///      reductions run: `sum` / `mean` are a tight fold over the array, and
-///      `min_value` / `max_value` share one `fold_extremum` pass whose only
+///      `min` / `max` share one `fold_extremum` pass whose only
 ///      per-slot test is the `Float` `NaN`-skip (a no-op on the `Int` arm).
 ///
 /// The accessor surface is named identically to `BuiltinColumn`'s numeric
 /// accessors so `ColumnStorage::Numeric` can forward to it verbatim (S2) and
 /// the `Series.storage` flip (S3) stays mechanical. The reductions (`sum` /
-/// `mean` / `min_value` / `max_value`) match `Series`' own semantics
+/// `mean` / `min` / `max`) match `Series`' own semantics
 /// (`BuiltinColumn` carries none of its own), and `Series::sum` / `mean` /
-/// `min_value` / `max_value` dispatch straight here on a `Numeric`-backed
+/// `min` / `max` dispatch straight here on a `Numeric`-backed
 /// column — so the bitmap-free fold is the path actually taken for an
 /// all-valid numeric `Series`, not just a parallel implementation. Cross-dtype
 /// transforms
@@ -63,7 +63,7 @@ pub fn NumericColumn::from_int64s(values : Array[Int64]) -> NumericColumn {
 /// value here — it is *not* a missing marker (only an absent slot is, and
 /// this column has none) — and it participates in reductions exactly as
 /// Polars treats it: propagating through `sum` / `mean`, skipped by
-/// `min_value` / `max_value`.
+/// `min` / `max`.
 pub fn NumericColumn::from_doubles(values : Array[Double]) -> NumericColumn {
   { data: Float(values) }
 }
@@ -374,7 +374,7 @@ pub fn NumericColumn::mean(
 /// Fold the cells to an extremum, skipping those `skip(i)` marks (always
 /// `false` for `Int`; `NaN` for `Float`). `better(candidate, best)` decides
 /// replacement. Returns `None` when every cell is skipped (an empty column,
-/// or an all-`NaN` `Float` column). `min_value` / `max_value` share this so
+/// or an all-`NaN` `Float` column). `min` / `max` share this so
 /// each dtype arm supplies only its reader, skip test, and comparator instead
 /// of repeating the `best : T?` accumulation four times.
 fn[T] fold_extremum(
@@ -400,12 +400,12 @@ fn[T] fold_extremum(
 
 ///|
 /// Minimum cell as a `Scalar`, by the dtype's natural order. Total, matching
-/// `Series::min_value`:
+/// `Series::min`:
 /// - Empty column → `Scalar::Null`.
 /// - `Float` `NaN` is skipped (treated as missing for the extremum, as in
 ///   `sort` and Polars' regular `min` — distinct from `sum` / `mean`,
 ///   where it propagates). An all-`NaN` `Float` column → `Scalar::Null`.
-pub fn NumericColumn::min_value(self : NumericColumn) -> @types.Scalar {
+pub fn NumericColumn::min(self : NumericColumn) -> @types.Scalar {
   match self.data {
     Int(a) => {
       let best = fold_extremum(a.length(), i => a[i], fn(_i) { false }, (x, y) => {
@@ -429,9 +429,9 @@ pub fn NumericColumn::min_value(self : NumericColumn) -> @types.Scalar {
 }
 
 ///|
-/// Maximum cell as a `Scalar`. Mirrors `min_value` with `>` for `<`; the
+/// Maximum cell as a `Scalar`. Mirrors `min` with `>` for `<`; the
 /// `Float` `NaN`-skip and empty rules are identical. Total.
-pub fn NumericColumn::max_value(self : NumericColumn) -> @types.Scalar {
+pub fn NumericColumn::max(self : NumericColumn) -> @types.Scalar {
   match self.data {
     Int(a) => {
       let best = fold_extremum(a.length(), i => a[i], fn(_i) { false }, (x, y) => {

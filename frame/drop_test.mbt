@@ -30,8 +30,8 @@ test "drop removes a single column, preserving the remaining order" {
   assert_eq(out.columns(), ["a", "c"])
   assert_eq(out.shape(), (3, 2))
   // Data survives in the kept columns.
-  assert_eq(out.get(0, "a"), @types.Scalar::Int(1))
-  assert_eq(out.get(2, "c"), @types.Scalar::Float(3.5))
+  assert_eq(out.item(0, "a"), @types.Scalar::Int(1))
+  assert_eq(out.item(2, "c"), @types.Scalar::Float(3.5))
 }
 
 ///|

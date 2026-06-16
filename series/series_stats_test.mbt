@@ -124,132 +124,114 @@ test "mean on Bool / String is TypeMismatch" {
   )
 }
 
-// ── min_value / max_value ────────────────────────────────────────────
+// ── min / max ────────────────────────────────────────────
 
 ///|
-test "min_value / max_value on Int series ignore nulls" {
+test "min / max on Int series ignore nulls" {
   let s = Series::from_int_options("x", [Some(3), None, Some(1), Some(2), None])
-  assert_eq(s.min_value(), @types.Scalar::Int(1))
-  assert_eq(s.max_value(), @types.Scalar::Int(3))
+  assert_eq(s.min(), @types.Scalar::Int(1))
+  assert_eq(s.max(), @types.Scalar::Int(3))
 }
 
 ///|
-test "min_value / max_value on Float series ignore nulls" {
+test "min / max on Float series ignore nulls" {
   let s = Series::from_float_options("x", [Some(2.5), None, Some(0.5)])
-  assert_eq(s.min_value(), @types.Scalar::Float(0.5))
-  assert_eq(s.max_value(), @types.Scalar::Float(2.5))
+  assert_eq(s.min(), @types.Scalar::Float(0.5))
+  assert_eq(s.max(), @types.Scalar::Float(2.5))
 }
 
 ///|
-test "min_value / max_value on Bool series follow false < true" {
+test "min / max on Bool series follow false < true" {
   let mixed = Series::from_bools("x", [true, false, true])
-  assert_eq(mixed.min_value(), @types.Scalar::Bool(false))
-  assert_eq(mixed.max_value(), @types.Scalar::Bool(true))
+  assert_eq(mixed.min(), @types.Scalar::Bool(false))
+  assert_eq(mixed.max(), @types.Scalar::Bool(true))
   // Uniform inputs: best stays at the first cell, no `<` / `>` updates.
   let all_true = Series::from_bools("x", [true, true])
-  assert_eq(all_true.min_value(), @types.Scalar::Bool(true))
-  assert_eq(all_true.max_value(), @types.Scalar::Bool(true))
+  assert_eq(all_true.min(), @types.Scalar::Bool(true))
+  assert_eq(all_true.max(), @types.Scalar::Bool(true))
   let all_false = Series::from_bools("x", [false, false])
-  assert_eq(all_false.min_value(), @types.Scalar::Bool(false))
-  assert_eq(all_false.max_value(), @types.Scalar::Bool(false))
+  assert_eq(all_false.min(), @types.Scalar::Bool(false))
+  assert_eq(all_false.max(), @types.Scalar::Bool(false))
 }
 
 ///|
-test "min_value / max_value on String series use lexicographic order" {
+test "min / max on String series use lexicographic order" {
   let s = Series::from_string_options("x", [
     Some("banana"),
     None,
     Some("apple"),
     Some("cherry"),
   ])
-  assert_eq(s.min_value(), @types.Scalar::String("apple"))
-  assert_eq(s.max_value(), @types.Scalar::String("cherry"))
+  assert_eq(s.min(), @types.Scalar::String("apple"))
+  assert_eq(s.max(), @types.Scalar::String("cherry"))
   // Length-differing case: true lexicographic ranks "apple" before "fig"
   // (a < f), whereas the built-in shortlex `<` would rank the shorter
   // "fig" first. Pins the dictionary-order contract.
   let lens = Series::from_strings("x", ["fig", "apple"])
-  assert_eq(lens.min_value(), @types.Scalar::String("apple"))
-  assert_eq(lens.max_value(), @types.Scalar::String("fig"))
+  assert_eq(lens.min(), @types.Scalar::String("apple"))
+  assert_eq(lens.max(), @types.Scalar::String("fig"))
 }
 
 ///|
-test "min_value / max_value on empty / all-null return Null across every dtype" {
+test "min / max on empty / all-null return Null across every dtype" {
   // Every (op, dtype) pair must hit its dedicated `None` branch.
   // Int.
-  assert_eq(Series::from_ints("x", []).min_value(), @types.Scalar::Null)
-  assert_eq(Series::from_ints("x", []).max_value(), @types.Scalar::Null)
+  assert_eq(Series::from_ints("x", []).min(), @types.Scalar::Null)
+  assert_eq(Series::from_ints("x", []).max(), @types.Scalar::Null)
   assert_eq(
-    Series::from_int_options("x", [None, None]).min_value(),
+    Series::from_int_options("x", [None, None]).min(),
     @types.Scalar::Null,
   )
   assert_eq(
-    Series::from_int_options("x", [None, None]).max_value(),
+    Series::from_int_options("x", [None, None]).max(),
     @types.Scalar::Null,
   )
   // Float.
-  assert_eq(Series::from_floats("x", []).min_value(), @types.Scalar::Null)
-  assert_eq(Series::from_floats("x", []).max_value(), @types.Scalar::Null)
-  assert_eq(
-    Series::from_float_options("x", [None]).min_value(),
-    @types.Scalar::Null,
-  )
-  assert_eq(
-    Series::from_float_options("x", [None]).max_value(),
-    @types.Scalar::Null,
-  )
+  assert_eq(Series::from_floats("x", []).min(), @types.Scalar::Null)
+  assert_eq(Series::from_floats("x", []).max(), @types.Scalar::Null)
+  assert_eq(Series::from_float_options("x", [None]).min(), @types.Scalar::Null)
+  assert_eq(Series::from_float_options("x", [None]).max(), @types.Scalar::Null)
   // Bool.
-  assert_eq(Series::from_bools("x", []).min_value(), @types.Scalar::Null)
-  assert_eq(Series::from_bools("x", []).max_value(), @types.Scalar::Null)
-  assert_eq(
-    Series::from_bool_options("x", [None]).min_value(),
-    @types.Scalar::Null,
-  )
-  assert_eq(
-    Series::from_bool_options("x", [None]).max_value(),
-    @types.Scalar::Null,
-  )
+  assert_eq(Series::from_bools("x", []).min(), @types.Scalar::Null)
+  assert_eq(Series::from_bools("x", []).max(), @types.Scalar::Null)
+  assert_eq(Series::from_bool_options("x", [None]).min(), @types.Scalar::Null)
+  assert_eq(Series::from_bool_options("x", [None]).max(), @types.Scalar::Null)
   // String.
-  assert_eq(Series::from_strings("x", []).min_value(), @types.Scalar::Null)
-  assert_eq(Series::from_strings("x", []).max_value(), @types.Scalar::Null)
-  assert_eq(
-    Series::from_string_options("x", [None]).min_value(),
-    @types.Scalar::Null,
-  )
-  assert_eq(
-    Series::from_string_options("x", [None]).max_value(),
-    @types.Scalar::Null,
-  )
+  assert_eq(Series::from_strings("x", []).min(), @types.Scalar::Null)
+  assert_eq(Series::from_strings("x", []).max(), @types.Scalar::Null)
+  assert_eq(Series::from_string_options("x", [None]).min(), @types.Scalar::Null)
+  assert_eq(Series::from_string_options("x", [None]).max(), @types.Scalar::Null)
 }
 
 ///|
-test "min_value / max_value skip Float NaN (treated as missing, like sort)" {
+test "min / max skip Float NaN (treated as missing, like sort)" {
   let nan : Double = @double.not_a_number
   // A leading NaN is skipped, so it does not become the result.
   let nan_first = Series::from_floats("x", [nan, 1.0])
-  assert_eq(nan_first.min_value(), @types.Scalar::Float(1.0))
-  assert_eq(nan_first.max_value(), @types.Scalar::Float(1.0))
+  assert_eq(nan_first.min(), @types.Scalar::Float(1.0))
+  assert_eq(nan_first.max(), @types.Scalar::Float(1.0))
   // Interior NaN cells are ignored.
   let nan_later = Series::from_floats("x", [1.0, nan, 0.5])
-  assert_eq(nan_later.min_value(), @types.Scalar::Float(0.5))
-  assert_eq(nan_later.max_value(), @types.Scalar::Float(1.0))
+  assert_eq(nan_later.min(), @types.Scalar::Float(0.5))
+  assert_eq(nan_later.max(), @types.Scalar::Float(1.0))
   // All-NaN collapses to Null (every cell skipped), like an all-null series.
   let all_nan = Series::from_floats("x", [nan, nan])
-  assert_eq(all_nan.min_value(), @types.Scalar::Null)
-  assert_eq(all_nan.max_value(), @types.Scalar::Null)
+  assert_eq(all_nan.min(), @types.Scalar::Null)
+  assert_eq(all_nan.max(), @types.Scalar::Null)
 }
 
 ///|
-test "min_value / max_value Bool flip when the running extremum must change" {
+test "min / max Bool flip when the running extremum must change" {
   // Exercises the tie-break `then` arms: `max` starts at `false` and must
   // switch up to `true`; `min` starts at `true` and must switch down to
   // `false`. (When `true` precedes `false` for `max`, the running max is
   // already `true` and the `then` arm never fires.)
   assert_eq(
-    Series::from_bools("x", [false, true]).max_value(),
+    Series::from_bools("x", [false, true]).max(),
     @types.Scalar::Bool(true),
   )
   assert_eq(
-    Series::from_bools("y", [true, false]).min_value(),
+    Series::from_bools("y", [true, false]).min(),
     @types.Scalar::Bool(false),
   )
 }
@@ -267,8 +249,8 @@ test "reductions agree on the Numeric fast path and the Builtin path" {
   assert_eq(bints.storage_kind(), @column.StorageKind::Builtin)
   assert_eq(ints.sum(), bints.sum())
   assert_eq(ints.mean(), bints.mean())
-  assert_eq(ints.min_value(), bints.min_value())
-  assert_eq(ints.max_value(), bints.max_value())
+  assert_eq(ints.min(), bints.min())
+  assert_eq(ints.max(), bints.max())
   // Float with a NaN cell: sum / mean propagate NaN, min / max skip it — both
   // backends must reach the same verdict on every reduction.
   let nan : Double = @double.not_a_number
@@ -277,8 +259,8 @@ test "reductions agree on the Numeric fast path and the Builtin path" {
   assert_eq(flts.storage_kind(), @column.StorageKind::Numeric)
   assert_true(flts.sum().as_float().is_nan() && bflts.sum().as_float().is_nan())
   assert_true(flts.mean().is_nan() && bflts.mean().is_nan())
-  assert_eq(flts.min_value(), bflts.min_value())
-  assert_eq(flts.max_value(), bflts.max_value())
+  assert_eq(flts.min(), bflts.min())
+  assert_eq(flts.max(), bflts.max())
 }
 
 // ── n_unique ─────────────────────────────────────────────────────────

@@ -25,10 +25,10 @@ test "parse_csv_str infers Int / Float / Bool / String in declaration order" {
   assert_eq(df.get_column("r").dtype(), @types.DataType::Float)
   assert_eq(df.get_column("b").dtype(), @types.DataType::Bool)
   assert_eq(df.get_column("s").dtype(), @types.DataType::String)
-  assert_eq(df.get(1, "n"), @types.Scalar::Int(2))
-  assert_eq(df.get(1, "r"), @types.Scalar::Float(2.5))
-  assert_eq(df.get(2, "b"), @types.Scalar::Bool(true))
-  assert_eq(df.get(0, "s"), @types.Scalar::String("alpha"))
+  assert_eq(df.item(1, "n"), @types.Scalar::Int(2))
+  assert_eq(df.item(1, "r"), @types.Scalar::Float(2.5))
+  assert_eq(df.item(2, "b"), @types.Scalar::Bool(true))
+  assert_eq(df.item(0, "s"), @types.Scalar::String("alpha"))
 }
 
 ///|
@@ -44,9 +44,9 @@ test "parse_csv_str: signed integers (+ / -) infer as Int" {
   let df = @io.parse_csv_str(content, @io.CsvReadOptions::default())
   assert_eq(df.check_invariants(), Ok(()))
   assert_eq(df.get_column("n").dtype(), @types.DataType::Int)
-  assert_eq(df.get(0, "n"), @types.Scalar::Int(-5))
-  assert_eq(df.get(1, "n"), @types.Scalar::Int(7))
-  assert_eq(df.get(2, "n"), @types.Scalar::Int(10))
+  assert_eq(df.item(0, "n"), @types.Scalar::Int(-5))
+  assert_eq(df.item(1, "n"), @types.Scalar::Int(7))
+  assert_eq(df.item(2, "n"), @types.Scalar::Int(10))
 }
 
 ///|
@@ -64,8 +64,8 @@ test "parse_csv_str: non-decimal numeric forms stay String (no 0x / underscore)"
   assert_eq(df.check_invariants(), Ok(()))
   assert_eq(df.get_column("hex").dtype(), @types.DataType::String)
   assert_eq(df.get_column("grouped").dtype(), @types.DataType::String)
-  assert_eq(df.get(0, "hex"), @types.Scalar::String("0xFF"))
-  assert_eq(df.get(1, "grouped"), @types.Scalar::String("2_000"))
+  assert_eq(df.item(0, "hex"), @types.Scalar::String("0xFF"))
+  assert_eq(df.item(1, "grouped"), @types.Scalar::String("2_000"))
 }
 
 ///|
@@ -103,7 +103,7 @@ test "parse_csv_str: null values map to None for every inferred dtype" {
   assert_eq(df.get_column("b").dtype(), @types.DataType::Bool)
   assert_eq(df.get_column("s").dtype(), @types.DataType::String)
   for name in ["i", "f", "b", "s"] {
-    assert_eq(df.get(1, name), @types.Scalar::Null)
+    assert_eq(df.item(1, name), @types.Scalar::Null)
     assert_eq(df.get_column(name).null_count(), 1)
   }
 }
@@ -126,8 +126,8 @@ test "parse_csv_str: has_header=false synthesises column1, column2, …" {
   assert_eq(df.check_invariants(), Ok(()))
   assert_eq(df.columns(), ["column1", "column2", "column3"])
   assert_eq(df.shape(), (2, 3))
-  assert_eq(df.get(0, "column1"), @types.Scalar::Int(10))
-  assert_eq(df.get(1, "column3"), @types.Scalar::Int(31))
+  assert_eq(df.item(0, "column1"), @types.Scalar::Int(10))
+  assert_eq(df.item(1, "column3"), @types.Scalar::Int(31))
 }
 
 ///|
@@ -149,8 +149,8 @@ test "parse_csv_str: custom delimiter (semicolon) splits cells correctly" {
   assert_eq(df.check_invariants(), Ok(()))
   assert_eq(df.shape(), (2, 3))
   assert_eq(df.columns(), ["a", "b", "c"])
-  assert_eq(df.get(0, "a"), @types.Scalar::Int(1))
-  assert_eq(df.get(1, "c"), @types.Scalar::Int(6))
+  assert_eq(df.item(0, "a"), @types.Scalar::Int(1))
+  assert_eq(df.item(1, "c"), @types.Scalar::Int(6))
 }
 
 ///|
@@ -175,8 +175,8 @@ test "parse_csv_str: custom null_values let NA / N/A become null" {
   // String because non-null cells "x"/"z" never parse as Int/Float/Bool.
   assert_eq(df.get_column("a").dtype(), @types.DataType::Int)
   assert_eq(df.get_column("b").dtype(), @types.DataType::String)
-  assert_eq(df.get(1, "a"), @types.Scalar::Null)
-  assert_eq(df.get(1, "b"), @types.Scalar::Null)
+  assert_eq(df.item(1, "a"), @types.Scalar::Null)
+  assert_eq(df.item(1, "b"), @types.Scalar::Null)
 }
 
 ///|
@@ -192,9 +192,9 @@ test "parse_csv_str: Int promotes to Float when later rows mix in 1.5" {
   let df = @io.parse_csv_str(content, @io.CsvReadOptions::default())
   assert_eq(df.check_invariants(), Ok(()))
   assert_eq(df.get_column("x").dtype(), @types.DataType::Float)
-  assert_eq(df.get(0, "x"), @types.Scalar::Float(1.0))
-  assert_eq(df.get(1, "x"), @types.Scalar::Float(1.5))
-  assert_eq(df.get(2, "x"), @types.Scalar::Float(2.0))
+  assert_eq(df.item(0, "x"), @types.Scalar::Float(1.0))
+  assert_eq(df.item(1, "x"), @types.Scalar::Float(1.5))
+  assert_eq(df.item(2, "x"), @types.Scalar::Float(2.0))
 }
 
 ///|
@@ -208,9 +208,9 @@ test "parse_csv_str: Bool inference accepts mixed casing (TRUE / False)" {
   let df = @io.parse_csv_str(content, @io.CsvReadOptions::default())
   assert_eq(df.check_invariants(), Ok(()))
   assert_eq(df.get_column("b").dtype(), @types.DataType::Bool)
-  assert_eq(df.get(0, "b"), @types.Scalar::Bool(true))
-  assert_eq(df.get(1, "b"), @types.Scalar::Bool(false))
-  assert_eq(df.get(2, "b"), @types.Scalar::Bool(true))
+  assert_eq(df.item(0, "b"), @types.Scalar::Bool(true))
+  assert_eq(df.item(1, "b"), @types.Scalar::Bool(false))
+  assert_eq(df.item(2, "b"), @types.Scalar::Bool(true))
 }
 
 ///|
@@ -267,7 +267,7 @@ test "parse_csv_str: short data rows pad to null cells" {
   assert_eq(df.check_invariants(), Ok(()))
   assert_eq(df.shape(), (3, 3))
   assert_eq(df.get_column("c").dtype(), @types.DataType::Int)
-  assert_eq(df.get(1, "c"), @types.Scalar::Null)
+  assert_eq(df.item(1, "c"), @types.Scalar::Null)
 }
 
 ///|
@@ -313,7 +313,7 @@ test "parse_csv_str: strict_column_count passes a uniform-width frame" {
   })
   assert_eq(df.check_invariants(), Ok(()))
   assert_eq(df.shape(), (2, 3))
-  assert_eq(df.get(1, "c"), @types.Scalar::Int(6))
+  assert_eq(df.item(1, "c"), @types.Scalar::Int(6))
 }
 
 // ── parse_csv_str: edge / error paths ─────────────────────────────────
@@ -374,7 +374,7 @@ test "parse_csv_str: single column, single row" {
   let df = @io.parse_csv_str("only\n42\n", @io.CsvReadOptions::default())
   assert_eq(df.check_invariants(), Ok(()))
   assert_eq(df.shape(), (1, 1))
-  assert_eq(df.get(0, "only"), @types.Scalar::Int(42))
+  assert_eq(df.item(0, "only"), @types.Scalar::Int(42))
 }
 
 ///|
@@ -479,8 +479,8 @@ test "parse_csv_str: infer_schema_rows=0 scans every row to fix late dtype shift
   })
   assert_eq(df.check_invariants(), Ok(()))
   assert_eq(df.get_column("x").dtype(), @types.DataType::Float)
-  assert_eq(df.get(0, "x"), @types.Scalar::Float(1.0))
-  assert_eq(df.get(1, "x"), @types.Scalar::Float(1.5))
+  assert_eq(df.item(0, "x"), @types.Scalar::Float(1.0))
+  assert_eq(df.item(1, "x"), @types.Scalar::Float(1.5))
 }
 
 ///|
@@ -506,8 +506,8 @@ test "parse_csv_str: on_parse_error=Null downgrades an out-of-window misfit to n
   })
   assert_eq(df.check_invariants(), Ok(()))
   assert_eq(df.get_column("n").dtype(), @types.DataType::Int)
-  assert_eq(df.get(0, "n"), @types.Scalar::Int(1))
-  assert_eq(df.get(2, "n"), @types.Scalar::Null)
+  assert_eq(df.item(0, "n"), @types.Scalar::Int(1))
+  assert_eq(df.item(2, "n"), @types.Scalar::Null)
   assert_eq(df.get_column("n").null_count(), 1)
 }
 
@@ -527,10 +527,10 @@ test "parse_csv_str: allow_nonfinite_floats gates nan / inf float inference" {
   let as_float = @io.parse_csv_str(content, @io.CsvReadOptions::default())
   assert_eq(as_float.check_invariants(), Ok(()))
   assert_eq(as_float.get_column("x").dtype(), @types.DataType::Float)
-  assert_eq(as_float.get(1, "x"), @types.Scalar::Float(1.5))
+  assert_eq(as_float.item(1, "x"), @types.Scalar::Float(1.5))
   // The non-finite cells stay Float (NaN / +Infinity), not null.
-  assert_true(as_float.get(0, "x") is @types.Scalar::Float(_))
-  assert_true(as_float.get(2, "x") is @types.Scalar::Float(_))
+  assert_true(as_float.item(0, "x") is @types.Scalar::Float(_))
+  assert_true(as_float.item(2, "x") is @types.Scalar::Float(_))
   let as_string = @io.parse_csv_str(content, {
     has_header: true,
     delimiter: ',',
@@ -541,9 +541,9 @@ test "parse_csv_str: allow_nonfinite_floats gates nan / inf float inference" {
     allow_nonfinite_floats: false,
   })
   assert_eq(as_string.get_column("x").dtype(), @types.DataType::String)
-  assert_eq(as_string.get(0, "x"), @types.Scalar::String("nan"))
-  assert_eq(as_string.get(1, "x"), @types.Scalar::String("1.5"))
-  assert_eq(as_string.get(2, "x"), @types.Scalar::String("inf"))
+  assert_eq(as_string.item(0, "x"), @types.Scalar::String("nan"))
+  assert_eq(as_string.item(1, "x"), @types.Scalar::String("1.5"))
+  assert_eq(as_string.item(2, "x"), @types.Scalar::String("inf"))
 }
 
 ///|
@@ -568,8 +568,8 @@ test "parse_csv_str: allow_nonfinite=false rejects a leading inf (is_inf gate)" 
     allow_nonfinite_floats: false,
   })
   assert_eq(df.get_column("x").dtype(), @types.DataType::String)
-  assert_eq(df.get(0, "x"), @types.Scalar::String("inf"))
-  assert_eq(df.get(1, "x"), @types.Scalar::String("2.5"))
+  assert_eq(df.item(0, "x"), @types.Scalar::String("inf"))
+  assert_eq(df.item(1, "x"), @types.Scalar::String("2.5"))
 }
 
 // ── format_csv_str: happy paths ───────────────────────────────────────
@@ -726,7 +726,7 @@ test "parse_csv_str ∘ format_csv_str: round-trip preserves dtypes and values" 
   for name in df.columns() {
     assert_eq(parsed.get_column(name).dtype(), df.get_column(name).dtype())
     for i in 0..<df.nrows() {
-      assert_eq(parsed.get(i, name), df.get(i, name))
+      assert_eq(parsed.item(i, name), df.item(i, name))
     }
   }
 }
@@ -747,10 +747,10 @@ test "parse_csv_str ∘ format_csv_str: round-trips quoted delimiters, quotes, a
   let parsed = @io.parse_csv_str(text, @io.CsvReadOptions::default())
   assert_eq(parsed.check_invariants(), Ok(()))
   assert_eq(parsed.shape(), (3, 2))
-  assert_eq(parsed.get(0, "text"), @types.Scalar::String("needs,comma"))
-  assert_eq(parsed.get(1, "text"), @types.Scalar::String("has \"quote\""))
-  assert_eq(parsed.get(2, "text"), @types.Scalar::String("two\nlines"))
-  assert_eq(parsed.get(2, "n"), @types.Scalar::Int(3))
+  assert_eq(parsed.item(0, "text"), @types.Scalar::String("needs,comma"))
+  assert_eq(parsed.item(1, "text"), @types.Scalar::String("has \"quote\""))
+  assert_eq(parsed.item(2, "text"), @types.Scalar::String("two\nlines"))
+  assert_eq(parsed.item(2, "n"), @types.Scalar::Int(3))
 }
 
 // ── read_csv / write_csv: file-system path ────────────────────────────
@@ -767,8 +767,8 @@ test "write_csv then read_csv round-trips a small frame on disk" {
   assert_eq(parsed.check_invariants(), Ok(()))
   assert_eq(parsed.shape(), (3, 2))
   assert_eq(parsed.columns(), ["n", "s"])
-  assert_eq(parsed.get(2, "n"), @types.Scalar::Int(3))
-  assert_eq(parsed.get(0, "s"), @types.Scalar::String("x"))
+  assert_eq(parsed.item(2, "n"), @types.Scalar::Int(3))
+  assert_eq(parsed.item(0, "s"), @types.Scalar::String("x"))
 }
 
 ///|
@@ -795,9 +795,9 @@ test "write_csv_with_options + read_csv_with_options honour custom shape" {
   @io.write_csv_with_options(path, df, write_opts)
   let parsed = @io.read_csv_with_options(path, read_opts)
   assert_eq(parsed.check_invariants(), Ok(()))
-  assert_eq(parsed.get(0, "a"), @types.Scalar::Int(1))
-  assert_eq(parsed.get(1, "a"), @types.Scalar::Null)
-  assert_eq(parsed.get(0, "b"), @types.Scalar::String("p"))
+  assert_eq(parsed.item(0, "a"), @types.Scalar::Int(1))
+  assert_eq(parsed.item(1, "a"), @types.Scalar::Null)
+  assert_eq(parsed.item(0, "b"), @types.Scalar::String("p"))
 }
 
 ///|

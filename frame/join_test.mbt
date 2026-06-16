@@ -46,12 +46,12 @@ test "inner join keeps only matched rows, in left order" {
   assert_eq(out.columns(), ["emp_id", "name", "dept_id", "dept_name"])
   // Dave (dept 99) drops; HR (dept 30) never appears. Left order preserved.
   assert_eq(out.shape(), (3, 4))
-  assert_eq(out.get(0, "name"), @types.Scalar::String("Alice"))
-  assert_eq(out.get(0, "dept_name"), @types.Scalar::String("Eng"))
-  assert_eq(out.get(1, "name"), @types.Scalar::String("Bob"))
-  assert_eq(out.get(1, "dept_name"), @types.Scalar::String("Sales"))
-  assert_eq(out.get(2, "name"), @types.Scalar::String("Carol"))
-  assert_eq(out.get(2, "dept_name"), @types.Scalar::String("Eng"))
+  assert_eq(out.item(0, "name"), @types.Scalar::String("Alice"))
+  assert_eq(out.item(0, "dept_name"), @types.Scalar::String("Eng"))
+  assert_eq(out.item(1, "name"), @types.Scalar::String("Bob"))
+  assert_eq(out.item(1, "dept_name"), @types.Scalar::String("Sales"))
+  assert_eq(out.item(2, "name"), @types.Scalar::String("Carol"))
+  assert_eq(out.item(2, "dept_name"), @types.Scalar::String("Eng"))
   // The key column keeps the left dtype.
   assert_eq(out.get_column("dept_id").dtype(), @types.DataType::Int)
 }
@@ -73,15 +73,15 @@ test "left join keeps every left row, nulling unmatched right columns" {
   ])
   // All four employees survive; Dave (dept 99) has no match.
   assert_eq(out.shape(), (4, 5))
-  assert_eq(out.get(0, "dept_name"), @types.Scalar::String("Eng"))
-  assert_eq(out.get(1, "dept_name"), @types.Scalar::String("Sales"))
-  assert_eq(out.get(2, "dept_name"), @types.Scalar::String("Eng"))
+  assert_eq(out.item(0, "dept_name"), @types.Scalar::String("Eng"))
+  assert_eq(out.item(1, "dept_name"), @types.Scalar::String("Sales"))
+  assert_eq(out.item(2, "dept_name"), @types.Scalar::String("Eng"))
   // Matched rows carry the right key; Dave's right key + dept_name are null.
-  assert_eq(out.get(0, "dept_id_right"), @types.Scalar::Int(10))
-  assert_eq(out.get(3, "name"), @types.Scalar::String("Dave"))
-  assert_eq(out.get(3, "dept_id"), @types.Scalar::Int(99)) // left key kept
-  assert_eq(out.get(3, "dept_id_right"), @types.Scalar::Null) // no match
-  assert_eq(out.get(3, "dept_name"), @types.Scalar::Null)
+  assert_eq(out.item(0, "dept_id_right"), @types.Scalar::Int(10))
+  assert_eq(out.item(3, "name"), @types.Scalar::String("Dave"))
+  assert_eq(out.item(3, "dept_id"), @types.Scalar::Int(99)) // left key kept
+  assert_eq(out.item(3, "dept_id_right"), @types.Scalar::Null) // no match
+  assert_eq(out.item(3, "dept_name"), @types.Scalar::Null)
   // The nulled right column keeps its source dtype.
   assert_eq(out.get_column("dept_name").dtype(), @types.DataType::String)
 }
@@ -99,8 +99,8 @@ test "left join with coalesce=true merges the key into one column" {
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.columns(), ["emp_id", "name", "dept_id", "dept_name"])
   assert_eq(out.shape(), (4, 4))
-  assert_eq(out.get(3, "dept_id"), @types.Scalar::Int(99))
-  assert_eq(out.get(3, "dept_name"), @types.Scalar::Null)
+  assert_eq(out.item(3, "dept_id"), @types.Scalar::Int(99))
+  assert_eq(out.item(3, "dept_name"), @types.Scalar::Null)
 }
 
 ///|
@@ -117,8 +117,8 @@ test "inner join with coalesce=false keeps both key columns" {
     "emp_id", "name", "dept_id", "dept_id_right", "dept_name",
   ])
   assert_eq(out.shape(), (3, 5))
-  assert_eq(out.get(0, "dept_id"), @types.Scalar::Int(10))
-  assert_eq(out.get(0, "dept_id_right"), @types.Scalar::Int(10))
+  assert_eq(out.item(0, "dept_id"), @types.Scalar::Int(10))
+  assert_eq(out.item(0, "dept_id_right"), @types.Scalar::Int(10))
 }
 
 // ── One-to-many + row-order determinism ──────────────────────────────
@@ -138,12 +138,12 @@ test "a left row matching several right rows fans out in right-row order" {
   assert_eq(out.columns(), ["k", "lv", "rv"])
   // k=1 fans out to rv 10 then rv 20 (ascending right-row order), then k=2.
   assert_eq(out.shape(), (3, 3))
-  assert_eq(out.get(0, "lv"), @types.Scalar::String("a"))
-  assert_eq(out.get(0, "rv"), @types.Scalar::Int(10))
-  assert_eq(out.get(1, "lv"), @types.Scalar::String("a"))
-  assert_eq(out.get(1, "rv"), @types.Scalar::Int(20))
-  assert_eq(out.get(2, "lv"), @types.Scalar::String("b"))
-  assert_eq(out.get(2, "rv"), @types.Scalar::Int(30))
+  assert_eq(out.item(0, "lv"), @types.Scalar::String("a"))
+  assert_eq(out.item(0, "rv"), @types.Scalar::Int(10))
+  assert_eq(out.item(1, "lv"), @types.Scalar::String("a"))
+  assert_eq(out.item(1, "rv"), @types.Scalar::Int(20))
+  assert_eq(out.item(2, "lv"), @types.Scalar::String("b"))
+  assert_eq(out.item(2, "rv"), @types.Scalar::Int(30))
 }
 
 // ── Multi key ────────────────────────────────────────────────────────
@@ -166,12 +166,12 @@ test "multi-key join matches on the key tuple" {
   assert_eq(out.columns(), ["a", "b", "lv", "rv"])
   assert_eq(out.shape(), (3, 4))
   // (x,1)->100, (x,2)->300, (y,1)->200; left order preserved.
-  assert_eq(out.get(0, "lv"), @types.Scalar::String("p"))
-  assert_eq(out.get(0, "rv"), @types.Scalar::Int(100))
-  assert_eq(out.get(1, "lv"), @types.Scalar::String("q"))
-  assert_eq(out.get(1, "rv"), @types.Scalar::Int(300))
-  assert_eq(out.get(2, "lv"), @types.Scalar::String("r"))
-  assert_eq(out.get(2, "rv"), @types.Scalar::Int(200))
+  assert_eq(out.item(0, "lv"), @types.Scalar::String("p"))
+  assert_eq(out.item(0, "rv"), @types.Scalar::Int(100))
+  assert_eq(out.item(1, "lv"), @types.Scalar::String("q"))
+  assert_eq(out.item(1, "rv"), @types.Scalar::Int(300))
+  assert_eq(out.item(2, "lv"), @types.Scalar::String("r"))
+  assert_eq(out.item(2, "rv"), @types.Scalar::Int(200))
 }
 
 ///|
@@ -195,8 +195,8 @@ test "multi-key composite is injective across field boundaries" {
   assert_eq(out.check_invariants(), Ok(()))
   // Only ("a","bc") matches; ("ab","c") must NOT.
   assert_eq(out.shape(), (1, 4))
-  assert_eq(out.get(0, "lv"), @types.Scalar::Int(1))
-  assert_eq(out.get(0, "rv"), @types.Scalar::Int(9))
+  assert_eq(out.item(0, "lv"), @types.Scalar::Int(1))
+  assert_eq(out.item(0, "rv"), @types.Scalar::Int(9))
 }
 
 // ── Suffix on colliding right column ─────────────────────────────────
@@ -215,10 +215,10 @@ test "a right non-key column colliding with a left name gets the suffix" {
   assert_eq(out.check_invariants(), Ok(()))
   // Left "value" keeps its name; right "value" becomes "value_right".
   assert_eq(out.columns(), ["id", "value", "value_right"])
-  assert_eq(out.get(0, "value"), @types.Scalar::Int(100))
-  assert_eq(out.get(0, "value_right"), @types.Scalar::Int(9))
-  assert_eq(out.get(1, "value"), @types.Scalar::Int(200))
-  assert_eq(out.get(1, "value_right"), @types.Scalar::Int(8))
+  assert_eq(out.item(0, "value"), @types.Scalar::Int(100))
+  assert_eq(out.item(0, "value_right"), @types.Scalar::Int(9))
+  assert_eq(out.item(1, "value"), @types.Scalar::Int(200))
+  assert_eq(out.item(1, "value_right"), @types.Scalar::Int(8))
 }
 
 ///|
@@ -286,10 +286,10 @@ test "inner join drops rows with a null key on either side" {
   assert_eq(out.check_invariants(), Ok(()))
   // Only k=1 and k=2 match; the two null-keyed rows are dropped.
   assert_eq(out.shape(), (2, 3))
-  assert_eq(out.get(0, "lv"), @types.Scalar::String("a"))
-  assert_eq(out.get(0, "rv"), @types.Scalar::String("x"))
-  assert_eq(out.get(1, "lv"), @types.Scalar::String("c"))
-  assert_eq(out.get(1, "rv"), @types.Scalar::String("z"))
+  assert_eq(out.item(0, "lv"), @types.Scalar::String("a"))
+  assert_eq(out.item(0, "rv"), @types.Scalar::String("x"))
+  assert_eq(out.item(1, "lv"), @types.Scalar::String("c"))
+  assert_eq(out.item(1, "rv"), @types.Scalar::String("z"))
 }
 
 ///|
@@ -304,14 +304,14 @@ test "left join keeps a null-keyed left row with null right columns" {
   // The null-keyed left row (row 1) gets null k_right + rv even though the
   // right frame also has a null-keyed row (null != null).
   assert_eq(out.shape(), (3, 4))
-  assert_eq(out.get(0, "k_right"), @types.Scalar::Int(1))
-  assert_eq(out.get(0, "rv"), @types.Scalar::String("x"))
-  assert_eq(out.get(1, "k"), @types.Scalar::Null) // left key, was null
-  assert_eq(out.get(1, "lv"), @types.Scalar::String("b"))
-  assert_eq(out.get(1, "k_right"), @types.Scalar::Null) // no match
-  assert_eq(out.get(1, "rv"), @types.Scalar::Null)
-  assert_eq(out.get(2, "k_right"), @types.Scalar::Int(2))
-  assert_eq(out.get(2, "rv"), @types.Scalar::String("z"))
+  assert_eq(out.item(0, "k_right"), @types.Scalar::Int(1))
+  assert_eq(out.item(0, "rv"), @types.Scalar::String("x"))
+  assert_eq(out.item(1, "k"), @types.Scalar::Null) // left key, was null
+  assert_eq(out.item(1, "lv"), @types.Scalar::String("b"))
+  assert_eq(out.item(1, "k_right"), @types.Scalar::Null) // no match
+  assert_eq(out.item(1, "rv"), @types.Scalar::Null)
+  assert_eq(out.item(2, "k_right"), @types.Scalar::Int(2))
+  assert_eq(out.item(2, "rv"), @types.Scalar::String("z"))
 }
 
 // ── Float NaN keys match (consistency with group_by) ─────────────────
@@ -332,10 +332,10 @@ test "Float NaN keys match each other (group_by-consistent, not pandas)" {
   // NaN (row 0) matches the right NaN; 1.0 matches 1.0. Two rows, in left
   // order. (NaN cells aren't asserted by value — NaN != NaN under Eq.)
   assert_eq(out.shape(), (2, 3))
-  assert_eq(out.get(0, "lv"), @types.Scalar::String("a"))
-  assert_eq(out.get(0, "rv"), @types.Scalar::Int(100))
-  assert_eq(out.get(1, "lv"), @types.Scalar::String("b"))
-  assert_eq(out.get(1, "rv"), @types.Scalar::Int(200))
+  assert_eq(out.item(0, "lv"), @types.Scalar::String("a"))
+  assert_eq(out.item(0, "rv"), @types.Scalar::Int(100))
+  assert_eq(out.item(1, "lv"), @types.Scalar::String("b"))
+  assert_eq(out.item(1, "rv"), @types.Scalar::Int(200))
 }
 
 // ── Cross join (how = Cross) ─────────────────────────────────────────
@@ -349,12 +349,12 @@ test "cross join produces the Cartesian product" {
   assert_eq(out.columns(), ["lv", "rv"])
   // 2 x 3 = 6 rows: each left row paired with every right row, in order.
   assert_eq(out.shape(), (6, 2))
-  assert_eq(out.get(0, "lv"), @types.Scalar::String("a"))
-  assert_eq(out.get(0, "rv"), @types.Scalar::Int(10))
-  assert_eq(out.get(2, "rv"), @types.Scalar::Int(30))
-  assert_eq(out.get(3, "lv"), @types.Scalar::String("b"))
-  assert_eq(out.get(3, "rv"), @types.Scalar::Int(10))
-  assert_eq(out.get(5, "rv"), @types.Scalar::Int(30))
+  assert_eq(out.item(0, "lv"), @types.Scalar::String("a"))
+  assert_eq(out.item(0, "rv"), @types.Scalar::Int(10))
+  assert_eq(out.item(2, "rv"), @types.Scalar::Int(30))
+  assert_eq(out.item(3, "lv"), @types.Scalar::String("b"))
+  assert_eq(out.item(3, "rv"), @types.Scalar::Int(10))
+  assert_eq(out.item(5, "rv"), @types.Scalar::Int(30))
 }
 
 ///|
@@ -369,8 +369,8 @@ test "cross join suffixes a right column clashing with a left name" {
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.columns(), ["x", "lv", "x_r"])
   assert_eq(out.shape(), (4, 3))
-  assert_eq(out.get(0, "x"), @types.Scalar::Int(1))
-  assert_eq(out.get(0, "x_r"), @types.Scalar::Int(10))
+  assert_eq(out.item(0, "x"), @types.Scalar::Int(1))
+  assert_eq(out.item(0, "x_r"), @types.Scalar::Int(10))
 }
 
 ///|
@@ -462,10 +462,10 @@ test "left join with a 0-row right frame keeps all left rows, null right" {
   // Nothing matches, so the kept right key (k_right) and rv are all null.
   assert_eq(out.columns(), ["k", "lv", "k_right", "rv"])
   assert_eq(out.shape(), (2, 4))
-  assert_eq(out.get(0, "lv"), @types.Scalar::String("a"))
-  assert_eq(out.get(0, "k_right"), @types.Scalar::Null)
-  assert_eq(out.get(0, "rv"), @types.Scalar::Null)
-  assert_eq(out.get(1, "rv"), @types.Scalar::Null)
+  assert_eq(out.item(0, "lv"), @types.Scalar::String("a"))
+  assert_eq(out.item(0, "k_right"), @types.Scalar::Null)
+  assert_eq(out.item(0, "rv"), @types.Scalar::Null)
+  assert_eq(out.item(1, "rv"), @types.Scalar::Null)
   // The all-null gathered right columns still carry their source dtype.
   assert_eq(out.get_column("k_right").dtype(), @types.DataType::Int)
   assert_eq(out.get_column("rv").dtype(), @types.DataType::String)
@@ -514,13 +514,13 @@ test "join gathers Int / Float / Bool right columns: valid, null, unmatched" {
   assert_eq(inner.check_invariants(), Ok(()))
   assert_eq(inner.columns(), ["k", "lv", "ri", "rf", "rb"])
   assert_eq(inner.shape(), (2, 5))
-  assert_eq(inner.get(0, "ri"), @types.Scalar::Int(7))
-  assert_eq(inner.get(0, "rf"), @types.Scalar::Float(1.5))
-  assert_eq(inner.get(0, "rb"), @types.Scalar::Bool(true))
+  assert_eq(inner.item(0, "ri"), @types.Scalar::Int(7))
+  assert_eq(inner.item(0, "rf"), @types.Scalar::Float(1.5))
+  assert_eq(inner.item(0, "rb"), @types.Scalar::Bool(true))
   // k=2 matched, but the right cells are null at the source.
-  assert_eq(inner.get(1, "ri"), @types.Scalar::Null)
-  assert_eq(inner.get(1, "rf"), @types.Scalar::Null)
-  assert_eq(inner.get(1, "rb"), @types.Scalar::Null)
+  assert_eq(inner.item(1, "ri"), @types.Scalar::Null)
+  assert_eq(inner.item(1, "rf"), @types.Scalar::Null)
+  assert_eq(inner.item(1, "rb"), @types.Scalar::Null)
   assert_eq(inner.get_column("ri").dtype(), @types.DataType::Int)
   assert_eq(inner.get_column("rf").dtype(), @types.DataType::Float)
   assert_eq(inner.get_column("rb").dtype(), @types.DataType::Bool)
@@ -533,11 +533,11 @@ test "join gathers Int / Float / Bool right columns: valid, null, unmatched" {
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.columns(), ["k", "lv", "k_right", "ri", "rf", "rb"])
   assert_eq(out.shape(), (3, 6))
-  assert_eq(out.get(2, "lv"), @types.Scalar::String("c"))
-  assert_eq(out.get(2, "k_right"), @types.Scalar::Null)
-  assert_eq(out.get(2, "ri"), @types.Scalar::Null)
-  assert_eq(out.get(2, "rf"), @types.Scalar::Null)
-  assert_eq(out.get(2, "rb"), @types.Scalar::Null)
+  assert_eq(out.item(2, "lv"), @types.Scalar::String("c"))
+  assert_eq(out.item(2, "k_right"), @types.Scalar::Null)
+  assert_eq(out.item(2, "ri"), @types.Scalar::Null)
+  assert_eq(out.item(2, "rf"), @types.Scalar::Null)
+  assert_eq(out.item(2, "rb"), @types.Scalar::Null)
 }
 
 // ── Error cases ──────────────────────────────────────────────────────
@@ -597,19 +597,19 @@ test "right join keeps every right row, nulling unmatched left columns" {
   // to its two employees in ascending left-row order (Alice then Carol),
   // then Sales (dept 20), then HR (dept 30) with no employee.
   assert_eq(out.shape(), (4, 5))
-  assert_eq(out.get(0, "name"), @types.Scalar::String("Alice"))
-  assert_eq(out.get(0, "dept_name"), @types.Scalar::String("Eng"))
-  assert_eq(out.get(1, "name"), @types.Scalar::String("Carol"))
-  assert_eq(out.get(1, "dept_name"), @types.Scalar::String("Eng"))
-  assert_eq(out.get(2, "name"), @types.Scalar::String("Bob"))
-  assert_eq(out.get(2, "dept_name"), @types.Scalar::String("Sales"))
+  assert_eq(out.item(0, "name"), @types.Scalar::String("Alice"))
+  assert_eq(out.item(0, "dept_name"), @types.Scalar::String("Eng"))
+  assert_eq(out.item(1, "name"), @types.Scalar::String("Carol"))
+  assert_eq(out.item(1, "dept_name"), @types.Scalar::String("Eng"))
+  assert_eq(out.item(2, "name"), @types.Scalar::String("Bob"))
+  assert_eq(out.item(2, "dept_name"), @types.Scalar::String("Sales"))
   // HR has no employee: the left columns (incl. the left key) are null, the
   // right key + dept_name carry the right row.
-  assert_eq(out.get(3, "emp_id"), @types.Scalar::Null)
-  assert_eq(out.get(3, "name"), @types.Scalar::Null)
-  assert_eq(out.get(3, "dept_id"), @types.Scalar::Null) // left key, unmatched
-  assert_eq(out.get(3, "dept_id_right"), @types.Scalar::Int(30))
-  assert_eq(out.get(3, "dept_name"), @types.Scalar::String("HR"))
+  assert_eq(out.item(3, "emp_id"), @types.Scalar::Null)
+  assert_eq(out.item(3, "name"), @types.Scalar::Null)
+  assert_eq(out.item(3, "dept_id"), @types.Scalar::Null) // left key, unmatched
+  assert_eq(out.item(3, "dept_id_right"), @types.Scalar::Int(30))
+  assert_eq(out.item(3, "dept_name"), @types.Scalar::String("HR"))
   // The all-null gathered left columns still carry their source dtype.
   assert_eq(out.get_column("emp_id").dtype(), @types.DataType::Int)
   assert_eq(out.get_column("name").dtype(), @types.DataType::String)
@@ -628,11 +628,11 @@ test "right join with coalesce=true takes the key from the right side" {
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.columns(), ["emp_id", "name", "dept_id", "dept_name"])
   assert_eq(out.shape(), (4, 4))
-  assert_eq(out.get(0, "dept_id"), @types.Scalar::Int(10))
+  assert_eq(out.item(0, "dept_id"), @types.Scalar::Int(10))
   // HR: no employee, but the coalesced key still shows dept 30 (right side).
-  assert_eq(out.get(3, "name"), @types.Scalar::Null)
-  assert_eq(out.get(3, "dept_id"), @types.Scalar::Int(30))
-  assert_eq(out.get(3, "dept_name"), @types.Scalar::String("HR"))
+  assert_eq(out.item(3, "name"), @types.Scalar::Null)
+  assert_eq(out.item(3, "dept_id"), @types.Scalar::Int(30))
+  assert_eq(out.item(3, "dept_name"), @types.Scalar::String("HR"))
 }
 
 // ── Outer (full) join, single key ────────────────────────────────────
@@ -651,21 +651,21 @@ test "outer join keeps unmatched rows from both sides" {
   // Left rows first (Alice, Bob, Carol matched; Dave unmatched-left), then
   // the unmatched right row (HR).
   assert_eq(out.shape(), (5, 5))
-  assert_eq(out.get(0, "name"), @types.Scalar::String("Alice"))
-  assert_eq(out.get(0, "dept_name"), @types.Scalar::String("Eng"))
-  assert_eq(out.get(1, "name"), @types.Scalar::String("Bob"))
-  assert_eq(out.get(2, "name"), @types.Scalar::String("Carol"))
+  assert_eq(out.item(0, "name"), @types.Scalar::String("Alice"))
+  assert_eq(out.item(0, "dept_name"), @types.Scalar::String("Eng"))
+  assert_eq(out.item(1, "name"), @types.Scalar::String("Bob"))
+  assert_eq(out.item(2, "name"), @types.Scalar::String("Carol"))
   // Dave (dept 99) unmatched-left: right key + dept_name null.
-  assert_eq(out.get(3, "name"), @types.Scalar::String("Dave"))
-  assert_eq(out.get(3, "dept_id"), @types.Scalar::Int(99))
-  assert_eq(out.get(3, "dept_id_right"), @types.Scalar::Null)
-  assert_eq(out.get(3, "dept_name"), @types.Scalar::Null)
+  assert_eq(out.item(3, "name"), @types.Scalar::String("Dave"))
+  assert_eq(out.item(3, "dept_id"), @types.Scalar::Int(99))
+  assert_eq(out.item(3, "dept_id_right"), @types.Scalar::Null)
+  assert_eq(out.item(3, "dept_name"), @types.Scalar::Null)
   // HR unmatched-right (appended last): left columns null.
-  assert_eq(out.get(4, "emp_id"), @types.Scalar::Null)
-  assert_eq(out.get(4, "name"), @types.Scalar::Null)
-  assert_eq(out.get(4, "dept_id"), @types.Scalar::Null)
-  assert_eq(out.get(4, "dept_id_right"), @types.Scalar::Int(30))
-  assert_eq(out.get(4, "dept_name"), @types.Scalar::String("HR"))
+  assert_eq(out.item(4, "emp_id"), @types.Scalar::Null)
+  assert_eq(out.item(4, "name"), @types.Scalar::Null)
+  assert_eq(out.item(4, "dept_id"), @types.Scalar::Null)
+  assert_eq(out.item(4, "dept_id_right"), @types.Scalar::Int(30))
+  assert_eq(out.item(4, "dept_name"), @types.Scalar::String("HR"))
 }
 
 ///|
@@ -683,15 +683,15 @@ test "outer join with coalesce=true takes the present side per row" {
   assert_eq(out.columns(), ["emp_id", "name", "dept_id", "dept_name"])
   assert_eq(out.shape(), (5, 4))
   // Matched rows: key from either side (equal).
-  assert_eq(out.get(0, "dept_id"), @types.Scalar::Int(10))
+  assert_eq(out.item(0, "dept_id"), @types.Scalar::Int(10))
   // Dave unmatched-left: key from the (present) left side = 99.
-  assert_eq(out.get(3, "name"), @types.Scalar::String("Dave"))
-  assert_eq(out.get(3, "dept_id"), @types.Scalar::Int(99))
-  assert_eq(out.get(3, "dept_name"), @types.Scalar::Null)
+  assert_eq(out.item(3, "name"), @types.Scalar::String("Dave"))
+  assert_eq(out.item(3, "dept_id"), @types.Scalar::Int(99))
+  assert_eq(out.item(3, "dept_name"), @types.Scalar::Null)
   // HR unmatched-right: left absent, so the key comes from the right = 30.
-  assert_eq(out.get(4, "name"), @types.Scalar::Null)
-  assert_eq(out.get(4, "dept_id"), @types.Scalar::Int(30))
-  assert_eq(out.get(4, "dept_name"), @types.Scalar::String("HR"))
+  assert_eq(out.item(4, "name"), @types.Scalar::Null)
+  assert_eq(out.item(4, "dept_id"), @types.Scalar::Int(30))
+  assert_eq(out.item(4, "dept_name"), @types.Scalar::String("HR"))
 }
 
 // ── Coalesced-key merge across all four dtypes ───────────────────────
@@ -733,15 +733,15 @@ test "coalesced outer key merge over an Int key" {
   assert_eq(out.get_column("k").dtype(), @types.DataType::Int)
   // row 0 matched (key from left), row 1 unmatched-left null key, row 2
   // unmatched-right (key filled from the right).
-  assert_eq(out.get(0, "k"), @types.Scalar::Int(1))
-  assert_eq(out.get(0, "v_l"), @types.Scalar::String("a"))
-  assert_eq(out.get(0, "v_r"), @types.Scalar::String("x"))
-  assert_eq(out.get(1, "k"), @types.Scalar::Null)
-  assert_eq(out.get(1, "v_l"), @types.Scalar::String("b"))
-  assert_eq(out.get(1, "v_r"), @types.Scalar::Null)
-  assert_eq(out.get(2, "k"), @types.Scalar::Int(2))
-  assert_eq(out.get(2, "v_l"), @types.Scalar::Null)
-  assert_eq(out.get(2, "v_r"), @types.Scalar::String("y"))
+  assert_eq(out.item(0, "k"), @types.Scalar::Int(1))
+  assert_eq(out.item(0, "v_l"), @types.Scalar::String("a"))
+  assert_eq(out.item(0, "v_r"), @types.Scalar::String("x"))
+  assert_eq(out.item(1, "k"), @types.Scalar::Null)
+  assert_eq(out.item(1, "v_l"), @types.Scalar::String("b"))
+  assert_eq(out.item(1, "v_r"), @types.Scalar::Null)
+  assert_eq(out.item(2, "k"), @types.Scalar::Int(2))
+  assert_eq(out.item(2, "v_l"), @types.Scalar::Null)
+  assert_eq(out.item(2, "v_r"), @types.Scalar::String("y"))
 }
 
 ///|
@@ -752,9 +752,9 @@ test "coalesced outer key merge over a Float key" {
   )
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.get_column("k").dtype(), @types.DataType::Float)
-  assert_eq(out.get(0, "k"), @types.Scalar::Float(1.0))
-  assert_eq(out.get(1, "k"), @types.Scalar::Null)
-  assert_eq(out.get(2, "k"), @types.Scalar::Float(2.0))
+  assert_eq(out.item(0, "k"), @types.Scalar::Float(1.0))
+  assert_eq(out.item(1, "k"), @types.Scalar::Null)
+  assert_eq(out.item(2, "k"), @types.Scalar::Float(2.0))
 }
 
 ///|
@@ -765,9 +765,9 @@ test "coalesced outer key merge over a Bool key" {
   )
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.get_column("k").dtype(), @types.DataType::Bool)
-  assert_eq(out.get(0, "k"), @types.Scalar::Bool(true))
-  assert_eq(out.get(1, "k"), @types.Scalar::Null)
-  assert_eq(out.get(2, "k"), @types.Scalar::Bool(false))
+  assert_eq(out.item(0, "k"), @types.Scalar::Bool(true))
+  assert_eq(out.item(1, "k"), @types.Scalar::Null)
+  assert_eq(out.item(2, "k"), @types.Scalar::Bool(false))
 }
 
 ///|
@@ -778,9 +778,9 @@ test "coalesced outer key merge over a String key" {
   )
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.get_column("k").dtype(), @types.DataType::String)
-  assert_eq(out.get(0, "k"), @types.Scalar::String("p"))
-  assert_eq(out.get(1, "k"), @types.Scalar::Null)
-  assert_eq(out.get(2, "k"), @types.Scalar::String("q"))
+  assert_eq(out.item(0, "k"), @types.Scalar::String("p"))
+  assert_eq(out.item(1, "k"), @types.Scalar::Null)
+  assert_eq(out.item(2, "k"), @types.Scalar::String("q"))
 }
 
 // ── Right / Outer multi key ──────────────────────────────────────────
@@ -806,19 +806,19 @@ test "outer join on a key tuple keeps unmatched rows from both sides" {
   assert_eq(out.columns(), ["a", "b", "lv", "a_right", "b_right", "rv"])
   // (x,1) matches; (x,2) unmatched-left; (y,1) matches; (z,2) unmatched-right.
   assert_eq(out.shape(), (4, 6))
-  assert_eq(out.get(0, "lv"), @types.Scalar::String("p"))
-  assert_eq(out.get(0, "rv"), @types.Scalar::Int(100))
-  assert_eq(out.get(1, "lv"), @types.Scalar::String("q"))
-  assert_eq(out.get(1, "a_right"), @types.Scalar::Null) // (x,2) unmatched-left
-  assert_eq(out.get(1, "rv"), @types.Scalar::Null)
-  assert_eq(out.get(2, "lv"), @types.Scalar::String("r"))
-  assert_eq(out.get(2, "rv"), @types.Scalar::Int(200))
+  assert_eq(out.item(0, "lv"), @types.Scalar::String("p"))
+  assert_eq(out.item(0, "rv"), @types.Scalar::Int(100))
+  assert_eq(out.item(1, "lv"), @types.Scalar::String("q"))
+  assert_eq(out.item(1, "a_right"), @types.Scalar::Null) // (x,2) unmatched-left
+  assert_eq(out.item(1, "rv"), @types.Scalar::Null)
+  assert_eq(out.item(2, "lv"), @types.Scalar::String("r"))
+  assert_eq(out.item(2, "rv"), @types.Scalar::Int(200))
   // (z,2) unmatched-right: left columns null, right key suffixes carry it.
-  assert_eq(out.get(3, "a"), @types.Scalar::Null)
-  assert_eq(out.get(3, "b"), @types.Scalar::Null)
-  assert_eq(out.get(3, "a_right"), @types.Scalar::String("z"))
-  assert_eq(out.get(3, "b_right"), @types.Scalar::Int(2))
-  assert_eq(out.get(3, "rv"), @types.Scalar::Int(300))
+  assert_eq(out.item(3, "a"), @types.Scalar::Null)
+  assert_eq(out.item(3, "b"), @types.Scalar::Null)
+  assert_eq(out.item(3, "a_right"), @types.Scalar::String("z"))
+  assert_eq(out.item(3, "b_right"), @types.Scalar::Int(2))
+  assert_eq(out.item(3, "rv"), @types.Scalar::Int(300))
 }
 
 ///|
@@ -841,12 +841,12 @@ test "right join on a key tuple keeps every right row" {
   assert_eq(out.columns(), ["a", "b", "lv", "a_right", "b_right", "rv"])
   // (x,1) matches l0; (z,2) has no left row.
   assert_eq(out.shape(), (2, 6))
-  assert_eq(out.get(0, "lv"), @types.Scalar::String("p"))
-  assert_eq(out.get(0, "rv"), @types.Scalar::Int(100))
-  assert_eq(out.get(1, "a"), @types.Scalar::Null) // (z,2) no left match
-  assert_eq(out.get(1, "lv"), @types.Scalar::Null)
-  assert_eq(out.get(1, "a_right"), @types.Scalar::String("z"))
-  assert_eq(out.get(1, "rv"), @types.Scalar::Int(300))
+  assert_eq(out.item(0, "lv"), @types.Scalar::String("p"))
+  assert_eq(out.item(0, "rv"), @types.Scalar::Int(100))
+  assert_eq(out.item(1, "a"), @types.Scalar::Null) // (z,2) no left match
+  assert_eq(out.item(1, "lv"), @types.Scalar::Null)
+  assert_eq(out.item(1, "a_right"), @types.Scalar::String("z"))
+  assert_eq(out.item(1, "rv"), @types.Scalar::Int(300))
 }
 
 // ── Right / Outer null keys: null matches nothing ────────────────────
@@ -862,14 +862,14 @@ test "right join: a null right key matches nothing, kept with null left" {
   // Every right row survives, in right order. The null-keyed right row (1)
   // matches nothing — not even the left's null-keyed row (null != null).
   assert_eq(out.shape(), (3, 4))
-  assert_eq(out.get(0, "lv"), @types.Scalar::String("a"))
-  assert_eq(out.get(0, "rv"), @types.Scalar::String("x"))
-  assert_eq(out.get(1, "k"), @types.Scalar::Null) // left absent
-  assert_eq(out.get(1, "lv"), @types.Scalar::Null)
-  assert_eq(out.get(1, "k_right"), @types.Scalar::Null) // right key was null
-  assert_eq(out.get(1, "rv"), @types.Scalar::String("y"))
-  assert_eq(out.get(2, "lv"), @types.Scalar::String("c"))
-  assert_eq(out.get(2, "rv"), @types.Scalar::String("z"))
+  assert_eq(out.item(0, "lv"), @types.Scalar::String("a"))
+  assert_eq(out.item(0, "rv"), @types.Scalar::String("x"))
+  assert_eq(out.item(1, "k"), @types.Scalar::Null) // left absent
+  assert_eq(out.item(1, "lv"), @types.Scalar::Null)
+  assert_eq(out.item(1, "k_right"), @types.Scalar::Null) // right key was null
+  assert_eq(out.item(1, "rv"), @types.Scalar::String("y"))
+  assert_eq(out.item(2, "lv"), @types.Scalar::String("c"))
+  assert_eq(out.item(2, "rv"), @types.Scalar::String("z"))
 }
 
 ///|
@@ -883,13 +883,13 @@ test "outer join: null keys on both sides each stay unmatched" {
   // k=1 and k=2 match; the two null-keyed rows (left row 1, right row 1)
   // each surface unmatched — left's first (in place), right's appended last.
   assert_eq(out.shape(), (4, 4))
-  assert_eq(out.get(0, "rv"), @types.Scalar::String("x")) // k=1 matched
-  assert_eq(out.get(1, "k"), @types.Scalar::Null) // left null key, unmatched
-  assert_eq(out.get(1, "lv"), @types.Scalar::String("b"))
-  assert_eq(out.get(1, "rv"), @types.Scalar::Null)
-  assert_eq(out.get(2, "rv"), @types.Scalar::String("z")) // k=2 matched
-  assert_eq(out.get(3, "lv"), @types.Scalar::Null) // right null key, appended
-  assert_eq(out.get(3, "rv"), @types.Scalar::String("y"))
+  assert_eq(out.item(0, "rv"), @types.Scalar::String("x")) // k=1 matched
+  assert_eq(out.item(1, "k"), @types.Scalar::Null) // left null key, unmatched
+  assert_eq(out.item(1, "lv"), @types.Scalar::String("b"))
+  assert_eq(out.item(1, "rv"), @types.Scalar::Null)
+  assert_eq(out.item(2, "rv"), @types.Scalar::String("z")) // k=2 matched
+  assert_eq(out.item(3, "lv"), @types.Scalar::Null) // right null key, appended
+  assert_eq(out.item(3, "rv"), @types.Scalar::String("y"))
 }
 
 // ── Right / Outer suffix + empty frames ──────────────────────────────
@@ -912,11 +912,11 @@ test "right join suffixes a right non-key column clashing with a left name" {
   assert_eq(out.columns(), ["id", "value", "id_right", "value_right"])
   // id=1 matches l0; id=3 has no left row.
   assert_eq(out.shape(), (2, 4))
-  assert_eq(out.get(0, "value"), @types.Scalar::Int(100))
-  assert_eq(out.get(0, "value_right"), @types.Scalar::Int(9))
-  assert_eq(out.get(1, "value"), @types.Scalar::Null) // left absent
-  assert_eq(out.get(1, "id_right"), @types.Scalar::Int(3))
-  assert_eq(out.get(1, "value_right"), @types.Scalar::Int(8))
+  assert_eq(out.item(0, "value"), @types.Scalar::Int(100))
+  assert_eq(out.item(0, "value_right"), @types.Scalar::Int(9))
+  assert_eq(out.item(1, "value"), @types.Scalar::Null) // left absent
+  assert_eq(out.item(1, "id_right"), @types.Scalar::Int(3))
+  assert_eq(out.item(1, "value_right"), @types.Scalar::Int(8))
 }
 
 ///|
@@ -937,11 +937,11 @@ test "right join with a 0-row left frame keeps all right rows, null left" {
   assert_eq(out.columns(), ["k", "lv", "k_right", "rv"])
   // No left rows, so every right row is unmatched: left key + lv all null.
   assert_eq(out.shape(), (2, 4))
-  assert_eq(out.get(0, "k"), @types.Scalar::Null)
-  assert_eq(out.get(0, "lv"), @types.Scalar::Null)
-  assert_eq(out.get(0, "k_right"), @types.Scalar::Int(1))
-  assert_eq(out.get(0, "rv"), @types.Scalar::String("x"))
-  assert_eq(out.get(1, "k_right"), @types.Scalar::Int(2))
+  assert_eq(out.item(0, "k"), @types.Scalar::Null)
+  assert_eq(out.item(0, "lv"), @types.Scalar::Null)
+  assert_eq(out.item(0, "k_right"), @types.Scalar::Int(1))
+  assert_eq(out.item(0, "rv"), @types.Scalar::String("x"))
+  assert_eq(out.item(1, "k_right"), @types.Scalar::Int(2))
 }
 
 ///|
@@ -1106,7 +1106,7 @@ test "join keeps all-valid numeric output columns on the Numeric fast path" {
     @column.StorageKind::Numeric, // right non-key, no None injected
   ])
   // Values are unchanged by the backend choice.
-  assert_eq(out.get(0, "rv"), @types.Scalar::Int(10))
+  assert_eq(out.item(0, "rv"), @types.Scalar::Int(10))
   // A cross join likewise injects no None: every numeric column stays Numeric.
   let crossed = DataFrame::new([Series::from_ints("a", [1, 2])]).join(
     DataFrame::new([Series::from_floats("b", [3.0])]),
@@ -1188,8 +1188,8 @@ test "join leaves a Builtin (nullable) source column on Builtin" {
   let right = DataFrame::new([Series::from_ints("k", [1, 2])])
   let out = left.join(right, JoinOptions::on([@expr.col("k")]))
   assert_eq(out.get_column("lv").storage_kind(), @column.StorageKind::Builtin)
-  assert_eq(out.get(0, "lv"), @types.Scalar::Int(5))
-  assert_eq(out.get(1, "lv"), @types.Scalar::Null)
+  assert_eq(out.item(0, "lv"), @types.Scalar::Int(5))
+  assert_eq(out.item(1, "lv"), @types.Scalar::Null)
 }
 
 // ── Expression keys: left_on / right_on and derived keys ─────────────
@@ -1214,12 +1214,12 @@ test "left_on / right_on join on differently-named columns, keeping both" {
   assert_eq(out.columns(), ["lk", "lv", "rk", "rv"])
   // lk=1 and rk=4 are unmatched (inner); lk=2↔rk=2, lk=3↔rk=3, left order.
   assert_eq(out.shape(), (2, 4))
-  assert_eq(out.get(0, "lk"), @types.Scalar::Int(2))
-  assert_eq(out.get(0, "lv"), @types.Scalar::String("b"))
-  assert_eq(out.get(0, "rk"), @types.Scalar::Int(2))
-  assert_eq(out.get(0, "rv"), @types.Scalar::Int(20))
-  assert_eq(out.get(1, "lk"), @types.Scalar::Int(3))
-  assert_eq(out.get(1, "rv"), @types.Scalar::Int(30))
+  assert_eq(out.item(0, "lk"), @types.Scalar::Int(2))
+  assert_eq(out.item(0, "lv"), @types.Scalar::String("b"))
+  assert_eq(out.item(0, "rk"), @types.Scalar::Int(2))
+  assert_eq(out.item(0, "rv"), @types.Scalar::Int(20))
+  assert_eq(out.item(1, "lk"), @types.Scalar::Int(3))
+  assert_eq(out.item(1, "rv"), @types.Scalar::Int(30))
 }
 
 ///|
@@ -1243,12 +1243,12 @@ test "left_on / right_on with a derived right key matches on the value" {
   // The derived key contributes no column; the frames' own columns survive.
   assert_eq(out.columns(), ["cents", "item", "dollars", "tier"])
   assert_eq(out.shape(), (2, 4))
-  assert_eq(out.get(0, "cents"), @types.Scalar::Int(100))
-  assert_eq(out.get(0, "item"), @types.Scalar::String("a"))
-  assert_eq(out.get(0, "dollars"), @types.Scalar::Int(1))
-  assert_eq(out.get(0, "tier"), @types.Scalar::String("x"))
-  assert_eq(out.get(1, "cents"), @types.Scalar::Int(300))
-  assert_eq(out.get(1, "tier"), @types.Scalar::String("y"))
+  assert_eq(out.item(0, "cents"), @types.Scalar::Int(100))
+  assert_eq(out.item(0, "item"), @types.Scalar::String("a"))
+  assert_eq(out.item(0, "dollars"), @types.Scalar::Int(1))
+  assert_eq(out.item(0, "tier"), @types.Scalar::String("x"))
+  assert_eq(out.item(1, "cents"), @types.Scalar::Int(300))
+  assert_eq(out.item(1, "tier"), @types.Scalar::String("y"))
 }
 
 ///|
@@ -1268,12 +1268,12 @@ test "a derived `on` key turns off coalescing, keeping both source columns" {
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.columns(), ["x", "lv", "x_right", "rv"])
   assert_eq(out.shape(), (2, 4))
-  assert_eq(out.get(0, "x"), @types.Scalar::Int(2))
-  assert_eq(out.get(0, "lv"), @types.Scalar::String("b"))
-  assert_eq(out.get(0, "x_right"), @types.Scalar::Int(2))
-  assert_eq(out.get(0, "rv"), @types.Scalar::Int(20))
-  assert_eq(out.get(1, "x"), @types.Scalar::Int(3))
-  assert_eq(out.get(1, "rv"), @types.Scalar::Int(30))
+  assert_eq(out.item(0, "x"), @types.Scalar::Int(2))
+  assert_eq(out.item(0, "lv"), @types.Scalar::String("b"))
+  assert_eq(out.item(0, "x_right"), @types.Scalar::Int(2))
+  assert_eq(out.item(0, "rv"), @types.Scalar::Int(20))
+  assert_eq(out.item(1, "x"), @types.Scalar::Int(3))
+  assert_eq(out.item(1, "rv"), @types.Scalar::Int(30))
   // A derived key cannot name a single column, so even an explicit
   // `with_coalesce(true)` leaves both key columns in place.
   let forced = left.join(right, opts.with_coalesce(true))
@@ -1299,8 +1299,8 @@ test "left_on / right_on keys: a null key matches nothing" {
   // not even each other.
   assert_eq(out.columns(), ["lk", "lv", "rk", "rv"])
   assert_eq(out.shape(), (1, 4))
-  assert_eq(out.get(0, "lv"), @types.Scalar::String("a"))
-  assert_eq(out.get(0, "rv"), @types.Scalar::String("x"))
+  assert_eq(out.item(0, "lv"), @types.Scalar::String("a"))
+  assert_eq(out.item(0, "rv"), @types.Scalar::String("x"))
 }
 
 ///|

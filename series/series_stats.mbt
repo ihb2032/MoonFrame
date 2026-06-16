@@ -76,7 +76,7 @@ pub fn Series::mean(self : Series) -> Double raise @types.DataError {
 /// one non-null cell, `None` for a non-numeric, empty, or all-null series —
 /// i.e. `None` exactly where `Series::mean` raises (`TypeMismatch` /
 /// `InvalidOperation`). This is the total form `frame`'s `DataFrame::describe`
-/// summarises with, mirroring the total `min_value` / `max_value`;
+/// summarises with, mirroring the total `min` / `max`;
 /// `Series::mean` remains the raising public form that distinguishes the two
 /// failure causes, and this folds both of them into `None`. A `Float` `NaN` is
 /// summed in and propagates to `Some(NaN)`, matching `mean` (Polars — only
@@ -91,8 +91,9 @@ pub fn Series::mean_opt(self : Series) -> Double? {
 
 ///|
 /// Minimum non-null cell as a `Scalar`, by the natural order of the
-/// series' dtype. Total — every v0.1 dtype has an order, so it never
-/// fails (the v0.1 `Result`-wrapped `min` has been dropped in v0.2).
+/// series' dtype (Polars' `Series.min`). Total — every v0.1 dtype has an
+/// order, so it never fails (unlike the v0.1 `Result`-wrapped form this
+/// replaces).
 ///
 /// - Empty / all-null → `Scalar::Null`.
 /// - `Float` NaN is skipped (treated as missing), matching `sort` and
@@ -101,11 +102,11 @@ pub fn Series::mean_opt(self : Series) -> Double? {
 ///   where `NaN` propagates — exactly as in Polars.) A series of only NaN
 ///   (and/or nulls) → `Scalar::Null`.
 /// - `Bool` order: `false < true`.
-pub fn Series::min_value(self : Series) -> @types.Scalar {
+pub fn Series::min(self : Series) -> @types.Scalar {
   // Numeric fast path: bitmap-free extremum fold (NaN still skipped, empty
   // → `Null`). No validity materialisation.
   if self.storage is @column.ColumnStorage::Numeric(nc) {
-    return nc.min_value()
+    return nc.min()
   }
   // General `Builtin` backend: the shared `reduce_extremum` fold over the
   // whole column — total over every dtype (`Bool` `false < true`, `String`
@@ -115,12 +116,13 @@ pub fn Series::min_value(self : Series) -> @types.Scalar {
 }
 
 ///|
-/// Maximum non-null cell as a `Scalar`. Mirrors `min_value` with the order
-/// reversed; the `Float` NaN and empty-series rules are identical.
-/// Total — the v0.1 `Result`-wrapped `max` has been dropped in v0.2.
-pub fn Series::max_value(self : Series) -> @types.Scalar {
+/// Maximum non-null cell as a `Scalar` (Polars' `Series.max`). Mirrors
+/// `min` with the order reversed; the `Float` NaN and empty-series rules
+/// are identical. Total — unlike the v0.1 `Result`-wrapped form this
+/// replaces.
+pub fn Series::max(self : Series) -> @types.Scalar {
   if self.storage is @column.ColumnStorage::Numeric(nc) {
-    return nc.max_value()
+    return nc.max()
   }
   reduce_extremum(self.storage, want_min=false)(self.len(), k => k)
 }

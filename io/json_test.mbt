@@ -82,7 +82,7 @@ test "format_json_records: non-finite floats emit JSON null" {
   let back = @io.parse_json_records_str(js, @io.JsonReadOptions::default())
   assert_eq(back.nrows(), 4)
   assert_eq(back.get_column("x").dtype(), @types.DataType::Float)
-  assert_eq(back.null_count().get(0, "x"), @types.Scalar::Int(3))
+  assert_eq(back.null_count().item(0, "x"), @types.Scalar::Int(3))
 }
 
 // ── parse_json_records_str: happy paths ─────────────────────────────
@@ -97,10 +97,10 @@ test "parse_json_records_str: infers Int / Float / Bool / String" {
   assert_eq(df.get_column("f").dtype(), @types.DataType::Float)
   assert_eq(df.get_column("b").dtype(), @types.DataType::Bool)
   assert_eq(df.get_column("s").dtype(), @types.DataType::String)
-  assert_eq(df.get(0, "i"), @types.Scalar::Int(1))
-  assert_eq(df.get(0, "f"), @types.Scalar::Float(1.5))
-  assert_eq(df.get(0, "b"), @types.Scalar::Bool(true))
-  assert_eq(df.get(0, "s"), @types.Scalar::String("hello"))
+  assert_eq(df.item(0, "i"), @types.Scalar::Int(1))
+  assert_eq(df.item(0, "f"), @types.Scalar::Float(1.5))
+  assert_eq(df.item(0, "b"), @types.Scalar::Bool(true))
+  assert_eq(df.item(0, "s"), @types.Scalar::String("hello"))
 }
 
 ///|
@@ -112,7 +112,7 @@ test "parse_json_records_str: null cells map to None across every dtype" {
   let df = @io.parse_json_records_str(content, @io.JsonReadOptions::default())
   assert_eq(df.shape(), (3, 4))
   for name in ["i", "f", "b", "s"] {
-    assert_eq(df.get(1, name), @types.Scalar::Null)
+    assert_eq(df.item(1, name), @types.Scalar::Null)
     assert_eq(df.get_column(name).null_count(), 1)
   }
 }
@@ -131,8 +131,8 @@ test "parse_json_records_str: mixed Int + Float promotes to Float" {
   let content = "[{\"n\":1},{\"n\":2.5},{\"n\":3}]"
   let df = @io.parse_json_records_str(content, @io.JsonReadOptions::default())
   assert_eq(df.get_column("n").dtype(), @types.DataType::Float)
-  assert_eq(df.get(0, "n"), @types.Scalar::Float(1.0))
-  assert_eq(df.get(1, "n"), @types.Scalar::Float(2.5))
+  assert_eq(df.item(0, "n"), @types.Scalar::Float(1.0))
+  assert_eq(df.item(1, "n"), @types.Scalar::Float(2.5))
 }
 
 ///|
@@ -161,7 +161,7 @@ test "parse_json_records_str: missing fields become nulls" {
   let df = @io.parse_json_records_str(content, @io.JsonReadOptions::default())
   assert_eq(df.shape(), (2, 2))
   assert_eq(df.columns(), ["a", "b"])
-  assert_eq(df.get(1, "b"), @types.Scalar::Null)
+  assert_eq(df.item(1, "b"), @types.Scalar::Null)
 }
 
 ///|
@@ -173,8 +173,8 @@ test "parse_json_records_str: sparse records contribute their own columns" {
   let df = @io.parse_json_records_str(content, @io.JsonReadOptions::default())
   assert_eq(df.shape(), (2, 2))
   assert_eq(df.columns(), ["a", "b"])
-  assert_eq(df.get(0, "b"), @types.Scalar::Null)
-  assert_eq(df.get(1, "a"), @types.Scalar::Null)
+  assert_eq(df.item(0, "b"), @types.Scalar::Null)
+  assert_eq(df.item(1, "a"), @types.Scalar::Null)
 }
 
 ///|
@@ -185,9 +185,9 @@ test "parse_json_records_str: mixed-dtype column falls back to String" {
   let content = "[{\"x\":1},{\"x\":\"two\"},{\"x\":3}]"
   let df = @io.parse_json_records_str(content, @io.JsonReadOptions::default())
   assert_eq(df.get_column("x").dtype(), @types.DataType::String)
-  assert_eq(df.get(0, "x"), @types.Scalar::String("1"))
-  assert_eq(df.get(1, "x"), @types.Scalar::String("two"))
-  assert_eq(df.get(2, "x"), @types.Scalar::String("3"))
+  assert_eq(df.item(0, "x"), @types.Scalar::String("1"))
+  assert_eq(df.item(1, "x"), @types.Scalar::String("two"))
+  assert_eq(df.item(2, "x"), @types.Scalar::String("3"))
 }
 
 // ── parse_json_records_str: edge / error paths ──────────────────────
@@ -291,8 +291,8 @@ test "parse_json_records_str: infer_schema_rows=0 scans every record" {
     on_parse_error: @io.OnParseError::Raise,
   })
   assert_eq(df.get_column("x").dtype(), @types.DataType::Float)
-  assert_eq(df.get(0, "x"), @types.Scalar::Float(1.0))
-  assert_eq(df.get(1, "x"), @types.Scalar::Float(2.5))
+  assert_eq(df.item(0, "x"), @types.Scalar::Float(1.0))
+  assert_eq(df.item(1, "x"), @types.Scalar::Float(2.5))
 }
 
 ///|
@@ -306,8 +306,8 @@ test "parse_json_records_str: on_parse_error=Null nulls an out-of-window misfit"
     on_parse_error: @io.OnParseError::Null,
   })
   assert_eq(df.get_column("x").dtype(), @types.DataType::Int)
-  assert_eq(df.get(0, "x"), @types.Scalar::Int(1))
-  assert_eq(df.get(2, "x"), @types.Scalar::Null)
+  assert_eq(df.item(0, "x"), @types.Scalar::Int(1))
+  assert_eq(df.item(2, "x"), @types.Scalar::Null)
   assert_eq(df.get_column("x").null_count(), 1)
 }
 
@@ -334,9 +334,9 @@ test "parse_json_records_str: Bool + Int mix collapses to String" {
   let content = "[{\"x\":true},{\"x\":false},{\"x\":1}]"
   let df = @io.parse_json_records_str(content, @io.JsonReadOptions::default())
   assert_eq(df.get_column("x").dtype(), @types.DataType::String)
-  assert_eq(df.get(0, "x"), @types.Scalar::String("true"))
-  assert_eq(df.get(1, "x"), @types.Scalar::String("false"))
-  assert_eq(df.get(2, "x"), @types.Scalar::String("1"))
+  assert_eq(df.item(0, "x"), @types.Scalar::String("true"))
+  assert_eq(df.item(1, "x"), @types.Scalar::String("false"))
+  assert_eq(df.item(2, "x"), @types.Scalar::String("1"))
 }
 
 ///|
@@ -349,8 +349,8 @@ test "parse_json_records_str: nested array / object cells fall back to String" {
     #|[{"x":[1,2,3]},{"x":{"k":1}}]
   let df = @io.parse_json_records_str(content, @io.JsonReadOptions::default())
   assert_eq(df.get_column("x").dtype(), @types.DataType::String)
-  assert_eq(df.get(0, "x"), @types.Scalar::String("[1,2,3]"))
-  assert_eq(df.get(1, "x"), @types.Scalar::String("{\"k\":1}"))
+  assert_eq(df.item(0, "x"), @types.Scalar::String("[1,2,3]"))
+  assert_eq(df.item(1, "x"), @types.Scalar::String("{\"k\":1}"))
 }
 
 // ── read_json / write_json_records: file-system path ────────────────
@@ -367,8 +367,8 @@ test "write_json_records then read_json round-trips a small frame on disk" {
   assert_eq(parsed.check_invariants(), Ok(()))
   assert_eq(parsed.shape(), (3, 2))
   assert_eq(parsed.columns(), ["n", "s"])
-  assert_eq(parsed.get(2, "n"), @types.Scalar::Int(3))
-  assert_eq(parsed.get(0, "s"), @types.Scalar::String("x"))
+  assert_eq(parsed.item(2, "n"), @types.Scalar::Int(3))
+  assert_eq(parsed.item(0, "s"), @types.Scalar::String("x"))
 }
 
 ///|
@@ -453,6 +453,6 @@ test "round-trip narrows an all-integral Float column to Int (documented caveat)
     @io.JsonReadOptions::default(),
   )
   assert_eq(df2.get_column("r").dtype(), @types.DataType::Int)
-  assert_eq(df2.get(0, "r"), @types.Scalar::Int(2))
-  assert_eq(df2.get(1, "r"), @types.Scalar::Int(3))
+  assert_eq(df2.item(0, "r"), @types.Scalar::Int(2))
+  assert_eq(df2.item(1, "r"), @types.Scalar::Int(3))
 }

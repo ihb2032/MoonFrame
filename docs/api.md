@@ -29,7 +29,7 @@ function with signature `... -> T raise DataError`. There is no
   = try? read_csv(path)`. Match on `r` to inspect the error.
 - **Handle inline** with `try expr catch { e => ... }`.
 
-Provably-total operations (`head` / `tail` / `Series::min_value` /
+Provably-total operations (`head` / `tail` / `Series::min` /
 `drop_nulls` / `to_markdown` / `to_html` / the inspection accessors / …)
 return their value directly and never raise.
 
@@ -69,7 +69,7 @@ breaks (v0.2 → v0.3) — are collected in [`migration.md`](migration.md).
   order (see `compare_string_lex`), **not** the built-in shortlex `<`.
 - `fn compare_string_lex(a, b) -> Int` — lexicographic string comparison
   by UTF-16 code unit (`-1` / `0` / `1`). Every user-facing ordering
-  (`Scalar::lt`, `Series::min_value` / `max_value`, `DataFrame::sort`)
+  (`Scalar::lt`, `Series::min` / `max`, `DataFrame::sort`)
   routes through this so they all agree.
 - `fn is_decimal_int_literal(s) -> Bool` — `true` when `s` is an optional
   `+` / `-` sign followed by ASCII digits and nothing else (rejects
@@ -158,21 +158,21 @@ validity bitmap (`1 = valid`, `0 = null`).
     `Scalar::Null` for null slots.
   - `slice(start, end)` / `take(indices)` — sub-views; same bounds
     diagnostics as the bitmap.
-  - `cast(target)` dispatches to `to_int` / `to_float` /
-    `to_string_column`; `Bool` / `Null` targets `raise Unsupported`.
-  - `to_int()` — identity on Int; Float truncates toward zero (`NaN`,
-    `±Inf`, out-of-`Int64`-range → `ParseError`); Bool `true → 1`,
-    `false → 0`; String accepts only plain base-10 integers (others →
-    `ParseError`). Validity preserved.
-  - `to_float()` — Int promoted; identity on Float; Bool → `1.0` /
-    `0.0`; String parsed (`1_000` underscore grouping rejected; `inf` /
-    `-inf` / `nan` accepted; other malformed → `ParseError`).
+  - `cast(target)` — the single cross-dtype conversion. `Int`: identity on
+    Int, Float truncates toward zero (`NaN` / `±Inf` / out-of-`Int64`-range
+    → `ParseError`), Bool `true → 1` / `false → 0`, String accepts only
+    plain base-10 integers (others → `ParseError`). `Float`: Int promoted,
+    identity on Float, Bool → `1.0` / `0.0`, String parsed (`1_000`
+    underscore grouping rejected; `inf` / `-inf` / `nan` accepted; other
+    malformed → `ParseError`). `String`: every dtype renders (via the total
+    `to_string_column`). Validity is preserved; `Bool` / `Null` targets
+    `raise Unsupported`.
   - `int_values()` / `float_values()` / `bool_values()` /
     `string_values()` — return `(Array[T], Bitmap)`; wrong dtype →
     `raise TypeMismatch`. Always consult the returned bitmap before
     reading the data array.
 - **Total** (no failure path): `to_string_column() -> BuiltinColumn` —
-  every dtype has a value-form rendering, so unlike `to_int` / `to_float`
+  every dtype has a value-form rendering, so unlike a numeric `cast`
   it never raises.
 
 ### NumericColumn
@@ -196,10 +196,10 @@ validity bitmap (`1 = valid`, `0 = null`).
   raw array paired with a synthesised all-valid bitmap); `bool_values()` /
   `string_values()` always `raise TypeMismatch` (numeric by construction).
 - Reductions (the fast path — no validity scan): **total** `sum() ->
-  Scalar` / `min_value() -> Scalar` / `max_value() -> Scalar`; fallible
+  Scalar` / `min() -> Scalar` / `max() -> Scalar`; fallible
   `mean() -> Double` (`InvalidOperation` on an empty column). `NaN`
-  propagates through `sum` / `mean` but is skipped by `min_value` /
-  `max_value` (Polars semantics).
+  propagates through `sum` / `mean` but is skipped by `min` /
+  `max` (Polars semantics).
 
 ### ColumnStorage / StorageKind
 
@@ -226,8 +226,8 @@ validity bitmap (`1 = valid`, `0 = null`).
 - Fallible (`raise DataError`): `is_null(i)` / `get(i)`; backend-preserving
   `slice(start, end)` / `take(indices)` (a sub-range of a `Numeric` column
   stays `Numeric`); `int_values()` / `float_values()` / `bool_values()` /
-  `string_values()`. Cross-dtype `cast(target)` / `to_int()` / `to_float()`
-  route through `to_builtin()`, so the result is `Builtin`-backed — a caller
+  `string_values()`. The cross-dtype `cast(target)` routes through
+  `to_builtin()`, so the result is `Builtin`-backed — a caller
   re-converges with `to_numeric` if a numeric target should land back on
   the fast path.
 - `to_numeric() -> ColumnStorage raise DataError` — move an all-valid Int /
@@ -423,24 +423,25 @@ rebuild and backend-convergence helpers, and the composite-key cell encoding
   (the nullable `*_options`, `Bool`, `String`, and `from_builtin`) lands on
   `Builtin`.
 - Total inspection: `name` / `dtype` / `len` / `is_empty` /
-  `null_count` / `null_rate` (`0.0` for an empty series) /
-  `storage() -> ColumnStorage` / `storage_kind() -> StorageKind` /
+  `null_count` / `storage() -> ColumnStorage` /
+  `storage_kind() -> StorageKind` /
   `to_scalars() -> Array[Scalar]` (materialise every cell, `Null` for
   null cells).
 - Fallible (`raise DataError`): `is_null(i) -> Bool` / `get(i) -> Scalar`
   (`IndexOutOfBounds`); `slice(start, end)` / `gather(indices)`;
   `fill_null(value)` (`TypeMismatch` for `Scalar::Null` or a
-  dtype-mismatched value); `cast(target)` / `to_int()` / `to_float()`;
+  dtype-mismatched value); `cast(target)` — the single cross-dtype entry
+  (`Int` / `Float` / `String` targets; `Bool` / `Null` → `Unsupported`),
+  a numeric result lands on `Builtin` (re-converge with `to_numeric`);
   `to_numeric()` (move onto the `Numeric` backend — `TypeMismatch` for a
   non-numeric column, `InvalidOperation` for one with nulls).
 - Total transforms: `rename(new_name)` (`O(1)`, storage shared);
-  `drop_nulls()` (gather non-null cells); `to_string_series()` (every
-  dtype renders, so total); `to_builtin()` (materialise onto the `Builtin`
-  backend — lossless inverse of `to_numeric`). Structural transforms
-  (`slice` / `gather` / `drop_nulls` / `fill_null`, and `head` / `tail` /
-  `filter` / `sort` / `join` at the frame level) **preserve the backend**
-  — a `Numeric` column stays on the fast path where it gains no null;
-  cross-dtype casts borrow the `Builtin` road.
+  `drop_nulls()` (gather non-null cells); `to_builtin()` (materialise onto
+  the `Builtin` backend — lossless inverse of `to_numeric`). Structural
+  transforms (`slice` / `gather` / `drop_nulls` / `fill_null`, and `head` /
+  `tail` / `filter` / `sort` / `join` at the frame level) **preserve the
+  backend** — a `Numeric` column stays on the fast path where it gains no
+  null; cross-dtype casts borrow the `Builtin` road.
 
 ### Series stats (`series_stats.mbt`)
 
@@ -448,7 +449,7 @@ rebuild and backend-convergence helpers, and the composite-key cell encoding
   values, keyed by the same composite `key_cell` normalisation `group_by` /
   `join` use, so the distinct count agrees with grouping cell-for-cell —
   every `Float` `NaN` collapses to one bucket and `-0.0` folds into `+0.0`);
-  `min_value()` / `max_value()` — the reduction proper,
+  `min()` / `max()` — the reduction proper,
   returning a `Scalar` directly (every v0.1 dtype has an order, so they
   never fail; empty / all-null / all-NaN → `Scalar::Null`; `String` uses
   lexicographic order; `Bool` is `false < true`).
@@ -460,8 +461,8 @@ rebuild and backend-convergence helpers, and the composite-key cell encoding
   (`Some(mean)`, or `None` exactly where `mean` would raise) — the accessor
   `frame`'s `DataFrame::describe` reads across the package boundary. `Float`
   `NaN` is a value, not missing: it **propagates** through `sum` / `mean`
-  (any non-null `NaN` ⇒ `NaN`) but is **skipped** by `min_value` /
-  `max_value` (and `sort`) — matching Polars, whose `sum`/`mean`
+  (any non-null `NaN` ⇒ `NaN`) but is **skipped** by `min` /
+  `max` (and `sort`) — matching Polars, whose `sum`/`mean`
   propagate `NaN` while its regular `min`/`max` ignore it (only `Null` is
   ever treated as missing).
 
@@ -496,7 +497,8 @@ dependencies** (NyaCSV / fs / @json live only in `io`).
   rather than a per-cell `get`.
 - Accessors (`raise DataError`): `get_column(name)`
   (`ColumnNotFound`); `get_column_at(i)` (`IndexOutOfBounds`);
-  `get(row, name) -> Scalar`; `row(i) -> Array[Scalar]` — row `i`'s cells in
+  `item(row, name) -> Scalar` (Polars' `df.item`, a single cell —
+  `ColumnNotFound` / `IndexOutOfBounds`); `row(i) -> Array[Scalar]` — row `i`'s cells in
   column order, a Polars-style tuple (`Null` for a null cell;
   `IndexOutOfBounds`).
 - `rows() -> Array[Array[Scalar]]` (**total**) — every row as a tuple
@@ -564,8 +566,8 @@ transforms, so every output satisfies `check_invariants()`.
   `max` keep the source dtype, `mean` → `Float`), a non-numeric (`Bool` /
   `String`) column becomes a `Null` cell kept in its dtype — so `sum` /
   `min` / `max` preserve the schema. (This nulls `min` / `max` on `Bool` /
-  `String` rather than ordering them; use `Series::min_value` /
-  `max_value` for a typed extremum over any dtype.) `count` is the
+  `String` rather than ordering them; use `Series::min` /
+  `max` for a typed extremum over any dtype.) `count` is the
   non-null count as `Int` for every column. An empty / all-null numeric
   column gives the additive identity under `sum` and a `Null` cell under
   `mean` / `min` / `max`; a 0-column frame collapses to `0×0`. The

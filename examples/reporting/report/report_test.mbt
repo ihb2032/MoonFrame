@@ -26,13 +26,13 @@ test "revenue_by_region: sums per region and orders by revenue desc" {
   assert_eq(summary.shape(), (3, 3))
   assert_eq(summary.columns(), ["region", "revenue", "quantity"])
   // west leads (100 + 70 = 170), then east (50 + 30 = 80), then north (40).
-  assert_eq(summary.get(0, "region"), @moonframe.Scalar::String("west"))
-  assert_eq(summary.get(0, "revenue"), @moonframe.Scalar::Int(170))
-  assert_eq(summary.get(0, "quantity"), @moonframe.Scalar::Int(17))
-  assert_eq(summary.get(1, "region"), @moonframe.Scalar::String("east"))
-  assert_eq(summary.get(1, "revenue"), @moonframe.Scalar::Int(80))
-  assert_eq(summary.get(2, "region"), @moonframe.Scalar::String("north"))
-  assert_eq(summary.get(2, "revenue"), @moonframe.Scalar::Int(40))
+  assert_eq(summary.item(0, "region"), @moonframe.Scalar::String("west"))
+  assert_eq(summary.item(0, "revenue"), @moonframe.Scalar::Int(170))
+  assert_eq(summary.item(0, "quantity"), @moonframe.Scalar::Int(17))
+  assert_eq(summary.item(1, "region"), @moonframe.Scalar::String("east"))
+  assert_eq(summary.item(1, "revenue"), @moonframe.Scalar::Int(80))
+  assert_eq(summary.item(2, "region"), @moonframe.Scalar::String("north"))
+  assert_eq(summary.item(2, "revenue"), @moonframe.Scalar::Int(40))
   assert_eq(summary.check_invariants(), Ok(()))
 }
 

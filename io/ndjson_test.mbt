@@ -77,7 +77,7 @@ test "format_ndjson: non-finite floats emit JSON null" {
   let back = @io.parse_ndjson_str(text, @io.NdjsonReadOptions::default())
   assert_eq(back.nrows(), 4)
   assert_eq(back.get_column("x").dtype(), @types.DataType::Float)
-  assert_eq(back.null_count().get(0, "x"), @types.Scalar::Int(3))
+  assert_eq(back.null_count().item(0, "x"), @types.Scalar::Int(3))
 }
 
 // ── parse_ndjson_str: happy paths ───────────────────────────────────
@@ -93,10 +93,10 @@ test "parse_ndjson_str: infers Int / Float / Bool / String" {
   assert_eq(df.get_column("f").dtype(), @types.DataType::Float)
   assert_eq(df.get_column("b").dtype(), @types.DataType::Bool)
   assert_eq(df.get_column("s").dtype(), @types.DataType::String)
-  assert_eq(df.get(0, "i"), @types.Scalar::Int(1))
-  assert_eq(df.get(0, "f"), @types.Scalar::Float(1.5))
-  assert_eq(df.get(0, "b"), @types.Scalar::Bool(true))
-  assert_eq(df.get(0, "s"), @types.Scalar::String("hello"))
+  assert_eq(df.item(0, "i"), @types.Scalar::Int(1))
+  assert_eq(df.item(0, "f"), @types.Scalar::Float(1.5))
+  assert_eq(df.item(0, "b"), @types.Scalar::Bool(true))
+  assert_eq(df.item(0, "s"), @types.Scalar::String("hello"))
 }
 
 ///|
@@ -108,7 +108,7 @@ test "parse_ndjson_str: null cells map to None across every dtype" {
   let df = @io.parse_ndjson_str(content, @io.NdjsonReadOptions::default())
   assert_eq(df.shape(), (3, 4))
   for name in ["i", "f", "b", "s"] {
-    assert_eq(df.get(1, name), @types.Scalar::Null)
+    assert_eq(df.item(1, name), @types.Scalar::Null)
     assert_eq(df.get_column(name).null_count(), 1)
   }
 }
@@ -131,8 +131,8 @@ test "parse_ndjson_str: mixed Int + Float promotes to Float" {
     #|{"n":3}
   let df = @io.parse_ndjson_str(content, @io.NdjsonReadOptions::default())
   assert_eq(df.get_column("n").dtype(), @types.DataType::Float)
-  assert_eq(df.get(0, "n"), @types.Scalar::Float(1.0))
-  assert_eq(df.get(1, "n"), @types.Scalar::Float(2.5))
+  assert_eq(df.item(0, "n"), @types.Scalar::Float(1.0))
+  assert_eq(df.item(1, "n"), @types.Scalar::Float(2.5))
 }
 
 ///|
@@ -157,7 +157,7 @@ test "parse_ndjson_str: missing fields become nulls" {
   let df = @io.parse_ndjson_str(content, @io.NdjsonReadOptions::default())
   assert_eq(df.shape(), (2, 2))
   assert_eq(df.columns(), ["a", "b"])
-  assert_eq(df.get(1, "b"), @types.Scalar::Null)
+  assert_eq(df.item(1, "b"), @types.Scalar::Null)
 }
 
 ///|
@@ -170,8 +170,8 @@ test "parse_ndjson_str: sparse records contribute their own columns" {
   let df = @io.parse_ndjson_str(content, @io.NdjsonReadOptions::default())
   assert_eq(df.shape(), (2, 2))
   assert_eq(df.columns(), ["a", "b"])
-  assert_eq(df.get(0, "b"), @types.Scalar::Null)
-  assert_eq(df.get(1, "a"), @types.Scalar::Null)
+  assert_eq(df.item(0, "b"), @types.Scalar::Null)
+  assert_eq(df.item(1, "a"), @types.Scalar::Null)
 }
 
 ///|
@@ -182,9 +182,9 @@ test "parse_ndjson_str: mixed-dtype column falls back to String" {
     #|{"x":3}
   let df = @io.parse_ndjson_str(content, @io.NdjsonReadOptions::default())
   assert_eq(df.get_column("x").dtype(), @types.DataType::String)
-  assert_eq(df.get(0, "x"), @types.Scalar::String("1"))
-  assert_eq(df.get(1, "x"), @types.Scalar::String("two"))
-  assert_eq(df.get(2, "x"), @types.Scalar::String("3"))
+  assert_eq(df.item(0, "x"), @types.Scalar::String("1"))
+  assert_eq(df.item(1, "x"), @types.Scalar::String("two"))
+  assert_eq(df.item(2, "x"), @types.Scalar::String("3"))
 }
 
 ///|
@@ -204,8 +204,8 @@ test "parse_ndjson_str: nested array / object cells fall back to String" {
     #|{"x":{"k":1}}
   let df = @io.parse_ndjson_str(content, @io.NdjsonReadOptions::default())
   assert_eq(df.get_column("x").dtype(), @types.DataType::String)
-  assert_eq(df.get(0, "x"), @types.Scalar::String("[1,2,3]"))
-  assert_eq(df.get(1, "x"), @types.Scalar::String("{\"k\":1}"))
+  assert_eq(df.item(0, "x"), @types.Scalar::String("[1,2,3]"))
+  assert_eq(df.item(1, "x"), @types.Scalar::String("{\"k\":1}"))
 }
 
 // ── parse_ndjson_str: line framing ──────────────────────────────────
@@ -235,8 +235,8 @@ test "parse_ndjson_str: blank lines between and around records are skipped" {
     #|
   let df = @io.parse_ndjson_str(content, @io.NdjsonReadOptions::default())
   assert_eq(df.shape(), (2, 1))
-  assert_eq(df.get(0, "a"), @types.Scalar::Int(1))
-  assert_eq(df.get(1, "a"), @types.Scalar::Int(2))
+  assert_eq(df.item(0, "a"), @types.Scalar::Int(1))
+  assert_eq(df.item(1, "a"), @types.Scalar::Int(2))
 }
 
 ///|
@@ -247,8 +247,8 @@ test "parse_ndjson_str: CRLF line endings are handled" {
   let content = "{\"a\":1}\r\n{\"a\":2}\r\n"
   let df = @io.parse_ndjson_str(content, @io.NdjsonReadOptions::default())
   assert_eq(df.shape(), (2, 1))
-  assert_eq(df.get(0, "a"), @types.Scalar::Int(1))
-  assert_eq(df.get(1, "a"), @types.Scalar::Int(2))
+  assert_eq(df.item(0, "a"), @types.Scalar::Int(1))
+  assert_eq(df.item(1, "a"), @types.Scalar::Int(2))
 }
 
 ///|
@@ -260,7 +260,7 @@ test "parse_ndjson_str: a line with no trailing newline still parses" {
     @io.NdjsonReadOptions::default(),
   )
   assert_eq(df.shape(), (2, 1))
-  assert_eq(df.get(1, "a"), @types.Scalar::Int(2))
+  assert_eq(df.item(1, "a"), @types.Scalar::Int(2))
 }
 
 ///|
@@ -327,8 +327,8 @@ test "parse_ndjson_str: infer_schema_rows=0 scans every line" {
     on_parse_error: @io.OnParseError::Raise,
   })
   assert_eq(df.get_column("x").dtype(), @types.DataType::Float)
-  assert_eq(df.get(0, "x"), @types.Scalar::Float(1.0))
-  assert_eq(df.get(1, "x"), @types.Scalar::Float(2.5))
+  assert_eq(df.item(0, "x"), @types.Scalar::Float(1.0))
+  assert_eq(df.item(1, "x"), @types.Scalar::Float(2.5))
 }
 
 ///|
@@ -345,7 +345,7 @@ test "parse_ndjson_str: on_parse_error=Null nulls an out-of-window misfit" {
     on_parse_error: @io.OnParseError::Null,
   })
   assert_eq(df.get_column("x").dtype(), @types.DataType::Int)
-  assert_eq(df.get(2, "x"), @types.Scalar::Null)
+  assert_eq(df.item(2, "x"), @types.Scalar::Null)
   assert_eq(df.get_column("x").null_count(), 1)
 }
 
@@ -363,8 +363,8 @@ test "write_ndjson then read_ndjson round-trips a small frame on disk" {
   assert_eq(parsed.check_invariants(), Ok(()))
   assert_eq(parsed.shape(), (3, 2))
   assert_eq(parsed.columns(), ["n", "s"])
-  assert_eq(parsed.get(2, "n"), @types.Scalar::Int(3))
-  assert_eq(parsed.get(0, "s"), @types.Scalar::String("x"))
+  assert_eq(parsed.item(2, "n"), @types.Scalar::Int(3))
+  assert_eq(parsed.item(0, "s"), @types.Scalar::String("x"))
 }
 
 ///|

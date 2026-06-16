@@ -32,8 +32,8 @@ test "filter predicate columns stay alive through the pushdown" {
   let predicate = @expr.col("qty").gt(@expr.lit_int(50))
   let projection = [@expr.col("region")]
   assert_eq(
-    lazy_frame(df).filter_where(predicate).select(projection).collect(),
-    df.filter_where(predicate).select(projection),
+    lazy_frame(df).filter(predicate).select(projection).collect(),
+    df.filter(predicate).select(projection),
   )
 }
 
@@ -162,14 +162,11 @@ test "the flagship pipeline narrows through every stage" {
   let derived = [(@expr.col("qty") * @expr.lit_int(3)).with_alias("adj")]
   let projection = [@expr.col("adj")]
   let out = lazy_frame(df)
-    .filter_where(predicate)
+    .filter(predicate)
     .with_columns(derived)
     .select(projection)
     .collect()
-  assert_eq(
-    out,
-    df.filter_where(predicate).with_columns(derived).select(projection),
-  )
+  assert_eq(out, df.filter(predicate).with_columns(derived).select(projection))
   assert_eq(out.check_invariants(), Ok(()))
 }
 
@@ -199,8 +196,8 @@ test "errors keep surfacing at collect time, unchanged by the rewrite" {
   let predicate = @expr.col("ghost").is_null()
   let projection = [@expr.col("qty")]
   assert_eq(
-    try? lazy_frame(df).filter_where(predicate).select(projection).collect(),
-    try? df.filter_where(predicate).select(projection),
+    try? lazy_frame(df).filter(predicate).select(projection).collect(),
+    try? df.filter(predicate).select(projection),
   )
 }
 
@@ -286,7 +283,7 @@ test "select: a missing column is not kept alive, the rest narrow as usual" {
 test "filter: the requirement passes through, widened by the predicate's columns" {
   let predicate = @expr.col("qty").gt(@expr.lit_int(50))
   let plan = lazy_frame(sales_df())
-    .filter_where(predicate)
+    .filter(predicate)
     .select([@expr.col("region")])
   assert_eq(
     plan.explain(optimized=true),
@@ -297,7 +294,7 @@ test "filter: the requirement passes through, widened by the predicate's columns
   )
   // At the root the requirement is unbounded: a bare filter's layout may
   // be observed in full, so nothing narrows.
-  let bare = lazy_frame(sales_df()).filter_where(predicate)
+  let bare = lazy_frame(sales_df()).filter(predicate)
   assert_eq(bare.explain(optimized=true), bare.explain())
 }
 
@@ -450,7 +447,7 @@ test "a trailing filter sinks below a bare-column selection" {
   let df = sales_df()
   let projection = [@expr.col("qty"), @expr.col("region")]
   let predicate = @expr.col("qty").gt(@expr.lit_int(50))
-  let plan = lazy_frame(df).select(projection).filter_where(predicate)
+  let plan = lazy_frame(df).select(projection).filter(predicate)
   // The filter lands between the selection and the (narrowed) scan: rows
   // drop before the projection evaluates, columns before the rows load.
   assert_eq(
@@ -461,7 +458,7 @@ test "a trailing filter sinks below a bare-column selection" {
     "      SCAN [4×3]",
   )
   let out = plan.collect()
-  assert_eq(out, df.select(projection).filter_where(predicate))
+  assert_eq(out, df.select(projection).filter(predicate))
   assert_eq(out.check_invariants(), Ok(()))
 }
 
@@ -470,7 +467,7 @@ test "a trailing filter sinks below a derived-column stage" {
   let df = sales_df()
   let derived = [(@expr.col("qty") * @expr.lit_int(2)).with_alias("dbl")]
   let predicate = @expr.col("region").eq(@expr.lit_str("west"))
-  let plan = lazy_frame(df).with_columns(derived).filter_where(predicate)
+  let plan = lazy_frame(df).with_columns(derived).filter(predicate)
   // `dbl` is defined by the stage but not read by the predicate, so the
   // filter crosses; at the root nothing requires columns, so no scan
   // narrowing fires.
@@ -480,7 +477,7 @@ test "a trailing filter sinks below a derived-column stage" {
     "  FILTER (col(region) == \"west\")\n" +
     "    SCAN [4×3]",
   )
-  assert_eq(plan.collect(), df.with_columns(derived).filter_where(predicate))
+  assert_eq(plan.collect(), df.with_columns(derived).filter(predicate))
 }
 
 ///|
@@ -488,10 +485,10 @@ test "fence: a predicate reading a name the stage defines stays above" {
   let df = sales_df()
   let derived = [(@expr.col("qty") * @expr.lit_int(2)).with_alias("dbl")]
   let predicate = @expr.col("dbl").gt(@expr.lit_int(100))
-  let plan = lazy_frame(df).with_columns(derived).filter_where(predicate)
+  let plan = lazy_frame(df).with_columns(derived).filter(predicate)
   // Below the stage `dbl` does not exist: the filter must wait for it.
   assert_eq(plan.explain(optimized=true), plan.explain())
-  assert_eq(plan.collect(), df.with_columns(derived).filter_where(predicate))
+  assert_eq(plan.collect(), df.with_columns(derived).filter(predicate))
 }
 
 ///|
@@ -501,9 +498,9 @@ test "fence: a broadcast aggregation inside with_columns pins the filter above" 
   // recompute it over the survivors (85, not 405).
   let derived = [@expr.col("qty").sum().with_alias("total")]
   let predicate = @expr.col("region").eq(@expr.lit_str("west"))
-  let plan = lazy_frame(df).with_columns(derived).filter_where(predicate)
+  let plan = lazy_frame(df).with_columns(derived).filter(predicate)
   assert_eq(plan.explain(optimized=true), plan.explain())
-  assert_eq(plan.collect(), df.with_columns(derived).filter_where(predicate))
+  assert_eq(plan.collect(), df.with_columns(derived).filter(predicate))
 }
 
 ///|
@@ -514,9 +511,9 @@ test "fence: a cast inside the stage pins the filter above" {
   // crosses a cast-bearing stage even when (as here) every cast succeeds.
   let derived = [@expr.col("qty").cast(@types.DataType::Float).with_alias("f")]
   let predicate = @expr.col("region").eq(@expr.lit_str("west"))
-  let plan = lazy_frame(df).with_columns(derived).filter_where(predicate)
+  let plan = lazy_frame(df).with_columns(derived).filter(predicate)
   assert_eq(plan.explain(optimized=true), plan.explain())
-  assert_eq(plan.collect(), df.with_columns(derived).filter_where(predicate))
+  assert_eq(plan.collect(), df.with_columns(derived).filter(predicate))
 }
 
 ///|
@@ -527,7 +524,7 @@ test "fence: a computed occurrence of the predicate's column is not a bare pass-
     @expr.col("region"),
   ]
   let predicate = @expr.col("qty2").gt(@expr.lit_int(100))
-  let plan = lazy_frame(df).select(projection).filter_where(predicate)
+  let plan = lazy_frame(df).select(projection).filter(predicate)
   // `qty2` exists only above the selection, so the filter stays at the
   // root — while the projection pass still narrows the scan below.
   assert_eq(
@@ -537,7 +534,7 @@ test "fence: a computed occurrence of the predicate's column is not a bare pass-
     "    SELECT [col(qty), col(region)]\n" +
     "      SCAN [4×3]",
   )
-  assert_eq(plan.collect(), df.select(projection).filter_where(predicate))
+  assert_eq(plan.collect(), df.select(projection).filter(predicate))
 }
 
 ///|
@@ -550,7 +547,7 @@ test "fence: an aggregating selection pins the filter above" {
     @expr.col("qty").sum().with_alias("total"),
   ]
   let predicate = @expr.col("region").eq(@expr.lit_str("west"))
-  let plan = lazy_frame(df).select(projection).filter_where(predicate)
+  let plan = lazy_frame(df).select(projection).filter(predicate)
   assert_eq(
     plan.explain(optimized=true),
     "FILTER (col(region) == \"west\")\n" +
@@ -558,7 +555,7 @@ test "fence: an aggregating selection pins the filter above" {
     "    SELECT [col(qty), col(region)]\n" +
     "      SCAN [4×3]",
   )
-  assert_eq(plan.collect(), df.select(projection).filter_where(predicate))
+  assert_eq(plan.collect(), df.select(projection).filter(predicate))
 }
 
 ///|
@@ -569,7 +566,7 @@ test "a scope-dependent predicate still crosses a bare selection" {
   // identical on both sides of the swap.
   let projection = [@expr.col("qty"), @expr.col("region")]
   let predicate = @expr.col("qty").gt(@expr.col("qty").mean())
-  let plan = lazy_frame(df).select(projection).filter_where(predicate)
+  let plan = lazy_frame(df).select(projection).filter(predicate)
   assert_eq(
     plan.explain(optimized=true),
     "SELECT [col(qty), col(region)]\n" +
@@ -577,7 +574,7 @@ test "a scope-dependent predicate still crosses a bare selection" {
     "    SELECT [col(qty), col(region)]\n" +
     "      SCAN [4×3]",
   )
-  assert_eq(plan.collect(), df.select(projection).filter_where(predicate))
+  assert_eq(plan.collect(), df.select(projection).filter(predicate))
 }
 
 ///|
@@ -588,10 +585,7 @@ test "a key predicate sinks below an aggregation" {
     @expr.col("bonus").count().with_alias("n"),
   ]
   let predicate = @expr.col("region").eq(@expr.lit_str("west"))
-  let plan = lazy_frame(df)
-    .group_by(["region"])
-    .agg(aggs)
-    .filter_where(predicate)
+  let plan = lazy_frame(df).group_by(["region"]).agg(aggs).filter(predicate)
   // Every row of a group shares its key tuple, so filtering rows by key
   // before grouping drops exactly the groups the filter would have
   // dropped after — and sum / count cells can never be null, so the
@@ -603,7 +597,7 @@ test "a key predicate sinks below an aggregation" {
     "    SCAN [4×3]",
   )
   let out = plan.collect()
-  assert_eq(out, df.group_by(["region"]).agg(aggs).filter_where(predicate))
+  assert_eq(out, df.group_by(["region"]).agg(aggs).filter(predicate))
   assert_eq(out.check_invariants(), Ok(()))
 }
 
@@ -612,15 +606,12 @@ test "a key predicate that empties every group still collects equal" {
   let df = sales_df()
   let aggs = [@expr.col("qty").sum().with_alias("total")]
   let predicate = @expr.col("region").eq(@expr.lit_str("north"))
-  let plan = lazy_frame(df)
-    .group_by(["region"])
-    .agg(aggs)
-    .filter_where(predicate)
+  let plan = lazy_frame(df).group_by(["region"]).agg(aggs).filter(predicate)
   // Below the aggregation the filter leaves zero rows, so the executor
   // aggregates zero groups — the empty-scope probe in `agg` pins
   // the output dtype, keeping the 0-row frames bitwise-equal.
   let out = plan.collect()
-  assert_eq(out, df.group_by(["region"]).agg(aggs).filter_where(predicate))
+  assert_eq(out, df.group_by(["region"]).agg(aggs).filter(predicate))
   assert_eq(out.nrows(), 0)
   assert_eq(out.check_invariants(), Ok(()))
 }
@@ -630,10 +621,7 @@ test "fence: a predicate reading an aggregation output stays above" {
   let df = sales_df()
   let aggs = [@expr.col("qty").sum().with_alias("total")]
   let predicate = @expr.col("total").gt(@expr.lit_int(100))
-  let plan = lazy_frame(df)
-    .group_by(["region"])
-    .agg(aggs)
-    .filter_where(predicate)
+  let plan = lazy_frame(df).group_by(["region"]).agg(aggs).filter(predicate)
   // `total` is not a key: it only exists above the aggregation.
   assert_eq(
     plan.explain(optimized=true),
@@ -642,10 +630,7 @@ test "fence: a predicate reading an aggregation output stays above" {
     "    SELECT [col(qty), col(region)]\n" +
     "      SCAN [4×3]",
   )
-  assert_eq(
-    plan.collect(),
-    df.group_by(["region"]).agg(aggs).filter_where(predicate),
-  )
+  assert_eq(plan.collect(), df.group_by(["region"]).agg(aggs).filter(predicate))
 }
 
 ///|
@@ -658,10 +643,7 @@ test "fence: a mean aggregation pins the filter above the group stage" {
   // fence is what keeps this assertion true.
   let aggs = [@expr.col("bonus").mean().with_alias("avg")]
   let predicate = @expr.col("region").eq(@expr.lit_str("west"))
-  let plan = lazy_frame(df)
-    .group_by(["region"])
-    .agg(aggs)
-    .filter_where(predicate)
+  let plan = lazy_frame(df).group_by(["region"]).agg(aggs).filter(predicate)
   assert_eq(
     plan.explain(optimized=true),
     "FILTER (col(region) == \"west\")\n" +
@@ -669,10 +651,7 @@ test "fence: a mean aggregation pins the filter above the group stage" {
     "    SELECT [col(bonus), col(region)]\n" +
     "      SCAN [4×3]",
   )
-  assert_eq(
-    plan.collect(),
-    df.group_by(["region"]).agg(aggs).filter_where(predicate),
-  )
+  assert_eq(plan.collect(), df.group_by(["region"]).agg(aggs).filter(predicate))
 }
 
 ///|
@@ -682,10 +661,7 @@ test "fence: a cast in the aggregation list pins the filter above" {
     @expr.col("qty").sum().cast(@types.DataType::Float).with_alias("totalf"),
   ]
   let predicate = @expr.col("region").eq(@expr.lit_str("west"))
-  let plan = lazy_frame(df)
-    .group_by(["region"])
-    .agg(aggs)
-    .filter_where(predicate)
+  let plan = lazy_frame(df).group_by(["region"]).agg(aggs).filter(predicate)
   assert_eq(
     plan.explain(optimized=true),
     "FILTER (col(region) == \"west\")\n" +
@@ -693,10 +669,7 @@ test "fence: a cast in the aggregation list pins the filter above" {
     "    SELECT [col(qty), col(region)]\n" +
     "      SCAN [4×3]",
   )
-  assert_eq(
-    plan.collect(),
-    df.group_by(["region"]).agg(aggs).filter_where(predicate),
-  )
+  assert_eq(plan.collect(), df.group_by(["region"]).agg(aggs).filter(predicate))
 }
 
 ///|
@@ -706,10 +679,7 @@ test "fence: a scope-dependent key predicate stays above the aggregation" {
   // Reads only the key — but its count runs over the aggregation's
   // output rows (one per group), not the raw rows, so it must not move.
   let predicate = @expr.col("region").count().gt(@expr.lit_int(1))
-  let plan = lazy_frame(df)
-    .group_by(["region"])
-    .agg(aggs)
-    .filter_where(predicate)
+  let plan = lazy_frame(df).group_by(["region"]).agg(aggs).filter(predicate)
   assert_eq(
     plan.explain(optimized=true),
     "FILTER (col(region).count() > 1)\n" +
@@ -717,10 +687,7 @@ test "fence: a scope-dependent key predicate stays above the aggregation" {
     "    SELECT [col(qty), col(region)]\n" +
     "      SCAN [4×3]",
   )
-  assert_eq(
-    plan.collect(),
-    df.group_by(["region"]).agg(aggs).filter_where(predicate),
-  )
+  assert_eq(plan.collect(), df.group_by(["region"]).agg(aggs).filter(predicate))
 }
 
 ///|
@@ -728,10 +695,7 @@ test "fence: a non-reduction aggregation keeps its error and its filter in place
   let df = sales_df()
   let aggs = [@expr.col("qty")]
   let predicate = @expr.col("region").eq(@expr.lit_str("west"))
-  let plan = lazy_frame(df)
-    .group_by(["region"])
-    .agg(aggs)
-    .filter_where(predicate)
+  let plan = lazy_frame(df).group_by(["region"]).agg(aggs).filter(predicate)
   // A bare column is not reduction-shaped; the fence holds the filter
   // above, and collect reports the executor's own `InvalidOperation`.
   assert_eq(
@@ -743,7 +707,7 @@ test "fence: a non-reduction aggregation keeps its error and its filter in place
   )
   assert_eq(
     try? plan.collect(),
-    try? df.group_by(["region"]).agg(aggs).filter_where(predicate),
+    try? df.group_by(["region"]).agg(aggs).filter(predicate),
   )
 }
 
@@ -752,10 +716,7 @@ test "fence: a null literal in the aggregation list pins the filter above" {
   let df = sales_df()
   let aggs = [@expr.lit(@types.Scalar::Null).with_alias("z")]
   let predicate = @expr.col("region").eq(@expr.lit_str("west"))
-  let plan = lazy_frame(df)
-    .group_by(["region"])
-    .agg(aggs)
-    .filter_where(predicate)
+  let plan = lazy_frame(df).group_by(["region"]).agg(aggs).filter(predicate)
   // A null literal is a null cell by definition — the backend-flip
   // hazard in its purest form — so the filter stays above, and collect
   // behaves exactly as the as-built plan does.
@@ -768,7 +729,7 @@ test "fence: a null literal in the aggregation list pins the filter above" {
   )
   assert_eq(
     try? plan.collect(),
-    try? df.group_by(["region"]).agg(aggs).filter_where(predicate),
+    try? df.group_by(["region"]).agg(aggs).filter(predicate),
   )
 }
 
@@ -785,10 +746,7 @@ test "reduction combinators pass the aggregation crossing gate" {
     (-@expr.col("qty").sum()).with_alias("neg"),
   ]
   let predicate = @expr.col("region").eq(@expr.lit_str("west"))
-  let plan = lazy_frame(df)
-    .group_by(["region"])
-    .agg(aggs)
-    .filter_where(predicate)
+  let plan = lazy_frame(df).group_by(["region"]).agg(aggs).filter(predicate)
   assert_eq(
     plan.explain(optimized=true),
     "AGGREGATE [when((col(qty).sum() > 100)).then(1).otherwise(0) as flag, (-col(qty).sum()) as neg] BY [region]\n" +
@@ -797,7 +755,7 @@ test "reduction combinators pass the aggregation crossing gate" {
     "      SCAN [4×3]",
   )
   let out = plan.collect()
-  assert_eq(out, df.group_by(["region"]).agg(aggs).filter_where(predicate))
+  assert_eq(out, df.group_by(["region"]).agg(aggs).filter(predicate))
   assert_eq(out.check_invariants(), Ok(()))
 }
 
@@ -807,16 +765,16 @@ test "row windows stop the descent" {
   // Positions are not values: head(2) then filter keeps [120], while
   // filtering first would re-number the rows and keep [120, 200].
   let predicate = @expr.col("qty").gt(@expr.lit_int(100))
-  let on_head = lazy_frame(df).head(2).filter_where(predicate)
+  let on_head = lazy_frame(df).head(2).filter(predicate)
   assert_eq(on_head.explain(optimized=true), on_head.explain())
-  assert_eq(on_head.collect(), df.head(2).filter_where(predicate))
+  assert_eq(on_head.collect(), df.head(2).filter(predicate))
   assert_eq(
-    lazy_frame(df).tail(2).filter_where(predicate).collect(),
-    df.tail(2).filter_where(predicate),
+    lazy_frame(df).tail(2).filter(predicate).collect(),
+    df.tail(2).filter(predicate),
   )
   assert_eq(
-    lazy_frame(df).slice(1, 3).filter_where(predicate).collect(),
-    df.slice(1, 3).filter_where(predicate),
+    lazy_frame(df).slice(1, 3).filter(predicate).collect(),
+    df.slice(1, 3).filter(predicate),
   )
 }
 
@@ -825,10 +783,10 @@ test "sort stops the descent" {
   let df = sales_df()
   let keys = [("qty", @frame.SortOrder::Asc, @frame.NullOrder::NullsLast)]
   let predicate = @expr.col("qty").gt(@expr.lit_int(100))
-  let plan = lazy_frame(df).sort_by(keys).filter_where(predicate)
+  let plan = lazy_frame(df).sort_by(keys).filter(predicate)
   // Crossing a sort is deliberately deferred — the filter stays put.
   assert_eq(plan.explain(optimized=true), plan.explain())
-  assert_eq(plan.collect(), df.sort_by(keys).filter_where(predicate))
+  assert_eq(plan.collect(), df.sort_by(keys).filter(predicate))
 }
 
 ///|
@@ -837,10 +795,7 @@ test "stacked filters sink together and keep their order" {
   let projection = [@expr.col("qty"), @expr.col("bonus")]
   let first = @expr.col("bonus").is_not_null()
   let second = @expr.col("qty").gt(@expr.lit_int(50))
-  let plan = lazy_frame(df)
-    .select(projection)
-    .filter_where(first)
-    .filter_where(second)
+  let plan = lazy_frame(df).select(projection).filter(first).filter(second)
   // Both predicates cross the selection; one filter never crosses
   // another, so the earlier one stays the deeper (first-evaluated) one.
   assert_eq(
@@ -851,10 +806,7 @@ test "stacked filters sink together and keep their order" {
     "      SELECT [col(qty), col(bonus)]\n" +
     "        SCAN [4×3]",
   )
-  assert_eq(
-    plan.collect(),
-    df.select(projection).filter_where(first).filter_where(second),
-  )
+  assert_eq(plan.collect(), df.select(projection).filter(first).filter(second))
 }
 
 ///|
@@ -866,18 +818,18 @@ test "a filter above a join stays; one inside a side still sinks" {
   // provenance, deferred — the join is a barrier.
   let above = lazy_frame(l)
     .join(lazy_frame(r), opts)
-    .filter_where(@expr.col("amount").gt(@expr.lit_int(15)))
+    .filter(@expr.col("amount").gt(@expr.lit_int(15)))
   assert_eq(above.explain(optimized=true), above.explain())
   assert_eq(
     above.collect(),
-    l.join(r, opts).filter_where(@expr.col("amount").gt(@expr.lit_int(15))),
+    l.join(r, opts).filter(@expr.col("amount").gt(@expr.lit_int(15))),
   )
   // Inside: each side restarts its own descent, so a filter built into
   // the left pipeline sinks below that side's selection.
   let gate = @expr.col("amount").gt(@expr.lit_int(15))
   let inside = lazy_frame(l)
     .select([@expr.col("id"), @expr.col("amount")])
-    .filter_where(gate)
+    .filter(gate)
     .join(lazy_frame(r), opts)
   assert_eq(
     inside.explain(optimized=true),
@@ -889,10 +841,7 @@ test "a filter above a join stays; one inside a side still sinks" {
   )
   assert_eq(
     inside.collect(),
-    l
-    .select([@expr.col("id"), @expr.col("amount")])
-    .filter_where(gate)
-    .join(r, opts),
+    l.select([@expr.col("id"), @expr.col("amount")]).filter(gate).join(r, opts),
   )
 }
 
@@ -907,15 +856,13 @@ test "a doubly-broken plan may report the sunk filter's error first" {
   // test).
   let broken_stage = [(@expr.col("ghost1") + @expr.lit_int(1)).with_alias("g")]
   let broken_predicate = @expr.col("ghost2").is_null()
-  let plan = lazy_frame(df)
-    .with_columns(broken_stage)
-    .filter_where(broken_predicate)
+  let plan = lazy_frame(df).with_columns(broken_stage).filter(broken_predicate)
   assert_eq(
     try? plan.collect(),
     Err(@types.DataError::ColumnNotFound("ghost2")),
   )
   assert_eq(
-    try? df.with_columns(broken_stage).filter_where(broken_predicate),
+    try? df.with_columns(broken_stage).filter(broken_predicate),
     Err(@types.DataError::ColumnNotFound("ghost1")),
   )
 }
@@ -930,20 +877,17 @@ test "single-fault errors survive the crossing unchanged" {
   assert_eq(
     try? lazy_frame(df)
     .with_columns(broken_stage)
-    .filter_where(key_predicate)
+    .filter(key_predicate)
     .collect(),
-    try? df.with_columns(broken_stage).filter_where(key_predicate),
+    try? df.with_columns(broken_stage).filter(key_predicate),
   )
   // Sound stage, broken predicate: the predicate's missing column is
   // missing below the stage too — same error, earlier.
   let derived = [(@expr.col("qty") * @expr.lit_int(2)).with_alias("dbl")]
   let broken_predicate = @expr.col("ghost").gt(@expr.lit_int(1))
   assert_eq(
-    try? lazy_frame(df)
-    .with_columns(derived)
-    .filter_where(broken_predicate)
-    .collect(),
-    try? df.with_columns(derived).filter_where(broken_predicate),
+    try? lazy_frame(df).with_columns(derived).filter(broken_predicate).collect(),
+    try? df.with_columns(derived).filter(broken_predicate),
   )
 }
 
@@ -956,7 +900,7 @@ test "the flagship pipeline sinks its filter and narrows its scan" {
   let plan = lazy_frame(df)
     .with_columns(derived)
     .select(projection)
-    .filter_where(predicate)
+    .filter(predicate)
   // The trailing filter crosses both stages down to the scan, and the
   // projection pass narrows the scan beneath it: rows and columns both
   // drop before any stage computes.
@@ -969,10 +913,7 @@ test "the flagship pipeline sinks its filter and narrows its scan" {
     "        SCAN [4×3]",
   )
   let out = plan.collect()
-  assert_eq(
-    out,
-    df.with_columns(derived).select(projection).filter_where(predicate),
-  )
+  assert_eq(out, df.with_columns(derived).select(projection).filter(predicate))
   assert_eq(out.check_invariants(), Ok(()))
 }
 
@@ -981,7 +922,7 @@ test "an all-literal predicate crosses vacuously" {
   let df = sales_df()
   let projection = [@expr.col("qty")]
   let predicate = @expr.lit_bool(true)
-  let plan = lazy_frame(df).select(projection).filter_where(predicate)
+  let plan = lazy_frame(df).select(projection).filter(predicate)
   // No columns read means nothing to fence on: the filter sinks.
   assert_eq(
     plan.explain(optimized=true),
@@ -990,7 +931,7 @@ test "an all-literal predicate crosses vacuously" {
     "    SELECT [col(qty)]\n" +
     "      SCAN [4×3]",
   )
-  assert_eq(plan.collect(), df.select(projection).filter_where(predicate))
+  assert_eq(plan.collect(), df.select(projection).filter(predicate))
 }
 
 ///|
@@ -1003,13 +944,13 @@ test "a dropping predicate cannot sink past a collapsing constant selection" {
   // stays put; only its harmless `true` counterpart above could sink.
   let one = [@expr.lit_int(1).with_alias("one")]
   let predicate = @expr.lit_bool(false)
-  let plan = lazy_frame(df).select(one).filter_where(predicate)
+  let plan = lazy_frame(df).select(one).filter(predicate)
   assert_eq(
     plan.explain(optimized=true),
     "FILTER false\n" + "  SELECT [1 as one]\n" + "    SCAN [4×3]",
   )
   let out = plan.collect()
-  assert_eq(out, df.select(one).filter_where(predicate))
+  assert_eq(out, df.select(one).filter(predicate))
   assert_eq(out.nrows(), 0)
 }
 
@@ -1026,14 +967,14 @@ test "row-local probes and ternaries cross with their stage" {
     .with_alias("size"),
   ]
   let predicate = @expr.col("region").eq(@expr.lit_str("west"))
-  let plan = lazy_frame(df).with_columns(derived).filter_where(predicate)
+  let plan = lazy_frame(df).with_columns(derived).filter(predicate)
   assert_eq(
     plan.explain(optimized=true),
     "WITH_COLUMNS [col(bonus).is_null() as nb, when((col(qty) > 100)).then(\"big\").otherwise(col(region)) as size]\n" +
     "  FILTER (col(region) == \"west\")\n" +
     "    SCAN [4×3]",
   )
-  assert_eq(plan.collect(), df.with_columns(derived).filter_where(predicate))
+  assert_eq(plan.collect(), df.with_columns(derived).filter(predicate))
 }
 
 ///|
@@ -1053,7 +994,7 @@ test "a map is a value barrier: it blocks the filter sink, like cast" {
     }),
   ]
   let predicate = @expr.col("region").eq(@expr.lit_str("west"))
-  let plan = lazy_frame(df).with_columns(derived).filter_where(predicate)
+  let plan = lazy_frame(df).with_columns(derived).filter(predicate)
   // The FILTER stays *above* the WITH_COLUMNS.
   assert_eq(
     plan.explain(optimized=true),
@@ -1062,5 +1003,5 @@ test "a map is a value barrier: it blocks the filter sink, like cast" {
     "    SCAN [4×3]",
   )
   // ...and collect stays bitwise-equal to the eager chain through it.
-  assert_eq(plan.collect(), df.with_columns(derived).filter_where(predicate))
+  assert_eq(plan.collect(), df.with_columns(derived).filter(predicate))
 }

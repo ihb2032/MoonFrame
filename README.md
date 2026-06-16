@@ -6,7 +6,7 @@ polars, the shape of the API will feel familiar:
 
 ```moonbit
 read_csv("sales.csv")
-  .filter(row => row.get_string("product") == "widget")
+  .filter(col("product").eq(lit_str("widget")))
   .group_by(["region"])
   .agg([col("revenue").sum()])
   .to_markdown()
@@ -72,7 +72,7 @@ Keep the widget rows, pick a few columns, and sort by quantity:
 ```moonbit
 fn widgets(path : String) -> String raise @moonframe.DataError {
   @moonframe.read_csv(path)
-  .filter(row => row.get_string("product") == "widget")
+  .filter(@moonframe.col("product").eq(@moonframe.lit_str("widget")))
   .select(@moonframe.cols(["region", "revenue", "quantity"]))
   .sort_by([
     ("quantity", @moonframe.SortOrder::Desc, @moonframe.NullOrder::NullsLast),
@@ -110,7 +110,7 @@ on all four backends, so it always matches the current API.
   `min` / `max` / `count`.
 - **Express** — build composable column expressions
   (`col("revenue") - col("cost")`, `&` / `|` logic, `when / then / otherwise`)
-  and feed them to `with_columns`, `filter_where`, or
+  and feed them to `with_columns`, `filter`, or
   `group_by(...).agg([...])`, including compound aggregations like
   `(col("revenue") - col("cost")).sum()`. For logic past the built-in
   algebra, the `map_elements` / `map_many` escape hatch applies a host
@@ -202,13 +202,13 @@ Three runnable end-to-end programs live in [`examples/`](examples):
 moon run examples/sales_analysis    # filter → select → sort → describe → markdown
 moon run examples/data_cleaning     # drop_nulls → fill_null → CSV round-trip
 moon run examples/reporting         # group_by → to_html + Vega-Lite spec
-moon run examples/expressions       # with_columns → filter_where → agg → lazy + explain
+moon run examples/expressions       # with_columns → filter → agg → lazy + explain
 ```
 
 ## Status
 
 **v0.4 — shipped:** a Polars-style expression engine (`Expr` with operators,
-methods, and `when / then / otherwise`) feeding `with_columns` / `filter_where`
+methods, and `when / then / otherwise`) feeding `with_columns` / `filter`
 / `agg`, plus a lazy query layer (`lazy_frame(df)` → `explain` →
 `collect`) with a predicate- and projection-pushdown optimizer — all purely
 additive on top of v0.3's output formats, full join matrix, read resilience,
@@ -228,7 +228,7 @@ types/      value types, errors (DataError), schemas
 column/     Arrow-style storage — validity Bitmap, BuiltinColumn, Numeric fast path, ColumnStorage seam
 series/     Series + column-level stats + the shared reduction / rebuild / key-cell kernels
 expr/       composable column expressions — Expr AST, operators / methods, when/then/otherwise, explain
-frame/      DataFrame, RowView + every operator (one per file) + group_by + join + the expression evaluator (with_columns / select / filter_where / agg) + to_markdown / to_html
+frame/      DataFrame, RowView + every operator (one per file) + group_by + join + the expression evaluator (with_columns / select / filter / agg) + to_markdown / to_html
 io/         CSV (NyaCSV-backed), JSON, NDJSON read / write + Vega-Lite export
 lazy/       deferred query plan — LazyFrame builders, collect / explain, predicate + projection pushdown
 moonframe/  facade — re-exports the whole public API

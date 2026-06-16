@@ -31,8 +31,7 @@ pub fn DataFrame::drop_nulls(Self) -> Self raise @types.DataError
 pub fn DataFrame::drop_nulls_in(Self, Array[String]) -> Self raise @types.DataError
 pub fn DataFrame::empty(@types.Schema) -> Self raise @types.DataError
 pub fn DataFrame::fill_null(Self, String, @types.Scalar) -> Self raise @types.DataError
-pub fn DataFrame::filter(Self, (RowView) -> Bool raise @types.DataError) -> Self raise @types.DataError
-pub fn DataFrame::filter_where(Self, @expr.Expr) -> Self raise @types.DataError
+pub fn DataFrame::filter(Self, @expr.Expr) -> Self raise @types.DataError
 pub fn DataFrame::from_rows(@types.Schema, Array[Array[@types.Scalar]]) -> Self raise @types.DataError
 pub fn DataFrame::get(Self, Int, String) -> @types.Scalar raise @types.DataError
 pub fn DataFrame::get_column(Self, String) -> @series.Series raise @types.DataError

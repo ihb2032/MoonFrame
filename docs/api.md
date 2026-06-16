@@ -239,10 +239,10 @@ validity bitmap (`1 = valid`, `0 = null`).
 
 ## `expr` — Expression engine
 
-A reified, composable column expression. Where the closure `filter` is an
-opaque host-language function, an `Expr` is **data**: a small recursive
+A reified, composable column expression. Where a host-language closure is
+opaque, an `Expr` is **data**: a small recursive
 tree you build with constructors, operators, and methods, then evaluate
-eagerly (`with_columns` / `select` / `filter_where` / `agg`,
+eagerly (`with_columns` / `select` / `filter` / `agg`,
 in `frame`), introspect (`explain`), or defer and optimize (`lazy`).
 Building a tree is **total** — every constructor and combinator just
 allocates a node, so an expression can always be built; every failure (a
@@ -508,11 +508,6 @@ transforms, so every output satisfies `check_invariants()`.
 - `replace_column(name, series) -> DataFrame raise DataError` —
   positional in-place swap; the target `name` wins over `series.name()`;
   cross-dtype allowed. `ColumnNotFound` / `LengthMismatch`.
-- `filter(predicate : (RowView) -> Bool raise DataError) -> DataFrame
-  raise DataError` — keep rows where `predicate` is `true`. The predicate
-  may raise (a typed `RowView` accessor surfaces `ColumnNotFound` /
-  `TypeMismatch`); the first raise short-circuits the scan. Schema
-  preserved verbatim; the predicate is not invoked on a 0-row frame.
 - `sort_by(keys : Array[(String, SortOrder, NullOrder)]) -> DataFrame raise
   DataError` — stable multi-key sort. Each key is a
   `(column, order, null_order)` tuple; earlier keys dominate. A single-key
@@ -562,7 +557,7 @@ transforms, so every output satisfies `check_invariants()`.
   / class strings verbatim, for trusted input that intentionally carries
   HTML.
 
-### Expression consumers (`with_columns` / `select` / `filter_where`)
+### Expression consumers (`with_columns` / `select` / `filter`)
 
 The eager face of the `expr` engine — `DataFrame` methods that evaluate
 `@expr.Expr` trees over the whole frame. (The evaluator and these
@@ -585,13 +580,14 @@ raise the evaluator's `DataError` (`ColumnNotFound` / `TypeMismatch` /
   expressions broadcasts the aggregations to the frame height; an
   **all-aggregation** selection collapses to a single row (Polars'
   `select(sum)` shape).
-- `filter_where(predicate : Expr) -> DataFrame raise DataError` —
+- `filter(predicate : Expr) -> DataFrame raise DataError` —
   vectorized boolean row selection: evaluate `predicate` (which must be a
   `Bool` column of frame height; non-`Bool` → `TypeMismatch`) and keep the
-  `true` rows (a `false` / null cell drops the row, matching the closure
-  `filter` and Polars). A length-1 predicate broadcasts. This is the eager
-  executor the lazy `Filter` node defers — and, being a reified `Expr`
-  rather than a closure, the predicate the optimizer can push down.
+  `true` rows (a `false` / null cell drops the row, matching Polars). A
+  length-1 predicate broadcasts. This is the eager executor the lazy
+  `Filter` node defers — and, being a reified `Expr` rather than a closure,
+  the predicate the optimizer can push down. A row-wise host predicate is
+  reachable through the `map_many` escape hatch.
 
 A computed numeric result lands on the `Numeric` backend when all-valid,
 `Builtin` otherwise; a `col(...)` reference preserves its source column's
@@ -926,7 +922,7 @@ plan through the public eager operators and holds `@expr.Expr` nodes);
 
 Each returns a new `LazyFrame` wrapping one more node:
 
-- `filter_where(predicate : Expr)` · `with_columns(exprs : Array[Expr])` ·
+- `filter(predicate : Expr)` · `with_columns(exprs : Array[Expr])` ·
   `select(exprs : Array[Expr])` — defer the eager expression consumers.
 - `sort_by(by : Array[(String, SortOrder, NullOrder)])` · `head(n)` ·
   `tail(n)` · `limit(n)` (≡ `head`) · `slice(start, end)`.
@@ -958,7 +954,7 @@ Each returns a new `LazyFrame` wrapping one more node:
 
 `collect` runs two total, result-preserving rewrites before executing:
 
-- **Predicate pushdown** sinks each `filter_where` toward the scan so rows
+- **Predicate pushdown** sinks each `filter` toward the scan so rows
   drop as early as possible — below a selection when its expressions are
   row-local (no aggregation, no `cast`) and every predicate column is a
   bare `col(name)`; below a `with_columns` (same row-local rule) when the

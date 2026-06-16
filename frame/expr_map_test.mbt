@@ -4,8 +4,8 @@
 /// multi-input application, the per-row `Scalar` interface (null cells in,
 /// null / typed cells out), dtype inference (each backend, the `Numeric`
 /// convergence, the all-null / empty `Unsupported`), the literal / aggregation
-/// broadcast, closure error propagation, and the 1:1 equivalence with the
-/// closure `filter` the multi-input form reifies.
+/// broadcast, closure error propagation, and the multi-input form's use as
+/// a `filter` predicate, matching the equivalent native expression.
 
 ///|
 /// Mixed frame: a nullable Int, an all-valid Int, and a String, exercising
@@ -75,9 +75,9 @@ test "map_many: combines several inputs row by row (heterogeneous dtypes)" {
 }
 
 ///|
-test "map: a Bool result is usable as a filter_where predicate" {
+test "map: a Bool result is usable as a filter predicate" {
   // The reified row predicate: a `map_many` returning `Scalar::Bool`.
-  let kept = map_df().filter_where(
+  let kept = map_df().filter(
     @expr.map_many(label="keep", [@expr.col("q")], vs => {
       match vs[0] {
         @types.Scalar::Int(v) => @types.Scalar::Bool(v >= 3)
@@ -213,17 +213,13 @@ test "map over an empty frame cannot infer a dtype and raises" {
 }
 
 ///|
-test "map_many reifies the closure filter: 1:1 with the old row predicate" {
+test "map_many as a filter predicate matches the native expression" {
   let df = map_df()
-  // The v0.1 closure `filter` form...
-  let by_closure = df.filter(row => {
-    match row.get("q") {
-      @types.Scalar::Int(v) => v >= 3
-      _ => false
-    }
-  })
-  // ...and the reified `map_many` predicate produce the identical frame.
-  let by_map = df.filter_where(
+  // The `map_many` escape hatch reproduces a native predicate — keep rows
+  // where `q >= 3`. The closure returns `Bool(false)` for the null cell
+  // while the native `ge` returns null there, but both drop the row, so the
+  // two filters agree row for row.
+  let by_map = df.filter(
     @expr.map_many(label="keep", [@expr.col("q")], vs => {
       match vs[0] {
         @types.Scalar::Int(v) => @types.Scalar::Bool(v >= 3)
@@ -231,5 +227,6 @@ test "map_many reifies the closure filter: 1:1 with the old row predicate" {
       }
     }),
   )
-  assert_eq(by_closure, by_map)
+  let by_native = df.filter(@expr.col("q").ge(@expr.lit_int(3)))
+  assert_eq(by_map, by_native)
 }

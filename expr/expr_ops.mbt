@@ -294,7 +294,7 @@ pub fn WhenThenElse::otherwise(self : WhenThenElse, value : Expr) -> Expr {
 /// returns — an all-null (or empty) result has no representable dtype and
 /// raises `Unsupported`, exactly as the `Null` literal does. The result is
 /// named after `self` (its leftmost column), so `with_alias` renames it.
-/// Use it inside `with_columns` / `select` / `filter_where` like any other
+/// Use it inside `with_columns` / `select` / `filter` like any other
 /// expression; the optimizer treats it as a value barrier (it can raise on
 /// values), so no filter sinks across it.
 pub fn Expr::map_elements(

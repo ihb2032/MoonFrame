@@ -2,12 +2,13 @@
 package "ihb2032/MoonFrame/examples/sales_analysis/pipeline"
 
 import {
+  "ihb2032/MoonFrame/expr",
   "ihb2032/MoonFrame/frame",
   "ihb2032/MoonFrame/types",
 }
 
 // Values
-pub fn is_widget_row(@frame.RowView) -> Bool raise @types.DataError
+pub fn is_widget_row() -> @expr.Expr
 
 pub fn widget_report(@frame.DataFrame) -> (@frame.DataFrame, @frame.DataFrame) raise @types.DataError
 

@@ -19,7 +19,7 @@ pub fn widget_report(
   df : @moonframe.DataFrame,
 ) -> (@moonframe.DataFrame, @moonframe.DataFrame) raise @moonframe.DataError {
   let sorted = df
-    .filter(is_widget_row)
+    .filter(is_widget_row())
     .select(@moonframe.cols(["region", "price", "quantity", "revenue"]))
     .sort_by([
       ("quantity", @moonframe.SortOrder::Desc, @moonframe.NullOrder::NullsLast),
@@ -28,11 +28,14 @@ pub fn widget_report(
 }
 
 ///|
-/// Row predicate for `filter`. The fallible `RowView::get_string`
-/// raises straight through, so a misspelled column or a dtype mismatch
-/// becomes a `DataError`, not a silent "row excluded".
-pub fn is_widget_row(
-  row : @moonframe.RowView,
-) -> Bool raise @moonframe.DataError {
-  row.get_string("product") == "widget"
+/// Row predicate for `filter`, reified with the `map_many` escape hatch:
+/// the closure receives each row's `product` cell as a `Scalar` and keeps
+/// the rows whose value is `"widget"`. A missing `product` column makes the
+/// predicate raise `ColumnNotFound` at evaluation, and a non-string cell
+/// raises `TypeMismatch` via `Scalar::as_string` — the same errors the old
+/// closure predicate surfaced, now carried by an inspectable `Expr`.
+pub fn is_widget_row() -> @moonframe.Expr {
+  @moonframe.map_many(label="is_widget", [@moonframe.col("product")], cells => {
+    @moonframe.Scalar::Bool(cells[0].as_string() == "widget")
+  })
 }

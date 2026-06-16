@@ -37,7 +37,7 @@ priv enum LogicalPlan {
 ///|
 /// Bottom-up plan interpreter — the whole of `collect`. Each node
 /// delegates to the public eager operator it mirrors (`Filter` →
-/// `filter_where`, `WithColumns` → `with_columns`, …), so with no
+/// `filter`, `WithColumns` → `with_columns`, …), so with no
 /// optimizer in front the lazy layer is a *faithful deferred executor*:
 /// collecting a plan is bitwise-equal to running the same verbs eagerly in
 /// the same order. Errors are exactly the eager operators' errors,
@@ -48,7 +48,7 @@ fn execute(plan : LogicalPlan) -> @frame.DataFrame raise @types.DataError {
     Scan(df) => df
     Select(input, exprs) => execute(input).select(exprs)
     WithColumns(input, exprs) => execute(input).with_columns(exprs)
-    Filter(input, predicate) => execute(input).filter_where(predicate)
+    Filter(input, predicate) => execute(input).filter(predicate)
     Sort(input, by) => execute(input).sort_by(by)
     Head(input, n) => execute(input).head(n)
     Tail(input, n) => execute(input).tail(n)

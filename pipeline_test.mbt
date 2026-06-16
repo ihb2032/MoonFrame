@@ -27,10 +27,10 @@ test "pipeline: read_csv → filter → select → sort_by → describe → to_m
   assert_eq(df.check_invariants(), Ok(()))
 
   // filter (widgets only) → select → sort_by → describe → to_markdown.
-  // The fallible `RowView::get_string` raises straight into the
-  // predicate, so no `.map` / `filter_try` is needed.
+  // The predicate is an `Expr` the evaluator runs vectorized; an unknown
+  // column surfaces as `ColumnNotFound`.
   let report = df
-    .filter(row => row.get_string("product") == "widget")
+    .filter(col("product").eq(lit_str("widget")))
     .select(cols(["region", "quantity", "revenue"]))
     .sort_by([("quantity", SortOrder::Desc, NullOrder::NullsLast)])
   let summary = report.describe()
@@ -74,10 +74,9 @@ test "pipeline: parse_csv_str → filter → select → sort_by → describe →
   assert_eq(df.shape(), (6, 6))
   assert_eq(df.check_invariants(), Ok(()))
 
-  // Keep rows whose product is "widget"; the predicate calls the
-  // fallible `RowView::get_string`, which raises straight through the
-  // single `filter` signature (no `filter_try` variant any more).
-  let widgets = df.filter(row => row.get_string("product") == "widget")
+  // Keep rows whose product is "widget" with an `Expr` predicate; an
+  // unknown column raises `ColumnNotFound` straight through `filter`.
+  let widgets = df.filter(col("product").eq(lit_str("widget")))
   assert_eq(widgets.nrows(), 3)
   assert_eq(widgets.check_invariants(), Ok(()))
 
@@ -371,12 +370,12 @@ test "pipeline: facade exposes column-layer primitives (Bitmap, BuiltinColumn, C
 // ── filter error propagation ──────────────────────────────────────────
 
 ///|
-test "pipeline: filter surfaces RowView accessor errors instead of swallowing them" {
+test "pipeline: filter surfaces predicate evaluation errors instead of swallowing them" {
   let df = DataFrame::new([Series::from_ints("n", [1, 2, 3])])
-  // Predicate misspells the column name; the first error raised by
-  // `RowView::get_int` must propagate verbatim, *not* collapse to
+  // The predicate references a misspelled column; the evaluator's
+  // `ColumnNotFound` must propagate verbatim, *not* collapse to
   // "row excluded".
-  let result = try? df.filter(row => row.get_int("nope") > 0)
+  let result = try? df.filter(col("nope").gt(lit_int(0)))
   assert_true(result is Err(DataError::ColumnNotFound("nope")))
 }
 

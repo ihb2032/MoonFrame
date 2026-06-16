@@ -30,21 +30,18 @@ pub fn LazyFrame::from(df : @frame.DataFrame) -> LazyFrame {
 
 ///|
 /// Free-function alias of `LazyFrame::from`, for the `read_csv(path)`
-/// hand-feel: `lazy_frame(df).filter_where(…).collect()`. (`lazy(df)`
+/// hand-feel: `lazy_frame(df).filter(…).collect()`. (`lazy(df)`
 /// would be the obvious shorter name, but `lazy` is reserved.)
 pub fn lazy_frame(df : @frame.DataFrame) -> LazyFrame {
   LazyFrame::from(df)
 }
 
 ///|
-/// Defer `DataFrame::filter_where`: keep the rows where `predicate`
+/// Defer `DataFrame::filter`: keep the rows where `predicate`
 /// evaluates to `true` (`false` / null cells drop the row). Total at build
 /// time — a predicate over missing columns or of a non-`Bool` type only
 /// fails when the plan is collected.
-pub fn LazyFrame::filter_where(
-  self : LazyFrame,
-  predicate : @expr.Expr,
-) -> LazyFrame {
+pub fn LazyFrame::filter(self : LazyFrame, predicate : @expr.Expr) -> LazyFrame {
   { plan: Filter(self.plan, predicate) }
 }
 

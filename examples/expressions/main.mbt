@@ -1,7 +1,7 @@
 // MoonFrame example: the v0.4 expression + lazy-query layer end to end.
 //
 //   read_csv → with_columns (derive profit, unit_price)
-//            → filter_where (Expr predicate: profit > 0 & region == west)
+//            → filter (Expr predicate: profit > 0 & region == west)
 //            → group_by(region).agg (composite aggregation)
 //            → with_columns (when / then / otherwise tier)
 //            → lazy_frame(...).explain() + .collect()
@@ -28,7 +28,7 @@ fn main {
       "Enriched (profit = revenue - cost, unit_price = revenue / quantity):",
     )
     println(@analysis.enrich(df).to_markdown())
-    // 2) An `Expr` predicate drives `filter_where`.
+    // 2) An `Expr` predicate drives `filter`.
     println("\nProfitable western rows:")
     println(@analysis.top_west(df).to_markdown())
     // 3) Composite aggregation with `agg`.

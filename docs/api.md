@@ -502,9 +502,12 @@ dependencies** (NyaCSV / fs / @json live only in `io`).
 All route their result through invariant-preserving constructors /
 transforms, so every output satisfies `check_invariants()`.
 
-- `drop(names) -> DataFrame raise DataError` — remove named columns,
-  order preserved; duplicates in `names` idempotent; `ColumnNotFound` on
-  the first unknown.
+- `drop(columns : Array[Expr]) -> DataFrame raise DataError` — remove the
+  named columns, order preserved. Each key resolves to a column name via
+  `Expr::output_name` (a bare `col("x")`, or an alias) — the expression is
+  not evaluated. Duplicate keys idempotent; `ColumnNotFound` on the first
+  unknown. The `Array[Expr]` container leaves room for a future column
+  selector.
 - `rename(mapping : Array[(String, String)]) -> DataFrame raise DataError`
   — apply renames in order (each step's `new_name` is visible to later
   steps, enabling a 3-step swap). `ColumnNotFound` / `DuplicateColumn`.
@@ -522,10 +525,13 @@ transforms, so every output satisfies `check_invariants()`.
   broadcasts as a stable no-op. A single-key sort passes a one-element array.
   Evaluation errors surface here — `ColumnNotFound` on the first unknown key,
   `TypeMismatch` on a dtype clash. Empty key set is the identity.
-- `drop_nulls() -> DataFrame raise DataError` — drop rows null in **any**
-  column. `drop_nulls_in(names) -> DataFrame raise DataError` — gate only
-  on the listed columns (`ColumnNotFound` on the first unknown; empty
-  list is identity; duplicates idempotent).
+- `drop_nulls(subset? : Array[Expr]) -> DataFrame raise DataError` — drop
+  rows with a null cell in a gating column. With `subset` omitted, every
+  column gates (drop a row null in **any** column); with `subset` given,
+  only the listed columns gate — each key resolved to a name via
+  `Expr::output_name` — so a row null in an unlisted column is kept and an
+  empty subset is the identity. `ColumnNotFound` on the first unknown;
+  duplicate keys idempotent.
 - `fill_null(column, value) -> DataFrame raise DataError` — replace nulls
   in `column`; dtype-preserving. `ColumnNotFound` (checked first) /
   `TypeMismatch`.

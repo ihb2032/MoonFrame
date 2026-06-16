@@ -152,12 +152,12 @@ test "slice bubbles column-level errors" {
   assert_true((try? s.slice(2, 1)) is Err(InvalidOperation(_)))
 }
 
-// ── take ─────────────────────────────────────────────────────────────
+// ── gather ───────────────────────────────────────────────────────────
 
 ///|
-test "take gathers with duplicates and preserves nulls" {
+test "gather collects with duplicates and preserves nulls" {
   let s = Series::from_int_options("x", [Some(1), None, Some(3)])
-  let out = s.take([2, 1, 0, 1])
+  let out = s.gather([2, 1, 0, 1])
   assert_eq(out.name(), "x")
   assert_eq(out.len(), 4)
   assert_eq(out.get(0), @types.Scalar::Int(3))
@@ -166,19 +166,19 @@ test "take gathers with duplicates and preserves nulls" {
 }
 
 ///|
-test "take with empty index array returns empty series" {
+test "gather with empty index array returns empty series" {
   let s = Series::from_ints("x", [1, 2])
-  let out = s.take([])
+  let out = s.gather([])
   assert_true(out.is_empty())
   assert_eq(out.name(), "x")
   assert_eq(out.dtype(), @types.DataType::Int)
 }
 
 ///|
-test "take out-of-bounds reports the first offender" {
+test "gather out-of-bounds reports the first offender" {
   let s = Series::from_ints("x", [1, 2])
-  assert_eq(try? s.take([0, 5]), Err(@types.DataError::IndexOutOfBounds(5)))
-  assert_eq(try? s.take([-1]), Err(@types.DataError::IndexOutOfBounds(-1)))
+  assert_eq(try? s.gather([0, 5]), Err(@types.DataError::IndexOutOfBounds(5)))
+  assert_eq(try? s.gather([-1]), Err(@types.DataError::IndexOutOfBounds(-1)))
 }
 
 // ── drop_nulls ───────────────────────────────────────────────────────
@@ -361,7 +361,7 @@ test "structural transforms preserve the Numeric backend" {
   let s = Series::from_ints("x", [10, 20, 30, 40])
   assert_eq(s.storage_kind(), @column.StorageKind::Numeric)
   assert_eq(s.slice(1, 3).storage_kind(), @column.StorageKind::Numeric)
-  assert_eq(s.take([3, 0, 0]).storage_kind(), @column.StorageKind::Numeric)
+  assert_eq(s.gather([3, 0, 0]).storage_kind(), @column.StorageKind::Numeric)
   assert_eq(s.drop_nulls().storage_kind(), @column.StorageKind::Numeric)
   // A Builtin column stays Builtin through the same transforms.
   let b = Series::from_int_options("x", [Some(1), None, Some(3)])

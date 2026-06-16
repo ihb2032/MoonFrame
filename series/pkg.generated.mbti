@@ -57,6 +57,7 @@ pub fn Series::from_int_options(String, Array[Int64?]) -> Self
 pub fn Series::from_ints(String, Array[Int64]) -> Self
 pub fn Series::from_string_options(String, Array[String?]) -> Self
 pub fn Series::from_strings(String, Array[String]) -> Self
+pub fn Series::gather(Self, Array[Int]) -> Self raise @types.DataError
 pub fn Series::get(Self, Int) -> @types.Scalar raise @types.DataError
 pub fn Series::is_empty(Self) -> Bool
 pub fn Series::is_null(Self, Int) -> Bool raise @types.DataError
@@ -65,6 +66,7 @@ pub fn Series::max_value(Self) -> @types.Scalar
 pub fn Series::mean(Self) -> Double raise @types.DataError
 pub fn Series::mean_opt(Self) -> Double?
 pub fn Series::min_value(Self) -> @types.Scalar
+pub fn Series::n_unique(Self) -> Int
 pub fn Series::name(Self) -> String
 pub fn Series::new(String, @column.ColumnStorage) -> Self
 pub fn Series::null_count(Self) -> Int
@@ -74,14 +76,12 @@ pub fn Series::slice(Self, Int, Int) -> Self raise @types.DataError
 pub fn Series::storage(Self) -> @column.ColumnStorage
 pub fn Series::storage_kind(Self) -> @column.StorageKind
 pub fn Series::sum(Self) -> @types.Scalar raise @types.DataError
-pub fn Series::take(Self, Array[Int]) -> Self raise @types.DataError
 pub fn Series::to_builtin(Self) -> Self
 pub fn Series::to_float(Self) -> Self raise @types.DataError
 pub fn Series::to_int(Self) -> Self raise @types.DataError
 pub fn Series::to_numeric(Self) -> Self raise @types.DataError
 pub fn Series::to_scalars(Self) -> Array[@types.Scalar]
 pub fn Series::to_string_series(Self) -> Self
-pub fn Series::unique_count(Self) -> Int
 
 // Type aliases
 

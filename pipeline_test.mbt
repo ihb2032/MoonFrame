@@ -170,7 +170,7 @@ test "pipeline: format_ndjson → parse_ndjson_str round-trip" {
 // ── Null-handling pipeline ────────────────────────────────────────────
 
 ///|
-test "pipeline: drop_nulls_in / fill_null / null_count compose via the facade" {
+test "pipeline: drop_nulls / fill_null / null_count compose via the facade" {
   let df = DataFrame::new([
     Series::from_int_options("a", [Some(1), None, Some(3), Some(4)]),
     Series::from_string_options("b", [Some("x"), Some("y"), None, Some("z")]),
@@ -187,7 +187,7 @@ test "pipeline: drop_nulls_in / fill_null / null_count compose via the facade" {
   // Gate only on `a` — rows 0/2/3 survive (row 1 has a null `a`); the
   // null `b` on row 2 and the null `c` on row 3 are tolerated because
   // those columns are unlisted.
-  let gated = df.drop_nulls_in(["a"])
+  let gated = df.drop_nulls(subset=[col("a")])
   assert_eq(gated.nrows(), 3)
   assert_eq(gated.check_invariants(), Ok(()))
   assert_eq(gated.get(1, "b"), Scalar::Null)
@@ -334,7 +334,7 @@ test "pipeline: rename / drop / with_column / replace_column compose cleanly" {
   assert_eq(renamed.columns(), ["x", "y", "total"])
 
   // Drop the original "y" and verify the remaining schema.
-  let dropped = renamed.drop(["y"])
+  let dropped = renamed.drop([col("y")])
   assert_eq(dropped.columns(), ["x", "total"])
   assert_eq(dropped.check_invariants(), Ok(()))
 

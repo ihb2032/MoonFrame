@@ -1,7 +1,7 @@
 // MoonFrame example: null-handling round trip.
 //
 //   read_csv → null_count (before)
-//            → drop_nulls_in (gate on `score`)
+//            → drop_nulls (gate on `score`)
 //            → fill_null (default `note` to "n/a")
 //            → write_csv (round-trip back to disk)
 //            → read_csv (verify the file matches expectations)

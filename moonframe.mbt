@@ -7,7 +7,7 @@
 // Note: the operator verbs (`select` / `drop` / `rename` /
 // `with_column` / `replace_column` / `filter` / `with_columns` /
 // `sort` / `drop_nulls` /
-// `drop_nulls_in` / `fill_null` / `null_count` / `count` / `sum` /
+// `fill_null` / `null_count` / `count` / `sum` /
 // `mean` / `min` / `max` / `describe` / `group_by` / `join`) and the
 // `to_markdown` / `to_html` renderers
 // are now methods on `DataFrame`, so re-exporting `type DataFrame`

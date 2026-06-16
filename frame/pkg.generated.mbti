@@ -25,9 +25,8 @@ pub fn DataFrame::column_series(Self) -> Array[@series.Series]
 pub fn DataFrame::columns(Self) -> Array[String]
 pub fn DataFrame::count(Self, String) -> Int raise @types.DataError
 pub fn DataFrame::describe(Self) -> Self raise @types.DataError
-pub fn DataFrame::drop(Self, Array[String]) -> Self raise @types.DataError
-pub fn DataFrame::drop_nulls(Self) -> Self raise @types.DataError
-pub fn DataFrame::drop_nulls_in(Self, Array[String]) -> Self raise @types.DataError
+pub fn DataFrame::drop(Self, Array[@expr.Expr]) -> Self raise @types.DataError
+pub fn DataFrame::drop_nulls(Self, subset? : Array[@expr.Expr]) -> Self raise @types.DataError
 pub fn DataFrame::empty(@types.Schema) -> Self raise @types.DataError
 pub fn DataFrame::fill_null(Self, String, @types.Scalar) -> Self raise @types.DataError
 pub fn DataFrame::filter(Self, @expr.Expr) -> Self raise @types.DataError

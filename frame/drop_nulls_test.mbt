@@ -1,4 +1,7 @@
-// Blackbox tests for `DataFrame::drop_nulls` and `DataFrame::drop_nulls_in`.
+// Blackbox tests for `DataFrame::drop_nulls`, the single null-dropping
+// verb. `subset` is omitted to gate on every column, or passed as
+// `Array[Expr]` keys (resolved to names via `Expr::output_name`) to gate on
+// a subset.
 //
 // Invariants asserted on every successful drop:
 //   (1) check_invariants() == Ok(()) — formal spec from invariants.mbt
@@ -10,9 +13,9 @@
 /// Four-row, three-column fixture mixing nullable Int, nullable Float
 /// and a fully-valid String. The two null-bearing columns intentionally
 /// drop nulls on **different** rows so the union semantics of
-/// `drop_nulls` (drop on any null) and the per-column semantics of
-/// `drop_nulls_in` (drop only when *listed* columns are null) are both
-/// observable.
+/// `drop_nulls()` (drop on any null) and the per-column semantics of
+/// `drop_nulls(subset=...)` (drop only when *listed* columns are null) are
+/// both observable.
 fn drop_nulls_df() -> DataFrame raise @types.DataError {
   DataFrame::new([
     Series::from_int_options("a", [Some(1), None, Some(3), Some(4)]),
@@ -26,7 +29,7 @@ fn drop_nulls_df() -> DataFrame raise @types.DataError {
   ])
 }
 
-// ── drop_nulls — happy paths ─────────────────────────────────────────
+// ── drop_nulls() — gate on every column ──────────────────────────────
 
 ///|
 test "drop_nulls keeps only rows that are valid in every column" {
@@ -124,14 +127,14 @@ test "drop_nulls on an all-null column drops every row" {
   assert_eq(out.shape(), (0, 2))
 }
 
-// ── drop_nulls_in — happy paths ──────────────────────────────────────
+// ── drop_nulls(subset=...) — gate on the listed columns ──────────────
 
 ///|
-test "drop_nulls_in only consults the listed columns" {
+test "drop_nulls(subset) only consults the listed columns" {
   let df = drop_nulls_df()
   // Gate on "a" only: drops row 1 (a=Null). Row 2's b=Null does NOT
   // disqualify the row anymore.
-  let out = df.drop_nulls_in(["a"])
+  let out = df.drop_nulls(subset=[@expr.col("a")])
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.schema(), df.schema())
   assert_eq(out.shape(), (3, 3))
@@ -139,64 +142,82 @@ test "drop_nulls_in only consults the listed columns" {
   assert_eq(out.get(1, "a"), @types.Scalar::Int(3))
   assert_eq(out.get(2, "a"), @types.Scalar::Int(4))
   // The b=Null cell on the surviving row 2 must still read as Null
-  // — drop_nulls_in does not fill or alter cells.
+  // — drop_nulls does not fill or alter cells.
   assert_eq(out.get(1, "b"), @types.Scalar::Null)
 }
 
 ///|
-test "drop_nulls_in with every column equals drop_nulls" {
+test "drop_nulls(subset) listing every column equals drop_nulls()" {
   let df = drop_nulls_df()
   let by_all = df.drop_nulls()
-  let by_in = df.drop_nulls_in(["a", "b", "s"])
+  let by_in = df.drop_nulls(subset=[
+    @expr.col("a"),
+    @expr.col("b"),
+    @expr.col("s"),
+  ])
   assert_eq(by_in.check_invariants(), Ok(()))
   assert_eq(by_all, by_in)
 }
 
 ///|
-test "drop_nulls_in with empty name list is a no-op (no gating columns)" {
+test "drop_nulls(subset=[]) is a no-op (no gating columns)" {
   let df = drop_nulls_df()
-  let out = df.drop_nulls_in([])
+  let out = df.drop_nulls(subset=[])
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out, df)
 }
 
 ///|
-test "drop_nulls_in tolerates duplicate names" {
+test "drop_nulls(subset) tolerates duplicate keys" {
   let df = drop_nulls_df()
   // Asking the same column to gate twice is the same as asking once.
-  let dedup = df.drop_nulls_in(["a"])
-  let dup = df.drop_nulls_in(["a", "a"])
+  let dedup = df.drop_nulls(subset=[@expr.col("a")])
+  let dup = df.drop_nulls(subset=[@expr.col("a"), @expr.col("a")])
   assert_eq(dedup, dup)
 }
 
 ///|
-test "drop_nulls_in on a column with no nulls is a no-op" {
+test "drop_nulls(subset) on a column with no nulls is a no-op" {
   let df = drop_nulls_df()
   // Column "s" has no nulls — gating on it must keep every row.
-  let out = df.drop_nulls_in(["s"])
+  let out = df.drop_nulls(subset=[@expr.col("s")])
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out, df)
 }
 
 ///|
-test "drop_nulls_in reads only the listed columns' validity bitmaps" {
+test "drop_nulls(subset) reads only the listed columns' validity bitmaps" {
   // A frame whose only null-bearing column is NOT in the gate list.
   // Row 2 survives even though "b" is null there — confirming we are
   // reading the validity bitmap of the listed columns only.
   let df = drop_nulls_df()
-  let out = df.drop_nulls_in(["s"])
+  let out = df.drop_nulls(subset=[@expr.col("s")])
   // All four rows survive.
   assert_eq(out.shape(), (4, 3))
   assert_eq(out.get(2, "b"), @types.Scalar::Null)
 }
 
-// ── drop_nulls_in — error cases ──────────────────────────────────────
+///|
+test "drop_nulls(subset) resolves each key by output_name" {
+  let df = drop_nulls_df()
+  // An aliased key gates on the column named by the alias (`output_name`'s
+  // alias-wins rule): `col("b").with_alias("a")` gates on "a", so it drops
+  // row 1 — identical to gating on `col("a")`, never on "b".
+  let out = df.drop_nulls(subset=[@expr.col("b").with_alias("a")])
+  assert_eq(out.check_invariants(), Ok(()))
+  assert_eq(out, df.drop_nulls(subset=[@expr.col("a")]))
+  // Row 2 (b=Null but a non-null) survives, proving "b" never gated.
+  assert_eq(out.shape(), (3, 3))
+  assert_eq(out.get(1, "b"), @types.Scalar::Null)
+}
+
+// ── drop_nulls(subset=...) — error cases ─────────────────────────────
 
 ///|
-test "drop_nulls_in rejects an unknown column with ColumnNotFound" {
+test "drop_nulls(subset) rejects an unknown column with ColumnNotFound" {
   let df = drop_nulls_df()
   assert_eq(
-    try? df.drop_nulls_in(["missing"]),
+    try? df.drop_nulls(subset=[@expr.col("missing")]),
     Err(@types.DataError::ColumnNotFound("missing")),
   )
   // The input is unchanged and still well-formed.
@@ -204,11 +225,15 @@ test "drop_nulls_in rejects an unknown column with ColumnNotFound" {
 }
 
 ///|
-test "drop_nulls_in reports the first offending name" {
+test "drop_nulls(subset) reports the first offending key" {
   let df = drop_nulls_df()
-  // The first spec is fine; the second is missing → ColumnNotFound("z").
+  // The first key is fine; the second is missing → ColumnNotFound("z").
   assert_eq(
-    try? df.drop_nulls_in(["a", "z", "missing"]),
+    try? df.drop_nulls(subset=[
+      @expr.col("a"),
+      @expr.col("z"),
+      @expr.col("missing"),
+    ]),
     Err(@types.DataError::ColumnNotFound("z")),
   )
 }

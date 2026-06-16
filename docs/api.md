@@ -295,6 +295,13 @@ missing column, a type clash) waits for evaluation. `expr` depends only on
   binds tighter than `&`, so `a.gt(x) & b.lt(y)` needs no parentheses.
 - `not() -> Expr` (no overloadable unary `!`); null probes `is_null()` /
   `is_not_null() -> Expr` (total — the result is never null).
+- `fill_null(value : Expr) -> Expr` — replace null cells with `value` (a
+  literal, another column — a coalesce — or a computed tree), lowering to
+  `when(self.is_not_null()).then(self).otherwise(value)`: non-null cells are
+  kept, the result is named after the filled expression (not `value`), and
+  the branch dtypes unify like a ternary's (`Int` ↔ `Float` promote, any
+  other mismatch is a `TypeMismatch`). A non-null `NaN` is a value, so it is
+  kept, not filled.
 - Aggregations `sum` / `mean` / `min` / `max` / `count() -> Expr` — wrap
   the expression in a reduction (evaluation semantics below).
 - `cast(target : DataType) -> Expr`; `with_alias(name : String) -> Expr`
@@ -543,9 +550,13 @@ transforms, so every output satisfies `check_invariants()`.
   `Expr::output_name` — so a row null in an unlisted column is kept and an
   empty subset is the identity. `ColumnNotFound` on the first unknown;
   duplicate keys idempotent.
-- `fill_null(column, value) -> DataFrame raise DataError` — replace nulls
-  in `column`; dtype-preserving. `ColumnNotFound` (checked first) /
-  `TypeMismatch`.
+- `fill_null(value : Scalar) -> DataFrame raise DataError` — fill every null
+  cell of the **dtype-compatible** columns with `value` (an `Int` value fills
+  `Int` columns, and so on); columns of any other dtype — and all columns when
+  `value` is `Scalar::Null` — are left untouched (the fill is always
+  dtype-preserving). Names, dtypes, and the row count are unchanged. For
+  per-column or cross-dtype fills, or filling with a computed value, use
+  `Expr::fill_null` through `with_columns`.
 - `null_count() -> DataFrame raise DataError` — `1 × ncols` `Int`
   summary; 0-column collapses to `0×0`.
 - `sum() -> DataFrame` / `mean() -> DataFrame` / `min() -> DataFrame` /

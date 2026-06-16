@@ -73,6 +73,7 @@ pub fn Expr::col(String) -> Self
 pub fn Expr::count(Self) -> Self
 pub fn Expr::eq(Self, Self) -> Self
 pub fn Expr::explain(Self) -> String
+pub fn Expr::fill_null(Self, Self) -> Self
 pub fn Expr::ge(Self, Self) -> Self
 pub fn Expr::gt(Self, Self) -> Self
 pub fn Expr::is_not_null(Self) -> Self

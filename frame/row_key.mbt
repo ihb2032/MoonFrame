@@ -4,7 +4,7 @@
 // normalisation — `NaN` collapsing to one bucket, `-0.0` folding into `+0.0`,
 // the `KeyCell` encoding itself — lives one layer down in `series`
 // (`@series.key_cell` / `@series.KeyCell`, bound unqualified through
-// `series_use.mbt`), shared there with `Series::unique_count`; this file only
+// `series_use.mbt`), shared there with `Series::n_unique`; this file only
 // builds the per-row tuples on top of it. Multi-key injectivity is structural:
 // a tuple `[a, b]` equals only another `[a, b]`, so distinct key tuples never
 // collide the way a naive delimiter-joined string might.

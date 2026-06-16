@@ -136,7 +136,7 @@ pub fn Series::max_value(self : Series) -> @types.Scalar {
 /// folds into `+0.0` (they are IEEE-equal and share a group, hence one
 /// distinct value). Keying by `Scalar::to_string` would instead let the
 /// `-0.0` rendering split them, diverging from `group_by`.
-pub fn Series::unique_count(self : Series) -> Int {
+pub fn Series::n_unique(self : Series) -> Int {
   // Key the non-null cells by `key_cell` — the same `KeyCell` encoding
   // `group_by` / `join` hash on (frame/row_key.mbt) — so "distinct value"
   // means exactly "distinct group": `NaN` collapses to one `KNaN` and `-0.0`

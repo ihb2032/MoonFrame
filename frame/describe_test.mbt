@@ -5,7 +5,7 @@
 //   (2) result.columns() == fixed schema (regardless of input)
 //   (3) result.nrows() == df.ncols() (one row per source column)
 //   (4) result column dtypes are pinned: column, dtype, min, max are
-//       String; count, null_count, unique_count are Int; mean is Float
+//       String; count, null_count, n_unique are Int; mean is Float
 //       (nullable)
 //
 // Coverage targets:
@@ -23,9 +23,7 @@
 /// place so a schema change announces itself in exactly one test name
 /// rather than rippling through every assertion.
 fn describe_schema() -> Array[String] {
-  [
-    "column", "dtype", "count", "null_count", "unique_count", "mean", "min", "max",
-  ]
+  ["column", "dtype", "count", "null_count", "n_unique", "mean", "min", "max"]
 }
 
 ///|
@@ -68,7 +66,7 @@ test "describe column dtypes are pinned" {
   assert_eq(out.get_column("dtype").dtype(), @types.DataType::String)
   assert_eq(out.get_column("count").dtype(), @types.DataType::Int)
   assert_eq(out.get_column("null_count").dtype(), @types.DataType::Int)
-  assert_eq(out.get_column("unique_count").dtype(), @types.DataType::Int)
+  assert_eq(out.get_column("n_unique").dtype(), @types.DataType::Int)
   assert_eq(out.get_column("mean").dtype(), @types.DataType::Float)
   assert_eq(out.get_column("min").dtype(), @types.DataType::String)
   assert_eq(out.get_column("max").dtype(), @types.DataType::String)
@@ -86,7 +84,7 @@ test "describe row 0 summarises the Int column" {
   assert_eq(out.get(0, "dtype"), @types.Scalar::String("Int"))
   assert_eq(out.get(0, "count"), @types.Scalar::Int(3))
   assert_eq(out.get(0, "null_count"), @types.Scalar::Int(1))
-  assert_eq(out.get(0, "unique_count"), @types.Scalar::Int(3))
+  assert_eq(out.get(0, "n_unique"), @types.Scalar::Int(3))
   assert_eq(out.get(0, "mean"), @types.Scalar::Float(3.0))
   assert_eq(out.get(0, "min"), @types.Scalar::String("1"))
   assert_eq(out.get(0, "max"), @types.Scalar::String("5"))
@@ -102,7 +100,7 @@ test "describe row 1 summarises the Float column" {
   assert_eq(out.get(1, "dtype"), @types.Scalar::String("Float"))
   assert_eq(out.get(1, "count"), @types.Scalar::Int(3))
   assert_eq(out.get(1, "null_count"), @types.Scalar::Int(1))
-  assert_eq(out.get(1, "unique_count"), @types.Scalar::Int(3))
+  assert_eq(out.get(1, "n_unique"), @types.Scalar::Int(3))
   assert_eq(out.get(1, "mean"), @types.Scalar::Float(2.0))
   // Double::to_string emits "1" / "3" — confirm the cells are non-null.
   let min_cell = out.get(1, "min")
@@ -122,7 +120,7 @@ test "describe row 2 summarises the Bool column (mean is Null)" {
   assert_eq(out.get(2, "dtype"), @types.Scalar::String("Bool"))
   assert_eq(out.get(2, "count"), @types.Scalar::Int(4))
   assert_eq(out.get(2, "null_count"), @types.Scalar::Int(0))
-  assert_eq(out.get(2, "unique_count"), @types.Scalar::Int(2))
+  assert_eq(out.get(2, "n_unique"), @types.Scalar::Int(2))
   assert_eq(out.get(2, "mean"), @types.Scalar::Null)
   // Bool::to_string emits "true" / "false".
   assert_eq(out.get(2, "min"), @types.Scalar::String("false"))
@@ -139,7 +137,7 @@ test "describe row 3 summarises the String column (mean is Null)" {
   assert_eq(out.get(3, "dtype"), @types.Scalar::String("String"))
   assert_eq(out.get(3, "count"), @types.Scalar::Int(4))
   assert_eq(out.get(3, "null_count"), @types.Scalar::Int(0))
-  assert_eq(out.get(3, "unique_count"), @types.Scalar::Int(3))
+  assert_eq(out.get(3, "n_unique"), @types.Scalar::Int(3))
   assert_eq(out.get(3, "mean"), @types.Scalar::Null)
   assert_eq(out.get(3, "min"), @types.Scalar::String("apple"))
   assert_eq(out.get(3, "max"), @types.Scalar::String("cherry"))
@@ -164,7 +162,7 @@ test "describe on a 0-row numeric frame routes mean / min / max to Null" {
   for i in 0..<2 {
     assert_eq(out.get(i, "count"), @types.Scalar::Int(0))
     assert_eq(out.get(i, "null_count"), @types.Scalar::Int(0))
-    assert_eq(out.get(i, "unique_count"), @types.Scalar::Int(0))
+    assert_eq(out.get(i, "n_unique"), @types.Scalar::Int(0))
     assert_eq(out.get(i, "mean"), @types.Scalar::Null)
     assert_eq(out.get(i, "min"), @types.Scalar::Null)
     assert_eq(out.get(i, "max"), @types.Scalar::Null)
@@ -181,7 +179,7 @@ test "describe on an all-null numeric column routes mean / min / max to Null" {
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.get(0, "count"), @types.Scalar::Int(0))
   assert_eq(out.get(0, "null_count"), @types.Scalar::Int(3))
-  assert_eq(out.get(0, "unique_count"), @types.Scalar::Int(0))
+  assert_eq(out.get(0, "n_unique"), @types.Scalar::Int(0))
   assert_eq(out.get(0, "mean"), @types.Scalar::Null)
   assert_eq(out.get(0, "min"), @types.Scalar::Null)
   assert_eq(out.get(0, "max"), @types.Scalar::Null)

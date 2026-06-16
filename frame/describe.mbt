@@ -8,7 +8,7 @@
 /// - `dtype` (`String`): source column dtype rendered via `Show`
 /// - `count` (`Int`): non-null cell count
 /// - `null_count` (`Int`): null cell count
-/// - `unique_count` (`Int`): distinct non-null value count
+/// - `n_unique` (`Int`): distinct non-null value count
 /// - `mean` (`Float`, nullable): arithmetic mean for numeric columns;
 ///   `Null` for non-numeric or empty / all-null numeric columns
 /// - `min` (`String`, nullable): minimum cell rendered via
@@ -34,7 +34,7 @@ pub fn DataFrame::describe(
   let dtypes : Array[String] = []
   let counts : Array[Int64] = []
   let null_counts : Array[Int64] = []
-  let unique_counts : Array[Int64] = []
+  let n_uniques : Array[Int64] = []
   let means : Array[Double?] = []
   let mins : Array[String?] = []
   let maxs : Array[String?] = []
@@ -43,7 +43,7 @@ pub fn DataFrame::describe(
     dtypes.push(s.dtype().to_string())
     counts.push(s.count().to_int64())
     null_counts.push(s.null_count().to_int64())
-    unique_counts.push(s.unique_count().to_int64())
+    n_uniques.push(s.n_unique().to_int64())
     // `mean_opt` is the total form of `Series::mean` — `None` exactly where
     // `mean` would raise (a non-numeric column, or an empty / all-null
     // numeric one), `Some(mean)` otherwise. The aggregate view wants that
@@ -65,7 +65,7 @@ pub fn DataFrame::describe(
     Series::from_strings("dtype", dtypes),
     Series::from_ints("count", counts),
     Series::from_ints("null_count", null_counts),
-    Series::from_ints("unique_count", unique_counts),
+    Series::from_ints("n_unique", n_uniques),
     Series::from_float_options("mean", means),
     Series::from_string_options("min", mins),
     Series::from_string_options("max", maxs),

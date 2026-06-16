@@ -1,4 +1,4 @@
-// Composite group / join key encoding. `Series::unique_count` (this package)
+// Composite group / join key encoding. `Series::n_unique` (this package)
 // and `group_by` / `join` (the `frame` package, whose `row_key.mbt` builds
 // per-row keys from `key_cell`) all partition cells by one or more key values;
 // this module turns a single key cell into a value that hashes and compares
@@ -19,7 +19,7 @@
 // naive delimiter-joined string might.
 //
 // One-file-one-test exemption: this internal encoding has no dedicated
-// `key_cell_test.mbt`. It is exercised to full coverage through `unique_count`
+// `key_cell_test.mbt`. It is exercised to full coverage through `n_unique`
 // here and the `group_by` / `join` blackbox tests in `frame` that depend on it.
 
 ///|

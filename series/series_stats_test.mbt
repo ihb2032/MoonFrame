@@ -281,10 +281,10 @@ test "reductions agree on the Numeric fast path and the Builtin path" {
   assert_eq(flts.max_value(), bflts.max_value())
 }
 
-// ── unique_count ─────────────────────────────────────────────────────
+// ── n_unique ─────────────────────────────────────────────────────────
 
 ///|
-test "unique_count counts distinct non-null values" {
+test "n_unique counts distinct non-null values" {
   let s = Series::from_int_options("x", [
     Some(1),
     None,
@@ -293,39 +293,36 @@ test "unique_count counts distinct non-null values" {
     Some(3),
     None,
   ])
-  assert_eq(s.unique_count(), 3)
+  assert_eq(s.n_unique(), 3)
 }
 
 ///|
-test "unique_count is 0 for empty / all-null series" {
-  assert_eq(Series::from_ints("x", []).unique_count(), 0)
-  assert_eq(Series::from_int_options("x", [None, None, None]).unique_count(), 0)
+test "n_unique is 0 for empty / all-null series" {
+  assert_eq(Series::from_ints("x", []).n_unique(), 0)
+  assert_eq(Series::from_int_options("x", [None, None, None]).n_unique(), 0)
 }
 
 ///|
-test "unique_count works on every dtype" {
-  assert_eq(Series::from_floats("x", [1.0, 1.0, 2.0]).unique_count(), 2)
-  assert_eq(
-    Series::from_bools("x", [true, false, true, false]).unique_count(),
-    2,
-  )
-  assert_eq(Series::from_strings("x", ["a", "b", "a", "c"]).unique_count(), 3)
+test "n_unique works on every dtype" {
+  assert_eq(Series::from_floats("x", [1.0, 1.0, 2.0]).n_unique(), 2)
+  assert_eq(Series::from_bools("x", [true, false, true, false]).n_unique(), 2)
+  assert_eq(Series::from_strings("x", ["a", "b", "a", "c"]).n_unique(), 3)
 }
 
 ///|
-test "unique_count collapses all NaN Float cells into a single bucket" {
+test "n_unique collapses all NaN Float cells into a single bucket" {
   let nan : Double = @double.not_a_number
   let s = Series::from_floats("x", [nan, nan, 1.0])
-  assert_eq(s.unique_count(), 2)
+  assert_eq(s.n_unique(), 2)
 }
 
 ///|
-test "unique_count folds -0.0 and +0.0 into one value (matching group_by)" {
+test "n_unique folds -0.0 and +0.0 into one value (matching group_by)" {
   // `-0.0` and `+0.0` are IEEE-equal and share a `group_by` group, so they
-  // are one distinct value: `unique_count` keys by the same `KeyCell`
+  // are one distinct value: `n_unique` keys by the same `KeyCell`
   // normalisation rather than `Double::to_string`, which could split them.
   let s = Series::from_floats("x", [0.0, -0.0, 1.0])
-  assert_eq(s.unique_count(), 2)
+  assert_eq(s.n_unique(), 2)
 }
 
 // ── mean_opt ─────────────────────────────────────────────────────────

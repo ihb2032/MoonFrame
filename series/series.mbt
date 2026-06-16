@@ -260,7 +260,7 @@ pub fn Series::slice(
 ///|
 /// Gather: produce a new series whose i-th entry is `self[indices[i]]`.
 /// Out-of-bounds indices surface as `IndexOutOfBounds(idx)`.
-pub fn Series::take(
+pub fn Series::gather(
   self : Series,
   indices : Array[Int],
 ) -> Series raise @types.DataError {

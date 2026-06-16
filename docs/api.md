@@ -537,13 +537,22 @@ transforms, so every output satisfies `check_invariants()`.
   `TypeMismatch`.
 - `null_count() -> DataFrame raise DataError` — `1 × ncols` `Int`
   summary; 0-column collapses to `0×0`.
-- `count(column) -> Int raise DataError` / `sum(column) -> Scalar raise
-  DataError` / `mean(column) -> Double raise DataError` /
-  `min(column) -> Scalar raise DataError` / `max(column) -> Scalar raise
-  DataError` — per-column reductions delegating to the matching `Series`
-  stat; the only added failure beyond the Series rules is
-  `ColumnNotFound`. `min` / `max` return `Scalar::Null` on empty /
-  all-null.
+- `sum() -> DataFrame` / `mean() -> DataFrame` / `min() -> DataFrame` /
+  `max() -> DataFrame` / `count() -> DataFrame` (all `raise DataError`) —
+  whole-frame reductions to a 1-row frame, one cell per source column,
+  names and order preserved (Polars' `df.sum()` shape). `sum` / `mean` /
+  `min` / `max` are numeric-only: a numeric column reduces (`sum` / `min` /
+  `max` keep the source dtype, `mean` → `Float`), a non-numeric (`Bool` /
+  `String`) column becomes a `Null` cell kept in its dtype — so `sum` /
+  `min` / `max` preserve the schema. (This nulls `min` / `max` on `Bool` /
+  `String` rather than ordering them; use `Series::min_value` /
+  `max_value` for a typed extremum over any dtype.) `count` is the
+  non-null count as `Int` for every column. An empty / all-null numeric
+  column gives the additive identity under `sum` and a `Null` cell under
+  `mean` / `min` / `max`; a 0-column frame collapses to `0×0`. The
+  `raise` is forwarded from the 1-row `DataFrame::new`, never taken. For
+  one column's scalar, read its `Series`: `df.get_column(c).sum()`
+  (= Polars `df[c].sum()`).
 - `describe() -> DataFrame raise DataError` — per-column summary, one row
   per source column, fixed `N × 8` schema (`column` / `dtype` / `count` /
   `null_count` / `unique_count` (`Int`); `mean` (`Float`, nullable);

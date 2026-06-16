@@ -13,11 +13,10 @@
 // `cross_join`) and the `to_markdown` / `to_html` renderers
 // are now methods on `DataFrame`, so re-exporting `type DataFrame`
 // makes them automatically reachable through the facade — there is
-// nothing to list for them here. Likewise `GroupedDataFrame::agg` /
-// `agg_exprs`, the `AggSpec` constructors, the `JoinOptions` builders,
-// the `HtmlOptions` builders, and the `ChartSpec` constructors come for
-// free once their types are re-exported. Only the value types (including
-// the GroupBy `AggKind` / `AggSpec` / `GroupedDataFrame`, the Join
+// nothing to list for them here. Likewise `GroupedDataFrame::agg`, the
+// `JoinOptions` builders, the `HtmlOptions` builders, and the `ChartSpec`
+// constructors come for free once their types are re-exported. Only the
+// value types (including the GroupBy `GroupedDataFrame`, the Join
 // `JoinType` / `JoinOptions`, the HTML `HtmlOptions`, and the Chart
 // `ChartKind` / `ChartSpec`), the `@types` free functions
 // (`compare_string_lex` / `is_decimal_int_literal`), and the `io` free
@@ -88,8 +87,6 @@ pub using @frame {
   type RowView,
   type SortOrder,
   type NullOrder,
-  type AggKind,
-  type AggSpec,
   type GroupedDataFrame,
   type JoinType,
   type JoinOptions,

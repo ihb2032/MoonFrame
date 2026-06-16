@@ -187,7 +187,7 @@ pub fn Expr::is_not_null(self : Expr) -> Expr {
 
 ///|
 /// Sum of the operand over the evaluation scope (whole frame, or one group
-/// under `agg_exprs`). Inherits `Series::sum` semantics: NaN propagates,
+/// under `agg`). Inherits `Series::sum` semantics: NaN propagates,
 /// nulls are skipped, non-numeric operands are `TypeMismatch`.
 pub fn Expr::sum(self : Expr) -> Expr {
   Agg(AggOp::Sum, self)
@@ -233,8 +233,7 @@ pub fn Expr::cast(self : Expr, target : @types.DataType) -> Expr {
 /// Name the result column (`(col("revenue") - col("cost"))
 /// .with_alias("profit")`). Without an alias, an expression is named after
 /// its leftmost column reference, or `"literal"` for a column-less tree.
-/// Called `with_alias` — `alias` itself is a MoonBit reserved word — to
-/// match `AggSpec::with_alias`.
+/// Called `with_alias` — `alias` itself is a MoonBit reserved word.
 pub fn Expr::with_alias(self : Expr, name : String) -> Expr {
   Alias(self, name)
 }

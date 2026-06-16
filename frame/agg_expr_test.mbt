@@ -1,11 +1,12 @@
 ///|
-/// Blackbox behavior tests for `GroupedDataFrame::agg_exprs`: per-result
-/// equivalence with the `AggSpec` version of `agg`, the compound
-/// aggregations only expressions can state, the reduction-shape gate and
-/// its structural (data-independent) rejection, naming and collision
-/// rules, all-null / NaN group semantics, zero-group frames, and the
-/// backend convention for computed columns. The evaluator's own dtype /
-/// null / NaN rules live in `expr_eval_test.mbt`.
+/// Blackbox behavior tests for `GroupedDataFrame::agg`: single-column and
+/// compound / derived reductions, the reduction-shape gate and its
+/// structural (data-independent) rejection, naming and collision rules,
+/// all-null / NaN group semantics, zero-group frames, and the backend
+/// convention for computed columns. The group-partitioning behaviour and
+/// the historical `"<col>_<kind>"`-named reductions live in
+/// group_by_test.mbt; the evaluator's own dtype / null / NaN rules live in
+/// expr_eval_test.mbt.
 
 ///|
 fn agg_expr_df() -> DataFrame raise @types.DataError {
@@ -17,32 +18,50 @@ fn agg_expr_df() -> DataFrame raise @types.DataError {
 }
 
 ///|
-test "single-column reductions match the AggSpec agg exactly, cells and backend" {
-  let df = agg_expr_df()
-  let by_spec = df
+test "single-column reductions reduce each group, cells and backend" {
+  let out = agg_expr_df()
     .group_by(["region"])
     .agg([
-      AggSpec::sum("revenue"),
-      AggSpec::mean("revenue"),
-      AggSpec::min("revenue"),
-      AggSpec::max("revenue"),
-      AggSpec::count("revenue"),
-    ])
-  let by_expr = df
-    .group_by(["region"])
-    .agg_exprs([
       @expr.col("revenue").sum().with_alias("revenue_sum"),
       @expr.col("revenue").mean().with_alias("revenue_mean"),
       @expr.col("revenue").min().with_alias("revenue_min"),
       @expr.col("revenue").max().with_alias("revenue_max"),
       @expr.col("revenue").count().with_alias("revenue_count"),
     ])
-  // The two paths reduce through one kernel and both converge an all-valid
-  // numeric result onto `Numeric`. This fixture has no null cell, so every
-  // reduction is all-valid and the frames are equal whole-cloth — names,
-  // shapes, values, *and* backend — not merely cell for cell.
-  assert_eq(by_expr, by_spec)
-  assert_eq(by_expr.check_invariants(), Ok(()))
+  assert_eq(out.check_invariants(), Ok(()))
+  assert_eq(out.columns(), [
+    "region", "revenue_sum", "revenue_mean", "revenue_min", "revenue_max", "revenue_count",
+  ])
+  // Groups in first-appearance order: west = rows [0,2,4] (revenue
+  // 10/30/50), east = rows [1,3] (20/40).
+  assert_eq(out.get_column("revenue_sum").to_scalars(), [
+    @types.Scalar::Int(90),
+    @types.Scalar::Int(60),
+  ])
+  assert_eq(out.get_column("revenue_mean").to_scalars(), [
+    @types.Scalar::Float(30.0),
+    @types.Scalar::Float(30.0),
+  ])
+  assert_eq(out.get_column("revenue_min").to_scalars(), [
+    @types.Scalar::Int(10),
+    @types.Scalar::Int(20),
+  ])
+  assert_eq(out.get_column("revenue_max").to_scalars(), [
+    @types.Scalar::Int(50),
+    @types.Scalar::Int(40),
+  ])
+  assert_eq(out.get_column("revenue_count").to_scalars(), [
+    @types.Scalar::Int(3),
+    @types.Scalar::Int(2),
+  ])
+  // This fixture has no null cell, so every reduction is all-valid and
+  // converges onto the `Numeric` fast path.
+  for
+    name in [
+      "revenue_sum", "revenue_mean", "revenue_min", "revenue_max", "revenue_count",
+    ] {
+    assert_eq(out.get_column(name).storage_kind(), @column.StorageKind::Numeric)
+  }
 }
 
 ///|
@@ -77,11 +96,11 @@ test "the single-pass fast path matches the general evaluator, values and backen
   for agg in builders {
     let fast = df
       .group_by(["k"])
-      .agg_exprs([agg(@expr.col("v")).with_alias("r")])
+      .agg([agg(@expr.col("v")).with_alias("r")])
       .get_column("r")
     let slow = df
       .group_by(["k"])
-      .agg_exprs([agg(@expr.col("v") + @expr.lit_int(0)).with_alias("r")])
+      .agg([agg(@expr.col("v") + @expr.lit_int(0)).with_alias("r")])
       .get_column("r")
     assert_eq(fast.to_scalars(), slow.to_scalars())
     assert_eq(fast.storage_kind(), slow.storage_kind())
@@ -89,10 +108,10 @@ test "the single-pass fast path matches the general evaluator, values and backen
 }
 
 ///|
-test "compound aggregations express what AggSpec cannot" {
+test "compound aggregations: derived operands and combined reductions" {
   let out = agg_expr_df()
     .group_by(["region"])
-    .agg_exprs([
+    .agg([
       (@expr.col("revenue") - @expr.col("cost")).sum().with_alias("profit"),
       (@expr.col("revenue").max() - @expr.col("revenue").min()).with_alias(
         "range",
@@ -121,7 +140,7 @@ test "multiple expressions over multiple keys" {
   ])
   let out = df
     .group_by(["region", "product"])
-    .agg_exprs([
+    .agg([
       @expr.col("qty").sum().with_alias("total"),
       @expr.col("qty").count().with_alias("n"),
     ])
@@ -149,7 +168,7 @@ test "all-null group: sum is the additive identity, mean and extrema are null" {
   ])
   let out = df
     .group_by(["k"])
-    .agg_exprs([
+    .agg([
       @expr.col("v").sum().with_alias("s"),
       @expr.col("v").mean().with_alias("m"),
       @expr.col("v").min().with_alias("lo"),
@@ -184,7 +203,7 @@ test "NaN propagates through sum/mean and is skipped by max" {
   ])
   let out = df
     .group_by(["k"])
-    .agg_exprs([
+    .agg([
       @expr.col("v").sum().with_alias("s"),
       @expr.col("v").mean().with_alias("m"),
       @expr.col("v").max().with_alias("hi"),
@@ -213,7 +232,7 @@ test "NaN propagates through sum/mean and is skipped by max" {
 test "scalar combinators: literal, neg, null probe, cast, when/then/otherwise" {
   let out = agg_expr_df()
     .group_by(["region"])
-    .agg_exprs([
+    .agg([
       @expr.lit_int(1).with_alias("one"),
       (-@expr.col("revenue").sum()).with_alias("neg_total"),
       @expr.col("revenue").mean().is_null().with_alias("empty"),
@@ -259,7 +278,7 @@ test "extrema cover Bool and String operands, all-null groups as null cells" {
   ])
   let out = df
     .group_by(["k"])
-    .agg_exprs([
+    .agg([
       @expr.col("flag").min().with_alias("flag_min"),
       @expr.col("tag").max().with_alias("tag_max"),
     ])
@@ -278,8 +297,9 @@ test "extrema cover Bool and String operands, all-null groups as null cells" {
 test "expression naming: leftmost column reference, literal fallback" {
   let out = agg_expr_df()
     .group_by(["region"])
-    .agg_exprs([@expr.col("revenue").sum(), @expr.lit_int(7)])
-  // The expression naming rule, not AggSpec's "<column>_<kind>" default.
+    .agg([@expr.col("revenue").sum(), @expr.lit_int(7)])
+  // The expression naming rule: a reduction over a bare column is named for
+  // that column (no `"_sum"` suffix), a column-less literal is `"literal"`.
   assert_eq(out.columns(), ["region", "revenue", "literal"])
   assert_eq(out.get_column("literal").to_scalars(), [
     @types.Scalar::Int(7),
@@ -295,37 +315,35 @@ test "computed columns converge onto Numeric when all-valid, Builtin when not" {
   ])
   let out = df
     .group_by(["k"])
-    .agg_exprs([
+    .agg([
       @expr.col("v").sum().with_alias("s"), // all-valid Int
       @expr.col("v").mean().with_alias("m"), // null cell for group b
     ])
   assert_eq(out.get_column("s").storage_kind(), @column.StorageKind::Numeric)
   assert_eq(out.get_column("m").storage_kind(), @column.StorageKind::Builtin)
-  // The AggSpec path now converges identically: an all-valid mean lands on
-  // `Numeric` whether reached through `agg_exprs` or `agg` (the two always
-  // agreed on the value; they now agree on the backend too).
-  let by_expr = agg_expr_df()
+  // An all-valid mean (no null cell, no empty group) converges onto
+  // `Numeric` rather than staying on the `Builtin` mean default.
+  let all_valid = agg_expr_df()
     .group_by(["region"])
-    .agg_exprs([@expr.col("revenue").mean().with_alias("revenue_mean")])
-  let by_spec = agg_expr_df()
-    .group_by(["region"])
-    .agg([AggSpec::mean("revenue")])
+    .agg([@expr.col("revenue").mean().with_alias("revenue_mean")])
   assert_eq(
-    by_expr.get_column("revenue_mean").storage_kind(),
-    @column.StorageKind::Numeric,
-  )
-  assert_eq(
-    by_spec.get_column("revenue_mean").storage_kind(),
+    all_valid.get_column("revenue_mean").storage_kind(),
     @column.StorageKind::Numeric,
   )
 }
 
 ///|
-test "agg_exprs([]) degenerates to distinct over the keys, like agg([])" {
+test "agg([]) degenerates to a distinct over the keys" {
   let df = agg_expr_df()
-  let out = df.group_by(["region"]).agg_exprs([])
-  assert_eq(out, df.group_by(["region"]).agg([]))
+  let out = df.group_by(["region"]).agg([])
+  // No aggregation expressions ⇒ just the distinct key tuples, in
+  // first-appearance order.
+  assert_eq(out.columns(), ["region"])
   assert_eq(out.shape(), (2, 1))
+  assert_eq(out.get_column("region").to_scalars(), [
+    @types.Scalar::String("west"),
+    @types.Scalar::String("east"),
+  ])
   assert_eq(out.check_invariants(), Ok(()))
 }
 
@@ -333,7 +351,7 @@ test "agg_exprs([]) degenerates to distinct over the keys, like agg([])" {
 test "an empty key list reduces the whole frame as one grand-total group" {
   let df = agg_expr_df()
   let total = @expr.col("revenue").sum().with_alias("total")
-  let out = df.group_by([]).agg_exprs([total])
+  let out = df.group_by([]).agg([total])
   assert_eq(out.shape(), (1, 1))
   assert_eq(out.get_column("total").get(0), @types.Scalar::Int(150))
   // The grand-total group is the whole-frame scope: identical to the
@@ -349,7 +367,7 @@ test "a zero-row frame aggregates to zero groups with correctly typed columns" {
   ])
   let out = df
     .group_by(["k"])
-    .agg_exprs([
+    .agg([
       @expr.col("v").sum().with_alias("s"),
       @expr.col("v").mean().with_alias("m"),
     ])
@@ -365,7 +383,7 @@ test "a zero-row frame aggregates to zero groups with correctly typed columns" {
 test "a non-reducing expression is rejected with InvalidOperation" {
   // A bare column reference is the group's whole height, not a scalar.
   assert_eq(
-    try? agg_expr_df().group_by(["region"]).agg_exprs([@expr.col("revenue")]),
+    try? agg_expr_df().group_by(["region"]).agg([@expr.col("revenue")]),
     Err(
       @types.DataError::InvalidOperation(
         "aggregate expression must reduce each group to a single value: col(revenue)",
@@ -376,7 +394,7 @@ test "a non-reducing expression is rejected with InvalidOperation" {
   assert_eq(
     try? agg_expr_df()
     .group_by(["region"])
-    .agg_exprs([@expr.col("revenue").sum() + @expr.col("cost")]),
+    .agg([@expr.col("revenue").sum() + @expr.col("cost")]),
     Err(
       @types.DataError::InvalidOperation(
         "aggregate expression must reduce each group to a single value: (col(revenue).sum() + col(cost))",
@@ -386,7 +404,7 @@ test "a non-reducing expression is rejected with InvalidOperation" {
   // The shape gate precedes evaluation: an unknown column inside a
   // non-reducing tree reports the shape, not ColumnNotFound.
   assert_eq(
-    try? agg_expr_df().group_by(["region"]).agg_exprs([@expr.col("zzz")]),
+    try? agg_expr_df().group_by(["region"]).agg([@expr.col("zzz")]),
     Err(
       @types.DataError::InvalidOperation(
         "aggregate expression must reduce each group to a single value: col(zzz)",
@@ -406,7 +424,7 @@ test "rejection is structural: singleton groups reject a bare column too" {
     Series::from_ints("v", [1, 2]),
   ])
   assert_eq(
-    try? df.group_by(["k"]).agg_exprs([@expr.col("v")]),
+    try? df.group_by(["k"]).agg([@expr.col("v")]),
     Err(
       @types.DataError::InvalidOperation(
         "aggregate expression must reduce each group to a single value: col(v)",
@@ -418,13 +436,11 @@ test "rejection is structural: singleton groups reject a bare column too" {
 ///|
 test "evaluation errors surface before any group work" {
   assert_eq(
-    try? agg_expr_df().group_by(["region"]).agg_exprs([@expr.col("zzz").sum()]),
+    try? agg_expr_df().group_by(["region"]).agg([@expr.col("zzz").sum()]),
     Err(@types.DataError::ColumnNotFound("zzz")),
   )
   assert_eq(
-    try? agg_expr_df()
-    .group_by(["region"])
-    .agg_exprs([@expr.col("region").sum()]),
+    try? agg_expr_df().group_by(["region"]).agg([@expr.col("region").sum()]),
     Err(@types.DataError::TypeMismatch("sum undefined for String")),
   )
 }
@@ -435,14 +451,14 @@ test "output name collisions raise DuplicateColumn via DataFrame::new" {
   assert_eq(
     try? agg_expr_df()
     .group_by(["region"])
-    .agg_exprs([@expr.col("revenue").sum(), @expr.col("revenue").mean()]),
+    .agg([@expr.col("revenue").sum(), @expr.col("revenue").mean()]),
     Err(@types.DataError::DuplicateColumn("revenue")),
   )
   // An alias that shadows a key column collides the same way.
   assert_eq(
     try? agg_expr_df()
     .group_by(["region"])
-    .agg_exprs([@expr.col("revenue").sum().with_alias("region")]),
+    .agg([@expr.col("revenue").sum().with_alias("region")]),
     Err(@types.DataError::DuplicateColumn("region")),
   )
   // Collisions surface at DataFrame::new, after every expression has
@@ -451,7 +467,7 @@ test "output name collisions raise DuplicateColumn via DataFrame::new" {
   assert_eq(
     try? agg_expr_df()
     .group_by(["region"])
-    .agg_exprs([
+    .agg([
       @expr.col("revenue").sum(),
       @expr.col("revenue").mean(),
       @expr.col("zzz").sum(),

@@ -795,7 +795,7 @@ test "count: non-null cells, never null" {
 }
 
 ///|
-test "composite aggregation: reduce a derived column — beyond AggSpec" {
+test "composite aggregation: reduce a derived column" {
   let df = DataFrame::new([
     Series::from_ints("a", [1, 2, 3]),
     Series::from_ints("b", [4, 5, 6]),
@@ -804,8 +804,8 @@ test "composite aggregation: reduce a derived column — beyond AggSpec" {
     (@expr.col("a") * @expr.col("b")).sum().with_alias("dot"),
     (@expr.col("a").max() - @expr.col("a").min()).with_alias("range"),
   ])
-  // 1·4 + 2·5 + 3·6 — the inner product AggSpec's single-column reductions
-  // cannot express.
+  // 1·4 + 2·5 + 3·6 — the inner product a single-column reduction cannot
+  // express.
   assert_eq(
     out.get_column("dot").to_scalars(),
     Array::make(3, @types.Scalar::Int(32)),

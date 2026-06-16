@@ -1,10 +1,18 @@
 // Blackbox tests for `DataFrame::group_by` / `GroupedDataFrame::agg`.
 //
+// `agg` takes reduction expressions; these tests drive it with the
+// bare-column reductions `col(c).<agg>()`, aliased to the `"<col>_<kind>"`
+// names the retired `AggSpec` produced, so they double as a regression pin
+// on that behaviour. The expression-specific surface (compound / derived
+// reductions, the reduction-shape gate, naming and backend rules) lives in
+// agg_expr_test.mbt; here the focus is group partitioning and the per-group
+// dtype-of-result behaviour.
+//
 // Invariants asserted across the happy-path tests:
 //   (1) check_invariants() == Ok(()) — every agg result routes through
 //       DataFrame::new, so it must satisfy the structural spec.
 //   (2) output column order = key columns (in `keys` order) then one
-//       column per spec (in `specs` order).
+//       column per aggregation expression (in expression order).
 //   (3) group (row) order = first appearance of the key tuple.
 //
 // Reductions reuse the `Series` statistics, so null / NaN / dtype rules
@@ -27,21 +35,21 @@ fn sales_df() -> DataFrame raise @types.DataError {
   ])
 }
 
-// ── Single key, every AggKind ────────────────────────────────────────
+// ── Single key, every reduction ──────────────────────────────────────
 
 ///|
 test "group_by single key with all five default-named aggregations" {
   let out = sales_df()
     .group_by(["region"])
     .agg([
-      AggSpec::count("quantity"),
-      AggSpec::sum("quantity"),
-      AggSpec::mean("quantity"),
-      AggSpec::min("quantity"),
-      AggSpec::max("quantity"),
+      @expr.col("quantity").count().with_alias("quantity_count"),
+      @expr.col("quantity").sum().with_alias("quantity_sum"),
+      @expr.col("quantity").mean().with_alias("quantity_mean"),
+      @expr.col("quantity").min().with_alias("quantity_min"),
+      @expr.col("quantity").max().with_alias("quantity_max"),
     ])
   assert_eq(out.check_invariants(), Ok(()))
-  // Key column first, then one column per spec, default-named.
+  // Key column first, then one column per expression, default-named.
   assert_eq(out.columns(), [
     "region", "quantity_count", "quantity_sum", "quantity_mean", "quantity_min",
     "quantity_max",
@@ -66,7 +74,9 @@ test "group_by single key with all five default-named aggregations" {
 
 ///|
 test "group_by aggregates a second measure column (Float sum)" {
-  let out = sales_df().group_by(["region"]).agg([AggSpec::sum("revenue")])
+  let out = sales_df()
+    .group_by(["region"])
+    .agg([@expr.col("revenue").sum().with_alias("revenue_sum")])
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.columns(), ["region", "revenue_sum"])
   // east revenue = [100, 30, 70] → 200.0; west = [50, 20] → 70.0.
@@ -80,7 +90,7 @@ test "group_by aggregates a second measure column (Float sum)" {
 test "group_by multiple keys partitions by the key tuple" {
   let out = sales_df()
     .group_by(["region", "product"])
-    .agg([AggSpec::sum("quantity")])
+    .agg([@expr.col("quantity").sum().with_alias("quantity_sum")])
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.columns(), ["region", "product", "quantity_sum"])
   // Four distinct (region, product) tuples, in first-appearance order:
@@ -107,8 +117,8 @@ test "with_alias overrides the aggregated column name" {
   let out = sales_df()
     .group_by(["region"])
     .agg([
-      AggSpec::sum("quantity").with_alias("total_q"),
-      AggSpec::mean("revenue").with_alias("avg_rev"),
+      @expr.col("quantity").sum().with_alias("total_q"),
+      @expr.col("revenue").mean().with_alias("avg_rev"),
     ])
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.columns(), ["region", "total_q", "avg_rev"])
@@ -125,7 +135,7 @@ test "group order follows first appearance, not sorted order" {
     Series::from_strings("g", ["z", "a", "z", "a", "m"]),
     Series::from_ints("v", [1, 2, 3, 4, 5]),
   ])
-  let out = df.group_by(["g"]).agg([AggSpec::sum("v")])
+  let out = df.group_by(["g"]).agg([@expr.col("v").sum().with_alias("v_sum")])
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.get(0, "g"), @types.Scalar::String("z"))
   assert_eq(out.get(1, "g"), @types.Scalar::String("a"))
@@ -146,7 +156,7 @@ test "a null key forms its own group, distinct from an empty string" {
     Series::from_string_options("k", [Some("a"), None, Some(""), Some("a")]),
     Series::from_ints("v", [1, 2, 3, 4]),
   ])
-  let out = df.group_by(["k"]).agg([AggSpec::sum("v")])
+  let out = df.group_by(["k"]).agg([@expr.col("v").sum().with_alias("v_sum")])
   assert_eq(out.check_invariants(), Ok(()))
   // Three groups in first-appearance order: "a", null, "".
   assert_eq(out.shape(), (3, 2))
@@ -169,7 +179,7 @@ test "Float NaN keys collapse into a single group" {
     Series::from_floats("k", [nan, 1.0, nan]),
     Series::from_ints("v", [1, 2, 3]),
   ])
-  let out = df.group_by(["k"]).agg([AggSpec::sum("v")])
+  let out = df.group_by(["k"]).agg([@expr.col("v").sum().with_alias("v_sum")])
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.shape(), (2, 2))
   // NaN group (rows 0,2) first, then the 1.0 group (row 1).
@@ -188,7 +198,7 @@ test "Float -0.0 and +0.0 keys collapse into a single group" {
     Series::from_floats("k", [0.0, -0.0, 1.5, 0.0]),
     Series::from_ints("v", [1, 2, 3, 4]),
   ])
-  let out = df.group_by(["k"]).agg([AggSpec::sum("v")])
+  let out = df.group_by(["k"]).agg([@expr.col("v").sum().with_alias("v_sum")])
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.shape(), (2, 2))
   // Zero group first (sum 1 + 2 + 4 = 7), then the 1.5 group (3).
@@ -206,7 +216,7 @@ test "group_by preserves the key column dtype (Int key)" {
     Series::from_ints("k", [1, 1, 2]),
     Series::from_ints("v", [10, 20, 30]),
   ])
-  let out = df.group_by(["k"]).agg([AggSpec::sum("v")])
+  let out = df.group_by(["k"]).agg([@expr.col("v").sum().with_alias("v_sum")])
   assert_eq(out.check_invariants(), Ok(()))
   // Key column keeps Int dtype (not stringified).
   assert_eq(out.get_column("k").dtype(), @types.DataType::Int)
@@ -221,9 +231,9 @@ test "sum keeps the source numeric dtype; mean is always Float" {
   let out = sales_df()
     .group_by(["region"])
     .agg([
-      AggSpec::sum("quantity"), // Int source → Int
-      AggSpec::sum("revenue"), // Float source → Float
-      AggSpec::mean("quantity"), // → Float
+      @expr.col("quantity").sum().with_alias("quantity_sum"), // Int source → Int
+      @expr.col("revenue").sum().with_alias("revenue_sum"), // Float source → Float
+      @expr.col("quantity").mean().with_alias("quantity_mean"), // → Float
     ])
   assert_eq(out.get_column("quantity_sum").dtype(), @types.DataType::Int)
   assert_eq(out.get_column("revenue_sum").dtype(), @types.DataType::Float)
@@ -242,11 +252,11 @@ test "count excludes nulls; an all-null group reduces to identity / null" {
   let out = df
     .group_by(["k"])
     .agg([
-      AggSpec::count("v"),
-      AggSpec::sum("v"),
-      AggSpec::mean("v"),
-      AggSpec::min("v"),
-      AggSpec::max("v"),
+      @expr.col("v").count().with_alias("v_count"),
+      @expr.col("v").sum().with_alias("v_sum"),
+      @expr.col("v").mean().with_alias("v_mean"),
+      @expr.col("v").min().with_alias("v_min"),
+      @expr.col("v").max().with_alias("v_max"),
     ])
   assert_eq(out.check_invariants(), Ok(()))
   // Group a: count 1 (null skipped), sum 1, mean 1.0, min 1, max 1.
@@ -266,15 +276,14 @@ test "count excludes nulls; an all-null group reduces to identity / null" {
 ///|
 test "agg: an all-null Float group means a null cell" {
   // The all-null *Int* group above exercises the Int mean arm's empty-group
-  // path; the per-dtype `mean_groups` reduction means the Float arm needs its
-  // own: a group whose Float cells are all null (validity 0, distinct from a
-  // NaN value) has no present cell, so its mean is a null cell rather than NaN
-  // or a hard failure.
+  // path; the Float arm needs its own: a group whose Float cells are all null
+  // (validity 0, distinct from a NaN value) has no present cell, so its mean
+  // is a null cell rather than NaN or a hard failure.
   let df = DataFrame::new([
     Series::from_strings("k", ["a", "a", "b"]),
     Series::from_float_options("v", [Some(1.0), Some(3.0), None]),
   ])
-  let out = df.group_by(["k"]).agg([AggSpec::mean("v")])
+  let out = df.group_by(["k"]).agg([@expr.col("v").mean().with_alias("v_mean")])
   assert_eq(out.check_invariants(), Ok(()))
   // Group a = [1.0, 3.0] → mean 2.0; group b = [null] → null mean.
   assert_eq(out.get(0, "v_mean"), @types.Scalar::Float(2.0))
@@ -302,10 +311,10 @@ test "Float NaN propagates through sum / mean but is skipped by min / max within
   let out = df
     .group_by(["k"])
     .agg([
-      AggSpec::sum("v"),
-      AggSpec::mean("v"),
-      AggSpec::min("v"),
-      AggSpec::max("v"),
+      @expr.col("v").sum().with_alias("v_sum"),
+      @expr.col("v").mean().with_alias("v_mean"),
+      @expr.col("v").min().with_alias("v_min"),
+      @expr.col("v").max().with_alias("v_max"),
     ])
   assert_eq(out.check_invariants(), Ok(()))
   // Group a: NaN is a value that propagates → sum and mean are NaN; min /
@@ -348,10 +357,10 @@ test "min over Int / Float / Bool / String, all-null group → null" {
   let out = extrema_df()
     .group_by(["k"])
     .agg([
-      AggSpec::min("vi"),
-      AggSpec::min("vf"),
-      AggSpec::min("vb"),
-      AggSpec::min("vs"),
+      @expr.col("vi").min().with_alias("vi_min"),
+      @expr.col("vf").min().with_alias("vf_min"),
+      @expr.col("vb").min().with_alias("vb_min"),
+      @expr.col("vs").min().with_alias("vs_min"),
     ])
   assert_eq(out.check_invariants(), Ok(()))
   // Group A has values; each min keeps the source dtype.
@@ -374,10 +383,10 @@ test "max over Int / Float / Bool / String, all-null group → null" {
   let out = extrema_df()
     .group_by(["k"])
     .agg([
-      AggSpec::max("vi"),
-      AggSpec::max("vf"),
-      AggSpec::max("vb"),
-      AggSpec::max("vs"),
+      @expr.col("vi").max().with_alias("vi_max"),
+      @expr.col("vf").max().with_alias("vf_max"),
+      @expr.col("vb").max().with_alias("vb_max"),
+      @expr.col("vs").max().with_alias("vs_max"),
     ])
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.get(0, "vi_max"), @types.Scalar::Int(3))
@@ -390,7 +399,7 @@ test "max over Int / Float / Bool / String, all-null group → null" {
   assert_eq(out.get(1, "vs_max"), @types.Scalar::Null)
 }
 
-// ── Empty specs → distinct ───────────────────────────────────────────
+// ── Empty aggregations → distinct ────────────────────────────────────
 
 ///|
 test "empty specs degenerates to distinct key combinations" {
@@ -416,7 +425,12 @@ test "group_by on a 0-row frame yields 0 groups with the key+agg schema" {
     Series::from_strings("k", []),
     Series::from_ints("v", []),
   ])
-  let out = df.group_by(["k"]).agg([AggSpec::sum("v"), AggSpec::count("v")])
+  let out = df
+    .group_by(["k"])
+    .agg([
+      @expr.col("v").sum().with_alias("v_sum"),
+      @expr.col("v").count().with_alias("v_count"),
+    ])
   assert_eq(out.check_invariants(), Ok(()))
   // Zero groups → zero rows, but the schema (key + agg columns) stands.
   assert_eq(out.shape(), (0, 3))
@@ -427,7 +441,10 @@ test "group_by on a 0-row frame yields 0 groups with the key+agg schema" {
 test "empty keys aggregate the whole frame as a single group" {
   let out = sales_df()
     .group_by([])
-    .agg([AggSpec::sum("quantity"), AggSpec::count("quantity")])
+    .agg([
+      @expr.col("quantity").sum().with_alias("quantity_sum"),
+      @expr.col("quantity").count().with_alias("quantity_count"),
+    ])
   assert_eq(out.check_invariants(), Ok(()))
   // No key columns; one grand-total row.
   assert_eq(out.shape(), (1, 2))
@@ -490,10 +507,10 @@ test "group_by raises DuplicateColumn for a key column named twice" {
 }
 
 ///|
-test "agg raises ColumnNotFound for an unknown spec column" {
+test "agg raises ColumnNotFound for an unknown aggregation column" {
   let grouped = sales_df().group_by(["region"])
   assert_eq(
-    try? grouped.agg([AggSpec::sum("nope")]),
+    try? grouped.agg([@expr.col("nope").sum()]),
     Err(@types.DataError::ColumnNotFound("nope")),
   )
 }
@@ -503,21 +520,21 @@ test "Sum / Mean on a non-numeric column raises TypeMismatch" {
   let grouped = sales_df().group_by(["region"])
   // product is a String column.
   assert_true(
-    (try? grouped.agg([AggSpec::sum("product")]))
+    (try? grouped.agg([@expr.col("product").sum()]))
     is Err(@types.DataError::TypeMismatch(_)),
   )
   assert_true(
-    (try? grouped.agg([AggSpec::mean("product")]))
+    (try? grouped.agg([@expr.col("product").mean()]))
     is Err(@types.DataError::TypeMismatch(_)),
   )
   // Also a Bool column: sum and mean are both undefined.
   let bgrouped = extrema_df().group_by(["k"])
   assert_true(
-    (try? bgrouped.agg([AggSpec::sum("vb")]))
+    (try? bgrouped.agg([@expr.col("vb").sum()]))
     is Err(@types.DataError::TypeMismatch(_)),
   )
   assert_true(
-    (try? bgrouped.agg([AggSpec::mean("vb")]))
+    (try? bgrouped.agg([@expr.col("vb").mean()]))
     is Err(@types.DataError::TypeMismatch(_)),
   )
 }
@@ -525,14 +542,17 @@ test "Sum / Mean on a non-numeric column raises TypeMismatch" {
 ///|
 test "colliding output column names raise DuplicateColumn" {
   let grouped = sales_df().group_by(["region"])
-  // Two specs with the same default name.
+  // Two expressions with the same aliased name.
   assert_eq(
-    try? grouped.agg([AggSpec::sum("quantity"), AggSpec::sum("quantity")]),
+    try? grouped.agg([
+      @expr.col("quantity").sum().with_alias("quantity_sum"),
+      @expr.col("quantity").sum().with_alias("quantity_sum"),
+    ]),
     Err(@types.DataError::DuplicateColumn("quantity_sum")),
   )
   // An alias that shadows a key column.
   assert_eq(
-    try? grouped.agg([AggSpec::sum("quantity").with_alias("region")]),
+    try? grouped.agg([@expr.col("quantity").sum().with_alias("region")]),
     Err(@types.DataError::DuplicateColumn("region")),
   )
 }

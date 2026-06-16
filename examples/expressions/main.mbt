@@ -2,7 +2,7 @@
 //
 //   read_csv → with_columns (derive profit, unit_price)
 //            → filter_where (Expr predicate: profit > 0 & region == west)
-//            → group_by(region).agg_exprs (composite aggregation)
+//            → group_by(region).agg (composite aggregation)
 //            → with_columns (when / then / otherwise tier)
 //            → lazy_frame(...).explain() + .collect()
 //
@@ -31,7 +31,7 @@ fn main {
     // 2) An `Expr` predicate drives `filter_where`.
     println("\nProfitable western rows:")
     println(@analysis.top_west(df).to_markdown())
-    // 3) Composite aggregation with `agg_exprs`.
+    // 3) Composite aggregation with `agg`.
     println("\nMargins by region:")
     println(@analysis.margins(df).to_markdown())
     // 4) A `when / then / otherwise` conditional column.

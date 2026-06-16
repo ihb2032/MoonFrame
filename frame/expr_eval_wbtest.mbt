@@ -12,10 +12,9 @@
 // against the private helper, one assertion per clause (the public
 // surface exercises it only through whole `with_columns` calls).
 //
-// `eval_expr` under a partial scope: the public consumers all pass the
-// whole-frame scope today; the group-subset behavior is the contract
-// `agg_exprs` (E4) builds on, so it is pinned before it gains a public
-// caller.
+// `eval_expr` under a partial scope: the whole-frame consumers pass the
+// whole-frame scope; the group-subset behavior is the contract the grouped
+// `agg` builds on, pinned here at the evaluator level.
 
 ///|
 test "broadcast_pair: two incompatible non-unit lengths raise LengthMismatch" {
@@ -71,8 +70,8 @@ test "eval_expr under a group-subset scope: gathers and reduces only those rows"
     [@types.Scalar::Int(10), @types.Scalar::Int(30)],
   )
   // An aggregation reduces over the scope alone — the per-group semantics
-  // `agg_exprs` (E4) will lean on: rows 0 and 2 of `v` sum to 40, and
-  // `w`'s nulls inside a scope are skipped as in any other reduction.
+  // the grouped `agg` leans on: rows 0 and 2 of `v` sum to 40, and `w`'s
+  // nulls inside a scope are skipped as in any other reduction.
   let total = eval_expr(@expr.col("v").sum(), df, scope)
   assert_true(total.len() == 1)
   assert_true(total.to_scalars() == [@types.Scalar::Int(40)])

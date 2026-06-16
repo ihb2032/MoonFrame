@@ -4,9 +4,9 @@
 // tests next to this file drive every branch through the facade —
 // exactly the way a downstream user would call them.
 //
-// Each function showcases one slice of the v0.4 surface: `with_columns`
-// derived columns, an `Expr` predicate for `filter_where`, composite
-// `agg_exprs`, a `when / then / otherwise` conditional, and a deferred
+// Each function showcases one slice of the expression surface:
+// `with_columns` derived columns, an `Expr` predicate for `filter_where`,
+// composite `agg`, a `when / then / otherwise` conditional, and a deferred
 // `LazyFrame` pipeline you can `explain` before you `collect`.
 
 ///|
@@ -43,9 +43,8 @@ pub fn top_west(
 }
 
 ///|
-/// Summarise per region with `agg_exprs` — the expression generalisation
-/// of `AggSpec`. `total_profit` is a *composite* aggregation,
-/// `(revenue - cost).sum()`, which a single `AggSpec` cannot express;
+/// Summarise per region with `agg`. `total_profit` is a *composite*
+/// aggregation, `(revenue - cost).sum()`, reducing a derived column;
 /// `avg_revenue` and `n` are the familiar `mean` / `count` reductions.
 /// One row per region, in first-appearance order.
 pub fn margins(
@@ -53,7 +52,7 @@ pub fn margins(
 ) -> @moonframe.DataFrame raise @moonframe.DataError {
   df
   .group_by(["region"])
-  .agg_exprs([
+  .agg([
     (@moonframe.col("revenue") - @moonframe.col("cost"))
     .sum()
     .with_alias("total_profit"),

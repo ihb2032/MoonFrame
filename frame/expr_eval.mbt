@@ -1,7 +1,7 @@
 ///|
 /// Vectorized evaluation of `@expr.Expr` against a `DataFrame` — the
-/// engine behind `DataFrame::with_columns` (and, as v0.4 grows, every
-/// expression consumer: `select` / `filter_where` / `agg_exprs`).
+/// engine behind `DataFrame::with_columns` (and every other expression
+/// consumer: `select` / `filter_where` / `agg`).
 ///
 /// This lives in `frame`, not `expr`: evaluation reads `Series` internals
 /// (raw `data()` buffers plus validity bitmaps), and that capability —
@@ -11,8 +11,8 @@
 /// read-only enum is matchable here but constructible only in `expr`).
 ///
 /// `scope` is the ordered row-index set an expression is evaluated under:
-/// `[0, nrows)` for whole-frame contexts today, a group's row indices once
-/// `agg_exprs` lands (E4). Every result is either `|scope|` tall or a
+/// `[0, nrows)` for whole-frame contexts, a group's row indices under
+/// `agg`. Every result is either `|scope|` tall or a
 /// length-1 broadcastable (literals and aggregations).
 ///
 /// Semantics, in one place (the v0.4 §0 matrix — every rule inherited
@@ -635,7 +635,7 @@ fn eval_agg(
 ///|
 /// Map the read-only `@expr.AggOp` (matchable here, constructible only in
 /// `expr`) into the frame-local `ReduceOp` the shared reduction kernel
-/// speaks. Shared by the scoped `eval_agg` and the grouped `agg_exprs`
+/// speaks. Shared by the scoped `eval_agg` and the grouped `agg`
 /// single-pass fast path (`bare_col_agg`), so the two map the same op the
 /// same way. Exhaustive with no wildcard: a future `AggOp` variant fails
 /// compilation here rather than silently routing to a wrong reduction.

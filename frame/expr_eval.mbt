@@ -52,6 +52,12 @@
 ///   and free to `raise`). The output dtype is the first non-null result's;
 ///   an all-null / empty result raises `Unsupported`, having no
 ///   representable dtype (no Null-dtype backend, as for the `Null` literal).
+/// - **Literal series** (`lit_series`): the embedded `Series` is returned
+///   verbatim, the data analogue of a scalar literal's length-1 column. Its
+///   length is the series' own; the consumers broadcast it like any other
+///   result — a length-1 series fills the scope, a frame-tall one passes
+///   through, anything else is `LengthMismatch`. It reads no frame column, so
+///   evaluation never raises on the frame's contents.
 /// - **Backend convention** (the v0.3 review Q2 decision): a *computed*
 ///   result converges onto the `Numeric` fast path whenever it is an
 ///   all-valid numeric column (`try_column_to_numeric`), and lands on
@@ -75,7 +81,13 @@ fn eval_expr(
 ) -> Series raise @types.DataError {
   match expr {
     @expr.Expr::Col(name) => gather_series(df.get_column(name), scope)
-    @expr.Expr::Lit(value) => lit_series(value)
+    @expr.Expr::Lit(value) => singleton_series(value)
+    // A literal series is used verbatim, like a scalar `Lit` is its length-1
+    // column: the result's length is the series' own, and the consumers
+    // (`broadcast_series` in the verbs, `broadcast_pair` in `Binary`) align
+    // it — broadcasting a length-1 series, passing a frame-tall one through,
+    // and raising `LengthMismatch` on anything else.
+    @expr.Expr::LitSeries(s) => s
     @expr.Expr::Binary(op, l, r) => {
       let lhs = eval_expr(l, df, scope)
       let rhs = eval_expr(r, df, scope)
@@ -127,17 +139,19 @@ fn eval_expr(
 }
 
 ///|
-/// Materialise a literal as a length-1 series. It carries the name
-/// `"literal"` (the output-name fallback for column-less expressions);
-/// consumers rename the final result via `expr_output_name`, so the name
-/// here only shows through for pure-literal expressions. A concrete scalar
-/// lands on whatever backend its `Series::from_*` constructor picks —
+/// Materialise a scalar literal as a length-1 series — the `Lit` node's
+/// column form (named `singleton_series` to keep it distinct from the public
+/// `lit_series`, which embeds a whole `Series` as a `LitSeries` node). It
+/// carries the name `"literal"` (the output-name fallback for column-less
+/// expressions); consumers rename the final result via `expr_output_name`, so
+/// the name here only shows through for pure-literal expressions. A concrete
+/// scalar lands on whatever backend its `Series::from_*` constructor picks —
 /// `Numeric` for `Int` / `Float`, `Builtin` for `Bool` / `String` (the
 /// same convention as computed results). `Scalar::Null` has no column
 /// representation — the storage layer has no Null-dtype backend (same gap
 /// `DataFrame::empty` reports for Null fields) — so it raises
 /// `Unsupported` at evaluation; typed null literals stay out of v0.4.
-fn lit_series(value : @types.Scalar) -> Series raise @types.DataError {
+fn singleton_series(value : @types.Scalar) -> Series raise @types.DataError {
   match value {
     @types.Scalar::Int(v) => Series::from_ints("literal", [v])
     @types.Scalar::Float(v) => Series::from_floats("literal", [v])

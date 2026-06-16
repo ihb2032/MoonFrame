@@ -129,11 +129,15 @@ pub fn GroupedDataFrame::agg(
 /// their operands; a bare column reference pins the result to the scope
 /// height, so it is not a reduction — and a `Map` is row-wise the same way
 /// (one cell per row), so a bare `map(...)` is not a reduction either,
-/// though `map(...).sum()` is, by the enclosing `Agg`. Structural
-/// (data-independent) on purpose: group sizes never change the verdict.
+/// though `map(...).sum()` is, by the enclosing `Agg`. A `lit_series(s)` is
+/// likewise row-wise — its own cells, not a single value — so a bare
+/// `lit_series(s)` is not a reduction, though `lit_series(s).sum()` is.
+/// Structural (data-independent) on purpose: group sizes never change the
+/// verdict.
 fn reduces_per_group(expr : @expr.Expr) -> Bool {
   match expr {
-    @expr.Expr::Col(_) | @expr.Expr::Map(_, _, _) => false
+    @expr.Expr::Col(_) | @expr.Expr::Map(_, _, _) | @expr.Expr::LitSeries(_) =>
+      false
     @expr.Expr::Lit(_) | @expr.Expr::Agg(_, _) => true
     @expr.Expr::Binary(_, l, r) => reduces_per_group(l) && reduces_per_group(r)
     @expr.Expr::Unary(_, e)

@@ -1096,3 +1096,28 @@ test "a map is a value barrier: it blocks the filter sink, like cast" {
   // ...and collect stays bitwise-equal to the eager chain through it.
   assert_eq(plan.collect(), df.with_columns(derived).filter(predicate))
 }
+
+///|
+test "a lit_series is a barrier: it blocks the filter sink, like cast" {
+  let df = sales_df()
+  // A frame-tall literal column is positional (cell `i` is row `i`), so a
+  // filter dropping rows *before* the stage would leave it mismatched against
+  // the now-shorter frame. `lit_series` is therefore a shape barrier: the
+  // filter cannot sink past a with_columns that carries one, even though the
+  // predicate reads a column the stage does not define. Contrast the
+  // derived-column case above, where a row-stable stage lets the filter sink.
+  let derived = [
+    @expr.lit_series(@series.Series::from_ints("flag", [0, 1, 0, 1])),
+  ]
+  let predicate = @expr.col("region").eq(@expr.lit_str("west"))
+  let plan = lazy_frame(df).with_columns(derived).filter(predicate)
+  // The FILTER stays *above* the WITH_COLUMNS.
+  assert_eq(
+    plan.explain(optimized=true),
+    "FILTER (col(region) == \"west\")\n" +
+    "  WITH_COLUMNS [lit_series(\"flag\", 4)]\n" +
+    "    SCAN [4×3]",
+  )
+  // ...and collect stays bitwise-equal to the eager chain through it.
+  assert_eq(plan.collect(), df.with_columns(derived).filter(predicate))
+}

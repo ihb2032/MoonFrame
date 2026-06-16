@@ -1,4 +1,5 @@
 import {
+  "ihb2032/MoonFrame/series",
   "ihb2032/MoonFrame/types",
   "moonbitlang/core/debug",
   "moonbitlang/core/set",

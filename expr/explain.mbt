@@ -12,8 +12,9 @@
 /// literals (strings quoted, the null literal as `null`), binary nodes
 /// parenthesised infix, prefix `(-e)` / `(not e)`, the remaining unary
 /// probes and `Agg` / `Cast` as postfix method calls, `Alias` as
-/// `expr as name`, and `Ternary` mirroring its
-/// `when(c).then(a).otherwise(b)` construction route. Handwritten because
+/// `expr as name`, `Ternary` mirroring its `when(c).then(a).otherwise(b)`
+/// construction route, a `Map` as `map("label", [inputs])`, and a
+/// `LitSeries` as `lit_series("name", len)`. Handwritten because
 /// `derive(Show)` is deprecated — and the derived variant form would leak
 /// construction-route noise into `explain` output anyway.
 pub impl Show for Expr with fn output(self, logger) {
@@ -52,11 +53,12 @@ pub fn Expr::explain(self : Expr) -> String {
 /// condition first; the one walk that must skip the condition — output
 /// *naming* — special-cases it rather than reading children. A `Map` lists
 /// its input expressions (a fresh copy, so a caller can never alias — and
-/// mutate — the node's own `inputs`). Leaves (`Col` / `Lit`) have none.
+/// mutate — the node's own `inputs`). Leaves (`Col` / `Lit` / `LitSeries`)
+/// have none — a `LitSeries` carries materialised data, not sub-expressions.
 /// Total — it only inspects shape.
 pub fn Expr::children(self : Expr) -> Array[Expr] {
   match self {
-    Col(_) | Lit(_) => []
+    Col(_) | Lit(_) | LitSeries(_) => []
     Binary(_, l, r) => [l, r]
     Unary(_, e) | Agg(_, e) | Cast(e, _) | Alias(e, _) => [e]
     Ternary(c, t, f) => [c, t, f]
@@ -115,7 +117,9 @@ pub fn Expr::output_name(self : Expr) -> String {
 /// (`Unary` / `Agg` / `Cast`) and the binary / map operands are
 /// name-transparent, so the search rides `Expr::children` for them, taking
 /// the first child to yield a name (a `Map` is thus named after its leftmost
-/// input, like Polars' `map_elements`). A `Ternary` draws its name from the value branches —
+/// input, like Polars' `map_elements`). A `LitSeries` names itself after the
+/// series it carries — like a `Col`, so a bare `lit_series(s)` outputs a
+/// column named `s.name()` (matching the old `with_column(s)`). A `Ternary` draws its name from the value branches —
 /// `then` first, `otherwise` as fallback — never from the condition (the
 /// condition gates rows, it does not produce output values), so it is
 /// matched explicitly rather than walking all of its children.
@@ -124,6 +128,7 @@ pub fn Expr::output_name(self : Expr) -> String {
 fn leftmost_name(expr : Expr) -> String? {
   match expr {
     Col(name) => Some(name)
+    LitSeries(s) => Some(s.name())
     Alias(_, name) => Some(name)
     Ternary(_, t, f) =>
       match leftmost_name(t) {
@@ -159,6 +164,17 @@ fn write_expr(logger : &Logger, expr : Expr) -> Unit {
       logger.write_string(")")
     }
     Lit(value) => write_scalar(logger, value)
+    // The embedded data is opaque to the rendering, so a `LitSeries` shows
+    // its name (quoted / escaped like a string literal) and length —
+    // `lit_series("flag", 4)` — enough to read a plan line without dumping
+    // every cell.
+    LitSeries(s) => {
+      logger.write_string("lit_series(\"")
+      logger.write_string(escape_debug(s.name()))
+      logger.write_string("\", ")
+      logger.write_string(s.len().to_string())
+      logger.write_string(")")
+    }
     Binary(op, l, r) => {
       logger.write_string("(")
       write_expr(logger, l)

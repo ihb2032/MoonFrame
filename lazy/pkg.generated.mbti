@@ -18,7 +18,7 @@ pub struct LazyFrame {
 }
 pub fn LazyFrame::collect(Self) -> @frame.DataFrame raise @types.DataError
 pub fn LazyFrame::explain(Self, optimized? : Bool) -> String
-pub fn LazyFrame::filter_where(Self, @expr.Expr) -> Self
+pub fn LazyFrame::filter(Self, @expr.Expr) -> Self
 pub fn LazyFrame::from(@frame.DataFrame) -> Self
 pub fn LazyFrame::group_by(Self, Array[String]) -> LazyGroupBy
 pub fn LazyFrame::head(Self, Int) -> Self

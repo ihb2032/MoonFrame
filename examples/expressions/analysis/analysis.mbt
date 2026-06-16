@@ -5,7 +5,7 @@
 // exactly the way a downstream user would call them.
 //
 // Each function showcases one slice of the expression surface:
-// `with_columns` derived columns, an `Expr` predicate for `filter_where`,
+// `with_columns` derived columns, an `Expr` predicate for `filter`,
 // composite `agg`, a `when / then / otherwise` conditional, and a deferred
 // `LazyFrame` pipeline you can `explain` before you `collect`.
 
@@ -28,15 +28,14 @@ pub fn enrich(
 }
 
 ///|
-/// Keep the profitable western rows: `enrich`, then `filter_where` with a
+/// Keep the profitable western rows: `enrich`, then `filter` with a
 /// composite predicate. Comparisons are methods (`gt` / `eq`) and the
 /// logical *and* is the `&` operator — methods bind tighter than `&`, so
-/// no parentheses are needed. A `false` / null cell drops the row, just
-/// like the closure `filter`.
+/// no parentheses are needed. A `false` / null cell drops the row.
 pub fn top_west(
   df : @moonframe.DataFrame,
 ) -> @moonframe.DataFrame raise @moonframe.DataError {
-  enrich(df).filter_where(
+  enrich(df).filter(
     @moonframe.col("profit").gt(@moonframe.lit_int(0)) &
     @moonframe.col("region").eq(@moonframe.lit_str("west")),
   )
@@ -92,6 +91,6 @@ pub fn report_plan(df : @moonframe.DataFrame) -> @moonframe.LazyFrame {
       "revenue_adj",
     ),
   ])
-  .filter_where(@moonframe.col("region").eq(@moonframe.lit_str("west")))
+  .filter(@moonframe.col("region").eq(@moonframe.lit_str("west")))
   .select([@moonframe.col("region"), @moonframe.col("revenue_adj")])
 }

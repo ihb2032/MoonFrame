@@ -49,10 +49,10 @@ test "quickstart: group_by + agg" {
 ## Filter, select, sort, render
 
 The operator verbs are methods on `DataFrame`, so a pipeline reads
-top-to-bottom. A fallible accessor inside the `filter` predicate (here
-`get_string`) simply raises. `select` takes expressions (see the next
-section); `cols([...])` is the shorthand that turns a list of names into
-a plain column projection.
+top-to-bottom. `filter` keeps the rows where an `Expr` predicate is
+`true` (see the next section); `select` takes expressions too, and
+`cols([...])` is the shorthand that turns a list of names into a plain
+column projection.
 
 ```moonbit check
 ///|
@@ -63,7 +63,7 @@ test "quickstart: filter + select + sort" {
     Series::from_ints("quantity", [10, 5, 7]),
   ])
   let out = df
-    .filter(row => row.get_string("product") == "widget")
+    .filter(col("product").eq(lit_str("widget")))
     .select(cols(["region", "quantity"]))
     .sort_by([("quantity", SortOrder::Desc, NullOrder::NullsLast)])
   inspect(
@@ -114,21 +114,21 @@ test "quickstart: derive columns with with_columns" {
 
 ## Filter with an expression predicate
 
-`filter_where` keeps the rows where an `Expr` evaluates to `true` (a `false` or
-null cell drops the row, like the closure `filter`). Comparisons are methods
+`filter` keeps the rows where an `Expr` evaluates to `true` (a `false` or
+null cell drops the row). Comparisons are methods
 (`eq` / `ne` / `lt` / `le` / `gt` / `ge`), and the logical connectives are the
 `&` (and) / `|` (or) operators — methods bind tighter than `&`, so the two
-comparisons below need no parentheses. Unlike the closure `filter`, this
-predicate is *data* the lazy layer can inspect and push down.
+comparisons below need no parentheses. Because the predicate is *data*
+rather than a closure, the lazy layer can inspect and push it down.
 
 ```moonbit check
 ///|
-test "quickstart: filter_where with an expression predicate" {
+test "quickstart: filter with an expression predicate" {
   let df = DataFrame::new([
     Series::from_strings("region", ["west", "east", "west", "west"]),
     Series::from_ints("revenue", [100, 80, 30, 70]),
   ])
-  let out = df.filter_where(
+  let out = df.filter(
     col("region").eq(lit_str("west")) & col("revenue").gt(lit_int(50)),
   )
   inspect(
@@ -227,7 +227,7 @@ test "quickstart: build a lazy plan, explain it, then collect" {
     Series::from_ints("revenue", [100, 50, 70]),
   ])
   let plan = lazy_frame(df)
-    .filter_where(col("region").eq(lit_str("west")))
+    .filter(col("region").eq(lit_str("west")))
     .select([col("region"), col("revenue")])
   // The plan as built — a faithful mirror of the chained verbs.
   inspect(

@@ -1,42 +1,46 @@
 ///|
-/// Keep only the rows for which `predicate` returns `true`. The
-/// predicate receives a `RowView` borrowed from `self`, so per-row cell
-/// access is `O(1)` and allocates nothing — the view stores the frame
-/// by value (cheap, internals are shared) plus a row index.
+/// Keep only the rows where `predicate` evaluates to `true` — MoonFrame's
+/// single row-selection verb. The predicate is an `Expr`, not a closure:
+/// it evaluates vectorized (one column pass, not one call per row), it can
+/// be printed, and a lazy `Filter` node can introspect it for predicate
+/// pushdown. A row-wise host predicate is still reachable through the
+/// `map_many` escape hatch — `filter(map_many(label~, inputs, f))` reifies
+/// the v0.1 closure predicate as a `Bool`-returning `Expr`.
 ///
-/// The returned frame has the same schema (column names, dtypes,
-/// nullability) as `self`; the row count equals the number of `true`
-/// returns from the predicate. A frame whose predicate rejects every
-/// row collapses to a 0-row frame *with the original schema* — that is
-/// the meaningful distinction from `select([])`, which collapses the
-/// columns.
+/// The predicate must evaluate to a `Bool` column (`TypeMismatch`
+/// otherwise). A row is kept where its cell is `true`; `false` **and
+/// null** cells drop the row (the Polars rule — an unknown is not a
+/// keep). A length-1 result — a literal, or an aggregation comparison
+/// like `col("qty").sum().gt(lit_int(0))` — broadcasts over the frame,
+/// keeping every row or none.
 ///
-/// The predicate may raise: the v0.1 `filter` / `filter_try` split is
-/// gone, because a single `(RowView) -> Bool raise DataError` signature
-/// accepts both a total predicate (which simply never raises) and a
-/// fallible one that calls a typed `RowView` accessor like
-/// `RowView::get_int`. The first error the predicate raises
-/// short-circuits the scan and propagates verbatim; rows accepted
-/// before the failing row are discarded (no partial frame). This is what
-/// makes `df.filter(row => row.get_int("x") > 0)` surface a missing
-/// column or dtype mismatch instead of silently excluding the row.
-///
-/// On a well-formed `self`, `filter` adds no failure of its own: every
-/// row index it forwards to `take` is in `[0, nrows)` by construction.
-/// The predicate is **not** invoked on a zero-row frame.
+/// The returned frame has the same schema as `self` (a
+/// rejects-everything predicate leaves a 0-row frame with the original
+/// schema), and every column keeps its storage backend. Evaluation errors
+/// (unknown columns, dtype mismatches) surface here; building the
+/// predicate was total.
 pub fn DataFrame::filter(
   self : DataFrame,
-  predicate : (RowView) -> Bool raise @types.DataError,
+  predicate : @expr.Expr,
 ) -> DataFrame raise @types.DataError {
-  // Keep the indices whose borrowed row view satisfies `predicate`. Each
-  // `i` is in `[0, nrows)`, so the view is valid; `filter` walks them in
-  // order, so the first predicate error short-circuits the scan and
-  // propagates verbatim (rows accepted earlier are discarded — no partial
-  // frame). On a zero-row frame the index array is empty, so the predicate
-  // is never invoked.
-  let kept = Array::makei(self.nrows(), i => i).filter(i => {
-    predicate(self.row_view(i))
-  })
+  let n = self.nrows()
+  // Evaluation yields a frame-tall or length-1 column — stretch a
+  // length-1 mask (literal / aggregation) over the frame, down to zero
+  // rows on an empty one.
+  let mask = broadcast_series(
+    eval_expr(predicate, self, Array::makei(n, i => i)),
+    n,
+  )
+  let cells = match mask.storage().data() {
+    @column.ColumnData::Bool(a) => a
+    _ =>
+      raise @types.DataError::TypeMismatch(
+        "filter predicate must be Bool, got " + mask.dtype().to_string(),
+      )
+  }
+  // A null cell fails `valid`, so it drops its row alongside `false`.
+  let valid = mask.storage().validity().to_bools()
+  let kept = Array::makei(n, i => i).filter(i => valid[i] && cells[i])
   // Every kept index came from `[0, nrows)`, so `take` cannot fail.
   self.take(kept)
 }

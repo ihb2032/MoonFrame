@@ -55,10 +55,7 @@ test "the static constructor and the free-function alias build the same plan" {
 test "each deferred verb collects to its eager equivalent" {
   let df = sales_df()
   let predicate = @expr.col("qty").gt(@expr.lit_int(50))
-  assert_eq(
-    lazy_frame(df).filter_where(predicate).collect(),
-    df.filter_where(predicate),
-  )
+  assert_eq(lazy_frame(df).filter(predicate).collect(), df.filter(predicate))
   let derived = [(@expr.col("qty") * @expr.lit_int(2)).with_alias("dbl")]
   assert_eq(
     lazy_frame(df).with_columns(derived).collect(),
@@ -125,14 +122,14 @@ test "a composite pipeline collects bitwise-equal to the eager chain" {
   let keys = [("net", @frame.SortOrder::Desc, @frame.NullOrder::NullsLast)]
   let projection = [@expr.col("region"), @expr.col("net")]
   let lazy_out = lazy_frame(df)
-    .filter_where(predicate)
+    .filter(predicate)
     .with_columns(derived)
     .sort_by(keys)
     .select(projection)
     .head(2)
     .collect()
   let eager_out = df
-    .filter_where(predicate)
+    .filter(predicate)
     .with_columns(derived)
     .sort_by(keys)
     .select(projection)
@@ -148,10 +145,10 @@ test "join inputs run their own deferred sub-pipelines" {
   let amount_gate = @expr.col("amount").ge(@expr.lit_int(20))
   let opts = @frame.JoinOptions::on(["id"]).with_how(@frame.JoinType::Left)
   let lazy_out = lazy_frame(l)
-    .filter_where(amount_gate)
+    .filter(amount_gate)
     .join(lazy_frame(r).head(2), opts)
     .collect()
-  assert_eq(lazy_out, l.filter_where(amount_gate).join(r.head(2), opts))
+  assert_eq(lazy_out, l.filter(amount_gate).join(r.head(2), opts))
   assert_eq(lazy_out.check_invariants(), Ok(()))
 }
 
@@ -159,8 +156,8 @@ test "join inputs run their own deferred sub-pipelines" {
 test "builders share structure: extending a plan leaves the base intact" {
   let df = sales_df()
   let predicate = @expr.col("qty").gt(@expr.lit_int(10))
-  let base = lazy_frame(df).filter_where(predicate)
-  let eager = df.filter_where(predicate)
+  let base = lazy_frame(df).filter(predicate)
+  let eager = df.filter(predicate)
   // Two diverging extensions of the same base…
   let first = base.head(2)
   let last = base.tail(1)
@@ -173,7 +170,7 @@ test "builders share structure: extending a plan leaves the base intact" {
 
 ///|
 test "building a doomed plan succeeds; the error waits for collect" {
-  let plan = lazy_frame(sales_df()).filter_where(
+  let plan = lazy_frame(sales_df()).filter(
     @expr.col("zzz").gt(@expr.lit_int(0)),
   )
   // Building and introspecting are total even though collecting will fail
@@ -185,13 +182,11 @@ test "building a doomed plan succeeds; the error waits for collect" {
 ///|
 test "collect surfaces the eager operators' errors unchanged" {
   let df = sales_df()
-  // Non-Bool predicate → the eager filter_where TypeMismatch.
+  // Non-Bool predicate → the eager filter TypeMismatch.
   assert_eq(
-    try? lazy_frame(df).filter_where(@expr.col("qty")).collect(),
+    try? lazy_frame(df).filter(@expr.col("qty")).collect(),
     Err(
-      @types.DataError::TypeMismatch(
-        "filter_where predicate must be Bool, got Int",
-      ),
+      @types.DataError::TypeMismatch("filter predicate must be Bool, got Int"),
     ),
   )
   // Out-of-range slice bound → IndexOutOfBounds(end), as in eager slice.
@@ -246,7 +241,7 @@ test "a group-by pipeline composes with the other deferred verbs" {
   let aggs = [@expr.col("dbl").sum().with_alias("total")]
   let keys = [("total", @frame.SortOrder::Desc, @frame.NullOrder::NullsLast)]
   let lazy_out = lazy_frame(df)
-    .filter_where(predicate)
+    .filter(predicate)
     .with_columns(derived)
     .group_by(["region"])
     .agg(aggs)
@@ -254,7 +249,7 @@ test "a group-by pipeline composes with the other deferred verbs" {
     .head(1)
     .collect()
   let eager_out = df
-    .filter_where(predicate)
+    .filter(predicate)
     .with_columns(derived)
     .group_by(["region"])
     .agg(aggs)
@@ -330,11 +325,11 @@ test "a zero-row source flows through the whole pipeline" {
   let predicate = @expr.col("qty").gt(@expr.lit_int(0))
   let derived = [(@expr.col("qty") * @expr.lit_int(2)).with_alias("dbl")]
   let lazy_out = lazy_frame(df)
-    .filter_where(predicate)
+    .filter(predicate)
     .with_columns(derived)
     .head(5)
     .collect()
-  let eager_out = df.filter_where(predicate).with_columns(derived).head(5)
+  let eager_out = df.filter(predicate).with_columns(derived).head(5)
   assert_eq(lazy_out, eager_out)
   assert_eq(lazy_out.shape(), (0, 3))
   assert_eq(lazy_out.check_invariants(), Ok(()))

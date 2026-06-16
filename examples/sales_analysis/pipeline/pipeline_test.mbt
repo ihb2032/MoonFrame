@@ -52,8 +52,8 @@ test "widget_report: empty product set collapses to a 0-row widget frame" {
 ///|
 test "widget_report: missing `product` column surfaces as ColumnNotFound" {
   // The pipeline reads `product` to decide row inclusion; if the
-  // source frame is missing it, `is_widget_row` should bubble the
-  // accessor error up through `filter` rather than silently exclude
+  // source frame is missing it, the `is_widget_row` predicate bubbles
+  // `ColumnNotFound` up through `filter` rather than silently excluding
   // every row.
   let df = @moonframe.DataFrame::new([
     @moonframe.Series::from_ints("id", [1, 2, 3]),
@@ -96,21 +96,22 @@ test "widget_report: sort_by error surfaces when `quantity` is missing post-filt
 }
 
 ///|
-test "is_widget_row: predicate returns true/false for matching / non-matching cells" {
-  // Hand-construct a tiny frame so we can open RowViews directly
-  // and exercise both branches of the predicate.
+test "is_widget_row: keeps matching rows and drops the rest" {
+  // Apply the reified predicate through `filter`, exercising both branches
+  // of the closure: a "widget" cell is kept, a "gadget" cell dropped.
   let df = @moonframe.DataFrame::new([
     @moonframe.Series::from_strings("product", ["widget", "gadget"]),
   ])
-  assert_eq(is_widget_row(df.row(0)), true)
-  assert_eq(is_widget_row(df.row(1)), false)
+  let kept = df.filter(is_widget_row())
+  assert_eq(kept.nrows(), 1)
+  assert_eq(kept.get(0, "product"), @moonframe.Scalar::String("widget"))
 }
 
 ///|
 test "is_widget_row: surfaces accessor error when `product` column is absent" {
   let df = @moonframe.DataFrame::new([@moonframe.Series::from_ints("id", [1])])
   assert_true(
-    (try? is_widget_row(df.row(0)))
+    (try? df.filter(is_widget_row()))
     is Err(@moonframe.DataError::ColumnNotFound("product")),
   )
 }

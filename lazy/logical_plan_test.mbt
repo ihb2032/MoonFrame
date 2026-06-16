@@ -15,7 +15,7 @@ test "explain: a bare scan prints only the frame's shape" {
 ///|
 test "explain: a linear pipeline reads top-down from the last verb" {
   let plan = lazy_frame(sales_df())
-    .filter_where(@expr.col("qty").gt(@expr.lit_int(50)))
+    .filter(@expr.col("qty").gt(@expr.lit_int(50)))
     .with_columns([(@expr.col("qty") * @expr.lit_int(2)).with_alias("dbl")])
     .select([@expr.col("dbl"), @expr.col("region")])
   assert_eq(
@@ -96,7 +96,7 @@ test "explain: aggregate prints its expressions and keys" {
 ///|
 test "explain: aggregate composes mid-pipeline with multiple keys and expressions" {
   let plan = lazy_frame(sales_df())
-    .filter_where(@expr.col("qty").gt(@expr.lit_int(10)))
+    .filter(@expr.col("qty").gt(@expr.lit_int(10)))
     .group_by(["region", "bonus"])
     .agg([@expr.col("qty").mean().with_alias("avg"), @expr.col("qty").count()])
     .head(3)
@@ -111,7 +111,7 @@ test "explain: aggregate composes mid-pipeline with multiple keys and expression
 
 ///|
 test "explain: join inputs stack at the same depth with their own sub-pipelines" {
-  let l = lazy_frame(orders_df()).filter_where(
+  let l = lazy_frame(orders_df()).filter(
     @expr.col("amount").gt(@expr.lit_int(10)),
   )
   let r = lazy_frame(cities_df()).head(2)

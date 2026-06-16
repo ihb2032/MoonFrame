@@ -1,7 +1,7 @@
 ///|
 /// Vectorized evaluation of `@expr.Expr` against a `DataFrame` — the
 /// engine behind `DataFrame::with_columns` (and every other expression
-/// consumer: `select` / `filter_where` / `agg`).
+/// consumer: `select` / `filter` / `agg`).
 ///
 /// This lives in `frame`, not `expr`: evaluation reads `Series` internals
 /// (raw `data()` buffers plus validity bitmaps), and that capability —
@@ -401,7 +401,7 @@ fn[T] compare_cells(
 ///|
 /// Comparison kernel over two equal-length operands
 /// (post-`broadcast_pair`), producing a nullable `Bool` column. The dtype
-/// matrix mirrors `Scalar::eq` / `Scalar::lt` (the closure-filter
+/// matrix mirrors `Scalar::eq` / `Scalar::lt` (the `Scalar` comparison
 /// precedent): `Int ↔ Float` compare after promoting `Int` to `Double`,
 /// `String` compares by `compare_string_lex` (dictionary order — MoonBit's
 /// built-in `String` order is shortlex), `Bool` orders `false < true`,

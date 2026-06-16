@@ -27,7 +27,7 @@ test "broadcast_pair: two incompatible non-unit lengths raise LengthMismatch" {
 
 ///|
 test "broadcast_series: a length neither 1 nor target raises LengthMismatch" {
-  // The frame-tall broadcast (with_columns / select / filter_where)
+  // The frame-tall broadcast (with_columns / select / filter)
   // trusts eval results to be length 1 or |scope|; the guard keeps it total
   // for any other length rather than gathering out of bounds.
   let s = Series::from_ints("s", [1, 2])

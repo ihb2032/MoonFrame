@@ -19,5 +19,5 @@ pub fn clean(
 ) -> @moonframe.DataFrame raise @moonframe.DataError {
   df
   .drop_nulls(subset=[@moonframe.col("score")])
-  .fill_null("note", @moonframe.Scalar::String("n/a"))
+  .with_columns([@moonframe.col("note").fill_null(@moonframe.lit_str("n/a"))])
 }

@@ -193,10 +193,12 @@ test "pipeline: drop_nulls / fill_null / null_count compose via the facade" {
   assert_eq(gated.get(1, "b"), Scalar::Null)
   assert_eq(gated.get(2, "c"), Scalar::Null)
 
-  // Fill the surviving null cells with dtype-matched scalars.
-  let filled = gated
-    .fill_null("b", Scalar::String("-"))
-    .fill_null("c", Scalar::Float(0.0))
+  // Fill the surviving null cells with the per-column `Expr::fill_null`
+  // through `with_columns` — each replaces its own column in place.
+  let filled = gated.with_columns([
+    col("b").fill_null(lit_str("-")),
+    col("c").fill_null(lit_float(0.0)),
+  ])
   assert_eq(filled.get(1, "b"), Scalar::String("-"))
   assert_eq(filled.get(2, "c"), Scalar::Float(0.0))
   assert_eq(filled.check_invariants(), Ok(()))
@@ -206,6 +208,14 @@ test "pipeline: drop_nulls / fill_null / null_count compose via the facade" {
   assert_eq(after.get(0, "a"), Scalar::Int(0))
   assert_eq(after.get(0, "b"), Scalar::Int(0))
   assert_eq(after.get(0, "c"), Scalar::Int(0))
+
+  // The frame-wide `fill_null(value)` fills only the dtype-compatible
+  // columns: a String value fills `b`, leaving the Int `a` and Float `c`
+  // columns untouched.
+  let bonly = gated.fill_null(Scalar::String("?"))
+  assert_eq(bonly.get(1, "b"), Scalar::String("?"))
+  assert_eq(bonly.get(2, "c"), Scalar::Null)
+  assert_eq(bonly.check_invariants(), Ok(()))
 }
 
 // ── Stats + describe via the facade ───────────────────────────────────

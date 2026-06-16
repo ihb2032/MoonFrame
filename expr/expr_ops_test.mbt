@@ -95,6 +95,23 @@ test "map_elements builds the single-input map_many node" {
 }
 
 ///|
+test "fill_null lowers to a not-null guarded conditional named after self" {
+  // `fill_null(self, value)` is `when(self.is_not_null()).then(self)
+  // .otherwise(value)` — the `then`-is-`self` ordering is what makes the
+  // result name itself after the filled column, never the fill value.
+  assert_eq(
+    col("x").fill_null(lit_int(0)),
+    when(col("x").is_not_null()).then(col("x")).otherwise(lit_int(0)),
+  )
+  // Named after `self` (`x`) even when the fill value is another column.
+  assert_eq(col("x").fill_null(col("y")).output_name(), "x")
+  // Both the filled column and the fill source are referenced (pushdown
+  // must keep each alive).
+  let refs = col("x").fill_null(col("y")).referenced_columns()
+  assert_true(refs.contains("x") && refs.contains("y"))
+}
+
+///|
 test "when/then/otherwise: the conditional is an ordinary expression" {
   // The lowered conditional composes like any other node — method chains
   // and operators apply to it directly, and it occupies an operand slot

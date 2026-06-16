@@ -203,6 +203,27 @@ pub fn Expr::is_not_null(self : Expr) -> Expr {
 }
 
 ///|
+/// Replace every null cell of `self` with `value`, keeping the non-null
+/// cells verbatim — Polars' `fill_null` (the value form), and a coalesce of
+/// `self` over `value` when `value` is itself a column. `value` is any
+/// expression: a literal (`lit_int(0)`), another column
+/// (`col("fallback")`), or a computed tree.
+///
+/// It lowers to `when(self.is_not_null()).then(self).otherwise(value)`, so
+/// it inherits the ternary's behaviour exactly — and the `then`-is-`self`
+/// ordering is deliberate: the result is **named after `self`** (the filled
+/// column), never after `value`, so `with_columns([col("x").fill_null(...)])`
+/// replaces `"x"` in place. The branches must unify their dtype the way a
+/// ternary's do — `Int` meets `Float` by promoting to `Float`, any other
+/// mismatch is a `TypeMismatch` at evaluation. A non-null `NaN` is a *value*
+/// (validity 1), so it is kept, not filled; only true nulls are replaced.
+/// Building the node is total; errors surface when a consuming verb
+/// evaluates it.
+pub fn Expr::fill_null(self : Expr, value : Expr) -> Expr {
+  when(self.is_not_null()).then(self).otherwise(value)
+}
+
+///|
 /// Sum of the operand over the evaluation scope (whole frame, or one group
 /// under `agg`). Inherits `Series::sum` semantics: NaN propagates,
 /// nulls are skipped, non-numeric operands are `TypeMismatch`.

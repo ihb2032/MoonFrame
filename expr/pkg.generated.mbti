@@ -68,6 +68,7 @@ pub enum Expr {
   Binary(BinOp, Expr, Expr)
   Unary(UnOp, Expr)
   Agg(AggOp, Expr)
+  Str(StrOp, Expr)
   Cast(Expr, @types.DataType)
   Alias(Expr, String)
   Ternary(Expr, Expr, Expr)
@@ -100,6 +101,15 @@ pub fn Expr::not(Self) -> Self
 pub fn Expr::output_name(Self) -> String
 pub fn Expr::referenced_columns(Self) -> @set.Set[String]
 pub fn Expr::std(Self) -> Self
+pub fn Expr::str_contains(Self, String) -> Self
+pub fn Expr::str_ends_with(Self, String) -> Self
+pub fn Expr::str_len_chars(Self) -> Self
+pub fn Expr::str_replace(Self, String, String) -> Self
+pub fn Expr::str_replace_all(Self, String, String) -> Self
+pub fn Expr::str_starts_with(Self, String) -> Self
+pub fn Expr::str_strip_chars(Self) -> Self
+pub fn Expr::str_to_lowercase(Self) -> Self
+pub fn Expr::str_to_uppercase(Self) -> Self
 pub fn Expr::sum(Self) -> Self
 pub fn Expr::variance(Self) -> Self
 pub fn Expr::with_alias(Self, String) -> Self
@@ -113,6 +123,18 @@ pub impl Neg for Expr
 pub impl Show for Expr
 pub impl Sub for Expr
 pub impl @debug.Debug for Expr
+
+pub enum StrOp {
+  ToUppercase
+  ToLowercase
+  StripChars
+  LenChars
+  Contains(String)
+  StartsWith(String)
+  EndsWith(String)
+  Replace(String, String)
+  ReplaceAll(String, String)
+} derive(Eq, @debug.Debug)
 
 pub enum UnOp {
   Neg

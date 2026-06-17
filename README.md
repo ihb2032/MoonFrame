@@ -114,8 +114,8 @@ on all four backends, so it always matches the current API.
   `min` / `max` / `count` / `std` / `variance` / `median` / `n_unique` /
   `first` / `last`.
 - **Express** — build composable column expressions
-  (`col("revenue") - col("cost")`, `&` / `|` logic, `when / then / otherwise`)
-  and feed them to `with_columns`, `filter`, or
+  (`col("revenue") - col("cost")`, `&` / `|` logic, `when / then / otherwise`,
+  the `str_*` string namespace) and feed them to `with_columns`, `filter`, or
   `group_by(...).agg([...])`, including compound aggregations like
   `(col("revenue") - col("cost")).sum()`. For logic past the built-in
   algebra, the `map_elements` / `map_many` escape hatch applies a host

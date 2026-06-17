@@ -224,8 +224,10 @@ fn place_filter(input : LogicalPlan, predicate : @expr.Expr) -> LogicalPlan {
 /// now-shorter frame — pushing a filter past it could turn a working plan
 /// into a `LengthMismatch`, so no filter crosses it either. Everything else
 /// (column reads, scalar literals, the operators, the total unary probes,
-/// aliasing, ternary selection) is row-local and raises only on
-/// scope-independent facts (names, dtypes).
+/// the string-namespace transforms, aliasing, ternary selection) is
+/// row-local and raises only on scope-independent facts (names, dtypes) —
+/// a `Str` op is per-cell and total, raising only the dtype-level
+/// `TypeMismatch` of a non-String operand.
 fn row_stable(expr : @expr.Expr) -> Bool {
   match expr {
     @expr.Expr::Agg(_, _)
@@ -236,6 +238,7 @@ fn row_stable(expr : @expr.Expr) -> Bool {
     | @expr.Expr::Lit(_)
     | @expr.Expr::Binary(_, _, _)
     | @expr.Expr::Unary(_, _)
+    | @expr.Expr::Str(_, _)
     | @expr.Expr::Alias(_, _)
     | @expr.Expr::Ternary(_, _, _) => {
       for child in expr.children() {
@@ -278,7 +281,8 @@ fn all_row_stable(exprs : Array[@expr.Expr]) -> Bool {
 /// as-built plan reports it). The
 /// combinators preserve the property cell-wise: arithmetic, comparison,
 /// and the Kleene connectives over non-null cells stay non-null, as do
-/// the unary wrappers and a ternary over a non-null condition.
+/// the unary wrappers, the string-namespace transforms, and a ternary over
+/// a non-null condition.
 fn group_cell_stable(expr : @expr.Expr) -> Bool {
   match expr {
     @expr.Expr::Col(_) => false
@@ -307,6 +311,7 @@ fn group_cell_stable(expr : @expr.Expr) -> Bool {
     | @expr.Expr::LitSeries(_) => false
     @expr.Expr::Binary(_, _, _)
     | @expr.Expr::Unary(_, _)
+    | @expr.Expr::Str(_, _)
     | @expr.Expr::Alias(_, _)
     | @expr.Expr::Ternary(_, _, _) => {
       for child in expr.children() {

@@ -60,7 +60,7 @@ pub fn Expr::children(self : Expr) -> Array[Expr] {
   match self {
     Col(_) | Lit(_) | LitSeries(_) => []
     Binary(_, l, r) => [l, r]
-    Unary(_, e) | Agg(_, e) | Cast(e, _) | Alias(e, _) => [e]
+    Unary(_, e) | Agg(_, e) | Str(_, e) | Cast(e, _) | Alias(e, _) => [e]
     Ternary(c, t, f) => [c, t, f]
     Map(_, inputs, _) => inputs.copy()
   }
@@ -139,6 +139,7 @@ fn leftmost_name(expr : Expr) -> String? {
     | Binary(_, _, _)
     | Unary(_, _)
     | Agg(_, _)
+    | Str(_, _)
     | Cast(_, _)
     | Map(_, _, _) => {
       for child in expr.children() {
@@ -208,6 +209,10 @@ fn write_expr(logger : &Logger, expr : Expr) -> Unit {
     Agg(op, e) => {
       write_expr(logger, e)
       logger.write_string(agg_suffix(op))
+    }
+    Str(op, e) => {
+      write_expr(logger, e)
+      write_str_suffix(logger, op)
     }
     Cast(e, target) => {
       write_expr(logger, e)
@@ -302,6 +307,50 @@ fn agg_suffix(op : AggOp) -> String {
     First => ".first()"
     Last => ".last()"
   }
+}
+
+///|
+/// Postfix method rendering for a string-namespace tag, written straight to
+/// `logger` (unlike `agg_suffix`'s fixed string) because the parameterised
+/// operations carry literal arguments that are quoted and escaped like a
+/// `lit_str` — `.str_contains("foo")`, `.str_replace("a", "b")` — so a plan
+/// line stays unambiguous and on one line.
+fn write_str_suffix(logger : &Logger, op : StrOp) -> Unit {
+  match op {
+    ToUppercase => logger.write_string(".str_to_uppercase()")
+    ToLowercase => logger.write_string(".str_to_lowercase()")
+    StripChars => logger.write_string(".str_strip_chars()")
+    LenChars => logger.write_string(".str_len_chars()")
+    Contains(p) => write_str_call(logger, "str_contains", [p])
+    StartsWith(p) => write_str_call(logger, "str_starts_with", [p])
+    EndsWith(p) => write_str_call(logger, "str_ends_with", [p])
+    Replace(a, b) => write_str_call(logger, "str_replace", [a, b])
+    ReplaceAll(a, b) => write_str_call(logger, "str_replace_all", [a, b])
+  }
+}
+
+///|
+/// Render one parameterised string-op call `.name("arg", …)`, each argument
+/// quoted and `escape_debug`-escaped exactly like a `lit_str` in
+/// `write_scalar`, so a pattern containing a `"` or a control character stays
+/// on one unambiguous line.
+fn write_str_call(
+  logger : &Logger,
+  name : String,
+  args : Array[String],
+) -> Unit {
+  logger.write_string(".")
+  logger.write_string(name)
+  logger.write_string("(")
+  for i in 0..<args.length() {
+    if i > 0 {
+      logger.write_string(", ")
+    }
+    logger.write_string("\"")
+    logger.write_string(escape_debug(args[i]))
+    logger.write_string("\"")
+  }
+  logger.write_string(")")
 }
 
 ///|

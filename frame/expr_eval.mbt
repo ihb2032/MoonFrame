@@ -38,6 +38,14 @@
 ///   `not(null) = null`).
 /// - **Null probes** (`is_null` / `is_not_null`): read validity only —
 ///   total, the output is never null.
+/// - **String namespace** (`str_to_uppercase` / `str_contains` / …): apply a
+///   `StrOp` to each cell of a String operand — case (`to_uppercase` /
+///   `to_lowercase`), `strip_chars` (ASCII whitespace), `len_chars` (an Int
+///   Unicode-character count), the literal predicates `contains` /
+///   `starts_with` / `ends_with` (Bool), and the literal substitutions
+///   `replace` (first) / `replace_all` (all). Null cells stay null, a
+///   non-String operand is a `TypeMismatch`, all are total (no value can
+///   raise), and matching is always literal — there is no regex engine yet.
 /// - **Aggregations** (`sum/mean/min/max/count/std/var/median/n_unique/
 ///   first/last`): reduce the operand over
 ///   the scope to a length-1 column through the shared `reduce.mbt` kernel —
@@ -127,6 +135,7 @@ fn eval_expr(
       }
     }
     @expr.Expr::Agg(op, e) => eval_agg(op, eval_expr(e, df, scope))
+    @expr.Expr::Str(op, e) => eval_str(op, eval_expr(e, df, scope))
     @expr.Expr::Cast(e, target) =>
       try_column_to_numeric(eval_expr(e, df, scope).cast(target))
     @expr.Expr::Alias(e, name) => eval_expr(e, df, scope).rename(name)
@@ -623,6 +632,137 @@ fn eval_not(operand : Series) -> Series raise @types.DataError {
         operand.dtype().to_string(),
       )
   }
+}
+
+///|
+/// Elementwise string-namespace kernel: apply `op` to each cell of a String
+/// operand. The operand must be `String` — any other dtype is a
+/// `TypeMismatch`, decided once for the whole column (scope-independent, so
+/// the optimizer treats a `Str` node as row-stable). A null cell maps to a
+/// null result; a present cell maps through the underlying total `String`
+/// method, so no value can raise. `ToUppercase` / `ToLowercase` /
+/// `StripChars` / `Replace` / `ReplaceAll` produce a String column,
+/// `LenChars` an Int (the Unicode character count — an all-valid result
+/// converges onto the `Numeric` fast path like every computed numeric), and
+/// the `Contains` / `StartsWith` / `EndsWith` predicates a Bool. Matching is
+/// always literal (no regex engine yet).
+fn eval_str(
+  op : @expr.StrOp,
+  operand : Series,
+) -> Series raise @types.DataError {
+  let data = match operand.storage().data() {
+    @column.ColumnData::String(a) => a
+    _ =>
+      raise @types.DataError::TypeMismatch(
+        "string operation requires a String operand, got " +
+        operand.dtype().to_string(),
+      )
+  }
+  let valid = validity_bools(operand.storage())
+  let name = operand.name()
+  let n = data.length()
+  let out = match op {
+    @expr.StrOp::ToUppercase =>
+      Series::from_string_options(
+        name,
+        Array::makei(n, i => {
+          if valid[i] {
+            Some(data[i].to_upper())
+          } else {
+            None
+          }
+        }),
+      )
+    @expr.StrOp::ToLowercase =>
+      Series::from_string_options(
+        name,
+        Array::makei(n, i => {
+          if valid[i] {
+            Some(data[i].to_lower())
+          } else {
+            None
+          }
+        }),
+      )
+    @expr.StrOp::StripChars =>
+      Series::from_string_options(
+        name,
+        Array::makei(n, i => {
+          if valid[i] {
+            Some(data[i].trim().to_owned())
+          } else {
+            None
+          }
+        }),
+      )
+    @expr.StrOp::LenChars =>
+      Series::from_int_options(
+        name,
+        Array::makei(n, i => {
+          if valid[i] {
+            Some(data[i].char_length().to_int64())
+          } else {
+            None
+          }
+        }),
+      )
+    @expr.StrOp::Contains(pattern) =>
+      Series::from_bool_options(
+        name,
+        Array::makei(n, i => {
+          if valid[i] {
+            Some(data[i].contains(pattern))
+          } else {
+            None
+          }
+        }),
+      )
+    @expr.StrOp::StartsWith(prefix) =>
+      Series::from_bool_options(
+        name,
+        Array::makei(n, i => {
+          if valid[i] {
+            Some(data[i].has_prefix(prefix))
+          } else {
+            None
+          }
+        }),
+      )
+    @expr.StrOp::EndsWith(suffix) =>
+      Series::from_bool_options(
+        name,
+        Array::makei(n, i => {
+          if valid[i] {
+            Some(data[i].has_suffix(suffix))
+          } else {
+            None
+          }
+        }),
+      )
+    @expr.StrOp::Replace(pattern, value) =>
+      Series::from_string_options(
+        name,
+        Array::makei(n, i => {
+          if valid[i] {
+            Some(data[i].replace(old=pattern, new=value))
+          } else {
+            None
+          }
+        }),
+      )
+    @expr.StrOp::ReplaceAll(pattern, value) =>
+      Series::from_string_options(
+        name,
+        Array::makei(n, i => {
+          if valid[i] {
+            Some(data[i].replace_all(old=pattern, new=value))
+          } else {
+            None
+          }
+        }),
+      )
+  }
+  try_column_to_numeric(out)
 }
 
 ///|

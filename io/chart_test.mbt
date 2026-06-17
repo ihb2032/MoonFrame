@@ -52,6 +52,38 @@ test "format_vega_lite: bar chart emits a complete Vega-Lite v5 spec" {
 }
 
 ///|
+test "format_vega_lite: a `.` in a column name is escaped in the Vega field path" {
+  // Vega-Lite reads an unescaped `.` as nested-object access, so a column
+  // literally named `price.usd` must be escaped to `price\.usd` to resolve to
+  // the real column rather than silently plotting nothing.
+  let df = @frame.DataFrame::new([
+    @series.Series::from_strings("cat", ["x"]),
+    @series.Series::from_ints("price.usd", [1]),
+  ])
+  let field = match
+    @json.parse(
+      @io.format_vega_lite(df, @io.ChartSpec::bar("cat", "price.usd")),
+    ) {
+    Object(obj) =>
+      match obj.get("encoding") {
+        Some(Object(enc)) =>
+          match enc.get("y") {
+            Some(Object(y)) =>
+              match y.get("field") {
+                Some(String(f)) => f
+                _ => "<missing>"
+              }
+            _ => "<missing>"
+          }
+        _ => "<missing>"
+      }
+    _ => "<missing>"
+  }
+  // The parsed field is the literal escaped path (one backslash before `.`).
+  assert_eq(field, "price\\.usd")
+}
+
+///|
 test "format_vega_lite: each ChartKind maps to its Vega-Lite mark" {
   // Parse the output and read the `mark` field back, so all four
   // `ChartKind` arms are exercised without four near-identical spec

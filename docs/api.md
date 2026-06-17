@@ -996,7 +996,10 @@ non-finite-float cells → JSON `null`).
   `ColumnNotFound(name)`. Each channel's Vega-Lite field `type` is
   inferred from the column dtype: numeric (`Int` / `Float`) →
   `"quantitative"`, otherwise (`String` / `Bool`, and an all-null `Null`
-  column) → `"nominal"`. The frame is inlined as `data.values` (a frame
+  column) → `"nominal"`. A column name containing `.`, `[`, or `]` is
+  escaped in the encoding `field` (Vega-Lite reads those as nested-object /
+  array access), so a column literally named `price.usd` resolves correctly
+  instead of plotting nothing. The frame is inlined as `data.values` (a frame
   with the encoded columns but zero rows yields `"values":[]`). The output
   is always valid JSON.
 - `write_vega_lite(path, df, spec) -> Unit raise DataError` — file wrapper

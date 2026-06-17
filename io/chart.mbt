@@ -187,7 +187,7 @@ fn chart_mark(kind : ChartKind) -> String {
 /// (`String` / `Bool`, and an all-null `Null` column) is `"nominal"`.
 fn encoding_channel(field : String, dtype : @types.DataType) -> Json {
   let channel : Map[String, Json] = {}
-  channel["field"] = Json::string(field)
+  channel["field"] = Json::string(escape_vega_field(field))
   channel["type"] = Json::string(
     if dtype.is_numeric() {
       "quantitative"
@@ -196,4 +196,25 @@ fn encoding_channel(field : String, dtype : @types.DataType) -> Json {
     },
   )
   Json::object(channel)
+}
+
+///|
+/// Escape a column name for use as a Vega-Lite encoding `field`. Vega-Lite
+/// reads an unescaped `.` as nested-object access and `[...]` as array
+/// indexing, so a column literally named `price.usd` or `a[0]` would resolve
+/// to a missing nested path and silently plot nothing. Prefixing `\`, `.`,
+/// `[`, and `]` with a backslash makes the name a literal field access (the
+/// JSON stringifier then escapes the backslash itself). A single forward pass,
+/// total.
+fn escape_vega_field(name : String) -> String {
+  let buf = StringBuilder::new()
+  for ch in name.iter() {
+    if ch == '\\' || ch == '.' || ch == '[' || ch == ']' {
+      buf.write_char('\\')
+      buf.write_char(ch)
+    } else {
+      buf.write_char(ch)
+    }
+  }
+  buf.to_string()
 }

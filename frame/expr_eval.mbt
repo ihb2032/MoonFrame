@@ -564,6 +564,17 @@ fn kleene_or(a : Bool?, b : Bool?) -> Bool? {
 }
 
 ///|
+/// Build the cells of a unary elementwise op: index `i` is `Some(f(i))` when the
+/// operand is present there, else `None` — a null cell maps to a null result.
+/// The shared null-gate behind the negation (`eval_neg`), logical-not
+/// (`eval_not`), and string-namespace (`eval_str`) kernels, so each arm supplies
+/// only its per-cell map. The single-operand sibling of `zip_present`. Total —
+/// `f` only reads a present cell.
+fn[T] map_present(n : Int, valid : Array[Bool], f : (Int) -> T) -> Array[T?] {
+  Array::makei(n, i => if valid[i] { Some(f(i)) } else { None })
+}
+
+///|
 /// Numeric negation kernel. `Int` negation wraps on `Int64` minimum
 /// (MoonBit semantics — total, never aborts); `Float` follows IEEE 754,
 /// so `-NaN` is still NaN and `-0.0` is the negative zero. A null cell
@@ -575,12 +586,12 @@ fn eval_neg(operand : Series) -> Series raise @types.DataError {
     @column.ColumnData::Int(a) =>
       Series::from_int_options(
         operand.name(),
-        Array::makei(a.length(), i => if valid[i] { Some(-a[i]) } else { None }),
+        map_present(a.length(), valid, i => -a[i]),
       )
     @column.ColumnData::Float(a) =>
       Series::from_float_options(
         operand.name(),
-        Array::makei(a.length(), i => if valid[i] { Some(-a[i]) } else { None }),
+        map_present(a.length(), valid, i => -a[i]),
       )
     _ =>
       raise @types.DataError::TypeMismatch(
@@ -599,7 +610,7 @@ fn eval_not(operand : Series) -> Series raise @types.DataError {
     @column.ColumnData::Bool(a) =>
       Series::from_bool_options(
         operand.name(),
-        Array::makei(a.length(), i => if valid[i] { Some(!a[i]) } else { None }),
+        map_present(a.length(), valid, i => !a[i]),
       )
     _ =>
       raise @types.DataError::TypeMismatch(
@@ -640,101 +651,47 @@ fn eval_str(
     @expr.StrOp::ToUppercase =>
       Series::from_string_options(
         name,
-        Array::makei(n, i => {
-          if valid[i] {
-            Some(data[i].to_upper())
-          } else {
-            None
-          }
-        }),
+        map_present(n, valid, i => data[i].to_upper()),
       )
     @expr.StrOp::ToLowercase =>
       Series::from_string_options(
         name,
-        Array::makei(n, i => {
-          if valid[i] {
-            Some(data[i].to_lower())
-          } else {
-            None
-          }
-        }),
+        map_present(n, valid, i => data[i].to_lower()),
       )
     @expr.StrOp::StripChars =>
       Series::from_string_options(
         name,
-        Array::makei(n, i => {
-          if valid[i] {
-            Some(data[i].trim().to_owned())
-          } else {
-            None
-          }
-        }),
+        map_present(n, valid, i => data[i].trim().to_owned()),
       )
     @expr.StrOp::LenChars =>
       Series::from_int_options(
         name,
-        Array::makei(n, i => {
-          if valid[i] {
-            Some(data[i].char_length().to_int64())
-          } else {
-            None
-          }
-        }),
+        map_present(n, valid, i => data[i].char_length().to_int64()),
       )
     @expr.StrOp::Contains(pattern) =>
       Series::from_bool_options(
         name,
-        Array::makei(n, i => {
-          if valid[i] {
-            Some(data[i].contains(pattern))
-          } else {
-            None
-          }
-        }),
+        map_present(n, valid, i => data[i].contains(pattern)),
       )
     @expr.StrOp::StartsWith(prefix) =>
       Series::from_bool_options(
         name,
-        Array::makei(n, i => {
-          if valid[i] {
-            Some(data[i].has_prefix(prefix))
-          } else {
-            None
-          }
-        }),
+        map_present(n, valid, i => data[i].has_prefix(prefix)),
       )
     @expr.StrOp::EndsWith(suffix) =>
       Series::from_bool_options(
         name,
-        Array::makei(n, i => {
-          if valid[i] {
-            Some(data[i].has_suffix(suffix))
-          } else {
-            None
-          }
-        }),
+        map_present(n, valid, i => data[i].has_suffix(suffix)),
       )
     @expr.StrOp::Replace(pattern, value) =>
       Series::from_string_options(
         name,
-        Array::makei(n, i => {
-          if valid[i] {
-            Some(data[i].replace(old=pattern, new=value))
-          } else {
-            None
-          }
-        }),
+        map_present(n, valid, i => data[i].replace(old=pattern, new=value)),
       )
     @expr.StrOp::ReplaceAll(pattern, value) =>
       Series::from_string_options(
         name,
-        Array::makei(n, i => {
-          if valid[i] {
-            Some(data[i].replace_all(old=pattern, new=value))
-          } else {
-            None
-          }
-        }),
+        map_present(n, valid, i => data[i].replace_all(old=pattern, new=value)),
       )
   }
   try_column_to_numeric(out)

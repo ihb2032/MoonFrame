@@ -161,7 +161,7 @@ fn write_expr(logger : &Logger, expr : Expr) -> Unit {
   match expr {
     Col(name) => {
       logger.write_string("col(")
-      logger.write_string(name)
+      logger.write_string(escape_debug(name))
       logger.write_string(")")
     }
     Lit(value) => write_scalar(logger, value)
@@ -223,7 +223,7 @@ fn write_expr(logger : &Logger, expr : Expr) -> Unit {
     Alias(e, name) => {
       write_expr(logger, e)
       logger.write_string(" as ")
-      logger.write_string(name)
+      logger.write_string(escape_debug(name))
     }
     Ternary(c, t, f) => {
       logger.write_string("when(")
@@ -357,10 +357,13 @@ fn write_str_call(
 /// Escape a string literal for the quoted form `write_scalar` emits
 /// (`"a\"b"`), so a literal containing a `"`, `\`, or a control character
 /// stays unambiguous and on one line in `explain` output. A single forward
-/// pass: `\` → `\\`, `"` → `\"`, and newline / carriage-return / tab →
-/// `\n` / `\r` / `\t`. Mirrors the identically-named helper behind
-/// `@types`' `Show` impls — kept a private duplicate here rather than a
-/// shared public symbol so neither package's interface grows for a
+/// pass: `\` → `\\`, `"` → `\"`, newline / carriage-return / tab →
+/// `\n` / `\r` / `\t`, and every other control character (the rest of C0,
+/// `DEL`, and the Unicode line/paragraph separators) → a `\uXXXX` escape, so
+/// a hostile column name cannot inject a terminal control sequence or an
+/// extra line into a plan rendering. Mirrors the identically-named helper
+/// behind `@types`' `Show` impls — kept a private duplicate here rather than
+/// a shared public symbol so neither package's interface grows for a
 /// presentation-only concern. Total.
 fn escape_debug(s : String) -> String {
   let buf = StringBuilder::new()
@@ -380,9 +383,36 @@ fn escape_debug(s : String) -> String {
     } else if ch == '\t' {
       buf.write_char('\\')
       buf.write_char('t')
+    } else if is_control_char(ch) {
+      write_unicode_escape(buf, ch)
     } else {
       buf.write_char(ch)
     }
   }
   buf.to_string()
+}
+
+///|
+/// Whether `ch` is a control character that must be `\uXXXX`-escaped (the C0
+/// range, `DEL`, and the Unicode line/paragraph separators); `\n` / `\r` /
+/// `\t` are handled by their own short escapes before this is consulted.
+fn is_control_char(ch : Char) -> Bool {
+  let cp = ch.to_int()
+  cp < 0x20 || cp == 0x7f || cp == 0x85 || cp == 0x2028 || cp == 0x2029
+}
+
+///|
+/// Append the `\uXXXX` (four lowercase hex digits) escape of `ch` to `buf`;
+/// every escaped code point is below `U+10000`, so four digits suffice.
+fn write_unicode_escape(buf : StringBuilder, ch : Char) -> Unit {
+  let digits = [
+    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f',
+  ]
+  let cp = ch.to_int()
+  buf.write_char('\\')
+  buf.write_char('u')
+  buf.write_char(digits[(cp >> 12) & 0xF])
+  buf.write_char(digits[(cp >> 8) & 0xF])
+  buf.write_char(digits[(cp >> 4) & 0xF])
+  buf.write_char(digits[cp & 0xF])
 }

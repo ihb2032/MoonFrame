@@ -117,6 +117,13 @@ test "Scalar Show escapes control characters" {
   // Newline / carriage-return / tab become `\n` / `\r` / `\t` so the quoted
   // debug form stays on one line and round-trippable.
   inspect(Scalar::String("a\nb\tc\rd"), content="String(\"a\\nb\\tc\\rd\")")
+  // Every other control character — the rest of C0, DEL, and the Unicode
+  // line/paragraph separators (NEL / LS / PS) — becomes a `\uXXXX` escape, so a
+  // hostile payload cannot inject a terminal control sequence or an extra line.
+  inspect(
+    Scalar::String("a\u{1b}\u{7f}\u{85}\u{2028}\u{2029}b"),
+    content="String(\"a\\u001b\\u007f\\u0085\\u2028\\u2029b\")",
+  )
 }
 
 ///|

@@ -101,6 +101,7 @@ pub fn parse_json_records_str(
     records,
     options.infer_schema_rows,
     options.on_parse_error,
+    None,
   )
 }
 
@@ -130,10 +131,20 @@ pub fn parse_json_records_str(
 /// fit its column's inferred dtype is handled per `on_parse_error`
 /// (raise `ParseError`, or downgrade the cell to a null), shared by both
 /// readers so JSON-array and NDJSON input agree on the policy.
+///
+/// `projection` narrows which columns are built: `None` builds every column
+/// (the eager `read_*` behaviour), `Some(names)` builds only the columns whose
+/// header name appears in `names`, in first-seen header order, leaving the rest
+/// uninferred and unbuilt — the projection-pushdown path the lazy `scan_ndjson`
+/// source uses. Record validation and header collection run *before* the
+/// filter, so a projected read still fails on a non-object record exactly as a
+/// full read does; only a parse error confined to a dropped column goes
+/// unraised, because that column is never built.
 fn frame_from_json_records(
   records : Array[Json],
   infer_schema_rows : Int,
   on_parse_error : OnParseError,
+  projection : Array[String]?,
 ) -> @frame.DataFrame raise @types.DataError {
   if records.is_empty() {
     return @frame.DataFrame::new([])
@@ -162,10 +173,20 @@ fn frame_from_json_records(
   if ncols == 0 {
     return @frame.DataFrame::new([])
   }
-  let series : Array[@series.Series] = headers.map(name => {
-    let dt = infer_json_column_dtype(objs, name, infer_schema_rows)
-    build_json_column(name, dt, objs, on_parse_error)
-  })
+  // Build one typed column per header, skipping any the projection drops; the
+  // surviving columns keep first-seen header order, so a projected read is
+  // column-for-column a sub-frame of the full read.
+  let series : Array[@series.Series] = []
+  for name in headers {
+    let included = match projection {
+      None => true
+      Some(names) => names.contains(name)
+    }
+    if included {
+      let dt = infer_json_column_dtype(objs, name, infer_schema_rows)
+      series.push(build_json_column(name, dt, objs, on_parse_error))
+    }
+  }
   @frame.DataFrame::new(series)
 }
 

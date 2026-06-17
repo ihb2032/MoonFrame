@@ -1284,3 +1284,29 @@ test "scan_csv: an aggregation narrows the scan to its keys and reads" {
     "  SCAN_CSV \"sales.csv\" [qty, region]",
   )
 }
+
+///|
+test "scan_ndjson narrows in place like scan_csv, only the label differs" {
+  // The shared narrow_scan / render_scan_source path serves both sources, so a
+  // selection writes the projection straight onto the SCAN_NDJSON node.
+  let plan = scan_ndjson("events.ndjson").select([@expr.col("region")])
+  assert_eq(
+    plan.explain(optimized=true),
+    "SELECT [col(region)]\n  SCAN_NDJSON \"events.ndjson\" [region]",
+  )
+  // A filter widens the projection and (NDJSON being a floor) stays above it.
+  let with_filter = scan_ndjson("events.ndjson")
+    .filter(@expr.col("qty").gt(@expr.lit_int(50)))
+    .select([@expr.col("region")])
+  assert_eq(
+    with_filter.explain(optimized=true),
+    "SELECT [col(region)]\n" +
+    "  FILTER (col(qty) > 50)\n" +
+    "    SCAN_NDJSON \"events.ndjson\" [qty, region]",
+  )
+  // Bare at the root: no requirement, so no projection is written.
+  assert_eq(
+    scan_ndjson("events.ndjson").explain(optimized=true),
+    "SCAN_NDJSON \"events.ndjson\"",
+  )
+}

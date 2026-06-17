@@ -34,6 +34,8 @@ pub fn read_json_with_options(String, JsonReadOptions) -> @frame.DataFrame raise
 
 pub fn read_ndjson(String) -> @frame.DataFrame raise @types.DataError
 
+pub fn read_ndjson_projected(String, NdjsonReadOptions, Array[String]) -> @frame.DataFrame raise @types.DataError
+
 pub fn read_ndjson_with_options(String, NdjsonReadOptions) -> @frame.DataFrame raise @types.DataError
 
 pub fn write_csv(String, @frame.DataFrame) -> Unit raise @types.DataError

@@ -149,6 +149,24 @@ test "explain: a CSV scan prints its quoted, escaped path and no projection unti
 }
 
 ///|
+test "explain: an NDJSON scan prints SCAN_NDJSON and composes like the CSV source" {
+  // Same `render_scan_source` shape as `scan_csv`, only the label differs;
+  // path escaping is pinned by the CSV scan test.
+  assert_eq(
+    scan_ndjson("events.ndjson").explain(),
+    "SCAN_NDJSON \"events.ndjson\"",
+  )
+  assert_eq(
+    scan_ndjson_with_options("events.ndjson", @io.NdjsonReadOptions::default()).explain(),
+    "SCAN_NDJSON \"events.ndjson\"",
+  )
+  assert_eq(
+    scan_ndjson("events.ndjson").select([@expr.col("region")]).explain(),
+    "SELECT [col(region)]\n  SCAN_NDJSON \"events.ndjson\"",
+  )
+}
+
+///|
 test "explain: join inputs stack at the same depth with their own sub-pipelines" {
   let l = lazy_frame(orders_df()).filter(
     @expr.col("amount").gt(@expr.lit_int(10)),

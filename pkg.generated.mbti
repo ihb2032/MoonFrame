@@ -147,6 +147,8 @@ pub using @frame {type SortOrder}
 
 pub using @column {type StorageKind}
 
+pub using @io {type VegaType}
+
 pub using @expr {type WhenThen}
 
 pub using @expr {type WhenThenElse}

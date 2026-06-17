@@ -1001,14 +1001,22 @@ non-finite-float cells → JSON `null`).
 - `struct ChartSpec` (fields private) — built via a mark-named
   constructor `ChartSpec::bar(x, y)` / `line(x, y)` / `point(x, y)` /
   `area(x, y)` (`x` / `y` are column names) and chained
-  `with_color(column)` (a grouping / colour column) / `with_title(text)`.
+  `with_color(column)` (a grouping / colour column) / `with_title(text)` /
+  `with_color_type(VegaType)`.
+- `enum VegaType` (`Quantitative` / `Nominal` / `Ordinal` / `Temporal`,
+  `pub(all)`) — overrides the `color` channel's Vega-Lite field `type` instead
+  of inferring it from the column dtype. Use `Nominal` / `Ordinal` to render a
+  *numeric* grouping column (a cluster id, a year) as distinct per-group
+  colors rather than the continuous gradient `quantitative` would produce; the
+  `x` / `y` channels keep dtype inference.
 - `format_vega_lite(df, spec) -> String raise DataError` — **not total**.
   Resolves the spec's `x` / `y` / `color` columns against `df`
   left-to-right; the first name absent from the frame raises
   `ColumnNotFound(name)`. Each channel's Vega-Lite field `type` is
   inferred from the column dtype: numeric (`Int` / `Float`) →
   `"quantitative"`, otherwise (`String` / `Bool`, and an all-null `Null`
-  column) → `"nominal"`. A column name containing `.`, `[`, or `]` is
+  column) → `"nominal"` — unless `spec.with_color_type(...)` overrides the
+  `color` channel. A column name containing `.`, `[`, or `]` is
   escaped in the encoding `field` (Vega-Lite reads those as nested-object /
   array access), so a column literally named `price.usd` resolves correctly
   instead of plotting nothing. The frame is inlined as `data.values` (a frame

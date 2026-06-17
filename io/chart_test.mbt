@@ -84,6 +84,47 @@ test "format_vega_lite: a `.` in a column name is escaped in the Vega field path
 }
 
 ///|
+test "format_vega_lite: with_color_type overrides the color channel's field type" {
+  // A numeric grouping column ("g") would infer `quantitative` (a continuous
+  // gradient); with_color_type forces the chosen type. Covers all four
+  // VegaType variants.
+  let df = @frame.DataFrame::new([
+    @series.Series::from_strings("cat", ["x"]),
+    @series.Series::from_ints("val", [1]),
+    @series.Series::from_ints("g", [1]),
+  ])
+  let cases = [
+    (@io.VegaType::Quantitative, "quantitative"),
+    (@io.VegaType::Nominal, "nominal"),
+    (@io.VegaType::Ordinal, "ordinal"),
+    (@io.VegaType::Temporal, "temporal"),
+  ]
+  for case in cases {
+    let (vt, expected) = case
+    let spec = @io.ChartSpec::point("cat", "val")
+      .with_color("g")
+      .with_color_type(vt)
+    let got = match @json.parse(@io.format_vega_lite(df, spec)) {
+      Object(obj) =>
+        match obj.get("encoding") {
+          Some(Object(enc)) =>
+            match enc.get("color") {
+              Some(Object(c)) =>
+                match c.get("type") {
+                  Some(String(t)) => t
+                  _ => "<missing>"
+                }
+              _ => "<missing>"
+            }
+          _ => "<missing>"
+        }
+      _ => "<missing>"
+    }
+    assert_eq(got, expected)
+  }
+}
+
+///|
 test "format_vega_lite: each ChartKind maps to its Vega-Lite mark" {
   // Parse the output and read the `mark` field back, so all four
   // `ChartKind` arms are exercised without four near-identical spec

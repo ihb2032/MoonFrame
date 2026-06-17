@@ -106,6 +106,7 @@ pub using @io {
   type OnParseError,
   type ChartKind,
   type ChartSpec,
+  type VegaType,
   format_csv_str,
   format_json_records,
   format_ndjson,

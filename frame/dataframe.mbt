@@ -52,12 +52,20 @@ fn index_by_name(columns : Array[Series]) -> Map[String, Int] {
 /// Build a 0-row `DataFrame` matching `schema`. Each column is an empty
 /// `Series` of the field's declared dtype.
 ///
+/// The `schema` is re-validated through `Schema::new` (`raise
+/// DuplicateColumn(name)` on a repeated name): `Schema` is `pub(all)`, so a
+/// caller can build one with duplicate field names by struct literal,
+/// bypassing the validating constructor — re-validating here keeps the
+/// frame's "no duplicate names" invariant true regardless of how the schema
+/// was made.
+///
 /// `raise Unsupported(...)` if any field carries `DataType::Null` — v0.1 has
 /// no concrete Null backend (and a CSV-inferred Null column has nothing to
 /// materialise into).
 pub fn DataFrame::empty(
   schema : @types.Schema,
 ) -> DataFrame raise @types.DataError {
+  let schema = @types.Schema::new(schema.fields())
   let columns : Array[Series] = schema
     .fields()
     .map(f => {
@@ -82,6 +90,11 @@ pub fn DataFrame::empty(
 /// match the column's declared dtype or be `Scalar::Null`.
 ///
 /// Raises:
+/// - `DuplicateColumn(name)` — the schema carries a repeated field name.
+///   `Schema` is `pub(all)`, so a caller can construct a duplicate-name
+///   schema by struct literal; re-validating through `Schema::new` here
+///   (as `empty` does) keeps the "no duplicate names" invariant true rather
+///   than silently collapsing the name cache.
 /// - `LengthMismatch` — a row's width differs from `schema.len()`.
 /// - `TypeMismatch(...)` — a non-null cell's dtype doesn't match the
 ///   schema's dtype for that column.
@@ -91,6 +104,7 @@ pub fn DataFrame::from_rows(
   schema : @types.Schema,
   rows : Array[Array[@types.Scalar]],
 ) -> DataFrame raise @types.DataError {
+  let schema = @types.Schema::new(schema.fields())
   let ncols = schema.len()
   if !rows.all(row => row.length() == ncols) {
     raise @types.DataError::LengthMismatch

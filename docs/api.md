@@ -520,9 +520,13 @@ dependencies** (NyaCSV / fs / @json live only in `io`).
   for `O(1)` name lookup).
 - Constructors (`raise DataError`): `new(columns)`
   (`LengthMismatch` / `DuplicateColumn`; zero columns → `0×0`);
-  `empty(schema)` (0-row frame; `Unsupported` for a `Null`-dtype field);
-  `from_rows(schema, rows)` (`LengthMismatch` / `TypeMismatch` /
-  `Unsupported`; zero-column schema → `0×0`, like `new`).
+  `empty(schema)` (0-row frame; `DuplicateColumn` for a repeated field name;
+  `Unsupported` for a `Null`-dtype field);
+  `from_rows(schema, rows)` (`DuplicateColumn` / `LengthMismatch` /
+  `TypeMismatch` / `Unsupported`; zero-column schema → `0×0`, like `new`).
+  `empty` / `from_rows` re-validate the schema through `Schema::new`, so a
+  `pub(all)` struct-literal schema with duplicate names is rejected rather
+  than producing a malformed frame.
 - Total inspection: `shape()` / `schema()` / `columns()` (fresh array) /
   `column_series()` (fresh array of the immutable `Series`) / `nrows()` /
   `ncols()` / `is_empty()`.

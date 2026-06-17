@@ -133,6 +133,36 @@ pub fn parse_csv_str(
   content : String,
   options : CsvReadOptions,
 ) -> @frame.DataFrame raise @types.DataError {
+  parse_csv_str_projected(content, options, None)
+}
+
+///|
+/// Shared core behind `parse_csv_str` and `read_csv_projected`: the full
+/// parse pipeline documented on `parse_csv_str`, with one extra knob —
+/// `projection`.
+///
+/// - `None` — build every column (the eager `read_csv` / `parse_csv_str`
+///   behaviour).
+/// - `Some(names)` — build only the columns whose header name appears in
+///   `names`, in the file's own header order, leaving the rest uninferred,
+///   unparsed, and unmaterialised. This is the projection-pushdown path the
+///   lazy `scan_csv` source uses: the optimizer narrows the read to exactly
+///   the columns a pipeline consumes.
+///
+/// Every whole-input check runs *before* the projection filter and so is
+/// unaffected by it — the empty-input short-circuit, the duplicate-header
+/// rejection, and the optional ragged-row guard all see the full header / row
+/// matrix, so a projected read fails on a malformed header or a ragged row
+/// exactly as a full read would. The single behavioural difference is the
+/// deliberate point of the feature: a non-null cell that fails to parse under
+/// its column's inferred dtype only surfaces (`on_parse_error = Raise`) for a
+/// column that is actually built, so a parse error confined to a *dropped*
+/// column is not raised — that column is never parsed.
+fn parse_csv_str_projected(
+  content : String,
+  options : CsvReadOptions,
+  projection : Array[String]?,
+) -> @frame.DataFrame raise @types.DataError {
   // Short-circuit empty input. NyaCSV would otherwise produce a CSV
   // with no headers and no rows, which would collapse to an empty
   // 0×0 frame — handled the same way here, just without the parse.
@@ -202,27 +232,39 @@ pub fn parse_csv_str(
       }
     }
   }
-  // Infer one dtype per column, then build the column. `build_column`
-  // raises `ParseError` for a cell that doesn't fit the inferred dtype.
-  let series : Array[@series.Series] = Array::makei(ncols, col => {
+  // Infer one dtype per column, then build the column — skipping any the
+  // projection drops. `build_column` raises `ParseError` for a cell that
+  // doesn't fit the inferred dtype. The surviving columns keep the file's own
+  // header order (a filtered projection, never a reorder), so a projected read
+  // is column-for-column a sub-frame of the full read.
+  let series : Array[@series.Series] = []
+  for col in 0..<ncols {
     let name = headers[col]
-    let dt = infer_column_dtype(
-      rows,
-      col,
-      options.infer_schema_rows,
-      options.null_values,
-      options.allow_nonfinite_floats,
-    )
-    build_column(
-      name,
-      dt,
-      rows,
-      col,
-      options.null_values,
-      options.on_parse_error,
-      options.allow_nonfinite_floats,
-    )
-  })
+    let included = match projection {
+      None => true
+      Some(names) => names.contains(name)
+    }
+    if included {
+      let dt = infer_column_dtype(
+        rows,
+        col,
+        options.infer_schema_rows,
+        options.null_values,
+        options.allow_nonfinite_floats,
+      )
+      series.push(
+        build_column(
+          name,
+          dt,
+          rows,
+          col,
+          options.null_values,
+          options.on_parse_error,
+          options.allow_nonfinite_floats,
+        ),
+      )
+    }
+  }
   @frame.DataFrame::new(series)
 }
 
@@ -243,6 +285,26 @@ pub fn read_csv_with_options(
     @fs.IOError(msg) => raise @types.DataError::IoError(msg)
   }
   parse_csv_str(content, options)
+}
+
+///|
+/// Read a CSV file, building only the columns named in `projection` — the
+/// file-backed entry behind the lazy `scan_csv` source's projection
+/// pushdown. Identical to `read_csv_with_options` except that a column whose
+/// header name is not in `projection` is never inferred, parsed, or
+/// materialised (see `parse_csv_str_projected` for the precise contract,
+/// including the one behavioural consequence: a parse error confined to a
+/// dropped column does not surface). `IOError` from the file system surfaces
+/// as `raise IoError(message)`.
+pub fn read_csv_projected(
+  path : String,
+  options : CsvReadOptions,
+  projection : Array[String],
+) -> @frame.DataFrame raise @types.DataError {
+  let content = @fs.read_file_to_string(path) catch {
+    @fs.IOError(msg) => raise @types.DataError::IoError(msg)
+  }
+  parse_csv_str_projected(content, options, Some(projection))
 }
 
 ///|

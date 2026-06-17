@@ -33,10 +33,11 @@
 // along with `type Expr`) and the two builder types `WhenThen` /
 // `WhenThenElse`; the
 // `BinOp` / `UnOp` / `AggOp` tag enums are inert (no public API names
-// them), so they are deliberately *not* re-exported. `@lazy` needs only
-// `lazy_frame` (the
-// free-function alias for `LazyFrame::from` — the bare identifier `lazy`
-// is a reserved word, so the alias is spelled `lazy_frame`).
+// them), so they are deliberately *not* re-exported. `@lazy` needs the
+// `lazy_frame` constructor (the free-function alias for `LazyFrame::from` —
+// the bare identifier `lazy` is a reserved word, so the alias is spelled
+// `lazy_frame`) plus the `scan_csv` / `scan_csv_with_options` CSV sources
+// (the `CsvReadOptions` they take rides along with `@io`).
 
 ///|
 pub using @types {
@@ -125,4 +126,10 @@ pub using @io {
 }
 
 ///|
-pub using @lazy {type LazyFrame, type LazyGroupBy, lazy_frame}
+pub using @lazy {
+  type LazyFrame,
+  type LazyGroupBy,
+  lazy_frame,
+  scan_csv,
+  scan_csv_with_options,
+}

@@ -4,15 +4,17 @@
 /// executor and `explain(optimized=true)` renders for inspection. The
 /// predicate pass runs first and sinks `Filter` nodes toward the scan so
 /// rows drop as early as possible; the projection pass then runs a
-/// required-columns analysis and narrows each `Scan` to the columns its
-/// consumers provably read, so dead columns never ride through row-level
-/// work. The inviolable contract is the executor's own:
-/// `execute(optimize(p))` is bitwise-equal to `execute(p)` for every plan
-/// that collects. Neither pass ever alters a user-written node's *content*
-/// (predicates, expression lists, keys stay verbatim); the predicate pass
-/// re-orders whole `Filter` nodes downward, and the projection pass only
-/// *inserts* a narrowing `Select` of bare column references directly over
-/// a `Scan`.
+/// required-columns analysis and narrows each scan — the in-memory `Scan`
+/// and the `ScanCsv` source alike — to the columns its consumers provably
+/// read, so dead columns never ride through row-level work (and, for
+/// `ScanCsv`, are never even parsed). The inviolable contract is the
+/// executor's own: `execute(optimize(p))` is bitwise-equal to `execute(p)`
+/// for every plan that collects. Neither pass ever alters a user-written
+/// node's *content* (predicates, expression lists, keys stay verbatim); the
+/// predicate pass re-orders whole `Filter` nodes downward, and the
+/// projection pass narrows a scan two ways — inserting a `Select` of bare
+/// column references over an in-memory `Scan`, or writing the column set into
+/// a `ScanCsv`'s own projection field.
 ///
 /// Error faithfulness under re-ordering: a plan that fails to collect
 /// still fails after optimization. When exactly one stage is broken, it
@@ -28,6 +30,17 @@
 /// where dropping a row could drop the very cell that raises — is fenced
 /// off entirely: no `Filter` ever crosses a stage whose expressions
 /// contain a `Cast` (see `row_stable`).
+///
+/// The sole deliberate exception is the `ScanCsv` projection. Narrowing a
+/// CSV source to the columns its consumers read means a dropped column is
+/// never parsed, so a parse error confined to one — a malformed cell no
+/// stage reads — is not raised by the optimized plan, where the unoptimized
+/// full read would surface it. This is the defining property of projection
+/// push-down into a source (and matches Polars' `scan_csv`): every plan that
+/// *collects* still collects bitwise-equal, every whole-input failure (a
+/// malformed header, a ragged row, a missing file) still fails identically,
+/// and a parse error in a *kept* column still surfaces unchanged — only an
+/// error isolated to a pruned-away column goes unraised.
 ///
 /// # The predicate pass
 ///
@@ -75,7 +88,8 @@
 ///   provenance through suffix renaming to split a predicate across its
 ///   sides, deferred with the projection pass's join narrowing — but
 ///   both sides restart their own descent, so filters inside either
-///   side still sink. `Scan` is the floor.
+///   side still sink. The scan leaves — `Scan` and `ScanCsv` — are the
+///   floor; pushing a predicate into the CSV parser is v0.6.
 ///
 /// # The projection pass
 ///
@@ -115,11 +129,13 @@
 /// Deliberately deferred: pruning dead expressions from `Select` /
 /// `WithColumns` lists (changes which expressions evaluate, hence which
 /// *errors* a failing plan reports), narrowing or predicate-splitting
-/// through `Join`, and sinking filters below `Sort`. `optimize` is also
-/// not idempotent — re-optimizing an already-rewritten plan would stack
-/// another (harmless) narrowing select — which is moot in practice:
-/// plans are immutable, and each `collect` or `explain(optimized=true)`
-/// call rewrites the as-built plan exactly once.
+/// through `Join`, sinking filters below `Sort`, and pushing a predicate
+/// into the `ScanCsv` parser or streaming the file (both v0.6). `optimize`
+/// is also not idempotent — re-optimizing an already-rewritten plan would
+/// stack another (harmless) narrowing select over an in-memory `Scan` (a
+/// `ScanCsv`'s in-place projection just recomputes to the same set) — which
+/// is moot in practice: plans are immutable, and each `collect` or
+/// `explain(optimized=true)` call rewrites the as-built plan exactly once.
 fn optimize(plan : LogicalPlan) -> LogicalPlan {
   push_projection(push_predicates(plan), None)
 }
@@ -157,6 +173,7 @@ fn map_children(
 ) -> LogicalPlan {
   match plan {
     Scan(_) => plan
+    ScanCsv(_, _, _) => plan
     Select(input, exprs) => Select(f(input), exprs)
     WithColumns(input, exprs) => WithColumns(f(input), exprs)
     Filter(input, predicate) => Filter(f(input), predicate)
@@ -200,6 +217,7 @@ fn place_filter(input : LogicalPlan, predicate : @expr.Expr) -> LogicalPlan {
         Filter(input, predicate)
       }
     Scan(_)
+    | ScanCsv(_, _, _)
     | Filter(_, _)
     | Sort(_, _)
     | Head(_, _)
@@ -459,6 +477,29 @@ fn push_projection(
           }
         }
       }
+    // The CSV source's narrowing point — and the one place push-down reaches
+    // an external read. The file's columns aren't known until it is parsed, so
+    // there is nothing to intersect here: the requirement is written verbatim
+    // into the node's projection (sorted, for a deterministic `explain`), and
+    // the reader filters it against the real header at collect time, keeping
+    // the file's own column order. An empty requirement — an all-literal
+    // consumer that reads no source column — leaves the scan whole (mirroring
+    // the in-memory guard), so the read still yields its columns and a row
+    // count rather than collapsing to nothing. A required name absent from the
+    // file is simply never built; whichever expression references it raises
+    // the same `ColumnNotFound` it would in the unoptimized plan.
+    ScanCsv(path, options, _) =>
+      match required {
+        None => plan
+        Some(needed) => {
+          let columns = sorted_names(needed)
+          if columns.is_empty() {
+            plan
+          } else {
+            ScanCsv(path, options, Some(columns))
+          }
+        }
+      }
     // By-name originator: the output is exactly the expression list, so
     // whatever the parent required of *this* node is fully served, and
     // the input only ever needs the columns the expressions read. (The
@@ -545,6 +586,21 @@ fn columns_read(exprs : Array[@expr.Expr]) -> @set.Set[String] {
 /// union).
 fn add_all(acc : @set.Set[String], names : @set.Set[String]) -> Unit {
   names.each(name => acc.add(name))
+}
+
+///|
+/// A name set as a sorted array — the deterministic column list the
+/// projection pass writes into a `ScanCsv` node. Core `Set` iteration is
+/// unordered, so without this `explain(optimized=true)` would vary run to
+/// run. Ordering routes through `@types.compare_string_lex` (dictionary
+/// order), like every other user-facing ordering in MoonFrame, rather than
+/// the built-in shortlex `Compare` on `String`; it is presentation only,
+/// since the reader re-derives the read order from the file's own header.
+fn sorted_names(names : @set.Set[String]) -> Array[String] {
+  let arr : Array[String] = []
+  names.each(name => arr.push(name))
+  arr.sort_by((a, b) => @types.compare_string_lex(a, b))
+  arr
 }
 
 ///|

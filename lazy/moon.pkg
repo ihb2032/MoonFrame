@@ -1,6 +1,7 @@
 import {
   "ihb2032/MoonFrame/expr",
   "ihb2032/MoonFrame/frame",
+  "ihb2032/MoonFrame/io",
   "ihb2032/MoonFrame/types",
   "moonbitlang/core/set",
 }

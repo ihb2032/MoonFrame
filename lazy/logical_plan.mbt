@@ -21,8 +21,20 @@
 /// is not a frame: every plan stage must output rows, so the keys ride on
 /// `LazyGroupBy` (plain builder state, no node) until `agg` completes
 /// them into a plan stage that does.
+///
+/// `ScanCsv` is the one leaf that *reads* at collect time rather than
+/// capturing an already-built frame: it holds a path, the `CsvReadOptions`
+/// to parse under, and an optional projection. The projection starts empty
+/// (`None` — read every column, the faithful mirror of eager `read_csv`) and
+/// is filled by the optimizer's projection pass with the columns a pipeline
+/// provably consumes, so the parser builds only those — the one push-down
+/// that reaches an external source in v0.5 (predicate push-down into the
+/// parser and streaming are v0.6). Unlike the in-memory `Scan`, whose
+/// narrowing *inserts* a `Select`, `ScanCsv` narrows in place by carrying its
+/// own projection.
 priv enum LogicalPlan {
   Scan(@frame.DataFrame)
+  ScanCsv(String, @io.CsvReadOptions, Array[String]?)
   Select(LogicalPlan, Array[@expr.Expr])
   WithColumns(LogicalPlan, Array[@expr.Expr])
   Filter(LogicalPlan, @expr.Expr)
@@ -43,9 +55,18 @@ priv enum LogicalPlan {
 /// the same order. Errors are exactly the eager operators' errors,
 /// surfacing here rather than at build time. `Scan` returns the captured
 /// frame as-is — frames are immutable, so no defensive copy is needed.
+/// `ScanCsv` reads its file through `@io` — `read_csv_with_options` for the
+/// as-built plan (every column) or `read_csv_projected` once the optimizer
+/// has filled its projection — so a missing file (`IoError`) or a parse
+/// failure (`ParseError`) surfaces here too.
 fn execute(plan : LogicalPlan) -> @frame.DataFrame raise @types.DataError {
   match plan {
     Scan(df) => df
+    ScanCsv(path, options, projection) =>
+      match projection {
+        None => @io.read_csv_with_options(path, options)
+        Some(columns) => @io.read_csv_projected(path, options, columns)
+      }
     Select(input, exprs) => execute(input).select(exprs)
     WithColumns(input, exprs) => execute(input).with_columns(exprs)
     Filter(input, predicate) => execute(input).filter(predicate)
@@ -64,8 +85,11 @@ fn execute(plan : LogicalPlan) -> @frame.DataFrame raise @types.DataError {
 /// inputs stacked left-then-right at the same depth. Expressions render
 /// through `@expr.Expr`'s `Show` (the documented operator form), and
 /// `Scan` prints only the captured frame's shape — `SCAN [rows×cols]` —
-/// never its data. Total: rendering walks plain data, including plans
-/// that would fail to `collect`.
+/// never its data. `ScanCsv` prints its path (quoted and escaped like a
+/// string literal) and, once the optimizer has filled it, the projected
+/// column list — `SCAN_CSV "sales.csv" [region, revenue]` — but never reads
+/// the file. Total: rendering walks plain data, including plans that would
+/// fail to `collect`.
 fn render(plan : LogicalPlan, buf : StringBuilder, depth : Int) -> Unit {
   for _ in 0..<depth {
     buf.write_string("  ")
@@ -77,6 +101,18 @@ fn render(plan : LogicalPlan, buf : StringBuilder, depth : Int) -> Unit {
       buf.write_string("×")
       buf.write_string(df.ncols().to_string())
       buf.write_string("]")
+    }
+    ScanCsv(path, _, projection) => {
+      buf.write_string("SCAN_CSV \"")
+      buf.write_string(escape_debug(path))
+      buf.write_string("\"")
+      match projection {
+        None => ()
+        Some(columns) => {
+          buf.write_string(" ")
+          buf.write_string(list_label(columns))
+        }
+      }
     }
     Select(input, exprs) => {
       buf.write_string("SELECT ")
@@ -228,4 +264,38 @@ fn nulls_label(nulls : @frame.NullOrder) -> String {
     @frame.NullOrder::NullsFirst => "NullsFirst"
     @frame.NullOrder::NullsLast => "NullsLast"
   }
+}
+
+///|
+/// Escape a `ScanCsv` path for the quoted form `render` emits
+/// (`"a\"b"`), so a path containing a `"`, `\`, or a control character stays
+/// unambiguous and on one line in `explain` output. A single forward pass:
+/// `\` → `\\`, `"` → `\"`, and newline / carriage-return / tab → `\n` /
+/// `\r` / `\t`. Mirrors the identically-named helpers behind `@expr`'s and
+/// `@types`' `Show` impls — kept a private duplicate here rather than a
+/// shared public symbol so no package's interface grows for a
+/// presentation-only concern. Total.
+fn escape_debug(s : String) -> String {
+  let buf = StringBuilder::new()
+  for ch in s.iter() {
+    if ch == '\\' {
+      buf.write_char('\\')
+      buf.write_char('\\')
+    } else if ch == '"' {
+      buf.write_char('\\')
+      buf.write_char('"')
+    } else if ch == '\n' {
+      buf.write_char('\\')
+      buf.write_char('n')
+    } else if ch == '\r' {
+      buf.write_char('\\')
+      buf.write_char('r')
+    } else if ch == '\t' {
+      buf.write_char('\\')
+      buf.write_char('t')
+    } else {
+      buf.write_char(ch)
+    }
+  }
+  buf.to_string()
 }

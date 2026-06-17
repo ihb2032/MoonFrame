@@ -302,8 +302,15 @@ missing column, a type clash) waits for evaluation. `expr` depends only on
   the branch dtypes unify like a ternary's (`Int` ↔ `Float` promote, any
   other mismatch is a `TypeMismatch`). A non-null `NaN` is a value, so it is
   kept, not filled.
-- Aggregations `sum` / `mean` / `min` / `max` / `count() -> Expr` — wrap
-  the expression in a reduction (evaluation semantics below).
+- Aggregations `sum` / `mean` / `min` / `max` / `count` / `std` /
+  `variance` / `median` / `n_unique` / `first` / `last() -> Expr` — wrap
+  the expression in a reduction (evaluation semantics below). All eleven
+  share one kernel, so each serves the whole-frame `select`, the per-group
+  `agg`, and the lazy plan alike. `std` / `variance` are the sample
+  statistics (`ddof = 1`, always `Float`, null below two non-null cells);
+  `median` is always `Float` (`Int` widens); `n_unique` is the distinct
+  non-null count (`Int`); `first` / `last` are positional, keeping the
+  source dtype. `variance` is spelled out because `var` is a reserved word.
 - `cast(target : DataType) -> Expr`; `with_alias(name : String) -> Expr`
   (names the output column; `alias` is a reserved word).
 
@@ -379,13 +386,15 @@ raising `DataError` at evaluation time — building the tree never fails:
 - **Comparisons**: cross-numeric is legal, strings compare by
   `compare_string_lex`, `Bool` as `false < true`; the result is a `Bool`
   column.
-- **NaN** inherits the `Series` reduction rules — `sum` / `mean`
-  propagate a `NaN`, `min` / `max` skip it; in comparisons `NaN` is a
-  value.
-- **Aggregations** reduce their input to length 1 (reusing the matching
-  `Series` statistic, so an all-null `mean` is a null cell and `count` is
-  the non-null count); a length-1 result broadcasts against frame-tall
-  results.
+- **NaN** inherits the shared reduction rules — `sum` / `mean` (and the
+  mean-based `std` / `variance`) propagate a `NaN`, `min` / `max` and the
+  order statistic `median` skip it, `n_unique` buckets every `NaN` as one
+  value; in comparisons `NaN` is a value.
+- **Aggregations** reduce their input to length 1 through the shared
+  `reduce.mbt` kernel (so an all-null `mean` / `std` / `variance` / `median`
+  is a null cell, `count` / `n_unique` are never null, and `first` / `last`
+  take the positional cell — null if that cell is null or the scope empty);
+  a length-1 result broadcasts against frame-tall results.
 - **Map** (`map_elements` / `map_many`) runs the closure once per row over
   the input cells (each a `Scalar`, a null as `Scalar::Null`); the output
   dtype is the first non-null result's, and an all-null / empty result
@@ -673,7 +682,7 @@ Split-apply-combine, native to the method chain
   evaluated dtype) followed by one column per
   expression (in expression order, named by `Expr::output_name` — alias,
   else leftmost column reference, else `"literal"`); one row per group, in
-  group order. Each reduction inherits the matching `Series` statistic's
+  group order. Each reduction inherits the shared reduction kernel's
   null / `NaN` / dtype rules:
   - `count()` → `Int`, non-null cells only (like `Series::count` / Polars'
     `count`, **not** a row count like `len`);
@@ -684,7 +693,17 @@ Split-apply-combine, native to the method chain
     cell propagates to a `NaN` mean;
   - `min()` / `max()` → source dtype, a null cell for an empty / all-null
     group, `NaN` skipped — like Polars' regular `min`/`max` (every dtype is
-    ordered, so they apply to all four).
+    ordered, so they apply to all four);
+  - `std()` / `variance()` → nullable `Float`, the sample statistics
+    (`ddof = 1`): a null cell for a group with fewer than two non-null cells,
+    a `NaN` cell propagating through the mean (numeric only, else
+    `TypeMismatch`);
+  - `median()` → nullable `Float` (`Int` widens), a null cell for an empty /
+    all-null group, `NaN` skipped like `min` / `max` (numeric only);
+  - `n_unique()` → `Int`, the distinct non-null count, never null (every
+    `NaN` one bucket, `-0.0` folding into `+0.0`, as `Series::n_unique`);
+  - `first()` / `last()` → source dtype, the group's first / last cell in
+    row order — null if that cell is null.
   An empty `exprs` list degenerates to a **distinct** over the key columns
   (the unique key tuples). Routes through `DataFrame::new`, so every output
   satisfies `check_invariants()`. Raises: `InvalidOperation` if an
@@ -997,10 +1016,11 @@ Each returns a new `LazyFrame` wrapping one more node:
   bare `col(name)`; below a `with_columns` (same row-local rule) when the
   stage defines none of the predicate's columns; below an aggregation when
   the predicate is row-local, reads key columns only, and every
-  aggregation cell is provably null-free and value-safe (`sum` / `count`
-  and non-null literal combinators qualify; `mean` / `min` / `max` can go
-  null on an all-null group and a `cast` can reject a value, so they pin
-  the filter above). Positional row windows, `sort`, `join`, and another
+  aggregation cell is provably null-free and value-safe (`sum` / `count` /
+  `n_unique` and non-null literal combinators qualify; `mean` / `min` /
+  `max` / `std` / `variance` / `median` can go null on an all-null group,
+  `first` / `last` on a null cell, and a `cast` can reject a value, so they
+  pin the filter above). Positional row windows, `sort`, `join`, and another
   filter stop the descent.
 - **Projection pushdown** then runs a top-down required-columns analysis
   (via `Expr::referenced_columns` / `Expr::output_name`) and inserts a

@@ -111,7 +111,8 @@ on all four backends, so it always matches the current API.
 - **Reshape** — `filter`, `select`, `drop`, `rename`, `with_columns`, multi-key
   `sort`, and null handling (`drop_nulls`, `fill_null`).
 - **Group & aggregate** — `group_by(keys).agg([...])` with `sum` / `mean` /
-  `min` / `max` / `count`.
+  `min` / `max` / `count` / `std` / `variance` / `median` / `n_unique` /
+  `first` / `last`.
 - **Express** — build composable column expressions
   (`col("revenue") - col("cost")`, `&` / `|` logic, `when / then / otherwise`)
   and feed them to `with_columns`, `filter`, or

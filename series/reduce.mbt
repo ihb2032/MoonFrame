@@ -417,6 +417,10 @@ fn reduce_first_last(
 /// reuse `@expr.AggOp`, a read-only enum (matchable but not constructible
 /// outside `expr`). The grouped (`agg`) and scoped (`eval_agg`) reductions both
 /// map `@expr.AggOp` into this one vocabulary.
+///
+/// This variant list mirrors `@expr.AggOp` one-to-one; `frame`'s
+/// `reduce_op_of_agg` translates between them. Keep the two in lockstep — a
+/// reduction added here must also be added to `@expr.AggOp` and to that map.
 pub(all) enum ReduceOp {
   Sum
   Mean

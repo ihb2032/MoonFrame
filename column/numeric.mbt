@@ -162,18 +162,7 @@ pub fn NumericColumn::slice(
   start : Int,
   end : Int,
 ) -> NumericColumn raise @types.DataError {
-  let len = self.len()
-  if start < 0 {
-    raise @types.DataError::IndexOutOfBounds(start)
-  }
-  if end > len {
-    raise @types.DataError::IndexOutOfBounds(end)
-  }
-  if start > end {
-    raise @types.DataError::InvalidOperation(
-      "slice start > end: " + start.to_string() + " > " + end.to_string(),
-    )
-  }
+  validate_slice_bounds(start, end, self.len())
   self.slice_unchecked(start, end)
 }
 
@@ -203,12 +192,7 @@ pub fn NumericColumn::take(
   self : NumericColumn,
   indices : Array[Int],
 ) -> NumericColumn raise @types.DataError {
-  let len = self.len()
-  for i in indices {
-    if i < 0 || i >= len {
-      raise @types.DataError::IndexOutOfBounds(i)
-    }
-  }
+  validate_gather_indices(indices, self.len())
   match self.data {
     Int(a) => { data: Int(indices.map(i => a[i])) }
     Float(a) => { data: Float(indices.map(i => a[i])) }

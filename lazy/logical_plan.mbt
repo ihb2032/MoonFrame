@@ -49,6 +49,11 @@ priv enum LogicalPlan {
   Slice(LogicalPlan, Int, Int)
   Join(LogicalPlan, LogicalPlan, @frame.JoinOptions)
   Aggregate(LogicalPlan, Array[@expr.Expr], Array[@expr.Expr])
+  Drop(LogicalPlan, Array[@expr.Expr])
+  Rename(LogicalPlan, Array[(String, String)])
+  Unique(LogicalPlan)
+  DropNulls(LogicalPlan, Array[@expr.Expr]?)
+  FillNull(LogicalPlan, @types.Scalar)
 }
 
 ///|
@@ -87,6 +92,11 @@ fn execute(plan : LogicalPlan) -> @frame.DataFrame raise @types.DataError {
     Slice(input, start, end) => execute(input).slice(start, end)
     Join(left, right, options) => execute(left).join(execute(right), options)
     Aggregate(input, keys, exprs) => execute(input).group_by(keys).agg(exprs)
+    Drop(input, exprs) => execute(input).drop(exprs)
+    Rename(input, pairs) => execute(input).rename(pairs)
+    Unique(input) => execute(input).unique()
+    DropNulls(input, subset) => execute(input).drop_nulls(subset?)
+    FillNull(input, value) => execute(input).fill_null(value)
   }
 }
 
@@ -167,6 +177,63 @@ fn render(plan : LogicalPlan, buf : StringBuilder, depth : Int) -> Unit {
       buf.write_string(exprs_label(keys))
       render_input(input, buf, depth)
     }
+    Drop(input, exprs) => {
+      buf.write_string("DROP ")
+      buf.write_string(exprs_label(exprs))
+      render_input(input, buf, depth)
+    }
+    Rename(input, pairs) => {
+      buf.write_string("RENAME ")
+      buf.write_string(rename_label(pairs))
+      render_input(input, buf, depth)
+    }
+    Unique(input) => {
+      buf.write_string("UNIQUE")
+      render_input(input, buf, depth)
+    }
+    DropNulls(input, subset) => {
+      buf.write_string("DROP_NULLS")
+      match subset {
+        Some(exprs) => {
+          buf.write_string(" ")
+          buf.write_string(exprs_label(exprs))
+        }
+        None => ()
+      }
+      render_input(input, buf, depth)
+    }
+    FillNull(input, value) => {
+      buf.write_string("FILL_NULL ")
+      buf.write_string(scalar_label(value))
+      render_input(input, buf, depth)
+    }
+  }
+}
+
+///|
+/// `RENAME` pair list, e.g. `[old -> new, a -> b]` — one `from -> to` per
+/// rename, reusing the bracketed-list shape of the other plan labels.
+fn rename_label(pairs : Array[(String, String)]) -> String {
+  list_label(
+    pairs.map(p => {
+      let (from, to) = p
+      from + " -> " + to
+    }),
+  )
+}
+
+///|
+/// A scalar fill value in `FILL_NULL` display syntax: numbers / booleans bare,
+/// a string quoted and escaped (so it stays distinguishable and on one line),
+/// the null literal as `null` — mirroring how `@expr` renders a literal in a
+/// plan line.
+fn scalar_label(value : @types.Scalar) -> String {
+  match value {
+    @types.Scalar::Int(v) => v.to_string()
+    @types.Scalar::Float(v) => v.to_string()
+    @types.Scalar::Bool(v) => v.to_string()
+    @types.Scalar::String(s) => "\"" + escape_debug(s) + "\""
+    @types.Scalar::Null => "null"
   }
 }
 

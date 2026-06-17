@@ -1082,6 +1082,12 @@ Each returns a new `LazyFrame` wrapping one more node:
   `select(exprs : Array[Expr])` — defer the eager expression consumers.
 - `sort(by : Array[(Expr, SortOrder, NullOrder)])` · `head(n)` ·
   `tail(n)` · `limit(n)` (≡ `head`) · `slice(start, end)`.
+- `drop(exprs : Array[Expr])` · `rename(pairs : Array[(String, String)])` ·
+  `unique()` · `drop_nulls(subset? : Array[Expr])` ·
+  `fill_null(value : Scalar)` — defer the column / row transforms. The
+  optimizer treats each as a barrier (filters do not sink past them and scans
+  below keep their full output), so they are correct but not yet pushed
+  through; a deeper `select` / `aggregate` still narrows its own scan.
 - `join(other : LazyFrame, options : JoinOptions)` — the right side
   carries its own deferred pipeline.
 - `group_by(keys : Array[Expr]) -> LazyGroupBy`, then

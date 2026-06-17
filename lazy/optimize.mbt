@@ -192,6 +192,11 @@ fn map_children(
     Slice(input, start, end) => Slice(f(input), start, end)
     Join(left, right, options) => Join(f(left), f(right), options)
     Aggregate(input, keys, exprs) => Aggregate(f(input), keys, exprs)
+    Drop(input, exprs) => Drop(f(input), exprs)
+    Rename(input, pairs) => Rename(f(input), pairs)
+    Unique(input) => Unique(f(input))
+    DropNulls(input, subset) => DropNulls(f(input), subset)
+    FillNull(input, value) => FillNull(f(input), value)
   }
 }
 
@@ -234,7 +239,12 @@ fn place_filter(input : LogicalPlan, predicate : @expr.Expr) -> LogicalPlan {
     | Head(_, _)
     | Tail(_, _)
     | Slice(_, _, _)
-    | Join(_, _, _) => Filter(input, predicate)
+    | Join(_, _, _)
+    | Drop(_, _)
+    | Rename(_, _)
+    | Unique(_)
+    | DropNulls(_, _)
+    | FillNull(_, _) => Filter(input, predicate)
   }
 }
 
@@ -567,6 +577,19 @@ fn push_projection(
       add_all(needed, columns_read(keys))
       Aggregate(push_projection(input, Some(needed)), keys, exprs)
     }
+    // Barriers (like `Join`): each transforms its input's columns or rows in a
+    // way the required-columns analysis does not yet model — `drop` removes
+    // named columns, `rename` remaps names, `unique` / `drop_nulls` drop rows
+    // by content, `fill_null` rewrites cells — so their input keeps its whole
+    // output (`None`) rather than risk pruning a column the node still needs.
+    // A by-name reader deeper inside still narrows its own scan. Pushing a
+    // requirement through these (name-aware projection) is deferred, like the
+    // join narrowing.
+    Drop(input, exprs) => Drop(push_projection(input, None), exprs)
+    Rename(input, pairs) => Rename(push_projection(input, None), pairs)
+    Unique(input) => Unique(push_projection(input, None))
+    DropNulls(input, subset) => DropNulls(push_projection(input, None), subset)
+    FillNull(input, value) => FillNull(push_projection(input, None), value)
   }
 }
 

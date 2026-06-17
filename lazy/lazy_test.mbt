@@ -77,6 +77,106 @@ test "each deferred verb collects to its eager equivalent" {
 }
 
 ///|
+test "the column / row verbs collect to their eager equivalents" {
+  let df = sales_df()
+  assert_eq(
+    lazy_frame(df).drop([@expr.col("bonus")]).collect(),
+    df.drop([@expr.col("bonus")]),
+  )
+  assert_eq(
+    lazy_frame(df).rename([("qty", "quantity")]).collect(),
+    df.rename([("qty", "quantity")]),
+  )
+  assert_eq(lazy_frame(df).unique().collect(), df.unique())
+  assert_eq(lazy_frame(df).drop_nulls().collect(), df.drop_nulls())
+  assert_eq(
+    lazy_frame(df).drop_nulls(subset=[@expr.col("bonus")]).collect(),
+    df.drop_nulls(subset=[@expr.col("bonus")]),
+  )
+  // Frame-wide fill_null fills the dtype-compatible columns (the Int `bonus`).
+  assert_eq(
+    lazy_frame(df).fill_null(@types.Scalar::Int(0)).collect(),
+    df.fill_null(@types.Scalar::Int(0)),
+  )
+}
+
+///|
+test "the column / row verbs render in explain, with each fill-value form" {
+  let df = sales_df()
+  inspect(
+    lazy_frame(df).drop([@expr.col("bonus")]).explain(),
+    content=(
+      #|DROP [col(bonus)]
+      #|  SCAN [4×3]
+    ),
+  )
+  inspect(
+    lazy_frame(df).rename([("qty", "quantity")]).explain(),
+    content=(
+      #|RENAME [qty -> quantity]
+      #|  SCAN [4×3]
+    ),
+  )
+  inspect(
+    lazy_frame(df).unique().explain(),
+    content=(
+      #|UNIQUE
+      #|  SCAN [4×3]
+    ),
+  )
+  inspect(
+    lazy_frame(df).drop_nulls().explain(),
+    content=(
+      #|DROP_NULLS
+      #|  SCAN [4×3]
+    ),
+  )
+  inspect(
+    lazy_frame(df).drop_nulls(subset=[@expr.col("bonus")]).explain(),
+    content=(
+      #|DROP_NULLS [col(bonus)]
+      #|  SCAN [4×3]
+    ),
+  )
+  // fill_null renders every scalar value form (covers scalar_label's arms).
+  inspect(
+    lazy_frame(df).fill_null(@types.Scalar::Int(0)).explain(),
+    content=(
+      #|FILL_NULL 0
+      #|  SCAN [4×3]
+    ),
+  )
+  inspect(
+    lazy_frame(df).fill_null(@types.Scalar::Float(1.5)).explain(),
+    content=(
+      #|FILL_NULL 1.5
+      #|  SCAN [4×3]
+    ),
+  )
+  inspect(
+    lazy_frame(df).fill_null(@types.Scalar::Bool(true)).explain(),
+    content=(
+      #|FILL_NULL true
+      #|  SCAN [4×3]
+    ),
+  )
+  inspect(
+    lazy_frame(df).fill_null(@types.Scalar::String("x")).explain(),
+    content=(
+      #|FILL_NULL "x"
+      #|  SCAN [4×3]
+    ),
+  )
+  inspect(
+    lazy_frame(df).fill_null(@types.Scalar::Null).explain(),
+    content=(
+      #|FILL_NULL null
+      #|  SCAN [4×3]
+    ),
+  )
+}
+
+///|
 test "head, tail, and limit inherit the eager total clamp" {
   let df = sales_df()
   // Beyond the frame: every row survives, nothing raises.

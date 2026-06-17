@@ -46,6 +46,14 @@ pub fn Series::from_builtin(
 ///|
 /// Build an `Int` series from raw values (no nulls). Lands on the `Numeric`
 /// fast-path backend — no validity bitmap is allocated.
+///
+/// `values` is captured by reference (the zero-copy ingestion fast path), not
+/// defensively copied. A `Series` is logically immutable, so the caller must
+/// treat `values` as owned by the series and not mutate it afterwards — doing
+/// so would silently change the series' cells. Pass a fresh array (or copy it
+/// first) if the source will be reused mutably. The nullable constructors
+/// (`from_*_options`) copy while boxing into `Option`, so only these raw
+/// fast-path constructors share the caller's buffer.
 pub fn Series::from_ints(name : String, values : Array[Int64]) -> Series {
   Series::new(
     name,
@@ -67,7 +75,8 @@ pub fn Series::from_int_options(
 
 ///|
 /// Build a `Float` series from raw values (no nulls). Lands on the
-/// `Numeric` fast-path backend.
+/// `Numeric` fast-path backend. Like `from_ints`, `values` is captured by
+/// reference (not copied), so the caller must not mutate it after the call.
 pub fn Series::from_floats(name : String, values : Array[Double]) -> Series {
   Series::new(
     name,

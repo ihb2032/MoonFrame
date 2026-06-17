@@ -49,6 +49,11 @@ priv enum LogicalPlan {
   Slice(LogicalPlan, Int, Int)
   Join(LogicalPlan, LogicalPlan, @frame.JoinOptions)
   Aggregate(LogicalPlan, Array[@expr.Expr], Array[@expr.Expr])
+  Drop(LogicalPlan, Array[@expr.Expr])
+  Rename(LogicalPlan, Array[(String, String)])
+  Unique(LogicalPlan)
+  DropNulls(LogicalPlan, Array[@expr.Expr]?)
+  FillNull(LogicalPlan, @types.Scalar)
 }
 
 ///|
@@ -87,6 +92,11 @@ fn execute(plan : LogicalPlan) -> @frame.DataFrame raise @types.DataError {
     Slice(input, start, end) => execute(input).slice(start, end)
     Join(left, right, options) => execute(left).join(execute(right), options)
     Aggregate(input, keys, exprs) => execute(input).group_by(keys).agg(exprs)
+    Drop(input, exprs) => execute(input).drop(exprs)
+    Rename(input, pairs) => execute(input).rename(pairs)
+    Unique(input) => execute(input).unique()
+    DropNulls(input, subset) => execute(input).drop_nulls(subset?)
+    FillNull(input, value) => execute(input).fill_null(value)
   }
 }
 
@@ -167,6 +177,63 @@ fn render(plan : LogicalPlan, buf : StringBuilder, depth : Int) -> Unit {
       buf.write_string(exprs_label(keys))
       render_input(input, buf, depth)
     }
+    Drop(input, exprs) => {
+      buf.write_string("DROP ")
+      buf.write_string(exprs_label(exprs))
+      render_input(input, buf, depth)
+    }
+    Rename(input, pairs) => {
+      buf.write_string("RENAME ")
+      buf.write_string(rename_label(pairs))
+      render_input(input, buf, depth)
+    }
+    Unique(input) => {
+      buf.write_string("UNIQUE")
+      render_input(input, buf, depth)
+    }
+    DropNulls(input, subset) => {
+      buf.write_string("DROP_NULLS")
+      match subset {
+        Some(exprs) => {
+          buf.write_string(" ")
+          buf.write_string(exprs_label(exprs))
+        }
+        None => ()
+      }
+      render_input(input, buf, depth)
+    }
+    FillNull(input, value) => {
+      buf.write_string("FILL_NULL ")
+      buf.write_string(scalar_label(value))
+      render_input(input, buf, depth)
+    }
+  }
+}
+
+///|
+/// `RENAME` pair list, e.g. `[old -> new, a -> b]` — one `from -> to` per
+/// rename, reusing the bracketed-list shape of the other plan labels.
+fn rename_label(pairs : Array[(String, String)]) -> String {
+  list_label(
+    pairs.map(p => {
+      let (from, to) = p
+      from + " -> " + to
+    }),
+  )
+}
+
+///|
+/// A scalar fill value in `FILL_NULL` display syntax: numbers / booleans bare,
+/// a string quoted and escaped (so it stays distinguishable and on one line),
+/// the null literal as `null` — mirroring how `@expr` renders a literal in a
+/// plan line.
+fn scalar_label(value : @types.Scalar) -> String {
+  match value {
+    @types.Scalar::Int(v) => v.to_string()
+    @types.Scalar::Float(v) => v.to_string()
+    @types.Scalar::Bool(v) => v.to_string()
+    @types.Scalar::String(s) => "\"" + escape_debug(s) + "\""
+    @types.Scalar::Null => "null"
   }
 }
 
@@ -299,11 +366,13 @@ fn render_scan_source(
 /// Escape a file-source path for the quoted form `render` emits
 /// (`"a\"b"`), so a path containing a `"`, `\`, or a control character stays
 /// unambiguous and on one line in `explain` output. A single forward pass:
-/// `\` → `\\`, `"` → `\"`, and newline / carriage-return / tab → `\n` /
-/// `\r` / `\t`. Mirrors the identically-named helpers behind `@expr`'s and
-/// `@types`' `Show` impls — kept a private duplicate here rather than a
-/// shared public symbol so no package's interface grows for a
-/// presentation-only concern. Total.
+/// `\` → `\\`, `"` → `\"`, newline / carriage-return / tab → `\n` / `\r` /
+/// `\t`, and every other control character (the rest of C0, `DEL`, and the
+/// Unicode line/paragraph separators) → a `\uXXXX` escape, so a hostile path
+/// cannot inject a terminal control sequence or an extra line into a plan.
+/// Mirrors the identically-named helpers behind `@expr`'s and `@types`' `Show`
+/// impls — kept a private duplicate here rather than a shared public symbol so
+/// no package's interface grows for a presentation-only concern. Total.
 fn escape_debug(s : String) -> String {
   let buf = StringBuilder::new()
   for ch in s.iter() {
@@ -322,9 +391,36 @@ fn escape_debug(s : String) -> String {
     } else if ch == '\t' {
       buf.write_char('\\')
       buf.write_char('t')
+    } else if is_control_char(ch) {
+      write_unicode_escape(buf, ch)
     } else {
       buf.write_char(ch)
     }
   }
   buf.to_string()
+}
+
+///|
+/// Whether `ch` is a control character that must be `\uXXXX`-escaped (the C0
+/// range, `DEL`, and the Unicode line/paragraph separators); `\n` / `\r` /
+/// `\t` are handled by their own short escapes before this is consulted.
+fn is_control_char(ch : Char) -> Bool {
+  let cp = ch.to_int()
+  cp < 0x20 || cp == 0x7f || cp == 0x85 || cp == 0x2028 || cp == 0x2029
+}
+
+///|
+/// Append the `\uXXXX` (four lowercase hex digits) escape of `ch` to `buf`;
+/// every escaped code point is below `U+10000`, so four digits suffice.
+fn write_unicode_escape(buf : StringBuilder, ch : Char) -> Unit {
+  let digits = [
+    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f',
+  ]
+  let cp = ch.to_int()
+  buf.write_char('\\')
+  buf.write_char('u')
+  buf.write_char(digits[(cp >> 12) & 0xF])
+  buf.write_char(digits[(cp >> 8) & 0xF])
+  buf.write_char(digits[(cp >> 4) & 0xF])
+  buf.write_char(digits[cp & 0xF])
 }

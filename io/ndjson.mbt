@@ -104,6 +104,10 @@ fn parse_ndjson_str_projected(
   // use). The views borrow `content`, so this is cheap.
   let lines = content.split("\n").to_array()
   let records : Array[Json] = []
+  // Parallel to `records`: the 1-based physical file line each kept record came
+  // from, so a build-stage type error reports the true line despite the blank
+  // lines skipped between records (which shift the record index off the line).
+  let record_lines : Array[Int] = []
   for i, line in lines {
     // Skip blank / whitespace-only lines: the trailing `\n` the writer
     // emits leaves an empty final segment, and hand-written NDJSON may
@@ -120,12 +124,14 @@ fn parse_ndjson_str_projected(
         )
     }
     records.push(json)
+    record_lines.push(i + 1)
   }
   frame_from_json_records(
     records,
     options.infer_schema_rows,
     options.on_parse_error,
     projection,
+    Some(record_lines),
   )
 }
 

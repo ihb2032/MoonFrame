@@ -294,7 +294,11 @@ missing column, a type clash) waits for evaluation. `expr` depends only on
   / `<` are pinned to `Bool` / `Int` returns; the upside is that a method
   binds tighter than `&`, so `a.gt(x) & b.lt(y)` needs no parentheses.
 - `not() -> Expr` (no overloadable unary `!`); null probes `is_null()` /
-  `is_not_null() -> Expr` (total — the result is never null).
+  `is_not_null() -> Expr` (total — the result is never null); NaN probes
+  `is_nan()` / `is_not_nan() -> Expr` — `true`/`false` where a numeric cell is
+  / isn't the IEEE `NaN` value. The NaN probes require a numeric operand
+  (`TypeMismatch` otherwise; an `Int` cell is never `NaN`) and, unlike the null
+  probes, *propagate* nulls (a missing cell → a null result).
 - `fill_null(value : Expr) -> Expr` — replace null cells with `value` (a
   literal, another column — a coalesce — or a computed tree), lowering to
   `when(self.is_not_null()).then(self).otherwise(value)`: non-null cells are
@@ -302,6 +306,11 @@ missing column, a type clash) waits for evaluation. `expr` depends only on
   the branch dtypes unify like a ternary's (`Int` ↔ `Float` promote, any
   other mismatch is a `TypeMismatch`). A non-null `NaN` is a value, so it is
   kept, not filled.
+- `fill_nan(value : Expr) -> Expr` — the dual of `fill_null`: replace `NaN`
+  cells with `value`, lowering to
+  `when(self.is_not_nan()).then(self).otherwise(value)`. A true null (for which
+  `is_not_nan` is null) falls through the Kleene ternary to a null, so nulls
+  are preserved, not filled; same self-naming and dtype-unification rules.
 - Aggregations `sum` / `mean` / `min` / `max` / `count` / `std` /
   `variance` / `median` / `n_unique` / `first` / `last() -> Expr` — wrap
   the expression in a reduction (evaluation semantics below). All eleven
@@ -365,9 +374,14 @@ identified by its `label` and inputs.
 
 The closure runs once per row at evaluation and may `raise` (propagating from
 the consuming verb). The output column's dtype is the first non-null `Scalar`
-returned — an all-null or empty result raises `Unsupported` (there is no
-Null-dtype backend, the same limit as a `Null` literal). The result is named
-after the leftmost input; `label` shows only in `explain`. Because the
+returned (a mix of `Int` and `Float` results promotes to `Float`, the engine's
+`Int`/`Float` rule, rather than nulling the minority type) — an all-null result
+over a non-empty frame raises `Unsupported`
+(there is no Null-dtype backend, the same limit as a `Null` literal). Over an
+**empty** frame the closure never runs, so the dtype is unobservable: map then
+mirrors the leftmost input's dtype and returns an empty column (so it survives
+an empty frame like every other expression rather than raising). The result is
+named after the leftmost input; `label` shows only in `explain`. Because the
 closure can raise on the values it meets, the optimizer treats a map as a
 value barrier (like `cast`): no filter sinks across it.
 
@@ -520,9 +534,13 @@ dependencies** (NyaCSV / fs / @json live only in `io`).
   for `O(1)` name lookup).
 - Constructors (`raise DataError`): `new(columns)`
   (`LengthMismatch` / `DuplicateColumn`; zero columns → `0×0`);
-  `empty(schema)` (0-row frame; `Unsupported` for a `Null`-dtype field);
-  `from_rows(schema, rows)` (`LengthMismatch` / `TypeMismatch` /
-  `Unsupported`; zero-column schema → `0×0`, like `new`).
+  `empty(schema)` (0-row frame; `DuplicateColumn` for a repeated field name;
+  `Unsupported` for a `Null`-dtype field);
+  `from_rows(schema, rows)` (`DuplicateColumn` / `LengthMismatch` /
+  `TypeMismatch` / `Unsupported`; zero-column schema → `0×0`, like `new`).
+  `empty` / `from_rows` re-validate the schema through `Schema::new`, so a
+  `pub(all)` struct-literal schema with duplicate names is rejected rather
+  than producing a malformed frame.
 - Total inspection: `shape()` / `schema()` / `columns()` (fresh array) /
   `column_series()` (fresh array of the immutable `Series`) / `nrows()` /
   `ncols()` / `is_empty()`.
@@ -815,8 +833,10 @@ Hash equi-join, native to the method chain (`left.join(right, options)`).
     `InvalidOperation` (no keys for a non-`Cross` join — use `Cross` for a
     product — any keys on a `Cross` join, both `on` and `left_on` /
     `right_on` given, or `left_on` / `right_on` of unequal length),
-    `DuplicateColumn` (two keys with the same output name — rejected at the
-    repeat, like `group_by([col("id"), col("id")])`; or two output columns
+    `DuplicateColumn` (a bare `col(name)` key repeated — rejected at the
+    repeat, like `group_by([col("id"), col("id")])`; derived keys are not
+    name-checked, since two distinct derived keys sharing a leftmost name are
+    different keys and contribute no output column; or two output columns
     still colliding after suffixing — surfaced by `DataFrame::new`).
 - `enum JoinType` — `Inner` / `Left` / `Right` / `Outer` / `Cross`.
 - `struct JoinOptions` (fields private) — built via
@@ -915,9 +935,12 @@ are documented below.
   numbers via `@json`. A non-finite `Float` (`NaN` / `±Infinity`) has no
   JSON literal, so it is emitted as `null` (like pandas' `to_json`),
   keeping the output valid JSON; a round-trip reads it back as a null.
-  `Int` cells render as JSON numbers; a magnitude beyond 2^53 keeps its
-  `Int` dtype but loses precision on a JSON round-trip (the `@json` number
-  model is `Double`), as in pandas' `to_json`.
+  Consequently a `Float` column that is *entirely* non-finite and/or null
+  writes as all-`null` and re-infers as `String` on read (an all-null column
+  has no dtype signal) — a `Float → String` narrowing; a column with any
+  finite value keeps `Float`. `Int` cells render as JSON numbers; a magnitude
+  beyond 2^53 keeps its `Int` dtype but loses precision on a JSON round-trip
+  (the `@json` number model is `Double`), as in pandas' `to_json`.
 - `read_json(path)` / `read_json_with_options(path, options) -> DataFrame
   raise DataError`; `write_json_records(path, df) -> Unit raise
   DataError` — file wrappers (`IoError`).
@@ -978,14 +1001,25 @@ non-finite-float cells → JSON `null`).
 - `struct ChartSpec` (fields private) — built via a mark-named
   constructor `ChartSpec::bar(x, y)` / `line(x, y)` / `point(x, y)` /
   `area(x, y)` (`x` / `y` are column names) and chained
-  `with_color(column)` (a grouping / colour column) / `with_title(text)`.
+  `with_color(column)` (a grouping / colour column) / `with_title(text)` /
+  `with_color_type(VegaType)`.
+- `enum VegaType` (`Quantitative` / `Nominal` / `Ordinal` / `Temporal`,
+  `pub(all)`) — overrides the `color` channel's Vega-Lite field `type` instead
+  of inferring it from the column dtype. Use `Nominal` / `Ordinal` to render a
+  *numeric* grouping column (a cluster id, a year) as distinct per-group
+  colors rather than the continuous gradient `quantitative` would produce; the
+  `x` / `y` channels keep dtype inference.
 - `format_vega_lite(df, spec) -> String raise DataError` — **not total**.
   Resolves the spec's `x` / `y` / `color` columns against `df`
   left-to-right; the first name absent from the frame raises
   `ColumnNotFound(name)`. Each channel's Vega-Lite field `type` is
   inferred from the column dtype: numeric (`Int` / `Float`) →
   `"quantitative"`, otherwise (`String` / `Bool`, and an all-null `Null`
-  column) → `"nominal"`. The frame is inlined as `data.values` (a frame
+  column) → `"nominal"` — unless `spec.with_color_type(...)` overrides the
+  `color` channel. A column name containing `.`, `[`, or `]` is
+  escaped in the encoding `field` (Vega-Lite reads those as nested-object /
+  array access), so a column literally named `price.usd` resolves correctly
+  instead of plotting nothing. The frame is inlined as `data.values` (a frame
   with the encoded columns but zero rows yields `"values":[]`). The output
   is always valid JSON.
 - `write_vega_lite(path, df, spec) -> Unit raise DataError` — file wrapper
@@ -1048,6 +1082,12 @@ Each returns a new `LazyFrame` wrapping one more node:
   `select(exprs : Array[Expr])` — defer the eager expression consumers.
 - `sort(by : Array[(Expr, SortOrder, NullOrder)])` · `head(n)` ·
   `tail(n)` · `limit(n)` (≡ `head`) · `slice(start, end)`.
+- `drop(exprs : Array[Expr])` · `rename(pairs : Array[(String, String)])` ·
+  `unique()` · `drop_nulls(subset? : Array[Expr])` ·
+  `fill_null(value : Scalar)` — defer the column / row transforms. The
+  optimizer treats each as a barrier (filters do not sink past them and scans
+  below keep their full output), so they are correct but not yet pushed
+  through; a deeper `select` / `aggregate` still narrows its own scan.
 - `join(other : LazyFrame, options : JoinOptions)` — the right side
   carries its own deferred pipeline.
 - `group_by(keys : Array[Expr]) -> LazyGroupBy`, then

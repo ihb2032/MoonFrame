@@ -64,12 +64,14 @@ pub struct ChartSpec {
   y : String
   color : String?
   title : String?
+  color_type : VegaType?
 } derive(Eq, @debug.Debug)
 pub fn ChartSpec::area(String, String) -> Self
 pub fn ChartSpec::bar(String, String) -> Self
 pub fn ChartSpec::line(String, String) -> Self
 pub fn ChartSpec::point(String, String) -> Self
 pub fn ChartSpec::with_color(Self, String) -> Self
+pub fn ChartSpec::with_color_type(Self, VegaType) -> Self
 pub fn ChartSpec::with_title(Self, String) -> Self
 
 pub(all) struct CsvReadOptions {
@@ -105,6 +107,13 @@ pub fn NdjsonReadOptions::default() -> Self
 pub(all) enum OnParseError {
   Raise
   Null
+} derive(Eq, @debug.Debug)
+
+pub(all) enum VegaType {
+  Quantitative
+  Nominal
+  Ordinal
+  Temporal
 } derive(Eq, @debug.Debug)
 
 // Type aliases

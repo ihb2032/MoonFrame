@@ -195,21 +195,50 @@ test "map_elements: used in select, producing a standalone column" {
 }
 
 ///|
-test "map over an empty frame cannot infer a dtype and raises" {
-  // The closure runs once per row — zero times here — so there is no
-  // non-null cell to type the column, the same limit as a `Null` literal.
-  let empty = DataFrame::new([Series::from_ints("i", [])])
-  let result = try? empty.with_columns([
-    @expr.col("i").map_elements(label="id", s => s),
+test "map over an empty frame yields an empty column mirroring the input dtype" {
+  // The closure runs once per row — zero times here — so its result dtype is
+  // unobservable. Instead of raising (which would make map the one expression
+  // that cannot survive an empty frame), map mirrors the leftmost input's
+  // dtype and returns an empty column. Covers an Int and a String input.
+  let empty = DataFrame::new([
+    Series::from_ints("i", []),
+    Series::from_strings("s", []),
   ])
-  assert_eq(
-    result,
-    Err(
-      @types.DataError::Unsupported(
-        "cannot infer the dtype of a map result with no non-null cell: no Null-dtype column backend",
-      ),
-    ),
-  )
+  let out = empty.with_columns([
+    @expr.col("i").map_elements(label="id", s => s),
+    @expr.col("s").map_elements(label="echo", s => s),
+  ])
+  assert_eq(out.shape(), (0, 2))
+  assert_eq(out.get_column("i").dtype(), @types.DataType::Int)
+  assert_eq(out.get_column("i").to_scalars(), [])
+  assert_eq(out.get_column("s").dtype(), @types.DataType::String)
+  assert_eq(out.get_column("s").to_scalars(), [])
+}
+
+///|
+test "map: a closure mixing Int and Float promotes to a Float column" {
+  // The engine promotes Int <-> Float, so a closure returning Int on some rows
+  // and Float on others yields a Float column with every value present (Ints
+  // promoted), not one that nulls the minority type. A null cell stays null.
+  let df = DataFrame::new([Series::from_ints("q", [2, 3, 4])])
+  let out = df.with_columns([
+    @expr.col("q").map_elements(label="mix", s => {
+      let v = s.as_int()
+      if v == 3 {
+        @types.Scalar::Float(0.5)
+      } else if v == 4 {
+        @types.Scalar::Null
+      } else {
+        @types.Scalar::Int(v)
+      }
+    }),
+  ])
+  assert_eq(out.get_column("q").dtype(), @types.DataType::Float)
+  assert_eq(out.get_column("q").to_scalars(), [
+    @types.Scalar::Float(2.0),
+    @types.Scalar::Float(0.5),
+    @types.Scalar::Null,
+  ])
 }
 
 ///|

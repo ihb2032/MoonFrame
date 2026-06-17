@@ -80,10 +80,13 @@ pub fn Expr::col(String) -> Self
 pub fn Expr::count(Self) -> Self
 pub fn Expr::eq(Self, Self) -> Self
 pub fn Expr::explain(Self) -> String
+pub fn Expr::fill_nan(Self, Self) -> Self
 pub fn Expr::fill_null(Self, Self) -> Self
 pub fn Expr::first(Self) -> Self
 pub fn Expr::ge(Self, Self) -> Self
 pub fn Expr::gt(Self, Self) -> Self
+pub fn Expr::is_nan(Self) -> Self
+pub fn Expr::is_not_nan(Self) -> Self
 pub fn Expr::is_not_null(Self) -> Self
 pub fn Expr::is_null(Self) -> Self
 pub fn Expr::last(Self) -> Self
@@ -141,6 +144,8 @@ pub enum UnOp {
   Not
   IsNull
   IsNotNull
+  IsNan
+  IsNotNan
 } derive(Eq, @debug.Debug)
 
 pub struct WhenThen {

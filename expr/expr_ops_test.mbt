@@ -112,6 +112,20 @@ test "fill_null lowers to a not-null guarded conditional named after self" {
 }
 
 ///|
+test "fill_nan lowers to a not-nan guarded conditional named after self" {
+  // The dual of `fill_null`: `when(self.is_not_nan()).then(self)
+  // .otherwise(value)`, so it is named after the filled column and a null
+  // cell (for which `is_not_nan` is null) falls through to a null, not value.
+  assert_eq(
+    col("x").fill_nan(lit_float(0.0)),
+    when(col("x").is_not_nan()).then(col("x")).otherwise(lit_float(0.0)),
+  )
+  assert_eq(col("x").fill_nan(col("y")).output_name(), "x")
+  let refs = col("x").fill_nan(col("y")).referenced_columns()
+  assert_true(refs.contains("x") && refs.contains("y"))
+}
+
+///|
 test "when/then/otherwise: the conditional is an ordinary expression" {
   // The lowered conditional composes like any other node — method chains
   // and operators apply to it directly, and it occupies an operand slot

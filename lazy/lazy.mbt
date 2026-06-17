@@ -110,6 +110,56 @@ pub fn LazyFrame::slice(self : LazyFrame, start : Int, end : Int) -> LazyFrame {
 }
 
 ///|
+/// Defer `DataFrame::drop`: remove the columns named by `exprs` (bare `col`
+/// references), keeping every other column. A name absent from the frame, or a
+/// non-`col` expression, surfaces as the eager `drop`'s error at collect time.
+pub fn LazyFrame::drop(
+  self : LazyFrame,
+  exprs : Array[@expr.Expr],
+) -> LazyFrame {
+  { plan: Drop(self.plan, exprs) }
+}
+
+///|
+/// Defer `DataFrame::rename`: apply each `(from, to)` rename in order. A
+/// missing source name or a colliding target surfaces at collect time.
+pub fn LazyFrame::rename(
+  self : LazyFrame,
+  pairs : Array[(String, String)],
+) -> LazyFrame {
+  { plan: Rename(self.plan, pairs) }
+}
+
+///|
+/// Defer `DataFrame::unique`: keep the first occurrence of each distinct row,
+/// in first-appearance order. Total like its eager counterpart.
+pub fn LazyFrame::unique(self : LazyFrame) -> LazyFrame {
+  { plan: Unique(self.plan) }
+}
+
+///|
+/// Defer `DataFrame::drop_nulls`: drop every row with a null in `subset` (a
+/// list of `col` references), or — with no `subset` — in any column. A name
+/// absent from the frame surfaces at collect time.
+pub fn LazyFrame::drop_nulls(
+  self : LazyFrame,
+  subset? : Array[@expr.Expr],
+) -> LazyFrame {
+  { plan: DropNulls(self.plan, subset) }
+}
+
+///|
+/// Defer `DataFrame::fill_null`: replace every null cell, in every column,
+/// with `value`. A column whose dtype does not match `value` surfaces the
+/// eager verb's error at collect time.
+pub fn LazyFrame::fill_null(
+  self : LazyFrame,
+  value : @types.Scalar,
+) -> LazyFrame {
+  { plan: FillNull(self.plan, value) }
+}
+
+///|
 /// Defer `DataFrame::join`: combine this plan's output (the left side)
 /// with another plan's output (the right side) under `options` — each
 /// side carries its own deferred pipeline. Key resolution, type checks,

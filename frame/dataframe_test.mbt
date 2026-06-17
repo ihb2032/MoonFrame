@@ -80,6 +80,23 @@ test "empty rejects Null-dtype fields with Unsupported" {
   assert_true((try? DataFrame::empty(schema)) is Err(Unsupported(_)))
 }
 
+///|
+// `Schema` is `pub(all)`, so a caller can bypass `Schema::new` and build a
+// duplicate-name schema by struct literal. `empty` re-validates it rather
+// than collapsing the name cache into a malformed frame.
+test "empty re-validates a struct-literal schema with duplicate names" {
+  let dup = @types.Schema::{
+    fields: [
+      @types.Field::new("a", @types.DataType::Int),
+      @types.Field::new("a", @types.DataType::Float),
+    ],
+  }
+  assert_eq(
+    try? DataFrame::empty(dup),
+    Err(@types.DataError::DuplicateColumn("a")),
+  )
+}
+
 // ── Constructors: from_rows ──────────────────────────────────────────
 
 ///|
@@ -126,6 +143,24 @@ test "from_rows builds a frame, mixing nulls and concrete cells" {
   assert_eq(df.get_column("f").null_count(), 1)
   assert_eq(df.get_column("b").null_count(), 1)
   assert_eq(df.get_column("s").null_count(), 1)
+}
+
+///|
+// A duplicate-name schema built by struct literal (bypassing `Schema::new`)
+// is rejected by `from_rows` before it can collapse the name cache.
+test "from_rows re-validates a struct-literal schema with duplicate names" {
+  let dup = @types.Schema::{
+    fields: [
+      @types.Field::new("a", @types.DataType::Int),
+      @types.Field::new("a", @types.DataType::Int),
+    ],
+  }
+  assert_eq(
+    try? DataFrame::from_rows(dup, [
+      [@types.Scalar::Int(1), @types.Scalar::Int(2)],
+    ]),
+    Err(@types.DataError::DuplicateColumn("a")),
+  )
 }
 
 ///|

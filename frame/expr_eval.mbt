@@ -59,9 +59,13 @@
 /// - **Map** (`map_elements` / `map_many`, the closure escape hatch): apply
 ///   an opaque host closure row by row across the input columns (each cell a
 ///   `Scalar`, a null as `Scalar::Null`, the closure called for every row
-///   and free to `raise`). The output dtype is the first non-null result's;
-///   an all-null / empty result raises `Unsupported`, having no
-///   representable dtype (no Null-dtype backend, as for the `Null` literal).
+///   and free to `raise`). The output dtype is the first non-null result's,
+///   except that a mix of `Int` and `Float` results promotes to `Float` (the
+///   engine's `Int ↔ Float` rule) rather than nulling the minority. An
+///   all-null result over a non-empty scope raises `Unsupported`, having no
+///   representable dtype (no Null-dtype backend, as for the `Null` literal);
+///   over an *empty* scope the closure never runs, so the dtype is mirrored
+///   from the leftmost input and the result is an empty column.
 /// - **Literal series** (`lit_series`): the embedded `Series` is returned
 ///   verbatim, the data analogue of a scalar literal's length-1 column. Its
 ///   length is the series' own; the consumers broadcast it like any other
@@ -132,6 +136,8 @@ fn eval_expr(
           )
         @expr.UnOp::IsNotNull =>
           Series::from_bools(operand.name(), validity_bools(operand.storage()))
+        @expr.UnOp::IsNan => eval_is_nan(operand, true)
+        @expr.UnOp::IsNotNan => eval_is_nan(operand, false)
       }
     }
     @expr.Expr::Agg(op, e) => eval_agg(op, eval_expr(e, df, scope))
@@ -602,6 +608,38 @@ fn eval_neg(operand : Series) -> Series raise @types.DataError {
 }
 
 ///|
+/// Build the nullable `Bool` cells of `is_nan` (`want_nan = true`) or
+/// `is_not_nan` (`want_nan = false`) over a numeric operand. `NaN` is a
+/// *value*, so a null cell stays null — the probe propagates nulls, unlike
+/// `is_null`. A present `Float` cell is tested by IEEE `is_nan`; a present
+/// `Int` cell is never `NaN` (so the constant `!want_nan`); a non-numeric
+/// operand raises `TypeMismatch`. Lands on the nullable `Builtin` backend.
+fn eval_is_nan(
+  operand : Series,
+  want_nan : Bool,
+) -> Series raise @types.DataError {
+  let valid = validity_bools(operand.storage())
+  match operand.storage().data() {
+    @column.ColumnData::Float(a) =>
+      Series::from_bool_options(
+        operand.name(),
+        map_present(a.length(), valid, i => a[i].is_nan() == want_nan),
+      )
+    @column.ColumnData::Int(a) =>
+      Series::from_bool_options(
+        operand.name(),
+        map_present(a.length(), valid, _ => !want_nan),
+      )
+    _ =>
+      raise @types.DataError::TypeMismatch(
+        (if want_nan { "is_nan" } else { "is_not_nan" }) +
+        " requires a numeric operand, got " +
+        operand.dtype().to_string(),
+      )
+  }
+}
+
+///|
 /// Kleene logical negation kernel: `not(true) = false`, `not(false) =
 /// true`, `not(null) = null`. Non-`Bool` operands raise.
 fn eval_not(operand : Series) -> Series raise @types.DataError {
@@ -920,8 +958,43 @@ fn eval_map(
     cells.push(f(Array::makei(width, k => columns[k][i])))
   }
   let name = if evaluated.is_empty() { "literal" } else { evaluated[0].name() }
-  match infer_map_dtype(cells) {
-    Some(probe) => scalars_to_series(probe, name, cells)
+  // The engine promotes Int <-> Float (eval_arith / eval_ternary); a closure
+  // that returns a mix of Int and Float unifies to Float here too — the Int
+  // cells are promoted rather than nulled as the minority type by the raw
+  // first-cell-dtype projection below. Other dtype mixes keep the first
+  // non-null dtype (a mismatched cell stays null), unchanged.
+  let cells = if map_mixes_int_and_float(cells) {
+    cells.map(c => {
+      match c {
+        @types.Scalar::Int(v) => @types.Scalar::Float(v.to_double())
+        _ => c
+      }
+    })
+  } else {
+    cells
+  }
+  // An empty scope (a 0-row frame with a column input) calls the closure zero
+  // times, so `infer_map_dtype` sees no cell. Rather than raise — which would
+  // make `map` the one expression that cannot survive an empty frame, breaking
+  // with_columns / select / filter whenever the frame happens to be empty —
+  // fall back to the leftmost input's own column backend as the dtype witness
+  // (its array contents are ignored: `scalars_to_series` reads the probe's
+  // variant only) and return an empty column, mirroring that input's dtype as
+  // `name` already mirrors its name. The all-null case (a non-empty scope
+  // whose every result cell is null) still resolves to `None` and raises
+  // `Unsupported` below — that genuinely has no representable dtype, like a
+  // `Null` literal.
+  let probe = match infer_map_dtype(cells) {
+    Some(p) => Some(p)
+    None =>
+      if cells.is_empty() {
+        evaluated.get(0).map(lead => lead.storage().data())
+      } else {
+        None
+      }
+  }
+  match probe {
+    Some(p) => scalars_to_series(p, name, cells)
     None =>
       raise @types.DataError::Unsupported(
         "cannot infer the dtype of a map result with no non-null cell: no Null-dtype column backend",
@@ -944,6 +1017,24 @@ fn infer_map_dtype(cells : Array[@types.Scalar]) -> @column.ColumnData? {
     }
   }
   None
+}
+
+///|
+/// Whether the map result cells mix `Int` and `Float` — the one heterogeneity
+/// the engine resolves by promotion (`Int -> Float`, as in `eval_arith` /
+/// `eval_ternary`) rather than by nulling the minority type. `Bool` / `String`
+/// never promote, so a mix involving them is not flagged here.
+fn map_mixes_int_and_float(cells : Array[@types.Scalar]) -> Bool {
+  let mut has_int = false
+  let mut has_float = false
+  for c in cells {
+    match c {
+      @types.Scalar::Int(_) => has_int = true
+      @types.Scalar::Float(_) => has_float = true
+      _ => ()
+    }
+  }
+  has_int && has_float
 }
 
 ///|

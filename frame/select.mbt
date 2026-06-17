@@ -43,14 +43,19 @@ pub fn DataFrame::select(
     seen[name] = ()
     evaluated.push(column.rename(name))
   }
-  // Lengths are drawn from {1, nrows} (every expression evaluated under
-  // the same whole-frame scope), so any non-1 length *is* the frame
-  // height; only when every expression reduced to a scalar does the
-  // output collapse to one row.
+  // The output height is the frame's own row count when any result is
+  // frame-tall, otherwise 1 — every result is then a length-1 literal or
+  // aggregation, which collapses to a single summary row. Most results are
+  // drawn from {1, nrows} (evaluated under the whole-frame scope), but a
+  // `lit_series` carries its OWN length: one that is neither 1 nor `nrows` is
+  // not frame-tall and is rejected by `broadcast_series` below with the same
+  // `LengthMismatch` `with_columns` raises, rather than silently dictating an
+  // off-frame output height.
+  let n = self.nrows()
   let mut height = 1
   for column in evaluated {
-    if column.len() != 1 {
-      height = column.len()
+    if column.len() == n {
+      height = n
     }
   }
   let broadcasted : Array[Series] = []

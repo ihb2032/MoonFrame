@@ -56,6 +56,21 @@ test "show: a string literal escapes control characters" {
   // Control characters become `\n` / `\r` / `\t` so a literal can never
   // inject a spurious line into the `explain` tree.
   inspect(lit_str("a\nb\tc\rd"), content="\"a\\nb\\tc\\rd\"")
+  // Other control characters (the rest of C0, DEL, and the Unicode
+  // line/paragraph separators) become `\uXXXX`, so a hostile string can inject
+  // neither a terminal control sequence nor an extra line into a plan.
+  inspect(
+    lit_str("a\u{1b}\u{7f}\u{85}\u{2028}\u{2029}b"),
+    content="\"a\\u001b\\u007f\\u0085\\u2028\\u2029b\"",
+  )
+}
+
+///|
+test "show: col and alias names are escaped, so neither can inject a plan line" {
+  // A column or alias name sourced from a hostile CSV header cannot inject a
+  // newline or a terminal control sequence into a rendered plan.
+  inspect(col("a\nb"), content="col(a\\nb)")
+  inspect(col("x").with_alias("a\u{1b}b"), content="col(x) as a\\u001bb")
 }
 
 ///|
@@ -64,6 +79,8 @@ test "show: every unary form" {
   inspect(col("p").not(), content="(not col(p))")
   inspect(col("x").is_null(), content="col(x).is_null()")
   inspect(col("x").is_not_null(), content="col(x).is_not_null()")
+  inspect(col("x").is_nan(), content="col(x).is_nan()")
+  inspect(col("x").is_not_nan(), content="col(x).is_not_nan()")
 }
 
 ///|

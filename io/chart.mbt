@@ -34,6 +34,30 @@ pub(all) enum ChartKind {
 } derive(Eq, Debug)
 
 ///|
+/// A Vega-Lite field `type`, used to override the dtype-based inference for the
+/// `color` channel. `pub(all)` so callers can name the variants when calling
+/// `with_color_type`. `Quantitative` is a continuous measure (a color
+/// gradient), `Nominal` an unordered category (distinct colors per value),
+/// `Ordinal` an ordered category, and `Temporal` a time field.
+pub(all) enum VegaType {
+  Quantitative
+  Nominal
+  Ordinal
+  Temporal
+} derive(Eq, Debug)
+
+///|
+/// The Vega-Lite `type` string for a `VegaType`.
+fn vega_type_string(t : VegaType) -> String {
+  match t {
+    Quantitative => "quantitative"
+    Nominal => "nominal"
+    Ordinal => "ordinal"
+    Temporal => "temporal"
+  }
+}
+
+///|
 /// A chart specification: the `mark` kind, the `x` / `y` encoding columns,
 /// an optional `color` grouping column, and an optional `title`. Fields are
 /// private outside the package — build a spec through one of the
@@ -45,37 +69,40 @@ pub(all) enum ChartKind {
 /// `x` / `y` / `color` are column names resolved against the frame at
 /// `format_vega_lite` time (a missing name raises `ColumnNotFound`); each
 /// column's dtype decides its Vega-Lite field `type` (numeric →
-/// `quantitative`, otherwise → `nominal`).
+/// `quantitative`, otherwise → `nominal`), unless `color_type` overrides the
+/// `color` channel — e.g. a numeric grouping column (a cluster id) rendered as
+/// `Nominal` distinct colors rather than a continuous gradient.
 pub struct ChartSpec {
   kind : ChartKind
   x : String
   y : String
   color : String?
   title : String?
+  color_type : VegaType?
 } derive(Eq, Debug)
 
 ///|
 /// A bar chart of `y` against `x` (Vega-Lite `mark: "bar"`).
 pub fn ChartSpec::bar(x : String, y : String) -> ChartSpec {
-  { kind: Bar, x, y, color: None, title: None }
+  { kind: Bar, x, y, color: None, title: None, color_type: None }
 }
 
 ///|
 /// A line chart of `y` against `x` (Vega-Lite `mark: "line"`).
 pub fn ChartSpec::line(x : String, y : String) -> ChartSpec {
-  { kind: Line, x, y, color: None, title: None }
+  { kind: Line, x, y, color: None, title: None, color_type: None }
 }
 
 ///|
 /// A scatter (point) chart of `y` against `x` (Vega-Lite `mark: "point"`).
 pub fn ChartSpec::point(x : String, y : String) -> ChartSpec {
-  { kind: Point, x, y, color: None, title: None }
+  { kind: Point, x, y, color: None, title: None, color_type: None }
 }
 
 ///|
 /// An area chart of `y` against `x` (Vega-Lite `mark: "area"`).
 pub fn ChartSpec::area(x : String, y : String) -> ChartSpec {
-  { kind: Area, x, y, color: None, title: None }
+  { kind: Area, x, y, color: None, title: None, color_type: None }
 }
 
 ///|
@@ -88,6 +115,28 @@ pub fn ChartSpec::with_color(self : ChartSpec, column : String) -> ChartSpec {
     y: self.y,
     color: Some(column),
     title: self.title,
+    color_type: self.color_type,
+  }
+}
+
+///|
+/// Return a copy of this spec that overrides the `color` channel's Vega-Lite
+/// field `type`, instead of inferring it from the column dtype. Use `Nominal`
+/// (or `Ordinal`) to render a *numeric* grouping column — a cluster id, a year
+/// — as distinct per-group colors rather than the continuous gradient that
+/// `quantitative` (the numeric default) would produce. Only the `color`
+/// channel honours this; `x` / `y` keep dtype inference. Chainable.
+pub fn ChartSpec::with_color_type(
+  self : ChartSpec,
+  color_type : VegaType,
+) -> ChartSpec {
+  {
+    kind: self.kind,
+    x: self.x,
+    y: self.y,
+    color: self.color,
+    title: self.title,
+    color_type: Some(color_type),
   }
 }
 
@@ -100,6 +149,7 @@ pub fn ChartSpec::with_title(self : ChartSpec, title : String) -> ChartSpec {
     y: self.y,
     color: self.color,
     title: Some(title),
+    color_type: self.color_type,
   }
 }
 
@@ -139,10 +189,14 @@ pub fn format_vega_lite(
   }
   obj["mark"] = Json::string(chart_mark(spec.kind))
   let encoding : Map[String, Json] = {}
-  encoding["x"] = encoding_channel(spec.x, x_dtype)
-  encoding["y"] = encoding_channel(spec.y, y_dtype)
+  encoding["x"] = encoding_channel(spec.x, x_dtype, None)
+  encoding["y"] = encoding_channel(spec.y, y_dtype, None)
   if spec.color is Some(color) {
-    encoding["color"] = encoding_channel(color, df.get_column(color).dtype())
+    encoding["color"] = encoding_channel(
+      color,
+      df.get_column(color).dtype(),
+      spec.color_type,
+    )
   }
   obj["encoding"] = Json::object(encoding)
   let data : Map[String, Json] = {}
@@ -182,18 +236,42 @@ fn chart_mark(kind : ChartKind) -> String {
 
 ///|
 /// Build one Vega-Lite encoding-channel object `{"field": <name>, "type":
-/// <vega-type>}`. The field `type` follows the column dtype: a numeric
-/// column (`Int` / `Float`) is `"quantitative"`; everything else
-/// (`String` / `Bool`, and an all-null `Null` column) is `"nominal"`.
-fn encoding_channel(field : String, dtype : @types.DataType) -> Json {
+/// <vega-type>}`. An explicit `type_override` wins; otherwise the field `type`
+/// follows the column dtype: a numeric column (`Int` / `Float`) is
+/// `"quantitative"`; everything else (`String` / `Bool`, and an all-null
+/// `Null` column) is `"nominal"`.
+fn encoding_channel(
+  field : String,
+  dtype : @types.DataType,
+  type_override : VegaType?,
+) -> Json {
   let channel : Map[String, Json] = {}
-  channel["field"] = Json::string(field)
-  channel["type"] = Json::string(
-    if dtype.is_numeric() {
-      "quantitative"
-    } else {
-      "nominal"
-    },
-  )
+  channel["field"] = Json::string(escape_vega_field(field))
+  let vtype = match type_override {
+    Some(t) => vega_type_string(t)
+    None => if dtype.is_numeric() { "quantitative" } else { "nominal" }
+  }
+  channel["type"] = Json::string(vtype)
   Json::object(channel)
+}
+
+///|
+/// Escape a column name for use as a Vega-Lite encoding `field`. Vega-Lite
+/// reads an unescaped `.` as nested-object access and `[...]` as array
+/// indexing, so a column literally named `price.usd` or `a[0]` would resolve
+/// to a missing nested path and silently plot nothing. Prefixing `\`, `.`,
+/// `[`, and `]` with a backslash makes the name a literal field access (the
+/// JSON stringifier then escapes the backslash itself). A single forward pass,
+/// total.
+fn escape_vega_field(name : String) -> String {
+  let buf = StringBuilder::new()
+  for ch in name.iter() {
+    if ch == '\\' || ch == '.' || ch == '[' || ch == ']' {
+      buf.write_char('\\')
+      buf.write_char(ch)
+    } else {
+      buf.write_char(ch)
+    }
+  }
+  buf.to_string()
 }

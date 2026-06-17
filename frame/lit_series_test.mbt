@@ -106,6 +106,19 @@ test "lit_series: a length neither 1 nor the frame height raises LengthMismatch"
 }
 
 ///|
+// `select` agrees with `with_columns`: an off-length literal series is a
+// LengthMismatch, not a silent change of the output row count. The frame is
+// 3 rows; a 2-row literal series is neither frame-tall nor a length-1
+// broadcast, even when it is the only projected column.
+test "lit_series: select rejects an off-length series instead of resizing the frame" {
+  let two = Series::from_ints("k", [1, 2])
+  assert_eq(
+    try? lit_series_df().select([@expr.lit_series(two)]),
+    Err(@types.DataError::LengthMismatch),
+  )
+}
+
+///|
 test "lit_series: combines positionally inside a compound expression" {
   // A frame-tall literal column is row-aligned with the frame, so it adds to
   // a column cell for cell.

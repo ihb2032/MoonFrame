@@ -644,6 +644,66 @@ test "is_null / is_not_null: read validity, never produce a null" {
   assert_eq(probed.get_column("inull").null_count(), 0)
 }
 
+///|
+test "is_nan / is_not_nan: NaN is a value, nulls propagate, Int is never NaN" {
+  let nan : Double = @double.not_a_number
+  let df = DataFrame::new([
+    Series::from_float_options("f", [Some(1.0), Some(nan), None]),
+    Series::from_int_options("i", [Some(5), None, Some(7)]),
+  ])
+  let out = df.with_columns([
+    @expr.col("f").is_nan().with_alias("fnan"),
+    @expr.col("f").is_not_nan().with_alias("fnn"),
+    @expr.col("i").is_nan().with_alias("inan"),
+  ])
+  // Float: finite -> false, NaN -> true, null -> null (the probe propagates).
+  assert_eq(out.get_column("fnan").to_scalars(), [
+    @types.Scalar::Bool(false),
+    @types.Scalar::Bool(true),
+    @types.Scalar::Null,
+  ])
+  assert_eq(out.get_column("fnn").to_scalars(), [
+    @types.Scalar::Bool(true),
+    @types.Scalar::Bool(false),
+    @types.Scalar::Null,
+  ])
+  // Int is never NaN: present cells -> false, null -> null.
+  assert_eq(out.get_column("inan").to_scalars(), [
+    @types.Scalar::Bool(false),
+    @types.Scalar::Null,
+    @types.Scalar::Bool(false),
+  ])
+}
+
+///|
+test "is_nan / is_not_nan: a non-numeric operand raises TypeMismatch" {
+  let df = DataFrame::new([Series::from_strings("s", ["a"])])
+  assert_true(
+    (try? df.with_columns([@expr.col("s").is_nan()]))
+    is Err(@types.DataError::TypeMismatch(_)),
+  )
+  assert_true(
+    (try? df.with_columns([@expr.col("s").is_not_nan()]))
+    is Err(@types.DataError::TypeMismatch(_)),
+  )
+}
+
+///|
+test "fill_nan: replaces NaN, keeps finite and null cells, named after self" {
+  let nan : Double = @double.not_a_number
+  let df = DataFrame::new([
+    Series::from_float_options("x", [Some(1.5), Some(nan), None]),
+  ])
+  let out = df.with_columns([@expr.col("x").fill_nan(@expr.lit_float(0.0))])
+  // NaN -> 0.0; finite kept; a true null stays null (fill_nan fills only NaN).
+  assert_eq(out.get_column("x").to_scalars(), [
+    @types.Scalar::Float(1.5),
+    @types.Scalar::Float(0.0),
+    @types.Scalar::Null,
+  ])
+  assert_eq(out.columns(), ["x"])
+}
+
 // ── Aggregations ─────────────────────────────────────────────────────
 
 ///|

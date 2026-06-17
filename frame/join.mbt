@@ -339,11 +339,13 @@ pub fn DataFrame::join(
 /// - `InvalidOperation(detail)` — no keys at all, both `on` and
 ///   `left_on` / `right_on` given, or `left_on` / `right_on` of unequal
 ///   length (all via `join_key_exprs`).
-/// - `DuplicateColumn(name)` — two keys share an output name. Reported at
-///   the repeat, in key order, mirroring `group_by`'s key-list contract (a
-///   repeated key would otherwise be silently redundant). Checked before
-///   that key is evaluated, so a *missing* repeated key still surfaces as
-///   `ColumnNotFound` at its first appearance.
+/// - `DuplicateColumn(name)` — a bare `col(name)` key is repeated. Reported
+///   at the repeat, in key order, mirroring `group_by`'s key-list contract (a
+///   repeated bare key would otherwise be silently redundant). Only bare-`col`
+///   keys are checked: derived keys contribute no output column, so two
+///   distinct derived keys sharing a leftmost name are different keys, not a
+///   collision. Checked before that key is evaluated, so a *missing* repeated
+///   key still surfaces as `ColumnNotFound` at its first appearance.
 /// - `ColumnNotFound(name)` — a key expression references an absent column,
 ///   first offending key in key order (the left key evaluated before the
 ///   right).
@@ -366,19 +368,26 @@ fn resolve_join_keys(
   let rscope = Array::makei(rn, i => i)
   let left_key_scalars : Array[Array[@types.Scalar]] = []
   let right_key_scalars : Array[Array[@types.Scalar]] = []
-  // The running `seen` set raises `DuplicateColumn` at a key repeated by
-  // output name — before that key is evaluated a second time — so `join`
-  // matches `group_by` / `select`'s "no duplicate keys" contract instead of
-  // silently treating two equal keys as one. Checked before evaluation, so a
-  // *missing* repeated key still surfaces as `ColumnNotFound` at its first
-  // appearance (its own evaluation fails before the repeat is reached).
+  // The running `seen` set raises `DuplicateColumn` at a bare-`col` key
+  // repeated by name — before that key is evaluated a second time — so `join`
+  // matches `group_by`'s "no duplicate keys" contract instead of silently
+  // treating two equal keys as one. Only a bare `col(name)` participates: a
+  // *derived* key (any non-`Col` expression) contributes no output column —
+  // the output is the two frames' own columns, never the key expressions —
+  // so two distinct derived keys that share a leftmost-column name
+  // (`col("ts") / day` and `col("ts") % day`) are legitimately different keys
+  // and must not collide. Checked before evaluation, so a *missing* repeated
+  // key still surfaces as `ColumnNotFound` at its first appearance (its own
+  // evaluation fails before the repeat is reached).
   let seen : Map[String, Unit] = {}
   for i in 0..<left_exprs.length() {
     let name = expr_output_name(left_exprs[i])
-    if seen.contains(name) {
-      raise @types.DataError::DuplicateColumn(name)
+    if left_exprs[i] is @expr.Expr::Col(_) {
+      if seen.contains(name) {
+        raise @types.DataError::DuplicateColumn(name)
+      }
+      seen[name] = ()
     }
-    seen[name] = ()
     let lcol = broadcast_series(eval_expr(left_exprs[i], left, lscope), ln)
     let rcol = broadcast_series(eval_expr(right_exprs[i], right, rscope), rn)
     if lcol.dtype() != rcol.dtype() {

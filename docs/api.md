@@ -670,6 +670,15 @@ raise the evaluator's `DataError` (`ColumnNotFound` / `TypeMismatch` /
   `Filter` node defers — and, being a reified `Expr` rather than a closure,
   the predicate the optimizer can push down. A row-wise host predicate is
   reachable through the `map_many` escape hatch.
+- `unique() -> DataFrame` — **total**. Drop duplicate rows, keeping the first
+  occurrence of each in first-appearance order (Polars'
+  `unique(maintain_order=True)`). Row identity is the composite cell tuple
+  `group_by` / `join` key on, so a `Float` `NaN` equals `NaN`, `-0.0` folds
+  into `+0.0`, and a **null** cell is an ordinary value (rows that are null in
+  the same places and equal elsewhere are duplicates). The schema and column
+  order are unchanged; an all-distinct or 0-row frame is returned as-is.
+  (Polars' `subset` / `keep` parameters — dedup on a column subset, keep the
+  last, or drop all duplicates — are deferred.)
 
 A computed numeric result lands on the `Numeric` backend when all-valid,
 `Builtin` otherwise; a `col(...)` reference preserves its source column's

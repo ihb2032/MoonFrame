@@ -109,7 +109,7 @@ on all four backends, so it always matches the current API.
   `read_ndjson` and their `write_*` counterparts, with tunable
   [type inference](docs/type-inference.md).
 - **Reshape** — `filter`, `select`, `drop`, `rename`, `with_columns`, multi-key
-  `sort`, and null handling (`drop_nulls`, `fill_null`).
+  `sort`, row dedup (`unique`), and null handling (`drop_nulls`, `fill_null`).
 - **Group & aggregate** — `group_by(keys).agg([...])` with `sum` / `mean` /
   `min` / `max` / `count` / `std` / `variance` / `median` / `n_unique` /
   `first` / `last`.

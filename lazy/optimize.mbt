@@ -69,6 +69,12 @@
 ///   filtering their rows before it drop exactly the same groups, in the
 ///   same first-appearance order — and a bare key's output column holds its
 ///   input column verbatim, so the predicate reads identical values below).
+///   Every key must also be `row_stable`, not only the ones the predicate
+///   reads: each key is materialised as an output column (and joins the
+///   grouping tuple). An aggregate key broadcasts a whole-scope reduction,
+///   so a filtered scope would silently recompute its output cell; a cast /
+///   map / lit-series key is value-raising or positional per `row_stable`.
+///   All four must stay above the filter.
 ///   A *derived* key (any non-`Col` expression) outputs a computed column
 ///   whose name need not exist in the input at all, so a predicate over it
 ///   stays above; predicates over aggregation *outputs* read non-key names
@@ -213,6 +219,7 @@ fn place_filter(input : LogicalPlan, predicate : @expr.Expr) -> LogicalPlan {
       }
     Aggregate(inner, keys, exprs) =>
       if row_stable(predicate) &&
+        all_row_stable(keys) &&
         reads_only_keys(predicate, keys) &&
         all_group_cells_stable(exprs) {
         Aggregate(place_filter(inner, predicate), keys, exprs)

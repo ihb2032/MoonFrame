@@ -99,7 +99,8 @@ pub fn CsvWriteOptions::default() -> CsvWriteOptions {
 ///      case re-folds that row into the data section and synthesises
 ///      `column1`, `column2`, … names.
 ///   2. Per-column type inference walks the first `infer_schema_rows`
-///      non-null cells in order `Int → Float → Bool → String`. The
+///      rows in order `Int → Float → Bool → String` (a null cell within
+///      them is skipped but still counts toward the window). The
 ///      first option that accepts every probed cell wins; a column
 ///      with no non-null probes lands on `String` (no information to
 ///      disambiguate).
@@ -410,11 +411,12 @@ fn is_null_value(value : String, null_values : Array[String]) -> Bool {
 }
 
 ///|
-/// Probe the first `limit` non-null cells of `col` to pick a dtype.
-/// `Int → Float → Bool → String` in order; whichever option accepts
-/// every probed cell wins. A column whose probe window is entirely
-/// null defaults to `String`. Adapts the CSV cell source (`String`
-/// cells from the row matrix) onto the shared `infer_dtype` core.
+/// Probe the first `limit` rows of `col` to pick a dtype (a null cell is
+/// skipped but still counts toward the window). `Int → Float → Bool →
+/// String` in order; whichever option accepts every probed cell wins. A
+/// column whose probe window is entirely null defaults to `String`. Adapts
+/// the CSV cell source (`String` cells from the row matrix) onto the shared
+/// `infer_dtype` core.
 fn infer_column_dtype(
   rows : Array[Array[String]],
   col : Int,

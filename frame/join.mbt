@@ -1,4 +1,29 @@
 ///|
+/// Index a frame's rows by composite join key: maps each non-null key tuple
+/// to the ascending list of row indices that carry it. A row whose key has
+/// any null cell is unmatchable (`join_row_key` returns `None`), so it is
+/// never indexed. Shared by every `how` so the null-key skip and the
+/// bucket-append convention live in one place; bucket order is ascending
+/// because the row index only grows. Total.
+fn index_by_join_key(
+  key_scalars : Array[Array[@types.Scalar]],
+  n : Int,
+) -> Map[Array[KeyCell], Array[Int]] {
+  let index : Map[Array[KeyCell], Array[Int]] = {}
+  for i in 0..<n {
+    match join_row_key(key_scalars, i) {
+      Some(k) =>
+        match index.get(k) {
+          Some(rows) => rows.push(i)
+          None => index[k] = [i]
+        }
+      None => ()
+    }
+  }
+  index
+}
+
+///|
 /// Equi-join `self` (the left frame) with `other` (the right frame) on the
 /// key **expressions** in `options.on` (or the paired `left_on` /
 /// `right_on`), producing a new `DataFrame`.
@@ -127,20 +152,9 @@ pub fn DataFrame::join(
       let (left_key_scalars, right_key_scalars) = resolve_join_keys(
         self, other, options,
       )
-      // Hash the left frame: composite key -> matching left row indices, in
-      // ascending order (`i` only grows). A left row with a null key cell is
-      // unmatchable, so it is never indexed.
-      let left_index : Map[Array[KeyCell], Array[Int]] = {}
-      for i in 0..<self.nrows() {
-        match join_row_key(left_key_scalars, i) {
-          Some(k) =>
-            match left_index.get(k) {
-              Some(rows) => rows.push(i)
-              None => left_index[k] = [i]
-            }
-          None => ()
-        }
-      }
+      // Hash the left frame: composite key -> ascending matching left rows
+      // (null-key rows unmatchable, so never indexed).
+      let left_index = index_by_join_key(left_key_scalars, self.nrows())
       // Probe each right row in order. A null right key (`None`) and a key
       // with no left entry are the same case: no match, keep the right row
       // with null left columns.
@@ -166,20 +180,9 @@ pub fn DataFrame::join(
       let (left_key_scalars, right_key_scalars) = resolve_join_keys(
         self, other, options,
       )
-      // Hash the right frame: composite key -> matching right row indices,
-      // in ascending order (`j` only grows). A right row with a null key
-      // cell is unmatchable, so it is never indexed.
-      let right_index : Map[Array[KeyCell], Array[Int]] = {}
-      for j in 0..<other.nrows() {
-        match join_row_key(right_key_scalars, j) {
-          Some(k) =>
-            match right_index.get(k) {
-              Some(rows) => rows.push(j)
-              None => right_index[k] = [j]
-            }
-          None => ()
-        }
-      }
+      // Hash the right frame: composite key -> ascending matching right rows
+      // (null-key rows unmatchable, so never indexed).
+      let right_index = index_by_join_key(right_key_scalars, other.nrows())
       // `Left` / `Outer` keep an unmatched left row (null right); `Inner`
       // drops it. `Outer` additionally appends the unmatched right rows.
       let keep_unmatched_left = match options.how {

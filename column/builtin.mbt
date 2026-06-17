@@ -201,18 +201,7 @@ pub fn BuiltinColumn::slice(
   start : Int,
   end : Int,
 ) -> BuiltinColumn raise @types.DataError {
-  let len = self.len()
-  if start < 0 {
-    raise @types.DataError::IndexOutOfBounds(start)
-  }
-  if end > len {
-    raise @types.DataError::IndexOutOfBounds(end)
-  }
-  if start > end {
-    raise @types.DataError::InvalidOperation(
-      "slice start > end: " + start.to_string() + " > " + end.to_string(),
-    )
-  }
+  validate_slice_bounds(start, end, self.len())
   self.slice_unchecked(start, end)
 }
 
@@ -245,12 +234,7 @@ pub fn BuiltinColumn::take(
   self : BuiltinColumn,
   indices : Array[Int],
 ) -> BuiltinColumn raise @types.DataError {
-  let len = self.len()
-  for i in indices {
-    if i < 0 || i >= len {
-      raise @types.DataError::IndexOutOfBounds(i)
-    }
-  }
+  validate_gather_indices(indices, self.len())
   let data_out : ColumnData = match self.data {
     Int(a) => Int(indices.map(i => a[i]))
     Float(a) => Float(indices.map(i => a[i]))
@@ -315,7 +299,7 @@ fn BuiltinColumn::to_int(
             raise @types.DataError::ParseError("cannot cast NaN to Int")
           } else if x.is_inf() {
             raise @types.DataError::ParseError("cannot cast Infinity to Int")
-          } else if x < min_int_as_double || x > max_int_as_double {
+          } else if !@types.double_fits_int64(x) {
             raise @types.DataError::ParseError(
               "Float value out of Int range: " + x.to_string(),
             )
@@ -377,20 +361,6 @@ fn BuiltinColumn::to_int(
     }
   }
 }
-
-///|
-/// `Int64::MIN` / `Int64::MAX` projected into `Double` space, used to
-/// reject out-of-range `Float`→`Int` casts before `Double::to_int64`
-/// (which is implementation-defined outside the representable range).
-///
-/// `Int64::MIN = -2^63` is exactly representable as a `Double`;
-/// `Int64::MAX = 2^63 - 1` is not — the largest `Double` strictly below
-/// `2^63` is `9223372036854774784` (`2^63 - 1024`). Anything above it
-/// rounds to a `Double` ≥ `2^63` and would overflow `Int64`.
-let min_int_as_double : Double = -9223372036854775808.0
-
-///|
-let max_int_as_double : Double = 9223372036854774784.0
 
 ///|
 /// Convert to `Float` — the file-private implementation behind `cast(Float)`.

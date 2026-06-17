@@ -162,18 +162,7 @@ pub fn NumericColumn::slice(
   start : Int,
   end : Int,
 ) -> NumericColumn raise @types.DataError {
-  let len = self.len()
-  if start < 0 {
-    raise @types.DataError::IndexOutOfBounds(start)
-  }
-  if end > len {
-    raise @types.DataError::IndexOutOfBounds(end)
-  }
-  if start > end {
-    raise @types.DataError::InvalidOperation(
-      "slice start > end: " + start.to_string() + " > " + end.to_string(),
-    )
-  }
+  validate_slice_bounds(start, end, self.len())
   self.slice_unchecked(start, end)
 }
 
@@ -203,12 +192,7 @@ pub fn NumericColumn::take(
   self : NumericColumn,
   indices : Array[Int],
 ) -> NumericColumn raise @types.DataError {
-  let len = self.len()
-  for i in indices {
-    if i < 0 || i >= len {
-      raise @types.DataError::IndexOutOfBounds(i)
-    }
-  }
+  validate_gather_indices(indices, self.len())
   match self.data {
     Int(a) => { data: Int(indices.map(i => a[i])) }
     Float(a) => { data: Float(indices.map(i => a[i])) }
@@ -371,34 +355,6 @@ pub fn NumericColumn::mean(
 }
 
 ///|
-/// Fold the cells to an extremum, skipping those `skip(i)` marks (always
-/// `false` for `Int`; `NaN` for `Float`). `better(candidate, best)` decides
-/// replacement. Returns `None` when every cell is skipped (an empty column,
-/// or an all-`NaN` `Float` column). `min` / `max` share this so
-/// each dtype arm supplies only its reader, skip test, and comparator instead
-/// of repeating the `best : T?` accumulation four times.
-fn[T] fold_extremum(
-  n : Int,
-  get : (Int) -> T,
-  skip : (Int) -> Bool,
-  better : (T, T) -> Bool,
-) -> T? {
-  let mut best : T? = None
-  for i in 0..<n {
-    if !skip(i) {
-      // Bind the cell once: the `Some` arm would otherwise evaluate `get(i)`
-      // up to twice per kept element.
-      let v = get(i)
-      best = match best {
-        None => Some(v)
-        Some(b) => if better(v, b) { Some(v) } else { Some(b) }
-      }
-    }
-  }
-  best
-}
-
-///|
 /// Minimum cell as a `Scalar`, by the dtype's natural order. Total, matching
 /// `Series::min`:
 /// - Empty column → `Scalar::Null`.
@@ -408,18 +364,22 @@ fn[T] fold_extremum(
 pub fn NumericColumn::min(self : NumericColumn) -> @types.Scalar {
   match self.data {
     Int(a) => {
-      let best = fold_extremum(a.length(), i => a[i], fn(_i) { false }, (x, y) => {
-        x < y
-      })
+      let best = @types.fold_extremum(a.length(), i => a[i], fn(_i) { false }, (
+        x,
+        y,
+      ) => x < y)
       match best {
         None => @types.Scalar::Null
         Some(b) => @types.Scalar::Int(b)
       }
     }
     Float(a) => {
-      let best = fold_extremum(a.length(), i => a[i], i => a[i].is_nan(), (x, y) => {
-        x < y
-      })
+      let best = @types.fold_extremum(
+        a.length(),
+        i => a[i],
+        i => a[i].is_nan(),
+        (x, y) => x < y,
+      )
       match best {
         None => @types.Scalar::Null
         Some(b) => @types.Scalar::Float(b)
@@ -434,18 +394,22 @@ pub fn NumericColumn::min(self : NumericColumn) -> @types.Scalar {
 pub fn NumericColumn::max(self : NumericColumn) -> @types.Scalar {
   match self.data {
     Int(a) => {
-      let best = fold_extremum(a.length(), i => a[i], fn(_i) { false }, (x, y) => {
-        x > y
-      })
+      let best = @types.fold_extremum(a.length(), i => a[i], fn(_i) { false }, (
+        x,
+        y,
+      ) => x > y)
       match best {
         None => @types.Scalar::Null
         Some(b) => @types.Scalar::Int(b)
       }
     }
     Float(a) => {
-      let best = fold_extremum(a.length(), i => a[i], i => a[i].is_nan(), (x, y) => {
-        x > y
-      })
+      let best = @types.fold_extremum(
+        a.length(),
+        i => a[i],
+        i => a[i].is_nan(),
+        (x, y) => x > y,
+      )
       match best {
         None => @types.Scalar::Null
         Some(b) => @types.Scalar::Float(b)

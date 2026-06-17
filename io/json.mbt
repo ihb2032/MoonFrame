@@ -23,6 +23,15 @@
 // This matches pandas' `to_json` against JavaScript consumers; values
 // within ±2^53 round-trip exactly.
 //
+// Caveat 3 — all-non-finite / all-null `Float`. `scalar_to_json` maps every
+// `NaN` / `±Infinity` to JSON `null` (no JSON literal exists for them), so a
+// `Float` column that is *entirely* non-finite and/or null writes as all
+// `null`. On read-back, an all-null column carries no dtype signal and infers
+// as `String` (the all-null default), narrowing `Float → String`. This is
+// inherent to JSON's lack of a `NaN` literal plus schemaless inference; a
+// column with at least one finite value keeps its `Float` dtype. (Same applies
+// to NDJSON, which shares `scalar_to_json` and the inference core.)
+//
 // All parsing and stringification goes through the builtin `@json`
 // package so we get standards-conformant string escaping, the
 // `NaN` / `Infinity` rendering convention, and number formatting for

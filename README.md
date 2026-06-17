@@ -120,9 +120,12 @@ on all four backends, so it always matches the current API.
   `(col("revenue") - col("cost")).sum()`. For logic past the built-in
   algebra, the `map_elements` / `map_many` escape hatch applies a host
   closure row by row.
-- **Defer & optimize** — `lazy_frame(df)` builds a query plan you can
-  `explain()`; `collect()` runs it through a predicate- and
+- **Defer & optimize** — `lazy_frame(df)`, or `scan_csv("sales.csv")` /
+  `scan_ndjson("events.ndjson")` for a lazy file source, builds a query plan
+  you can `explain()`; `collect()` runs it through a predicate- and
   projection-pushdown optimizer, bitwise-equal to the eager pipeline.
+  Projection pushdown narrows a file scan to the columns the pipeline reads,
+  so only those are parsed.
 - **Join** — the full `inner` / `left` / `right` / `outer` / `cross` matrix on
   expression keys, e.g.
   `orders.join(customers, JoinOptions::on([col("customer_id")]))` (or

@@ -81,6 +81,24 @@ pub fn parse_ndjson_str(
   content : String,
   options : NdjsonReadOptions,
 ) -> @frame.DataFrame raise @types.DataError {
+  parse_ndjson_str_projected(content, options, None)
+}
+
+///|
+/// Shared core behind `parse_ndjson_str` and `read_ndjson_projected`: the full
+/// line-split / per-line parse pipeline documented on `parse_ndjson_str`, with
+/// one extra knob — `projection`. `None` builds every column; `Some(names)`
+/// builds only the named columns (in first-seen header order), the
+/// projection-pushdown path the lazy `scan_ndjson` source uses. Every line is
+/// still parsed (streaming is v0.6), and record validation runs before the
+/// column filter — so a projected read fails on a malformed or non-object line
+/// exactly as a full read does; only a parse error confined to a dropped column
+/// goes unraised (see `frame_from_json_records`).
+fn parse_ndjson_str_projected(
+  content : String,
+  options : NdjsonReadOptions,
+  projection : Array[String]?,
+) -> @frame.DataFrame raise @types.DataError {
   // Materialise the line views so the loop can carry a 1-based index
   // for diagnostics (the same `for i, x in ...` idiom the other readers
   // use). The views borrow `content`, so this is cheap.
@@ -107,6 +125,7 @@ pub fn parse_ndjson_str(
     records,
     options.infer_schema_rows,
     options.on_parse_error,
+    projection,
   )
 }
 
@@ -127,6 +146,25 @@ pub fn read_ndjson_with_options(
     @fs.IOError(msg) => raise @types.DataError::IoError(msg)
   }
   parse_ndjson_str(content, options)
+}
+
+///|
+/// Read an NDJSON file, building only the columns named in `projection` — the
+/// file-backed entry behind the lazy `scan_ndjson` source's projection
+/// pushdown. Identical to `read_ndjson_with_options` except that a column whose
+/// header name is not in `projection` is never inferred or built (see
+/// `frame_from_json_records` for the precise contract, including the one
+/// behavioural consequence: a parse error confined to a dropped column does not
+/// surface). Filesystem errors surface as `raise IoError(message)`.
+pub fn read_ndjson_projected(
+  path : String,
+  options : NdjsonReadOptions,
+  projection : Array[String],
+) -> @frame.DataFrame raise @types.DataError {
+  let content = @fs.read_file_to_string(path) catch {
+    @fs.IOError(msg) => raise @types.DataError::IoError(msg)
+  }
+  parse_ndjson_str_projected(content, options, Some(projection))
 }
 
 ///|

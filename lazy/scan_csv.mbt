@@ -1,0 +1,33 @@
+///|
+/// The lazy CSV source: `scan_csv(path)` builds a `LazyFrame` whose leaf is a
+/// deferred read of `path` — the streaming-friendly counterpart of eager
+/// `read_csv`. Nothing is read or parsed until `collect`: the builder is
+/// total, like every other `LazyFrame` constructor, so a missing file or a
+/// malformed CSV only surfaces then (as the eager reader's `IoError` /
+/// `ParseError` / `DuplicateColumn`). The payoff over
+/// `lazy_frame(read_csv(path))` is projection push-down — the optimizer
+/// narrows the leaf to the columns the pipeline provably consumes, and only
+/// those are parsed, so
+/// `scan_csv("sales.csv").select([col("region"), col("revenue")]).collect()`
+/// never builds the columns it drops. (Because a dropped column is never
+/// parsed, a parse error confined to one — a malformed cell no consumer reads
+/// — does not surface, exactly as in Polars' projection push-down; this is
+/// the one place a narrowed scan diverges from a full eager read.)
+pub fn scan_csv(path : String) -> LazyFrame {
+  scan_csv_with_options(path, @io.CsvReadOptions::default())
+}
+
+///|
+/// `scan_csv` with explicit `CsvReadOptions` (delimiter, header, null
+/// strings, inference window, parse-error policy, …), mirroring the eager
+/// `read_csv` / `read_csv_with_options` pair. The options are captured into
+/// the plan and applied by the reader at collect time; projection push-down
+/// narrows which columns those options parse, never which options apply. The
+/// projection starts `None` (read every column) — only the optimizer fills
+/// it.
+pub fn scan_csv_with_options(
+  path : String,
+  options : @io.CsvReadOptions,
+) -> LazyFrame {
+  { plan: ScanCsv(path, options, None) }
+}

@@ -4,11 +4,20 @@ package "ihb2032/MoonFrame/lazy"
 import {
   "ihb2032/MoonFrame/expr",
   "ihb2032/MoonFrame/frame",
+  "ihb2032/MoonFrame/io",
   "ihb2032/MoonFrame/types",
 }
 
 // Values
 pub fn lazy_frame(@frame.DataFrame) -> LazyFrame
+
+pub fn scan_csv(String) -> LazyFrame
+
+pub fn scan_csv_with_options(String, @io.CsvReadOptions) -> LazyFrame
+
+pub fn scan_ndjson(String) -> LazyFrame
+
+pub fn scan_ndjson_with_options(String, @io.NdjsonReadOptions) -> LazyFrame
 
 // Errors
 

@@ -62,6 +62,14 @@ pub fn read_ndjson(String) -> @frame.DataFrame raise @types.DataError
 
 pub fn read_ndjson_with_options(String, @io.NdjsonReadOptions) -> @frame.DataFrame raise @types.DataError
 
+pub fn scan_csv(String) -> @lazy.LazyFrame
+
+pub fn scan_csv_with_options(String, @io.CsvReadOptions) -> @lazy.LazyFrame
+
+pub fn scan_ndjson(String) -> @lazy.LazyFrame
+
+pub fn scan_ndjson_with_options(String, @io.NdjsonReadOptions) -> @lazy.LazyFrame
+
 pub fn when(@expr.Expr) -> @expr.WhenThen
 
 pub fn write_csv(String, @frame.DataFrame) -> Unit raise @types.DataError

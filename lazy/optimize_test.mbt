@@ -1192,3 +1192,121 @@ test "a lit_series is a barrier: it blocks the filter sink, like cast" {
   // ...and collect stays bitwise-equal to the eager chain through it.
   assert_eq(plan.collect(), df.with_columns(derived).filter(predicate))
 }
+
+// ── The CSV source's projection push-down ────────────────────────────────
+//
+// Structural snapshots only — `explain` never reads the file. Unlike the
+// in-memory `Scan`, whose narrowing *inserts* a `SELECT`, a `ScanCsv` narrows
+// in place: the projected columns ride on the node as `SCAN_CSV "path"
+// [cols]`. The file-backed collect equivalences live in `scan_csv_test.mbt`.
+
+///|
+test "scan_csv: a selection writes its columns into the scan, no inserted select" {
+  let plan = scan_csv("sales.csv").select([@expr.col("region")])
+  // As built there is no projection; optimized, the read narrows in place —
+  // and (unlike an in-memory Scan) no extra SELECT is inserted.
+  assert_eq(plan.explain(), "SELECT [col(region)]\n  SCAN_CSV \"sales.csv\"")
+  assert_eq(
+    plan.explain(optimized=true),
+    "SELECT [col(region)]\n  SCAN_CSV \"sales.csv\" [region]",
+  )
+}
+
+///|
+test "scan_csv: the written projection is sorted for a deterministic explain" {
+  // One expression reads two columns; the file's order is unknown at optimize
+  // time, so the projection is sorted (bonus before qty).
+  let plan = scan_csv("sales.csv").select([
+    (@expr.col("qty") + @expr.col("bonus")).with_alias("t"),
+  ])
+  assert_eq(
+    plan.explain(optimized=true),
+    "SELECT [(col(qty) + col(bonus)) as t]\n" +
+    "  SCAN_CSV \"sales.csv\" [bonus, qty]",
+  )
+}
+
+///|
+test "scan_csv guard: an all-literal selection writes no projection" {
+  let plan = scan_csv("sales.csv").select([@expr.lit_int(1).with_alias("one")])
+  // No source column is read, so the scan stays whole — it still yields rows.
+  assert_eq(
+    plan.explain(optimized=true),
+    "SELECT [1 as one]\n  SCAN_CSV \"sales.csv\"",
+  )
+}
+
+///|
+test "scan_csv: a bare scan at the root writes no projection" {
+  assert_eq(
+    scan_csv("sales.csv").explain(optimized=true),
+    "SCAN_CSV \"sales.csv\"",
+  )
+}
+
+///|
+test "scan_csv: a filter's columns stay alive in the written projection" {
+  // The selection reads `region`; the filter needs `qty` — both ride into the
+  // projection, and (ScanCsv being a floor) the filter stays above the scan.
+  let plan = scan_csv("sales.csv")
+    .filter(@expr.col("qty").gt(@expr.lit_int(50)))
+    .select([@expr.col("region")])
+  assert_eq(
+    plan.explain(optimized=true),
+    "SELECT [col(region)]\n" +
+    "  FILTER (col(qty) > 50)\n" +
+    "    SCAN_CSV \"sales.csv\" [qty, region]",
+  )
+}
+
+///|
+test "scan_csv is a floor: a filter directly on it neither sinks nor narrows" {
+  // Predicate push-down into the parser is v0.6, so a filter on a bare CSV
+  // scan stays put and writes no projection.
+  let plan = scan_csv("sales.csv").filter(
+    @expr.col("qty").gt(@expr.lit_int(50)),
+  )
+  assert_eq(plan.explain(optimized=true), plan.explain())
+  assert_eq(
+    plan.explain(optimized=true),
+    "FILTER (col(qty) > 50)\n  SCAN_CSV \"sales.csv\"",
+  )
+}
+
+///|
+test "scan_csv: an aggregation narrows the scan to its keys and reads" {
+  let plan = scan_csv("sales.csv")
+    .group_by([@expr.col("region")])
+    .agg([@expr.col("qty").sum().with_alias("total")])
+  assert_eq(
+    plan.explain(optimized=true),
+    "AGGREGATE [col(qty).sum() as total] BY [col(region)]\n" +
+    "  SCAN_CSV \"sales.csv\" [qty, region]",
+  )
+}
+
+///|
+test "scan_ndjson narrows in place like scan_csv, only the label differs" {
+  // The shared narrow_scan / render_scan_source path serves both sources, so a
+  // selection writes the projection straight onto the SCAN_NDJSON node.
+  let plan = scan_ndjson("events.ndjson").select([@expr.col("region")])
+  assert_eq(
+    plan.explain(optimized=true),
+    "SELECT [col(region)]\n  SCAN_NDJSON \"events.ndjson\" [region]",
+  )
+  // A filter widens the projection and (NDJSON being a floor) stays above it.
+  let with_filter = scan_ndjson("events.ndjson")
+    .filter(@expr.col("qty").gt(@expr.lit_int(50)))
+    .select([@expr.col("region")])
+  assert_eq(
+    with_filter.explain(optimized=true),
+    "SELECT [col(region)]\n" +
+    "  FILTER (col(qty) > 50)\n" +
+    "    SCAN_NDJSON \"events.ndjson\" [qty, region]",
+  )
+  // Bare at the root: no requirement, so no projection is written.
+  assert_eq(
+    scan_ndjson("events.ndjson").explain(optimized=true),
+    "SCAN_NDJSON \"events.ndjson\"",
+  )
+}

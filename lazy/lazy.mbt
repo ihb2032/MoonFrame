@@ -175,7 +175,8 @@ pub fn LazyGroupBy::agg(
 /// total optimizer rewrites (`optimize.mbt`): filters sink below the
 /// stages they provably commute with, so rows drop as early as possible,
 /// and a required-columns pass then drops scan columns nothing downstream
-/// reads. The rewrites' contract is exactly this method's, so they change
+/// reads (and, for a `scan_csv` source, never parses them). The rewrites'
+/// contract is exactly this method's, so they change
 /// what work happens, never what comes back. The (optimized) plan is then
 /// walked bottom-up, delegating each node to the public eager operator it
 /// defers, so the result is bitwise-equal to running the same verbs
@@ -204,10 +205,10 @@ pub fn LazyFrame::collect(
 /// By default this is the plan **as built** — a faithful mirror of the
 /// chained verbs, which is the package's contract. Pass `optimized=true`
 /// to render the plan `collect` actually runs instead: a sunk `FILTER`
-/// appears below the stages it crossed, and the projection pushdown's
-/// narrowing `SELECT` (when one fires) appears directly over the `SCAN`,
-/// so printing both forms is the before/after view of what the optimizer
-/// moved and pruned. (Polars' `LazyFrame::explain(optimized)` is the
+/// appears below the stages it crossed, and the projection pushdown shows
+/// up as a narrowing `SELECT` over an in-memory `SCAN` or as the column list
+/// on a `SCAN_CSV` source, so printing both forms is the before/after view
+/// of what the optimizer moved and pruned. (Polars' `LazyFrame::explain(optimized)` is the
 /// namesake; plans are immutable, so the flag rewrites a copy and never
 /// perturbs this frame.)
 ///

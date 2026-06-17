@@ -880,6 +880,13 @@ are documented below.
   LF-terminated.
 - `read_csv(path)` / `read_csv_with_options(path, options) -> DataFrame
   raise DataError` — file wrappers (`IoError`).
+- `read_csv_projected(path, options, projection : Array[String]) ->
+  DataFrame raise DataError` — `read_csv_with_options` that builds only the
+  named `projection` columns (in the file's header order; the rest are never
+  inferred or parsed). The engine seam behind `lazy`'s `scan_csv` projection
+  pushdown — **not** re-exported by the facade. Whole-input checks (a
+  malformed header, a ragged row) are unaffected, but a parse error confined
+  to a dropped column does not surface (see `lazy`).
 - `write_csv(path, df)` / `write_csv_with_options(path, df, options) ->
   Unit raise DataError` — file wrappers (`IoError`).
 
@@ -939,6 +946,11 @@ NDJSON matches the same data read as a JSON array.
 - `read_ndjson(path)` / `read_ndjson_with_options(path, options) ->
   DataFrame raise DataError`; `write_ndjson(path, df) -> Unit raise
   DataError` — file wrappers (`IoError`).
+- `read_ndjson_projected(path, options, projection : Array[String]) ->
+  DataFrame raise DataError` — the NDJSON twin of `read_csv_projected`:
+  builds only the named columns, the engine seam behind `lazy`'s
+  `scan_ndjson` projection pushdown (not re-exported by the facade; a parse
+  error confined to a dropped column does not surface — see `lazy`).
 
 ### Chart export (Vega-Lite v5)
 
@@ -999,6 +1011,25 @@ plan through the public eager operators and holds `@expr.Expr` nodes);
 - `lazy_frame(df : DataFrame) -> LazyFrame` — a free-function alias for
   `from`, for the `read_csv(path)` hand-feel. (`lazy(df)` would be the
   obvious name, but `lazy` is a MoonBit reserved word.)
+- `scan_csv(path : String) -> LazyFrame` /
+  `scan_csv_with_options(path : String, options : CsvReadOptions) ->
+  LazyFrame` — a **lazy CSV source**: the plan's leaf is a deferred read of
+  `path` (a `ScanCsv` node), the streaming-friendly counterpart of eager
+  `read_csv`. Nothing is read until `collect`, and projection pushdown
+  (below) narrows the parse to the columns the pipeline consumes — so
+  `scan_csv("sales.csv").select([col("region"), col("revenue")]).collect()`
+  never builds the columns it drops. `scan_csv(p).….collect()` equals
+  `read_csv(p).…` on well-formed input; because a dropped column is never
+  parsed, a parse error confined to one (a malformed cell no stage reads)
+  does not surface, matching Polars' projection pushdown.
+- `scan_ndjson(path : String) -> LazyFrame` /
+  `scan_ndjson_with_options(path : String, options : NdjsonReadOptions) ->
+  LazyFrame` — the line-oriented sibling of `scan_csv` (a `ScanNdjson` node),
+  the lazy counterpart of eager `read_ndjson`. Same projection-pushdown
+  behaviour and the same dropped-column caveat. (There is no `scan_json` for
+  the single-array shape `[{...}]`: it must be parsed whole to find its
+  records, so nothing can be pruned at read time — the same reason Polars has
+  `scan_ndjson` but no `scan_json`.)
 
 ### Builders (all total — a plan is just data)
 
@@ -1051,10 +1082,13 @@ Each returns a new `LazyFrame` wrapping one more node:
   pin the filter above). Positional row windows, `sort`, `join`, and another
   filter stop the descent.
 - **Projection pushdown** then runs a top-down required-columns analysis
-  (via `Expr::referenced_columns` / `Expr::output_name`) and inserts a
-  narrowing selection of bare column references directly over a scan whose
-  consumers read a proper subset of its columns, dropping dead columns
-  before any row-level work. `Select` / `Aggregate` originate requirements;
+  (via `Expr::referenced_columns` / `Expr::output_name`) and narrows each
+  scan to the columns its consumers read, dropping dead columns before any
+  row-level work — inserting a narrowing selection of bare column references
+  over an in-memory scan, or writing the column set into a file source's
+  (`scan_csv` / `scan_ndjson`) own projection so the reader parses only those
+  columns (rendered `SCAN_CSV "path" [cols]` / `SCAN_NDJSON "path" [cols]`).
+  `Select` / `Aggregate` originate requirements;
   `Filter` / `Sort` widen the requirement by what they read; row windows
   pass it through; a `with_columns` subtracts the names it defines and adds
   the names it reads; `Join` is a barrier (each side restarts its own
@@ -1065,8 +1099,12 @@ eager chain, and a failing plan still fails (a single broken stage reports
 the same eager error; a plan with several independently broken stages may
 report a different one of its own errors once a filter sinks past a broken
 stage — which error surfaced was an artifact of stage order to begin
-with). Deferred (out of scope): dead-expression elimination, narrowing /
-predicate-splitting through joins, and sinking filters below sorts.
+with). The sole deliberate exception is a file source's projection
+(`scan_csv` / `scan_ndjson`): a column no consumer reads is never parsed, so
+a parse error confined to it goes unraised — the defining property of
+projection pushdown into a source. Deferred (out of scope): dead-expression
+elimination, narrowing / predicate-splitting through joins, sinking filters
+below sorts, and pushing predicates into a file parser (or streaming it).
 
 ---
 

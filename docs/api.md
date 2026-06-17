@@ -822,8 +822,10 @@ Hash equi-join, native to the method chain (`left.join(right, options)`).
     `InvalidOperation` (no keys for a non-`Cross` join — use `Cross` for a
     product — any keys on a `Cross` join, both `on` and `left_on` /
     `right_on` given, or `left_on` / `right_on` of unequal length),
-    `DuplicateColumn` (two keys with the same output name — rejected at the
-    repeat, like `group_by([col("id"), col("id")])`; or two output columns
+    `DuplicateColumn` (a bare `col(name)` key repeated — rejected at the
+    repeat, like `group_by([col("id"), col("id")])`; derived keys are not
+    name-checked, since two distinct derived keys sharing a leftmost name are
+    different keys and contribute no output column; or two output columns
     still colliding after suffixing — surfaced by `DataFrame::new`).
 - `enum JoinType` — `Inner` / `Left` / `Right` / `Outer` / `Cross`.
 - `struct JoinOptions` (fields private) — built via

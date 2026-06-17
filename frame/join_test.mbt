@@ -1252,6 +1252,38 @@ test "left_on / right_on with a derived right key matches on the value" {
 }
 
 ///|
+// Two distinct derived keys rooted at the same source column share a leftmost
+// name ("ts") but are different keys. They must not collide as
+// `DuplicateColumn` — a derived key produces no output column, so there is no
+// name clash to prevent. Only bare `col` keys are deduplicated.
+test "two derived keys over one source column join without a false DuplicateColumn" {
+  let left = DataFrame::new([
+    Series::from_ints("ts", [3, 4]),
+    Series::from_strings("litem", ["a", "b"]),
+  ])
+  let right = DataFrame::new([
+    Series::from_ints("ka", [4, 5]),
+    Series::from_ints("kb", [6, 8]),
+    Series::from_strings("ritem", ["x", "y"]),
+  ])
+  // Keys: ts + 1 = [4, 5] and ts * 2 = [6, 8]; both name "ts" but differ.
+  let out = left.join(
+    right,
+    JoinOptions::left_on([
+      @expr.col("ts") + @expr.lit_int(1),
+      @expr.col("ts") * @expr.lit_int(2),
+    ]).with_right_on([@expr.col("ka"), @expr.col("kb")]),
+  )
+  assert_eq(out.check_invariants(), Ok(()))
+  assert_eq(out.columns(), ["ts", "litem", "ka", "kb", "ritem"])
+  assert_eq(out.shape(), (2, 5))
+  assert_eq(out.item(0, "litem"), @types.Scalar::String("a"))
+  assert_eq(out.item(0, "ritem"), @types.Scalar::String("x"))
+  assert_eq(out.item(1, "litem"), @types.Scalar::String("b"))
+  assert_eq(out.item(1, "ritem"), @types.Scalar::String("y"))
+}
+
+///|
 test "a derived `on` key turns off coalescing, keeping both source columns" {
   let left = DataFrame::new([
     Series::from_ints("x", [1, 2, 3]),

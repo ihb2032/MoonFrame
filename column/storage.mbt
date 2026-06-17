@@ -111,6 +111,13 @@ pub fn ColumnStorage::null_count(self : ColumnStorage) -> Int {
 /// The raw backing storage, discriminated by dtype. Forwarded so the
 /// `col.storage().data()` reads in `group_by` / `join` / `sort` keep
 /// compiling unchanged after the `Series.storage` flip.
+///
+/// This returns the column's *live* backing array (no copy), and `ColumnData`
+/// is `pub(all)` so the engine can `match` it across packages. Treat the array
+/// as read-only: mutating it in place would corrupt the column (and any other
+/// column that shares the buffer through zero-copy conversion such as
+/// `to_numeric`). Columns are logically immutable; this accessor exists for
+/// reading, not editing.
 pub fn ColumnStorage::data(self : ColumnStorage) -> ColumnData {
   match self {
     Builtin(c) => c.data()

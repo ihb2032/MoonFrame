@@ -207,6 +207,28 @@ fn reduce_count(
 }
 
 ///|
+/// Resolve a numeric column's dtype dispatch once into a `(Int) -> Double` cell
+/// reader: an `Int` cell widens through `to_double`, a `Float` cell reads
+/// directly. Shared by the numeric-only reductions `variance` / `std` and
+/// `median`, which otherwise repeat this same three-arm match. A non-numeric
+/// (`Bool` / `String`) column has no such reading, so it `raise`s `TypeMismatch`
+/// here — naming the operation (`op`) that asked — at factory time, before any
+/// window is folded, exactly as `reduce_arith` rejects a non-numeric column.
+fn numeric_double_reader(
+  storage : @column.ColumnStorage,
+  op : String,
+) -> ((Int) -> Double) raise @types.DataError {
+  match storage.data() {
+    @column.ColumnData::Int(a) => i => a[i].to_double()
+    @column.ColumnData::Float(a) => i => a[i]
+    _ =>
+      raise @types.DataError::TypeMismatch(
+        op + " undefined for " + storage.dtype().to_string(),
+      )
+  }
+}
+
+///|
 /// `var` / `std` reducer over an index window (`want_std` square-roots the
 /// result): the **sample** statistics with `ddof = 1` (Polars' default). The
 /// variance is `Σ(xᵢ − mean)² / (cnt − 1)` over the `cnt` non-null cells and
@@ -225,16 +247,14 @@ fn reduce_variance(
   want_std~ : Bool,
 ) -> ((Int, (Int) -> Int) -> @types.Scalar) raise @types.DataError {
   let present = reduce_present(storage)
-  let read : (Int) -> Double = match storage.data() {
-    @column.ColumnData::Int(a) => i => a[i].to_double()
-    @column.ColumnData::Float(a) => i => a[i]
-    _ =>
-      raise @types.DataError::TypeMismatch(
-        (if want_std { "std" } else { "variance" }) +
-        " undefined for " +
-        storage.dtype().to_string(),
-      )
-  }
+  let read = numeric_double_reader(
+    storage,
+    if want_std {
+      "std"
+    } else {
+      "variance"
+    },
+  )
   fn(n : Int, at : (Int) -> Int) {
     // Pass one: the non-null count and running total behind the mean.
     let mut sum = 0.0
@@ -282,14 +302,7 @@ fn reduce_median(
   storage : @column.ColumnStorage,
 ) -> ((Int, (Int) -> Int) -> @types.Scalar) raise @types.DataError {
   let present = reduce_present(storage)
-  let read : (Int) -> Double = match storage.data() {
-    @column.ColumnData::Int(a) => i => a[i].to_double()
-    @column.ColumnData::Float(a) => i => a[i]
-    _ =>
-      raise @types.DataError::TypeMismatch(
-        "median undefined for " + storage.dtype().to_string(),
-      )
-  }
+  let read = numeric_double_reader(storage, "median")
   fn(n : Int, at : (Int) -> Int) {
     // Collect the present, non-`NaN` values, then sort: the median is the
     // middle by order, and `NaN` (ordered as missing here) takes no part.

@@ -117,7 +117,8 @@ pub fn parse_json_records_str(
 ///      a sparse record (missing some keys) still contributes its own
 ///      columns and gets nulls for the missing fields.
 ///   3. Infer each column's dtype over the first `infer_schema_rows`
-///      non-null cells in priority order `Int → Float → Bool → String`;
+///      rows in priority order `Int → Float → Bool → String` (a null cell
+///      within them is skipped but still counts toward the window);
 ///      the first dtype that accepts every probed cell wins, and an
 ///      all-null column defaults to `String` (same convention as the
 ///      CSV reader — no information to disambiguate).

@@ -141,6 +141,7 @@ fn reduces_per_group(expr : @expr.Expr) -> Bool {
     @expr.Expr::Lit(_) | @expr.Expr::Agg(_, _) => true
     @expr.Expr::Binary(_, l, r) => reduces_per_group(l) && reduces_per_group(r)
     @expr.Expr::Unary(_, e)
+    | @expr.Expr::Str(_, e)
     | @expr.Expr::Cast(e, _)
     | @expr.Expr::Alias(e, _) => reduces_per_group(e)
     @expr.Expr::Ternary(c, t, f) =>

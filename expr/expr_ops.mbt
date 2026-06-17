@@ -310,6 +310,83 @@ pub fn Expr::last(self : Expr) -> Expr {
 }
 
 ///|
+/// Uppercase every character of a String column — Polars' `str.to_uppercase`.
+/// Null cells stay null, the result keeps the operand's column name, and a
+/// non-String operand is a `TypeMismatch` at evaluation. The leading method
+/// of the string namespace: every `str_*` method builds a `Str` node over a
+/// `StrOp` tag, evaluated cell by cell in `frame`.
+pub fn Expr::str_to_uppercase(self : Expr) -> Expr {
+  Str(StrOp::ToUppercase, self)
+}
+
+///|
+/// Lowercase every character of a String column (Polars `str.to_lowercase`),
+/// the case mirror of `str_to_uppercase`.
+pub fn Expr::str_to_lowercase(self : Expr) -> Expr {
+  Str(StrOp::ToLowercase, self)
+}
+
+///|
+/// Strip leading and trailing ASCII whitespace — tab, newline,
+/// carriage-return, and space — from every cell of a String column, Polars'
+/// `str.strip_chars` with its default whitespace set. Null cells stay null.
+pub fn Expr::str_strip_chars(self : Expr) -> Expr {
+  Str(StrOp::StripChars, self)
+}
+
+///|
+/// The number of Unicode characters in each cell of a String column, as an
+/// `Int` (Polars `str.len_chars`): a supplementary-plane character counts
+/// once, not as its two UTF-16 code units. Null cells stay null; an all-valid
+/// result rides the `Numeric` fast path like every computed numeric column.
+pub fn Expr::str_len_chars(self : Expr) -> Expr {
+  Str(StrOp::LenChars, self)
+}
+
+///|
+/// A `Bool` column that is `true` where the cell contains `pattern` as a
+/// literal substring — Polars' `str.contains(..., literal=True)`. Matching is
+/// always literal: there is no regex engine yet, so a regex `contains` is a
+/// future addition. Null cells stay null.
+pub fn Expr::str_contains(self : Expr, pattern : String) -> Expr {
+  Str(StrOp::Contains(pattern), self)
+}
+
+///|
+/// A `Bool` column that is `true` where the cell starts with `prefix`
+/// (Polars `str.starts_with`). Null cells stay null.
+pub fn Expr::str_starts_with(self : Expr, prefix : String) -> Expr {
+  Str(StrOp::StartsWith(prefix), self)
+}
+
+///|
+/// A `Bool` column that is `true` where the cell ends with `suffix`
+/// (Polars `str.ends_with`). Null cells stay null.
+pub fn Expr::str_ends_with(self : Expr, suffix : String) -> Expr {
+  Str(StrOp::EndsWith(suffix), self)
+}
+
+///|
+/// Replace the first literal occurrence of `pattern` with `value` in each
+/// cell of a String column — Polars' `str.replace(..., literal=True)`. A cell
+/// without `pattern` is unchanged; null cells stay null.
+pub fn Expr::str_replace(self : Expr, pattern : String, value : String) -> Expr {
+  Str(StrOp::Replace(pattern, value), self)
+}
+
+///|
+/// Replace every literal occurrence of `pattern` with `value` in each cell
+/// (Polars `str.replace_all(..., literal=True)`), the all-occurrences mirror
+/// of `str_replace`.
+pub fn Expr::str_replace_all(
+  self : Expr,
+  pattern : String,
+  value : String,
+) -> Expr {
+  Str(StrOp::ReplaceAll(pattern, value), self)
+}
+
+///|
 /// Cast the operand to `target` at evaluation time, delegating to
 /// `Series::cast` (so the supported dtype pairs — and the `Unsupported`
 /// cases — are exactly the eager ones).

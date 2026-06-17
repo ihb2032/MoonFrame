@@ -28,6 +28,9 @@
 /// - `Unary` — `-e`, `.not()`, `.is_null()`, `.is_not_null()`;
 /// - `Agg` — `.sum()/.mean()/.min()/.max()/.count()`, reducing its operand
 ///   to a single value per evaluation scope;
+/// - `Str` — the string namespace (`.str_to_uppercase()` /
+///   `.str_contains(p)` / …), mapping each cell of its String operand
+///   through a `StrOp` transform;
 /// - `Cast` — `.cast(dtype)`;
 /// - `Alias` — `.with_alias(name)` (`alias` is a reserved word), naming the
 ///   result column;
@@ -46,6 +49,7 @@ pub enum Expr {
   Binary(BinOp, Expr, Expr)
   Unary(UnOp, Expr)
   Agg(AggOp, Expr)
+  Str(StrOp, Expr)
   Cast(Expr, @types.DataType)
   Alias(Expr, String)
   Ternary(Expr, Expr, Expr)
@@ -75,6 +79,7 @@ pub impl Eq for Expr with fn equal(self, other) {
     (Binary(o1, l1, r1), Binary(o2, l2, r2)) => o1 == o2 && l1 == l2 && r1 == r2
     (Unary(o1, e1), Unary(o2, e2)) => o1 == o2 && e1 == e2
     (Agg(o1, e1), Agg(o2, e2)) => o1 == o2 && e1 == e2
+    (Str(o1, e1), Str(o2, e2)) => o1 == o2 && e1 == e2
     (Cast(e1, t1), Cast(e2, t2)) => e1 == e2 && t1 == t2
     (Alias(e1, n1), Alias(e2, n2)) => e1 == e2 && n1 == n2
     (Ternary(c1, t1, f1), Ternary(c2, t2, f2)) =>
@@ -142,4 +147,30 @@ pub enum AggOp {
   NUnique
   First
   Last
+} derive(Eq, Debug)
+
+///|
+/// String-operation tag carried by `Expr::Str` — same read-only-not-`priv`
+/// rationale as `BinOp`. Each variant is one method of the string namespace
+/// (`Expr::str_*`); the parameterised ones carry their literal arguments, so
+/// a tag is self-contained and structurally comparable — two `Contains("a")`
+/// tags are equal, `Contains("a")` and `Contains("b")` are not (which is why
+/// the `Str` arm of `Expr`'s handwritten `Eq` can compare tags by `==`).
+/// Every operation maps a String cell to its result cell by cell:
+/// `ToUppercase` / `ToLowercase` / `StripChars` / `Replace` / `ReplaceAll`
+/// yield a String, `LenChars` an `Int` (the Unicode character count), and the
+/// `Contains` / `StartsWith` / `EndsWith` predicates a `Bool`. Null cells
+/// pass through as null and a non-String operand is a `TypeMismatch` at
+/// evaluation; all are total (no value can raise), and matching is always
+/// literal — there is no regex engine yet.
+pub enum StrOp {
+  ToUppercase
+  ToLowercase
+  StripChars
+  LenChars
+  Contains(String)
+  StartsWith(String)
+  EndsWith(String)
+  Replace(String, String)
+  ReplaceAll(String, String)
 } derive(Eq, Debug)

@@ -333,12 +333,7 @@ pub fn DataFrame::head(self : DataFrame, n : Int) -> DataFrame {
   // and needs no bounds-checking `Result`.
   let new_cols : Array[Series] = self.columns.map(c => slice_series(c, 0, m))
   // Names and schema are unchanged — reuse the cache verbatim.
-  {
-    schema: self.schema,
-    columns: new_cols,
-    nrows: m,
-    name_to_index: self.name_to_index,
-  }
+  self.with_same_schema(new_cols, m)
 }
 
 ///|
@@ -349,12 +344,7 @@ pub fn DataFrame::tail(self : DataFrame, n : Int) -> DataFrame {
   let start = self.nrows - m
   // Same in-bounds argument as `head`: `start + m == nrows == c.len()`.
   let new_cols : Array[Series] = self.columns.map(c => slice_series(c, start, m))
-  {
-    schema: self.schema,
-    columns: new_cols,
-    nrows: m,
-    name_to_index: self.name_to_index,
-  }
+  self.with_same_schema(new_cols, m)
 }
 
 ///|
@@ -385,12 +375,7 @@ pub fn DataFrame::slice(
   let new_cols : Array[Series] = self.columns.map(c => {
     slice_series(c, start, end - start)
   })
-  {
-    schema: self.schema,
-    columns: new_cols,
-    nrows: end - start,
-    name_to_index: self.name_to_index,
-  }
+  self.with_same_schema(new_cols, end - start)
 }
 
 ///|
@@ -417,12 +402,7 @@ pub fn DataFrame::take(
   // Indices were just validated against `self.nrows`, so the per-column
   // gather is in-bounds.
   let new_cols = self.columns.map(c => gather_series(c, indices))
-  {
-    schema: self.schema,
-    columns: new_cols,
-    nrows: indices.length(),
-    name_to_index: self.name_to_index,
-  }
+  self.with_same_schema(new_cols, indices.length())
 }
 
 ///|
@@ -463,12 +443,7 @@ pub fn DataFrame::storage_kinds(self : DataFrame) -> Array[@column.StorageKind] 
 /// — so the schema and `O(1)` lookup cache are reused verbatim.
 pub fn DataFrame::to_numeric(self : DataFrame) -> DataFrame {
   let new_cols = self.columns.map(try_column_to_numeric)
-  {
-    schema: self.schema,
-    columns: new_cols,
-    nrows: self.nrows,
-    name_to_index: self.name_to_index,
-  }
+  self.with_same_schema(new_cols, self.nrows)
 }
 
 ///|
@@ -479,15 +454,32 @@ pub fn DataFrame::to_numeric(self : DataFrame) -> DataFrame {
 /// reused verbatim.
 pub fn DataFrame::to_builtin(self : DataFrame) -> DataFrame {
   let new_cols = self.columns.map(c => c.to_builtin())
-  {
-    schema: self.schema,
-    columns: new_cols,
-    nrows: self.nrows,
-    name_to_index: self.name_to_index,
-  }
+  self.with_same_schema(new_cols, self.nrows)
 }
 
 // ── Internal helpers ──────────────────────────────────────────────────
+
+///|
+/// Rebuild the frame from `new_cols` and `nrows`, reusing this frame's schema
+/// and `O(1)` name→index cache verbatim. The schema-preserving constructor
+/// behind the row-only transforms (`head` / `tail` / `slice` / `take` /
+/// `fill_null` / `unique`) and the backend re-representations (`to_numeric` /
+/// `to_builtin`): the column values or backing change but the names and dtypes
+/// do not, so the cache stays valid and these never pay to rebuild it through
+/// `DataFrame::new` (`O(n)`, and able to raise). Total — the caller guarantees
+/// `new_cols` still matches the schema and carries `nrows` rows each.
+fn DataFrame::with_same_schema(
+  self : DataFrame,
+  new_cols : Array[Series],
+  nrows : Int,
+) -> DataFrame {
+  {
+    schema: self.schema,
+    columns: new_cols,
+    nrows,
+    name_to_index: self.name_to_index,
+  }
+}
 
 ///|
 /// Clamp a head/tail `n` request into `[0, len]`.

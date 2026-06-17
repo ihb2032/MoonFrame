@@ -36,12 +36,7 @@ pub fn DataFrame::fill_null(
       },
     )
   }
-  {
-    schema: self.schema,
-    columns: new_cols,
-    nrows: self.nrows,
-    name_to_index: self.name_to_index,
-  }
+  self.with_same_schema(new_cols, self.nrows)
 }
 
 ///|

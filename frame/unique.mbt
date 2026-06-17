@@ -44,10 +44,5 @@ pub fn DataFrame::unique(self : DataFrame) -> DataFrame {
   // gather is in-bounds with no bounds check (unlike the public `take`), and
   // the frame is rebuilt directly — keeping `unique` total.
   let new_cols = self.columns.map(c => gather_series(c, kept))
-  {
-    schema: self.schema,
-    columns: new_cols,
-    nrows: kept.length(),
-    name_to_index: self.name_to_index,
-  }
+  self.with_same_schema(new_cols, kept.length())
 }

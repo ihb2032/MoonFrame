@@ -223,6 +223,40 @@ fn broadcast_series(s : Series, target : Int) -> Series raise @types.DataError {
 }
 
 ///|
+/// Build the cells of a binary elementwise op: index `i` is `Some(f(i))` when
+/// both operands are present there, else `None` — the Arrow / Polars rule that
+/// a null on either side nulls the output cell. The shared null-gate behind the
+/// arithmetic (`eval_arith`) and division (`eval_div`) kernels, so each dtype
+/// arm supplies only its per-cell op. Total — `f` only reads two present cells.
+fn[T] zip_present(
+  n : Int,
+  lv : Array[Bool],
+  rv : Array[Bool],
+  f : (Int) -> T,
+) -> Array[T?] {
+  Array::makei(n, i => if lv[i] && rv[i] { Some(f(i)) } else { None })
+}
+
+///|
+/// The `TypeMismatch` message a binary numeric / ordering kernel raises when
+/// its operands are not a supported pair: `cannot <verb> <left> and <right>`.
+/// Shared by `eval_arith`, `eval_div`, and `eval_compare` so the wording stays
+/// identical across them. (`eval_logic`'s message names the Bool requirement
+/// instead, so it keeps its own.)
+fn binary_type_mismatch_msg(
+  verb : String,
+  left : Series,
+  right : Series,
+) -> String {
+  "cannot " +
+  verb +
+  " " +
+  left.dtype().to_string() +
+  " and " +
+  right.dtype().to_string()
+}
+
+///|
 /// Shared kernel for `+` / `-` / `*` over two equal-length operands
 /// (post-`broadcast_pair`); each operator supplies its `Int64` and
 /// `Double` cell ops plus the verb its `TypeMismatch` message uses.
@@ -246,55 +280,26 @@ fn eval_arith(
     (@column.ColumnData::Int(a), @column.ColumnData::Int(b)) =>
       Series::from_int_options(
         left.name(),
-        Array::makei(a.length(), i => {
-          if lv[i] && rv[i] {
-            Some(int_op(a[i], b[i]))
-          } else {
-            None
-          }
-        }),
+        zip_present(a.length(), lv, rv, i => int_op(a[i], b[i])),
       )
     (@column.ColumnData::Int(a), @column.ColumnData::Float(b)) =>
       Series::from_float_options(
         left.name(),
-        Array::makei(a.length(), i => {
-          if lv[i] && rv[i] {
-            Some(float_op(a[i].to_double(), b[i]))
-          } else {
-            None
-          }
-        }),
+        zip_present(a.length(), lv, rv, i => float_op(a[i].to_double(), b[i])),
       )
     (@column.ColumnData::Float(a), @column.ColumnData::Int(b)) =>
       Series::from_float_options(
         left.name(),
-        Array::makei(a.length(), i => {
-          if lv[i] && rv[i] {
-            Some(float_op(a[i], b[i].to_double()))
-          } else {
-            None
-          }
-        }),
+        zip_present(a.length(), lv, rv, i => float_op(a[i], b[i].to_double())),
       )
     (@column.ColumnData::Float(a), @column.ColumnData::Float(b)) =>
       Series::from_float_options(
         left.name(),
-        Array::makei(a.length(), i => {
-          if lv[i] && rv[i] {
-            Some(float_op(a[i], b[i]))
-          } else {
-            None
-          }
-        }),
+        zip_present(a.length(), lv, rv, i => float_op(a[i], b[i])),
       )
     (_, _) =>
       raise @types.DataError::TypeMismatch(
-        "cannot " +
-        verb +
-        " " +
-        left.dtype().to_string() +
-        " and " +
-        right.dtype().to_string(),
+        binary_type_mismatch_msg(verb, left, right),
       )
   }
   try_column_to_numeric(out)
@@ -317,53 +322,26 @@ fn eval_div(left : Series, right : Series) -> Series raise @types.DataError {
     (@column.ColumnData::Int(a), @column.ColumnData::Int(b)) =>
       Series::from_float_options(
         left.name(),
-        Array::makei(a.length(), i => {
-          if lv[i] && rv[i] {
-            Some(a[i].to_double() / b[i].to_double())
-          } else {
-            None
-          }
-        }),
+        zip_present(a.length(), lv, rv, i => a[i].to_double() / b[i].to_double()),
       )
     (@column.ColumnData::Int(a), @column.ColumnData::Float(b)) =>
       Series::from_float_options(
         left.name(),
-        Array::makei(a.length(), i => {
-          if lv[i] && rv[i] {
-            Some(a[i].to_double() / b[i])
-          } else {
-            None
-          }
-        }),
+        zip_present(a.length(), lv, rv, i => a[i].to_double() / b[i]),
       )
     (@column.ColumnData::Float(a), @column.ColumnData::Int(b)) =>
       Series::from_float_options(
         left.name(),
-        Array::makei(a.length(), i => {
-          if lv[i] && rv[i] {
-            Some(a[i] / b[i].to_double())
-          } else {
-            None
-          }
-        }),
+        zip_present(a.length(), lv, rv, i => a[i] / b[i].to_double()),
       )
     (@column.ColumnData::Float(a), @column.ColumnData::Float(b)) =>
       Series::from_float_options(
         left.name(),
-        Array::makei(a.length(), i => {
-          if lv[i] && rv[i] {
-            Some(a[i] / b[i])
-          } else {
-            None
-          }
-        }),
+        zip_present(a.length(), lv, rv, i => a[i] / b[i]),
       )
     (_, _) =>
       raise @types.DataError::TypeMismatch(
-        "cannot divide " +
-        left.dtype().to_string() +
-        " and " +
-        right.dtype().to_string(),
+        binary_type_mismatch_msg("divide", left, right),
       )
   }
   try_column_to_numeric(out)
@@ -508,10 +486,7 @@ fn eval_compare(
       )
     (_, _) =>
       raise @types.DataError::TypeMismatch(
-        "cannot compare " +
-        left.dtype().to_string() +
-        " and " +
-        right.dtype().to_string(),
+        binary_type_mismatch_msg("compare", left, right),
       )
   }
   Series::from_bool_options(left.name(), cells)

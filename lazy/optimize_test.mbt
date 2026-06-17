@@ -895,6 +895,23 @@ test "fence: a predicate on a derived key stays above the aggregation" {
 }
 
 ///|
+test "fence: a non-row-stable extra key keeps the group filter above" {
+  let df = @frame.DataFrame::new([
+    @series.Series::from_strings("k", ["a", "a", "b"]),
+    @series.Series::from_ints("v", [1, 2, 10]),
+  ])
+  let keys = [@expr.col("k"), @expr.col("v").sum().with_alias("total")]
+  let aggs = [@expr.col("v").count().with_alias("n")]
+  let predicate = @expr.col("k").eq(@expr.lit_str("a"))
+  let plan = lazy_frame(df).group_by(keys).agg(aggs).filter(predicate)
+  // `total` is part of the grouping tuple. If the filter were pushed
+  // below the aggregate, it would be recomputed over only the surviving
+  // rows and silently change from 13 to 3.
+  assert_eq(plan.explain(optimized=true), plan.explain())
+  assert_eq(plan.collect(), df.group_by(keys).agg(aggs).filter(predicate))
+}
+
+///|
 test "a bare-column key predicate still sinks past a mixed-key aggregation" {
   let df = sales_df()
   // Two keys: a bare `region` and a derived bucket. A predicate on the bare

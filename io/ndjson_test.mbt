@@ -310,6 +310,24 @@ test "parse_ndjson_str: typed mismatch past inference window errors" {
   assert_true(result is Err(@types.DataError::ParseError(_)))
 }
 
+///|
+test "parse_ndjson_str: a build-stage type error reports the physical file line" {
+  // Blank lines (file lines 1 and 4) shift the record index off the physical
+  // line: the offending cell is the 3rd record but file line 5. The error must
+  // name the true line ("line 5"), not the post-blank-skip record index.
+  let content = "\n{\"x\":1}\n{\"x\":2}\n\n{\"x\":\"three\"}"
+  let result = try? @io.parse_ndjson_str(content, {
+    infer_schema_rows: 2,
+    on_parse_error: @io.OnParseError::Raise,
+  })
+  let msg = match result {
+    Err(@types.DataError::ParseError(m)) => m
+    _ => "<not a ParseError>"
+  }
+  assert_true(msg.contains("line 5"))
+  assert_eq(msg.contains("record"), false)
+}
+
 // ── O4 read resilience (scan-all / on_parse_error) ──────────────────
 
 ///|

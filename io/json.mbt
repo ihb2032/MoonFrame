@@ -102,6 +102,9 @@ pub fn parse_json_records_str(
     options.infer_schema_rows,
     options.on_parse_error,
     None,
+    // JSON-array records have no source line of their own; build-stage errors
+    // are numbered by record (1-based array index).
+    None,
   )
 }
 
@@ -141,11 +144,18 @@ pub fn parse_json_records_str(
 /// filter, so a projected read still fails on a non-object record exactly as a
 /// full read does; only a parse error confined to a dropped column goes
 /// unraised, because that column is never built.
+///
+/// `source_lines` (parallel to `records`) lets a line-oriented caller number
+/// build-stage type errors by physical file line: `Some(lines)` reports
+/// `line N` (the NDJSON reader, whose skipped blank lines shift the record
+/// index off the line), `None` reports `record N` (the JSON-array reader,
+/// whose records have no line of their own).
 fn frame_from_json_records(
   records : Array[Json],
   infer_schema_rows : Int,
   on_parse_error : OnParseError,
   projection : Array[String]?,
+  source_lines : Array[Int]?,
 ) -> @frame.DataFrame raise @types.DataError {
   if records.is_empty() {
     return @frame.DataFrame::new([])
@@ -185,7 +195,9 @@ fn frame_from_json_records(
     }
     if included {
       let dt = infer_json_column_dtype(objs, name, infer_schema_rows)
-      series.push(build_json_column(name, dt, objs, on_parse_error))
+      series.push(
+        build_json_column(name, dt, objs, on_parse_error, source_lines),
+      )
     }
   }
   @frame.DataFrame::new(series)
@@ -422,6 +434,20 @@ fn json_value_to_string_fallback(j : Json) -> String {
 }
 
 ///|
+/// Locate a record in a build-stage error message: a 1-based **file line**
+/// when the caller supplies a per-record line map (the NDJSON reader, whose
+/// blank-line skipping makes the record index diverge from the physical line),
+/// or a 1-based **record** number for the JSON-array reader (where records have
+/// no line of their own). `source_lines` is parallel to the record array, so
+/// the index is always in range.
+fn json_record_locator(source_lines : Array[Int]?, i : Int) -> String {
+  match source_lines {
+    Some(lines) => "line " + lines[i].to_string()
+    None => "record " + (i + 1).to_string()
+  }
+}
+
+///|
 /// Materialise one column from the record array using the dtype
 /// chosen by inference. Mirrors `build_column` in `csv.mbt`: each
 /// branch walks the records in row order and converts the cell into
@@ -433,6 +459,7 @@ fn build_json_column(
   dtype : InferredDtype,
   objs : Array[Map[String, Json]],
   on_parse_error : OnParseError,
+  source_lines : Array[Int]?,
 ) -> @series.Series raise @types.DataError {
   let n = objs.length()
   let cell = fn(i : Int) -> Json { lookup_field(objs[i], name) }
@@ -447,7 +474,7 @@ fn build_json_column(
         json_value_as_int,
         (i, c) => {
           @types.DataError::ParseError(
-            "column \"\{name}\" record \{i + 1}: JSON value is not an Int (\"\{json_value_to_string_fallback(c)}\")",
+            "column \"\{name}\" \{json_record_locator(source_lines, i)}: JSON value is not an Int (\"\{json_value_to_string_fallback(c)}\")",
           )
         },
         on_parse_error,
@@ -462,7 +489,7 @@ fn build_json_column(
         json_value_as_float,
         (i, c) => {
           @types.DataError::ParseError(
-            "column \"\{name}\" record \{i + 1}: JSON value is not a number (\"\{json_value_to_string_fallback(c)}\")",
+            "column \"\{name}\" \{json_record_locator(source_lines, i)}: JSON value is not a number (\"\{json_value_to_string_fallback(c)}\")",
           )
         },
         on_parse_error,
@@ -477,7 +504,7 @@ fn build_json_column(
         json_value_as_bool,
         (i, c) => {
           @types.DataError::ParseError(
-            "column \"\{name}\" record \{i + 1}: JSON value is not a Bool (\"\{json_value_to_string_fallback(c)}\")",
+            "column \"\{name}\" \{json_record_locator(source_lines, i)}: JSON value is not a Bool (\"\{json_value_to_string_fallback(c)}\")",
           )
         },
         on_parse_error,

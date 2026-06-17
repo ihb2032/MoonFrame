@@ -203,6 +203,42 @@ pub fn Expr::is_not_null(self : Expr) -> Expr {
 }
 
 ///|
+/// `Bool` column that is `true` where the operand holds the IEEE `NaN` value
+/// (Polars' `is_nan`). The operand must be numeric: an `Int` cell is never
+/// `NaN` (`false`), a `Float` cell is tested by `Double::is_nan`, and a
+/// non-numeric operand is a `TypeMismatch` at evaluation. Unlike `is_null`,
+/// this *propagates* nulls — a missing cell is neither NaN nor not, so the
+/// result cell is null — since `NaN` is a real value distinct from a missing
+/// one. Building the node is total.
+pub fn Expr::is_nan(self : Expr) -> Expr {
+  Unary(UnOp::IsNan, self)
+}
+
+///|
+/// `Bool` column that is `true` where the operand is a non-`NaN` numeric value
+/// — the complement of `is_nan` on non-null cells, propagating nulls the same
+/// way (a missing cell stays null). Same numeric-operand requirement.
+pub fn Expr::is_not_nan(self : Expr) -> Expr {
+  Unary(UnOp::IsNotNan, self)
+}
+
+///|
+/// Replace every `NaN` cell of `self` with `value`, keeping the non-`NaN`
+/// cells (including true nulls) verbatim — Polars' `fill_nan`. The dual of
+/// `fill_null`: where `fill_null` replaces missing cells and leaves `NaN`
+/// (a value) alone, `fill_nan` replaces `NaN` and leaves nulls alone.
+///
+/// It lowers to `when(self.is_not_nan()).then(self).otherwise(value)`, so it
+/// is **named after `self`** (the `then` branch), and a null cell — for which
+/// `is_not_nan` is null — falls through the Kleene ternary to a null result,
+/// never to `value`. The branches unify their dtype like any ternary (`Int`
+/// meets `Float` by promoting to `Float`, any other mismatch is a
+/// `TypeMismatch`). Building the node is total.
+pub fn Expr::fill_nan(self : Expr, value : Expr) -> Expr {
+  when(self.is_not_nan()).then(self).otherwise(value)
+}
+
+///|
 /// Replace every null cell of `self` with `value`, keeping the non-null
 /// cells verbatim — Polars' `fill_null` (the value form), and a coalesce of
 /// `self` over `value` when `value` is itself a column. `value` is any

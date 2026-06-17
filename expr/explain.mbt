@@ -205,6 +205,14 @@ fn write_expr(logger : &Logger, expr : Expr) -> Unit {
           write_expr(logger, e)
           logger.write_string(".is_not_null()")
         }
+        IsNan => {
+          write_expr(logger, e)
+          logger.write_string(".is_nan()")
+        }
+        IsNotNan => {
+          write_expr(logger, e)
+          logger.write_string(".is_not_nan()")
+        }
       }
     Agg(op, e) => {
       write_expr(logger, e)

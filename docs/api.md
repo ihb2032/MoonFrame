@@ -294,7 +294,11 @@ missing column, a type clash) waits for evaluation. `expr` depends only on
   / `<` are pinned to `Bool` / `Int` returns; the upside is that a method
   binds tighter than `&`, so `a.gt(x) & b.lt(y)` needs no parentheses.
 - `not() -> Expr` (no overloadable unary `!`); null probes `is_null()` /
-  `is_not_null() -> Expr` (total — the result is never null).
+  `is_not_null() -> Expr` (total — the result is never null); NaN probes
+  `is_nan()` / `is_not_nan() -> Expr` — `true`/`false` where a numeric cell is
+  / isn't the IEEE `NaN` value. The NaN probes require a numeric operand
+  (`TypeMismatch` otherwise; an `Int` cell is never `NaN`) and, unlike the null
+  probes, *propagate* nulls (a missing cell → a null result).
 - `fill_null(value : Expr) -> Expr` — replace null cells with `value` (a
   literal, another column — a coalesce — or a computed tree), lowering to
   `when(self.is_not_null()).then(self).otherwise(value)`: non-null cells are
@@ -302,6 +306,11 @@ missing column, a type clash) waits for evaluation. `expr` depends only on
   the branch dtypes unify like a ternary's (`Int` ↔ `Float` promote, any
   other mismatch is a `TypeMismatch`). A non-null `NaN` is a value, so it is
   kept, not filled.
+- `fill_nan(value : Expr) -> Expr` — the dual of `fill_null`: replace `NaN`
+  cells with `value`, lowering to
+  `when(self.is_not_nan()).then(self).otherwise(value)`. A true null (for which
+  `is_not_nan` is null) falls through the Kleene ternary to a null, so nulls
+  are preserved, not filled; same self-naming and dtype-unification rules.
 - Aggregations `sum` / `mean` / `min` / `max` / `count` / `std` /
   `variance` / `median` / `n_unique` / `first` / `last() -> Expr` — wrap
   the expression in a reduction (evaluation semantics below). All eleven

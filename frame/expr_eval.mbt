@@ -136,6 +136,8 @@ fn eval_expr(
           )
         @expr.UnOp::IsNotNull =>
           Series::from_bools(operand.name(), validity_bools(operand.storage()))
+        @expr.UnOp::IsNan => eval_is_nan(operand, true)
+        @expr.UnOp::IsNotNan => eval_is_nan(operand, false)
       }
     }
     @expr.Expr::Agg(op, e) => eval_agg(op, eval_expr(e, df, scope))
@@ -603,6 +605,38 @@ fn eval_neg(operand : Series) -> Series raise @types.DataError {
       )
   }
   try_column_to_numeric(out)
+}
+
+///|
+/// Build the nullable `Bool` cells of `is_nan` (`want_nan = true`) or
+/// `is_not_nan` (`want_nan = false`) over a numeric operand. `NaN` is a
+/// *value*, so a null cell stays null — the probe propagates nulls, unlike
+/// `is_null`. A present `Float` cell is tested by IEEE `is_nan`; a present
+/// `Int` cell is never `NaN` (so the constant `!want_nan`); a non-numeric
+/// operand raises `TypeMismatch`. Lands on the nullable `Builtin` backend.
+fn eval_is_nan(
+  operand : Series,
+  want_nan : Bool,
+) -> Series raise @types.DataError {
+  let valid = validity_bools(operand.storage())
+  match operand.storage().data() {
+    @column.ColumnData::Float(a) =>
+      Series::from_bool_options(
+        operand.name(),
+        map_present(a.length(), valid, i => a[i].is_nan() == want_nan),
+      )
+    @column.ColumnData::Int(a) =>
+      Series::from_bool_options(
+        operand.name(),
+        map_present(a.length(), valid, _ => !want_nan),
+      )
+    _ =>
+      raise @types.DataError::TypeMismatch(
+        (if want_nan { "is_nan" } else { "is_not_nan" }) +
+        " requires a numeric operand, got " +
+        operand.dtype().to_string(),
+      )
+  }
 }
 
 ///|

@@ -79,6 +79,8 @@ test "show: every unary form" {
   inspect(col("p").not(), content="(not col(p))")
   inspect(col("x").is_null(), content="col(x).is_null()")
   inspect(col("x").is_not_null(), content="col(x).is_not_null()")
+  inspect(col("x").is_nan(), content="col(x).is_nan()")
+  inspect(col("x").is_not_nan(), content="col(x).is_not_nan()")
 }
 
 ///|

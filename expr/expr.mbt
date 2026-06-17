@@ -25,7 +25,8 @@
 /// - `Binary` — arithmetic `+ - * /`, comparisons `eq/ne/lt/le/gt/ge`,
 ///   Kleene logic `&`/`|` (also `.land()`/`.lor()` — `and`/`or` are
 ///   reserved words);
-/// - `Unary` — `-e`, `.not()`, `.is_null()`, `.is_not_null()`;
+/// - `Unary` — `-e`, `.not()`, `.is_null()`, `.is_not_null()`, `.is_nan()`,
+///   `.is_not_nan()`;
 /// - `Agg` — `.sum()/.mean()/.min()/.max()/.count()`, reducing its operand
 ///   to a single value per evaluation scope;
 /// - `Str` — the string namespace (`.str_to_uppercase()` /
@@ -117,14 +118,19 @@ pub enum BinOp {
 ///|
 /// Unary operator tag carried by `Expr::Unary` — same read-only-not-`priv`
 /// rationale as `BinOp`. `Neg` is numeric negation (`-e`), `Not` is Kleene
-/// logical negation (`not(null) = null`), and the null probes
-/// `IsNull` / `IsNotNull` read validity only, so they are total and never
-/// produce a null themselves.
+/// logical negation (`not(null) = null`), the null probes
+/// `IsNull` / `IsNotNull` read validity only (total, never null), and the NaN
+/// probes `IsNan` / `IsNotNan` test a numeric cell for the IEEE `NaN` value.
+/// Unlike the null probes, the NaN probes *propagate* nulls — a missing cell
+/// is neither NaN nor not-NaN, so the result cell is null — and an `Int` cell
+/// is never `NaN`; a non-numeric operand is a `TypeMismatch` at evaluation.
 pub enum UnOp {
   Neg
   Not
   IsNull
   IsNotNull
+  IsNan
+  IsNotNan
 } derive(Eq, Debug)
 
 ///|

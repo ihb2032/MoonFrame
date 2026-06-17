@@ -216,6 +216,32 @@ test "map over an empty frame yields an empty column mirroring the input dtype" 
 }
 
 ///|
+test "map: a closure mixing Int and Float promotes to a Float column" {
+  // The engine promotes Int <-> Float, so a closure returning Int on some rows
+  // and Float on others yields a Float column with every value present (Ints
+  // promoted), not one that nulls the minority type. A null cell stays null.
+  let df = DataFrame::new([Series::from_ints("q", [2, 3, 4])])
+  let out = df.with_columns([
+    @expr.col("q").map_elements(label="mix", s => {
+      let v = s.as_int()
+      if v == 3 {
+        @types.Scalar::Float(0.5)
+      } else if v == 4 {
+        @types.Scalar::Null
+      } else {
+        @types.Scalar::Int(v)
+      }
+    }),
+  ])
+  assert_eq(out.get_column("q").dtype(), @types.DataType::Float)
+  assert_eq(out.get_column("q").to_scalars(), [
+    @types.Scalar::Float(2.0),
+    @types.Scalar::Float(0.5),
+    @types.Scalar::Null,
+  ])
+}
+
+///|
 test "map_many as a filter predicate matches the native expression" {
   let df = map_df()
   // The `map_many` escape hatch reproduces a native predicate — keep rows

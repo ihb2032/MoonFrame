@@ -59,9 +59,13 @@
 /// - **Map** (`map_elements` / `map_many`, the closure escape hatch): apply
 ///   an opaque host closure row by row across the input columns (each cell a
 ///   `Scalar`, a null as `Scalar::Null`, the closure called for every row
-///   and free to `raise`). The output dtype is the first non-null result's;
-///   an all-null / empty result raises `Unsupported`, having no
-///   representable dtype (no Null-dtype backend, as for the `Null` literal).
+///   and free to `raise`). The output dtype is the first non-null result's,
+///   except that a mix of `Int` and `Float` results promotes to `Float` (the
+///   engine's `Int ↔ Float` rule) rather than nulling the minority. An
+///   all-null result over a non-empty scope raises `Unsupported`, having no
+///   representable dtype (no Null-dtype backend, as for the `Null` literal);
+///   over an *empty* scope the closure never runs, so the dtype is mirrored
+///   from the leftmost input and the result is an empty column.
 /// - **Literal series** (`lit_series`): the embedded `Series` is returned
 ///   verbatim, the data analogue of a scalar literal's length-1 column. Its
 ///   length is the series' own; the consumers broadcast it like any other
@@ -920,6 +924,21 @@ fn eval_map(
     cells.push(f(Array::makei(width, k => columns[k][i])))
   }
   let name = if evaluated.is_empty() { "literal" } else { evaluated[0].name() }
+  // The engine promotes Int <-> Float (eval_arith / eval_ternary); a closure
+  // that returns a mix of Int and Float unifies to Float here too — the Int
+  // cells are promoted rather than nulled as the minority type by the raw
+  // first-cell-dtype projection below. Other dtype mixes keep the first
+  // non-null dtype (a mismatched cell stays null), unchanged.
+  let cells = if map_mixes_int_and_float(cells) {
+    cells.map(c => {
+      match c {
+        @types.Scalar::Int(v) => @types.Scalar::Float(v.to_double())
+        _ => c
+      }
+    })
+  } else {
+    cells
+  }
   // An empty scope (a 0-row frame with a column input) calls the closure zero
   // times, so `infer_map_dtype` sees no cell. Rather than raise — which would
   // make `map` the one expression that cannot survive an empty frame, breaking
@@ -964,6 +983,24 @@ fn infer_map_dtype(cells : Array[@types.Scalar]) -> @column.ColumnData? {
     }
   }
   None
+}
+
+///|
+/// Whether the map result cells mix `Int` and `Float` — the one heterogeneity
+/// the engine resolves by promotion (`Int -> Float`, as in `eval_arith` /
+/// `eval_ternary`) rather than by nulling the minority type. `Bool` / `String`
+/// never promote, so a mix involving them is not flagged here.
+fn map_mixes_int_and_float(cells : Array[@types.Scalar]) -> Bool {
+  let mut has_int = false
+  let mut has_float = false
+  for c in cells {
+    match c {
+      @types.Scalar::Int(_) => has_int = true
+      @types.Scalar::Float(_) => has_float = true
+      _ => ()
+    }
+  }
+  has_int && has_float
 }
 
 ///|

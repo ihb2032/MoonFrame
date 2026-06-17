@@ -365,7 +365,9 @@ identified by its `label` and inputs.
 
 The closure runs once per row at evaluation and may `raise` (propagating from
 the consuming verb). The output column's dtype is the first non-null `Scalar`
-returned — an all-null result over a non-empty frame raises `Unsupported`
+returned (a mix of `Int` and `Float` results promotes to `Float`, the engine's
+`Int`/`Float` rule, rather than nulling the minority type) — an all-null result
+over a non-empty frame raises `Unsupported`
 (there is no Null-dtype backend, the same limit as a `Null` literal). Over an
 **empty** frame the closure never runs, so the dtype is unobservable: map then
 mirrors the leftmost input's dtype and returns an empty column (so it survives

@@ -223,6 +223,40 @@ fn broadcast_series(s : Series, target : Int) -> Series raise @types.DataError {
 }
 
 ///|
+/// Build the cells of a binary elementwise op: index `i` is `Some(f(i))` when
+/// both operands are present there, else `None` — the Arrow / Polars rule that
+/// a null on either side nulls the output cell. The shared null-gate behind the
+/// arithmetic (`eval_arith`) and division (`eval_div`) kernels, so each dtype
+/// arm supplies only its per-cell op. Total — `f` only reads two present cells.
+fn[T] zip_present(
+  n : Int,
+  lv : Array[Bool],
+  rv : Array[Bool],
+  f : (Int) -> T,
+) -> Array[T?] {
+  Array::makei(n, i => if lv[i] && rv[i] { Some(f(i)) } else { None })
+}
+
+///|
+/// The `TypeMismatch` message a binary numeric / ordering kernel raises when
+/// its operands are not a supported pair: `cannot <verb> <left> and <right>`.
+/// Shared by `eval_arith`, `eval_div`, and `eval_compare` so the wording stays
+/// identical across them. (`eval_logic`'s message names the Bool requirement
+/// instead, so it keeps its own.)
+fn binary_type_mismatch_msg(
+  verb : String,
+  left : Series,
+  right : Series,
+) -> String {
+  "cannot " +
+  verb +
+  " " +
+  left.dtype().to_string() +
+  " and " +
+  right.dtype().to_string()
+}
+
+///|
 /// Shared kernel for `+` / `-` / `*` over two equal-length operands
 /// (post-`broadcast_pair`); each operator supplies its `Int64` and
 /// `Double` cell ops plus the verb its `TypeMismatch` message uses.
@@ -246,55 +280,26 @@ fn eval_arith(
     (@column.ColumnData::Int(a), @column.ColumnData::Int(b)) =>
       Series::from_int_options(
         left.name(),
-        Array::makei(a.length(), i => {
-          if lv[i] && rv[i] {
-            Some(int_op(a[i], b[i]))
-          } else {
-            None
-          }
-        }),
+        zip_present(a.length(), lv, rv, i => int_op(a[i], b[i])),
       )
     (@column.ColumnData::Int(a), @column.ColumnData::Float(b)) =>
       Series::from_float_options(
         left.name(),
-        Array::makei(a.length(), i => {
-          if lv[i] && rv[i] {
-            Some(float_op(a[i].to_double(), b[i]))
-          } else {
-            None
-          }
-        }),
+        zip_present(a.length(), lv, rv, i => float_op(a[i].to_double(), b[i])),
       )
     (@column.ColumnData::Float(a), @column.ColumnData::Int(b)) =>
       Series::from_float_options(
         left.name(),
-        Array::makei(a.length(), i => {
-          if lv[i] && rv[i] {
-            Some(float_op(a[i], b[i].to_double()))
-          } else {
-            None
-          }
-        }),
+        zip_present(a.length(), lv, rv, i => float_op(a[i], b[i].to_double())),
       )
     (@column.ColumnData::Float(a), @column.ColumnData::Float(b)) =>
       Series::from_float_options(
         left.name(),
-        Array::makei(a.length(), i => {
-          if lv[i] && rv[i] {
-            Some(float_op(a[i], b[i]))
-          } else {
-            None
-          }
-        }),
+        zip_present(a.length(), lv, rv, i => float_op(a[i], b[i])),
       )
     (_, _) =>
       raise @types.DataError::TypeMismatch(
-        "cannot " +
-        verb +
-        " " +
-        left.dtype().to_string() +
-        " and " +
-        right.dtype().to_string(),
+        binary_type_mismatch_msg(verb, left, right),
       )
   }
   try_column_to_numeric(out)
@@ -317,53 +322,26 @@ fn eval_div(left : Series, right : Series) -> Series raise @types.DataError {
     (@column.ColumnData::Int(a), @column.ColumnData::Int(b)) =>
       Series::from_float_options(
         left.name(),
-        Array::makei(a.length(), i => {
-          if lv[i] && rv[i] {
-            Some(a[i].to_double() / b[i].to_double())
-          } else {
-            None
-          }
-        }),
+        zip_present(a.length(), lv, rv, i => a[i].to_double() / b[i].to_double()),
       )
     (@column.ColumnData::Int(a), @column.ColumnData::Float(b)) =>
       Series::from_float_options(
         left.name(),
-        Array::makei(a.length(), i => {
-          if lv[i] && rv[i] {
-            Some(a[i].to_double() / b[i])
-          } else {
-            None
-          }
-        }),
+        zip_present(a.length(), lv, rv, i => a[i].to_double() / b[i]),
       )
     (@column.ColumnData::Float(a), @column.ColumnData::Int(b)) =>
       Series::from_float_options(
         left.name(),
-        Array::makei(a.length(), i => {
-          if lv[i] && rv[i] {
-            Some(a[i] / b[i].to_double())
-          } else {
-            None
-          }
-        }),
+        zip_present(a.length(), lv, rv, i => a[i] / b[i].to_double()),
       )
     (@column.ColumnData::Float(a), @column.ColumnData::Float(b)) =>
       Series::from_float_options(
         left.name(),
-        Array::makei(a.length(), i => {
-          if lv[i] && rv[i] {
-            Some(a[i] / b[i])
-          } else {
-            None
-          }
-        }),
+        zip_present(a.length(), lv, rv, i => a[i] / b[i]),
       )
     (_, _) =>
       raise @types.DataError::TypeMismatch(
-        "cannot divide " +
-        left.dtype().to_string() +
-        " and " +
-        right.dtype().to_string(),
+        binary_type_mismatch_msg("divide", left, right),
       )
   }
   try_column_to_numeric(out)
@@ -508,10 +486,7 @@ fn eval_compare(
       )
     (_, _) =>
       raise @types.DataError::TypeMismatch(
-        "cannot compare " +
-        left.dtype().to_string() +
-        " and " +
-        right.dtype().to_string(),
+        binary_type_mismatch_msg("compare", left, right),
       )
   }
   Series::from_bool_options(left.name(), cells)
@@ -589,6 +564,17 @@ fn kleene_or(a : Bool?, b : Bool?) -> Bool? {
 }
 
 ///|
+/// Build the cells of a unary elementwise op: index `i` is `Some(f(i))` when the
+/// operand is present there, else `None` — a null cell maps to a null result.
+/// The shared null-gate behind the negation (`eval_neg`), logical-not
+/// (`eval_not`), and string-namespace (`eval_str`) kernels, so each arm supplies
+/// only its per-cell map. The single-operand sibling of `zip_present`. Total —
+/// `f` only reads a present cell.
+fn[T] map_present(n : Int, valid : Array[Bool], f : (Int) -> T) -> Array[T?] {
+  Array::makei(n, i => if valid[i] { Some(f(i)) } else { None })
+}
+
+///|
 /// Numeric negation kernel. `Int` negation wraps on `Int64` minimum
 /// (MoonBit semantics — total, never aborts); `Float` follows IEEE 754,
 /// so `-NaN` is still NaN and `-0.0` is the negative zero. A null cell
@@ -600,12 +586,12 @@ fn eval_neg(operand : Series) -> Series raise @types.DataError {
     @column.ColumnData::Int(a) =>
       Series::from_int_options(
         operand.name(),
-        Array::makei(a.length(), i => if valid[i] { Some(-a[i]) } else { None }),
+        map_present(a.length(), valid, i => -a[i]),
       )
     @column.ColumnData::Float(a) =>
       Series::from_float_options(
         operand.name(),
-        Array::makei(a.length(), i => if valid[i] { Some(-a[i]) } else { None }),
+        map_present(a.length(), valid, i => -a[i]),
       )
     _ =>
       raise @types.DataError::TypeMismatch(
@@ -624,7 +610,7 @@ fn eval_not(operand : Series) -> Series raise @types.DataError {
     @column.ColumnData::Bool(a) =>
       Series::from_bool_options(
         operand.name(),
-        Array::makei(a.length(), i => if valid[i] { Some(!a[i]) } else { None }),
+        map_present(a.length(), valid, i => !a[i]),
       )
     _ =>
       raise @types.DataError::TypeMismatch(
@@ -665,101 +651,47 @@ fn eval_str(
     @expr.StrOp::ToUppercase =>
       Series::from_string_options(
         name,
-        Array::makei(n, i => {
-          if valid[i] {
-            Some(data[i].to_upper())
-          } else {
-            None
-          }
-        }),
+        map_present(n, valid, i => data[i].to_upper()),
       )
     @expr.StrOp::ToLowercase =>
       Series::from_string_options(
         name,
-        Array::makei(n, i => {
-          if valid[i] {
-            Some(data[i].to_lower())
-          } else {
-            None
-          }
-        }),
+        map_present(n, valid, i => data[i].to_lower()),
       )
     @expr.StrOp::StripChars =>
       Series::from_string_options(
         name,
-        Array::makei(n, i => {
-          if valid[i] {
-            Some(data[i].trim().to_owned())
-          } else {
-            None
-          }
-        }),
+        map_present(n, valid, i => data[i].trim().to_owned()),
       )
     @expr.StrOp::LenChars =>
       Series::from_int_options(
         name,
-        Array::makei(n, i => {
-          if valid[i] {
-            Some(data[i].char_length().to_int64())
-          } else {
-            None
-          }
-        }),
+        map_present(n, valid, i => data[i].char_length().to_int64()),
       )
     @expr.StrOp::Contains(pattern) =>
       Series::from_bool_options(
         name,
-        Array::makei(n, i => {
-          if valid[i] {
-            Some(data[i].contains(pattern))
-          } else {
-            None
-          }
-        }),
+        map_present(n, valid, i => data[i].contains(pattern)),
       )
     @expr.StrOp::StartsWith(prefix) =>
       Series::from_bool_options(
         name,
-        Array::makei(n, i => {
-          if valid[i] {
-            Some(data[i].has_prefix(prefix))
-          } else {
-            None
-          }
-        }),
+        map_present(n, valid, i => data[i].has_prefix(prefix)),
       )
     @expr.StrOp::EndsWith(suffix) =>
       Series::from_bool_options(
         name,
-        Array::makei(n, i => {
-          if valid[i] {
-            Some(data[i].has_suffix(suffix))
-          } else {
-            None
-          }
-        }),
+        map_present(n, valid, i => data[i].has_suffix(suffix)),
       )
     @expr.StrOp::Replace(pattern, value) =>
       Series::from_string_options(
         name,
-        Array::makei(n, i => {
-          if valid[i] {
-            Some(data[i].replace(old=pattern, new=value))
-          } else {
-            None
-          }
-        }),
+        map_present(n, valid, i => data[i].replace(old=pattern, new=value)),
       )
     @expr.StrOp::ReplaceAll(pattern, value) =>
       Series::from_string_options(
         name,
-        Array::makei(n, i => {
-          if valid[i] {
-            Some(data[i].replace_all(old=pattern, new=value))
-          } else {
-            None
-          }
-        }),
+        map_present(n, valid, i => data[i].replace_all(old=pattern, new=value)),
       )
   }
   try_column_to_numeric(out)

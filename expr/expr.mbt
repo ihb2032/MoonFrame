@@ -135,6 +135,13 @@ pub enum UnOp {
 /// the order statistic `Median` skip it; `Count` counts non-null cells and
 /// `NUnique` the distinct non-null values (NaN one bucket); `First` / `Last`
 /// are positional and skip nothing.
+///
+/// This variant list is mirrored by `@series.ReduceOp`, the constructible
+/// vocabulary the reduction kernel speaks (`@expr.AggOp` is read-only outside
+/// `expr`, so `frame`'s `reduce_op_of_agg` maps each variant here onto its
+/// `ReduceOp` twin one-to-one). Keep the two lists in lockstep — a variant added
+/// here must be added to `ReduceOp` and to that 1:1 map, which alone is
+/// exhaustive, so the compiler flags a missed map arm but not a missed enum.
 pub enum AggOp {
   Sum
   Mean

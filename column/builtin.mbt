@@ -269,6 +269,57 @@ pub fn BuiltinColumn::cast(
 }
 
 ///|
+/// Assemble a cast result from a per-cell conversion: each valid slot maps
+/// through `conv`, each null slot takes the `fill` placeholder, and the
+/// validity bitmap is reused verbatim (a cast preserves nullity). The "read the
+/// mask once, `makei` with a null guard, reuse the validity" shell shared by the
+/// fallible casts `to_int` / `to_float`, whose `conv` `raise`s on an
+/// out-of-range or malformed cell, rather than written once per source dtype.
+///
+/// `cast_cells_total` is the non-raising twin for `to_string_column`: that cast
+/// is total (every dtype has a value-form rendering, so it never fails), and
+/// MoonBit cannot make one higher-order shell polymorphic over whether its
+/// `conv` raises, so the total surface keeps its own copy rather than be forced
+/// to adopt an error it never produces.
+fn[U] BuiltinColumn::cast_cells(
+  self : BuiltinColumn,
+  conv : (Int) -> U raise @types.DataError,
+  fill : U,
+  wrap : (Array[U]) -> ColumnData,
+) -> BuiltinColumn raise @types.DataError {
+  let valid = self.validity.to_bools()
+  let buf : Array[U] = Array::makei(valid.length(), i => {
+    if valid[i] {
+      conv(i)
+    } else {
+      fill
+    }
+  })
+  { data: wrap(buf), validity: self.validity }
+}
+
+///|
+/// The total twin of `cast_cells`, behind the never-failing `to_string_column`
+/// (see that pair's note). Same null-guarded `makei` over a reused validity
+/// bitmap, but a total `conv`, so the cast stays total.
+fn[U] BuiltinColumn::cast_cells_total(
+  self : BuiltinColumn,
+  conv : (Int) -> U,
+  fill : U,
+  wrap : (Array[U]) -> ColumnData,
+) -> BuiltinColumn {
+  let valid = self.validity.to_bools()
+  let buf : Array[U] = Array::makei(valid.length(), i => {
+    if valid[i] {
+      conv(i)
+    } else {
+      fill
+    }
+  })
+  { data: wrap(buf), validity: self.validity }
+}
+
+///|
 /// Convert to `Int` — the file-private implementation behind `cast(Int)`.
 /// Validity is preserved verbatim. Supported sources:
 /// - `Int`: identity, no copy.
@@ -290,10 +341,9 @@ fn BuiltinColumn::to_int(
 ) -> BuiltinColumn raise @types.DataError {
   match self.data {
     Int(_) => self
-    Float(a) => {
-      let valid = self.validity.to_bools()
-      let buf : Array[Int64] = Array::makei(a.length(), i => {
-        if valid[i] {
+    Float(a) =>
+      self.cast_cells(
+        i => {
           let x = a[i]
           if x.is_nan() {
             raise @types.DataError::ParseError("cannot cast NaN to Int")
@@ -306,40 +356,23 @@ fn BuiltinColumn::to_int(
           } else {
             x.to_int64()
           }
-        } else {
-          0
-        }
-      })
-      { data: Int(buf), validity: self.validity }
-    }
-    Bool(a) => {
-      let valid = self.validity.to_bools()
-      let buf : Array[Int64] = Array::makei(a.length(), i => {
-        if valid[i] {
-          if a[i] {
-            1
-          } else {
-            0
-          }
-        } else {
-          0
-        }
-      })
-      { data: Int(buf), validity: self.validity }
-    }
-    String(a) => {
-      let valid = self.validity.to_bools()
-      let buf : Array[Int64] = Array::makei(a.length(), i => {
-        if valid[i] {
+        },
+        0,
+        b => Int(b),
+      )
+    Bool(a) =>
+      self.cast_cells(i => (if a[i] { 1 } else { 0 }).to_int64(), 0, b => Int(b))
+    String(a) =>
+      self.cast_cells(
+        i => {
           let s = a[i]
-          // Only plain base-10 integers are accepted, matching the CSV
-          // reader's inference — both route through
-          // `@types.is_decimal_int_literal`. `@string.parse_int` defaults
-          // to base=0, which would otherwise accept `0x` / `0o` / `0b`
-          // prefixes and `1_000` underscore grouping (forms pandas /
-          // polars keep as strings); screening first keeps an explicit
-          // `to_int` cast consistent with what the reader inferred for the
-          // same text.
+          // Only plain base-10 integers are accepted, matching the CSV reader's
+          // inference — both route through `@types.is_decimal_int_literal`.
+          // `@string.parse_int64` defaults to base=0, which would otherwise
+          // accept `0x` / `0o` / `0b` prefixes and `1_000` underscore grouping
+          // (forms pandas / polars keep as strings); screening first keeps an
+          // explicit `to_int` cast consistent with what the reader inferred for
+          // the same text.
           if !@types.is_decimal_int_literal(s) {
             raise @types.DataError::ParseError(
               "cannot parse Int from \"" + s + "\"",
@@ -353,12 +386,10 @@ fn BuiltinColumn::to_int(
                 "cannot parse Int from \"" + s + "\"",
               )
           }
-        } else {
-          0
-        }
-      })
-      { data: Int(buf), validity: self.validity }
-    }
+        },
+        0,
+        b => Int(b),
+      )
   }
 }
 
@@ -381,42 +412,17 @@ fn BuiltinColumn::to_float(
 ) -> BuiltinColumn raise @types.DataError {
   match self.data {
     Float(_) => self
-    Int(a) => {
-      let valid = self.validity.to_bools()
-      let buf : Array[Double] = Array::makei(a.length(), i => {
-        if valid[i] {
-          a[i].to_double()
-        } else {
-          0.0
-        }
-      })
-      { data: Float(buf), validity: self.validity }
-    }
-    Bool(a) => {
-      let valid = self.validity.to_bools()
-      let buf : Array[Double] = Array::makei(a.length(), i => {
-        if valid[i] {
-          if a[i] {
-            1.0
-          } else {
-            0.0
-          }
-        } else {
-          0.0
-        }
-      })
-      { data: Float(buf), validity: self.validity }
-    }
-    String(a) => {
-      let valid = self.validity.to_bools()
-      let buf : Array[Double] = Array::makei(a.length(), i => {
-        if valid[i] {
+    Int(a) => self.cast_cells(i => a[i].to_double(), 0.0, b => Float(b))
+    Bool(a) =>
+      self.cast_cells(i => if a[i] { 1.0 } else { 0.0 }, 0.0, b => Float(b))
+    String(a) =>
+      self.cast_cells(
+        i => {
           let s = a[i]
-          // Reject `1_000`-style underscore grouping to match the CSV
-          // reader (`parse_float_opt` in `io/csv.mbt`):
-          // `@string.parse_double` accepts underscores, but pandas /
-          // polars keep such cells as strings. The `inf` / `-inf` / `nan`
-          // literals stay accepted.
+          // Reject `1_000`-style underscore grouping to match the CSV reader
+          // (`parse_float_opt` in `io/csv.mbt`): `@string.parse_double` accepts
+          // underscores, but pandas / polars keep such cells as strings. The
+          // `inf` / `-inf` / `nan` literals stay accepted.
           if s.iter().any(c => c == '_') {
             raise @types.DataError::ParseError(
               "cannot parse Float from \"" + s + "\"",
@@ -430,12 +436,10 @@ fn BuiltinColumn::to_float(
                 "cannot parse Float from \"" + s + "\"",
               )
           }
-        } else {
-          0.0
-        }
-      })
-      { data: Float(buf), validity: self.validity }
-    }
+        },
+        0.0,
+        b => Float(b),
+      )
   }
 }
 
@@ -451,43 +455,12 @@ fn BuiltinColumn::to_float(
 pub fn BuiltinColumn::to_string_column(self : BuiltinColumn) -> BuiltinColumn {
   match self.data {
     String(_) => self
-    Int(a) => {
-      let valid = self.validity.to_bools()
-      let buf : Array[String] = Array::makei(a.length(), i => {
-        if valid[i] {
-          a[i].to_string()
-        } else {
-          ""
-        }
+    Int(a) => self.cast_cells_total(i => a[i].to_string(), "", b => String(b))
+    Float(a) => self.cast_cells_total(i => a[i].to_string(), "", b => String(b))
+    Bool(a) =>
+      self.cast_cells_total(i => if a[i] { "true" } else { "false" }, "", b => {
+        String(b)
       })
-      { data: String(buf), validity: self.validity }
-    }
-    Float(a) => {
-      let valid = self.validity.to_bools()
-      let buf : Array[String] = Array::makei(a.length(), i => {
-        if valid[i] {
-          a[i].to_string()
-        } else {
-          ""
-        }
-      })
-      { data: String(buf), validity: self.validity }
-    }
-    Bool(a) => {
-      let valid = self.validity.to_bools()
-      let buf : Array[String] = Array::makei(a.length(), i => {
-        if valid[i] {
-          if a[i] {
-            "true"
-          } else {
-            "false"
-          }
-        } else {
-          ""
-        }
-      })
-      { data: String(buf), validity: self.validity }
-    }
   }
 }
 

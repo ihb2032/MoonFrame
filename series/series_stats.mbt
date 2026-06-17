@@ -139,13 +139,10 @@ pub fn Series::max(self : Series) -> @types.Scalar {
 /// distinct value). Keying by `Scalar::to_string` would instead let the
 /// `-0.0` rendering split them, diverging from `group_by`.
 pub fn Series::n_unique(self : Series) -> Int {
-  // Key the non-null cells by `key_cell` — the same `KeyCell` encoding
-  // `group_by` / `join` hash on (frame/row_key.mbt) — so "distinct value"
-  // means exactly "distinct group": `NaN` collapses to one `KNaN` and `-0.0`
-  // folds into `+0.0`, matching the grouping semantics rather than diverging
-  // on `Double::to_string`'s `-0.0` rendering. `Map::from_array` folds the
-  // keys into a set; its size is the distinct count.
-  Map::from_array(
-    self.to_scalars().filter(sc => !sc.is_null()).map(sc => (key_cell(sc), ())),
-  ).length()
+  // Folds through the same `count_distinct` core the `n_unique` reduction uses
+  // (reduce.mbt), keying cells by `key_cell` — the `KeyCell` encoding
+  // `group_by` / `join` hash on — so the distinct count agrees with grouping
+  // rather than diverging on `Double::to_string`'s `-0.0` rendering. Reading the
+  // typed column directly also avoids materialising an `Array[Scalar]`.
+  count_distinct(self.storage)(self.len(), k => k)
 }

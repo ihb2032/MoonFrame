@@ -45,36 +45,6 @@ fn reduce_present(storage : @column.ColumnStorage) -> (Int) -> Bool {
 }
 
 ///|
-/// Fold the non-missing cells of an `n`-wide index window to an extremum.
-/// `get(k)` reads window position `k`, `missing(k)` is `true` when it is
-/// skipped (a null slot, plus `NaN` for `Float`), and `better(candidate, best)`
-/// is `true` when `candidate` should replace the running best. Returns `None`
-/// when every cell is missing — the single extremum accumulation behind
-/// `reduce_extremum` (whole-column, per-group, and per-scope `min` / `max`),
-/// so each dtype arm there supplies only its reader, skip test, and comparator
-/// instead of repeating the `best : T?` loop.
-fn[T] fold_extremum(
-  n : Int,
-  get : (Int) -> T,
-  missing : (Int) -> Bool,
-  better : (T, T) -> Bool,
-) -> T? {
-  let mut best : T? = None
-  for k in 0..<n {
-    if !missing(k) {
-      // Bind the cell once: the `Some` arm would otherwise evaluate `get(k)`
-      // up to twice per non-missing element.
-      let v = get(k)
-      best = match best {
-        None => Some(v)
-        Some(b) => if better(v, b) { Some(v) } else { Some(b) }
-      }
-    }
-  }
-  best
-}
-
-///|
 /// `sum` / `mean` reducer over an index window. `Int` accumulates in `Int64`,
 /// `Float` in `Double` with `NaN` summed in (so it propagates) — only a `Null`
 /// cell is skipped. With `want_mean` the running total divides by the non-null
@@ -161,7 +131,7 @@ fn reduce_extremum(
     @column.ColumnData::Int(a) =>
       fn(n : Int, at : (Int) -> Int) {
         match
-          fold_extremum(n, k => a[at(k)], k => !present(at(k)), (x, y) => {
+          @types.fold_extremum(n, k => a[at(k)], k => !present(at(k)), (x, y) => {
             if want_min {
               x < y
             } else {
@@ -175,7 +145,7 @@ fn reduce_extremum(
     @column.ColumnData::Float(a) =>
       fn(n : Int, at : (Int) -> Int) {
         match
-          fold_extremum(
+          @types.fold_extremum(
             n,
             k => a[at(k)],
             // `NaN` is treated as missing (skipped), as in `Series::min`.
@@ -189,7 +159,7 @@ fn reduce_extremum(
     @column.ColumnData::Bool(a) =>
       fn(n : Int, at : (Int) -> Int) {
         match
-          fold_extremum(
+          @types.fold_extremum(
             n,
             k => a[at(k)],
             k => !present(at(k)),
@@ -203,7 +173,7 @@ fn reduce_extremum(
     @column.ColumnData::String(a) =>
       fn(n : Int, at : (Int) -> Int) {
         match
-          fold_extremum(n, k => a[at(k)], k => !present(at(k)), (x, y) => {
+          @types.fold_extremum(n, k => a[at(k)], k => !present(at(k)), (x, y) => {
             if want_min {
               @types.compare_string_lex(x, y) < 0
             } else {

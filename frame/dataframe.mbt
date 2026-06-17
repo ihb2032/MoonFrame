@@ -482,7 +482,9 @@ fn DataFrame::with_same_schema(
 }
 
 ///|
-/// Clamp a head/tail `n` request into `[0, len]`.
+/// Clamp an `n`-row request into `[0, len]`: a negative request yields `0`, a
+/// request past the end yields `len`. Shared by the `head` / `tail` slices and
+/// the `to_html` / `to_markdown` row caps.
 fn clamp_take(n : Int, len : Int) -> Int {
   if n < 0 {
     0

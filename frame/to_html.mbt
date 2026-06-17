@@ -140,7 +140,7 @@ pub fn DataFrame::to_html_with_options(
   let nrows = self.nrows()
   let shown = match options.max_rows {
     None => nrows
-    Some(n) => if n < 0 { 0 } else if n > nrows { nrows } else { n }
+    Some(n) => clamp_take(n, nrows)
   }
   format_html(self, shown, options)
 }
@@ -164,12 +164,9 @@ fn format_html(df : DataFrame, shown : Int, options : HtmlOptions) -> String {
     return ""
   }
   let escape = options.escape
-  // Materialise the whole frame once (column-major) through the shared
-  // `to_scalar_matrix`, so this renderer never touches the storage
-  // representation. `shown <= df.nrows()` and each `col_scalars[c]` has
-  // length `df.nrows()`, so `col_scalars[c][r]` is in-bounds for
-  // `r in [0, shown)`.
-  let col_scalars = df.to_scalar_matrix()
+  // Pre-render the visible cells once (raw strings, the column-major frame read
+  // transposed into per-row cells); each is HTML-escaped on write below.
+  let cells = table_cell_matrix(df, shown)
   let buf = StringBuilder::new()
   buf.write_string("<table")
   if options.table_class is Some(cls) {
@@ -198,7 +195,7 @@ fn format_html(df : DataFrame, shown : Int, options : HtmlOptions) -> String {
     buf.write_string("<tr>")
     for c in 0..<ncols {
       buf.write_string("<td>")
-      buf.write_string(html_escape(col_scalars[c][r].to_string(), escape))
+      buf.write_string(html_escape(cells[r][c], escape))
       buf.write_string("</td>")
     }
     buf.write_string("</tr>\n")
@@ -210,9 +207,9 @@ fn format_html(df : DataFrame, shown : Int, options : HtmlOptions) -> String {
   if shown < nrows {
     buf.write_string("<tfoot>\n<tr><td colspan=\"")
     buf.write_string(ncols.to_string())
-    buf.write_string("\">... (")
-    buf.write_string((nrows - shown).to_string())
-    buf.write_string(" more rows)</td></tr>\n</tfoot>\n")
+    buf.write_string("\">")
+    buf.write_string(more_rows_banner(nrows - shown))
+    buf.write_string("</td></tr>\n</tfoot>\n")
   }
   buf.write_string("</table>\n")
   buf.to_string()

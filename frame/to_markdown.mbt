@@ -48,11 +48,10 @@ pub fn DataFrame::to_markdown_with_limit(
   limit : Int,
 ) -> String {
   let nrows = self.nrows()
-  let shown = if limit < 0 { 0 } else if limit > nrows { nrows } else { limit }
+  let shown = clamp_take(limit, nrows)
   let body = format_markdown(self, shown)
   if shown < nrows {
-    let extra = nrows - shown
-    body + "... (" + extra.to_string() + " more rows)\n"
+    body + more_rows_banner(nrows - shown) + "\n"
   } else {
     body
   }
@@ -69,21 +68,19 @@ fn format_markdown(df : DataFrame, shown : Int) -> String {
   // `raw_names` supplies the column count and the unescaped header text;
   // `names` is the GFM-escaped form used for both width computation and
   // rendering, so a column name containing `|` / newline can't corrupt the
-  // table. Cell values come from `col_scalars` below, not a name lookup.
+  // table. Cell values come from the `cells` matrix below, not a name lookup.
   let raw_names = df.columns()
   let ncols = raw_names.length()
   if ncols == 0 {
     return ""
   }
   let names = raw_names.map(escape_md_cell)
-  // Pre-render every visible cell so column widths can be computed in
-  // one forward pass before any layout. Materialise the whole frame once
-  // (column-major) through the shared `to_scalar_matrix`. `shown <= nrows`
-  // and each `col_scalars[c]` has length `nrows`, so `col_scalars[c][r]`
-  // is in-bounds for `r in [0, shown)`.
-  let col_scalars = df.to_scalar_matrix()
-  let cells : Array[Array[String]] = Array::makei(shown, r => {
-    Array::makei(ncols, c => escape_md_cell(col_scalars[c][r].to_string()))
+  // Pre-render every visible cell, GFM-escaped, so column widths can be
+  // computed in one forward pass before any layout. `table_cell_matrix` gives
+  // the raw per-row strings; escaping each here means the width alignment runs
+  // on the escaped form, accounting for the `|` → `\|` / `\` → `\\` expansions.
+  let cells : Array[Array[String]] = table_cell_matrix(df, shown).map(row => {
+    row.map(escape_md_cell)
   })
   let widths : Array[Int] = names.mapi((c, name) => {
     let mut w = char_count(name)

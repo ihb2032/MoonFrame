@@ -124,13 +124,22 @@ pub enum UnOp {
 
 ///|
 /// Aggregation tag carried by `Expr::Agg` — same read-only-not-`priv`
-/// rationale as `BinOp`. Evaluation inherits the `Series` reduction
-/// semantics wholesale: `Sum` / `Mean` propagate NaN, `Min` / `Max` skip
-/// it, `Count` counts non-null cells.
+/// rationale as `BinOp`. Evaluation inherits the shared reduction kernel's
+/// semantics wholesale: `Sum` / `Mean` propagate NaN and `Std` / `Var` (the
+/// sample statistics, `ddof = 1`) carry it through the mean; `Min` / `Max` and
+/// the order statistic `Median` skip it; `Count` counts non-null cells and
+/// `NUnique` the distinct non-null values (NaN one bucket); `First` / `Last`
+/// are positional and skip nothing.
 pub enum AggOp {
   Sum
   Mean
   Min
   Max
   Count
+  Std
+  Var
+  Median
+  NUnique
+  First
+  Last
 } derive(Eq, Debug)

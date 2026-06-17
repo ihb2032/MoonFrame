@@ -37,12 +37,30 @@
 // `df.get_column("col").sum()` (= Polars `df["col"].sum()`).
 
 ///|
+/// The fixed set of whole-frame reductions, one per public method below. Kept
+/// separate from the kernel's open-ended `ReduceOp` (which the expression
+/// aggregations also feed) on purpose: `df.sum()` and its four siblings are a
+/// closed Polars-aligned set, and they dispatch to the total `Series`
+/// accessors here rather than routing through `reducer_for`, so a new kernel
+/// reduction (`std` / `median` / `first` / …) must *not* silently become a
+/// frame-wide method — several would misalign Polars (its `df.first()` and
+/// `df.n_unique()` are row operations, not per-column reductions). Decoupling
+/// the tag keeps this match closed at five without a dead arm.
+priv enum FrameReduceOp {
+  Sum
+  Mean
+  Min
+  Max
+  Count
+}
+
+///|
 /// Sum every column as a 1-row `DataFrame`: numeric columns hold their sum
 /// (source dtype preserved), non-numeric columns a `Null` cell. See the file
 /// header for the full semantics. For one column's scalar use
 /// `df.get_column(name).sum()`.
 pub fn DataFrame::sum(self : DataFrame) -> DataFrame raise @types.DataError {
-  self.reduce_to_row(ReduceOp::Sum)
+  self.reduce_to_row(FrameReduceOp::Sum)
 }
 
 ///|
@@ -50,7 +68,7 @@ pub fn DataFrame::sum(self : DataFrame) -> DataFrame raise @types.DataError {
 /// hold their mean as `Float` (an empty / all-null numeric column → `Null`),
 /// non-numeric columns a `Null` cell in their own dtype.
 pub fn DataFrame::mean(self : DataFrame) -> DataFrame raise @types.DataError {
-  self.reduce_to_row(ReduceOp::Mean)
+  self.reduce_to_row(FrameReduceOp::Mean)
 }
 
 ///|
@@ -60,7 +78,7 @@ pub fn DataFrame::mean(self : DataFrame) -> DataFrame raise @types.DataError {
 /// columns rather than ordering them — use `Series::min` for a typed
 /// extremum over any dtype.
 pub fn DataFrame::min(self : DataFrame) -> DataFrame raise @types.DataError {
-  self.reduce_to_row(ReduceOp::Min)
+  self.reduce_to_row(FrameReduceOp::Min)
 }
 
 ///|
@@ -68,7 +86,7 @@ pub fn DataFrame::min(self : DataFrame) -> DataFrame raise @types.DataError {
 /// order reversed; the `NaN`-skipping and non-numeric-`Null` rules are
 /// identical.
 pub fn DataFrame::max(self : DataFrame) -> DataFrame raise @types.DataError {
-  self.reduce_to_row(ReduceOp::Max)
+  self.reduce_to_row(FrameReduceOp::Max)
 }
 
 ///|
@@ -76,7 +94,7 @@ pub fn DataFrame::max(self : DataFrame) -> DataFrame raise @types.DataError {
 /// row-oriented counterpart of the column-oriented `null_count`. Total over
 /// every dtype (no numeric restriction).
 pub fn DataFrame::count(self : DataFrame) -> DataFrame raise @types.DataError {
-  self.reduce_to_row(ReduceOp::Count)
+  self.reduce_to_row(FrameReduceOp::Count)
 }
 
 ///|
@@ -91,7 +109,7 @@ pub fn DataFrame::count(self : DataFrame) -> DataFrame raise @types.DataError {
 /// frame produces zero output columns, i.e. a `0×0` result.)
 fn DataFrame::reduce_to_row(
   self : DataFrame,
-  op : ReduceOp,
+  op : FrameReduceOp,
 ) -> DataFrame raise @types.DataError {
   let cols : Array[Series] = []
   for s in self.column_series() {
@@ -113,7 +131,10 @@ fn DataFrame::reduce_to_row(
 /// from the expression engine's `eval_agg` (which reduces every dtype and
 /// raises on a non-numeric `sum` / `mean`): the whole-frame reductions
 /// tolerate non-reducible columns by nulling them, matching `df.sum()`.
-fn reduce_column(s : Series, op : ReduceOp) -> Series raise @types.DataError {
+fn reduce_column(
+  s : Series,
+  op : FrameReduceOp,
+) -> Series raise @types.DataError {
   let name = s.name()
   // `data` doubles as the numeric test (its variant) and, for the
   // dtype-preserving reductions, the output `probe`; `ColumnData` has no
@@ -125,14 +146,17 @@ fn reduce_column(s : Series, op : ReduceOp) -> Series raise @types.DataError {
     _ => false
   }
   let (cell, probe) = match op {
-    ReduceOp::Count =>
+    FrameReduceOp::Count =>
       (@types.Scalar::Int(s.count().to_int64()), @column.ColumnData::Int([]))
     // `Series::sum` only raises for a non-numeric dtype, which the `numeric`
     // guard excludes — so the call never actually raises here.
-    ReduceOp::Sum => (if numeric { s.sum() } else { @types.Scalar::Null }, data)
-    ReduceOp::Min => (if numeric { s.min() } else { @types.Scalar::Null }, data)
-    ReduceOp::Max => (if numeric { s.max() } else { @types.Scalar::Null }, data)
-    ReduceOp::Mean => {
+    FrameReduceOp::Sum =>
+      (if numeric { s.sum() } else { @types.Scalar::Null }, data)
+    FrameReduceOp::Min =>
+      (if numeric { s.min() } else { @types.Scalar::Null }, data)
+    FrameReduceOp::Max =>
+      (if numeric { s.max() } else { @types.Scalar::Null }, data)
+    FrameReduceOp::Mean => {
       // `mean_opt` is the total form of `Series::mean`: `Some` for a numeric
       // column with a non-null cell, `None` for an empty / all-null one (where
       // a whole-frame reduction wants a `Null` cell, not `InvalidOperation`).

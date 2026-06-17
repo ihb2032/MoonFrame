@@ -38,11 +38,13 @@
 ///   `not(null) = null`).
 /// - **Null probes** (`is_null` / `is_not_null`): read validity only —
 ///   total, the output is never null.
-/// - **Aggregations** (`sum/mean/min/max/count`): reduce the operand over
-///   the scope to a length-1 column, inheriting the `Series` reduction
-///   semantics — `sum` / `mean` propagate NaN and reject non-numeric
-///   dtypes, `min` / `max` skip NaN and are total over every dtype,
-///   `count` counts non-null cells. One deliberate divergence: an
+/// - **Aggregations** (`sum/mean/min/max/count/std/var/median/n_unique/
+///   first/last`): reduce the operand over
+///   the scope to a length-1 column through the shared `reduce.mbt` kernel —
+///   `sum` / `mean` / `std` / `var` propagate NaN and reject non-numeric
+///   dtypes, `min` / `max` / `median` skip NaN (`median` numeric-only),
+///   `count` counts non-null cells, `n_unique` the distinct non-null values,
+///   and `first` / `last` are positional. One deliberate divergence: an
 ///   empty / all-null `mean` is a **null cell**, not
 ///   `InvalidOperation` — per-group reductions (E4) must be able to
 ///   produce a null for an all-null group, mirroring Polars.
@@ -667,6 +669,12 @@ fn reduce_op_of_agg(op : @expr.AggOp) -> ReduceOp {
     @expr.AggOp::Min => ReduceOp::Min
     @expr.AggOp::Max => ReduceOp::Max
     @expr.AggOp::Count => ReduceOp::Count
+    @expr.AggOp::Std => ReduceOp::Std
+    @expr.AggOp::Var => ReduceOp::Var
+    @expr.AggOp::Median => ReduceOp::Median
+    @expr.AggOp::NUnique => ReduceOp::NUnique
+    @expr.AggOp::First => ReduceOp::First
+    @expr.AggOp::Last => ReduceOp::Last
   }
 }
 

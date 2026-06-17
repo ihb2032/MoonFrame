@@ -295,6 +295,12 @@ fn agg_suffix(op : AggOp) -> String {
     Min => ".min()"
     Max => ".max()"
     Count => ".count()"
+    Std => ".std()"
+    Var => ".variance()"
+    Median => ".median()"
+    NUnique => ".n_unique()"
+    First => ".first()"
+    Last => ".last()"
   }
 }
 

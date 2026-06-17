@@ -260,6 +260,56 @@ pub fn Expr::count(self : Expr) -> Expr {
 }
 
 ///|
+/// Sample standard deviation of the operand over the evaluation scope
+/// (`ddof = 1`, Polars' default): NaN propagates through the mean, nulls are
+/// skipped, fewer than two non-null cells reduce to null, and a non-numeric
+/// operand is `TypeMismatch`. Always a `Float`.
+pub fn Expr::std(self : Expr) -> Expr {
+  Agg(AggOp::Std, self)
+}
+
+///|
+/// Sample variance of the operand over the evaluation scope (`ddof = 1`); the
+/// square of `std`, with the identical null / NaN / dtype rules. Always a
+/// `Float`. Spelled `variance` because `var` is a reserved MoonBit word (the
+/// `with_alias` / `.land()` situation), so Polars' `var` becomes `variance`.
+pub fn Expr::variance(self : Expr) -> Expr {
+  Agg(AggOp::Var, self)
+}
+
+///|
+/// Median of the operand over the evaluation scope. NaN and nulls are skipped
+/// (the order-statistic counterpart of `min` / `max`), an all-missing scope
+/// reduces to null, and a non-numeric operand is `TypeMismatch`. Always a
+/// `Float` (`Int` widens), so an even count averages its two middles.
+pub fn Expr::median(self : Expr) -> Expr {
+  Agg(AggOp::Median, self)
+}
+
+///|
+/// Number of distinct non-null values of the operand over the evaluation scope
+/// (`Series::n_unique` semantics: every NaN is one bucket, `-0.0` folds into
+/// `+0.0`). Total over every dtype, never null — an `Int`.
+pub fn Expr::n_unique(self : Expr) -> Expr {
+  Agg(AggOp::NUnique, self)
+}
+
+///|
+/// First cell of the operand over the evaluation scope, in row order, keeping
+/// the operand's dtype. Positional — a null first cell is null, an empty scope
+/// is null, and a present `NaN` passes through verbatim.
+pub fn Expr::first(self : Expr) -> Expr {
+  Agg(AggOp::First, self)
+}
+
+///|
+/// Last cell of the operand over the evaluation scope, in row order, keeping
+/// the operand's dtype. The positional mirror of `first`.
+pub fn Expr::last(self : Expr) -> Expr {
+  Agg(AggOp::Last, self)
+}
+
+///|
 /// Cast the operand to `target` at evaluation time, delegating to
 /// `Series::cast` (so the supported dtype pairs — and the `Unsupported`
 /// cases — are exactly the eager ones).

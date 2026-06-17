@@ -267,8 +267,10 @@ fn all_row_stable(exprs : Array[@expr.Expr]) -> Bool {
 /// disappear — `agg` converges an all-valid numeric column onto
 /// `Numeric`, and structural equality sees the difference) and never
 /// raising on values (so a dropped group cannot take its error with it).
-/// `sum` / `count` always produce a value; `mean` / `min` / `max` go null
-/// on an all-null group; a `cast`'s rejection is value-dependent, as is a
+/// `sum` / `count` / `n_unique` always produce a value; `mean` / `min` /
+/// `max` / `std` / `var` / `median` go null on an all-null (or, for the
+/// sample statistics, single-value) group, and `first` / `last` go null on a
+/// null leading / trailing cell; a `cast`'s rejection is value-dependent, as is a
 /// `map`'s opaque closure (null- or raise-valued on the cells it meets);
 /// the null literal is a null cell by definition; a bare column — or a
 /// `lit_series`, equally row-wise — is not reduction-shaped at all (the
@@ -290,8 +292,15 @@ fn group_cell_stable(expr : @expr.Expr) -> Bool {
       }
     @expr.Expr::Agg(op, _) =>
       match op {
-        @expr.AggOp::Sum | @expr.AggOp::Count => true
-        @expr.AggOp::Mean | @expr.AggOp::Min | @expr.AggOp::Max => false
+        @expr.AggOp::Sum | @expr.AggOp::Count | @expr.AggOp::NUnique => true
+        @expr.AggOp::Mean
+        | @expr.AggOp::Min
+        | @expr.AggOp::Max
+        | @expr.AggOp::Std
+        | @expr.AggOp::Var
+        | @expr.AggOp::Median
+        | @expr.AggOp::First
+        | @expr.AggOp::Last => false
       }
     @expr.Expr::Cast(_, _)
     | @expr.Expr::Map(_, _, _)

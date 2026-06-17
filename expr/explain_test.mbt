@@ -2,7 +2,7 @@
 /// Blackbox snapshots for the handwritten `Show` / `explain` rendering and
 /// behaviour tests for the introspection primitive `children` and the pair
 /// `referenced_columns` / `output_name` built on it. Every rendering arm — the twelve binary symbols, four
-/// unary forms, five aggregation suffixes, cast / alias / ternary, and
+/// unary forms, eleven aggregation suffixes, cast / alias / ternary, and
 /// each literal kind — is pinned here, since `explain` output is demo-
 /// and (from L1 on) plan-printer-facing; the naming rule's clauses are
 /// pinned clause by clause, since the eager materialisers in `frame` and
@@ -73,6 +73,12 @@ test "show: every aggregation suffix" {
   inspect(col("v").min(), content="col(v).min()")
   inspect(col("v").max(), content="col(v).max()")
   inspect(col("v").count(), content="col(v).count()")
+  inspect(col("v").std(), content="col(v).std()")
+  inspect(col("v").variance(), content="col(v).variance()")
+  inspect(col("v").median(), content="col(v).median()")
+  inspect(col("v").n_unique(), content="col(v).n_unique()")
+  inspect(col("v").first(), content="col(v).first()")
+  inspect(col("v").last(), content="col(v).last()")
 }
 
 ///|

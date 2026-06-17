@@ -695,6 +695,59 @@ test "fence: a mean aggregation pins the filter above the group stage" {
 }
 
 ///|
+test "a key predicate sinks below a distinct-count aggregation" {
+  let df = sales_df()
+  // `n_unique` cells are always a non-null `Int`, so — like `sum` / `count` —
+  // the stitched columns' backend cannot flip when a group disappears, and a
+  // key predicate sinks past the aggregation.
+  let aggs = [
+    @expr.col("qty").n_unique().with_alias("nu"),
+    @expr.col("bonus").n_unique().with_alias("nb"),
+  ]
+  let predicate = @expr.col("region").eq(@expr.lit_str("west"))
+  let plan = lazy_frame(df)
+    .group_by([@expr.col("region")])
+    .agg(aggs)
+    .filter(predicate)
+  assert_eq(
+    plan.explain(optimized=true),
+    "AGGREGATE [col(qty).n_unique() as nu, col(bonus).n_unique() as nb] BY [col(region)]\n" +
+    "  FILTER (col(region) == \"west\")\n" +
+    "    SCAN [4×3]",
+  )
+  let out = plan.collect()
+  assert_eq(out, df.group_by([@expr.col("region")]).agg(aggs).filter(predicate))
+  assert_eq(out.check_invariants(), Ok(()))
+}
+
+///|
+test "fence: a std aggregation pins the filter above the group stage" {
+  let df = sales_df()
+  // The east group's bonus cells are all null, so its `std` is a null cell and
+  // the stitched column stays `Builtin`; like `mean`, dropping that group
+  // first would converge the survivors onto `Numeric` — a different output —
+  // so the fence keeps the filter above. (`variance` / `median` / `first` /
+  // `last` are fenced for the same reason: each can go null on a group.)
+  let aggs = [@expr.col("bonus").std().with_alias("s")]
+  let predicate = @expr.col("region").eq(@expr.lit_str("west"))
+  let plan = lazy_frame(df)
+    .group_by([@expr.col("region")])
+    .agg(aggs)
+    .filter(predicate)
+  assert_eq(
+    plan.explain(optimized=true),
+    "FILTER (col(region) == \"west\")\n" +
+    "  AGGREGATE [col(bonus).std() as s] BY [col(region)]\n" +
+    "    SELECT [col(bonus), col(region)]\n" +
+    "      SCAN [4×3]",
+  )
+  assert_eq(
+    plan.collect(),
+    df.group_by([@expr.col("region")]).agg(aggs).filter(predicate),
+  )
+}
+
+///|
 test "fence: a cast in the aggregation list pins the filter above" {
   let df = sales_df()
   let aggs = [

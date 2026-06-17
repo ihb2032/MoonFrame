@@ -70,9 +70,21 @@ test "unary: negation, not, and the null probes are distinct wrappers" {
 }
 
 ///|
-test "agg: the five reductions are distinct wrappers" {
+test "agg: the eleven reductions are distinct wrappers" {
   let e = col("x")
-  let trees = [e.sum(), e.mean(), e.min(), e.max(), e.count()]
+  let trees = [
+    e.sum(),
+    e.mean(),
+    e.min(),
+    e.max(),
+    e.count(),
+    e.std(),
+    e.variance(),
+    e.median(),
+    e.n_unique(),
+    e.first(),
+    e.last(),
+  ]
   for i in 0..<trees.length() {
     for j in (i + 1)..<trees.length() {
       assert_not_eq(trees[i], trees[j])

@@ -37,6 +37,12 @@ pub(all) enum ReduceOp {
   Min
   Max
   Count
+  Std
+  Var
+  Median
+  NUnique
+  First
+  Last
 }
 
 pub struct Series {

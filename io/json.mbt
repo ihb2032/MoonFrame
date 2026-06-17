@@ -352,10 +352,9 @@ fn infer_json_column_dtype(
 
 ///|
 /// Try to read `j` as an `Int64`. Accepts `Number` values that are
-/// exactly integer-valued (`n == n.trunc()`) and within `Int64` range —
-/// guarded by the largest `Double` strictly below `2^63`
-/// (`9223372036854774784`), since `Int64::MAX` isn't exactly
-/// representable as a `Double`. The check is value-based rather than
+/// exactly integer-valued (`n == n.trunc()`) and within `Int64` range
+/// (checked by `@types.double_fits_int64`, since `Int64::MAX` isn't
+/// exactly representable as a `Double`). The check is value-based rather than
 /// repr-based because `@json.parse` only populates `Number.repr` for
 /// overflow corner cases (Infinity / -Infinity), so anything written
 /// like `1.0e2` lands as `Number(100.0, None)` — which we treat as
@@ -370,7 +369,7 @@ fn json_value_as_int(j : Json) -> Int64? {
       if n != n.trunc() {
         return None
       }
-      if n < -9223372036854775808.0 || n > 9223372036854774784.0 {
+      if !@types.double_fits_int64(n) {
         return None
       }
       Some(n.to_int64())

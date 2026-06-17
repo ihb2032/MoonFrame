@@ -314,6 +314,29 @@ missing column, a type clash) waits for evaluation. `expr` depends only on
 - `cast(target : DataType) -> Expr`; `with_alias(name : String) -> Expr`
   (names the output column; `alias` is a reserved word).
 
+### String namespace
+
+String operations on a String column, each a `str_*` method building a `Str`
+node — the MoonBit spelling of Polars' `.str` accessor, there being no
+namespace object. Every operation maps a cell to its result cell by cell: null
+cells stay null, a non-String operand is a `TypeMismatch` at evaluation, and
+all are total (no value can raise). Matching is always **literal** — there is
+no regex engine yet, so the regex forms of `contains` / `replace` are a future
+addition.
+
+- `str_to_uppercase()` / `str_to_lowercase() -> Expr` — case mapping.
+- `str_strip_chars() -> Expr` — strip leading / trailing ASCII whitespace
+  (tab, newline, carriage-return, space).
+- `str_len_chars() -> Expr` — the Unicode character count as an `Int` (a
+  supplementary-plane character counts once, not as its two UTF-16 code
+  units); an all-valid result rides the `Numeric` fast path.
+- `str_contains(pattern : String)` / `str_starts_with(prefix : String)` /
+  `str_ends_with(suffix : String) -> Expr` — `Bool` columns for the literal
+  substring / prefix / suffix tests.
+- `str_replace(pattern : String, value : String)` /
+  `str_replace_all(pattern : String, value : String) -> Expr` — replace the
+  first / every literal occurrence of `pattern` with `value`.
+
 ### Conditional
 
 - `when(cond : Expr) -> WhenThen`, then `WhenThen::then(value) ->
@@ -353,7 +376,7 @@ value barrier (like `cast`): no filter sinks across it.
 - `explain(self) -> String`, and the `Show` impl, render the documented
   operator form: `col(name)`, quoted string literals, parenthesised infix
   binaries `(l op r)`, prefix `(-e)` / `(not e)`, postfix `e.is_null()` /
-  `e.sum()` / `e.cast(T)`, `e as name`,
+  `e.sum()` / `e.str_contains("p")` / `e.cast(T)`, `e as name`,
   `when(c).then(a).otherwise(b)`, `map("label", [inputs])` for the
   closure escape hatch (the closure opaque), and `lit_series("name", len)`
   for an embedded literal series (its data opaque). `LazyFrame::explain`
@@ -386,6 +409,11 @@ raising `DataError` at evaluation time — building the tree never fails:
 - **Comparisons**: cross-numeric is legal, strings compare by
   `compare_string_lex`, `Bool` as `false < true`; the result is a `Bool`
   column.
+- **String namespace** (`str_to_uppercase` / `str_contains` / …) maps each
+  cell of a String operand through a literal `StrOp` — case, `strip_chars`
+  (ASCII whitespace), `len_chars` (an `Int`), the `contains` / `starts_with`
+  / `ends_with` predicates (`Bool`), and `replace` / `replace_all`. Null cells
+  stay null, a non-String operand is a `TypeMismatch`, and all are total.
 - **NaN** inherits the shared reduction rules — `sum` / `mean` (and the
   mean-based `std` / `variance`) propagate a `NaN`, `min` / `max` and the
   order statistic `median` skip it, `n_unique` buckets every `NaN` as one

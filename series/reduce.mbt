@@ -331,20 +331,19 @@ fn reduce_median(
 }
 
 ///|
-/// `n_unique` reducer over an index window: the number of distinct non-null
-/// values, as a `Scalar::Int`. Total over every dtype (it raises nothing) and
-/// never null — an empty / all-null window counts zero. Cells are keyed by the
-/// same `key_cell` normalisation `Series::n_unique` and `group_by` / `join`
-/// use, so "distinct value" means exactly "distinct group": every `NaN`
-/// collapses into one bucket and `-0.0` folds into `+0.0`. Nulls are excluded,
-/// the presence predicate skipping them, matching `Series::n_unique`.
-fn reduce_nunique(
+/// Count the distinct non-null values in an index window — the total core
+/// behind both the `n_unique` reduction and `Series::n_unique`, so the two
+/// agree on what "distinct" means cell-for-cell. Cells are keyed by the same
+/// `key_cell` normalisation `group_by` / `join` use, so "distinct value" means
+/// exactly "distinct group": every `NaN` collapses into one bucket and `-0.0`
+/// folds into `+0.0`. Nulls are excluded, the presence predicate skipping them.
+/// The dtype dispatch resolves once into a per-row key reader; only `Float`
+/// needs normalisation (which `key_cell` centralises), the others key on the
+/// native value directly.
+fn count_distinct(
   storage : @column.ColumnStorage,
-) -> (Int, (Int) -> Int) -> @types.Scalar {
+) -> (Int, (Int) -> Int) -> Int {
   let present = reduce_present(storage)
-  // Resolve the dtype dispatch once into a per-row key reader. Only `Float`
-  // needs normalisation (`NaN` → one bucket, `-0.0` → `+0.0`), which `key_cell`
-  // already centralises; the other dtypes key on the native value directly.
   let key_of : (Int) -> KeyCell = match storage.data() {
     @column.ColumnData::Int(a) => i => KInt(a[i])
     @column.ColumnData::Float(a) => i => key_cell(@types.Scalar::Float(a[i]))
@@ -359,7 +358,21 @@ fn reduce_nunique(
         seen[key_of(i)] = ()
       }
     }
-    @types.Scalar::Int(seen.length().to_int64())
+    seen.length()
+  }
+}
+
+///|
+/// `n_unique` reducer over an index window: the number of distinct non-null
+/// values, as a `Scalar::Int`. Total over every dtype (it raises nothing) and
+/// never null — an empty / all-null window counts zero. Wraps the shared
+/// `count_distinct` core that `Series::n_unique` also uses.
+fn reduce_nunique(
+  storage : @column.ColumnStorage,
+) -> (Int, (Int) -> Int) -> @types.Scalar {
+  let counter = count_distinct(storage)
+  fn(n : Int, at : (Int) -> Int) {
+    @types.Scalar::Int(counter(n, at).to_int64())
   }
 }
 

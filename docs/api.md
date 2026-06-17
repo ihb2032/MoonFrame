@@ -365,9 +365,12 @@ identified by its `label` and inputs.
 
 The closure runs once per row at evaluation and may `raise` (propagating from
 the consuming verb). The output column's dtype is the first non-null `Scalar`
-returned — an all-null or empty result raises `Unsupported` (there is no
-Null-dtype backend, the same limit as a `Null` literal). The result is named
-after the leftmost input; `label` shows only in `explain`. Because the
+returned — an all-null result over a non-empty frame raises `Unsupported`
+(there is no Null-dtype backend, the same limit as a `Null` literal). Over an
+**empty** frame the closure never runs, so the dtype is unobservable: map then
+mirrors the leftmost input's dtype and returns an empty column (so it survives
+an empty frame like every other expression rather than raising). The result is
+named after the leftmost input; `label` shows only in `explain`. Because the
 closure can raise on the values it meets, the optimizer treats a map as a
 value barrier (like `cast`): no filter sinks across it.
 

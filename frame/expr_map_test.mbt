@@ -195,21 +195,24 @@ test "map_elements: used in select, producing a standalone column" {
 }
 
 ///|
-test "map over an empty frame cannot infer a dtype and raises" {
-  // The closure runs once per row — zero times here — so there is no
-  // non-null cell to type the column, the same limit as a `Null` literal.
-  let empty = DataFrame::new([Series::from_ints("i", [])])
-  let result = try? empty.with_columns([
-    @expr.col("i").map_elements(label="id", s => s),
+test "map over an empty frame yields an empty column mirroring the input dtype" {
+  // The closure runs once per row — zero times here — so its result dtype is
+  // unobservable. Instead of raising (which would make map the one expression
+  // that cannot survive an empty frame), map mirrors the leftmost input's
+  // dtype and returns an empty column. Covers an Int and a String input.
+  let empty = DataFrame::new([
+    Series::from_ints("i", []),
+    Series::from_strings("s", []),
   ])
-  assert_eq(
-    result,
-    Err(
-      @types.DataError::Unsupported(
-        "cannot infer the dtype of a map result with no non-null cell: no Null-dtype column backend",
-      ),
-    ),
-  )
+  let out = empty.with_columns([
+    @expr.col("i").map_elements(label="id", s => s),
+    @expr.col("s").map_elements(label="echo", s => s),
+  ])
+  assert_eq(out.shape(), (0, 2))
+  assert_eq(out.get_column("i").dtype(), @types.DataType::Int)
+  assert_eq(out.get_column("i").to_scalars(), [])
+  assert_eq(out.get_column("s").dtype(), @types.DataType::String)
+  assert_eq(out.get_column("s").to_scalars(), [])
 }
 
 ///|

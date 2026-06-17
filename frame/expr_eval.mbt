@@ -920,8 +920,28 @@ fn eval_map(
     cells.push(f(Array::makei(width, k => columns[k][i])))
   }
   let name = if evaluated.is_empty() { "literal" } else { evaluated[0].name() }
-  match infer_map_dtype(cells) {
-    Some(probe) => scalars_to_series(probe, name, cells)
+  // An empty scope (a 0-row frame with a column input) calls the closure zero
+  // times, so `infer_map_dtype` sees no cell. Rather than raise — which would
+  // make `map` the one expression that cannot survive an empty frame, breaking
+  // with_columns / select / filter whenever the frame happens to be empty —
+  // fall back to the leftmost input's own column backend as the dtype witness
+  // (its array contents are ignored: `scalars_to_series` reads the probe's
+  // variant only) and return an empty column, mirroring that input's dtype as
+  // `name` already mirrors its name. The all-null case (a non-empty scope
+  // whose every result cell is null) still resolves to `None` and raises
+  // `Unsupported` below — that genuinely has no representable dtype, like a
+  // `Null` literal.
+  let probe = match infer_map_dtype(cells) {
+    Some(p) => Some(p)
+    None =>
+      if cells.is_empty() {
+        evaluated.get(0).map(lead => lead.storage().data())
+      } else {
+        None
+      }
+  }
+  match probe {
+    Some(p) => scalars_to_series(p, name, cells)
     None =>
       raise @types.DataError::Unsupported(
         "cannot infer the dtype of a map result with no non-null cell: no Null-dtype column backend",

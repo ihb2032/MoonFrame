@@ -6,6 +6,79 @@ breaking-change steps for each release are collected in
 [`migration.md`](migration.md). Pre-1.0, breaking changes ride the minor
 version.
 
+## v0.5 — one expression engine
+
+The breaking release that finishes what v0.4 started: the eager and lazy
+surfaces **converge onto a single, Polars-shaped expression engine**, and the
+parallel spellings that grew up alongside it are retired. This is the **last**
+breaking release — from v0.6 on the surface only grows. The source-level upgrade
+steps are collected in [`migration.md`](migration.md).
+
+### One engine for the four verbs
+
+`select` / `filter` / `agg` / `with_columns` each take `Expr`s now, on both
+`DataFrame` and `LazyFrame`; the v0.4 `select_exprs` / `filter_where` /
+`agg_exprs` twins, the `AggSpec` reduction specs, and the closure `filter` are
+all gone. The closure's per-row power moves *into* the engine as two escape
+hatches — `col("q").map_elements(label, f)` (one input) and
+`map_many(label, inputs, f)` (several) — still a closure over the row's cells as
+`Scalar`s, but carried by an inspectable, pushdown-able `Expr` rather than an
+opaque function. And because the verb *is* the expression form, a reduction can
+run over a derived column: `(col("revenue") - col("cost")).sum()`.
+
+### Expression keys everywhere
+
+`sort` (renamed from `sort_by`), `group_by`, `join`, and the `drop` family name
+their keys with `Expr`, so a key can be derived rather than just a column name.
+`join` collapses the per-type `inner_join` / `left_join` / `right_join` /
+`outer_join` / `cross_join` methods into the single `join(other, JoinOptions)`
+(Polars has no `*_join`) and gains `left_on` / `right_on` for differently-named
+keys. `sort` keeps one deliberate non-Polars behaviour — a `NaN` sorts as
+missing, by the tuple's `NullOrder` (the v0.2 choice).
+
+### A wider expression vocabulary
+
+- **Aggregations** `std` / `variance` / `median` / `n_unique` / `first` /
+  `last` join `sum` / `mean` / `min` / `max` / `count` (sample statistics for
+  `std` / `variance`; `median` skips `NaN`; `first` / `last` are positional).
+- **A string namespace**: `str_to_uppercase` / `str_to_lowercase` /
+  `str_strip_chars` / `str_len_chars` / `str_contains` / `str_starts_with` /
+  `str_ends_with` / `str_replace` / `str_replace_all` (literal matching, no
+  regex), each a first-class, introspectable `Str` node.
+- **`fill_null` on the expression layer**: `col("x").fill_null(value)` (the
+  value is any `Expr` — a literal, another column for a coalesce, or a tree),
+  plus a whole-frame `df.fill_null(value)`. The old per-column frame method is
+  removed.
+- **`lit_series`** embeds a `Series` as a (broadcasting) expression, and
+  **`cols(["a", "b"])`** expands names to `col` expressions.
+
+### Row access, reductions, and dedup, Polars-shaped
+
+The rich `RowView` is retired: `df.row(i)` returns an `Array[Scalar]` (a
+positional row) and the new `df.rows()` returns them all. The column-scalar
+reductions give way to Polars' pair — `df.sum()` / `mean()` / `min()` / `max()`
+/ `count()` reduce to a **one-row `DataFrame`**, while a single scalar comes from
+`df.get_column(c).sum()`. `df.unique()` drops duplicate rows, keeping
+first-appearance order.
+
+### Lazy file sources
+
+`scan_csv` / `scan_ndjson` (and their `_with_options` variants) start a lazy
+plan straight from a file. The optimizer's **projection pushdown** reaches into
+the source: a column the plan never reads is never parsed, so
+`scan_csv("sales.csv").select([col("region"), col("revenue")]).collect()` reads
+only those two columns. (An array-shaped JSON document has no row-wise scan to
+push a projection into, so there is no `scan_json`.)
+
+### `Series` in its own package; naming finalised
+
+`Series` is extracted from `frame` into a new `series` package, so the
+expression layer can build on the per-column unit (the facade name
+`@moonframe.Series` is unchanged). The last non-Polars names are aligned:
+`min_value` / `max_value` → `min` / `max`, `take` → `gather`, `unique_count` →
+`n_unique`, `to_int` / `to_float` / `to_string_series` → `cast`, and
+`DataFrame::get(i, c)` → `item(i, c)`; `null_rate` is removed.
+
 ## v0.4 — shipped
 
 A Polars-style expression engine and a lazy query layer, both **purely

@@ -187,7 +187,9 @@ test "str: an op on a literal broadcasts over the frame" {
 ///|
 test "str: a non-String operand is a TypeMismatch" {
   let df = DataFrame::new([Series::from_ints("n", [1, 2, 3])])
-  let result = try? df.with_columns([@expr.col("n").str_to_uppercase()])
+  let result = Ok(df.with_columns([@expr.col("n").str_to_uppercase()])) catch {
+    e => Err(e)
+  }
   assert_eq(
     result,
     Err(

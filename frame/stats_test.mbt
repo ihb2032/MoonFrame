@@ -187,7 +187,9 @@ test "a single column's scalar reduction goes through its Series" {
   assert_eq(df.get_column("b").count(), 4)
   // An unknown column still raises `ColumnNotFound` at the lookup.
   assert_eq(
-    try? df.get_column("missing"),
+    Ok(df.get_column("missing")) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::ColumnNotFound("missing")),
   )
 }

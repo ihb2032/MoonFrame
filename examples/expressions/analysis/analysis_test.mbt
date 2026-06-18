@@ -157,6 +157,7 @@ test "enrich: a missing source column surfaces as ColumnNotFound" {
     @moonframe.Series::from_ints("quantity", [1, 2]),
   ])
   assert_true(
-    (try? enrich(df)) is Err(@moonframe.DataError::ColumnNotFound("cost")),
+    (Ok(enrich(df)) catch { e => Err(e) })
+    is Err(@moonframe.DataError::ColumnNotFound("cost")),
   )
 }

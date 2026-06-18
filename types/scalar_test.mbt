@@ -26,25 +26,29 @@ test "Scalar::to_string value-style" {
 ///|
 test "Scalar::as_int" {
   assert_eq(Scalar::Int(7).as_int(), 7)
-  assert_true((try? Scalar::Float(7.0).as_int()) is Err(_))
-  assert_true((try? Scalar::Null.as_int()) is Err(_))
-  assert_true((try? Scalar::String("7").as_int()) is Err(_))
+  assert_true((Ok(Scalar::Float(7.0).as_int()) catch { e => Err(e) }) is Err(_))
+  assert_true((Ok(Scalar::Null.as_int()) catch { e => Err(e) }) is Err(_))
+  assert_true(
+    (Ok(Scalar::String("7").as_int()) catch { e => Err(e) }) is Err(_),
+  )
 }
 
 ///|
 test "Scalar::as_float promotes Int" {
   assert_eq(Scalar::Float(1.5).as_float(), 1.5)
   assert_eq(Scalar::Int(3).as_float(), 3.0)
-  assert_true((try? Scalar::Null.as_float()) is Err(_))
-  assert_true((try? Scalar::Bool(true).as_float()) is Err(_))
+  assert_true((Ok(Scalar::Null.as_float()) catch { e => Err(e) }) is Err(_))
+  assert_true(
+    (Ok(Scalar::Bool(true).as_float()) catch { e => Err(e) }) is Err(_),
+  )
 }
 
 ///|
 test "Scalar::as_bool / as_string" {
   assert_eq(Scalar::Bool(false).as_bool(), false)
-  assert_true((try? Scalar::Int(0).as_bool()) is Err(_))
+  assert_true((Ok(Scalar::Int(0).as_bool()) catch { e => Err(e) }) is Err(_))
   assert_eq(Scalar::String("ok").as_string(), "ok")
-  assert_true((try? Scalar::Null.as_string()) is Err(_))
+  assert_true((Ok(Scalar::Null.as_string()) catch { e => Err(e) }) is Err(_))
 }
 
 ///|
@@ -64,15 +68,25 @@ test "Scalar::eq Int and Float compare numerically" {
 
 ///|
 test "Scalar::eq Null short-circuits to a raise" {
-  assert_true((try? Scalar::Null.eq(Scalar::Null)) is Err(_))
-  assert_true((try? Scalar::Null.eq(Scalar::Int(0))) is Err(_))
-  assert_true((try? Scalar::Int(0).eq(Scalar::Null)) is Err(_))
+  assert_true(
+    (Ok(Scalar::Null.eq(Scalar::Null)) catch { e => Err(e) }) is Err(_),
+  )
+  assert_true(
+    (Ok(Scalar::Null.eq(Scalar::Int(0))) catch { e => Err(e) }) is Err(_),
+  )
+  assert_true(
+    (Ok(Scalar::Int(0).eq(Scalar::Null)) catch { e => Err(e) }) is Err(_),
+  )
 }
 
 ///|
 test "Scalar::eq cross-type raises" {
-  assert_true((try? Scalar::Int(0).eq(Scalar::String("0"))) is Err(_))
-  assert_true((try? Scalar::Bool(true).eq(Scalar::Int(1))) is Err(_))
+  assert_true(
+    (Ok(Scalar::Int(0).eq(Scalar::String("0"))) catch { e => Err(e) }) is Err(_),
+  )
+  assert_true(
+    (Ok(Scalar::Bool(true).eq(Scalar::Int(1))) catch { e => Err(e) }) is Err(_),
+  )
 }
 
 ///|
@@ -91,7 +105,9 @@ test "Scalar::lt / lte / gt / gte" {
   // Mixed numeric works.
   assert_eq(Scalar::Int(1).lt(Scalar::Float(1.5)), true)
   // Null always raises.
-  assert_true((try? Scalar::Null.lt(Scalar::Int(0))) is Err(_))
+  assert_true(
+    (Ok(Scalar::Null.lt(Scalar::Int(0))) catch { e => Err(e) }) is Err(_),
+  )
 }
 
 ///|
@@ -158,19 +174,39 @@ test "Scalar::lt Float-Float and Float-Int both directions" {
 
 ///|
 test "Scalar::lt cross-type raises" {
-  assert_true((try? Scalar::Int(0).lt(Scalar::String("0"))) is Err(_))
-  assert_true((try? Scalar::Bool(true).lt(Scalar::String("x"))) is Err(_))
-  assert_true((try? Scalar::Float(1.0).lt(Scalar::Bool(true))) is Err(_))
+  assert_true(
+    (Ok(Scalar::Int(0).lt(Scalar::String("0"))) catch { e => Err(e) }) is Err(_),
+  )
+  assert_true(
+    (Ok(Scalar::Bool(true).lt(Scalar::String("x"))) catch { e => Err(e) })
+    is Err(_),
+  )
+  assert_true(
+    (Ok(Scalar::Float(1.0).lt(Scalar::Bool(true))) catch { e => Err(e) })
+    is Err(_),
+  )
 }
 
 ///|
 test "Scalar::lte / gt / gte all guard Null" {
-  assert_true((try? Scalar::Null.lte(Scalar::Int(0))) is Err(_))
-  assert_true((try? Scalar::Int(0).lte(Scalar::Null)) is Err(_))
-  assert_true((try? Scalar::Null.gt(Scalar::Int(0))) is Err(_))
-  assert_true((try? Scalar::Int(0).gt(Scalar::Null)) is Err(_))
-  assert_true((try? Scalar::Null.gte(Scalar::Int(0))) is Err(_))
-  assert_true((try? Scalar::Int(0).gte(Scalar::Null)) is Err(_))
+  assert_true(
+    (Ok(Scalar::Null.lte(Scalar::Int(0))) catch { e => Err(e) }) is Err(_),
+  )
+  assert_true(
+    (Ok(Scalar::Int(0).lte(Scalar::Null)) catch { e => Err(e) }) is Err(_),
+  )
+  assert_true(
+    (Ok(Scalar::Null.gt(Scalar::Int(0))) catch { e => Err(e) }) is Err(_),
+  )
+  assert_true(
+    (Ok(Scalar::Int(0).gt(Scalar::Null)) catch { e => Err(e) }) is Err(_),
+  )
+  assert_true(
+    (Ok(Scalar::Null.gte(Scalar::Int(0))) catch { e => Err(e) }) is Err(_),
+  )
+  assert_true(
+    (Ok(Scalar::Int(0).gte(Scalar::Null)) catch { e => Err(e) }) is Err(_),
+  )
 }
 
 ///|
@@ -186,8 +222,10 @@ test "Scalar::lte short-circuits at equality" {
 ///|
 test "Scalar::as_bool / as_string remaining error paths" {
   // as_bool: Null branch.
-  assert_true((try? Scalar::Null.as_bool()) is Err(_))
+  assert_true((Ok(Scalar::Null.as_bool()) catch { e => Err(e) }) is Err(_))
   // as_string: non-String non-Null branch.
-  assert_true((try? Scalar::Float(1.5).as_string()) is Err(_))
-  assert_true((try? Scalar::Int(0).as_string()) is Err(_))
+  assert_true(
+    (Ok(Scalar::Float(1.5).as_string()) catch { e => Err(e) }) is Err(_),
+  )
+  assert_true((Ok(Scalar::Int(0).as_string()) catch { e => Err(e) }) is Err(_))
 }

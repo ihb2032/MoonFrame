@@ -46,8 +46,18 @@ test "row reads null cells as Scalar::Null" {
 ///|
 test "row validates the index up front with IndexOutOfBounds" {
   let df = sample_frame()
-  assert_eq(try? df.row(-1), Err(@types.DataError::IndexOutOfBounds(-1)))
-  assert_eq(try? df.row(3), Err(@types.DataError::IndexOutOfBounds(3)))
+  assert_eq(
+    Ok(df.row(-1)) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::IndexOutOfBounds(-1)),
+  )
+  assert_eq(
+    Ok(df.row(3)) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::IndexOutOfBounds(3)),
+  )
 }
 
 // ── rows ─────────────────────────────────────────────────────────────

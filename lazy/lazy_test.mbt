@@ -320,7 +320,12 @@ test "building a doomed plan succeeds; the error waits for collect" {
   // Building and introspecting are total even though collecting will fail
   // — inspect first, compute later.
   assert_eq(plan.explain(), "FILTER (col(zzz) > 0)\n  SCAN [4×3]")
-  assert_eq(try? plan.collect(), Err(@types.DataError::ColumnNotFound("zzz")))
+  assert_eq(
+    Ok(plan.collect()) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::ColumnNotFound("zzz")),
+  )
 }
 
 ///|
@@ -328,25 +333,40 @@ test "collect surfaces the eager operators' errors unchanged" {
   let df = sales_df()
   // Non-Bool predicate → the eager filter TypeMismatch.
   assert_eq(
-    try? lazy_frame(df).filter(@expr.col("qty")).collect(),
+    Ok(lazy_frame(df).filter(@expr.col("qty")).collect()) catch {
+      e => Err(e)
+    },
     Err(
       @types.DataError::TypeMismatch("filter predicate must be Bool, got Int"),
     ),
   )
   // Out-of-range slice bound → IndexOutOfBounds(end), as in eager slice.
   assert_eq(
-    try? lazy_frame(df).slice(2, 99).collect(),
+    Ok(lazy_frame(df).slice(2, 99).collect()) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::IndexOutOfBounds(99)),
   )
   // Inverted slice window and a missing sort column: equal to the eager
   // errors, message for message.
-  assert_eq(try? lazy_frame(df).slice(3, 1).collect(), try? df.slice(3, 1))
+  assert_eq(
+    Ok(lazy_frame(df).slice(3, 1).collect()) catch {
+      e => Err(e)
+    },
+    Ok(df.slice(3, 1)) catch {
+      e => Err(e)
+    },
+  )
   let bad_keys = [
     (@expr.col("zzz"), @frame.SortOrder::Asc, @frame.NullOrder::NullsFirst),
   ]
   assert_eq(
-    try? lazy_frame(df).sort(bad_keys).collect(),
-    try? df.sort(bad_keys),
+    Ok(lazy_frame(df).sort(bad_keys).collect()) catch {
+      e => Err(e)
+    },
+    Ok(df.sort(bad_keys)) catch {
+      e => Err(e)
+    },
   )
 }
 
@@ -449,33 +469,51 @@ test "group-by building is total; the errors wait for collect" {
   let missing = lazy_frame(df).group_by([@expr.col("zzz")]).agg([])
   assert_eq(missing.explain(), "AGGREGATE [] BY [col(zzz)]\n  SCAN [4×3]")
   assert_eq(
-    try? missing.collect(),
+    Ok(missing.collect()) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::ColumnNotFound("zzz")),
   )
   // Repeated key → the eager group_by DuplicateColumn, at the repeat.
   assert_eq(
-    try? lazy_frame(df)
-    .group_by([@expr.col("region"), @expr.col("region")])
-    .agg([])
-    .collect(),
+    Ok(
+      lazy_frame(df)
+      .group_by([@expr.col("region"), @expr.col("region")])
+      .agg([])
+      .collect(),
+    ) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::DuplicateColumn("region")),
   )
   // A bare column is not reduction-shaped → the eager agg
   // InvalidOperation, message for message.
   assert_eq(
-    try? lazy_frame(df)
-    .group_by([@expr.col("region")])
-    .agg([@expr.col("qty")])
-    .collect(),
-    try? df.group_by([@expr.col("region")]).agg([@expr.col("qty")]),
+    Ok(
+      lazy_frame(df)
+      .group_by([@expr.col("region")])
+      .agg([@expr.col("qty")])
+      .collect(),
+    ) catch {
+      e => Err(e)
+    },
+    Ok(df.group_by([@expr.col("region")]).agg([@expr.col("qty")])) catch {
+      e => Err(e)
+    },
   )
   // Summing a String column → the eager agg TypeMismatch.
   assert_eq(
-    try? lazy_frame(df)
-    .group_by([@expr.col("qty")])
-    .agg([@expr.col("region").sum()])
-    .collect(),
-    try? df.group_by([@expr.col("qty")]).agg([@expr.col("region").sum()]),
+    Ok(
+      lazy_frame(df)
+      .group_by([@expr.col("qty")])
+      .agg([@expr.col("region").sum()])
+      .collect(),
+    ) catch {
+      e => Err(e)
+    },
+    Ok(df.group_by([@expr.col("qty")]).agg([@expr.col("region").sum()])) catch {
+      e => Err(e)
+    },
   )
 }
 

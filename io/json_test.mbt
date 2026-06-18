@@ -276,28 +276,31 @@ test "parse_json_records_str: array of empty objects collapses to 0x0" {
 
 ///|
 test "parse_json_records_str: non-array top-level returns ParseError" {
-  let result = try? @io.parse_json_records_str(
-    "{\"a\":1}",
-    @io.JsonReadOptions::default(),
-  )
+  let result = Ok(
+    @io.parse_json_records_str("{\"a\":1}", @io.JsonReadOptions::default()),
+  ) catch {
+    e => Err(e)
+  }
   assert_true(result is Err(@types.DataError::ParseError(_)))
 }
 
 ///|
 test "parse_json_records_str: non-object record returns ParseError" {
-  let result = try? @io.parse_json_records_str(
-    "[1,2,3]",
-    @io.JsonReadOptions::default(),
-  )
+  let result = Ok(
+    @io.parse_json_records_str("[1,2,3]", @io.JsonReadOptions::default()),
+  ) catch {
+    e => Err(e)
+  }
   assert_true(result is Err(@types.DataError::ParseError(_)))
 }
 
 ///|
 test "parse_json_records_str: malformed JSON returns ParseError" {
-  let result = try? @io.parse_json_records_str(
-    "[{",
-    @io.JsonReadOptions::default(),
-  )
+  let result = Ok(
+    @io.parse_json_records_str("[{", @io.JsonReadOptions::default()),
+  ) catch {
+    e => Err(e)
+  }
   assert_true(result is Err(@types.DataError::ParseError(_)))
 }
 
@@ -307,10 +310,14 @@ test "parse_json_records_str: typed mismatch past inference window errors" {
   // string. The builder rejects the unparseable cell with
   // ParseError rather than silently widening the column.
   let content = "[{\"x\":1},{\"x\":2},{\"x\":\"three\"}]"
-  let result = try? @io.parse_json_records_str(content, {
-    infer_schema_rows: 2,
-    on_parse_error: @io.OnParseError::Raise,
-  })
+  let result = Ok(
+    @io.parse_json_records_str(content, {
+      infer_schema_rows: 2,
+      on_parse_error: @io.OnParseError::Raise,
+    }),
+  ) catch {
+    e => Err(e)
+  }
   assert_true(result is Err(@types.DataError::ParseError(_)))
 }
 
@@ -319,10 +326,14 @@ test "parse_json_records_str: Float column with non-number past inference errors
   // Inference locks Float on the first two records; the third
   // sneaks a string in, which `json_value_as_float` rejects.
   let content = "[{\"x\":1.5},{\"x\":2.5},{\"x\":\"oops\"}]"
-  let result = try? @io.parse_json_records_str(content, {
-    infer_schema_rows: 2,
-    on_parse_error: @io.OnParseError::Raise,
-  })
+  let result = Ok(
+    @io.parse_json_records_str(content, {
+      infer_schema_rows: 2,
+      on_parse_error: @io.OnParseError::Raise,
+    }),
+  ) catch {
+    e => Err(e)
+  }
   assert_true(result is Err(@types.DataError::ParseError(_)))
 }
 
@@ -332,10 +343,14 @@ test "parse_json_records_str: Bool column with non-bool past inference errors" {
   // cell — `json_value_as_bool` refuses `Number(1)` per the same
   // convention `parse_csv_str` uses for `parse_bool_opt`.
   let content = "[{\"x\":true},{\"x\":false},{\"x\":1}]"
-  let result = try? @io.parse_json_records_str(content, {
-    infer_schema_rows: 2,
-    on_parse_error: @io.OnParseError::Raise,
-  })
+  let result = Ok(
+    @io.parse_json_records_str(content, {
+      infer_schema_rows: 2,
+      on_parse_error: @io.OnParseError::Raise,
+    }),
+  ) catch {
+    e => Err(e)
+  }
   assert_true(result is Err(@types.DataError::ParseError(_)))
 }
 
@@ -449,16 +464,22 @@ test "read_json_with_options honours a custom inference window" {
 
 ///|
 test "read_json: missing file surfaces as IoError, not panic" {
-  let result = try? @io.read_json("_build/io_json_test_does_not_exist.json")
+  let result = Ok(@io.read_json("_build/io_json_test_does_not_exist.json")) catch {
+    e => Err(e)
+  }
   assert_true(result is Err(@types.DataError::IoError(_)))
 }
 
 ///|
 test "read_json_with_options: missing file surfaces as IoError" {
-  let result = try? @io.read_json_with_options(
-    "_build/io_json_test_does_not_exist.json",
-    @io.JsonReadOptions::default(),
-  )
+  let result = Ok(
+    @io.read_json_with_options(
+      "_build/io_json_test_does_not_exist.json",
+      @io.JsonReadOptions::default(),
+    ),
+  ) catch {
+    e => Err(e)
+  }
   assert_true(result is Err(@types.DataError::IoError(_)))
 }
 
@@ -468,9 +489,11 @@ test "write_json_records: invalid path surfaces as IoError" {
   // directory that doesn't exist so the underlying `@fs` call
   // surfaces `IOError`, which we promote to `DataError::IoError`.
   let df = @frame.DataFrame::new([@series.Series::from_ints("a", [1])])
-  let result = try? @io.write_json_records(
-    "_build/no_such_dir_io_json_test/file.json", df,
-  )
+  let result = Ok(
+    @io.write_json_records("_build/no_such_dir_io_json_test/file.json", df),
+  ) catch {
+    e => Err(e)
+  }
   assert_true(result is Err(@types.DataError::IoError(_)))
 }
 

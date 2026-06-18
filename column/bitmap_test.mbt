@@ -130,15 +130,35 @@ test "all_null and from_options agree on a uniform-None vector" {
 ///|
 test "is_valid out-of-bounds raises IndexOutOfBounds with the offender" {
   let bm = Bitmap::all_valid(4)
-  assert_eq(try? bm.is_valid(-1), Err(@types.DataError::IndexOutOfBounds(-1)))
-  assert_eq(try? bm.is_valid(4), Err(@types.DataError::IndexOutOfBounds(4)))
+  assert_eq(
+    Ok(bm.is_valid(-1)) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::IndexOutOfBounds(-1)),
+  )
+  assert_eq(
+    Ok(bm.is_valid(4)) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::IndexOutOfBounds(4)),
+  )
 }
 
 ///|
 test "is_null out-of-bounds bubbles the same error as is_valid" {
   let bm = Bitmap::all_valid(2)
-  assert_eq(try? bm.is_null(-5), Err(@types.DataError::IndexOutOfBounds(-5)))
-  assert_eq(try? bm.is_null(2), Err(@types.DataError::IndexOutOfBounds(2)))
+  assert_eq(
+    Ok(bm.is_null(-5)) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::IndexOutOfBounds(-5)),
+  )
+  assert_eq(
+    Ok(bm.is_null(2)) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::IndexOutOfBounds(2)),
+  )
 }
 
 ///|
@@ -201,15 +221,32 @@ test "slice covering the full range is value-equal to the source" {
 ///|
 test "slice rejects negative start, start past len, and overshoot" {
   let bm = Bitmap::all_valid(4)
-  assert_eq(try? bm.slice(-1, 2), Err(@types.DataError::IndexOutOfBounds(-1)))
-  assert_eq(try? bm.slice(5, 0), Err(@types.DataError::IndexOutOfBounds(5)))
-  assert_eq(try? bm.slice(2, 5), Err(@types.DataError::IndexOutOfBounds(7)))
+  assert_eq(
+    Ok(bm.slice(-1, 2)) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::IndexOutOfBounds(-1)),
+  )
+  assert_eq(
+    Ok(bm.slice(5, 0)) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::IndexOutOfBounds(5)),
+  )
+  assert_eq(
+    Ok(bm.slice(2, 5)) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::IndexOutOfBounds(7)),
+  )
 }
 
 ///|
 test "slice rejects negative length with InvalidOperation" {
   let bm = Bitmap::all_valid(4)
-  assert_true((try? bm.slice(0, -1)) is Err(InvalidOperation(_)))
+  assert_true(
+    (Ok(bm.slice(0, -1)) catch { e => Err(e) }) is Err(InvalidOperation(_)),
+  )
 }
 
 ///|
@@ -243,8 +280,18 @@ test "take with empty index array returns an empty bitmap" {
 ///|
 test "take reports the first offender for negative and overflow indices" {
   let bm = Bitmap::all_valid(2)
-  assert_eq(try? bm.take([0, 5]), Err(@types.DataError::IndexOutOfBounds(5)))
-  assert_eq(try? bm.take([-1]), Err(@types.DataError::IndexOutOfBounds(-1)))
+  assert_eq(
+    Ok(bm.take([0, 5])) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::IndexOutOfBounds(5)),
+  )
+  assert_eq(
+    Ok(bm.take([-1])) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::IndexOutOfBounds(-1)),
+  )
 }
 
 // ── bit_and ───────────────────────────────────────────────────────────
@@ -264,7 +311,12 @@ test "bit_and produces the bitwise AND of two same-length bitmaps" {
 test "bit_and rejects mismatched lengths" {
   let a = Bitmap::all_valid(3)
   let b = Bitmap::all_valid(4)
-  assert_eq(try? a.bit_and(b), Err(@types.DataError::LengthMismatch))
+  assert_eq(
+    Ok(a.bit_and(b)) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::LengthMismatch),
+  )
 }
 
 ///|

@@ -129,14 +129,18 @@ test "column backends survive the row filter" {
 test "non-Bool predicates raise TypeMismatch" {
   // A frame-tall non-Bool result raises…
   assert_eq(
-    try? where_df().filter(@expr.col("qty")),
+    Ok(where_df().filter(@expr.col("qty"))) catch {
+      e => Err(e)
+    },
     Err(
       @types.DataError::TypeMismatch("filter predicate must be Bool, got Int"),
     ),
   )
   // …and so does a length-1 non-Bool literal (the broadcast path).
   assert_eq(
-    try? where_df().filter(@expr.lit_str("west")),
+    Ok(where_df().filter(@expr.lit_str("west"))) catch {
+      e => Err(e)
+    },
     Err(
       @types.DataError::TypeMismatch(
         "filter predicate must be Bool, got String",
@@ -148,7 +152,9 @@ test "non-Bool predicates raise TypeMismatch" {
 ///|
 test "evaluation errors surface: unknown column in the predicate" {
   assert_eq(
-    try? where_df().filter(@expr.col("zzz").gt(@expr.lit_int(0))),
+    Ok(where_df().filter(@expr.col("zzz").gt(@expr.lit_int(0)))) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::ColumnNotFound("zzz")),
   )
 }

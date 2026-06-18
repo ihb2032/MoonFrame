@@ -46,10 +46,12 @@ test "sum on empty / all-null numeric is the additive identity" {
 ///|
 test "sum on Bool / String is TypeMismatch" {
   assert_true(
-    (try? Series::from_bools("x", [true]).sum()) is Err(TypeMismatch(_)),
+    (Ok(Series::from_bools("x", [true]).sum()) catch { e => Err(e) })
+    is Err(TypeMismatch(_)),
   )
   assert_true(
-    (try? Series::from_strings("x", ["a"]).sum()) is Err(TypeMismatch(_)),
+    (Ok(Series::from_strings("x", ["a"]).sum()) catch { e => Err(e) })
+    is Err(TypeMismatch(_)),
   )
 }
 
@@ -99,17 +101,21 @@ test "mean on Float series ignores nulls" {
 ///|
 test "mean on empty / all-null numeric is InvalidOperation" {
   assert_true(
-    (try? Series::from_ints("x", []).mean()) is Err(InvalidOperation(_)),
-  )
-  assert_true(
-    (try? Series::from_int_options("x", [None, None]).mean())
+    (Ok(Series::from_ints("x", []).mean()) catch { e => Err(e) })
     is Err(InvalidOperation(_)),
   )
   assert_true(
-    (try? Series::from_floats("x", []).mean()) is Err(InvalidOperation(_)),
+    (Ok(Series::from_int_options("x", [None, None]).mean()) catch {
+      e => Err(e)
+    })
+    is Err(InvalidOperation(_)),
   )
   assert_true(
-    (try? Series::from_float_options("x", [None]).mean())
+    (Ok(Series::from_floats("x", []).mean()) catch { e => Err(e) })
+    is Err(InvalidOperation(_)),
+  )
+  assert_true(
+    (Ok(Series::from_float_options("x", [None]).mean()) catch { e => Err(e) })
     is Err(InvalidOperation(_)),
   )
 }
@@ -117,10 +123,12 @@ test "mean on empty / all-null numeric is InvalidOperation" {
 ///|
 test "mean on Bool / String is TypeMismatch" {
   assert_true(
-    (try? Series::from_bools("x", [true, false]).mean()) is Err(TypeMismatch(_)),
+    (Ok(Series::from_bools("x", [true, false]).mean()) catch { e => Err(e) })
+    is Err(TypeMismatch(_)),
   )
   assert_true(
-    (try? Series::from_strings("x", ["a"]).mean()) is Err(TypeMismatch(_)),
+    (Ok(Series::from_strings("x", ["a"]).mean()) catch { e => Err(e) })
+    is Err(TypeMismatch(_)),
   )
 }
 

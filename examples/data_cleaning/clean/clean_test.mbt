@@ -57,7 +57,8 @@ test "clean: surfaces ColumnNotFound when the `score` column is missing" {
     @moonframe.Series::from_ints("id", [1, 2]),
   ])
   assert_true(
-    (try? clean(df)) is Err(@moonframe.DataError::ColumnNotFound("score")),
+    (Ok(clean(df)) catch { e => Err(e) })
+    is Err(@moonframe.DataError::ColumnNotFound("score")),
   )
 }
 
@@ -70,7 +71,8 @@ test "clean: surfaces ColumnNotFound when the `note` column is missing" {
     @moonframe.Series::from_int_options("score", [Some(1), None, Some(3)]),
   ])
   assert_true(
-    (try? clean(df)) is Err(@moonframe.DataError::ColumnNotFound("note")),
+    (Ok(clean(df)) catch { e => Err(e) })
+    is Err(@moonframe.DataError::ColumnNotFound("note")),
   )
 }
 

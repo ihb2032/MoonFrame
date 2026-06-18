@@ -87,7 +87,9 @@ test "rename then rename-back recovers the original frame" {
 test "rename rejects unknown source columns with ColumnNotFound" {
   let df = rename_df()
   assert_eq(
-    try? df.rename([("missing", "x")]),
+    Ok(df.rename([("missing", "x")])) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::ColumnNotFound("missing")),
   )
 }
@@ -97,7 +99,9 @@ test "rename rejects collisions with another existing column" {
   let df = rename_df()
   // Renaming "a" to "b" would collide with the existing "b".
   assert_eq(
-    try? df.rename([("a", "b")]),
+    Ok(df.rename([("a", "b")])) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::DuplicateColumn("b")),
   )
 }
@@ -112,7 +116,9 @@ test "rename rejects a mapping that introduces a duplicate among new names" {
   // Both "a" and "b" map to "z" — second mapping collides with the
   // freshly-renamed first column.
   assert_eq(
-    try? df.rename([("a", "z"), ("b", "z")]),
+    Ok(df.rename([("a", "z"), ("b", "z")])) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::DuplicateColumn("z")),
   )
 }

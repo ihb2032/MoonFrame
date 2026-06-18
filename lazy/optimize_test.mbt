@@ -191,15 +191,21 @@ test "errors keep surfacing at collect time, unchanged by the rewrite" {
   // keeps only existing columns, so the user's expression still reports
   // the same `ColumnNotFound`.
   assert_eq(
-    try? lazy_frame(df).select([@expr.col("ghost")]).collect(),
+    Ok(lazy_frame(df).select([@expr.col("ghost")]).collect()) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::ColumnNotFound("ghost")),
   )
   // A missing column in a filter under a selection: parity with eager.
   let predicate = @expr.col("ghost").is_null()
   let projection = [@expr.col("qty")]
   assert_eq(
-    try? lazy_frame(df).filter(predicate).select(projection).collect(),
-    try? df.filter(predicate).select(projection),
+    Ok(lazy_frame(df).filter(predicate).select(projection).collect()) catch {
+      e => Err(e)
+    },
+    Ok(df.filter(predicate).select(projection)) catch {
+      e => Err(e)
+    },
   )
 }
 
@@ -946,8 +952,12 @@ test "fence: a non-reduction aggregation keeps its error and its filter in place
     "      SCAN [4×3]",
   )
   assert_eq(
-    try? plan.collect(),
-    try? df.group_by([@expr.col("region")]).agg(aggs).filter(predicate),
+    Ok(plan.collect()) catch {
+      e => Err(e)
+    },
+    Ok(df.group_by([@expr.col("region")]).agg(aggs).filter(predicate)) catch {
+      e => Err(e)
+    },
   )
 }
 
@@ -971,8 +981,12 @@ test "fence: a null literal in the aggregation list pins the filter above" {
     "      SCAN [4×3]",
   )
   assert_eq(
-    try? plan.collect(),
-    try? df.group_by([@expr.col("region")]).agg(aggs).filter(predicate),
+    Ok(plan.collect()) catch {
+      e => Err(e)
+    },
+    Ok(df.group_by([@expr.col("region")]).agg(aggs).filter(predicate)) catch {
+      e => Err(e)
+    },
   )
 }
 
@@ -1169,11 +1183,15 @@ test "a doubly-broken plan may report the sunk filter's error first" {
   let broken_predicate = @expr.col("ghost2").is_null()
   let plan = lazy_frame(df).with_columns(broken_stage).filter(broken_predicate)
   assert_eq(
-    try? plan.collect(),
+    Ok(plan.collect()) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::ColumnNotFound("ghost2")),
   )
   assert_eq(
-    try? df.with_columns(broken_stage).filter(broken_predicate),
+    Ok(df.with_columns(broken_stage).filter(broken_predicate)) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::ColumnNotFound("ghost1")),
   )
 }
@@ -1186,19 +1204,26 @@ test "single-fault errors survive the crossing unchanged" {
   let broken_stage = [(@expr.col("ghost") + @expr.lit_int(1)).with_alias("g")]
   let key_predicate = @expr.col("region").eq(@expr.lit_str("west"))
   assert_eq(
-    try? lazy_frame(df)
-    .with_columns(broken_stage)
-    .filter(key_predicate)
-    .collect(),
-    try? df.with_columns(broken_stage).filter(key_predicate),
+    Ok(
+      lazy_frame(df).with_columns(broken_stage).filter(key_predicate).collect(),
+    ) catch {
+      e => Err(e)
+    },
+    Ok(df.with_columns(broken_stage).filter(key_predicate)) catch {
+      e => Err(e)
+    },
   )
   // Sound stage, broken predicate: the predicate's missing column is
   // missing below the stage too — same error, earlier.
   let derived = [(@expr.col("qty") * @expr.lit_int(2)).with_alias("dbl")]
   let broken_predicate = @expr.col("ghost").gt(@expr.lit_int(1))
   assert_eq(
-    try? lazy_frame(df).with_columns(derived).filter(broken_predicate).collect(),
-    try? df.with_columns(derived).filter(broken_predicate),
+    Ok(lazy_frame(df).with_columns(derived).filter(broken_predicate).collect()) catch {
+      e => Err(e)
+    },
+    Ok(df.with_columns(derived).filter(broken_predicate)) catch {
+      e => Err(e)
+    },
   )
 }
 

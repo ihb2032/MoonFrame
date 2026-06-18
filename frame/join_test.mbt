@@ -252,7 +252,9 @@ test "a suffix that still collides surfaces as DuplicateColumn" {
     Series::from_ints("value", [9]),
   ])
   assert_eq(
-    try? left.join(right, JoinOptions::on([@expr.col("id")])),
+    Ok(left.join(right, JoinOptions::on([@expr.col("id")]))) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::DuplicateColumn("value_right")),
   )
 }
@@ -388,10 +390,14 @@ test "cross join rejects key columns" {
   let right = DataFrame::new([Series::from_ints("k", [2])])
   // Passing keys to a cross join is a usage error (Polars rejects it too).
   assert_true(
-    (try? left.join(
-      right,
-      JoinOptions::on([@expr.col("k")]).with_how(JoinType::Cross),
-    ))
+    (Ok(
+      left.join(
+        right,
+        JoinOptions::on([@expr.col("k")]).with_how(JoinType::Cross),
+      ),
+    ) catch {
+      e => Err(e)
+    })
     is Err(@types.DataError::InvalidOperation(_)),
   )
 }
@@ -402,11 +408,13 @@ test "a non-cross join with an empty key list is rejected" {
   let right = DataFrame::new([Series::from_ints("k", [2])])
   // Empty `on` no longer silently cross-joins — it must be `how = Cross`.
   assert_true(
-    (try? left.join(right, JoinOptions::on([])))
+    (Ok(left.join(right, JoinOptions::on([]))) catch { e => Err(e) })
     is Err(@types.DataError::InvalidOperation(_)),
   )
   assert_true(
-    (try? left.join(right, JoinOptions::on([]).with_how(JoinType::Left)))
+    (Ok(left.join(right, JoinOptions::on([]).with_how(JoinType::Left))) catch {
+      e => Err(e)
+    })
     is Err(@types.DataError::InvalidOperation(_)),
   )
 }
@@ -545,7 +553,9 @@ test "join gathers Int / Float / Bool right columns: valid, null, unmatched" {
 ///|
 test "join raises ColumnNotFound for a key missing on the left" {
   assert_eq(
-    try? employees().join(departments(), JoinOptions::on([@expr.col("nope")])),
+    Ok(employees().join(departments(), JoinOptions::on([@expr.col("nope")]))) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::ColumnNotFound("nope")),
   )
 }
@@ -555,7 +565,9 @@ test "join raises ColumnNotFound for a key present left but missing right" {
   // "name" exists in employees but not in departments — the right check
   // fires for it.
   assert_eq(
-    try? employees().join(departments(), JoinOptions::on([@expr.col("name")])),
+    Ok(employees().join(departments(), JoinOptions::on([@expr.col("name")]))) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::ColumnNotFound("name")),
   )
 }
@@ -573,7 +585,9 @@ test "join raises TypeMismatch when a key's dtype differs across frames" {
     Series::from_ints("rv", [10, 20]),
   ])
   assert_true(
-    (try? left.join(right, JoinOptions::on([@expr.col("k")])))
+    (Ok(left.join(right, JoinOptions::on([@expr.col("k")]))) catch {
+      e => Err(e)
+    })
     is Err(@types.DataError::TypeMismatch(_)),
   )
 }
@@ -979,7 +993,9 @@ test "a right join with an empty key list is rejected" {
   let right = DataFrame::new([Series::from_ints("k", [2])])
   // The Right planner guards an empty `on` the same way the others do.
   assert_true(
-    (try? left.join(right, JoinOptions::on([]).with_how(JoinType::Right)))
+    (Ok(left.join(right, JoinOptions::on([]).with_how(JoinType::Right))) catch {
+      e => Err(e)
+    })
     is Err(@types.DataError::InvalidOperation(_)),
   )
 }
@@ -989,17 +1005,25 @@ test "right / outer join raise ColumnNotFound for a missing key" {
   // The shared key resolver fires for both planners (left frame checked
   // before right): "nope" is absent on the left.
   assert_true(
-    (try? employees().join(
-      departments(),
-      JoinOptions::on([@expr.col("nope")]).with_how(JoinType::Right),
-    ))
+    (Ok(
+      employees().join(
+        departments(),
+        JoinOptions::on([@expr.col("nope")]).with_how(JoinType::Right),
+      ),
+    ) catch {
+      e => Err(e)
+    })
     is Err(@types.DataError::ColumnNotFound("nope")),
   )
   assert_true(
-    (try? employees().join(
-      departments(),
-      JoinOptions::on([@expr.col("nope")]).with_how(JoinType::Outer),
-    ))
+    (Ok(
+      employees().join(
+        departments(),
+        JoinOptions::on([@expr.col("nope")]).with_how(JoinType::Outer),
+      ),
+    ) catch {
+      e => Err(e)
+    })
     is Err(@types.DataError::ColumnNotFound("nope")),
   )
 }
@@ -1017,17 +1041,25 @@ test "right / outer join raise TypeMismatch when a key dtype differs" {
     Series::from_ints("rv", [10, 20]),
   ])
   assert_true(
-    (try? left.join(
-      right,
-      JoinOptions::on([@expr.col("k")]).with_how(JoinType::Right),
-    ))
+    (Ok(
+      left.join(
+        right,
+        JoinOptions::on([@expr.col("k")]).with_how(JoinType::Right),
+      ),
+    ) catch {
+      e => Err(e)
+    })
     is Err(@types.DataError::TypeMismatch(_)),
   )
   assert_true(
-    (try? left.join(
-      right,
-      JoinOptions::on([@expr.col("k")]).with_how(JoinType::Outer),
-    ))
+    (Ok(
+      left.join(
+        right,
+        JoinOptions::on([@expr.col("k")]).with_how(JoinType::Outer),
+      ),
+    ) catch {
+      e => Err(e)
+    })
     is Err(@types.DataError::TypeMismatch(_)),
   )
 }
@@ -1041,28 +1073,40 @@ test "join raises DuplicateColumn for a key repeated in `on`" {
   // `group_by([col("id"), col("id")])`, the repeat is rejected. Both resolver call
   // sites are covered: inner (the Inner / Left / Outer planner) and right.
   assert_eq(
-    try? employees().join(
-      departments(),
-      JoinOptions::on([@expr.col("dept_id"), @expr.col("dept_id")]),
-    ),
+    Ok(
+      employees().join(
+        departments(),
+        JoinOptions::on([@expr.col("dept_id"), @expr.col("dept_id")]),
+      ),
+    ) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::DuplicateColumn("dept_id")),
   )
   assert_eq(
-    try? employees().join(
-      departments(),
-      JoinOptions::on([@expr.col("dept_id"), @expr.col("dept_id")]).with_how(
-        JoinType::Right,
+    Ok(
+      employees().join(
+        departments(),
+        JoinOptions::on([@expr.col("dept_id"), @expr.col("dept_id")]).with_how(
+          JoinType::Right,
+        ),
       ),
-    ),
+    ) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::DuplicateColumn("dept_id")),
   )
   assert_eq(
-    try? employees().join(
-      departments(),
-      JoinOptions::on([@expr.col("dept_id"), @expr.col("dept_id")]).with_how(
-        JoinType::Outer,
+    Ok(
+      employees().join(
+        departments(),
+        JoinOptions::on([@expr.col("dept_id"), @expr.col("dept_id")]).with_how(
+          JoinType::Outer,
+        ),
       ),
-    ),
+    ) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::DuplicateColumn("dept_id")),
   )
 }
@@ -1073,10 +1117,14 @@ test "a repeated MISSING key surfaces as ColumnNotFound, not DuplicateColumn" {
   // still fails at its first appearance — matching `group_by`'s contract
   // that a missing key beats a later duplicate.
   assert_eq(
-    try? employees().join(
-      departments(),
-      JoinOptions::on([@expr.col("nope"), @expr.col("nope")]),
-    ),
+    Ok(
+      employees().join(
+        departments(),
+        JoinOptions::on([@expr.col("nope"), @expr.col("nope")]),
+      ),
+    ) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::ColumnNotFound("nope")),
   )
 }
@@ -1372,10 +1420,14 @@ test "join rejects mixing `on` with `left_on` / `right_on`" {
   let right = DataFrame::new([Series::from_ints("k", [1])])
   // Giving both is a usage error (Polars accepts only one form).
   assert_true(
-    (try? left.join(
-      right,
-      JoinOptions::on([@expr.col("k")]).with_right_on([@expr.col("k")]),
-    ))
+    (Ok(
+      left.join(
+        right,
+        JoinOptions::on([@expr.col("k")]).with_right_on([@expr.col("k")]),
+      ),
+    ) catch {
+      e => Err(e)
+    })
     is Err(@types.DataError::InvalidOperation(_)),
   )
 }
@@ -1389,17 +1441,23 @@ test "join rejects unequal-length left_on / right_on" {
   let right = DataFrame::new([Series::from_ints("c", [1])])
   // Two left keys, one right key: the pairing is undefined.
   assert_true(
-    (try? left.join(
-      right,
-      JoinOptions::left_on([@expr.col("a"), @expr.col("b")]).with_right_on([
-        @expr.col("c"),
-      ]),
-    ))
+    (Ok(
+      left.join(
+        right,
+        JoinOptions::left_on([@expr.col("a"), @expr.col("b")]).with_right_on([
+          @expr.col("c"),
+        ]),
+      ),
+    ) catch {
+      e => Err(e)
+    })
     is Err(@types.DataError::InvalidOperation(_)),
   )
   // `left_on` with no `right_on` is the 1-vs-0 case of the same rule.
   assert_true(
-    (try? left.join(right, JoinOptions::left_on([@expr.col("a")])))
+    (Ok(left.join(right, JoinOptions::left_on([@expr.col("a")]))) catch {
+      e => Err(e)
+    })
     is Err(@types.DataError::InvalidOperation(_)),
   )
 }

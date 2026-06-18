@@ -76,8 +76,18 @@ test "is_null returns the validity for in-bounds indices" {
 ///|
 test "is_null out-of-bounds is IndexOutOfBounds" {
   let col = BuiltinColumn::from_ints([1, 2])
-  assert_eq(try? col.is_null(-1), Err(@types.DataError::IndexOutOfBounds(-1)))
-  assert_eq(try? col.is_null(2), Err(@types.DataError::IndexOutOfBounds(2)))
+  assert_eq(
+    Ok(col.is_null(-1)) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::IndexOutOfBounds(-1)),
+  )
+  assert_eq(
+    Ok(col.is_null(2)) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::IndexOutOfBounds(2)),
+  )
 }
 
 ///|
@@ -90,7 +100,12 @@ test "get returns Scalar or Null" {
 ///|
 test "get out-of-bounds is IndexOutOfBounds" {
   let col = BuiltinColumn::from_ints([1])
-  assert_eq(try? col.get(5), Err(@types.DataError::IndexOutOfBounds(5)))
+  assert_eq(
+    Ok(col.get(5)) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::IndexOutOfBounds(5)),
+  )
 }
 
 ///|
@@ -131,9 +146,21 @@ test "slice full range equals self length" {
 ///|
 test "slice invalid bounds report the actual offender" {
   let col = BuiltinColumn::from_ints([1, 2, 3])
-  assert_eq(try? col.slice(-1, 2), Err(@types.DataError::IndexOutOfBounds(-1)))
-  assert_eq(try? col.slice(0, 5), Err(@types.DataError::IndexOutOfBounds(5)))
-  assert_true((try? col.slice(2, 1)) is Err(InvalidOperation(_)))
+  assert_eq(
+    Ok(col.slice(-1, 2)) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::IndexOutOfBounds(-1)),
+  )
+  assert_eq(
+    Ok(col.slice(0, 5)) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::IndexOutOfBounds(5)),
+  )
+  assert_true(
+    (Ok(col.slice(2, 1)) catch { e => Err(e) }) is Err(InvalidOperation(_)),
+  )
 }
 
 // ── take ─────────────────────────────────────────────────────────────
@@ -168,8 +195,18 @@ test "take preserves nulls" {
 ///|
 test "take out-of-bounds index reports first offender" {
   let col = BuiltinColumn::from_ints([1, 2])
-  assert_eq(try? col.take([0, 5]), Err(@types.DataError::IndexOutOfBounds(5)))
-  assert_eq(try? col.take([-1]), Err(@types.DataError::IndexOutOfBounds(-1)))
+  assert_eq(
+    Ok(col.take([0, 5])) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::IndexOutOfBounds(5)),
+  )
+  assert_eq(
+    Ok(col.take([-1])) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::IndexOutOfBounds(-1)),
+  )
 }
 
 // ── cast (Int / Float / String) / to_string_column ──────────────────
@@ -207,7 +244,10 @@ test "cast Int from String parses numerics, errors on garbage" {
   assert_eq(out.get(1), @types.Scalar::Null)
   assert_eq(out.get(2), @types.Scalar::Int(-7))
   let bad = BuiltinColumn::from_strings(["nope"])
-  assert_true((try? bad.cast(@types.DataType::Int)) is Err(ParseError(_)))
+  assert_true(
+    (Ok(bad.cast(@types.DataType::Int)) catch { e => Err(e) })
+    is Err(ParseError(_)),
+  )
 }
 
 ///|
@@ -240,7 +280,10 @@ test "cast Float from String parses, errors on garbage" {
   assert_eq(out.get(0), @types.Scalar::Float(1.5))
   assert_eq(out.get(1), @types.Scalar::Float(-2.0))
   let bad = BuiltinColumn::from_strings(["nope"])
-  assert_true((try? bad.cast(@types.DataType::Float)) is Err(ParseError(_)))
+  assert_true(
+    (Ok(bad.cast(@types.DataType::Float)) catch { e => Err(e) })
+    is Err(ParseError(_)),
+  )
 }
 
 ///|
@@ -269,8 +312,14 @@ test "cast dispatches by dtype and rejects Bool / Null targets" {
   assert_eq(col.cast(@types.DataType::Int), col)
   assert_eq(col.cast(@types.DataType::Float).dtype(), @types.DataType::Float)
   assert_eq(col.cast(@types.DataType::String).dtype(), @types.DataType::String)
-  assert_true((try? col.cast(@types.DataType::Bool)) is Err(Unsupported(_)))
-  assert_true((try? col.cast(@types.DataType::Null)) is Err(Unsupported(_)))
+  assert_true(
+    (Ok(col.cast(@types.DataType::Bool)) catch { e => Err(e) })
+    is Err(Unsupported(_)),
+  )
+  assert_true(
+    (Ok(col.cast(@types.DataType::Null)) catch { e => Err(e) })
+    is Err(Unsupported(_)),
+  )
 }
 
 // ── typed accessors ──────────────────────────────────────────────────
@@ -300,11 +349,18 @@ test "float_values / bool_values / string_values happy path" {
 ///|
 test "typed accessors reject the wrong dtype" {
   let col = BuiltinColumn::from_strings(["x"])
-  assert_true((try? col.int_values()) is Err(TypeMismatch(_)))
-  assert_true((try? col.float_values()) is Err(TypeMismatch(_)))
-  assert_true((try? col.bool_values()) is Err(TypeMismatch(_)))
   assert_true(
-    (try? BuiltinColumn::from_ints([1]).string_values()) is Err(TypeMismatch(_)),
+    (Ok(col.int_values()) catch { e => Err(e) }) is Err(TypeMismatch(_)),
+  )
+  assert_true(
+    (Ok(col.float_values()) catch { e => Err(e) }) is Err(TypeMismatch(_)),
+  )
+  assert_true(
+    (Ok(col.bool_values()) catch { e => Err(e) }) is Err(TypeMismatch(_)),
+  )
+  assert_true(
+    (Ok(BuiltinColumn::from_ints([1]).string_values()) catch { e => Err(e) })
+    is Err(TypeMismatch(_)),
   )
 }
 
@@ -412,7 +468,10 @@ test "to_string_column preserves None for Float" {
 test "cast Int rejects NaN" {
   let nan : Double = @double.not_a_number
   let col = BuiltinColumn::from_floats([nan])
-  assert_true((try? col.cast(@types.DataType::Int)) is Err(ParseError(_)))
+  assert_true(
+    (Ok(col.cast(@types.DataType::Int)) catch { e => Err(e) })
+    is Err(ParseError(_)),
+  )
 }
 
 ///|
@@ -420,11 +479,15 @@ test "cast Int rejects positive and negative Infinity" {
   let pos_inf : Double = @double.infinity
   let neg_inf : Double = @double.neg_infinity
   assert_true(
-    (try? BuiltinColumn::from_floats([pos_inf]).cast(@types.DataType::Int))
+    (Ok(BuiltinColumn::from_floats([pos_inf]).cast(@types.DataType::Int)) catch {
+      e => Err(e)
+    })
     is Err(ParseError(_)),
   )
   assert_true(
-    (try? BuiltinColumn::from_floats([neg_inf]).cast(@types.DataType::Int))
+    (Ok(BuiltinColumn::from_floats([neg_inf]).cast(@types.DataType::Int)) catch {
+      e => Err(e)
+    })
     is Err(ParseError(_)),
   )
 }
@@ -434,11 +497,15 @@ test "cast Int rejects values outside the Int range" {
   let too_big : Double = 1.0e30
   let too_small : Double = -1.0e30
   assert_true(
-    (try? BuiltinColumn::from_floats([too_big]).cast(@types.DataType::Int))
+    (Ok(BuiltinColumn::from_floats([too_big]).cast(@types.DataType::Int)) catch {
+      e => Err(e)
+    })
     is Err(ParseError(_)),
   )
   assert_true(
-    (try? BuiltinColumn::from_floats([too_small]).cast(@types.DataType::Int))
+    (Ok(BuiltinColumn::from_floats([too_small]).cast(@types.DataType::Int)) catch {
+      e => Err(e)
+    })
     is Err(ParseError(_)),
   )
 }
@@ -457,15 +524,21 @@ test "cast Int from Float skips None and truncates valid cells" {
 ///|
 test "cast Int rejects malformed strings" {
   assert_true(
-    (try? BuiltinColumn::from_strings(["42abc"]).cast(@types.DataType::Int))
+    (Ok(BuiltinColumn::from_strings(["42abc"]).cast(@types.DataType::Int)) catch {
+      e => Err(e)
+    })
     is Err(ParseError(_)),
   )
   assert_true(
-    (try? BuiltinColumn::from_strings([""]).cast(@types.DataType::Int))
+    (Ok(BuiltinColumn::from_strings([""]).cast(@types.DataType::Int)) catch {
+      e => Err(e)
+    })
     is Err(ParseError(_)),
   )
   assert_true(
-    (try? BuiltinColumn::from_strings(["  42"]).cast(@types.DataType::Int))
+    (Ok(BuiltinColumn::from_strings(["  42"]).cast(@types.DataType::Int)) catch {
+      e => Err(e)
+    })
     is Err(ParseError(_)),
   )
 }
@@ -473,11 +546,15 @@ test "cast Int rejects malformed strings" {
 ///|
 test "cast Float rejects malformed strings" {
   assert_true(
-    (try? BuiltinColumn::from_strings(["1.5x"]).cast(@types.DataType::Float))
+    (Ok(BuiltinColumn::from_strings(["1.5x"]).cast(@types.DataType::Float)) catch {
+      e => Err(e)
+    })
     is Err(ParseError(_)),
   )
   assert_true(
-    (try? BuiltinColumn::from_strings([""]).cast(@types.DataType::Float))
+    (Ok(BuiltinColumn::from_strings([""]).cast(@types.DataType::Float)) catch {
+      e => Err(e)
+    })
     is Err(ParseError(_)),
   )
 }
@@ -488,19 +565,27 @@ test "cast Int rejects base prefixes and underscore grouping" {
   // cast screens them out so it agrees with CSV inference, which keeps
   // `0xFF` / `1_000` as String.
   assert_true(
-    (try? BuiltinColumn::from_strings(["0xFF"]).cast(@types.DataType::Int))
+    (Ok(BuiltinColumn::from_strings(["0xFF"]).cast(@types.DataType::Int)) catch {
+      e => Err(e)
+    })
     is Err(ParseError(_)),
   )
   assert_true(
-    (try? BuiltinColumn::from_strings(["0o17"]).cast(@types.DataType::Int))
+    (Ok(BuiltinColumn::from_strings(["0o17"]).cast(@types.DataType::Int)) catch {
+      e => Err(e)
+    })
     is Err(ParseError(_)),
   )
   assert_true(
-    (try? BuiltinColumn::from_strings(["0b101"]).cast(@types.DataType::Int))
+    (Ok(BuiltinColumn::from_strings(["0b101"]).cast(@types.DataType::Int)) catch {
+      e => Err(e)
+    })
     is Err(ParseError(_)),
   )
   assert_true(
-    (try? BuiltinColumn::from_strings(["1_000"]).cast(@types.DataType::Int))
+    (Ok(BuiltinColumn::from_strings(["1_000"]).cast(@types.DataType::Int)) catch {
+      e => Err(e)
+    })
     is Err(ParseError(_)),
   )
 }
@@ -510,9 +595,13 @@ test "cast Int rejects decimal integers overflowing Int64" {
   // Passes the decimal-literal screen but overflows `@string.parse_int64`,
   // exercising the parse-failure branch after the screen.
   assert_true(
-    (try? BuiltinColumn::from_strings(["99999999999999999999"]).cast(
-      @types.DataType::Int,
-    ))
+    (Ok(
+      BuiltinColumn::from_strings(["99999999999999999999"]).cast(
+        @types.DataType::Int,
+      ),
+    ) catch {
+      e => Err(e)
+    })
     is Err(ParseError(_)),
   )
 }
@@ -520,7 +609,9 @@ test "cast Int rejects decimal integers overflowing Int64" {
 ///|
 test "cast Float rejects underscore grouping but keeps scientific notation" {
   assert_true(
-    (try? BuiltinColumn::from_strings(["1_000"]).cast(@types.DataType::Float))
+    (Ok(BuiltinColumn::from_strings(["1_000"]).cast(@types.DataType::Float)) catch {
+      e => Err(e)
+    })
     is Err(ParseError(_)),
   )
   // No underscore → still parsed; scientific notation is unaffected.

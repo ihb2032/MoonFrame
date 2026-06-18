@@ -383,9 +383,11 @@ test "a zero-row frame aggregates to zero groups with correctly typed columns" {
 test "a non-reducing expression is rejected with InvalidOperation" {
   // A bare column reference is the group's whole height, not a scalar.
   assert_eq(
-    try? agg_expr_df()
-    .group_by([@expr.col("region")])
-    .agg([@expr.col("revenue")]),
+    Ok(
+      agg_expr_df().group_by([@expr.col("region")]).agg([@expr.col("revenue")]),
+    ) catch {
+      e => Err(e)
+    },
     Err(
       @types.DataError::InvalidOperation(
         "aggregate expression must reduce each group to a single value: col(revenue)",
@@ -394,9 +396,13 @@ test "a non-reducing expression is rejected with InvalidOperation" {
   )
   // Mixing a reduction with a frame-tall operand does not reduce either.
   assert_eq(
-    try? agg_expr_df()
-    .group_by([@expr.col("region")])
-    .agg([@expr.col("revenue").sum() + @expr.col("cost")]),
+    Ok(
+      agg_expr_df()
+      .group_by([@expr.col("region")])
+      .agg([@expr.col("revenue").sum() + @expr.col("cost")]),
+    ) catch {
+      e => Err(e)
+    },
     Err(
       @types.DataError::InvalidOperation(
         "aggregate expression must reduce each group to a single value: (col(revenue).sum() + col(cost))",
@@ -406,7 +412,9 @@ test "a non-reducing expression is rejected with InvalidOperation" {
   // The shape gate precedes evaluation: an unknown column inside a
   // non-reducing tree reports the shape, not ColumnNotFound.
   assert_eq(
-    try? agg_expr_df().group_by([@expr.col("region")]).agg([@expr.col("zzz")]),
+    Ok(agg_expr_df().group_by([@expr.col("region")]).agg([@expr.col("zzz")])) catch {
+      e => Err(e)
+    },
     Err(
       @types.DataError::InvalidOperation(
         "aggregate expression must reduce each group to a single value: col(zzz)",
@@ -426,7 +434,9 @@ test "rejection is structural: singleton groups reject a bare column too" {
     Series::from_ints("v", [1, 2]),
   ])
   assert_eq(
-    try? df.group_by([@expr.col("k")]).agg([@expr.col("v")]),
+    Ok(df.group_by([@expr.col("k")]).agg([@expr.col("v")])) catch {
+      e => Err(e)
+    },
     Err(
       @types.DataError::InvalidOperation(
         "aggregate expression must reduce each group to a single value: col(v)",
@@ -438,15 +448,23 @@ test "rejection is structural: singleton groups reject a bare column too" {
 ///|
 test "evaluation errors surface before any group work" {
   assert_eq(
-    try? agg_expr_df()
-    .group_by([@expr.col("region")])
-    .agg([@expr.col("zzz").sum()]),
+    Ok(
+      agg_expr_df()
+      .group_by([@expr.col("region")])
+      .agg([@expr.col("zzz").sum()]),
+    ) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::ColumnNotFound("zzz")),
   )
   assert_eq(
-    try? agg_expr_df()
-    .group_by([@expr.col("region")])
-    .agg([@expr.col("region").sum()]),
+    Ok(
+      agg_expr_df()
+      .group_by([@expr.col("region")])
+      .agg([@expr.col("region").sum()]),
+    ) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::TypeMismatch("sum undefined for String")),
   )
 }
@@ -455,29 +473,41 @@ test "evaluation errors surface before any group work" {
 test "output name collisions raise DuplicateColumn via DataFrame::new" {
   // Two reductions over the same column share its leftmost-name output.
   assert_eq(
-    try? agg_expr_df()
-    .group_by([@expr.col("region")])
-    .agg([@expr.col("revenue").sum(), @expr.col("revenue").mean()]),
+    Ok(
+      agg_expr_df()
+      .group_by([@expr.col("region")])
+      .agg([@expr.col("revenue").sum(), @expr.col("revenue").mean()]),
+    ) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::DuplicateColumn("revenue")),
   )
   // An alias that shadows a key column collides the same way.
   assert_eq(
-    try? agg_expr_df()
-    .group_by([@expr.col("region")])
-    .agg([@expr.col("revenue").sum().with_alias("region")]),
+    Ok(
+      agg_expr_df()
+      .group_by([@expr.col("region")])
+      .agg([@expr.col("revenue").sum().with_alias("region")]),
+    ) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::DuplicateColumn("region")),
   )
   // Collisions surface at DataFrame::new, after every expression has
   // evaluated — so a later evaluation error wins over an earlier name
   // collision (unlike select, whose seen-check fires per expression).
   assert_eq(
-    try? agg_expr_df()
-    .group_by([@expr.col("region")])
-    .agg([
-      @expr.col("revenue").sum(),
-      @expr.col("revenue").mean(),
-      @expr.col("zzz").sum(),
-    ]),
+    Ok(
+      agg_expr_df()
+      .group_by([@expr.col("region")])
+      .agg([
+        @expr.col("revenue").sum(),
+        @expr.col("revenue").mean(),
+        @expr.col("zzz").sum(),
+      ]),
+    ) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::ColumnNotFound("zzz")),
   )
 }

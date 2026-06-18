@@ -112,7 +112,7 @@ test "projection push-down does not parse — or fail on — a dropped column" {
   }
   // The full eager read parses `b` and fails on `oops`.
   assert_true(
-    (try? @io.read_csv_with_options(path, opts))
+    (Ok(@io.read_csv_with_options(path, opts)) catch { e => Err(e) })
     is Err(@types.DataError::ParseError(_)),
   )
   // The lazy scan, narrowed to `a`, never parses `b`, so it collects cleanly —
@@ -135,11 +135,14 @@ test "scan_csv builders are total; a missing file fails only at collect" {
   // Collect surfaces the missing file as IoError — through read_csv_projected
   // when a projection fired…
   assert_true(
-    (try? scan_csv(absent).select([@expr.col("a")]).collect())
+    (Ok(scan_csv(absent).select([@expr.col("a")]).collect()) catch {
+      e => Err(e)
+    })
     is Err(@types.DataError::IoError(_)),
   )
   // …and through read_csv_with_options when none did.
   assert_true(
-    (try? scan_csv(absent).collect()) is Err(@types.DataError::IoError(_)),
+    (Ok(scan_csv(absent).collect()) catch { e => Err(e) })
+    is Err(@types.DataError::IoError(_)),
   )
 }

@@ -182,16 +182,16 @@ test "first and last are null on a null leading or trailing cell, or empty" {
 test "std, variance, and median reject non-numeric columns" {
   let strs = DataFrame::new([Series::from_strings("x", ["a", "b"])])
   assert_true(
-    (try? whole(strs, @expr.col("x").std()))
+    (Ok(whole(strs, @expr.col("x").std())) catch { e => Err(e) })
     is Err(@types.DataError::TypeMismatch(_)),
   )
   assert_true(
-    (try? whole(strs, @expr.col("x").variance()))
+    (Ok(whole(strs, @expr.col("x").variance())) catch { e => Err(e) })
     is Err(@types.DataError::TypeMismatch(_)),
   )
   let bools = DataFrame::new([Series::from_bools("x", [true, false])])
   assert_true(
-    (try? whole(bools, @expr.col("x").median()))
+    (Ok(whole(bools, @expr.col("x").median())) catch { e => Err(e) })
     is Err(@types.DataError::TypeMismatch(_)),
   )
 }

@@ -83,7 +83,7 @@ test "revenue_by_region: missing `region` column surfaces as ColumnNotFound" {
     @moonframe.Series::from_ints("revenue", [1, 2]),
   ])
   assert_true(
-    (try? revenue_by_region(df))
+    (Ok(revenue_by_region(df)) catch { e => Err(e) })
     is Err(@moonframe.DataError::ColumnNotFound("region")),
   )
 }
@@ -96,7 +96,7 @@ test "revenue_chart: missing charted column surfaces as ColumnNotFound" {
     @moonframe.Series::from_strings("region", ["west", "east"]),
   ])
   assert_true(
-    (try? revenue_chart(df))
+    (Ok(revenue_chart(df)) catch { e => Err(e) })
     is Err(@moonframe.DataError::ColumnNotFound("revenue")),
   )
 }

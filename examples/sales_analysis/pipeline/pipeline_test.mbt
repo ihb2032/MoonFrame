@@ -59,7 +59,7 @@ test "widget_report: missing `product` column surfaces as ColumnNotFound" {
     @moonframe.Series::from_ints("id", [1, 2, 3]),
   ])
   assert_true(
-    (try? widget_report(df))
+    (Ok(widget_report(df)) catch { e => Err(e) })
     is Err(@moonframe.DataError::ColumnNotFound("product")),
   )
 }
@@ -72,7 +72,7 @@ test "widget_report: select error surfaces when a required column is missing" {
     @moonframe.Series::from_strings("product", ["widget", "gadget"]),
   ])
   assert_true(
-    (try? widget_report(df))
+    (Ok(widget_report(df)) catch { e => Err(e) })
     is Err(@moonframe.DataError::ColumnNotFound("region")),
   )
 }
@@ -90,7 +90,7 @@ test "widget_report: sort error surfaces when `quantity` is missing post-filter"
     @moonframe.Series::from_floats("revenue", [114.0]),
   ])
   assert_true(
-    (try? widget_report(df))
+    (Ok(widget_report(df)) catch { e => Err(e) })
     is Err(@moonframe.DataError::ColumnNotFound("quantity")),
   )
 }
@@ -111,7 +111,7 @@ test "is_widget_row: keeps matching rows and drops the rest" {
 test "is_widget_row: surfaces accessor error when `product` column is absent" {
   let df = @moonframe.DataFrame::new([@moonframe.Series::from_ints("id", [1])])
   assert_true(
-    (try? df.filter(is_widget_row()))
+    (Ok(df.filter(is_widget_row())) catch { e => Err(e) })
     is Err(@moonframe.DataError::ColumnNotFound("product")),
   )
 }

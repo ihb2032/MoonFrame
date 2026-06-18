@@ -217,7 +217,9 @@ test "drop_nulls(subset) resolves each key by output_name" {
 test "drop_nulls(subset) rejects an unknown column with ColumnNotFound" {
   let df = drop_nulls_df()
   assert_eq(
-    try? df.drop_nulls(subset=[@expr.col("missing")]),
+    Ok(df.drop_nulls(subset=[@expr.col("missing")])) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::ColumnNotFound("missing")),
   )
   // The input is unchanged and still well-formed.
@@ -229,11 +231,15 @@ test "drop_nulls(subset) reports the first offending key" {
   let df = drop_nulls_df()
   // The first key is fine; the second is missing → ColumnNotFound("z").
   assert_eq(
-    try? df.drop_nulls(subset=[
-      @expr.col("a"),
-      @expr.col("z"),
-      @expr.col("missing"),
-    ]),
+    Ok(
+      df.drop_nulls(subset=[
+        @expr.col("a"),
+        @expr.col("z"),
+        @expr.col("missing"),
+      ]),
+    ) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::ColumnNotFound("z")),
   )
 }

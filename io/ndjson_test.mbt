@@ -295,19 +295,21 @@ test "parse_ndjson_str: lines of empty objects collapse to 0x0" {
 ///|
 test "parse_ndjson_str: non-object line returns ParseError" {
   // A bare array / scalar on a line is valid JSON but not a record.
-  let result = try? @io.parse_ndjson_str(
-    "{\"a\":1}\n[1,2,3]",
-    @io.NdjsonReadOptions::default(),
-  )
+  let result = Ok(
+    @io.parse_ndjson_str("{\"a\":1}\n[1,2,3]", @io.NdjsonReadOptions::default()),
+  ) catch {
+    e => Err(e)
+  }
   assert_true(result is Err(@types.DataError::ParseError(_)))
 }
 
 ///|
 test "parse_ndjson_str: malformed line returns ParseError" {
-  let result = try? @io.parse_ndjson_str(
-    "{\"a\":1}\n{oops",
-    @io.NdjsonReadOptions::default(),
-  )
+  let result = Ok(
+    @io.parse_ndjson_str("{\"a\":1}\n{oops", @io.NdjsonReadOptions::default()),
+  ) catch {
+    e => Err(e)
+  }
   assert_true(result is Err(@types.DataError::ParseError(_)))
 }
 
@@ -319,10 +321,14 @@ test "parse_ndjson_str: typed mismatch past inference window errors" {
     #|{"x":1}
     #|{"x":2}
     #|{"x":"three"}
-  let result = try? @io.parse_ndjson_str(content, {
-    infer_schema_rows: 2,
-    on_parse_error: @io.OnParseError::Raise,
-  })
+  let result = Ok(
+    @io.parse_ndjson_str(content, {
+      infer_schema_rows: 2,
+      on_parse_error: @io.OnParseError::Raise,
+    }),
+  ) catch {
+    e => Err(e)
+  }
   assert_true(result is Err(@types.DataError::ParseError(_)))
 }
 
@@ -332,10 +338,14 @@ test "parse_ndjson_str: a build-stage type error reports the physical file line"
   // line: the offending cell is the 3rd record but file line 5. The error must
   // name the true line ("line 5"), not the post-blank-skip record index.
   let content = "\n{\"x\":1}\n{\"x\":2}\n\n{\"x\":\"three\"}"
-  let result = try? @io.parse_ndjson_str(content, {
-    infer_schema_rows: 2,
-    on_parse_error: @io.OnParseError::Raise,
-  })
+  let result = Ok(
+    @io.parse_ndjson_str(content, {
+      infer_schema_rows: 2,
+      on_parse_error: @io.OnParseError::Raise,
+    }),
+  ) catch {
+    e => Err(e)
+  }
   let msg = match result {
     Err(@types.DataError::ParseError(m)) => m
     _ => "<not a ParseError>"
@@ -418,18 +428,24 @@ test "read_ndjson_with_options honours a custom inference window" {
 
 ///|
 test "read_ndjson: missing file surfaces as IoError, not panic" {
-  let result = try? @io.read_ndjson(
-    "_build/io_ndjson_test_does_not_exist.ndjson",
-  )
+  let result = Ok(
+    @io.read_ndjson("_build/io_ndjson_test_does_not_exist.ndjson"),
+  ) catch {
+    e => Err(e)
+  }
   assert_true(result is Err(@types.DataError::IoError(_)))
 }
 
 ///|
 test "read_ndjson_with_options: missing file surfaces as IoError" {
-  let result = try? @io.read_ndjson_with_options(
-    "_build/io_ndjson_test_does_not_exist.ndjson",
-    @io.NdjsonReadOptions::default(),
-  )
+  let result = Ok(
+    @io.read_ndjson_with_options(
+      "_build/io_ndjson_test_does_not_exist.ndjson",
+      @io.NdjsonReadOptions::default(),
+    ),
+  ) catch {
+    e => Err(e)
+  }
   assert_true(result is Err(@types.DataError::IoError(_)))
 }
 
@@ -438,9 +454,11 @@ test "write_ndjson: invalid path surfaces as IoError" {
   // Aim the writer at a directory that doesn't exist so the underlying
   // `@fs` call surfaces `IOError`, promoted to `DataError::IoError`.
   let df = @frame.DataFrame::new([@series.Series::from_ints("a", [1])])
-  let result = try? @io.write_ndjson(
-    "_build/no_such_dir_io_ndjson_test/file.ndjson", df,
-  )
+  let result = Ok(
+    @io.write_ndjson("_build/no_such_dir_io_ndjson_test/file.ndjson", df),
+  ) catch {
+    e => Err(e)
+  }
   assert_true(result is Err(@types.DataError::IoError(_)))
 }
 

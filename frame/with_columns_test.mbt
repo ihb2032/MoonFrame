@@ -66,16 +66,22 @@ test "mixed: replace and append in one call, in expression order" {
 test "duplicate output names raise DuplicateColumn at the second expr" {
   // Append flavor: two pure literals both name themselves "literal".
   assert_eq(
-    try? base_df().with_columns([@expr.lit_int(1), @expr.lit_int(2)]),
+    Ok(base_df().with_columns([@expr.lit_int(1), @expr.lit_int(2)])) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::DuplicateColumn("literal")),
   )
   // Replace flavor: two expressions both target existing column "a" —
   // neither silently wins.
   assert_eq(
-    try? base_df().with_columns([
-      @expr.col("a") + @expr.lit_int(1),
-      @expr.col("a") + @expr.lit_int(2),
-    ]),
+    Ok(
+      base_df().with_columns([
+        @expr.col("a") + @expr.lit_int(1),
+        @expr.col("a") + @expr.lit_int(2),
+      ]),
+    ) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::DuplicateColumn("a")),
   )
 }

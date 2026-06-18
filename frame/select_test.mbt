@@ -184,18 +184,24 @@ test "zero-row frame: an all-scalar selection still yields its one-row summary" 
 test "duplicate output names raise DuplicateColumn at the second expression" {
   // Two column-less trees both name themselves "literal".
   assert_eq(
-    try? sel_df().select([@expr.lit_int(1), @expr.lit_int(2)]),
+    Ok(sel_df().select([@expr.lit_int(1), @expr.lit_int(2)])) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::DuplicateColumn("literal")),
   )
   // The same column referenced twice without an alias collides on its name.
   assert_eq(
-    try? sel_df().select([@expr.col("a"), @expr.col("a") + @expr.lit_int(1)]),
+    Ok(sel_df().select([@expr.col("a"), @expr.col("a") + @expr.lit_int(1)])) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::DuplicateColumn("a")),
   )
   // Detection runs in expression order: the collision at the second
   // expression fires before the third (itself unevaluable) is touched.
   assert_eq(
-    try? sel_df().select([@expr.lit_int(1), @expr.lit_int(2), @expr.col("zzz")]),
+    Ok(sel_df().select([@expr.lit_int(1), @expr.lit_int(2), @expr.col("zzz")])) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::DuplicateColumn("literal")),
   )
 }
@@ -203,11 +209,15 @@ test "duplicate output names raise DuplicateColumn at the second expression" {
 ///|
 test "evaluation errors surface: unknown column, dtype mismatch" {
   assert_eq(
-    try? sel_df().select([@expr.col("zzz")]),
+    Ok(sel_df().select([@expr.col("zzz")])) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::ColumnNotFound("zzz")),
   )
   assert_eq(
-    try? sel_df().select([@expr.col("region") + @expr.col("a")]),
+    Ok(sel_df().select([@expr.col("region") + @expr.col("a")])) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::TypeMismatch("cannot add String and Int")),
   )
 }
@@ -261,13 +271,17 @@ test "historical pin: duplicate bare columns, and missing wins over duplicate" {
   let df = select_df()
   // A bare column repeated collides on its own name.
   assert_eq(
-    try? df.select([@expr.col("a"), @expr.col("a")]),
+    Ok(df.select([@expr.col("a"), @expr.col("a")])) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::DuplicateColumn("a")),
   )
   // First error in expression order: the missing `z` evaluates (and fails)
   // before the later duplicate `a` is ever named.
   assert_eq(
-    try? df.select([@expr.col("z"), @expr.col("a"), @expr.col("a")]),
+    Ok(df.select([@expr.col("z"), @expr.col("a"), @expr.col("a")])) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::ColumnNotFound("z")),
   )
 }

@@ -465,53 +465,87 @@ fn coalesce_key_names(options : JoinOptions) -> Array[String]? {
 }
 
 ///|
+/// The matched source rows when `idx` has no unmatched (`None`) slot, else
+/// `None` — the gate for `gather_series_opt`'s `Numeric` fast path, which can
+/// only stay all-valid when every output row maps to a real source row.
+fn collect_matched(idx : Array[Int?]) -> Array[Int]? {
+  let rows : Array[Int] = []
+  for j in idx {
+    match j {
+      Some(v) => rows.push(v)
+      None => return None
+    }
+  }
+  Some(rows)
+}
+
+///|
 /// Gather a column by optional row indices: output cell `k` is
 /// `s[idx[k]]` when `idx[k]` is `Some`, or a null cell when it is `None`.
 /// Total — the caller (`join`) only ever stores in-bounds row indices, and
 /// `None` marks a row kept without a match on this side. The result is named
 /// `out_name` (so a colliding right column can be suffixed) and keeps the
-/// source dtype. It always materialises through the option constructors (the
-/// shared `rebuild_options` skeleton → a `Builtin` column); `join` wraps the
-/// result in `preserve_backend` to re-converge a no-null gather of a `Numeric`
-/// source back onto the fast path.
+/// source dtype. A `Numeric` source with no unmatched (`None`) row takes the
+/// all-valid fast path straight onto the `Numeric` backend; everything else
+/// materialises through the option constructors (the shared `rebuild_options`
+/// skeleton → a `Builtin` column, which `join` re-converges via
+/// `preserve_backend`).
 fn gather_series_opt(
   s : Series,
   idx : Array[Int?],
   out_name : String,
 ) -> Series {
-  let valid = validity_bools(s.storage())
-  // Output cell `k` reads source row `idx[k]` when it is `Some` (and the cell
-  // there is valid), else a null. The four closures are identical bar their
-  // element type; `rebuild_options` picks the one matching `s`'s dtype.
-  rebuild_options(
-    s,
-    out_name,
-    idx.length(),
-    (a, k) => {
-      match idx[k] {
-        Some(j) => if valid[j] { Some(a[j]) } else { None }
-        None => None
-      }
-    },
-    (a, k) => {
-      match idx[k] {
-        Some(j) => if valid[j] { Some(a[j]) } else { None }
-        None => None
-      }
-    },
-    (a, k) => {
-      match idx[k] {
-        Some(j) => if valid[j] { Some(a[j]) } else { None }
-        None => None
-      }
-    },
-    (a, k) => {
-      match idx[k] {
-        Some(j) => if valid[j] { Some(a[j]) } else { None }
-        None => None
-      }
-    },
-  )
+  // `Numeric` fast path: a `Numeric` source is all-valid, so a gather with no
+  // unmatched (`None`) row is itself all-valid — build the numeric array
+  // straight onto the `Numeric` backend, skipping the `Array[T?]` + `Bitmap`
+  // round-trip `rebuild_options` would allocate only to drop on re-convergence.
+  // Mirrors `gather_series`' `Numeric` arm.
+  let matched = if s.storage().kind() is @column.StorageKind::Numeric {
+    collect_matched(idx)
+  } else {
+    None
+  }
+  match (s.storage().data(), matched) {
+    (@column.ColumnData::Int(a), Some(rows)) =>
+      Series::from_ints(out_name, rows.map(j => a[j]))
+    (@column.ColumnData::Float(a), Some(rows)) =>
+      Series::from_floats(out_name, rows.map(j => a[j]))
+    _ => {
+      let valid = validity_bools(s.storage())
+      // Output cell `k` reads source row `idx[k]` when it is `Some` (and the
+      // cell there is valid), else a null. The four closures are identical bar
+      // their element type; `rebuild_options` picks the one matching `s`'s dtype.
+      rebuild_options(
+        s,
+        out_name,
+        idx.length(),
+        (a, k) => {
+          match idx[k] {
+            Some(j) => if valid[j] { Some(a[j]) } else { None }
+            None => None
+          }
+        },
+        (a, k) => {
+          match idx[k] {
+            Some(j) => if valid[j] { Some(a[j]) } else { None }
+            None => None
+          }
+        },
+        (a, k) => {
+          match idx[k] {
+            Some(j) => if valid[j] { Some(a[j]) } else { None }
+            None => None
+          }
+        },
+        (a, k) => {
+          match idx[k] {
+            Some(j) => if valid[j] { Some(a[j]) } else { None }
+            None => None
+          }
+        },
+      )
+    }
+  }
 }
 
 ///|

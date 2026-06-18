@@ -58,9 +58,5 @@ pub fn DataFrame::select(
       height = n
     }
   }
-  let broadcasted : Array[Series] = []
-  for column in evaluated {
-    broadcasted.push(broadcast_series(column, height))
-  }
-  DataFrame::new(broadcasted)
+  DataFrame::new(evaluated.map(column => broadcast_series(column, height)))
 }

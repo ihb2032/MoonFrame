@@ -288,14 +288,7 @@ fn row_stable(expr : @expr.Expr) -> Bool {
     | @expr.Expr::Unary(_, _)
     | @expr.Expr::Str(_, _)
     | @expr.Expr::Alias(_, _)
-    | @expr.Expr::Ternary(_, _, _) => {
-      for child in expr.children() {
-        if !row_stable(child) {
-          return false
-        }
-      }
-      true
-    }
+    | @expr.Expr::Ternary(_, _, _) => expr.children().all(row_stable)
   }
 }
 
@@ -303,12 +296,7 @@ fn row_stable(expr : @expr.Expr) -> Bool {
 /// `row_stable` over a stage's whole expression list — one scope-bound or
 /// value-raising expression fences the stage.
 fn all_row_stable(exprs : Array[@expr.Expr]) -> Bool {
-  for expr in exprs {
-    if !row_stable(expr) {
-      return false
-    }
-  }
-  true
+  exprs.all(row_stable)
 }
 
 ///|
@@ -328,14 +316,7 @@ fn all_row_stable(exprs : Array[@expr.Expr]) -> Bool {
 fn division_free(expr : @expr.Expr) -> Bool {
   match expr {
     @expr.Expr::Binary(@expr.BinOp::Div, _, _) => false
-    _ => {
-      for child in expr.children() {
-        if !division_free(child) {
-          return false
-        }
-      }
-      true
-    }
+    _ => expr.children().all(division_free)
   }
 }
 
@@ -394,14 +375,7 @@ fn group_cell_stable(expr : @expr.Expr) -> Bool {
     | @expr.Expr::Unary(_, _)
     | @expr.Expr::Str(_, _)
     | @expr.Expr::Alias(_, _)
-    | @expr.Expr::Ternary(_, _, _) => {
-      for child in expr.children() {
-        if !group_cell_stable(child) {
-          return false
-        }
-      }
-      true
-    }
+    | @expr.Expr::Ternary(_, _, _) => expr.children().all(group_cell_stable)
   }
 }
 

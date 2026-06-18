@@ -109,14 +109,7 @@ pub fn ChartSpec::area(x : String, y : String) -> ChartSpec {
 /// Return a copy of this spec that maps `column` to the Vega-Lite `color`
 /// encoding (grouping / colouring the marks by that column). Chainable.
 pub fn ChartSpec::with_color(self : ChartSpec, column : String) -> ChartSpec {
-  {
-    kind: self.kind,
-    x: self.x,
-    y: self.y,
-    color: Some(column),
-    title: self.title,
-    color_type: self.color_type,
-  }
+  { ..self, color: Some(column) }
 }
 
 ///|
@@ -130,27 +123,13 @@ pub fn ChartSpec::with_color_type(
   self : ChartSpec,
   color_type : VegaType,
 ) -> ChartSpec {
-  {
-    kind: self.kind,
-    x: self.x,
-    y: self.y,
-    color: self.color,
-    title: self.title,
-    color_type: Some(color_type),
-  }
+  { ..self, color_type: Some(color_type) }
 }
 
 ///|
 /// Return a copy of this spec carrying the chart `title`. Chainable.
 pub fn ChartSpec::with_title(self : ChartSpec, title : String) -> ChartSpec {
-  {
-    kind: self.kind,
-    x: self.x,
-    y: self.y,
-    color: self.color,
-    title: Some(title),
-    color_type: self.color_type,
-  }
+  { ..self, title: Some(title) }
 }
 
 ///|

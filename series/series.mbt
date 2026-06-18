@@ -419,7 +419,11 @@ pub fn gather_series(s : Series, idx : Array[Int]) -> Series {
   // `try_column_to_numeric` → `Numeric`, allocating an `Array[T?]` and a
   // `Bitmap` only to drop them on re-convergence. A `Builtin` source (any
   // dtype) falls to the `_` arm and shares the `rebuild_options` skeleton,
-  // reading its validity mask once.
+  // reading each gathered slot's validity straight off the source bitmap
+  // (`is_valid_total`), so the gather costs `O(idx)` rather than materialising
+  // the whole `O(source)` mask — a per-group gather in the grouped-aggregation
+  // engine touches only its group's rows, keeping a derived reduction linear
+  // instead of quadratic on a high-cardinality key.
   let numeric = s.storage.kind() is @column.StorageKind::Numeric
   match s.storage.data() {
     @column.ColumnData::Int(a) if numeric =>
@@ -427,15 +431,39 @@ pub fn gather_series(s : Series, idx : Array[Int]) -> Series {
     @column.ColumnData::Float(a) if numeric =>
       Series::from_floats(s.name, idx.map(k => a[k]))
     _ => {
-      let valid = validity_bools(s.storage)
+      let validity = s.storage.validity()
       rebuild_options(
         s,
         s.name,
         idx.length(),
-        (a, k) => if valid[idx[k]] { Some(a[idx[k]]) } else { None },
-        (a, k) => if valid[idx[k]] { Some(a[idx[k]]) } else { None },
-        (a, k) => if valid[idx[k]] { Some(a[idx[k]]) } else { None },
-        (a, k) => if valid[idx[k]] { Some(a[idx[k]]) } else { None },
+        (a, k) => {
+          if validity.is_valid_total(idx[k]) {
+            Some(a[idx[k]])
+          } else {
+            None
+          }
+        },
+        (a, k) => {
+          if validity.is_valid_total(idx[k]) {
+            Some(a[idx[k]])
+          } else {
+            None
+          }
+        },
+        (a, k) => {
+          if validity.is_valid_total(idx[k]) {
+            Some(a[idx[k]])
+          } else {
+            None
+          }
+        },
+        (a, k) => {
+          if validity.is_valid_total(idx[k]) {
+            Some(a[idx[k]])
+          } else {
+            None
+          }
+        },
       )
     }
   }

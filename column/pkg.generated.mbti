@@ -23,6 +23,7 @@ pub fn Bitmap::from_bools(Array[Bool]) -> Self
 pub fn[T] Bitmap::from_options(Array[T?]) -> Self
 pub fn Bitmap::is_null(Self, Int) -> Bool raise @types.DataError
 pub fn Bitmap::is_valid(Self, Int) -> Bool raise @types.DataError
+pub fn Bitmap::is_valid_total(Self, Int) -> Bool
 pub fn Bitmap::len(Self) -> Int
 pub fn Bitmap::null_count(Self) -> Int
 pub fn Bitmap::slice(Self, Int, Int) -> Self raise @types.DataError

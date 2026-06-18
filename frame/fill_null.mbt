@@ -26,16 +26,13 @@ pub fn DataFrame::fill_null(
   self : DataFrame,
   value : @types.Scalar,
 ) -> DataFrame raise @types.DataError {
-  let new_cols = []
-  for s in self.columns {
-    new_cols.push(
-      if fills_dtype(value, s.dtype()) {
-        s.fill_null(value)
-      } else {
-        s
-      },
-    )
-  }
+  let new_cols = self.columns.map(s => {
+    if fills_dtype(value, s.dtype()) {
+      s.fill_null(value)
+    } else {
+      s
+    }
+  })
   self.with_same_schema(new_cols, self.nrows)
 }
 

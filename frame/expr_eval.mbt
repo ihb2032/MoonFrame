@@ -185,12 +185,14 @@ fn singleton_series(value : @types.Scalar) -> Series raise @types.DataError {
 /// Align two evaluation results for an elementwise kernel: equal lengths
 /// pass through, a length-1 side is broadcast (gathered at index 0) to the
 /// other side's length — including to zero rows, where the gather of an
-/// empty index set never touches the value. Evaluation invariants make any
-/// other shape impossible (both operands of a `Binary` evaluate under the
-/// *same* scope, so lengths are drawn from `{1, |scope|}`), but the guard
-/// stays: raising `LengthMismatch` keeps the helper total for any input
-/// rather than indexing out of bounds. No public call chain can reach that
-/// arm, so it is pinned by `expr_eval_wbtest.mbt`.
+/// empty index set never touches the value. For most operands both sides of
+/// a `Binary` evaluate under the *same* scope, so their lengths are drawn
+/// from `{1, |scope|}` and always align; a `lit_series` is the exception — it
+/// evaluates at the embedded series' own length — so a public
+/// `lit_series(len2) + lit_series(len3)` reaches the mismatch arm, which
+/// raises `LengthMismatch` (keeping the helper total rather than indexing out
+/// of bounds). Covered by `lit_series_test.mbt` (public path) and
+/// `expr_eval_wbtest.mbt` (the helper directly).
 fn broadcast_pair(
   left : Series,
   right : Series,
@@ -213,11 +215,13 @@ fn broadcast_pair(
 /// rows: an already-matching length passes through, a length-1 result (a
 /// literal or aggregation) is gathered at index 0 over every row —
 /// including to zero rows, where the empty gather never touches the value.
-/// As with `broadcast_pair`, evaluation invariants make any other length
-/// impossible (a result's length is drawn from `{1, |scope|}` and `target`
-/// is `|scope|`), but the guard stays: raising `LengthMismatch` keeps the
-/// helper total for any input rather than indexing out of bounds. No public
-/// call chain reaches that arm, so it is pinned by `expr_eval_wbtest.mbt`.
+/// Most results' lengths are drawn from `{1, |scope|}` (with `target =
+/// |scope|`) and always fit; a `lit_series` is the exception — it evaluates
+/// at the embedded series' own length — so a public
+/// `df.with_columns([lit_series(len2)])` on an off-length frame reaches the
+/// mismatch arm, which raises `LengthMismatch` (keeping the helper total
+/// rather than indexing out of bounds). Covered by `lit_series_test.mbt`
+/// (public path) and `expr_eval_wbtest.mbt` (the helper directly).
 fn broadcast_series(s : Series, target : Int) -> Series raise @types.DataError {
   if s.len() == target {
     s

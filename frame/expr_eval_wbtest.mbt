@@ -1,11 +1,12 @@
 // Whitebox pins for the evaluator's internal contracts.
 //
-// `broadcast_pair`'s `LengthMismatch` guard: both operands of a `Binary`
-// are evaluated under the same scope, so public callers only ever see
-// operand lengths drawn from `{1, |scope|}`; the guard exists to keep the
-// helper total — raise, never an out-of-bounds index — for any future
-// caller. No public call chain reaches it, so it is pinned here directly,
-// the same rationale as `invariants_wbtest.mbt`.
+// `broadcast_pair`'s `LengthMismatch` guard: for most operands both sides of
+// a `Binary` evaluate under the same scope, so their lengths are drawn from
+// `{1, |scope|}` and align; a `lit_series` evaluates at its own length, so a
+// public `lit_series(len2) + lit_series(len3)` reaches the guard (also covered
+// through the public surface by `lit_series_test.mbt`). Pinned here directly
+// at the helper for a focused contract, the same rationale as
+// `invariants_wbtest.mbt`.
 //
 // `expr_output_name`: the §0 naming rule — alias wins, wrappers are
 // transparent, a ternary names from its value branches — spelled directly

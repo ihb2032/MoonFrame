@@ -21,9 +21,12 @@
 /// Every other control character — the rest of the C0 range, `DEL`, and the
 /// Unicode line/paragraph separators `NEL` / `LS` / `PS` — becomes a `\uXXXX`
 /// escape, so a hostile payload (e.g. an `ESC` from a malformed CSV header)
-/// cannot inject a terminal control sequence or an extra line into the quoted
-/// form. A single forward pass, so a backslash introduced here is never
-/// itself re-escaped. Total — pure string assembly, no failure path.
+/// cannot inject a newline or forge an extra line into the quoted form. (The
+/// escape set targets line injection; the C1 range 0x80–0x9F is left as-is —
+/// harmless under UTF-8 output, which emits it as multi-byte sequences rather
+/// than raw 8-bit controls.) A single forward pass, so a backslash introduced
+/// here is never itself re-escaped. Total — pure string assembly, no failure
+/// path.
 fn escape_debug(s : String) -> String {
   let buf = StringBuilder::new()
   for ch in s.iter() {

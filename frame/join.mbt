@@ -159,10 +159,9 @@ pub fn DataFrame::join(
       // with no left entry are the same case: no match, keep the right row
       // with null left columns.
       for j in 0..<other.nrows() {
-        let matches = match join_row_key(right_key_scalars, j) {
-          Some(k) => left_index.get(k)
-          None => None
-        }
+        let matches = join_row_key(right_key_scalars, j).bind(k => {
+          left_index.get(k)
+        })
         match matches {
           Some(rows) =>
             for i in rows {
@@ -204,10 +203,9 @@ pub fn DataFrame::join(
       // Probe each left row in order. A null left key (`None`) and a key
       // with no right entry are the same case: no match.
       for i in 0..<self.nrows() {
-        let matches = match join_row_key(left_key_scalars, i) {
-          Some(k) => right_index.get(k)
-          None => None
-        }
+        let matches = join_row_key(left_key_scalars, i).bind(k => {
+          right_index.get(k)
+        })
         match matches {
           Some(rows) =>
             for j in rows {
@@ -246,25 +244,21 @@ pub fn DataFrame::join(
   // coalesce — empty whenever coalescing is off, so the assembly below
   // keeps every column.
   let coalesce_names = coalesce_key_names(options)
-  let coalesce = match coalesce_names {
-    Some(_) =>
-      match options.coalesce {
-        Some(b) => b
-        None =>
-          match options.how {
-            Inner => true
-            _ => false
-          }
-      }
-    None => false
+  let coalesce = if coalesce_names is Some(_) {
+    options.coalesce.unwrap_or(
+      match options.how {
+        Inner => true
+        _ => false
+      },
+    )
+  } else {
+    false
   }
   let on_set : Map[String, Unit] = {}
-  match coalesce_names {
-    Some(names) =>
-      for k in names {
-        on_set[k] = ()
-      }
-    None => ()
+  if coalesce_names is Some(names) {
+    for k in names {
+      on_set[k] = ()
+    }
   }
   let left_names : Map[String, Unit] = {}
   for n in self.columns() {
@@ -519,30 +513,10 @@ fn gather_series_opt(
         s,
         out_name,
         idx.length(),
-        (a, k) => {
-          match idx[k] {
-            Some(j) => if valid[j] { Some(a[j]) } else { None }
-            None => None
-          }
-        },
-        (a, k) => {
-          match idx[k] {
-            Some(j) => if valid[j] { Some(a[j]) } else { None }
-            None => None
-          }
-        },
-        (a, k) => {
-          match idx[k] {
-            Some(j) => if valid[j] { Some(a[j]) } else { None }
-            None => None
-          }
-        },
-        (a, k) => {
-          match idx[k] {
-            Some(j) => if valid[j] { Some(a[j]) } else { None }
-            None => None
-          }
-        },
+        (a, k) => idx[k].bind(j => if valid[j] { Some(a[j]) } else { None }),
+        (a, k) => idx[k].bind(j => if valid[j] { Some(a[j]) } else { None }),
+        (a, k) => idx[k].bind(j => if valid[j] { Some(a[j]) } else { None }),
+        (a, k) => idx[k].bind(j => if valid[j] { Some(a[j]) } else { None }),
       )
     }
   }

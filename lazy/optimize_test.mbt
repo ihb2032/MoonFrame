@@ -528,6 +528,59 @@ test "predicate pushdown keeps a derived aggregate key's backend canonical" {
 }
 
 ///|
+/// Identity that defeats compile-time constant folding, so a negative-zero
+/// key is a genuine runtime `-0.0` rather than a folded `+0.0`.
+fn id_double(x : Double) -> Double {
+  x
+}
+
+///|
+test "fence: a sign-sensitive predicate stays above an aggregate on a signed-zero key" {
+  // `KeyCell` folds -0.0 and +0.0 into one group, but the group's output row
+  // keeps its representative's signed key. A predicate that divides by the key
+  // tells the two apart (1/+0.0 = +inf, 1/-0.0 = -inf), so sinking it below the
+  // aggregate would filter the group's rows by their individual signs and
+  // change the surviving sum. The filter must stay above the aggregate.
+  let neg_zero = -1.0 * id_double(0.0)
+  let df = @frame.DataFrame::new([
+    @series.Series::from_floats("k", [0.0, neg_zero]),
+    @series.Series::from_ints("v", [1, 2]),
+  ])
+  let keys = [@expr.col("k")]
+  let aggs = [@expr.col("v").sum()]
+  let predicate = (@expr.lit_float(1.0) / @expr.col("k")).gt(
+    @expr.lit_float(0.0),
+  )
+  let plan = lazy_frame(df).group_by(keys).agg(aggs).filter(predicate)
+  // Not pushed: the optimized plan is the as-built plan.
+  assert_eq(plan.explain(optimized=true), plan.explain())
+  // And `collect` matches the eager chain: +0.0 and -0.0 stay one group whose
+  // representative (+0.0) passes the filter, keeping the sum of both rows.
+  let out = plan.collect()
+  assert_eq(out, df.group_by(keys).agg(aggs).filter(predicate))
+  assert_eq(out.check_invariants(), Ok(()))
+}
+
+///|
+test "predicate pushdown still sinks a division-free predicate below an aggregate" {
+  // The signed-zero fence is precise — only division reveals a zero's sign — so
+  // a comparison predicate on the key still sinks (and must, to keep the
+  // optimization for the common case).
+  let neg_zero = -1.0 * id_double(0.0)
+  let df = @frame.DataFrame::new([
+    @series.Series::from_floats("k", [0.0, neg_zero, 5.0]),
+    @series.Series::from_ints("v", [1, 2, 3]),
+  ])
+  let keys = [@expr.col("k")]
+  let aggs = [@expr.col("v").sum()]
+  let predicate = @expr.col("k").gt(@expr.lit_float(-1.0))
+  let plan = lazy_frame(df).group_by(keys).agg(aggs).filter(predicate)
+  // Pushed: the optimized plan differs from the as-built plan.
+  assert_true(plan.explain(optimized=true) != plan.explain())
+  assert_eq(plan.collect(), df.group_by(keys).agg(aggs).filter(predicate))
+}
+
+///|
 test "predicate pushdown keeps a derived select column's backend canonical" {
   // The same hazard one stage over: `s = a + b` is null exactly where the
   // filter drops the row, so the eager (compute-then-filter) and optimized

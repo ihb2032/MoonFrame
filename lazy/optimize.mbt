@@ -69,6 +69,12 @@
 ///   filtering their rows before it drop exactly the same groups, in the
 ///   same first-appearance order — and a bare key's output column holds its
 ///   input column verbatim, so the predicate reads identical values below).
+///   The predicate must also be `division_free`: a `Float` key folds `-0.0`
+///   and `+0.0` into one group, yet the group's output row keeps its
+///   representative's signed key, and division is the only operator that tells
+///   the two apart (`1/+0.0 = +inf` vs `1/-0.0 = -inf`), so a dividing
+///   predicate could drop only part of a folded group below the aggregate and
+///   change its surviving reduction.
 ///   Every key must also be `row_stable`, not only the ones the predicate
 ///   reads: each key is materialised as an output column (and joins the
 ///   grouping tuple). An aggregate key broadcasts a whole-scope reduction,
@@ -228,6 +234,7 @@ fn place_filter(input : LogicalPlan, predicate : @expr.Expr) -> LogicalPlan {
       if row_stable(predicate) &&
         all_row_stable(keys) &&
         reads_only_keys(predicate, keys) &&
+        division_free(predicate) &&
         all_group_cells_stable(exprs) {
         Aggregate(place_filter(inner, predicate), keys, exprs)
       } else {
@@ -302,6 +309,34 @@ fn all_row_stable(exprs : Array[@expr.Expr]) -> Bool {
     }
   }
   true
+}
+
+///|
+/// Whether `expr` is free of division — the extra gate the `Aggregate`
+/// predicate pushdown needs to stay sound on a `Float` group key. `KeyCell`
+/// folds `-0.0` and `+0.0` into one group, but the group's output row keeps its
+/// *representative* row's signed key, so a predicate that can tell the two
+/// apart disagrees between a group's individual rows (filtered below the
+/// aggregate) and that representative (filtered above it). Division is the only
+/// operator in the vocabulary that makes a zero's sign observable —
+/// `1.0 / +0.0 = +inf` but `1.0 / -0.0 = -inf`, while `+` / `-` / `*` and every
+/// comparison treat `-0.0` and `+0.0` as equal — so a division-free predicate
+/// gives every row of a folded group the same verdict and may sink below the
+/// aggregate, while one that divides could drop only part of the group and must
+/// stay above. Walks `children()` like `row_stable`, so a future `Expr` variant
+/// is covered without a wildcard.
+fn division_free(expr : @expr.Expr) -> Bool {
+  match expr {
+    @expr.Expr::Binary(@expr.BinOp::Div, _, _) => false
+    _ => {
+      for child in expr.children() {
+        if !division_free(child) {
+          return false
+        }
+      }
+      true
+    }
+  }
 }
 
 ///|

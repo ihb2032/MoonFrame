@@ -19,24 +19,35 @@ pub fn DataFrame::rename(
   self : DataFrame,
   mapping : Array[(String, String)],
 ) -> DataFrame raise @types.DataError {
-  // Work on a mutable name vector aligned with the column vector, so
-  // each step sees the result of earlier renames.
+  // Work on a mutable name vector aligned with the column vector, so each step
+  // sees the result of earlier renames, plus a `name -> slot` index so each
+  // step's lookup and collision check are amortised `O(1)`: a wide frame
+  // renamed column-by-column (`|mapping| ≈ ncols`) was `O(ncols^2)` through the
+  // linear `search` / `contains`. The index mirrors `names` exactly — every
+  // step retargets `new_name` and retires `old_name` — so the two stay
+  // equivalent (frame names are unique, so each name maps to a single slot).
   let names : Array[String] = self.columns()
+  let index : Map[String, Int] = {}
+  for i in 0..<names.length() {
+    index[names[i]] = i
+  }
   for pair in mapping {
     let (old_name, new_name) = pair
-    // Locate old_name in the current name vector.
-    let idx = match names.search(old_name) {
+    // Locate old_name in the current name set.
+    let idx = match index.get(old_name) {
       Some(i) => i
       None => raise @types.DataError::ColumnNotFound(old_name)
     }
-    // Reject a collision with any *other* current name. `names[idx]` is
-    // still `old_name` here (≠ `new_name` in this branch), so any
-    // occurrence of `new_name` must sit at a different slot — a plain
-    // membership test is therefore equivalent to "exists at some i ≠ idx".
-    if old_name != new_name && names.contains(new_name) {
+    // Reject a collision with any *other* current name. `names[idx]` is still
+    // `old_name` here (≠ `new_name` in this branch), so any occurrence of
+    // `new_name` must sit at a different slot — a plain membership test is
+    // therefore equivalent to "exists at some i ≠ idx".
+    if old_name != new_name && index.get(new_name) is Some(_) {
       raise @types.DataError::DuplicateColumn(new_name)
     }
     names[idx] = new_name
+    index.remove(old_name)
+    index[new_name] = idx
   }
   // Rebuild the column list with the final names. The original column
   // ordering and identity are preserved; only the per-column `name` is

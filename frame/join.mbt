@@ -401,13 +401,7 @@ fn resolve_join_keys(
     let rcol = broadcast_series(eval_expr(right_exprs[i], right, rscope), rn)
     if lcol.dtype() != rcol.dtype() {
       raise @types.DataError::TypeMismatch(
-        "join key \"" +
-        name +
-        "\" has dtype " +
-        lcol.dtype().to_string() +
-        " on the left but " +
-        rcol.dtype().to_string() +
-        " on the right",
+        "join key \"\{name}\" has dtype \{lcol.dtype()} on the left but \{rcol.dtype()} on the right",
       )
     }
     left_key_scalars.push(lcol.to_scalars())
@@ -441,10 +435,7 @@ fn join_key_exprs(
   } else {
     if options.left_on.length() != options.right_on.length() {
       raise @types.DataError::InvalidOperation(
-        "left_on and right_on must name the same number of keys; got " +
-        options.left_on.length().to_string() +
-        " and " +
-        options.right_on.length().to_string(),
+        "left_on and right_on must name the same number of keys; got \{options.left_on.length()} and \{options.right_on.length()}",
       )
     }
     (options.left_on, options.right_on)

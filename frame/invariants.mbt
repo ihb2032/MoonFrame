@@ -41,10 +41,7 @@ pub fn DataFrame::check_invariants(self : DataFrame) -> Result[Unit, String] {
   // ── INV1: schema-columns arity matches ─────────────────────────────
   if schema_fields.length() != ncols {
     return Err(
-      "INV1 violated: schema has " +
-      schema_fields.length().to_string() +
-      " fields but columns has " +
-      ncols.to_string(),
+      "INV1 violated: schema has \{schema_fields.length()} fields but columns has \{ncols}",
     )
   }
 
@@ -53,14 +50,7 @@ pub fn DataFrame::check_invariants(self : DataFrame) -> Result[Unit, String] {
     let len = self.columns[i].len()
     if len != self.nrows {
       return Err(
-        "INV2 violated: column " +
-        i.to_string() +
-        " (\"" +
-        self.columns[i].name() +
-        "\") has length " +
-        len.to_string() +
-        " but nrows is " +
-        self.nrows.to_string(),
+        "INV2 violated: column \{i} (\"\{self.columns[i].name()}\") has length \{len} but nrows is \{self.nrows}",
       )
     }
   }
@@ -71,27 +61,14 @@ pub fn DataFrame::check_invariants(self : DataFrame) -> Result[Unit, String] {
     let col_name = self.columns[i].name()
     if field_name != col_name {
       return Err(
-        "INV3 violated: schema field " +
-        i.to_string() +
-        " is named \"" +
-        field_name +
-        "\" but columns[" +
-        i.to_string() +
-        "] is named \"" +
-        col_name +
-        "\"",
+        "INV3 violated: schema field \{i} is named \"\{field_name}\" but columns[\{i}] is named \"\{col_name}\"",
       )
     }
     let field_dt = schema_fields[i].dtype()
     let col_dt = self.columns[i].dtype()
     if field_dt != col_dt {
       return Err(
-        "INV4 violated: schema field \"" +
-        field_name +
-        "\" has dtype " +
-        field_dt.to_string() +
-        " but its column has dtype " +
-        col_dt.to_string(),
+        "INV4 violated: schema field \"\{field_name}\" has dtype \{field_dt} but its column has dtype \{col_dt}",
       )
     }
   }
@@ -99,10 +76,7 @@ pub fn DataFrame::check_invariants(self : DataFrame) -> Result[Unit, String] {
   // ── INV5: name_to_index covers exactly the columns ─────────────────
   if self.name_to_index.length() != ncols {
     return Err(
-      "INV5 violated: name_to_index has " +
-      self.name_to_index.length().to_string() +
-      " entries but columns has " +
-      ncols.to_string(),
+      "INV5 violated: name_to_index has \{self.name_to_index.length()} entries but columns has \{ncols}",
     )
   }
 
@@ -110,25 +84,13 @@ pub fn DataFrame::check_invariants(self : DataFrame) -> Result[Unit, String] {
   for name, i in self.name_to_index {
     if i < 0 || i >= ncols {
       return Err(
-        "INV6 violated: name_to_index[\"" +
-        name +
-        "\"] = " +
-        i.to_string() +
-        " is out of range [0, " +
-        ncols.to_string() +
-        ")",
+        "INV6 violated: name_to_index[\"\{name}\"] = \{i} is out of range [0, \{ncols})",
       )
     }
     let col_name = self.columns[i].name()
     if col_name != name {
       return Err(
-        "INV6 violated: name_to_index[\"" +
-        name +
-        "\"] points at columns[" +
-        i.to_string() +
-        "] whose name is \"" +
-        col_name +
-        "\"",
+        "INV6 violated: name_to_index[\"\{name}\"] points at columns[\{i}] whose name is \"\{col_name}\"",
       )
     }
   }
@@ -138,10 +100,7 @@ pub fn DataFrame::check_invariants(self : DataFrame) -> Result[Unit, String] {
   // (INV2 only ranges over existing columns). `new` / `empty` always
   // produce `0×0`; this rejects a stray `0×N` that bypassed them.
   if ncols == 0 && self.nrows != 0 {
-    return Err(
-      "INV7 violated: frame has 0 columns but nrows is " +
-      self.nrows.to_string(),
-    )
+    return Err("INV7 violated: frame has 0 columns but nrows is \{self.nrows}")
   }
   Ok(())
 }

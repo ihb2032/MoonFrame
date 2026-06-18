@@ -350,9 +350,7 @@ pub fn ColumnStorage::to_numeric(
     Builtin(c) =>
       if c.null_count() > 0 {
         raise @types.DataError::InvalidOperation(
-          "cannot convert a column with nulls to Numeric (null_count=" +
-          c.null_count().to_string() +
-          ")",
+          "cannot convert a column with nulls to Numeric (null_count=\{c.null_count()})",
         )
       } else {
         match c.data() {
@@ -360,9 +358,7 @@ pub fn ColumnStorage::to_numeric(
           ColumnData::Float(a) => Numeric(NumericColumn::from_doubles(a))
           _ =>
             raise @types.DataError::TypeMismatch(
-              "cannot convert a " +
-              c.dtype().to_string() +
-              " column to Numeric (only Int / Float)",
+              "cannot convert a \{c.dtype()} column to Numeric (only Int / Float)",
             )
         }
       }

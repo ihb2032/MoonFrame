@@ -217,7 +217,7 @@ fn rename_label(pairs : Array[(String, String)]) -> String {
   list_label(
     pairs.map(p => {
       let (from, to) = p
-      from + " -> " + to
+      "\{from} -> \{to}"
     }),
   )
 }
@@ -232,7 +232,7 @@ fn scalar_label(value : @types.Scalar) -> String {
     @types.Scalar::Int(v) => v.to_string()
     @types.Scalar::Float(v) => v.to_string()
     @types.Scalar::Bool(v) => v.to_string()
-    @types.Scalar::String(s) => "\"" + escape_debug(s) + "\""
+    @types.Scalar::String(s) => "\"\{escape_debug(s)}\""
     @types.Scalar::Null => "null"
   }
 }
@@ -282,7 +282,7 @@ fn sort_label(
   list_label(
     by.map(key => {
       let (expr, order, nulls) = key
-      expr.explain() + " " + order_label(order) + " " + nulls_label(nulls)
+      "\{expr.explain()} \{order_label(order)} \{nulls_label(nulls)}"
     }),
   )
 }
@@ -305,16 +305,11 @@ fn join_label(options : @frame.JoinOptions) -> String {
     @frame.JoinType::Cross => "Cross"
   }
   if !options.on.is_empty() {
-    "JOIN " + how + " on " + exprs_label(options.on)
+    "JOIN \{how} on \{exprs_label(options.on)}"
   } else if !options.left_on.is_empty() || !options.right_on.is_empty() {
-    "JOIN " +
-    how +
-    " left_on " +
-    exprs_label(options.left_on) +
-    " right_on " +
-    exprs_label(options.right_on)
+    "JOIN \{how} left_on \{exprs_label(options.left_on)} right_on \{exprs_label(options.right_on)}"
   } else {
-    "JOIN " + how
+    "JOIN \{how}"
   }
 }
 

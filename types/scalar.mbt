@@ -56,8 +56,7 @@ pub fn Scalar::as_int(self : Scalar) -> Int64 raise DataError {
   match self {
     Int(v) => v
     Null => raise TypeMismatch("expected Int, got Null")
-    other =>
-      raise TypeMismatch("expected Int, got " + other.dtype().to_string())
+    other => raise TypeMismatch("expected Int, got \{other.dtype()}")
   }
 }
 
@@ -69,8 +68,7 @@ pub fn Scalar::as_float(self : Scalar) -> Double raise DataError {
     Float(v) => v
     Int(v) => v.to_double()
     Null => raise TypeMismatch("expected Float, got Null")
-    other =>
-      raise TypeMismatch("expected Float, got " + other.dtype().to_string())
+    other => raise TypeMismatch("expected Float, got \{other.dtype()}")
   }
 }
 
@@ -79,8 +77,7 @@ pub fn Scalar::as_bool(self : Scalar) -> Bool raise DataError {
   match self {
     Bool(v) => v
     Null => raise TypeMismatch("expected Bool, got Null")
-    other =>
-      raise TypeMismatch("expected Bool, got " + other.dtype().to_string())
+    other => raise TypeMismatch("expected Bool, got \{other.dtype()}")
   }
 }
 
@@ -89,8 +86,7 @@ pub fn Scalar::as_string(self : Scalar) -> String raise DataError {
   match self {
     String(v) => v
     Null => raise TypeMismatch("expected String, got Null")
-    other =>
-      raise TypeMismatch("expected String, got " + other.dtype().to_string())
+    other => raise TypeMismatch("expected String, got \{other.dtype()}")
   }
 }
 
@@ -102,12 +98,7 @@ fn type_mismatch_for_compare(
   left : Scalar,
   right : Scalar,
 ) -> Bool raise DataError {
-  raise TypeMismatch(
-    "cannot compare " +
-    left.dtype().to_string() +
-    " and " +
-    right.dtype().to_string(),
-  )
+  raise TypeMismatch("cannot compare \{left.dtype()} and \{right.dtype()}")
 }
 
 ///|
@@ -177,10 +168,10 @@ fn bool_to_int(b : Bool) -> Int {
 /// For value-style rendering use `to_string()`.
 pub impl Show for Scalar with fn output(self, logger) {
   match self {
-    Int(v) => logger.write_string("Int(" + v.to_string() + ")")
-    Float(v) => logger.write_string("Float(" + v.to_string() + ")")
-    Bool(v) => logger.write_string("Bool(" + v.to_string() + ")")
-    String(v) => logger.write_string("String(\"" + escape_debug(v) + "\")")
+    Int(v) => logger.write_string("Int(\{v})")
+    Float(v) => logger.write_string("Float(\{v})")
+    Bool(v) => logger.write_string("Bool(\{v})")
+    String(v) => logger.write_string("String(\"\{escape_debug(v)}\")")
     Null => logger.write_string("Null")
   }
 }

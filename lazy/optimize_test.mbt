@@ -503,6 +503,53 @@ test "a trailing filter sinks below a fill_null with_columns stage" {
 }
 
 ///|
+test "predicate pushdown keeps a derived aggregate key's backend canonical" {
+  // `a` is null exactly on the rows the filter (k > 5) drops, so the derived
+  // key `a + b` is null there and only there. The filter sinks below the
+  // aggregate (k is a bare key). The eager chain computes the key over *all*
+  // rows (nullable, so `Builtin`) then filters; the optimized chain filters
+  // then computes it over the survivors (all-valid). Both must land on the
+  // same backend — the row-gather canonicalises an all-valid numeric result
+  // onto `Numeric` — so `collect` stays equal to the eager chain (which
+  // `Series` equality, observing the backend, would otherwise reject).
+  let df = @frame.DataFrame::new([
+    @series.Series::from_ints("k", [3, 4, 7, 9]),
+    @series.Series::from_int_options("a", [None, None, Some(10), Some(20)]),
+    @series.Series::from_ints("b", [1, 1, 1, 1]),
+    @series.Series::from_ints("v", [100, 200, 300, 400]),
+  ])
+  let keys = [@expr.col("k"), @expr.col("a") + @expr.col("b")]
+  let aggs = [@expr.col("v").sum()]
+  let predicate = @expr.col("k").gt(@expr.lit_int(5))
+  let plan = lazy_frame(df).group_by(keys).agg(aggs).filter(predicate)
+  let out = plan.collect()
+  assert_eq(out, df.group_by(keys).agg(aggs).filter(predicate))
+  assert_eq(out.check_invariants(), Ok(()))
+}
+
+///|
+test "predicate pushdown keeps a derived select column's backend canonical" {
+  // The same hazard one stage over: `s = a + b` is null exactly where the
+  // filter drops the row, so the eager (compute-then-filter) and optimized
+  // (filter-then-compute) chains would build `s` on different backends were
+  // the gather not canonicalising.
+  let df = @frame.DataFrame::new([
+    @series.Series::from_ints("k", [3, 4, 7, 9]),
+    @series.Series::from_int_options("a", [None, None, Some(10), Some(20)]),
+    @series.Series::from_ints("b", [1, 1, 1, 1]),
+  ])
+  let exprs = [
+    (@expr.col("a") + @expr.col("b")).with_alias("s"),
+    @expr.col("k"),
+  ]
+  let predicate = @expr.col("k").gt(@expr.lit_int(5))
+  let plan = lazy_frame(df).select(exprs).filter(predicate)
+  let out = plan.collect()
+  assert_eq(out, df.select(exprs).filter(predicate))
+  assert_eq(out.check_invariants(), Ok(()))
+}
+
+///|
 test "fence: a predicate reading a name the stage defines stays above" {
   let df = sales_df()
   let derived = [(@expr.col("qty") * @expr.lit_int(2)).with_alias("dbl")]

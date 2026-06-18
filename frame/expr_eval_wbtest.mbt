@@ -22,7 +22,8 @@ test "broadcast_pair: two incompatible non-unit lengths raise LengthMismatch" {
   let a = Series::from_ints("a", [1, 2])
   let b = Series::from_ints("b", [1, 2, 3])
   assert_true(
-    (try? broadcast_pair(a, b)) is Err(@types.DataError::LengthMismatch),
+    (Ok(broadcast_pair(a, b)) catch { e => Err(e) })
+    is Err(@types.DataError::LengthMismatch),
   )
 }
 
@@ -33,7 +34,8 @@ test "broadcast_series: a length neither 1 nor target raises LengthMismatch" {
   // for any other length rather than gathering out of bounds.
   let s = Series::from_ints("s", [1, 2])
   assert_true(
-    (try? broadcast_series(s, 3)) is Err(@types.DataError::LengthMismatch),
+    (Ok(broadcast_series(s, 3)) catch { e => Err(e) })
+    is Err(@types.DataError::LengthMismatch),
   )
 }
 

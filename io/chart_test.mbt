@@ -239,7 +239,7 @@ test "format_vega_lite: output is well-formed JSON (parses back to an object)" {
     catvalgrp_df(),
     @io.ChartSpec::area("cat", "val").with_title("T").with_color("grp"),
   )
-  assert_true((try? @json.parse(spec)) is Ok(Object(_)))
+  assert_true((Ok(@json.parse(spec)) catch { e => Err(e) }) is Ok(Object(_)))
 }
 
 // ── format_vega_lite: column validation (left-to-right) ─────────────
@@ -249,7 +249,9 @@ test "format_vega_lite: an unknown x column raises ColumnNotFound first" {
   // Both x and y are absent; x is resolved first, so its name surfaces.
   let df = catval_df()
   assert_eq(
-    try? @io.format_vega_lite(df, @io.ChartSpec::bar("nox", "noy")),
+    Ok(@io.format_vega_lite(df, @io.ChartSpec::bar("nox", "noy"))) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::ColumnNotFound("nox")),
   )
 }
@@ -258,7 +260,9 @@ test "format_vega_lite: an unknown x column raises ColumnNotFound first" {
 test "format_vega_lite: an unknown y column raises ColumnNotFound" {
   let df = catval_df()
   assert_eq(
-    try? @io.format_vega_lite(df, @io.ChartSpec::bar("cat", "noy")),
+    Ok(@io.format_vega_lite(df, @io.ChartSpec::bar("cat", "noy"))) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::ColumnNotFound("noy")),
   )
 }
@@ -267,10 +271,14 @@ test "format_vega_lite: an unknown y column raises ColumnNotFound" {
 test "format_vega_lite: an unknown color column raises ColumnNotFound" {
   let df = catval_df()
   assert_eq(
-    try? @io.format_vega_lite(
-      df,
-      @io.ChartSpec::bar("cat", "val").with_color("nocolor"),
-    ),
+    Ok(
+      @io.format_vega_lite(
+        df,
+        @io.ChartSpec::bar("cat", "val").with_color("nocolor"),
+      ),
+    ) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::ColumnNotFound("nocolor")),
   )
 }
@@ -281,10 +289,14 @@ test "format_vega_lite: y is validated before the color column" {
   // names y — pinning the x → y → color resolution order.
   let df = catval_df()
   assert_eq(
-    try? @io.format_vega_lite(
-      df,
-      @io.ChartSpec::bar("cat", "noy").with_color("nocolor"),
-    ),
+    Ok(
+      @io.format_vega_lite(
+        df,
+        @io.ChartSpec::bar("cat", "noy").with_color("nocolor"),
+      ),
+    ) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::ColumnNotFound("noy")),
   )
 }
@@ -308,10 +320,14 @@ test "write_vega_lite: invalid path surfaces as IoError" {
   // `@fs` call fails; the `IOError` is promoted to `DataError::IoError`
   // (same shape as the JSON / CSV writer error tests).
   let df = catval_df()
-  let result = try? @io.write_vega_lite(
-    "_build/no_such_dir_io_chart_test/file.json",
-    df,
-    @io.ChartSpec::bar("cat", "val"),
-  )
+  let result = Ok(
+    @io.write_vega_lite(
+      "_build/no_such_dir_io_chart_test/file.json",
+      df,
+      @io.ChartSpec::bar("cat", "val"),
+    ),
+  ) catch {
+    e => Err(e)
+  }
   assert_true(result is Err(@types.DataError::IoError(_)))
 }

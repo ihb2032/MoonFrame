@@ -240,15 +240,19 @@ test "parse_csv_str: infer_schema_rows limits the inference window" {
     #|1
     #|1.5
     #|
-  let result = try? @io.parse_csv_str(content, {
-    has_header: true,
-    delimiter: ',',
-    infer_schema_rows: 1,
-    null_values: [""],
-    strict_column_count: false,
-    on_parse_error: @io.OnParseError::Raise,
-    allow_nonfinite_floats: true,
-  })
+  let result = Ok(
+    @io.parse_csv_str(content, {
+      has_header: true,
+      delimiter: ',',
+      infer_schema_rows: 1,
+      null_values: [""],
+      strict_column_count: false,
+      on_parse_error: @io.OnParseError::Raise,
+      allow_nonfinite_floats: true,
+    }),
+  ) catch {
+    e => Err(e)
+  }
   assert_true(result is Err(@types.DataError::ParseError(_)))
 }
 
@@ -281,15 +285,19 @@ test "parse_csv_str: strict_column_count rejects a ragged row" {
     #|4,5
     #|7,8,9
     #|
-  let result = try? @io.parse_csv_str(content, {
-    has_header: true,
-    delimiter: ',',
-    infer_schema_rows: 100,
-    null_values: [""],
-    strict_column_count: true,
-    on_parse_error: @io.OnParseError::Raise,
-    allow_nonfinite_floats: true,
-  })
+  let result = Ok(
+    @io.parse_csv_str(content, {
+      has_header: true,
+      delimiter: ',',
+      infer_schema_rows: 100,
+      null_values: [""],
+      strict_column_count: true,
+      on_parse_error: @io.OnParseError::Raise,
+      allow_nonfinite_floats: true,
+    }),
+  ) catch {
+    e => Err(e)
+  }
   assert_true(result is Err(@types.DataError::ParseError(_)))
 }
 
@@ -384,7 +392,9 @@ test "parse_csv_str: duplicate header is rejected up front" {
     #|1,2
     #|
   assert_eq(
-    try? @io.parse_csv_str(content, @io.CsvReadOptions::default()),
+    Ok(@io.parse_csv_str(content, @io.CsvReadOptions::default())) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::DuplicateColumn("a")),
   )
 }
@@ -399,15 +409,19 @@ test "parse_csv_str: non-numeric in a Float-locked column becomes ParseError" {
     #|2.5
     #|oops
     #|
-  let result = try? @io.parse_csv_str(content, {
-    has_header: true,
-    delimiter: ',',
-    infer_schema_rows: 2,
-    null_values: [""],
-    strict_column_count: false,
-    on_parse_error: @io.OnParseError::Raise,
-    allow_nonfinite_floats: true,
-  })
+  let result = Ok(
+    @io.parse_csv_str(content, {
+      has_header: true,
+      delimiter: ',',
+      infer_schema_rows: 2,
+      null_values: [""],
+      strict_column_count: false,
+      on_parse_error: @io.OnParseError::Raise,
+      allow_nonfinite_floats: true,
+    }),
+  ) catch {
+    e => Err(e)
+  }
   assert_true(result is Err(@types.DataError::ParseError(_)))
 }
 
@@ -420,15 +434,19 @@ test "parse_csv_str: non-bool value outside the inference window is ParseError" 
     #|false
     #|maybe
     #|
-  let result = try? @io.parse_csv_str(content, {
-    has_header: true,
-    delimiter: ',',
-    infer_schema_rows: 2,
-    null_values: [""],
-    strict_column_count: false,
-    on_parse_error: @io.OnParseError::Raise,
-    allow_nonfinite_floats: true,
-  })
+  let result = Ok(
+    @io.parse_csv_str(content, {
+      has_header: true,
+      delimiter: ',',
+      infer_schema_rows: 2,
+      null_values: [""],
+      strict_column_count: false,
+      on_parse_error: @io.OnParseError::Raise,
+      allow_nonfinite_floats: true,
+    }),
+  ) catch {
+    e => Err(e)
+  }
   assert_true(result is Err(@types.DataError::ParseError(_)))
 }
 
@@ -440,15 +458,19 @@ test "parse_csv_str: non-int outside the inference window is ParseError" {
     #|2
     #|x
     #|
-  let result = try? @io.parse_csv_str(content, {
-    has_header: true,
-    delimiter: ',',
-    infer_schema_rows: 2,
-    null_values: [""],
-    strict_column_count: false,
-    on_parse_error: @io.OnParseError::Raise,
-    allow_nonfinite_floats: true,
-  })
+  let result = Ok(
+    @io.parse_csv_str(content, {
+      has_header: true,
+      delimiter: ',',
+      infer_schema_rows: 2,
+      null_values: [""],
+      strict_column_count: false,
+      on_parse_error: @io.OnParseError::Raise,
+      allow_nonfinite_floats: true,
+    }),
+  ) catch {
+    e => Err(e)
+  }
   assert_true(result is Err(@types.DataError::ParseError(_)))
 }
 
@@ -877,16 +899,22 @@ test "write_csv_with_options + read_csv_with_options honour custom shape" {
 
 ///|
 test "read_csv: missing file surfaces as IoError, not panic" {
-  let result = try? @io.read_csv("_build/io_csv_test_does_not_exist.csv")
+  let result = Ok(@io.read_csv("_build/io_csv_test_does_not_exist.csv")) catch {
+    e => Err(e)
+  }
   assert_true(result is Err(@types.DataError::IoError(_)))
 }
 
 ///|
 test "read_csv_with_options: missing file surfaces as IoError" {
-  let result = try? @io.read_csv_with_options(
-    "_build/io_csv_test_does_not_exist.csv",
-    @io.CsvReadOptions::default(),
-  )
+  let result = Ok(
+    @io.read_csv_with_options(
+      "_build/io_csv_test_does_not_exist.csv",
+      @io.CsvReadOptions::default(),
+    ),
+  ) catch {
+    e => Err(e)
+  }
   assert_true(result is Err(@types.DataError::IoError(_)))
 }
 
@@ -896,18 +924,24 @@ test "write_csv: invalid path surfaces as IoError" {
   // backend rejects the open call with an IOError; we promote it
   // to the DataError variant.
   let df = @frame.DataFrame::new([@series.Series::from_ints("a", [1])])
-  let result = try? @io.write_csv("_build/no_such_dir_io_test/file.csv", df)
+  let result = Ok(@io.write_csv("_build/no_such_dir_io_test/file.csv", df)) catch {
+    e => Err(e)
+  }
   assert_true(result is Err(@types.DataError::IoError(_)))
 }
 
 ///|
 test "write_csv_with_options: invalid path surfaces as IoError" {
   let df = @frame.DataFrame::new([@series.Series::from_ints("a", [1])])
-  let result = try? @io.write_csv_with_options(
-    "_build/no_such_dir_io_test_2/file.csv",
-    df,
-    @io.CsvWriteOptions::default(),
-  )
+  let result = Ok(
+    @io.write_csv_with_options(
+      "_build/no_such_dir_io_test_2/file.csv",
+      df,
+      @io.CsvWriteOptions::default(),
+    ),
+  ) catch {
+    e => Err(e)
+  }
   assert_true(result is Err(@types.DataError::IoError(_)))
 }
 

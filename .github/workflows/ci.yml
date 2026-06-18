@@ -15,7 +15,7 @@ on:
 # https://cli.moonbitlang.com/binaries/<version>/ and re-run the full local
 # gate (moon check --deny-warn && moon test && moon fmt && moon info) first.
 env:
-  MOONBIT_INSTALL_VERSION: "0.9.3+3d4544a9e" # == moon 0.1.20260522 (2026-05-22)
+  MOONBIT_INSTALL_VERSION: "0.10.0+e66899a54" # == moon 0.1.20260608 (2026-06-08)
 
 jobs:
   build:

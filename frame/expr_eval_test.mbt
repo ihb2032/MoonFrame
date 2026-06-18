@@ -117,11 +117,15 @@ test "add: NaN is a value and propagates through, distinct from null" {
 ///|
 test "add: non-numeric operands raise TypeMismatch at evaluation" {
   assert_eq(
-    try? arith_df().with_columns([@expr.col("s") + @expr.col("j")]),
+    Ok(arith_df().with_columns([@expr.col("s") + @expr.col("j")])) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::TypeMismatch("cannot add String and Int")),
   )
   assert_eq(
-    try? arith_df().with_columns([@expr.col("b") + @expr.col("b")]),
+    Ok(arith_df().with_columns([@expr.col("b") + @expr.col("b")])) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::TypeMismatch("cannot add Bool and Bool")),
   )
 }
@@ -156,7 +160,9 @@ test "and: a literal false dominates every row, nulls included" {
 ///|
 test "and: non-Bool operands raise TypeMismatch at evaluation" {
   assert_eq(
-    try? arith_df().with_columns([@expr.col("b") & @expr.col("j")]),
+    Ok(arith_df().with_columns([@expr.col("b") & @expr.col("j")])) catch {
+      e => Err(e)
+    },
     Err(
       @types.DataError::TypeMismatch(
         "logical 'and' requires Bool operands, got Bool and Int",
@@ -164,7 +170,9 @@ test "and: non-Bool operands raise TypeMismatch at evaluation" {
     ),
   )
   assert_eq(
-    try? arith_df().with_columns([@expr.col("j") & @expr.col("b")]),
+    Ok(arith_df().with_columns([@expr.col("j") & @expr.col("b")])) catch {
+      e => Err(e)
+    },
     Err(
       @types.DataError::TypeMismatch(
         "logical 'and' requires Bool operands, got Int and Bool",
@@ -238,7 +246,9 @@ test "empty frame: column exprs and literals broadcast to zero rows" {
 ///|
 test "null literal raises Unsupported at evaluation" {
   assert_eq(
-    try? arith_df().with_columns([@expr.lit(@types.Scalar::Null)]),
+    Ok(arith_df().with_columns([@expr.lit(@types.Scalar::Null)])) catch {
+      e => Err(e)
+    },
     Err(
       @types.DataError::Unsupported(
         "cannot evaluate a Null literal: no Null-dtype column backend",
@@ -250,7 +260,9 @@ test "null literal raises Unsupported at evaluation" {
 ///|
 test "unknown column raises ColumnNotFound at evaluation" {
   assert_eq(
-    try? arith_df().with_columns([@expr.col("zzz") + @expr.col("j")]),
+    Ok(arith_df().with_columns([@expr.col("zzz") + @expr.col("j")])) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::ColumnNotFound("zzz")),
   )
 }
@@ -306,11 +318,15 @@ test "multiply: dtype arms and null propagation" {
 ///|
 test "subtract/multiply: non-numeric operands raise with their own verb" {
   assert_eq(
-    try? arith_df().with_columns([@expr.col("s") - @expr.col("j")]),
+    Ok(arith_df().with_columns([@expr.col("s") - @expr.col("j")])) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::TypeMismatch("cannot subtract String and Int")),
   )
   assert_eq(
-    try? arith_df().with_columns([@expr.col("b") * @expr.col("b")]),
+    Ok(arith_df().with_columns([@expr.col("b") * @expr.col("b")])) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::TypeMismatch("cannot multiply Bool and Bool")),
   )
 }
@@ -370,7 +386,9 @@ test "divide by zero follows IEEE 754: ±inf and NaN, never a trap" {
 ///|
 test "divide: non-numeric operands raise TypeMismatch" {
   assert_eq(
-    try? arith_df().with_columns([@expr.col("s") / @expr.col("j")]),
+    Ok(arith_df().with_columns([@expr.col("s") / @expr.col("j")])) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::TypeMismatch("cannot divide String and Int")),
   )
 }
@@ -403,7 +421,9 @@ test "negate: Int and Float arms, null propagation, nesting" {
 ///|
 test "negate: non-numeric operand raises TypeMismatch" {
   assert_eq(
-    try? arith_df().with_columns([-@expr.col("b")]),
+    Ok(arith_df().with_columns([-@expr.col("b")])) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::TypeMismatch("cannot negate Bool")),
   )
 }
@@ -539,11 +559,15 @@ test "compare Bool: false < true" {
 ///|
 test "compare: non-comparable dtype pairs raise TypeMismatch" {
   assert_eq(
-    try? arith_df().with_columns([@expr.col("s").lt(@expr.col("j"))]),
+    Ok(arith_df().with_columns([@expr.col("s").lt(@expr.col("j"))])) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::TypeMismatch("cannot compare String and Int")),
   )
   assert_eq(
-    try? arith_df().with_columns([@expr.col("b").eq(@expr.col("f"))]),
+    Ok(arith_df().with_columns([@expr.col("b").eq(@expr.col("f"))])) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::TypeMismatch("cannot compare Bool and Float")),
   )
 }
@@ -578,7 +602,9 @@ test "or: a literal true dominates every row, nulls included" {
 ///|
 test "or: non-Bool operands raise TypeMismatch with the 'or' verb" {
   assert_eq(
-    try? arith_df().with_columns([@expr.col("j") | @expr.col("b")]),
+    Ok(arith_df().with_columns([@expr.col("j") | @expr.col("b")])) catch {
+      e => Err(e)
+    },
     Err(
       @types.DataError::TypeMismatch(
         "logical 'or' requires Bool operands, got Int and Bool",
@@ -608,7 +634,9 @@ test "not: Kleene negation over {T,F,N}, and double negation round-trips" {
 ///|
 test "not: non-Bool operand raises TypeMismatch" {
   assert_eq(
-    try? arith_df().with_columns([@expr.col("i").not()]),
+    Ok(arith_df().with_columns([@expr.col("i").not()])) catch {
+      e => Err(e)
+    },
     Err(
       @types.DataError::TypeMismatch(
         "logical 'not' requires a Bool operand, got Int",
@@ -679,11 +707,11 @@ test "is_nan / is_not_nan: NaN is a value, nulls propagate, Int is never NaN" {
 test "is_nan / is_not_nan: a non-numeric operand raises TypeMismatch" {
   let df = DataFrame::new([Series::from_strings("s", ["a"])])
   assert_true(
-    (try? df.with_columns([@expr.col("s").is_nan()]))
+    (Ok(df.with_columns([@expr.col("s").is_nan()])) catch { e => Err(e) })
     is Err(@types.DataError::TypeMismatch(_)),
   )
   assert_true(
-    (try? df.with_columns([@expr.col("s").is_not_nan()]))
+    (Ok(df.with_columns([@expr.col("s").is_not_nan()])) catch { e => Err(e) })
     is Err(@types.DataError::TypeMismatch(_)),
   )
 }
@@ -726,7 +754,9 @@ test "sum: skips nulls, matches Series::sum, broadcasts over the frame" {
 ///|
 test "sum: non-numeric operand raises TypeMismatch" {
   assert_eq(
-    try? arith_df().with_columns([@expr.col("s").sum()]),
+    Ok(arith_df().with_columns([@expr.col("s").sum()])) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::TypeMismatch("sum undefined for String")),
   )
 }
@@ -775,7 +805,9 @@ test "mean: an all-null operand yields a null cell, not an error" {
 ///|
 test "mean: non-numeric operand raises TypeMismatch" {
   assert_eq(
-    try? arith_df().with_columns([@expr.col("b").mean()]),
+    Ok(arith_df().with_columns([@expr.col("b").mean()])) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::TypeMismatch("mean undefined for Bool")),
   )
 }
@@ -921,15 +953,19 @@ test "cast: delegates to Series::cast, preserving nulls" {
 ///|
 test "cast: unsupported targets and impossible casts surface unchanged" {
   assert_eq(
-    try? arith_df().with_columns([@expr.col("i").cast(@types.DataType::Bool)]),
+    Ok(arith_df().with_columns([@expr.col("i").cast(@types.DataType::Bool)])) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::Unsupported("cast to Bool")),
   )
   // The delegate's own diagnostics pass through: NaN cannot become Int.
   let nan : Double = @double.not_a_number
   assert_eq(
-    try? arith_df().with_columns([
-      @expr.lit_float(nan).cast(@types.DataType::Int),
-    ]),
+    Ok(
+      arith_df().with_columns([@expr.lit_float(nan).cast(@types.DataType::Int)]),
+    ) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::ParseError("cannot cast NaN to Int")),
   )
 }
@@ -1066,11 +1102,15 @@ test "ternary: literal condition and then-branch stretch to the otherwise column
 ///|
 test "ternary: a non-Bool condition raises TypeMismatch" {
   assert_eq(
-    try? arith_df().with_columns([
-      @expr.when(@expr.col("j"))
-      .then(@expr.lit_int(1))
-      .otherwise(@expr.lit_int(0)),
-    ]),
+    Ok(
+      arith_df().with_columns([
+        @expr.when(@expr.col("j"))
+        .then(@expr.lit_int(1))
+        .otherwise(@expr.lit_int(0)),
+      ]),
+    ) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::TypeMismatch("when condition must be Bool, got Int")),
   )
 }
@@ -1078,11 +1118,15 @@ test "ternary: a non-Bool condition raises TypeMismatch" {
 ///|
 test "ternary: branches that do not unify raise TypeMismatch" {
   assert_eq(
-    try? arith_df().with_columns([
-      @expr.when(@expr.col("b"))
-      .then(@expr.lit_int(1))
-      .otherwise(@expr.lit_str("x")),
-    ]),
+    Ok(
+      arith_df().with_columns([
+        @expr.when(@expr.col("b"))
+        .then(@expr.lit_int(1))
+        .otherwise(@expr.lit_str("x")),
+      ]),
+    ) catch {
+      e => Err(e)
+    },
     Err(
       @types.DataError::TypeMismatch(
         "when/then/otherwise branches do not unify: Int and String",

@@ -92,11 +92,15 @@ test "drop is idempotent under duplicate keys in input" {
 test "drop rejects unknown columns with ColumnNotFound" {
   let df = drop_df()
   assert_eq(
-    try? df.drop([@expr.col("missing")]),
+    Ok(df.drop([@expr.col("missing")])) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::ColumnNotFound("missing")),
   )
   assert_eq(
-    try? df.drop([@expr.col("a"), @expr.col("z")]),
+    Ok(df.drop([@expr.col("a"), @expr.col("z")])) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::ColumnNotFound("z")),
   )
 }

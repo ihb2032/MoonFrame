@@ -100,7 +100,9 @@ test "lit_series: a length-1 series broadcasts over the frame" {
 test "lit_series: a length neither 1 nor the frame height raises LengthMismatch" {
   let two = Series::from_ints("k", [1, 2])
   assert_eq(
-    try? lit_series_df().with_columns([@expr.lit_series(two)]),
+    Ok(lit_series_df().with_columns([@expr.lit_series(two)])) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::LengthMismatch),
   )
 }
@@ -113,7 +115,9 @@ test "lit_series: a length neither 1 nor the frame height raises LengthMismatch"
 test "lit_series: select rejects an off-length series instead of resizing the frame" {
   let two = Series::from_ints("k", [1, 2])
   assert_eq(
-    try? lit_series_df().select([@expr.lit_series(two)]),
+    Ok(lit_series_df().select([@expr.lit_series(two)])) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::LengthMismatch),
   )
 }
@@ -182,7 +186,7 @@ test "lit_series: a bare literal series is not reduction-shaped under agg" {
   let s = Series::from_ints("s", [1, 2, 3])
   let grouped = lit_series_df().group_by([@expr.col("b")])
   assert_true(
-    (try? grouped.agg([@expr.lit_series(s)]))
+    (Ok(grouped.agg([@expr.lit_series(s)])) catch { e => Err(e) })
     is Err(@types.DataError::InvalidOperation(_)),
   )
 }

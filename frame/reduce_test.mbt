@@ -147,6 +147,9 @@ test "two surfaces agree: all-null numeric, with the documented mean divergence"
   // `InvalidOperation` (an all-null mean is undefined), while a per-group
   // reduction must yield a value slot — a **null cell** — for an all-null
   // group (Polars semantics).
-  assert_true((try? x.mean()) is Err(@types.DataError::InvalidOperation(_)))
+  assert_true(
+    (Ok(x.mean()) catch { e => Err(e) })
+    is Err(@types.DataError::InvalidOperation(_)),
+  )
   assert_eq(group_cell(df, @expr.col("x").mean()), @types.Scalar::Null)
 }

@@ -17,11 +17,15 @@ test "Schema::new accepts unique fields" {
 
 ///|
 test "Schema::new rejects duplicate names" {
-  let dup = try? Schema::new([
-    Field::new("a", DataType::Int),
-    Field::new("b", DataType::Float),
-    Field::new("a", DataType::String),
-  ])
+  let dup = Ok(
+    Schema::new([
+      Field::new("a", DataType::Int),
+      Field::new("b", DataType::Float),
+      Field::new("a", DataType::String),
+    ]),
+  ) catch {
+    e => Err(e)
+  }
   assert_eq(dup, Err(DataError::DuplicateColumn("a")))
 }
 
@@ -39,14 +43,31 @@ test "Schema::index_of / field / field_at" {
   assert_eq(s.index_of("a"), 0)
   assert_eq(s.index_of("c"), 2)
   assert_eq(
-    try? s.index_of("missing"),
+    Ok(s.index_of("missing")) catch {
+      e => Err(e)
+    },
     Err(DataError::ColumnNotFound("missing")),
   )
   assert_eq(s.field("b"), Field::new("b", DataType::Float))
-  assert_eq(try? s.field("missing"), Err(DataError::ColumnNotFound("missing")))
+  assert_eq(
+    Ok(s.field("missing")) catch {
+      e => Err(e)
+    },
+    Err(DataError::ColumnNotFound("missing")),
+  )
   assert_eq(s.field_at(0), Field::new("a", DataType::Int))
-  assert_eq(try? s.field_at(3), Err(DataError::IndexOutOfBounds(3)))
-  assert_eq(try? s.field_at(-1), Err(DataError::IndexOutOfBounds(-1)))
+  assert_eq(
+    Ok(s.field_at(3)) catch {
+      e => Err(e)
+    },
+    Err(DataError::IndexOutOfBounds(3)),
+  )
+  assert_eq(
+    Ok(s.field_at(-1)) catch {
+      e => Err(e)
+    },
+    Err(DataError::IndexOutOfBounds(-1)),
+  )
 }
 
 ///|
@@ -67,13 +88,23 @@ test "Schema::select on empty list returns empty schema" {
 ///|
 test "Schema::select rejects missing columns" {
   let s = sample_schema()
-  assert_eq(try? s.select(["a", "z"]), Err(DataError::ColumnNotFound("z")))
+  assert_eq(
+    Ok(s.select(["a", "z"])) catch {
+      e => Err(e)
+    },
+    Err(DataError::ColumnNotFound("z")),
+  )
 }
 
 ///|
 test "Schema::select rejects duplicate picks" {
   let s = sample_schema()
-  assert_eq(try? s.select(["a", "a"]), Err(DataError::DuplicateColumn("a")))
+  assert_eq(
+    Ok(s.select(["a", "a"])) catch {
+      e => Err(e)
+    },
+    Err(DataError::DuplicateColumn("a")),
+  )
 }
 
 ///|
@@ -91,7 +122,9 @@ test "Schema::rename to same name is a no-op but validates existence" {
   let s = sample_schema()
   assert_eq(s.rename("a", "a").field_names(), ["a", "b", "c"])
   assert_eq(
-    try? s.rename("missing", "missing"),
+    Ok(s.rename("missing", "missing")) catch {
+      e => Err(e)
+    },
     Err(DataError::ColumnNotFound("missing")),
   )
 }
@@ -99,13 +132,23 @@ test "Schema::rename to same name is a no-op but validates existence" {
 ///|
 test "Schema::rename rejects missing source" {
   let s = sample_schema()
-  assert_eq(try? s.rename("z", "zz"), Err(DataError::ColumnNotFound("z")))
+  assert_eq(
+    Ok(s.rename("z", "zz")) catch {
+      e => Err(e)
+    },
+    Err(DataError::ColumnNotFound("z")),
+  )
 }
 
 ///|
 test "Schema::rename rejects collision with existing column" {
   let s = sample_schema()
-  assert_eq(try? s.rename("a", "b"), Err(DataError::DuplicateColumn("b")))
+  assert_eq(
+    Ok(s.rename("a", "b")) catch {
+      e => Err(e)
+    },
+    Err(DataError::DuplicateColumn("b")),
+  )
 }
 
 ///|

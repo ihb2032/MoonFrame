@@ -123,22 +123,30 @@ test "map: a closure returning null on some rows yields a nullable column" {
 
 ///|
 test "map: a closure raise propagates from the consuming verb" {
-  let result = try? map_df().with_columns([
-    @expr.col("q").map_elements(label="boom", s => {
-      match s {
-        @types.Scalar::Int(v) => @types.Scalar::Int(v)
-        _ => raise @types.DataError::InvalidOperation("null cell")
-      }
-    }),
-  ])
+  let result = Ok(
+    map_df().with_columns([
+      @expr.col("q").map_elements(label="boom", s => {
+        match s {
+          @types.Scalar::Int(v) => @types.Scalar::Int(v)
+          _ => raise @types.DataError::InvalidOperation("null cell")
+        }
+      }),
+    ]),
+  ) catch {
+    e => Err(e)
+  }
   assert_eq(result, Err(@types.DataError::InvalidOperation("null cell")))
 }
 
 ///|
 test "map: an all-null result has no representable dtype and raises" {
-  let result = try? map_df().with_columns([
-    @expr.col("q").map_elements(label="nullify", _s => @types.Scalar::Null),
-  ])
+  let result = Ok(
+    map_df().with_columns([
+      @expr.col("q").map_elements(label="nullify", _s => @types.Scalar::Null),
+    ]),
+  ) catch {
+    e => Err(e)
+  }
   assert_eq(
     result,
     Err(

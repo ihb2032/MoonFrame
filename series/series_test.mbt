@@ -84,8 +84,18 @@ test "is_null returns the validity for in-bounds, IndexOutOfBounds otherwise" {
   let s = Series::from_int_options("x", [Some(1), None, Some(3)])
   assert_eq(s.is_null(0), false)
   assert_eq(s.is_null(1), true)
-  assert_eq(try? s.is_null(-1), Err(@types.DataError::IndexOutOfBounds(-1)))
-  assert_eq(try? s.is_null(3), Err(@types.DataError::IndexOutOfBounds(3)))
+  assert_eq(
+    Ok(s.is_null(-1)) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::IndexOutOfBounds(-1)),
+  )
+  assert_eq(
+    Ok(s.is_null(3)) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::IndexOutOfBounds(3)),
+  )
 }
 
 ///|
@@ -93,7 +103,12 @@ test "get returns Scalar / Null / IndexOutOfBounds" {
   let s = Series::from_int_options("x", [Some(7), None])
   assert_eq(s.get(0), @types.Scalar::Int(7))
   assert_eq(s.get(1), @types.Scalar::Null)
-  assert_eq(try? s.get(5), Err(@types.DataError::IndexOutOfBounds(5)))
+  assert_eq(
+    Ok(s.get(5)) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::IndexOutOfBounds(5)),
+  )
 }
 
 ///|
@@ -131,9 +146,21 @@ test "slice mid-range produces a sub-series preserving name + nulls" {
 ///|
 test "slice bubbles column-level errors" {
   let s = Series::from_ints("x", [1, 2, 3])
-  assert_eq(try? s.slice(-1, 2), Err(@types.DataError::IndexOutOfBounds(-1)))
-  assert_eq(try? s.slice(0, 5), Err(@types.DataError::IndexOutOfBounds(5)))
-  assert_true((try? s.slice(2, 1)) is Err(InvalidOperation(_)))
+  assert_eq(
+    Ok(s.slice(-1, 2)) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::IndexOutOfBounds(-1)),
+  )
+  assert_eq(
+    Ok(s.slice(0, 5)) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::IndexOutOfBounds(5)),
+  )
+  assert_true(
+    (Ok(s.slice(2, 1)) catch { e => Err(e) }) is Err(InvalidOperation(_)),
+  )
 }
 
 // ── gather ───────────────────────────────────────────────────────────
@@ -161,8 +188,18 @@ test "gather with empty index array returns empty series" {
 ///|
 test "gather out-of-bounds reports the first offender" {
   let s = Series::from_ints("x", [1, 2])
-  assert_eq(try? s.gather([0, 5]), Err(@types.DataError::IndexOutOfBounds(5)))
-  assert_eq(try? s.gather([-1]), Err(@types.DataError::IndexOutOfBounds(-1)))
+  assert_eq(
+    Ok(s.gather([0, 5])) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::IndexOutOfBounds(5)),
+  )
+  assert_eq(
+    Ok(s.gather([-1])) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::IndexOutOfBounds(-1)),
+  )
 }
 
 // ── drop_nulls ───────────────────────────────────────────────────────
@@ -242,20 +279,27 @@ test "fill_null on String series fills nulls with the given String" {
 ///|
 test "fill_null rejects Scalar::Null fill values" {
   let s = Series::from_int_options("x", [Some(1), None])
-  assert_true((try? s.fill_null(@types.Scalar::Null)) is Err(TypeMismatch(_)))
+  assert_true(
+    (Ok(s.fill_null(@types.Scalar::Null)) catch { e => Err(e) })
+    is Err(TypeMismatch(_)),
+  )
 }
 
 ///|
 test "fill_null rejects dtype-mismatched Int fill" {
   let s = Series::from_floats("x", [1.0])
-  assert_true((try? s.fill_null(@types.Scalar::Int(0))) is Err(TypeMismatch(_)))
+  assert_true(
+    (Ok(s.fill_null(@types.Scalar::Int(0))) catch { e => Err(e) })
+    is Err(TypeMismatch(_)),
+  )
 }
 
 ///|
 test "fill_null rejects dtype-mismatched Float fill" {
   let s = Series::from_ints("x", [1])
   assert_true(
-    (try? s.fill_null(@types.Scalar::Float(0.0))) is Err(TypeMismatch(_)),
+    (Ok(s.fill_null(@types.Scalar::Float(0.0))) catch { e => Err(e) })
+    is Err(TypeMismatch(_)),
   )
 }
 
@@ -263,7 +307,8 @@ test "fill_null rejects dtype-mismatched Float fill" {
 test "fill_null rejects dtype-mismatched Bool fill" {
   let s = Series::from_ints("x", [1])
   assert_true(
-    (try? s.fill_null(@types.Scalar::Bool(true))) is Err(TypeMismatch(_)),
+    (Ok(s.fill_null(@types.Scalar::Bool(true))) catch { e => Err(e) })
+    is Err(TypeMismatch(_)),
   )
 }
 
@@ -271,7 +316,8 @@ test "fill_null rejects dtype-mismatched Bool fill" {
 test "fill_null rejects dtype-mismatched String fill" {
   let s = Series::from_ints("x", [1])
   assert_true(
-    (try? s.fill_null(@types.Scalar::String("z"))) is Err(TypeMismatch(_)),
+    (Ok(s.fill_null(@types.Scalar::String("z"))) catch { e => Err(e) })
+    is Err(TypeMismatch(_)),
   )
 }
 
@@ -286,8 +332,14 @@ test "cast dispatches by target dtype" {
   assert_eq(s.cast(@types.DataType::Int).dtype(), @types.DataType::Int)
   assert_eq(s.cast(@types.DataType::Float).dtype(), @types.DataType::Float)
   assert_eq(s.cast(@types.DataType::String).dtype(), @types.DataType::String)
-  assert_true((try? s.cast(@types.DataType::Bool)) is Err(Unsupported(_)))
-  assert_true((try? s.cast(@types.DataType::Null)) is Err(Unsupported(_)))
+  assert_true(
+    (Ok(s.cast(@types.DataType::Bool)) catch { e => Err(e) })
+    is Err(Unsupported(_)),
+  )
+  assert_true(
+    (Ok(s.cast(@types.DataType::Null)) catch { e => Err(e) })
+    is Err(Unsupported(_)),
+  )
 }
 
 ///|
@@ -308,7 +360,10 @@ test "cast to Int: identity / Float→Int / Bool→Int / String→Int" {
   assert_eq(b_to_i.get(0), @types.Scalar::Int(1))
   assert_eq(b_to_i.get(1), @types.Scalar::Int(0))
   let bad = Series::from_strings("x", ["nope"])
-  assert_true((try? bad.cast(@types.DataType::Int)) is Err(ParseError(_)))
+  assert_true(
+    (Ok(bad.cast(@types.DataType::Int)) catch { e => Err(e) })
+    is Err(ParseError(_)),
+  )
 }
 
 ///|
@@ -324,7 +379,10 @@ test "cast to Float: identity / Int→Float / Bool→Float / String→Float" {
   assert_eq(b_to_f.get(0), @types.Scalar::Float(1.0))
   assert_eq(b_to_f.get(1), @types.Scalar::Float(0.0))
   let bad = Series::from_strings("x", ["x"])
-  assert_true((try? bad.cast(@types.DataType::Float)) is Err(ParseError(_)))
+  assert_true(
+    (Ok(bad.cast(@types.DataType::Float)) catch { e => Err(e) })
+    is Err(ParseError(_)),
+  )
 }
 
 ///|
@@ -408,11 +466,13 @@ test "to_numeric: success, already-Numeric, and round-trip equivalence" {
 test "to_numeric: rejects nulls and non-numeric columns" {
   let with_null = Series::from_int_options("x", [Some(1), None])
   assert_true(
-    (try? with_null.to_numeric()) is Err(@types.DataError::InvalidOperation(_)),
+    (Ok(with_null.to_numeric()) catch { e => Err(e) })
+    is Err(@types.DataError::InvalidOperation(_)),
   )
   let strings = Series::from_strings("x", ["a", "b"])
   assert_true(
-    (try? strings.to_numeric()) is Err(@types.DataError::TypeMismatch(_)),
+    (Ok(strings.to_numeric()) catch { e => Err(e) })
+    is Err(@types.DataError::TypeMismatch(_)),
   )
 }
 

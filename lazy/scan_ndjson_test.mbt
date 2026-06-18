@@ -94,7 +94,7 @@ test "projection push-down does not parse — or fail on — a dropped NDJSON co
   }
   // The full eager read builds `b` and fails on the non-Int cell.
   assert_true(
-    (try? @io.read_ndjson_with_options(path, opts))
+    (Ok(@io.read_ndjson_with_options(path, opts)) catch { e => Err(e) })
     is Err(@types.DataError::ParseError(_)),
   )
   // The lazy scan, narrowed to `a`, never builds `b`, so it collects cleanly —
@@ -117,11 +117,14 @@ test "scan_ndjson builders are total; a missing file fails only at collect" {
   // Collect surfaces the missing file as IoError — through read_ndjson_projected
   // when a projection fired…
   assert_true(
-    (try? scan_ndjson(absent).select([@expr.col("a")]).collect())
+    (Ok(scan_ndjson(absent).select([@expr.col("a")]).collect()) catch {
+      e => Err(e)
+    })
     is Err(@types.DataError::IoError(_)),
   )
   // …and through read_ndjson_with_options when none did.
   assert_true(
-    (try? scan_ndjson(absent).collect()) is Err(@types.DataError::IoError(_)),
+    (Ok(scan_ndjson(absent).collect()) catch { e => Err(e) })
+    is Err(@types.DataError::IoError(_)),
   )
 }

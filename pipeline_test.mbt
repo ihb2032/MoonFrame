@@ -246,7 +246,7 @@ test "pipeline: per-column scalars and whole-frame reductions via the facade" {
 
   // The explicit per-column sum still rejects a non-numeric column, while the
   // whole-frame sum above tolerates it by nulling.
-  assert_true((try? df.get_column("tag").sum()) is Err(_))
+  assert_true((Ok(df.get_column("tag").sum()) catch { e => Err(e) }) is Err(_))
 }
 
 // ── GroupBy via the facade ────────────────────────────────────────────
@@ -398,7 +398,7 @@ test "pipeline: filter surfaces predicate evaluation errors instead of swallowin
   // The predicate references a misspelled column; the evaluator's
   // `ColumnNotFound` must propagate verbatim, *not* collapse to
   // "row excluded".
-  let result = try? df.filter(col("nope").gt(lit_int(0)))
+  let result = Ok(df.filter(col("nope").gt(lit_int(0)))) catch { e => Err(e) }
   assert_true(result is Err(DataError::ColumnNotFound("nope")))
 }
 

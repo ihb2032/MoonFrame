@@ -86,8 +86,18 @@ test "data / get: both backends" {
   // get() forwards on each arm; OOB raises through either.
   assert_eq(builtin.get(0), @types.Scalar::String("x"))
   assert_eq(numeric.get(1), @types.Scalar::Int(20))
-  assert_eq(try? builtin.get(9), Err(@types.DataError::IndexOutOfBounds(9)))
-  assert_eq(try? numeric.get(9), Err(@types.DataError::IndexOutOfBounds(9)))
+  assert_eq(
+    Ok(builtin.get(9)) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::IndexOutOfBounds(9)),
+  )
+  assert_eq(
+    Ok(numeric.get(9)) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::IndexOutOfBounds(9)),
+  )
 }
 
 ///|
@@ -160,8 +170,18 @@ test "is_null: Builtin reports the null, Numeric is always valid; both bounds-ch
   assert_eq(builtin.is_null(1), true)
   assert_eq(numeric.is_null(0), false)
   assert_eq(numeric.is_null(1), false)
-  assert_eq(try? builtin.is_null(9), Err(@types.DataError::IndexOutOfBounds(9)))
-  assert_eq(try? numeric.is_null(9), Err(@types.DataError::IndexOutOfBounds(9)))
+  assert_eq(
+    Ok(builtin.is_null(9)) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::IndexOutOfBounds(9)),
+  )
+  assert_eq(
+    Ok(numeric.is_null(9)) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::IndexOutOfBounds(9)),
+  )
 }
 
 // ── slice / take: backend-preserving on both arms ─────────────────────
@@ -183,7 +203,9 @@ test "slice keeps the backend on both arms" {
   assert_eq(n.data(), ColumnData::Int([2, 3]))
   // Bounds diagnostics forward from the underlying column.
   assert_eq(
-    try? numeric.slice(0, 9),
+    Ok(numeric.slice(0, 9)) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::IndexOutOfBounds(9)),
   )
 }
@@ -234,7 +256,12 @@ test "take keeps the backend on both arms" {
   assert_eq(n.kind(), StorageKind::Numeric)
   assert_eq(b.get(1), @types.Scalar::Null)
   assert_eq(n.data(), ColumnData::Int([30, 10]))
-  assert_eq(try? numeric.take([5]), Err(@types.DataError::IndexOutOfBounds(5)))
+  assert_eq(
+    Ok(numeric.take([5])) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::IndexOutOfBounds(5)),
+  )
 }
 
 // ── Typed accessors: both arms ────────────────────────────────────────
@@ -255,10 +282,12 @@ test "int_values / float_values: both arms, with synthesised validity on Numeric
   assert_eq(nf.float_values().0, [2.5])
   // Cross-type request raises through either backend.
   assert_true(
-    (try? ni.float_values()) is Err(@types.DataError::TypeMismatch(_)),
+    (Ok(ni.float_values()) catch { e => Err(e) })
+    is Err(@types.DataError::TypeMismatch(_)),
   )
   assert_true(
-    (try? bi.float_values()) is Err(@types.DataError::TypeMismatch(_)),
+    (Ok(bi.float_values()) catch { e => Err(e) })
+    is Err(@types.DataError::TypeMismatch(_)),
   )
 }
 
@@ -269,9 +298,13 @@ test "bool_values / string_values: Builtin success, Numeric always TypeMismatch"
   let n = ColumnStorage::from_numeric(NumericColumn::from_int64s([1]))
   assert_eq(bb.bool_values().0, [true, false])
   assert_eq(bs.string_values().0, ["x", "y"])
-  assert_true((try? n.bool_values()) is Err(@types.DataError::TypeMismatch(_)))
   assert_true(
-    (try? n.string_values()) is Err(@types.DataError::TypeMismatch(_)),
+    (Ok(n.bool_values()) catch { e => Err(e) })
+    is Err(@types.DataError::TypeMismatch(_)),
+  )
+  assert_true(
+    (Ok(n.string_values()) catch { e => Err(e) })
+    is Err(@types.DataError::TypeMismatch(_)),
   )
 }
 
@@ -326,7 +359,7 @@ test "cast routes through Builtin (result is Builtin-backed)" {
     @types.Scalar::String("1"),
   )
   assert_true(
-    (try? numeric.cast(@types.DataType::Bool))
+    (Ok(numeric.cast(@types.DataType::Bool)) catch { e => Err(e) })
     is Err(@types.DataError::Unsupported(_)),
   )
 }
@@ -366,7 +399,8 @@ test "to_numeric: a column with nulls raises InvalidOperation" {
     BuiltinColumn::from_int_options([Some(1), None, Some(3)]),
   )
   assert_true(
-    (try? s.to_numeric()) is Err(@types.DataError::InvalidOperation(_)),
+    (Ok(s.to_numeric()) catch { e => Err(e) })
+    is Err(@types.DataError::InvalidOperation(_)),
   )
 }
 
@@ -374,9 +408,13 @@ test "to_numeric: a column with nulls raises InvalidOperation" {
 test "to_numeric: a non-numeric column raises TypeMismatch" {
   let str = ColumnStorage::from_builtin(BuiltinColumn::from_strings(["a", "b"]))
   let boolc = ColumnStorage::from_builtin(BuiltinColumn::from_bools([true]))
-  assert_true((try? str.to_numeric()) is Err(@types.DataError::TypeMismatch(_)))
   assert_true(
-    (try? boolc.to_numeric()) is Err(@types.DataError::TypeMismatch(_)),
+    (Ok(str.to_numeric()) catch { e => Err(e) })
+    is Err(@types.DataError::TypeMismatch(_)),
+  )
+  assert_true(
+    (Ok(boolc.to_numeric()) catch { e => Err(e) })
+    is Err(@types.DataError::TypeMismatch(_)),
   )
 }
 

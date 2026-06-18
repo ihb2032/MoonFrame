@@ -513,7 +513,9 @@ test "sort by a length-1 key (literal / aggregation) is a stable no-op" {
 test "sort rejects an unknown column with ColumnNotFound" {
   let df = sort_df()
   assert_eq(
-    try? df.sort([(@expr.col("missing"), Asc, NullsLast)]),
+    Ok(df.sort([(@expr.col("missing"), Asc, NullsLast)])) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::ColumnNotFound("missing")),
   )
   // The input frame stays well-formed (evaluation runs before any
@@ -526,10 +528,14 @@ test "sort multi-key surfaces ColumnNotFound on the first offending key" {
   let df = sort_df()
   // The first key is fine; the second has the missing name.
   assert_eq(
-    try? df.sort([
-      (@expr.col("a"), Asc, NullsLast),
-      (@expr.col("missing"), Asc, NullsLast),
-    ]),
+    Ok(
+      df.sort([
+        (@expr.col("a"), Asc, NullsLast),
+        (@expr.col("missing"), Asc, NullsLast),
+      ]),
+    ) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::ColumnNotFound("missing")),
   )
 }
@@ -541,7 +547,9 @@ test "sort surfaces a TypeMismatch from a non-unifiable derived key" {
   // anywhere else.
   let df = sort_df()
   assert_true(
-    (try? df.sort([(@expr.col("a") + @expr.col("s"), Asc, NullsLast)]))
+    (Ok(df.sort([(@expr.col("a") + @expr.col("s"), Asc, NullsLast)])) catch {
+      e => Err(e)
+    })
     is Err(@types.DataError::TypeMismatch(_)),
   )
 }

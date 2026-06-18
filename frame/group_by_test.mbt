@@ -497,7 +497,9 @@ test "multi-key composite is injective across field boundaries" {
 test "group_by raises ColumnNotFound for an unknown key column" {
   let df = sales_df()
   assert_eq(
-    try? df.group_by([@expr.col("nope")]),
+    Ok(df.group_by([@expr.col("nope")])) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::ColumnNotFound("nope")),
   )
 }
@@ -509,13 +511,17 @@ test "group_by raises DuplicateColumn for a key column named twice" {
   // identically-named "region" columns; it is rejected up front at the
   // repeat, in `keys` order.
   assert_eq(
-    try? df.group_by([@expr.col("region"), @expr.col("region")]),
+    Ok(df.group_by([@expr.col("region"), @expr.col("region")])) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::DuplicateColumn("region")),
   )
   // A *missing* key still surfaces as ColumnNotFound at its first
   // appearance, before the duplicate at the second is examined.
   assert_eq(
-    try? df.group_by([@expr.col("nope"), @expr.col("nope")]),
+    Ok(df.group_by([@expr.col("nope"), @expr.col("nope")])) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::ColumnNotFound("nope")),
   )
 }
@@ -524,7 +530,9 @@ test "group_by raises DuplicateColumn for a key column named twice" {
 test "agg raises ColumnNotFound for an unknown aggregation column" {
   let grouped = sales_df().group_by([@expr.col("region")])
   assert_eq(
-    try? grouped.agg([@expr.col("nope").sum()]),
+    Ok(grouped.agg([@expr.col("nope").sum()])) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::ColumnNotFound("nope")),
   )
 }
@@ -534,21 +542,21 @@ test "Sum / Mean on a non-numeric column raises TypeMismatch" {
   let grouped = sales_df().group_by([@expr.col("region")])
   // product is a String column.
   assert_true(
-    (try? grouped.agg([@expr.col("product").sum()]))
+    (Ok(grouped.agg([@expr.col("product").sum()])) catch { e => Err(e) })
     is Err(@types.DataError::TypeMismatch(_)),
   )
   assert_true(
-    (try? grouped.agg([@expr.col("product").mean()]))
+    (Ok(grouped.agg([@expr.col("product").mean()])) catch { e => Err(e) })
     is Err(@types.DataError::TypeMismatch(_)),
   )
   // Also a Bool column: sum and mean are both undefined.
   let bgrouped = extrema_df().group_by([@expr.col("k")])
   assert_true(
-    (try? bgrouped.agg([@expr.col("vb").sum()]))
+    (Ok(bgrouped.agg([@expr.col("vb").sum()])) catch { e => Err(e) })
     is Err(@types.DataError::TypeMismatch(_)),
   )
   assert_true(
-    (try? bgrouped.agg([@expr.col("vb").mean()]))
+    (Ok(bgrouped.agg([@expr.col("vb").mean()])) catch { e => Err(e) })
     is Err(@types.DataError::TypeMismatch(_)),
   )
 }
@@ -558,15 +566,21 @@ test "colliding output column names raise DuplicateColumn" {
   let grouped = sales_df().group_by([@expr.col("region")])
   // Two expressions with the same aliased name.
   assert_eq(
-    try? grouped.agg([
-      @expr.col("quantity").sum().with_alias("quantity_sum"),
-      @expr.col("quantity").sum().with_alias("quantity_sum"),
-    ]),
+    Ok(
+      grouped.agg([
+        @expr.col("quantity").sum().with_alias("quantity_sum"),
+        @expr.col("quantity").sum().with_alias("quantity_sum"),
+      ]),
+    ) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::DuplicateColumn("quantity_sum")),
   )
   // An alias that shadows a key column.
   assert_eq(
-    try? grouped.agg([@expr.col("quantity").sum().with_alias("region")]),
+    Ok(grouped.agg([@expr.col("quantity").sum().with_alias("region")])) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::DuplicateColumn("region")),
   )
 }
@@ -652,7 +666,9 @@ test "a key expression whose dtypes do not unify raises TypeMismatch" {
   // region is String, quantity is Int — `+` cannot unify them, and the key
   // evaluation surfaces the error at `group_by`, in `keys` order.
   assert_true(
-    (try? sales_df().group_by([@expr.col("region") + @expr.col("quantity")]))
+    (Ok(sales_df().group_by([@expr.col("region") + @expr.col("quantity")])) catch {
+      e => Err(e)
+    })
     is Err(@types.DataError::TypeMismatch(_)),
   )
 }
@@ -662,10 +678,14 @@ test "two keys producing the same output name raise DuplicateColumn" {
   // Distinct expressions, same alias ⇒ two identically-named key columns,
   // rejected up front at the second key (its evaluation succeeds first).
   assert_eq(
-    try? sales_df().group_by([
-      @expr.col("region").with_alias("k"),
-      @expr.col("product").with_alias("k"),
-    ]),
+    Ok(
+      sales_df().group_by([
+        @expr.col("region").with_alias("k"),
+        @expr.col("product").with_alias("k"),
+      ]),
+    ) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::DuplicateColumn("k")),
   )
 }

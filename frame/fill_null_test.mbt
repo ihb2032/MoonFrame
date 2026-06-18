@@ -198,7 +198,9 @@ test "Expr fill_null rejects a non-unifiable fill dtype with TypeMismatch" {
     Series::from_int_options("a", [Some(1), None, Some(3)]),
   ])
   assert_true(
-    (try? df.with_columns([@expr.col("a").fill_null(@expr.lit_str("x"))]))
+    (Ok(df.with_columns([@expr.col("a").fill_null(@expr.lit_str("x"))])) catch {
+      e => Err(e)
+    })
     is Err(TypeMismatch(_)),
   )
 }
@@ -207,7 +209,9 @@ test "Expr fill_null rejects a non-unifiable fill dtype with TypeMismatch" {
 test "Expr fill_null on a missing column raises ColumnNotFound" {
   let df = DataFrame::new([Series::from_ints("a", [1, 2, 3])])
   assert_eq(
-    try? df.with_columns([@expr.col("missing").fill_null(@expr.lit_int(0))]),
+    Ok(df.with_columns([@expr.col("missing").fill_null(@expr.lit_int(0))])) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::ColumnNotFound("missing")),
   )
 }

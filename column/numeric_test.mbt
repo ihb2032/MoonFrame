@@ -50,8 +50,18 @@ test "is_null: bounds check only, value structurally false" {
   assert_false(i.is_null(0))
   assert_false(i.is_null(1))
   // No null slot exists — only out-of-bounds raises.
-  assert_eq(try? i.is_null(-1), Err(@types.DataError::IndexOutOfBounds(-1)))
-  assert_eq(try? i.is_null(2), Err(@types.DataError::IndexOutOfBounds(2)))
+  assert_eq(
+    Ok(i.is_null(-1)) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::IndexOutOfBounds(-1)),
+  )
+  assert_eq(
+    Ok(i.is_null(2)) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::IndexOutOfBounds(2)),
+  )
   // Float column reads the same way.
   assert_false(NumericColumn::from_doubles([1.5]).is_null(0))
 }
@@ -61,12 +71,32 @@ test "get: reads value per dtype, OOB raises (no null branch)" {
   let i = NumericColumn::from_int64s([7, 8, 9])
   assert_eq(i.get(0), @types.Scalar::Int(7))
   assert_eq(i.get(2), @types.Scalar::Int(9))
-  assert_eq(try? i.get(-1), Err(@types.DataError::IndexOutOfBounds(-1)))
-  assert_eq(try? i.get(3), Err(@types.DataError::IndexOutOfBounds(3)))
+  assert_eq(
+    Ok(i.get(-1)) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::IndexOutOfBounds(-1)),
+  )
+  assert_eq(
+    Ok(i.get(3)) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::IndexOutOfBounds(3)),
+  )
   let f = NumericColumn::from_doubles([1.5, 2.5])
   assert_eq(f.get(1), @types.Scalar::Float(2.5))
-  assert_eq(try? f.get(9), Err(@types.DataError::IndexOutOfBounds(9)))
-  assert_eq(try? f.get(-5), Err(@types.DataError::IndexOutOfBounds(-5)))
+  assert_eq(
+    Ok(f.get(9)) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::IndexOutOfBounds(9)),
+  )
+  assert_eq(
+    Ok(f.get(-5)) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::IndexOutOfBounds(-5)),
+  )
 }
 
 // ── slice / take (no bitmap to repack) ────────────────────────────────
@@ -88,12 +118,26 @@ test "slice: sub-range per dtype stays all-valid" {
 ///|
 test "slice: invalid bounds report the actual offender (Builtin check order)" {
   let col = NumericColumn::from_int64s([1, 2, 3])
-  assert_eq(try? col.slice(-1, 2), Err(@types.DataError::IndexOutOfBounds(-1)))
-  assert_eq(try? col.slice(0, 5), Err(@types.DataError::IndexOutOfBounds(5)))
-  assert_true((try? col.slice(2, 1)) is Err(InvalidOperation(_)))
+  assert_eq(
+    Ok(col.slice(-1, 2)) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::IndexOutOfBounds(-1)),
+  )
+  assert_eq(
+    Ok(col.slice(0, 5)) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::IndexOutOfBounds(5)),
+  )
+  assert_true(
+    (Ok(col.slice(2, 1)) catch { e => Err(e) }) is Err(InvalidOperation(_)),
+  )
   // Float column reaches the same start > end check.
   assert_true(
-    (try? NumericColumn::from_doubles([1.0, 2.0]).slice(1, 0))
+    (Ok(NumericColumn::from_doubles([1.0, 2.0]).slice(1, 0)) catch {
+      e => Err(e)
+    })
     is Err(InvalidOperation(_)),
   )
 }
@@ -114,11 +158,15 @@ test "take: gathers per dtype, OOB reports first offender" {
   assert_eq(e.dtype(), @types.DataType::Float)
   // Out-of-bounds reports the first offending index.
   assert_eq(
-    try? NumericColumn::from_int64s([1, 2]).take([0, 5]),
+    Ok(NumericColumn::from_int64s([1, 2]).take([0, 5])) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::IndexOutOfBounds(5)),
   )
   assert_eq(
-    try? NumericColumn::from_int64s([1, 2]).take([-1]),
+    Ok(NumericColumn::from_int64s([1, 2]).take([-1])) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::IndexOutOfBounds(-1)),
   )
 }
@@ -142,14 +190,26 @@ test "typed accessors reject the wrong dtype (numeric column has no Bool/String)
   let i = NumericColumn::from_int64s([1])
   let f = NumericColumn::from_doubles([1.0])
   // Cross-numeric mismatch.
-  assert_true((try? f.int_values()) is Err(TypeMismatch(_)))
-  assert_true((try? i.float_values()) is Err(TypeMismatch(_)))
+  assert_true(
+    (Ok(f.int_values()) catch { e => Err(e) }) is Err(TypeMismatch(_)),
+  )
+  assert_true(
+    (Ok(i.float_values()) catch { e => Err(e) }) is Err(TypeMismatch(_)),
+  )
   // bool_values / string_values always mismatch — it is numeric by
   // construction (both backing dtypes exercised).
-  assert_true((try? i.bool_values()) is Err(TypeMismatch(_)))
-  assert_true((try? f.bool_values()) is Err(TypeMismatch(_)))
-  assert_true((try? i.string_values()) is Err(TypeMismatch(_)))
-  assert_true((try? f.string_values()) is Err(TypeMismatch(_)))
+  assert_true(
+    (Ok(i.bool_values()) catch { e => Err(e) }) is Err(TypeMismatch(_)),
+  )
+  assert_true(
+    (Ok(f.bool_values()) catch { e => Err(e) }) is Err(TypeMismatch(_)),
+  )
+  assert_true(
+    (Ok(i.string_values()) catch { e => Err(e) }) is Err(TypeMismatch(_)),
+  )
+  assert_true(
+    (Ok(f.string_values()) catch { e => Err(e) }) is Err(TypeMismatch(_)),
+  )
 }
 
 // ── Materialise ───────────────────────────────────────────────────────
@@ -244,11 +304,15 @@ test "mean: arithmetic mean per dtype, as Double" {
 ///|
 test "mean: empty column raises InvalidOperation (0/0 is undefined)" {
   assert_eq(
-    try? NumericColumn::from_int64s([]).mean(),
+    Ok(NumericColumn::from_int64s([]).mean()) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::InvalidOperation("mean of empty column")),
   )
   assert_eq(
-    try? NumericColumn::from_doubles([]).mean(),
+    Ok(NumericColumn::from_doubles([]).mean()) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::InvalidOperation("mean of empty column")),
   )
 }

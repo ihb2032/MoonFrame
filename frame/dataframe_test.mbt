@@ -25,19 +25,24 @@ test "new with zero columns yields a 0×0 frame" {
 
 ///|
 test "new rejects columns of unequal length" {
-  let r = try? DataFrame::new([
-    Series::from_ints("a", [1, 2]),
-    Series::from_ints("b", [1, 2, 3]),
-  ])
+  let r = Ok(
+    DataFrame::new([
+      Series::from_ints("a", [1, 2]),
+      Series::from_ints("b", [1, 2, 3]),
+    ]),
+  ) catch {
+    e => Err(e)
+  }
   assert_eq(r, Err(@types.DataError::LengthMismatch))
 }
 
 ///|
 test "new rejects duplicate column names" {
-  let r = try? DataFrame::new([
-    Series::from_ints("a", [1]),
-    Series::from_ints("a", [2]),
-  ])
+  let r = Ok(
+    DataFrame::new([Series::from_ints("a", [1]), Series::from_ints("a", [2])]),
+  ) catch {
+    e => Err(e)
+  }
   assert_eq(r, Err(@types.DataError::DuplicateColumn("a")))
 }
 
@@ -77,7 +82,9 @@ test "empty rejects Null-dtype fields with Unsupported" {
     @types.Field::new("ok", @types.DataType::Int),
     @types.Field::new("nope", @types.DataType::Null),
   ])
-  assert_true((try? DataFrame::empty(schema)) is Err(Unsupported(_)))
+  assert_true(
+    (Ok(DataFrame::empty(schema)) catch { e => Err(e) }) is Err(Unsupported(_)),
+  )
 }
 
 ///|
@@ -92,7 +99,9 @@ test "empty re-validates a struct-literal schema with duplicate names" {
     ],
   }
   assert_eq(
-    try? DataFrame::empty(dup),
+    Ok(DataFrame::empty(dup)) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::DuplicateColumn("a")),
   )
 }
@@ -156,9 +165,11 @@ test "from_rows re-validates a struct-literal schema with duplicate names" {
     ],
   }
   assert_eq(
-    try? DataFrame::from_rows(dup, [
-      [@types.Scalar::Int(1), @types.Scalar::Int(2)],
-    ]),
+    Ok(
+      DataFrame::from_rows(dup, [[@types.Scalar::Int(1), @types.Scalar::Int(2)]]),
+    ) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::DuplicateColumn("a")),
   )
 }
@@ -190,7 +201,9 @@ test "from_rows rejects rows of the wrong width" {
     @types.Field::new("a", @types.DataType::Int),
     @types.Field::new("b", @types.DataType::Int),
   ])
-  let r = try? DataFrame::from_rows(schema, [[@types.Scalar::Int(1)]])
+  let r = Ok(DataFrame::from_rows(schema, [[@types.Scalar::Int(1)]])) catch {
+    e => Err(e)
+  }
   assert_eq(r, Err(@types.DataError::LengthMismatch))
 }
 
@@ -199,25 +212,33 @@ test "from_rows rejects dtype mismatches on every concrete dtype" {
   // Int column expecting Int gets a Float — TypeMismatch.
   let s_i = @types.Schema::new([@types.Field::new("x", @types.DataType::Int)])
   assert_true(
-    (try? DataFrame::from_rows(s_i, [[@types.Scalar::Float(1.0)]]))
+    (Ok(DataFrame::from_rows(s_i, [[@types.Scalar::Float(1.0)]])) catch {
+      e => Err(e)
+    })
     is Err(TypeMismatch(_)),
   )
   // Float column expecting Float gets a String.
   let s_f = @types.Schema::new([@types.Field::new("x", @types.DataType::Float)])
   assert_true(
-    (try? DataFrame::from_rows(s_f, [[@types.Scalar::String("x")]]))
+    (Ok(DataFrame::from_rows(s_f, [[@types.Scalar::String("x")]])) catch {
+      e => Err(e)
+    })
     is Err(TypeMismatch(_)),
   )
   // Bool column expecting Bool gets an Int.
   let s_b = @types.Schema::new([@types.Field::new("x", @types.DataType::Bool)])
   assert_true(
-    (try? DataFrame::from_rows(s_b, [[@types.Scalar::Int(1)]]))
+    (Ok(DataFrame::from_rows(s_b, [[@types.Scalar::Int(1)]])) catch {
+      e => Err(e)
+    })
     is Err(TypeMismatch(_)),
   )
   // String column expecting String gets a Bool.
   let s_s = @types.Schema::new([@types.Field::new("x", @types.DataType::String)])
   assert_true(
-    (try? DataFrame::from_rows(s_s, [[@types.Scalar::Bool(true)]]))
+    (Ok(DataFrame::from_rows(s_s, [[@types.Scalar::Bool(true)]])) catch {
+      e => Err(e)
+    })
     is Err(TypeMismatch(_)),
   )
 }
@@ -228,7 +249,9 @@ test "from_rows rejects Null-dtype fields with Unsupported" {
     @types.Field::new("n", @types.DataType::Null),
   ])
   assert_true(
-    (try? DataFrame::from_rows(schema, [[@types.Scalar::Null]]))
+    (Ok(DataFrame::from_rows(schema, [[@types.Scalar::Null]])) catch {
+      e => Err(e)
+    })
     is Err(Unsupported(_)),
   )
 }
@@ -296,7 +319,9 @@ test "get_column hits the O(1) name_to_index cache" {
   assert_eq(df.get_column("a"), Series::from_ints("a", [1, 2]))
   assert_eq(df.get_column("b").dtype(), @types.DataType::String)
   assert_eq(
-    try? df.get_column("missing"),
+    Ok(df.get_column("missing")) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::ColumnNotFound("missing")),
   )
 }
@@ -310,11 +335,15 @@ test "get_column_at validates the positional index" {
   assert_eq(df.get_column_at(0).name(), "a")
   assert_eq(df.get_column_at(1).name(), "b")
   assert_eq(
-    try? df.get_column_at(-1),
+    Ok(df.get_column_at(-1)) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::IndexOutOfBounds(-1)),
   )
   assert_eq(
-    try? df.get_column_at(5),
+    Ok(df.get_column_at(5)) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::IndexOutOfBounds(5)),
   )
 }
@@ -327,10 +356,17 @@ test "get returns Scalar / Null and surfaces the right error variant" {
   assert_eq(df.item(0, "x"), @types.Scalar::Int(7))
   assert_eq(df.item(1, "x"), @types.Scalar::Null)
   // Row OOB bubbles IndexOutOfBounds from Series::get.
-  assert_eq(try? df.item(5, "x"), Err(@types.DataError::IndexOutOfBounds(5)))
+  assert_eq(
+    Ok(df.item(5, "x")) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::IndexOutOfBounds(5)),
+  )
   // Column missing bubbles ColumnNotFound from get_column.
   assert_eq(
-    try? df.item(0, "missing"),
+    Ok(df.item(0, "missing")) catch {
+      e => Err(e)
+    },
     Err(@types.DataError::ColumnNotFound("missing")),
   )
 }
@@ -412,9 +448,21 @@ test "slice [start, start) returns an empty frame" {
 ///|
 test "slice reports invalid bounds with the appropriate error" {
   let df = DataFrame::new([Series::from_ints("x", [1, 2, 3])])
-  assert_eq(try? df.slice(-1, 2), Err(@types.DataError::IndexOutOfBounds(-1)))
-  assert_eq(try? df.slice(0, 5), Err(@types.DataError::IndexOutOfBounds(5)))
-  assert_true((try? df.slice(2, 1)) is Err(InvalidOperation(_)))
+  assert_eq(
+    Ok(df.slice(-1, 2)) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::IndexOutOfBounds(-1)),
+  )
+  assert_eq(
+    Ok(df.slice(0, 5)) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::IndexOutOfBounds(5)),
+  )
+  assert_true(
+    (Ok(df.slice(2, 1)) catch { e => Err(e) }) is Err(InvalidOperation(_)),
+  )
 }
 
 // ── take ─────────────────────────────────────────────────────────────
@@ -443,8 +491,18 @@ test "take with empty indices produces an empty frame of the same schema" {
 ///|
 test "take rejects out-of-bounds indices with the first offender" {
   let df = DataFrame::new([Series::from_ints("x", [1, 2])])
-  assert_eq(try? df.take([0, 5]), Err(@types.DataError::IndexOutOfBounds(5)))
-  assert_eq(try? df.take([-1]), Err(@types.DataError::IndexOutOfBounds(-1)))
+  assert_eq(
+    Ok(df.take([0, 5])) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::IndexOutOfBounds(5)),
+  )
+  assert_eq(
+    Ok(df.take([-1])) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::IndexOutOfBounds(-1)),
+  )
 }
 
 // ── name_to_index cache survives transforms ──────────────────────────

@@ -929,7 +929,10 @@ are documented below.
   across all records (sparse records → null cells) → inference (same
   order as CSV; `Number` locks `Int` when integral and in `Int64` range,
   else `Float`; `true` / `false` only for `Bool`; mixed → `String`
-  fallback) → `DataFrame::new`. `ParseError`.
+  fallback) → `DataFrame::new`. `ParseError`. A `Double`-overflowing
+  integer that infers as `Float` (a fractional sibling in the column)
+  recovers its nearest finite value from the digits `@json` preserves in
+  `repr`, rather than reading back as `Infinity`.
 - `format_json_records(df) -> String` — **total**. One object per row,
   keys in `df.columns()` order; `Null → null`, bools / strings / finite
   numbers via `@json`. A non-finite `Float` (`NaN` / `±Infinity`) has no

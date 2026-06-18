@@ -26,6 +26,10 @@
 // preserves its digits in `Number.repr`). So a full-range `Int64` round-trips
 // exactly, dtype and value intact — only an external JSON integer beyond
 // `Int64`'s own range (|v| ≥ 2^63) is unrepresentable and infers as `Float`.
+// When such a large integer lands in a `Float` column instead (a sibling cell
+// is fractional, so inference picks `Float`), `json_value_as_float` likewise
+// recovers the nearest finite `Double` from the preserved digits rather than
+// corrupting the cell to `Infinity`.
 //
 // Caveat 3 — all-non-finite / all-null `Float`. `scalar_to_json` maps every
 // `NaN` / `±Infinity` to JSON `null` (no JSON literal exists for them), so a
@@ -421,7 +425,15 @@ fn json_value_as_int(j : Json) -> Int64? {
 /// `json_value_as_int`.
 fn json_value_as_float(j : Json) -> Double? {
   match j {
-    Number(n, ..) => Some(n)
+    // `@json.parse` parks a `Double`-overflowing integer as `±Infinity` but
+    // keeps its exact digits in `repr`; re-parsing those digits recovers the
+    // nearest finite `Double` — as the CSV reader's `parse_double` does — rather
+    // than the lossy Infinity. `parse_float_opt` routes through that same
+    // `@string.parse_double` (and accepts the non-finite forms), so a magnitude
+    // that overflows `Double` itself folds back to the original Infinity `n`. A
+    // finite `Number` (`repr=None`) takes its value directly.
+    Number(n, repr=Some(text)) => Some(parse_float_opt(text, true).unwrap_or(n))
+    Number(n, repr=None) => Some(n)
     _ => None
   }
 }

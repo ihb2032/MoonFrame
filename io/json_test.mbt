@@ -186,6 +186,34 @@ test "parse_json_records_str: a Double-overflowing int in a String column keeps 
 }
 
 ///|
+test "parse_json_records_str: a Double-overflowing int in a Float column recovers a finite Double, not Infinity" {
+  // A fractional sibling forces `Float` inference; the `Double`-overflowing
+  // integer must recover its nearest finite `Double` from the preserved `repr`
+  // (as the CSV reader does) instead of corrupting the cell to `Infinity`.
+  let content = "[{\"x\":1.5},{\"x\":9007199254740993}]"
+  let df = @io.parse_json_records_str(content, @io.JsonReadOptions::default())
+  assert_eq(df.get_column("x").dtype(), @types.DataType::Float)
+  assert_eq(df.item(0, "x"), @types.Scalar::Float(1.5))
+  // 9007199254740993 = 2^53 + 1 is unrepresentable; it rounds to 2^53.
+  assert_eq(df.item(1, "x"), @types.Scalar::Float(9007199254740992.0))
+}
+
+///|
+test "parse_json_records_str: Float-column big-int recovery matches the CSV reader" {
+  // The same digits read through CSV and JSON must agree — the JSON path used to
+  // diverge to Infinity while the CSV path stayed finite.
+  let js = @io.parse_json_records_str(
+    "[{\"x\":1.5},{\"x\":9007199254740993}]",
+    @io.JsonReadOptions::default(),
+  )
+  let csv = @io.parse_csv_str(
+    "x\n1.5\n9007199254740993\n",
+    @io.CsvReadOptions::default(),
+  )
+  assert_eq(js.item(1, "x"), csv.item(1, "x"))
+}
+
+///|
 test "parse_json_records_str: missing fields become nulls" {
   // The second record lacks `b`; the column-collection pass keeps
   // both columns and the builder slots in a null for the missing

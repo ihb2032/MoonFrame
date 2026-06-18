@@ -70,6 +70,20 @@ the source: a column the plan never reads is never parsed, so
 only those two columns. (An array-shaped JSON document has no row-wise scan to
 push a projection into, so there is no `scan_json`.)
 
+### A canonical storage backend
+
+A column's storage backend — the unboxed `Numeric` fast path versus the general
+`Builtin` backend — is now a function of its *content*, not of how it was built:
+any row gather (`filter` / `gather` / `take` / `drop_nulls`, a grouped key, an
+aggregation) that leaves an all-valid Int / Float column re-converges it onto
+`Numeric`. This closes a predicate-pushdown soundness gap — sinking a `Filter`
+below a stage carrying a *derived* column or group key (say
+`group_by([col("a") + col("b")])`) recomputes that column over the surviving
+rows, and without the canonical form it could land on a different backend than
+the eager chain, which `Series` equality observes, making `collect` diverge from
+`execute`. (`slice` / `head` / `tail` stay zero-copy views that keep the source
+backend.)
+
 ### `Series` in its own package; naming finalised
 
 `Series` is extracted from `frame` into a new `series` package, so the

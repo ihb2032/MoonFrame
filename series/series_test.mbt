@@ -349,7 +349,7 @@ test "cast to String renders value-style across dtypes" {
 // ── storage backend control: storage_kind / to_numeric / to_builtin ──
 
 ///|
-test "structural transforms preserve the Numeric backend" {
+test "row gathers canonicalise an all-valid result; zero-copy slices preserve the backend" {
   // A no-null numeric column is Numeric; slicing / gathering / dropping
   // nulls keeps it on the fast path (a row subset is still all-valid).
   let s = Series::from_ints("x", [10, 20, 30, 40])
@@ -357,11 +357,18 @@ test "structural transforms preserve the Numeric backend" {
   assert_eq(s.slice(1, 3).storage_kind(), @column.StorageKind::Numeric)
   assert_eq(s.gather([3, 0, 0]).storage_kind(), @column.StorageKind::Numeric)
   assert_eq(s.drop_nulls().storage_kind(), @column.StorageKind::Numeric)
-  // A Builtin column stays Builtin through the same transforms.
+  // A Builtin column whose nulls a *gather* drops canonicalises onto the
+  // Numeric fast path: the backend is a function of the gathered content, so a
+  // `gather` / `drop_nulls` / `filter` / `take` cannot leave an all-valid
+  // numeric column off the fast path — the invariant the query optimizer
+  // relies on for `collect ≡ eager`.
   let b = Series::from_int_options("x", [Some(1), None, Some(3)])
   assert_eq(b.storage_kind(), @column.StorageKind::Builtin)
+  assert_eq(b.gather([0, 2]).storage_kind(), @column.StorageKind::Numeric)
+  assert_eq(b.drop_nulls().storage_kind(), @column.StorageKind::Numeric)
+  // A `slice` is a zero-copy view that keeps the source backend (no rebuild),
+  // so a window still carrying a null stays Builtin.
   assert_eq(b.slice(0, 2).storage_kind(), @column.StorageKind::Builtin)
-  assert_eq(b.drop_nulls().storage_kind(), @column.StorageKind::Builtin)
 }
 
 ///|

@@ -164,16 +164,17 @@ fn char_count(s : String) -> Int {
 fn escape_md_cell(s : String) -> String {
   let buf = StringBuilder::new()
   for ch in s.iter() {
-    if ch == '\\' {
-      buf.write_char('\\')
-      buf.write_char('\\')
-    } else if ch == '|' {
-      buf.write_char('\\')
-      buf.write_char('|')
-    } else if ch == '\n' || ch == '\r' {
-      buf.write_char(' ')
-    } else {
-      buf.write_char(ch)
+    match ch {
+      '\\' => {
+        buf.write_char('\\')
+        buf.write_char('\\')
+      }
+      '|' => {
+        buf.write_char('\\')
+        buf.write_char('|')
+      }
+      '\n' | '\r' => buf.write_char(' ')
+      _ => buf.write_char(ch)
     }
   }
   buf.to_string()

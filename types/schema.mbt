@@ -127,11 +127,6 @@ pub fn Schema::rename(
 /// `Show` renders `Schema([Field { ... }, ...])` for assertion snapshots.
 pub impl Show for Schema with fn output(self, logger) {
   logger.write_string("Schema([")
-  for i, f in self.fields {
-    if i > 0 {
-      logger.write_string(", ")
-    }
-    f.output(logger)
-  }
+  logger.write_string(self.fields.map(f => f.to_string()).join(", "))
   logger.write_string("])")
 }

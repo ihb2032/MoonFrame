@@ -229,16 +229,12 @@ fn html_escape(s : String, escape : Bool) -> String {
   }
   let buf = StringBuilder::new()
   for ch in s.iter() {
-    if ch == '&' {
-      buf.write_string("&amp;")
-    } else if ch == '<' {
-      buf.write_string("&lt;")
-    } else if ch == '>' {
-      buf.write_string("&gt;")
-    } else if ch == '"' {
-      buf.write_string("&quot;")
-    } else {
-      buf.write_char(ch)
+    match ch {
+      '&' => buf.write_string("&amp;")
+      '<' => buf.write_string("&lt;")
+      '>' => buf.write_string("&gt;")
+      '"' => buf.write_string("&quot;")
+      _ => buf.write_char(ch)
     }
   }
   buf.to_string()

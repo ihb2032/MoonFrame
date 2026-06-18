@@ -30,25 +30,29 @@
 fn escape_debug(s : String) -> String {
   let buf = StringBuilder::new()
   for ch in s.iter() {
-    if ch == '\\' {
-      buf.write_char('\\')
-      buf.write_char('\\')
-    } else if ch == '"' {
-      buf.write_char('\\')
-      buf.write_char('"')
-    } else if ch == '\n' {
-      buf.write_char('\\')
-      buf.write_char('n')
-    } else if ch == '\r' {
-      buf.write_char('\\')
-      buf.write_char('r')
-    } else if ch == '\t' {
-      buf.write_char('\\')
-      buf.write_char('t')
-    } else if is_control_char(ch) {
-      write_unicode_escape(buf, ch)
-    } else {
-      buf.write_char(ch)
+    match ch {
+      '\\' => {
+        buf.write_char('\\')
+        buf.write_char('\\')
+      }
+      '"' => {
+        buf.write_char('\\')
+        buf.write_char('"')
+      }
+      '\n' => {
+        buf.write_char('\\')
+        buf.write_char('n')
+      }
+      '\r' => {
+        buf.write_char('\\')
+        buf.write_char('r')
+      }
+      '\t' => {
+        buf.write_char('\\')
+        buf.write_char('t')
+      }
+      c if is_control_char(c) => write_unicode_escape(buf, c)
+      _ => buf.write_char(ch)
     }
   }
   buf.to_string()

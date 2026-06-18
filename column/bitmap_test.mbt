@@ -86,6 +86,18 @@ test "from_options on Int? round-trips Some/None as 1/0" {
 }
 
 ///|
+test "is_valid_total reads one slot totally, clamping out-of-range to false" {
+  let bm = Bitmap::from_bools([true, false, true])
+  // In-bounds: agrees with the raising `is_valid`.
+  assert_eq(bm.is_valid_total(0), true)
+  assert_eq(bm.is_valid_total(1), false)
+  assert_eq(bm.is_valid_total(2), true)
+  // Out of range clamps to `false` rather than raising.
+  assert_eq(bm.is_valid_total(-1), false)
+  assert_eq(bm.is_valid_total(3), false)
+}
+
+///|
 test "from_options is generic in the element type" {
   // String options must also work — the function only looks at Some/None.
   let bm = Bitmap::from_options([Some("a"), None, Some("c")])

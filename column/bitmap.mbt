@@ -122,6 +122,20 @@ pub fn Bitmap::is_null(
 }
 
 ///|
+/// `true` when slot `index` is valid (bit 1), **total**: an out-of-range
+/// `index` yields `false` instead of raising. The single-slot counterpart of
+/// `is_valid`, for the in-bounds-guaranteed row gathers that read one slot at a
+/// time off the source mask rather than materialising the whole `Array[Bool]`
+/// — so a per-group gather costs `O(gathered)`, not `O(source)`.
+pub fn Bitmap::is_valid_total(self : Bitmap, index : Int) -> Bool {
+  if index < 0 || index >= self.len {
+    false
+  } else {
+    bit_at(self.bits, self.offset + index)
+  }
+}
+
+///|
 /// Number of null (0) bits in the logical range `[offset, offset + len)`.
 ///
 /// When `offset == 0` the window is byte-aligned at the front, so the full

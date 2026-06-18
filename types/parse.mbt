@@ -30,3 +30,42 @@ pub fn is_decimal_int_literal(s : String) -> Bool {
   }
   seen_digit
 }
+
+///|
+/// Parse a plain base-10 integer, or `None`. Screens out `0x` / `0o` / `0b`
+/// prefixes and `1_000` underscore grouping via `is_decimal_int_literal` (the
+/// forms pandas / polars keep as strings), then hands the text to
+/// `@string.parse_int64`, mapping its failure (a value beyond `Int64`'s range,
+/// say) to `None`. The shared routine behind the CSV reader's `Int` inference
+/// and the `@column` String→`Int` cast, so an inferred column and an explicit
+/// cast agree on what text is an integer.
+pub fn parse_decimal_int_opt(s : String) -> Int64? {
+  if !is_decimal_int_literal(s) {
+    return None
+  }
+  try @string.parse_int64(s.view()) catch {
+    _ => None
+  } noraise {
+    n => Some(n)
+  }
+}
+
+///|
+/// Parse a "plain" `Double`, or `None`. Rejects `1_000`-style underscore
+/// grouping up front (`@string.parse_double` would accept it, but pandas /
+/// polars keep such cells as strings), then hands the text to
+/// `@string.parse_double`. The `nan` / `inf` / `infinity` literals it
+/// recognises are returned as-is — the caller decides whether to keep them (the
+/// CSV reader gates them behind `allow_nonfinite`; the `@column` String→`Float`
+/// cast accepts them). Shared so inference and an explicit cast agree on what
+/// text is a `Float`.
+pub fn parse_plain_double_opt(s : String) -> Double? {
+  if s.iter().any(c => c == '_') {
+    return None
+  }
+  try @string.parse_double(s.view()) catch {
+    _ => None
+  } noraise {
+    x => Some(x)
+  }
+}

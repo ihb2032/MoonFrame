@@ -216,9 +216,7 @@ pub fn write_vega_lite(
   spec : ChartSpec,
 ) -> Unit raise @types.DataError {
   let content = format_vega_lite(df, spec)
-  @fs.write_string_to_file(path, content) catch {
-    @fs.IOError(msg) => raise @types.DataError::IoError(msg)
-  }
+  write_text(path, content)
 }
 
 // ── internals ──────────────────────────────────────────────────────────

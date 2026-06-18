@@ -148,9 +148,7 @@ pub fn read_ndjson_with_options(
   path : String,
   options : NdjsonReadOptions,
 ) -> @frame.DataFrame raise @types.DataError {
-  let content = @fs.read_file_to_string(path) catch {
-    @fs.IOError(msg) => raise @types.DataError::IoError(msg)
-  }
+  let content = read_text(path)
   parse_ndjson_str(content, options)
 }
 
@@ -167,9 +165,7 @@ pub fn read_ndjson_projected(
   options : NdjsonReadOptions,
   projection : Array[String],
 ) -> @frame.DataFrame raise @types.DataError {
-  let content = @fs.read_file_to_string(path) catch {
-    @fs.IOError(msg) => raise @types.DataError::IoError(msg)
-  }
+  let content = read_text(path)
   parse_ndjson_str_projected(content, options, Some(projection))
 }
 
@@ -206,7 +202,5 @@ pub fn write_ndjson(
   df : @frame.DataFrame,
 ) -> Unit raise @types.DataError {
   let content = format_ndjson(df)
-  @fs.write_string_to_file(path, content) catch {
-    @fs.IOError(msg) => raise @types.DataError::IoError(msg)
-  }
+  write_text(path, content)
 }

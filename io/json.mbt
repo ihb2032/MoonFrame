@@ -233,9 +233,7 @@ pub fn read_json_with_options(
   path : String,
   options : JsonReadOptions,
 ) -> @frame.DataFrame raise @types.DataError {
-  let content = @fs.read_file_to_string(path) catch {
-    @fs.IOError(msg) => raise @types.DataError::IoError(msg)
-  }
+  let content = read_text(path)
   parse_json_records_str(content, options)
 }
 
@@ -268,9 +266,7 @@ pub fn write_json_records(
   df : @frame.DataFrame,
 ) -> Unit raise @types.DataError {
   let content = format_json_records(df)
-  @fs.write_string_to_file(path, content) catch {
-    @fs.IOError(msg) => raise @types.DataError::IoError(msg)
-  }
+  write_text(path, content)
 }
 
 // ── internals ──────────────────────────────────────────────────────────

@@ -291,9 +291,7 @@ pub fn read_csv_with_options(
   path : String,
   options : CsvReadOptions,
 ) -> @frame.DataFrame raise @types.DataError {
-  let content = @fs.read_file_to_string(path) catch {
-    @fs.IOError(msg) => raise @types.DataError::IoError(msg)
-  }
+  let content = read_text(path)
   parse_csv_str(content, options)
 }
 
@@ -311,9 +309,7 @@ pub fn read_csv_projected(
   options : CsvReadOptions,
   projection : Array[String],
 ) -> @frame.DataFrame raise @types.DataError {
-  let content = @fs.read_file_to_string(path) catch {
-    @fs.IOError(msg) => raise @types.DataError::IoError(msg)
-  }
+  let content = read_text(path)
   parse_csv_str_projected(content, options, Some(projection))
 }
 
@@ -411,9 +407,7 @@ pub fn write_csv_with_options(
   options : CsvWriteOptions,
 ) -> Unit raise @types.DataError {
   let content = format_csv_str(df, options)
-  @fs.write_string_to_file(path, content) catch {
-    @fs.IOError(msg) => raise @types.DataError::IoError(msg)
-  }
+  write_text(path, content)
 }
 
 // ── internals ──────────────────────────────────────────────────────────
@@ -476,14 +470,7 @@ fn infer_column_dtype(
 /// inference predictable. The same predicate gates the `@column`
 /// String→`Int` cast, so inference and an explicit cast agree.
 fn parse_int_opt(s : String) -> Int64? {
-  if !@types.is_decimal_int_literal(s) {
-    return None
-  }
-  try @string.parse_int64(s.view()) catch {
-    _ => None
-  } noraise {
-    n => Some(n)
-  }
+  @types.parse_decimal_int_opt(s)
 }
 
 ///|
@@ -504,18 +491,14 @@ fn parse_int_opt(s : String) -> Int64? {
 /// the inference probe and the typed-column build, so the two agree on
 /// whether a non-finite literal counts as a `Float`.
 fn parse_float_opt(s : String, allow_nonfinite : Bool) -> Double? {
-  if s.iter().any(c => c == '_') {
-    return None
-  }
-  try @string.parse_double(s.view()) catch {
-    _ => None
-  } noraise {
-    x =>
+  match @types.parse_plain_double_opt(s) {
+    Some(x) =>
       if !allow_nonfinite && (x.is_nan() || x.is_inf()) {
         None
       } else {
         Some(x)
       }
+    None => None
   }
 }
 

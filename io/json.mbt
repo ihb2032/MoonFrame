@@ -17,11 +17,15 @@
 // diverge: the CSV reader keeps `"2.0"` as `Float` only because the
 // *text* still carries the decimal point, which a JSON number does not.
 //
-// Caveat 2 — JSON numbers (and `@json`'s reader) are IEEE-754 `Double`, so
-// an `Int64` whose magnitude exceeds 2^53 keeps its `Int` dtype but loses
-// value precision on a write → read round-trip (see `scalar_to_json`).
-// This matches pandas' `to_json` against JavaScript consumers; values
-// within ±2^53 round-trip exactly.
+// Caveat 2 — large `Int64`. JSON numbers (and `@json`'s reader) are
+// IEEE-754 `Double`, so an `Int64` whose magnitude exceeds 2^53 has no exact
+// `Double` value. To keep it lossless, `scalar_to_json` writes every `Int`
+// with its verbatim decimal text (`Json::number(.., repr=..)`), and
+// `json_value_as_int` recovers the exact `Int64` from that text on read-back
+// (`@json.parse` parks an out-of-`Double`-range integer as `±Infinity` but
+// preserves its digits in `Number.repr`). So a full-range `Int64` round-trips
+// exactly, dtype and value intact — only an external JSON integer beyond
+// `Int64`'s own range (|v| ≥ 2^63) is unrepresentable and infers as `Float`.
 //
 // Caveat 3 — all-non-finite / all-null `Float`. `scalar_to_json` maps every
 // `NaN` / `±Infinity` to JSON `null` (no JSON literal exists for them), so a
@@ -306,10 +310,12 @@ fn df_to_json_records(df : @frame.DataFrame) -> Array[Json] {
 
 ///|
 /// Map a `@types.Scalar` into the corresponding `Json` value. `Int` is
-/// widened to a JSON number — exact up to magnitude 2^53; an `Int64`
-/// beyond that cannot be represented by a `Double` and loses precision on
-/// a write → read round-trip (the `Int` dtype survives, the value may
-/// not). A finite `Float` becomes a JSON number. A
+/// written as a JSON number carrying its verbatim decimal text as the
+/// number's `repr` (`Json::number(v.to_double(), repr=v.to_string())`), so the
+/// emitted token is the exact integer even when its magnitude exceeds 2^53 and
+/// the `Double` value alone would round — `json_value_as_int` recovers the
+/// exact `Int64` from that text on read-back. A finite `Float` becomes a JSON
+/// number. A
 /// non-finite `Float` (`NaN` / `±Infinity`) has no JSON literal —
 /// `@json.stringify` would emit the bare tokens `NaN` / `Infinity` /
 /// `-Infinity`, which is invalid JSON that neither
@@ -321,7 +327,7 @@ fn df_to_json_records(df : @frame.DataFrame) -> Array[Json] {
 fn scalar_to_json(s : @types.Scalar) -> Json {
   match s {
     @types.Scalar::Null => Json::null()
-    @types.Scalar::Int(v) => Json::number(v.to_double())
+    @types.Scalar::Int(v) => Json::number(v.to_double(), repr=v.to_string())
     @types.Scalar::Float(v) =>
       if v.is_nan() || v.is_inf() {
         Json::null()
@@ -372,29 +378,39 @@ fn infer_json_column_dtype(
 }
 
 ///|
-/// Try to read `j` as an `Int64`. Accepts `Number` values that are
-/// exactly integer-valued (`n == n.trunc()`) and within `Int64` range
-/// (checked by `@types.double_fits_int64`, since `Int64::MAX` isn't
-/// exactly representable as a `Double`). The check is value-based rather than
-/// repr-based because `@json.parse` only populates `Number.repr` for
-/// overflow corner cases (Infinity / -Infinity), so anything written
-/// like `1.0e2` lands as `Number(100.0, None)` — which we treat as
-/// `Int(100)`, matching pandas / polars behaviour on equivalent CSV.
+/// Try to read `j` as an `Int64`. For a finite `Number` the check is
+/// value-based: accept it when it is exactly integer-valued
+/// (`n == n.trunc()`) and within `Int64` range (checked by
+/// `@types.double_fits_int64`, since `Int64::MAX` isn't exactly representable
+/// as a `Double`), so a token like `1.0e2` lands as `Int(100)`, matching
+/// pandas / polars on equivalent CSV. A `Number` whose magnitude overflowed
+/// the `Double` (parsed as `±Infinity`) is recovered from its preserved `repr`
+/// digits via `parse_int_opt`: a plain in-range decimal becomes the exact
+/// `Int64`, while anything else (a genuine `1e100` float, or an integer beyond
+/// `Int64`'s range) stays `None` and infers as `Float`.
 ///
 /// Booleans, strings, and null are intentionally rejected — JSON has
 /// strong types and silently promoting `true → 1` would surprise
 /// callers used to pandas / polars semantics.
 fn json_value_as_int(j : Json) -> Int64? {
   match j {
-    Number(n, ..) => {
+    // A `Double`-overflowing integer is parsed as ±Infinity with its exact
+    // decimal preserved in `repr`; a finite `Number` never carries one. So a
+    // present `repr` means recover the precise `Int64` from that text — a plain
+    // in-range decimal wins, anything else (a real `1e100`, or an integer past
+    // `Int64`) stays `None` and infers as `Float` — and the writer emits every
+    // `Int`'s exact decimal via `Json::number(.., repr=..)`. A finite `Number`
+    // takes the value-based path: integer-valued and within `Int64` range
+    // becomes `Int`, matching the integral-float-stays-`Int` rule.
+    Number(_, repr=Some(text)) => parse_int_opt(text)
+    Number(n, repr=None) =>
       if n != n.trunc() {
-        return None
+        None
+      } else if !@types.double_fits_int64(n) {
+        None
+      } else {
+        Some(n.to_int64())
       }
-      if !@types.double_fits_int64(n) {
-        return None
-      }
-      Some(n.to_int64())
-    }
     _ => None
   }
 }
@@ -436,7 +452,13 @@ fn json_value_to_string_fallback(j : Json) -> String {
   match j {
     True => "true"
     False => "false"
-    Number(n, ..) => n.to_string()
+    // Prefer the preserved `repr` so a `Double`-overflowing integer renders as
+    // its exact digits rather than "Infinity" when it lands in a String column.
+    Number(n, repr~) =>
+      match repr {
+        Some(text) => text
+        None => n.to_string()
+      }
     String(s) => s
     _ => (j : Json).stringify()
   }

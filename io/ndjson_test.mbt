@@ -80,6 +80,22 @@ test "format_ndjson: non-finite floats emit JSON null" {
   assert_eq(back.null_count().item(0, "x"), @types.Scalar::Int(3))
 }
 
+///|
+test "round-trip: a large Int64 survives NDJSON write→read" {
+  // NDJSON shares `scalar_to_json` / `json_value_as_int`, so the large-Int64
+  // verbatim-repr fix carries over: values past 2^53 stay exact Ints.
+  let df = @frame.DataFrame::new([
+    @series.Series::from_ints("n", [9007199254740993L, 9223372036854775807L]),
+  ])
+  let text = @io.format_ndjson(df)
+  assert_eq(text, "{\"n\":9007199254740993}\n{\"n\":9223372036854775807}\n")
+  let parsed = @io.parse_ndjson_str(text, @io.NdjsonReadOptions::default())
+  assert_eq(parsed.get_column("n").dtype(), @types.DataType::Int)
+  for i in 0..<df.nrows() {
+    assert_eq(parsed.item(i, "n"), df.item(i, "n"))
+  }
+}
+
 // ── parse_ndjson_str: happy paths ───────────────────────────────────
 
 ///|

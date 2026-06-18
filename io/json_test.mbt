@@ -153,6 +153,39 @@ test "parse_json_records_str: large ints stay Int up to the Int64 range" {
 }
 
 ///|
+test "round-trip: a large Int64 beyond 2^53 keeps Int dtype and exact value" {
+  // 2^53, 2^53+1 (the first Int64 with no exact Double), and Int64::MAX all
+  // used to corrupt to a Float(Infinity) cell on round-trip; the verbatim-repr
+  // writer and the repr-recovering reader keep them exact.
+  let df = @frame.DataFrame::new([
+    @series.Series::from_ints("n", [
+      9007199254740992L, 9007199254740993L, 9223372036854775807L, 7L,
+    ]),
+  ])
+  let text = @io.format_json_records(df)
+  // Exact digits are emitted, not the rounded Double.
+  assert_eq(
+    text, "[{\"n\":9007199254740992},{\"n\":9007199254740993},{\"n\":9223372036854775807},{\"n\":7}]",
+  )
+  let parsed = @io.parse_json_records_str(text, @io.JsonReadOptions::default())
+  assert_eq(parsed.get_column("n").dtype(), @types.DataType::Int)
+  for i in 0..<df.nrows() {
+    assert_eq(parsed.item(i, "n"), df.item(i, "n"))
+  }
+}
+
+///|
+test "parse_json_records_str: a Double-overflowing int in a String column keeps its digits" {
+  // A mixed column falls back to String; the `Double`-overflowing integer must
+  // render as its exact digits (from the preserved `repr`), not "Infinity".
+  let content = "[{\"x\":9007199254740993},{\"x\":\"hi\"}]"
+  let df = @io.parse_json_records_str(content, @io.JsonReadOptions::default())
+  assert_eq(df.get_column("x").dtype(), @types.DataType::String)
+  assert_eq(df.item(0, "x"), @types.Scalar::String("9007199254740993"))
+  assert_eq(df.item(1, "x"), @types.Scalar::String("hi"))
+}
+
+///|
 test "parse_json_records_str: missing fields become nulls" {
   // The second record lacks `b`; the column-collection pass keeps
   // both columns and the builder slots in a null for the missing

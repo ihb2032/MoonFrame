@@ -80,7 +80,9 @@
 ///   stays above; predicates over aggregation *outputs* read non-key names
 ///   and stay above the same way. Every aggregation must also be
 ///   `group_cell_stable` — its per-group cell can neither be null nor raise
-///   on values: `sum` / `count` and non-null literals qualify, `mean` /
+///   on values: `sum` / `count` over a `row_stable` operand and non-null
+///   literals qualify (a `sum(col.cast(…))` does not — its operand can raise
+///   on the cells it meets), `mean` /
 ///   `min` / `max` do not (an all-null group yields a null cell, and
 ///   dropping that group would flip the stitched column's backend from
 ///   `Builtin` to `Numeric`, which the structural `Series` equality
@@ -309,7 +311,11 @@ fn all_row_stable(exprs : Array[@expr.Expr]) -> Bool {
 /// disappear — `agg` converges an all-valid numeric column onto
 /// `Numeric`, and structural equality sees the difference) and never
 /// raising on values (so a dropped group cannot take its error with it).
-/// `sum` / `count` / `n_unique` always produce a value; `mean` / `min` /
+/// `sum` / `count` / `n_unique` always produce a non-null value, but only
+/// over a `row_stable` operand — a `sum(col.cast(Int))` or `sum(col.map(…))`
+/// still raises on the cells its operand meets, so a value-raising operand
+/// (a nested `Cast` / `Map`, or an `Agg` / `LitSeries`) fences the filter
+/// above exactly as a top-level cast does; `mean` / `min` /
 /// `max` / `std` / `var` / `median` go null on an all-null (or, for the
 /// sample statistics, single-value) group, and `first` / `last` go null on a
 /// null leading / trailing cell; a `cast`'s rejection is value-dependent, as is a
@@ -333,9 +339,10 @@ fn group_cell_stable(expr : @expr.Expr) -> Bool {
         | @types.Scalar::Bool(_)
         | @types.Scalar::String(_) => true
       }
-    @expr.Expr::Agg(op, _) =>
+    @expr.Expr::Agg(op, operand) =>
       match op {
-        @expr.AggOp::Sum | @expr.AggOp::Count | @expr.AggOp::NUnique => true
+        @expr.AggOp::Sum | @expr.AggOp::Count | @expr.AggOp::NUnique =>
+          row_stable(operand)
         @expr.AggOp::Mean
         | @expr.AggOp::Min
         | @expr.AggOp::Max

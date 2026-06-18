@@ -704,6 +704,18 @@ test "format_csv_str: 0 rows with declared schema emits header only" {
   assert_eq(out, expected)
 }
 
+///|
+test "parse_csv_str: strips a leading UTF-8 BOM from the first column name" {
+  // Excel / Windows tools prepend a U+FEFF BOM; it must not become part of
+  // the first header (which would make `get_column(\"id\")` miss).
+  let text = "\u{FEFF}id,val\n1,2\n"
+  let df = @io.parse_csv_str(text, @io.CsvReadOptions::default())
+  assert_eq(df.columns(), ["id", "val"])
+  assert_eq(df.shape(), (1, 2))
+  assert_eq(df.item(0, "id"), @types.Scalar::Int(1))
+  assert_eq(df.item(0, "val"), @types.Scalar::Int(2))
+}
+
 // ── round trip via parse_csv_str / format_csv_str ─────────────────────
 
 ///|
@@ -729,6 +741,69 @@ test "parse_csv_str ∘ format_csv_str: round-trip preserves dtypes and values" 
       assert_eq(parsed.item(i, name), df.item(i, name))
     }
   }
+}
+
+///|
+test "round-trip: a single-column null row survives (no blank-line drop)" {
+  let df = @frame.DataFrame::new([
+    @series.Series::from_int_options("n", [Some(1), None, Some(3)]),
+  ])
+  let text = @io.format_csv_str(df, @io.CsvWriteOptions::default())
+  // The null row is emitted as a quoted empty, not a bare blank line the
+  // reader's `skip_empty_lines` would discard.
+  assert_eq(text, "n\n1\n\"\"\n3\n")
+  let parsed = @io.parse_csv_str(text, @io.CsvReadOptions::default())
+  assert_eq(parsed.check_invariants(), Ok(()))
+  assert_eq(parsed.shape(), (3, 1))
+  assert_eq(parsed.get_column("n").dtype(), df.get_column("n").dtype())
+  for i in 0..<3 {
+    assert_eq(parsed.item(i, "n"), df.item(i, "n"))
+  }
+}
+
+///|
+test "round-trip: an all-null single column keeps every row" {
+  let df = @frame.DataFrame::new([
+    @series.Series::from_int_options("n", [None, None, None]),
+  ])
+  let text = @io.format_csv_str(df, @io.CsvWriteOptions::default())
+  assert_eq(text, "n\n\"\"\n\"\"\n\"\"\n")
+  let parsed = @io.parse_csv_str(text, @io.CsvReadOptions::default())
+  assert_eq(parsed.check_invariants(), Ok(()))
+  // All rows preserved (previously collapsed to 0). An all-null column has
+  // no probe to infer a type from, so it round-trips as String nulls.
+  assert_eq(parsed.shape(), (3, 1))
+  for i in 0..<3 {
+    assert_eq(parsed.item(i, "n"), df.item(i, "n"))
+  }
+}
+
+///|
+test "round-trip: a single column named \"\" keeps its name and rows" {
+  let df = @frame.DataFrame::new([@series.Series::from_ints("", [10, 20, 30])])
+  let text = @io.format_csv_str(df, @io.CsvWriteOptions::default())
+  // The empty header is written as `""`, so the first data row is not lifted
+  // into the header and the column name is not lost.
+  assert_eq(text, "\"\"\n10\n20\n30\n")
+  let parsed = @io.parse_csv_str(text, @io.CsvReadOptions::default())
+  assert_eq(parsed.check_invariants(), Ok(()))
+  assert_eq(parsed.shape(), (3, 1))
+  assert_eq(parsed.columns(), [""])
+  for i in 0..<3 {
+    assert_eq(parsed.item(i, ""), df.item(i, ""))
+  }
+}
+
+///|
+test "format_csv_str: a wider frame's empty cells stay bare (single-column-only quoting)" {
+  let df = @frame.DataFrame::new([
+    @series.Series::from_int_options("a", [Some(1), None]),
+    @series.Series::from_int_options("b", [None, Some(2)]),
+  ])
+  let out = @io.format_csv_str(df, @io.CsvWriteOptions::default())
+  // Two columns: every row carries the delimiter, so an empty cell is never
+  // row-emptying and is left bare — the `""` forcing is single-column only.
+  assert_eq(out, "a,b\n1,\n,2\n")
 }
 
 ///|

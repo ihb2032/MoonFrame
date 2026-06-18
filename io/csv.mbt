@@ -164,6 +164,15 @@ fn parse_csv_str_projected(
   options : CsvReadOptions,
   projection : Array[String]?,
 ) -> @frame.DataFrame raise @types.DataError {
+  // Strip a leading UTF-8 BOM (U+FEFF). Excel and many Windows tools prepend
+  // one; left in place it leaks into the first column's name, so a later
+  // `get_column("id")` on an `id,…` header misses. Matches Polars / pandas
+  // (`utf-8-sig`). Done first, so a BOM-only file still reads as empty.
+  let content = if content.view().get_char(0) == Some('\u{FEFF}') {
+    content.view().view(start_offset=1).to_owned()
+  } else {
+    content
+  }
   // Short-circuit empty input. NyaCSV would otherwise produce a CSV
   // with no headers and no rows, which would collapse to an empty
   // 0×0 frame — handled the same way here, just without the parse.
@@ -321,7 +330,9 @@ pub fn read_csv_projected(
 ///   or `\n` is wrapped in double quotes; interior double quotes are
 ///   doubled (`"` → `""`). Cells that need no quoting are written
 ///   verbatim so the output matches the simple "no quotes" CSV idiom
-///   whenever possible.
+///   whenever possible. The lone exception: in a single-column frame an
+///   empty cell (or an empty column name) is written as `""` rather than a
+///   bare blank, so the row is not a blank line the reader would skip.
 /// - Round-trip caveat: cells render via `Scalar::to_string`, so a `Float`
 ///   whose value is a whole number is written without a fractional part
 ///   (`2.0` → `2`) and is re-inferred as `Int` on read — the same dtype
@@ -333,12 +344,24 @@ pub fn format_csv_str(
 ) -> String {
   let buf = StringBuilder::new()
   let names = df.columns()
+  // A single-column frame is the only shape whose rows can render as a bare
+  // empty line (any wider row carries a delimiter), which the reader's
+  // `skip_empty_lines` would discard — losing the row (or, for the header,
+  // the column name). Force such empty cells / names to `""` so the line
+  // stays non-empty; the reader maps the quoted-empty token back to null via
+  // `null_values`, exactly as it does a bare empty cell in a wider row.
+  let single_column = names.length() == 1
   if options.header {
     for i, name in names {
       if i > 0 {
         buf.write_char(options.delimiter)
       }
-      write_quoted(buf, name, options.delimiter)
+      write_quoted(
+        buf,
+        name,
+        options.delimiter,
+        force_empty_quote=single_column,
+      )
     }
     buf.write_char('\n')
   }
@@ -358,7 +381,12 @@ pub fn format_csv_str(
       } else {
         scalar.to_string()
       }
-      write_quoted(buf, rendered, options.delimiter)
+      write_quoted(
+        buf,
+        rendered,
+        options.delimiter,
+        force_empty_quote=single_column,
+      )
     }
     buf.write_char('\n')
   }
@@ -590,7 +618,19 @@ fn build_column(
 /// Append `cell` to `buf`, quoting only when needed. A cell needs
 /// quoting iff it contains the delimiter, a double quote, `\r`, or
 /// `\n`. Interior double quotes are doubled per RFC 4180.
-fn write_quoted(buf : StringBuilder, cell : String, delimiter : Char) -> Unit {
+fn write_quoted(
+  buf : StringBuilder,
+  cell : String,
+  delimiter : Char,
+  force_empty_quote? : Bool = false,
+) -> Unit {
+  // An empty cell that would otherwise leave its line bare (a single-column
+  // row) is written as `""` so the reader cannot mistake it for a skippable
+  // blank line. The quoted-empty token maps back to null via `null_values`.
+  if force_empty_quote && cell.is_empty() {
+    buf.write_string("\"\"")
+    return
+  }
   let needs_quote = cell
     .iter()
     .any(ch => ch == delimiter || ch == '"' || ch == '\n' || ch == '\r')

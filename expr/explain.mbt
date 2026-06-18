@@ -368,8 +368,11 @@ fn write_str_call(
 /// pass: `\` → `\\`, `"` → `\"`, newline / carriage-return / tab →
 /// `\n` / `\r` / `\t`, and every other control character (the rest of C0,
 /// `DEL`, and the Unicode line/paragraph separators) → a `\uXXXX` escape, so
-/// a hostile column name cannot inject a terminal control sequence or an
-/// extra line into a plan rendering. Mirrors the identically-named helper
+/// a hostile column name cannot inject a newline or forge an extra line into a
+/// plan rendering. (The escape set targets line injection; the C1 range
+/// 0x80–0x9F is left as-is — harmless under UTF-8 output, which emits it as
+/// multi-byte sequences rather than raw 8-bit controls.) Mirrors the
+/// identically-named helper
 /// behind `@types`' `Show` impls — kept a private duplicate here rather than
 /// a shared public symbol so neither package's interface grows for a
 /// presentation-only concern. Total.

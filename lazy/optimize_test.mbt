@@ -772,6 +772,38 @@ test "fence: a cast in the aggregation list pins the filter above" {
 }
 
 ///|
+test "fence: a cast inside an aggregation operand pins the filter above" {
+  let df = sales_df()
+  // `sum(cast(qty))`: the cast is the aggregation's *operand*, not a
+  // top-level wrapper. Its parse / range rejection raises on the values it
+  // meets, so dropping a group first could drop the very cell that raises —
+  // the filter must stay above even though `sum`'s cell is otherwise
+  // group-stable. (Holds even here, where every cast succeeds.) Before the
+  // operand check, `group_cell_stable` read only the `sum` tag and sank the
+  // filter below, so an optimized collect could succeed where the eager
+  // chain raised.
+  let aggs = [
+    @expr.col("qty").cast(@types.DataType::Float).sum().with_alias("s"),
+  ]
+  let predicate = @expr.col("region").eq(@expr.lit_str("west"))
+  let plan = lazy_frame(df)
+    .group_by([@expr.col("region")])
+    .agg(aggs)
+    .filter(predicate)
+  assert_eq(
+    plan.explain(optimized=true),
+    "FILTER (col(region) == \"west\")\n" +
+    "  AGGREGATE [col(qty).cast(Float).sum() as s] BY [col(region)]\n" +
+    "    SELECT [col(qty), col(region)]\n" +
+    "      SCAN [4×3]",
+  )
+  assert_eq(
+    plan.collect(),
+    df.group_by([@expr.col("region")]).agg(aggs).filter(predicate),
+  )
+}
+
+///|
 test "fence: a scope-dependent key predicate stays above the aggregation" {
   let df = sales_df()
   let aggs = [@expr.col("qty").sum().with_alias("total")]

@@ -366,22 +366,13 @@ fn BuiltinColumn::to_int(
       self.cast_cells(
         i => {
           let s = a[i]
-          // Only plain base-10 integers are accepted, matching the CSV reader's
-          // inference — both route through `@types.is_decimal_int_literal`.
-          // `@string.parse_int64` defaults to base=0, which would otherwise
-          // accept `0x` / `0o` / `0b` prefixes and `1_000` underscore grouping
-          // (forms pandas / polars keep as strings); screening first keeps an
-          // explicit `to_int` cast consistent with what the reader inferred for
-          // the same text.
-          if !@types.is_decimal_int_literal(s) {
-            raise @types.DataError::ParseError(
-              "cannot parse Int from \"" + s + "\"",
-            )
-          }
-          let parsed = try? @string.parse_int64(s.view())
-          match parsed {
-            Ok(n) => n
-            Err(_) =>
+          // Plain base-10 only, via the shared `@types.parse_decimal_int_opt`
+          // (the CSV reader's inference routes through the same routine, so an
+          // explicit cast and inference agree on what text is an integer); a
+          // rejected form or an out-of-`Int64`-range value is a `ParseError`.
+          match @types.parse_decimal_int_opt(s) {
+            Some(n) => n
+            None =>
               raise @types.DataError::ParseError(
                 "cannot parse Int from \"" + s + "\"",
               )
@@ -419,19 +410,13 @@ fn BuiltinColumn::to_float(
       self.cast_cells(
         i => {
           let s = a[i]
-          // Reject `1_000`-style underscore grouping to match the CSV reader
-          // (`parse_float_opt` in `io/csv.mbt`): `@string.parse_double` accepts
-          // underscores, but pandas / polars keep such cells as strings. The
-          // `inf` / `-inf` / `nan` literals stay accepted.
-          if s.iter().any(c => c == '_') {
-            raise @types.DataError::ParseError(
-              "cannot parse Float from \"" + s + "\"",
-            )
-          }
-          let parsed = try? @string.parse_double(s.view())
-          match parsed {
-            Ok(x) => x
-            Err(_) =>
+          // Via the shared `@types.parse_plain_double_opt` (the CSV reader uses
+          // the same routine): `1_000`-style underscores are rejected to match
+          // pandas / polars, while the `inf` / `-inf` / `nan` literals stay
+          // accepted; anything else on a valid slot is a `ParseError`.
+          match @types.parse_plain_double_opt(s) {
+            Some(x) => x
+            None =>
               raise @types.DataError::ParseError(
                 "cannot parse Float from \"" + s + "\"",
               )

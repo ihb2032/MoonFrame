@@ -362,42 +362,34 @@ pub fn NumericColumn::mean(
 ///   `sort` and Polars' regular `min` — distinct from `sum` / `mean`,
 ///   where it propagates). An all-`NaN` `Float` column → `Scalar::Null`.
 pub fn NumericColumn::min(self : NumericColumn) -> @types.Scalar {
-  match self.data {
-    Int(a) => {
-      let best = @types.fold_extremum(a.length(), i => a[i], fn(_i) { false }, (
-        x,
-        y,
-      ) => x < y)
-      match best {
-        None => @types.Scalar::Null
-        Some(b) => @types.Scalar::Int(b)
-      }
-    }
-    Float(a) => {
-      let best = @types.fold_extremum(
-        a.length(),
-        i => a[i],
-        i => a[i].is_nan(),
-        (x, y) => x < y,
-      )
-      match best {
-        None => @types.Scalar::Null
-        Some(b) => @types.Scalar::Float(b)
-      }
-    }
-  }
+  self.extremum(want_min=true)
 }
 
 ///|
 /// Maximum cell as a `Scalar`. Mirrors `min` with `>` for `<`; the
 /// `Float` `NaN`-skip and empty rules are identical. Total.
 pub fn NumericColumn::max(self : NumericColumn) -> @types.Scalar {
+  self.extremum(want_min=false)
+}
+
+///|
+/// Shared min/max kernel: the natural-order extremum over the cells, `want_min`
+/// choosing `<` over `>`. `Float` `NaN` is skipped (missing for the extremum,
+/// as in `sort` / Polars' regular min/max); an empty or all-`NaN` column yields
+/// `Scalar::Null`. `min` / `max` are this with `want_min` true / false — the
+/// comparison is the only difference, so it is the only thing parameterised
+/// (the `fold_extremum` operand type differs per dtype arm, so the closure
+/// stays inline rather than shared). Total.
+fn NumericColumn::extremum(
+  self : NumericColumn,
+  want_min~ : Bool,
+) -> @types.Scalar {
   match self.data {
     Int(a) => {
       let best = @types.fold_extremum(a.length(), i => a[i], fn(_i) { false }, (
         x,
         y,
-      ) => x > y)
+      ) => if want_min { x < y } else { x > y })
       match best {
         None => @types.Scalar::Null
         Some(b) => @types.Scalar::Int(b)
@@ -408,7 +400,7 @@ pub fn NumericColumn::max(self : NumericColumn) -> @types.Scalar {
         a.length(),
         i => a[i],
         i => a[i].is_nan(),
-        (x, y) => x > y,
+        (x, y) => if want_min { x < y } else { x > y },
       )
       match best {
         None => @types.Scalar::Null

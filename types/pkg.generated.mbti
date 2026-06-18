@@ -14,6 +14,10 @@ pub fn[T] fold_extremum(Int, (Int) -> T, (Int) -> Bool, (T, T) -> Bool) -> T?
 
 pub fn is_decimal_int_literal(String) -> Bool
 
+pub fn parse_decimal_int_opt(String) -> Int64?
+
+pub fn parse_plain_double_opt(String) -> Double?
+
 // Errors
 pub(all) suberror DataError {
   ColumnNotFound(String)

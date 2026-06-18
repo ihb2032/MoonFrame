@@ -184,7 +184,7 @@ pub fn Series::get(
 /// / JSON / Markdown) use this to walk a column without a per-cell
 /// bounds-checked `get`.
 pub fn Series::to_scalars(self : Series) -> Array[@types.Scalar] {
-  let valid = self.storage.validity().to_bools()
+  let valid = validity_bools(self.storage)
   match self.storage.data() {
     @column.ColumnData::Int(a) =>
       Array::makei(a.length(), i => {

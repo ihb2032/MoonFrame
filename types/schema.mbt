@@ -50,23 +50,19 @@ pub fn Schema::field_names(self : Schema) -> Array[String] {
 ///|
 /// The index of the column named `name`, or `raise ColumnNotFound(name)`.
 pub fn Schema::index_of(self : Schema, name : String) -> Int raise DataError {
-  for i, f in self.fields {
-    if f.name == name {
-      return i
-    }
+  match self.fields.search_by(f => f.name == name) {
+    Some(i) => i
+    None => raise ColumnNotFound(name)
   }
-  raise ColumnNotFound(name)
 }
 
 ///|
 /// Return the `Field` for `name`, or `raise ColumnNotFound(name)`.
 pub fn Schema::field(self : Schema, name : String) -> Field raise DataError {
-  for f in self.fields {
-    if f.name == name {
-      return f
-    }
+  match self.fields.search_by(f => f.name == name) {
+    Some(i) => self.fields[i]
+    None => raise ColumnNotFound(name)
   }
-  raise ColumnNotFound(name)
 }
 
 ///|

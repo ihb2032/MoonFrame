@@ -113,10 +113,9 @@ pub fn Schema::rename(
     return self
   }
   let idx = self.index_of(old_name)
-  // A *present* `new_name` is the collision case. `index_of` raises when
-  // the name is absent (the path we want to continue on), so probe with
-  // `try?` and treat the `Ok` branch as the duplicate.
-  if (try? self.index_of(new_name)) is Ok(_) {
+  // A *present* `new_name` is the collision case — a total membership
+  // check over the fields, with no raising probe.
+  if self.fields.search_by(fn(f) { f.name == new_name }) is Some(_) {
     raise DuplicateColumn(new_name)
   }
   let next = self.fields.copy()

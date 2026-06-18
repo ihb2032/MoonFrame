@@ -1223,6 +1223,37 @@ test "left_on / right_on join on differently-named columns, keeping both" {
 }
 
 ///|
+test "left_on may repeat a column for a multi-condition join" {
+  // `left_on([a, a]).right_on([b, c])` means `a == b AND a == c` — a valid
+  // multi-condition join (Polars allows it). The repeated left key must not be
+  // rejected as DuplicateColumn: the left and right key columns carry their own
+  // names, so there is no output-column collision (the dedup is `on`-only).
+  let left = DataFrame::new([
+    Series::from_ints("a", [1, 2, 3]),
+    Series::from_strings("lv", ["p", "q", "r"]),
+  ])
+  let right = DataFrame::new([
+    Series::from_ints("b", [2, 9]),
+    Series::from_ints("c", [2, 8]),
+    Series::from_strings("rv", ["x", "y"]),
+  ])
+  let out = left.join(
+    right,
+    JoinOptions::left_on([@expr.col("a"), @expr.col("a")]).with_right_on([
+      @expr.col("b"),
+      @expr.col("c"),
+    ]),
+  )
+  assert_eq(out.check_invariants(), Ok(()))
+  // Only left a=2 satisfies a == b AND a == c (right row b=2, c=2).
+  assert_eq(out.columns(), ["a", "lv", "b", "c", "rv"])
+  assert_eq(out.shape(), (1, 5))
+  assert_eq(out.item(0, "a"), @types.Scalar::Int(2))
+  assert_eq(out.item(0, "lv"), @types.Scalar::String("q"))
+  assert_eq(out.item(0, "rv"), @types.Scalar::String("x"))
+}
+
+///|
 test "left_on / right_on with a derived right key matches on the value" {
   let left = DataFrame::new([
     Series::from_ints("cents", [100, 250, 300]),

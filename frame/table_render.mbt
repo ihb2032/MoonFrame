@@ -8,14 +8,18 @@
 ///|
 /// Materialise the first `shown` rows of `df` as a row-major matrix of cell
 /// strings — `result[r][c]` is column `c`'s value in row `r`, rendered with the
-/// value-form of `Scalar::to_string` (a null cell is the empty string). Reads
-/// the whole frame once (column-major) through `to_scalar_matrix`, then
-/// transposes the visible window into per-row cells. The strings are
+/// value-form of `Scalar::to_string` (a null cell is the empty string). Slices
+/// each column to its first `shown` cells (zero-copy) and scalarises only those,
+/// then transposes the window into per-row cells — so the work scales with
+/// `shown`, not the frame height (a `to_markdown_with_limit(df, 10)` over a
+/// million-row frame touches ten rows, not a million). The strings are
 /// **unescaped**: each renderer applies its own escaping (HTML entities vs GFM
 /// pipe-escaping) on top. `shown <= df.nrows()` and every column has
-/// `df.nrows()` cells, so each read is in-bounds. Total.
+/// `df.nrows()` cells, so each slice is in-bounds. Total.
 fn table_cell_matrix(df : DataFrame, shown : Int) -> Array[Array[String]] {
-  let col_scalars = df.to_scalar_matrix()
+  let col_scalars = df
+    .column_series()
+    .map(s => slice_series(s, 0, shown).to_scalars())
   let ncols = df.ncols()
   Array::makei(shown, r => {
     Array::makei(ncols, c => col_scalars[c][r].to_string())

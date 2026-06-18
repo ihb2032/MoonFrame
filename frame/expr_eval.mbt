@@ -94,7 +94,19 @@ fn eval_expr(
   scope : Array[Int],
 ) -> Series raise @types.DataError {
   match expr {
-    @expr.Expr::Col(name) => gather_series(df.get_column(name), scope)
+    @expr.Expr::Col(name) =>
+      // The whole-frame verbs evaluate over the identity scope `[0, nrows)`;
+      // gathering a column onto itself there is a full per-row copy + re-box.
+      // Short-circuit to `try_column_to_numeric`, which lands on the same
+      // canonical backend `gather_series` would (the invariant the optimizer
+      // relies on — *not* a bare `self`, which could leave a `Builtin`
+      // all-valid numeric column un-canonicalised) without the copy. A genuine
+      // sub-scope (a group's rows in the aggregation engine) still gathers.
+      if is_identity_perm(scope, df.nrows()) {
+        try_column_to_numeric(df.get_column(name))
+      } else {
+        gather_series(df.get_column(name), scope)
+      }
     @expr.Expr::Lit(value) => singleton_series(value)
     // A literal series is used verbatim, like a scalar `Lit` is its length-1
     // column: the result's length is the series' own, and the consumers

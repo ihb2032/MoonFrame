@@ -278,8 +278,7 @@ pub fn write_json_records(
 /// caller sees the same diagnostic the standard library would.
 fn parse_json_payload(content : String) -> Json raise @types.DataError {
   @json.parse(content.view()) catch {
-    err =>
-      raise @types.DataError::ParseError("invalid JSON: " + err.to_string())
+    err => raise @types.DataError::ParseError("invalid JSON: \{err}")
   }
 }
 
@@ -481,8 +480,8 @@ fn json_value_to_string_fallback(j : Json) -> String {
 /// the index is always in range.
 fn json_record_locator(source_lines : Array[Int]?, i : Int) -> String {
   match source_lines {
-    Some(lines) => "line " + lines[i].to_string()
-    None => "record " + (i + 1).to_string()
+    Some(lines) => "line \{lines[i]}"
+    None => "record \{i + 1}"
   }
 }
 

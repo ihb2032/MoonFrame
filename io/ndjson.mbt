@@ -120,7 +120,7 @@ fn parse_ndjson_str_projected(
     let json = @json.parse(line) catch {
       err =>
         raise @types.DataError::ParseError(
-          "line \{i + 1}: invalid JSON: " + err.to_string(),
+          "line \{i + 1}: invalid JSON: \{err}",
         )
     }
     records.push(json)

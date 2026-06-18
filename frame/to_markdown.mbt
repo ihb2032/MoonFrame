@@ -51,7 +51,7 @@ pub fn DataFrame::to_markdown_with_limit(
   let shown = clamp_take(limit, nrows)
   let body = format_markdown(self, shown)
   if shown < nrows {
-    body + more_rows_banner(nrows - shown) + "\n"
+    "\{body}\{more_rows_banner(nrows - shown)}\n"
   } else {
     body
   }

@@ -76,7 +76,7 @@ pub fn DataFrame::empty(
         @types.DataType::String => @column.BuiltinColumn::from_strings([])
         @types.DataType::Null =>
           raise @types.DataError::Unsupported(
-            "cannot build empty DataFrame column of dtype Null: " + f.name(),
+            "cannot build empty DataFrame column of dtype Null: \{f.name()}",
           )
       }
       Series::from_builtin(f.name(), storage)
@@ -130,10 +130,7 @@ pub fn DataFrame::from_rows(
               @types.Scalar::Null => None
               other =>
                 raise @types.DataError::TypeMismatch(
-                  "column \"" +
-                  field.name() +
-                  "\" expects Int, got " +
-                  other.dtype().to_string(),
+                  "column \"\{field.name()}\" expects Int, got \{other.dtype()}",
                 )
             }
           }),
@@ -147,10 +144,7 @@ pub fn DataFrame::from_rows(
               @types.Scalar::Null => None
               other =>
                 raise @types.DataError::TypeMismatch(
-                  "column \"" +
-                  field.name() +
-                  "\" expects Float, got " +
-                  other.dtype().to_string(),
+                  "column \"\{field.name()}\" expects Float, got \{other.dtype()}",
                 )
             }
           }),
@@ -164,10 +158,7 @@ pub fn DataFrame::from_rows(
               @types.Scalar::Null => None
               other =>
                 raise @types.DataError::TypeMismatch(
-                  "column \"" +
-                  field.name() +
-                  "\" expects Bool, got " +
-                  other.dtype().to_string(),
+                  "column \"\{field.name()}\" expects Bool, got \{other.dtype()}",
                 )
             }
           }),
@@ -181,17 +172,14 @@ pub fn DataFrame::from_rows(
               @types.Scalar::Null => None
               other =>
                 raise @types.DataError::TypeMismatch(
-                  "column \"" +
-                  field.name() +
-                  "\" expects String, got " +
-                  other.dtype().to_string(),
+                  "column \"\{field.name()}\" expects String, got \{other.dtype()}",
                 )
             }
           }),
         )
       @types.DataType::Null =>
         raise @types.DataError::Unsupported(
-          "cannot build DataFrame column of dtype Null: " + field.name(),
+          "cannot build DataFrame column of dtype Null: \{field.name()}",
         )
     }
   })
@@ -381,7 +369,7 @@ pub fn DataFrame::slice(
   }
   if start > end {
     raise @types.DataError::InvalidOperation(
-      "slice start > end: " + start.to_string() + " > " + end.to_string(),
+      "slice start > end: \{start} > \{end}",
     )
   }
   // Bounds were already validated against `self.nrows`, which equals every

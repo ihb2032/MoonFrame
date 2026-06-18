@@ -351,7 +351,7 @@ fn BuiltinColumn::to_int(
             raise @types.DataError::ParseError("cannot cast Infinity to Int")
           } else if !@types.double_fits_int64(x) {
             raise @types.DataError::ParseError(
-              "Float value out of Int range: " + x.to_string(),
+              "Float value out of Int range: \{x}",
             )
           } else {
             x.to_int64()
@@ -374,7 +374,7 @@ fn BuiltinColumn::to_int(
             Some(n) => n
             None =>
               raise @types.DataError::ParseError(
-                "cannot parse Int from \"" + s + "\"",
+                "cannot parse Int from \"\{s}\"",
               )
           }
         },
@@ -418,7 +418,7 @@ fn BuiltinColumn::to_float(
             Some(x) => x
             None =>
               raise @types.DataError::ParseError(
-                "cannot parse Float from \"" + s + "\"",
+                "cannot parse Float from \"\{s}\"",
               )
           }
         },
@@ -463,7 +463,7 @@ pub fn BuiltinColumn::int_values(
     Int(a) => (a, self.validity)
     _ =>
       raise @types.DataError::TypeMismatch(
-        "expected Int column, got " + self.dtype().to_string(),
+        "expected Int column, got \{self.dtype()}",
       )
   }
 }
@@ -477,7 +477,7 @@ pub fn BuiltinColumn::float_values(
     Float(a) => (a, self.validity)
     _ =>
       raise @types.DataError::TypeMismatch(
-        "expected Float column, got " + self.dtype().to_string(),
+        "expected Float column, got \{self.dtype()}",
       )
   }
 }
@@ -491,7 +491,7 @@ pub fn BuiltinColumn::bool_values(
     Bool(a) => (a, self.validity)
     _ =>
       raise @types.DataError::TypeMismatch(
-        "expected Bool column, got " + self.dtype().to_string(),
+        "expected Bool column, got \{self.dtype()}",
       )
   }
 }
@@ -505,7 +505,7 @@ pub fn BuiltinColumn::string_values(
     String(a) => (a, self.validity)
     _ =>
       raise @types.DataError::TypeMismatch(
-        "expected String column, got " + self.dtype().to_string(),
+        "expected String column, got \{self.dtype()}",
       )
   }
 }

@@ -204,9 +204,7 @@ pub fn Bitmap::slice(
     raise @types.DataError::IndexOutOfBounds(start)
   }
   if length < 0 {
-    raise @types.DataError::InvalidOperation(
-      "slice length < 0: " + length.to_string(),
-    )
+    raise @types.DataError::InvalidOperation("slice length < 0: \{length}")
   }
   if start + length > self.len {
     raise @types.DataError::IndexOutOfBounds(start + length)

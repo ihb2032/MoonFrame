@@ -270,12 +270,7 @@ fn binary_type_mismatch_msg(
   left : Series,
   right : Series,
 ) -> String {
-  "cannot " +
-  verb +
-  " " +
-  left.dtype().to_string() +
-  " and " +
-  right.dtype().to_string()
+  "cannot \{verb} \{left.dtype()} and \{right.dtype()}"
 }
 
 ///|
@@ -549,12 +544,7 @@ fn eval_logic(
       )
     (_, _) =>
       raise @types.DataError::TypeMismatch(
-        "logical '" +
-        verb +
-        "' requires Bool operands, got " +
-        left.dtype().to_string() +
-        " and " +
-        right.dtype().to_string(),
+        "logical '\{verb}' requires Bool operands, got \{left.dtype()} and \{right.dtype()}",
       )
   }
 }
@@ -616,9 +606,7 @@ fn eval_neg(operand : Series) -> Series raise @types.DataError {
         map_present(a.length(), valid, i => -a[i]),
       )
     _ =>
-      raise @types.DataError::TypeMismatch(
-        "cannot negate " + operand.dtype().to_string(),
-      )
+      raise @types.DataError::TypeMismatch("cannot negate \{operand.dtype()}")
   }
   try_column_to_numeric(out)
 }
@@ -646,12 +634,12 @@ fn eval_is_nan(
         operand.name(),
         map_present(a.length(), valid, _ => !want_nan),
       )
-    _ =>
+    _ => {
+      let probe = if want_nan { "is_nan" } else { "is_not_nan" }
       raise @types.DataError::TypeMismatch(
-        (if want_nan { "is_nan" } else { "is_not_nan" }) +
-        " requires a numeric operand, got " +
-        operand.dtype().to_string(),
+        "\{probe} requires a numeric operand, got \{operand.dtype()}",
       )
+    }
   }
 }
 
@@ -668,8 +656,7 @@ fn eval_not(operand : Series) -> Series raise @types.DataError {
       )
     _ =>
       raise @types.DataError::TypeMismatch(
-        "logical 'not' requires a Bool operand, got " +
-        operand.dtype().to_string(),
+        "logical 'not' requires a Bool operand, got \{operand.dtype()}",
       )
   }
 }
@@ -694,8 +681,7 @@ fn eval_str(
     @column.ColumnData::String(a) => a
     _ =>
       raise @types.DataError::TypeMismatch(
-        "string operation requires a String operand, got " +
-        operand.dtype().to_string(),
+        "string operation requires a String operand, got \{operand.dtype()}",
       )
   }
   let valid = validity_bools(operand.storage())
@@ -852,7 +838,7 @@ fn eval_ternary(
     @column.ColumnData::Bool(a) => a
     _ =>
       raise @types.DataError::TypeMismatch(
-        "when condition must be Bool, got " + c2.dtype().to_string(),
+        "when condition must be Bool, got \{c2.dtype()}",
       )
   }
   let cv = validity_bools(c2.storage())
@@ -921,10 +907,7 @@ fn eval_ternary(
       )
     (_, _) =>
       raise @types.DataError::TypeMismatch(
-        "when/then/otherwise branches do not unify: " +
-        t2.dtype().to_string() +
-        " and " +
-        e2.dtype().to_string(),
+        "when/then/otherwise branches do not unify: \{t2.dtype()} and \{e2.dtype()}",
       )
   }
   try_column_to_numeric(out)

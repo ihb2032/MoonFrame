@@ -524,8 +524,7 @@ pub fn Series::fill_null(
         }
         _ =>
           raise @types.DataError::TypeMismatch(
-            "fill_null type Int does not match column type " +
-            self.dtype().to_string(),
+            "fill_null type Int does not match column type \{self.dtype()}",
           )
       }
     @types.Scalar::Float(v) =>
@@ -539,8 +538,7 @@ pub fn Series::fill_null(
         }
         _ =>
           raise @types.DataError::TypeMismatch(
-            "fill_null type Float does not match column type " +
-            self.dtype().to_string(),
+            "fill_null type Float does not match column type \{self.dtype()}",
           )
       }
     @types.Scalar::Bool(v) =>
@@ -554,8 +552,7 @@ pub fn Series::fill_null(
         }
         _ =>
           raise @types.DataError::TypeMismatch(
-            "fill_null type Bool does not match column type " +
-            self.dtype().to_string(),
+            "fill_null type Bool does not match column type \{self.dtype()}",
           )
       }
     @types.Scalar::String(v) =>
@@ -569,8 +566,7 @@ pub fn Series::fill_null(
         }
         _ =>
           raise @types.DataError::TypeMismatch(
-            "fill_null type String does not match column type " +
-            self.dtype().to_string(),
+            "fill_null type String does not match column type \{self.dtype()}",
           )
       }
   }

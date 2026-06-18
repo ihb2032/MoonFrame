@@ -214,7 +214,7 @@ pub fn NumericColumn::int_values(
     Int(a) => (a, Bitmap::all_valid(a.length()))
     _ =>
       raise @types.DataError::TypeMismatch(
-        "expected Int column, got " + self.dtype().to_string(),
+        "expected Int column, got \{self.dtype()}",
       )
   }
 }
@@ -229,7 +229,7 @@ pub fn NumericColumn::float_values(
     Float(a) => (a, Bitmap::all_valid(a.length()))
     _ =>
       raise @types.DataError::TypeMismatch(
-        "expected Float column, got " + self.dtype().to_string(),
+        "expected Float column, got \{self.dtype()}",
       )
   }
 }
@@ -242,7 +242,7 @@ pub fn NumericColumn::bool_values(
   self : NumericColumn,
 ) -> (Array[Bool], Bitmap) raise @types.DataError {
   raise @types.DataError::TypeMismatch(
-    "expected Bool column, got " + self.dtype().to_string(),
+    "expected Bool column, got \{self.dtype()}",
   )
 }
 
@@ -253,7 +253,7 @@ pub fn NumericColumn::string_values(
   self : NumericColumn,
 ) -> (Array[String], Bitmap) raise @types.DataError {
   raise @types.DataError::TypeMismatch(
-    "expected String column, got " + self.dtype().to_string(),
+    "expected String column, got \{self.dtype()}",
   )
 }
 

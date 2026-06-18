@@ -30,7 +30,7 @@ fn validate_slice_bounds(
   }
   if start > end {
     raise @types.DataError::InvalidOperation(
-      "slice start > end: " + start.to_string() + " > " + end.to_string(),
+      "slice start > end: \{start} > \{end}",
     )
   }
 }

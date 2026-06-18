@@ -339,13 +339,16 @@ pub fn DataFrame::join(
 /// - `InvalidOperation(detail)` — no keys at all, both `on` and
 ///   `left_on` / `right_on` given, or `left_on` / `right_on` of unequal
 ///   length (all via `join_key_exprs`).
-/// - `DuplicateColumn(name)` — a bare `col(name)` key is repeated. Reported
-///   at the repeat, in key order, mirroring `group_by`'s key-list contract (a
-///   repeated bare key would otherwise be silently redundant). Only bare-`col`
-///   keys are checked: derived keys contribute no output column, so two
-///   distinct derived keys sharing a leftmost name are different keys, not a
-///   collision. Checked before that key is evaluated, so a *missing* repeated
-///   key still surfaces as `ColumnNotFound` at its first appearance.
+/// - `DuplicateColumn(name)` — a bare `col(name)` key is repeated on an `on`
+///   join. Reported at the repeat, in key order, mirroring `group_by`'s
+///   key-list contract (a repeated bare `on` key would otherwise be silently
+///   redundant). A `left_on` / `right_on` join does *not* check this — a
+///   repeated left key is a valid multi-condition join (`a == b AND a == c`).
+///   Only bare-`col` keys are checked: derived keys contribute no output
+///   column, so two distinct derived keys sharing a leftmost name are different
+///   keys, not a collision. Checked before that key is evaluated, so a
+///   *missing* repeated key still surfaces as `ColumnNotFound` at its first
+///   appearance.
 /// - `ColumnNotFound(name)` — a key expression references an absent column,
 ///   first offending key in key order (the left key evaluated before the
 ///   right).
@@ -369,20 +372,26 @@ fn resolve_join_keys(
   let left_key_scalars : Array[Array[@types.Scalar]] = []
   let right_key_scalars : Array[Array[@types.Scalar]] = []
   // The running `seen` set raises `DuplicateColumn` at a bare-`col` key
-  // repeated by name — before that key is evaluated a second time — so `join`
-  // matches `group_by`'s "no duplicate keys" contract instead of silently
-  // treating two equal keys as one. Only a bare `col(name)` participates: a
-  // *derived* key (any non-`Col` expression) contributes no output column —
-  // the output is the two frames' own columns, never the key expressions —
-  // so two distinct derived keys that share a leftmost-column name
-  // (`col("ts") / day` and `col("ts") % day`) are legitimately different keys
-  // and must not collide. Checked before evaluation, so a *missing* repeated
-  // key still surfaces as `ColumnNotFound` at its first appearance (its own
-  // evaluation fails before the repeat is reached).
+  // repeated by name — before that key is evaluated a second time — so an `on`
+  // join matches `group_by`'s "no duplicate keys" contract instead of silently
+  // treating two equal keys as one. This applies to `on` only (`dedup`): with
+  // `left_on` / `right_on`, a repeated *left* key is a legitimate
+  // multi-condition join (`left_on([a, a]).right_on([b, c])` means `a == b AND
+  // a == c`, which Polars allows) — the left and right key columns carry their
+  // own names, so there is no output-column collision to pre-empt. Only a bare
+  // `col(name)` participates even on the `on` path: a *derived* key (any
+  // non-`Col` expression) contributes no output column — the output is the two
+  // frames' own columns, never the key expressions — so two distinct derived
+  // keys that share a leftmost-column name (`col("ts") / day` and
+  // `col("ts") % day`) are legitimately different keys and must not collide.
+  // Checked before evaluation, so a *missing* repeated key still surfaces as
+  // `ColumnNotFound` at its first appearance (its own evaluation fails before
+  // the repeat is reached).
+  let dedup = options.left_on.is_empty()
   let seen : Map[String, Unit] = {}
   for i in 0..<left_exprs.length() {
     let name = expr_output_name(left_exprs[i])
-    if left_exprs[i] is @expr.Expr::Col(_) {
+    if dedup && left_exprs[i] is @expr.Expr::Col(_) {
       if seen.contains(name) {
         raise @types.DataError::DuplicateColumn(name)
       }

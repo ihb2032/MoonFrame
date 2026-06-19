@@ -104,10 +104,7 @@ fn collect_columns(expr : Expr, acc : @set.Set[String]) -> Unit {
 /// defined name need not exist in the stage's input, so pruning must not
 /// require it there. Total — naming walks plain data.
 pub fn Expr::output_name(self : Expr) -> String {
-  match leftmost_name(self) {
-    Some(name) => name
-    None => "literal"
-  }
+  leftmost_name(self).unwrap_or("literal")
 }
 
 ///|

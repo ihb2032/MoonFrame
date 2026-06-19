@@ -315,7 +315,8 @@ fn bit_at(bytes : Bytes, i : Int) -> Bool {
 /// identical across wasm / wasm-gc / js / native. Backs `null_count`'s
 /// byte-at-a-time valid-bit count.
 fn popcount_byte(b : Byte) -> Int {
-  let mut x = b.to_int() & 0xff
+  // `b` is a Byte, so `to_int()` is already in 0..=255 — masking is a no-op.
+  let mut x = b.to_int()
   x = x - ((x >> 1) & 0x55)
   x = (x & 0x33) + ((x >> 2) & 0x33)
   (x + (x >> 4)) & 0x0f

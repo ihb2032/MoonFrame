@@ -347,10 +347,11 @@ pub fn ColumnStorage::to_numeric(
 ) -> ColumnStorage raise @types.DataError {
   match self {
     Numeric(_) => self
-    Builtin(c) =>
-      if c.null_count() > 0 {
+    Builtin(c) => {
+      let nulls = c.null_count()
+      if nulls > 0 {
         raise @types.DataError::InvalidOperation(
-          "cannot convert a column with nulls to Numeric (null_count=\{c.null_count()})",
+          "cannot convert a column with nulls to Numeric (null_count=\{nulls})",
         )
       } else {
         match c.data() {
@@ -362,5 +363,6 @@ pub fn ColumnStorage::to_numeric(
             )
         }
       }
+    }
   }
 }

@@ -48,10 +48,10 @@ breaks (v0.2 → v0.3) — are collected in [`migration.md`](migration.md).
 
 ## `types` — Value types and errors
 
-- `suberror DataError` — `pub(all) suberror` with 10 variants:
+- `suberror DataError` — `pub(all) suberror` with 9 variants:
   `ColumnNotFound` / `DuplicateColumn` / `TypeMismatch` / `LengthMismatch` /
   `IndexOutOfBounds` / `ParseError` / `InvalidOperation` / `IoError` /
-  `EmptyDataFrame` / `Unsupported`. As a `suberror` it is both raised
+  `Unsupported`. As a `suberror` it is both raised
   (`raise ColumnNotFound("age")`) and recovered (`try? expr` →
   `Result[_, DataError]`); `pub(all)` lets callers construct and match
   variants. `DataError::message()` renders a human-readable description;

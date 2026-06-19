@@ -32,7 +32,6 @@ test "DataError::message covers every variant" {
     DataError::IoError("file not found").message(),
     content="I/O error: file not found",
   )
-  inspect(DataError::EmptyDataFrame.message(), content="DataFrame is empty")
   inspect(
     DataError::Unsupported("Arrow backend").message(),
     content="Unsupported: Arrow backend",
@@ -46,7 +45,7 @@ test "DataError equality is structural" {
     DataError::ColumnNotFound("age"),
     DataError::ColumnNotFound("name"),
   )
-  assert_not_eq(DataError::LengthMismatch, DataError::EmptyDataFrame)
+  assert_not_eq(DataError::LengthMismatch, DataError::IndexOutOfBounds(0))
   assert_eq(DataError::IndexOutOfBounds(5), DataError::IndexOutOfBounds(5))
 }
 
@@ -76,7 +75,6 @@ test "DataError Show covers every remaining variant" {
     DataError::IoError("file not found"),
     content="IoError(\"file not found\")",
   )
-  inspect(DataError::EmptyDataFrame, content="EmptyDataFrame")
   inspect(
     DataError::Unsupported("Arrow backend"),
     content="Unsupported(\"Arrow backend\")",

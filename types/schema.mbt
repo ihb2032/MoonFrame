@@ -59,10 +59,7 @@ pub fn Schema::index_of(self : Schema, name : String) -> Int raise DataError {
 ///|
 /// Return the `Field` for `name`, or `raise ColumnNotFound(name)`.
 pub fn Schema::field(self : Schema, name : String) -> Field raise DataError {
-  match self.fields.search_by(f => f.name == name) {
-    Some(i) => self.fields[i]
-    None => raise ColumnNotFound(name)
-  }
+  self.fields[self.index_of(name)]
 }
 
 ///|

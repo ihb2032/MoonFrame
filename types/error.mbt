@@ -9,7 +9,6 @@ pub(all) suberror DataError {
   ParseError(String)
   InvalidOperation(String)
   IoError(String)
-  EmptyDataFrame
   Unsupported(String)
 } derive(Eq, Debug)
 
@@ -25,7 +24,6 @@ pub fn DataError::message(self : DataError) -> String {
     ParseError(detail) => "Parse error: \{detail}"
     InvalidOperation(detail) => "Invalid operation: \{detail}"
     IoError(detail) => "I/O error: \{detail}"
-    EmptyDataFrame => "DataFrame is empty"
     Unsupported(detail) => "Unsupported: \{detail}"
   }
 }
@@ -49,7 +47,6 @@ pub impl Show for DataError with fn output(self, logger) {
       logger.write_string("InvalidOperation(\"\{escape_debug(detail)}\")")
     IoError(detail) =>
       logger.write_string("IoError(\"\{escape_debug(detail)}\")")
-    EmptyDataFrame => logger.write_string("EmptyDataFrame")
     Unsupported(detail) =>
       logger.write_string("Unsupported(\"\{escape_debug(detail)}\")")
   }

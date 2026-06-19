@@ -241,10 +241,10 @@ pub fn Bitmap::take(
 }
 
 ///|
-/// Bitwise AND across two bitmaps of the same logical length. Used by
-/// multi-column filter pipelines to merge per-column null masks. Named
-/// `bit_and` because `and` is a reserved keyword in MoonBit.
-/// `LengthMismatch` if the lengths differ.
+/// Bitwise AND across two bitmaps of the same logical length — a public
+/// utility for combining two validity masks into one. Named `bit_and`
+/// because `and` is a reserved keyword in MoonBit. Raises `LengthMismatch`
+/// if the lengths differ.
 pub fn Bitmap::bit_and(
   self : Bitmap,
   other : Bitmap,

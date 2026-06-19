@@ -983,8 +983,9 @@ fn eval_map(
   // whose every result cell is null) still resolves to `None` and raises
   // `Unsupported` below — that genuinely has no representable dtype, like a
   // `Null` literal.
-  let probe = match infer_map_dtype(cells) {
-    Some(p) => Some(p)
+  let inferred = infer_map_dtype(cells)
+  let probe = match inferred {
+    Some(_) => inferred
     None =>
       if cells.is_empty() {
         evaluated.get(0).map(lead => lead.storage().data())

@@ -37,11 +37,13 @@
 /// all-null group sums to the additive identity and means to a null
 /// cell, `count` counts non-null cells. Dtype errors (`ColumnNotFound`,
 /// `TypeMismatch`) surface from a probe evaluation under the empty scope
-/// *before* any per-group work — dtype rules are scope-independent — and
-/// the probe also fixes the output dtype when a 0-row source produced
-/// zero groups. Computed columns follow the expression-engine backend
-/// convention: an all-valid numeric column converges onto `Numeric`,
-/// anything nullable (or `Bool` / `String`) stays `Builtin`.
+/// *before* any per-group work; the output dtype is then taken from the
+/// reduced cells themselves, since a `map(...)` closure's result dtype is
+/// scope-dependent — the empty-scope probe is only a fallback that types a
+/// zero-group or all-null result. Computed columns follow the
+/// expression-engine backend convention: an all-valid numeric column
+/// converges onto `Numeric`, anything nullable (or `Bool` / `String`) stays
+/// `Builtin`.
 ///
 /// An aggregation directly over a bare column — `col(name).sum()` and the
 /// four other reductions, the common case once aliases are peeled — takes a
@@ -76,12 +78,13 @@ pub fn GroupedDataFrame::agg(
   }
   for expr in exprs {
     let out_name = expr_output_name(expr)
-    // `(probe, cells)`: the `ColumnData` fixing the output dtype (so a
-    // zero-group result still types) plus one reduced `Scalar` per group, in
-    // group order. Both branches feed the same `scalars_to_series`, which
-    // converges an all-valid numeric result onto `Numeric`, so the fast path
-    // is cell-for-cell *and backend* identical to the general one — it only
-    // changes how the cells are computed.
+    // `(probe, cells)`: a fallback `ColumnData` that types the column only
+    // when the cells carry no dtype of their own (zero groups, or an all-null
+    // result), plus one reduced `Scalar` per group in group order. Both
+    // branches feed `agg_cells_to_series`, which types the column from the
+    // cells themselves and converges an all-valid numeric result onto
+    // `Numeric`, so the fast path is cell-for-cell *and backend* identical to
+    // the general one — it only changes how the cells are computed.
     let (probe, cells) = match bare_col_agg(expr) {
       // Fast path: an aggregation over a bare column, `col(name).<agg>()`.
       // Resolve the reducer and validity mask once through the shared kernel
@@ -99,10 +102,10 @@ pub fn GroupedDataFrame::agg(
       // General path: a derived or compound reduction such as
       // `(col("a") - col("b")).sum()` or `col("x").max() - col("x").min()`.
       // The shape gate rejects non-reductions first; the empty-scope probe
-      // then surfaces `ColumnNotFound` / `TypeMismatch` once and pins the
-      // output dtype even when a 0-row source produced zero groups; each group
-      // is evaluated through the general engine and its length-1 result read
-      // off the total `to_scalars` by plain index.
+      // then surfaces `ColumnNotFound` / `TypeMismatch` once and supplies the
+      // fallback dtype for a zero-group or all-null result; each group is
+      // evaluated through the general engine and its length-1 result read off
+      // the total `to_scalars` by plain index.
       None => {
         if !reduces_per_group(expr) {
           raise @types.DataError::InvalidOperation(
@@ -116,7 +119,7 @@ pub fn GroupedDataFrame::agg(
         )
       }
     }
-    out_cols.push(scalars_to_series(probe, out_name, cells))
+    out_cols.push(agg_cells_to_series(cells, probe, out_name))
   }
   DataFrame::new(out_cols)
 }
@@ -166,4 +169,28 @@ fn bare_col_agg(expr : @expr.Expr) -> (String, ReduceOp)? {
       Some((name, reduce_op_of_agg(op)))
     _ => None
   }
+}
+
+///|
+/// Build one aggregated output column from the reduced cells — one `Scalar`
+/// per group, in group order. The dtype comes from the cells themselves: a
+/// mixed `Int`/`Float` result promotes to `Float` (the arithmetic engine's
+/// rule), the first non-null cell then fixes the variant, and an all-valid
+/// numeric result converges onto `Numeric`. So a `map(...)`-wrapped reduction
+/// whose closure returns a dtype other than its input column's is typed by
+/// what it actually produced — not by the empty-scope `fallback` probe, which
+/// never ran the closure. The `fallback` types only the cases the cells
+/// cannot: zero groups, or an all-null result (e.g. `mean` over all-null
+/// groups), where the reduction's own declared dtype is the right witness.
+fn agg_cells_to_series(
+  cells : Array[@types.Scalar],
+  fallback : @column.ColumnData,
+  name : String,
+) -> Series {
+  let cells = promote_mixed_int_float(cells)
+  let probe = match infer_cells_dtype(cells) {
+    Some(p) => p
+    None => fallback
+  }
+  scalars_to_series(probe, name, cells)
 }

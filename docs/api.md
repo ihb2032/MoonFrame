@@ -30,8 +30,8 @@ function with signature `... -> T raise DataError`. There is no
 - **Handle inline** with `try expr catch { e => ... }`.
 
 Provably-total operations (`head` / `tail` / `Series::min` /
-`drop_nulls` / `to_markdown` / `to_html` / the inspection accessors / …)
-return their value directly and never raise.
+`Series::drop_nulls` / `to_markdown` / `to_html` / the inspection accessors
+/ …) return their value directly and never raise.
 
 The one deliberate exception is `DataFrame::check_invariants()`, which
 keeps its `Result[Unit, String]` shape — it is a verification /
@@ -1186,14 +1186,15 @@ names them).
   `JoinOptions` · `HtmlOptions`
 - From `@io`: `CsvReadOptions` · `CsvWriteOptions` · `JsonReadOptions` ·
   `NdjsonReadOptions` · `OnParseError` · `ChartKind` · `ChartSpec` ·
-  `format_csv_str` ·
+  `VegaType` · `format_csv_str` ·
   `format_json_records` · `format_ndjson` · `format_vega_lite` ·
   `parse_csv_str` · `parse_json_records_str` · `parse_ndjson_str` ·
   `read_csv` · `read_csv_with_options` · `read_json` ·
   `read_json_with_options` · `read_ndjson` · `read_ndjson_with_options` ·
   `write_csv` · `write_csv_with_options` · `write_json_records` ·
   `write_ndjson` · `write_vega_lite`
-- From `@lazy`: `LazyFrame` · `LazyGroupBy` · `lazy_frame`
+- From `@lazy`: `LazyFrame` · `LazyGroupBy` · `lazy_frame` · `scan_csv` ·
+  `scan_csv_with_options` · `scan_ndjson` · `scan_ndjson_with_options`
 
 `using @pkg { type T }` also creates constructor aliases, so
 `@moonframe.Scalar::Int(42)`, `@moonframe.SortOrder::Desc`,

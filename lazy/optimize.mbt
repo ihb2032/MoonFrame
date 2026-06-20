@@ -233,7 +233,7 @@ fn place_filter(input : LogicalPlan, predicate : @expr.Expr) -> LogicalPlan {
     Aggregate(inner, keys, exprs) =>
       if row_stable(predicate) &&
         all_row_stable(keys) &&
-        reads_only_keys(predicate, keys) &&
+        reads_only_bare_columns(predicate, keys) &&
         division_free(predicate) &&
         all_group_cells_stable(exprs) {
         Aggregate(place_filter(inner, predicate), keys, exprs)
@@ -393,13 +393,17 @@ fn all_group_cells_stable(exprs : Array[@expr.Expr]) -> Bool {
 }
 
 ///|
-/// Whether every column the predicate reads appears in the selection as
-/// a *bare* `col(name)` — the pass-through that guarantees the predicate
-/// sees identical values below the stage, and that a column the
-/// selection does not output stays missing for the predicate on both
-/// sides of the swap. A computed or renamed occurrence does not count,
-/// even under the same output name: its values are the stage's, not the
-/// input's. Vacuously true for a column-less (all-literal) predicate.
+/// Whether every column the predicate reads appears in `exprs` as a
+/// *bare* `col(name)` — the pass-through test shared by the `Select`
+/// (projection list) and `Aggregate` (key list) crossing rules. A bare
+/// `col(name)` re-emits its input column verbatim, so the predicate sees
+/// identical values below the stage, and a column the stage does not
+/// output stays missing on both sides of the swap. A computed or renamed
+/// occurrence does not count, even under the same output name: its values
+/// are the stage's, not the input's. A *derived* key (any non-`Col`
+/// expression) likewise fails the test — its output name need not exist in
+/// the input at all. Vacuously true for a column-less (all-literal)
+/// predicate.
 fn reads_only_bare_columns(
   predicate : @expr.Expr,
   exprs : Array[@expr.Expr],
@@ -455,26 +459,6 @@ fn defines_none_of(exprs : Array[@expr.Expr], predicate : @expr.Expr) -> Bool {
   let refs = predicate.referenced_columns()
   for expr in exprs {
     if refs.contains(expr.output_name()) {
-      return false
-    }
-  }
-  true
-}
-
-///|
-/// Whether the predicate reads *bare-column* group keys only — the
-/// `Aggregate` crossing rule. A key written as a bare `col(name)` produces
-/// an output column whose cells are its input column `name` verbatim, row
-/// for row across each group, so a predicate over it sees identical values
-/// below the stage. A *derived* key (any non-`Col` expression) outputs a
-/// computed column whose name need not exist in the input at all, so a
-/// predicate over it could not be evaluated below — it must stay above.
-/// Aggregation outputs, and names that exist nowhere, likewise keep the
-/// filter above. Reuses `has_bare_column`, the same bare-pass-through test
-/// the `Select` crossing rule applies to its projection list.
-fn reads_only_keys(predicate : @expr.Expr, keys : Array[@expr.Expr]) -> Bool {
-  for name in predicate.referenced_columns() {
-    if !has_bare_column(keys, name) {
       return false
     }
   }

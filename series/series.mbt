@@ -512,7 +512,7 @@ pub fn Series::fill_null(
   self : Series,
   value : @types.Scalar,
 ) -> Series raise @types.DataError {
-  let valid = self.storage.validity().to_bools()
+  let valid = validity_bools(self.storage)
   let filled = match value {
     @types.Scalar::Null =>
       raise @types.DataError::TypeMismatch("cannot fill nulls with Null")

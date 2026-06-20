@@ -10,6 +10,8 @@ pub fn compare_string_lex(String, String) -> Int
 
 pub fn double_fits_int64(Double) -> Bool
 
+pub fn escape_debug(String) -> String
+
 pub fn[T] fold_extremum(Int, (Int) -> T, (Int) -> Bool, (T, T) -> Bool) -> T?
 
 pub fn is_decimal_int_literal(String) -> Bool

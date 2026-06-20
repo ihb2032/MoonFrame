@@ -1,6 +1,9 @@
 // Debug-rendering helper shared by the handwritten `Show` impls in this
 // package (`Scalar`, `DataError`, and `Field` — and through `Field`, the
-// `Schema`). Those impls wrap a string payload in double quotes
+// `Schema`) and, as a `pub` cross-package helper, by the `@expr` and
+// `@lazy` plan renderers (`explain`), which escape column names, string
+// literals, and file-source paths the same way. The `Show` impls wrap a
+// string payload in double quotes
 // (`String("ab")`, `ColumnNotFound("age")`, `Field { name: "age", ... }`),
 // so a payload that itself contains a `"` or `\` would otherwise render
 // ambiguously and non-round-trippably (`String("a"b")`). Escaping `\`, `"`,
@@ -27,7 +30,7 @@
 /// than raw 8-bit controls.) A single forward pass, so a backslash introduced
 /// here is never itself re-escaped. Total — pure string assembly, no failure
 /// path.
-fn escape_debug(s : String) -> String {
+pub fn escape_debug(s : String) -> String {
   let buf = StringBuilder::new()
   for ch in s.iter() {
     match ch {

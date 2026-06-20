@@ -957,23 +957,11 @@ fn eval_map(
     cells.push(f(Array::makei(width, k => columns[k][i])))
   }
   let name = if evaluated.is_empty() { "literal" } else { evaluated[0].name() }
-  // The engine promotes Int <-> Float (eval_arith / eval_ternary); a closure
-  // that returns a mix of Int and Float unifies to Float here too — the Int
-  // cells are promoted rather than nulled as the minority type by the raw
-  // first-cell-dtype projection below. Other dtype mixes keep the first
-  // non-null dtype (a mismatched cell stays null), unchanged.
-  let cells = if map_mixes_int_and_float(cells) {
-    cells.map(c => {
-      match c {
-        @types.Scalar::Int(v) => @types.Scalar::Float(v.to_double())
-        _ => c
-      }
-    })
-  } else {
-    cells
-  }
+  // A closure returning a mix of `Int` and `Float` unifies to `Float`, as the
+  // arithmetic engine does, rather than nulling the minority type.
+  let cells = promote_mixed_int_float(cells)
   // An empty scope (a 0-row frame with a column input) calls the closure zero
-  // times, so `infer_map_dtype` sees no cell. Rather than raise — which would
+  // times, so `infer_cells_dtype` sees no cell. Rather than raise — which would
   // make `map` the one expression that cannot survive an empty frame, breaking
   // with_columns / select / filter whenever the frame happens to be empty —
   // fall back to the leftmost input's own column backend as the dtype witness
@@ -983,7 +971,7 @@ fn eval_map(
   // whose every result cell is null) still resolves to `None` and raises
   // `Unsupported` below — that genuinely has no representable dtype, like a
   // `Null` literal.
-  let inferred = infer_map_dtype(cells)
+  let inferred = infer_cells_dtype(cells)
   let probe = match inferred {
     Some(_) => inferred
     None =>
@@ -1003,10 +991,12 @@ fn eval_map(
 }
 
 ///|
-/// The output-column probe for a map result: the first non-null cell fixes
-/// the dtype (`Int` / `Float` / `Bool` / `String`); an all-null or empty
-/// cell list yields `None`, which `eval_map` turns into `Unsupported`.
-fn infer_map_dtype(cells : Array[@types.Scalar]) -> @column.ColumnData? {
+/// The output-column dtype probe for a list of result cells: the first
+/// non-null cell fixes the dtype (`Int` / `Float` / `Bool` / `String`); an
+/// all-null or empty cell list yields `None`. Shared by the `Map` evaluator
+/// (which turns `None` into `Unsupported`) and grouped `agg` (which falls back
+/// to the reduction's empty-scope probe).
+fn infer_cells_dtype(cells : Array[@types.Scalar]) -> @column.ColumnData? {
   for cell in cells {
     match cell {
       @types.Scalar::Int(_) => return Some(@column.ColumnData::Int([]))
@@ -1035,6 +1025,27 @@ fn map_mixes_int_and_float(cells : Array[@types.Scalar]) -> Bool {
     }
   }
   has_int && has_float
+}
+
+///|
+/// Promote a mixed `Int`/`Float` cell list to all-`Float` — the engine's
+/// `Int -> Float` unification (as in `eval_arith` / `eval_ternary`) — so the
+/// minority type is promoted rather than nulled by the first-non-null-cell
+/// projection in `infer_cells_dtype`. A mix involving `Bool` / `String` never
+/// promotes and is returned unchanged.
+fn promote_mixed_int_float(
+  cells : Array[@types.Scalar],
+) -> Array[@types.Scalar] {
+  if map_mixes_int_and_float(cells) {
+    cells.map(c => {
+      match c {
+        @types.Scalar::Int(v) => @types.Scalar::Float(v.to_double())
+        _ => c
+      }
+    })
+  } else {
+    cells
+  }
 }
 
 ///|

@@ -371,7 +371,7 @@ test "a zero-row frame aggregates to zero groups with correctly typed columns" {
       @expr.col("v").sum().with_alias("s"),
       @expr.col("v").mean().with_alias("m"),
     ])
-  // Zero groups, yet the probe evaluation still pins each output dtype.
+  // Zero groups: the empty-scope fallback probe types each output column.
   assert_eq(out.shape(), (0, 3))
   assert_eq(out.get_column("k").dtype(), @types.DataType::String)
   assert_eq(out.get_column("s").dtype(), @types.DataType::Int)
@@ -510,4 +510,55 @@ test "output name collisions raise DuplicateColumn via DataFrame::new" {
     },
     Err(@types.DataError::ColumnNotFound("zzz")),
   )
+}
+
+///|
+/// A `map(...)`-wrapped reduction is typed by the closure's result dtype, not
+/// by its input column's. Regression: the general agg path used to type the
+/// output column from an empty-scope probe, which never runs the closure and
+/// so mirrored the `Int` input dtype — nulling every `Float` group cell.
+test "grouped agg of a map-wrapped reduction types by the closure result" {
+  let half = @expr.col("revenue").map_elements(label="half", s => {
+    @types.Scalar::Float(s.as_int().to_double() / 2.0)
+  })
+  let out = agg_expr_df()
+    .group_by([@expr.col("region")])
+    .agg([half.sum().with_alias("half_sum"), half.min().with_alias("half_min")])
+  assert_eq(out.check_invariants(), Ok(()))
+  // west = revenue 10/30/50 -> halves 5/15/25; east = 20/40 -> 10/20.
+  assert_eq(out.get_column("half_sum").dtype(), @types.DataType::Float)
+  assert_eq(out.get_column("half_sum").to_scalars(), [
+    @types.Scalar::Float(45.0),
+    @types.Scalar::Float(30.0),
+  ])
+  assert_eq(out.get_column("half_min").to_scalars(), [
+    @types.Scalar::Float(5.0),
+    @types.Scalar::Float(10.0),
+  ])
+  // An all-valid numeric aggregated column rides the `Numeric` backend, like
+  // the engine's other computed columns.
+  assert_eq(
+    out.get_column("half_sum").storage_kind(),
+    @column.StorageKind::Numeric,
+  )
+}
+
+///|
+/// The same holds for a non-numeric closure result: a `map(...)` returning
+/// `String`, reduced per group, keeps the `String` dtype rather than being
+/// nulled against the `Int` input probe.
+test "grouped agg of a map-wrapped reduction keeps a non-numeric result dtype" {
+  let tag = @expr.col("revenue").map_elements(label="tag", s => {
+    @types.Scalar::String("r\{s.as_int()}")
+  })
+  let out = agg_expr_df()
+    .group_by([@expr.col("region")])
+    .agg([tag.first().with_alias("first_tag")])
+  assert_eq(out.get_column("first_tag").dtype(), @types.DataType::String)
+  // First row per group: west = revenue 10, east = revenue 20.
+  assert_eq(out.get_column("first_tag").to_scalars(), [
+    @types.Scalar::String("r10"),
+    @types.Scalar::String("r20"),
+  ])
+  assert_eq(out.check_invariants(), Ok(()))
 }

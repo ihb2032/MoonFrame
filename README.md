@@ -221,16 +221,20 @@ moon run examples/expressions       # with_columns → filter → agg → lazy +
 
 ## Status
 
-**v0.4 — shipped:** a Polars-style expression engine (`Expr` with operators,
-methods, and `when / then / otherwise`) feeding `with_columns` / `filter`
-/ `agg`, plus a lazy query layer (`lazy_frame(df)` → `explain` →
-`collect`) with a predicate- and projection-pushdown optimizer — all purely
-additive on top of v0.3's output formats, full join matrix, read resilience,
-and pluggable column storage. **Next (v0.5):** splitting `Series` into its own
-package, lazy CSV scanning, and more expression families (window / string /
-datetime). See the [changelog](docs/changelog.md) for the full version history
-and [`docs/migration.md`](docs/migration.md) for upgrade steps (v0.3 → v0.4 is
-additive — nothing to change).
+**v0.5 — shipped:** the eager and lazy surfaces converge onto a single,
+Polars-shaped expression engine. The four verbs (`select` / `filter` / `agg` /
+`with_columns`) and the `sort` / `group_by` / `join` / `drop` keys all take
+`Expr`s; the per-type `*_join` methods collapse into one `join`; the rich
+`RowView` gives way to `df.row(i)` / `rows()`; `Series` moves into its own
+package; and the vocabulary widens — `std` / `variance` / `median` / `n_unique`
+/ `first` / `last` aggregations, a `str_*` string namespace, `fill_null` on the
+expression layer, lazy `scan_csv` / `scan_ndjson` sources, and `df.unique()`.
+This is the **last breaking release** — from v0.6 on the surface only grows.
+**Next (v0.6, additive):** more expression families (arithmetic like `pow` /
+`floor_div`, more string ops), predicate pushdown and streaming for lazy file
+scans, and `unique` `subset` / `keep` options. See the
+[changelog](docs/changelog.md) for the full version history and
+[`docs/migration.md`](docs/migration.md) for upgrade steps.
 
 ## Contributing
 

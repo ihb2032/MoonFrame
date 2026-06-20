@@ -49,6 +49,9 @@ missing, by the tuple's `NullOrder` (the v0.2 choice).
   value is any `Expr` — a literal, another column for a coalesce, or a tree),
   plus a whole-frame `df.fill_null(value)`. The old per-column frame method is
   removed.
+- **NaN probes and `fill_nan`**: the `is_nan` / `is_not_nan` tests and
+  `fill_nan(value)`, the dual of `fill_null` that replaces a `Float` `NaN`
+  (a value, distinct from a missing `null`) while leaving nulls in place.
 - **`lit_series`** embeds a `Series` as a (broadcasting) expression, and
   **`cols(["a", "b"])`** expands names to `col` expressions.
 
@@ -92,6 +95,14 @@ expression layer can build on the per-column unit (the facade name
 `min_value` / `max_value` → `min` / `max`, `take` → `gather`, `unique_count` →
 `n_unique`, `to_int` / `to_float` / `to_string_series` → `cast`, and
 `DataFrame::get(i, c)` → `item(i, c)`; `null_rate` is removed.
+
+### Chart colour type override
+
+`ChartSpec::with_color_type(VegaType)` overrides the Vega-Lite field `type` of
+a chart's `color` channel (`Quantitative` / `Nominal` / `Ordinal` /
+`Temporal`), so a numeric grouping column (a cluster id, a year) renders as
+distinct per-group colours instead of the continuous gradient `quantitative`
+would give.
 
 ## v0.4 — shipped
 

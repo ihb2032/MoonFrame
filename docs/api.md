@@ -1,9 +1,9 @@
-# MoonFrame v0.4 — Public API
+# MoonFrame v0.5 — Public API
 
-> Status: **v0.4 shipped** (expression engine + lazy query layer, on top
-> of v0.3's output formats, full join matrix, and pluggable column
-> storage). This document is the source of truth for the v0.4 public
-> surface. When a symbol is published in code, it must appear here.
+> Status: **v0.5 shipped** (the eager and lazy surfaces converged onto one
+> Polars-shaped expression engine — the last breaking release). This
+> document is the source of truth for the v0.5 public surface. When a
+> symbol is published in code, it must appear here.
 
 The facade package `ihb2032/MoonFrame` re-exports every symbol below
 via `pub using @<subpkg> { ... }`, so a single
@@ -30,8 +30,8 @@ function with signature `... -> T raise DataError`. There is no
 - **Handle inline** with `try expr catch { e => ... }`.
 
 Provably-total operations (`head` / `tail` / `Series::min` /
-`drop_nulls` / `to_markdown` / `to_html` / the inspection accessors / …)
-return their value directly and never raise.
+`Series::drop_nulls` / `to_markdown` / `to_html` / the inspection accessors
+/ …) return their value directly and never raise.
 
 The one deliberate exception is `DataFrame::check_invariants()`, which
 keeps its `Result[Unit, String]` shape — it is a verification /
@@ -1186,14 +1186,15 @@ names them).
   `JoinOptions` · `HtmlOptions`
 - From `@io`: `CsvReadOptions` · `CsvWriteOptions` · `JsonReadOptions` ·
   `NdjsonReadOptions` · `OnParseError` · `ChartKind` · `ChartSpec` ·
-  `format_csv_str` ·
+  `VegaType` · `format_csv_str` ·
   `format_json_records` · `format_ndjson` · `format_vega_lite` ·
   `parse_csv_str` · `parse_json_records_str` · `parse_ndjson_str` ·
   `read_csv` · `read_csv_with_options` · `read_json` ·
   `read_json_with_options` · `read_ndjson` · `read_ndjson_with_options` ·
   `write_csv` · `write_csv_with_options` · `write_json_records` ·
   `write_ndjson` · `write_vega_lite`
-- From `@lazy`: `LazyFrame` · `LazyGroupBy` · `lazy_frame`
+- From `@lazy`: `LazyFrame` · `LazyGroupBy` · `lazy_frame` · `scan_csv` ·
+  `scan_csv_with_options` · `scan_ndjson` · `scan_ndjson_with_options`
 
 `using @pkg { type T }` also creates constructor aliases, so
 `@moonframe.Scalar::Int(42)`, `@moonframe.SortOrder::Desc`,
@@ -1202,21 +1203,23 @@ facade.
 
 ---
 
-## Out of scope for v0.4 (so far)
+## Out of scope for v0.5 (so far)
 
-The v0.4 expression / lazy surface above is **shipped** (see the `expr`,
-the `frame` expression-consumer, and the `lazy` sections); these are the
-deferrals, tracked for v0.5+:
+The whole v0.5 surface above is **shipped**, and it is the last breaking
+release: from v0.6 on the API only grows (additive — no renames, removals,
+or signature changes). These are the tracked deferrals, all v0.6+:
 
-- **Lazy CSV scan (`scan_csv`)** — a streaming `io` → `frame` lazy source,
-  so a plan can read from a file lazily rather than only from an in-memory
-  frame.
-- **More expression families** — window functions, string methods, and
-  datetime expressions (the repo has no datetime type yet). The v0.4
+- **More expression families** — arithmetic / numeric operators
+  (`floor_div`, `pow`, `mod`, `abs`, `round`, `floor`, `ceil`, `sign`,
+  `is_in`, `is_between`), regex-backed and more positional string methods
+  (`str_slice`, byte length, `split` / `pad`), and — further out — window
+  and datetime expressions (the repo has no datetime type yet). The v0.5
   operator / method set is frozen; these extend it.
-- **Floor division (`//`)** — deferred along with its integer
-  zero-division raise/abort decision (v0.4's `/` is always `Float`, which
-  sidesteps it).
+- **Lazy scan depth** — predicate pushdown into the file parser and
+  streaming execution (v0.5's scan does projection pushdown only), plus
+  columnar sources (Parquet / IPC) once eager readers exist.
+- **`unique` options** — a `subset` of key columns and a `keep` strategy
+  (v0.5's `unique()` dedups whole rows, keeping first-appearance order).
 - **Optimizer extensions** — dead-expression elimination, narrowing /
-  predicate-splitting through joins, and sinking filters below sorts (v0.4
+  predicate-splitting through joins, and sinking filters below sorts (v0.5
   pushes predicates and projections only).

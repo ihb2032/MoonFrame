@@ -96,12 +96,10 @@ fn widgets(path : String) -> String raise @moonframe.DataError {
 ```
 
 Every transformation is a method on `DataFrame`, so pipelines read
-top-to-bottom. Anything that can fail — a missing file, an unknown column —
-raises `DataError` rather than crashing (see [Error handling](#error-handling)).
-
-For a fuller hands-on tour — group-by, joins, CSV round-trips, and more — see
-[`quickstart.mbt.md`](quickstart.mbt.md): every snippet there runs as a doc test
-on all four backends, so it always matches the current API.
+top-to-bottom; anything that can fail raises `DataError` rather than crashing
+(see [Error handling](#error-handling)). For a fuller tour — group-by, joins,
+round-trips — see [`quickstart.mbt.md`](quickstart.mbt.md), whose snippets all
+run as doc tests on every backend.
 
 ## What you can do
 
@@ -113,19 +111,15 @@ on all four backends, so it always matches the current API.
 - **Group & aggregate** — `group_by(keys).agg([...])` with `sum` / `mean` /
   `min` / `max` / `count` / `std` / `variance` / `median` / `n_unique` /
   `first` / `last`.
-- **Express** — build composable column expressions
-  (`col("revenue") - col("cost")`, `&` / `|` logic, `when / then / otherwise`,
-  the `str_*` string namespace) and feed them to `with_columns`, `filter`, or
-  `group_by(...).agg([...])`, including compound aggregations like
-  `(col("revenue") - col("cost")).sum()`. For logic past the built-in
-  algebra, the `map_elements` / `map_many` escape hatch applies a host
-  closure row by row.
-- **Defer & optimize** — `lazy_frame(df)`, or `scan_csv("sales.csv")` /
-  `scan_ndjson("events.ndjson")` for a lazy file source, builds a query plan
-  you can `explain()`; `collect()` runs it through a predicate- and
-  projection-pushdown optimizer, bitwise-equal to the eager pipeline.
-  Projection pushdown narrows a file scan to the columns the pipeline reads,
-  so only those are parsed.
+- **Express** — composable column expressions (`col("revenue") - col("cost")`,
+  `&` / `|` logic, `when / then / otherwise`, a `str_*` string namespace) feed
+  `with_columns` / `filter` / `agg`, including compound reductions like
+  `(col("revenue") - col("cost")).sum()`; `map_elements` / `map_many` drop to a
+  host closure for anything past the built-in algebra.
+- **Defer & optimize** — `lazy_frame(df)`, or `scan_csv` / `scan_ndjson` for a
+  lazy file source, builds a query plan you can `explain()`; `collect()` runs it
+  through a predicate- and projection-pushdown optimizer, bitwise-equal to the
+  eager pipeline (and a file scan only parses the columns the plan reads).
 - **Join** — the full `inner` / `left` / `right` / `outer` / `cross` matrix on
   expression keys, e.g.
   `orders.join(customers, JoinOptions::on([col("customer_id")]))` (or
@@ -135,7 +129,7 @@ on all four backends, so it always matches the current API.
 - **Export** — `to_markdown()`, `to_html()`, `format_json_records`,
   `format_ndjson`, and `format_vega_lite` (a Vega-Lite v5 chart spec).
 
-For example, group the same data by region and render it three ways:
+For example, summarise the same data by region:
 
 ```moonbit
 let summary = @moonframe.read_csv("sales.csv")
@@ -144,16 +138,9 @@ let summary = @moonframe.read_csv("sales.csv")
     @moonframe.col("revenue").sum().with_alias("revenue"),
     @moonframe.col("quantity").sum().with_alias("quantity"),
   ])
-  .sort([
-    (
-      @moonframe.col("revenue"),
-      @moonframe.SortOrder::Desc,
-      @moonframe.NullOrder::NullsLast,
-    ),
-  ])
 ```
 
-A Markdown table for a report or notebook — `summary.to_markdown()`:
+`summary.to_markdown()` renders a pipe table:
 
 ```
 | region | revenue | quantity |
@@ -163,27 +150,11 @@ A Markdown table for a report or notebook — `summary.to_markdown()`:
 | north  | 100     | 10       |
 ```
 
-A styled HTML table for a web page —
-`summary.to_html_with_options(HtmlOptions::default().with_table_class("dataframe").with_caption("Revenue by region"))`:
-
-```html
-<table class="dataframe">
-<caption>Revenue by region</caption>
-<thead>
-<tr><th>region</th><th>revenue</th><th>quantity</th></tr>
-</thead>
-<tbody>
-<tr><td>west</td><td>260</td><td>26</td></tr>
-<tr><td>east</td><td>100</td><td>10</td></tr>
-<tr><td>north</td><td>100</td><td>10</td></tr>
-</tbody>
-</table>
-```
-
-Or a chart — `format_vega_lite(summary, ChartSpec::bar("region", "revenue"))`
-emits a complete [Vega-Lite v5](https://vega.github.io/vega-lite/) spec you can
-paste straight into the [Vega editor](https://vega.github.io/editor/) to get a
-real bar chart.
+The same frame also exports as a styled HTML `<table>` via
+`summary.to_html_with_options(...)`, or as a
+[Vega-Lite v5](https://vega.github.io/vega-lite/) chart spec via
+`format_vega_lite(summary, ChartSpec::bar("region", "revenue"))` — ready to
+paste into the [Vega editor](https://vega.github.io/editor/).
 
 ## Error handling
 

@@ -40,9 +40,8 @@ violated invariant), not a data transform.
 
 ### Migration
 
-Source-level changes from earlier releases — the `ops` → method move and the
-`Result` → `raise` shift (v0.1 → v0.2), and the `Series::storage` / `JoinType`
-breaks (v0.2 → v0.3) — are collected in [`migration.md`](migration.md).
+Source-level changes from earlier releases (v0.1 → v0.2 → v0.3) are collected
+in [`migration.md`](migration.md).
 
 ---
 
@@ -107,57 +106,44 @@ validity bitmap (`1 = valid`, `0 = null`).
 
 ### Validity bitmap
 
-- `struct Bitmap { bits : Bytes, offset : Int, len : Int }` — byte-packed
-  at 1 bit per row, `1 = valid`. Logical slot `i` lives at physical bit
-  `offset + i` (`bits[(offset + i) / 8]`, bit `(offset + i) % 8`, LSB
-  first). A constructor builds a tight `⌈len / 8⌉`-byte buffer with
-  `offset = 0`; `slice` is a zero-copy view that shares the parent buffer
-  and advances `offset`, so equality is logical over the
-  `[offset, offset + len)` window rather than structural.
-  Note: some MoonBit ecosystem libraries (e.g. `smallbearrr/pandas`) use
-  the **opposite** convention (`true = null`).
-- Total constructors: `all_valid(len)` / `all_null(len)` (a negative
-  `len` clamps to 0, the empty bitmap) /
-  `from_bools(Array[Bool])` (`true ↦ valid`) /
-  `from_options[T](Array[T?])` (`Some(_) ↦ valid`).
-- Total inspection: `len` / `null_count()` / `to_bools()` (materialise
-  the whole `true = valid` mask in one pass — the total counterpart to
-  `is_valid` for bounded scans).
+- `struct Bitmap { bits : Bytes, offset : Int, len : Int }` — byte-packed,
+  1 bit per row, `1 = valid`. Slot `i` is physical bit `offset + i` (LSB
+  first); `slice` is a zero-copy view that advances `offset`, so equality is
+  logical over `[offset, offset + len)`. (Some ecosystem libraries use the
+  opposite `true = null` convention.)
+- Total constructors: `all_valid(len)` / `all_null(len)` (negative `len` →
+  empty) / `from_bools(Array[Bool])` / `from_options[T](Array[T?])`
+  (`Some(_) ↦ valid`).
+- Total inspection: `len` / `null_count()` / `to_bools()` (the whole
+  `true = valid` mask in one pass).
 - Fallible (`raise DataError`): `is_valid(i)` / `is_null(i)`
-  (`raise IndexOutOfBounds` outside `[0, len)`); `slice(start, length)`
-  (`IndexOutOfBounds` / `InvalidOperation` on bad bounds); `take(indices)`
-  (`IndexOutOfBounds` on the first bad index); `bit_and(other)`
-  (`LengthMismatch` if lengths differ — `and` is a reserved keyword,
-  hence `bit_and`).
+  (`IndexOutOfBounds` outside `[0, len)`); `slice(start, length)`
+  (`IndexOutOfBounds` / `InvalidOperation`); `take(indices)`
+  (`IndexOutOfBounds`); `bit_and(other)` (`LengthMismatch`; `and` is
+  reserved, hence `bit_and`).
 
 ### BuiltinColumn
 
 - `struct BuiltinColumn { data : ColumnData, validity : Bitmap }` —
-  Arrow-style column; null slots in `data` carry a per-dtype placeholder
-  (`Int = 0`, `Float = 0.0`, `Bool = false`, `String = ""`) that never
-  leaks because every read consults `validity` first.
+  Arrow-style column; null slots carry a per-dtype placeholder
+  (`0` / `0.0` / `false` / `""`) that never leaks, as every read consults
+  `validity` first.
 - `pub(all) enum ColumnData` — `Int(Array[Int64]) | Float(Array[Double]) |
-  Bool(Array[Bool]) | String(Array[String])`. Numeric columns are 64-bit.
+  Bool(Array[Bool]) | String(Array[String])` (64-bit numerics).
 - Total constructors (8): `from_ints` / `from_int_options` /
   `from_floats` / `from_float_options` / `from_bools` /
   `from_bool_options` / `from_strings` / `from_string_options`.
 - Total inspection: `dtype` / `len` / `is_empty` / `null_count` /
-  `data() -> ColumnData` / `validity() -> Bitmap`. The `data()` /
-  `validity()` accessors expose the raw backing so callers in other
-  packages match `ColumnData` once and read values / validity totally,
-  instead of cascading through `*_values`.
-  - ⚠ **`data()` shares the live backing array zero-copy** — the `Array`
-    inside the returned `ColumnData` is the column's own buffer, *not* a
-    defensive copy (a deliberate departure from `Schema::fields()`, which
-    copies, traded for hot-path reads with no per-call allocation). Treat it
-    as **read-only**: mutating it would corrupt the owning column's
-    data/validity invariants. The same applies to `ColumnStorage::data()`.
+  `data() -> ColumnData` / `validity() -> Bitmap`.
+  - ⚠ **`data()` returns the live backing array zero-copy** (not a defensive
+    copy — a hot-path read trade-off). Treat it as **read-only**; mutating it
+    corrupts the column's data/validity invariants. Same for
+    `ColumnStorage::data()`.
 - Fallible (`raise DataError`):
   - `is_null(i) -> Bool` / `get(i) -> Scalar` —
-    `raise IndexOutOfBounds` outside `[0, len)`; `get` returns
-    `Scalar::Null` for null slots.
-  - `slice(start, end)` / `take(indices)` — sub-views; same bounds
-    diagnostics as the bitmap.
+    `IndexOutOfBounds` outside `[0, len)`; `get` returns `Scalar::Null` for
+    null slots.
+  - `slice(start, end)` / `take(indices)` — sub-views; bounds as the bitmap.
   - `cast(target)` — the single cross-dtype conversion. `Int`: identity on
     Int, Float truncates toward zero (`NaN` / `±Inf` / out-of-`Int64`-range
     → `ParseError`), Bool `true → 1` / `false → 0`, String accepts only
@@ -171,65 +157,55 @@ validity bitmap (`1 = valid`, `0 = null`).
     `string_values()` — return `(Array[T], Bitmap)`; wrong dtype →
     `raise TypeMismatch`. Always consult the returned bitmap before
     reading the data array.
-- **Total** (no failure path): `to_string_column() -> BuiltinColumn` —
-  every dtype has a value-form rendering, so unlike a numeric `cast`
-  it never raises.
+- **Total**: `to_string_column() -> BuiltinColumn` — every dtype has a
+  value-form rendering, so unlike a numeric `cast` it never raises.
 
 ### NumericColumn
 
 - `struct NumericColumn { data : NumericData }` — the **all-valid** unboxed
-  numeric column (the `null_count == 0` fast path). Unlike `BuiltinColumn`
-  it carries **no validity bitmap**: every slot is present by construction,
-  so construction and sub-views allocate no validity `Bytes` and the
-  reductions skip the per-slot validity check. The moment a null would
-  enter, the column materialises back to a `BuiltinColumn`.
+  numeric column (the `null_count == 0` fast path): **no validity bitmap**,
+  so construction, sub-views, and reductions skip the per-slot validity
+  check. The moment a null would enter, it materialises back to a
+  `BuiltinColumn`.
 - `pub(all) enum NumericData` — `Int(Array[Int64]) | Float(Array[Double])`
-  (numeric only; `Bool` / `String` are always `Builtin`).
-- Total constructors: `from_int64s` / `from_doubles` (no null path).
+  (`Bool` / `String` are always `Builtin`).
+- Total constructors: `from_int64s` / `from_doubles`.
 - Total inspection: `dtype` / `len` / `is_empty` / `null_count` (always
   `0`) / `data() -> ColumnData` / `to_builtin() -> BuiltinColumn` (widen
-  with an all-valid bitmap — lossless, `== from_ints` / `from_floats`) /
-  `to_string_column() -> BuiltinColumn`.
-- Fallible (`raise DataError`): `is_null(i)` (bounds only; the value is
-  always `false`) / `get(i)` / `slice(start, end)` / `take(indices)` (same
-  diagnostics as `BuiltinColumn`); `int_values()` / `float_values()` (the
-  raw array paired with a synthesised all-valid bitmap); `bool_values()` /
-  `string_values()` always `raise TypeMismatch` (numeric by construction).
-- Reductions (the fast path — no validity scan): **total** `sum() ->
-  Scalar` / `min() -> Scalar` / `max() -> Scalar`; fallible
-  `mean() -> Double` (`InvalidOperation` on an empty column). `NaN`
-  propagates through `sum` / `mean` but is skipped by `min` /
-  `max` (Polars semantics).
+  with an all-valid bitmap — lossless) / `to_string_column() -> BuiltinColumn`.
+- Fallible (`raise DataError`): `is_null(i)` (bounds only; value always
+  `false`) / `get(i)` / `slice(start, end)` / `take(indices)`;
+  `int_values()` / `float_values()` (raw array + synthesised all-valid
+  bitmap); `bool_values()` / `string_values()` always `raise TypeMismatch`.
+- Reductions (no validity scan): **total** `sum() -> Scalar` /
+  `min() -> Scalar` / `max() -> Scalar`; fallible `mean() -> Double`
+  (`InvalidOperation` on an empty column). `NaN` propagates through
+  `sum` / `mean` but is skipped by `min` / `max`.
 
 ### ColumnStorage / StorageKind
 
 - `pub(all) enum ColumnStorage { Builtin(BuiltinColumn);
   Numeric(NumericColumn) }` — the pluggable backend seam a `Series` holds.
-  Every accessor forwards to both arms, so reading a column through
-  `.data()` / `.validity()` is backend-transparent (the `Numeric` arm
-  synthesises an all-valid `validity()` on demand — the one point the
-  backends diverge).
+  Every accessor forwards to both arms, so `.data()` / `.validity()` reads
+  are backend-transparent (the `Numeric` arm synthesises an all-valid
+  `validity()` on demand).
 - `pub(all) enum StorageKind { Builtin; Numeric }` — the backend
-  discriminant (`kind()`). The original draft's `ArrowLike` is intentionally
-  absent: post-P3.5 `Builtin` *is* the Arrow layout (data + validity
+  discriminant (`kind()`); `Builtin` *is* the Arrow layout (data + validity
   bitmap, `1 = valid`).
 - Constructors: `from_builtin(BuiltinColumn)` / `from_numeric(NumericColumn)`.
 - Total inspection: `kind()` / `dtype` / `len` / `is_empty` / `null_count`
   / `data() -> ColumnData` / `validity() -> Bitmap` / `to_builtin() ->
   BuiltinColumn` / `to_string_column() -> BuiltinColumn`.
 - Total `slice_total(start, end) -> ColumnStorage` — the no-raise
-  counterpart of `slice`, backing the total row transforms `head` / `tail`
-  / `DataFrame::slice`. Keeps the backend and shares the validity buffer
-  (zero-copy view) exactly like `slice`, but clamps out-of-range bounds into
-  `[0, len]` (with `end` lifted to at least `start`) rather than raising, so
-  it never raises or aborts.
+  counterpart of `slice` (backs `head` / `tail` / `DataFrame::slice`): keeps
+  the backend, zero-copy, but clamps out-of-range bounds into `[0, len]`
+  (with `end` lifted to at least `start`) rather than raising.
 - Fallible (`raise DataError`): `is_null(i)` / `get(i)`; backend-preserving
-  `slice(start, end)` / `take(indices)` (a sub-range of a `Numeric` column
-  stays `Numeric`); `int_values()` / `float_values()` / `bool_values()` /
+  `slice(start, end)` / `take(indices)` (a `Numeric` sub-range stays
+  `Numeric`); `int_values()` / `float_values()` / `bool_values()` /
   `string_values()`. The cross-dtype `cast(target)` routes through
-  `to_builtin()`, so the result is `Builtin`-backed — a caller
-  re-converges with `to_numeric` if a numeric target should land back on
-  the fast path.
+  `to_builtin()`, so the result is `Builtin`-backed (re-converge with
+  `to_numeric` for a numeric target).
 - `to_numeric() -> ColumnStorage raise DataError` — move an all-valid Int /
   Float `Builtin` column onto the `Numeric` fast path: `InvalidOperation`
   if it carries nulls, `TypeMismatch` if non-numeric, identity if already
@@ -239,23 +215,18 @@ validity bitmap (`1 = valid`, `0 = null`).
 
 ## `expr` — Expression engine
 
-A reified, composable column expression. Where a host-language closure is
-opaque, an `Expr` is **data**: a small recursive
-tree you build with constructors, operators, and methods, then evaluate
-eagerly (`with_columns` / `select` / `filter` / `agg`,
-in `frame`), introspect (`explain`), or defer and optimize (`lazy`).
-Building a tree is **total** — every constructor and combinator just
-allocates a node, so an expression can always be built; every failure (a
-missing column, a type clash) waits for evaluation. `expr` depends only on
-`types`.
+A reified, composable column expression — a small recursive tree you build
+with constructors, operators, and methods, then evaluate eagerly
+(`with_columns` / `select` / `filter` / `agg`, in `frame`), introspect
+(`explain`), or defer and optimize (`lazy`). Building a tree is **total** —
+every failure (a missing column, a type clash) waits for evaluation. `expr`
+depends only on `types`.
 
-- `enum Expr` — the expression tree, **read-only** outside the package:
-  callers can inspect it by pattern matching, and `frame`'s evaluator does
-  exactly that across the package boundary. Construct expressions through
-  `col` / `lit_*` / operators / methods rather than by spelling variants
-  directly, so trees stay on the documented surface. The payload tag enums
-  `BinOp` / `UnOp` / `AggOp` are likewise read-only implementation tags —
-  no public API names a tag value, so the facade does not re-export them.
+- `enum Expr` — the expression tree, **read-only** outside the package
+  (inspect by pattern matching; construct through `col` / `lit_*` /
+  operators / methods, not by spelling variants). The payload tag enums
+  `BinOp` / `UnOp` / `AggOp` are read-only implementation tags — no public
+  API names one, so the facade does not re-export them.
 
 ### Constructors (static methods + free-function aliases)
 
@@ -268,12 +239,10 @@ missing column, a type clash) waits for evaluation. `expr` depends only on
   `lit_bool(Bool) -> Expr` — typed literal shorthands (skip the
   `Scalar::Int(...)` noise).
 - `lit_series(s : Series) -> Expr` — embed a pre-materialised `Series` as a
-  literal column, so a ready-made column joins a pipeline beside the
-  declarative expressions. At evaluation it is used as-is: a length-1 series
-  broadcasts, a frame-tall one maps row for row, any other length is
-  `LengthMismatch`. It is named after the series unless `with_alias`
-  overrides, so `with_columns([lit_series(s)])` adds — or in-place replaces —
-  a column named `s.name()`.
+  literal column. At evaluation: a length-1 series broadcasts, a frame-tall
+  one maps row for row, any other length is `LengthMismatch`. Named after the
+  series unless `with_alias` overrides, so `with_columns([lit_series(s)])`
+  adds — or in-place replaces — a column named `s.name()`.
 
 ### Operators (trait impls, in scope through `type Expr`)
 
@@ -313,25 +282,22 @@ missing column, a type clash) waits for evaluation. `expr` depends only on
   are preserved, not filled; same self-naming and dtype-unification rules.
 - Aggregations `sum` / `mean` / `min` / `max` / `count` / `std` /
   `variance` / `median` / `n_unique` / `first` / `last() -> Expr` — wrap
-  the expression in a reduction (evaluation semantics below). All eleven
-  share one kernel, so each serves the whole-frame `select`, the per-group
-  `agg`, and the lazy plan alike. `std` / `variance` are the sample
-  statistics (`ddof = 1`, always `Float`, null below two non-null cells);
-  `median` is always `Float` (`Int` widens); `n_unique` is the distinct
-  non-null count (`Int`); `first` / `last` are positional, keeping the
-  source dtype. `variance` is spelled out because `var` is a reserved word.
+  the expression in a reduction (evaluation semantics below). `std` /
+  `variance` are the sample statistics (`ddof = 1`, always `Float`, null
+  below two non-null cells); `median` is always `Float` (`Int` widens);
+  `n_unique` is the distinct non-null count (`Int`); `first` / `last` are
+  positional, keeping the source dtype. `variance` is spelled out because
+  `var` is a reserved word.
 - `cast(target : DataType) -> Expr`; `with_alias(name : String) -> Expr`
   (names the output column; `alias` is a reserved word).
 
 ### String namespace
 
 String operations on a String column, each a `str_*` method building a `Str`
-node — the MoonBit spelling of Polars' `.str` accessor, there being no
-namespace object. Every operation maps a cell to its result cell by cell: null
-cells stay null, a non-String operand is a `TypeMismatch` at evaluation, and
-all are total (no value can raise). Matching is always **literal** — there is
-no regex engine yet, so the regex forms of `contains` / `replace` are a future
-addition.
+node. Every operation maps cell by cell: null cells stay null, a non-String
+operand is a `TypeMismatch` at evaluation, all are total. Matching is always
+**literal** — there is no regex engine yet, so regex forms of `contains` /
+`replace` are a future addition.
 
 - `str_to_uppercase()` / `str_to_lowercase() -> Expr` — case mapping.
 - `str_strip_chars() -> Expr` — strip leading / trailing ASCII whitespace
@@ -357,11 +323,9 @@ addition.
 
 ### Closure escape hatch
 
-Where the operators and methods above cover the documented algebra, two
-constructors reach past it to an arbitrary host closure applied row by row —
-the reified replacement for the v0.1 closure `filter` predicate. The closure
-is opaque to introspection, equality, and the optimizer: a map node is
-identified by its `label` and inputs.
+Two constructors reach past the documented algebra to an arbitrary host
+closure applied row by row. The closure is opaque to introspection, equality,
+and the optimizer: a map node is identified by its `label` and inputs.
 
 - `Expr::map_elements(self, label~ : String, f : (Scalar) -> Scalar raise)
   -> Expr` — single input: `f` receives each cell of `self` as a `Scalar`
@@ -372,18 +336,14 @@ identified by its `label` and inputs.
   results broadcast over the row count). A row predicate is `map_many(...)`
   returning `Scalar::Bool`.
 
-The closure runs once per row at evaluation and may `raise` (propagating from
-the consuming verb). The output column's dtype is the first non-null `Scalar`
-returned (a mix of `Int` and `Float` results promotes to `Float`, the engine's
-`Int`/`Float` rule, rather than nulling the minority type) — an all-null result
-over a non-empty frame raises `Unsupported`
-(there is no Null-dtype backend, the same limit as a `Null` literal). Over an
-**empty** frame the closure never runs, so the dtype is unobservable: map then
-mirrors the leftmost input's dtype and returns an empty column (so it survives
-an empty frame like every other expression rather than raising). The result is
-named after the leftmost input; `label` shows only in `explain`. Because the
-closure can raise on the values it meets, the optimizer treats a map as a
-value barrier (like `cast`): no filter sinks across it.
+The closure runs once per row and may `raise` (propagating from the consuming
+verb). The output dtype is the first non-null `Scalar` returned (mixed
+`Int`/`Float` promotes to `Float`); an all-null result over a non-empty frame
+raises `Unsupported` (no Null-dtype backend, as for a `Null` literal). Over an
+**empty** frame the closure never runs, so map mirrors the leftmost input's
+dtype and returns an empty column. The result is named after the leftmost
+input; `label` shows only in `explain`. The optimizer treats a map as a value
+barrier (like `cast`): no filter sinks across it.
 
 ### Introspection (all total)
 
@@ -396,8 +356,7 @@ value barrier (like `cast`): no filter sinks across it.
   for an embedded literal series (its data opaque). `LazyFrame::explain`
   reuses it for plan lines.
 - `referenced_columns(self) -> Set[String]` — every column the tree reads,
-  including a ternary's condition (the lazy optimizer must keep it alive
-  even when only the condition reads it).
+  including a ternary's condition.
 - `output_name(self) -> String` — the output column name under Polars'
   rule: an alias wins, else the leftmost column reference, else
   `"literal"` for a column-less tree (a ternary draws its name from the
@@ -405,9 +364,7 @@ value barrier (like `cast`): no filter sinks across it.
   and the lazy optimizer share this one rule.
 - `children(self) -> Array[Expr]` — the immediate sub-expressions of a
   node, left to right (a ternary lists its condition first); leaves return
-  none. The shared structural primitive the two walks above and the lazy
-  optimizer's stability analyses all recurse through, so the tree's
-  recursive shape is declared in exactly one place.
+  none.
 
 ### Evaluation semantics
 
@@ -461,10 +418,8 @@ rebuild and backend-convergence helpers, and the composite-key cell encoding
 ### Series
 
 - `struct Series { name, storage : @column.ColumnStorage }` — the `storage`
-  field holds the pluggable backend (`Builtin` or `Numeric`). It was a bare
-  `@column.BuiltinColumn` through v0.2; this is the v0.3 core breaking
-  change (`from_builtin` and `storage().to_builtin()` bridge old call
-  sites).
+  field holds the pluggable backend (`Builtin` or `Numeric`); `from_builtin`
+  and `storage().to_builtin()` bridge pre-v0.3 call sites.
 - Total constructors (10): `new(name, ColumnStorage)` (canonical, at the
   seam) / `from_builtin(name, BuiltinColumn)` (source-compatible wrapper) /
   `from_ints` / `from_int_options` / `from_floats` / `from_float_options` /
@@ -496,26 +451,21 @@ rebuild and backend-convergence helpers, and the composite-key cell encoding
 
 ### Series stats (`series_stats.mbt`)
 
-- Total: `count()` (non-null count); `n_unique()` (distinct non-null
-  values, keyed by the same composite `key_cell` normalisation `group_by` /
-  `join` use, so the distinct count agrees with grouping cell-for-cell —
-  every `Float` `NaN` collapses to one bucket and `-0.0` folds into `+0.0`);
-  `min()` / `max()` — the reduction proper,
-  returning a `Scalar` directly (every v0.1 dtype has an order, so they
-  never fail; empty / all-null / all-NaN → `Scalar::Null`; `String` uses
-  lexicographic order; `Bool` is `false < true`).
+- Total: `count()` (non-null count); `n_unique()` (distinct non-null values
+  via the same composite `key_cell` normalisation `group_by` / `join` use —
+  every `Float` `NaN` is one bucket, `-0.0` folds into `+0.0`); `min()` /
+  `max()` — return a `Scalar` directly (never fail; empty / all-null /
+  all-NaN → `Scalar::Null`; `String` lexicographic; `Bool` is
+  `false < true`).
 - Fallible (`raise DataError`): `sum()` — `Int` / `Float` →
   `Scalar::Int` / `Scalar::Float`, empty / all-null is the additive
   identity, `Bool` / `String` → `TypeMismatch`; `mean()` — `Double`,
   empty / all-null numeric → `InvalidOperation`, non-numeric →
   `TypeMismatch`. `mean_opt() -> Double?` is the **total** form of `mean`
-  (`Some(mean)`, or `None` exactly where `mean` would raise) — the accessor
-  `frame`'s `DataFrame::describe` reads across the package boundary. `Float`
-  `NaN` is a value, not missing: it **propagates** through `sum` / `mean`
-  (any non-null `NaN` ⇒ `NaN`) but is **skipped** by `min` /
-  `max` (and `sort`) — matching Polars, whose `sum`/`mean`
-  propagate `NaN` while its regular `min`/`max` ignore it (only `Null` is
-  ever treated as missing).
+  (`Some(mean)`, or `None` exactly where `mean` would raise). `Float` `NaN`
+  is a value, not missing: it **propagates** through `sum` / `mean` but is
+  **skipped** by `min` / `max` (and `sort`) — only `Null` is ever treated
+  as missing.
 
 ---
 
@@ -547,9 +497,7 @@ dependencies** (NyaCSV / fs / @json live only in `io`).
 - `to_scalar_matrix() -> Array[Array[Scalar]]` (**total**) — every column's
   cells column-major (`result[c][r]` is column `c` / row `r`, `Null` for a
   null slot). The one-pass bulk read the row-oriented serialisers /
-  renderers (`format_csv_str` / the JSON record emitter / `to_html` /
-  `to_markdown`) share, so a record is assembled by plain `[c][r]` indexing
-  rather than a per-cell `get`.
+  renderers share.
 - Accessors (`raise DataError`): `get_column(name)`
   (`ColumnNotFound`); `get_column_at(i)` (`IndexOutOfBounds`);
   `item(row, name) -> Scalar` (Polars' `df.item`, a single cell —
@@ -568,8 +516,7 @@ dependencies** (NyaCSV / fs / @json live only in `io`).
   `to_numeric()` (best-effort — move every all-valid Int / Float column
   onto the `Numeric` fast path, keep nullable / non-numeric / already-
   `Numeric` columns); `to_builtin()` (materialise every column onto
-  `Builtin`, the inverse). Names / dtypes / values are unchanged, so the
-  schema and lookup cache are reused verbatim.
+  `Builtin`, the inverse). Names / dtypes / values are unchanged.
 - `check_invariants() -> Result[Unit, String]` — verification helper
   (deliberately **not** migrated to `raise`). `Ok(())` iff the frame
   satisfies its seven structural invariants; otherwise `Err(msg)`.
@@ -583,8 +530,7 @@ transforms, so every output satisfies `check_invariants()`.
   named columns, order preserved. Each key resolves to a column name via
   `Expr::output_name` (a bare `col("x")`, or an alias) — the expression is
   not evaluated. Duplicate keys idempotent; `ColumnNotFound` on the first
-  unknown. The `Array[Expr]` container leaves room for a future column
-  selector.
+  unknown.
 - `rename(mapping : Array[(String, String)]) -> DataFrame raise DataError`
   — apply renames in order (each step's `new_name` is visible to later
   steps, enabling a 3-step swap). `ColumnNotFound` / `DuplicateColumn`.
@@ -625,16 +571,15 @@ transforms, so every output satisfies `check_invariants()`.
   `max` for a typed extremum over any dtype.) `count` is the
   non-null count as `Int` for every column. An empty / all-null numeric
   column gives the additive identity under `sum` and a `Null` cell under
-  `mean` / `min` / `max`; a 0-column frame collapses to `0×0`. The
-  `raise` is forwarded from the 1-row `DataFrame::new`, never taken. For
-  one column's scalar, read its `Series`: `df.get_column(c).sum()`
+  `mean` / `min` / `max`; a 0-column frame collapses to `0×0`. For one
+  column's scalar, read its `Series`: `df.get_column(c).sum()`
   (= Polars `df[c].sum()`).
 - `describe() -> DataFrame raise DataError` — per-column summary, one row
   per source column, fixed `N × 8` schema (`column` / `dtype` / `count` /
   `null_count` / `n_unique` (`Int`); `mean` (`Float`, nullable);
-  `min` / `max` (`String`, nullable, rendered via `Scalar::to_string`)).
-  `min` / `max` are stringified so a single column can carry extrema across
-  source columns of differing dtype. 0-column collapses to `0 × 8`.
+  `min` / `max` (`String`, nullable, rendered via `Scalar::to_string`, so a
+  single column carries extrema across differing dtypes)). 0-column collapses
+  to `0 × 8`.
 - `to_markdown() -> String` / `to_markdown_with_limit(limit) -> String`
   — **total** GitHub-flavored pipe-table renderers (IO-1: pure rendering
   lives in `frame`). Column widths align to `max(header, cells)` with a
@@ -660,12 +605,10 @@ transforms, so every output satisfies `check_invariants()`.
 ### Expression consumers (`with_columns` / `select` / `filter`)
 
 The eager face of the `expr` engine — `DataFrame` methods that evaluate
-`@expr.Expr` trees over the whole frame. (The evaluator and these
-consumers live in `frame` because a method is package-bound to its type
-and the evaluator reads `Series` internals.) All route through
-`DataFrame::new`, so every output satisfies `check_invariants()`; all
-raise the evaluator's `DataError` (`ColumnNotFound` / `TypeMismatch` /
-`LengthMismatch`), plus `DuplicateColumn` on an output-name clash.
+`@expr.Expr` trees over the whole frame. All route through `DataFrame::new`,
+so every output satisfies `check_invariants()`; all raise the evaluator's
+`DataError` (`ColumnNotFound` / `TypeMismatch` / `LengthMismatch`), plus
+`DuplicateColumn` on an output-name clash.
 
 - `with_columns(exprs : Array[Expr]) -> DataFrame raise DataError` —
   evaluate each expression and append it (or, on a name clash with an
@@ -685,9 +628,8 @@ raise the evaluator's `DataError` (`ColumnNotFound` / `TypeMismatch` /
   `Bool` column of frame height; non-`Bool` → `TypeMismatch`) and keep the
   `true` rows (a `false` / null cell drops the row, matching Polars). A
   length-1 predicate broadcasts. This is the eager executor the lazy
-  `Filter` node defers — and, being a reified `Expr` rather than a closure,
-  the predicate the optimizer can push down. A row-wise host predicate is
-  reachable through the `map_many` escape hatch.
+  `Filter` node defers. A row-wise host predicate is reachable through the
+  `map_many` escape hatch.
 - `unique() -> DataFrame` — **total**. Drop duplicate rows, keeping the first
   occurrence of each in first-appearance order (Polars'
   `unique(maintain_order=True)`). Row identity is the composite cell tuple
@@ -719,14 +661,12 @@ Split-apply-combine, native to the method chain
   is **first appearance** (equivalent to Polars' `maintain_order=True`), so
   the result is deterministic. Group identity is the composite tuple of the
   key cells, hashed on each cell's native value, so a `Float` `NaN` collapses
-  all NaNs into one group (Polars treats `NaN` as equal for grouping; `-0.0`
-  and `+0.0` likewise share a group), and a **null** key forms its **own**
-  group rather than being dropped (the Polars default — pandas drops null
-  keys — and the deliberate difference from `join`, where `null` matches
-  nothing). One key or several; an empty `keys` list makes a single
-  grand-total group; a 0-row frame yields zero groups. `ColumnNotFound` /
-  `TypeMismatch` on the first offending key; `DuplicateColumn` if two keys
-  produce the same output name (rejected up front, mirroring `select`).
+  all NaNs into one group (`-0.0` and `+0.0` likewise share a group), and a
+  **null** key forms its **own** group rather than being dropped (unlike
+  `join`, where `null` matches nothing). One key or several; an empty `keys`
+  list makes a single grand-total group; a 0-row frame yields zero groups.
+  `ColumnNotFound` / `TypeMismatch` on the first offending key;
+  `DuplicateColumn` if two keys produce the same output name.
 - `GroupedDataFrame::agg(exprs : Array[Expr]) -> DataFrame raise DataError`
   — reduce each group to a row. Each `@expr.Expr` is evaluated once per
   group (the group's row indices as the evaluation scope) and must reduce
@@ -816,9 +756,7 @@ Hash equi-join, native to the method chain (`left.join(right, options)`).
     input order (snapshot-stable).
   - `how = Cross` is the **Cartesian product** (every left row × every
     right row); it takes **no** keys, ignores `coalesce`, and keeps every
-    column of both frames (a clashing right column is suffixed). This is the
-    explicit form of what `group_by([])`'s grand-total group is for
-    aggregation.
+    column of both frames (a clashing right column is suffixed).
   - **Backend**: like the other structural transforms (`filter` / `sort`
     / `take` / `drop_nulls`), each output column keeps its source's storage
     backend where it picks up no unmatched-row null — an all-valid `Numeric`
@@ -950,13 +888,11 @@ are documented below.
 
 ### NDJSON (JSON Lines, one object per line `{...}\n{...}\n…`)
 
-The streaming-friendly sibling of the JSON-records shape (Polars'
-`read_ndjson` / `write_ndjson`, pandas' `read_json(lines=True)`).
-Everything after the line framing is shared with the records
-reader / writer — header collection (first-seen order across all lines,
-sparse lines → null cells), the `Int → Float → Bool → String` inference,
-and the `scalar_to_json` cell conventions — so a column inferred from
-NDJSON matches the same data read as a JSON array.
+The streaming-friendly sibling of the JSON-records shape. Everything after
+the line framing is shared with the records reader / writer — header
+collection (first-seen order, sparse lines → null cells), the
+`Int → Float → Bool → String` inference, and the `scalar_to_json` cell
+conventions.
 
 - `struct NdjsonReadOptions` — `infer_schema_rows` (`100`; `0` or `<= 0`
   scans every record) / `on_parse_error` (`Raise`; the shared
@@ -993,10 +929,9 @@ NDJSON matches the same data read as a JSON array.
 specification as a JSON string — `$schema` + optional `title` + `mark` +
 `encoding` + an inline `data.values` array — that drops straight into the
 [Vega editor](https://vega.github.io/editor/) or any Vega-Lite runtime.
-It is a serialiser (the IO-1 boundary keeps it in `io`, parallel to
-`format_json_records`), and it shares that emitter's `scalar_to_json` cell
-mapping, so a `data.values` cell follows the same rules (null and
-non-finite-float cells → JSON `null`).
+It shares `format_json_records`' `scalar_to_json` cell mapping, so a
+`data.values` cell follows the same rules (null and non-finite-float cells
+→ JSON `null`).
 
 - `enum ChartKind { Bar; Line; Point; Area }` (`pub(all)`) — the mark
   type, mapped to the Vega-Lite `mark` (`"bar"` / `"line"` / `"point"` /
@@ -1033,13 +968,11 @@ non-finite-float cells → JSON `null`).
 ## `lazy` — Lazy query layer
 
 A deferred query plan over an in-memory frame. `lazy_frame(df)` (or
-`LazyFrame::from(df)`) starts a plan; builder methods that mirror the
-eager verbs name-for-name grow it without computing anything; `collect()`
-optimizes and runs it. Building is **total** — a `LazyFrame` is plain data
-— so a plan can always be built, chained, and `explain`ed; every failure
-waits for `collect`. `lazy` depends on `frame` + `expr` (it interprets a
-plan through the public eager operators and holds `@expr.Expr` nodes);
-`frame` does **not** depend on `lazy`, so there is no cycle.
+`LazyFrame::from(df)`) starts a plan; builder methods mirroring the eager
+verbs grow it without computing anything; `collect()` optimizes and runs it.
+Building is **total** — every failure waits for `collect`. `lazy` depends on
+`frame` + `expr`; `frame` does **not** depend on `lazy`, so there is no
+cycle.
 
 - `struct LazyFrame` (fields private) — wraps a private `LogicalPlan` (one
   node per eager verb; the IR never leaks into the public surface).
@@ -1050,10 +983,8 @@ plan through the public eager operators and holds `@expr.Expr` nodes);
 ### Entry points
 
 - `LazyFrame::from(df : DataFrame) -> LazyFrame` — the static constructor
-  (a `Scan` leaf over the captured frame). Named after the
-  `Series::from_*` / `DataFrame::from_rows` family; **not** a
-  `DataFrame::lazy` method (that would force a `frame ↔ lazy` import
-  cycle).
+  (a `Scan` leaf over the captured frame); **not** a `DataFrame::lazy`
+  method (that would force a `frame ↔ lazy` import cycle).
 - `lazy_frame(df : DataFrame) -> LazyFrame` — a free-function alias for
   `from`, for the `read_csv(path)` hand-feel. (`lazy(df)` would be the
   obvious name, but `lazy` is a MoonBit reserved word.)
@@ -1066,16 +997,14 @@ plan through the public eager operators and holds `@expr.Expr` nodes);
   `scan_csv("sales.csv").select([col("region"), col("revenue")]).collect()`
   never builds the columns it drops. `scan_csv(p).….collect()` equals
   `read_csv(p).…` on well-formed input; because a dropped column is never
-  parsed, a parse error confined to one (a malformed cell no stage reads)
-  does not surface, matching Polars' projection pushdown.
+  parsed, a parse error confined to one does not surface.
 - `scan_ndjson(path : String) -> LazyFrame` /
   `scan_ndjson_with_options(path : String, options : NdjsonReadOptions) ->
   LazyFrame` — the line-oriented sibling of `scan_csv` (a `ScanNdjson` node),
   the lazy counterpart of eager `read_ndjson`. Same projection-pushdown
-  behaviour and the same dropped-column caveat. (There is no `scan_json` for
-  the single-array shape `[{...}]`: it must be parsed whole to find its
-  records, so nothing can be pruned at read time — the same reason Polars has
-  `scan_ndjson` but no `scan_json`.)
+  behaviour and dropped-column caveat. (There is no `scan_json` for the
+  single-array shape `[{...}]`: it must be parsed whole, so nothing can be
+  pruned at read time.)
 
 ### Builders (all total — a plan is just data)
 

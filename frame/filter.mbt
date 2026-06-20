@@ -24,13 +24,11 @@ pub fn DataFrame::filter(
   predicate : @expr.Expr,
 ) -> DataFrame raise @types.DataError {
   let n = self.nrows()
+  let scope = Array::makei(n, i => i)
   // Evaluation yields a frame-tall or length-1 column — stretch a
   // length-1 mask (literal / aggregation) over the frame, down to zero
   // rows on an empty one.
-  let mask = broadcast_series(
-    eval_expr(predicate, self, Array::makei(n, i => i)),
-    n,
-  )
+  let mask = broadcast_series(eval_expr(predicate, self, scope), n)
   let cells = match mask.storage().data() {
     @column.ColumnData::Bool(a) => a
     _ =>
@@ -40,7 +38,7 @@ pub fn DataFrame::filter(
   }
   // A null cell fails `valid`, so it drops its row alongside `false`.
   let valid = mask.storage().validity().to_bools()
-  let kept = Array::makei(n, i => i).filter(i => valid[i] && cells[i])
+  let kept = scope.filter(i => valid[i] && cells[i])
   // Every kept index came from `[0, nrows)`, so `take` cannot fail.
   self.take(kept)
 }

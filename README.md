@@ -176,6 +176,10 @@ variants (`ColumnNotFound`, `ParseError`, …) after a `try?`. The full model is
 - [`quickstart.mbt.md`](quickstart.mbt.md) — a runnable tour; every snippet is
   executed by `moon test` on all four backends, so it never goes stale
 - [`docs/api.md`](docs/api.md) — the complete public-API reference
+- [`docs/comparison.md`](docs/comparison.md) — how MoonFrame aligns with, and
+  deliberately differs from, Polars / pandas
+- [`docs/performance.md`](docs/performance.md) — columnar layout, the `Numeric`
+  fast path, and per-operation complexity
 - [`docs/type-inference.md`](docs/type-inference.md) — how CSV / JSON / NDJSON
   columns get their dtypes
 - [`docs/migration.md`](docs/migration.md) — upgrading across breaking releases
@@ -206,6 +210,22 @@ This is the **last breaking release** — from v0.6 on the surface only grows.
 scans, and `unique` `subset` / `keep` options. See the
 [changelog](docs/changelog.md) for the full version history and
 [`docs/migration.md`](docs/migration.md) for upgrade steps.
+
+## Design notes
+
+MoonFrame's API and column semantics are modeled on Polars — see
+[`docs/comparison.md`](docs/comparison.md) for the full alignment and the one
+deliberate difference, and [`docs/performance.md`](docs/performance.md) for the
+columnar layout and per-operation complexity. A few things that surprise
+newcomers:
+
+- **`/` is always `Float`** (integer operands promote); dividing by zero gives
+  IEEE `±inf` / `NaN`, never a trap.
+- **`null` and `NaN` are different.** `null` is missing and propagates; `NaN`
+  is a value (`sum` / `mean` propagate it, `min` / `max` skip it) — except in
+  `sort`, which orders `NaN` as missing.
+- **Comparisons are methods** (`col("a").gt(lit_int(0))`), not `>`, and
+  `&` / `|` are Kleene-logical, not bitwise — both are MoonBit constraints.
 
 ## Contributing
 
@@ -241,6 +261,15 @@ Contributions keep 100% line coverage and a warning-free `moon check`.
 
 - [`moonbit-community/NyaCSV`](https://mooncakes.io/docs/moonbit-community/NyaCSV) — CSV parser
 - [`moonbitlang/x`](https://mooncakes.io/docs/moonbitlang/x) — `@fs` filesystem I/O
+
+## Acknowledgements
+
+MoonFrame is an original MoonBit implementation whose API and semantics are
+modeled on [Polars](https://pola.rs) (MIT) — the primary reference — with a few
+I/O conventions from [pandas](https://pandas.pydata.org) (BSD-3-Clause). No
+Polars or pandas source was translated; see
+[`docs/comparison.md`](docs/comparison.md) for what is aligned, what
+deliberately differs, and what is out of scope.
 
 ## License
 

@@ -805,10 +805,11 @@ Hash equi-join, native to the method chain (`left.join(right, options)`).
 ## `io` — Serialization (IO-1 boundary)
 
 Read / parse / write functions `raise DataError`; the string serialisers
-(`format_csv` / `format_json_records` / `format_ndjson`) are **total**
-and return a `String`. The one exception is `format_vega_lite`, which
-`raise`s — a `ChartSpec` names the columns to plot, and a missing name is
-`ColumnNotFound`. Tokenisation delegates to `moonbit-community/NyaCSV`;
+(`format_json_records` / `format_ndjson`) are **total** and return a
+`String`. Two `raise`: `format_vega_lite` — a `ChartSpec` names the columns
+to plot, and a missing name is `ColumnNotFound` — and `format_csv`, which
+rejects a delimiter that collides with the quote character or a line
+terminator. Tokenisation delegates to `moonbit-community/NyaCSV`;
 JSON / Vega-Lite specs go through the builtin `@json`; file wrappers
 delegate to `moonbitlang/x/fs` and promote its `IOError` to
 `raise DataError::IoError(message)`.
@@ -845,9 +846,11 @@ are documented below.
   mapping → `DataFrame::new`. `DuplicateColumn` / `ParseError` (the latter
   also covers a ragged row when `options.strict_column_count`, and a cell
   that doesn't fit its dtype unless `options.on_parse_error = Null`).
-- `format_csv(df, options) -> String` — **total**. Cells render via
+- `format_csv(df, options) -> String raise DataError` — cells render via
   `Scalar::to_string`; null → `options.null_value`; RFC 4180 quoting;
-  LF-terminated.
+  LF-terminated. Raises `InvalidOperation` if `options.delimiter` is a double
+  quote or a line terminator (`\n` / `\r`), which can't unambiguously frame
+  fields.
 - `read_csv(path)` / `read_csv_with_options(path, options) -> DataFrame
   raise DataError` — file wrappers (`IoError`).
 - `read_csv_projected(path, options, projection : Array[String]) ->

@@ -29,6 +29,8 @@ Numeric parsing follows pandas / polars conventions:
   they are *not* read as numbers.
 - Integers within the `Int64` range stay `Int`; a value that overflows `Int64`
   is promoted to `Float`, not silently truncated.
-- `nan` / `inf` / `infinity` tokens are accepted as `Float` by default. CSV's
-  `allow_nonfinite_floats = false` rejects them during inference, so a column of
-  such tokens falls back to `String` instead of being read as `Float`.
+- `nan` / `inf` / `infinity` tokens — and a finite literal beyond the `Double`
+  range, which collapses to `±Inf` per IEEE 754 (e.g. `1e999`) — are accepted as
+  `Float` by default. CSV's `allow_nonfinite_floats = false` rejects them during
+  inference, so a column of such tokens falls back to `String` instead of being
+  read as `Float`.

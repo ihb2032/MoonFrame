@@ -151,7 +151,8 @@ validity bitmap (`1 = valid`, `0 = null`).
     → `ParseError`), Bool `true → 1` / `false → 0`, String accepts only
     plain base-10 integers (others → `ParseError`). `Float`: Int promoted,
     identity on Float, Bool → `1.0` / `0.0`, String parsed (`1_000`
-    underscore grouping rejected; `inf` / `-inf` / `nan` accepted; other
+    underscore grouping rejected; `inf` / `-inf` / `nan` accepted; a finite
+    literal past the `Double` range collapses to `±Inf` per IEEE 754; other
     malformed → `ParseError`). `String`: every dtype renders (via the total
     `to_string_column`). Validity is preserved; `Bool` / `Null` targets
     `raise Unsupported`.

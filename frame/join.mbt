@@ -63,8 +63,8 @@ fn index_by_join_key(
 ///     shape where a key names the same column on both sides); `left_on` /
 ///     `right_on` and any derived key never coalesce. Whether an eligible
 ///     right key column is kept is then governed by `options.coalesce`
-///     (`None` = auto by `how`, matching Polars: an inner join coalesces, a
-///     left / right / outer join does not). When coalesced, the key appears
+///     (`None` = auto by `how`, matching Polars: an inner / left / right join
+///     coalesces, an outer join does not). When coalesced, the key appears
 ///     once at the left key's position, taking each row's value from
 ///     whichever side is present (the left on `Inner` / `Left`, the right
 ///     on `Right`, the present side per row on `Outer` — the two are equal
@@ -239,7 +239,7 @@ pub fn DataFrame::join(
   // same column on both sides (`coalesce_key_names` returns those names);
   // `left_on` / `right_on` and derived keys turn coalescing off. When
   // eligible, an explicit `with_coalesce` wins, else it is auto by `how`
-  // (inner coalesces → key once; left / right / outer / cross do not),
+  // (inner / left / right coalesce → key once; outer / cross do not),
   // matching Polars' `coalesce = None`. `on_set` is the set of names to
   // coalesce — empty whenever coalescing is off, so the assembly below
   // keeps every column.
@@ -247,7 +247,7 @@ pub fn DataFrame::join(
   let coalesce = if coalesce_names is Some(_) {
     options.coalesce.unwrap_or(
       match options.how {
-        Inner => true
+        Inner | Left | Right => true
         _ => false
       },
     )

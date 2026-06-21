@@ -236,12 +236,14 @@ fn numeric_double_reader(
 /// to `Double`, so the output always types `Float`. Numeric only: a
 /// non-numeric (`Bool` / `String`) column `raise`s `TypeMismatch` here at
 /// factory time, before any window is folded, exactly as `reduce_arith` does.
-/// A `NaN` is a present value, so it counts toward `cnt` and **propagates** —
-/// the mean is `NaN`, hence every deviation and the result — matching
-/// `sum` / `mean`. A window with fewer than two non-null cells has no sample
-/// variance (the `cnt − 1` denominator is zero or negative), so it reduces to
-/// `Scalar::Null`: the empty / single-value / all-null cases, which the
-/// surfaces translate the way they do `mean`'s null cell.
+/// A `NaN` is a present value: when at least two non-null cells are present it
+/// counts toward `cnt` and **propagates** — the mean is `NaN`, hence every
+/// deviation and the result — matching `sum` / `mean`. The fewer-than-two rule
+/// takes precedence, though: a window with fewer than two non-null cells has no
+/// sample variance (the `cnt − 1` denominator is zero or negative), so it
+/// reduces to `Scalar::Null` (the empty / single-value / all-null cases — so a
+/// lone `NaN` cell is `Null`, not `NaN`), which the surfaces translate the way
+/// they do `mean`'s null cell.
 fn reduce_variance(
   storage : @column.ColumnStorage,
   want_std~ : Bool,

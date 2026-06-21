@@ -227,8 +227,8 @@ depends only on `types`.
 - `enum Expr` — the expression tree, **read-only** outside the package
   (inspect by pattern matching; construct through `col` / `lit_*` /
   operators / methods, not by spelling variants). The payload tag enums
-  `BinOp` / `UnOp` / `AggOp` are read-only implementation tags — no public
-  API names one, so the facade does not re-export them.
+  `BinOp` / `UnOp` / `AggOp` / `StrOp` are read-only implementation tags — no
+  public API names one, so the facade does not re-export them.
 
 ### Constructors (static methods + free-function aliases)
 
@@ -1101,8 +1101,8 @@ reachable; likewise the `Expr` operators / methods ride along with
 `type Expr`, and the `LazyFrame` / `LazyGroupBy` methods (including the
 `LazyFrame::from` constructor) with their types — so only the value types
 and the free functions are listed explicitly. The inert `BinOp` / `UnOp`
-/ `AggOp` tag enums are deliberately **not** re-exported (no public API
-names them).
+/ `AggOp` / `StrOp` tag enums are deliberately **not** re-exported (no public
+API names them).
 
 - From `@types`: `DataError` · `DataType` · `Scalar` · `Field` · `Schema` ·
   `compare_string_lex` · `is_decimal_int_literal`

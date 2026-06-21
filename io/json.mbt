@@ -449,8 +449,10 @@ fn json_value_as_bool(j : Json) -> Bool? {
 
 ///|
 /// Render any JSON value as a flat string for the `String`-fallback
-/// column builder. Numbers render via `Double::to_string`, booleans
-/// render `true` / `false`, strings pass through verbatim, and any
+/// column builder. Numbers render via `Double::to_string` (a whole-valued
+/// number with no preserved `repr` loses its fractional part — `2.0` → `"2"`,
+/// the String-fallback analogue of the module's integral-`Float` Caveat 1),
+/// booleans render `true` / `false`, strings pass through verbatim, and any
 /// composite (`Array` / `Object`) falls through to `@json.stringify`.
 /// `Null` is filtered out upstream — the build loop calls
 /// `values.push(None)` for null cells without invoking this helper —

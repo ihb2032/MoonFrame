@@ -5,7 +5,7 @@
 /// frame's shape or column dtypes:
 ///
 /// - `column` (`String`): source column name, in declaration order
-/// - `dtype` (`String`): source column dtype rendered via `Show`
+/// - `dtype` (`String`): source column dtype rendered via `DataType::to_string`
 /// - `count` (`Int`): non-null cell count
 /// - `null_count` (`Int`): null cell count
 /// - `n_unique` (`Int`): distinct non-null value count
@@ -18,7 +18,10 @@
 ///
 /// `min` / `max` are rendered as `String` so the summary can carry
 /// extrema for every dtype in a single column without forcing a
-/// uniform value type. The per-column reductions (`min`, `max`) keep the
+/// uniform value type. A `Float` extremum renders via `Double::to_string`,
+/// which drops the decimal point of a whole value (`1.0` → `"1"`), so a
+/// `Float` column's extrema can read like an `Int`'s — the `dtype` column
+/// disambiguates. The per-column reductions (`min`, `max`) keep the
 /// original dtype if a caller needs it typed.
 ///
 /// Raises only because the summary frame is built through the fallible

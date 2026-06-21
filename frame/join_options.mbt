@@ -29,7 +29,7 @@ pub(all) enum JoinType {
 /// The knobs for `DataFrame::join`: which columns to match on, the join
 /// `how`, the `suffix` disambiguating a right column whose name collides
 /// with a left one, and whether to `coalesce` the key columns. Fields are
-/// private outside the package — build options through `JoinOptions::on` /
+/// read-only outside the package — build options through `JoinOptions::on` /
 /// `JoinOptions::left_on` / `JoinOptions::cross` and (optionally) chain
 /// `with_right_on` / `with_how` / `with_suffix` / `with_coalesce`.
 ///

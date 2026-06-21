@@ -3,7 +3,7 @@
 /// of equally-tall `Series`, a derived `Schema`, and a private
 /// `name_to_index` cache so column lookup by name is `O(1)`.
 ///
-/// The struct is `pub` (fields private outside the package), so callers
+/// The struct is `pub` (fields read-only outside the package), so callers
 /// always go through the constructors below — those rebuild the cache and
 /// the schema in lock-step with the column vector, preserving the
 /// invariants:

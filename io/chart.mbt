@@ -60,7 +60,7 @@ fn vega_type_string(t : VegaType) -> String {
 ///|
 /// A chart specification: the `mark` kind, the `x` / `y` encoding columns,
 /// an optional `color` grouping column, and an optional `title`. Fields are
-/// private outside the package — build a spec through one of the
+/// read-only outside the package — build a spec through one of the
 /// mark-named constructors (`ChartSpec::bar(x, y)` / `line` / `point` /
 /// `area`) and chain `with_color(column)` / `with_title(text)`:
 ///

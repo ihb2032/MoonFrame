@@ -160,15 +160,18 @@ paste into the [Vega editor](https://vega.github.io/editor/).
 
 Anything that can fail on bad input or I/O raises `DataError`; the library never
 aborts your program on a recoverable error. Call such functions inside a `raise`
-context (as the examples above do), or bridge back to a `Result` with `try?`:
+context (as the examples above do), or bridge back to a `Result` with a
+`catch` that re-wraps the error:
 
 ```moonbit
-let result : Result[String, @moonframe.DataError] = try? widgets("sales.csv")
+let result : Result[String, @moonframe.DataError] = Ok(widgets("sales.csv")) catch {
+  e => Err(e)
+}
 ```
 
 Operations that are provably total (`head`, `drop_nulls`, `to_markdown`, …) just
 return their value. `DataError` is a `pub(all) suberror`, so you can match its
-variants (`ColumnNotFound`, `ParseError`, …) after a `try?`. The full model is in
+variants (`ColumnNotFound`, `ParseError`, …) on the `Err`. The full model is in
 [`docs/api.md`](docs/api.md).
 
 ## Documentation

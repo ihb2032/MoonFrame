@@ -25,8 +25,9 @@ function with signature `... -> T raise DataError`. There is no
 - **In a `raise` context** (another `... raise DataError` function, or a
   `test { ... }` block) call the method directly; an uncaught error
   propagates.
-- **Bridge to a value** with `try?`: `let r : Result[DataFrame, DataError]
-  = try? read_csv(path)`. Match on `r` to inspect the error.
+- **Bridge to a value** by re-wrapping in a `catch`:
+  `let r : Result[DataFrame, DataError] = Ok(read_csv(path)) catch { e => Err(e) }`.
+  Match on `r` to inspect the error.
 - **Handle inline** with `try expr catch { e => ... }`.
 
 Provably-total operations (`head` / `tail` / `Series::min` /
@@ -51,8 +52,9 @@ in [`migration.md`](migration.md).
   `ColumnNotFound` / `DuplicateColumn` / `TypeMismatch` / `LengthMismatch` /
   `IndexOutOfBounds` / `ParseError` / `InvalidOperation` / `IoError` /
   `Unsupported`. As a `suberror` it is both raised
-  (`raise ColumnNotFound("age")`) and recovered (`try? expr` →
-  `Result[_, DataError]`); `pub(all)` lets callers construct and match
+  (`raise ColumnNotFound("age")`) and recovered
+  (`Ok(expr) catch { e => Err(e) }` → `Result[_, DataError]`); `pub(all)` lets
+  callers construct and match
   variants. `DataError::message()` renders a human-readable description;
   the `Show` impl renders the variant form for assertion snapshots.
 - `enum DataType` — `Int | Float | Bool | String | Null`, with
@@ -479,8 +481,8 @@ dependencies** (NyaCSV / fs / @json live only in `io`).
 
 ### DataFrame
 
-- `struct DataFrame` — column-oriented table; fields private outside the
-  package (`schema`, `columns`, `nrows`, private `name_to_index` cache
+- `struct DataFrame` — column-oriented table; fields read-only outside the
+  package (`schema`, `columns`, `nrows`, and a `name_to_index` cache
   for `O(1)` name lookup).
 - Constructors (`raise DataError`): `new(columns)`
   (`LengthMismatch` / `DuplicateColumn`; zero columns → `0×0`);
@@ -595,7 +597,7 @@ transforms, so every output satisfies `check_invariants()`.
   `to_html_with_options` adds a `class` / `<caption>` and, via `max_rows`,
   a row cap with a `<tfoot>` `... (K more rows)` banner (negative
   `max_rows` clamps to 0).
-- `struct HtmlOptions` (fields private) — built via `HtmlOptions::default()`
+- `struct HtmlOptions` (fields read-only) — built via `HtmlOptions::default()`
   (all rows, no `class` / `caption`, `escape = true`) and chained
   `with_max_rows(n)` / `with_table_class(cls)` / `with_caption(text)` /
   `with_escape(flag)`. `with_escape(false)` emits caption / header / cell
@@ -777,7 +779,7 @@ Hash equi-join, native to the method chain (`left.join(right, options)`).
     different keys and contribute no output column; or two output columns
     still colliding after suffixing — surfaced by `DataFrame::new`).
 - `enum JoinType` — `Inner` / `Left` / `Right` / `Outer` / `Cross`.
-- `struct JoinOptions` (fields private) — built via
+- `struct JoinOptions` (fields read-only) — built via
   `JoinOptions::on(keys : Array[Expr])` (same keys on both frames),
   `JoinOptions::left_on(keys).with_right_on(keys)` (differently-named or
   -derived keys, paired position by position), or `JoinOptions::cross()`
@@ -936,7 +938,7 @@ It shares `format_json_records`' `scalar_to_json` cell mapping, so a
 - `enum ChartKind { Bar; Line; Point; Area }` (`pub(all)`) — the mark
   type, mapped to the Vega-Lite `mark` (`"bar"` / `"line"` / `"point"` /
   `"area"`).
-- `struct ChartSpec` (fields private) — built via a mark-named
+- `struct ChartSpec` (fields read-only) — built via a mark-named
   constructor `ChartSpec::bar(x, y)` / `line(x, y)` / `point(x, y)` /
   `area(x, y)` (`x` / `y` are column names) and chained
   `with_color(column)` (a grouping / colour column) / `with_title(text)` /

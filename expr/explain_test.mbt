@@ -39,6 +39,12 @@ test "show: every binary operator symbol" {
 test "show: every literal kind" {
   inspect(lit_int(42), content="42")
   inspect(lit_float(1.5), content="1.5")
+  // A whole-valued Float keeps its decimal point so it stays distinct from an
+  // `Int` literal (`Double::to_string` would otherwise print `1.0` as `"1"`);
+  // non-finite values keep their own spelling.
+  inspect(lit_float(1.0), content="1.0")
+  inspect(lit_float(0.0 / 0.0), content="NaN")
+  inspect(lit_float(1.0 / 0.0), content="Infinity")
   inspect(lit_str("west"), content="\"west\"")
   inspect(lit_bool(true), content="true")
   inspect(lit(@types.Scalar::Null), content="null")

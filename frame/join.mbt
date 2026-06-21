@@ -394,8 +394,15 @@ fn resolve_join_keys(
     let lcol = broadcast_series(eval_expr(left_exprs[i], left, lscope), ln)
     let rcol = broadcast_series(eval_expr(right_exprs[i], right, rscope), rn)
     if lcol.dtype() != rcol.dtype() {
+      // For `left_on` / `right_on` the two keys can be named differently, so
+      // name both sides; an `on` join shares one name and keeps the short form.
+      let where_ = if options.left_on.is_empty() {
+        "join key \"\{name}\""
+      } else {
+        "join key \"\{name}\" (left) / \"\{expr_output_name(right_exprs[i])}\" (right)"
+      }
       raise @types.DataError::TypeMismatch(
-        "join key \"\{name}\" has dtype \{lcol.dtype()} on the left but \{rcol.dtype()} on the right",
+        "\{where_} has dtype \{lcol.dtype()} on the left but \{rcol.dtype()} on the right",
       )
     }
     left_key_scalars.push(lcol.to_scalars())

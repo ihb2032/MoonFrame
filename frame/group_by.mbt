@@ -1,7 +1,7 @@
 ///|
 /// A `DataFrame` partitioned into groups by one or more key expressions,
 /// produced by `DataFrame::group_by` and consumed by `agg`. Fields are
-/// private outside the package; the only way to build one is `group_by`,
+/// read-only outside the package; the only way to build one is `group_by`,
 /// which guarantees every stored row index is in `[0, source.nrows())`
 /// and every group is non-empty.
 ///

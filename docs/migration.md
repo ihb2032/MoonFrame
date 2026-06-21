@@ -243,7 +243,7 @@ reproduce the prior behaviour exactly.
 |---|---|
 | `@ops.select(df, names)` (free function) | `df.select(names)` (method) |
 | `op(df, ...) -> Result[T, DataError]` + `.bind` / `.map` / `.unwrap` | `df.op(...) -> T raise DataError`, chained directly |
-| pattern-match `Ok(x)` / `Err(e)` on the result | call directly in a `raise` context, or `try? expr` for a `Result` |
+| pattern-match `Ok(x)` / `Err(e)` on the result | call directly in a `raise` context, or `Ok(expr) catch { e => Err(e) }` for a `Result` |
 | `filter_try(df, row => row.get_int("x").map(v => v > 0))` | `df.filter(row => row.get_int("x") > 0)` |
 | `sort_by(df, spec)` / `sort_by_many(df, specs)` | `df.sort_by([(col, order, nulls), ...])` |
 | `Series::min()` / `max()` (`Result`-wrapped) | `Series::min_value()` / `max_value()` (total) |

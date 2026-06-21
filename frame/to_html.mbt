@@ -14,7 +14,7 @@
 // `Series::storage` change is invisible here.
 
 ///|
-/// Options for `DataFrame::to_html_with_options`. Fields are private
+/// Options for `DataFrame::to_html_with_options`. Fields are read-only
 /// outside the package — build them through `HtmlOptions::default()` and
 /// chain the `with_*` setters:
 ///

@@ -173,6 +173,7 @@ into `cast`.
 | `series.null_rate()` | *removed* — compute `series.null_count() / series.len()` |
 | `series.describe()` | *removed* — wrap in a frame: `DataFrame::new([series]).describe()` |
 | `df.get(i, "c")` | `df.item(i, "c")` |
+| `@io.format_csv_str(df, opts)` | `@io.format_csv(df, opts)` |
 
 The same `min_value` → `min`, `max_value` → `max`, and `to_int` / `to_float` →
 `cast` renames apply to the column backend types (`NumericColumn`,

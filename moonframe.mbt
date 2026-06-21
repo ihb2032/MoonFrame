@@ -107,7 +107,7 @@ pub using @io {
   type ChartKind,
   type ChartSpec,
   type VegaType,
-  format_csv_str,
+  format_csv,
   format_json_records,
   format_ndjson,
   format_vega_lite,

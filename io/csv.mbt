@@ -334,10 +334,7 @@ pub fn read_csv_projected(
 ///   (`2.0` → `2`) and is re-inferred as `Int` on read — the same dtype
 ///   narrowing the JSON writer documents. Quote / escape handling is
 ///   otherwise round-trip safe.
-pub fn format_csv_str(
-  df : @frame.DataFrame,
-  options : CsvWriteOptions,
-) -> String {
+pub fn format_csv(df : @frame.DataFrame, options : CsvWriteOptions) -> String {
   let buf = StringBuilder::new()
   let names = df.columns()
   // A single-column frame is the only shape whose rows can render as a bare
@@ -406,7 +403,7 @@ pub fn write_csv_with_options(
   df : @frame.DataFrame,
   options : CsvWriteOptions,
 ) -> Unit raise @types.DataError {
-  let content = format_csv_str(df, options)
+  let content = format_csv(df, options)
   write_text(path, content)
 }
 

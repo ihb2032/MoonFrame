@@ -93,8 +93,11 @@ backend.)
 expression layer can build on the per-column unit (the facade name
 `@moonframe.Series` is unchanged). The last non-Polars names are aligned:
 `min_value` / `max_value` → `min` / `max`, `take` → `gather`, `unique_count` →
-`n_unique`, `to_int` / `to_float` / `to_string_series` → `cast`, and
-`DataFrame::get(i, c)` → `item(i, c)`; `null_rate` is removed.
+`n_unique`, `to_int` / `to_float` / `to_string_series` → `cast`,
+`DataFrame::get(i, c)` → `item(i, c)`, and `format_csv_str` → `format_csv` (so
+the string serialisers share the prefix-free `format_*` shape of
+`format_json_records` / `format_ndjson` / `format_vega_lite`); `null_rate` is
+removed.
 
 ### Chart colour type override
 

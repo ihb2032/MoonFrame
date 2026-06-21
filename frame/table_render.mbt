@@ -32,5 +32,9 @@ fn table_cell_matrix(df : DataFrame, shown : Int) -> Array[Array[String]] {
 /// `to_html` wraps it in a `<tfoot>` cell, but the wording lives here so the two
 /// never drift.
 fn more_rows_banner(hidden : Int) -> String {
-  "... (\{hidden} more rows)"
+  if hidden == 1 {
+    "... (1 more row)"
+  } else {
+    "... (\{hidden} more rows)"
+  }
 }

@@ -24,6 +24,16 @@
 /// disambiguates. The per-column reductions (`min`, `max`) keep the
 /// original dtype if a caller needs it typed.
 ///
+/// This is a deliberately reduced summary: it omits the standard deviation,
+/// variance, and quantiles (`25%` / `50%` / `75%`) that Polars' `describe`
+/// reports. The per-column kernels expose those directly (`Series` std /
+/// variance / median) for callers who need them.
+///
+/// Because `min` / `max` skip `NaN` (Polars' regular extrema) while `count`
+/// treats `NaN` as a present value, an all-`NaN` `Float` column reports a
+/// non-zero `count` but `Null` `min` / `max` — the two can legitimately
+/// disagree, in addition to the empty / all-null case noted above.
+///
 /// Raises only because the summary frame is built through the fallible
 /// `DataFrame::new`; the output columns are hardcoded-unique and equal
 /// length, so the raise is forwarded, never actually taken. The 0-column

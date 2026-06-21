@@ -182,6 +182,13 @@ fn bare_col_agg(expr : @expr.Expr) -> (String, ReduceOp)? {
 /// never ran the closure. The `fallback` types only the cases the cells
 /// cannot: zero groups, or an all-null result (e.g. `mean` over all-null
 /// groups), where the reduction's own declared dtype is the right witness.
+/// One narrow corner: when the reduction wraps a `map(...)` whose closure
+/// output dtype differs from its leftmost input's, an all-null result is typed
+/// by that input's dtype — a `Map`'s empty-scope probe takes the leftmost
+/// input column and never runs the closure — so the empty column's declared
+/// dtype / backend can differ from the closure's intended output. Every cell is
+/// `Null`, so no value is wrong; only the dtype witness of an all-null column
+/// differs (reachable via `first` / `last` / `min` / `max`).
 fn agg_cells_to_series(
   cells : Array[@types.Scalar],
   fallback : @column.ColumnData,

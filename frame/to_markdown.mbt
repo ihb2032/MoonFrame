@@ -24,8 +24,9 @@
 ///
 /// Column widths are aligned to `max(header, every rendered cell)`,
 /// with a 3-character minimum so the dash separator never collapses
-/// below the GFM-required floor. Null cells render as the empty
-/// string, matching `Scalar::to_string`.
+/// below the GFM-required floor. Null cells render as the empty string
+/// (matching `Scalar::to_string`), so a null and a genuine empty-string
+/// cell render identically — the renderer carries no null marker.
 ///
 /// Empty frames degrade gracefully:
 ///   - 0 columns → returns the empty string;

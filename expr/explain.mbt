@@ -84,12 +84,27 @@ pub fn Expr::referenced_columns(self : Expr) -> @set.Set[String] {
 /// leaf is special-cased; the recursion rides `Expr::children`, so a new
 /// variant is covered the moment it declares its children there.
 fn collect_columns(expr : Expr, acc : @set.Set[String]) -> Unit {
-  match expr {
-    Col(name) => acc.add(name)
-    _ => ()
-  }
-  for child in expr.children() {
-    collect_columns(child, acc)
+  // Walk an explicit heap stack rather than the call stack: a deeply nested
+  // user-built tree (`col("a") + col("a") + …` tens of thousands deep) would
+  // otherwise overflow the native stack and abort — breaking the "total —
+  // nothing can fail" contract these introspection walks promise. Children are
+  // pushed right-to-left so the leftmost pops first, preserving the documented
+  // depth-first, left-to-right reference order.
+  let stack : Array[Expr] = [expr]
+  for ;; {
+    match stack.pop() {
+      None => break
+      Some(e) => {
+        match e {
+          Col(name) => acc.add(name)
+          _ => ()
+        }
+        let children = e.children()
+        for i = children.length() - 1; i >= 0; i = i - 1 {
+          stack.push(children[i])
+        }
+      }
+    }
   }
 }
 
@@ -123,137 +138,146 @@ pub fn Expr::output_name(self : Expr) -> String {
 /// (`referenced_columns`, by contrast, includes condition columns —
 /// pushdown must keep them alive.)
 fn leftmost_name(expr : Expr) -> String? {
-  match expr {
-    Col(name) => Some(name)
-    LitSeries(s) => Some(s.name())
-    Alias(_, name) => Some(name)
-    Ternary(_, t, f) =>
-      match leftmost_name(t) {
-        Some(name) => Some(name)
-        None => leftmost_name(f)
-      }
-    Lit(_)
-    | Binary(_, _, _)
-    | Unary(_, _)
-    | Agg(_, _)
-    | Str(_, _)
-    | Cast(_, _)
-    | Map(_, _, _) => {
-      for child in expr.children() {
-        match leftmost_name(child) {
-          Some(name) => return Some(name)
-          None => ()
+  // Leftmost-first search over an explicit stack (see `collect_columns` for why
+  // the call stack is avoided). The first naming node reached — `Col` /
+  // `LitSeries` / `Alias` — wins. A `Ternary` names itself from the value
+  // branches only (`then` before `otherwise`), never the condition, so it
+  // pushes just those two; every other composite rides `children` with the
+  // leftmost on top. Leaves with no name (a bare `Lit`) fall through to `None`.
+  let stack : Array[Expr] = [expr]
+  for ;; {
+    match stack.pop() {
+      None => break
+      Some(e) =>
+        match e {
+          Col(name) => return Some(name)
+          LitSeries(s) => return Some(s.name())
+          Alias(_, name) => return Some(name)
+          Ternary(_, t, f) => {
+            stack.push(f)
+            stack.push(t)
+          }
+          _ => {
+            let children = e.children()
+            for i = children.length() - 1; i >= 0; i = i - 1 {
+              stack.push(children[i])
+            }
+          }
         }
-      }
-      None
+    }
+  }
+  None
+}
+
+///|
+/// A pending step for the iterative `write_expr`: either a literal string
+/// fragment to emit, a sub-expression still to expand, or one of the three leaf
+/// writers that take more than a plain string (`write_scalar` for a `Lit`, a
+/// `Cast` target, a `Str` suffix).
+priv enum WriteTask {
+  Frag(String)
+  Node(Expr)
+  ScalarLit(@types.Scalar)
+  CastTarget(@types.DataType)
+  StrSuffix(StrOp)
+}
+
+///|
+/// Renderer behind `Show`, driven by an explicit heap stack instead of the call
+/// stack so a deeply nested tree can't overflow and abort (see
+/// `collect_columns`). Every composite form is self-delimiting (parentheses or
+/// a closing `)` of a method call), so a node expands into a fixed sequence of
+/// fragments and child placeholders; the emitted text is byte-for-byte the
+/// recursive form's.
+fn write_expr(logger : &Logger, expr : Expr) -> Unit {
+  let stack : Array[WriteTask] = [Node(expr)]
+  for ;; {
+    match stack.pop() {
+      None => break
+      Some(task) =>
+        match task {
+          Frag(s) => logger.write_string(s)
+          ScalarLit(v) => write_scalar(logger, v)
+          CastTarget(t) => t.output(logger)
+          StrSuffix(op) => write_str_suffix(logger, op)
+          Node(e) => push_write_tasks(stack, e)
+        }
     }
   }
 }
 
 ///|
-/// Recursive renderer behind `Show` — every composite form is
-/// self-delimiting (parentheses or a closing `)` of a method call), so
-/// nesting never needs context from above.
-fn write_expr(logger : &Logger, expr : Expr) -> Unit {
-  match expr {
-    Col(name) => {
-      logger.write_string("col(")
-      logger.write_string(@types.escape_debug(name))
-      logger.write_string(")")
-    }
-    Lit(value) => write_scalar(logger, value)
-    // The embedded data is opaque to the rendering, so a `LitSeries` shows
-    // its name (quoted / escaped like a string literal) and length —
+/// Expand one node into its fragment / child sequence, pushed so the parts emit
+/// left to right (built forward, then pushed in reverse so the first pops
+/// first). The per-variant shapes mirror the recursive renderer exactly.
+fn push_write_tasks(stack : Array[WriteTask], expr : Expr) -> Unit {
+  let tasks : Array[WriteTask] = match expr {
+    Col(name) => [Frag("col(" + @types.escape_debug(name) + ")")]
+    Lit(value) => [ScalarLit(value)]
+    // The embedded data is opaque to the rendering, so a `LitSeries` shows its
+    // name (quoted / escaped like a string literal) and length —
     // `lit_series("flag", 4)` — enough to read a plan line without dumping
     // every cell.
-    LitSeries(s) => {
-      logger.write_string("lit_series(\"")
-      logger.write_string(@types.escape_debug(s.name()))
-      logger.write_string("\", ")
-      logger.write_string(s.len().to_string())
-      logger.write_string(")")
-    }
-    Binary(op, l, r) => {
-      logger.write_string("(")
-      write_expr(logger, l)
-      logger.write_string(" ")
-      logger.write_string(binop_symbol(op))
-      logger.write_string(" ")
-      write_expr(logger, r)
-      logger.write_string(")")
-    }
+    LitSeries(s) =>
+      [
+        Frag(
+          "lit_series(\"" +
+          @types.escape_debug(s.name()) +
+          "\", " +
+          s.len().to_string() +
+          ")",
+        ),
+      ]
+    Binary(op, l, r) =>
+      [
+        Frag("("),
+        Node(l),
+        Frag(" " + binop_symbol(op) + " "),
+        Node(r),
+        Frag(")"),
+      ]
     Unary(op, e) =>
       match op {
-        Neg => {
-          logger.write_string("(-")
-          write_expr(logger, e)
-          logger.write_string(")")
-        }
-        Not => {
-          logger.write_string("(not ")
-          write_expr(logger, e)
-          logger.write_string(")")
-        }
-        IsNull => {
-          write_expr(logger, e)
-          logger.write_string(".is_null()")
-        }
-        IsNotNull => {
-          write_expr(logger, e)
-          logger.write_string(".is_not_null()")
-        }
-        IsNan => {
-          write_expr(logger, e)
-          logger.write_string(".is_nan()")
-        }
-        IsNotNan => {
-          write_expr(logger, e)
-          logger.write_string(".is_not_nan()")
-        }
+        Neg => [Frag("(-"), Node(e), Frag(")")]
+        Not => [Frag("(not "), Node(e), Frag(")")]
+        IsNull => [Node(e), Frag(".is_null()")]
+        IsNotNull => [Node(e), Frag(".is_not_null()")]
+        IsNan => [Node(e), Frag(".is_nan()")]
+        IsNotNan => [Node(e), Frag(".is_not_nan()")]
       }
-    Agg(op, e) => {
-      write_expr(logger, e)
-      logger.write_string(agg_suffix(op))
-    }
-    Str(op, e) => {
-      write_expr(logger, e)
-      write_str_suffix(logger, op)
-    }
-    Cast(e, target) => {
-      write_expr(logger, e)
-      logger.write_string(".cast(")
-      target.output(logger)
-      logger.write_string(")")
-    }
-    Alias(e, name) => {
-      write_expr(logger, e)
-      logger.write_string(" as ")
-      logger.write_string(@types.escape_debug(name))
-    }
-    Ternary(c, t, f) => {
-      logger.write_string("when(")
-      write_expr(logger, c)
-      logger.write_string(").then(")
-      write_expr(logger, t)
-      logger.write_string(").otherwise(")
-      write_expr(logger, f)
-      logger.write_string(")")
-    }
+    Agg(op, e) => [Node(e), Frag(agg_suffix(op))]
+    Str(op, e) => [Node(e), StrSuffix(op)]
+    Cast(e, target) => [Node(e), Frag(".cast("), CastTarget(target), Frag(")")]
+    Alias(e, name) => [Node(e), Frag(" as " + @types.escape_debug(name))]
+    Ternary(c, t, f) =>
+      [
+        Frag("when("),
+        Node(c),
+        Frag(").then("),
+        Node(t),
+        Frag(").otherwise("),
+        Node(f),
+        Frag(")"),
+      ]
     // The closure is opaque, so a `Map` renders by its label and inputs:
-    // `map("label", [in1, in2])`. The label is quoted / escaped like a
-    // string literal so it stays on one unambiguous line.
+    // `map("label", [in1, in2])`. The label is quoted / escaped like a string
+    // literal so it stays on one unambiguous line.
     Map(label, inputs, _) => {
-      logger.write_string("map(\"")
-      logger.write_string(@types.escape_debug(label))
-      logger.write_string("\", [")
+      let ts : Array[WriteTask] = [
+        Frag("map(\"" + @types.escape_debug(label) + "\", ["),
+      ]
       for i in 0..<inputs.length() {
         if i > 0 {
-          logger.write_string(", ")
+          ts.push(Frag(", "))
         }
-        write_expr(logger, inputs[i])
+        ts.push(Node(inputs[i]))
       }
-      logger.write_string("])")
+      ts.push(Frag("])"))
+      ts
     }
+  }
+  for i = tasks.length() - 1; i >= 0; i = i - 1 {
+    stack.push(tasks[i])
   }
 }
 

@@ -234,6 +234,22 @@ test "output_name: a column-less tree falls back to \"literal\"" {
 }
 
 ///|
+test "deep trees don't overflow the stack: the introspection walks are iterative" {
+  // A left-nested tree this deep formerly overflowed the native stack and
+  // aborted in all three walks (output_name / referenced_columns / Show), which
+  // the docs promise are total. The explicit-stack walks handle any depth.
+  let depth = 200000
+  let mut e = col("a")
+  for _ in 0..<depth {
+    e = e + col("a")
+  }
+  assert_eq(e.output_name(), "a")
+  assert_eq(e.referenced_columns().to_array(), ["a"])
+  // Show renders the whole tree without aborting (length grows with depth).
+  assert_true(e.explain().length() > depth)
+}
+
+///|
 test "children: each variant exposes its immediate sub-expressions, left to right" {
   let a = col("a")
   let b = col("b")

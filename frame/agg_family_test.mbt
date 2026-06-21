@@ -96,6 +96,18 @@ test "median skips NaN and nulls, all-missing is null" {
   assert_eq(whole(allnull, @expr.col("x").median()), @types.Scalar::Null)
 }
 
+///|
+test "median of two near-Double-max middles stays finite (no overflow to Inf)" {
+  // The sum of the two middle cells overflows Double before the halving, yet the
+  // median lies between them and is finite. Regression guard: the naive
+  // `(lo + hi) / 2` returned +Inf here.
+  let big = DataFrame::new([Series::from_floats("x", [1.6e308, 1.7e308])])
+  assert_eq(
+    whole(big, @expr.col("x").median()),
+    @types.Scalar::Float(1.6e308 / 2.0 + 1.7e308 / 2.0),
+  )
+}
+
 // ── n_unique: distinct non-null across every dtype ─────────────────────
 
 ///|

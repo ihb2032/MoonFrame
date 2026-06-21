@@ -240,6 +240,26 @@ test "parse_ndjson_str: whitespace-only input yields a 0x0 frame" {
 }
 
 ///|
+test "parse_ndjson_str: strips a leading UTF-8 BOM on the first line" {
+  // The BOM sits only on the first record line, so without stripping line 1
+  // would fail `@json.parse` while later lines parse — an asymmetric failure on
+  // Excel-saved files. The whole file must read cleanly, like the CSV reader.
+  let df = @io.parse_ndjson_str(
+    "\u{FEFF}{\"a\":1}\n{\"a\":2}\n",
+    @io.NdjsonReadOptions::default(),
+  )
+  assert_eq(df.shape(), (2, 1))
+  assert_eq(df.item(0, "a"), @types.Scalar::Int(1))
+  assert_eq(df.item(1, "a"), @types.Scalar::Int(2))
+}
+
+///|
+test "parse_ndjson_str: a BOM-only payload still reads as empty" {
+  let df = @io.parse_ndjson_str("\u{FEFF}", @io.NdjsonReadOptions::default())
+  assert_eq(df.shape(), (0, 0))
+}
+
+///|
 test "parse_ndjson_str: blank lines between and around records are skipped" {
   // Leading, interior, and trailing blank lines must not produce
   // phantom rows — they are skipped before parsing.

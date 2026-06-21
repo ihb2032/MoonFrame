@@ -99,6 +99,11 @@ fn parse_ndjson_str_projected(
   options : NdjsonReadOptions,
   projection : Array[String]?,
 ) -> @frame.DataFrame raise @types.DataError {
+  // Strip a leading UTF-8 BOM (shared with the CSV / JSON readers) before the
+  // line split, so a BOM on the first record line doesn't make `@json.parse`
+  // reject it at column 0 while later lines parse — an asymmetric failure on
+  // Excel-saved files.
+  let content = strip_utf8_bom(content)
   // Materialise the line views so the loop can carry a 1-based index
   // for diagnostics (the same `for i, x in ...` idiom the other readers
   // use). The views borrow `content`, so this is cheap.

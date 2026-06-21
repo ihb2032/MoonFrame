@@ -206,7 +206,12 @@ pub fn Bitmap::slice(
   if length < 0 {
     raise @types.DataError::InvalidOperation("slice length < 0: \{length}")
   }
-  if start + length > self.len {
+  // Compare against the remaining room, not `start + length`: `start` is already
+  // in `[0, len]`, so `len - start` cannot overflow, whereas a near-`Int::MAX`
+  // `length` would wrap `start + length` negative and slip past this guard —
+  // producing an over-long view over a tiny buffer that a later read aborts on.
+  // (`bytes_needed` dodges the same `len + 7` overflow.)
+  if length > self.len - start {
     raise @types.DataError::IndexOutOfBounds(start + length)
   }
   self.slice_view(start, length)
@@ -337,7 +342,11 @@ fn mask_tail(buf : FixedArray[Byte], len : Int) -> Unit {
   if tail == 0 {
     return
   }
-  let last = (len + 7) / 8 - 1
+  // The final byte holds bits in `[8 * (len / 8), len)`; with `tail != 0` here
+  // that byte sits at index `len / 8`, equal to the old `(len + 7) / 8 - 1` but
+  // without its `len + 7` Int overflow on a near-`Int::MAX` `len` (the same
+  // overflow `bytes_needed` is documented to avoid).
+  let last = len / 8
   let mask = (1 << tail) - 1
   buf[last] = (buf[last].to_int() & mask).to_byte()
 }

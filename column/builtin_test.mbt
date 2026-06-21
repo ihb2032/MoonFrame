@@ -279,6 +279,13 @@ test "cast Float from String parses, errors on garbage" {
   let out = ok.cast(@types.DataType::Float)
   assert_eq(out.get(0), @types.Scalar::Float(1.5))
   assert_eq(out.get(1), @types.Scalar::Float(-2.0))
+  // A finite literal past the Double range collapses to a signed Infinity
+  // (IEEE 754), matching the explicit `inf` literal — not a ParseError.
+  let huge = BuiltinColumn::from_strings(["1e999", "-1e999"]).cast(
+    @types.DataType::Float,
+  )
+  assert_eq(huge.get(0), @types.Scalar::Float(@double.infinity))
+  assert_eq(huge.get(1), @types.Scalar::Float(@double.neg_infinity))
   let bad = BuiltinColumn::from_strings(["nope"])
   assert_true(
     (Ok(bad.cast(@types.DataType::Float)) catch { e => Err(e) })

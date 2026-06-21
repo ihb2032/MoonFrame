@@ -326,7 +326,21 @@ fn reduce_median(
       if m % 2 == 1 {
         @types.Scalar::Float(vals[m / 2])
       } else {
-        @types.Scalar::Float((vals[m / 2 - 1] + vals[m / 2]) / 2.0)
+        let lo = vals[m / 2 - 1]
+        let hi = vals[m / 2]
+        // Average the two middle values. The precise `(lo + hi) / 2` is kept for
+        // the common case, but two near-`Double`-max middles overflow their sum
+        // to ±Inf before the halving — even though the median lies between them
+        // and is always finite. Halve first in that case (each half stays in
+        // range). A genuinely infinite middle keeps `(lo + hi) / 2`'s result.
+        let sum = lo + hi
+        @types.Scalar::Float(
+          if sum.is_inf() {
+            lo / 2.0 + hi / 2.0
+          } else {
+            sum / 2.0
+          },
+        )
       }
     }
   }

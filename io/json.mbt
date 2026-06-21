@@ -101,6 +101,10 @@ pub fn parse_json_records_str(
   content : String,
   options : JsonReadOptions,
 ) -> @frame.DataFrame raise @types.DataError {
+  // Strip a leading UTF-8 BOM (shared with the CSV / NDJSON readers); `@json.parse`
+  // rejects a stray `U+FEFF` at column 0, so a file saved by Excel would otherwise
+  // fail to read. Done first, so a BOM-only file still short-circuits as empty.
+  let content = strip_utf8_bom(content)
   // Mirror `parse_csv_str`'s empty-input short-circuit so callers can
   // stream JSON without special-casing the "no payload" case.
   if content.is_empty() {

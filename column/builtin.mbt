@@ -412,8 +412,10 @@ fn BuiltinColumn::to_float(
           let s = a[i]
           // Via the shared `@types.parse_plain_double_opt` (the CSV reader uses
           // the same routine): `1_000`-style underscores are rejected to match
-          // pandas / polars, while the `inf` / `-inf` / `nan` literals stay
-          // accepted; anything else on a valid slot is a `ParseError`.
+          // pandas / polars, while the `inf` / `-inf` / `nan` literals — and a
+          // finite literal beyond the `Double` range, which collapses to a
+          // signed Infinity (IEEE 754) — stay accepted; a genuine non-number on
+          // a valid slot is a `ParseError`.
           match @types.parse_plain_double_opt(s) {
             Some(x) => x
             None =>

@@ -275,6 +275,29 @@ test "parse_json_records_str: array of empty objects collapses to 0x0" {
 }
 
 ///|
+test "parse_json_records_str: strips a leading UTF-8 BOM (Excel / utf-8-sig)" {
+  // A file saved with a UTF-8 BOM must read like a clean one — matching the CSV
+  // reader and Polars / pandas. Left in place the BOM makes `@json.parse` reject
+  // the payload at column 0.
+  let df = @io.parse_json_records_str(
+    "\u{FEFF}[{\"a\":1,\"b\":2}]",
+    @io.JsonReadOptions::default(),
+  )
+  assert_eq(df.columns(), ["a", "b"])
+  assert_eq(df.shape(), (1, 2))
+  assert_eq(df.item(0, "a"), @types.Scalar::Int(1))
+}
+
+///|
+test "parse_json_records_str: a BOM-only payload still reads as empty" {
+  let df = @io.parse_json_records_str(
+    "\u{FEFF}",
+    @io.JsonReadOptions::default(),
+  )
+  assert_eq(df.shape(), (0, 0))
+}
+
+///|
 test "parse_json_records_str: non-array top-level returns ParseError" {
   let result = Ok(
     @io.parse_json_records_str("{\"a\":1}", @io.JsonReadOptions::default()),

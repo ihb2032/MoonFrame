@@ -27,3 +27,17 @@ test "is_decimal_int_literal: rejects empty, sign-only, and non-numeric" {
   assert_eq(is_decimal_int_literal("12a"), false)
   assert_eq(is_decimal_int_literal(" 42"), false)
 }
+
+///|
+test "parse_plain_double_opt: an out-of-range finite literal overflows to signed Infinity" {
+  // IEEE 754 overflow — the documented String→Float contract, matching the
+  // explicit `inf` literal and pandas / polars rather than rejecting the cell.
+  assert_eq(parse_plain_double_opt("1e999"), Some(@double.infinity))
+  assert_eq(parse_plain_double_opt("1.8e308"), Some(@double.infinity))
+  assert_eq(parse_plain_double_opt("-1e999"), Some(@double.neg_infinity))
+  // In-range values are untouched; genuine non-numbers and underscore grouping
+  // stay None.
+  assert_eq(parse_plain_double_opt("1.5"), Some(1.5))
+  assert_eq(parse_plain_double_opt("nope"), None)
+  assert_eq(parse_plain_double_opt("1_000"), None)
+}

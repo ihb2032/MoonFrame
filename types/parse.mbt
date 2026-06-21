@@ -57,13 +57,29 @@ pub fn parse_decimal_int_opt(s : String) -> Int64? {
 /// `@string.parse_double`. The `nan` / `inf` / `infinity` literals it
 /// recognises are returned as-is — the caller decides whether to keep them (the
 /// CSV reader gates them behind `allow_nonfinite`; the `@column` String→`Float`
-/// cast accepts them). Shared so inference and an explicit cast agree on what
-/// text is a `Float`.
+/// cast accepts them). A finite literal beyond the `Double` range collapses to
+/// a signed `Infinity` (IEEE 754 overflow), exactly like the explicit `inf`
+/// literal — so it too is gated by `allow_nonfinite` on the CSV path, rather
+/// than being rejected as unparseable. Shared so inference and an explicit cast
+/// agree on what text is a `Float`.
 pub fn parse_plain_double_opt(s : String) -> Double? {
   if s.iter().any(c => c == '_') {
     return None
   }
   try @string.parse_double(s.view()) catch {
+    // A finite literal past the `Double` range raises "value out of range"; per
+    // IEEE 754 (and the documented String→Float contract) that rounds to a
+    // signed `Infinity` rather than failing. The sign is a leading `-`
+    // (`parse_double` accepts no leading whitespace). Any other failure
+    // ("invalid syntax") is a genuine non-number and stays `None`.
+    Failure::Failure("value out of range") =>
+      Some(
+        if s.view().get_char(0) == Some('-') {
+          @double.neg_infinity
+        } else {
+          @double.infinity
+        },
+      )
     _ => None
   } noraise {
     x => Some(x)

@@ -384,12 +384,7 @@ fn group_cell_stable(expr : @expr.Expr) -> Bool {
 /// unstable cell fences the aggregation (an empty list is vacuously
 /// stable: a keys-only aggregation has no stitched columns to flip).
 fn all_group_cells_stable(exprs : Array[@expr.Expr]) -> Bool {
-  for expr in exprs {
-    if !group_cell_stable(expr) {
-      return false
-    }
-  }
-  true
+  exprs.all(group_cell_stable)
 }
 
 ///|

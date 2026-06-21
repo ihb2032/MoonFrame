@@ -299,10 +299,17 @@ fn stable_mergesort_indices(n : Int, cmp : (Int, Int) -> Int) -> Array[Int] {
     let mut start = 0
     while start < n {
       let left = start
-      let mid = if start + width < n { start + width } else { n }
-      let right_end = if start + 2 * width < n { start + 2 * width } else { n }
+      // Derive the run boundaries by subtraction against the room left
+      // (`n - start`, `n - mid`) rather than `start + width` / `start + 2*width`,
+      // so the arithmetic can't overflow `Int` on a pathologically large `n`
+      // (the overflow-avoidance `bitmap.mbt` also uses). `right_end` is the
+      // second run's end, so advancing `start` to it equals the old
+      // `start + 2*width`: both land at `min(start + 2*width, n)` and end the
+      // pass once they reach `n`.
+      let mid = if width < n - start { start + width } else { n }
+      let right_end = if width < n - mid { mid + width } else { n }
       merge_run(buf, aux, left, mid, right_end, cmp)
-      start = start + 2 * width
+      start = right_end
     }
     // Copy the merged pass back into `buf` so the next pass reads
     // from a contiguous source.

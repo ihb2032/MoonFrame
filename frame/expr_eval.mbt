@@ -75,9 +75,12 @@
 /// - **Backend convention** (the v0.3 review Q2 decision): a *computed*
 ///   result converges onto the `Numeric` fast path whenever it is an
 ///   all-valid numeric column (`try_column_to_numeric`), and lands on
-///   `Builtin` otherwise (nullable, `Bool`, `String`). `col(...)`
-///   references preserve their source backend (`gather_series`), and
-///   `cast` follows `Series::cast`.
+///   `Builtin` otherwise (nullable, `Bool`, `String`). A `col(...)` reference
+///   is canonicalised the same way — to the backend its *content* implies, not
+///   the source's: an all-valid numeric column converges to `Numeric`
+///   (`gather_series` / `try_column_to_numeric`), and this content-determined
+///   backend is the invariant predicate pushdown relies on. `cast` follows
+///   `Series::cast`.
 
 ///|
 /// Evaluate `expr` to a `Series` under `scope`. Callers guarantee every

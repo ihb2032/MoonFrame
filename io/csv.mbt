@@ -11,7 +11,10 @@
 ///
 /// - `has_header` — when `true`, the first row supplies column names.
 ///   When `false`, every row is treated as data and column names are
-///   synthesised as `"column1"`, `"column2"`, … in declaration order.
+///   synthesised as `"column1"`, `"column2"`, … in declaration order; the
+///   **first data row fixes the column count**, so a later wider row's
+///   trailing cells are dropped under the lenient default (set
+///   `strict_column_count = true` to reject a ragged row instead).
 /// - `delimiter` — field separator passed through to NyaCSV.
 /// - `infer_schema_rows` — number of leading rows scanned when guessing
 ///   each column's dtype. `0` (or any value `<= 0`) lifts the cap and
@@ -332,8 +335,12 @@ pub fn read_csv_projected(
 /// - Round-trip caveat: cells render via `Scalar::to_string`, so a `Float`
 ///   whose value is a whole number is written without a fractional part
 ///   (`2.0` → `2`) and is re-inferred as `Int` on read — the same dtype
-///   narrowing the JSON writer documents. Quote / escape handling is
-///   otherwise round-trip safe.
+///   narrowing the JSON writer documents. A `String` cell with significant
+///   leading / trailing whitespace is written bare (only the delimiter, a
+///   quote, `\r`, or `\n` force quoting), so this reader round-trips it
+///   (`trim_spaces` off), but an RFC-4180 consumer that trims surrounding
+///   whitespace may drop it. Quote / escape handling is otherwise round-trip
+///   safe.
 pub fn format_csv(df : @frame.DataFrame, options : CsvWriteOptions) -> String {
   let buf = StringBuilder::new()
   let names = df.columns()

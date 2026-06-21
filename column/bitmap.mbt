@@ -279,12 +279,15 @@ fn pack(len : Int, valid : (Int) -> Bool) -> Bitmap {
 }
 
 ///|
-/// `⌈len / 8⌉`, clamped to 0 for non-positive `len`.
+/// `⌈len / 8⌉`, clamped to 0 for non-positive `len`. Computed without a
+/// `len + 7` term so it never overflows `Int`, even for a `len` near
+/// `Int::MAX` (the result stays total — `all_valid` / `all_null` / `pack`
+/// pass it to `FixedArray::make`, which aborts on a negative size).
 fn bytes_needed(len : Int) -> Int {
   if len <= 0 {
     0
   } else {
-    (len + 7) / 8
+    len / 8 + (if len % 8 == 0 { 0 } else { 1 })
   }
 }
 

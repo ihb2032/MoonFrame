@@ -117,9 +117,9 @@ pub fn HtmlOptions::with_escape(
 /// `>` / `"` are escaped to their HTML entities.
 ///
 /// Empty frames degrade gracefully:
-///   - 0 columns → returns the empty string;
-///   - N columns / 0 rows → header with an empty `<tbody>` (matching
-///     pandas' `to_html`).
+///   - 0 columns → returns the empty string (MoonFrame's own choice for a
+///     degenerate frame);
+///   - N columns / 0 rows → header with an empty `<tbody>`.
 ///
 /// Total — pure string assembly over already-validated frame data.
 pub fn DataFrame::to_html(self : DataFrame) -> String {
@@ -217,12 +217,12 @@ fn format_html(df : DataFrame, shown : Int, options : HtmlOptions) -> String {
 
 ///|
 /// HTML-escape `s` when `escape` is `true`: `&` → `&amp;`, `<` → `&lt;`,
-/// `>` → `&gt;`, `"` → `&quot;`. Processing codepoint-by-codepoint means
-/// the `&` rule can't double-escape the `&` it just introduced. When
-/// `escape` is `false`, `s` is returned verbatim (trusted input). The
-/// single quote is intentionally left as-is: cells / attributes here are
-/// only ever placed in `>`-delimited text or `"`-quoted attributes, so
-/// `'` is never markup-significant.
+/// `>` → `&gt;`, `"` → `&quot;`, `'` → `&#39;`. Processing
+/// codepoint-by-codepoint means the `&` rule can't double-escape the `&` it
+/// just introduced. When `escape` is `false`, `s` is returned verbatim
+/// (trusted input). The full conventional set (including `'`) is escaped, so
+/// a cell or caption is safe in both `"`-quoted and `'`-quoted attribute
+/// contexts, not only the `>`-delimited text the renderer emits today.
 fn html_escape(s : String, escape : Bool) -> String {
   if !escape {
     return s
@@ -234,6 +234,7 @@ fn html_escape(s : String, escape : Bool) -> String {
       '<' => buf.write_string("&lt;")
       '>' => buf.write_string("&gt;")
       '"' => buf.write_string("&quot;")
+      '\'' => buf.write_string("&#39;")
       _ => buf.write_char(ch)
     }
   }

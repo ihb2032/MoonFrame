@@ -143,9 +143,11 @@ fn write_row(
 
 ///|
 /// Count Unicode codepoints in `s`. `String.length()` returns UTF-16
-/// units which over-counts surrogate-pair characters; the alignment
-/// pass wants one column per visual codepoint so a name containing a
-/// supplementary-plane glyph lines up with shorter ASCII neighbours.
+/// units which over-count surrogate-pair characters; counting codepoints
+/// fixes that. This still counts codepoints, not display columns, so a
+/// double-width East-Asian glyph or a zero-width / combining mark will not
+/// align perfectly in a fixed-width terminal — the GFM table stays valid
+/// either way (extra or missing padding spaces don't break a pipe table).
 fn char_count(s : String) -> Int {
   s.iter().count()
 }

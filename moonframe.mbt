@@ -32,8 +32,8 @@
 // `lit_series` / `when` / `map_many` — `map_elements` is a method, riding
 // along with `type Expr`) and the two builder types `WhenThen` /
 // `WhenThenElse`; the
-// `BinOp` / `UnOp` / `AggOp` tag enums are inert (no public API names
-// them), so they are deliberately *not* re-exported. `@lazy` needs the
+// `BinOp` / `UnOp` / `AggOp` / `StrOp` tag enums are inert (no public API
+// names them), so they are deliberately *not* re-exported. `@lazy` needs the
 // `lazy_frame` constructor (the free-function alias for `LazyFrame::from` —
 // the bare identifier `lazy` is a reserved word, so the alias is spelled
 // `lazy_frame`) plus the `scan_csv` / `scan_ndjson` file sources and their

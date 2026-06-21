@@ -587,6 +587,35 @@ test "join raises TypeMismatch when a key's dtype differs across frames" {
   )
 }
 
+///|
+test "left_on / right_on TypeMismatch names both sides' keys" {
+  let left = DataFrame::new([
+    Series::from_ints("lk", [1, 2]),
+    Series::from_strings("lv", ["a", "b"]),
+  ])
+  let right = DataFrame::new([
+    Series::from_strings("rk", ["1", "2"]),
+    Series::from_ints("rv", [10, 20]),
+  ])
+  // Differently-named keys with mismatched dtypes: the diagnostic names both
+  // the left and the right key (an `on` join shares one name).
+  assert_eq(
+    Ok(
+      left.join(
+        right,
+        JoinOptions::left_on([@expr.col("lk")]).with_right_on([@expr.col("rk")]),
+      ),
+    ) catch {
+      e => Err(e)
+    },
+    Err(
+      @types.DataError::TypeMismatch(
+        "join key \"lk\" (left) / \"rk\" (right) has dtype Int on the left but String on the right",
+      ),
+    ),
+  )
+}
+
 // ── Right join, single key ───────────────────────────────────────────
 
 ///|

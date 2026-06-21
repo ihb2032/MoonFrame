@@ -110,13 +110,13 @@ test "to_html: equals to_html_with_options with default options" {
 // ── escaping ────────────────────────────────────────────────────────
 
 ///|
-test "to_html: escapes &, <, >, \" in headers and cells (default)" {
+test "to_html: escapes &, <, >, \", ' in headers and cells (default)" {
   // Both column names carry a `<` / `&`; the cells exercise every
   // escaped character plus ordinary text, so the `&amp;`/`&lt;`/`&gt;`/
-  // `&quot;` rules (and the verbatim fall-through) are all covered.
+  // `&quot;`/`&#39;` rules (and the verbatim fall-through) are all covered.
   let df = DataFrame::new([
     Series::from_strings("x<y", ["<script>alert(1)</script>"]),
-    Series::from_strings("a&b", ["he said \"hi\" & left"]),
+    Series::from_strings("a&b", ["he said \"hi\" & it's left"]),
   ])
   let expected =
     #|<table>
@@ -124,7 +124,7 @@ test "to_html: escapes &, <, >, \" in headers and cells (default)" {
     #|<tr><th>x&lt;y</th><th>a&amp;b</th></tr>
     #|</thead>
     #|<tbody>
-    #|<tr><td>&lt;script&gt;alert(1)&lt;/script&gt;</td><td>he said &quot;hi&quot; &amp; left</td></tr>
+    #|<tr><td>&lt;script&gt;alert(1)&lt;/script&gt;</td><td>he said &quot;hi&quot; &amp; it&#39;s left</td></tr>
     #|</tbody>
     #|</table>
     #|
@@ -266,7 +266,7 @@ test "to_html_with_options: class + caption + max_rows compose" {
     #|<tr><td>east</td><td>5</td></tr>
     #|</tbody>
     #|<tfoot>
-    #|<tr><td colspan="2">... (1 more rows)</td></tr>
+    #|<tr><td colspan="2">... (1 more row)</td></tr>
     #|</tfoot>
     #|</table>
     #|

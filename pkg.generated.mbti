@@ -18,7 +18,7 @@ pub fn cols(Array[String]) -> Array[@expr.Expr]
 
 pub fn compare_string_lex(String, String) -> Int
 
-pub fn format_csv_str(@frame.DataFrame, @io.CsvWriteOptions) -> String
+pub fn format_csv(@frame.DataFrame, @io.CsvWriteOptions) -> String
 
 pub fn format_json_records(@frame.DataFrame) -> String
 

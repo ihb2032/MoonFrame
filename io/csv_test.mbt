@@ -1,4 +1,4 @@
-// Blackbox tests for `@io.parse_csv_str` / `@io.format_csv_str` plus
+// Blackbox tests for `@io.parse_csv_str` / `@io.format_csv` plus
 // the file-backed `read_csv` / `write_csv` thin wrappers.
 //
 // The fast path (string ↔ DataFrame) is exercised across header
@@ -594,15 +594,15 @@ test "parse_csv_str: allow_nonfinite=false rejects a leading inf (is_inf gate)" 
   assert_eq(df.item(1, "x"), @types.Scalar::String("2.5"))
 }
 
-// ── format_csv_str: happy paths ───────────────────────────────────────
+// ── format_csv: happy paths ───────────────────────────────────────
 
 ///|
-test "format_csv_str: header on, mixed dtypes, null cell becomes empty" {
+test "format_csv: header on, mixed dtypes, null cell becomes empty" {
   let df = @frame.DataFrame::new([
     @series.Series::from_int_options("n", [Some(1), Some(2), None]),
     @series.Series::from_strings("s", ["a", "b", "c"]),
   ])
-  let out = @io.format_csv_str(df, @io.CsvWriteOptions::default())
+  let out = @io.format_csv(df, @io.CsvWriteOptions::default())
   let expected =
     #|n,s
     #|1,a
@@ -613,16 +613,12 @@ test "format_csv_str: header on, mixed dtypes, null cell becomes empty" {
 }
 
 ///|
-test "format_csv_str: header off skips the first row" {
+test "format_csv: header off skips the first row" {
   let df = @frame.DataFrame::new([
     @series.Series::from_ints("a", [1, 2]),
     @series.Series::from_ints("b", [3, 4]),
   ])
-  let out = @io.format_csv_str(df, {
-    header: false,
-    delimiter: ',',
-    null_value: "",
-  })
+  let out = @io.format_csv(df, { header: false, delimiter: ',', null_value: "" })
   let expected =
     #|1,3
     #|2,4
@@ -631,16 +627,12 @@ test "format_csv_str: header off skips the first row" {
 }
 
 ///|
-test "format_csv_str: custom delimiter (semicolon)" {
+test "format_csv: custom delimiter (semicolon)" {
   let df = @frame.DataFrame::new([
     @series.Series::from_ints("a", [1, 2]),
     @series.Series::from_strings("b", ["x", "y"]),
   ])
-  let out = @io.format_csv_str(df, {
-    header: true,
-    delimiter: ';',
-    null_value: "",
-  })
+  let out = @io.format_csv(df, { header: true, delimiter: ';', null_value: "" })
   let expected =
     #|a;b
     #|1;x
@@ -650,11 +642,11 @@ test "format_csv_str: custom delimiter (semicolon)" {
 }
 
 ///|
-test "format_csv_str: custom null_value rendering" {
+test "format_csv: custom null_value rendering" {
   let df = @frame.DataFrame::new([
     @series.Series::from_int_options("n", [Some(1), None, Some(3)]),
   ])
-  let out = @io.format_csv_str(df, {
+  let out = @io.format_csv(df, {
     header: true,
     delimiter: ',',
     null_value: "NA",
@@ -669,13 +661,13 @@ test "format_csv_str: custom null_value rendering" {
 }
 
 ///|
-test "format_csv_str: quotes cells with delimiter, quote, newline, or CR" {
+test "format_csv: quotes cells with delimiter, quote, newline, or CR" {
   let df = @frame.DataFrame::new([
     @series.Series::from_strings("a", [
       "needs,comma", "needs\"quote", "needs\nlf", "needs\rcr",
     ]),
   ])
-  let out = @io.format_csv_str(df, @io.CsvWriteOptions::default())
+  let out = @io.format_csv(df, @io.CsvWriteOptions::default())
   // Every body cell is quoted; the embedded double quote in row 2
   // is doubled per RFC 4180.
   let expected = "a\n\"needs,comma\"\n\"needs\"\"quote\"\n\"needs\nlf\"\n\"needs\rcr\"\n"
@@ -683,11 +675,11 @@ test "format_csv_str: quotes cells with delimiter, quote, newline, or CR" {
 }
 
 ///|
-test "format_csv_str: also quotes header names that contain the delimiter" {
+test "format_csv: also quotes header names that contain the delimiter" {
   let df = @frame.DataFrame::new([
     @series.Series::from_ints("hello,world", [1, 2]),
   ])
-  let out = @io.format_csv_str(df, @io.CsvWriteOptions::default())
+  let out = @io.format_csv(df, @io.CsvWriteOptions::default())
   let expected =
     #|"hello,world"
     #|1
@@ -697,14 +689,14 @@ test "format_csv_str: also quotes header names that contain the delimiter" {
 }
 
 ///|
-test "format_csv_str: empty frame produces just the header row (or nothing)" {
+test "format_csv: empty frame produces just the header row (or nothing)" {
   // 0 columns, 0 rows: nothing to emit even with header on.
   let empty = @frame.DataFrame::new([])
-  let out = @io.format_csv_str(empty, @io.CsvWriteOptions::default())
+  let out = @io.format_csv(empty, @io.CsvWriteOptions::default())
   assert_eq(out, "\n")
   // header off + empty frame: still emits one blank record terminator
   // (no cells, only the trailing newline from the header branch).
-  let out_no_header = @io.format_csv_str(empty, {
+  let out_no_header = @io.format_csv(empty, {
     header: false,
     delimiter: ',',
     null_value: "",
@@ -713,13 +705,13 @@ test "format_csv_str: empty frame produces just the header row (or nothing)" {
 }
 
 ///|
-test "format_csv_str: 0 rows with declared schema emits header only" {
+test "format_csv: 0 rows with declared schema emits header only" {
   let schema = @types.Schema::new([
     @types.Field::new("a", @types.DataType::Int),
     @types.Field::new("b", @types.DataType::String),
   ])
   let df = @frame.DataFrame::empty(schema)
-  let out = @io.format_csv_str(df, @io.CsvWriteOptions::default())
+  let out = @io.format_csv(df, @io.CsvWriteOptions::default())
   let expected =
     #|a,b
     #|
@@ -738,10 +730,10 @@ test "parse_csv_str: strips a leading UTF-8 BOM from the first column name" {
   assert_eq(df.item(0, "val"), @types.Scalar::Int(2))
 }
 
-// ── round trip via parse_csv_str / format_csv_str ─────────────────────
+// ── round trip via parse_csv_str / format_csv ─────────────────────
 
 ///|
-test "parse_csv_str ∘ format_csv_str: round-trip preserves dtypes and values" {
+test "parse_csv_str ∘ format_csv: round-trip preserves dtypes and values" {
   let df = @frame.DataFrame::new([
     @series.Series::from_int_options("n", [Some(1), None, Some(3)]),
     @series.Series::from_floats("r", [
@@ -752,7 +744,7 @@ test "parse_csv_str ∘ format_csv_str: round-trip preserves dtypes and values" 
     @series.Series::from_bool_options("b", [Some(true), Some(false), None]),
     @series.Series::from_strings("s", ["alpha", "beta", "gamma"]),
   ])
-  let text = @io.format_csv_str(df, @io.CsvWriteOptions::default())
+  let text = @io.format_csv(df, @io.CsvWriteOptions::default())
   let parsed = @io.parse_csv_str(text, @io.CsvReadOptions::default())
   assert_eq(parsed.check_invariants(), Ok(()))
   assert_eq(parsed.shape(), df.shape())
@@ -770,7 +762,7 @@ test "round-trip: a single-column null row survives (no blank-line drop)" {
   let df = @frame.DataFrame::new([
     @series.Series::from_int_options("n", [Some(1), None, Some(3)]),
   ])
-  let text = @io.format_csv_str(df, @io.CsvWriteOptions::default())
+  let text = @io.format_csv(df, @io.CsvWriteOptions::default())
   // The null row is emitted as a quoted empty, not a bare blank line the
   // reader's `skip_empty_lines` would discard.
   assert_eq(text, "n\n1\n\"\"\n3\n")
@@ -788,7 +780,7 @@ test "round-trip: an all-null single column keeps every row" {
   let df = @frame.DataFrame::new([
     @series.Series::from_int_options("n", [None, None, None]),
   ])
-  let text = @io.format_csv_str(df, @io.CsvWriteOptions::default())
+  let text = @io.format_csv(df, @io.CsvWriteOptions::default())
   assert_eq(text, "n\n\"\"\n\"\"\n\"\"\n")
   let parsed = @io.parse_csv_str(text, @io.CsvReadOptions::default())
   assert_eq(parsed.check_invariants(), Ok(()))
@@ -803,7 +795,7 @@ test "round-trip: an all-null single column keeps every row" {
 ///|
 test "round-trip: a single column named \"\" keeps its name and rows" {
   let df = @frame.DataFrame::new([@series.Series::from_ints("", [10, 20, 30])])
-  let text = @io.format_csv_str(df, @io.CsvWriteOptions::default())
+  let text = @io.format_csv(df, @io.CsvWriteOptions::default())
   // The empty header is written as `""`, so the first data row is not lifted
   // into the header and the column name is not lost.
   assert_eq(text, "\"\"\n10\n20\n30\n")
@@ -817,19 +809,19 @@ test "round-trip: a single column named \"\" keeps its name and rows" {
 }
 
 ///|
-test "format_csv_str: a wider frame's empty cells stay bare (single-column-only quoting)" {
+test "format_csv: a wider frame's empty cells stay bare (single-column-only quoting)" {
   let df = @frame.DataFrame::new([
     @series.Series::from_int_options("a", [Some(1), None]),
     @series.Series::from_int_options("b", [None, Some(2)]),
   ])
-  let out = @io.format_csv_str(df, @io.CsvWriteOptions::default())
+  let out = @io.format_csv(df, @io.CsvWriteOptions::default())
   // Two columns: every row carries the delimiter, so an empty cell is never
   // row-emptying and is left bare — the `""` forcing is single-column only.
   assert_eq(out, "a,b\n1,\n,2\n")
 }
 
 ///|
-test "parse_csv_str ∘ format_csv_str: round-trips quoted delimiters, quotes, and newlines" {
+test "parse_csv_str ∘ format_csv: round-trips quoted delimiters, quotes, and newlines" {
   // The highest-risk RFC-4180 feature: a String cell holding the
   // delimiter, an embedded double quote, or a line break must survive a
   // write→read round trip — the writer quotes/escapes it, and the reader
@@ -840,7 +832,7 @@ test "parse_csv_str ∘ format_csv_str: round-trips quoted delimiters, quotes, a
     ]),
     @series.Series::from_ints("n", [1, 2, 3]),
   ])
-  let text = @io.format_csv_str(df, @io.CsvWriteOptions::default())
+  let text = @io.format_csv(df, @io.CsvWriteOptions::default())
   let parsed = @io.parse_csv_str(text, @io.CsvReadOptions::default())
   assert_eq(parsed.check_invariants(), Ok(()))
   assert_eq(parsed.shape(), (3, 2))

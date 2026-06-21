@@ -802,7 +802,7 @@ Hash equi-join, native to the method chain (`left.join(right, options)`).
 ## `io` — Serialization (IO-1 boundary)
 
 Read / parse / write functions `raise DataError`; the string serialisers
-(`format_csv_str` / `format_json_records` / `format_ndjson`) are **total**
+(`format_csv` / `format_json_records` / `format_ndjson`) are **total**
 and return a `String`. The one exception is `format_vega_lite`, which
 `raise`s — a `ChartSpec` names the columns to plot, and a missing name is
 `ColumnNotFound`. Tokenisation delegates to `moonbit-community/NyaCSV`;
@@ -842,7 +842,7 @@ are documented below.
   mapping → `DataFrame::new`. `DuplicateColumn` / `ParseError` (the latter
   also covers a ragged row when `options.strict_column_count`, and a cell
   that doesn't fit its dtype unless `options.on_parse_error = Null`).
-- `format_csv_str(df, options) -> String` — **total**. Cells render via
+- `format_csv(df, options) -> String` — **total**. Cells render via
   `Scalar::to_string`; null → `options.null_value`; RFC 4180 quoting;
   LF-terminated.
 - `read_csv(path)` / `read_csv_with_options(path, options) -> DataFrame
@@ -1115,7 +1115,7 @@ names them).
   `JoinOptions` · `HtmlOptions`
 - From `@io`: `CsvReadOptions` · `CsvWriteOptions` · `JsonReadOptions` ·
   `NdjsonReadOptions` · `OnParseError` · `ChartKind` · `ChartSpec` ·
-  `VegaType` · `format_csv_str` ·
+  `VegaType` · `format_csv` ·
   `format_json_records` · `format_ndjson` · `format_vega_lite` ·
   `parse_csv_str` · `parse_json_records_str` · `parse_ndjson_str` ·
   `read_csv` · `read_csv_with_options` · `read_json` ·

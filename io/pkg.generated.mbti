@@ -8,7 +8,7 @@ import {
 }
 
 // Values
-pub fn format_csv_str(@frame.DataFrame, CsvWriteOptions) -> String
+pub fn format_csv(@frame.DataFrame, CsvWriteOptions) -> String
 
 pub fn format_json_records(@frame.DataFrame) -> String
 

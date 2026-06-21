@@ -19,9 +19,9 @@ fn gen_i64_array(max_len : Int) -> @gen.Gen[Array[Int64]] {
 fn prop_csv_roundtrip(xs : Array[Int64]) -> Bool {
   try {
     let df = @frame.DataFrame::new([@series.Series::from_ints("x", xs)])
-    let text = @io.format_csv_str(df, @io.CsvWriteOptions::default())
+    let text = @io.format_csv(df, @io.CsvWriteOptions::default())
     let back = @io.parse_csv_str(text, @io.CsvReadOptions::default())
-    @io.format_csv_str(back, @io.CsvWriteOptions::default()) == text
+    @io.format_csv(back, @io.CsvWriteOptions::default()) == text
   } catch {
     _ => false
   }

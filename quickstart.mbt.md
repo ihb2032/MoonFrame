@@ -398,7 +398,7 @@ test "quickstart: outer join" {
 
 ## CSV round-trip without touching the filesystem
 
-`format_csv_str` / `parse_csv_str` are the string-level serialisers (the
+`format_csv` / `parse_csv_str` are the string-level serialisers (the
 file-backed `read_csv` / `write_csv` wrap them). Round-tripping is faithful for
 inferable dtypes — the property tests assert this over random input.
 
@@ -409,7 +409,7 @@ test "quickstart: csv round-trip" {
     Series::from_strings("region", ["west", "east"]),
     Series::from_ints("quantity", [10, 5]),
   ])
-  let csv = format_csv_str(df, CsvWriteOptions::default())
+  let csv = format_csv(df, CsvWriteOptions::default())
   inspect(
     csv,
     content=(

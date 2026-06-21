@@ -167,15 +167,10 @@ fn parse_csv_str_projected(
   options : CsvReadOptions,
   projection : Array[String]?,
 ) -> @frame.DataFrame raise @types.DataError {
-  // Strip a leading UTF-8 BOM (U+FEFF). Excel and many Windows tools prepend
-  // one; left in place it leaks into the first column's name, so a later
-  // `get_column("id")` on an `id,…` header misses. Matches Polars / pandas
-  // (`utf-8-sig`). Done first, so a BOM-only file still reads as empty.
-  let content = if content.view().get_char(0) == Some('\u{FEFF}') {
-    content.view().view(start_offset=1).to_owned()
-  } else {
-    content
-  }
+  // Strip a leading UTF-8 BOM (U+FEFF) before anything else, so a BOM-only file
+  // still reads as empty. Shared with the JSON / NDJSON readers via
+  // `strip_utf8_bom` so the formats can't drift apart.
+  let content = strip_utf8_bom(content)
   // Short-circuit empty input. NyaCSV would otherwise produce a CSV
   // with no headers and no rows, which would collapse to an empty
   // 0×0 frame — handled the same way here, just without the parse.

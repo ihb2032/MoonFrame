@@ -239,6 +239,14 @@ test "slice rejects negative start, start past len, and overshoot" {
     },
     Err(@types.DataError::IndexOutOfBounds(7)),
   )
+  // An overshoot whose `start + length` overflows Int (length near Int::MAX)
+  // must still be rejected, not wrap past the guard into an over-long view that
+  // a later read aborts on. The reported index is the wrapped sum, so match the
+  // variant rather than a brittle payload.
+  assert_true(
+    (Ok(bm.slice(2, 2147483647)) catch { e => Err(e) })
+    is Err(IndexOutOfBounds(_)),
+  )
 }
 
 ///|

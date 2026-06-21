@@ -154,6 +154,42 @@ test "parse_csv_str: custom delimiter (semicolon) splits cells correctly" {
 }
 
 ///|
+test "parse_csv_str: a delimiter colliding with the quote or a line terminator is rejected" {
+  // `"` is the quote character and `\n` / `\r` terminate rows, so none can also
+  // separate fields — the reader refuses them up front, the same configurations
+  // format_csv refuses, instead of silently mis-splitting.
+  for d in ['"', '\n', '\r'] {
+    let options : @io.CsvReadOptions = {
+      has_header: true,
+      delimiter: d,
+      infer_schema_rows: 100,
+      null_values: [""],
+      strict_column_count: false,
+      on_parse_error: @io.OnParseError::Raise,
+      allow_nonfinite_floats: true,
+    }
+    let result = Ok(@io.parse_csv_str("a,b\n1,2\n", options)) catch {
+      e => Err(e)
+    }
+    assert_true(result is Err(@types.DataError::InvalidOperation(_)))
+  }
+}
+
+///|
+test "format_csv: a delimiter colliding with the quote or a line terminator is rejected" {
+  let df = @frame.DataFrame::new([@series.Series::from_ints("a", [1, 2])])
+  for d in ['"', '\n', '\r'] {
+    let options : @io.CsvWriteOptions = {
+      header: true,
+      delimiter: d,
+      null_value: "",
+    }
+    let result = Ok(@io.format_csv(df, options)) catch { e => Err(e) }
+    assert_true(result is Err(@types.DataError::InvalidOperation(_)))
+  }
+}
+
+///|
 test "parse_csv_str: custom null_values let NA / N/A become null" {
   let content =
     #|a,b

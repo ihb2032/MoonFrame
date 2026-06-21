@@ -32,8 +32,9 @@ libraries — not a derivative work of either codebase.
 - **`null` is missing** — a null propagates through arithmetic and
   comparison (Arrow / Polars); `&` / `|` are three-valued (Kleene).
 - **`NaN` is a value, not missing** — `sum` / `mean` propagate `NaN`;
-  `min` / `max` / `median` skip it; `n_unique` buckets every `NaN` as one
+  `min` / `max` skip it (as in Polars); `n_unique` buckets every `NaN` as one
   value; comparisons treat `NaN` as a value. Only `null` is missing.
+  (`median` also skips `NaN`, a deliberate deviation — see below.)
 - **`group_by`** — a **null key forms its own group** (the Polars default;
   pandas drops null keys), `NaN` keys compare equal, and group order is
   first appearance (`maintain_order=True`).
@@ -57,12 +58,17 @@ libraries — not a derivative work of either codebase.
 
 ## Deliberate differences
 
-- **`sort` treats `NaN` as missing.** This is MoonFrame's one intentional
-  behavioral deviation: when sorting, a `Float` `NaN` is ordered by the
-  key's `NullOrder` (like a null), whereas Polars treats `NaN` as a value
-  that sorts last independently of `nulls_last`. Everywhere else
-  (`sum` / `mean` / `group_by` / `join` / comparisons) `NaN` is a value, as
-  in Polars. This was the v0.2 design choice and is kept through v0.5.
+MoonFrame deviates from Polars' `NaN` handling in exactly two places:
+
+- **`sort` treats `NaN` as missing.** When sorting, a `Float` `NaN` is ordered
+  by the key's `NullOrder` (like a null), whereas Polars treats `NaN` as a
+  value that sorts last independently of `nulls_last`. This was the v0.2 design
+  choice and is kept through v0.5.
+- **`median` skips `NaN`.** As an order statistic it follows the `min` / `max`
+  rule and ignores `NaN`, whereas Polars propagates `NaN` through `median`.
+
+Everywhere else (`sum` / `mean` / `group_by` / `join` / comparisons) `NaN` is a
+value, as in Polars.
 
 ## Forced by MoonBit (not behavioral)
 
@@ -88,8 +94,10 @@ Not implemented; some are on the v0.6+ roadmap (see
 - **Expressions** — no window / rolling functions, no `pivot` / `melt`;
   arithmetic is `+ - * /` only (no `pow` / `mod` / `abs` / `round` /
   `floor_div` yet); string matching is literal (no regex engine yet).
-- **Lazy** — projection pushdown only (no predicate-into-parser or streaming
-  execution); no `scan_parquet` / `scan_ipc`.
+- **Lazy** — plan-level predicate and projection pushdown ship; predicate
+  pushdown *into the file parser* and streaming execution do not (projection
+  pushdown does reach `scan_csv` / `scan_ndjson`); no `scan_parquet` /
+  `scan_ipc`.
 - **`unique`** — whole-row only (no `subset` / `keep`).
 
 See [`api.md`](api.md) for the full public surface and

@@ -226,11 +226,26 @@ fn rename_label(pairs : Array[(String, String)]) -> String {
 /// A scalar fill value in `FILL_NULL` display syntax: numbers / booleans bare,
 /// a string quoted and escaped (so it stays distinguishable and on one line),
 /// the null literal as `null` — mirroring how `@expr` renders a literal in a
-/// plan line.
+/// plan line. A whole-valued `Float` keeps a `.0` suffix (`1.0`, not `1`) so it
+/// stays distinct from an `Int` literal, exactly as `@expr`'s `write_scalar`.
 fn scalar_label(value : @types.Scalar) -> String {
   match value {
     @types.Scalar::Int(v) => v.to_string()
-    @types.Scalar::Float(v) => v.to_string()
+    // `Double::to_string` drops the point of a finite whole value (`1.0` ->
+    // `"1"`), which would read as an `Int`; re-add `.0` so the `Float` stays
+    // distinct. Non-finite (`NaN` / `Infinity`) keeps its own spelling. Mirrors
+    // `@expr.write_scalar`, kept in sync by hand (the two packages can't share
+    // a private helper).
+    @types.Scalar::Float(v) => {
+      let s = v.to_string()
+      let finite = v - v == 0.0
+      let has_point = s.iter().any(c => c == '.' || c == 'e' || c == 'E')
+      if finite && !has_point {
+        s + ".0"
+      } else {
+        s
+      }
+    }
     @types.Scalar::Bool(v) => v.to_string()
     @types.Scalar::String(s) => "\"\{@types.escape_debug(s)}\""
     @types.Scalar::Null => "null"

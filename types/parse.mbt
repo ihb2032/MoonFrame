@@ -72,6 +72,14 @@ pub fn parse_plain_double_opt(s : String) -> Double? {
     // signed `Infinity` rather than failing. The sign is a leading `-`
     // (`parse_double` accepts no leading whitespace). Any other failure
     // ("invalid syntax") is a genuine non-number and stays `None`.
+    //
+    // Coupling note: this matches the exact message string `@string.parse_double`
+    // raises today (`@internal/strconv`'s `range_err_str`). It is load-bearing —
+    // were the stdlib to reword that message or switch to a typed error, an
+    // overflowing literal would fall through to `None` and silently flip CSV
+    // inference / the String→Float cast. The boundary cases in `parse_test.mbt`
+    // (`1e999` / `1.8e308` / `-1e999` → signed `Infinity`) pin this, so such a
+    // drift fails loudly in CI rather than silently here.
     Failure::Failure("value out of range") =>
       Some(
         if s.view().get_char(0) == Some('-') {

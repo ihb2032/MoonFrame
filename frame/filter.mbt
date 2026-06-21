@@ -36,8 +36,11 @@ pub fn DataFrame::filter(
         "filter predicate must be Bool, got \{mask.dtype()}",
       )
   }
-  // A null cell fails `valid`, so it drops its row alongside `false`.
-  let valid = mask.storage().validity().to_bools()
+  // A null cell fails `valid`, so it drops its row alongside `false`. Read the
+  // mask through `validity_bools` (like `drop_nulls` / `sort`) rather than
+  // `.validity()` directly: a `Bool` column is always `Builtin` today, but the
+  // helper also covers a synthesised all-valid mask should that ever change.
+  let valid = validity_bools(mask.storage())
   let kept = scope.filter(i => valid[i] && cells[i])
   // Every kept index came from `[0, nrows)`, so `take` cannot fail.
   self.take(kept)

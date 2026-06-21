@@ -4,7 +4,8 @@
 // `<tfoot>` truncation banner — so it drops straight into a web page or
 // a notebook's rich-display slot. Null cells render as an empty
 // `<td></td>`, delegating to `Scalar::to_string` (which maps `Null` to
-// the empty string).
+// the empty string), so a null and a genuine empty-string cell are
+// indistinguishable in the output (the renderer carries no null marker).
 //
 // Like `to_markdown`, this is a pure, dependency-free renderer that
 // lives on `DataFrame` rather than in `io` (the v0.2 IO-1 boundary:

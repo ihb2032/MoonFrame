@@ -151,7 +151,12 @@ pub fn parse_csv_str(
 ///   `names`, in the file's own header order, leaving the rest uninferred,
 ///   unparsed, and unmaterialised. This is the projection-pushdown path the
 ///   lazy `scan_csv` source uses: the optimizer narrows the read to exactly
-///   the columns a pipeline consumes.
+///   the columns a pipeline consumes. A requested name that matches no header
+///   is silently ignored (lenient projection, as in Polars): the public
+///   `read_csv_projected` does not raise `ColumnNotFound` for an unknown
+///   column, it just yields the ones that match. The lazy path only ever
+///   requests real columns, and a stray `col("missing")` is still caught
+///   downstream by `select`.
 ///
 /// Every whole-input check runs *before* the projection filter and so is
 /// unaffected by it — the empty-input short-circuit, the duplicate-header

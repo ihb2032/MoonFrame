@@ -41,3 +41,17 @@ test "parse_plain_double_opt: an out-of-range finite literal overflows to signed
   assert_eq(parse_plain_double_opt("nope"), None)
   assert_eq(parse_plain_double_opt("1_000"), None)
 }
+
+///|
+test "parse_decimal_int_opt pins the Int64 ceiling: max parses, past it is None" {
+  // The int overflow boundary is asymmetric to the float one (which saturates to
+  // Infinity): an Int64-overflowing literal drops to None so CSV inference keeps
+  // it a String. Pinned at the exact ceiling, mirroring the double test above.
+  assert_eq(
+    parse_decimal_int_opt("9223372036854775807"),
+    Some(9223372036854775807L),
+  )
+  assert_true(parse_decimal_int_opt("-9223372036854775808") is Some(_))
+  assert_eq(parse_decimal_int_opt("9223372036854775808"), None)
+  assert_eq(parse_decimal_int_opt("-9223372036854775809"), None)
+}

@@ -212,6 +212,11 @@ fn write_expr(logger : &Logger, expr : Expr) -> Unit {
 /// first). The per-variant shapes mirror the recursive renderer exactly.
 fn push_write_tasks(stack : Array[WriteTask], expr : Expr) -> Unit {
   let tasks : Array[WriteTask] = match expr {
+    // `col(name)` and `Alias`'s ` as name` render the name UNQUOTED, unlike a
+    // string literal (`write_scalar` quotes those), so `col("x")` stays distinct
+    // from `lit_str("x")` in a plan line. A name containing literal parens can
+    // therefore read paren-ambiguously (`col(a)b)`); that is display-only and
+    // accepted — `explain` output is diagnostic, not re-parsed.
     Col(name) => [Frag("col(" + @types.escape_debug(name) + ")")]
     Lit(value) => [ScalarLit(value)]
     // The embedded data is opaque to the rendering, so a `LitSeries` shows its

@@ -53,9 +53,15 @@ pub fn Series::sum(self : Series) -> @types.Scalar raise @types.DataError {
 /// - Non-numeric series → `raise TypeMismatch(...)`.
 pub fn Series::mean(self : Series) -> Double raise @types.DataError {
   // Numeric fast path: bitmap-free fold with an all-valid denominator
-  // (`len`), raising `InvalidOperation` on an empty column exactly as the
-  // `Builtin` path below does. No validity materialisation.
+  // (`len`). The empty case raises here, at the `Series` surface, with the
+  // same `InvalidOperation` message the `Builtin` path below produces — so the
+  // public error depends on the logical failure (empty / all-null), not on the
+  // storage backend. `NumericColumn::mean` keeps its own column-precise wording
+  // for direct `@column` callers; this guard means it is only reached non-empty.
   if self.storage is @column.ColumnStorage::Numeric(nc) {
+    if self.len() == 0 {
+      raise @types.DataError::InvalidOperation("mean of empty/all-null series")
+    }
     return nc.mean()
   }
   // General `Builtin` backend: the shared `reduce_arith` mean reduces the

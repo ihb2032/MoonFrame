@@ -260,6 +260,15 @@ test "parse_json_records_str: empty input yields a 0x0 frame" {
 }
 
 ///|
+test "parse_json_records_str: whitespace-only input yields a 0x0 frame" {
+  // A whitespace-only payload is "no payload": it collapses to 0×0 like empty
+  // input and like the NDJSON reader (which skips blank lines), rather than
+  // raising on an absent top-level value.
+  let df = @io.parse_json_records_str("  \n\t ", @io.JsonReadOptions::default())
+  assert_eq(df.shape(), (0, 0))
+}
+
+///|
 test "parse_json_records_str: empty array yields a 0x0 frame" {
   let df = @io.parse_json_records_str("[]", @io.JsonReadOptions::default())
   assert_eq(df.shape(), (0, 0))

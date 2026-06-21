@@ -85,8 +85,8 @@ pub fn JsonReadOptions::default() -> JsonReadOptions {
 /// handed to `frame_from_json_records`, which validates each is an
 /// object, collects headers in first-seen order across all records,
 /// infers one dtype per column, and materialises the frame (see that
-/// helper for the per-column rules). An empty array — like empty input
-/// — yields a 0×0 frame.
+/// helper for the per-column rules). An empty array — like empty or
+/// whitespace-only input — yields a 0×0 frame.
 ///
 /// Raises:
 /// - `ParseError(...)` — malformed JSON, a top-level value that
@@ -105,9 +105,12 @@ pub fn parse_json_records_str(
   // rejects a stray `U+FEFF` at column 0, so a file saved by Excel would otherwise
   // fail to read. Done first, so a BOM-only file still short-circuits as empty.
   let content = strip_utf8_bom(content)
-  // Mirror `parse_csv_str`'s empty-input short-circuit so callers can
-  // stream JSON without special-casing the "no payload" case.
-  if content.is_empty() {
+  // Treat a blank payload (empty or whitespace-only) as "no payload" and
+  // short-circuit to a 0×0 frame, so callers can stream JSON without
+  // special-casing it — and so a whitespace-only file matches the NDJSON
+  // reader (which skips blank lines) rather than raising on an absent
+  // top-level value.
+  if content.is_blank() {
     return @frame.DataFrame::new([])
   }
   let json = parse_json_payload(content)
@@ -187,6 +190,10 @@ fn frame_from_json_records(
   for rec in records {
     match rec {
       Object(obj) => {
+        // `@json.parse` already collapsed any duplicate keys within this one
+        // object (last value wins) before we see the `Map`, so `{"a":1,"a":2}`
+        // reads as a single `a = 2` with no diagnostic — there is no per-object
+        // `DuplicateColumn` signal (cross-record headers are collected first-seen).
         for k, _ in obj {
           if !header_set.contains(k) {
             header_set[k] = ()

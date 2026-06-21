@@ -1,5 +1,5 @@
 // MoonFrame — facade package. Re-exports the public API from the
-// four sub-packages so callers can `import "ihb2032/MoonFrame"` and
+// seven sub-packages so callers can `import "ihb2032/MoonFrame"` and
 // access every symbol in one place. Sub-packages remain directly
 // importable for callers who only need a slice of the surface (e.g.
 // just `@types` for the value types).
@@ -52,6 +52,10 @@ pub using @types {
 }
 
 ///|
+/// The low-level Arrow-storage types are surfaced too, for callers that reach
+/// the storage seam (`Series::storage` / hand-built columns): `Bitmap` /
+/// `BuiltinColumn` / `NumericColumn` / `ColumnData` / `NumericData` /
+/// `ColumnStorage` / `StorageKind`.
 pub using @column {
   type Bitmap,
   type BuiltinColumn,

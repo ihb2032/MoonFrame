@@ -784,7 +784,7 @@ Hash equi-join, native to the method chain (`left.join(right, options)`).
   (keyless `Cross`) — each defaulting to `Inner`, suffix `"_right"`,
   `coalesce` auto — with `with_how(JoinType)` / `with_suffix(name)` /
   `with_coalesce(Bool)` to override. `coalesce` defaults to `None` (auto:
-  coalesce on an inner join, keep both keys on a `Left` / `Right` / `Outer`
+  coalesce on an inner / left / right join, keep both keys on an `Outer`
   join — Polars' rule) and only takes effect for an all-bare-`col` `on`
   join; `left_on` / `right_on` and derived keys never coalesce. Chainable:
   `JoinOptions::on([col("id")]).with_how(Outer).with_coalesce(true)`.

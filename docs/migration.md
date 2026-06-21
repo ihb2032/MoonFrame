@@ -92,8 +92,12 @@ differently-named or derived keys.
 | `JoinOptions::on(["id"])` | `JoinOptions::on([col("id")])` |
 | *(no equivalent)* | `JoinOptions::left_on([col("a")]).with_right_on([col("b")])` for differently-named keys |
 
-`with_how` / `with_coalesce` / `with_suffix` and the inner / left / right /
-outer / cross semantics (null-key, NaN-key, coalesce, suffix) are unchanged.
+`with_how` / `with_coalesce` / `with_suffix` and the null-key / NaN-key /
+suffix semantics are unchanged. One behaviour change: the `coalesce = None`
+default now follows Polars per `how` — a `Left` / `Right` join coalesces its
+key into one column instead of keeping both (`Inner` already coalesced, `Outer`
+still keeps both); pass `with_coalesce(false)` for the old two-column
+Left / Right output.
 
 ### Row access — `row(i)` returns a tuple, new `rows()`
 

@@ -51,8 +51,8 @@ pub(all) enum JoinType {
 ///     the left frame (default `"_right"`); the left column keeps its name.
 ///   * `coalesce` — whether each key column is merged into a single output
 ///     column. `None` (the default) auto-selects by `how`, matching Polars:
-///     an inner join **coalesces** (the key appears once), while `Left` /
-///     `Right` / `Outer` do **not** (the right key is kept as
+///     an inner / left / right join **coalesces** (the key appears once),
+///     while `Outer` does **not** (the right key is kept as
 ///     `<key><suffix>`, null wherever its row had no match, so matched and
 ///     unmatched rows are distinguishable). `Some(true)` always coalesces;
 ///     `Some(false)` never does. Coalescing only applies when keying by

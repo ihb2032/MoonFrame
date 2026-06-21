@@ -319,18 +319,19 @@ test "pipeline: join enriches a frame then sorts via the facade" {
   assert_eq(enriched.item(2, "region"), Scalar::String("east"))
 
   // The left join keeps the unmatched order; per the Polars auto-coalesce
-  // default it also keeps the right key as customer_id_right, null on the
-  // unmatched row (order 4, customer 99).
+  // default a left join coalesces the key, so customer_id appears once and
+  // carries the left value (99) on the unmatched row (order 4), where region
+  // is null.
   let all_orders = orders.join(
     customers,
     JoinOptions::on([col("customer_id")]).with_how(JoinType::Left),
   )
   assert_eq(all_orders.columns(), [
-    "order_id", "customer_id", "amount", "customer_id_right", "region",
+    "order_id", "customer_id", "amount", "region",
   ])
-  assert_eq(all_orders.shape(), (4, 5))
+  assert_eq(all_orders.shape(), (4, 4))
   assert_eq(all_orders.item(3, "order_id"), Scalar::Int(4))
-  assert_eq(all_orders.item(3, "customer_id_right"), Scalar::Null)
+  assert_eq(all_orders.item(3, "customer_id"), Scalar::Int(99))
   assert_eq(all_orders.item(3, "region"), Scalar::Null)
 
   // Cross join reachable through the facade (JoinType::Cross + JoinOptions).

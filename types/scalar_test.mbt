@@ -67,6 +67,33 @@ test "Scalar::eq Int and Float compare numerically" {
 }
 
 ///|
+test "Scalar::eq/lt Int-vs-Float widening is lossy past 2^53 (documented caveat)" {
+  // The `Int`->`Double` promotion is the Float64 supertype rule (as in Polars),
+  // exact through 2^53. Beyond it a `Double` can't represent every integer:
+  // `Int64::MAX` (2^63-1) widens to 2^63, comparing EQUAL to `Float(2^63)`, and
+  // `lt` can't separate them. Below the boundary the widening stays exact.
+  // Pinned so the caveat is visible and a future exact-comparison change shows up.
+  let two_pow_63 = 9223372036854775808.0
+  assert_eq(
+    Scalar::Int(9223372036854775807L).eq(Scalar::Float(two_pow_63)),
+    true,
+  )
+  assert_eq(
+    Scalar::Int(9223372036854775807L).lt(Scalar::Float(two_pow_63)),
+    false,
+  )
+  // 2^53 - 1 is exactly representable, so the widening is exact there.
+  assert_eq(
+    Scalar::Int(9007199254740991L).eq(Scalar::Float(9007199254740991.0)),
+    true,
+  )
+  assert_eq(
+    Scalar::Int(9007199254740991L).eq(Scalar::Float(9007199254740992.0)),
+    false,
+  )
+}
+
+///|
 test "Scalar::eq Null short-circuits to a raise" {
   assert_true(
     (Ok(Scalar::Null.eq(Scalar::Null)) catch { e => Err(e) }) is Err(_),

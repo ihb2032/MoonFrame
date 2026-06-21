@@ -105,7 +105,15 @@ fn type_mismatch_for_compare(
 /// Equality between two `Scalar`s. Two `Null`s, or `Null` and a value,
 /// `raise TypeMismatch` — callers must guard nullability explicitly. Mixed
 /// numeric types (`Int` vs `Float`) compare after promoting `Int` to
-/// `Double`; NaN follows IEEE 754 semantics (`NaN == NaN` is `false`).
+/// `Double` (the Float64 supertype, as in Polars); NaN follows IEEE 754
+/// semantics (`NaN == NaN` is `false`).
+///
+/// Precision caveat: the `Int`→`Double` promotion is lossy for an `Int`
+/// magnitude beyond 2^53, where a `Double` can no longer represent every
+/// integer, so two distinct large values can compare equal — e.g.
+/// `Int(9223372036854775807)` (2^63-1) promotes to `2^63`, which equals
+/// `Float(9.223372036854776e18)`. Same-dtype `Int`/`Int` comparisons are
+/// always exact; only the mixed `Int`-vs-`Float` arms widen.
 pub fn Scalar::eq(self : Scalar, other : Scalar) -> Bool raise DataError {
   match (self, other) {
     (Null, _) | (_, Null) => raise TypeMismatch("cannot compare with Null")
@@ -121,7 +129,9 @@ pub fn Scalar::eq(self : Scalar, other : Scalar) -> Bool raise DataError {
 
 ///|
 /// Strict less-than. NaN follows IEEE 754: any comparison involving `NaN`
-/// returns `false`. `Null` short-circuits to `raise`.
+/// returns `false`. `Null` short-circuits to `raise`. Mixed `Int`-vs-`Float`
+/// ordering widens `Int` to `Double` and shares `eq`'s 2^53 precision caveat,
+/// so it can mis-order two distinct values across that boundary.
 pub fn Scalar::lt(self : Scalar, other : Scalar) -> Bool raise DataError {
   match (self, other) {
     (Null, _) | (_, Null) => raise TypeMismatch("cannot compare with Null")

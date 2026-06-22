@@ -443,6 +443,34 @@ test "sort Float NullsFirst groups NaN with Null at the top" {
   assert_eq(out.item(2, "v"), @types.Scalar::Float(1.0))
 }
 
+///|
+test "sort multi-key: NaN in a secondary Float key orders like null within a tied group" {
+  let nan = (0.0 : Double) / (0.0 : Double)
+  // A single tied primary group (`g` all "A") so the secondary Float key `v`
+  // decides every position: reals sort ascending, then the NaN/null bucket
+  // (NullsLast) in source order — NaN must order exactly like null, even as a
+  // tiebreaker key.
+  let df = DataFrame::new([
+    Series::from_strings("g", ["A", "A", "A", "A"]),
+    Series::from_float_options("v", [
+      Some(nan),
+      Some((2.0 : Double)),
+      None,
+      Some((1.0 : Double)),
+    ]),
+    Series::from_strings("tag", ["nan", "two", "null", "one"]),
+  ])
+  let out = df.sort([
+    (@expr.col("g"), Asc, NullsLast),
+    (@expr.col("v"), Asc, NullsLast),
+  ])
+  assert_eq(out.check_invariants(), Ok(()))
+  assert_eq(out.item(0, "tag"), @types.Scalar::String("one")) // 1.0
+  assert_eq(out.item(1, "tag"), @types.Scalar::String("two")) // 2.0
+  assert_eq(out.item(2, "tag"), @types.Scalar::String("nan")) // NaN, source order
+  assert_eq(out.item(3, "tag"), @types.Scalar::String("null")) // null, after NaN
+}
+
 // ── Computed keys: sort by a value that never lands in the output ─────
 
 ///|

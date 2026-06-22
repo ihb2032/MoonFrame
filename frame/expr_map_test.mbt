@@ -3,7 +3,7 @@
 /// `map_many` — driven through the expression verbs. Covers single- and
 /// multi-input application, the per-row `Scalar` interface (null cells in,
 /// null / typed cells out), dtype inference (each backend, the `Numeric`
-/// convergence, the all-null / empty `Unsupported`), the literal / aggregation
+/// convergence, the all-null fallback and the column-less raise), the literal / aggregation
 /// broadcast, closure error propagation, and the multi-input form's use as
 /// a `filter` predicate, matching the equivalent native expression.
 
@@ -139,10 +139,30 @@ test "map: a closure raise propagates from the consuming verb" {
 }
 
 ///|
-test "map: an all-null result has no representable dtype and raises" {
+test "map: an all-null result falls back to the input dtype as an all-null column" {
+  // Every cell maps to null, so no non-null cell fixes the dtype. Rather than
+  // fail, the map falls back to the leftmost input's backend (q is Int) and
+  // yields an all-null Int column — Polars tolerates a null-returning map.
+  let out = map_df().with_columns([
+    @expr.col("q").map_elements(label="nullify", _s => @types.Scalar::Null),
+  ])
+  assert_eq(out.get_column("q").dtype(), @types.DataType::Int)
+  assert_eq(out.get_column("q").to_scalars(), [
+    @types.Scalar::Null,
+    @types.Scalar::Null,
+    @types.Scalar::Null,
+  ])
+  assert_eq(out.check_invariants(), Ok(()))
+}
+
+///|
+test "map: a column-less all-null map has no dtype witness and raises" {
+  // With no column input there is no backend to borrow as the dtype witness,
+  // so an all-null result still has nowhere to land and raises (like a Null
+  // literal). This is the only remaining all-null raise.
   let result = Ok(
     map_df().with_columns([
-      @expr.col("q").map_elements(label="nullify", _s => @types.Scalar::Null),
+      @expr.map_many(label="void", [], _vs => @types.Scalar::Null),
     ]),
   ) catch {
     e => Err(e)
@@ -151,7 +171,7 @@ test "map: an all-null result has no representable dtype and raises" {
     result,
     Err(
       @types.DataError::Unsupported(
-        "cannot infer the dtype of a map result with no non-null cell: no Null-dtype column backend",
+        "cannot infer the dtype of a map result with no non-null cell and no column input: no Null-dtype column backend",
       ),
     ),
   )

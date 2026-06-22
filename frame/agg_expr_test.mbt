@@ -562,3 +562,24 @@ test "grouped agg of a map-wrapped reduction keeps a non-numeric result dtype" {
   ])
   assert_eq(out.check_invariants(), Ok(()))
 }
+
+///|
+/// Regression: every cell maps to null, so each group's map result is all-null.
+/// The general agg path used to raise `Unsupported` mid-iteration on such a
+/// group; now the map falls back to the input (`revenue`, `Int`) backend, so
+/// the per-group sum reduces to the additive identity `Int(0)` and the
+/// aggregation completes (matching Polars' tolerance of a null-returning map).
+test "grouped agg of an all-null map reduction is the additive identity, not an error" {
+  let nullify = @expr.col("revenue").map_elements(label="nullify", _s => {
+    @types.Scalar::Null
+  })
+  let out = agg_expr_df()
+    .group_by([@expr.col("region")])
+    .agg([nullify.sum().with_alias("s")])
+  assert_eq(out.check_invariants(), Ok(()))
+  assert_eq(out.get_column("s").dtype(), @types.DataType::Int)
+  assert_eq(out.get_column("s").to_scalars(), [
+    @types.Scalar::Int(0),
+    @types.Scalar::Int(0),
+  ])
+}

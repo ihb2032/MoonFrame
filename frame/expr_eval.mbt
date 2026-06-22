@@ -929,9 +929,12 @@ fn eval_ternary(
 /// The output dtype is inferred from the first non-null `Scalar` the closure
 /// returns, then `scalars_to_series` projects the cells onto it (an off-type
 /// cell becomes null; an all-valid numeric result converges onto `Numeric`).
-/// An all-null or empty result has no representable dtype — there is no
-/// Null-dtype column backend — so it raises `Unsupported`, exactly as the
-/// `Null` literal does. The column is named after the leftmost input (or
+/// An all-null or empty result has no non-null cell to fix the dtype, so it
+/// falls back to the leftmost input's column backend and yields an all-null
+/// (or empty) column of that dtype — matching Polars' tolerance of a
+/// null-returning map. Only a column-less map with no non-null cell (e.g.
+/// `map_many([], _ => Null)`) has no dtype witness and raises `Unsupported`,
+/// like the `Null` literal. The column is named after the leftmost input (or
 /// `"literal"` when there are none), agreeing with `Expr::output_name`; the
 /// consuming verb renames it through `expr_output_name` regardless.
 fn eval_map(
@@ -963,32 +966,26 @@ fn eval_map(
   // A closure returning a mix of `Int` and `Float` unifies to `Float`, as the
   // arithmetic engine does, rather than nulling the minority type.
   let cells = promote_mixed_int_float(cells)
-  // An empty scope (a 0-row frame with a column input) calls the closure zero
-  // times, so `infer_cells_dtype` sees no cell. Rather than raise — which would
-  // make `map` the one expression that cannot survive an empty frame, breaking
-  // with_columns / select / filter whenever the frame happens to be empty —
-  // fall back to the leftmost input's own column backend as the dtype witness
-  // (its array contents are ignored: `scalars_to_series` reads the probe's
-  // variant only) and return an empty column, mirroring that input's dtype as
-  // `name` already mirrors its name. The all-null case (a non-empty scope
-  // whose every result cell is null) still resolves to `None` and raises
-  // `Unsupported` below — that genuinely has no representable dtype, like a
-  // `Null` literal.
-  let inferred = infer_cells_dtype(cells)
-  let probe = match inferred {
-    Some(_) => inferred
-    None =>
-      if cells.is_empty() {
-        evaluated.get(0).map(lead => lead.storage().data())
-      } else {
-        None
-      }
+  // No non-null cell fixes the dtype when either the scope is empty (a 0-row
+  // frame with a column input calls the closure zero times) or every result
+  // cell is null. In both cases fall back to the leftmost input's own column
+  // backend as the dtype witness (its array contents are ignored:
+  // `scalars_to_series` reads the probe's variant only), yielding an empty or
+  // all-null column of that dtype rather than raising — so `map` survives an
+  // empty frame, and an all-null map matches Polars' tolerance of a
+  // null-returning closure, mirroring that input's dtype as `name` already
+  // mirrors its name. Only a column-less map (no input to borrow a backend
+  // from, e.g. `map_many([], _ => Null)`) has no witness and raises
+  // `Unsupported`, like a `Null` literal.
+  let probe = match infer_cells_dtype(cells) {
+    Some(p) => Some(p)
+    None => evaluated.get(0).map(lead => lead.storage().data())
   }
   match probe {
     Some(p) => scalars_to_series(p, name, cells)
     None =>
       raise @types.DataError::Unsupported(
-        "cannot infer the dtype of a map result with no non-null cell: no Null-dtype column backend",
+        "cannot infer the dtype of a map result with no non-null cell and no column input: no Null-dtype column backend",
       )
   }
 }
@@ -997,8 +994,9 @@ fn eval_map(
 /// The output-column dtype probe for a list of result cells: the first
 /// non-null cell fixes the dtype (`Int` / `Float` / `Bool` / `String`); an
 /// all-null or empty cell list yields `None`. Shared by the `Map` evaluator
-/// (which turns `None` into `Unsupported`) and grouped `agg` (which falls back
-/// to the reduction's empty-scope probe).
+/// (which falls back to the leftmost input's backend, raising only when there
+/// is no column input at all) and grouped `agg` (which falls back to the
+/// reduction's empty-scope probe).
 fn infer_cells_dtype(cells : Array[@types.Scalar]) -> @column.ColumnData? {
   for cell in cells {
     match cell {

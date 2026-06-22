@@ -362,7 +362,21 @@ fn count_distinct(
   let present = reduce_present(storage)
   let key_of : (Int) -> KeyCell = match storage.data() {
     @column.ColumnData::Int(a) => i => KInt(a[i])
-    @column.ColumnData::Float(a) => i => key_cell(@types.Scalar::Float(a[i]))
+    // The `Float` arm inlines `key_cell`'s normalisation (NaN → KNaN, -0.0 →
+    // +0.0) so it keys on the native `Double` without boxing a `Scalar` per
+    // cell, like the other three arms. Keep byte-for-byte in sync with
+    // `key_cell`'s `Float` arm so n_unique / group_by / join agree on "distinct".
+    @column.ColumnData::Float(a) =>
+      i => {
+        let v = a[i]
+        if v.is_nan() {
+          KNaN
+        } else if v == 0.0 {
+          KFloat(0.0)
+        } else {
+          KFloat(v)
+        }
+      }
     @column.ColumnData::Bool(a) => i => KBool(a[i])
     @column.ColumnData::String(a) => i => KStr(a[i])
   }

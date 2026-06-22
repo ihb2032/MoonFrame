@@ -30,8 +30,9 @@
 /// variance / median) for callers who need them.
 ///
 /// Because `min` / `max` skip `NaN` (Polars' regular extrema) while `count`
-/// treats `NaN` as a present value, an all-`NaN` `Float` column reports a
-/// non-zero `count` but `Null` `min` / `max` — the two can legitimately
+/// and `n_unique` treat `NaN` as a present value, an all-`NaN` `Float` column
+/// reports a non-zero `count` and an `n_unique` of `1` (every `NaN` folds into
+/// one distinct bucket) but `Null` `min` / `max` — these can legitimately
 /// disagree, in addition to the empty / all-null case noted above.
 ///
 /// Raises only because the summary frame is built through the fallible

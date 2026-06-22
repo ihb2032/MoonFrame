@@ -242,7 +242,20 @@ pub fn Bitmap::take(
       raise @types.DataError::IndexOutOfBounds(i)
     }
   }
-  pack(indices.length(), i => bit_at(self.bits, self.offset + indices[i]))
+  self.take_view(indices)
+}
+
+///|
+/// Total gather core behind `take`: a new bitmap whose i-th bit is
+/// `self[indices[i]]`, **without** bounds-checking the indices — the gather
+/// counterpart of `slice_view`. Shared by `take` (which validates first) and
+/// `BuiltinColumn::take` (whose `validate_gather_indices` has already checked
+/// the same indices against the same length), so a gather is bounds-checked
+/// exactly once. An out-of-range index reads as `false` via `is_valid_total`
+/// rather than aborting, so a caller that breaks the in-bounds contract still
+/// cannot panic.
+fn Bitmap::take_view(self : Bitmap, indices : Array[Int]) -> Bitmap {
+  pack(indices.length(), i => self.is_valid_total(indices[i]))
 }
 
 ///|

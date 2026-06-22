@@ -115,3 +115,17 @@ test "is_widget_row: surfaces accessor error when `product` column is absent" {
     is Err(@moonframe.DataError::ColumnNotFound("product")),
   )
 }
+
+///|
+test "is_widget_row: a non-String product column surfaces TypeMismatch" {
+  // The predicate reads each `product` cell as a String; a non-String column
+  // (here Int) makes `Scalar::as_string` raise `TypeMismatch` — the typed-cell
+  // error path the doc promises, distinct from the missing-column case above.
+  let df = @moonframe.DataFrame::new([
+    @moonframe.Series::from_ints("product", [1, 2]),
+  ])
+  assert_true(
+    (Ok(df.filter(is_widget_row())) catch { e => Err(e) })
+    is Err(@moonframe.DataError::TypeMismatch(_)),
+  )
+}

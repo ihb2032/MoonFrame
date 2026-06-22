@@ -437,6 +437,32 @@ test "aggregate guard: reading every column inserts nothing" {
 }
 
 ///|
+test "drop/rename/unique/drop_nulls/fill_null are predicate barriers" {
+  // A filter directly above each of these nodes must not sink through it: they
+  // are predicate fences (place_filter stops at them). Were any mistakenly made
+  // a pass-through, the predicate pass would push the filter below it and the
+  // optimized plan would diverge from the as-built one. Snapshotting
+  // optimized == as-built pins the fence (the cross-check to the Join barrier
+  // above; collect-equivalence covers the values).
+  let df = sales_df()
+  let qty_gt = @expr.col("qty").gt(@expr.lit_int(50))
+  let drop_plan = lazy_frame(df).drop([@expr.col("bonus")]).filter(qty_gt)
+  assert_eq(drop_plan.explain(optimized=true), drop_plan.explain())
+  let rename_plan = lazy_frame(df)
+    .rename([("qty", "quantity")])
+    .filter(@expr.col("quantity").gt(@expr.lit_int(50)))
+  assert_eq(rename_plan.explain(optimized=true), rename_plan.explain())
+  let unique_plan = lazy_frame(df).unique().filter(qty_gt)
+  assert_eq(unique_plan.explain(optimized=true), unique_plan.explain())
+  let drop_nulls_plan = lazy_frame(df).drop_nulls().filter(qty_gt)
+  assert_eq(drop_nulls_plan.explain(optimized=true), drop_nulls_plan.explain())
+  let fill_null_plan = lazy_frame(df)
+    .fill_null(@types.Scalar::Int(0))
+    .filter(qty_gt)
+  assert_eq(fill_null_plan.explain(optimized=true), fill_null_plan.explain())
+}
+
+///|
 test "nested selects: the outer requirement never prunes the inner expression list" {
   let plan = lazy_frame(sales_df())
     .select([

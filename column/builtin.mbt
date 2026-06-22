@@ -241,10 +241,10 @@ pub fn BuiltinColumn::take(
     Bool(a) => Bool(indices.map(i => a[i]))
     String(a) => String(indices.map(i => a[i]))
   }
-  // Same indices were already validated against the same `len`; the validity
-  // gather never raises here — the raise effect just forwards the
-  // (unreachable) error rather than forcing a local `unwrap` / dead arm.
-  { data: data_out, validity: self.validity.take(indices) }
+  // Indices are already validated against the same `len`, so gather the
+  // validity bits through the unchecked `take_view` — no second O(n) bounds
+  // scan, and no unreachable raise arm.
+  { data: data_out, validity: self.validity.take_view(indices) }
 }
 
 // ── Cast ──────────────────────────────────────────────────────────────

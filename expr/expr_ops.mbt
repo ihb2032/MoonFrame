@@ -442,9 +442,9 @@ pub fn Expr::with_alias(self : Expr, name : String) -> Expr {
 ///|
 /// First step of the conditional chain
 /// `when(cond).then(a).otherwise(b)` — holds the `Bool` condition until
-/// `then` supplies the matching branch. Read-only and constructible only
-/// through `when` (a `pub` fn cannot return a `priv` type, so the builder
-/// is `pub` like the `Expr` variants it carries — still opaque outside).
+/// `then` supplies the matching branch. Constructible only through `when`
+/// (a `pub` fn cannot return a `priv` type, so the builder is `pub` like the
+/// `Expr` variants it carries); its field is read-only outside the package.
 pub struct WhenThen {
   cond : Expr
 }

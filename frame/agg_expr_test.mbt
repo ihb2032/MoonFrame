@@ -424,6 +424,29 @@ test "a non-reducing expression is rejected with InvalidOperation" {
 }
 
 ///|
+test "deep non-reduction aggregation expressions are rejected without overflow" {
+  // The structural `reduces_per_group` gate formerly recursed on the call
+  // stack: a deeply nested expression whose leaf is a bare column overflowed
+  // and aborted before `agg` could reject it. The explicit-stack walk reaches
+  // the column at any depth and raises a clean error instead of aborting.
+  let df = DataFrame::new([
+    Series::from_ints("k", [1, 1, 2]),
+    Series::from_ints("a", [10, 20, 30]),
+  ])
+  let depth = 100000
+  let mut e = @expr.col("a")
+  for _ in 0..<depth {
+    e = e + @expr.lit_int(1)
+  }
+  // `e` ends in a bare `col("a")`, so it is not reduction-shaped; the gate walks
+  // the whole tree and `agg` raises rather than aborting.
+  let result = Ok(df.group_by([@expr.col("k")]).agg([e.with_alias("r")])) catch {
+    err => Err(err)
+  }
+  assert_true(result is Err(@types.DataError::InvalidOperation(_)))
+}
+
+///|
 test "rejection is structural: singleton groups reject a bare column too" {
   // Every group holds exactly one row, so a bare col("v") would happen to
   // evaluate to length 1 per group — a dynamic length test would pass on

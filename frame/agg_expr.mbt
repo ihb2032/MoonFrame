@@ -137,18 +137,38 @@ pub fn GroupedDataFrame::agg(
 /// Structural (data-independent) on purpose: group sizes never change the
 /// verdict.
 fn reduces_per_group(expr : @expr.Expr) -> Bool {
-  match expr {
-    @expr.Expr::Col(_) | @expr.Expr::Map(_, _, _) | @expr.Expr::LitSeries(_) =>
-      false
-    @expr.Expr::Lit(_) | @expr.Expr::Agg(_, _) => true
-    @expr.Expr::Binary(_, l, r) => reduces_per_group(l) && reduces_per_group(r)
-    @expr.Expr::Unary(_, e)
-    | @expr.Expr::Str(_, e)
-    | @expr.Expr::Cast(e, _)
-    | @expr.Expr::Alias(e, _) => reduces_per_group(e)
-    @expr.Expr::Ternary(c, t, f) =>
-      reduces_per_group(c) && reduces_per_group(t) && reduces_per_group(f)
+  // Iterative tree walk (explicit stack, not the call stack): a deeply nested
+  // aggregation expression formerly overflowed and aborted in this pre-pass,
+  // which the doc calls structural and total. `Lit` / `Agg` are terminal (an
+  // aggregation reduces regardless of its operand), `Col` / `Map` / `LitSeries`
+  // fail, and the combinators require every child to reduce.
+  let stack : Array[@expr.Expr] = [expr]
+  for ;; {
+    match stack.pop() {
+      None => break
+      Some(e) =>
+        match e {
+          @expr.Expr::Col(_)
+          | @expr.Expr::Map(_, _, _)
+          | @expr.Expr::LitSeries(_) => return false
+          @expr.Expr::Lit(_) | @expr.Expr::Agg(_, _) => ()
+          @expr.Expr::Binary(_, l, r) => {
+            stack.push(l)
+            stack.push(r)
+          }
+          @expr.Expr::Unary(_, e2)
+          | @expr.Expr::Str(_, e2)
+          | @expr.Expr::Cast(e2, _)
+          | @expr.Expr::Alias(e2, _) => stack.push(e2)
+          @expr.Expr::Ternary(c, t, f) => {
+            stack.push(c)
+            stack.push(t)
+            stack.push(f)
+          }
+        }
+    }
   }
+  true
 }
 
 ///|

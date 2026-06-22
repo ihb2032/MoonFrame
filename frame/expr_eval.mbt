@@ -83,91 +83,212 @@
 ///   `Series::cast`.
 
 ///|
+/// One step of the explicit-stack evaluator: descend into a subtree (`Eval`)
+/// or, once a node's operands sit on the value stack, apply its operator
+/// (`Apply*`). Lifting `eval_expr`'s post-order walk off the call stack lets an
+/// arbitrarily deep `Expr` evaluate without overflowing — the never-abort
+/// contract the introspection walks in `expr/explain.mbt` also keep. `ApplyMap`
+/// carries the opaque closure and its input count so the combiner can pop that
+/// many already-evaluated operands.
+priv enum EvalStep {
+  Eval(@expr.Expr)
+  ApplyBinary(@expr.BinOp)
+  ApplyUnary(@expr.UnOp)
+  ApplyAgg(@expr.AggOp)
+  ApplyStr(@expr.StrOp)
+  ApplyCast(@types.DataType)
+  ApplyAlias(String)
+  ApplyTernary
+  ApplyMap((Array[@types.Scalar]) -> @types.Scalar raise @types.DataError, Int)
+}
+
+///|
 /// Evaluate `expr` to a `Series` under `scope`. Callers guarantee every
 /// scope index is in `[0, nrows)` (the public consumers build it from
 /// `nrows` themselves). Errors — unknown column, dtype mismatch, the
 /// unrepresentable `Null` literal — surface here; building the tree was
-/// total. The dispatch is a closed double `match` (Expr variant × dtype
-/// arm in each kernel) with no wildcard over the expression tree, so a
-/// future `Expr` variant fails compilation here rather than silently
-/// falling through.
+/// total. The dispatch is a closed `match` over the `Expr` variants (each
+/// kernel a closed dtype `match` in turn) with no wildcard, so a future
+/// `Expr` variant fails compilation here rather than silently falling
+/// through. The walk is iterative — an explicit work + value stack, not the
+/// call stack — so an arbitrarily deep tree evaluates without overflowing and
+/// aborting. `df` / `scope` are constant across the walk (a sub-scope is fixed
+/// by the caller), so only the `Col` leaves consult them; every combinator
+/// reads its already-evaluated operands off the value stack.
 fn eval_expr(
-  expr : @expr.Expr,
+  root : @expr.Expr,
   df : DataFrame,
   scope : Array[Int],
 ) -> Series raise @types.DataError {
-  match expr {
-    @expr.Expr::Col(name) =>
-      // The whole-frame verbs evaluate over the identity scope `[0, nrows)`;
-      // gathering a column onto itself there is a full per-row copy + re-box.
-      // Short-circuit to `try_column_to_numeric`, which lands on the same
-      // canonical backend `gather_series` would (the invariant the optimizer
-      // relies on — *not* a bare `self`, which could leave a `Builtin`
-      // all-valid numeric column un-canonicalised) without the copy. A genuine
-      // sub-scope (a group's rows in the aggregation engine) still gathers.
-      if is_identity_perm(scope, df.nrows()) {
-        try_column_to_numeric(df.get_column(name))
-      } else {
-        gather_series(df.get_column(name), scope)
-      }
-    @expr.Expr::Lit(value) => singleton_series(value)
-    // A literal series is used verbatim, like a scalar `Lit` is its length-1
-    // column: the result's length is the series' own, and the consumers
-    // (`broadcast_series` in the verbs, `broadcast_pair` in `Binary`) align
-    // it — broadcasting a length-1 series, passing a frame-tall one through,
-    // and raising `LengthMismatch` on anything else.
-    @expr.Expr::LitSeries(s) => s
-    @expr.Expr::Binary(op, l, r) => {
-      let lhs = eval_expr(l, df, scope)
-      let rhs = eval_expr(r, df, scope)
-      let (left, right) = broadcast_pair(lhs, rhs)
-      match op {
-        @expr.BinOp::Add =>
-          eval_arith(left, right, "add", (x, y) => x + y, (x, y) => x + y)
-        @expr.BinOp::Sub =>
-          eval_arith(left, right, "subtract", (x, y) => x - y, (x, y) => x - y)
-        @expr.BinOp::Mul =>
-          eval_arith(left, right, "multiply", (x, y) => x * y, (x, y) => x * y)
-        @expr.BinOp::Div => eval_div(left, right)
-        @expr.BinOp::Eq => eval_compare(left, right, CmpVerb::Eq)
-        @expr.BinOp::Ne => eval_compare(left, right, CmpVerb::Ne)
-        @expr.BinOp::Lt => eval_compare(left, right, CmpVerb::Lt)
-        @expr.BinOp::Le => eval_compare(left, right, CmpVerb::Le)
-        @expr.BinOp::Gt => eval_compare(left, right, CmpVerb::Gt)
-        @expr.BinOp::Ge => eval_compare(left, right, CmpVerb::Ge)
-        @expr.BinOp::And => eval_logic(left, right, "and", kleene_and)
-        @expr.BinOp::Or => eval_logic(left, right, "or", kleene_or)
-      }
+  let work : Array[EvalStep] = [Eval(root)]
+  let values : Array[Series] = []
+  for ;; {
+    match work.pop() {
+      None => break
+      Some(step) =>
+        match step {
+          Eval(expr) =>
+            match expr {
+              @expr.Expr::Col(name) =>
+                // The whole-frame verbs evaluate over the identity scope
+                // `[0, nrows)`; gathering a column onto itself there is a full
+                // per-row copy + re-box. Short-circuit to
+                // `try_column_to_numeric`, which lands on the same canonical
+                // backend `gather_series` would (the invariant the optimizer
+                // relies on — *not* a bare `self`, which could leave a
+                // `Builtin` all-valid numeric column un-canonicalised) without
+                // the copy. A genuine sub-scope (a group's rows in the
+                // aggregation engine) still gathers.
+                values.push(
+                  if is_identity_perm(scope, df.nrows()) {
+                    try_column_to_numeric(df.get_column(name))
+                  } else {
+                    gather_series(df.get_column(name), scope)
+                  },
+                )
+              @expr.Expr::Lit(value) => values.push(singleton_series(value))
+              // A literal series is used verbatim, like a scalar `Lit` is its
+              // length-1 column: the result's length is the series' own, and
+              // the consumers (`broadcast_series` in the verbs, `broadcast_pair`
+              // in `Binary`) align it — broadcasting a length-1 series, passing
+              // a frame-tall one through, raising `LengthMismatch` otherwise.
+              @expr.Expr::LitSeries(s) => values.push(s)
+              @expr.Expr::Binary(op, l, r) => {
+                work.push(ApplyBinary(op))
+                work.push(Eval(r))
+                work.push(Eval(l))
+              }
+              @expr.Expr::Unary(op, e) => {
+                work.push(ApplyUnary(op))
+                work.push(Eval(e))
+              }
+              @expr.Expr::Agg(op, e) => {
+                work.push(ApplyAgg(op))
+                work.push(Eval(e))
+              }
+              @expr.Expr::Str(op, e) => {
+                work.push(ApplyStr(op))
+                work.push(Eval(e))
+              }
+              @expr.Expr::Cast(e, target) => {
+                work.push(ApplyCast(target))
+                work.push(Eval(e))
+              }
+              @expr.Expr::Alias(e, name) => {
+                work.push(ApplyAlias(name))
+                work.push(Eval(e))
+              }
+              @expr.Expr::Ternary(c, t, f) => {
+                work.push(ApplyTernary)
+                work.push(Eval(f))
+                work.push(Eval(t))
+                work.push(Eval(c))
+              }
+              @expr.Expr::Map(_, inputs, f) => {
+                work.push(ApplyMap(f, inputs.length()))
+                for i = inputs.length() - 1; i >= 0; i = i - 1 {
+                  work.push(Eval(inputs[i]))
+                }
+              }
+            }
+          ApplyBinary(op) => {
+            let rhs = pop_value(values)
+            let lhs = pop_value(values)
+            let (left, right) = broadcast_pair(lhs, rhs)
+            values.push(
+              match op {
+                @expr.BinOp::Add =>
+                  eval_arith(left, right, "add", (x, y) => x + y, (x, y) => {
+                    x + y
+                  })
+                @expr.BinOp::Sub =>
+                  eval_arith(left, right, "subtract", (x, y) => x - y, (x, y) => {
+                    x - y
+                  })
+                @expr.BinOp::Mul =>
+                  eval_arith(left, right, "multiply", (x, y) => x * y, (x, y) => {
+                    x * y
+                  })
+                @expr.BinOp::Div => eval_div(left, right)
+                @expr.BinOp::Eq => eval_compare(left, right, CmpVerb::Eq)
+                @expr.BinOp::Ne => eval_compare(left, right, CmpVerb::Ne)
+                @expr.BinOp::Lt => eval_compare(left, right, CmpVerb::Lt)
+                @expr.BinOp::Le => eval_compare(left, right, CmpVerb::Le)
+                @expr.BinOp::Gt => eval_compare(left, right, CmpVerb::Gt)
+                @expr.BinOp::Ge => eval_compare(left, right, CmpVerb::Ge)
+                @expr.BinOp::And => eval_logic(left, right, "and", kleene_and)
+                @expr.BinOp::Or => eval_logic(left, right, "or", kleene_or)
+              },
+            )
+          }
+          ApplyUnary(op) => {
+            let operand = pop_value(values)
+            values.push(
+              match op {
+                @expr.UnOp::Neg => eval_neg(operand)
+                @expr.UnOp::Not => eval_not(operand)
+                @expr.UnOp::IsNull =>
+                  Series::from_bools(
+                    operand.name(),
+                    validity_bools(operand.storage()).map(v => !v),
+                  )
+                @expr.UnOp::IsNotNull =>
+                  Series::from_bools(
+                    operand.name(),
+                    validity_bools(operand.storage()),
+                  )
+                @expr.UnOp::IsNan => eval_is_nan(operand, true)
+                @expr.UnOp::IsNotNan => eval_is_nan(operand, false)
+              },
+            )
+          }
+          ApplyAgg(op) => {
+            let operand = pop_value(values)
+            values.push(eval_agg(op, operand))
+          }
+          ApplyStr(op) => {
+            let operand = pop_value(values)
+            values.push(eval_str(op, operand))
+          }
+          ApplyCast(target) => {
+            let operand = pop_value(values)
+            values.push(try_column_to_numeric(operand.cast(target)))
+          }
+          ApplyAlias(name) => {
+            let operand = pop_value(values)
+            values.push(operand.rename(name))
+          }
+          ApplyTernary => {
+            let else_v = pop_value(values)
+            let then_v = pop_value(values)
+            let cond = pop_value(values)
+            values.push(eval_ternary(cond, then_v, else_v))
+          }
+          ApplyMap(f, arity) => {
+            let popped : Array[Series] = []
+            for _ in 0..<arity {
+              popped.push(pop_value(values))
+            }
+            // `popped` is reverse input order (last input popped first); restore
+            // input order so cell `k` feeds `f` the k-th input.
+            let evaluated = Array::makei(arity, i => popped[arity - 1 - i])
+            values.push(eval_map_apply(evaluated, f))
+          }
+        }
     }
-    @expr.Expr::Unary(op, e) => {
-      let operand = eval_expr(e, df, scope)
-      match op {
-        @expr.UnOp::Neg => eval_neg(operand)
-        @expr.UnOp::Not => eval_not(operand)
-        @expr.UnOp::IsNull =>
-          Series::from_bools(
-            operand.name(),
-            validity_bools(operand.storage()).map(v => !v),
-          )
-        @expr.UnOp::IsNotNull =>
-          Series::from_bools(operand.name(), validity_bools(operand.storage()))
-        @expr.UnOp::IsNan => eval_is_nan(operand, true)
-        @expr.UnOp::IsNotNan => eval_is_nan(operand, false)
-      }
-    }
-    @expr.Expr::Agg(op, e) => eval_agg(op, eval_expr(e, df, scope))
-    @expr.Expr::Str(op, e) => eval_str(op, eval_expr(e, df, scope))
-    @expr.Expr::Cast(e, target) =>
-      try_column_to_numeric(eval_expr(e, df, scope).cast(target))
-    @expr.Expr::Alias(e, name) => eval_expr(e, df, scope).rename(name)
-    @expr.Expr::Ternary(c, t, f) =>
-      eval_ternary(
-        eval_expr(c, df, scope),
-        eval_expr(t, df, scope),
-        eval_expr(f, df, scope),
-      )
-    @expr.Expr::Map(_, inputs, f) => eval_map(inputs, f, df, scope)
   }
+  pop_value(values)
+}
+
+///|
+/// Pop the evaluator's value stack. `eval_expr`'s post-order walk pushes a
+/// value for every operand before its combiner runs, so the stack is never
+/// empty here; the top slot is read by that stack-invariant index — total, like
+/// the engine's other indexed reads — and dropped, never `unwrap`.
+fn pop_value(stack : Array[Series]) -> Series {
+  let top = stack[stack.length() - 1]
+  let _ = stack.pop()
+  top
 }
 
 ///|
@@ -917,14 +1038,15 @@ fn eval_ternary(
 }
 
 ///|
-/// Evaluate a `Map` escape-hatch node: apply the opaque closure `f` to each
-/// row across `inputs`. Every input is evaluated under the shared `scope`
-/// (so a failing input — unknown column, dtype mismatch — propagates), then
-/// stretched to a common height: any column-tall input fixes it (all share
-/// `scope`, so a non-1 length is `|scope|`), while all-length-1 inputs (or
-/// none at all) keep height 1 — the literal / aggregation broadcast rule.
-/// Each row hands `f` one cell per input, in order, a null cell as
-/// `Scalar::Null`; `f` runs for every row and may `raise`.
+/// Apply a `Map` node's opaque closure `f` across its already-evaluated
+/// inputs — the evaluator pushes each input's `Series` onto the value stack
+/// before this combiner runs, so a failing input (unknown column, dtype
+/// mismatch) has already propagated. The inputs are stretched to a common
+/// height: any column-tall input fixes it (all share the node's `scope`, so a
+/// non-1 length is `|scope|`), while all-length-1 inputs (or none at all) keep
+/// height 1 — the literal / aggregation broadcast rule. Each row hands `f` one
+/// cell per input, in order, a null cell as `Scalar::Null`; `f` runs for every
+/// row and may `raise`.
 ///
 /// The output dtype is inferred from the first non-null `Scalar` the closure
 /// returns, then `scalars_to_series` projects the cells onto it (an off-type
@@ -937,16 +1059,10 @@ fn eval_ternary(
 /// like the `Null` literal. The column is named after the leftmost input (or
 /// `"literal"` when there are none), agreeing with `Expr::output_name`; the
 /// consuming verb renames it through `expr_output_name` regardless.
-fn eval_map(
-  inputs : Array[@expr.Expr],
+fn eval_map_apply(
+  evaluated : Array[Series],
   f : (Array[@types.Scalar]) -> @types.Scalar raise @types.DataError,
-  df : DataFrame,
-  scope : Array[Int],
 ) -> Series raise @types.DataError {
-  let evaluated : Array[Series] = []
-  for input in inputs {
-    evaluated.push(eval_expr(input, df, scope))
-  }
   let mut height = 1
   for s in evaluated {
     if s.len() != 1 {

@@ -1270,3 +1270,21 @@ test "deep tree: derive, compare, combine, and alias in one call" {
   ])
   assert_eq(out.check_invariants(), Ok(()))
 }
+
+///|
+test "deep expression trees evaluate without overflowing the stack" {
+  // Evaluating a tree this deep formerly overflowed the native call stack and
+  // aborted — select / filter / with_columns / agg all route through the
+  // evaluator. The explicit work + value stack evaluates any depth.
+  let df = DataFrame::new([Series::from_ints("x", [5])])
+  let depth = 50000
+  let mut e = @expr.col("x")
+  for _ in 0..<depth {
+    e = e + @expr.lit_int(1)
+  }
+  let out = df.with_columns([e.with_alias("r")])
+  assert_eq(out.get_column("r").to_scalars(), [
+    @types.Scalar::Int((5 + depth).to_int64()),
+  ])
+  assert_eq(out.check_invariants(), Ok(()))
+}

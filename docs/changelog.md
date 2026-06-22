@@ -107,6 +107,19 @@ a chart's `color` channel (`Quantitative` / `Nominal` / `Ordinal` /
 distinct per-group colours instead of the continuous gradient `quantitative`
 would give.
 
+### A null-tolerant `map`
+
+An all-null `map_elements` / `map_many` result — every cell the closure returns
+is null — now falls back to its input column's dtype and yields an all-null
+column, rather than raising `Unsupported` for want of a dtype witness, matching
+Polars' tolerance of a null-returning map. A grouped `agg` over such a map
+(every cell in a group null) therefore completes, reducing the all-null group
+normally, instead of failing mid-aggregation; only a column-less
+`map_many([], …)` with no input to borrow a dtype from still raises. Alongside,
+a batch of internal micro-optimizations — `fill_null` and `join` / `take`
+validity gathers, the CSV null-token test, `count_distinct` — with no API or
+behaviour change.
+
 ## v0.4 — shipped
 
 A Polars-style expression engine and a lazy query layer, both **purely

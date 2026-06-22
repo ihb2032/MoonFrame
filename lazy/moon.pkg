@@ -8,6 +8,7 @@ import {
 
 import {
   "ihb2032/MoonFrame/series",
+  "moonbitlang/core/double",
   "moonbitlang/core/test",
   "moonbitlang/x/fs",
 } for "test"

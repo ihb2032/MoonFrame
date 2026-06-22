@@ -254,6 +254,14 @@ fn parse_csv_str_projected(
   // doesn't fit the inferred dtype. The surviving columns keep the file's own
   // header order (a filtered projection, never a reorder), so a projected read
   // is column-for-column a sub-frame of the full read.
+  // Build the null-token test once: an O(1) `Map` membership check shared by
+  // inference and the typed build, so a large `null_values` list does not turn
+  // every cell scan into an O(k) linear probe.
+  let null_set : Map[String, Unit] = {}
+  for v in options.null_values {
+    null_set[v] = ()
+  }
+  let is_null = fn(v : String) -> Bool { null_set.contains(v) }
   let series : Array[@series.Series] = []
   for col in 0..<ncols {
     let name = headers[col]
@@ -266,7 +274,7 @@ fn parse_csv_str_projected(
         rows,
         col,
         options.infer_schema_rows,
-        options.null_values,
+        is_null,
         options.allow_nonfinite_floats,
       )
       series.push(
@@ -275,7 +283,7 @@ fn parse_csv_str_projected(
           dt,
           rows,
           col,
-          options.null_values,
+          is_null,
           options.on_parse_error,
           options.allow_nonfinite_floats,
         ),
@@ -462,12 +470,6 @@ fn cell_value(rows : Array[Array[String]], row_idx : Int, col : Int) -> String {
 }
 
 ///|
-/// Whether a raw cell value should be treated as null.
-fn is_null_value(value : String, null_values : Array[String]) -> Bool {
-  null_values.contains(value)
-}
-
-///|
 /// Probe the first `limit` rows of `col` to pick a dtype (a null cell is
 /// skipped but still counts toward the window). `Int → Float → Bool →
 /// String` in order; whichever option accepts every probed cell wins. A
@@ -478,14 +480,14 @@ fn infer_column_dtype(
   rows : Array[Array[String]],
   col : Int,
   limit : Int,
-  null_values : Array[String],
+  is_null : (String) -> Bool,
   allow_nonfinite_floats : Bool,
 ) -> InferredDtype {
   infer_dtype(
     rows.length(),
     limit,
     i => cell_value(rows, i, col),
-    v => is_null_value(v, null_values),
+    is_null,
     v => parse_int_opt(v) is Some(_),
     v => parse_float_opt(v, allow_nonfinite_floats) is Some(_),
     v => parse_bool_opt(v) is Some(_),
@@ -565,13 +567,12 @@ fn build_column(
   dtype : InferredDtype,
   rows : Array[Array[String]],
   col : Int,
-  null_values : Array[String],
+  isnull : (String) -> Bool,
   on_parse_error : OnParseError,
   allow_nonfinite_floats : Bool,
 ) -> @series.Series raise @types.DataError {
   let n = rows.length()
   let cell = fn(i : Int) -> String { cell_value(rows, i, col) }
-  let isnull = fn(v : String) -> Bool { is_null_value(v, null_values) }
   match dtype {
     InferInt =>
       build_typed_column(

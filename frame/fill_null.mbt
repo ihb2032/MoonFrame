@@ -27,7 +27,10 @@ pub fn DataFrame::fill_null(
   value : @types.Scalar,
 ) -> DataFrame raise @types.DataError {
   let new_cols = self.columns.map(s => {
-    if fills_dtype(value, s.dtype()) {
+    // Skip a dtype-compatible column that has no nulls: filling it would rebuild
+    // the whole column into an identical copy. `null_count` is O(1) for a
+    // `Numeric` column, mirroring `drop_nulls`' short-circuit.
+    if fills_dtype(value, s.dtype()) && s.storage().null_count() != 0 {
       s.fill_null(value)
     } else {
       s

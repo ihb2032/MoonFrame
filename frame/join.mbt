@@ -512,18 +512,54 @@ fn gather_series_opt(
     (@column.ColumnData::Float(a), Some(rows)) =>
       Series::from_floats(out_name, rows.map(j => a[j]))
     _ => {
-      let valid = validity_bools(s.storage())
+      let validity = s.storage().validity()
       // Output cell `k` reads source row `idx[k]` when it is `Some` (and the
-      // cell there is valid), else a null. The four closures are identical bar
-      // their element type; `rebuild_options` picks the one matching `s`'s dtype.
+      // cell there is valid), else a null. Read each matched row's validity by
+      // O(1) bit lookup (`is_valid_total`) rather than materialising the whole
+      // O(source) mask — a high-selectivity join emits far fewer rows than the
+      // source has, so the gather stays O(output) (mirrors `gather_series`).
+      // The four closures are identical bar their element type; `rebuild_options`
+      // picks the one matching `s`'s dtype.
       rebuild_options(
         s,
         out_name,
         idx.length(),
-        (a, k) => idx[k].bind(j => if valid[j] { Some(a[j]) } else { None }),
-        (a, k) => idx[k].bind(j => if valid[j] { Some(a[j]) } else { None }),
-        (a, k) => idx[k].bind(j => if valid[j] { Some(a[j]) } else { None }),
-        (a, k) => idx[k].bind(j => if valid[j] { Some(a[j]) } else { None }),
+        (a, k) => {
+          idx[k].bind(j => {
+            if validity.is_valid_total(j) {
+              Some(a[j])
+            } else {
+              None
+            }
+          })
+        },
+        (a, k) => {
+          idx[k].bind(j => {
+            if validity.is_valid_total(j) {
+              Some(a[j])
+            } else {
+              None
+            }
+          })
+        },
+        (a, k) => {
+          idx[k].bind(j => {
+            if validity.is_valid_total(j) {
+              Some(a[j])
+            } else {
+              None
+            }
+          })
+        },
+        (a, k) => {
+          idx[k].bind(j => {
+            if validity.is_valid_total(j) {
+              Some(a[j])
+            } else {
+              None
+            }
+          })
+        },
       )
     }
   }

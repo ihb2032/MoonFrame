@@ -170,3 +170,21 @@ test "construction is total: nonsense trees still build" {
     .cast(@types.DataType::Bool),
   )
 }
+
+///|
+test "deep trees don't overflow structural equality: `==` is iterative" {
+  // A left-nested tree this deep formerly overflowed the native stack and
+  // aborted inside the handwritten `Eq` — reached by `==` / `assert_eq` and the
+  // derived equality of any structure embedding an `Expr`. The explicit
+  // work-stack compares any depth without aborting.
+  let depth = 200000
+  let mut a = col("a")
+  let mut b = col("a")
+  for _ in 0..<depth {
+    a = a + col("a")
+    b = b + col("a")
+  }
+  assert_true(a == b)
+  // A single differing leaf under the same shape is still detected.
+  assert_true(a != b + col("z"))
+}

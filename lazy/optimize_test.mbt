@@ -613,6 +613,53 @@ test "predicate pushdown still sinks a division-free predicate below an aggregat
 }
 
 ///|
+test "deep optimizer predicates don't overflow: the pushdown walks are iterative" {
+  // A key predicate this deep formerly overflowed the native stack and aborted
+  // inside row_stable / division_free during optimization — before the executor
+  // even ran. The explicit-stack walks analyse any depth.
+  let df = @frame.DataFrame::new([
+    @series.Series::from_floats("k", [0.0, 5.0]),
+    @series.Series::from_ints("v", [1, 2]),
+  ])
+  let keys = [@expr.col("k")]
+  let aggs = [@expr.col("v").sum()]
+  let depth = 100000
+  let mut predicate = @expr.col("k").gt(@expr.lit_float(-1.0))
+  for _ in 0..<depth {
+    predicate = predicate.land(@expr.col("k").gt(@expr.lit_float(-1.0)))
+  }
+  // Optimizing walks row_stable + division_free over the whole predicate to
+  // gate the aggregate pushdown; it completes without aborting and renders the
+  // deep optimized plan.
+  let plan = lazy_frame(df).group_by(keys).agg(aggs).filter(predicate)
+  assert_true(plan.explain(optimized=true).length() > depth)
+}
+
+///|
+test "deep aggregation expressions don't overflow the group pushdown gate" {
+  // A `sum() + sum() + …` aggregation this deep formerly overflowed the native
+  // stack inside group_cell_stable when the optimizer tested whether a key
+  // predicate could sink below the aggregate. The explicit-stack walk analyses
+  // any depth.
+  let df = @frame.DataFrame::new([
+    @series.Series::from_ints("k", [1, 1, 2]),
+    @series.Series::from_ints("v", [10, 20, 30]),
+  ])
+  let keys = [@expr.col("k")]
+  let depth = 100000
+  let mut agg = @expr.col("v").sum()
+  for _ in 0..<depth {
+    agg = agg + @expr.col("v").sum()
+  }
+  let predicate = @expr.col("k").gt(@expr.lit_int(0))
+  let plan = lazy_frame(df)
+    .group_by(keys)
+    .agg([agg.with_alias("r")])
+    .filter(predicate)
+  assert_true(plan.explain(optimized=true).length() > depth)
+}
+
+///|
 test "predicate pushdown keeps a derived select column's backend canonical" {
   // The same hazard one stage over: `s = a + b` is null exactly where the
   // filter drops the row, so the eager (compute-then-filter) and optimized

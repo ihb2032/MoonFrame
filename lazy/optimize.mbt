@@ -277,19 +277,35 @@ fn place_filter(input : LogicalPlan, predicate : @expr.Expr) -> LogicalPlan {
 /// a `Str` op is per-cell and total, raising only the dtype-level
 /// `TypeMismatch` of a non-String operand.
 fn row_stable(expr : @expr.Expr) -> Bool {
-  match expr {
-    @expr.Expr::Agg(_, _)
-    | @expr.Expr::Cast(_, _)
-    | @expr.Expr::Map(_, _, _)
-    | @expr.Expr::LitSeries(_) => false
-    @expr.Expr::Col(_)
-    | @expr.Expr::Lit(_)
-    | @expr.Expr::Binary(_, _, _)
-    | @expr.Expr::Unary(_, _)
-    | @expr.Expr::Str(_, _)
-    | @expr.Expr::Alias(_, _)
-    | @expr.Expr::Ternary(_, _, _) => expr.children().all(row_stable)
+  // Iterative tree walk (explicit stack, not the call stack) so a deeply nested
+  // predicate cannot overflow and abort during optimization — total at any
+  // depth, as this function's doc promises. Every node must be row-local;
+  // `children()` drives the descent, so a new `Expr` variant is covered the
+  // moment it declares its children.
+  let stack : Array[@expr.Expr] = [expr]
+  for ;; {
+    match stack.pop() {
+      None => break
+      Some(e) =>
+        match e {
+          @expr.Expr::Agg(_, _)
+          | @expr.Expr::Cast(_, _)
+          | @expr.Expr::Map(_, _, _)
+          | @expr.Expr::LitSeries(_) => return false
+          @expr.Expr::Col(_)
+          | @expr.Expr::Lit(_)
+          | @expr.Expr::Binary(_, _, _)
+          | @expr.Expr::Unary(_, _)
+          | @expr.Expr::Str(_, _)
+          | @expr.Expr::Alias(_, _)
+          | @expr.Expr::Ternary(_, _, _) =>
+            for child in e.children() {
+              stack.push(child)
+            }
+        }
+    }
   }
+  true
 }
 
 ///|
@@ -314,10 +330,23 @@ fn all_row_stable(exprs : Array[@expr.Expr]) -> Bool {
 /// stay above. Walks `children()` like `row_stable`, so a future `Expr` variant
 /// is covered without a wildcard.
 fn division_free(expr : @expr.Expr) -> Bool {
-  match expr {
-    @expr.Expr::Binary(@expr.BinOp::Div, _, _) => false
-    _ => expr.children().all(division_free)
+  // Iterative walk like `row_stable`: a deeply nested predicate stays total
+  // instead of overflowing the call stack during optimization.
+  let stack : Array[@expr.Expr] = [expr]
+  for ;; {
+    match stack.pop() {
+      None => break
+      Some(e) =>
+        match e {
+          @expr.Expr::Binary(@expr.BinOp::Div, _, _) => return false
+          _ =>
+            for child in e.children() {
+              stack.push(child)
+            }
+        }
+    }
   }
+  true
 }
 
 ///|
@@ -345,38 +374,55 @@ fn division_free(expr : @expr.Expr) -> Bool {
 /// the unary wrappers, the string-namespace transforms, and a ternary over
 /// a non-null condition.
 fn group_cell_stable(expr : @expr.Expr) -> Bool {
-  match expr {
-    @expr.Expr::Col(_) => false
-    @expr.Expr::Lit(value) =>
-      match value {
-        @types.Scalar::Null => false
-        @types.Scalar::Int(_)
-        | @types.Scalar::Float(_)
-        | @types.Scalar::Bool(_)
-        | @types.Scalar::String(_) => true
-      }
-    @expr.Expr::Agg(op, operand) =>
-      match op {
-        @expr.AggOp::Sum | @expr.AggOp::Count | @expr.AggOp::NUnique =>
-          row_stable(operand)
-        @expr.AggOp::Mean
-        | @expr.AggOp::Min
-        | @expr.AggOp::Max
-        | @expr.AggOp::Std
-        | @expr.AggOp::Var
-        | @expr.AggOp::Median
-        | @expr.AggOp::First
-        | @expr.AggOp::Last => false
-      }
-    @expr.Expr::Cast(_, _)
-    | @expr.Expr::Map(_, _, _)
-    | @expr.Expr::LitSeries(_) => false
-    @expr.Expr::Binary(_, _, _)
-    | @expr.Expr::Unary(_, _)
-    | @expr.Expr::Str(_, _)
-    | @expr.Expr::Alias(_, _)
-    | @expr.Expr::Ternary(_, _, _) => expr.children().all(group_cell_stable)
+  // Iterative walk like `row_stable`: total at any predicate depth. An `Agg`
+  // node is terminal here — its verdict is its op's (the reducing ops fence,
+  // `Sum`/`Count`/`NUnique` defer to `row_stable` of the operand) — so its
+  // operand is never pushed for further `group_cell_stable` descent.
+  let stack : Array[@expr.Expr] = [expr]
+  for ;; {
+    match stack.pop() {
+      None => break
+      Some(e) =>
+        match e {
+          @expr.Expr::Col(_) => return false
+          @expr.Expr::Lit(value) =>
+            match value {
+              @types.Scalar::Null => return false
+              @types.Scalar::Int(_)
+              | @types.Scalar::Float(_)
+              | @types.Scalar::Bool(_)
+              | @types.Scalar::String(_) => ()
+            }
+          @expr.Expr::Agg(op, operand) =>
+            match op {
+              @expr.AggOp::Sum | @expr.AggOp::Count | @expr.AggOp::NUnique =>
+                if !row_stable(operand) {
+                  return false
+                }
+              @expr.AggOp::Mean
+              | @expr.AggOp::Min
+              | @expr.AggOp::Max
+              | @expr.AggOp::Std
+              | @expr.AggOp::Var
+              | @expr.AggOp::Median
+              | @expr.AggOp::First
+              | @expr.AggOp::Last => return false
+            }
+          @expr.Expr::Cast(_, _)
+          | @expr.Expr::Map(_, _, _)
+          | @expr.Expr::LitSeries(_) => return false
+          @expr.Expr::Binary(_, _, _)
+          | @expr.Expr::Unary(_, _)
+          | @expr.Expr::Str(_, _)
+          | @expr.Expr::Alias(_, _)
+          | @expr.Expr::Ternary(_, _, _) =>
+            for child in e.children() {
+              stack.push(child)
+            }
+        }
+    }
   }
+  true
 }
 
 ///|

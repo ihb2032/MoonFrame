@@ -5,6 +5,8 @@ a few chained methods, and print or export the result. If you have used pandas o
 polars, the shape of the API will feel familiar:
 
 ```moonbit
+// API shape (illustrative; see "Quick start" below for a runnable,
+// `@moonframe`-prefixed version)
 read_csv("sales.csv")
   .filter(col("product").eq(lit_str("widget")))
   .group_by([col("region")])
@@ -50,6 +52,10 @@ package that uses it:
 
 Now `@moonframe.read_csv`, the `DataFrame` / `Series` types, and every operator
 method are available in that package.
+
+> The `moon.mod.json` / `moon.pkg.json` snippets above use the JSON manifest
+> form. MoonBit also accepts the newer `moon.mod` / `moon.pkg` files (which is
+> what this repository itself uses); the two forms are equivalent.
 
 ## Quick start
 
@@ -169,7 +175,7 @@ let result : Result[String, @moonframe.DataError] = Ok(widgets("sales.csv")) cat
 }
 ```
 
-Operations that are provably total (`head`, `drop_nulls`, `to_markdown`, …) just
+Operations that are provably total (`head`, `to_markdown`, …) just
 return their value. `DataError` is a `pub(all) suberror`, so you can match its
 variants (`ColumnNotFound`, `ParseError`, …) on the `Err`. The full model is in
 [`docs/api.md`](docs/api.md).

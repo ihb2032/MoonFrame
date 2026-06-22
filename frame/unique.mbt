@@ -6,8 +6,12 @@
 /// `-0.0` folds into `+0.0`, and — like a `group_by` key — a **null** cell is
 /// an ordinary value, so two rows that are null in the same places (and equal
 /// elsewhere) are duplicates. Result rows keep their **first-appearance**
-/// order, so the output is deterministic without a sort, and every column
-/// keeps its storage backend.
+/// order, so the output is deterministic without a sort. When duplicate rows
+/// are dropped, a column that becomes all-valid may converge onto the
+/// `Numeric` fast-path backend — exactly as `take` / `gather` do, since the
+/// backend is a function of the gathered content, not the source; the schema,
+/// values, and frame invariants are unchanged. (An all-distinct frame is
+/// returned unchanged, so its backends are untouched.)
 ///
 /// Total: dropping rows from a valid frame can neither change the schema nor
 /// fail. A frame whose rows are already all distinct is returned unchanged

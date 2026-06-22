@@ -359,8 +359,11 @@ fn validate_csv_delimiter(delimiter : Char) -> Unit raise @types.DataError {
 ///   leading / trailing whitespace is written bare (only the delimiter, a
 ///   quote, `\r`, or `\n` force quoting), so this reader round-trips it
 ///   (`trim_spaces` off), but an RFC-4180 consumer that trims surrounding
-///   whitespace may drop it. Quote / escape handling is otherwise round-trip
-///   safe.
+///   whitespace may drop it. A `String` cell whose text equals a reader null
+///   token — the default `null_value` is the empty string `""`, so this
+///   includes empty strings, plus any custom `null_values` entry — is read
+///   back as null and cannot be distinguished from a true null. Quote /
+///   escape handling is otherwise round-trip safe.
 /// - Raises `InvalidOperation` if `options.delimiter` is a double quote or a
 ///   line terminator (`\n` / `\r`): those collide with the hard-coded quote
 ///   character and the row terminator, so no escaping could make the output

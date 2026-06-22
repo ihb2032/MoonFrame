@@ -2,8 +2,12 @@
 
 > Status: **v0.5 shipped** (the eager and lazy surfaces converged onto one
 > Polars-shaped expression engine — the last breaking release). This
-> document is the source of truth for the v0.5 public surface. When a
-> symbol is published in code, it must appear here.
+> document is the source of truth for the v0.5 public surface. Every
+> user-facing symbol re-exported by the facade appears here. (A few symbols
+> are `pub` only because they are shared across packages — MoonBit has no
+> module-internal visibility — and are deliberately kept out of both the
+> facade and this reference: they are internal kernels, not public API, and
+> may change without notice.)
 
 The facade package `ihb2032/MoonFrame` re-exports every symbol below
 via `pub using @<subpkg> { ... }`, so a single

@@ -67,11 +67,12 @@ pub fn Expr::children(self : Expr) -> Array[Expr] {
 }
 
 ///|
-/// Every column name the tree references, in first-reference order
-/// (depth-first, left to right). A `Ternary`'s condition counts — the
-/// optimizer must keep a column alive even if only the condition reads
-/// it — unlike output *naming*, which draws from the value branches only.
-/// Duplicates collapse: `col("a") + col("a")` references `{"a"}`.
+/// Every column name the tree references, as a set — membership only;
+/// iteration order is neither significant nor guaranteed. A `Ternary`'s
+/// condition counts — the optimizer must keep a column alive even if only
+/// the condition reads it — unlike output *naming*, which draws from the
+/// value branches only. Duplicates collapse: `col("a") + col("a")`
+/// references `{"a"}`.
 pub fn Expr::referenced_columns(self : Expr) -> @set.Set[String] {
   let acc : @set.Set[String] = @set.Set([])
   collect_columns(self, acc)
@@ -88,8 +89,9 @@ fn collect_columns(expr : Expr, acc : @set.Set[String]) -> Unit {
   // user-built tree (`col("a") + col("a") + …` tens of thousands deep) would
   // otherwise overflow the native stack and abort — breaking the "total —
   // nothing can fail" contract these introspection walks promise. Children are
-  // pushed right-to-left so the leftmost pops first, preserving the documented
-  // depth-first, left-to-right reference order.
+  // pushed right-to-left so the leftmost pops first — consistent with the other
+  // explicit-stack walks (`leftmost_name` / `write_expr`); for a `Set` result
+  // the visit order is not observable anyway.
   let stack : Array[Expr] = [expr]
   for ;; {
     match stack.pop() {

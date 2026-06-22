@@ -111,6 +111,10 @@ fn build_sort_key(
   order : SortOrder,
   null_order : NullOrder,
 ) -> SortKey {
+  // `validity_bools` is total over both backends: a `Numeric` column carries
+  // only `Int` / `Float` and is all-valid (mask all-`true`), while `Bool` /
+  // `String` are always `Builtin` — so for a `Numeric` `Float` the only
+  // "missing" source is the `is_nan` test in the `Float` arm below.
   let valid = validity_bools(storage)
   match storage.data() {
     @column.ColumnData::Int(a) =>

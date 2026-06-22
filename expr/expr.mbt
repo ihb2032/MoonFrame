@@ -73,21 +73,85 @@ pub enum Expr {
 /// `Expr::children` (wildcard-free) and `eval_expr` first, which is where
 /// the reminder to extend this match lands.
 pub impl Eq for Expr with fn equal(self, other) {
-  match (self, other) {
-    (Col(a), Col(b)) => a == b
-    (Lit(a), Lit(b)) => a == b
-    (LitSeries(a), LitSeries(b)) => a == b
-    (Binary(o1, l1, r1), Binary(o2, l2, r2)) => o1 == o2 && l1 == l2 && r1 == r2
-    (Unary(o1, e1), Unary(o2, e2)) => o1 == o2 && e1 == e2
-    (Agg(o1, e1), Agg(o2, e2)) => o1 == o2 && e1 == e2
-    (Str(o1, e1), Str(o2, e2)) => o1 == o2 && e1 == e2
-    (Cast(e1, t1), Cast(e2, t2)) => e1 == e2 && t1 == t2
-    (Alias(e1, n1), Alias(e2, n2)) => e1 == e2 && n1 == n2
-    (Ternary(c1, t1, f1), Ternary(c2, t2, f2)) =>
-      c1 == c2 && t1 == t2 && f1 == f2
-    (Map(l1, i1, _), Map(l2, i2, _)) => l1 == l2 && i1 == i2
-    _ => false
+  exprs_structurally_equal(self, other)
+}
+
+///|
+/// Structural equality over an explicit work-stack of node pairs rather than
+/// the call stack: a deeply nested tree (`col("a") + col("a") + …` tens of
+/// thousands deep) would otherwise overflow the native stack and abort — the
+/// same never-abort hazard the introspection walks in `explain.mbt` dodge,
+/// reached here through `==` / `assert_eq` / `inspect` and the derived `Eq` of
+/// any structure embedding an `Expr` (`DataFrame`, the lazy `LogicalPlan`).
+/// Semantics match the derived impl exactly: tags and operands compared
+/// recursively, two `Map` nodes equal on `(label, inputs)` with the function
+/// opaque, a variant mismatch unequal. Children are pushed so a mismatch
+/// anywhere in the tree short-circuits to `false`.
+fn exprs_structurally_equal(first : Expr, second : Expr) -> Bool {
+  let stack : Array[(Expr, Expr)] = [(first, second)]
+  for ;; {
+    match stack.pop() {
+      None => break
+      Some((a, b)) =>
+        match (a, b) {
+          (Col(x), Col(y)) => if x != y { return false }
+          (Lit(x), Lit(y)) => if x != y { return false }
+          (LitSeries(x), LitSeries(y)) => if x != y { return false }
+          (Binary(o1, l1, r1), Binary(o2, l2, r2)) => {
+            if o1 != o2 {
+              return false
+            }
+            stack.push((l1, l2))
+            stack.push((r1, r2))
+          }
+          (Unary(o1, e1), Unary(o2, e2)) => {
+            if o1 != o2 {
+              return false
+            }
+            stack.push((e1, e2))
+          }
+          (Agg(o1, e1), Agg(o2, e2)) => {
+            if o1 != o2 {
+              return false
+            }
+            stack.push((e1, e2))
+          }
+          (Str(o1, e1), Str(o2, e2)) => {
+            if o1 != o2 {
+              return false
+            }
+            stack.push((e1, e2))
+          }
+          (Cast(e1, t1), Cast(e2, t2)) => {
+            if t1 != t2 {
+              return false
+            }
+            stack.push((e1, e2))
+          }
+          (Alias(e1, n1), Alias(e2, n2)) => {
+            if n1 != n2 {
+              return false
+            }
+            stack.push((e1, e2))
+          }
+          (Ternary(c1, t1, f1), Ternary(c2, t2, f2)) => {
+            stack.push((c1, c2))
+            stack.push((t1, t2))
+            stack.push((f1, f2))
+          }
+          (Map(l1, i1, _), Map(l2, i2, _)) => {
+            if l1 != l2 || i1.length() != i2.length() {
+              return false
+            }
+            for k in 0..<i1.length() {
+              stack.push((i1[k], i2[k]))
+            }
+          }
+          _ => return false
+        }
+    }
   }
+  true
 }
 
 ///|

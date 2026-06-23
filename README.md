@@ -194,7 +194,7 @@ variants (`ColumnNotFound`, `ParseError`, …) on the `Err`. The full model is i
 - [`docs/migration.md`](docs/migration.md) — upgrading across breaking releases
 - [`docs/changelog.md`](docs/changelog.md) — version-by-version feature history
 
-Three runnable end-to-end programs live in [`examples/`](examples):
+Four runnable end-to-end programs live in [`examples/`](examples):
 
 ```sh
 moon run examples/sales_analysis    # filter → select → sort → describe → markdown

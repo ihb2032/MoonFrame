@@ -416,7 +416,7 @@ pub fn format_csv(
   let nrows = df.nrows()
   // Materialise the whole frame once (column-major) through the shared
   // `to_scalar_matrix`; `cols[c][r]` is then a plain in-bounds read, so no
-  // per-cell `get` `Result`.
+  // per-cell `item` raise.
   let cols = df.to_scalar_matrix()
   for r in 0..<nrows {
     for c in 0..<names.length() {

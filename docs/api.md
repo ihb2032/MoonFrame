@@ -45,7 +45,7 @@ violated invariant), not a data transform.
 
 ### Migration
 
-Source-level changes from earlier releases (v0.1 → v0.2 → v0.3) are collected
+Source-level changes between releases (v0.1 → … → v0.5) are collected
 in [`migration.md`](migration.md).
 
 ---
@@ -850,9 +850,12 @@ are documented below.
   `null_value` (`""`). `CsvWriteOptions::default()`.
 - `parse_csv_str(content, options) -> DataFrame raise DataError` —
   tokenise → per-column inference (`Int → Float → Bool → String`) → null
-  mapping → `DataFrame::new`. `DuplicateColumn` / `ParseError` (the latter
-  also covers a ragged row when `options.strict_column_count`, and a cell
-  that doesn't fit its dtype unless `options.on_parse_error = Null`).
+  mapping → `DataFrame::new`. `InvalidOperation` if `options.delimiter` is a
+  double quote or a line terminator (the same configurations `format_csv`
+  rejects, so a value the writer can't emit unambiguously can't be read back
+  either); `DuplicateColumn` / `ParseError` (the latter also covers a ragged
+  row when `options.strict_column_count`, and a cell that doesn't fit its
+  dtype unless `options.on_parse_error = Null`).
 - `format_csv(df, options) -> String raise DataError` — cells render via
   `Scalar::to_string`; null → `options.null_value`; RFC 4180 quoting;
   LF-terminated. Raises `InvalidOperation` if `options.delimiter` is a double

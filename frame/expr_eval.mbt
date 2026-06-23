@@ -63,9 +63,14 @@
 ///   except that a mix of `Int` and `Float` results promotes to `Float` (the
 ///   engine's `Int ↔ Float` rule) rather than nulling the minority. An
 ///   all-null result over a non-empty scope raises `Unsupported`, having no
-///   representable dtype (no Null-dtype backend, as for the `Null` literal);
-///   over an *empty* scope the closure never runs, so the dtype is mirrored
-///   from the leftmost input and the result is an empty column.
+///   representable dtype (no Null-dtype backend, as for the `Null` literal).
+///   The map's height follows its inputs, like every other expression: a
+///   *column* input makes it frame-tall, so over an empty scope the closure
+///   runs zero times and the result is an empty column (dtype mirrored from
+///   the leftmost input); an *all-literal* map (every input length-1, no
+///   column read) is length-1 like a bare `lit`, so the closure runs once and
+///   the one result broadcasts even over a 0-row frame — the same all-constant
+///   projection rule that makes `select([lit])` a single row at any height.
 /// - **Literal series** (`lit_series`): the embedded `Series` is returned
 ///   verbatim, the data analogue of a scalar literal's length-1 column. Its
 ///   length is the series' own; the consumers broadcast it like any other

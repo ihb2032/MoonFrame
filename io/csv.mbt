@@ -129,10 +129,14 @@ pub fn CsvWriteOptions::default() -> CsvWriteOptions {
 ///   actually fire here (uniqueness is checked above; every column
 ///   is built off the same `rows.length()`).
 ///
-/// Limitation: tokenisation is delegated to NyaCSV, which treats an
-/// unterminated quoted field at end-of-input as a complete field rather
-/// than a malformed one — `1,"unclosed` reads as a row whose last cell is
-/// `unclosed`, not a `ParseError`. No quote-balance pre-scan is performed.
+/// Limitation: tokenisation is delegated to NyaCSV, whose quote handling is
+/// lenient and never raises a `ParseError` for a malformed quote. An
+/// unterminated quoted field at end-of-input is read as a complete field
+/// (`1,"unclosed` → last cell `unclosed`); text after a closing quote is
+/// folded into the same field (`"ab"cd` → `abcd`); and a lone quote inside
+/// an unquoted field is kept literally (`ab"cd` → `ab"cd`). A strict
+/// RFC-4180 reader rejects all three; MoonFrame accepts them, and no
+/// quote-balance pre-scan is performed.
 pub fn parse_csv_str(
   content : String,
   options : CsvReadOptions,
@@ -370,8 +374,13 @@ fn validate_csv_delimiter(delimiter : Char) -> Unit raise @types.DataError {
 ///   whitespace may drop it. A `String` cell whose text equals a reader null
 ///   token — the default `null_value` is the empty string `""`, so this
 ///   includes empty strings, plus any custom `null_values` entry — is read
-///   back as null and cannot be distinguished from a true null. Quote /
-///   escape handling is otherwise round-trip safe.
+///   back as null and cannot be distinguished from a true null. A `String`
+///   cell whose text parses as another dtype is likewise re-inferred on read:
+///   inference is content-based with no header type hints, so a column of
+///   numeric-looking strings (`"01"`, `"2"`) returns as `Int` / `Float` —
+///   dropping any leading zeros — and `"true"` / `"false"` as `Bool`, the
+///   dtype-from-content narrowing inherent to typeless CSV (matching Polars'
+///   `read_csv`). Quote / escape handling is otherwise round-trip safe.
 /// - Raises `InvalidOperation` if `options.delimiter` is a double quote or a
 ///   line terminator (`\n` / `\r`): those collide with the hard-coded quote
 ///   character and the row terminator, so no escaping could make the output

@@ -16,9 +16,13 @@
 ///
 /// The returned frame has the same schema as `self` (a
 /// rejects-everything predicate leaves a 0-row frame with the original
-/// schema), and every column keeps its storage backend. Evaluation errors
-/// (unknown columns, dtype mismatches) surface here; building the
-/// predicate was total.
+/// schema). A filter that keeps every row returns `self` unchanged; once
+/// any row drops, the surviving cells are re-gathered and each column
+/// converges onto the backend its content implies (an all-valid numeric
+/// column lands on `Numeric`) — the engine-wide "backend is a function of
+/// content" rule, not a verbatim carry-over. Evaluation errors (unknown
+/// columns, dtype mismatches) surface here; building the predicate was
+/// total.
 pub fn DataFrame::filter(
   self : DataFrame,
   predicate : @expr.Expr,

@@ -346,11 +346,14 @@ and the optimizer: a map node is identified by its `label` and inputs.
 The closure runs once per row and may `raise` (propagating from the consuming
 verb). The output dtype is the first non-null `Scalar` returned (mixed
 `Int`/`Float` promotes to `Float`); an all-null result over a non-empty frame
-raises `Unsupported` (no Null-dtype backend, as for a `Null` literal). Over an
-**empty** frame the closure never runs, so map mirrors the leftmost input's
-dtype and returns an empty column. The result is named after the leftmost
-input; `label` shows only in `explain`. The optimizer treats a map as a value
-barrier (like `cast`): no filter sinks across it.
+raises `Unsupported` (no Null-dtype backend, as for a `Null` literal). A map's
+height follows its inputs: a **column** input makes it frame-tall, so over an
+empty frame the closure never runs and it returns an empty column mirroring the
+leftmost input's dtype; an **all-literal** map (no column read) is length-1
+like a bare `lit`, so the closure runs once and broadcasts even over an empty
+frame. The result is named after the leftmost input; `label` shows only in
+`explain`. The optimizer treats a map as a value barrier (like `cast`): no
+filter sinks across it.
 
 ### Introspection (all total)
 

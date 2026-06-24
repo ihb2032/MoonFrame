@@ -307,7 +307,7 @@ fn df_to_json_records(df : @frame.DataFrame) -> Array[Json] {
   let nrows = df.nrows()
   // Materialise the whole frame once (column-major) through the shared
   // `to_scalar_matrix` so a record is assembled by plain `cols[c][r]` reads
-  // rather than per-cell `get`.
+  // rather than per-cell `item`.
   let cols = df.to_scalar_matrix()
   Array::makei(nrows, r => {
     let obj : Map[String, Json] = {}

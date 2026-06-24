@@ -286,8 +286,8 @@ pub fn NumericColumn::to_string_column(self : NumericColumn) -> BuiltinColumn {
 
 ///|
 /// Plain `Int64` fold over the whole array — every slot is present, so unlike
-/// `Series`' `sum_int_valid` there is no `validity().to_bools()` and no
-/// per-slot `if valid[i]` branch. Shared by `sum` and `mean`.
+/// the general `Builtin`-backend reduction there is no `validity().to_bools()`
+/// and no per-slot `if valid[i]` branch. Shared by `sum` and `mean`.
 fn fold_int64(a : Array[Int64]) -> Int64 {
   let mut acc : Int64 = 0
   for x in a {

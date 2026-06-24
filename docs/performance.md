@@ -8,8 +8,10 @@ a planned addition.
 ## Data model
 
 - **Column-oriented.** A `DataFrame` is an array of typed `Series` columns.
-  Row-oriented work (table rendering, JSON / CSV records) goes through one
-  bulk `to_scalar_matrix()` read rather than per-cell `get`.
+  Row-oriented work reads each column in bulk rather than cell-by-cell: the
+  JSON / CSV / NDJSON record emitters take one whole-frame
+  `to_scalar_matrix()` read, while table rendering (`to_markdown` /
+  `to_html`) scalarises only the visible row window, per column.
 - **Validity bitmap.** Nulls live in a byte-packed bitmap (1 bit per row,
   `1 = valid`) kept separate from the data buffer — Arrow's representation.
 - **`O(1)` column lookup.** A `name → index` map backs `get_column` and
@@ -52,7 +54,8 @@ For a frame of `n` rows and `c` columns:
 | `join` | `O(n + m)` | hash equi-join, build + probe (plus output size) |
 | `unique` | `O(n)` | hash on the composite row key |
 | `sum` / `mean` / `min` / `max` / `count` | `O(n)` | single pass; `Numeric` skips validity |
-| `to_markdown` / `to_html` / `format_*` | `O(n · c)` | one bulk `to_scalar_matrix` read |
+| `format_*` (JSON / CSV / NDJSON) | `O(n · c)` | one whole-frame `to_scalar_matrix` read |
+| `to_markdown` / `to_html` | `O(shown · c)` | scalarises only the rows shown — a row cap touches `shown`, not `n` |
 
 ## Lazy execution
 

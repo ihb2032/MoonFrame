@@ -1,6 +1,6 @@
 name = "ihb2032/MoonFrame"
 
-version = "0.5.0"
+version = "0.5.1"
 
 import {
   "moonbitlang/x@0.4.43",

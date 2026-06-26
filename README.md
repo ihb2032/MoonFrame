@@ -21,22 +21,12 @@ focused foundation for everyday tabular work, not a full pandas clone.
 
 ## Install
 
-MoonFrame isn't published to [mooncakes.io](https://mooncakes.io) yet, so add it
-as a **local dependency** from a clone of this repo:
+MoonFrame is published on
+[mooncakes.io](https://mooncakes.io/docs/ihb2032/MoonFrame). Add it to your
+module's dependencies:
 
 ```sh
-git clone https://github.com/ihb2032/MoonFrame
-```
-
-Point your module's `moon.mod.json` at the clone (adjust the path to wherever
-you cloned it):
-
-```json
-{
-  "deps": {
-    "ihb2032/MoonFrame": { "path": "../MoonFrame" }
-  }
-}
+moon add ihb2032/MoonFrame
 ```
 
 Then import it (with the `@moonframe` alias) in the `moon.pkg.json` of the
@@ -53,9 +43,9 @@ package that uses it:
 Now `@moonframe.read_csv`, the `DataFrame` / `Series` types, and every operator
 method are available in that package.
 
-> The `moon.mod.json` / `moon.pkg.json` snippets above use the JSON manifest
-> form. MoonBit also accepts the newer `moon.mod` / `moon.pkg` files (which is
-> what this repository itself uses); the two forms are equivalent.
+> The `moon.pkg.json` snippet above uses the JSON manifest form. MoonBit also
+> accepts the newer `moon.mod` / `moon.pkg` files (which is what this repository
+> itself uses); the two forms are equivalent.
 
 ## Quick start
 

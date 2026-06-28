@@ -6,6 +6,21 @@ breaking-change steps for each release are collected in
 [`migration.md`](migration.md). Pre-1.0, breaking changes ride the minor
 version.
 
+## v0.5.2 — non-nullable enforcement
+
+`DataFrame::from_rows` now honours a field's declared `nullable = false`: row
+data that places a `Scalar::Null` in such a column raises the new
+`DataError::NullInNonNullable(name)` rather than silently building a frame whose
+schema contradicts its data. Callers that relied on the old silent behaviour
+should declare the field `nullable = true` (the default).
+
+This closes the only path where schema and data could disagree. `Field::new` /
+`DataFrame::new` and the IO readers always declare columns `nullable = true`, so
+a `nullable = false` field only ever comes from an explicit
+`Field::with_nullable(..., false)` in a caller-supplied schema, and `empty`
+builds 0-row columns that cannot violate it. The flag stays advisory otherwise:
+it is not inferred from a column's contents nor propagated across operations.
+
 ## v0.5.1 — install docs
 
 A documentation-only patch. The README's install instructions now use `moon add

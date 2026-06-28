@@ -5,6 +5,18 @@ changes ride the minor version. For the feature history behind each release see
 [`changelog.md`](changelog.md); for the current public surface see
 [`api.md`](api.md).
 
+## v0.5.1 → v0.5.2
+
+Additive plus one behaviour fix; no renames.
+
+- `DataError` gains a `NullInNonNullable(String)` variant. A new enum variant
+  is the one change the post-v0.5 surface allows: an exhaustive `match` over
+  `DataError` without a wildcard arm must add a `NullInNonNullable(_)` case.
+- `DataFrame::from_rows` now raises `NullInNonNullable(name)` when row data
+  places a null in a field declared `nullable = false` (previously it built the
+  frame silently). Declare the field `nullable = true` — the default, via
+  `Field::new` — to keep the old behaviour.
+
 ## v0.4 → v0.5
 
 v0.5 is a pre-1.0 breaking release — and the **last** one: from v0.6 on the

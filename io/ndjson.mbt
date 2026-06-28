@@ -13,8 +13,10 @@
 // and typed-column construction behave identically. The writer reuses
 // `scalar_to_json`, so the same cell conventions hold — notably a
 // non-finite `Float` (`NaN` / `±Infinity`) is emitted as `null` to keep
-// each line valid JSON, and an `Int` beyond ±2^53 keeps its dtype but
-// loses precision on a round-trip (the `@json` number model is `Double`).
+// each line valid JSON, and an `Int` keeps its dtype and round-trips exactly
+// across the full `Int64` range — it is written as verbatim decimal text and
+// recovered from the number's preserved `repr` (json.mbt Caveat 2), even
+// though the `@json` number model is `Double`.
 //
 // Reading is lenient about line endings: lines are split on `\n`, a
 // trailing `\r` (CRLF input) is tolerated as JSON whitespace by
@@ -181,8 +183,9 @@ pub fn read_ndjson_projected(
 /// renders the empty string.
 ///
 /// Per-cell conventions are shared with `format_json_records` via
-/// `scalar_to_json`: `Null → null`; `Int` → JSON number (exact up to
-/// ±2^53); finite `Float` → JSON number, non-finite (`NaN` /
+/// `scalar_to_json`: `Null → null`; `Int` → JSON number (no fractional part;
+/// exact across the full `Int64` range via the preserved `repr`); finite
+/// `Float` → JSON number, non-finite (`NaN` /
 /// `±Infinity`) → `null` so each line stays valid JSON; `Bool` →
 /// `true` / `false`; `String` → escaped JSON string. Keys appear in
 /// `df.columns()` order, preserved by the linked-hash-map `Map` backing

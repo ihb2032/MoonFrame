@@ -62,8 +62,12 @@
 ///   and free to `raise`). The output dtype is the first non-null result's,
 ///   except that a mix of `Int` and `Float` results promotes to `Float` (the
 ///   engine's `Int ↔ Float` rule) rather than nulling the minority. An
-///   all-null result over a non-empty scope raises `Unsupported`, having no
-///   representable dtype (no Null-dtype backend, as for the `Null` literal).
+///   all-null result has no non-null cell to fix the dtype, so it falls back
+///   to the leftmost input's column backend and yields an all-null column of
+///   that dtype (Polars' tolerance of a null-returning map); only a
+///   *column-less* map (no input to borrow a backend from, e.g.
+///   `map_many([], _ => Null)`) has no dtype witness and raises
+///   `Unsupported`, as for the `Null` literal.
 ///   The map's height follows its inputs, like every other expression: a
 ///   *column* input makes it frame-tall, so over an empty scope the closure
 ///   runs zero times and the result is an empty column (dtype mirrored from

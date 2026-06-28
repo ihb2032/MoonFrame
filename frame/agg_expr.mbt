@@ -45,8 +45,8 @@
 /// converges onto `Numeric`, anything nullable (or `Bool` / `String`) stays
 /// `Builtin`.
 ///
-/// An aggregation directly over a bare column — `col(name).sum()` and the
-/// four other reductions, the common case once aliases are peeled — takes a
+/// An aggregation directly over a bare column — `col(name).<agg>()` for any
+/// aggregation op, the common case once aliases are peeled — takes a
 /// single-pass fast path (`bare_col_agg`): the shared reduction kernel
 /// resolves its reducer and validity mask once and folds each group's row
 /// indices straight off the source column, instead of gathering a fresh
@@ -173,8 +173,8 @@ fn reduces_per_group(expr : @expr.Expr) -> Bool {
 
 ///|
 /// Recognise the single-pass fast-path shape — an aggregation directly over
-/// a bare column reference, `col(name).sum()` / `.mean()` / `.min()` /
-/// `.max()` / `.count()` — returning the source column name and reduction op,
+/// a bare column reference, `col(name).<agg>()` for any aggregation op —
+/// returning the source column name and reduction op,
 /// else `None`. Top-level aliases are peeled first: `col(name).sum()
 /// .with_alias("total")` is the common idiom and an alias only renames the
 /// result (the output name comes from `expr_output_name` either way). The

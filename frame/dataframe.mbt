@@ -224,11 +224,12 @@ pub fn DataFrame::column_series(self : DataFrame) -> Array[Series] {
 /// Equivalent to `column_series().map(s => s.to_scalars())`, and **total** —
 /// `Series::to_scalars` is total over every backend.
 ///
-/// This is the one-pass bulk read the row-oriented serialisers and renderers
-/// (`format_csv` / the JSON record emitter / `to_html` / `to_markdown`)
-/// share: each materialises the whole frame once, then assembles a record by
-/// plain `[c][r]` indexing rather than a per-cell `get`, so no row walk pays
-/// a repeated bounds-checked lookup.
+/// This is the one-pass bulk read the row-oriented serialisers (`format_csv` /
+/// the JSON record emitter) share: each materialises the whole frame once,
+/// then assembles a record by plain `[c][r]` indexing rather than a per-cell
+/// `item`, so no row walk pays a repeated bounds-checked lookup. (The table
+/// renderers `to_html` / `to_markdown` instead scalarise only the visible row
+/// window, per column, via `table_cell_matrix`.)
 pub fn DataFrame::to_scalar_matrix(
   self : DataFrame,
 ) -> Array[Array[@types.Scalar]] {

@@ -317,8 +317,8 @@ pub fn try_column_to_numeric(s : Series) -> Series {
 /// `Series::gather`) and `rebuild_options` now **canonicalise** instead (an
 /// all-valid numeric result lands on `Numeric` whatever its source held), so a
 /// caller wrapping a `rebuild_options` result here — the join assembly — gets a
-/// no-op passthrough; the zero-copy slices (`slice_series`) preserve by sharing
-/// the buffer, never reaching here.
+/// no-op passthrough; the slices (`slice_series`) preserve the backend by
+/// sharing the validity bitmap (the row data is copied), never reaching here.
 pub fn preserve_backend(source : Series, rebuilt : Series) -> Series {
   match source.storage.kind() {
     @column.StorageKind::Numeric => try_column_to_numeric(rebuilt)
@@ -346,9 +346,10 @@ pub fn validity_bools(storage : @column.ColumnStorage) -> Array[Bool] {
 }
 
 ///|
-/// Total contiguous slice `[start, start + len)`. Delegates to the zero-copy
+/// Total contiguous slice `[start, start + len)`. Delegates to
 /// `ColumnStorage::slice_total`, which keeps the source backend and shares
-/// the validity buffer — the single slice path behind `head` / `tail` /
+/// the validity bitmap as a zero-copy view while copying the row data — the
+/// single slice path behind `head` / `tail` /
 /// `DataFrame::slice` (no rebuild, no `Result`). The caller guarantees
 /// `0 <= start` and `start + len <= self.len()`; `slice_total` clamps anyway,
 /// so a stray bound can never abort.

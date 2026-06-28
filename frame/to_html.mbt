@@ -30,7 +30,7 @@
 ///     default) omits it.
 ///   * `escape` — when `true` (the default) every emitted string —
 ///     caption, header names, cell values, and the class attribute — has
-///     `&` / `<` / `>` / `"` rewritten to their HTML entities, so
+///     `&` / `<` / `>` / `"` / `'` rewritten to their HTML entities, so
 ///     untrusted data can't inject markup. Set `false` (via
 ///     `with_escape`) to pass strings through verbatim for trusted input
 ///     that intentionally carries HTML.
@@ -115,7 +115,7 @@ pub fn HtmlOptions::with_escape(
 /// The output is a `<thead>` with one `<th>` per column followed by a
 /// `<tbody>` with one `<tr>` per record (a `<td>` per cell, in
 /// declaration order); a null cell renders as `<td></td>`. `&` / `<` /
-/// `>` / `"` are escaped to their HTML entities.
+/// `>` / `"` / `'` are escaped to their HTML entities.
 ///
 /// Empty frames degrade gracefully:
 ///   - 0 columns → returns the empty string (MoonFrame's own choice for a

@@ -601,7 +601,7 @@ transforms, so every output satisfies `check_invariants()`.
   String` — **total** HTML `<table>` renderers (IO-1: pure rendering lives
   in `frame`, parallel to `to_markdown`). `to_html` emits a `<thead>` +
   `<tbody>`, one `<td>` per cell in declaration order; a null cell renders
-  as `<td></td>`; `&` / `<` / `>` / `"` are escaped to HTML entities.
+  as `<td></td>`; `&` / `<` / `>` / `"` / `'` are escaped to HTML entities.
   0 columns → empty string; N columns / 0 rows → header + empty `<tbody>`.
   `to_html_with_options` adds a `class` / `<caption>` and, via `max_rows`,
   a row cap with a `<tfoot>` `... (K more rows)` banner (negative

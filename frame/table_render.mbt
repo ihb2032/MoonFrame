@@ -9,7 +9,7 @@
 /// Materialise the first `shown` rows of `df` as a row-major matrix of cell
 /// strings — `result[r][c]` is column `c`'s value in row `r`, rendered with the
 /// value-form of `Scalar::to_string` (a null cell is the empty string). Slices
-/// each column to its first `shown` cells (zero-copy) and scalarises only those,
+/// each column to its first `shown` cells and scalarises only those,
 /// then transposes the window into per-row cells — so the work scales with
 /// `shown`, not the frame height (a `to_markdown_with_limit(df, 10)` over a
 /// million-row frame touches ten rows, not a million). The strings are

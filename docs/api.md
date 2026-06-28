@@ -205,8 +205,9 @@ validity bitmap (`1 = valid`, `0 = null`).
   BuiltinColumn` / `to_string_column() -> BuiltinColumn`.
 - Total `slice_total(start, end) -> ColumnStorage` — the no-raise
   counterpart of `slice` (backs `head` / `tail` / `DataFrame::slice`): keeps
-  the backend, zero-copy, but clamps out-of-range bounds into `[0, len]`
-  (with `end` lifted to at least `start`) rather than raising.
+  the backend and shares the validity bitmap as a zero-copy view (copying the
+  row data), but clamps out-of-range bounds into `[0, len]` (with `end` lifted
+  to at least `start`) rather than raising.
 - Fallible (`raise DataError`): `is_null(i)` / `get(i)`; backend-preserving
   `slice(start, end)` / `take(indices)` (a `Numeric` sub-range stays
   `Numeric`); `int_values()` / `float_values()` / `bool_values()` /

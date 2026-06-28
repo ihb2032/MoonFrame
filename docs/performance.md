@@ -33,12 +33,15 @@ The moment a null would enter, the column materializes back to the general
 `Builtin` backend, so the fast path is a representation optimization, never a
 correctness fork — values and dtypes are identical either way.
 
-## Zero-copy views
+## Slicing
 
-`slice` / `head` / `tail` (and `DataFrame::slice`) return views that share
-the parent's data and validity buffers and advance the bitmap `offset` — no
-data is copied. Equality is logical over the live `[offset, offset + len)`
-window.
+`slice` / `head` / `tail` (and `DataFrame::slice`) copy the sliced row data
+into a fresh buffer but share the parent's validity bitmap as a zero-copy
+view, advancing the bitmap `offset` instead of repacking it (a `Numeric`
+column carries no bitmap, so only its data is copied, and an all-valid
+`Numeric` sub-range stays `Numeric`). Equality is logical: a slice compares
+equal to a freshly built column with the same cells, regardless of the shared
+bitmap's `offset`.
 
 ## Operation complexity
 

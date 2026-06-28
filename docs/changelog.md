@@ -6,6 +6,14 @@ breaking-change steps for each release are collected in
 [`migration.md`](migration.md). Pre-1.0, breaking changes ride the minor
 version.
 
+## v0.5.1 — install docs
+
+A documentation-only patch. The README's install instructions now use `moon add
+ihb2032/MoonFrame` (the package is published on
+[mooncakes.io](https://mooncakes.io/docs/ihb2032/MoonFrame)), replacing the
+pre-publication `git clone` / local-dependency steps. No library, API, or
+behaviour changes.
+
 ## v0.5 — one expression engine
 
 The breaking release that finishes what v0.4 started: the eager and lazy

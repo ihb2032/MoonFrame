@@ -60,6 +60,20 @@ test "from_strings / from_string_options" {
 }
 
 ///|
+// Defensive copy at the Series boundary: a Series is independent of the
+// caller's array, on both backends (Numeric for raw ints, Builtin for strings).
+test "raw Series constructors copy their input" {
+  let ints : Array[Int64] = [1, 2, 3]
+  let si = Series::from_ints("x", ints)
+  ints[0] = 99
+  assert_eq(si.get(0), @types.Scalar::Int(1))
+  let strs = ["a", "b"]
+  let ss = Series::from_strings("s", strs)
+  strs[0] = "z"
+  assert_eq(ss.get(0), @types.Scalar::String("a"))
+}
+
+///|
 test "structural equality compares name + storage" {
   assert_eq(Series::from_ints("a", [1, 2]), Series::from_ints("a", [1, 2]))
   // Same content, different name → not equal.

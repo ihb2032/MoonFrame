@@ -7,7 +7,7 @@ changes ride the minor version. For the feature history behind each release see
 
 ## v0.5.1 → v0.5.2
 
-Additive plus one behaviour fix; no renames.
+Additive plus two behaviour fixes; no renames.
 
 - `DataError` gains a `NullInNonNullable(String)` variant. A new enum variant
   is the one change the post-v0.5 surface allows: an exhaustive `match` over
@@ -16,6 +16,11 @@ Additive plus one behaviour fix; no renames.
   places a null in a field declared `nullable = false` (previously it built the
   frame silently). Declare the field `nullable = true` — the default, via
   `Field::new` — to keep the old behaviour.
+- Raw constructors (`Series` / `BuiltinColumn` / `NumericColumn`'s `from_ints` /
+  `from_floats` / `from_bools` / `from_strings`) now defensively copy their
+  input array. Code that mutated the source array after construction to alter
+  the column (the previously-documented footgun) no longer has that effect —
+  mutate the array before constructing, or build a fresh one.
 
 ## v0.4 → v0.5
 

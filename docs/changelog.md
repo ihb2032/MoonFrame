@@ -6,7 +6,9 @@ breaking-change steps for each release are collected in
 [`migration.md`](migration.md). Pre-1.0, breaking changes ride the minor
 version.
 
-## v0.5.2 — non-nullable enforcement
+## v0.5.2 — non-nullable enforcement and immutable ingestion
+
+### `from_rows` enforces declared non-nullability
 
 `DataFrame::from_rows` now honours a field's declared `nullable = false`: row
 data that places a `Scalar::Null` in such a column raises the new
@@ -20,6 +22,18 @@ a `nullable = false` field only ever comes from an explicit
 `Field::with_nullable(..., false)` in a caller-supplied schema, and `empty`
 builds 0-row columns that cannot violate it. The flag stays advisory otherwise:
 it is not inferred from a column's contents nor propagated across operations.
+
+### Raw constructors copy their input
+
+The raw `Series` / column constructors (`from_ints` / `from_floats` /
+`from_bools` / `from_strings`, and their `BuiltinColumn` / `NumericColumn`
+equivalents) now defensively copy the array they are handed, so a constructed
+`Series` is a true immutable value — mutating the source array afterwards no
+longer changes the series' cells. The `from_*_options` constructors already
+copied while boxing into `Option`; this brings the raw fast-path constructors in
+line. Internal zero-copy reuse (`to_builtin` widening, `to_numeric` conversion)
+is preserved through direct construction, so the copy is paid once at the
+ingestion boundary, not on internal moves.
 
 ## v0.5.1 — install docs
 

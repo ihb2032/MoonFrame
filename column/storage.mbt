@@ -355,8 +355,11 @@ pub fn ColumnStorage::to_numeric(
         )
       } else {
         match c.data() {
-          ColumnData::Int(a) => Numeric(NumericColumn::from_int64s(a))
-          ColumnData::Float(a) => Numeric(NumericColumn::from_doubles(a))
+          // Reuse the raw data array (the source column owns it and is
+          // immutable) rather than `from_int64s` / `from_doubles`, which now
+          // defensively copy — keeping the move buffer-free as documented.
+          ColumnData::Int(a) => Numeric({ data: NumericData::Int(a) })
+          ColumnData::Float(a) => Numeric({ data: NumericData::Float(a) })
           _ =>
             raise @types.DataError::TypeMismatch(
               "cannot convert a \{c.dtype()} column to Numeric (only Int / Float)",

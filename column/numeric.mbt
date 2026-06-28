@@ -52,9 +52,10 @@ pub(all) enum NumericData {
 ///|
 /// Build an `Int` column from raw values. There is no null path — if any cell
 /// may be missing, build a `BuiltinColumn` (`from_int_options`) and keep the
-/// column `Builtin` instead. No validity `Bitmap` is allocated.
+/// column `Builtin` instead. No validity `Bitmap` is allocated. `values` is
+/// copied, so the column owns its data.
 pub fn NumericColumn::from_int64s(values : Array[Int64]) -> NumericColumn {
-  { data: Int(values) }
+  { data: Int(values.copy()) }
 }
 
 ///|
@@ -63,9 +64,9 @@ pub fn NumericColumn::from_int64s(values : Array[Int64]) -> NumericColumn {
 /// value here — it is *not* a missing marker (only an absent slot is, and
 /// this column has none) — and it participates in reductions exactly as
 /// Polars treats it: propagating through `sum` / `mean`, skipped by
-/// `min` / `max`.
+/// `min` / `max`. `values` is copied, so the column owns its data.
 pub fn NumericColumn::from_doubles(values : Array[Double]) -> NumericColumn {
-  { data: Float(values) }
+  { data: Float(values.copy()) }
 }
 
 // ── Inspection ────────────────────────────────────────────────────────
@@ -261,14 +262,18 @@ pub fn NumericColumn::string_values(
 
 ///|
 /// Widen to a `BuiltinColumn` with an all-valid validity bitmap. Total and
-/// lossless: the data array is reused and `Bitmap::all_valid(len)` records
-/// that every slot is present. The widening is value-preserving — it equals
-/// `BuiltinColumn::from_ints` / `from_floats` on the same data (proven in
-/// `numeric_test.mbt`).
+/// lossless: the data array is reused (the source column owns it and is
+/// immutable, so the two may safely share it) and `Bitmap::all_valid(len)`
+/// records that every slot is present. The widening is value-preserving — it
+/// equals `BuiltinColumn::from_ints` / `from_floats` on the same data (proven
+/// in `numeric_test.mbt`). It reuses the array via a struct literal rather than
+/// `from_ints` / `from_floats`, which now defensively copy.
 pub fn NumericColumn::to_builtin(self : NumericColumn) -> BuiltinColumn {
   match self.data {
-    Int(a) => BuiltinColumn::from_ints(a)
-    Float(a) => BuiltinColumn::from_floats(a)
+    Int(a) =>
+      { data: ColumnData::Int(a), validity: Bitmap::all_valid(a.length()) }
+    Float(a) =>
+      { data: ColumnData::Float(a), validity: Bitmap::all_valid(a.length()) }
   }
 }
 

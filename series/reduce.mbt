@@ -11,7 +11,7 @@
 // so the grouped reduction stays a single linear pass over the column rather
 // than re-materialising the validity mask per group.
 //
-// The expression layer's aggregation family (`Expr::std` / `var` / `median` /
+// The expression layer's aggregation family (`Expr::std` / `variance` / `median` /
 // `n_unique` / `first` / `last`) reduces through the same kernel: each is a
 // window reducer here, so it serves the whole-column, per-group, and per-scope
 // surfaces with one fold and one set of null / `NaN` rules.

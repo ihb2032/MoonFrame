@@ -39,23 +39,31 @@ enum KeyCell {
 } derive(Eq, Hash)
 
 ///|
-/// Normalise one key cell to its `KeyCell`. The `Float` arm folds `NaN` to
-/// `KNaN` and `-0.0` to `KFloat(0.0)` so the key hashes / compares exactly
-/// as the previous `Scalar::to_string` key did; the five `Scalar` variants
-/// are exhaustive.
+/// Normalise a `Float` key value to its `KeyCell`: `NaN` collapses to `KNaN`
+/// (so every NaN shares one group / key) and `-0.0` folds into the canonical
+/// `KFloat(0.0)` (`-0.0 == 0.0`, and both rendered `"0"` under the old string
+/// key). Shared by `key_cell` below and `count_distinct`'s native-`Double`
+/// reader (`reduce.mbt`) so `n_unique` / `group_by` / `join` agree, cell for
+/// cell, on what counts as one distinct value.
+fn float_key_cell(v : Double) -> KeyCell {
+  if v.is_nan() {
+    KNaN
+  } else if v == 0.0 {
+    KFloat(0.0)
+  } else {
+    KFloat(v)
+  }
+}
+
+///|
+/// Normalise one key cell to its `KeyCell`. The `Float` arm delegates to
+/// `float_key_cell` (folding `NaN` / `-0.0` so the key hashes / compares
+/// exactly as the previous `Scalar::to_string` key did); the five `Scalar`
+/// variants are exhaustive.
 pub fn key_cell(sc : @types.Scalar) -> KeyCell {
   match sc {
     @types.Scalar::Int(v) => KInt(v)
-    @types.Scalar::Float(v) =>
-      if v.is_nan() {
-        KNaN
-      } else if v == 0.0 {
-        // `-0.0 == 0.0`, so both land here and share the canonical `+0.0`
-        // key (they rendered identically under the old string key too).
-        KFloat(0.0)
-      } else {
-        KFloat(v)
-      }
+    @types.Scalar::Float(v) => float_key_cell(v)
     @types.Scalar::Bool(v) => KBool(v)
     @types.Scalar::String(v) => KStr(v)
     @types.Scalar::Null => KNull

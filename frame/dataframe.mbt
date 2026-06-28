@@ -100,6 +100,8 @@ pub fn DataFrame::empty(
 ///   schema's dtype for that column.
 /// - `Unsupported(...)` — schema declares a `Null`-dtype column (same
 ///   reason as `empty`).
+/// - `NullInNonNullable(name)` — a `Scalar::Null` lands in a column whose
+///   field is declared `nullable = false`.
 pub fn DataFrame::from_rows(
   schema : @types.Schema,
   rows : Array[Array[@types.Scalar]],
@@ -120,7 +122,7 @@ pub fn DataFrame::from_rows(
   let fields = schema.fields()
   let columns : Array[Series] = Array::makei(ncols, i => {
     let field = fields[i]
-    match field.dtype() {
+    let column = match field.dtype() {
       @types.DataType::Int =>
         Series::from_int_options(
           field.name(),
@@ -182,6 +184,14 @@ pub fn DataFrame::from_rows(
           "cannot build DataFrame column of dtype Null: \{field.name()}",
         )
     }
+    // Enforce the field's declared non-nullability: a `nullable = false`
+    // field must not carry nulls. `empty` builds 0-row columns and so can
+    // never violate this; `from_rows` is the only constructor where row data
+    // can place a null under such a field.
+    if !field.nullable() && column.null_count() > 0 {
+      raise @types.DataError::NullInNonNullable(field.name())
+    }
+    column
   })
   { schema, columns, nrows, name_to_index: index_by_name(columns) }
 }

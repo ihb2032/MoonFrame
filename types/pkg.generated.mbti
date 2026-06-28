@@ -31,6 +31,7 @@ pub(all) suberror DataError {
   InvalidOperation(String)
   IoError(String)
   Unsupported(String)
+  NullInNonNullable(String)
 } derive(Eq, @debug.Debug)
 pub fn DataError::message(Self) -> String
 pub impl Show for DataError

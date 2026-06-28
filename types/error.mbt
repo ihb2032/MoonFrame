@@ -10,6 +10,7 @@ pub(all) suberror DataError {
   InvalidOperation(String)
   IoError(String)
   Unsupported(String)
+  NullInNonNullable(String)
 } derive(Eq, Debug)
 
 ///|
@@ -25,6 +26,7 @@ pub fn DataError::message(self : DataError) -> String {
     InvalidOperation(detail) => "Invalid operation: \{detail}"
     IoError(detail) => "I/O error: \{detail}"
     Unsupported(detail) => "Unsupported: \{detail}"
+    NullInNonNullable(name) => "Null in non-nullable column: \{name}"
   }
 }
 
@@ -49,5 +51,7 @@ pub impl Show for DataError with fn output(self, logger) {
       logger.write_string("IoError(\"\{escape_debug(detail)}\")")
     Unsupported(detail) =>
       logger.write_string("Unsupported(\"\{escape_debug(detail)}\")")
+    NullInNonNullable(name) =>
+      logger.write_string("NullInNonNullable(\"\{escape_debug(name)}\")")
   }
 }

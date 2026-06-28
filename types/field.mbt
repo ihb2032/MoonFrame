@@ -1,9 +1,16 @@
 ///|
-/// Column metadata: a name, the column's logical `DataType`, and whether
-/// the column is allowed to hold nulls.
+/// Column metadata: a name, the column's logical `DataType`, and a declared
+/// `nullable` flag.
 ///
-/// `nullable = false` is a declared constraint, not a runtime check — it is
-/// up to `DataFrame` construction and IO layers to honour it.
+/// `nullable = false` is a declared constraint that `DataFrame::from_rows`
+/// enforces: row data placing a `Scalar::Null` in such a column `raise`s
+/// `NullInNonNullable(name)`. (`DataFrame::empty` builds 0-row columns, so it
+/// can never violate the constraint.) The flag is otherwise advisory — it is
+/// neither inferred from a column's contents nor propagated across operations:
+/// `Field::new` (and so `DataFrame::new`, the IO readers, and the ops that
+/// rebuild through them) always sets `nullable = true`, so a `nullable = false`
+/// field only ever originates from an explicit
+/// `Field::with_nullable(..., false)` in a caller-supplied schema.
 pub(all) struct Field {
   name : String
   dtype : DataType

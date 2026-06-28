@@ -36,6 +36,10 @@ test "DataError::message covers every variant" {
     DataError::Unsupported("Arrow backend").message(),
     content="Unsupported: Arrow backend",
   )
+  inspect(
+    DataError::NullInNonNullable("note").message(),
+    content="Null in non-nullable column: note",
+  )
 }
 
 ///|
@@ -78,6 +82,10 @@ test "DataError Show covers every remaining variant" {
   inspect(
     DataError::Unsupported("Arrow backend"),
     content="Unsupported(\"Arrow backend\")",
+  )
+  inspect(
+    DataError::NullInNonNullable("note"),
+    content="NullInNonNullable(\"note\")",
   )
 }
 

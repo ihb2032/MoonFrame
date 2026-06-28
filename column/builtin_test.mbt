@@ -42,6 +42,29 @@ test "from_strings / from_string_options" {
 }
 
 ///|
+// Defensive copy: the raw constructors copy their input, so a column is
+// independent of the caller's array — mutating the source afterwards must not
+// change the column's cells.
+test "raw constructors copy their input" {
+  let ints : Array[Int64] = [1, 2, 3]
+  let ic = BuiltinColumn::from_ints(ints)
+  ints[0] = 99
+  assert_eq(ic.get(0), @types.Scalar::Int(1))
+  let flts : Array[Double] = [1.5, 2.5]
+  let fc = BuiltinColumn::from_floats(flts)
+  flts[0] = 9.9
+  assert_eq(fc.get(0), @types.Scalar::Float(1.5))
+  let bls = [true, false]
+  let bc = BuiltinColumn::from_bools(bls)
+  bls[0] = false
+  assert_eq(bc.get(0), @types.Scalar::Bool(true))
+  let strs = ["a", "b"]
+  let sc = BuiltinColumn::from_strings(strs)
+  strs[0] = "z"
+  assert_eq(sc.get(0), @types.Scalar::String("a"))
+}
+
+///|
 test "is_empty" {
   let empty = BuiltinColumn::from_ints([])
   assert_true(empty.is_empty())

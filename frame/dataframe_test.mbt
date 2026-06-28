@@ -256,6 +256,35 @@ test "from_rows rejects Null-dtype fields with Unsupported" {
   )
 }
 
+///|
+test "from_rows enforces non-nullable: a null cell raises NullInNonNullable" {
+  let schema = @types.Schema::new([
+    @types.Field::with_nullable("id", @types.DataType::Int, false),
+  ])
+  let r = Ok(
+    DataFrame::from_rows(schema, [
+      [@types.Scalar::Int(1)],
+      [@types.Scalar::Null],
+    ]),
+  ) catch {
+    e => Err(e)
+  }
+  assert_eq(r, Err(@types.DataError::NullInNonNullable("id")))
+}
+
+///|
+test "from_rows accepts a non-nullable field with no nulls" {
+  let schema = @types.Schema::new([
+    @types.Field::with_nullable("id", @types.DataType::Int, false),
+  ])
+  let df = DataFrame::from_rows(schema, [
+    [@types.Scalar::Int(1)],
+    [@types.Scalar::Int(2)],
+  ])
+  assert_eq(df.nrows(), 2)
+  assert_false(df.schema().field("id").nullable())
+}
+
 // ── Inspection ───────────────────────────────────────────────────────
 
 ///|

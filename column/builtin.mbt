@@ -36,9 +36,10 @@ pub(all) enum ColumnData {
 // ── Constructors ──────────────────────────────────────────────────────
 
 ///|
-/// Build an `Int` column from raw values (no nulls).
+/// Build an `Int` column from raw values (no nulls). `values` is copied, so
+/// the column owns its data and is unaffected by later mutation of the array.
 pub fn BuiltinColumn::from_ints(values : Array[Int64]) -> BuiltinColumn {
-  { data: Int(values), validity: Bitmap::all_valid(values.length()) }
+  { data: Int(values.copy()), validity: Bitmap::all_valid(values.length()) }
 }
 
 ///|
@@ -52,9 +53,10 @@ pub fn BuiltinColumn::from_int_options(values : Array[Int64?]) -> BuiltinColumn 
 }
 
 ///|
-/// Build a `Float` column from raw values (no nulls).
+/// Build a `Float` column from raw values (no nulls). `values` is copied, so
+/// the column owns its data and is unaffected by later mutation of the array.
 pub fn BuiltinColumn::from_floats(values : Array[Double]) -> BuiltinColumn {
-  { data: Float(values), validity: Bitmap::all_valid(values.length()) }
+  { data: Float(values.copy()), validity: Bitmap::all_valid(values.length()) }
 }
 
 ///|
@@ -70,9 +72,10 @@ pub fn BuiltinColumn::from_float_options(
 }
 
 ///|
-/// Build a `Bool` column from raw values (no nulls).
+/// Build a `Bool` column from raw values (no nulls). `values` is copied, so
+/// the column owns its data and is unaffected by later mutation of the array.
 pub fn BuiltinColumn::from_bools(values : Array[Bool]) -> BuiltinColumn {
-  { data: Bool(values), validity: Bitmap::all_valid(values.length()) }
+  { data: Bool(values.copy()), validity: Bitmap::all_valid(values.length()) }
 }
 
 ///|
@@ -86,9 +89,10 @@ pub fn BuiltinColumn::from_bool_options(values : Array[Bool?]) -> BuiltinColumn 
 }
 
 ///|
-/// Build a `String` column from raw values (no nulls).
+/// Build a `String` column from raw values (no nulls). `values` is copied, so
+/// the column owns its data and is unaffected by later mutation of the array.
 pub fn BuiltinColumn::from_strings(values : Array[String]) -> BuiltinColumn {
-  { data: String(values), validity: Bitmap::all_valid(values.length()) }
+  { data: String(values.copy()), validity: Bitmap::all_valid(values.length()) }
 }
 
 ///|

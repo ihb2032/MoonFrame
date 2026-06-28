@@ -52,10 +52,10 @@ in [`migration.md`](migration.md).
 
 ## `types` — Value types and errors
 
-- `suberror DataError` — `pub(all) suberror` with 9 variants:
+- `suberror DataError` — `pub(all) suberror` with 10 variants:
   `ColumnNotFound` / `DuplicateColumn` / `TypeMismatch` / `LengthMismatch` /
   `IndexOutOfBounds` / `ParseError` / `InvalidOperation` / `IoError` /
-  `Unsupported`. As a `suberror` it is both raised
+  `Unsupported` / `NullInNonNullable`. As a `suberror` it is both raised
   (`raise ColumnNotFound("age")`) and recovered
   (`Ok(expr) catch { e => Err(e) }` → `Result[_, DataError]`); `pub(all)` lets
   callers construct and match
@@ -86,6 +86,11 @@ in [`migration.md`](migration.md).
   constructors `Field::new(name, dtype)` (defaults `nullable = true`)
   and `Field::with_nullable(name, dtype, nullable)`; accessors `name` /
   `dtype` / `nullable`; `rename(new_name)` returns a renamed copy.
+  `nullable = false` is a constraint enforced by `DataFrame::from_rows`
+  (a null in such a column raises `NullInNonNullable`); it is otherwise
+  advisory — not inferred from a column's contents, and not propagated
+  across operations (`Field::new` / `DataFrame::new` / the IO readers
+  always set it `true`).
 - `struct Schema` — ordered list of `Field`s with duplicate-name
   detection.
   - `Schema::new(fields) -> Schema raise DataError` —
@@ -498,7 +503,8 @@ dependencies** (NyaCSV / fs / @json live only in `io`).
   `empty(schema)` (0-row frame; `DuplicateColumn` for a repeated field name;
   `Unsupported` for a `Null`-dtype field);
   `from_rows(schema, rows)` (`DuplicateColumn` / `LengthMismatch` /
-  `TypeMismatch` / `Unsupported`; zero-column schema → `0×0`, like `new`).
+  `TypeMismatch` / `Unsupported` / `NullInNonNullable`; zero-column schema →
+  `0×0`, like `new`).
   `empty` / `from_rows` re-validate the schema through `Schema::new`, so a
   `pub(all)` struct-literal schema with duplicate names is rejected rather
   than producing a malformed frame.

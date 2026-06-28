@@ -31,6 +31,20 @@ test "from_int64s / from_doubles: structural all-valid, no bitmap" {
 }
 
 ///|
+// Defensive copy: `from_int64s` / `from_doubles` copy their input, so the
+// column is independent of the caller's array.
+test "from_int64s / from_doubles copy their input" {
+  let ints : Array[Int64] = [1, 2, 3]
+  let ic = NumericColumn::from_int64s(ints)
+  ints[0] = 99
+  assert_eq(ic.get(0), @types.Scalar::Int(1))
+  let flts : Array[Double] = [1.5, 2.5]
+  let fc = NumericColumn::from_doubles(flts)
+  flts[0] = 9.9
+  assert_eq(fc.get(0), @types.Scalar::Float(1.5))
+}
+
+///|
 test "data() exposes the shared raw array as ColumnData" {
   assert_eq(
     NumericColumn::from_int64s([1, 2, 3]).data(),

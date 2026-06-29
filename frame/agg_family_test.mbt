@@ -46,6 +46,16 @@ test "std over a Float column keeps Float and propagates NaN" {
 }
 
 ///|
+test "variance and std of equal large-magnitude values are 0, not +inf" {
+  // Two equal cells near Double-max: the true variance is 0. A two-pass mean
+  // would sum them to +inf and report +inf; Welford never forms the raw sum, so
+  // the finite variance survives.
+  let df = DataFrame::new([Series::from_floats("x", [1.0e308, 1.0e308])])
+  assert_eq(whole(df, @expr.col("x").variance()), @types.Scalar::Float(0.0))
+  assert_eq(whole(df, @expr.col("x").std()), @types.Scalar::Float(0.0))
+}
+
+///|
 test "std and variance are null for fewer than two non-null cells" {
   // Sample statistics need ddof = 1 < cnt: one value, or none, has no
   // sample variance, so the cell is null rather than 0.0.

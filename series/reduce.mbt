@@ -251,7 +251,11 @@ fn numeric_double_reader(
 /// result): the **sample** statistics with `ddof = 1` (Polars' default). The
 /// variance is `Σ(xᵢ − mean)² / (cnt − 1)` over the `cnt` non-null cells and
 /// the standard deviation its square root, both `Scalar::Float` — `Int` widens
-/// to `Double`, so the output always types `Float`. Numeric only: a
+/// to `Double`, so the output always types `Float`. Computed by Welford's
+/// online algorithm (a single pass that never forms the raw sum), so a
+/// finite-variance window of near-`Double`-max values — whose sum would
+/// overflow to `±inf` and poison a two-pass mean, reporting `+inf` for a true
+/// variance of 0 — still yields its finite variance. Numeric only: a
 /// non-numeric (`Bool` / `String`) column `raise`s `TypeMismatch` here at
 /// factory time, before any window is folded, exactly as `reduce_arith` does.
 /// A `NaN` is a present value: when at least two non-null cells are present it
@@ -276,33 +280,34 @@ fn reduce_variance(
     },
   )
   fn(n : Int, at : (Int) -> Int) {
-    // Pass one: the non-null count and running total behind the mean.
-    let mut sum = 0.0
+    // Welford's online algorithm: one pass that never forms the raw sum, so a
+    // finite-variance window of near-`Double`-max values (whose sum would
+    // overflow to `±inf` and poison a two-pass mean, turning a true variance of
+    // 0 into `+inf`) still yields its finite variance. `mean` is the running
+    // mean, `m2` the running sum of squared deviations from it.
     let mut cnt = 0
+    let mut mean = 0.0
+    let mut m2 = 0.0
     for k in 0..<n {
       let i = at(k)
       if present(i) {
-        sum = sum + read(i)
+        // A `NaN` cell makes `mean` `NaN`, so `m2` — and the result — is `NaN`
+        // (propagation), matching `sum` / `mean`.
+        let x = read(i)
         cnt = cnt + 1
+        let delta = x - mean
+        mean = mean + delta / cnt.to_double()
+        m2 = m2 + delta * (x - mean)
       }
     }
     // The sample denominator `cnt - 1` is zero or negative for an empty,
-    // single-value, or all-null window — no sample variance, a null cell.
+    // single-value, or all-null window — no sample variance, a null cell (so a
+    // lone `NaN` cell is `Null`, not `NaN`); the fewer-than-two rule precedes
+    // NaN propagation.
     if cnt < 2 {
       @types.Scalar::Null
     } else {
-      let mean = sum / cnt.to_double()
-      // Pass two: the sum of squared deviations. A `NaN` cell makes `mean`
-      // `NaN`, so every deviation — and the result — is `NaN` (propagation).
-      let mut ss = 0.0
-      for k in 0..<n {
-        let i = at(k)
-        if present(i) {
-          let d = read(i) - mean
-          ss = ss + d * d
-        }
-      }
-      let variance = ss / (cnt - 1).to_double()
+      let variance = m2 / (cnt - 1).to_double()
       @types.Scalar::Float(if want_std { variance.sqrt() } else { variance })
     }
   }

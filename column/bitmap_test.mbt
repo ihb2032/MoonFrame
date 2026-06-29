@@ -60,7 +60,9 @@ test "from_bools mirrors the input vector exactly" {
   ])
   assert_eq(bm.len(), 9)
   assert_eq(bm.null_count(), 4)
-  let expected = [true, false, true, true, false, false, true, true, false]
+  let expected : ReadOnlyArray[Bool] = [
+    true, false, true, true, false, false, true, true, false,
+  ]
   for i in 0..<expected.length() {
     assert_eq(bm.is_valid(i), expected[i])
   }
@@ -197,7 +199,9 @@ test "slice mid-range across a byte boundary preserves bits" {
   ])
   let part = bm.slice(3, 8)
   assert_eq(part.len(), 8)
-  let expected = [true, true, false, false, true, false, true, true]
+  let expected : ReadOnlyArray[Bool] = [
+    true, true, false, false, true, false, true, true,
+  ]
   for i in 0..<expected.length() {
     assert_eq(part.is_valid(i), expected[i])
   }
@@ -309,7 +313,7 @@ test "bit_and produces the bitwise AND of two same-length bitmaps" {
   let a = Bitmap::from_bools([true, true, false, false, true])
   let b = Bitmap::from_bools([true, false, true, false, true])
   let c = a.bit_and(b)
-  let expected = [true, false, false, false, true]
+  let expected : ReadOnlyArray[Bool] = [true, false, false, false, true]
   for i in 0..<expected.length() {
     assert_eq(c.is_valid(i), expected[i])
   }

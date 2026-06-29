@@ -76,7 +76,7 @@ fn is_control_char(ch : Char) -> Bool {
 /// Every escaped code point (C0 / DEL / the separators) is below `U+10000`,
 /// so four digits suffice.
 fn write_unicode_escape(buf : StringBuilder, ch : Char) -> Unit {
-  let digits = [
+  let digits : ReadOnlyArray[Char] = [
     '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f',
   ]
   let cp = ch.to_int()

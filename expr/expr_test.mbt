@@ -37,7 +37,7 @@ test "binary: nesting shape is preserved, not flattened" {
 test "binary: all twelve operator tags are pairwise distinct nodes" {
   let a = col("a")
   let b = col("b")
-  let trees = [
+  let trees : ReadOnlyArray[Expr] = [
     a + b,
     a - b,
     a * b,
@@ -61,7 +61,7 @@ test "binary: all twelve operator tags are pairwise distinct nodes" {
 ///|
 test "unary: negation, not, and the null probes are distinct wrappers" {
   let e = col("x")
-  let trees = [-e, e.not(), e.is_null(), e.is_not_null()]
+  let trees : ReadOnlyArray[Expr] = [-e, e.not(), e.is_null(), e.is_not_null()]
   for i in 0..<trees.length() {
     for j in (i + 1)..<trees.length() {
       assert_not_eq(trees[i], trees[j])
@@ -72,7 +72,7 @@ test "unary: negation, not, and the null probes are distinct wrappers" {
 ///|
 test "agg: the eleven reductions are distinct wrappers" {
   let e = col("x")
-  let trees = [
+  let trees : ReadOnlyArray[Expr] = [
     e.sum(),
     e.mean(),
     e.min(),

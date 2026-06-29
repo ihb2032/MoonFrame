@@ -51,6 +51,11 @@ jobs:
       - name: Update package index
         run: moon update
 
+      # `--deny-warn` turns every enabled warning into an error. The module's
+      # `warnings` field in moon.mod widens this to the full strict set (`+a`)
+      # minus a few deliberate exceptions (unnecessary_annotation,
+      # test_unqualified_package, unqualified_local_using, and the proof-only
+      # missing_invariant / missing_reasoning), so the rest are enforced here.
       - name: Type check (deny warnings)
         run: moon check --deny-warn
 

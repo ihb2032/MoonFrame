@@ -37,6 +37,7 @@ pub fn Schema::len(self : Schema) -> Int {
 }
 
 ///|
+/// `true` when the schema has no columns.
 pub fn Schema::is_empty(self : Schema) -> Bool {
   self.fields.length() == 0
 }

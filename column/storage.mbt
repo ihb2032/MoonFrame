@@ -76,6 +76,7 @@ pub fn ColumnStorage::kind(self : ColumnStorage) -> StorageKind {
 }
 
 ///|
+/// The column's logical `DataType`, forwarded to the active backend.
 pub fn ColumnStorage::dtype(self : ColumnStorage) -> @types.DataType {
   match self {
     Builtin(c) => c.dtype()
@@ -84,6 +85,7 @@ pub fn ColumnStorage::dtype(self : ColumnStorage) -> @types.DataType {
 }
 
 ///|
+/// Number of cells, forwarded to the active backend.
 pub fn ColumnStorage::len(self : ColumnStorage) -> Int {
   match self {
     Builtin(c) => c.len()
@@ -92,6 +94,7 @@ pub fn ColumnStorage::len(self : ColumnStorage) -> Int {
 }
 
 ///|
+/// `true` when the column has no cells.
 pub fn ColumnStorage::is_empty(self : ColumnStorage) -> Bool {
   match self {
     Builtin(c) => c.is_empty()
@@ -100,6 +103,8 @@ pub fn ColumnStorage::is_empty(self : ColumnStorage) -> Bool {
 }
 
 ///|
+/// Number of null cells — always `0` on the `Numeric` arm — forwarded to the
+/// active backend.
 pub fn ColumnStorage::null_count(self : ColumnStorage) -> Int {
   match self {
     Builtin(c) => c.null_count()

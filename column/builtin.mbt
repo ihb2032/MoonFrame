@@ -110,6 +110,7 @@ pub fn BuiltinColumn::from_string_options(
 // ── Inspection ────────────────────────────────────────────────────────
 
 ///|
+/// The column's logical `DataType`, read from the `data` arm.
 pub fn BuiltinColumn::dtype(self : BuiltinColumn) -> @types.DataType {
   match self.data {
     Int(_) => @types.DataType::Int
@@ -140,6 +141,7 @@ pub fn BuiltinColumn::validity(self : BuiltinColumn) -> Bitmap {
 }
 
 ///|
+/// Number of cells.
 pub fn BuiltinColumn::len(self : BuiltinColumn) -> Int {
   match self.data {
     Int(a) => a.length()
@@ -150,11 +152,13 @@ pub fn BuiltinColumn::len(self : BuiltinColumn) -> Int {
 }
 
 ///|
+/// `true` when the column has no cells.
 pub fn BuiltinColumn::is_empty(self : BuiltinColumn) -> Bool {
   self.len() == 0
 }
 
 ///|
+/// Number of null cells (the count of zero bits in `validity`).
 pub fn BuiltinColumn::null_count(self : BuiltinColumn) -> Int {
   self.validity.null_count()
 }

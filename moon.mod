@@ -2,6 +2,8 @@ name = "ihb2032/MoonFrame"
 
 version = "0.5.2"
 
+warnings = "+a-unnecessary_annotation-test_unqualified_package-unqualified_local_using-missing_invariant-missing_reasoning"
+
 import {
   "moonbitlang/x@0.4.43",
   "moonbit-community/NyaCSV@0.3.3",

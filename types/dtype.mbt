@@ -13,6 +13,7 @@ pub(all) enum DataType {
 } derive(Eq, Debug)
 
 ///|
+/// `true` only for the `Int` variant.
 pub fn DataType::is_integer(self : DataType) -> Bool {
   match self {
     Int => true
@@ -21,6 +22,7 @@ pub fn DataType::is_integer(self : DataType) -> Bool {
 }
 
 ///|
+/// `true` only for the `Float` variant.
 pub fn DataType::is_float(self : DataType) -> Bool {
   match self {
     Float => true
@@ -38,6 +40,7 @@ pub fn DataType::is_numeric(self : DataType) -> Bool {
 }
 
 ///|
+/// `true` only for the `Bool` variant.
 pub fn DataType::is_bool(self : DataType) -> Bool {
   match self {
     Bool => true
@@ -46,6 +49,7 @@ pub fn DataType::is_bool(self : DataType) -> Bool {
 }
 
 ///|
+/// `true` only for the `String` variant.
 pub fn DataType::is_string(self : DataType) -> Bool {
   match self {
     String => true

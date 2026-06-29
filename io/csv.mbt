@@ -650,7 +650,7 @@ fn write_quoted(
   buf : StringBuilder,
   cell : String,
   delimiter : Char,
-  force_empty_quote? : Bool = false,
+  force_empty_quote~ : Bool,
 ) -> Unit {
   // An empty cell that would otherwise leave its line bare (a single-column
   // row) is written as `""` so the reader cannot mistake it for a skippable

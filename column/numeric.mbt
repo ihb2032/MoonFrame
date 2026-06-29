@@ -72,6 +72,8 @@ pub fn NumericColumn::from_doubles(values : Array[Double]) -> NumericColumn {
 // ── Inspection ────────────────────────────────────────────────────────
 
 ///|
+/// The column's logical `DataType` — `Int` or `Float` (a `NumericColumn` is
+/// numeric by construction).
 pub fn NumericColumn::dtype(self : NumericColumn) -> @types.DataType {
   match self.data {
     Int(_) => @types.DataType::Int
@@ -80,6 +82,7 @@ pub fn NumericColumn::dtype(self : NumericColumn) -> @types.DataType {
 }
 
 ///|
+/// Number of cells.
 pub fn NumericColumn::len(self : NumericColumn) -> Int {
   match self.data {
     Int(a) => a.length()
@@ -88,6 +91,7 @@ pub fn NumericColumn::len(self : NumericColumn) -> Int {
 }
 
 ///|
+/// `true` when the column has no cells.
 pub fn NumericColumn::is_empty(self : NumericColumn) -> Bool {
   self.len() == 0
 }

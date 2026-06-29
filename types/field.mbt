@@ -35,16 +35,20 @@ pub fn Field::with_nullable(
 }
 
 ///|
+/// The column's name.
 pub fn Field::name(self : Field) -> String {
   self.name
 }
 
 ///|
+/// The column's logical `DataType`.
 pub fn Field::dtype(self : Field) -> DataType {
   self.dtype
 }
 
 ///|
+/// The declared `nullable` flag (see the type doc for how `DataFrame::from_rows`
+/// enforces it).
 pub fn Field::nullable(self : Field) -> Bool {
   self.nullable
 }

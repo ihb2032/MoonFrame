@@ -51,7 +51,7 @@ fn Rng::one_in(self : Rng, n : Int) -> Bool {
 /// A small grab-bag of `Int64` cell values, including the additive identity and
 /// negatives (so sums can cancel and min/max straddle zero).
 fn Rng::int_cell(self : Rng) -> Int64 {
-  let choices = [0L, 1L, -1L, 2L, 5L, 50L, 100L, -50L]
+  let choices : ReadOnlyArray[Int64] = [0L, 1L, -1L, 2L, 5L, 50L, 100L, -50L]
   choices[self.below(choices.length())]
 }
 
@@ -61,14 +61,16 @@ fn Rng::int_cell(self : Rng) -> Int64 {
 /// NaN grouping rule turn on, and which the Int-only properties can never
 /// produce.
 fn Rng::float_cell(self : Rng) -> Double {
-  let choices = [0.0, -0.0, 1.0, -1.0, 2.5, @double.not_a_number, 100.0, -100.0]
+  let choices : ReadOnlyArray[Double] = [
+    0.0, -0.0, 1.0, -1.0, 2.5, @double.not_a_number, 100.0, -100.0,
+  ]
   choices[self.below(choices.length())]
 }
 
 ///|
 /// A small grab-bag of strings, including the empty string.
 fn Rng::string_cell(self : Rng) -> String {
-  let choices = ["", "a", "b", "west", "east", "north"]
+  let choices : ReadOnlyArray[String] = ["", "a", "b", "west", "east", "north"]
   choices[self.below(choices.length())]
 }
 

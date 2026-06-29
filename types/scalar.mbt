@@ -29,6 +29,7 @@ pub fn Scalar::dtype(self : Scalar) -> DataType {
 }
 
 ///|
+/// `true` only for the `Null` (missing-value) variant.
 pub fn Scalar::is_null(self : Scalar) -> Bool {
   match self {
     Null => true
@@ -73,6 +74,8 @@ pub fn Scalar::as_float(self : Scalar) -> Double raise DataError {
 }
 
 ///|
+/// `Bool` cells return their value; other concrete variants and `Null`
+/// `raise TypeMismatch(...)`.
 pub fn Scalar::as_bool(self : Scalar) -> Bool raise DataError {
   match self {
     Bool(v) => v
@@ -82,6 +85,8 @@ pub fn Scalar::as_bool(self : Scalar) -> Bool raise DataError {
 }
 
 ///|
+/// `String` cells return their value; other concrete variants and `Null`
+/// `raise TypeMismatch(...)`.
 pub fn Scalar::as_string(self : Scalar) -> String raise DataError {
   match self {
     String(v) => v
@@ -146,6 +151,8 @@ pub fn Scalar::lt(self : Scalar, other : Scalar) -> Bool raise DataError {
 }
 
 ///|
+/// Less-than-or-equal — `eq` or `lt`. Shares their `Null`-`raise` and
+/// `Int`/`Float` promotion semantics.
 pub fn Scalar::lte(self : Scalar, other : Scalar) -> Bool raise DataError {
   if self.eq(other) {
     true
@@ -155,11 +162,14 @@ pub fn Scalar::lte(self : Scalar, other : Scalar) -> Bool raise DataError {
 }
 
 ///|
+/// Strict greater-than, defined as `other.lt(self)` — same `Null`-`raise` and
+/// ordering rules as `lt`.
 pub fn Scalar::gt(self : Scalar, other : Scalar) -> Bool raise DataError {
   other.lt(self)
 }
 
 ///|
+/// Greater-than-or-equal, defined as `other.lte(self)` — same rules as `lte`.
 pub fn Scalar::gte(self : Scalar, other : Scalar) -> Bool raise DataError {
   other.lte(self)
 }

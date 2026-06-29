@@ -159,53 +159,48 @@ fn optimize(plan : LogicalPlan) -> LogicalPlan {
 // ── The predicate pass ──────────────────────────────────────────────────
 
 ///|
-/// One bottom-up recursion of the predicate pass: push every input first
-/// (`map_children` carries the recursion to each child), then sink a
-/// `Filter` into its now-rewritten input through `place_filter`. Every
-/// other node is already done once its children are pushed, so only
-/// `Filter` needs a local step. Bottom-up order is what lets a stack of
-/// filters sink as a unit — the lower filter is already in place when the
-/// upper one descends onto it — while their relative evaluation order never
-/// changes. Total: every arm is plain data work.
+/// The predicate pass: push every input first, then sink a `Filter` into its
+/// now-rewritten input through `place_filter`. Every other node is already done
+/// once its children are pushed, so only `Filter` needs a local step. Bottom-up
+/// order is what lets a stack of filters sink as a unit — the lower filter is
+/// already in place when the upper one descends onto it — while their relative
+/// evaluation order never changes.
+///
+/// Walked iteratively (a `post_order` linearisation plus an explicit value
+/// stack of rebuilt plans, not the call stack), so a deeply nested plan
+/// optimizes without overflowing and aborting — the same never-abort treatment
+/// the expression walks (`row_stable`, `eval_expr`) already carry. Each node is
+/// rebuilt from its already-rebuilt children (popped off the stack top); a
+/// rebuilt `Filter` then sinks through `place_filter`. Total: every arm is plain
+/// data work.
 fn push_predicates(plan : LogicalPlan) -> LogicalPlan {
-  let pushed = map_children(plan, push_predicates)
-  match pushed {
-    Filter(input, predicate) => place_filter(input, predicate)
-    _ => pushed
+  let values : Array[LogicalPlan] = []
+  for node in post_order(plan) {
+    match node {
+      Scan(_) | ScanCsv(_, _, _) | ScanNdjson(_, _, _) => values.push(node)
+      Select(_, exprs) => values.push(Select(pop_top(values), exprs))
+      WithColumns(_, exprs) => values.push(WithColumns(pop_top(values), exprs))
+      Filter(_, predicate) =>
+        values.push(place_filter(pop_top(values), predicate))
+      Sort(_, by) => values.push(Sort(pop_top(values), by))
+      Head(_, n) => values.push(Head(pop_top(values), n))
+      Tail(_, n) => values.push(Tail(pop_top(values), n))
+      Slice(_, start, end) => values.push(Slice(pop_top(values), start, end))
+      Join(_, _, options) => {
+        let right = pop_top(values)
+        let left = pop_top(values)
+        values.push(Join(left, right, options))
+      }
+      Aggregate(_, keys, exprs) =>
+        values.push(Aggregate(pop_top(values), keys, exprs))
+      Drop(_, exprs) => values.push(Drop(pop_top(values), exprs))
+      Rename(_, pairs) => values.push(Rename(pop_top(values), pairs))
+      Unique(_) => values.push(Unique(pop_top(values)))
+      DropNulls(_, subset) => values.push(DropNulls(pop_top(values), subset))
+      FillNull(_, value) => values.push(FillNull(pop_top(values), value))
+    }
   }
-}
-
-///|
-/// Rebuild `plan` with `f` applied to each of its child plans, leaving the
-/// node's own payload (expression lists, keys, predicate, sort spec, join
-/// options) verbatim — the structural-recursion primitive the plan→plan
-/// passes share, the `LogicalPlan` analogue of `Expr::children`. A leaf
-/// (`Scan`) has no child plans and returns unchanged; `Join` maps both
-/// sides. The one place that enumerates the IR's recursive shape, so a new
-/// node declares its recursion here once rather than in every pass. Total.
-fn map_children(
-  plan : LogicalPlan,
-  f : (LogicalPlan) -> LogicalPlan,
-) -> LogicalPlan {
-  match plan {
-    Scan(_) => plan
-    ScanCsv(_, _, _) => plan
-    ScanNdjson(_, _, _) => plan
-    Select(input, exprs) => Select(f(input), exprs)
-    WithColumns(input, exprs) => WithColumns(f(input), exprs)
-    Filter(input, predicate) => Filter(f(input), predicate)
-    Sort(input, by) => Sort(f(input), by)
-    Head(input, n) => Head(f(input), n)
-    Tail(input, n) => Tail(f(input), n)
-    Slice(input, start, end) => Slice(f(input), start, end)
-    Join(left, right, options) => Join(f(left), f(right), options)
-    Aggregate(input, keys, exprs) => Aggregate(f(input), keys, exprs)
-    Drop(input, exprs) => Drop(f(input), exprs)
-    Rename(input, pairs) => Rename(f(input), pairs)
-    Unique(input) => Unique(f(input))
-    DropNulls(input, subset) => DropNulls(f(input), subset)
-    FillNull(input, value) => FillNull(f(input), value)
-  }
+  pop_top(values)
 }
 
 ///|
@@ -214,47 +209,69 @@ fn map_children(
 /// Each hop reproduces the crossed stage verbatim above the descending
 /// filter, so `place_filter(input, p)` is always plan-equivalent to
 /// `Filter(input, p)` — the hops are exactly the swaps proven safe.
+/// Walked iteratively (descend the single-child spine recording each crossed
+/// stage as a rebuild closure, not the call stack), so a deep crossable spine
+/// sinks without overflowing and aborting — total at any depth.
 fn place_filter(input : LogicalPlan, predicate : @expr.Expr) -> LogicalPlan {
-  match input {
-    Select(inner, exprs) =>
-      if all_row_stable(exprs) &&
-        preserves_row_count(exprs) &&
-        reads_only_bare_columns(predicate, exprs) {
-        Select(place_filter(inner, predicate), exprs)
-      } else {
-        Filter(input, predicate)
-      }
-    WithColumns(inner, exprs) =>
-      if all_row_stable(exprs) && defines_none_of(exprs, predicate) {
-        WithColumns(place_filter(inner, predicate), exprs)
-      } else {
-        Filter(input, predicate)
-      }
-    Aggregate(inner, keys, exprs) =>
-      if row_stable(predicate) &&
-        all_row_stable(keys) &&
-        reads_only_bare_columns(predicate, keys) &&
-        division_free(predicate) &&
-        all_group_cells_stable(exprs) {
-        Aggregate(place_filter(inner, predicate), keys, exprs)
-      } else {
-        Filter(input, predicate)
-      }
-    Scan(_)
-    | ScanCsv(_, _, _)
-    | ScanNdjson(_, _, _)
-    | Filter(_, _)
-    | Sort(_, _)
-    | Head(_, _)
-    | Tail(_, _)
-    | Slice(_, _, _)
-    | Join(_, _, _)
-    | Drop(_, _)
-    | Rename(_, _)
-    | Unique(_)
-    | DropNulls(_, _)
-    | FillNull(_, _) => Filter(input, predicate)
+  // Descend while the current stage is crossable, recording how to rebuild each
+  // crossed stage over a new input; stop at the first floor.
+  let crossed : Array[(LogicalPlan) -> LogicalPlan] = []
+  let mut cur = input
+  let mut descending = true
+  while descending {
+    match cur {
+      Select(inner, exprs) =>
+        if all_row_stable(exprs) &&
+          preserves_row_count(exprs) &&
+          reads_only_bare_columns(predicate, exprs) {
+          crossed.push(ni => Select(ni, exprs))
+          cur = inner
+        } else {
+          descending = false
+        }
+      WithColumns(inner, exprs) =>
+        if all_row_stable(exprs) && defines_none_of(exprs, predicate) {
+          crossed.push(ni => WithColumns(ni, exprs))
+          cur = inner
+        } else {
+          descending = false
+        }
+      Aggregate(inner, keys, exprs) =>
+        if row_stable(predicate) &&
+          all_row_stable(keys) &&
+          reads_only_bare_columns(predicate, keys) &&
+          division_free(predicate) &&
+          all_group_cells_stable(exprs) {
+          crossed.push(ni => Aggregate(ni, keys, exprs))
+          cur = inner
+        } else {
+          descending = false
+        }
+      Scan(_)
+      | ScanCsv(_, _, _)
+      | ScanNdjson(_, _, _)
+      | Filter(_, _)
+      | Sort(_, _)
+      | Head(_, _)
+      | Tail(_, _)
+      | Slice(_, _, _)
+      | Join(_, _, _)
+      | Drop(_, _)
+      | Rename(_, _)
+      | Unique(_)
+      | DropNulls(_, _)
+      | FillNull(_, _) => descending = false
+    }
   }
+  // The floor is `cur`; the filter sits just above it. Re-wrap the crossed
+  // stages from innermost (last recorded) outward, reproducing the original
+  // top-to-bottom stack above the sunk filter.
+  let mut result = Filter(cur, predicate)
+  for i = crossed.length() - 1; i >= 0; i = i - 1 {
+    let rewrap = crossed[i]
+    result = rewrap(result)
+  }
+  result
 }
 
 ///|
@@ -509,129 +526,173 @@ fn defines_none_of(exprs : Array[@expr.Expr], predicate : @expr.Expr) -> Bool {
 // ── The projection pass ─────────────────────────────────────────────────
 
 ///|
-/// One recursion of the required-columns pass: rebuild `plan` with every
-/// input pushed through `push_projection` under the requirement this node
-/// induces, and narrow a `Scan` when the requirement proves some of its
-/// columns dead. Total: every arm is plain data work.
+/// One step of the iterative projection pass: `Visit` descends into a node
+/// under the requirement it inherits; `Rebuild1` / `RebuildJoin` reassemble a
+/// node from its rebuilt child(ren) once they sit on the value stack. Lifting
+/// the pass off the call stack (the `LogicalPlan` analogue of `eval_expr`'s
+/// `EvalStep`) lets an arbitrarily deep plan optimize without overflowing.
+priv enum ProjStep {
+  Visit(LogicalPlan, @set.Set[String]?)
+  Rebuild1((LogicalPlan) -> LogicalPlan)
+  RebuildJoin(@frame.JoinOptions)
+}
+
+///|
+/// The projection pass: a top-down required-columns analysis that narrows each
+/// scan — the in-memory `Scan` (by inserting a `Select`) and the `ScanCsv` /
+/// `ScanNdjson` file sources (by writing their projection field) — to the
+/// columns its consumers provably read. The per-node requirement rules are in
+/// the file header; this walks them iteratively — `Visit` computes each child's
+/// requirement and schedules its rebuild, the rebuild pops the rebuilt
+/// child(ren) off an explicit value stack — so a deeply nested plan optimizes
+/// without overflowing and aborting (total at any depth). Every narrowing
+/// decision and requirement is bit-for-bit the recursion's.
 fn push_projection(
   plan : LogicalPlan,
   required : @set.Set[String]?,
 ) -> LogicalPlan {
-  match plan {
-    // The narrowing point. Keep the scan's own column order (a filtered
-    // projection, never a reorder) and only insert when the requirement
-    // is a proper, non-empty subset: an empty intersection means the
-    // consumers read no scan column at all (an all-literal selection —
-    // nothing to gain), and a full one means every column is live. A
-    // required name missing from the frame is simply not kept alive —
-    // whichever expression references it raises the same
-    // `ColumnNotFound` at collect time as in the unoptimized plan.
-    Scan(df) =>
-      match required {
-        None => Scan(df)
-        Some(needed) => {
-          let cols = df.columns()
-          let survivors = cols.filter(name => needed.contains(name))
-          if survivors.length() > 0 && survivors.length() < cols.length() {
-            Select(Scan(df), survivors.map(name => @expr.col(name)))
-          } else {
-            Scan(df)
+  let work : Array[ProjStep] = [Visit(plan, required)]
+  let values : Array[LogicalPlan] = []
+  while work.length() > 0 {
+    match pop_top(work) {
+      Visit(node, req) =>
+        match node {
+          // Narrowing point: insert a `Select` only when the requirement is a
+          // proper, non-empty subset of the scan's columns (header rationale).
+          Scan(df) =>
+            values.push(
+              match req {
+                None => Scan(df)
+                Some(needed) => {
+                  let cols = df.columns()
+                  let survivors = cols.filter(name => needed.contains(name))
+                  if survivors.length() > 0 &&
+                    survivors.length() < cols.length() {
+                    Select(Scan(df), survivors.map(name => @expr.col(name)))
+                  } else {
+                    Scan(df)
+                  }
+                }
+              },
+            )
+          // File sources' narrowing point: write the requirement into the
+          // node's own projection field (`narrow_scan`).
+          ScanCsv(path, options, _) =>
+            values.push(
+              narrow_scan(node, req, columns => {
+                ScanCsv(path, options, Some(columns))
+              }),
+            )
+          ScanNdjson(path, options, _) =>
+            values.push(
+              narrow_scan(node, req, columns => {
+                ScanNdjson(path, options, Some(columns))
+              }),
+            )
+          // By-name originator: the input needs exactly the columns the
+          // expressions read.
+          Select(input, exprs) => {
+            work.push(Rebuild1(c => Select(c, exprs)))
+            work.push(Visit(input, Some(columns_read(exprs))))
+          }
+          // Layout-preserving: subtract the names this stage defines, add the
+          // names it reads.
+          WithColumns(input, exprs) => {
+            let downstream : @set.Set[String]? = match req {
+              None => None
+              Some(needed) => {
+                let defined : @set.Set[String] = @set.Set([])
+                for expr in exprs {
+                  defined.add(expr.output_name())
+                }
+                let pass : @set.Set[String] = @set.Set([])
+                needed.each(name => {
+                  if !defined.contains(name) {
+                    pass.add(name)
+                  }
+                })
+                add_all(pass, columns_read(exprs))
+                Some(pass)
+              }
+            }
+            work.push(Rebuild1(c => WithColumns(c, exprs)))
+            work.push(Visit(input, downstream))
+          }
+          // Layout-preserving pass-throughs: the predicate / sort keys stay
+          // alive alongside whatever the parent needs.
+          Filter(input, predicate) => {
+            work.push(Rebuild1(c => Filter(c, predicate)))
+            work.push(
+              Visit(input, widened(req, predicate.referenced_columns())),
+            )
+          }
+          Sort(input, by) => {
+            let keys : @set.Set[String] = @set.Set([])
+            for key in by {
+              let (expr, _, _) = key
+              add_all(keys, expr.referenced_columns())
+            }
+            work.push(Rebuild1(c => Sort(c, by)))
+            work.push(Visit(input, widened(req, keys)))
+          }
+          // Pure row windows read no columns: the requirement passes through.
+          Head(input, n) => {
+            work.push(Rebuild1(c => Head(c, n)))
+            work.push(Visit(input, req))
+          }
+          Tail(input, n) => {
+            work.push(Rebuild1(c => Tail(c, n)))
+            work.push(Visit(input, req))
+          }
+          Slice(input, start, end) => {
+            work.push(Rebuild1(c => Slice(c, start, end)))
+            work.push(Visit(input, req))
+          }
+          // Barrier: both sides keep their full output; each restarts its pass.
+          Join(left, right, options) => {
+            work.push(RebuildJoin(options))
+            work.push(Visit(right, None))
+            work.push(Visit(left, None))
+          }
+          // By-name originator, like `Select`: keys + aggregated expressions.
+          Aggregate(input, keys, exprs) => {
+            let needed = columns_read(exprs)
+            add_all(needed, columns_read(keys))
+            work.push(Rebuild1(c => Aggregate(c, keys, exprs)))
+            work.push(Visit(input, Some(needed)))
+          }
+          // Barriers (like `Join`): the input keeps its whole output (`None`).
+          Drop(input, exprs) => {
+            work.push(Rebuild1(c => Drop(c, exprs)))
+            work.push(Visit(input, None))
+          }
+          Rename(input, pairs) => {
+            work.push(Rebuild1(c => Rename(c, pairs)))
+            work.push(Visit(input, None))
+          }
+          Unique(input) => {
+            work.push(Rebuild1(c => Unique(c)))
+            work.push(Visit(input, None))
+          }
+          DropNulls(input, subset) => {
+            work.push(Rebuild1(c => DropNulls(c, subset)))
+            work.push(Visit(input, None))
+          }
+          FillNull(input, value) => {
+            work.push(Rebuild1(c => FillNull(c, value)))
+            work.push(Visit(input, None))
           }
         }
+      Rebuild1(f) => values.push(f(pop_top(values)))
+      RebuildJoin(options) => {
+        // Right is on top (pushed last), left just below.
+        let right = pop_top(values)
+        let left = pop_top(values)
+        values.push(Join(left, right, options))
       }
-    // The file sources' narrowing point (`narrow_scan`) — the one place
-    // push-down reaches an external read. Each writes the requirement into its
-    // own projection field rather than gaining an inserted `Select`; see
-    // `narrow_scan` for why there is nothing to intersect and what an empty
-    // requirement leaves alone.
-    ScanCsv(path, options, _) =>
-      narrow_scan(plan, required, columns => {
-        ScanCsv(path, options, Some(columns))
-      })
-    ScanNdjson(path, options, _) =>
-      narrow_scan(plan, required, columns => {
-        ScanNdjson(path, options, Some(columns))
-      })
-    // By-name originator: the output is exactly the expression list, so
-    // whatever the parent required of *this* node is fully served, and
-    // the input only ever needs the columns the expressions read. (The
-    // expression list itself is never pruned — see the header.)
-    Select(input, exprs) =>
-      Select(push_projection(input, Some(columns_read(exprs))), exprs)
-    // Layout-preserving pass-through, widened by the names the
-    // expressions read; the names they *define* are served by this node
-    // itself, so they are subtracted — they need not (and for a brand-new
-    // derived column, do not) exist in the input.
-    WithColumns(input, exprs) => {
-      let downstream : @set.Set[String]? = match required {
-        None => None
-        Some(needed) => {
-          let defined : @set.Set[String] = @set.Set([])
-          for expr in exprs {
-            defined.add(expr.output_name())
-          }
-          let pass : @set.Set[String] = @set.Set([])
-          needed.each(name => if !defined.contains(name) { pass.add(name) })
-          add_all(pass, columns_read(exprs))
-          Some(pass)
-        }
-      }
-      WithColumns(push_projection(input, downstream), exprs)
     }
-    // Layout-preserving pass-throughs: the predicate / sort keys must
-    // stay alive alongside whatever the parent needs.
-    Filter(input, predicate) =>
-      Filter(
-        push_projection(
-          input,
-          widened(required, predicate.referenced_columns()),
-        ),
-        predicate,
-      )
-    Sort(input, by) => {
-      let keys : @set.Set[String] = @set.Set([])
-      for key in by {
-        let (expr, _, _) = key
-        add_all(keys, expr.referenced_columns())
-      }
-      Sort(push_projection(input, widened(required, keys)), by)
-    }
-    // Pure row windows read no columns: the requirement passes through
-    // verbatim.
-    Head(input, n) => Head(push_projection(input, required), n)
-    Tail(input, n) => Tail(push_projection(input, required), n)
-    Slice(input, start, end) =>
-      Slice(push_projection(input, required), start, end)
-    // Barrier (narrowing through a join is deferred column provenance):
-    // both sides must keep their full output — join key resolution,
-    // suffix renaming, and the left-then-right output layout all read the
-    // whole frame — but each side restarts its own top-down pass.
-    Join(left, right, options) =>
-      Join(push_projection(left, None), push_projection(right, None), options)
-    // By-name originator, like `Select`: the output is the key columns
-    // (gathered in key-list order, not input order) plus the aggregated
-    // expressions, so the input needs exactly the columns the keys and the
-    // expressions read — a derived key keeps its source columns alive the
-    // same way an aggregation does.
-    Aggregate(input, keys, exprs) => {
-      let needed = columns_read(exprs)
-      add_all(needed, columns_read(keys))
-      Aggregate(push_projection(input, Some(needed)), keys, exprs)
-    }
-    // Barriers (like `Join`): each transforms its input's columns or rows in a
-    // way the required-columns analysis does not yet model — `drop` removes
-    // named columns, `rename` remaps names, `unique` / `drop_nulls` drop rows
-    // by content, `fill_null` rewrites cells — so their input keeps its whole
-    // output (`None`) rather than risk pruning a column the node still needs.
-    // A by-name reader deeper inside still narrows its own scan. Pushing a
-    // requirement through these (name-aware projection) is deferred, like the
-    // join narrowing.
-    Drop(input, exprs) => Drop(push_projection(input, None), exprs)
-    Rename(input, pairs) => Rename(push_projection(input, None), pairs)
-    Unique(input) => Unique(push_projection(input, None))
-    DropNulls(input, subset) => DropNulls(push_projection(input, None), subset)
-    FillNull(input, value) => FillNull(push_projection(input, None), value)
   }
+  pop_top(values)
 }
 
 ///|

@@ -296,11 +296,29 @@ pub fn NumericColumn::to_string_column(self : NumericColumn) -> BuiltinColumn {
 ///|
 /// Plain `Int64` fold over the whole array — every slot is present, so unlike
 /// the general `Builtin`-backend reduction there is no `validity().to_bools()`
-/// and no per-slot `if valid[i]` branch. Shared by `sum` and `mean`.
+/// and no per-slot `if valid[i]` branch. Used by `sum`, which keeps the `Int`
+/// dtype (so sums past 2^63 overflow — the price of an exact integer sum).
+/// `mean`, whose output is `Double`, widens through `fold_int_as_double`
+/// instead: an `Int64` accumulator there would wrap past 2^63 and flip the
+/// mean's sign even though `Double` represents the true value.
 fn fold_int64(a : Array[Int64]) -> Int64 {
   let mut acc : Int64 = 0
   for x in a {
     acc = acc + x
+  }
+  acc
+}
+
+///|
+/// Fold an `Int64` array into a `Double`, widening each cell before adding.
+/// The accumulator behind `mean` for an `Int` column: because the mean's output
+/// is `Double`, accumulating in `Double` from the start cannot wrap past 2^63
+/// (which would flip the sign, yielding a mean outside `[min, max]`), unlike
+/// `fold_int64`. Matches Polars, which computes an `Int`-column mean in f64.
+fn fold_int_as_double(a : Array[Int64]) -> Double {
+  let mut acc : Double = 0.0
+  for x in a {
+    acc = acc + x.to_double()
   }
   acc
 }
@@ -357,7 +375,7 @@ pub fn NumericColumn::mean(
     raise @types.DataError::InvalidOperation("mean of empty column")
   }
   let total = match self.data {
-    Int(a) => fold_int64(a).to_double()
+    Int(a) => fold_int_as_double(a)
     Float(a) => fold_double(a)
   }
   total / n.to_double()

@@ -39,10 +39,11 @@ pub fn Series::sum(self : Series) -> @types.Scalar raise @types.DataError {
 ///|
 /// Arithmetic mean of non-null cells, returned as `Double`.
 ///
-/// Reductions run in 64-bit — an `Int64` sum for `Int` columns, `Double`
-/// accumulation for `Float` columns — and the division is performed in
-/// `Double`, so a long column does not lose precision the way a 32-bit
-/// accumulation would.
+/// `Int` columns accumulate the numerator in `Double` (the mean's output
+/// type), so a large-magnitude column cannot wrap past 2^63 and flip the
+/// mean's sign; `Float` columns accumulate in `Double`. The division is
+/// performed in `Double`. (`Series::sum`, by contrast, keeps the `Int` dtype
+/// and so accumulates in `Int64`, overflowing past 2^63.)
 ///
 /// The denominator is the **non-null** count (`Series::count`), so a
 /// `Float` `NaN` is a present value that both counts toward the divisor

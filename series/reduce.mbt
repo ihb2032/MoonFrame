@@ -45,8 +45,11 @@ fn reduce_present(storage : @column.ColumnStorage) -> (Int) -> Bool {
 }
 
 ///|
-/// `sum` / `mean` reducer over an index window. `Int` accumulates in `Int64`,
-/// `Float` in `Double` with `NaN` summed in (so it propagates) — only a `Null`
+/// `sum` / `mean` reducer over an index window. `sum` accumulates `Int` in
+/// `Int64` (overflowing past 2^63 — the price of an exact integer sum) and
+/// `Float` in `Double`; `mean`, whose output is `Double`, accumulates `Int` in
+/// `Double` too, so it cannot wrap past 2^63 and flip the mean's sign (matching
+/// Polars). `NaN` is summed in (so it propagates) — only a `Null`
 /// cell is skipped. With `want_mean` the running total divides by the non-null
 /// count and is `Scalar::Null` for an empty / all-null window (the surfaces
 /// translate that: `Series::mean` to `InvalidOperation`, the grouped / scoped
@@ -62,23 +65,38 @@ fn reduce_arith(
   let present = reduce_present(storage)
   match storage.data() {
     @column.ColumnData::Int(a) =>
-      fn(n : Int, at : (Int) -> Int) {
-        let mut acc : Int64 = 0
-        let mut cnt = 0
-        for k in 0..<n {
-          let i = at(k)
-          if present(i) {
-            acc = acc + a[i]
-            cnt = cnt + 1
+      if want_mean {
+        // The mean's output is `Double`, so accumulate the numerator in
+        // `Double` from the start. An `Int64` accumulator would silently wrap
+        // past 2^63 and flip the mean's sign — a result outside `[min, max]` —
+        // even though `Double` represents the true mean (matching Polars).
+        fn(n : Int, at : (Int) -> Int) {
+          let mut acc = 0.0
+          let mut cnt = 0
+          for k in 0..<n {
+            let i = at(k)
+            if present(i) {
+              acc = acc + a[i].to_double()
+              cnt = cnt + 1
+            }
           }
-        }
-        if want_mean {
           if cnt == 0 {
             @types.Scalar::Null
           } else {
-            @types.Scalar::Float(acc.to_double() / cnt.to_double())
+            @types.Scalar::Float(acc / cnt.to_double())
           }
-        } else {
+        }
+      } else {
+        // `sum` keeps the `Int` dtype, so it stays an exact `Int64` fold —
+        // sums past 2^63 overflow, the documented price of an integer sum.
+        fn(n : Int, at : (Int) -> Int) {
+          let mut acc : Int64 = 0
+          for k in 0..<n {
+            let i = at(k)
+            if present(i) {
+              acc = acc + a[i]
+            }
+          }
           @types.Scalar::Int(acc)
         }
       }

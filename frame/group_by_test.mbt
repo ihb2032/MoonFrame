@@ -250,6 +250,23 @@ test "sum keeps the source numeric dtype; mean is always Float" {
   assert_eq(out.get_column("quantity_mean").dtype(), @types.DataType::Float)
 }
 
+///|
+test "agg: a group whose Int sum exceeds 2^63 still means within range" {
+  // Per-group mean reduces through the same kernel as `Series::mean`, so an
+  // `Int64`-accumulator wrap would surface here too: group "a" sums to 2^63,
+  // which would flip its mean negative. It must stay 2^62.
+  let two_62 : Int64 = 4611686018427387904
+  let out = DataFrame::new([
+      Series::from_strings("g", ["a", "a", "b"]),
+      Series::from_ints("v", [two_62, two_62, 1]),
+    ])
+    .group_by([@expr.col("g")])
+    .agg([@expr.col("v").mean().with_alias("v_mean")])
+  assert_eq(out.check_invariants(), Ok(()))
+  assert_eq(out.item(0, "v_mean"), @types.Scalar::Float(two_62.to_double()))
+  assert_eq(out.item(1, "v_mean"), @types.Scalar::Float(1.0))
+}
+
 // ── Nulls within a group ─────────────────────────────────────────────
 
 ///|

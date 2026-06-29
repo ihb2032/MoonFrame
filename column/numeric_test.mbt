@@ -316,6 +316,17 @@ test "mean: arithmetic mean per dtype, as Double" {
 }
 
 ///|
+test "mean: large Int64 values accumulate in Double, no Int64 wrap" {
+  // 2^62 + 2^62 = 2^63 wraps an Int64 accumulator to Int64::MIN; the mean must
+  // remain 2^62 rather than flipping negative.
+  let two_62 : Int64 = 4611686018427387904
+  assert_eq(
+    NumericColumn::from_int64s([two_62, two_62]).mean(),
+    two_62.to_double(),
+  )
+}
+
+///|
 test "mean: empty column raises InvalidOperation (0/0 is undefined)" {
   assert_eq(
     Ok(NumericColumn::from_int64s([]).mean()) catch {

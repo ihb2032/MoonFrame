@@ -336,6 +336,35 @@ test "Float NaN keys match each other (group_by-consistent, not pandas)" {
   assert_eq(out.item(1, "rv"), @types.Scalar::Int(200))
 }
 
+///|
+test "right join coalesces the key to the right frame's value (signed zero)" {
+  // -0.0 (left) and +0.0 (right) fold to the same join key, so the single pair
+  // matches. A Right join keeps every right row and must surface the RIGHT
+  // side's key value per the coalesce contract. -0.0 and +0.0 are == as
+  // scalars, so observe the sign bit through division: 1/+0.0 = +inf,
+  // 1/-0.0 = -inf.
+  let left = DataFrame::new([
+    Series::from_floats("k", [-0.0]),
+    Series::from_ints("lv", [1]),
+  ])
+  let right = DataFrame::new([
+    Series::from_floats("k", [0.0]),
+    Series::from_ints("rv", [2]),
+  ])
+  let out = left.join(
+    right,
+    JoinOptions::on([@expr.col("k")]).with_how(JoinType::Right),
+  )
+  assert_eq(out.check_invariants(), Ok(()))
+  assert_eq(out.shape(), (1, 3))
+  let k = match out.item(0, "k") {
+    @types.Scalar::Float(v) => v
+    _ => -1.0
+  }
+  // After the fix k = +0.0 → 1/k = +inf > 0; before it was the left's -0.0.
+  assert_eq(1.0 / k > 0.0, true)
+}
+
 // ── Cross join (how = Cross) ─────────────────────────────────────────
 
 ///|

@@ -418,16 +418,59 @@ test "to_numeric: a non-numeric column raises TypeMismatch" {
   )
 }
 
-// ── Eq derive ─────────────────────────────────────────────────────────
+// ── Content-based equality (backend-agnostic) ─────────────────────────
 
 ///|
-test "Eq derive" {
-  let a = ColumnStorage::from_numeric(NumericColumn::from_int64s([1, 2]))
-  assert_eq(a, ColumnStorage::from_numeric(NumericColumn::from_int64s([1, 2])))
-  assert_not_eq(
-    a,
-    ColumnStorage::from_builtin(BuiltinColumn::from_ints([1, 2])),
+test "ColumnStorage equality is content-based, not backend-sensitive" {
+  let num = ColumnStorage::from_numeric(NumericColumn::from_int64s([1, 2]))
+  // Same backend, same content.
+  assert_eq(
+    num,
+    ColumnStorage::from_numeric(NumericColumn::from_int64s([1, 2])),
   )
+  // Different backend, SAME content -> equal (the BACKEND-1 fix): a Numeric and
+  // a Builtin column of the same all-valid Int data are logically identical.
+  assert_eq(num, ColumnStorage::from_builtin(BuiltinColumn::from_ints([1, 2])))
+  // Different value -> unequal.
+  assert_not_eq(
+    num,
+    ColumnStorage::from_numeric(NumericColumn::from_int64s([1, 3])),
+  )
+  // Different length -> unequal.
+  assert_not_eq(
+    num,
+    ColumnStorage::from_numeric(NumericColumn::from_int64s([1])),
+  )
+  // Different dtype -> unequal.
+  assert_not_eq(
+    num,
+    ColumnStorage::from_numeric(NumericColumn::from_doubles([1.0, 2.0])),
+  )
+  // Same values but different null-ness at a cell -> unequal.
+  assert_not_eq(
+    ColumnStorage::from_builtin(
+      BuiltinColumn::from_int_options([Some(1), None]),
+    ),
+    ColumnStorage::from_builtin(
+      BuiltinColumn::from_int_options([Some(1), Some(2)]),
+    ),
+  )
+  // A valid NaN cell is unequal even to an identical column (NaN != NaN).
+  let nan = @double.not_a_number
+  assert_not_eq(
+    ColumnStorage::from_numeric(NumericColumn::from_doubles([nan])),
+    ColumnStorage::from_numeric(NumericColumn::from_doubles([nan])),
+  )
+  // Bool / String arms compare by content too.
+  assert_eq(
+    ColumnStorage::from_builtin(BuiltinColumn::from_bools([true, false])),
+    ColumnStorage::from_builtin(BuiltinColumn::from_bools([true, false])),
+  )
+  assert_eq(
+    ColumnStorage::from_builtin(BuiltinColumn::from_strings(["a"])),
+    ColumnStorage::from_builtin(BuiltinColumn::from_strings(["a"])),
+  )
+  // StorageKind keeps its own tag-based derive(Eq).
   assert_eq(StorageKind::Builtin, StorageKind::Builtin)
   assert_not_eq(StorageKind::Builtin, StorageKind::Numeric)
 }

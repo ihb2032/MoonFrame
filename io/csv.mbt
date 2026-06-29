@@ -337,13 +337,24 @@ pub fn read_csv_projected(
 /// character is hard-coded as `'"'` and rows end at `'\n'` / `'\r'`, so a
 /// delimiter equal to any of those collapses the field / record / quote
 /// structure into one byte — a write emits unparseable output and a read splits
-/// on the wrong boundary. Shared by `format_csv` and the reader so both refuse
-/// the same configurations up front. (pandas / polars leave this as GIGO;
-/// MoonFrame rejects it rather than corrupt a round-trip silently.)
+/// on the wrong boundary. A supplementary-plane (non-BMP) delimiter is rejected
+/// too: the tokenizer matches one UTF-16 code unit at a time, so a delimiter
+/// stored as a surrogate pair is never recognised and every cell would merge
+/// into one column on a round-trip. Shared by `format_csv` and the reader so
+/// both refuse the same configurations up front. (pandas / polars leave this as
+/// GIGO; MoonFrame rejects it rather than corrupt a round-trip silently.)
 fn validate_csv_delimiter(delimiter : Char) -> Unit raise @types.DataError {
   if delimiter == '"' || delimiter == '\n' || delimiter == '\r' {
     raise @types.DataError::InvalidOperation(
       "CSV delimiter must not be a double quote or a line terminator (\\n / \\r)",
+    )
+  }
+  // `Char::to_int` is the Unicode code point; > 0xFFFF is the supplementary
+  // plane, which UTF-16 stores as a surrogate pair the per-code-unit tokenizer
+  // can never match.
+  if delimiter.to_int() > 0xFFFF {
+    raise @types.DataError::InvalidOperation(
+      "CSV delimiter must be a single UTF-16 code unit (a Basic-Multilingual-Plane character)",
     )
   }
 }

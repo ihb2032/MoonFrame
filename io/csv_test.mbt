@@ -190,6 +190,32 @@ test "format_csv: a delimiter colliding with the quote or a line terminator is r
 }
 
 ///|
+test "parse_csv_str / format_csv: a supplementary-plane (non-BMP) delimiter is rejected" {
+  // U+1D11E (𝄞) is a UTF-16 surrogate pair; the per-code-unit tokenizer could
+  // never match it, so without the guard a round-trip would silently merge
+  // every column into one. Both surfaces refuse it up front.
+  let read_opts : @io.CsvReadOptions = {
+    has_header: true,
+    delimiter: '\u{1D11E}',
+    infer_schema_rows: 100,
+    null_values: [""],
+    strict_column_count: false,
+    on_parse_error: @io.OnParseError::Raise,
+    allow_nonfinite_floats: true,
+  }
+  let r = Ok(@io.parse_csv_str("a,b\n1,2\n", read_opts)) catch { e => Err(e) }
+  assert_true(r is Err(@types.DataError::InvalidOperation(_)))
+  let df = @frame.DataFrame::new([@series.Series::from_ints("a", [1, 2])])
+  let write_opts : @io.CsvWriteOptions = {
+    header: true,
+    delimiter: '\u{1D11E}',
+    null_value: "",
+  }
+  let w = Ok(@io.format_csv(df, write_opts)) catch { e => Err(e) }
+  assert_true(w is Err(@types.DataError::InvalidOperation(_)))
+}
+
+///|
 test "parse_csv_str: custom null_values let NA / N/A become null" {
   let content =
     #|a,b

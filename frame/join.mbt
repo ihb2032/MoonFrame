@@ -290,9 +290,18 @@ pub fn DataFrame::join(
         right_rows,
         col.name(),
       )
-      out_cols.push(
-        preserve_backend(col, coalesce_into(left_key, right_key, col.name())),
-      )
+      // Surface the documented side's value: the left on `Inner` / `Left`, and
+      // the present side on `Outer` (the left key is the base — taken where the
+      // row has a left match, else the right fills the gap), but the **right**
+      // on `Right`, where every output row has the right key present and the
+      // left only on matched rows. Folded float keys make the side observable:
+      // `-0.0` and `+0.0` share a group, so a `Right` join must surface the
+      // right's signed zero, not the left's.
+      let merged = match options.how {
+        Right => coalesce_into(right_key, left_key, col.name())
+        _ => coalesce_into(left_key, right_key, col.name())
+      }
+      out_cols.push(preserve_backend(col, merged))
     } else {
       out_cols.push(
         preserve_backend(col, gather_series_opt(col, left_rows, col.name())),

@@ -93,6 +93,22 @@ test "mean on Int series promotes to Float" {
 }
 
 ///|
+test "mean of large Int values accumulates in Double, not a wrapping Int64" {
+  // 2^62 + 2^62 = 2^63, which an Int64 accumulator wraps to Int64::MIN (a
+  // negative mean of two equal positive cells, outside [min, max]). The mean
+  // must stay 2^62.
+  let two_62 : Int64 = 4611686018427387904
+  // Numeric fast path: `from_ints` lands on the Numeric backend.
+  assert_eq(Series::from_ints("x", [two_62, two_62]).mean(), two_62.to_double())
+  // Builtin backend: a null keeps `from_int_options` on Builtin, exercising the
+  // shared `reduce_arith` mean fold.
+  assert_eq(
+    Series::from_int_options("x", [Some(two_62), Some(two_62), None]).mean(),
+    two_62.to_double(),
+  )
+}
+
+///|
 test "mean on Float series ignores nulls" {
   let s = Series::from_float_options("x", [Some(1.0), Some(2.0), None])
   assert_eq(s.mean(), (1.5 : Double))

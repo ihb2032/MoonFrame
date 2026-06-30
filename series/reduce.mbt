@@ -45,8 +45,11 @@ fn reduce_present(storage : @column.ColumnStorage) -> (Int) -> Bool {
 }
 
 ///|
-/// `sum` / `mean` reducer over an index window. `Int` accumulates in `Int64`,
-/// `Float` in `Double` with `NaN` summed in (so it propagates) — only a `Null`
+/// `sum` / `mean` reducer over an index window. `sum` accumulates `Int` in
+/// `Int64` (overflowing past 2^63 — the price of an exact integer sum) and
+/// `Float` in `Double`; `mean`, whose output is `Double`, accumulates `Int` in
+/// `Double` too, so it cannot wrap past 2^63 and flip the mean's sign (matching
+/// Polars). `NaN` is summed in (so it propagates) — only a `Null`
 /// cell is skipped. With `want_mean` the running total divides by the non-null
 /// count and is `Scalar::Null` for an empty / all-null window (the surfaces
 /// translate that: `Series::mean` to `InvalidOperation`, the grouped / scoped
@@ -62,23 +65,38 @@ fn reduce_arith(
   let present = reduce_present(storage)
   match storage.data() {
     @column.ColumnData::Int(a) =>
-      fn(n : Int, at : (Int) -> Int) {
-        let mut acc : Int64 = 0
-        let mut cnt = 0
-        for k in 0..<n {
-          let i = at(k)
-          if present(i) {
-            acc = acc + a[i]
-            cnt = cnt + 1
+      if want_mean {
+        // The mean's output is `Double`, so accumulate the numerator in
+        // `Double` from the start. An `Int64` accumulator would silently wrap
+        // past 2^63 and flip the mean's sign — a result outside `[min, max]` —
+        // even though `Double` represents the true mean (matching Polars).
+        fn(n : Int, at : (Int) -> Int) {
+          let mut acc = 0.0
+          let mut cnt = 0
+          for k in 0..<n {
+            let i = at(k)
+            if present(i) {
+              acc = acc + a[i].to_double()
+              cnt = cnt + 1
+            }
           }
-        }
-        if want_mean {
           if cnt == 0 {
             @types.Scalar::Null
           } else {
-            @types.Scalar::Float(acc.to_double() / cnt.to_double())
+            @types.Scalar::Float(acc / cnt.to_double())
           }
-        } else {
+        }
+      } else {
+        // `sum` keeps the `Int` dtype, so it stays an exact `Int64` fold —
+        // sums past 2^63 overflow, the documented price of an integer sum.
+        fn(n : Int, at : (Int) -> Int) {
+          let mut acc : Int64 = 0
+          for k in 0..<n {
+            let i = at(k)
+            if present(i) {
+              acc = acc + a[i]
+            }
+          }
           @types.Scalar::Int(acc)
         }
       }
@@ -233,7 +251,11 @@ fn numeric_double_reader(
 /// result): the **sample** statistics with `ddof = 1` (Polars' default). The
 /// variance is `Σ(xᵢ − mean)² / (cnt − 1)` over the `cnt` non-null cells and
 /// the standard deviation its square root, both `Scalar::Float` — `Int` widens
-/// to `Double`, so the output always types `Float`. Numeric only: a
+/// to `Double`, so the output always types `Float`. Computed by Welford's
+/// online algorithm (a single pass that never forms the raw sum), so a
+/// finite-variance window of near-`Double`-max values — whose sum would
+/// overflow to `±inf` and poison a two-pass mean, reporting `+inf` for a true
+/// variance of 0 — still yields its finite variance. Numeric only: a
 /// non-numeric (`Bool` / `String`) column `raise`s `TypeMismatch` here at
 /// factory time, before any window is folded, exactly as `reduce_arith` does.
 /// A `NaN` is a present value: when at least two non-null cells are present it
@@ -258,33 +280,34 @@ fn reduce_variance(
     },
   )
   fn(n : Int, at : (Int) -> Int) {
-    // Pass one: the non-null count and running total behind the mean.
-    let mut sum = 0.0
+    // Welford's online algorithm: one pass that never forms the raw sum, so a
+    // finite-variance window of near-`Double`-max values (whose sum would
+    // overflow to `±inf` and poison a two-pass mean, turning a true variance of
+    // 0 into `+inf`) still yields its finite variance. `mean` is the running
+    // mean, `m2` the running sum of squared deviations from it.
     let mut cnt = 0
+    let mut mean = 0.0
+    let mut m2 = 0.0
     for k in 0..<n {
       let i = at(k)
       if present(i) {
-        sum = sum + read(i)
+        // A `NaN` cell makes `mean` `NaN`, so `m2` — and the result — is `NaN`
+        // (propagation), matching `sum` / `mean`.
+        let x = read(i)
         cnt = cnt + 1
+        let delta = x - mean
+        mean = mean + delta / cnt.to_double()
+        m2 = m2 + delta * (x - mean)
       }
     }
     // The sample denominator `cnt - 1` is zero or negative for an empty,
-    // single-value, or all-null window — no sample variance, a null cell.
+    // single-value, or all-null window — no sample variance, a null cell (so a
+    // lone `NaN` cell is `Null`, not `NaN`); the fewer-than-two rule precedes
+    // NaN propagation.
     if cnt < 2 {
       @types.Scalar::Null
     } else {
-      let mean = sum / cnt.to_double()
-      // Pass two: the sum of squared deviations. A `NaN` cell makes `mean`
-      // `NaN`, so every deviation — and the result — is `NaN` (propagation).
-      let mut ss = 0.0
-      for k in 0..<n {
-        let i = at(k)
-        if present(i) {
-          let d = read(i) - mean
-          ss = ss + d * d
-        }
-      }
-      let variance = ss / (cnt - 1).to_double()
+      let variance = m2 / (cnt - 1).to_double()
       @types.Scalar::Float(if want_std { variance.sqrt() } else { variance })
     }
   }

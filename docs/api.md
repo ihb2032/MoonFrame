@@ -823,7 +823,8 @@ Read / parse / write functions `raise DataError`; the string serialisers
 `String`. Two `raise`: `format_vega_lite` — a `ChartSpec` names the columns
 to plot, and a missing name is `ColumnNotFound` — and `format_csv`, which
 rejects a delimiter that collides with the quote character or a line
-terminator. Tokenisation delegates to `moonbit-community/NyaCSV`;
+terminator, or that is a non-BMP character. Tokenisation delegates to
+`moonbit-community/NyaCSV`;
 JSON / Vega-Lite specs go through the builtin `@json`; file wrappers
 delegate to `moonbitlang/x/fs` and promote its `IOError` to
 `raise DataError::IoError(message)`.
@@ -858,16 +859,18 @@ are documented below.
 - `parse_csv_str(content, options) -> DataFrame raise DataError` —
   tokenise → per-column inference (`Int → Float → Bool → String`) → null
   mapping → `DataFrame::new`. `InvalidOperation` if `options.delimiter` is a
-  double quote or a line terminator (the same configurations `format_csv`
-  rejects, so a value the writer can't emit unambiguously can't be read back
-  either); `DuplicateColumn` / `ParseError` (the latter also covers a ragged
+  double quote, a line terminator, or a non-BMP (supplementary-plane)
+  character (the same configurations `format_csv` rejects, so a value the
+  writer can't emit unambiguously can't be read back either);
+  `DuplicateColumn` / `ParseError` (the latter also covers a ragged
   row when `options.strict_column_count`, and a cell that doesn't fit its
   dtype unless `options.on_parse_error = Null`).
 - `format_csv(df, options) -> String raise DataError` — cells render via
   `Scalar::to_string`; null → `options.null_value`; RFC 4180 quoting;
   LF-terminated. Raises `InvalidOperation` if `options.delimiter` is a double
   quote or a line terminator (`\n` / `\r`), which can't unambiguously frame
-  fields.
+  fields, or a non-BMP character, whose UTF-16 surrogate pair the
+  per-code-unit tokenizer can't match.
 - `read_csv(path)` / `read_csv_with_options(path, options) -> DataFrame
   raise DataError` — file wrappers (`IoError`).
 - `read_csv_projected(path, options, projection : Array[String]) ->

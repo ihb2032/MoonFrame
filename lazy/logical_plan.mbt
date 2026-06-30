@@ -57,6 +57,68 @@ priv enum LogicalPlan {
 }
 
 ///|
+/// The child plans of a node, left-to-right — the `LogicalPlan` analogue of
+/// `Expr::children`, and the one place the IR's recursive shape is enumerated
+/// for *traversal* (the rebuild passes enumerate it again to reassemble). A
+/// leaf (`Scan` / `ScanCsv` / `ScanNdjson`) has none; `Join` has two; every
+/// other node has exactly one. Drives the explicit-stack walks (`render`,
+/// `post_order`) so a new node joins them the moment it declares its children
+/// here.
+fn plan_children(plan : LogicalPlan) -> Array[LogicalPlan] {
+  match plan {
+    Scan(_) | ScanCsv(_, _, _) | ScanNdjson(_, _, _) => []
+    Select(input, _)
+    | WithColumns(input, _)
+    | Filter(input, _)
+    | Sort(input, _)
+    | Head(input, _)
+    | Tail(input, _)
+    | Slice(input, _, _)
+    | Aggregate(input, _, _)
+    | Drop(input, _)
+    | Rename(input, _)
+    | Unique(input)
+    | DropNulls(input, _)
+    | FillNull(input, _) => [input]
+    Join(left, right, _) => [left, right]
+  }
+}
+
+///|
+/// Plan nodes in post-order — every node's children before the node itself,
+/// left subtree before right — built with an explicit stack (not the call
+/// stack), so an arbitrarily deep plan linearises without overflowing and
+/// aborting. The post-order/value-stack walks (`execute`, `push_predicates`)
+/// fold children before parents by stepping this list front-to-back: when a
+/// node is reached, its children's results are the top of the value stack.
+fn post_order(plan : LogicalPlan) -> Array[LogicalPlan] {
+  // Root-first pre-order via a LIFO stack (children pushed left-to-right, so
+  // the right subtree pops first), then reversed into post-order.
+  let pre : Array[LogicalPlan] = []
+  let stack : Array[LogicalPlan] = [plan]
+  while stack.length() > 0 {
+    let node = pop_top(stack)
+    pre.push(node)
+    for child in plan_children(node) {
+      stack.push(child)
+    }
+  }
+  Array::makei(pre.length(), i => pre[pre.length() - 1 - i])
+}
+
+///|
+/// Pop the top of an explicit walk's value stack. The post-order walks push a
+/// rebuilt value for every child before its parent combines, so the stack is
+/// never empty here; the top slot is read by that stack-invariant index — total,
+/// like the engine's other indexed reads — and dropped, never `unwrap` (which
+/// would leave a dead `None` arm and break coverage).
+fn[T] pop_top(stack : Array[T]) -> T {
+  let top = stack[stack.length() - 1]
+  let _ = stack.pop()
+  top
+}
+
+///|
 /// Bottom-up plan interpreter — the whole of `collect`. Each node
 /// delegates to the public eager operator it mirrors (`Filter` →
 /// `filter`, `WithColumns` → `with_columns`, …), so with no
@@ -71,33 +133,54 @@ priv enum LogicalPlan {
 /// missing file (`IoError`) or a parse failure (`ParseError`) surfaces here
 /// too.
 fn execute(plan : LogicalPlan) -> @frame.DataFrame raise @types.DataError {
-  match plan {
-    Scan(df) => df
-    ScanCsv(path, options, projection) =>
-      match projection {
-        None => @io.read_csv_with_options(path, options)
-        Some(columns) => @io.read_csv_projected(path, options, columns)
+  // Post-order fold on an explicit value stack (not the call stack), so a deep
+  // plan collects without overflowing and aborting — the never-abort contract
+  // the expression evaluator (`eval_expr`) also keeps. Each node applies the
+  // same eager verb its recursive form did, reading its child frame(s) off the
+  // stack top; a leaf pushes the frame it reads. The order matches the old
+  // recursion exactly — deepest-first, a `Join`'s left before its right — so a
+  // plan that fails surfaces the same `DataError` first.
+  let values : Array[@frame.DataFrame] = []
+  for node in post_order(plan) {
+    match node {
+      Scan(df) => values.push(df)
+      ScanCsv(path, options, projection) =>
+        values.push(
+          match projection {
+            None => @io.read_csv_with_options(path, options)
+            Some(columns) => @io.read_csv_projected(path, options, columns)
+          },
+        )
+      ScanNdjson(path, options, projection) =>
+        values.push(
+          match projection {
+            None => @io.read_ndjson_with_options(path, options)
+            Some(columns) => @io.read_ndjson_projected(path, options, columns)
+          },
+        )
+      Select(_, exprs) => values.push(pop_top(values).select(exprs))
+      WithColumns(_, exprs) => values.push(pop_top(values).with_columns(exprs))
+      Filter(_, predicate) => values.push(pop_top(values).filter(predicate))
+      Sort(_, by) => values.push(pop_top(values).sort(by))
+      Head(_, n) => values.push(pop_top(values).head(n))
+      Tail(_, n) => values.push(pop_top(values).tail(n))
+      Slice(_, start, end) => values.push(pop_top(values).slice(start, end))
+      Join(_, _, options) => {
+        // Right is on top (pushed last in post-order), left just below.
+        let right = pop_top(values)
+        let left = pop_top(values)
+        values.push(left.join(right, options))
       }
-    ScanNdjson(path, options, projection) =>
-      match projection {
-        None => @io.read_ndjson_with_options(path, options)
-        Some(columns) => @io.read_ndjson_projected(path, options, columns)
-      }
-    Select(input, exprs) => execute(input).select(exprs)
-    WithColumns(input, exprs) => execute(input).with_columns(exprs)
-    Filter(input, predicate) => execute(input).filter(predicate)
-    Sort(input, by) => execute(input).sort(by)
-    Head(input, n) => execute(input).head(n)
-    Tail(input, n) => execute(input).tail(n)
-    Slice(input, start, end) => execute(input).slice(start, end)
-    Join(left, right, options) => execute(left).join(execute(right), options)
-    Aggregate(input, keys, exprs) => execute(input).group_by(keys).agg(exprs)
-    Drop(input, exprs) => execute(input).drop(exprs)
-    Rename(input, pairs) => execute(input).rename(pairs)
-    Unique(input) => execute(input).unique()
-    DropNulls(input, subset) => execute(input).drop_nulls(subset?)
-    FillNull(input, value) => execute(input).fill_null(value)
+      Aggregate(_, keys, exprs) =>
+        values.push(pop_top(values).group_by(keys).agg(exprs))
+      Drop(_, exprs) => values.push(pop_top(values).drop(exprs))
+      Rename(_, pairs) => values.push(pop_top(values).rename(pairs))
+      Unique(_) => values.push(pop_top(values).unique())
+      DropNulls(_, subset) => values.push(pop_top(values).drop_nulls(subset?))
+      FillNull(_, value) => values.push(pop_top(values).fill_null(value))
+    }
   }
+  pop_top(values)
 }
 
 ///|
@@ -112,9 +195,41 @@ fn execute(plan : LogicalPlan) -> @frame.DataFrame raise @types.DataError {
 /// "sales.csv" [region, revenue]` — but never reads the file. Total:
 /// rendering walks plain data, including plans that would fail to `collect`.
 fn render(plan : LogicalPlan, buf : StringBuilder, depth : Int) -> Unit {
-  for _ in 0..<depth {
-    buf.write_string("  ")
+  // Explicit-stack pre-order walk (not the call stack), so a deeply nested plan
+  // renders without overflowing and aborting — `explain` is documented total at
+  // any depth. Each node writes its own label; `render_input`'s old job (a fresh
+  // line before every input) becomes "a newline before every node but the
+  // first", preserving `explain`'s no-leading / no-trailing-newline contract.
+  let stack : Array[(LogicalPlan, Int)] = [(plan, depth)]
+  let mut first = true
+  while stack.length() > 0 {
+    let (node, d) = pop_top(stack)
+    if first {
+      first = false
+    } else {
+      buf.write_char('\n')
+    }
+    for _ in 0..<d {
+      buf.write_string("  ")
+    }
+    write_plan_label(node, buf)
+    // Push children deepest-last so the leftmost child is visited next and a
+    // `Join`'s left subtree fully precedes its right (the old left-then-right
+    // `render_input` order).
+    let kids = plan_children(node)
+    for i in 0..<kids.length() {
+      stack.push((kids[kids.length() - 1 - i], d + 1))
+    }
   }
+}
+
+///|
+/// Write a single plan node's own label (its inputs excluded) into `buf` — the
+/// per-node half of `render`, split out so the iterative walk emits each label
+/// and schedules its children separately. Expressions render through
+/// `@expr.Expr`'s `Show`; `Scan` prints only its frame's shape and a file source
+/// its label, path, and (once the optimizer fills it) projection — never data.
+fn write_plan_label(plan : LogicalPlan, buf : StringBuilder) -> Unit {
   match plan {
     Scan(df) => {
       buf.write_string("SCAN [")
@@ -127,71 +242,54 @@ fn render(plan : LogicalPlan, buf : StringBuilder, depth : Int) -> Unit {
       render_scan_source(buf, "SCAN_CSV", path, projection)
     ScanNdjson(path, _, projection) =>
       render_scan_source(buf, "SCAN_NDJSON", path, projection)
-    Select(input, exprs) => {
+    Select(_, exprs) => {
       buf.write_string("SELECT ")
       buf.write_string(exprs_label(exprs))
-      render_input(input, buf, depth)
     }
-    WithColumns(input, exprs) => {
+    WithColumns(_, exprs) => {
       buf.write_string("WITH_COLUMNS ")
       buf.write_string(exprs_label(exprs))
-      render_input(input, buf, depth)
     }
-    Filter(input, predicate) => {
+    Filter(_, predicate) => {
       buf.write_string("FILTER ")
       buf.write_string(predicate.explain())
-      render_input(input, buf, depth)
     }
-    Sort(input, by) => {
+    Sort(_, by) => {
       buf.write_string("SORT ")
       buf.write_string(sort_label(by))
-      render_input(input, buf, depth)
     }
-    Head(input, n) => {
+    Head(_, n) => {
       buf.write_string("HEAD ")
       buf.write_string(n.to_string())
-      render_input(input, buf, depth)
     }
-    Tail(input, n) => {
+    Tail(_, n) => {
       buf.write_string("TAIL ")
       buf.write_string(n.to_string())
-      render_input(input, buf, depth)
     }
-    Slice(input, start, end) => {
+    Slice(_, start, end) => {
       buf.write_string("SLICE [")
       buf.write_string(start.to_string())
       buf.write_string(", ")
       buf.write_string(end.to_string())
       buf.write_string(")")
-      render_input(input, buf, depth)
     }
-    Join(left, right, options) => {
-      buf.write_string(join_label(options))
-      render_input(left, buf, depth)
-      render_input(right, buf, depth)
-    }
-    Aggregate(input, keys, exprs) => {
+    Join(_, _, options) => buf.write_string(join_label(options))
+    Aggregate(_, keys, exprs) => {
       buf.write_string("AGGREGATE ")
       buf.write_string(exprs_label(exprs))
       buf.write_string(" BY ")
       buf.write_string(exprs_label(keys))
-      render_input(input, buf, depth)
     }
-    Drop(input, exprs) => {
+    Drop(_, exprs) => {
       buf.write_string("DROP ")
       buf.write_string(exprs_label(exprs))
-      render_input(input, buf, depth)
     }
-    Rename(input, pairs) => {
+    Rename(_, pairs) => {
       buf.write_string("RENAME ")
       buf.write_string(rename_label(pairs))
-      render_input(input, buf, depth)
     }
-    Unique(input) => {
-      buf.write_string("UNIQUE")
-      render_input(input, buf, depth)
-    }
-    DropNulls(input, subset) => {
+    Unique(_) => buf.write_string("UNIQUE")
+    DropNulls(_, subset) => {
       buf.write_string("DROP_NULLS")
       match subset {
         Some(exprs) => {
@@ -200,12 +298,10 @@ fn render(plan : LogicalPlan, buf : StringBuilder, depth : Int) -> Unit {
         }
         None => ()
       }
-      render_input(input, buf, depth)
     }
-    FillNull(input, value) => {
+    FillNull(_, value) => {
       buf.write_string("FILL_NULL ")
       buf.write_string(scalar_label(value))
-      render_input(input, buf, depth)
     }
   }
 }
@@ -250,15 +346,6 @@ fn scalar_label(value : @types.Scalar) -> String {
     @types.Scalar::String(s) => "\"\{@types.escape_debug(s)}\""
     @types.Scalar::Null => "null"
   }
-}
-
-///|
-/// Start an input's subtree on a fresh line, one level deeper. Factored
-/// out so `render` lines never end in a dangling newline — `explain`
-/// output has no trailing `\n`.
-fn render_input(input : LogicalPlan, buf : StringBuilder, depth : Int) -> Unit {
-  buf.write_char('\n')
-  render(input, buf, depth + 1)
 }
 
 ///|

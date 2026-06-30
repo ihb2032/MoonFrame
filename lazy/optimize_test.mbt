@@ -660,6 +660,41 @@ test "deep aggregation expressions don't overflow the group pushdown gate" {
 }
 
 ///|
+test "deep lazy plans collect without overflowing: execute and the optimizer are iterative" {
+  // One native frame per plan node formerly overflowed the stack at ~1000 nodes
+  // (collect aborted with a STATUS_STACK_OVERFLOW) inside execute and the
+  // optimizer passes — unlike every Expr walk, the *plan* walks were never made
+  // iterative. The chain is built purely through the public builders (each wraps
+  // one node, total). collect = execute(optimize(plan)) drives push_predicates,
+  // push_projection, and execute, each over the full depth; `head(1)` keeps each
+  // node's eager verb O(1) so the test pins depth-totality, not per-node work.
+  // (`explain` is not asserted at this depth: a plan's indentation grows per
+  // level, so its rendered string is O(depth²) — too large to materialise. The
+  // explain golden tests cover render at ordinary depths.)
+  let df = @frame.DataFrame::new([@series.Series::from_ints("a", [1, 2])])
+  let mut lf = lazy_frame(df)
+  for _ in 0..<100000 {
+    lf = lf.head(1)
+  }
+  assert_eq(lf.collect().shape(), (1, 1))
+}
+
+///|
+test "deep crossable spine collects without overflowing: place_filter is iterative" {
+  // place_filter sinks the filter through every crossable Select; a spine this
+  // deep formerly overflowed the native stack inside place_filter (and
+  // push_projection rebuilding it). collect drives the optimizer then execute.
+  let df = @frame.DataFrame::new([@series.Series::from_ints("a", [1, 2, 3])])
+  let mut lf = lazy_frame(df)
+  for _ in 0..<20000 {
+    lf = lf.select([@expr.col("a")])
+  }
+  lf = lf.filter(@expr.col("a").gt(@expr.lit_int(1)))
+  // Filter keeps a > 1 → rows [2, 3]; the deep Select spine is pure projection.
+  assert_eq(lf.collect().shape(), (2, 1))
+}
+
+///|
 test "predicate pushdown keeps a derived select column's backend canonical" {
   // The same hazard one stage over: `s = a + b` is null exactly where the
   // filter drops the row, so the eager (compute-then-filter) and optimized

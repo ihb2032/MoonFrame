@@ -444,6 +444,25 @@ test "row gathers canonicalise an all-valid result; zero-copy slices preserve th
 }
 
 ///|
+test "Series equality is content-based, independent of the storage backend" {
+  // The backends differ by construction (from_ints -> Numeric, all-Some
+  // from_int_options -> Builtin), but the columns are logically identical, so
+  // they compare equal — equality is by content, not representation.
+  assert_eq(
+    Series::from_ints("x", [1, 2, 3]),
+    Series::from_int_options("x", [Some(1), Some(2), Some(3)]),
+  )
+  // Backend-preserving ops (slice / fill_null) vs canonicalising ops (gather /
+  // from_ints) land on different backends yet compare equal on equal content.
+  let b = Series::from_int_options("x", [Some(1), None, Some(3)])
+  assert_eq(b.gather([0]), b.slice(0, 1)) // both logically "x" = [1]
+  assert_eq(
+    b.fill_null(@types.Scalar::Int(2)),
+    Series::from_ints("x", [1, 2, 3]),
+  )
+}
+
+///|
 test "Series::slice(0, k) null_count counts only the window (zero-copy view)" {
   // `Series::slice` shares the validity buffer (zero-copy), so a slice that
   // starts at row 0 is an offset-0 view over the parent's buffer. null_count

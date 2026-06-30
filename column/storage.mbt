@@ -47,7 +47,64 @@ pub(all) enum StorageKind {
 pub(all) enum ColumnStorage {
   Builtin(BuiltinColumn)
   Numeric(NumericColumn)
-} derive(Eq, Debug)
+} derive(Debug)
+
+///|
+/// Content-based structural equality: two columns are equal when they have the
+/// same dtype, the same length, and — cell by cell — the same null-ness and (at
+/// the valid cells) the same value, *regardless of backend*. So a `Builtin` and
+/// a `Numeric` column holding the same all-valid Int / Float data compare
+/// equal, where a backend-tag-sensitive `derive(Eq)` reported two logically
+/// identical columns unequal merely because one took the `Numeric` fast path
+/// and the other did not (`gather` vs `slice`, `from_ints` vs an all-`Some`
+/// `from_int_options`, …). This drives `Series` and `DataFrame` equality (both
+/// `derive(Eq)` over their fields, reaching here), so `df.head(2) ==
+/// df.filter(...)` reflects content, not representation. A valid `NaN` cell
+/// still makes a column unequal to an identical one (`NaN != NaN`, matching
+/// `Double` equality); only null-ness and equal values decide the rest.
+pub impl Eq for ColumnStorage with fn equal(self, other) {
+  if self.len() != other.len() {
+    return false
+  }
+  let av = self.validity().to_bools()
+  let bv = other.validity().to_bools()
+  match (self.data(), other.data()) {
+    (ColumnData::Int(a), ColumnData::Int(b)) =>
+      storage_cells_equal(a, b, av, bv, (x, y) => x == y)
+    (ColumnData::Float(a), ColumnData::Float(b)) =>
+      storage_cells_equal(a, b, av, bv, (x, y) => x == y)
+    (ColumnData::Bool(a), ColumnData::Bool(b)) =>
+      storage_cells_equal(a, b, av, bv, (x, y) => x == y)
+    (ColumnData::String(a), ColumnData::String(b)) =>
+      storage_cells_equal(a, b, av, bv, (x, y) => x == y)
+    // Different dtypes (different `ColumnData` variants) are never equal.
+    _ => false
+  }
+}
+
+///|
+/// Per-cell equality for `ColumnStorage::equal`: parallel value arrays `a` /
+/// `b` (equal length by the caller's check) and their validity `av` / `bv`. A
+/// cell pair is equal when both are null, or both valid with `eq`-equal values;
+/// a valid-vs-null pair is unequal. `eq` is the dtype's value comparison, so
+/// `Float` keeps `NaN != NaN`.
+fn[T] storage_cells_equal(
+  a : Array[T],
+  b : Array[T],
+  av : Array[Bool],
+  bv : Array[Bool],
+  eq : (T, T) -> Bool,
+) -> Bool {
+  for i in 0..<a.length() {
+    if av[i] != bv[i] {
+      return false
+    }
+    if av[i] && !eq(a[i], b[i]) {
+      return false
+    }
+  }
+  true
+}
 
 // ── Constructors ──────────────────────────────────────────────────────
 

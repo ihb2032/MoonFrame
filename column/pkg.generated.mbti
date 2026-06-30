@@ -70,7 +70,7 @@ pub(all) enum ColumnData {
 pub(all) enum ColumnStorage {
   Builtin(BuiltinColumn)
   Numeric(NumericColumn)
-} derive(Eq, @debug.Debug)
+} derive(@debug.Debug)
 pub fn ColumnStorage::bool_values(Self) -> (Array[Bool], Bitmap) raise @types.DataError
 pub fn ColumnStorage::cast(Self, @types.DataType) -> Self raise @types.DataError
 pub fn ColumnStorage::data(Self) -> ColumnData
@@ -93,6 +93,7 @@ pub fn ColumnStorage::to_builtin(Self) -> BuiltinColumn
 pub fn ColumnStorage::to_numeric(Self) -> Self raise @types.DataError
 pub fn ColumnStorage::to_string_column(Self) -> BuiltinColumn
 pub fn ColumnStorage::validity(Self) -> Bitmap
+pub impl Eq for ColumnStorage
 
 pub struct NumericColumn {
   data : NumericData

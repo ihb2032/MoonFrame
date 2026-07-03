@@ -1068,7 +1068,10 @@ Each returns a new `LazyFrame` wrapping one more node:
   optimizer's equivalence guarantee, the result is **bitwise-equal** to
   running the same verbs eagerly in the same order; every failure (missing
   columns, type mismatches, slice bounds) is the eager operator's
-  `DataError`, surfacing here rather than at build time.
+  `DataError`, surfacing here rather than at build time. A subplan shared
+  by reference (e.g. `lf.join(lf, …)` — nested self-joins build a DAG, not
+  a tree) executes **once** per `collect`, including a file source's read;
+  such DAG-shaped plans skip the rewrite passes and run as built.
 - `explain(self, optimized? : Bool = false) -> String` — render the plan
   as an indented tree: root verb first, inputs two spaces deeper,
   expressions in their `Expr::explain` form, compact `SCAN [rows×cols]`
@@ -1078,7 +1081,10 @@ Each returns a new `LazyFrame` wrapping one more node:
   faithful mirror of the chain); `optimized=true` renders the rewritten
   plan `collect` actually runs, so printing both is the before/after view.
   Total either way (the rewrite is a pure tree walk, and a plan that would
-  fail to `collect` still explains).
+  fail to `collect` still explains). A subplan shared by reference renders
+  once; a re-encounter prints the node's label plus
+  `(shared, rendered above)` instead of re-expanding, so a DAG-shaped plan
+  explains in linear space.
 
 ### Query optimizer
 

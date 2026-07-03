@@ -101,6 +101,63 @@ test "a dtype-changing map under a grouped reduction collects like eager" {
 }
 
 ///|
+test "nested self-joins execute each shared subplan once, not once per occurrence" {
+  // `lf.join(lf, …)` shares one plan object under both Join inputs; 26
+  // nestings make a DAG whose tree expansion holds 2^26 nodes. The
+  // memoised executor runs each distinct node once, so this collects
+  // instantly and equals the eager chain — the per-occurrence fold
+  // OOM-aborted at depth ~24.
+  let df = @frame.DataFrame::new([@series.Series::from_ints("a", [1])])
+  let opts = @frame.JoinOptions::on([@expr.col("a")])
+  let mut lf = lazy_frame(df)
+  let mut eager = df
+  for _ in 0..<26 {
+    lf = lf.join(lf, opts)
+    eager = eager.join(eager, opts)
+  }
+  let out = lf.collect()
+  assert_eq(out, eager)
+  assert_eq(out.check_invariants(), Ok(()))
+}
+
+///|
+test "a shared subplan renders once, with a marker on re-encounter" {
+  // The right Join input is the same node object as the left, so the
+  // printer marks the repeat instead of re-expanding it — explain stays
+  // linear (and total) on DAG-shaped plans.
+  let df = @frame.DataFrame::new([@series.Series::from_ints("a", [1])])
+  let shared = lazy_frame(df).filter(@expr.col("a").gt(@expr.lit_int(0)))
+  let joined = shared.join(shared, @frame.JoinOptions::on([@expr.col("a")]))
+  inspect(
+    joined.explain(),
+    content=(
+      #|JOIN Inner on [col(a)]
+      #|  FILTER (col(a) > 0)
+      #|    SCAN [1×1]
+      #|  FILTER (col(a) > 0) (shared, rendered above)
+    ),
+  )
+  // A DAG-shaped plan skips the rewrite passes (the tree-wise rebuild
+  // would duplicate every shared subplan), so the optimized view is the
+  // as-built plan.
+  assert_eq(joined.explain(optimized=true), joined.explain())
+  // Two equal-but-separate builds share nothing, so both sides expand.
+  let left = lazy_frame(df).filter(@expr.col("a").gt(@expr.lit_int(0)))
+  let right = lazy_frame(df).filter(@expr.col("a").gt(@expr.lit_int(0)))
+  let separate = left.join(right, @frame.JoinOptions::on([@expr.col("a")]))
+  inspect(
+    separate.explain(),
+    content=(
+      #|JOIN Inner on [col(a)]
+      #|  FILTER (col(a) > 0)
+      #|    SCAN [1×1]
+      #|  FILTER (col(a) > 0)
+      #|    SCAN [1×1]
+    ),
+  )
+}
+
+///|
 test "builders copy their array arguments — later mutation is unobservable" {
   let df = sales_df()
   let sel = [@expr.col("qty")]

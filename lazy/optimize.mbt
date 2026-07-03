@@ -153,6 +153,17 @@
 /// immutable, and each `collect` or `explain(optimized=true)` call rewrites
 /// the as-built plan exactly once.
 fn optimize(plan : LogicalPlan) -> LogicalPlan {
+  // A DAG-shaped plan — nested self-joins share node objects by reference —
+  // is left as-built: both passes rebuild tree-wise, so rewriting would
+  // materialise every shared subplan once per occurrence (2^depth new nodes
+  // for nested self-joins, an OOM abort long before execution), and the
+  // memoised executor already runs each shared subplan exactly once without
+  // help. Tree plans — every chain the builders produce without sharing a
+  // `LazyFrame` value across both sides of a join — rewrite exactly as
+  // before.
+  if has_shared_subplan(plan) {
+    return plan
+  }
   push_projection(push_predicates(plan), None)
 }
 

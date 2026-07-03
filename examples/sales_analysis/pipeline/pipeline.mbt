@@ -34,12 +34,19 @@ pub fn widget_report(
 ///|
 /// Row predicate for `filter`, reified with the `map_many` escape hatch:
 /// the closure receives each row's `product` cell as a `Scalar` and keeps
-/// the rows whose value is `"widget"`. A missing `product` column makes the
-/// predicate raise `ColumnNotFound` at evaluation, and a non-string cell
-/// raises `TypeMismatch` via `Scalar::as_string` — the same errors the old
-/// closure predicate surfaced, now carried by an inspectable `Expr`.
+/// the rows whose value is `"widget"`. A null cell (an empty product field
+/// in the user-editable CSV) simply drops the row — the verdict the
+/// idiomatic `col("product").eq(lit_str("widget"))` predicate reaches via
+/// Kleene logic — rather than failing the whole report. A missing `product`
+/// column makes the predicate raise `ColumnNotFound` at evaluation, and a
+/// non-string cell raises `TypeMismatch` via `Scalar::as_string` — the same
+/// errors the old closure predicate surfaced, now carried by an
+/// inspectable `Expr`.
 pub fn is_widget_row() -> @moonframe.Expr {
   @moonframe.map_many(label="is_widget", [@moonframe.col("product")], cells => {
-    @moonframe.Scalar::Bool(cells[0].as_string() == "widget")
+    match cells[0] {
+      @moonframe.Scalar::Null => @moonframe.Scalar::Bool(false)
+      cell => @moonframe.Scalar::Bool(cell.as_string() == "widget")
+    }
   })
 }

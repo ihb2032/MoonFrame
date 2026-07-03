@@ -187,7 +187,7 @@ fn frame_from_json_records(
   let objs : Array[Map[String, Json]] = Array::new(capacity=records.length())
   let headers : Array[String] = []
   let header_set : Map[String, Unit] = {}
-  for rec in records {
+  for i, rec in records {
     match rec {
       Object(obj) => {
         // `@json.parse` already collapsed any duplicate keys within this one
@@ -203,8 +203,10 @@ fn frame_from_json_records(
         objs.push(obj)
       }
       _ =>
+        // Carry the locator, like every other error in these readers: in a
+        // large file "which record" is the whole diagnostic.
         raise @types.DataError::ParseError(
-          "expected each record to be a JSON object",
+          "\{json_record_locator(source_lines, i)}: expected each record to be a JSON object",
         )
     }
   }
@@ -347,6 +349,13 @@ fn scalar_to_json(s : @types.Scalar) -> Json {
     @types.Scalar::Float(v) =>
       if v.is_nan() || v.is_inf() {
         Json::null()
+      } else if v == 0.0 && v.reinterpret_as_int64() != 0L {
+        // A repr-less number renders through `Double`'s Show, which drops
+        // the sign of negative zero — the token `0` would read back as
+        // `+0.0` (and `1.0 / x` flip from `-inf` to `+inf`). Pin the exact
+        // token instead; the reader's `parse_float_opt("-0.0")` keeps the
+        // sign.
+        Json::number(v, repr="-0.0")
       } else {
         Json::number(v)
       }

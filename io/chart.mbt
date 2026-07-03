@@ -187,8 +187,9 @@ pub fn format_vega_lite(
 ///|
 /// Write a Vega-Lite v5 spec for `df` / `spec` to `path`. Mirrors
 /// `write_json_records`: a `ColumnNotFound` from `format_vega_lite` (a spec
-/// column absent from `df`) propagates unchanged, and a filesystem failure
-/// surfaces as `raise IoError(message)`.
+/// column absent from `df`) propagates unchanged, a filesystem failure
+/// surfaces as `raise IoError(message)`, and content holding an unpaired
+/// UTF-16 surrogate is refused with `raise InvalidOperation`.
 pub fn write_vega_lite(
   path : String,
   df : @frame.DataFrame,

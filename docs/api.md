@@ -881,7 +881,9 @@ are documented below.
   malformed header, a ragged row) are unaffected, but a parse error confined
   to a dropped column does not surface (see `lazy`).
 - `write_csv(path, df)` / `write_csv_with_options(path, df, options) ->
-  Unit raise DataError` — file wrappers (`IoError`).
+  Unit raise DataError` — file wrappers (`IoError`; a string cell or column
+  name holding an unpaired UTF-16 surrogate is refused with
+  `InvalidOperation` before encoding, as for every `write_*`).
 
 ### JSON (records shape `[{...}, ...]`)
 
@@ -910,7 +912,8 @@ are documented below.
   (the `@json` number model is `Double`), as in pandas' `to_json`.
 - `read_json(path)` / `read_json_with_options(path, options) -> DataFrame
   raise DataError`; `write_json_records(path, df) -> Unit raise
-  DataError` — file wrappers (`IoError`).
+  DataError` — file wrappers (`IoError`; an unpaired UTF-16 surrogate in
+  the content is refused with `InvalidOperation` before encoding).
 
 ### NDJSON (JSON Lines, one object per line `{...}\n{...}\n…`)
 
@@ -942,7 +945,8 @@ conventions.
   beyond ±2^53 keeps its dtype but loses precision on a round-trip).
 - `read_ndjson(path)` / `read_ndjson_with_options(path, options) ->
   DataFrame raise DataError`; `write_ndjson(path, df) -> Unit raise
-  DataError` — file wrappers (`IoError`).
+  DataError` — file wrappers (`IoError`; an unpaired UTF-16 surrogate in
+  the content is refused with `InvalidOperation` before encoding).
 - `read_ndjson_projected(path, options, projection : Array[String]) ->
   DataFrame raise DataError` — the NDJSON twin of `read_csv_projected`:
   builds only the named columns, the engine seam behind `lazy`'s

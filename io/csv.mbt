@@ -463,7 +463,10 @@ pub fn write_csv(
 
 ///|
 /// Write a `DataFrame` to a CSV file with custom options. `IOError`
-/// from the file system surfaces as `raise IoError(message)`.
+/// from the file system surfaces as `raise IoError(message)`. A string
+/// cell (or column name) holding an unpaired UTF-16 surrogate is refused
+/// with `raise InvalidOperation` — the UTF-8 file encoding would swallow
+/// the following delimiter and silently shift every later cell boundary.
 pub fn write_csv_with_options(
   path : String,
   df : @frame.DataFrame,

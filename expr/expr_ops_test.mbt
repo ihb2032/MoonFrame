@@ -105,13 +105,13 @@ test "map_many copies its inputs array" {
 }
 
 ///|
-test "fill_null lowers to a not-null guarded conditional named after self" {
-  // `fill_null(self, value)` is `when(self.is_not_null()).then(self)
-  // .otherwise(value)` — the `then`-is-`self` ordering is what makes the
-  // result name itself after the filled column, never the fill value.
-  assert_eq(
-    col("x").fill_null(lit_int(0)),
-    when(col("x").is_not_null()).then(col("x")).otherwise(lit_int(0)),
+test "fill_null builds a dedicated node holding self once, named after self" {
+  // `fill_null(self, value)` is the dedicated `FillNull(self, value)` node —
+  // semantically the not-null guarded ternary, but `self` appears once
+  // (the ternary lowering embedded it twice, so chains grew exponentially).
+  inspect(
+    col("x").fill_null(lit_int(0)).explain(),
+    content="col(x).fill_null(0)",
   )
   // Named after `self` (`x`) even when the fill value is another column.
   assert_eq(col("x").fill_null(col("y")).output_name(), "x")
@@ -122,17 +122,39 @@ test "fill_null lowers to a not-null guarded conditional named after self" {
 }
 
 ///|
-test "fill_nan lowers to a not-nan guarded conditional named after self" {
-  // The dual of `fill_null`: `when(self.is_not_nan()).then(self)
-  // .otherwise(value)`, so it is named after the filled column and a null
-  // cell (for which `is_not_nan` is null) falls through to a null, not value.
-  assert_eq(
-    col("x").fill_nan(lit_float(0.0)),
-    when(col("x").is_not_nan()).then(col("x")).otherwise(lit_float(0.0)),
+test "fill_nan builds a dedicated node holding self once, named after self" {
+  // The dual of `fill_null`: semantically the not-nan guarded ternary, so a
+  // null cell (for which `is_not_nan` is null) falls through to a null,
+  // never to `value` — but `self` is held once, like `FillNull`.
+  inspect(
+    col("x").fill_nan(lit_float(0.0)).explain(),
+    content="col(x).fill_nan(0.0)",
   )
   assert_eq(col("x").fill_nan(col("y")).output_name(), "x")
   let refs = col("x").fill_nan(col("y")).referenced_columns()
   assert_true(refs.contains("x") && refs.contains("y"))
+}
+
+///|
+test "a chained coalesce builds a linear tree" {
+  // 24 chained fills: the old ternary lowering held 2^24 copies of the base
+  // subtree (rendering alone would be hundreds of MB); the dedicated node
+  // holds each link once, so the rendering grows by a constant per link.
+  let mut e = col("x")
+  for i in 1..<=24 {
+    e = e.fill_null(col("f\{i}"))
+  }
+  let rendered = e.explain()
+  // ~21 chars per link; the old lowering would render 2^24 subtree copies
+  // (hundreds of MB), so a small linear bound separates the two regimes.
+  assert_true(rendered.length() < 800)
+  // Structural equality over the chain is likewise linear and exact.
+  let mut e2 = col("x")
+  for i in 1..<=24 {
+    e2 = e2.fill_null(col("f\{i}"))
+  }
+  assert_eq(e, e2)
+  assert_not_eq(e, e2.fill_null(lit_int(0)))
 }
 
 ///|

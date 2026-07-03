@@ -108,6 +108,7 @@ priv enum EvalStep {
   ApplyCast(@types.DataType)
   ApplyAlias(String)
   ApplyTernary
+  ApplyFill(Bool) // true = fill nulls, false = fill NaNs
   ApplyMap((Array[@types.Scalar]) -> @types.Scalar raise @types.DataError, Int)
 }
 
@@ -193,6 +194,20 @@ fn eval_expr(
                 work.push(Eval(t))
                 work.push(Eval(c))
               }
+              // The whole point of the dedicated fill nodes: the operand is
+              // evaluated ONCE here, where the ternary lowering evaluated it
+              // twice (as condition input and as `then` branch) — a chained
+              // coalesce is linear work instead of exponential.
+              @expr.Expr::FillNull(o, v) => {
+                work.push(ApplyFill(true))
+                work.push(Eval(v))
+                work.push(Eval(o))
+              }
+              @expr.Expr::FillNan(o, v) => {
+                work.push(ApplyFill(false))
+                work.push(Eval(v))
+                work.push(Eval(o))
+              }
               @expr.Expr::Map(_, inputs, f) => {
                 work.push(ApplyMap(f, inputs.length()))
                 for i = inputs.length() - 1; i >= 0; i = i - 1 {
@@ -272,6 +287,26 @@ fn eval_expr(
             let then_v = pop_value(values)
             let cond = pop_value(values)
             values.push(eval_ternary(cond, then_v, else_v))
+          }
+          ApplyFill(fill_nulls) => {
+            let value_v = pop_value(values)
+            let operand = pop_value(values)
+            // Synthesize the guard the old lowering spelled out —
+            // `is_not_null(operand)` (resp. `is_not_nan`) — from the
+            // already-evaluated operand, then combine through the same
+            // ternary kernel, so dtype unification, Kleene null-condition
+            // handling (a null cell is neither NaN nor not-NaN, so
+            // `fill_nan` passes it through as null), naming, and backend
+            // convergence stay byte-for-byte identical.
+            let cond = if fill_nulls {
+              Series::from_bools(
+                operand.name(),
+                validity_bools(operand.storage()),
+              )
+            } else {
+              eval_is_nan(operand, false)
+            }
+            values.push(eval_ternary(cond, operand, value_v))
           }
           ApplyMap(f, arity) => {
             let popped : Array[Series] = []

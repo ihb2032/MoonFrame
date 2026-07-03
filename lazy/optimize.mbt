@@ -315,7 +315,9 @@ fn row_stable(expr : @expr.Expr) -> Bool {
           | @expr.Expr::Unary(_, _)
           | @expr.Expr::Str(_, _)
           | @expr.Expr::Alias(_, _)
-          | @expr.Expr::Ternary(_, _, _) =>
+          | @expr.Expr::Ternary(_, _, _)
+          | @expr.Expr::FillNull(_, _)
+          | @expr.Expr::FillNan(_, _) =>
             for child in e.children() {
               stack.push(child)
             }
@@ -432,6 +434,8 @@ fn group_cell_stable(expr : @expr.Expr) -> Bool {
           | @expr.Expr::Unary(_, _)
           | @expr.Expr::Str(_, _)
           | @expr.Expr::Alias(_, _)
+          | @expr.Expr::FillNull(_, _)
+          | @expr.Expr::FillNan(_, _)
           | @expr.Expr::Ternary(_, _, _) =>
             for child in e.children() {
               stack.push(child)

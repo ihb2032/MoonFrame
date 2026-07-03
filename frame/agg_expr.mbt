@@ -168,7 +168,9 @@ fn reduces_per_group(expr : @expr.Expr) -> Bool {
           | @expr.Expr::Map(_, _, _)
           | @expr.Expr::LitSeries(_) => return false
           @expr.Expr::Lit(_) | @expr.Expr::Agg(_, _) => ()
-          @expr.Expr::Binary(_, l, r) => {
+          @expr.Expr::Binary(_, l, r)
+          | @expr.Expr::FillNull(l, r)
+          | @expr.Expr::FillNan(l, r) => {
             stack.push(l)
             stack.push(r)
           }

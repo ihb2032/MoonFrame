@@ -519,15 +519,16 @@ test "a trailing filter sinks below a derived-column stage" {
 ///|
 test "a trailing filter sinks below a fill_null with_columns stage" {
   let df = sales_df()
-  // `fill_null` lowers to a row-stable ternary, so the optimizer crosses it
-  // with no fill_null-specific rule: the stage replaces `qty` in place but
-  // the predicate reads `region`, so the filter sinks below the stage.
+  // `fill_null` is a dedicated row-stable node (semantically the guarded
+  // ternary), so the optimizer crosses it with no fill_null-specific rule:
+  // the stage replaces `qty` in place but the predicate reads `region`, so
+  // the filter sinks below the stage.
   let filled = [@expr.col("qty").fill_null(@expr.lit_int(0))]
   let predicate = @expr.col("region").eq(@expr.lit_str("west"))
   let plan = lazy_frame(df).with_columns(filled).filter(predicate)
   assert_eq(
     plan.explain(optimized=true),
-    "WITH_COLUMNS [when(col(qty).is_not_null()).then(col(qty)).otherwise(0)]\n" +
+    "WITH_COLUMNS [col(qty).fill_null(0)]\n" +
     "  FILTER (col(region) == \"west\")\n" +
     "    SCAN [4×3]",
   )

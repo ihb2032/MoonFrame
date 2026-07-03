@@ -282,17 +282,21 @@ depends only on `types`.
   (`TypeMismatch` otherwise; an `Int` cell is never `NaN`) and, unlike the null
   probes, *propagate* nulls (a missing cell → a null result).
 - `fill_null(value : Expr) -> Expr` — replace null cells with `value` (a
-  literal, another column — a coalesce — or a computed tree), lowering to
+  literal, another column — a coalesce — or a computed tree), a dedicated
+  node evaluating exactly like
   `when(self.is_not_null()).then(self).otherwise(value)`: non-null cells are
   kept, the result is named after the filled expression (not `value`), and
   the branch dtypes unify like a ternary's (`Int` ↔ `Float` promote, any
   other mismatch is a `TypeMismatch`). A non-null `NaN` is a value, so it is
-  kept, not filled.
+  kept, not filled. Unlike that ternary spelling, the node holds (and
+  evaluates) the filled expression once, so a chained coalesce
+  (`e.fill_null(a).fill_null(b)…`) stays linear in tree size and work.
 - `fill_nan(value : Expr) -> Expr` — the dual of `fill_null`: replace `NaN`
-  cells with `value`, lowering to
+  cells with `value`, evaluating exactly like
   `when(self.is_not_nan()).then(self).otherwise(value)`. A true null (for which
   `is_not_nan` is null) falls through the Kleene ternary to a null, so nulls
-  are preserved, not filled; same self-naming and dtype-unification rules.
+  are preserved, not filled; same self-naming, dtype-unification, and
+  linear-chaining rules.
 - Aggregations `sum` / `mean` / `min` / `max` / `count` / `std` /
   `variance` / `median` / `n_unique` / `first` / `last() -> Expr` — wrap
   the expression in a reduction (evaluation semantics below). `std` /

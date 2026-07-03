@@ -16,6 +16,20 @@ test "new builds a frame from equal-length, uniquely named columns" {
 }
 
 ///|
+test "new copies its input columns array" {
+  let cols = [Series::from_ints("a", [1, 2])]
+  let df = DataFrame::new(cols)
+  // Would leave a ragged phantom column (push) or dangle the name→index
+  // cache (pop) if the array were aliased.
+  cols.push(Series::from_ints("b", [9]))
+  ignore(cols.pop())
+  ignore(cols.pop())
+  assert_eq(df.ncols(), 1)
+  assert_eq(df.columns(), ["a"])
+  assert_eq(df.nrows(), 2)
+}
+
+///|
 test "new with zero columns yields a 0×0 frame" {
   let df = DataFrame::new([])
   assert_eq(df.shape(), (0, 0))

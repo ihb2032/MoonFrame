@@ -706,3 +706,30 @@ test "two keys producing the same output name raise DuplicateColumn" {
     Err(@types.DataError::DuplicateColumn("k")),
   )
 }
+
+///|
+test "agg rejects a groups handle mutated through the pub field" {
+  // The pub fields are read-only (no reassignment), but the arrays read
+  // from them are live: a caller can empty a group or plant a stray row
+  // index after group_by. agg re-validates the invariants and raises
+  // InvalidOperation instead of letting the folds abort on the corrupted
+  // handle (the never-abort gate).
+  let emptied = sales_df().group_by([@expr.col("region")])
+  emptied.groups[0].clear()
+  assert_true(
+    (Ok(emptied.agg([@expr.col("quantity").sum()])) catch { e => Err(e) })
+    is Err(@types.DataError::InvalidOperation(_)),
+  )
+  let stray = sales_df().group_by([@expr.col("region")])
+  stray.groups[0][0] = 1_000_000
+  assert_true(
+    (Ok(stray.agg([@expr.col("quantity").sum()])) catch { e => Err(e) })
+    is Err(@types.DataError::InvalidOperation(_)),
+  )
+  let negative = sales_df().group_by([@expr.col("region")])
+  negative.groups[0][0] = -1
+  assert_true(
+    (Ok(negative.agg([@expr.col("quantity").sum()])) catch { e => Err(e) })
+    is Err(@types.DataError::InvalidOperation(_)),
+  )
+}

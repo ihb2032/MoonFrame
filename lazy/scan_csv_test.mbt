@@ -156,6 +156,31 @@ test "projection push-down does not parse — or fail on — a dropped column" {
 }
 
 ///|
+test "a projection matching no header keeps the row count and the as-built error" {
+  // The optimizer writes the required-column set into the scan verbatim; it
+  // cannot intersect with the file's header at plan time. When NO requested
+  // name matches, the projected read used to build a 0×0 frame — losing the
+  // 4-row count, so the slice below bounds-checked against 0 and raised
+  // IndexOutOfBounds where the as-built plan raises ColumnNotFound. The
+  // zero-match projection now falls back to a full read: optimized and
+  // unoptimized plans surface the same error.
+  let path = "_build/lazy_scan_csv_zero_match.csv"
+  write_fixture(path)
+  let plan = scan_csv(path).slice(0, 2).select([@expr.col("missing")])
+  let optimized = Ok(plan.collect()) catch { e => Err(e) }
+  assert_eq(optimized, Err(@types.DataError::ColumnNotFound("missing")))
+  // Eager equivalent of the as-built plan: same error.
+  let eager = Ok(@io.read_csv(path).slice(0, 2).select([@expr.col("missing")])) catch {
+    e => Err(e)
+  }
+  assert_eq(optimized, eager)
+  // A slice that only fits the real row count still collects when the
+  // consumer exists: partial-match leniency is untouched.
+  let ok = scan_csv(path).slice(0, 2).select([@expr.col("qty")]).collect()
+  assert_eq(ok.shape(), (2, 1))
+}
+
+///|
 test "scan_csv builders are total; a missing file fails only at collect" {
   let absent = "_build/lazy_scan_csv_absent.csv"
   // Building and explaining never touch the file (the projection writes even

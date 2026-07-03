@@ -90,6 +90,38 @@ test "scan_csv_with_options honours the read options at collect time" {
 }
 
 ///|
+test "scan_csv_with_options snapshots the null-token list" {
+  let path = "_build/lazy_scan_csv_aliasing.csv"
+  @io.write_csv(
+    path,
+    @frame.DataFrame::new([@series.Series::from_strings("a", ["NA", "x"])]),
+  )
+  let read_opts : @io.CsvReadOptions = {
+    has_header: true,
+    delimiter: ',',
+    infer_schema_rows: 100,
+    null_values: ["NA"],
+    strict_column_count: false,
+    on_parse_error: @io.OnParseError::Raise,
+    allow_nonfinite_floats: true,
+  }
+  let planned = scan_csv_with_options(path, read_opts)
+  // Mutating the caller's null-token list must not reach the captured plan:
+  // "NA" stays a null token for the collect below.
+  read_opts.null_values.clear()
+  let fresh : @io.CsvReadOptions = {
+    has_header: true,
+    delimiter: ',',
+    infer_schema_rows: 100,
+    null_values: ["NA"],
+    strict_column_count: false,
+    on_parse_error: @io.OnParseError::Raise,
+    allow_nonfinite_floats: true,
+  }
+  assert_eq(planned.collect(), @io.read_csv_with_options(path, fresh))
+}
+
+///|
 test "projection push-down does not parse — or fail on — a dropped column" {
   let path = "_build/lazy_scan_csv_dropped_error.csv"
   // `b` is clean for the first row then unparsable as the Int it infers, while

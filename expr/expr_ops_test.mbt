@@ -95,6 +95,16 @@ test "map_elements builds the single-input map_many node" {
 }
 
 ///|
+test "map_many copies its inputs array" {
+  // Mutating the caller's array after building must not alter the node
+  // (pinned through `Eq`, which compares `(label, inputs)`).
+  let ins = [col("a")]
+  let e = map_many(label="m", ins, fn(vs) { vs[0] })
+  ins.push(col("b"))
+  assert_eq(e, map_many(label="m", [col("a")], fn(vs) { vs[0] }))
+}
+
+///|
 test "fill_null lowers to a not-null guarded conditional named after self" {
   // `fill_null(self, value)` is `when(self.is_not_null()).then(self)
   // .otherwise(value)` — the `then`-is-`self` ordering is what makes the

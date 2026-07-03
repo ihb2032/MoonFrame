@@ -16,6 +16,16 @@ test "Schema::new accepts unique fields" {
 }
 
 ///|
+test "Schema::new copies its input fields array" {
+  let fields = [Field::new("a", DataType::Int)]
+  let s = Schema::new(fields)
+  // Would break the validated no-duplicates invariant if the array were aliased.
+  fields.push(Field::new("a", DataType::Float))
+  assert_eq(s.len(), 1)
+  assert_eq(s.field_names(), ["a"])
+}
+
+///|
 test "Schema::new rejects duplicate names" {
   let dup = Ok(
     Schema::new([

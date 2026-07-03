@@ -25,9 +25,14 @@ pub struct DataFrame {
 /// - no two columns share a name (`raise DuplicateColumn(name)`).
 ///
 /// Zero columns is valid and produces a 0×0 frame.
+///
+/// The input array is copied, so mutating `columns` after construction
+/// cannot perturb the frame's invariants (the `Series` values themselves
+/// are immutable).
 pub fn DataFrame::new(
   columns : Array[Series],
 ) -> DataFrame raise @types.DataError {
+  let columns = columns.copy()
   let nrows = if columns.is_empty() { 0 } else { columns[0].len() }
   if !columns.all(c => c.len() == nrows) {
     raise @types.DataError::LengthMismatch

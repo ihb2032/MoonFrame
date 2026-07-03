@@ -33,6 +33,25 @@ test "cross builds a keyless Cross spec" {
 }
 
 ///|
+test "on / left_on / with_right_on copy their key arrays" {
+  // Mutating the caller's array after building the options must not alter
+  // the join specification (pinned through the derived `Eq`).
+  let keys = [@expr.col("id")]
+  let base = JoinOptions::on(keys)
+  keys.push(@expr.col("v"))
+  assert_eq(base, JoinOptions::on([@expr.col("id")]))
+  let lkeys = [@expr.col("a")]
+  let rkeys = [@expr.col("b")]
+  let both = JoinOptions::left_on(lkeys).with_right_on(rkeys)
+  lkeys.clear()
+  rkeys.push(@expr.col("c"))
+  assert_eq(
+    both,
+    JoinOptions::left_on([@expr.col("a")]).with_right_on([@expr.col("b")]),
+  )
+}
+
+///|
 test "on defaults to an inner join with the _right suffix" {
   let base = JoinOptions::on([@expr.col("id")])
   // Re-stating the defaults explicitly must reproduce the same options.

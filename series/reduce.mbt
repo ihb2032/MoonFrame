@@ -255,7 +255,11 @@ fn numeric_double_reader(
 /// online algorithm (a single pass that never forms the raw sum), so a
 /// finite-variance window of near-`Double`-max values — whose sum would
 /// overflow to `±inf` and poison a two-pass mean, reporting `+inf` for a true
-/// variance of 0 — still yields its finite variance. Numeric only: a
+/// variance of 0 — still yields its finite variance. When the true variance
+/// itself exceeds `Double`'s range (finite cells more than `Double::MAX`
+/// apart, e.g. opposite signs near `±1.8e308`), the result saturates to
+/// `+inf` — never a negative variance or a `NaN` std from the internal
+/// overflow — matching numpy / Polars. Numeric only: a
 /// non-numeric (`Bool` / `String`) column `raise`s `TypeMismatch` here at
 /// factory time, before any window is folded, exactly as `reduce_arith` does.
 /// A `NaN` is a present value: when at least two non-null cells are present it
@@ -288,6 +292,7 @@ fn reduce_variance(
     let mut cnt = 0
     let mut mean = 0.0
     let mut m2 = 0.0
+    let mut saw_nonfinite = false
     for k in 0..<n {
       let i = at(k)
       if present(i) {
@@ -295,6 +300,7 @@ fn reduce_variance(
         // (propagation), matching `sum` / `mean`.
         let x = read(i)
         cnt = cnt + 1
+        saw_nonfinite = saw_nonfinite || x.is_nan() || x.is_inf()
         let delta = x - mean
         mean = mean + delta / cnt.to_double()
         m2 = m2 + delta * (x - mean)
@@ -307,6 +313,21 @@ fn reduce_variance(
     if cnt < 2 {
       @types.Scalar::Null
     } else {
+      // Welford keeps `m2 >= 0` under finite in-range arithmetic, but `delta`
+      // itself overflows to `±inf` when two finite cells sit more than
+      // `Double::MAX` apart (opposite signs near `±1.8e308`), and the
+      // artefact poisons `m2` to `-inf` or `NaN` — reporting a mathematically
+      // impossible negative variance and a `NaN` std. With every *input*
+      // finite, a negative/`NaN` `m2` can only be that artefact, so saturate
+      // to `+inf`: the true variance exceeds `Double`'s range (numpy/Polars
+      // report `+inf` here too), and `sqrt(+inf) = +inf` keeps std
+      // consistent. Genuine `NaN` / `±inf` inputs skip the rescue and keep
+      // IEEE propagation, matching `sum` / `mean`.
+      let m2 = if !saw_nonfinite && !(m2 >= 0.0) {
+        @double.infinity
+      } else {
+        m2
+      }
       let variance = m2 / (cnt - 1).to_double()
       @types.Scalar::Float(if want_std { variance.sqrt() } else { variance })
     }

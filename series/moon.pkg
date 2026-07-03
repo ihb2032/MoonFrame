@@ -1,9 +1,9 @@
 import {
   "ihb2032/MoonFrame/column",
   "ihb2032/MoonFrame/types",
+  "moonbitlang/core/double",
 }
 
 import {
-  "moonbitlang/core/double",
   "moonbitlang/core/test",
 } for "test"

@@ -10,6 +10,11 @@
 /// `df.f(…).g(…)` — the faithful-deferred-executor contract every test in
 /// `lazy_test.mbt` pins.
 ///
+/// Every builder that takes an array copies it, so a plan can never
+/// observe later mutation of a caller's argument — the immutability the
+/// paragraph above promises holds for the arguments too, not just the
+/// captured frames.
+///
 /// The entry point is the static constructor `LazyFrame::from(df)` with
 /// the free-function alias `lazy_frame(df)` (the `read_csv` feel) — not a
 /// `DataFrame` method, which would have to live in `frame` and close a
@@ -52,7 +57,7 @@ pub fn LazyFrame::with_columns(
   self : LazyFrame,
   exprs : Array[@expr.Expr],
 ) -> LazyFrame {
-  { plan: WithColumns(self.plan, exprs) }
+  { plan: WithColumns(self.plan, exprs.copy()) }
 }
 
 ///|
@@ -63,7 +68,7 @@ pub fn LazyFrame::select(
   self : LazyFrame,
   exprs : Array[@expr.Expr],
 ) -> LazyFrame {
-  { plan: Select(self.plan, exprs) }
+  { plan: Select(self.plan, exprs.copy()) }
 }
 
 ///|
@@ -75,7 +80,7 @@ pub fn LazyFrame::sort(
   self : LazyFrame,
   by : Array[(@expr.Expr, @frame.SortOrder, @frame.NullOrder)],
 ) -> LazyFrame {
-  { plan: Sort(self.plan, by) }
+  { plan: Sort(self.plan, by.copy()) }
 }
 
 ///|
@@ -117,7 +122,7 @@ pub fn LazyFrame::drop(
   self : LazyFrame,
   exprs : Array[@expr.Expr],
 ) -> LazyFrame {
-  { plan: Drop(self.plan, exprs) }
+  { plan: Drop(self.plan, exprs.copy()) }
 }
 
 ///|
@@ -127,7 +132,7 @@ pub fn LazyFrame::rename(
   self : LazyFrame,
   pairs : Array[(String, String)],
 ) -> LazyFrame {
-  { plan: Rename(self.plan, pairs) }
+  { plan: Rename(self.plan, pairs.copy()) }
 }
 
 ///|
@@ -145,7 +150,7 @@ pub fn LazyFrame::drop_nulls(
   self : LazyFrame,
   subset? : Array[@expr.Expr],
 ) -> LazyFrame {
-  { plan: DropNulls(self.plan, subset) }
+  { plan: DropNulls(self.plan, subset.map(s => s.copy())) }
 }
 
 ///|
@@ -187,7 +192,7 @@ pub fn LazyFrame::group_by(
   self : LazyFrame,
   keys : Array[@expr.Expr],
 ) -> LazyGroupBy {
-  { plan: self.plan, keys }
+  { plan: self.plan, keys: keys.copy() }
 }
 
 ///|
@@ -216,7 +221,7 @@ pub fn LazyGroupBy::agg(
   self : LazyGroupBy,
   exprs : Array[@expr.Expr],
 ) -> LazyFrame {
-  { plan: Aggregate(self.plan, self.keys, exprs) }
+  { plan: Aggregate(self.plan, self.keys, exprs.copy()) }
 }
 
 ///|

@@ -29,5 +29,8 @@ pub fn scan_csv_with_options(
   path : String,
   options : @io.CsvReadOptions,
 ) -> LazyFrame {
+  // Snapshot the one mutable container in the options, so the captured
+  // plan cannot observe a later mutation of the caller's null-token list.
+  let options = { ..options, null_values: options.null_values.copy() }
   { plan: ScanCsv(path, options, None) }
 }

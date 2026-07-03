@@ -77,6 +77,57 @@ test "each deferred verb collects to its eager equivalent" {
 }
 
 ///|
+test "builders copy their array arguments — later mutation is unobservable" {
+  let df = sales_df()
+  let sel = [@expr.col("qty")]
+  let planned_select = lazy_frame(df).select(sel)
+  sel.clear()
+  assert_eq(planned_select.collect(), df.select([@expr.col("qty")]))
+  let derived = [(@expr.col("qty") * @expr.lit_int(2)).with_alias("dbl")]
+  let planned_wc = lazy_frame(df).with_columns(derived)
+  ignore(derived.pop())
+  assert_eq(
+    planned_wc.collect(),
+    df.with_columns([(@expr.col("qty") * @expr.lit_int(2)).with_alias("dbl")]),
+  )
+  let keys = [
+    (@expr.col("qty"), @frame.SortOrder::Desc, @frame.NullOrder::NullsLast),
+  ]
+  let planned_sort = lazy_frame(df).sort(keys)
+  keys.clear()
+  assert_eq(
+    planned_sort.collect(),
+    df.sort([
+      (@expr.col("qty"), @frame.SortOrder::Desc, @frame.NullOrder::NullsLast),
+    ]),
+  )
+  let dropped = [@expr.col("bonus")]
+  let planned_drop = lazy_frame(df).drop(dropped)
+  dropped.push(@expr.col("qty"))
+  assert_eq(planned_drop.collect(), df.drop([@expr.col("bonus")]))
+  let pairs = [("qty", "quantity")]
+  let planned_rename = lazy_frame(df).rename(pairs)
+  pairs.push(("region", "zone"))
+  assert_eq(planned_rename.collect(), df.rename([("qty", "quantity")]))
+  let subset = [@expr.col("bonus")]
+  let planned_dn = lazy_frame(df).drop_nulls(subset~)
+  subset.clear()
+  assert_eq(planned_dn.collect(), df.drop_nulls(subset=[@expr.col("bonus")]))
+  let gkeys = [@expr.col("region")]
+  let aggs = [@expr.col("qty").sum().with_alias("total")]
+  let grouped = lazy_frame(df).group_by(gkeys)
+  gkeys.clear()
+  let planned_agg = grouped.agg(aggs)
+  aggs.clear()
+  assert_eq(
+    planned_agg.collect(),
+    df
+    .group_by([@expr.col("region")])
+    .agg([@expr.col("qty").sum().with_alias("total")]),
+  )
+}
+
+///|
 test "the column / row verbs collect to their eager equivalents" {
   let df = sales_df()
   assert_eq(

@@ -401,34 +401,44 @@ pub fn rebuild_options(
 }
 
 ///|
-/// Total gather: position `k` of the result is `s[idx[k]]`. The caller
-/// guarantees every index is in `[0, s.len())`. The result is **canonical**: a
-/// `Numeric` source rebuilds straight onto the `Numeric` fast path, and a
-/// `Builtin` source whose gathered rows leave it all-valid re-converges onto
-/// `Numeric` too (via `rebuild_options`), so the backend is a function of the
-/// gathered content, not the source — the invariant predicate pushdown relies
-/// on. Backs `drop_nulls`, `take`, and the row-gather DataFrame transforms.
+/// Total gather: position `k` of the result is `s[idx[k]]`. The caller is
+/// expected to pass indices in `[0, s.len())`; a stray index outside that
+/// range yields a **null cell** at its position — never a panic — the same
+/// on both storage backends, mirroring `Bitmap::take_view`'s hardening (a
+/// caller that breaks the in-bounds contract still cannot abort). The
+/// result is **canonical**: a `Numeric` source rebuilds straight onto the
+/// `Numeric` fast path, and a `Builtin` source whose gathered rows leave it
+/// all-valid re-converges onto `Numeric` too (via `rebuild_options`), so
+/// the backend is a function of the gathered content, not the source — the
+/// invariant predicate pushdown relies on. Backs `drop_nulls`, `take`, and
+/// the row-gather DataFrame transforms.
 pub fn gather_series(s : Series, idx : Array[Int]) -> Series {
-  // A `Numeric` source is all-valid and the caller guarantees in-bounds
-  // indices, so its gather is itself all-valid: rebuild directly onto the
-  // `Numeric` backend, materialising no validity mask and allocating no
-  // transient bitmap. A `Numeric` column only ever backs `Int` / `Float`, so
-  // the two guarded arms are the whole `Numeric` case (`Bool` / `String` are
-  // always `Builtin`). Routing a `Numeric` source through the option
-  // constructors instead would round-trip `Numeric` → `Builtin` →
-  // `try_column_to_numeric` → `Numeric`, allocating an `Array[T?]` and a
-  // `Bitmap` only to drop them on re-convergence. A `Builtin` source (any
-  // dtype) falls to the `_` arm and shares the `rebuild_options` skeleton,
-  // reading each gathered slot's validity straight off the source bitmap
-  // (`is_valid_total`), so the gather costs `O(idx)` rather than materialising
-  // the whole `O(source)` mask — a per-group gather in the grouped-aggregation
-  // engine touches only its group's rows, keeping a derived reduction linear
-  // instead of quadratic on a high-cardinality key.
-  let numeric = s.storage.kind() is @column.StorageKind::Numeric
+  // A `Numeric` source is all-valid, so when every index is in-bounds its
+  // gather is itself all-valid: rebuild directly onto the `Numeric` backend,
+  // materialising no validity mask and allocating no transient bitmap. A
+  // `Numeric` column only ever backs `Int` / `Float`, so the two guarded
+  // arms are the whole `Numeric` case (`Bool` / `String` are always
+  // `Builtin`). Routing a `Numeric` source through the option constructors
+  // instead would round-trip `Numeric` → `Builtin` → `try_column_to_numeric`
+  // → `Numeric`, allocating an `Array[T?]` and a `Bitmap` only to drop them
+  // on re-convergence. The fast path reads the raw data array unguarded, so
+  // it fires only after a cheap `O(idx)` all-in-bounds scan; a stray index
+  // falls through to the `_` arm, whose `is_valid_total` gating turns it
+  // into a null cell (a `Numeric` source synthesises an all-valid bitmap),
+  // keeping the misuse abort-free and backend-agnostic. A `Builtin` source
+  // (any dtype) always takes the `_` arm and shares the `rebuild_options`
+  // skeleton, reading each gathered slot's validity straight off the source
+  // bitmap (`is_valid_total`), so the gather costs `O(idx)` rather than
+  // materialising the whole `O(source)` mask — a per-group gather in the
+  // grouped-aggregation engine touches only its group's rows, keeping a
+  // derived reduction linear instead of quadratic on a high-cardinality key.
+  let n = s.len()
+  let fast = s.storage.kind() is @column.StorageKind::Numeric &&
+    idx.iter().all(k => k >= 0 && k < n)
   match s.storage.data() {
-    @column.ColumnData::Int(a) if numeric =>
+    @column.ColumnData::Int(a) if fast =>
       Series::from_ints(s.name, idx.map(k => a[k]))
-    @column.ColumnData::Float(a) if numeric =>
+    @column.ColumnData::Float(a) if fast =>
       Series::from_floats(s.name, idx.map(k => a[k]))
     _ => {
       let validity = s.storage.validity()

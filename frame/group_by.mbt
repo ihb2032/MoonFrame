@@ -1,9 +1,13 @@
 ///|
 /// A `DataFrame` partitioned into groups by one or more key expressions,
 /// produced by `DataFrame::group_by` and consumed by `agg`. Fields are
-/// read-only outside the package; the only way to build one is `group_by`,
-/// which guarantees every stored row index is in `[0, source.nrows())`
-/// and every group is non-empty.
+/// read-only outside the package (no reassignment); the only way to build
+/// one is `group_by`, which guarantees every stored row index is in
+/// `[0, source.nrows())` and every group is non-empty. Note that the
+/// `Array` values *read* from the fields are the live objects — treat them
+/// as read-only; a handle whose `groups` were mutated out of those
+/// invariants is rejected by `agg` with `InvalidOperation` rather than
+/// honoured.
 ///
 ///   * `source` — the frame being grouped (its columns back every
 ///     aggregation).

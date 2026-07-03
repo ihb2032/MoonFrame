@@ -62,7 +62,11 @@
 /// (`(col("a") - col("b")).sum()`) transparently falls back to it.
 ///
 /// Raises:
-/// - `InvalidOperation(...)` — an expression is not reduction-shaped.
+/// - `InvalidOperation(...)` — an expression is not reduction-shaped, or
+///   the handle's `groups` no longer satisfy the `group_by` invariants (an
+///   empty group, or a row index outside the source) — the pub fields
+///   expose live arrays, so external mutation is re-checked here rather
+///   than allowed to drive the folds into an abort.
 /// - `ColumnNotFound(name)` — an expression references an absent column.
 /// - `TypeMismatch(...)` — an expression's dtypes don't unify (e.g. `sum`
 ///   over a `String` column), from the first group's evaluation — or from
@@ -73,12 +77,35 @@ pub fn GroupedDataFrame::agg(
   self : GroupedDataFrame,
   exprs : Array[@expr.Expr],
 ) -> DataFrame raise @types.DataError {
+  // Re-validate the `group_by` invariants before any fold: the pub fields
+  // are read-only (no reassignment) but the Array values read from them are
+  // live objects, so a cross-package caller can empty a group or plant a
+  // stray row index after construction. The folds below index the source
+  // unguarded on the strength of these invariants (`g[0]`, the bare-column
+  // reducer's `read(i)`), so a corrupted handle must raise here — one
+  // O(total indices) pass, the same order as `agg` itself — instead of
+  // aborting downstream (the never-abort gate).
+  let nrows = self.source.nrows()
+  for g in self.groups {
+    if g.is_empty() {
+      raise @types.DataError::InvalidOperation(
+        "corrupted GroupedDataFrame: a group is empty (groups were mutated after group_by)",
+      )
+    }
+    for i in g {
+      if i < 0 || i >= nrows {
+        raise @types.DataError::InvalidOperation(
+          "corrupted GroupedDataFrame: group row index \{i} outside [0, \{nrows}) (groups were mutated after group_by)",
+        )
+      }
+    }
+  }
   let out_cols : Array[Series] = []
   // Key columns: gather one representative cell per group from the
   // materialised key columns `group_by` already built (each named by its
   // expression's output name and carrying its evaluated dtype / backend) —
-  // `g[0]` is in-bounds since `group_by` never stores an empty group, and
-  // `gather_series` keeps the key column's name, dtype, and backend.
+  // `g[0]` is in-bounds since the validation above rejected empty groups,
+  // and `gather_series` keeps the key column's name, dtype, and backend.
   let reps = self.groups.map(g => g[0])
   for key_column in self.key_columns {
     out_cols.push(gather_series(key_column, reps))

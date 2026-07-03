@@ -3,10 +3,14 @@
 /// of equally-tall `Series`, a derived `Schema`, and a private
 /// `name_to_index` cache so column lookup by name is `O(1)`.
 ///
-/// The struct is `pub` (fields read-only outside the package), so callers
-/// always go through the constructors below — those rebuild the cache and
-/// the schema in lock-step with the column vector, preserving the
-/// invariants:
+/// The struct is `pub` (fields read-only outside the package — no
+/// reassignment), so frames are only ever *built* through the constructors
+/// below, which rebuild the cache and the schema in lock-step with the
+/// column vector. The containers *read* from the fields (`columns`,
+/// `name_to_index`) are the live objects, though: treat them as
+/// read-only — interior mutation bypasses the constructors and corrupts
+/// the frame (prefer the `columns()` / `column_series()` / `schema()`
+/// accessors, which return copies). The preserved invariants:
 ///   * `schema.field_names() == columns.map(.name)`
 ///   * `columns.all(c => c.len() == nrows)`
 ///   * `name_to_index[name] == i  ⇔  columns[i].name == name`

@@ -56,6 +56,40 @@ test "variance and std of equal large-magnitude values are 0, not +inf" {
 }
 
 ///|
+test "variance and std of opposite-sign extremes saturate to +inf, never negative" {
+  // Finite cells more than Double-max apart: Welford's running `delta`
+  // overflows and used to poison `m2` to -inf — a mathematically impossible
+  // NEGATIVE variance, and sqrt(-inf) = NaN for std. The true variance
+  // (~2e616) exceeds Double's range, so the statistic saturates to +inf,
+  // as numpy (ddof=1) and Polars report.
+  let two = DataFrame::new([Series::from_floats("x", [-1.0e308, 1.0e308])])
+  assert_eq(
+    whole(two, @expr.col("x").variance()),
+    @types.Scalar::Float(@double.infinity),
+  )
+  assert_eq(
+    whole(two, @expr.col("x").std()),
+    @types.Scalar::Float(@double.infinity),
+  )
+  // A longer alternating window drives the artefact to NaN instead of -inf;
+  // the finite-input rescue covers it the same way.
+  let three = DataFrame::new([
+    Series::from_floats("x", [1.0e308, -1.0e308, 1.0e308]),
+  ])
+  assert_eq(
+    whole(three, @expr.col("x").variance()),
+    @types.Scalar::Float(@double.infinity),
+  )
+  // A genuine ±inf INPUT is not rescued: it propagates through the mean
+  // like sum / mean, so the statistic is NaN (inf - inf), not +inf.
+  let inf_in = DataFrame::new([
+    Series::from_floats("x", [@double.infinity, 1.0]),
+  ])
+  assert_true(whole(inf_in, @expr.col("x").variance()).as_float().is_nan())
+  assert_true(whole(inf_in, @expr.col("x").std()).as_float().is_nan())
+}
+
+///|
 test "std and variance are null for fewer than two non-null cells" {
   // Sample statistics need ddof = 1 < cnt: one value, or none, has no
   // sample variance, so the cell is null rather than 0.0.

@@ -41,9 +41,13 @@ pub fn DataFrame::to_markdown(self : DataFrame) -> String {
 /// Render a `DataFrame` as a Markdown table, capping the output at the
 /// first `limit` rows. When `self` has more rows than `limit`, the
 /// truncated count is appended below the table as
-/// `... (N more rows)`. Negative `limit` is clamped to 0, so a frame that
-/// has rows still renders as header + separator + the `... (N more rows)`
-/// banner; only a genuinely 0-row frame is header + separator alone.
+/// `... (N more rows)`, separated by a blank line — per the GFM tables
+/// extension a table only ends at an empty line, so a banner glued to the
+/// last row would parse as one more (single-cell) table ROW rather than
+/// the paragraph below it the wording promises. Negative `limit` is
+/// clamped to 0, so a frame that has rows still renders as header +
+/// separator + the `... (N more rows)` banner; only a genuinely 0-row
+/// frame is header + separator alone.
 pub fn DataFrame::to_markdown_with_limit(
   self : DataFrame,
   limit : Int,
@@ -52,7 +56,7 @@ pub fn DataFrame::to_markdown_with_limit(
   let shown = clamp_take(limit, nrows)
   let body = format_markdown(self, shown)
   if shown < nrows {
-    "\{body}\{more_rows_banner(nrows - shown)}\n"
+    "\{body}\n\{more_rows_banner(nrows - shown)}\n"
   } else {
     body
   }

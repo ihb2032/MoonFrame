@@ -475,14 +475,18 @@ fn coalesce_key_names(options : JoinOptions) -> Array[String]? {
 }
 
 ///|
-/// The matched source rows when `idx` has no unmatched (`None`) slot, else
-/// `None` — the gate for `gather_series_opt`'s `Numeric` fast path, which can
-/// only stay all-valid when every output row maps to a real source row.
-fn collect_matched(idx : Array[Int?]) -> Array[Int]? {
+/// The matched source rows when `idx` has no unmatched (`None`) slot and
+/// every index lies in `[0, len)`, else `None` — the gate for
+/// `gather_series_opt`'s `Numeric` fast path, which reads the raw data array
+/// unguarded and so can only fire when every output row provably maps to a
+/// real source row. A stray out-of-range index demotes the whole gather to
+/// the guarded `_` arm (a null cell there), mirroring `gather_series`'
+/// abort-free handling of the same misuse.
+fn collect_matched(idx : Array[Int?], len : Int) -> Array[Int]? {
   let rows : Array[Int] = []
   for j in idx {
     match j {
-      Some(v) => rows.push(v)
+      Some(v) => if v >= 0 && v < len { rows.push(v) } else { return None }
       None => return None
     }
   }
@@ -511,7 +515,7 @@ fn gather_series_opt(
   // round-trip `rebuild_options` would allocate only to drop on re-convergence.
   // Mirrors `gather_series`' `Numeric` arm.
   let matched = if s.storage().kind() is @column.StorageKind::Numeric {
-    collect_matched(idx)
+    collect_matched(idx, s.len())
   } else {
     None
   }

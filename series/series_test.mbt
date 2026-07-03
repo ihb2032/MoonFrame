@@ -510,6 +510,38 @@ test "to_numeric: rejects nulls and non-numeric columns" {
 }
 
 ///|
+test "gather_series: a stray out-of-range index is a null cell on both backends" {
+  // The Numeric fast path reads the raw data array unguarded, so it is
+  // gated by an all-in-bounds scan: the same misuse that used to abort the
+  // process now falls to the guarded arm and yields a null — identical to
+  // the Builtin backend's verdict, so behavior no longer depends on which
+  // backend the engine happened to choose.
+  let numeric = Series::from_ints("x", [1, 2, 3])
+  assert_eq(numeric.storage_kind(), @column.StorageKind::Numeric)
+  let g_num = gather_series(numeric, [2, 3, -1, 0])
+  assert_eq(g_num.to_scalars(), [
+    @types.Scalar::Int(3),
+    @types.Scalar::Null,
+    @types.Scalar::Null,
+    @types.Scalar::Int(1),
+  ])
+  let builtin = Series::from_int_options("x", [Some(1), Some(2), Some(3)])
+  assert_eq(builtin.storage_kind(), @column.StorageKind::Builtin)
+  assert_eq(gather_series(builtin, [2, 3, -1, 0]), g_num)
+  // An all-in-bounds gather still takes the allocation-free Numeric path.
+  assert_eq(
+    gather_series(numeric, [0, 2]).storage_kind(),
+    @column.StorageKind::Numeric,
+  )
+  // Float arm of the same gate.
+  let floats = Series::from_floats("x", [1.5, 2.5])
+  assert_eq(gather_series(floats, [1, 9]).to_scalars(), [
+    @types.Scalar::Float(2.5),
+    @types.Scalar::Null,
+  ])
+}
+
+///|
 test "to_builtin: total, lossless round-trip from Numeric" {
   let n = Series::from_ints("x", [1, 2, 3])
   let b = n.to_builtin()

@@ -606,3 +606,62 @@ test "grouped agg of an all-null map reduction is the additive identity, not an 
     @types.Scalar::Int(0),
   ])
 }
+
+///|
+/// Under the empty scope a `Map`'s closure never runs, so an *eager* probe
+/// would type it by its `String` input and `sum` would raise `TypeMismatch`
+/// — even though every real group reduces to an `Int`. The probe is
+/// deferred, so the grouped path agrees with the select path.
+test "grouped agg accepts a dtype-changing map closure under a numeric reduction" {
+  let df = DataFrame::new([
+    Series::from_strings("g", ["x", "x", "y"]),
+    Series::from_strings("s", ["a", "bb", "ccc"]),
+  ])
+  let strlen = @expr.col("s").map_elements(label="len", s => {
+    match s {
+      @types.Scalar::String(v) => @types.Scalar::Int(v.length().to_int64())
+      _ => @types.Scalar::Null
+    }
+  })
+  let out = df
+    .group_by([@expr.col("g")])
+    .agg([strlen.sum().with_alias("total")])
+  assert_eq(out.check_invariants(), Ok(()))
+  assert_eq(out.get_column("total").dtype(), @types.DataType::Int)
+  assert_eq(out.get_column("total").to_scalars(), [
+    @types.Scalar::Int(3),
+    @types.Scalar::Int(3),
+  ])
+  // The whole-frame select path reduces the same expression to one cell —
+  // the two paths must agree on accepting it.
+  let whole = df.select([strlen.sum().with_alias("total")])
+  assert_eq(whole.get_column("total").to_scalars(), [@types.Scalar::Int(6)])
+}
+
+///|
+/// With zero groups the reduced cells carry no dtype, so the deferred
+/// empty-scope probe is consumed: it types a derived reduction's 0-row
+/// output — and still gates a dtype-changing map it cannot type.
+test "grouped agg over zero groups consumes the deferred probe" {
+  let empty = DataFrame::new([
+    Series::from_strings("g", []),
+    Series::from_ints("q", []),
+  ])
+  let grouped = empty.group_by([@expr.col("g")])
+  let out = grouped.agg([
+    (@expr.col("q").sum() + @expr.lit_int(1)).with_alias("t"),
+  ])
+  assert_eq(out.nrows(), 0)
+  assert_eq(out.get_column("t").dtype(), @types.DataType::Int)
+  // No group ever runs the closure, so the probe is the only witness — it
+  // types the Map by its String input and the reduction is refused,
+  // exactly as before the deferral.
+  let strlen = @expr.col("g").map_elements(label="len", s => {
+    match s {
+      @types.Scalar::String(v) => @types.Scalar::Int(v.length().to_int64())
+      _ => @types.Scalar::Null
+    }
+  })
+  let r = Ok(grouped.agg([strlen.sum().with_alias("n")])) catch { e => Err(e) }
+  assert_true(r is Err(@types.DataError::TypeMismatch(_)))
+}

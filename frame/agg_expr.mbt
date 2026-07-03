@@ -36,11 +36,16 @@
 /// dtypes, `min` / `max` skip NaN and are total over every dtype, an
 /// all-null group sums to the additive identity and means to a null
 /// cell, `count` counts non-null cells. Dtype errors (`ColumnNotFound`,
-/// `TypeMismatch`) surface from a probe evaluation under the empty scope
-/// *before* any per-group work; the output dtype is then taken from the
+/// `TypeMismatch`) surface from the per-group evaluation itself (the
+/// bare-column fast path still reports them up front, resolving its
+/// reducer before any group work); the output dtype is taken from the
 /// reduced cells themselves, since a `map(...)` closure's result dtype is
-/// scope-dependent — the empty-scope probe is only a fallback that types a
-/// zero-group or all-null result. Computed columns follow the
+/// scope-dependent. A probe evaluation under the empty scope is consulted
+/// only as a fallback that types — and gates — a zero-group or all-null
+/// result: consulted eagerly it would spuriously reject a dtype-changing
+/// `map(...)` under a numeric reduction, because the closure never runs
+/// under the empty scope and the probe would type the `Map` by its
+/// leftmost input column instead. Computed columns follow the
 /// expression-engine backend convention: an all-valid numeric column
 /// converges onto `Numeric`, anything nullable (or `Bool` / `String`) stays
 /// `Builtin`.
@@ -60,7 +65,9 @@
 /// - `InvalidOperation(...)` — an expression is not reduction-shaped.
 /// - `ColumnNotFound(name)` — an expression references an absent column.
 /// - `TypeMismatch(...)` — an expression's dtypes don't unify (e.g. `sum`
-///   over a `String` column), reported before any group work.
+///   over a `String` column), from the first group's evaluation — or from
+///   the fallback probe when zero groups / an all-null result leave no
+///   dtype witness.
 /// - `DuplicateColumn(name)` — two output column names collide.
 pub fn GroupedDataFrame::agg(
   self : GroupedDataFrame,
@@ -78,14 +85,18 @@ pub fn GroupedDataFrame::agg(
   }
   for expr in exprs {
     let out_name = expr_output_name(expr)
-    // `(probe, cells)`: a fallback `ColumnData` that types the column only
-    // when the cells carry no dtype of their own (zero groups, or an all-null
-    // result), plus one reduced `Scalar` per group in group order. Both
-    // branches feed `agg_cells_to_series`, which types the column from the
-    // cells themselves and converges an all-valid numeric result onto
-    // `Numeric`, so the fast path is cell-for-cell *and backend* identical to
-    // the general one — it only changes how the cells are computed.
-    let (probe, cells) = match bare_col_agg(expr) {
+    // `(probe, cells)`: a *deferred* fallback `ColumnData` that types (and
+    // gates) the column only when the cells carry no dtype of their own
+    // (zero groups, or an all-null result), plus one reduced `Scalar` per
+    // group in group order. Both branches feed `agg_cells_to_series`, which
+    // types the column from the cells themselves and converges an all-valid
+    // numeric result onto `Numeric`, so the fast path is cell-for-cell *and
+    // backend* identical to the general one — it only changes how the cells
+    // are computed.
+    let (probe, cells) : (
+      () -> @column.ColumnData raise @types.DataError,
+      Array[@types.Scalar],
+    ) = match bare_col_agg(expr) {
       // Fast path: an aggregation over a bare column, `col(name).<agg>()`.
       // Resolve the reducer and validity mask once through the shared kernel
       // (which raises `ColumnNotFound` on the absent column and `TypeMismatch`
@@ -97,24 +108,29 @@ pub fn GroupedDataFrame::agg(
           self.source.get_column(name).storage(),
           rop,
         )
-        (probe, self.groups.map(g => reducer(g.length(), k => g[k])))
+        (() => probe, self.groups.map(g => reducer(g.length(), k => g[k])))
       }
       // General path: a derived or compound reduction such as
       // `(col("a") - col("b")).sum()` or `col("x").max() - col("x").min()`.
-      // The shape gate rejects non-reductions first; the empty-scope probe
-      // then surfaces `ColumnNotFound` / `TypeMismatch` once and supplies the
-      // fallback dtype for a zero-group or all-null result; each group is
-      // evaluated through the general engine and its length-1 result read off
-      // the total `to_scalars` by plain index.
+      // The shape gate rejects non-reductions first; each group is then
+      // evaluated through the general engine and its length-1 result read
+      // off the total `to_scalars` by plain index. The empty-scope probe is
+      // deferred: it is only evaluated — surfacing its `ColumnNotFound` /
+      // `TypeMismatch` — when the reduced cells leave the dtype undecided
+      // (zero groups, or an all-null result). Running it eagerly would
+      // spuriously reject a dtype-changing `map(...)` closure under a
+      // numeric reduction: under the empty scope the closure never runs, so
+      // the probe types the `Map` by its leftmost *input* column (e.g.
+      // `String`) and `sum` / `mean` raise `TypeMismatch` even though every
+      // real group evaluates to a numeric cell.
       None => {
         if !reduces_per_group(expr) {
           raise @types.DataError::InvalidOperation(
             "aggregate expression must reduce each group to a single value: \{expr.explain()}",
           )
         }
-        let probe = eval_expr(expr, self.source, [])
         (
-          probe.storage().data(),
+          () => eval_expr(expr, self.source, []).storage().data(),
           self.groups.map(g => eval_expr(expr, self.source, g).to_scalars()[0]),
         )
       }
@@ -202,6 +218,9 @@ fn bare_col_agg(expr : @expr.Expr) -> (String, ReduceOp)? {
 /// never ran the closure. The `fallback` types only the cases the cells
 /// cannot: zero groups, or an all-null result (e.g. `mean` over all-null
 /// groups), where the reduction's own declared dtype is the right witness.
+/// It is a deferred computation, first forced here — its own
+/// `ColumnNotFound` / `TypeMismatch` only surfaces when it is actually
+/// consumed as the witness.
 /// One narrow corner: when the reduction wraps a `map(...)` whose closure
 /// output dtype differs from its leftmost input's, an all-null result is typed
 /// by that input's dtype — a `Map`'s empty-scope probe takes the leftmost
@@ -211,13 +230,13 @@ fn bare_col_agg(expr : @expr.Expr) -> (String, ReduceOp)? {
 /// differs (reachable via `first` / `last` / `min` / `max`).
 fn agg_cells_to_series(
   cells : Array[@types.Scalar],
-  fallback : @column.ColumnData,
+  fallback : () -> @column.ColumnData raise @types.DataError,
   name : String,
-) -> Series {
+) -> Series raise @types.DataError {
   let cells = promote_mixed_int_float(cells)
   let probe = match infer_cells_dtype(cells) {
     Some(p) => p
-    None => fallback
+    None => fallback()
   }
   scalars_to_series(probe, name, cells)
 }

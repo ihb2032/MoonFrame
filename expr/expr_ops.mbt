@@ -228,14 +228,17 @@ pub fn Expr::is_not_nan(self : Expr) -> Expr {
 /// `fill_null`: where `fill_null` replaces missing cells and leaves `NaN`
 /// (a value) alone, `fill_nan` replaces `NaN` and leaves nulls alone.
 ///
-/// It lowers to `when(self.is_not_nan()).then(self).otherwise(value)`, so it
-/// is **named after `self`** (the `then` branch), and a null cell — for which
-/// `is_not_nan` is null — falls through the Kleene ternary to a null result,
-/// never to `value`. The branches unify their dtype like any ternary (`Int`
-/// meets `Float` by promoting to `Float`, any other mismatch is a
-/// `TypeMismatch`). Building the node is total.
+/// It evaluates exactly like
+/// `when(self.is_not_nan()).then(self).otherwise(value)` — **named after
+/// `self`** (the operand), and a null cell — for which `is_not_nan` is null
+/// — falls through the Kleene ternary to a null result, never to `value`.
+/// The branches unify their dtype like any ternary (`Int` meets `Float` by
+/// promoting to `Float`, any other mismatch is a `TypeMismatch`). Unlike
+/// that ternary spelling, the dedicated `FillNan` node holds (and
+/// evaluates) `self` once, so a chain of fills stays linear in tree size
+/// and work. Building the node is total.
 pub fn Expr::fill_nan(self : Expr, value : Expr) -> Expr {
-  when(self.is_not_nan()).then(self).otherwise(value)
+  FillNan(self, value)
 }
 
 ///|
@@ -245,18 +248,22 @@ pub fn Expr::fill_nan(self : Expr, value : Expr) -> Expr {
 /// expression: a literal (`lit_int(0)`), another column
 /// (`col("fallback")`), or a computed tree.
 ///
-/// It lowers to `when(self.is_not_null()).then(self).otherwise(value)`, so
-/// it inherits the ternary's behaviour exactly — and the `then`-is-`self`
-/// ordering is deliberate: the result is **named after `self`** (the filled
-/// column), never after `value`, so `with_columns([col("x").fill_null(...)])`
-/// replaces `"x"` in place. The branches must unify their dtype the way a
-/// ternary's do — `Int` meets `Float` by promoting to `Float`, any other
-/// mismatch is a `TypeMismatch` at evaluation. A non-null `NaN` is a *value*
-/// (validity 1), so it is kept, not filled; only true nulls are replaced.
-/// Building the node is total; errors surface when a consuming verb
-/// evaluates it.
+/// It evaluates exactly like
+/// `when(self.is_not_null()).then(self).otherwise(value)` — the result is
+/// **named after `self`** (the filled column), never after `value`, so
+/// `with_columns([col("x").fill_null(...)])` replaces `"x"` in place. The
+/// branches must unify their dtype the way a ternary's do — `Int` meets
+/// `Float` by promoting to `Float`, any other mismatch is a `TypeMismatch`
+/// at evaluation. A non-null `NaN` is a *value* (validity 1), so it is
+/// kept, not filled; only true nulls are replaced. Unlike that ternary
+/// spelling, the dedicated `FillNull` node holds (and evaluates) `self`
+/// once, so the chained-coalesce idiom
+/// (`col("a").fill_null(col("b")).fill_null(lit_int(0))`) stays linear in
+/// tree size and work — the lowering embedded `self` twice and grew
+/// exponentially with chain length. Building the node is total; errors
+/// surface when a consuming verb evaluates it.
 pub fn Expr::fill_null(self : Expr, value : Expr) -> Expr {
-  when(self.is_not_null()).then(self).otherwise(value)
+  FillNull(self, value)
 }
 
 ///|

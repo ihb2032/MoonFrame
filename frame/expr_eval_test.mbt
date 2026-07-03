@@ -732,6 +732,67 @@ test "fill_nan: replaces NaN, keeps finite and null cells, named after self" {
   assert_eq(out.columns(), ["x"])
 }
 
+///|
+test "fill_null / fill_nan evaluate exactly like their guarded-ternary spelling" {
+  // The dedicated nodes must be cell-for-cell (dtype and backend) equal to
+  // the ternary they replaced — including the Int-meets-Float promotion and
+  // the Kleene null-condition fallthrough. Two single-column frames so the
+  // whole-frame Eq is meaningful: a NaN cell surviving into both outputs
+  // would compare unequal to itself (IEEE), and the fill_nan output holds
+  // none.
+  let nan : Double = @double.not_a_number
+  let df_i = DataFrame::new([
+    Series::from_int_options("i", [Some(1), None, Some(3)]),
+  ])
+  assert_eq(
+    df_i.with_columns([@expr.col("i").fill_null(@expr.lit_float(0.5))]),
+    df_i.with_columns([
+      @expr.when(@expr.col("i").is_not_null())
+      .then(@expr.col("i"))
+      .otherwise(@expr.lit_float(0.5)),
+    ]),
+  )
+  let df_f = DataFrame::new([
+    Series::from_float_options("f", [Some(1.5), Some(nan), None]),
+  ])
+  assert_eq(
+    df_f.with_columns([@expr.col("f").fill_nan(@expr.lit_float(0.0))]),
+    df_f.with_columns([
+      @expr.when(@expr.col("f").is_not_nan())
+      .then(@expr.col("f"))
+      .otherwise(@expr.lit_float(0.0)),
+    ]),
+  )
+  // Mismatched branch dtypes raise the same TypeMismatch either way.
+  assert_true(
+    (Ok(df_i.with_columns([@expr.col("i").fill_null(@expr.lit_str("?"))])) catch {
+      e => Err(e)
+    })
+    is Err(@types.DataError::TypeMismatch(_)),
+  )
+}
+
+///|
+test "a chained fill_null coalesce evaluates in linear work" {
+  // 24 chained fills over a nullable column: the old ternary lowering
+  // re-evaluated the base subtree 2^24 times (an effective hang); the
+  // dedicated node evaluates each link once. The first fill already leaves
+  // no null, so the later links are no-ops value-wise.
+  let df = DataFrame::new([
+    Series::from_int_options("a", [Some(1), None, Some(3)]),
+  ])
+  let mut e = @expr.col("a").fill_null(@expr.lit_int(0))
+  for _ in 1..<=23 {
+    e = e.fill_null(@expr.lit_int(9))
+  }
+  let out = df.with_columns([e])
+  assert_eq(out.get_column("a").to_scalars(), [
+    @types.Scalar::Int(1),
+    @types.Scalar::Int(0),
+    @types.Scalar::Int(3),
+  ])
+}
+
 // ── Aggregations ─────────────────────────────────────────────────────
 
 ///|

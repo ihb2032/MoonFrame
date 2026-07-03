@@ -36,6 +36,13 @@
 /// - `Alias` — `.with_alias(name)` (`alias` is a reserved word), naming the
 ///   result column;
 /// - `Ternary` — `when(cond).then(a).otherwise(b)`;
+/// - `FillNull` / `FillNan` — `.fill_null(value)` / `.fill_nan(value)`,
+///   carrying `(operand, value)`. Semantically these are the guarded
+///   ternaries `when(operand.is_not_null()).then(operand).otherwise(value)`
+///   (resp. `is_not_nan`), but as dedicated nodes the operand appears — and
+///   is evaluated, rendered, and compared — **once**: the ternary lowering
+///   embedded `self` twice, so a chained coalesce
+///   (`e.fill_null(a).fill_null(b)…`) built an exponentially-sized tree;
 /// - `Map` — the closure escape hatch (`.map_elements()` / `map_many()`),
 ///   applying an opaque host function row by row over its input columns.
 ///   It carries a `label` (for `Show` / `explain`), the input expressions,
@@ -54,6 +61,8 @@ pub enum Expr {
   Cast(Expr, @types.DataType)
   Alias(Expr, String)
   Ternary(Expr, Expr, Expr)
+  FillNull(Expr, Expr)
+  FillNan(Expr, Expr)
   Map(
     String,
     Array[Expr],
@@ -138,6 +147,11 @@ fn exprs_structurally_equal(first : Expr, second : Expr) -> Bool {
             stack.push((c1, c2))
             stack.push((t1, t2))
             stack.push((f1, f2))
+          }
+          (FillNull(o1, v1), FillNull(o2, v2))
+          | (FillNan(o1, v1), FillNan(o2, v2)) => {
+            stack.push((o1, o2))
+            stack.push((v1, v2))
           }
           (Map(l1, i1, _), Map(l2, i2, _)) => {
             if l1 != l2 || i1.length() != i2.length() {

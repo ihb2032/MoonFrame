@@ -62,6 +62,10 @@ pub fn Expr::children(self : Expr) -> Array[Expr] {
     Binary(_, l, r) => [l, r]
     Unary(_, e) | Agg(_, e) | Str(_, e) | Cast(e, _) | Alias(e, _) => [e]
     Ternary(c, t, f) => [c, t, f]
+    // Operand first, fill value second — so the naming walk finds the
+    // operand's name before the value's, exactly as the old ternary
+    // lowering's `then`-before-`otherwise` order did.
+    FillNull(o, v) | FillNan(o, v) => [o, v]
     Map(_, inputs, _) => inputs.copy()
   }
 }
@@ -266,6 +270,10 @@ fn push_write_tasks(stack : Array[WriteTask], expr : Expr) -> Unit {
         Node(f),
         Frag(")"),
       ]
+    // Postfix method-call form, mirroring the construction route — the
+    // operand appears once, so a chained coalesce renders linearly.
+    FillNull(o, v) => [Node(o), Frag(".fill_null("), Node(v), Frag(")")]
+    FillNan(o, v) => [Node(o), Frag(".fill_nan("), Node(v), Frag(")")]
     // The closure is opaque, so a `Map` renders by its label and inputs:
     // `map("label", [in1, in2])`. The label is quoted / escaped like a string
     // literal so it stays on one unambiguous line.

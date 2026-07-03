@@ -72,6 +72,8 @@ pub enum Expr {
   Cast(Expr, @types.DataType)
   Alias(Expr, String)
   Ternary(Expr, Expr, Expr)
+  FillNull(Expr, Expr)
+  FillNan(Expr, Expr)
   Map(String, Array[Expr], (Array[@types.Scalar]) -> @types.Scalar raise @types.DataError)
 }
 pub fn Expr::cast(Self, @types.DataType) -> Self

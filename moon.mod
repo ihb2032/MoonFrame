@@ -1,6 +1,6 @@
 name = "ihb2032/MoonFrame"
 
-version = "0.5.2"
+version = "0.5.3"
 
 warnings = "+a-unnecessary_annotation-test_unqualified_package-unqualified_local_using-missing_invariant-missing_reasoning"
 
@@ -16,6 +16,6 @@ repository = "https://github.com/ihb2032/MoonFrame"
 
 license = "Apache-2.0"
 
-keywords = [ "dataframe", "data-analysis", "csv", "tabular", "moonbit" ]
+keywords = [ "dataframe", "data-analysis", "csv", "tabular"]
 
 description = "A lightweight DataFrame and tabular-data library for MoonBit"

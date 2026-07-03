@@ -119,6 +119,99 @@ fn[T] pop_top(stack : Array[T]) -> T {
 }
 
 ///|
+/// Whether `node` is already in `seen`, by **physical identity** — the
+/// object, not its value. `LazyFrame::join` stores the other frame's plan by
+/// reference, so `lf.join(lf, …)` builds a DAG whose `Join` holds the same
+/// node object twice; identity is what tells a genuinely shared subplan from
+/// two equal-but-separate builds. Linear scan: a plan's distinct-node count
+/// is small, and the callers' overall cost stays quadratic in it at worst.
+fn seen_plan(seen : Array[LogicalPlan], node : LogicalPlan) -> Bool {
+  for p in seen {
+    if physical_equal(p, node) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+/// Whether the plan is DAG-shaped: some node object reachable twice (nested
+/// self-joins built from a shared `LazyFrame`). The walk marks every node by
+/// identity and stops at the first repeat, so it is linear in the number of
+/// distinct nodes even on a deeply shared plan — it never re-expands what it
+/// has already seen.
+fn has_shared_subplan(plan : LogicalPlan) -> Bool {
+  let seen : Array[LogicalPlan] = []
+  let stack : Array[LogicalPlan] = [plan]
+  while stack.length() > 0 {
+    let node = pop_top(stack)
+    if seen_plan(seen, node) {
+      return true
+    }
+    seen.push(node)
+    for child in plan_children(node) {
+      stack.push(child)
+    }
+  }
+  false
+}
+
+///|
+/// Plan nodes in post-order with each *distinct* node exactly once — the
+/// identity-deduplicated walk `execute` folds over. On a tree it yields
+/// exactly `post_order`'s sequence (left subtree, right subtree, node); on a
+/// DAG-shaped plan each shared subplan is listed once, before its first
+/// consumer (children always precede parents), so a fold that reads child
+/// results out of a memo does each subplan's work once instead of once per
+/// occurrence — which is 2^depth for nested self-joins.
+fn post_order_unique(plan : LogicalPlan) -> Array[LogicalPlan] {
+  let out : Array[LogicalPlan] = []
+  let seen : Array[LogicalPlan] = []
+  // (node, expanded): expanded=false schedules the node (skipping it if a
+  // previous path already claimed it), expanded=true emits it — by then all
+  // its children have been emitted.
+  let stack : Array[(LogicalPlan, Bool)] = [(plan, false)]
+  while stack.length() > 0 {
+    let (node, expanded) = pop_top(stack)
+    if expanded {
+      out.push(node)
+      continue
+    }
+    if seen_plan(seen, node) {
+      continue
+    }
+    seen.push(node)
+    stack.push((node, true))
+    let kids = plan_children(node)
+    for i in 0..<kids.length() {
+      stack.push((kids[kids.length() - 1 - i], false))
+    }
+  }
+  out
+}
+
+///|
+/// The memoised result of `node`, scanned newest-first so the common case —
+/// a linear pipeline reading the frame computed immediately before — hits on
+/// the first probe. `post_order_unique` emits every child before its parent,
+/// so the scan always finds its node; the `idx` initialiser is the total
+/// fallback for that impossible miss (mirroring `pop_top`'s
+/// stack-invariant indexed read).
+fn memo_result(
+  memo : Array[(LogicalPlan, @frame.DataFrame)],
+  node : LogicalPlan,
+) -> @frame.DataFrame {
+  let mut idx = 0
+  for i = memo.length() - 1; i >= 0; i = i - 1 {
+    if physical_equal(memo[i].0, node) {
+      idx = i
+      break
+    }
+  }
+  memo[idx].1
+}
+
+///|
 /// Bottom-up plan interpreter — the whole of `collect`. Each node
 /// delegates to the public eager operator it mirrors (`Filter` →
 /// `filter`, `WithColumns` → `with_columns`, …), so with no
@@ -133,54 +226,50 @@ fn[T] pop_top(stack : Array[T]) -> T {
 /// missing file (`IoError`) or a parse failure (`ParseError`) surfaces here
 /// too.
 fn execute(plan : LogicalPlan) -> @frame.DataFrame raise @types.DataError {
-  // Post-order fold on an explicit value stack (not the call stack), so a deep
-  // plan collects without overflowing and aborting — the never-abort contract
-  // the expression evaluator (`eval_expr`) also keeps. Each node applies the
-  // same eager verb its recursive form did, reading its child frame(s) off the
-  // stack top; a leaf pushes the frame it reads. The order matches the old
-  // recursion exactly — deepest-first, a `Join`'s left before its right — so a
-  // plan that fails surfaces the same `DataError` first.
-  let values : Array[@frame.DataFrame] = []
-  for node in post_order(plan) {
-    match node {
-      Scan(df) => values.push(df)
+  // Memoised post-order fold (not the call stack), so a deep plan collects
+  // without overflowing and aborting — the never-abort contract the
+  // expression evaluator (`eval_expr`) also keeps. Each node applies the
+  // same eager verb its recursive form did, reading its child frame(s) out
+  // of the memo by node identity; a leaf computes the frame it reads. On a
+  // tree this is the exact old deepest-first order (a `Join`'s left before
+  // its right), so a failing plan surfaces the same `DataError` first; on a
+  // DAG-shaped plan (nested self-joins sharing node objects) each shared
+  // subplan runs ONCE — including a file source's read — where the
+  // per-occurrence fold re-ran it 2^depth times.
+  let memo : Array[(LogicalPlan, @frame.DataFrame)] = []
+  for node in post_order_unique(plan) {
+    let result : @frame.DataFrame = match node {
+      Scan(df) => df
       ScanCsv(path, options, projection) =>
-        values.push(
-          match projection {
-            None => @io.read_csv_with_options(path, options)
-            Some(columns) => @io.read_csv_projected(path, options, columns)
-          },
-        )
+        match projection {
+          None => @io.read_csv_with_options(path, options)
+          Some(columns) => @io.read_csv_projected(path, options, columns)
+        }
       ScanNdjson(path, options, projection) =>
-        values.push(
-          match projection {
-            None => @io.read_ndjson_with_options(path, options)
-            Some(columns) => @io.read_ndjson_projected(path, options, columns)
-          },
-        )
-      Select(_, exprs) => values.push(pop_top(values).select(exprs))
-      WithColumns(_, exprs) => values.push(pop_top(values).with_columns(exprs))
-      Filter(_, predicate) => values.push(pop_top(values).filter(predicate))
-      Sort(_, by) => values.push(pop_top(values).sort(by))
-      Head(_, n) => values.push(pop_top(values).head(n))
-      Tail(_, n) => values.push(pop_top(values).tail(n))
-      Slice(_, start, end) => values.push(pop_top(values).slice(start, end))
-      Join(_, _, options) => {
-        // Right is on top (pushed last in post-order), left just below.
-        let right = pop_top(values)
-        let left = pop_top(values)
-        values.push(left.join(right, options))
-      }
-      Aggregate(_, keys, exprs) =>
-        values.push(pop_top(values).group_by(keys).agg(exprs))
-      Drop(_, exprs) => values.push(pop_top(values).drop(exprs))
-      Rename(_, pairs) => values.push(pop_top(values).rename(pairs))
-      Unique(_) => values.push(pop_top(values).unique())
-      DropNulls(_, subset) => values.push(pop_top(values).drop_nulls(subset?))
-      FillNull(_, value) => values.push(pop_top(values).fill_null(value))
+        match projection {
+          None => @io.read_ndjson_with_options(path, options)
+          Some(columns) => @io.read_ndjson_projected(path, options, columns)
+        }
+      Select(input, exprs) => memo_result(memo, input).select(exprs)
+      WithColumns(input, exprs) => memo_result(memo, input).with_columns(exprs)
+      Filter(input, predicate) => memo_result(memo, input).filter(predicate)
+      Sort(input, by) => memo_result(memo, input).sort(by)
+      Head(input, n) => memo_result(memo, input).head(n)
+      Tail(input, n) => memo_result(memo, input).tail(n)
+      Slice(input, start, end) => memo_result(memo, input).slice(start, end)
+      Join(left, right, options) =>
+        memo_result(memo, left).join(memo_result(memo, right), options)
+      Aggregate(input, keys, exprs) =>
+        memo_result(memo, input).group_by(keys).agg(exprs)
+      Drop(input, exprs) => memo_result(memo, input).drop(exprs)
+      Rename(input, pairs) => memo_result(memo, input).rename(pairs)
+      Unique(input) => memo_result(memo, input).unique()
+      DropNulls(input, subset) => memo_result(memo, input).drop_nulls(subset?)
+      FillNull(input, value) => memo_result(memo, input).fill_null(value)
     }
+    memo.push((node, result))
   }
-  pop_top(values)
+  memo_result(memo, plan)
 }
 
 ///|
@@ -201,6 +290,7 @@ fn render(plan : LogicalPlan, buf : StringBuilder, depth : Int) -> Unit {
   // line before every input) becomes "a newline before every node but the
   // first", preserving `explain`'s no-leading / no-trailing-newline contract.
   let stack : Array[(LogicalPlan, Int)] = [(plan, depth)]
+  let seen : Array[LogicalPlan] = []
   let mut first = true
   while stack.length() > 0 {
     let (node, d) = pop_top(stack)
@@ -213,6 +303,16 @@ fn render(plan : LogicalPlan, buf : StringBuilder, depth : Int) -> Unit {
       buf.write_string("  ")
     }
     write_plan_label(node, buf)
+    // A node object reaching the printer twice (a DAG-shaped plan: nested
+    // self-joins share subplans by reference) prints its label plus a
+    // marker instead of re-expanding — re-expansion is 2^depth lines, which
+    // would break `explain`'s total-at-any-depth promise by exhausting
+    // memory. Tree plans never repeat a node, so their output is unchanged.
+    if seen_plan(seen, node) {
+      buf.write_string(" (shared, rendered above)")
+      continue
+    }
+    seen.push(node)
     // Push children deepest-last so the leftmost child is visited next and a
     // `Join`'s left subtree fully precedes its right (the old left-then-right
     // `render_input` order).

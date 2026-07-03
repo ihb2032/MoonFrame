@@ -271,7 +271,10 @@ pub fn format_json_records(df : @frame.DataFrame) -> String {
 
 ///|
 /// Write a `DataFrame` to a JSON records file. Filesystem errors
-/// surface as `raise IoError(message)`.
+/// surface as `raise IoError(message)`. A string cell (or column name)
+/// holding an unpaired UTF-16 surrogate is refused with `raise
+/// InvalidOperation` — the UTF-8 file encoding would swallow the
+/// following code unit and corrupt the JSON framing.
 pub fn write_json_records(
   path : String,
   df : @frame.DataFrame,

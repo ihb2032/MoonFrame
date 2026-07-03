@@ -923,6 +923,45 @@ test "write_csv then read_csv round-trips a small frame on disk" {
 }
 
 ///|
+test "write_csv refuses a cell holding an unpaired surrogate" {
+  // A lone surrogate is ingestible (JSON's \uD800 escape), but the UTF-8
+  // file encoder would merge it with the *following* code unit — here the
+  // delimiter after column `a` — silently shifting every later cell
+  // boundary. The write is refused up front instead, matching
+  // `validate_csv_delimiter`'s reject-rather-than-corrupt philosophy.
+  let df = @io.parse_ndjson_str(
+    "{\"a\":\"\\ud800\",\"b\":1}\n",
+    @io.NdjsonReadOptions::default(),
+  )
+  let w = Ok(@io.write_csv("_build/io_csv_surrogate_reject.csv", df)) catch {
+    e => Err(e)
+  }
+  assert_true(w is Err(@types.DataError::InvalidOperation(_)))
+  // A bare *low* surrogate (not preceded by a high one) is just as
+  // ill-formed and is refused by the same guard.
+  let df_low = @io.parse_ndjson_str(
+    "{\"a\":\"\\udc00\"}\n",
+    @io.NdjsonReadOptions::default(),
+  )
+  let w_low = Ok(@io.write_csv("_build/io_csv_surrogate_reject.csv", df_low)) catch {
+    e => Err(e)
+  }
+  assert_true(w_low is Err(@types.DataError::InvalidOperation(_)))
+}
+
+///|
+test "write_csv still writes well-formed surrogate pairs" {
+  // The guard only rejects *unpaired* surrogates: a supplementary-plane
+  // character stored as a proper pair round-trips unharmed.
+  let path = "_build/io_csv_surrogate_pair_ok.csv"
+  let df = @frame.DataFrame::new([
+    @series.Series::from_strings("s", ["𝄞clef"]),
+  ])
+  @io.write_csv(path, df)
+  assert_eq(@io.read_csv(path), df)
+}
+
+///|
 test "write_csv_with_options + read_csv_with_options honour custom shape" {
   let path = "_build/io_csv_test_custom.csv"
   let df = @frame.DataFrame::new([

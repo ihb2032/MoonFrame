@@ -204,7 +204,10 @@ pub fn format_ndjson(df : @frame.DataFrame) -> String {
 
 ///|
 /// Write a `DataFrame` to an NDJSON file. Filesystem errors surface as
-/// `raise IoError(message)`.
+/// `raise IoError(message)`. A string cell (or column name) holding an
+/// unpaired UTF-16 surrogate is refused with `raise InvalidOperation` —
+/// the UTF-8 file encoding would swallow the following code unit and
+/// corrupt the line framing.
 pub fn write_ndjson(
   path : String,
   df : @frame.DataFrame,

@@ -394,7 +394,9 @@ fn validate_csv_delimiter(delimiter : Char) -> Unit raise @types.DataError {
 /// - Round-trip caveat: cells render via `Scalar::to_string`, so a `Float`
 ///   whose value is a whole number is written without a fractional part
 ///   (`2.0` → `2`) and is re-inferred as `Int` on read — the same dtype
-///   narrowing the JSON writer documents. A `String` cell with significant
+///   narrowing the JSON writer documents. Negative zero is one such whole
+///   value: `-0.0` writes as `0`, so its sign (observable under division)
+///   does not survive the round-trip. A `String` cell with significant
 ///   leading / trailing whitespace is written bare (only the delimiter, a
 ///   quote, `\r`, or `\n` force quoting), so this reader round-trips it
 ///   (`trim_spaces` off), but an RFC-4180 consumer that trims surrounding

@@ -180,7 +180,10 @@ test "quickstart: composite aggregation" {
 ## Conditional columns with `when` / `then` / `otherwise`
 
 `when(cond).then(a).otherwise(b)` builds a row-wise conditional expression —
-the value is `a` where `cond` is `true`, `b` otherwise.
+the value is `a` where `cond` is `true`, `b` where it is `false`, and a
+**null** condition cell yields a null output (Kleene: the branch is unknown;
+use `cond.fill_null(lit_bool(false))` if `otherwise` should catch missing
+conditions).
 
 ```moonbit check
 ///|

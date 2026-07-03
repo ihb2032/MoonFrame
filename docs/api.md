@@ -316,7 +316,9 @@ operand is a `TypeMismatch` at evaluation, all are total. Matching is always
 **literal** — there is no regex engine yet, so regex forms of `contains` /
 `replace` are a future addition.
 
-- `str_to_uppercase()` / `str_to_lowercase() -> Expr` — case mapping.
+- `str_to_uppercase()` / `str_to_lowercase() -> Expr` — case mapping,
+  currently **ASCII-only** (a non-ASCII letter passes through unchanged,
+  like `str_strip_chars`' ASCII whitespace set).
 - `str_strip_chars() -> Expr` — strip leading / trailing ASCII whitespace
   (tab, newline, carriage-return, space).
 - `str_len_chars() -> Expr` — the Unicode character count as an `Int` (a
@@ -333,10 +335,15 @@ operand is a `TypeMismatch` at evaluation, all are total. Matching is always
 
 - `when(cond : Expr) -> WhenThen`, then `WhenThen::then(value) ->
   WhenThenElse`, then `WhenThenElse::otherwise(value) -> Expr` — a
-  row-wise conditional lowering to a ternary node: the value is the `then`
-  branch where `cond` is `true`, the `otherwise` branch otherwise.
-  `WhenThen` / `WhenThenElse` are opaque builder steps (only `when` starts
-  the chain).
+  row-wise conditional lowering to a ternary node with the three-way Kleene
+  rule: the value is the `then` branch where `cond` is `true`, the
+  `otherwise` branch where it is `false`, and a **null** condition cell
+  yields a **null** output (the branch is unknown — `otherwise` is the
+  false-arm, not a default for missing conditions; `fill_nan`'s
+  null-preservation depends on exactly this). To have `otherwise` catch
+  missing conditions, make them false first:
+  `when(cond.fill_null(lit_bool(false)))`. `WhenThen` / `WhenThenElse` are
+  opaque builder steps (only `when` starts the chain).
 
 ### Closure escape hatch
 
@@ -355,12 +362,14 @@ and the optimizer: a map node is identified by its `label` and inputs.
 
 The closure runs once per row and may `raise` (propagating from the consuming
 verb). The output dtype is the first non-null `Scalar` returned (mixed
-`Int`/`Float` promotes to `Float`); an all-null result over a non-empty frame
-raises `Unsupported` (no Null-dtype backend, as for a `Null` literal). A map's
-height follows its inputs: a **column** input makes it frame-tall, so over an
-empty frame the closure never runs and it returns an empty column mirroring the
-leftmost input's dtype; an **all-literal** map (no column read) is length-1
-like a bare `lit`, so the closure runs once and broadcasts even over an empty
+`Int`/`Float` promotes to `Float`); an all-null result borrows the leftmost
+**column** input's dtype and yields an all-null column of it — only a
+column-less map with no non-null result cell raises `Unsupported` (no
+Null-dtype backend, as for a `Null` literal). A map's height follows its
+inputs: a **column** input makes it frame-tall, so over an empty frame the
+closure never runs and it returns an empty column mirroring the leftmost
+input's dtype; an **all-literal** map (no column read) is length-1 like a
+bare `lit`, so the closure runs once and broadcasts even over an empty
 frame. The result is named after the leftmost input; `label` shows only in
 `explain`. The optimizer treats a map as a value barrier (like `cast`): no
 filter sinks across it.
@@ -399,12 +408,16 @@ raising `DataError` at evaluation time — building the tree never fails:
   otherwise null; `not(null) = null`. Non-`Bool` operands → `TypeMismatch`.
 - **Comparisons**: cross-numeric is legal, strings compare by
   `compare_string_lex`, `Bool` as `false < true`; the result is a `Bool`
-  column.
+  column. Mixed `Int`-vs-`Float` compares after promoting the `Int` to
+  `Double`, which is lossy beyond 2^53 — two distinct large values can
+  compare equal near that boundary (Polars compares int/float exactly);
+  same-dtype `Int` comparisons are always exact.
 - **String namespace** (`str_to_uppercase` / `str_contains` / …) maps each
-  cell of a String operand through a literal `StrOp` — case, `strip_chars`
-  (ASCII whitespace), `len_chars` (an `Int`), the `contains` / `starts_with`
-  / `ends_with` predicates (`Bool`), and `replace` / `replace_all`. Null cells
-  stay null, a non-String operand is a `TypeMismatch`, and all are total.
+  cell of a String operand through a literal `StrOp` — case (ASCII-only),
+  `strip_chars` (ASCII whitespace), `len_chars` (an `Int`), the `contains` /
+  `starts_with` / `ends_with` predicates (`Bool`), and `replace` /
+  `replace_all`. Null cells stay null, a non-String operand is a
+  `TypeMismatch`, and all are total.
 - **NaN** inherits the shared reduction rules — `sum` / `mean` (and the
   mean-based `std` / `variance`) propagate a `NaN`, `min` / `max` and the
   order statistic `median` skip it, `n_unique` buckets every `NaN` as one
@@ -416,8 +429,9 @@ raising `DataError` at evaluation time — building the tree never fails:
   a length-1 result broadcasts against frame-tall results.
 - **Map** (`map_elements` / `map_many`) runs the closure once per row over
   the input cells (each a `Scalar`, a null as `Scalar::Null`); the output
-  dtype is the first non-null result's, and an all-null / empty result
-  raises `Unsupported`.
+  dtype is the first non-null result's; an all-null (or empty) result
+  borrows the leftmost column input's dtype, and only a column-less map
+  with no non-null result cell raises `Unsupported`.
 - **Literal series** (`lit_series`) is used verbatim — the data analogue of a
   scalar literal's length-1 column — and the consumers broadcast it: a
   length-1 series fills the scope, a frame-tall one passes through, anything
@@ -463,11 +477,16 @@ rebuild and backend-convergence helpers, and the composite-key cell encoding
   non-numeric column, `InvalidOperation` for one with nulls).
 - Total transforms: `rename(new_name)` (`O(1)`, storage shared);
   `drop_nulls()` (gather non-null cells); `to_builtin()` (materialise onto
-  the `Builtin` backend — lossless inverse of `to_numeric`). Structural
-  transforms (`slice` / `gather` / `drop_nulls` / `fill_null`, and `head` /
-  `tail` / `filter` / `sort` / `join` at the frame level) **preserve the
-  backend** — a `Numeric` column stays on the fast path where it gains no
-  null; cross-dtype casts borrow the `Builtin` road.
+  the `Builtin` backend — lossless inverse of `to_numeric`). The backend of
+  a transform's result is a function of its **content**, not its source: a
+  row-gathering transform (`gather` / `drop_nulls`, and `filter` / `sort` /
+  `join` at the frame level) whose numeric result is all-valid **converges
+  onto `Numeric`** regardless of where it started, while a column carrying
+  (or gaining) a null — or any `Bool` / `String` — lands on `Builtin`. Only
+  the slice family (`slice`, frame-level `head` / `tail`) and `fill_null`
+  preserve the source backend as-is; cross-dtype casts borrow the `Builtin`
+  road. (Content-determined backends are the invariant the lazy optimizer's
+  predicate pushdown relies on.)
 
 ### Series stats (`series_stats.mbt`)
 
@@ -662,8 +681,11 @@ so every output satisfies `check_invariants()`; all raise the evaluator's
   last, or drop all duplicates — are deferred.)
 
 A computed numeric result lands on the `Numeric` backend when all-valid,
-`Builtin` otherwise; a `col(...)` reference preserves its source column's
-backend.
+`Builtin` otherwise; a `col(...)` reference is canonicalised the same way —
+to the backend its **content** implies, not the source's: an all-valid
+numeric column converges onto `Numeric` even when its source sat on
+`Builtin` (the content-determined invariant the lazy optimizer's predicate
+pushdown relies on).
 
 ### GroupBy (`group_by` / `agg`)
 
@@ -778,11 +800,11 @@ Hash equi-join, native to the method chain (`left.join(right, options)`).
   - `how = Cross` is the **Cartesian product** (every left row × every
     right row); it takes **no** keys, ignores `coalesce`, and keeps every
     column of both frames (a clashing right column is suffixed).
-  - **Backend**: like the other structural transforms (`filter` / `sort`
-    / `take` / `drop_nulls`), each output column keeps its source's storage
-    backend where it picks up no unmatched-row null — an all-valid `Numeric`
-    source column stays `Numeric`; a column that gains a null from an
-    unmatched row (or whose source was already `Builtin`) is `Builtin`. Only
+  - **Backend**: like the other row-gathering transforms (`filter` / `sort`
+    / `take` / `drop_nulls`), each output column lands on the backend its
+    **content** implies — an all-valid numeric result converges onto
+    `Numeric` (even from a `Builtin` source), while a column that gains a
+    null from an unmatched row (or is `Bool` / `String`) is `Builtin`. Only
     the representation is affected; values and dtypes are unchanged.
   - Routes through `DataFrame::new`, so every output satisfies
     `check_invariants()`. Raises: `ColumnNotFound` (a key expression
@@ -796,7 +818,9 @@ Hash equi-join, native to the method chain (`left.join(right, options)`).
     repeat, like `group_by([col("id"), col("id")])`; derived keys are not
     name-checked, since two distinct derived keys sharing a leftmost name are
     different keys and contribute no output column; or two output columns
-    still colliding after suffixing — surfaced by `DataFrame::new`).
+    still colliding after suffixing — surfaced by `DataFrame::new`),
+    `LengthMismatch` (a `lit_series` key whose embedded series is neither
+    length 1 nor the frame's height).
 - `enum JoinType` — `Inner` / `Left` / `Right` / `Outer` / `Cross`.
 - `struct JoinOptions` (fields read-only) — built via
   `JoinOptions::on(keys : Array[Expr])` (same keys on both frames),

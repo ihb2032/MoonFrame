@@ -518,11 +518,12 @@ pub fn Expr::map_elements(
 /// may mix columns, literals, and aggregations, the length-1 results
 /// broadcasting over the row count. Same opacity, totality, dtype
 /// inference, naming (after the leftmost input), and value-barrier rules as
-/// `map_elements`.
+/// `map_elements`. The `inputs` array is copied, so mutating it after
+/// construction cannot alter the built expression.
 pub fn map_many(
   label~ : String,
   inputs : Array[Expr],
   f : (Array[@types.Scalar]) -> @types.Scalar raise @types.DataError,
 ) -> Expr {
-  Map(label, inputs, f)
+  Map(label, inputs.copy(), f)
 }

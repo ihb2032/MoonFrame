@@ -10,6 +10,9 @@ pub(all) struct Schema {
 ///|
 /// Build a schema from a list of fields. `raise DuplicateColumn(name)` on
 /// the first repeated name.
+///
+/// The input array is copied, so mutating `fields` after construction
+/// cannot alter the schema or break the validated no-duplicates invariant.
 pub fn Schema::new(fields : Array[Field]) -> Schema raise DataError {
   let seen : Map[String, Unit] = {}
   for f in fields {
@@ -18,7 +21,7 @@ pub fn Schema::new(fields : Array[Field]) -> Schema raise DataError {
     }
     seen[f.name] = ()
   }
-  { fields, }
+  { fields: fields.copy() }
 }
 
 ///|

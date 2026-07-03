@@ -52,6 +52,36 @@ test "format_vega_lite: bar chart emits a complete Vega-Lite v5 spec" {
 }
 
 ///|
+test "format_vega_lite: quotes in a column name are escaped in the Vega field path" {
+  // Vega compiles the field into a datum accessor expression, where a bare
+  // quote terminates the string early and the exported spec throws at
+  // compile time instead of rendering.
+  let df = @frame.DataFrame::new([
+    @series.Series::from_strings("cat", ["x"]),
+    @series.Series::from_ints("it's \"q\"", [1]),
+  ])
+  let spec = @io.format_vega_lite(df, @io.ChartSpec::bar("cat", "it's \"q\""))
+  let field = match @json.parse(spec) {
+    Object(obj) =>
+      match obj.get("encoding") {
+        Some(Object(enc)) =>
+          match enc.get("y") {
+            Some(Object(y)) =>
+              match y.get("field") {
+                Some(String(f)) => f
+                _ => "<missing>"
+              }
+            _ => "<missing>"
+          }
+        _ => "<missing>"
+      }
+    _ => "<missing>"
+  }
+  // The parsed field carries one backslash before each quote character.
+  assert_eq(field, "it\\'s \\\"q\\\"")
+}
+
+///|
 test "format_vega_lite: a `.` in a column name is escaped in the Vega field path" {
   // Vega-Lite reads an unescaped `.` as nested-object access, so a column
   // literally named `price.usd` must be escaped to `price\.usd` to resolve to

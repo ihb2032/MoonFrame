@@ -210,9 +210,16 @@ pub fn Bitmap::slice(
   // in `[0, len]`, so `len - start` cannot overflow, whereas a near-`Int::MAX`
   // `length` would wrap `start + length` negative and slip past this guard —
   // producing an over-long view over a tiny buffer that a later read aborts on.
-  // (`bytes_needed` dodges the same `len + 7` overflow.)
+  // (`bytes_needed` dodges the same `len + 7` overflow.) The error payload
+  // computes the offending end overflow-safely too — saturating instead of
+  // wrapping into a nonsense negative "index" that would misdirect debugging.
   if length > self.len - start {
-    raise @types.DataError::IndexOutOfBounds(start + length)
+    let end = if length > 0x7fffffff - start {
+      0x7fffffff
+    } else {
+      start + length
+    }
+    raise @types.DataError::IndexOutOfBounds(end)
   }
   self.slice_view(start, length)
 }

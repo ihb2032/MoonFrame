@@ -276,8 +276,11 @@ pub fn Series::gather(
 /// `preserve_backend`, and the expression engine's computed-column convergence,
 /// so a column that cannot move is simply kept rather than failing (and rather
 /// than leaving a dead error arm, `feedback_lib_no_abort`). The null-free Int /
-/// Float arms reuse the raw data array — every slot being valid, it is the true
-/// data.
+/// Float arms rebuild through the `NumericColumn` constructors, which copy
+/// their input since the 0.5.2 immutable-ingestion change — one extra `O(n)`
+/// array copy per converged column (the column package's own
+/// `ColumnStorage::to_numeric` keeps its zero-copy move via direct struct
+/// construction).
 pub fn try_column_to_numeric(s : Series) -> Series {
   match s.storage.kind() {
     @column.StorageKind::Numeric => s

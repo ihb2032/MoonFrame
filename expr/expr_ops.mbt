@@ -353,7 +353,10 @@ pub fn Expr::last(self : Expr) -> Expr {
 }
 
 ///|
-/// Uppercase every character of a String column — Polars' `str.to_uppercase`.
+/// Uppercase the **ASCII** letters of a String column — the shape of
+/// Polars' `str.to_uppercase`, but case mapping is currently ASCII-only
+/// (like `str_strip_chars`' ASCII whitespace set): a non-ASCII letter
+/// (`é`, `ß`, Cyrillic, …) passes through unchanged rather than mapping.
 /// Null cells stay null, the result keeps the operand's column name, and a
 /// non-String operand is a `TypeMismatch` at evaluation. The leading method
 /// of the string namespace: every `str_*` method builds a `Str` node over a
@@ -363,8 +366,9 @@ pub fn Expr::str_to_uppercase(self : Expr) -> Expr {
 }
 
 ///|
-/// Lowercase every character of a String column (Polars `str.to_lowercase`),
-/// the case mirror of `str_to_uppercase`.
+/// Lowercase the **ASCII** letters of a String column (the shape of Polars'
+/// `str.to_lowercase`, with `str_to_uppercase`'s ASCII-only case-mapping
+/// caveat), the case mirror of `str_to_uppercase`.
 pub fn Expr::str_to_lowercase(self : Expr) -> Expr {
   Str(StrOp::ToLowercase, self)
 }

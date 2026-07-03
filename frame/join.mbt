@@ -112,6 +112,9 @@ fn index_by_join_key(
 ///   colliding after suffixing (e.g. the left frame already has both
 ///   `value` and `value_right`, and the right contributes a non-key
 ///   `value`; surfaced by `DataFrame::new`).
+/// - `LengthMismatch` — a `lit_series(s)` key whose embedded series is
+///   neither length 1 nor the frame's height (the evaluator's broadcast
+///   rule, surfacing through key evaluation).
 pub fn DataFrame::join(
   self : DataFrame,
   other : DataFrame,
@@ -357,6 +360,9 @@ pub fn DataFrame::join(
 ///   right).
 /// - `TypeMismatch(detail)` — a key whose left and right dtypes differ (or
 ///   whose own derived dtypes don't unify), first such key in key order.
+/// - `LengthMismatch` — a `lit_series(s)` key whose embedded series is
+///   neither length 1 nor the frame's height (the evaluator's broadcast
+///   rule).
 fn resolve_join_keys(
   left : DataFrame,
   right : DataFrame,

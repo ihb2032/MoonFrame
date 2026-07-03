@@ -19,8 +19,12 @@
 /// Length-1 results (literals) broadcast to `nrows` — to zero rows on an
 /// empty frame. Errors (unknown columns, dtype mismatches, the
 /// unrepresentable `Null` literal) surface here at evaluation time;
-/// building the expressions was total. `with_columns([])` returns an equal
-/// frame.
+/// building the expressions was total. `with_columns([])` returns a frame
+/// with the same values, names, and dtypes; note the rebuild routes through
+/// `DataFrame::new`, whose derived schema declares every field
+/// `nullable = true` — so a `from_rows` frame carrying an explicit
+/// `nullable = false` field comes back with that flag reset (observable
+/// through the schema and the derived `Eq`).
 pub fn DataFrame::with_columns(
   self : DataFrame,
   exprs : Array[@expr.Expr],

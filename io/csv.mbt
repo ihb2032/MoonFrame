@@ -363,6 +363,16 @@ fn validate_csv_delimiter(delimiter : Char) -> Unit raise @types.DataError {
       "CSV delimiter must be a single UTF-16 code unit (a Basic-Multilingual-Plane character)",
     )
   }
+  // U+FEFF can never frame the first field unambiguously: every read strips
+  // a leading U+FEFF as a byte-order mark before tokenizing, so a file whose
+  // first field is empty loses its leading delimiter on read-back and every
+  // cell of that record shifts left — the silent-corruption class this
+  // validation exists to reject.
+  if delimiter == '\u{FEFF}' {
+    raise @types.DataError::InvalidOperation(
+      "CSV delimiter must not be U+FEFF (stripped as a byte-order mark on read)",
+    )
+  }
 }
 
 ///|
@@ -426,6 +436,7 @@ pub fn format_csv(
         name,
         options.delimiter,
         force_empty_quote=single_column,
+        file_start=i == 0,
       )
     }
     buf.write_char('\n')
@@ -451,6 +462,8 @@ pub fn format_csv(
         rendered,
         options.delimiter,
         force_empty_quote=single_column,
+        // With no header row the first data cell sits at byte 0 of the file.
+        file_start=!options.header && r == 0 && c == 0,
       )
     }
     buf.write_char('\n')
@@ -665,12 +678,17 @@ fn build_column(
 ///|
 /// Append `cell` to `buf`, quoting only when needed. A cell needs
 /// quoting iff it contains the delimiter, a double quote, `\r`, or
-/// `\n`. Interior double quotes are doubled per RFC 4180.
+/// `\n` — or, for the file's very first field (`file_start`), when it
+/// begins with U+FEFF: bare at byte 0 that character would be stripped as
+/// a byte-order mark on read-back, silently renaming the column (or
+/// deleting the cell's first character); a leading `"` shields it.
+/// Interior double quotes are doubled per RFC 4180.
 fn write_quoted(
   buf : StringBuilder,
   cell : String,
   delimiter : Char,
   force_empty_quote~ : Bool,
+  file_start~ : Bool,
 ) -> Unit {
   // An empty cell that would otherwise leave its line bare (a single-column
   // row) is written as `""` so the reader cannot mistake it for a skippable
@@ -681,7 +699,8 @@ fn write_quoted(
   }
   let needs_quote = cell
     .iter()
-    .any(ch => ch == delimiter || ch == '"' || ch == '\n' || ch == '\r')
+    .any(ch => ch == delimiter || ch == '"' || ch == '\n' || ch == '\r') ||
+    (file_start && cell.view().get_char(0) == Some('\u{FEFF}'))
   if !needs_quote {
     buf.write_string(cell)
     return

@@ -950,6 +950,41 @@ test "write_csv refuses a cell holding an unpaired surrogate" {
 }
 
 ///|
+test "U+FEFF is rejected as a CSV delimiter" {
+  // Every read strips a leading U+FEFF as a byte-order mark before
+  // tokenizing, so a U+FEFF delimiter whose first field is empty loses its
+  // leading delimiter on read-back and every cell shifts left — rejected
+  // like the quote/terminator/non-BMP collisions.
+  let df = @frame.DataFrame::new([@series.Series::from_strings("a", ["x"])])
+  let opts : @io.CsvWriteOptions = {
+    header: true,
+    delimiter: '\u{FEFF}',
+    null_value: "",
+  }
+  assert_true(
+    (Ok(@io.format_csv(df, opts)) catch { e => Err(e) })
+    is Err(@types.DataError::InvalidOperation(_)),
+  )
+}
+
+///|
+test "a leading U+FEFF in the first column name survives the round-trip" {
+  // Bare at byte 0 the U+FEFF would be stripped as a BOM on read-back,
+  // silently renaming the column; the writer force-quotes the file's very
+  // first field so a leading quote shields it.
+  let df = @frame.DataFrame::new([
+    @series.Series::from_strings("\u{FEFF}id", ["v"]),
+    @series.Series::from_strings("b", ["w"]),
+  ])
+  let back = @io.parse_csv_str(
+    @io.format_csv(df, @io.CsvWriteOptions::default()),
+    @io.CsvReadOptions::default(),
+  )
+  assert_eq(back.columns(), ["\u{FEFF}id", "b"])
+  assert_eq(back, df)
+}
+
+///|
 test "write_csv still writes well-formed surrogate pairs" {
   // The guard only rejects *unpaired* surrogates: a supplementary-plane
   // character stored as a proper pair round-trips unharmed.

@@ -81,9 +81,12 @@ pub struct JoinOptions {
 /// `with_suffix` to change the suffix, and `with_coalesce` to force key
 /// coalescing on or off:
 /// `JoinOptions::on([col("id")]).with_how(Left).with_coalesce(true)`.
+///
+/// The `keys` array is copied (as in `left_on` / `with_right_on`), so
+/// mutating it after construction cannot alter the join specification.
 pub fn JoinOptions::on(keys : Array[@expr.Expr]) -> JoinOptions {
   {
-    on: keys,
+    on: keys.copy(),
     left_on: [],
     right_on: [],
     how: Inner,
@@ -103,7 +106,7 @@ pub fn JoinOptions::on(keys : Array[@expr.Expr]) -> JoinOptions {
 pub fn JoinOptions::left_on(keys : Array[@expr.Expr]) -> JoinOptions {
   {
     on: [],
-    left_on: keys,
+    left_on: keys.copy(),
     right_on: [],
     how: Inner,
     suffix: "_right",
@@ -139,7 +142,7 @@ pub fn JoinOptions::with_right_on(
   {
     on: self.on,
     left_on: self.left_on,
-    right_on: keys,
+    right_on: keys.copy(),
     how: self.how,
     suffix: self.suffix,
     coalesce: self.coalesce,

@@ -214,7 +214,10 @@ fn frame_from_json_records(
   }
   // Build one typed column per header, skipping any the projection drops; the
   // surviving columns keep first-seen header order, so a projected read is
-  // column-for-column a sub-frame of the full read.
+  // column-for-column a sub-frame of the full read. A projection matching no
+  // header falls back to a full read (see `effective_projection`) so the row
+  // count survives for the as-built error to surface downstream.
+  let projection = effective_projection(projection, headers)
   let series : Array[@series.Series] = []
   for name in headers {
     let included = match projection {

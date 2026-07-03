@@ -77,6 +77,30 @@ test "each deferred verb collects to its eager equivalent" {
 }
 
 ///|
+test "a dtype-changing map under a grouped reduction collects like eager" {
+  // The deferred dtype probe must behave identically through the lazy
+  // Aggregate node: the closure's Int output types the reduction, not the
+  // Map's String input column.
+  let df = @frame.DataFrame::new([
+    @series.Series::from_strings("g", ["x", "x", "y"]),
+    @series.Series::from_strings("s", ["a", "bb", "ccc"]),
+  ])
+  let strlen = @expr.col("s").map_elements(label="len", s => {
+    match s {
+      @types.Scalar::String(v) => @types.Scalar::Int(v.length().to_int64())
+      _ => @types.Scalar::Null
+    }
+  })
+  let aggs = [strlen.sum().with_alias("total")]
+  let out = lazy_frame(df).group_by([@expr.col("g")]).agg(aggs).collect()
+  assert_eq(out, df.group_by([@expr.col("g")]).agg(aggs))
+  assert_eq(out.get_column("total").to_scalars(), [
+    @types.Scalar::Int(3),
+    @types.Scalar::Int(3),
+  ])
+}
+
+///|
 test "builders copy their array arguments — later mutation is unobservable" {
   let df = sales_df()
   let sel = [@expr.col("qty")]

@@ -45,6 +45,11 @@ test "show: every literal kind" {
   inspect(lit_float(1.0), content="1.0")
   inspect(lit_float(0.0 / 0.0), content="NaN")
   inspect(lit_float(1.0 / 0.0), content="Infinity")
+  // Negative zero keeps its sign (`Double::to_string` drops it): the two
+  // zeros evaluate observably differently under division, so their
+  // rendered literals must stay distinguishable.
+  inspect(lit_float(-0.0), content="-0.0")
+  inspect(lit_float(0.0), content="0.0")
   inspect(lit_str("west"), content="\"west\"")
   inspect(lit_bool(true), content="true")
   inspect(lit(@types.Scalar::Null), content="null")

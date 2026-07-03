@@ -304,21 +304,28 @@ fn push_write_tasks(stack : Array[WriteTask], expr : Expr) -> Unit {
 fn write_scalar(logger : &Logger, value : @types.Scalar) -> Unit {
   match value {
     Int(v) => logger.write_string(v.to_string())
-    Float(v) => {
+    Float(v) =>
       // `Double::to_string` prints a finite whole value without a decimal
       // point (`1.0` -> `"1"`), which would read as `lit_int(1)`; append
-      // `.0` so a `Float` literal stays distinct from an `Int` one. `NaN` /
-      // `Infinity` / `-Infinity` are non-finite (`v - v != 0`) and keep their
-      // own spelling.
-      let s = v.to_string()
-      let finite = v - v == 0.0
-      let has_point = s.iter().any(c => c == '.' || c == 'e' || c == 'E')
-      if finite && !has_point {
-        logger.write_string(s + ".0")
+      // `.0` so a `Float` literal stays distinct from an `Int` one. It also
+      // drops the sign of negative zero (`-0.0` -> `"0"`), yet the two
+      // zeros evaluate observably differently under division (`1.0 / -0.0 =
+      // -inf`) — the very distinction the optimizer's `division_free` gate
+      // exists for — so re-add the sign from the sign bit. `NaN` /
+      // `Infinity` / `-Infinity` are non-finite (`v - v != 0`) and keep
+      // their own spelling.
+      if v == 0.0 && v.reinterpret_as_int64() != 0L {
+        logger.write_string("-0.0")
       } else {
-        logger.write_string(s)
+        let s = v.to_string()
+        let finite = v - v == 0.0
+        let has_point = s.iter().any(c => c == '.' || c == 'e' || c == 'E')
+        if finite && !has_point {
+          logger.write_string(s + ".0")
+        } else {
+          logger.write_string(s)
+        }
       }
-    }
     Bool(v) => logger.write_string(v.to_string())
     String(v) => {
       logger.write_string("\"")

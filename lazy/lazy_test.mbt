@@ -294,6 +294,15 @@ test "the column / row verbs render in explain, with each fill-value form" {
       #|  SCAN [4×3]
     ),
   )
+  // Negative zero keeps its sign — the two zeros evaluate observably
+  // differently under division, so the plan line must distinguish them.
+  inspect(
+    lazy_frame(df).fill_null(@types.Scalar::Float(-0.0)).explain(),
+    content=(
+      #|FILL_NULL -0.0
+      #|  SCAN [4×3]
+    ),
+  )
   inspect(
     lazy_frame(df).fill_null(@types.Scalar::Bool(true)).explain(),
     content=(

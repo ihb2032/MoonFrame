@@ -432,16 +432,22 @@ fn scalar_label(value : @types.Scalar) -> String {
     // distinct. Non-finite (`NaN` / `Infinity`) keeps its own spelling. Mirrors
     // `@expr.write_scalar`, kept in sync by hand (the two packages can't share
     // a private helper).
-    @types.Scalar::Float(v) => {
-      let s = v.to_string()
-      let finite = v - v == 0.0
-      let has_point = s.iter().any(c => c == '.' || c == 'e' || c == 'E')
-      if finite && !has_point {
-        s + ".0"
+    @types.Scalar::Float(v) =>
+      // Negative zero keeps its sign (`Double::to_string` drops it), like
+      // `@expr.write_scalar` — the two zeros are observably different under
+      // division, so a plan line must keep them distinguishable.
+      if v == 0.0 && v.reinterpret_as_int64() != 0L {
+        "-0.0"
       } else {
-        s
+        let s = v.to_string()
+        let finite = v - v == 0.0
+        let has_point = s.iter().any(c => c == '.' || c == 'e' || c == 'E')
+        if finite && !has_point {
+          s + ".0"
+        } else {
+          s
+        }
       }
-    }
     @types.Scalar::Bool(v) => v.to_string()
     @types.Scalar::String(s) => "\"\{@types.escape_debug(s)}\""
     @types.Scalar::Null => "null"

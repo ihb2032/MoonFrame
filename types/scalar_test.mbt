@@ -117,6 +117,30 @@ test "Scalar::eq cross-type raises" {
 }
 
 ///|
+test "gt / gte report an incomparable pair in call order" {
+  // `gt` delegates to `other.lt(self)`, which transposes the operands — the
+  // diagnostic must still name them in the caller's order, like eq/lt/lte.
+  assert_eq(
+    Ok(Scalar::Int(1).gt(Scalar::String("x"))) catch {
+      e => Err(e)
+    },
+    Err(DataError::TypeMismatch("cannot compare Int and String")),
+  )
+  assert_eq(
+    Ok(Scalar::Int(1).gte(Scalar::String("x"))) catch {
+      e => Err(e)
+    },
+    Err(DataError::TypeMismatch("cannot compare Int and String")),
+  )
+  // Comparable pairs still delegate (Bool orders false < true; String
+  // orders lexicographically).
+  assert_true(Scalar::Bool(true).gt(Scalar::Bool(false)))
+  assert_false(Scalar::Bool(false).gte(Scalar::Bool(true)))
+  assert_true(Scalar::String("fig").gt(Scalar::String("apple")))
+  assert_true(Scalar::String("fig").gte(Scalar::String("fig")))
+}
+
+///|
 test "Scalar::lt / lte / gt / gte" {
   assert_eq(Scalar::Int(1).lt(Scalar::Int(2)), true)
   assert_eq(Scalar::Int(2).lt(Scalar::Int(2)), false)

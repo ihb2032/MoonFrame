@@ -137,12 +137,16 @@ test "to_markdown: column width respects the 3-char dash minimum" {
 
 ///|
 test "to_markdown_with_limit: truncates and appends `... (N more rows)`" {
+  // The blank line before the banner ends the GFM table, so the banner
+  // renders as the paragraph below it — glued to the last row it would
+  // parse as one more single-cell table ROW.
   let df = DataFrame::new([Series::from_ints("n", [1, 2, 3, 4, 5])])
   let expected =
     #|| n   |
     #|| --- |
     #|| 1   |
     #|| 2   |
+    #|
     #|... (3 more rows)
     #|
   assert_eq(df.to_markdown_with_limit(2), expected)
@@ -170,6 +174,7 @@ test "to_markdown_with_limit: limit=0 shows header + separator + banner" {
   let expected =
     #|| n   |
     #|| --- |
+    #|
     #|... (3 more rows)
     #|
   assert_eq(df.to_markdown_with_limit(0), expected)
@@ -181,6 +186,7 @@ test "to_markdown_with_limit: negative limit is clamped to 0" {
   let expected =
     #|| n   |
     #|| --- |
+    #|
     #|... (2 more rows)
     #|
   assert_eq(df.to_markdown_with_limit(-5), expected)

@@ -108,6 +108,24 @@ test "is_widget_row: keeps matching rows and drops the rest" {
 }
 
 ///|
+test "is_widget_row: a null product cell drops the row, not the report" {
+  // An empty product field in the user-editable CSV parses to a null cell;
+  // the predicate maps it to `false` (the verdict the idiomatic
+  // `col("product").eq(lit_str("widget"))` reaches via Kleene logic)
+  // instead of raising through `Scalar::as_string` and failing the whole
+  // pipeline.
+  let csv =
+    #|region,product,price,quantity,revenue,active
+    #|west,widget,9.5,12,114.0,true
+    #|south,,12.0,10,120.0,true
+    #|
+  let df = @moonframe.parse_csv_str(csv, @moonframe.CsvReadOptions::default())
+  let (sorted, _) = widget_report(df)
+  assert_eq(sorted.shape(), (1, 4))
+  assert_eq(sorted.item(0, "region"), @moonframe.Scalar::String("west"))
+}
+
+///|
 test "is_widget_row: surfaces accessor error when `product` column is absent" {
   let df = @moonframe.DataFrame::new([@moonframe.Series::from_ints("id", [1])])
   assert_true(

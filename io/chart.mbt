@@ -237,14 +237,22 @@ fn encoding_channel(
 /// Escape a column name for use as a Vega-Lite encoding `field`. Vega-Lite
 /// reads an unescaped `.` as nested-object access and `[...]` as array
 /// indexing, so a column literally named `price.usd` or `a[0]` would resolve
-/// to a missing nested path and silently plot nothing. Prefixing `\`, `.`,
-/// `[`, and `]` with a backslash makes the name a literal field access (the
-/// JSON stringifier then escapes the backslash itself). A single forward pass,
-/// total.
+/// to a missing nested path and silently plot nothing. Quote characters are
+/// worse: Vega compiles the field into a `datum[...]` accessor expression,
+/// where a bare `'` or `"` terminates the string early and the generated
+/// expression fails to parse — the exported spec throws at compile time
+/// instead of rendering. Prefixing `\`, `.`, `[`, `]`, `'`, and `"` with a
+/// backslash makes the name a literal field access (the JSON stringifier
+/// then escapes the backslash itself). A single forward pass, total.
 fn escape_vega_field(name : String) -> String {
   let buf = StringBuilder::new()
   for ch in name.iter() {
-    if ch == '\\' || ch == '.' || ch == '[' || ch == ']' {
+    if ch == '\\' ||
+      ch == '.' ||
+      ch == '[' ||
+      ch == ']' ||
+      ch == '\'' ||
+      ch == '"' {
       buf.write_char('\\')
       buf.write_char(ch)
     } else {

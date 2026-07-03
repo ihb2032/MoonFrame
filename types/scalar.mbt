@@ -162,16 +162,44 @@ pub fn Scalar::lte(self : Scalar, other : Scalar) -> Bool raise DataError {
 }
 
 ///|
-/// Strict greater-than, defined as `other.lt(self)` — same `Null`-`raise` and
-/// ordering rules as `lt`.
-pub fn Scalar::gt(self : Scalar, other : Scalar) -> Bool raise DataError {
-  other.lt(self)
+/// Whether the pair reaches a value arm of `lt` / `eq` — i.e. anything but
+/// the incomparable-dtypes fallthrough. `Null` counts: it reaches the
+/// dedicated `Null`-`raise` arm, whose fixed message has no operand order
+/// to preserve. The gate `gt` / `gte` consult so their transposed
+/// delegation cannot also transpose the diagnostic.
+fn comparable_pair(a : Scalar, b : Scalar) -> Bool {
+  match (a, b) {
+    (Null, _) | (_, Null) => true
+    (Int(_) | Float(_), Int(_) | Float(_)) => true
+    (Bool(_), Bool(_)) => true
+    (String(_), String(_)) => true
+    _ => false
+  }
 }
 
 ///|
-/// Greater-than-or-equal, defined as `other.lte(self)` — same rules as `lte`.
+/// Strict greater-than, defined as `other.lt(self)` — same `Null`-`raise` and
+/// ordering rules as `lt`. The delegation transposes the operands, so the
+/// incomparable-dtypes diagnostic is issued here first, in the caller's
+/// operand order — `Int(1).gt(String("x"))` reports "Int and String", not
+/// the transposed pair `eq` / `lt` / `lte` would never produce.
+pub fn Scalar::gt(self : Scalar, other : Scalar) -> Bool raise DataError {
+  if !comparable_pair(self, other) {
+    type_mismatch_for_compare(self, other)
+  } else {
+    other.lt(self)
+  }
+}
+
+///|
+/// Greater-than-or-equal, defined as `other.lte(self)` — same rules as
+/// `lte`, with `gt`'s call-order diagnostic for an incomparable pair.
 pub fn Scalar::gte(self : Scalar, other : Scalar) -> Bool raise DataError {
-  other.lte(self)
+  if !comparable_pair(self, other) {
+    type_mismatch_for_compare(self, other)
+  } else {
+    other.lte(self)
+  }
 }
 
 ///|

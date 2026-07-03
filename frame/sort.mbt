@@ -309,11 +309,7 @@ fn stable_mergesort_indices(n : Int, cmp : (Int, Int) -> Int) -> Array[Int] {
       // (the overflow-avoidance `bitmap.mbt` also uses). `right_end` is the
       // second run's end, so advancing `start` to it equals the old
       // `start + 2*width`: both land at `min(start + 2*width, n)` and end the
-      // pass once they reach `n`. (The run width itself doubles each pass at
-      // `width = width * 2` below; that product overflows `Int` only at
-      // `n > 2^30`, where the `buf` / `aux` `Int` arrays allocated above would
-      // exhaust memory first, so the doubling is unreachable in practice
-      // rather than separately guarded.)
+      // pass once they reach `n`.
       let mid = if width < n - start { start + width } else { n }
       let right_end = if width < n - mid { mid + width } else { n }
       merge_run(buf, aux, left, mid, right_end, cmp)
@@ -323,6 +319,16 @@ fn stable_mergesort_indices(n : Int, cmp : (Int, Int) -> Int) -> Array[Int] {
     // from a contiguous source.
     for k in 0..<n {
       buf[k] = aux[k]
+    }
+    // Stop once a single run covers the array instead of doubling first:
+    // `width * 2` wraps negative at `width = 2^30`, which `n > 2^30` reaches
+    // (a 64-bit native heap fits the two `Int` arrays), and the wrapped
+    // width re-enters the pass with negative run bounds — an out-of-bounds
+    // abort. Both operands are positive with `width < n`, so `n - width`
+    // cannot overflow, and `width >= n - width` is exactly "the doubled
+    // width would be >= n".
+    if width >= n - width {
+      break
     }
     width = width * 2
   }

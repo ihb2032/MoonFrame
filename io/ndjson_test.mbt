@@ -449,6 +449,41 @@ test "write_ndjson refuses a cell holding an unpaired surrogate" {
 }
 
 ///|
+test "a non-object record's ParseError names its line" {
+  // Line 2 is valid JSON but an array; the error must carry the locator,
+  // like the per-line syntax and build-stage dtype errors already do.
+  assert_eq(
+    Ok(
+      @io.parse_ndjson_str(
+        "{\"a\":1}\n[1,2]\n{\"a\":3}\n",
+        @io.NdjsonReadOptions::default(),
+      ),
+    ) catch {
+      e => Err(e)
+    },
+    Err(
+      @types.DataError::ParseError(
+        "line 2: expected each record to be a JSON object",
+      ),
+    ),
+  )
+}
+
+///|
+test "negative zero keeps its sign on an NDJSON round-trip" {
+  // A repr-less number renders through Double's Show, which drops the sign
+  // of -0.0 — the token `0` would read back as +0.0 and `1.0 / x` flip from
+  // -inf to +inf. The writer pins the exact token instead.
+  let df = @frame.DataFrame::new([@series.Series::from_floats("a", [-0.0, 1.5])])
+  let text = @io.format_ndjson(df)
+  assert_true(text.contains("-0.0"))
+  let back = @io.parse_ndjson_str(text, @io.NdjsonReadOptions::default())
+  // Double's == treats -0.0 and +0.0 as equal, so assert on the sign bit.
+  let cell = back.get_column("a").get(0).as_float()
+  assert_true(cell == 0.0 && cell.reinterpret_as_int64() != 0L)
+}
+
+///|
 test "read_ndjson_with_options honours a custom inference window" {
   let path = "_build/io_ndjson_test_custom.ndjson"
   let df = @frame.DataFrame::new([

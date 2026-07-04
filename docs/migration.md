@@ -5,6 +5,15 @@ changes ride the minor version. For the feature history behind each release see
 [`changelog.md`](changelog.md); for the current public surface see
 [`api.md`](api.md).
 
+## v0.5.3 → v0.5.4
+
+No source-level migration steps. v0.5.4 is an additive patch: every v0.5.3
+symbol and signature is unchanged, and nothing is renamed, removed, re-signed,
+or given a new required `match` arm. The new surface is purely additive — the
+API-consistency aliases (`NumericColumn::from_ints` / `from_floats`,
+`JoinOptions::with_left_on`, `DataFrame::limit`) and the `format_scalar_literal`
+facade re-export listed in the [changelog](changelog.md).
+
 ## v0.5.2 → v0.5.3
 
 No source-level migration steps: no renames, no signature changes, and no new

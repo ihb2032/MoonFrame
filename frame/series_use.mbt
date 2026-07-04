@@ -15,6 +15,7 @@ using @series {
   type KeyCell,
   type ReduceOp,
   gather_series,
+  gather_series_opt,
   slice_series,
   validity_bools,
   rebuild_options,

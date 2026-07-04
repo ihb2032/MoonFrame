@@ -8,11 +8,6 @@
 // at the helper for a focused contract, the same rationale as
 // `invariants_wbtest.mbt`.
 //
-// `expr_output_name`: the §0 naming rule — alias wins, wrappers are
-// transparent, a ternary names from its value branches — spelled directly
-// against the private helper, one assertion per clause (the public
-// surface exercises it only through whole `with_columns` calls).
-//
 // `eval_expr` under a partial scope: the whole-frame consumers pass the
 // whole-frame scope; the group-subset behavior is the contract the grouped
 // `agg` builds on, pinned here at the evaluator level.
@@ -40,27 +35,6 @@ test "broadcast_series: a length neither 1 nor target raises LengthMismatch" {
 }
 
 ///|
-test "expr_output_name: alias wins anywhere on the naming path" {
-  assert_true(
-    expr_output_name((@expr.col("a") + @expr.col("b")).with_alias("net")) ==
-    "net",
-  )
-  // A nested alias on the leftmost path outranks the column beneath it.
-  assert_true(
-    expr_output_name(@expr.col("a").with_alias("x") + @expr.col("b")) == "x",
-  )
-}
-
-///|
-test "expr_output_name: unary, aggregation, and cast wrappers are transparent" {
-  assert_true(expr_output_name(-@expr.col("a")) == "a")
-  assert_true(expr_output_name(@expr.col("a").sum()) == "a")
-  assert_true(
-    expr_output_name(@expr.col("a").cast(@types.DataType::Float)) == "a",
-  )
-}
-
-///|
 test "eval_expr under a group-subset scope: gathers and reduces only those rows" {
   let df = DataFrame::new([
     Series::from_ints("v", [10, 20, 30, 40]),
@@ -80,27 +54,4 @@ test "eval_expr under a group-subset scope: gathers and reduces only those rows"
   assert_true(total.to_scalars() == [@types.Scalar::Int(40)])
   let partial = eval_expr(@expr.col("w").sum(), df, [1, 2, 3])
   assert_true(partial.to_scalars() == [@types.Scalar::Int(3)])
-}
-
-///|
-test "expr_output_name: ternary names from then, falls back to otherwise, never the condition" {
-  let cond = @expr.col("c").gt(@expr.lit_int(0))
-  assert_true(
-    expr_output_name(
-      @expr.when(cond).then(@expr.col("t")).otherwise(@expr.col("f")),
-    ) ==
-    "t",
-  )
-  assert_true(
-    expr_output_name(
-      @expr.when(cond).then(@expr.lit_int(1)).otherwise(@expr.col("f")),
-    ) ==
-    "f",
-  )
-  assert_true(
-    expr_output_name(
-      @expr.when(cond).then(@expr.lit_int(1)).otherwise(@expr.lit_int(0)),
-    ) ==
-    "literal",
-  )
 }

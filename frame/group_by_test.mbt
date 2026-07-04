@@ -494,7 +494,7 @@ test "empty keys and empty specs collapse to a 0x0 frame" {
 // ── Composite-key injectivity ────────────────────────────────────────
 
 ///|
-test "multi-key composite is injective across field boundaries" {
+test "group_by: multi-key composite is injective across field boundaries" {
   // Naively concatenated, ("a","bc") and ("ab","c") both spell "abc" and
   // would collapse into one group. The composite key-cell tuple keeps
   // them apart → two groups.

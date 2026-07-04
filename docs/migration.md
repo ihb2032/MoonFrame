@@ -5,6 +5,23 @@ changes ride the minor version. For the feature history behind each release see
 [`changelog.md`](changelog.md); for the current public surface see
 [`api.md`](api.md).
 
+## v0.5.2 → v0.5.3
+
+No source-level migration steps: no renames, no signature changes, and no new
+required `match` arms. v0.5.3 is a correctness and robustness patch, so the only
+changes are behavioural fixes that code should not have depended on:
+
+- A chain of `fill_null` / `fill_nan` now builds in linear time instead of an
+  exponentially-sized tree; the results are identical.
+- Out-of-range indices in the row-gather path (reached through `DataFrame::take`
+  and the join planner) yield a null cell instead of panicking. Code that
+  relied on the panic to flag a bad index should validate indices itself.
+- `Series::variance` / `std` saturate to `+inf` on intermediate Welford
+  overflow rather than returning a spurious finite value.
+- A read projection (`read_csv_projected` / `read_ndjson_projected`, and the
+  `lazy` scans built on them) that names no column present in the header now
+  falls back to reading the full file instead of yielding an empty frame.
+
 ## v0.5.1 → v0.5.2
 
 Additive plus two behaviour fixes; no renames.

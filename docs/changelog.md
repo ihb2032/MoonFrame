@@ -6,6 +6,36 @@ breaking-change steps for each release are collected in
 [`migration.md`](migration.md). Pre-1.0, breaking changes ride the minor
 version.
 
+## v0.5.4 — API-consistency aliases and facade completeness
+
+An additive patch. Every symbol and signature is unchanged from v0.5.3, so no
+code changes are required to upgrade; a few consistency aliases and a facade
+re-export fill small gaps, over a round of internal restructuring.
+
+### API-consistency aliases
+
+- `NumericColumn::from_ints` / `from_floats` join `from_int64s` / `from_doubles`
+  as aliases, matching the `from_ints` / `from_floats` spelling every other
+  layer (`Series`, `BuiltinColumn`) already uses.
+- `JoinOptions::with_left_on(keys)` mirrors `with_right_on`, so either side's
+  key set can be (re)supplied anywhere in a builder chain.
+- `DataFrame::limit(n)` is a Polars-style alias of `head(n)` — the eager twin
+  of `LazyFrame::limit`.
+
+### Facade completeness
+
+`format_scalar_literal` — the scalar display-syntax renderer behind the `expr`
+and `lazy` `explain` output — is now re-exported from the `@moonframe` facade,
+so it is reachable without importing `@types` directly.
+
+### Internal restructuring (no behaviour change)
+
+The expression evaluator (`frame/expr_eval.mbt`) and the query optimizer
+(`lazy/optimize.mbt`) were each split into an entry shell plus focused
+per-operator / per-pass files; the elementwise kernels gained `Numeric` fast
+arms; and a batch of structure cleanups from an architecture-smell review
+landed. No API, behaviour, or output change.
+
 ## v0.5.3 — correctness and robustness
 
 A patch release. Every symbol and signature is unchanged from v0.5.2, so no

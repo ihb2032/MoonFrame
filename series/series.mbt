@@ -303,7 +303,9 @@ pub fn try_column_to_numeric(s : Series) -> Series {
                 @column.NumericColumn::from_doubles(a),
               ),
             )
-          _ => s
+          // No wildcard: a future `ColumnData` variant must decide here
+          // whether it converges onto the `Numeric` backend.
+          @column.ColumnData::Bool(_) | @column.ColumnData::String(_) => s
         }
       }
   }

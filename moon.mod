@@ -16,6 +16,6 @@ repository = "https://github.com/ihb2032/MoonFrame"
 
 license = "Apache-2.0"
 
-keywords = [ "dataframe", "data-analysis", "csv", "tabular"]
+keywords = [ "dataframe", "data-analysis", "csv", "tabular" ]
 
 description = "A lightweight DataFrame and tabular-data library for MoonBit"

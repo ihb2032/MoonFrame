@@ -82,6 +82,13 @@ in [`migration.md`](migration.md).
   CSV / JSON readers' type inference and the `@column` String→`Int` cast
   both route through this predicate so they agree on what counts as an
   integer literal.
+- `fn format_scalar_literal(value) -> String` — display-syntax rendering
+  of a literal `Scalar`, the one spelling shared by `Expr`'s `explain`
+  renderer and `LazyFrame`'s plan printer so the two can never drift:
+  `Int` / `Bool` bare, a `String` quoted and escaped, `Null` as `null`,
+  and a `Float` kept distinct from an `Int` — a finite whole value keeps
+  a `.0` suffix, negative zero keeps its sign, `NaN` / `Infinity` /
+  `-Infinity` keep their own spelling.
 - `struct Field` — column metadata: `name`, `dtype`, `nullable`. Total
   constructors `Field::new(name, dtype)` (defaults `nullable = true`)
   and `Field::with_nullable(name, dtype, nullable)`; accessors `name` /

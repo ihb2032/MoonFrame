@@ -530,7 +530,8 @@ fn gather_series_opt(
       Series::from_ints(out_name, rows.map(j => a[j]))
     (@column.ColumnData::Float(a), Some(rows)) =>
       Series::from_floats(out_name, rows.map(j => a[j]))
-    _ => {
+    (@column.ColumnData::Int(_) | @column.ColumnData::Float(_), None)
+    | (@column.ColumnData::Bool(_) | @column.ColumnData::String(_), _) => {
       let validity = s.storage().validity()
       // Output cell `k` reads source row `idx[k]` when it is `Some` (and the
       // cell there is valid), else a null. Read each matched row's validity by

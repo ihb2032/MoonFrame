@@ -270,9 +270,9 @@ test "the column / row verbs render in explain, with each fill-value form" {
       #|  SCAN [4×3]
     ),
   )
-  // fill_null renders every scalar value form (covers scalar_label's arms),
-  // including a whole-valued Float, which keeps its `.0` so it stays distinct
-  // from an Int literal.
+  // fill_null renders every scalar value form (through
+  // `@types.format_scalar_literal`), including a whole-valued Float, which
+  // keeps its `.0` so it stays distinct from an Int literal.
   inspect(
     lazy_frame(df).fill_null(@types.Scalar::Int(0)).explain(),
     content=(

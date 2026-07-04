@@ -5,7 +5,6 @@ import {
   "moonbit-community/NyaCSV" @nyacsv,
   "moonbitlang/core/debug",
   "moonbitlang/core/json",
-  "moonbitlang/core/string",
   "moonbitlang/x/fs",
 }
 

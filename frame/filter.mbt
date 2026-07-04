@@ -35,7 +35,9 @@ pub fn DataFrame::filter(
   let mask = broadcast_series(eval_expr(predicate, self, scope), n)
   let cells = match mask.storage().data() {
     @column.ColumnData::Bool(a) => a
-    _ =>
+    @column.ColumnData::Int(_)
+    | @column.ColumnData::Float(_)
+    | @column.ColumnData::String(_) =>
       raise @types.DataError::TypeMismatch(
         "filter predicate must be Bool, got \{mask.dtype()}",
       )

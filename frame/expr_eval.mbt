@@ -482,7 +482,8 @@ fn eval_arith(
         left.name(),
         zip_present(a.length(), lv, rv, i => float_op(a[i], b[i])),
       )
-    (_, _) =>
+    (@column.ColumnData::Bool(_) | @column.ColumnData::String(_), _)
+    | (_, @column.ColumnData::Bool(_) | @column.ColumnData::String(_)) =>
       raise @types.DataError::TypeMismatch(
         binary_type_mismatch_msg(verb, left, right),
       )
@@ -524,7 +525,8 @@ fn eval_div(left : Series, right : Series) -> Series raise @types.DataError {
         left.name(),
         zip_present(a.length(), lv, rv, i => a[i] / b[i]),
       )
-    (_, _) =>
+    (@column.ColumnData::Bool(_) | @column.ColumnData::String(_), _)
+    | (_, @column.ColumnData::Bool(_) | @column.ColumnData::String(_)) =>
       raise @types.DataError::TypeMismatch(
         binary_type_mismatch_msg("divide", left, right),
       )
@@ -669,7 +671,8 @@ fn eval_compare(
         (x, y) => x == y,
         verb,
       )
-    (_, _) =>
+    (@column.ColumnData::Bool(_) | @column.ColumnData::String(_), _)
+    | (_, @column.ColumnData::Bool(_) | @column.ColumnData::String(_)) =>
       raise @types.DataError::TypeMismatch(
         binary_type_mismatch_msg("compare", left, right),
       )
@@ -710,7 +713,18 @@ fn eval_logic(
           )
         }),
       )
-    (_, _) =>
+    (
+      @column.ColumnData::Int(_)
+      | @column.ColumnData::Float(_)
+      | @column.ColumnData::String(_),
+      _,
+    )
+    | (
+      _,
+      @column.ColumnData::Int(_)
+      | @column.ColumnData::Float(_)
+      | @column.ColumnData::String(_),
+    ) =>
       raise @types.DataError::TypeMismatch(
         "logical '\{verb}' requires Bool operands, got \{left.dtype()} and \{right.dtype()}",
       )
@@ -773,7 +787,7 @@ fn eval_neg(operand : Series) -> Series raise @types.DataError {
         operand.name(),
         map_present(a.length(), valid, i => -a[i]),
       )
-    _ =>
+    @column.ColumnData::Bool(_) | @column.ColumnData::String(_) =>
       raise @types.DataError::TypeMismatch("cannot negate \{operand.dtype()}")
   }
   try_column_to_numeric(out)
@@ -802,7 +816,7 @@ fn eval_is_nan(
         operand.name(),
         map_present(a.length(), valid, _ => !want_nan),
       )
-    _ => {
+    @column.ColumnData::Bool(_) | @column.ColumnData::String(_) => {
       let probe = if want_nan { "is_nan" } else { "is_not_nan" }
       raise @types.DataError::TypeMismatch(
         "\{probe} requires a numeric operand, got \{operand.dtype()}",
@@ -822,7 +836,9 @@ fn eval_not(operand : Series) -> Series raise @types.DataError {
         operand.name(),
         map_present(a.length(), valid, i => !a[i]),
       )
-    _ =>
+    @column.ColumnData::Int(_)
+    | @column.ColumnData::Float(_)
+    | @column.ColumnData::String(_) =>
       raise @types.DataError::TypeMismatch(
         "logical 'not' requires a Bool operand, got \{operand.dtype()}",
       )
@@ -847,7 +863,9 @@ fn eval_str(
 ) -> Series raise @types.DataError {
   let data = match operand.storage().data() {
     @column.ColumnData::String(a) => a
-    _ =>
+    @column.ColumnData::Int(_)
+    | @column.ColumnData::Float(_)
+    | @column.ColumnData::Bool(_) =>
       raise @types.DataError::TypeMismatch(
         "string operation requires a String operand, got \{operand.dtype()}",
       )
@@ -1004,7 +1022,9 @@ fn eval_ternary(
   }
   let cond_cells = match c2.storage().data() {
     @column.ColumnData::Bool(a) => a
-    _ =>
+    @column.ColumnData::Int(_)
+    | @column.ColumnData::Float(_)
+    | @column.ColumnData::String(_) =>
       raise @types.DataError::TypeMismatch(
         "when condition must be Bool, got \{c2.dtype()}",
       )
@@ -1073,7 +1093,8 @@ fn eval_ternary(
           i => if ev[i] { Some(b[i]) } else { None },
         ),
       )
-    (_, _) =>
+    (@column.ColumnData::Bool(_) | @column.ColumnData::String(_), _)
+    | (_, @column.ColumnData::Bool(_) | @column.ColumnData::String(_)) =>
       raise @types.DataError::TypeMismatch(
         "when/then/otherwise branches do not unify: \{t2.dtype()} and \{e2.dtype()}",
       )

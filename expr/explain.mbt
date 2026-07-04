@@ -178,8 +178,8 @@ fn leftmost_name(expr : Expr) -> String? {
 ///|
 /// A pending step for the iterative `write_expr`: either a literal string
 /// fragment to emit, a sub-expression still to expand, or one of the three leaf
-/// writers that take more than a plain string (`write_scalar` for a `Lit`, a
-/// `Cast` target, a `Str` suffix).
+/// writers that take more than a plain string (`@types.format_scalar_literal`
+/// for a `Lit`, a `Cast` target, a `Str` suffix).
 priv enum WriteTask {
   Frag(String)
   Node(Expr)
@@ -203,7 +203,7 @@ fn write_expr(logger : &Logger, expr : Expr) -> Unit {
       Some(task) =>
         match task {
           Frag(s) => logger.write_string(s)
-          ScalarLit(v) => write_scalar(logger, v)
+          ScalarLit(v) => logger.write_string(@types.format_scalar_literal(v))
           CastTarget(t) => t.output(logger)
           StrSuffix(op) => write_str_suffix(logger, op)
           Node(e) => push_write_tasks(stack, e)
@@ -219,7 +219,8 @@ fn write_expr(logger : &Logger, expr : Expr) -> Unit {
 fn push_write_tasks(stack : Array[WriteTask], expr : Expr) -> Unit {
   let tasks : Array[WriteTask] = match expr {
     // `col(name)` and `Alias`'s ` as name` render the name UNQUOTED, unlike a
-    // string literal (`write_scalar` quotes those), so `col("x")` stays distinct
+    // string literal (`@types.format_scalar_literal` quotes those), so
+    // `col("x")` stays distinct
     // from `lit_str("x")` in a plan line. A name containing literal parens can
     // therefore read paren-ambiguously (`col(a)b)`); that is display-only and
     // accepted — `explain` output is diagnostic, not re-parsed.
@@ -297,46 +298,6 @@ fn push_write_tasks(stack : Array[WriteTask], expr : Expr) -> Unit {
 }
 
 ///|
-/// Bare-value rendering for literals. Strings are quoted so `lit_str("x")`
-/// and `col("x")` stay distinguishable, and the (unevaluatable) null
-/// literal renders as `null` — this is display syntax, not the debug form
-/// `Scalar`'s own `Show` produces.
-fn write_scalar(logger : &Logger, value : @types.Scalar) -> Unit {
-  match value {
-    Int(v) => logger.write_string(v.to_string())
-    Float(v) =>
-      // `Double::to_string` prints a finite whole value without a decimal
-      // point (`1.0` -> `"1"`), which would read as `lit_int(1)`; append
-      // `.0` so a `Float` literal stays distinct from an `Int` one. It also
-      // drops the sign of negative zero (`-0.0` -> `"0"`), yet the two
-      // zeros evaluate observably differently under division (`1.0 / -0.0 =
-      // -inf`) — the very distinction the optimizer's `division_free` gate
-      // exists for — so re-add the sign from the sign bit. `NaN` /
-      // `Infinity` / `-Infinity` are non-finite (`v - v != 0`) and keep
-      // their own spelling.
-      if v == 0.0 && v.reinterpret_as_int64() != 0L {
-        logger.write_string("-0.0")
-      } else {
-        let s = v.to_string()
-        let finite = v - v == 0.0
-        let has_point = s.iter().any(c => c == '.' || c == 'e' || c == 'E')
-        if finite && !has_point {
-          logger.write_string(s + ".0")
-        } else {
-          logger.write_string(s)
-        }
-      }
-    Bool(v) => logger.write_string(v.to_string())
-    String(v) => {
-      logger.write_string("\"")
-      logger.write_string(@types.escape_debug(v))
-      logger.write_string("\"")
-    }
-    Null => logger.write_string("null")
-  }
-}
-
-///|
 /// Infix symbol for a binary tag — the call-site spelling (`&` / `|` for
 /// the Kleene connectives, comparison glyphs for the method family).
 fn binop_symbol(op : BinOp) -> String {
@@ -396,9 +357,9 @@ fn write_str_suffix(logger : &Logger, op : StrOp) -> Unit {
 
 ///|
 /// Render one parameterised string-op call `.name("arg", …)`, each argument
-/// quoted and `escape_debug`-escaped exactly like a `lit_str` in
-/// `write_scalar`, so a pattern containing a `"` or a control character stays
-/// on one unambiguous line.
+/// quoted and `escape_debug`-escaped exactly like a rendered `lit_str`
+/// (`@types.format_scalar_literal`), so a pattern containing a `"` or a
+/// control character stays on one unambiguous line.
 fn write_str_call(
   logger : &Logger,
   name : String,

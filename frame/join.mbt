@@ -201,11 +201,11 @@ fn DataFrame::plan_join_rows(
       // drops it. `Outer` additionally appends the unmatched right rows.
       let keep_unmatched_left = match options.how {
         Left | Outer => true
-        _ => false
+        Inner | Right | Cross => false
       }
       let emit_unmatched_right = match options.how {
         Outer => true
-        _ => false
+        Inner | Left | Right | Cross => false
       }
       // Track which right rows were paired, so `Outer` can emit the rest.
       // Only `Outer` reads this, so `Inner` / `Left` skip both the buffer and
@@ -279,7 +279,7 @@ fn DataFrame::assemble_join_output(
     options.coalesce.unwrap_or(
       match options.how {
         Inner | Left | Right => true
-        _ => false
+        Outer | Cross => false
       },
     )
   } else {
@@ -330,7 +330,8 @@ fn DataFrame::assemble_join_output(
       // right's signed zero, not the left's.
       let merged = match options.how {
         Right => coalesce_into(right_key, left_key, col.name())
-        _ => coalesce_into(left_key, right_key, col.name())
+        Inner | Left | Outer | Cross =>
+          coalesce_into(left_key, right_key, col.name())
       }
       out_cols.push(preserve_backend(col, merged))
     } else {

@@ -150,6 +150,25 @@ pub fn JoinOptions::with_right_on(
 }
 
 ///|
+/// Return a copy of these options with the left-side keys for a
+/// `left_on` / `right_on` join set to `keys` (evaluated on the left
+/// frame). The symmetric twin of `with_right_on`, so either side's keys
+/// can be (re)supplied at any point in the chain.
+pub fn JoinOptions::with_left_on(
+  self : JoinOptions,
+  keys : Array[@expr.Expr],
+) -> JoinOptions {
+  {
+    on: self.on,
+    left_on: keys.copy(),
+    right_on: self.right_on,
+    how: self.how,
+    suffix: self.suffix,
+    coalesce: self.coalesce,
+  }
+}
+
+///|
 /// Return a copy of these options with the join `how` set to `how`.
 /// Chainable after `on` / `left_on`.
 pub fn JoinOptions::with_how(self : JoinOptions, how : JoinType) -> JoinOptions {

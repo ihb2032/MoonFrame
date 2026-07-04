@@ -716,3 +716,12 @@ test "to_builtin materialises every column to Builtin and round-trips with to_nu
     @column.StorageKind::Builtin,
   ])
 }
+
+///|
+test "limit is head: first n rows, clamped the same way" {
+  let df = DataFrame::new([Series::from_ints("v", [1, 2, 3])])
+  assert_eq(df.limit(2), df.head(2))
+  assert_eq(df.limit(0).nrows(), 0)
+  assert_eq(df.limit(99), df)
+  assert_eq(df.limit(-1).nrows(), 0)
+}

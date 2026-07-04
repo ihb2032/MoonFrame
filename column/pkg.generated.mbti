@@ -103,7 +103,9 @@ pub fn NumericColumn::data(Self) -> ColumnData
 pub fn NumericColumn::dtype(Self) -> @types.DataType
 pub fn NumericColumn::float_values(Self) -> (Array[Double], Bitmap) raise @types.DataError
 pub fn NumericColumn::from_doubles(Array[Double]) -> Self
+pub fn NumericColumn::from_floats(Array[Double]) -> Self
 pub fn NumericColumn::from_int64s(Array[Int64]) -> Self
+pub fn NumericColumn::from_ints(Array[Int64]) -> Self
 pub fn NumericColumn::get(Self, Int) -> @types.Scalar raise @types.DataError
 pub fn NumericColumn::int_values(Self) -> (Array[Int64], Bitmap) raise @types.DataError
 pub fn NumericColumn::is_empty(Self) -> Bool

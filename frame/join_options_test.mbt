@@ -164,3 +164,20 @@ test "left_on / with_right_on build a sided spec, defaults matching on" {
     .with_right_on([@expr.col("b")]),
   )
 }
+
+///|
+test "with_left_on mirrors with_right_on: either side can be (re)supplied" {
+  let base = JoinOptions::left_on([@expr.col("x")]).with_right_on([
+    @expr.col("b"),
+  ])
+  assert_eq(
+    base.with_left_on([@expr.col("a")]),
+    JoinOptions::left_on([@expr.col("a")]).with_right_on([@expr.col("b")]),
+  )
+  // Defensive copy: mutating the caller's key array afterwards leaves the
+  // options unchanged.
+  let keys = [@expr.col("a")]
+  let opts = JoinOptions::left_on([@expr.col("z")]).with_left_on(keys)
+  keys.push(@expr.col("w"))
+  assert_eq(opts, JoinOptions::left_on([@expr.col("a")]))
+}

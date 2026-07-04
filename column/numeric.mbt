@@ -217,7 +217,7 @@ pub fn NumericColumn::int_values(
 ) -> (Array[Int64], Bitmap) raise @types.DataError {
   match self.data {
     Int(a) => (a, Bitmap::all_valid(a.length()))
-    _ =>
+    Float(_) =>
       raise @types.DataError::TypeMismatch(
         "expected Int column, got \{self.dtype()}",
       )
@@ -232,7 +232,7 @@ pub fn NumericColumn::float_values(
 ) -> (Array[Double], Bitmap) raise @types.DataError {
   match self.data {
     Float(a) => (a, Bitmap::all_valid(a.length()))
-    _ =>
+    Int(_) =>
       raise @types.DataError::TypeMismatch(
         "expected Float column, got \{self.dtype()}",
       )

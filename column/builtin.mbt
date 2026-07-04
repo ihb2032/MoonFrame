@@ -471,7 +471,7 @@ pub fn BuiltinColumn::int_values(
 ) -> (Array[Int64], Bitmap) raise @types.DataError {
   match self.data {
     Int(a) => (a, self.validity)
-    _ =>
+    Float(_) | Bool(_) | String(_) =>
       raise @types.DataError::TypeMismatch(
         "expected Int column, got \{self.dtype()}",
       )
@@ -485,7 +485,7 @@ pub fn BuiltinColumn::float_values(
 ) -> (Array[Double], Bitmap) raise @types.DataError {
   match self.data {
     Float(a) => (a, self.validity)
-    _ =>
+    Int(_) | Bool(_) | String(_) =>
       raise @types.DataError::TypeMismatch(
         "expected Float column, got \{self.dtype()}",
       )
@@ -499,7 +499,7 @@ pub fn BuiltinColumn::bool_values(
 ) -> (Array[Bool], Bitmap) raise @types.DataError {
   match self.data {
     Bool(a) => (a, self.validity)
-    _ =>
+    Int(_) | Float(_) | String(_) =>
       raise @types.DataError::TypeMismatch(
         "expected Bool column, got \{self.dtype()}",
       )
@@ -513,7 +513,7 @@ pub fn BuiltinColumn::string_values(
 ) -> (Array[String], Bitmap) raise @types.DataError {
   match self.data {
     String(a) => (a, self.validity)
-    _ =>
+    Int(_) | Float(_) | Bool(_) =>
       raise @types.DataError::TypeMismatch(
         "expected String column, got \{self.dtype()}",
       )

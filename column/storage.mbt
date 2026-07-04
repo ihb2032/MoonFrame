@@ -78,7 +78,16 @@ pub impl Eq for ColumnStorage with fn equal(self, other) {
     (ColumnData::String(a), ColumnData::String(b)) =>
       storage_cells_equal(a, b, av, bv, (x, y) => x == y)
     // Different dtypes (different `ColumnData` variants) are never equal.
-    _ => false
+    // Spelled variant-by-variant (no wildcard) so a future `ColumnData`
+    // variant fails compilation here instead of silently comparing unequal
+    // to every column — itself included.
+    (ColumnData::Int(_), ColumnData::Float(_) | ColumnData::Bool(_) | ColumnData::String(_))
+    | (ColumnData::Float(_), ColumnData::Int(_) | ColumnData::Bool(_) | ColumnData::String(_))
+    | (ColumnData::Bool(_), ColumnData::Int(_) | ColumnData::Float(_) | ColumnData::String(_))
+    | (
+      ColumnData::String(_),
+      ColumnData::Int(_) | ColumnData::Float(_) | ColumnData::Bool(_),
+    ) => false
   }
 }
 
@@ -422,7 +431,7 @@ pub fn ColumnStorage::to_numeric(
           // defensively copy — keeping the move buffer-free as documented.
           ColumnData::Int(a) => Numeric({ data: NumericData::Int(a) })
           ColumnData::Float(a) => Numeric({ data: NumericData::Float(a) })
-          _ =>
+          ColumnData::Bool(_) | ColumnData::String(_) =>
             raise @types.DataError::TypeMismatch(
               "cannot convert a \{c.dtype()} column to Numeric (only Int / Float)",
             )

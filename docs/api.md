@@ -188,7 +188,9 @@ validity bitmap (`1 = valid`, `0 = null`).
   `BuiltinColumn`.
 - `pub(all) enum NumericData` — `Int(Array[Int64]) | Float(Array[Double])`
   (`Bool` / `String` are always `Builtin`).
-- Total constructors: `from_int64s` / `from_doubles`.
+- Total constructors: `from_int64s` / `from_doubles`, with `from_ints` /
+  `from_floats` as aliases matching the spelling every other layer uses
+  (`BuiltinColumn` / `Series`).
 - Total inspection: `dtype` / `len` / `is_empty` / `null_count` (always
   `0`) / `data() -> ColumnData` / `to_builtin() -> BuiltinColumn` (widen
   with an all-valid bitmap — lossless) / `to_string_column() -> BuiltinColumn`.
@@ -456,6 +458,15 @@ reuse: the shared reduction kernel (`reduce.mbt`), the row gather / slice /
 rebuild and backend-convergence helpers, and the composite-key cell encoding
 (`key_cell` / `KeyCell`). It depends only on `types` / `column`.
 
+> **Plumbing note.** The kernel functions above (`gather_series` /
+> `slice_series` / `rebuild_options` / `preserve_backend` /
+> `try_column_to_numeric` / `validity_bools` / `reducer_for` /
+> `scalars_to_series` / `key_cell`, plus `ReduceOp` / `KeyCell`) are `pub`
+> because `frame` consumes them across the package boundary — MoonBit has
+> no package-private visibility. They are engine seams rather than the
+> curated user surface, and none are re-exported by the facade; prefer the
+> `Series` methods and `DataFrame` verbs built on top of them.
+
 ### Series
 
 - `struct Series { name, storage : @column.ColumnStorage }` — the `storage`
@@ -555,9 +566,10 @@ dependencies** (NyaCSV / fs / @json live only in `io`).
   (`result[r][c]`), the row-major transpose of `to_scalar_matrix`. For more
   than a handful of rows, prefer this over a `row(i)` loop — it reads the
   frame once.
-- Structural transforms: total `head(n)` / `tail(n)` (clamp `n` to
-  `[0, nrows]`); `slice(start, end)` / `take(indices)` (`raise`,
-  `IndexOutOfBounds` / `InvalidOperation`).
+- Structural transforms: total `head(n)` / `limit(n)` (a Polars-style
+  alias of `head`, the eager twin of `LazyFrame::limit`) / `tail(n)`
+  (clamp `n` to `[0, nrows]`); `slice(start, end)` / `take(indices)`
+  (`raise`, `IndexOutOfBounds` / `InvalidOperation`).
 - Storage backend control (all **total**): `storage_kinds() ->
   Array[StorageKind]` (per-column backend, parallel to `columns()`);
   `to_numeric()` (best-effort — move every all-valid Int / Float column
@@ -835,7 +847,9 @@ Hash equi-join, native to the method chain (`left.join(right, options)`).
   -derived keys, paired position by position), or `JoinOptions::cross()`
   (keyless `Cross`) — each defaulting to `Inner`, suffix `"_right"`,
   `coalesce` auto — with `with_how(JoinType)` / `with_suffix(name)` /
-  `with_coalesce(Bool)` to override. `coalesce` defaults to `None` (auto:
+  `with_coalesce(Bool)` to override, and `with_left_on(keys)` /
+  `with_right_on(keys)` to (re)supply either side's keys anywhere in the
+  chain. `coalesce` defaults to `None` (auto:
   coalesce on an inner / left / right join, keep both keys on an `Outer`
   join — Polars' rule) and only takes effect for an all-bare-`col` `on`
   join; `left_on` / `right_on` and derived keys never coalesce. Chainable:

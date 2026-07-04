@@ -104,5 +104,5 @@ test "ReduceOp mirrors AggOp one-to-one through reduce_op_of_agg" {
       _ => ()
     }
   }
-  assert_eq(ords, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+  assert_true(ords == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
 }

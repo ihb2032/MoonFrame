@@ -1188,7 +1188,7 @@ and the free functions are listed explicitly. The inert `BinOp` / `UnOp`
 API names them).
 
 - From `@types`: `DataError` · `DataType` · `Scalar` · `Field` · `Schema` ·
-  `compare_string_lex` · `is_decimal_int_literal`
+  `compare_string_lex` · `is_decimal_int_literal` · `format_scalar_literal`
 - From `@column`: `Bitmap` · `BuiltinColumn` · `ColumnData` ·
   `NumericColumn` · `NumericData` · `ColumnStorage` · `StorageKind`
 - From `@expr`: `Expr` · `WhenThen` · `WhenThenElse` · `col` · `cols` ·

@@ -188,3 +188,51 @@ test "deep trees don't overflow structural equality: `==` is iterative" {
   // A single differing leaf under the same shape is still detected.
   assert_true(a != b + col("z"))
 }
+
+///|
+test "equality: each variant is unequal to every other variant" {
+  // One representative of each of the thirteen `Expr` variants. Comparing
+  // every ordered pair of distinct variants exercises each per-variant arm of
+  // the handwritten structural equality as the *first* operand — the arms a
+  // future variant addition is forced to extend.
+  let reps : ReadOnlyArray[Expr] = [
+    col("a"),
+    lit_int(1),
+    lit_series(Series::from_ints("s", [1])),
+    col("a") + col("b"),
+    -col("a"),
+    col("a").sum(),
+    col("a").str_to_uppercase(),
+    col("a").cast(@types.DataType::Float),
+    col("a").with_alias("z"),
+    when(col("c")).then(lit_int(1)).otherwise(lit_int(0)),
+    col("a").fill_null(lit_int(0)),
+    col("a").fill_nan(lit_float(0.0)),
+    map_many(label="m", [col("a")], fn(vs) { vs[0] }),
+  ]
+  for i in 0..<reps.length() {
+    for j in 0..<reps.length() {
+      if i != j {
+        assert_not_eq(reps[i], reps[j])
+      }
+    }
+  }
+}
+
+///|
+test "equality: fill_null and fill_nan compare structurally, each its own kind" {
+  // The two guard the same shape but are separate variants (not one shared
+  // arm): each compares equal to itself, unequal on a differing value, and
+  // unequal to the other kind even with identical operands.
+  assert_eq(col("a").fill_null(lit_int(0)), col("a").fill_null(lit_int(0)))
+  assert_eq(
+    col("a").fill_nan(lit_float(0.0)),
+    col("a").fill_nan(lit_float(0.0)),
+  )
+  assert_not_eq(col("a").fill_null(lit_int(0)), col("a").fill_null(lit_int(1)))
+  assert_not_eq(
+    col("a").fill_nan(lit_float(0.0)),
+    col("a").fill_nan(lit_float(1.0)),
+  )
+  assert_not_eq(col("a").fill_null(lit_int(0)), col("a").fill_nan(lit_int(0)))
+}

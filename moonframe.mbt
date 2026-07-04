@@ -18,8 +18,9 @@
 // value types (including the GroupBy `GroupedDataFrame`, the Join
 // `JoinType` / `JoinOptions`, the HTML `HtmlOptions`, and the Chart
 // `ChartKind` / `ChartSpec`), the `@types` free functions
-// (`compare_string_lex` / `is_decimal_int_literal`), and the `io` free
-// functions need explicit re-export. The `@ops` package no longer exists
+// (`compare_string_lex` / `is_decimal_int_literal` /
+// `format_scalar_literal`), and the `io` free functions need explicit
+// re-export. The `@ops` package no longer exists
 // (it was folded into `@frame`).
 //
 // The v0.4 expression / lazy layers follow the same rule. The `Expr`
@@ -49,6 +50,7 @@ pub using @types {
   type Schema,
   compare_string_lex,
   is_decimal_int_literal,
+  format_scalar_literal,
 }
 
 ///|

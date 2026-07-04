@@ -77,10 +77,10 @@ pub enum Expr {
 /// recursively — and two `Map` nodes are equal when their `label` and
 /// `inputs` match: the function is **opaque** (functions have no equality),
 /// so identically-built maps compare equal regardless of which closure
-/// instance they hold. The mismatched-variant fallthrough is the lone
-/// wildcard; a *new* `Expr` variant is forced to declare itself at
-/// `Expr::children` (wildcard-free) and `eval_expr` first, which is where
-/// the reminder to extend this match lands.
+/// instance they hold. The comparison matches on one operand wildcard-free
+/// (each arm then checks the other), so a *new* `Expr` variant fails to
+/// compile here until its equality case is written — the same discipline
+/// `Expr::children` and `eval_expr` follow.
 pub impl Eq for Expr with fn equal(self, other) {
   exprs_structurally_equal(self, other)
 }
@@ -94,74 +94,134 @@ pub impl Eq for Expr with fn equal(self, other) {
 /// any structure embedding an `Expr` (`DataFrame`, the lazy `LogicalPlan`).
 /// Semantics match the derived impl exactly: tags and operands compared
 /// recursively, two `Map` nodes equal on `(label, inputs)` with the function
-/// opaque, a variant mismatch unequal. Children are pushed so a mismatch
-/// anywhere in the tree short-circuits to `false`.
+/// opaque, a mismatched variant unequal. Each iteration matches the first
+/// operand wildcard-free and then the second, so a differing variant short-
+/// circuits to `false` and a newly added `Expr` variant fails to compile here
+/// until its case is written. Children are pushed so a mismatch anywhere in
+/// the tree short-circuits to `false`.
 fn exprs_structurally_equal(first : Expr, second : Expr) -> Bool {
   let stack : Array[(Expr, Expr)] = [(first, second)]
   for ;; {
     match stack.pop() {
       None => break
+      // Match the first operand exhaustively (no wildcard); each arm then
+      // matches the second, where a differing variant is never equal. A new
+      // `Expr` variant is thus forced to declare its equality here.
       Some((a, b)) =>
-        match (a, b) {
-          (Col(x), Col(y)) => if x != y { return false }
-          (Lit(x), Lit(y)) => if x != y { return false }
-          (LitSeries(x), LitSeries(y)) => if x != y { return false }
-          (Binary(o1, l1, r1), Binary(o2, l2, r2)) => {
-            if o1 != o2 {
-              return false
+        match a {
+          Col(x) =>
+            match b {
+              Col(y) => if x != y { return false }
+              _ => return false
             }
-            stack.push((l1, l2))
-            stack.push((r1, r2))
-          }
-          (Unary(o1, e1), Unary(o2, e2)) => {
-            if o1 != o2 {
-              return false
+          Lit(x) =>
+            match b {
+              Lit(y) => if x != y { return false }
+              _ => return false
             }
-            stack.push((e1, e2))
-          }
-          (Agg(o1, e1), Agg(o2, e2)) => {
-            if o1 != o2 {
-              return false
+          LitSeries(x) =>
+            match b {
+              LitSeries(y) => if x != y { return false }
+              _ => return false
             }
-            stack.push((e1, e2))
-          }
-          (Str(o1, e1), Str(o2, e2)) => {
-            if o1 != o2 {
-              return false
+          Binary(o1, l1, r1) =>
+            match b {
+              Binary(o2, l2, r2) => {
+                if o1 != o2 {
+                  return false
+                }
+                stack.push((l1, l2))
+                stack.push((r1, r2))
+              }
+              _ => return false
             }
-            stack.push((e1, e2))
-          }
-          (Cast(e1, t1), Cast(e2, t2)) => {
-            if t1 != t2 {
-              return false
+          Unary(o1, e1) =>
+            match b {
+              Unary(o2, e2) => {
+                if o1 != o2 {
+                  return false
+                }
+                stack.push((e1, e2))
+              }
+              _ => return false
             }
-            stack.push((e1, e2))
-          }
-          (Alias(e1, n1), Alias(e2, n2)) => {
-            if n1 != n2 {
-              return false
+          Agg(o1, e1) =>
+            match b {
+              Agg(o2, e2) => {
+                if o1 != o2 {
+                  return false
+                }
+                stack.push((e1, e2))
+              }
+              _ => return false
             }
-            stack.push((e1, e2))
-          }
-          (Ternary(c1, t1, f1), Ternary(c2, t2, f2)) => {
-            stack.push((c1, c2))
-            stack.push((t1, t2))
-            stack.push((f1, f2))
-          }
-          (FillNull(o1, v1), FillNull(o2, v2))
-          | (FillNan(o1, v1), FillNan(o2, v2)) => {
-            stack.push((o1, o2))
-            stack.push((v1, v2))
-          }
-          (Map(l1, i1, _), Map(l2, i2, _)) => {
-            if l1 != l2 || i1.length() != i2.length() {
-              return false
+          Str(o1, e1) =>
+            match b {
+              Str(o2, e2) => {
+                if o1 != o2 {
+                  return false
+                }
+                stack.push((e1, e2))
+              }
+              _ => return false
             }
-            for k in 0..<i1.length() {
-              stack.push((i1[k], i2[k]))
+          Cast(e1, t1) =>
+            match b {
+              Cast(e2, t2) => {
+                if t1 != t2 {
+                  return false
+                }
+                stack.push((e1, e2))
+              }
+              _ => return false
             }
-          }
-          _ => return false
+          Alias(e1, n1) =>
+            match b {
+              Alias(e2, n2) => {
+                if n1 != n2 {
+                  return false
+                }
+                stack.push((e1, e2))
+              }
+              _ => return false
+            }
+          Ternary(c1, t1, f1) =>
+            match b {
+              Ternary(c2, t2, f2) => {
+                stack.push((c1, c2))
+                stack.push((t1, t2))
+                stack.push((f1, f2))
+              }
+              _ => return false
+            }
+          FillNull(o1, v1) =>
+            match b {
+              FillNull(o2, v2) => {
+                stack.push((o1, o2))
+                stack.push((v1, v2))
+              }
+              _ => return false
+            }
+          FillNan(o1, v1) =>
+            match b {
+              FillNan(o2, v2) => {
+                stack.push((o1, o2))
+                stack.push((v1, v2))
+              }
+              _ => return false
+            }
+          Map(l1, i1, _) =>
+            match b {
+              Map(l2, i2, _) => {
+                if l1 != l2 || i1.length() != i2.length() {
+                  return false
+                }
+                for k in 0..<i1.length() {
+                  stack.push((i1[k], i2[k]))
+                }
+              }
+              _ => return false
+            }
         }
     }
   }

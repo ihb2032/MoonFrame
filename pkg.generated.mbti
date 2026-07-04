@@ -24,6 +24,8 @@ pub fn format_json_records(@frame.DataFrame) -> String
 
 pub fn format_ndjson(@frame.DataFrame) -> String
 
+pub fn format_scalar_literal(@types.Scalar) -> String
+
 pub fn format_vega_lite(@frame.DataFrame, @io.ChartSpec) -> String raise @types.DataError
 
 pub fn is_decimal_int_literal(String) -> Bool

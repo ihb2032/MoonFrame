@@ -6,6 +6,55 @@ breaking-change steps for each release are collected in
 [`migration.md`](migration.md). Pre-1.0, breaking changes ride the minor
 version.
 
+## v0.5.3 — correctness and robustness
+
+A patch release. Every symbol and signature is unchanged from v0.5.2, so no
+code changes are required to upgrade; the behavioural deltas are listed in
+[`migration.md`](migration.md). What changed is a batch of correctness,
+numerical, and robustness fixes from an adversarial review, plus a curated
+strict-warning gate.
+
+### Chained null-filling is linear
+
+`col("x").fill_null(a).fill_null(b)…` (and the `fill_nan` equivalent) built an
+exponentially-sized expression tree, because the old lowering to a guarded
+ternary embedded the operand twice. `fill_null` / `fill_nan` are now dedicated
+expression nodes carrying `(operand, value)` once, so a chain of _n_ fills is
+_O(n)_ to build, render, evaluate, and compare. Results are unchanged.
+
+### Shared lazy subplans run once
+
+When a `LazyFrame`'s logical plan reused a subplan — a frame branched into two
+downstream operations and then recombined — the executor recomputed that
+subplan once per reference. It now memoises by node identity, so each distinct
+subplan is executed exactly once.
+
+### Numerical and bounds hardening
+
+- `Series::variance` / `std` saturate to `+inf` when a finite input overflows
+  Welford's intermediate delta, instead of returning a spurious finite value.
+- Out-of-range indices in the row-gather path (reached through `DataFrame::take`
+  and the join planner) yield null cells on both storage backends, never a
+  panic.
+- A read projection that names no column present in the header falls back to a
+  full read rather than yielding an empty frame.
+- Smaller fixes round out the release: unpaired UTF-16 surrogates are rejected
+  at the file-write boundary, the grouped-aggregation dtype probe is deferred
+  until the cells leave it undecided, and a grouped handle is re-validated
+  before aggregation.
+
+### Immutability at every boundary
+
+The defensive-copy guarantee introduced in v0.5.2 for the raw constructors now
+extends to every `pub` constructor and builder boundary, so no caller-supplied
+array is aliased into a frame's internals.
+
+### Tooling
+
+A curated strict-warning gate (`missing_doc`, `prefer_readonly_array`,
+`unused_default_value`, and more) is enabled through `moon.mod`'s `warnings`
+field, keeping the whole tree warning-clean in CI.
+
 ## v0.5.2 — non-nullable enforcement and immutable ingestion
 
 ### `from_rows` enforces declared non-nullability

@@ -398,3 +398,21 @@ test "Eq derive: structural, dtype-discriminated" {
     NumericColumn::from_doubles([1.0, 2.0]),
   )
 }
+
+///|
+test "from_ints / from_floats alias the raw constructors" {
+  assert_eq(
+    NumericColumn::from_ints([1, 2]),
+    NumericColumn::from_int64s([1, 2]),
+  )
+  assert_eq(
+    NumericColumn::from_floats([1.5, 2.5]),
+    NumericColumn::from_doubles([1.5, 2.5]),
+  )
+  // The alias inherits the defensive copy: mutating the caller's array
+  // afterwards leaves the column unchanged.
+  let values : Array[Int64] = [1, 2]
+  let col = NumericColumn::from_ints(values)
+  values.push(3)
+  assert_eq(col, NumericColumn::from_int64s([1, 2]))
+}

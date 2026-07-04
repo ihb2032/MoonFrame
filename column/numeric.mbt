@@ -69,6 +69,24 @@ pub fn NumericColumn::from_doubles(values : Array[Double]) -> NumericColumn {
   { data: Float(values.copy()) }
 }
 
+///|
+/// Alias of `from_int64s` under the spelling the rest of the library uses
+/// for a raw `Array[Int64]` (`BuiltinColumn::from_ints` /
+/// `Series::from_ints`), so the storage seam reads uniformly at every
+/// layer.
+pub fn NumericColumn::from_ints(values : Array[Int64]) -> NumericColumn {
+  NumericColumn::from_int64s(values)
+}
+
+///|
+/// Alias of `from_doubles` under the spelling the rest of the library uses
+/// for a raw `Array[Double]` (`BuiltinColumn::from_floats` /
+/// `Series::from_floats`), so the storage seam reads uniformly at every
+/// layer.
+pub fn NumericColumn::from_floats(values : Array[Double]) -> NumericColumn {
+  NumericColumn::from_doubles(values)
+}
+
 // ── Inspection ────────────────────────────────────────────────────────
 
 ///|

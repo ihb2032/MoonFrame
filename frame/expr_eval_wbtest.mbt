@@ -11,6 +11,12 @@
 // `eval_expr` under a partial scope: the whole-frame consumers pass the
 // whole-frame scope; the group-subset behavior is the contract the grouped
 // `agg` builds on, pinned here at the evaluator level.
+//
+// The `AggOp` ↔ `ReduceOp` mirror: `reduce_op_of_agg`'s exhaustive match
+// already fails compilation when `@expr.AggOp` gains a variant, but nothing
+// broke when `@series.ReduceOp` gained one `AggOp` lacks — the docstring on
+// `AggOp` could only ask for lockstep by convention. The parity test below
+// closes that direction with a wildcard-free `ordinal` match over `ReduceOp`.
 
 ///|
 test "broadcast_pair: two incompatible non-unit lengths raise LengthMismatch" {
@@ -54,4 +60,49 @@ test "eval_expr under a group-subset scope: gathers and reduces only those rows"
   assert_true(total.to_scalars() == [@types.Scalar::Int(40)])
   let partial = eval_expr(@expr.col("w").sum(), df, [1, 2, 3])
   assert_true(partial.to_scalars() == [@types.Scalar::Int(3)])
+}
+
+///|
+test "ReduceOp mirrors AggOp one-to-one through reduce_op_of_agg" {
+  // Wildcard-free, so a `ReduceOp` variant with no `AggOp` twin fails
+  // compilation right here (the reverse of `reduce_op_of_agg`'s own guard).
+  fn ordinal(op : ReduceOp) -> Int {
+    match op {
+      ReduceOp::Sum => 0
+      ReduceOp::Mean => 1
+      ReduceOp::Min => 2
+      ReduceOp::Max => 3
+      ReduceOp::Count => 4
+      ReduceOp::Std => 5
+      ReduceOp::Var => 6
+      ReduceOp::Median => 7
+      ReduceOp::NUnique => 8
+      ReduceOp::First => 9
+      ReduceOp::Last => 10
+    }
+  }
+  // One public builder per `AggOp` variant, in declaration order; mapping
+  // each through `reduce_op_of_agg` must hit ordinal 0..=10 in order — a
+  // bijection, so no two ops can silently share a reduction.
+  let built = [
+    @expr.col("a").sum(),
+    @expr.col("a").mean(),
+    @expr.col("a").min(),
+    @expr.col("a").max(),
+    @expr.col("a").count(),
+    @expr.col("a").std(),
+    @expr.col("a").variance(),
+    @expr.col("a").median(),
+    @expr.col("a").n_unique(),
+    @expr.col("a").first(),
+    @expr.col("a").last(),
+  ]
+  let ords : Array[Int] = []
+  for e in built {
+    match e {
+      @expr.Expr::Agg(op, _) => ords.push(ordinal(reduce_op_of_agg(op)))
+      _ => ()
+    }
+  }
+  assert_eq(ords, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
 }

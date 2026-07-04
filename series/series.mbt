@@ -447,39 +447,103 @@ pub fn gather_series(s : Series, idx : Array[Int]) -> Series {
       Series::from_floats(s.name, idx.map(k => a[k]))
     _ => {
       let validity = s.storage.validity()
-      rebuild_options(
-        s,
-        s.name,
-        idx.length(),
-        (a, k) => {
-          if validity.is_valid_total(idx[k]) {
-            Some(a[idx[k]])
-          } else {
-            None
-          }
-        },
-        (a, k) => {
-          if validity.is_valid_total(idx[k]) {
-            Some(a[idx[k]])
-          } else {
-            None
-          }
-        },
-        (a, k) => {
-          if validity.is_valid_total(idx[k]) {
-            Some(a[idx[k]])
-          } else {
-            None
-          }
-        },
-        (a, k) => {
-          if validity.is_valid_total(idx[k]) {
-            Some(a[idx[k]])
-          } else {
-            None
-          }
-        },
-      )
+      rebuild_by_row(s, s.name, idx.length(), k => {
+        let j = idx[k]
+        if validity.is_valid_total(j) {
+          Some(j)
+        } else {
+          None
+        }
+      })
+    }
+  }
+}
+
+///|
+/// Shared skeleton of the row gathers: rebuild `source`'s dtype via
+/// `rebuild_options`, reading output cell `k` from source row `row_at(k)`
+/// when it is `Some` (the row is in bounds and valid there), else a null
+/// cell. The four per-dtype closures are identical bar their element type —
+/// monomorphisation keeps them syntactically separate — so they are spelled
+/// once here instead of once per gather call site.
+fn rebuild_by_row(
+  source : Series,
+  name : String,
+  n : Int,
+  row_at : (Int) -> Int?,
+) -> Series {
+  rebuild_options(
+    source,
+    name,
+    n,
+    (a, k) => row_at(k).map(j => a[j]),
+    (a, k) => row_at(k).map(j => a[j]),
+    (a, k) => row_at(k).map(j => a[j]),
+    (a, k) => row_at(k).map(j => a[j]),
+  )
+}
+
+///|
+/// The matched source rows when `idx` has no unmatched (`None`) slot and
+/// every index lies in `[0, len)`, else `None` — the gate for
+/// `gather_series_opt`'s `Numeric` fast path, which reads the raw data array
+/// unguarded and so can only fire when every output row provably maps to a
+/// real source row. A stray out-of-range index demotes the whole gather to
+/// the guarded arm (a null cell there), mirroring `gather_series`'
+/// abort-free handling of the same misuse.
+fn collect_matched(idx : Array[Int?], len : Int) -> Array[Int]? {
+  let rows : Array[Int] = []
+  for j in idx {
+    match j {
+      Some(v) => if v >= 0 && v < len { rows.push(v) } else { return None }
+      None => return None
+    }
+  }
+  Some(rows)
+}
+
+///|
+/// Gather a column by optional row indices: output cell `k` is
+/// `s[idx[k]]` when `idx[k]` is `Some`, or a null cell when it is `None`.
+/// Total — the caller (`join`'s output assembly) only ever stores in-bounds
+/// row indices, and `None` marks a row kept without a match on this side.
+/// The result is named `out_name` (so a colliding right column can be
+/// suffixed) and keeps the source dtype. A `Numeric` source with no
+/// unmatched (`None`) row takes the all-valid fast path straight onto the
+/// `Numeric` backend; everything else materialises through the option
+/// constructors (the shared `rebuild_by_row` skeleton → a `Builtin` column,
+/// which `join` re-converges via `preserve_backend`).
+pub fn gather_series_opt(
+  s : Series,
+  idx : Array[Int?],
+  out_name : String,
+) -> Series {
+  // `Numeric` fast path: a `Numeric` source is all-valid, so a gather with no
+  // unmatched (`None`) row is itself all-valid — build the numeric array
+  // straight onto the `Numeric` backend, skipping the `Array[T?]` + `Bitmap`
+  // round-trip `rebuild_options` would allocate only to drop on re-convergence.
+  // Mirrors `gather_series`' `Numeric` arm.
+  let matched = if s.storage.kind() is @column.StorageKind::Numeric {
+    collect_matched(idx, s.len())
+  } else {
+    None
+  }
+  match (s.storage.data(), matched) {
+    (@column.ColumnData::Int(a), Some(rows)) =>
+      Series::from_ints(out_name, rows.map(j => a[j]))
+    (@column.ColumnData::Float(a), Some(rows)) =>
+      Series::from_floats(out_name, rows.map(j => a[j]))
+    (@column.ColumnData::Int(_) | @column.ColumnData::Float(_), None)
+    | (@column.ColumnData::Bool(_) | @column.ColumnData::String(_), _) => {
+      let validity = s.storage.validity()
+      // Output cell `k` reads source row `idx[k]` when it is `Some` (and the
+      // cell there is valid), else a null. Read each matched row's validity by
+      // O(1) bit lookup (`is_valid_total`) rather than materialising the whole
+      // O(source) mask — a high-selectivity join emits far fewer rows than the
+      // source has, so the gather stays O(output) (mirrors `gather_series`).
+      rebuild_by_row(s, out_name, idx.length(), k => {
+        idx[k].bind(j => if validity.is_valid_total(j) { Some(j) } else { None })
+      })
     }
   }
 }

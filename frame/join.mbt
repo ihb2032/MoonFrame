@@ -120,12 +120,24 @@ pub fn DataFrame::join(
   other : DataFrame,
   options : JoinOptions,
 ) -> DataFrame raise @types.DataError {
-  // Build the output row plan as parallel optional-index vectors: for output
-  // row `r`, `left_rows[r]` is its left row (`None` = a right row kept with
-  // no left match) and `right_rows[r]` its right row (`None` = a left row
-  // kept with no right match). At least one side is always `Some`. A `Cross`
-  // join is the keyless Cartesian product; the key joins hash one frame by
-  // key and probe it with the other.
+  let (left_rows, right_rows) = self.plan_join_rows(other, options)
+  self.assemble_join_output(other, options, left_rows, right_rows)
+}
+
+///|
+/// Phase 1 of `join`: build the output row plan as parallel optional-index
+/// vectors — for output row `r`, `left_rows[r]` is its left row (`None` = a
+/// right row kept with no left match) and `right_rows[r]` its right row
+/// (`None` = a left row kept with no right match). At least one side is
+/// always `Some`. A `Cross` join is the keyless Cartesian product; the key
+/// joins hash one frame by key and probe it with the other. Split from the
+/// column assembly (`assemble_join_output`) so row planning and output
+/// materialisation each read on their own.
+fn DataFrame::plan_join_rows(
+  self : DataFrame,
+  other : DataFrame,
+  options : JoinOptions,
+) -> (Array[Int?], Array[Int?]) raise @types.DataError {
   let left_rows : Array[Int?] = []
   let right_rows : Array[Int?] = []
   match options.how {
@@ -237,6 +249,22 @@ pub fn DataFrame::join(
       }
     }
   }
+  (left_rows, right_rows)
+}
+
+///|
+/// Phase 2 of `join`: materialise the output columns from the row plan —
+/// key coalescing, per-column gathers (`None -> null`), right-column
+/// suffixing on a name clash with the left frame, and per-column backend
+/// re-convergence (`preserve_backend`). Split from the row planning
+/// (`plan_join_rows`) so each phase reads on its own.
+fn DataFrame::assemble_join_output(
+  self : DataFrame,
+  other : DataFrame,
+  options : JoinOptions,
+  left_rows : Array[Int?],
+  right_rows : Array[Int?],
+) -> DataFrame raise @types.DataError {
   // Resolve key coalescing. Only an `on` join whose every key is a bare
   // `col(...)` can coalesce — that is the one shape where a key names the
   // same column on both sides (`coalesce_key_names` returns those names);
@@ -478,111 +506,6 @@ fn coalesce_key_names(options : JoinOptions) -> Array[String]? {
     }
   }
   Some(names)
-}
-
-///|
-/// The matched source rows when `idx` has no unmatched (`None`) slot and
-/// every index lies in `[0, len)`, else `None` — the gate for
-/// `gather_series_opt`'s `Numeric` fast path, which reads the raw data array
-/// unguarded and so can only fire when every output row provably maps to a
-/// real source row. A stray out-of-range index demotes the whole gather to
-/// the guarded `_` arm (a null cell there), mirroring `gather_series`'
-/// abort-free handling of the same misuse.
-fn collect_matched(idx : Array[Int?], len : Int) -> Array[Int]? {
-  let rows : Array[Int] = []
-  for j in idx {
-    match j {
-      Some(v) => if v >= 0 && v < len { rows.push(v) } else { return None }
-      None => return None
-    }
-  }
-  Some(rows)
-}
-
-///|
-/// Gather a column by optional row indices: output cell `k` is
-/// `s[idx[k]]` when `idx[k]` is `Some`, or a null cell when it is `None`.
-/// Total — the caller (`join`) only ever stores in-bounds row indices, and
-/// `None` marks a row kept without a match on this side. The result is named
-/// `out_name` (so a colliding right column can be suffixed) and keeps the
-/// source dtype. A `Numeric` source with no unmatched (`None`) row takes the
-/// all-valid fast path straight onto the `Numeric` backend; everything else
-/// materialises through the option constructors (the shared `rebuild_options`
-/// skeleton → a `Builtin` column, which `join` re-converges via
-/// `preserve_backend`).
-fn gather_series_opt(
-  s : Series,
-  idx : Array[Int?],
-  out_name : String,
-) -> Series {
-  // `Numeric` fast path: a `Numeric` source is all-valid, so a gather with no
-  // unmatched (`None`) row is itself all-valid — build the numeric array
-  // straight onto the `Numeric` backend, skipping the `Array[T?]` + `Bitmap`
-  // round-trip `rebuild_options` would allocate only to drop on re-convergence.
-  // Mirrors `gather_series`' `Numeric` arm.
-  let matched = if s.storage().kind() is @column.StorageKind::Numeric {
-    collect_matched(idx, s.len())
-  } else {
-    None
-  }
-  match (s.storage().data(), matched) {
-    (@column.ColumnData::Int(a), Some(rows)) =>
-      Series::from_ints(out_name, rows.map(j => a[j]))
-    (@column.ColumnData::Float(a), Some(rows)) =>
-      Series::from_floats(out_name, rows.map(j => a[j]))
-    (@column.ColumnData::Int(_) | @column.ColumnData::Float(_), None)
-    | (@column.ColumnData::Bool(_) | @column.ColumnData::String(_), _) => {
-      let validity = s.storage().validity()
-      // Output cell `k` reads source row `idx[k]` when it is `Some` (and the
-      // cell there is valid), else a null. Read each matched row's validity by
-      // O(1) bit lookup (`is_valid_total`) rather than materialising the whole
-      // O(source) mask — a high-selectivity join emits far fewer rows than the
-      // source has, so the gather stays O(output) (mirrors `gather_series`).
-      // The four closures are identical bar their element type; `rebuild_options`
-      // picks the one matching `s`'s dtype.
-      rebuild_options(
-        s,
-        out_name,
-        idx.length(),
-        (a, k) => {
-          idx[k].bind(j => {
-            if validity.is_valid_total(j) {
-              Some(a[j])
-            } else {
-              None
-            }
-          })
-        },
-        (a, k) => {
-          idx[k].bind(j => {
-            if validity.is_valid_total(j) {
-              Some(a[j])
-            } else {
-              None
-            }
-          })
-        },
-        (a, k) => {
-          idx[k].bind(j => {
-            if validity.is_valid_total(j) {
-              Some(a[j])
-            } else {
-              None
-            }
-          })
-        },
-        (a, k) => {
-          idx[k].bind(j => {
-            if validity.is_valid_total(j) {
-              Some(a[j])
-            } else {
-              None
-            }
-          })
-        },
-      )
-    }
-  }
 }
 
 ///|

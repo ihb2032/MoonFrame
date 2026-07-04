@@ -10,6 +10,8 @@ import {
 // Values
 pub fn gather_series(Series, Array[Int]) -> Series
 
+pub fn gather_series_opt(Series, Array[Int?], String) -> Series
+
 pub fn key_cell(@types.Scalar) -> KeyCell
 
 pub fn preserve_backend(Series, Series) -> Series

@@ -200,61 +200,12 @@ fn parse_csv_str_projected(
     trim_spaces: false,
   }
   let csv = @nyacsv.CSV::parse_string(content, options=csv_options)
-  // Settle the headers / rows split based on `has_header`. NyaCSV
-  // always lifts the first record into `header()`, so the
-  // `has_header = false` branch has to push it back into the data
-  // section and synthesise names.
-  let headers : Array[String] = []
-  let rows : Array[Array[String]] = []
-  if options.has_header {
-    for h in csv.header() {
-      headers.push(h)
-    }
-    for r in csv.data() {
-      rows.push(r)
-    }
-  } else {
-    let first = csv.header()
-    if !first.is_empty() {
-      rows.push(first)
-    }
-    for r in csv.data() {
-      rows.push(r)
-    }
-    let ncols_local = if rows.is_empty() { 0 } else { rows[0].length() }
-    for i in 0..<ncols_local {
-      headers.push("column\{i + 1}")
-    }
-  }
+  let (headers, rows) = split_csv_records(csv, options)
   let ncols = headers.length()
   if ncols == 0 {
     return @frame.DataFrame::new([])
   }
-  // Reject duplicate headers up front. `DataFrame::new` would catch
-  // this via `Schema::new`, but we surface it before any per-cell
-  // work so a malformed header doesn't waste an inference pass.
-  let seen : Map[String, Unit] = {}
-  for name in headers {
-    if seen.contains(name) {
-      raise @types.DataError::DuplicateColumn(name)
-    }
-    seen[name] = ()
-  }
-  // Optional ragged-row guard. When `strict_column_count` is on, a data
-  // row whose cell count differs from the header's `raise ParseError`
-  // rather than being silently null-padded (short row) or truncated
-  // (long row) by the lenient `cell_value` path below. Checked after the
-  // header validates, so a malformed header surfaces first; the 1-based
-  // index is over the data rows (the header is not counted).
-  if options.strict_column_count {
-    for i, row in rows {
-      if row.length() != ncols {
-        raise @types.DataError::ParseError(
-          "row \{i + 1}: expected \{ncols} columns, got \{row.length()}",
-        )
-      }
-    }
-  }
+  validate_csv_shape(headers, rows, options)
   // Infer one dtype per column, then build the column — skipping any the
   // projection drops. `build_column` raises `ParseError` for a cell that
   // doesn't fit the inferred dtype. The surviving columns keep the file's own
@@ -301,6 +252,73 @@ fn parse_csv_str_projected(
     }
   }
   @frame.DataFrame::new(series)
+}
+
+///|
+/// Settle the headers / rows split of a parsed CSV based on `has_header`.
+/// NyaCSV always lifts the first record into `header()`, so the
+/// `has_header = false` branch pushes it back into the data section and
+/// synthesises `column1..columnN` names.
+fn split_csv_records(
+  csv : @nyacsv.CSV,
+  options : CsvReadOptions,
+) -> (Array[String], Array[Array[String]]) {
+  let headers : Array[String] = []
+  let rows : Array[Array[String]] = []
+  if options.has_header {
+    for h in csv.header() {
+      headers.push(h)
+    }
+    for r in csv.data() {
+      rows.push(r)
+    }
+  } else {
+    let first = csv.header()
+    if !first.is_empty() {
+      rows.push(first)
+    }
+    for r in csv.data() {
+      rows.push(r)
+    }
+    let ncols = if rows.is_empty() { 0 } else { rows[0].length() }
+    for i in 0..<ncols {
+      headers.push("column\{i + 1}")
+    }
+  }
+  (headers, rows)
+}
+
+///|
+/// Whole-shape validation ahead of any per-cell work: reject a duplicate
+/// header up front (`DataFrame::new` would catch it via `Schema::new`, but
+/// surfacing it here spares a wasted inference pass), and — when
+/// `strict_column_count` is on — `raise ParseError` for a data row whose
+/// cell count differs from the header's, rather than silently null-padding
+/// (short row) or truncating (long row) in the lenient `cell_value` path.
+/// Checked after the header settles, so a malformed header surfaces first;
+/// the 1-based index is over the data rows (the header is not counted).
+fn validate_csv_shape(
+  headers : Array[String],
+  rows : Array[Array[String]],
+  options : CsvReadOptions,
+) -> Unit raise @types.DataError {
+  let seen : Map[String, Unit] = {}
+  for name in headers {
+    if seen.contains(name) {
+      raise @types.DataError::DuplicateColumn(name)
+    }
+    seen[name] = ()
+  }
+  if options.strict_column_count {
+    let ncols = headers.length()
+    for i, row in rows {
+      if row.length() != ncols {
+        raise @types.DataError::ParseError(
+          "row \{i + 1}: expected \{ncols} columns, got \{row.length()}",
+        )
+      }
+    }
+  }
 }
 
 ///|

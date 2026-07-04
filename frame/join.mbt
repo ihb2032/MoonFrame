@@ -120,12 +120,24 @@ pub fn DataFrame::join(
   other : DataFrame,
   options : JoinOptions,
 ) -> DataFrame raise @types.DataError {
-  // Build the output row plan as parallel optional-index vectors: for output
-  // row `r`, `left_rows[r]` is its left row (`None` = a right row kept with
-  // no left match) and `right_rows[r]` its right row (`None` = a left row
-  // kept with no right match). At least one side is always `Some`. A `Cross`
-  // join is the keyless Cartesian product; the key joins hash one frame by
-  // key and probe it with the other.
+  let (left_rows, right_rows) = self.plan_join_rows(other, options)
+  self.assemble_join_output(other, options, left_rows, right_rows)
+}
+
+///|
+/// Phase 1 of `join`: build the output row plan as parallel optional-index
+/// vectors — for output row `r`, `left_rows[r]` is its left row (`None` = a
+/// right row kept with no left match) and `right_rows[r]` its right row
+/// (`None` = a left row kept with no right match). At least one side is
+/// always `Some`. A `Cross` join is the keyless Cartesian product; the key
+/// joins hash one frame by key and probe it with the other. Split from the
+/// column assembly (`assemble_join_output`) so row planning and output
+/// materialisation each read on their own.
+fn DataFrame::plan_join_rows(
+  self : DataFrame,
+  other : DataFrame,
+  options : JoinOptions,
+) -> (Array[Int?], Array[Int?]) raise @types.DataError {
   let left_rows : Array[Int?] = []
   let right_rows : Array[Int?] = []
   match options.how {
@@ -237,6 +249,22 @@ pub fn DataFrame::join(
       }
     }
   }
+  (left_rows, right_rows)
+}
+
+///|
+/// Phase 2 of `join`: materialise the output columns from the row plan —
+/// key coalescing, per-column gathers (`None -> null`), right-column
+/// suffixing on a name clash with the left frame, and per-column backend
+/// re-convergence (`preserve_backend`). Split from the row planning
+/// (`plan_join_rows`) so each phase reads on its own.
+fn DataFrame::assemble_join_output(
+  self : DataFrame,
+  other : DataFrame,
+  options : JoinOptions,
+  left_rows : Array[Int?],
+  right_rows : Array[Int?],
+) -> DataFrame raise @types.DataError {
   // Resolve key coalescing. Only an `on` join whose every key is a bare
   // `col(...)` can coalesce — that is the one shape where a key names the
   // same column on both sides (`coalesce_key_names` returns those names);

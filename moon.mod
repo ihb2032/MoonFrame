@@ -1,6 +1,6 @@
 name = "ihb2032/MoonFrame"
 
-version = "0.5.3"
+version = "0.6.0"
 
 warnings = "+a-unnecessary_annotation-test_unqualified_package-unqualified_local_using-missing_invariant-missing_reasoning"
 

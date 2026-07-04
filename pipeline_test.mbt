@@ -417,3 +417,15 @@ test "pipeline: Schema and Field surface for callers building empty frames" {
   assert_eq(empty.shape(), (0, 2))
   assert_eq(empty.check_invariants(), Ok(()))
 }
+
+// ── `@types` free functions reachable through the facade ──────────────
+
+///|
+test "pipeline: the @types free functions are reachable unqualified" {
+  // Documented as part of the facade surface; a missing `pub using`
+  // re-export would make these calls fail to compile rather than leave a
+  // silent gap between the docs and the reachable API.
+  assert_eq(format_scalar_literal(Scalar::Int(42)), "42")
+  assert_true(is_decimal_int_literal("42"))
+  assert_true(compare_string_lex("a", "b") < 0)
+}

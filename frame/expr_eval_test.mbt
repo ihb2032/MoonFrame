@@ -1349,3 +1349,75 @@ test "deep expression trees evaluate without overflowing the stack" {
   ])
   assert_eq(out.check_invariants(), Ok(()))
 }
+
+///|
+test "numeric fast arms: mixed all-valid pairings and the unary probes" {
+  // `j` / `g` are all-valid (the `Numeric` backend), so these drive the
+  // evaluator's raw-array fast arms; the mixed pairings promote to Float.
+  let df = arith_df()
+  // Int / Float division (always Float).
+  let q = df.with_columns([(@expr.col("j") / @expr.col("g")).with_alias("q")])
+  assert_eq(q.get_column("q").to_scalars(), [
+    @types.Scalar::Float(0.1),
+    @types.Scalar::Float(0.1),
+    @types.Scalar::Float(0.1),
+  ])
+  // Int vs Float equality (Eq always consults the eq primitive — the
+  // ordering verbs can short-circuit past it).
+  let c = df.with_columns([@expr.col("j").eq(@expr.col("g")).with_alias("c")])
+  assert_eq(c.get_column("c").to_scalars(), [
+    @types.Scalar::Bool(false),
+    @types.Scalar::Bool(false),
+    @types.Scalar::Bool(false),
+  ])
+  // Float negation stays on the fast path.
+  let n = df.with_columns([(-@expr.col("g")).with_alias("n")])
+  assert_eq(n.get_column("n").to_scalars(), [
+    @types.Scalar::Float(-100.0),
+    @types.Scalar::Float(-200.0),
+    @types.Scalar::Float(-300.0),
+  ])
+  // The NaN probes over all-valid operands: an Int cell is never NaN, and
+  // NaN in a Float column is a value the probe sees (not a null).
+  let pi = df.with_columns([@expr.col("j").is_nan().with_alias("pi")])
+  assert_eq(pi.get_column("pi").to_scalars(), [
+    @types.Scalar::Bool(false),
+    @types.Scalar::Bool(false),
+    @types.Scalar::Bool(false),
+  ])
+  let dfn = DataFrame::new([Series::from_floats("h", [1.0, 0.0 / 0.0, 3.0])])
+  let ph = dfn.with_columns([@expr.col("h").is_nan().with_alias("ph")])
+  assert_eq(ph.get_column("ph").to_scalars(), [
+    @types.Scalar::Bool(false),
+    @types.Scalar::Bool(true),
+    @types.Scalar::Bool(false),
+  ])
+  let pf = dfn.with_columns([@expr.col("h").is_not_nan().with_alias("pf")])
+  assert_eq(pf.get_column("pf").to_scalars(), [
+    @types.Scalar::Bool(true),
+    @types.Scalar::Bool(false),
+    @types.Scalar::Bool(true),
+  ])
+}
+
+///|
+test "comparison general arm: Float-led pairings through nullable operands" {
+  // `f` is nullable (the `Builtin` backend), so these pairings take the
+  // general comparison arm — a null on either side nulls the cell.
+  let df = arith_df()
+  // (Float, Int) pairing: f vs the all-valid j; Ge falls through its lt
+  // half to the eq primitive on every present pair here.
+  let a = df.with_columns([@expr.col("f").ge(@expr.col("j")).with_alias("a")])
+  assert_eq(a.get_column("a").to_scalars(), [
+    @types.Scalar::Bool(false),
+    @types.Scalar::Bool(false),
+    @types.Scalar::Null,
+  ])
+  // (Float, Float) pairing: f vs the all-valid g.
+  let b = df.with_columns([@expr.col("f").ge(@expr.col("g")).with_alias("b")])
+  assert_eq(b.get_column("b").to_scalars(), [
+    @types.Scalar::Bool(false),
+    @types.Scalar::Bool(false),
+    @types.Scalar::Null,
+  ])
+}

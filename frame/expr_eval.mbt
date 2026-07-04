@@ -459,6 +459,41 @@ fn eval_arith(
   int_op : (Int64, Int64) -> Int64,
   float_op : (Double, Double) -> Double,
 ) -> Series raise @types.DataError {
+  // `Numeric`×`Numeric` fast arm: both operands are all-valid by
+  // construction, so the result is too — compute it in one pass over the
+  // raw arrays and land straight back on the `Numeric` backend, skipping
+  // the two validity materialisations, the `Option` boxing, and the
+  // popcount re-convergence the general arm below pays. `NumericData` has
+  // exactly the two numeric arms, so the inner dispatch is exhaustive with
+  // no dead arm; `Bool` / `String` columns are never `Numeric`-backed and
+  // raise in the general arm as before.
+  match (left.storage(), right.storage()) {
+    (@column.ColumnStorage::Numeric(x), @column.ColumnStorage::Numeric(y)) =>
+      return match (x.data, y.data) {
+        (@column.NumericData::Int(a), @column.NumericData::Int(b)) =>
+          Series::from_ints(
+            left.name(),
+            Array::makei(a.length(), i => int_op(a[i], b[i])),
+          )
+        (@column.NumericData::Int(a), @column.NumericData::Float(b)) =>
+          Series::from_floats(
+            left.name(),
+            Array::makei(a.length(), i => float_op(a[i].to_double(), b[i])),
+          )
+        (@column.NumericData::Float(a), @column.NumericData::Int(b)) =>
+          Series::from_floats(
+            left.name(),
+            Array::makei(a.length(), i => float_op(a[i], b[i].to_double())),
+          )
+        (@column.NumericData::Float(a), @column.NumericData::Float(b)) =>
+          Series::from_floats(
+            left.name(),
+            Array::makei(a.length(), i => float_op(a[i], b[i])),
+          )
+      }
+    (@column.ColumnStorage::Builtin(_), _)
+    | (_, @column.ColumnStorage::Builtin(_)) => ()
+  }
   let lv = validity_bools(left.storage())
   let rv = validity_bools(right.storage())
   let out = match (left.storage().data(), right.storage().data()) {
@@ -502,6 +537,35 @@ fn eval_arith(
 /// non-numeric `TypeMismatch`, and the `Numeric` re-convergence match
 /// `eval_arith`.
 fn eval_div(left : Series, right : Series) -> Series raise @types.DataError {
+  // `Numeric`×`Numeric` fast arm (see `eval_arith`): every pairing divides
+  // in `Double`, so all four arms land on `from_floats`.
+  match (left.storage(), right.storage()) {
+    (@column.ColumnStorage::Numeric(x), @column.ColumnStorage::Numeric(y)) =>
+      return match (x.data, y.data) {
+        (@column.NumericData::Int(a), @column.NumericData::Int(b)) =>
+          Series::from_floats(
+            left.name(),
+            Array::makei(a.length(), i => a[i].to_double() / b[i].to_double()),
+          )
+        (@column.NumericData::Int(a), @column.NumericData::Float(b)) =>
+          Series::from_floats(
+            left.name(),
+            Array::makei(a.length(), i => a[i].to_double() / b[i]),
+          )
+        (@column.NumericData::Float(a), @column.NumericData::Int(b)) =>
+          Series::from_floats(
+            left.name(),
+            Array::makei(a.length(), i => a[i] / b[i].to_double()),
+          )
+        (@column.NumericData::Float(a), @column.NumericData::Float(b)) =>
+          Series::from_floats(
+            left.name(),
+            Array::makei(a.length(), i => a[i] / b[i]),
+          )
+      }
+    (@column.ColumnStorage::Builtin(_), _)
+    | (_, @column.ColumnStorage::Builtin(_)) => ()
+  }
   let lv = validity_bools(left.storage())
   let rv = validity_bools(right.storage())
   let out = match (left.storage().data(), right.storage().data()) {
@@ -550,14 +614,36 @@ priv enum CmpVerb {
 }
 
 ///|
+/// One comparison verdict from the dtype's `lt` / `eq` primitives, shared
+/// by the nullable cell loop (`compare_cells`) and `eval_compare`'s
+/// all-valid `Numeric` fast arms. Everything derives from `lt` / `eq` with
+/// arguments in both orders — `Gt` is `lt(y, x)`, not `!(lt ∨ eq)` — so
+/// IEEE NaN falls out right: `eq` / `lt` against NaN are `false`, hence
+/// `Ne` is `true` and every ordering comparison is `false`.
+fn[T] apply_cmp(
+  verb : CmpVerb,
+  lt : (T, T) -> Bool,
+  eq : (T, T) -> Bool,
+  x : T,
+  y : T,
+) -> Bool {
+  match verb {
+    CmpVerb::Eq => eq(x, y)
+    CmpVerb::Ne => !eq(x, y)
+    CmpVerb::Lt => lt(x, y)
+    CmpVerb::Le => lt(x, y) || eq(x, y)
+    CmpVerb::Gt => lt(y, x)
+    CmpVerb::Ge => lt(y, x) || eq(x, y)
+  }
+}
+
+///|
 /// Build the `Bool?` cells of one comparison over two equal-length
 /// operands, given a cell reader per side and the dtype's two primitive
-/// predicates. Everything derives from `lt` / `eq` with arguments in both
-/// orders — `Gt` is `lt(y, x)`, not `!(lt ∨ eq)` — so IEEE NaN falls out
-/// right: NaN is a *value* (the cell stays non-null), `eq` / `lt` against
-/// it are `false`, hence `Ne` is `true` and every ordering comparison is
-/// `false`. A null on either side nulls the cell before the predicates
-/// run.
+/// predicates. The verdict itself is `apply_cmp` (NaN semantics live
+/// there); this loop adds the null layer — NaN is a *value* (the cell
+/// stays non-null), while a null on either side nulls the cell before the
+/// predicates run.
 fn[T] compare_cells(
   n : Int,
   lv : Array[Bool],
@@ -570,18 +656,7 @@ fn[T] compare_cells(
 ) -> Array[Bool?] {
   Array::makei(n, i => {
     if lv[i] && rv[i] {
-      let x = get_left(i)
-      let y = get_right(i)
-      Some(
-        match verb {
-          CmpVerb::Eq => eq(x, y)
-          CmpVerb::Ne => !eq(x, y)
-          CmpVerb::Lt => lt(x, y)
-          CmpVerb::Le => lt(x, y) || eq(x, y)
-          CmpVerb::Gt => lt(y, x)
-          CmpVerb::Ge => lt(y, x) || eq(x, y)
-        },
-      )
+      Some(apply_cmp(verb, lt, eq, get_left(i), get_right(i)))
     } else {
       None
     }
@@ -602,6 +677,58 @@ fn eval_compare(
   right : Series,
   verb : CmpVerb,
 ) -> Series raise @types.DataError {
+  // `Numeric`×`Numeric` fast arm (see `eval_arith`): both sides all-valid,
+  // so every cell compares — build the `Bool` cells directly through
+  // `apply_cmp`, with no validity arrays and no `Bool?` boxing. The result
+  // is nullable-free but `Bool`, so it lands on `Builtin` (`from_bools`),
+  // same as the general arm's all-valid output.
+  match (left.storage(), right.storage()) {
+    (@column.ColumnStorage::Numeric(x), @column.ColumnStorage::Numeric(y)) =>
+      return match (x.data, y.data) {
+        (@column.NumericData::Int(a), @column.NumericData::Int(b)) =>
+          Series::from_bools(
+            left.name(),
+            Array::makei(a.length(), i => {
+              apply_cmp(verb, (x, y) => x < y, (x, y) => x == y, a[i], b[i])
+            }),
+          )
+        (@column.NumericData::Int(a), @column.NumericData::Float(b)) =>
+          Series::from_bools(
+            left.name(),
+            Array::makei(a.length(), i => {
+              apply_cmp(
+                verb,
+                (x, y) => x < y,
+                (x, y) => x == y,
+                a[i].to_double(),
+                b[i],
+              )
+            }),
+          )
+        (@column.NumericData::Float(a), @column.NumericData::Int(b)) =>
+          Series::from_bools(
+            left.name(),
+            Array::makei(a.length(), i => {
+              apply_cmp(
+                verb,
+                (x, y) => x < y,
+                (x, y) => x == y,
+                a[i],
+                b[i].to_double(),
+              )
+            }),
+          )
+        (@column.NumericData::Float(a), @column.NumericData::Float(b)) =>
+          Series::from_bools(
+            left.name(),
+            Array::makei(a.length(), i => {
+              apply_cmp(verb, (x, y) => x < y, (x, y) => x == y, a[i], b[i])
+            }),
+          )
+      }
+    (@column.ColumnStorage::Builtin(_), _)
+    | (_, @column.ColumnStorage::Builtin(_)) => ()
+  }
   let lv = validity_bools(left.storage())
   let rv = validity_bools(right.storage())
   let cells = match (left.storage().data(), right.storage().data()) {
@@ -775,6 +902,24 @@ fn[T] map_present(n : Int, valid : Array[Bool], f : (Int) -> T) -> Array[T?] {
 /// stays null; non-numeric operands raise. An all-valid result converges
 /// onto the `Numeric` backend, as for binary arithmetic.
 fn eval_neg(operand : Series) -> Series raise @types.DataError {
+  // `Numeric` fast arm (see `eval_arith`): an all-valid operand negates in
+  // one raw-array pass and stays on the `Numeric` backend.
+  match operand.storage() {
+    @column.ColumnStorage::Numeric(x) =>
+      return match x.data {
+        @column.NumericData::Int(a) =>
+          Series::from_ints(
+            operand.name(),
+            Array::makei(a.length(), i => -a[i]),
+          )
+        @column.NumericData::Float(a) =>
+          Series::from_floats(
+            operand.name(),
+            Array::makei(a.length(), i => -a[i]),
+          )
+      }
+    @column.ColumnStorage::Builtin(_) => ()
+  }
   let valid = validity_bools(operand.storage())
   let out = match operand.storage().data() {
     @column.ColumnData::Int(a) =>
@@ -804,6 +949,25 @@ fn eval_is_nan(
   operand : Series,
   want_nan : Bool,
 ) -> Series raise @types.DataError {
+  // `Numeric` fast arm (see `eval_arith`): all cells present, so the probe
+  // is a raw-array pass — an `Int` cell is never NaN, so its arm is the
+  // constant `!want_nan` per cell.
+  match operand.storage() {
+    @column.ColumnStorage::Numeric(x) =>
+      return match x.data {
+        @column.NumericData::Int(a) =>
+          Series::from_bools(
+            operand.name(),
+            Array::makei(a.length(), _ => !want_nan),
+          )
+        @column.NumericData::Float(a) =>
+          Series::from_bools(
+            operand.name(),
+            Array::makei(a.length(), i => a[i].is_nan() == want_nan),
+          )
+      }
+    @column.ColumnStorage::Builtin(_) => ()
+  }
   let valid = validity_bools(operand.storage())
   match operand.storage().data() {
     @column.ColumnData::Float(a) =>

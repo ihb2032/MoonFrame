@@ -1217,11 +1217,11 @@ facade.
 
 ---
 
-## Out of scope for v0.5 (so far)
+## Out of scope (so far)
 
-The whole v0.5 surface above is **shipped**, and it is the last breaking
-release: from v0.6 on the API only grows (additive — no renames, removals,
-or signature changes). These are the tracked deferrals, all v0.6+:
+The whole surface above is **shipped**. v0.5 was the last breaking release:
+from v0.6 on the API only grows (additive — no renames, removals, or
+signature changes). These are the tracked deferrals, all for a later release:
 
 - **More expression families** — arithmetic / numeric operators
   (`floor_div`, `pow`, `mod`, `abs`, `round`, `floor`, `ceil`, `sign`,
@@ -1230,10 +1230,10 @@ or signature changes). These are the tracked deferrals, all v0.6+:
   and datetime expressions (the repo has no datetime type yet). The v0.5
   operator / method set is frozen; these extend it.
 - **Lazy scan depth** — predicate pushdown into the file parser and
-  streaming execution (v0.5's scan does projection pushdown only), plus
+  streaming execution (the scan does projection pushdown only), plus
   columnar sources (Parquet / IPC) once eager readers exist.
 - **`unique` options** — a `subset` of key columns and a `keep` strategy
-  (v0.5's `unique()` dedups whole rows, keeping first-appearance order).
+  (`unique()` currently dedups whole rows, keeping first-appearance order).
 - **Optimizer extensions** — dead-expression elimination, narrowing /
-  predicate-splitting through joins, and sinking filters below sorts (v0.5
-  pushes predicates and projections only).
+  predicate-splitting through joins, and sinking filters below sorts (the
+  optimizer pushes predicates and projections only).

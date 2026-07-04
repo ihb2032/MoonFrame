@@ -29,8 +29,8 @@
 /// read every column, the faithful mirror of eager `read_csv` /
 /// `read_ndjson`) and is filled by the optimizer's projection pass with the
 /// columns a pipeline provably consumes, so the parser builds only those —
-/// the one push-down that reaches an external source in v0.5 (predicate
-/// push-down into the parser and streaming are v0.6). Unlike the in-memory
+/// the one push-down that reaches an external source (predicate
+/// push-down into the parser and streaming remain deferred). Unlike the in-memory
 /// `Scan`, whose narrowing *inserts* a `Select`, a file source narrows in
 /// place by carrying its own projection. (There is no `ScanJson` for the
 /// single-array shape `[{...}]`: a JSON array must be parsed whole to find its

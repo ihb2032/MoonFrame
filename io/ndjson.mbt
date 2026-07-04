@@ -92,7 +92,7 @@ pub fn parse_ndjson_str(
 /// one extra knob — `projection`. `None` builds every column; `Some(names)`
 /// builds only the named columns (in first-seen header order), the
 /// projection-pushdown path the lazy `scan_ndjson` source uses. Every line is
-/// still parsed (streaming is v0.6), and record validation runs before the
+/// still parsed (streaming is deferred), and record validation runs before the
 /// column filter — so a projected read fails on a malformed or non-object line
 /// exactly as a full read does; only a parse error confined to a dropped column
 /// goes unraised (see `frame_from_json_records`).

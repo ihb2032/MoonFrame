@@ -104,7 +104,7 @@
 ///   sides, deferred with the projection pass's join narrowing — but
 ///   both sides restart their own descent, so filters inside either
 ///   side still sink. The scan leaves — `Scan`, `ScanCsv`, `ScanNdjson` —
-///   are the floor; pushing a predicate into a file parser is v0.6.
+///   are the floor; pushing a predicate into a file parser is deferred.
 ///
 /// # The projection pass
 ///
@@ -146,7 +146,7 @@
 /// *errors* a failing plan reports), narrowing or predicate-splitting
 /// through `Join`, sinking filters below `Sort`, and pushing a predicate
 /// into a file parser (`ScanCsv` / `ScanNdjson`) or streaming the file (both
-/// v0.6). `optimize` is also not idempotent — re-optimizing an
+/// deferred). `optimize` is also not idempotent — re-optimizing an
 /// already-rewritten plan would stack another (harmless) narrowing select
 /// over an in-memory `Scan` (a file source's in-place projection just
 /// recomputes to the same set) — which is moot in practice: plans are

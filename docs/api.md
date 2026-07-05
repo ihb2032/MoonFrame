@@ -483,6 +483,10 @@ rebuild and backend-convergence helpers, and the composite-key cell encoding
 - Total inspection: `name` / `dtype` / `len` / `is_empty` /
   `null_count` / `storage() -> ColumnStorage` /
   `storage_kind() -> StorageKind` /
+  `is_canonical() -> Bool` (whether the column is on the canonical backend
+  for its content — the fixed point of `to_numeric`'s convergence; `false`
+  only for a `Builtin` all-valid `Int` / `Float` column, which can still
+  move onto the `Numeric` fast path) /
   `to_scalars() -> Array[Scalar]` (materialise every cell, `Null` for
   null cells).
 - Fallible (`raise DataError`): `is_null(i) -> Bool` / `get(i) -> Scalar`
@@ -504,7 +508,8 @@ rebuild and backend-convergence helpers, and the composite-key cell encoding
   the slice family (`slice`, frame-level `head` / `tail`) and `fill_null`
   preserve the source backend as-is; cross-dtype casts borrow the `Builtin`
   road. (Content-determined backends are the invariant the lazy optimizer's
-  predicate pushdown relies on.)
+  predicate pushdown relies on; `is_canonical()` reports whether a column
+  sits on that backend, so a test can assert it directly.)
 
 ### Series stats (`series_stats.mbt`)
 

@@ -67,6 +67,7 @@ pub fn Series::from_string_options(String, Array[String?]) -> Self
 pub fn Series::from_strings(String, Array[String]) -> Self
 pub fn Series::gather(Self, Array[Int]) -> Self raise @types.DataError
 pub fn Series::get(Self, Int) -> @types.Scalar raise @types.DataError
+pub fn Series::is_canonical(Self) -> Bool
 pub fn Series::is_empty(Self) -> Bool
 pub fn Series::is_null(Self, Int) -> Bool raise @types.DataError
 pub fn Series::len(Self) -> Int

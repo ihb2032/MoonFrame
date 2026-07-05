@@ -164,6 +164,43 @@ pub fn BuiltinColumn::null_count(self : BuiltinColumn) -> Int {
 }
 
 ///|
+/// Whether every null slot's `data` holds this dtype's canonical placeholder
+/// (`Int = 0`, `Float = 0.0`, `Bool = false`, `String = ""`). The
+/// constructors, casts, and row transforms all write these, so a null slot's
+/// value never leaks through `data()` / the `*_values` accessors — and, since
+/// `BuiltinColumn` `derive`s `Eq` over the raw `data` array (null slots
+/// included), two logically equal columns that differed only in a null slot's
+/// placeholder would otherwise compare unequal. Surfaced as a predicate so a
+/// test can assert the invariant directly instead of trusting each write site
+/// by hand. Total — a bounded scan over the validity mask; the `data` match is
+/// wildcard-free, so a future dtype must supply its placeholder here.
+pub fn BuiltinColumn::placeholders_normalized(self : BuiltinColumn) -> Bool {
+  let valid = self.validity.to_bools()
+  match self.data {
+    Int(a) => null_slots_hold(a, valid, 0L)
+    Float(a) => null_slots_hold(a, valid, 0.0)
+    Bool(a) => null_slots_hold(a, valid, false)
+    String(a) => null_slots_hold(a, valid, "")
+  }
+}
+
+///|
+/// `true` when every null slot (`valid[i] == false`) of `data` holds `ph` — the
+/// shared per-dtype scan behind `placeholders_normalized`.
+fn[T : Eq] null_slots_hold(
+  data : Array[T],
+  valid : Array[Bool],
+  ph : T,
+) -> Bool {
+  for i in 0..<data.length() {
+    if !valid[i] && data[i] != ph {
+      return false
+    }
+  }
+  true
+}
+
+///|
 /// `raise IndexOutOfBounds` if `index` is outside `[0, len)`.
 pub fn BuiltinColumn::is_null(
   self : BuiltinColumn,

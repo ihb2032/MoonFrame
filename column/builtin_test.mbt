@@ -793,3 +793,30 @@ test "cast Float from String skips null slots without parsing the placeholder" {
   assert_eq(out.get(0), @types.Scalar::Null)
   assert_eq(out.get(1), @types.Scalar::Float(1.5))
 }
+
+///|
+test "placeholders_normalized holds across constructors, casts, and row transforms" {
+  // The placeholder invariant asserted as one predicate rather than a per-slot
+  // read of `data`: every public path that writes a Builtin column leaves each
+  // null slot on its dtype's canonical placeholder. Covers the true arm on all
+  // four dtypes, plus cast (validity-preserving, fills the *target* dtype's
+  // placeholder) and the row transforms slice / take (which copy / gather it).
+  let opt_i = BuiltinColumn::from_int_options([Some(1), None, Some(3)])
+  let opt_f = BuiltinColumn::from_float_options([None, Some(2.5)])
+  let opt_b = BuiltinColumn::from_bool_options([Some(true), None])
+  let opt_s = BuiltinColumn::from_string_options([None, Some("z")])
+  for c in [opt_i, opt_f, opt_b, opt_s] {
+    assert_true(c.placeholders_normalized())
+  }
+  // An all-valid column has no null slot — trivially normalized.
+  assert_true(BuiltinColumn::from_ints([1, 2]).placeholders_normalized())
+  // Casts preserve validity and fill each null slot with the target dtype's
+  // placeholder, so the result is normalized on the new dtype.
+  assert_true(opt_i.cast(@types.DataType::Float).placeholders_normalized())
+  assert_true(opt_i.cast(@types.DataType::String).placeholders_normalized())
+  assert_true(opt_f.cast(@types.DataType::Int).placeholders_normalized())
+  assert_true(opt_b.cast(@types.DataType::String).placeholders_normalized())
+  // Row transforms copy / gather the placeholder, keeping it normalized.
+  assert_true(opt_i.slice(0, 2).placeholders_normalized())
+  assert_true(opt_s.take([1, 0, 0]).placeholders_normalized())
+}

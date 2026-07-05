@@ -553,3 +553,72 @@ test "to_builtin: total, lossless round-trip from Numeric" {
   let already = Series::from_int_options("x", [Some(1), None])
   assert_eq(already.to_builtin(), already)
 }
+
+///|
+test "is_canonical is exactly try_column_to_numeric's backend fixed point" {
+  // Every arm of the predicate, pinned to the canonicaliser it mirrors:
+  // is_canonical(s) is true exactly when try_column_to_numeric leaves the
+  // backend unchanged (a canonical column is a no-op; a non-canonical one is
+  // moved off its backend). Asserting both together stops the two drifting.
+  fn check(s : Series, want : Bool) -> Unit raise {
+    assert_eq(s.is_canonical(), want)
+    assert_eq(s.storage_kind() == try_column_to_numeric(s).storage_kind(), want)
+  }
+
+  // Numeric backend: always canonical.
+  check(Series::from_ints("x", [1, 2, 3]), true)
+  check(Series::from_floats("x", [1.5, 2.5]), true)
+  // Builtin, all-valid, numeric: NOT canonical — it can move onto Numeric.
+  check(Series::from_int_options("x", [Some(1), Some(2)]), false)
+  check(Series::from_float_options("x", [Some(1.5)]), false)
+  // Builtin carrying a null: canonical — no bitmap-free backend to move to.
+  check(Series::from_int_options("x", [Some(1), None]), true)
+  check(Series::from_float_options("x", [None]), true)
+  // Builtin Bool / String: canonical — the fast path is numeric-only.
+  check(Series::from_bools("x", [true, false]), true)
+  check(Series::from_bool_options("x", [Some(true), None]), true)
+  check(Series::from_strings("x", ["a", "b"]), true)
+  check(Series::from_string_options("x", [None, Some("z")]), true)
+}
+
+///|
+test "content-determined transforms return a canonical column for every source backend" {
+  // A gather picks the backend from its *result's* content, so the output is
+  // canonical whatever the source backend was — including a non-canonical
+  // Builtin all-valid numeric source. One assertion per public
+  // content-determined entry, so a newly added one gets a line here.
+  let sources = [
+    Series::from_ints("x", [1, 2, 3, 4]),
+    Series::from_int_options("x", [Some(1), Some(2), Some(3), Some(4)]),
+    Series::from_int_options("x", [Some(1), None, Some(3), None]),
+    Series::from_floats("x", [1.5, 2.5, 3.5, 4.5]),
+    Series::from_bools("x", [true, false, true, false]),
+    Series::from_strings("x", ["a", "b", "c", "d"]),
+  ]
+  for src in sources {
+    assert_true(src.gather([0, 2, 1]).is_canonical())
+    assert_true(gather_series(src, [3, 1, 0]).is_canonical())
+    assert_true(
+      gather_series_opt(src, [Some(0), None, Some(2)], "x").is_canonical(),
+    )
+    assert_true(gather_series_opt(src, [Some(3), Some(1)], "x").is_canonical())
+    assert_true(try_column_to_numeric(src).is_canonical())
+  }
+  // drop_nulls canonicalises only when it actually drops a null; on a null-free
+  // source it is a backend-preserving no-op — the boundary of the invariant. A
+  // source that starts with nulls ends all-valid and converges onto Numeric.
+  assert_true(
+    Series::from_int_options("x", [Some(1), None, Some(3)])
+    .drop_nulls()
+    .is_canonical(),
+  )
+  assert_true(
+    Series::from_float_options("x", [None, Some(2.5)])
+    .drop_nulls()
+    .is_canonical(),
+  )
+  // The no-op boundary: drop_nulls leaves a null-free non-canonical source
+  // (Builtin all-valid Int) unchanged, hence still non-canonical.
+  let noop = Series::from_int_options("x", [Some(1), Some(2)])
+  assert_eq(noop.drop_nulls().is_canonical(), false)
+}

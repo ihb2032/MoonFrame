@@ -686,6 +686,47 @@ pub fn Series::storage_kind(self : Series) -> @column.StorageKind {
 }
 
 ///|
+/// Whether this column sits on its **canonical** storage backend — the fixed
+/// point of `try_column_to_numeric`, the representation every
+/// content-determined transform (`gather` / `drop_nulls` / `filter` / `take`
+/// and the expression engine's computed columns) lands its result on.
+///
+/// A column is canonical unless it is a `Builtin` column that is both
+/// all-valid *and* numeric (`Int` / `Float`): that lone shape can move onto
+/// the unboxed `Numeric` fast path losslessly, so a content-determined
+/// transform never leaves a result there. Every other shape is already
+/// canonical — a `Numeric` column (all-valid Int / Float by construction), a
+/// `Builtin` column carrying a null (a `NumericColumn` has no validity bitmap
+/// to record it), or a `Builtin` `Bool` / `String` column (the fast path is
+/// numeric-only).
+///
+/// This is the representation invariant the query optimizer relies on for
+/// `collect ≡ eager` — a derived column's backend is a function of its
+/// *content*, not of how it was produced — surfaced as a predicate so tests
+/// can assert it directly instead of pinning a specific `storage_kind`. It
+/// mirrors `try_column_to_numeric` arm for arm: `is_canonical` is `true`
+/// exactly when that total move is a backend no-op. The `ColumnData` match is
+/// wildcard-free, so a future dtype must decide here whether it converges onto
+/// `Numeric`. A backend-preserving transform (`slice` / `head` / `fill_null`)
+/// can still return a non-canonical column when its source was one — the
+/// invariant governs the content-determined path, not every column.
+pub fn Series::is_canonical(self : Series) -> Bool {
+  match self.storage.kind() {
+    @column.StorageKind::Numeric => true
+    @column.StorageKind::Builtin =>
+      if self.storage.null_count() > 0 {
+        // A null forces the bitmap-backed `Builtin` backend — already canonical.
+        true
+      } else {
+        match self.storage.data() {
+          @column.ColumnData::Int(_) | @column.ColumnData::Float(_) => false
+          @column.ColumnData::Bool(_) | @column.ColumnData::String(_) => true
+        }
+      }
+  }
+}
+
+///|
 /// Move this column onto the `Numeric` fast-path backend. The values are
 /// unchanged — only the backing representation. `raise TypeMismatch` for a
 /// non-numeric column and `raise InvalidOperation` for one carrying nulls

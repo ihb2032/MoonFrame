@@ -54,6 +54,7 @@ pub fn BuiltinColumn::is_empty(Self) -> Bool
 pub fn BuiltinColumn::is_null(Self, Int) -> Bool raise @types.DataError
 pub fn BuiltinColumn::len(Self) -> Int
 pub fn BuiltinColumn::null_count(Self) -> Int
+pub fn BuiltinColumn::placeholders_normalized(Self) -> Bool
 pub fn BuiltinColumn::slice(Self, Int, Int) -> Self raise @types.DataError
 pub fn BuiltinColumn::string_values(Self) -> (Array[String], Bitmap) raise @types.DataError
 pub fn BuiltinColumn::take(Self, Array[Int]) -> Self raise @types.DataError

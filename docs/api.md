@@ -145,14 +145,19 @@ validity bitmap (`1 = valid`, `0 = null`).
 - `struct BuiltinColumn { data : ColumnData, validity : Bitmap }` —
   Arrow-style column; null slots carry a per-dtype placeholder
   (`0` / `0.0` / `false` / `""`) that never leaks, as every read consults
-  `validity` first.
+  `validity` first. `derive(Eq)` compares the raw `data` array, so that
+  placeholder is also what keeps two logically equal columns equal;
+  `placeholders_normalized()` asserts it.
 - `pub(all) enum ColumnData` — `Int(Array[Int64]) | Float(Array[Double]) |
   Bool(Array[Bool]) | String(Array[String])` (64-bit numerics).
 - Total constructors (8): `from_ints` / `from_int_options` /
   `from_floats` / `from_float_options` / `from_bools` /
   `from_bool_options` / `from_strings` / `from_string_options`.
 - Total inspection: `dtype` / `len` / `is_empty` / `null_count` /
-  `data() -> ColumnData` / `validity() -> Bitmap`.
+  `data() -> ColumnData` / `validity() -> Bitmap` /
+  `placeholders_normalized() -> Bool` (every null slot holds its dtype's
+  canonical placeholder — always `true` for a column from the public API;
+  a test-facing assertion of the invariant `derive(Eq)` depends on).
   - ⚠ **`data()` returns the live backing array zero-copy** (not a defensive
     copy — a hot-path read trade-off). Treat it as **read-only**; mutating it
     corrupts the column's data/validity invariants. Same for

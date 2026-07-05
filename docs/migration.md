@@ -5,6 +5,15 @@ changes ride the minor version. For the feature history behind each release see
 [`changelog.md`](changelog.md); for the current public surface see
 [`api.md`](api.md).
 
+## v0.5.4 → v0.5.5
+
+No source-level migration steps. v0.5.5 is an additive patch: every v0.5.4
+symbol and signature is unchanged, and nothing is renamed, removed, re-signed,
+or given a new required `match` arm. The new surface is purely additive — two
+introspection predicates, `Series::is_canonical()` and
+`BuiltinColumn::placeholders_normalized()`, that assert internal representation
+invariants (see the [changelog](changelog.md)).
+
 ## v0.5.3 → v0.5.4
 
 No source-level migration steps. v0.5.4 is an additive patch: every v0.5.3

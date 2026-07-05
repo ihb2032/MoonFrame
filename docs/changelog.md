@@ -6,6 +6,39 @@ breaking-change steps for each release are collected in
 [`migration.md`](migration.md). Pre-1.0, breaking changes ride the minor
 version.
 
+## v0.5.5 — Assertable representation invariants
+
+An additive patch. Every symbol and signature is unchanged from v0.5.4, so no
+code changes are required to upgrade; three internal invariants that were held
+by convention — and observed only indirectly — are now surfaced so a test can
+assert them directly.
+
+### Backend-canonicalisation invariant
+
+`Series::is_canonical()` reports whether a column sits on its content-determined
+storage backend — the fixed point of the internal `try_column_to_numeric`
+convergence, where a `Builtin` all-valid `Int` / `Float` column is the one
+non-canonical shape (it can still move onto the `Numeric` fast path). This is
+the invariant the query optimizer relies on for `collect ≡ eager`; it was upheld
+by scattered canonicalisation calls and observed only through `storage_kind` or
+the differential fuzzer, and is now directly assertable.
+
+### Null-placeholder invariant
+
+`BuiltinColumn::placeholders_normalized()` reports whether every null slot holds
+its dtype's canonical placeholder (`0` / `0.0` / `false` / `""`). Because
+`BuiltinColumn` derives `Eq` over the raw `data` array (null slots included),
+that placeholder is what keeps two logically equal columns equal; the predicate
+makes the invariant every constructor, cast, and row transform maintains
+assertable rather than trusted at each write site.
+
+### Advisory nullability is pinned
+
+`Field.nullable = false` is advisory — only `DataFrame::from_rows` enforces it,
+and every schema-rebuilding op resets it via `Field::new`. The "not propagated"
+half of that contract is now pinned by a test: a `nullable = false` column
+projected through `select` comes back `nullable = true`.
+
 ## v0.5.4 — API-consistency aliases and facade completeness
 
 An additive patch. Every symbol and signature is unchanged from v0.5.3, so no

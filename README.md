@@ -113,9 +113,11 @@ run as doc tests on every backend.
   `(col("revenue") - col("cost")).sum()`; `map_elements` / `map_many` drop to a
   host closure for anything past the built-in algebra.
 - **Defer & optimize** — `lazy_frame(df)`, or `scan_csv` / `scan_ndjson` for a
-  lazy file source, builds a query plan you can `explain()`; `collect()` runs it
-  through a predicate- and projection-pushdown optimizer, bitwise-equal to the
-  eager pipeline (and a file scan only parses the columns the plan reads).
+  lazy file source (deferred execution with projection pushdown, not streaming —
+  the file still materializes at `collect()`), builds a query plan you can
+  `explain()`; `collect()` runs it through a predicate- and projection-pushdown
+  optimizer, bitwise-equal to the eager pipeline for the columns it reads (a
+  pruned column is never parsed, so a parse error confined to it isn't observed).
 - **Join** — the full `inner` / `left` / `right` / `outer` / `cross` matrix on
   expression keys, e.g.
   `orders.join(customers, JoinOptions::on([col("customer_id")]))` (or
@@ -237,7 +239,8 @@ moon fmt       # format sources
 moon info      # regenerate .mbti interface snapshots
 ```
 
-Contributions keep 100% line coverage and a warning-free `moon check`.
+Contributions keep every source file fully covered (`moon coverage analyze`)
+and a warning-free `moon check`.
 
 ## Acknowledgements
 

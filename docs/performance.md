@@ -2,8 +2,8 @@
 
 MoonFrame is built on an Apache Arrow-style **columnar** layout. This page
 records the complexity of each operation and the storage design behind it.
-These are analytical notes; measured micro-benchmarks (via `moon bench`) are
-a planned addition.
+These are analytical notes on complexity and layout; for measured throughput a
+`moon bench` suite lives alongside the tests (see [Benchmarks](#benchmarks)).
 
 ## Data model
 
@@ -82,3 +82,28 @@ applies to file sources (`scan_csv` / `scan_ndjson`).
 
 See [`api.md`](api.md) for the per-operation semantics and
 [`comparison.md`](comparison.md) for how the semantics line up with Polars.
+
+## Benchmarks
+
+Beyond the complexity notes above, a `moon bench` micro-benchmark suite measures
+real throughput. Run it from the repo root with `moon bench`.
+
+Each library package carries a `bench_test.mbt` file. Because the benches are
+ordinary test blocks, `moon check` compiles them (so they cannot bit-rot) and
+`moon bench` executes them; they are deliberately **not** a CI gate, since
+timings are machine-dependent and a pass/fail threshold would be flaky. The
+suite covers, at 1K / 100K / 1M rows where scaling is informative:
+
+- **`series`** — construction, and reductions (`sum` / `mean` / `min` / `max` /
+  `count`) contrasting the `Numeric` fast path against the general `Builtin`
+  backend, plus `gather` / `slice`.
+- **`frame`** — `filter`, `with_columns`, `unique`, inner `join`, `sort`, and
+  `group_by(...).agg(...)`.
+- **`io`** — `parse_csv_str` and `parse_ndjson_str` throughput.
+- **`lazy`** — the same `filter` + `group_by` + `sum` pipeline run eagerly and
+  through the lazy optimizer.
+
+The headline result confirms the design intent: on all-valid numeric columns the
+`Numeric` backend reduces several times faster than `Builtin` — roughly an order
+of magnitude for `sum` at 1M rows — while `count` stays `O(1)`. Exact figures
+vary by machine; run the suite locally for numbers on your hardware.

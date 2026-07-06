@@ -89,10 +89,11 @@ Beyond the complexity notes above, a `moon bench` micro-benchmark suite measures
 real throughput. Run it from the repo root with `moon bench`.
 
 Each library package carries a `bench_test.mbt` file. Because the benches are
-ordinary test blocks, `moon check` compiles them (so they cannot bit-rot) and
-`moon bench` executes them; they are deliberately **not** a CI gate, since
-timings are machine-dependent and a pass/fail threshold would be flaky. The
-suite covers, at 1K / 100K / 1M rows where scaling is informative:
+ordinary test blocks, `moon check` compiles them and `moon bench` executes
+them — and CI runs both, so a benchmark that stops compiling or running fails
+the build. There is deliberately **no** performance threshold, since timings
+are machine-dependent and a pass/fail bar would be flaky. The suite covers, at
+1K / 100K / 1M rows where scaling is informative:
 
 - **`series`** — construction, and reductions (`sum` / `mean` / `min` / `max` /
   `count`) contrasting the `Numeric` fast path against the general `Builtin`

@@ -18,8 +18,9 @@ Each library package now carries a `bench_test.mbt` file driving `moon bench`:
 `series` reductions contrasting the `Numeric` fast path against `Builtin`,
 `frame` `sort` / `group_by` / `join` / `filter`, `io` string parsing, and an
 eager-vs-lazy pipeline — at 1K / 100K / 1M rows where scaling is informative.
-The benches are ordinary test blocks, so `moon check` compiles them (they cannot
-bit-rot) and `moon bench` runs them; they are not a CI gate. See
+The benches are ordinary test blocks, so `moon check` compiles them and
+`moon bench` runs them — both in CI, so a broken benchmark fails the build.
+There is no performance threshold (timings are machine-dependent). See
 [`performance.md`](performance.md#benchmarks).
 
 ### Metadata and docs

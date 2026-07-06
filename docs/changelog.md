@@ -6,6 +6,32 @@ breaking-change steps for each release are collected in
 [`migration.md`](migration.md). Pre-1.0, breaking changes ride the minor
 version.
 
+## v0.5.6 — benchmark suite
+
+An additive patch. Every v0.5.5 symbol and signature is unchanged, so no code
+changes are required to upgrade. This release adds a `moon bench` micro-benchmark
+suite and tightens module metadata and documentation.
+
+### Benchmarks
+
+Each library package now carries a `bench_test.mbt` file driving `moon bench`:
+`series` reductions contrasting the `Numeric` fast path against `Builtin`,
+`frame` `sort` / `group_by` / `join` / `filter`, `io` string parsing, and an
+eager-vs-lazy pipeline — at 1K / 100K / 1M rows where scaling is informative.
+The benches are ordinary test blocks, so `moon check` compiles them and
+`moon bench` runs them — both in CI, so a broken benchmark fails the build.
+There is no performance threshold (timings are machine-dependent). See
+[`performance.md`](performance.md#benchmarks).
+
+### Metadata and docs
+
+- `moon.mod` now declares `supported_targets` (`wasm` / `wasm-gc` / `js` /
+  `native`), matching the backends CI tests instead of implicitly claiming all.
+- Doc corrections: the lazy pipeline's bitwise-equality claim is qualified for
+  pruned-column parse errors, `scan` is described as deferred + projection
+  pushdown rather than streaming, the coverage wording matches the tooling, and
+  the `Int` sum's `Int64` overflow wrap is called out.
+
 ## v0.5.5 — Assertable representation invariants
 
 An additive patch. Every symbol and signature is unchanged from v0.5.4, so no

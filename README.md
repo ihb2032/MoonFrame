@@ -240,7 +240,8 @@ moon info      # regenerate .mbti interface snapshots
 ```
 
 Contributions keep every source file fully covered (`moon coverage analyze`)
-and a warning-free `moon check`.
+and a warning-free `moon check`; CI also runs the `moon bench` suite, so keep
+it green too.
 
 ## Acknowledgements
 

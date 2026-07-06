@@ -93,3 +93,13 @@ jobs:
         run: |
           moon coverage analyze | tee coverage-analyze.txt
           grep -q "All source files are fully covered" coverage-analyze.txt
+
+      # Benchmarks are not a performance gate — timings are machine-dependent,
+      # so there is no pass/fail threshold. But executing them here means a
+      # change that breaks a benchmark at runtime — or a contributed benchmark
+      # with a runtime bug — fails CI instead of silently rotting until someone
+      # runs `moon bench` locally. `moon check` above only compiles them; this
+      # runs them. Linux-only, matching the other heavy gates.
+      - name: Run benchmarks (execution check, not a perf gate)
+        if: runner.os == 'Linux'
+        run: moon bench

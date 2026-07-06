@@ -63,7 +63,8 @@ For a frame of `n` rows and `c` columns:
 ## Lazy execution
 
 `collect()` runs two result-preserving rewrites before executing, and the
-output is **bitwise-equal** to the eager pipeline:
+output is **bitwise-equal** to the eager pipeline (with one documented
+exception, noted below):
 
 - **Predicate pushdown** sinks each `filter` toward the scan, so rows drop
   as early as the operator provably commutes with the predicate.
@@ -73,6 +74,11 @@ output is **bitwise-equal** to the eager pipeline:
   parsed** —
   `scan_csv("sales.csv").select([col("region"), col("revenue")]).collect()`
   parses only those two columns.
+
+Because a pruned column is never parsed, a parse error confined to that column
+is the one thing an optimized plan will not surface that a full eager read
+would — the sole intentional divergence from bitwise equality, and it only
+applies to file sources (`scan_csv` / `scan_ndjson`).
 
 See [`api.md`](api.md) for the per-operation semantics and
 [`comparison.md`](comparison.md) for how the semantics line up with Polars.

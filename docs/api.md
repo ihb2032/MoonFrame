@@ -526,7 +526,8 @@ rebuild and backend-convergence helpers, and the composite-key cell encoding
   `false < true`).
 - Fallible (`raise DataError`): `sum()` — `Int` / `Float` →
   `Scalar::Int` / `Scalar::Float`, empty / all-null is the additive
-  identity, `Bool` / `String` → `TypeMismatch`; `mean()` — `Double`,
+  identity; an `Int` sum accumulates in `Int64` and **wraps on overflow**
+  (silently — no raise); `Bool` / `String` → `TypeMismatch`; `mean()` — `Double`,
   empty / all-null numeric → `InvalidOperation`, non-numeric →
   `TypeMismatch`. `mean_opt() -> Double?` is the **total** form of `mean`
   (`Some(mean)`, or `None` exactly where `mean` would raise). `Float` `NaN`

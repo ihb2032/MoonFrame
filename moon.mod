@@ -2,6 +2,8 @@ name = "ihb2032/MoonFrame"
 
 version = "0.5.5"
 
+supported_targets = [ "wasm", "wasm-gc", "js", "native" ]
+
 warnings = "+a-unnecessary_annotation-test_unqualified_package-unqualified_local_using-missing_invariant-missing_reasoning"
 
 import {

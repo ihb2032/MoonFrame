@@ -317,42 +317,21 @@ pub fn BuiltinColumn::cast(
 /// Assemble a cast result from a per-cell conversion: each valid slot maps
 /// through `conv`, each null slot takes the `fill` placeholder, and the
 /// validity bitmap is reused verbatim (a cast preserves nullity). The "read the
-/// mask once, `makei` with a null guard, reuse the validity" shell shared by the
-/// fallible casts `to_int` / `to_float`, whose `conv` `raise`s on an
-/// out-of-range or malformed cell, rather than written once per source dtype.
+/// mask once, `makei` with a null guard, reuse the validity" shell shared by
+/// every cast, rather than written once per source dtype.
 ///
-/// `cast_cells_total` is the non-raising twin for `to_string_column`: that cast
-/// is total (every dtype has a value-form rendering, so it never fails), and
-/// MoonBit cannot make one higher-order shell polymorphic over whether its
-/// `conv` raises, so the total surface keeps its own copy rather than be forced
-/// to adopt an error it never produces.
+/// The error effect follows `conv` (`raise?`): the fallible casts `to_int` /
+/// `to_float` pass a `conv` that `raise`s on an out-of-range or malformed cell,
+/// so those stay fallible; the total `to_string_column` passes a `conv` that
+/// never fails, so it stays total. One shell serves both — MoonBit's error
+/// polymorphism resolves the effect at each call site, so the total surface is
+/// not forced to adopt an error it never produces.
 fn[U] BuiltinColumn::cast_cells(
   self : BuiltinColumn,
-  conv : (Int) -> U raise @types.DataError,
+  conv : (Int) -> U raise?,
   fill : U,
   wrap : (Array[U]) -> ColumnData,
-) -> BuiltinColumn raise @types.DataError {
-  let valid = self.validity.to_bools()
-  let buf : Array[U] = Array::makei(valid.length(), i => {
-    if valid[i] {
-      conv(i)
-    } else {
-      fill
-    }
-  })
-  { data: wrap(buf), validity: self.validity }
-}
-
-///|
-/// The total twin of `cast_cells`, behind the never-failing `to_string_column`
-/// (see that pair's note). Same null-guarded `makei` over a reused validity
-/// bitmap, but a total `conv`, so the cast stays total.
-fn[U] BuiltinColumn::cast_cells_total(
-  self : BuiltinColumn,
-  conv : (Int) -> U,
-  fill : U,
-  wrap : (Array[U]) -> ColumnData,
-) -> BuiltinColumn {
+) -> BuiltinColumn raise? {
   let valid = self.validity.to_bools()
   let buf : Array[U] = Array::makei(valid.length(), i => {
     if valid[i] {
@@ -487,10 +466,10 @@ fn BuiltinColumn::to_float(
 pub fn BuiltinColumn::to_string_column(self : BuiltinColumn) -> BuiltinColumn {
   match self.data {
     String(_) => self
-    Int(a) => self.cast_cells_total(i => a[i].to_string(), "", b => String(b))
-    Float(a) => self.cast_cells_total(i => a[i].to_string(), "", b => String(b))
+    Int(a) => self.cast_cells(i => a[i].to_string(), "", b => String(b))
+    Float(a) => self.cast_cells(i => a[i].to_string(), "", b => String(b))
     Bool(a) =>
-      self.cast_cells_total(i => if a[i] { "true" } else { "false" }, "", b => {
+      self.cast_cells(i => if a[i] { "true" } else { "false" }, "", b => {
         String(b)
       })
   }

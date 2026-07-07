@@ -15,46 +15,31 @@ pub(all) enum DataType {
 ///|
 /// `true` only for the `Int` variant.
 pub fn DataType::is_integer(self : DataType) -> Bool {
-  match self {
-    Int => true
-    _ => false
-  }
+  self is Int
 }
 
 ///|
 /// `true` only for the `Float` variant.
 pub fn DataType::is_float(self : DataType) -> Bool {
-  match self {
-    Float => true
-    _ => false
-  }
+  self is Float
 }
 
 ///|
 /// `true` for `Int` and `Float` — both are usable in numeric reductions.
 pub fn DataType::is_numeric(self : DataType) -> Bool {
-  match self {
-    Int | Float => true
-    _ => false
-  }
+  self is Int || self is Float
 }
 
 ///|
 /// `true` only for the `Bool` variant.
 pub fn DataType::is_bool(self : DataType) -> Bool {
-  match self {
-    Bool => true
-    _ => false
-  }
+  self is Bool
 }
 
 ///|
 /// `true` only for the `String` variant.
 pub fn DataType::is_string(self : DataType) -> Bool {
-  match self {
-    String => true
-    _ => false
-  }
+  self is String
 }
 
 ///|

@@ -31,10 +31,7 @@ pub fn Scalar::dtype(self : Scalar) -> DataType {
 ///|
 /// `true` only for the `Null` (missing-value) variant.
 pub fn Scalar::is_null(self : Scalar) -> Bool {
-  match self {
-    Null => true
-    _ => false
-  }
+  self is Null
 }
 
 ///|

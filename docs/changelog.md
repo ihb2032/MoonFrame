@@ -6,6 +6,33 @@ breaking-change steps for each release are collected in
 [`migration.md`](migration.md). Pre-1.0, breaking changes ride the minor
 version.
 
+## v0.5.7 — internal syntax modernization
+
+An internal-refactor patch. Every v0.5.6 symbol, signature, and behaviour is
+unchanged, so no code changes are required to upgrade — this release only
+rewrites the implementation with current MoonBit syntax. There is no observable
+difference: the root facade interface (`pkg.generated.mbti`) is byte-for-byte
+identical, and every rendered output (HTML / Markdown / CSV / plan / expression)
+is pinned unchanged by the existing exact-output tests. The `expr` / `frame` /
+`lazy` sub-package interfaces show only `#as_free_fn` / `#alias` attributes
+moving onto their methods — `col` / `lit` / `limit` remain callable exactly as
+before.
+
+### Modernized internals
+
+- The cast helpers `cast_cells` and `cast_cells_total` are merged into one shell
+  over MoonBit's error polymorphism (`raise?`): the error effect now follows the
+  per-cell callback, so a total cast stays total and a fallible one stays
+  fallible without a duplicated body.
+- The `col` / `lit` free constructors are generated from `Expr::col` /
+  `Expr::lit` with `#as_free_fn` instead of hand-written forwarders, and `limit`
+  is an `#alias` of `head` on both `DataFrame` and `LazyFrame`.
+- The `JoinOptions` and `HtmlOptions` `with_*` setters use struct-update
+  (`{ ..self, field: value }`); the `DataType` / `Scalar` boolean predicates use
+  the `is` pattern; and `Series::to_scalars` uses an index+value comprehension.
+- The HTML, logical-plan, and expression renderers assemble their output with
+  the `<+` template-write operator (byte-for-byte identical output).
+
 ## v0.5.6 — benchmark suite
 
 An additive patch. Every v0.5.5 symbol and signature is unchanged, so no code

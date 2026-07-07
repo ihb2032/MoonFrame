@@ -5,6 +5,17 @@ changes ride the minor version. For the feature history behind each release see
 [`changelog.md`](changelog.md); for the current public surface see
 [`api.md`](api.md).
 
+## v0.5.6 → v0.5.7
+
+No source-level migration steps. v0.5.7 is an internal-refactor patch: every
+v0.5.6 symbol, signature, and behaviour is unchanged, and nothing is renamed,
+removed, re-signed, or given a new required `match` arm. The implementation is
+rewritten with current MoonBit syntax with no new or changed surface, so nothing
+a consumer imports differs. (The `expr` / `frame` / `lazy` sub-package `.mbti`
+files show `#as_free_fn` / `#alias` attributes on `col` / `lit` / `limit`, but
+those symbols stay callable exactly as before — see the
+[changelog](changelog.md).)
+
 ## v0.5.5 → v0.5.6
 
 No source-level migration steps. v0.5.6 is an additive patch: every v0.5.5

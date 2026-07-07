@@ -169,50 +169,39 @@ fn format_html(df : DataFrame, shown : Int, options : HtmlOptions) -> String {
   // transposed into per-row cells); each is HTML-escaped on write below.
   let cells = table_cell_matrix(df, shown)
   let buf = StringBuilder::new()
-  buf.write_string("<table")
+  buf <+ "<table"
   if options.table_class is Some(cls) {
-    buf.write_string(" class=\"")
-    buf.write_string(html_escape(cls, escape))
-    buf.write_char('"')
+    buf <+ " class=\"\{html_escape(cls, escape)}\""
   }
-  buf.write_string(">\n")
+  buf <+ ">\n"
   if options.caption is Some(text) {
-    buf.write_string("<caption>")
-    buf.write_string(html_escape(text, escape))
-    buf.write_string("</caption>\n")
+    buf <+ "<caption>\{html_escape(text, escape)}</caption>\n"
   }
   // Header.
-  buf.write_string("<thead>\n<tr>")
+  buf <+ "<thead>\n<tr>"
   for name in names {
-    buf.write_string("<th>")
-    buf.write_string(html_escape(name, escape))
-    buf.write_string("</th>")
+    buf <+ "<th>\{html_escape(name, escape)}</th>"
   }
-  buf.write_string("</tr>\n</thead>\n")
+  buf <+ "</tr>\n</thead>\n"
   // Body — one `<tr>` per visible record. A null cell renders empty
   // (`Scalar::to_string` maps `Null` to "").
-  buf.write_string("<tbody>\n")
+  buf <+ "<tbody>\n"
   for r in 0..<shown {
-    buf.write_string("<tr>")
+    buf <+ "<tr>"
     for c in 0..<ncols {
-      buf.write_string("<td>")
-      buf.write_string(html_escape(cells[r][c], escape))
-      buf.write_string("</td>")
+      buf <+ "<td>\{html_escape(cells[r][c], escape)}</td>"
     }
-    buf.write_string("</tr>\n")
+    buf <+ "</tr>\n"
   }
-  buf.write_string("</tbody>\n")
+  buf <+ "</tbody>\n"
   // Truncation banner, spanning every column. The banner text is fixed
   // (digits + ASCII), so it needs no escaping.
   let nrows = df.nrows()
   if shown < nrows {
-    buf.write_string("<tfoot>\n<tr><td colspan=\"")
-    buf.write_string(ncols.to_string())
-    buf.write_string("\">")
-    buf.write_string(more_rows_banner(nrows - shown))
-    buf.write_string("</td></tr>\n</tfoot>\n")
+    buf <+
+      "<tfoot>\n<tr><td colspan=\"\{ncols}\">\{more_rows_banner(nrows - shown)}</td></tr>\n</tfoot>\n"
   }
-  buf.write_string("</table>\n")
+  buf <+ "</table>\n"
   buf.to_string()
 }
 

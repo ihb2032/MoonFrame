@@ -1,17 +1,12 @@
 ///|
-/// Reference a column by name. The name resolves at *evaluation* time —
+/// Reference a column by name, for the Polars-style call shape
+/// `col("a") + col("b")`. The name resolves at *evaluation* time —
 /// `ColumnNotFound` then if the frame has no such column; building the
-/// reference itself is total.
+/// reference itself is total. Exposed both as the `Expr::col` static method
+/// and, via `#as_free_fn`, the bare `col` free function the facade re-exports.
+#as_free_fn(col)
 pub fn Expr::col(name : String) -> Expr {
   Col(name)
-}
-
-///|
-/// Free-function alias of `Expr::col`, for the Polars-style call shape
-/// `col("a") + col("b")` (the same static-method + free-alias double
-/// export the facade uses for `read_csv`).
-pub fn col(name : String) -> Expr {
-  Expr::col(name)
 }
 
 ///|
@@ -29,15 +24,12 @@ pub fn cols(names : Array[String]) -> Array[Expr] {
 /// Embed a literal `Scalar`. At evaluation it becomes a length-1 column
 /// broadcast against its siblings. Prefer the typed shorthands
 /// (`lit_int` / `lit_float` / `lit_str` / `lit_bool`), which avoid
-/// spelling the `Scalar` variant at call sites.
+/// spelling the `Scalar` variant at call sites. Exposed both as the
+/// `Expr::lit` static method and, via `#as_free_fn`, the bare `lit` free
+/// function.
+#as_free_fn(lit)
 pub fn Expr::lit(value : @types.Scalar) -> Expr {
   Lit(value)
-}
-
-///|
-/// Free-function alias of `Expr::lit`.
-pub fn lit(value : @types.Scalar) -> Expr {
-  Expr::lit(value)
 }
 
 ///|

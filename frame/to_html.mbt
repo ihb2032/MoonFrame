@@ -54,12 +54,7 @@ pub fn HtmlOptions::default() -> HtmlOptions {
 /// first `n` data rows, appending a `<tfoot>` `... (K more rows)` banner
 /// for the remainder. A negative `n` clamps to 0. Chainable.
 pub fn HtmlOptions::with_max_rows(self : HtmlOptions, n : Int) -> HtmlOptions {
-  {
-    max_rows: Some(n),
-    table_class: self.table_class,
-    caption: self.caption,
-    escape: self.escape,
-  }
+  { ..self, max_rows: Some(n) }
 }
 
 ///|
@@ -69,12 +64,7 @@ pub fn HtmlOptions::with_table_class(
   self : HtmlOptions,
   cls : String,
 ) -> HtmlOptions {
-  {
-    max_rows: self.max_rows,
-    table_class: Some(cls),
-    caption: self.caption,
-    escape: self.escape,
-  }
+  { ..self, table_class: Some(cls) }
 }
 
 ///|
@@ -84,12 +74,7 @@ pub fn HtmlOptions::with_caption(
   self : HtmlOptions,
   text : String,
 ) -> HtmlOptions {
-  {
-    max_rows: self.max_rows,
-    table_class: self.table_class,
-    caption: Some(text),
-    escape: self.escape,
-  }
+  { ..self, caption: Some(text) }
 }
 
 ///|
@@ -100,12 +85,7 @@ pub fn HtmlOptions::with_escape(
   self : HtmlOptions,
   escape : Bool,
 ) -> HtmlOptions {
-  {
-    max_rows: self.max_rows,
-    table_class: self.table_class,
-    caption: self.caption,
-    escape,
-  }
+  { ..self, escape, }
 }
 
 ///|

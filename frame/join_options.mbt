@@ -139,14 +139,7 @@ pub fn JoinOptions::with_right_on(
   self : JoinOptions,
   keys : Array[@expr.Expr],
 ) -> JoinOptions {
-  {
-    on: self.on,
-    left_on: self.left_on,
-    right_on: keys.copy(),
-    how: self.how,
-    suffix: self.suffix,
-    coalesce: self.coalesce,
-  }
+  { ..self, right_on: keys.copy() }
 }
 
 ///|
@@ -158,28 +151,14 @@ pub fn JoinOptions::with_left_on(
   self : JoinOptions,
   keys : Array[@expr.Expr],
 ) -> JoinOptions {
-  {
-    on: self.on,
-    left_on: keys.copy(),
-    right_on: self.right_on,
-    how: self.how,
-    suffix: self.suffix,
-    coalesce: self.coalesce,
-  }
+  { ..self, left_on: keys.copy() }
 }
 
 ///|
 /// Return a copy of these options with the join `how` set to `how`.
 /// Chainable after `on` / `left_on`.
 pub fn JoinOptions::with_how(self : JoinOptions, how : JoinType) -> JoinOptions {
-  {
-    on: self.on,
-    left_on: self.left_on,
-    right_on: self.right_on,
-    how,
-    suffix: self.suffix,
-    coalesce: self.coalesce,
-  }
+  { ..self, how, }
 }
 
 ///|
@@ -190,14 +169,7 @@ pub fn JoinOptions::with_suffix(
   self : JoinOptions,
   suffix : String,
 ) -> JoinOptions {
-  {
-    on: self.on,
-    left_on: self.left_on,
-    right_on: self.right_on,
-    how: self.how,
-    suffix,
-    coalesce: self.coalesce,
-  }
+  { ..self, suffix, }
 }
 
 ///|
@@ -211,12 +183,5 @@ pub fn JoinOptions::with_coalesce(
   self : JoinOptions,
   coalesce : Bool,
 ) -> JoinOptions {
-  {
-    on: self.on,
-    left_on: self.left_on,
-    right_on: self.right_on,
-    how: self.how,
-    suffix: self.suffix,
-    coalesce: Some(coalesce),
-  }
+  { ..self, coalesce: Some(coalesce) }
 }

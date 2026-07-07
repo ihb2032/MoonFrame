@@ -11,100 +11,126 @@
 /// Builtin/Numeric backend, which is exactly where an unfenced backend flip
 /// would show up).
 ///
-/// This is a deterministic loop (a small LCG seeded per case), not quickcheck:
-/// the `lazy` blackbox package has no `Arbitrary` instance for `DataFrame`, and
-/// a fixed seed makes any failure reproducible. The generators bias hard toward
-/// the documented hazards — all-null groups, signed-zero float keys, NaN cells,
-/// nullable derived columns whose nulls line up with the rows a filter drops.
+/// Driven by quickcheck: each case draws a rich frame and a pipeline shape
+/// from `@gen` combinators, and `forall_shrink` collapses a failing case to a
+/// MINIMAL counterexample — row-by-row for the data (and verb-by-verb for the
+/// stacked pipelines). Modelling a row as a plain tuple of `Option`s lets
+/// `@shrink`'s built-in Array / tuple / Option instances do that row shrinking
+/// for free, so a failure reports the smallest frame that still diverges
+/// rather than an opaque seed number. Quickcheck's default seed is fixed, so
+/// the generated cases — and hence coverage — are reproducible run to run. The
+/// generators bias hard toward the documented hazards — all-null groups,
+/// signed-zero float keys, NaN cells, nullable derived columns whose nulls line
+/// up with the rows a filter drops. A per-test `rewrites` counter guards
+/// against a vacuous pass: the generators must actually exercise the pushdown
+/// in a meaningful fraction of cases.
+
+// ── Generators over the rich five-column domain ──────────────────────
 
 ///|
-/// A tiny deterministic PRNG (LCG, the Numerical Recipes constants) so the
-/// fuzzer reproduces identically run to run.
-priv struct Rng {
-  mut state : UInt64
+/// One rich row — `(g, fk, a, b, s)` — with every cell independently nullable
+/// (~1/4 null). A plain tuple (rather than a struct) so `@shrink` can shrink a
+/// frame row-by-row and cell-by-cell out of the box.
+type RichRow = (Int64?, Double?, Int64?, Int64?, String?)
+
+///|
+/// A `Bool` that is `true` with probability `1/n` — the generator counterpart
+/// of the old `Rng::one_in`, kept so the pipeline-shape probabilities (and thus
+/// the covered branches) match the previous hand-rolled fuzzer exactly.
+fn gen_one_in(n : Int) -> @gen.Gen[Bool] {
+  @gen.int_range(0, n - 1).fmap(x => x == 0)
 }
 
 ///|
-fn Rng::new(seed : UInt64) -> Rng {
-  { state: seed * 6364136223846793005UL + 1442695040888963407UL }
-}
-
-///|
-fn Rng::next_u32(self : Rng) -> UInt {
-  self.state = self.state * 6364136223846793005UL + 1442695040888963407UL
-  (self.state >> 33).to_uint()
-}
-
-///|
-/// A non-negative `Int` in `[0, bound)` (bound > 0).
-fn Rng::below(self : Rng, bound : Int) -> Int {
-  (self.next_u32() % bound.reinterpret_as_uint()).reinterpret_as_int()
-}
-
-///|
-/// `true` with probability `1/n`.
-fn Rng::one_in(self : Rng, n : Int) -> Bool {
-  self.below(n) == 0
-}
-
-///|
-/// A small grab-bag of `Int64` cell values, including the additive identity and
-/// negatives (so sums can cancel and min/max straddle zero).
-fn Rng::int_cell(self : Rng) -> Int64 {
-  let choices : ReadOnlyArray[Int64] = [0L, 1L, -1L, 2L, 5L, 50L, 100L, -50L]
-  choices[self.below(choices.length())]
-}
-
-///|
-/// A small grab-bag of `Double` cell values that deliberately includes BOTH
-/// signed zeros and a NaN — the values the signed-zero aggregate fence and the
-/// NaN grouping rule turn on, and which the Int-only properties can never
-/// produce.
-fn Rng::float_cell(self : Rng) -> Double {
-  let choices : ReadOnlyArray[Double] = [
-    0.0, -0.0, 1.0, -1.0, 2.5, @double.not_a_number, 100.0, -100.0,
-  ]
-  choices[self.below(choices.length())]
-}
-
-///|
-/// A small grab-bag of strings, including the empty string.
-fn Rng::string_cell(self : Rng) -> String {
-  let choices : ReadOnlyArray[String] = ["", "a", "b", "west", "east", "north"]
-  choices[self.below(choices.length())]
-}
-
-///|
-/// Build a random rich frame: `nrows` rows and a fixed schema of five columns
-/// spanning every dtype, each cell independently nullable (≈1/4 null) so groups
-/// go all-null, derived columns straddle the null boundary, and key columns mix
-/// signed zeros / NaN / duplicate strings. Columns:
-///   - `g`   : Int64  — a low-cardinality grouping key (values 0..2, nullable)
-///   - `fk`  : Double — a float key carrying ±0.0 and NaN
-///   - `a`   : Int64  — a nullable payload
-///   - `b`   : Int64  — a nullable payload (so `a + b` is nullable)
-///   - `s`   : String — a nullable string key/payload
-fn Rng::rich_frame(self : Rng, nrows : Int) -> @frame.DataFrame raise {
-  let g : Array[Int64?] = []
-  let fk : Array[Double?] = []
-  let a : Array[Int64?] = []
-  let b : Array[Int64?] = []
-  let s : Array[String?] = []
-  for _ in 0..<nrows {
-    g.push(if self.one_in(4) { None } else { Some(self.below(3).to_int64()) })
-    fk.push(if self.one_in(4) { None } else { Some(self.float_cell()) })
-    a.push(if self.one_in(4) { None } else { Some(self.int_cell()) })
-    b.push(if self.one_in(4) { None } else { Some(self.int_cell()) })
-    s.push(if self.one_in(4) { None } else { Some(self.string_cell()) })
-  }
-  @frame.DataFrame::new([
-    @series.Series::from_int_options("g", g),
-    @series.Series::from_float_options("fk", fk),
-    @series.Series::from_int_options("a", a),
-    @series.Series::from_int_options("b", b),
-    @series.Series::from_string_options("s", s),
+/// A low-cardinality grouping key `g` (values 0..2, ~1/4 null) so groups
+/// actually collide and all-null groups are reachable.
+fn gen_g_cell() -> @gen.Gen[Int64?] {
+  @gen.frequency([
+    (1, @gen.pure(None)),
+    (3, @gen.int_range(0, 2).fmap(x => Some(x.to_int64()))),
   ])
 }
+
+///|
+/// A small grab-bag of `Int64` payload cells, including the additive identity
+/// and negatives (so sums cancel and min/max straddle zero), ~1/4 null.
+fn gen_int_cell() -> @gen.Gen[Int64?] {
+  @gen.frequency([
+    (1, @gen.pure(None)),
+    (
+      3,
+      @gen.one_of_array([0L, 1L, -1L, 2L, 5L, 50L, 100L, -50L]).fmap(x => {
+        Some(x)
+      }),
+    ),
+  ])
+}
+
+///|
+/// A small grab-bag of `Double` cells that deliberately includes BOTH signed
+/// zeros and a NaN — the values the signed-zero aggregate fence and the NaN
+/// grouping rule turn on — ~1/4 null.
+fn gen_float_cell() -> @gen.Gen[Double?] {
+  @gen.frequency([
+    (1, @gen.pure(None)),
+    (
+      3,
+      @gen.one_of_array([
+        0.0, -0.0, 1.0, -1.0, 2.5, @double.not_a_number, 100.0, -100.0,
+      ]).fmap(x => Some(x)),
+    ),
+  ])
+}
+
+///|
+/// The string grab-bag, including the empty string and repeats (so string
+/// keys collide).
+let string_choices : Array[String] = ["", "a", "b", "west", "east", "north"]
+
+///|
+/// A string cell drawn from `string_choices`, ~1/4 null.
+fn gen_string_cell() -> @gen.Gen[String?] {
+  @gen.frequency([
+    (1, @gen.pure(None)),
+    (3, @gen.one_of_array(string_choices).fmap(x => Some(x))),
+  ])
+}
+
+///|
+fn gen_rich_row() -> @gen.Gen[RichRow] {
+  @gen.liftA5(
+    (g, fk, a, b, s) => (g, fk, a, b, s),
+    gen_g_cell(),
+    gen_float_cell(),
+    gen_int_cell(),
+    gen_int_cell(),
+    gen_string_cell(),
+  )
+}
+
+///|
+/// A frame of `0..=max_rows` rich rows (the empty frame is in range).
+fn gen_rows(max_rows : Int) -> @gen.Gen[Array[RichRow]] {
+  @gen.int_range(0, max_rows).bind(n => gen_rich_row().array_with_size(n))
+}
+
+///|
+/// Build the five-column rich frame from generated rows. The fixed schema
+/// spans every dtype; by construction all columns share `rows.length()`, so
+/// `DataFrame::new` never actually raises here.
+fn rows_to_frame(
+  rows : Array[RichRow],
+) -> @frame.DataFrame raise @types.DataError {
+  @frame.DataFrame::new([
+    @series.Series::from_int_options("g", rows.map(r => r.0)),
+    @series.Series::from_float_options("fk", rows.map(r => r.1)),
+    @series.Series::from_int_options("a", rows.map(r => r.2)),
+    @series.Series::from_int_options("b", rows.map(r => r.3)),
+    @series.Series::from_string_options("s", rows.map(r => r.4)),
+  ])
+}
+
+// ── Oracle (NaN-aware, backend-aware structural equivalence) ─────────
 
 ///|
 /// NaN-aware structural equivalence of two frames — the oracle the differential
@@ -188,12 +214,14 @@ fn scalars_equiv(a : @types.Scalar, b : @types.Scalar) -> Bool {
 /// divergence (value mismatch, error mismatch, or a broken-invariant result).
 fn check_equiv(
   label : String,
-  lazy_chain : () -> LazyFrame,
+  lazy_chain : () -> LazyFrame raise @types.DataError,
   eager_chain : () -> @frame.DataFrame raise @types.DataError,
   strict_errors? : Bool = false,
 ) -> String? {
   // `.collect()` (the optimizer entry point) lives here, in one fixed place, so
-  // each call site only has to build the LazyFrame.
+  // each call site only has to build the LazyFrame. Frame construction happens
+  // inside the chains too, so a build that raised would surface here as an
+  // error on both sides — caught by the same `Ok(...) catch` below.
   let lazy_res = Ok(lazy_chain().collect()) catch { e => Err(e) }
   let eager_res = Ok(eager_chain()) catch { e => Err(e) }
   match (lazy_res, eager_res) {
@@ -247,91 +275,198 @@ fn check_equiv(
   }
 }
 
+// ── Test 1: group-by then key-filter ─────────────────────────────────
+
+///|
+/// One generated `group_by(keys).agg(aggs).filter(pred)` case. The pipeline
+/// pieces are generated as `Expr`s directly (they are `Debug`, so a failing
+/// case prints them verbatim) and only `rows` shrinks — the pipeline shape is
+/// held fixed, since shrinking it would change which optimizer path the case
+/// exercises.
+priv struct AggFilterCase {
+  rows : Array[RichRow]
+  keys : Array[@expr.Expr]
+  aggs : Array[@expr.Expr]
+  pred : @expr.Expr
+} derive(Debug)
+
+///|
+/// Keys: always `g`; the ±0.0 / NaN float key `fk` with prob 1/2 and the string
+/// key `s` with prob 1/3 (the mix the old fuzzer used, so key cardinality and
+/// the signed-zero / NaN folding paths stay covered).
+fn gen_agg_keys() -> @gen.Gen[Array[@expr.Expr]] {
+  @gen.liftA2(
+    (with_fk, with_s) => {
+      let keys = [@expr.col("g")]
+      if with_fk {
+        keys.push(@expr.col("fk"))
+      }
+      if with_s {
+        keys.push(@expr.col("s"))
+      }
+      keys
+    },
+    gen_one_in(2),
+    gen_one_in(3),
+  )
+}
+
+///|
+/// Aggregations spanning the backend-flip boundary: sum/count never null,
+/// mean/min/max go null on an all-null group. A nullable payload (`a`) feeds
+/// them so all-null groups are reachable; a second draw adds a FLOAT reduction
+/// over `fk` so the stitched columns carry NaN / signed zero too.
+fn gen_agg_aggs() -> @gen.Gen[Array[@expr.Expr]] {
+  @gen.liftA2(
+    (int_choice, float_choice) => {
+      let aggs = [
+        @expr.col("a").sum().with_alias("sa"),
+        @expr.col("a").count().with_alias("ca"),
+      ]
+      match int_choice {
+        0 => aggs.push(@expr.col("a").mean().with_alias("ma"))
+        1 => aggs.push(@expr.col("a").min().with_alias("mn"))
+        2 => aggs.push(@expr.col("a").max().with_alias("mx"))
+        _ => ()
+      }
+      match float_choice {
+        0 => aggs.push(@expr.col("fk").sum().with_alias("fsum"))
+        1 => aggs.push(@expr.col("fk").mean().with_alias("fmean"))
+        2 => aggs.push(@expr.col("fk").max().with_alias("fmax"))
+        _ => ()
+      }
+      aggs
+    },
+    @gen.int_range(0, 3),
+    @gen.int_range(0, 3),
+  )
+}
+
+///|
+/// A key predicate on the bare Int key `g` (eligible to sink past the
+/// aggregate): `g == v` for `v` in 0..2, or `g.is_not_null()` (which exercises
+/// the null-key group), each with probability 1/2.
+fn gen_agg_pred() -> @gen.Gen[@expr.Expr] {
+  @gen.frequency([
+    (
+      1,
+      @gen.int_range(0, 2).fmap(v => {
+        @expr.col("g").eq(@expr.lit_int(v.to_int64()))
+      }),
+    ),
+    (1, @gen.pure(@expr.col("g").is_not_null())),
+  ])
+}
+
+///|
+fn gen_agg_filter_case() -> @gen.Gen[AggFilterCase] {
+  @gen.liftA4(
+    (rows, keys, aggs, pred) => AggFilterCase::{ rows, keys, aggs, pred },
+    gen_rows(6),
+    gen_agg_keys(),
+    gen_agg_aggs(),
+    gen_agg_pred(),
+  )
+}
+
+///|
+/// Shrink only the frame rows; the pipeline stays fixed.
+fn shrink_agg_filter_case(c : AggFilterCase) -> Iter[AggFilterCase] {
+  @shrink.Shrink::shrink(c.rows).map(rows => AggFilterCase::{ ..c, rows, })
+}
+
 ///|
 /// The hazard at the heart of the review: a key predicate sinking below an
 /// `Aggregate` whose grouped cells line up with all-null groups, signed-zero /
 /// NaN float keys, and string keys. For every generated frame this builds a
-/// `group_by(keys).agg(aggs).filter(pred)` and compares optimized vs eager.
-/// The aggregation list mixes sum/count (which sink) with mean/min/max (whose
-/// all-null cell flips the stitched column's backend, so the fence must hold) —
-/// the optimizer decides per-list, and either way the two chains must agree.
+/// `group_by(keys).agg(aggs).filter(pred)` and compares optimized vs eager —
+/// the optimizer decides per-list whether the filter sinks, and either way the
+/// two chains must agree.
 test "fuzz: group-by then key-filter is optimizer/eager equivalent on rich frames" {
-  let mut failure : String? = None
-  let mut cases = 0
   let mut rewrites = 0
-  // Each (seed) draws a fresh frame and a fresh pipeline shape.
-  for seed in 0U..<800U {
-    if failure is Some(_) {
-      break
+  let prop = (c : AggFilterCase) => {
+    let lazy_chain = () => {
+      lazy_frame(rows_to_frame(c.rows))
+      .group_by(c.keys)
+      .agg(c.aggs)
+      .filter(c.pred)
     }
-    let rng = Rng::new(seed.to_uint64())
-    let nrows = rng.below(7) // 0..6 rows — includes the empty frame
-    let df = rng.rich_frame(nrows)
-
-    // Keys: a bare Int key `g`, optionally a bare Float key `fk` (signed-zero /
-    // NaN folding), optionally a bare String key `s`. All bare-column keys, so
-    // the key predicate is eligible to sink — the executor must keep both
-    // chains equal regardless.
-    let keys = [@expr.col("g")]
-    if rng.one_in(2) {
-      keys.push(@expr.col("fk"))
+    let eager_chain = () => {
+      rows_to_frame(c.rows).group_by(c.keys).agg(c.aggs).filter(c.pred)
     }
-    if rng.one_in(3) {
-      keys.push(@expr.col("s"))
+    // Did the optimizer actually rewrite this plan? (Guards against a vacuous
+    // pass — see the assertion after the run.)
+    let rewritten = try {
+      let plan = lazy_chain()
+      plan.explain(optimized=true) != plan.explain()
+    } catch {
+      _ => false
     }
-
-    // Aggregations spanning the backend-flip boundary: sum/count never null,
-    // mean/min/max go null on an all-null group. A nullable payload (`a`) feeds
-    // them so all-null groups are reachable. A second draw adds a FLOAT
-    // reduction over `fk` (NaN-propagating sum/mean, NaN-skipping min/max) so
-    // the stitched aggregation columns carry NaN / signed zero too.
-    let aggs : Array[@expr.Expr] = [
-      @expr.col("a").sum().with_alias("sa"),
-      @expr.col("a").count().with_alias("ca"),
-    ]
-    match rng.below(4) {
-      0 => aggs.push(@expr.col("a").mean().with_alias("ma"))
-      1 => aggs.push(@expr.col("a").min().with_alias("mn"))
-      2 => aggs.push(@expr.col("a").max().with_alias("mx"))
-      _ => () // sum/count only — the sink case
+    if rewritten {
+      rewrites += 1
     }
-    match rng.below(4) {
-      0 => aggs.push(@expr.col("fk").sum().with_alias("fsum"))
-      1 => aggs.push(@expr.col("fk").mean().with_alias("fmean"))
-      2 => aggs.push(@expr.col("fk").max().with_alias("fmax"))
-      _ => ()
+    match
+      check_equiv("agg-filter", lazy_chain, eager_chain, strict_errors=true) {
+      None => @qc.property(true)
+      Some(msg) => @qc.property(false).counterexample(msg)
     }
-
-    // A key predicate on the bare Int key `g` (eligible to sink past the
-    // aggregate). `is_not_null` also exercises the null-key group.
-    let pred = if rng.one_in(2) {
-      @expr.col("g").eq(@expr.lit_int(rng.below(3).to_int64()))
-    } else {
-      @expr.col("g").is_not_null()
-    }
-    cases = cases + 1
-    let plan = lazy_frame(df).group_by(keys).agg(aggs).filter(pred)
-    if plan.explain(optimized=true) != plan.explain() {
-      rewrites = rewrites + 1
-    }
-    let lazy_chain = () => plan
-    let eager_chain = () => df.group_by(keys).agg(aggs).filter(pred)
-    failure = check_equiv(
-      "agg-filter seed=\{seed}",
-      lazy_chain,
-      eager_chain,
-      strict_errors=true,
-    )
   }
-  // Guard against a vacuous pass: the fuzzer must actually exercise the
-  // pushdown (the plan must be rewritten) in a meaningful fraction of cases.
-  if failure is None && rewrites < 50 {
-    failure = Some("fuzzer never exercised the pushdown (rewrites=\{rewrites})")
+  @qc.quick_check(
+    @qc.forall_shrink(gen_agg_filter_case(), shrink_agg_filter_case, prop),
+    max_success=800,
+  )
+  // The fuzzer must actually exercise the pushdown in a meaningful fraction of
+  // cases, or it is silently testing nothing.
+  if rewrites < 50 {
+    fail("fuzzer never exercised the pushdown (rewrites=\{rewrites})")
   }
-  match failure {
-    Some(msg) => fail(msg)
-    None => assert_true(cases > 0)
-  }
+}
+
+// ── Test 2: select / with_columns then filter ────────────────────────
+
+///|
+/// A `select`-or-`with_columns` stage carrying a nullable derived column,
+/// terminated by a filter on a bare pass-through column.
+priv struct SelectFilterCase {
+  rows : Array[RichRow]
+  use_select : Bool // select (with a bare pass-through) vs with_columns
+  pred : @expr.Expr
+} derive(Debug)
+
+///|
+/// The trailing predicate on a bare pass-through column (eligible to sink):
+/// `a.is_not_null()`, `g == v`, or `s == <grab-bag string>`, uniformly.
+fn gen_select_pred() -> @gen.Gen[@expr.Expr] {
+  @gen.frequency([
+    (1, @gen.pure(@expr.col("a").is_not_null())),
+    (
+      1,
+      @gen.int_range(0, 2).fmap(v => {
+        @expr.col("g").eq(@expr.lit_int(v.to_int64()))
+      }),
+    ),
+    (
+      1,
+      @gen.one_of_array(string_choices).fmap(str => {
+        @expr.col("s").eq(@expr.lit_str(str))
+      }),
+    ),
+  ])
+}
+
+///|
+fn gen_select_filter_case() -> @gen.Gen[SelectFilterCase] {
+  @gen.liftA3(
+    (rows, use_select, pred) => SelectFilterCase::{ rows, use_select, pred },
+    gen_rows(6),
+    gen_one_in(2),
+    gen_select_pred(),
+  )
+}
+
+///|
+fn shrink_select_filter_case(c : SelectFilterCase) -> Iter[SelectFilterCase] {
+  @shrink.Shrink::shrink(c.rows).map(rows => SelectFilterCase::{ ..c, rows, })
 }
 
 ///|
@@ -343,126 +478,48 @@ test "fuzz: group-by then key-filter is optimizer/eager equivalent on rich frame
 /// the same backend, so structural equality holds. Also exercises the
 /// row-count-preservation and bare-column pass-through fences with strings.
 test "fuzz: select/with_columns then filter is optimizer/eager equivalent" {
-  let mut failure : String? = None
-  let mut cases = 0
-  for seed in 1000U..<1400U {
-    if failure is Some(_) {
-      break
-    }
-    let rng = Rng::new(seed.to_uint64())
-    let nrows = rng.below(7)
-    let df = rng.rich_frame(nrows)
-
-    // A trailing predicate on a bare column the stage passes through.
-    let pred = match rng.below(3) {
-      0 => @expr.col("a").is_not_null()
-      1 => @expr.col("g").eq(@expr.lit_int(rng.below(3).to_int64()))
-      _ => @expr.col("s").eq(@expr.lit_str(rng.string_cell()))
-    }
-
-    // Half the cases use `select` (with a bare pass-through of the predicate's
-    // column so the filter may sink), half use `with_columns` (which keeps every
-    // column, so the predicate's column is always present below).
-    if rng.one_in(2) {
-      // select: include the predicate's bare column plus a nullable derived one.
-      let proj = [
-        @expr.col("a"),
-        @expr.col("g"),
-        @expr.col("s"),
-        (@expr.col("a") + @expr.col("b")).with_alias("sum_ab"),
-      ]
-      cases = cases + 1
-      let lazy_chain = () => lazy_frame(df).select(proj).filter(pred)
-      let eager_chain = () => df.select(proj).filter(pred)
-      failure = check_equiv(
-        "select-filter seed=\{seed}",
-        lazy_chain,
-        eager_chain,
-        strict_errors=true,
-      )
-    } else {
-      // with_columns: derive a nullable column whose nulls align with dropped rows.
-      let derived = [
-        (@expr.col("a") + @expr.col("b")).with_alias("sum_ab"),
-        @expr.col("fk").with_alias("fk2"),
-      ]
-      cases = cases + 1
-      let lazy_chain = () => lazy_frame(df).with_columns(derived).filter(pred)
-      let eager_chain = () => df.with_columns(derived).filter(pred)
-      failure = check_equiv(
-        "withcols-filter seed=\{seed}",
-        lazy_chain,
-        eager_chain,
-        strict_errors=true,
-      )
-    }
-  }
-  match failure {
-    Some(msg) => fail(msg)
-    None => assert_true(cases > 0)
-  }
-}
-
-///|
-/// Deeper, randomly-stacked pipelines: a chain of 2-4 verbs drawn from the
-/// pushdown-relevant set, terminated by a filter, so both passes
-/// (predicate sink + projection narrowing) fire together over rich data and a
-/// scan-narrowing SELECT is inserted under a sunk filter. This is the broadest
-/// net for an unfenced interaction the single-stage tests above would miss.
-test "fuzz: randomly stacked pipelines stay optimizer/eager equivalent" {
-  let mut failure : String? = None
-  let mut cases = 0
-  let mut rewrites = 0
-  for seed in 2000U..<3000U {
-    if failure is Some(_) {
-      break
-    }
-    let rng = Rng::new(seed.to_uint64())
-    let nrows = rng.below(8)
-    let df = rng.rich_frame(nrows)
-    let steps = 2 + rng.below(3) // 2..4 verbs before the terminal filter
-
-    // Build a list of verb specs applied in the same order to a lazy and an
-    // eager carrier; sharing one spec keeps the two chains provably identical
-    // by construction, so any difference in the result is the optimizer's.
-    let verbs : Array[VerbSpec] = []
-    for _ in 0..<steps {
-      verbs.push(rng.random_verb())
-    }
-    // Terminal filter on a bare pass-through column (eligible to sink).
-    let pred = match rng.below(3) {
-      0 => @expr.col("a").is_not_null()
-      1 => @expr.col("g").is_not_null()
-      _ => @expr.col("s").eq(@expr.lit_str(rng.string_cell()))
-    }
-    cases = cases + 1
+  let prop = (c : SelectFilterCase) => {
+    // select: the predicate's bare column plus a nullable derived one.
+    let proj = [
+      @expr.col("a"),
+      @expr.col("g"),
+      @expr.col("s"),
+      (@expr.col("a") + @expr.col("b")).with_alias("sum_ab"),
+    ]
+    // with_columns: derive a nullable column whose nulls align with dropped rows.
+    let derived = [
+      (@expr.col("a") + @expr.col("b")).with_alias("sum_ab"),
+      @expr.col("fk").with_alias("fk2"),
+    ]
     let lazy_chain = () => {
-      let mut lf = lazy_frame(df)
-      for v in verbs {
-        lf = apply_lazy(lf, v)
+      let lf = lazy_frame(rows_to_frame(c.rows))
+      if c.use_select {
+        lf.select(proj).filter(c.pred)
+      } else {
+        lf.with_columns(derived).filter(c.pred)
       }
-      lf.filter(pred)
     }
     let eager_chain = () => {
-      let mut d = df
-      for v in verbs {
-        d = apply_eager(d, v)
+      let df = rows_to_frame(c.rows)
+      if c.use_select {
+        df.select(proj).filter(c.pred)
+      } else {
+        df.with_columns(derived).filter(c.pred)
       }
-      d.filter(pred)
     }
-    if lazy_chain().explain(optimized=true) != lazy_chain().explain() {
-      rewrites = rewrites + 1
+    match
+      check_equiv("select-filter", lazy_chain, eager_chain, strict_errors=true) {
+      None => @qc.property(true)
+      Some(msg) => @qc.property(false).counterexample(msg)
     }
-    failure = check_equiv("stacked seed=\{seed}", lazy_chain, eager_chain)
   }
-  if failure is None && rewrites < 50 {
-    failure = Some("fuzzer never exercised the pushdown (rewrites=\{rewrites})")
-  }
-  match failure {
-    Some(msg) => fail(msg)
-    None => assert_true(cases > 0)
-  }
+  @qc.quick_check(
+    @qc.forall_shrink(gen_select_filter_case(), shrink_select_filter_case, prop),
+    max_success=500,
+  )
 }
+
+// ── Test 3: randomly stacked pipelines ───────────────────────────────
 
 ///|
 /// A verb specification shared by the lazy and eager appliers, so a stacked
@@ -479,49 +536,7 @@ priv enum VerbSpec {
   // aggregate dropped raises the SAME `ColumnNotFound` on both chains, which
   // `check_equiv` verifies as error parity).
   VAggregate(Array[@expr.Expr], Array[@expr.Expr])
-}
-
-///|
-fn Rng::random_verb(self : Rng) -> VerbSpec {
-  match self.below(6) {
-    0 =>
-      VFilter(
-        if self.one_in(2) {
-          @expr.col("g").is_not_null()
-        } else {
-          @expr.col("a").gt(@expr.lit_int(0))
-        },
-      )
-    1 =>
-      VWithColumns([
-        (@expr.col("a") + @expr.col("b")).with_alias("sum_ab"),
-        @expr.col("a").is_null().with_alias("a_null"),
-      ])
-    2 =>
-      VSelect([
-        @expr.col("g"),
-        @expr.col("a"),
-        @expr.col("s"),
-        @expr.col("fk"),
-        @expr.col("b"),
-      ])
-    3 =>
-      VSort([
-        (@expr.col("a"), @frame.SortOrder::Asc, @frame.NullOrder::NullsLast),
-      ])
-    4 => {
-      // Group by `g` (and sometimes the bare string key `s`), re-emitting `a`
-      // as its per-group sum under the same name, so downstream `col("g")` /
-      // `col("s")` / `col("a")` still resolve.
-      let keys = [@expr.col("g")]
-      if self.one_in(2) {
-        keys.push(@expr.col("s"))
-      }
-      VAggregate(keys, [@expr.col("a").sum().with_alias("a")])
-    }
-    _ => VHead(self.below(4))
-  }
-}
+} derive(Debug)
 
 ///|
 fn apply_lazy(lf : LazyFrame, v : VerbSpec) -> LazyFrame {
@@ -547,5 +562,170 @@ fn apply_eager(
     VSort(by) => d.sort(by)
     VHead(n) => d.head(n)
     VAggregate(keys, exprs) => d.group_by(keys).agg(exprs)
+  }
+}
+
+///|
+/// One verb drawn uniformly from the pushdown-relevant set. Most variants carry
+/// a fixed payload; the ones with a choice draw it from a nested generator.
+fn gen_verb() -> @gen.Gen[VerbSpec] {
+  @gen.frequency([
+    (
+      1,
+      @gen.one_of_array([
+        @expr.col("g").is_not_null(),
+        @expr.col("a").gt(@expr.lit_int(0)),
+      ]).fmap(p => VFilter(p)),
+    ),
+    (
+      1,
+      @gen.pure(
+        VWithColumns([
+          (@expr.col("a") + @expr.col("b")).with_alias("sum_ab"),
+          @expr.col("a").is_null().with_alias("a_null"),
+        ]),
+      ),
+    ),
+    (
+      1,
+      @gen.pure(
+        VSelect([
+          @expr.col("g"),
+          @expr.col("a"),
+          @expr.col("s"),
+          @expr.col("fk"),
+          @expr.col("b"),
+        ]),
+      ),
+    ),
+    (
+      1,
+      @gen.pure(
+        VSort([
+          (@expr.col("a"), @frame.SortOrder::Asc, @frame.NullOrder::NullsLast),
+        ]),
+      ),
+    ),
+    (
+      1,
+      // Group by `g` (and, with prob 1/2, the bare string key `s`), re-emitting
+      // `a` as its per-group sum under the same name so downstream `col("g")` /
+      // `col("s")` / `col("a")` still resolve.
+      gen_one_in(2).fmap(add_s => {
+        let keys = [@expr.col("g")]
+        if add_s {
+          keys.push(@expr.col("s"))
+        }
+        VAggregate(keys, [@expr.col("a").sum().with_alias("a")])
+      }),
+    ),
+    (1, @gen.int_range(0, 3).fmap(n => VHead(n))),
+  ])
+}
+
+///|
+/// A chain of 2..4 verbs.
+fn gen_verbs() -> @gen.Gen[Array[VerbSpec]] {
+  @gen.int_range(2, 4).bind(n => gen_verb().array_with_size(n))
+}
+
+///|
+/// A deeper, randomly-stacked pipeline: a chain of 2..4 verbs terminated by a
+/// filter on a bare pass-through column.
+priv struct StackedCase {
+  rows : Array[RichRow]
+  verbs : Array[VerbSpec]
+  pred : @expr.Expr
+} derive(Debug)
+
+///|
+/// The terminal predicate on a bare pass-through column: `a.is_not_null()`,
+/// `g.is_not_null()`, or `s == <grab-bag string>`, uniformly.
+fn gen_stacked_pred() -> @gen.Gen[@expr.Expr] {
+  @gen.frequency([
+    (1, @gen.pure(@expr.col("a").is_not_null())),
+    (1, @gen.pure(@expr.col("g").is_not_null())),
+    (
+      1,
+      @gen.one_of_array(string_choices).fmap(str => {
+        @expr.col("s").eq(@expr.lit_str(str))
+      }),
+    ),
+  ])
+}
+
+///|
+fn gen_stacked_case() -> @gen.Gen[StackedCase] {
+  @gen.liftA3(
+    (rows, verbs, pred) => StackedCase::{ rows, verbs, pred },
+    gen_rows(7),
+    gen_verbs(),
+    gen_stacked_pred(),
+  )
+}
+
+///|
+/// Shrink the rows (via `@shrink`) and, independently, drop one verb at a time
+/// — collapsing a failing stack to the shortest verb chain that still diverges.
+fn shrink_stacked_case(c : StackedCase) -> Iter[StackedCase] {
+  let out : Array[StackedCase] = []
+  for rows in @shrink.Shrink::shrink(c.rows) {
+    out.push(StackedCase::{ ..c, rows, })
+  }
+  for i in 0..<c.verbs.length() {
+    let verbs : Array[VerbSpec] = []
+    for j in 0..<c.verbs.length() {
+      if j != i {
+        verbs.push(c.verbs[j])
+      }
+    }
+    out.push(StackedCase::{ ..c, verbs, })
+  }
+  out.iter()
+}
+
+///|
+/// The broadest net for an unfenced interaction the single-stage tests miss:
+/// both optimizer passes (predicate sink + projection narrowing) fire together
+/// over rich data, and a scan-narrowing SELECT is inserted under a sunk filter.
+/// `strict_errors` is off — a stack can build a multi-fault plan whose winning
+/// error legitimately changes once a filter sinks past a broken stage.
+test "fuzz: randomly stacked pipelines stay optimizer/eager equivalent" {
+  let mut rewrites = 0
+  let prop = (c : StackedCase) => {
+    let lazy_chain = () => {
+      let mut lf = lazy_frame(rows_to_frame(c.rows))
+      for v in c.verbs {
+        lf = apply_lazy(lf, v)
+      }
+      lf.filter(c.pred)
+    }
+    let eager_chain = () => {
+      let mut d = rows_to_frame(c.rows)
+      for v in c.verbs {
+        d = apply_eager(d, v)
+      }
+      d.filter(c.pred)
+    }
+    let rewritten = try {
+      let plan = lazy_chain()
+      plan.explain(optimized=true) != plan.explain()
+    } catch {
+      _ => false
+    }
+    if rewritten {
+      rewrites += 1
+    }
+    match check_equiv("stacked", lazy_chain, eager_chain) {
+      None => @qc.property(true)
+      Some(msg) => @qc.property(false).counterexample(msg)
+    }
+  }
+  @qc.quick_check(
+    @qc.forall_shrink(gen_stacked_case(), shrink_stacked_case, prop),
+    max_success=1000,
+  )
+  if rewrites < 50 {
+    fail("fuzzer never exercised the pushdown (rewrites=\{rewrites})")
   }
 }

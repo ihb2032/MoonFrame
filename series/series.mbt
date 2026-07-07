@@ -184,39 +184,49 @@ pub fn Series::get(
 /// bounds-checked `get`.
 pub fn Series::to_scalars(self : Series) -> Array[@types.Scalar] {
   let valid = validity_bools(self.storage)
+  // Both the index (to consult `valid`) and the value are needed per cell, so
+  // an index+value comprehension reads more directly than a `makei` over `a[i]`.
   match self.storage.data() {
     @column.ColumnData::Int(a) =>
-      Array::makei(a.length(), i => {
-        if valid[i] {
-          @types.Scalar::Int(a[i])
-        } else {
-          @types.Scalar::Null
+      [
+        for i, v in a => {
+          if valid[i] {
+            @types.Scalar::Int(v)
+          } else {
+            @types.Scalar::Null
+          }
         }
-      })
+      ]
     @column.ColumnData::Float(a) =>
-      Array::makei(a.length(), i => {
-        if valid[i] {
-          @types.Scalar::Float(a[i])
-        } else {
-          @types.Scalar::Null
+      [
+        for i, v in a => {
+          if valid[i] {
+            @types.Scalar::Float(v)
+          } else {
+            @types.Scalar::Null
+          }
         }
-      })
+      ]
     @column.ColumnData::Bool(a) =>
-      Array::makei(a.length(), i => {
-        if valid[i] {
-          @types.Scalar::Bool(a[i])
-        } else {
-          @types.Scalar::Null
+      [
+        for i, v in a => {
+          if valid[i] {
+            @types.Scalar::Bool(v)
+          } else {
+            @types.Scalar::Null
+          }
         }
-      })
+      ]
     @column.ColumnData::String(a) =>
-      Array::makei(a.length(), i => {
-        if valid[i] {
-          @types.Scalar::String(a[i])
-        } else {
-          @types.Scalar::Null
+      [
+        for i, v in a => {
+          if valid[i] {
+            @types.Scalar::String(v)
+          } else {
+            @types.Scalar::Null
+          }
         }
-      })
+      ]
   }
 }
 

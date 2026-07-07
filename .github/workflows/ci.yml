@@ -13,9 +13,10 @@ on:
 # every OS even though the suite is green on this toolchain. To adopt a newer
 # toolchain, bump this to a version published under
 # https://cli.moonbitlang.com/binaries/<version>/ and re-run the full local
-# gate (moon check --deny-warn && moon test && moon fmt && moon info) first.
+# gate (moon check --deny-warn && moon fmt --check && moon info && moon test)
+# first.
 env:
-  MOONBIT_INSTALL_VERSION: "0.10.2+1bb3e16cf" # == moon 0.1.20260629 (2026-06-29)
+  MOONBIT_INSTALL_VERSION: "0.10.3+16975d007" # == moon 0.1.20260703 (2026-07-03)
 
 jobs:
   build:
@@ -51,42 +52,59 @@ jobs:
       - name: Update package index
         run: moon update
 
-      # `--deny-warn` turns every enabled warning into an error. The module's
-      # `warnings` field in moon.mod widens this to the full strict set (`+a`)
-      # minus a few deliberate exceptions (unnecessary_annotation,
-      # test_unqualified_package, unqualified_local_using, and the proof-only
-      # missing_invariant / missing_reasoning), so the rest are enforced here.
-      - name: Type check (deny warnings)
+      # ---------------------------------------------------------------------
+      # Hard-requirement gate. The pre-acceptance rubric requires four
+      # processes — `moon check --deny-warn`, `moon fmt`, `moon info`,
+      # `moon test` — each run explicitly below so they are unmistakably
+      # present and executed. (`--deny-warn` is a `moon check` flag; `moon
+      # fmt` and `moon info` do not take it.)
+      # ---------------------------------------------------------------------
+
+      # (1/4) `moon check` — `--deny-warn` turns every enabled warning into an
+      # error. The module's `warnings` field in moon.mod widens this to the
+      # full strict set (`+a`) minus a few deliberate exceptions
+      # (unnecessary_annotation, test_unqualified_package,
+      # unqualified_local_using, and the proof-only missing_invariant /
+      # missing_reasoning), so the rest are enforced here.
+      - name: (1/4) moon check (deny warnings)
         run: moon check --deny-warn
 
-      # Every OS runs the default target so platform-specific behaviour
-      # (notably the filesystem-backed read/write paths) is exercised on
-      # Windows / macOS too. The full multi-backend matrix and the
-      # fmt/coverage gates run on Linux to keep CI fast and reliable; drop
-      # the `if:` guards below to widen them to every OS.
-      - name: Run tests (default target)
-        run: moon test
-
-      - name: Run tests (all backends)
+      # (2/4) `moon fmt`. Run in check mode so CI fails on any unformatted
+      # file without rewriting the working tree. Formatting is
+      # platform-independent, so Linux is authoritative.
+      - name: (2/4) moon fmt (formatting check)
         if: runner.os == 'Linux'
-        run: moon test --target all
+        run: moon fmt --check
 
-      - name: Format + interface check
+      # (3/4) `moon info`: regenerate the interface (`pkg.generated.mbti`)
+      # files and fail on any drift.
+      - name: (3/4) moon info (interface drift check)
         if: runner.os == 'Linux'
         run: |
-          moon fmt
           moon info
           # `git diff --exit-code` only inspects *tracked* files, so a newly
           # added package whose generated `pkg.generated.mbti` was never
           # committed — or any other untracked drift — would slip through
           # green. Check the full porcelain status so uncommitted *and*
-          # untracked output from `moon fmt` / `moon info` both fail the gate.
+          # untracked output from `moon info` both fail the gate.
           if [ -n "$(git status --porcelain)" ]; then
-            echo "::error::'moon fmt' / 'moon info' left uncommitted changes — run them locally and commit the result."
+            echo "::error::'moon info' left uncommitted interface changes — run it locally and commit the result."
             git status --short
             git --no-pager diff
             exit 1
           fi
+
+      # (4/4) `moon test`. Every OS runs the default target so
+      # platform-specific behaviour (notably the filesystem-backed read/write
+      # paths) is exercised on Windows / macOS too.
+      - name: (4/4) moon test (default target)
+        run: moon test
+
+      # The full multi-backend matrix runs on Linux to keep CI fast; drop the
+      # `if:` guard to widen it to every OS.
+      - name: Run tests (all backends)
+        if: runner.os == 'Linux'
+        run: moon test --target all
 
       - name: Coverage (line coverage must be complete)
         if: runner.os == 'Linux'

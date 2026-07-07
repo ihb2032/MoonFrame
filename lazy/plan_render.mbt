@@ -63,78 +63,33 @@ fn render(plan : LogicalPlan, buf : StringBuilder, depth : Int) -> Unit {
 /// its label, path, and (once the optimizer fills it) projection — never data.
 fn write_plan_label(plan : LogicalPlan, buf : StringBuilder) -> Unit {
   match plan {
-    Scan(df) => {
-      buf.write_string("SCAN [")
-      buf.write_string(df.nrows().to_string())
-      buf.write_string("×")
-      buf.write_string(df.ncols().to_string())
-      buf.write_string("]")
-    }
+    Scan(df) => buf <+ "SCAN [\{df.nrows()}×\{df.ncols()}]"
     ScanCsv(path, _, projection) =>
       render_scan_source(buf, "SCAN_CSV", path, projection)
     ScanNdjson(path, _, projection) =>
       render_scan_source(buf, "SCAN_NDJSON", path, projection)
-    Select(_, exprs) => {
-      buf.write_string("SELECT ")
-      buf.write_string(exprs_label(exprs))
-    }
-    WithColumns(_, exprs) => {
-      buf.write_string("WITH_COLUMNS ")
-      buf.write_string(exprs_label(exprs))
-    }
-    Filter(_, predicate) => {
-      buf.write_string("FILTER ")
-      buf.write_string(predicate.explain())
-    }
-    Sort(_, by) => {
-      buf.write_string("SORT ")
-      buf.write_string(sort_label(by))
-    }
-    Head(_, n) => {
-      buf.write_string("HEAD ")
-      buf.write_string(n.to_string())
-    }
-    Tail(_, n) => {
-      buf.write_string("TAIL ")
-      buf.write_string(n.to_string())
-    }
-    Slice(_, start, end) => {
-      buf.write_string("SLICE [")
-      buf.write_string(start.to_string())
-      buf.write_string(", ")
-      buf.write_string(end.to_string())
-      buf.write_string(")")
-    }
-    Join(_, _, options) => buf.write_string(join_label(options))
-    Aggregate(_, keys, exprs) => {
-      buf.write_string("AGGREGATE ")
-      buf.write_string(exprs_label(exprs))
-      buf.write_string(" BY ")
-      buf.write_string(exprs_label(keys))
-    }
-    Drop(_, exprs) => {
-      buf.write_string("DROP ")
-      buf.write_string(exprs_label(exprs))
-    }
-    Rename(_, pairs) => {
-      buf.write_string("RENAME ")
-      buf.write_string(rename_label(pairs))
-    }
-    Unique(_) => buf.write_string("UNIQUE")
+    Select(_, exprs) => buf <+ "SELECT \{exprs_label(exprs)}"
+    WithColumns(_, exprs) => buf <+ "WITH_COLUMNS \{exprs_label(exprs)}"
+    Filter(_, predicate) => buf <+ "FILTER \{predicate.explain()}"
+    Sort(_, by) => buf <+ "SORT \{sort_label(by)}"
+    Head(_, n) => buf <+ "HEAD \{n}"
+    Tail(_, n) => buf <+ "TAIL \{n}"
+    Slice(_, start, end) => buf <+ "SLICE [\{start}, \{end})"
+    Join(_, _, options) => buf <+ "\{join_label(options)}"
+    Aggregate(_, keys, exprs) =>
+      buf <+ "AGGREGATE \{exprs_label(exprs)} BY \{exprs_label(keys)}"
+    Drop(_, exprs) => buf <+ "DROP \{exprs_label(exprs)}"
+    Rename(_, pairs) => buf <+ "RENAME \{rename_label(pairs)}"
+    Unique(_) => buf <+ "UNIQUE"
     DropNulls(_, subset) => {
-      buf.write_string("DROP_NULLS")
+      buf <+ "DROP_NULLS"
       match subset {
-        Some(exprs) => {
-          buf.write_string(" ")
-          buf.write_string(exprs_label(exprs))
-        }
+        Some(exprs) => buf <+ " \{exprs_label(exprs)}"
         None => ()
       }
     }
-    FillNull(_, value) => {
-      buf.write_string("FILL_NULL ")
-      buf.write_string(@types.format_scalar_literal(value))
-    }
+    FillNull(_, value) =>
+      buf <+ "FILL_NULL \{@types.format_scalar_literal(value)}"
   }
 }
 
@@ -239,15 +194,9 @@ fn render_scan_source(
   path : String,
   projection : Array[String]?,
 ) -> Unit {
-  buf.write_string(label)
-  buf.write_string(" \"")
-  buf.write_string(@types.escape_debug(path))
-  buf.write_string("\"")
+  buf <+ "\{label} \"\{@types.escape_debug(path)}\""
   match projection {
     None => ()
-    Some(columns) => {
-      buf.write_string(" ")
-      buf.write_string(list_label(columns))
-    }
+    Some(columns) => buf <+ " \{list_label(columns)}"
   }
 }

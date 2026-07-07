@@ -348,7 +348,10 @@ pub fn DataFrame::rows(self : DataFrame) -> Array[Array[@types.Scalar]] {
 
 ///|
 /// First `n` rows (or all rows if `n >= nrows`). Negative `n` clamps to
-/// `0`. Total — never fails.
+/// `0`. Total — never fails. Also exposed under its Polars / SQL name
+/// `limit` (via `#alias`) — the eager twin of `LazyFrame::limit`, keeping
+/// the two surfaces verb-for-verb aligned.
+#alias(limit)
 pub fn DataFrame::head(self : DataFrame, n : Int) -> DataFrame {
   let m = clamp_take(n, self.nrows)
   // `0 <= m <= nrows == c.len()`, so the contiguous row slice is in-bounds
@@ -356,15 +359,6 @@ pub fn DataFrame::head(self : DataFrame, n : Int) -> DataFrame {
   let new_cols : Array[Series] = self.columns.map(c => slice_series(c, 0, m))
   // Names and schema are unchanged — reuse the cache verbatim.
   self.with_same_schema(new_cols, m)
-}
-
-///|
-/// Polars-style alias of `head`: the first `n` rows (or all rows if
-/// `n >= nrows`), negative `n` clamping to `0`. Total — never fails. The
-/// eager twin of `LazyFrame::limit`, keeping the two surfaces
-/// verb-for-verb aligned.
-pub fn DataFrame::limit(self : DataFrame, n : Int) -> DataFrame {
-  self.head(n)
 }
 
 ///|

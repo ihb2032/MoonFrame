@@ -33,9 +33,9 @@ pub fn LazyFrame::fill_null(Self, @types.Scalar) -> Self
 pub fn LazyFrame::filter(Self, @expr.Expr) -> Self
 pub fn LazyFrame::from(@frame.DataFrame) -> Self
 pub fn LazyFrame::group_by(Self, Array[@expr.Expr]) -> LazyGroupBy
+#alias(limit)
 pub fn LazyFrame::head(Self, Int) -> Self
 pub fn LazyFrame::join(Self, Self, @frame.JoinOptions) -> Self
-pub fn LazyFrame::limit(Self, Int) -> Self
 pub fn LazyFrame::rename(Self, Array[(String, String)]) -> Self
 pub fn LazyFrame::select(Self, Array[@expr.Expr]) -> Self
 pub fn LazyFrame::slice(Self, Int, Int) -> Self

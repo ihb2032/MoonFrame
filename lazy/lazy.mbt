@@ -86,7 +86,10 @@ pub fn LazyFrame::sort(
 ///|
 /// Defer `DataFrame::head`: the first `n` rows. Inherits eager `head`'s
 /// total clamp — `n` beyond the frame keeps every row, negative `n` keeps
-/// none — so collecting can't fail on this node.
+/// none — so collecting can't fail on this node. Also exposed under its
+/// Polars / SQL name `limit` (via `#alias`): the same deferred node, so
+/// `lf.limit(n)` collects to the same rows and `explain`s as `HEAD n`.
+#alias(limit)
 pub fn LazyFrame::head(self : LazyFrame, n : Int) -> LazyFrame {
   { plan: Head(self.plan, n) }
 }
@@ -96,13 +99,6 @@ pub fn LazyFrame::head(self : LazyFrame, n : Int) -> LazyFrame {
 /// as `head`.
 pub fn LazyFrame::tail(self : LazyFrame, n : Int) -> LazyFrame {
   { plan: Tail(self.plan, n) }
-}
-
-///|
-/// `head` under its SQL name (Polars' `limit` ≡ `head`): defers the same
-/// node, collects to the same rows, and `explain`s as `HEAD n`.
-pub fn LazyFrame::limit(self : LazyFrame, n : Int) -> LazyFrame {
-  self.head(n)
 }
 
 ///|

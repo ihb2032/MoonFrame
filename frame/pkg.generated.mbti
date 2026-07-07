@@ -34,11 +34,11 @@ pub fn DataFrame::from_rows(@types.Schema, Array[Array[@types.Scalar]]) -> Self 
 pub fn DataFrame::get_column(Self, String) -> @series.Series raise @types.DataError
 pub fn DataFrame::get_column_at(Self, Int) -> @series.Series raise @types.DataError
 pub fn DataFrame::group_by(Self, Array[@expr.Expr]) -> GroupedDataFrame raise @types.DataError
+#alias(limit)
 pub fn DataFrame::head(Self, Int) -> Self
 pub fn DataFrame::is_empty(Self) -> Bool
 pub fn DataFrame::item(Self, Int, String) -> @types.Scalar raise @types.DataError
 pub fn DataFrame::join(Self, Self, JoinOptions) -> Self raise @types.DataError
-pub fn DataFrame::limit(Self, Int) -> Self
 pub fn DataFrame::max(Self) -> Self raise @types.DataError
 pub fn DataFrame::mean(Self) -> Self raise @types.DataError
 pub fn DataFrame::min(Self) -> Self raise @types.DataError

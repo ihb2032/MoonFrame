@@ -67,29 +67,81 @@ pub fn parse_plain_double_opt(s : String) -> Double? {
     return None
   }
   try @string.parse_double(s.view()) catch {
-    // A finite literal past the `Double` range raises "value out of range"; per
-    // IEEE 754 (and the documented String→Float contract) that rounds to a
-    // signed `Infinity` rather than failing. The sign is a leading `-`
-    // (`parse_double` accepts no leading whitespace). Any other failure
-    // ("invalid syntax") is a genuine non-number and stays `None`.
-    //
-    // Coupling note: this matches the exact message string `@string.parse_double`
-    // raises today (`@internal/strconv`'s `range_err_str`). It is load-bearing —
-    // were the stdlib to reword that message or switch to a typed error, an
-    // overflowing literal would fall through to `None` and silently flip CSV
-    // inference / the String→Float cast. The boundary cases in `parse_test.mbt`
-    // (`1e999` / `1.8e308` / `-1e999` → signed `Infinity`) pin this, so such a
-    // drift fails loudly in CI rather than silently here.
-    Failure::Failure("value out of range") =>
-      Some(
-        if s.view().get_char(0) == Some('-') {
-          @double.neg_infinity
-        } else {
-          @double.infinity
-        },
-      )
-    _ => None
+    // `@string.parse_double` fails for two disjoint reasons: a genuine
+    // non-number, or a finite literal whose magnitude overflows `Double`. Per
+    // IEEE 754 (and the documented String→Float contract) the overflow case
+    // rounds to a signed `Infinity` rather than failing — matching the explicit
+    // `inf` literal and pandas / polars — while a genuine non-number stays
+    // `None`. We tell them apart *structurally*: if `s` is valid finite-decimal
+    // syntax yet parsing failed, an overflow past `Double::MAX` is the only
+    // possible cause. This deliberately avoids matching the stdlib's
+    // human-readable error text (previously the load-bearing
+    // `"value out of range"`), so a reworded or typed stdlib error can no longer
+    // silently flip an overflowing literal to `None`. The sign is a leading `-`
+    // (`parse_double` accepts no leading whitespace).
+    _ =>
+      if is_finite_decimal_literal(s) {
+        Some(
+          if s.view().get_char(0) == Some('-') {
+            @double.neg_infinity
+          } else {
+            @double.infinity
+          },
+        )
+      } else {
+        None
+      }
   } noraise {
     x => Some(x)
   }
+}
+
+///|
+/// `true` when `s` is a syntactically valid **finite** decimal float literal —
+/// an optional `+` / `-` sign, a mantissa carrying at least one digit (`123`,
+/// `1.5`, `1.`, `.5`), and an optional `e` / `E` exponent whose own sign is
+/// optional but which needs at least one digit. It deliberately rejects the
+/// `nan` / `inf` / `infinity` forms (those *parse*, so never reach the caller's
+/// failure path), the `0x…` hex-float form (`@string.parse_double` rejects it
+/// too), and `1_000` underscore grouping (screened earlier). The grammar is a
+/// subset of what `parse_double` accepts as a finite number, so a `true` result
+/// guarantees the parse failure was overflow, never a syntax error. Backs
+/// `parse_plain_double_opt`'s structural overflow / non-number split, replacing
+/// a match on the stdlib's error message.
+fn is_finite_decimal_literal(s : String) -> Bool {
+  let n = s.length()
+  let mut i = 0
+  if i < n && (s[i] == '+' || s[i] == '-') {
+    i = i + 1
+  }
+  let mut mantissa_digits = 0
+  while i < n && s[i] >= '0' && s[i] <= '9' {
+    i = i + 1
+    mantissa_digits = mantissa_digits + 1
+  }
+  if i < n && s[i] == '.' {
+    i = i + 1
+    while i < n && s[i] >= '0' && s[i] <= '9' {
+      i = i + 1
+      mantissa_digits = mantissa_digits + 1
+    }
+  }
+  if mantissa_digits == 0 {
+    return false
+  }
+  if i < n && (s[i] == 'e' || s[i] == 'E') {
+    i = i + 1
+    if i < n && (s[i] == '+' || s[i] == '-') {
+      i = i + 1
+    }
+    let mut exp_digits = 0
+    while i < n && s[i] >= '0' && s[i] <= '9' {
+      i = i + 1
+      exp_digits = exp_digits + 1
+    }
+    if exp_digits == 0 {
+      return false
+    }
+  }
+  i == n
 }

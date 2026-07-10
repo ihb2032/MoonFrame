@@ -55,3 +55,19 @@ test "parse_decimal_int_opt pins the Int64 ceiling: max parses, past it is None"
   assert_eq(parse_decimal_int_opt("9223372036854775808"), None)
   assert_eq(parse_decimal_int_opt("-9223372036854775809"), None)
 }
+
+///|
+test "parse_plain_double_opt classifies overflow vs invalid without matching stdlib error text" {
+  // A finite decimal literal whose magnitude exceeds `Double::MAX` still rounds
+  // to a signed `Infinity` — recognised by its valid syntax, not by the stdlib's
+  // "value out of range" wording, which we no longer match.
+  assert_eq(parse_plain_double_opt("1e+400"), Some(@double.infinity))
+  assert_eq(parse_plain_double_opt("-1e999"), Some(@double.neg_infinity))
+  // Strings that merely *look* numeric but are invalid syntax must stay `None`,
+  // never be mistaken for overflow: a doubled dot, a bare exponent, a lone dot,
+  // and trailing garbage are all non-numbers.
+  assert_eq(parse_plain_double_opt("1.2.3"), None)
+  assert_eq(parse_plain_double_opt("1e"), None)
+  assert_eq(parse_plain_double_opt("."), None)
+  assert_eq(parse_plain_double_opt("1abc"), None)
+}

@@ -6,6 +6,29 @@ breaking-change steps for each release are collected in
 [`migration.md`](migration.md). Pre-1.0, breaking changes ride the minor
 version.
 
+## v0.5.8 — string-ordering and parse-overflow fixes
+
+A fix patch. Every v0.5.7 symbol and signature is unchanged — the root facade
+interface (`pkg.generated.mbti`) is byte-for-byte identical — so no code that
+imports MoonFrame needs to change. Two internal correctness fixes, surfaced by a
+static review, refine edge-case behaviour.
+
+### Fixes
+
+- String ordering (`compare_string_lex`, and everything routing through it —
+  `Series::sort` / `min` / `max`, `DataFrame::sort`, and the `Scalar`
+  comparisons) now compares by Unicode code point rather than raw UTF-16 code
+  unit. Supplementary-plane characters (emoji and other astral-plane code
+  points) sort by their true scalar value instead of being ranked below
+  high-BMP characters by their leading surrogate unit. Ordering within the Basic
+  Multilingual Plane — the common case — is unchanged.
+- Float parsing (`parse_plain_double_opt`, behind CSV / JSON type inference and
+  the String→Float cast) now decides IEEE 754 overflow structurally: a valid
+  finite decimal literal that overflows `Double` rounds to a signed `Infinity`,
+  and anything else stays unparsed. Parse results are unchanged; the fix removes
+  a dependency on the standard library's human-readable "value out of range"
+  message, which a future toolchain could reword.
+
 ## v0.5.7 — internal syntax modernization
 
 An internal-refactor patch. Every v0.5.6 symbol, signature, and behaviour is

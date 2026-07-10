@@ -5,6 +5,18 @@ changes ride the minor version. For the feature history behind each release see
 [`changelog.md`](changelog.md); for the current public surface see
 [`api.md`](api.md).
 
+## v0.5.7 → v0.5.8
+
+No source-level migration steps. v0.5.8 is a fix patch: every v0.5.7 symbol and
+signature is unchanged, the root facade `.mbti` is byte-for-byte identical, and
+nothing is renamed, removed, re-signed, or given a new required `match` arm. Two
+correctness fixes refine edge-case behaviour without touching any API — string
+ordering now compares by Unicode code point (so supplementary-plane characters
+such as emoji sort by their true scalar value; ordering within the Basic
+Multilingual Plane is unchanged), and float-overflow detection during parsing no
+longer depends on the standard library's error-message text (parse results are
+unchanged). See the [changelog](changelog.md).
+
 ## v0.5.6 → v0.5.7
 
 No source-level migration steps. v0.5.7 is an internal-refactor patch: every

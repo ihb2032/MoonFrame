@@ -73,7 +73,9 @@ in [`migration.md`](migration.md).
   promote `Int` to `Double`. `String` comparisons use lexicographic
   order (see `compare_string_lex`), **not** the built-in shortlex `<`.
 - `fn compare_string_lex(a, b) -> Int` — lexicographic string comparison
-  by UTF-16 code unit (`-1` / `0` / `1`). Every user-facing ordering
+  by Unicode code point (`-1` / `0` / `1`), so supplementary-plane
+  characters (emoji, …) sort by their true scalar value rather than by
+  raw UTF-16 surrogate code unit. Every user-facing ordering
   (`Scalar::lt`, `Series::min` / `max`, `DataFrame::sort`)
   routes through this so they all agree.
 - `fn is_decimal_int_literal(s) -> Bool` — `true` when `s` is an optional

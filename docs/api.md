@@ -287,6 +287,14 @@ deliberate divergence from Polars' Rust-`regex` dialect.
   the first / every regex match of `pattern` with the literal `value` (no
   capture-group references yet). The regex forms of `str_replace` /
   `str_replace_all`.
+- `str_extract(pattern : String, group? : Int) -> Expr` — a nullable `String`
+  column of the substring matched by `pattern`. `group` (default `0`, the
+  **whole match** — Polars defaults to the first capture group `1`) picks a
+  capture group; a cell that does not match, or whose group did not participate,
+  is **null**.
+- `str_count_matches(pattern : String) -> Expr` — an `Int` column of the
+  non-overlapping match count (`0` where the pattern does not match); an
+  all-valid result rides the `Numeric` fast path.
 
 ### Conditional
 
@@ -1156,14 +1164,13 @@ The whole v0.5 surface above is **shipped**, and it is the last breaking
 release: from v0.6 on the API only grows (additive — no renames, removals,
 or signature changes). These are the tracked deferrals, all v0.6+:
 
-- **More expression families** — richer regex string methods (`str_extract`,
-  `str_count_matches` — the `contains` / `replace` regex forms are done), more
-  positional ones (`str_slice`, byte length), `split` (blocked on a list dtype),
-  and — further out — window and datetime expressions (the repo has no datetime
-  type yet). The v0.5 operator / method set is frozen; these extend it. (The
-  arithmetic / numeric operator family — `floor_div`, `mod`, `pow`, `abs` /
-  `floor` / `ceil` / `sign` / `round` — and the `str_reverse` / `str_pad_*` /
-  `str_*_regex` string ops are now done.)
+- **More expression families** — more positional string methods (`str_slice`,
+  byte length), `split` (blocked on a list dtype), and — further out — window
+  and datetime expressions (the repo has no datetime type yet). The v0.5
+  operator / method set is frozen; these extend it. (The arithmetic / numeric
+  operator family — `floor_div`, `mod`, `pow`, `abs` / `floor` / `ceil` /
+  `sign` / `round` — and the string family — `str_reverse` / `str_pad_*` and the
+  regex ops `str_*_regex` / `str_extract` / `str_count_matches` — are now done.)
 - **Lazy scan depth** — predicate pushdown into the file parser and
   streaming execution (v0.5's scan does projection pushdown only), plus
   columnar sources (Parquet / IPC) once eager readers exist.

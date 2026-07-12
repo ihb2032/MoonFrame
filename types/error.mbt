@@ -4,6 +4,15 @@ pub(all) suberror DataError {
   ColumnNotFound(String)
   DuplicateColumn(String)
   TypeMismatch(String)
+  /// A dtype mismatch with the pieces kept structured rather than
+  /// pre-formatted — `(expected, got, column)`, where `column` is `""` when the
+  /// mismatch is not tied to a named column. The programmable form of
+  /// `TypeMismatch` for the "expected T, got X" family; `message()` rebuilds the
+  /// exact `TypeMismatch` wording, so migrating a site is display-compatible
+  /// while callers can now read the dtypes and column directly. The bare
+  /// `TypeMismatch(String)` stays for the messages this shape does not fit
+  /// (`cannot compare …`, operator mismatches).
+  TypedMismatch(DataType, DataType, String)
   LengthMismatch
   IndexOutOfBounds(Int)
   ParseError(String)
@@ -20,6 +29,14 @@ pub fn DataError::message(self : DataError) -> String {
     ColumnNotFound(name) => "Column not found: \{name}"
     DuplicateColumn(name) => "Duplicate column: \{name}"
     TypeMismatch(detail) => "Type mismatch: \{detail}"
+    // Rebuild the exact `TypeMismatch` detail: with no column it is
+    // `expected T, got X`; a named column prefixes `column "name" `.
+    TypedMismatch(expected, got, column) =>
+      if column == "" {
+        "Type mismatch: expected \{expected}, got \{got}"
+      } else {
+        "Type mismatch: column \"\{column}\" expected \{expected}, got \{got}"
+      }
     LengthMismatch => "Length mismatch between columns"
     IndexOutOfBounds(i) => "Index out of bounds: \{i}"
     ParseError(detail) => "Parse error: \{detail}"
@@ -41,6 +58,10 @@ pub impl Show for DataError with fn output(self, logger) {
       logger.write_string("DuplicateColumn(\"\{escape_debug(name)}\")")
     TypeMismatch(detail) =>
       logger.write_string("TypeMismatch(\"\{escape_debug(detail)}\")")
+    TypedMismatch(expected, got, column) =>
+      logger.write_string(
+        "TypedMismatch(\{expected}, \{got}, \"\{escape_debug(column)}\")",
+      )
     LengthMismatch => logger.write_string("LengthMismatch")
     IndexOutOfBounds(i) => logger.write_string("IndexOutOfBounds(\{i})")
     ParseError(detail) =>

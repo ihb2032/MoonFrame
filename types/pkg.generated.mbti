@@ -33,6 +33,7 @@ pub(all) suberror DataError {
   ColumnNotFound(String)
   DuplicateColumn(String)
   TypeMismatch(String)
+  TypedMismatch(DataType, DataType, String)
   LengthMismatch
   IndexOutOfBounds(Int)
   ParseError(String)

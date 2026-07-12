@@ -12,6 +12,17 @@ test "DataError::message covers every variant" {
     DataError::TypeMismatch("expected Int, got String").message(),
     content="Type mismatch: expected Int, got String",
   )
+  // `TypedMismatch` rebuilds the same wording from its structured fields: with
+  // no column the bare "expected T, got X", and with one the `column "n" `
+  // prefix — byte-identical to the `TypeMismatch` strings it replaces.
+  inspect(
+    DataError::TypedMismatch(DataType::Int, DataType::Null, "").message(),
+    content="Type mismatch: expected Int, got Null",
+  )
+  inspect(
+    DataError::TypedMismatch(DataType::Int, DataType::Float, "age").message(),
+    content="Type mismatch: column \"age\" expected Int, got Float",
+  )
   inspect(
     DataError::LengthMismatch.message(),
     content="Length mismatch between columns",
@@ -66,6 +77,10 @@ test "DataError Show covers every remaining variant" {
   inspect(
     DataError::TypeMismatch("expected Int, got String"),
     content="TypeMismatch(\"expected Int, got String\")",
+  )
+  inspect(
+    DataError::TypedMismatch(DataType::Int, DataType::Null, ""),
+    content="TypedMismatch(Int, Null, \"\")",
   )
   inspect(
     DataError::ParseError("bad token"),

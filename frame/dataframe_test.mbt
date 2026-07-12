@@ -183,38 +183,67 @@ test "from_rows rejects rows of the wrong width" {
 }
 
 ///|
-test "from_rows rejects dtype mismatches on every concrete dtype" {
-  // Int column expecting Int gets a Float — TypeMismatch.
+test "from_rows rejects dtype mismatches with a structured TypedMismatch" {
+  // Each mismatch now surfaces `TypedMismatch(expected, got, column)`, whose
+  // dtypes and column name are readable without parsing a message string.
   let s_i = @types.Schema::new([@types.Field::new("x", @types.DataType::Int)])
-  assert_true(
+  assert_eq(
+    Ok(DataFrame::from_rows(s_i, [[@types.Scalar::Float(1.0)]])) catch {
+      e => Err(e)
+    },
+    Err(
+      @types.DataError::TypedMismatch(
+        @types.DataType::Int,
+        @types.DataType::Float,
+        "x",
+      ),
+    ),
+  )
+  let s_f = @types.Schema::new([@types.Field::new("x", @types.DataType::Float)])
+  assert_eq(
+    Ok(DataFrame::from_rows(s_f, [[@types.Scalar::String("x")]])) catch {
+      e => Err(e)
+    },
+    Err(
+      @types.DataError::TypedMismatch(
+        @types.DataType::Float,
+        @types.DataType::String,
+        "x",
+      ),
+    ),
+  )
+  let s_b = @types.Schema::new([@types.Field::new("x", @types.DataType::Bool)])
+  assert_eq(
+    Ok(DataFrame::from_rows(s_b, [[@types.Scalar::Int(1)]])) catch {
+      e => Err(e)
+    },
+    Err(
+      @types.DataError::TypedMismatch(
+        @types.DataType::Bool,
+        @types.DataType::Int,
+        "x",
+      ),
+    ),
+  )
+  let s_s = @types.Schema::new([@types.Field::new("x", @types.DataType::String)])
+  assert_eq(
+    Ok(DataFrame::from_rows(s_s, [[@types.Scalar::Bool(true)]])) catch {
+      e => Err(e)
+    },
+    Err(
+      @types.DataError::TypedMismatch(
+        @types.DataType::String,
+        @types.DataType::Bool,
+        "x",
+      ),
+    ),
+  )
+  // The reconstructed message is byte-identical to the old pre-structured text.
+  assert_eq(
     (Ok(DataFrame::from_rows(s_i, [[@types.Scalar::Float(1.0)]])) catch {
       e => Err(e)
-    })
-    is Err(TypeMismatch(_)),
-  )
-  // Float column expecting Float gets a String.
-  let s_f = @types.Schema::new([@types.Field::new("x", @types.DataType::Float)])
-  assert_true(
-    (Ok(DataFrame::from_rows(s_f, [[@types.Scalar::String("x")]])) catch {
-      e => Err(e)
-    })
-    is Err(TypeMismatch(_)),
-  )
-  // Bool column expecting Bool gets an Int.
-  let s_b = @types.Schema::new([@types.Field::new("x", @types.DataType::Bool)])
-  assert_true(
-    (Ok(DataFrame::from_rows(s_b, [[@types.Scalar::Int(1)]])) catch {
-      e => Err(e)
-    })
-    is Err(TypeMismatch(_)),
-  )
-  // String column expecting String gets a Bool.
-  let s_s = @types.Schema::new([@types.Field::new("x", @types.DataType::String)])
-  assert_true(
-    (Ok(DataFrame::from_rows(s_s, [[@types.Scalar::Bool(true)]])) catch {
-      e => Err(e)
-    })
-    is Err(TypeMismatch(_)),
+    }).map_err(e => e.message()),
+    Err("Type mismatch: column \"x\" expected Int, got Float"),
   )
 }
 

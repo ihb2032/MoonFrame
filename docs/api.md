@@ -12,8 +12,8 @@
 The facade package `ihb2032/MoonFrame` re-exports every symbol below
 via `pub using @<subpkg> { ... }`, so a single
 `import "ihb2032/MoonFrame" @moonframe` is enough to reach the whole
-surface. Sub-package imports (`@types`, `@column`, `@series`, `@expr`,
-`@frame`, `@io`, `@lazy`) remain supported for callers that only need a
+surface. Sub-package imports (`@types`, `@series`, `@expr`, `@frame`,
+`@io`, `@lazy`) remain supported for callers that only need a
 slice — the facade is additive.
 
 Runnable, CI-verified examples of the surface below live in
@@ -81,8 +81,8 @@ in [`migration.md`](migration.md).
 - `fn is_decimal_int_literal(s) -> Bool` — `true` when `s` is an optional
   `+` / `-` sign followed by ASCII digits and nothing else (rejects
   `0x` / `0o` / `0b` prefixes and `1_000` underscore grouping). The
-  CSV / JSON readers' type inference and the `@column` String→`Int` cast
-  both route through this predicate so they agree on what counts as an
+  CSV / JSON readers' type inference and the String→`Int` cast both route
+  through this predicate so they agree on what counts as an
   integer literal.
 - `fn format_scalar_literal(value) -> String` — display-syntax rendering
   of a literal `Scalar`, the one spelling shared by `Expr`'s `explain`
@@ -119,126 +119,14 @@ in [`migration.md`](migration.md).
 
 ---
 
-## `column` — Column storage backends
+## `column` — Column storage backends (internal)
 
-Apache Arrow style: a raw data buffer plus a separate bit-packed
-validity bitmap (`1 = valid`, `0 = null`).
-
-### Validity bitmap
-
-- `struct Bitmap { bits : Bytes, offset : Int, len : Int }` — byte-packed,
-  1 bit per row, `1 = valid`. Slot `i` is physical bit `offset + i` (LSB
-  first); `slice` is a zero-copy view that advances `offset`, so equality is
-  logical over `[offset, offset + len)`. (Some ecosystem libraries use the
-  opposite `true = null` convention.)
-- Total constructors: `all_valid(len)` / `all_null(len)` (negative `len` →
-  empty) / `from_bools(Array[Bool])` / `from_options[T](Array[T?])`
-  (`Some(_) ↦ valid`).
-- Total inspection: `len` / `null_count()` / `to_bools()` (the whole
-  `true = valid` mask in one pass).
-- Fallible (`raise DataError`): `is_valid(i)` / `is_null(i)`
-  (`IndexOutOfBounds` outside `[0, len)`); `slice(start, length)`
-  (`IndexOutOfBounds` / `InvalidOperation`); `take(indices)`
-  (`IndexOutOfBounds`); `bit_and(other)` (`LengthMismatch`; `and` is
-  reserved, hence `bit_and`).
-
-### BuiltinColumn
-
-- `struct BuiltinColumn { data : ColumnData, validity : Bitmap }` —
-  Arrow-style column; null slots carry a per-dtype placeholder
-  (`0` / `0.0` / `false` / `""`) that never leaks, as every read consults
-  `validity` first. `derive(Eq)` compares the raw `data` array, so that
-  placeholder is also what keeps two logically equal columns equal;
-  `placeholders_normalized()` asserts it.
-- `pub(all) enum ColumnData` — `Int(Array[Int64]) | Float(Array[Double]) |
-  Bool(Array[Bool]) | String(Array[String])` (64-bit numerics).
-- Total constructors (8): `from_ints` / `from_int_options` /
-  `from_floats` / `from_float_options` / `from_bools` /
-  `from_bool_options` / `from_strings` / `from_string_options`.
-- Total inspection: `dtype` / `len` / `is_empty` / `null_count` /
-  `data() -> ColumnData` / `validity() -> Bitmap` /
-  `placeholders_normalized() -> Bool` (every null slot holds its dtype's
-  canonical placeholder — always `true` for a column from the public API;
-  a test-facing assertion of the invariant `derive(Eq)` depends on).
-  - ⚠ **`data()` returns the live backing array zero-copy** (not a defensive
-    copy — a hot-path read trade-off). Treat it as **read-only**; mutating it
-    corrupts the column's data/validity invariants. Same for
-    `ColumnStorage::data()`.
-- Fallible (`raise DataError`):
-  - `is_null(i) -> Bool` / `get(i) -> Scalar` —
-    `IndexOutOfBounds` outside `[0, len)`; `get` returns `Scalar::Null` for
-    null slots.
-  - `slice(start, end)` / `take(indices)` — sub-views; bounds as the bitmap.
-  - `cast(target)` — the single cross-dtype conversion. `Int`: identity on
-    Int, Float truncates toward zero (`NaN` / `±Inf` / out-of-`Int64`-range
-    → `ParseError`), Bool `true → 1` / `false → 0`, String accepts only
-    plain base-10 integers (others → `ParseError`). `Float`: Int promoted,
-    identity on Float, Bool → `1.0` / `0.0`, String parsed (`1_000`
-    underscore grouping rejected; `inf` / `-inf` / `nan` accepted; a finite
-    literal past the `Double` range collapses to `±Inf` per IEEE 754; other
-    malformed → `ParseError`). `String`: every dtype renders (via the total
-    `to_string_column`). Validity is preserved; `Bool` / `Null` targets
-    `raise Unsupported`.
-  - `int_values()` / `float_values()` / `bool_values()` /
-    `string_values()` — return `(Array[T], Bitmap)`; wrong dtype →
-    `raise TypeMismatch`. Always consult the returned bitmap before
-    reading the data array.
-- **Total**: `to_string_column() -> BuiltinColumn` — every dtype has a
-  value-form rendering, so unlike a numeric `cast` it never raises.
-
-### NumericColumn
-
-- `struct NumericColumn { data : NumericData }` — the **all-valid** unboxed
-  numeric column (the `null_count == 0` fast path): **no validity bitmap**,
-  so construction, sub-views, and reductions skip the per-slot validity
-  check. The moment a null would enter, it materialises back to a
-  `BuiltinColumn`.
-- `pub(all) enum NumericData` — `Int(Array[Int64]) | Float(Array[Double])`
-  (`Bool` / `String` are always `Builtin`).
-- Total constructors: `from_int64s` / `from_doubles`, with `from_ints` /
-  `from_floats` as aliases matching the spelling every other layer uses
-  (`BuiltinColumn` / `Series`).
-- Total inspection: `dtype` / `len` / `is_empty` / `null_count` (always
-  `0`) / `data() -> ColumnData` / `to_builtin() -> BuiltinColumn` (widen
-  with an all-valid bitmap — lossless) / `to_string_column() -> BuiltinColumn`.
-- Fallible (`raise DataError`): `is_null(i)` (bounds only; value always
-  `false`) / `get(i)` / `slice(start, end)` / `take(indices)`;
-  `int_values()` / `float_values()` (raw array + synthesised all-valid
-  bitmap); `bool_values()` / `string_values()` always `raise TypeMismatch`.
-- Reductions (no validity scan): **total** `sum() -> Scalar` /
-  `min() -> Scalar` / `max() -> Scalar`; fallible `mean() -> Double`
-  (`InvalidOperation` on an empty column). `NaN` propagates through
-  `sum` / `mean` but is skipped by `min` / `max`.
-
-### ColumnStorage / StorageKind
-
-- `pub(all) enum ColumnStorage { Builtin(BuiltinColumn);
-  Numeric(NumericColumn) }` — the pluggable backend seam a `Series` holds.
-  Every accessor forwards to both arms, so `.data()` / `.validity()` reads
-  are backend-transparent (the `Numeric` arm synthesises an all-valid
-  `validity()` on demand).
-- `pub(all) enum StorageKind { Builtin; Numeric }` — the backend
-  discriminant (`kind()`); `Builtin` *is* the Arrow layout (data + validity
-  bitmap, `1 = valid`).
-- Constructors: `from_builtin(BuiltinColumn)` / `from_numeric(NumericColumn)`.
-- Total inspection: `kind()` / `dtype` / `len` / `is_empty` / `null_count`
-  / `data() -> ColumnData` / `validity() -> Bitmap` / `to_builtin() ->
-  BuiltinColumn` / `to_string_column() -> BuiltinColumn`.
-- Total `slice_total(start, end) -> ColumnStorage` — the no-raise
-  counterpart of `slice` (backs `head` / `tail` / `DataFrame::slice`): keeps
-  the backend and shares the validity bitmap as a zero-copy view (copying the
-  row data), but clamps out-of-range bounds into `[0, len]` (with `end` lifted
-  to at least `start`) rather than raising.
-- Fallible (`raise DataError`): `is_null(i)` / `get(i)`; backend-preserving
-  `slice(start, end)` / `take(indices)` (a `Numeric` sub-range stays
-  `Numeric`); `int_values()` / `float_values()` / `bool_values()` /
-  `string_values()`. The cross-dtype `cast(target)` routes through
-  `to_builtin()`, so the result is `Builtin`-backed (re-converge with
-  `to_numeric` for a numeric target).
-- `to_numeric() -> ColumnStorage raise DataError` — move an all-valid Int /
-  Float `Builtin` column onto the `Numeric` fast path: `InvalidOperation`
-  if it carries nulls, `TypeMismatch` if non-numeric, identity if already
-  `Numeric`.
+The column storage layer moved to the private package `internal/column` in
+v0.6 and is **no longer part of the public API**: `Bitmap`, `BuiltinColumn`,
+`NumericColumn`, `ColumnData`, `NumericData`, `ColumnStorage`, and
+`StorageKind` cannot be named or imported by downstream code. `Series` owns a
+backend internally and exposes only value-level access (`get` / `to_scalars`
+/ the typed constructors), so callers never touch a storage type.
 
 ---
 
@@ -476,47 +364,22 @@ rebuild and backend-convergence helpers, and the composite-key cell encoding
 
 ### Series
 
-- `struct Series { name, storage : @column.ColumnStorage }` — the `storage`
-  field holds the pluggable backend (`Builtin` or `Numeric`); `from_builtin`
-  and `storage().to_builtin()` bridge pre-v0.3 call sites.
-- Total constructors (10): `new(name, ColumnStorage)` (canonical, at the
-  seam) / `from_builtin(name, BuiltinColumn)` (source-compatible wrapper) /
-  `from_ints` / `from_int_options` / `from_floats` / `from_float_options` /
-  `from_bools` / `from_bool_options` / `from_strings` /
-  `from_string_options`. **Backend selection**: the no-null `from_ints` /
-  `from_floats` land on the `Numeric` fast path; every other constructor
-  (the nullable `*_options`, `Bool`, `String`, and `from_builtin`) lands on
-  `Builtin`.
-- Total inspection: `name` / `dtype` / `len` / `is_empty` /
-  `null_count` / `storage() -> ColumnStorage` /
-  `storage_kind() -> StorageKind` /
-  `is_canonical() -> Bool` (whether the column is on the canonical backend
-  for its content — the fixed point of `to_numeric`'s convergence; `false`
-  only for a `Builtin` all-valid `Int` / `Float` column, which can still
-  move onto the `Numeric` fast path) /
-  `to_scalars() -> Array[Scalar]` (materialise every cell, `Null` for
-  null cells).
+- `struct Series` — a named column. The backing storage lives in the private
+  `internal/column` package, so callers work through the value-level API below
+  and never name a storage type.
+- Total constructors: `from_ints` / `from_int_options` / `from_floats` /
+  `from_float_options` / `from_bools` / `from_bool_options` / `from_strings` /
+  `from_string_options` — from a plain or nullable array of the dtype.
+- Total inspection: `name` / `dtype` / `len` / `is_empty` / `null_count` /
+  `to_scalars() -> Array[Scalar]` (materialise every cell, `Null` for null
+  cells).
 - Fallible (`raise DataError`): `is_null(i) -> Bool` / `get(i) -> Scalar`
   (`IndexOutOfBounds`); `slice(start, end)` / `gather(indices)`;
-  `fill_null(value)` (`TypeMismatch` for `Scalar::Null` or a
-  dtype-mismatched value); `cast(target)` — the single cross-dtype entry
-  (`Int` / `Float` / `String` targets; `Bool` / `Null` → `Unsupported`),
-  a numeric result lands on `Builtin` (re-converge with `to_numeric`);
-  `to_numeric()` (move onto the `Numeric` backend — `TypeMismatch` for a
-  non-numeric column, `InvalidOperation` for one with nulls).
-- Total transforms: `rename(new_name)` (`O(1)`, storage shared);
-  `drop_nulls()` (gather non-null cells); `to_builtin()` (materialise onto
-  the `Builtin` backend — lossless inverse of `to_numeric`). The backend of
-  a transform's result is a function of its **content**, not its source: a
-  row-gathering transform (`gather` / `drop_nulls`, and `filter` / `sort` /
-  `join` at the frame level) whose numeric result is all-valid **converges
-  onto `Numeric`** regardless of where it started, while a column carrying
-  (or gaining) a null — or any `Bool` / `String` — lands on `Builtin`. Only
-  the slice family (`slice`, frame-level `head` / `tail`) and `fill_null`
-  preserve the source backend as-is; cross-dtype casts borrow the `Builtin`
-  road. (Content-determined backends are the invariant the lazy optimizer's
-  predicate pushdown relies on; `is_canonical()` reports whether a column
-  sits on that backend, so a test can assert it directly.)
+  `fill_null(value)` (`TypeMismatch` for `Scalar::Null` or a dtype-mismatched
+  value); `cast(target)` — the single cross-dtype entry (`Int` / `Float` /
+  `String` targets; `Bool` / `Null` → `Unsupported`).
+- Total transforms: `rename(new_name)` (`O(1)`); `drop_nulls()` (gather
+  non-null cells).
 
 ### Series stats (`series_stats.mbt`)
 
@@ -583,12 +446,6 @@ dependencies** (NyaCSV / fs / @json live only in `io`).
   alias of `head`, the eager twin of `LazyFrame::limit`) / `tail(n)`
   (clamp `n` to `[0, nrows]`); `slice(start, end)` / `take(indices)`
   (`raise`, `IndexOutOfBounds` / `InvalidOperation`).
-- Storage backend control (all **total**): `storage_kinds() ->
-  Array[StorageKind]` (per-column backend, parallel to `columns()`);
-  `to_numeric()` (best-effort — move every all-valid Int / Float column
-  onto the `Numeric` fast path, keep nullable / non-numeric / already-
-  `Numeric` columns); `to_builtin()` (materialise every column onto
-  `Builtin`, the inverse). Names / dtypes / values are unchanged.
 - `check_invariants() -> Result[Unit, String]` — verification helper
   (deliberately **not** migrated to `raise`). `Ok(())` iff the frame
   satisfies its seven structural invariants; otherwise `Err(msg)`.
@@ -1202,8 +1059,6 @@ API names them).
 
 - From `@types`: `DataError` · `DataType` · `Scalar` · `Field` · `Schema` ·
   `compare_string_lex` · `is_decimal_int_literal` · `format_scalar_literal`
-- From `@column`: `Bitmap` · `BuiltinColumn` · `ColumnData` ·
-  `NumericColumn` · `NumericData` · `ColumnStorage` · `StorageKind`
 - From `@expr`: `Expr` · `WhenThen` · `WhenThenElse` · `col` · `cols` ·
   `lit` · `lit_int` · `lit_float` · `lit_str` · `lit_bool` · `lit_series` ·
   `when` · `map_many`

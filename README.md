@@ -218,7 +218,7 @@ blackbox `*_test.mbt` tests, and a `pkg.generated.mbti` interface snapshot:
 
 ```
 types/      value types, errors (DataError), schemas
-column/     Arrow-style storage — validity Bitmap, BuiltinColumn, Numeric fast path, ColumnStorage seam
+internal/column/  Arrow-style storage (internal) — validity bitmap + Builtin/Numeric backends behind Series
 series/     Series + column-level stats + the shared reduction / rebuild / key-cell kernels
 expr/       composable column expressions — Expr AST, operators / methods, when/then/otherwise, explain
 frame/      DataFrame + every operator (one per file) + group_by + join + the expression evaluator (with_columns / select / filter / agg) + to_markdown / to_html

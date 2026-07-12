@@ -366,6 +366,17 @@ fn write_str_suffix(logger : &Logger, op : StrOp) -> Unit {
     EndsWith(p) => write_str_call(logger, "str_ends_with", [p])
     Replace(a, b) => write_str_call(logger, "str_replace", [a, b])
     ReplaceAll(a, b) => write_str_call(logger, "str_replace_all", [a, b])
+    Reverse => logger.write_string(".str_reverse()")
+    // The width renders bare, the fill as a `'x'` char literal (escaped like a
+    // string so a control or quote character stays on one line).
+    PadStart(width, fill) =>
+      logger.write_string(
+        ".str_pad_start(\{width}, '\{@types.escape_debug(fill.to_string())}')",
+      )
+    PadEnd(width, fill) =>
+      logger.write_string(
+        ".str_pad_end(\{width}, '\{@types.escape_debug(fill.to_string())}')",
+      )
   }
 }
 

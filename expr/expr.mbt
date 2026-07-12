@@ -349,12 +349,15 @@ pub enum AggOp {
 /// tags are equal, `Contains("a")` and `Contains("b")` are not (which is why
 /// the `Str` arm of `Expr`'s handwritten `Eq` can compare tags by `==`).
 /// Every operation maps a String cell to its result cell by cell:
-/// `ToUppercase` / `ToLowercase` / `StripChars` / `Replace` / `ReplaceAll`
-/// yield a String, `LenChars` an `Int` (the Unicode character count), and the
-/// `Contains` / `StartsWith` / `EndsWith` predicates a `Bool`. Null cells
-/// pass through as null and a non-String operand is a `TypeMismatch` at
-/// evaluation; all are total (no value can raise), and matching is always
-/// literal — there is no regex engine yet.
+/// `ToUppercase` / `ToLowercase` / `StripChars` / `Replace` / `ReplaceAll` /
+/// `Reverse` / `PadStart` / `PadEnd` yield a String, `LenChars` an `Int` (the
+/// Unicode character count), and the `Contains` / `StartsWith` / `EndsWith`
+/// predicates a `Bool`. Null cells pass through as null and a non-String
+/// operand is a `TypeMismatch` at evaluation; all are total (no value can
+/// raise), and matching is always literal — there is no regex engine yet.
+/// `Reverse` reverses Unicode characters (surrogate pairs respected), and the
+/// `PadStart` / `PadEnd` widths count characters, both consistent with
+/// `LenChars`.
 pub enum StrOp {
   ToUppercase
   ToLowercase
@@ -365,4 +368,7 @@ pub enum StrOp {
   EndsWith(String)
   Replace(String, String)
   ReplaceAll(String, String)
+  Reverse
+  PadStart(Int, Char)
+  PadEnd(Int, Char)
 } derive(Eq, Debug)

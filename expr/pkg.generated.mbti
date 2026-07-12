@@ -122,8 +122,11 @@ pub fn Expr::std(Self) -> Self
 pub fn Expr::str_contains(Self, String) -> Self
 pub fn Expr::str_ends_with(Self, String) -> Self
 pub fn Expr::str_len_chars(Self) -> Self
+pub fn Expr::str_pad_end(Self, Int, fill? : Char) -> Self
+pub fn Expr::str_pad_start(Self, Int, fill? : Char) -> Self
 pub fn Expr::str_replace(Self, String, String) -> Self
 pub fn Expr::str_replace_all(Self, String, String) -> Self
+pub fn Expr::str_reverse(Self) -> Self
 pub fn Expr::str_starts_with(Self, String) -> Self
 pub fn Expr::str_strip_chars(Self) -> Self
 pub fn Expr::str_to_lowercase(Self) -> Self
@@ -152,6 +155,9 @@ pub enum StrOp {
   EndsWith(String)
   Replace(String, String)
   ReplaceAll(String, String)
+  Reverse
+  PadStart(Int, Char)
+  PadEnd(Int, Char)
 } derive(Eq, @debug.Debug)
 
 pub enum UnOp {

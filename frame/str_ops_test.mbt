@@ -139,6 +139,64 @@ test "str_replace / str_replace_all: literal substitution, first vs every, nulls
 }
 
 ///|
+test "str_reverse: reverses characters per cell, nulls pass through" {
+  let out = str_df().select([@expr.col("s").str_reverse()])
+  assert_eq(out.get_column("s").to_scalars(), [
+    @types.Scalar::String("olleH"),
+    @types.Scalar::String(" ih "),
+    @types.Scalar::Null,
+    @types.Scalar::String("DLROW"),
+  ])
+}
+
+///|
+test "str_reverse: respects surrogate pairs, reversing by codepoint" {
+  // The emoji is one codepoint (two UTF-16 units), so it reverses as a unit.
+  let df = DataFrame::new([Series::from_strings("s", ["a😀b"])])
+  let out = df.select([@expr.col("s").str_reverse()])
+  assert_eq(out.get_column("s").to_scalars(), [@types.Scalar::String("b😀a")])
+}
+
+///|
+test "str_pad_start / str_pad_end: pad to a character width; default fill is space; never truncates" {
+  let df = DataFrame::new([
+    Series::from_string_options("s", [
+      Some("7"),
+      Some("hi"),
+      Some("hello"),
+      None,
+    ]),
+  ])
+  let out = df.select([
+    @expr.col("s").str_pad_start(4, fill='0').with_alias("ps"),
+    @expr.col("s").str_pad_end(4).with_alias("pe"),
+  ])
+  // Left-pad to 4 with '0'; "hello" (5 ≥ 4) is unchanged, a null stays null.
+  assert_eq(out.get_column("ps").to_scalars(), [
+    @types.Scalar::String("0007"),
+    @types.Scalar::String("00hi"),
+    @types.Scalar::String("hello"),
+    @types.Scalar::Null,
+  ])
+  // Right-pad to 4 with the default space.
+  assert_eq(out.get_column("pe").to_scalars(), [
+    @types.Scalar::String("7   "),
+    @types.Scalar::String("hi  "),
+    @types.Scalar::String("hello"),
+    @types.Scalar::Null,
+  ])
+}
+
+///|
+test "str_pad_start: the width counts characters, not UTF-16 units" {
+  // "😀" is one character but two UTF-16 units; padding to width 3 adds two fill
+  // characters (codepoint-based), for a three-character result.
+  let df = DataFrame::new([Series::from_strings("s", ["😀"])])
+  let out = df.select([@expr.col("s").str_pad_start(3, fill='.')])
+  assert_eq(out.get_column("s").to_scalars(), [@types.Scalar::String("..😀")])
+}
+
+///|
 test "str: a predicate filters rows by a (case-sensitive) string test" {
   let df = str_df()
   // `contains` is literal and case-sensitive: only "Hello" has a lowercase

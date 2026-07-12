@@ -557,6 +557,44 @@ pub fn Expr::str_pad_end(self : Expr, width : Int, fill? : Char = ' ') -> Expr {
 }
 
 ///|
+/// `Bool` column, `true` where the cell **matches** the regular expression
+/// `pattern` (a partial match, like Polars' `str.contains`). The regex form of
+/// `str_contains`, which stays literal. `pattern` is a **POSIX** regular
+/// expression — the core engine's dialect, so character classes are
+/// `[[:digit:]]` / `[[:alpha:]]`, **not** the PCRE `\d` / `\w` (those raise). It
+/// is compiled once per evaluation, so an invalid pattern raises
+/// `InvalidOperation` at evaluation; a null cell stays null and a non-String
+/// operand raises `TypeMismatch`.
+pub fn Expr::str_contains_regex(self : Expr, pattern : String) -> Expr {
+  Str(StrOp::ContainsRegex(pattern), self)
+}
+
+///|
+/// Replace the **first** regex match of `pattern` in each cell with the literal
+/// `value` — the regex form of `str_replace`. `pattern` is a POSIX regular
+/// expression (see `str_contains_regex` for the dialect and the invalid-pattern
+/// error); `value` is inserted literally (no capture-group references yet). A
+/// cell with no match is unchanged; null cells stay null.
+pub fn Expr::str_replace_regex(
+  self : Expr,
+  pattern : String,
+  value : String,
+) -> Expr {
+  Str(StrOp::ReplaceRegex(pattern, value), self)
+}
+
+///|
+/// Replace **every** regex match of `pattern` with the literal `value` — the
+/// all-occurrences mirror of `str_replace_regex`.
+pub fn Expr::str_replace_all_regex(
+  self : Expr,
+  pattern : String,
+  value : String,
+) -> Expr {
+  Str(StrOp::ReplaceAllRegex(pattern, value), self)
+}
+
+///|
 /// Cast the operand to `target` at evaluation time, delegating to
 /// `Series::cast` (so the supported dtype pairs — and the `Unsupported`
 /// cases — are exactly the eager ones).

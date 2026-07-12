@@ -2,6 +2,7 @@ import {
   "ihb2032/MoonFrame/internal/column",
   "ihb2032/MoonFrame/expr",
   "moonbitlang/core/math",
+  "moonbitlang/core/string",
   "ihb2032/MoonFrame/series",
   "ihb2032/MoonFrame/types",
 }

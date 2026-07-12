@@ -197,6 +197,85 @@ test "str_pad_start: the width counts characters, not UTF-16 units" {
 }
 
 ///|
+test "str_contains_regex: POSIX-regex partial match, nulls pass through" {
+  let df = DataFrame::new([
+    Series::from_string_options("s", [
+      Some("abc"),
+      Some("a1c"),
+      Some("xyz"),
+      None,
+    ]),
+  ])
+  let out = df.select([
+    @expr.col("s").str_contains_regex("a.c").with_alias("dot"),
+    @expr.col("s").str_contains_regex("[[:digit:]]").with_alias("dig"),
+  ])
+  // "a.c" (`.` matches any char): abc ✓, a1c ✓, xyz ✗, null → null.
+  assert_eq(out.get_column("dot").to_scalars(), [
+    @types.Scalar::Bool(true),
+    @types.Scalar::Bool(true),
+    @types.Scalar::Bool(false),
+    @types.Scalar::Null,
+  ])
+  // POSIX digit class: only "a1c" has a digit.
+  assert_eq(out.get_column("dig").to_scalars(), [
+    @types.Scalar::Bool(false),
+    @types.Scalar::Bool(true),
+    @types.Scalar::Bool(false),
+    @types.Scalar::Null,
+  ])
+}
+
+///|
+test "str_replace_regex / str_replace_all_regex: first vs every match" {
+  let df = DataFrame::new([
+    Series::from_string_options("s", [Some("a12b345"), None]),
+  ])
+  let out = df.select([
+    @expr.col("s").str_replace_regex("[0-9]+", "#").with_alias("first"),
+    @expr.col("s").str_replace_all_regex("[0-9]+", "#").with_alias("all"),
+  ])
+  assert_eq(out.get_column("first").to_scalars(), [
+    @types.Scalar::String("a#b345"),
+    @types.Scalar::Null,
+  ])
+  assert_eq(out.get_column("all").to_scalars(), [
+    @types.Scalar::String("a#b#"),
+    @types.Scalar::Null,
+  ])
+}
+
+///|
+test "str regex: an invalid or PCRE-only pattern raises InvalidOperation" {
+  let df = DataFrame::new([Series::from_strings("s", ["x"])])
+  // An unclosed bracket is a genuine syntax error.
+  assert_true(
+    (Ok(df.select([@expr.col("s").str_contains_regex("[")])) catch {
+      e => Err(e)
+    })
+    is Err(@types.DataError::InvalidOperation(_)),
+  )
+  // The core engine is POSIX: the PCRE `\d` is rejected (use `[[:digit:]]`).
+  assert_true(
+    (Ok(df.select([@expr.col("s").str_replace_regex("\\d", "x")])) catch {
+      e => Err(e)
+    })
+    is Err(@types.DataError::InvalidOperation(_)),
+  )
+}
+
+///|
+test "str regex: a non-String operand is a TypeMismatch" {
+  let df = DataFrame::new([Series::from_ints("n", [1])])
+  assert_true(
+    (Ok(df.select([@expr.col("n").str_contains_regex("a")])) catch {
+      e => Err(e)
+    })
+    is Err(@types.DataError::TypeMismatch(_)),
+  )
+}
+
+///|
 test "str: a predicate filters rows by a (case-sensitive) string test" {
   let df = str_df()
   // `contains` is literal and case-sensitive: only "Hello" has a lowercase

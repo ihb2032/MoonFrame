@@ -251,9 +251,12 @@ depends only on `types`.
 
 String operations on a String column, each a `str_*` method building a `Str`
 node. Every operation maps cell by cell: null cells stay null, a non-String
-operand is a `TypeMismatch` at evaluation, all are total. Matching is always
-**literal** — there is no regex engine yet, so regex forms of `contains` /
-`replace` are a future addition.
+operand is a `TypeMismatch` at evaluation. The literal ops are per-value total;
+the `*_regex` ops compile their pattern **once** per evaluation, so an invalid
+pattern raises `InvalidOperation` (the one non-total path). The regex dialect is
+**POSIX** (the core engine's) — character classes are `[[:digit:]]` /
+`[[:alpha:]]`, **not** the PCRE `\d` / `\w`, which are a parse error — a
+deliberate divergence from Polars' Rust-`regex` dialect.
 
 - `str_to_uppercase()` / `str_to_lowercase() -> Expr` — case mapping,
   currently **ASCII-only** (a non-ASCII letter passes through unchanged,
@@ -276,6 +279,14 @@ operand is a `TypeMismatch` at evaluation, all are total. Matching is always
   with `fill` (default space) until it is `width` **characters** long; a cell
   already at least that long is unchanged (never truncated). The width counts
   characters, consistent with `str_len_chars`.
+- `str_contains_regex(pattern : String) -> Expr` — a `Bool` column, `true` where
+  the cell matches the POSIX regular expression `pattern` (partial match). The
+  regex form of `str_contains`.
+- `str_replace_regex(pattern : String, value : String)` /
+  `str_replace_all_regex(pattern : String, value : String) -> Expr` — replace
+  the first / every regex match of `pattern` with the literal `value` (no
+  capture-group references yet). The regex forms of `str_replace` /
+  `str_replace_all`.
 
 ### Conditional
 
@@ -1145,13 +1156,14 @@ The whole v0.5 surface above is **shipped**, and it is the last breaking
 release: from v0.6 on the API only grows (additive — no renames, removals,
 or signature changes). These are the tracked deferrals, all v0.6+:
 
-- **More expression families** — regex-backed string methods (a `Regex` type
-  exists in `core/string`), more positional ones (`str_slice`, byte length),
-  `split` (blocked on a list dtype), and — further out — window and datetime
-  expressions (the repo has no datetime type yet). The v0.5 operator / method
-  set is frozen; these extend it. (The arithmetic / numeric operator family —
-  `floor_div`, `mod`, `pow`, `abs` / `floor` / `ceil` / `sign` / `round` — and
-  the `str_reverse` / `str_pad_start` / `str_pad_end` string ops are now done.)
+- **More expression families** — richer regex string methods (`str_extract`,
+  `str_count_matches` — the `contains` / `replace` regex forms are done), more
+  positional ones (`str_slice`, byte length), `split` (blocked on a list dtype),
+  and — further out — window and datetime expressions (the repo has no datetime
+  type yet). The v0.5 operator / method set is frozen; these extend it. (The
+  arithmetic / numeric operator family — `floor_div`, `mod`, `pow`, `abs` /
+  `floor` / `ceil` / `sign` / `round` — and the `str_reverse` / `str_pad_*` /
+  `str_*_regex` string ops are now done.)
 - **Lazy scan depth** — predicate pushdown into the file parser and
   streaming execution (v0.5's scan does projection pushdown only), plus
   columnar sources (Parquet / IPC) once eager readers exist.

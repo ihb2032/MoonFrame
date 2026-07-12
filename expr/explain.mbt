@@ -377,6 +377,10 @@ fn write_str_suffix(logger : &Logger, op : StrOp) -> Unit {
       logger.write_string(
         ".str_pad_end(\{width}, '\{@types.escape_debug(fill.to_string())}')",
       )
+    ContainsRegex(p) => write_str_call(logger, "str_contains_regex", [p])
+    ReplaceRegex(a, b) => write_str_call(logger, "str_replace_regex", [a, b])
+    ReplaceAllRegex(a, b) =>
+      write_str_call(logger, "str_replace_all_regex", [a, b])
   }
 }
 

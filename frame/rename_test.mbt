@@ -1,4 +1,4 @@
-// Blackbox tests for `DataFrame::rename`.
+// Blackbox tests for `DataFrame::rename` and its callable form `rename_with`.
 //
 // Invariants asserted on every successful rename:
 //   (1) check_invariants() == Ok(())
@@ -120,5 +120,41 @@ test "rename rejects a mapping that introduces a duplicate among new names" {
       e => Err(e)
     },
     Err(@types.DataError::DuplicateColumn("z")),
+  )
+}
+
+// ── Callable form: rename_with ───────────────────────────────────────
+
+///|
+test "rename_with renames every column through the function" {
+  let df = rename_df()
+  let out = df.rename_with(name => "col_\{name}")
+  assert_eq(out.check_invariants(), Ok(()))
+  assert_eq(out.columns(), ["col_a", "col_b"])
+  assert_eq(out.ncols(), df.ncols())
+  // Data and dtype follow the new names; only the names changed.
+  assert_eq(out.item(0, "col_a"), @types.Scalar::Int(1))
+  assert_eq(out.item(0, "col_b"), @types.Scalar::String("x"))
+  assert_eq(out.get_column("col_a").name(), "col_a")
+}
+
+///|
+test "rename_with the identity function is a structural no-op" {
+  let df = rename_df()
+  let out = df.rename_with(name => name)
+  assert_eq(out.check_invariants(), Ok(()))
+  assert_eq(out, df)
+}
+
+///|
+test "rename_with rejects a function that collapses two columns to one name" {
+  let df = rename_df()
+  // Every column maps to "same" — the rebuilding `DataFrame::new` rejects the
+  // duplicate.
+  assert_eq(
+    Ok(df.rename_with(_ => "same")) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::DuplicateColumn("same")),
   )
 }

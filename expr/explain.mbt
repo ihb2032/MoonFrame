@@ -242,6 +242,10 @@ fn push_write_tasks(stack : Array[WriteTask], expr : Expr) -> Unit {
         IsNotNull => [Node(e), Frag(".is_not_null()")]
         IsNan => [Node(e), Frag(".is_nan()")]
         IsNotNan => [Node(e), Frag(".is_not_nan()")]
+        Abs => [Node(e), Frag(".abs()")]
+        Floor => [Node(e), Frag(".floor()")]
+        Ceil => [Node(e), Frag(".ceil()")]
+        Sign => [Node(e), Frag(".sign()")]
       }
     Agg(op, e) => [Node(e), Frag(agg_suffix(op))]
     Str(op, e) => [Node(e), StrSuffix(op)]

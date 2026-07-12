@@ -73,7 +73,9 @@ pub enum Expr {
   FillNan(Expr, Expr)
   Map(String, Array[Expr], (Array[@types.Scalar]) -> @types.Scalar raise @types.DataError)
 }
+pub fn Expr::abs(Self) -> Self
 pub fn Expr::cast(Self, @types.DataType) -> Self
+pub fn Expr::ceil(Self) -> Self
 pub fn Expr::children(Self) -> Array[Self]
 #as_free_fn(col)
 pub fn Expr::col(String) -> Self
@@ -83,6 +85,7 @@ pub fn Expr::explain(Self) -> String
 pub fn Expr::fill_nan(Self, Self) -> Self
 pub fn Expr::fill_null(Self, Self) -> Self
 pub fn Expr::first(Self) -> Self
+pub fn Expr::floor(Self) -> Self
 pub fn Expr::floor_div(Self, Self) -> Self
 pub fn Expr::ge(Self, Self) -> Self
 pub fn Expr::gt(Self, Self) -> Self
@@ -105,6 +108,7 @@ pub fn Expr::ne(Self, Self) -> Self
 pub fn Expr::not(Self) -> Self
 pub fn Expr::output_name(Self) -> String
 pub fn Expr::referenced_columns(Self) -> @set.Set[String]
+pub fn Expr::sign(Self) -> Self
 pub fn Expr::std(Self) -> Self
 pub fn Expr::str_contains(Self, String) -> Self
 pub fn Expr::str_ends_with(Self, String) -> Self
@@ -148,6 +152,10 @@ pub enum UnOp {
   IsNotNull
   IsNan
   IsNotNan
+  Abs
+  Floor
+  Ceil
+  Sign
 } derive(Eq, @debug.Debug)
 
 pub struct WhenThen {

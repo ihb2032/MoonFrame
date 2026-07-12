@@ -54,6 +54,23 @@ priv enum LogicalPlan {
   Unique(LogicalPlan)
   DropNulls(LogicalPlan, Array[@expr.Expr]?)
   FillNull(LogicalPlan, @types.Scalar)
+  Reduce(LogicalPlan, LazyReduceOp)
+}
+
+///|
+/// Which whole-frame reduction a `Reduce` node defers — one per `LazyFrame`
+/// reduction method, each executing as the matching eager `DataFrame` verb
+/// (`sum` / `mean` / `min` / `max` / `count` / `null_count`) so `collect` is
+/// bit-for-bit the eager result. A closed set mirroring `frame`'s private
+/// `FrameReduceOp` (plus `NullCount`), kept lazy-local because that tag is
+/// `priv` to `frame`.
+priv enum LazyReduceOp {
+  Sum
+  Mean
+  Min
+  Max
+  Count
+  NullCount
 }
 
 ///|
@@ -79,7 +96,8 @@ fn plan_children(plan : LogicalPlan) -> Array[LogicalPlan] {
     | Rename(input, _)
     | Unique(input)
     | DropNulls(input, _)
-    | FillNull(input, _) => [input]
+    | FillNull(input, _)
+    | Reduce(input, _) => [input]
     Join(left, right, _) => [left, right]
   }
 }
@@ -266,6 +284,19 @@ fn execute(plan : LogicalPlan) -> @frame.DataFrame raise @types.DataError {
       Unique(input) => memo_result(memo, input).unique()
       DropNulls(input, subset) => memo_result(memo, input).drop_nulls(subset?)
       FillNull(input, value) => memo_result(memo, input).fill_null(value)
+      // Each reduction executes as its eager `DataFrame` verb on the collected
+      // input, so `collect` is bit-for-bit the eager 1-row result.
+      Reduce(input, op) => {
+        let df = memo_result(memo, input)
+        match op {
+          Sum => df.sum()
+          Mean => df.mean()
+          Min => df.min()
+          Max => df.max()
+          Count => df.count()
+          NullCount => df.null_count()
+        }
+      }
     }
     memo.push((node, result))
   }

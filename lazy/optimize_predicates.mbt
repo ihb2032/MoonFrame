@@ -47,6 +47,7 @@ fn push_predicates(plan : LogicalPlan) -> LogicalPlan {
       Unique(_) => values.push(Unique(pop_top(values)))
       DropNulls(_, subset) => values.push(DropNulls(pop_top(values), subset))
       FillNull(_, value) => values.push(FillNull(pop_top(values), value))
+      Reduce(_, op) => values.push(Reduce(pop_top(values), op))
     }
   }
   pop_top(values)
@@ -109,7 +110,8 @@ fn place_filter(input : LogicalPlan, predicate : @expr.Expr) -> LogicalPlan {
       | Rename(_, _)
       | Unique(_)
       | DropNulls(_, _)
-      | FillNull(_, _) => descending = false
+      | FillNull(_, _)
+      | Reduce(_, _) => descending = false
     }
   }
   // The floor is `cur`; the filter sits just above it. Re-wrap the crossed

@@ -165,6 +165,12 @@ fn push_projection(
             work.push(Rebuild1(c => FillNull(c, value)))
             work.push(Visit(input, None))
           }
+          // Barrier: a whole-frame reduction reads every column, so the input
+          // keeps its full output (`None`).
+          Reduce(input, op) => {
+            work.push(Rebuild1(c => Reduce(c, op)))
+            work.push(Visit(input, None))
+          }
         }
       Rebuild1(f) => values.push(f(pop_top(values)))
       RebuildJoin(options) => {

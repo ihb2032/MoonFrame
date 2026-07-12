@@ -60,6 +60,9 @@ test "str: every namespace method renders as a postfix call" {
     col("s").str_count_matches("x"),
     content="col(s).str_count_matches(\"x\")",
   )
+  // The offset renders bare; the length only when supplied.
+  inspect(col("s").str_slice(2), content="col(s).str_slice(2)")
+  inspect(col("s").str_slice(2, length=3), content="col(s).str_slice(2, 3)")
 }
 
 ///|
@@ -132,6 +135,14 @@ test "str: structural equality compares the op tag and the operand" {
     col("s").str_count_matches("a") == col("s").str_count_matches("b"),
     false,
   )
+  // `Slice` distinguishes on both offset and (optional) length.
+  assert_eq(col("s").str_slice(1, length=2), col("s").str_slice(1, length=2))
+  assert_eq(col("s").str_slice(1) == col("s").str_slice(2), false)
+  assert_eq(
+    col("s").str_slice(1, length=2) == col("s").str_slice(1, length=3),
+    false,
+  )
+  assert_eq(col("s").str_slice(1) == col("s").str_slice(1, length=2), false)
 }
 
 ///|

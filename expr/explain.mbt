@@ -387,6 +387,12 @@ fn write_str_suffix(logger : &Logger, op : StrOp) -> Unit {
         ".str_extract(\"\{@types.escape_debug(pattern)}\", \{group})",
       )
     CountMatches(p) => write_str_call(logger, "str_count_matches", [p])
+    // The offset renders bare; the length only when present.
+    Slice(offset, length) =>
+      match length {
+        None => logger.write_string(".str_slice(\{offset})")
+        Some(n) => logger.write_string(".str_slice(\{offset}, \{n})")
+      }
   }
 }
 

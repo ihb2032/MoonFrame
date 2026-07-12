@@ -132,6 +132,7 @@ pub fn Expr::str_replace_all(Self, String, String) -> Self
 pub fn Expr::str_replace_all_regex(Self, String, String) -> Self
 pub fn Expr::str_replace_regex(Self, String, String) -> Self
 pub fn Expr::str_reverse(Self) -> Self
+pub fn Expr::str_slice(Self, Int, length? : Int) -> Self
 pub fn Expr::str_starts_with(Self, String) -> Self
 pub fn Expr::str_strip_chars(Self) -> Self
 pub fn Expr::str_to_lowercase(Self) -> Self
@@ -168,6 +169,7 @@ pub enum StrOp {
   ReplaceAllRegex(String, String)
   Extract(String, Int)
   CountMatches(String)
+  Slice(Int, Int?)
 } derive(Eq, @debug.Debug)
 
 pub enum UnOp {

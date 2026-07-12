@@ -1,11 +1,12 @@
 ///|
 /// The string-namespace kernel: apply a `@expr.StrOp` to each cell of a String
-/// operand — case, `strip_chars`, `len_chars`, `reverse`, `pad`, the literal
-/// `contains` / `starts_with` / `ends_with` predicates and `replace` /
+/// operand — case, `strip_chars`, `len_chars`, `reverse`, `pad`, `slice`, the
+/// literal `contains` / `starts_with` / `ends_with` predicates and `replace` /
 /// `replace_all`, and the POSIX-regex `contains_regex` / `replace_regex` /
-/// `replace_all_regex`. A non-String operand raises `TypeMismatch`, null cells
-/// stay null. Literal matching is per-value total; the regex ops compile their
-/// pattern once (an invalid pattern raises `InvalidOperation`).
+/// `replace_all_regex` / `extract` / `count_matches`. A non-String operand
+/// raises `TypeMismatch`, null cells stay null. Literal / positional ops are
+/// per-value total; the regex ops compile their pattern once (an invalid
+/// pattern raises `InvalidOperation`).
 
 ///|
 /// Elementwise string-namespace kernel: apply `op` to each cell of a String
@@ -148,8 +149,47 @@ fn eval_str(
         map_present(n, valid, i => re.find(data[i]).count().to_int64()),
       )
     }
+    @expr.StrOp::Slice(offset, length) =>
+      Series::from_string_options(
+        name,
+        map_present(n, valid, i => slice_chars(data[i], offset, length)),
+      )
   }
   try_column_to_numeric(out)
+}
+
+///|
+/// Substring of `s` by **character** position (`str_slice`). `offset` is
+/// 0-based; a negative `offset` counts from the end. `length` is a character
+/// count (`None` = to the end, `<= 0` = empty). Both are clamped to `s`, so it
+/// is total. Character-based — `iter` walks codepoints, so a surrogate pair is
+/// never split — consistent with `char_length`.
+fn slice_chars(s : String, offset : Int, length : Int?) -> String {
+  let len = s.char_length()
+  let start = if offset < 0 {
+    let from_end = len + offset
+    if from_end < 0 {
+      0
+    } else {
+      from_end
+    }
+  } else if offset > len {
+    len
+  } else {
+    offset
+  }
+  let count = match length {
+    None => len - start
+    Some(n) =>
+      if n <= 0 {
+        0
+      } else if start + n > len {
+        len - start
+      } else {
+        n
+      }
+  }
+  String::from_iter(s.iter().drop(start).take(count))
 }
 
 ///|

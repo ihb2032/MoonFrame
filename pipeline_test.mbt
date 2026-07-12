@@ -406,3 +406,19 @@ test "pipeline: the @types free functions are reachable unqualified" {
   assert_true(is_decimal_int_literal("42"))
   assert_true(compare_string_lex("a", "b") < 0)
 }
+
+// ── column selectors reachable through the facade ─────────────────────
+
+///|
+test "pipeline: the column selectors are reachable unqualified" {
+  // `numeric_cols` / `cols_of_dtype` / `cols_matching` are `@frame` free
+  // functions; a missing `pub using` would make these fail to compile.
+  let df = DataFrame::new([
+    Series::from_ints("id", [1]),
+    Series::from_floats("price", [2.0]),
+    Series::from_strings("label", ["x"]),
+  ])
+  assert_eq(df.select(numeric_cols(df)).columns(), ["id", "price"])
+  assert_eq(cols_of_dtype(df, DataType::String).length(), 1)
+  assert_eq(df.select(cols_matching(df, "^p")).columns(), ["price"])
+}

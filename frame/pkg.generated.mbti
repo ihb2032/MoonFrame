@@ -10,6 +10,11 @@ import {
 }
 
 // Values
+pub fn cols_matching(DataFrame, String) -> Array[@expr.Expr] raise @types.DataError
+
+pub fn cols_of_dtype(DataFrame, @types.DataType) -> Array[@expr.Expr]
+
+pub fn numeric_cols(DataFrame) -> Array[@expr.Expr]
 
 // Errors
 

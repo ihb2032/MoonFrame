@@ -172,6 +172,15 @@ depends only on `types`.
   rounding toward −∞ (`-7 // 2 = -4`, not the `-3` truncation gives); any
   `Float` operand promotes to `floor(a / b)`. `Int` division by zero is a
   **null** cell (no integer infinity); `Float` follows IEEE (`±inf` / `NaN`).
+- `col("a").modulo(col("b"))` — remainder (Polars `%`, a named method since
+  `%` maps to no `Expr` operator). Same-dtype `Int / Int → Int` carrying the
+  dividend's sign (`-7 % 2 = -1`); any `Float` operand promotes to the IEEE
+  remainder. `Int` modulo by zero is a **null** cell (matching `floor_div`);
+  `Float` modulo by zero is `NaN`.
+- `col("a").pow(col("b"))` — exponentiation, **always `Float`** (integer
+  operands are promoted, like `/`): total for every base / exponent, resolved
+  under IEEE 754 (`0.0 ** 0.0 = 1.0`, an out-of-range result is `±inf`, an
+  invalid one `NaN`).
 - Logical `&` `|` (`BitAnd` / `BitOr`, **not** bitwise): Kleene
   three-valued `and` / `or`. The equivalent methods are `land` / `lor`
   (the impls' own spelling — `and` is a reserved word, so there is no
@@ -1104,8 +1113,7 @@ release: from v0.6 on the API only grows (additive — no renames, removals,
 or signature changes). These are the tracked deferrals, all v0.6+:
 
 - **More expression families** — arithmetic / numeric operators
-  (`pow`, `mod`, `round`,
-  `is_in`, `is_between`), regex-backed and more positional string methods
+  (`round`, `is_in`, `is_between`), regex-backed and more positional string methods
   (`str_slice`, byte length, `split` / `pad`), and — further out — window
   and datetime expressions (the repo has no datetime type yet). The v0.5
   operator / method set is frozen; these extend it.

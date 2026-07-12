@@ -153,3 +153,79 @@ pub fn Series::n_unique(self : Series) -> Int {
   // typed column directly also avoids materialising an `Array[Scalar]`.
   count_distinct(self.storage)(self.len(), k => k)
 }
+
+// The remaining five reductions (`std` / `variance` / `median` / `first` /
+// `last`) fold straight through the shared `reduce.mbt` kernel — the same one
+// the grouped `agg` and scoped `eval_agg` reduce through — so a whole-series
+// reduction agrees with the per-group and per-scope forms cell for cell. Unlike
+// `sum` / `mean` / `min` / `max`, they take no bitmap-free `Numeric` fast path:
+// the kernel already skips validity materialisation for an all-valid `Numeric`
+// column (`reduce_present`), and these are the colder reductions.
+
+///|
+/// Sample standard deviation (`ddof = 1`, Polars' default) of the non-null
+/// cells, as `Double` — the square root of `variance`. Numeric only (`Int`
+/// widens to `Double`). Computed by Welford's algorithm, so a finite-variance
+/// window of near-`Double`-max values still yields a finite result; a `NaN` is
+/// a present value that **propagates** (only `Null` is skipped).
+///
+/// - Fewer than two non-null cells (empty, single-value, all-null) → `raise
+///   InvalidOperation(...)`: the sample denominator `cnt - 1` has no value.
+/// - Non-numeric series → `raise TypeMismatch(...)`.
+pub fn Series::std(self : Series) -> Double raise @types.DataError {
+  match reduce_variance(self.storage, want_std=true)(self.len(), k => k) {
+    @types.Scalar::Float(v) => v
+    _ =>
+      raise @types.DataError::InvalidOperation(
+        "std of a series with fewer than two non-null values",
+      )
+  }
+}
+
+///|
+/// Sample variance (`ddof = 1`) of the non-null cells, as `Double` — `std`
+/// squared, sharing its rules (numeric only, `NaN` propagates, fewer than two
+/// non-null cells raise `InvalidOperation`).
+pub fn Series::variance(self : Series) -> Double raise @types.DataError {
+  match reduce_variance(self.storage, want_std=false)(self.len(), k => k) {
+    @types.Scalar::Float(v) => v
+    _ =>
+      raise @types.DataError::InvalidOperation(
+        "variance of a series with fewer than two non-null values",
+      )
+  }
+}
+
+///|
+/// Median of the non-null cells, as `Double` — the middle of the sorted values,
+/// or the mean of the two middles for an even count (Polars). Numeric only
+/// (`Int` widens to `Double`). Unlike `sum` / `mean`, a `NaN` is **skipped**
+/// (treated as missing, the order-statistic rule `sort` / `min` / `max` follow).
+///
+/// - Empty / all-null / all-`NaN` series → `raise InvalidOperation(...)`.
+/// - Non-numeric series → `raise TypeMismatch(...)`.
+pub fn Series::median(self : Series) -> Double raise @types.DataError {
+  match reduce_median(self.storage)(self.len(), k => k) {
+    @types.Scalar::Float(v) => v
+    _ =>
+      raise @types.DataError::InvalidOperation(
+        "median of an empty/all-null series",
+      )
+  }
+}
+
+///|
+/// First cell as a `Scalar`, in row order — positional, so it skips nothing (a
+/// present `NaN` is returned verbatim). Total (Polars' `Series.first`): an empty
+/// series, or a leading **null** cell, yields `Scalar::Null`.
+pub fn Series::first(self : Series) -> @types.Scalar {
+  reduce_first_last(self.storage, want_first=true)(self.len(), k => k)
+}
+
+///|
+/// Last cell as a `Scalar`, in row order — the trailing mirror of `first`, with
+/// the same positional (skip-nothing) rule and `Scalar::Null` for an empty
+/// series or a trailing null cell.
+pub fn Series::last(self : Series) -> @types.Scalar {
+  reduce_first_last(self.storage, want_first=false)(self.len(), k => k)
+}

@@ -1,13 +1,12 @@
 ///|
 /// A `DataFrame` partitioned into groups by one or more key expressions,
-/// produced by `DataFrame::group_by` and consumed by `agg`. Fields are
-/// read-only outside the package (no reassignment); the only way to build
-/// one is `group_by`, which guarantees every stored row index is in
-/// `[0, source.nrows())` and every group is non-empty. Note that the
-/// `Array` values *read* from the fields are the live objects — treat them
-/// as read-only; a handle whose `groups` were mutated out of those
-/// invariants is rejected by `agg` with `InvalidOperation` rather than
-/// honoured.
+/// produced by `DataFrame::group_by` and consumed by `agg`. The fields are
+/// `priv` (private to this package); the only way to build one is
+/// `group_by`, which guarantees every stored row index is in
+/// `[0, source.nrows())` and every group is non-empty. External code cannot
+/// reach the live `key_columns` / `groups` arrays, so a handle cannot be
+/// mutated out of those invariants; `agg` additionally rejects an
+/// out-of-range handle with `InvalidOperation`.
 ///
 ///   * `source` — the frame being grouped (its columns back every
 ///     aggregation).
@@ -21,9 +20,9 @@
 ///     order, each holding that group's row indices in ascending row
 ///     order.
 pub struct GroupedDataFrame {
-  source : DataFrame
-  key_columns : Array[Series]
-  groups : Array[Array[Int]]
+  priv source : DataFrame
+  priv key_columns : Array[Series]
+  priv groups : Array[Array[Int]]
 } derive(Eq, Debug)
 
 ///|

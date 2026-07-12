@@ -87,8 +87,8 @@ pub fn Scalar::lte(Self, Self) -> Bool raise DataError
 pub fn Scalar::to_string(Self) -> String
 pub impl Show for Scalar
 
-pub(all) struct Schema {
-  fields : Array[Field]
+pub struct Schema {
+  // private fields
 } derive(Eq, @debug.Debug)
 pub fn Schema::field(Self, String) -> Field raise DataError
 pub fn Schema::field_at(Self, Int) -> Field raise DataError

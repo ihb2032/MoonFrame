@@ -15,10 +15,7 @@ import {
 
 // Types and methods
 pub struct DataFrame {
-  schema : @types.Schema
-  columns : Array[@series.Series]
-  nrows : Int
-  name_to_index : Map[String, Int]
+  // private fields
 } derive(Eq, @debug.Debug)
 pub fn DataFrame::check_invariants(Self) -> Result[Unit, String]
 pub fn DataFrame::column_series(Self) -> Array[@series.Series]
@@ -69,9 +66,7 @@ pub fn DataFrame::unique(Self) -> Self
 pub fn DataFrame::with_columns(Self, Array[@expr.Expr]) -> Self raise @types.DataError
 
 pub struct GroupedDataFrame {
-  source : DataFrame
-  key_columns : Array[@series.Series]
-  groups : Array[Array[Int]]
+  // private fields
 } derive(Eq, @debug.Debug)
 pub fn GroupedDataFrame::agg(Self, Array[@expr.Expr]) -> DataFrame raise @types.DataError
 

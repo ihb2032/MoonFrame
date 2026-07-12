@@ -573,6 +573,12 @@ transforms, so every output satisfies `check_invariants()`.
 - `rename(mapping : Array[(String, String)]) -> DataFrame raise DataError`
   — apply renames in order (each step's `new_name` is visible to later
   steps, enabling a 3-step swap). `ColumnNotFound` / `DuplicateColumn`.
+- `rename_with(f : (String) -> String) -> DataFrame raise DataError` — the
+  **callable** form: rename **every** column through `f` (`new = f(old)`),
+  for a uniform transform (a prefix, a case fold) over the whole schema. `f`
+  is total, so the only failure is `DuplicateColumn` when `f` collapses two
+  columns to one name; there is no `ColumnNotFound` (no name is looked up). The
+  identity `name => name` is a no-op.
 - `sort(keys : Array[(Expr, SortOrder, NullOrder)]) -> DataFrame raise
   DataError` — stable multi-key sort. Each key is an `(Expr, order,
   null_order)` tuple, the expression evaluated over the whole frame: a bare
@@ -1079,8 +1085,10 @@ Each returns a new `LazyFrame` wrapping one more node:
 - `sort(by : Array[(Expr, SortOrder, NullOrder)])` · `head(n)` ·
   `tail(n)` · `limit(n)` (≡ `head`) · `slice(start, end)`.
 - `drop(exprs : Array[Expr])` · `rename(pairs : Array[(String, String)])` ·
-  `unique(keep? : KeepStrategy)` · `drop_nulls(subset? : Array[Expr])` ·
-  `fill_null(value : Scalar)` — defer the column / row transforms. The
+  `rename_with(f : (String) -> String)` · `unique(keep? : KeepStrategy)` ·
+  `drop_nulls(subset? : Array[Expr])` ·
+  `fill_null(value : Scalar)` — defer the column / row transforms (`rename_with`
+  renders as a bare `RENAME_WITH` — its closure is opaque). The
   optimizer treats each as a barrier (filters do not sink past them and scans
   below keep their full output), so they are correct but not yet pushed
   through; a deeper `select` / `aggregate` still narrows its own scan.

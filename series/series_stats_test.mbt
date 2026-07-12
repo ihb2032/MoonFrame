@@ -350,3 +350,111 @@ test "mean_opt is Some for numeric-with-values and None where mean would raise" 
   assert_eq(Series::from_int_options("e", []).mean_opt(), None) // empty
   assert_eq(Series::from_int_options("n", [None, None]).mean_opt(), None) // all-null
 }
+
+// ── std / variance ───────────────────────────────────────────────────
+
+///|
+test "std / variance are the sample statistics (ddof = 1)" {
+  // [1,2,3]: mean 2, Σ(dev²) = 1+0+1 = 2, / (3-1) = 1.0 variance, std 1.0.
+  let s = Series::from_ints("x", [1, 2, 3])
+  assert_eq(s.variance(), (1.0 : Double))
+  assert_eq(s.std(), (1.0 : Double))
+  // Int widens to Double; nulls are skipped. [2,4,6]: mean 4, dev² 4+0+4 = 8,
+  // / 2 = 4.0 variance, std 2.0.
+  let f = Series::from_float_options("x", [
+    Some(2.0),
+    Some(4.0),
+    None,
+    Some(6.0),
+  ])
+  assert_eq(f.variance(), (4.0 : Double))
+  assert_eq(f.std(), (2.0 : Double))
+}
+
+///|
+test "std / variance need two non-null cells, else InvalidOperation" {
+  for
+    s in [
+      Series::from_ints("x", []),
+      Series::from_ints("x", [5]),
+      Series::from_int_options("x", [None, None]),
+    ] {
+    assert_true(
+      (Ok(s.variance()) catch { e => Err(e) }) is Err(InvalidOperation(_)),
+    )
+    assert_true((Ok(s.std()) catch { e => Err(e) }) is Err(InvalidOperation(_)))
+  }
+}
+
+///|
+test "std / variance propagate NaN, and reject a non-numeric series" {
+  let nan : Double = @double.not_a_number
+  // A NaN is a present value: with two or more non-null cells it propagates.
+  assert_true(Series::from_floats("x", [1.0, 2.0, nan]).variance().is_nan())
+  assert_true(Series::from_floats("x", [1.0, 2.0, nan]).std().is_nan())
+  assert_true(
+    (Ok(Series::from_bools("x", [true, false]).std()) catch { e => Err(e) })
+    is Err(TypeMismatch(_)),
+  )
+  assert_true(
+    (Ok(Series::from_strings("x", ["a", "b"]).variance()) catch { e => Err(e) })
+    is Err(TypeMismatch(_)),
+  )
+}
+
+// ── median ───────────────────────────────────────────────────────────
+
+///|
+test "median is the middle, averaging the two middles for an even count" {
+  assert_eq(Series::from_ints("x", [3, 1, 2]).median(), (2.0 : Double))
+  assert_eq(Series::from_ints("x", [1, 2, 3, 4]).median(), (2.5 : Double))
+  // Nulls skipped; Int widens to Double.
+  assert_eq(
+    Series::from_int_options("x", [Some(10), None, Some(20)]).median(),
+    (15.0 : Double),
+  )
+}
+
+///|
+test "median skips NaN, and raises on empty / all-NaN / non-numeric" {
+  let nan : Double = @double.not_a_number
+  // A NaN is treated as missing (order statistic), unlike sum / mean.
+  assert_eq(Series::from_floats("x", [1.0, nan, 3.0]).median(), (2.0 : Double))
+  assert_true(
+    (Ok(Series::from_ints("x", []).median()) catch { e => Err(e) })
+    is Err(InvalidOperation(_)),
+  )
+  assert_true(
+    (Ok(Series::from_floats("x", [nan]).median()) catch { e => Err(e) })
+    is Err(InvalidOperation(_)),
+  )
+  assert_true(
+    (Ok(Series::from_strings("x", ["a"]).median()) catch { e => Err(e) })
+    is Err(TypeMismatch(_)),
+  )
+}
+
+// ── first / last ─────────────────────────────────────────────────────
+
+///|
+test "first / last are positional over every dtype, keeping NaN" {
+  let nan : Double = @double.not_a_number
+  assert_eq(Series::from_ints("x", [3, 1, 4]).first(), @types.Scalar::Int(3))
+  assert_eq(Series::from_ints("x", [3, 1, 4]).last(), @types.Scalar::Int(4))
+  assert_eq(
+    Series::from_strings("x", ["a", "b"]).first(),
+    @types.Scalar::String("a"),
+  )
+  // Positional: a present NaN is returned verbatim, not skipped.
+  assert_true(Series::from_floats("x", [nan, 1.0]).first().as_float().is_nan())
+}
+
+///|
+test "first / last are Null for an empty series or a null endpoint cell" {
+  assert_eq(Series::from_ints("x", []).first(), @types.Scalar::Null)
+  assert_eq(Series::from_ints("x", []).last(), @types.Scalar::Null)
+  // A null leading / trailing cell yields Null (positional, no skipping).
+  let s = Series::from_int_options("x", [None, Some(2), None])
+  assert_eq(s.first(), @types.Scalar::Null)
+  assert_eq(s.last(), @types.Scalar::Null)
+}

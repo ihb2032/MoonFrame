@@ -431,17 +431,25 @@ rebuild and backend-convergence helpers, and the composite-key cell encoding
   every `Float` `NaN` is one bucket, `-0.0` folds into `+0.0`); `min()` /
   `max()` — return a `Scalar` directly (never fail; empty / all-null /
   all-NaN → `Scalar::Null`; `String` lexicographic; `Bool` is
-  `false < true`).
+  `false < true`); `first()` / `last()` — the positional endpoint cell as a
+  `Scalar` (skip nothing, so a present `NaN` is returned verbatim; an empty
+  series or a null endpoint cell → `Scalar::Null`).
 - Fallible (`raise DataError`): `sum()` — `Int` / `Float` →
   `Scalar::Int` / `Scalar::Float`, empty / all-null is the additive
   identity; an `Int` sum accumulates in `Int64` and **wraps on overflow**
   (silently — no raise); `Bool` / `String` → `TypeMismatch`; `mean()` — `Double`,
   empty / all-null numeric → `InvalidOperation`, non-numeric →
   `TypeMismatch`. `mean_opt() -> Double?` is the **total** form of `mean`
-  (`Some(mean)`, or `None` exactly where `mean` would raise). `Float` `NaN`
-  is a value, not missing: it **propagates** through `sum` / `mean` but is
-  **skipped** by `min` / `max` (and `sort`) — only `Null` is ever treated
-  as missing.
+  (`Some(mean)`, or `None` exactly where `mean` would raise). `std()` /
+  `variance()` — `Double`, the **sample** statistics (`ddof = 1`, Polars'
+  default; Welford's algorithm); fewer than two non-null cells →
+  `InvalidOperation`, non-numeric → `TypeMismatch`. `median()` — `Double`
+  (numeric only; the mean of the two middles for an even count); empty /
+  all-null → `InvalidOperation`, non-numeric → `TypeMismatch`. `Float` `NaN`
+  is a value, not missing: it **propagates** through `sum` / `mean` /
+  `std` / `variance` but is **skipped** by `min` / `max` / `median` (and
+  `sort`); `first` / `last` are positional and skip nothing — only `Null` is
+  ever treated as missing.
 
 ---
 

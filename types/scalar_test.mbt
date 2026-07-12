@@ -67,30 +67,62 @@ test "Scalar::eq Int and Float compare numerically" {
 }
 
 ///|
-test "Scalar::eq/lt Int-vs-Float widening is lossy past 2^53 (documented caveat)" {
-  // The `Int`->`Double` promotion is the Float64 supertype rule (as in Polars),
-  // exact through 2^53. Beyond it a `Double` can't represent every integer:
-  // `Int64::MAX` (2^63-1) widens to 2^63, comparing EQUAL to `Float(2^63)`, and
-  // `lt` can't separate them. Below the boundary the widening stays exact.
-  // Pinned so the caveat is visible and a future exact-comparison change shows up.
+test "Scalar::eq/lt Int-vs-Float compares exactly (no 2^53 promotion)" {
+  // The `Int64` is NOT promoted to `Double`, so distinct values never collide
+  // above 2^53 — the deliberate departure from Polars' Float64 supertype rule.
+  let two_pow_53 = 9007199254740992.0
+  // 2^53 + 1 is a distinct integer; the 2^53 `Double` is smaller, not equal.
+  assert_eq(Scalar::Int(9007199254740993L).eq(Scalar::Float(two_pow_53)), false)
+  assert_eq(Scalar::Int(9007199254740993L).gt(Scalar::Float(two_pow_53)), true)
+  assert_eq(Scalar::Int(9007199254740993L).lt(Scalar::Float(two_pow_53)), false)
+  // The exact value still compares equal.
+  assert_eq(Scalar::Int(9007199254740992L).eq(Scalar::Float(two_pow_53)), true)
+  // `Int64::MAX` (2^63-1) is strictly below 2^63, never equal to the `2^63`
+  // `Double` a promotion would round it to.
   let two_pow_63 = 9223372036854775808.0
   assert_eq(
     Scalar::Int(9223372036854775807L).eq(Scalar::Float(two_pow_63)),
-    true,
+    false,
   )
   assert_eq(
     Scalar::Int(9223372036854775807L).lt(Scalar::Float(two_pow_63)),
-    false,
-  )
-  // 2^53 - 1 is exactly representable, so the widening is exact there.
-  assert_eq(
-    Scalar::Int(9007199254740991L).eq(Scalar::Float(9007199254740991.0)),
     true,
   )
   assert_eq(
-    Scalar::Int(9007199254740991L).eq(Scalar::Float(9007199254740992.0)),
-    false,
+    Scalar::Int(9223372036854775807L).lte(Scalar::Float(two_pow_63)),
+    true,
   )
+  // `Int64::MIN` (-2^63) is exactly representable and compares equal.
+  let neg_two_pow_63 = -9223372036854775808.0
+  assert_eq(
+    Scalar::Int(-9223372036854775808L).eq(Scalar::Float(neg_two_pow_63)),
+    true,
+  )
+  // Reverse operand order (Float vs Int) agrees.
+  assert_eq(Scalar::Float(two_pow_53).eq(Scalar::Int(9007199254740993L)), false)
+  assert_eq(Scalar::Float(two_pow_53).lt(Scalar::Int(9007199254740993L)), true)
+  assert_eq(
+    Scalar::Float(two_pow_63).gt(Scalar::Int(9223372036854775807L)),
+    true,
+  )
+}
+
+///|
+test "Scalar::eq/lt Int-vs-Float: infinities and NaN" {
+  let inf = @double.infinity
+  let ninf = @double.neg_infinity
+  let nan = @double.not_a_number
+  // Infinities order past every `Int`.
+  assert_eq(Scalar::Int(0).lt(Scalar::Float(inf)), true)
+  assert_eq(Scalar::Int(0).gt(Scalar::Float(ninf)), true)
+  assert_eq(Scalar::Float(inf).gt(Scalar::Int(9223372036854775807L)), true)
+  assert_eq(Scalar::Float(ninf).lt(Scalar::Int(-9223372036854775808L)), true)
+  // `NaN` is unordered: every comparison is `false`.
+  assert_eq(Scalar::Int(0).eq(Scalar::Float(nan)), false)
+  assert_eq(Scalar::Int(0).lt(Scalar::Float(nan)), false)
+  assert_eq(Scalar::Int(0).gt(Scalar::Float(nan)), false)
+  assert_eq(Scalar::Float(nan).lt(Scalar::Int(0)), false)
+  assert_eq(Scalar::Float(nan).gte(Scalar::Int(0)), false)
 }
 
 ///|

@@ -529,6 +529,34 @@ pub fn Expr::str_replace_all(
 }
 
 ///|
+/// Reverse the Unicode characters of each cell of a String column — Polars'
+/// `str.reverse()`. Surrogate pairs are respected (reversal is by codepoint,
+/// not UTF-16 unit); null cells stay null.
+pub fn Expr::str_reverse(self : Expr) -> Expr {
+  Str(StrOp::Reverse, self)
+}
+
+///|
+/// Left-pad each cell of a String column with `fill` until it is `width`
+/// **characters** long — Polars' `str.pad_start`. A cell already at least
+/// `width` characters is unchanged (never truncated); null cells stay null.
+/// The width counts characters, consistent with `str_len_chars`.
+pub fn Expr::str_pad_start(
+  self : Expr,
+  width : Int,
+  fill? : Char = ' ',
+) -> Expr {
+  Str(StrOp::PadStart(width, fill), self)
+}
+
+///|
+/// Right-pad each cell of a String column with `fill` until it is `width`
+/// **characters** long — Polars' `str.pad_end`, the mirror of `str_pad_start`.
+pub fn Expr::str_pad_end(self : Expr, width : Int, fill? : Char = ' ') -> Expr {
+  Str(StrOp::PadEnd(width, fill), self)
+}
+
+///|
 /// Cast the operand to `target` at evaluation time, delegating to
 /// `Series::cast` (so the supported dtype pairs — and the `Unsupported`
 /// cases — are exactly the eager ones).

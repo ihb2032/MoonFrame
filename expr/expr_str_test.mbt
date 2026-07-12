@@ -27,6 +27,14 @@ test "str: every namespace method renders as a postfix call" {
     col("s").str_replace_all("a", "b"),
     content="col(s).str_replace_all(\"a\", \"b\")",
   )
+  inspect(col("s").str_reverse(), content="col(s).str_reverse()")
+  // The pad width renders bare, the fill as a `'x'` char literal; a defaulted
+  // `str_pad_end` carries the space fill.
+  inspect(
+    col("s").str_pad_start(5, fill='0'),
+    content="col(s).str_pad_start(5, '0')",
+  )
+  inspect(col("s").str_pad_end(5), content="col(s).str_pad_end(5, ' ')")
 }
 
 ///|
@@ -42,6 +50,11 @@ test "str: a parameter is quoted and escaped like a string literal" {
     col("s").str_replace("x\n", "\t"),
     content="col(s).str_replace(\"x\\n\", \"\\t\")",
   )
+  // A control fill character escapes the same way inside the char literal.
+  inspect(
+    col("s").str_pad_start(3, fill='\t'),
+    content="col(s).str_pad_start(3, '\\t')",
+  )
 }
 
 ///|
@@ -55,6 +68,20 @@ test "str: structural equality compares the op tag and the operand" {
   assert_eq(col("s").str_to_uppercase() == col("s").str_to_lowercase(), false)
   assert_eq(col("s").str_contains("a") == col("s").str_contains("b"), false)
   assert_eq(col("s").str_to_uppercase() == col("t").str_to_uppercase(), false)
+  // The parameterised pad tag distinguishes on both width and fill.
+  assert_eq(
+    col("s").str_pad_start(3, fill='0'),
+    col("s").str_pad_start(3, fill='0'),
+  )
+  assert_eq(
+    col("s").str_pad_start(3, fill='0') == col("s").str_pad_start(4, fill='0'),
+    false,
+  )
+  assert_eq(
+    col("s").str_pad_start(3, fill='0') == col("s").str_pad_start(3, fill='x'),
+    false,
+  )
+  assert_eq(col("s").str_reverse() == col("s").str_to_uppercase(), false)
 }
 
 ///|

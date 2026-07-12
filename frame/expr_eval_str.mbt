@@ -79,6 +79,47 @@ fn eval_str(
         name,
         map_present(n, valid, i => data[i].replace_all(old=pattern, new=value)),
       )
+    @expr.StrOp::Reverse =>
+      Series::from_string_options(
+        name,
+        map_present(n, valid, i => data[i].rev()),
+      )
+    @expr.StrOp::PadStart(width, fill) =>
+      Series::from_string_options(
+        name,
+        map_present(n, valid, i => pad_start_chars(data[i], width, fill)),
+      )
+    @expr.StrOp::PadEnd(width, fill) =>
+      Series::from_string_options(
+        name,
+        map_present(n, valid, i => pad_end_chars(data[i], width, fill)),
+      )
   }
   try_column_to_numeric(out)
+}
+
+///|
+/// Left-pad `s` with `fill` until it is `width` **characters** long, else
+/// return it unchanged. Codepoint-based (`char_length` + `String::make`, both
+/// counting characters), so the width is consistent with `str_len_chars` and
+/// with Polars — unlike `String::pad_start`, whose width counts UTF-16 units.
+fn pad_start_chars(s : String, width : Int, fill : Char) -> String {
+  let len = s.char_length()
+  if len >= width {
+    s
+  } else {
+    "\{String::make(width - len, fill)}\{s}"
+  }
+}
+
+///|
+/// Right-pad `s` with `fill` until it is `width` characters long — the mirror
+/// of `pad_start_chars`.
+fn pad_end_chars(s : String, width : Int, fill : Char) -> String {
+  let len = s.char_length()
+  if len >= width {
+    s
+  } else {
+    "\{s}\{String::make(width - len, fill)}"
+  }
 }

@@ -74,3 +74,30 @@ pub fn cols_matching(
   let re = compile_regex(pattern)
   cols_where(df, field => re.execute(field.name()) is Some(_))
 }
+
+///|
+/// The `col(...)` references of every column of `df` whose **name** starts with
+/// the literal `prefix`, in schema order — Polars' `cs.starts_with(prefix)`. A
+/// literal (not regex) test, so — unlike `cols_matching` — it is **total**.
+/// Empty when nothing matches; an empty `prefix` matches every column.
+pub fn cols_starts_with(df : DataFrame, prefix : String) -> Array[@expr.Expr] {
+  cols_where(df, field => field.name().has_prefix(prefix))
+}
+
+///|
+/// The `col(...)` references of every column of `df` whose **name** ends with
+/// the literal `suffix`, in schema order — Polars' `cs.ends_with(suffix)`. A
+/// literal test, so **total**. Empty when nothing matches; an empty `suffix`
+/// matches every column.
+pub fn cols_ends_with(df : DataFrame, suffix : String) -> Array[@expr.Expr] {
+  cols_where(df, field => field.name().has_suffix(suffix))
+}
+
+///|
+/// The `col(...)` references of every column of `df` whose **name** contains the
+/// literal `substr`, in schema order — Polars' `cs.contains(substr)`. A literal
+/// substring test, so **total**. Empty when nothing matches; an empty `substr`
+/// matches every column.
+pub fn cols_contains(df : DataFrame, substr : String) -> Array[@expr.Expr] {
+  cols_where(df, field => field.name().contains(substr))
+}

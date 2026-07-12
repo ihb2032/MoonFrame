@@ -15,9 +15,15 @@ pub fn col(String) -> @expr.Expr
 
 pub fn cols(Array[String]) -> Array[@expr.Expr]
 
+pub fn cols_contains(@frame.DataFrame, String) -> Array[@expr.Expr]
+
+pub fn cols_ends_with(@frame.DataFrame, String) -> Array[@expr.Expr]
+
 pub fn cols_matching(@frame.DataFrame, String) -> Array[@expr.Expr] raise @types.DataError
 
 pub fn cols_of_dtype(@frame.DataFrame, @types.DataType) -> Array[@expr.Expr]
+
+pub fn cols_starts_with(@frame.DataFrame, String) -> Array[@expr.Expr]
 
 pub fn compare_string_lex(String, String) -> Int
 

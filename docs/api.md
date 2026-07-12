@@ -161,11 +161,16 @@ depends only on `types`.
 - **Column selectors** (`@frame` free functions, reading a frame's schema to
   produce the `col(...)` list for the columns they match, in schema order):
   `numeric_cols(df) -> Array[Expr]` (every `Int` / `Float` column),
-  `cols_of_dtype(df, dtype : DataType) -> Array[Expr]` (an exact dtype), and
+  `cols_of_dtype(df, dtype : DataType) -> Array[Expr]` (an exact dtype),
   `cols_matching(df, pattern : String) -> Array[Expr] raise DataError` (columns
-  whose **name** matches the POSIX regex — invalid pattern → `InvalidOperation`).
-  Each fills a verb's container like `cols` and composes with hand-written
-  entries: `df.select([col("id"), ..numeric_cols(df)])`,
+  whose **name** matches the POSIX regex — invalid pattern → `InvalidOperation`),
+  and the literal name selectors `cols_starts_with(df, prefix : String)` /
+  `cols_ends_with(df, suffix : String)` / `cols_contains(df, substr : String) ->
+  Array[Expr]` (columns whose **name** starts with / ends with / contains the
+  literal string — **total**, unlike the regex `cols_matching`; an empty
+  argument matches every column). Each fills a verb's container like `cols` and
+  composes with hand-written entries:
+  `df.select([col("id"), ..numeric_cols(df)])`,
   `df.drop(cols_matching(df, "_tmp$"))`. Eager (they read `df.schema()`), so the
   frame appears twice at the call site.
 - `lit(s : Scalar) -> Expr` / `Expr::lit(s)` — a literal from any scalar.

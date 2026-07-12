@@ -1,6 +1,8 @@
 // Blackbox tests for the column selectors (`numeric_cols` / `cols_of_dtype` /
-// `cols_matching`): each returns the `col(...)` list for the matching columns in
-// schema order, empty when nothing matches, and composes with the eager verbs.
+// `cols_matching` and the literal name selectors `cols_starts_with` /
+// `cols_ends_with` / `cols_contains`): each returns the `col(...)` list for the
+// matching columns in schema order, empty when nothing matches, and composes
+// with the eager verbs.
 
 ///|
 /// A 5-column frame spanning every dtype, with two `name_*` columns so a name
@@ -54,6 +56,40 @@ test "cols_matching raises InvalidOperation on an invalid pattern" {
     (Ok(cols_matching(df, "[")) catch { e => Err(e) })
     is Err(@types.DataError::InvalidOperation(_)),
   )
+}
+
+///|
+test "cols_starts_with selects by a literal name prefix, in schema order" {
+  let df = mixed_df()
+  assert_eq(cols_starts_with(df, "name_"), [
+    @expr.col("name_a"),
+    @expr.col("name_b"),
+  ])
+  // Filling a `select` keeps just those columns.
+  assert_eq(df.select(cols_starts_with(df, "name_")).columns(), [
+    "name_a", "name_b",
+  ])
+  // No match → empty; an empty prefix matches every column.
+  assert_eq(cols_starts_with(df, "z"), [])
+  assert_eq(cols_starts_with(df, "").length(), 5)
+}
+
+///|
+test "cols_ends_with selects by a literal name suffix, in schema order" {
+  let df = mixed_df()
+  assert_eq(cols_ends_with(df, "_a"), [@expr.col("name_a")])
+  // A non-name column anchors too: only `price` ends in "e".
+  assert_eq(cols_ends_with(df, "e"), [@expr.col("price")])
+  assert_eq(cols_ends_with(df, "zzz"), [])
+}
+
+///|
+test "cols_contains selects by a literal name substring, in schema order" {
+  let df = mixed_df()
+  assert_eq(cols_contains(df, "ame"), [@expr.col("name_a"), @expr.col("name_b")])
+  // Composes as a `drop` argument: drop both name columns.
+  assert_eq(df.drop(cols_contains(df, "ame")).columns(), ["id", "price", "flag"])
+  assert_eq(cols_contains(df, "zzz"), [])
 }
 
 ///|

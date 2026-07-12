@@ -269,6 +269,13 @@ operand is a `TypeMismatch` at evaluation, all are total. Matching is always
 - `str_replace(pattern : String, value : String)` /
   `str_replace_all(pattern : String, value : String) -> Expr` — replace the
   first / every literal occurrence of `pattern` with `value`.
+- `str_reverse() -> Expr` — reverse each cell's characters (by codepoint, so
+  surrogate pairs are respected).
+- `str_pad_start(width : Int, fill? : Char)` /
+  `str_pad_end(width : Int, fill? : Char) -> Expr` — left- / right-pad each cell
+  with `fill` (default space) until it is `width` **characters** long; a cell
+  already at least that long is unchanged (never truncated). The width counts
+  characters, consistent with `str_len_chars`.
 
 ### Conditional
 
@@ -1130,12 +1137,13 @@ The whole v0.5 surface above is **shipped**, and it is the last breaking
 release: from v0.6 on the API only grows (additive — no renames, removals,
 or signature changes). These are the tracked deferrals, all v0.6+:
 
-- **More expression families** — regex-backed and more positional string
-  methods (`str_slice`, byte length, `split` / `pad`), and — further out —
-  window and datetime expressions (the repo has no datetime type yet). The v0.5
-  operator / method set is frozen; these extend it. (The arithmetic / numeric
-  operator family — `floor_div`, `mod`, `pow`, `abs` / `floor` / `ceil` /
-  `sign` / `round` — is now complete.)
+- **More expression families** — regex-backed string methods (a `Regex` type
+  exists in `core/string`), more positional ones (`str_slice`, byte length),
+  `split` (blocked on a list dtype), and — further out — window and datetime
+  expressions (the repo has no datetime type yet). The v0.5 operator / method
+  set is frozen; these extend it. (The arithmetic / numeric operator family —
+  `floor_div`, `mod`, `pow`, `abs` / `floor` / `ceil` / `sign` / `round` — and
+  the `str_reverse` / `str_pad_start` / `str_pad_end` string ops are now done.)
 - **Lazy scan depth** — predicate pushdown into the file parser and
   streaming execution (v0.5's scan does projection pushdown only), plus
   columnar sources (Parquet / IPC) once eager readers exist.

@@ -15,6 +15,10 @@ pub fn col(String) -> @expr.Expr
 
 pub fn cols(Array[String]) -> Array[@expr.Expr]
 
+pub fn cols_matching(@frame.DataFrame, String) -> Array[@expr.Expr] raise @types.DataError
+
+pub fn cols_of_dtype(@frame.DataFrame, @types.DataType) -> Array[@expr.Expr]
+
 pub fn compare_string_lex(String, String) -> Int
 
 pub fn format_csv(@frame.DataFrame, @io.CsvWriteOptions) -> String raise @types.DataError
@@ -44,6 +48,8 @@ pub fn lit_series(@series.Series) -> @expr.Expr
 pub fn lit_str(String) -> @expr.Expr
 
 pub fn map_many(label~ : String, Array[@expr.Expr], (Array[@types.Scalar]) -> @types.Scalar raise @types.DataError) -> @expr.Expr
+
+pub fn numeric_cols(@frame.DataFrame) -> Array[@expr.Expr]
 
 pub fn parse_csv_str(String, @io.CsvReadOptions) -> @frame.DataFrame raise @types.DataError
 

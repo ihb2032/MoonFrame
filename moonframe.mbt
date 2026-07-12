@@ -88,6 +88,9 @@ pub using @frame {
   type JoinType,
   type JoinOptions,
   type HtmlOptions,
+  numeric_cols,
+  cols_of_dtype,
+  cols_matching,
 }
 
 ///|

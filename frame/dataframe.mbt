@@ -3,22 +3,21 @@
 /// of equally-tall `Series`, a derived `Schema`, and a private
 /// `name_to_index` cache so column lookup by name is `O(1)`.
 ///
-/// The struct is `pub` (fields read-only outside the package — no
-/// reassignment), so frames are only ever *built* through the constructors
-/// below, which rebuild the cache and the schema in lock-step with the
-/// column vector. The containers *read* from the fields (`columns`,
-/// `name_to_index`) are the live objects, though: treat them as
-/// read-only — interior mutation bypasses the constructors and corrupts
-/// the frame (prefer the `columns()` / `column_series()` / `schema()`
-/// accessors, which return copies). The preserved invariants:
+/// The fields are `priv` (private to this package), so a frame can only ever
+/// be *built* through the constructors below — which rebuild the cache and the
+/// schema in lock-step with the column vector — and *read* through the
+/// copy-returning accessors (`columns()` / `column_series()` / `schema()`).
+/// External code cannot reach the live `columns` / `name_to_index` containers,
+/// so it cannot mutate a validated frame into an inconsistent state. The
+/// preserved invariants:
 ///   * `schema.field_names() == columns.map(.name)`
 ///   * `columns.all(c => c.len() == nrows)`
 ///   * `name_to_index[name] == i  ⇔  columns[i].name == name`
 pub struct DataFrame {
-  schema : @types.Schema
-  columns : Array[Series]
-  nrows : Int
-  name_to_index : Map[String, Int]
+  priv schema : @types.Schema
+  priv columns : Array[Series]
+  priv nrows : Int
+  priv name_to_index : Map[String, Int]
 } derive(Eq, Debug)
 
 // ── Constructors ──────────────────────────────────────────────────────
@@ -62,11 +61,10 @@ fn index_by_name(columns : Array[Series]) -> Map[String, Int] {
 /// `Series` of the field's declared dtype.
 ///
 /// The `schema` is re-validated through `Schema::new` (`raise
-/// DuplicateColumn(name)` on a repeated name): `Schema` is `pub(all)`, so a
-/// caller can build one with duplicate field names by struct literal,
-/// bypassing the validating constructor — re-validating here keeps the
+/// DuplicateColumn(name)` on a repeated name): every `Schema` constructor
+/// already rejects duplicates, so this is defence-in-depth that keeps the
 /// frame's "no duplicate names" invariant true regardless of how the schema
-/// was made.
+/// was built.
 ///
 /// `raise Unsupported(...)` if any field carries `DataType::Null` — v0.1 has
 /// no concrete Null backend (and a CSV-inferred Null column has nothing to
@@ -100,10 +98,10 @@ pub fn DataFrame::empty(
 ///
 /// Raises:
 /// - `DuplicateColumn(name)` — the schema carries a repeated field name.
-///   `Schema` is `pub(all)`, so a caller can construct a duplicate-name
-///   schema by struct literal; re-validating through `Schema::new` here
-///   (as `empty` does) keeps the "no duplicate names" invariant true rather
-///   than silently collapsing the name cache.
+///   Every `Schema` constructor already rejects duplicates, so this is
+///   defence-in-depth: re-validating through `Schema::new` here (as `empty`
+///   does) keeps the "no duplicate names" invariant regardless of how the
+///   schema reached this call.
 /// - `LengthMismatch` — a row's width differs from `schema.len()`.
 /// - `TypeMismatch(...)` — a non-null cell's dtype doesn't match the
 ///   schema's dtype for that column.

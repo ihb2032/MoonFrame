@@ -3,8 +3,12 @@
 ///
 /// Construction always validates uniqueness of names; once built, a
 /// `Schema` is guaranteed to have no duplicate column names.
-pub(all) struct Schema {
-  fields : Array[Field]
+///
+/// The `fields` array is `priv`: build a schema with `Schema::new` and read a
+/// copy via `fields()` / `field_names()`. External code cannot reach or
+/// mutate the backing array, so a validated schema stays valid.
+pub struct Schema {
+  priv fields : Array[Field]
 } derive(Eq, Debug)
 
 ///|

@@ -549,9 +549,10 @@ dependencies** (NyaCSV / fs / @json live only in `io`).
 
 ### DataFrame
 
-- `struct DataFrame` — column-oriented table; fields read-only outside the
-  package (`schema`, `columns`, `nrows`, and a `name_to_index` cache
-  for `O(1)` name lookup).
+- `struct DataFrame` — column-oriented table; its fields (`schema`,
+  `columns`, `nrows`, and a `name_to_index` cache for `O(1)` name lookup) are
+  `priv`, so a validated frame can only be built through the constructors and
+  read through the copy-returning accessors below.
 - Constructors (`raise DataError`): `new(columns)`
   (`LengthMismatch` / `DuplicateColumn`; zero columns → `0×0`);
   `empty(schema)` (0-row frame; `DuplicateColumn` for a repeated field name;
@@ -559,9 +560,8 @@ dependencies** (NyaCSV / fs / @json live only in `io`).
   `from_rows(schema, rows)` (`DuplicateColumn` / `LengthMismatch` /
   `TypeMismatch` / `Unsupported` / `NullInNonNullable`; zero-column schema →
   `0×0`, like `new`).
-  `empty` / `from_rows` re-validate the schema through `Schema::new`, so a
-  `pub(all)` struct-literal schema with duplicate names is rejected rather
-  than producing a malformed frame.
+  `empty` / `from_rows` re-validate the schema through `Schema::new` as
+  defence-in-depth (every `Schema` constructor already rejects duplicates).
 - Total inspection: `shape()` / `schema()` / `columns()` (fresh array) /
   `column_series()` (fresh array of the immutable `Series`) / `nrows()` /
   `ncols()` / `is_empty()`.

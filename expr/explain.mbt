@@ -66,6 +66,10 @@ pub fn Expr::children(self : Expr) -> Array[Expr] {
     // operand's name before the value's, exactly as the old ternary
     // lowering's `then`-before-`otherwise` order did.
     FillNull(o, v) | FillNan(o, v) => [o, v]
+    // The `IsIn` set is literal data, not sub-expressions — only the operand is
+    // a child. `IsBetween` lists its operand and both bounds.
+    IsIn(e, _) => [e]
+    IsBetween(x, lo, hi) => [x, lo, hi]
     Map(_, inputs, _) => inputs.copy()
   }
 }
@@ -265,6 +269,22 @@ fn push_write_tasks(stack : Array[WriteTask], expr : Expr) -> Unit {
     // operand appears once, so a chained coalesce renders linearly.
     FillNull(o, v) => [Node(o), Frag(".fill_null("), Node(v), Frag(")")]
     FillNan(o, v) => [Node(o), Frag(".fill_nan("), Node(v), Frag(")")]
+    // `col(a).is_in([1, 2])`: the operand, then each set member rendered as a
+    // literal (`format_scalar_literal`, like a `Lit`) inside `[...]`.
+    IsIn(operand, members) => {
+      let ts : Array[WriteTask] = [Node(operand), Frag(".is_in([")]
+      for i in 0..<members.length() {
+        if i > 0 {
+          ts.push(Frag(", "))
+        }
+        ts.push(ScalarLit(members[i]))
+      }
+      ts.push(Frag("])"))
+      ts
+    }
+    // `col(a).is_between(lo, hi)` — the operand once, then both bounds.
+    IsBetween(x, lo, hi) =>
+      [Node(x), Frag(".is_between("), Node(lo), Frag(", "), Node(hi), Frag(")")]
     // The closure is opaque, so a `Map` renders by its label and inputs:
     // `map("label", [in1, in2])`. The label is quoted / escaped like a string
     // literal so it stays on one unambiguous line.

@@ -73,6 +73,8 @@ pub enum Expr {
   Ternary(Expr, Expr, Expr)
   FillNull(Expr, Expr)
   FillNan(Expr, Expr)
+  IsIn(Expr, Array[@types.Scalar])
+  IsBetween(Expr, Expr, Expr)
   Map(String, Array[Expr], (Array[@types.Scalar]) -> @types.Scalar raise @types.DataError)
 }
 pub fn Expr::abs(Self) -> Self
@@ -91,6 +93,8 @@ pub fn Expr::floor(Self) -> Self
 pub fn Expr::floor_div(Self, Self) -> Self
 pub fn Expr::ge(Self, Self) -> Self
 pub fn Expr::gt(Self, Self) -> Self
+pub fn Expr::is_between(Self, Self, Self) -> Self
+pub fn Expr::is_in(Self, Array[@types.Scalar]) -> Self
 pub fn Expr::is_nan(Self) -> Self
 pub fn Expr::is_not_nan(Self) -> Self
 pub fn Expr::is_not_null(Self) -> Self

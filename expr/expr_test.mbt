@@ -191,7 +191,7 @@ test "deep trees don't overflow structural equality: `==` is iterative" {
 
 ///|
 test "equality: each variant is unequal to every other variant" {
-  // One representative of each of the thirteen `Expr` variants. Comparing
+  // One representative of each of the fifteen `Expr` variants. Comparing
   // every ordered pair of distinct variants exercises each per-variant arm of
   // the handwritten structural equality as the *first* operand — the arms a
   // future variant addition is forced to extend.
@@ -208,6 +208,8 @@ test "equality: each variant is unequal to every other variant" {
     when(col("c")).then(lit_int(1)).otherwise(lit_int(0)),
     col("a").fill_null(lit_int(0)),
     col("a").fill_nan(lit_float(0.0)),
+    col("a").is_in([@types.Scalar::Int(1)]),
+    col("a").is_between(lit_int(0), lit_int(10)),
     map_many(label="m", [col("a")], fn(vs) { vs[0] }),
   ]
   for i in 0..<reps.length() {
@@ -235,4 +237,39 @@ test "equality: fill_null and fill_nan compare structurally, each its own kind" 
     col("a").fill_nan(lit_float(1.0)),
   )
   assert_not_eq(col("a").fill_null(lit_int(0)), col("a").fill_nan(lit_int(0)))
+}
+
+///|
+test "equality: is_in compares operand and its literal set" {
+  let a = col("a").is_in([@types.Scalar::Int(1), @types.Scalar::Int(2)])
+  assert_eq(a, col("a").is_in([@types.Scalar::Int(1), @types.Scalar::Int(2)]))
+  // A differing operand, a differing member, and a differing set length each
+  // distinguish. The set is structural: `Int(2)` and `Float(2.0)` are distinct
+  // members even though `is_in` would match either.
+  assert_not_eq(
+    a,
+    col("b").is_in([@types.Scalar::Int(1), @types.Scalar::Int(2)]),
+  )
+  assert_not_eq(
+    a,
+    col("a").is_in([@types.Scalar::Int(1), @types.Scalar::Int(3)]),
+  )
+  assert_not_eq(a, col("a").is_in([@types.Scalar::Int(1)]))
+  assert_not_eq(
+    a,
+    col("a").is_in([@types.Scalar::Int(1), @types.Scalar::Float(2.0)]),
+  )
+  // Never equal to a non-`IsIn` node (the mismatched-variant fallthrough).
+  assert_not_eq(a, col("a"))
+}
+
+///|
+test "equality: is_between compares operand and both bounds" {
+  let a = col("a").is_between(lit_int(0), lit_int(10))
+  assert_eq(a, col("a").is_between(lit_int(0), lit_int(10)))
+  assert_not_eq(a, col("b").is_between(lit_int(0), lit_int(10)))
+  assert_not_eq(a, col("a").is_between(lit_int(1), lit_int(10)))
+  assert_not_eq(a, col("a").is_between(lit_int(0), lit_int(9)))
+  // Never equal to a non-`IsBetween` node.
+  assert_not_eq(a, col("a"))
 }

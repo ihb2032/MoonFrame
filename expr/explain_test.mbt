@@ -125,6 +125,50 @@ test "show: ternary mirrors its construction chain" {
 }
 
 ///|
+test "show: is_in renders its operand and literal set" {
+  inspect(
+    col("g").is_in([@types.Scalar::Int(1), @types.Scalar::Int(2)]),
+    content="col(g).is_in([1, 2])",
+  )
+  // Members render like literals: strings quoted, mixed dtypes each in their
+  // own form; an empty set renders as `[]`.
+  inspect(
+    col("g").is_in([@types.Scalar::String("x"), @types.Scalar::Float(1.5)]),
+    content="col(g).is_in([\"x\", 1.5])",
+  )
+  inspect(col("g").is_in([]), content="col(g).is_in([])")
+}
+
+///|
+test "show: is_between renders its operand and both bounds" {
+  inspect(
+    col("a").is_between(lit_int(0), col("hi")),
+    content="col(a).is_between(0, col(hi))",
+  )
+}
+
+///|
+test "is_in / is_between: introspection walks ride their children" {
+  // `is_in` names after and references only its operand (the set is literal).
+  assert_eq(col("v").is_in([@types.Scalar::Int(1)]).output_name(), "v")
+  assert_eq(
+    col("v").is_in([@types.Scalar::Int(1)]).referenced_columns().to_array(),
+    ["v"],
+  )
+  // `is_between` references its operand and both bounds; it names after the
+  // operand (the leftmost child), an alias still overriding.
+  assert_eq(
+    col("a").is_between(col("lo"), col("hi")).referenced_columns().to_array(),
+    ["a", "lo", "hi"],
+  )
+  assert_eq(col("a").is_between(col("lo"), col("hi")).output_name(), "a")
+  assert_eq(
+    col("a").is_between(lit_int(0), lit_int(9)).with_alias("ok").output_name(),
+    "ok",
+  )
+}
+
+///|
 test "show: deep nesting stays fully parenthesised" {
   inspect(
     (col("a") + col("b")) * (col("c") - lit_int(1)),
@@ -272,6 +316,10 @@ test "children: each variant exposes its immediate sub-expressions, left to righ
   // A ternary lists all three arms, condition first.
   let cond = a.gt(lit_int(0))
   assert_eq(when(cond).then(a).otherwise(b).children(), [cond, a, b])
+  // `is_in` exposes only its operand — the set is literal data, not children.
+  assert_eq(a.is_in([@types.Scalar::Int(1)]).children(), [a])
+  // `is_between` lists its operand and both bounds.
+  assert_eq(a.is_between(lit_int(0), b).children(), [a, lit_int(0), b])
   // A map lists its input expressions (none for an empty input list).
   assert_eq(map_many(label="m", [a, b], fn(vs) { vs[0] }).children(), [a, b])
   assert_eq(

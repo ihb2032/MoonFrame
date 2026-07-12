@@ -2,7 +2,7 @@
 package "ihb2032/MoonFrame/series"
 
 import {
-  "ihb2032/MoonFrame/column",
+  "ihb2032/MoonFrame/internal/column",
   "ihb2032/MoonFrame/types",
   "moonbitlang/core/debug",
 }

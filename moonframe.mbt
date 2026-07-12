@@ -91,6 +91,9 @@ pub using @frame {
   numeric_cols,
   cols_of_dtype,
   cols_matching,
+  cols_starts_with,
+  cols_ends_with,
+  cols_contains,
 }
 
 ///|

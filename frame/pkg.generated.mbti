@@ -10,9 +10,15 @@ import {
 }
 
 // Values
+pub fn cols_contains(DataFrame, String) -> Array[@expr.Expr]
+
+pub fn cols_ends_with(DataFrame, String) -> Array[@expr.Expr]
+
 pub fn cols_matching(DataFrame, String) -> Array[@expr.Expr] raise @types.DataError
 
 pub fn cols_of_dtype(DataFrame, @types.DataType) -> Array[@expr.Expr]
+
+pub fn cols_starts_with(DataFrame, String) -> Array[@expr.Expr]
 
 pub fn numeric_cols(DataFrame) -> Array[@expr.Expr]
 

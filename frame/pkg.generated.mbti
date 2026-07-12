@@ -94,6 +94,7 @@ pub fn JoinOptions::cross() -> Self
 pub fn JoinOptions::left_on(Array[@expr.Expr]) -> Self
 pub fn JoinOptions::on(Array[@expr.Expr]) -> Self
 pub fn JoinOptions::with_coalesce(Self, Bool) -> Self
+pub fn JoinOptions::with_coalesce_auto(Self) -> Self
 pub fn JoinOptions::with_how(Self, JoinType) -> Self
 pub fn JoinOptions::with_left_on(Self, Array[@expr.Expr]) -> Self
 pub fn JoinOptions::with_right_on(Self, Array[@expr.Expr]) -> Self

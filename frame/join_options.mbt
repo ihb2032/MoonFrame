@@ -185,3 +185,15 @@ pub fn JoinOptions::with_coalesce(
 ) -> JoinOptions {
   { ..self, coalesce: Some(coalesce) }
 }
+
+///|
+/// Return a copy of these options with key coalescing reset to **automatic**
+/// (`coalesce = None`): whether an eligible `on`-join key coalesces then follows
+/// the `how`-derived default (`Inner` / `Left` / `Right` coalesce, `Outer` /
+/// `Cross` do not), exactly as if `with_coalesce` had never been called. It is
+/// the undo for `with_coalesce` — the only builder path back to the auto default
+/// once coalescing has been forced on or off (the field is read-only outside
+/// `frame`).
+pub fn JoinOptions::with_coalesce_auto(self : JoinOptions) -> JoinOptions {
+  { ..self, coalesce: None }
+}

@@ -2,7 +2,6 @@
 package "ihb2032/MoonFrame"
 
 import {
-  "ihb2032/MoonFrame/column",
   "ihb2032/MoonFrame/expr",
   "ihb2032/MoonFrame/frame",
   "ihb2032/MoonFrame/io",
@@ -89,17 +88,9 @@ pub fn write_vega_lite(String, @frame.DataFrame, @io.ChartSpec) -> Unit raise @t
 // Types and methods
 
 // Type aliases
-pub using @column {type Bitmap}
-
-pub using @column {type BuiltinColumn}
-
 pub using @io {type ChartKind}
 
 pub using @io {type ChartSpec}
-
-pub using @column {type ColumnData}
-
-pub using @column {type ColumnStorage}
 
 pub using @io {type CsvReadOptions}
 
@@ -133,10 +124,6 @@ pub using @io {type NdjsonReadOptions}
 
 pub using @frame {type NullOrder}
 
-pub using @column {type NumericColumn}
-
-pub using @column {type NumericData}
-
 pub using @io {type OnParseError}
 
 pub using @types {type Scalar}
@@ -146,8 +133,6 @@ pub using @types {type Schema}
 pub using @series {type Series}
 
 pub using @frame {type SortOrder}
-
-pub using @column {type StorageKind}
 
 pub using @io {type VegaType}
 

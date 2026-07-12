@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "ihb2032/MoonFrame/column"
+package "ihb2032/MoonFrame/internal/column"
 
 import {
   "ihb2032/MoonFrame/types",

@@ -368,29 +368,6 @@ test "pipeline: rename / drop / with_columns compose cleanly" {
   assert_eq(swapped.check_invariants(), Ok(()))
 }
 
-// ── Bitmap / BuiltinColumn reachable for low-level callers ────────────
-
-///|
-test "pipeline: facade exposes column-layer primitives (Bitmap, BuiltinColumn, ColumnData)" {
-  // `Bitmap::from_bools` and `BuiltinColumn::from_int_options` both
-  // travel through the facade; the assertion is structural — if the
-  // re-exports were missing, the file would fail to compile.
-  let bm = Bitmap::from_bools([true, false, true, true])
-  assert_eq(bm.len(), 4)
-  assert_eq(bm.null_count(), 1)
-  let col = BuiltinColumn::from_int_options([Some(10), None, Some(30)])
-  assert_eq(col.len(), 3)
-  assert_eq(col.null_count(), 1)
-  // Reach into the typed accessor (zero-boxing fast path) — this also
-  // structurally confirms `ColumnData::Int` is re-exported via the
-  // facade (the constructor alias kicks in automatically through
-  // `pub using @column { type ColumnData }`).
-  let (data, validity) = col.int_values()
-  assert_eq(data.length(), 3)
-  assert_eq(validity.is_valid(1), false)
-  assert_true(col.data is ColumnData::Int(_))
-}
-
 // ── filter error propagation ──────────────────────────────────────────
 
 ///|

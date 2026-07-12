@@ -151,6 +151,16 @@ depends only on `types`.
 - `cols(names : Array[String]) -> Array[Expr]` — `[col(n) for n in names]`,
   the shorthand for projecting / dropping several columns by name through
   the expression verbs (`df.select(cols(["a", "b"]))`).
+- **Column selectors** (`@frame` free functions, reading a frame's schema to
+  produce the `col(...)` list for the columns they match, in schema order):
+  `numeric_cols(df) -> Array[Expr]` (every `Int` / `Float` column),
+  `cols_of_dtype(df, dtype : DataType) -> Array[Expr]` (an exact dtype), and
+  `cols_matching(df, pattern : String) -> Array[Expr] raise DataError` (columns
+  whose **name** matches the POSIX regex — invalid pattern → `InvalidOperation`).
+  Each fills a verb's container like `cols` and composes with hand-written
+  entries: `df.select([col("id"), ..numeric_cols(df)])`,
+  `df.drop(cols_matching(df, "_tmp$"))`. Eager (they read `df.schema()`), so the
+  frame appears twice at the call site.
 - `lit(s : Scalar) -> Expr` / `Expr::lit(s)` — a literal from any scalar.
 - `lit_int(Int64)` / `lit_float(Double)` / `lit_str(String)` /
   `lit_bool(Bool) -> Expr` — typed literal shorthands (skip the
@@ -1152,8 +1162,9 @@ API names them).
   `when` · `map_many`
 - From `@series`: `Series`
 - From `@frame`: `DataFrame` · `SortOrder` ·
-  `NullOrder` · `GroupedDataFrame` · `JoinType` ·
-  `JoinOptions` · `HtmlOptions`
+  `NullOrder` · `KeepStrategy` · `GroupedDataFrame` · `JoinType` ·
+  `JoinOptions` · `HtmlOptions` · `numeric_cols` · `cols_of_dtype` ·
+  `cols_matching`
 - From `@io`: `CsvReadOptions` · `CsvWriteOptions` · `JsonReadOptions` ·
   `NdjsonReadOptions` · `OnParseError` · `ChartKind` · `ChartSpec` ·
   `VegaType` · `format_csv` ·

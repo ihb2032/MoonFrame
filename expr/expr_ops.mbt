@@ -469,11 +469,16 @@ pub fn Expr::str_to_lowercase(self : Expr) -> Expr {
 }
 
 ///|
-/// Strip leading and trailing ASCII whitespace — tab, newline,
-/// carriage-return, and space — from every cell of a String column, Polars'
-/// `str.strip_chars` with its default whitespace set. Null cells stay null.
-pub fn Expr::str_strip_chars(self : Expr) -> Expr {
-  Str(StrOp::StripChars, self)
+/// Strip leading and trailing characters from every cell of a String column —
+/// Polars' `str.strip_chars`. With `chars` omitted, the default set is ASCII
+/// whitespace (tab, newline, carriage-return, space); with `chars` given, every
+/// character in that string is a strip target (order and repeats do not
+/// matter). Null cells stay null.
+pub fn Expr::str_strip_chars(self : Expr, chars? : String) -> Expr {
+  match chars {
+    None => Str(StrOp::StripChars, self)
+    Some(set) => Str(StrOp::StripCharsCustom(set), self)
+  }
 }
 
 ///|
@@ -483,6 +488,26 @@ pub fn Expr::str_strip_chars(self : Expr) -> Expr {
 /// result rides the `Numeric` fast path like every computed numeric column.
 pub fn Expr::str_len_chars(self : Expr) -> Expr {
   Str(StrOp::LenChars, self)
+}
+
+///|
+/// The number of **UTF-8 bytes** in each cell of a String column, as an `Int`
+/// (Polars `str.len_bytes`) — the encoded byte length, so an ASCII character is
+/// 1, a `é` is 2, and a supplementary-plane emoji is 4 (vs `str_len_chars`,
+/// which counts every character as 1). Null cells stay null; an all-valid
+/// result rides the `Numeric` fast path.
+pub fn Expr::str_len_bytes(self : Expr) -> Expr {
+  Str(StrOp::LenBytes, self)
+}
+
+///|
+/// The `index`-th field of each cell split on the literal separator `sep`, as a
+/// nullable `String` (a scalar slice of Polars' `str.split`, which returns a
+/// list this repo has no dtype for). `index` is 0-based; a cell with fewer than
+/// `index + 1` fields (or a negative `index`) yields **null**. `"a,b,c"` split
+/// on `","` at index 1 is `"b"`. Null cells stay null.
+pub fn Expr::str_split_get(self : Expr, sep : String, index : Int) -> Expr {
+  Str(StrOp::SplitGet(sep, index), self)
 }
 
 ///|

@@ -411,6 +411,91 @@ test "str_slice: a non-String operand raises TypeMismatch" {
 }
 
 ///|
+test "str_len_bytes counts UTF-8 bytes, all-valid rides Numeric" {
+  let df = DataFrame::new([
+    Series::from_strings("s", ["a", "ab", "😀", "a😀"]),
+  ])
+  let out = df.with_columns([@expr.col("s").str_len_bytes().with_alias("n")])
+  // ASCII byte each; the emoji is 4 UTF-8 bytes (vs one character).
+  assert_eq(out.get_column("n").to_scalars(), [
+    @types.Scalar::Int(1),
+    @types.Scalar::Int(2),
+    @types.Scalar::Int(4),
+    @types.Scalar::Int(5),
+  ])
+  assert_eq(out.get_column("n").storage_kind(), @column.StorageKind::Numeric)
+}
+
+///|
+test "str_len_bytes: a null cell stays null (Builtin)" {
+  let df = DataFrame::new([Series::from_string_options("s", [Some("ab"), None])])
+  let out = df.with_columns([@expr.col("s").str_len_bytes().with_alias("n")])
+  assert_eq(out.get_column("n").to_scalars(), [
+    @types.Scalar::Int(2),
+    @types.Scalar::Null,
+  ])
+  assert_eq(out.get_column("n").storage_kind(), @column.StorageKind::Builtin)
+}
+
+///|
+test "str_strip_chars: a custom charset strips those chars; the default stays whitespace" {
+  let df = DataFrame::new([
+    Series::from_string_options("s", [Some("xxhixx"), Some(" hi "), None]),
+  ])
+  // Custom set "x": strips leading / trailing 'x'; " hi " has none, unchanged.
+  let custom = df.select([
+    @expr.col("s").str_strip_chars(chars="x").with_alias("c"),
+  ])
+  assert_eq(custom.get_column("c").to_scalars(), [
+    @types.Scalar::String("hi"),
+    @types.Scalar::String(" hi "),
+    @types.Scalar::Null,
+  ])
+  // The default (no charset) still strips ASCII whitespace only.
+  let default = df.select([@expr.col("s").str_strip_chars().with_alias("d")])
+  assert_eq(default.get_column("d").to_scalars(), [
+    @types.Scalar::String("xxhixx"),
+    @types.Scalar::String("hi"),
+    @types.Scalar::Null,
+  ])
+}
+
+///|
+test "str_split_get returns the index-th field, null when out of range" {
+  let df = DataFrame::new([
+    Series::from_string_options("s", [Some("a,b,c"), Some("solo"), None]),
+  ])
+  let out = df.select([
+    @expr.col("s").str_split_get(",", 0).with_alias("first"),
+    @expr.col("s").str_split_get(",", 1).with_alias("second"),
+    @expr.col("s").str_split_get(",", 9).with_alias("far"),
+    @expr.col("s").str_split_get(",", -1).with_alias("neg"),
+  ])
+  // "a,b,c": [0]=a, [1]=b, [9]=null, [-1]=null. "solo" (no sep): [0]=solo,
+  // [1]=null. A null cell is null throughout.
+  assert_eq(out.get_column("first").to_scalars(), [
+    @types.Scalar::String("a"),
+    @types.Scalar::String("solo"),
+    @types.Scalar::Null,
+  ])
+  assert_eq(out.get_column("second").to_scalars(), [
+    @types.Scalar::String("b"),
+    @types.Scalar::Null,
+    @types.Scalar::Null,
+  ])
+  assert_eq(out.get_column("far").to_scalars(), [
+    @types.Scalar::Null,
+    @types.Scalar::Null,
+    @types.Scalar::Null,
+  ])
+  assert_eq(out.get_column("neg").to_scalars(), [
+    @types.Scalar::Null,
+    @types.Scalar::Null,
+    @types.Scalar::Null,
+  ])
+}
+
+///|
 test "str: a predicate filters rows by a (case-sensitive) string test" {
   let df = str_df()
   // `contains` is literal and case-sensitive: only "Hello" has a lowercase

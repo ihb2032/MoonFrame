@@ -124,6 +124,7 @@ pub fn Expr::str_contains_regex(Self, String) -> Self
 pub fn Expr::str_count_matches(Self, String) -> Self
 pub fn Expr::str_ends_with(Self, String) -> Self
 pub fn Expr::str_extract(Self, String, group? : Int) -> Self
+pub fn Expr::str_len_bytes(Self) -> Self
 pub fn Expr::str_len_chars(Self) -> Self
 pub fn Expr::str_pad_end(Self, Int, fill? : Char) -> Self
 pub fn Expr::str_pad_start(Self, Int, fill? : Char) -> Self
@@ -133,8 +134,9 @@ pub fn Expr::str_replace_all_regex(Self, String, String) -> Self
 pub fn Expr::str_replace_regex(Self, String, String) -> Self
 pub fn Expr::str_reverse(Self) -> Self
 pub fn Expr::str_slice(Self, Int, length? : Int) -> Self
+pub fn Expr::str_split_get(Self, String, Int) -> Self
 pub fn Expr::str_starts_with(Self, String) -> Self
-pub fn Expr::str_strip_chars(Self) -> Self
+pub fn Expr::str_strip_chars(Self, chars? : String) -> Self
 pub fn Expr::str_to_lowercase(Self) -> Self
 pub fn Expr::str_to_uppercase(Self) -> Self
 pub fn Expr::sum(Self) -> Self
@@ -170,6 +172,9 @@ pub enum StrOp {
   Extract(String, Int)
   CountMatches(String)
   Slice(Int, Int?)
+  LenBytes
+  StripCharsCustom(String)
+  SplitGet(String, Int)
 } derive(Eq, @debug.Debug)
 
 pub enum UnOp {

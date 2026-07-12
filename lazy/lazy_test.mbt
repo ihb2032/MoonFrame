@@ -77,6 +77,36 @@ test "each deferred verb collects to its eager equivalent" {
 }
 
 ///|
+test "is_in / is_between are row-stable predicates through the optimizer" {
+  let df = sales_df()
+  // `is_in` as a filter over a projection: row-stable, so the optimizer sinks
+  // it below the select — collect stays faithful to the eager chain.
+  let inx = @expr.col("region").is_in([
+    @types.Scalar::String("west"),
+    @types.Scalar::String("north"),
+  ])
+  let proj = [@expr.col("region"), @expr.col("qty")]
+  assert_eq(
+    lazy_frame(df).select(proj).filter(inx).collect(),
+    df.select(proj).filter(inx),
+  )
+  // `is_between` inside an aggregation, with the `is_in` key-filter above it:
+  // pushing that filter below the aggregate walks `group_cell_stable` over the
+  // `is_between` cell and `row_stable` over the `is_in` predicate, and the
+  // result must still match eager.
+  let keys = [@expr.col("region")]
+  let aggs = [
+    @expr.col("qty")
+    .sum()
+    .is_between(@expr.lit_int(0), @expr.lit_int(1000))
+    .with_alias("ok"),
+  ]
+  let plan = lazy_frame(df).group_by(keys).agg(aggs).filter(inx)
+  assert_eq(plan.collect(), df.group_by(keys).agg(aggs).filter(inx))
+  assert_eq(plan.collect().check_invariants(), Ok(()))
+}
+
+///|
 test "a dtype-changing map under a grouped reduction collects like eager" {
   // The deferred dtype probe must behave identically through the lazy
   // Aggregate node: the closure's Int output types the reduction, not the

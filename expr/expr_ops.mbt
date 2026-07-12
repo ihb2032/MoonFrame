@@ -242,6 +242,29 @@ pub fn Expr::ge(self : Expr, other : Expr) -> Expr {
 }
 
 ///|
+/// `a.is_in(members)` — a `Bool` column, `true` where the cell equals one of
+/// the literal `members`. Evaluated as an OR of `eq` over the set, so each
+/// member is compared exactly as `a.eq(lit(member))` would: `Int` / `Float`
+/// members compare across types exactly (no `2^53` collision), and a member
+/// whose dtype cannot compare with the column raises `TypeMismatch`. A `Null`
+/// member matches nothing (it has no value to equal), an empty set is `false`
+/// for every present cell, and a null cell yields null.
+pub fn Expr::is_in(self : Expr, members : Array[@types.Scalar]) -> Expr {
+  IsIn(self, members)
+}
+
+///|
+/// `a.is_between(lo, hi)` — a `Bool` column, `true` where `lo <= a <= hi`
+/// (both endpoints closed). Equivalent to `a.ge(lo).land(a.le(hi))` — it
+/// inherits their exact `Int`/`Float` ordering, `String` / `Bool` ordering,
+/// Kleene null propagation, and `TypeMismatch` on an unorderable pair — but as
+/// a dedicated node the operand `a` is evaluated once. (A `closed` endpoint
+/// option is a deferred additive refinement; this is the both-closed form.)
+pub fn Expr::is_between(self : Expr, lo : Expr, hi : Expr) -> Expr {
+  IsBetween(self, lo, hi)
+}
+
+///|
 /// Kleene logical negation of a `Bool` expression (`not(null) = null`).
 /// A method because MoonBit has no overloadable unary `~` / `!`.
 pub fn Expr::not(self : Expr) -> Expr {

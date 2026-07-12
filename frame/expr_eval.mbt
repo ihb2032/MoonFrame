@@ -109,6 +109,8 @@ priv enum EvalStep {
   ApplyAlias(String)
   ApplyTernary
   ApplyFill(Bool) // true = fill nulls, false = fill NaNs
+  ApplyIsIn(Array[@types.Scalar])
+  ApplyIsBetween
   ApplyMap((Array[@types.Scalar]) -> @types.Scalar raise @types.DataError, Int)
 }
 
@@ -207,6 +209,20 @@ fn eval_expr(
                 work.push(ApplyFill(false))
                 work.push(Eval(v))
                 work.push(Eval(o))
+              }
+              // The set rides along on the `ApplyIsIn` step; only the operand
+              // is evaluated.
+              @expr.Expr::IsIn(e, members) => {
+                work.push(ApplyIsIn(members))
+                work.push(Eval(e))
+              }
+              // Operand first (popped last), then both bounds — evaluated once
+              // each; the dedicated node is what lets the operand be shared.
+              @expr.Expr::IsBetween(x, lo, hi) => {
+                work.push(ApplyIsBetween)
+                work.push(Eval(hi))
+                work.push(Eval(lo))
+                work.push(Eval(x))
               }
               @expr.Expr::Map(_, inputs, f) => {
                 work.push(ApplyMap(f, inputs.length()))
@@ -329,6 +345,16 @@ fn eval_expr(
               eval_is_nan(operand, false)
             }
             values.push(eval_ternary(cond, operand, value_v))
+          }
+          ApplyIsIn(members) => {
+            let operand = pop_value(values)
+            values.push(eval_is_in(operand, members))
+          }
+          ApplyIsBetween => {
+            let hi_v = pop_value(values)
+            let lo_v = pop_value(values)
+            let x_v = pop_value(values)
+            values.push(eval_is_between(x_v, lo_v, hi_v))
           }
           ApplyMap(f, arity) => {
             let popped : Array[Series] = []

@@ -199,6 +199,18 @@ depends only on `types`.
   produce a `Bool` column. They are methods, not operators, because `==`
   / `<` are pinned to `Bool` / `Int` returns; the upside is that a method
   binds tighter than `&`, so `a.gt(x) & b.lt(y)` needs no parentheses.
+- `is_in(members : Array[Scalar]) -> Expr` — a `Bool` column, `true` where the
+  cell equals one of the literal `members`. Evaluated as an OR of `eq`, so each
+  member is compared exactly as `a.eq(lit(member))` would: `Int` / `Float`
+  members compare across types exactly, and a member whose dtype cannot compare
+  with the column raises `TypeMismatch`. A `Null` member matches nothing, an
+  empty set is `false` for every present cell, and a null cell yields null.
+- `is_between(lo : Expr, hi : Expr) -> Expr` — a `Bool` column, `true` where
+  `lo <= a <= hi` (both endpoints closed). Equivalent to
+  `a.ge(lo).land(a.le(hi))` — same exact ordering, Kleene null propagation, and
+  `TypeMismatch` on an unorderable pair — but a dedicated node so the operand is
+  evaluated once. (A `closed` endpoint option is a deferred additive
+  refinement.)
 - `not() -> Expr` (no overloadable unary `!`); null probes `is_null()` /
   `is_not_null() -> Expr` (total — the result is never null); NaN probes
   `is_nan()` / `is_not_nan() -> Expr` — `true`/`false` where a numeric cell is
@@ -1113,7 +1125,7 @@ release: from v0.6 on the API only grows (additive — no renames, removals,
 or signature changes). These are the tracked deferrals, all v0.6+:
 
 - **More expression families** — arithmetic / numeric operators
-  (`round`, `is_in`, `is_between`), regex-backed and more positional string methods
+  (`round`), regex-backed and more positional string methods
   (`str_slice`, byte length, `split` / `pad`), and — further out — window
   and datetime expressions (the repo has no datetime type yet). The v0.5
   operator / method set is frozen; these extend it.

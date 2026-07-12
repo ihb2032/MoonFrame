@@ -51,7 +51,9 @@ fn row_stable(expr : @expr.Expr) -> Bool {
           | @expr.Expr::Alias(_, _)
           | @expr.Expr::Ternary(_, _, _)
           | @expr.Expr::FillNull(_, _)
-          | @expr.Expr::FillNan(_, _) =>
+          | @expr.Expr::FillNan(_, _)
+          | @expr.Expr::IsIn(_, _)
+          | @expr.Expr::IsBetween(_, _, _) =>
             for child in e.children() {
               stack.push(child)
             }
@@ -179,7 +181,9 @@ fn group_cell_stable(expr : @expr.Expr) -> Bool {
           | @expr.Expr::Alias(_, _)
           | @expr.Expr::FillNull(_, _)
           | @expr.Expr::FillNan(_, _)
-          | @expr.Expr::Ternary(_, _, _) =>
+          | @expr.Expr::Ternary(_, _, _)
+          | @expr.Expr::IsIn(_, _)
+          | @expr.Expr::IsBetween(_, _, _) =>
             for child in e.children() {
               stack.push(child)
             }

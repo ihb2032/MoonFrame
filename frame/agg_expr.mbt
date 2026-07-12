@@ -204,11 +204,17 @@ fn reduces_per_group(expr : @expr.Expr) -> Bool {
           @expr.Expr::Unary(_, e2)
           | @expr.Expr::Str(_, e2)
           | @expr.Expr::Cast(e2, _)
-          | @expr.Expr::Alias(e2, _) => stack.push(e2)
+          | @expr.Expr::Alias(e2, _)
+          | @expr.Expr::IsIn(e2, _) => stack.push(e2)
           @expr.Expr::Ternary(c, t, f) => {
             stack.push(c)
             stack.push(t)
             stack.push(f)
+          }
+          @expr.Expr::IsBetween(x, lo, hi) => {
+            stack.push(x)
+            stack.push(lo)
+            stack.push(hi)
           }
         }
     }

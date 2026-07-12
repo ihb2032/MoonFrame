@@ -43,6 +43,14 @@
 ///   is evaluated, rendered, and compared — **once**: the ternary lowering
 ///   embedded `self` twice, so a chained coalesce
 ///   (`e.fill_null(a).fill_null(b)…`) built an exponentially-sized tree;
+/// - `IsIn` / `IsBetween` — the membership / range predicates
+///   (`.is_in(members)` / `.is_between(lo, hi)`). `IsIn` carries its operand
+///   and a literal `Array[Scalar]` set and evaluates as an OR of `eq` (so a
+///   member's dtype must compare with the column, and a `Null` member matches
+///   nothing); `IsBetween` carries `(operand, lo, hi)` and is the both-closed
+///   `lo <= x <= hi`, evaluated as `x.ge(lo) & x.le(hi)` — a dedicated node, so
+///   the operand appears (and is evaluated, rendered, compared) **once**, the
+///   same reason `FillNull` is not lowered to a `Ternary`;
 /// - `Map` — the closure escape hatch (`.map_elements()` / `map_many()`),
 ///   applying an opaque host function row by row over its input columns.
 ///   It carries a `label` (for `Show` / `explain`), the input expressions,
@@ -63,6 +71,8 @@ pub enum Expr {
   Ternary(Expr, Expr, Expr)
   FillNull(Expr, Expr)
   FillNan(Expr, Expr)
+  IsIn(Expr, Array[@types.Scalar])
+  IsBetween(Expr, Expr, Expr)
   Map(
     String,
     Array[Expr],
@@ -207,6 +217,29 @@ fn exprs_structurally_equal(first : Expr, second : Expr) -> Bool {
               FillNan(o2, v2) => {
                 stack.push((o1, o2))
                 stack.push((v1, v2))
+              }
+              _ => return false
+            }
+          IsIn(e1, m1) =>
+            match b {
+              // The set is literal data, compared structurally by `Array`'s
+              // derived `Eq` (which is `Scalar`'s derived `Eq`: `Int(2)` and
+              // `Float(2.0)` are distinct nodes even though `is_in` would match
+              // them, and `NaN` members never compare equal — as for a `Lit`).
+              IsIn(e2, m2) => {
+                if m1 != m2 {
+                  return false
+                }
+                stack.push((e1, e2))
+              }
+              _ => return false
+            }
+          IsBetween(x1, l1, h1) =>
+            match b {
+              IsBetween(x2, l2, h2) => {
+                stack.push((x1, x2))
+                stack.push((l1, l2))
+                stack.push((h1, h2))
               }
               _ => return false
             }

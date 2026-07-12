@@ -167,6 +167,11 @@ depends only on `types`.
   `col("a") + col("b")`. `/` is **always `Float`** — integer operands are
   promoted — matching Polars; division by zero yields IEEE `±inf` / `NaN`,
   never a trap.
+- `col("a").floor_div(col("b"))` — floor (integer) division (`//`, a named
+  method since `//` is a MoonBit comment). Same-dtype `Int / Int → Int`
+  rounding toward −∞ (`-7 // 2 = -4`, not the `-3` truncation gives); any
+  `Float` operand promotes to `floor(a / b)`. `Int` division by zero is a
+  **null** cell (no integer infinity); `Float` follows IEEE (`±inf` / `NaN`).
 - Logical `&` `|` (`BitAnd` / `BitOr`, **not** bitwise): Kleene
   three-valued `and` / `or`. The equivalent methods are `land` / `lor`
   (the impls' own spelling — `and` is a reserved word, so there is no
@@ -1093,7 +1098,7 @@ release: from v0.6 on the API only grows (additive — no renames, removals,
 or signature changes). These are the tracked deferrals, all v0.6+:
 
 - **More expression families** — arithmetic / numeric operators
-  (`floor_div`, `pow`, `mod`, `abs`, `round`, `floor`, `ceil`, `sign`,
+  (`pow`, `mod`, `abs`, `round`, `floor`, `ceil`, `sign`,
   `is_in`, `is_between`), regex-backed and more positional string methods
   (`str_slice`, byte length, `split` / `pad`), and — further out — window
   and datetime expressions (the repo has no datetime type yet). The v0.5

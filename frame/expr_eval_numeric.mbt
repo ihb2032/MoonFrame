@@ -501,6 +501,32 @@ fn sign_f64(a : Double) -> Double {
 }
 
 ///|
+/// Round a `Double` to the nearest integer value, ties to even (banker's
+/// rounding — Polars' default). MoonBit's `Double::round` rounds ties toward
+/// +inf instead, so the even rule is spelled out here. `±inf` / `NaN` pass
+/// through unchanged and `±0.0` keeps its sign; the tie is resolved only on the
+/// exactly-half case — the floor when it is already even, else the ceil.
+fn round_half_even(a : Double) -> Double {
+  // Non-finite passes through: `a - a` is `0.0` only for a finite `a` (both
+  // `NaN` and `±inf` yield `NaN`) — the finiteness probe `format_scalar_literal`
+  // also uses.
+  if a - a != 0.0 {
+    return a
+  }
+  let lo = a.floor()
+  let frac = a - lo
+  if frac < 0.5 {
+    lo
+  } else if frac > 0.5 {
+    lo + 1.0
+  } else if lo % 2.0 == 0.0 {
+    lo
+  } else {
+    lo + 1.0
+  }
+}
+
+///|
 /// Build the nullable `Bool` cells of `is_nan` (`want_nan = true`) or
 /// `is_not_nan` (`want_nan = false`) over a numeric operand. `NaN` is a
 /// *value*, so a null cell stays null — the probe propagates nulls, unlike

@@ -187,11 +187,14 @@ depends only on `types`.
   `Expr::and` / `Expr::or`).
 - Unary `-` (`Neg`): `-col("x")`.
 - Unary numeric methods `col("x").abs()` / `.floor()` / `.ceil()` / `.sign()`
-  — absolute value; round toward −∞ / +∞ to an integer value; and the `-1` /
-  `0` / `+1` sign. Each keeps the operand's dtype (`Int → Int`, `Float →
-  Float`; `floor` / `ceil` leave an `Int` unchanged). `NaN` passes through
+  / `.round()` — absolute value; round toward −∞ / +∞ to an integer value; the
+  `-1` / `0` / `+1` sign; and round to the nearest integer, **ties to even**
+  (banker's rounding, Polars' default: `2.5` and `-2.5` both round to `±2`).
+  Each keeps the operand's dtype (`Int → Int`, `Float → Float`; `floor` /
+  `ceil` / `round` leave an `Int` unchanged). `NaN` passes through
   (`sign(NaN) = NaN`); a null stays null; a non-numeric operand raises
-  `TypeMismatch`.
+  `TypeMismatch`. (`round` to a number of decimal places is a deferred additive
+  refinement — this is the whole-number form.)
 
 ### Methods
 
@@ -1124,11 +1127,12 @@ The whole v0.5 surface above is **shipped**, and it is the last breaking
 release: from v0.6 on the API only grows (additive — no renames, removals,
 or signature changes). These are the tracked deferrals, all v0.6+:
 
-- **More expression families** — arithmetic / numeric operators
-  (`round`), regex-backed and more positional string methods
-  (`str_slice`, byte length, `split` / `pad`), and — further out — window
-  and datetime expressions (the repo has no datetime type yet). The v0.5
-  operator / method set is frozen; these extend it.
+- **More expression families** — regex-backed and more positional string
+  methods (`str_slice`, byte length, `split` / `pad`), and — further out —
+  window and datetime expressions (the repo has no datetime type yet). The v0.5
+  operator / method set is frozen; these extend it. (The arithmetic / numeric
+  operator family — `floor_div`, `mod`, `pow`, `abs` / `floor` / `ceil` /
+  `sign` / `round` — is now complete.)
 - **Lazy scan depth** — predicate pushdown into the file parser and
   streaming execution (v0.5's scan does projection pushdown only), plus
   columnar sources (Parquet / IPC) once eager readers exist.

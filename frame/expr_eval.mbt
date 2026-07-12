@@ -301,6 +301,8 @@ fn eval_expr(
                   eval_unary_num(
                     operand, "take the sign of", sign_i64, sign_f64,
                   )
+                @expr.UnOp::Round =>
+                  eval_unary_num(operand, "round", a => a, round_half_even)
               },
             )
           }

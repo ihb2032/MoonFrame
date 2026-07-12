@@ -116,6 +116,7 @@ pub fn Expr::not(Self) -> Self
 pub fn Expr::output_name(Self) -> String
 pub fn Expr::pow(Self, Self) -> Self
 pub fn Expr::referenced_columns(Self) -> @set.Set[String]
+pub fn Expr::round(Self) -> Self
 pub fn Expr::sign(Self) -> Self
 pub fn Expr::std(Self) -> Self
 pub fn Expr::str_contains(Self, String) -> Self
@@ -164,6 +165,7 @@ pub enum UnOp {
   Floor
   Ceil
   Sign
+  Round
 } derive(Eq, @debug.Debug)
 
 pub struct WhenThen {

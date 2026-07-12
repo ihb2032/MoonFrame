@@ -244,6 +244,8 @@ pub enum BinOp {
   Mul
   Div
   FloorDiv
+  Mod
+  Pow
   Eq
   Ne
   Lt

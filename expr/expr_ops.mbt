@@ -119,6 +119,28 @@ pub fn Expr::floor_div(self : Expr, other : Expr) -> Expr {
 }
 
 ///|
+/// `a.modulo(b)` — remainder (Polars `%`; a named method, `%` maps to no
+/// `Expr` operator). Same-dtype `Int / Int → Int` carrying the dividend's sign
+/// (`-7 % 2 = -1`); any `Float` operand promotes to `Float` (IEEE remainder).
+/// `Int` modulo by zero yields a **null** cell (as for `floor_div`); `Float`
+/// modulo by zero is `NaN`. A null on either side nulls the output cell; a
+/// non-numeric operand raises `TypeMismatch`.
+pub fn Expr::modulo(self : Expr, other : Expr) -> Expr {
+  Binary(BinOp::Mod, self, other)
+}
+
+///|
+/// `a.pow(b)` — exponentiation, **always `Float`** (`Int` operands promote to
+/// `Double`, like `/`): total for every base / exponent — a negative exponent,
+/// a negative or fractional base, and overflow all resolve under IEEE 754
+/// (`0.0 ** 0.0 = 1.0`, an out-of-range result is `±inf`, an invalid one
+/// `NaN`). A null on either side nulls the output cell; a non-numeric operand
+/// raises `TypeMismatch`.
+pub fn Expr::pow(self : Expr, other : Expr) -> Expr {
+  Binary(BinOp::Pow, self, other)
+}
+
+///|
 /// `a & b` — logical AND over `Bool` expressions, with Kleene three-valued
 /// null semantics (`false & null = false`, `true & null = null`). `&` is
 /// MoonBit's only overloadable conjunction (`&&` is built-in short-circuit

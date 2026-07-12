@@ -48,6 +48,8 @@ pub enum BinOp {
   Mul
   Div
   FloorDiv
+  Mod
+  Pow
   Eq
   Ne
   Lt
@@ -103,10 +105,12 @@ pub fn Expr::max(Self) -> Self
 pub fn Expr::mean(Self) -> Self
 pub fn Expr::median(Self) -> Self
 pub fn Expr::min(Self) -> Self
+pub fn Expr::modulo(Self, Self) -> Self
 pub fn Expr::n_unique(Self) -> Self
 pub fn Expr::ne(Self, Self) -> Self
 pub fn Expr::not(Self) -> Self
 pub fn Expr::output_name(Self) -> String
+pub fn Expr::pow(Self, Self) -> Self
 pub fn Expr::referenced_columns(Self) -> @set.Set[String]
 pub fn Expr::sign(Self) -> Self
 pub fn Expr::std(Self) -> Self

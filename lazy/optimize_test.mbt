@@ -595,10 +595,34 @@ test "fence: a sign-sensitive predicate stays above an aggregate on a signed-zer
 }
 
 ///|
+test "fence: a pow predicate with a negative exponent also stays above a signed-zero aggregate" {
+  // `(+0.0) ** -1 = +inf` but `(-0.0) ** -1 = -inf`, so a negative exponent
+  // reveals a folded key's sign exactly as division does — the filter must stay
+  // above the aggregate, not sink into the group's individual rows.
+  let neg_zero = -1.0 * id_double(0.0)
+  let df = @frame.DataFrame::new([
+    @series.Series::from_floats("k", [0.0, neg_zero]),
+    @series.Series::from_ints("v", [1, 2]),
+  ])
+  let keys = [@expr.col("k")]
+  let aggs = [@expr.col("v").sum()]
+  let predicate = @expr.col("k")
+    .pow(@expr.lit_float(-1.0))
+    .gt(@expr.lit_float(0.0))
+  let plan = lazy_frame(df).group_by(keys).agg(aggs).filter(predicate)
+  // Not pushed: the optimized plan is the as-built plan.
+  assert_eq(plan.explain(optimized=true), plan.explain())
+  // And `collect` matches the eager chain: +0.0 and -0.0 stay one group.
+  let out = plan.collect()
+  assert_eq(out, df.group_by(keys).agg(aggs).filter(predicate))
+  assert_eq(out.check_invariants(), Ok(()))
+}
+
+///|
 test "predicate pushdown still sinks a division-free predicate below an aggregate" {
-  // The signed-zero fence is precise — only division reveals a zero's sign — so
-  // a comparison predicate on the key still sinks (and must, to keep the
-  // optimization for the common case).
+  // The signed-zero fence is precise — only division or a negative exponent
+  // reveals a zero's sign — so a comparison predicate on the key still sinks
+  // (and must, to keep the optimization for the common case).
   let neg_zero = -1.0 * id_double(0.0)
   let df = @frame.DataFrame::new([
     @series.Series::from_floats("k", [0.0, neg_zero, 5.0]),
@@ -616,7 +640,7 @@ test "predicate pushdown still sinks a division-free predicate below an aggregat
 ///|
 test "deep optimizer predicates don't overflow: the pushdown walks are iterative" {
   // A key predicate this deep formerly overflowed the native stack and aborted
-  // inside row_stable / division_free during optimization — before the executor
+  // inside row_stable / signed_zero_safe during optimization — before the executor
   // even ran. The explicit-stack walks analyse any depth.
   let df = @frame.DataFrame::new([
     @series.Series::from_floats("k", [0.0, 5.0]),
@@ -629,7 +653,7 @@ test "deep optimizer predicates don't overflow: the pushdown walks are iterative
   for _ in 0..<depth {
     predicate = predicate.land(@expr.col("k").gt(@expr.lit_float(-1.0)))
   }
-  // Optimizing walks row_stable + division_free over the whole predicate to
+  // Optimizing walks row_stable + signed_zero_safe over the whole predicate to
   // gate the aggregate pushdown; it completes without aborting and renders the
   // deep optimized plan.
   let plan = lazy_frame(df).group_by(keys).agg(aggs).filter(predicate)

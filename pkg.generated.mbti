@@ -116,6 +116,8 @@ pub using @frame {type JoinType}
 
 pub using @io {type JsonReadOptions}
 
+pub using @frame {type KeepStrategy}
+
 pub using @lazy {type LazyFrame}
 
 pub using @lazy {type LazyGroupBy}

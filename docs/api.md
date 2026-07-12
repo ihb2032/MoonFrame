@@ -595,15 +595,18 @@ so every output satisfies `check_invariants()`; all raise the evaluator's
   length-1 predicate broadcasts. This is the eager executor the lazy
   `Filter` node defers. A row-wise host predicate is reachable through the
   `map_many` escape hatch.
-- `unique() -> DataFrame` — **total**. Drop duplicate rows, keeping the first
-  occurrence of each in first-appearance order (Polars'
-  `unique(maintain_order=True)`). Row identity is the composite cell tuple
-  `group_by` / `join` key on, so a `Float` `NaN` equals `NaN`, `-0.0` folds
-  into `+0.0`, and a **null** cell is an ordinary value (rows that are null in
-  the same places and equal elsewhere are duplicates). The schema and column
-  order are unchanged; an all-distinct or 0-row frame is returned as-is.
-  (Polars' `subset` / `keep` parameters — dedup on a column subset, keep the
-  last, or drop all duplicates — are deferred.)
+- `unique(keep? : KeepStrategy) -> DataFrame` — **total**. Drop duplicate rows.
+  `keep` (default `First`) selects which occurrence survives: `First` / `Last`
+  keep one representative per distinct row, `None` keeps only rows that have no
+  duplicate at all (Polars' `keep='none'`). Kept rows always come out in
+  ascending original-row order, so the result is deterministic without a sort.
+  Row identity is the composite cell tuple `group_by` / `join` key on, so a
+  `Float` `NaN` equals `NaN`, `-0.0` folds into `+0.0`, and a **null** cell is
+  an ordinary value (rows that are null in the same places and equal elsewhere
+  are duplicates). The schema and column order are unchanged; a frame no
+  strategy would thin (all-distinct, or 0-row) is returned as-is. (Polars'
+  `subset` parameter — dedup on a column subset — is deferred: resolving column
+  names would make `unique` fallible, and this is the total, all-columns form.)
 
 A computed numeric result lands on the `Numeric` backend when all-valid,
 `Builtin` otherwise; a `col(...)` reference is canonicalised the same way —
@@ -1000,7 +1003,7 @@ Each returns a new `LazyFrame` wrapping one more node:
 - `sort(by : Array[(Expr, SortOrder, NullOrder)])` · `head(n)` ·
   `tail(n)` · `limit(n)` (≡ `head`) · `slice(start, end)`.
 - `drop(exprs : Array[Expr])` · `rename(pairs : Array[(String, String)])` ·
-  `unique()` · `drop_nulls(subset? : Array[Expr])` ·
+  `unique(keep? : KeepStrategy)` · `drop_nulls(subset? : Array[Expr])` ·
   `fill_null(value : Scalar)` — defer the column / row transforms. The
   optimizer treats each as a barrier (filters do not sink past them and scans
   below keep their full output), so they are correct but not yet pushed
@@ -1136,8 +1139,9 @@ or signature changes). These are the tracked deferrals, all v0.6+:
 - **Lazy scan depth** — predicate pushdown into the file parser and
   streaming execution (v0.5's scan does projection pushdown only), plus
   columnar sources (Parquet / IPC) once eager readers exist.
-- **`unique` options** — a `subset` of key columns and a `keep` strategy
-  (v0.5's `unique()` dedups whole rows, keeping first-appearance order).
+- **`unique` subset** — dedup on a `subset` of key columns (the `keep`
+  strategy is now supported; `subset` stays deferred because resolving column
+  names would turn the currently-total `unique` fallible).
 - **Optimizer extensions** — dead-expression elimination, narrowing /
   predicate-splitting through joins, and sinking filters below sorts (v0.5
   pushes predicates and projections only).

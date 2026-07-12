@@ -1042,6 +1042,13 @@ Each returns a new `LazyFrame` wrapping one more node:
   optimizer treats each as a barrier (filters do not sink past them and scans
   below keep their full output), so they are correct but not yet pushed
   through; a deeper `select` / `aggregate` still narrows its own scan.
+- `sum()` · `mean()` · `min()` · `max()` · `count()` · `null_count()` — defer
+  the whole-frame reductions to a single `Reduce` node, each collecting
+  bitwise-equal to its eager `DataFrame` twin (a 1-row result; numeric columns
+  reduced, non-numeric ones a `Null` cell — `count` / `null_count` count every
+  dtype). Barriers, like the transforms above (a reduction reads every column,
+  so a filter above it stays above and the input keeps its full output). The
+  materialising `describe` stays eager-only.
 - `join(other : LazyFrame, options : JoinOptions)` — the right side
   carries its own deferred pipeline.
 - `group_by(keys : Array[Expr]) -> LazyGroupBy`, then

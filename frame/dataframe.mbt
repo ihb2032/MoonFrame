@@ -103,8 +103,8 @@ pub fn DataFrame::empty(
 ///   does) keeps the "no duplicate names" invariant regardless of how the
 ///   schema reached this call.
 /// - `LengthMismatch` — a row's width differs from `schema.len()`.
-/// - `TypeMismatch(...)` — a non-null cell's dtype doesn't match the
-///   schema's dtype for that column.
+/// - `TypedMismatch(expected, got, column)` — a non-null cell's dtype doesn't
+///   match the schema's dtype for that column (the pieces kept structured).
 /// - `Unsupported(...)` — schema declares a `Null`-dtype column (same
 ///   reason as `empty`).
 /// - `NullInNonNullable(name)` — a `Scalar::Null` lands in a column whose
@@ -138,8 +138,10 @@ pub fn DataFrame::from_rows(
               @types.Scalar::Int(v) => Some(v)
               @types.Scalar::Null => None
               other =>
-                raise @types.DataError::TypeMismatch(
-                  "column \"\{field.name()}\" expected Int, got \{other.dtype()}",
+                raise @types.DataError::TypedMismatch(
+                  @types.DataType::Int,
+                  other.dtype(),
+                  field.name(),
                 )
             }
           }),
@@ -152,8 +154,10 @@ pub fn DataFrame::from_rows(
               @types.Scalar::Float(v) => Some(v)
               @types.Scalar::Null => None
               other =>
-                raise @types.DataError::TypeMismatch(
-                  "column \"\{field.name()}\" expected Float, got \{other.dtype()}",
+                raise @types.DataError::TypedMismatch(
+                  @types.DataType::Float,
+                  other.dtype(),
+                  field.name(),
                 )
             }
           }),
@@ -166,8 +170,10 @@ pub fn DataFrame::from_rows(
               @types.Scalar::Bool(v) => Some(v)
               @types.Scalar::Null => None
               other =>
-                raise @types.DataError::TypeMismatch(
-                  "column \"\{field.name()}\" expected Bool, got \{other.dtype()}",
+                raise @types.DataError::TypedMismatch(
+                  @types.DataType::Bool,
+                  other.dtype(),
+                  field.name(),
                 )
             }
           }),
@@ -180,8 +186,10 @@ pub fn DataFrame::from_rows(
               @types.Scalar::String(v) => Some(v)
               @types.Scalar::Null => None
               other =>
-                raise @types.DataError::TypeMismatch(
-                  "column \"\{field.name()}\" expected String, got \{other.dtype()}",
+                raise @types.DataError::TypedMismatch(
+                  @types.DataType::String,
+                  other.dtype(),
+                  field.name(),
                 )
             }
           }),

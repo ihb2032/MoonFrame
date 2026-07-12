@@ -1,9 +1,10 @@
 ///|
 /// A single cell value in a DataFrame.
 ///
-/// `Null` represents a missing value. All `as_*` conversions and comparisons
-/// involving `Null` `raise TypeMismatch(...)` — callers must check
-/// `is_null()` first or handle the error.
+/// `Null` represents a missing value. The `as_*` conversions `raise
+/// TypedMismatch(expected, got, "")` on a wrong dtype (`got = Null` for a null
+/// cell), and the comparisons `raise TypeMismatch(...)` on `Null` or an
+/// incomparable pair — callers must check `is_null()` first or handle the error.
 ///
 /// The `Float` variant carries a 64-bit `Double`; the `Int` variant carries
 /// a 64-bit `Int64`. Use `as_float` for explicit access; `Int` is also
@@ -49,46 +50,45 @@ pub fn Scalar::to_string(self : Scalar) -> String {
 
 ///|
 /// `Int` cells return their `Int64`; other concrete variants and `Null`
-/// `raise TypeMismatch(...)`.
+/// `raise TypedMismatch(...)`.
 pub fn Scalar::as_int(self : Scalar) -> Int64 raise DataError {
   match self {
     Int(v) => v
-    Null => raise TypeMismatch("expected Int, got Null")
-    other => raise TypeMismatch("expected Int, got \{other.dtype()}")
+    // Structured: the dtypes are read off the error, and `message()` rebuilds
+    // the old "expected Int, got X" wording (`X = Null` for a null cell, whose
+    // dtype is `Null`).
+    other => raise TypedMismatch(DataType::Int, other.dtype(), "")
   }
 }
 
 ///|
 /// `Float` cells return their `Double`; `Int` cells are promoted to
-/// `Double`; other concrete variants and `Null` `raise TypeMismatch(...)`.
+/// `Double`; other concrete variants and `Null` `raise TypedMismatch(...)`.
 pub fn Scalar::as_float(self : Scalar) -> Double raise DataError {
   match self {
     Float(v) => v
     Int(v) => v.to_double()
-    Null => raise TypeMismatch("expected Float, got Null")
-    other => raise TypeMismatch("expected Float, got \{other.dtype()}")
+    other => raise TypedMismatch(DataType::Float, other.dtype(), "")
   }
 }
 
 ///|
 /// `Bool` cells return their value; other concrete variants and `Null`
-/// `raise TypeMismatch(...)`.
+/// `raise TypedMismatch(...)`.
 pub fn Scalar::as_bool(self : Scalar) -> Bool raise DataError {
   match self {
     Bool(v) => v
-    Null => raise TypeMismatch("expected Bool, got Null")
-    other => raise TypeMismatch("expected Bool, got \{other.dtype()}")
+    other => raise TypedMismatch(DataType::Bool, other.dtype(), "")
   }
 }
 
 ///|
 /// `String` cells return their value; other concrete variants and `Null`
-/// `raise TypeMismatch(...)`.
+/// `raise TypedMismatch(...)`.
 pub fn Scalar::as_string(self : Scalar) -> String raise DataError {
   match self {
     String(v) => v
-    Null => raise TypeMismatch("expected String, got Null")
-    other => raise TypeMismatch("expected String, got \{other.dtype()}")
+    other => raise TypedMismatch(DataType::String, other.dtype(), "")
   }
 }
 

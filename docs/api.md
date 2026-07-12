@@ -52,8 +52,9 @@ in [`migration.md`](migration.md).
 
 ## `types` — Value types and errors
 
-- `suberror DataError` — `pub(all) suberror` with 10 variants:
-  `ColumnNotFound` / `DuplicateColumn` / `TypeMismatch` / `LengthMismatch` /
+- `suberror DataError` — `pub(all) suberror` with 11 variants:
+  `ColumnNotFound` / `DuplicateColumn` / `TypeMismatch` /
+  `TypedMismatch(DataType, DataType, String)` / `LengthMismatch` /
   `IndexOutOfBounds` / `ParseError` / `InvalidOperation` / `IoError` /
   `Unsupported` / `NullInNonNullable`. As a `suberror` it is both raised
   (`raise ColumnNotFound("age")`) and recovered
@@ -61,6 +62,12 @@ in [`migration.md`](migration.md).
   callers construct and match
   variants. `DataError::message()` renders a human-readable description;
   the `Show` impl renders the variant form for assertion snapshots.
+  `TypedMismatch(expected, got, column)` is the **structured** form of a dtype
+  mismatch (`column` is `""` when not column-bound): its `message()` rebuilds
+  the `TypeMismatch` wording byte for byte, so a caller can read the dtypes
+  directly instead of parsing the string. `Scalar::as_*` and `from_rows` raise
+  it; the bare `TypeMismatch(String)` stays for messages this shape does not fit
+  (`cannot compare …`, operator mismatches).
 - `enum DataType` — `Int | Float | Bool | String | Null`, with
   `is_numeric` / `is_integer` / `is_float` / `is_string` / `is_bool`.
 - `enum Scalar` — cell value (`Int` carries `Int64`, `Float` carries

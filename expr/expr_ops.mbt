@@ -105,6 +105,20 @@ pub impl Div for Expr with fn div(self, other) {
 }
 
 ///|
+/// `a.floor_div(b)` — floor (integer) division, rounding the quotient toward
+/// negative infinity (Polars `//`). Named, not an operator: MoonBit's `//` is
+/// a line comment. Same-dtype `Int / Int → Int` (`-7 // 2 = -4`, not the `-3`
+/// truncation gives); any `Float` operand promotes the result to `Float`
+/// (`floor(a / b)`). `Int` division by zero yields a **null** cell (integers
+/// have no infinity, and a backend integer divide would trap); `Float`
+/// division by zero follows IEEE 754 (`±inf` / `nan`) like `/`. A null on
+/// either side nulls the output cell; a non-numeric operand raises
+/// `TypeMismatch`.
+pub fn Expr::floor_div(self : Expr, other : Expr) -> Expr {
+  Binary(BinOp::FloorDiv, self, other)
+}
+
+///|
 /// `a & b` — logical AND over `Bool` expressions, with Kleene three-valued
 /// null semantics (`false & null = false`, `true & null = null`). `&` is
 /// MoonBit's only overloadable conjunction (`&&` is built-in short-circuit

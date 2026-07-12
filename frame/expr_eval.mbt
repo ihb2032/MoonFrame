@@ -234,6 +234,7 @@ fn eval_expr(
                     x * y
                   })
                 @expr.BinOp::Div => eval_div(left, right)
+                @expr.BinOp::FloorDiv => eval_floor_div(left, right)
                 @expr.BinOp::Eq => eval_compare(left, right, CmpVerb::Eq)
                 @expr.BinOp::Ne => eval_compare(left, right, CmpVerb::Ne)
                 @expr.BinOp::Lt => eval_compare(left, right, CmpVerb::Lt)

@@ -47,6 +47,7 @@ pub enum BinOp {
   Sub
   Mul
   Div
+  FloorDiv
   Eq
   Ne
   Lt
@@ -82,6 +83,7 @@ pub fn Expr::explain(Self) -> String
 pub fn Expr::fill_nan(Self, Self) -> Self
 pub fn Expr::fill_null(Self, Self) -> Self
 pub fn Expr::first(Self) -> Self
+pub fn Expr::floor_div(Self, Self) -> Self
 pub fn Expr::ge(Self, Self) -> Self
 pub fn Expr::gt(Self, Self) -> Self
 pub fn Expr::is_nan(Self) -> Self

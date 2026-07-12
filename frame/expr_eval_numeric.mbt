@@ -165,6 +165,110 @@ fn eval_div(left : Series, right : Series) -> Series raise @types.DataError {
 }
 
 ///|
+/// `a // b` for two `Int64`s, rounding toward −∞ rather than the truncation
+/// `Int64::/` gives. The caller has already excluded a zero divisor.
+/// `Int64::MIN // -1` wraps like every other `Int64` overflow (total, never
+/// aborts).
+fn floor_div_i64(a : Int64, b : Int64) -> Int64 {
+  let q = a / b
+  // `/` truncates toward zero and `%` carries the dividend's sign, so a
+  // negative, non-integral true quotient truncates one above its floor.
+  if a % b != 0L && (a < 0L) != (b < 0L) {
+    q - 1L
+  } else {
+    q
+  }
+}
+
+///|
+/// `FloorDiv` kernel over two equal-length operands (post-`broadcast_pair`).
+/// Same-dtype `Int / Int → Int` (floor toward −∞); any `Float` operand
+/// promotes to `Float` (`(a / b).floor()`). `Int` division by zero produces a
+/// **null** cell (no integer infinity, and a backend integer divide by zero
+/// traps), so even an all-valid `Int / Int` pair can yield nulls; `Float`
+/// division by zero follows IEEE 754 (`±inf` / `nan`) and stays a value. Null
+/// propagation, the non-numeric `TypeMismatch`, and the `Numeric`
+/// re-convergence match `eval_arith`.
+fn eval_floor_div(
+  left : Series,
+  right : Series,
+) -> Series raise @types.DataError {
+  match (left.storage(), right.storage()) {
+    (@column.ColumnStorage::Numeric(x), @column.ColumnStorage::Numeric(y)) =>
+      return match (x.data, y.data) {
+        // A zero divisor nulls its cell, so an all-valid pair can still leave
+        // the `Numeric` fast path — re-converge afterwards.
+        (@column.NumericData::Int(a), @column.NumericData::Int(b)) =>
+          try_column_to_numeric(
+            Series::from_int_options(
+              left.name(),
+              Array::makei(a.length(), i => {
+                if b[i] == 0L {
+                  None
+                } else {
+                  Some(floor_div_i64(a[i], b[i]))
+                }
+              }),
+            ),
+          )
+        (@column.NumericData::Int(a), @column.NumericData::Float(b)) =>
+          Series::from_floats(
+            left.name(),
+            Array::makei(a.length(), i => (a[i].to_double() / b[i]).floor()),
+          )
+        (@column.NumericData::Float(a), @column.NumericData::Int(b)) =>
+          Series::from_floats(
+            left.name(),
+            Array::makei(a.length(), i => (a[i] / b[i].to_double()).floor()),
+          )
+        (@column.NumericData::Float(a), @column.NumericData::Float(b)) =>
+          Series::from_floats(
+            left.name(),
+            Array::makei(a.length(), i => (a[i] / b[i]).floor()),
+          )
+      }
+    (@column.ColumnStorage::Builtin(_), _)
+    | (_, @column.ColumnStorage::Builtin(_)) => ()
+  }
+  let lv = validity_bools(left.storage())
+  let rv = validity_bools(right.storage())
+  let out = match (left.storage().data(), right.storage().data()) {
+    (@column.ColumnData::Int(a), @column.ColumnData::Int(b)) =>
+      Series::from_int_options(
+        left.name(),
+        Array::makei(a.length(), i => {
+          if lv[i] && rv[i] && b[i] != 0L {
+            Some(floor_div_i64(a[i], b[i]))
+          } else {
+            None
+          }
+        }),
+      )
+    (@column.ColumnData::Int(a), @column.ColumnData::Float(b)) =>
+      Series::from_float_options(
+        left.name(),
+        zip_present(a.length(), lv, rv, i => (a[i].to_double() / b[i]).floor()),
+      )
+    (@column.ColumnData::Float(a), @column.ColumnData::Int(b)) =>
+      Series::from_float_options(
+        left.name(),
+        zip_present(a.length(), lv, rv, i => (a[i] / b[i].to_double()).floor()),
+      )
+    (@column.ColumnData::Float(a), @column.ColumnData::Float(b)) =>
+      Series::from_float_options(
+        left.name(),
+        zip_present(a.length(), lv, rv, i => (a[i] / b[i]).floor()),
+      )
+    (@column.ColumnData::Bool(_) | @column.ColumnData::String(_), _)
+    | (_, @column.ColumnData::Bool(_) | @column.ColumnData::String(_)) =>
+      raise @types.DataError::TypeMismatch(
+        binary_type_mismatch_msg("floor-divide", left, right),
+      )
+  }
+  try_column_to_numeric(out)
+}
+
+///|
 /// Numeric negation kernel. `Int` negation wraps on `Int64` minimum
 /// (MoonBit semantics — total, never aborts); `Float` follows IEEE 754,
 /// so `-NaN` is still NaN and `-0.0` is the negative zero. A null cell

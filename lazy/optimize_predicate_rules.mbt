@@ -91,7 +91,8 @@ fn division_free(expr : @expr.Expr) -> Bool {
       None => break
       Some(e) =>
         match e {
-          @expr.Expr::Binary(@expr.BinOp::Div, _, _) => return false
+          @expr.Expr::Binary(@expr.BinOp::Div | @expr.BinOp::FloorDiv, _, _) =>
+            return false
           _ =>
             for child in e.children() {
               stack.push(child)

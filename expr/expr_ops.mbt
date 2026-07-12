@@ -201,6 +201,18 @@ pub fn Expr::sign(self : Expr) -> Expr {
 }
 
 ///|
+/// `a.round()` — round to the nearest integer value, ties to even (banker's
+/// rounding: `2.5` and `3.5` both round to `2` and `4`, `0.5 → 0`), matching
+/// Polars' default. `Float → Float`; `Int → Int` unchanged (an integer is its
+/// own rounding). `±inf` / `NaN` pass through and `±0.0` keeps its sign. A null
+/// stays null; a non-numeric operand raises `TypeMismatch`. (Rounding to a
+/// number of decimal places, and the other rounding modes, are deferred
+/// additive refinements — this is the whole-number, ties-to-even form.)
+pub fn Expr::round(self : Expr) -> Expr {
+  Unary(UnOp::Round, self)
+}
+
+///|
 /// `a.eq(b)` — elementwise equality, producing a `Bool` column. The whole
 /// comparison family is methods, not operators: MoonBit pins the `Eq` /
 /// `Compare` traits to `Bool` / `Int` returns, so they cannot build an

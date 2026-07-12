@@ -309,6 +309,7 @@ pub enum UnOp {
   Floor
   Ceil
   Sign
+  Round
 } derive(Eq, Debug)
 
 ///|

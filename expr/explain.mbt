@@ -292,6 +292,7 @@ fn binop_symbol(op : BinOp) -> String {
     Sub => "-"
     Mul => "*"
     Div => "/"
+    FloorDiv => "//"
     Eq => "=="
     Ne => "!="
     Lt => "<"

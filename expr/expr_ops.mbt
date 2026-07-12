@@ -622,6 +622,20 @@ pub fn Expr::str_count_matches(self : Expr, pattern : String) -> Expr {
 }
 
 ///|
+/// Substring of each cell by **character** position — Polars' `str.slice`.
+/// `offset` is a 0-based character index; a negative `offset` counts from the
+/// end (`-2` starts two characters before the end). `length` is the number of
+/// characters (omitted → to the end); a `length` of zero or less yields the
+/// empty string. Both are clamped to the cell — an `offset` past the end gives
+/// `""`, and a `length` past the end stops at the end — so it never raises on a
+/// value. Character-based (surrogate pairs are never split), consistent with
+/// `str_len_chars`; a null cell stays null and a non-String operand raises
+/// `TypeMismatch`.
+pub fn Expr::str_slice(self : Expr, offset : Int, length? : Int) -> Expr {
+  Str(StrOp::Slice(offset, length), self)
+}
+
+///|
 /// Cast the operand to `target` at evaluation time, delegating to
 /// `Series::cast` (so the supported dtype pairs — and the `Unsupported`
 /// cases — are exactly the eager ones).

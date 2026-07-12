@@ -344,6 +344,73 @@ test "str_count_matches: a null cell stays null (Builtin)" {
 }
 
 ///|
+test "str_slice: character substring with offset and length, clamped and total" {
+  let df = DataFrame::new([
+    Series::from_string_options("s", [Some("hello"), Some("hi"), None]),
+  ])
+  let out = df.select([
+    @expr.col("s").str_slice(1, length=3).with_alias("mid"),
+    @expr.col("s").str_slice(2).with_alias("tail"),
+    @expr.col("s").str_slice(-2).with_alias("last2"),
+    @expr.col("s").str_slice(-100).with_alias("allneg"),
+    @expr.col("s").str_slice(10).with_alias("past"),
+    @expr.col("s").str_slice(0, length=0).with_alias("empty"),
+  ])
+  // "hello"→ [1:4]="ell", [2:]="llo", last 2 ="lo", offset past end ="",
+  // length 0 ="".  "hi"→ [1:4] clamps to "i", [2:]="", last 2 ="hi".
+  // A null cell stays null throughout.
+  assert_eq(out.get_column("mid").to_scalars(), [
+    @types.Scalar::String("ell"),
+    @types.Scalar::String("i"),
+    @types.Scalar::Null,
+  ])
+  assert_eq(out.get_column("tail").to_scalars(), [
+    @types.Scalar::String("llo"),
+    @types.Scalar::String(""),
+    @types.Scalar::Null,
+  ])
+  assert_eq(out.get_column("last2").to_scalars(), [
+    @types.Scalar::String("lo"),
+    @types.Scalar::String("hi"),
+    @types.Scalar::Null,
+  ])
+  // A negative offset beyond the start clamps to 0 (the whole string).
+  assert_eq(out.get_column("allneg").to_scalars(), [
+    @types.Scalar::String("hello"),
+    @types.Scalar::String("hi"),
+    @types.Scalar::Null,
+  ])
+  assert_eq(out.get_column("past").to_scalars(), [
+    @types.Scalar::String(""),
+    @types.Scalar::String(""),
+    @types.Scalar::Null,
+  ])
+  assert_eq(out.get_column("empty").to_scalars(), [
+    @types.Scalar::String(""),
+    @types.Scalar::String(""),
+    @types.Scalar::Null,
+  ])
+}
+
+///|
+test "str_slice: character-based, so a surrogate pair is never split" {
+  // "a😀b" is 3 codepoints; slicing one char at offset 1 is the whole emoji,
+  // not half a UTF-16 surrogate.
+  let df = DataFrame::new([Series::from_strings("s", ["a😀b"])])
+  let out = df.select([@expr.col("s").str_slice(1, length=1)])
+  assert_eq(out.get_column("s").to_scalars(), [@types.Scalar::String("😀")])
+}
+
+///|
+test "str_slice: a non-String operand raises TypeMismatch" {
+  let df = DataFrame::new([Series::from_ints("n", [1])])
+  assert_true(
+    (Ok(df.select([@expr.col("n").str_slice(0)])) catch { e => Err(e) })
+    is Err(@types.DataError::TypeMismatch(_)),
+  )
+}
+
+///|
 test "str: a predicate filters rows by a (case-sensitive) string test" {
   let df = str_df()
   // `contains` is literal and case-sensitive: only "Hello" has a lowercase

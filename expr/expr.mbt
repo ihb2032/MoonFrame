@@ -351,14 +351,15 @@ pub enum AggOp {
 /// Every operation maps a String cell to its result cell by cell:
 /// `ToUppercase` / `ToLowercase` / `StripChars` / `Replace` / `ReplaceAll` /
 /// `Reverse` / `PadStart` / `PadEnd` / `ReplaceRegex` / `ReplaceAllRegex` /
-/// `Extract` yield a String, `LenChars` / `CountMatches` an `Int`, and the
-/// `Contains` / `StartsWith` / `EndsWith` / `ContainsRegex` predicates a
+/// `Extract` / `Slice` yield a String, `LenChars` / `CountMatches` an `Int`, and
+/// the `Contains` / `StartsWith` / `EndsWith` / `ContainsRegex` predicates a
 /// `Bool`. Null cells pass through as null and a non-String operand is a
 /// `TypeMismatch` at evaluation. `Reverse` reverses Unicode characters
-/// (surrogate pairs respected), and the `PadStart` / `PadEnd` widths count
-/// characters, both consistent with `LenChars`. `Extract` also nulls a cell
-/// that does not match (or whose capture group is absent), so unlike the other
-/// String-valued ops its result is null on a present cell too.
+/// (surrogate pairs respected), and the `PadStart` / `PadEnd` widths and the
+/// `Slice` offset / length all count characters, consistent with `LenChars`.
+/// `Extract` also nulls a cell that does not match (or whose capture group is
+/// absent), so unlike the other String-valued ops its result is null on a
+/// present cell too.
 ///
 /// The regex variants (`ContainsRegex` / `ReplaceRegex` / `ReplaceAllRegex` /
 /// `Extract` / `CountMatches`) carry a POSIX regular-expression pattern (the
@@ -387,4 +388,5 @@ pub enum StrOp {
   ReplaceAllRegex(String, String)
   Extract(String, Int)
   CountMatches(String)
+  Slice(Int, Int?)
 } derive(Eq, Debug)

@@ -161,6 +161,48 @@ pub fn LazyFrame::fill_null(
 }
 
 ///|
+/// Defer `DataFrame::sum`: collapse the plan to a 1-row frame of each column's
+/// sum (numeric columns their sum in the source dtype, non-numeric columns a
+/// `Null` cell). `collect` equals the eager `df.sum()`.
+pub fn LazyFrame::sum(self : LazyFrame) -> LazyFrame {
+  { plan: Reduce(self.plan, LazyReduceOp::Sum) }
+}
+
+///|
+/// Defer `DataFrame::mean`: a 1-row frame of each numeric column's mean as
+/// `Float` (empty / all-null → `Null`), non-numeric columns a `Null` cell.
+pub fn LazyFrame::mean(self : LazyFrame) -> LazyFrame {
+  { plan: Reduce(self.plan, LazyReduceOp::Mean) }
+}
+
+///|
+/// Defer `DataFrame::min`: a 1-row frame of each numeric column's minimum
+/// (`NaN` skipped, source dtype kept), non-numeric columns a `Null` cell.
+pub fn LazyFrame::min(self : LazyFrame) -> LazyFrame {
+  { plan: Reduce(self.plan, LazyReduceOp::Min) }
+}
+
+///|
+/// Defer `DataFrame::max`: the maximum counterpart of `min`.
+pub fn LazyFrame::max(self : LazyFrame) -> LazyFrame {
+  { plan: Reduce(self.plan, LazyReduceOp::Max) }
+}
+
+///|
+/// Defer `DataFrame::count`: a 1-row `Int` frame of each column's non-null cell
+/// count (every dtype).
+pub fn LazyFrame::count(self : LazyFrame) -> LazyFrame {
+  { plan: Reduce(self.plan, LazyReduceOp::Count) }
+}
+
+///|
+/// Defer `DataFrame::null_count`: a 1-row `Int` frame of each column's null
+/// count — the complement of `count`.
+pub fn LazyFrame::null_count(self : LazyFrame) -> LazyFrame {
+  { plan: Reduce(self.plan, LazyReduceOp::NullCount) }
+}
+
+///|
 /// Defer `DataFrame::join`: combine this plan's output (the left side)
 /// with another plan's output (the right side) under `options` — each
 /// side carries its own deferred pipeline. Key resolution, type checks,

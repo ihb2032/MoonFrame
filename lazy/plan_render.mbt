@@ -90,6 +90,15 @@ fn write_plan_label(plan : LogicalPlan, buf : StringBuilder) -> Unit {
     }
     FillNull(_, value) =>
       buf <+ "FILL_NULL \{@types.format_scalar_literal(value)}"
+    Reduce(_, op) =>
+      match op {
+        Sum => buf <+ "SUM"
+        Mean => buf <+ "MEAN"
+        Min => buf <+ "MIN"
+        Max => buf <+ "MAX"
+        Count => buf <+ "COUNT"
+        NullCount => buf <+ "NULL_COUNT"
+      }
   }
 }
 

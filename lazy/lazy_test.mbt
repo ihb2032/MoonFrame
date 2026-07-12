@@ -77,6 +77,49 @@ test "each deferred verb collects to its eager equivalent" {
 }
 
 ///|
+test "each whole-frame reduction collects to its eager equivalent" {
+  // qty (Int, all-valid), bonus (nullable Int), region (String) exercise the
+  // numeric, nullable-numeric, and non-numeric (nulled) cell rules together.
+  let df = sales_df()
+  assert_eq(lazy_frame(df).sum().collect(), df.sum())
+  assert_eq(lazy_frame(df).mean().collect(), df.mean())
+  assert_eq(lazy_frame(df).min().collect(), df.min())
+  assert_eq(lazy_frame(df).max().collect(), df.max())
+  assert_eq(lazy_frame(df).count().collect(), df.count())
+  assert_eq(lazy_frame(df).null_count().collect(), df.null_count())
+}
+
+///|
+test "a reduction caps an optimized pipeline; a filter above it stays above" {
+  let df = sales_df()
+  let predicate = @expr.col("qty").gt(@expr.lit_int(50))
+  // Reduction over a filtered input: the input still optimizes, collect matches
+  // the eager chain, and the reduction renders at the top.
+  let capped = lazy_frame(df).filter(predicate).sum()
+  assert_eq(capped.collect(), df.filter(predicate).sum())
+  assert_true(capped.explain(optimized=true).has_prefix("SUM"))
+  // A filter *above* the reduction can't sink past it (that would filter the
+  // input rows and change the sum) — the reduction is a barrier.
+  let above = lazy_frame(df).sum().filter(@expr.col("qty").gt(@expr.lit_int(0)))
+  assert_eq(
+    above.collect(),
+    df.sum().filter(@expr.col("qty").gt(@expr.lit_int(0))),
+  )
+  assert_true(above.explain(optimized=true).has_prefix("FILTER"))
+}
+
+///|
+test "a whole-frame reduction on an empty frame matches eager" {
+  let empty = @frame.DataFrame::new([
+    @series.Series::from_ints("a", []),
+    @series.Series::from_strings("b", []),
+  ])
+  assert_eq(lazy_frame(empty).sum().collect(), empty.sum())
+  assert_eq(lazy_frame(empty).count().collect(), empty.count())
+  assert_eq(lazy_frame(empty).null_count().collect(), empty.null_count())
+}
+
+///|
 test "is_in / is_between are row-stable predicates through the optimizer" {
   let df = sales_df()
   // `is_in` as a filter over a projection: row-stable, so the optimizer sinks

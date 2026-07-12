@@ -50,6 +50,17 @@ test "explain: the row-window nodes" {
 }
 
 ///|
+test "explain: the whole-frame reductions each print their verb" {
+  let base = lazy_frame(sales_df())
+  assert_eq(base.sum().explain(), "SUM\n  SCAN [4×3]")
+  assert_eq(base.mean().explain(), "MEAN\n  SCAN [4×3]")
+  assert_eq(base.min().explain(), "MIN\n  SCAN [4×3]")
+  assert_eq(base.max().explain(), "MAX\n  SCAN [4×3]")
+  assert_eq(base.count().explain(), "COUNT\n  SCAN [4×3]")
+  assert_eq(base.null_count().explain(), "NULL_COUNT\n  SCAN [4×3]")
+}
+
+///|
 test "explain: every join type's label, with and without keys" {
   let l = lazy_frame(orders_df())
   let r = lazy_frame(cities_df())

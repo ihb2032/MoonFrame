@@ -278,11 +278,17 @@ deliberate divergence from Polars' Rust-`regex` dialect.
 - `str_to_uppercase()` / `str_to_lowercase() -> Expr` — case mapping,
   currently **ASCII-only** (a non-ASCII letter passes through unchanged,
   like `str_strip_chars`' ASCII whitespace set).
-- `str_strip_chars() -> Expr` — strip leading / trailing ASCII whitespace
-  (tab, newline, carriage-return, space).
+- `str_strip_chars(chars? : String) -> Expr` — strip leading / trailing
+  characters. With `chars` omitted, the ASCII whitespace set (tab, newline,
+  carriage-return, space); with `chars` given, every character in that set
+  (order-independent, like Polars' `strip_chars`).
 - `str_len_chars() -> Expr` — the Unicode character count as an `Int` (a
   supplementary-plane character counts once, not as its two UTF-16 code
   units); an all-valid result rides the `Numeric` fast path.
+- `str_len_bytes() -> Expr` — the **UTF-8 byte** length as an `Int` (Polars'
+  `str.len_bytes`); a supplementary-plane character counts as its 4 UTF-8
+  bytes, an ASCII character as 1. Differs from `str_len_chars` for any
+  non-ASCII cell; an all-valid result rides the `Numeric` fast path.
 - `str_contains(pattern : String)` / `str_starts_with(prefix : String)` /
   `str_ends_with(suffix : String) -> Expr` — `Bool` columns for the literal
   substring / prefix / suffix tests.
@@ -318,6 +324,12 @@ deliberate divergence from Polars' Rust-`regex` dialect.
   character count. Both clamp to the cell, so it never raises on a value —
   character-based, so a surrogate pair is never split (consistent with
   `str_len_chars`).
+- `str_split_get(sep : String, index : Int) -> Expr` — a nullable `String`
+  column of the `index`-th field of each cell split on the literal `sep`
+  (0-based). A cell with fewer than `index + 1` fields — and any negative
+  `index` — is **null** (the scalar form of Polars' `str.split(...).list.get`;
+  the list-returning `str.split` awaits a list dtype). An empty `sep` yields
+  the whole cell at index `0`.
 
 ### Conditional
 
@@ -1197,13 +1209,15 @@ The whole v0.5 surface above is **shipped**, and it is the last breaking
 release: from v0.6 on the API only grows (additive — no renames, removals,
 or signature changes). These are the tracked deferrals, all v0.6+:
 
-- **More expression families** — byte length (`str_len_bytes`), `split`
-  (blocked on a list dtype), and — further out — window and datetime expressions
-  (the repo has no datetime type yet). The v0.5 operator / method set is frozen;
-  these extend it. (The arithmetic / numeric operator family — `floor_div`,
-  `mod`, `pow`, `abs` / `floor` / `ceil` / `sign` / `round` — and the string
-  family — `str_reverse` / `str_pad_*` / `str_slice` and the regex ops
-  `str_*_regex` / `str_extract` / `str_count_matches` — are now done.)
+- **More expression families** — the list-returning `str.split` (blocked on a
+  list dtype; the scalar `str_split_get` is done) and — further out — window
+  and datetime expressions (the repo has no datetime type yet). The v0.5
+  operator / method set is frozen; these extend it. (The arithmetic / numeric
+  operator family — `floor_div`, `mod`, `pow`, `abs` / `floor` / `ceil` /
+  `sign` / `round` — and the string family — `str_reverse` / `str_pad_*` /
+  `str_slice` / `str_len_bytes` / `str_split_get`, the custom-charset
+  `str_strip_chars`, and the regex ops `str_*_regex` / `str_extract` /
+  `str_count_matches` — are now done.)
 - **Lazy scan depth** — predicate pushdown into the file parser and
   streaming execution (v0.5's scan does projection pushdown only), plus
   columnar sources (Parquet / IPC) once eager readers exist.

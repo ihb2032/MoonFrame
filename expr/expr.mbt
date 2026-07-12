@@ -270,6 +270,10 @@ pub enum UnOp {
   IsNotNull
   IsNan
   IsNotNan
+  Abs
+  Floor
+  Ceil
+  Sign
 } derive(Eq, Debug)
 
 ///|

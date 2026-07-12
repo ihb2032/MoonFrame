@@ -147,6 +147,38 @@ pub impl Neg for Expr with fn neg(self) {
 }
 
 ///|
+/// `a.abs()` — absolute value. `Int → Int` (`Int64::MIN` wraps, like `Neg`);
+/// `Float → Float` (`|NaN| = NaN`, `|-0.0| = 0.0`). A null stays null; a
+/// non-numeric operand raises `TypeMismatch`.
+pub fn Expr::abs(self : Expr) -> Expr {
+  Unary(UnOp::Abs, self)
+}
+
+///|
+/// `a.floor()` — round toward −∞ to an integer value. `Float → Float`; `Int →
+/// Int` unchanged (an integer is its own floor). `±inf` / `NaN` pass through.
+/// A null stays null; a non-numeric operand raises `TypeMismatch`.
+pub fn Expr::floor(self : Expr) -> Expr {
+  Unary(UnOp::Floor, self)
+}
+
+///|
+/// `a.ceil()` — round toward +∞ to an integer value. `Float → Float`; `Int →
+/// Int` unchanged. `±inf` / `NaN` pass through. A null stays null; a
+/// non-numeric operand raises `TypeMismatch`.
+pub fn Expr::ceil(self : Expr) -> Expr {
+  Unary(UnOp::Ceil, self)
+}
+
+///|
+/// `a.sign()` — `-1` / `0` / `+1` by sign, in the operand's own dtype (`Int →
+/// Int`, `Float → Float`). `Float` `NaN` stays `NaN` and `±0.0` gives `0.0`. A
+/// null stays null; a non-numeric operand raises `TypeMismatch`.
+pub fn Expr::sign(self : Expr) -> Expr {
+  Unary(UnOp::Sign, self)
+}
+
+///|
 /// `a.eq(b)` — elementwise equality, producing a `Bool` column. The whole
 /// comparison family is methods, not operators: MoonBit pins the `Eq` /
 /// `Compare` traits to `Bool` / `Int` returns, so they cannot build an

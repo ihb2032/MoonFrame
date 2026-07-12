@@ -177,6 +177,12 @@ depends only on `types`.
   (the impls' own spelling — `and` is a reserved word, so there is no
   `Expr::and` / `Expr::or`).
 - Unary `-` (`Neg`): `-col("x")`.
+- Unary numeric methods `col("x").abs()` / `.floor()` / `.ceil()` / `.sign()`
+  — absolute value; round toward −∞ / +∞ to an integer value; and the `-1` /
+  `0` / `+1` sign. Each keeps the operand's dtype (`Int → Int`, `Float →
+  Float`; `floor` / `ceil` leave an `Int` unchanged). `NaN` passes through
+  (`sign(NaN) = NaN`); a null stays null; a non-numeric operand raises
+  `TypeMismatch`.
 
 ### Methods
 
@@ -1098,7 +1104,7 @@ release: from v0.6 on the API only grows (additive — no renames, removals,
 or signature changes). These are the tracked deferrals, all v0.6+:
 
 - **More expression families** — arithmetic / numeric operators
-  (`pow`, `mod`, `abs`, `round`, `floor`, `ceil`, `sign`,
+  (`pow`, `mod`, `round`,
   `is_in`, `is_between`), regex-backed and more positional string methods
   (`str_slice`, byte length, `split` / `pad`), and — further out — window
   and datetime expressions (the repo has no datetime type yet). The v0.5

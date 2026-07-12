@@ -264,6 +264,25 @@ fn eval_expr(
                   )
                 @expr.UnOp::IsNan => eval_is_nan(operand, true)
                 @expr.UnOp::IsNotNan => eval_is_nan(operand, false)
+                @expr.UnOp::Abs =>
+                  eval_unary_num(
+                    operand,
+                    "take the absolute value of",
+                    a => a.abs(),
+                    a => a.abs(),
+                  )
+                @expr.UnOp::Floor =>
+                  eval_unary_num(operand, "take the floor of", a => a, a => {
+                    a.floor()
+                  })
+                @expr.UnOp::Ceil =>
+                  eval_unary_num(operand, "take the ceiling of", a => a, a => {
+                    a.ceil()
+                  })
+                @expr.UnOp::Sign =>
+                  eval_unary_num(
+                    operand, "take the sign of", sign_i64, sign_f64,
+                  )
               },
             )
           }

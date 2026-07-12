@@ -275,20 +275,33 @@ fn eval_floor_div(
 /// stays null; non-numeric operands raise. An all-valid result converges
 /// onto the `Numeric` backend, as for binary arithmetic.
 fn eval_neg(operand : Series) -> Series raise @types.DataError {
-  // `Numeric` fast arm (see `eval_arith`): an all-valid operand negates in
-  // one raw-array pass and stays on the `Numeric` backend.
+  eval_unary_num(operand, "negate", a => -a, a => -a)
+}
+
+///|
+/// Shared kernel for a numeric unary op (`neg` / `abs` / `floor` / `ceil` /
+/// `sign`): each supplies its `Int64` and `Double` cell op plus the verb its
+/// `TypeMismatch` message uses. `Int op → Int`, `Float op → Float`; a null cell
+/// stays null; a non-numeric operand raises. An all-valid result converges onto
+/// the `Numeric` backend, as for binary arithmetic.
+fn eval_unary_num(
+  operand : Series,
+  verb : String,
+  int_op : (Int64) -> Int64,
+  float_op : (Double) -> Double,
+) -> Series raise @types.DataError {
   match operand.storage() {
     @column.ColumnStorage::Numeric(x) =>
       return match x.data {
         @column.NumericData::Int(a) =>
           Series::from_ints(
             operand.name(),
-            Array::makei(a.length(), i => -a[i]),
+            Array::makei(a.length(), i => int_op(a[i])),
           )
         @column.NumericData::Float(a) =>
           Series::from_floats(
             operand.name(),
-            Array::makei(a.length(), i => -a[i]),
+            Array::makei(a.length(), i => float_op(a[i])),
           )
       }
     @column.ColumnStorage::Builtin(_) => ()
@@ -298,17 +311,44 @@ fn eval_neg(operand : Series) -> Series raise @types.DataError {
     @column.ColumnData::Int(a) =>
       Series::from_int_options(
         operand.name(),
-        map_present(a.length(), valid, i => -a[i]),
+        map_present(a.length(), valid, i => int_op(a[i])),
       )
     @column.ColumnData::Float(a) =>
       Series::from_float_options(
         operand.name(),
-        map_present(a.length(), valid, i => -a[i]),
+        map_present(a.length(), valid, i => float_op(a[i])),
       )
     @column.ColumnData::Bool(_) | @column.ColumnData::String(_) =>
-      raise @types.DataError::TypeMismatch("cannot negate \{operand.dtype()}")
+      raise @types.DataError::TypeMismatch("cannot \{verb} \{operand.dtype()}")
   }
   try_column_to_numeric(out)
+}
+
+///|
+/// Sign of an `Int64` — `-1` / `0` / `1`.
+fn sign_i64(a : Int64) -> Int64 {
+  if a > 0L {
+    1L
+  } else if a < 0L {
+    -1L
+  } else {
+    0L
+  }
+}
+
+///|
+/// Sign of a `Double` — `-1.0` / `0.0` / `1.0`; `NaN` stays `NaN` and `±0.0`
+/// gives `0.0`.
+fn sign_f64(a : Double) -> Double {
+  if a.is_nan() {
+    a
+  } else if a > 0.0 {
+    1.0
+  } else if a < 0.0 {
+    -1.0
+  } else {
+    0.0
+  }
 }
 
 ///|

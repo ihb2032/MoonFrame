@@ -69,8 +69,8 @@ in [`migration.md`](migration.md).
   `as_int` / `as_float` / `as_bool` / `as_string` and the comparisons
   `eq` / `lt` / `lte` / `gt` / `gte`, which return `Bool` and
   `raise TypeMismatch` when either side is `Null` or the dtypes are
-  incomparable. `as_float` promotes `Int`; mixed numeric comparisons
-  promote `Int` to `Double`. `String` comparisons use lexicographic
+  incomparable. `as_float` promotes `Int`; mixed numeric comparisons are
+  **exact** (no `Int`→`Double` promotion). `String` comparisons use lexicographic
   order (see `compare_string_lex`), **not** the built-in shortlex `<`.
 - `fn compare_string_lex(a, b) -> Int` — lexicographic string comparison
   by Unicode code point (`-1` / `0` / `1`), so supplementary-plane
@@ -312,10 +312,11 @@ raising `DataError` at evaluation time — building the tree never fails:
   otherwise null; `not(null) = null`. Non-`Bool` operands → `TypeMismatch`.
 - **Comparisons**: cross-numeric is legal, strings compare by
   `compare_string_lex`, `Bool` as `false < true`; the result is a `Bool`
-  column. Mixed `Int`-vs-`Float` compares after promoting the `Int` to
-  `Double`, which is lossy beyond 2^53 — two distinct large values can
-  compare equal near that boundary (Polars compares int/float exactly);
-  same-dtype `Int` comparisons are always exact.
+  column. Mixed `Int`-vs-`Float` compares **exactly** — the `Int64` is not
+  promoted to `Double`, so two distinct values never collide above 2^53 (e.g.
+  `Int64::MAX` is not equal to the `2^63` `Double` a promotion would round it
+  to). A deliberate departure from Polars' Float64-supertype promotion, chosen
+  for correctness; same-dtype comparisons are always exact.
 - **String namespace** (`str_to_uppercase` / `str_contains` / …) maps each
   cell of a String operand through a literal `StrOp` — case (ASCII-only),
   `strip_chars` (ASCII whitespace), `len_chars` (an `Int`), the `contains` /

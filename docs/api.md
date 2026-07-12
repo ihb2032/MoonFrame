@@ -795,7 +795,9 @@ Hash equi-join, native to the method chain (`left.join(right, options)`).
   chain. `coalesce` defaults to `None` (auto:
   coalesce on an inner / left / right join, keep both keys on an `Outer`
   join — Polars' rule) and only takes effect for an all-bare-`col` `on`
-  join; `left_on` / `right_on` and derived keys never coalesce. Chainable:
+  join; `left_on` / `right_on` and derived keys never coalesce.
+  `with_coalesce_auto()` resets a forced `coalesce` back to that auto default
+  (the only builder path back to `None`). Chainable:
   `JoinOptions::on([col("id")]).with_how(Outer).with_coalesce(true)`.
 
 ### Sorting types

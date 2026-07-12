@@ -115,6 +115,22 @@ test "with_coalesce forces the coalesce flag, last write wins" {
 }
 
 ///|
+test "with_coalesce_auto resets coalescing to the auto default" {
+  let base = JoinOptions::on([@expr.col("id")])
+  // Undoing either forced value returns to the bare `on` (coalesce auto),
+  // regardless of which was set — the only builder path back to `None`.
+  assert_eq(base.with_coalesce(true).with_coalesce_auto(), base)
+  assert_eq(base.with_coalesce(false).with_coalesce_auto(), base)
+  // On a bare `on` (already auto) it is a no-op, and it leaves how / suffix
+  // untouched.
+  assert_eq(base.with_coalesce_auto(), base)
+  assert_eq(
+    base.with_how(JoinType::Left).with_coalesce(false).with_coalesce_auto(),
+    base.with_how(JoinType::Left),
+  )
+}
+
+///|
 test "on carries the key list (distinct key sets give distinct options)" {
   assert_eq(
     JoinOptions::on([@expr.col("a"), @expr.col("b")]),

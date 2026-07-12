@@ -125,8 +125,48 @@ fn eval_str(
         map_present(n, valid, i => re.replace_by(data[i], _ => value).to_owned()),
       )
     }
+    // `Extract` nulls a present cell that does not match (or whose group is
+    // absent), so it builds `Array[String?]` directly rather than through
+    // `map_present`, whose `f` cannot itself produce a null.
+    @expr.StrOp::Extract(pattern, group) => {
+      let re = compile_regex(pattern)
+      Series::from_string_options(
+        name,
+        Array::makei(n, i => {
+          if valid[i] {
+            extract_match(re, data[i], group)
+          } else {
+            None
+          }
+        }),
+      )
+    }
+    @expr.StrOp::CountMatches(pattern) => {
+      let re = compile_regex(pattern)
+      Series::from_int_options(
+        name,
+        map_present(n, valid, i => re.find(data[i]).count().to_int64()),
+      )
+    }
   }
   try_column_to_numeric(out)
+}
+
+///|
+/// Extract the `group`-th capture (`0` = the whole match) of the first match of
+/// `re` in `cell`, as a `String?`: `None` when the cell does not match or the
+/// chosen group did not participate. Behind `Extract`; `re` is compiled once by
+/// the caller.
+fn extract_match(re : @string.Regex, cell : String, group : Int) -> String? {
+  match re.execute(cell) {
+    None => None
+    Some(m) =>
+      if group == 0 {
+        Some(m.content().to_owned())
+      } else {
+        m.group(group).map(v => v.to_owned())
+      }
+  }
 }
 
 ///|

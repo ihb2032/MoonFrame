@@ -47,6 +47,19 @@ test "str: every namespace method renders as a postfix call" {
     col("s").str_replace_all_regex("a", "b"),
     content="col(s).str_replace_all_regex(\"a\", \"b\")",
   )
+  // The pattern renders quoted, the group index bare (default 0 shown).
+  inspect(
+    col("s").str_extract("[0-9]+"),
+    content="col(s).str_extract(\"[0-9]+\", 0)",
+  )
+  inspect(
+    col("s").str_extract("(a)", group=1),
+    content="col(s).str_extract(\"(a)\", 1)",
+  )
+  inspect(
+    col("s").str_count_matches("x"),
+    content="col(s).str_count_matches(\"x\")",
+  )
 }
 
 ///|
@@ -103,6 +116,20 @@ test "str: structural equality compares the op tag and the operand" {
   )
   assert_eq(
     col("s").str_contains_regex("a") == col("s").str_contains("a"),
+    false,
+  )
+  // `Extract` distinguishes on both pattern and group index.
+  assert_eq(
+    col("s").str_extract("a", group=1),
+    col("s").str_extract("a", group=1),
+  )
+  assert_eq(
+    col("s").str_extract("a", group=1) == col("s").str_extract("a", group=2),
+    false,
+  )
+  assert_eq(col("s").str_extract("a") == col("s").str_extract("b"), false)
+  assert_eq(
+    col("s").str_count_matches("a") == col("s").str_count_matches("b"),
     false,
   )
 }

@@ -381,6 +381,12 @@ fn write_str_suffix(logger : &Logger, op : StrOp) -> Unit {
     ReplaceRegex(a, b) => write_str_call(logger, "str_replace_regex", [a, b])
     ReplaceAllRegex(a, b) =>
       write_str_call(logger, "str_replace_all_regex", [a, b])
+    // The pattern renders quoted, the group index bare.
+    Extract(pattern, group) =>
+      logger.write_string(
+        ".str_extract(\"\{@types.escape_debug(pattern)}\", \{group})",
+      )
+    CountMatches(p) => write_str_call(logger, "str_count_matches", [p])
   }
 }
 

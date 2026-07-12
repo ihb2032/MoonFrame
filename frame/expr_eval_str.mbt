@@ -1,9 +1,11 @@
 ///|
 /// The string-namespace kernel: apply a `@expr.StrOp` to each cell of a String
-/// operand — case, `strip_chars`, `len_chars`, the literal `contains` /
-/// `starts_with` / `ends_with` predicates, and literal `replace` /
-/// `replace_all`. A non-String operand raises `TypeMismatch`, null cells stay
-/// null, and matching is always literal (no regex engine yet).
+/// operand — case, `strip_chars`, `len_chars`, `reverse`, `pad`, the literal
+/// `contains` / `starts_with` / `ends_with` predicates and `replace` /
+/// `replace_all`, and the POSIX-regex `contains_regex` / `replace_regex` /
+/// `replace_all_regex`. A non-String operand raises `TypeMismatch`, null cells
+/// stay null. Literal matching is per-value total; the regex ops compile their
+/// pattern once (an invalid pattern raises `InvalidOperation`).
 
 ///|
 /// Elementwise string-namespace kernel: apply `op` to each cell of a String
@@ -11,12 +13,15 @@
 /// `TypeMismatch`, decided once for the whole column (scope-independent, so
 /// the optimizer treats a `Str` node as row-stable). A null cell maps to a
 /// null result; a present cell maps through the underlying total `String`
-/// method, so no value can raise. `ToUppercase` / `ToLowercase` /
-/// `StripChars` / `Replace` / `ReplaceAll` produce a String column,
-/// `LenChars` an Int (the Unicode character count — an all-valid result
-/// converges onto the `Numeric` fast path like every computed numeric), and
-/// the `Contains` / `StartsWith` / `EndsWith` predicates a Bool. Matching is
-/// always literal (no regex engine yet).
+/// method, so no *value* can raise. `ToUppercase` / `ToLowercase` /
+/// `StripChars` / `Replace` / `ReplaceAll` / `Reverse` / `PadStart` / `PadEnd` /
+/// `ReplaceRegex` / `ReplaceAllRegex` produce a String column, `LenChars` an Int
+/// (the Unicode character count — an all-valid result converges onto the
+/// `Numeric` fast path like every computed numeric), and the `Contains` /
+/// `StartsWith` / `EndsWith` / `ContainsRegex` predicates a Bool. The `*Regex`
+/// ops compile their POSIX pattern **once** (hoisted out of the per-cell map),
+/// so an invalid pattern raises `InvalidOperation` once per evaluation — the
+/// only non-total path — while literal matching stays per-value total.
 fn eval_str(
   op : @expr.StrOp,
   operand : Series,
@@ -94,8 +99,49 @@ fn eval_str(
         name,
         map_present(n, valid, i => pad_end_chars(data[i], width, fill)),
       )
+    // The `*Regex` ops compile the pattern once here — outside `map_present`, so
+    // an invalid pattern raises once per evaluation, never per cell — then run
+    // it over each present cell (`String` cells auto-coerce to `StringView`).
+    @expr.StrOp::ContainsRegex(pattern) => {
+      let re = compile_regex(pattern)
+      Series::from_bool_options(
+        name,
+        map_present(n, valid, i => re.execute(data[i]) is Some(_)),
+      )
+    }
+    @expr.StrOp::ReplaceRegex(pattern, value) => {
+      let re = compile_regex(pattern)
+      Series::from_string_options(
+        name,
+        map_present(n, valid, i => {
+          re.replace_by(data[i], _ => value, limit=1).to_owned()
+        }),
+      )
+    }
+    @expr.StrOp::ReplaceAllRegex(pattern, value) => {
+      let re = compile_regex(pattern)
+      Series::from_string_options(
+        name,
+        map_present(n, valid, i => re.replace_by(data[i], _ => value).to_owned()),
+      )
+    }
   }
   try_column_to_numeric(out)
+}
+
+///|
+/// Compile a regex `pattern` once, mapping the core engine's parse error to an
+/// `InvalidOperation` — the `*Regex` string ops' one raising path, taken once
+/// per evaluation, never per cell. The engine's dialect is POSIX, so a PCRE
+/// class like `\d` is itself a parse error, surfaced here with the engine's own
+/// message.
+fn compile_regex(pattern : String) -> @string.Regex raise @types.DataError {
+  @string.Regex::Regex(pattern) catch {
+    e =>
+      raise @types.DataError::InvalidOperation(
+        "invalid regex pattern \"\{pattern}\": \{e}",
+      )
+  }
 }
 
 ///|

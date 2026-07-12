@@ -350,14 +350,22 @@ pub enum AggOp {
 /// the `Str` arm of `Expr`'s handwritten `Eq` can compare tags by `==`).
 /// Every operation maps a String cell to its result cell by cell:
 /// `ToUppercase` / `ToLowercase` / `StripChars` / `Replace` / `ReplaceAll` /
-/// `Reverse` / `PadStart` / `PadEnd` yield a String, `LenChars` an `Int` (the
-/// Unicode character count), and the `Contains` / `StartsWith` / `EndsWith`
-/// predicates a `Bool`. Null cells pass through as null and a non-String
-/// operand is a `TypeMismatch` at evaluation; all are total (no value can
-/// raise), and matching is always literal — there is no regex engine yet.
-/// `Reverse` reverses Unicode characters (surrogate pairs respected), and the
-/// `PadStart` / `PadEnd` widths count characters, both consistent with
-/// `LenChars`.
+/// `Reverse` / `PadStart` / `PadEnd` / `ReplaceRegex` / `ReplaceAllRegex` yield
+/// a String, `LenChars` an `Int` (the Unicode character count), and the
+/// `Contains` / `StartsWith` / `EndsWith` / `ContainsRegex` predicates a
+/// `Bool`. Null cells pass through as null and a non-String operand is a
+/// `TypeMismatch` at evaluation. `Reverse` reverses Unicode characters
+/// (surrogate pairs respected), and the `PadStart` / `PadEnd` widths count
+/// characters, both consistent with `LenChars`.
+///
+/// The `*Regex` variants carry a POSIX regular-expression pattern (the core
+/// engine's dialect — `[[:digit:]]`, not the PCRE `\d`); the literal `Contains`
+/// / `Replace` / `ReplaceAll` are unchanged. Every operation is per-value total
+/// (a null cell nulls out, no *value* can raise), and matching is literal
+/// **except** the `*Regex` variants: those compile the pattern **once** per
+/// evaluation, so an invalid pattern raises `InvalidOperation` at evaluation —
+/// the one non-total path in this namespace, and pattern-, not value-,
+/// dependent.
 pub enum StrOp {
   ToUppercase
   ToLowercase
@@ -371,4 +379,7 @@ pub enum StrOp {
   Reverse
   PadStart(Int, Char)
   PadEnd(Int, Char)
+  ContainsRegex(String)
+  ReplaceRegex(String, String)
+  ReplaceAllRegex(String, String)
 } derive(Eq, Debug)

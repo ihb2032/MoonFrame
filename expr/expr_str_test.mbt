@@ -35,6 +35,18 @@ test "str: every namespace method renders as a postfix call" {
     content="col(s).str_pad_start(5, '0')",
   )
   inspect(col("s").str_pad_end(5), content="col(s).str_pad_end(5, ' ')")
+  inspect(
+    col("s").str_contains_regex("a.c"),
+    content="col(s).str_contains_regex(\"a.c\")",
+  )
+  inspect(
+    col("s").str_replace_regex("a", "b"),
+    content="col(s).str_replace_regex(\"a\", \"b\")",
+  )
+  inspect(
+    col("s").str_replace_all_regex("a", "b"),
+    content="col(s).str_replace_all_regex(\"a\", \"b\")",
+  )
 }
 
 ///|
@@ -82,6 +94,17 @@ test "str: structural equality compares the op tag and the operand" {
     false,
   )
   assert_eq(col("s").str_reverse() == col("s").str_to_uppercase(), false)
+  // A regex op is distinct from its literal namesake and from a differing
+  // pattern.
+  assert_eq(col("s").str_contains_regex("a"), col("s").str_contains_regex("a"))
+  assert_eq(
+    col("s").str_contains_regex("a") == col("s").str_contains_regex("b"),
+    false,
+  )
+  assert_eq(
+    col("s").str_contains_regex("a") == col("s").str_contains("a"),
+    false,
+  )
 }
 
 ///|

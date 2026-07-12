@@ -1,12 +1,12 @@
 ///|
 /// The string-namespace kernel: apply a `@expr.StrOp` to each cell of a String
-/// operand — case, `strip_chars`, `len_chars`, `reverse`, `pad`, `slice`, the
-/// literal `contains` / `starts_with` / `ends_with` predicates and `replace` /
-/// `replace_all`, and the POSIX-regex `contains_regex` / `replace_regex` /
-/// `replace_all_regex` / `extract` / `count_matches`. A non-String operand
-/// raises `TypeMismatch`, null cells stay null. Literal / positional ops are
-/// per-value total; the regex ops compile their pattern once (an invalid
-/// pattern raises `InvalidOperation`).
+/// operand — case, `strip_chars` (default or custom charset), `len_chars` /
+/// `len_bytes`, `reverse`, `pad`, `slice`, `split_get`, the literal `contains` /
+/// `starts_with` / `ends_with` predicates and `replace` / `replace_all`, and the
+/// POSIX-regex `contains_regex` / `replace_regex` / `replace_all_regex` /
+/// `extract` / `count_matches`. A non-String operand raises `TypeMismatch`, null
+/// cells stay null. Literal / positional ops are per-value total; the regex ops
+/// compile their pattern once (an invalid pattern raises `InvalidOperation`).
 
 ///|
 /// Elementwise string-namespace kernel: apply `op` to each cell of a String
@@ -154,8 +154,42 @@ fn eval_str(
         name,
         map_present(n, valid, i => slice_chars(data[i], offset, length)),
       )
+    @expr.StrOp::LenBytes =>
+      Series::from_int_options(
+        name,
+        map_present(n, valid, i => @utf8.encode(data[i]).length().to_int64()),
+      )
+    @expr.StrOp::StripCharsCustom(chars) =>
+      Series::from_string_options(
+        name,
+        map_present(n, valid, i => data[i].trim(chars~).to_owned()),
+      )
+    // `SplitGet` nulls a present cell that has no `index`-th field, so it builds
+    // `Array[String?]` directly rather than through `map_present`.
+    @expr.StrOp::SplitGet(sep, index) =>
+      Series::from_string_options(
+        name,
+        Array::makei(n, i => {
+          if valid[i] {
+            split_get(data[i], sep, index)
+          } else {
+            None
+          }
+        }),
+      )
   }
   try_column_to_numeric(out)
+}
+
+///|
+/// The `index`-th field of `s` split on the literal `sep`, as a `String?`:
+/// `None` for a negative `index` or one past the last field (`str_split_get`).
+fn split_get(s : String, sep : String, index : Int) -> String? {
+  if index < 0 {
+    None
+  } else {
+    s.split(sep).nth(index).map(v => v.to_owned())
+  }
 }
 
 ///|

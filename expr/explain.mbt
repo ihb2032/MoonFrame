@@ -393,6 +393,16 @@ fn write_str_suffix(logger : &Logger, op : StrOp) -> Unit {
         None => logger.write_string(".str_slice(\{offset})")
         Some(n) => logger.write_string(".str_slice(\{offset}, \{n})")
       }
+    LenBytes => logger.write_string(".str_len_bytes()")
+    // The custom strip renders its charset as a quoted argument, so it stays
+    // distinct from the default `.str_strip_chars()`.
+    StripCharsCustom(chars) =>
+      write_str_call(logger, "str_strip_chars", [chars])
+    // The separator renders quoted, the index bare.
+    SplitGet(sep, index) =>
+      logger.write_string(
+        ".str_split_get(\"\{@types.escape_debug(sep)}\", \{index})",
+      )
   }
 }
 

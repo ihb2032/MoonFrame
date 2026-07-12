@@ -349,17 +349,18 @@ pub enum AggOp {
 /// tags are equal, `Contains("a")` and `Contains("b")` are not (which is why
 /// the `Str` arm of `Expr`'s handwritten `Eq` can compare tags by `==`).
 /// Every operation maps a String cell to its result cell by cell:
-/// `ToUppercase` / `ToLowercase` / `StripChars` / `Replace` / `ReplaceAll` /
-/// `Reverse` / `PadStart` / `PadEnd` / `ReplaceRegex` / `ReplaceAllRegex` /
-/// `Extract` / `Slice` yield a String, `LenChars` / `CountMatches` an `Int`, and
-/// the `Contains` / `StartsWith` / `EndsWith` / `ContainsRegex` predicates a
+/// `ToUppercase` / `ToLowercase` / `StripChars` / `StripCharsCustom` /
+/// `Replace` / `ReplaceAll` / `Reverse` / `PadStart` / `PadEnd` /
+/// `ReplaceRegex` / `ReplaceAllRegex` / `Extract` / `Slice` / `SplitGet` yield a
+/// String, `LenChars` / `CountMatches` / `LenBytes` an `Int`, and the
+/// `Contains` / `StartsWith` / `EndsWith` / `ContainsRegex` predicates a
 /// `Bool`. Null cells pass through as null and a non-String operand is a
 /// `TypeMismatch` at evaluation. `Reverse` reverses Unicode characters
 /// (surrogate pairs respected), and the `PadStart` / `PadEnd` widths and the
-/// `Slice` offset / length all count characters, consistent with `LenChars`.
-/// `Extract` also nulls a cell that does not match (or whose capture group is
-/// absent), so unlike the other String-valued ops its result is null on a
-/// present cell too.
+/// `Slice` offset / length all count characters, consistent with `LenChars`
+/// (`LenBytes` counts UTF-8 bytes instead). `Extract` and `SplitGet` also null a
+/// cell that does not match / has no such segment, so unlike the other
+/// String-valued ops their result is null on a present cell too.
 ///
 /// The regex variants (`ContainsRegex` / `ReplaceRegex` / `ReplaceAllRegex` /
 /// `Extract` / `CountMatches`) carry a POSIX regular-expression pattern (the
@@ -389,4 +390,7 @@ pub enum StrOp {
   Extract(String, Int)
   CountMatches(String)
   Slice(Int, Int?)
+  LenBytes
+  StripCharsCustom(String)
+  SplitGet(String, Int)
 } derive(Eq, Debug)

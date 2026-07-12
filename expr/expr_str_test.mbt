@@ -63,6 +63,17 @@ test "str: every namespace method renders as a postfix call" {
   // The offset renders bare; the length only when supplied.
   inspect(col("s").str_slice(2), content="col(s).str_slice(2)")
   inspect(col("s").str_slice(2, length=3), content="col(s).str_slice(2, 3)")
+  inspect(col("s").str_len_bytes(), content="col(s).str_len_bytes()")
+  // The default strip renders bare; a custom charset as a quoted argument.
+  inspect(col("s").str_strip_chars(), content="col(s).str_strip_chars()")
+  inspect(
+    col("s").str_strip_chars(chars="/"),
+    content="col(s).str_strip_chars(\"/\")",
+  )
+  inspect(
+    col("s").str_split_get(",", 1),
+    content="col(s).str_split_get(\",\", 1)",
+  )
 }
 
 ///|
@@ -143,6 +154,27 @@ test "str: structural equality compares the op tag and the operand" {
     false,
   )
   assert_eq(col("s").str_slice(1) == col("s").str_slice(1, length=2), false)
+  // `len_bytes` is a distinct op from `len_chars`; a custom strip differs from
+  // the default and from a different charset; `split_get` distinguishes on both
+  // separator and index.
+  assert_eq(col("s").str_len_bytes() == col("s").str_len_chars(), false)
+  assert_eq(
+    col("s").str_strip_chars(chars="x") == col("s").str_strip_chars(),
+    false,
+  )
+  assert_eq(
+    col("s").str_strip_chars(chars="x") == col("s").str_strip_chars(chars="y"),
+    false,
+  )
+  assert_eq(col("s").str_split_get(",", 1), col("s").str_split_get(",", 1))
+  assert_eq(
+    col("s").str_split_get(",", 1) == col("s").str_split_get(";", 1),
+    false,
+  )
+  assert_eq(
+    col("s").str_split_get(",", 1) == col("s").str_split_get(",", 2),
+    false,
+  )
 }
 
 ///|

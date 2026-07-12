@@ -292,6 +292,10 @@ test "the column / row verbs collect to their eager equivalents" {
     lazy_frame(df).rename([("qty", "quantity")]).collect(),
     df.rename([("qty", "quantity")]),
   )
+  assert_eq(
+    lazy_frame(df).rename_with(name => "col_\{name}").collect(),
+    df.rename_with(name => "col_\{name}"),
+  )
   assert_eq(lazy_frame(df).unique().collect(), df.unique())
   assert_eq(lazy_frame(df).drop_nulls().collect(), df.drop_nulls())
   assert_eq(
@@ -319,6 +323,14 @@ test "the column / row verbs render in explain, with each fill-value form" {
     lazy_frame(df).rename([("qty", "quantity")]).explain(),
     content=(
       #|RENAME [qty -> quantity]
+      #|  SCAN [4×3]
+    ),
+  )
+  // The callable form's closure is opaque, so it renders as a bare label.
+  inspect(
+    lazy_frame(df).rename_with(name => "col_\{name}").explain(),
+    content=(
+      #|RENAME_WITH
       #|  SCAN [4×3]
     ),
   )

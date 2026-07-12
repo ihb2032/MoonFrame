@@ -80,6 +80,7 @@ fn write_plan_label(plan : LogicalPlan, buf : StringBuilder) -> Unit {
       buf <+ "AGGREGATE \{exprs_label(exprs)} BY \{exprs_label(keys)}"
     Drop(_, exprs) => buf <+ "DROP \{exprs_label(exprs)}"
     Rename(_, pairs) => buf <+ "RENAME \{rename_label(pairs)}"
+    RenameWith(_, _) => buf <+ "RENAME_WITH"
     Unique(_) => buf <+ "UNIQUE"
     DropNulls(_, subset) => {
       buf <+ "DROP_NULLS"

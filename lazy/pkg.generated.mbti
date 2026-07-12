@@ -42,6 +42,7 @@ pub fn LazyFrame::mean(Self) -> Self
 pub fn LazyFrame::min(Self) -> Self
 pub fn LazyFrame::null_count(Self) -> Self
 pub fn LazyFrame::rename(Self, Array[(String, String)]) -> Self
+pub fn LazyFrame::rename_with(Self, (String) -> String) -> Self
 pub fn LazyFrame::select(Self, Array[@expr.Expr]) -> Self
 pub fn LazyFrame::slice(Self, Int, Int) -> Self
 pub fn LazyFrame::sort(Self, Array[(@expr.Expr, @frame.SortOrder, @frame.NullOrder)]) -> Self

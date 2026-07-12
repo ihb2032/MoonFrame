@@ -132,6 +132,17 @@ pub fn LazyFrame::rename(
 }
 
 ///|
+/// Defer `DataFrame::rename_with`: rename every column through `f`
+/// (`new = f(old)`). A collision — two columns `f` maps to the same name —
+/// surfaces as the eager `rename_with`'s `DuplicateColumn` at collect time.
+pub fn LazyFrame::rename_with(
+  self : LazyFrame,
+  f : (String) -> String,
+) -> LazyFrame {
+  { plan: RenameWith(self.plan, f) }
+}
+
+///|
 /// Defer `DataFrame::unique`: keep the first occurrence of each distinct row,
 /// in first-appearance order. Total like its eager counterpart.
 pub fn LazyFrame::unique(self : LazyFrame) -> LazyFrame {

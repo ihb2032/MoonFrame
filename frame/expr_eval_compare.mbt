@@ -46,6 +46,58 @@ fn[T] apply_cmp(
 }
 
 ///|
+/// Transpose a comparison verb so `a verb b` becomes `b transpose(verb) a`
+/// (`Lt`↔`Gt`, `Le`↔`Ge`; `Eq` / `Ne` are symmetric). Lets the
+/// `Float`-vs-`Int` arm reuse the `Int`-vs-`Float` verdict with the operands
+/// swapped.
+fn transpose_verb(verb : CmpVerb) -> CmpVerb {
+  match verb {
+    CmpVerb::Eq => CmpVerb::Eq
+    CmpVerb::Ne => CmpVerb::Ne
+    CmpVerb::Lt => CmpVerb::Gt
+    CmpVerb::Le => CmpVerb::Ge
+    CmpVerb::Gt => CmpVerb::Lt
+    CmpVerb::Ge => CmpVerb::Le
+  }
+}
+
+///|
+/// One comparison verdict between an `Int64` cell and a `Double` cell,
+/// **exact** — no `Int`→`Double` promotion, so it mirrors `Scalar`'s
+/// mixed-numeric arms and avoids the `2^53` collisions the Float64-supertype
+/// widening would produce. NaN falls out right through the `@types`
+/// primitives (every comparison with it is `false`).
+fn cmp_int_double(verb : CmpVerb, a : Int64, b : Double) -> Bool {
+  match verb {
+    CmpVerb::Eq => @types.int64_eq_double(a, b)
+    CmpVerb::Ne => !@types.int64_eq_double(a, b)
+    CmpVerb::Lt => @types.int64_lt_double(a, b)
+    CmpVerb::Le => @types.int64_lt_double(a, b) || @types.int64_eq_double(a, b)
+    CmpVerb::Gt => @types.double_lt_int64(b, a)
+    CmpVerb::Ge => @types.double_lt_int64(b, a) || @types.int64_eq_double(a, b)
+  }
+}
+
+///|
+/// The `Float`-vs-`Int` verdict, as the transposed `Int`-vs-`Float` one.
+fn cmp_double_int(verb : CmpVerb, a : Double, b : Int64) -> Bool {
+  cmp_int_double(transpose_verb(verb), b, a)
+}
+
+///|
+/// `compare_cells` for a mixed `Int64` / `Double` pair, whose two sides have
+/// different cell types so a single-`T` reader / predicate does not fit. Takes
+/// the per-row verdict directly; the null layer is identical.
+fn compare_cells_mixed(
+  n : Int,
+  lv : Array[Bool],
+  rv : Array[Bool],
+  verdict : (Int) -> Bool,
+) -> Array[Bool?] {
+  Array::makei(n, i => if lv[i] && rv[i] { Some(verdict(i)) } else { None })
+}
+
+///|
 /// Build the `Bool?` cells of one comparison over two equal-length
 /// operands, given a cell reader per side and the dtype's two primitive
 /// predicates. The verdict itself is `apply_cmp` (NaN semantics live
@@ -75,8 +127,9 @@ fn[T] compare_cells(
 /// Comparison kernel over two equal-length operands
 /// (post-`broadcast_pair`), producing a nullable `Bool` column. The dtype
 /// matrix mirrors `Scalar::eq` / `Scalar::lt` (the `Scalar` comparison
-/// precedent): `Int ↔ Float` compare after promoting `Int` to `Double`,
-/// `String` compares by `compare_string_lex` (dictionary order — MoonBit's
+/// precedent): `Int ↔ Float` compare **exactly** (no `Int`→`Double`
+/// promotion — see `cmp_int_double`), `String` compares by
+/// `compare_string_lex` (dictionary order — MoonBit's
 /// built-in `String` order is shortlex), `Bool` orders `false < true`,
 /// and any other pairing — including `Bool` / `String` against numbers —
 /// raises `TypeMismatch`. Null and NaN behavior live in `compare_cells`.
@@ -103,28 +156,12 @@ fn eval_compare(
         (@column.NumericData::Int(a), @column.NumericData::Float(b)) =>
           Series::from_bools(
             left.name(),
-            Array::makei(a.length(), i => {
-              apply_cmp(
-                verb,
-                (x, y) => x < y,
-                (x, y) => x == y,
-                a[i].to_double(),
-                b[i],
-              )
-            }),
+            Array::makei(a.length(), i => cmp_int_double(verb, a[i], b[i])),
           )
         (@column.NumericData::Float(a), @column.NumericData::Int(b)) =>
           Series::from_bools(
             left.name(),
-            Array::makei(a.length(), i => {
-              apply_cmp(
-                verb,
-                (x, y) => x < y,
-                (x, y) => x == y,
-                a[i],
-                b[i].to_double(),
-              )
-            }),
+            Array::makei(a.length(), i => cmp_double_int(verb, a[i], b[i])),
           )
         (@column.NumericData::Float(a), @column.NumericData::Float(b)) =>
           Series::from_bools(
@@ -152,27 +189,13 @@ fn eval_compare(
         verb,
       )
     (@column.ColumnData::Int(a), @column.ColumnData::Float(b)) =>
-      compare_cells(
-        a.length(),
-        lv,
-        rv,
-        i => a[i].to_double(),
-        i => b[i],
-        (x, y) => x < y,
-        (x, y) => x == y,
-        verb,
-      )
+      compare_cells_mixed(a.length(), lv, rv, i => {
+        cmp_int_double(verb, a[i], b[i])
+      })
     (@column.ColumnData::Float(a), @column.ColumnData::Int(b)) =>
-      compare_cells(
-        a.length(),
-        lv,
-        rv,
-        i => a[i],
-        i => b[i].to_double(),
-        (x, y) => x < y,
-        (x, y) => x == y,
-        verb,
-      )
+      compare_cells_mixed(a.length(), lv, rv, i => {
+        cmp_double_int(verb, a[i], b[i])
+      })
     (@column.ColumnData::Float(a), @column.ColumnData::Float(b)) =>
       compare_cells(
         a.length(),

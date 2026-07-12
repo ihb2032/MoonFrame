@@ -295,6 +295,12 @@ deliberate divergence from Polars' Rust-`regex` dialect.
 - `str_count_matches(pattern : String) -> Expr` — an `Int` column of the
   non-overlapping match count (`0` where the pattern does not match); an
   all-valid result rides the `Numeric` fast path.
+- `str_slice(offset : Int, length? : Int) -> Expr` — a substring by **character**
+  position (Polars' `str.slice`). `offset` is 0-based; a negative `offset`
+  counts from the end. `length` (omitted → to the end; `≤ 0` → empty) is a
+  character count. Both clamp to the cell, so it never raises on a value —
+  character-based, so a surrogate pair is never split (consistent with
+  `str_len_chars`).
 
 ### Conditional
 
@@ -1173,13 +1179,13 @@ The whole v0.5 surface above is **shipped**, and it is the last breaking
 release: from v0.6 on the API only grows (additive — no renames, removals,
 or signature changes). These are the tracked deferrals, all v0.6+:
 
-- **More expression families** — more positional string methods (`str_slice`,
-  byte length), `split` (blocked on a list dtype), and — further out — window
-  and datetime expressions (the repo has no datetime type yet). The v0.5
-  operator / method set is frozen; these extend it. (The arithmetic / numeric
-  operator family — `floor_div`, `mod`, `pow`, `abs` / `floor` / `ceil` /
-  `sign` / `round` — and the string family — `str_reverse` / `str_pad_*` and the
-  regex ops `str_*_regex` / `str_extract` / `str_count_matches` — are now done.)
+- **More expression families** — byte length (`str_len_bytes`), `split`
+  (blocked on a list dtype), and — further out — window and datetime expressions
+  (the repo has no datetime type yet). The v0.5 operator / method set is frozen;
+  these extend it. (The arithmetic / numeric operator family — `floor_div`,
+  `mod`, `pow`, `abs` / `floor` / `ceil` / `sign` / `round` — and the string
+  family — `str_reverse` / `str_pad_*` / `str_slice` and the regex ops
+  `str_*_regex` / `str_extract` / `str_count_matches` — are now done.)
 - **Lazy scan depth** — predicate pushdown into the file parser and
   streaming execution (v0.5's scan does projection pushdown only), plus
   columnar sources (Parquet / IPC) once eager readers exist.

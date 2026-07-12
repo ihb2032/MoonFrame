@@ -121,7 +121,9 @@ pub fn Expr::sign(Self) -> Self
 pub fn Expr::std(Self) -> Self
 pub fn Expr::str_contains(Self, String) -> Self
 pub fn Expr::str_contains_regex(Self, String) -> Self
+pub fn Expr::str_count_matches(Self, String) -> Self
 pub fn Expr::str_ends_with(Self, String) -> Self
+pub fn Expr::str_extract(Self, String, group? : Int) -> Self
 pub fn Expr::str_len_chars(Self) -> Self
 pub fn Expr::str_pad_end(Self, Int, fill? : Char) -> Self
 pub fn Expr::str_pad_start(Self, Int, fill? : Char) -> Self
@@ -164,6 +166,8 @@ pub enum StrOp {
   ContainsRegex(String)
   ReplaceRegex(String, String)
   ReplaceAllRegex(String, String)
+  Extract(String, Int)
+  CountMatches(String)
 } derive(Eq, @debug.Debug)
 
 pub enum UnOp {

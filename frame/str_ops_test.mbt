@@ -276,6 +276,74 @@ test "str regex: a non-String operand is a TypeMismatch" {
 }
 
 ///|
+test "str_extract: whole match by default, capture groups by index, null on no match" {
+  let df = DataFrame::new([
+    Series::from_string_options("s", [Some("abc123"), Some("xyz"), None]),
+  ])
+  let out = df.select([
+    @expr.col("s").str_extract("[0-9]+").with_alias("whole"),
+    @expr.col("s").str_extract("([a-z]+)([0-9]+)", group=1).with_alias("g1"),
+    @expr.col("s").str_extract("([a-z]+)([0-9]+)", group=2).with_alias("g2"),
+  ])
+  // Group 0 (default) is the whole match: "123"; "xyz" has no digit → null.
+  assert_eq(out.get_column("whole").to_scalars(), [
+    @types.Scalar::String("123"),
+    @types.Scalar::Null,
+    @types.Scalar::Null,
+  ])
+  // Groups 1 / 2 on "abc123"; "xyz" doesn't match the whole pattern → null.
+  assert_eq(out.get_column("g1").to_scalars(), [
+    @types.Scalar::String("abc"),
+    @types.Scalar::Null,
+    @types.Scalar::Null,
+  ])
+  assert_eq(out.get_column("g2").to_scalars(), [
+    @types.Scalar::String("123"),
+    @types.Scalar::Null,
+    @types.Scalar::Null,
+  ])
+}
+
+///|
+test "str_extract: a group that did not participate is null even on a match" {
+  // The pattern has no capture group, so group 1 is absent — null despite the
+  // whole pattern matching.
+  let df = DataFrame::new([Series::from_strings("s", ["abc123"])])
+  let out = df.select([@expr.col("s").str_extract("[0-9]+", group=1)])
+  assert_eq(out.get_column("s").to_scalars(), [@types.Scalar::Null])
+}
+
+///|
+test "str_count_matches: non-overlapping match count, all-valid rides Numeric" {
+  let df = DataFrame::new([Series::from_strings("s", ["a1b22c333", "abc", ""])])
+  let out = df.with_columns([
+    @expr.col("s").str_count_matches("[0-9]+").with_alias("n"),
+  ])
+  // Three digit runs, then none, then none.
+  assert_eq(out.get_column("n").to_scalars(), [
+    @types.Scalar::Int(3),
+    @types.Scalar::Int(0),
+    @types.Scalar::Int(0),
+  ])
+  assert_eq(out.get_column("n").storage_kind(), @column.StorageKind::Numeric)
+}
+
+///|
+test "str_count_matches: a null cell stays null (Builtin)" {
+  let df = DataFrame::new([
+    Series::from_string_options("s", [Some("x1x2"), None]),
+  ])
+  let out = df.with_columns([
+    @expr.col("s").str_count_matches("[0-9]").with_alias("n"),
+  ])
+  assert_eq(out.get_column("n").to_scalars(), [
+    @types.Scalar::Int(2),
+    @types.Scalar::Null,
+  ])
+  assert_eq(out.get_column("n").storage_kind(), @column.StorageKind::Builtin)
+}
+
+///|
 test "str: a predicate filters rows by a (case-sensitive) string test" {
   let df = str_df()
   // `contains` is literal and case-sensitive: only "Hello" has a lowercase

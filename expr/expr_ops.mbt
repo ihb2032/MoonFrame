@@ -595,6 +595,33 @@ pub fn Expr::str_replace_all_regex(
 }
 
 ///|
+/// Extract a substring matched by the POSIX regular expression `pattern` — a
+/// nullable `String` column (Polars' `str.extract`). `group` (default `0`, the
+/// **whole match** — Polars defaults to the first capture group `1` instead)
+/// selects a capture group; a cell that does not match, or whose chosen group
+/// did not participate, yields **null**. See `str_contains_regex` for the
+/// dialect and the invalid-pattern error; a null cell stays null and a
+/// non-String operand raises `TypeMismatch`.
+pub fn Expr::str_extract(
+  self : Expr,
+  pattern : String,
+  group? : Int = 0,
+) -> Expr {
+  Str(StrOp::Extract(pattern, group), self)
+}
+
+///|
+/// Count the non-overlapping matches of the POSIX regular expression `pattern`
+/// in each cell — an `Int` column (Polars' `str.count_matches`), `0` where the
+/// pattern does not match. An all-valid result rides the `Numeric` fast path,
+/// like `str_len_chars`. See `str_contains_regex` for the dialect and the
+/// invalid-pattern error; a null cell stays null and a non-String operand
+/// raises `TypeMismatch`.
+pub fn Expr::str_count_matches(self : Expr, pattern : String) -> Expr {
+  Str(StrOp::CountMatches(pattern), self)
+}
+
+///|
 /// Cast the operand to `target` at evaluation time, delegating to
 /// `Series::cast` (so the supported dtype pairs — and the `Unsupported`
 /// cases — are exactly the eager ones).

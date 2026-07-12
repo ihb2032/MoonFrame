@@ -83,6 +83,7 @@ pub using @frame {
   type DataFrame,
   type SortOrder,
   type NullOrder,
+  type KeepStrategy,
   type GroupedDataFrame,
   type JoinType,
   type JoinOptions,

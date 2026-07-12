@@ -104,3 +104,60 @@ test "unique folds NaN and signed zero like a group key" {
   assert_eq(out.item(1, "f"), @types.Scalar::Float(0.0))
   assert_eq(out.check_invariants(), Ok(()))
 }
+
+///|
+test "unique keep=Last keeps the last occurrence, in ascending index order" {
+  let df = dup_df()
+  let out = df.unique(keep=KeepStrategy::Last)
+  assert_eq(out.check_invariants(), Ok(()))
+  assert_eq(out.schema(), df.schema())
+  assert_eq(out.columns(), df.columns())
+  // Last occurrence of each key: (3,z)@3, (2,y)@4, (1,x)@5 — kept ascending by
+  // original index.
+  assert_eq(out.shape(), (3, 2))
+  assert_eq(out.item(0, "a"), @types.Scalar::Int(3))
+  assert_eq(out.item(0, "b"), @types.Scalar::String("z"))
+  assert_eq(out.item(1, "a"), @types.Scalar::Int(2))
+  assert_eq(out.item(1, "b"), @types.Scalar::String("y"))
+  assert_eq(out.item(2, "a"), @types.Scalar::Int(1))
+  assert_eq(out.item(2, "b"), @types.Scalar::String("x"))
+}
+
+///|
+test "unique keep=None keeps only rows that have no duplicate" {
+  let df = dup_df()
+  let out = df.unique(keep=KeepStrategy::None)
+  assert_eq(out.check_invariants(), Ok(()))
+  assert_eq(out.schema(), df.schema())
+  // Only (3,z) occurs once; every (1,x) and (2,y) row is dropped.
+  assert_eq(out.shape(), (1, 2))
+  assert_eq(out.item(0, "a"), @types.Scalar::Int(3))
+  assert_eq(out.item(0, "b"), @types.Scalar::String("z"))
+}
+
+///|
+test "unique keep=None on an all-duplicated frame yields zero rows" {
+  let df = DataFrame::new([
+    Series::from_ints("a", [7, 7]),
+    Series::from_strings("b", ["q", "q"]),
+  ])
+  let out = df.unique(keep=KeepStrategy::None)
+  assert_eq(out.shape(), (0, 2))
+  assert_eq(out.check_invariants(), Ok(()))
+  assert_eq(out.schema(), df.schema())
+}
+
+///|
+test "unique: explicit First matches the default; all-distinct is a no-op for every strategy" {
+  let df = dup_df()
+  // Explicit `First` is the defaulted call.
+  assert_eq(df.unique(keep=KeepStrategy::First), df.unique())
+  // On an all-distinct frame no strategy drops anything — each returns `self`.
+  let distinct = DataFrame::new([
+    Series::from_ints("a", [1, 2, 3]),
+    Series::from_strings("b", ["x", "y", "z"]),
+  ])
+  assert_eq(distinct.unique(keep=KeepStrategy::First), distinct)
+  assert_eq(distinct.unique(keep=KeepStrategy::Last), distinct)
+  assert_eq(distinct.unique(keep=KeepStrategy::None), distinct)
+}

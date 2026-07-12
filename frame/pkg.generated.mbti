@@ -62,7 +62,7 @@ pub fn DataFrame::to_markdown(Self) -> String
 pub fn DataFrame::to_markdown_with_limit(Self, Int) -> String
 pub fn DataFrame::to_numeric(Self) -> Self
 pub fn DataFrame::to_scalar_matrix(Self) -> Array[Array[@types.Scalar]]
-pub fn DataFrame::unique(Self) -> Self
+pub fn DataFrame::unique(Self, keep? : KeepStrategy) -> Self
 pub fn DataFrame::with_columns(Self, Array[@expr.Expr]) -> Self raise @types.DataError
 
 pub struct GroupedDataFrame {
@@ -105,6 +105,12 @@ pub(all) enum JoinType {
   Right
   Outer
   Cross
+} derive(Eq, @debug.Debug)
+
+pub(all) enum KeepStrategy {
+  First
+  Last
+  None
 } derive(Eq, @debug.Debug)
 
 pub(all) enum NullOrder {

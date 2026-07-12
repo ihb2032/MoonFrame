@@ -2,7 +2,7 @@
 /// The predicate pass driver: sink each `Filter` toward the scan so rows drop
 /// as early as possible. `push_predicates` rewrites the plan bottom-up and
 /// `place_filter` sinks one predicate through the stages it may cross. The
-/// crossing-soundness rules those two consult (`row_stable`, `division_free`,
+/// crossing-soundness rules those two consult (`row_stable`, `signed_zero_safe`,
 /// `group_cell_stable`, the bare-column / row-count / defines tests) live in
 /// `optimize_predicate_rules.mbt`; the whole-optimizer overview is on `optimize`
 /// in `optimize.mbt`.
@@ -89,7 +89,7 @@ fn place_filter(input : LogicalPlan, predicate : @expr.Expr) -> LogicalPlan {
         if row_stable(predicate) &&
           all_row_stable(keys) &&
           reads_only_bare_columns(predicate, keys) &&
-          division_free(predicate) &&
+          signed_zero_safe(predicate) &&
           all_group_cells_stable(exprs) {
           crossed.push(ni => Aggregate(ni, keys, exprs))
           cur = inner

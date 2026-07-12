@@ -3,7 +3,7 @@
 /// `optimize_predicates.mbt`): the per-expression analyses that decide whether
 /// dropping rows before a stage can change its output, its errors, or the
 /// predicate's own verdicts. `row_stable` (row-local, non-value-raising),
-/// `division_free` (signed-zero safety on a `Float` group key),
+/// `signed_zero_safe` (signed-zero safety on a `Float` group key),
 /// `group_cell_stable` (an aggregation's per-group cell is neither null nor
 /// value-raising), and the pass-through tests (`reads_only_bare_columns`,
 /// `preserves_row_count`, `defines_none_of`).
@@ -69,20 +69,23 @@ fn all_row_stable(exprs : Array[@expr.Expr]) -> Bool {
 }
 
 ///|
-/// Whether `expr` is free of division — the extra gate the `Aggregate`
-/// predicate pushdown needs to stay sound on a `Float` group key. `KeyCell`
-/// folds `-0.0` and `+0.0` into one group, but the group's output row keeps its
-/// *representative* row's signed key, so a predicate that can tell the two
-/// apart disagrees between a group's individual rows (filtered below the
-/// aggregate) and that representative (filtered above it). Division is the only
-/// operator in the vocabulary that makes a zero's sign observable —
-/// `1.0 / +0.0 = +inf` but `1.0 / -0.0 = -inf`, while `+` / `-` / `*` and every
-/// comparison treat `-0.0` and `+0.0` as equal — so a division-free predicate
-/// gives every row of a folded group the same verdict and may sink below the
-/// aggregate, while one that divides could drop only part of the group and must
-/// stay above. Walks `children()` like `row_stable`, so a future `Expr` variant
-/// is covered without a wildcard.
-fn division_free(expr : @expr.Expr) -> Bool {
+/// Whether `expr` cannot observe the sign of a zero — the extra gate the
+/// `Aggregate` predicate pushdown needs to stay sound on a `Float` group key.
+/// `KeyCell` folds `-0.0` and `+0.0` into one group, but the group's output row
+/// keeps its *representative* row's signed key, so a predicate that can tell the
+/// two apart disagrees between a group's individual rows (filtered below the
+/// aggregate) and that representative (filtered above it). Division and a
+/// negative exponent are the operators in the vocabulary that make a zero's sign
+/// observable — `1.0 / +0.0 = +inf` but `1.0 / -0.0 = -inf`, and
+/// `(+0.0) ** -1.0 = +inf` but `(-0.0) ** -1.0 = -inf`, while `+` / `-` / `*`
+/// / `%` and every comparison treat `-0.0` and `+0.0` as equal (remainder can
+/// carry a zero's sign into its result but no comparison downstream can read it
+/// back out) — so a signed-zero-safe predicate gives every row of a folded group
+/// the same verdict and may sink below the aggregate, while one that divides or
+/// exponentiates could drop only part of the group and must stay above. Walks
+/// `children()` like `row_stable`, so a future `Expr` variant is covered without
+/// a wildcard.
+fn signed_zero_safe(expr : @expr.Expr) -> Bool {
   // Iterative walk like `row_stable`: a deeply nested predicate stays total
   // instead of overflowing the call stack during optimization.
   let stack : Array[@expr.Expr] = [expr]
@@ -91,8 +94,13 @@ fn division_free(expr : @expr.Expr) -> Bool {
       None => break
       Some(e) =>
         match e {
-          @expr.Expr::Binary(@expr.BinOp::Div | @expr.BinOp::FloorDiv, _, _) =>
-            return false
+          @expr.Expr::Binary(
+            @expr.BinOp::Div
+            | @expr.BinOp::FloorDiv
+            | @expr.BinOp::Pow,
+            _,
+            _
+          ) => return false
           _ =>
             for child in e.children() {
               stack.push(child)

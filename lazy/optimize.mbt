@@ -69,12 +69,13 @@
 ///   filtering their rows before it drop exactly the same groups, in the
 ///   same first-appearance order — and a bare key's output column holds its
 ///   input column verbatim, so the predicate reads identical values below).
-///   The predicate must also be `division_free`: a `Float` key folds `-0.0`
+///   The predicate must also be `signed_zero_safe`: a `Float` key folds `-0.0`
 ///   and `+0.0` into one group, yet the group's output row keeps its
-///   representative's signed key, and division is the only operator that tells
-///   the two apart (`1/+0.0 = +inf` vs `1/-0.0 = -inf`), so a dividing
-///   predicate could drop only part of a folded group below the aggregate and
-///   change its surviving reduction.
+///   representative's signed key, and division and a negative exponent are the
+///   operators that tell the two apart (`1/+0.0 = +inf` vs `1/-0.0 = -inf`,
+///   `(+0.0) ** -1 = +inf` vs `(-0.0) ** -1 = -inf`), so such a predicate could
+///   drop only part of a folded group below the aggregate and change its
+///   surviving reduction.
 ///   Every key must also be `row_stable`, not only the ones the predicate
 ///   reads: each key is materialised as an output column (and joins the
 ///   grouping tuple). An aggregate key broadcasts a whole-scope reduction,

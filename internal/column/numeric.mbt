@@ -38,6 +38,12 @@ pub struct NumericColumn {
 } derive(Eq, Debug)
 
 ///|
+pub extend NumericColumn with Eq::{equal, not_equal}
+
+///|
+pub extend NumericColumn with Debug::{to_repr}
+
+///|
 /// Backing storage for `NumericColumn`, discriminated by dtype. The element
 /// type is the raw value; there is no nullability to track (every slot is
 /// valid). Numeric only — `Bool` / `String` columns are always backed by a
@@ -46,6 +52,12 @@ pub(all) enum NumericData {
   Int(Array[Int64])
   Float(Array[Double])
 } derive(Eq, Debug)
+
+///|
+pub extend NumericData with Eq::{equal, not_equal}
+
+///|
+pub extend NumericData with Debug::{to_repr}
 
 // ── Constructors ──────────────────────────────────────────────────────
 

@@ -283,12 +283,15 @@ fn check_equiv(
 /// case prints them verbatim) and only `rows` shrinks — the pipeline shape is
 /// held fixed, since shrinking it would change which optimizer path the case
 /// exercises.
-priv struct AggFilterCase {
+struct AggFilterCase {
   rows : Array[RichRow]
   keys : Array[@expr.Expr]
   aggs : Array[@expr.Expr]
   pred : @expr.Expr
 } derive(Debug)
+
+///|
+pub extend AggFilterCase with Debug::{to_repr}
 
 ///|
 /// Keys: always `g`; the ±0.0 / NaN float key `fk` with prob 1/2 and the string
@@ -427,11 +430,14 @@ test "fuzz: group-by then key-filter is optimizer/eager equivalent on rich frame
 ///|
 /// A `select`-or-`with_columns` stage carrying a nullable derived column,
 /// terminated by a filter on a bare pass-through column.
-priv struct SelectFilterCase {
+struct SelectFilterCase {
   rows : Array[RichRow]
   use_select : Bool // select (with a bare pass-through) vs with_columns
   pred : @expr.Expr
 } derive(Debug)
+
+///|
+pub extend SelectFilterCase with Debug::{to_repr}
 
 ///|
 /// The trailing predicate on a bare pass-through column (eligible to sink):
@@ -524,7 +530,7 @@ test "fuzz: select/with_columns then filter is optimizer/eager equivalent" {
 ///|
 /// A verb specification shared by the lazy and eager appliers, so a stacked
 /// pipeline is literally the same sequence of operations on both carriers.
-priv enum VerbSpec {
+enum VerbSpec {
   VFilter(@expr.Expr)
   VWithColumns(Array[@expr.Expr])
   VSelect(Array[@expr.Expr])
@@ -537,6 +543,9 @@ priv enum VerbSpec {
   // `check_equiv` verifies as error parity).
   VAggregate(Array[@expr.Expr], Array[@expr.Expr])
 } derive(Debug)
+
+///|
+pub extend VerbSpec with Debug::{to_repr}
 
 ///|
 fn apply_lazy(lf : LazyFrame, v : VerbSpec) -> LazyFrame {
@@ -632,11 +641,14 @@ fn gen_verbs() -> @gen.Gen[Array[VerbSpec]] {
 ///|
 /// A deeper, randomly-stacked pipeline: a chain of 2..4 verbs terminated by a
 /// filter on a bare pass-through column.
-priv struct StackedCase {
+struct StackedCase {
   rows : Array[RichRow]
   verbs : Array[VerbSpec]
   pred : @expr.Expr
 } derive(Debug)
+
+///|
+pub extend StackedCase with Debug::{to_repr}
 
 ///|
 /// The terminal predicate on a bare pass-through column: `a.is_not_null()`,

@@ -83,16 +83,25 @@ pub impl Add for Expr with fn add(self, other) {
 }
 
 ///|
+pub extend Expr with Add::{add}
+
+///|
 /// `a - b` — numeric subtraction, same promotion / null rules as `+`.
 pub impl Sub for Expr with fn sub(self, other) {
   Binary(BinOp::Sub, self, other)
 }
 
 ///|
+pub extend Expr with Sub::{sub}
+
+///|
 /// `a * b` — numeric multiplication, same promotion / null rules as `+`.
 pub impl Mul for Expr with fn mul(self, other) {
   Binary(BinOp::Mul, self, other)
 }
+
+///|
+pub extend Expr with Mul::{mul}
 
 ///|
 /// `a / b` — division, always `Float` (Polars `/` semantics): `Int`
@@ -103,6 +112,9 @@ pub impl Mul for Expr with fn mul(self, other) {
 pub impl Div for Expr with fn div(self, other) {
   Binary(BinOp::Div, self, other)
 }
+
+///|
+pub extend Expr with Div::{div}
 
 ///|
 /// `a.floor_div(b)` — floor (integer) division, rounding the quotient toward
@@ -153,6 +165,9 @@ pub impl BitAnd for Expr with fn land(self, other) {
 }
 
 ///|
+pub extend Expr with BitAnd::{land}
+
+///|
 /// `a | b` — logical OR over `Bool` expressions, with Kleene three-valued
 /// null semantics (`true | null = true`, `false | null = null`). Same
 /// operator-choice rationale as `&`; the method alias is likewise the impl
@@ -162,11 +177,17 @@ pub impl BitOr for Expr with fn lor(self, other) {
 }
 
 ///|
+pub extend Expr with BitOr::{lor}
+
+///|
 /// `-e` — numeric negation. `Int` negation wraps on `Int64` minimum
 /// (MoonBit semantics — total, never aborts); `Float` follows IEEE 754.
 pub impl Neg for Expr with fn neg(self) {
   Unary(UnOp::Neg, self)
 }
+
+///|
+pub extend Expr with Neg::{neg}
 
 ///|
 /// `a.abs()` — absolute value. `Int → Int` (`Int64::MIN` wraps, like `Neg`);

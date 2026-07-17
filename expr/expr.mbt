@@ -96,6 +96,9 @@ pub impl Eq for Expr with fn equal(self, other) {
 }
 
 ///|
+pub extend Expr with Eq::{equal, not_equal}
+
+///|
 /// Structural equality over an explicit work-stack of node pairs rather than
 /// the call stack: a deeply nested tree (`col("a") + col("a") + …` tens of
 /// thousands deep) would otherwise overflow the native stack and abort — the
@@ -290,6 +293,12 @@ pub enum BinOp {
 } derive(Eq, Debug)
 
 ///|
+pub extend BinOp with Eq::{equal, not_equal}
+
+///|
+pub extend BinOp with Debug::{to_repr}
+
+///|
 /// Unary operator tag carried by `Expr::Unary` — same read-only-not-`priv`
 /// rationale as `BinOp`. `Neg` is numeric negation (`-e`), `Not` is Kleene
 /// logical negation (`not(null) = null`), the null probes
@@ -311,6 +320,12 @@ pub enum UnOp {
   Sign
   Round
 } derive(Eq, Debug)
+
+///|
+pub extend UnOp with Eq::{equal, not_equal}
+
+///|
+pub extend UnOp with Debug::{to_repr}
 
 ///|
 /// Aggregation tag carried by `Expr::Agg` — same read-only-not-`priv`
@@ -340,6 +355,12 @@ pub enum AggOp {
   First
   Last
 } derive(Eq, Debug)
+
+///|
+pub extend AggOp with Eq::{equal, not_equal}
+
+///|
+pub extend AggOp with Debug::{to_repr}
 
 ///|
 /// String-operation tag carried by `Expr::Str` — same read-only-not-`priv`
@@ -394,3 +415,9 @@ pub enum StrOp {
   StripCharsCustom(String)
   SplitGet(String, Int)
 } derive(Eq, Debug)
+
+///|
+pub extend StrOp with Eq::{equal, not_equal}
+
+///|
+pub extend StrOp with Debug::{to_repr}

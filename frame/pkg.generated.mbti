@@ -36,6 +36,7 @@ pub fn DataFrame::describe(Self) -> Self raise @types.DataError
 pub fn DataFrame::drop(Self, Array[@expr.Expr]) -> Self raise @types.DataError
 pub fn DataFrame::drop_nulls(Self, subset? : Array[@expr.Expr]) -> Self raise @types.DataError
 pub fn DataFrame::empty(@types.Schema) -> Self raise @types.DataError
+pub fn DataFrame::equal(Self, Self) -> Bool
 pub fn DataFrame::fill_null(Self, @types.Scalar) -> Self raise @types.DataError
 pub fn DataFrame::filter(Self, @expr.Expr) -> Self raise @types.DataError
 pub fn DataFrame::from_rows(@types.Schema, Array[Array[@types.Scalar]]) -> Self raise @types.DataError
@@ -52,6 +53,7 @@ pub fn DataFrame::mean(Self) -> Self raise @types.DataError
 pub fn DataFrame::min(Self) -> Self raise @types.DataError
 pub fn DataFrame::ncols(Self) -> Int
 pub fn DataFrame::new(Array[@series.Series]) -> Self raise @types.DataError
+pub fn DataFrame::not_equal(Self, Self) -> Bool
 pub fn DataFrame::nrows(Self) -> Int
 pub fn DataFrame::null_count(Self) -> Self raise @types.DataError
 pub fn DataFrame::rename(Self, Array[(String, String)]) -> Self raise @types.DataError
@@ -73,6 +75,8 @@ pub fn DataFrame::to_html_with_options(Self, HtmlOptions) -> String
 pub fn DataFrame::to_markdown(Self) -> String
 pub fn DataFrame::to_markdown_with_limit(Self, Int) -> String
 pub fn DataFrame::to_numeric(Self) -> Self
+#as_free_fn
+pub fn DataFrame::to_repr(Self) -> @debug.Repr
 pub fn DataFrame::to_scalar_matrix(Self) -> Array[Array[@types.Scalar]]
 pub fn DataFrame::unique(Self, keep? : KeepStrategy) -> Self
 pub fn DataFrame::with_columns(Self, Array[@expr.Expr]) -> Self raise @types.DataError
@@ -81,6 +85,10 @@ pub struct GroupedDataFrame {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn GroupedDataFrame::agg(Self, Array[@expr.Expr]) -> DataFrame raise @types.DataError
+pub fn GroupedDataFrame::equal(Self, Self) -> Bool
+pub fn GroupedDataFrame::not_equal(Self, Self) -> Bool
+#as_free_fn
+pub fn GroupedDataFrame::to_repr(Self) -> @debug.Repr
 
 pub struct HtmlOptions {
   max_rows : Int?
@@ -89,6 +97,10 @@ pub struct HtmlOptions {
   escape : Bool
 } derive(Eq, @debug.Debug)
 pub fn HtmlOptions::default() -> Self
+pub fn HtmlOptions::equal(Self, Self) -> Bool
+pub fn HtmlOptions::not_equal(Self, Self) -> Bool
+#as_free_fn
+pub fn HtmlOptions::to_repr(Self) -> @debug.Repr
 pub fn HtmlOptions::with_caption(Self, String) -> Self
 pub fn HtmlOptions::with_escape(Self, Bool) -> Self
 pub fn HtmlOptions::with_max_rows(Self, Int) -> Self
@@ -103,8 +115,12 @@ pub struct JoinOptions {
   coalesce : Bool?
 } derive(Eq, @debug.Debug)
 pub fn JoinOptions::cross() -> Self
+pub fn JoinOptions::equal(Self, Self) -> Bool
 pub fn JoinOptions::left_on(Array[@expr.Expr]) -> Self
+pub fn JoinOptions::not_equal(Self, Self) -> Bool
 pub fn JoinOptions::on(Array[@expr.Expr]) -> Self
+#as_free_fn
+pub fn JoinOptions::to_repr(Self) -> @debug.Repr
 pub fn JoinOptions::with_coalesce(Self, Bool) -> Self
 pub fn JoinOptions::with_coalesce_auto(Self) -> Self
 pub fn JoinOptions::with_how(Self, JoinType) -> Self
@@ -119,22 +135,38 @@ pub(all) enum JoinType {
   Outer
   Cross
 } derive(Eq, @debug.Debug)
+pub fn JoinType::equal(Self, Self) -> Bool
+pub fn JoinType::not_equal(Self, Self) -> Bool
+#as_free_fn
+pub fn JoinType::to_repr(Self) -> @debug.Repr
 
 pub(all) enum KeepStrategy {
   First
   Last
   None
 } derive(Eq, @debug.Debug)
+pub fn KeepStrategy::equal(Self, Self) -> Bool
+pub fn KeepStrategy::not_equal(Self, Self) -> Bool
+#as_free_fn
+pub fn KeepStrategy::to_repr(Self) -> @debug.Repr
 
 pub(all) enum NullOrder {
   NullsFirst
   NullsLast
 } derive(Eq, @debug.Debug)
+pub fn NullOrder::equal(Self, Self) -> Bool
+pub fn NullOrder::not_equal(Self, Self) -> Bool
+#as_free_fn
+pub fn NullOrder::to_repr(Self) -> @debug.Repr
 
 pub(all) enum SortOrder {
   Asc
   Desc
 } derive(Eq, @debug.Debug)
+pub fn SortOrder::equal(Self, Self) -> Bool
+pub fn SortOrder::not_equal(Self, Self) -> Bool
+#as_free_fn
+pub fn SortOrder::to_repr(Self) -> @debug.Repr
 
 // Type aliases
 

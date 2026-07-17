@@ -9,7 +9,7 @@ fn index_by_join_key(
   key_scalars : Array[Array[@types.Scalar]],
   n : Int,
 ) -> Map[Array[KeyCell], Array[Int]] {
-  let index : Map[Array[KeyCell], Array[Int]] = {}
+  let index : Map[Array[KeyCell], Array[Int]] = Map([])
   for i in 0..<n {
     match join_row_key(key_scalars, i) {
       Some(k) =>
@@ -285,13 +285,13 @@ fn DataFrame::assemble_join_output(
   } else {
     false
   }
-  let on_set : Map[String, Unit] = {}
+  let on_set : Map[String, Unit] = Map([])
   if coalesce_names is Some(names) {
     for k in names {
       on_set[k] = ()
     }
   }
-  let left_names : Map[String, Unit] = {}
+  let left_names : Map[String, Unit] = Map([])
   for n in self.columns() {
     left_names[n] = ()
   }
@@ -426,7 +426,7 @@ fn resolve_join_keys(
   // `ColumnNotFound` at its first appearance (its own evaluation fails before
   // the repeat is reached).
   let dedup = options.left_on.is_empty()
-  let seen : Map[String, Unit] = {}
+  let seen : Map[String, Unit] = Map([])
   for i in 0..<left_exprs.length() {
     let name = expr_output_name(left_exprs[i])
     if dedup && left_exprs[i] is @expr.Expr::Col(_) {

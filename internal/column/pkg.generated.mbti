@@ -19,16 +19,20 @@ pub struct Bitmap {
 pub fn Bitmap::all_null(Int) -> Self
 pub fn Bitmap::all_valid(Int) -> Self
 pub fn Bitmap::bit_and(Self, Self) -> Self raise @types.DataError
+pub fn Bitmap::equal(Self, Self) -> Bool
 pub fn Bitmap::from_bools(Array[Bool]) -> Self
 pub fn[T] Bitmap::from_options(Array[T?]) -> Self
 pub fn Bitmap::is_null(Self, Int) -> Bool raise @types.DataError
 pub fn Bitmap::is_valid(Self, Int) -> Bool raise @types.DataError
 pub fn Bitmap::is_valid_total(Self, Int) -> Bool
 pub fn Bitmap::len(Self) -> Int
+pub fn Bitmap::not_equal(Self, Self) -> Bool
 pub fn Bitmap::null_count(Self) -> Int
 pub fn Bitmap::slice(Self, Int, Int) -> Self raise @types.DataError
 pub fn Bitmap::take(Self, Array[Int]) -> Self raise @types.DataError
 pub fn Bitmap::to_bools(Self) -> Array[Bool]
+#as_free_fn
+pub fn Bitmap::to_repr(Self) -> @debug.Repr
 pub impl Eq for Bitmap
 
 pub struct BuiltinColumn {
@@ -39,6 +43,7 @@ pub fn BuiltinColumn::bool_values(Self) -> (Array[Bool], Bitmap) raise @types.Da
 pub fn BuiltinColumn::cast(Self, @types.DataType) -> Self raise @types.DataError
 pub fn BuiltinColumn::data(Self) -> ColumnData
 pub fn BuiltinColumn::dtype(Self) -> @types.DataType
+pub fn BuiltinColumn::equal(Self, Self) -> Bool
 pub fn BuiltinColumn::float_values(Self) -> (Array[Double], Bitmap) raise @types.DataError
 pub fn BuiltinColumn::from_bool_options(Array[Bool?]) -> Self
 pub fn BuiltinColumn::from_bools(Array[Bool]) -> Self
@@ -53,11 +58,14 @@ pub fn BuiltinColumn::int_values(Self) -> (Array[Int64], Bitmap) raise @types.Da
 pub fn BuiltinColumn::is_empty(Self) -> Bool
 pub fn BuiltinColumn::is_null(Self, Int) -> Bool raise @types.DataError
 pub fn BuiltinColumn::len(Self) -> Int
+pub fn BuiltinColumn::not_equal(Self, Self) -> Bool
 pub fn BuiltinColumn::null_count(Self) -> Int
 pub fn BuiltinColumn::placeholders_normalized(Self) -> Bool
 pub fn BuiltinColumn::slice(Self, Int, Int) -> Self raise @types.DataError
 pub fn BuiltinColumn::string_values(Self) -> (Array[String], Bitmap) raise @types.DataError
 pub fn BuiltinColumn::take(Self, Array[Int]) -> Self raise @types.DataError
+#as_free_fn
+pub fn BuiltinColumn::to_repr(Self) -> @debug.Repr
 pub fn BuiltinColumn::to_string_column(Self) -> Self
 pub fn BuiltinColumn::validity(Self) -> Bitmap
 
@@ -67,6 +75,10 @@ pub(all) enum ColumnData {
   Bool(Array[Bool])
   String(Array[String])
 } derive(Eq, @debug.Debug)
+pub fn ColumnData::equal(Self, Self) -> Bool
+pub fn ColumnData::not_equal(Self, Self) -> Bool
+#as_free_fn
+pub fn ColumnData::to_repr(Self) -> @debug.Repr
 
 pub(all) enum ColumnStorage {
   Builtin(BuiltinColumn)
@@ -76,6 +88,7 @@ pub fn ColumnStorage::bool_values(Self) -> (Array[Bool], Bitmap) raise @types.Da
 pub fn ColumnStorage::cast(Self, @types.DataType) -> Self raise @types.DataError
 pub fn ColumnStorage::data(Self) -> ColumnData
 pub fn ColumnStorage::dtype(Self) -> @types.DataType
+pub fn ColumnStorage::equal(Self, Self) -> Bool
 pub fn ColumnStorage::float_values(Self) -> (Array[Double], Bitmap) raise @types.DataError
 pub fn ColumnStorage::from_builtin(BuiltinColumn) -> Self
 pub fn ColumnStorage::from_numeric(NumericColumn) -> Self
@@ -85,6 +98,7 @@ pub fn ColumnStorage::is_empty(Self) -> Bool
 pub fn ColumnStorage::is_null(Self, Int) -> Bool raise @types.DataError
 pub fn ColumnStorage::kind(Self) -> StorageKind
 pub fn ColumnStorage::len(Self) -> Int
+pub fn ColumnStorage::not_equal(Self, Self) -> Bool
 pub fn ColumnStorage::null_count(Self) -> Int
 pub fn ColumnStorage::slice(Self, Int, Int) -> Self raise @types.DataError
 pub fn ColumnStorage::slice_total(Self, Int, Int) -> Self
@@ -92,6 +106,8 @@ pub fn ColumnStorage::string_values(Self) -> (Array[String], Bitmap) raise @type
 pub fn ColumnStorage::take(Self, Array[Int]) -> Self raise @types.DataError
 pub fn ColumnStorage::to_builtin(Self) -> BuiltinColumn
 pub fn ColumnStorage::to_numeric(Self) -> Self raise @types.DataError
+#as_free_fn
+pub fn ColumnStorage::to_repr(Self) -> @debug.Repr
 pub fn ColumnStorage::to_string_column(Self) -> BuiltinColumn
 pub fn ColumnStorage::validity(Self) -> Bitmap
 pub impl Eq for ColumnStorage
@@ -102,6 +118,7 @@ pub struct NumericColumn {
 pub fn NumericColumn::bool_values(Self) -> (Array[Bool], Bitmap) raise @types.DataError
 pub fn NumericColumn::data(Self) -> ColumnData
 pub fn NumericColumn::dtype(Self) -> @types.DataType
+pub fn NumericColumn::equal(Self, Self) -> Bool
 pub fn NumericColumn::float_values(Self) -> (Array[Double], Bitmap) raise @types.DataError
 pub fn NumericColumn::from_doubles(Array[Double]) -> Self
 pub fn NumericColumn::from_floats(Array[Double]) -> Self
@@ -115,23 +132,34 @@ pub fn NumericColumn::len(Self) -> Int
 pub fn NumericColumn::max(Self) -> @types.Scalar
 pub fn NumericColumn::mean(Self) -> Double raise @types.DataError
 pub fn NumericColumn::min(Self) -> @types.Scalar
+pub fn NumericColumn::not_equal(Self, Self) -> Bool
 pub fn NumericColumn::null_count(Self) -> Int
 pub fn NumericColumn::slice(Self, Int, Int) -> Self raise @types.DataError
 pub fn NumericColumn::string_values(Self) -> (Array[String], Bitmap) raise @types.DataError
 pub fn NumericColumn::sum(Self) -> @types.Scalar
 pub fn NumericColumn::take(Self, Array[Int]) -> Self raise @types.DataError
 pub fn NumericColumn::to_builtin(Self) -> BuiltinColumn
+#as_free_fn
+pub fn NumericColumn::to_repr(Self) -> @debug.Repr
 pub fn NumericColumn::to_string_column(Self) -> BuiltinColumn
 
 pub(all) enum NumericData {
   Int(Array[Int64])
   Float(Array[Double])
 } derive(Eq, @debug.Debug)
+pub fn NumericData::equal(Self, Self) -> Bool
+pub fn NumericData::not_equal(Self, Self) -> Bool
+#as_free_fn
+pub fn NumericData::to_repr(Self) -> @debug.Repr
 
 pub(all) enum StorageKind {
   Builtin
   Numeric
 } derive(Eq, @debug.Debug)
+pub fn StorageKind::equal(Self, Self) -> Bool
+pub fn StorageKind::not_equal(Self, Self) -> Bool
+#as_free_fn
+pub fn StorageKind::to_repr(Self) -> @debug.Repr
 
 // Type aliases
 

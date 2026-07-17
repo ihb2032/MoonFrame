@@ -32,6 +32,10 @@ pub fn validity_bools(@column.ColumnStorage) -> Array[Bool]
 
 // Types and methods
 type KeyCell derive(Eq, Hash)
+pub fn KeyCell::equal(Self, Self) -> Bool
+pub fn KeyCell::hash(Self) -> Int
+pub fn KeyCell::hash_combine(Self, Hasher) -> Unit
+pub fn KeyCell::not_equal(Self, Self) -> Bool
 
 pub(all) enum ReduceOp {
   Sum
@@ -55,6 +59,7 @@ pub fn Series::cast(Self, @types.DataType) -> Self raise @types.DataError
 pub fn Series::count(Self) -> Int
 pub fn Series::drop_nulls(Self) -> Self
 pub fn Series::dtype(Self) -> @types.DataType
+pub fn Series::equal(Self, Self) -> Bool
 pub fn Series::fill_null(Self, @types.Scalar) -> Self raise @types.DataError
 pub fn Series::first(Self) -> @types.Scalar
 pub fn Series::from_bool_options(String, Array[Bool?]) -> Self
@@ -81,6 +86,7 @@ pub fn Series::min(Self) -> @types.Scalar
 pub fn Series::n_unique(Self) -> Int
 pub fn Series::name(Self) -> String
 pub fn Series::new(String, @column.ColumnStorage) -> Self
+pub fn Series::not_equal(Self, Self) -> Bool
 pub fn Series::null_count(Self) -> Int
 pub fn Series::rename(Self, String) -> Self
 pub fn Series::slice(Self, Int, Int) -> Self raise @types.DataError
@@ -90,6 +96,8 @@ pub fn Series::storage_kind(Self) -> @column.StorageKind
 pub fn Series::sum(Self) -> @types.Scalar raise @types.DataError
 pub fn Series::to_builtin(Self) -> Self
 pub fn Series::to_numeric(Self) -> Self raise @types.DataError
+#as_free_fn
+pub fn Series::to_repr(Self) -> @debug.Repr
 pub fn Series::to_scalars(Self) -> Array[@types.Scalar]
 pub fn Series::variance(Self) -> Double raise @types.DataError
 

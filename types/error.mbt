@@ -23,6 +23,15 @@ pub(all) suberror DataError {
 } derive(Eq, Debug)
 
 ///|
+pub extend DataError with Eq::{equal, not_equal}
+
+///|
+pub extend DataError with Show::{to_string, output}
+
+///|
+pub extend DataError with Debug::{to_repr}
+
+///|
 /// Human-readable message describing the error.
 pub fn DataError::message(self : DataError) -> String {
   match self {

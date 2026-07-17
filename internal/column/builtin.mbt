@@ -23,6 +23,12 @@ pub struct BuiltinColumn {
 } derive(Eq, Debug)
 
 ///|
+pub extend BuiltinColumn with Eq::{equal, not_equal}
+
+///|
+pub extend BuiltinColumn with Debug::{to_repr}
+
+///|
 /// Backing storage discriminated by dtype. The element type is the raw
 /// value; nullability is tracked in the enclosing column's `validity`
 /// bitmap.
@@ -32,6 +38,12 @@ pub(all) enum ColumnData {
   Bool(Array[Bool])
   String(Array[String])
 } derive(Eq, Debug)
+
+///|
+pub extend ColumnData with Eq::{equal, not_equal}
+
+///|
+pub extend ColumnData with Debug::{to_repr}
 
 // ── Constructors ──────────────────────────────────────────────────────
 

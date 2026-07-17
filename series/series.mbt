@@ -21,6 +21,12 @@ pub struct Series {
   storage : @column.ColumnStorage
 } derive(Eq, Debug)
 
+///|
+pub extend Series with Eq::{equal, not_equal}
+
+///|
+pub extend Series with Debug::{to_repr}
+
 // ── Constructors ──────────────────────────────────────────────────────
 
 ///|

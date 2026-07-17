@@ -26,6 +26,12 @@ pub struct GroupedDataFrame {
 } derive(Eq, Debug)
 
 ///|
+pub extend GroupedDataFrame with Eq::{equal, not_equal}
+
+///|
+pub extend GroupedDataFrame with Debug::{to_repr}
+
+///|
 /// Partition `self` into groups by the `keys` expressions — MoonFrame's
 /// single `group_by` verb (Polars' `df.group_by(...)`). Rows sharing the
 /// same key tuple land in the same group; group order is **first
@@ -83,7 +89,7 @@ pub fn DataFrame::group_by(
   // evaluation (so an evaluation error there surfaces first, like `select`).
   let n = self.nrows()
   let scope = Array::makei(n, i => i)
-  let seen : Map[String, Unit] = {}
+  let seen : Map[String, Unit] = Map([])
   let key_columns = keys.map(key => {
     let column = broadcast_series(eval_expr(key, self, scope), n)
     let name = expr_output_name(key)
@@ -102,7 +108,7 @@ pub fn DataFrame::group_by(
   // slot-tracking array; within a group the indices stay ascending because
   // `i` only grows.
   let key_scalars = key_columns.map(column => column.to_scalars())
-  let by_key : Map[Array[KeyCell], Array[Int]] = {}
+  let by_key : Map[Array[KeyCell], Array[Int]] = Map([])
   for i in 0..<n {
     let id = row_group_key(key_scalars, i)
     match by_key.get(id) {

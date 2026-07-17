@@ -41,6 +41,12 @@ pub(all) enum StorageKind {
 } derive(Eq, Debug)
 
 ///|
+pub extend StorageKind with Eq::{equal, not_equal}
+
+///|
+pub extend StorageKind with Debug::{to_repr}
+
+///|
 /// A column behind one of the pluggable backends. `Builtin` is the
 /// general-purpose Arrow column (any dtype, nullable); `Numeric` is the
 /// all-valid unboxed numeric fast path.
@@ -48,6 +54,12 @@ pub(all) enum ColumnStorage {
   Builtin(BuiltinColumn)
   Numeric(NumericColumn)
 } derive(Debug)
+
+///|
+pub extend ColumnStorage with Eq::{equal, not_equal}
+
+///|
+pub extend ColumnStorage with Debug::{to_repr}
 
 ///|
 /// Content-based structural equality: two columns are equal when they have the

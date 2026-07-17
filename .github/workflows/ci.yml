@@ -16,7 +16,7 @@ on:
 # gate (moon check --deny-warn && moon fmt --check && moon info && moon test)
 # first.
 env:
-  MOONBIT_INSTALL_VERSION: "0.10.3+16975d007" # == moon 0.1.20260703 (2026-07-03)
+  MOONBIT_INSTALL_VERSION: "0.10.4+ade96c819" # == moon 0.1.20260713 (2026-07-13)
 
 jobs:
   build:

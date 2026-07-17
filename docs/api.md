@@ -307,6 +307,10 @@ deliberate divergence from Polars' Rust-`regex` dialect.
   with `fill` (default space) until it is `width` **characters** long; a cell
   already at least that long is unchanged (never truncated). The width counts
   characters, consistent with `str_len_chars`.
+- `str_zfill(width : Int) -> Expr` — left-pad each cell with `'0'` to `width`
+  **characters**, like `str_pad_start('0')` but **sign-aware**: a leading `+` /
+  `-` keeps its place and the zeros fill after it (`"-5"` to width 4 is
+  `"-005"`). The width counts the sign; a cell already that wide is unchanged.
 - `str_contains_regex(pattern : String) -> Expr` — a `Bool` column, `true` where
   the cell matches the POSIX regular expression `pattern` (partial match). The
   regex form of `str_contains`.
@@ -1255,9 +1259,9 @@ or signature changes). These are the tracked deferrals, all v0.6+:
   operator / method set is frozen; these extend it. (The arithmetic / numeric
   operator family — `floor_div`, `mod`, `pow`, `abs` / `floor` / `ceil` /
   `sign` / `round` — and the string family — `str_reverse` / `str_pad_*` /
-  `str_slice` / `str_len_bytes` / `str_split_get`, the custom-charset
-  `str_strip_chars`, and the regex ops `str_*_regex` / `str_extract` /
-  `str_count_matches` — are now done.)
+  `str_zfill` / `str_slice` / `str_len_bytes` / `str_split_get`, the
+  custom-charset `str_strip_chars`, and the regex ops `str_*_regex` /
+  `str_extract` / `str_count_matches` — are now done.)
 - **Lazy scan depth** — predicate pushdown into the file parser and
   streaming execution (v0.5's scan does projection pushdown only), plus
   columnar sources (Parquet / IPC) once eager readers exist.

@@ -293,19 +293,15 @@ fn pad_end_chars(s : String, width : Int, fill : Char) -> String {
 /// Left-pad `s` with `'0'` to `width` **characters**, keeping a leading sign
 /// ahead of the zeros — Polars' `str.zfill`. `"-5"` to width 4 is `"-005"`.
 /// The width counts characters (sign included) and a cell already that wide is
-/// returned unchanged. Codepoint-based like `pad_start_chars`; the sign, when
-/// present, is a single ASCII character so `s[1:]` drops exactly it.
+/// returned unchanged. Delegates the zero-padding to `pad_start_chars`: with a
+/// leading sign, the digits after it pad to a one-narrower field (the sign is a
+/// single ASCII character, so `s[1:]` drops exactly it).
 fn zfill_chars(s : String, width : Int) -> String {
-  let len = s.char_length()
-  if len >= width {
-    return s
-  }
-  let zeros = String::make(width - len, '0')
   if s.has_prefix("-") {
-    "-\{zeros}\{s[1:]}"
+    "-\{pad_start_chars(s[1:].to_owned(), width - 1, '0')}"
   } else if s.has_prefix("+") {
-    "+\{zeros}\{s[1:]}"
+    "+\{pad_start_chars(s[1:].to_owned(), width - 1, '0')}"
   } else {
-    "\{zeros}\{s}"
+    pad_start_chars(s, width, '0')
   }
 }

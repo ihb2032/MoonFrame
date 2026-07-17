@@ -131,6 +131,90 @@ test "is_in: is_in([v]) is exactly eq(lit(v)), nulls included" {
 }
 
 ///|
+test "is_in: mixed Int and Float members take the exact path" {
+  // An Int column with a mixed-dtype member list falls off the Int fast path
+  // onto the exact `eq` kernel, so the Int member and the (integral) Float
+  // member both match by exact value.
+  let df = DataFrame::new([Series::from_ints("a", [3L, 4L, 5L])])
+  // A null member is still skipped on this exact path (the general-kernel case).
+  let out = df.select([
+    @expr.col("a")
+    .is_in([
+      @types.Scalar::Int(3),
+      @types.Scalar::Float(4.0),
+      @types.Scalar::Null,
+    ])
+    .with_alias("r"),
+  ])
+  assert_eq(out.get_column("r").to_scalars(), [
+    @types.Scalar::Bool(true),
+    @types.Scalar::Bool(true),
+    @types.Scalar::Bool(false),
+  ])
+}
+
+///|
+test "is_in: a Float column matches -0.0 against a 0.0 member (IEEE)" {
+  // Float membership stays on the exact path, where -0.0 == 0.0 (IEEE), so a
+  // negative-zero cell matches a positive-zero member.
+  let df = DataFrame::new([Series::from_floats("a", [-0.0, 1.0])])
+  let out = df.select([
+    @expr.col("a").is_in([@types.Scalar::Float(0.0)]).with_alias("r"),
+  ])
+  assert_eq(out.get_column("r").to_scalars(), [
+    @types.Scalar::Bool(true),
+    @types.Scalar::Bool(false),
+  ])
+}
+
+///|
+test "is_in: String and Bool columns skip a null member and reject a foreign dtype" {
+  let df = DataFrame::new([
+    Series::from_string_options("s", [Some("north"), Some("south"), None]),
+    Series::from_bool_options("b", [Some(true), Some(false), None]),
+  ])
+  // A null member is skipped on the String / Bool fast paths, exactly as on the
+  // numeric one, and a null cell yields null.
+  let out = df.select([
+    @expr.col("s")
+    .is_in([@types.Scalar::Null, @types.Scalar::String("north")])
+    .with_alias("rs"),
+    @expr.col("b")
+    .is_in([
+      @types.Scalar::Bool(true),
+      @types.Scalar::Bool(false),
+      @types.Scalar::Null,
+    ])
+    .with_alias("rb"),
+  ])
+  assert_eq(out.get_column("rs").to_scalars(), [
+    @types.Scalar::Bool(true),
+    @types.Scalar::Bool(false),
+    @types.Scalar::Null,
+  ])
+  // `b in {true, false}` is true for both present cells; the null cell is null.
+  assert_eq(out.get_column("rb").to_scalars(), [
+    @types.Scalar::Bool(true),
+    @types.Scalar::Bool(true),
+    @types.Scalar::Null,
+  ])
+  // A foreign-dtype member falls off the fast path onto the exact kernel, which
+  // raises the same `TypeMismatch` `eq` would.
+  assert_true(
+    (Ok(df.select([@expr.col("s").is_in([@types.Scalar::Int(1)])])) catch {
+      e => Err(e)
+    })
+    is Err(@types.DataError::TypeMismatch(_)),
+  )
+  assert_true(
+    (Ok(df.select([@expr.col("b").is_in([@types.Scalar::String("x")])])) catch {
+      e => Err(e)
+    })
+    is Err(@types.DataError::TypeMismatch(_)),
+  )
+}
+
+///|
 test "is_in: reduces per group over an aggregation, rejects a bare column" {
   let df = DataFrame::new([
     Series::from_strings("k", ["x", "x", "y"]),

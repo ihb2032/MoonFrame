@@ -112,6 +112,7 @@ priv enum EvalStep {
   ApplyIsIn(Array[@types.Scalar])
   ApplyIsBetween
   ApplyMap((Array[@types.Scalar]) -> @types.Scalar raise @types.DataError, Int)
+  ApplyMapBatches((Array[Series]) -> Series raise @types.DataError, Int)
 }
 
 ///|
@@ -226,6 +227,16 @@ fn eval_expr(
               }
               @expr.Expr::Map(_, inputs, f) => {
                 work.push(ApplyMap(f, inputs.length()))
+                for i = inputs.length() - 1; i >= 0; i = i - 1 {
+                  work.push(Eval(inputs[i]))
+                }
+              }
+              // `returns_scalar` is a planning hint (it gates whether the node
+              // is accepted as a per-group reduction); evaluation is identical
+              // either way — the closure runs over the operands' evaluated
+              // series and its result rides the length contract below.
+              @expr.Expr::MapBatches(_, inputs, _, f) => {
+                work.push(ApplyMapBatches(f, inputs.length()))
                 for i = inputs.length() - 1; i >= 0; i = i - 1 {
                   work.push(Eval(inputs[i]))
                 }
@@ -367,6 +378,18 @@ fn eval_expr(
             // input order so cell `k` feeds `f` the k-th input.
             let evaluated = Array::makei(arity, i => popped[arity - 1 - i])
             values.push(eval_map_apply(evaluated, f))
+          }
+          ApplyMapBatches(f, arity) => {
+            let popped : Array[Series] = []
+            for _ in 0..<arity {
+              popped.push(pop_value(values))
+            }
+            // Restore input order (last input popped first), hand the whole
+            // evaluated series to the closure, and canonicalise the backend of
+            // its result — an all-valid numeric column returned on `Builtin`
+            // lands on `Numeric`, keeping `collect ≡ execute`.
+            let evaluated = Array::makei(arity, i => popped[arity - 1 - i])
+            values.push(try_column_to_numeric(f(evaluated)))
           }
         }
     }

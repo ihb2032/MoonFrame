@@ -194,6 +194,13 @@ fn reduces_per_group(expr : @expr.Expr) -> Bool {
           @expr.Expr::Col(_)
           | @expr.Expr::Map(_, _, _)
           | @expr.Expr::LitSeries(_) => return false
+          // A batch map reduces per group only when flagged `returns_scalar`:
+          // then it is terminal like `Agg` (its result is the group's single
+          // cell); otherwise it is row-wise like `Map` and does not reduce.
+          @expr.Expr::MapBatches(_, _, returns_scalar, _) =>
+            if !returns_scalar {
+              return false
+            }
           @expr.Expr::Lit(_) | @expr.Expr::Agg(_, _) => ()
           @expr.Expr::Binary(_, l, r)
           | @expr.Expr::FillNull(l, r)

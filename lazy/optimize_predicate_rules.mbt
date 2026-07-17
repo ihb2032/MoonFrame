@@ -42,6 +42,7 @@ fn row_stable(expr : @expr.Expr) -> Bool {
           @expr.Expr::Agg(_, _)
           | @expr.Expr::Cast(_, _)
           | @expr.Expr::Map(_, _, _)
+          | @expr.Expr::MapBatches(_, _, _, _)
           | @expr.Expr::LitSeries(_) => return false
           @expr.Expr::Col(_)
           | @expr.Expr::Lit(_)
@@ -174,6 +175,7 @@ fn group_cell_stable(expr : @expr.Expr) -> Bool {
             }
           @expr.Expr::Cast(_, _)
           | @expr.Expr::Map(_, _, _)
+          | @expr.Expr::MapBatches(_, _, _, _)
           | @expr.Expr::LitSeries(_) => return false
           @expr.Expr::Binary(_, _, _)
           | @expr.Expr::Unary(_, _)

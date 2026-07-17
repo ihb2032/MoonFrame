@@ -139,6 +139,30 @@ test "map: label and inputs distinguish nodes; the closure is opaque" {
 }
 
 ///|
+test "map_batches: label, returns_scalar, and inputs distinguish nodes" {
+  let same_a = col("a").map_batches(label="m", fn(s) { s })
+  // Same label + returns_scalar + inputs are equal even with different
+  // closures — the function is opaque to equality.
+  assert_eq(
+    same_a,
+    col("a").map_batches(label="m", fn(_s) { Series::from_ints("z", []) }),
+  )
+  // The label distinguishes.
+  assert_not_eq(same_a, col("a").map_batches(label="n", fn(s) { s }))
+  // The input distinguishes.
+  assert_not_eq(same_a, col("b").map_batches(label="m", fn(s) { s }))
+  // The `returns_scalar` flag distinguishes two otherwise-identical nodes.
+  assert_not_eq(
+    same_a,
+    col("a").map_batches(label="m", returns_scalar=true, fn(s) { s }),
+  )
+  // Never equal to a non-`MapBatches` node — including a same-label `Map`
+  // (the mismatched-variant fallthrough).
+  assert_not_eq(same_a, col("a"))
+  assert_not_eq(same_a, map_many(label="m", [col("a")], fn(vs) { vs[0] }))
+}
+
+///|
 test "lit_series: equal when the embedded series is equal, distinct otherwise" {
   let s = Series::from_ints("v", [1, 2, 3])
   // Two literal-series nodes over equal series are equal nodes (`Series` has
@@ -191,7 +215,7 @@ test "deep trees don't overflow structural equality: `==` is iterative" {
 
 ///|
 test "equality: each variant is unequal to every other variant" {
-  // One representative of each of the fifteen `Expr` variants. Comparing
+  // One representative of each of the sixteen `Expr` variants. Comparing
   // every ordered pair of distinct variants exercises each per-variant arm of
   // the handwritten structural equality as the *first* operand — the arms a
   // future variant addition is forced to extend.
@@ -211,6 +235,7 @@ test "equality: each variant is unequal to every other variant" {
     col("a").is_in([@types.Scalar::Int(1)]),
     col("a").is_between(lit_int(0), lit_int(10)),
     map_many(label="m", [col("a")], fn(vs) { vs[0] }),
+    col("a").map_batches(label="mb", fn(s) { s }),
   ]
   for i in 0..<reps.length() {
     for j in 0..<reps.length() {

@@ -20,6 +20,12 @@ pub struct DataFrame {
   priv name_to_index : Map[String, Int]
 } derive(Eq, Debug)
 
+///|
+pub extend DataFrame with Eq::{equal, not_equal}
+
+///|
+pub extend DataFrame with Debug::{to_repr}
+
 // ── Constructors ──────────────────────────────────────────────────────
 
 ///|

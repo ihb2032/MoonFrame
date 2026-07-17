@@ -3,6 +3,4 @@ import {
   "ihb2032/MoonFrame/examples/reporting/report",
 }
 
-options(
-  "is-main": true,
-)
+pkgtype(kind: "executable")

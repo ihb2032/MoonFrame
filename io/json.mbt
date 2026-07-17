@@ -186,7 +186,7 @@ fn frame_from_json_records(
   }
   let objs : Array[Map[String, Json]] = Array::new(capacity=records.length())
   let headers : Array[String] = []
-  let header_set : Map[String, Unit] = {}
+  let header_set : Map[String, Unit] = Map([])
   for i, rec in records {
     match rec {
       Object(obj) => {
@@ -318,7 +318,7 @@ fn df_to_json_records(df : @frame.DataFrame) -> Array[Json] {
   // rather than per-cell `item`.
   let cols = df.to_scalar_matrix()
   Array::makei(nrows, r => {
-    let obj : Map[String, Json] = {}
+    let obj : Map[String, Json] = Map([])
     for c, name in names {
       obj[name] = scalar_to_json(cols[c][r])
     }

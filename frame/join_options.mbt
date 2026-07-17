@@ -26,6 +26,12 @@ pub(all) enum JoinType {
 } derive(Eq, Debug)
 
 ///|
+pub extend JoinType with Eq::{equal, not_equal}
+
+///|
+pub extend JoinType with Debug::{to_repr}
+
+///|
 /// The knobs for `DataFrame::join`: which columns to match on, the join
 /// `how`, the `suffix` disambiguating a right column whose name collides
 /// with a left one, and whether to `coalesce` the key columns. Fields are
@@ -72,6 +78,12 @@ pub struct JoinOptions {
   suffix : String
   coalesce : Bool?
 } derive(Eq, Debug)
+
+///|
+pub extend JoinOptions with Eq::{equal, not_equal}
+
+///|
+pub extend JoinOptions with Debug::{to_repr}
 
 ///|
 /// Start a join specification on the `keys` expressions (applied to both

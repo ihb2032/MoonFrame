@@ -42,6 +42,12 @@ pub struct HtmlOptions {
 } derive(Eq, Debug)
 
 ///|
+pub extend HtmlOptions with Eq::{equal, not_equal}
+
+///|
+pub extend HtmlOptions with Debug::{to_repr}
+
+///|
 /// The default options: render all rows, no `class`, no `<caption>`, and
 /// HTML-escape every emitted string. Chain `with_max_rows` /
 /// `with_table_class` / `with_caption` / `with_escape` to override.

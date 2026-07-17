@@ -34,7 +34,7 @@ pub fn DataFrame::with_columns(
   // `column_series` returns a fresh, owned array, so in-place replacement
   // can't perturb `self`.
   let out = self.column_series()
-  let seen : Map[String, Unit] = {}
+  let seen : Map[String, Unit] = Map([])
   for expr in exprs {
     let column = broadcast_series(eval_expr(expr, self, scope), n)
     let name = expr_output_name(expr)

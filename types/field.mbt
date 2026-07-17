@@ -18,6 +18,15 @@ pub(all) struct Field {
 } derive(Eq, Debug)
 
 ///|
+pub extend Field with Eq::{equal, not_equal}
+
+///|
+pub extend Field with Show::{to_string, output}
+
+///|
+pub extend Field with Debug::{to_repr}
+
+///|
 /// Build a field with `nullable = true` (the common default for inferred
 /// CSV / JSON columns).
 pub fn Field::new(name : String, dtype : DataType) -> Field {

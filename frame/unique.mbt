@@ -18,6 +18,12 @@ pub(all) enum KeepStrategy {
 } derive(Eq, Debug)
 
 ///|
+pub extend KeepStrategy with Eq::{equal, not_equal}
+
+///|
+pub extend KeepStrategy with Debug::{to_repr}
+
+///|
 /// Drop duplicate rows — Polars' `df.unique(maintain_order=True)`. Two rows are
 /// duplicates when every cell is equal under the same composite `KeyCell`
 /// encoding `group_by` and `join` use (see `frame/row_key.mbt`): a `Float`
@@ -60,7 +66,7 @@ pub fn DataFrame::unique(
     // indices ascending and in first-appearance order (the same
     // first-insertion discipline `group_by` relies on).
     KeepStrategy::First => {
-      let seen : Map[Array[KeyCell], Unit] = {}
+      let seen : Map[Array[KeyCell], Unit] = Map([])
       for i in 0..<n {
         if !seen.contains(keys[i]) {
           seen[keys[i]] = ()
@@ -72,7 +78,7 @@ pub fn DataFrame::unique(
     // order and keep `i` where it *is* that latest index — so survivors stay
     // ascending by original position.
     KeepStrategy::Last => {
-      let last : Map[Array[KeyCell], Int] = {}
+      let last : Map[Array[KeyCell], Int] = Map([])
       for i in 0..<n {
         last[keys[i]] = i
       }
@@ -85,7 +91,7 @@ pub fn DataFrame::unique(
     // Keep only rows whose key occurs exactly once: count occurrences, then keep
     // the rows in a singleton bucket.
     KeepStrategy::None => {
-      let count : Map[Array[KeyCell], Int] = {}
+      let count : Map[Array[KeyCell], Int] = Map([])
       for i in 0..<n {
         count[keys[i]] = count.get(keys[i]).unwrap_or(0) + 1
       }

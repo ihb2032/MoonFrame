@@ -41,6 +41,10 @@ pub enum AggOp {
   First
   Last
 } derive(Eq, @debug.Debug)
+pub fn AggOp::equal(Self, Self) -> Bool
+pub fn AggOp::not_equal(Self, Self) -> Bool
+#as_free_fn
+pub fn AggOp::to_repr(Self) -> @debug.Repr
 
 pub enum BinOp {
   Add
@@ -59,6 +63,10 @@ pub enum BinOp {
   And
   Or
 } derive(Eq, @debug.Debug)
+pub fn BinOp::equal(Self, Self) -> Bool
+pub fn BinOp::not_equal(Self, Self) -> Bool
+#as_free_fn
+pub fn BinOp::to_repr(Self) -> @debug.Repr
 
 pub enum Expr {
   Col(String)
@@ -78,13 +86,16 @@ pub enum Expr {
   Map(String, Array[Expr], (Array[@types.Scalar]) -> @types.Scalar raise @types.DataError)
 }
 pub fn Expr::abs(Self) -> Self
+pub fn Expr::add(Self, Self) -> Self
 pub fn Expr::cast(Self, @types.DataType) -> Self
 pub fn Expr::ceil(Self) -> Self
 pub fn Expr::children(Self) -> Array[Self]
 #as_free_fn(col)
 pub fn Expr::col(String) -> Self
 pub fn Expr::count(Self) -> Self
+pub fn Expr::div(Self, Self) -> Self
 pub fn Expr::eq(Self, Self) -> Self
+pub fn Expr::equal(Self, Self) -> Bool
 pub fn Expr::explain(Self) -> String
 pub fn Expr::fill_nan(Self, Self) -> Self
 pub fn Expr::fill_null(Self, Self) -> Self
@@ -99,10 +110,12 @@ pub fn Expr::is_nan(Self) -> Self
 pub fn Expr::is_not_nan(Self) -> Self
 pub fn Expr::is_not_null(Self) -> Self
 pub fn Expr::is_null(Self) -> Self
+pub fn Expr::land(Self, Self) -> Self
 pub fn Expr::last(Self) -> Self
 pub fn Expr::le(Self, Self) -> Self
 #as_free_fn(lit)
 pub fn Expr::lit(@types.Scalar) -> Self
+pub fn Expr::lor(Self, Self) -> Self
 pub fn Expr::lt(Self, Self) -> Self
 pub fn Expr::map_elements(Self, label~ : String, (@types.Scalar) -> @types.Scalar raise @types.DataError) -> Self
 pub fn Expr::max(Self) -> Self
@@ -110,9 +123,13 @@ pub fn Expr::mean(Self) -> Self
 pub fn Expr::median(Self) -> Self
 pub fn Expr::min(Self) -> Self
 pub fn Expr::modulo(Self, Self) -> Self
+pub fn Expr::mul(Self, Self) -> Self
 pub fn Expr::n_unique(Self) -> Self
 pub fn Expr::ne(Self, Self) -> Self
+pub fn Expr::neg(Self) -> Self
 pub fn Expr::not(Self) -> Self
+pub fn Expr::not_equal(Self, Self) -> Bool
+pub fn Expr::output(Self, &Logger) -> Unit
 pub fn Expr::output_name(Self) -> String
 pub fn Expr::pow(Self, Self) -> Self
 pub fn Expr::referenced_columns(Self) -> @set.Set[String]
@@ -139,7 +156,11 @@ pub fn Expr::str_starts_with(Self, String) -> Self
 pub fn Expr::str_strip_chars(Self, chars? : String) -> Self
 pub fn Expr::str_to_lowercase(Self) -> Self
 pub fn Expr::str_to_uppercase(Self) -> Self
+pub fn Expr::sub(Self, Self) -> Self
 pub fn Expr::sum(Self) -> Self
+#as_free_fn
+pub fn Expr::to_repr(Self) -> @debug.Repr
+pub fn Expr::to_string(Self) -> String
 pub fn Expr::variance(Self) -> Self
 pub fn Expr::with_alias(Self, String) -> Self
 pub impl Add for Expr
@@ -176,6 +197,10 @@ pub enum StrOp {
   StripCharsCustom(String)
   SplitGet(String, Int)
 } derive(Eq, @debug.Debug)
+pub fn StrOp::equal(Self, Self) -> Bool
+pub fn StrOp::not_equal(Self, Self) -> Bool
+#as_free_fn
+pub fn StrOp::to_repr(Self) -> @debug.Repr
 
 pub enum UnOp {
   Neg
@@ -190,6 +215,10 @@ pub enum UnOp {
   Sign
   Round
 } derive(Eq, @debug.Debug)
+pub fn UnOp::equal(Self, Self) -> Bool
+pub fn UnOp::not_equal(Self, Self) -> Bool
+#as_free_fn
+pub fn UnOp::to_repr(Self) -> @debug.Repr
 
 pub struct WhenThen {
   cond : Expr

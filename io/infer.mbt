@@ -47,6 +47,12 @@ pub(all) enum OnParseError {
 } derive(Eq, Debug)
 
 ///|
+pub extend OnParseError with Eq::{equal, not_equal}
+
+///|
+pub extend OnParseError with Debug::{to_repr}
+
+///|
 /// Pick the narrowest dtype that accepts every non-null cell in the first
 /// `limit` rows, in priority order `Int → Float → Bool → String`. A
 /// `limit <= 0` lifts the cap and scans every row (Polars'

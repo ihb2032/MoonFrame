@@ -34,6 +34,12 @@ pub(all) enum ChartKind {
 } derive(Eq, Debug)
 
 ///|
+pub extend ChartKind with Eq::{equal, not_equal}
+
+///|
+pub extend ChartKind with Debug::{to_repr}
+
+///|
 /// A Vega-Lite field `type`, used to override the dtype-based inference for the
 /// `color` channel. `pub(all)` so callers can name the variants when calling
 /// `with_color_type`. `Quantitative` is a continuous measure (a color
@@ -45,6 +51,12 @@ pub(all) enum VegaType {
   Ordinal
   Temporal
 } derive(Eq, Debug)
+
+///|
+pub extend VegaType with Eq::{equal, not_equal}
+
+///|
+pub extend VegaType with Debug::{to_repr}
 
 ///|
 /// The Vega-Lite `type` string for a `VegaType`.
@@ -80,6 +92,12 @@ pub struct ChartSpec {
   title : String?
   color_type : VegaType?
 } derive(Eq, Debug)
+
+///|
+pub extend ChartSpec with Eq::{equal, not_equal}
+
+///|
+pub extend ChartSpec with Debug::{to_repr}
 
 ///|
 /// A bar chart of `y` against `x` (Vega-Lite `mark: "bar"`).
@@ -159,7 +177,7 @@ pub fn format_vega_lite(
   // source for Vega-Lite's field-`type` inference.
   let x_dtype = df.get_column(spec.x).dtype()
   let y_dtype = df.get_column(spec.y).dtype()
-  let obj : Map[String, Json] = {}
+  let obj : Map[String, Json] = Map([])
   obj["$schema"] = Json::string(
     "https://vega.github.io/schema/vega-lite/v5.json",
   )
@@ -167,7 +185,7 @@ pub fn format_vega_lite(
     obj["title"] = Json::string(title)
   }
   obj["mark"] = Json::string(chart_mark(spec.kind))
-  let encoding : Map[String, Json] = {}
+  let encoding : Map[String, Json] = Map([])
   encoding["x"] = encoding_channel(spec.x, x_dtype, None)
   encoding["y"] = encoding_channel(spec.y, y_dtype, None)
   if spec.color is Some(color) {
@@ -178,7 +196,7 @@ pub fn format_vega_lite(
     )
   }
   obj["encoding"] = Json::object(encoding)
-  let data : Map[String, Json] = {}
+  let data : Map[String, Json] = Map([])
   data["values"] = Json::array(df_to_json_records(df))
   obj["data"] = Json::object(data)
   Json::object(obj).stringify()
@@ -223,7 +241,7 @@ fn encoding_channel(
   dtype : @types.DataType,
   type_override : VegaType?,
 ) -> Json {
-  let channel : Map[String, Json] = {}
+  let channel : Map[String, Json] = Map([])
   channel["field"] = Json::string(escape_vega_field(field))
   let vtype = match type_override {
     Some(t) => vega_type_string(t)

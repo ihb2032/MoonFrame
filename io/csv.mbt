@@ -192,7 +192,7 @@ fn parse_csv_str_projected(
   // Build the null-token test once: an O(1) `Map` membership check shared by
   // inference and the typed build, so a large `null_values` list does not turn
   // every cell scan into an O(k) linear probe.
-  let null_set : Map[String, Unit] = {}
+  let null_set : Map[String, Unit] = Map([])
   for v in options.null_values {
     null_set[v] = ()
   }
@@ -280,7 +280,7 @@ fn validate_csv_shape(
   rows : Array[Array[String]],
   options : CsvReadOptions,
 ) -> Unit raise @types.DataError {
-  let seen : Map[String, Unit] = {}
+  let seen : Map[String, Unit] = Map([])
   for name in headers {
     if seen.contains(name) {
       raise @types.DataError::DuplicateColumn(name)

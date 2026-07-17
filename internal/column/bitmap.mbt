@@ -24,6 +24,12 @@ pub struct Bitmap {
 } derive(Debug)
 
 ///|
+pub extend Bitmap with Eq::{equal, not_equal}
+
+///|
+pub extend Bitmap with Debug::{to_repr}
+
+///|
 /// Logical equality: two bitmaps are equal iff they have the same length
 /// and the same validity bit at every logical slot. The comparison walks
 /// the `[offset, offset + len)` windows rather than the raw buffers, so a

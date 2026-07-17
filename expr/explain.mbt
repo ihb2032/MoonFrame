@@ -22,6 +22,9 @@ pub impl Show for Expr with fn output(self, logger) {
 }
 
 ///|
+pub extend Expr with Show::{to_string, output}
+
+///|
 /// Handwritten `@debug.Debug`: the `Map` variant's closure payload has no
 /// `Debug`, so the enum cannot `derive` one. The debug form delegates to
 /// the `Show` rendering (`explain`), which already presents every variant —
@@ -33,6 +36,9 @@ pub impl Show for Expr with fn output(self, logger) {
 pub impl @debug.Debug for Expr with fn to_repr(self) {
   @debug.Debug::to_repr(self.explain())
 }
+
+///|
+pub extend Expr with Debug::{to_repr}
 
 ///|
 /// The `Show` rendering as a `String` — the human-readable face of an

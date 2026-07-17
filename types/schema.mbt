@@ -12,13 +12,22 @@ pub struct Schema {
 } derive(Eq, Debug)
 
 ///|
+pub extend Schema with Eq::{equal, not_equal}
+
+///|
+pub extend Schema with Show::{to_string, output}
+
+///|
+pub extend Schema with Debug::{to_repr}
+
+///|
 /// Build a schema from a list of fields. `raise DuplicateColumn(name)` on
 /// the first repeated name.
 ///
 /// The input array is copied, so mutating `fields` after construction
 /// cannot alter the schema or break the validated no-duplicates invariant.
 pub fn Schema::new(fields : Array[Field]) -> Schema raise DataError {
-  let seen : Map[String, Unit] = {}
+  let seen : Map[String, Unit] = Map([])
   for f in fields {
     if seen.contains(f.name) {
       raise DuplicateColumn(f.name)
@@ -88,7 +97,7 @@ pub fn Schema::select(
   names : Array[String],
 ) -> Schema raise DataError {
   let picked : Array[Field] = []
-  let seen : Map[String, Unit] = {}
+  let seen : Map[String, Unit] = Map([])
   for n in names {
     if seen.contains(n) {
       raise DuplicateColumn(n)

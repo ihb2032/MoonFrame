@@ -33,7 +33,7 @@ pub fn DataFrame::select(
 ) -> DataFrame raise @types.DataError {
   let scope = Array::makei(self.nrows(), i => i)
   let evaluated : Array[Series] = []
-  let seen : Map[String, Unit] = {}
+  let seen : Map[String, Unit] = Map([])
   for expr in exprs {
     let column = eval_expr(expr, self, scope)
     let name = expr_output_name(expr)

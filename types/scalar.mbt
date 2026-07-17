@@ -18,6 +18,15 @@ pub(all) enum Scalar {
 } derive(Eq, Debug)
 
 ///|
+pub extend Scalar with Eq::{equal, not_equal}
+
+///|
+pub extend Scalar with Show::{output}
+
+///|
+pub extend Scalar with Debug::{to_repr}
+
+///|
 /// The `DataType` corresponding to this value's variant.
 pub fn Scalar::dtype(self : Scalar) -> DataType {
   match self {

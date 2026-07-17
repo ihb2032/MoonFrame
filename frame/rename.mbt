@@ -27,7 +27,7 @@ pub fn DataFrame::rename(
   // step retargets `new_name` and retires `old_name` — so the two stay
   // equivalent (frame names are unique, so each name maps to a single slot).
   let names : Array[String] = self.columns()
-  let index : Map[String, Int] = {}
+  let index : Map[String, Int] = Map([])
   for i in 0..<names.length() {
     index[names[i]] = i
   }

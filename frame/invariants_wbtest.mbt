@@ -131,7 +131,7 @@ test "check_invariants reports INV7 when a column-less frame has rows" {
     schema: @types.Schema::new([]),
     columns: [],
     nrows: 1,
-    name_to_index: {},
+    name_to_index: Map([]),
   }
   assert_true(bad.check_invariants() is Err(msg) && msg.has_prefix("INV7"))
 }

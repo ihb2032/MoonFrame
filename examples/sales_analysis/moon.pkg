@@ -3,6 +3,4 @@ import {
   "ihb2032/MoonFrame/examples/sales_analysis/pipeline",
 }
 
-options(
-  "is-main": true,
-)
+pkgtype(kind: "executable")

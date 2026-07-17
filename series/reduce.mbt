@@ -415,7 +415,7 @@ fn count_distinct(
     @column.ColumnData::String(a) => i => KStr(a[i])
   }
   fn(n : Int, at : (Int) -> Int) {
-    let seen : Map[KeyCell, Unit] = {}
+    let seen : Map[KeyCell, Unit] = Map([])
     for k in 0..<n {
       let i = at(k)
       if present(i) {

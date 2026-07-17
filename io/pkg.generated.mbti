@@ -57,6 +57,10 @@ pub(all) enum ChartKind {
   Point
   Area
 } derive(Eq, @debug.Debug)
+pub fn ChartKind::equal(Self, Self) -> Bool
+pub fn ChartKind::not_equal(Self, Self) -> Bool
+#as_free_fn
+pub fn ChartKind::to_repr(Self) -> @debug.Repr
 
 pub struct ChartSpec {
   kind : ChartKind
@@ -68,8 +72,12 @@ pub struct ChartSpec {
 } derive(Eq, @debug.Debug)
 pub fn ChartSpec::area(String, String) -> Self
 pub fn ChartSpec::bar(String, String) -> Self
+pub fn ChartSpec::equal(Self, Self) -> Bool
 pub fn ChartSpec::line(String, String) -> Self
+pub fn ChartSpec::not_equal(Self, Self) -> Bool
 pub fn ChartSpec::point(String, String) -> Self
+#as_free_fn
+pub fn ChartSpec::to_repr(Self) -> @debug.Repr
 pub fn ChartSpec::with_color(Self, String) -> Self
 pub fn ChartSpec::with_color_type(Self, VegaType) -> Self
 pub fn ChartSpec::with_title(Self, String) -> Self
@@ -108,6 +116,10 @@ pub(all) enum OnParseError {
   Raise
   Null
 } derive(Eq, @debug.Debug)
+pub fn OnParseError::equal(Self, Self) -> Bool
+pub fn OnParseError::not_equal(Self, Self) -> Bool
+#as_free_fn
+pub fn OnParseError::to_repr(Self) -> @debug.Repr
 
 pub(all) enum VegaType {
   Quantitative
@@ -115,6 +127,10 @@ pub(all) enum VegaType {
   Ordinal
   Temporal
 } derive(Eq, @debug.Debug)
+pub fn VegaType::equal(Self, Self) -> Bool
+pub fn VegaType::not_equal(Self, Self) -> Bool
+#as_free_fn
+pub fn VegaType::to_repr(Self) -> @debug.Repr
 
 // Type aliases
 

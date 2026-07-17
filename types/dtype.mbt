@@ -13,6 +13,15 @@ pub(all) enum DataType {
 } derive(Eq, Debug)
 
 ///|
+pub extend DataType with Eq::{equal, not_equal}
+
+///|
+pub extend DataType with Show::{to_string, output}
+
+///|
+pub extend DataType with Debug::{to_repr}
+
+///|
 /// `true` only for the `Int` variant.
 pub fn DataType::is_integer(self : DataType) -> Bool {
   self is Int

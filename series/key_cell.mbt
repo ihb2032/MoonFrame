@@ -39,6 +39,12 @@ enum KeyCell {
 } derive(Eq, Hash)
 
 ///|
+pub extend KeyCell with Eq::{equal, not_equal}
+
+///|
+pub extend KeyCell with Hash::{hash, hash_combine}
+
+///|
 /// Normalise a `Float` key value to its `KeyCell`: `NaN` collapses to `KNaN`
 /// (so every NaN shares one group / key) and `-0.0` folds into the canonical
 /// `KFloat(0.0)` (`-0.0 == 0.0`, and both rendered `"0"` under the old string

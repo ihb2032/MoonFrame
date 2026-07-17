@@ -93,40 +93,41 @@ fn eval_arith(
 }
 
 ///|
-/// `Div` kernel over two equal-length operands (post-`broadcast_pair`).
-/// Not an `eval_arith` instance because it is the one operator whose
-/// `Int, Int` arm produces `Float`: division is **always** `Float`
-/// (Polars `/`), so every numeric pair divides in `Double` and division
-/// by zero follows IEEE 754 — `x/0 → ±inf`, `0/0 → NaN` — on every
-/// backend rather than trapping (`Int` division by zero is
-/// backend-divergent, so it is never emitted). Null propagation, the
-/// non-numeric `TypeMismatch`, and the `Numeric` re-convergence match
-/// `eval_arith`.
-fn eval_div(left : Series, right : Series) -> Series raise @types.DataError {
-  // `Numeric`×`Numeric` fast arm (see `eval_arith`): every pairing divides
-  // in `Double`, so all four arms land on `from_floats`.
+/// Shared kernel for the **always-`Float`** binary operators (`/` and `**`):
+/// every numeric pairing — including `Int, Int` — computes in `Double`, so all
+/// four arms land on `from_floats` / `from_float_options`. The operator supplies
+/// its `Double` cell op and the verb its `TypeMismatch` message uses. Null
+/// propagation and the `Numeric` fast arm / re-convergence match `eval_arith`.
+fn eval_binary_float(
+  left : Series,
+  right : Series,
+  verb : String,
+  float_op : (Double, Double) -> Double,
+) -> Series raise @types.DataError {
   match (left.storage(), right.storage()) {
     (@column.ColumnStorage::Numeric(x), @column.ColumnStorage::Numeric(y)) =>
       return match (x.data, y.data) {
         (@column.NumericData::Int(a), @column.NumericData::Int(b)) =>
           Series::from_floats(
             left.name(),
-            Array::makei(a.length(), i => a[i].to_double() / b[i].to_double()),
+            Array::makei(a.length(), i => {
+              float_op(a[i].to_double(), b[i].to_double())
+            }),
           )
         (@column.NumericData::Int(a), @column.NumericData::Float(b)) =>
           Series::from_floats(
             left.name(),
-            Array::makei(a.length(), i => a[i].to_double() / b[i]),
+            Array::makei(a.length(), i => float_op(a[i].to_double(), b[i])),
           )
         (@column.NumericData::Float(a), @column.NumericData::Int(b)) =>
           Series::from_floats(
             left.name(),
-            Array::makei(a.length(), i => a[i] / b[i].to_double()),
+            Array::makei(a.length(), i => float_op(a[i], b[i].to_double())),
           )
         (@column.NumericData::Float(a), @column.NumericData::Float(b)) =>
           Series::from_floats(
             left.name(),
-            Array::makei(a.length(), i => a[i] / b[i]),
+            Array::makei(a.length(), i => float_op(a[i], b[i])),
           )
       }
     (@column.ColumnStorage::Builtin(_), _)
@@ -138,42 +139,53 @@ fn eval_div(left : Series, right : Series) -> Series raise @types.DataError {
     (@column.ColumnData::Int(a), @column.ColumnData::Int(b)) =>
       Series::from_float_options(
         left.name(),
-        zip_present(a.length(), lv, rv, i => a[i].to_double() / b[i].to_double()),
+        zip_present(a.length(), lv, rv, i => {
+          float_op(a[i].to_double(), b[i].to_double())
+        }),
       )
     (@column.ColumnData::Int(a), @column.ColumnData::Float(b)) =>
       Series::from_float_options(
         left.name(),
-        zip_present(a.length(), lv, rv, i => a[i].to_double() / b[i]),
+        zip_present(a.length(), lv, rv, i => float_op(a[i].to_double(), b[i])),
       )
     (@column.ColumnData::Float(a), @column.ColumnData::Int(b)) =>
       Series::from_float_options(
         left.name(),
-        zip_present(a.length(), lv, rv, i => a[i] / b[i].to_double()),
+        zip_present(a.length(), lv, rv, i => float_op(a[i], b[i].to_double())),
       )
     (@column.ColumnData::Float(a), @column.ColumnData::Float(b)) =>
       Series::from_float_options(
         left.name(),
-        zip_present(a.length(), lv, rv, i => a[i] / b[i]),
+        zip_present(a.length(), lv, rv, i => float_op(a[i], b[i])),
       )
     (@column.ColumnData::Bool(_) | @column.ColumnData::String(_), _)
     | (_, @column.ColumnData::Bool(_) | @column.ColumnData::String(_)) =>
       raise @types.DataError::TypeMismatch(
-        binary_type_mismatch_msg("divide", left, right),
+        binary_type_mismatch_msg(verb, left, right),
       )
   }
   try_column_to_numeric(out)
 }
 
 ///|
-/// `Mod` kernel — remainder (see `Expr::modulo`). Same-dtype `Int / Int → Int`
-/// carrying the dividend's sign; any `Float` operand promotes to `Float` (IEEE
-/// remainder). `Int` modulo by zero produces a **null** cell (as for
-/// `floor_div`), so an all-valid `Int / Int` pair can still yield nulls;
-/// `Float` modulo by zero is `NaN`. Structure matches `eval_floor_div`.
-fn eval_mod(left : Series, right : Series) -> Series raise @types.DataError {
+/// Shared kernel for the binary operators whose **`Int, Int` arm stays `Int`
+/// but nulls on a zero divisor** (`//` and `%`): same-dtype `Int / Int → Int`
+/// via `int_op` (a `0` divisor → null cell), any `Float` operand promotes to
+/// `Float` via `float_op`. Because a zero divisor can null an otherwise-all-valid
+/// `Int` pair, the `Int, Int` arms re-converge through `try_column_to_numeric`.
+/// The operator supplies both cell ops and its verb.
+fn eval_binary_nullzero(
+  left : Series,
+  right : Series,
+  verb : String,
+  int_op : (Int64, Int64) -> Int64,
+  float_op : (Double, Double) -> Double,
+) -> Series raise @types.DataError {
   match (left.storage(), right.storage()) {
     (@column.ColumnStorage::Numeric(x), @column.ColumnStorage::Numeric(y)) =>
       return match (x.data, y.data) {
+        // A zero divisor nulls its cell, so an all-valid pair can still leave
+        // the `Numeric` fast path — re-converge afterwards.
         (@column.NumericData::Int(a), @column.NumericData::Int(b)) =>
           try_column_to_numeric(
             Series::from_int_options(
@@ -182,7 +194,7 @@ fn eval_mod(left : Series, right : Series) -> Series raise @types.DataError {
                 if b[i] == 0L {
                   None
                 } else {
-                  Some(a[i] % b[i])
+                  Some(int_op(a[i], b[i]))
                 }
               }),
             ),
@@ -190,17 +202,17 @@ fn eval_mod(left : Series, right : Series) -> Series raise @types.DataError {
         (@column.NumericData::Int(a), @column.NumericData::Float(b)) =>
           Series::from_floats(
             left.name(),
-            Array::makei(a.length(), i => a[i].to_double() % b[i]),
+            Array::makei(a.length(), i => float_op(a[i].to_double(), b[i])),
           )
         (@column.NumericData::Float(a), @column.NumericData::Int(b)) =>
           Series::from_floats(
             left.name(),
-            Array::makei(a.length(), i => a[i] % b[i].to_double()),
+            Array::makei(a.length(), i => float_op(a[i], b[i].to_double())),
           )
         (@column.NumericData::Float(a), @column.NumericData::Float(b)) =>
           Series::from_floats(
             left.name(),
-            Array::makei(a.length(), i => a[i] % b[i]),
+            Array::makei(a.length(), i => float_op(a[i], b[i])),
           )
       }
     (@column.ColumnStorage::Builtin(_), _)
@@ -214,7 +226,7 @@ fn eval_mod(left : Series, right : Series) -> Series raise @types.DataError {
         left.name(),
         Array::makei(a.length(), i => {
           if lv[i] && rv[i] && b[i] != 0L {
-            Some(a[i] % b[i])
+            Some(int_op(a[i], b[i]))
           } else {
             None
           }
@@ -223,94 +235,54 @@ fn eval_mod(left : Series, right : Series) -> Series raise @types.DataError {
     (@column.ColumnData::Int(a), @column.ColumnData::Float(b)) =>
       Series::from_float_options(
         left.name(),
-        zip_present(a.length(), lv, rv, i => a[i].to_double() % b[i]),
+        zip_present(a.length(), lv, rv, i => float_op(a[i].to_double(), b[i])),
       )
     (@column.ColumnData::Float(a), @column.ColumnData::Int(b)) =>
       Series::from_float_options(
         left.name(),
-        zip_present(a.length(), lv, rv, i => a[i] % b[i].to_double()),
+        zip_present(a.length(), lv, rv, i => float_op(a[i], b[i].to_double())),
       )
     (@column.ColumnData::Float(a), @column.ColumnData::Float(b)) =>
       Series::from_float_options(
         left.name(),
-        zip_present(a.length(), lv, rv, i => a[i] % b[i]),
+        zip_present(a.length(), lv, rv, i => float_op(a[i], b[i])),
       )
     (@column.ColumnData::Bool(_) | @column.ColumnData::String(_), _)
     | (_, @column.ColumnData::Bool(_) | @column.ColumnData::String(_)) =>
       raise @types.DataError::TypeMismatch(
-        binary_type_mismatch_msg("take the remainder of", left, right),
+        binary_type_mismatch_msg(verb, left, right),
       )
   }
   try_column_to_numeric(out)
 }
 
 ///|
-/// `Pow` kernel — exponentiation, **always `Float`** (see `Expr::pow`). Every
-/// numeric pair raises in `Double` (`a.pow(b)`), total under IEEE 754. Null
-/// propagation, the non-numeric `TypeMismatch`, and the `Numeric`
-/// re-convergence match `eval_div`.
+/// `Div` — division is **always** `Float` (Polars `/`), so every numeric pair
+/// divides in `Double` and division by zero follows IEEE 754 — `x/0 → ±inf`,
+/// `0/0 → NaN` — on every backend rather than trapping (`Int` division by zero
+/// is backend-divergent, so it is never emitted).
+fn eval_div(left : Series, right : Series) -> Series raise @types.DataError {
+  eval_binary_float(left, right, "divide", (a, b) => a / b)
+}
+
+///|
+/// `Mod` — remainder (see `Expr::modulo`). Same-dtype `Int / Int → Int`
+/// carrying the dividend's sign; any `Float` operand promotes to `Float` (IEEE
+/// remainder). `Int` modulo by zero produces a **null** cell (as for
+/// `floor_div`), so an all-valid `Int / Int` pair can still yield nulls;
+/// `Float` modulo by zero is `NaN`.
+fn eval_mod(left : Series, right : Series) -> Series raise @types.DataError {
+  eval_binary_nullzero(left, right, "take the remainder of", (a, b) => a % b, (
+    a,
+    b,
+  ) => a % b)
+}
+
+///|
+/// `Pow` — exponentiation, **always `Float`** (see `Expr::pow`). Every numeric
+/// pair raises in `Double` (`@math.pow`), total under IEEE 754.
 fn eval_pow(left : Series, right : Series) -> Series raise @types.DataError {
-  match (left.storage(), right.storage()) {
-    (@column.ColumnStorage::Numeric(x), @column.ColumnStorage::Numeric(y)) =>
-      return match (x.data, y.data) {
-        (@column.NumericData::Int(a), @column.NumericData::Int(b)) =>
-          Series::from_floats(
-            left.name(),
-            Array::makei(a.length(), i => {
-              @math.pow(a[i].to_double(), b[i].to_double())
-            }),
-          )
-        (@column.NumericData::Int(a), @column.NumericData::Float(b)) =>
-          Series::from_floats(
-            left.name(),
-            Array::makei(a.length(), i => @math.pow(a[i].to_double(), b[i])),
-          )
-        (@column.NumericData::Float(a), @column.NumericData::Int(b)) =>
-          Series::from_floats(
-            left.name(),
-            Array::makei(a.length(), i => @math.pow(a[i], b[i].to_double())),
-          )
-        (@column.NumericData::Float(a), @column.NumericData::Float(b)) =>
-          Series::from_floats(
-            left.name(),
-            Array::makei(a.length(), i => @math.pow(a[i], b[i])),
-          )
-      }
-    (@column.ColumnStorage::Builtin(_), _)
-    | (_, @column.ColumnStorage::Builtin(_)) => ()
-  }
-  let lv = validity_bools(left.storage())
-  let rv = validity_bools(right.storage())
-  let out = match (left.storage().data(), right.storage().data()) {
-    (@column.ColumnData::Int(a), @column.ColumnData::Int(b)) =>
-      Series::from_float_options(
-        left.name(),
-        zip_present(a.length(), lv, rv, i => {
-          @math.pow(a[i].to_double(), b[i].to_double())
-        }),
-      )
-    (@column.ColumnData::Int(a), @column.ColumnData::Float(b)) =>
-      Series::from_float_options(
-        left.name(),
-        zip_present(a.length(), lv, rv, i => @math.pow(a[i].to_double(), b[i])),
-      )
-    (@column.ColumnData::Float(a), @column.ColumnData::Int(b)) =>
-      Series::from_float_options(
-        left.name(),
-        zip_present(a.length(), lv, rv, i => @math.pow(a[i], b[i].to_double())),
-      )
-    (@column.ColumnData::Float(a), @column.ColumnData::Float(b)) =>
-      Series::from_float_options(
-        left.name(),
-        zip_present(a.length(), lv, rv, i => @math.pow(a[i], b[i])),
-      )
-    (@column.ColumnData::Bool(_) | @column.ColumnData::String(_), _)
-    | (_, @column.ColumnData::Bool(_) | @column.ColumnData::String(_)) =>
-      raise @types.DataError::TypeMismatch(
-        binary_type_mismatch_msg("exponentiate", left, right),
-      )
-  }
-  try_column_to_numeric(out)
+  eval_binary_float(left, right, "exponentiate", (a, b) => @math.pow(a, b))
 }
 
 ///|
@@ -330,91 +302,22 @@ fn floor_div_i64(a : Int64, b : Int64) -> Int64 {
 }
 
 ///|
-/// `FloorDiv` kernel over two equal-length operands (post-`broadcast_pair`).
-/// Same-dtype `Int / Int → Int` (floor toward −∞); any `Float` operand
-/// promotes to `Float` (`(a / b).floor()`). `Int` division by zero produces a
-/// **null** cell (no integer infinity, and a backend integer divide by zero
-/// traps), so even an all-valid `Int / Int` pair can yield nulls; `Float`
-/// division by zero follows IEEE 754 (`±inf` / `nan`) and stays a value. Null
-/// propagation, the non-numeric `TypeMismatch`, and the `Numeric`
-/// re-convergence match `eval_arith`.
+/// `FloorDiv` — same-dtype `Int / Int → Int` (floor toward −∞); any `Float`
+/// operand promotes to `Float` (`(a / b).floor()`). `Int` division by zero
+/// produces a **null** cell (no integer infinity, and a backend integer divide
+/// by zero traps), so even an all-valid `Int / Int` pair can yield nulls;
+/// `Float` division by zero follows IEEE 754 (`±inf` / `nan`) and stays a value.
 fn eval_floor_div(
   left : Series,
   right : Series,
 ) -> Series raise @types.DataError {
-  match (left.storage(), right.storage()) {
-    (@column.ColumnStorage::Numeric(x), @column.ColumnStorage::Numeric(y)) =>
-      return match (x.data, y.data) {
-        // A zero divisor nulls its cell, so an all-valid pair can still leave
-        // the `Numeric` fast path — re-converge afterwards.
-        (@column.NumericData::Int(a), @column.NumericData::Int(b)) =>
-          try_column_to_numeric(
-            Series::from_int_options(
-              left.name(),
-              Array::makei(a.length(), i => {
-                if b[i] == 0L {
-                  None
-                } else {
-                  Some(floor_div_i64(a[i], b[i]))
-                }
-              }),
-            ),
-          )
-        (@column.NumericData::Int(a), @column.NumericData::Float(b)) =>
-          Series::from_floats(
-            left.name(),
-            Array::makei(a.length(), i => (a[i].to_double() / b[i]).floor()),
-          )
-        (@column.NumericData::Float(a), @column.NumericData::Int(b)) =>
-          Series::from_floats(
-            left.name(),
-            Array::makei(a.length(), i => (a[i] / b[i].to_double()).floor()),
-          )
-        (@column.NumericData::Float(a), @column.NumericData::Float(b)) =>
-          Series::from_floats(
-            left.name(),
-            Array::makei(a.length(), i => (a[i] / b[i]).floor()),
-          )
-      }
-    (@column.ColumnStorage::Builtin(_), _)
-    | (_, @column.ColumnStorage::Builtin(_)) => ()
-  }
-  let lv = validity_bools(left.storage())
-  let rv = validity_bools(right.storage())
-  let out = match (left.storage().data(), right.storage().data()) {
-    (@column.ColumnData::Int(a), @column.ColumnData::Int(b)) =>
-      Series::from_int_options(
-        left.name(),
-        Array::makei(a.length(), i => {
-          if lv[i] && rv[i] && b[i] != 0L {
-            Some(floor_div_i64(a[i], b[i]))
-          } else {
-            None
-          }
-        }),
-      )
-    (@column.ColumnData::Int(a), @column.ColumnData::Float(b)) =>
-      Series::from_float_options(
-        left.name(),
-        zip_present(a.length(), lv, rv, i => (a[i].to_double() / b[i]).floor()),
-      )
-    (@column.ColumnData::Float(a), @column.ColumnData::Int(b)) =>
-      Series::from_float_options(
-        left.name(),
-        zip_present(a.length(), lv, rv, i => (a[i] / b[i].to_double()).floor()),
-      )
-    (@column.ColumnData::Float(a), @column.ColumnData::Float(b)) =>
-      Series::from_float_options(
-        left.name(),
-        zip_present(a.length(), lv, rv, i => (a[i] / b[i]).floor()),
-      )
-    (@column.ColumnData::Bool(_) | @column.ColumnData::String(_), _)
-    | (_, @column.ColumnData::Bool(_) | @column.ColumnData::String(_)) =>
-      raise @types.DataError::TypeMismatch(
-        binary_type_mismatch_msg("floor-divide", left, right),
-      )
-  }
-  try_column_to_numeric(out)
+  eval_binary_nullzero(
+    left,
+    right,
+    "floor-divide",
+    (a, b) => floor_div_i64(a, b),
+    (a, b) => (a / b).floor(),
+  )
 }
 
 ///|

@@ -57,3 +57,27 @@ pub fn DataFrame::rename(
   let new_cols = names.mapi((i, name) => cols[i].rename(name))
   DataFrame::new(new_cols)
 }
+
+///|
+/// Return a copy of `self` with **every** column renamed through `f`: each
+/// column's new name is `f(old_name)`. The callable form of `rename` — Polars'
+/// `df.rename(function)` — for a uniform transform (a prefix, a case fold) over
+/// the whole schema rather than an explicit `old -> new` list.
+///
+/// `f` is total, so the only failure is a collision: if `f` maps two distinct
+/// columns to the same name, the rebuilding `DataFrame::new` raises
+/// `DuplicateColumn`. (There is no `ColumnNotFound` — every existing column is
+/// renamed, none is looked up by name.)
+///
+/// The identity `f = name => name` is a no-op. Column order, dtypes, and the row
+/// count are unchanged; only each column's `name` is refreshed via
+/// `Series::rename`, and all structural invariants follow from re-running
+/// `DataFrame::new`.
+pub fn DataFrame::rename_with(
+  self : DataFrame,
+  f : (String) -> String,
+) -> DataFrame raise @types.DataError {
+  let cols = self.column_series()
+  let new_cols = cols.map(s => s.rename(f(s.name())))
+  DataFrame::new(new_cols)
+}

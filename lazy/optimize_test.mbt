@@ -437,7 +437,7 @@ test "aggregate guard: reading every column inserts nothing" {
 }
 
 ///|
-test "drop/rename/unique/drop_nulls/fill_null are predicate barriers" {
+test "drop/rename/rename_with/unique/drop_nulls/fill_null are predicate barriers" {
   // A filter directly above each of these nodes must not sink through it: they
   // are predicate fences (place_filter stops at them). Were any mistakenly made
   // a pass-through, the predicate pass would push the filter below it and the
@@ -452,6 +452,13 @@ test "drop/rename/unique/drop_nulls/fill_null are predicate barriers" {
     .rename([("qty", "quantity")])
     .filter(@expr.col("quantity").gt(@expr.lit_int(50)))
   assert_eq(rename_plan.explain(optimized=true), rename_plan.explain())
+  let rename_with_plan = lazy_frame(df)
+    .rename_with(name => "col_\{name}")
+    .filter(@expr.col("col_qty").gt(@expr.lit_int(50)))
+  assert_eq(
+    rename_with_plan.explain(optimized=true),
+    rename_with_plan.explain(),
+  )
   let unique_plan = lazy_frame(df).unique().filter(qty_gt)
   assert_eq(unique_plan.explain(optimized=true), unique_plan.explain())
   let drop_nulls_plan = lazy_frame(df).drop_nulls().filter(qty_gt)

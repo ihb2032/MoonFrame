@@ -392,14 +392,15 @@ pub extend AggOp with Debug::{to_repr}
 /// the `Str` arm of `Expr`'s handwritten `Eq` can compare tags by `==`).
 /// Every operation maps a String cell to its result cell by cell:
 /// `ToUppercase` / `ToLowercase` / `StripChars` / `StripCharsCustom` /
-/// `Replace` / `ReplaceAll` / `Reverse` / `PadStart` / `PadEnd` /
+/// `Replace` / `ReplaceAll` / `Reverse` / `PadStart` / `PadEnd` / `ZFill` /
 /// `ReplaceRegex` / `ReplaceAllRegex` / `Extract` / `Slice` / `SplitGet` yield a
 /// String, `LenChars` / `CountMatches` / `LenBytes` an `Int`, and the
 /// `Contains` / `StartsWith` / `EndsWith` / `ContainsRegex` predicates a
 /// `Bool`. Null cells pass through as null and a non-String operand is a
 /// `TypeMismatch` at evaluation. `Reverse` reverses Unicode characters
-/// (surrogate pairs respected), and the `PadStart` / `PadEnd` widths and the
-/// `Slice` offset / length all count characters, consistent with `LenChars`
+/// (surrogate pairs respected), and the `PadStart` / `PadEnd` / `ZFill` widths
+/// and the `Slice` offset / length all count characters, consistent with
+/// `LenChars`
 /// (`LenBytes` counts UTF-8 bytes instead). `Extract` and `SplitGet` also null a
 /// cell that does not match / has no such segment, so unlike the other
 /// String-valued ops their result is null on a present cell too.
@@ -435,6 +436,7 @@ pub enum StrOp {
   LenBytes
   StripCharsCustom(String)
   SplitGet(String, Int)
+  ZFill(Int)
 } derive(Eq, Debug)
 
 ///|

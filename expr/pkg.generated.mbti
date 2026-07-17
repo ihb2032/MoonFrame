@@ -158,6 +158,7 @@ pub fn Expr::str_starts_with(Self, String) -> Self
 pub fn Expr::str_strip_chars(Self, chars? : String) -> Self
 pub fn Expr::str_to_lowercase(Self) -> Self
 pub fn Expr::str_to_uppercase(Self) -> Self
+pub fn Expr::str_zfill(Self, Int) -> Self
 pub fn Expr::sub(Self, Self) -> Self
 pub fn Expr::sum(Self) -> Self
 #as_free_fn
@@ -198,6 +199,7 @@ pub enum StrOp {
   LenBytes
   StripCharsCustom(String)
   SplitGet(String, Int)
+  ZFill(Int)
 } derive(Eq, @debug.Debug)
 pub fn StrOp::equal(Self, Self) -> Bool
 pub fn StrOp::not_equal(Self, Self) -> Bool

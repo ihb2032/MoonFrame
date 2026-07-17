@@ -177,6 +177,11 @@ fn eval_str(
           }
         }),
       )
+    @expr.StrOp::ZFill(width) =>
+      Series::from_string_options(
+        name,
+        map_present(n, valid, i => zfill_chars(data[i], width)),
+      )
   }
   try_column_to_numeric(out)
 }
@@ -281,5 +286,26 @@ fn pad_end_chars(s : String, width : Int, fill : Char) -> String {
     s
   } else {
     "\{s}\{String::make(width - len, fill)}"
+  }
+}
+
+///|
+/// Left-pad `s` with `'0'` to `width` **characters**, keeping a leading sign
+/// ahead of the zeros — Polars' `str.zfill`. `"-5"` to width 4 is `"-005"`.
+/// The width counts characters (sign included) and a cell already that wide is
+/// returned unchanged. Codepoint-based like `pad_start_chars`; the sign, when
+/// present, is a single ASCII character so `s[1:]` drops exactly it.
+fn zfill_chars(s : String, width : Int) -> String {
+  let len = s.char_length()
+  if len >= width {
+    return s
+  }
+  let zeros = String::make(width - len, '0')
+  if s.has_prefix("-") {
+    "-\{zeros}\{s[1:]}"
+  } else if s.has_prefix("+") {
+    "+\{zeros}\{s[1:]}"
+  } else {
+    "\{zeros}\{s}"
   }
 }

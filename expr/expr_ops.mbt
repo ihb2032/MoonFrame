@@ -603,6 +603,18 @@ pub fn Expr::str_pad_end(self : Expr, width : Int, fill? : Char = ' ') -> Expr {
 }
 
 ///|
+/// Left-pad each cell of a String column with `'0'` until it is `width`
+/// **characters** long — Polars' `str.zfill`. Like `str_pad_start('0')` but
+/// **sign-aware**: a leading `'+'` / `'-'` keeps its place and the zeros are
+/// inserted *after* it (`"-5"` to width 4 is `"-005"`, not `"00-5"`). A cell
+/// already at least `width` characters is unchanged (never truncated); null
+/// cells stay null. The width counts characters, consistent with
+/// `str_len_chars`.
+pub fn Expr::str_zfill(self : Expr, width : Int) -> Expr {
+  Str(StrOp::ZFill(width), self)
+}
+
+///|
 /// `Bool` column, `true` where the cell **matches** the regular expression
 /// `pattern` (a partial match, like Polars' `str.contains`). The regex form of
 /// `str_contains`, which stays literal. `pattern` is a **POSIX** regular

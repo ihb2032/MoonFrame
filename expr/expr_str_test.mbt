@@ -74,6 +74,7 @@ test "str: every namespace method renders as a postfix call" {
     col("s").str_split_get(",", 1),
     content="col(s).str_split_get(\",\", 1)",
   )
+  inspect(col("s").str_zfill(5), content="col(s).str_zfill(5)")
 }
 
 ///|

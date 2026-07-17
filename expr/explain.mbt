@@ -428,6 +428,7 @@ fn write_str_suffix(logger : &Logger, op : StrOp) -> Unit {
       logger.write_string(
         ".str_split_get(\"\{@types.escape_debug(sep)}\", \{index})",
       )
+    ZFill(width) => logger.write_string(".str_zfill(\{width})")
   }
 }
 

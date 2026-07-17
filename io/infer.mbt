@@ -118,8 +118,8 @@ fn[Cell] infer_dtype(
 /// converts a non-null cell to `Some(value)` (or `None` when it doesn't fit
 /// the locked-in dtype), and `build` wraps the option array into a
 /// `Series`. Used for the parseable dtypes (`Int` / `Float` / `Bool`); the
-/// `String` fallback is built inline by each reader because its `parse`
-/// never fails (so it needs no `err`).
+/// `String` fallback goes through the total `build_string_column` below (its
+/// `render` never fails, so it needs no `parse` / `err` / `on_parse_error`).
 ///
 /// A non-null cell that `parse` rejects is handled per `on_parse_error`:
 /// `Raise` surfaces `err(i, c)` (the strict default, failing the read),
@@ -151,4 +151,31 @@ fn[Cell, T] build_typed_column(
     }
   })
   build(name, values)
+}
+
+///|
+/// Materialise a `String` column from an abstract cell source — the total
+/// counterpart of `build_typed_column` for the `String` fallback dtype.
+/// `cell(i)` reads the raw cell, `is_null(c)` maps a null cell to `None`, and
+/// `render(c)` stringifies a non-null cell (it never fails, so there is no
+/// `parse` / `err` / `on_parse_error`). The CSV reader renders with the
+/// identity; the JSON reader with its value-to-string fallback.
+fn[Cell] build_string_column(
+  name : String,
+  n : Int,
+  cell : (Int) -> Cell,
+  is_null : (Cell) -> Bool,
+  render : (Cell) -> String,
+) -> @series.Series {
+  @series.Series::from_string_options(
+    name,
+    Array::makei(n, i => {
+      let c = cell(i)
+      if is_null(c) {
+        None
+      } else {
+        Some(render(c))
+      }
+    }),
+  )
 }

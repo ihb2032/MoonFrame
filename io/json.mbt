@@ -576,16 +576,9 @@ fn build_json_column(
         on_parse_error,
         @series.Series::from_bool_options,
       )
-    InferString => {
-      let values : Array[String?] = Array::makei(n, i => {
-        let c = cell(i)
-        if isnull(c) {
-          None
-        } else {
-          Some(json_value_to_string_fallback(c))
-        }
+    InferString =>
+      build_string_column(name, n, cell, isnull, c => {
+        json_value_to_string_fallback(c)
       })
-      @series.Series::from_string_options(name, values)
-    }
   }
 }

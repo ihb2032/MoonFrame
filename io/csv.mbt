@@ -535,16 +535,6 @@ fn build_column(
         on_parse_error,
         @series.Series::from_bool_options,
       )
-    InferString => {
-      let values : Array[String?] = Array::makei(n, i => {
-        let v = cell(i)
-        if isnull(v) {
-          None
-        } else {
-          Some(v)
-        }
-      })
-      @series.Series::from_string_options(name, values)
-    }
+    InferString => build_string_column(name, n, cell, isnull, v => v)
   }
 }

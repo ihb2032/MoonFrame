@@ -369,28 +369,13 @@ fn eval_expr(
             let x_v = pop_value(values)
             values.push(eval_is_between(x_v, lo_v, hi_v))
           }
-          ApplyMap(f, arity) => {
-            let popped : Array[Series] = []
-            for _ in 0..<arity {
-              popped.push(pop_value(values))
-            }
-            // `popped` is reverse input order (last input popped first); restore
-            // input order so cell `k` feeds `f` the k-th input.
-            let evaluated = Array::makei(arity, i => popped[arity - 1 - i])
-            values.push(eval_map_apply(evaluated, f))
-          }
-          ApplyMapBatches(f, arity) => {
-            let popped : Array[Series] = []
-            for _ in 0..<arity {
-              popped.push(pop_value(values))
-            }
-            // Restore input order (last input popped first), hand the whole
-            // evaluated series to the closure, and canonicalise the backend of
-            // its result — an all-valid numeric column returned on `Builtin`
-            // lands on `Numeric`, keeping `collect ≡ execute`.
-            let evaluated = Array::makei(arity, i => popped[arity - 1 - i])
-            values.push(try_column_to_numeric(f(evaluated)))
-          }
+          ApplyMap(f, arity) =>
+            values.push(eval_map_apply(pop_inputs(values, arity), f))
+          // Hand the whole evaluated series to the closure and canonicalise the
+          // backend of its result — an all-valid numeric column returned on
+          // `Builtin` lands on `Numeric`, keeping `collect ≡ execute`.
+          ApplyMapBatches(f, arity) =>
+            values.push(try_column_to_numeric(f(pop_inputs(values, arity))))
         }
     }
   }
@@ -406,6 +391,20 @@ fn pop_value(stack : Array[Series]) -> Series {
   let top = stack[stack.length() - 1]
   let _ = stack.pop()
   top
+}
+
+///|
+/// Pop `arity` already-evaluated operands off the value stack and return them in
+/// **input order**. The stack yields them last-first, so the result reverses the
+/// pop order (`arity - 1 - i`) — cell `k` then feeds the closure its k-th input.
+/// Shared by the `ApplyMap` / `ApplyMapBatches` combiners, whose reversals must
+/// otherwise be kept in lockstep.
+fn pop_inputs(stack : Array[Series], arity : Int) -> Array[Series] {
+  let popped : Array[Series] = []
+  for _ in 0..<arity {
+    popped.push(pop_value(stack))
+  }
+  Array::makei(arity, i => popped[arity - 1 - i])
 }
 
 ///|

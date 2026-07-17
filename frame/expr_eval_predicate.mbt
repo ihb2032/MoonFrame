@@ -7,18 +7,26 @@
 /// pair — can never drift from `eq` / `ge` / `le` and the connectives.
 
 ///|
-/// `is_in`: `true` where the cell equals one of `members`, as an OR of `eq`.
-/// The accumulator seeds to `false` where the cell is present and null where it
-/// is null, so an empty set is "member of nothing" for a present cell and a
-/// null cell propagates; each member's `eq` mask then ORs into it under the
-/// Kleene table. A `Null` member has no value to equal (and no column form), so
-/// it matches nothing and is skipped; a member whose dtype cannot compare with
-/// the column raises `TypeMismatch` from `eval_compare`, exactly as
-/// `col.eq(lit(member))` would.
+/// `is_in`: `true` where the cell equals one of `members`. The general path
+/// (below) is an OR of `eq`, seeding the accumulator to `false` where the cell
+/// is present and `null` where it is null — so an empty set is "member of
+/// nothing" for a present cell and a null cell propagates — then ORing each
+/// member's `eq` mask under the Kleene table. A `Null` member has no value to
+/// equal (and no column form), so it matches nothing and is skipped; a member
+/// whose dtype cannot compare with the column raises `TypeMismatch` from
+/// `eval_compare`, exactly as `col.eq(lit(member))` would.
+///
+/// A `String` / `Bool` / `Int` column whose members are all of that same dtype
+/// takes the O(n + m) `try_fast_is_in` fast path instead; everything with a
+/// floating-point comparison subtlety stays on the exact general path.
 fn eval_is_in(
   operand : Series,
   members : Array[@types.Scalar],
 ) -> Series raise @types.DataError {
+  match try_fast_is_in(operand, members) {
+    Some(result) => return result
+    None => ()
+  }
   let mut acc = Series::from_bool_options(
     operand.name(),
     map_present(operand.len(), validity_bools(operand.storage()), _ => false),
@@ -34,6 +42,99 @@ fn eval_is_in(
     acc = eval_logic(acc, mask, "or", kleene_or)
   }
   acc
+}
+
+///|
+/// Fast `is_in` for the dtypes with no floating-point comparison subtleties: a
+/// `String`, `Bool`, or `Int` column whose members are **all** of that same
+/// dtype. Builds an exact membership structure over the (non-null) members once,
+/// then tests every cell in a single pass — O(n + m) instead of the general
+/// kernel's O(n·m) time and per-member column allocation. `Some(result)` on that
+/// fast path; `None` — deferring to the exact `eval_compare` kernel — for a
+/// `Float` column or any member of a different dtype, so cross-type numeric
+/// equality (`Int` vs `Float`, exact across 2^53), signed-zero / NaN semantics,
+/// and the `TypeMismatch` on an incomparable member all stay on that one path.
+/// A null cell yields null and a null member is skipped, matching the general
+/// path.
+fn try_fast_is_in(operand : Series, members : Array[@types.Scalar]) -> Series? {
+  let n = operand.len()
+  let valid = validity_bools(operand.storage())
+  let name = operand.name()
+  match operand.storage().data() {
+    @column.ColumnData::String(data) => {
+      let set : Map[String, Unit] = Map([])
+      for m in members {
+        match m {
+          @types.Scalar::String(s) => set[s] = ()
+          @types.Scalar::Null => ()
+          _ => return None
+        }
+      }
+      Some(
+        Series::from_bool_options(
+          name,
+          Array::makei(n, i => {
+            if valid[i] {
+              Some(set.contains(data[i]))
+            } else {
+              None
+            }
+          }),
+        ),
+      )
+    }
+    @column.ColumnData::Int(data) => {
+      let set : Map[Int64, Unit] = Map([])
+      for m in members {
+        match m {
+          @types.Scalar::Int(v) => set[v] = ()
+          @types.Scalar::Null => ()
+          _ => return None
+        }
+      }
+      Some(
+        Series::from_bool_options(
+          name,
+          Array::makei(n, i => {
+            if valid[i] {
+              Some(set.contains(data[i]))
+            } else {
+              None
+            }
+          }),
+        ),
+      )
+    }
+    @column.ColumnData::Bool(data) => {
+      let mut has_true = false
+      let mut has_false = false
+      for m in members {
+        match m {
+          @types.Scalar::Bool(b) =>
+            if b {
+              has_true = true
+            } else {
+              has_false = true
+            }
+          @types.Scalar::Null => ()
+          _ => return None
+        }
+      }
+      Some(
+        Series::from_bool_options(
+          name,
+          Array::makei(n, i => {
+            if valid[i] {
+              Some(if data[i] { has_true } else { has_false })
+            } else {
+              None
+            }
+          }),
+        ),
+      )
+    }
+    @column.ColumnData::Float(_) => None
+  }
 }
 
 ///|

@@ -196,6 +196,20 @@ test "show: a map renders by label and inputs, the closure opaque" {
 }
 
 ///|
+test "show: a map_batches renders like a map, flagging returns_scalar" {
+  // The row-wise form renders as `map_batches("label", [inputs])`.
+  inspect(
+    col("x").map_batches(label="cumsum", fn(s) { s }),
+    content="map_batches(\"cumsum\", [col(x)])",
+  )
+  // The reducing form appends `, returns_scalar=true` so the two are distinct.
+  inspect(
+    col("x").map_batches(label="range", returns_scalar=true, fn(s) { s }),
+    content="map_batches(\"range\", [col(x)], returns_scalar=true)",
+  )
+}
+
+///|
 test "debug: an expression's repr is its quoted operator form" {
   // `@debug.Debug` (what `assert_eq` uses for failure messages) is
   // handwritten — the `Map` closure blocks `derive` — and delegates to the

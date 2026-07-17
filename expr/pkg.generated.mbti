@@ -84,6 +84,7 @@ pub enum Expr {
   IsIn(Expr, Array[@types.Scalar])
   IsBetween(Expr, Expr, Expr)
   Map(String, Array[Expr], (Array[@types.Scalar]) -> @types.Scalar raise @types.DataError)
+  MapBatches(String, Array[Expr], Bool, (Array[@series.Series]) -> @series.Series raise @types.DataError)
 }
 pub fn Expr::abs(Self) -> Self
 pub fn Expr::add(Self, Self) -> Self
@@ -117,6 +118,7 @@ pub fn Expr::le(Self, Self) -> Self
 pub fn Expr::lit(@types.Scalar) -> Self
 pub fn Expr::lor(Self, Self) -> Self
 pub fn Expr::lt(Self, Self) -> Self
+pub fn Expr::map_batches(Self, label~ : String, returns_scalar? : Bool, (@series.Series) -> @series.Series raise @types.DataError) -> Self
 pub fn Expr::map_elements(Self, label~ : String, (@types.Scalar) -> @types.Scalar raise @types.DataError) -> Self
 pub fn Expr::max(Self) -> Self
 pub fn Expr::mean(Self) -> Self

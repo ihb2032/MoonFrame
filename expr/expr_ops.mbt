@@ -768,6 +768,38 @@ pub fn Expr::map_elements(
 }
 
 ///|
+/// Apply a host closure to `self`'s whole evaluated column at once — the
+/// batched escape hatch (Polars' `map_batches`). Where `map_elements` hands
+/// `f` one `@types.Scalar` per row, `map_batches` hands it the entire
+/// `@series.Series` and takes back a `Series`, so a vectorised kernel (a
+/// cumulative sum, a rank, a rolling window) runs once over the column rather
+/// than cell by cell. `label` names the step in `explain` / `Show`; the
+/// closure is opaque to introspection, equality, and the optimizer.
+///
+/// Building the node is total; `f` runs at evaluation and may `raise`. The
+/// returned series rides the same length contract as `lit_series`: a
+/// frame-tall result passes through, a length-1 result broadcasts, any other
+/// length raises `LengthMismatch` in the consuming verb. The result is named
+/// after `self`, so `with_alias` renames it, and its backend is canonicalised
+/// (an all-valid numeric result lands on `Numeric`) so `collect ≡ execute`.
+///
+/// Set `returns_scalar` when `f` reduces its input to a length-1 series: it
+/// marks the node as a per-group reduction so it is accepted as a custom
+/// aggregation inside `group_by(...).agg([...])`, where `f` receives each
+/// group's rows and must return a length-1 series (a non-length-1 result
+/// raises `LengthMismatch` at collect). Left `false` (the default), the node
+/// is a plain row-wise expression and the optimizer treats it — like
+/// `map_elements` — as a value-and-shape barrier that no filter sinks across.
+pub fn Expr::map_batches(
+  self : Expr,
+  label~ : String,
+  returns_scalar? : Bool = false,
+  f : (@series.Series) -> @series.Series raise @types.DataError,
+) -> Expr {
+  MapBatches(label, [self], returns_scalar, vs => f(vs[0]))
+}
+
+///|
 /// Apply a host closure across several input columns, row by row — the
 /// multi-input escape hatch, and the reified replacement for the v0.1
 /// closure `filter` predicate: `f` is handed one `@types.Scalar` per input

@@ -78,6 +78,12 @@ pub enum Expr {
     Array[Expr],
     (Array[@types.Scalar]) -> @types.Scalar raise @types.DataError
   )
+  MapBatches(
+    String,
+    Array[Expr],
+    Bool,
+    (Array[@series.Series]) -> @series.Series raise @types.DataError
+  )
 }
 
 ///|
@@ -250,6 +256,21 @@ fn exprs_structurally_equal(first : Expr, second : Expr) -> Bool {
             match b {
               Map(l2, i2, _) => {
                 if l1 != l2 || i1.length() != i2.length() {
+                  return false
+                }
+                for k in 0..<i1.length() {
+                  stack.push((i1[k], i2[k]))
+                }
+              }
+              _ => return false
+            }
+          // Like `Map`, plus the `returns_scalar` flag participates in equality
+          // (the closure stays opaque): two batch maps are equal on
+          // `(label, returns_scalar, inputs)`.
+          MapBatches(l1, i1, rs1, _) =>
+            match b {
+              MapBatches(l2, i2, rs2, _) => {
+                if l1 != l2 || rs1 != rs2 || i1.length() != i2.length() {
                   return false
                 }
                 for k in 0..<i1.length() {

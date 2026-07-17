@@ -174,6 +174,41 @@ test "a dtype-changing map under a grouped reduction collects like eager" {
 }
 
 ///|
+test "a batched map collects like eager, row-wise and as a group reduction" {
+  let df = @frame.DataFrame::new([
+    @series.Series::from_strings("g", ["x", "x", "y"]),
+    @series.Series::from_ints("v", [10, 20, 30]),
+  ])
+  // Row-wise (returns_scalar=false) through with_columns.
+  let doubled = @expr.col("v").map_batches(label="double", s => {
+    @series.Series::from_ints(
+      s.name(),
+      s
+      .to_scalars()
+      .map(sc => {
+        match sc {
+          @types.Scalar::Int(x) => x * 2
+          _ => 0
+        }
+      }),
+    )
+  })
+  let rowwise = lazy_frame(df).with_columns([doubled.with_alias("v2")])
+  assert_eq(rowwise.collect(), df.with_columns([doubled.with_alias("v2")]))
+  // Reducing (returns_scalar=true) as a custom aggregation.
+  let total = @expr.col("v").map_batches(label="sum", returns_scalar=true, s => {
+    @series.Series::from_ints("sum", [s.sum().as_int()])
+  })
+  let reduced = lazy_frame(df)
+    .group_by([@expr.col("g")])
+    .agg([total.with_alias("t")])
+  assert_eq(
+    reduced.collect(),
+    df.group_by([@expr.col("g")]).agg([total.with_alias("t")]),
+  )
+}
+
+///|
 test "nested self-joins execute each shared subplan once, not once per occurrence" {
   // `lf.join(lf, …)` shares one plan object under both Join inputs; 26
   // nestings make a DAG whose tree expansion holds 2^26 nodes. The

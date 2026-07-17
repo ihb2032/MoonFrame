@@ -77,6 +77,7 @@ pub fn Expr::children(self : Expr) -> Array[Expr] {
     IsIn(e, _) => [e]
     IsBetween(x, lo, hi) => [x, lo, hi]
     Map(_, inputs, _) => inputs.copy()
+    MapBatches(_, inputs, _, _) => inputs.copy()
   }
 }
 
@@ -306,6 +307,24 @@ fn push_write_tasks(stack : Array[WriteTask], expr : Expr) -> Unit {
         ts.push(Node(inputs[i]))
       }
       ts.push(Frag("])"))
+      ts
+    }
+    // Like `Map`, as `map_batches("label", [inputs])`, and — when the node is
+    // flagged as a reduction — a trailing `, returns_scalar=true` so the two
+    // forms render distinctly.
+    MapBatches(label, inputs, returns_scalar, _) => {
+      let ts : Array[WriteTask] = [
+        Frag("map_batches(\"\{@types.escape_debug(label)}\", ["),
+      ]
+      for i in 0..<inputs.length() {
+        if i > 0 {
+          ts.push(Frag(", "))
+        }
+        ts.push(Node(inputs[i]))
+      }
+      ts.push(
+        Frag(if returns_scalar { "], returns_scalar=true)" } else { "])" }),
+      )
       ts
     }
   }

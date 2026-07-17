@@ -379,16 +379,38 @@ frame. The result is named after the leftmost input; `label` shows only in
 `explain`. The optimizer treats a map as a value barrier (like `cast`): no
 filter sinks across it.
 
+Where `map_elements` hands the closure one `Scalar` per row, `map_batches`
+hands it the whole evaluated column at once — the vectorised escape hatch:
+
+- `Expr::map_batches(self, label~ : String, returns_scalar~ : Bool = false, f :
+  (Series) -> Series raise) -> Expr` — `f` receives `self`'s entire evaluated
+  `Series` and returns a `Series`, so a whole-column kernel (a cumulative sum,
+  a rank) runs once rather than cell by cell.
+
+Building the node is total; `f` runs at evaluation and may `raise`. The result
+rides the same length contract as `lit_series` — a frame-tall result passes
+through, a length-1 result broadcasts, any other length raises `LengthMismatch`
+in the consuming verb — is named after `self`, and has its backend canonicalised
+(an all-valid numeric result lands on `Numeric`) so `collect ≡ execute`. Like a
+map, it is a value-and-shape barrier the optimizer never sinks a filter across.
+Set `returns_scalar` when `f` reduces its input to a length-1 series: it marks
+the node as a per-group reduction, so it is accepted as a **custom aggregation**
+inside `group_by(...).agg([...])`, where `f` receives each group's rows and must
+return a length-1 series (a non-length-1 result raises `LengthMismatch`). Left
+`false`, the node is a plain row-wise expression and is rejected by `agg`'s
+reduction-shape gate like any non-reducing expression.
+
 ### Introspection (all total)
 
 - `explain(self) -> String`, and the `Show` impl, render the documented
   operator form: `col(name)`, quoted string literals, parenthesised infix
   binaries `(l op r)`, prefix `(-e)` / `(not e)`, postfix `e.is_null()` /
   `e.sum()` / `e.str_contains("p")` / `e.cast(T)`, `e as name`,
-  `when(c).then(a).otherwise(b)`, `map("label", [inputs])` for the
-  closure escape hatch (the closure opaque), and `lit_series("name", len)`
-  for an embedded literal series (its data opaque). `LazyFrame::explain`
-  reuses it for plan lines.
+  `when(c).then(a).otherwise(b)`, `map("label", [inputs])` /
+  `map_batches("label", [inputs])` (the latter with `, returns_scalar=true`
+  when flagged) for the closure escape hatches (the closure opaque), and
+  `lit_series("name", len)` for an embedded literal series (its data opaque).
+  `LazyFrame::explain` reuses it for plan lines.
 - `referenced_columns(self) -> Set[String]` — every column the tree reads,
   including a ternary's condition.
 - `output_name(self) -> String` — the output column name under Polars'
@@ -438,6 +460,11 @@ raising `DataError` at evaluation time — building the tree never fails:
   dtype is the first non-null result's; an all-null (or empty) result
   borrows the leftmost column input's dtype, and only a column-less map
   with no non-null result cell raises `Unsupported`.
+- **Batched map** (`map_batches`) runs the closure once over the whole
+  evaluated `Series` and takes back a `Series`, canonicalised onto its
+  content backend; the result broadcasts like a `lit_series` (frame-tall
+  passes through, length-1 broadcasts, else `LengthMismatch`).
+  `returns_scalar=true` marks it a per-group reduction for `agg`.
 - **Literal series** (`lit_series`) is used verbatim — the data analogue of a
   scalar literal's length-1 column — and the consumers broadcast it: a
   length-1 series fills the scope, a frame-tall one passes through, anything

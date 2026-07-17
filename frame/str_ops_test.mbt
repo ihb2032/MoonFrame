@@ -197,6 +197,55 @@ test "str_pad_start: the width counts characters, not UTF-16 units" {
 }
 
 ///|
+test "str_zfill: zero-pads to a character width, sign-aware, never truncates" {
+  let df = DataFrame::new([
+    Series::from_string_options("s", [
+      Some("42"),
+      Some("-5"),
+      Some("+7"),
+      Some("12345"),
+      Some("-123"),
+      Some(""),
+      None,
+    ]),
+  ])
+  let out = df.select([@expr.col("s").str_zfill(4)])
+  assert_eq(out.get_column("s").to_scalars(), [
+    // Plain number: zeros on the left.
+    @types.Scalar::String("0042"),
+    // A leading sign keeps its place; zeros fill after it.
+    @types.Scalar::String("-005"),
+    @types.Scalar::String("+007"),
+    // Already at least the width — unchanged, never truncated.
+    @types.Scalar::String("12345"),
+    // Width counts the sign: "-123" is already 4 characters.
+    @types.Scalar::String("-123"),
+    // The empty string pads to all zeros.
+    @types.Scalar::String("0000"),
+    // A null stays null.
+    @types.Scalar::Null,
+  ])
+}
+
+///|
+test "str_zfill: the width counts characters, not UTF-16 units" {
+  // "😀" is one character but two UTF-16 units; zero-padding to width 3 adds two
+  // zeros for a three-character result.
+  let df = DataFrame::new([Series::from_strings("s", ["😀"])])
+  let out = df.select([@expr.col("s").str_zfill(3)])
+  assert_eq(out.get_column("s").to_scalars(), [@types.Scalar::String("00😀")])
+}
+
+///|
+test "str_zfill: a non-String operand raises TypeMismatch" {
+  let df = DataFrame::new([Series::from_ints("n", [1])])
+  assert_true(
+    (Ok(df.select([@expr.col("n").str_zfill(3)])) catch { e => Err(e) })
+    is Err(@types.DataError::TypeMismatch(_)),
+  )
+}
+
+///|
 test "str_contains_regex: POSIX-regex partial match, nulls pass through" {
   let df = DataFrame::new([
     Series::from_string_options("s", [

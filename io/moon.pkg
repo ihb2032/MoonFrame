@@ -10,6 +10,7 @@ import {
 
 import {
   "moonbitlang/core/bench",
+  "moonbitlang/core/double",
   "moonbitlang/core/test",
   "moonbitlang/quickcheck" @qc,
   "moonbitlang/quickcheck/gen",

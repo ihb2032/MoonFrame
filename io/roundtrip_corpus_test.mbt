@@ -107,3 +107,183 @@ test "round-trip: shape edges (single row, single column, wide frame)" {
     @frame.DataFrame::new([@series.Series::from_strings("c", ["p", "q", "r"])]),
   )
 }
+
+///|
+/// Compare shape, column order, and every cell. Float comparison is bit-exact
+/// so signed zero and values next to the finite Double limit cannot drift.
+fn assert_same_cells(
+  expected : @frame.DataFrame,
+  actual : @frame.DataFrame,
+) -> Unit raise {
+  assert_eq(actual.shape(), expected.shape())
+  assert_eq(actual.columns(), expected.columns())
+  for name in expected.columns() {
+    for row in 0..<expected.nrows() {
+      let want = expected.item(row, name)
+      let got = actual.item(row, name)
+      match (want, got) {
+        (@types.Scalar::Float(w), @types.Scalar::Float(g)) =>
+          if w.is_nan() {
+            assert_true(g.is_nan())
+          } else {
+            assert_eq(g.reinterpret_as_int64(), w.reinterpret_as_int64())
+          }
+        _ => assert_eq(got, want)
+      }
+    }
+  }
+}
+
+///|
+/// Use an out-of-corpus null token so an empty String cell stays distinct from
+/// Null. The reader scans the complete fixture and rejects ragged records.
+fn csv_roundtrip(
+  df : @frame.DataFrame,
+  delimiter? : Char = ',',
+) -> @frame.DataFrame raise {
+  let null_token = "\u{E000}MOONFRAME_NULL"
+  @io.parse_csv_str(
+    @io.format_csv(df, { header: true, delimiter, null_value: null_token }),
+    {
+      has_header: true,
+      delimiter,
+      infer_schema_rows: 0,
+      null_values: [null_token],
+      strict_column_count: true,
+      on_parse_error: @io.OnParseError::Raise,
+      allow_nonfinite_floats: true,
+    },
+  )
+}
+
+///|
+fn json_roundtrip(df : @frame.DataFrame) -> @frame.DataFrame raise {
+  @io.parse_json_records_str(@io.format_json_records(df), {
+    infer_schema_rows: 0,
+    on_parse_error: @io.OnParseError::Raise,
+  })
+}
+
+///|
+fn ndjson_roundtrip(df : @frame.DataFrame) -> @frame.DataFrame raise {
+  @io.parse_ndjson_str(@io.format_ndjson(df), {
+    infer_schema_rows: 0,
+    on_parse_error: @io.OnParseError::Raise,
+  })
+}
+
+///|
+fn assert_lossless_in_every_format(df : @frame.DataFrame) -> Unit raise {
+  assert_same_cells(df, csv_roundtrip(df))
+  assert_same_cells(df, json_roundtrip(df))
+  assert_same_cells(df, ndjson_roundtrip(df))
+}
+
+///|
+test "cell property: hostile text and empty/null cells keep their positions" {
+  let df = @frame.DataFrame::new([
+    @series.Series::from_string_options("\u{FEFF}first,\"header", [
+      Some(""),
+      None,
+      Some("a,b"),
+      Some("a;custom"),
+      Some("has \"quote\""),
+      Some("two\nlines"),
+      Some("crlf\r\ncell"),
+      Some("prefix\u{FEFF}suffix"),
+      Some("\u{FEFF}leading cell"),
+      Some("astral \u{1F600}"),
+      Some("01"),
+      Some("true"),
+    ]),
+    @series.Series::from_ints("row", [
+      0L, 1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L, 9L, 10L, 11L,
+    ]),
+  ])
+  assert_lossless_in_every_format(df)
+  assert_same_cells(df, csv_roundtrip(df, delimiter=';'))
+}
+
+///|
+test "cell property: finite numeric extremes survive with exact Float bits" {
+  let df = @frame.DataFrame::new([
+    @series.Series::from_ints("i", [
+      -9223372036854775808L, -9007199254740993L, -1L, 0L, 1L, 9007199254740993L,
+      9223372036854775807L,
+    ]),
+    @series.Series::from_floats("f", [
+      -1.7976931348623157e308, -1.7976931348623155e308, -2.5, 0.5, 1.5, 1.7976931348623155e308,
+      1.7976931348623157e308,
+    ]),
+  ])
+  assert_lossless_in_every_format(df)
+}
+
+///|
+test "cell property: signed zero changes only where CSV documents it" {
+  let df = @frame.DataFrame::new([
+    @series.Series::from_floats("f", [-0.0, 0.0, 1.5]),
+  ])
+  assert_same_cells(df, json_roundtrip(df))
+  assert_same_cells(df, ndjson_roundtrip(df))
+  assert_same_cells(
+    @frame.DataFrame::new([@series.Series::from_floats("f", [0.0, 0.0, 1.5])]),
+    csv_roundtrip(df),
+  )
+}
+
+///|
+test "cell property: non-finite JSON cells canonicalize in place" {
+  let df = @frame.DataFrame::new([
+    @series.Series::from_floats("f", [
+      1.5, @double.not_a_number, @double.infinity, @double.neg_infinity, -1.7976931348623157e308,
+    ]),
+    @series.Series::from_ints("row", [0L, 1L, 2L, 3L, 4L]),
+  ])
+  assert_same_cells(df, csv_roundtrip(df))
+  let canonical = @frame.DataFrame::new([
+    @series.Series::from_float_options("f", [
+      Some(1.5),
+      None,
+      None,
+      None,
+      Some(-1.7976931348623157e308),
+    ]),
+    @series.Series::from_ints("row", [0L, 1L, 2L, 3L, 4L]),
+  ])
+  assert_same_cells(canonical, json_roundtrip(df))
+  assert_same_cells(canonical, ndjson_roundtrip(df))
+}
+
+///|
+test "rejection property: an unsafe CSV delimiter returns DataError" {
+  let df = @frame.DataFrame::new([
+    @series.Series::from_strings("s", ["left", "right"]),
+  ])
+  let result = Ok(
+    @io.format_csv(df, { header: true, delimiter: '\u{FEFF}', null_value: "" }),
+  ) catch {
+    error => Err(error)
+  }
+  assert_true(result is Err(@types.DataError::InvalidOperation(_)))
+}
+
+///|
+test "rejection property: isolated surrogate halves never reach a file" {
+  let df = @io.parse_ndjson_str(
+    "{\"s\":\"\\ud800\",\"kind\":\"high\"}\n{\"s\":\"\\udfff\",\"kind\":\"low\"}\n",
+    @io.NdjsonReadOptions::default(),
+  )
+  let csv = Ok(@io.write_csv("_build/io_corpus_surrogate.csv", df)) catch {
+    error => Err(error)
+  }
+  let json = Ok(@io.write_json_records("_build/io_corpus_surrogate.json", df)) catch {
+    error => Err(error)
+  }
+  let ndjson = Ok(@io.write_ndjson("_build/io_corpus_surrogate.ndjson", df)) catch {
+    error => Err(error)
+  }
+  assert_true(csv is Err(@types.DataError::InvalidOperation(_)))
+  assert_true(json is Err(@types.DataError::InvalidOperation(_)))
+  assert_true(ndjson is Err(@types.DataError::InvalidOperation(_)))
+}

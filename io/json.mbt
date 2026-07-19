@@ -393,12 +393,12 @@ fn infer_json_column_dtype(
 ) -> InferredDtype {
   infer_dtype(
     objs.length(),
-    limit,
-    i => lookup_field(objs[i], name),
-    j => j is Null,
-    j => json_value_as_int(j) is Some(_),
-    j => json_value_as_float(j) is Some(_),
-    j => json_value_as_bool(j) is Some(_),
+    limit~,
+    cell=i => lookup_field(objs[i], name),
+    is_null=j => j is Null,
+    is_int=j => json_value_as_int(j) is Some(_),
+    is_float=j => json_value_as_float(j) is Some(_),
+    is_bool=j => json_value_as_bool(j) is Some(_),
   )
 }
 
@@ -535,46 +535,46 @@ fn build_json_column(
       build_typed_column(
         name,
         n,
-        cell,
-        isnull,
-        json_value_as_int,
-        (i, c) => {
+        cell~,
+        is_null=isnull,
+        parse=json_value_as_int,
+        err=(i, c) => {
           @types.DataError::ParseError(
             "column \"\{name}\" \{json_record_locator(source_lines, i)}: JSON value is not an Int (\"\{json_value_to_string_fallback(c)}\")",
           )
         },
-        on_parse_error,
-        @series.Series::from_int_options,
+        on_parse_error~,
+        build=@series.Series::from_int_options,
       )
     InferFloat =>
       build_typed_column(
         name,
         n,
-        cell,
-        isnull,
-        json_value_as_float,
-        (i, c) => {
+        cell~,
+        is_null=isnull,
+        parse=json_value_as_float,
+        err=(i, c) => {
           @types.DataError::ParseError(
             "column \"\{name}\" \{json_record_locator(source_lines, i)}: JSON value is not a number (\"\{json_value_to_string_fallback(c)}\")",
           )
         },
-        on_parse_error,
-        @series.Series::from_float_options,
+        on_parse_error~,
+        build=@series.Series::from_float_options,
       )
     InferBool =>
       build_typed_column(
         name,
         n,
-        cell,
-        isnull,
-        json_value_as_bool,
-        (i, c) => {
+        cell~,
+        is_null=isnull,
+        parse=json_value_as_bool,
+        err=(i, c) => {
           @types.DataError::ParseError(
             "column \"\{name}\" \{json_record_locator(source_lines, i)}: JSON value is not a Bool (\"\{json_value_to_string_fallback(c)}\")",
           )
         },
-        on_parse_error,
-        @series.Series::from_bool_options,
+        on_parse_error~,
+        build=@series.Series::from_bool_options,
       )
     InferString =>
       build_string_column(name, n, cell, isnull, c => {

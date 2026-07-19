@@ -71,12 +71,12 @@ pub extend OnParseError with Debug::{to_repr}
 /// we stop probing early — the remaining cells cannot change the outcome.
 fn[Cell] infer_dtype(
   n : Int,
-  limit : Int,
-  cell : (Int) -> Cell,
-  is_null : (Cell) -> Bool,
-  is_int : (Cell) -> Bool,
-  is_float : (Cell) -> Bool,
-  is_bool : (Cell) -> Bool,
+  limit~ : Int,
+  cell~ : (Int) -> Cell,
+  is_null~ : (Cell) -> Bool,
+  is_int~ : (Cell) -> Bool,
+  is_float~ : (Cell) -> Bool,
+  is_bool~ : (Cell) -> Bool,
 ) -> InferredDtype {
   let scan = if limit <= 0 || limit > n { n } else { limit }
   let mut all_int = true
@@ -131,12 +131,12 @@ fn[Cell] infer_dtype(
 fn[Cell, T] build_typed_column(
   name : String,
   n : Int,
-  cell : (Int) -> Cell,
-  is_null : (Cell) -> Bool,
-  parse : (Cell) -> T?,
-  err : (Int, Cell) -> @types.DataError,
-  on_parse_error : OnParseError,
-  build : (String, Array[T?]) -> @series.Series,
+  cell~ : (Int) -> Cell,
+  is_null~ : (Cell) -> Bool,
+  parse~ : (Cell) -> T?,
+  err~ : (Int, Cell) -> @types.DataError,
+  on_parse_error~ : OnParseError,
+  build~ : (String, Array[T?]) -> @series.Series,
 ) -> @series.Series raise @types.DataError {
   let values : Array[T?] = Array::makei(n, i => {
     let c = cell(i)

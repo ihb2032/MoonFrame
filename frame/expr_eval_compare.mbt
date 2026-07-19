@@ -106,17 +106,17 @@ fn compare_cells_mixed(
 /// predicates run.
 fn[T] compare_cells(
   n : Int,
-  lv : Array[Bool],
-  rv : Array[Bool],
-  get_left : (Int) -> T,
-  get_right : (Int) -> T,
-  lt : (T, T) -> Bool,
-  eq : (T, T) -> Bool,
-  verb : CmpVerb,
+  left_valid~ : Array[Bool],
+  right_valid~ : Array[Bool],
+  get_left~ : (Int) -> T,
+  get_right~ : (Int) -> T,
+  less_than~ : (T, T) -> Bool,
+  equal~ : (T, T) -> Bool,
+  verb~ : CmpVerb,
 ) -> Array[Bool?] {
   Array::makei(n, i => {
-    if lv[i] && rv[i] {
-      Some(apply_cmp(verb, lt, eq, get_left(i), get_right(i)))
+    if left_valid[i] && right_valid[i] {
+      Some(apply_cmp(verb, less_than, equal, get_left(i), get_right(i)))
     } else {
       None
     }
@@ -180,13 +180,13 @@ fn eval_compare(
     (@column.ColumnData::Int(a), @column.ColumnData::Int(b)) =>
       compare_cells(
         a.length(),
-        lv,
-        rv,
-        i => a[i],
-        i => b[i],
-        (x, y) => x < y,
-        (x, y) => x == y,
-        verb,
+        left_valid=lv,
+        right_valid=rv,
+        get_left=i => a[i],
+        get_right=i => b[i],
+        less_than=(x, y) => x < y,
+        equal=(x, y) => x == y,
+        verb~,
       )
     (@column.ColumnData::Int(a), @column.ColumnData::Float(b)) =>
       compare_cells_mixed(a.length(), lv, rv, i => {
@@ -199,35 +199,35 @@ fn eval_compare(
     (@column.ColumnData::Float(a), @column.ColumnData::Float(b)) =>
       compare_cells(
         a.length(),
-        lv,
-        rv,
-        i => a[i],
-        i => b[i],
-        (x, y) => x < y,
-        (x, y) => x == y,
-        verb,
+        left_valid=lv,
+        right_valid=rv,
+        get_left=i => a[i],
+        get_right=i => b[i],
+        less_than=(x, y) => x < y,
+        equal=(x, y) => x == y,
+        verb~,
       )
     (@column.ColumnData::Bool(a), @column.ColumnData::Bool(b)) =>
       compare_cells(
         a.length(),
-        lv,
-        rv,
-        i => a[i],
-        i => b[i],
-        (x, y) => !x && y,
-        (x, y) => x == y,
-        verb,
+        left_valid=lv,
+        right_valid=rv,
+        get_left=i => a[i],
+        get_right=i => b[i],
+        less_than=(x, y) => !x && y,
+        equal=(x, y) => x == y,
+        verb~,
       )
     (@column.ColumnData::String(a), @column.ColumnData::String(b)) =>
       compare_cells(
         a.length(),
-        lv,
-        rv,
-        i => a[i],
-        i => b[i],
-        (x, y) => @types.compare_string_lex(x, y) < 0,
-        (x, y) => x == y,
-        verb,
+        left_valid=lv,
+        right_valid=rv,
+        get_left=i => a[i],
+        get_right=i => b[i],
+        less_than=(x, y) => @types.compare_string_lex(x, y) < 0,
+        equal=(x, y) => x == y,
+        verb~,
       )
     (@column.ColumnData::Bool(_) | @column.ColumnData::String(_), _)
     | (_, @column.ColumnData::Bool(_) | @column.ColumnData::String(_)) =>

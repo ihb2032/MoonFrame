@@ -49,3 +49,16 @@ You can browse and install extra skills here:
   behavior. For solid, well-defined results (e.g. scientific computations),
   prefer assertion tests. You can use `moon coverage analyze > uncovered.log` to
   see which parts of your code are not covered by tests.
+
+## Completion Requirements
+
+- Keep test coverage at 100%. Before finishing a change, run
+  `moon coverage analyze` and require it to report that all source files are
+  fully covered.
+
+- When implementing work from a design or plan document, update the
+  corresponding document after the implementation is complete. Also update
+  user-facing documentation whenever behavior or public APIs change.
+
+- Each commit must contain only files changed for the current task. Stage files
+  explicitly; never include unrelated or pre-existing working-tree changes.

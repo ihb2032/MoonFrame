@@ -1,8 +1,9 @@
 ///|
 /// Differential fuzzer for the optimizer/executor equivalence contract over
 /// the WIDENED data domain the fixed-shape example tests and the Int-only
-/// `frame` properties never reach: frames carrying nulls, NaN, signed zero,
-/// strings, and several columns at once. The invariant under test is the
+/// `frame` properties never reach: frames carrying nulls, NaN, infinities,
+/// signed zero, near-Double::MAX values, >2^53 integers, strings, and several
+/// columns at once. The invariant under test is the
 /// optimizer's own contract — `collect()` (which runs `optimize` in front of
 /// the executor) is bitwise-equal, with error parity, to the eager verb chain
 /// it defers. Each case builds the SAME pipeline two ways: lazily (optimized)
@@ -20,8 +21,10 @@
 /// rather than an opaque seed number. Quickcheck's default seed is fixed, so
 /// the generated cases — and hence coverage — are reproducible run to run. The
 /// generators bias hard toward the documented hazards — all-null groups,
-/// signed-zero float keys, NaN cells, nullable derived columns whose nulls line
-/// up with the rows a filter drops. A per-test `rewrites` counter guards
+/// signed-zero float keys, NaN/non-finite/extreme cells, dtype-changing maps
+/// under grouped reductions, nullable derived columns whose nulls line up with
+/// the rows a filter drops, and file projections matching no header. A per-test
+/// `rewrites` counter guards
 /// against a vacuous pass: the generators must actually exercise the pushdown
 /// in a meaningful fraction of cases.
 
@@ -52,31 +55,36 @@ fn gen_g_cell() -> @gen.Gen[Int64?] {
 }
 
 ///|
-/// A small grab-bag of `Int64` payload cells, including the additive identity
-/// and negatives (so sums cancel and min/max straddle zero), ~1/4 null.
+/// An `Int64` payload pool including the additive identity, negatives (so sums
+/// cancel and min/max straddle zero), the exact 2^53 boundary and its first
+/// inexact successor, and `Int64::MAX`, ~1/4 null.
 fn gen_int_cell() -> @gen.Gen[Int64?] {
   @gen.frequency([
     (1, @gen.pure(None)),
     (
       3,
-      @gen.one_of_array([0L, 1L, -1L, 2L, 5L, 50L, 100L, -50L]).fmap(x => {
-        Some(x)
-      }),
+      @gen.one_of_array([
+        0L, 1L, -1L, 2L, 5L, 50L, 100L, -50L, 9007199254740992L, 9007199254740993L,
+        9223372036854775807L,
+      ]).fmap(x => Some(x)),
     ),
   ])
 }
 
 ///|
-/// A small grab-bag of `Double` cells that deliberately includes BOTH signed
-/// zeros and a NaN — the values the signed-zero aggregate fence and the NaN
-/// grouping rule turn on — ~1/4 null.
+/// A `Double` pool that deliberately includes both signed zeros, NaN, both
+/// infinities, and both signs of the largest finite value and a nearby value —
+/// the values the signed-zero fence, grouping rules, and Welford overflow
+/// guards turn on — ~1/4 null.
 fn gen_float_cell() -> @gen.Gen[Double?] {
   @gen.frequency([
     (1, @gen.pure(None)),
     (
       3,
       @gen.one_of_array([
-        0.0, -0.0, 1.0, -1.0, 2.5, @double.not_a_number, 100.0, -100.0,
+        0.0, -0.0, 1.0, -1.0, 2.5, @double.not_a_number, 100.0, -100.0, 1.7976931348623157e308,
+        1.7976931348623155e308, -1.7976931348623157e308, -1.7976931348623155e308,
+        @double.infinity, @double.neg_infinity,
       ]).fmap(x => Some(x)),
     ),
   ])
@@ -315,10 +323,13 @@ fn gen_agg_keys() -> @gen.Gen[Array[@expr.Expr]] {
 }
 
 ///|
-/// Aggregations spanning the backend-flip boundary: sum/count never null,
-/// mean/min/max go null on an all-null group. A nullable payload (`a`) feeds
-/// them so all-null groups are reachable; a second draw adds a FLOAT reduction
-/// over `fk` so the stitched columns carry NaN / signed zero too.
+/// Aggregations spanning the backend-flip boundary: sum/count never null;
+/// mean/min/max/variance/std exercise nullable and insufficient-group paths.
+/// A nullable payload (`a`) makes all-null groups reachable, while `fk`
+/// carries NaN, infinities, signed zero, and near-Double::MAX values. Every
+/// case also runs two dtype-changing maps under reductions: String to Int via
+/// `map_elements`, and String+Int to Float via `map_many`. This exercises real
+/// group scopes and the empty-scope dtype probe used for error parity.
 fn gen_agg_aggs() -> @gen.Gen[Array[@expr.Expr]] {
   @gen.liftA2(
     (int_choice, float_choice) => {
@@ -336,12 +347,40 @@ fn gen_agg_aggs() -> @gen.Gen[Array[@expr.Expr]] {
         0 => aggs.push(@expr.col("fk").sum().with_alias("fsum"))
         1 => aggs.push(@expr.col("fk").mean().with_alias("fmean"))
         2 => aggs.push(@expr.col("fk").max().with_alias("fmax"))
-        _ => ()
+        3 => aggs.push(@expr.col("fk").variance().with_alias("fvar"))
+        4 => aggs.push(@expr.col("fk").std().with_alias("fstd"))
+        _ => aggs.push(@expr.col("fk").min().with_alias("fmin"))
       }
+      aggs.push(
+        @expr.col("s")
+        .map_elements(label="string-to-int", cell => {
+          match cell {
+            @types.Scalar::String(_) => @types.Scalar::Int(1)
+            _ => @types.Scalar::Null
+          }
+        })
+        .sum()
+        .with_alias("mapped_s_sum"),
+      )
+      aggs.push(
+        @expr.map_many(
+          label="string-int-to-float",
+          [@expr.col("s"), @expr.col("a")],
+          cells => {
+            match (cells[0], cells[1]) {
+              (@types.Scalar::String(_), @types.Scalar::Int(v)) =>
+                @types.Scalar::Float(v.to_double())
+              _ => @types.Scalar::Null
+            }
+          },
+        )
+        .sum()
+        .with_alias("mapped_sa_sum"),
+      )
       aggs
     },
     @gen.int_range(0, 3),
-    @gen.int_range(0, 3),
+    @gen.int_range(0, 5),
   )
 }
 
@@ -740,4 +779,110 @@ test "fuzz: randomly stacked pipelines stay optimizer/eager equivalent" {
   if rewrites < 50 {
     fail("fuzzer never exercised the pushdown (rewrites=\{rewrites})")
   }
+}
+
+// ── Test 4: file-source projections with no matching header ─────────────
+
+///|
+/// A generated zero-match file projection. `missing` is guaranteed not to
+/// occur in either fixture's schema, and `head` varies the row-count-sensitive
+/// stage between scan and select. Every generated case runs against both lazy
+/// file sources rather than relying on random source selection.
+struct FileProjectionCase {
+  missing : String
+  head : Int
+} derive(Debug)
+
+///|
+pub extend FileProjectionCase with Debug::{to_repr}
+
+///|
+fn gen_file_projection_case() -> @gen.Gen[FileProjectionCase] {
+  @gen.liftA2(
+    (missing, head) => FileProjectionCase::{ missing, head },
+    @gen.one_of_array(["missing", "ghost", "G", "a ", ""]),
+    @gen.int_range(0, 7),
+  )
+}
+
+///|
+/// Shrink only the row limit; the invalid header stays fixed so a
+/// counterexample keeps exercising the same projection-pushdown branch.
+fn shrink_file_projection_case(
+  c : FileProjectionCase,
+) -> Iter[FileProjectionCase] {
+  @shrink.Shrink::shrink(c.head).map(head => FileProjectionCase::{ ..c, head, })
+}
+
+///|
+/// Write equivalent CSV and NDJSON fixtures for the file-source differential
+/// property. The schema intentionally matches `RichRow`, while none of the
+/// generated projection names do.
+fn write_projection_fuzz_fixtures(
+  csv_path : String,
+  ndjson_path : String,
+) -> Unit raise @types.DataError {
+  let df = rows_to_frame([
+    (Some(0L), Some(0.0), Some(1L), Some(2L), Some("west")),
+    (Some(1L), Some(-0.0), Some(3L), None, Some("east")),
+    (None, Some(@double.infinity), Some(9007199254740993L), Some(4L), None),
+    (Some(2L), None, Some(9223372036854775807L), Some(-1L), Some("north")),
+  ])
+  @io.write_csv(csv_path, df)
+  @io.write_ndjson(ndjson_path, df)
+}
+
+///|
+/// Projection pushdown writes requested names into a file scan before the
+/// header is known. When no name matches, the optimized reader must preserve
+/// the as-built plan's exact `ColumnNotFound` variant rather than collapsing
+/// the source to a zero-row frame and letting `head` expose a different error.
+/// This turns the fixed CSV regression into a differential property over both
+/// file sources, several invalid names, and row limits around the fixture size.
+test "fuzz: zero-match file projections preserve exact eager errors" {
+  let csv_path = "_build/lazy_optimize_fuzz_zero_match.csv"
+  let ndjson_path = "_build/lazy_optimize_fuzz_zero_match.ndjson"
+  write_projection_fuzz_fixtures(csv_path, ndjson_path)
+  let prop = (c : FileProjectionCase) => {
+    let check_source = (use_ndjson : Bool) => {
+      let lazy_chain : () -> LazyFrame raise @types.DataError = () => {
+        let source = if use_ndjson {
+          scan_ndjson(ndjson_path)
+        } else {
+          scan_csv(csv_path)
+        }
+        source.head(c.head).select([@expr.col(c.missing)])
+      }
+      let eager_chain = () => {
+        let source = if use_ndjson {
+          @io.read_ndjson(ndjson_path)
+        } else {
+          @io.read_csv(csv_path)
+        }
+        source.head(c.head).select([@expr.col(c.missing)])
+      }
+      check_equiv(
+        "zero-match-file-projection",
+        lazy_chain,
+        eager_chain,
+        strict_errors=true,
+      )
+    }
+    match check_source(false) {
+      Some(msg) => @qc.property(false).counterexample("CSV: \{msg}")
+      None =>
+        match check_source(true) {
+          Some(msg) => @qc.property(false).counterexample("NDJSON: \{msg}")
+          None => @qc.property(true)
+        }
+    }
+  }
+  @qc.quick_check(
+    @qc.forall_shrink(
+      gen_file_projection_case(),
+      shrink_file_projection_case,
+      prop,
+    ),
+    max_success=200,
+  )
 }

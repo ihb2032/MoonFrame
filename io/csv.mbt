@@ -66,7 +66,7 @@ pub fn CsvReadOptions::default() -> CsvReadOptions {
   {
     has_header: true,
     delimiter: ',',
-    infer_schema_rows: 100,
+    infer_schema_rows: DEFAULT_INFER_SCHEMA_ROWS,
     null_values: [""],
     strict_column_count: false,
     on_parse_error: Raise,

@@ -199,6 +199,25 @@ test "parse_json_records_str: a Double-overflowing int in a Float column recover
 }
 
 ///|
+test "parse_json_records_str: integers beyond Double range write back as null" {
+  // A fractional sibling forces Float inference. Unlike 2^53+1 above, ±1e309
+  // exceed Double's numerical range, so the preserved integer digits still
+  // parse to ±Infinity. JSON has no non-finite number literal; the writer must
+  // therefore emit null rather than an invalid bare Infinity token.
+  let magnitude = "1\{String::make(309, '0')}"
+  let content = "[{\"x\":1.5},{\"x\":\{magnitude}},{\"x\":-\{magnitude}}]"
+  let df = @io.parse_json_records_str(content, @io.JsonReadOptions::default())
+  let inf = id_double(1.0) / id_double(0.0)
+  assert_eq(df.get_column("x").dtype(), @types.DataType::Float)
+  assert_eq(df.item(1, "x"), @types.Scalar::Float(inf))
+  assert_eq(df.item(2, "x"), @types.Scalar::Float(-inf))
+  assert_eq(
+    @io.format_json_records(df),
+    "[{\"x\":1.5},{\"x\":null},{\"x\":null}]",
+  )
+}
+
+///|
 test "parse_json_records_str: Float-column big-int recovery matches the CSV reader" {
   // The same digits read through CSV and JSON must agree — the JSON path used to
   // diverge to Infinity while the CSV path stayed finite.

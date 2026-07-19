@@ -927,9 +927,14 @@ are documented below.
   dtype (`Null`, Polars' `ignore_errors=True`).
 - `struct CsvWriteOptions` — `header` (`true`) / `delimiter` (`,`) /
   `null_value` (`""`). `CsvWriteOptions::default()`.
-- `parse_csv_str(content, options) -> DataFrame raise DataError` —
-  tokenise → per-column inference (`Int → Float → Bool → String`) → null
-  mapping → `DataFrame::new`. `InvalidOperation` if `options.delimiter` is a
+- `parse_csv_str(content, options, strict_quotes? : Bool = false) -> DataFrame
+  raise DataError` — tokenise → per-column inference (`Int → Float → Bool →
+  String`) → null mapping → `DataFrame::new`. The default keeps NyaCSV's
+  permissive quote handling. With `strict_quotes=true`, a linear pre-scan
+  rejects an unterminated quoted field, non-separator text after a closing
+  quote, or a quote inside an unquoted field as `ParseError`; escaped `""` and
+  newlines inside quoted fields remain valid. `InvalidOperation` if
+  `options.delimiter` is a
   double quote, a line terminator, or a non-BMP (supplementary-plane)
   character (the same configurations `format_csv` rejects, so a value the
   writer can't emit unambiguously can't be read back either);
@@ -948,15 +953,17 @@ are documented below.
   quote or a line terminator (`\n` / `\r`), which can't unambiguously frame
   fields, or a non-BMP character, whose UTF-16 surrogate pair the
   per-code-unit tokenizer can't match.
-- `read_csv(path)` / `read_csv_with_options(path, options) -> DataFrame
-  raise DataError` — file wrappers (`IoError`).
-- `read_csv_projected(path, options, projection : Array[String]) ->
-  DataFrame raise DataError` — `read_csv_with_options` that builds only the
+- `read_csv(path)` / `read_csv_with_options(path, options,
+  strict_quotes? : Bool = false) -> DataFrame raise DataError` — file wrappers;
+  the options-aware form forwards strict quote validation (`IoError`).
+- `read_csv_projected(path, options, projection : Array[String],
+  strict_quotes? : Bool = false) -> DataFrame raise DataError` —
+  `read_csv_with_options` that builds only the
   named `projection` columns (in the file's header order; the rest are never
   inferred or parsed). The engine seam behind `lazy`'s `scan_csv` projection
-  pushdown — **not** re-exported by the facade. Whole-input checks (a
-  malformed header, a ragged row) are unaffected, but a parse error confined
-  to a dropped column does not surface (see `lazy`).
+  pushdown — **not** re-exported by the facade. Whole-input checks (strict quote
+  validation, a malformed header, or a ragged row) are unaffected, but a parse
+  error confined to a dropped column does not surface (see `lazy`).
 - `write_csv(path, df)` / `write_csv_with_options(path, df, options,
   sanitize_formulas? : Bool = false) -> Unit raise DataError` — file wrappers;
   `write_csv_with_options` forwards the optional spreadsheet-formula safety

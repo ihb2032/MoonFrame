@@ -386,6 +386,73 @@ test "parse_csv_str: strict_column_count passes a uniform-width frame" {
   assert_eq(df.item(1, "c"), @types.Scalar::Int(6))
 }
 
+///|
+test "parse_csv_str: malformed quotes remain lenient by default" {
+  let cases : Array[(String, String)] = [
+    ("a,b\n1,\"unclosed", "unclosed"),
+    ("a\n\"ab\"cd", "abcd"),
+    ("a\nab\"cd", "ab\"cd"),
+  ]
+  for case in cases {
+    let (content, expected) = case
+    let implicit = @io.parse_csv_str(content, @io.CsvReadOptions::default())
+    let explicit = @io.parse_csv_str(
+      content,
+      @io.CsvReadOptions::default(),
+      strict_quotes=false,
+    )
+    assert_eq(implicit, explicit)
+    let column = implicit.columns()[implicit.ncols() - 1]
+    assert_eq(implicit.item(0, column), @types.Scalar::String(expected))
+  }
+}
+
+///|
+test "parse_csv_str: strict_quotes rejects all malformed quote shapes" {
+  let cases : Array[(String, String)] = [
+    ("a,b\n1,\"unclosed", "malformed CSV quote: unterminated quoted field"),
+    (
+      "a\n\"ab\"cd", "malformed CSV quote: unexpected character after a closing quote",
+    ),
+    ("a\nab\"cd", "malformed CSV quote: quote inside an unquoted field"),
+  ]
+  for case in cases {
+    let (content, expected) = case
+    let result = Ok(
+      @io.parse_csv_str(
+        content,
+        @io.CsvReadOptions::default(),
+        strict_quotes=true,
+      ),
+    ) catch {
+      e => Err(e)
+    }
+    match result {
+      Err(@types.DataError::ParseError(message)) => assert_eq(message, expected)
+      _ => fail("expected strict quote ParseError")
+    }
+  }
+}
+
+///|
+test "parse_csv_str: strict_quotes accepts escaped quotes and quoted CRLF" {
+  let options : @io.CsvReadOptions = {
+    has_header: true,
+    delimiter: ';',
+    infer_schema_rows: 100,
+    null_values: [""],
+    strict_column_count: true,
+    on_parse_error: @io.OnParseError::Raise,
+    allow_nonfinite_floats: true,
+  }
+  let content = "a;b\r\n1;\"two\r\nlines\"\r\n2;\"say \"\"hi\"\"\"\r\n3;\r\n"
+  let df = @io.parse_csv_str(content, options, strict_quotes=true)
+  assert_eq(df.shape(), (3, 2))
+  assert_eq(df.item(0, "b"), @types.Scalar::String("two\r\nlines"))
+  assert_eq(df.item(1, "b"), @types.Scalar::String("say \"hi\""))
+  assert_eq(df.item(2, "b"), @types.Scalar::Null)
+}
+
 // ── parse_csv_str: edge / error paths ─────────────────────────────────
 
 ///|
@@ -1087,6 +1154,33 @@ test "write_csv_with_options forwards formula sanitization" {
   )
   let parsed = @io.read_csv(path)
   assert_eq(parsed.item(0, "s"), @types.Scalar::String("'=SUM(A1)"))
+}
+
+///|
+test "CSV file readers forward strict quote validation" {
+  let path = "_build/io_csv_strict_quotes.csv"
+  @fs.write_string_to_file(path, "a,b\n1,\"unclosed")
+  let eager = Ok(
+    @io.read_csv_with_options(
+      path,
+      @io.CsvReadOptions::default(),
+      strict_quotes=true,
+    ),
+  ) catch {
+    e => Err(e)
+  }
+  let projected = Ok(
+    @io.read_csv_projected(
+      path,
+      @io.CsvReadOptions::default(),
+      ["a"],
+      strict_quotes=true,
+    ),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(eager is Err(@types.DataError::ParseError(_)))
+  assert_true(projected is Err(@types.DataError::ParseError(_)))
 }
 
 ///|

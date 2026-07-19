@@ -101,8 +101,8 @@ run as doc tests on every backend.
 
 - **Read & write** CSV, JSON, and NDJSON — `read_csv` / `read_json` /
   `read_ndjson` and their `write_*` counterparts, with tunable
-  [type inference](docs/type-inference.md) and opt-in CSV formula
-  neutralisation for spreadsheet-facing exports.
+  [type inference](docs/type-inference.md), opt-in strict CSV quote validation,
+  and formula neutralisation for spreadsheet-facing exports.
 - **Reshape** — `filter`, `select`, `drop`, `rename`, `with_columns`, multi-key
   `sort`, row dedup (`unique`), and null handling (`drop_nulls`, `fill_null`).
 - **Group & aggregate** — `group_by(keys).agg([...])` with `sum` / `mean` /

@@ -492,16 +492,17 @@ pub fn BuiltinColumn::to_string_column(self : BuiltinColumn) -> BuiltinColumn {
 ///|
 /// Return the underlying raw data array and validity bitmap (no `Option`
 /// boxing). Data at null slots is a placeholder — always consult
-/// `validity` before reading. `raise TypeMismatch` when the column is not
-/// an `Int` column.
+/// `validity` before reading. `raise ColumnTypeMismatch` when the column is
+/// not an `Int` column.
 pub fn BuiltinColumn::int_values(
   self : BuiltinColumn,
 ) -> (Array[Int64], Bitmap) raise @types.DataError {
   match self.data {
     Int(a) => (a, self.validity)
     Float(_) | Bool(_) | String(_) =>
-      raise @types.DataError::TypeMismatch(
-        "expected Int column, got \{self.dtype()}",
+      raise @types.DataError::ColumnTypeMismatch(
+        @types.DataType::Int,
+        self.dtype(),
       )
   }
 }
@@ -514,8 +515,9 @@ pub fn BuiltinColumn::float_values(
   match self.data {
     Float(a) => (a, self.validity)
     Int(_) | Bool(_) | String(_) =>
-      raise @types.DataError::TypeMismatch(
-        "expected Float column, got \{self.dtype()}",
+      raise @types.DataError::ColumnTypeMismatch(
+        @types.DataType::Float,
+        self.dtype(),
       )
   }
 }
@@ -528,8 +530,9 @@ pub fn BuiltinColumn::bool_values(
   match self.data {
     Bool(a) => (a, self.validity)
     Int(_) | Float(_) | String(_) =>
-      raise @types.DataError::TypeMismatch(
-        "expected Bool column, got \{self.dtype()}",
+      raise @types.DataError::ColumnTypeMismatch(
+        @types.DataType::Bool,
+        self.dtype(),
       )
   }
 }
@@ -542,8 +545,9 @@ pub fn BuiltinColumn::string_values(
   match self.data {
     String(a) => (a, self.validity)
     Int(_) | Float(_) | Bool(_) =>
-      raise @types.DataError::TypeMismatch(
-        "expected String column, got \{self.dtype()}",
+      raise @types.DataError::ColumnTypeMismatch(
+        @types.DataType::String,
+        self.dtype(),
       )
   }
 }

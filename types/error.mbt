@@ -13,6 +13,10 @@ pub(all) suberror DataError {
   /// `TypeMismatch(String)` stays for the messages this shape does not fit
   /// (`cannot compare …`, operator mismatches).
   TypedMismatch(DataType, DataType, String)
+  /// A raw column-buffer accessor received the wrong column dtype. The two
+  /// fields are `(expected, got)`; `message()` preserves the historical
+  /// `expected T column, got X` wording while exposing both dtypes directly.
+  ColumnTypeMismatch(DataType, DataType)
   LengthMismatch
   IndexOutOfBounds(Int)
   ParseError(String)
@@ -46,6 +50,8 @@ pub fn DataError::message(self : DataError) -> String {
       } else {
         "Type mismatch: column \"\{column}\" expected \{expected}, got \{got}"
       }
+    ColumnTypeMismatch(expected, got) =>
+      "Type mismatch: expected \{expected} column, got \{got}"
     LengthMismatch => "Length mismatch between columns"
     IndexOutOfBounds(i) => "Index out of bounds: \{i}"
     ParseError(detail) => "Parse error: \{detail}"
@@ -71,6 +77,8 @@ pub impl Show for DataError with fn output(self, logger) {
       logger.write_string(
         "TypedMismatch(\{expected}, \{got}, \"\{escape_debug(column)}\")",
       )
+    ColumnTypeMismatch(expected, got) =>
+      logger.write_string("ColumnTypeMismatch(\{expected}, \{got})")
     LengthMismatch => logger.write_string("LengthMismatch")
     IndexOutOfBounds(i) => logger.write_string("IndexOutOfBounds(\{i})")
     ParseError(detail) =>

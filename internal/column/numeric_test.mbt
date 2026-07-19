@@ -204,25 +204,73 @@ test "typed accessors reject the wrong dtype (numeric column has no Bool/String)
   let i = NumericColumn::from_int64s([1])
   let f = NumericColumn::from_doubles([1.0])
   // Cross-numeric mismatch.
-  assert_true(
-    (Ok(f.int_values()) catch { e => Err(e) }) is Err(TypeMismatch(_)),
+  assert_eq(
+    Ok(f.int_values()) catch {
+      e => Err(e)
+    },
+    Err(
+      @types.DataError::ColumnTypeMismatch(
+        @types.DataType::Int,
+        @types.DataType::Float,
+      ),
+    ),
   )
-  assert_true(
-    (Ok(i.float_values()) catch { e => Err(e) }) is Err(TypeMismatch(_)),
+  assert_eq(
+    Ok(i.float_values()) catch {
+      e => Err(e)
+    },
+    Err(
+      @types.DataError::ColumnTypeMismatch(
+        @types.DataType::Float,
+        @types.DataType::Int,
+      ),
+    ),
   )
   // bool_values / string_values always mismatch — it is numeric by
   // construction (both backing dtypes exercised).
-  assert_true(
-    (Ok(i.bool_values()) catch { e => Err(e) }) is Err(TypeMismatch(_)),
+  assert_eq(
+    Ok(i.bool_values()) catch {
+      e => Err(e)
+    },
+    Err(
+      @types.DataError::ColumnTypeMismatch(
+        @types.DataType::Bool,
+        @types.DataType::Int,
+      ),
+    ),
   )
-  assert_true(
-    (Ok(f.bool_values()) catch { e => Err(e) }) is Err(TypeMismatch(_)),
+  assert_eq(
+    Ok(f.bool_values()) catch {
+      e => Err(e)
+    },
+    Err(
+      @types.DataError::ColumnTypeMismatch(
+        @types.DataType::Bool,
+        @types.DataType::Float,
+      ),
+    ),
   )
-  assert_true(
-    (Ok(i.string_values()) catch { e => Err(e) }) is Err(TypeMismatch(_)),
+  assert_eq(
+    Ok(i.string_values()) catch {
+      e => Err(e)
+    },
+    Err(
+      @types.DataError::ColumnTypeMismatch(
+        @types.DataType::String,
+        @types.DataType::Int,
+      ),
+    ),
   )
-  assert_true(
-    (Ok(f.string_values()) catch { e => Err(e) }) is Err(TypeMismatch(_)),
+  assert_eq(
+    Ok(f.string_values()) catch {
+      e => Err(e)
+    },
+    Err(
+      @types.DataError::ColumnTypeMismatch(
+        @types.DataType::String,
+        @types.DataType::Float,
+      ),
+    ),
   )
 }
 

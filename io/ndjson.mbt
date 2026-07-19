@@ -35,7 +35,7 @@
 ///   dtype; one that doesn't fit is handled per `on_parse_error`.
 /// - `on_parse_error` — what to do when a non-null cell past the
 ///   inference window fails to parse under its column's locked-in dtype:
-///   `Raise` (default) fails the whole read with `ParseError`; `Null`
+///   `Raise` (default) fails with `ParseError(Cell(...))`; `Null`
 ///   downgrades the offending cell to a null and continues (Polars'
 ///   `ignore_errors=True`). See `OnParseError`.
 ///
@@ -60,7 +60,7 @@ pub fn NdjsonReadOptions::default() -> NdjsonReadOptions {
 /// Pipeline:
 ///   1. Split `content` on `\n`. Each non-blank line is parsed with
 ///      `@json.parse`; a malformed line surfaces as
-///      `ParseError("line N: ...")` (1-based). Blank / whitespace-only
+///      `ParseError(Message("line N: ..."))` (1-based). Blank / whitespace-only
 ///      lines are skipped, so the writer's trailing newline — and any
 ///      incidental blank lines — never produce phantom records.
 ///   2. The parsed values are handed to `frame_from_json_records`,
@@ -74,10 +74,11 @@ pub fn NdjsonReadOptions::default() -> NdjsonReadOptions {
 /// frame, matching `parse_json_records_str`'s empty-array behaviour.
 ///
 /// Raises:
-/// - `ParseError(...)` — a malformed line, a line whose value is
-///   not a JSON object, or a non-null cell that does not fit its
-///   column's inferred dtype (the last unless `options.on_parse_error`
-///   is `Null`, which downgrades that cell to a null instead).
+/// - `ParseError(Message(...))` — a malformed line or a line whose value is
+///   not a JSON object.
+/// - `ParseError(Cell(...))` — a non-null cell does not fit its inferred
+///   dtype, unless `options.on_parse_error` is `Null`, which downgrades that
+///   cell to a null instead.
 /// - Whatever `DataFrame::new` propagates.
 pub fn parse_ndjson_str(
   content : String,
@@ -127,7 +128,9 @@ fn parse_ndjson_str_projected(
     let json = @json.parse(line) catch {
       err =>
         raise @types.DataError::ParseError(
-          "line \{i + 1}: invalid JSON: \{err}",
+          @types.ParseErrorDetail::Message(
+            "line \{i + 1}: invalid JSON: \{err}",
+          ),
         )
     }
     records.push(json)

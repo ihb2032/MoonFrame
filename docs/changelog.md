@@ -463,9 +463,10 @@ a leading window (Polars' `infer_schema_length=None`), so a dtype that only
 resolves deep in the data is inferred instead of guessed from a prefix.
 `on_parse_error` (`OnParseError::Raise`, the default, or `Null`) chooses what
 happens when a non-null cell past the inference window doesn't fit its column's
-locked-in dtype: fail the whole read with `ParseError` (lossless) or downgrade
-that one cell to a null and keep going (Polars' `ignore_errors=True`), with the
-column keeping its inferred dtype. CSV additionally gains
+locked-in dtype: fail with `ParseError(Cell(...))` (lossless) or
+downgrade that one cell to a null and keep going (Polars'
+`ignore_errors=True`), with the column keeping its inferred dtype. CSV
+additionally gains
 `allow_nonfinite_floats` (default `true`): set it `false` to stop a column of
 `nan` / `inf` / `infinity` tokens from being silently inferred as `Float`,
 falling back to `String` instead. These are `pub(all)` struct field additions —

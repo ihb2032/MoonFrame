@@ -296,7 +296,7 @@ test "parse_csv_str: a column with no non-null samples defaults to String" {
 test "parse_csv_str: infer_schema_rows limits the inference window" {
   // First row is "1" (Int); second row is "1.5" (Float). With a
   // window of 1, inference locks Int — and then the Float in row 2
-  // is reported as a ParseError, since the dtype was already chosen.
+  // is reported as a structured cell error, since the dtype was chosen.
   let content =
     #|x
     #|1
@@ -315,7 +315,20 @@ test "parse_csv_str: infer_schema_rows limits the inference window" {
   ) catch {
     e => Err(e)
   }
-  assert_true(result is Err(@types.DataError::ParseError(_)))
+  assert_eq(
+    result,
+    Err(
+      @types.DataError::ParseError(
+        @types.ParseErrorDetail::Cell(
+          @types.CellParseLocation::Row,
+          "x",
+          2,
+          @types.DataType::Int,
+          "1.5",
+        ),
+      ),
+    ),
+  )
 }
 
 ///|
@@ -428,7 +441,9 @@ test "parse_csv_str: strict_quotes rejects all malformed quote shapes" {
       e => Err(e)
     }
     match result {
-      Err(@types.DataError::ParseError(message)) => assert_eq(message, expected)
+      Err(
+        @types.DataError::ParseError(@types.ParseErrorDetail::Message(message))
+      ) => assert_eq(message, expected)
       _ => fail("expected strict quote ParseError")
     }
   }
@@ -529,7 +544,7 @@ test "parse_csv_str: duplicate header is rejected up front" {
 }
 
 ///|
-test "parse_csv_str: non-numeric in a Float-locked column becomes ParseError" {
+test "parse_csv_str: non-numeric in a Float-locked column is structured" {
   // Inference locks Float on the first two rows, then row 3 is
   // "oops" — a value that can't be coerced to Float.
   let content =
@@ -551,11 +566,24 @@ test "parse_csv_str: non-numeric in a Float-locked column becomes ParseError" {
   ) catch {
     e => Err(e)
   }
-  assert_true(result is Err(@types.DataError::ParseError(_)))
+  assert_eq(
+    result,
+    Err(
+      @types.DataError::ParseError(
+        @types.ParseErrorDetail::Cell(
+          @types.CellParseLocation::Row,
+          "x",
+          3,
+          @types.DataType::Float,
+          "oops",
+        ),
+      ),
+    ),
+  )
 }
 
 ///|
-test "parse_csv_str: non-bool value outside the inference window is ParseError" {
+test "parse_csv_str: non-bool value outside inference is structured" {
   // Lock Bool on the first two rows, then a "maybe" in row 3.
   let content =
     #|b
@@ -576,11 +604,24 @@ test "parse_csv_str: non-bool value outside the inference window is ParseError" 
   ) catch {
     e => Err(e)
   }
-  assert_true(result is Err(@types.DataError::ParseError(_)))
+  assert_eq(
+    result,
+    Err(
+      @types.DataError::ParseError(
+        @types.ParseErrorDetail::Cell(
+          @types.CellParseLocation::Row,
+          "b",
+          3,
+          @types.DataType::Bool,
+          "maybe",
+        ),
+      ),
+    ),
+  )
 }
 
 ///|
-test "parse_csv_str: non-int outside the inference window is ParseError" {
+test "parse_csv_str: non-int outside the inference window is structured" {
   let content =
     #|n
     #|1
@@ -600,7 +641,20 @@ test "parse_csv_str: non-int outside the inference window is ParseError" {
   ) catch {
     e => Err(e)
   }
-  assert_true(result is Err(@types.DataError::ParseError(_)))
+  assert_eq(
+    result,
+    Err(
+      @types.DataError::ParseError(
+        @types.ParseErrorDetail::Cell(
+          @types.CellParseLocation::Row,
+          "n",
+          3,
+          @types.DataType::Int,
+          "x",
+        ),
+      ),
+    ),
+  )
 }
 
 // ── parse_csv_str: O4 read resilience (scan-all / on_parse_error / nan) ──

@@ -36,7 +36,7 @@
 ///   rows (a permissive CSV idiom, and what the v0.1 reader did).
 /// - `on_parse_error` — what to do when a non-null cell past the
 ///   inference window fails to parse under its column's locked-in dtype.
-///   `Raise` (default) fails the whole read with `ParseError`; `Null`
+///   `Raise` (default) fails with `ParseError(Cell(...))`; `Null`
 ///   downgrades the offending cell to a null cell and keeps the column's
 ///   inferred dtype (Polars' `ignore_errors=True`). See `OnParseError`.
 /// - `allow_nonfinite_floats` — when `true` (default), the float probe
@@ -95,16 +95,16 @@ pub fn CsvReadOptions::default() -> CsvReadOptions {
 ///
 /// Raises:
 /// - `DuplicateColumn(name)` — two headers share a name.
-/// - `ParseError(...)` — when `strict_quotes` is `true`, the input contains
+/// - `ParseError(Message(...))` — when `strict_quotes` is `true`, the input contains
 ///   an unterminated quoted field, text after a closing quote, or a quote
-///   inside an unquoted field; or a non-null cell does not parse under
-///   the inferred dtype for its column (typically because a sample
+///   inside an unquoted field; or — when `options.strict_column_count` is
+///   `true` — a data row's cell count differs from the header's (reported as
+///   `row N: expected C columns, got G`, 1-based over the data rows).
+/// - `ParseError(Cell(...))` — a non-null cell does not parse under the
+///   inferred dtype for its column (typically because a sample
 ///   row outside the inference window is malformed for the inferred
 ///   type), unless `options.on_parse_error` is `Null`, which downgrades
-///   that cell to a null instead of failing the read; or — when
-///   `options.strict_column_count` is `true` — a data row's cell count
-///   differs from the header's (reported as `row N: expected C columns,
-///   got G`, 1-based over the data rows).
+///   that cell to a null instead of failing the read.
 /// - Whatever `DataFrame::new` propagates — for v0.1 this is limited
 ///   to `DuplicateColumn` / `LengthMismatch`, neither of which can
 ///   actually fire here (uniqueness is checked above; every column
@@ -193,8 +193,8 @@ fn parse_csv_str_projected(
   }
   validate_csv_shape(headers, rows, options)
   // Infer one dtype per column, then build the column — skipping any the
-  // projection drops. `build_column` raises `ParseError` for a cell that
-  // doesn't fit the inferred dtype. The surviving columns keep the file's own
+  // projection drops. `build_column` raises `ParseError(Cell(...))` for a cell
+  // that doesn't fit the inferred dtype. The surviving columns keep the file's own
   // header order (a filtered projection, never a reorder), so a projected read
   // is column-for-column a sub-frame of the full read.
   // Build the null-token test once: an O(1) `Map` membership check shared by
@@ -300,7 +300,9 @@ fn validate_csv_shape(
     for i, row in rows {
       if row.length() != ncols {
         raise @types.DataError::ParseError(
-          "row \{i + 1}: expected \{ncols} columns, got \{row.length()}",
+          @types.ParseErrorDetail::Message(
+            "row \{i + 1}: expected \{ncols} columns, got \{row.length()}",
+          ),
         )
       }
     }
@@ -381,7 +383,9 @@ fn validate_csv_quotes(
       CsvUnquoted =>
         if ch == '"' {
           raise @types.DataError::ParseError(
-            "malformed CSV quote: quote inside an unquoted field",
+            @types.ParseErrorDetail::Message(
+              "malformed CSV quote: quote inside an unquoted field",
+            ),
           )
         } else if ch == delimiter || ch == '\r' || ch == '\n' {
           CsvFieldStart
@@ -396,14 +400,18 @@ fn validate_csv_quotes(
           CsvFieldStart
         } else {
           raise @types.DataError::ParseError(
-            "malformed CSV quote: unexpected character after a closing quote",
+            @types.ParseErrorDetail::Message(
+              "malformed CSV quote: unexpected character after a closing quote",
+            ),
           )
         }
     }
   }
   if state is CsvQuoted {
     raise @types.DataError::ParseError(
-      "malformed CSV quote: unterminated quoted field",
+      @types.ParseErrorDetail::Message(
+        "malformed CSV quote: unterminated quoted field",
+      ),
     )
   }
 }
@@ -549,7 +557,7 @@ fn parse_bool_opt(s : String) -> Bool? {
 /// chosen by inference. The same null-mapping rules used by inference
 /// run here; a non-null cell that fails to parse (the type was already
 /// locked in by the inference pass) is handled per `on_parse_error` —
-/// `Raise` surfaces `ParseError`, `Null` downgrades it to a null cell.
+/// `Raise` surfaces `ParseError(Cell(...))`; `Null` makes it a null cell.
 /// `allow_nonfinite_floats` matches the inference probe so a `Float`
 /// column accepts (or rejects) `nan` / `inf` consistently on both passes.
 fn build_column(
@@ -573,7 +581,13 @@ fn build_column(
         parse=parse_int_opt,
         err=(i, v) => {
           @types.DataError::ParseError(
-            "column \"\{name}\" row \{i + 1}: cannot parse \"\{v}\" as Int",
+            @types.ParseErrorDetail::Cell(
+              @types.CellParseLocation::Row,
+              name,
+              i + 1,
+              @types.DataType::Int,
+              v,
+            ),
           )
         },
         on_parse_error~,
@@ -588,7 +602,13 @@ fn build_column(
         parse=v => parse_float_opt(v, allow_nonfinite_floats),
         err=(i, v) => {
           @types.DataError::ParseError(
-            "column \"\{name}\" row \{i + 1}: cannot parse \"\{v}\" as Float",
+            @types.ParseErrorDetail::Cell(
+              @types.CellParseLocation::Row,
+              name,
+              i + 1,
+              @types.DataType::Float,
+              v,
+            ),
           )
         },
         on_parse_error~,
@@ -603,7 +623,13 @@ fn build_column(
         parse=parse_bool_opt,
         err=(i, v) => {
           @types.DataError::ParseError(
-            "column \"\{name}\" row \{i + 1}: cannot parse \"\{v}\" as Bool",
+            @types.ParseErrorDetail::Cell(
+              @types.CellParseLocation::Row,
+              name,
+              i + 1,
+              @types.DataType::Bool,
+              v,
+            ),
           )
         },
         on_parse_error~,

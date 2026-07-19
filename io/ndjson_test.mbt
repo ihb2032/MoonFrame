@@ -334,7 +334,7 @@ test "parse_ndjson_str: malformed line returns ParseError" {
 }
 
 ///|
-test "parse_ndjson_str: typed mismatch past inference window errors" {
+test "parse_ndjson_str: typed mismatch has structured line context" {
   // First two lines lock the dtype on Int; the third sneaks a string
   // in past the inference window, which the builder rejects.
   let content =
@@ -349,7 +349,20 @@ test "parse_ndjson_str: typed mismatch past inference window errors" {
   ) catch {
     e => Err(e)
   }
-  assert_true(result is Err(@types.DataError::ParseError(_)))
+  assert_eq(
+    result,
+    Err(
+      @types.DataError::ParseError(
+        @types.ParseErrorDetail::Cell(
+          @types.CellParseLocation::Line,
+          "x",
+          3,
+          @types.DataType::Int,
+          "three",
+        ),
+      ),
+    ),
+  )
 }
 
 ///|
@@ -366,12 +379,20 @@ test "parse_ndjson_str: a build-stage type error reports the physical file line"
   ) catch {
     e => Err(e)
   }
-  let msg = match result {
-    Err(@types.DataError::ParseError(m)) => m
-    _ => "<not a ParseError>"
-  }
-  assert_true(msg.contains("line 5"))
-  assert_eq(msg.contains("record"), false)
+  assert_eq(
+    result,
+    Err(
+      @types.DataError::ParseError(
+        @types.ParseErrorDetail::Cell(
+          @types.CellParseLocation::Line,
+          "x",
+          5,
+          @types.DataType::Int,
+          "three",
+        ),
+      ),
+    ),
+  )
 }
 
 // ── O4 read resilience (scan-all / on_parse_error) ──────────────────
@@ -463,7 +484,9 @@ test "a non-object record's ParseError names its line" {
     },
     Err(
       @types.DataError::ParseError(
-        "line 2: expected each record to be a JSON object",
+        @types.ParseErrorDetail::Message(
+          "line 2: expected each record to be a JSON object",
+        ),
       ),
     ),
   )

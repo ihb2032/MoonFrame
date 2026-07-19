@@ -61,7 +61,7 @@
 ///   dtype; one that doesn't fit is handled per `on_parse_error`.
 /// - `on_parse_error` — what to do when a non-null cell past the
 ///   inference window fails to parse under its column's locked-in dtype:
-///   `Raise` (default) fails the whole read with `ParseError`; `Null`
+///   `Raise` (default) fails with `ParseError(Cell(...))`; `Null`
 ///   downgrades the offending cell to a null and continues (Polars'
 ///   `ignore_errors=True`). See `OnParseError`.
 pub(all) struct JsonReadOptions {
@@ -89,11 +89,11 @@ pub fn JsonReadOptions::default() -> JsonReadOptions {
 /// whitespace-only input — yields a 0×0 frame.
 ///
 /// Raises:
-/// - `ParseError(...)` — malformed JSON, a top-level value that
-///   is not an array, a record that is not an object, or a non-null
-///   cell that does not fit the column's inferred dtype (the last
-///   unless `options.on_parse_error` is `Null`, which downgrades that
-///   cell to a null instead of failing the read).
+/// - `ParseError(Message(...))` — malformed JSON, a top-level value that is
+///   not an array, or a record that is not an object.
+/// - `ParseError(Cell(...))` — a non-null cell does not fit the column's
+///   inferred dtype, unless `options.on_parse_error` is `Null`, which
+///   downgrades that cell to a null instead.
 /// - Whatever `DataFrame::new` propagates (duplicate-header is
 ///   pre-empted upstream; length-mismatch cannot fire because every
 ///   column is built off `records.length()`).
@@ -118,7 +118,9 @@ pub fn parse_json_records_str(
     Array(arr) => arr
     _ =>
       raise @types.DataError::ParseError(
-        "expected a JSON array of objects at the top level",
+        @types.ParseErrorDetail::Message(
+          "expected a JSON array of objects at the top level",
+        ),
       )
   }
   frame_from_json_records(
@@ -157,7 +159,8 @@ pub fn parse_json_records_str(
 /// `DataFrame::new` cannot model), collapse to a 0×0 frame — the same
 /// shape both readers' empty-input paths produce. A cell that doesn't
 /// fit its column's inferred dtype is handled per `on_parse_error`
-/// (raise `ParseError`, or downgrade the cell to a null), shared by both
+/// (raise `ParseError(Cell(...))`, or downgrade the cell to a null), shared
+/// by both
 /// readers so JSON-array and NDJSON input agree on the policy.
 ///
 /// `projection` narrows which columns are built: `None` builds every column
@@ -206,7 +209,9 @@ fn frame_from_json_records(
         // Carry the locator, like every other error in these readers: in a
         // large file "which record" is the whole diagnostic.
         raise @types.DataError::ParseError(
-          "\{json_record_locator(source_lines, i)}: expected each record to be a JSON object",
+          @types.ParseErrorDetail::Message(
+            "\{json_record_locator(source_lines, i)}: expected each record to be a JSON object",
+          ),
         )
     }
   }
@@ -297,7 +302,10 @@ pub fn write_json_records(
 /// caller sees the same diagnostic the standard library would.
 fn parse_json_payload(content : String) -> Json raise @types.DataError {
   @json.parse(content.view()) catch {
-    err => raise @types.DataError::ParseError("invalid JSON: \{err}")
+    err =>
+      raise @types.DataError::ParseError(
+        @types.ParseErrorDetail::Message("invalid JSON: \{err}"),
+      )
   }
 }
 
@@ -514,12 +522,24 @@ fn json_record_locator(source_lines : Array[Int]?, i : Int) -> String {
 }
 
 ///|
+/// Preserve the source coordinate as data for a typed-cell parse error.
+fn json_cell_parse_location(
+  source_lines : Array[Int]?,
+  i : Int,
+) -> (@types.CellParseLocation, Int) {
+  match source_lines {
+    Some(lines) => (@types.CellParseLocation::Line, lines[i])
+    None => (@types.CellParseLocation::Record, i + 1)
+  }
+}
+
+///|
 /// Materialise one column from the record array using the dtype
 /// chosen by inference. Mirrors `build_column` in `csv.mbt`: each
 /// branch walks the records in row order and converts the cell into
 /// the typed array slot; a value past the inference window that fails
 /// to match the locked-in dtype is handled per `on_parse_error`
-/// (`Raise` → `ParseError`, `Null` → a null cell).
+/// (`Raise` → `ParseError(Cell(...))`, `Null` → a null cell).
 fn build_json_column(
   name : String,
   dtype : InferredDtype,
@@ -539,8 +559,15 @@ fn build_json_column(
         is_null=isnull,
         parse=json_value_as_int,
         err=(i, c) => {
+          let (location, position) = json_cell_parse_location(source_lines, i)
           @types.DataError::ParseError(
-            "column \"\{name}\" \{json_record_locator(source_lines, i)}: JSON value is not an Int (\"\{json_value_to_string_fallback(c)}\")",
+            @types.ParseErrorDetail::Cell(
+              location,
+              name,
+              position,
+              @types.DataType::Int,
+              json_value_to_string_fallback(c),
+            ),
           )
         },
         on_parse_error~,
@@ -554,8 +581,15 @@ fn build_json_column(
         is_null=isnull,
         parse=json_value_as_float,
         err=(i, c) => {
+          let (location, position) = json_cell_parse_location(source_lines, i)
           @types.DataError::ParseError(
-            "column \"\{name}\" \{json_record_locator(source_lines, i)}: JSON value is not a number (\"\{json_value_to_string_fallback(c)}\")",
+            @types.ParseErrorDetail::Cell(
+              location,
+              name,
+              position,
+              @types.DataType::Float,
+              json_value_to_string_fallback(c),
+            ),
           )
         },
         on_parse_error~,
@@ -569,8 +603,15 @@ fn build_json_column(
         is_null=isnull,
         parse=json_value_as_bool,
         err=(i, c) => {
+          let (location, position) = json_cell_parse_location(source_lines, i)
           @types.DataError::ParseError(
-            "column \"\{name}\" \{json_record_locator(source_lines, i)}: JSON value is not a Bool (\"\{json_value_to_string_fallback(c)}\")",
+            @types.ParseErrorDetail::Cell(
+              location,
+              name,
+              position,
+              @types.DataType::Bool,
+              json_value_to_string_fallback(c),
+            ),
           )
         },
         on_parse_error~,

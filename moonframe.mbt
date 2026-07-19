@@ -45,6 +45,8 @@
 ///|
 pub using @types {
   type DataError,
+  type CellParseLocation,
+  type ParseErrorDetail,
   type DataType,
   type Scalar,
   type Field,

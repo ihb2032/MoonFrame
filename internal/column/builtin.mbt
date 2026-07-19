@@ -382,12 +382,18 @@ fn BuiltinColumn::to_int(
         i => {
           let x = a[i]
           if x.is_nan() {
-            raise @types.DataError::ParseError("cannot cast NaN to Int")
+            raise @types.DataError::ParseError(
+              @types.ParseErrorDetail::Message("cannot cast NaN to Int"),
+            )
           } else if x.is_inf() {
-            raise @types.DataError::ParseError("cannot cast Infinity to Int")
+            raise @types.DataError::ParseError(
+              @types.ParseErrorDetail::Message("cannot cast Infinity to Int"),
+            )
           } else if !@types.double_fits_int64(x) {
             raise @types.DataError::ParseError(
-              "Float value out of Int range: \{x}",
+              @types.ParseErrorDetail::Message(
+                "Float value out of Int range: \{x}",
+              ),
             )
           } else {
             x.to_int64()
@@ -410,7 +416,9 @@ fn BuiltinColumn::to_int(
             Some(n) => n
             None =>
               raise @types.DataError::ParseError(
-                "cannot parse Int from \"\{s}\"",
+                @types.ParseErrorDetail::Message(
+                  "cannot parse Int from \"\{s}\"",
+                ),
               )
           }
         },
@@ -456,7 +464,9 @@ fn BuiltinColumn::to_float(
             Some(x) => x
             None =>
               raise @types.DataError::ParseError(
-                "cannot parse Float from \"\{s}\"",
+                @types.ParseErrorDetail::Message(
+                  "cannot parse Float from \"\{s}\"",
+                ),
               )
           }
         },

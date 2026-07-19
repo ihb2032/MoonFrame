@@ -33,7 +33,7 @@ priv enum InferredDtype {
 /// inference window that doesn't fit (e.g. a `String` in a column inferred
 /// `Int` from its first rows).
 ///
-/// - `Raise` (every reader's default) — surface the cell's `ParseError`,
+/// - `Raise` (every reader's default) — surface `ParseError(Cell(...))`,
 ///   failing the whole read. The strict, lossless behaviour: a malformed
 ///   cell is never silently dropped.
 /// - `Null` — downgrade the offending cell to a null cell and keep going,

@@ -143,9 +143,21 @@ test "projection push-down does not parse — or fail on — a dropped column" {
     allow_nonfinite_floats: true,
   }
   // The full eager read parses `b` and fails on `oops`.
-  assert_true(
-    (Ok(@io.read_csv_with_options(path, opts)) catch { e => Err(e) })
-    is Err(@types.DataError::ParseError(_)),
+  assert_eq(
+    Ok(@io.read_csv_with_options(path, opts)) catch {
+      e => Err(e)
+    },
+    Err(
+      @types.DataError::ParseError(
+        @types.ParseErrorDetail::Cell(
+          @types.CellParseLocation::Row,
+          "b",
+          2,
+          @types.DataType::Int,
+          "oops",
+        ),
+      ),
+    ),
   )
   // The lazy scan, narrowed to `a`, never parses `b`, so it collects cleanly —
   // the one place a narrowed CSV scan diverges from a full eager read

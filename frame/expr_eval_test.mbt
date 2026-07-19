@@ -1069,7 +1069,11 @@ test "cast: unsupported targets and impossible casts surface unchanged" {
     ) catch {
       e => Err(e)
     },
-    Err(@types.DataError::ParseError("cannot cast NaN to Int")),
+    Err(
+      @types.DataError::ParseError(
+        @types.ParseErrorDetail::Message("cannot cast NaN to Int"),
+      ),
+    ),
   )
 }
 

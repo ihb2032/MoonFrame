@@ -379,18 +379,49 @@ test "float_values / bool_values / string_values happy path" {
 ///|
 test "typed accessors reject the wrong dtype" {
   let col = BuiltinColumn::from_strings(["x"])
-  assert_true(
-    (Ok(col.int_values()) catch { e => Err(e) }) is Err(TypeMismatch(_)),
+  assert_eq(
+    Ok(col.int_values()) catch {
+      e => Err(e)
+    },
+    Err(
+      @types.DataError::ColumnTypeMismatch(
+        @types.DataType::Int,
+        @types.DataType::String,
+      ),
+    ),
   )
-  assert_true(
-    (Ok(col.float_values()) catch { e => Err(e) }) is Err(TypeMismatch(_)),
+  assert_eq(
+    Ok(col.float_values()) catch {
+      e => Err(e)
+    },
+    Err(
+      @types.DataError::ColumnTypeMismatch(
+        @types.DataType::Float,
+        @types.DataType::String,
+      ),
+    ),
   )
-  assert_true(
-    (Ok(col.bool_values()) catch { e => Err(e) }) is Err(TypeMismatch(_)),
+  assert_eq(
+    Ok(col.bool_values()) catch {
+      e => Err(e)
+    },
+    Err(
+      @types.DataError::ColumnTypeMismatch(
+        @types.DataType::Bool,
+        @types.DataType::String,
+      ),
+    ),
   )
-  assert_true(
-    (Ok(BuiltinColumn::from_ints([1]).string_values()) catch { e => Err(e) })
-    is Err(TypeMismatch(_)),
+  assert_eq(
+    Ok(BuiltinColumn::from_ints([1]).string_values()) catch {
+      e => Err(e)
+    },
+    Err(
+      @types.DataError::ColumnTypeMismatch(
+        @types.DataType::String,
+        @types.DataType::Int,
+      ),
+    ),
   )
 }
 

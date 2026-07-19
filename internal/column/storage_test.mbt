@@ -281,30 +281,58 @@ test "int_values / float_values: both arms, with synthesised validity on Numeric
   assert_eq(bf.float_values().0, [1.5])
   assert_eq(nf.float_values().0, [2.5])
   // Cross-type request raises through either backend.
-  assert_true(
-    (Ok(ni.float_values()) catch { e => Err(e) })
-    is Err(@types.DataError::TypeMismatch(_)),
+  assert_eq(
+    Ok(ni.float_values()) catch {
+      e => Err(e)
+    },
+    Err(
+      @types.DataError::ColumnTypeMismatch(
+        @types.DataType::Float,
+        @types.DataType::Int,
+      ),
+    ),
   )
-  assert_true(
-    (Ok(bi.float_values()) catch { e => Err(e) })
-    is Err(@types.DataError::TypeMismatch(_)),
+  assert_eq(
+    Ok(bi.float_values()) catch {
+      e => Err(e)
+    },
+    Err(
+      @types.DataError::ColumnTypeMismatch(
+        @types.DataType::Float,
+        @types.DataType::Int,
+      ),
+    ),
   )
 }
 
 ///|
-test "bool_values / string_values: Builtin success, Numeric always TypeMismatch" {
+test "bool_values / string_values: Builtin success, Numeric mismatches" {
   let bb = ColumnStorage::from_builtin(BuiltinColumn::from_bools([true, false]))
   let bs = ColumnStorage::from_builtin(BuiltinColumn::from_strings(["x", "y"]))
   let n = ColumnStorage::from_numeric(NumericColumn::from_int64s([1]))
   assert_eq(bb.bool_values().0, [true, false])
   assert_eq(bs.string_values().0, ["x", "y"])
-  assert_true(
-    (Ok(n.bool_values()) catch { e => Err(e) })
-    is Err(@types.DataError::TypeMismatch(_)),
+  assert_eq(
+    Ok(n.bool_values()) catch {
+      e => Err(e)
+    },
+    Err(
+      @types.DataError::ColumnTypeMismatch(
+        @types.DataType::Bool,
+        @types.DataType::Int,
+      ),
+    ),
   )
-  assert_true(
-    (Ok(n.string_values()) catch { e => Err(e) })
-    is Err(@types.DataError::TypeMismatch(_)),
+  assert_eq(
+    Ok(n.string_values()) catch {
+      e => Err(e)
+    },
+    Err(
+      @types.DataError::ColumnTypeMismatch(
+        @types.DataType::String,
+        @types.DataType::Int,
+      ),
+    ),
   )
 }
 

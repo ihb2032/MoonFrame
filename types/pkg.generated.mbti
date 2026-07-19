@@ -34,6 +34,7 @@ pub(all) suberror DataError {
   DuplicateColumn(String)
   TypeMismatch(String)
   TypedMismatch(DataType, DataType, String)
+  ColumnTypeMismatch(DataType, DataType)
   LengthMismatch
   IndexOutOfBounds(Int)
   ParseError(String)

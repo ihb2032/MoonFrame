@@ -24,6 +24,10 @@ test "DataError::message covers every variant" {
     content="Type mismatch: column \"age\" expected Int, got Float",
   )
   inspect(
+    DataError::ColumnTypeMismatch(DataType::Int, DataType::Float).message(),
+    content="Type mismatch: expected Int column, got Float",
+  )
+  inspect(
     DataError::LengthMismatch.message(),
     content="Length mismatch between columns",
   )
@@ -81,6 +85,10 @@ test "DataError Show covers every remaining variant" {
   inspect(
     DataError::TypedMismatch(DataType::Int, DataType::Null, ""),
     content="TypedMismatch(Int, Null, \"\")",
+  )
+  inspect(
+    DataError::ColumnTypeMismatch(DataType::Int, DataType::Float),
+    content="ColumnTypeMismatch(Int, Float)",
   )
   inspect(
     DataError::ParseError("bad token"),

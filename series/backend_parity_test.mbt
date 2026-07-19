@@ -96,6 +96,20 @@ fn assert_backend_parity(bt : Series, nu : Series) -> Unit raise {
   assert_eq(nu.storage_kind(), @column.StorageKind::Numeric)
   assert_true(same_series(bt, nu))
 
+  // Public Eq comparisons must be backend-transparent as well. Compare each
+  // representation with an equivalent Builtin value so valid `NaN` cells
+  // retain the library's intentional `NaN != NaN` behavior on both sides.
+  // Renaming supplies a uniformly unequal control without assuming the
+  // column is non-empty.
+  let bt_equivalent = bt.to_builtin()
+  let nu_equivalent = nu.to_builtin()
+  assert_eq(bt == bt_equivalent, nu == nu_equivalent)
+  assert_eq(bt != bt_equivalent, nu != nu_equivalent)
+  assert_eq(bt == bt.rename("different"), nu == nu.rename("different"))
+  assert_eq(bt != bt.rename("different"), nu != nu.rename("different"))
+  assert_eq(bt == nu, nu == bt)
+  assert_eq(bt != nu, nu != bt)
+
   // Total accessors.
   assert_eq(bt.len(), nu.len())
   assert_eq(bt.dtype(), nu.dtype())

@@ -113,15 +113,21 @@ test "is_between: equals ge().land(le()), operand shared" {
 }
 
 ///|
-test "is_between: a non-orderable operand raises TypeMismatch" {
+test "is_between: a non-orderable operand raises OpTypeMismatch" {
   let df = DataFrame::new([Series::from_strings("s", ["x"])])
-  assert_true(
-    (Ok(
+  assert_eq(
+    Ok(
       df.select([@expr.col("s").is_between(@expr.lit_int(0), @expr.lit_int(10))]),
     ) catch {
       e => Err(e)
-    })
-    is Err(@types.DataError::TypeMismatch(_)),
+    },
+    Err(
+      @types.DataError::OpTypeMismatch(
+        "compare",
+        @types.DataType::String,
+        @types.DataType::Int,
+      ),
+    ),
   )
 }
 

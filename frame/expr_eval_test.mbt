@@ -120,13 +120,25 @@ test "add: non-numeric operands raise TypeMismatch at evaluation" {
     Ok(arith_df().with_columns([@expr.col("s") + @expr.col("j")])) catch {
       e => Err(e)
     },
-    Err(@types.DataError::TypeMismatch("cannot add String and Int")),
+    Err(
+      @types.DataError::OpTypeMismatch(
+        "add",
+        @types.DataType::String,
+        @types.DataType::Int,
+      ),
+    ),
   )
   assert_eq(
     Ok(arith_df().with_columns([@expr.col("b") + @expr.col("b")])) catch {
       e => Err(e)
     },
-    Err(@types.DataError::TypeMismatch("cannot add Bool and Bool")),
+    Err(
+      @types.DataError::OpTypeMismatch(
+        "add",
+        @types.DataType::Bool,
+        @types.DataType::Bool,
+      ),
+    ),
   )
 }
 
@@ -321,13 +333,25 @@ test "subtract/multiply: non-numeric operands raise with their own verb" {
     Ok(arith_df().with_columns([@expr.col("s") - @expr.col("j")])) catch {
       e => Err(e)
     },
-    Err(@types.DataError::TypeMismatch("cannot subtract String and Int")),
+    Err(
+      @types.DataError::OpTypeMismatch(
+        "subtract",
+        @types.DataType::String,
+        @types.DataType::Int,
+      ),
+    ),
   )
   assert_eq(
     Ok(arith_df().with_columns([@expr.col("b") * @expr.col("b")])) catch {
       e => Err(e)
     },
-    Err(@types.DataError::TypeMismatch("cannot multiply Bool and Bool")),
+    Err(
+      @types.DataError::OpTypeMismatch(
+        "multiply",
+        @types.DataType::Bool,
+        @types.DataType::Bool,
+      ),
+    ),
   )
 }
 
@@ -389,7 +413,13 @@ test "divide: non-numeric operands raise TypeMismatch" {
     Ok(arith_df().with_columns([@expr.col("s") / @expr.col("j")])) catch {
       e => Err(e)
     },
-    Err(@types.DataError::TypeMismatch("cannot divide String and Int")),
+    Err(
+      @types.DataError::OpTypeMismatch(
+        "divide",
+        @types.DataType::String,
+        @types.DataType::Int,
+      ),
+    ),
   )
 }
 
@@ -562,13 +592,25 @@ test "compare: non-comparable dtype pairs raise TypeMismatch" {
     Ok(arith_df().with_columns([@expr.col("s").lt(@expr.col("j"))])) catch {
       e => Err(e)
     },
-    Err(@types.DataError::TypeMismatch("cannot compare String and Int")),
+    Err(
+      @types.DataError::OpTypeMismatch(
+        "compare",
+        @types.DataType::String,
+        @types.DataType::Int,
+      ),
+    ),
   )
   assert_eq(
     Ok(arith_df().with_columns([@expr.col("b").eq(@expr.col("f"))])) catch {
       e => Err(e)
     },
-    Err(@types.DataError::TypeMismatch("cannot compare Bool and Float")),
+    Err(
+      @types.DataError::OpTypeMismatch(
+        "compare",
+        @types.DataType::Bool,
+        @types.DataType::Float,
+      ),
+    ),
   )
 }
 

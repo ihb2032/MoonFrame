@@ -90,11 +90,17 @@ test "floor_div: null propagates (Builtin arm) and non-numeric raises" {
     Series::from_strings("s", ["x"]),
     Series::from_ints("n", [1L]),
   ])
-  assert_true(
-    (Ok(strs.select([@expr.col("s").floor_div(@expr.col("n"))])) catch {
+  assert_eq(
+    Ok(strs.select([@expr.col("s").floor_div(@expr.col("n"))])) catch {
       e => Err(e)
-    })
-    is Err(@types.DataError::TypeMismatch(_)),
+    },
+    Err(
+      @types.DataError::OpTypeMismatch(
+        "floor-divide",
+        @types.DataType::String,
+        @types.DataType::Int,
+      ),
+    ),
   )
 }
 

@@ -679,14 +679,20 @@ test "group_by mixes a bare key and a derived key in a composite tuple" {
 }
 
 ///|
-test "a key expression whose dtypes do not unify raises TypeMismatch" {
+test "a key expression whose dtypes do not unify raises OpTypeMismatch" {
   // region is String, quantity is Int — `+` cannot unify them, and the key
   // evaluation surfaces the error at `group_by`, in `keys` order.
-  assert_true(
-    (Ok(sales_df().group_by([@expr.col("region") + @expr.col("quantity")])) catch {
+  assert_eq(
+    Ok(sales_df().group_by([@expr.col("region") + @expr.col("quantity")])) catch {
       e => Err(e)
-    })
-    is Err(@types.DataError::TypeMismatch(_)),
+    },
+    Err(
+      @types.DataError::OpTypeMismatch(
+        "add",
+        @types.DataType::String,
+        @types.DataType::Int,
+      ),
+    ),
   )
 }
 

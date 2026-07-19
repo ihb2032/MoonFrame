@@ -218,7 +218,13 @@ test "evaluation errors surface: unknown column, dtype mismatch" {
     Ok(sel_df().select([@expr.col("region") + @expr.col("a")])) catch {
       e => Err(e)
     },
-    Err(@types.DataError::TypeMismatch("cannot add String and Int")),
+    Err(
+      @types.DataError::OpTypeMismatch(
+        "add",
+        @types.DataType::String,
+        @types.DataType::Int,
+      ),
+    ),
   )
 }
 

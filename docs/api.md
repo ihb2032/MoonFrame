@@ -52,10 +52,11 @@ in [`migration.md`](migration.md).
 
 ## `types` — Value types and errors
 
-- `suberror DataError` — `pub(all) suberror` with 12 variants:
+- `suberror DataError` — `pub(all) suberror` with 13 variants:
   `ColumnNotFound` / `DuplicateColumn` / `TypeMismatch` /
   `TypedMismatch(DataType, DataType, String)` /
-  `ColumnTypeMismatch(DataType, DataType)` / `LengthMismatch` /
+  `ColumnTypeMismatch(DataType, DataType)` /
+  `OpTypeMismatch(String, DataType, DataType)` / `LengthMismatch` /
   `IndexOutOfBounds` / `ParseError` / `InvalidOperation` / `IoError` /
   `Unsupported` / `NullInNonNullable`. As a `suberror` it is both raised
   (`raise ColumnNotFound("age")`) and recovered
@@ -69,8 +70,11 @@ in [`migration.md`](migration.md).
   directly instead of parsing the string. `Scalar::as_*` and `from_rows` raise
   it. Raw column-buffer accessors raise
   `ColumnTypeMismatch(expected, got)`, whose message preserves their historical
-  `expected T column, got X` wording. The bare `TypeMismatch(String)` stays for
-  messages these shapes do not fit (`cannot compare …`, operator mismatches).
+  `expected T column, got X` wording. Binary arithmetic, ordering, and
+  incomparable non-null `Scalar` comparisons raise
+  `OpTypeMismatch(operation, left, right)`, preserving
+  `cannot <operation> <left> and <right>`. The bare `TypeMismatch(String)`
+  stays for messages these shapes do not fit.
 - `enum DataType` — `Int | Float | Bool | String | Null`, with
   `is_numeric` / `is_integer` / `is_float` / `is_string` / `is_bool`.
 - `enum Scalar` — cell value (`Int` carries `Int64`, `Float` carries
@@ -78,7 +82,8 @@ in [`migration.md`](migration.md).
   `Int(42) → "42"`, `Null → ""`). Fallible (`raise DataError`):
   `as_int` / `as_float` / `as_bool` / `as_string` and the comparisons
   `eq` / `lt` / `lte` / `gt` / `gte`, which return `Bool` and
-  `raise TypeMismatch` when either side is `Null` or the dtypes are
+  `raise TypeMismatch` when either side is `Null`, or
+  `OpTypeMismatch("compare", left, right)` when two non-null dtypes are
   incomparable. `as_float` promotes `Int`; mixed numeric comparisons are
   **exact** (no `Int`→`Double` promotion). `String` comparisons use lexicographic
   order (see `compare_string_lex`), **not** the built-in shortlex `<`.
@@ -231,14 +236,15 @@ depends only on `types`.
   cell equals one of the literal `members`. Evaluated as an OR of `eq`, so each
   member is compared exactly as `a.eq(lit(member))` would: `Int` / `Float`
   members compare across types exactly, and a member whose dtype cannot compare
-  with the column raises `TypeMismatch`. A `Null` member matches nothing, an
-  empty set is `false` for every present cell, and a null cell yields null.
+  with the column raises `OpTypeMismatch("compare", column, member)`. A `Null`
+  member matches nothing, an empty set is `false` for every present cell, and a
+  null cell yields null.
 - `is_between(lo : Expr, hi : Expr) -> Expr` — a `Bool` column, `true` where
   `lo <= a <= hi` (both endpoints closed). Equivalent to
   `a.ge(lo).land(a.le(hi))` — same exact ordering, Kleene null propagation, and
-  `TypeMismatch` on an unorderable pair — but a dedicated node so the operand is
-  evaluated once. (A `closed` endpoint option is a deferred additive
-  refinement.)
+  `OpTypeMismatch("compare", left, right)` on an unorderable pair — but a
+  dedicated node so the operand is evaluated once. (A `closed` endpoint option
+  is a deferred additive refinement.)
 - `not() -> Expr` (no overloadable unary `!`); null probes `is_null()` /
   `is_not_null() -> Expr` (total — the result is never null); NaN probes
   `is_nan()` / `is_not_nan() -> Expr` — `true`/`false` where a numeric cell is
@@ -435,7 +441,8 @@ Applied by the `frame` evaluator, vectorized (whole-column at a time),
 raising `DataError` at evaluation time — building the tree never fails:
 
 - **Type promotion**: `Int op Int → Int`, `Float op Float → Float`, mixed
-  promotes `Int → Float`; non-numeric arithmetic → `TypeMismatch`.
+  promotes `Int → Float`; non-numeric arithmetic →
+  `OpTypeMismatch(operation, left, right)`.
 - **Null propagation**: any null operand of an arithmetic or comparison
   makes the result null (Arrow / Polars).
 - **Kleene `&` / `|`**: `true | null = true`, `false & null = false`,

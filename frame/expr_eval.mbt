@@ -511,17 +511,17 @@ fn[T] map_present(n : Int, valid : Array[Bool], f : (Int) -> T) -> Array[T?] {
 }
 
 ///|
-/// The `TypeMismatch` message a binary numeric / ordering kernel raises when
-/// its operands are not a supported pair: `cannot <verb> <left> and <right>`.
-/// Shared by `eval_arith`, `eval_div`, and `eval_compare` so the wording stays
-/// identical across them. (`eval_logic`'s message names the Bool requirement
-/// instead, so it keeps its own.)
-fn binary_type_mismatch_msg(
+/// Build the structured error a binary numeric / ordering kernel raises when
+/// its operands are not a supported pair. `OpTypeMismatch` keeps the operation
+/// and both dtypes programmable while its `message()` preserves the historical
+/// `cannot <verb> <left> and <right>` wording. (`eval_logic` names the Bool
+/// requirement instead, so it keeps its own error shape.)
+fn binary_type_mismatch_error(
   verb : String,
   left : Series,
   right : Series,
-) -> String {
-  "cannot \{verb} \{left.dtype()} and \{right.dtype()}"
+) -> @types.DataError {
+  @types.DataError::OpTypeMismatch(verb, left.dtype(), right.dtype())
 }
 
 ///|

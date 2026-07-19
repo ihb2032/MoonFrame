@@ -4,13 +4,13 @@
 /// `is_nan` / `is_not_nan` probes. Each carries a `Numeric`×`Numeric` all-valid
 /// fast arm that stays on the `Numeric` backend and a nullable general arm that
 /// re-converges through `try_column_to_numeric`. The shared cell gates
-/// (`zip_present` / `map_present`) and the `binary_type_mismatch_msg` wording
+/// (`zip_present` / `map_present`) and the `binary_type_mismatch_error` builder
 /// live with the evaluator shell in `expr_eval.mbt`.
 
 ///|
 /// Shared kernel for `+` / `-` / `*` over two equal-length operands
 /// (post-`broadcast_pair`); each operator supplies its `Int64` and
-/// `Double` cell ops plus the verb its `TypeMismatch` message uses.
+/// `Double` cell ops plus the verb its `OpTypeMismatch` field uses.
 /// Dtype rules: `Int op Int → Int`, any `Float` operand promotes the
 /// result to `Float`, anything non-numeric raises. A null on either side
 /// nulls the output cell (Arrow / Polars arithmetic propagation). `Int`
@@ -85,9 +85,7 @@ fn eval_arith(
       )
     (@column.ColumnData::Bool(_) | @column.ColumnData::String(_), _)
     | (_, @column.ColumnData::Bool(_) | @column.ColumnData::String(_)) =>
-      raise @types.DataError::TypeMismatch(
-        binary_type_mismatch_msg(verb, left, right),
-      )
+      raise binary_type_mismatch_error(verb, left, right)
   }
   try_column_to_numeric(out)
 }
@@ -96,7 +94,7 @@ fn eval_arith(
 /// Shared kernel for the **always-`Float`** binary operators (`/` and `**`):
 /// every numeric pairing — including `Int, Int` — computes in `Double`, so all
 /// four arms land on `from_floats` / `from_float_options`. The operator supplies
-/// its `Double` cell op and the verb its `TypeMismatch` message uses. Null
+/// its `Double` cell op and the verb its `OpTypeMismatch` field uses. Null
 /// propagation and the `Numeric` fast arm / re-convergence match `eval_arith`.
 fn eval_binary_float(
   left : Series,
@@ -160,9 +158,7 @@ fn eval_binary_float(
       )
     (@column.ColumnData::Bool(_) | @column.ColumnData::String(_), _)
     | (_, @column.ColumnData::Bool(_) | @column.ColumnData::String(_)) =>
-      raise @types.DataError::TypeMismatch(
-        binary_type_mismatch_msg(verb, left, right),
-      )
+      raise binary_type_mismatch_error(verb, left, right)
   }
   try_column_to_numeric(out)
 }
@@ -249,9 +245,7 @@ fn eval_binary_nullzero(
       )
     (@column.ColumnData::Bool(_) | @column.ColumnData::String(_), _)
     | (_, @column.ColumnData::Bool(_) | @column.ColumnData::String(_)) =>
-      raise @types.DataError::TypeMismatch(
-        binary_type_mismatch_msg(verb, left, right),
-      )
+      raise binary_type_mismatch_error(verb, left, right)
   }
   try_column_to_numeric(out)
 }

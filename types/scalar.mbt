@@ -3,8 +3,9 @@
 ///
 /// `Null` represents a missing value. The `as_*` conversions `raise
 /// TypedMismatch(expected, got, "")` on a wrong dtype (`got = Null` for a null
-/// cell), and the comparisons `raise TypeMismatch(...)` on `Null` or an
-/// incomparable pair — callers must check `is_null()` first or handle the error.
+/// cell). Comparisons `raise TypeMismatch(...)` on `Null`, or
+/// `OpTypeMismatch("compare", left, right)` on an incomparable non-null pair —
+/// callers must check `is_null()` first or handle the error.
 ///
 /// The `Float` variant carries a 64-bit `Double`; the `Int` variant carries
 /// a 64-bit `Int64`. Use `as_float` for explicit access; `Int` is also
@@ -109,7 +110,7 @@ fn type_mismatch_for_compare(
   left : Scalar,
   right : Scalar,
 ) -> Bool raise DataError {
-  raise TypeMismatch("cannot compare \{left.dtype()} and \{right.dtype()}")
+  raise OpTypeMismatch("compare", left.dtype(), right.dtype())
 }
 
 ///|

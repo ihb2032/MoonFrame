@@ -16,7 +16,7 @@ pub fn format_ndjson(@frame.DataFrame) -> String
 
 pub fn format_vega_lite(@frame.DataFrame, ChartSpec) -> String raise @types.DataError
 
-pub fn parse_csv_str(String, CsvReadOptions) -> @frame.DataFrame raise @types.DataError
+pub fn parse_csv_str(String, CsvReadOptions, strict_quotes? : Bool) -> @frame.DataFrame raise @types.DataError
 
 pub fn parse_json_records_str(String, JsonReadOptions) -> @frame.DataFrame raise @types.DataError
 
@@ -24,9 +24,9 @@ pub fn parse_ndjson_str(String, NdjsonReadOptions) -> @frame.DataFrame raise @ty
 
 pub fn read_csv(String) -> @frame.DataFrame raise @types.DataError
 
-pub fn read_csv_projected(String, CsvReadOptions, Array[String]) -> @frame.DataFrame raise @types.DataError
+pub fn read_csv_projected(String, CsvReadOptions, Array[String], strict_quotes? : Bool) -> @frame.DataFrame raise @types.DataError
 
-pub fn read_csv_with_options(String, CsvReadOptions) -> @frame.DataFrame raise @types.DataError
+pub fn read_csv_with_options(String, CsvReadOptions, strict_quotes? : Bool) -> @frame.DataFrame raise @types.DataError
 
 pub fn read_json(String) -> @frame.DataFrame raise @types.DataError
 

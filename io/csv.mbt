@@ -1,7 +1,8 @@
 // CSV serialisation for `DataFrame`. The reader sits on top of NyaCSV
-// for tokenisation and adds three pieces v0.1 needs: header / no-header
+// for tokenisation and adds four pieces v0.1 needs: header / no-header
 // switching, per-column type inference (Int → Float → Bool → String),
-// and a configurable null-string mapping. The writer mirrors the
+// a configurable null-string mapping, and opt-in strict quote validation.
+// The writer mirrors the
 // reader, rendering each cell via `Scalar::to_string` and quoting only
 // when a cell would otherwise be ambiguous (contains the delimiter, a
 // double quote, or a line break).
@@ -94,7 +95,9 @@ pub fn CsvReadOptions::default() -> CsvReadOptions {
 ///
 /// Raises:
 /// - `DuplicateColumn(name)` — two headers share a name.
-/// - `ParseError(...)` — a non-null cell does not parse under
+/// - `ParseError(...)` — when `strict_quotes` is `true`, the input contains
+///   an unterminated quoted field, text after a closing quote, or a quote
+///   inside an unquoted field; or a non-null cell does not parse under
 ///   the inferred dtype for its column (typically because a sample
 ///   row outside the inference window is malformed for the inferred
 ///   type), unless `options.on_parse_error` is `Null`, which downgrades
@@ -107,19 +110,19 @@ pub fn CsvReadOptions::default() -> CsvReadOptions {
 ///   actually fire here (uniqueness is checked above; every column
 ///   is built off the same `rows.length()`).
 ///
-/// Limitation: tokenisation is delegated to NyaCSV, whose quote handling is
-/// lenient and never raises a `ParseError` for a malformed quote. An
+/// By default, tokenisation keeps NyaCSV's lenient quote handling. An
 /// unterminated quoted field at end-of-input is read as a complete field
 /// (`1,"unclosed` → last cell `unclosed`); text after a closing quote is
 /// folded into the same field (`"ab"cd` → `abcd`); and a lone quote inside
 /// an unquoted field is kept literally (`ab"cd` → `ab"cd`). A strict
-/// RFC-4180 reader rejects all three; MoonFrame accepts them, and no
-/// quote-balance pre-scan is performed.
+/// RFC-4180 reader rejects all three; set `strict_quotes=true` to run a
+/// linear validation pass before tokenisation and reject them as `ParseError`.
 pub fn parse_csv_str(
   content : String,
   options : CsvReadOptions,
+  strict_quotes? : Bool = false,
 ) -> @frame.DataFrame raise @types.DataError {
-  parse_csv_str_projected(content, options, None)
+  parse_csv_str_projected(content, options, None, strict_quotes)
 }
 
 ///|
@@ -143,10 +146,11 @@ pub fn parse_csv_str(
 ///   lose the file's row count and flip the surfaced error downstream.
 ///
 /// Every whole-input check runs *before* the projection filter and so is
-/// unaffected by it — the empty-input short-circuit, the duplicate-header
-/// rejection, and the optional ragged-row guard all see the full header / row
-/// matrix, so a projected read fails on a malformed header or a ragged row
-/// exactly as a full read would. The single behavioural difference is the
+/// unaffected by it — strict quote validation, the empty-input short-circuit,
+/// duplicate-header rejection, and the optional ragged-row guard all see the
+/// full input, so a projected read fails on malformed quoting, a malformed
+/// header, or a ragged row exactly as a full read would. The single behavioural
+/// difference is the
 /// deliberate point of the feature: a non-null cell that fails to parse under
 /// its column's inferred dtype only surfaces (`on_parse_error = Raise`) for a
 /// column that is actually built, so a parse error confined to a *dropped*
@@ -155,6 +159,7 @@ fn parse_csv_str_projected(
   content : String,
   options : CsvReadOptions,
   projection : Array[String]?,
+  strict_quotes : Bool,
 ) -> @frame.DataFrame raise @types.DataError {
   // Refuse a delimiter that collides with the quote character or a row
   // terminator before parsing — the same configurations `format_csv` rejects,
@@ -169,6 +174,9 @@ fn parse_csv_str_projected(
   // 0×0 frame — handled the same way here, just without the parse.
   if content.is_empty() {
     return @frame.DataFrame::new([])
+  }
+  if strict_quotes {
+    validate_csv_quotes(content, options.delimiter)
   }
   let csv_options : @nyacsv.CSVOptions = {
     delimiter: options.delimiter,
@@ -307,13 +315,16 @@ pub fn read_csv(path : String) -> @frame.DataFrame raise @types.DataError {
 
 ///|
 /// Read a CSV file with custom options. `IOError` from the file system
-/// surfaces as `raise IoError(message)`.
+/// surfaces as `raise IoError(message)`. Set `strict_quotes=true` to reject
+/// malformed quoting before NyaCSV tokenisation, as documented by
+/// `parse_csv_str`.
 pub fn read_csv_with_options(
   path : String,
   options : CsvReadOptions,
+  strict_quotes? : Bool = false,
 ) -> @frame.DataFrame raise @types.DataError {
   let content = read_text(path)
-  parse_csv_str(content, options)
+  parse_csv_str(content, options, strict_quotes~)
 }
 
 ///|
@@ -324,14 +335,77 @@ pub fn read_csv_with_options(
 /// materialised (see `parse_csv_str_projected` for the precise contract,
 /// including the one behavioural consequence: a parse error confined to a
 /// dropped column does not surface). `IOError` from the file system surfaces
-/// as `raise IoError(message)`.
+/// as `raise IoError(message)`. `strict_quotes=true` validates the whole input
+/// before applying the projection.
 pub fn read_csv_projected(
   path : String,
   options : CsvReadOptions,
   projection : Array[String],
+  strict_quotes? : Bool = false,
 ) -> @frame.DataFrame raise @types.DataError {
   let content = read_text(path)
-  parse_csv_str_projected(content, options, Some(projection))
+  parse_csv_str_projected(content, options, Some(projection), strict_quotes)
+}
+
+///|
+/// State of the strict CSV quote validator. The validator mirrors RFC-4180's
+/// field grammar without tokenising or allocating cells; NyaCSV remains the
+/// parser after this pass succeeds.
+priv enum CsvQuoteState {
+  CsvFieldStart
+  CsvUnquoted
+  CsvQuoted
+  CsvAfterQuote
+}
+
+///|
+/// Reject the three malformed quote shapes NyaCSV otherwise accepts:
+/// an opening quote without a close, non-separator text after a close, and a
+/// quote inside an unquoted field. A doubled quote while quoted is an escape;
+/// CR / LF are record separators outside quotes and ordinary content inside.
+fn validate_csv_quotes(
+  content : String,
+  delimiter : Char,
+) -> Unit raise @types.DataError {
+  let mut state = CsvFieldStart
+  for ch in content {
+    state = match state {
+      CsvFieldStart =>
+        if ch == '"' {
+          CsvQuoted
+        } else if ch == delimiter || ch == '\r' || ch == '\n' {
+          CsvFieldStart
+        } else {
+          CsvUnquoted
+        }
+      CsvUnquoted =>
+        if ch == '"' {
+          raise @types.DataError::ParseError(
+            "malformed CSV quote: quote inside an unquoted field",
+          )
+        } else if ch == delimiter || ch == '\r' || ch == '\n' {
+          CsvFieldStart
+        } else {
+          CsvUnquoted
+        }
+      CsvQuoted => if ch == '"' { CsvAfterQuote } else { CsvQuoted }
+      CsvAfterQuote =>
+        if ch == '"' {
+          CsvQuoted
+        } else if ch == delimiter || ch == '\r' || ch == '\n' {
+          CsvFieldStart
+        } else {
+          raise @types.DataError::ParseError(
+            "malformed CSV quote: unexpected character after a closing quote",
+          )
+        }
+    }
+  }
+  if state is CsvQuoted {
+    raise @types.DataError::ParseError(
+      "malformed CSV quote: unterminated quoted field",
+    )
+  }
 }
 
 ///|

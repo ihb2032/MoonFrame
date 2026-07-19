@@ -436,6 +436,24 @@ test "quickstart: csv round-trip" {
 }
 ```
 
+For untrusted CSV input, pass `strict_quotes=true` to reject malformed quoting
+before tokenisation. It rejects unclosed quoted fields, text after a closing
+quote, and quotes embedded in an unquoted field; doubled quotes and quoted
+newlines remain valid. The default is `false` for compatibility with NyaCSV's
+permissive parser.
+
+```moonbit check
+///|
+test "quickstart: strict csv quotes" {
+  let parsed = parse_csv_str(
+    "text\n\"say \"\"hi\"\"\"\n",
+    CsvReadOptions::default(),
+    strict_quotes=true,
+  )
+  assert_eq(parsed.item(0, "text"), Scalar::String("say \"hi\""))
+}
+```
+
 When a CSV will be opened in a spreadsheet, opt into formula neutralisation
 with `sanitize_formulas=true`. Formula-like String cells gain a leading
 apostrophe; numeric and boolean cells are unchanged. The transformation is

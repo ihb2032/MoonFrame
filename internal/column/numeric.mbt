@@ -443,22 +443,20 @@ fn NumericColumn::extremum(
 ) -> @types.Scalar {
   match self.data {
     Int(a) => {
-      let best = @types.fold_extremum(a.length(), i => a[i], fn(_i) { false }, (
-        x,
-        y,
-      ) => if want_min { x < y } else { x > y })
+      let get = i => a[i]
+      let skip = fn(_i) { false }
+      let better = (x, y) => if want_min { x < y } else { x > y }
+      let best = @types.fold_extremum(a.length(), get, skip, better)
       match best {
         None => @types.Scalar::Null
         Some(b) => @types.Scalar::Int(b)
       }
     }
     Float(a) => {
-      let best = @types.fold_extremum(
-        a.length(),
-        i => a[i],
-        i => a[i].is_nan(),
-        (x, y) => if want_min { x < y } else { x > y },
-      )
+      let get = i => a[i]
+      let skip = i => a[i].is_nan()
+      let better = (x, y) => if want_min { x < y } else { x > y }
+      let best = @types.fold_extremum(a.length(), get, skip, better)
       match best {
         None => @types.Scalar::Null
         Some(b) => @types.Scalar::Float(b)

@@ -475,12 +475,12 @@ fn infer_column_dtype(
 ) -> InferredDtype {
   infer_dtype(
     rows.length(),
-    limit,
-    i => cell_value(rows, i, col),
-    is_null,
-    v => parse_int_opt(v) is Some(_),
-    v => parse_float_opt(v, allow_nonfinite_floats) is Some(_),
-    v => parse_bool_opt(v) is Some(_),
+    limit~,
+    cell=i => cell_value(rows, i, col),
+    is_null~,
+    is_int=v => parse_int_opt(v) is Some(_),
+    is_float=v => parse_float_opt(v, allow_nonfinite_floats) is Some(_),
+    is_bool=v => parse_bool_opt(v) is Some(_),
   )
 }
 
@@ -568,46 +568,46 @@ fn build_column(
       build_typed_column(
         name,
         n,
-        cell,
-        isnull,
-        parse_int_opt,
-        (i, v) => {
+        cell~,
+        is_null=isnull,
+        parse=parse_int_opt,
+        err=(i, v) => {
           @types.DataError::ParseError(
             "column \"\{name}\" row \{i + 1}: cannot parse \"\{v}\" as Int",
           )
         },
-        on_parse_error,
-        @series.Series::from_int_options,
+        on_parse_error~,
+        build=@series.Series::from_int_options,
       )
     InferFloat =>
       build_typed_column(
         name,
         n,
-        cell,
-        isnull,
-        v => parse_float_opt(v, allow_nonfinite_floats),
-        (i, v) => {
+        cell~,
+        is_null=isnull,
+        parse=v => parse_float_opt(v, allow_nonfinite_floats),
+        err=(i, v) => {
           @types.DataError::ParseError(
             "column \"\{name}\" row \{i + 1}: cannot parse \"\{v}\" as Float",
           )
         },
-        on_parse_error,
-        @series.Series::from_float_options,
+        on_parse_error~,
+        build=@series.Series::from_float_options,
       )
     InferBool =>
       build_typed_column(
         name,
         n,
-        cell,
-        isnull,
-        parse_bool_opt,
-        (i, v) => {
+        cell~,
+        is_null=isnull,
+        parse=parse_bool_opt,
+        err=(i, v) => {
           @types.DataError::ParseError(
             "column \"\{name}\" row \{i + 1}: cannot parse \"\{v}\" as Bool",
           )
         },
-        on_parse_error,
-        @series.Series::from_bool_options,
+        on_parse_error~,
+        build=@series.Series::from_bool_options,
       )
     InferString => build_string_column(name, n, cell, isnull, v => v)
   }

@@ -14,6 +14,9 @@
 // reader blackbox tests that drive it.
 
 ///|
+const DEFAULT_INFER_SCHEMA_ROWS : Int = 100
+
+///|
 /// The four dtypes inference can pick. `Null` is intentionally absent —
 /// inference never produces it, so the builder match stays exhaustive
 /// without an unreachable arm.

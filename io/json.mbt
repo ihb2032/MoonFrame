@@ -74,7 +74,7 @@ pub(all) struct JsonReadOptions {
 /// fail the read on a cell that doesn't fit its inferred dtype
 /// (`on_parse_error = Raise`).
 pub fn JsonReadOptions::default() -> JsonReadOptions {
-  { infer_schema_rows: 100, on_parse_error: Raise }
+  { infer_schema_rows: DEFAULT_INFER_SCHEMA_ROWS, on_parse_error: Raise }
 }
 
 ///|

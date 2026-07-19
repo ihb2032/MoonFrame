@@ -723,6 +723,54 @@ test "format_csv: custom null_value rendering" {
 }
 
 ///|
+test "format_csv: formula sanitization covers spreadsheet trigger prefixes" {
+  let df = @frame.DataFrame::new([
+    @series.Series::from_strings("s", [
+      "=SUM(A1)", "+1", "-1", "@name", "\t=1", "\r=1", "",
+    ]),
+  ])
+  let out = @io.format_csv(
+    df,
+    @io.CsvWriteOptions::default(),
+    sanitize_formulas=true,
+  )
+  assert_eq(out, "s\n'=SUM(A1)\n'+1\n'-1\n'@name\n'\t=1\n\"'\r=1\"\n\"\"\n")
+}
+
+///|
+test "format_csv: formula sanitization changes only formula-like String cells" {
+  let df = @frame.DataFrame::new([
+    @series.Series::from_string_options("s", [Some("-1"), None, Some("a,b")]),
+    @series.Series::from_ints("i", [-1, 2, 3]),
+    @series.Series::from_floats("f", [-1.5, 2.5, 3.5]),
+    @series.Series::from_bools("b", [true, false, true]),
+  ])
+  let out = @io.format_csv(
+    df,
+    @io.CsvWriteOptions::default(),
+    sanitize_formulas=true,
+  )
+  assert_eq(
+    out, "s,i,f,b\n'-1,-1,-1.5,true\n,2,2.5,false\n\"a,b\",3,3.5,true\n",
+  )
+}
+
+///|
+test "format_csv: formula sanitization is opt-in and false is byte-identical" {
+  let df = @frame.DataFrame::new([
+    @series.Series::from_strings("s", ["=SUM(A1)", "ordinary"]),
+  ])
+  let default_out = @io.format_csv(df, @io.CsvWriteOptions::default())
+  let explicit_false = @io.format_csv(
+    df,
+    @io.CsvWriteOptions::default(),
+    sanitize_formulas=false,
+  )
+  assert_eq(default_out, "s\n=SUM(A1)\nordinary\n")
+  assert_eq(explicit_false, default_out)
+}
+
+///|
 test "format_csv: quotes cells with delimiter, quote, newline, or CR" {
   let df = @frame.DataFrame::new([
     @series.Series::from_strings("a", [
@@ -1023,6 +1071,22 @@ test "write_csv_with_options + read_csv_with_options honour custom shape" {
   assert_eq(parsed.item(0, "a"), @types.Scalar::Int(1))
   assert_eq(parsed.item(1, "a"), @types.Scalar::Null)
   assert_eq(parsed.item(0, "b"), @types.Scalar::String("p"))
+}
+
+///|
+test "write_csv_with_options forwards formula sanitization" {
+  let path = "_build/io_csv_formula_sanitized.csv"
+  let df = @frame.DataFrame::new([
+    @series.Series::from_strings("s", ["=SUM(A1)"]),
+  ])
+  @io.write_csv_with_options(
+    path,
+    df,
+    @io.CsvWriteOptions::default(),
+    sanitize_formulas=true,
+  )
+  let parsed = @io.read_csv(path)
+  assert_eq(parsed.item(0, "s"), @types.Scalar::String("'=SUM(A1)"))
 }
 
 ///|

@@ -436,6 +436,22 @@ test "quickstart: csv round-trip" {
 }
 ```
 
+When a CSV will be opened in a spreadsheet, opt into formula neutralisation
+with `sanitize_formulas=true`. Formula-like String cells gain a leading
+apostrophe; numeric and boolean cells are unchanged. The transformation is
+intentionally lossy, so the default remains `false` and preserves exact output.
+
+```moonbit check
+///|
+test "quickstart: spreadsheet-safe csv" {
+  let df = DataFrame::new([
+    Series::from_strings("user_input", ["=1+1", "ordinary"]),
+  ])
+  let csv = format_csv(df, CsvWriteOptions::default(), sanitize_formulas=true)
+  inspect(csv, content="user_input\n'=1+1\nordinary\n")
+}
+```
+
 ## NDJSON (JSON Lines) round-trip
 
 `format_ndjson` / `parse_ndjson_str` are the string-level NDJSON serialisers
@@ -472,4 +488,3 @@ test "quickstart: ndjson round-trip" {
   )
 }
 ```
-

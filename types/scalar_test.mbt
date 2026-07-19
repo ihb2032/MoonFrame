@@ -156,13 +156,13 @@ test "gt / gte report an incomparable pair in call order" {
     Ok(Scalar::Int(1).gt(Scalar::String("x"))) catch {
       e => Err(e)
     },
-    Err(DataError::TypeMismatch("cannot compare Int and String")),
+    Err(DataError::OpTypeMismatch("compare", DataType::Int, DataType::String)),
   )
   assert_eq(
     Ok(Scalar::Int(1).gte(Scalar::String("x"))) catch {
       e => Err(e)
     },
-    Err(DataError::TypeMismatch("cannot compare Int and String")),
+    Err(DataError::OpTypeMismatch("compare", DataType::Int, DataType::String)),
   )
   // Comparable pairs still delegate (Bool orders false < true; String
   // orders lexicographically).

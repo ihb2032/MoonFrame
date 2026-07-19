@@ -10,13 +10,16 @@ pub(all) suberror DataError {
   /// `TypeMismatch` for the "expected T, got X" family; `message()` rebuilds the
   /// exact `TypeMismatch` wording, so migrating a site is display-compatible
   /// while callers can now read the dtypes and column directly. The bare
-  /// `TypeMismatch(String)` stays for the messages this shape does not fit
-  /// (`cannot compare …`, operator mismatches).
+  /// `TypeMismatch(String)` stays for the messages this shape does not fit.
   TypedMismatch(DataType, DataType, String)
   /// A raw column-buffer accessor received the wrong column dtype. The two
   /// fields are `(expected, got)`; `message()` preserves the historical
   /// `expected T column, got X` wording while exposing both dtypes directly.
   ColumnTypeMismatch(DataType, DataType)
+  /// A binary operation rejected its operand dtypes. The fields are
+  /// `(operation, left, right)`; `message()` preserves the historical
+  /// `cannot <operation> <left> and <right>` wording.
+  OpTypeMismatch(String, DataType, DataType)
   LengthMismatch
   IndexOutOfBounds(Int)
   ParseError(String)
@@ -52,6 +55,8 @@ pub fn DataError::message(self : DataError) -> String {
       }
     ColumnTypeMismatch(expected, got) =>
       "Type mismatch: expected \{expected} column, got \{got}"
+    OpTypeMismatch(operation, left, right) =>
+      "Type mismatch: cannot \{operation} \{left} and \{right}"
     LengthMismatch => "Length mismatch between columns"
     IndexOutOfBounds(i) => "Index out of bounds: \{i}"
     ParseError(detail) => "Parse error: \{detail}"
@@ -79,6 +84,10 @@ pub impl Show for DataError with fn output(self, logger) {
       )
     ColumnTypeMismatch(expected, got) =>
       logger.write_string("ColumnTypeMismatch(\{expected}, \{got})")
+    OpTypeMismatch(operation, left, right) =>
+      logger.write_string(
+        "OpTypeMismatch(\"\{escape_debug(operation)}\", \{left}, \{right})",
+      )
     LengthMismatch => logger.write_string("LengthMismatch")
     IndexOutOfBounds(i) => logger.write_string("IndexOutOfBounds(\{i})")
     ParseError(detail) =>

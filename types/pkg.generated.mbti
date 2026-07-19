@@ -35,6 +35,7 @@ pub(all) suberror DataError {
   TypeMismatch(String)
   TypedMismatch(DataType, DataType, String)
   ColumnTypeMismatch(DataType, DataType)
+  OpTypeMismatch(String, DataType, DataType)
   LengthMismatch
   IndexOutOfBounds(Int)
   ParseError(String)

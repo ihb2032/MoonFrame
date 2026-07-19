@@ -28,6 +28,14 @@ test "DataError::message covers every variant" {
     content="Type mismatch: expected Int column, got Float",
   )
   inspect(
+    DataError::OpTypeMismatch(
+      "take the remainder of",
+      DataType::String,
+      DataType::Int,
+    ).message(),
+    content="Type mismatch: cannot take the remainder of String and Int",
+  )
+  inspect(
     DataError::LengthMismatch.message(),
     content="Length mismatch between columns",
   )
@@ -89,6 +97,10 @@ test "DataError Show covers every remaining variant" {
   inspect(
     DataError::ColumnTypeMismatch(DataType::Int, DataType::Float),
     content="ColumnTypeMismatch(Int, Float)",
+  )
+  inspect(
+    DataError::OpTypeMismatch("add", DataType::String, DataType::Int),
+    content="OpTypeMismatch(\"add\", String, Int)",
   )
   inspect(
     DataError::ParseError("bad token"),

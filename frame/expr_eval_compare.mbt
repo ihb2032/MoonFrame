@@ -231,9 +231,7 @@ fn eval_compare(
       )
     (@column.ColumnData::Bool(_) | @column.ColumnData::String(_), _)
     | (_, @column.ColumnData::Bool(_) | @column.ColumnData::String(_)) =>
-      raise @types.DataError::TypeMismatch(
-        binary_type_mismatch_msg("compare", left, right),
-      )
+      raise binary_type_mismatch_error("compare", left, right)
   }
   Series::from_bool_options(left.name(), cells)
 }

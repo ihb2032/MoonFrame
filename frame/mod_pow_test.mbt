@@ -109,11 +109,17 @@ test "modulo: Int-by-zero null, Float-by-zero NaN, Builtin arms, non-numeric" {
     Series::from_strings("s", ["x"]),
     Series::from_ints("n", [1L]),
   ])
-  assert_true(
-    (Ok(strs.select([@expr.col("s").modulo(@expr.col("n"))])) catch {
+  assert_eq(
+    Ok(strs.select([@expr.col("s").modulo(@expr.col("n"))])) catch {
       e => Err(e)
-    })
-    is Err(@types.DataError::TypeMismatch(_)),
+    },
+    Err(
+      @types.DataError::OpTypeMismatch(
+        "take the remainder of",
+        @types.DataType::String,
+        @types.DataType::Int,
+      ),
+    ),
   )
 }
 
@@ -187,11 +193,17 @@ test "pow: negative / zero exponents, Builtin arms, null, non-numeric" {
     Series::from_strings("s", ["x"]),
     Series::from_ints("n", [2L]),
   ])
-  assert_true(
-    (Ok(strs.select([@expr.col("s").pow(@expr.col("n"))])) catch {
+  assert_eq(
+    Ok(strs.select([@expr.col("s").pow(@expr.col("n"))])) catch {
       e => Err(e)
-    })
-    is Err(@types.DataError::TypeMismatch(_)),
+    },
+    Err(
+      @types.DataError::OpTypeMismatch(
+        "exponentiate",
+        @types.DataType::String,
+        @types.DataType::Int,
+      ),
+    ),
   )
 }
 

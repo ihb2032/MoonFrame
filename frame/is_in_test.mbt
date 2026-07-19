@@ -106,11 +106,17 @@ test "is_in: a NaN member never matches (IEEE), as under eq" {
 ///|
 test "is_in: a member whose dtype cannot compare with the column raises" {
   let df = DataFrame::new([Series::from_ints("a", [1L, 2L])])
-  assert_true(
-    (Ok(df.select([@expr.col("a").is_in([@types.Scalar::String("x")])])) catch {
+  assert_eq(
+    Ok(df.select([@expr.col("a").is_in([@types.Scalar::String("x")])])) catch {
       e => Err(e)
-    })
-    is Err(@types.DataError::TypeMismatch(_)),
+    },
+    Err(
+      @types.DataError::OpTypeMismatch(
+        "compare",
+        @types.DataType::Int,
+        @types.DataType::String,
+      ),
+    ),
   )
 }
 
@@ -199,18 +205,30 @@ test "is_in: String and Bool columns skip a null member and reject a foreign dty
     @types.Scalar::Null,
   ])
   // A foreign-dtype member falls off the fast path onto the exact kernel, which
-  // raises the same `TypeMismatch` `eq` would.
-  assert_true(
-    (Ok(df.select([@expr.col("s").is_in([@types.Scalar::Int(1)])])) catch {
+  // raises the same structured mismatch `eq` would.
+  assert_eq(
+    Ok(df.select([@expr.col("s").is_in([@types.Scalar::Int(1)])])) catch {
       e => Err(e)
-    })
-    is Err(@types.DataError::TypeMismatch(_)),
+    },
+    Err(
+      @types.DataError::OpTypeMismatch(
+        "compare",
+        @types.DataType::String,
+        @types.DataType::Int,
+      ),
+    ),
   )
-  assert_true(
-    (Ok(df.select([@expr.col("b").is_in([@types.Scalar::String("x")])])) catch {
+  assert_eq(
+    Ok(df.select([@expr.col("b").is_in([@types.Scalar::String("x")])])) catch {
       e => Err(e)
-    })
-    is Err(@types.DataError::TypeMismatch(_)),
+    },
+    Err(
+      @types.DataError::OpTypeMismatch(
+        "compare",
+        @types.DataType::Bool,
+        @types.DataType::String,
+      ),
+    ),
   )
 }
 

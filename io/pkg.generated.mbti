@@ -8,7 +8,7 @@ import {
 }
 
 // Values
-pub fn format_csv(@frame.DataFrame, CsvWriteOptions) -> String raise @types.DataError
+pub fn format_csv(@frame.DataFrame, CsvWriteOptions, sanitize_formulas? : Bool) -> String raise @types.DataError
 
 pub fn format_json_records(@frame.DataFrame) -> String
 
@@ -40,7 +40,7 @@ pub fn read_ndjson_with_options(String, NdjsonReadOptions) -> @frame.DataFrame r
 
 pub fn write_csv(String, @frame.DataFrame) -> Unit raise @types.DataError
 
-pub fn write_csv_with_options(String, @frame.DataFrame, CsvWriteOptions) -> Unit raise @types.DataError
+pub fn write_csv_with_options(String, @frame.DataFrame, CsvWriteOptions, sanitize_formulas? : Bool) -> Unit raise @types.DataError
 
 pub fn write_json_records(String, @frame.DataFrame) -> Unit raise @types.DataError
 

@@ -27,7 +27,7 @@ pub fn cols_starts_with(@frame.DataFrame, String) -> Array[@expr.Expr]
 
 pub fn compare_string_lex(String, String) -> Int
 
-pub fn format_csv(@frame.DataFrame, @io.CsvWriteOptions) -> String raise @types.DataError
+pub fn format_csv(@frame.DataFrame, @io.CsvWriteOptions, sanitize_formulas? : Bool) -> String raise @types.DataError
 
 pub fn format_json_records(@frame.DataFrame) -> String
 
@@ -87,7 +87,7 @@ pub fn when(@expr.Expr) -> @expr.WhenThen
 
 pub fn write_csv(String, @frame.DataFrame) -> Unit raise @types.DataError
 
-pub fn write_csv_with_options(String, @frame.DataFrame, @io.CsvWriteOptions) -> Unit raise @types.DataError
+pub fn write_csv_with_options(String, @frame.DataFrame, @io.CsvWriteOptions, sanitize_formulas? : Bool) -> Unit raise @types.DataError
 
 pub fn write_json_records(String, @frame.DataFrame) -> Unit raise @types.DataError
 

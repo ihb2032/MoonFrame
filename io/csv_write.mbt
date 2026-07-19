@@ -61,6 +61,12 @@ pub fn CsvWriteOptions::default() -> CsvWriteOptions {
 ///   dropping any leading zeros — and `"true"` / `"false"` as `Bool`, the
 ///   dtype-from-content narrowing inherent to typeless CSV (matching Polars'
 ///   `read_csv`). Quote / escape handling is otherwise round-trip safe.
+/// - When `sanitize_formulas` is `true`, a `String` cell beginning with
+///   `=`, `+`, `-`, `@`, tab, or carriage return is prefixed with an
+///   apostrophe before CSV quoting. This opt-in, intentionally lossy
+///   transformation prevents spreadsheet applications from interpreting
+///   such cells as formulas. It does not affect headers, nulls, numbers,
+///   booleans, or other strings; the default `false` preserves exact output.
 /// - Raises `InvalidOperation` if `options.delimiter` is a double quote or a
 ///   line terminator (`\n` / `\r`): those collide with the hard-coded quote
 ///   character and the row terminator, so no escaping could make the output
@@ -68,6 +74,7 @@ pub fn CsvWriteOptions::default() -> CsvWriteOptions {
 pub fn format_csv(
   df : @frame.DataFrame,
   options : CsvWriteOptions,
+  sanitize_formulas? : Bool = false,
 ) -> String raise @types.DataError {
   validate_csv_delimiter(options.delimiter)
   let buf = StringBuilder::new()
@@ -105,11 +112,11 @@ pub fn format_csv(
         buf.write_char(options.delimiter)
       }
       let scalar = cols[c][r]
-      let rendered = if scalar.is_null() {
-        options.null_value
-      } else {
-        scalar.to_string()
-      }
+      let rendered = render_csv_scalar(
+        scalar,
+        options.null_value,
+        sanitize_formulas,
+      )
       write_quoted(
         buf,
         rendered,
@@ -139,16 +146,54 @@ pub fn write_csv(
 /// cell (or column name) holding an unpaired UTF-16 surrogate is refused
 /// with `raise InvalidOperation` — the UTF-8 file encoding would swallow
 /// the following delimiter and silently shift every later cell boundary.
+/// Set `sanitize_formulas=true` to apply the same spreadsheet-safety
+/// transformation documented by `format_csv` before writing.
 pub fn write_csv_with_options(
   path : String,
   df : @frame.DataFrame,
   options : CsvWriteOptions,
+  sanitize_formulas? : Bool = false,
 ) -> Unit raise @types.DataError {
-  let content = format_csv(df, options)
+  let content = format_csv(df, options, sanitize_formulas~)
   write_text(path, content)
 }
 
 // ── internals ──────────────────────────────────────────────────────────
+
+///|
+fn render_csv_scalar(
+  scalar : @types.Scalar,
+  null_value : String,
+  sanitize_formulas : Bool,
+) -> String {
+  match scalar {
+    @types.Scalar::Null => null_value
+    @types.Scalar::String(value) =>
+      if sanitize_formulas && starts_spreadsheet_formula(value) {
+        let buf = StringBuilder::new()
+        buf.write_string("'")
+        buf.write_string(value)
+        buf.to_string()
+      } else {
+        value
+      }
+    _ => scalar.to_string()
+  }
+}
+
+///|
+fn starts_spreadsheet_formula(value : String) -> Bool {
+  match value.view().get_char(0) {
+    Some(ch) =>
+      ch == '=' ||
+      ch == '+' ||
+      ch == '-' ||
+      ch == '@' ||
+      ch == '\t' ||
+      ch == '\r'
+    None => false
+  }
+}
 
 ///|
 /// Append `cell` to `buf`, quoting only when needed. A cell needs

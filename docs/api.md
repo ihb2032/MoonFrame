@@ -936,9 +936,15 @@ are documented below.
   `DuplicateColumn` / `ParseError` (the latter also covers a ragged
   row when `options.strict_column_count`, and a cell that doesn't fit its
   dtype unless `options.on_parse_error = Null`).
-- `format_csv(df, options) -> String raise DataError` — cells render via
-  `Scalar::to_string`; null → `options.null_value`; RFC 4180 quoting;
-  LF-terminated. Raises `InvalidOperation` if `options.delimiter` is a double
+- `format_csv(df, options, sanitize_formulas? : Bool = false) -> String raise
+  DataError` — cells render via `Scalar::to_string`; null →
+  `options.null_value`; RFC 4180 quoting; LF-terminated. With the opt-in
+  `sanitize_formulas=true`, String cells beginning with `=`, `+`, `-`, `@`,
+  tab, or carriage return gain a leading apostrophe before quoting so
+  spreadsheets treat them as text. This intentionally lossy safety mode does
+  not affect headers, nulls, numbers, booleans, or other strings; the default
+  `false` preserves the previous byte-for-byte output. Raises
+  `InvalidOperation` if `options.delimiter` is a double
   quote or a line terminator (`\n` / `\r`), which can't unambiguously frame
   fields, or a non-BMP character, whose UTF-16 surrogate pair the
   per-code-unit tokenizer can't match.
@@ -951,10 +957,12 @@ are documented below.
   pushdown — **not** re-exported by the facade. Whole-input checks (a
   malformed header, a ragged row) are unaffected, but a parse error confined
   to a dropped column does not surface (see `lazy`).
-- `write_csv(path, df)` / `write_csv_with_options(path, df, options) ->
-  Unit raise DataError` — file wrappers (`IoError`; a string cell or column
-  name holding an unpaired UTF-16 surrogate is refused with
-  `InvalidOperation` before encoding, as for every `write_*`).
+- `write_csv(path, df)` / `write_csv_with_options(path, df, options,
+  sanitize_formulas? : Bool = false) -> Unit raise DataError` — file wrappers;
+  `write_csv_with_options` forwards the optional spreadsheet-formula safety
+  mode described above (`IoError`; a string cell or column name holding an
+  unpaired UTF-16 surrogate is refused with `InvalidOperation` before encoding,
+  as for every `write_*`).
 
 ### JSON (records shape `[{...}, ...]`)
 

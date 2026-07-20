@@ -93,9 +93,21 @@ test "projection push-down does not parse — or fail on — a dropped NDJSON co
     on_parse_error: @io.OnParseError::Raise,
   }
   // The full eager read builds `b` and fails on the non-Int cell.
-  assert_true(
-    (Ok(@io.read_ndjson_with_options(path, opts)) catch { e => Err(e) })
-    is Err(@types.DataError::ParseError(_)),
+  assert_eq(
+    Ok(@io.read_ndjson_with_options(path, opts)) catch {
+      e => Err(e)
+    },
+    Err(
+      @types.DataError::ParseError(
+        @types.ParseErrorDetail::Cell(
+          @types.CellParseLocation::Line,
+          "b",
+          2,
+          @types.DataType::Int,
+          "oops",
+        ),
+      ),
+    ),
   )
   // The lazy scan, narrowed to `a`, never builds `b`, so it collects cleanly —
   // the same divergence as scan_csv (Polars' projection push-down).

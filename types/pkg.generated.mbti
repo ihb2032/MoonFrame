@@ -38,7 +38,7 @@ pub(all) suberror DataError {
   OpTypeMismatch(String, DataType, DataType)
   LengthMismatch
   IndexOutOfBounds(Int)
-  ParseError(String)
+  ParseError(ParseErrorDetail)
   InvalidOperation(String)
   IoError(String)
   Unsupported(String)
@@ -54,6 +54,16 @@ pub fn DataError::to_string(Self) -> String
 pub impl Show for DataError
 
 // Types and methods
+pub(all) enum CellParseLocation {
+  Row
+  Record
+  Line
+} derive(Eq, @debug.Debug)
+pub fn CellParseLocation::equal(Self, Self) -> Bool
+pub fn CellParseLocation::not_equal(Self, Self) -> Bool
+#as_free_fn
+pub fn CellParseLocation::to_repr(Self) -> @debug.Repr
+
 pub(all) enum DataType {
   Int
   Float
@@ -92,6 +102,15 @@ pub fn Field::to_repr(Self) -> @debug.Repr
 pub fn Field::to_string(Self) -> String
 pub fn Field::with_nullable(String, DataType, Bool) -> Self
 pub impl Show for Field
+
+pub(all) enum ParseErrorDetail {
+  Message(String)
+  Cell(CellParseLocation, String, Int, DataType, String)
+} derive(Eq, @debug.Debug)
+pub fn ParseErrorDetail::equal(Self, Self) -> Bool
+pub fn ParseErrorDetail::not_equal(Self, Self) -> Bool
+#as_free_fn
+pub fn ParseErrorDetail::to_repr(Self) -> @debug.Repr
 
 pub(all) enum Scalar {
   Int(Int64)

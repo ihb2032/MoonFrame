@@ -52,12 +52,20 @@ in [`migration.md`](migration.md).
 
 ## `types` — Value types and errors
 
+- `enum CellParseLocation { Row; Record; Line }` — identifies whether a
+  structured cell parse position is a CSV row, JSON-array record, or physical
+  NDJSON line; positions are 1-based.
+- `enum ParseErrorDetail { Message(String); Cell(CellParseLocation, String,
+  Int, DataType, String) }` — the direct payload of `DataError::ParseError`.
+  `Message` carries syntax or shape diagnostics; `Cell` exposes a typed-cell
+  failure's location, column, 1-based position, expected dtype, and value.
 - `suberror DataError` — `pub(all) suberror` with 13 variants:
   `ColumnNotFound` / `DuplicateColumn` / `TypeMismatch` /
   `TypedMismatch(DataType, DataType, String)` /
   `ColumnTypeMismatch(DataType, DataType)` /
   `OpTypeMismatch(String, DataType, DataType)` / `LengthMismatch` /
-  `IndexOutOfBounds` / `ParseError` / `InvalidOperation` / `IoError` /
+  `IndexOutOfBounds` / `ParseError(ParseErrorDetail)` /
+  `InvalidOperation` / `IoError` /
   `Unsupported` / `NullInNonNullable`. As a `suberror` it is both raised
   (`raise ColumnNotFound("age")`) and recovered
   (`Ok(expr) catch { e => Err(e) }` → `Result[_, DataError]`); `pub(all)` lets
@@ -74,7 +82,10 @@ in [`migration.md`](migration.md).
   incomparable non-null `Scalar` comparisons raise
   `OpTypeMismatch(operation, left, right)`, preserving
   `cannot <operation> <left> and <right>`. The bare `TypeMismatch(String)`
-  stays for messages these shapes do not fit.
+  stays for messages these shapes do not fit. CSV, JSON records, and NDJSON
+  readers raise `ParseError(Cell(location, column, position, expected, value))`
+  for a value that does not fit its inferred dtype; other syntax and shape
+  failures use `ParseError(Message(detail))`.
 - `enum DataType` — `Int | Float | Bool | String | Null`, with
   `is_numeric` / `is_integer` / `is_float` / `is_string` / `is_bool`.
 - `enum Scalar` — cell value (`Int` carries `Int64`, `Float` carries
@@ -932,7 +943,7 @@ are documented below.
 - `enum OnParseError { Raise; Null }` (`pub(all)`) — the parse-failure
   policy shared by the three readers' options. A non-null cell past the
   inference window that doesn't fit its column's locked-in dtype either
-  fails the whole read with `ParseError` (`Raise`, the default — strict and
+  fails with `ParseError(Cell(...))` (`Raise`, the default — strict and
   lossless) or is downgraded to a null cell, keeping the column's inferred
   dtype (`Null`, Polars' `ignore_errors=True`).
 - `struct CsvWriteOptions` — `header` (`true`) / `delimiter` (`,`) /
@@ -948,9 +959,9 @@ are documented below.
   double quote, a line terminator, or a non-BMP (supplementary-plane)
   character (the same configurations `format_csv` rejects, so a value the
   writer can't emit unambiguously can't be read back either);
-  `DuplicateColumn` / `ParseError` (the latter also covers a ragged
-  row when `options.strict_column_count`, and a cell that doesn't fit its
-  dtype unless `options.on_parse_error = Null`).
+  `DuplicateColumn` / `ParseError(Message(...))` (including a ragged row when
+  `options.strict_column_count`) / `ParseError(Cell(...))` (a cell that does
+  not fit its dtype unless `options.on_parse_error = Null`).
 - `format_csv(df, options, sanitize_formulas? : Bool = false) -> String raise
   DataError` — cells render via `Scalar::to_string`; null →
   `options.null_value`; RFC 4180 quoting; LF-terminated. With the opt-in
@@ -991,8 +1002,11 @@ are documented below.
   across all records (sparse records → null cells) → inference (same
   order as CSV; `Number` locks `Int` when integral and in `Int64` range,
   else `Float`; `true` / `false` only for `Bool`; mixed → `String`
-  fallback) → `DataFrame::new`. `ParseError`. An integer outside Double's exact
-  integer range but still inside its finite numerical range, when inferred as
+  fallback) → `DataFrame::new`. Structural or syntax failures use
+  `ParseError(Message(...))`;
+  typed cell failures use `ParseError(Cell(Record, ...))`. An integer
+  outside Double's exact integer range but still inside its finite numerical
+  range, when inferred as
   `Float` (a fractional sibling in the column), recovers its nearest finite
   value from the digits `@json` preserves in `repr`. An integer beyond Double's
   numerical range becomes `±Infinity`; a subsequent `format_json_records`
@@ -1031,10 +1045,12 @@ conventions.
   records → frame core. Blank / whitespace-only lines are skipped and a
   trailing `\r` (CRLF) is tolerated as JSON whitespace, so the writer's
   trailing newline (and incidental blank lines) round-trip without
-  phantom rows. A malformed line surfaces as `ParseError("line N: …")`
-  (1-based); a line whose value is not an object, or a typed mismatch
-  past the inference window (unless `options.on_parse_error = Null`), is
-  also `ParseError`. Empty / all-blank input → 0×0 frame.
+  phantom rows. A malformed line surfaces as
+  `ParseError(Message("line N: …"))` (1-based); a line whose value is not an
+  object also uses `Message`. A typed
+  mismatch past the inference window (unless `options.on_parse_error = Null`)
+  uses `ParseError(Cell(Line, ...))` with the physical 1-based line. Empty /
+  all-blank input → 0×0 frame.
 - `format_ndjson(df) -> String` — **total**. One compact object per row,
   keys in `df.columns()` order, each line terminated by `\n` (including
   the last — matching the CSV writer's per-row LF and Polars'
@@ -1245,7 +1261,8 @@ and the free functions are listed explicitly. The inert `BinOp` / `UnOp`
 / `AggOp` / `StrOp` tag enums are deliberately **not** re-exported (no public
 API names them).
 
-- From `@types`: `DataError` · `DataType` · `Scalar` · `Field` · `Schema` ·
+- From `@types`: `DataError` · `CellParseLocation` · `ParseErrorDetail` ·
+  `DataType` · `Scalar` · `Field` · `Schema` ·
   `compare_string_lex` · `is_decimal_int_literal` · `format_scalar_literal`
 - From `@expr`: `Expr` · `WhenThen` · `WhenThenElse` · `col` · `cols` ·
   `lit` · `lit_int` · `lit_float` · `lit_str` · `lit_bool` · `lit_series` ·

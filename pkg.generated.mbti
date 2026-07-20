@@ -100,6 +100,8 @@ pub fn write_vega_lite(String, @frame.DataFrame, @io.ChartSpec) -> Unit raise @t
 // Types and methods
 
 // Type aliases
+pub using @types {type CellParseLocation}
+
 pub using @io {type ChartKind}
 
 pub using @io {type ChartSpec}
@@ -139,6 +141,8 @@ pub using @io {type NdjsonReadOptions}
 pub using @frame {type NullOrder}
 
 pub using @io {type OnParseError}
+
+pub using @types {type ParseErrorDetail}
 
 pub using @types {type Scalar}
 

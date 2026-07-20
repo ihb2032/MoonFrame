@@ -44,7 +44,55 @@ test "DataError::message covers every variant" {
     content="Index out of bounds: 10",
   )
   inspect(
-    DataError::ParseError("bad row").message(),
+    DataError::ParseError(
+      ParseErrorDetail::Cell(
+        CellParseLocation::Row,
+        "score",
+        3,
+        DataType::Int,
+        "oops",
+      ),
+    ).message(),
+    content="Parse error: column \"score\" row 3: cannot parse \"oops\" as Int",
+  )
+  inspect(
+    DataError::ParseError(
+      ParseErrorDetail::Cell(
+        CellParseLocation::Record,
+        "score",
+        4,
+        DataType::Float,
+        "oops",
+      ),
+    ).message(),
+    content="Parse error: column \"score\" record 4: JSON value is not a number (\"oops\")",
+  )
+  inspect(
+    DataError::ParseError(
+      ParseErrorDetail::Cell(
+        CellParseLocation::Record,
+        "score",
+        4,
+        DataType::Int,
+        "oops",
+      ),
+    ).message(),
+    content="Parse error: column \"score\" record 4: JSON value is not an Int (\"oops\")",
+  )
+  inspect(
+    DataError::ParseError(
+      ParseErrorDetail::Cell(
+        CellParseLocation::Line,
+        "active",
+        5,
+        DataType::Bool,
+        "1",
+      ),
+    ).message(),
+    content="Parse error: column \"active\" line 5: JSON value is not a Bool (\"1\")",
+  )
+  inspect(
+    DataError::ParseError(ParseErrorDetail::Message("bad row")).message(),
     content="Parse error: bad row",
   )
   inspect(
@@ -103,8 +151,44 @@ test "DataError Show covers every remaining variant" {
     content="OpTypeMismatch(\"add\", String, Int)",
   )
   inspect(
-    DataError::ParseError("bad token"),
-    content="ParseError(\"bad token\")",
+    DataError::ParseError(
+      ParseErrorDetail::Cell(
+        CellParseLocation::Line,
+        "a\"b",
+        5,
+        DataType::Bool,
+        "path\\x",
+      ),
+    ),
+    content="ParseError(Cell(Line, \"a\\\"b\", 5, Bool, \"path\\\\x\"))",
+  )
+  inspect(
+    DataError::ParseError(
+      ParseErrorDetail::Cell(
+        CellParseLocation::Row,
+        "score",
+        3,
+        DataType::Int,
+        "oops",
+      ),
+    ),
+    content="ParseError(Cell(Row, \"score\", 3, Int, \"oops\"))",
+  )
+  inspect(
+    DataError::ParseError(
+      ParseErrorDetail::Cell(
+        CellParseLocation::Record,
+        "score",
+        4,
+        DataType::Float,
+        "oops",
+      ),
+    ),
+    content="ParseError(Cell(Record, \"score\", 4, Float, \"oops\"))",
+  )
+  inspect(
+    DataError::ParseError(ParseErrorDetail::Message("bad token")),
+    content="ParseError(Message(\"bad token\"))",
   )
   inspect(
     DataError::InvalidOperation("mean of String column"),
@@ -132,5 +216,8 @@ test "DataError Show escapes quotes and backslashes in the payload" {
     DataError::ColumnNotFound("a\"b"),
     content="ColumnNotFound(\"a\\\"b\")",
   )
-  inspect(DataError::ParseError("path\\x"), content="ParseError(\"path\\\\x\")")
+  inspect(
+    DataError::ParseError(ParseErrorDetail::Message("path\\x")),
+    content="ParseError(Message(\"path\\\\x\"))",
+  )
 }

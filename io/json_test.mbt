@@ -356,10 +356,10 @@ test "parse_json_records_str: malformed JSON returns ParseError" {
 }
 
 ///|
-test "parse_json_records_str: typed mismatch past inference window errors" {
+test "parse_json_records_str: typed mismatch has structured record context" {
   // First two records lock the dtype on Int; the third sneaks in a
   // string. The builder rejects the unparseable cell with
-  // ParseError rather than silently widening the column.
+  // a structured cell error rather than silently widening the column.
   let content = "[{\"x\":1},{\"x\":2},{\"x\":\"three\"}]"
   let result = Ok(
     @io.parse_json_records_str(content, {
@@ -369,7 +369,20 @@ test "parse_json_records_str: typed mismatch past inference window errors" {
   ) catch {
     e => Err(e)
   }
-  assert_true(result is Err(@types.DataError::ParseError(_)))
+  assert_eq(
+    result,
+    Err(
+      @types.DataError::ParseError(
+        @types.ParseErrorDetail::Cell(
+          @types.CellParseLocation::Record,
+          "x",
+          3,
+          @types.DataType::Int,
+          "three",
+        ),
+      ),
+    ),
+  )
 }
 
 ///|
@@ -385,7 +398,20 @@ test "parse_json_records_str: Float column with non-number past inference errors
   ) catch {
     e => Err(e)
   }
-  assert_true(result is Err(@types.DataError::ParseError(_)))
+  assert_eq(
+    result,
+    Err(
+      @types.DataError::ParseError(
+        @types.ParseErrorDetail::Cell(
+          @types.CellParseLocation::Record,
+          "x",
+          3,
+          @types.DataType::Float,
+          "oops",
+        ),
+      ),
+    ),
+  )
 }
 
 ///|
@@ -402,7 +428,20 @@ test "parse_json_records_str: Bool column with non-bool past inference errors" {
   ) catch {
     e => Err(e)
   }
-  assert_true(result is Err(@types.DataError::ParseError(_)))
+  assert_eq(
+    result,
+    Err(
+      @types.DataError::ParseError(
+        @types.ParseErrorDetail::Cell(
+          @types.CellParseLocation::Record,
+          "x",
+          3,
+          @types.DataType::Bool,
+          "1",
+        ),
+      ),
+    ),
+  )
 }
 
 // ── O4 read resilience (scan-all / on_parse_error) ──────────────────

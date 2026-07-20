@@ -1,0 +1,5 @@
+import {
+  "ihb2032/MoonFrame" @moonframe,
+}
+
+pkgtype(kind: "executable")

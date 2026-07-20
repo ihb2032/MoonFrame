@@ -19,9 +19,10 @@
 /// `Series::min` / `max`, `DataFrame::sort`) routes through this helper
 /// instead of the built-in operator so they all agree.
 ///
-/// Comparison is by Unicode scalar value, so it matches pandas / SQL
-/// dictionary order across the whole code space, **including the supplementary
-/// planes**: each `String` is walked one code point at a time (surrogate pairs
+/// Comparison is deterministic lexicographic order by Unicode scalar value;
+/// it is not locale-aware and may differ from database collations or
+/// locale-sensitive dataframe/string sorting. It covers the supplementary
+/// planes: each `String` is walked one code point at a time (surrogate pairs
 /// recombined via `code_point_at`), so an emoji (`U+1F600`) sorts *above* a
 /// high-BMP character (`U+E000`) by its true scalar value — where a raw UTF-16
 /// code-unit comparison ranked the emoji's leading surrogate (`0xD83D`) below

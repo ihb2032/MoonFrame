@@ -29,23 +29,20 @@ module's dependencies:
 moon add ihb2032/MoonFrame
 ```
 
-Then import it (with the `@moonframe` alias) in the `moon.pkg.json` of the
-package that uses it:
+Then import it with the `@moonframe` alias in the `moon.pkg` of the package
+that uses it:
 
-```json
-{
-  "import": [
-    { "path": "ihb2032/MoonFrame", "alias": "moonframe" }
-  ]
+```moonbit
+import {
+  "ihb2032/MoonFrame" @moonframe,
 }
 ```
 
 Now `@moonframe.read_csv`, the `DataFrame` / `Series` types, and every operator
 method are available in that package.
 
-> The `moon.pkg.json` snippet above uses the JSON manifest form. MoonBit also
-> accepts the newer `moon.mod` / `moon.pkg` files (which is what this repository
-> itself uses); the two forms are equivalent.
+> MoonBit v0.10.4 deprecates the legacy JSON package manifest. New and migrated
+> projects should use `moon.mod` / `moon.pkg`, as this repository does.
 
 ## Quick start
 

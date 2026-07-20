@@ -48,6 +48,7 @@ pub fn DataError::equal(Self, Self) -> Bool
 pub fn DataError::message(Self) -> String
 pub fn DataError::not_equal(Self, Self) -> Bool
 pub fn DataError::output(Self, &Logger) -> Unit
+#as_free_fn
 pub fn DataError::to_repr(Self) -> @debug.Repr
 pub fn DataError::to_string(Self) -> String
 pub impl Show for DataError
@@ -60,6 +61,7 @@ pub(all) enum CellParseLocation {
 } derive(Eq, @debug.Debug)
 pub fn CellParseLocation::equal(Self, Self) -> Bool
 pub fn CellParseLocation::not_equal(Self, Self) -> Bool
+#as_free_fn
 pub fn CellParseLocation::to_repr(Self) -> @debug.Repr
 
 pub(all) enum DataType {
@@ -77,6 +79,7 @@ pub fn DataType::is_numeric(Self) -> Bool
 pub fn DataType::is_string(Self) -> Bool
 pub fn DataType::not_equal(Self, Self) -> Bool
 pub fn DataType::output(Self, &Logger) -> Unit
+#as_free_fn
 pub fn DataType::to_repr(Self) -> @debug.Repr
 pub fn DataType::to_string(Self) -> String
 pub impl Show for DataType
@@ -94,6 +97,7 @@ pub fn Field::not_equal(Self, Self) -> Bool
 pub fn Field::nullable(Self) -> Bool
 pub fn Field::output(Self, &Logger) -> Unit
 pub fn Field::rename(Self, String) -> Self
+#as_free_fn
 pub fn Field::to_repr(Self) -> @debug.Repr
 pub fn Field::to_string(Self) -> String
 pub fn Field::with_nullable(String, DataType, Bool) -> Self
@@ -105,6 +109,7 @@ pub(all) enum ParseErrorDetail {
 } derive(Eq, @debug.Debug)
 pub fn ParseErrorDetail::equal(Self, Self) -> Bool
 pub fn ParseErrorDetail::not_equal(Self, Self) -> Bool
+#as_free_fn
 pub fn ParseErrorDetail::to_repr(Self) -> @debug.Repr
 
 pub(all) enum Scalar {
@@ -128,6 +133,7 @@ pub fn Scalar::lt(Self, Self) -> Bool raise DataError
 pub fn Scalar::lte(Self, Self) -> Bool raise DataError
 pub fn Scalar::not_equal(Self, Self) -> Bool
 pub fn Scalar::output(Self, &Logger) -> Unit
+#as_free_fn
 pub fn Scalar::to_repr(Self) -> @debug.Repr
 pub fn Scalar::to_string(Self) -> String
 pub impl Show for Scalar
@@ -148,6 +154,7 @@ pub fn Schema::not_equal(Self, Self) -> Bool
 pub fn Schema::output(Self, &Logger) -> Unit
 pub fn Schema::rename(Self, String, String) -> Self raise DataError
 pub fn Schema::select(Self, Array[String]) -> Self raise DataError
+#as_free_fn
 pub fn Schema::to_repr(Self) -> @debug.Repr
 pub fn Schema::to_string(Self) -> String
 pub impl Show for Schema

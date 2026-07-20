@@ -293,6 +293,24 @@ fn missing_offset(null_order : NullOrder) -> Int {
 }
 
 ///|
+/// The next bottom-up merge width, or `None` once the current run already
+/// covers at least half of `n`. The guards make this total for every `Int`:
+/// subtraction only happens after `0 < width < n`, and doubling only happens
+/// when `width < n - width`, which proves `2 * width < n <= Int::MAX`.
+/// Keeping this arithmetic separate lets tests exercise the `2^30` boundary
+/// without allocating multi-gigabyte sort buffers.
+fn next_merge_width(width : Int, n : Int) -> Int? {
+  if width <= 0 || n <= 1 || width >= n {
+    return None
+  }
+  if width >= n - width {
+    None
+  } else {
+    Some(width * 2)
+  }
+}
+
+///|
 /// Iterative bottom-up stable merge sort over the index permutation
 /// `[0, 1, ..., n - 1]`. Returns the permutation that, when applied to
 /// any length-`n` array via `take`, yields the data in `cmp` order.
@@ -332,17 +350,10 @@ fn stable_mergesort_indices(n : Int, cmp : (Int, Int) -> Int) -> Array[Int] {
     for k in 0..<n {
       buf[k] = aux[k]
     }
-    // Stop once a single run covers the array instead of doubling first:
-    // `width * 2` wraps negative at `width = 2^30`, which `n > 2^30` reaches
-    // (a 64-bit native heap fits the two `Int` arrays), and the wrapped
-    // width re-enters the pass with negative run bounds — an out-of-bounds
-    // abort. Both operands are positive with `width < n`, so `n - width`
-    // cannot overflow, and `width >= n - width` is exactly "the doubled
-    // width would be >= n".
-    if width >= n - width {
-      break
+    match next_merge_width(width, n) {
+      Some(next) => width = next
+      None => break
     }
-    width = width * 2
   }
   buf
 }

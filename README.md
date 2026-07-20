@@ -186,6 +186,8 @@ variants (`ColumnNotFound`, `ParseError`, …) on the `Err`. The full model is i
   columns get their dtypes
 - [`docs/migration.md`](docs/migration.md) — upgrading across breaking releases
 - [`docs/changelog.md`](docs/changelog.md) — version-by-version feature history
+- [`docs/release-checklist.md`](docs/release-checklist.md) — expanded fuzz,
+  parity, interface, and defensive-copy gates for release candidates
 
 Four runnable end-to-end programs live in [`examples/`](examples):
 
@@ -242,7 +244,8 @@ moon info      # regenerate .mbti interface snapshots
 
 Contributions keep every source file fully covered (`moon coverage analyze`)
 and a warning-free `moon check`; CI also runs the `moon bench` suite, so keep
-it green too.
+it green too. Release candidates additionally follow the
+[`release checklist`](docs/release-checklist.md).
 
 ## Acknowledgements
 

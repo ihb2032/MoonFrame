@@ -283,7 +283,7 @@ pub fn Expr::ge(self : Expr, other : Expr) -> Expr {
 /// member matches nothing (it has no value to equal), an empty set is `false`
 /// for every present cell, and a null cell yields null.
 pub fn Expr::is_in(self : Expr, members : Array[@types.Scalar]) -> Expr {
-  IsIn(self, members)
+  IsIn(self, members.copy())
 }
 
 ///|

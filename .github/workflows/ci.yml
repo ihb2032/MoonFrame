@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      fuzz_scale:
+        description: Differential-fuzzer case multiplier for a release run
+        required: true
+        default: "10"
 
 # Pin the MoonBit toolchain so CI matches the version this project is built
 # and gated against locally. The official install scripts
@@ -76,6 +81,10 @@ jobs:
         if: runner.os == 'Linux'
         run: moon fmt --check
 
+      - name: Guard public Array copy boundaries
+        if: runner.os == 'Linux'
+        run: python .github/scripts/check_array_copy_boundaries.py
+
       # (3/4) `moon info`: regenerate the interface (`pkg.generated.mbti`)
       # files and fail on any drift.
       - name: (3/4) moon info (interface drift check)
@@ -103,6 +112,23 @@ jobs:
       - name: Run tests (all backends)
         if: runner.os == 'Linux'
         run: moon test --target all
+
+      # A manual workflow dispatch is the release gate. Keep ordinary PR CI at
+      # the deterministic baseline size, then repeat the optimizer differential
+      # suite here with the requested multiplier and call out the backend/IO
+      # parity suites explicitly rather than relying only on their inclusion in
+      # the workspace-wide test run above.
+      - name: Release differential fuzz expansion
+        if: runner.os == 'Linux' && github.event_name == 'workflow_dispatch'
+        env:
+          MOONFRAME_FUZZ_SCALE: ${{ inputs.fuzz_scale }}
+        run: moon test lazy/optimize_fuzz_test.mbt
+
+      - name: Release backend and IO parity suites
+        if: runner.os == 'Linux' && github.event_name == 'workflow_dispatch'
+        run: |
+          moon test series/backend_parity_test.mbt
+          moon test io/roundtrip_corpus_test.mbt
 
       - name: Coverage (line coverage must be complete)
         if: runner.os == 'Linux'

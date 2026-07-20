@@ -15,4 +15,5 @@ import {
   "moonbitlang/quickcheck/gen",
   "moonbitlang/quickcheck/shrink",
   "moonbitlang/x/fs",
+  "moonbitlang/x/sys",
 } for "test"

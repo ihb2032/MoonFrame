@@ -289,6 +289,17 @@ test "equality: is_in compares operand and its literal set" {
 }
 
 ///|
+test "is_in copies its literal set at the public boundary" {
+  let members = [@types.Scalar::Int(1), @types.Scalar::Int(2)]
+  let expression = col("a").is_in(members)
+  members[0] = @types.Scalar::Int(99)
+  assert_eq(
+    expression,
+    col("a").is_in([@types.Scalar::Int(1), @types.Scalar::Int(2)]),
+  )
+}
+
+///|
 test "equality: is_between compares operand and both bounds" {
   let a = col("a").is_between(lit_int(0), lit_int(10))
   assert_eq(a, col("a").is_between(lit_int(0), lit_int(10)))

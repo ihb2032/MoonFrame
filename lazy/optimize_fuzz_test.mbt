@@ -26,7 +26,26 @@
 /// the rows a filter drops, and file projections matching no header. A per-test
 /// `rewrites` counter guards
 /// against a vacuous pass: the generators must actually exercise the pushdown
-/// in a meaningful fraction of cases.
+/// in a meaningful fraction of cases. `MOONFRAME_FUZZ_SCALE` multiplies each
+/// test's fixed case count for the manual release gate; absent, invalid, and
+/// non-positive values keep the ordinary CI scale of 1.
+
+///|
+fn fuzz_scale() -> Int {
+  match @sys.get_env_var("MOONFRAME_FUZZ_SCALE") {
+    Some(raw) =>
+      match @types.parse_decimal_int_opt(raw) {
+        Some(value) if value > 0L && value <= 20L => value.to_int()
+        _ => 1
+      }
+    None => 1
+  }
+}
+
+///|
+fn fuzz_cases(base : Int) -> Int {
+  base * fuzz_scale()
+}
 
 // ── Generators over the rich five-column domain ──────────────────────
 
@@ -455,11 +474,11 @@ test "fuzz: group-by then key-filter is optimizer/eager equivalent on rich frame
   }
   @qc.quick_check(
     @qc.forall_shrink(gen_agg_filter_case(), shrink_agg_filter_case, prop),
-    max_success=800,
+    max_success=fuzz_cases(800),
   )
   // The fuzzer must actually exercise the pushdown in a meaningful fraction of
   // cases, or it is silently testing nothing.
-  if rewrites < 50 {
+  if rewrites < fuzz_cases(50) {
     fail("fuzzer never exercised the pushdown (rewrites=\{rewrites})")
   }
 }
@@ -560,7 +579,7 @@ test "fuzz: select/with_columns then filter is optimizer/eager equivalent" {
   }
   @qc.quick_check(
     @qc.forall_shrink(gen_select_filter_case(), shrink_select_filter_case, prop),
-    max_success=500,
+    max_success=fuzz_cases(500),
   )
 }
 
@@ -774,9 +793,9 @@ test "fuzz: randomly stacked pipelines stay optimizer/eager equivalent" {
   }
   @qc.quick_check(
     @qc.forall_shrink(gen_stacked_case(), shrink_stacked_case, prop),
-    max_success=1000,
+    max_success=fuzz_cases(1000),
   )
-  if rewrites < 50 {
+  if rewrites < fuzz_cases(50) {
     fail("fuzzer never exercised the pushdown (rewrites=\{rewrites})")
   }
 }
@@ -883,6 +902,6 @@ test "fuzz: zero-match file projections preserve exact eager errors" {
       shrink_file_projection_case,
       prop,
     ),
-    max_success=200,
+    max_success=fuzz_cases(200),
   )
 }

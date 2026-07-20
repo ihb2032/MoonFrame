@@ -83,7 +83,9 @@ jobs:
 
       - name: Guard public Array copy boundaries
         if: runner.os == 'Linux'
-        run: python .github/scripts/check_array_copy_boundaries.py
+        run: |
+          python -B .github/scripts/check_array_copy_boundaries_test.py
+          python -B .github/scripts/check_array_copy_boundaries.py
 
       # (3/4) `moon info`: regenerate the interface (`pkg.generated.mbti`)
       # files and fail on any drift.

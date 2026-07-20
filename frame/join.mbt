@@ -446,7 +446,9 @@ fn resolve_join_keys(
         "join key \"\{name}\" (left) / \"\{expr_output_name(right_exprs[i])}\" (right)"
       }
       raise @types.DataError::TypeMismatch(
-        "\{where_} has dtype \{lcol.dtype()} on the left but \{rcol.dtype()} on the right",
+        @types.TypeMismatchDetail::Message(
+          "\{where_} has dtype \{lcol.dtype()} on the left but \{rcol.dtype()} on the right",
+        ),
       )
     }
     left_key_scalars.push(lcol.to_scalars())

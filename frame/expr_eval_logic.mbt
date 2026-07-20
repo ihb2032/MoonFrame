@@ -50,7 +50,9 @@ fn eval_logic(
       | @column.ColumnData::String(_),
     ) =>
       raise @types.DataError::TypeMismatch(
-        "logical '\{verb}' requires Bool operands, got \{left.dtype()} and \{right.dtype()}",
+        @types.TypeMismatchDetail::Message(
+          "logical '\{verb}' requires Bool operands, got \{left.dtype()} and \{right.dtype()}",
+        ),
       )
   }
 }
@@ -96,7 +98,9 @@ fn eval_not(operand : Series) -> Series raise @types.DataError {
     | @column.ColumnData::Float(_)
     | @column.ColumnData::String(_) =>
       raise @types.DataError::TypeMismatch(
-        "logical 'not' requires a Bool operand, got \{operand.dtype()}",
+        @types.TypeMismatchDetail::Message(
+          "logical 'not' requires a Bool operand, got \{operand.dtype()}",
+        ),
       )
   }
 }

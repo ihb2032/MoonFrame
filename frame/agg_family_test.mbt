@@ -239,16 +239,22 @@ test "std, variance, and median reject non-numeric columns" {
   let strs = DataFrame::new([Series::from_strings("x", ["a", "b"])])
   assert_true(
     (Ok(whole(strs, @expr.col("x").std())) catch { e => Err(e) })
-    is Err(@types.DataError::TypeMismatch(_)),
+    is Err(
+      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_))
+    ),
   )
   assert_true(
     (Ok(whole(strs, @expr.col("x").variance())) catch { e => Err(e) })
-    is Err(@types.DataError::TypeMismatch(_)),
+    is Err(
+      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_))
+    ),
   )
   let bools = DataFrame::new([Series::from_bools("x", [true, false])])
   assert_true(
     (Ok(whole(bools, @expr.col("x").median())) catch { e => Err(e) })
-    is Err(@types.DataError::TypeMismatch(_)),
+    is Err(
+      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_))
+    ),
   )
 }
 

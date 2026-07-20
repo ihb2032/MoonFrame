@@ -111,10 +111,12 @@ test "is_in: a member whose dtype cannot compare with the column raises" {
       e => Err(e)
     },
     Err(
-      @types.DataError::OpTypeMismatch(
-        "compare",
-        @types.DataType::Int,
-        @types.DataType::String,
+      @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Operation(
+          "compare",
+          @types.DataType::Int,
+          @types.DataType::String,
+        ),
       ),
     ),
   )
@@ -211,10 +213,12 @@ test "is_in: String and Bool columns skip a null member and reject a foreign dty
       e => Err(e)
     },
     Err(
-      @types.DataError::OpTypeMismatch(
-        "compare",
-        @types.DataType::String,
-        @types.DataType::Int,
+      @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Operation(
+          "compare",
+          @types.DataType::String,
+          @types.DataType::Int,
+        ),
       ),
     ),
   )
@@ -223,10 +227,12 @@ test "is_in: String and Bool columns skip a null member and reject a foreign dty
       e => Err(e)
     },
     Err(
-      @types.DataError::OpTypeMismatch(
-        "compare",
-        @types.DataType::Bool,
-        @types.DataType::String,
+      @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Operation(
+          "compare",
+          @types.DataType::Bool,
+          @types.DataType::String,
+        ),
       ),
     ),
   )

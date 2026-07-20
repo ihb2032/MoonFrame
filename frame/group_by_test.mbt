@@ -560,21 +560,29 @@ test "Sum / Mean on a non-numeric column raises TypeMismatch" {
   // product is a String column.
   assert_true(
     (Ok(grouped.agg([@expr.col("product").sum()])) catch { e => Err(e) })
-    is Err(@types.DataError::TypeMismatch(_)),
+    is Err(
+      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_))
+    ),
   )
   assert_true(
     (Ok(grouped.agg([@expr.col("product").mean()])) catch { e => Err(e) })
-    is Err(@types.DataError::TypeMismatch(_)),
+    is Err(
+      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_))
+    ),
   )
   // Also a Bool column: sum and mean are both undefined.
   let bgrouped = extrema_df().group_by([@expr.col("k")])
   assert_true(
     (Ok(bgrouped.agg([@expr.col("vb").sum()])) catch { e => Err(e) })
-    is Err(@types.DataError::TypeMismatch(_)),
+    is Err(
+      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_))
+    ),
   )
   assert_true(
     (Ok(bgrouped.agg([@expr.col("vb").mean()])) catch { e => Err(e) })
-    is Err(@types.DataError::TypeMismatch(_)),
+    is Err(
+      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_))
+    ),
   )
 }
 
@@ -679,7 +687,7 @@ test "group_by mixes a bare key and a derived key in a composite tuple" {
 }
 
 ///|
-test "a key expression whose dtypes do not unify raises OpTypeMismatch" {
+test "a key expression whose dtypes do not unify raises structured TypeMismatch" {
   // region is String, quantity is Int — `+` cannot unify them, and the key
   // evaluation surfaces the error at `group_by`, in `keys` order.
   assert_eq(
@@ -687,10 +695,12 @@ test "a key expression whose dtypes do not unify raises OpTypeMismatch" {
       e => Err(e)
     },
     Err(
-      @types.DataError::OpTypeMismatch(
-        "add",
-        @types.DataType::String,
-        @types.DataType::Int,
+      @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Operation(
+          "add",
+          @types.DataType::String,
+          @types.DataType::Int,
+        ),
       ),
     ),
   )

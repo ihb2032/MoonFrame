@@ -201,7 +201,7 @@ test "Expr fill_null rejects a non-unifiable fill dtype with TypeMismatch" {
     (Ok(df.with_columns([@expr.col("a").fill_null(@expr.lit_str("x"))])) catch {
       e => Err(e)
     })
-    is Err(TypeMismatch(_)),
+    is Err(TypeMismatch(@types.TypeMismatchDetail::Message(_))),
   )
 }
 

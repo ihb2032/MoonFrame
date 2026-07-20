@@ -31,27 +31,33 @@ pub extend ParseErrorDetail with Eq::{equal, not_equal}
 pub extend ParseErrorDetail with Debug::{to_repr}
 
 ///|
+/// Structured details carried by `DataError::TypeMismatch`.
+pub(all) enum TypeMismatchDetail {
+  /// A dtype diagnostic that does not have a shared typed shape.
+  Message(String)
+  /// A value had the wrong dtype. Fields are `(expected, got, column)`, where
+  /// `column` is empty when the mismatch is not tied to a named column.
+  Expected(DataType, DataType, String)
+  /// A raw column-buffer accessor received the wrong dtype. Fields are
+  /// `(expected, got)`.
+  Column(DataType, DataType)
+  /// A binary operation rejected its operands. Fields are
+  /// `(operation, left, right)`.
+  Operation(String, DataType, DataType)
+} derive(Eq, Debug)
+
+///|
+pub extend TypeMismatchDetail with Eq::{equal, not_equal}
+
+///|
+pub extend TypeMismatchDetail with Debug::{to_repr}
+
+///|
 /// Unified error type for all MoonFrame operations.
 pub(all) suberror DataError {
   ColumnNotFound(String)
   DuplicateColumn(String)
-  TypeMismatch(String)
-  /// A dtype mismatch with the pieces kept structured rather than
-  /// pre-formatted — `(expected, got, column)`, where `column` is `""` when the
-  /// mismatch is not tied to a named column. The programmable form of
-  /// `TypeMismatch` for the "expected T, got X" family; `message()` rebuilds the
-  /// exact `TypeMismatch` wording, so migrating a site is display-compatible
-  /// while callers can now read the dtypes and column directly. The bare
-  /// `TypeMismatch(String)` stays for the messages this shape does not fit.
-  TypedMismatch(DataType, DataType, String)
-  /// A raw column-buffer accessor received the wrong column dtype. The two
-  /// fields are `(expected, got)`; `message()` preserves the historical
-  /// `expected T column, got X` wording while exposing both dtypes directly.
-  ColumnTypeMismatch(DataType, DataType)
-  /// A binary operation rejected its operand dtypes. The fields are
-  /// `(operation, left, right)`; `message()` preserves the historical
-  /// `cannot <operation> <left> and <right>` wording.
-  OpTypeMismatch(String, DataType, DataType)
+  TypeMismatch(TypeMismatchDetail)
   LengthMismatch
   IndexOutOfBounds(Int)
   ParseError(ParseErrorDetail)
@@ -85,19 +91,20 @@ pub fn DataError::message(self : DataError) -> String {
   match self {
     ColumnNotFound(name) => "Column not found: \{name}"
     DuplicateColumn(name) => "Duplicate column: \{name}"
-    TypeMismatch(detail) => "Type mismatch: \{detail}"
-    // Rebuild the exact `TypeMismatch` detail: with no column it is
-    // `expected T, got X`; a named column prefixes `column "name" `.
-    TypedMismatch(expected, got, column) =>
-      if column == "" {
-        "Type mismatch: expected \{expected}, got \{got}"
-      } else {
-        "Type mismatch: column \"\{column}\" expected \{expected}, got \{got}"
+    TypeMismatch(detail) =>
+      match detail {
+        Message(message) => "Type mismatch: \{message}"
+        Expected(expected, got, column) =>
+          if column == "" {
+            "Type mismatch: expected \{expected}, got \{got}"
+          } else {
+            "Type mismatch: column \"\{column}\" expected \{expected}, got \{got}"
+          }
+        Column(expected, got) =>
+          "Type mismatch: expected \{expected} column, got \{got}"
+        Operation(operation, left, right) =>
+          "Type mismatch: cannot \{operation} \{left} and \{right}"
       }
-    ColumnTypeMismatch(expected, got) =>
-      "Type mismatch: expected \{expected} column, got \{got}"
-    OpTypeMismatch(operation, left, right) =>
-      "Type mismatch: cannot \{operation} \{left} and \{right}"
     LengthMismatch => "Length mismatch between columns"
     IndexOutOfBounds(i) => "Index out of bounds: \{i}"
     ParseError(detail) =>
@@ -134,17 +141,22 @@ pub impl Show for DataError with fn output(self, logger) {
     DuplicateColumn(name) =>
       logger.write_string("DuplicateColumn(\"\{escape_debug(name)}\")")
     TypeMismatch(detail) =>
-      logger.write_string("TypeMismatch(\"\{escape_debug(detail)}\")")
-    TypedMismatch(expected, got, column) =>
-      logger.write_string(
-        "TypedMismatch(\{expected}, \{got}, \"\{escape_debug(column)}\")",
-      )
-    ColumnTypeMismatch(expected, got) =>
-      logger.write_string("ColumnTypeMismatch(\{expected}, \{got})")
-    OpTypeMismatch(operation, left, right) =>
-      logger.write_string(
-        "OpTypeMismatch(\"\{escape_debug(operation)}\", \{left}, \{right})",
-      )
+      match detail {
+        Message(message) =>
+          logger.write_string(
+            "TypeMismatch(Message(\"\{escape_debug(message)}\"))",
+          )
+        Expected(expected, got, column) =>
+          logger.write_string(
+            "TypeMismatch(Expected(\{expected}, \{got}, \"\{escape_debug(column)}\"))",
+          )
+        Column(expected, got) =>
+          logger.write_string("TypeMismatch(Column(\{expected}, \{got}))")
+        Operation(operation, left, right) =>
+          logger.write_string(
+            "TypeMismatch(Operation(\"\{escape_debug(operation)}\", \{left}, \{right}))",
+          )
+      }
     LengthMismatch => logger.write_string("LengthMismatch")
     IndexOutOfBounds(i) => logger.write_string("IndexOutOfBounds(\{i})")
     ParseError(detail) =>

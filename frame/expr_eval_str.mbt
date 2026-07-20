@@ -33,7 +33,9 @@ fn eval_str(
     | @column.ColumnData::Float(_)
     | @column.ColumnData::Bool(_) =>
       raise @types.DataError::TypeMismatch(
-        "string operation requires a String operand, got \{operand.dtype()}",
+        @types.TypeMismatchDetail::Message(
+          "string operation requires a String operand, got \{operand.dtype()}",
+        ),
       )
   }
   let valid = validity_bools(operand.storage())

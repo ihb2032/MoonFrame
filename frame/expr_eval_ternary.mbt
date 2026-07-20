@@ -55,7 +55,9 @@ fn eval_ternary(
     | @column.ColumnData::Float(_)
     | @column.ColumnData::String(_) =>
       raise @types.DataError::TypeMismatch(
-        "when condition must be Bool, got \{c2.dtype()}",
+        @types.TypeMismatchDetail::Message(
+          "when condition must be Bool, got \{c2.dtype()}",
+        ),
       )
   }
   let cv = validity_bools(c2.storage())
@@ -125,7 +127,9 @@ fn eval_ternary(
     (@column.ColumnData::Bool(_) | @column.ColumnData::String(_), _)
     | (_, @column.ColumnData::Bool(_) | @column.ColumnData::String(_)) =>
       raise @types.DataError::TypeMismatch(
-        "when/then/otherwise branches do not unify: \{t2.dtype()} and \{e2.dtype()}",
+        @types.TypeMismatchDetail::Message(
+          "when/then/otherwise branches do not unify: \{t2.dtype()} and \{e2.dtype()}",
+        ),
       )
   }
   try_column_to_numeric(out)

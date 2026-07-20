@@ -241,7 +241,9 @@ test "str_zfill: a non-String operand raises TypeMismatch" {
   let df = DataFrame::new([Series::from_ints("n", [1])])
   assert_true(
     (Ok(df.select([@expr.col("n").str_zfill(3)])) catch { e => Err(e) })
-    is Err(@types.DataError::TypeMismatch(_)),
+    is Err(
+      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_))
+    ),
   )
 }
 
@@ -320,7 +322,9 @@ test "str regex: a non-String operand is a TypeMismatch" {
     (Ok(df.select([@expr.col("n").str_contains_regex("a")])) catch {
       e => Err(e)
     })
-    is Err(@types.DataError::TypeMismatch(_)),
+    is Err(
+      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_))
+    ),
   )
 }
 
@@ -455,7 +459,9 @@ test "str_slice: a non-String operand raises TypeMismatch" {
   let df = DataFrame::new([Series::from_ints("n", [1])])
   assert_true(
     (Ok(df.select([@expr.col("n").str_slice(0)])) catch { e => Err(e) })
-    is Err(@types.DataError::TypeMismatch(_)),
+    is Err(
+      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_))
+    ),
   )
 }
 
@@ -600,7 +606,9 @@ test "str: a non-String operand is a TypeMismatch" {
     result,
     Err(
       @types.DataError::TypeMismatch(
-        "string operation requires a String operand, got Int",
+        @types.TypeMismatchDetail::Message(
+          "string operation requires a String operand, got Int",
+        ),
       ),
     ),
   )

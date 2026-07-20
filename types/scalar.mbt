@@ -2,9 +2,9 @@
 /// A single cell value in a DataFrame.
 ///
 /// `Null` represents a missing value. The `as_*` conversions `raise
-/// TypedMismatch(expected, got, "")` on a wrong dtype (`got = Null` for a null
+/// TypeMismatch(Expected(expected, got, ""))` on a wrong dtype (`got = Null` for a null
 /// cell). Comparisons `raise TypeMismatch(...)` on `Null`, or
-/// `OpTypeMismatch("compare", left, right)` on an incomparable non-null pair —
+/// `TypeMismatch(Operation("compare", left, right))` on an incomparable non-null pair —
 /// callers must check `is_null()` first or handle the error.
 ///
 /// The `Float` variant carries a 64-bit `Double`; the `Int` variant carries
@@ -60,45 +60,57 @@ pub fn Scalar::to_string(self : Scalar) -> String {
 
 ///|
 /// `Int` cells return their `Int64`; other concrete variants and `Null`
-/// `raise TypedMismatch(...)`.
+/// `raise TypeMismatch(Expected(...))`.
 pub fn Scalar::as_int(self : Scalar) -> Int64 raise DataError {
   match self {
     Int(v) => v
     // Structured: the dtypes are read off the error, and `message()` rebuilds
     // the old "expected Int, got X" wording (`X = Null` for a null cell, whose
     // dtype is `Null`).
-    other => raise TypedMismatch(DataType::Int, other.dtype(), "")
+    other =>
+      raise TypeMismatch(
+        TypeMismatchDetail::Expected(DataType::Int, other.dtype(), ""),
+      )
   }
 }
 
 ///|
 /// `Float` cells return their `Double`; `Int` cells are promoted to
-/// `Double`; other concrete variants and `Null` `raise TypedMismatch(...)`.
+/// `Double`; other concrete variants and `Null` `raise TypeMismatch(Expected(...))`.
 pub fn Scalar::as_float(self : Scalar) -> Double raise DataError {
   match self {
     Float(v) => v
     Int(v) => v.to_double()
-    other => raise TypedMismatch(DataType::Float, other.dtype(), "")
+    other =>
+      raise TypeMismatch(
+        TypeMismatchDetail::Expected(DataType::Float, other.dtype(), ""),
+      )
   }
 }
 
 ///|
 /// `Bool` cells return their value; other concrete variants and `Null`
-/// `raise TypedMismatch(...)`.
+/// `raise TypeMismatch(Expected(...))`.
 pub fn Scalar::as_bool(self : Scalar) -> Bool raise DataError {
   match self {
     Bool(v) => v
-    other => raise TypedMismatch(DataType::Bool, other.dtype(), "")
+    other =>
+      raise TypeMismatch(
+        TypeMismatchDetail::Expected(DataType::Bool, other.dtype(), ""),
+      )
   }
 }
 
 ///|
 /// `String` cells return their value; other concrete variants and `Null`
-/// `raise TypedMismatch(...)`.
+/// `raise TypeMismatch(Expected(...))`.
 pub fn Scalar::as_string(self : Scalar) -> String raise DataError {
   match self {
     String(v) => v
-    other => raise TypedMismatch(DataType::String, other.dtype(), "")
+    other =>
+      raise TypeMismatch(
+        TypeMismatchDetail::Expected(DataType::String, other.dtype(), ""),
+      )
   }
 }
 
@@ -110,7 +122,9 @@ fn type_mismatch_for_compare(
   left : Scalar,
   right : Scalar,
 ) -> Bool raise DataError {
-  raise OpTypeMismatch("compare", left.dtype(), right.dtype())
+  raise TypeMismatch(
+    TypeMismatchDetail::Operation("compare", left.dtype(), right.dtype()),
+  )
 }
 
 ///|
@@ -125,7 +139,10 @@ fn type_mismatch_for_compare(
 /// follows IEEE 754 (`NaN == NaN` is `false`).
 pub fn Scalar::eq(self : Scalar, other : Scalar) -> Bool raise DataError {
   match (self, other) {
-    (Null, _) | (_, Null) => raise TypeMismatch("cannot compare with Null")
+    (Null, _) | (_, Null) =>
+      raise TypeMismatch(
+        TypeMismatchDetail::Message("cannot compare with Null"),
+      )
     (Int(a), Int(b)) => a == b
     (Float(a), Float(b)) => a == b
     (Int(a), Float(b)) => int64_eq_double(a, b)
@@ -144,7 +161,10 @@ pub fn Scalar::eq(self : Scalar, other : Scalar) -> Bool raise DataError {
 /// departure from Polars as `eq`.
 pub fn Scalar::lt(self : Scalar, other : Scalar) -> Bool raise DataError {
   match (self, other) {
-    (Null, _) | (_, Null) => raise TypeMismatch("cannot compare with Null")
+    (Null, _) | (_, Null) =>
+      raise TypeMismatch(
+        TypeMismatchDetail::Message("cannot compare with Null"),
+      )
     (Int(a), Int(b)) => a < b
     (Float(a), Float(b)) => a < b
     (Int(a), Float(b)) => int64_lt_double(a, b)

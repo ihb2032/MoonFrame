@@ -45,6 +45,7 @@
 ///|
 pub using @types {
   type DataError,
+  type TypeMismatchDetail,
   type CellParseLocation,
   type ParseErrorDetail,
   type DataType,

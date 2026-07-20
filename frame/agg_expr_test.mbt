@@ -488,7 +488,11 @@ test "evaluation errors surface before any group work" {
     ) catch {
       e => Err(e)
     },
-    Err(@types.DataError::TypeMismatch("sum undefined for String")),
+    Err(
+      @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Message("sum undefined for String"),
+      ),
+    ),
   )
 }
 
@@ -663,5 +667,10 @@ test "grouped agg over zero groups consumes the deferred probe" {
     }
   })
   let r = Ok(grouped.agg([strlen.sum().with_alias("n")])) catch { e => Err(e) }
-  assert_true(r is Err(@types.DataError::TypeMismatch(_)))
+  assert_true(
+    r
+    is Err(
+      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_))
+    ),
+  )
 }

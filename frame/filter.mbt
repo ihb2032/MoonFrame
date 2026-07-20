@@ -39,7 +39,9 @@ pub fn DataFrame::filter(
     | @column.ColumnData::Float(_)
     | @column.ColumnData::String(_) =>
       raise @types.DataError::TypeMismatch(
-        "filter predicate must be Bool, got \{mask.dtype()}",
+        @types.TypeMismatchDetail::Message(
+          "filter predicate must be Bool, got \{mask.dtype()}",
+        ),
       )
   }
   // A null cell fails `valid`, so it drops its row alongside `false`. Read the

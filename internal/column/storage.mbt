@@ -343,7 +343,7 @@ pub fn ColumnStorage::take(
 
 ///|
 /// Raw `Int64` array + validity bitmap (the `Numeric` arm synthesises an
-/// all-valid one). `raise ColumnTypeMismatch` on a non-`Int` column.
+/// all-valid one). `raise TypeMismatch(Column(...))` on a non-`Int` column.
 pub fn ColumnStorage::int_values(
   self : ColumnStorage,
 ) -> (Array[Int64], Bitmap) raise @types.DataError {
@@ -366,7 +366,7 @@ pub fn ColumnStorage::float_values(
 
 ///|
 /// Like `int_values` but for `Bool` columns. A `Numeric` column is never
-/// `Bool`, so its arm always `raise ColumnTypeMismatch`.
+/// `Bool`, so its arm always `raise TypeMismatch(Column(...))`.
 pub fn ColumnStorage::bool_values(
   self : ColumnStorage,
 ) -> (Array[Bool], Bitmap) raise @types.DataError {
@@ -378,7 +378,7 @@ pub fn ColumnStorage::bool_values(
 
 ///|
 /// Like `int_values` but for `String` columns. A `Numeric` column is never
-/// `String`, so its arm always `raise ColumnTypeMismatch`.
+/// `String`, so its arm always `raise TypeMismatch(Column(...))`.
 pub fn ColumnStorage::string_values(
   self : ColumnStorage,
 ) -> (Array[String], Bitmap) raise @types.DataError {
@@ -462,7 +462,9 @@ pub fn ColumnStorage::to_numeric(
           ColumnData::Float(a) => Numeric({ data: NumericData::Float(a) })
           ColumnData::Bool(_) | ColumnData::String(_) =>
             raise @types.DataError::TypeMismatch(
-              "cannot convert a \{c.dtype()} column to Numeric (only Int / Float)",
+              @types.TypeMismatchDetail::Message(
+                "cannot convert a \{c.dtype()} column to Numeric (only Int / Float)",
+              ),
             )
         }
       }

@@ -126,7 +126,9 @@ fn reduce_arith(
     @column.ColumnData::Bool(_) | @column.ColumnData::String(_) => {
       let verb = if want_mean { "mean" } else { "sum" }
       raise @types.DataError::TypeMismatch(
-        "\{verb} undefined for \{storage.dtype()}",
+        @types.TypeMismatchDetail::Message(
+          "\{verb} undefined for \{storage.dtype()}",
+        ),
       )
     }
   }
@@ -233,7 +235,9 @@ fn numeric_double_reader(
     @column.ColumnData::Float(a) => i => a[i]
     @column.ColumnData::Bool(_) | @column.ColumnData::String(_) =>
       raise @types.DataError::TypeMismatch(
-        "\{op} undefined for \{storage.dtype()}",
+        @types.TypeMismatchDetail::Message(
+          "\{op} undefined for \{storage.dtype()}",
+        ),
       )
   }
 }

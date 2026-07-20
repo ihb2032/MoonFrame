@@ -102,7 +102,9 @@ test "unary numeric: Builtin arm, null propagation, NaN, non-numeric" {
   let strs = DataFrame::new([Series::from_strings("s", ["x"])])
   assert_true(
     (Ok(strs.select([@expr.col("s").abs()])) catch { e => Err(e) })
-    is Err(@types.DataError::TypeMismatch(_)),
+    is Err(
+      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_))
+    ),
   )
 }
 
@@ -178,7 +180,9 @@ test "round: Builtin null, NaN / ±inf pass through, non-numeric raises" {
   let strs = DataFrame::new([Series::from_strings("s", ["x"])])
   assert_true(
     (Ok(strs.select([@expr.col("s").round()])) catch { e => Err(e) })
-    is Err(@types.DataError::TypeMismatch(_)),
+    is Err(
+      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_))
+    ),
   )
 }
 

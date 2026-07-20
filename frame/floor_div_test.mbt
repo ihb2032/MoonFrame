@@ -95,10 +95,12 @@ test "floor_div: null propagates (Builtin arm) and non-numeric raises" {
       e => Err(e)
     },
     Err(
-      @types.DataError::OpTypeMismatch(
-        "floor-divide",
-        @types.DataType::String,
-        @types.DataType::Int,
+      @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Operation(
+          "floor-divide",
+          @types.DataType::String,
+          @types.DataType::Int,
+        ),
       ),
     ),
   )

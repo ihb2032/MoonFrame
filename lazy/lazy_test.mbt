@@ -607,7 +607,11 @@ test "collect surfaces the eager operators' errors unchanged" {
       e => Err(e)
     },
     Err(
-      @types.DataError::TypeMismatch("filter predicate must be Bool, got Int"),
+      @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Message(
+          "filter predicate must be Bool, got Int",
+        ),
+      ),
     ),
   )
   // Out-of-range slice bound → IndexOutOfBounds(end), as in eager slice.

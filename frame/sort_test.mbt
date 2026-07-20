@@ -569,9 +569,9 @@ test "sort multi-key surfaces ColumnNotFound on the first offending key" {
 }
 
 ///|
-test "sort surfaces an OpTypeMismatch from a non-unifiable derived key" {
+test "sort surfaces a structured TypeMismatch from a non-unifiable derived key" {
   // `a + s` adds an Int and a String — the evaluator rejects it before
-  // any sort happens, the same OpTypeMismatch the expression engine raises
+  // any sort happens, the same structured TypeMismatch the expression engine raises
   // anywhere else.
   let df = sort_df()
   assert_eq(
@@ -579,10 +579,12 @@ test "sort surfaces an OpTypeMismatch from a non-unifiable derived key" {
       e => Err(e)
     },
     Err(
-      @types.DataError::OpTypeMismatch(
-        "add",
-        @types.DataType::Int,
-        @types.DataType::String,
+      @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Operation(
+          "add",
+          @types.DataType::Int,
+          @types.DataType::String,
+        ),
       ),
     ),
   )

@@ -183,8 +183,8 @@ test "from_rows rejects rows of the wrong width" {
 }
 
 ///|
-test "from_rows rejects dtype mismatches with a structured TypedMismatch" {
-  // Each mismatch now surfaces `TypedMismatch(expected, got, column)`, whose
+test "from_rows rejects dtype mismatches with a structured TypeMismatch" {
+  // Each mismatch surfaces `TypeMismatch(Expected(expected, got, column))`, whose
   // dtypes and column name are readable without parsing a message string.
   let s_i = @types.Schema::new([@types.Field::new("x", @types.DataType::Int)])
   assert_eq(
@@ -192,10 +192,12 @@ test "from_rows rejects dtype mismatches with a structured TypedMismatch" {
       e => Err(e)
     },
     Err(
-      @types.DataError::TypedMismatch(
-        @types.DataType::Int,
-        @types.DataType::Float,
-        "x",
+      @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Expected(
+          @types.DataType::Int,
+          @types.DataType::Float,
+          "x",
+        ),
       ),
     ),
   )
@@ -205,10 +207,12 @@ test "from_rows rejects dtype mismatches with a structured TypedMismatch" {
       e => Err(e)
     },
     Err(
-      @types.DataError::TypedMismatch(
-        @types.DataType::Float,
-        @types.DataType::String,
-        "x",
+      @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Expected(
+          @types.DataType::Float,
+          @types.DataType::String,
+          "x",
+        ),
       ),
     ),
   )
@@ -218,10 +222,12 @@ test "from_rows rejects dtype mismatches with a structured TypedMismatch" {
       e => Err(e)
     },
     Err(
-      @types.DataError::TypedMismatch(
-        @types.DataType::Bool,
-        @types.DataType::Int,
-        "x",
+      @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Expected(
+          @types.DataType::Bool,
+          @types.DataType::Int,
+          "x",
+        ),
       ),
     ),
   )
@@ -231,10 +237,12 @@ test "from_rows rejects dtype mismatches with a structured TypedMismatch" {
       e => Err(e)
     },
     Err(
-      @types.DataError::TypedMismatch(
-        @types.DataType::String,
-        @types.DataType::Bool,
-        "x",
+      @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Expected(
+          @types.DataType::String,
+          @types.DataType::Bool,
+          "x",
+        ),
       ),
     ),
   )

@@ -612,7 +612,9 @@ test "join raises TypeMismatch when a key's dtype differs across frames" {
     (Ok(left.join(right, JoinOptions::on([@expr.col("k")]))) catch {
       e => Err(e)
     })
-    is Err(@types.DataError::TypeMismatch(_)),
+    is Err(
+      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_))
+    ),
   )
 }
 
@@ -639,7 +641,9 @@ test "left_on / right_on TypeMismatch names both sides' keys" {
     },
     Err(
       @types.DataError::TypeMismatch(
-        "join key \"lk\" (left) / \"rk\" (right) has dtype Int on the left but String on the right",
+        @types.TypeMismatchDetail::Message(
+          "join key \"lk\" (left) / \"rk\" (right) has dtype Int on the left but String on the right",
+        ),
       ),
     ),
   )
@@ -1100,7 +1104,9 @@ test "right / outer join raise TypeMismatch when a key dtype differs" {
     ) catch {
       e => Err(e)
     })
-    is Err(@types.DataError::TypeMismatch(_)),
+    is Err(
+      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_))
+    ),
   )
   assert_true(
     (Ok(
@@ -1111,7 +1117,9 @@ test "right / outer join raise TypeMismatch when a key dtype differs" {
     ) catch {
       e => Err(e)
     })
-    is Err(@types.DataError::TypeMismatch(_)),
+    is Err(
+      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_))
+    ),
   )
 }
 

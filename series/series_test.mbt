@@ -295,7 +295,7 @@ test "fill_null rejects Scalar::Null fill values" {
   let s = Series::from_int_options("x", [Some(1), None])
   assert_true(
     (Ok(s.fill_null(@types.Scalar::Null)) catch { e => Err(e) })
-    is Err(TypeMismatch(_)),
+    is Err(TypeMismatch(@types.TypeMismatchDetail::Message(_))),
   )
 }
 
@@ -304,7 +304,7 @@ test "fill_null rejects dtype-mismatched Int fill" {
   let s = Series::from_floats("x", [1.0])
   assert_true(
     (Ok(s.fill_null(@types.Scalar::Int(0))) catch { e => Err(e) })
-    is Err(TypeMismatch(_)),
+    is Err(TypeMismatch(@types.TypeMismatchDetail::Message(_))),
   )
 }
 
@@ -313,7 +313,7 @@ test "fill_null rejects dtype-mismatched Float fill" {
   let s = Series::from_ints("x", [1])
   assert_true(
     (Ok(s.fill_null(@types.Scalar::Float(0.0))) catch { e => Err(e) })
-    is Err(TypeMismatch(_)),
+    is Err(TypeMismatch(@types.TypeMismatchDetail::Message(_))),
   )
 }
 
@@ -322,7 +322,7 @@ test "fill_null rejects dtype-mismatched Bool fill" {
   let s = Series::from_ints("x", [1])
   assert_true(
     (Ok(s.fill_null(@types.Scalar::Bool(true))) catch { e => Err(e) })
-    is Err(TypeMismatch(_)),
+    is Err(TypeMismatch(@types.TypeMismatchDetail::Message(_))),
   )
 }
 
@@ -331,7 +331,7 @@ test "fill_null rejects dtype-mismatched String fill" {
   let s = Series::from_ints("x", [1])
   assert_true(
     (Ok(s.fill_null(@types.Scalar::String("z"))) catch { e => Err(e) })
-    is Err(TypeMismatch(_)),
+    is Err(TypeMismatch(@types.TypeMismatchDetail::Message(_))),
   )
 }
 
@@ -505,7 +505,9 @@ test "to_numeric: rejects nulls and non-numeric columns" {
   let strings = Series::from_strings("x", ["a", "b"])
   assert_true(
     (Ok(strings.to_numeric()) catch { e => Err(e) })
-    is Err(@types.DataError::TypeMismatch(_)),
+    is Err(
+      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_))
+    ),
   )
 }
 

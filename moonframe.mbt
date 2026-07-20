@@ -24,11 +24,15 @@
 // re-export. The `@ops` package no longer exists
 // (it was folded into `@frame`).
 //
-// The v0.4 expression / lazy layers follow the same rule. The `Expr`
-// methods (`with_alias` / `cast` / `eq` / `sum` / …) and operator impls
-// (`Add` / `Sub` / `Mul` / `Div` / `BitAnd` / `BitOr` / `Neg`) ride along
-// with `type Expr`; the `LazyFrame` / `LazyGroupBy` methods (including the
-// `LazyFrame::from` constructor) ride along with their types. So `@expr`
+// The expression / lazy layers follow the same rule for inherent methods:
+// `Expr::{with_alias,cast,eq,sum,...}` and the `LazyFrame` / `LazyGroupBy`
+// methods (including `LazyFrame::from`) remain available with their
+// re-exported types. Trait-backed dot methods are different: `expr_ops.mbt`
+// exposes them through explicit `pub extend Expr with Trait::{method}`
+// declarations, while operator syntax is provided by the corresponding trait
+// impls (`Add` / `Sub` / `Mul` / `Div` / `BitAnd` / `BitOr` / `Neg`). Keep the
+// explicit extensions; an impl alone no longer exposes its method through dot
+// syntax. So `@expr`
 // needs explicit re-export only for the free constructors (`col` /
 // `cols` / `lit` / `lit_int` / `lit_float` / `lit_str` / `lit_bool` /
 // `lit_series` / `when` / `map_many` — `map_elements` is a method, riding

@@ -137,7 +137,7 @@ test "is_widget_row: surfaces accessor error when `product` column is absent" {
 ///|
 test "is_widget_row: a non-String product column surfaces a typed mismatch" {
   // The predicate reads each `product` cell as a String; a non-String column
-  // (here Int) makes `Scalar::as_string` raise `TypedMismatch` — the structured
+  // (here Int) makes `Scalar::as_string` raise `TypeMismatch(Expected(...))` — the structured
   // typed-cell error, whose dtypes are readable directly (`expected String, got
   // Int`), distinct from the missing-column case above.
   let df = @moonframe.DataFrame::new([
@@ -147,10 +147,12 @@ test "is_widget_row: a non-String product column surfaces a typed mismatch" {
   assert_true(
     err
     is Err(
-      @moonframe.DataError::TypedMismatch(
-        @moonframe.DataType::String,
-        @moonframe.DataType::Int,
-        _
+      @moonframe.DataError::TypeMismatch(
+        @moonframe.TypeMismatchDetail::Expected(
+          @moonframe.DataType::String,
+          @moonframe.DataType::Int,
+          _
+        )
       )
     ),
   )

@@ -114,10 +114,12 @@ test "modulo: Int-by-zero null, Float-by-zero NaN, Builtin arms, non-numeric" {
       e => Err(e)
     },
     Err(
-      @types.DataError::OpTypeMismatch(
-        "take the remainder of",
-        @types.DataType::String,
-        @types.DataType::Int,
+      @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Operation(
+          "take the remainder of",
+          @types.DataType::String,
+          @types.DataType::Int,
+        ),
       ),
     ),
   )
@@ -198,10 +200,12 @@ test "pow: negative / zero exponents, Builtin arms, null, non-numeric" {
       e => Err(e)
     },
     Err(
-      @types.DataError::OpTypeMismatch(
-        "exponentiate",
-        @types.DataType::String,
-        @types.DataType::Int,
+      @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Operation(
+          "exponentiate",
+          @types.DataType::String,
+          @types.DataType::Int,
+        ),
       ),
     ),
   )

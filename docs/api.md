@@ -59,11 +59,12 @@ in [`migration.md`](migration.md).
   Int, DataType, String) }` — the direct payload of `DataError::ParseError`.
   `Message` carries syntax or shape diagnostics; `Cell` exposes a typed-cell
   failure's location, column, 1-based position, expected dtype, and value.
-- `suberror DataError` — `pub(all) suberror` with 13 variants:
-  `ColumnNotFound` / `DuplicateColumn` / `TypeMismatch` /
-  `TypedMismatch(DataType, DataType, String)` /
-  `ColumnTypeMismatch(DataType, DataType)` /
-  `OpTypeMismatch(String, DataType, DataType)` / `LengthMismatch` /
+- `enum TypeMismatchDetail { Message(String); Expected(DataType, DataType,
+  String); Column(DataType, DataType); Operation(String, DataType, DataType) }`
+  — the direct payload of `DataError::TypeMismatch`.
+- `suberror DataError` — `pub(all) suberror` with 10 variants:
+  `ColumnNotFound` / `DuplicateColumn` /
+  `TypeMismatch(TypeMismatchDetail)` / `LengthMismatch` /
   `IndexOutOfBounds` / `ParseError(ParseErrorDetail)` /
   `InvalidOperation` / `IoError` /
   `Unsupported` / `NullInNonNullable`. As a `suberror` it is both raised
@@ -72,17 +73,13 @@ in [`migration.md`](migration.md).
   callers construct and match
   variants. `DataError::message()` renders a human-readable description;
   the `Show` impl renders the variant form for assertion snapshots.
-  `TypedMismatch(expected, got, column)` is the **structured** form of a dtype
-  mismatch (`column` is `""` when not column-bound): its `message()` rebuilds
-  the `TypeMismatch` wording byte for byte, so a caller can read the dtypes
-  directly instead of parsing the string. `Scalar::as_*` and `from_rows` raise
-  it. Raw column-buffer accessors raise
-  `ColumnTypeMismatch(expected, got)`, whose message preserves their historical
-  `expected T column, got X` wording. Binary arithmetic, ordering, and
-  incomparable non-null `Scalar` comparisons raise
-  `OpTypeMismatch(operation, left, right)`, preserving
-  `cannot <operation> <left> and <right>`. The bare `TypeMismatch(String)`
-  stays for messages these shapes do not fit. CSV, JSON records, and NDJSON
+  `TypeMismatch(Expected(expected, got, column))` carries a value mismatch
+  (`column` is `""` when not column-bound). Raw column-buffer accessors use
+  `TypeMismatch(Column(expected, got))`; binary arithmetic, ordering, and
+  incomparable non-null comparisons use
+  `TypeMismatch(Operation(operation, left, right))`. Their `message()` output
+  preserves the historical wording. Diagnostics outside those shared shapes
+  use `TypeMismatch(Message(detail))`. CSV, JSON records, and NDJSON
   readers raise `ParseError(Cell(location, column, position, expected, value))`
   for a value that does not fit its inferred dtype; other syntax and shape
   failures use `ParseError(Message(detail))`.
@@ -94,7 +91,7 @@ in [`migration.md`](migration.md).
   `as_int` / `as_float` / `as_bool` / `as_string` and the comparisons
   `eq` / `lt` / `lte` / `gt` / `gte`, which return `Bool` and
   `raise TypeMismatch` when either side is `Null`, or
-  `OpTypeMismatch("compare", left, right)` when two non-null dtypes are
+  `TypeMismatch(Operation("compare", left, right))` when two non-null dtypes are
   incomparable. `as_float` promotes `Int`; mixed numeric comparisons are
   **exact** (no `Int`→`Double` promotion). `String` comparisons use lexicographic
   order (see `compare_string_lex`), **not** the built-in shortlex `<`.
@@ -247,13 +244,14 @@ depends only on `types`.
   cell equals one of the literal `members`. Evaluated as an OR of `eq`, so each
   member is compared exactly as `a.eq(lit(member))` would: `Int` / `Float`
   members compare across types exactly, and a member whose dtype cannot compare
-  with the column raises `OpTypeMismatch("compare", column, member)`. A `Null`
+  with the column raises `TypeMismatch(Operation("compare", column, member))`.
+  A `Null`
   member matches nothing, an empty set is `false` for every present cell, and a
   null cell yields null.
 - `is_between(lo : Expr, hi : Expr) -> Expr` — a `Bool` column, `true` where
   `lo <= a <= hi` (both endpoints closed). Equivalent to
   `a.ge(lo).land(a.le(hi))` — same exact ordering, Kleene null propagation, and
-  `OpTypeMismatch("compare", left, right)` on an unorderable pair — but a
+  `TypeMismatch(Operation("compare", left, right))` on an unorderable pair — but a
   dedicated node so the operand is evaluated once. (A `closed` endpoint option
   is a deferred additive refinement.)
 - `not() -> Expr` (no overloadable unary `!`); null probes `is_null()` /
@@ -453,7 +451,7 @@ raising `DataError` at evaluation time — building the tree never fails:
 
 - **Type promotion**: `Int op Int → Int`, `Float op Float → Float`, mixed
   promotes `Int → Float`; non-numeric arithmetic →
-  `OpTypeMismatch(operation, left, right)`.
+  `TypeMismatch(Operation(operation, left, right))`.
 - **Null propagation**: any null operand of an arithmetic or comparison
   makes the result null (Arrow / Polars).
 - **Kleene `&` / `|`**: `true | null = true`, `false & null = false`,

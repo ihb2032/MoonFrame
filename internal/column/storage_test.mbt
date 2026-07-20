@@ -286,9 +286,11 @@ test "int_values / float_values: both arms, with synthesised validity on Numeric
       e => Err(e)
     },
     Err(
-      @types.DataError::ColumnTypeMismatch(
-        @types.DataType::Float,
-        @types.DataType::Int,
+      @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Column(
+          @types.DataType::Float,
+          @types.DataType::Int,
+        ),
       ),
     ),
   )
@@ -297,9 +299,11 @@ test "int_values / float_values: both arms, with synthesised validity on Numeric
       e => Err(e)
     },
     Err(
-      @types.DataError::ColumnTypeMismatch(
-        @types.DataType::Float,
-        @types.DataType::Int,
+      @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Column(
+          @types.DataType::Float,
+          @types.DataType::Int,
+        ),
       ),
     ),
   )
@@ -317,9 +321,11 @@ test "bool_values / string_values: Builtin success, Numeric mismatches" {
       e => Err(e)
     },
     Err(
-      @types.DataError::ColumnTypeMismatch(
-        @types.DataType::Bool,
-        @types.DataType::Int,
+      @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Column(
+          @types.DataType::Bool,
+          @types.DataType::Int,
+        ),
       ),
     ),
   )
@@ -328,9 +334,11 @@ test "bool_values / string_values: Builtin success, Numeric mismatches" {
       e => Err(e)
     },
     Err(
-      @types.DataError::ColumnTypeMismatch(
-        @types.DataType::String,
-        @types.DataType::Int,
+      @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Column(
+          @types.DataType::String,
+          @types.DataType::Int,
+        ),
       ),
     ),
   )
@@ -438,11 +446,15 @@ test "to_numeric: a non-numeric column raises TypeMismatch" {
   let boolc = ColumnStorage::from_builtin(BuiltinColumn::from_bools([true]))
   assert_true(
     (Ok(str.to_numeric()) catch { e => Err(e) })
-    is Err(@types.DataError::TypeMismatch(_)),
+    is Err(
+      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_))
+    ),
   )
   assert_true(
     (Ok(boolc.to_numeric()) catch { e => Err(e) })
-    is Err(@types.DataError::TypeMismatch(_)),
+    is Err(
+      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_))
+    ),
   )
 }
 

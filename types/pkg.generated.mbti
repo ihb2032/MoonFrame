@@ -32,10 +32,7 @@ pub fn parse_plain_double_opt(String) -> Double?
 pub(all) suberror DataError {
   ColumnNotFound(String)
   DuplicateColumn(String)
-  TypeMismatch(String)
-  TypedMismatch(DataType, DataType, String)
-  ColumnTypeMismatch(DataType, DataType)
-  OpTypeMismatch(String, DataType, DataType)
+  TypeMismatch(TypeMismatchDetail)
   LengthMismatch
   IndexOutOfBounds(Int)
   ParseError(ParseErrorDetail)
@@ -158,6 +155,17 @@ pub fn Schema::select(Self, Array[String]) -> Self raise DataError
 pub fn Schema::to_repr(Self) -> @debug.Repr
 pub fn Schema::to_string(Self) -> String
 pub impl Show for Schema
+
+pub(all) enum TypeMismatchDetail {
+  Message(String)
+  Expected(DataType, DataType, String)
+  Column(DataType, DataType)
+  Operation(String, DataType, DataType)
+} derive(Eq, @debug.Debug)
+pub fn TypeMismatchDetail::equal(Self, Self) -> Bool
+pub fn TypeMismatchDetail::not_equal(Self, Self) -> Bool
+#as_free_fn
+pub fn TypeMismatchDetail::to_repr(Self) -> @debug.Repr
 
 // Type aliases
 

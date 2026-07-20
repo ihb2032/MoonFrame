@@ -121,10 +121,12 @@ test "add: non-numeric operands raise TypeMismatch at evaluation" {
       e => Err(e)
     },
     Err(
-      @types.DataError::OpTypeMismatch(
-        "add",
-        @types.DataType::String,
-        @types.DataType::Int,
+      @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Operation(
+          "add",
+          @types.DataType::String,
+          @types.DataType::Int,
+        ),
       ),
     ),
   )
@@ -133,10 +135,12 @@ test "add: non-numeric operands raise TypeMismatch at evaluation" {
       e => Err(e)
     },
     Err(
-      @types.DataError::OpTypeMismatch(
-        "add",
-        @types.DataType::Bool,
-        @types.DataType::Bool,
+      @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Operation(
+          "add",
+          @types.DataType::Bool,
+          @types.DataType::Bool,
+        ),
       ),
     ),
   )
@@ -177,7 +181,9 @@ test "and: non-Bool operands raise TypeMismatch at evaluation" {
     },
     Err(
       @types.DataError::TypeMismatch(
-        "logical 'and' requires Bool operands, got Bool and Int",
+        @types.TypeMismatchDetail::Message(
+          "logical 'and' requires Bool operands, got Bool and Int",
+        ),
       ),
     ),
   )
@@ -187,7 +193,9 @@ test "and: non-Bool operands raise TypeMismatch at evaluation" {
     },
     Err(
       @types.DataError::TypeMismatch(
-        "logical 'and' requires Bool operands, got Int and Bool",
+        @types.TypeMismatchDetail::Message(
+          "logical 'and' requires Bool operands, got Int and Bool",
+        ),
       ),
     ),
   )
@@ -334,10 +342,12 @@ test "subtract/multiply: non-numeric operands raise with their own verb" {
       e => Err(e)
     },
     Err(
-      @types.DataError::OpTypeMismatch(
-        "subtract",
-        @types.DataType::String,
-        @types.DataType::Int,
+      @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Operation(
+          "subtract",
+          @types.DataType::String,
+          @types.DataType::Int,
+        ),
       ),
     ),
   )
@@ -346,10 +356,12 @@ test "subtract/multiply: non-numeric operands raise with their own verb" {
       e => Err(e)
     },
     Err(
-      @types.DataError::OpTypeMismatch(
-        "multiply",
-        @types.DataType::Bool,
-        @types.DataType::Bool,
+      @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Operation(
+          "multiply",
+          @types.DataType::Bool,
+          @types.DataType::Bool,
+        ),
       ),
     ),
   )
@@ -414,10 +426,12 @@ test "divide: non-numeric operands raise TypeMismatch" {
       e => Err(e)
     },
     Err(
-      @types.DataError::OpTypeMismatch(
-        "divide",
-        @types.DataType::String,
-        @types.DataType::Int,
+      @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Operation(
+          "divide",
+          @types.DataType::String,
+          @types.DataType::Int,
+        ),
       ),
     ),
   )
@@ -454,7 +468,11 @@ test "negate: non-numeric operand raises TypeMismatch" {
     Ok(arith_df().with_columns([-@expr.col("b")])) catch {
       e => Err(e)
     },
-    Err(@types.DataError::TypeMismatch("cannot negate Bool")),
+    Err(
+      @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Message("cannot negate Bool"),
+      ),
+    ),
   )
 }
 
@@ -593,10 +611,12 @@ test "compare: non-comparable dtype pairs raise TypeMismatch" {
       e => Err(e)
     },
     Err(
-      @types.DataError::OpTypeMismatch(
-        "compare",
-        @types.DataType::String,
-        @types.DataType::Int,
+      @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Operation(
+          "compare",
+          @types.DataType::String,
+          @types.DataType::Int,
+        ),
       ),
     ),
   )
@@ -605,10 +625,12 @@ test "compare: non-comparable dtype pairs raise TypeMismatch" {
       e => Err(e)
     },
     Err(
-      @types.DataError::OpTypeMismatch(
-        "compare",
-        @types.DataType::Bool,
-        @types.DataType::Float,
+      @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Operation(
+          "compare",
+          @types.DataType::Bool,
+          @types.DataType::Float,
+        ),
       ),
     ),
   )
@@ -649,7 +671,9 @@ test "or: non-Bool operands raise TypeMismatch with the 'or' verb" {
     },
     Err(
       @types.DataError::TypeMismatch(
-        "logical 'or' requires Bool operands, got Int and Bool",
+        @types.TypeMismatchDetail::Message(
+          "logical 'or' requires Bool operands, got Int and Bool",
+        ),
       ),
     ),
   )
@@ -681,7 +705,9 @@ test "not: non-Bool operand raises TypeMismatch" {
     },
     Err(
       @types.DataError::TypeMismatch(
-        "logical 'not' requires a Bool operand, got Int",
+        @types.TypeMismatchDetail::Message(
+          "logical 'not' requires a Bool operand, got Int",
+        ),
       ),
     ),
   )
@@ -750,11 +776,15 @@ test "is_nan / is_not_nan: a non-numeric operand raises TypeMismatch" {
   let df = DataFrame::new([Series::from_strings("s", ["a"])])
   assert_true(
     (Ok(df.with_columns([@expr.col("s").is_nan()])) catch { e => Err(e) })
-    is Err(@types.DataError::TypeMismatch(_)),
+    is Err(
+      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_))
+    ),
   )
   assert_true(
     (Ok(df.with_columns([@expr.col("s").is_not_nan()])) catch { e => Err(e) })
-    is Err(@types.DataError::TypeMismatch(_)),
+    is Err(
+      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_))
+    ),
   )
 }
 
@@ -810,7 +840,9 @@ test "fill_null / fill_nan evaluate exactly like their guarded-ternary spelling"
     (Ok(df_i.with_columns([@expr.col("i").fill_null(@expr.lit_str("?"))])) catch {
       e => Err(e)
     })
-    is Err(@types.DataError::TypeMismatch(_)),
+    is Err(
+      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_))
+    ),
   )
 }
 
@@ -860,7 +892,11 @@ test "sum: non-numeric operand raises TypeMismatch" {
     Ok(arith_df().with_columns([@expr.col("s").sum()])) catch {
       e => Err(e)
     },
-    Err(@types.DataError::TypeMismatch("sum undefined for String")),
+    Err(
+      @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Message("sum undefined for String"),
+      ),
+    ),
   )
 }
 
@@ -911,7 +947,11 @@ test "mean: non-numeric operand raises TypeMismatch" {
     Ok(arith_df().with_columns([@expr.col("b").mean()])) catch {
       e => Err(e)
     },
-    Err(@types.DataError::TypeMismatch("mean undefined for Bool")),
+    Err(
+      @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Message("mean undefined for Bool"),
+      ),
+    ),
   )
 }
 
@@ -1218,7 +1258,13 @@ test "ternary: a non-Bool condition raises TypeMismatch" {
     ) catch {
       e => Err(e)
     },
-    Err(@types.DataError::TypeMismatch("when condition must be Bool, got Int")),
+    Err(
+      @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Message(
+          "when condition must be Bool, got Int",
+        ),
+      ),
+    ),
   )
 }
 
@@ -1236,7 +1282,9 @@ test "ternary: branches that do not unify raise TypeMismatch" {
     },
     Err(
       @types.DataError::TypeMismatch(
-        "when/then/otherwise branches do not unify: Int and String",
+        @types.TypeMismatchDetail::Message(
+          "when/then/otherwise branches do not unify: Int and String",
+        ),
       ),
     ),
   )

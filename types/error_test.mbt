@@ -9,29 +9,38 @@ test "DataError::message covers every variant" {
     content="Duplicate column: name",
   )
   inspect(
-    DataError::TypeMismatch("expected Int, got String").message(),
+    DataError::TypeMismatch(
+      TypeMismatchDetail::Message("expected Int, got String"),
+    ).message(),
     content="Type mismatch: expected Int, got String",
   )
-  // `TypedMismatch` rebuilds the same wording from its structured fields: with
-  // no column the bare "expected T, got X", and with one the `column "n" `
-  // prefix — byte-identical to the `TypeMismatch` strings it replaces.
+  // `Expected` rebuilds the same wording from its structured fields: with no
+  // column the bare "expected T, got X", and with one the `column "n" ` prefix.
   inspect(
-    DataError::TypedMismatch(DataType::Int, DataType::Null, "").message(),
+    DataError::TypeMismatch(
+      TypeMismatchDetail::Expected(DataType::Int, DataType::Null, ""),
+    ).message(),
     content="Type mismatch: expected Int, got Null",
   )
   inspect(
-    DataError::TypedMismatch(DataType::Int, DataType::Float, "age").message(),
+    DataError::TypeMismatch(
+      TypeMismatchDetail::Expected(DataType::Int, DataType::Float, "age"),
+    ).message(),
     content="Type mismatch: column \"age\" expected Int, got Float",
   )
   inspect(
-    DataError::ColumnTypeMismatch(DataType::Int, DataType::Float).message(),
+    DataError::TypeMismatch(
+      TypeMismatchDetail::Column(DataType::Int, DataType::Float),
+    ).message(),
     content="Type mismatch: expected Int column, got Float",
   )
   inspect(
-    DataError::OpTypeMismatch(
-      "take the remainder of",
-      DataType::String,
-      DataType::Int,
+    DataError::TypeMismatch(
+      TypeMismatchDetail::Operation(
+        "take the remainder of",
+        DataType::String,
+        DataType::Int,
+      ),
     ).message(),
     content="Type mismatch: cannot take the remainder of String and Int",
   )
@@ -135,20 +144,28 @@ test "DataError Show uses variant form" {
 test "DataError Show covers every remaining variant" {
   inspect(DataError::DuplicateColumn("x"), content="DuplicateColumn(\"x\")")
   inspect(
-    DataError::TypeMismatch("expected Int, got String"),
-    content="TypeMismatch(\"expected Int, got String\")",
+    DataError::TypeMismatch(
+      TypeMismatchDetail::Message("expected Int, got String"),
+    ),
+    content="TypeMismatch(Message(\"expected Int, got String\"))",
   )
   inspect(
-    DataError::TypedMismatch(DataType::Int, DataType::Null, ""),
-    content="TypedMismatch(Int, Null, \"\")",
+    DataError::TypeMismatch(
+      TypeMismatchDetail::Expected(DataType::Int, DataType::Null, ""),
+    ),
+    content="TypeMismatch(Expected(Int, Null, \"\"))",
   )
   inspect(
-    DataError::ColumnTypeMismatch(DataType::Int, DataType::Float),
-    content="ColumnTypeMismatch(Int, Float)",
+    DataError::TypeMismatch(
+      TypeMismatchDetail::Column(DataType::Int, DataType::Float),
+    ),
+    content="TypeMismatch(Column(Int, Float))",
   )
   inspect(
-    DataError::OpTypeMismatch("add", DataType::String, DataType::Int),
-    content="OpTypeMismatch(\"add\", String, Int)",
+    DataError::TypeMismatch(
+      TypeMismatchDetail::Operation("add", DataType::String, DataType::Int),
+    ),
+    content="TypeMismatch(Operation(\"add\", String, Int))",
   )
   inspect(
     DataError::ParseError(

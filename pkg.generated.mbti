@@ -152,6 +152,8 @@ pub using @series {type Series}
 
 pub using @frame {type SortOrder}
 
+pub using @types {type TypeMismatchDetail}
+
 pub using @io {type VegaType}
 
 pub using @expr {type WhenThen}

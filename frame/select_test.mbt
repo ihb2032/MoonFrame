@@ -219,10 +219,12 @@ test "evaluation errors surface: unknown column, dtype mismatch" {
       e => Err(e)
     },
     Err(
-      @types.DataError::OpTypeMismatch(
-        "add",
-        @types.DataType::String,
-        @types.DataType::Int,
+      @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Operation(
+          "add",
+          @types.DataType::String,
+          @types.DataType::Int,
+        ),
       ),
     ),
   )

@@ -610,7 +610,9 @@ pub fn Series::fill_null(
   let valid = validity_bools(self.storage)
   let filled = match value {
     @types.Scalar::Null =>
-      raise @types.DataError::TypeMismatch("cannot fill nulls with Null")
+      raise @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Message("cannot fill nulls with Null"),
+      )
     @types.Scalar::Int(v) =>
       match self.storage.data() {
         @column.ColumnData::Int(data) => {
@@ -619,7 +621,9 @@ pub fn Series::fill_null(
         }
         _ =>
           raise @types.DataError::TypeMismatch(
-            "fill_null type Int does not match column type \{self.dtype()}",
+            @types.TypeMismatchDetail::Message(
+              "fill_null type Int does not match column type \{self.dtype()}",
+            ),
           )
       }
     @types.Scalar::Float(v) =>
@@ -633,7 +637,9 @@ pub fn Series::fill_null(
         }
         _ =>
           raise @types.DataError::TypeMismatch(
-            "fill_null type Float does not match column type \{self.dtype()}",
+            @types.TypeMismatchDetail::Message(
+              "fill_null type Float does not match column type \{self.dtype()}",
+            ),
           )
       }
     @types.Scalar::Bool(v) =>
@@ -647,7 +653,9 @@ pub fn Series::fill_null(
         }
         _ =>
           raise @types.DataError::TypeMismatch(
-            "fill_null type Bool does not match column type \{self.dtype()}",
+            @types.TypeMismatchDetail::Message(
+              "fill_null type Bool does not match column type \{self.dtype()}",
+            ),
           )
       }
     @types.Scalar::String(v) =>
@@ -661,7 +669,9 @@ pub fn Series::fill_null(
         }
         _ =>
           raise @types.DataError::TypeMismatch(
-            "fill_null type String does not match column type \{self.dtype()}",
+            @types.TypeMismatchDetail::Message(
+              "fill_null type String does not match column type \{self.dtype()}",
+            ),
           )
       }
   }

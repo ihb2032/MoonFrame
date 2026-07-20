@@ -209,9 +209,11 @@ test "typed accessors reject the wrong dtype (numeric column has no Bool/String)
       e => Err(e)
     },
     Err(
-      @types.DataError::ColumnTypeMismatch(
-        @types.DataType::Int,
-        @types.DataType::Float,
+      @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Column(
+          @types.DataType::Int,
+          @types.DataType::Float,
+        ),
       ),
     ),
   )
@@ -220,9 +222,11 @@ test "typed accessors reject the wrong dtype (numeric column has no Bool/String)
       e => Err(e)
     },
     Err(
-      @types.DataError::ColumnTypeMismatch(
-        @types.DataType::Float,
-        @types.DataType::Int,
+      @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Column(
+          @types.DataType::Float,
+          @types.DataType::Int,
+        ),
       ),
     ),
   )
@@ -233,9 +237,11 @@ test "typed accessors reject the wrong dtype (numeric column has no Bool/String)
       e => Err(e)
     },
     Err(
-      @types.DataError::ColumnTypeMismatch(
-        @types.DataType::Bool,
-        @types.DataType::Int,
+      @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Column(
+          @types.DataType::Bool,
+          @types.DataType::Int,
+        ),
       ),
     ),
   )
@@ -244,9 +250,11 @@ test "typed accessors reject the wrong dtype (numeric column has no Bool/String)
       e => Err(e)
     },
     Err(
-      @types.DataError::ColumnTypeMismatch(
-        @types.DataType::Bool,
-        @types.DataType::Float,
+      @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Column(
+          @types.DataType::Bool,
+          @types.DataType::Float,
+        ),
       ),
     ),
   )
@@ -255,9 +263,11 @@ test "typed accessors reject the wrong dtype (numeric column has no Bool/String)
       e => Err(e)
     },
     Err(
-      @types.DataError::ColumnTypeMismatch(
-        @types.DataType::String,
-        @types.DataType::Int,
+      @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Column(
+          @types.DataType::String,
+          @types.DataType::Int,
+        ),
       ),
     ),
   )
@@ -266,9 +276,11 @@ test "typed accessors reject the wrong dtype (numeric column has no Bool/String)
       e => Err(e)
     },
     Err(
-      @types.DataError::ColumnTypeMismatch(
-        @types.DataType::String,
-        @types.DataType::Float,
+      @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Column(
+          @types.DataType::String,
+          @types.DataType::Float,
+        ),
       ),
     ),
   )

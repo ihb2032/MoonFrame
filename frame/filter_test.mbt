@@ -133,7 +133,11 @@ test "non-Bool predicates raise TypeMismatch" {
       e => Err(e)
     },
     Err(
-      @types.DataError::TypeMismatch("filter predicate must be Bool, got Int"),
+      @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Message(
+          "filter predicate must be Bool, got Int",
+        ),
+      ),
     ),
   )
   // …and so does a length-1 non-Bool literal (the broadcast path).
@@ -143,7 +147,9 @@ test "non-Bool predicates raise TypeMismatch" {
     },
     Err(
       @types.DataError::TypeMismatch(
-        "filter predicate must be Bool, got String",
+        @types.TypeMismatchDetail::Message(
+          "filter predicate must be Bool, got String",
+        ),
       ),
     ),
   )

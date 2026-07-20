@@ -10,7 +10,7 @@
 ///|
 /// Shared kernel for `+` / `-` / `*` over two equal-length operands
 /// (post-`broadcast_pair`); each operator supplies its `Int64` and
-/// `Double` cell ops plus the verb its `OpTypeMismatch` field uses.
+/// `Double` cell ops plus the verb its `TypeMismatch(Operation(...))` field uses.
 /// Dtype rules: `Int op Int → Int`, any `Float` operand promotes the
 /// result to `Float`, anything non-numeric raises. A null on either side
 /// nulls the output cell (Arrow / Polars arithmetic propagation). `Int`
@@ -94,7 +94,7 @@ fn eval_arith(
 /// Shared kernel for the **always-`Float`** binary operators (`/` and `**`):
 /// every numeric pairing — including `Int, Int` — computes in `Double`, so all
 /// four arms land on `from_floats` / `from_float_options`. The operator supplies
-/// its `Double` cell op and the verb its `OpTypeMismatch` field uses. Null
+/// its `Double` cell op and the verb its `TypeMismatch(Operation(...))` field uses. Null
 /// propagation and the `Numeric` fast arm / re-convergence match `eval_arith`.
 fn eval_binary_float(
   left : Series,
@@ -365,7 +365,9 @@ fn eval_unary_num(
         map_present(a.length(), valid, i => float_op(a[i])),
       )
     @column.ColumnData::Bool(_) | @column.ColumnData::String(_) =>
-      raise @types.DataError::TypeMismatch("cannot \{verb} \{operand.dtype()}")
+      raise @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Message("cannot \{verb} \{operand.dtype()}"),
+      )
   }
   try_column_to_numeric(out)
 }
@@ -468,7 +470,9 @@ fn eval_is_nan(
     @column.ColumnData::Bool(_) | @column.ColumnData::String(_) => {
       let probe = if want_nan { "is_nan" } else { "is_not_nan" }
       raise @types.DataError::TypeMismatch(
-        "\{probe} requires a numeric operand, got \{operand.dtype()}",
+        @types.TypeMismatchDetail::Message(
+          "\{probe} requires a numeric operand, got \{operand.dtype()}",
+        ),
       )
     }
   }

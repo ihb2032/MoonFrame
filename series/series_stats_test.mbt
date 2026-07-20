@@ -47,11 +47,11 @@ test "sum on empty / all-null numeric is the additive identity" {
 test "sum on Bool / String is TypeMismatch" {
   assert_true(
     (Ok(Series::from_bools("x", [true]).sum()) catch { e => Err(e) })
-    is Err(TypeMismatch(_)),
+    is Err(TypeMismatch(@types.TypeMismatchDetail::Message(_))),
   )
   assert_true(
     (Ok(Series::from_strings("x", ["a"]).sum()) catch { e => Err(e) })
-    is Err(TypeMismatch(_)),
+    is Err(TypeMismatch(@types.TypeMismatchDetail::Message(_))),
   )
 }
 
@@ -140,11 +140,11 @@ test "mean on empty / all-null numeric is InvalidOperation" {
 test "mean on Bool / String is TypeMismatch" {
   assert_true(
     (Ok(Series::from_bools("x", [true, false]).mean()) catch { e => Err(e) })
-    is Err(TypeMismatch(_)),
+    is Err(TypeMismatch(@types.TypeMismatchDetail::Message(_))),
   )
   assert_true(
     (Ok(Series::from_strings("x", ["a"]).mean()) catch { e => Err(e) })
-    is Err(TypeMismatch(_)),
+    is Err(TypeMismatch(@types.TypeMismatchDetail::Message(_))),
   )
 }
 
@@ -394,11 +394,11 @@ test "std / variance propagate NaN, and reject a non-numeric series" {
   assert_true(Series::from_floats("x", [1.0, 2.0, nan]).std().is_nan())
   assert_true(
     (Ok(Series::from_bools("x", [true, false]).std()) catch { e => Err(e) })
-    is Err(TypeMismatch(_)),
+    is Err(TypeMismatch(@types.TypeMismatchDetail::Message(_))),
   )
   assert_true(
     (Ok(Series::from_strings("x", ["a", "b"]).variance()) catch { e => Err(e) })
-    is Err(TypeMismatch(_)),
+    is Err(TypeMismatch(@types.TypeMismatchDetail::Message(_))),
   )
 }
 
@@ -430,7 +430,7 @@ test "median skips NaN, and raises on empty / all-NaN / non-numeric" {
   )
   assert_true(
     (Ok(Series::from_strings("x", ["a"]).median()) catch { e => Err(e) })
-    is Err(TypeMismatch(_)),
+    is Err(TypeMismatch(@types.TypeMismatchDetail::Message(_))),
   )
 }
 

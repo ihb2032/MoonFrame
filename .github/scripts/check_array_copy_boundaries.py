@@ -24,6 +24,34 @@ PUBLIC_FN = re.compile(r"\bpub\s+fn(?:\[[^\]]+\])?\s+([A-Za-z0-9_:]+)\s*\(")
 ARRAY_PARAM = re.compile(r"\b([a-z][A-Za-z0-9_]*)\s*:\s*Array\s*\[")
 
 
+def mask_strings_and_comments(text: str) -> str:
+    """Blank strings and line comments while preserving offsets."""
+    chars = list(text)
+    index = 0
+    while index < len(chars):
+        if chars[index] == '"':
+            chars[index] = " "
+            index += 1
+            escaped = False
+            while index < len(chars):
+                char = chars[index]
+                chars[index] = "\n" if char == "\n" else " "
+                index += 1
+                if escaped:
+                    escaped = False
+                elif char == "\\":
+                    escaped = True
+                elif char == '"':
+                    break
+        elif chars[index] == "/" and index + 1 < len(chars) and chars[index + 1] == "/":
+            while index < len(chars) and chars[index] != "\n":
+                chars[index] = " "
+                index += 1
+        else:
+            index += 1
+    return "".join(chars)
+
+
 def matching_paren(text: str, opening: int) -> int | None:
     depth = 0
     in_string = False
@@ -49,33 +77,74 @@ def matching_paren(text: str, opening: int) -> int | None:
     return None
 
 
+def matching_delimiter(text: str, opening: int) -> int | None:
+    pairs = {"(": ")", "[": "]", "{": "}"}
+    opener = text[opening]
+    closer = pairs[opener]
+    depth = 0
+    for index in range(opening, len(text)):
+        char = text[index]
+        if char == opener:
+            depth += 1
+        elif char == closer:
+            depth -= 1
+            if depth == 0:
+                return index
+    return None
+
+
+def split_top_level(text: str) -> list[str]:
+    """Split comma-separated syntax while respecting nested delimiters."""
+    depth = 0
+    start = 0
+    parts: list[str] = []
+    for index, char in enumerate(text):
+        if char in "([{":
+            depth += 1
+        elif char in ")]}":
+            depth -= 1
+        elif char == "," and depth == 0:
+            parts.append(text[start:index].strip())
+            start = index + 1
+    parts.append(text[start:].strip())
+    return parts
+
+
 def constructor_retains(block: str, parameter: str) -> bool:
-    """Whether an UpperCamel constructor directly receives `parameter`."""
-    constructor = re.compile(r"(?<![:.A-Za-z0-9_])([A-Z][A-Za-z0-9_]*)\s*\(")
-    for match in constructor.finditer(block):
-        if match.group(1) in {"Some", "Ok", "Err"}:
+    """Whether a bare or qualified constructor receives `parameter`."""
+    code = mask_strings_and_comments(block)
+    constructor = re.compile(
+        r"(?<![A-Za-z0-9_:@.])"
+        r"(?:@[a-z][A-Za-z0-9_]*\.)?"
+        r"(?:(?:[A-Z][A-Za-z0-9_]*)::)*"
+        r"(?P<name>[A-Z][A-Za-z0-9_]*)\s*\("
+    )
+    for match in constructor.finditer(code):
+        if match.group("name") in {"Some", "Ok", "Err"}:
             continue
-        opening = block.find("(", match.start())
-        closing = matching_paren(block, opening)
+        opening = code.find("(", match.start())
+        closing = matching_delimiter(code, opening)
         if closing is None:
             continue
-        arguments = block[opening + 1 : closing]
-        depth = 0
-        start = 0
-        parts: list[str] = []
-        for index, char in enumerate(arguments):
-            if char in "([{":
-                depth += 1
-            elif char in ")]}":
-                depth -= 1
-            elif char == "," and depth == 0:
-                parts.append(arguments[start:index].strip())
-                start = index + 1
-        parts.append(arguments[start:].strip())
+        parts = split_top_level(code[opening + 1 : closing])
         direct = re.compile(
             rf"^(?:[a-z][A-Za-z0-9_]*\s*=\s*)?{re.escape(parameter)}$"
         )
         if any(direct.fullmatch(part) for part in parts):
+            return True
+    return False
+
+
+def record_shorthand_retains(block: str, parameter: str) -> bool:
+    """Whether a record item uses `{ parameter }` field shorthand."""
+    code = mask_strings_and_comments(block)
+    for opening, char in enumerate(code):
+        if char != "{":
+            continue
+        closing = matching_delimiter(code, opening)
+        if closing is None:
+            continue
+        if parameter in split_top_level(code[opening + 1 : closing]):
             return True
     return False
 
@@ -90,15 +159,27 @@ def retained_parameters(block: str) -> list[str]:
         return []
     signature = block[opening + 1 : closing]
     parameters = ARRAY_PARAM.findall(signature)
-    body = re.sub(r"(?m)//.*$", "", block[closing + 1 :])
+    body = block[closing + 1 :]
+    code = mask_strings_and_comments(body)
     retained: list[str] = []
     for parameter in parameters:
+        copied_binding = re.search(
+            rf"\blet\s+{re.escape(parameter)}\s*=\s*"
+            rf"{re.escape(parameter)}\s*\.copy\s*\(\s*\)",
+            code,
+        )
+        if copied_binding:
+            continue
         field_assignment = re.search(
             rf"\b[A-Za-z_][A-Za-z0-9_]*\s*:\s*{re.escape(parameter)}\b"
             rf"(?!\s*\.copy\s*\()",
-            body,
+            code,
         )
-        if field_assignment or constructor_retains(body, parameter):
+        if (
+            field_assignment
+            or constructor_retains(body, parameter)
+            or record_shorthand_retains(body, parameter)
+        ):
             retained.append(parameter)
     return retained
 
@@ -141,9 +222,25 @@ pub fn Plan::select(exprs : Array[Expr]) -> Plan {
   Select(exprs)
 }
 """
+    unsafe_qualified_enum = """
+pub fn Plan::select(exprs : Array[Expr]) -> Plan {
+  @plan.LogicalPlan::Select(exprs)
+}
+"""
+    unsafe_shorthand = """
+pub fn Box::new(values : Array[Int]) -> Box {
+  { values }
+}
+"""
     safe_copy = """
 pub fn Box::new(values : Array[Int]) -> Box {
   { values: values.copy() }
+}
+"""
+    safe_shadow_copy = """
+pub fn Box::new(values : Array[Int]) -> Box {
+  let values = values.copy()
+  { values }
 }
 """
     borrowed = """
@@ -153,7 +250,10 @@ pub fn sum(values : Array[Int]) -> Int {
 """
     assert retained_parameters(unsafe_record) == ["values"]
     assert retained_parameters(unsafe_enum) == ["exprs"]
+    assert retained_parameters(unsafe_qualified_enum) == ["exprs"]
+    assert retained_parameters(unsafe_shorthand) == ["values"]
     assert retained_parameters(safe_copy) == []
+    assert retained_parameters(safe_shadow_copy) == []
     assert retained_parameters(borrowed) == []
 
 

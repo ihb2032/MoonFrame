@@ -51,5 +51,5 @@ pub fn DataFrame::filter(
   let valid = validity_bools(mask.storage())
   let kept = scope.filter(i => valid[i] && cells[i])
   // Every kept index came from `[0, nrows)`, so `take` cannot fail.
-  self.take(kept)
+  self.gather(kept)
 }

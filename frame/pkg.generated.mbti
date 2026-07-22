@@ -39,6 +39,7 @@ pub fn DataFrame::equal(Self, Self) -> Bool
 pub fn DataFrame::fill_null(Self, @types.Scalar) -> Self raise @types.DataError
 pub fn DataFrame::filter(Self, @expr.Expr) -> Self raise @types.DataError
 pub fn DataFrame::from_rows(@types.Schema, Array[Array[@types.Scalar]]) -> Self raise @types.DataError
+pub fn DataFrame::gather(Self, Array[Int]) -> Self raise @types.DataError
 pub fn DataFrame::get_column(Self, String) -> @series.Series raise @types.DataError
 pub fn DataFrame::get_column_at(Self, Int) -> @series.Series raise @types.DataError
 pub fn DataFrame::group_by(Self, Array[@expr.Expr]) -> GroupedDataFrame raise @types.DataError
@@ -66,7 +67,6 @@ pub fn DataFrame::slice(Self, Int, Int) -> Self raise @types.DataError
 pub fn DataFrame::sort(Self, Array[(@expr.Expr, SortOrder, NullOrder)]) -> Self raise @types.DataError
 pub fn DataFrame::sum(Self) -> Self raise @types.DataError
 pub fn DataFrame::tail(Self, Int) -> Self
-pub fn DataFrame::take(Self, Array[Int]) -> Self raise @types.DataError
 pub fn DataFrame::to_html(Self, options? : HtmlOptions) -> String
 pub fn DataFrame::to_markdown(Self, max_rows? : Int) -> String
 pub fn DataFrame::to_repr(Self) -> @debug.Repr

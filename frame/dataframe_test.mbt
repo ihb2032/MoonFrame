@@ -512,7 +512,7 @@ test "take gathers rows in arbitrary order across every column" {
     Series::from_ints("a", [10, 20, 30]),
     Series::from_strings("b", ["x", "y", "z"]),
   ])
-  let out = df.take([2, 0, 0])
+  let out = df.gather([2, 0, 0])
   assert_eq(out.shape(), (3, 2))
   assert_eq(out.item(0, "a"), @types.Scalar::Int(30))
   assert_eq(out.item(0, "b"), @types.Scalar::String("z"))
@@ -522,7 +522,7 @@ test "take gathers rows in arbitrary order across every column" {
 ///|
 test "take with empty indices produces an empty frame of the same schema" {
   let df = DataFrame::new([Series::from_ints("x", [1, 2])])
-  let out = df.take([])
+  let out = df.gather([])
   assert_true(out.is_empty())
   assert_eq(out.schema(), df.schema())
 }
@@ -531,13 +531,13 @@ test "take with empty indices produces an empty frame of the same schema" {
 test "take rejects out-of-bounds indices with the first offender" {
   let df = DataFrame::new([Series::from_ints("x", [1, 2])])
   assert_eq(
-    Ok(df.take([0, 5])) catch {
+    Ok(df.gather([0, 5])) catch {
       e => Err(e)
     },
     Err(@types.DataError::IndexOutOfBounds(5)),
   )
   assert_eq(
-    Ok(df.take([-1])) catch {
+    Ok(df.gather([-1])) catch {
       e => Err(e)
     },
     Err(@types.DataError::IndexOutOfBounds(-1)),
@@ -561,7 +561,7 @@ test "head / tail / slice / take all keep get_column working" {
   assert_eq(after_tail.get_column("a").get(0), @types.Scalar::Int(3))
   let after_slice = df.slice(1, 3)
   assert_eq(after_slice.get_column("b").get(1), @types.Scalar::String("y"))
-  let after_take = df.take([3, 0])
+  let after_take = df.gather([3, 0])
   assert_eq(after_take.get_column("a").get(0), @types.Scalar::Int(4))
   assert_eq(after_take.get_column("a").get(1), @types.Scalar::Int(1))
 }

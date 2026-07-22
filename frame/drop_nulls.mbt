@@ -54,5 +54,5 @@ pub fn DataFrame::drop_nulls(
   // Keep row `i` when every gating mask is valid there. The kept indices come
   // straight from `[0, nrows)`, so `take` cannot fail.
   let kept = Array::makei(self.nrows(), i => i).filter(i => masks.all(m => m[i]))
-  self.take(kept)
+  self.gather(kept)
 }

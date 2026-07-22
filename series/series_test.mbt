@@ -624,3 +624,79 @@ test "content-determined transforms return a canonical column for every source b
   let noop = Series::from_int_options("x", [Some(1), Some(2)])
   assert_eq(noop.drop_nulls().is_canonical(), false)
 }
+
+// ── ordering verbs ────────────────────────────────────────────────────
+
+///|
+test "Series::sort orders values, defaulting to ascending with nulls last" {
+  let s = @series.Series::from_int_options("v", [
+    Some(3),
+    None,
+    Some(1),
+    Some(2),
+  ])
+  assert_eq(s.sort().to_scalars(), [
+    @types.Scalar::Int(1),
+    @types.Scalar::Int(2),
+    @types.Scalar::Int(3),
+    @types.Scalar::Null,
+  ])
+  assert_eq(s.sort(order=Desc).to_scalars(), [
+    @types.Scalar::Int(3),
+    @types.Scalar::Int(2),
+    @types.Scalar::Int(1),
+    @types.Scalar::Null,
+  ])
+  assert_eq(s.sort(nulls=NullsFirst).to_scalars(), [
+    @types.Scalar::Null,
+    @types.Scalar::Int(1),
+    @types.Scalar::Int(2),
+    @types.Scalar::Int(3),
+  ])
+  // The name rides along; sorting an empty series is the empty series.
+  assert_eq(s.sort().name(), "v")
+  assert_eq(@series.Series::from_ints("e", []).sort().len(), 0)
+}
+
+///|
+test "Series::sort treats NaN as missing, exactly like DataFrame::sort" {
+  let nan = 0.0 / 0.0
+  let s = @series.Series::from_floats("f", [2.5, nan, 1.5])
+  let sorted = s.sort().to_scalars()
+  assert_eq(sorted[0], @types.Scalar::Float(1.5))
+  assert_eq(sorted[1], @types.Scalar::Float(2.5))
+  // The NaN sorts with the missing cells, at the end under the default.
+  assert_true(sorted[2] is @types.Scalar::Float(_))
+  let last = match sorted[2] {
+    @types.Scalar::Float(v) => v.is_nan()
+    _ => false
+  }
+  assert_true(last)
+}
+
+///|
+test "Series::head / tail / reverse mirror the DataFrame verbs" {
+  let s = @series.Series::from_ints("v", [1, 2, 3, 4])
+  assert_eq(s.head(2).to_scalars(), [
+    @types.Scalar::Int(1),
+    @types.Scalar::Int(2),
+  ])
+  assert_eq(s.tail(2).to_scalars(), [
+    @types.Scalar::Int(3),
+    @types.Scalar::Int(4),
+  ])
+  assert_eq(s.reverse().to_scalars(), [
+    @types.Scalar::Int(4),
+    @types.Scalar::Int(3),
+    @types.Scalar::Int(2),
+    @types.Scalar::Int(1),
+  ])
+  // Clamping: a negative count is empty, an oversized one is everything.
+  assert_eq(s.head(-1).len(), 0)
+  assert_eq(s.tail(-1).len(), 0)
+  assert_eq(s.head(99), s)
+  assert_eq(s.tail(99), s)
+  // Names ride along, and reversing twice is the identity.
+  assert_eq(s.reverse().name(), "v")
+  assert_eq(s.reverse().reverse(), s)
+}

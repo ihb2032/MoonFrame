@@ -33,6 +33,7 @@ pub fn Series::from_string_options(String, Array[String?]) -> Self
 pub fn Series::from_strings(String, Array[String]) -> Self
 pub fn Series::gather(Self, Array[Int]) -> Self raise @types.DataError
 pub fn Series::get(Self, Int) -> @types.Scalar raise @types.DataError
+pub fn Series::head(Self, Int) -> Self
 pub fn Series::is_empty(Self) -> Bool
 pub fn Series::is_null(Self, Int) -> Bool raise @types.DataError
 pub fn Series::last(Self) -> @types.Scalar
@@ -46,9 +47,12 @@ pub fn Series::name(Self) -> String
 pub fn Series::not_equal(Self, Self) -> Bool
 pub fn Series::null_count(Self) -> Int
 pub fn Series::rename(Self, String) -> Self
+pub fn Series::reverse(Self) -> Self
 pub fn Series::slice(Self, Int, Int) -> Self raise @types.DataError
+pub fn Series::sort(Self, order? : @types.SortOrder, nulls? : @types.NullOrder) -> Self
 pub fn Series::std(Self) -> Double raise @types.DataError
 pub fn Series::sum(Self) -> @types.Scalar raise @types.DataError
+pub fn Series::tail(Self, Int) -> Self
 pub fn Series::to_repr(Self) -> @debug.Repr
 pub fn Series::to_scalars(Self) -> Array[@types.Scalar]
 pub fn Series::variance(Self) -> Double raise @types.DataError

@@ -2,7 +2,7 @@
 /// Blackbox snapshots for the plan tree `LazyFrame::explain` renders:
 /// every node form, root-at-top with two more spaces per input level,
 /// compact `SCAN [rows×cols]` / `SCAN_CSV "path"` leaves, and the label
-/// helpers across every `JoinType` / `SortOrder` / `NullOrder`. Execution
+/// helpers across every `JoinType` / `@types.SortOrder` / `@types.NullOrder`. Execution
 /// semantics (collect ≡ eager) live in `lazy_test.mbt`, which also defines
 /// the shared fixture frames; the expression rendering itself is pinned by
 /// `expr`'s own `explain` tests.
@@ -30,8 +30,8 @@ test "explain: a linear pipeline reads top-down from the last verb" {
 ///|
 test "explain: sort keys carry their order and null placement" {
   let plan = lazy_frame(sales_df()).sort([
-    (@expr.col("qty"), @frame.SortOrder::Asc, @frame.NullOrder::NullsFirst),
-    (@expr.col("region"), @frame.SortOrder::Desc, @frame.NullOrder::NullsLast),
+    (@expr.col("qty"), @types.SortOrder::Asc, @types.NullOrder::NullsFirst),
+    (@expr.col("region"), @types.SortOrder::Desc, @types.NullOrder::NullsLast),
   ])
   assert_eq(
     plan.explain(),

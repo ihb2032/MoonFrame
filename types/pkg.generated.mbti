@@ -75,6 +75,14 @@ pub fn Field::to_repr(Self) -> @debug.Repr
 pub fn Field::to_string(Self) -> String
 pub impl Show for Field
 
+pub(all) enum NullOrder {
+  NullsFirst
+  NullsLast
+} derive(Eq, @debug.Debug)
+pub fn NullOrder::equal(Self, Self) -> Bool
+pub fn NullOrder::not_equal(Self, Self) -> Bool
+pub fn NullOrder::to_repr(Self) -> @debug.Repr
+
 pub(all) enum ParseErrorDetail {
   Message(String)
   Cell(CellParseLocation, String, Int, DataType, String)
@@ -127,6 +135,14 @@ pub fn Schema::select(Self, Array[String]) -> Self raise DataError
 pub fn Schema::to_repr(Self) -> @debug.Repr
 pub fn Schema::to_string(Self) -> String
 pub impl Show for Schema
+
+pub(all) enum SortOrder {
+  Asc
+  Desc
+} derive(Eq, @debug.Debug)
+pub fn SortOrder::equal(Self, Self) -> Bool
+pub fn SortOrder::not_equal(Self, Self) -> Bool
+pub fn SortOrder::to_repr(Self) -> @debug.Repr
 
 pub(all) enum TypeMismatchDetail {
   Message(String)

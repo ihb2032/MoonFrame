@@ -55,6 +55,8 @@ pub using @types {
   type Scalar,
   type Field,
   type Schema,
+  type SortOrder,
+  type NullOrder,
 }
 
 ///|
@@ -84,8 +86,6 @@ pub using @series {type Series}
 ///|
 pub using @frame {
   type DataFrame,
-  type SortOrder,
-  type NullOrder,
   type KeepStrategy,
   type GroupedDataFrame,
   type JoinType,

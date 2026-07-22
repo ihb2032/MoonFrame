@@ -535,7 +535,10 @@ It depends only on `types` / `internal/column`.
   value); `cast(target)` — the single cross-dtype entry (`Int` / `Float` /
   `String` targets; `Bool` / `Null` → `Unsupported`).
 - Total transforms: `rename(new_name)` (`O(1)`); `drop_nulls()` (gather
-  non-null cells).
+  non-null cells); `head(n)` / `tail(n)` (clamp `n` to `[0, len]`);
+  `reverse()`; `sort(order? : SortOrder = Asc, nulls? : NullOrder = NullsLast)`
+  — stable, and the same kernel `DataFrame::sort` uses, so `NaN` counts as
+  missing alongside `Null` here too.
 
 ### Series stats (`series_stats.mbt`)
 
@@ -898,8 +901,11 @@ Hash equi-join, native to the method chain (`left.join(right, options)`).
 
 ### Sorting types
 
-- `enum SortOrder` — `Asc` / `Desc`. `enum NullOrder` — `NullsFirst` /
-  `NullsLast` (for `Float`, `NaN` is treated as missing, like `Null`).
+- `enum SortOrder` (`Asc` / `Desc`) and `enum NullOrder` (`NullsFirst` /
+  `NullsLast`; for `Float`, `NaN` is treated as missing, like `Null`) live in
+  `types` as of v0.6 — both `Series::sort` and `DataFrame::sort` name them, and
+  one per-column kernel in `series` implements the ordering, so the two verbs
+  cannot drift. The facade re-exports them unchanged.
 - A sort key is an `(Expr, SortOrder, NullOrder)` tuple; `sort` takes an
   `Array` of them. Multi-key sort lists several; a single-key sort passes a
   one-element array (e.g. `[(col("score"), Desc, NullsLast)]`).
@@ -1273,7 +1279,7 @@ and the free functions are listed explicitly. The inert `BinOp` / `UnOp`
 API names them).
 
 - From `@types`: `DataError` · `CellParseLocation` · `ParseErrorDetail` ·
-  `DataType` · `Scalar` · `Field` · `Schema`
+  `DataType` · `Scalar` · `Field` · `Schema` · `SortOrder` · `NullOrder`
 - From `@expr`: `Expr` · `WhenThen` · `WhenThenElse` · `col` · `cols` ·
   `lit` · `lit_int` · `lit_float` · `lit_str` · `lit_bool` · `lit_series` ·
   `when` · `map_many`

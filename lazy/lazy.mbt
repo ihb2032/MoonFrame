@@ -72,7 +72,7 @@ pub fn LazyFrame::select(
 /// missing column or a dtype clash only surfaces then.
 pub fn LazyFrame::sort(
   self : LazyFrame,
-  by : Array[(@expr.Expr, @frame.SortOrder, @frame.NullOrder)],
+  by : Array[(@expr.Expr, @types.SortOrder, @types.NullOrder)],
 ) -> LazyFrame {
   { plan: Sort(self.plan, by.copy()) }
 }

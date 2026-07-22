@@ -592,7 +592,7 @@ enum VerbSpec {
   VFilter(@expr.Expr)
   VWithColumns(Array[@expr.Expr])
   VSelect(Array[@expr.Expr])
-  VSort(Array[(@expr.Expr, @frame.SortOrder, @frame.NullOrder)])
+  VSort(Array[(@expr.Expr, @types.SortOrder, @types.NullOrder)])
   VHead(Int)
   // Group by the bare keys, re-emitting `a` as its per-group sum (so the
   // post-aggregate frame still carries the names `g` / `s` / `a` the terminal
@@ -669,7 +669,7 @@ fn gen_verb() -> @gen.Gen[VerbSpec] {
       1,
       @gen.pure(
         VSort([
-          (@expr.col("a"), @frame.SortOrder::Asc, @frame.NullOrder::NullsLast),
+          (@expr.col("a"), @types.SortOrder::Asc, @types.NullOrder::NullsLast),
         ]),
       ),
     ),

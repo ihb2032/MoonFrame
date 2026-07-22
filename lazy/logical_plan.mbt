@@ -45,7 +45,7 @@ priv enum LogicalPlan {
   Select(LogicalPlan, Array[@expr.Expr])
   WithColumns(LogicalPlan, Array[@expr.Expr])
   Filter(LogicalPlan, @expr.Expr)
-  Sort(LogicalPlan, Array[(@expr.Expr, @frame.SortOrder, @frame.NullOrder)])
+  Sort(LogicalPlan, Array[(@expr.Expr, @types.SortOrder, @types.NullOrder)])
   Head(LogicalPlan, Int)
   Tail(LogicalPlan, Int)
   Slice(LogicalPlan, Int, Int)

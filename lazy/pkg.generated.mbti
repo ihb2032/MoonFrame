@@ -40,7 +40,7 @@ pub fn LazyFrame::rename(Self, Array[(String, String)]) -> Self
 pub fn LazyFrame::rename_with(Self, (String) -> String) -> Self
 pub fn LazyFrame::select(Self, Array[@expr.Expr]) -> Self
 pub fn LazyFrame::slice(Self, Int, Int) -> Self
-pub fn LazyFrame::sort(Self, Array[(@expr.Expr, @frame.SortOrder, @frame.NullOrder)]) -> Self
+pub fn LazyFrame::sort(Self, Array[(@expr.Expr, @types.SortOrder, @types.NullOrder)]) -> Self
 pub fn LazyFrame::sum(Self) -> Self
 pub fn LazyFrame::tail(Self, Int) -> Self
 pub fn LazyFrame::unique(Self, subset? : Array[@expr.Expr], keep? : @frame.KeepStrategy) -> Self

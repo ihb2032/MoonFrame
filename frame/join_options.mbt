@@ -2,7 +2,7 @@
 /// How an equi-join combines rows that share (or fail to share) a key.
 ///
 /// `pub(all)` so callers can name the variants directly (e.g.
-/// `JoinOptions::on(keys, how=Left)`), matching `SortOrder` / `NullOrder`:
+/// `JoinOptions::on(keys, how=Left)`), matching `@types.SortOrder` / `@types.NullOrder`:
 ///   * `Inner` — keep only rows whose key matches on both sides.
 ///   * `Left` — keep every left row; where it has no right match, the
 ///     right-hand columns are filled with nulls.

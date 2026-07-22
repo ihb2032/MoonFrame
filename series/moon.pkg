@@ -1,6 +1,7 @@
 import {
   "ihb2032/MoonFrame/internal/column",
   "ihb2032/MoonFrame/internal/text",
+  "ihb2032/MoonFrame/internal/verified",
   "ihb2032/MoonFrame/types",
   "moonbitlang/core/double",
 }

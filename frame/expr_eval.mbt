@@ -270,8 +270,10 @@ fn eval_expr(
                 @expr.BinOp::Le => eval_compare(left, right, CmpVerb::Le)
                 @expr.BinOp::Gt => eval_compare(left, right, CmpVerb::Gt)
                 @expr.BinOp::Ge => eval_compare(left, right, CmpVerb::Ge)
-                @expr.BinOp::And => eval_logic(left, right, "and", kleene_and)
-                @expr.BinOp::Or => eval_logic(left, right, "or", kleene_or)
+                @expr.BinOp::And =>
+                  eval_logic(left, right, "and", @verified.kleene_and)
+                @expr.BinOp::Or =>
+                  eval_logic(left, right, "or", @verified.kleene_or)
               },
             )
           }

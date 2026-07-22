@@ -182,24 +182,6 @@ fn missing_offset(null_order : @types.NullOrder) -> Int {
 }
 
 ///|
-/// The next bottom-up merge width, or `None` once the current run already
-/// covers at least half of `n`. The guards make this total for every `Int`:
-/// subtraction only happens after `0 < width < n`, and doubling only happens
-/// when `width < n - width`, which proves `2 * width < n <= Int::MAX`.
-/// Keeping this arithmetic separate lets tests exercise the `2^30` boundary
-/// without allocating multi-gigabyte sort buffers.
-fn next_merge_width(width : Int, n : Int) -> Int? {
-  if width <= 0 || n <= 1 || width >= n {
-    return None
-  }
-  if width >= n - width {
-    None
-  } else {
-    Some(width * 2)
-  }
-}
-
-///|
 /// Iterative bottom-up stable merge sort over the index permutation
 /// `[0, 1, ..., n - 1]`. Returns the permutation that, when applied to
 /// any length-`n` array via `take`, yields the data in `cmp` order.
@@ -241,7 +223,7 @@ pub fn stable_mergesort_indices(n : Int, cmp : (Int, Int) -> Int) -> Array[Int] 
     for k in 0..<n {
       buf[k] = aux[k]
     }
-    match next_merge_width(width, n) {
+    match @verified.next_merge_width(width, n) {
       Some(next) => width = next
       None => break
     }
@@ -315,7 +297,7 @@ pub fn Series::sort(
 /// `Series` twin of `DataFrame::head`. A negative `n` clamps to an empty
 /// series. Total.
 pub fn Series::head(self : Series, n : Int) -> Series {
-  slice_series(self, 0, clamp_take(n, self.len()))
+  slice_series(self, 0, @verified.clamp_take(n, self.len()))
 }
 
 ///|
@@ -324,7 +306,7 @@ pub fn Series::head(self : Series, n : Int) -> Series {
 /// series. Total.
 pub fn Series::tail(self : Series, n : Int) -> Series {
   let len = self.len()
-  let take = clamp_take(n, len)
+  let take = @verified.clamp_take(n, len)
   slice_series(self, len - take, len)
 }
 
@@ -334,17 +316,4 @@ pub fn Series::tail(self : Series, n : Int) -> Series {
 pub fn Series::reverse(self : Series) -> Series {
   let len = self.len()
   gather_series(self, Array::makei(len, i => len - 1 - i))
-}
-
-///|
-/// Clamp a requested row count into `[0, len]`, so a negative `n` is an empty
-/// result and an oversized one is the whole series.
-fn clamp_take(n : Int, len : Int) -> Int {
-  if n < 0 {
-    0
-  } else if n > len {
-    len
-  } else {
-    n
-  }
 }

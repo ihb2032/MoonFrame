@@ -1,13 +1,13 @@
 ///|
 /// The boolean-logic kernels: Kleene three-valued `&` / `|` (`eval_logic` over
-/// the `kleene_and` / `kleene_or` cell tables) and logical negation
-/// (`eval_not`). `Bool` operands only — any other dtype raises `TypeMismatch` —
+/// the proof-carrying `@verified.kleene_and` / `@verified.kleene_or` cell tables) and
+/// logical negation (`eval_not`). `Bool` operands only — any other dtype raises `TypeMismatch` —
 /// and the output is nullable, on the `Builtin` backend.
 
 ///|
 /// Kleene logic kernel over two equal-length `Bool` operands
 /// (post-`broadcast_pair`); `&` and `|` differ only in the nullable cell
-/// combiner (`kleene_and` / `kleene_or`) and the verb their `TypeMismatch`
+/// combiner (`@verified.kleene_and` / `@verified.kleene_or`) and the verb their `TypeMismatch`
 /// message names. Non-`Bool` operands raise. The output is nullable by
 /// nature and lands on the `Builtin` backend.
 fn eval_logic(
@@ -54,32 +54,6 @@ fn eval_logic(
           "logical '\{verb}' requires Bool operands, got \{left.dtype()} and \{right.dtype()}",
         ),
       )
-  }
-}
-
-///|
-/// Kleene three-valued AND over nullable booleans (the Polars / Arrow
-/// `and_kleene` table): a known `false` dominates — the result is `false`
-/// no matter what the other side holds, null included; two known `true`s
-/// are `true`; everything else (a null meeting `true` or another null) is
-/// unknown, `None`.
-fn kleene_and(a : Bool?, b : Bool?) -> Bool? {
-  match (a, b) {
-    (Some(false), _) | (_, Some(false)) => Some(false)
-    (Some(true), Some(true)) => Some(true)
-    _ => None
-  }
-}
-
-///|
-/// Kleene three-valued OR over nullable booleans (the `or_kleene` dual):
-/// a known `true` dominates regardless of the other side, null included;
-/// two known `false`s are `false`; everything else is unknown, `None`.
-fn kleene_or(a : Bool?, b : Bool?) -> Bool? {
-  match (a, b) {
-    (Some(true), _) | (_, Some(true)) => Some(true)
-    (Some(false), Some(false)) => Some(false)
-    _ => None
   }
 }
 

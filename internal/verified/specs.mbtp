@@ -1,0 +1,73 @@
+predicate next_merge_width_spec(width : Int, n : Int, r : Option[Int]) {
+  match r {
+    Some(w) => 0 < width && width + width < n && w == width + width
+    None => width <= 0 || width + width >= n
+  }
+}
+predicate clamp_take_spec(n : Int, len : Int, r : Int) {
+  if n < 0 {
+    r == 0
+  } else {
+    if n > len { r == len } else { r == n }
+  }
+}
+predicate is_some_true(o : Option[Bool]) {
+  match o {
+    Some(v) => v
+    None => false
+  }
+}
+
+predicate is_some_false(o : Option[Bool]) {
+  match o {
+    Some(v) => if v { false } else { true }
+    None => false
+  }
+}
+
+predicate is_unknown(o : Option[Bool]) {
+  match o {
+    Some(_) => false
+    None => true
+  }
+}
+
+predicate kleene_and_spec(a : Option[Bool], b : Option[Bool], r : Option[Bool]) {
+  match a {
+    Some(av) =>
+      match b {
+        Some(bv) =>
+          if av {
+            if bv { is_some_true(r) } else { is_some_false(r) }
+          } else {
+            is_some_false(r)
+          }
+        None => if av { is_unknown(r) } else { is_some_false(r) }
+      }
+    None =>
+      match b {
+        Some(bv) => if bv { is_unknown(r) } else { is_some_false(r) }
+        None => is_unknown(r)
+      }
+  }
+}
+
+predicate kleene_or_spec(a : Option[Bool], b : Option[Bool], r : Option[Bool]) {
+  match a {
+    Some(av) =>
+      match b {
+        Some(bv) =>
+          if av {
+            is_some_true(r)
+          } else {
+            if bv { is_some_true(r) } else { is_some_false(r) }
+          }
+        None => if av { is_some_true(r) } else { is_unknown(r) }
+      }
+    None =>
+      match b {
+        Some(bv) => if bv { is_some_true(r) } else { is_unknown(r) }
+        None => is_unknown(r)
+      }
+  }
+}

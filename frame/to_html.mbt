@@ -86,7 +86,7 @@ pub fn DataFrame::to_html(
   let nrows = self.nrows()
   let shown = match options.max_rows {
     None => nrows
-    Some(n) => clamp_take(n, nrows)
+    Some(n) => @verified.clamp_take(n, nrows)
   }
   format_html(self, shown, options)
 }

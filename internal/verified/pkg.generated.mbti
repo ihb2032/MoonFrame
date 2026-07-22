@@ -1,0 +1,20 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ihb2032/MoonFrame/internal/verified"
+
+// Values
+pub fn clamp_take(Int, Int) -> Int
+
+pub fn kleene_and(Bool?, Bool?) -> Bool?
+
+pub fn kleene_or(Bool?, Bool?) -> Bool?
+
+pub fn next_merge_width(Int, Int) -> Int?
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

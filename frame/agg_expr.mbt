@@ -153,7 +153,7 @@ pub fn GroupedDataFrame::agg(
       None => {
         if !reduces_per_group(expr) {
           raise @types.DataError::InvalidOperation(
-            "aggregate expression must reduce each group to a single value: \{expr.explain()}",
+            "aggregate expression must reduce each group to a single value: \{expr.to_string()}",
           )
         }
         (

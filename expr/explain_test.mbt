@@ -13,8 +13,8 @@ test "show: the documented alias form" {
   let profit = (col("revenue") - col("cost")).with_alias("profit")
   inspect(profit, content="(col(revenue) - col(cost)) as profit")
   // `explain` is exactly the `Show` rendering, as a String.
-  assert_eq(profit.explain(), profit.to_string())
-  assert_eq(profit.explain(), "(col(revenue) - col(cost)) as profit")
+  assert_eq(profit.to_string(), profit.to_string())
+  assert_eq(profit.to_string(), "(col(revenue) - col(cost)) as profit")
 }
 
 ///|
@@ -309,7 +309,7 @@ test "deep trees don't overflow the stack: the introspection walks are iterative
   assert_eq(e.output_name(), "a")
   assert_eq(e.referenced_columns().to_array(), ["a"])
   // Show renders the whole tree without aborting (length grows with depth).
-  assert_true(e.explain().length() > depth)
+  assert_true(e.to_string().length() > depth)
 }
 
 ///|

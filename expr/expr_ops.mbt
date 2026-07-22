@@ -2,10 +2,9 @@
 /// Reference a column by name, for the Polars-style call shape
 /// `col("a") + col("b")`. The name resolves at *evaluation* time —
 /// `ColumnNotFound` then if the frame has no such column; building the
-/// reference itself is total. Exposed both as the `Expr::col` static method
-/// and, via `#as_free_fn`, the bare `col` free function the facade re-exports.
-#as_free_fn(col)
-pub fn Expr::col(name : String) -> Expr {
+/// reference itself is total. A free function, like the `lit*` family — the
+/// facade re-exports it.
+pub fn col(name : String) -> Expr {
   Col(name)
 }
 
@@ -17,43 +16,40 @@ pub fn Expr::col(name : String) -> Expr {
 /// names-only projection it replaces. Each name resolves at evaluation
 /// time, exactly like `col`; building the list is total.
 pub fn cols(names : Array[String]) -> Array[Expr] {
-  names.map(name => Expr::col(name))
+  names.map(name => col(name))
 }
 
 ///|
 /// Embed a literal `Scalar`. At evaluation it becomes a length-1 column
 /// broadcast against its siblings. Prefer the typed shorthands
 /// (`lit_int` / `lit_float` / `lit_str` / `lit_bool`), which avoid
-/// spelling the `Scalar` variant at call sites. Exposed both as the
-/// `Expr::lit` static method and, via `#as_free_fn`, the bare `lit` free
-/// function.
-#as_free_fn(lit)
-pub fn Expr::lit(value : @types.Scalar) -> Expr {
+/// spelling the `Scalar` variant at call sites.
+pub fn lit(value : @types.Scalar) -> Expr {
   Lit(value)
 }
 
 ///|
 /// `Int` literal (64-bit, like every MoonFrame integer cell).
 pub fn lit_int(value : Int64) -> Expr {
-  Expr::lit(@types.Scalar::Int(value))
+  lit(@types.Scalar::Int(value))
 }
 
 ///|
 /// `Float` literal.
 pub fn lit_float(value : Double) -> Expr {
-  Expr::lit(@types.Scalar::Float(value))
+  lit(@types.Scalar::Float(value))
 }
 
 ///|
 /// `String` literal.
 pub fn lit_str(value : String) -> Expr {
-  Expr::lit(@types.Scalar::String(value))
+  lit(@types.Scalar::String(value))
 }
 
 ///|
 /// `Bool` literal.
 pub fn lit_bool(value : Bool) -> Expr {
-  Expr::lit(@types.Scalar::Bool(value))
+  lit(@types.Scalar::Bool(value))
 }
 
 ///|

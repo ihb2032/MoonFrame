@@ -6,22 +6,19 @@
 /// (possible only in-package) so the `", "` input separator in the `explain`
 /// render is exercised, matching how the public `map_many` covers `Map`'s.
 test "map_batches renders multiple inputs comma-separated" {
-  let node : Expr = MapBatches(
-    "combine",
-    [Expr::col("a"), Expr::col("b")],
-    false,
-    vs => vs[0],
-  )
-  inspect(node.explain(), content="map_batches(\"combine\", [col(a), col(b)])")
-  // The reducing flag still appends its marker with several inputs.
-  let reducing : Expr = MapBatches(
-    "combine",
-    [Expr::col("a"), Expr::col("b")],
-    true,
-    vs => vs[0],
-  )
+  let node : Expr = MapBatches("combine", [col("a"), col("b")], false, vs => {
+    vs[0]
+  })
   inspect(
-    reducing.explain(),
+    node.to_string(),
+    content="map_batches(\"combine\", [col(a), col(b)])",
+  )
+  // The reducing flag still appends its marker with several inputs.
+  let reducing : Expr = MapBatches("combine", [col("a"), col("b")], true, vs => {
+    vs[0]
+  })
+  inspect(
+    reducing.to_string(),
     content="map_batches(\"combine\", [col(a), col(b)], returns_scalar=true)",
   )
 }

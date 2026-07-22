@@ -35,12 +35,10 @@ fn read_like_ops(storage : @column.ColumnStorage) -> (String, Array[Bool]) {
 
 ///|
 test "kind / dtype / len / is_empty: both backends" {
-  let builtin = ColumnStorage::from_builtin(
+  let builtin = ColumnStorage::Builtin(
     BuiltinColumn::from_int_options([Some(1), None, Some(3)]),
   )
-  let numeric = ColumnStorage::from_numeric(
-    NumericColumn::from_int64s([1, 2, 3]),
-  )
+  let numeric = ColumnStorage::Numeric(NumericColumn::from_ints([1, 2, 3]))
   assert_eq(builtin.kind(), StorageKind::Builtin)
   assert_eq(numeric.kind(), StorageKind::Numeric)
   assert_eq(builtin.dtype(), @types.DataType::Int)
@@ -48,19 +46,15 @@ test "kind / dtype / len / is_empty: both backends" {
   assert_eq(builtin.len(), 3)
   assert_eq(numeric.len(), 3)
   assert_true(!builtin.is_empty())
-  assert_true(
-    ColumnStorage::from_numeric(NumericColumn::from_int64s([])).is_empty(),
-  )
+  assert_true(ColumnStorage::Numeric(NumericColumn::from_ints([])).is_empty())
 }
 
 ///|
 test "null_count / validity: Numeric arm synthesises an all-valid bitmap" {
-  let builtin = ColumnStorage::from_builtin(
+  let builtin = ColumnStorage::Builtin(
     BuiltinColumn::from_int_options([Some(1), None, Some(3)]),
   )
-  let numeric = ColumnStorage::from_numeric(
-    NumericColumn::from_int64s([1, 2, 3]),
-  )
+  let numeric = ColumnStorage::Numeric(NumericColumn::from_ints([1, 2, 3]))
   // Builtin arm forwards the real bitmap (1 null); Numeric arm forwards 0.
   assert_eq(builtin.null_count(), 1)
   assert_eq(numeric.null_count(), 0)
@@ -74,12 +68,8 @@ test "null_count / validity: Numeric arm synthesises an all-valid bitmap" {
 
 ///|
 test "data / get: both backends" {
-  let builtin = ColumnStorage::from_builtin(
-    BuiltinColumn::from_strings(["x", "y"]),
-  )
-  let numeric = ColumnStorage::from_numeric(
-    NumericColumn::from_int64s([10, 20]),
-  )
+  let builtin = ColumnStorage::Builtin(BuiltinColumn::from_strings(["x", "y"]))
+  let numeric = ColumnStorage::Numeric(NumericColumn::from_ints([10, 20]))
   // data() forwards to the underlying ColumnData on each arm.
   assert_eq(builtin.data(), ColumnData::String(["x", "y"]))
   assert_eq(numeric.data(), ColumnData::Int([10, 20]))
@@ -102,7 +92,7 @@ test "data / get: both backends" {
 
 ///|
 test "from_builtin null cell surfaces through get" {
-  let s = ColumnStorage::from_builtin(
+  let s = ColumnStorage::Builtin(
     BuiltinColumn::from_int_options([Some(1), None]),
   )
   assert_eq(s.get(0), @types.Scalar::Int(1))
@@ -116,15 +106,13 @@ test "read_like_ops: every ColumnData arm via a Builtin backend" {
   // All four ColumnData arms of `build_sort_key`'s body, reached through a
   // ColumnStorage. Null (and NaN for Float) map to a `true` missing slot.
   let (tag_i, miss_i) = read_like_ops(
-    ColumnStorage::from_builtin(
-      BuiltinColumn::from_int_options([Some(1), None]),
-    ),
+    ColumnStorage::Builtin(BuiltinColumn::from_int_options([Some(1), None])),
   )
   assert_eq(tag_i, "Int")
   assert_eq(miss_i, [false, true])
   let nan = (0.0 : Double) / 0.0
   let (tag_f, miss_f) = read_like_ops(
-    ColumnStorage::from_builtin(
+    ColumnStorage::Builtin(
       BuiltinColumn::from_float_options([Some(1.5), Some(nan), None]),
     ),
   )
@@ -132,14 +120,12 @@ test "read_like_ops: every ColumnData arm via a Builtin backend" {
   // index 0 present; index 1 NaN → missing; index 2 null → missing.
   assert_eq(miss_f, [false, true, true])
   let (tag_b, miss_b) = read_like_ops(
-    ColumnStorage::from_builtin(
-      BuiltinColumn::from_bool_options([Some(true), None]),
-    ),
+    ColumnStorage::Builtin(BuiltinColumn::from_bool_options([Some(true), None])),
   )
   assert_eq(tag_b, "Bool")
   assert_eq(miss_b, [false, true])
   let (tag_s, miss_s) = read_like_ops(
-    ColumnStorage::from_builtin(
+    ColumnStorage::Builtin(
       BuiltinColumn::from_string_options([None, Some("z")]),
     ),
   )
@@ -152,7 +138,7 @@ test "read_like_ops: Numeric backend reads through the same chain" {
   // A Numeric-backed storage flows through the identical `.validity()` +
   // `.data()` reads; all-valid → no missing slots.
   let (tag, miss) = read_like_ops(
-    ColumnStorage::from_numeric(NumericColumn::from_int64s([1, 2, 3])),
+    ColumnStorage::Numeric(NumericColumn::from_ints([1, 2, 3])),
   )
   assert_eq(tag, "Int")
   assert_eq(miss, [false, false, false])
@@ -162,10 +148,10 @@ test "read_like_ops: Numeric backend reads through the same chain" {
 
 ///|
 test "is_null: Builtin reports the null, Numeric is always valid; both bounds-check" {
-  let builtin = ColumnStorage::from_builtin(
+  let builtin = ColumnStorage::Builtin(
     BuiltinColumn::from_int_options([Some(1), None]),
   )
-  let numeric = ColumnStorage::from_numeric(NumericColumn::from_int64s([1, 2]))
+  let numeric = ColumnStorage::Numeric(NumericColumn::from_ints([1, 2]))
   assert_eq(builtin.is_null(0), false)
   assert_eq(builtin.is_null(1), true)
   assert_eq(numeric.is_null(0), false)
@@ -188,12 +174,10 @@ test "is_null: Builtin reports the null, Numeric is always valid; both bounds-ch
 
 ///|
 test "slice keeps the backend on both arms" {
-  let builtin = ColumnStorage::from_builtin(
+  let builtin = ColumnStorage::Builtin(
     BuiltinColumn::from_int_options([Some(1), None, Some(3), Some(4)]),
   )
-  let numeric = ColumnStorage::from_numeric(
-    NumericColumn::from_int64s([1, 2, 3, 4]),
-  )
+  let numeric = ColumnStorage::Numeric(NumericColumn::from_ints([1, 2, 3, 4]))
   let b = builtin.slice(1, 3)
   let n = numeric.slice(1, 3)
   assert_eq(b.kind(), StorageKind::Builtin)
@@ -214,7 +198,7 @@ test "slice keeps the backend on both arms" {
 test "slice_total keeps the backend, shares validity, and is total" {
   // Builtin arm: zero-copy validity view; the null inside the window must be
   // counted (offset-0 sub-window null_count, exercised at the storage layer).
-  let b = ColumnStorage::from_builtin(
+  let b = ColumnStorage::Builtin(
     BuiltinColumn::from_int_options([Some(1), None, Some(3)]),
   )
   let bs = b.slice_total(0, 2)
@@ -222,18 +206,18 @@ test "slice_total keeps the backend, shares validity, and is total" {
   assert_eq(bs.len(), 2)
   assert_eq(bs.null_count(), 1)
   // Numeric arm stays Numeric for both Int and Float backings.
-  let ni = ColumnStorage::from_numeric(NumericColumn::from_int64s([10, 20, 30]))
+  let ni = ColumnStorage::Numeric(NumericColumn::from_ints([10, 20, 30]))
   let nis = ni.slice_total(1, 3)
   assert_eq(nis.kind(), StorageKind::Numeric)
   assert_eq(nis.len(), 2)
   assert_eq(nis.get(0), @types.Scalar::Int(20))
-  let nf = ColumnStorage::from_numeric(NumericColumn::from_doubles([1.0, 2.0]))
+  let nf = ColumnStorage::Numeric(NumericColumn::from_floats([1.0, 2.0]))
   assert_eq(nf.slice_total(0, 1).get(0), @types.Scalar::Float(1.0))
 }
 
 ///|
 test "slice_total clamps out-of-range bounds instead of raising" {
-  let b = ColumnStorage::from_builtin(BuiltinColumn::from_ints([1, 2, 3]))
+  let b = ColumnStorage::Builtin(BuiltinColumn::from_ints([1, 2, 3]))
   // start < 0 -> 0 and end > len -> len: the whole column.
   assert_eq(b.slice_total(-2, 99).len(), 3)
   // start > len -> len: an empty tail slice.
@@ -244,12 +228,10 @@ test "slice_total clamps out-of-range bounds instead of raising" {
 
 ///|
 test "take keeps the backend on both arms" {
-  let builtin = ColumnStorage::from_builtin(
+  let builtin = ColumnStorage::Builtin(
     BuiltinColumn::from_int_options([Some(1), None, Some(3)]),
   )
-  let numeric = ColumnStorage::from_numeric(
-    NumericColumn::from_int64s([10, 20, 30]),
-  )
+  let numeric = ColumnStorage::Numeric(NumericColumn::from_ints([10, 20, 30]))
   let b = builtin.take([2, 1, 0])
   let n = numeric.take([2, 0])
   assert_eq(b.kind(), StorageKind::Builtin)
@@ -268,16 +250,16 @@ test "take keeps the backend on both arms" {
 
 ///|
 test "int_values / float_values: both arms, with synthesised validity on Numeric" {
-  let bi = ColumnStorage::from_builtin(BuiltinColumn::from_ints([1, 2]))
-  let ni = ColumnStorage::from_numeric(NumericColumn::from_int64s([3, 4]))
+  let bi = ColumnStorage::Builtin(BuiltinColumn::from_ints([1, 2]))
+  let ni = ColumnStorage::Numeric(NumericColumn::from_ints([3, 4]))
   let (ba, bv) = bi.int_values()
   let (na, nv) = ni.int_values()
   assert_eq(ba, [1, 2])
   assert_eq(bv.to_bools(), [true, true])
   assert_eq(na, [3, 4])
   assert_eq(nv.to_bools(), [true, true])
-  let bf = ColumnStorage::from_builtin(BuiltinColumn::from_floats([1.5]))
-  let nf = ColumnStorage::from_numeric(NumericColumn::from_doubles([2.5]))
+  let bf = ColumnStorage::Builtin(BuiltinColumn::from_floats([1.5]))
+  let nf = ColumnStorage::Numeric(NumericColumn::from_floats([2.5]))
   assert_eq(bf.float_values().0, [1.5])
   assert_eq(nf.float_values().0, [2.5])
   // Cross-type request raises through either backend.
@@ -311,9 +293,9 @@ test "int_values / float_values: both arms, with synthesised validity on Numeric
 
 ///|
 test "bool_values / string_values: Builtin success, Numeric mismatches" {
-  let bb = ColumnStorage::from_builtin(BuiltinColumn::from_bools([true, false]))
-  let bs = ColumnStorage::from_builtin(BuiltinColumn::from_strings(["x", "y"]))
-  let n = ColumnStorage::from_numeric(NumericColumn::from_int64s([1]))
+  let bb = ColumnStorage::Builtin(BuiltinColumn::from_bools([true, false]))
+  let bs = ColumnStorage::Builtin(BuiltinColumn::from_strings(["x", "y"]))
+  let n = ColumnStorage::Numeric(NumericColumn::from_ints([1]))
   assert_eq(bb.bool_values().0, [true, false])
   assert_eq(bs.string_values().0, ["x", "y"])
   assert_eq(
@@ -349,10 +331,8 @@ test "bool_values / string_values: Builtin success, Numeric mismatches" {
 ///|
 test "to_builtin widens Numeric losslessly and is identity on Builtin" {
   let raw = BuiltinColumn::from_int_options([Some(1), None, Some(3)])
-  let builtin = ColumnStorage::from_builtin(raw)
-  let numeric = ColumnStorage::from_numeric(
-    NumericColumn::from_int64s([1, 2, 3]),
-  )
+  let builtin = ColumnStorage::Builtin(raw)
+  let numeric = ColumnStorage::Numeric(NumericColumn::from_ints([1, 2, 3]))
   // Builtin arm is identity.
   assert_eq(builtin.to_builtin(), raw)
   // Numeric arm widens to an all-valid BuiltinColumn equal to from_ints.
@@ -361,10 +341,10 @@ test "to_builtin widens Numeric losslessly and is identity on Builtin" {
 
 ///|
 test "to_string_column renders both arms to a String column" {
-  let builtin = ColumnStorage::from_builtin(
+  let builtin = ColumnStorage::Builtin(
     BuiltinColumn::from_int_options([Some(7), None]),
   )
-  let numeric = ColumnStorage::from_numeric(NumericColumn::from_doubles([1.5]))
+  let numeric = ColumnStorage::Numeric(NumericColumn::from_floats([1.5]))
   let sb = builtin.to_string_column()
   let sn = numeric.to_string_column()
   assert_eq(sb.dtype(), @types.DataType::String)
@@ -377,10 +357,8 @@ test "to_string_column renders both arms to a String column" {
 
 ///|
 test "cast routes through Builtin (result is Builtin-backed)" {
-  let numeric = ColumnStorage::from_numeric(NumericColumn::from_int64s([1, 2]))
-  let builtin = ColumnStorage::from_builtin(
-    BuiltinColumn::from_floats([1.5, 2.5]),
-  )
+  let numeric = ColumnStorage::Numeric(NumericColumn::from_ints([1, 2]))
+  let builtin = ColumnStorage::Builtin(BuiltinColumn::from_floats([1.5, 2.5]))
   // A numeric source comes back Builtin-backed (the documented discipline).
   let as_float = numeric.cast(@types.DataType::Float)
   assert_eq(as_float.kind(), StorageKind::Builtin)
@@ -404,34 +382,28 @@ test "cast routes through Builtin (result is Builtin-backed)" {
 
 ///|
 test "to_numeric: already-Numeric is returned unchanged" {
-  let n = ColumnStorage::from_numeric(NumericColumn::from_int64s([1, 2]))
+  let n = ColumnStorage::Numeric(NumericColumn::from_ints([1, 2]))
   assert_eq(n.to_numeric(), n)
   assert_eq(n.to_numeric().kind(), StorageKind::Numeric)
 }
 
 ///|
 test "to_numeric: all-valid Int / Float Builtin moves to the fast path" {
-  let i = ColumnStorage::from_builtin(BuiltinColumn::from_ints([1, 2, 3]))
-  let f = ColumnStorage::from_builtin(BuiltinColumn::from_floats([1.5, 2.5]))
+  let i = ColumnStorage::Builtin(BuiltinColumn::from_ints([1, 2, 3]))
+  let f = ColumnStorage::Builtin(BuiltinColumn::from_floats([1.5, 2.5]))
   let ni = i.to_numeric()
   let nf = f.to_numeric()
   assert_eq(ni.kind(), StorageKind::Numeric)
   assert_eq(nf.kind(), StorageKind::Numeric)
-  assert_eq(
-    ni,
-    ColumnStorage::from_numeric(NumericColumn::from_int64s([1, 2, 3])),
-  )
-  assert_eq(
-    nf,
-    ColumnStorage::from_numeric(NumericColumn::from_doubles([1.5, 2.5])),
-  )
+  assert_eq(ni, ColumnStorage::Numeric(NumericColumn::from_ints([1, 2, 3])))
+  assert_eq(nf, ColumnStorage::Numeric(NumericColumn::from_floats([1.5, 2.5])))
   // Round-trips losslessly back through to_builtin.
   assert_eq(ni.to_builtin(), BuiltinColumn::from_ints([1, 2, 3]))
 }
 
 ///|
 test "to_numeric: a column with nulls raises InvalidOperation" {
-  let s = ColumnStorage::from_builtin(
+  let s = ColumnStorage::Builtin(
     BuiltinColumn::from_int_options([Some(1), None, Some(3)]),
   )
   assert_true(
@@ -442,8 +414,8 @@ test "to_numeric: a column with nulls raises InvalidOperation" {
 
 ///|
 test "to_numeric: a non-numeric column raises TypeMismatch" {
-  let str = ColumnStorage::from_builtin(BuiltinColumn::from_strings(["a", "b"]))
-  let boolc = ColumnStorage::from_builtin(BuiltinColumn::from_bools([true]))
+  let str = ColumnStorage::Builtin(BuiltinColumn::from_strings(["a", "b"]))
+  let boolc = ColumnStorage::Builtin(BuiltinColumn::from_bools([true]))
   assert_true(
     (Ok(str.to_numeric()) catch { e => Err(e) })
     is Err(
@@ -462,53 +434,40 @@ test "to_numeric: a non-numeric column raises TypeMismatch" {
 
 ///|
 test "ColumnStorage equality is content-based, not backend-sensitive" {
-  let num = ColumnStorage::from_numeric(NumericColumn::from_int64s([1, 2]))
+  let num = ColumnStorage::Numeric(NumericColumn::from_ints([1, 2]))
   // Same backend, same content.
-  assert_eq(
-    num,
-    ColumnStorage::from_numeric(NumericColumn::from_int64s([1, 2])),
-  )
+  assert_eq(num, ColumnStorage::Numeric(NumericColumn::from_ints([1, 2])))
   // Different backend, SAME content -> equal (the BACKEND-1 fix): a Numeric and
   // a Builtin column of the same all-valid Int data are logically identical.
-  assert_eq(num, ColumnStorage::from_builtin(BuiltinColumn::from_ints([1, 2])))
+  assert_eq(num, ColumnStorage::Builtin(BuiltinColumn::from_ints([1, 2])))
   // Different value -> unequal.
-  assert_not_eq(
-    num,
-    ColumnStorage::from_numeric(NumericColumn::from_int64s([1, 3])),
-  )
+  assert_not_eq(num, ColumnStorage::Numeric(NumericColumn::from_ints([1, 3])))
   // Different length -> unequal.
-  assert_not_eq(
-    num,
-    ColumnStorage::from_numeric(NumericColumn::from_int64s([1])),
-  )
+  assert_not_eq(num, ColumnStorage::Numeric(NumericColumn::from_ints([1])))
   // Different dtype -> unequal.
   assert_not_eq(
     num,
-    ColumnStorage::from_numeric(NumericColumn::from_doubles([1.0, 2.0])),
+    ColumnStorage::Numeric(NumericColumn::from_floats([1.0, 2.0])),
   )
   // Same values but different null-ness at a cell -> unequal.
   assert_not_eq(
-    ColumnStorage::from_builtin(
-      BuiltinColumn::from_int_options([Some(1), None]),
-    ),
-    ColumnStorage::from_builtin(
-      BuiltinColumn::from_int_options([Some(1), Some(2)]),
-    ),
+    ColumnStorage::Builtin(BuiltinColumn::from_int_options([Some(1), None])),
+    ColumnStorage::Builtin(BuiltinColumn::from_int_options([Some(1), Some(2)])),
   )
   // A valid NaN cell is unequal even to an identical column (NaN != NaN).
   let nan = @double.not_a_number
   assert_not_eq(
-    ColumnStorage::from_numeric(NumericColumn::from_doubles([nan])),
-    ColumnStorage::from_numeric(NumericColumn::from_doubles([nan])),
+    ColumnStorage::Numeric(NumericColumn::from_floats([nan])),
+    ColumnStorage::Numeric(NumericColumn::from_floats([nan])),
   )
   // Bool / String arms compare by content too.
   assert_eq(
-    ColumnStorage::from_builtin(BuiltinColumn::from_bools([true, false])),
-    ColumnStorage::from_builtin(BuiltinColumn::from_bools([true, false])),
+    ColumnStorage::Builtin(BuiltinColumn::from_bools([true, false])),
+    ColumnStorage::Builtin(BuiltinColumn::from_bools([true, false])),
   )
   assert_eq(
-    ColumnStorage::from_builtin(BuiltinColumn::from_strings(["a"])),
-    ColumnStorage::from_builtin(BuiltinColumn::from_strings(["a"])),
+    ColumnStorage::Builtin(BuiltinColumn::from_strings(["a"])),
+    ColumnStorage::Builtin(BuiltinColumn::from_strings(["a"])),
   )
   // StorageKind keeps its own tag-based derive(Eq).
   assert_eq(StorageKind::Builtin, StorageKind::Builtin)

@@ -188,7 +188,7 @@ test "construction is total: nonsense trees still build" {
     ((col("p") & lit_bool(false)) + lit_float(1.5))
     .sum()
     .cast(@types.DataType::Bool),
-    ((Expr::col("p") & lit(@types.Scalar::Bool(false))) +
+    ((col("p") & lit(@types.Scalar::Bool(false))) +
     lit(@types.Scalar::Float(1.5)))
     .sum()
     .cast(@types.DataType::Bool),

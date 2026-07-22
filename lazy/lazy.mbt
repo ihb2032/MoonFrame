@@ -25,20 +25,14 @@ pub struct LazyFrame {
 }
 
 ///|
-/// Wrap an in-memory frame as the leaf of a new plan (a `Scan` node).
-/// Total — the frame is captured as-is, and frames are immutable, so the
-/// plan can never observe later state. Named after the `Series::from_*` /
-/// `DataFrame::from_rows` constructor family.
-pub fn LazyFrame::from(df : @frame.DataFrame) -> LazyFrame {
-  { plan: Scan(df) }
-}
-
-///|
-/// Free-function alias of `LazyFrame::from`, for the `read_csv(path)`
-/// hand-feel: `lazy_frame(df).filter(…).collect()`. (`lazy(df)`
-/// would be the obvious shorter name, but `lazy` is reserved.)
+/// Wrap an in-memory frame as the leaf of a new plan (a `Scan` node), for the
+/// `read_csv(path)` hand-feel: `lazy_frame(df).filter(…).collect()`. Total —
+/// the frame is captured as-is, and frames are immutable, so the plan can
+/// never observe later state. A free function rather than a `DataFrame`
+/// method (that would live in `frame` and close a `frame ↔ lazy` import
+/// cycle) and rather than `lazy(df)` (`lazy` is a MoonBit reserved word).
 pub fn lazy_frame(df : @frame.DataFrame) -> LazyFrame {
-  LazyFrame::from(df)
+  { plan: Scan(df) }
 }
 
 ///|

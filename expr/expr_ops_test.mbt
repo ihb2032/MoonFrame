@@ -9,8 +9,8 @@
 
 ///|
 test "col and lit: static methods and free aliases build the same nodes" {
-  assert_eq(col("a"), Expr::col("a"))
-  assert_eq(lit(@types.Scalar::Int(7)), Expr::lit(@types.Scalar::Int(7)))
+  assert_eq(col("a"), col("a"))
+  assert_eq(lit(@types.Scalar::Int(7)), lit(@types.Scalar::Int(7)))
 }
 
 ///|
@@ -26,7 +26,7 @@ test "lit: typed shorthands agree with the generic form" {
   assert_eq(lit_float(0.5), lit(@types.Scalar::Float(0.5)))
   assert_eq(lit_str("x"), lit(@types.Scalar::String("x")))
   assert_eq(lit_bool(true), lit(@types.Scalar::Bool(true)))
-  assert_eq(lit(@types.Scalar::Null), Expr::lit(@types.Scalar::Null))
+  assert_eq(lit(@types.Scalar::Null), lit(@types.Scalar::Null))
 }
 
 ///|
@@ -110,7 +110,7 @@ test "fill_null builds a dedicated node holding self once, named after self" {
   // semantically the not-null guarded ternary, but `self` appears once
   // (the ternary lowering embedded it twice, so chains grew exponentially).
   inspect(
-    col("x").fill_null(lit_int(0)).explain(),
+    col("x").fill_null(lit_int(0)).to_string(),
     content="col(x).fill_null(0)",
   )
   // Named after `self` (`x`) even when the fill value is another column.
@@ -127,7 +127,7 @@ test "fill_nan builds a dedicated node holding self once, named after self" {
   // null cell (for which `is_not_nan` is null) falls through to a null,
   // never to `value` — but `self` is held once, like `FillNull`.
   inspect(
-    col("x").fill_nan(lit_float(0.0)).explain(),
+    col("x").fill_nan(lit_float(0.0)).to_string(),
     content="col(x).fill_nan(0.0)",
   )
   assert_eq(col("x").fill_nan(col("y")).output_name(), "x")
@@ -144,7 +144,7 @@ test "a chained coalesce builds a linear tree" {
   for i in 1..<=24 {
     e = e.fill_null(col("f\{i}"))
   }
-  let rendered = e.explain()
+  let rendered = e.to_string()
   // ~21 chars per link; the old lowering would render 2^24 subtree copies
   // (hundreds of MB), so a small linear bound separates the two regimes.
   assert_true(rendered.length() < 800)

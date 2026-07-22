@@ -188,9 +188,9 @@ test "round: Builtin null, NaN / ±inf pass through, non-numeric raises" {
 
 ///|
 test "unary numeric: Expr::explain renders the method calls" {
-  inspect(@expr.col("x").abs().explain(), content="col(x).abs()")
-  inspect(@expr.col("x").floor().explain(), content="col(x).floor()")
-  inspect(@expr.col("x").ceil().explain(), content="col(x).ceil()")
-  inspect(@expr.col("x").sign().explain(), content="col(x).sign()")
-  inspect(@expr.col("x").round().explain(), content="col(x).round()")
+  inspect(@expr.col("x").abs().to_string(), content="col(x).abs()")
+  inspect(@expr.col("x").floor().to_string(), content="col(x).floor()")
+  inspect(@expr.col("x").ceil().to_string(), content="col(x).ceil()")
+  inspect(@expr.col("x").sign().to_string(), content="col(x).sign()")
+  inspect(@expr.col("x").round().to_string(), content="col(x).round()")
 }

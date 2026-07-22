@@ -66,37 +66,19 @@ pub extend NumericData with Debug::{to_repr}
 /// may be missing, build a `BuiltinColumn` (`from_int_options`) and keep the
 /// column `Builtin` instead. No validity `Bitmap` is allocated. `values` is
 /// copied, so the column owns its data.
-pub fn NumericColumn::from_int64s(values : Array[Int64]) -> NumericColumn {
+pub fn NumericColumn::from_ints(values : Array[Int64]) -> NumericColumn {
   { data: Int(values.copy()) }
 }
 
 ///|
-/// Build a `Float` column from raw values. As with `from_int64s` there is no
+/// Build a `Float` column from raw values. As with `from_ints` there is no
 /// null path and no validity `Bitmap`. `NaN` is a perfectly valid stored
 /// value here — it is *not* a missing marker (only an absent slot is, and
 /// this column has none) — and it participates in reductions exactly as
 /// Polars treats it: propagating through `sum` / `mean`, skipped by
 /// `min` / `max`. `values` is copied, so the column owns its data.
-pub fn NumericColumn::from_doubles(values : Array[Double]) -> NumericColumn {
-  { data: Float(values.copy()) }
-}
-
-///|
-/// Alias of `from_int64s` under the spelling the rest of the library uses
-/// for a raw `Array[Int64]` (`BuiltinColumn::from_ints` /
-/// `Series::from_ints`), so the storage seam reads uniformly at every
-/// layer.
-pub fn NumericColumn::from_ints(values : Array[Int64]) -> NumericColumn {
-  NumericColumn::from_int64s(values)
-}
-
-///|
-/// Alias of `from_doubles` under the spelling the rest of the library uses
-/// for a raw `Array[Double]` (`BuiltinColumn::from_floats` /
-/// `Series::from_floats`), so the storage seam reads uniformly at every
-/// layer.
 pub fn NumericColumn::from_floats(values : Array[Double]) -> NumericColumn {
-  NumericColumn::from_doubles(values)
+  { data: Float(values.copy()) }
 }
 
 // ── Inspection ────────────────────────────────────────────────────────

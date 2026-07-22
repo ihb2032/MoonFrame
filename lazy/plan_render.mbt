@@ -70,7 +70,7 @@ fn write_plan_label(plan : LogicalPlan, buf : StringBuilder) -> Unit {
       render_scan_source(buf, "SCAN_NDJSON", path, projection)
     Select(_, exprs) => buf <+ "SELECT \{exprs_label(exprs)}"
     WithColumns(_, exprs) => buf <+ "WITH_COLUMNS \{exprs_label(exprs)}"
-    Filter(_, predicate) => buf <+ "FILTER \{predicate.explain()}"
+    Filter(_, predicate) => buf <+ "FILTER \{predicate.to_string()}"
     Sort(_, by) => buf <+ "SORT \{sort_label(by)}"
     Head(_, n) => buf <+ "HEAD \{n}"
     Tail(_, n) => buf <+ "TAIL \{n}"
@@ -127,7 +127,7 @@ fn list_label(items : Array[String]) -> String {
 /// Expression list in the documented `Show` form, e.g.
 /// `[col(region), (col(revenue) * 1.1) as adj]`.
 fn exprs_label(exprs : Array[@expr.Expr]) -> String {
-  list_label(exprs.map(e => e.explain()))
+  list_label(exprs.map(e => e.to_string()))
 }
 
 ///|
@@ -141,7 +141,7 @@ fn sort_label(
   list_label(
     by.map(key => {
       let (expr, order, nulls) = key
-      "\{expr.explain()} \{order_label(order)} \{nulls_label(nulls)}"
+      "\{expr.to_string()} \{order_label(order)} \{nulls_label(nulls)}"
     }),
   )
 }

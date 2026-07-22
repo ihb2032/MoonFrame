@@ -47,7 +47,7 @@ pub fn DataFrame::new(
     raise @types.DataError::LengthMismatch
   }
   let fields : Array[@types.Field] = columns.map(fn(c) {
-    @types.Field::new(c.name(), c.dtype())
+    @types.Field(c.name(), c.dtype())
   })
   let schema = @types.Schema::new(fields)
   { schema, columns, nrows, name_to_index: index_by_name(columns) }

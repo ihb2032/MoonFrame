@@ -51,7 +51,7 @@ test "format_json_records: special characters get standard escapes" {
 
 ///|
 test "format_json_records: zero-row frame emits an empty array" {
-  let schema = @types.Schema::new([@types.Field::new("a", @types.DataType::Int)])
+  let schema = @types.Schema::new([@types.Field("a", @types.DataType::Int)])
   let df = @frame.DataFrame::empty(schema)
   assert_eq(@io.format_json_records(df), "[]")
 }

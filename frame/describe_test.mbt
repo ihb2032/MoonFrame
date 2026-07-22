@@ -151,8 +151,8 @@ test "describe on a 0-row numeric frame routes mean / min / max to Null" {
   // Series::min / max return Scalar::Null. Both map to the
   // `render_extremum` is_null=true branch.
   let schema = @types.Schema::new([
-    @types.Field::new("a", @types.DataType::Int),
-    @types.Field::new("b", @types.DataType::Float),
+    @types.Field("a", @types.DataType::Int),
+    @types.Field("b", @types.DataType::Float),
   ])
   let df = DataFrame::empty(schema)
   let out = df.describe()

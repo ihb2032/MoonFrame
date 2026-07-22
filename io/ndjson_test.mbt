@@ -55,7 +55,7 @@ test "format_ndjson: special characters get standard escapes" {
 test "format_ndjson: zero-row frame emits the empty string" {
   // No rows → no lines → empty output (the NDJSON analogue of the
   // JSON-records writer's `[]`).
-  let schema = @types.Schema::new([@types.Field::new("a", @types.DataType::Int)])
+  let schema = @types.Schema::new([@types.Field("a", @types.DataType::Int)])
   let df = @frame.DataFrame::empty(schema)
   assert_eq(@io.format_ndjson(df), "")
 }

@@ -938,8 +938,8 @@ test "format_csv: empty frame produces just the header row (or nothing)" {
 ///|
 test "format_csv: 0 rows with declared schema emits header only" {
   let schema = @types.Schema::new([
-    @types.Field::new("a", @types.DataType::Int),
-    @types.Field::new("b", @types.DataType::String),
+    @types.Field("a", @types.DataType::Int),
+    @types.Field("b", @types.DataType::String),
   ])
   let df = @frame.DataFrame::empty(schema)
   let out = @io.format_csv(df, @io.CsvWriteOptions::default())

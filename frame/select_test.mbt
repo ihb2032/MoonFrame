@@ -297,12 +297,13 @@ test "historical pin: duplicate bare columns, and missing wins over duplicate" {
 ///|
 test "select does not propagate a nullable=false flag (it is advisory)" {
   // A nullable=false field only originates from an explicit from_rows schema;
-  // select rebuilds through DataFrame::new, which names every output column with
-  // Field::new (nullable=true). So the declared flag is not carried across the
-  // op — pinning the advisory contract the Field doc promises, so a future
+  // select rebuilds through DataFrame::new, which names every output column
+  // with the Field constructor default (nullable=true). So the declared flag
+  // is not carried across the op — pinning the advisory contract the Field
+  // doc promises, so a future
   // change that inferred or propagated nullability has to be deliberate.
   let schema = @types.Schema::new([
-    @types.Field::with_nullable("id", @types.DataType::Int, false),
+    @types.Field("id", @types.DataType::Int, nullable=false),
   ])
   let df = DataFrame::from_rows(schema, [
     [@types.Scalar::Int(1)],
@@ -310,7 +311,7 @@ test "select does not propagate a nullable=false flag (it is advisory)" {
   ])
   // from_rows honours the declared flag on the source frame.
   assert_false(df.schema().field("id").nullable())
-  // select rebuilds the schema via Field::new, so the projected column resets
+  // select rebuilds the schema through the Field default, so the column resets
   // to nullable=true — the flag did not propagate.
   let projected = df.select([@expr.col("id")])
   assert_true(projected.schema().field("id").nullable())

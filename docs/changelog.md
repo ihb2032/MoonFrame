@@ -6,6 +6,28 @@ breaking-change steps for each release are collected in
 [`migration.md`](migration.md). Pre-1.0, breaking changes ride the minor
 version.
 
+## v0.6.0 — API convergence
+
+The API-convergence release. MoonBit 0.10.4's `fn Type::Type(...)` custom
+constructors, optional parameters with defaults, and `internal` packages let a
+tail of parallel spellings collapse into one entry each: where two ways of
+building or configuring the same value existed, v0.6 keeps one. From v0.7 on the
+stable public surface evolves compatibly. The source-level upgrade steps are
+collected in [`migration.md`](migration.md).
+
+### Breaking
+
+- `Field::new(name, dtype)` and `Field::with_nullable(name, dtype, nullable)`
+  are replaced by the single custom constructor
+  `Field(name, dtype, nullable? = true)`. The bare `Field(...)` spelling
+  resolves wherever the expected type is concrete (inside `Schema::new([...])`,
+  an annotated binding, a typed array literal); a generic position such as
+  `assert_eq` takes the full `Field::Field(...)`.
+- `struct Field` is `pub` rather than `pub(all)`: its fields stay readable
+  (directly and through the `name` / `dtype` / `nullable` accessors) but it can
+  no longer be built from a record literal outside `types`. Construction goes
+  through `Field(...)`, so a future field can be added without breaking callers.
+
 ## v0.5.8 — string-ordering and parse-overflow fixes
 
 A fix patch. Every v0.5.7 symbol and signature is unchanged — the root facade
@@ -235,9 +257,10 @@ behaviour changes.
 
 The breaking release that finishes what v0.4 started: the eager and lazy
 surfaces **converge onto a single, Polars-shaped expression engine**, and the
-parallel spellings that grew up alongside it are retired. This is the **last**
-breaking release — from v0.6 on the surface only grows. The source-level upgrade
-steps are collected in [`migration.md`](migration.md).
+parallel spellings that grew up alongside it are retired. (This section once
+called v0.5 the last breaking release; v0.6 is one more — the API-convergence
+release above — after which the surface evolves compatibly.) The source-level
+upgrade steps are collected in [`migration.md`](migration.md).
 
 ### One engine for the four verbs
 

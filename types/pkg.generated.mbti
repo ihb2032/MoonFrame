@@ -78,22 +78,22 @@ pub fn DataType::to_repr(Self) -> @debug.Repr
 pub fn DataType::to_string(Self) -> String
 pub impl Show for DataType
 
-pub(all) struct Field {
+pub struct Field {
   name : String
   dtype : DataType
   nullable : Bool
 } derive(Eq, @debug.Debug)
+#as_free_fn
+pub fn Field::Field(String, DataType, nullable? : Bool) -> Self
 pub fn Field::dtype(Self) -> DataType
 pub fn Field::equal(Self, Self) -> Bool
 pub fn Field::name(Self) -> String
-pub fn Field::new(String, DataType) -> Self
 pub fn Field::not_equal(Self, Self) -> Bool
 pub fn Field::nullable(Self) -> Bool
 pub fn Field::output(Self, &Logger) -> Unit
 pub fn Field::rename(Self, String) -> Self
 pub fn Field::to_repr(Self) -> @debug.Repr
 pub fn Field::to_string(Self) -> String
-pub fn Field::with_nullable(String, DataType, Bool) -> Self
 pub impl Show for Field
 
 pub(all) enum ParseErrorDetail {

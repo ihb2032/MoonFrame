@@ -65,10 +65,10 @@ test "new rejects duplicate column names" {
 ///|
 test "empty(schema) builds a 0-row frame with the schema's dtypes" {
   let schema = @types.Schema::new([
-    @types.Field::new("i", @types.DataType::Int),
-    @types.Field::new("f", @types.DataType::Float),
-    @types.Field::new("b", @types.DataType::Bool),
-    @types.Field::new("s", @types.DataType::String),
+    @types.Field("i", @types.DataType::Int),
+    @types.Field("f", @types.DataType::Float),
+    @types.Field("b", @types.DataType::Bool),
+    @types.Field("s", @types.DataType::String),
   ])
   let df = DataFrame::empty(schema)
   assert_eq(df.shape(), (0, 4))
@@ -93,8 +93,8 @@ test "empty(empty schema) yields a 0×0 frame" {
 ///|
 test "empty rejects Null-dtype fields with Unsupported" {
   let schema = @types.Schema::new([
-    @types.Field::new("ok", @types.DataType::Int),
-    @types.Field::new("nope", @types.DataType::Null),
+    @types.Field("ok", @types.DataType::Int),
+    @types.Field("nope", @types.DataType::Null),
   ])
   assert_true(
     (Ok(DataFrame::empty(schema)) catch { e => Err(e) }) is Err(Unsupported(_)),
@@ -106,10 +106,10 @@ test "empty rejects Null-dtype fields with Unsupported" {
 ///|
 test "from_rows builds a frame, mixing nulls and concrete cells" {
   let schema = @types.Schema::new([
-    @types.Field::new("i", @types.DataType::Int),
-    @types.Field::new("f", @types.DataType::Float),
-    @types.Field::new("b", @types.DataType::Bool),
-    @types.Field::new("s", @types.DataType::String),
+    @types.Field("i", @types.DataType::Int),
+    @types.Field("f", @types.DataType::Float),
+    @types.Field("b", @types.DataType::Bool),
+    @types.Field("s", @types.DataType::String),
   ])
   let df = DataFrame::from_rows(schema, [
     [
@@ -151,7 +151,7 @@ test "from_rows builds a frame, mixing nulls and concrete cells" {
 
 ///|
 test "from_rows with empty rows produces a 0×N frame" {
-  let schema = @types.Schema::new([@types.Field::new("x", @types.DataType::Int)])
+  let schema = @types.Schema::new([@types.Field("x", @types.DataType::Int)])
   let df = DataFrame::from_rows(schema, [])
   assert_eq(df.shape(), (0, 1))
   assert_true(df.is_empty())
@@ -173,8 +173,8 @@ test "from_rows with an empty schema collapses to 0×0" {
 ///|
 test "from_rows rejects rows of the wrong width" {
   let schema = @types.Schema::new([
-    @types.Field::new("a", @types.DataType::Int),
-    @types.Field::new("b", @types.DataType::Int),
+    @types.Field("a", @types.DataType::Int),
+    @types.Field("b", @types.DataType::Int),
   ])
   let r = Ok(DataFrame::from_rows(schema, [[@types.Scalar::Int(1)]])) catch {
     e => Err(e)
@@ -186,7 +186,7 @@ test "from_rows rejects rows of the wrong width" {
 test "from_rows rejects dtype mismatches with a structured TypeMismatch" {
   // Each mismatch surfaces `TypeMismatch(Expected(expected, got, column))`, whose
   // dtypes and column name are readable without parsing a message string.
-  let s_i = @types.Schema::new([@types.Field::new("x", @types.DataType::Int)])
+  let s_i = @types.Schema::new([@types.Field("x", @types.DataType::Int)])
   assert_eq(
     Ok(DataFrame::from_rows(s_i, [[@types.Scalar::Float(1.0)]])) catch {
       e => Err(e)
@@ -201,7 +201,7 @@ test "from_rows rejects dtype mismatches with a structured TypeMismatch" {
       ),
     ),
   )
-  let s_f = @types.Schema::new([@types.Field::new("x", @types.DataType::Float)])
+  let s_f = @types.Schema::new([@types.Field("x", @types.DataType::Float)])
   assert_eq(
     Ok(DataFrame::from_rows(s_f, [[@types.Scalar::String("x")]])) catch {
       e => Err(e)
@@ -216,7 +216,7 @@ test "from_rows rejects dtype mismatches with a structured TypeMismatch" {
       ),
     ),
   )
-  let s_b = @types.Schema::new([@types.Field::new("x", @types.DataType::Bool)])
+  let s_b = @types.Schema::new([@types.Field("x", @types.DataType::Bool)])
   assert_eq(
     Ok(DataFrame::from_rows(s_b, [[@types.Scalar::Int(1)]])) catch {
       e => Err(e)
@@ -231,7 +231,7 @@ test "from_rows rejects dtype mismatches with a structured TypeMismatch" {
       ),
     ),
   )
-  let s_s = @types.Schema::new([@types.Field::new("x", @types.DataType::String)])
+  let s_s = @types.Schema::new([@types.Field("x", @types.DataType::String)])
   assert_eq(
     Ok(DataFrame::from_rows(s_s, [[@types.Scalar::Bool(true)]])) catch {
       e => Err(e)
@@ -257,9 +257,7 @@ test "from_rows rejects dtype mismatches with a structured TypeMismatch" {
 
 ///|
 test "from_rows rejects Null-dtype fields with Unsupported" {
-  let schema = @types.Schema::new([
-    @types.Field::new("n", @types.DataType::Null),
-  ])
+  let schema = @types.Schema::new([@types.Field("n", @types.DataType::Null)])
   assert_true(
     (Ok(DataFrame::from_rows(schema, [[@types.Scalar::Null]])) catch {
       e => Err(e)
@@ -271,7 +269,7 @@ test "from_rows rejects Null-dtype fields with Unsupported" {
 ///|
 test "from_rows enforces non-nullable: a null cell raises NullInNonNullable" {
   let schema = @types.Schema::new([
-    @types.Field::with_nullable("id", @types.DataType::Int, false),
+    @types.Field("id", @types.DataType::Int, nullable=false),
   ])
   let r = Ok(
     DataFrame::from_rows(schema, [
@@ -287,7 +285,7 @@ test "from_rows enforces non-nullable: a null cell raises NullInNonNullable" {
 ///|
 test "from_rows accepts a non-nullable field with no nulls" {
   let schema = @types.Schema::new([
-    @types.Field::with_nullable("id", @types.DataType::Int, false),
+    @types.Field("id", @types.DataType::Int, nullable=false),
   ])
   let df = DataFrame::from_rows(schema, [
     [@types.Scalar::Int(1)],

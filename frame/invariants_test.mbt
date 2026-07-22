@@ -26,10 +26,10 @@ test "check_invariants holds for the zero-column frame" {
 ///|
 test "check_invariants holds for empty(schema) with every dtype" {
   let schema = @types.Schema::new([
-    @types.Field::new("i", @types.DataType::Int),
-    @types.Field::new("f", @types.DataType::Float),
-    @types.Field::new("b", @types.DataType::Bool),
-    @types.Field::new("s", @types.DataType::String),
+    @types.Field("i", @types.DataType::Int),
+    @types.Field("f", @types.DataType::Float),
+    @types.Field("b", @types.DataType::Bool),
+    @types.Field("s", @types.DataType::String),
   ])
   let df = DataFrame::empty(schema)
   assert_eq(df.check_invariants(), Ok(()))
@@ -38,8 +38,8 @@ test "check_invariants holds for empty(schema) with every dtype" {
 ///|
 test "check_invariants holds for from_rows with nulls" {
   let schema = @types.Schema::new([
-    @types.Field::new("i", @types.DataType::Int),
-    @types.Field::new("s", @types.DataType::String),
+    @types.Field("i", @types.DataType::Int),
+    @types.Field("s", @types.DataType::String),
   ])
   let df = DataFrame::from_rows(schema, [
     [@types.Scalar::Int(1), @types.Scalar::String("a")],

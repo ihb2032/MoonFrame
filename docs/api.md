@@ -991,20 +991,20 @@ are documented below.
   quote or a line terminator (`\n` / `\r`), which can't unambiguously frame
   fields, or a non-BMP character, whose UTF-16 surrogate pair the
   per-code-unit tokenizer can't match.
-- `read_csv(path)` / `read_csv_with_options(path, options) -> DataFrame raise
-  DataError` — file wrappers; strict quote validation rides on
+- `read_csv(path, options? : CsvReadOptions = CsvReadOptions()) -> DataFrame
+  raise DataError` — the file wrapper; strict quote validation rides on
   `options.strict_quotes` (`IoError`).
 - `read_csv_projected(path, options, projection : Array[String]) -> DataFrame
   raise DataError` —
-  `read_csv_with_options` that builds only the
+  `read_csv` that builds only the
   named `projection` columns (in the file's header order; the rest are never
   inferred or parsed). The engine seam behind `lazy`'s `scan_csv` projection
   pushdown — **not** re-exported by the facade. Whole-input checks (strict quote
   validation, a malformed header, or a ragged row) are unaffected, but a parse
   error confined to a dropped column does not surface (see `lazy`).
-- `write_csv(path, df)` / `write_csv_with_options(path, df, options) -> Unit
-  raise DataError` — file wrappers; the spreadsheet-formula safety mode rides
-  on `options.sanitize_formulas` (`IoError`; a string cell or column name holding an
+- `write_csv(path, df, options? : CsvWriteOptions = CsvWriteOptions()) -> Unit
+  raise DataError` — the file wrapper; the spreadsheet-formula safety mode
+  rides on `options.sanitize_formulas` (`IoError`; a string cell or column name holding an
   unpaired UTF-16 surrogate is refused with `InvalidOperation` before encoding,
   as for every `write_*`).
 
@@ -1041,7 +1041,7 @@ are documented below.
   finite value keeps `Float`. `Int` cells render as JSON numbers; a magnitude
   beyond 2^53 keeps its `Int` dtype but loses precision on a JSON round-trip
   (the `@json` number model is `Double`), as in pandas' `to_json`.
-- `read_json(path)` / `read_json_with_options(path, options) -> DataFrame
+- `read_json(path, options? : JsonReadOptions = JsonReadOptions()) -> DataFrame
   raise DataError`; `write_json_records(path, df) -> Unit raise
   DataError` — file wrappers (`IoError`; an unpaired UTF-16 surrogate in
   the content is refused with `InvalidOperation` before encoding).
@@ -1072,7 +1072,7 @@ conventions.
   `write_ndjson`); a 0-row frame renders the empty string. Per-cell
   rules match `format_json_records` (non-finite `Float` → `null`; `Int`
   beyond ±2^53 keeps its dtype but loses precision on a round-trip).
-- `read_ndjson(path)` / `read_ndjson_with_options(path, options) ->
+- `read_ndjson(path, options? : JsonReadOptions = JsonReadOptions()) ->
   DataFrame raise DataError`; `write_ndjson(path, df) -> Unit raise
   DataError` — file wrappers (`IoError`; an unpaired UTF-16 surrogate in
   the content is refused with `InvalidOperation` before encoding).
@@ -1147,8 +1147,7 @@ cycle.
 - `lazy_frame(df : DataFrame) -> LazyFrame` — a free-function alias for
   `from`, for the `read_csv(path)` hand-feel. (`lazy(df)` would be the
   obvious name, but `lazy` is a MoonBit reserved word.)
-- `scan_csv(path : String) -> LazyFrame` /
-  `scan_csv_with_options(path : String, options : CsvReadOptions) ->
+- `scan_csv(path : String, options? : CsvReadOptions = CsvReadOptions()) ->
   LazyFrame` — a **lazy CSV source**: the plan's leaf is a deferred read of
   `path` (a `ScanCsv` node), the streaming-friendly counterpart of eager
   `read_csv`. Nothing is read until `collect`, and projection pushdown
@@ -1157,9 +1156,8 @@ cycle.
   never builds the columns it drops. `scan_csv(p).….collect()` equals
   `read_csv(p).…` on well-formed input; because a dropped column is never
   parsed, a parse error confined to one does not surface.
-- `scan_ndjson(path : String) -> LazyFrame` /
-  `scan_ndjson_with_options(path : String, options : JsonReadOptions) ->
-  LazyFrame` — the line-oriented sibling of `scan_csv` (a `ScanNdjson` node),
+- `scan_ndjson(path : String, options? : JsonReadOptions = JsonReadOptions())
+  -> LazyFrame` — the line-oriented sibling of `scan_csv` (a `ScanNdjson` node),
   the lazy counterpart of eager `read_ndjson`. Same projection-pushdown
   behaviour and dropped-column caveat. (There is no `scan_json` for the
   single-array shape `[{...}]`: it must be parsed whole, so nothing can be
@@ -1292,12 +1290,11 @@ API names them).
   `VegaType` · `format_csv` ·
   `format_json_records` · `format_ndjson` · `format_vega_lite` ·
   `parse_csv_str` · `parse_json_records_str` · `parse_ndjson_str` ·
-  `read_csv` · `read_csv_with_options` · `read_json` ·
-  `read_json_with_options` · `read_ndjson` · `read_ndjson_with_options` ·
-  `write_csv` · `write_csv_with_options` · `write_json_records` ·
+  `read_csv` · `read_json` · `read_ndjson` ·
+  `write_csv` · `write_json_records` ·
   `write_ndjson` · `write_vega_lite`
 - From `@lazy`: `LazyFrame` · `LazyGroupBy` · `lazy_frame` · `scan_csv` ·
-  `scan_csv_with_options` · `scan_ndjson` · `scan_ndjson_with_options`
+  `scan_ndjson`
 
 `using @pkg { type T }` also creates constructor aliases, so
 `@moonframe.Scalar::Int(42)`, `@moonframe.SortOrder::Desc`,

@@ -60,6 +60,27 @@ the parameter form could not express.
 returns a copy — as does the constructor, so mutating either array cannot change
 what a reader (or a captured `scan_csv` plan) treats as null.
 
+### `*_with_options` is folded into an optional parameter
+
+| v0.5 | v0.6 |
+| --- | --- |
+| `read_csv_with_options(path, opts)` | `read_csv(path, options=opts)` |
+| `write_csv_with_options(path, df, opts)` | `write_csv(path, df, options=opts)` |
+| `read_json_with_options(path, opts)` | `read_json(path, options=opts)` |
+| `read_ndjson_with_options(path, opts)` | `read_ndjson(path, options=opts)` |
+| `scan_csv_with_options(path, opts)` | `scan_csv(path, options=opts)` |
+| `scan_ndjson_with_options(path, opts)` | `scan_ndjson(path, options=opts)` |
+| `parse_csv_str(text, opts)` | `parse_csv_str(text, options=opts)` |
+| `parse_json_records_str(text, opts)` | `parse_json_records_str(text, options=opts)` |
+| `parse_ndjson_str(text, opts)` | `parse_ndjson_str(text, options=opts)` |
+| `format_csv(df, opts)` | `format_csv(df, options=opts)` |
+| `parse_csv_str(text, CsvReadOptions())` | `parse_csv_str(text)` |
+
+The options parameter is optional and labelled, so it has to be named at the
+call site — and a call that only wanted the defaults can drop it entirely.
+`read_csv_projected` / `read_ndjson_projected`, the engine seam behind
+projection push-down, keep their positional options.
+
 ## v0.5.7 → v0.5.8
 
 No source-level migration steps. v0.5.8 is a fix patch: every v0.5.7 symbol and

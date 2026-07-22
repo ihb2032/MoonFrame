@@ -412,7 +412,7 @@ test "quickstart: csv round-trip" {
     Series::from_strings("region", ["west", "east"]),
     Series::from_ints("quantity", [10, 5]),
   ])
-  let csv = format_csv(df, CsvWriteOptions())
+  let csv = format_csv(df)
   inspect(
     csv,
     content=(
@@ -422,7 +422,7 @@ test "quickstart: csv round-trip" {
       #|
     ),
   )
-  let parsed = parse_csv_str(csv, CsvReadOptions())
+  let parsed = parse_csv_str(csv)
   inspect(
     parsed.to_markdown(),
     content=(
@@ -447,7 +447,7 @@ permissive parser.
 test "quickstart: strict csv quotes" {
   let parsed = parse_csv_str(
     "text\n\"say \"\"hi\"\"\"\n",
-    CsvReadOptions(strict_quotes=true),
+    options=CsvReadOptions(strict_quotes=true),
   )
   assert_eq(parsed.item(0, "text"), Scalar::String("say \"hi\""))
 }
@@ -464,7 +464,7 @@ test "quickstart: spreadsheet-safe csv" {
   let df = DataFrame::new([
     Series::from_strings("user_input", ["=1+1", "ordinary"]),
   ])
-  let csv = format_csv(df, CsvWriteOptions(sanitize_formulas=true))
+  let csv = format_csv(df, options=CsvWriteOptions(sanitize_formulas=true))
   inspect(csv, content="user_input\n'=1+1\nordinary\n")
 }
 ```
@@ -492,7 +492,7 @@ test "quickstart: ndjson round-trip" {
       #|
     ),
   )
-  let parsed = parse_ndjson_str(ndjson, JsonReadOptions())
+  let parsed = parse_ndjson_str(ndjson)
   inspect(
     parsed.to_markdown(),
     content=(

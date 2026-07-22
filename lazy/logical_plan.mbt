@@ -262,12 +262,12 @@ fn execute(plan : LogicalPlan) -> @frame.DataFrame raise @types.DataError {
       Scan(df) => df
       ScanCsv(path, options, projection) =>
         match projection {
-          None => @io.read_csv_with_options(path, options)
+          None => @io.read_csv(path, options~)
           Some(columns) => @io.read_csv_projected(path, options, columns)
         }
       ScanNdjson(path, options, projection) =>
         match projection {
-          None => @io.read_ndjson_with_options(path, options)
+          None => @io.read_ndjson(path, options~)
           Some(columns) => @io.read_ndjson_projected(path, options, columns)
         }
       Select(input, exprs) => memo_result(memo, input).select(exprs)

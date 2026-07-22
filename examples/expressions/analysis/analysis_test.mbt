@@ -18,7 +18,7 @@ let sample_csv : String =
 
 ///|
 fn read_sample() -> @moonframe.DataFrame raise @moonframe.DataError {
-  @moonframe.parse_csv_str(sample_csv, @moonframe.CsvReadOptions())
+  @moonframe.parse_csv_str(sample_csv)
 }
 
 ///|

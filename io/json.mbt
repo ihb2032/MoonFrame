@@ -107,7 +107,7 @@ pub fn JsonReadOptions::JsonReadOptions(
 ///   column is built off `records.length()`).
 pub fn parse_json_records_str(
   content : String,
-  options : JsonReadOptions,
+  options? : JsonReadOptions = JsonReadOptions(),
 ) -> @frame.DataFrame raise @types.DataError {
   // Strip a leading UTF-8 BOM (shared with the CSV / NDJSON readers); `@json.parse`
   // rejects a stray `U+FEFF` at column 0, so a file saved by Excel would otherwise
@@ -250,20 +250,15 @@ fn frame_from_json_records(
 }
 
 ///|
-/// Read a JSON records file using the default options.
-pub fn read_json(path : String) -> @frame.DataFrame raise @types.DataError {
-  read_json_with_options(path, JsonReadOptions())
-}
-
-///|
-/// Read a JSON records file with custom options. Filesystem errors
-/// surface as `raise IoError(message)`.
-pub fn read_json_with_options(
+/// Read a JSON records file. `options` defaults to `JsonReadOptions()`, so
+/// `read_json(path)` is the default-options read. Filesystem errors surface
+/// as `raise IoError(message)`.
+pub fn read_json(
   path : String,
-  options : JsonReadOptions,
+  options? : JsonReadOptions = JsonReadOptions(),
 ) -> @frame.DataFrame raise @types.DataError {
   let content = read_text(path)
-  parse_json_records_str(content, options)
+  parse_json_records_str(content, options~)
 }
 
 ///|

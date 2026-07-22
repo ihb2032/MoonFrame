@@ -67,13 +67,13 @@ test "scan_csv_with_options honours the read options at collect time" {
     @series.Series::from_strings("b", ["p", "q"]),
   ])
   let write_opts : @io.CsvWriteOptions = @io.CsvWriteOptions(delimiter=';')
-  @io.write_csv_with_options(path, df, write_opts)
+  @io.write_csv(path, df, options=write_opts)
   let read_opts : @io.CsvReadOptions = @io.CsvReadOptions(delimiter=';')
   // The `;` delimiter must reach the parser, and projection push-down must
   // narrow under those same options.
   assert_eq(
-    scan_csv_with_options(path, read_opts).select([@expr.col("a")]).collect(),
-    @io.read_csv_with_options(path, read_opts).select([@expr.col("a")]),
+    scan_csv(path, options=read_opts).select([@expr.col("a")]).collect(),
+    @io.read_csv(path, options=read_opts).select([@expr.col("a")]),
   )
 }
 
@@ -86,7 +86,7 @@ test "scan_csv_with_options snapshots the null-token list" {
   )
   let tokens = ["NA"]
   let read_opts : @io.CsvReadOptions = @io.CsvReadOptions(null_values=tokens)
-  let planned = scan_csv_with_options(path, read_opts)
+  let planned = scan_csv(path, options=read_opts)
   // Mutating the caller's null-token list must not reach the captured plan:
   // "NA" stays a null token for the collect below. The options copy on
   // construction and hand back a copy from `null_values()`, so neither the
@@ -94,7 +94,7 @@ test "scan_csv_with_options snapshots the null-token list" {
   tokens.clear()
   read_opts.null_values().clear()
   let fresh : @io.CsvReadOptions = @io.CsvReadOptions(null_values=["NA"])
-  assert_eq(planned.collect(), @io.read_csv_with_options(path, fresh))
+  assert_eq(planned.collect(), @io.read_csv(path, options=fresh))
 }
 
 ///|
@@ -112,7 +112,7 @@ test "projection push-down does not parse — or fail on — a dropped column" {
   let opts : @io.CsvReadOptions = @io.CsvReadOptions(infer_schema_rows=1)
   // The full eager read parses `b` and fails on `oops`.
   assert_eq(
-    Ok(@io.read_csv_with_options(path, opts)) catch {
+    Ok(@io.read_csv(path, options=opts)) catch {
       e => Err(e)
     },
     Err(
@@ -130,7 +130,7 @@ test "projection push-down does not parse — or fail on — a dropped column" {
   // The lazy scan, narrowed to `a`, never parses `b`, so it collects cleanly —
   // the one place a narrowed CSV scan diverges from a full eager read
   // (matching Polars' projection push-down).
-  let out = scan_csv_with_options(path, opts).select([@expr.col("a")]).collect()
+  let out = scan_csv(path, options=opts).select([@expr.col("a")]).collect()
   assert_eq(out.columns(), ["a"])
   assert_eq(out.item(1, "a"), @types.Scalar::Int(2))
 }

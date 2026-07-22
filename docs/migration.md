@@ -60,6 +60,20 @@ the parameter form could not express.
 returns a copy — as does the constructor, so mutating either array cannot change
 what a reader (or a captured `scan_csv` plan) treats as null.
 
+### The storage-backend methods are engine seams
+
+`Series::storage` / `storage_kind` / `to_numeric` / `to_builtin` /
+`is_canonical` / `mean_opt` and `DataFrame::storage_kinds` / `to_numeric` /
+`to_builtin` / `to_scalar_matrix` are no longer public API. They remain `pub`
+for the library's own cross-package use but are marked `#internal`, so they are
+absent from the generated interface and calling them from another module warns.
+
+They existed to expose the columnar backend, which moved to `internal/column`
+in v0.6. Value-level access covers the user-facing cases: `Series::get` /
+`to_scalars` and the typed constructors instead of a `ColumnStorage`,
+`DataFrame::rows` / `row` / `item` instead of `to_scalar_matrix`, and
+`Series::mean` (catching its error) instead of `mean_opt`.
+
 ### Builders fold into their constructors
 
 | v0.5 | v0.6 |

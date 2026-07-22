@@ -69,6 +69,15 @@ collected in [`migration.md`](migration.md).
   `left_on` / `right_on` is unspellable: the three constructors each fill one
   key shape and the fields stay private. The engine keeps its defensive check
   for the mixed state, now reachable only from an in-package test.
+- The storage-backend surface leaves the public API. `Series::storage` /
+  `storage_kind` / `to_numeric` / `to_builtin` / `is_canonical` /`mean_opt` and
+  `DataFrame::storage_kinds` / `to_numeric` / `to_builtin` /
+  `to_scalar_matrix` are marked `#doc(hidden)` `#internal(engine, ...)`: they
+  stay `pub` so the engine can use them across package boundaries, but they no
+  longer appear in the generated interface and using them from outside the
+  module warns. Handing out a `ColumnStorage` / `StorageKind` was the last
+  public leak of the `internal/column` types — `frame`'s interface no longer
+  imports that package at all.
 - `CsvReadOptions.null_values` is a private field with a copying
   `null_values()` accessor. Both it and the constructor copy, so the token list
   a reader (or a captured `scan_csv` plan) uses can no longer be mutated

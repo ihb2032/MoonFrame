@@ -61,16 +61,13 @@ pub struct ChartSpec {
   title : String?
   color_type : VegaType?
 } derive(Eq, @debug.Debug)
-pub fn ChartSpec::area(String, String) -> Self
-pub fn ChartSpec::bar(String, String) -> Self
+pub fn ChartSpec::area(String, String, color? : String, color_type? : VegaType, title? : String) -> Self
+pub fn ChartSpec::bar(String, String, color? : String, color_type? : VegaType, title? : String) -> Self
 pub fn ChartSpec::equal(Self, Self) -> Bool
-pub fn ChartSpec::line(String, String) -> Self
+pub fn ChartSpec::line(String, String, color? : String, color_type? : VegaType, title? : String) -> Self
 pub fn ChartSpec::not_equal(Self, Self) -> Bool
-pub fn ChartSpec::point(String, String) -> Self
+pub fn ChartSpec::point(String, String, color? : String, color_type? : VegaType, title? : String) -> Self
 pub fn ChartSpec::to_repr(Self) -> @debug.Repr
-pub fn ChartSpec::with_color(Self, String) -> Self
-pub fn ChartSpec::with_color_type(Self, VegaType) -> Self
-pub fn ChartSpec::with_title(Self, String) -> Self
 
 pub struct CsvReadOptions {
   has_header : Bool

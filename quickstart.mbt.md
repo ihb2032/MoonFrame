@@ -320,7 +320,7 @@ test "quickstart: export a Vega-Lite chart spec" {
   ])
   let spec = format_vega_lite(
     sales,
-    ChartSpec::bar("region", "revenue").with_title("Revenue by region"),
+    ChartSpec::bar("region", "revenue", title="Revenue by region"),
   )
   inspect(
     spec,

@@ -60,6 +60,21 @@ the parameter form could not express.
 returns a copy — as does the constructor, so mutating either array cannot change
 what a reader (or a captured `scan_csv` plan) treats as null.
 
+### Duplicate entry points are removed
+
+| v0.5 | v0.6 |
+| --- | --- |
+| `Expr::col("a")` | `col("a")` |
+| `Expr::lit(scalar)` | `lit(scalar)` |
+| `expr.explain()` | `expr.to_string()` |
+| `LazyFrame::from(df)` | `lazy_frame(df)` |
+| `Series::new(name, storage)` / `Series::from_builtin(name, column)` | `Series::from_ints` / `from_floats` / `from_strings` / `from_bools` / `from_*_options` |
+
+`LazyFrame::explain` is untouched — it renders an actual query plan, not a
+string alias. Inside the (now private) column layer, `NumericColumn::from_int64s`
+/ `from_doubles` and `ColumnStorage::from_builtin` / `from_numeric` collapsed
+into `from_ints` / `from_floats` and the enum variants.
+
 ### The engine seams and text helpers are no longer public
 
 `compare_string_lex`, `is_decimal_int_literal`, and `format_scalar_literal`

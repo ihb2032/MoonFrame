@@ -87,8 +87,6 @@ pub fn ColumnStorage::data(Self) -> ColumnData
 pub fn ColumnStorage::dtype(Self) -> @types.DataType
 pub fn ColumnStorage::equal(Self, Self) -> Bool
 pub fn ColumnStorage::float_values(Self) -> (Array[Double], Bitmap) raise @types.DataError
-pub fn ColumnStorage::from_builtin(BuiltinColumn) -> Self
-pub fn ColumnStorage::from_numeric(NumericColumn) -> Self
 pub fn ColumnStorage::get(Self, Int) -> @types.Scalar raise @types.DataError
 pub fn ColumnStorage::int_values(Self) -> (Array[Int64], Bitmap) raise @types.DataError
 pub fn ColumnStorage::is_empty(Self) -> Bool
@@ -116,9 +114,7 @@ pub fn NumericColumn::data(Self) -> ColumnData
 pub fn NumericColumn::dtype(Self) -> @types.DataType
 pub fn NumericColumn::equal(Self, Self) -> Bool
 pub fn NumericColumn::float_values(Self) -> (Array[Double], Bitmap) raise @types.DataError
-pub fn NumericColumn::from_doubles(Array[Double]) -> Self
 pub fn NumericColumn::from_floats(Array[Double]) -> Self
-pub fn NumericColumn::from_int64s(Array[Int64]) -> Self
 pub fn NumericColumn::from_ints(Array[Int64]) -> Self
 pub fn NumericColumn::get(Self, Int) -> @types.Scalar raise @types.DataError
 pub fn NumericColumn::int_values(Self) -> (Array[Int64], Bitmap) raise @types.DataError

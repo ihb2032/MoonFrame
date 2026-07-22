@@ -45,10 +45,10 @@ test "an unmodified plan collects back to the source frame" {
 }
 
 ///|
-test "the static constructor and the free-function alias build the same plan" {
+test "lazy_frame wraps a frame as a Scan leaf" {
   let df = sales_df()
-  assert_eq(LazyFrame::from(df).explain(), lazy_frame(df).explain())
-  assert_eq(LazyFrame::from(df).collect(), lazy_frame(df).collect())
+  assert_eq(lazy_frame(df).explain(), "SCAN [4×3]")
+  assert_eq(lazy_frame(df).collect(), df)
 }
 
 ///|

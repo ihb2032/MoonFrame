@@ -9,7 +9,11 @@ import {
 }
 
 // Values
+pub fn col(String) -> Expr
+
 pub fn cols(Array[String]) -> Array[Expr]
+
+pub fn lit(@types.Scalar) -> Expr
 
 pub fn lit_bool(Bool) -> Expr
 
@@ -89,13 +93,10 @@ pub fn Expr::add(Self, Self) -> Self
 pub fn Expr::cast(Self, @types.DataType) -> Self
 pub fn Expr::ceil(Self) -> Self
 pub fn Expr::children(Self) -> Array[Self]
-#as_free_fn(col)
-pub fn Expr::col(String) -> Self
 pub fn Expr::count(Self) -> Self
 pub fn Expr::div(Self, Self) -> Self
 pub fn Expr::eq(Self, Self) -> Self
 pub fn Expr::equal(Self, Self) -> Bool
-pub fn Expr::explain(Self) -> String
 pub fn Expr::fill_nan(Self, Self) -> Self
 pub fn Expr::fill_null(Self, Self) -> Self
 pub fn Expr::first(Self) -> Self
@@ -112,8 +113,6 @@ pub fn Expr::is_null(Self) -> Self
 pub fn Expr::land(Self, Self) -> Self
 pub fn Expr::last(Self) -> Self
 pub fn Expr::le(Self, Self) -> Self
-#as_free_fn(lit)
-pub fn Expr::lit(@types.Scalar) -> Self
 pub fn Expr::lor(Self, Self) -> Self
 pub fn Expr::lt(Self, Self) -> Self
 pub fn Expr::map_batches(Self, label~ : String, returns_scalar? : Bool, (@series.Series) -> @series.Series raise @types.DataError) -> Self

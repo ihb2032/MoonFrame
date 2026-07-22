@@ -34,6 +34,8 @@ pub extend Series with Debug::{to_repr}
 /// constructor at the backend seam. The backend (and validity / null-count)
 /// is whatever the storage already carries. Callers holding a
 /// `BuiltinColumn` use `from_builtin` instead.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
 pub fn Series::new(name : String, storage : @column.ColumnStorage) -> Series {
   { name, storage }
 }
@@ -42,11 +44,13 @@ pub fn Series::new(name : String, storage : @column.ColumnStorage) -> Series {
 /// Wrap an existing `BuiltinColumn` under the given name, behind a
 /// `ColumnStorage::Builtin`. The source-compatible path for callers that
 /// already hold a `BuiltinColumn` (the v0.2 `new` signature).
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
 pub fn Series::from_builtin(
   name : String,
   storage : @column.BuiltinColumn,
 ) -> Series {
-  { name, storage: @column.ColumnStorage::from_builtin(storage) }
+  { name, storage: @column.ColumnStorage::Builtin(storage) }
 }
 
 ///|
@@ -60,9 +64,7 @@ pub fn Series::from_builtin(
 pub fn Series::from_ints(name : String, values : Array[Int64]) -> Series {
   Series::new(
     name,
-    @column.ColumnStorage::from_numeric(
-      @column.NumericColumn::from_int64s(values),
-    ),
+    @column.ColumnStorage::Numeric(@column.NumericColumn::from_ints(values)),
   )
 }
 
@@ -83,9 +85,7 @@ pub fn Series::from_int_options(
 pub fn Series::from_floats(name : String, values : Array[Double]) -> Series {
   Series::new(
     name,
-    @column.ColumnStorage::from_numeric(
-      @column.NumericColumn::from_doubles(values),
-    ),
+    @column.ColumnStorage::Numeric(@column.NumericColumn::from_floats(values)),
   )
 }
 
@@ -312,15 +312,15 @@ pub fn try_column_to_numeric(s : Series) -> Series {
           @column.ColumnData::Int(a) =>
             Series::new(
               s.name,
-              @column.ColumnStorage::from_numeric(
-                @column.NumericColumn::from_int64s(a),
+              @column.ColumnStorage::Numeric(
+                @column.NumericColumn::from_ints(a),
               ),
             )
           @column.ColumnData::Float(a) =>
             Series::new(
               s.name,
-              @column.ColumnStorage::from_numeric(
-                @column.NumericColumn::from_doubles(a),
+              @column.ColumnStorage::Numeric(
+                @column.NumericColumn::from_floats(a),
               ),
             )
           // No wildcard: a future `ColumnData` variant must decide here

@@ -148,5 +148,5 @@ test "floor_div: general (Builtin) arms for every numeric dtype pair" {
 ///|
 test "floor_div: Expr::explain renders it with //" {
   let e = @expr.col("a").floor_div(@expr.col("b"))
-  inspect(e.explain(), content="(col(a) // col(b))")
+  inspect(e.to_string(), content="(col(a) // col(b))")
 }

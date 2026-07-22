@@ -26,7 +26,7 @@
 //
 // The expression / lazy layers follow the same rule for inherent methods:
 // `Expr::{with_alias,cast,eq,sum,...}` and the `LazyFrame` / `LazyGroupBy`
-// methods (including `LazyFrame::from`) remain available with their
+// methods remain available with their
 // re-exported types. Trait-backed dot methods are different: `expr_ops.mbt`
 // exposes them through explicit `pub extend Expr with Trait::{method}`
 // declarations, while operator syntax is provided by the corresponding trait
@@ -40,9 +40,9 @@
 // `WhenThenElse`; the
 // `BinOp` / `UnOp` / `AggOp` / `StrOp` tag enums are inert (no public API
 // names them), so they are deliberately *not* re-exported. `@lazy` needs the
-// `lazy_frame` constructor (the free-function alias for `LazyFrame::from` —
-// the bare identifier `lazy` is a reserved word, so the alias is spelled
-// `lazy_frame`) plus the `scan_csv` / `scan_ndjson` file sources, whose
+// `lazy_frame` constructor (a free function — the bare identifier `lazy` is
+// a reserved word, and a `DataFrame` method would close an import cycle)
+// plus the `scan_csv` / `scan_ndjson` file sources, whose
 // optional options parameters ride along with `@io`.
 
 ///|

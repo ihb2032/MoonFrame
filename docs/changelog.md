@@ -91,6 +91,17 @@ collected in [`migration.md`](migration.md).
   `internal/literal` owns the shared literal renderer (`format_scalar_literal`,
   now `format_scalar`). The facade stops re-exporting the three of them it
   used to publish; `types` and `series` are now types-and-methods only.
+- The duplicate entry points are gone. `col` / `lit` are plain free functions
+  (the `Expr::col` / `Expr::lit` static methods they were generated from are
+  removed, matching the `lit_int` family); `Expr::explain` — an exact alias of
+  `Expr::to_string` — is removed, while `LazyFrame::explain`, which renders a
+  real plan, stays; `LazyFrame::from` is removed in favour of `lazy_frame(df)`;
+  and the internal aliases `NumericColumn::from_int64s` / `from_doubles` and
+  the `ColumnStorage::from_builtin` / `from_numeric` wrappers collapse into
+  `from_ints` / `from_floats` and the enum variants.
+- `Series::new` / `Series::from_builtin`, which took a storage backend, join
+  the engine seams (`#internal`, absent from the interface). `Series::from_*`
+  are the public constructors.
 - `CsvReadOptions.null_values` is a private field with a copying
   `null_values()` accessor. Both it and the constructor copy, so the token list
   a reader (or a captured `scan_csv` plan) uses can no longer be mutated

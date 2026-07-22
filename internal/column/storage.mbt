@@ -144,20 +144,6 @@ fn[T] storage_cells_equal(
   true
 }
 
-// ── Constructors ──────────────────────────────────────────────────────
-
-///|
-/// Wrap a `BuiltinColumn` (any dtype, possibly nullable).
-pub fn ColumnStorage::from_builtin(column : BuiltinColumn) -> ColumnStorage {
-  Builtin(column)
-}
-
-///|
-/// Wrap an all-valid `NumericColumn`.
-pub fn ColumnStorage::from_numeric(column : NumericColumn) -> ColumnStorage {
-  Numeric(column)
-}
-
 // ── Inspection (transparent forwarding, both arms) ────────────────────
 
 ///|
@@ -426,7 +412,7 @@ pub fn ColumnStorage::cast(
   self : ColumnStorage,
   target : @types.DataType,
 ) -> ColumnStorage raise @types.DataError {
-  ColumnStorage::from_builtin(self.to_builtin().cast(target))
+  ColumnStorage::Builtin(self.to_builtin().cast(target))
 }
 
 // ── Converge onto the Numeric backend ─────────────────────────────────

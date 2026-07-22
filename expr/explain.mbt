@@ -34,19 +34,11 @@ pub extend Expr with Show::{to_string, output}
 /// handwritten `Eq`. `Repr` has no public constructor, so delegating to an
 /// existing `Debug` (here `String`'s) is the one way to build one.
 pub impl @debug.Debug for Expr with fn to_repr(self) {
-  @debug.Debug::to_repr(self.explain())
+  @debug.Debug::to_repr(self.to_string())
 }
 
 ///|
 pub extend Expr with Debug::{to_repr}
-
-///|
-/// The `Show` rendering as a `String` — the human-readable face of an
-/// expression for demos, docs, and (from L1 on) per-node plan lines in
-/// `LazyFrame::explain`.
-pub fn Expr::explain(self : Expr) -> String {
-  self.to_string()
-}
 
 ///|
 /// The immediate sub-expressions of a node, left to right — the single

@@ -1,4 +1,4 @@
-// Blackbox tests for `DataFrame::to_html` / `to_html_with_options`.
+// Blackbox tests for `DataFrame::to_html` / `to_html`.
 //
 // The renderer is deterministic — a given DataFrame plus options maps to
 // fixed output bytes — so we pin each aspect with an exact-string
@@ -102,9 +102,9 @@ test "to_html: wide Unicode column names and cells pass through" {
 }
 
 ///|
-test "to_html: equals to_html_with_options with default options" {
+test "to_html: equals to_html with default options" {
   let df = DataFrame::new([Series::from_ints("n", [1, 2])])
-  assert_eq(df.to_html(), df.to_html_with_options(HtmlOptions::default()))
+  assert_eq(df.to_html(), df.to_html(options=HtmlOptions()))
 }
 
 // ── escaping ────────────────────────────────────────────────────────
@@ -132,9 +132,9 @@ test "to_html: escapes &, <, >, \", ' in headers and cells (default)" {
 }
 
 ///|
-test "to_html_with_options: escape=false passes markup through verbatim" {
+test "to_html: escape=false passes markup through verbatim" {
   let df = DataFrame::new([Series::from_strings("h", ["<b>bold</b>"])])
-  let opts = HtmlOptions::default().with_escape(false)
+  let opts : HtmlOptions = HtmlOptions(escape=false)
   let expected =
     #|<table>
     #|<thead>
@@ -145,15 +145,15 @@ test "to_html_with_options: escape=false passes markup through verbatim" {
     #|</tbody>
     #|</table>
     #|
-  assert_eq(df.to_html_with_options(opts), expected)
+  assert_eq(df.to_html(options=opts), expected)
 }
 
 // ── max_rows truncation ─────────────────────────────────────────────
 
 ///|
-test "to_html_with_options: max_rows truncates with a tfoot banner" {
+test "to_html: max_rows truncates with a tfoot banner" {
   let df = DataFrame::new([Series::from_ints("n", [1, 2, 3, 4, 5])])
-  let opts = HtmlOptions::default().with_max_rows(2)
+  let opts : HtmlOptions = HtmlOptions(max_rows=2)
   let expected =
     #|<table>
     #|<thead>
@@ -168,13 +168,13 @@ test "to_html_with_options: max_rows truncates with a tfoot banner" {
     #|</tfoot>
     #|</table>
     #|
-  assert_eq(df.to_html_with_options(opts), expected)
+  assert_eq(df.to_html(options=opts), expected)
 }
 
 ///|
-test "to_html_with_options: negative max_rows clamps to 0 (header + banner)" {
+test "to_html: negative max_rows clamps to 0 (header + banner)" {
   let df = DataFrame::new([Series::from_ints("n", [1, 2])])
-  let opts = HtmlOptions::default().with_max_rows(-3)
+  let opts : HtmlOptions = HtmlOptions(max_rows=-3)
   let expected =
     #|<table>
     #|<thead>
@@ -187,13 +187,13 @@ test "to_html_with_options: negative max_rows clamps to 0 (header + banner)" {
     #|</tfoot>
     #|</table>
     #|
-  assert_eq(df.to_html_with_options(opts), expected)
+  assert_eq(df.to_html(options=opts), expected)
 }
 
 ///|
-test "to_html_with_options: max_rows >= nrows shows all rows, no banner" {
+test "to_html: max_rows >= nrows shows all rows, no banner" {
   let df = DataFrame::new([Series::from_ints("n", [1, 2])])
-  let opts = HtmlOptions::default().with_max_rows(100)
+  let opts : HtmlOptions = HtmlOptions(max_rows=100)
   let expected =
     #|<table>
     #|<thead>
@@ -205,15 +205,15 @@ test "to_html_with_options: max_rows >= nrows shows all rows, no banner" {
     #|</tbody>
     #|</table>
     #|
-  assert_eq(df.to_html_with_options(opts), expected)
+  assert_eq(df.to_html(options=opts), expected)
 }
 
 // ── class / caption ─────────────────────────────────────────────────
 
 ///|
-test "to_html_with_options: with_table_class sets the class attribute" {
+test "to_html: with_table_class sets the class attribute" {
   let df = DataFrame::new([Series::from_ints("n", [1])])
-  let opts = HtmlOptions::default().with_table_class("dataframe")
+  let opts : HtmlOptions = HtmlOptions(table_class="dataframe")
   let expected =
     #|<table class="dataframe">
     #|<thead>
@@ -224,13 +224,13 @@ test "to_html_with_options: with_table_class sets the class attribute" {
     #|</tbody>
     #|</table>
     #|
-  assert_eq(df.to_html_with_options(opts), expected)
+  assert_eq(df.to_html(options=opts), expected)
 }
 
 ///|
-test "to_html_with_options: with_caption emits an escaped caption" {
+test "to_html: with_caption emits an escaped caption" {
   let df = DataFrame::new([Series::from_ints("n", [1])])
-  let opts = HtmlOptions::default().with_caption("Sales & totals")
+  let opts : HtmlOptions = HtmlOptions(caption="Sales & totals")
   let expected =
     #|<table>
     #|<caption>Sales &amp; totals</caption>
@@ -242,19 +242,20 @@ test "to_html_with_options: with_caption emits an escaped caption" {
     #|</tbody>
     #|</table>
     #|
-  assert_eq(df.to_html_with_options(opts), expected)
+  assert_eq(df.to_html(options=opts), expected)
 }
 
 ///|
-test "to_html_with_options: class + caption + max_rows compose" {
+test "to_html: class + caption + max_rows compose" {
   let df = DataFrame::new([
     Series::from_strings("region", ["west", "east", "north"]),
     Series::from_ints("n", [10, 5, 7]),
   ])
-  let opts = HtmlOptions::default()
-    .with_table_class("dataframe")
-    .with_caption("Top regions")
-    .with_max_rows(2)
+  let opts : HtmlOptions = HtmlOptions(
+    table_class="dataframe",
+    caption="Top regions",
+    max_rows=2,
+  )
   let expected =
     #|<table class="dataframe">
     #|<caption>Top regions</caption>
@@ -270,5 +271,5 @@ test "to_html_with_options: class + caption + max_rows compose" {
     #|</tfoot>
     #|</table>
     #|
-  assert_eq(df.to_html_with_options(opts), expected)
+  assert_eq(df.to_html(options=opts), expected)
 }

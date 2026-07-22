@@ -324,7 +324,7 @@ test "pipeline: join enriches a frame then sorts via the facade" {
   // is null.
   let all_orders = orders.join(
     customers,
-    JoinOptions::on([col("customer_id")]).with_how(JoinType::Left),
+    JoinOptions::on([col("customer_id")], how=JoinType::Left),
   )
   assert_eq(all_orders.columns(), [
     "order_id", "customer_id", "amount", "region",

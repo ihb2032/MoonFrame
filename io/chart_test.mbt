@@ -114,9 +114,9 @@ test "format_vega_lite: a `.` in a column name is escaped in the Vega field path
 }
 
 ///|
-test "format_vega_lite: with_color_type overrides the color channel's field type" {
+test "format_vega_lite: color_type overrides the color channel's field type" {
   // A numeric grouping column ("g") would infer `quantitative` (a continuous
-  // gradient); with_color_type forces the chosen type. Covers all four
+  // gradient); color_type forces the chosen type. Covers all four
   // VegaType variants.
   let df = @frame.DataFrame::new([
     @series.Series::from_strings("cat", ["x"]),
@@ -131,9 +131,7 @@ test "format_vega_lite: with_color_type overrides the color channel's field type
   ]
   for case in cases {
     let (vt, expected) = case
-    let spec = @io.ChartSpec::point("cat", "val")
-      .with_color("g")
-      .with_color_type(vt)
+    let spec = @io.ChartSpec::point("cat", "val", color="g", color_type=vt)
     let got = match @json.parse(@io.format_vega_lite(df, spec)) {
       Object(obj) =>
         match obj.get("encoding") {
@@ -181,11 +179,11 @@ test "format_vega_lite: each ChartKind maps to its Vega-Lite mark" {
 }
 
 ///|
-test "format_vega_lite: with_title injects a top-level title" {
+test "format_vega_lite: title injects a top-level title" {
   inspect(
     @io.format_vega_lite(
       catval_df(),
-      @io.ChartSpec::bar("cat", "val").with_title("Sales"),
+      @io.ChartSpec::bar("cat", "val", title="Sales"),
     ),
     content=(
       #|{"$schema":"https://vega.github.io/schema/vega-lite/v5.json","title":"Sales","mark":"bar","encoding":{"x":{"field":"cat","type":"nominal"},"y":{"field":"val","type":"quantitative"}},"data":{"values":[{"cat":"x","val":1}]}}
@@ -194,11 +192,11 @@ test "format_vega_lite: with_title injects a top-level title" {
 }
 
 ///|
-test "format_vega_lite: with_color adds a color encoding channel" {
+test "format_vega_lite: color adds a color encoding channel" {
   inspect(
     @io.format_vega_lite(
       catvalgrp_df(),
-      @io.ChartSpec::bar("cat", "val").with_color("grp"),
+      @io.ChartSpec::bar("cat", "val", color="grp"),
     ),
     content=(
       #|{"$schema":"https://vega.github.io/schema/vega-lite/v5.json","mark":"bar","encoding":{"x":{"field":"cat","type":"nominal"},"y":{"field":"val","type":"quantitative"},"color":{"field":"grp","type":"nominal"}},"data":{"values":[{"cat":"x","val":1,"grp":"a"}]}}
@@ -267,7 +265,7 @@ test "format_vega_lite: output is well-formed JSON (parses back to an object)" {
   // JSON reader, self-certifying it is a legal Vega-Lite v5 document.
   let spec = @io.format_vega_lite(
     catvalgrp_df(),
-    @io.ChartSpec::area("cat", "val").with_title("T").with_color("grp"),
+    @io.ChartSpec::area("cat", "val", title="T", color="grp"),
   )
   assert_true((Ok(@json.parse(spec)) catch { e => Err(e) }) is Ok(Object(_)))
 }
@@ -304,7 +302,7 @@ test "format_vega_lite: an unknown color column raises ColumnNotFound" {
     Ok(
       @io.format_vega_lite(
         df,
-        @io.ChartSpec::bar("cat", "val").with_color("nocolor"),
+        @io.ChartSpec::bar("cat", "val", color="nocolor"),
       ),
     ) catch {
       e => Err(e)
@@ -322,7 +320,7 @@ test "format_vega_lite: y is validated before the color column" {
     Ok(
       @io.format_vega_lite(
         df,
-        @io.ChartSpec::bar("cat", "noy").with_color("nocolor"),
+        @io.ChartSpec::bar("cat", "noy", color="nocolor"),
       ),
     ) catch {
       e => Err(e)
@@ -337,7 +335,7 @@ test "format_vega_lite: y is validated before the color column" {
 test "write_vega_lite writes the spec to disk verbatim" {
   let path = "_build/io_chart_test_write.json"
   let df = catval_df()
-  let spec = @io.ChartSpec::bar("cat", "val").with_title("Disk")
+  let spec = @io.ChartSpec::bar("cat", "val", title="Disk")
   @io.write_vega_lite(path, df, spec)
   // The file holds exactly what `format_vega_lite` produces.
   let on_disk = @fs.read_file_to_string(path)

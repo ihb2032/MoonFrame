@@ -62,7 +62,7 @@ test "inner join keeps only matched rows, in left order" {
 test "left join keeps every left row, nulling unmatched right columns" {
   let out = employees().join(
     departments(),
-    JoinOptions::on([@expr.col("dept_id")]).with_how(JoinType::Left),
+    JoinOptions::on([@expr.col("dept_id")], how=JoinType::Left),
   )
   assert_eq(out.check_invariants(), Ok(()))
   // A left join coalesces the key by default (Polars): `dept_id` appears once,
@@ -89,9 +89,7 @@ test "left join with coalesce=true merges the key into one column" {
   // key appears once (the left's value, always present on a left row).
   let out = employees().join(
     departments(),
-    JoinOptions::on([@expr.col("dept_id")])
-    .with_how(JoinType::Left)
-    .with_coalesce(true),
+    JoinOptions::on([@expr.col("dept_id")], how=JoinType::Left, coalesce=true),
   )
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.columns(), ["emp_id", "name", "dept_id", "dept_name"])
@@ -107,7 +105,7 @@ test "inner join with coalesce=false keeps both key columns" {
   // equal values.
   let out = employees().join(
     departments(),
-    JoinOptions::on([@expr.col("dept_id")]).with_coalesce(false),
+    JoinOptions::on([@expr.col("dept_id")], coalesce=false),
   )
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.columns(), [
@@ -228,10 +226,7 @@ test "with_suffix customises the collision suffix" {
     Series::from_ints("id", [1]),
     Series::from_ints("value", [9]),
   ])
-  let out = left.join(
-    right,
-    JoinOptions::on([@expr.col("id")]).with_suffix("_r"),
-  )
+  let out = left.join(right, JoinOptions::on([@expr.col("id")], suffix="_r"))
   assert_eq(out.columns(), ["id", "value", "value_r"])
 }
 
@@ -295,7 +290,7 @@ test "inner join drops rows with a null key on either side" {
 test "left join keeps a null-keyed left row with null right columns" {
   let out = left_nullable().join(
     right_nullable(),
-    JoinOptions::on([@expr.col("k")]).with_how(JoinType::Left),
+    JoinOptions::on([@expr.col("k")], how=JoinType::Left),
   )
   assert_eq(out.check_invariants(), Ok(()))
   // Left join coalesces the key; all three left rows survive.
@@ -353,7 +348,7 @@ test "right join coalesces the key to the right frame's value (signed zero)" {
   ])
   let out = left.join(
     right,
-    JoinOptions::on([@expr.col("k")]).with_how(JoinType::Right),
+    JoinOptions::on([@expr.col("k")], how=JoinType::Right),
   )
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.shape(), (1, 3))
@@ -392,7 +387,7 @@ test "cross join suffixes a right column clashing with a left name" {
     Series::from_strings("lv", ["a", "b"]),
   ])
   let right = DataFrame::new([Series::from_ints("x", [10, 20])])
-  let out = left.join(right, JoinOptions::cross().with_suffix("_r"))
+  let out = left.join(right, JoinOptions::cross(suffix="_r"))
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.columns(), ["x", "lv", "x_r"])
   assert_eq(out.shape(), (4, 3))
@@ -416,10 +411,7 @@ test "cross join rejects key columns" {
   // Passing keys to a cross join is a usage error (Polars rejects it too).
   assert_true(
     (Ok(
-      left.join(
-        right,
-        JoinOptions::on([@expr.col("k")]).with_how(JoinType::Cross),
-      ),
+      left.join(right, JoinOptions::on([@expr.col("k")], how=JoinType::Cross)),
     ) catch {
       e => Err(e)
     })
@@ -437,7 +429,7 @@ test "a non-cross join with an empty key list is rejected" {
     is Err(@types.DataError::InvalidOperation(_)),
   )
   assert_true(
-    (Ok(left.join(right, JoinOptions::on([]).with_how(JoinType::Left))) catch {
+    (Ok(left.join(right, JoinOptions::on([], how=JoinType::Left))) catch {
       e => Err(e)
     })
     is Err(@types.DataError::InvalidOperation(_)),
@@ -489,7 +481,7 @@ test "left join with a 0-row right frame keeps all left rows, null right" {
   ])
   let out = left.join(
     right,
-    JoinOptions::on([@expr.col("k")]).with_how(JoinType::Left),
+    JoinOptions::on([@expr.col("k")], how=JoinType::Left),
   )
   assert_eq(out.check_invariants(), Ok(()))
   // Nothing matches; the coalesced key keeps the left value and rv is null.
@@ -517,7 +509,7 @@ test "join of two 0-row frames is empty with the joined schema" {
   assert_eq(left.join(right, JoinOptions::on([@expr.col("k")])).shape(), (0, 3))
   assert_eq(
     left
-    .join(right, JoinOptions::on([@expr.col("k")]).with_how(JoinType::Left))
+    .join(right, JoinOptions::on([@expr.col("k")], how=JoinType::Left))
     .shape(),
     (0, 3),
   )
@@ -560,7 +552,7 @@ test "join gathers Int / Float / Bool right columns: valid, null, unmatched" {
   // the coalesced key keeps the left value (3).
   let out = left.join(
     right,
-    JoinOptions::on([@expr.col("k")]).with_how(JoinType::Left),
+    JoinOptions::on([@expr.col("k")], how=JoinType::Left),
   )
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.columns(), ["k", "lv", "ri", "rf", "rb"])
@@ -634,7 +626,7 @@ test "left_on / right_on TypeMismatch names both sides' keys" {
     Ok(
       left.join(
         right,
-        JoinOptions::left_on([@expr.col("lk")]).with_right_on([@expr.col("rk")]),
+        JoinOptions::left_on([@expr.col("lk")], right_on=[@expr.col("rk")]),
       ),
     ) catch {
       e => Err(e)
@@ -655,7 +647,7 @@ test "left_on / right_on TypeMismatch names both sides' keys" {
 test "right join keeps every right row, nulling unmatched left columns" {
   let out = employees().join(
     departments(),
-    JoinOptions::on([@expr.col("dept_id")]).with_how(JoinType::Right),
+    JoinOptions::on([@expr.col("dept_id")], how=JoinType::Right),
   )
   assert_eq(out.check_invariants(), Ok(()))
   // Mirror of left: column order is still left then right, and a right join
@@ -689,9 +681,7 @@ test "right join with coalesce=true takes the key from the right side" {
   // right side — so the unmatched HR row carries dept 30 in the single key.
   let out = employees().join(
     departments(),
-    JoinOptions::on([@expr.col("dept_id")])
-    .with_how(JoinType::Right)
-    .with_coalesce(true),
+    JoinOptions::on([@expr.col("dept_id")], how=JoinType::Right, coalesce=true),
   )
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.columns(), ["emp_id", "name", "dept_id", "dept_name"])
@@ -709,7 +699,7 @@ test "right join with coalesce=true takes the key from the right side" {
 test "outer join keeps unmatched rows from both sides" {
   let out = employees().join(
     departments(),
-    JoinOptions::on([@expr.col("dept_id")]).with_how(JoinType::Outer),
+    JoinOptions::on([@expr.col("dept_id")], how=JoinType::Outer),
   )
   assert_eq(out.check_invariants(), Ok(()))
   // Full outer does NOT coalesce by default — both keys kept.
@@ -743,9 +733,7 @@ test "outer join with coalesce=true takes the present side per row" {
   // value otherwise (an unmatched-right row).
   let out = employees().join(
     departments(),
-    JoinOptions::on([@expr.col("dept_id")])
-    .with_how(JoinType::Outer)
-    .with_coalesce(true),
+    JoinOptions::on([@expr.col("dept_id")], how=JoinType::Outer, coalesce=true),
   )
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.columns(), ["emp_id", "name", "dept_id", "dept_name"])
@@ -783,9 +771,7 @@ fn coalesce_probe(
   ])
   left.join(
     right,
-    JoinOptions::on([@expr.col("k")])
-    .with_how(JoinType::Outer)
-    .with_coalesce(true),
+    JoinOptions::on([@expr.col("k")], how=JoinType::Outer, coalesce=true),
   )
 }
 
@@ -867,7 +853,7 @@ test "outer join on a key tuple keeps unmatched rows from both sides" {
   ])
   let out = left.join(
     right,
-    JoinOptions::on([@expr.col("a"), @expr.col("b")]).with_how(JoinType::Outer),
+    JoinOptions::on([@expr.col("a"), @expr.col("b")], how=JoinType::Outer),
   )
   assert_eq(out.check_invariants(), Ok(()))
   // Both keys kept (no coalesce by default), each suffixed on the right.
@@ -903,7 +889,7 @@ test "right join on a key tuple keeps every right row" {
   ])
   let out = left.join(
     right,
-    JoinOptions::on([@expr.col("a"), @expr.col("b")]).with_how(JoinType::Right),
+    JoinOptions::on([@expr.col("a"), @expr.col("b")], how=JoinType::Right),
   )
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.columns(), ["a", "b", "lv", "rv"])
@@ -924,7 +910,7 @@ test "right join on a key tuple keeps every right row" {
 test "right join: a null right key matches nothing, kept with null left" {
   let out = left_nullable().join(
     right_nullable(),
-    JoinOptions::on([@expr.col("k")]).with_how(JoinType::Right),
+    JoinOptions::on([@expr.col("k")], how=JoinType::Right),
   )
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.columns(), ["k", "lv", "rv"])
@@ -945,7 +931,7 @@ test "right join: a null right key matches nothing, kept with null left" {
 test "outer join: null keys on both sides each stay unmatched" {
   let out = left_nullable().join(
     right_nullable(),
-    JoinOptions::on([@expr.col("k")]).with_how(JoinType::Outer),
+    JoinOptions::on([@expr.col("k")], how=JoinType::Outer),
   )
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.columns(), ["k", "lv", "k_right", "rv"])
@@ -975,7 +961,7 @@ test "right join suffixes a right non-key column clashing with a left name" {
   ])
   let out = left.join(
     right,
-    JoinOptions::on([@expr.col("id")]).with_how(JoinType::Right),
+    JoinOptions::on([@expr.col("id")], how=JoinType::Right),
   )
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.columns(), ["id", "value", "value_right"])
@@ -1000,7 +986,7 @@ test "right join with a 0-row left frame keeps all right rows, null left" {
   ])
   let out = left.join(
     right,
-    JoinOptions::on([@expr.col("k")]).with_how(JoinType::Right),
+    JoinOptions::on([@expr.col("k")], how=JoinType::Right),
   )
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.columns(), ["k", "lv", "rv"])
@@ -1026,7 +1012,7 @@ test "outer join of two 0-row frames is empty with the joined schema" {
   // No coalesce by default, so both keys are kept (4 cols), zero rows.
   let out = left.join(
     right,
-    JoinOptions::on([@expr.col("k")]).with_how(JoinType::Outer),
+    JoinOptions::on([@expr.col("k")], how=JoinType::Outer),
   )
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.shape(), (0, 4))
@@ -1034,9 +1020,7 @@ test "outer join of two 0-row frames is empty with the joined schema" {
   // Coalesced outer over empty frames keeps the key once (3 cols), 0 rows.
   let merged = left.join(
     right,
-    JoinOptions::on([@expr.col("k")])
-    .with_how(JoinType::Outer)
-    .with_coalesce(true),
+    JoinOptions::on([@expr.col("k")], how=JoinType::Outer, coalesce=true),
   )
   assert_eq(merged.shape(), (0, 3))
   assert_eq(merged.columns(), ["k", "lv", "rv"])
@@ -1048,7 +1032,7 @@ test "a right join with an empty key list is rejected" {
   let right = DataFrame::new([Series::from_ints("k", [2])])
   // The Right planner guards an empty `on` the same way the others do.
   assert_true(
-    (Ok(left.join(right, JoinOptions::on([]).with_how(JoinType::Right))) catch {
+    (Ok(left.join(right, JoinOptions::on([], how=JoinType::Right))) catch {
       e => Err(e)
     })
     is Err(@types.DataError::InvalidOperation(_)),
@@ -1063,7 +1047,7 @@ test "right / outer join raise ColumnNotFound for a missing key" {
     (Ok(
       employees().join(
         departments(),
-        JoinOptions::on([@expr.col("nope")]).with_how(JoinType::Right),
+        JoinOptions::on([@expr.col("nope")], how=JoinType::Right),
       ),
     ) catch {
       e => Err(e)
@@ -1074,7 +1058,7 @@ test "right / outer join raise ColumnNotFound for a missing key" {
     (Ok(
       employees().join(
         departments(),
-        JoinOptions::on([@expr.col("nope")]).with_how(JoinType::Outer),
+        JoinOptions::on([@expr.col("nope")], how=JoinType::Outer),
       ),
     ) catch {
       e => Err(e)
@@ -1097,10 +1081,7 @@ test "right / outer join raise TypeMismatch when a key dtype differs" {
   ])
   assert_true(
     (Ok(
-      left.join(
-        right,
-        JoinOptions::on([@expr.col("k")]).with_how(JoinType::Right),
-      ),
+      left.join(right, JoinOptions::on([@expr.col("k")], how=JoinType::Right)),
     ) catch {
       e => Err(e)
     })
@@ -1110,10 +1091,7 @@ test "right / outer join raise TypeMismatch when a key dtype differs" {
   )
   assert_true(
     (Ok(
-      left.join(
-        right,
-        JoinOptions::on([@expr.col("k")]).with_how(JoinType::Outer),
-      ),
+      left.join(right, JoinOptions::on([@expr.col("k")], how=JoinType::Outer)),
     ) catch {
       e => Err(e)
     })
@@ -1146,8 +1124,9 @@ test "join raises DuplicateColumn for a key repeated in `on`" {
     Ok(
       employees().join(
         departments(),
-        JoinOptions::on([@expr.col("dept_id"), @expr.col("dept_id")]).with_how(
-          JoinType::Right,
+        JoinOptions::on(
+          [@expr.col("dept_id"), @expr.col("dept_id")],
+          how=JoinType::Right,
         ),
       ),
     ) catch {
@@ -1159,8 +1138,9 @@ test "join raises DuplicateColumn for a key repeated in `on`" {
     Ok(
       employees().join(
         departments(),
-        JoinOptions::on([@expr.col("dept_id"), @expr.col("dept_id")]).with_how(
-          JoinType::Outer,
+        JoinOptions::on(
+          [@expr.col("dept_id"), @expr.col("dept_id")],
+          how=JoinType::Outer,
         ),
       ),
     ) catch {
@@ -1235,9 +1215,7 @@ test "join demotes only the columns that pick up an unmatched-row null" {
   // `dept_id` (every row present) stays `Numeric`.
   let out = employees().join(
     departments(),
-    JoinOptions::on([@expr.col("dept_id")])
-    .with_how(JoinType::Left)
-    .with_coalesce(false),
+    JoinOptions::on([@expr.col("dept_id")], how=JoinType::Left, coalesce=false),
   )
   assert_eq(out.columns(), [
     "emp_id", "name", "dept_id", "dept_id_right", "dept_name",
@@ -1275,7 +1253,7 @@ test "a right numeric column with no unmatched-left rows stays Numeric" {
   ])
   let out = left.join(
     right,
-    JoinOptions::on([@expr.col("k")]).with_how(JoinType::Left),
+    JoinOptions::on([@expr.col("k")], how=JoinType::Left),
   )
   assert_eq(out.columns(), ["k", "lv", "rv"])
   assert_eq(out.storage_kinds(), [
@@ -1315,7 +1293,7 @@ test "left_on / right_on join on differently-named columns, keeping both" {
   ])
   let out = left.join(
     right,
-    JoinOptions::left_on([@expr.col("lk")]).with_right_on([@expr.col("rk")]),
+    JoinOptions::left_on([@expr.col("lk")], right_on=[@expr.col("rk")]),
   )
   assert_eq(out.check_invariants(), Ok(()))
   // left_on / right_on never coalesce — both differently-named key columns
@@ -1348,7 +1326,7 @@ test "left_on may repeat a column for a multi-condition join" {
   ])
   let out = left.join(
     right,
-    JoinOptions::left_on([@expr.col("a"), @expr.col("a")]).with_right_on([
+    JoinOptions::left_on([@expr.col("a"), @expr.col("a")], right_on=[
       @expr.col("b"),
       @expr.col("c"),
     ]),
@@ -1375,7 +1353,7 @@ test "left_on / right_on with a derived right key matches on the value" {
   // Match left `cents` against right `dollars * 100`: 100↔1, 300↔3; 250 drops.
   let out = left.join(
     right,
-    JoinOptions::left_on([@expr.col("cents")]).with_right_on([
+    JoinOptions::left_on([@expr.col("cents")], right_on=[
       @expr.col("dollars") * @expr.lit_int(100),
     ]),
   )
@@ -1409,10 +1387,10 @@ test "two derived keys over one source column join without a false DuplicateColu
   // Keys: ts + 1 = [4, 5] and ts * 2 = [6, 8]; both name "ts" but differ.
   let out = left.join(
     right,
-    JoinOptions::left_on([
-      @expr.col("ts") + @expr.lit_int(1),
-      @expr.col("ts") * @expr.lit_int(2),
-    ]).with_right_on([@expr.col("ka"), @expr.col("kb")]),
+    JoinOptions::left_on(
+      [@expr.col("ts") + @expr.lit_int(1), @expr.col("ts") * @expr.lit_int(2)],
+      right_on=[@expr.col("ka"), @expr.col("kb")],
+    ),
   )
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.columns(), ["ts", "litem", "ka", "kb", "ritem"])
@@ -1447,8 +1425,11 @@ test "a derived `on` key turns off coalescing, keeping both source columns" {
   assert_eq(out.item(1, "x"), @types.Scalar::Int(3))
   assert_eq(out.item(1, "rv"), @types.Scalar::Int(30))
   // A derived key cannot name a single column, so even an explicit
-  // `with_coalesce(true)` leaves both key columns in place.
-  let forced = left.join(right, opts.with_coalesce(true))
+  // `coalesce=true` leaves both key columns in place.
+  let forced = left.join(
+    right,
+    JoinOptions::on([@expr.col("x") * @expr.lit_int(2)], coalesce=true),
+  )
   assert_eq(forced.columns(), ["x", "lv", "x_right", "rv"])
 }
 
@@ -1464,7 +1445,7 @@ test "left_on / right_on keys: a null key matches nothing" {
   ])
   let out = left.join(
     right,
-    JoinOptions::left_on([@expr.col("lk")]).with_right_on([@expr.col("rk")]),
+    JoinOptions::left_on([@expr.col("lk")], right_on=[@expr.col("rk")]),
   )
   assert_eq(out.check_invariants(), Ok(()))
   // Only lk=1 ↔ rk=1 pairs; the null-keyed rows match nothing (null != null),
@@ -1473,24 +1454,6 @@ test "left_on / right_on keys: a null key matches nothing" {
   assert_eq(out.shape(), (1, 4))
   assert_eq(out.item(0, "lv"), @types.Scalar::String("a"))
   assert_eq(out.item(0, "rv"), @types.Scalar::String("x"))
-}
-
-///|
-test "join rejects mixing `on` with `left_on` / `right_on`" {
-  let left = DataFrame::new([Series::from_ints("k", [1])])
-  let right = DataFrame::new([Series::from_ints("k", [1])])
-  // Giving both is a usage error (Polars accepts only one form).
-  assert_true(
-    (Ok(
-      left.join(
-        right,
-        JoinOptions::on([@expr.col("k")]).with_right_on([@expr.col("k")]),
-      ),
-    ) catch {
-      e => Err(e)
-    })
-    is Err(@types.DataError::InvalidOperation(_)),
-  )
 }
 
 ///|
@@ -1505,7 +1468,7 @@ test "join rejects unequal-length left_on / right_on" {
     (Ok(
       left.join(
         right,
-        JoinOptions::left_on([@expr.col("a"), @expr.col("b")]).with_right_on([
+        JoinOptions::left_on([@expr.col("a"), @expr.col("b")], right_on=[
           @expr.col("c"),
         ]),
       ),
@@ -1514,9 +1477,9 @@ test "join rejects unequal-length left_on / right_on" {
     })
     is Err(@types.DataError::InvalidOperation(_)),
   )
-  // `left_on` with no `right_on` is the 1-vs-0 case of the same rule.
+  // An empty `right_on` is the 1-vs-0 case of the same rule.
   assert_true(
-    (Ok(left.join(right, JoinOptions::left_on([@expr.col("a")]))) catch {
+    (Ok(left.join(right, JoinOptions::left_on([@expr.col("a")], right_on=[]))) catch {
       e => Err(e)
     })
     is Err(@types.DataError::InvalidOperation(_)),

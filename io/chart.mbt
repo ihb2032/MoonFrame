@@ -41,8 +41,8 @@ pub extend ChartKind with Debug::{to_repr}
 
 ///|
 /// A Vega-Lite field `type`, used to override the dtype-based inference for the
-/// `color` channel. `pub(all)` so callers can name the variants when calling
-/// `with_color_type`. `Quantitative` is a continuous measure (a color
+/// `color` channel. `pub(all)` so callers can name the variants in a
+/// constructor's `color_type`. `Quantitative` is a continuous measure (a color
 /// gradient), `Nominal` an unordered category (distinct colors per value),
 /// `Ordinal` an ordered category, and `Temporal` a time field.
 pub(all) enum VegaType {
@@ -74,9 +74,9 @@ fn vega_type_string(t : VegaType) -> String {
 /// an optional `color` grouping column, and an optional `title`. Fields are
 /// read-only outside the package — build a spec through one of the
 /// mark-named constructors (`ChartSpec::bar(x, y)` / `line` / `point` /
-/// `area`) and chain `with_color(column)` / `with_title(text)`:
+/// `area`), naming `color` / `color_type` / `title` as needed:
 ///
-///   `ChartSpec::bar("region", "revenue").with_title("Revenue by region")`
+///   `ChartSpec::bar("region", "revenue", title="Revenue by region")`
 ///
 /// `x` / `y` / `color` are column names resolved against the frame at
 /// `format_vega_lite` time (a missing name raises `ColumnNotFound`); each
@@ -101,53 +101,86 @@ pub extend ChartSpec with Debug::{to_repr}
 
 ///|
 /// A bar chart of `y` against `x` (Vega-Lite `mark: "bar"`).
-pub fn ChartSpec::bar(x : String, y : String) -> ChartSpec {
-  { kind: Bar, x, y, color: None, title: None, color_type: None }
+///
+/// `color` maps a column to the Vega-Lite `color` encoding (grouping /
+/// colouring the marks by it); `color_type` overrides that channel's field
+/// `type` instead of inferring it from the column dtype — use `Nominal` (or
+/// `Ordinal`) to render a *numeric* grouping column, a cluster id or a year,
+/// as distinct per-group colors rather than the continuous gradient
+/// `quantitative` would produce (only `color` honours this; `x` / `y` keep
+/// dtype inference). `title` carries the chart title. Omitting any of them
+/// leaves it out of the rendered spec.
+pub fn ChartSpec::bar(
+  x : String,
+  y : String,
+  color? : String,
+  color_type? : VegaType,
+  title? : String,
+) -> ChartSpec {
+  { kind: Bar, x, y, color, title, color_type }
 }
 
 ///|
 /// A line chart of `y` against `x` (Vega-Lite `mark: "line"`).
-pub fn ChartSpec::line(x : String, y : String) -> ChartSpec {
-  { kind: Line, x, y, color: None, title: None, color_type: None }
+///
+/// `color` maps a column to the Vega-Lite `color` encoding (grouping /
+/// colouring the marks by it); `color_type` overrides that channel's field
+/// `type` instead of inferring it from the column dtype — use `Nominal` (or
+/// `Ordinal`) to render a *numeric* grouping column, a cluster id or a year,
+/// as distinct per-group colors rather than the continuous gradient
+/// `quantitative` would produce (only `color` honours this; `x` / `y` keep
+/// dtype inference). `title` carries the chart title. Omitting any of them
+/// leaves it out of the rendered spec.
+pub fn ChartSpec::line(
+  x : String,
+  y : String,
+  color? : String,
+  color_type? : VegaType,
+  title? : String,
+) -> ChartSpec {
+  { kind: Line, x, y, color, title, color_type }
 }
 
 ///|
 /// A scatter (point) chart of `y` against `x` (Vega-Lite `mark: "point"`).
-pub fn ChartSpec::point(x : String, y : String) -> ChartSpec {
-  { kind: Point, x, y, color: None, title: None, color_type: None }
-}
-
-///|
-/// An area chart of `y` against `x` (Vega-Lite `mark: "area"`).
-pub fn ChartSpec::area(x : String, y : String) -> ChartSpec {
-  { kind: Area, x, y, color: None, title: None, color_type: None }
-}
-
-///|
-/// Return a copy of this spec that maps `column` to the Vega-Lite `color`
-/// encoding (grouping / colouring the marks by that column). Chainable.
-pub fn ChartSpec::with_color(self : ChartSpec, column : String) -> ChartSpec {
-  { ..self, color: Some(column) }
-}
-
-///|
-/// Return a copy of this spec that overrides the `color` channel's Vega-Lite
-/// field `type`, instead of inferring it from the column dtype. Use `Nominal`
-/// (or `Ordinal`) to render a *numeric* grouping column — a cluster id, a year
-/// — as distinct per-group colors rather than the continuous gradient that
-/// `quantitative` (the numeric default) would produce. Only the `color`
-/// channel honours this; `x` / `y` keep dtype inference. Chainable.
-pub fn ChartSpec::with_color_type(
-  self : ChartSpec,
-  color_type : VegaType,
+///
+/// `color` maps a column to the Vega-Lite `color` encoding (grouping /
+/// colouring the marks by it); `color_type` overrides that channel's field
+/// `type` instead of inferring it from the column dtype — use `Nominal` (or
+/// `Ordinal`) to render a *numeric* grouping column, a cluster id or a year,
+/// as distinct per-group colors rather than the continuous gradient
+/// `quantitative` would produce (only `color` honours this; `x` / `y` keep
+/// dtype inference). `title` carries the chart title. Omitting any of them
+/// leaves it out of the rendered spec.
+pub fn ChartSpec::point(
+  x : String,
+  y : String,
+  color? : String,
+  color_type? : VegaType,
+  title? : String,
 ) -> ChartSpec {
-  { ..self, color_type: Some(color_type) }
+  { kind: Point, x, y, color, title, color_type }
 }
 
 ///|
-/// Return a copy of this spec carrying the chart `title`. Chainable.
-pub fn ChartSpec::with_title(self : ChartSpec, title : String) -> ChartSpec {
-  { ..self, title: Some(title) }
+/// A area chart of `y` against `x` (Vega-Lite `mark: "area"`).
+///
+/// `color` maps a column to the Vega-Lite `color` encoding (grouping /
+/// colouring the marks by it); `color_type` overrides that channel's field
+/// `type` instead of inferring it from the column dtype — use `Nominal` (or
+/// `Ordinal`) to render a *numeric* grouping column, a cluster id or a year,
+/// as distinct per-group colors rather than the continuous gradient
+/// `quantitative` would produce (only `color` honours this; `x` / `y` keep
+/// dtype inference). `title` carries the chart title. Omitting any of them
+/// leaves it out of the rendered spec.
+pub fn ChartSpec::area(
+  x : String,
+  y : String,
+  color? : String,
+  color_type? : VegaType,
+  title? : String,
+) -> ChartSpec {
+  { kind: Area, x, y, color, title, color_type }
 }
 
 ///|

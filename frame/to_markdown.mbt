@@ -32,28 +32,23 @@
 ///   - 0 columns → returns the empty string;
 ///   - N columns / 0 rows → header + separator with no data rows.
 ///
-/// Total — pure string assembly over already-validated frame data.
-pub fn DataFrame::to_markdown(self : DataFrame) -> String {
-  format_markdown(self, self.nrows())
-}
-
-///|
-/// Render a `DataFrame` as a Markdown table, capping the output at the
-/// first `limit` rows. When `self` has more rows than `limit`, the
-/// truncated count is appended below the table as
+/// `max_rows` caps the output at its first rows: when `self` has more rows
+/// than that, the truncated count is appended below the table as
 /// `... (N more rows)`, separated by a blank line — per the GFM tables
 /// extension a table only ends at an empty line, so a banner glued to the
 /// last row would parse as one more (single-cell) table ROW rather than
-/// the paragraph below it the wording promises. Negative `limit` is
+/// the paragraph below it the wording promises. A negative `max_rows` is
 /// clamped to 0, so a frame that has rows still renders as header +
 /// separator + the `... (N more rows)` banner; only a genuinely 0-row
-/// frame is header + separator alone.
-pub fn DataFrame::to_markdown_with_limit(
-  self : DataFrame,
-  limit : Int,
-) -> String {
+/// frame is header + separator alone. Omitting `max_rows` renders every row.
+///
+/// Total — pure string assembly over already-validated frame data.
+pub fn DataFrame::to_markdown(self : DataFrame, max_rows? : Int) -> String {
   let nrows = self.nrows()
-  let shown = clamp_take(limit, nrows)
+  let shown = match max_rows {
+    None => nrows
+    Some(limit) => clamp_take(limit, nrows)
+  }
   let body = format_markdown(self, shown)
   if shown < nrows {
     "\{body}\n\{more_rows_banner(nrows - shown)}\n"

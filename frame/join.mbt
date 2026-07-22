@@ -269,7 +269,7 @@ fn DataFrame::assemble_join_output(
   // `col(...)` can coalesce — that is the one shape where a key names the
   // same column on both sides (`coalesce_key_names` returns those names);
   // `left_on` / `right_on` and derived keys turn coalescing off. When
-  // eligible, an explicit `with_coalesce` wins, else it is auto by `how`
+  // eligible, an explicit `coalesce` argument wins, else it is auto by `how`
   // (inner / left / right coalesce → key once; outer / cross do not),
   // matching Polars' `coalesce = None`. `on_set` is the set of names to
   // coalesce — empty whenever coalescing is off, so the assembly below

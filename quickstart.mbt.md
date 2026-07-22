@@ -279,11 +279,12 @@ test "quickstart: render to HTML" {
     Series::from_strings("region", ["west", "east"]),
     Series::from_ints("quantity", [10, 5]),
   ])
-  let opts = HtmlOptions::default()
-    .with_table_class("dataframe")
-    .with_caption("Quantities by region")
+  let opts : HtmlOptions = HtmlOptions(
+    table_class="dataframe",
+    caption="Quantities by region",
+  )
   inspect(
-    df.to_html_with_options(opts),
+    df.to_html(options=opts),
     content=(
       #|<table class="dataframe">
       #|<caption>Quantities by region</caption>
@@ -319,7 +320,7 @@ test "quickstart: export a Vega-Lite chart spec" {
   ])
   let spec = format_vega_lite(
     sales,
-    ChartSpec::bar("region", "revenue").with_title("Revenue by region"),
+    ChartSpec::bar("region", "revenue", title="Revenue by region"),
   )
   inspect(
     spec,
@@ -381,9 +382,7 @@ test "quickstart: outer join" {
     orders
     .join(
       customers,
-      JoinOptions::on([col("customer_id")])
-      .with_how(JoinType::Outer)
-      .with_coalesce(true),
+      JoinOptions::on([col("customer_id")], how=JoinType::Outer, coalesce=true),
     )
     .to_markdown(),
     content=(

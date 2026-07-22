@@ -69,17 +69,10 @@ test "Series constructors copy their value arrays" {
 test "JoinOptions key builders copy their key arrays" {
   let keys = [col("id")]
   let on = JoinOptions::on(keys)
-  let left_on = JoinOptions::left_on(keys)
-  let with_left = JoinOptions::on(keys).with_left_on(keys)
-  let with_right = JoinOptions::left_on(keys).with_right_on(keys)
+  let sided = JoinOptions::left_on(keys, right_on=keys)
   keys.push(col("other"))
   assert_eq(on, JoinOptions::on([col("id")]))
-  assert_eq(left_on, JoinOptions::left_on([col("id")]))
-  assert_eq(with_left, JoinOptions::on([col("id")]).with_left_on([col("id")]))
-  assert_eq(
-    with_right,
-    JoinOptions::left_on([col("id")]).with_right_on([col("id")]),
-  )
+  assert_eq(sided, JoinOptions::left_on([col("id")], right_on=[col("id")]))
 }
 
 ///|

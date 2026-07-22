@@ -1,11 +1,11 @@
 // Blackbox tests for `JoinType` / `JoinOptions`.
 //
-// `JoinOptions`' fields are private outside the package, so these tests
-// pin the constructor defaults and the `with_*` overrides *through the
-// derived `Eq`* — e.g. re-setting a field to its default must yield a
-// value equal to the bare `on(...)`, while setting it to a non-default
-// must not. The end-to-end join behaviour they imply (inner default,
-// `"_right"` suffix) is exercised against real frames in `join_test.mbt`.
+// `JoinOptions`' fields are private outside the package, so these tests pin
+// the three constructors' defaults and their named overrides *through the
+// derived `Eq`* — e.g. naming a parameter with its default value must yield a
+// value equal to the bare call, while a non-default must not. The end-to-end
+// join behaviour they imply (inner default, `"_right"` suffix) is exercised
+// against real frames in `join_test.mbt`.
 
 ///|
 test "JoinType equality" {
@@ -27,13 +27,19 @@ test "JoinType equality" {
 test "cross builds a keyless Cross spec" {
   // `cross()` is `on([])` switched to `how = Cross` (same default suffix /
   // coalesce), and differs from a keyed inner spec.
-  assert_eq(JoinOptions::cross(), JoinOptions::on([]).with_how(JoinType::Cross))
+  assert_eq(JoinOptions::cross(), JoinOptions::on([], how=JoinType::Cross))
   assert_not_eq(JoinOptions::cross(), JoinOptions::on([]))
   assert_not_eq(JoinOptions::cross(), JoinOptions::on([@expr.col("id")]))
+  // The suffix is the one knob a cross join still honours.
+  assert_eq(
+    JoinOptions::cross(suffix="_r"),
+    JoinOptions::on([], how=JoinType::Cross, suffix="_r"),
+  )
+  assert_not_eq(JoinOptions::cross(suffix="_r"), JoinOptions::cross())
 }
 
 ///|
-test "on / left_on / with_right_on copy their key arrays" {
+test "on / left_on copy their key arrays" {
   // Mutating the caller's array after building the options must not alter
   // the join specification (pinned through the derived `Eq`).
   let keys = [@expr.col("id")]
@@ -42,91 +48,49 @@ test "on / left_on / with_right_on copy their key arrays" {
   assert_eq(base, JoinOptions::on([@expr.col("id")]))
   let lkeys = [@expr.col("a")]
   let rkeys = [@expr.col("b")]
-  let both = JoinOptions::left_on(lkeys).with_right_on(rkeys)
+  let both = JoinOptions::left_on(lkeys, right_on=rkeys)
   lkeys.clear()
   rkeys.push(@expr.col("c"))
   assert_eq(
     both,
-    JoinOptions::left_on([@expr.col("a")]).with_right_on([@expr.col("b")]),
+    JoinOptions::left_on([@expr.col("a")], right_on=[@expr.col("b")]),
   )
 }
 
 ///|
-test "on defaults to an inner join with the _right suffix" {
+test "on defaults to an inner join with the _right suffix and auto coalesce" {
   let base = JoinOptions::on([@expr.col("id")])
-  // Re-stating the defaults explicitly must reproduce the same options.
-  assert_eq(base.with_how(JoinType::Inner), base)
-  assert_eq(base.with_suffix("_right"), base)
-  // A non-default value must differ.
-  assert_not_eq(base.with_how(JoinType::Left), base)
-  assert_not_eq(base.with_suffix("_r"), base)
-}
-
-///|
-test "with_how overrides the join type, last write wins" {
-  let base = JoinOptions::on([@expr.col("id")])
-  assert_eq(base.with_how(JoinType::Left).with_how(JoinType::Inner), base)
-  assert_eq(
-    base.with_how(JoinType::Left),
-    base.with_how(JoinType::Inner).with_how(JoinType::Left),
+  // Naming the defaults explicitly must reproduce the same options.
+  assert_eq(JoinOptions::on([@expr.col("id")], how=JoinType::Inner), base)
+  assert_eq(JoinOptions::on([@expr.col("id")], suffix="_right"), base)
+  // A non-default value must differ, on each knob independently.
+  assert_not_eq(JoinOptions::on([@expr.col("id")], how=JoinType::Left), base)
+  assert_not_eq(JoinOptions::on([@expr.col("id")], suffix="_r"), base)
+  assert_not_eq(JoinOptions::on([@expr.col("id")], coalesce=true), base)
+  assert_not_eq(JoinOptions::on([@expr.col("id")], coalesce=false), base)
+  // The two forced coalesce values are distinct from each other, so an
+  // omitted `coalesce` is a third (automatic) state rather than a default.
+  assert_not_eq(
+    JoinOptions::on([@expr.col("id")], coalesce=true),
+    JoinOptions::on([@expr.col("id")], coalesce=false),
   )
 }
 
 ///|
-test "with_suffix overrides the suffix, last write wins" {
-  let base = JoinOptions::on([@expr.col("id")])
-  assert_eq(base.with_suffix("_x").with_suffix("_right"), base)
-  assert_eq(base.with_suffix("_a"), base.with_suffix("_b").with_suffix("_a"))
-}
-
-///|
-test "with_how and with_suffix are independent" {
-  let base = JoinOptions::on([@expr.col("id")])
-  // Setting how leaves the (default) suffix intact, and vice versa, so the
-  // two orders of application agree.
+test "the on knobs are independent of each other" {
+  // Setting one leaves the others at their defaults, so any subset can be
+  // named in any order and still describe the same options.
   assert_eq(
-    base.with_how(JoinType::Left).with_suffix("_r"),
-    base.with_suffix("_r").with_how(JoinType::Left),
-  )
-  // Changing only the suffix keeps how at its inner default.
-  assert_eq(
-    base.with_suffix("_r"),
-    base.with_suffix("_r").with_how(JoinType::Inner),
-  )
-}
-
-///|
-test "with_coalesce forces the coalesce flag, last write wins" {
-  let base = JoinOptions::on([@expr.col("id")])
-  // The bare `on` leaves coalesce auto (None), distinct from either forced
-  // value, and the two forced values differ from each other.
-  assert_not_eq(base.with_coalesce(true), base)
-  assert_not_eq(base.with_coalesce(false), base)
-  assert_not_eq(base.with_coalesce(true), base.with_coalesce(false))
-  // Last write wins, and it is independent of how / suffix.
-  assert_eq(
-    base.with_coalesce(false).with_coalesce(true),
-    base.with_coalesce(true),
+    JoinOptions::on([@expr.col("id")], how=JoinType::Left, suffix="_r"),
+    JoinOptions::on([@expr.col("id")], suffix="_r", how=JoinType::Left),
   )
   assert_eq(
-    base.with_how(JoinType::Left).with_coalesce(true),
-    base.with_coalesce(true).with_how(JoinType::Left),
+    JoinOptions::on([@expr.col("id")], suffix="_r"),
+    JoinOptions::on([@expr.col("id")], how=JoinType::Inner, suffix="_r"),
   )
-}
-
-///|
-test "with_coalesce_auto resets coalescing to the auto default" {
-  let base = JoinOptions::on([@expr.col("id")])
-  // Undoing either forced value returns to the bare `on` (coalesce auto),
-  // regardless of which was set — the only builder path back to `None`.
-  assert_eq(base.with_coalesce(true).with_coalesce_auto(), base)
-  assert_eq(base.with_coalesce(false).with_coalesce_auto(), base)
-  // On a bare `on` (already auto) it is a no-op, and it leaves how / suffix
-  // untouched.
-  assert_eq(base.with_coalesce_auto(), base)
   assert_eq(
-    base.with_how(JoinType::Left).with_coalesce(false).with_coalesce_auto(),
-    base.with_how(JoinType::Left),
+    JoinOptions::on([@expr.col("id")], how=JoinType::Left, coalesce=true),
+    JoinOptions::on([@expr.col("id")], coalesce=true, how=JoinType::Left),
   )
 }
 
@@ -152,48 +116,43 @@ test "on carries the key list (distinct key sets give distinct options)" {
 }
 
 ///|
-test "left_on / with_right_on build a sided spec, defaults matching on" {
-  let sided = JoinOptions::left_on([@expr.col("a")]).with_right_on([
-    @expr.col("b"),
-  ])
+test "left_on pairs both sides at once, defaults matching on" {
+  let sided = JoinOptions::left_on([@expr.col("a")], right_on=[@expr.col("b")])
   // Same defaults as `on` (inner, `_right` suffix, coalesce auto).
-  assert_eq(sided.with_how(JoinType::Inner), sided)
-  assert_eq(sided.with_suffix("_right"), sided)
+  assert_eq(
+    JoinOptions::left_on(
+      [@expr.col("a")],
+      right_on=[@expr.col("b")],
+      how=JoinType::Inner,
+    ),
+    sided,
+  )
+  assert_eq(
+    JoinOptions::left_on(
+      [@expr.col("a")],
+      right_on=[@expr.col("b")],
+      suffix="_right",
+    ),
+    sided,
+  )
   // A sided join keyed left=a / right=b is distinct from an `on([a])` join
   // (different key plumbing) and from the same keys swapped.
   assert_not_eq(sided, JoinOptions::on([@expr.col("a")]))
   assert_not_eq(
     sided,
-    JoinOptions::left_on([@expr.col("b")]).with_right_on([@expr.col("a")]),
+    JoinOptions::left_on([@expr.col("b")], right_on=[@expr.col("a")]),
   )
-  // `with_right_on` last write wins, and it leaves left_on / how intact.
-  assert_eq(
-    JoinOptions::left_on([@expr.col("a")])
-    .with_right_on([@expr.col("x")])
-    .with_right_on([@expr.col("b")]),
+  // Each side is carried independently, and the knobs behave as on `on`.
+  assert_not_eq(
     sided,
+    JoinOptions::left_on([@expr.col("a")], right_on=[@expr.col("x")]),
   )
-  assert_eq(
-    sided.with_how(JoinType::Left),
-    JoinOptions::left_on([@expr.col("a")])
-    .with_how(JoinType::Left)
-    .with_right_on([@expr.col("b")]),
+  assert_not_eq(
+    sided,
+    JoinOptions::left_on(
+      [@expr.col("a")],
+      right_on=[@expr.col("b")],
+      how=JoinType::Left,
+    ),
   )
-}
-
-///|
-test "with_left_on mirrors with_right_on: either side can be (re)supplied" {
-  let base = JoinOptions::left_on([@expr.col("x")]).with_right_on([
-    @expr.col("b"),
-  ])
-  assert_eq(
-    base.with_left_on([@expr.col("a")]),
-    JoinOptions::left_on([@expr.col("a")]).with_right_on([@expr.col("b")]),
-  )
-  // Defensive copy: mutating the caller's key array afterwards leaves the
-  // options unchanged.
-  let keys = [@expr.col("a")]
-  let opts = JoinOptions::left_on([@expr.col("z")]).with_left_on(keys)
-  keys.push(@expr.col("w"))
-  assert_eq(opts, JoinOptions::left_on([@expr.col("a")]))
 }

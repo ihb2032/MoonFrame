@@ -68,15 +68,30 @@ test "explain: every join type's label, with and without keys" {
   let on_id = @frame.JoinOptions::on([@expr.col("id")])
   assert_eq(l.join(r, on_id).explain(), "JOIN Inner on [col(id)]" + scans)
   assert_eq(
-    l.join(r, on_id.with_how(@frame.JoinType::Left)).explain(),
+    l
+    .join(
+      r,
+      @frame.JoinOptions::on([@expr.col("id")], how=@frame.JoinType::Left),
+    )
+    .explain(),
     "JOIN Left on [col(id)]" + scans,
   )
   assert_eq(
-    l.join(r, on_id.with_how(@frame.JoinType::Right)).explain(),
+    l
+    .join(
+      r,
+      @frame.JoinOptions::on([@expr.col("id")], how=@frame.JoinType::Right),
+    )
+    .explain(),
     "JOIN Right on [col(id)]" + scans,
   )
   assert_eq(
-    l.join(r, on_id.with_how(@frame.JoinType::Outer)).explain(),
+    l
+    .join(
+      r,
+      @frame.JoinOptions::on([@expr.col("id")], how=@frame.JoinType::Outer),
+    )
+    .explain(),
     "JOIN Outer on [col(id)]" + scans,
   )
   // The keyless Cartesian product renders without an `on` list…
@@ -99,7 +114,7 @@ test "explain: every join type's label, with and without keys" {
     l
     .join(
       r,
-      @frame.JoinOptions::left_on([@expr.col("id")]).with_right_on([
+      @frame.JoinOptions::left_on([@expr.col("id")], right_on=[
         @expr.col("city"),
       ]),
     )

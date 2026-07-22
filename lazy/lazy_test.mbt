@@ -475,7 +475,6 @@ test "head, tail, and limit inherit the eager total clamp" {
 test "every join type collects to its eager equivalent" {
   let l = orders_df()
   let r = cities_df()
-  let on_id = @frame.JoinOptions::on([@expr.col("id")])
   for
     how in [
       @frame.JoinType::Inner,
@@ -483,7 +482,7 @@ test "every join type collects to its eager equivalent" {
       @frame.JoinType::Right,
       @frame.JoinType::Outer,
     ] {
-    let opts = on_id.with_how(how)
+    let opts = @frame.JoinOptions::on([@expr.col("id")], how~)
     assert_eq(
       lazy_frame(l).join(lazy_frame(r), opts).collect(),
       l.join(r, opts),
@@ -527,8 +526,9 @@ test "join inputs run their own deferred sub-pipelines" {
   let l = orders_df()
   let r = cities_df()
   let amount_gate = @expr.col("amount").ge(@expr.lit_int(20))
-  let opts = @frame.JoinOptions::on([@expr.col("id")]).with_how(
-    @frame.JoinType::Left,
+  let opts = @frame.JoinOptions::on(
+    [@expr.col("id")],
+    how=@frame.JoinType::Left,
   )
   let lazy_out = lazy_frame(l)
     .filter(amount_gate)
@@ -549,7 +549,7 @@ test "join on left_on / right_on and derived keys collects to the eager equivale
     @series.Series::from_ints("rv", [20, 30, 40]),
   ])
   // Differently-named keys via left_on / right_on.
-  let sided = @frame.JoinOptions::left_on([@expr.col("lk")]).with_right_on([
+  let sided = @frame.JoinOptions::left_on([@expr.col("lk")], right_on=[
     @expr.col("rk"),
   ])
   assert_eq(
@@ -557,7 +557,7 @@ test "join on left_on / right_on and derived keys collects to the eager equivale
     l.join(r, sided),
   )
   // A derived key on the right side, paired with a bare left key.
-  let derived = @frame.JoinOptions::left_on([@expr.col("lk")]).with_right_on([
+  let derived = @frame.JoinOptions::left_on([@expr.col("lk")], right_on=[
     @expr.col("rk") - @expr.lit_int(1),
   ])
   assert_eq(

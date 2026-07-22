@@ -52,6 +52,23 @@ collected in [`migration.md`](migration.md).
   `format_csv` take their options the same way. A call that passed options
   positionally now names them (`parse_csv_str(text, options=opts)`); a call that
   passed the all-defaults options can drop the argument.
+- The remaining builder chains collapse into their constructors. `HtmlOptions`
+  loses `default()` and its four `with_*` setters for
+  `HtmlOptions(max_rows? , table_class? , caption? , escape? = true)`;
+  `JoinOptions::on` / `left_on` / `cross` take `how` / `suffix` / `coalesce`
+  (and, for `left_on`, a required `right_on~`) directly, retiring all six
+  `with_*` methods including the `with_coalesce_auto` added in v0.5.8; and
+  `ChartSpec::bar` / `line` / `point` / `area` take `color` / `color_type` /
+  `title`, retiring their three `with_*` methods. Thirteen builder methods
+  become zero.
+- `DataFrame::to_html_with_options(options)` and
+  `DataFrame::to_markdown_with_limit(limit)` fold into
+  `to_html(options? : HtmlOptions)` and `to_markdown(max_rows? : Int)`.
+- `JoinOptions::left_on` now requires `right_on~` at the call site, so an
+  unpaired sided join no longer compiles, and mixing `on` with
+  `left_on` / `right_on` is unspellable: the three constructors each fill one
+  key shape and the fields stay private. The engine keeps its defensive check
+  for the mixed state, now reachable only from an in-package test.
 - `CsvReadOptions.null_values` is a private field with a copying
   `null_values()` accessor. Both it and the constructor copy, so the token list
   a reader (or a captured `scan_csv` plan) uses can no longer be mutated

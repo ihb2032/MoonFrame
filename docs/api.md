@@ -680,27 +680,25 @@ transforms, so every output satisfies `check_invariants()`.
   `min` / `max` (`String`, nullable, rendered via `Scalar::to_string`, so a
   single column carries extrema across differing dtypes)). 0-column collapses
   to `0 × 8`.
-- `to_markdown() -> String` / `to_markdown_with_limit(limit) -> String`
-  — **total** GitHub-flavored pipe-table renderers (IO-1: pure rendering
-  lives in `frame`). Column widths align to `max(header, cells)` with a
-  3-char minimum; null cells render empty; `|` / `\` / CR / LF are
-  GFM-escaped. `with_limit` appends `... (N more rows)` when truncated
-  (negative `limit` clamps to 0).
-- `to_html() -> String` / `to_html_with_options(options : HtmlOptions) ->
-  String` — **total** HTML `<table>` renderers (IO-1: pure rendering lives
-  in `frame`, parallel to `to_markdown`). `to_html` emits a `<thead>` +
-  `<tbody>`, one `<td>` per cell in declaration order; a null cell renders
-  as `<td></td>`; `&` / `<` / `>` / `"` / `'` are escaped to HTML entities.
-  0 columns → empty string; N columns / 0 rows → header + empty `<tbody>`.
-  `to_html_with_options` adds a `class` / `<caption>` and, via `max_rows`,
-  a row cap with a `<tfoot>` `... (K more rows)` banner (negative
-  `max_rows` clamps to 0).
-- `struct HtmlOptions` (fields read-only) — built via `HtmlOptions::default()`
-  (all rows, no `class` / `caption`, `escape = true`) and chained
-  `with_max_rows(n)` / `with_table_class(cls)` / `with_caption(text)` /
-  `with_escape(flag)`. `with_escape(false)` emits caption / header / cell
-  / class strings verbatim, for trusted input that intentionally carries
-  HTML.
+- `to_markdown(max_rows? : Int) -> String` — a **total** GitHub-flavored
+  pipe-table renderer (IO-1: pure rendering lives in `frame`). Column widths
+  align to `max(header, cells)` with a 3-char minimum; null cells render
+  empty; `|` / `\` / CR / LF are GFM-escaped. An omitted `max_rows` renders
+  every row; otherwise the table is capped there and `... (N more rows)` is
+  appended (a negative `max_rows` clamps to 0).
+- `to_html(options? : HtmlOptions = HtmlOptions()) -> String` — the **total**
+  HTML `<table>` renderer (IO-1: pure rendering lives in `frame`, parallel to
+  `to_markdown`). It emits a `<thead>` + `<tbody>`, one `<td>` per cell in
+  declaration order; a null cell renders as `<td></td>`; `&` / `<` / `>` /
+  `"` / `'` are escaped to HTML entities. 0 columns → empty string; N columns
+  / 0 rows → header + empty `<tbody>`. The options add a `class` /
+  `<caption>` and, via `max_rows`, a row cap with a `<tfoot>`
+  `... (K more rows)` banner (negative `max_rows` clamps to 0).
+- `struct HtmlOptions` (fields read-only) — built via
+  `HtmlOptions(max_rows? , table_class? , caption? , escape? = true)`;
+  `HtmlOptions()` renders all rows with no `class` / `caption` and escaping
+  on. `escape=false` emits caption / header / cell / class strings verbatim,
+  for trusted input that intentionally carries HTML.
 
 ### Expression consumers (`with_columns` / `select` / `filter`)
 
@@ -885,21 +883,20 @@ Hash equi-join, native to the method chain (`left.join(right, options)`).
     `LengthMismatch` (a `lit_series` key whose embedded series is neither
     length 1 nor the frame's height).
 - `enum JoinType` — `Inner` / `Left` / `Right` / `Outer` / `Cross`.
-- `struct JoinOptions` (fields read-only) — built via
-  `JoinOptions::on(keys : Array[Expr])` (same keys on both frames),
-  `JoinOptions::left_on(keys).with_right_on(keys)` (differently-named or
-  -derived keys, paired position by position), or `JoinOptions::cross()`
-  (keyless `Cross`) — each defaulting to `Inner`, suffix `"_right"`,
-  `coalesce` auto — with `with_how(JoinType)` / `with_suffix(name)` /
-  `with_coalesce(Bool)` to override, and `with_left_on(keys)` /
-  `with_right_on(keys)` to (re)supply either side's keys anywhere in the
-  chain. `coalesce` defaults to `None` (auto:
-  coalesce on an inner / left / right join, keep both keys on an `Outer`
-  join — Polars' rule) and only takes effect for an all-bare-`col` `on`
-  join; `left_on` / `right_on` and derived keys never coalesce.
-  `with_coalesce_auto()` resets a forced `coalesce` back to that auto default
-  (the only builder path back to `None`). Chainable:
-  `JoinOptions::on([col("id")]).with_how(Outer).with_coalesce(true)`.
+- `struct JoinOptions` (fields read-only) — built via one of three
+  constructors, each carrying every knob as a named parameter:
+  `JoinOptions::on(keys : Array[Expr], how? = Inner, suffix? = "_right",
+  coalesce?)` (same keys on both frames),
+  `JoinOptions::left_on(keys, right_on~, how?, suffix?, coalesce?)`
+  (differently-named or -derived keys, paired position by position — both
+  sides are given at once, so an unpaired specification cannot be written),
+  or `JoinOptions::cross(suffix? = "_right")` (keyless `Cross`). The three
+  shapes are the legal ones; mixing `on` with `left_on` / `right_on` is
+  unspellable. An omitted `coalesce` is auto (coalesce on an inner / left /
+  right join, keep both keys on an `Outer` join — Polars' rule) and only
+  takes effect for an all-bare-`col` `on` join; `left_on` / `right_on` and
+  derived keys never coalesce. Example:
+  `JoinOptions::on([col("id")], how=Outer, coalesce=true)`.
 
 ### Sorting types
 
@@ -1096,10 +1093,10 @@ It shares `format_json_records`' `scalar_to_json` cell mapping, so a
   type, mapped to the Vega-Lite `mark` (`"bar"` / `"line"` / `"point"` /
   `"area"`).
 - `struct ChartSpec` (fields read-only) — built via a mark-named
-  constructor `ChartSpec::bar(x, y)` / `line(x, y)` / `point(x, y)` /
-  `area(x, y)` (`x` / `y` are column names) and chained
-  `with_color(column)` (a grouping / colour column) / `with_title(text)` /
-  `with_color_type(VegaType)`.
+  constructor `ChartSpec::bar(x, y, color? , color_type? , title?)` /
+  `line` / `point` / `area` (`x` / `y` are column names); `color` names a
+  grouping / colour column, `color_type` overrides that channel's Vega-Lite
+  field `type`, and `title` carries the chart title.
 - `enum VegaType` (`Quantitative` / `Nominal` / `Ordinal` / `Temporal`,
   `pub(all)`) — overrides the `color` channel's Vega-Lite field `type` instead
   of inferring it from the column dtype. Use `Nominal` / `Ordinal` to render a
@@ -1112,7 +1109,7 @@ It shares `format_json_records`' `scalar_to_json` cell mapping, so a
   `ColumnNotFound(name)`. Each channel's Vega-Lite field `type` is
   inferred from the column dtype: numeric (`Int` / `Float`) →
   `"quantitative"`, otherwise (`String` / `Bool`, and an all-null `Null`
-  column) → `"nominal"` — unless `spec.with_color_type(...)` overrides the
+  column) → `"nominal"` — unless the spec's `color_type` overrides the
   `color` channel. A column name containing `.`, `[`, or `]` is
   escaped in the encoding `field` (Vega-Lite reads those as nested-object /
   array access), so a column literally named `price.usd` resolves correctly

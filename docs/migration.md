@@ -60,6 +60,30 @@ the parameter form could not express.
 returns a copy — as does the constructor, so mutating either array cannot change
 what a reader (or a captured `scan_csv` plan) treats as null.
 
+### Builders fold into their constructors
+
+| v0.5 | v0.6 |
+| --- | --- |
+| `HtmlOptions::default()` | `HtmlOptions()` |
+| `HtmlOptions::default().with_max_rows(20).with_caption("S")` | `HtmlOptions(max_rows=20, caption="S")` |
+| `df.to_html_with_options(opts)` | `df.to_html(options=opts)` |
+| `df.to_markdown_with_limit(10)` | `df.to_markdown(max_rows=10)` |
+| `JoinOptions::on(keys).with_how(Left)` | `JoinOptions::on(keys, how=Left)` |
+| `JoinOptions::on(keys).with_coalesce(true)` | `JoinOptions::on(keys, coalesce=true)` |
+| `JoinOptions::on(keys).with_coalesce_auto()` | `JoinOptions::on(keys)` (omit `coalesce`) |
+| `JoinOptions::left_on(l).with_right_on(r)` | `JoinOptions::left_on(l, right_on=r)` |
+| `JoinOptions::cross().with_suffix("_r")` | `JoinOptions::cross(suffix="_r")` |
+| `ChartSpec::bar(x, y).with_color("region").with_title("T")` | `ChartSpec::bar(x, y, color="region", title="T")` |
+
+Two shapes stop compiling by design. `JoinOptions::left_on(keys)` on its own is
+gone — `right_on~` is required, so a sided join always names both sides — and
+there is no longer a way to set `on` *and* `left_on` / `right_on` on the same
+options, which used to be a runtime `InvalidOperation`.
+
+A `let` binding of an options value needs a type annotation
+(`let opts : HtmlOptions = HtmlOptions(max_rows=20)`), or it can be written
+inline at the call, where the expected type is concrete.
+
 ### `*_with_options` is folded into an optional parameter
 
 | v0.5 | v0.6 |

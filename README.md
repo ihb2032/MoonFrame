@@ -147,7 +147,7 @@ let summary = @moonframe.read_csv("sales.csv")
 ```
 
 The same frame also exports as a styled HTML `<table>` via
-`summary.to_html_with_options(...)`, or as a
+`summary.to_html(options=HtmlOptions(caption="Summary"))`, or as a
 [Vega-Lite v5](https://vega.github.io/vega-lite/) chart spec via
 `format_vega_lite(summary, ChartSpec::bar("region", "revenue"))` — ready to
 paste into the [Vega editor](https://vega.github.io/editor/).

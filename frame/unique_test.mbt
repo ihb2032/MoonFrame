@@ -161,3 +161,63 @@ test "unique: explicit First matches the default; all-distinct is a no-op for ev
   assert_eq(distinct.unique(keep=KeepStrategy::Last), distinct)
   assert_eq(distinct.unique(keep=KeepStrategy::None), distinct)
 }
+
+// ── subset: dedup on a column subset ──────────────────────────────────
+
+///|
+/// A frame whose `a` repeats while `tag` never does, so a subset key on `a`
+/// drops rows an all-columns dedup would keep.
+fn subset_df() -> DataFrame raise @types.DataError {
+  DataFrame::new([
+    Series::from_ints("a", [1, 2, 1, 2]),
+    Series::from_strings("tag", ["p", "q", "r", "s"]),
+  ])
+}
+
+///|
+test "unique(subset) dedups on the named columns and returns every column" {
+  let df = subset_df()
+  let out = df.unique(subset=[@expr.col("a")])
+  assert_eq(out.check_invariants(), Ok(()))
+  // The output keeps both columns — a subset narrows the key, not the result.
+  assert_eq(out.columns(), ["a", "tag"])
+  assert_eq(out.shape(), (2, 2))
+  assert_eq(out.item(0, "a"), @types.Scalar::Int(1))
+  assert_eq(out.item(0, "tag"), @types.Scalar::String("p"))
+  assert_eq(out.item(1, "tag"), @types.Scalar::String("q"))
+  // Without the subset every row is distinct (the tags differ), so nothing drops.
+  assert_eq(df.unique(), df)
+}
+
+///|
+test "unique(subset) honours each keep strategy" {
+  let df = subset_df()
+  let last = df.unique(subset=[@expr.col("a")], keep=KeepStrategy::Last)
+  assert_eq(last.item(0, "tag"), @types.Scalar::String("r"))
+  assert_eq(last.item(1, "tag"), @types.Scalar::String("s"))
+  // Every key occurs twice, so `None` keeps nothing.
+  assert_eq(
+    df.unique(subset=[@expr.col("a")], keep=KeepStrategy::None).nrows(),
+    0,
+  )
+}
+
+///|
+test "unique(subset) raises ColumnNotFound for a name absent from the frame" {
+  let df = subset_df()
+  assert_true(
+    (Ok(df.unique(subset=[@expr.col("missing")])) catch { e => Err(e) })
+    is Err(@types.DataError::ColumnNotFound("missing")),
+  )
+}
+
+///|
+test "unique with an empty subset gives every row the same key" {
+  let df = subset_df()
+  // No key columns → one (empty) key shared by all rows.
+  assert_eq(df.unique(subset=[]).nrows(), 1)
+  assert_eq(df.unique(subset=[], keep=KeepStrategy::None).nrows(), 0)
+  // A single-row frame is the one shape where `None` keeps its row.
+  let one = DataFrame::new([Series::from_ints("a", [7])])
+  assert_eq(one.unique(subset=[], keep=KeepStrategy::None).nrows(), 1)
+}

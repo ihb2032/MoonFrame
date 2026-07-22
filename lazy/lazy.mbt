@@ -138,14 +138,18 @@ pub fn LazyFrame::rename_with(
 
 ///|
 /// Defer `DataFrame::unique`: drop duplicate rows, keeping survivors in their
-/// original order. `keep` mirrors the eager verb — `First` (the default) keeps
-/// each key's first occurrence, `Last` its last, and `None` keeps only rows
-/// that occur exactly once. Total like its eager counterpart.
+/// original order. `subset` and `keep` mirror the eager verb — `subset` picks
+/// the columns forming the duplicate key (every column when omitted, and the
+/// output always carries all columns), `First` (the default) keeps each key's
+/// first occurrence, `Last` its last, and `None` keeps only rows that occur
+/// exactly once. Total like every builder: an unknown `subset` name surfaces
+/// as `ColumnNotFound` at `collect`.
 pub fn LazyFrame::unique(
   self : LazyFrame,
+  subset? : Array[@expr.Expr],
   keep? : @frame.KeepStrategy = First,
 ) -> LazyFrame {
-  { plan: Unique(self.plan, keep) }
+  { plan: Unique(self.plan, keep, subset.map(keys => keys.copy())) }
 }
 
 ///|

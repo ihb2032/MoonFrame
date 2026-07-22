@@ -342,6 +342,17 @@ test "the column / row verbs collect to their eager equivalents" {
     ] {
     assert_eq(lazy_frame(df).unique(keep~).collect(), df.unique(keep~))
   }
+  // A subset key defers the same way, and an unknown name surfaces at collect.
+  assert_eq(
+    lazy_frame(df).unique(subset=[@expr.col("region")]).collect(),
+    df.unique(subset=[@expr.col("region")]),
+  )
+  assert_true(
+    (Ok(lazy_frame(df).unique(subset=[@expr.col("nope")]).collect()) catch {
+      e => Err(e)
+    })
+    is Err(@types.DataError::ColumnNotFound("nope")),
+  )
   assert_eq(lazy_frame(df).drop_nulls().collect(), df.drop_nulls())
   assert_eq(
     lazy_frame(df).drop_nulls(subset=[@expr.col("bonus")]).collect(),
@@ -398,6 +409,21 @@ test "the column / row verbs render in explain, with each fill-value form" {
     lazy_frame(df).unique(keep=None).explain(),
     content=(
       #|UNIQUE keep=None
+      #|  SCAN [4×3]
+    ),
+  )
+  // A subset key renders next to the verb, before any keep marker.
+  inspect(
+    lazy_frame(df).unique(subset=[@expr.col("region")]).explain(),
+    content=(
+      #|UNIQUE ON [col(region)]
+      #|  SCAN [4×3]
+    ),
+  )
+  inspect(
+    lazy_frame(df).unique(subset=[@expr.col("region")], keep=Last).explain(),
+    content=(
+      #|UNIQUE ON [col(region)] keep=Last
       #|  SCAN [4×3]
     ),
   )

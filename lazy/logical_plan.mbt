@@ -52,7 +52,7 @@ priv enum LogicalPlan {
   Drop(LogicalPlan, Array[@expr.Expr])
   Rename(LogicalPlan, Array[(String, String)])
   RenameWith(LogicalPlan, (String) -> String)
-  Unique(LogicalPlan, @frame.KeepStrategy)
+  Unique(LogicalPlan, @frame.KeepStrategy, Array[@expr.Expr]?)
   DropNulls(LogicalPlan, Array[@expr.Expr]?)
   FillNull(LogicalPlan, @types.Scalar)
   Reduce(LogicalPlan, LazyReduceOp)
@@ -96,7 +96,7 @@ fn plan_children(plan : LogicalPlan) -> Array[LogicalPlan] {
     | Drop(input, _)
     | Rename(input, _)
     | RenameWith(input, _)
-    | Unique(input, _)
+    | Unique(input, _, _)
     | DropNulls(input, _)
     | FillNull(input, _)
     | Reduce(input, _) => [input]
@@ -284,7 +284,11 @@ fn execute(plan : LogicalPlan) -> @frame.DataFrame raise @types.DataError {
       Drop(input, exprs) => memo_result(memo, input).drop(exprs)
       Rename(input, pairs) => memo_result(memo, input).rename(pairs)
       RenameWith(input, f) => memo_result(memo, input).rename_with(f)
-      Unique(input, keep) => memo_result(memo, input).unique(keep~)
+      Unique(input, keep, subset) =>
+        match subset {
+          None => memo_result(memo, input).unique(keep~)
+          Some(keys) => memo_result(memo, input).unique(subset=keys, keep~)
+        }
       DropNulls(input, subset) => memo_result(memo, input).drop_nulls(subset?)
       FillNull(input, value) => memo_result(memo, input).fill_null(value)
       // Each reduction executes as its eager `DataFrame` verb on the collected

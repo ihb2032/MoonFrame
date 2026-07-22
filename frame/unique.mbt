@@ -42,22 +42,37 @@ pub extend KeepStrategy with Debug::{to_repr}
 /// gathered content, not the source; the schema, values, and frame invariants
 /// are unchanged.
 ///
-/// Total: dropping rows from a valid frame can neither change the schema nor
-/// fail. A frame whose kept set is all of `[0, n)` — every row distinct, so no
-/// strategy drops anything — is returned unchanged (the gather would be a
-/// no-op), as is a 0-row frame. (Polars' `subset` parameter — dedup on a column
-/// subset — is deferred to a later release, since resolving column names would
-/// make `unique` fallible; this is the all-columns form.)
+/// `subset` picks the columns whose values form the duplicate key (Polars'
+/// `subset`); omitted, every column takes part. The output always carries **all**
+/// columns either way — a subset narrows what counts as a duplicate, not what
+/// is returned. An explicitly empty `subset` gives every row the same (empty)
+/// key, so `First` / `Last` keep one row and `None` keeps none unless the frame
+/// has a single row.
+///
+/// Raises `ColumnNotFound(name)` on the first `subset` name absent from the
+/// frame, reported before any per-row work. With no `subset` the resolution
+/// cannot fail — the names come straight from the frame — so the all-columns
+/// form still never fails on a valid frame. A frame whose kept set is all of
+/// `[0, n)` — every row distinct, so no strategy drops anything — is returned
+/// unchanged (the gather would be a no-op), as is a 0-row frame.
 pub fn DataFrame::unique(
   self : DataFrame,
+  subset? : Array[@expr.Expr],
   keep? : KeepStrategy = KeepStrategy::First,
-) -> DataFrame {
+) -> DataFrame raise @types.DataError {
   let n = self.nrows()
   // Column-major cells, so a row's composite key is assembled by plain index
   // reads (`to_scalars` is total — no per-cell bounds-checked `get`). Build each
   // row's key once up front; the strategies below index this rather than
   // recompute it.
-  let cells = self.to_scalar_matrix()
+  let cells = match subset {
+    None => self.to_scalar_matrix()
+    // Resolve the key columns first, in `subset` order, so an unknown name
+    // surfaces as `ColumnNotFound` before any per-row work runs — the same
+    // discipline `drop_nulls` uses for its own subset.
+    Some(keys) =>
+      keys.map(key => self.get_column(expr_output_name(key)).to_scalars())
+  }
   let keys = Array::makei(n, i => row_group_key(cells, i))
   let kept : Array[Int] = []
   match keep {

@@ -229,9 +229,13 @@ depends only on `types`.
   `Expr::and` / `Expr::or`).
 - Unary `-` (`Neg`): `-col("x")`.
 - Unary numeric methods `col("x").abs()` / `.floor()` / `.ceil()` / `.sign()`
-  / `.round()` — absolute value; round toward −∞ / +∞ to an integer value; the
-  `-1` / `0` / `+1` sign; and round to the nearest integer, **ties to even**
-  (banker's rounding, Polars' default: `2.5` and `-2.5` both round to `±2`).
+  / `.round(decimals? : Int = 0)` — absolute value; round toward −∞ / +∞ to an
+  integer value; the `-1` / `0` / `+1` sign; and round **ties to even**
+  (banker's rounding, Polars' default: `2.5` and `-2.5` both round to `±2`) to
+  `decimals` places — `0` (the default) meaning whole numbers. A negative
+  `decimals` clamps to `0`; at other settings the result carries the usual
+  binary-floating-point caveat, and a value whose scaling would overflow is
+  returned unchanged rather than becoming `NaN`.
   Each keeps the operand's dtype (`Int → Int`, `Float → Float`; `floor` /
   `ceil` / `round` leave an `Int` unchanged). `NaN` passes through
   (`sign(NaN) = NaN`); a null stays null; a non-numeric operand raises
@@ -252,12 +256,14 @@ depends only on `types`.
   A `Null`
   member matches nothing, an empty set is `false` for every present cell, and a
   null cell yields null.
-- `is_between(lo : Expr, hi : Expr) -> Expr` — a `Bool` column, `true` where
-  `lo <= a <= hi` (both endpoints closed). Equivalent to
-  `a.ge(lo).land(a.le(hi))` — same exact ordering, Kleene null propagation, and
-  `TypeMismatch(Operation("compare", left, right))` on an unorderable pair — but a
-  dedicated node so the operand is evaluated once. (A `closed` endpoint option
-  is a deferred additive refinement.)
+- `is_between(lo : Expr, hi : Expr, closed? : ClosedInterval = Both) -> Expr`
+  — a `Bool` column, `true` where `a` falls in the range. `closed` (Polars'
+  parameter, `enum ClosedInterval { Both; Left; Right; None }`) picks which
+  endpoints count: `Both` is `lo <= a <= hi`, `Left` / `Right` open the other
+  end, `None` excludes both. Equivalent to the matching `ge` / `gt` and `le` /
+  `lt` pair under `land` — same exact ordering, Kleene null propagation, and
+  `TypeMismatch(Operation("compare", left, right))` on an unorderable pair —
+  but a dedicated node so the operand is evaluated once.
 - `not() -> Expr` (no overloadable unary `!`); null probes `is_null()` /
   `is_not_null() -> Expr` (total — the result is never null); NaN probes
   `is_nan()` / `is_not_nan() -> Expr` — `true`/`false` where a numeric cell is

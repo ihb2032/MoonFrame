@@ -147,11 +147,21 @@ fn eval_is_between(
   x : Series,
   lo : Series,
   hi : Series,
+  closed : @expr.ClosedInterval,
 ) -> Series raise @types.DataError {
+  // Each end picks its verb from `closed`: an included endpoint compares with
+  // `Ge` / `Le`, an excluded one with `Gt` / `Lt`. Both sides then join under
+  // the same Kleene `and` the two-comparison lowering would have used.
+  let (lower, upper) = match closed {
+    @expr.ClosedInterval::Both => (CmpVerb::Ge, CmpVerb::Le)
+    @expr.ClosedInterval::Left => (CmpVerb::Ge, CmpVerb::Lt)
+    @expr.ClosedInterval::Right => (CmpVerb::Gt, CmpVerb::Le)
+    @expr.ClosedInterval::None => (CmpVerb::Gt, CmpVerb::Lt)
+  }
   let (xl, lol) = broadcast_pair(x, lo)
-  let ge = eval_compare(xl, lol, CmpVerb::Ge)
+  let ge = eval_compare(xl, lol, lower)
   let (xh, hil) = broadcast_pair(x, hi)
-  let le = eval_compare(xh, hil, CmpVerb::Le)
+  let le = eval_compare(xh, hil, upper)
   let (g, l) = broadcast_pair(ge, le)
   eval_logic(g, l, "and", kleene_and)
 }

@@ -110,7 +110,7 @@ priv enum EvalStep {
   ApplyTernary
   ApplyFill(Bool) // true = fill nulls, false = fill NaNs
   ApplyIsIn(Array[@types.Scalar])
-  ApplyIsBetween
+  ApplyIsBetween(@expr.ClosedInterval)
   ApplyMap((Array[@types.Scalar]) -> @types.Scalar raise @types.DataError, Int)
   ApplyMapBatches((Array[Series]) -> Series raise @types.DataError, Int)
 }
@@ -219,8 +219,8 @@ fn eval_expr(
               }
               // Operand first (popped last), then both bounds — evaluated once
               // each; the dedicated node is what lets the operand be shared.
-              @expr.Expr::IsBetween(x, lo, hi) => {
-                work.push(ApplyIsBetween)
+              @expr.Expr::IsBetween(x, lo, hi, closed) => {
+                work.push(ApplyIsBetween(closed))
                 work.push(Eval(hi))
                 work.push(Eval(lo))
                 work.push(Eval(x))
@@ -312,8 +312,10 @@ fn eval_expr(
                   eval_unary_num(
                     operand, "take the sign of", sign_i64, sign_f64,
                   )
-                @expr.UnOp::Round =>
-                  eval_unary_num(operand, "round", a => a, round_half_even)
+                @expr.UnOp::Round(decimals) =>
+                  eval_unary_num(operand, "round", a => a, v => {
+                    round_places(v, decimals)
+                  })
               },
             )
           }
@@ -363,11 +365,11 @@ fn eval_expr(
             let operand = pop_value(values)
             values.push(eval_is_in(operand, members))
           }
-          ApplyIsBetween => {
+          ApplyIsBetween(closed) => {
             let hi_v = pop_value(values)
             let lo_v = pop_value(values)
             let x_v = pop_value(values)
-            values.push(eval_is_between(x_v, lo_v, hi_v))
+            values.push(eval_is_between(x_v, lo_v, hi_v, closed))
           }
           ApplyMap(f, arity) =>
             values.push(eval_map_apply(pop_inputs(values, arity), f))

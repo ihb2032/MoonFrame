@@ -102,6 +102,24 @@ collected in [`migration.md`](migration.md).
 - `Series::new` / `Series::from_builtin`, which took a storage backend, join
   the engine seams (`#internal`, absent from the interface). `Series::from_*`
   are the public constructors.
+- `DataFrame::take` is renamed `DataFrame::gather`, so the row-selection verb
+  shares one name with `Series::gather` (and with Polars, which renamed `take`
+  to `gather` in 0.19).
+- The regex string ops fold into their literal namesakes:
+  `str_contains_regex` / `str_replace_regex` / `str_replace_all_regex` are
+  replaced by `literal? : Bool = true` on `str_contains` / `str_replace` /
+  `str_replace_all`. The default preserves v0.5 behaviour (literal matching) —
+  the opposite of Polars' regex-first default — and `explain` now renders the
+  regex forms as the spelling that builds them, e.g.
+  `col(s).str_contains("a.c", literal=false)`.
+- `Expr::children` / `referenced_columns` / `output_name` join the engine seams
+  (`#internal`, absent from the generated interface); Polars keeps the
+  equivalents behind its `.meta` namespace. `expr`'s interface no longer
+  exposes `Set` either.
+- `LazyFrame::unique` gains the `keep? : KeepStrategy` its eager counterpart has
+  had since v0.5.8 — the two had silently diverged (and the docs already
+  described the lazy verb as taking it). A non-default strategy shows in
+  `explain` as `UNIQUE keep=Last` / `UNIQUE keep=None`.
 - `CsvReadOptions.null_values` is a private field with a copying
   `null_values()` accessor. Both it and the constructor copy, so the token list
   a reader (or a captured `scan_csv` plan) uses can no longer be mutated

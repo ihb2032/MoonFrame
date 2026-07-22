@@ -333,14 +333,13 @@ deliberate divergence from Polars' Rust-`regex` dialect.
   **characters**, like `str_pad_start('0')` but **sign-aware**: a leading `+` /
   `-` keeps its place and the zeros fill after it (`"-5"` to width 4 is
   `"-005"`). The width counts the sign; a cell already that wide is unchanged.
-- `str_contains_regex(pattern : String) -> Expr` — a `Bool` column, `true` where
-  the cell matches the POSIX regular expression `pattern` (partial match). The
-  regex form of `str_contains`.
-- `str_replace_regex(pattern : String, value : String)` /
-  `str_replace_all_regex(pattern : String, value : String) -> Expr` — replace
-  the first / every regex match of `pattern` with the literal `value` (no
-  capture-group references yet). The regex forms of `str_replace` /
-  `str_replace_all`.
+- Regex forms: `str_contains` / `str_replace` / `str_replace_all` each take
+  `literal? : Bool = true`. With `literal=false` the pattern is a POSIX regular
+  expression matched partially (`str_contains`) or replaced at the first /
+  every match with the literal `value` (no capture-group references yet).
+  **The default is the opposite of Polars'**, which is regex-first; MoonFrame
+  keeps literal matching as the default so an unescaped `.` or `[` in a plain
+  substring cannot silently change meaning.
 - `str_extract(pattern : String, group? : Int) -> Expr` — a nullable `String`
   column of the substring matched by `pattern`. `group` (default `0`, the
   **whole match** — Polars defaults to the first capture group `1`) picks a
@@ -437,13 +436,14 @@ reduction-shape gate like any non-reducing expression.
   when flagged) for the closure escape hatches (the closure opaque), and
   `lit_series("name", len)` for an embedded literal series (its data opaque).
   `LazyFrame::explain` reuses it for plan lines.
-- `referenced_columns(self) -> Set[String]` — every column the tree reads,
-  including a ternary's condition.
-- `output_name(self) -> String` — the output column name under Polars'
-  rule: an alias wins, else the leftmost column reference, else
-  `"literal"` for a column-less tree (a ternary draws its name from the
-  value branches, never the condition). The eager materialisers in `frame`
-  and the lazy optimizer share this one rule.
+- `children` / `referenced_columns` / `output_name` are engine seams as of
+  v0.6 (`#internal`, absent from the generated interface): the evaluator and
+  the lazy optimizer walk expressions with them — Polars keeps the equivalents
+  behind its `.meta` namespace. The naming rule they implement is still part of
+  the contract: an alias wins, else the leftmost column reference, else
+  `"literal"` for a column-less tree (a ternary draws its name from the value
+  branches, never the condition), and every verb that names an output column
+  follows it.
 - `children(self) -> Array[Expr]` — the immediate sub-expressions of a
   node, left to right (a ternary lists its condition first); leaves return
   none.
@@ -606,8 +606,9 @@ dependencies** (NyaCSV / fs / @json live only in `io`).
   `#internal`, absent from the generated interface.)
 - Structural transforms: total `head(n)` / `limit(n)` (a Polars-style
   alias of `head`, the eager twin of `LazyFrame::limit`) / `tail(n)`
-  (clamp `n` to `[0, nrows]`); `slice(start, end)` / `take(indices)`
-  (`raise`, `IndexOutOfBounds` / `InvalidOperation`).
+  (clamp `n` to `[0, nrows]`); `slice(start, end)` / `gather(indices)`
+  (`raise`, `IndexOutOfBounds` / `InvalidOperation`) — `gather` is the row
+  twin of `Series::gather`, sharing its name as in Polars.
 - `check_invariants() -> Result[Unit, String]` — verification helper
   (deliberately **not** migrated to `raise`). `Ok(())` iff the frame
   satisfies its seven structural invariants; otherwise `Err(msg)`.

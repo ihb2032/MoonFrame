@@ -60,6 +60,24 @@ the parameter form could not express.
 returns a copy — as does the constructor, so mutating either array cannot change
 what a reader (or a captured `scan_csv` plan) treats as null.
 
+### One name per concept
+
+| v0.5 | v0.6 |
+| --- | --- |
+| `df.take(indices)` | `df.gather(indices)` |
+| `expr.str_contains_regex(pat)` | `expr.str_contains(pat, literal=false)` |
+| `expr.str_replace_regex(pat, v)` | `expr.str_replace(pat, v, literal=false)` |
+| `expr.str_replace_all_regex(pat, v)` | `expr.str_replace_all(pat, v, literal=false)` |
+
+`Series::gather` is unchanged; `DataFrame::take` took the same name as in
+Polars. The `literal` default stays `true`, so every existing literal call is
+unaffected — only the regex spellings move. `LazyFrame::explain` renders the
+regex forms with `literal=false`, so pinned plan snapshots need updating.
+
+`Expr::children` / `referenced_columns` / `output_name` are now `#internal`
+(engine seams). `LazyFrame::unique` accepts `keep?` like the eager verb — a
+pure addition.
+
 ### Duplicate entry points are removed
 
 | v0.5 | v0.6 |

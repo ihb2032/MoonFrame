@@ -250,7 +250,7 @@ fn narrow_scan(
 fn sorted_names(names : @set.Set[String]) -> Array[String] {
   let arr : Array[String] = []
   names.each(name => arr.push(name))
-  arr.sort_by((a, b) => @types.compare_string_lex(a, b))
+  arr.sort_by((a, b) => @text.compare_string_lex(a, b))
   arr
 }
 

@@ -250,7 +250,7 @@ fn compare_one_key(key : SortKey, i : Int, j : Int) -> Int {
       let mi = missing[i]
       let mj = missing[j]
       compare_with_missing(mi, mj, null_order, order, fn() {
-        @types.compare_string_lex(data[i], data[j])
+        @text.compare_string_lex(data[i], data[j])
       })
     }
   }

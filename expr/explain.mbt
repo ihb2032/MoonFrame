@@ -214,7 +214,7 @@ fn write_expr(logger : &Logger, expr : Expr) -> Unit {
       Some(task) =>
         match task {
           Frag(s) => logger.write_string(s)
-          ScalarLit(v) => logger.write_string(@types.format_scalar_literal(v))
+          ScalarLit(v) => logger.write_string(@literal.format_scalar(v))
           CastTarget(t) => t.output(logger)
           StrSuffix(op) => write_str_suffix(logger, op)
           Node(e) => push_write_tasks(stack, e)
@@ -235,14 +235,14 @@ fn push_write_tasks(stack : Array[WriteTask], expr : Expr) -> Unit {
     // from `lit_str("x")` in a plan line. A name containing literal parens can
     // therefore read paren-ambiguously (`col(a)b)`); that is display-only and
     // accepted — `explain` output is diagnostic, not re-parsed.
-    Col(name) => [Frag("col(\{@types.escape_debug(name)})")]
+    Col(name) => [Frag("col(\{@text.escape_debug(name)})")]
     Lit(value) => [ScalarLit(value)]
     // The embedded data is opaque to the rendering, so a `LitSeries` shows its
     // name (quoted / escaped like a string literal) and length —
     // `lit_series("flag", 4)` — enough to read a plan line without dumping
     // every cell.
     LitSeries(s) =>
-      [Frag("lit_series(\"\{@types.escape_debug(s.name())}\", \{s.len()})")]
+      [Frag("lit_series(\"\{@text.escape_debug(s.name())}\", \{s.len()})")]
     Binary(op, l, r) =>
       [Frag("("), Node(l), Frag(" \{binop_symbol(op)} "), Node(r), Frag(")")]
     Unary(op, e) =>
@@ -262,7 +262,7 @@ fn push_write_tasks(stack : Array[WriteTask], expr : Expr) -> Unit {
     Agg(op, e) => [Node(e), Frag(agg_suffix(op))]
     Str(op, e) => [Node(e), StrSuffix(op)]
     Cast(e, target) => [Node(e), Frag(".cast("), CastTarget(target), Frag(")")]
-    Alias(e, name) => [Node(e), Frag(" as \{@types.escape_debug(name)}")]
+    Alias(e, name) => [Node(e), Frag(" as \{@text.escape_debug(name)}")]
     Ternary(c, t, f) =>
       [
         Frag("when("),
@@ -298,7 +298,7 @@ fn push_write_tasks(stack : Array[WriteTask], expr : Expr) -> Unit {
     // literal so it stays on one unambiguous line.
     Map(label, inputs, _) => {
       let ts : Array[WriteTask] = [
-        Frag("map(\"\{@types.escape_debug(label)}\", ["),
+        Frag("map(\"\{@text.escape_debug(label)}\", ["),
       ]
       for i in 0..<inputs.length() {
         if i > 0 {
@@ -314,7 +314,7 @@ fn push_write_tasks(stack : Array[WriteTask], expr : Expr) -> Unit {
     // forms render distinctly.
     MapBatches(label, inputs, returns_scalar, _) => {
       let ts : Array[WriteTask] = [
-        Frag("map_batches(\"\{@types.escape_debug(label)}\", ["),
+        Frag("map_batches(\"\{@text.escape_debug(label)}\", ["),
       ]
       for i in 0..<inputs.length() {
         if i > 0 {
@@ -396,11 +396,11 @@ fn write_str_suffix(logger : &Logger, op : StrOp) -> Unit {
     // string so a control or quote character stays on one line).
     PadStart(width, fill) =>
       logger.write_string(
-        ".str_pad_start(\{width}, '\{@types.escape_debug(fill.to_string())}')",
+        ".str_pad_start(\{width}, '\{@text.escape_debug(fill.to_string())}')",
       )
     PadEnd(width, fill) =>
       logger.write_string(
-        ".str_pad_end(\{width}, '\{@types.escape_debug(fill.to_string())}')",
+        ".str_pad_end(\{width}, '\{@text.escape_debug(fill.to_string())}')",
       )
     ContainsRegex(p) => write_str_call(logger, "str_contains_regex", [p])
     ReplaceRegex(a, b) => write_str_call(logger, "str_replace_regex", [a, b])
@@ -409,7 +409,7 @@ fn write_str_suffix(logger : &Logger, op : StrOp) -> Unit {
     // The pattern renders quoted, the group index bare.
     Extract(pattern, group) =>
       logger.write_string(
-        ".str_extract(\"\{@types.escape_debug(pattern)}\", \{group})",
+        ".str_extract(\"\{@text.escape_debug(pattern)}\", \{group})",
       )
     CountMatches(p) => write_str_call(logger, "str_count_matches", [p])
     // The offset renders bare; the length only when present.
@@ -426,7 +426,7 @@ fn write_str_suffix(logger : &Logger, op : StrOp) -> Unit {
     // The separator renders quoted, the index bare.
     SplitGet(sep, index) =>
       logger.write_string(
-        ".str_split_get(\"\{@types.escape_debug(sep)}\", \{index})",
+        ".str_split_get(\"\{@text.escape_debug(sep)}\", \{index})",
       )
     ZFill(width) => logger.write_string(".str_zfill(\{width})")
   }
@@ -445,6 +445,6 @@ fn write_str_call(
   logger.write_string(".")
   logger.write_string(name)
   logger.write_string("(")
-  logger.write_string(args.map(a => "\"\{@types.escape_debug(a)}\"").join(", "))
+  logger.write_string(args.map(a => "\"\{@text.escape_debug(a)}\"").join(", "))
   logger.write_string(")")
 }

@@ -24,13 +24,9 @@ pub fn parse_ndjson_str(String, options? : JsonReadOptions) -> @frame.DataFrame 
 
 pub fn read_csv(String, options? : CsvReadOptions) -> @frame.DataFrame raise @types.DataError
 
-pub fn read_csv_projected(String, CsvReadOptions, Array[String]) -> @frame.DataFrame raise @types.DataError
-
 pub fn read_json(String, options? : JsonReadOptions) -> @frame.DataFrame raise @types.DataError
 
 pub fn read_ndjson(String, options? : JsonReadOptions) -> @frame.DataFrame raise @types.DataError
-
-pub fn read_ndjson_projected(String, JsonReadOptions, Array[String]) -> @frame.DataFrame raise @types.DataError
 
 pub fn write_csv(String, @frame.DataFrame, options? : CsvWriteOptions) -> Unit raise @types.DataError
 

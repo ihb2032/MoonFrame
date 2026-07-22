@@ -16,6 +16,8 @@
 /// per-scope), so each caller supplies only its reader, skip test, and
 /// comparator. Generic over the cell type `T`, so the element kind lives
 /// entirely in the caller's closures. Total — pure folding, no failure path.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
 pub fn[T] fold_extremum(
   n : Int,
   get : (Int) -> T,

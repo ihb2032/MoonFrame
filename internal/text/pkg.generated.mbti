@@ -1,0 +1,22 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ihb2032/MoonFrame/internal/text"
+
+// Values
+pub fn compare_string_lex(String, String) -> Int
+
+pub fn escape_debug(String) -> String
+
+pub fn is_decimal_int_literal(String) -> Bool
+
+pub fn parse_decimal_int_opt(String) -> Int64?
+
+pub fn parse_plain_double_opt(String) -> Double?
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

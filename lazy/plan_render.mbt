@@ -89,8 +89,7 @@ fn write_plan_label(plan : LogicalPlan, buf : StringBuilder) -> Unit {
         None => ()
       }
     }
-    FillNull(_, value) =>
-      buf <+ "FILL_NULL \{@types.format_scalar_literal(value)}"
+    FillNull(_, value) => buf <+ "FILL_NULL \{@literal.format_scalar(value)}"
     Reduce(_, op) =>
       match op {
         Sum => buf <+ "SUM"
@@ -204,7 +203,7 @@ fn render_scan_source(
   path : String,
   projection : Array[String]?,
 ) -> Unit {
-  buf <+ "\{label} \"\{@types.escape_debug(path)}\""
+  buf <+ "\{label} \"\{@text.escape_debug(path)}\""
   match projection {
     None => ()
     Some(columns) => buf <+ " \{list_label(columns)}"

@@ -8,49 +8,10 @@ import {
 }
 
 // Values
-pub fn gather_series(Series, Array[Int]) -> Series
-
-pub fn gather_series_opt(Series, Array[Int?], String) -> Series
-
-pub fn key_cell(@types.Scalar) -> KeyCell
-
-pub fn preserve_backend(Series, Series) -> Series
-
-pub fn rebuild_options(Series, String, Int, (Array[Int64], Int) -> Int64?, (Array[Double], Int) -> Double?, (Array[Bool], Int) -> Bool?, (Array[String], Int) -> String?) -> Series
-
-pub fn reducer_for(@column.ColumnStorage, ReduceOp) -> ((Int, (Int) -> Int) -> @types.Scalar, @column.ColumnData) raise @types.DataError
-
-pub fn scalars_to_series(@column.ColumnData, String, Array[@types.Scalar]) -> Series
-
-pub fn slice_series(Series, Int, Int) -> Series
-
-pub fn try_column_to_numeric(Series) -> Series
-
-pub fn validity_bools(@column.ColumnStorage) -> Array[Bool]
 
 // Errors
 
 // Types and methods
-type KeyCell derive(Eq, Hash)
-pub fn KeyCell::equal(Self, Self) -> Bool
-pub fn KeyCell::hash(Self) -> Int
-pub fn KeyCell::hash_combine(Self, Hasher) -> Unit
-pub fn KeyCell::not_equal(Self, Self) -> Bool
-
-pub(all) enum ReduceOp {
-  Sum
-  Mean
-  Min
-  Max
-  Count
-  Std
-  Var
-  Median
-  NUnique
-  First
-  Last
-}
-
 pub struct Series {
   name : String
   storage : @column.ColumnStorage

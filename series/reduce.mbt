@@ -186,9 +186,9 @@ fn reduce_extremum(
         let skip = k => !present(at(k))
         let better = (x, y) => {
           if want_min {
-            @types.compare_string_lex(x, y) < 0
+            @text.compare_string_lex(x, y) < 0
           } else {
-            @types.compare_string_lex(x, y) > 0
+            @text.compare_string_lex(x, y) > 0
           }
         }
         match @types.fold_extremum(n, get, skip, better) {
@@ -481,6 +481,8 @@ fn reduce_first_last(
 /// This variant list mirrors `@expr.AggOp` one-to-one; `frame`'s
 /// `reduce_op_of_agg` translates between them. Keep the two in lockstep — a
 /// reduction added here must also be added to `@expr.AggOp` and to that map.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
 pub(all) enum ReduceOp {
   Sum
   Mean
@@ -503,6 +505,8 @@ pub(all) enum ReduceOp {
 /// (`eval_agg`) reductions so the op → reducer mapping lives in one place.
 /// `Sum` / `Mean` / `Std` / `Var` / `Median` `raise` `TypeMismatch` here for a
 /// non-numeric column, before any window work.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
 pub fn reducer_for(
   storage : @column.ColumnStorage,
   op : ReduceOp,
@@ -537,6 +541,8 @@ pub fn reducer_for(
 /// value: the catch-all `None` arm is reached by the nullable reductions
 /// (`mean` / `min` / `max` / `std` / `var` / `median` over an empty / all-null
 /// window, and `first` / `last` over a null cell), so no arm is dead.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
 pub fn scalars_to_series(
   probe : @column.ColumnData,
   name : String,

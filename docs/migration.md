@@ -60,6 +60,21 @@ the parameter form could not express.
 returns a copy — as does the constructor, so mutating either array cannot change
 what a reader (or a captured `scan_csv` plan) treats as null.
 
+### `unique` takes a subset, and is now fallible
+
+`DataFrame::unique` gained Polars' `subset` — the columns whose values form the
+duplicate key — which makes it `raise DataError` (`ColumnNotFound`) instead of
+total. Existing calls keep their behaviour but now need a `raise` context (or a
+`catch`), exactly like `filter` / `select` beside them:
+
+| v0.5 | v0.6 |
+| --- | --- |
+| `let out = df.unique()` (total) | `let out = df.unique()` (raises) |
+| — | `df.unique(subset=[col("id")], keep=Last)` |
+
+`LazyFrame::unique` takes the same `subset?` and stays total at build time; an
+unknown name surfaces at `collect`.
+
 ### One name per concept
 
 | v0.5 | v0.6 |

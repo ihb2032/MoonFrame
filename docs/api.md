@@ -726,7 +726,7 @@ so every output satisfies `check_invariants()`; all raise the evaluator's
   length-1 predicate broadcasts. This is the eager executor the lazy
   `Filter` node defers. A row-wise host predicate is reachable through the
   `map_many` escape hatch.
-- `unique(keep? : KeepStrategy) -> DataFrame` — **total**. Drop duplicate rows.
+- `unique(subset? : Array[Expr], keep? : KeepStrategy) -> DataFrame raise DataError` — drop duplicate rows.
   `keep` (default `First`) selects which occurrence survives: `First` / `Last`
   keep one representative per distinct row, `None` keeps only rows that have no
   duplicate at all (Polars' `keep='none'`). Kept rows always come out in
@@ -1163,7 +1163,8 @@ Each returns a new `LazyFrame` wrapping one more node:
 - `sort(by : Array[(Expr, SortOrder, NullOrder)])` · `head(n)` ·
   `tail(n)` · `limit(n)` (≡ `head`) · `slice(start, end)`.
 - `drop(exprs : Array[Expr])` · `rename(pairs : Array[(String, String)])` ·
-  `rename_with(f : (String) -> String)` · `unique(keep? : KeepStrategy)` ·
+  `rename_with(f : (String) -> String)` ·
+  `unique(subset? : Array[Expr], keep? : KeepStrategy)` ·
   `drop_nulls(subset? : Array[Expr])` ·
   `fill_null(value : Scalar)` — defer the column / row transforms (`rename_with`
   renders as a bare `RENAME_WITH` — its closure is opaque). The

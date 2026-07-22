@@ -120,6 +120,14 @@ collected in [`migration.md`](migration.md).
   had since v0.5.8 — the two had silently diverged (and the docs already
   described the lazy verb as taking it). A non-default strategy shows in
   `explain` as `UNIQUE keep=Last` / `UNIQUE keep=None`.
+- `unique` gains Polars' `subset` on both surfaces:
+  `DataFrame::unique(subset? : Array[Expr], keep? : KeepStrategy)` and the same
+  on `LazyFrame`. The key is formed from the named columns while the output
+  still carries every column. Resolving those names makes the eager verb
+  **raising** (`ColumnNotFound`) where it used to be total — the reason this
+  was held back until a breaking release. With no `subset` it cannot fail, so
+  the all-columns form behaves exactly as before. A subset renders in `explain`
+  as `UNIQUE ON [col(a)]`.
 - `CsvReadOptions.null_values` is a private field with a copying
   `null_values()` accessor. Both it and the constructor copy, so the token list
   a reader (or a captured `scan_csv` plan) uses can no longer be mutated

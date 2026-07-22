@@ -385,8 +385,8 @@ test "pipeline: filter surfaces predicate evaluation errors instead of swallowin
 ///|
 test "pipeline: Schema and Field surface for callers building empty frames" {
   let schema = Schema::new([
-    Field::new("id", DataType::Int),
-    Field::with_nullable("note", DataType::String, false),
+    Field("id", DataType::Int),
+    Field("note", DataType::String, nullable=false),
   ])
   assert_eq(schema.len(), 2)
   assert_eq(schema.field_names(), ["id", "note"])

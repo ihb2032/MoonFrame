@@ -357,8 +357,8 @@ test "sort on a 0x0 frame returns the same 0x0 frame" {
 ///|
 test "sort on a 0-row frame preserves the schema and stays empty" {
   let schema = @types.Schema::new([
-    @types.Field::new("a", @types.DataType::Int),
-    @types.Field::new("b", @types.DataType::String),
+    @types.Field("a", @types.DataType::Int),
+    @types.Field("b", @types.DataType::String),
   ])
   let df = DataFrame::empty(schema)
   let out = df.sort([(@expr.col("a"), Asc, NullsLast)])

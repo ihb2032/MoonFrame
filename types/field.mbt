@@ -7,11 +7,15 @@
 /// `NullInNonNullable(name)`. (`DataFrame::empty` builds 0-row columns, so it
 /// can never violate the constraint.) The flag is otherwise advisory — it is
 /// neither inferred from a column's contents nor propagated across operations:
-/// `Field::new` (and so `DataFrame::new`, the IO readers, and the ops that
-/// rebuild through them) always sets `nullable = true`, so a `nullable = false`
-/// field only ever originates from an explicit
-/// `Field::with_nullable(..., false)` in a caller-supplied schema.
-pub(all) struct Field {
+/// the constructor's `nullable` default (and so `DataFrame::new`, the IO
+/// readers, and the ops that rebuild through them) always sets
+/// `nullable = true`, so a `nullable = false` field only ever originates from
+/// an explicit `Field(..., nullable=false)` in a caller-supplied schema.
+///
+/// The fields are readable but not constructible from outside `types`: build
+/// one through `Field(...)`, so a future field can be added without breaking
+/// callers.
+pub struct Field {
   name : String
   dtype : DataType
   nullable : Bool
@@ -27,18 +31,14 @@ pub extend Field with Show::{to_string, output}
 pub extend Field with Debug::{to_repr}
 
 ///|
-/// Build a field with `nullable = true` (the common default for inferred
-/// CSV / JSON columns).
-pub fn Field::new(name : String, dtype : DataType) -> Field {
-  { name, dtype, nullable: true }
-}
-
-///|
-/// Build a field with an explicit nullability flag.
-pub fn Field::with_nullable(
+/// Build a field. `nullable` defaults to `true`, the common setting for
+/// inferred CSV / JSON columns; pass `nullable=false` to declare the
+/// constraint `DataFrame::from_rows` enforces.
+#as_free_fn(visibility="pub")
+pub fn Field::Field(
   name : String,
   dtype : DataType,
-  nullable : Bool,
+  nullable? : Bool = true,
 ) -> Field {
   { name, dtype, nullable }
 }

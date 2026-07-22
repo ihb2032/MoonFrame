@@ -20,8 +20,8 @@ test "to_html: zero rows still emits header + empty tbody" {
   // `<tbody>` is present but carries no `<tr>` (as pandas' `to_html`
   // renders a 0-row frame).
   let schema = @types.Schema::new([
-    @types.Field::new("a", @types.DataType::Int),
-    @types.Field::new("b", @types.DataType::String),
+    @types.Field("a", @types.DataType::Int),
+    @types.Field("b", @types.DataType::String),
   ])
   let df = DataFrame::empty(schema)
   let expected =

@@ -249,8 +249,8 @@ test "format_vega_lite: null and non-finite float cells become JSON null" {
 ///|
 test "format_vega_lite: a frame with columns but no rows yields empty data.values" {
   let schema = @types.Schema::new([
-    @types.Field::new("cat", @types.DataType::String),
-    @types.Field::new("val", @types.DataType::Int),
+    @types.Field("cat", @types.DataType::String),
+    @types.Field("val", @types.DataType::Int),
   ])
   let empty = @frame.DataFrame::empty(schema)
   inspect(

@@ -20,9 +20,9 @@ test "DataFrame::new copies the caller's column vector" {
 
 ///|
 test "Schema::new copies the caller's field array" {
-  let fields = [Field::new("a", DataType::Int)]
+  let fields : Array[Field] = [Field("a", DataType::Int)]
   let schema = Schema::new(fields)
-  fields.push(Field::new("b", DataType::String))
+  fields.push(Field("b", DataType::String))
   assert_eq(schema.len(), 1)
   assert_eq(schema.field_at(0).name(), "a")
 }

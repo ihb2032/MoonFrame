@@ -20,8 +20,8 @@ test "to_markdown: zero rows still emits header + separator" {
   // The renderer must still surface the column layout — that's the
   // whole point of having a schema in the first place.
   let schema = @types.Schema::new([
-    @types.Field::new("a", @types.DataType::Int),
-    @types.Field::new("b", @types.DataType::String),
+    @types.Field("a", @types.DataType::Int),
+    @types.Field("b", @types.DataType::String),
   ])
   let df = DataFrame::empty(schema)
   let expected =

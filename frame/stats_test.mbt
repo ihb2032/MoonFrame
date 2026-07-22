@@ -90,7 +90,7 @@ test "mean of an empty / all-null numeric column is a Null cell" {
   assert_eq(r.get_column("a").dtype(), @types.DataType::Float)
   // An empty (0-row) numeric column likewise → Null mean cell.
   let empty = DataFrame::empty(
-    @types.Schema::new([@types.Field::new("a", @types.DataType::Int)]),
+    @types.Schema::new([@types.Field("a", @types.DataType::Int)]),
   )
   assert_eq(empty.mean().item(0, "a"), @types.Scalar::Null)
 }
@@ -144,9 +144,9 @@ test "count is the non-null cell count for every column, as a 1-row Int frame" {
 test "reductions on a 0-row frame: sum is the identity, count is zero" {
   let df = DataFrame::empty(
     @types.Schema::new([
-      @types.Field::new("i", @types.DataType::Int),
-      @types.Field::new("f", @types.DataType::Float),
-      @types.Field::new("s", @types.DataType::String),
+      @types.Field("i", @types.DataType::Int),
+      @types.Field("f", @types.DataType::Float),
+      @types.Field("s", @types.DataType::String),
     ]),
   )
   // sum → additive identity for numeric, Null for non-numeric; still 1 row.

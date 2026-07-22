@@ -50,6 +50,24 @@ You can browse and install extra skills here:
   prefer assertion tests. You can use `moon coverage analyze > uncovered.log` to
   see which parts of your code are not covered by tests.
 
+## Formal verification
+
+- `internal/verified` holds proof-carrying pure kernels: each function carries
+  a `proof_ensure` contract over the named predicates in `specs.mbtp`, and
+  `moon prove internal/verified` must report every goal proved.
+
+- The prover needs Why3 + Alt-Ergo, which are not installed on Windows; on
+  this machine they live in WSL (`wsl -u root`, moon pinned to the same
+  version as CI). Proofs do not run in CI — treat a green `moon prove` as part
+  of the local gate whenever that package changes.
+
+- The prover's frontier is narrower than the language: contracted bodies
+  reject tuple / or-patterns and early `return`, `.mbtp` predicates take
+  `Option[T]` spelled out and no `else if`, and packages defining
+  Array-wrapping types (or using Double / String methods / closures in
+  contracted code) cannot be proved at all — which is why the island imports
+  nothing and the columnar core stays test-covered instead.
+
 ## Completion Requirements
 
 - Keep test coverage at 100%. Before finishing a change, run

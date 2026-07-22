@@ -331,6 +331,19 @@ test "the column / row verbs collect to their eager equivalents" {
     lazy_frame(df).rename_with(name => "col_\{name}").collect(),
     df.rename_with(name => "col_\{name}"),
   )
+  assert_eq(lazy_frame(df).reverse().collect(), df.reverse())
+  assert_eq(lazy_frame(df).with_row_index().collect(), df.with_row_index())
+  assert_eq(
+    lazy_frame(df).with_row_index(name="row", offset=5).collect(),
+    df.with_row_index(name="row", offset=5),
+  )
+  // A colliding counter name is a build-time no-op that fails at collect.
+  assert_true(
+    (Ok(lazy_frame(df).with_row_index(name="region").collect()) catch {
+      e => Err(e)
+    })
+    is Err(@types.DataError::DuplicateColumn("region")),
+  )
   assert_eq(lazy_frame(df).unique().collect(), df.unique())
   // Every keep strategy matches its eager counterpart, so the lazy verb is a
   // faithful deferral rather than a first-only shortcut.
@@ -387,6 +400,28 @@ test "the column / row verbs render in explain, with each fill-value form" {
     lazy_frame(df).rename_with(name => "col_\{name}").explain(),
     content=(
       #|RENAME_WITH
+      #|  SCAN [4×3]
+    ),
+  )
+  inspect(
+    lazy_frame(df).reverse().explain(),
+    content=(
+      #|REVERSE
+      #|  SCAN [4×3]
+    ),
+  )
+  // The counter's name is always shown; a non-zero offset is appended.
+  inspect(
+    lazy_frame(df).with_row_index().explain(),
+    content=(
+      #|WITH_ROW_INDEX "index"
+      #|  SCAN [4×3]
+    ),
+  )
+  inspect(
+    lazy_frame(df).with_row_index(name="row", offset=5).explain(),
+    content=(
+      #|WITH_ROW_INDEX "row" offset=5
       #|  SCAN [4×3]
     ),
   )

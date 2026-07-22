@@ -137,6 +137,25 @@ pub fn LazyFrame::rename_with(
 }
 
 ///|
+/// Defer `DataFrame::reverse`: flip the row order at collect time. Total.
+pub fn LazyFrame::reverse(self : LazyFrame) -> LazyFrame {
+  { plan: Reverse(self.plan) }
+}
+
+///|
+/// Defer `DataFrame::with_row_index`: prepend an `Int` counter column named
+/// `name` (default `"index"`) running from `offset`. Total like every builder
+/// — a name that collides with an existing column surfaces as
+/// `DuplicateColumn` at `collect`.
+pub fn LazyFrame::with_row_index(
+  self : LazyFrame,
+  name? : String = "index",
+  offset? : Int64 = 0,
+) -> LazyFrame {
+  { plan: WithRowIndex(self.plan, name, offset) }
+}
+
+///|
 /// Defer `DataFrame::unique`: drop duplicate rows, keeping survivors in their
 /// original order. `subset` and `keep` mirror the eager verb — `subset` picks
 /// the columns forming the duplicate key (every column when omitted, and the

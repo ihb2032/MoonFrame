@@ -55,6 +55,8 @@ priv enum LogicalPlan {
   Rename(LogicalPlan, Array[(String, String)])
   RenameWith(LogicalPlan, (String) -> String)
   Unique(LogicalPlan, @frame.KeepStrategy, Array[@expr.Expr]?)
+  Reverse(LogicalPlan)
+  WithRowIndex(LogicalPlan, String, Int64)
   DropNulls(LogicalPlan, Array[@expr.Expr]?)
   FillNull(LogicalPlan, @types.Scalar)
   Reduce(LogicalPlan, LazyReduceOp)
@@ -99,6 +101,8 @@ fn plan_children(plan : LogicalPlan) -> Array[LogicalPlan] {
     | Rename(input, _)
     | RenameWith(input, _)
     | Unique(input, _, _)
+    | Reverse(input)
+    | WithRowIndex(input, _, _)
     | DropNulls(input, _)
     | FillNull(input, _)
     | Reduce(input, _) => [input]
@@ -294,6 +298,9 @@ fn execute(plan : LogicalPlan) -> @frame.DataFrame raise @types.DataError {
       Drop(input, exprs) => memo_result(memo, input).drop(exprs)
       Rename(input, pairs) => memo_result(memo, input).rename(pairs)
       RenameWith(input, f) => memo_result(memo, input).rename_with(f)
+      Reverse(input) => memo_result(memo, input).reverse()
+      WithRowIndex(input, name, offset) =>
+        memo_result(memo, input).with_row_index(name~, offset~)
       Unique(input, keep, subset) =>
         match subset {
           None => memo_result(memo, input).unique(keep~)

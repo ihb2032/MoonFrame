@@ -36,6 +36,11 @@ collected in [`migration.md`](migration.md).
   - Streaming the file is still future work — the reader tokenises the whole
     file, and the saving is the typed build of the dropped rows.
 
+- `DataFrame::reverse()` and
+  `DataFrame::with_row_index(name? = "index", offset? = 0)` land on both
+  surfaces (`LazyFrame` defers each through its own plan node, rendered as
+  `REVERSE` / `WITH_ROW_INDEX "index"`). The counter is dense, never null, and
+  sits ahead of the frame's own columns as in Polars.
 - `Series` gains the ordering verbs its `DataFrame` twin already had:
   `sort(order?, nulls?)`, `head(n)`, `tail(n)`, and `reverse()`. `sort` runs
   the *same* per-column kernel `DataFrame::sort` uses — moved into `series` for

@@ -243,6 +243,8 @@ pub fn Series::to_scalars(self : Series) -> Array[@types.Scalar] {
 /// type changed from `BuiltinColumn` to `ColumnStorage` in v0.3; the
 /// `data()` / `validity()` surface is identical, so column-reading call
 /// sites are unaffected.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
 pub fn Series::storage(self : Series) -> @column.ColumnStorage {
   self.storage
 }
@@ -707,6 +709,8 @@ pub fn Series::cast(
 /// Which storage backend currently backs this column: `Numeric` for the
 /// all-valid unboxed fast path (built by `from_ints` / `from_floats`, and
 /// preserved through structural transforms), `Builtin` otherwise.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
 pub fn Series::storage_kind(self : Series) -> @column.StorageKind {
   self.storage.kind()
 }
@@ -736,6 +740,8 @@ pub fn Series::storage_kind(self : Series) -> @column.StorageKind {
 /// `Numeric`. A backend-preserving transform (`slice` / `head` / `fill_null`)
 /// can still return a non-canonical column when its source was one — the
 /// invariant governs the content-determined path, not every column.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
 pub fn Series::is_canonical(self : Series) -> Bool {
   match self.storage.kind() {
     @column.StorageKind::Numeric => true
@@ -758,6 +764,8 @@ pub fn Series::is_canonical(self : Series) -> Bool {
 /// non-numeric column and `raise InvalidOperation` for one carrying nulls
 /// (a `NumericColumn` has no validity bitmap to record them); an
 /// already-`Numeric` column is returned unchanged.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
 pub fn Series::to_numeric(self : Series) -> Series raise @types.DataError {
   Series::new(self.name, self.storage.to_numeric())
 }
@@ -767,6 +775,8 @@ pub fn Series::to_numeric(self : Series) -> Series raise @types.DataError {
 /// inverse of `to_numeric`). Total and lossless: an all-valid `Numeric`
 /// column widens to a `BuiltinColumn` with an all-valid bitmap; a `Builtin`
 /// column is returned unchanged.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
 pub fn Series::to_builtin(self : Series) -> Series {
   Series::from_builtin(self.name, self.storage.to_builtin())
 }

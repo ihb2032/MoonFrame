@@ -3,7 +3,6 @@ package "ihb2032/MoonFrame/frame"
 
 import {
   "ihb2032/MoonFrame/expr",
-  "ihb2032/MoonFrame/internal/column",
   "ihb2032/MoonFrame/series",
   "ihb2032/MoonFrame/types",
   "moonbitlang/core/debug",
@@ -65,16 +64,12 @@ pub fn DataFrame::select(Self, Array[@expr.Expr]) -> Self raise @types.DataError
 pub fn DataFrame::shape(Self) -> (Int, Int)
 pub fn DataFrame::slice(Self, Int, Int) -> Self raise @types.DataError
 pub fn DataFrame::sort(Self, Array[(@expr.Expr, SortOrder, NullOrder)]) -> Self raise @types.DataError
-pub fn DataFrame::storage_kinds(Self) -> Array[@column.StorageKind]
 pub fn DataFrame::sum(Self) -> Self raise @types.DataError
 pub fn DataFrame::tail(Self, Int) -> Self
 pub fn DataFrame::take(Self, Array[Int]) -> Self raise @types.DataError
-pub fn DataFrame::to_builtin(Self) -> Self
 pub fn DataFrame::to_html(Self, options? : HtmlOptions) -> String
 pub fn DataFrame::to_markdown(Self, max_rows? : Int) -> String
-pub fn DataFrame::to_numeric(Self) -> Self
 pub fn DataFrame::to_repr(Self) -> @debug.Repr
-pub fn DataFrame::to_scalar_matrix(Self) -> Array[Array[@types.Scalar]]
 pub fn DataFrame::unique(Self, keep? : KeepStrategy) -> Self
 pub fn DataFrame::with_columns(Self, Array[@expr.Expr]) -> Self raise @types.DataError
 

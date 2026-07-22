@@ -269,6 +269,8 @@ pub fn DataFrame::column_series(self : DataFrame) -> Array[Series] {
 /// `item`, so no row walk pays a repeated bounds-checked lookup. (The table
 /// renderers `to_html` / `to_markdown` instead scalarise only the visible row
 /// window, per column, via `table_cell_matrix`.)
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
 pub fn DataFrame::to_scalar_matrix(
   self : DataFrame,
 ) -> Array[Array[@types.Scalar]] {
@@ -474,6 +476,8 @@ fn is_identity_perm(indices : Array[Int], nrows : Int) -> Bool {
 /// The storage backend of each column, in declaration order — `Numeric`
 /// for all-valid unboxed numeric columns, `Builtin` otherwise. Parallel to
 /// `columns()` / the schema's fields.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
 pub fn DataFrame::storage_kinds(self : DataFrame) -> Array[@column.StorageKind] {
   self.columns.map(c => c.storage_kind())
 }
@@ -486,6 +490,8 @@ pub fn DataFrame::storage_kinds(self : DataFrame) -> Array[@column.StorageKind] 
 /// that cannot move never fails the whole frame). Names, dtypes, and values
 /// are unchanged — only the backing representation of the converted columns
 /// — so the schema and `O(1)` lookup cache are reused verbatim.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
 pub fn DataFrame::to_numeric(self : DataFrame) -> DataFrame {
   let new_cols = self.columns.map(try_column_to_numeric)
   self.with_same_schema(new_cols, self.nrows)
@@ -497,6 +503,8 @@ pub fn DataFrame::to_numeric(self : DataFrame) -> DataFrame {
 /// with an all-valid bitmap, `Builtin` columns are unchanged — so names,
 /// dtypes, and values are preserved and the schema / lookup cache are
 /// reused verbatim.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
 pub fn DataFrame::to_builtin(self : DataFrame) -> DataFrame {
   let new_cols = self.columns.map(c => c.to_builtin())
   self.with_same_schema(new_cols, self.nrows)

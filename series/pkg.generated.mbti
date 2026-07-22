@@ -96,7 +96,6 @@ pub fn Series::storage_kind(Self) -> @column.StorageKind
 pub fn Series::sum(Self) -> @types.Scalar raise @types.DataError
 pub fn Series::to_builtin(Self) -> Self
 pub fn Series::to_numeric(Self) -> Self raise @types.DataError
-#as_free_fn
 pub fn Series::to_repr(Self) -> @debug.Repr
 pub fn Series::to_scalars(Self) -> Array[@types.Scalar]
 pub fn Series::variance(Self) -> Double raise @types.DataError

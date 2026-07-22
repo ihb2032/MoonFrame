@@ -75,7 +75,6 @@ pub fn DataFrame::to_html_with_options(Self, HtmlOptions) -> String
 pub fn DataFrame::to_markdown(Self) -> String
 pub fn DataFrame::to_markdown_with_limit(Self, Int) -> String
 pub fn DataFrame::to_numeric(Self) -> Self
-#as_free_fn
 pub fn DataFrame::to_repr(Self) -> @debug.Repr
 pub fn DataFrame::to_scalar_matrix(Self) -> Array[Array[@types.Scalar]]
 pub fn DataFrame::unique(Self, keep? : KeepStrategy) -> Self
@@ -87,7 +86,6 @@ pub struct GroupedDataFrame {
 pub fn GroupedDataFrame::agg(Self, Array[@expr.Expr]) -> DataFrame raise @types.DataError
 pub fn GroupedDataFrame::equal(Self, Self) -> Bool
 pub fn GroupedDataFrame::not_equal(Self, Self) -> Bool
-#as_free_fn
 pub fn GroupedDataFrame::to_repr(Self) -> @debug.Repr
 
 pub struct HtmlOptions {
@@ -99,7 +97,6 @@ pub struct HtmlOptions {
 pub fn HtmlOptions::default() -> Self
 pub fn HtmlOptions::equal(Self, Self) -> Bool
 pub fn HtmlOptions::not_equal(Self, Self) -> Bool
-#as_free_fn
 pub fn HtmlOptions::to_repr(Self) -> @debug.Repr
 pub fn HtmlOptions::with_caption(Self, String) -> Self
 pub fn HtmlOptions::with_escape(Self, Bool) -> Self
@@ -119,7 +116,6 @@ pub fn JoinOptions::equal(Self, Self) -> Bool
 pub fn JoinOptions::left_on(Array[@expr.Expr]) -> Self
 pub fn JoinOptions::not_equal(Self, Self) -> Bool
 pub fn JoinOptions::on(Array[@expr.Expr]) -> Self
-#as_free_fn
 pub fn JoinOptions::to_repr(Self) -> @debug.Repr
 pub fn JoinOptions::with_coalesce(Self, Bool) -> Self
 pub fn JoinOptions::with_coalesce_auto(Self) -> Self
@@ -137,7 +133,6 @@ pub(all) enum JoinType {
 } derive(Eq, @debug.Debug)
 pub fn JoinType::equal(Self, Self) -> Bool
 pub fn JoinType::not_equal(Self, Self) -> Bool
-#as_free_fn
 pub fn JoinType::to_repr(Self) -> @debug.Repr
 
 pub(all) enum KeepStrategy {
@@ -147,7 +142,6 @@ pub(all) enum KeepStrategy {
 } derive(Eq, @debug.Debug)
 pub fn KeepStrategy::equal(Self, Self) -> Bool
 pub fn KeepStrategy::not_equal(Self, Self) -> Bool
-#as_free_fn
 pub fn KeepStrategy::to_repr(Self) -> @debug.Repr
 
 pub(all) enum NullOrder {
@@ -156,7 +150,6 @@ pub(all) enum NullOrder {
 } derive(Eq, @debug.Debug)
 pub fn NullOrder::equal(Self, Self) -> Bool
 pub fn NullOrder::not_equal(Self, Self) -> Bool
-#as_free_fn
 pub fn NullOrder::to_repr(Self) -> @debug.Repr
 
 pub(all) enum SortOrder {
@@ -165,7 +158,6 @@ pub(all) enum SortOrder {
 } derive(Eq, @debug.Debug)
 pub fn SortOrder::equal(Self, Self) -> Bool
 pub fn SortOrder::not_equal(Self, Self) -> Bool
-#as_free_fn
 pub fn SortOrder::to_repr(Self) -> @debug.Repr
 
 // Type aliases

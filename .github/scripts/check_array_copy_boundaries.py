@@ -3,12 +3,17 @@
 
 This is intentionally a small lexical guard, not a MoonBit parser. It examines
 one top-level `///|` block at a time, finds public functions with `Array[...]`
-parameters, and rejects direct retention in record fields or enum/constructor
-payloads unless the retained value is an explicit `.copy()`.
+parameters — positional, optional (`subset? : Array[...]`), or labelled
+(`keys~ : Array[...]`) — and rejects direct retention in record fields or
+enum/constructor payloads unless the retained value is an explicit `.copy()`.
+`Some` / `Ok` / `Err` are transparent: a payload holding `Some(values)` retains
+`values` exactly as a bare `values` would.
 
 Algorithms that only read an array are unaffected. If a future boundary
 delegates to a helper that copies, keep the copy visible at the public boundary
-instead of weakening this check.
+instead of weakening this check — a copy hidden one call away is invisible here
+by design, and the runtime contracts in `array_ownership_test.mbt` are what pin
+those boundaries.
 """
 
 from __future__ import annotations
@@ -19,9 +24,32 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SOURCE_ROOTS = ("types", "series", "expr", "frame", "lazy", "io", "internal")
+SOURCE_ROOTS = (
+    "types",
+    "series",
+    "expr",
+    "frame",
+    "lazy",
+    "io",
+    "internal",
+    "examples",
+)
 PUBLIC_FN = re.compile(r"\bpub\s+fn(?:\[[^\]]+\])?\s+([A-Za-z0-9_:]+)\s*\(")
-ARRAY_PARAM = re.compile(r"\b([a-z][A-Za-z0-9_]*)\s*:\s*Array\s*\[")
+# `?` marks an optional parameter and `~` a labelled one; both still hand the
+# callee a caller-owned array.
+ARRAY_PARAM = re.compile(r"\b([a-z][A-Za-z0-9_]*)\s*[?~]?\s*:\s*Array\s*\[")
+TRANSPARENT_WRAPPERS = ("Some", "Ok", "Err")
+
+
+def wrapped_forms(parameter: str) -> str:
+    """Regex source matching `parameter` bare or inside a transparent wrapper.
+
+    `Some` / `Ok` / `Err` do not own the array they carry, so a field or payload
+    holding `Some(values)` aliases the caller's array just as `values` does.
+    """
+    escaped = re.escape(parameter)
+    wrappers = "|".join(TRANSPARENT_WRAPPERS)
+    return rf"(?:{escaped}|(?:{wrappers})\s*\(\s*{escaped}\s*\))"
 
 
 def mask_strings_and_comments(text: str) -> str:
@@ -128,7 +156,7 @@ def constructor_retains(block: str, parameter: str) -> bool:
             continue
         parts = split_top_level(code[opening + 1 : closing])
         direct = re.compile(
-            rf"^(?:[a-z][A-Za-z0-9_]*\s*=\s*)?{re.escape(parameter)}$"
+            rf"^(?:[a-z][A-Za-z0-9_]*\s*=\s*)?{wrapped_forms(parameter)}$"
         )
         if any(direct.fullmatch(part) for part in parts):
             return True
@@ -171,8 +199,8 @@ def retained_parameters(block: str) -> list[str]:
         if copied_binding:
             continue
         field_assignment = re.search(
-            rf"\b[A-Za-z_][A-Za-z0-9_]*\s*:\s*{re.escape(parameter)}\b"
-            rf"(?!\s*\.copy\s*\()",
+            rf"\b[A-Za-z_][A-Za-z0-9_]*\s*:\s*{wrapped_forms(parameter)}"
+            rf"(?![A-Za-z0-9_]|\s*\.copy\s*\()",
             code,
         )
         if (
@@ -185,13 +213,19 @@ def retained_parameters(block: str) -> list[str]:
 
 
 def source_files() -> list[Path]:
-    files: list[Path] = []
+    # The facade package lives in the repository root, so its own `.mbt` files
+    # are part of the public surface the guard covers.
+    candidates: list[Path] = list(ROOT.glob("*.mbt"))
     for directory in SOURCE_ROOTS:
-        for path in (ROOT / directory).rglob("*.mbt"):
-            if path.name.endswith(("_test.mbt", "_wbtest.mbt")):
-                continue
-            files.append(path)
-    return sorted(files)
+        root = ROOT / directory
+        if not root.is_dir():
+            continue
+        candidates.extend(root.rglob("*.mbt"))
+    return sorted(
+        path
+        for path in candidates
+        if not path.name.endswith(("_test.mbt", "_wbtest.mbt"))
+    )
 
 
 def audit() -> list[str]:
@@ -243,6 +277,16 @@ pub fn Box::new(values : Array[Int]) -> Box {
   { values }
 }
 """
+    unsafe_optional = """
+pub fn Plan::drop_nulls(subset? : Array[Expr]) -> Plan {
+  { plan: DropNulls(subset) }
+}
+"""
+    unsafe_wrapped = """
+pub fn Plan::drop_nulls(subset : Array[Expr]) -> Plan {
+  { plan: DropNulls(Some(subset)) }
+}
+"""
     borrowed = """
 pub fn sum(values : Array[Int]) -> Int {
   values.fold(init=0, (acc, value) => acc + value)
@@ -252,6 +296,8 @@ pub fn sum(values : Array[Int]) -> Int {
     assert retained_parameters(unsafe_enum) == ["exprs"]
     assert retained_parameters(unsafe_qualified_enum) == ["exprs"]
     assert retained_parameters(unsafe_shorthand) == ["values"]
+    assert retained_parameters(unsafe_optional) == ["subset"]
+    assert retained_parameters(unsafe_wrapped) == ["subset"]
     assert retained_parameters(safe_copy) == []
     assert retained_parameters(safe_shadow_copy) == []
     assert retained_parameters(borrowed) == []

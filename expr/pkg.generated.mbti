@@ -43,7 +43,6 @@ pub enum AggOp {
 } derive(Eq, @debug.Debug)
 pub fn AggOp::equal(Self, Self) -> Bool
 pub fn AggOp::not_equal(Self, Self) -> Bool
-#as_free_fn
 pub fn AggOp::to_repr(Self) -> @debug.Repr
 
 pub enum BinOp {
@@ -65,7 +64,6 @@ pub enum BinOp {
 } derive(Eq, @debug.Debug)
 pub fn BinOp::equal(Self, Self) -> Bool
 pub fn BinOp::not_equal(Self, Self) -> Bool
-#as_free_fn
 pub fn BinOp::to_repr(Self) -> @debug.Repr
 
 pub enum Expr {
@@ -161,7 +159,6 @@ pub fn Expr::str_to_uppercase(Self) -> Self
 pub fn Expr::str_zfill(Self, Int) -> Self
 pub fn Expr::sub(Self, Self) -> Self
 pub fn Expr::sum(Self) -> Self
-#as_free_fn
 pub fn Expr::to_repr(Self) -> @debug.Repr
 pub fn Expr::to_string(Self) -> String
 pub fn Expr::variance(Self) -> Self
@@ -203,7 +200,6 @@ pub enum StrOp {
 } derive(Eq, @debug.Debug)
 pub fn StrOp::equal(Self, Self) -> Bool
 pub fn StrOp::not_equal(Self, Self) -> Bool
-#as_free_fn
 pub fn StrOp::to_repr(Self) -> @debug.Repr
 
 pub enum UnOp {
@@ -221,7 +217,6 @@ pub enum UnOp {
 } derive(Eq, @debug.Debug)
 pub fn UnOp::equal(Self, Self) -> Bool
 pub fn UnOp::not_equal(Self, Self) -> Bool
-#as_free_fn
 pub fn UnOp::to_repr(Self) -> @debug.Repr
 
 pub struct WhenThen {

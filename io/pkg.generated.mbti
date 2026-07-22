@@ -59,7 +59,6 @@ pub(all) enum ChartKind {
 } derive(Eq, @debug.Debug)
 pub fn ChartKind::equal(Self, Self) -> Bool
 pub fn ChartKind::not_equal(Self, Self) -> Bool
-#as_free_fn
 pub fn ChartKind::to_repr(Self) -> @debug.Repr
 
 pub struct ChartSpec {
@@ -76,7 +75,6 @@ pub fn ChartSpec::equal(Self, Self) -> Bool
 pub fn ChartSpec::line(String, String) -> Self
 pub fn ChartSpec::not_equal(Self, Self) -> Bool
 pub fn ChartSpec::point(String, String) -> Self
-#as_free_fn
 pub fn ChartSpec::to_repr(Self) -> @debug.Repr
 pub fn ChartSpec::with_color(Self, String) -> Self
 pub fn ChartSpec::with_color_type(Self, VegaType) -> Self
@@ -118,7 +116,6 @@ pub(all) enum OnParseError {
 } derive(Eq, @debug.Debug)
 pub fn OnParseError::equal(Self, Self) -> Bool
 pub fn OnParseError::not_equal(Self, Self) -> Bool
-#as_free_fn
 pub fn OnParseError::to_repr(Self) -> @debug.Repr
 
 pub(all) enum VegaType {
@@ -129,7 +126,6 @@ pub(all) enum VegaType {
 } derive(Eq, @debug.Debug)
 pub fn VegaType::equal(Self, Self) -> Bool
 pub fn VegaType::not_equal(Self, Self) -> Bool
-#as_free_fn
 pub fn VegaType::to_repr(Self) -> @debug.Repr
 
 // Type aliases

@@ -612,6 +612,12 @@ dependencies** (NyaCSV / fs / @json live only in `io`).
   (clamp `n` to `[0, nrows]`); `slice(start, end)` / `gather(indices)`
   (`raise`, `IndexOutOfBounds` / `InvalidOperation`) — `gather` is the row
   twin of `Series::gather`, sharing its name as in Polars.
+- `reverse() -> DataFrame` — **total**. The rows bottom-up, schema
+  untouched; a 0- or 1-row frame is returned unchanged.
+- `with_row_index(name? : String = "index", offset? : Int64 = 0) -> DataFrame
+  raise DataError` — prepend a dense, never-null `Int` counter running from
+  `offset`, ahead of the frame's own columns (Polars' placement).
+  `DuplicateColumn(name)` if the frame already has that column.
 - `check_invariants() -> Result[Unit, String]` — verification helper
   (deliberately **not** migrated to `raise`). `Ok(())` iff the frame
   satisfies its seven structural invariants; otherwise `Err(msg)`.
@@ -1169,7 +1175,8 @@ Each returns a new `LazyFrame` wrapping one more node:
 - `sort(by : Array[(Expr, SortOrder, NullOrder)])` · `head(n)` ·
   `tail(n)` · `limit(n)` (≡ `head`) · `slice(start, end)`.
 - `drop(exprs : Array[Expr])` · `rename(pairs : Array[(String, String)])` ·
-  `rename_with(f : (String) -> String)` ·
+  `rename_with(f : (String) -> String)` · `reverse()` ·
+  `with_row_index(name?, offset?)` ·
   `unique(subset? : Array[Expr], keep? : KeepStrategy)` ·
   `drop_nulls(subset? : Array[Expr])` ·
   `fill_null(value : Scalar)` — defer the column / row transforms (`rename_with`

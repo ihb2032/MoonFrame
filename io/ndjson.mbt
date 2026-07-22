@@ -71,7 +71,10 @@ fn parse_ndjson_str_projected(
   content : String,
   options : JsonReadOptions,
   projection : Array[String]?,
-  predicate? : @expr.Expr,
+  pruner? : (
+    Array[String],
+    (@frame.DataFrame) -> Array[Int] raise @types.DataError,
+  ),
 ) -> @frame.DataFrame raise @types.DataError {
   // Strip a leading UTF-8 BOM (shared with the CSV / JSON readers) before the
   // line split, so a BOM on the first record line doesn't make `@json.parse`
@@ -113,7 +116,7 @@ fn parse_ndjson_str_projected(
     options.on_parse_error,
     projection,
     Some(record_lines),
-    predicate?,
+    pruner?,
   )
 }
 
@@ -147,10 +150,16 @@ pub fn read_ndjson_pruned(
   path : String,
   options : JsonReadOptions,
   projection : Array[String]?,
-  predicate : @expr.Expr,
+  key_columns : Array[String],
+  keep : (@frame.DataFrame) -> Array[Int] raise @types.DataError,
 ) -> @frame.DataFrame raise @types.DataError {
   let content = read_text(path)
-  parse_ndjson_str_projected(content, options, projection, predicate~)
+  parse_ndjson_str_projected(
+    content,
+    options,
+    projection,
+    pruner=(key_columns, keep),
+  )
 }
 
 ///|

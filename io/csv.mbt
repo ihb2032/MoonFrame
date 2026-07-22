@@ -190,7 +190,10 @@ fn parse_csv_str_projected(
   content : String,
   options : CsvReadOptions,
   projection : Array[String]?,
-  predicate? : @expr.Expr,
+  pruner? : (
+    Array[String],
+    (@frame.DataFrame) -> Array[Int] raise @types.DataError,
+  ),
 ) -> @frame.DataFrame raise @types.DataError {
   // Refuse a delimiter that collides with the quote character or a row
   // terminator before parsing — the same configurations `format_csv` rejects,
@@ -268,23 +271,24 @@ fn parse_csv_str_projected(
       options.allow_nonfinite_floats,
     )
   }
-  // Phase 1 (predicate push-down only): materialise just the columns the
-  // predicate reads and ask `frame` which rows survive, keeping both the
-  // surviving key frame and the row indices. A name the predicate reads but
-  // the file lacks simply isn't built, so evaluation raises `ColumnNotFound`
-  // exactly as the eager filter would.
-  let pruned : (@frame.DataFrame, Array[Int])? = match predicate {
+  // Phase 1 (predicate push-down only): materialise just the key columns the
+  // caller names and ask its callback which rows survive, keeping both the
+  // surviving key frame and the row indices. The caller is the lazy layer —
+  // `io` sees column names and a row-selection function, never the expression
+  // language — and a named column the file lacks simply isn't built, so the
+  // callback's evaluation raises `ColumnNotFound` exactly as the eager filter
+  // would.
+  let pruned : (@frame.DataFrame, Array[Int])? = match pruner {
     None => None
-    Some(pred) => {
-      let read = pred.referenced_columns()
+    Some((key_columns, keep)) => {
       let keys : Array[@series.Series] = []
       for col in 0..<ncols {
-        if read.contains(headers[col]) {
+        if key_columns.contains(headers[col]) {
           keys.push(build(headers[col], dtype_of(col), rows, col))
         }
       }
       let key_frame = @frame.DataFrame::new(keys)
-      let kept = @frame.filter_row_indices(key_frame, pred)
+      let kept = keep(key_frame)
       Some((key_frame.gather(kept), kept))
     }
   }
@@ -403,10 +407,14 @@ pub fn read_csv(
 /// `#internal` engine seam, like `read_csv_projected`.
 ///
 /// The read runs in two phases over one tokenisation of the whole file:
-///   1. build only the columns `predicate` reads, infer their dtypes from the
-///      whole file exactly as an unfiltered read would, and ask `frame` which
-///      rows survive;
+///   1. build only the `key_columns`, infer their dtypes from the whole file
+///      exactly as an unfiltered read would, and ask `keep` — a callback the
+///      lazy layer builds from the absorbed predicate — which rows survive;
 ///   2. build the `projection` columns for **those rows alone**.
+///
+/// Taking names and a callback rather than an expression keeps `io` below the
+/// expression language: the reader knows *which* columns to resolve and which
+/// rows survived, never *why*.
 ///
 /// Dtypes therefore match an eager `read_csv(...).filter(...)` cell for cell —
 /// inference always sees the full file — while the typed parse of a dropped
@@ -421,10 +429,16 @@ pub fn read_csv_pruned(
   path : String,
   options : CsvReadOptions,
   projection : Array[String]?,
-  predicate : @expr.Expr,
+  key_columns : Array[String],
+  keep : (@frame.DataFrame) -> Array[Int] raise @types.DataError,
 ) -> @frame.DataFrame raise @types.DataError {
   let content = read_text(path)
-  parse_csv_str_projected(content, options, projection, predicate~)
+  parse_csv_str_projected(
+    content,
+    options,
+    projection,
+    pruner=(key_columns, keep),
+  )
 }
 
 ///|

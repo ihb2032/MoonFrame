@@ -191,7 +191,10 @@ fn frame_from_json_records(
   on_parse_error : OnParseError,
   projection : Array[String]?,
   source_lines : Array[Int]?,
-  predicate? : @expr.Expr,
+  pruner? : (
+    Array[String],
+    (@frame.DataFrame) -> Array[Int] raise @types.DataError,
+  ),
 ) -> @frame.DataFrame raise @types.DataError {
   if records.is_empty() {
     return @frame.DataFrame::new([])
@@ -244,22 +247,23 @@ fn frame_from_json_records(
     let dt = infer_json_column_dtype(objs, name, infer_schema_rows)
     build_json_column(name, dt, from, on_parse_error, lines)
   }
-  // Phase 1 (predicate push-down only): build just the columns the predicate
-  // reads, and keep both the pruned key frame and the surviving record
-  // indices. A name the file lacks is not built, so evaluation raises
-  // `ColumnNotFound` exactly as the eager filter would.
-  let pruned : (@frame.DataFrame, Array[Int])? = match predicate {
+  // Phase 1 (predicate push-down only): build just the key columns the caller
+  // names, and keep both the pruned key frame and the surviving record
+  // indices — `io` sees column names and a row-selection callback, never the
+  // expression language. A named column the file lacks is not built, so the
+  // callback's evaluation raises `ColumnNotFound` exactly as the eager filter
+  // would.
+  let pruned : (@frame.DataFrame, Array[Int])? = match pruner {
     None => None
-    Some(pred) => {
-      let read = pred.referenced_columns()
+    Some((key_columns, keep)) => {
       let keys : Array[@series.Series] = []
       for name in headers {
-        if read.contains(name) {
+        if key_columns.contains(name) {
           keys.push(build(name, objs, source_lines))
         }
       }
       let key_frame = @frame.DataFrame::new(keys)
-      let kept = @frame.filter_row_indices(key_frame, pred)
+      let kept = keep(key_frame)
       Some((key_frame.gather(kept), kept))
     }
   }

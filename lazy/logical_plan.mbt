@@ -268,7 +268,17 @@ fn execute(plan : LogicalPlan) -> @frame.DataFrame raise @types.DataError {
       Scan(df) => df
       ScanCsv(path, options, projection, predicate) =>
         match predicate {
-          Some(pred) => @io.read_csv_pruned(path, options, projection, pred)
+          // Hand `io` the predicate's column names and a row-selection
+          // callback rather than the expression itself, so the reader stays
+          // below the expression language (see `read_csv_pruned`).
+          Some(pred) =>
+            @io.read_csv_pruned(
+              path,
+              options,
+              projection,
+              predicate_columns(pred),
+              df => @frame.filter_row_indices(df, pred),
+            )
           None =>
             match projection {
               None => @io.read_csv(path, options~)
@@ -277,7 +287,14 @@ fn execute(plan : LogicalPlan) -> @frame.DataFrame raise @types.DataError {
         }
       ScanNdjson(path, options, projection, predicate) =>
         match predicate {
-          Some(pred) => @io.read_ndjson_pruned(path, options, projection, pred)
+          Some(pred) =>
+            @io.read_ndjson_pruned(
+              path,
+              options,
+              projection,
+              predicate_columns(pred),
+              df => @frame.filter_row_indices(df, pred),
+            )
           None =>
             match projection {
               None => @io.read_ndjson(path, options~)
@@ -325,4 +342,16 @@ fn execute(plan : LogicalPlan) -> @frame.DataFrame raise @types.DataError {
     memo.push((node, result))
   }
   memo_result(memo, plan)
+}
+
+///|
+/// The columns an absorbed scan predicate reads, as a plain name list — the
+/// shape the `io` pruned readers take, so they never see an `Expr`. Order is
+/// irrelevant: the reader filters its own header order by membership.
+fn predicate_columns(predicate : @expr.Expr) -> Array[String] {
+  let names : Array[String] = []
+  for name in predicate.referenced_columns() {
+    names.push(name)
+  }
+  names
 }

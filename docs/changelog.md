@@ -43,6 +43,15 @@ collected in [`migration.md`](migration.md).
   and `sanitize_formulas` is now `CsvWriteOptions.sanitize_formulas`.
   `parse_csv_str`, `read_csv_with_options`, `read_csv_projected`, `format_csv`,
   and `write_csv_with_options` lose their trailing optional parameter.
+- Every `*_with_options` entry point is folded into its plain form as a
+  defaulted optional parameter: `read_csv(path, options?)`,
+  `write_csv(path, df, options?)`, `read_json(path, options?)`,
+  `read_ndjson(path, options?)`, `scan_csv(path, options?)`, and
+  `scan_ndjson(path, options?)` replace the six `*_with_options` twins, and the
+  string-level `parse_csv_str` / `parse_json_records_str` / `parse_ndjson_str` /
+  `format_csv` take their options the same way. A call that passed options
+  positionally now names them (`parse_csv_str(text, options=opts)`); a call that
+  passed the all-defaults options can drop the argument.
 - `CsvReadOptions.null_values` is a private field with a copying
   `null_values()` accessor. Both it and the constructor copy, so the token list
   a reader (or a captured `scan_csv` plan) uses can no longer be mutated

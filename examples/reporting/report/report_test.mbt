@@ -16,7 +16,7 @@ let sample_csv : String =
 
 ///|
 test "revenue_by_region: sums per region and orders by revenue desc" {
-  let df = @moonframe.parse_csv_str(sample_csv, @moonframe.CsvReadOptions())
+  let df = @moonframe.parse_csv_str(sample_csv)
   let summary = revenue_by_region(df)
   // One row per region; columns are the group key then the two aliased
   // sums, in spec order.
@@ -35,7 +35,7 @@ test "revenue_by_region: sums per region and orders by revenue desc" {
 
 ///|
 test "revenue_table: renders the summary as a captioned HTML table" {
-  let df = @moonframe.parse_csv_str(sample_csv, @moonframe.CsvReadOptions())
+  let df = @moonframe.parse_csv_str(sample_csv)
   let html = revenue_table(revenue_by_region(df))
   inspect(
     html,
@@ -58,7 +58,7 @@ test "revenue_table: renders the summary as a captioned HTML table" {
 
 ///|
 test "revenue_chart: emits a Vega-Lite v5 bar spec" {
-  let df = @moonframe.parse_csv_str(sample_csv, @moonframe.CsvReadOptions())
+  let df = @moonframe.parse_csv_str(sample_csv)
   let chart = revenue_chart(revenue_by_region(df))
   inspect(
     chart,

@@ -15,26 +15,12 @@
 /// Assert the text fixpoint `emit(parse(emit(df))) == emit(df)` on every format
 /// for one frame; the enclosing test's name identifies the fixture on failure.
 fn assert_roundtrip_fixpoint(df : @frame.DataFrame) -> Unit raise {
-  let csv = @io.format_csv(df, @io.CsvWriteOptions())
-  assert_eq(
-    @io.format_csv(
-      @io.parse_csv_str(csv, @io.CsvReadOptions()),
-      @io.CsvWriteOptions(),
-    ),
-    csv,
-  )
+  let csv = @io.format_csv(df)
+  assert_eq(@io.format_csv(@io.parse_csv_str(csv)), csv)
   let json = @io.format_json_records(df)
-  assert_eq(
-    @io.format_json_records(
-      @io.parse_json_records_str(json, @io.JsonReadOptions()),
-    ),
-    json,
-  )
+  assert_eq(@io.format_json_records(@io.parse_json_records_str(json)), json)
   let ndjson = @io.format_ndjson(df)
-  assert_eq(
-    @io.format_ndjson(@io.parse_ndjson_str(ndjson, @io.JsonReadOptions())),
-    ndjson,
-  )
+  assert_eq(@io.format_ndjson(@io.parse_ndjson_str(ndjson)), ndjson)
 }
 
 ///|
@@ -141,8 +127,11 @@ fn csv_roundtrip(
 ) -> @frame.DataFrame raise {
   let null_token = "\u{E000}MOONFRAME_NULL"
   @io.parse_csv_str(
-    @io.format_csv(df, @io.CsvWriteOptions(delimiter~, null_value=null_token)),
-    @io.CsvReadOptions(
+    @io.format_csv(
+      df,
+      options=@io.CsvWriteOptions(delimiter~, null_value=null_token),
+    ),
+    options=@io.CsvReadOptions(
       delimiter~,
       infer_schema_rows=0,
       null_values=[null_token],
@@ -155,7 +144,7 @@ fn csv_roundtrip(
 fn json_roundtrip(df : @frame.DataFrame) -> @frame.DataFrame raise {
   @io.parse_json_records_str(
     @io.format_json_records(df),
-    @io.JsonReadOptions(infer_schema_rows=0),
+    options=@io.JsonReadOptions(infer_schema_rows=0),
   )
 }
 
@@ -163,7 +152,7 @@ fn json_roundtrip(df : @frame.DataFrame) -> @frame.DataFrame raise {
 fn ndjson_roundtrip(df : @frame.DataFrame) -> @frame.DataFrame raise {
   @io.parse_ndjson_str(
     @io.format_ndjson(df),
-    @io.JsonReadOptions(infer_schema_rows=0),
+    options=@io.JsonReadOptions(infer_schema_rows=0),
   )
 }
 
@@ -255,7 +244,9 @@ test "rejection property: an unsafe CSV delimiter returns DataError" {
   let df = @frame.DataFrame::new([
     @series.Series::from_strings("s", ["left", "right"]),
   ])
-  let result = Ok(@io.format_csv(df, @io.CsvWriteOptions(delimiter='\u{FEFF}'))) catch {
+  let result = Ok(
+    @io.format_csv(df, options=@io.CsvWriteOptions(delimiter='\u{FEFF}')),
+  ) catch {
     error => Err(error)
   }
   assert_true(result is Err(@types.DataError::InvalidOperation(_)))
@@ -265,7 +256,6 @@ test "rejection property: an unsafe CSV delimiter returns DataError" {
 test "rejection property: isolated surrogate halves never reach a file" {
   let df = @io.parse_ndjson_str(
     "{\"s\":\"\\ud800\",\"kind\":\"high\"}\n{\"s\":\"\\udfff\",\"kind\":\"low\"}\n",
-    @io.JsonReadOptions(),
   )
   let csv = Ok(@io.write_csv("_build/io_corpus_surrogate.csv", df)) catch {
     error => Err(error)

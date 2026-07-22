@@ -13,21 +13,16 @@
 /// parsed, a parse error confined to one — a malformed cell no consumer reads
 /// — does not surface, exactly as in Polars' projection push-down; this is
 /// the one place a narrowed scan diverges from a full eager read.)
-pub fn scan_csv(path : String) -> LazyFrame {
-  scan_csv_with_options(path, @io.CsvReadOptions())
-}
-
-///|
-/// `scan_csv` with explicit `CsvReadOptions` (delimiter, header, null
-/// strings, inference window, parse-error policy, …), mirroring the eager
-/// `read_csv` / `read_csv_with_options` pair. The options are captured into
-/// the plan and applied by the reader at collect time; projection push-down
-/// narrows which columns those options parse, never which options apply. The
-/// projection starts `None` (read every column) — only the optimizer fills
-/// it.
-pub fn scan_csv_with_options(
+///
+/// `options` (delimiter, header, null strings, inference window, parse-error
+/// policy, strict quotes, …) defaults to `CsvReadOptions()`, mirroring eager
+/// `read_csv`. It is captured into the plan and applied by the reader at
+/// collect time; projection push-down narrows which columns those options
+/// parse, never which options apply. The projection starts `None` (read every
+/// column) — only the optimizer fills it.
+pub fn scan_csv(
   path : String,
-  options : @io.CsvReadOptions,
+  options? : @io.CsvReadOptions = @io.CsvReadOptions(),
 ) -> LazyFrame {
   // The one mutable container in the options — the null-token list — is
   // already copied by `CsvReadOptions(...)`, the only way to build one, so

@@ -18,7 +18,7 @@ test "clean: drops rows with null `score` and fills remaining null `note` cells"
     #|5,dave,,fifth
     #|6,erin,68.5,
     #|
-  let df = @moonframe.parse_csv_str(csv, @moonframe.CsvReadOptions())
+  let df = @moonframe.parse_csv_str(csv)
   let cleaned = clean(df)
 
   // 4 rows survive the `score` gate; columns stay in declaration order.

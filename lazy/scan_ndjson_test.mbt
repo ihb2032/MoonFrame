@@ -74,8 +74,8 @@ test "scan_ndjson_with_options honours the read options at collect time" {
   write_ndjson_fixture(path)
   let opts : @io.JsonReadOptions = @io.JsonReadOptions(infer_schema_rows=1)
   assert_eq(
-    scan_ndjson_with_options(path, opts).select([@expr.col("region")]).collect(),
-    @io.read_ndjson_with_options(path, opts).select([@expr.col("region")]),
+    scan_ndjson(path, options=opts).select([@expr.col("region")]).collect(),
+    @io.read_ndjson(path, options=opts).select([@expr.col("region")]),
   )
 }
 
@@ -88,7 +88,7 @@ test "projection push-down does not parse — or fail on — a dropped NDJSON co
   let opts : @io.JsonReadOptions = @io.JsonReadOptions(infer_schema_rows=1)
   // The full eager read builds `b` and fails on the non-Int cell.
   assert_eq(
-    Ok(@io.read_ndjson_with_options(path, opts)) catch {
+    Ok(@io.read_ndjson(path, options=opts)) catch {
       e => Err(e)
     },
     Err(
@@ -105,9 +105,7 @@ test "projection push-down does not parse — or fail on — a dropped NDJSON co
   )
   // The lazy scan, narrowed to `a`, never builds `b`, so it collects cleanly —
   // the same divergence as scan_csv (Polars' projection push-down).
-  let out = scan_ndjson_with_options(path, opts)
-    .select([@expr.col("a")])
-    .collect()
+  let out = scan_ndjson(path, options=opts).select([@expr.col("a")]).collect()
   assert_eq(out.columns(), ["a"])
   assert_eq(out.item(1, "a"), @types.Scalar::Int(2))
 }

@@ -140,10 +140,7 @@ test "explain: a CSV scan prints its quoted, escaped path and no projection unti
   // The path renders quoted and escaped like a string literal, on one line.
   assert_eq(scan_csv("sales.csv").explain(), "SCAN_CSV \"sales.csv\"")
   // The read options never appear in the plan, only the path.
-  assert_eq(
-    scan_csv_with_options("sales.csv", @io.CsvReadOptions()).explain(),
-    "SCAN_CSV \"sales.csv\"",
-  )
+  assert_eq(scan_csv("sales.csv").explain(), "SCAN_CSV \"sales.csv\"")
   // Each special character escapes exactly like `@expr` / `@types` do, so a
   // path stays unambiguous on one line.
   assert_eq(scan_csv("a\"b").explain(), "SCAN_CSV \"a\\\"b\"")
@@ -168,7 +165,7 @@ test "explain: an NDJSON scan prints SCAN_NDJSON and composes like the CSV sourc
     "SCAN_NDJSON \"events.ndjson\"",
   )
   assert_eq(
-    scan_ndjson_with_options("events.ndjson", @io.JsonReadOptions()).explain(),
+    scan_ndjson("events.ndjson").explain(),
     "SCAN_NDJSON \"events.ndjson\"",
   )
   assert_eq(

@@ -8,7 +8,7 @@ import {
 }
 
 // Values
-pub fn format_csv(@frame.DataFrame, CsvWriteOptions) -> String raise @types.DataError
+pub fn format_csv(@frame.DataFrame, options? : CsvWriteOptions) -> String raise @types.DataError
 
 pub fn format_json_records(@frame.DataFrame) -> String
 
@@ -16,31 +16,23 @@ pub fn format_ndjson(@frame.DataFrame) -> String
 
 pub fn format_vega_lite(@frame.DataFrame, ChartSpec) -> String raise @types.DataError
 
-pub fn parse_csv_str(String, CsvReadOptions) -> @frame.DataFrame raise @types.DataError
+pub fn parse_csv_str(String, options? : CsvReadOptions) -> @frame.DataFrame raise @types.DataError
 
-pub fn parse_json_records_str(String, JsonReadOptions) -> @frame.DataFrame raise @types.DataError
+pub fn parse_json_records_str(String, options? : JsonReadOptions) -> @frame.DataFrame raise @types.DataError
 
-pub fn parse_ndjson_str(String, JsonReadOptions) -> @frame.DataFrame raise @types.DataError
+pub fn parse_ndjson_str(String, options? : JsonReadOptions) -> @frame.DataFrame raise @types.DataError
 
-pub fn read_csv(String) -> @frame.DataFrame raise @types.DataError
+pub fn read_csv(String, options? : CsvReadOptions) -> @frame.DataFrame raise @types.DataError
 
 pub fn read_csv_projected(String, CsvReadOptions, Array[String]) -> @frame.DataFrame raise @types.DataError
 
-pub fn read_csv_with_options(String, CsvReadOptions) -> @frame.DataFrame raise @types.DataError
+pub fn read_json(String, options? : JsonReadOptions) -> @frame.DataFrame raise @types.DataError
 
-pub fn read_json(String) -> @frame.DataFrame raise @types.DataError
-
-pub fn read_json_with_options(String, JsonReadOptions) -> @frame.DataFrame raise @types.DataError
-
-pub fn read_ndjson(String) -> @frame.DataFrame raise @types.DataError
+pub fn read_ndjson(String, options? : JsonReadOptions) -> @frame.DataFrame raise @types.DataError
 
 pub fn read_ndjson_projected(String, JsonReadOptions, Array[String]) -> @frame.DataFrame raise @types.DataError
 
-pub fn read_ndjson_with_options(String, JsonReadOptions) -> @frame.DataFrame raise @types.DataError
-
-pub fn write_csv(String, @frame.DataFrame) -> Unit raise @types.DataError
-
-pub fn write_csv_with_options(String, @frame.DataFrame, CsvWriteOptions) -> Unit raise @types.DataError
+pub fn write_csv(String, @frame.DataFrame, options? : CsvWriteOptions) -> Unit raise @types.DataError
 
 pub fn write_json_records(String, @frame.DataFrame) -> Unit raise @types.DataError
 

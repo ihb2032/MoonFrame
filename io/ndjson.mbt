@@ -52,7 +52,7 @@
 /// - Whatever `DataFrame::new` propagates.
 pub fn parse_ndjson_str(
   content : String,
-  options : JsonReadOptions,
+  options? : JsonReadOptions = JsonReadOptions(),
 ) -> @frame.DataFrame raise @types.DataError {
   parse_ndjson_str_projected(content, options, None)
 }
@@ -116,26 +116,21 @@ fn parse_ndjson_str_projected(
 }
 
 ///|
-/// Read an NDJSON file using the default options.
-pub fn read_ndjson(path : String) -> @frame.DataFrame raise @types.DataError {
-  read_ndjson_with_options(path, JsonReadOptions())
-}
-
-///|
-/// Read an NDJSON file with custom options. Filesystem errors surface
+/// Read an NDJSON file. `options` defaults to `JsonReadOptions()`, so
+/// `read_ndjson(path)` is the default-options read. Filesystem errors surface
 /// as `raise IoError(message)`.
-pub fn read_ndjson_with_options(
+pub fn read_ndjson(
   path : String,
-  options : JsonReadOptions,
+  options? : JsonReadOptions = JsonReadOptions(),
 ) -> @frame.DataFrame raise @types.DataError {
   let content = read_text(path)
-  parse_ndjson_str(content, options)
+  parse_ndjson_str(content, options~)
 }
 
 ///|
 /// Read an NDJSON file, building only the columns named in `projection` — the
 /// file-backed entry behind the lazy `scan_ndjson` source's projection
-/// pushdown. Identical to `read_ndjson_with_options` except that a column whose
+/// pushdown. Identical to `read_ndjson` except that a column whose
 /// header name is not in `projection` is never inferred or built (see
 /// `frame_from_json_records` for the precise contract, including the one
 /// behavioural consequence: a parse error confined to a dropped column does not

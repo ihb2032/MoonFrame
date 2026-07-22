@@ -151,7 +151,7 @@ pub fn CsvReadOptions::CsvReadOptions(
 /// `ParseError`.
 pub fn parse_csv_str(
   content : String,
-  options : CsvReadOptions,
+  options? : CsvReadOptions = CsvReadOptions(),
 ) -> @frame.DataFrame raise @types.DataError {
   parse_csv_str_projected(content, options, None)
 }
@@ -340,28 +340,23 @@ fn validate_csv_shape(
 }
 
 ///|
-/// Read a CSV file using the default options.
-pub fn read_csv(path : String) -> @frame.DataFrame raise @types.DataError {
-  read_csv_with_options(path, CsvReadOptions())
-}
-
-///|
-/// Read a CSV file with custom options. `IOError` from the file system
-/// surfaces as `raise IoError(message)`. `CsvReadOptions(strict_quotes=true)` rejects
-/// malformed quoting before NyaCSV tokenisation, as documented by
-/// `parse_csv_str`.
-pub fn read_csv_with_options(
+/// Read a CSV file. `options` defaults to `CsvReadOptions()`, so
+/// `read_csv(path)` is the default-options read. `IOError` from the file
+/// system surfaces as `raise IoError(message)`.
+/// `CsvReadOptions(strict_quotes=true)` rejects malformed quoting before
+/// NyaCSV tokenisation, as documented by `parse_csv_str`.
+pub fn read_csv(
   path : String,
-  options : CsvReadOptions,
+  options? : CsvReadOptions = CsvReadOptions(),
 ) -> @frame.DataFrame raise @types.DataError {
   let content = read_text(path)
-  parse_csv_str(content, options)
+  parse_csv_str(content, options~)
 }
 
 ///|
 /// Read a CSV file, building only the columns named in `projection` — the
 /// file-backed entry behind the lazy `scan_csv` source's projection
-/// pushdown. Identical to `read_csv_with_options` except that a column whose
+/// pushdown. Identical to `read_csv` except that a column whose
 /// header name is not in `projection` is never inferred, parsed, or
 /// materialised (see `parse_csv_str_projected` for the precise contract,
 /// including the one behavioural consequence: a parse error confined to a

@@ -42,9 +42,8 @@
 // names them), so they are deliberately *not* re-exported. `@lazy` needs the
 // `lazy_frame` constructor (the free-function alias for `LazyFrame::from` —
 // the bare identifier `lazy` is a reserved word, so the alias is spelled
-// `lazy_frame`) plus the `scan_csv` / `scan_ndjson` file sources and their
-// `_with_options` variants (the `CsvReadOptions` / `JsonReadOptions` they
-// take ride along with `@io`).
+// `lazy_frame`) plus the `scan_csv` / `scan_ndjson` file sources, whose
+// optional options parameters ride along with `@io`.
 
 ///|
 pub using @types {
@@ -120,13 +119,9 @@ pub using @io {
   parse_json_records_str,
   parse_ndjson_str,
   read_csv,
-  read_csv_with_options,
   read_json,
-  read_json_with_options,
   read_ndjson,
-  read_ndjson_with_options,
   write_csv,
-  write_csv_with_options,
   write_json_records,
   write_ndjson,
   write_vega_lite,
@@ -138,7 +133,5 @@ pub using @lazy {
   type LazyGroupBy,
   lazy_frame,
   scan_csv,
-  scan_csv_with_options,
   scan_ndjson,
-  scan_ndjson_with_options,
 }

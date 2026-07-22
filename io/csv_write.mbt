@@ -86,7 +86,7 @@ pub fn CsvWriteOptions::CsvWriteOptions(
 ///   frame fields unambiguously (see `validate_csv_delimiter`).
 pub fn format_csv(
   df : @frame.DataFrame,
-  options : CsvWriteOptions,
+  options? : CsvWriteOptions = CsvWriteOptions(),
 ) -> String raise @types.DataError {
   validate_csv_delimiter(options.delimiter)
   let buf = StringBuilder::new()
@@ -144,28 +144,21 @@ pub fn format_csv(
 }
 
 ///|
-/// Write a `DataFrame` to a CSV file using the default options.
+/// Write a `DataFrame` to a CSV file. `options` defaults to
+/// `CsvWriteOptions()`, so `write_csv(path, df)` is the default-options
+/// write. `IOError` from the file system surfaces as
+/// `raise IoError(message)`. A string cell (or column name) holding an
+/// unpaired UTF-16 surrogate is refused with `raise InvalidOperation` — the
+/// UTF-8 file encoding would swallow the following delimiter and silently
+/// shift every later cell boundary.
+/// `CsvWriteOptions(sanitize_formulas=true)` applies the same
+/// spreadsheet-safety transformation documented by `format_csv` before writing.
 pub fn write_csv(
   path : String,
   df : @frame.DataFrame,
+  options? : CsvWriteOptions = CsvWriteOptions(),
 ) -> Unit raise @types.DataError {
-  write_csv_with_options(path, df, CsvWriteOptions())
-}
-
-///|
-/// Write a `DataFrame` to a CSV file with custom options. `IOError`
-/// from the file system surfaces as `raise IoError(message)`. A string
-/// cell (or column name) holding an unpaired UTF-16 surrogate is refused
-/// with `raise InvalidOperation` — the UTF-8 file encoding would swallow
-/// the following delimiter and silently shift every later cell boundary.
-/// `CsvWriteOptions(sanitize_formulas=true)` applies the same
-/// spreadsheet-safety transformation documented by `format_csv` before writing.
-pub fn write_csv_with_options(
-  path : String,
-  df : @frame.DataFrame,
-  options : CsvWriteOptions,
-) -> Unit raise @types.DataError {
-  let content = format_csv(df, options)
+  let content = format_csv(df, options~)
   write_text(path, content)
 }
 

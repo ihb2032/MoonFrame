@@ -70,7 +70,7 @@ test "pipeline: parse_csv_str → filter → select → sort → describe → to
     #|south,gadget,12.0,10,,true
     #|east,widget,9.5,7,66.5,false
     #|
-  let df = parse_csv_str(csv, CsvReadOptions())
+  let df = parse_csv_str(csv)
   assert_eq(df.shape(), (6, 6))
   assert_eq(df.check_invariants(), Ok(()))
 
@@ -135,7 +135,7 @@ test "pipeline: format_json_records → parse_json_records_str round-trip" {
   ])
   assert_eq(df.check_invariants(), Ok(()))
   let json = format_json_records(df)
-  let restored = parse_json_records_str(json, JsonReadOptions())
+  let restored = parse_json_records_str(json)
   assert_eq(restored.shape(), df.shape())
   assert_eq(restored.columns(), df.columns())
   assert_eq(restored.item(0, "id"), Scalar::Int(1))
@@ -158,7 +158,7 @@ test "pipeline: format_ndjson → parse_ndjson_str round-trip" {
   ])
   assert_eq(df.check_invariants(), Ok(()))
   let ndjson = format_ndjson(df)
-  let restored = parse_ndjson_str(ndjson, JsonReadOptions())
+  let restored = parse_ndjson_str(ndjson)
   assert_eq(restored.shape(), df.shape())
   assert_eq(restored.columns(), df.columns())
   assert_eq(restored.item(0, "id"), Scalar::Int(1))

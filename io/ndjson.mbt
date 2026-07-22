@@ -71,6 +71,7 @@ fn parse_ndjson_str_projected(
   content : String,
   options : JsonReadOptions,
   projection : Array[String]?,
+  predicate? : @expr.Expr,
 ) -> @frame.DataFrame raise @types.DataError {
   // Strip a leading UTF-8 BOM (shared with the CSV / JSON readers) before the
   // line split, so a BOM on the first record line doesn't make `@json.parse`
@@ -112,6 +113,7 @@ fn parse_ndjson_str_projected(
     options.on_parse_error,
     projection,
     Some(record_lines),
+    predicate?,
   )
 }
 
@@ -125,6 +127,30 @@ pub fn read_ndjson(
 ) -> @frame.DataFrame raise @types.DataError {
   let content = read_text(path)
   parse_ndjson_str(content, options~)
+}
+
+///|
+/// Read an NDJSON file, keeping only the rows `predicate` selects — the
+/// file-backed entry behind the lazy `scan_ndjson` source's **predicate
+/// push-down**, and the NDJSON twin of `read_csv_pruned`. An `#internal`
+/// engine seam.
+///
+/// Every line is still parsed and validated (a malformed or non-object line
+/// fails exactly as in a full read); the push-down skips the *typed* build of
+/// the columns the predicate does not read, for the records it drops. Dtype
+/// inference still walks every record, so dtypes match an eager
+/// read-then-filter, and a dropped record's cell error in a non-key column no
+/// longer surfaces — the same trade projection push-down documents.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
+pub fn read_ndjson_pruned(
+  path : String,
+  options : JsonReadOptions,
+  projection : Array[String]?,
+  predicate : @expr.Expr,
+) -> @frame.DataFrame raise @types.DataError {
+  let content = read_text(path)
+  parse_ndjson_str_projected(content, options, projection, predicate~)
 }
 
 ///|

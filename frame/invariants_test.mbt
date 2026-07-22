@@ -59,13 +59,13 @@ test "check_invariants holds after head / tail / slice / take" {
   assert_eq(df.head(2).check_invariants(), Ok(()))
   assert_eq(df.tail(2).check_invariants(), Ok(()))
   assert_eq(df.slice(1, 3).check_invariants(), Ok(()))
-  assert_eq(df.take([3, 0, 0]).check_invariants(), Ok(()))
+  assert_eq(df.gather([3, 0, 0]).check_invariants(), Ok(()))
   // Clamping edges still produce well-formed frames.
   assert_eq(df.head(0).check_invariants(), Ok(()))
   assert_eq(df.head(100).check_invariants(), Ok(()))
   assert_eq(df.tail(-1).check_invariants(), Ok(()))
   assert_eq(df.slice(2, 2).check_invariants(), Ok(()))
-  assert_eq(df.take([]).check_invariants(), Ok(()))
+  assert_eq(df.gather([]).check_invariants(), Ok(()))
 }
 
 // ── Error-message shape sanity ───────────────────────────────────────

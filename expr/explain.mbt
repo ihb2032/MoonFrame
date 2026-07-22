@@ -54,6 +54,8 @@ pub extend Expr with Debug::{to_repr}
 /// mutate — the node's own `inputs`). Leaves (`Col` / `Lit` / `LitSeries`)
 /// have none — a `LitSeries` carries materialised data, not sub-expressions.
 /// Total — it only inspects shape.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
 pub fn Expr::children(self : Expr) -> Array[Expr] {
   match self {
     Col(_) | Lit(_) | LitSeries(_) => []
@@ -80,6 +82,8 @@ pub fn Expr::children(self : Expr) -> Array[Expr] {
 /// the condition reads it — unlike output *naming*, which draws from the
 /// value branches only. Duplicates collapse: `col("a") + col("a")`
 /// references `{"a"}`.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
 pub fn Expr::referenced_columns(self : Expr) -> @set.Set[String] {
   let acc : @set.Set[String] = @set.Set([])
   collect_columns(self, acc)
@@ -127,6 +131,8 @@ fn collect_columns(expr : Expr, acc : @set.Set[String]) -> Unit {
 /// to know which names a deferred `with_columns` stage *defines* — a
 /// defined name need not exist in the stage's input, so pruning must not
 /// require it there. Total — naming walks plain data.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
 pub fn Expr::output_name(self : Expr) -> String {
   leftmost_name(self).unwrap_or("literal")
 }
@@ -394,10 +400,20 @@ fn write_str_suffix(logger : &Logger, op : StrOp) -> Unit {
       logger.write_string(
         ".str_pad_end(\{width}, '\{@text.escape_debug(fill.to_string())}')",
       )
-    ContainsRegex(p) => write_str_call(logger, "str_contains_regex", [p])
-    ReplaceRegex(a, b) => write_str_call(logger, "str_replace_regex", [a, b])
+    // The regex forms render as the spelling that builds them: the same
+    // method with `literal=false`.
+    ContainsRegex(p) =>
+      logger.write_string(
+        ".str_contains(\"\{@text.escape_debug(p)}\", literal=false)",
+      )
+    ReplaceRegex(a, b) =>
+      logger.write_string(
+        ".str_replace(\"\{@text.escape_debug(a)}\", \"\{@text.escape_debug(b)}\", literal=false)",
+      )
     ReplaceAllRegex(a, b) =>
-      write_str_call(logger, "str_replace_all_regex", [a, b])
+      logger.write_string(
+        ".str_replace_all(\"\{@text.escape_debug(a)}\", \"\{@text.escape_debug(b)}\", literal=false)",
+      )
     // The pattern renders quoted, the group index bare.
     Extract(pattern, group) =>
       logger.write_string(

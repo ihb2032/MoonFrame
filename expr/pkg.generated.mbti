@@ -5,7 +5,6 @@ import {
   "ihb2032/MoonFrame/series",
   "ihb2032/MoonFrame/types",
   "moonbitlang/core/debug",
-  "moonbitlang/core/set",
 }
 
 // Values
@@ -92,7 +91,6 @@ pub fn Expr::abs(Self) -> Self
 pub fn Expr::add(Self, Self) -> Self
 pub fn Expr::cast(Self, @types.DataType) -> Self
 pub fn Expr::ceil(Self) -> Self
-pub fn Expr::children(Self) -> Array[Self]
 pub fn Expr::count(Self) -> Self
 pub fn Expr::div(Self, Self) -> Self
 pub fn Expr::eq(Self, Self) -> Self
@@ -129,14 +127,11 @@ pub fn Expr::neg(Self) -> Self
 pub fn Expr::not(Self) -> Self
 pub fn Expr::not_equal(Self, Self) -> Bool
 pub fn Expr::output(Self, &Logger) -> Unit
-pub fn Expr::output_name(Self) -> String
 pub fn Expr::pow(Self, Self) -> Self
-pub fn Expr::referenced_columns(Self) -> @set.Set[String]
 pub fn Expr::round(Self) -> Self
 pub fn Expr::sign(Self) -> Self
 pub fn Expr::std(Self) -> Self
-pub fn Expr::str_contains(Self, String) -> Self
-pub fn Expr::str_contains_regex(Self, String) -> Self
+pub fn Expr::str_contains(Self, String, literal? : Bool) -> Self
 pub fn Expr::str_count_matches(Self, String) -> Self
 pub fn Expr::str_ends_with(Self, String) -> Self
 pub fn Expr::str_extract(Self, String, group? : Int) -> Self
@@ -144,10 +139,8 @@ pub fn Expr::str_len_bytes(Self) -> Self
 pub fn Expr::str_len_chars(Self) -> Self
 pub fn Expr::str_pad_end(Self, Int, fill? : Char) -> Self
 pub fn Expr::str_pad_start(Self, Int, fill? : Char) -> Self
-pub fn Expr::str_replace(Self, String, String) -> Self
-pub fn Expr::str_replace_all(Self, String, String) -> Self
-pub fn Expr::str_replace_all_regex(Self, String, String) -> Self
-pub fn Expr::str_replace_regex(Self, String, String) -> Self
+pub fn Expr::str_replace(Self, String, String, literal? : Bool) -> Self
+pub fn Expr::str_replace_all(Self, String, String, literal? : Bool) -> Self
 pub fn Expr::str_reverse(Self) -> Self
 pub fn Expr::str_slice(Self, Int, length? : Int) -> Self
 pub fn Expr::str_split_get(Self, String, Int) -> Self

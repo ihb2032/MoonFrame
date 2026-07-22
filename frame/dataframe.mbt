@@ -429,7 +429,7 @@ pub fn DataFrame::slice(
 /// Gather rows by index. Returns a frame whose i-th row is
 /// `self[indices[i]]`. Any out-of-bounds index surfaces as
 /// `IndexOutOfBounds(idx)`.
-pub fn DataFrame::take(
+pub fn DataFrame::gather(
   self : DataFrame,
   indices : Array[Int],
 ) -> DataFrame raise @types.DataError {

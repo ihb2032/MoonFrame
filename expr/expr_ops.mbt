@@ -528,12 +528,24 @@ pub fn Expr::str_split_get(self : Expr, sep : String, index : Int) -> Expr {
 }
 
 ///|
-/// A `Bool` column that is `true` where the cell contains `pattern` as a
-/// literal substring — Polars' `str.contains(..., literal=True)`. Matching is
-/// always literal: there is no regex engine yet, so a regex `contains` is a
-/// future addition. Null cells stay null.
-pub fn Expr::str_contains(self : Expr, pattern : String) -> Expr {
-  Str(StrOp::Contains(pattern), self)
+/// A `Bool` column that is `true` where the cell contains `pattern` — Polars'
+/// `str.contains`. `literal` defaults to `true`, matching `pattern` as a plain
+/// substring; `literal=false` reads it as a **POSIX** regular expression (the
+/// core engine's dialect, so character classes are `[[:digit:]]` /
+/// `[[:alpha:]]`, not the PCRE `\d` / `\w`, which raise). The default is the
+/// opposite of Polars', which is regex-first. A regex is compiled once per
+/// evaluation, so an invalid pattern raises `InvalidOperation` then. Null cells
+/// stay null.
+pub fn Expr::str_contains(
+  self : Expr,
+  pattern : String,
+  literal? : Bool = true,
+) -> Expr {
+  if literal {
+    Str(StrOp::Contains(pattern), self)
+  } else {
+    Str(StrOp::ContainsRegex(pattern), self)
+  }
 }
 
 ///|
@@ -551,23 +563,40 @@ pub fn Expr::str_ends_with(self : Expr, suffix : String) -> Expr {
 }
 
 ///|
-/// Replace the first literal occurrence of `pattern` with `value` in each
-/// cell of a String column — Polars' `str.replace(..., literal=True)`. A cell
-/// without `pattern` is unchanged; null cells stay null.
-pub fn Expr::str_replace(self : Expr, pattern : String, value : String) -> Expr {
-  Str(StrOp::Replace(pattern, value), self)
+/// Replace the first occurrence of `pattern` with `value` in each cell of a
+/// String column — Polars' `str.replace`. `literal` defaults to `true` (plain
+/// substring); `literal=false` reads `pattern` as a POSIX regular expression
+/// (see `str_contains` for the dialect and the invalid-pattern error), with
+/// `value` inserted literally — no capture-group references yet. A cell without
+/// a match is unchanged; null cells stay null.
+pub fn Expr::str_replace(
+  self : Expr,
+  pattern : String,
+  value : String,
+  literal? : Bool = true,
+) -> Expr {
+  if literal {
+    Str(StrOp::Replace(pattern, value), self)
+  } else {
+    Str(StrOp::ReplaceRegex(pattern, value), self)
+  }
 }
 
 ///|
-/// Replace every literal occurrence of `pattern` with `value` in each cell
-/// (Polars `str.replace_all(..., literal=True)`), the all-occurrences mirror
-/// of `str_replace`.
+/// Replace every occurrence of `pattern` with `value` in each cell (Polars
+/// `str.replace_all`), the all-occurrences mirror of `str_replace` — including
+/// its `literal` parameter and default.
 pub fn Expr::str_replace_all(
   self : Expr,
   pattern : String,
   value : String,
+  literal? : Bool = true,
 ) -> Expr {
-  Str(StrOp::ReplaceAll(pattern, value), self)
+  if literal {
+    Str(StrOp::ReplaceAll(pattern, value), self)
+  } else {
+    Str(StrOp::ReplaceAllRegex(pattern, value), self)
+  }
 }
 
 ///|
@@ -611,49 +640,11 @@ pub fn Expr::str_zfill(self : Expr, width : Int) -> Expr {
 }
 
 ///|
-/// `Bool` column, `true` where the cell **matches** the regular expression
-/// `pattern` (a partial match, like Polars' `str.contains`). The regex form of
-/// `str_contains`, which stays literal. `pattern` is a **POSIX** regular
-/// expression — the core engine's dialect, so character classes are
-/// `[[:digit:]]` / `[[:alpha:]]`, **not** the PCRE `\d` / `\w` (those raise). It
-/// is compiled once per evaluation, so an invalid pattern raises
-/// `InvalidOperation` at evaluation; a null cell stays null and a non-String
-/// operand raises `TypeMismatch`.
-pub fn Expr::str_contains_regex(self : Expr, pattern : String) -> Expr {
-  Str(StrOp::ContainsRegex(pattern), self)
-}
-
-///|
-/// Replace the **first** regex match of `pattern` in each cell with the literal
-/// `value` — the regex form of `str_replace`. `pattern` is a POSIX regular
-/// expression (see `str_contains_regex` for the dialect and the invalid-pattern
-/// error); `value` is inserted literally (no capture-group references yet). A
-/// cell with no match is unchanged; null cells stay null.
-pub fn Expr::str_replace_regex(
-  self : Expr,
-  pattern : String,
-  value : String,
-) -> Expr {
-  Str(StrOp::ReplaceRegex(pattern, value), self)
-}
-
-///|
-/// Replace **every** regex match of `pattern` with the literal `value` — the
-/// all-occurrences mirror of `str_replace_regex`.
-pub fn Expr::str_replace_all_regex(
-  self : Expr,
-  pattern : String,
-  value : String,
-) -> Expr {
-  Str(StrOp::ReplaceAllRegex(pattern, value), self)
-}
-
-///|
 /// Extract a substring matched by the POSIX regular expression `pattern` — a
 /// nullable `String` column (Polars' `str.extract`). `group` (default `0`, the
 /// **whole match** — Polars defaults to the first capture group `1` instead)
 /// selects a capture group; a cell that does not match, or whose chosen group
-/// did not participate, yields **null**. See `str_contains_regex` for the
+/// did not participate, yields **null**. See `str_contains` for the regex
 /// dialect and the invalid-pattern error; a null cell stays null and a
 /// non-String operand raises `TypeMismatch`.
 pub fn Expr::str_extract(
@@ -668,7 +659,7 @@ pub fn Expr::str_extract(
 /// Count the non-overlapping matches of the POSIX regular expression `pattern`
 /// in each cell — an `Int` column (Polars' `str.count_matches`), `0` where the
 /// pattern does not match. An all-valid result rides the `Numeric` fast path,
-/// like `str_len_chars`. See `str_contains_regex` for the dialect and the
+/// like `str_len_chars`. See `str_contains` for the regex dialect and the
 /// invalid-pattern error; a null cell stays null and a non-String operand
 /// raises `TypeMismatch`.
 pub fn Expr::str_count_matches(self : Expr, pattern : String) -> Expr {

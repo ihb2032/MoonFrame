@@ -36,16 +36,16 @@ test "str: every namespace method renders as a postfix call" {
   )
   inspect(col("s").str_pad_end(5), content="col(s).str_pad_end(5, ' ')")
   inspect(
-    col("s").str_contains_regex("a.c"),
-    content="col(s).str_contains_regex(\"a.c\")",
+    col("s").str_contains("a.c", literal=false),
+    content="col(s).str_contains(\"a.c\", literal=false)",
   )
   inspect(
-    col("s").str_replace_regex("a", "b"),
-    content="col(s).str_replace_regex(\"a\", \"b\")",
+    col("s").str_replace("a", "b", literal=false),
+    content="col(s).str_replace(\"a\", \"b\", literal=false)",
   )
   inspect(
-    col("s").str_replace_all_regex("a", "b"),
-    content="col(s).str_replace_all_regex(\"a\", \"b\")",
+    col("s").str_replace_all("a", "b", literal=false),
+    content="col(s).str_replace_all(\"a\", \"b\", literal=false)",
   )
   // The pattern renders quoted, the group index bare (default 0 shown).
   inspect(
@@ -124,13 +124,17 @@ test "str: structural equality compares the op tag and the operand" {
   assert_eq(col("s").str_reverse() == col("s").str_to_uppercase(), false)
   // A regex op is distinct from its literal namesake and from a differing
   // pattern.
-  assert_eq(col("s").str_contains_regex("a"), col("s").str_contains_regex("a"))
   assert_eq(
-    col("s").str_contains_regex("a") == col("s").str_contains_regex("b"),
+    col("s").str_contains("a", literal=false),
+    col("s").str_contains("a", literal=false),
+  )
+  assert_eq(
+    col("s").str_contains("a", literal=false) ==
+    col("s").str_contains("b", literal=false),
     false,
   )
   assert_eq(
-    col("s").str_contains_regex("a") == col("s").str_contains("a"),
+    col("s").str_contains("a", literal=false) == col("s").str_contains("a"),
     false,
   )
   // `Extract` distinguishes on both pattern and group index.

@@ -105,7 +105,7 @@ pub fn DataFrame::sort(
   // original frame. Every index in the permutation is in `[0, nrows)` by
   // construction, so `take` cannot fail.
   let perm = stable_mergesort_indices(n, (i, j) => compare_rows(sort_keys, i, j))
-  self.take(perm)
+  self.gather(perm)
 }
 
 ///|

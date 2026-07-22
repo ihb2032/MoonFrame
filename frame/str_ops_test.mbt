@@ -258,8 +258,8 @@ test "str_contains_regex: POSIX-regex partial match, nulls pass through" {
     ]),
   ])
   let out = df.select([
-    @expr.col("s").str_contains_regex("a.c").with_alias("dot"),
-    @expr.col("s").str_contains_regex("[[:digit:]]").with_alias("dig"),
+    @expr.col("s").str_contains("a.c", literal=false).with_alias("dot"),
+    @expr.col("s").str_contains("[[:digit:]]", literal=false).with_alias("dig"),
   ])
   // "a.c" (`.` matches any char): abc ✓, a1c ✓, xyz ✗, null → null.
   assert_eq(out.get_column("dot").to_scalars(), [
@@ -283,8 +283,10 @@ test "str_replace_regex / str_replace_all_regex: first vs every match" {
     Series::from_string_options("s", [Some("a12b345"), None]),
   ])
   let out = df.select([
-    @expr.col("s").str_replace_regex("[0-9]+", "#").with_alias("first"),
-    @expr.col("s").str_replace_all_regex("[0-9]+", "#").with_alias("all"),
+    @expr.col("s").str_replace("[0-9]+", "#", literal=false).with_alias("first"),
+    @expr.col("s")
+    .str_replace_all("[0-9]+", "#", literal=false)
+    .with_alias("all"),
   ])
   assert_eq(out.get_column("first").to_scalars(), [
     @types.Scalar::String("a#b345"),
@@ -301,14 +303,14 @@ test "str regex: an invalid or PCRE-only pattern raises InvalidOperation" {
   let df = DataFrame::new([Series::from_strings("s", ["x"])])
   // An unclosed bracket is a genuine syntax error.
   assert_true(
-    (Ok(df.select([@expr.col("s").str_contains_regex("[")])) catch {
+    (Ok(df.select([@expr.col("s").str_contains("[", literal=false)])) catch {
       e => Err(e)
     })
     is Err(@types.DataError::InvalidOperation(_)),
   )
   // The core engine is POSIX: the PCRE `\d` is rejected (use `[[:digit:]]`).
   assert_true(
-    (Ok(df.select([@expr.col("s").str_replace_regex("\\d", "x")])) catch {
+    (Ok(df.select([@expr.col("s").str_replace("\\d", "x", literal=false)])) catch {
       e => Err(e)
     })
     is Err(@types.DataError::InvalidOperation(_)),
@@ -319,7 +321,7 @@ test "str regex: an invalid or PCRE-only pattern raises InvalidOperation" {
 test "str regex: a non-String operand is a TypeMismatch" {
   let df = DataFrame::new([Series::from_ints("n", [1])])
   assert_true(
-    (Ok(df.select([@expr.col("n").str_contains_regex("a")])) catch {
+    (Ok(df.select([@expr.col("n").str_contains("a", literal=false)])) catch {
       e => Err(e)
     })
     is Err(

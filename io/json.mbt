@@ -4,7 +4,7 @@
 // JSON-Lines tooling produce by default. Per-column type inference
 // mirrors the CSV reader — Int → Float → Bool → String, with nulls
 // passing through transparently — so the round-trip
-// `read_csv → write_json_records → read_json` preserves dtypes for most
+// `read_csv → write_json → read_json` preserves dtypes for most
 // frames whose JSON values stay within the four v0.1 dtypes.
 //
 // Caveat 1 — integral-valued `Float`. JSON has a single number type and
@@ -105,7 +105,7 @@ pub fn JsonReadOptions::JsonReadOptions(
 /// - Whatever `DataFrame::new` propagates (duplicate-header is
 ///   pre-empted upstream; length-mismatch cannot fire because every
 ///   column is built off `records.length()`).
-pub fn parse_json_records_str(
+pub fn parse_json_str(
   content : String,
   options? : JsonReadOptions = JsonReadOptions(),
 ) -> @frame.DataFrame raise @types.DataError {
@@ -307,7 +307,7 @@ pub fn read_json(
   options? : JsonReadOptions = JsonReadOptions(),
 ) -> @frame.DataFrame raise @types.DataError {
   let content = read_text(path)
-  parse_json_records_str(content, options~)
+  parse_json_str(content, options~)
 }
 
 ///|
@@ -327,7 +327,7 @@ pub fn read_json(
 ///
 /// Keys appear in the column declaration order, preserved by the
 /// builtin `Map` (linked-hash-map) used for each record object.
-pub fn format_json_records(df : @frame.DataFrame) -> String {
+pub fn format_json(df : @frame.DataFrame) -> String {
   Json::array(df_to_json_records(df)).stringify()
 }
 
@@ -337,11 +337,11 @@ pub fn format_json_records(df : @frame.DataFrame) -> String {
 /// holding an unpaired UTF-16 surrogate is refused with `raise
 /// InvalidOperation` — the UTF-8 file encoding would swallow the
 /// following code unit and corrupt the JSON framing.
-pub fn write_json_records(
+pub fn write_json(
   path : String,
   df : @frame.DataFrame,
 ) -> Unit raise @types.DataError {
-  let content = format_json_records(df)
+  let content = format_json(df)
   write_text(path, content)
 }
 
@@ -366,7 +366,7 @@ fn parse_json_payload(content : String) -> Json raise @types.DataError {
 /// `Json::object` per row, keys in column-declaration order, every cell
 /// mapped through `scalar_to_json` (so nulls and non-finite floats land on
 /// JSON `null`). Shared by the three records-shaped emitters:
-/// `format_json_records` wraps the array in one top-level `[...]`,
+/// `format_json` wraps the array in one top-level `[...]`,
 /// `format_ndjson` stringifies one object per line, and `format_vega_lite`
 /// inlines it as a Vega-Lite `data.values` array — so the cell conventions
 /// stay identical across all three without re-implementing the row walk.
@@ -397,7 +397,7 @@ fn df_to_json_records(df : @frame.DataFrame) -> Array[Json] {
 /// non-finite `Float` (`NaN` / `±Infinity`) has no JSON literal —
 /// `@json.stringify` would emit the bare tokens `NaN` / `Infinity` /
 /// `-Infinity`, which is invalid JSON that neither
-/// `parse_json_records_str` nor a standards-compliant parser can read
+/// `parse_json_str` nor a standards-compliant parser can read
 /// back — so it is mapped to `null` (matching pandas' `to_json`),
 /// keeping the emitted text valid JSON. `Bool` lands on the `true` /
 /// `false` variants; `String` passes through and is escaped by the
@@ -427,7 +427,7 @@ fn scalar_to_json(s : @types.Scalar) -> Json {
 ///|
 /// Fetch the value of `name` from `obj`. A missing field on a sparse
 /// record is treated as a null cell — every record was already
-/// validated as a JSON object by `parse_json_records_str` before
+/// validated as a JSON object by `parse_json_str` before
 /// reaching this helper, so the lookup boils down to a single map
 /// access.
 fn lookup_field(obj : Map[String, Json], name : String) -> Json {

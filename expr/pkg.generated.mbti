@@ -222,13 +222,12 @@ pub fn UnOp::not_equal(Self, Self) -> Bool
 pub fn UnOp::to_repr(Self) -> @debug.Repr
 
 pub struct WhenThen {
-  cond : Expr
+  // private fields
 }
 pub fn WhenThen::then(Self, Expr) -> WhenThenElse
 
 pub struct WhenThenElse {
-  cond : Expr
-  then_value : Expr
+  // private fields
 }
 pub fn WhenThenElse::otherwise(Self, Expr) -> Expr
 

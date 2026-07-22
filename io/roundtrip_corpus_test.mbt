@@ -17,8 +17,8 @@
 fn assert_roundtrip_fixpoint(df : @frame.DataFrame) -> Unit raise {
   let csv = @io.format_csv(df)
   assert_eq(@io.format_csv(@io.parse_csv_str(csv)), csv)
-  let json = @io.format_json_records(df)
-  assert_eq(@io.format_json_records(@io.parse_json_records_str(json)), json)
+  let json = @io.format_json(df)
+  assert_eq(@io.format_json(@io.parse_json_str(json)), json)
   let ndjson = @io.format_ndjson(df)
   assert_eq(@io.format_ndjson(@io.parse_ndjson_str(ndjson)), ndjson)
 }
@@ -142,8 +142,8 @@ fn csv_roundtrip(
 
 ///|
 fn json_roundtrip(df : @frame.DataFrame) -> @frame.DataFrame raise {
-  @io.parse_json_records_str(
-    @io.format_json_records(df),
+  @io.parse_json_str(
+    @io.format_json(df),
     options=@io.JsonReadOptions(infer_schema_rows=0),
   )
 }
@@ -260,7 +260,7 @@ test "rejection property: isolated surrogate halves never reach a file" {
   let csv = Ok(@io.write_csv("_build/io_corpus_surrogate.csv", df)) catch {
     error => Err(error)
   }
-  let json = Ok(@io.write_json_records("_build/io_corpus_surrogate.json", df)) catch {
+  let json = Ok(@io.write_json("_build/io_corpus_surrogate.json", df)) catch {
     error => Err(error)
   }
   let ndjson = Ok(@io.write_ndjson("_build/io_corpus_surrogate.ndjson", df)) catch {

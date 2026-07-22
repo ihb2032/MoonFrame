@@ -10,12 +10,12 @@
 // serialisation to an external interchange format (the IO-1 boundary:
 // `frame` keeps pure rendering like `to_markdown` / `to_html`; `io` owns
 // the parsers and the JSON/CSV/NDJSON serialisers). It is a free function
-// parallel to `format_json_records`, and it shares that file's
+// parallel to `format_json`, and it shares that file's
 // `scalar_to_json` cell mapping through the common `df_to_json_records`
 // helper — so a `data.values` cell follows exactly the same conventions
 // as a JSON-records cell (nulls and non-finite floats become JSON `null`).
 //
-// Unlike `format_json_records` (which is **total**), `format_vega_lite`
+// Unlike `format_json` (which is **total**), `format_vega_lite`
 // `raise`s: a `ChartSpec` names the `x` / `y` / `color` columns, and a
 // name that is absent from the frame surfaces as `ColumnNotFound` rather
 // than producing a spec that references a non-existent field.
@@ -190,7 +190,7 @@ pub fn ChartSpec::area(
 /// set, `color`, each `{field, type}` with the `type` inferred from the
 /// column dtype: numeric → `"quantitative"`, otherwise → `"nominal"`) +
 /// `data.values` (the frame inlined as JSON records, sharing
-/// `format_json_records`' cell mapping — null and non-finite-float cells
+/// `format_json`' cell mapping — null and non-finite-float cells
 /// become JSON `null`). A frame with the encoded columns but zero rows
 /// yields `"data":{"values":[]}`.
 ///
@@ -237,7 +237,7 @@ pub fn format_vega_lite(
 
 ///|
 /// Write a Vega-Lite v5 spec for `df` / `spec` to `path`. Mirrors
-/// `write_json_records`: a `ColumnNotFound` from `format_vega_lite` (a spec
+/// `write_json`: a `ColumnNotFound` from `format_vega_lite` (a spec
 /// column absent from `df`) propagates unchanged, a filesystem failure
 /// surfaces as `raise IoError(message)`, and content holding an unpaired
 /// UTF-16 surrogate is refused with `raise InvalidOperation`.

@@ -31,9 +31,9 @@ fn prop_csv_roundtrip(xs : Array[Int64]) -> Bool {
 fn prop_json_roundtrip(xs : Array[Int64]) -> Bool {
   try {
     let df = @frame.DataFrame::new([@series.Series::from_ints("x", xs)])
-    let text = @io.format_json_records(df)
-    let back = @io.parse_json_records_str(text)
-    @io.format_json_records(back) == text
+    let text = @io.format_json(df)
+    let back = @io.parse_json_str(text)
+    @io.format_json(back) == text
   } catch {
     _ => false
   }

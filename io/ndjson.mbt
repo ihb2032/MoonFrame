@@ -37,11 +37,11 @@
 ///      which validates each is an object, collects headers in
 ///      first-seen order across all records (sparse records → null
 ///      cells), infers one dtype per column, and materialises the
-///      frame (see that helper, shared with `parse_json_records_str`,
+///      frame (see that helper, shared with `parse_json_str`,
 ///      for the per-column rules).
 ///
 /// Empty input — or input that is entirely blank lines — yields a 0×0
-/// frame, matching `parse_json_records_str`'s empty-array behaviour.
+/// frame, matching `parse_json_str`'s empty-array behaviour.
 ///
 /// Raises:
 /// - `ParseError(Message(...))` — a malformed line or a line whose value is
@@ -187,7 +187,7 @@ pub fn read_ndjson_projected(
 /// writer's per-row LF and Polars' `write_ndjson`). A 0-row frame
 /// renders the empty string.
 ///
-/// Per-cell conventions are shared with `format_json_records` via
+/// Per-cell conventions are shared with `format_json` via
 /// `scalar_to_json`: `Null → null`; `Int` → JSON number (no fractional part;
 /// exact across the full `Int64` range via the preserved `repr`); finite
 /// `Float` → JSON number, non-finite (`NaN` /
@@ -196,7 +196,7 @@ pub fn read_ndjson_projected(
 /// `df.columns()` order, preserved by the linked-hash-map `Map` backing
 /// each record object.
 pub fn format_ndjson(df : @frame.DataFrame) -> String {
-  // Share the column-major record walk with `format_json_records` /
+  // Share the column-major record walk with `format_json` /
   // `format_vega_lite` (see `df_to_json_records`); NDJSON differs only in
   // the framing — one object per line, each terminated by `\n`.
   let buf = StringBuilder::new()

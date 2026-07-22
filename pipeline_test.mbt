@@ -125,7 +125,7 @@ test "pipeline: parse_csv_str → filter → select → sort → describe → to
 // ── JSON round-trip via the facade ────────────────────────────────────
 
 ///|
-test "pipeline: format_json_records → parse_json_records_str round-trip" {
+test "pipeline: format_json → parse_json_str round-trip" {
   // Hand-build a frame from typed Series so we can exercise the
   // re-exported Series constructors as well as the IO ones.
   let df = DataFrame::new([
@@ -134,8 +134,8 @@ test "pipeline: format_json_records → parse_json_records_str round-trip" {
     Series::from_float_options("score", [Some(91.5), None, Some(73.0)]),
   ])
   assert_eq(df.check_invariants(), Ok(()))
-  let json = format_json_records(df)
-  let restored = parse_json_records_str(json)
+  let json = format_json(df)
+  let restored = parse_json_str(json)
   assert_eq(restored.shape(), df.shape())
   assert_eq(restored.columns(), df.columns())
   assert_eq(restored.item(0, "id"), Scalar::Int(1))

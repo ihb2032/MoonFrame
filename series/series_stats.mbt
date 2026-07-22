@@ -90,6 +90,8 @@ pub fn Series::mean(self : Series) -> Double raise @types.DataError {
 /// `Null` is missing). Exercised directly by this package's tests and, across
 /// the package boundary, by `DataFrame::describe` (which summarises numeric,
 /// non-numeric, and all-null columns, so both arms below are reached).
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
 pub fn Series::mean_opt(self : Series) -> Double? {
   Some(self.mean()) catch {
     _ => None

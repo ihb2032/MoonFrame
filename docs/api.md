@@ -154,7 +154,12 @@ v0.6 and is **no longer part of the public API**: `Bitmap`, `BuiltinColumn`,
 `NumericColumn`, `ColumnData`, `NumericData`, `ColumnStorage`, and
 `StorageKind` cannot be named or imported by downstream code. `Series` owns a
 backend internally and exposes only value-level access (`get` / `to_scalars`
-/ the typed constructors), so callers never touch a storage type.
+/ the typed constructors), so callers never touch a storage type. The methods
+that used to hand one out — `Series::storage` / `storage_kind` / `to_numeric`
+/ `to_builtin` / `is_canonical` and `DataFrame::storage_kinds` / `to_numeric`
+/ `to_builtin` — are engine seams as of v0.6: still `pub` for cross-package
+use inside the library, marked `#internal`, and absent from the generated
+interface, so they are not part of the surface this document covers.
 
 ---
 
@@ -553,8 +558,9 @@ rebuild and backend-convergence helpers, and the composite-key cell encoding
   identity; an `Int` sum accumulates in `Int64` and **wraps on overflow**
   (silently — no raise); `Bool` / `String` → `TypeMismatch`; `mean()` — `Double`,
   empty / all-null numeric → `InvalidOperation`, non-numeric →
-  `TypeMismatch`. `mean_opt() -> Double?` is the **total** form of `mean`
-  (`Some(mean)`, or `None` exactly where `mean` would raise). `std()` /
+  `TypeMismatch`. (`mean_opt`, the total form `describe` summarises with, is
+  an engine seam as of v0.6 — `#internal`, absent from the generated
+  interface.) `std()` /
   `variance()` — `Double`, the **sample** statistics (`ddof = 1`, Polars'
   default; Welford's algorithm); fewer than two non-null cells →
   `InvalidOperation`, non-numeric → `TypeMismatch`. `median()` — `Double`
@@ -593,10 +599,6 @@ dependencies** (NyaCSV / fs / @json live only in `io`).
 - Total inspection: `shape()` / `schema()` / `columns()` (fresh array) /
   `column_series()` (fresh array of the immutable `Series`) / `nrows()` /
   `ncols()` / `is_empty()`.
-- `to_scalar_matrix() -> Array[Array[Scalar]]` (**total**) — every column's
-  cells column-major (`result[c][r]` is column `c` / row `r`, `Null` for a
-  null slot). The one-pass bulk read the row-oriented serialisers /
-  renderers share.
 - Accessors (`raise DataError`): `get_column(name)`
   (`ColumnNotFound`); `get_column_at(i)` (`IndexOutOfBounds`);
   `item(row, name) -> Scalar` (Polars' `df.item`, a single cell —
@@ -604,9 +606,10 @@ dependencies** (NyaCSV / fs / @json live only in `io`).
   column order, a Polars-style tuple (`Null` for a null cell;
   `IndexOutOfBounds`).
 - `rows() -> Array[Array[Scalar]]` (**total**) — every row as a tuple
-  (`result[r][c]`), the row-major transpose of `to_scalar_matrix`. For more
-  than a handful of rows, prefer this over a `row(i)` loop — it reads the
-  frame once.
+  (`result[r][c]`). For more than a handful of rows, prefer this over a
+  `row(i)` loop — it reads the frame once. (The column-major bulk read the
+  serialisers share, `to_scalar_matrix`, is an engine seam as of v0.6 —
+  `#internal`, absent from the generated interface.)
 - Structural transforms: total `head(n)` / `limit(n)` (a Polars-style
   alias of `head`, the eager twin of `LazyFrame::limit`) / `tail(n)`
   (clamp `n` to `[0, nrows]`); `slice(start, end)` / `take(indices)`

@@ -941,8 +941,18 @@ are documented below.
   truncated) / `on_parse_error` (`Raise`; see `OnParseError` below) /
   `allow_nonfinite_floats` (`true`; when `false`, the `nan` / `inf` /
   `infinity` float literals are rejected during inference, so a column of
-  them falls back to `String` instead of being retyped to `Float`).
-  `CsvReadOptions::default()`.
+  them falls back to `String` instead of being retyped to `Float`) /
+  `strict_quotes` (`false`; when `true`, a linear pre-scan rejects malformed
+  quoting before tokenisation). Built with
+  `CsvReadOptions(has_header? , delimiter? , infer_schema_rows? ,
+  null_values? , strict_column_count? , on_parse_error? ,
+  allow_nonfinite_floats? , strict_quotes?)` — every parameter defaults, so
+  `CsvReadOptions()` is the all-defaults reader and only what differs needs
+  naming, as in `CsvReadOptions(delimiter=';', strict_quotes=true)`. The
+  struct is read-only from outside `io` (no record literal); `null_values`
+  is private and read back through the `null_values()` accessor, which — like
+  the constructor — copies, so the reader's token list cannot be changed
+  after construction.
 - `enum OnParseError { Raise; Null }` (`pub(all)`) — the parse-failure
   policy shared by the three readers' options. A non-null cell past the
   inference window that doesn't fit its column's locked-in dtype either
@@ -950,11 +960,15 @@ are documented below.
   lossless) or is downgraded to a null cell, keeping the column's inferred
   dtype (`Null`, Polars' `ignore_errors=True`).
 - `struct CsvWriteOptions` — `header` (`true`) / `delimiter` (`,`) /
-  `null_value` (`""`). `CsvWriteOptions::default()`.
-- `parse_csv_str(content, options, strict_quotes? : Bool = false) -> DataFrame
+  `null_value` (`""`) / `sanitize_formulas` (`false`; when `true`, a String
+  cell beginning with `=`, `+`, `-`, `@`, tab, or carriage return gains a
+  leading apostrophe so spreadsheets treat it as text — intentionally lossy).
+  Built with `CsvWriteOptions(header? , delimiter? , null_value? ,
+  sanitize_formulas?)`; `CsvWriteOptions()` is the all-defaults writer.
+- `parse_csv_str(content, options) -> DataFrame
   raise DataError` — tokenise → per-column inference (`Int → Float → Bool →
   String`) → null mapping → `DataFrame::new`. The default keeps NyaCSV's
-  permissive quote handling. With `strict_quotes=true`, a linear pre-scan
+  permissive quote handling. With `CsvReadOptions(strict_quotes=true)`, a linear pre-scan
   rejects an unterminated quoted field, non-separator text after a closing
   quote, or a quote inside an unquoted field as `ParseError`; escaped `""` and
   newlines inside quoted fields remain valid. `InvalidOperation` if
@@ -965,10 +979,10 @@ are documented below.
   `DuplicateColumn` / `ParseError(Message(...))` (including a ragged row when
   `options.strict_column_count`) / `ParseError(Cell(...))` (a cell that does
   not fit its dtype unless `options.on_parse_error = Null`).
-- `format_csv(df, options, sanitize_formulas? : Bool = false) -> String raise
+- `format_csv(df, options) -> String raise
   DataError` — cells render via `Scalar::to_string`; null →
   `options.null_value`; RFC 4180 quoting; LF-terminated. With the opt-in
-  `sanitize_formulas=true`, String cells beginning with `=`, `+`, `-`, `@`,
+  `CsvWriteOptions(sanitize_formulas=true)`, String cells beginning with `=`, `+`, `-`, `@`,
   tab, or carriage return gain a leading apostrophe before quoting so
   spreadsheets treat them as text. This intentionally lossy safety mode does
   not affect headers, nulls, numbers, booleans, or other strings; the default
@@ -977,21 +991,20 @@ are documented below.
   quote or a line terminator (`\n` / `\r`), which can't unambiguously frame
   fields, or a non-BMP character, whose UTF-16 surrogate pair the
   per-code-unit tokenizer can't match.
-- `read_csv(path)` / `read_csv_with_options(path, options,
-  strict_quotes? : Bool = false) -> DataFrame raise DataError` — file wrappers;
-  the options-aware form forwards strict quote validation (`IoError`).
-- `read_csv_projected(path, options, projection : Array[String],
-  strict_quotes? : Bool = false) -> DataFrame raise DataError` —
+- `read_csv(path)` / `read_csv_with_options(path, options) -> DataFrame raise
+  DataError` — file wrappers; strict quote validation rides on
+  `options.strict_quotes` (`IoError`).
+- `read_csv_projected(path, options, projection : Array[String]) -> DataFrame
+  raise DataError` —
   `read_csv_with_options` that builds only the
   named `projection` columns (in the file's header order; the rest are never
   inferred or parsed). The engine seam behind `lazy`'s `scan_csv` projection
   pushdown — **not** re-exported by the facade. Whole-input checks (strict quote
   validation, a malformed header, or a ragged row) are unaffected, but a parse
   error confined to a dropped column does not surface (see `lazy`).
-- `write_csv(path, df)` / `write_csv_with_options(path, df, options,
-  sanitize_formulas? : Bool = false) -> Unit raise DataError` — file wrappers;
-  `write_csv_with_options` forwards the optional spreadsheet-formula safety
-  mode described above (`IoError`; a string cell or column name holding an
+- `write_csv(path, df)` / `write_csv_with_options(path, df, options) -> Unit
+  raise DataError` — file wrappers; the spreadsheet-formula safety mode rides
+  on `options.sanitize_formulas` (`IoError`; a string cell or column name holding an
   unpaired UTF-16 surrogate is refused with `InvalidOperation` before encoding,
   as for every `write_*`).
 
@@ -999,7 +1012,10 @@ are documented below.
 
 - `struct JsonReadOptions` — `infer_schema_rows` (`100`; `0` or `<= 0`
   scans every record) / `on_parse_error` (`Raise`; the shared
-  `OnParseError`, documented under CSV). `JsonReadOptions::default()`.
+  `OnParseError`, documented under CSV). Built with
+  `JsonReadOptions(infer_schema_rows? , on_parse_error?)`; read-only from
+  outside `io`. The NDJSON reader takes the same type — the two formats
+  differ in framing, not in what there is to configure.
 - `parse_json_records_str(content, options) -> DataFrame raise DataError`
   — `@json.parse` → object validation → headers in first-seen order
   across all records (sparse records → null cells) → inference (same
@@ -1038,11 +1054,7 @@ collection (first-seen order, sparse lines → null cells), the
 `Int → Float → Bool → String` inference, and the `scalar_to_json` cell
 conventions.
 
-- `struct NdjsonReadOptions` — `infer_schema_rows` (`100`; `0` or `<= 0`
-  scans every record) / `on_parse_error` (`Raise`; the shared
-  `OnParseError`, documented under CSV). `NdjsonReadOptions::default()`.
-  Structurally identical to `JsonReadOptions`; kept a separate type so the
-  two formats can diverge later.
+- Options: the same `JsonReadOptions` the records reader takes (see above).
 - `parse_ndjson_str(content, options) -> DataFrame raise DataError` —
   split on `\n` → parse each non-blank line (`@json.parse`) → the shared
   records → frame core. Blank / whitespace-only lines are skipped and a
@@ -1146,7 +1158,7 @@ cycle.
   `read_csv(p).…` on well-formed input; because a dropped column is never
   parsed, a parse error confined to one does not surface.
 - `scan_ndjson(path : String) -> LazyFrame` /
-  `scan_ndjson_with_options(path : String, options : NdjsonReadOptions) ->
+  `scan_ndjson_with_options(path : String, options : JsonReadOptions) ->
   LazyFrame` — the line-oriented sibling of `scan_csv` (a `ScanNdjson` node),
   the lazy counterpart of eager `read_ndjson`. Same projection-pushdown
   behaviour and dropped-column caveat. (There is no `scan_json` for the
@@ -1276,7 +1288,7 @@ API names them).
   `JoinOptions` · `HtmlOptions` · `numeric_cols` · `cols_of_dtype` ·
   `cols_matching`
 - From `@io`: `CsvReadOptions` · `CsvWriteOptions` · `JsonReadOptions` ·
-  `NdjsonReadOptions` · `OnParseError` · `ChartKind` · `ChartSpec` ·
+  `OnParseError` · `ChartKind` · `ChartSpec` ·
   `VegaType` · `format_csv` ·
   `format_json_records` · `format_ndjson` · `format_vega_lite` ·
   `parse_csv_str` · `parse_json_records_str` · `parse_ndjson_str` ·

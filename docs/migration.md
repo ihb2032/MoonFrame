@@ -29,6 +29,37 @@ generic position such as `assert_eq(Field(...), ...)` write the full
 a record literal (`{ name: "age", dtype: Int, nullable: true }`) outside `types`
 no longer compiles — build through `Field(...)` instead.
 
+### IO options are built by constructor
+
+| v0.5 | v0.6 |
+| --- | --- |
+| `CsvReadOptions::default()` | `CsvReadOptions()` |
+| `{ has_header: true, delimiter: ';', infer_schema_rows: 100, null_values: [""], strict_column_count: false, on_parse_error: Raise, allow_nonfinite_floats: true }` | `CsvReadOptions(delimiter=';')` |
+| `CsvWriteOptions::default()` | `CsvWriteOptions()` |
+| `JsonReadOptions::default()` | `JsonReadOptions()` |
+| `NdjsonReadOptions::default()` | `JsonReadOptions()` |
+| `parse_csv_str(text, options, strict_quotes=true)` | `parse_csv_str(text, CsvReadOptions(strict_quotes=true))` |
+| `format_csv(df, options, sanitize_formulas=true)` | `format_csv(df, CsvWriteOptions(sanitize_formulas=true))` |
+| `options.null_values` | `options.null_values()` |
+
+`CsvReadOptions`, `CsvWriteOptions`, and `JsonReadOptions` are `pub` rather than
+`pub(all)`, so a record literal no longer compiles outside `io`; every field has
+a constructor parameter with the previous default, and only what differs needs
+naming. Adding a field is therefore additive from here on.
+
+`NdjsonReadOptions` is removed — the NDJSON reader and `scan_ndjson_with_options`
+take `JsonReadOptions`, which has the same two fields.
+
+The `strict_quotes` and `sanitize_formulas` parameters are gone from
+`parse_csv_str` / `read_csv_with_options` / `read_csv_projected` and
+`format_csv` / `write_csv_with_options`; set them on the options instead. The
+lazy `scan_csv_with_options` picks up strict quote validation this way, which
+the parameter form could not express.
+
+`CsvReadOptions.null_values` is now private, read through `null_values()`, which
+returns a copy — as does the constructor, so mutating either array cannot change
+what a reader (or a captured `scan_csv` plan) treats as null.
+
 ## v0.5.7 → v0.5.8
 
 No source-level migration steps. v0.5.8 is a fix patch: every v0.5.7 symbol and

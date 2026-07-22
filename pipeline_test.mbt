@@ -395,6 +395,19 @@ test "pipeline: Schema and Field surface for callers building empty frames" {
   assert_eq(empty.check_invariants(), Ok(()))
 }
 
+// ── expression vocabulary reachable through the facade ────────────────
+
+///|
+test "pipeline: ClosedInterval is reachable unqualified" {
+  // The `closed` endpoint enum must ride the facade like SortOrder /
+  // KeepStrategy do — a missing re-export would fail to compile here.
+  let df = DataFrame::new([Series::from_ints("n", [1, 2, 3])])
+  let kept = df.filter(
+    col("n").is_between(lit_int(1), lit_int(3), closed=ClosedInterval::Left),
+  )
+  assert_eq(kept.nrows(), 2)
+}
+
 // ── column selectors reachable through the facade ─────────────────────
 
 ///|

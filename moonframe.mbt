@@ -64,6 +64,7 @@ pub using @expr {
   type Expr,
   type WhenThen,
   type WhenThenElse,
+  type ClosedInterval,
   col,
   cols,
   lit,

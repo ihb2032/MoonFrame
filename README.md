@@ -122,7 +122,7 @@ run as doc tests on every backend.
   `left_on` / `right_on` for differently-named or derived keys).
 - **Summarize** — `describe()` for a per-column summary, or single statistics
   (`sum` / `mean` / `min` / `max` / …).
-- **Export** — `to_markdown()`, `to_html()`, `format_json_records`,
+- **Export** — `to_markdown()`, `to_html()`, `format_json`,
   `format_ndjson`, and `format_vega_lite` (a Vega-Lite v5 chart spec).
 
 For example, summarise the same data by region:

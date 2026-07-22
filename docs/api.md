@@ -927,7 +927,7 @@ Hash equi-join, native to the method chain (`left.join(right, options)`).
 ## `io` — Serialization (IO-1 boundary)
 
 Read / parse / write functions `raise DataError`; the string serialisers
-(`format_json_records` / `format_ndjson`) are **total** and return a
+(`format_json` / `format_ndjson`) are **total** and return a
 `String`. Two `raise`: `format_vega_lite` — a `ChartSpec` names the columns
 to plot, and a missing name is `ColumnNotFound` — and `format_csv`, which
 rejects a delimiter that collides with the quote character or a line
@@ -1027,7 +1027,7 @@ are documented below.
   `JsonReadOptions(infer_schema_rows? , on_parse_error?)`; read-only from
   outside `io`. The NDJSON reader takes the same type — the two formats
   differ in framing, not in what there is to configure.
-- `parse_json_records_str(content, options) -> DataFrame raise DataError`
+- `parse_json_str(content, options) -> DataFrame raise DataError`
   — `@json.parse` → object validation → headers in first-seen order
   across all records (sparse records → null cells) → inference (same
   order as CSV; `Number` locks `Int` when integral and in `Int64` range,
@@ -1039,9 +1039,9 @@ are documented below.
   range, when inferred as
   `Float` (a fractional sibling in the column), recovers its nearest finite
   value from the digits `@json` preserves in `repr`. An integer beyond Double's
-  numerical range becomes `±Infinity`; a subsequent `format_json_records`
+  numerical range becomes `±Infinity`; a subsequent `format_json`
   writes that cell as `null` under the non-finite rule below.
-- `format_json_records(df) -> String` — **total**. One object per row,
+- `format_json(df) -> String` — **total**. One object per row,
   keys in `df.columns()` order; `Null → null`, bools / strings / finite
   numbers via `@json`. A non-finite `Float` (`NaN` / `±Infinity`) has no
   JSON literal, so it is emitted as `null` (like pandas' `to_json`),
@@ -1053,7 +1053,7 @@ are documented below.
   beyond 2^53 keeps its `Int` dtype but loses precision on a JSON round-trip
   (the `@json` number model is `Double`), as in pandas' `to_json`.
 - `read_json(path, options? : JsonReadOptions = JsonReadOptions()) -> DataFrame
-  raise DataError`; `write_json_records(path, df) -> Unit raise
+  raise DataError`; `write_json(path, df) -> Unit raise
   DataError` — file wrappers (`IoError`; an unpaired UTF-16 surrogate in
   the content is refused with `InvalidOperation` before encoding).
 
@@ -1081,7 +1081,7 @@ conventions.
   keys in `df.columns()` order, each line terminated by `\n` (including
   the last — matching the CSV writer's per-row LF and Polars'
   `write_ndjson`); a 0-row frame renders the empty string. Per-cell
-  rules match `format_json_records` (non-finite `Float` → `null`; `Int`
+  rules match `format_json` (non-finite `Float` → `null`; `Int`
   beyond ±2^53 keeps its dtype but loses precision on a round-trip).
 - `read_ndjson(path, options? : JsonReadOptions = JsonReadOptions()) ->
   DataFrame raise DataError`; `write_ndjson(path, df) -> Unit raise
@@ -1098,7 +1098,7 @@ conventions.
 specification as a JSON string — `$schema` + optional `title` + `mark` +
 `encoding` + an inline `data.values` array — that drops straight into the
 [Vega editor](https://vega.github.io/editor/) or any Vega-Lite runtime.
-It shares `format_json_records`' `scalar_to_json` cell mapping, so a
+It shares `format_json`' `scalar_to_json` cell mapping, so a
 `data.values` cell follows the same rules (null and non-finite-float cells
 → JSON `null`).
 
@@ -1304,10 +1304,10 @@ API names them).
 - From `@io`: `CsvReadOptions` · `CsvWriteOptions` · `JsonReadOptions` ·
   `OnParseError` · `ChartKind` · `ChartSpec` ·
   `VegaType` · `format_csv` ·
-  `format_json_records` · `format_ndjson` · `format_vega_lite` ·
-  `parse_csv_str` · `parse_json_records_str` · `parse_ndjson_str` ·
+  `format_json` · `format_ndjson` · `format_vega_lite` ·
+  `parse_csv_str` · `parse_json_str` · `parse_ndjson_str` ·
   `read_csv` · `read_json` · `read_ndjson` ·
-  `write_csv` · `write_json_records` ·
+  `write_csv` · `write_json` ·
   `write_ndjson` · `write_vega_lite`
 - From `@lazy`: `LazyFrame` · `LazyGroupBy` · `lazy_frame` · `scan_csv` ·
   `scan_ndjson`

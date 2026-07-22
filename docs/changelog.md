@@ -88,7 +88,7 @@ collected in [`migration.md`](migration.md).
   `write_csv(path, df, options?)`, `read_json(path, options?)`,
   `read_ndjson(path, options?)`, `scan_csv(path, options?)`, and
   `scan_ndjson(path, options?)` replace the six `*_with_options` twins, and the
-  string-level `parse_csv_str` / `parse_json_records_str` / `parse_ndjson_str` /
+  string-level `parse_csv_str` / `parse_json_str` / `parse_ndjson_str` /
   `format_csv` take their options the same way. A call that passed options
   positionally now names them (`parse_csv_str(text, options=opts)`); a call that
   passed the all-defaults options can drop the argument.
@@ -142,6 +142,11 @@ collected in [`migration.md`](migration.md).
 - `Series::new` / `Series::from_builtin`, which took a storage backend, join
   the engine seams (`#internal`, absent from the interface). `Series::from_*`
   are the public constructors.
+- The JSON entry points join the four-verb grid: `parse_json_records_str` /
+  `format_json_records` / `write_json_records` are now `parse_json_str` /
+  `format_json` / `write_json`, matching `read_json` and the CSV / NDJSON
+  spellings. The records wire shape is unchanged and documented on the
+  functions.
 - `DataFrame::take` is renamed `DataFrame::gather`, so the row-selection verb
   shares one name with `Series::gather` (and with Polars, which renamed `take`
   to `gather` in 0.19).

@@ -27,7 +27,7 @@ pub fn cols_starts_with(@frame.DataFrame, String) -> Array[@expr.Expr]
 
 pub fn format_csv(@frame.DataFrame, options? : @io.CsvWriteOptions) -> String raise @types.DataError
 
-pub fn format_json_records(@frame.DataFrame) -> String
+pub fn format_json(@frame.DataFrame) -> String
 
 pub fn format_ndjson(@frame.DataFrame) -> String
 
@@ -53,7 +53,7 @@ pub fn numeric_cols(@frame.DataFrame) -> Array[@expr.Expr]
 
 pub fn parse_csv_str(String, options? : @io.CsvReadOptions) -> @frame.DataFrame raise @types.DataError
 
-pub fn parse_json_records_str(String, options? : @io.JsonReadOptions) -> @frame.DataFrame raise @types.DataError
+pub fn parse_json_str(String, options? : @io.JsonReadOptions) -> @frame.DataFrame raise @types.DataError
 
 pub fn parse_ndjson_str(String, options? : @io.JsonReadOptions) -> @frame.DataFrame raise @types.DataError
 
@@ -71,7 +71,7 @@ pub fn when(@expr.Expr) -> @expr.WhenThen
 
 pub fn write_csv(String, @frame.DataFrame, options? : @io.CsvWriteOptions) -> Unit raise @types.DataError
 
-pub fn write_json_records(String, @frame.DataFrame) -> Unit raise @types.DataError
+pub fn write_json(String, @frame.DataFrame) -> Unit raise @types.DataError
 
 pub fn write_ndjson(String, @frame.DataFrame) -> Unit raise @types.DataError
 
@@ -87,6 +87,8 @@ pub using @types {type CellParseLocation}
 pub using @io {type ChartKind}
 
 pub using @io {type ChartSpec}
+
+pub using @expr {type ClosedInterval}
 
 pub using @io {type CsvReadOptions}
 

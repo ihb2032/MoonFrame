@@ -70,6 +70,19 @@ same trade projection push-down has always made for dropped *columns*. Code
 that relied on a lazy pipeline failing on a malformed row it filters away
 should read eagerly (`read_csv(path).filter(...)`) instead.
 
+### The JSON entry points complete the verb grid
+
+| v0.5 | v0.6 |
+| --- | --- |
+| `parse_json_records_str(text)` | `parse_json_str(text)` |
+| `format_json_records(df)` | `format_json(df)` |
+| `write_json_records(path, df)` | `write_json(path, df)` |
+
+`read_json` already dropped the qualifier, so the records shape now has the
+same four-verb spelling as CSV and NDJSON — `read` / `write` / `parse_*_str` /
+`format` — and the wire shape (`[{...}, ...]`) is documented on the functions
+rather than in their names.
+
 ### `SortOrder` / `NullOrder` moved to `types`
 
 They now live beside `DataType` / `Scalar`, because `Series::sort` (new in
@@ -197,7 +210,7 @@ inline at the call, where the expected type is concrete.
 | `scan_csv_with_options(path, opts)` | `scan_csv(path, options=opts)` |
 | `scan_ndjson_with_options(path, opts)` | `scan_ndjson(path, options=opts)` |
 | `parse_csv_str(text, opts)` | `parse_csv_str(text, options=opts)` |
-| `parse_json_records_str(text, opts)` | `parse_json_records_str(text, options=opts)` |
+| `parse_json_records_str(text, opts)` | `parse_json_str(text, options=opts)` |
 | `parse_ndjson_str(text, opts)` | `parse_ndjson_str(text, options=opts)` |
 | `format_csv(df, opts)` | `format_csv(df, options=opts)` |
 | `parse_csv_str(text, CsvReadOptions())` | `parse_csv_str(text)` |

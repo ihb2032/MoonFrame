@@ -10,7 +10,7 @@ import {
 // Values
 pub fn format_csv(@frame.DataFrame, options? : CsvWriteOptions) -> String raise @types.DataError
 
-pub fn format_json_records(@frame.DataFrame) -> String
+pub fn format_json(@frame.DataFrame) -> String
 
 pub fn format_ndjson(@frame.DataFrame) -> String
 
@@ -18,7 +18,7 @@ pub fn format_vega_lite(@frame.DataFrame, ChartSpec) -> String raise @types.Data
 
 pub fn parse_csv_str(String, options? : CsvReadOptions) -> @frame.DataFrame raise @types.DataError
 
-pub fn parse_json_records_str(String, options? : JsonReadOptions) -> @frame.DataFrame raise @types.DataError
+pub fn parse_json_str(String, options? : JsonReadOptions) -> @frame.DataFrame raise @types.DataError
 
 pub fn parse_ndjson_str(String, options? : JsonReadOptions) -> @frame.DataFrame raise @types.DataError
 
@@ -30,7 +30,7 @@ pub fn read_ndjson(String, options? : JsonReadOptions) -> @frame.DataFrame raise
 
 pub fn write_csv(String, @frame.DataFrame, options? : CsvWriteOptions) -> Unit raise @types.DataError
 
-pub fn write_json_records(String, @frame.DataFrame) -> Unit raise @types.DataError
+pub fn write_json(String, @frame.DataFrame) -> Unit raise @types.DataError
 
 pub fn write_ndjson(String, @frame.DataFrame) -> Unit raise @types.DataError
 

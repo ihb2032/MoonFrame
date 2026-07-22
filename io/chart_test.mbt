@@ -6,7 +6,7 @@
 // `title` / `mark` / `encoding` (field + inferred `type`) / inlined
 // `data.values` — plus the column-name validation (`ColumnNotFound`,
 // left-to-right) and the cell conventions inherited from
-// `format_json_records` (null / non-finite floats → JSON `null`). One
+// `format_json` (null / non-finite floats → JSON `null`). One
 // test parses the output back with `@json.parse` to self-certify it is
 // well-formed JSON.
 //
@@ -222,7 +222,7 @@ test "format_vega_lite: field type follows column dtype (Float→quantitative, B
 
 ///|
 test "format_vega_lite: null and non-finite float cells become JSON null" {
-  // `data.values` reuses `format_json_records`' cell mapping: an explicit
+  // `data.values` reuses `format_json`' cell mapping: an explicit
   // null, and a non-finite Float (±Infinity / NaN, which have no JSON
   // literal), all render as `null`.
   let inf = id_double(1.0) / id_double(0.0)

@@ -15,15 +15,15 @@
 // `Series::storage` change is invisible here.
 
 ///|
-/// Options for `DataFrame::to_html_with_options`. Fields are read-only
-/// outside the package — build them through `HtmlOptions::default()` and
-/// chain the `with_*` setters:
+/// Options for `DataFrame::to_html`. Fields are read-only outside the
+/// package — build them through `HtmlOptions(...)`, naming only what differs
+/// from the defaults:
 ///
 ///   * `max_rows` — cap the number of data rows. `None` (the default)
 ///     renders every row; `Some(n)` shows the first `n` and appends a
 ///     `<tfoot>` banner (`... (K more rows)`) for the remainder. A
 ///     negative `n` clamps to 0 (header + banner, no data rows),
-///     matching `to_markdown_with_limit`.
+///     matching `to_markdown`'s `max_rows`.
 ///   * `table_class` — value of the `<table class="...">` attribute.
 ///     `None` (the default) omits the attribute.
 ///   * `caption` — text of a leading `<caption>` element. `None` (the
@@ -31,9 +31,8 @@
 ///   * `escape` — when `true` (the default) every emitted string —
 ///     caption, header names, cell values, and the class attribute — has
 ///     `&` / `<` / `>` / `"` / `'` rewritten to their HTML entities, so
-///     untrusted data can't inject markup. Set `false` (via
-///     `with_escape`) to pass strings through verbatim for trusted input
-///     that intentionally carries HTML.
+///     untrusted data can't inject markup. Pass `escape=false` for
+///     trusted input that intentionally carries HTML.
 pub struct HtmlOptions {
   max_rows : Int?
   table_class : String?
@@ -48,55 +47,25 @@ pub extend HtmlOptions with Eq::{equal, not_equal}
 pub extend HtmlOptions with Debug::{to_repr}
 
 ///|
-/// The default options: render all rows, no `class`, no `<caption>`, and
-/// HTML-escape every emitted string. Chain `with_max_rows` /
-/// `with_table_class` / `with_caption` / `with_escape` to override.
-pub fn HtmlOptions::default() -> HtmlOptions {
-  { max_rows: None, table_class: None, caption: None, escape: true }
-}
-
-///|
-/// Return a copy of these options that caps the rendered table at the
-/// first `n` data rows, appending a `<tfoot>` `... (K more rows)` banner
-/// for the remainder. A negative `n` clamps to 0. Chainable.
-pub fn HtmlOptions::with_max_rows(self : HtmlOptions, n : Int) -> HtmlOptions {
-  { ..self, max_rows: Some(n) }
-}
-
-///|
-/// Return a copy of these options whose `<table>` carries
-/// `class="<cls>"`. Chainable.
-pub fn HtmlOptions::with_table_class(
-  self : HtmlOptions,
-  cls : String,
+/// Build render options. Omitting a parameter keeps its default: every row
+/// rendered, no `class`, no `<caption>`, and HTML escaping on. `HtmlOptions()`
+/// is the default rendering; name only what differs, as in
+/// `HtmlOptions(max_rows=20, caption="Summary")`.
+#as_free_fn
+pub fn HtmlOptions::HtmlOptions(
+  max_rows? : Int,
+  table_class? : String,
+  caption? : String,
+  escape? : Bool = true,
 ) -> HtmlOptions {
-  { ..self, table_class: Some(cls) }
+  { max_rows, table_class, caption, escape }
 }
 
 ///|
-/// Return a copy of these options that prepends a `<caption>` element
-/// containing `text`. Chainable.
-pub fn HtmlOptions::with_caption(
-  self : HtmlOptions,
-  text : String,
-) -> HtmlOptions {
-  { ..self, caption: Some(text) }
-}
-
-///|
-/// Return a copy of these options with HTML escaping set to `escape`.
-/// Pass `false` to emit strings verbatim (trusted input that carries
-/// intentional markup). Chainable.
-pub fn HtmlOptions::with_escape(
-  self : HtmlOptions,
-  escape : Bool,
-) -> HtmlOptions {
-  { ..self, escape, }
-}
-
-///|
-/// Render a `DataFrame` as an HTML `<table>`, using the default options
-/// (all rows, no `class` / `<caption>`, HTML-escaped).
+/// Render a `DataFrame` as an HTML `<table>`. `options` defaults to
+/// `HtmlOptions()` — all rows, no `class` / `<caption>`, HTML-escaped — and
+/// otherwise supplies an optional `class` / `<caption>`, a row cap with a
+/// `<tfoot>` `... (K more rows)` banner, and optional escaping.
 ///
 /// The output is a `<thead>` with one `<th>` per column followed by a
 /// `<tbody>` with one `<tr>` per record (a `<td>` per cell, in
@@ -108,21 +77,11 @@ pub fn HtmlOptions::with_escape(
 ///     degenerate frame);
 ///   - N columns / 0 rows → header with an empty `<tbody>`.
 ///
-/// Total — pure string assembly over already-validated frame data.
-pub fn DataFrame::to_html(self : DataFrame) -> String {
-  format_html(self, self.nrows(), HtmlOptions::default())
-}
-
-///|
-/// Render a `DataFrame` as an HTML `<table>` under `options` — an
-/// optional `class` / `<caption>`, an optional row cap with a `<tfoot>`
-/// `... (K more rows)` banner, and optional escaping. See `HtmlOptions`.
-///
-/// Total — `options.max_rows` is clamped into `[0, nrows]`, so no input
-/// can fail.
-pub fn DataFrame::to_html_with_options(
+/// Total — pure string assembly over already-validated frame data, and
+/// `options.max_rows` is clamped into `[0, nrows]`, so no input can fail.
+pub fn DataFrame::to_html(
   self : DataFrame,
-  options : HtmlOptions,
+  options? : HtmlOptions = HtmlOptions(),
 ) -> String {
   let nrows = self.nrows()
   let shown = match options.max_rows {

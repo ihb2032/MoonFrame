@@ -279,11 +279,12 @@ test "quickstart: render to HTML" {
     Series::from_strings("region", ["west", "east"]),
     Series::from_ints("quantity", [10, 5]),
   ])
-  let opts = HtmlOptions::default()
-    .with_table_class("dataframe")
-    .with_caption("Quantities by region")
+  let opts : HtmlOptions = HtmlOptions(
+    table_class="dataframe",
+    caption="Quantities by region",
+  )
   inspect(
-    df.to_html_with_options(opts),
+    df.to_html(options=opts),
     content=(
       #|<table class="dataframe">
       #|<caption>Quantities by region</caption>

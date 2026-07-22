@@ -36,10 +36,11 @@ pub fn revenue_by_region(
 /// ready to drop into a web page or notebook. Total: HTML rendering is
 /// a pure `DataFrame` method that cannot fail.
 pub fn revenue_table(summary : @moonframe.DataFrame) -> String {
-  summary.to_html_with_options(
-    @moonframe.HtmlOptions::default()
-    .with_table_class("dataframe")
-    .with_caption("Revenue by region"),
+  summary.to_html(
+    options=@moonframe.HtmlOptions(
+      table_class="dataframe",
+      caption="Revenue by region",
+    ),
   )
 }
 

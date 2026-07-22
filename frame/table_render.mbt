@@ -11,7 +11,7 @@
 /// value-form of `Scalar::to_string` (a null cell is the empty string). Slices
 /// each column to its first `shown` cells and scalarises only those,
 /// then transposes the window into per-row cells — so the work scales with
-/// `shown`, not the frame height (a `to_markdown_with_limit(df, 10)` over a
+/// `shown`, not the frame height (a `to_markdown(df, max_rows=10)` over a
 /// million-row frame touches ten rows, not a million). The strings are
 /// **unescaped**: each renderer applies its own escaping (HTML entities vs GFM
 /// pipe-escaping) on top. `shown <= df.nrows()` and every column has

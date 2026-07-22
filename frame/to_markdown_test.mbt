@@ -1,4 +1,4 @@
-// Blackbox tests for `DataFrame::to_markdown` / `to_markdown_with_limit`.
+// Blackbox tests for `DataFrame::to_markdown` / `to_markdown`.
 //
 // The renderer is deterministic — given a DataFrame, the output bytes
 // are fixed — so we exercise it primarily through exact-string
@@ -133,10 +133,10 @@ test "to_markdown: column width respects the 3-char dash minimum" {
   assert_eq(df.to_markdown(), expected)
 }
 
-// ── to_markdown_with_limit ──────────────────────────────────────────
+// ── to_markdown ──────────────────────────────────────────
 
 ///|
-test "to_markdown_with_limit: truncates and appends `... (N more rows)`" {
+test "to_markdown: truncates and appends `... (N more rows)`" {
   // The blank line before the banner ends the GFM table, so the banner
   // renders as the paragraph below it — glued to the last row it would
   // parse as one more single-cell table ROW.
@@ -149,11 +149,11 @@ test "to_markdown_with_limit: truncates and appends `... (N more rows)`" {
     #|
     #|... (3 more rows)
     #|
-  assert_eq(df.to_markdown_with_limit(2), expected)
+  assert_eq(df.to_markdown(max_rows=2), expected)
 }
 
 ///|
-test "to_markdown_with_limit: limit >= nrows shows every row, no banner" {
+test "to_markdown: limit >= nrows shows every row, no banner" {
   let df = DataFrame::new([Series::from_ints("n", [1, 2])])
   let expected =
     #|| n   |
@@ -162,12 +162,12 @@ test "to_markdown_with_limit: limit >= nrows shows every row, no banner" {
     #|| 2   |
     #|
   // limit == nrows and limit > nrows must produce identical output.
-  assert_eq(df.to_markdown_with_limit(2), expected)
-  assert_eq(df.to_markdown_with_limit(100), expected)
+  assert_eq(df.to_markdown(max_rows=2), expected)
+  assert_eq(df.to_markdown(max_rows=100), expected)
 }
 
 ///|
-test "to_markdown_with_limit: limit=0 shows header + separator + banner" {
+test "to_markdown: limit=0 shows header + separator + banner" {
   // shown=0 means the width pass only sees the header, so the
   // column width is just the header width bumped to the 3-char min.
   let df = DataFrame::new([Series::from_ints("n", [1, 2, 3])])
@@ -177,11 +177,11 @@ test "to_markdown_with_limit: limit=0 shows header + separator + banner" {
     #|
     #|... (3 more rows)
     #|
-  assert_eq(df.to_markdown_with_limit(0), expected)
+  assert_eq(df.to_markdown(max_rows=0), expected)
 }
 
 ///|
-test "to_markdown_with_limit: negative limit is clamped to 0" {
+test "to_markdown: negative limit is clamped to 0" {
   let df = DataFrame::new([Series::from_ints("n", [1, 2])])
   let expected =
     #|| n   |
@@ -189,5 +189,5 @@ test "to_markdown_with_limit: negative limit is clamped to 0" {
     #|
     #|... (2 more rows)
     #|
-  assert_eq(df.to_markdown_with_limit(-5), expected)
+  assert_eq(df.to_markdown(max_rows=-5), expected)
 }

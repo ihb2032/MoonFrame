@@ -27,6 +27,22 @@ pub fn DataFrame::filter(
   self : DataFrame,
   predicate : @expr.Expr,
 ) -> DataFrame raise @types.DataError {
+  // Every kept index came from `[0, nrows)`, so `gather` cannot fail.
+  self.gather(filter_row_indices(self, predicate))
+}
+
+///|
+/// The row indices `filter` would keep, ascending. Split out for the lazy file
+/// sources: a scan that absorbed a predicate builds only its key columns,
+/// asks for the surviving rows here, and then materialises the remaining
+/// columns for those rows alone — so the dropped rows are never parsed.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
+pub fn filter_row_indices(
+  df : DataFrame,
+  predicate : @expr.Expr,
+) -> Array[Int] raise @types.DataError {
+  let self = df
   let n = self.nrows()
   let scope = Array::makei(n, i => i)
   // Evaluation yields a frame-tall or length-1 column — stretch a
@@ -49,7 +65,5 @@ pub fn DataFrame::filter(
   // `.validity()` directly: a `Bool` column is always `Builtin` today, but the
   // helper also covers a synthesised all-valid mask should that ever change.
   let valid = validity_bools(mask.storage())
-  let kept = scope.filter(i => valid[i] && cells[i])
-  // Every kept index came from `[0, nrows)`, so `take` cannot fail.
-  self.gather(kept)
+  scope.filter(i => valid[i] && cells[i])
 }

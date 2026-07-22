@@ -157,8 +157,8 @@ fn push_projection(
             work.push(Rebuild1(c => RenameWith(c, f)))
             work.push(Visit(input, None))
           }
-          Unique(input) => {
-            work.push(Rebuild1(c => Unique(c)))
+          Unique(input, keep) => {
+            work.push(Rebuild1(c => Unique(c, keep)))
             work.push(Visit(input, None))
           }
           DropNulls(input, subset) => {

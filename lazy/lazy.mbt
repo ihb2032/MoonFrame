@@ -137,10 +137,15 @@ pub fn LazyFrame::rename_with(
 }
 
 ///|
-/// Defer `DataFrame::unique`: keep the first occurrence of each distinct row,
-/// in first-appearance order. Total like its eager counterpart.
-pub fn LazyFrame::unique(self : LazyFrame) -> LazyFrame {
-  { plan: Unique(self.plan) }
+/// Defer `DataFrame::unique`: drop duplicate rows, keeping survivors in their
+/// original order. `keep` mirrors the eager verb — `First` (the default) keeps
+/// each key's first occurrence, `Last` its last, and `None` keeps only rows
+/// that occur exactly once. Total like its eager counterpart.
+pub fn LazyFrame::unique(
+  self : LazyFrame,
+  keep? : @frame.KeepStrategy = First,
+) -> LazyFrame {
+  { plan: Unique(self.plan, keep) }
 }
 
 ///|

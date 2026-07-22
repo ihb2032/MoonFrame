@@ -332,6 +332,16 @@ test "the column / row verbs collect to their eager equivalents" {
     df.rename_with(name => "col_\{name}"),
   )
   assert_eq(lazy_frame(df).unique().collect(), df.unique())
+  // Every keep strategy matches its eager counterpart, so the lazy verb is a
+  // faithful deferral rather than a first-only shortcut.
+  for
+    keep in [
+      @frame.KeepStrategy::First,
+      @frame.KeepStrategy::Last,
+      @frame.KeepStrategy::None,
+    ] {
+    assert_eq(lazy_frame(df).unique(keep~).collect(), df.unique(keep~))
+  }
   assert_eq(lazy_frame(df).drop_nulls().collect(), df.drop_nulls())
   assert_eq(
     lazy_frame(df).drop_nulls(subset=[@expr.col("bonus")]).collect(),
@@ -373,6 +383,21 @@ test "the column / row verbs render in explain, with each fill-value form" {
     lazy_frame(df).unique().explain(),
     content=(
       #|UNIQUE
+      #|  SCAN [4×3]
+    ),
+  )
+  // A non-default keep strategy shows in the plan line; the default stays bare.
+  inspect(
+    lazy_frame(df).unique(keep=Last).explain(),
+    content=(
+      #|UNIQUE keep=Last
+      #|  SCAN [4×3]
+    ),
+  )
+  inspect(
+    lazy_frame(df).unique(keep=None).explain(),
+    content=(
+      #|UNIQUE keep=None
       #|  SCAN [4×3]
     ),
   )

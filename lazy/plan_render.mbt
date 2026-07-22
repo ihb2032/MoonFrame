@@ -83,12 +83,18 @@ fn write_plan_label(plan : LogicalPlan, buf : StringBuilder) -> Unit {
     RenameWith(_, _) => buf <+ "RENAME_WITH"
     // The keep strategy shows only when it is not the default, so the
     // common plan line stays `UNIQUE`.
-    Unique(_, keep) =>
-      match keep {
-        @frame.KeepStrategy::First => buf <+ "UNIQUE"
-        @frame.KeepStrategy::Last => buf <+ "UNIQUE keep=Last"
-        @frame.KeepStrategy::None => buf <+ "UNIQUE keep=None"
+    Unique(_, keep, subset) => {
+      buf <+ "UNIQUE"
+      if subset is Some(keys) {
+        buf <+ " ON "
+        buf.write_string(exprs_label(keys))
       }
+      match keep {
+        @frame.KeepStrategy::First => ()
+        @frame.KeepStrategy::Last => buf <+ " keep=Last"
+        @frame.KeepStrategy::None => buf <+ " keep=None"
+      }
+    }
     DropNulls(_, subset) => {
       buf <+ "DROP_NULLS"
       match subset {

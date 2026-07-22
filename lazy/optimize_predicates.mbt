@@ -45,7 +45,8 @@ fn push_predicates(plan : LogicalPlan) -> LogicalPlan {
       Drop(_, exprs) => values.push(Drop(pop_top(values), exprs))
       Rename(_, pairs) => values.push(Rename(pop_top(values), pairs))
       RenameWith(_, f) => values.push(RenameWith(pop_top(values), f))
-      Unique(_, keep) => values.push(Unique(pop_top(values), keep))
+      Unique(_, keep, subset) =>
+        values.push(Unique(pop_top(values), keep, subset))
       DropNulls(_, subset) => values.push(DropNulls(pop_top(values), subset))
       FillNull(_, value) => values.push(FillNull(pop_top(values), value))
       Reduce(_, op) => values.push(Reduce(pop_top(values), op))
@@ -110,7 +111,7 @@ fn place_filter(input : LogicalPlan, predicate : @expr.Expr) -> LogicalPlan {
       | Drop(_, _)
       | Rename(_, _)
       | RenameWith(_, _)
-      | Unique(_, _)
+      | Unique(_, _, _)
       | DropNulls(_, _)
       | FillNull(_, _)
       | Reduce(_, _) => descending = false

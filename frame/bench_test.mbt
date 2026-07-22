@@ -51,7 +51,7 @@ test "frame light operators @ 100k" (b : @bench.T) {
       },
     )
   })
-  b.bench(name="unique/\{n}", () => b.keep(df.unique()))
+  b.bench(name="unique/\{n}", () => b.keep(df.unique() catch { _ => df }))
   b.bench(name="join/inner/1000-keys/\{n}", () => {
     b.keep(df.join(dim, JoinOptions::on([@expr.col("key")])) catch { _ => df })
   })

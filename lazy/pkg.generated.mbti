@@ -43,7 +43,7 @@ pub fn LazyFrame::slice(Self, Int, Int) -> Self
 pub fn LazyFrame::sort(Self, Array[(@expr.Expr, @frame.SortOrder, @frame.NullOrder)]) -> Self
 pub fn LazyFrame::sum(Self) -> Self
 pub fn LazyFrame::tail(Self, Int) -> Self
-pub fn LazyFrame::unique(Self, keep? : @frame.KeepStrategy) -> Self
+pub fn LazyFrame::unique(Self, subset? : Array[@expr.Expr], keep? : @frame.KeepStrategy) -> Self
 pub fn LazyFrame::with_columns(Self, Array[@expr.Expr]) -> Self
 
 pub struct LazyGroupBy {

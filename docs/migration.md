@@ -60,6 +60,24 @@ the parameter form could not express.
 returns a copy — as does the constructor, so mutating either array cannot change
 what a reader (or a captured `scan_csv` plan) treats as null.
 
+### The engine seams and text helpers are no longer public
+
+`compare_string_lex`, `is_decimal_int_literal`, and `format_scalar_literal`
+were re-exported by the facade in v0.5; they are gone from it. They — plus
+`escape_debug` and the two literal parsers — now live in the private packages
+`internal/text` / `internal/literal`, which downstream code cannot import.
+Their behaviour is still part of the library's contract where it is observable:
+string ordering is by Unicode code point (`Series::sort` / `DataFrame::sort` /
+`Scalar::lt`), and literal parsing drives CSV / JSON type inference.
+
+Likewise `series`' kernel functions (`gather_series`, `reducer_for`,
+`key_cell`, …, plus `ReduceOp` / `KeyCell`), `types`' `fold_extremum` and
+exact-comparison primitives, and `io`'s `read_csv_projected` /
+`read_ndjson_projected` are marked `#internal`: still `pub` for the library's
+own use across packages, but absent from the generated interfaces and warned
+about from another module. Use the `Series` methods and `DataFrame` verbs
+built on them, and `scan_csv` / `scan_ndjson` for projection push-down.
+
 ### The storage-backend methods are engine seams
 
 `Series::storage` / `storage_kind` / `to_numeric` / `to_builtin` /

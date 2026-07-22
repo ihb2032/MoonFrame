@@ -93,27 +93,21 @@ in [`migration.md`](migration.md).
   `raise TypeMismatch` when either side is `Null`, or
   `TypeMismatch(Operation("compare", left, right))` when two non-null dtypes are
   incomparable. `as_float` promotes `Int`; mixed numeric comparisons are
-  **exact** (no `Int`→`Double` promotion). `String` comparisons use lexicographic
-  order (see `compare_string_lex`), **not** the built-in shortlex `<`.
-- `fn compare_string_lex(a, b) -> Int` — lexicographic string comparison
-  by Unicode code point (`-1` / `0` / `1`), so supplementary-plane
-  characters (emoji, …) sort by their true scalar value rather than by
-  raw UTF-16 surrogate code unit. Every user-facing ordering
-  (`Scalar::lt`, `Series::min` / `max`, `DataFrame::sort`)
-  routes through this so they all agree.
-- `fn is_decimal_int_literal(s) -> Bool` — `true` when `s` is an optional
-  `+` / `-` sign followed by ASCII digits and nothing else (rejects
-  `0x` / `0o` / `0b` prefixes and `1_000` underscore grouping). The
-  CSV / JSON readers' type inference and the String→`Int` cast both route
-  through this predicate so they agree on what counts as an
-  integer literal.
-- `fn format_scalar_literal(value) -> String` — display-syntax rendering
-  of a literal `Scalar`, the one spelling shared by `Expr`'s `explain`
-  renderer and `LazyFrame`'s plan printer so the two can never drift:
-  `Int` / `Bool` bare, a `String` quoted and escaped, `Null` as `null`,
-  and a `Float` kept distinct from an `Int` — a finite whole value keeps
-  a `.0` suffix, negative zero keeps its sign, `NaN` / `Infinity` /
-  `-Infinity` keep their own spelling.
+  **exact** (no `Int`→`Double` promotion). `String` comparisons are
+  lexicographic **by Unicode code point** — so supplementary-plane characters
+  (emoji, …) sort by their true scalar value rather than by raw UTF-16
+  surrogate code unit — **not** the built-in shortlex `<`. Every user-facing
+  ordering (`Scalar::lt`, `Series::min` / `max`, `DataFrame::sort`) routes
+  through the same comparison, so they all agree.
+
+  As of v0.6 the free functions that implemented these details —
+  `compare_string_lex`, `escape_debug`, `is_decimal_int_literal`, the two
+  literal parsers, and the shared literal renderer `format_scalar_literal` —
+  live in the private packages `internal/text` and `internal/literal`; the
+  exact-comparison primitives and `fold_extremum` remain in `types` as
+  `#internal` engine seams. None are part of the public surface, and the
+  behaviour they define is documented where it is observable (string ordering
+  here, type inference in [`type-inference.md`](type-inference.md)).
 - `struct Field` — column metadata: `name`, `dtype`, `nullable`. One total
   constructor, `Field(name, dtype, nullable? = true)`; accessors `name` /
   `dtype` / `nullable`; `rename(new_name)` returns a renamed copy. The
@@ -467,7 +461,7 @@ raising `DataError` at evaluation time — building the tree never fails:
 - **Kleene `&` / `|`**: `true | null = true`, `false & null = false`,
   otherwise null; `not(null) = null`. Non-`Bool` operands → `TypeMismatch`.
 - **Comparisons**: cross-numeric is legal, strings compare by
-  `compare_string_lex`, `Bool` as `false < true`; the result is a `Bool`
+  code-point order, `Bool` as `false < true`; the result is a `Bool`
   column. Mixed `Int`-vs-`Float` compares **exactly** — the `Int64` is not
   promoted to `Double`, so two distinct values never collide above 2^53 (e.g.
   `Int64::MAX` is not equal to the `2^63` `Double` a promotion would round it
@@ -512,17 +506,17 @@ raising `DataError` at evaluation time — building the tree never fails:
 (extracted in v0.5) so the expression layer can build on it. Beyond the type
 and its statistics, `series` owns the column-level kernels the frame transforms
 reuse: the shared reduction kernel (`reduce.mbt`), the row gather / slice /
-rebuild and backend-convergence helpers, and the composite-key cell encoding
-(`key_cell` / `KeyCell`). It depends only on `types` / `column`.
+rebuild and backend-convergence helpers, and the composite-key cell encoding.
+It depends only on `types` / `internal/column`.
 
-> **Plumbing note.** The kernel functions above (`gather_series` /
+> **Plumbing note.** Those kernels (`gather_series` / `gather_series_opt` /
 > `slice_series` / `rebuild_options` / `preserve_backend` /
 > `try_column_to_numeric` / `validity_bools` / `reducer_for` /
-> `scalars_to_series` / `key_cell`, plus `ReduceOp` / `KeyCell`) are `pub`
-> because `frame` consumes them across the package boundary — MoonBit has
-> no package-private visibility. They are engine seams rather than the
-> curated user surface, and none are re-exported by the facade; prefer the
-> `Series` methods and `DataFrame` verbs built on top of them.
+> `scalars_to_series` / `key_cell`, plus `ReduceOp` / `KeyCell`) stay `pub`
+> because `frame` consumes them across the package boundary — MoonBit has no
+> package-private visibility — but as of v0.6 they are marked `#internal` and
+> absent from the generated interface, so `series` publishes no free functions
+> at all. Use the `Series` methods and `DataFrame` verbs built on top of them.
 
 ### Series
 
@@ -994,14 +988,12 @@ are documented below.
 - `read_csv(path, options? : CsvReadOptions = CsvReadOptions()) -> DataFrame
   raise DataError` — the file wrapper; strict quote validation rides on
   `options.strict_quotes` (`IoError`).
-- `read_csv_projected(path, options, projection : Array[String]) -> DataFrame
-  raise DataError` —
-  `read_csv` that builds only the
-  named `projection` columns (in the file's header order; the rest are never
-  inferred or parsed). The engine seam behind `lazy`'s `scan_csv` projection
-  pushdown — **not** re-exported by the facade. Whole-input checks (strict quote
-  validation, a malformed header, or a ragged row) are unaffected, but a parse
-  error confined to a dropped column does not surface (see `lazy`).
+- `read_csv_projected(path, options, projection : Array[String])` — an
+  `#internal` engine seam (absent from the generated interface as of v0.6):
+  `read_csv` that builds only the named `projection` columns, behind `lazy`'s
+  `scan_csv` projection pushdown. Whole-input checks (strict quote validation,
+  a malformed header, or a ragged row) are unaffected, but a parse error
+  confined to a dropped column does not surface (see `lazy`).
 - `write_csv(path, df, options? : CsvWriteOptions = CsvWriteOptions()) -> Unit
   raise DataError` — the file wrapper; the spreadsheet-formula safety mode
   rides on `options.sanitize_formulas` (`IoError`; a string cell or column name holding an
@@ -1076,10 +1068,9 @@ conventions.
   DataFrame raise DataError`; `write_ndjson(path, df) -> Unit raise
   DataError` — file wrappers (`IoError`; an unpaired UTF-16 surrogate in
   the content is refused with `InvalidOperation` before encoding).
-- `read_ndjson_projected(path, options, projection : Array[String]) ->
-  DataFrame raise DataError` — the NDJSON twin of `read_csv_projected`:
-  builds only the named columns, the engine seam behind `lazy`'s
-  `scan_ndjson` projection pushdown (not re-exported by the facade; a parse
+- `read_ndjson_projected(path, options, projection : Array[String])` — the
+  NDJSON twin of `read_csv_projected`, likewise `#internal`: it builds only
+  the named columns behind `lazy`'s `scan_ndjson` projection pushdown (a parse
   error confined to a dropped column does not surface — see `lazy`).
 
 ### Chart export (Vega-Lite v5)
@@ -1275,8 +1266,7 @@ and the free functions are listed explicitly. The inert `BinOp` / `UnOp`
 API names them).
 
 - From `@types`: `DataError` · `CellParseLocation` · `ParseErrorDetail` ·
-  `DataType` · `Scalar` · `Field` · `Schema` ·
-  `compare_string_lex` · `is_decimal_int_literal` · `format_scalar_literal`
+  `DataType` · `Scalar` · `Field` · `Schema`
 - From `@expr`: `Expr` · `WhenThen` · `WhenThenElse` · `col` · `cols` ·
   `lit` · `lit_int` · `lit_float` · `lit_str` · `lit_bool` · `lit_series` ·
   `when` · `map_many`

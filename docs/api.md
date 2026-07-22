@@ -172,9 +172,9 @@ depends only on `types`.
   `BinOp` / `UnOp` / `AggOp` / `StrOp` are read-only implementation tags — no
   public API names one, so the facade does not re-export them.
 
-### Constructors (static methods + free-function aliases)
+### Constructors (free functions)
 
-- `col(name) -> Expr` / `Expr::col(name)` — a column reference.
+- `col(name) -> Expr` — a column reference.
 - `cols(names : Array[String]) -> Array[Expr]` — `[col(n) for n in names]`,
   the shorthand for projecting / dropping several columns by name through
   the expression verbs (`df.select(cols(["a", "b"]))`).
@@ -193,7 +193,7 @@ depends only on `types`.
   `df.select([col("id"), ..numeric_cols(df)])`,
   `df.drop(cols_matching(df, "_tmp$"))`. Eager (they read `df.schema()`), so the
   frame appears twice at the call site.
-- `lit(s : Scalar) -> Expr` / `Expr::lit(s)` — a literal from any scalar.
+- `lit(s : Scalar) -> Expr` — a literal from any scalar.
 - `lit_int(Int64)` / `lit_float(Double)` / `lit_str(String)` /
   `lit_bool(Bool) -> Expr` — typed literal shorthands (skip the
   `Scalar::Int(...)` noise).
@@ -1117,8 +1117,8 @@ It shares `format_json_records`' `scalar_to_json` cell mapping, so a
 
 ## `lazy` — Lazy query layer
 
-A deferred query plan over an in-memory frame. `lazy_frame(df)` (or
-`LazyFrame::from(df)`) starts a plan; builder methods mirroring the eager
+A deferred query plan over an in-memory frame. `lazy_frame(df)` starts a
+plan; builder methods mirroring the eager
 verbs grow it without computing anything; `collect()` optimizes and runs it.
 Building is **total** — every failure waits for `collect`. `lazy` depends on
 `frame` + `expr`; `frame` does **not** depend on `lazy`, so there is no
@@ -1132,12 +1132,11 @@ cycle.
 
 ### Entry points
 
-- `LazyFrame::from(df : DataFrame) -> LazyFrame` — the static constructor
-  (a `Scan` leaf over the captured frame); **not** a `DataFrame::lazy`
-  method (that would force a `frame ↔ lazy` import cycle).
-- `lazy_frame(df : DataFrame) -> LazyFrame` — a free-function alias for
-  `from`, for the `read_csv(path)` hand-feel. (`lazy(df)` would be the
-  obvious name, but `lazy` is a MoonBit reserved word.)
+- `lazy_frame(df : DataFrame) -> LazyFrame` — the entry point (a `Scan` leaf
+  over the captured frame), for the `read_csv(path)` hand-feel. A free
+  function rather than a `DataFrame::lazy` method (that would force a
+  `frame ↔ lazy` import cycle) and rather than `lazy(df)` (`lazy` is a
+  MoonBit reserved word).
 - `scan_csv(path : String, options? : CsvReadOptions = CsvReadOptions()) ->
   LazyFrame` — a **lazy CSV source**: the plan's leaf is a deferred read of
   `path` (a `ScanCsv` node), the streaming-friendly counterpart of eager
@@ -1197,7 +1196,7 @@ Each returns a new `LazyFrame` wrapping one more node:
   such DAG-shaped plans skip the rewrite passes and run as built.
 - `explain(self, optimized? : Bool = false) -> String` — render the plan
   as an indented tree: root verb first, inputs two spaces deeper,
-  expressions in their `Expr::explain` form, compact `SCAN [rows×cols]`
+  expressions in their `Expr::to_string` form, compact `SCAN [rows×cols]`
   leaves (never the data), `AGGREGATE [exprs] BY [keys]` for a group-by
   (both `exprs` and `keys` rendered as expression lists).
   The default renders the plan **as built** (the package's contract — a
@@ -1259,8 +1258,8 @@ single `import "ihb2032/MoonFrame" @moonframe` reaches the whole surface.
 Because the operator verbs and `to_markdown` are **methods on
 `DataFrame`**, re-exporting `type DataFrame` makes them automatically
 reachable; likewise the `Expr` operators / methods ride along with
-`type Expr`, and the `LazyFrame` / `LazyGroupBy` methods (including the
-`LazyFrame::from` constructor) with their types — so only the value types
+`type Expr`, and the `LazyFrame` / `LazyGroupBy` methods with their types —
+so only the value types
 and the free functions are listed explicitly. The inert `BinOp` / `UnOp`
 / `AggOp` / `StrOp` tag enums are deliberately **not** re-exported (no public
 API names them).

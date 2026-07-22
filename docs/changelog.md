@@ -36,6 +36,14 @@ collected in [`migration.md`](migration.md).
   - Streaming the file is still future work — the reader tokenises the whole
     file, and the saving is the typed build of the dropped rows.
 
+- `Expr::is_between` takes Polars' `closed?` (new `enum ClosedInterval`:
+  `Both` / `Left` / `Right` / `None`), and `Expr::round` takes `decimals?`.
+  Both default to today's behaviour — both-closed and whole numbers — so
+  existing calls are unaffected, and both render in `explain` as the argument
+  that builds them (`col(n).is_between(2, 3, closed=Left)`,
+  `col(f).round(decimals=2)`). A negative `decimals` clamps to `0`, and
+  rounding stays total at the numeric edges: non-finite values and any scaling
+  that would overflow pass through unchanged.
 - `DataFrame::reverse()` and
   `DataFrame::with_row_index(name? = "index", offset? = 0)` land on both
   surfaces (`LazyFrame` defers each through its own plan node, rendered as

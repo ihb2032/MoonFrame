@@ -69,7 +69,7 @@ pub fn build_sort_key(
 /// no per-comparison bitmap lookup).
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
-pub(all) enum SortKey {
+pub enum SortKey {
   Int(Array[Int64], Array[Bool], @types.SortOrder, @types.NullOrder)
   Float(Array[Double], Array[Bool], @types.SortOrder, @types.NullOrder)
   Bool(Array[Bool], Array[Bool], @types.SortOrder, @types.NullOrder)
@@ -149,9 +149,7 @@ pub fn compare_one_key(key : SortKey, i : Int, j : Int) -> Int {
 /// Combine missingness (post-NaN classification), null placement, and
 /// sort direction into a single -1 / 0 / 1 comparison result. `cmp_valid`
 /// is only invoked when both sides are non-missing.
-#doc(hidden)
-#internal(engine, "MoonFrame execution engine API")
-pub fn compare_with_missing(
+fn compare_with_missing(
   mi : Bool,
   mj : Bool,
   null_order : @types.NullOrder,
@@ -176,9 +174,7 @@ pub fn compare_with_missing(
 /// `-1` when missing sorts before non-missing (`@types.NullsFirst`), `1` when
 /// missing sorts after non-missing (`@types.NullsLast`). The sign is applied
 /// from the left-hand side's perspective in `compare_with_missing`.
-#doc(hidden)
-#internal(engine, "MoonFrame execution engine API")
-pub fn missing_offset(null_order : @types.NullOrder) -> Int {
+fn missing_offset(null_order : @types.NullOrder) -> Int {
   match null_order {
     @types.NullsFirst => -1
     @types.NullsLast => 1
@@ -192,9 +188,7 @@ pub fn missing_offset(null_order : @types.NullOrder) -> Int {
 /// when `width < n - width`, which proves `2 * width < n <= Int::MAX`.
 /// Keeping this arithmetic separate lets tests exercise the `2^30` boundary
 /// without allocating multi-gigabyte sort buffers.
-#doc(hidden)
-#internal(engine, "MoonFrame execution engine API")
-pub fn next_merge_width(width : Int, n : Int) -> Int? {
+fn next_merge_width(width : Int, n : Int) -> Int? {
   if width <= 0 || n <= 1 || width >= n {
     return None
   }
@@ -259,9 +253,7 @@ pub fn stable_mergesort_indices(n : Int, cmp : (Int, Int) -> Int) -> Array[Int] 
 /// Merge `src[left..mid)` and `src[mid..right_end)` into
 /// `dst[left..right_end)`. Stable: on `cmp(left, right) <= 0`, the
 /// left element wins the slot.
-#doc(hidden)
-#internal(engine, "MoonFrame execution engine API")
-pub fn merge_run(
+fn merge_run(
   src : Array[Int],
   dst : Array[Int],
   left : Int,

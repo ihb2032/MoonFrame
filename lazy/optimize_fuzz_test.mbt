@@ -34,7 +34,7 @@
 fn fuzz_scale() -> Int {
   match @sys.get_env_var("MOONFRAME_FUZZ_SCALE") {
     Some(raw) =>
-      match @types.parse_decimal_int_opt(raw) {
+      match @text.parse_decimal_int_opt(raw) {
         Some(value) if value > 0L && value <= 20L => value.to_int()
         _ => 1
       }

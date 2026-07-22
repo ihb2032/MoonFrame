@@ -55,9 +55,6 @@ pub using @types {
   type Scalar,
   type Field,
   type Schema,
-  compare_string_lex,
-  is_decimal_int_literal,
-  format_scalar_literal,
 }
 
 ///|

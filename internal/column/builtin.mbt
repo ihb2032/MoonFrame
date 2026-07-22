@@ -412,7 +412,7 @@ fn BuiltinColumn::to_int(
           // (the CSV reader's inference routes through the same routine, so an
           // explicit cast and inference agree on what text is an integer); a
           // rejected form or an out-of-`Int64`-range value is a `ParseError`.
-          match @types.parse_decimal_int_opt(s) {
+          match @text.parse_decimal_int_opt(s) {
             Some(n) => n
             None =>
               raise @types.DataError::ParseError(
@@ -460,7 +460,7 @@ fn BuiltinColumn::to_float(
           // finite literal beyond the `Double` range, which collapses to a
           // signed Infinity (IEEE 754) — stay accepted; a genuine non-number on
           // a valid slot is a `ParseError`.
-          match @types.parse_plain_double_opt(s) {
+          match @text.parse_plain_double_opt(s) {
             Some(x) => x
             None =>
               raise @types.DataError::ParseError(

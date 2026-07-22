@@ -1,0 +1,18 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ihb2032/MoonFrame/internal/literal"
+
+import {
+  "ihb2032/MoonFrame/types",
+}
+
+// Values
+pub fn format_scalar(@types.Scalar) -> String
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

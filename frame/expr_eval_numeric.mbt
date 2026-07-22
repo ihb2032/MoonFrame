@@ -407,7 +407,7 @@ fn sign_f64(a : Double) -> Double {
 /// exactly-half case — the floor when it is already even, else the ceil.
 fn round_half_even(a : Double) -> Double {
   // Non-finite passes through: `a - a` is `0.0` only for a finite `a` (both
-  // `NaN` and `±inf` yield `NaN`) — the finiteness probe `format_scalar_literal`
+  // `NaN` and `±inf` yield `NaN`) — the finiteness probe `@literal.format_scalar`
   // also uses.
   if a - a != 0.0 {
     return a

@@ -135,6 +135,8 @@ pub fn read_ndjson(
 /// `frame_from_json_records` for the precise contract, including the one
 /// behavioural consequence: a parse error confined to a dropped column does not
 /// surface). Filesystem errors surface as `raise IoError(message)`.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
 pub fn read_ndjson_projected(
   path : String,
   options : JsonReadOptions,

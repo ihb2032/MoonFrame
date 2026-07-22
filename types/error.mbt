@@ -137,24 +137,24 @@ pub fn DataError::message(self : DataError) -> String {
 pub impl Show for DataError with fn output(self, logger) {
   match self {
     ColumnNotFound(name) =>
-      logger.write_string("ColumnNotFound(\"\{escape_debug(name)}\")")
+      logger.write_string("ColumnNotFound(\"\{@text.escape_debug(name)}\")")
     DuplicateColumn(name) =>
-      logger.write_string("DuplicateColumn(\"\{escape_debug(name)}\")")
+      logger.write_string("DuplicateColumn(\"\{@text.escape_debug(name)}\")")
     TypeMismatch(detail) =>
       match detail {
         Message(message) =>
           logger.write_string(
-            "TypeMismatch(Message(\"\{escape_debug(message)}\"))",
+            "TypeMismatch(Message(\"\{@text.escape_debug(message)}\"))",
           )
         Expected(expected, got, column) =>
           logger.write_string(
-            "TypeMismatch(Expected(\{expected}, \{got}, \"\{escape_debug(column)}\"))",
+            "TypeMismatch(Expected(\{expected}, \{got}, \"\{@text.escape_debug(column)}\"))",
           )
         Column(expected, got) =>
           logger.write_string("TypeMismatch(Column(\{expected}, \{got}))")
         Operation(operation, left, right) =>
           logger.write_string(
-            "TypeMismatch(Operation(\"\{escape_debug(operation)}\", \{left}, \{right}))",
+            "TypeMismatch(Operation(\"\{@text.escape_debug(operation)}\", \{left}, \{right}))",
           )
       }
     LengthMismatch => logger.write_string("LengthMismatch")
@@ -163,7 +163,7 @@ pub impl Show for DataError with fn output(self, logger) {
       match detail {
         Message(message) =>
           logger.write_string(
-            "ParseError(Message(\"\{escape_debug(message)}\"))",
+            "ParseError(Message(\"\{@text.escape_debug(message)}\"))",
           )
         Cell(location, column, position, expected, value) => {
           let location_name = match location {
@@ -172,17 +172,17 @@ pub impl Show for DataError with fn output(self, logger) {
             Line => "Line"
           }
           logger.write_string(
-            "ParseError(Cell(\{location_name}, \"\{escape_debug(column)}\", \{position}, \{expected}, \"\{escape_debug(value)}\"))",
+            "ParseError(Cell(\{location_name}, \"\{@text.escape_debug(column)}\", \{position}, \{expected}, \"\{@text.escape_debug(value)}\"))",
           )
         }
       }
     InvalidOperation(detail) =>
-      logger.write_string("InvalidOperation(\"\{escape_debug(detail)}\")")
+      logger.write_string("InvalidOperation(\"\{@text.escape_debug(detail)}\")")
     IoError(detail) =>
-      logger.write_string("IoError(\"\{escape_debug(detail)}\")")
+      logger.write_string("IoError(\"\{@text.escape_debug(detail)}\")")
     Unsupported(detail) =>
-      logger.write_string("Unsupported(\"\{escape_debug(detail)}\")")
+      logger.write_string("Unsupported(\"\{@text.escape_debug(detail)}\")")
     NullInNonNullable(name) =>
-      logger.write_string("NullInNonNullable(\"\{escape_debug(name)}\")")
+      logger.write_string("NullInNonNullable(\"\{@text.escape_debug(name)}\")")
   }
 }

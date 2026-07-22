@@ -170,7 +170,7 @@ pub fn Scalar::lt(self : Scalar, other : Scalar) -> Bool raise DataError {
     (Int(a), Float(b)) => int64_lt_double(a, b)
     (Float(a), Int(b)) => double_lt_int64(a, b)
     (Bool(a), Bool(b)) => (a |> bool_to_int) < (b |> bool_to_int)
-    (String(a), String(b)) => compare_string_lex(a, b) < 0
+    (String(a), String(b)) => @text.compare_string_lex(a, b) < 0
     _ => type_mismatch_for_compare(self, other)
   }
 }
@@ -244,44 +244,7 @@ pub impl Show for Scalar with fn output(self, logger) {
     Int(v) => logger.write_string("Int(\{v})")
     Float(v) => logger.write_string("Float(\{v})")
     Bool(v) => logger.write_string("Bool(\{v})")
-    String(v) => logger.write_string("String(\"\{escape_debug(v)}\")")
+    String(v) => logger.write_string("String(\"\{@text.escape_debug(v)}\")")
     Null => logger.write_string("Null")
-  }
-}
-
-///|
-/// Display-syntax rendering of a literal `Scalar` — the one spelling shared
-/// by the `expr` explain renderer and the `lazy` plan printer, so the two
-/// can never drift apart (each used to carry a hand-synced private copy).
-/// `Int` / `Bool` render bare, a `String` is quoted and
-/// `escape_debug`-escaped so it stays distinguishable and on one line, and
-/// the (unevaluatable) null literal renders as `null`. A `Float` stays
-/// distinct from an `Int`: `Double::to_string` prints a finite whole value
-/// without a decimal point (`1.0` -> `"1"`), so a `.0` suffix is re-added,
-/// and it drops the sign of negative zero (`-0.0` -> `"0"`) even though the
-/// two zeros evaluate observably differently under division
-/// (`1.0 / -0.0 = -inf`), so the sign is re-added from the sign bit;
-/// `NaN` / `Infinity` / `-Infinity` are non-finite and keep their own
-/// spelling. Display syntax, not the debug form `Scalar`'s own `Show`
-/// produces.
-pub fn format_scalar_literal(value : Scalar) -> String {
-  match value {
-    Int(v) => v.to_string()
-    Float(v) =>
-      if v == 0.0 && v.reinterpret_as_int64() != 0L {
-        "-0.0"
-      } else {
-        let s = v.to_string()
-        let finite = v - v == 0.0
-        let has_point = s.iter().any(c => c == '.' || c == 'e' || c == 'E')
-        if finite && !has_point {
-          s + ".0"
-        } else {
-          s
-        }
-      }
-    Bool(v) => v.to_string()
-    String(v) => "\"\{escape_debug(v)}\""
-    Null => "null"
   }
 }

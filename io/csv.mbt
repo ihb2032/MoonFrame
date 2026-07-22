@@ -363,6 +363,8 @@ pub fn read_csv(
 /// dropped column does not surface). `IOError` from the file system surfaces
 /// as `raise IoError(message)`. `CsvReadOptions(strict_quotes=true)` validates the whole input
 /// before applying the projection.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
 pub fn read_csv_projected(
   path : String,
   options : CsvReadOptions,
@@ -528,7 +530,7 @@ fn infer_column_dtype(
 /// inference predictable. The same predicate gates the `@column`
 /// String→`Int` cast, so inference and an explicit cast agree.
 fn parse_int_opt(s : String) -> Int64? {
-  @types.parse_decimal_int_opt(s)
+  @text.parse_decimal_int_opt(s)
 }
 
 ///|
@@ -549,7 +551,7 @@ fn parse_int_opt(s : String) -> Int64? {
 /// the inference probe and the typed-column build, so the two agree on
 /// whether a non-finite literal counts as a `Float`.
 fn parse_float_opt(s : String, allow_nonfinite : Bool) -> Double? {
-  match @types.parse_plain_double_opt(s) {
+  match @text.parse_plain_double_opt(s) {
     Some(x) =>
       if !allow_nonfinite && (x.is_nan() || x.is_inf()) {
         None

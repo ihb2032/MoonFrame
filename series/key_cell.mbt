@@ -29,6 +29,8 @@
 /// key never needs `Scalar`'s numeric-promotion comparisons. `KNull` lets
 /// `group_by` give a null cell its own group; `join` rejects a null key
 /// before building the tuple (see `join_row_key`).
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
 enum KeyCell {
   KNull
   KInt(Int64)
@@ -39,9 +41,13 @@ enum KeyCell {
 } derive(Eq, Hash)
 
 ///|
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
 pub extend KeyCell with Eq::{equal, not_equal}
 
 ///|
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
 pub extend KeyCell with Hash::{hash, hash_combine}
 
 ///|
@@ -66,6 +72,8 @@ fn float_key_cell(v : Double) -> KeyCell {
 /// `float_key_cell` (folding `NaN` / `-0.0` so the key hashes / compares
 /// exactly as the previous `Scalar::to_string` key did); the five `Scalar`
 /// variants are exhaustive.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
 pub fn key_cell(sc : @types.Scalar) -> KeyCell {
   match sc {
     @types.Scalar::Int(v) => KInt(v)

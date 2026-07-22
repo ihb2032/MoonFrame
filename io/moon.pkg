@@ -1,5 +1,6 @@
 import {
   "ihb2032/MoonFrame/frame",
+  "ihb2032/MoonFrame/internal/text",
   "ihb2032/MoonFrame/series",
   "ihb2032/MoonFrame/types",
   "moonbit-community/NyaCSV" @nyacsv,

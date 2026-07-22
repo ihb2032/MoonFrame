@@ -1,10 +1,8 @@
 import {
   "ihb2032/MoonFrame/internal/text",
-  "moonbitlang/core/double",
-  "moonbitlang/core/string",
+  "ihb2032/MoonFrame/types",
 }
 
 import {
   "moonbitlang/core/test",
-  "moonbitlang/core/double",
 } for "test"

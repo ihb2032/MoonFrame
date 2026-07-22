@@ -299,6 +299,8 @@ pub fn Series::gather(
 /// array copy per converged column (the column package's own
 /// `ColumnStorage::to_numeric` keeps its zero-copy move via direct struct
 /// construction).
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
 pub fn try_column_to_numeric(s : Series) -> Series {
   match s.storage.kind() {
     @column.StorageKind::Numeric => s
@@ -341,6 +343,8 @@ pub fn try_column_to_numeric(s : Series) -> Series {
 /// caller wrapping a `rebuild_options` result here — the join assembly — gets a
 /// no-op passthrough; the slices (`slice_series`) preserve the backend by
 /// sharing the validity bitmap (the row data is copied), never reaching here.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
 pub fn preserve_backend(source : Series, rebuilt : Series) -> Series {
   match source.storage.kind() {
     @column.StorageKind::Numeric => try_column_to_numeric(rebuilt)
@@ -360,6 +364,8 @@ pub fn preserve_backend(source : Series, rebuilt : Series) -> Series {
 /// whose operands are frequently `Numeric`) read the mask by plain index, so
 /// they share this instead of each repacking a throwaway bitmap for a
 /// `Numeric` column.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
 pub fn validity_bools(storage : @column.ColumnStorage) -> Array[Bool] {
   match storage.kind() {
     @column.StorageKind::Numeric => Array::make(storage.len(), true)
@@ -375,6 +381,8 @@ pub fn validity_bools(storage : @column.ColumnStorage) -> Array[Bool] {
 /// `DataFrame::slice` (no rebuild, no `Result`). The caller guarantees
 /// `0 <= start` and `start + len <= self.len()`; `slice_total` clamps anyway,
 /// so a stray bound can never abort.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
 pub fn slice_series(s : Series, start : Int, len : Int) -> Series {
   { name: s.name, storage: s.storage.slice_total(start, start + len) }
 }
@@ -401,6 +409,8 @@ pub fn slice_series(s : Series, start : Int, len : Int) -> Series {
 /// sinking a `Filter` below a stage (recomputing a derived column over the
 /// surviving rows) cannot flip its backend from `Builtin` to `Numeric` and
 /// make `collect` diverge from the eager chain that `Series` equality observes.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
 pub fn rebuild_options(
   source : Series,
   name : String,
@@ -435,6 +445,8 @@ pub fn rebuild_options(
 /// the backend is a function of the gathered content, not the source — the
 /// invariant predicate pushdown relies on. Backs `drop_nulls`, `take`, and
 /// the row-gather DataFrame transforms.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
 pub fn gather_series(s : Series, idx : Array[Int]) -> Series {
   // A `Numeric` source is all-valid, so when every index is in-bounds its
   // gather is itself all-valid: rebuild directly onto the `Numeric` backend,
@@ -531,6 +543,8 @@ fn collect_matched(idx : Array[Int?], len : Int) -> Array[Int]? {
 /// `Numeric` backend; everything else materialises through the option
 /// constructors (the shared `rebuild_by_row` skeleton → a `Builtin` column,
 /// which `join` re-converges via `preserve_backend`).
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
 pub fn gather_series_opt(
   s : Series,
   idx : Array[Int?],

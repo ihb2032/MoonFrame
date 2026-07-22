@@ -78,6 +78,19 @@ collected in [`migration.md`](migration.md).
   module warns. Handing out a `ColumnStorage` / `StorageKind` was the last
   public leak of the `internal/column` types — `frame`'s interface no longer
   imports that package at all.
+- The engine seams leave the public interface. `series` publishes **no** free
+  functions at all now: `gather_series` / `gather_series_opt` / `slice_series`
+  / `rebuild_options` / `preserve_backend` / `try_column_to_numeric` /
+  `validity_bools` / `reducer_for` / `scalars_to_series` / `key_cell` and the
+  `ReduceOp` / `KeyCell` types are `#internal`, as are `types`'
+  `fold_extremum` and the exact Int/Double comparison primitives and `io`'s
+  `read_csv_projected` / `read_ndjson_projected`.
+- The text and rendering helpers move behind a hard boundary: `internal/text`
+  now owns `compare_string_lex`, `escape_debug`, `is_decimal_int_literal`,
+  `parse_decimal_int_opt`, and `parse_plain_double_opt`, and the new
+  `internal/literal` owns the shared literal renderer (`format_scalar_literal`,
+  now `format_scalar`). The facade stops re-exporting the three of them it
+  used to publish; `types` and `series` are now types-and-methods only.
 - `CsvReadOptions.null_values` is a private field with a copying
   `null_values()` accessor. Both it and the constructor copy, so the token list
   a reader (or a captured `scan_csv` plan) uses can no longer be mutated

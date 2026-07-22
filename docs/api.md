@@ -114,15 +114,20 @@ in [`migration.md`](migration.md).
   and a `Float` kept distinct from an `Int` — a finite whole value keeps
   a `.0` suffix, negative zero keeps its sign, `NaN` / `Infinity` /
   `-Infinity` keep their own spelling.
-- `struct Field` — column metadata: `name`, `dtype`, `nullable`. Total
-  constructors `Field::new(name, dtype)` (defaults `nullable = true`)
-  and `Field::with_nullable(name, dtype, nullable)`; accessors `name` /
-  `dtype` / `nullable`; `rename(new_name)` returns a renamed copy.
-  `nullable = false` is a constraint enforced by `DataFrame::from_rows`
-  (a null in such a column raises `NullInNonNullable`); it is otherwise
-  advisory — not inferred from a column's contents, and not propagated
-  across operations (`Field::new` / `DataFrame::new` / the IO readers
-  always set it `true`).
+- `struct Field` — column metadata: `name`, `dtype`, `nullable`. One total
+  constructor, `Field(name, dtype, nullable? = true)`; accessors `name` /
+  `dtype` / `nullable`; `rename(new_name)` returns a renamed copy. The
+  fields are readable but not constructible from outside `types`, so a
+  future field can be added without breaking callers. The bare
+  `Field(...)` spelling resolves wherever the expected type is concrete —
+  inside `Schema::new([...])`, an annotated binding, a typed array
+  literal; in a generic position such as `assert_eq` write the full
+  `Field::Field(...)`. `nullable = false` is a constraint enforced by
+  `DataFrame::from_rows` (a null in such a column raises
+  `NullInNonNullable`); it is otherwise advisory — not inferred from a
+  column's contents, and not propagated across operations (the
+  constructor default / `DataFrame::new` / the IO readers always set it
+  `true`).
 - `struct Schema` — ordered list of `Field`s with duplicate-name
   detection.
   - `Schema::new(fields) -> Schema raise DataError` —

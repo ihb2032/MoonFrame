@@ -5,6 +5,30 @@ changes ride the minor version. For the feature history behind each release see
 [`changelog.md`](changelog.md); for the current public surface see
 [`api.md`](api.md).
 
+## v0.5.8 → v0.6.0
+
+v0.6 is a pre-1.0 breaking release — the API-convergence one. Where two
+spellings existed for building or configuring the same value, v0.6 keeps a
+single entry point; there are no deprecated aliases. From v0.7 on the stable
+public surface evolves compatibly.
+
+### `Field` has one constructor
+
+| v0.5 | v0.6 |
+| --- | --- |
+| `Field::new("age", Int)` | `Field("age", Int)` |
+| `Field::with_nullable("id", Int, false)` | `Field("id", Int, nullable=false)` |
+
+The bare `Field(...)` spelling needs a concrete expected type. It resolves
+inside `Schema::new([...])`, in an annotated binding
+(`let f : Field = Field("age", Int)`), and in a typed array literal; in a
+generic position such as `assert_eq(Field(...), ...)` write the full
+`Field::Field(...)`.
+
+`struct Field` is also `pub` rather than `pub(all)`: fields stay readable, but
+a record literal (`{ name: "age", dtype: Int, nullable: true }`) outside `types`
+no longer compiles — build through `Field(...)` instead.
+
 ## v0.5.7 → v0.5.8
 
 No source-level migration steps. v0.5.8 is a fix patch: every v0.5.7 symbol and
@@ -91,8 +115,9 @@ Additive plus two behaviour fixes; no renames.
 
 ## v0.4 → v0.5
 
-v0.5 is a pre-1.0 breaking release — and the **last** one: from v0.6 on the
-public surface only grows (the sole exception being new enum variants). It
+v0.5 is a pre-1.0 breaking release. (It was announced as the last one; v0.6 is
+one more — the API-convergence release above — after which the public surface
+evolves compatibly.) It
 converges the eager and lazy APIs onto a single, Polars-shaped expression
 engine. The duplicate `*_exprs` verbs, the closure `filter`, the `AggSpec`
 reduction specs, the rich `RowView`, the per-type `*_join` methods, the

@@ -24,7 +24,7 @@
 ///
 /// `ScanCsv` and `ScanNdjson` are the leaves that *read* at collect time
 /// rather than capturing an already-built frame: each holds a path, the
-/// format's read options (`CsvReadOptions` / `NdjsonReadOptions`) to parse
+/// format's read options (`CsvReadOptions` / `JsonReadOptions`) to parse
 /// under, and an optional projection. The projection starts empty (`None` —
 /// read every column, the faithful mirror of eager `read_csv` /
 /// `read_ndjson`) and is filled by the optimizer's projection pass with the
@@ -39,7 +39,7 @@
 priv enum LogicalPlan {
   Scan(@frame.DataFrame)
   ScanCsv(String, @io.CsvReadOptions, Array[String]?)
-  ScanNdjson(String, @io.NdjsonReadOptions, Array[String]?)
+  ScanNdjson(String, @io.JsonReadOptions, Array[String]?)
   Select(LogicalPlan, Array[@expr.Expr])
   WithColumns(LogicalPlan, Array[@expr.Expr])
   Filter(LogicalPlan, @expr.Expr)

@@ -41,7 +41,7 @@ priv enum InferredDtype {
 ///   tolerates the same). The column keeps its inferred dtype; only the
 ///   unparseable cells become null.
 ///
-/// Shared by `CsvReadOptions` / `JsonReadOptions` / `NdjsonReadOptions` and
+/// Shared by `CsvReadOptions` and `JsonReadOptions` and
 /// consumed in `build_typed_column`'s parse-failure branch, so the three
 /// readers agree on the policy.
 pub(all) enum OnParseError {

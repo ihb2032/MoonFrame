@@ -27,30 +27,22 @@ fn ndjson_doc(n : Int) -> String {
 
 ///|
 test "parse_csv_str scaling" (b : @bench.T) {
-  let fallback = parse_csv_str("id\n0\n", CsvReadOptions::default())
+  let fallback = parse_csv_str("id\n0\n", CsvReadOptions())
   for n in [1000, 10000, 100000] {
     let doc = csv_doc(n)
     b.bench(name="parse_csv_str/\{n}", () => {
-      b.keep(
-        parse_csv_str(doc, CsvReadOptions::default()) catch {
-          _ => fallback
-        },
-      )
+      b.keep(parse_csv_str(doc, CsvReadOptions()) catch { _ => fallback })
     })
   }
 }
 
 ///|
 test "parse_ndjson_str scaling" (b : @bench.T) {
-  let fallback = parse_ndjson_str("{\"id\":0}\n", NdjsonReadOptions::default())
+  let fallback = parse_ndjson_str("{\"id\":0}\n", JsonReadOptions())
   for n in [1000, 10000, 100000] {
     let doc = ndjson_doc(n)
     b.bench(name="parse_ndjson_str/\{n}", () => {
-      b.keep(
-        parse_ndjson_str(doc, NdjsonReadOptions::default()) catch {
-          _ => fallback
-        },
-      )
+      b.keep(parse_ndjson_str(doc, JsonReadOptions()) catch { _ => fallback })
     })
   }
 }

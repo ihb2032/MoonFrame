@@ -74,7 +74,7 @@ test "format_ndjson: non-finite floats emit JSON null" {
   assert_eq(text, "{\"x\":1.5}\n{\"x\":null}\n{\"x\":null}\n{\"x\":null}\n")
   // The emitted text round-trips: the three non-finite cells read back
   // as nulls in a Float column.
-  let back = @io.parse_ndjson_str(text, @io.NdjsonReadOptions::default())
+  let back = @io.parse_ndjson_str(text, @io.JsonReadOptions())
   assert_eq(back.nrows(), 4)
   assert_eq(back.get_column("x").dtype(), @types.DataType::Float)
   assert_eq(back.null_count().item(0, "x"), @types.Scalar::Int(3))
@@ -89,7 +89,7 @@ test "round-trip: a large Int64 survives NDJSON write→read" {
   ])
   let text = @io.format_ndjson(df)
   assert_eq(text, "{\"n\":9007199254740993}\n{\"n\":9223372036854775807}\n")
-  let parsed = @io.parse_ndjson_str(text, @io.NdjsonReadOptions::default())
+  let parsed = @io.parse_ndjson_str(text, @io.JsonReadOptions())
   assert_eq(parsed.get_column("n").dtype(), @types.DataType::Int)
   for i in 0..<df.nrows() {
     assert_eq(parsed.item(i, "n"), df.item(i, "n"))
@@ -102,7 +102,7 @@ test "round-trip: a large Int64 survives NDJSON write→read" {
 test "parse_ndjson_str: infers Int / Float / Bool / String" {
   let content =
     #|{"i":1,"f":1.5,"b":true,"s":"hello"}
-  let df = @io.parse_ndjson_str(content, @io.NdjsonReadOptions::default())
+  let df = @io.parse_ndjson_str(content, @io.JsonReadOptions())
   assert_eq(df.shape(), (1, 4))
   assert_eq(df.columns(), ["i", "f", "b", "s"])
   assert_eq(df.get_column("i").dtype(), @types.DataType::Int)
@@ -121,7 +121,7 @@ test "parse_ndjson_str: null cells map to None across every dtype" {
     #|{"i":1,"f":1.5,"b":true,"s":"a"}
     #|{"i":null,"f":null,"b":null,"s":null}
     #|{"i":3,"f":3.5,"b":false,"s":"c"}
-  let df = @io.parse_ndjson_str(content, @io.NdjsonReadOptions::default())
+  let df = @io.parse_ndjson_str(content, @io.JsonReadOptions())
   assert_eq(df.shape(), (3, 4))
   for name in ["i", "f", "b", "s"] {
     assert_eq(df.item(1, name), @types.Scalar::Null)
@@ -135,7 +135,7 @@ test "parse_ndjson_str: integer-valued floats stay Int" {
     #|{"n":1}
     #|{"n":2}
     #|{"n":3}
-  let df = @io.parse_ndjson_str(content, @io.NdjsonReadOptions::default())
+  let df = @io.parse_ndjson_str(content, @io.JsonReadOptions())
   assert_eq(df.get_column("n").dtype(), @types.DataType::Int)
 }
 
@@ -145,7 +145,7 @@ test "parse_ndjson_str: mixed Int + Float promotes to Float" {
     #|{"n":1}
     #|{"n":2.5}
     #|{"n":3}
-  let df = @io.parse_ndjson_str(content, @io.NdjsonReadOptions::default())
+  let df = @io.parse_ndjson_str(content, @io.JsonReadOptions())
   assert_eq(df.get_column("n").dtype(), @types.DataType::Float)
   assert_eq(df.item(0, "n"), @types.Scalar::Float(1.0))
   assert_eq(df.item(1, "n"), @types.Scalar::Float(2.5))
@@ -155,13 +155,10 @@ test "parse_ndjson_str: mixed Int + Float promotes to Float" {
 test "parse_ndjson_str: large ints stay Int up to the Int64 range" {
   let in_range = @io.parse_ndjson_str(
     "{\"big\":3000000000}",
-    @io.NdjsonReadOptions::default(),
+    @io.JsonReadOptions(),
   )
   assert_eq(in_range.get_column("big").dtype(), @types.DataType::Int)
-  let beyond = @io.parse_ndjson_str(
-    "{\"big\":1e30}",
-    @io.NdjsonReadOptions::default(),
-  )
+  let beyond = @io.parse_ndjson_str("{\"big\":1e30}", @io.JsonReadOptions())
   assert_eq(beyond.get_column("big").dtype(), @types.DataType::Float)
 }
 
@@ -170,7 +167,7 @@ test "parse_ndjson_str: missing fields become nulls" {
   let content =
     #|{"a":1,"b":2}
     #|{"a":3}
-  let df = @io.parse_ndjson_str(content, @io.NdjsonReadOptions::default())
+  let df = @io.parse_ndjson_str(content, @io.JsonReadOptions())
   assert_eq(df.shape(), (2, 2))
   assert_eq(df.columns(), ["a", "b"])
   assert_eq(df.item(1, "b"), @types.Scalar::Null)
@@ -183,7 +180,7 @@ test "parse_ndjson_str: sparse records contribute their own columns" {
   let content =
     #|{"a":1}
     #|{"b":2}
-  let df = @io.parse_ndjson_str(content, @io.NdjsonReadOptions::default())
+  let df = @io.parse_ndjson_str(content, @io.JsonReadOptions())
   assert_eq(df.shape(), (2, 2))
   assert_eq(df.columns(), ["a", "b"])
   assert_eq(df.item(0, "b"), @types.Scalar::Null)
@@ -196,7 +193,7 @@ test "parse_ndjson_str: mixed-dtype column falls back to String" {
     #|{"x":1}
     #|{"x":"two"}
     #|{"x":3}
-  let df = @io.parse_ndjson_str(content, @io.NdjsonReadOptions::default())
+  let df = @io.parse_ndjson_str(content, @io.JsonReadOptions())
   assert_eq(df.get_column("x").dtype(), @types.DataType::String)
   assert_eq(df.item(0, "x"), @types.Scalar::String("1"))
   assert_eq(df.item(1, "x"), @types.Scalar::String("two"))
@@ -208,7 +205,7 @@ test "parse_ndjson_str: all-null column defaults to String dtype" {
   let content =
     #|{"x":null}
     #|{"x":null}
-  let df = @io.parse_ndjson_str(content, @io.NdjsonReadOptions::default())
+  let df = @io.parse_ndjson_str(content, @io.JsonReadOptions())
   assert_eq(df.get_column("x").dtype(), @types.DataType::String)
   assert_eq(df.get_column("x").null_count(), 2)
 }
@@ -218,7 +215,7 @@ test "parse_ndjson_str: nested array / object cells fall back to String" {
   let content =
     #|{"x":[1,2,3]}
     #|{"x":{"k":1}}
-  let df = @io.parse_ndjson_str(content, @io.NdjsonReadOptions::default())
+  let df = @io.parse_ndjson_str(content, @io.JsonReadOptions())
   assert_eq(df.get_column("x").dtype(), @types.DataType::String)
   assert_eq(df.item(0, "x"), @types.Scalar::String("[1,2,3]"))
   assert_eq(df.item(1, "x"), @types.Scalar::String("{\"k\":1}"))
@@ -228,14 +225,14 @@ test "parse_ndjson_str: nested array / object cells fall back to String" {
 
 ///|
 test "parse_ndjson_str: empty input yields a 0x0 frame" {
-  let df = @io.parse_ndjson_str("", @io.NdjsonReadOptions::default())
+  let df = @io.parse_ndjson_str("", @io.JsonReadOptions())
   assert_eq(df.shape(), (0, 0))
 }
 
 ///|
 test "parse_ndjson_str: whitespace-only input yields a 0x0 frame" {
   // Spaces / tabs / blank lines carry no records.
-  let df = @io.parse_ndjson_str("  \n\t\n", @io.NdjsonReadOptions::default())
+  let df = @io.parse_ndjson_str("  \n\t\n", @io.JsonReadOptions())
   assert_eq(df.shape(), (0, 0))
 }
 
@@ -246,7 +243,7 @@ test "parse_ndjson_str: strips a leading UTF-8 BOM on the first line" {
   // Excel-saved files. The whole file must read cleanly, like the CSV reader.
   let df = @io.parse_ndjson_str(
     "\u{FEFF}{\"a\":1}\n{\"a\":2}\n",
-    @io.NdjsonReadOptions::default(),
+    @io.JsonReadOptions(),
   )
   assert_eq(df.shape(), (2, 1))
   assert_eq(df.item(0, "a"), @types.Scalar::Int(1))
@@ -255,7 +252,7 @@ test "parse_ndjson_str: strips a leading UTF-8 BOM on the first line" {
 
 ///|
 test "parse_ndjson_str: a BOM-only payload still reads as empty" {
-  let df = @io.parse_ndjson_str("\u{FEFF}", @io.NdjsonReadOptions::default())
+  let df = @io.parse_ndjson_str("\u{FEFF}", @io.JsonReadOptions())
   assert_eq(df.shape(), (0, 0))
 }
 
@@ -269,7 +266,7 @@ test "parse_ndjson_str: blank lines between and around records are skipped" {
     #|
     #|{"a":2}
     #|
-  let df = @io.parse_ndjson_str(content, @io.NdjsonReadOptions::default())
+  let df = @io.parse_ndjson_str(content, @io.JsonReadOptions())
   assert_eq(df.shape(), (2, 1))
   assert_eq(df.item(0, "a"), @types.Scalar::Int(1))
   assert_eq(df.item(1, "a"), @types.Scalar::Int(2))
@@ -281,7 +278,7 @@ test "parse_ndjson_str: CRLF line endings are handled" {
   // tolerates as JSON whitespace; the final empty segment after the
   // last CRLF is a blank line and is skipped.
   let content = "{\"a\":1}\r\n{\"a\":2}\r\n"
-  let df = @io.parse_ndjson_str(content, @io.NdjsonReadOptions::default())
+  let df = @io.parse_ndjson_str(content, @io.JsonReadOptions())
   assert_eq(df.shape(), (2, 1))
   assert_eq(df.item(0, "a"), @types.Scalar::Int(1))
   assert_eq(df.item(1, "a"), @types.Scalar::Int(2))
@@ -291,10 +288,7 @@ test "parse_ndjson_str: CRLF line endings are handled" {
 test "parse_ndjson_str: a line with no trailing newline still parses" {
   // NDJSON's last line may omit the separator; the single segment is a
   // full record.
-  let df = @io.parse_ndjson_str(
-    "{\"a\":1}\n{\"a\":2}",
-    @io.NdjsonReadOptions::default(),
-  )
+  let df = @io.parse_ndjson_str("{\"a\":1}\n{\"a\":2}", @io.JsonReadOptions())
   assert_eq(df.shape(), (2, 1))
   assert_eq(df.item(1, "a"), @types.Scalar::Int(2))
 }
@@ -306,7 +300,7 @@ test "parse_ndjson_str: lines of empty objects collapse to 0x0" {
   let content =
     #|{}
     #|{}
-  let df = @io.parse_ndjson_str(content, @io.NdjsonReadOptions::default())
+  let df = @io.parse_ndjson_str(content, @io.JsonReadOptions())
   assert_eq(df.shape(), (0, 0))
 }
 
@@ -316,7 +310,7 @@ test "parse_ndjson_str: lines of empty objects collapse to 0x0" {
 test "parse_ndjson_str: non-object line returns ParseError" {
   // A bare array / scalar on a line is valid JSON but not a record.
   let result = Ok(
-    @io.parse_ndjson_str("{\"a\":1}\n[1,2,3]", @io.NdjsonReadOptions::default()),
+    @io.parse_ndjson_str("{\"a\":1}\n[1,2,3]", @io.JsonReadOptions()),
   ) catch {
     e => Err(e)
   }
@@ -326,7 +320,7 @@ test "parse_ndjson_str: non-object line returns ParseError" {
 ///|
 test "parse_ndjson_str: malformed line returns ParseError" {
   let result = Ok(
-    @io.parse_ndjson_str("{\"a\":1}\n{oops", @io.NdjsonReadOptions::default()),
+    @io.parse_ndjson_str("{\"a\":1}\n{oops", @io.JsonReadOptions()),
   ) catch {
     e => Err(e)
   }
@@ -342,10 +336,7 @@ test "parse_ndjson_str: typed mismatch has structured line context" {
     #|{"x":2}
     #|{"x":"three"}
   let result = Ok(
-    @io.parse_ndjson_str(content, {
-      infer_schema_rows: 2,
-      on_parse_error: @io.OnParseError::Raise,
-    }),
+    @io.parse_ndjson_str(content, @io.JsonReadOptions(infer_schema_rows=2)),
   ) catch {
     e => Err(e)
   }
@@ -372,10 +363,7 @@ test "parse_ndjson_str: a build-stage type error reports the physical file line"
   // name the true line ("line 5"), not the post-blank-skip record index.
   let content = "\n{\"x\":1}\n{\"x\":2}\n\n{\"x\":\"three\"}"
   let result = Ok(
-    @io.parse_ndjson_str(content, {
-      infer_schema_rows: 2,
-      on_parse_error: @io.OnParseError::Raise,
-    }),
+    @io.parse_ndjson_str(content, @io.JsonReadOptions(infer_schema_rows=2)),
   ) catch {
     e => Err(e)
   }
@@ -407,10 +395,10 @@ test "parse_ndjson_str: infer_schema_rows=0 scans every line" {
   let content =
     #|{"x":1}
     #|{"x":2.5}
-  let df = @io.parse_ndjson_str(content, {
-    infer_schema_rows: 0,
-    on_parse_error: @io.OnParseError::Raise,
-  })
+  let df = @io.parse_ndjson_str(
+    content,
+    @io.JsonReadOptions(infer_schema_rows=0),
+  )
   assert_eq(df.get_column("x").dtype(), @types.DataType::Float)
   assert_eq(df.item(0, "x"), @types.Scalar::Float(1.0))
   assert_eq(df.item(1, "x"), @types.Scalar::Float(2.5))
@@ -425,10 +413,13 @@ test "parse_ndjson_str: on_parse_error=Null nulls an out-of-window misfit" {
     #|{"x":1}
     #|{"x":2}
     #|{"x":"three"}
-  let df = @io.parse_ndjson_str(content, {
-    infer_schema_rows: 2,
-    on_parse_error: @io.OnParseError::Null,
-  })
+  let df = @io.parse_ndjson_str(
+    content,
+    @io.JsonReadOptions(
+      infer_schema_rows=2,
+      on_parse_error=@io.OnParseError::Null,
+    ),
+  )
   assert_eq(df.get_column("x").dtype(), @types.DataType::Int)
   assert_eq(df.item(2, "x"), @types.Scalar::Null)
   assert_eq(df.get_column("x").null_count(), 1)
@@ -460,7 +451,7 @@ test "write_ndjson refuses a cell holding an unpaired surrogate" {
   // quote, corrupting the line framing — so the write is refused up front.
   let df = @io.parse_ndjson_str(
     "{\"a\":\"\\ud800\",\"b\":1}\n",
-    @io.NdjsonReadOptions::default(),
+    @io.JsonReadOptions(),
   )
   assert_eq(df.item(0, "b"), @types.Scalar::Int(1))
   let w = Ok(@io.write_ndjson("_build/io_ndjson_surrogate_reject.ndjson", df)) catch {
@@ -477,7 +468,7 @@ test "a non-object record's ParseError names its line" {
     Ok(
       @io.parse_ndjson_str(
         "{\"a\":1}\n[1,2]\n{\"a\":3}\n",
-        @io.NdjsonReadOptions::default(),
+        @io.JsonReadOptions(),
       ),
     ) catch {
       e => Err(e)
@@ -500,7 +491,7 @@ test "negative zero keeps its sign on an NDJSON round-trip" {
   let df = @frame.DataFrame::new([@series.Series::from_floats("a", [-0.0, 1.5])])
   let text = @io.format_ndjson(df)
   assert_true(text.contains("-0.0"))
-  let back = @io.parse_ndjson_str(text, @io.NdjsonReadOptions::default())
+  let back = @io.parse_ndjson_str(text, @io.JsonReadOptions())
   // Double's == treats -0.0 and +0.0 as equal, so assert on the sign bit.
   let cell = back.get_column("a").get(0).as_float()
   assert_true(cell == 0.0 && cell.reinterpret_as_int64() != 0L)
@@ -513,10 +504,10 @@ test "read_ndjson_with_options honours a custom inference window" {
     @series.Series::from_int_options("a", [Some(1), Some(2), Some(3)]),
   ])
   @io.write_ndjson(path, df)
-  let parsed = @io.read_ndjson_with_options(path, {
-    infer_schema_rows: 1,
-    on_parse_error: @io.OnParseError::Raise,
-  })
+  let parsed = @io.read_ndjson_with_options(
+    path,
+    @io.JsonReadOptions(infer_schema_rows=1),
+  )
   assert_eq(parsed.check_invariants(), Ok(()))
   assert_eq(parsed.get_column("a").dtype(), @types.DataType::Int)
 }
@@ -536,7 +527,7 @@ test "read_ndjson_with_options: missing file surfaces as IoError" {
   let result = Ok(
     @io.read_ndjson_with_options(
       "_build/io_ndjson_test_does_not_exist.ndjson",
-      @io.NdjsonReadOptions::default(),
+      @io.JsonReadOptions(),
     ),
   ) catch {
     e => Err(e)
@@ -572,7 +563,7 @@ test "format_ndjson / parse_ndjson_str round-trip preserves data" {
     @series.Series::from_strings("s", ["a", "b", "c"]),
   ])
   let text = @io.format_ndjson(df)
-  let df2 = @io.parse_ndjson_str(text, @io.NdjsonReadOptions::default())
+  let df2 = @io.parse_ndjson_str(text, @io.JsonReadOptions())
   // The reader produces Builtin-backed columns; the round-trip preserves the
   // *data*, so compare on a common backend (the original's `r`, built with
   // `from_floats`, is on the Numeric fast path).

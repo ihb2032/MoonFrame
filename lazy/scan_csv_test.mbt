@@ -66,21 +66,9 @@ test "scan_csv_with_options honours the read options at collect time" {
     @series.Series::from_ints("a", [1, 2]),
     @series.Series::from_strings("b", ["p", "q"]),
   ])
-  let write_opts : @io.CsvWriteOptions = {
-    header: true,
-    delimiter: ';',
-    null_value: "",
-  }
+  let write_opts : @io.CsvWriteOptions = @io.CsvWriteOptions(delimiter=';')
   @io.write_csv_with_options(path, df, write_opts)
-  let read_opts : @io.CsvReadOptions = {
-    has_header: true,
-    delimiter: ';',
-    infer_schema_rows: 100,
-    null_values: [""],
-    strict_column_count: false,
-    on_parse_error: @io.OnParseError::Raise,
-    allow_nonfinite_floats: true,
-  }
+  let read_opts : @io.CsvReadOptions = @io.CsvReadOptions(delimiter=';')
   // The `;` delimiter must reach the parser, and projection push-down must
   // narrow under those same options.
   assert_eq(
@@ -96,28 +84,16 @@ test "scan_csv_with_options snapshots the null-token list" {
     path,
     @frame.DataFrame::new([@series.Series::from_strings("a", ["NA", "x"])]),
   )
-  let read_opts : @io.CsvReadOptions = {
-    has_header: true,
-    delimiter: ',',
-    infer_schema_rows: 100,
-    null_values: ["NA"],
-    strict_column_count: false,
-    on_parse_error: @io.OnParseError::Raise,
-    allow_nonfinite_floats: true,
-  }
+  let tokens = ["NA"]
+  let read_opts : @io.CsvReadOptions = @io.CsvReadOptions(null_values=tokens)
   let planned = scan_csv_with_options(path, read_opts)
   // Mutating the caller's null-token list must not reach the captured plan:
-  // "NA" stays a null token for the collect below.
-  read_opts.null_values.clear()
-  let fresh : @io.CsvReadOptions = {
-    has_header: true,
-    delimiter: ',',
-    infer_schema_rows: 100,
-    null_values: ["NA"],
-    strict_column_count: false,
-    on_parse_error: @io.OnParseError::Raise,
-    allow_nonfinite_floats: true,
-  }
+  // "NA" stays a null token for the collect below. The options copy on
+  // construction and hand back a copy from `null_values()`, so neither the
+  // source array nor a read-back one aliases what the reader uses.
+  tokens.clear()
+  read_opts.null_values().clear()
+  let fresh : @io.CsvReadOptions = @io.CsvReadOptions(null_values=["NA"])
   assert_eq(planned.collect(), @io.read_csv_with_options(path, fresh))
 }
 
@@ -133,15 +109,7 @@ test "projection push-down does not parse — or fail on — a dropped column" {
       @series.Series::from_strings("b", ["10", "oops"]),
     ]),
   )
-  let opts : @io.CsvReadOptions = {
-    has_header: true,
-    delimiter: ',',
-    infer_schema_rows: 1,
-    null_values: [""],
-    strict_column_count: false,
-    on_parse_error: @io.OnParseError::Raise,
-    allow_nonfinite_floats: true,
-  }
+  let opts : @io.CsvReadOptions = @io.CsvReadOptions(infer_schema_rows=1)
   // The full eager read parses `b` and fails on `oops`.
   assert_eq(
     Ok(@io.read_csv_with_options(path, opts)) catch {

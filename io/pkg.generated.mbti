@@ -8,7 +8,7 @@ import {
 }
 
 // Values
-pub fn format_csv(@frame.DataFrame, CsvWriteOptions, sanitize_formulas? : Bool) -> String raise @types.DataError
+pub fn format_csv(@frame.DataFrame, CsvWriteOptions) -> String raise @types.DataError
 
 pub fn format_json_records(@frame.DataFrame) -> String
 
@@ -16,17 +16,17 @@ pub fn format_ndjson(@frame.DataFrame) -> String
 
 pub fn format_vega_lite(@frame.DataFrame, ChartSpec) -> String raise @types.DataError
 
-pub fn parse_csv_str(String, CsvReadOptions, strict_quotes? : Bool) -> @frame.DataFrame raise @types.DataError
+pub fn parse_csv_str(String, CsvReadOptions) -> @frame.DataFrame raise @types.DataError
 
 pub fn parse_json_records_str(String, JsonReadOptions) -> @frame.DataFrame raise @types.DataError
 
-pub fn parse_ndjson_str(String, NdjsonReadOptions) -> @frame.DataFrame raise @types.DataError
+pub fn parse_ndjson_str(String, JsonReadOptions) -> @frame.DataFrame raise @types.DataError
 
 pub fn read_csv(String) -> @frame.DataFrame raise @types.DataError
 
-pub fn read_csv_projected(String, CsvReadOptions, Array[String], strict_quotes? : Bool) -> @frame.DataFrame raise @types.DataError
+pub fn read_csv_projected(String, CsvReadOptions, Array[String]) -> @frame.DataFrame raise @types.DataError
 
-pub fn read_csv_with_options(String, CsvReadOptions, strict_quotes? : Bool) -> @frame.DataFrame raise @types.DataError
+pub fn read_csv_with_options(String, CsvReadOptions) -> @frame.DataFrame raise @types.DataError
 
 pub fn read_json(String) -> @frame.DataFrame raise @types.DataError
 
@@ -34,13 +34,13 @@ pub fn read_json_with_options(String, JsonReadOptions) -> @frame.DataFrame raise
 
 pub fn read_ndjson(String) -> @frame.DataFrame raise @types.DataError
 
-pub fn read_ndjson_projected(String, NdjsonReadOptions, Array[String]) -> @frame.DataFrame raise @types.DataError
+pub fn read_ndjson_projected(String, JsonReadOptions, Array[String]) -> @frame.DataFrame raise @types.DataError
 
-pub fn read_ndjson_with_options(String, NdjsonReadOptions) -> @frame.DataFrame raise @types.DataError
+pub fn read_ndjson_with_options(String, JsonReadOptions) -> @frame.DataFrame raise @types.DataError
 
 pub fn write_csv(String, @frame.DataFrame) -> Unit raise @types.DataError
 
-pub fn write_csv_with_options(String, @frame.DataFrame, CsvWriteOptions, sanitize_formulas? : Bool) -> Unit raise @types.DataError
+pub fn write_csv_with_options(String, @frame.DataFrame, CsvWriteOptions) -> Unit raise @types.DataError
 
 pub fn write_json_records(String, @frame.DataFrame) -> Unit raise @types.DataError
 
@@ -80,35 +80,35 @@ pub fn ChartSpec::with_color(Self, String) -> Self
 pub fn ChartSpec::with_color_type(Self, VegaType) -> Self
 pub fn ChartSpec::with_title(Self, String) -> Self
 
-pub(all) struct CsvReadOptions {
+pub struct CsvReadOptions {
   has_header : Bool
   delimiter : Char
   infer_schema_rows : Int
-  null_values : Array[String]
   strict_column_count : Bool
   on_parse_error : OnParseError
   allow_nonfinite_floats : Bool
+  strict_quotes : Bool
+  // private fields
 }
-pub fn CsvReadOptions::default() -> Self
+#as_free_fn
+pub fn CsvReadOptions::CsvReadOptions(has_header? : Bool, delimiter? : Char, infer_schema_rows? : Int, null_values? : Array[String], strict_column_count? : Bool, on_parse_error? : OnParseError, allow_nonfinite_floats? : Bool, strict_quotes? : Bool) -> Self
+pub fn CsvReadOptions::null_values(Self) -> Array[String]
 
-pub(all) struct CsvWriteOptions {
+pub struct CsvWriteOptions {
   header : Bool
   delimiter : Char
   null_value : String
+  sanitize_formulas : Bool
 }
-pub fn CsvWriteOptions::default() -> Self
+#as_free_fn
+pub fn CsvWriteOptions::CsvWriteOptions(header? : Bool, delimiter? : Char, null_value? : String, sanitize_formulas? : Bool) -> Self
 
-pub(all) struct JsonReadOptions {
+pub struct JsonReadOptions {
   infer_schema_rows : Int
   on_parse_error : OnParseError
 }
-pub fn JsonReadOptions::default() -> Self
-
-pub(all) struct NdjsonReadOptions {
-  infer_schema_rows : Int
-  on_parse_error : OnParseError
-}
-pub fn NdjsonReadOptions::default() -> Self
+#as_free_fn
+pub fn JsonReadOptions::JsonReadOptions(infer_schema_rows? : Int, on_parse_error? : OnParseError) -> Self
 
 pub(all) enum OnParseError {
   Raise

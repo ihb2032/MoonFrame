@@ -27,6 +27,26 @@ collected in [`migration.md`](migration.md).
   (directly and through the `name` / `dtype` / `nullable` accessors) but it can
   no longer be built from a record literal outside `types`. Construction goes
   through `Field(...)`, so a future field can be added without breaking callers.
+- The IO options types follow the same shape. `CsvReadOptions::default()`,
+  `CsvWriteOptions::default()`, and `JsonReadOptions::default()` are replaced by
+  the all-defaulted constructors `CsvReadOptions(...)`, `CsvWriteOptions(...)`,
+  and `JsonReadOptions(...)`, and the three types are `pub` rather than
+  `pub(all)` — name only the fields that differ instead of spelling out a
+  record literal, and a future field no longer breaks callers.
+- `NdjsonReadOptions` is gone: `read_ndjson_with_options`, `parse_ndjson_str`,
+  `read_ndjson_projected`, and `scan_ndjson_with_options` take
+  `JsonReadOptions`. The two types were structurally identical; a
+  format-specific field can be added back additively when one exists.
+- The two loose reader/writer flags moved into the options they configure:
+  `strict_quotes` is now `CsvReadOptions.strict_quotes` (so the lazy
+  `scan_csv_with_options` gets it too, which the parameter form never offered)
+  and `sanitize_formulas` is now `CsvWriteOptions.sanitize_formulas`.
+  `parse_csv_str`, `read_csv_with_options`, `read_csv_projected`, `format_csv`,
+  and `write_csv_with_options` lose their trailing optional parameter.
+- `CsvReadOptions.null_values` is a private field with a copying
+  `null_values()` accessor. Both it and the constructor copy, so the token list
+  a reader (or a captured `scan_csv` plan) uses can no longer be mutated
+  through the options value.
 
 ## v0.5.8 — string-ordering and parse-overflow fixes
 

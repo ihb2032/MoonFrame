@@ -43,7 +43,7 @@
 // `lazy_frame` constructor (the free-function alias for `LazyFrame::from` —
 // the bare identifier `lazy` is a reserved word, so the alias is spelled
 // `lazy_frame`) plus the `scan_csv` / `scan_ndjson` file sources and their
-// `_with_options` variants (the `CsvReadOptions` / `NdjsonReadOptions` they
+// `_with_options` variants (the `CsvReadOptions` / `JsonReadOptions` they
 // take ride along with `@io`).
 
 ///|
@@ -108,7 +108,6 @@ pub using @io {
   type CsvReadOptions,
   type CsvWriteOptions,
   type JsonReadOptions,
-  type NdjsonReadOptions,
   type OnParseError,
   type ChartKind,
   type ChartSpec,

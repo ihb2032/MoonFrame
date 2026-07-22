@@ -59,6 +59,58 @@ class ArrayCopyBoundaryTests(unittest.TestCase):
 }"""
         self.assertEqual(self.retained(source), [])
 
+    def test_optional_parameter_is_seen(self) -> None:
+        source = """pub fn Plan::drop_nulls(subset? : Array[Expr]) -> Plan {
+  DropNulls(subset)
+}"""
+        self.assertEqual(self.retained(source), ["subset"])
+
+    def test_labelled_parameter_is_seen(self) -> None:
+        source = """pub fn Plan::gate(keys~ : Array[Expr]) -> Plan {
+  { keys }
+}"""
+        self.assertEqual(self.retained(source), ["keys"])
+
+    def test_option_payload_in_constructor(self) -> None:
+        source = """pub fn Plan::drop_nulls(subset : Array[Expr]) -> Plan {
+  DropNulls(Some(subset))
+}"""
+        self.assertEqual(self.retained(source), ["subset"])
+
+    def test_option_payload_in_record_field(self) -> None:
+        source = """pub fn Box::new(values : Array[Int]) -> Box {
+  { held: Some(values) }
+}"""
+        self.assertEqual(self.retained(source), ["values"])
+
+    def test_option_payload_copy_is_safe(self) -> None:
+        source = """pub fn Plan::drop_nulls(subset : Array[Expr]) -> Plan {
+  DropNulls(Some(subset.copy()))
+}"""
+        self.assertEqual(self.retained(source), [])
+
+    def test_optional_parameter_mapped_copy_is_safe(self) -> None:
+        source = """pub fn Plan::drop_nulls(subset? : Array[Expr]) -> Plan {
+  { plan: DropNulls(self.plan, subset.map(keys => keys.copy())) }
+}"""
+        self.assertEqual(self.retained(source), [])
+
+    def test_match_arm_binding_is_not_retention(self) -> None:
+        source = """pub fn DataFrame::drop_nulls(subset? : Array[Expr]) -> DataFrame {
+  let names = match subset {
+    None => self.columns()
+    Some(keys) => keys.map(key => key.output_name())
+  }
+  self.take(names)
+}"""
+        self.assertEqual(self.retained(source), [])
+
+    def test_similar_parameter_name_is_not_confused(self) -> None:
+        source = """pub fn Box::new(values : Array[Int]) -> Box {
+  { values: values_copy }
+}"""
+        self.assertEqual(self.retained(source), [])
+
     def test_comments_and_strings_do_not_trigger(self) -> None:
         source = '''pub fn inspect(values : Array[Int]) -> String {
   // PlanNode::Values(values)

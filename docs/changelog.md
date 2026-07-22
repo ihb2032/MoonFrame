@@ -36,6 +36,12 @@ collected in [`migration.md`](migration.md).
   - Streaming the file is still future work — the reader tokenises the whole
     file, and the saving is the typed build of the dropped rows.
 
+- `Series` gains the ordering verbs its `DataFrame` twin already had:
+  `sort(order?, nulls?)`, `head(n)`, `tail(n)`, and `reverse()`. `sort` runs
+  the *same* per-column kernel `DataFrame::sort` uses — moved into `series` for
+  this — so one column's ordering means the same thing at either level,
+  including `NaN`-counts-as-missing and stability.
+
 ### Breaking
 
 - `Field::new(name, dtype)` and `Field::with_nullable(name, dtype, nullable)`
@@ -141,6 +147,10 @@ collected in [`migration.md`](migration.md).
   had since v0.5.8 — the two had silently diverged (and the docs already
   described the lazy verb as taking it). A non-default strategy shows in
   `explain` as `UNIQUE keep=Last` / `UNIQUE keep=None`.
+- `SortOrder` / `NullOrder` move from `frame` to `types`, so `Series::sort` can
+  name them without depending on `frame`. The facade re-exports them from their
+  new home, so unqualified use through `@moonframe` is unchanged; code that
+  wrote `@frame.SortOrder` must write `@types.SortOrder`.
 - `unique` gains Polars' `subset` on both surfaces:
   `DataFrame::unique(subset? : Array[Expr], keep? : KeepStrategy)` and the same
   on `LazyFrame`. The key is formed from the named columns while the output

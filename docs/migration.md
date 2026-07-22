@@ -70,6 +70,18 @@ same trade projection push-down has always made for dropped *columns*. Code
 that relied on a lazy pipeline failing on a malformed row it filters away
 should read eagerly (`read_csv(path).filter(...)`) instead.
 
+### `SortOrder` / `NullOrder` moved to `types`
+
+They now live beside `DataType` / `Scalar`, because `Series::sort` (new in
+v0.6) names them and `series` sits below `frame`. Through the facade nothing
+changes — `SortOrder::Desc` still resolves — but a direct package import needs
+the new home:
+
+| v0.5 | v0.6 |
+| --- | --- |
+| `@frame.SortOrder::Desc` | `@types.SortOrder::Desc` |
+| `@frame.NullOrder::NullsLast` | `@types.NullOrder::NullsLast` |
+
 ### `unique` takes a subset, and is now fallible
 
 `DataFrame::unique` gained Polars' `subset` — the columns whose values form the

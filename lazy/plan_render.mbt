@@ -95,6 +95,13 @@ fn write_plan_label(plan : LogicalPlan, buf : StringBuilder) -> Unit {
         @frame.KeepStrategy::None => buf <+ " keep=None"
       }
     }
+    Reverse(_) => buf <+ "REVERSE"
+    WithRowIndex(_, name, offset) => {
+      buf <+ "WITH_ROW_INDEX \"\{@text.escape_debug(name)}\""
+      if offset != 0 {
+        buf <+ " offset=\{offset}"
+      }
+    }
     DropNulls(_, subset) => {
       buf <+ "DROP_NULLS"
       match subset {

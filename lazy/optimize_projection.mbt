@@ -157,6 +157,14 @@ fn push_projection(
             work.push(Rebuild1(c => RenameWith(c, f)))
             work.push(Visit(input, None))
           }
+          Reverse(input) => {
+            work.push(Rebuild1(c => Reverse(c)))
+            work.push(Visit(input, None))
+          }
+          WithRowIndex(input, name, offset) => {
+            work.push(Rebuild1(c => WithRowIndex(c, name, offset)))
+            work.push(Visit(input, None))
+          }
           Unique(input, keep, subset) => {
             work.push(Rebuild1(c => Unique(c, keep, subset)))
             work.push(Visit(input, None))

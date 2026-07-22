@@ -25,36 +25,6 @@
 // without producing phantom rows.
 
 ///|
-/// Options that control how an NDJSON payload is parsed into a
-/// `DataFrame`.
-///
-/// - `infer_schema_rows` — number of leading records inspected when
-///   guessing each column's dtype. `0` (or any value `<= 0`) lifts the
-///   cap and scans every record (Polars' `infer_schema_length=None`).
-///   Records past a finite window are still parsed under the chosen
-///   dtype; one that doesn't fit is handled per `on_parse_error`.
-/// - `on_parse_error` — what to do when a non-null cell past the
-///   inference window fails to parse under its column's locked-in dtype:
-///   `Raise` (default) fails with `ParseError(Cell(...))`; `Null`
-///   downgrades the offending cell to a null and continues (Polars'
-///   `ignore_errors=True`). See `OnParseError`.
-///
-/// (Same meanings and defaults as `JsonReadOptions` / the CSV reader —
-/// NDJSON keeps its own options type so the two formats can diverge later.)
-pub(all) struct NdjsonReadOptions {
-  infer_schema_rows : Int
-  on_parse_error : OnParseError
-}
-
-///|
-/// Default read options: scan the first 100 records for inference and
-/// fail the read on a cell that doesn't fit its inferred dtype
-/// (`on_parse_error = Raise`).
-pub fn NdjsonReadOptions::default() -> NdjsonReadOptions {
-  { infer_schema_rows: DEFAULT_INFER_SCHEMA_ROWS, on_parse_error: Raise }
-}
-
-///|
 /// Parse an NDJSON string (one JSON object per line) into a `DataFrame`.
 ///
 /// Pipeline:
@@ -82,7 +52,7 @@ pub fn NdjsonReadOptions::default() -> NdjsonReadOptions {
 /// - Whatever `DataFrame::new` propagates.
 pub fn parse_ndjson_str(
   content : String,
-  options : NdjsonReadOptions,
+  options : JsonReadOptions,
 ) -> @frame.DataFrame raise @types.DataError {
   parse_ndjson_str_projected(content, options, None)
 }
@@ -99,7 +69,7 @@ pub fn parse_ndjson_str(
 /// goes unraised (see `frame_from_json_records`).
 fn parse_ndjson_str_projected(
   content : String,
-  options : NdjsonReadOptions,
+  options : JsonReadOptions,
   projection : Array[String]?,
 ) -> @frame.DataFrame raise @types.DataError {
   // Strip a leading UTF-8 BOM (shared with the CSV / JSON readers) before the
@@ -148,7 +118,7 @@ fn parse_ndjson_str_projected(
 ///|
 /// Read an NDJSON file using the default options.
 pub fn read_ndjson(path : String) -> @frame.DataFrame raise @types.DataError {
-  read_ndjson_with_options(path, NdjsonReadOptions::default())
+  read_ndjson_with_options(path, JsonReadOptions())
 }
 
 ///|
@@ -156,7 +126,7 @@ pub fn read_ndjson(path : String) -> @frame.DataFrame raise @types.DataError {
 /// as `raise IoError(message)`.
 pub fn read_ndjson_with_options(
   path : String,
-  options : NdjsonReadOptions,
+  options : JsonReadOptions,
 ) -> @frame.DataFrame raise @types.DataError {
   let content = read_text(path)
   parse_ndjson_str(content, options)
@@ -172,7 +142,7 @@ pub fn read_ndjson_with_options(
 /// surface). Filesystem errors surface as `raise IoError(message)`.
 pub fn read_ndjson_projected(
   path : String,
-  options : NdjsonReadOptions,
+  options : JsonReadOptions,
   projection : Array[String],
 ) -> @frame.DataFrame raise @types.DataError {
   let content = read_text(path)

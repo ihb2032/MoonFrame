@@ -14,7 +14,7 @@
 /// — does not surface, exactly as in Polars' projection push-down; this is
 /// the one place a narrowed scan diverges from a full eager read.)
 pub fn scan_csv(path : String) -> LazyFrame {
-  scan_csv_with_options(path, @io.CsvReadOptions::default())
+  scan_csv_with_options(path, @io.CsvReadOptions())
 }
 
 ///|
@@ -29,8 +29,8 @@ pub fn scan_csv_with_options(
   path : String,
   options : @io.CsvReadOptions,
 ) -> LazyFrame {
-  // Snapshot the one mutable container in the options, so the captured
-  // plan cannot observe a later mutation of the caller's null-token list.
-  let options = { ..options, null_values: options.null_values.copy() }
+  // The one mutable container in the options — the null-token list — is
+  // already copied by `CsvReadOptions(...)`, the only way to build one, so
+  // the captured plan cannot observe a later mutation of the caller's array.
   { plan: ScanCsv(path, options, None) }
 }

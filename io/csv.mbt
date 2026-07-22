@@ -27,7 +27,10 @@
 ///   (both for type inference, which skips them, and for the final
 ///   typed column, where they become `None`). The default `[""]`
 ///   matches the empty string only, which is how an absent CSV cell is
-///   typically represented.
+///   typically represented. Read it back through the `null_values()`
+///   accessor: the field itself is private, and both it and the
+///   constructor copy, so the token list a reader uses cannot be changed
+///   after the options are built.
 /// - `strict_column_count` — when `true`, every data row must have
 ///   exactly as many cells as the header declares; a ragged row (too
 ///   few or too many cells) `raise ParseError` instead of being
@@ -46,31 +49,59 @@
 ///   `String` instead of being silently retyped to `Float` (a
 ///   non-finite token past the window is then a parse failure handled per
 ///   `on_parse_error`).
-pub(all) struct CsvReadOptions {
+/// - `strict_quotes` — when `true`, the input is pre-scanned and an
+///   unterminated quoted field, text after a closing quote, or a bare quote
+///   inside an unquoted field `raise ParseError` instead of being repaired
+///   by the lenient tokeniser. Defaults to `false`.
+pub struct CsvReadOptions {
   has_header : Bool
   delimiter : Char
   infer_schema_rows : Int
-  null_values : Array[String]
+  priv null_values : Array[String]
   strict_column_count : Bool
   on_parse_error : OnParseError
   allow_nonfinite_floats : Bool
+  strict_quotes : Bool
 }
 
 ///|
-/// Default read options: header on, comma delimiter, scan the first
-/// 100 rows for inference, treat the empty string as null, tolerate
-/// ragged rows (`strict_column_count = false`), fail the read on a cell
-/// that doesn't fit its inferred dtype (`on_parse_error = Raise`), and
-/// accept non-finite float literals (`allow_nonfinite_floats = true`).
-pub fn CsvReadOptions::default() -> CsvReadOptions {
+/// The raw strings treated as null cells. A fresh array is returned, so a
+/// caller cannot reach into the options and change what the reader nulls out
+/// — the same reason the constructor copies its input.
+pub fn CsvReadOptions::null_values(self : CsvReadOptions) -> Array[String] {
+  self.null_values.copy()
+}
+
+///|
+/// Build read options. Every field has a default: header on, comma
+/// delimiter, scan the first 100 rows for inference, treat the empty string
+/// as null, tolerate ragged rows, fail the read on a cell that doesn't fit
+/// its inferred dtype, accept non-finite float literals, and tokenise
+/// leniently. `CsvReadOptions()` is the all-defaults reader; name only what
+/// differs, as in `CsvReadOptions(delimiter=';', strict_quotes=true)`.
+///
+/// `null_values` is copied, so mutating the array afterwards cannot alter
+/// the options.
+#as_free_fn
+pub fn CsvReadOptions::CsvReadOptions(
+  has_header? : Bool = true,
+  delimiter? : Char = ',',
+  infer_schema_rows? : Int = DEFAULT_INFER_SCHEMA_ROWS,
+  null_values? : Array[String] = [""],
+  strict_column_count? : Bool = false,
+  on_parse_error? : OnParseError = Raise,
+  allow_nonfinite_floats? : Bool = true,
+  strict_quotes? : Bool = false,
+) -> CsvReadOptions {
   {
-    has_header: true,
-    delimiter: ',',
-    infer_schema_rows: DEFAULT_INFER_SCHEMA_ROWS,
-    null_values: [""],
-    strict_column_count: false,
-    on_parse_error: Raise,
-    allow_nonfinite_floats: true,
+    has_header,
+    delimiter,
+    infer_schema_rows,
+    null_values: null_values.copy(),
+    strict_column_count,
+    on_parse_error,
+    allow_nonfinite_floats,
+    strict_quotes,
   }
 }
 
@@ -115,14 +146,14 @@ pub fn CsvReadOptions::default() -> CsvReadOptions {
 /// (`1,"unclosed` → last cell `unclosed`); text after a closing quote is
 /// folded into the same field (`"ab"cd` → `abcd`); and a lone quote inside
 /// an unquoted field is kept literally (`ab"cd` → `ab"cd`). A strict
-/// RFC-4180 reader rejects all three; set `strict_quotes=true` to run a
-/// linear validation pass before tokenisation and reject them as `ParseError`.
+/// RFC-4180 reader rejects all three; `CsvReadOptions(strict_quotes=true)`
+/// runs a linear validation pass before tokenisation and rejects them as
+/// `ParseError`.
 pub fn parse_csv_str(
   content : String,
   options : CsvReadOptions,
-  strict_quotes? : Bool = false,
 ) -> @frame.DataFrame raise @types.DataError {
-  parse_csv_str_projected(content, options, None, strict_quotes)
+  parse_csv_str_projected(content, options, None)
 }
 
 ///|
@@ -159,7 +190,6 @@ fn parse_csv_str_projected(
   content : String,
   options : CsvReadOptions,
   projection : Array[String]?,
-  strict_quotes : Bool,
 ) -> @frame.DataFrame raise @types.DataError {
   // Refuse a delimiter that collides with the quote character or a row
   // terminator before parsing — the same configurations `format_csv` rejects,
@@ -175,7 +205,7 @@ fn parse_csv_str_projected(
   if content.is_empty() {
     return @frame.DataFrame::new([])
   }
-  if strict_quotes {
+  if options.strict_quotes {
     validate_csv_quotes(content, options.delimiter)
   }
   let csv_options : @nyacsv.CSVOptions = {
@@ -312,21 +342,20 @@ fn validate_csv_shape(
 ///|
 /// Read a CSV file using the default options.
 pub fn read_csv(path : String) -> @frame.DataFrame raise @types.DataError {
-  read_csv_with_options(path, CsvReadOptions::default())
+  read_csv_with_options(path, CsvReadOptions())
 }
 
 ///|
 /// Read a CSV file with custom options. `IOError` from the file system
-/// surfaces as `raise IoError(message)`. Set `strict_quotes=true` to reject
+/// surfaces as `raise IoError(message)`. `CsvReadOptions(strict_quotes=true)` rejects
 /// malformed quoting before NyaCSV tokenisation, as documented by
 /// `parse_csv_str`.
 pub fn read_csv_with_options(
   path : String,
   options : CsvReadOptions,
-  strict_quotes? : Bool = false,
 ) -> @frame.DataFrame raise @types.DataError {
   let content = read_text(path)
-  parse_csv_str(content, options, strict_quotes~)
+  parse_csv_str(content, options)
 }
 
 ///|
@@ -337,16 +366,15 @@ pub fn read_csv_with_options(
 /// materialised (see `parse_csv_str_projected` for the precise contract,
 /// including the one behavioural consequence: a parse error confined to a
 /// dropped column does not surface). `IOError` from the file system surfaces
-/// as `raise IoError(message)`. `strict_quotes=true` validates the whole input
+/// as `raise IoError(message)`. `CsvReadOptions(strict_quotes=true)` validates the whole input
 /// before applying the projection.
 pub fn read_csv_projected(
   path : String,
   options : CsvReadOptions,
   projection : Array[String],
-  strict_quotes? : Bool = false,
 ) -> @frame.DataFrame raise @types.DataError {
   let content = read_text(path)
-  parse_csv_str_projected(content, options, Some(projection), strict_quotes)
+  parse_csv_str_projected(content, options, Some(projection))
 }
 
 ///|

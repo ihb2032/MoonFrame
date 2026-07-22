@@ -27,7 +27,7 @@ pub fn cols_starts_with(@frame.DataFrame, String) -> Array[@expr.Expr]
 
 pub fn compare_string_lex(String, String) -> Int
 
-pub fn format_csv(@frame.DataFrame, @io.CsvWriteOptions, sanitize_formulas? : Bool) -> String raise @types.DataError
+pub fn format_csv(@frame.DataFrame, @io.CsvWriteOptions) -> String raise @types.DataError
 
 pub fn format_json_records(@frame.DataFrame) -> String
 
@@ -57,15 +57,15 @@ pub fn map_many(label~ : String, Array[@expr.Expr], (Array[@types.Scalar]) -> @t
 
 pub fn numeric_cols(@frame.DataFrame) -> Array[@expr.Expr]
 
-pub fn parse_csv_str(String, @io.CsvReadOptions, strict_quotes? : Bool) -> @frame.DataFrame raise @types.DataError
+pub fn parse_csv_str(String, @io.CsvReadOptions) -> @frame.DataFrame raise @types.DataError
 
 pub fn parse_json_records_str(String, @io.JsonReadOptions) -> @frame.DataFrame raise @types.DataError
 
-pub fn parse_ndjson_str(String, @io.NdjsonReadOptions) -> @frame.DataFrame raise @types.DataError
+pub fn parse_ndjson_str(String, @io.JsonReadOptions) -> @frame.DataFrame raise @types.DataError
 
 pub fn read_csv(String) -> @frame.DataFrame raise @types.DataError
 
-pub fn read_csv_with_options(String, @io.CsvReadOptions, strict_quotes? : Bool) -> @frame.DataFrame raise @types.DataError
+pub fn read_csv_with_options(String, @io.CsvReadOptions) -> @frame.DataFrame raise @types.DataError
 
 pub fn read_json(String) -> @frame.DataFrame raise @types.DataError
 
@@ -73,7 +73,7 @@ pub fn read_json_with_options(String, @io.JsonReadOptions) -> @frame.DataFrame r
 
 pub fn read_ndjson(String) -> @frame.DataFrame raise @types.DataError
 
-pub fn read_ndjson_with_options(String, @io.NdjsonReadOptions) -> @frame.DataFrame raise @types.DataError
+pub fn read_ndjson_with_options(String, @io.JsonReadOptions) -> @frame.DataFrame raise @types.DataError
 
 pub fn scan_csv(String) -> @lazy.LazyFrame
 
@@ -81,13 +81,13 @@ pub fn scan_csv_with_options(String, @io.CsvReadOptions) -> @lazy.LazyFrame
 
 pub fn scan_ndjson(String) -> @lazy.LazyFrame
 
-pub fn scan_ndjson_with_options(String, @io.NdjsonReadOptions) -> @lazy.LazyFrame
+pub fn scan_ndjson_with_options(String, @io.JsonReadOptions) -> @lazy.LazyFrame
 
 pub fn when(@expr.Expr) -> @expr.WhenThen
 
 pub fn write_csv(String, @frame.DataFrame) -> Unit raise @types.DataError
 
-pub fn write_csv_with_options(String, @frame.DataFrame, @io.CsvWriteOptions, sanitize_formulas? : Bool) -> Unit raise @types.DataError
+pub fn write_csv_with_options(String, @frame.DataFrame, @io.CsvWriteOptions) -> Unit raise @types.DataError
 
 pub fn write_json_records(String, @frame.DataFrame) -> Unit raise @types.DataError
 
@@ -135,8 +135,6 @@ pub using @frame {type KeepStrategy}
 pub using @lazy {type LazyFrame}
 
 pub using @lazy {type LazyGroupBy}
-
-pub using @io {type NdjsonReadOptions}
 
 pub using @frame {type NullOrder}
 

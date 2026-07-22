@@ -17,7 +17,7 @@ pub fn scan_csv_with_options(String, @io.CsvReadOptions) -> LazyFrame
 
 pub fn scan_ndjson(String) -> LazyFrame
 
-pub fn scan_ndjson_with_options(String, @io.NdjsonReadOptions) -> LazyFrame
+pub fn scan_ndjson_with_options(String, @io.JsonReadOptions) -> LazyFrame
 
 // Errors
 

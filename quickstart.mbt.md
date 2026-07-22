@@ -412,7 +412,7 @@ test "quickstart: csv round-trip" {
     Series::from_strings("region", ["west", "east"]),
     Series::from_ints("quantity", [10, 5]),
   ])
-  let csv = format_csv(df, CsvWriteOptions::default())
+  let csv = format_csv(df, CsvWriteOptions())
   inspect(
     csv,
     content=(
@@ -422,7 +422,7 @@ test "quickstart: csv round-trip" {
       #|
     ),
   )
-  let parsed = parse_csv_str(csv, CsvReadOptions::default())
+  let parsed = parse_csv_str(csv, CsvReadOptions())
   inspect(
     parsed.to_markdown(),
     content=(
@@ -436,7 +436,7 @@ test "quickstart: csv round-trip" {
 }
 ```
 
-For untrusted CSV input, pass `strict_quotes=true` to reject malformed quoting
+For untrusted CSV input, set `CsvReadOptions(strict_quotes=true)` to reject malformed quoting
 before tokenisation. It rejects unclosed quoted fields, text after a closing
 quote, and quotes embedded in an unquoted field; doubled quotes and quoted
 newlines remain valid. The default is `false` for compatibility with NyaCSV's
@@ -447,15 +447,14 @@ permissive parser.
 test "quickstart: strict csv quotes" {
   let parsed = parse_csv_str(
     "text\n\"say \"\"hi\"\"\"\n",
-    CsvReadOptions::default(),
-    strict_quotes=true,
+    CsvReadOptions(strict_quotes=true),
   )
   assert_eq(parsed.item(0, "text"), Scalar::String("say \"hi\""))
 }
 ```
 
 When a CSV will be opened in a spreadsheet, opt into formula neutralisation
-with `sanitize_formulas=true`. Formula-like String cells gain a leading
+with `CsvWriteOptions(sanitize_formulas=true)`. Formula-like String cells gain a leading
 apostrophe; numeric and boolean cells are unchanged. The transformation is
 intentionally lossy, so the default remains `false` and preserves exact output.
 
@@ -465,7 +464,7 @@ test "quickstart: spreadsheet-safe csv" {
   let df = DataFrame::new([
     Series::from_strings("user_input", ["=1+1", "ordinary"]),
   ])
-  let csv = format_csv(df, CsvWriteOptions::default(), sanitize_formulas=true)
+  let csv = format_csv(df, CsvWriteOptions(sanitize_formulas=true))
   inspect(csv, content="user_input\n'=1+1\nordinary\n")
 }
 ```
@@ -493,7 +492,7 @@ test "quickstart: ndjson round-trip" {
       #|
     ),
   )
-  let parsed = parse_ndjson_str(ndjson, NdjsonReadOptions::default())
+  let parsed = parse_ndjson_str(ndjson, JsonReadOptions())
   inspect(
     parsed.to_markdown(),
     content=(

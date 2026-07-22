@@ -13,17 +13,30 @@
 /// - `null_value` — the literal string written in place of a null
 ///   cell. The default empty string round-trips with the reader's
 ///   default `null_values`.
-pub(all) struct CsvWriteOptions {
+/// - `sanitize_formulas` — when `true`, a `String` cell beginning with
+///   `=`, `+`, `-`, `@`, a tab, or a carriage return is prefixed with a
+///   single quote so a spreadsheet reads it as text. Deliberately lossy:
+///   such a cell reads back with the leading quote. Defaults to `false`.
+pub struct CsvWriteOptions {
   header : Bool
   delimiter : Char
   null_value : String
+  sanitize_formulas : Bool
 }
 
 ///|
-/// Default write options: header on, comma delimiter, null cells
-/// emitted as the empty string.
-pub fn CsvWriteOptions::default() -> CsvWriteOptions {
-  { header: true, delimiter: ',', null_value: "" }
+/// Build write options. Every field has a default: header on, comma
+/// delimiter, null cells emitted as the empty string, and no formula
+/// sanitisation. `CsvWriteOptions()` is the all-defaults writer; name only
+/// what differs, as in `CsvWriteOptions(delimiter=';')`.
+#as_free_fn
+pub fn CsvWriteOptions::CsvWriteOptions(
+  header? : Bool = true,
+  delimiter? : Char = ',',
+  null_value? : String = "",
+  sanitize_formulas? : Bool = false,
+) -> CsvWriteOptions {
+  { header, delimiter, null_value, sanitize_formulas }
 }
 
 ///|
@@ -74,7 +87,6 @@ pub fn CsvWriteOptions::default() -> CsvWriteOptions {
 pub fn format_csv(
   df : @frame.DataFrame,
   options : CsvWriteOptions,
-  sanitize_formulas? : Bool = false,
 ) -> String raise @types.DataError {
   validate_csv_delimiter(options.delimiter)
   let buf = StringBuilder::new()
@@ -115,7 +127,7 @@ pub fn format_csv(
       let rendered = render_csv_scalar(
         scalar,
         options.null_value,
-        sanitize_formulas,
+        options.sanitize_formulas,
       )
       write_quoted(
         buf,
@@ -137,7 +149,7 @@ pub fn write_csv(
   path : String,
   df : @frame.DataFrame,
 ) -> Unit raise @types.DataError {
-  write_csv_with_options(path, df, CsvWriteOptions::default())
+  write_csv_with_options(path, df, CsvWriteOptions())
 }
 
 ///|
@@ -146,15 +158,14 @@ pub fn write_csv(
 /// cell (or column name) holding an unpaired UTF-16 surrogate is refused
 /// with `raise InvalidOperation` — the UTF-8 file encoding would swallow
 /// the following delimiter and silently shift every later cell boundary.
-/// Set `sanitize_formulas=true` to apply the same spreadsheet-safety
-/// transformation documented by `format_csv` before writing.
+/// `CsvWriteOptions(sanitize_formulas=true)` applies the same
+/// spreadsheet-safety transformation documented by `format_csv` before writing.
 pub fn write_csv_with_options(
   path : String,
   df : @frame.DataFrame,
   options : CsvWriteOptions,
-  sanitize_formulas? : Bool = false,
 ) -> Unit raise @types.DataError {
-  let content = format_csv(df, options, sanitize_formulas~)
+  let content = format_csv(df, options)
   write_text(path, content)
 }
 

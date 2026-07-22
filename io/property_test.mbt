@@ -19,9 +19,9 @@ fn gen_i64_array(max_len : Int) -> @gen.Gen[Array[Int64]] {
 fn prop_csv_roundtrip(xs : Array[Int64]) -> Bool {
   try {
     let df = @frame.DataFrame::new([@series.Series::from_ints("x", xs)])
-    let text = @io.format_csv(df, @io.CsvWriteOptions::default())
-    let back = @io.parse_csv_str(text, @io.CsvReadOptions::default())
-    @io.format_csv(back, @io.CsvWriteOptions::default()) == text
+    let text = @io.format_csv(df, @io.CsvWriteOptions())
+    let back = @io.parse_csv_str(text, @io.CsvReadOptions())
+    @io.format_csv(back, @io.CsvWriteOptions()) == text
   } catch {
     _ => false
   }
@@ -32,7 +32,7 @@ fn prop_json_roundtrip(xs : Array[Int64]) -> Bool {
   try {
     let df = @frame.DataFrame::new([@series.Series::from_ints("x", xs)])
     let text = @io.format_json_records(df)
-    let back = @io.parse_json_records_str(text, @io.JsonReadOptions::default())
+    let back = @io.parse_json_records_str(text, @io.JsonReadOptions())
     @io.format_json_records(back) == text
   } catch {
     _ => false
@@ -44,7 +44,7 @@ fn prop_ndjson_roundtrip(xs : Array[Int64]) -> Bool {
   try {
     let df = @frame.DataFrame::new([@series.Series::from_ints("x", xs)])
     let text = @io.format_ndjson(df)
-    let back = @io.parse_ndjson_str(text, @io.NdjsonReadOptions::default())
+    let back = @io.parse_ndjson_str(text, @io.JsonReadOptions())
     @io.format_ndjson(back) == text
   } catch {
     _ => false

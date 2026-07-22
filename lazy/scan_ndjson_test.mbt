@@ -72,10 +72,7 @@ test "scan_ndjson with projection push-down collects equal to the eager read the
 test "scan_ndjson_with_options honours the read options at collect time" {
   let path = "_build/lazy_scan_ndjson_options.ndjson"
   write_ndjson_fixture(path)
-  let opts : @io.NdjsonReadOptions = {
-    infer_schema_rows: 1,
-    on_parse_error: @io.OnParseError::Raise,
-  }
+  let opts : @io.JsonReadOptions = @io.JsonReadOptions(infer_schema_rows=1)
   assert_eq(
     scan_ndjson_with_options(path, opts).select([@expr.col("region")]).collect(),
     @io.read_ndjson_with_options(path, opts).select([@expr.col("region")]),
@@ -88,10 +85,7 @@ test "projection push-down does not parse — or fail on — a dropped NDJSON co
   // `b` infers Int from the first record, then turns into a string — a column
   // a typed frame cannot model, so it is written as raw NDJSON text.
   write_raw(path, "{\"a\": 1, \"b\": 10}\n{\"a\": 2, \"b\": \"oops\"}\n")
-  let opts : @io.NdjsonReadOptions = {
-    infer_schema_rows: 1,
-    on_parse_error: @io.OnParseError::Raise,
-  }
+  let opts : @io.JsonReadOptions = @io.JsonReadOptions(infer_schema_rows=1)
   // The full eager read builds `b` and fails on the non-Int cell.
   assert_eq(
     Ok(@io.read_ndjson_with_options(path, opts)) catch {

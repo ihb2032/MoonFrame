@@ -64,17 +64,25 @@
 ///   `Raise` (default) fails with `ParseError(Cell(...))`; `Null`
 ///   downgrades the offending cell to a null and continues (Polars'
 ///   `ignore_errors=True`). See `OnParseError`.
-pub(all) struct JsonReadOptions {
+///
+/// The NDJSON reader shares this type: the two formats differ in framing,
+/// not in what there is to configure.
+pub struct JsonReadOptions {
   infer_schema_rows : Int
   on_parse_error : OnParseError
 }
 
 ///|
-/// Default read options: scan the first 100 records for inference and
-/// fail the read on a cell that doesn't fit its inferred dtype
-/// (`on_parse_error = Raise`).
-pub fn JsonReadOptions::default() -> JsonReadOptions {
-  { infer_schema_rows: DEFAULT_INFER_SCHEMA_ROWS, on_parse_error: Raise }
+/// Build read options. Both fields have defaults: scan the first 100 records
+/// for inference and fail the read on a cell that doesn't fit its inferred
+/// dtype. `JsonReadOptions()` is the all-defaults reader; name only what
+/// differs, as in `JsonReadOptions(on_parse_error=Null)`.
+#as_free_fn
+pub fn JsonReadOptions::JsonReadOptions(
+  infer_schema_rows? : Int = DEFAULT_INFER_SCHEMA_ROWS,
+  on_parse_error? : OnParseError = Raise,
+) -> JsonReadOptions {
+  { infer_schema_rows, on_parse_error }
 }
 
 ///|
@@ -244,7 +252,7 @@ fn frame_from_json_records(
 ///|
 /// Read a JSON records file using the default options.
 pub fn read_json(path : String) -> @frame.DataFrame raise @types.DataError {
-  read_json_with_options(path, JsonReadOptions::default())
+  read_json_with_options(path, JsonReadOptions())
 }
 
 ///|

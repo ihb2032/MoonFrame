@@ -94,7 +94,7 @@ test "aggregate prunes columns no key or aggregation reads" {
 test "sort keys stay alive through the pushdown" {
   let df = sales_df()
   let keys = [
-    (@expr.col("bonus"), @frame.SortOrder::Asc, @frame.NullOrder::NullsLast),
+    (@expr.col("bonus"), @types.SortOrder::Asc, @types.NullOrder::NullsLast),
   ]
   let projection = [@expr.col("region")]
   assert_eq(
@@ -310,7 +310,7 @@ test "filter: the requirement passes through, widened by the predicate's columns
 test "sort: the requirement passes through, widened by the sort keys" {
   let plan = lazy_frame(sales_df())
     .sort([
-      (@expr.col("bonus"), @frame.SortOrder::Asc, @frame.NullOrder::NullsLast),
+      (@expr.col("bonus"), @types.SortOrder::Asc, @types.NullOrder::NullsLast),
     ])
     .select([@expr.col("qty")])
   assert_eq(
@@ -1245,7 +1245,7 @@ test "row windows stop the descent" {
 test "sort stops the descent" {
   let df = sales_df()
   let keys = [
-    (@expr.col("qty"), @frame.SortOrder::Asc, @frame.NullOrder::NullsLast),
+    (@expr.col("qty"), @types.SortOrder::Asc, @types.NullOrder::NullsLast),
   ]
   let predicate = @expr.col("qty").gt(@expr.lit_int(100))
   let plan = lazy_frame(df).sort(keys).filter(predicate)

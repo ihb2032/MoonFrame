@@ -118,7 +118,7 @@ pub using @lazy {type LazyFrame}
 
 pub using @lazy {type LazyGroupBy}
 
-pub using @frame {type NullOrder}
+pub using @types {type NullOrder}
 
 pub using @io {type OnParseError}
 
@@ -130,7 +130,7 @@ pub using @types {type Schema}
 
 pub using @series {type Series}
 
-pub using @frame {type SortOrder}
+pub using @types {type SortOrder}
 
 pub using @types {type TypeMismatchDetail}
 

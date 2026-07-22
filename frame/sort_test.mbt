@@ -323,7 +323,9 @@ test "sort multi-key: primary asc + secondary desc" {
 ///|
 test "sort multi-key: empty key set is an identity sort" {
   let df = sort_df()
-  let out = df.sort(([] : Array[(@expr.Expr, SortOrder, NullOrder)]))
+  let out = df.sort(
+    ([] : Array[(@expr.Expr, @types.SortOrder, @types.NullOrder)]),
+  )
   assert_eq(out.check_invariants(), Ok(()))
   // Stability turns "no keys, every comparison ties" into the
   // identity permutation.
@@ -349,7 +351,9 @@ test "sort on an all-equal column is the identity (stability)" {
 ///|
 test "sort on a 0x0 frame returns the same 0x0 frame" {
   let df = DataFrame::new([])
-  let out = df.sort(([] : Array[(@expr.Expr, SortOrder, NullOrder)]))
+  let out = df.sort(
+    ([] : Array[(@expr.Expr, @types.SortOrder, @types.NullOrder)]),
+  )
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.shape(), (0, 0))
 }

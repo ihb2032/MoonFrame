@@ -64,7 +64,7 @@ pub fn DataFrame::schema(Self) -> @types.Schema
 pub fn DataFrame::select(Self, Array[@expr.Expr]) -> Self raise @types.DataError
 pub fn DataFrame::shape(Self) -> (Int, Int)
 pub fn DataFrame::slice(Self, Int, Int) -> Self raise @types.DataError
-pub fn DataFrame::sort(Self, Array[(@expr.Expr, SortOrder, NullOrder)]) -> Self raise @types.DataError
+pub fn DataFrame::sort(Self, Array[(@expr.Expr, @types.SortOrder, @types.NullOrder)]) -> Self raise @types.DataError
 pub fn DataFrame::sum(Self) -> Self raise @types.DataError
 pub fn DataFrame::tail(Self, Int) -> Self
 pub fn DataFrame::to_html(Self, options? : HtmlOptions) -> String
@@ -127,22 +127,6 @@ pub(all) enum KeepStrategy {
 pub fn KeepStrategy::equal(Self, Self) -> Bool
 pub fn KeepStrategy::not_equal(Self, Self) -> Bool
 pub fn KeepStrategy::to_repr(Self) -> @debug.Repr
-
-pub(all) enum NullOrder {
-  NullsFirst
-  NullsLast
-} derive(Eq, @debug.Debug)
-pub fn NullOrder::equal(Self, Self) -> Bool
-pub fn NullOrder::not_equal(Self, Self) -> Bool
-pub fn NullOrder::to_repr(Self) -> @debug.Repr
-
-pub(all) enum SortOrder {
-  Asc
-  Desc
-} derive(Eq, @debug.Debug)
-pub fn SortOrder::equal(Self, Self) -> Bool
-pub fn SortOrder::not_equal(Self, Self) -> Bool
-pub fn SortOrder::to_repr(Self) -> @debug.Repr
 
 // Type aliases
 

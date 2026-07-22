@@ -149,7 +149,7 @@ fn exprs_label(exprs : Array[@expr.Expr]) -> String {
 /// key rendered through `@expr.Expr`'s `Show` (the documented operator
 /// form, like the `SELECT` / `WITH_COLUMNS` expression lists).
 fn sort_label(
-  by : Array[(@expr.Expr, @frame.SortOrder, @frame.NullOrder)],
+  by : Array[(@expr.Expr, @types.SortOrder, @types.NullOrder)],
 ) -> String {
   list_label(
     by.map(key => {
@@ -187,19 +187,19 @@ fn join_label(options : @frame.JoinOptions) -> String {
 
 ///|
 /// Display name of a sort direction.
-fn order_label(order : @frame.SortOrder) -> String {
+fn order_label(order : @types.SortOrder) -> String {
   match order {
-    @frame.SortOrder::Asc => "Asc"
-    @frame.SortOrder::Desc => "Desc"
+    @types.SortOrder::Asc => "Asc"
+    @types.SortOrder::Desc => "Desc"
   }
 }
 
 ///|
 /// Display name of a null placement.
-fn nulls_label(nulls : @frame.NullOrder) -> String {
+fn nulls_label(nulls : @types.NullOrder) -> String {
   match nulls {
-    @frame.NullOrder::NullsFirst => "NullsFirst"
-    @frame.NullOrder::NullsLast => "NullsLast"
+    @types.NullOrder::NullsFirst => "NullsFirst"
+    @types.NullOrder::NullsLast => "NullsLast"
   }
 }
 

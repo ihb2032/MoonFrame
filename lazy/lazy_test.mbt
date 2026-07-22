@@ -67,8 +67,8 @@ test "each deferred verb collects to its eager equivalent" {
   ]
   assert_eq(lazy_frame(df).select(projection).collect(), df.select(projection))
   let keys = [
-    (@expr.col("bonus"), @frame.SortOrder::Asc, @frame.NullOrder::NullsLast),
-    (@expr.col("qty"), @frame.SortOrder::Desc, @frame.NullOrder::NullsFirst),
+    (@expr.col("bonus"), @types.SortOrder::Asc, @types.NullOrder::NullsLast),
+    (@expr.col("qty"), @types.SortOrder::Desc, @types.NullOrder::NullsFirst),
   ]
   assert_eq(lazy_frame(df).sort(keys).collect(), df.sort(keys))
   assert_eq(lazy_frame(df).head(2).collect(), df.head(2))
@@ -280,14 +280,14 @@ test "builders copy their array arguments — later mutation is unobservable" {
     df.with_columns([(@expr.col("qty") * @expr.lit_int(2)).with_alias("dbl")]),
   )
   let keys = [
-    (@expr.col("qty"), @frame.SortOrder::Desc, @frame.NullOrder::NullsLast),
+    (@expr.col("qty"), @types.SortOrder::Desc, @types.NullOrder::NullsLast),
   ]
   let planned_sort = lazy_frame(df).sort(keys)
   keys.clear()
   assert_eq(
     planned_sort.collect(),
     df.sort([
-      (@expr.col("qty"), @frame.SortOrder::Desc, @frame.NullOrder::NullsLast),
+      (@expr.col("qty"), @types.SortOrder::Desc, @types.NullOrder::NullsLast),
     ]),
   )
   let dropped = [@expr.col("bonus")]
@@ -552,7 +552,7 @@ test "a composite pipeline collects bitwise-equal to the eager chain" {
   let predicate = @expr.col("qty").gt(@expr.lit_int(10))
   let derived = [(@expr.col("qty") - @expr.col("bonus")).with_alias("net")]
   let keys = [
-    (@expr.col("net"), @frame.SortOrder::Desc, @frame.NullOrder::NullsLast),
+    (@expr.col("net"), @types.SortOrder::Desc, @types.NullOrder::NullsLast),
   ]
   let projection = [@expr.col("region"), @expr.col("net")]
   let lazy_out = lazy_frame(df)
@@ -683,7 +683,7 @@ test "collect surfaces the eager operators' errors unchanged" {
     },
   )
   let bad_keys = [
-    (@expr.col("zzz"), @frame.SortOrder::Asc, @frame.NullOrder::NullsFirst),
+    (@expr.col("zzz"), @types.SortOrder::Asc, @types.NullOrder::NullsFirst),
   ]
   assert_eq(
     Ok(lazy_frame(df).sort(bad_keys).collect()) catch {
@@ -750,7 +750,7 @@ test "a group-by pipeline composes with the other deferred verbs" {
   let derived = [(@expr.col("qty") * @expr.lit_int(2)).with_alias("dbl")]
   let aggs = [@expr.col("dbl").sum().with_alias("total")]
   let keys = [
-    (@expr.col("total"), @frame.SortOrder::Desc, @frame.NullOrder::NullsLast),
+    (@expr.col("total"), @types.SortOrder::Desc, @types.NullOrder::NullsLast),
   ]
   let lazy_out = lazy_frame(df)
     .filter(predicate)

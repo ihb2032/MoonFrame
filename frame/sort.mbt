@@ -1,35 +1,3 @@
-///|
-/// Direction of a sort key. `Asc` sorts smaller values first, `Desc`
-/// sorts larger values first. The convention applies to every dtype:
-/// `Int` / `Float` use numeric ordering, `Bool` uses `false < true`,
-/// `String` uses lexicographic comparison.
-pub(all) enum SortOrder {
-  Asc
-  Desc
-} derive(Eq, Debug)
-
-///|
-pub extend SortOrder with Eq::{equal, not_equal}
-
-///|
-pub extend SortOrder with Debug::{to_repr}
-
-///|
-/// Where missing cells go relative to non-missing ones. Missing means
-/// either a `Null` slot (validity bit 0) or — for `Float` columns —
-/// `NaN`. The plan specifies that NaN is treated identically to Null
-/// for ordering, so callers don't need a separate knob.
-pub(all) enum NullOrder {
-  NullsFirst
-  NullsLast
-} derive(Eq, Debug)
-
-///|
-pub extend NullOrder with Eq::{equal, not_equal}
-
-///|
-pub extend NullOrder with Debug::{to_repr}
-
 // ── Operations ────────────────────────────────────────────────────────
 
 ///|
@@ -80,7 +48,7 @@ pub extend NullOrder with Debug::{to_repr}
 /// returns 0 ⇒ stability preserves the input order.
 pub fn DataFrame::sort(
   self : DataFrame,
-  keys : Array[(@expr.Expr, SortOrder, NullOrder)],
+  keys : Array[(@expr.Expr, @types.SortOrder, @types.NullOrder)],
 ) -> DataFrame raise @types.DataError {
   // No keys ⇒ every comparison returns 0 ⇒ a stable sort is the identity.
   // Return `self` rather than building an identity permutation and gathering
@@ -99,298 +67,26 @@ pub fn DataFrame::sort(
   let sort_keys = keys.map(key => {
     let (expr, order, null_order) = key
     let column = broadcast_series(eval_expr(expr, self, scope), n)
-    build_sort_key(column.storage(), order, null_order)
+    @series.build_sort_key(column.storage(), order, null_order)
   })
   // Stable mergesort produces the permutation; `take` applies it to the
   // original frame. Every index in the permutation is in `[0, nrows)` by
   // construction, so `take` cannot fail.
-  let perm = stable_mergesort_indices(n, (i, j) => compare_rows(sort_keys, i, j))
+  let perm = @series.stable_mergesort_indices(n, (i, j) => {
+    compare_rows(sort_keys, i, j)
+  })
   self.gather(perm)
-}
-
-///|
-/// Resolve a column's `ColumnStorage` into a typed `SortKey`, matching on
-/// the concrete backing array via `storage.data()` — `ColumnData`'s four
-/// variants are exhaustive, so there's no fallback branch to `unwrap`.
-/// Missingness (`Null`, plus `NaN` for `Float`) is pre-computed into a
-/// dense `Array[Bool]` here, once per key, so the comparator reads it by
-/// plain index instead of repeating a bitmap lookup on every comparison.
-/// Reads only `validity()` / `data()`, both of which `ColumnStorage`
-/// forwards, so the v0.3 `Series::storage()` flip needed no logic change
-/// here — only this parameter's type.
-fn build_sort_key(
-  storage : @column.ColumnStorage,
-  order : SortOrder,
-  null_order : NullOrder,
-) -> SortKey {
-  // `validity_bools` is total over both backends: a `Numeric` column carries
-  // only `Int` / `Float` and is all-valid (mask all-`true`), while `Bool` /
-  // `String` are always `Builtin` — so for a `Numeric` `Float` the only
-  // "missing" source is the `is_nan` test in the `Float` arm below.
-  let valid = validity_bools(storage)
-  match storage.data() {
-    @column.ColumnData::Int(a) =>
-      SortKey::Int(
-        a,
-        Array::makei(a.length(), i => !valid[i]),
-        order,
-        null_order,
-      )
-    @column.ColumnData::Float(a) =>
-      // NaN behaves like Null for ordering (see `sort`).
-      SortKey::Float(
-        a,
-        Array::makei(a.length(), i => !valid[i] || a[i].is_nan()),
-        order,
-        null_order,
-      )
-    @column.ColumnData::Bool(a) =>
-      SortKey::Bool(
-        a,
-        Array::makei(a.length(), i => !valid[i]),
-        order,
-        null_order,
-      )
-    @column.ColumnData::String(a) =>
-      SortKey::String(
-        a,
-        Array::makei(a.length(), i => !valid[i]),
-        order,
-        null_order,
-      )
-  }
-}
-
-// ── Internal: comparator + stable mergesort ───────────────────────────
-
-///|
-/// Package-private resolved form of a sort key: the raw data buffer, a
-/// dense per-row `missing` mask (`Null`, or `NaN` for `Float`), and the
-/// per-key direction / null placement. Pre-resolving missingness lets
-/// the comparator stay branch-free per element type (no `Scalar` boxing,
-/// no per-comparison bitmap lookup).
-priv enum SortKey {
-  Int(Array[Int64], Array[Bool], SortOrder, NullOrder)
-  Float(Array[Double], Array[Bool], SortOrder, NullOrder)
-  Bool(Array[Bool], Array[Bool], SortOrder, NullOrder)
-  String(Array[String], Array[Bool], SortOrder, NullOrder)
 }
 
 ///|
 /// Lexicographic comparison across the resolved keys: first key that
 /// disagrees decides. Returns -1 / 0 / 1 in the usual sense.
-fn compare_rows(keys : Array[SortKey], i : Int, j : Int) -> Int {
+fn compare_rows(keys : Array[@series.SortKey], i : Int, j : Int) -> Int {
   for k in 0..<keys.length() {
-    let c = compare_one_key(keys[k], i, j)
+    let c = @series.compare_one_key(keys[k], i, j)
     if c != 0 {
       return c
     }
   }
   0
-}
-
-///|
-/// Single-key comparison. The validity bitmap (and, for `Float`, the
-/// NaN check) decides "missing"; missingness combines with
-/// `null_order` to place missing cells, and only non-missing pairs
-/// reach the value comparison + `order` flip.
-fn compare_one_key(key : SortKey, i : Int, j : Int) -> Int {
-  match key {
-    Int(data, missing, order, null_order) => {
-      // `missing` was materialised over `[0, n)`; `i`, `j` come from the
-      // `[0, n)` permutation, so the index is in-bounds (like `data[i]`).
-      let mi = missing[i]
-      let mj = missing[j]
-      compare_with_missing(mi, mj, null_order, order, fn() {
-        let a = data[i]
-        let b = data[j]
-        if a < b {
-          -1
-        } else if a > b {
-          1
-        } else {
-          0
-        }
-      })
-    }
-    Float(data, missing, order, null_order) => {
-      // NaN was already folded into `missing` at build time, so the value
-      // comparison below only runs on two non-NaN, non-null cells.
-      let mi = missing[i]
-      let mj = missing[j]
-      compare_with_missing(mi, mj, null_order, order, fn() {
-        let a = data[i]
-        let b = data[j]
-        if a < b {
-          -1
-        } else if a > b {
-          1
-        } else {
-          0
-        }
-      })
-    }
-    Bool(data, missing, order, null_order) => {
-      let mi = missing[i]
-      let mj = missing[j]
-      compare_with_missing(mi, mj, null_order, order, fn() {
-        let a = data[i]
-        let b = data[j]
-        // `false < true`, matching `Scalar::lt` on Bool.
-        if !a && b {
-          -1
-        } else if a && !b {
-          1
-        } else {
-          0
-        }
-      })
-    }
-    String(data, missing, order, null_order) => {
-      let mi = missing[i]
-      let mj = missing[j]
-      compare_with_missing(mi, mj, null_order, order, fn() {
-        @text.compare_string_lex(data[i], data[j])
-      })
-    }
-  }
-}
-
-///|
-/// Combine missingness (post-NaN classification), null placement, and
-/// sort direction into a single -1 / 0 / 1 comparison result. `cmp_valid`
-/// is only invoked when both sides are non-missing.
-fn compare_with_missing(
-  mi : Bool,
-  mj : Bool,
-  null_order : NullOrder,
-  order : SortOrder,
-  cmp_valid : () -> Int,
-) -> Int {
-  match (mi, mj) {
-    (true, true) => 0
-    (true, false) => missing_offset(null_order)
-    (false, true) => -missing_offset(null_order)
-    (false, false) => {
-      let raw = cmp_valid()
-      match order {
-        Asc => raw
-        Desc => -raw
-      }
-    }
-  }
-}
-
-///|
-/// `-1` when missing sorts before non-missing (`NullsFirst`), `1` when
-/// missing sorts after non-missing (`NullsLast`). The sign is applied
-/// from the left-hand side's perspective in `compare_with_missing`.
-fn missing_offset(null_order : NullOrder) -> Int {
-  match null_order {
-    NullsFirst => -1
-    NullsLast => 1
-  }
-}
-
-///|
-/// The next bottom-up merge width, or `None` once the current run already
-/// covers at least half of `n`. The guards make this total for every `Int`:
-/// subtraction only happens after `0 < width < n`, and doubling only happens
-/// when `width < n - width`, which proves `2 * width < n <= Int::MAX`.
-/// Keeping this arithmetic separate lets tests exercise the `2^30` boundary
-/// without allocating multi-gigabyte sort buffers.
-fn next_merge_width(width : Int, n : Int) -> Int? {
-  if width <= 0 || n <= 1 || width >= n {
-    return None
-  }
-  if width >= n - width {
-    None
-  } else {
-    Some(width * 2)
-  }
-}
-
-///|
-/// Iterative bottom-up stable merge sort over the index permutation
-/// `[0, 1, ..., n - 1]`. Returns the permutation that, when applied to
-/// any length-`n` array via `take`, yields the data in `cmp` order.
-///
-/// Stability comes from the `<= 0` tie-break in `merge_run`: on equal
-/// keys, the left run's element is emitted first, which preserves the
-/// original relative order (left run came before right run in the
-/// input).
-///
-/// Complexity: `O(n log n)` comparisons, `O(n)` auxiliary memory
-/// (two buffers of length `n`).
-fn stable_mergesort_indices(n : Int, cmp : (Int, Int) -> Int) -> Array[Int] {
-  let buf = Array::makei(n, i => i)
-  if n <= 1 {
-    return buf
-  }
-  let aux = Array::make(n, 0)
-  let mut width = 1
-  while width < n {
-    let mut start = 0
-    while start < n {
-      let left = start
-      // Derive the run boundaries by subtraction against the room left
-      // (`n - start`, `n - mid`) rather than `start + width` / `start + 2*width`,
-      // so the arithmetic can't overflow `Int` on a pathologically large `n`
-      // (the overflow-avoidance `bitmap.mbt` also uses). `right_end` is the
-      // second run's end, so advancing `start` to it equals the old
-      // `start + 2*width`: both land at `min(start + 2*width, n)` and end the
-      // pass once they reach `n`.
-      let mid = if width < n - start { start + width } else { n }
-      let right_end = if width < n - mid { mid + width } else { n }
-      merge_run(buf, aux, left, mid, right_end, cmp)
-      start = right_end
-    }
-    // Copy the merged pass back into `buf` so the next pass reads
-    // from a contiguous source.
-    for k in 0..<n {
-      buf[k] = aux[k]
-    }
-    match next_merge_width(width, n) {
-      Some(next) => width = next
-      None => break
-    }
-  }
-  buf
-}
-
-///|
-/// Merge `src[left..mid)` and `src[mid..right_end)` into
-/// `dst[left..right_end)`. Stable: on `cmp(left, right) <= 0`, the
-/// left element wins the slot.
-fn merge_run(
-  src : Array[Int],
-  dst : Array[Int],
-  left : Int,
-  mid : Int,
-  right_end : Int,
-  cmp : (Int, Int) -> Int,
-) -> Unit {
-  let mut p = left
-  let mut q = mid
-  let mut k = left
-  while p < mid && q < right_end {
-    if cmp(src[p], src[q]) <= 0 {
-      dst[k] = src[p]
-      p = p + 1
-    } else {
-      dst[k] = src[q]
-      q = q + 1
-    }
-    k = k + 1
-  }
-  while p < mid {
-    dst[k] = src[p]
-    p = p + 1
-    k = k + 1
-  }
-  while q < right_end {
-    dst[k] = src[q]
-    q = q + 1
-    k = k + 1
-  }
 }

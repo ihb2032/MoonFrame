@@ -69,7 +69,7 @@ pub fn Expr::children(self : Expr) -> Array[Expr] {
     // The `IsIn` set is literal data, not sub-expressions — only the operand is
     // a child. `IsBetween` lists its operand and both bounds.
     IsIn(e, _) => [e]
-    IsBetween(x, lo, hi) => [x, lo, hi]
+    IsBetween(x, lo, hi, _) => [x, lo, hi]
     Map(_, inputs, _) => inputs.copy()
     MapBatches(_, inputs, _, _) => inputs.copy()
   }
@@ -255,7 +255,8 @@ fn push_write_tasks(stack : Array[WriteTask], expr : Expr) -> Unit {
         Floor => [Node(e), Frag(".floor()")]
         Ceil => [Node(e), Frag(".ceil()")]
         Sign => [Node(e), Frag(".sign()")]
-        Round => [Node(e), Frag(".round()")]
+        Round(0) => [Node(e), Frag(".round()")]
+        Round(d) => [Node(e), Frag(".round(decimals=\{d})")]
       }
     Agg(op, e) => [Node(e), Frag(agg_suffix(op))]
     Str(op, e) => [Node(e), StrSuffix(op)]
@@ -289,8 +290,24 @@ fn push_write_tasks(stack : Array[WriteTask], expr : Expr) -> Unit {
       ts
     }
     // `col(a).is_between(lo, hi)` — the operand once, then both bounds.
-    IsBetween(x, lo, hi) =>
-      [Node(x), Frag(".is_between("), Node(lo), Frag(", "), Node(hi), Frag(")")]
+    // A non-default `closed` renders as the named argument that builds it.
+    IsBetween(x, lo, hi, closed) => {
+      let ts : Array[WriteTask] = [
+        Node(x),
+        Frag(".is_between("),
+        Node(lo),
+        Frag(", "),
+        Node(hi),
+      ]
+      match closed {
+        ClosedInterval::Both => ()
+        ClosedInterval::Left => ts.push(Frag(", closed=Left"))
+        ClosedInterval::Right => ts.push(Frag(", closed=Right"))
+        ClosedInterval::None => ts.push(Frag(", closed=None"))
+      }
+      ts.push(Frag(")"))
+      ts
+    }
     // The closure is opaque, so a `Map` renders by its label and inputs:
     // `map("label", [in1, in2])`. The label is quoted / escaped like a string
     // literal so it stays on one unambiguous line.

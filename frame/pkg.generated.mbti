@@ -58,6 +58,7 @@ pub fn DataFrame::nrows(Self) -> Int
 pub fn DataFrame::null_count(Self) -> Self raise @types.DataError
 pub fn DataFrame::rename(Self, Array[(String, String)]) -> Self raise @types.DataError
 pub fn DataFrame::rename_with(Self, (String) -> String) -> Self raise @types.DataError
+pub fn DataFrame::reverse(Self) -> Self
 pub fn DataFrame::row(Self, Int) -> Array[@types.Scalar] raise @types.DataError
 pub fn DataFrame::rows(Self) -> Array[Array[@types.Scalar]]
 pub fn DataFrame::schema(Self) -> @types.Schema
@@ -72,6 +73,7 @@ pub fn DataFrame::to_markdown(Self, max_rows? : Int) -> String
 pub fn DataFrame::to_repr(Self) -> @debug.Repr
 pub fn DataFrame::unique(Self, subset? : Array[@expr.Expr], keep? : KeepStrategy) -> Self raise @types.DataError
 pub fn DataFrame::with_columns(Self, Array[@expr.Expr]) -> Self raise @types.DataError
+pub fn DataFrame::with_row_index(Self, name? : String, offset? : Int64) -> Self raise @types.DataError
 
 pub struct GroupedDataFrame {
   // private fields

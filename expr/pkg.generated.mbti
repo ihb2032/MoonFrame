@@ -69,6 +69,16 @@ pub fn BinOp::equal(Self, Self) -> Bool
 pub fn BinOp::not_equal(Self, Self) -> Bool
 pub fn BinOp::to_repr(Self) -> @debug.Repr
 
+pub(all) enum ClosedInterval {
+  Both
+  Left
+  Right
+  None
+} derive(Eq, @debug.Debug)
+pub fn ClosedInterval::equal(Self, Self) -> Bool
+pub fn ClosedInterval::not_equal(Self, Self) -> Bool
+pub fn ClosedInterval::to_repr(Self) -> @debug.Repr
+
 pub enum Expr {
   Col(String)
   Lit(@types.Scalar)
@@ -83,7 +93,7 @@ pub enum Expr {
   FillNull(Expr, Expr)
   FillNan(Expr, Expr)
   IsIn(Expr, Array[@types.Scalar])
-  IsBetween(Expr, Expr, Expr)
+  IsBetween(Expr, Expr, Expr, ClosedInterval)
   Map(String, Array[Expr], (Array[@types.Scalar]) -> @types.Scalar raise @types.DataError)
   MapBatches(String, Array[Expr], Bool, (Array[@series.Series]) -> @series.Series raise @types.DataError)
 }
@@ -102,7 +112,7 @@ pub fn Expr::floor(Self) -> Self
 pub fn Expr::floor_div(Self, Self) -> Self
 pub fn Expr::ge(Self, Self) -> Self
 pub fn Expr::gt(Self, Self) -> Self
-pub fn Expr::is_between(Self, Self, Self) -> Self
+pub fn Expr::is_between(Self, Self, Self, closed? : ClosedInterval) -> Self
 pub fn Expr::is_in(Self, Array[@types.Scalar]) -> Self
 pub fn Expr::is_nan(Self) -> Self
 pub fn Expr::is_not_nan(Self) -> Self
@@ -128,7 +138,7 @@ pub fn Expr::not(Self) -> Self
 pub fn Expr::not_equal(Self, Self) -> Bool
 pub fn Expr::output(Self, &Logger) -> Unit
 pub fn Expr::pow(Self, Self) -> Self
-pub fn Expr::round(Self) -> Self
+pub fn Expr::round(Self, decimals? : Int) -> Self
 pub fn Expr::sign(Self) -> Self
 pub fn Expr::std(Self) -> Self
 pub fn Expr::str_contains(Self, String, literal? : Bool) -> Self
@@ -205,7 +215,7 @@ pub enum UnOp {
   Floor
   Ceil
   Sign
-  Round
+  Round(Int)
 } derive(Eq, @debug.Debug)
 pub fn UnOp::equal(Self, Self) -> Bool
 pub fn UnOp::not_equal(Self, Self) -> Bool

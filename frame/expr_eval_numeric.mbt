@@ -400,6 +400,38 @@ fn sign_f64(a : Double) -> Double {
 }
 
 ///|
+/// Round to `decimals` places, ties to even — the general form behind
+/// `Expr::round`. `decimals = 0` is `round_half_even` itself; otherwise the
+/// value is scaled by `10^decimals`, rounded, and unscaled, so the result
+/// carries the usual binary-floating-point caveat (`1.005` at two places is
+/// whatever the nearest `Double` says it is, exactly as in Polars).
+///
+/// Total at every input: a non-finite value passes through, and a scale that
+/// overflows to infinity (a very large `decimals`) leaves the value untouched
+/// rather than producing `NaN` — at that magnitude every `Double` is already
+/// an exact multiple of the requested place.
+fn round_places(a : Double, decimals : Int) -> Double {
+  if decimals == 0 {
+    return round_half_even(a)
+  }
+  if a - a != 0.0 {
+    return a
+  }
+  let scale = @math.pow(10.0, decimals.to_double())
+  if scale - scale != 0.0 || scale == 0.0 {
+    return a
+  }
+  let scaled = a * scale
+  // Scaling past the exactly-representable range cannot change the value's
+  // decimal expansion, so leave it alone instead of round-tripping through
+  // infinity.
+  if scaled - scaled != 0.0 {
+    return a
+  }
+  round_half_even(scaled) / scale
+}
+
+///|
 /// Round a `Double` to the nearest integer value, ties to even (banker's
 /// rounding — Polars' default). MoonBit's `Double::round` rounds ties toward
 /// +inf instead, so the even rule is spelled out here. `±inf` / `NaN` pass

@@ -194,3 +194,54 @@ test "unary numeric: Expr::explain renders the method calls" {
   inspect(@expr.col("x").sign().to_string(), content="col(x).sign()")
   inspect(@expr.col("x").round().to_string(), content="col(x).round()")
 }
+
+///|
+test "round takes a decimal-place count" {
+  let df = DataFrame::new([
+    Series::from_floats("f", [1.2345, 2.5, -1.2345, 0.125]),
+    Series::from_ints("i", [7, 8, 9, 10]),
+  ])
+  let rounded = df.select([
+    @expr.col("f").round(decimals=2).with_alias("two"),
+    @expr.col("f").round().with_alias("zero"),
+    @expr.col("i").round(decimals=3).with_alias("int"),
+  ])
+  assert_eq(rounded.item(0, "two"), @types.Scalar::Float(1.23))
+  assert_eq(rounded.item(2, "two"), @types.Scalar::Float(-1.23))
+  // Ties still go to even, at the requested place: 0.125 → 0.12.
+  assert_eq(rounded.item(3, "two"), @types.Scalar::Float(0.12))
+  // The default is unchanged: whole numbers, ties to even.
+  assert_eq(rounded.item(1, "zero"), @types.Scalar::Float(2.0))
+  // An Int column is the identity at any setting.
+  assert_eq(rounded.item(0, "int"), @types.Scalar::Int(7))
+  // A negative count clamps to 0 rather than raising.
+  assert_eq(@expr.col("f").round(decimals=-3), @expr.col("f").round())
+  // A non-default count renders as the argument that builds it.
+  inspect(@expr.col("f").round(decimals=2), content="col(f).round(decimals=2)")
+}
+
+///|
+test "round(decimals) stays total at the numeric edges" {
+  let nan = 0.0 / 0.0
+  let inf = 1.0 / 0.0
+  let df = DataFrame::new([
+    Series::from_floats("f", [nan, inf, -inf, 1.7976931348623157e308, 1.5]),
+  ])
+  // Non-finite cells pass through untouched, as with the whole-number form.
+  let out = df.select([@expr.col("f").round(decimals=2).with_alias("r")])
+  let cells = out.get_column("r").to_scalars()
+  assert_true(
+    match cells[0] {
+      @types.Scalar::Float(v) => v.is_nan()
+      _ => false
+    },
+  )
+  assert_eq(cells[1], @types.Scalar::Float(inf))
+  assert_eq(cells[2], @types.Scalar::Float(-inf))
+  // Scaling the largest finite Double by 100 overflows, so the value is left
+  // as it is rather than round-tripping through infinity.
+  assert_eq(cells[3], @types.Scalar::Float(1.7976931348623157e308))
+  // A decimal count so large that 10^decimals is infinite is likewise a no-op.
+  let huge = df.select([@expr.col("f").round(decimals=400).with_alias("r")])
+  assert_eq(huge.get_column("r").to_scalars()[4], @types.Scalar::Float(1.5))
+}

@@ -72,7 +72,7 @@ pub enum Expr {
   FillNull(Expr, Expr)
   FillNan(Expr, Expr)
   IsIn(Expr, Array[@types.Scalar])
-  IsBetween(Expr, Expr, Expr)
+  IsBetween(Expr, Expr, Expr, ClosedInterval)
   Map(
     String,
     Array[Expr],
@@ -243,9 +243,12 @@ fn exprs_structurally_equal(first : Expr, second : Expr) -> Bool {
               }
               _ => return false
             }
-          IsBetween(x1, l1, h1) =>
+          IsBetween(x1, l1, h1, c1) =>
             match b {
-              IsBetween(x2, l2, h2) => {
+              IsBetween(x2, l2, h2, c2) => {
+                if c1 != c2 {
+                  return false
+                }
                 stack.push((x1, x2))
                 stack.push((l1, l2))
                 stack.push((h1, h2))
@@ -328,6 +331,25 @@ pub extend BinOp with Debug::{to_repr}
 /// Unlike the null probes, the NaN probes *propagate* nulls — a missing cell
 /// is neither NaN nor not-NaN, so the result cell is null — and an `Int` cell
 /// is never `NaN`; a non-numeric operand is a `TypeMismatch` at evaluation.
+/// Which endpoints an `is_between` range includes — Polars' `closed`.
+/// `Both` (the default) is `lo <= x <= hi`; `Left` / `Right` open the other
+/// end; `None` excludes both (`lo < x < hi`).
+pub(all) enum ClosedInterval {
+  Both
+  Left
+  Right
+  None
+} derive(Eq, Debug)
+
+///|
+pub extend ClosedInterval with Eq::{equal, not_equal}
+
+///|
+pub extend ClosedInterval with Debug::{to_repr}
+
+///|
+/// The unary operators an `Expr` tree can carry. Internal to the engine — no
+/// public API names the type; `Round` carries its decimal-place count.
 pub enum UnOp {
   Neg
   Not
@@ -339,7 +361,7 @@ pub enum UnOp {
   Floor
   Ceil
   Sign
-  Round
+  Round(Int)
 } derive(Eq, Debug)
 
 ///|

@@ -222,11 +222,14 @@ pub fn Expr::sign(self : Expr) -> Expr {
 /// rounding: `2.5` and `3.5` both round to `2` and `4`, `0.5 → 0`), matching
 /// Polars' default. `Float → Float`; `Int → Int` unchanged (an integer is its
 /// own rounding). `±inf` / `NaN` pass through and `±0.0` keeps its sign. A null
-/// stays null; a non-numeric operand raises `TypeMismatch`. (Rounding to a
-/// number of decimal places, and the other rounding modes, are deferred
-/// additive refinements — this is the whole-number, ties-to-even form.)
-pub fn Expr::round(self : Expr) -> Expr {
-  Unary(UnOp::Round, self)
+/// stays null; a non-numeric operand raises `TypeMismatch`. `decimals` (default
+/// `0`) rounds to that many decimal places — `decimals=2` sends `1.005` to
+/// `1.0` or `1.01` as binary floating point dictates, the same caveat Polars
+/// carries. A negative `decimals` clamps to `0`, and an `Int` column is the
+/// identity at any setting. (The other rounding modes remain a deferred
+/// additive refinement; this is the ties-to-even form.)
+pub fn Expr::round(self : Expr, decimals? : Int = 0) -> Expr {
+  Unary(UnOp::Round(if decimals < 0 { 0 } else { decimals }), self)
 }
 
 ///|
@@ -283,14 +286,21 @@ pub fn Expr::is_in(self : Expr, members : Array[@types.Scalar]) -> Expr {
 }
 
 ///|
-/// `a.is_between(lo, hi)` — a `Bool` column, `true` where `lo <= a <= hi`
-/// (both endpoints closed). Equivalent to `a.ge(lo).land(a.le(hi))` — it
-/// inherits their exact `Int`/`Float` ordering, `String` / `Bool` ordering,
-/// Kleene null propagation, and `TypeMismatch` on an unorderable pair — but as
-/// a dedicated node the operand `a` is evaluated once. (A `closed` endpoint
-/// option is a deferred additive refinement; this is the both-closed form.)
-pub fn Expr::is_between(self : Expr, lo : Expr, hi : Expr) -> Expr {
-  IsBetween(self, lo, hi)
+/// `a.is_between(lo, hi)` — a `Bool` column, `true` where `a` falls in the
+/// range. `closed` picks which endpoints count (Polars' `closed`): `Both` (the
+/// default) is `lo <= a <= hi`, `Left` / `Right` open the other end, and `None`
+/// excludes both. Equivalent to the matching `ge` / `gt` and `le` / `lt` pair
+/// joined by `land` — it inherits their exact `Int`/`Float` ordering, `String`
+/// / `Bool` ordering, Kleene null propagation, and `TypeMismatch` on an
+/// unorderable pair — but as a dedicated node the operand `a` is evaluated
+/// once.
+pub fn Expr::is_between(
+  self : Expr,
+  lo : Expr,
+  hi : Expr,
+  closed? : ClosedInterval = Both,
+) -> Expr {
+  IsBetween(self, lo, hi, closed)
 }
 
 ///|

@@ -218,7 +218,7 @@ fn reduces_per_group(expr : @expr.Expr) -> Bool {
             stack.push(t)
             stack.push(f)
           }
-          @expr.Expr::IsBetween(x, lo, hi) => {
+          @expr.Expr::IsBetween(x, lo, hi, _) => {
             stack.push(x)
             stack.push(lo)
             stack.push(hi)

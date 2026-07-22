@@ -26,7 +26,8 @@ fn push_predicates(plan : LogicalPlan) -> LogicalPlan {
   let values : Array[LogicalPlan] = []
   for node in post_order(plan) {
     match node {
-      Scan(_) | ScanCsv(_, _, _) | ScanNdjson(_, _, _) => values.push(node)
+      Scan(_) | ScanCsv(_, _, _, _) | ScanNdjson(_, _, _, _) =>
+        values.push(node)
       Select(_, exprs) => values.push(Select(pop_top(values), exprs))
       WithColumns(_, exprs) => values.push(WithColumns(pop_top(values), exprs))
       Filter(_, predicate) =>
@@ -100,8 +101,8 @@ fn place_filter(input : LogicalPlan, predicate : @expr.Expr) -> LogicalPlan {
           descending = false
         }
       Scan(_)
-      | ScanCsv(_, _, _)
-      | ScanNdjson(_, _, _)
+      | ScanCsv(_, _, _, _)
+      | ScanNdjson(_, _, _, _)
       | Filter(_, _)
       | Sort(_, _)
       | Head(_, _)
@@ -117,10 +118,19 @@ fn place_filter(input : LogicalPlan, predicate : @expr.Expr) -> LogicalPlan {
       | Reduce(_, _) => descending = false
     }
   }
-  // The floor is `cur`; the filter sits just above it. Re-wrap the crossed
-  // stages from innermost (last recorded) outward, reproducing the original
-  // top-to-bottom stack above the sunk filter.
-  let mut result = Filter(cur, predicate)
+  // The floor is `cur`. A file source takes the predicate *into* the read
+  // (push-down proper: it builds the predicate's columns, prunes the rows, and
+  // only then parses the rest), so no `Filter` node remains above it. A scan
+  // that already absorbed one keeps its own and the new predicate stays a
+  // node above it — combining them would reorder which operand's evaluation
+  // error surfaces first.
+  let mut result = match cur {
+    ScanCsv(path, options, projection, None) =>
+      ScanCsv(path, options, projection, Some(predicate))
+    ScanNdjson(path, options, projection, None) =>
+      ScanNdjson(path, options, projection, Some(predicate))
+    _ => Filter(cur, predicate)
+  }
   for i = crossed.length() - 1; i >= 0; i = i - 1 {
     let rewrap = crossed[i]
     result = rewrap(result)

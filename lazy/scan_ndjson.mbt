@@ -21,5 +21,5 @@ pub fn scan_ndjson(
   path : String,
   options? : @io.JsonReadOptions = @io.JsonReadOptions(),
 ) -> LazyFrame {
-  { plan: ScanNdjson(path, options, None) }
+  { plan: ScanNdjson(path, options, None, None) }
 }

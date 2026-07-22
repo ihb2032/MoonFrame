@@ -191,6 +191,7 @@ fn frame_from_json_records(
   on_parse_error : OnParseError,
   projection : Array[String]?,
   source_lines : Array[Int]?,
+  predicate? : @expr.Expr,
 ) -> @frame.DataFrame raise @types.DataError {
   if records.is_empty() {
     return @frame.DataFrame::new([])
@@ -233,6 +234,47 @@ fn frame_from_json_records(
   // header falls back to a full read (see `effective_projection`) so the row
   // count survives for the as-built error to surface downstream.
   let projection = effective_projection(projection, headers)
+  // Inference always walks every record, even when a predicate will drop some,
+  // so a pruned read locks in the dtypes an eager read-then-filter would.
+  let build = fn(
+    name : String,
+    from : Array[Map[String, Json]],
+    lines : Array[Int]?,
+  ) -> @series.Series raise @types.DataError {
+    let dt = infer_json_column_dtype(objs, name, infer_schema_rows)
+    build_json_column(name, dt, from, on_parse_error, lines)
+  }
+  // Phase 1 (predicate push-down only): build just the columns the predicate
+  // reads, and keep both the pruned key frame and the surviving record
+  // indices. A name the file lacks is not built, so evaluation raises
+  // `ColumnNotFound` exactly as the eager filter would.
+  let pruned : (@frame.DataFrame, Array[Int])? = match predicate {
+    None => None
+    Some(pred) => {
+      let read = pred.referenced_columns()
+      let keys : Array[@series.Series] = []
+      for name in headers {
+        if read.contains(name) {
+          keys.push(build(name, objs, source_lines))
+        }
+      }
+      let key_frame = @frame.DataFrame::new(keys)
+      let kept = @frame.filter_row_indices(key_frame, pred)
+      Some((key_frame.gather(kept), kept))
+    }
+  }
+  // Phase 2 sees the surviving records only — and their original line numbers,
+  // so a cell error in a kept record still reports its true file line.
+  let (kept_objs, kept_lines) = match pruned {
+    None => (objs, source_lines)
+    Some((_, kept)) =>
+      (
+        Array::makei(kept.length(), i => objs[kept[i]]),
+        source_lines.map(lines => {
+          Array::makei(kept.length(), i => lines[kept[i]])
+        }),
+      )
+  }
   let series : Array[@series.Series] = []
   for name in headers {
     let included = match projection {
@@ -240,10 +282,13 @@ fn frame_from_json_records(
       Some(names) => names.contains(name)
     }
     if included {
-      let dt = infer_json_column_dtype(objs, name, infer_schema_rows)
-      series.push(
-        build_json_column(name, dt, objs, on_parse_error, source_lines),
-      )
+      // A predicate key column is already built and pruned — take it rather
+      // than parsing those cells a second time.
+      match pruned {
+        Some((frame, _)) if frame.columns().contains(name) =>
+          series.push(frame.get_column(name))
+        _ => series.push(build(name, kept_objs, kept_lines))
+      }
     }
   }
   @frame.DataFrame::new(series)

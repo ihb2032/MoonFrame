@@ -15,6 +15,27 @@ building or configuring the same value existed, v0.6 keeps one. From v0.7 on the
 stable public surface evolves compatibly. The source-level upgrade steps are
 collected in [`migration.md`](migration.md).
 
+### Features
+
+- **Predicate push-down into the file sources.** A filter sitting on a
+  `scan_csv` / `scan_ndjson` leaf is now absorbed into the scan: the reader
+  builds the predicate's columns, asks which rows survive, and parses the
+  remaining columns for those rows alone. Dtype inference still walks the whole
+  file, so dtypes and values match an eager read-then-filter cell for cell,
+  and the pruning columns no longer have to ride in the projection — a
+  `filter(col("qty") > 50).select([col("region")])` scan now reads `region`
+  out and `qty` only internally. Plans render it as
+  `SCAN_CSV "f.csv" [region] WHERE (col(qty) > 50)`.
+  - Consequence, and the mirror of what projection push-down already
+    documents: a `ParseError` confined to a row the predicate drops (in a
+    column the predicate does not read) no longer surfaces. A row the
+    predicate keeps still reports it.
+  - Only the first predicate is absorbed; a second filter stays a node above
+    the scan, since combining them would reorder which operand's evaluation
+    error surfaces first.
+  - Streaming the file is still future work — the reader tokenises the whole
+    file, and the saving is the typed build of the dropped rows.
+
 ### Breaking
 
 - `Field::new(name, dtype)` and `Field::with_nullable(name, dtype, nullable)`

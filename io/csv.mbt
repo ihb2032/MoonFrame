@@ -190,6 +190,7 @@ fn parse_csv_str_projected(
   content : String,
   options : CsvReadOptions,
   projection : Array[String]?,
+  predicate? : @expr.Expr,
 ) -> @frame.DataFrame raise @types.DataError {
   // Refuse a delimiter that collides with the quote character or a row
   // terminator before parsing — the same configurations `format_csv` rejects,
@@ -239,6 +240,60 @@ fn parse_csv_str_projected(
   // `effective_projection`) so the row count survives for the as-built
   // error to surface downstream.
   let projection = effective_projection(projection, headers)
+  let dtype_of = fn(col : Int) -> InferredDtype {
+    // Inference always walks the *whole* file, even when a predicate will drop
+    // rows, so a pruned read locks in the same dtypes an eager
+    // `read_csv(..).filter(..)` would.
+    infer_column_dtype(
+      rows,
+      col,
+      options.infer_schema_rows,
+      is_null,
+      options.allow_nonfinite_floats,
+    )
+  }
+  let build = fn(
+    name : String,
+    dt : InferredDtype,
+    from : Array[Array[String]],
+    col : Int,
+  ) -> @series.Series raise @types.DataError {
+    build_column(
+      name,
+      dt,
+      from,
+      col,
+      is_null,
+      options.on_parse_error,
+      options.allow_nonfinite_floats,
+    )
+  }
+  // Phase 1 (predicate push-down only): materialise just the columns the
+  // predicate reads and ask `frame` which rows survive, keeping both the
+  // surviving key frame and the row indices. A name the predicate reads but
+  // the file lacks simply isn't built, so evaluation raises `ColumnNotFound`
+  // exactly as the eager filter would.
+  let pruned : (@frame.DataFrame, Array[Int])? = match predicate {
+    None => None
+    Some(pred) => {
+      let read = pred.referenced_columns()
+      let keys : Array[@series.Series] = []
+      for col in 0..<ncols {
+        if read.contains(headers[col]) {
+          keys.push(build(headers[col], dtype_of(col), rows, col))
+        }
+      }
+      let key_frame = @frame.DataFrame::new(keys)
+      let kept = @frame.filter_row_indices(key_frame, pred)
+      Some((key_frame.gather(kept), kept))
+    }
+  }
+  // Phase 2 reads the surviving records only, so a dropped row's cells are
+  // never parsed for the columns the predicate did not need.
+  let kept_rows = match pruned {
+    None => rows
+    Some((_, kept)) => Array::makei(kept.length(), i => rows[kept[i]])
+  }
   let series : Array[@series.Series] = []
   for col in 0..<ncols {
     let name = headers[col]
@@ -247,24 +302,13 @@ fn parse_csv_str_projected(
       Some(names) => names.contains(name)
     }
     if included {
-      let dt = infer_column_dtype(
-        rows,
-        col,
-        options.infer_schema_rows,
-        is_null,
-        options.allow_nonfinite_floats,
-      )
-      series.push(
-        build_column(
-          name,
-          dt,
-          rows,
-          col,
-          is_null,
-          options.on_parse_error,
-          options.allow_nonfinite_floats,
-        ),
-      )
+      // A predicate key column is already built and pruned — take it rather
+      // than parsing those cells a second time.
+      match pruned {
+        Some((frame, _)) if frame.columns().contains(name) =>
+          series.push(frame.get_column(name))
+        _ => series.push(build(name, dtype_of(col), kept_rows, col))
+      }
     }
   }
   @frame.DataFrame::new(series)
@@ -351,6 +395,36 @@ pub fn read_csv(
 ) -> @frame.DataFrame raise @types.DataError {
   let content = read_text(path)
   parse_csv_str(content, options~)
+}
+
+///|
+/// Read a CSV file, keeping only the rows `predicate` selects — the file-backed
+/// entry behind the lazy `scan_csv` source's **predicate push-down**. An
+/// `#internal` engine seam, like `read_csv_projected`.
+///
+/// The read runs in two phases over one tokenisation of the whole file:
+///   1. build only the columns `predicate` reads, infer their dtypes from the
+///      whole file exactly as an unfiltered read would, and ask `frame` which
+///      rows survive;
+///   2. build the `projection` columns for **those rows alone**.
+///
+/// Dtypes therefore match an eager `read_csv(...).filter(...)` cell for cell —
+/// inference always sees the full file — while the typed parse of a dropped
+/// row's cells never runs. That is the deliberate consequence, and the same
+/// one projection push-down already documents: a `ParseError` confined to a
+/// row the predicate drops (in a column the predicate does not read) no longer
+/// surfaces. Whole-input checks — strict quotes, a malformed header, a ragged
+/// row — run before either phase and are unaffected.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
+pub fn read_csv_pruned(
+  path : String,
+  options : CsvReadOptions,
+  projection : Array[String]?,
+  predicate : @expr.Expr,
+) -> @frame.DataFrame raise @types.DataError {
+  let content = read_text(path)
+  parse_csv_str_projected(content, options, projection, predicate~)
 }
 
 ///|

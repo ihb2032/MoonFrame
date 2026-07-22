@@ -183,3 +183,95 @@ test "scan_csv builders are total; a missing file fails only at collect" {
     is Err(@types.DataError::IoError(_)),
   )
 }
+
+// ── predicate push-down ───────────────────────────────────────────────
+
+///|
+test "scan_csv with an absorbed predicate collects equal to the eager read then filter" {
+  let path = "_build/lazy_scan_csv_predicate.csv"
+  write_fixture(path)
+  let predicate = @expr.col("qty").gt(@expr.lit_int(50))
+  assert_eq(
+    scan_csv(path).filter(predicate).collect(),
+    @io.read_csv(path).filter(predicate),
+  )
+  // With a projection on top, the scan reads `qty` to prune but hands up only
+  // `region` — still cell-for-cell the eager chain.
+  assert_eq(
+    scan_csv(path).filter(predicate).select([@expr.col("region")]).collect(),
+    @io.read_csv(path).filter(predicate).select([@expr.col("region")]),
+  )
+  // Two filters: one is absorbed, the other stays a node — same result.
+  let second = @expr.col("region").eq(@expr.lit_str("east"))
+  assert_eq(
+    scan_csv(path).filter(predicate).filter(second).collect(),
+    @io.read_csv(path).filter(predicate).filter(second),
+  )
+}
+
+///|
+test "an absorbed predicate sees every row, so an aggregate threshold agrees with eager" {
+  let path = "_build/lazy_scan_csv_predicate_agg.csv"
+  write_fixture(path)
+  // The pruning phase builds the predicate's columns over the *whole* file, so
+  // a mean-of-the-column threshold is the file's mean, not a partial one.
+  let predicate = @expr.col("qty").gt(@expr.col("qty").mean())
+  assert_eq(
+    scan_csv(path).filter(predicate).collect(),
+    @io.read_csv(path).filter(predicate),
+  )
+}
+
+///|
+test "an absorbed predicate reports the same errors as the eager filter" {
+  let path = "_build/lazy_scan_csv_predicate_errors.csv"
+  write_fixture(path)
+  // A predicate naming a column the file lacks: the pruning phase never builds
+  // it, so evaluation raises `ColumnNotFound` exactly as eager does.
+  let missing = @expr.col("nope").gt(@expr.lit_int(1))
+  assert_true(
+    (Ok(scan_csv(path).filter(missing).collect()) catch { e => Err(e) })
+    is Err(@types.DataError::ColumnNotFound("nope")),
+  )
+  // A non-Bool predicate is the same `TypeMismatch` either way.
+  let not_bool = @expr.col("qty")
+  assert_true(
+    (Ok(scan_csv(path).filter(not_bool).collect()) catch { e => Err(e) })
+    is Err(@types.DataError::TypeMismatch(_)),
+  )
+}
+
+///|
+test "a parse error in a row the predicate drops no longer surfaces" {
+  // The documented consequence of push-down, and the mirror of projection
+  // push-down's own caveat: the dropped row's cells in columns the predicate
+  // does not read are never parsed, so their errors cannot be reported.
+  let path = "_build/lazy_scan_csv_predicate_caveat.csv"
+  @fs.write_string_to_file(path, "qty,note\n5,1\n120,oops\n")
+  // A one-row inference window locks `note` to Int from the first record, so
+  // the second record's `oops` is a genuine cell parse error.
+  let narrow = @io.CsvReadOptions(infer_schema_rows=1)
+  // Eager: the whole file is parsed, so the bad cell fails the read.
+  assert_true(
+    (Ok(@io.read_csv(path, options=narrow)) catch { e => Err(e) })
+    is Err(@types.DataError::ParseError(_)),
+  )
+  // Lazy with a predicate that drops the offending row: `note` is only built
+  // for the surviving row, which parses cleanly.
+  let out = scan_csv(path, options=narrow)
+    .filter(@expr.col("qty").lt(@expr.lit_int(50)))
+    .collect()
+  assert_eq(out.shape(), (1, 2))
+  assert_eq(out.item(0, "note"), @types.Scalar::Int(1))
+  // A predicate that keeps the offending row still reports it.
+  assert_true(
+    (Ok(
+      scan_csv(path, options=narrow)
+      .filter(@expr.col("qty").gt(@expr.lit_int(50)))
+      .collect(),
+    ) catch {
+      e => Err(e)
+    })
+    is Err(@types.DataError::ParseError(_)),
+  )
+}

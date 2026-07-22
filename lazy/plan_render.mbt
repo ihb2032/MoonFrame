@@ -64,10 +64,10 @@ fn render(plan : LogicalPlan, buf : StringBuilder, depth : Int) -> Unit {
 fn write_plan_label(plan : LogicalPlan, buf : StringBuilder) -> Unit {
   match plan {
     Scan(df) => buf <+ "SCAN [\{df.nrows()}×\{df.ncols()}]"
-    ScanCsv(path, _, projection) =>
-      render_scan_source(buf, "SCAN_CSV", path, projection)
-    ScanNdjson(path, _, projection) =>
-      render_scan_source(buf, "SCAN_NDJSON", path, projection)
+    ScanCsv(path, _, projection, predicate) =>
+      render_scan_source(buf, "SCAN_CSV", path, projection, predicate)
+    ScanNdjson(path, _, projection, predicate) =>
+      render_scan_source(buf, "SCAN_NDJSON", path, projection, predicate)
     Select(_, exprs) => buf <+ "SELECT \{exprs_label(exprs)}"
     WithColumns(_, exprs) => buf <+ "WITH_COLUMNS \{exprs_label(exprs)}"
     Filter(_, predicate) => buf <+ "FILTER \{predicate.to_string()}"
@@ -215,10 +215,17 @@ fn render_scan_source(
   label : String,
   path : String,
   projection : Array[String]?,
+  predicate : @expr.Expr?,
 ) -> Unit {
   buf <+ "\{label} \"\{@text.escape_debug(path)}\""
   match projection {
     None => ()
     Some(columns) => buf <+ " \{list_label(columns)}"
+  }
+  // An absorbed predicate prints after the projection, so the leaf reads
+  // "which columns, then which rows".
+  match predicate {
+    None => ()
+    Some(pred) => buf <+ " WHERE \{pred}"
   }
 }

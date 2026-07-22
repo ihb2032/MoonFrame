@@ -1559,31 +1559,38 @@ test "scan_csv: a bare scan at the root writes no projection" {
 }
 
 ///|
-test "scan_csv: a filter's columns stay alive in the written projection" {
-  // The selection reads `region`; the filter needs `qty` — both ride into the
-  // projection, and (ScanCsv being a floor) the filter stays above the scan.
+test "scan_csv: an absorbed predicate keeps its columns out of the projection" {
+  // The selection reads `region`; the filter needs `qty`. The predicate rides
+  // *into* the scan, which reads `qty` itself to prune rows — so the written
+  // projection is the consumer's `region` alone and no FILTER node remains.
   let plan = scan_csv("sales.csv")
     .filter(@expr.col("qty").gt(@expr.lit_int(50)))
     .select([@expr.col("region")])
   assert_eq(
     plan.explain(optimized=true),
     "SELECT [col(region)]\n" +
-    "  FILTER (col(qty) > 50)\n" +
-    "    SCAN_CSV \"sales.csv\" [qty, region]",
+    "  SCAN_CSV \"sales.csv\" [region] WHERE (col(qty) > 50)",
   )
 }
 
 ///|
-test "scan_csv is a floor: a filter directly on it neither sinks nor narrows" {
-  // Predicate push-down into the parser is v0.6, so a filter on a bare CSV
-  // scan stays put and writes no projection.
+test "scan_csv absorbs a filter directly on it; a second one stays above" {
   let plan = scan_csv("sales.csv").filter(
     @expr.col("qty").gt(@expr.lit_int(50)),
   )
-  assert_eq(plan.explain(optimized=true), plan.explain())
+  // As built the filter is its own node; optimized, the scan carries it.
+  assert_eq(plan.explain(), "FILTER (col(qty) > 50)\n  SCAN_CSV \"sales.csv\"")
   assert_eq(
     plan.explain(optimized=true),
-    "FILTER (col(qty) > 50)\n  SCAN_CSV \"sales.csv\"",
+    "SCAN_CSV \"sales.csv\" WHERE (col(qty) > 50)",
+  )
+  // Only one predicate is absorbed: combining two would reorder which
+  // operand's evaluation error surfaces first, so the outer one stays a node.
+  let two = plan.filter(@expr.col("region").eq(@expr.lit_str("west")))
+  assert_eq(
+    two.explain(optimized=true),
+    "FILTER (col(region) == \"west\")\n" +
+    "  SCAN_CSV \"sales.csv\" WHERE (col(qty) > 50)",
   )
 }
 
@@ -1608,15 +1615,15 @@ test "scan_ndjson narrows in place like scan_csv, only the label differs" {
     plan.explain(optimized=true),
     "SELECT [col(region)]\n  SCAN_NDJSON \"events.ndjson\" [region]",
   )
-  // A filter widens the projection and (NDJSON being a floor) stays above it.
+  // A filter is absorbed here too, leaving the projection at the consumer's
+  // own columns.
   let with_filter = scan_ndjson("events.ndjson")
     .filter(@expr.col("qty").gt(@expr.lit_int(50)))
     .select([@expr.col("region")])
   assert_eq(
     with_filter.explain(optimized=true),
     "SELECT [col(region)]\n" +
-    "  FILTER (col(qty) > 50)\n" +
-    "    SCAN_NDJSON \"events.ndjson\" [qty, region]",
+    "  SCAN_NDJSON \"events.ndjson\" [region] WHERE (col(qty) > 50)",
   )
   // Bare at the root: no requirement, so no projection is written.
   assert_eq(

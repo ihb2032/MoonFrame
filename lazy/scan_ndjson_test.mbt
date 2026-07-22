@@ -132,3 +132,27 @@ test "scan_ndjson builders are total; a missing file fails only at collect" {
     is Err(@types.DataError::IoError(_)),
   )
 }
+
+///|
+test "scan_ndjson absorbs a predicate the same way, down to the dropped-row caveat" {
+  let path = "_build/lazy_scan_ndjson_predicate.ndjson"
+  write_ndjson_fixture(path)
+  let predicate = @expr.col("qty").gt(@expr.lit_int(50))
+  assert_eq(
+    scan_ndjson(path).filter(predicate).collect(),
+    @io.read_ndjson(path).filter(predicate),
+  )
+  assert_eq(
+    scan_ndjson(path).filter(predicate).select([@expr.col("region")]).collect(),
+    @io.read_ndjson(path).filter(predicate).select([@expr.col("region")]),
+  )
+  // A predicate naming an absent column raises at collect, as eager does.
+  assert_true(
+    (Ok(
+      scan_ndjson(path).filter(@expr.col("nope").gt(@expr.lit_int(1))).collect(),
+    ) catch {
+      e => Err(e)
+    })
+    is Err(@types.DataError::ColumnNotFound("nope")),
+  )
+}

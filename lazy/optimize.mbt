@@ -104,8 +104,13 @@
 ///   provenance through suffix renaming to split a predicate across its
 ///   sides, deferred with the projection pass's join narrowing — but
 ///   both sides restart their own descent, so filters inside either
-///   side still sink. The scan leaves — `Scan`, `ScanCsv`, `ScanNdjson` —
-///   are the floor; pushing a predicate into a file parser is v0.6.
+///   side still sink. The in-memory `Scan` is the floor. A **file source**
+///   goes one step further: the predicate is absorbed into the `ScanCsv` /
+///   `ScanNdjson` node itself, so the reader prunes rows while parsing (see
+///   `@io.read_csv_pruned`) and no `Filter` node remains above the leaf.
+///   Only the first predicate is absorbed — combining two would reorder
+///   which operand's evaluation error surfaces first — so a second filter
+///   stays a node above the scan.
 ///
 /// # The projection pass
 ///
@@ -145,9 +150,9 @@
 /// Deliberately deferred: pruning dead expressions from `Select` /
 /// `WithColumns` lists (changes which expressions evaluate, hence which
 /// *errors* a failing plan reports), narrowing or predicate-splitting
-/// through `Join`, sinking filters below `Sort`, and pushing a predicate
-/// into a file parser (`ScanCsv` / `ScanNdjson`) or streaming the file (both
-/// v0.6). `optimize` is also not idempotent — re-optimizing an
+/// through `Join`, sinking filters below `Sort`, and streaming a file source
+/// (the reader still tokenises the whole file; push-down skips the *typed*
+/// build of dropped rows, not the read). `optimize` is also not idempotent — re-optimizing an
 /// already-rewritten plan would stack another (harmless) narrowing select
 /// over an in-memory `Scan` (a file source's in-place projection just
 /// recomputes to the same set) — which is moot in practice: plans are

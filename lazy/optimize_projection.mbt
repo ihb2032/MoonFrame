@@ -60,16 +60,16 @@ fn push_projection(
             )
           // File sources' narrowing point: write the requirement into the
           // node's own projection field (`narrow_scan`).
-          ScanCsv(path, options, _) =>
+          ScanCsv(path, options, _, predicate) =>
             values.push(
               narrow_scan(node, req, columns => {
-                ScanCsv(path, options, Some(columns))
+                ScanCsv(path, options, Some(columns), predicate)
               }),
             )
-          ScanNdjson(path, options, _) =>
+          ScanNdjson(path, options, _, predicate) =>
             values.push(
               narrow_scan(node, req, columns => {
-                ScanNdjson(path, options, Some(columns))
+                ScanNdjson(path, options, Some(columns), predicate)
               }),
             )
           // By-name originator: the input needs exactly the columns the

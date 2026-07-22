@@ -28,9 +28,11 @@
 /// under, and an optional projection. The projection starts empty (`None` —
 /// read every column, the faithful mirror of eager `read_csv` /
 /// `read_ndjson`) and is filled by the optimizer's projection pass with the
-/// columns a pipeline provably consumes, so the parser builds only those —
-/// the one push-down that reaches an external source in v0.5 (predicate
-/// push-down into the parser and streaming are v0.6). Unlike the in-memory
+/// columns a pipeline provably consumes, so the parser builds only those.
+/// The fourth field is an absorbed **predicate**: the optimizer moves a filter
+/// sitting on the leaf into the node, and the reader then builds the
+/// predicate's columns, prunes the rows, and parses the rest for the survivors
+/// alone (streaming the file itself is still future work). Unlike the in-memory
 /// `Scan`, whose narrowing *inserts* a `Select`, a file source narrows in
 /// place by carrying its own projection. (There is no `ScanJson` for the
 /// single-array shape `[{...}]`: a JSON array must be parsed whole to find its
@@ -38,8 +40,8 @@
 /// has `scan_ndjson` but no `scan_json`.)
 priv enum LogicalPlan {
   Scan(@frame.DataFrame)
-  ScanCsv(String, @io.CsvReadOptions, Array[String]?)
-  ScanNdjson(String, @io.JsonReadOptions, Array[String]?)
+  ScanCsv(String, @io.CsvReadOptions, Array[String]?, @expr.Expr?)
+  ScanNdjson(String, @io.JsonReadOptions, Array[String]?, @expr.Expr?)
   Select(LogicalPlan, Array[@expr.Expr])
   WithColumns(LogicalPlan, Array[@expr.Expr])
   Filter(LogicalPlan, @expr.Expr)
@@ -84,7 +86,7 @@ priv enum LazyReduceOp {
 /// here.
 fn plan_children(plan : LogicalPlan) -> Array[LogicalPlan] {
   match plan {
-    Scan(_) | ScanCsv(_, _, _) | ScanNdjson(_, _, _) => []
+    Scan(_) | ScanCsv(_, _, _, _) | ScanNdjson(_, _, _, _) => []
     Select(input, _)
     | WithColumns(input, _)
     | Filter(input, _)
@@ -260,15 +262,23 @@ fn execute(plan : LogicalPlan) -> @frame.DataFrame raise @types.DataError {
   for node in post_order_unique(plan) {
     let result : @frame.DataFrame = match node {
       Scan(df) => df
-      ScanCsv(path, options, projection) =>
-        match projection {
-          None => @io.read_csv(path, options~)
-          Some(columns) => @io.read_csv_projected(path, options, columns)
+      ScanCsv(path, options, projection, predicate) =>
+        match predicate {
+          Some(pred) => @io.read_csv_pruned(path, options, projection, pred)
+          None =>
+            match projection {
+              None => @io.read_csv(path, options~)
+              Some(columns) => @io.read_csv_projected(path, options, columns)
+            }
         }
-      ScanNdjson(path, options, projection) =>
-        match projection {
-          None => @io.read_ndjson(path, options~)
-          Some(columns) => @io.read_ndjson_projected(path, options, columns)
+      ScanNdjson(path, options, projection, predicate) =>
+        match predicate {
+          Some(pred) => @io.read_ndjson_pruned(path, options, projection, pred)
+          None =>
+            match projection {
+              None => @io.read_ndjson(path, options~)
+              Some(columns) => @io.read_ndjson_projected(path, options, columns)
+            }
         }
       Select(input, exprs) => memo_result(memo, input).select(exprs)
       WithColumns(input, exprs) => memo_result(memo, input).with_columns(exprs)

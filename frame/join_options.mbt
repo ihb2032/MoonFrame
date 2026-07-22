@@ -2,8 +2,7 @@
 /// How an equi-join combines rows that share (or fail to share) a key.
 ///
 /// `pub(all)` so callers can name the variants directly (e.g.
-/// `JoinOptions::on(keys).with_how(Left)`), matching `SortOrder` /
-/// `NullOrder`:
+/// `JoinOptions::on(keys, how=Left)`), matching `SortOrder` / `NullOrder`:
 ///   * `Inner` — keep only rows whose key matches on both sides.
 ///   * `Left` — keep every left row; where it has no right match, the
 ///     right-hand columns are filled with nulls.
@@ -36,8 +35,10 @@ pub extend JoinType with Debug::{to_repr}
 /// `how`, the `suffix` disambiguating a right column whose name collides
 /// with a left one, and whether to `coalesce` the key columns. Fields are
 /// read-only outside the package — build options through `JoinOptions::on` /
-/// `JoinOptions::left_on` / `JoinOptions::cross` and (optionally) chain
-/// `with_right_on` / `with_how` / `with_suffix` / `with_coalesce`.
+/// `JoinOptions::left_on` / `JoinOptions::cross`, naming only the knobs that
+/// differ from their defaults. The three entry points are the legal shapes: an
+/// `on` join, a paired `left_on` / `right_on` join, and a keyless cross join —
+/// no combination of them can be spelled.
 ///
 ///   * `on` — the key **expressions**, evaluated over **both** frames
 ///     (Polars' `IntoExpr`). A bare `col("id")` matches on an existing
@@ -86,126 +87,57 @@ pub extend JoinOptions with Eq::{equal, not_equal}
 pub extend JoinOptions with Debug::{to_repr}
 
 ///|
-/// Start a join specification on the `keys` expressions (applied to both
-/// frames), defaulting to an inner join with the `"_right"` collision
-/// suffix and automatic key coalescing (`coalesce = None`). Chain
-/// `with_how` to switch the join type (`Left` / `Right` / `Outer`),
-/// `with_suffix` to change the suffix, and `with_coalesce` to force key
-/// coalescing on or off:
-/// `JoinOptions::on([col("id")]).with_how(Left).with_coalesce(true)`.
+/// Start a join on shared key columns — each key expression is evaluated on
+/// **both** frames (`JoinOptions::on([col("id")])`). `how` defaults to an
+/// inner join, `suffix` to `"_right"` for a right column whose name collides
+/// with a left one, and an omitted `coalesce` leaves key coalescing on
+/// automatic (by `how`, matching Polars); pass `coalesce=true` / `false` to
+/// force it.
 ///
-/// The `keys` array is copied (as in `left_on` / `with_right_on`), so
-/// mutating it after construction cannot alter the join specification.
-pub fn JoinOptions::on(keys : Array[@expr.Expr]) -> JoinOptions {
-  {
-    on: keys.copy(),
-    left_on: [],
-    right_on: [],
-    how: Inner,
-    suffix: "_right",
-    coalesce: None,
-  }
+/// The `keys` array is copied (as in `left_on`), so mutating it after
+/// construction cannot alter the join specification.
+pub fn JoinOptions::on(
+  keys : Array[@expr.Expr],
+  how? : JoinType = Inner,
+  suffix? : String = "_right",
+  coalesce? : Bool,
+) -> JoinOptions {
+  { on: keys.copy(), left_on: [], right_on: [], how, suffix, coalesce }
 }
 
 ///|
-/// Start a join on differently-named (or differently-derived) keys: the
-/// `keys` are evaluated on the **left** frame, paired position-by-position
-/// with the `with_right_on` keys evaluated on the right. Defaults match
-/// `on` (inner join, `"_right"` suffix), except that `left_on` / `right_on`
-/// keys never coalesce — both key columns are kept (Polars' rule). Chain
-/// `with_right_on` to supply the right-side keys:
-/// `JoinOptions::left_on([col("a")]).with_right_on([col("b")])`.
-pub fn JoinOptions::left_on(keys : Array[@expr.Expr]) -> JoinOptions {
+/// Start a join on differently-named (or differently-derived) keys: `keys` is
+/// evaluated on the **left** frame, paired position-by-position with
+/// `right_on` on the right
+/// (`JoinOptions::left_on([col("a")], right_on=[col("b")])`). Taking both
+/// sides at once makes an unpaired specification unspellable. Defaults match
+/// `on`, except that `left_on` / `right_on` keys never coalesce — both key
+/// columns are kept (Polars' rule).
+///
+/// Both arrays are copied, so mutating them after construction cannot alter
+/// the join specification.
+pub fn JoinOptions::left_on(
+  keys : Array[@expr.Expr],
+  right_on~ : Array[@expr.Expr],
+  how? : JoinType = Inner,
+  suffix? : String = "_right",
+  coalesce? : Bool,
+) -> JoinOptions {
   {
     on: [],
     left_on: keys.copy(),
-    right_on: [],
-    how: Inner,
-    suffix: "_right",
-    coalesce: None,
+    right_on: right_on.copy(),
+    how,
+    suffix,
+    coalesce,
   }
 }
 
 ///|
 /// Start a cross-join specification — the Cartesian product of the two
-/// frames, with no key columns (`how = Cross`, all key lists empty). Keeps
-/// the default `"_right"` collision suffix; `coalesce` is irrelevant (there
-/// are no keys to merge). `with_suffix` still applies to right columns
-/// whose names clash with the left.
-pub fn JoinOptions::cross() -> JoinOptions {
-  {
-    on: [],
-    left_on: [],
-    right_on: [],
-    how: Cross,
-    suffix: "_right",
-    coalesce: None,
-  }
-}
-
-///|
-/// Return a copy of these options with the right-side keys for a
-/// `left_on` / `right_on` join set to `keys` (evaluated on the right
-/// frame). Chainable after `left_on`.
-pub fn JoinOptions::with_right_on(
-  self : JoinOptions,
-  keys : Array[@expr.Expr],
-) -> JoinOptions {
-  { ..self, right_on: keys.copy() }
-}
-
-///|
-/// Return a copy of these options with the left-side keys for a
-/// `left_on` / `right_on` join set to `keys` (evaluated on the left
-/// frame). The symmetric twin of `with_right_on`, so either side's keys
-/// can be (re)supplied at any point in the chain.
-pub fn JoinOptions::with_left_on(
-  self : JoinOptions,
-  keys : Array[@expr.Expr],
-) -> JoinOptions {
-  { ..self, left_on: keys.copy() }
-}
-
-///|
-/// Return a copy of these options with the join `how` set to `how`.
-/// Chainable after `on` / `left_on`.
-pub fn JoinOptions::with_how(self : JoinOptions, how : JoinType) -> JoinOptions {
-  { ..self, how, }
-}
-
-///|
-/// Return a copy of these options whose right-column collision suffix is
-/// `suffix` instead of the default `"_right"`. Chainable after `on` /
-/// `left_on`.
-pub fn JoinOptions::with_suffix(
-  self : JoinOptions,
-  suffix : String,
-) -> JoinOptions {
-  { ..self, suffix, }
-}
-
-///|
-/// Return a copy of these options that forces key coalescing on
-/// (`coalesce = Some(true)`, key appears once) or off
-/// (`coalesce = Some(false)`, both key columns kept). Overrides the
-/// `how`-derived default. Only effective for an `on` join whose keys are
-/// all bare `col(...)`; `left_on` / `right_on` and derived keys never
-/// coalesce regardless. Chainable after `on` / `left_on`.
-pub fn JoinOptions::with_coalesce(
-  self : JoinOptions,
-  coalesce : Bool,
-) -> JoinOptions {
-  { ..self, coalesce: Some(coalesce) }
-}
-
-///|
-/// Return a copy of these options with key coalescing reset to **automatic**
-/// (`coalesce = None`): whether an eligible `on`-join key coalesces then follows
-/// the `how`-derived default (`Inner` / `Left` / `Right` coalesce, `Outer` /
-/// `Cross` do not), exactly as if `with_coalesce` had never been called. It is
-/// the undo for `with_coalesce` — the only builder path back to the auto default
-/// once coalescing has been forced on or off (the field is read-only outside
-/// `frame`).
-pub fn JoinOptions::with_coalesce_auto(self : JoinOptions) -> JoinOptions {
-  { ..self, coalesce: None }
+/// frames, with no key columns (`how = Cross`, all key lists empty).
+/// `suffix` still applies to a right column whose name clashes with a left
+/// one; `coalesce` is irrelevant (there are no keys to merge).
+pub fn JoinOptions::cross(suffix? : String = "_right") -> JoinOptions {
+  { on: [], left_on: [], right_on: [], how: Cross, suffix, coalesce: None }
 }

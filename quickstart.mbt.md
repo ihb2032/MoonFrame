@@ -382,9 +382,7 @@ test "quickstart: outer join" {
     orders
     .join(
       customers,
-      JoinOptions::on([col("customer_id")])
-      .with_how(JoinType::Outer)
-      .with_coalesce(true),
+      JoinOptions::on([col("customer_id")], how=JoinType::Outer, coalesce=true),
     )
     .to_markdown(),
     content=(

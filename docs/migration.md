@@ -60,6 +60,16 @@ the parameter form could not express.
 returns a copy — as does the constructor, so mutating either array cannot change
 what a reader (or a captured `scan_csv` plan) treats as null.
 
+### A filtered file scan can no longer report a dropped row's parse error
+
+`scan_csv` / `scan_ndjson` now push a predicate into the read. Nothing about
+values or dtypes changes — inference still walks the whole file — but a
+`ParseError` in a row the predicate drops, in a column the predicate does not
+read, is no longer raised, because those cells are never parsed. This is the
+same trade projection push-down has always made for dropped *columns*. Code
+that relied on a lazy pipeline failing on a malformed row it filters away
+should read eagerly (`read_csv(path).filter(...)`) instead.
+
 ### `unique` takes a subset, and is now fallible
 
 `DataFrame::unique` gained Polars' `subset` — the columns whose values form the

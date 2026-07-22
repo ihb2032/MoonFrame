@@ -1245,11 +1245,17 @@ the same eager error; a plan with several independently broken stages may
 report a different one of its own errors once a filter sinks past a broken
 stage — which error surfaced was an artifact of stage order to begin
 with). The sole deliberate exception is a file source's projection
-(`scan_csv` / `scan_ndjson`): a column no consumer reads is never parsed, so
-a parse error confined to it goes unraised — the defining property of
-projection pushdown into a source. Deferred (out of scope): dead-expression
-elimination, narrowing / predicate-splitting through joins, sinking filters
-below sorts, and pushing predicates into a file parser (or streaming it).
+(`scan_csv` / `scan_ndjson`), which now absorbs **both** push-downs: a column
+no consumer reads is never parsed, and — since v0.6 — a filter sitting on the
+leaf is absorbed into the scan, which builds the predicate's columns, prunes
+the rows, and parses the remaining columns for the survivors alone. So a parse
+error confined to a dropped column *or* to a row the predicate drops goes
+unraised; dtype inference still walks the whole file, so dtypes are unchanged.
+The plan shows it as `SCAN_CSV "f.csv" [cols] WHERE (pred)`. Only the first
+predicate is absorbed (combining two would reorder which operand's error
+surfaces first). Deferred (out of scope): dead-expression elimination,
+narrowing / predicate-splitting through joins, sinking filters below sorts, and
+streaming a file source — the reader still tokenises the whole file.
 
 ---
 

@@ -256,9 +256,10 @@ fn frame_from_json_records(
   let pruned : (@frame.DataFrame, Array[Int])? = match pruner {
     None => None
     Some((key_columns, keep)) => {
+      let key_set = name_set(key_columns)
       let keys : Array[@series.Series] = []
       for name in headers {
-        if key_columns.contains(name) {
+        if key_set.contains(name) {
           keys.push(build(name, objs, source_lines))
         }
       }
@@ -279,9 +280,14 @@ fn frame_from_json_records(
         }),
       )
   }
+  let projection_set = projection.map(name_set)
+  let pruned_cols : Map[String, Unit] = match pruned {
+    Some((frame, _)) => name_set(frame.columns())
+    None => Map([])
+  }
   let series : Array[@series.Series] = []
   for name in headers {
-    let included = match projection {
+    let included = match projection_set {
       None => true
       Some(names) => names.contains(name)
     }
@@ -289,7 +295,7 @@ fn frame_from_json_records(
       // A predicate key column is already built and pruned — take it rather
       // than parsing those cells a second time.
       match pruned {
-        Some((frame, _)) if frame.columns().contains(name) =>
+        Some((frame, _)) if pruned_cols.contains(name) =>
           series.push(frame.get_column(name))
         _ => series.push(build(name, kept_objs, kept_lines))
       }

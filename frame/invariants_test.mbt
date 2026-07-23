@@ -1,6 +1,6 @@
 // Grounding tests for the `check_invariants` specification:
 // prove that every P5 constructor (`new`, `empty`, `from_rows`) and
-// every P5 structural transform (`head`, `tail`, `slice`, `take`)
+// every P5 structural transform (`head`, `tail`, `slice`, `gather`)
 // yields a DataFrame that satisfies the invariants. If any of these
 // regress, every downstream op test that relies on `check_invariants`
 // would too — so this file is the canary.
@@ -51,7 +51,7 @@ test "check_invariants holds for from_rows with nulls" {
 // ── Structural transforms preserve invariants ────────────────────────
 
 ///|
-test "check_invariants holds after head / tail / slice / take" {
+test "check_invariants holds after head / tail / slice / gather" {
   let df = DataFrame::new([
     Series::from_ints("a", [1, 2, 3, 4]),
     Series::from_strings("b", ["w", "x", "y", "z"]),

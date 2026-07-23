@@ -267,7 +267,7 @@ test "quickstart: build a lazy plan, explain it, then collect" {
 
 ## Render to HTML
 
-`to_html()` renders a plain `<table>`; `to_html_with_options` adds a CSS
+`to_html()` renders a plain `<table>`; `to_html(options=...)` adds a CSS
 `class`, a `<caption>`, and an optional row cap (a `<tfoot>` banner reports the
 remainder). Header and cell text is HTML-escaped by default, so untrusted data
 can't inject markup.
@@ -361,9 +361,9 @@ test "quickstart: inner join" {
 }
 ```
 
-`with_how(Right)` and `with_how(Outer)` select the other join types. A full **outer** join keeps
+`how=Right` and `how=Outer` select the other join types. A full **outer** join keeps
 the unmatched rows from *both* sides; coalescing the key
-(`with_coalesce(true)`) merges it into one column, taking each row's value from
+(`coalesce=true`) merges it into one column, taking each row's value from
 whichever side is present — so the order with no customer and the customer with
 no order both survive.
 

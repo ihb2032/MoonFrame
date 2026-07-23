@@ -504,10 +504,10 @@ test "slice reports invalid bounds with the appropriate error" {
   )
 }
 
-// ── take ─────────────────────────────────────────────────────────────
+// ── gather ─────────────────────────────────────────────────────────────
 
 ///|
-test "take gathers rows in arbitrary order across every column" {
+test "gather collects rows in arbitrary order across every column" {
   let df = DataFrame::new([
     Series::from_ints("a", [10, 20, 30]),
     Series::from_strings("b", ["x", "y", "z"]),
@@ -520,7 +520,7 @@ test "take gathers rows in arbitrary order across every column" {
 }
 
 ///|
-test "take with empty indices produces an empty frame of the same schema" {
+test "gather with empty indices produces an empty frame of the same schema" {
   let df = DataFrame::new([Series::from_ints("x", [1, 2])])
   let out = df.gather([])
   assert_true(out.is_empty())
@@ -528,7 +528,7 @@ test "take with empty indices produces an empty frame of the same schema" {
 }
 
 ///|
-test "take rejects out-of-bounds indices with the first offender" {
+test "gather rejects out-of-bounds indices with the first offender" {
   let df = DataFrame::new([Series::from_ints("x", [1, 2])])
   assert_eq(
     Ok(df.gather([0, 5])) catch {
@@ -547,7 +547,7 @@ test "take rejects out-of-bounds indices with the first offender" {
 // ── name_to_index cache survives transforms ──────────────────────────
 
 ///|
-test "head / tail / slice / take all keep get_column working" {
+test "head / tail / slice / gather all keep get_column working" {
   let df = DataFrame::new([
     Series::from_ints("a", [1, 2, 3, 4]),
     Series::from_strings("b", ["w", "x", "y", "z"]),

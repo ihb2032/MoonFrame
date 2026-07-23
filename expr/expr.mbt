@@ -25,10 +25,13 @@
 /// - `Binary` — arithmetic `+ - * /`, comparisons `eq/ne/lt/le/gt/ge`,
 ///   Kleene logic `&`/`|` (also `.land()`/`.lor()` — `and`/`or` are
 ///   reserved words);
-/// - `Unary` — `-e`, `.not()`, `.is_null()`, `.is_not_null()`, `.is_nan()`,
-///   `.is_not_nan()`;
-/// - `Agg` — `.sum()/.mean()/.min()/.max()/.count()`, reducing its operand
-///   to a single value per evaluation scope;
+/// - `Unary` — `-e`, `.not()`, the null / NaN probes `.is_null()` /
+///   `.is_not_null()` / `.is_nan()` / `.is_not_nan()`, and the numeric forms
+///   `.abs()` / `.floor()` / `.ceil()` / `.sign()` / `.round()`;
+/// - `Agg` — `.sum()` / `.mean()` / `.min()` / `.max()` / `.count()`, plus the
+///   statistical `.std()` / `.variance()` / `.median()` / `.n_unique()` /
+///   `.first()` / `.last()`, reducing its operand to a single value per
+///   evaluation scope;
 /// - `Str` — the string namespace (`.str_to_uppercase()` /
 ///   `.str_contains(p)` / …), mapping each cell of its String operand
 ///   through a `StrOp` transform;
@@ -57,7 +60,12 @@
 ///   and the function `(Array[Scalar]) -> Scalar raise`. The closure makes
 ///   the variant un-`derive`-able, so `Expr` hand-writes `Eq` (below),
 ///   `@debug.Debug` and `Show` (in `explain.mbt`), each treating the
-///   function as opaque — a `Map` is identified by its `(label, inputs)`.
+///   function as opaque — a `Map` is identified by its `(label, inputs)`;
+/// - `MapBatches` — the batched escape hatch (`.map_batches()`), handing an
+///   opaque host function a whole `@series.Series` per input and taking one
+///   back (a `returns_scalar` flag marks a reduction). Like `Map` the closure
+///   blocks `derive`, so it is identified by its `label`, that flag, and
+///   `inputs`, the function opaque.
 pub enum Expr {
   Col(String)
   Lit(@types.Scalar)

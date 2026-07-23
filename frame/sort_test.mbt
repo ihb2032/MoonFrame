@@ -626,7 +626,7 @@ test "sort is idempotent — sorting an already-sorted frame is a no-op" {
 
 ///|
 test "sort gathers a nullable Bool column including its null cell" {
-  // `sort` routes through `DataFrame::take` → `gather_series`, which
+  // `sort` routes through `DataFrame::gather` → `gather_series`, which
   // must copy a Bool column's *null* cell (not only its valid cells) when
   // that row is permuted. Sorting by `k` moves the `None` flag into the
   // lead row, exercising the null arm of the Bool gather.

@@ -1,6 +1,6 @@
 ///|
 /// Introspection over the expression tree: a handwritten `Show` rendering
-/// the documented operator form, `explain` exposing that rendering as a
+/// the documented operator form, its `to_string` exposing that rendering as a
 /// `String` (shared later by `LazyFrame::explain`'s plan printer), and
 /// `referenced_columns` collecting every column a tree reads (the input
 /// the lazy optimizer's projection / predicate pushdown runs on). All
@@ -27,7 +27,7 @@ pub extend Expr with Show::{to_string, output}
 ///|
 /// Handwritten `@debug.Debug`: the `Map` variant's closure payload has no
 /// `Debug`, so the enum cannot `derive` one. The debug form delegates to
-/// the `Show` rendering (`explain`), which already presents every variant —
+/// the `Show` rendering (`to_string`), which already presents every variant —
 /// `Map` by its `(label, inputs)`, the closure opaque — in the documented
 /// operator form. Debug output surfaces only in `assert_eq` failure messages
 /// and `debug_inspect`; the structural comparison itself rides the

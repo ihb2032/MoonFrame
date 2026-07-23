@@ -1,14 +1,14 @@
 ///|
 /// Blackbox construction-route tests for the `expr_ops.mbt` surface: every
-/// route that is *supposed* to build the same node (static method vs free
-/// alias, operator vs method alias, builder chain vs one-shot chain) is
-/// pinned equal under derived `Eq`, and the chain ergonomics the design
+/// route that is *supposed* to build the same node (operator vs method alias,
+/// builder chain vs one-shot chain) is
+/// pinned equal under `Expr`'s handwritten `Eq`, and the chain ergonomics the design
 /// leans on (postfix methods binding tighter than `&` / `|`) are pinned by
 /// parenthesisation equivalence. Tree-shape semantics live in
 /// `expr_test.mbt`, rendering in `explain_test.mbt`.
 
 ///|
-test "col and lit: static methods and free aliases build the same nodes" {
+test "col and lit: the free constructors build stable nodes" {
   assert_eq(col("a"), col("a"))
   assert_eq(lit(@types.Scalar::Int(7)), lit(@types.Scalar::Int(7)))
 }

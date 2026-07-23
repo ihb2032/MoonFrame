@@ -12,7 +12,7 @@
 //     `match .data() { ... }` body is unchanged.
 
 ///|
-/// The exact read shape of `frame/sort.mbt::build_sort_key` (and the
+/// The exact read shape of `series/sort.mbt::build_sort_key` (and the
 /// `.validity().to_bools()` + `match .data()` reads in `group_by` / `join` /
 /// `drop_nulls`), but parameterised over `ColumnStorage`. That it compiles
 /// and runs against `ColumnStorage` is the empirical proof of point 2: the

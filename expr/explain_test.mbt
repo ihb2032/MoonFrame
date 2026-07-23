@@ -1,9 +1,9 @@
 ///|
 /// Blackbox snapshots for the handwritten `Show` / `explain` rendering and
 /// behaviour tests for the introspection primitive `children` and the pair
-/// `referenced_columns` / `output_name` built on it. Every rendering arm — the twelve binary symbols, four
+/// `referenced_columns` / `output_name` built on it. Every rendering arm — the twelve binary symbols, six
 /// unary forms, eleven aggregation suffixes, cast / alias / ternary, and
-/// each literal kind — is pinned here, since `explain` output is demo-
+/// each literal kind — is pinned here (the numeric `//` / `%` / `**` and `abs`…`round` arms render-test in `frame`), since `explain` output is demo-
 /// and (from L1 on) plan-printer-facing; the naming rule's clauses are
 /// pinned clause by clause, since the eager materialisers in `frame` and
 /// the lazy optimizer's pruning both lean on them.

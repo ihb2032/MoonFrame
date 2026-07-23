@@ -1510,7 +1510,7 @@ test "a lit_series is a barrier: it blocks the filter sink, like cast" {
 // ── The CSV source's projection push-down ────────────────────────────────
 //
 // Structural snapshots only — `explain` never reads the file. Unlike the
-// in-memory `Scan`, whose narrowing *inserts* a `SELECT`, a `ScanCsv` narrows
+// in-memory `Scan`, whose narrowing *inserts* a `SELECT`, a CSV scan (`Scan(Csv(...))`) narrows
 // in place: the projected columns ride on the node as `SCAN_CSV "path"
 // [cols]`. The file-backed collect equivalences live in `scan_csv_test.mbt`.
 

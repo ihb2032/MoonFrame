@@ -5,7 +5,7 @@
 /// predicate pass runs first and sinks `Filter` nodes toward the scan so
 /// rows drop as early as possible; the projection pass then runs a
 /// required-columns analysis and narrows each scan — the in-memory `Scan`
-/// and the `ScanCsv` / `ScanNdjson` file sources alike — to the columns its
+/// and the `Csv` / `Ndjson` file sources alike — to the columns its
 /// consumers provably read, so dead columns never ride through row-level work
 /// (and, for a file source, are never even parsed). The inviolable contract
 /// is the executor's own: `execute(optimize(p))` is bitwise-equal to
@@ -31,8 +31,8 @@
 /// off entirely: no `Filter` ever crosses a stage whose expressions
 /// contain a `Cast` (see `row_stable`).
 ///
-/// The sole deliberate exception is a file source's projection (`ScanCsv` /
-/// `ScanNdjson`). Narrowing it to the columns its consumers read means a
+/// The sole deliberate exception is a file source's projection (the `Csv` /
+/// `Ndjson` sources). Narrowing it to the columns its consumers read means a
 /// dropped column is never parsed, so a parse error confined to one — a
 /// malformed cell no stage reads — is not raised by the optimized plan, where
 /// the unoptimized full read would surface it. This is the defining property
@@ -105,8 +105,8 @@
 ///   sides, deferred with the projection pass's join narrowing — but
 ///   both sides restart their own descent, so filters inside either
 ///   side still sink. The in-memory `Scan` is the floor. A **file source**
-///   goes one step further: the predicate is absorbed into the `ScanCsv` /
-///   `ScanNdjson` node itself, so the reader prunes rows while parsing (see
+///   goes one step further: the predicate is absorbed into the `Csv` /
+///   `Ndjson` scan source itself, so the reader prunes rows while parsing (see
 ///   `@io.read_csv_pruned`) and no `Filter` node remains above the leaf.
 ///   Only the first predicate is absorbed — combining two would reorder
 ///   which operand's evaluation error surfaces first — so a second filter

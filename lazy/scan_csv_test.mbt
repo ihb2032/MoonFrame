@@ -298,3 +298,41 @@ test "a parse error in a row the predicate drops no longer surfaces" {
     is Err(@types.DataError::ParseError(_)),
   )
 }
+
+///|
+test "an absorbed predicate reports a kept row's parse error at its true file row" {
+  // A row dropped *before* the offending one makes the survivor rank differ
+  // from the file row: `oops` is data row 3, but only 2 rows survive, so the
+  // pruned reader must map the compacted build index back to the original row —
+  // reporting the survivor rank (2) instead of the file row (3) would diverge
+  // from the eager read. This is the CSV twin of what NDJSON already threads
+  // through `kept_lines`.
+  let path = "_build/lazy_scan_csv_predicate_row_number.csv"
+  @fs.write_string_to_file(path, "qty,note\n5,1\n60,2\n120,oops\n")
+  let narrow = @io.CsvReadOptions(infer_schema_rows=1)
+  let predicate = @expr.col("qty").gt(@expr.lit_int(50))
+  // Eager parses the whole file and fails on `oops` at data row 3.
+  let eager = Ok(@io.read_csv(path, options=narrow).filter(predicate)) catch {
+    e => Err(e)
+  }
+  assert_eq(
+    eager,
+    Err(
+      @types.DataError::ParseError(
+        @types.ParseErrorDetail::Cell(
+          @types.CellParseLocation::Row,
+          "note",
+          3,
+          @types.DataType::Int,
+          "oops",
+        ),
+      ),
+    ),
+  )
+  // The pruned lazy scan keeps `oops`'s row (qty 120 > 50) and parses it as the
+  // second survivor — the error must still name file row 3, not survivor rank 2.
+  let lazy_out = Ok(scan_csv(path, options=narrow).filter(predicate).collect()) catch {
+    e => Err(e)
+  }
+  assert_eq(lazy_out, eager)
+}

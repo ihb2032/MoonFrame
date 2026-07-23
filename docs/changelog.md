@@ -33,6 +33,11 @@ collected in [`migration.md`](migration.md).
   - Only the first predicate is absorbed; a second filter stays a node above
     the scan, since combining them would reorder which operand's evaluation
     error surfaces first.
+  - A column-less predicate (a literal like `lit_bool(true)`, a no-input
+    `map`) is not absorbed either: with no key column for the reader to prune
+    on, it stays a `Filter` above the scan and broadcasts over the fully-read
+    frame, matching the eager read-then-filter. (Absorbing it would build a
+    zero-column key frame, collapse it to `0×0`, and drop every row.)
   - Streaming the file is still future work — the reader tokenises the whole
     file, and the saving is the typed build of the dropped rows.
 

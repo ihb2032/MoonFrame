@@ -51,7 +51,10 @@ fn push_projection(
                   let survivors = cols.filter(name => needed.contains(name))
                   if survivors.length() > 0 &&
                     survivors.length() < cols.length() {
-                    Select(Scan(df), survivors.map(name => @expr.col(name)))
+                    Unary(
+                      Scan(df),
+                      Select(survivors.map(name => @expr.col(name))),
+                    )
                   } else {
                     Scan(df)
                   }
@@ -72,64 +75,11 @@ fn push_projection(
                 ScanNdjson(path, options, Some(columns), predicate)
               }),
             )
-          // By-name originator: the input needs exactly the columns the
-          // expressions read.
-          Select(input, exprs) => {
-            work.push(Rebuild1(c => Select(c, exprs)))
-            work.push(Visit(input, Some(columns_read(exprs))))
-          }
-          // Layout-preserving: subtract the names this stage defines, add the
-          // names it reads.
-          WithColumns(input, exprs) => {
-            let downstream : @set.Set[String]? = match req {
-              None => None
-              Some(needed) => {
-                let defined : @set.Set[String] = @set.Set([])
-                for expr in exprs {
-                  defined.add(expr.output_name())
-                }
-                let pass : @set.Set[String] = @set.Set([])
-                needed.each(name => {
-                  if !defined.contains(name) {
-                    pass.add(name)
-                  }
-                })
-                add_all(pass, columns_read(exprs))
-                Some(pass)
-              }
-            }
-            work.push(Rebuild1(c => WithColumns(c, exprs)))
-            work.push(Visit(input, downstream))
-          }
-          // Layout-preserving pass-throughs: the predicate / sort keys stay
-          // alive alongside whatever the parent needs.
-          Filter(input, predicate) => {
-            work.push(Rebuild1(c => Filter(c, predicate)))
-            work.push(
-              Visit(input, widened(req, predicate.referenced_columns())),
-            )
-          }
-          Sort(input, by) => {
-            let keys : @set.Set[String] = @set.Set([])
-            for key in by {
-              let (expr, _, _) = key
-              add_all(keys, expr.referenced_columns())
-            }
-            work.push(Rebuild1(c => Sort(c, by)))
-            work.push(Visit(input, widened(req, keys)))
-          }
-          // Pure row windows read no columns: the requirement passes through.
-          Head(input, n) => {
-            work.push(Rebuild1(c => Head(c, n)))
-            work.push(Visit(input, req))
-          }
-          Tail(input, n) => {
-            work.push(Rebuild1(c => Tail(c, n)))
-            work.push(Visit(input, req))
-          }
-          Slice(input, start, end) => {
-            work.push(Rebuild1(c => Slice(c, start, end)))
-            work.push(Visit(input, req))
+          // Every unary op rebuilds identically over its rewritten child; only
+          // the requirement it hands its input differs (`frame_op_required`).
+          Unary(input, op) => {
+            work.push(Rebuild1(c => Unary(c, op)))
+            work.push(Visit(input, frame_op_required(op, req)))
           }
           // Barrier: both sides keep their full output; each restarts its pass.
           Join(left, right, options) => {
@@ -137,51 +87,12 @@ fn push_projection(
             work.push(Visit(right, None))
             work.push(Visit(left, None))
           }
-          // By-name originator, like `Select`: keys + aggregated expressions.
+          // By-name originator, like a `Select`: keys + aggregated expressions.
           Aggregate(input, keys, exprs) => {
             let needed = columns_read(exprs)
             add_all(needed, columns_read(keys))
             work.push(Rebuild1(c => Aggregate(c, keys, exprs)))
             work.push(Visit(input, Some(needed)))
-          }
-          // Barriers (like `Join`): the input keeps its whole output (`None`).
-          Drop(input, exprs) => {
-            work.push(Rebuild1(c => Drop(c, exprs)))
-            work.push(Visit(input, None))
-          }
-          Rename(input, pairs) => {
-            work.push(Rebuild1(c => Rename(c, pairs)))
-            work.push(Visit(input, None))
-          }
-          RenameWith(input, f) => {
-            work.push(Rebuild1(c => RenameWith(c, f)))
-            work.push(Visit(input, None))
-          }
-          Reverse(input) => {
-            work.push(Rebuild1(c => Reverse(c)))
-            work.push(Visit(input, None))
-          }
-          WithRowIndex(input, name, offset) => {
-            work.push(Rebuild1(c => WithRowIndex(c, name, offset)))
-            work.push(Visit(input, None))
-          }
-          Unique(input, keep, subset) => {
-            work.push(Rebuild1(c => Unique(c, keep, subset)))
-            work.push(Visit(input, None))
-          }
-          DropNulls(input, subset) => {
-            work.push(Rebuild1(c => DropNulls(c, subset)))
-            work.push(Visit(input, None))
-          }
-          FillNull(input, value) => {
-            work.push(Rebuild1(c => FillNull(c, value)))
-            work.push(Visit(input, None))
-          }
-          // Barrier: a whole-frame reduction reads every column, so the input
-          // keeps its full output (`None`).
-          Reduce(input, op) => {
-            work.push(Rebuild1(c => Reduce(c, op)))
-            work.push(Visit(input, None))
           }
         }
       Rebuild1(f) => values.push(f(pop_top(values)))
@@ -194,6 +105,57 @@ fn push_projection(
     }
   }
   pop_top(values)
+}
+
+///|
+/// The column requirement a unary `FrameOp` hands its input — the `Unary`
+/// node's half of `push_projection`, so a new unary verb declares its pruning
+/// behaviour here alone. A by-name originator (`Select`) requires exactly what
+/// it reads; the layout-preserving readers (`Filter` / `Sort`) widen the
+/// parent's requirement by their own reads; `WithColumns` subtracts the names
+/// it defines and adds the ones it reads; a pure row window (`Head` / `Tail` /
+/// `Slice`) passes the requirement through unchanged; every other op is a
+/// barrier whose input keeps its whole output (`None`).
+fn frame_op_required(
+  op : FrameOp,
+  req : @set.Set[String]?,
+) -> @set.Set[String]? {
+  match op {
+    Select(exprs) => Some(columns_read(exprs))
+    WithColumns(exprs) =>
+      match req {
+        None => None
+        Some(needed) => {
+          let defined : @set.Set[String] = @set.Set([])
+          for expr in exprs {
+            defined.add(expr.output_name())
+          }
+          let pass : @set.Set[String] = @set.Set([])
+          needed.each(name => if !defined.contains(name) { pass.add(name) })
+          add_all(pass, columns_read(exprs))
+          Some(pass)
+        }
+      }
+    Filter(predicate) => widened(req, predicate.referenced_columns())
+    Sort(by) => {
+      let keys : @set.Set[String] = @set.Set([])
+      for key in by {
+        let (expr, _, _) = key
+        add_all(keys, expr.referenced_columns())
+      }
+      widened(req, keys)
+    }
+    Head(_) | Tail(_) | Slice(_, _) => req
+    Drop(_)
+    | Rename(_)
+    | RenameWith(_)
+    | Reverse
+    | WithRowIndex(_, _)
+    | Unique(_, _)
+    | DropNulls(_)
+    | FillNull(_)
+    | Reduce(_) => None
+  }
 }
 
 ///|

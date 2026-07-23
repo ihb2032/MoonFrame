@@ -42,24 +42,39 @@ priv enum LogicalPlan {
   Scan(@frame.DataFrame)
   ScanCsv(String, @io.CsvReadOptions, Array[String]?, @expr.Expr?)
   ScanNdjson(String, @io.JsonReadOptions, Array[String]?, @expr.Expr?)
-  Select(LogicalPlan, Array[@expr.Expr])
-  WithColumns(LogicalPlan, Array[@expr.Expr])
-  Filter(LogicalPlan, @expr.Expr)
-  Sort(LogicalPlan, Array[(@expr.Expr, @types.SortOrder, @types.NullOrder)])
-  Head(LogicalPlan, Int)
-  Tail(LogicalPlan, Int)
-  Slice(LogicalPlan, Int, Int)
+  Unary(LogicalPlan, FrameOp)
   Join(LogicalPlan, LogicalPlan, @frame.JoinOptions)
   Aggregate(LogicalPlan, Array[@expr.Expr], Array[@expr.Expr])
-  Drop(LogicalPlan, Array[@expr.Expr])
-  Rename(LogicalPlan, Array[(String, String)])
-  RenameWith(LogicalPlan, (String) -> String)
-  Unique(LogicalPlan, @frame.KeepStrategy, Array[@expr.Expr]?)
-  Reverse(LogicalPlan)
-  WithRowIndex(LogicalPlan, String, Int64)
-  DropNulls(LogicalPlan, Array[@expr.Expr]?)
-  FillNull(LogicalPlan, @types.Scalar)
-  Reduce(LogicalPlan, LazyReduceOp)
+}
+
+///|
+/// The single-input frame operation a `Unary` node defers — one per eager
+/// `DataFrame` verb it mirrors. Collapsing the former sixteen unary
+/// `LogicalPlan` variants behind one `Unary(input, FrameOp)` keeps each per-op
+/// concern in one FrameOp-keyed place — execution (`apply_frame_op`), rendering
+/// (`write_frame_op_label`), the projection requirement (`frame_op_projection`),
+/// and the predicate-crossing rule (`frame_op_crossing`) — so a new unary verb
+/// adds a `FrameOp` arm to those few functions rather than a variant to every
+/// plan walk (`plan_children`, `execute`, the two optimizer passes, `render`).
+/// `Filter` is a `FrameOp` like the rest; the predicate pass singles it out by
+/// matching `Unary(_, Filter(_))`.
+priv enum FrameOp {
+  Select(Array[@expr.Expr])
+  WithColumns(Array[@expr.Expr])
+  Filter(@expr.Expr)
+  Sort(Array[(@expr.Expr, @types.SortOrder, @types.NullOrder)])
+  Head(Int)
+  Tail(Int)
+  Slice(Int, Int)
+  Drop(Array[@expr.Expr])
+  Rename(Array[(String, String)])
+  RenameWith((String) -> String)
+  Unique(@frame.KeepStrategy, Array[@expr.Expr]?)
+  Reverse
+  WithRowIndex(String, Int64)
+  DropNulls(Array[@expr.Expr]?)
+  FillNull(@types.Scalar)
+  Reduce(LazyReduceOp)
 }
 
 ///|
@@ -89,23 +104,7 @@ priv enum LazyReduceOp {
 fn plan_children(plan : LogicalPlan) -> Array[LogicalPlan] {
   match plan {
     Scan(_) | ScanCsv(_, _, _, _) | ScanNdjson(_, _, _, _) => []
-    Select(input, _)
-    | WithColumns(input, _)
-    | Filter(input, _)
-    | Sort(input, _)
-    | Head(input, _)
-    | Tail(input, _)
-    | Slice(input, _, _)
-    | Aggregate(input, _, _)
-    | Drop(input, _)
-    | Rename(input, _)
-    | RenameWith(input, _)
-    | Unique(input, _, _)
-    | Reverse(input)
-    | WithRowIndex(input, _, _)
-    | DropNulls(input, _)
-    | FillNull(input, _)
-    | Reduce(input, _) => [input]
+    Unary(input, _) | Aggregate(input, _, _) => [input]
     Join(left, right, _) => [left, right]
   }
 }
@@ -339,47 +338,60 @@ fn execute(plan : LogicalPlan) -> @frame.DataFrame raise @types.DataError {
               Some(columns) => @io.read_ndjson_projected(path, options, columns)
             }
         }
-      Select(input, exprs) => memo_result(memo, input).select(exprs)
-      WithColumns(input, exprs) => memo_result(memo, input).with_columns(exprs)
-      Filter(input, predicate) => memo_result(memo, input).filter(predicate)
-      Sort(input, by) => memo_result(memo, input).sort(by)
-      Head(input, n) => memo_result(memo, input).head(n)
-      Tail(input, n) => memo_result(memo, input).tail(n)
-      Slice(input, start, end) => memo_result(memo, input).slice(start, end)
+      // Every unary verb defers through `apply_frame_op` on its collected input.
+      Unary(input, op) => apply_frame_op(memo_result(memo, input), op)
       Join(left, right, options) =>
         memo_result(memo, left).join(memo_result(memo, right), options)
       Aggregate(input, keys, exprs) =>
         memo_result(memo, input).group_by(keys).agg(exprs)
-      Drop(input, exprs) => memo_result(memo, input).drop(exprs)
-      Rename(input, pairs) => memo_result(memo, input).rename(pairs)
-      RenameWith(input, f) => memo_result(memo, input).rename_with(f)
-      Reverse(input) => memo_result(memo, input).reverse()
-      WithRowIndex(input, name, offset) =>
-        memo_result(memo, input).with_row_index(name~, offset~)
-      Unique(input, keep, subset) =>
-        match subset {
-          None => memo_result(memo, input).unique(keep~)
-          Some(keys) => memo_result(memo, input).unique(subset=keys, keep~)
-        }
-      DropNulls(input, subset) => memo_result(memo, input).drop_nulls(subset?)
-      FillNull(input, value) => memo_result(memo, input).fill_null(value)
-      // Each reduction executes as its eager `DataFrame` verb on the collected
-      // input, so `collect` is bit-for-bit the eager 1-row result.
-      Reduce(input, op) => {
-        let df = memo_result(memo, input)
-        match op {
-          Sum => df.sum()
-          Mean => df.mean()
-          Min => df.min()
-          Max => df.max()
-          Count => df.count()
-          NullCount => df.null_count()
-        }
-      }
     }
     memo.push((node, result))
   }
   memo_result(memo, plan)
+}
+
+///|
+/// Apply one deferred unary op to a collected input frame — the `Unary` node's
+/// half of `execute`. Each arm delegates to the public eager `DataFrame` verb
+/// it mirrors, so `collect` stays bit-for-bit the eager result and the errors
+/// are exactly the eager operators'. One place to add a new unary verb's
+/// execution.
+fn apply_frame_op(
+  df : @frame.DataFrame,
+  op : FrameOp,
+) -> @frame.DataFrame raise @types.DataError {
+  match op {
+    Select(exprs) => df.select(exprs)
+    WithColumns(exprs) => df.with_columns(exprs)
+    Filter(predicate) => df.filter(predicate)
+    Sort(by) => df.sort(by)
+    Head(n) => df.head(n)
+    Tail(n) => df.tail(n)
+    Slice(start, end) => df.slice(start, end)
+    Drop(exprs) => df.drop(exprs)
+    Rename(pairs) => df.rename(pairs)
+    RenameWith(f) => df.rename_with(f)
+    Unique(keep, subset) =>
+      match subset {
+        None => df.unique(keep~)
+        Some(keys) => df.unique(subset=keys, keep~)
+      }
+    Reverse => df.reverse()
+    WithRowIndex(name, offset) => df.with_row_index(name~, offset~)
+    DropNulls(subset) => df.drop_nulls(subset?)
+    FillNull(value) => df.fill_null(value)
+    // Each reduction executes as its eager `DataFrame` verb on the collected
+    // input, so `collect` is bit-for-bit the eager 1-row result.
+    Reduce(op) =>
+      match op {
+        Sum => df.sum()
+        Mean => df.mean()
+        Min => df.min()
+        Max => df.max()
+        Count => df.count()
+        NullCount => df.null_count()
+      }
+  }
 }
 
 ///|

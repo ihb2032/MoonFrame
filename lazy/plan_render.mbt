@@ -68,22 +68,32 @@ fn write_plan_label(plan : LogicalPlan, buf : StringBuilder) -> Unit {
       render_scan_source(buf, "SCAN_CSV", path, projection, predicate)
     ScanNdjson(path, _, projection, predicate) =>
       render_scan_source(buf, "SCAN_NDJSON", path, projection, predicate)
-    Select(_, exprs) => buf <+ "SELECT \{exprs_label(exprs)}"
-    WithColumns(_, exprs) => buf <+ "WITH_COLUMNS \{exprs_label(exprs)}"
-    Filter(_, predicate) => buf <+ "FILTER \{predicate.to_string()}"
-    Sort(_, by) => buf <+ "SORT \{sort_label(by)}"
-    Head(_, n) => buf <+ "HEAD \{n}"
-    Tail(_, n) => buf <+ "TAIL \{n}"
-    Slice(_, start, end) => buf <+ "SLICE [\{start}, \{end})"
+    Unary(_, op) => write_frame_op_label(op, buf)
     Join(_, _, options) => buf <+ "\{join_label(options)}"
     Aggregate(_, keys, exprs) =>
       buf <+ "AGGREGATE \{exprs_label(exprs)} BY \{exprs_label(keys)}"
-    Drop(_, exprs) => buf <+ "DROP \{exprs_label(exprs)}"
-    Rename(_, pairs) => buf <+ "RENAME \{rename_label(pairs)}"
-    RenameWith(_, _) => buf <+ "RENAME_WITH"
+  }
+}
+
+///|
+/// The one-line label for a unary `FrameOp` — the `Unary` node's half of
+/// `write_plan_label`, so a new unary verb adds its render here alone. The
+/// strings are unchanged from the former per-variant arms.
+fn write_frame_op_label(op : FrameOp, buf : StringBuilder) -> Unit {
+  match op {
+    Select(exprs) => buf <+ "SELECT \{exprs_label(exprs)}"
+    WithColumns(exprs) => buf <+ "WITH_COLUMNS \{exprs_label(exprs)}"
+    Filter(predicate) => buf <+ "FILTER \{predicate.to_string()}"
+    Sort(by) => buf <+ "SORT \{sort_label(by)}"
+    Head(n) => buf <+ "HEAD \{n}"
+    Tail(n) => buf <+ "TAIL \{n}"
+    Slice(start, end) => buf <+ "SLICE [\{start}, \{end})"
+    Drop(exprs) => buf <+ "DROP \{exprs_label(exprs)}"
+    Rename(pairs) => buf <+ "RENAME \{rename_label(pairs)}"
+    RenameWith(_) => buf <+ "RENAME_WITH"
     // The keep strategy shows only when it is not the default, so the
     // common plan line stays `UNIQUE`.
-    Unique(_, keep, subset) => {
+    Unique(keep, subset) => {
       buf <+ "UNIQUE"
       if subset is Some(keys) {
         buf <+ " ON "
@@ -95,22 +105,22 @@ fn write_plan_label(plan : LogicalPlan, buf : StringBuilder) -> Unit {
         @frame.KeepStrategy::None => buf <+ " keep=None"
       }
     }
-    Reverse(_) => buf <+ "REVERSE"
-    WithRowIndex(_, name, offset) => {
+    Reverse => buf <+ "REVERSE"
+    WithRowIndex(name, offset) => {
       buf <+ "WITH_ROW_INDEX \"\{@text.escape_debug(name)}\""
       if offset != 0 {
         buf <+ " offset=\{offset}"
       }
     }
-    DropNulls(_, subset) => {
+    DropNulls(subset) => {
       buf <+ "DROP_NULLS"
       match subset {
         Some(exprs) => buf <+ " \{exprs_label(exprs)}"
         None => ()
       }
     }
-    FillNull(_, value) => buf <+ "FILL_NULL \{@literal.format_scalar(value)}"
-    Reduce(_, op) =>
+    FillNull(value) => buf <+ "FILL_NULL \{@literal.format_scalar(value)}"
+    Reduce(op) =>
       match op {
         Sum => buf <+ "SUM"
         Mean => buf <+ "MEAN"

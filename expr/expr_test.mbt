@@ -2,8 +2,8 @@
 /// Blackbox equality / shape semantics for the `Expr` tree. The enum is
 /// read-only outside `expr` (`[4036]` — this file cannot spell
 /// `Expr::Col(..)` directly), so trees are asserted by comparing
-/// construction routes under derived `Eq`. Construction-route equivalences
-/// (static vs free constructors, operator vs method alias, builder chains)
+/// construction routes under `Expr`'s handwritten `Eq`. Construction-route equivalences
+/// (operator vs method alias, builder chains)
 /// live in `expr_ops_test.mbt`; rendering and column-collection in
 /// `explain_test.mbt`; evaluation semantics in `frame/expr_eval_test.mbt`.
 

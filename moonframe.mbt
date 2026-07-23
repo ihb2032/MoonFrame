@@ -36,8 +36,9 @@
 // needs explicit re-export only for the free constructors (`col` /
 // `cols` / `lit` / `lit_int` / `lit_float` / `lit_str` / `lit_bool` /
 // `lit_series` / `when` / `map_many` — `map_elements` is a method, riding
-// along with `type Expr`) and the two builder types `WhenThen` /
-// `WhenThenElse`; the
+// along with `type Expr`), the builder types `WhenThen` /
+// `WhenThenElse`, and the `ClosedInterval` enum that names
+// `is_between`'s `closed?` argument; the
 // `BinOp` / `UnOp` / `AggOp` / `StrOp` tag enums are inert (no public API
 // names them), so they are deliberately *not* re-exported. `@lazy` needs the
 // `lazy_frame` constructor (a free function — the bare identifier `lazy` is

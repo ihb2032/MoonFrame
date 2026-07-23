@@ -325,7 +325,12 @@ pub fn Series::head(self : Series, n : Int) -> Series {
 pub fn Series::tail(self : Series, n : Int) -> Series {
   let len = self.len()
   let take = clamp_take(n, len)
-  slice_series(self, len - take, len)
+  // `slice_series`' third argument is the window *length*, not the end index —
+  // pass `take` (as `DataFrame::tail` does), so `start + take == len` stays in
+  // bounds. Passing `len` here relied on the slice clamping an over-large end
+  // back down, and `start + len` overflows `Int` for a column past ~2^30 rows,
+  // wrapping negative and yielding an empty result.
+  slice_series(self, len - take, take)
 }
 
 ///|

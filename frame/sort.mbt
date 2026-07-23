@@ -32,7 +32,7 @@
 /// deliberate departure from Polars, which orders `NaN` as the largest
 /// value and treats only `Null` as missing.)
 ///
-/// The returned frame routes through `DataFrame::take`, so the schema
+/// The returned frame routes through `DataFrame::gather`, so the schema
 /// (column names, dtypes, order) is preserved verbatim and only the row
 /// order changes — the key expressions decide the permutation but never
 /// appear in the output. Every output passes `check_invariants()`.

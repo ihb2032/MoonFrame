@@ -149,8 +149,10 @@ fn[T] pop_top(stack : Array[T]) -> T {
 /// object, not its value. `LazyFrame::join` stores the other frame's plan by
 /// reference, so `lf.join(lf, …)` builds a DAG whose `Join` holds the same
 /// node object twice; identity is what tells a genuinely shared subplan from
-/// two equal-but-separate builds. Linear scan: a plan's distinct-node count
-/// is small, and the callers' overall cost stays quadratic in it at worst.
+/// two equal-but-separate builds. Linear scan: reached only for a join-bearing
+/// plan (a join-free chain skips the dedup walks entirely, see `contains_join`),
+/// whose distinct-node count is small, so the callers' cost stays quadratic in
+/// that small count at worst.
 fn seen_plan(seen : Array[LogicalPlan], node : LogicalPlan) -> Bool {
   for p in seen {
     if physical_equal(p, node) {
@@ -161,12 +163,41 @@ fn seen_plan(seen : Array[LogicalPlan], node : LogicalPlan) -> Bool {
 }
 
 ///|
+/// Whether the plan contains a `Join`. `Join` is the one binary node (every
+/// other node is unary — see `plan_children`), and `LazyFrame::join`, capturing
+/// the other frame's plan by reference, is the only builder that can make a
+/// subplan reachable twice. So a join-free plan is a *linear chain* with nothing
+/// shared: the identity dedup the DAG walks perform is pure overhead on it, and
+/// `has_shared_subplan` / `post_order_unique` take an O(nodes) fast path when
+/// this is `false`. Short-circuits on the first `Join`, and every node visited
+/// before then is itself non-`Join` — hence part of that unary chain — so this
+/// never re-expands a shared subplan and is itself O(nodes).
+fn contains_join(plan : LogicalPlan) -> Bool {
+  let stack : Array[LogicalPlan] = [plan]
+  while stack.length() > 0 {
+    let node = pop_top(stack)
+    if node is Join(_, _, _) {
+      return true
+    }
+    for child in plan_children(node) {
+      stack.push(child)
+    }
+  }
+  false
+}
+
+///|
 /// Whether the plan is DAG-shaped: some node object reachable twice (nested
-/// self-joins built from a shared `LazyFrame`). The walk marks every node by
-/// identity and stops at the first repeat, so it never re-expands a shared
-/// subplan — it avoids the 2^depth blow-up of a naive walk, at a cost
-/// quadratic in the (small) distinct-node count from the identity `seen` scan.
+/// self-joins built from a shared `LazyFrame`). Sharing can enter only through
+/// a `Join`, so a join-free plan is answered `false` in O(nodes) without the
+/// identity walk. Otherwise the walk marks every node by identity and stops at
+/// the first repeat, so it never re-expands a shared subplan — it avoids the
+/// 2^depth blow-up of a naive walk, at a cost quadratic in the (small)
+/// distinct-node count from the identity `seen` scan.
 fn has_shared_subplan(plan : LogicalPlan) -> Bool {
+  if !contains_join(plan) {
+    return false
+  }
   let seen : Array[LogicalPlan] = []
   let stack : Array[LogicalPlan] = [plan]
   while stack.length() > 0 {
@@ -184,13 +215,20 @@ fn has_shared_subplan(plan : LogicalPlan) -> Bool {
 
 ///|
 /// Plan nodes in post-order with each *distinct* node exactly once — the
-/// identity-deduplicated walk `execute` folds over. On a tree it yields
-/// exactly `post_order`'s sequence (left subtree, right subtree, node); on a
-/// DAG-shaped plan each shared subplan is listed once, before its first
+/// identity-deduplicated walk `execute` folds over. A join-free plan is a unary
+/// chain with nothing shared, so the plain `post_order` already lists each node
+/// once: taking it directly is the deep-plan fast path, folding a long `head` /
+/// `select` chain in O(nodes) rather than the O(nodes²) an identity `seen` scan
+/// would cost. Otherwise, on a tree it yields exactly `post_order`'s sequence
+/// (left subtree, right subtree, node); on a DAG-shaped plan (only a `Join` can
+/// share a subplan) each shared subplan is listed once, before its first
 /// consumer (children always precede parents), so a fold that reads child
 /// results out of a memo does each subplan's work once instead of once per
 /// occurrence — which is 2^depth for nested self-joins.
 fn post_order_unique(plan : LogicalPlan) -> Array[LogicalPlan] {
+  if !contains_join(plan) {
+    return post_order(plan)
+  }
   let out : Array[LogicalPlan] = []
   let seen : Array[LogicalPlan] = []
   // (node, expanded): expanded=false schedules the node (skipping it if a

@@ -1,8 +1,8 @@
 ///|
 /// The projection pass: a top-down required-columns analysis that narrows each
-/// scan — the in-memory `Scan` (by inserting a bare-column `Select`) and the
-/// `ScanCsv` / `ScanNdjson` file sources (by writing their projection field) —
-/// to the columns its consumers provably read. `push_projection` walks the plan
+/// scan source — the in-memory source (by inserting a bare-column `Select`) and
+/// the CSV / NDJSON file sources (by writing their projection field) — to the
+/// columns its consumers provably read. `push_projection` walks the plan
 /// iteratively over `ProjStep`; the small requirement helpers (`columns_read`,
 /// `widened`, `narrow_scan`, `sorted_names`, `add_all`) sit beside it. The
 /// per-node requirement rules and the pass ordering rationale are on `optimize`
@@ -22,9 +22,9 @@ priv enum ProjStep {
 
 ///|
 /// The projection pass: a top-down required-columns analysis that narrows each
-/// scan — the in-memory `Scan` (by inserting a `Select`) and the `ScanCsv` /
-/// `ScanNdjson` file sources (by writing their projection field) — to the
-/// columns its consumers provably read. The per-node requirement rules are in
+/// scan source — the in-memory source (by inserting a `Select`) and the CSV /
+/// NDJSON file sources (by writing their projection field) — to the columns its
+/// consumers provably read. The per-node requirement rules are in
 /// the file header; this walks them iteratively — `Visit` computes each child's
 /// requirement and schedules its rebuild, the rebuild pops the rebuilt
 /// child(ren) off an explicit value stack — so a deeply nested plan optimizes
@@ -40,41 +40,10 @@ fn push_projection(
     match pop_top(work) {
       Visit(node, req) =>
         match node {
-          // Narrowing point: insert a `Select` only when the requirement is a
-          // proper, non-empty subset of the scan's columns (header rationale).
-          Scan(df) =>
-            values.push(
-              match req {
-                None => Scan(df)
-                Some(needed) => {
-                  let cols = df.columns()
-                  let survivors = cols.filter(name => needed.contains(name))
-                  if survivors.length() > 0 &&
-                    survivors.length() < cols.length() {
-                    Unary(
-                      Scan(df),
-                      Select(survivors.map(name => @expr.col(name))),
-                    )
-                  } else {
-                    Scan(df)
-                  }
-                }
-              },
-            )
-          // File sources' narrowing point: write the requirement into the
-          // node's own projection field (`narrow_scan`).
-          ScanCsv(path, options, _, predicate) =>
-            values.push(
-              narrow_scan(node, req, columns => {
-                ScanCsv(path, options, Some(columns), predicate)
-              }),
-            )
-          ScanNdjson(path, options, _, predicate) =>
-            values.push(
-              narrow_scan(node, req, columns => {
-                ScanNdjson(path, options, Some(columns), predicate)
-              }),
-            )
+          // Each scan source narrows its own way (`narrow_scan_source`): the
+          // in-memory frame gets a `Select` inserted, a file source writes the
+          // requirement into its projection field.
+          Scan(source) => values.push(narrow_scan_source(node, source, req))
           // Every unary op rebuilds identically over its rewritten child; only
           // the requirement it hands its input differs (`frame_op_required`).
           Unary(input, op) => {
@@ -178,7 +147,45 @@ fn add_all(acc : @set.Set[String], names : @set.Set[String]) -> Unit {
 }
 
 ///|
-/// Narrow a file source (`ScanCsv` / `ScanNdjson`) to the required columns,
+/// Narrow one `Scan` source to the required columns — the `Scan` leaf's half of
+/// the projection pass, so a new scannable format declares its narrowing here
+/// alone. The in-memory source gets a bare-column `Select` inserted only when
+/// the requirement is a proper, non-empty subset of its columns (it carries no
+/// projection field); a file source writes the requirement into its own
+/// projection via `narrow_scan`. `node` is the original `Scan(source)`, returned
+/// unchanged when there is nothing to narrow.
+fn narrow_scan_source(
+  node : LogicalPlan,
+  source : ScanSource,
+  req : @set.Set[String]?,
+) -> LogicalPlan {
+  match source {
+    InMemory(df) =>
+      match req {
+        None => node
+        Some(needed) => {
+          let cols = df.columns()
+          let survivors = cols.filter(name => needed.contains(name))
+          if survivors.length() > 0 && survivors.length() < cols.length() {
+            Unary(node, Select(survivors.map(name => @expr.col(name))))
+          } else {
+            node
+          }
+        }
+      }
+    Csv(path, options, _, predicate) =>
+      narrow_scan(node, req, columns => {
+        Scan(Csv(path, options, Some(columns), predicate))
+      })
+    Ndjson(path, options, _, predicate) =>
+      narrow_scan(node, req, columns => {
+        Scan(Ndjson(path, options, Some(columns), predicate))
+      })
+  }
+}
+
+///|
+/// Narrow a file source (`Scan(Csv)` / `Scan(Ndjson)`) to the required columns,
 /// shared by both because they differ only in the node constructor `rebuild`
 /// wraps. The file's columns aren't known until it is parsed, so there is
 /// nothing to intersect here: the requirement is written verbatim into the

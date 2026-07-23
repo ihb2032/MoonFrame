@@ -20,6 +20,27 @@ Runnable, CI-verified examples of the surface below live in
 [`quickstart.mbt.md`](../quickstart.mbt.md) (doc tests executed by `moon test`
 on every backend).
 
+## API stability & compatibility
+
+The facade package `ihb2032/MoonFrame` is the supported public surface.
+Everything in this reference — reached through the facade or through a
+sub-package import (`@types`, `@series`, `@expr`, `@frame`, `@io`,
+`@lazy`) — is API you can build on.
+
+Some symbols are `pub` only because they are shared across packages and
+MoonBit has no module-internal visibility. These are execution-engine
+internals, not public API: each is marked
+`#internal(engine, "MoonFrame execution engine API")` at its definition and is
+deliberately absent from both the facade and this reference. **Do not depend on
+them** — they carry no compatibility promise and may change signature or
+disappear in any release. The marker raises an alert if a *downstream* module
+reaches for one; within this module (MoonFrame's own packages, examples and
+tests included) it is silent, since those are the intended callers.
+
+Compatibility follows the changelog's policy: backwards-compatible additions
+and bug fixes ship in patch releases, and — pre-1.0 — a change to the surface
+documented here rides the minor version.
+
 ## Error model
 
 Every operation that can fail on bad input or I/O is an effectful

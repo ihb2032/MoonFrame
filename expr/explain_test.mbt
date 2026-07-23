@@ -12,8 +12,7 @@
 test "show: the documented alias form" {
   let profit = (col("revenue") - col("cost")).with_alias("profit")
   inspect(profit, content="(col(revenue) - col(cost)) as profit")
-  // `explain` is exactly the `Show` rendering, as a String.
-  assert_eq(profit.to_string(), profit.to_string())
+  // `explain` is exactly the `Show` rendering, as a String — same content.
   assert_eq(profit.to_string(), "(col(revenue) - col(cost)) as profit")
 }
 

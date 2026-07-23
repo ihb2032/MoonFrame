@@ -260,6 +260,7 @@ fn parse_csv_str_projected(
     dt : InferredDtype,
     from : Array[Array[String]],
     col : Int,
+    row_numbers : Array[Int]?,
   ) -> @series.Series raise @types.DataError {
     build_column(
       name,
@@ -269,6 +270,7 @@ fn parse_csv_str_projected(
       is_null,
       options.on_parse_error,
       options.allow_nonfinite_floats,
+      row_numbers,
     )
   }
   // Phase 1 (predicate push-down only): materialise just the key columns the
@@ -285,7 +287,7 @@ fn parse_csv_str_projected(
       let keys : Array[@series.Series] = []
       for col in 0..<ncols {
         if key_set.contains(headers[col]) {
-          keys.push(build(headers[col], dtype_of(col), rows, col))
+          keys.push(build(headers[col], dtype_of(col), rows, col, None))
         }
       }
       let key_frame = @frame.DataFrame::new(keys)
@@ -298,6 +300,13 @@ fn parse_csv_str_projected(
   let kept_rows = match pruned {
     None => rows
     Some((_, kept)) => Array::makei(kept.length(), i => rows[kept[i]])
+  }
+  // The original data-row index of each row in `kept_rows`, so a phase-2 parse
+  // error reports the row's true file position rather than its rank among the
+  // survivors. A full (unpruned) read keeps the identity mapping (`None`).
+  let kept_row_numbers : Array[Int]? = match pruned {
+    None => None
+    Some((_, kept)) => Some(kept)
   }
   let projection_set = projection.map(name_set)
   let pruned_cols : Map[String, Unit] = match pruned {
@@ -317,7 +326,10 @@ fn parse_csv_str_projected(
       match pruned {
         Some((frame, _)) if pruned_cols.contains(name) =>
           series.push(frame.get_column(name))
-        _ => series.push(build(name, dtype_of(col), kept_rows, col))
+        _ =>
+          series.push(
+            build(name, dtype_of(col), kept_rows, col, kept_row_numbers),
+          )
       }
     }
   }
@@ -687,9 +699,21 @@ fn build_column(
   isnull : (String) -> Bool,
   on_parse_error : OnParseError,
   allow_nonfinite_floats : Bool,
+  row_numbers : Array[Int]?,
 ) -> @series.Series raise @types.DataError {
   let n = rows.length()
   let cell = fn(i : Int) -> String { cell_value(rows, i, col) }
+  // A parse error must name the cell's original file row. `rows` may be the
+  // compacted survivor list of a predicate-pruned read, so map the build index
+  // back through `row_numbers` (identity when `None`, i.e. a full read); the
+  // `+ 1` makes it the 1-based data row the eager reader reports. The NDJSON
+  // reader threads the same original-position mapping (`kept_lines`).
+  let file_row = fn(i : Int) -> Int {
+    match row_numbers {
+      None => i + 1
+      Some(m) => m[i] + 1
+    }
+  }
   match dtype {
     InferInt =>
       build_typed_column(
@@ -703,7 +727,7 @@ fn build_column(
             @types.ParseErrorDetail::Cell(
               @types.CellParseLocation::Row,
               name,
-              i + 1,
+              file_row(i),
               @types.DataType::Int,
               v,
             ),
@@ -724,7 +748,7 @@ fn build_column(
             @types.ParseErrorDetail::Cell(
               @types.CellParseLocation::Row,
               name,
-              i + 1,
+              file_row(i),
               @types.DataType::Float,
               v,
             ),
@@ -745,7 +769,7 @@ fn build_column(
             @types.ParseErrorDetail::Cell(
               @types.CellParseLocation::Row,
               name,
-              i + 1,
+              file_row(i),
               @types.DataType::Bool,
               v,
             ),

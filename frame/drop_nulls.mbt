@@ -30,18 +30,15 @@ pub fn DataFrame::drop_nulls(
   self : DataFrame,
   subset? : Array[@expr.Expr],
 ) -> DataFrame raise @types.DataError {
-  // Resolve the gating column names: an omitted `subset` gates on every
-  // column (names taken straight from the frame, so they always resolve); a
-  // present `subset` maps each key to its `output_name`.
-  let names = match subset {
-    None => self.columns()
-    Some(keys) => keys.map(key => expr_output_name(key))
-  }
-  // Resolve every gating column first, in `names` order; `get_column` raises
-  // `ColumnNotFound` on the first unknown name, so a bad name surfaces before
-  // any per-row work runs. A name repeated in `names` just resolves the same
+  // Resolve the gating columns, in order: an omitted `subset` gates on every
+  // column (always resolvable); a present `subset` resolves each key by its
+  // `output_name`, raising `ColumnNotFound` on the first unknown name so a bad
+  // name surfaces before any per-row work. A repeated key resolves the same
   // column twice, which the AND below absorbs — drops stay idempotent.
-  let gating = names.map(n => self.get_column(n))
+  let gating = match subset {
+    None => self.column_series()
+    Some(keys) => self.resolve_subset_columns(keys)
+  }
   // No gating column carries a null (so also: an empty gate set) → no row can
   // be dropped. Return `self` rather than materialising masks and gathering
   // an identical copy; `null_count` is O(1) for a `Numeric` column.

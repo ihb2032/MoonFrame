@@ -342,9 +342,13 @@ pub fn Series::reverse(self : Series) -> Series {
 }
 
 ///|
-/// Clamp a requested row count into `[0, len]`, so a negative `n` is an empty
-/// result and an oversized one is the whole series.
-fn clamp_take(n : Int, len : Int) -> Int {
+/// Clamp a requested row count into `[0, len]`: a negative request yields `0`,
+/// a request past the end yields `len`. Shared by `Series::head` / `tail` and,
+/// through the frame's re-import, `DataFrame::head` / `tail` / `slice` and the
+/// `to_html` / `to_markdown` row caps — one clamp for every row-count request.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
+pub fn clamp_take(n : Int, len : Int) -> Int {
   if n < 0 {
     0
   } else if n > len {

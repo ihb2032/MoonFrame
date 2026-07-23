@@ -25,17 +25,13 @@ pub fn DataFrame::drop(
   self : DataFrame,
   columns : Array[@expr.Expr],
 ) -> DataFrame raise @types.DataError {
-  // Resolve-validate-and-collect in one pass: each key's `output_name` names
-  // the column to drop, `get_column` raises `ColumnNotFound` on the first
-  // unknown name — so a bad name surfaces before any survivor list is built —
-  // and `Map::from_array` folds the names into a drop set where duplicate
-  // entries collapse (matching the idempotent-drop contract).
+  // Resolve each key's `output_name` to its column (`resolve_subset_columns`
+  // raises `ColumnNotFound` on the first unknown name, so a bad name surfaces
+  // before any survivor list is built), then fold the names into a drop set —
+  // `Map::from_array` collapses duplicate entries, matching the idempotent-drop
+  // contract.
   let to_drop : Map[String, Unit] = Map::from_array(
-    columns.map(key => {
-      let name = expr_output_name(key)
-      let _ = self.get_column(name)
-      (name, ())
-    }),
+    self.resolve_subset_columns(columns).map(s => (s.name(), ())),
   )
   let survivors = self.column_series().filter(s => !to_drop.contains(s.name()))
   DataFrame::new(survivors)

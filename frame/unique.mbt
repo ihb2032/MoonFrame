@@ -72,10 +72,9 @@ pub fn DataFrame::unique(
   let cells = match subset {
     None => self.to_scalar_matrix()
     // Resolve the key columns first, in `subset` order, so an unknown name
-    // surfaces as `ColumnNotFound` before any per-row work runs — the same
-    // discipline `drop_nulls` uses for its own subset.
-    Some(keys) =>
-      keys.map(key => self.get_column(expr_output_name(key)).to_scalars())
+    // surfaces as `ColumnNotFound` before any per-row work runs — the shared
+    // name-only resolution `drop` / `drop_nulls` also use.
+    Some(keys) => self.resolve_subset_columns(keys).map(s => s.to_scalars())
   }
   let keys = Array::makei(n, i => row_group_key(cells, i))
   let kept : Array[Int] = []

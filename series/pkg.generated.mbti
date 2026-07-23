@@ -2,7 +2,6 @@
 package "ihb2032/MoonFrame/series"
 
 import {
-  "ihb2032/MoonFrame/internal/column",
   "ihb2032/MoonFrame/types",
   "moonbitlang/core/debug",
 }
@@ -13,8 +12,7 @@ import {
 
 // Types and methods
 pub struct Series {
-  name : String
-  storage : @column.ColumnStorage
+  // private fields
 } derive(Eq, @debug.Debug)
 pub fn Series::cast(Self, @types.DataType) -> Self raise @types.DataError
 pub fn Series::count(Self) -> Int

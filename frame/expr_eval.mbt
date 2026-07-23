@@ -108,11 +108,21 @@ priv enum EvalStep {
   ApplyCast(@types.DataType)
   ApplyAlias(String)
   ApplyTernary
-  ApplyFill(Bool) // true = fill nulls, false = fill NaNs
+  ApplyFill(FillKind)
   ApplyIsIn(Array[@types.Scalar])
   ApplyIsBetween(@expr.ClosedInterval)
   ApplyMap((Array[@types.Scalar]) -> @types.Scalar raise @types.DataError, Int)
   ApplyMapBatches((Array[Series]) -> Series raise @types.DataError, Int)
+}
+
+///|
+/// Which emptiness a fill step patches: `Nulls` fills null cells (guarding on
+/// the validity mask), `Nans` fills `Float` NaN cells. Names the boolean the
+/// `ApplyFill` step used to carry so both call sites and the combiner read the
+/// same word instead of re-deriving "true = nulls".
+priv enum FillKind {
+  Nulls
+  Nans
 }
 
 ///|
@@ -208,12 +218,12 @@ fn eval_expr(
               // twice (as condition input and as `then` branch) — a chained
               // coalesce is linear work instead of exponential.
               @expr.Expr::FillNull(o, v) => {
-                work.push(ApplyFill(true))
+                work.push(ApplyFill(FillKind::Nulls))
                 work.push(Eval(v))
                 work.push(Eval(o))
               }
               @expr.Expr::FillNan(o, v) => {
-                work.push(ApplyFill(false))
+                work.push(ApplyFill(FillKind::Nans))
                 work.push(Eval(v))
                 work.push(Eval(o))
               }
@@ -347,7 +357,7 @@ fn eval_expr(
             let cond = pop_value(values)
             values.push(eval_ternary(cond, then_v, else_v))
           }
-          ApplyFill(fill_nulls) => {
+          ApplyFill(kind) => {
             let value_v = pop_value(values)
             let operand = pop_value(values)
             // Synthesize the guard the old lowering spelled out —
@@ -357,13 +367,13 @@ fn eval_expr(
             // handling (a null cell is neither NaN nor not-NaN, so
             // `fill_nan` passes it through as null), naming, and backend
             // convergence stay byte-for-byte identical.
-            let cond = if fill_nulls {
-              Series::from_bools(
-                operand.name(),
-                validity_bools(operand.storage()),
-              )
-            } else {
-              eval_is_nan(operand, false)
+            let cond = match kind {
+              FillKind::Nulls =>
+                Series::from_bools(
+                  operand.name(),
+                  validity_bools(operand.storage()),
+                )
+              FillKind::Nans => eval_is_nan(operand, false)
             }
             values.push(eval_ternary(cond, operand, value_v))
           }

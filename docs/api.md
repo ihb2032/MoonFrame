@@ -1,8 +1,9 @@
-# MoonFrame v0.5 — Public API
+# MoonFrame v0.6 — Public API
 
-> Status: **v0.5 shipped** (the eager and lazy surfaces converged onto one
-> Polars-shaped expression engine — the last breaking release). This
-> document is the source of truth for the v0.5 public surface. Every
+> Status: **v0.6 — the API-convergence release** (a tail of parallel spellings
+> collapsed onto one entry each). It is one more breaking release; from v0.7 on
+> the stable public surface evolves compatibly. This document is the source of
+> truth for the v0.6 public surface. Every
 > user-facing symbol re-exported by the facade appears here. (A few symbols
 > are `pub` only because they are shared across packages — MoonBit has no
 > module-internal visibility — and are deliberately kept out of both the
@@ -66,7 +67,7 @@ violated invariant), not a data transform.
 
 ### Migration
 
-Source-level changes between releases (v0.1 → … → v0.5) are collected
+Source-level changes between releases (v0.1 → … → v0.6) are collected
 in [`migration.md`](migration.md).
 
 ---
@@ -268,9 +269,7 @@ depends only on `types`.
   Each keeps the operand's dtype (`Int → Int`, `Float → Float`; `floor` /
   `ceil` / `round` leave an `Int` unchanged). `NaN` passes through
   (`sign(NaN) = NaN`); a null stays null; a non-numeric operand raises
-  `TypeMismatch`. (`round` to a number of decimal places is a deferred additive
-  refinement — this is the whole-number form.)
-
+  `TypeMismatch`.
 ### Methods
 
 - Comparisons `eq` / `ne` / `lt` / `le` / `gt` / `ge(other) -> Expr` —
@@ -904,7 +903,7 @@ Hash equi-join, native to the method chain (`left.join(right, options)`).
     right row); it takes **no** keys, ignores `coalesce`, and keeps every
     column of both frames (a clashing right column is suffixed).
   - **Backend**: like the other row-gathering transforms (`filter` / `sort`
-    / `take` / `drop_nulls`), each output column lands on the backend its
+    / `gather` / `drop_nulls`), each output column lands on the backend its
     **content** implies — an all-valid numeric result converges onto
     `Numeric` (even from a `Builtin` source), while a column that gains a
     null from an unmatched row (or is `Bool` / `String`) is `Builtin`. Only
@@ -1331,10 +1330,10 @@ API names them).
   `lit` · `lit_int` · `lit_float` · `lit_str` · `lit_bool` · `lit_series` ·
   `when` · `map_many`
 - From `@series`: `Series`
-- From `@frame`: `DataFrame` · `SortOrder` ·
-  `NullOrder` · `KeepStrategy` · `GroupedDataFrame` · `JoinType` ·
-  `JoinOptions` · `HtmlOptions` · `numeric_cols` · `cols_of_dtype` ·
-  `cols_matching`
+- From `@frame`: `DataFrame` · `KeepStrategy` · `GroupedDataFrame` ·
+  `JoinType` · `JoinOptions` · `HtmlOptions` · `numeric_cols` ·
+  `cols_of_dtype` · `cols_matching` · `cols_starts_with` · `cols_ends_with` ·
+  `cols_contains`
 - From `@io`: `CsvReadOptions` · `CsvWriteOptions` · `JsonReadOptions` ·
   `OnParseError` · `ChartKind` · `ChartSpec` ·
   `VegaType` · `format_csv` ·
@@ -1353,27 +1352,25 @@ facade.
 
 ---
 
-## Out of scope for v0.5 (so far)
+## Out of scope for v0.6 (so far)
 
-The whole v0.5 surface above is **shipped**, and it is the last breaking
-release: from v0.6 on the API only grows (additive — no renames, removals,
-or signature changes). These are the tracked deferrals, all v0.6+:
+The whole v0.6 surface above has landed on `main`. v0.6 is one more breaking
+release (API convergence); from v0.7 on the API only grows (additive — no
+renames, removals, or signature changes). These are the tracked deferrals, all
+v0.7+:
 
 - **More expression families** — the list-returning `str.split` (blocked on a
   list dtype; the scalar `str_split_get` is done) and — further out — window
-  and datetime expressions (the repo has no datetime type yet). The v0.5
+  and datetime expressions (the repo has no datetime type yet). The v0.6
   operator / method set is frozen; these extend it. (The arithmetic / numeric
   operator family — `floor_div`, `mod`, `pow`, `abs` / `floor` / `ceil` /
   `sign` / `round` — and the string family — `str_reverse` / `str_pad_*` /
   `str_zfill` / `str_slice` / `str_len_bytes` / `str_split_get`, the
   custom-charset `str_strip_chars`, and the regex ops `str_*_regex` /
   `str_extract` / `str_count_matches` — are now done.)
-- **Lazy scan depth** — predicate pushdown into the file parser and
-  streaming execution (v0.5's scan does projection pushdown only), plus
-  columnar sources (Parquet / IPC) once eager readers exist.
-- **`unique` subset** — dedup on a `subset` of key columns (the `keep`
-  strategy is now supported; `subset` stays deferred because resolving column
-  names would turn the currently-total `unique` fallible).
+- **Lazy scan depth** — streaming execution (v0.6's scan does projection- and
+  predicate-pushdown but still tokenises the whole file), plus columnar sources
+  (Parquet / IPC) once eager readers exist.
 - **Optimizer extensions** — dead-expression elimination, narrowing /
   predicate-splitting through joins, and sinking filters below sorts (v0.5
   pushes predicates and projections only).

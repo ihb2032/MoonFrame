@@ -75,10 +75,11 @@ exception, noted below):
   `scan_csv("sales.csv").select([col("region"), col("revenue")]).collect()`
   parses only those two columns.
 
-Because a pruned column is never parsed, a parse error confined to that column
-is the one thing an optimized plan will not surface that a full eager read
-would — the sole intentional divergence from bitwise equality, and it only
-applies to file sources (`scan_csv` / `scan_ndjson`).
+Because a pruned column is never parsed, a parse error confined to it — or to a
+row a pushed-down predicate drops, in a column the predicate does not read — is
+what an optimized plan will not surface that a full eager read would: the
+intentional divergence from bitwise equality, and it only applies to file
+sources (`scan_csv` / `scan_ndjson`).
 
 See [`api.md`](api.md) for the per-operation semantics and
 [`comparison.md`](comparison.md) for how the semantics line up with Polars.

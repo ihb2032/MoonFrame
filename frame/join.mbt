@@ -305,7 +305,7 @@ fn DataFrame::assemble_join_output(
   // `preserve_backend`, so a `Numeric` source column that picks up no null
   // (no `None` row injected on this side, and `Numeric` sources carry none
   // of their own) stays on the `Numeric` fast path rather than silently
-  // demoting to `Builtin` — matching `filter` / `sort` / `take` /
+  // demoting to `Builtin` — matching `filter` / `sort` / `gather` /
   // `drop_nulls` / `fill_null`, which all preserve the backend. A column
   // that does pick up a null (an unmatched row's `None`) is necessarily
   // nullable and stays `Builtin`. The coalesced key follows the **left** key

@@ -38,14 +38,18 @@ pub extend KeepStrategy with Debug::{to_repr}
 /// survivors (`None`) — always ascending by original row index, so the output
 /// is deterministic without a sort. When duplicate rows are dropped, a column
 /// that becomes all-valid may converge onto the `Numeric` fast-path backend —
-/// exactly as `take` / `gather` do, since the backend is a function of the
+/// exactly as `gather` does, since the backend is a function of the
 /// gathered content, not the source; the schema, values, and frame invariants
 /// are unchanged.
 ///
 /// `subset` picks the columns whose values form the duplicate key (Polars'
 /// `subset`); omitted, every column takes part. The output always carries **all**
 /// columns either way — a subset narrows what counts as a duplicate, not what
-/// is returned. An explicitly empty `subset` gives every row the same (empty)
+/// is returned. Like `drop` / `drop_nulls`, each `subset` entry is consulted by
+/// its **output name** only and never evaluated: pass bare `col(name)`
+/// references — a computed key such as `col(a) + col(b)` resolves to its
+/// leftmost column name, not the computed value. An explicitly empty `subset`
+/// gives every row the same (empty)
 /// key, so `First` / `Last` keep one row and `None` keeps none unless the frame
 /// has a single row.
 ///
@@ -118,12 +122,12 @@ pub fn DataFrame::unique(
     }
   }
   // Nothing dropped (every row distinct, or a 0-row frame): return `self`
-  // rather than rebuild it, mirroring `take`'s no-op gather.
+  // rather than rebuild it, mirroring `gather`'s no-op copy.
   if kept.length() == n {
     return self
   }
   // `kept` is a strict subset of `[0, n)` by construction, so the per-column
-  // gather is in-bounds with no bounds check (unlike the public `take`), and
+  // gather is in-bounds with no bounds check (unlike the public `gather`), and
   // the frame is rebuilt directly — keeping `unique` total.
   let new_cols = self.columns.map(c => gather_series(c, kept))
   self.with_same_schema(new_cols, kept.length())

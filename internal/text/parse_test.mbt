@@ -1,4 +1,4 @@
-// Blackbox tests for `@types.is_decimal_int_literal` — the shared
+// Blackbox tests for `@text.is_decimal_int_literal` — the shared
 // integer-literal screen the CSV / JSON readers and the `@column`
 // String→Int cast all route through.
 

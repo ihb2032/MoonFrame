@@ -285,7 +285,7 @@ fn memo_result(
 /// surfacing here rather than at build time. `Scan` returns the captured
 /// frame as-is — frames are immutable, so no defensive copy is needed.
 /// A file source (`ScanCsv` / `ScanNdjson`) reads through `@io` —
-/// `read_*_with_options` for the as-built plan (every column) or
+/// `read_csv` / `read_ndjson` for the as-built plan (every column) or
 /// `read_*_projected` once the optimizer has filled its projection — so a
 /// missing file (`IoError`) or a parse failure (`ParseError`) surfaces here
 /// too.

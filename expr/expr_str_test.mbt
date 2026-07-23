@@ -81,7 +81,7 @@ test "str: every namespace method renders as a postfix call" {
 test "str: a parameter is quoted and escaped like a string literal" {
   // Each argument escapes `"` / `\` / control characters so a plan line stays
   // unambiguous and on one line — the same rule a rendered `lit_str` follows
-  // (`@types.format_scalar_literal`).
+  // (`@literal.format_scalar`).
   inspect(
     col("s").str_contains("a\"b"),
     content="col(s).str_contains(\"a\\\"b\")",

@@ -177,7 +177,7 @@ test "scan_csv builders are total; a missing file fails only at collect" {
     })
     is Err(@types.DataError::IoError(_)),
   )
-  // …and through read_csv_with_options when none did.
+  // …and through read_csv when none did.
   assert_true(
     (Ok(scan_csv(absent).collect()) catch { e => Err(e) })
     is Err(@types.DataError::IoError(_)),

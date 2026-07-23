@@ -1,5 +1,5 @@
 // The CSV write path: `CsvWriteOptions`, the `format_csv` renderer, the
-// `write_csv` / `write_csv_with_options` entry points, and the quoting
+// `write_csv` entry point, and the quoting
 // rule (`write_quoted`), split from `csv.mbt` so reading and writing read
 // apart. `validate_csv_delimiter` stays beside the reader: both directions
 // reject the same delimiter set through it.

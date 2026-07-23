@@ -52,7 +52,7 @@ pub fn DataFrame::sort(
 ) -> DataFrame raise @types.DataError {
   // No keys ⇒ every comparison returns 0 ⇒ a stable sort is the identity.
   // Return `self` rather than building an identity permutation and gathering
-  // a copy (the comparator + mergesort + `take` would all be no-ops).
+  // a copy (the comparator + mergesort + `gather` would all be no-ops).
   if keys.is_empty() {
     return self
   }
@@ -69,9 +69,9 @@ pub fn DataFrame::sort(
     let column = broadcast_series(eval_expr(expr, self, scope), n)
     @series.build_sort_key(column.storage(), order, null_order)
   })
-  // Stable mergesort produces the permutation; `take` applies it to the
+  // Stable mergesort produces the permutation; `gather` applies it to the
   // original frame. Every index in the permutation is in `[0, nrows)` by
-  // construction, so `take` cannot fail.
+  // construction, so `gather` cannot fail.
   let perm = @series.stable_mergesort_indices(n, (i, j) => {
     compare_rows(sort_keys, i, j)
   })

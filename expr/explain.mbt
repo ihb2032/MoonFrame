@@ -187,7 +187,7 @@ fn leftmost_name(expr : Expr) -> String? {
 ///|
 /// A pending step for the iterative `write_expr`: either a literal string
 /// fragment to emit, a sub-expression still to expand, or one of the three leaf
-/// writers that take more than a plain string (`@types.format_scalar_literal`
+/// writers that take more than a plain string (`@literal.format_scalar`
 /// for a `Lit`, a `Cast` target, a `Str` suffix).
 priv enum WriteTask {
   Frag(String)
@@ -228,7 +228,7 @@ fn write_expr(logger : &Logger, expr : Expr) -> Unit {
 fn push_write_tasks(stack : Array[WriteTask], expr : Expr) -> Unit {
   let tasks : Array[WriteTask] = match expr {
     // `col(name)` and `Alias`'s ` as name` render the name UNQUOTED, unlike a
-    // string literal (`@types.format_scalar_literal` quotes those), so
+    // string literal (`@literal.format_scalar` quotes those), so
     // `col("x")` stays distinct
     // from `lit_str("x")` in a plan line. A name containing literal parens can
     // therefore read paren-ambiguously (`col(a)b)`); that is display-only and
@@ -277,7 +277,7 @@ fn push_write_tasks(stack : Array[WriteTask], expr : Expr) -> Unit {
     FillNull(o, v) => [Node(o), Frag(".fill_null("), Node(v), Frag(")")]
     FillNan(o, v) => [Node(o), Frag(".fill_nan("), Node(v), Frag(")")]
     // `col(a).is_in([1, 2])`: the operand, then each set member rendered as a
-    // literal (`format_scalar_literal`, like a `Lit`) inside `[...]`.
+    // literal (`format_scalar`, like a `Lit`) inside `[...]`.
     IsIn(operand, members) => {
       let ts : Array[WriteTask] = [Node(operand), Frag(".is_in([")]
       for i in 0..<members.length() {
@@ -460,7 +460,7 @@ fn write_str_suffix(logger : &Logger, op : StrOp) -> Unit {
 ///|
 /// Render one parameterised string-op call `.name("arg", …)`, each argument
 /// quoted and `escape_debug`-escaped exactly like a rendered `lit_str`
-/// (`@types.format_scalar_literal`), so a pattern containing a `"` or a
+/// (`@literal.format_scalar`), so a pattern containing a `"` or a
 /// control character stays on one unambiguous line.
 fn write_str_call(
   logger : &Logger,

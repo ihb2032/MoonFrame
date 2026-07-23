@@ -52,7 +52,7 @@ pub fn DataFrame::drop_nulls(
   // throwaway bitmap for any `Numeric` gating column in the mix).
   let masks = gating.map(c => validity_bools(c.storage()))
   // Keep row `i` when every gating mask is valid there. The kept indices come
-  // straight from `[0, nrows)`, so `take` cannot fail.
+  // straight from `[0, nrows)`, so `gather` cannot fail.
   let kept = Array::makei(self.nrows(), i => i).filter(i => masks.all(m => m[i]))
   self.gather(kept)
 }

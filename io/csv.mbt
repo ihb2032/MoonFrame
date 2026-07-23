@@ -281,9 +281,10 @@ fn parse_csv_str_projected(
   let pruned : (@frame.DataFrame, Array[Int])? = match pruner {
     None => None
     Some((key_columns, keep)) => {
+      let key_set = name_set(key_columns)
       let keys : Array[@series.Series] = []
       for col in 0..<ncols {
-        if key_columns.contains(headers[col]) {
+        if key_set.contains(headers[col]) {
           keys.push(build(headers[col], dtype_of(col), rows, col))
         }
       }
@@ -298,10 +299,15 @@ fn parse_csv_str_projected(
     None => rows
     Some((_, kept)) => Array::makei(kept.length(), i => rows[kept[i]])
   }
+  let projection_set = projection.map(name_set)
+  let pruned_cols : Map[String, Unit] = match pruned {
+    Some((frame, _)) => name_set(frame.columns())
+    None => Map([])
+  }
   let series : Array[@series.Series] = []
   for col in 0..<ncols {
     let name = headers[col]
-    let included = match projection {
+    let included = match projection_set {
       None => true
       Some(names) => names.contains(name)
     }
@@ -309,7 +315,7 @@ fn parse_csv_str_projected(
       // A predicate key column is already built and pruned — take it rather
       // than parsing those cells a second time.
       match pruned {
-        Some((frame, _)) if frame.columns().contains(name) =>
+        Some((frame, _)) if pruned_cols.contains(name) =>
           series.push(frame.get_column(name))
         _ => series.push(build(name, dtype_of(col), kept_rows, col))
       }

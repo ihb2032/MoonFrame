@@ -17,6 +17,19 @@
 const DEFAULT_INFER_SCHEMA_ROWS : Int = 100
 
 ///|
+/// A membership set over a name list — a `Map[String, Unit]` for O(1)
+/// `contains`, built once so the projection / pruned-column / key-column
+/// checks in the CSV and JSON readers don't rescan (or reallocate) a name
+/// array per header.
+fn name_set(names : Array[String]) -> Map[String, Unit] {
+  let set : Map[String, Unit] = Map([])
+  for name in names {
+    set[name] = ()
+  }
+  set
+}
+
+///|
 /// The four dtypes inference can pick. `Null` is intentionally absent —
 /// inference never produces it, so the builder match stays exhaustive
 /// without an unreachable arm.

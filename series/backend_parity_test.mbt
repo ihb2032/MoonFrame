@@ -278,6 +278,20 @@ fn assert_backend_parity(bt : Series, nu : Series) -> Unit raise {
       },
     ),
   )
+  // The #231 ordering verbs — reverse / sort / head / tail — must yield the
+  // same rows in the same order on either backend: reverse and sort gather
+  // (canonicalising), head / tail slice (backend-preserving). `tail` slices
+  // from the end, the path whose length argument must stay the take count, not
+  // the container length. Cover head / tail counts of zero, one, the length,
+  // past it, and negative.
+  assert_true(same_series(bt.reverse(), nu.reverse()))
+  for order in [@types.SortOrder::Asc, @types.SortOrder::Desc] {
+    assert_true(same_series(bt.sort(order~), nu.sort(order~)))
+  }
+  for k in [0, 1, n, n + 5, -1] {
+    assert_true(same_series(bt.head(k), nu.head(k)))
+    assert_true(same_series(bt.tail(k), nu.tail(k)))
+  }
 }
 
 ///|

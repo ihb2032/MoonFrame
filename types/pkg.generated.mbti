@@ -53,6 +53,7 @@ pub fn DataType::is_numeric(Self) -> Bool
 pub fn DataType::is_string(Self) -> Bool
 pub fn DataType::not_equal(Self, Self) -> Bool
 pub fn DataType::output(Self, &Logger) -> Unit
+pub fn DataType::physical(Self) -> PhysicalType?
 pub fn DataType::to_repr(Self) -> @debug.Repr
 pub fn DataType::to_string(Self) -> String
 pub impl Show for DataType
@@ -90,6 +91,19 @@ pub(all) enum ParseErrorDetail {
 pub fn ParseErrorDetail::equal(Self, Self) -> Bool
 pub fn ParseErrorDetail::not_equal(Self, Self) -> Bool
 pub fn ParseErrorDetail::to_repr(Self) -> @debug.Repr
+
+pub(all) enum PhysicalType {
+  I64
+  F64
+  Bool
+  Utf8
+} derive(Eq, @debug.Debug)
+pub fn PhysicalType::equal(Self, Self) -> Bool
+pub fn PhysicalType::not_equal(Self, Self) -> Bool
+pub fn PhysicalType::output(Self, &Logger) -> Unit
+pub fn PhysicalType::to_repr(Self) -> @debug.Repr
+pub fn PhysicalType::to_string(Self) -> String
+pub impl Show for PhysicalType
 
 pub(all) enum Scalar {
   Int(Int64)

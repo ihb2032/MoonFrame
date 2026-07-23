@@ -17,6 +17,14 @@ collected in [`migration.md`](migration.md).
 
 ### Features
 
+- **Logical / physical type split.** `enum PhysicalType` (`I64` / `F64` /
+  `Bool` / `Utf8`) names the buffer a column's logical `DataType` materialises
+  into, and `DataType::physical() -> PhysicalType?` maps between them — `Null`
+  maps to `None`, the type-level statement of why an all-null column has no
+  storage. The four concrete types map one-to-one today; the indirection is the
+  seam a future logical type reusing an existing buffer (a `Date` as `I64`)
+  would consume instead of adding a new physical column kind.
+
 - **Predicate push-down into the file sources.** A filter sitting on a
   `scan_csv` / `scan_ndjson` leaf is now absorbed into the scan: the reader
   builds the predicate's columns, asks which rows survive, and parses the

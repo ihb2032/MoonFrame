@@ -84,7 +84,15 @@ in [`migration.md`](migration.md).
   for a value that does not fit its inferred dtype; other syntax and shape
   failures use `ParseError(Message(detail))`.
 - `enum DataType` — `Int | Float | Bool | String | Null`, with
-  `is_numeric` / `is_integer` / `is_float` / `is_string` / `is_bool`.
+  `is_numeric` / `is_integer` / `is_float` / `is_string` / `is_bool`, and
+  `physical() -> PhysicalType?` mapping the *logical* type to its physical
+  storage (`Null → None` — the one logical type with no physical backend, which
+  is why an all-null column cannot be materialised).
+- `enum PhysicalType` — `I64 | F64 | Bool | Utf8`, the buffer kind a column's
+  logical `DataType` materialises into. The four concrete logical types map
+  one-to-one to it today; the indirection is what a future logical type reusing
+  an existing buffer (a `Date` / `Datetime` as `I64`, a small `Decimal` as
+  `I64`) would consume rather than adding a new physical column kind.
 - `enum Scalar` — cell value (`Int` carries `Int64`, `Float` carries
   `Double`). Total: `dtype` / `is_null` / `to_string` (value form, e.g.
   `Int(42) → "42"`, `Null → ""`). Fallible (`raise DataError`):
@@ -1296,7 +1304,8 @@ and the free functions are listed explicitly. The inert `BinOp` / `UnOp`
 API names them).
 
 - From `@types`: `DataError` · `CellParseLocation` · `ParseErrorDetail` ·
-  `DataType` · `Scalar` · `Field` · `Schema` · `SortOrder` · `NullOrder`
+  `DataType` · `PhysicalType` · `Scalar` · `Field` · `Schema` · `SortOrder` ·
+  `NullOrder`
 - From `@expr`: `Expr` · `WhenThen` · `WhenThenElse` · `col` · `cols` ·
   `lit` · `lit_int` · `lit_float` · `lit_str` · `lit_bool` · `lit_series` ·
   `when` · `map_many`

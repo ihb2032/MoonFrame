@@ -39,12 +39,27 @@
 /// records, so there is nothing to prune at read time — the same reason Polars
 /// has `scan_ndjson` but no `scan_json`.)
 priv enum LogicalPlan {
-  Scan(@frame.DataFrame)
-  ScanCsv(String, @io.CsvReadOptions, Array[String]?, @expr.Expr?)
-  ScanNdjson(String, @io.JsonReadOptions, Array[String]?, @expr.Expr?)
+  Scan(ScanSource)
   Unary(LogicalPlan, FrameOp)
   Join(LogicalPlan, LogicalPlan, @frame.JoinOptions)
   Aggregate(LogicalPlan, Array[@expr.Expr], Array[@expr.Expr])
+}
+
+///|
+/// The leaf a `Scan` node reads at collect time — an in-memory frame or a file
+/// source. Collapsing the former `Scan` / `ScanCsv` / `ScanNdjson` `LogicalPlan`
+/// variants behind one `Scan(ScanSource)` leaf keeps each per-source concern in
+/// one ScanSource-keyed place — execution (`execute_scan`), rendering
+/// (`write_scan_label`), and the projection / predicate push-down
+/// (`narrow_scan_source` and `place_filter`'s floor) — so a new scannable format
+/// adds a `ScanSource` variant to those few functions rather than a
+/// `LogicalPlan` variant to every plan walk. A file source carries the pushed
+/// projection (the column list) and the absorbed predicate the optimizer fills
+/// in; the in-memory source carries neither (its narrowing inserts a `Select`).
+priv enum ScanSource {
+  InMemory(@frame.DataFrame)
+  Csv(String, @io.CsvReadOptions, Array[String]?, @expr.Expr?)
+  Ndjson(String, @io.JsonReadOptions, Array[String]?, @expr.Expr?)
 }
 
 ///|
@@ -52,8 +67,8 @@ priv enum LogicalPlan {
 /// `DataFrame` verb it mirrors. Collapsing the former sixteen unary
 /// `LogicalPlan` variants behind one `Unary(input, FrameOp)` keeps each per-op
 /// concern in one FrameOp-keyed place — execution (`apply_frame_op`), rendering
-/// (`write_frame_op_label`), the projection requirement (`frame_op_projection`),
-/// and the predicate-crossing rule (`frame_op_crossing`) — so a new unary verb
+/// (`write_frame_op_label`), the projection requirement (`frame_op_required`),
+/// and the predicate-crossing rule (in `place_filter`'s descent) — so a new verb
 /// adds a `FrameOp` arm to those few functions rather than a variant to every
 /// plan walk (`plan_children`, `execute`, the two optimizer passes, `render`).
 /// `Filter` is a `FrameOp` like the rest; the predicate pass singles it out by
@@ -103,7 +118,7 @@ priv enum LazyReduceOp {
 /// here.
 fn plan_children(plan : LogicalPlan) -> Array[LogicalPlan] {
   match plan {
-    Scan(_) | ScanCsv(_, _, _, _) | ScanNdjson(_, _, _, _) => []
+    Scan(_) => []
     Unary(input, _) | Aggregate(input, _, _) => [input]
     Join(left, right, _) => [left, right]
   }
@@ -302,42 +317,7 @@ fn execute(plan : LogicalPlan) -> @frame.DataFrame raise @types.DataError {
   let memo : Array[(LogicalPlan, @frame.DataFrame)] = []
   for node in post_order_unique(plan) {
     let result : @frame.DataFrame = match node {
-      Scan(df) => df
-      ScanCsv(path, options, projection, predicate) =>
-        match predicate {
-          // Hand `io` the predicate's column names and a row-selection
-          // callback rather than the expression itself, so the reader stays
-          // below the expression language (see `read_csv_pruned`).
-          Some(pred) =>
-            @io.read_csv_pruned(
-              path,
-              options,
-              projection,
-              predicate_columns(pred),
-              df => @frame.filter_row_indices(df, pred),
-            )
-          None =>
-            match projection {
-              None => @io.read_csv(path, options~)
-              Some(columns) => @io.read_csv_projected(path, options, columns)
-            }
-        }
-      ScanNdjson(path, options, projection, predicate) =>
-        match predicate {
-          Some(pred) =>
-            @io.read_ndjson_pruned(
-              path,
-              options,
-              projection,
-              predicate_columns(pred),
-              df => @frame.filter_row_indices(df, pred),
-            )
-          None =>
-            match projection {
-              None => @io.read_ndjson(path, options~)
-              Some(columns) => @io.read_ndjson_projected(path, options, columns)
-            }
-        }
+      Scan(source) => execute_scan(source)
       // Every unary verb defers through `apply_frame_op` on its collected input.
       Unary(input, op) => apply_frame_op(memo_result(memo, input), op)
       Join(left, right, options) =>
@@ -348,6 +328,55 @@ fn execute(plan : LogicalPlan) -> @frame.DataFrame raise @types.DataError {
     memo.push((node, result))
   }
   memo_result(memo, plan)
+}
+
+///|
+/// Read one `ScanSource` into a frame — the `Scan` leaf's half of `execute`. An
+/// in-memory source returns its captured frame as-is (frames are immutable, so
+/// no defensive copy); a file source reads through `@io` — the pruned reader
+/// when the optimizer absorbed a predicate, the projected reader once it filled
+/// a projection, the whole-file reader otherwise — so a missing file (`IoError`)
+/// or a parse failure (`ParseError`) surfaces here. One place to add a new
+/// scannable format's read.
+fn execute_scan(source : ScanSource) -> @frame.DataFrame raise @types.DataError {
+  match source {
+    InMemory(df) => df
+    // Hand `io` the predicate's column names and a row-selection callback rather
+    // than the expression itself, so the reader stays below the expression
+    // language (see `read_csv_pruned`).
+    Csv(path, options, projection, predicate) =>
+      match predicate {
+        Some(pred) =>
+          @io.read_csv_pruned(
+            path,
+            options,
+            projection,
+            predicate_columns(pred),
+            df => @frame.filter_row_indices(df, pred),
+          )
+        None =>
+          match projection {
+            None => @io.read_csv(path, options~)
+            Some(columns) => @io.read_csv_projected(path, options, columns)
+          }
+      }
+    Ndjson(path, options, projection, predicate) =>
+      match predicate {
+        Some(pred) =>
+          @io.read_ndjson_pruned(
+            path,
+            options,
+            projection,
+            predicate_columns(pred),
+            df => @frame.filter_row_indices(df, pred),
+          )
+        None =>
+          match projection {
+            None => @io.read_ndjson(path, options~)
+            Some(columns) => @io.read_ndjson_projected(path, options, columns)
+          }
+      }
+  }
 }
 
 ///|

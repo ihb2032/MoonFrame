@@ -32,7 +32,7 @@ pub struct LazyFrame {
 /// method (that would live in `frame` and close a `frame ↔ lazy` import
 /// cycle) and rather than `lazy(df)` (`lazy` is a MoonBit reserved word).
 pub fn lazy_frame(df : @frame.DataFrame) -> LazyFrame {
-  { plan: Scan(df) }
+  { plan: Scan(InMemory(df)) }
 }
 
 ///|

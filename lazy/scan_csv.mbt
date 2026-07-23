@@ -27,5 +27,5 @@ pub fn scan_csv(
   // The one mutable container in the options — the null-token list — is
   // already copied by `CsvReadOptions(...)`, the only way to build one, so
   // the captured plan cannot observe a later mutation of the caller's array.
-  { plan: ScanCsv(path, options, None, None) }
+  { plan: Scan(Csv(path, options, None, None)) }
 }

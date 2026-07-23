@@ -26,8 +26,7 @@ fn push_predicates(plan : LogicalPlan) -> LogicalPlan {
   let values : Array[LogicalPlan] = []
   for node in post_order(plan) {
     match node {
-      Scan(_) | ScanCsv(_, _, _, _) | ScanNdjson(_, _, _, _) =>
-        values.push(node)
+      Scan(_) => values.push(node)
       // A `Filter` sinks into its rewritten input via `place_filter`; every
       // other unary op is an identity rebuild over its already-rewritten child.
       Unary(_, Filter(predicate)) =>
@@ -92,11 +91,7 @@ fn place_filter(input : LogicalPlan, predicate : @expr.Expr) -> LogicalPlan {
       // Every other node is a floor: the in-memory / file scans, a `Join`, and
       // any other unary op (`Sort` / `Head` / a second `Filter` / …) a dropping
       // filter must not cross.
-      Scan(_)
-      | ScanCsv(_, _, _, _)
-      | ScanNdjson(_, _, _, _)
-      | Unary(_, _)
-      | Join(_, _, _) => descending = false
+      Scan(_) | Unary(_, _) | Join(_, _, _) => descending = false
     }
   }
   // The floor is `cur`. A file source takes the predicate *into* the read
@@ -117,10 +112,10 @@ fn place_filter(input : LogicalPlan, predicate : @expr.Expr) -> LogicalPlan {
   // read: a scan cannot carry a row count through an empty column set.)
   let names_a_column = !predicate.referenced_columns().is_empty()
   let mut result = match cur {
-    ScanCsv(path, options, projection, None) if names_a_column =>
-      ScanCsv(path, options, projection, Some(predicate))
-    ScanNdjson(path, options, projection, None) if names_a_column =>
-      ScanNdjson(path, options, projection, Some(predicate))
+    Scan(Csv(path, options, projection, None)) if names_a_column =>
+      Scan(Csv(path, options, projection, Some(predicate)))
+    Scan(Ndjson(path, options, projection, None)) if names_a_column =>
+      Scan(Ndjson(path, options, projection, Some(predicate)))
     _ => Unary(cur, Filter(predicate))
   }
   for i = crossed.length() - 1; i >= 0; i = i - 1 {

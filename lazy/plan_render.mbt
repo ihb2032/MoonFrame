@@ -63,15 +63,25 @@ fn render(plan : LogicalPlan, buf : StringBuilder, depth : Int) -> Unit {
 /// its label, path, and (once the optimizer fills it) projection — never data.
 fn write_plan_label(plan : LogicalPlan, buf : StringBuilder) -> Unit {
   match plan {
-    Scan(df) => buf <+ "SCAN [\{df.nrows()}×\{df.ncols()}]"
-    ScanCsv(path, _, projection, predicate) =>
-      render_scan_source(buf, "SCAN_CSV", path, projection, predicate)
-    ScanNdjson(path, _, projection, predicate) =>
-      render_scan_source(buf, "SCAN_NDJSON", path, projection, predicate)
+    Scan(source) => write_scan_label(source, buf)
     Unary(_, op) => write_frame_op_label(op, buf)
     Join(_, _, options) => buf <+ "\{join_label(options)}"
     Aggregate(_, keys, exprs) =>
       buf <+ "AGGREGATE \{exprs_label(exprs)} BY \{exprs_label(keys)}"
+  }
+}
+
+///|
+/// The one-line label for a `ScanSource` — the `Scan` leaf's half of
+/// `write_plan_label`, so a new scannable format adds its render here alone. The
+/// strings are unchanged from the former per-variant arms.
+fn write_scan_label(source : ScanSource, buf : StringBuilder) -> Unit {
+  match source {
+    InMemory(df) => buf <+ "SCAN [\{df.nrows()}×\{df.ncols()}]"
+    Csv(path, _, projection, predicate) =>
+      render_scan_source(buf, "SCAN_CSV", path, projection, predicate)
+    Ndjson(path, _, projection, predicate) =>
+      render_scan_source(buf, "SCAN_NDJSON", path, projection, predicate)
   }
 }
 

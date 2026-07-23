@@ -11,6 +11,14 @@ on:
         required: true
         default: "10"
 
+# Least privilege: this workflow only checks out the repo and runs the
+# toolchain — it never writes back, cuts a release, or touches PRs/issues.
+# Pinning the GITHUB_TOKEN to read-only means a compromised step or a tampered
+# dependency cannot push commits or otherwise mutate repository state. A future
+# job that needs more can widen its own `permissions:` block.
+permissions:
+  contents: read
+
 # Pin the MoonBit toolchain so CI matches the version this project is built
 # and gated against locally. The official install scripts
 # (cli.moonbitlang.com) read MOONBIT_INSTALL_VERSION and URL-encode the `+`
@@ -36,7 +44,11 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        # Pinned to a full commit SHA rather than the movable `v5` tag, so a
+        # retagged or compromised release can't silently change what runs in
+        # CI. Bump deliberately: resolve the new tag to its commit SHA and
+        # update the trailing version comment to match.
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
       - name: Install MoonBit (Unix)
         if: runner.os != 'Windows'

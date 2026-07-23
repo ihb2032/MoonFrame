@@ -41,7 +41,7 @@ pub fn lazy_frame(df : @frame.DataFrame) -> LazyFrame {
 /// time — a predicate over missing columns or of a non-`Bool` type only
 /// fails when the plan is collected.
 pub fn LazyFrame::filter(self : LazyFrame, predicate : @expr.Expr) -> LazyFrame {
-  { plan: Filter(self.plan, predicate) }
+  { plan: Unary(self.plan, Filter(predicate)) }
 }
 
 ///|
@@ -51,7 +51,7 @@ pub fn LazyFrame::with_columns(
   self : LazyFrame,
   exprs : Array[@expr.Expr],
 ) -> LazyFrame {
-  { plan: WithColumns(self.plan, exprs.copy()) }
+  { plan: Unary(self.plan, WithColumns(exprs.copy())) }
 }
 
 ///|
@@ -62,7 +62,7 @@ pub fn LazyFrame::select(
   self : LazyFrame,
   exprs : Array[@expr.Expr],
 ) -> LazyFrame {
-  { plan: Select(self.plan, exprs.copy()) }
+  { plan: Unary(self.plan, Select(exprs.copy())) }
 }
 
 ///|
@@ -74,7 +74,7 @@ pub fn LazyFrame::sort(
   self : LazyFrame,
   by : Array[(@expr.Expr, @types.SortOrder, @types.NullOrder)],
 ) -> LazyFrame {
-  { plan: Sort(self.plan, by.copy()) }
+  { plan: Unary(self.plan, Sort(by.copy())) }
 }
 
 ///|
@@ -85,14 +85,14 @@ pub fn LazyFrame::sort(
 /// `lf.limit(n)` collects to the same rows and `explain`s as `HEAD n`.
 #alias(limit)
 pub fn LazyFrame::head(self : LazyFrame, n : Int) -> LazyFrame {
-  { plan: Head(self.plan, n) }
+  { plan: Unary(self.plan, Head(n)) }
 }
 
 ///|
 /// Defer `DataFrame::tail`: the last `n` rows, with the same total clamp
 /// as `head`.
 pub fn LazyFrame::tail(self : LazyFrame, n : Int) -> LazyFrame {
-  { plan: Tail(self.plan, n) }
+  { plan: Unary(self.plan, Tail(n)) }
 }
 
 ///|
@@ -101,7 +101,7 @@ pub fn LazyFrame::tail(self : LazyFrame, n : Int) -> LazyFrame {
 /// out-of-range bounds (`IndexOutOfBounds`) or `start > end`
 /// (`InvalidOperation`) surface when the plan is collected.
 pub fn LazyFrame::slice(self : LazyFrame, start : Int, end : Int) -> LazyFrame {
-  { plan: Slice(self.plan, start, end) }
+  { plan: Unary(self.plan, Slice(start, end)) }
 }
 
 ///|
@@ -112,7 +112,7 @@ pub fn LazyFrame::drop(
   self : LazyFrame,
   exprs : Array[@expr.Expr],
 ) -> LazyFrame {
-  { plan: Drop(self.plan, exprs.copy()) }
+  { plan: Unary(self.plan, Drop(exprs.copy())) }
 }
 
 ///|
@@ -122,7 +122,7 @@ pub fn LazyFrame::rename(
   self : LazyFrame,
   pairs : Array[(String, String)],
 ) -> LazyFrame {
-  { plan: Rename(self.plan, pairs.copy()) }
+  { plan: Unary(self.plan, Rename(pairs.copy())) }
 }
 
 ///|
@@ -133,13 +133,13 @@ pub fn LazyFrame::rename_with(
   self : LazyFrame,
   f : (String) -> String,
 ) -> LazyFrame {
-  { plan: RenameWith(self.plan, f) }
+  { plan: Unary(self.plan, RenameWith(f)) }
 }
 
 ///|
 /// Defer `DataFrame::reverse`: flip the row order at collect time. Total.
 pub fn LazyFrame::reverse(self : LazyFrame) -> LazyFrame {
-  { plan: Reverse(self.plan) }
+  { plan: Unary(self.plan, Reverse) }
 }
 
 ///|
@@ -152,7 +152,7 @@ pub fn LazyFrame::with_row_index(
   name? : String = "index",
   offset? : Int64 = 0,
 ) -> LazyFrame {
-  { plan: WithRowIndex(self.plan, name, offset) }
+  { plan: Unary(self.plan, WithRowIndex(name, offset)) }
 }
 
 ///|
@@ -168,7 +168,7 @@ pub fn LazyFrame::unique(
   subset? : Array[@expr.Expr],
   keep? : @frame.KeepStrategy = First,
 ) -> LazyFrame {
-  { plan: Unique(self.plan, keep, subset.map(keys => keys.copy())) }
+  { plan: Unary(self.plan, Unique(keep, subset.map(keys => keys.copy()))) }
 }
 
 ///|
@@ -179,7 +179,7 @@ pub fn LazyFrame::drop_nulls(
   self : LazyFrame,
   subset? : Array[@expr.Expr],
 ) -> LazyFrame {
-  { plan: DropNulls(self.plan, subset.map(s => s.copy())) }
+  { plan: Unary(self.plan, DropNulls(subset.map(s => s.copy()))) }
 }
 
 ///|
@@ -190,7 +190,7 @@ pub fn LazyFrame::fill_null(
   self : LazyFrame,
   value : @types.Scalar,
 ) -> LazyFrame {
-  { plan: FillNull(self.plan, value) }
+  { plan: Unary(self.plan, FillNull(value)) }
 }
 
 ///|
@@ -198,41 +198,41 @@ pub fn LazyFrame::fill_null(
 /// sum (numeric columns their sum in the source dtype, non-numeric columns a
 /// `Null` cell). `collect` equals the eager `df.sum()`.
 pub fn LazyFrame::sum(self : LazyFrame) -> LazyFrame {
-  { plan: Reduce(self.plan, LazyReduceOp::Sum) }
+  { plan: Unary(self.plan, Reduce(LazyReduceOp::Sum)) }
 }
 
 ///|
 /// Defer `DataFrame::mean`: a 1-row frame of each numeric column's mean as
 /// `Float` (empty / all-null → `Null`), non-numeric columns a `Null` cell.
 pub fn LazyFrame::mean(self : LazyFrame) -> LazyFrame {
-  { plan: Reduce(self.plan, LazyReduceOp::Mean) }
+  { plan: Unary(self.plan, Reduce(LazyReduceOp::Mean)) }
 }
 
 ///|
 /// Defer `DataFrame::min`: a 1-row frame of each numeric column's minimum
 /// (`NaN` skipped, source dtype kept), non-numeric columns a `Null` cell.
 pub fn LazyFrame::min(self : LazyFrame) -> LazyFrame {
-  { plan: Reduce(self.plan, LazyReduceOp::Min) }
+  { plan: Unary(self.plan, Reduce(LazyReduceOp::Min)) }
 }
 
 ///|
 /// Defer `DataFrame::max`: the maximum counterpart of `min`.
 pub fn LazyFrame::max(self : LazyFrame) -> LazyFrame {
-  { plan: Reduce(self.plan, LazyReduceOp::Max) }
+  { plan: Unary(self.plan, Reduce(LazyReduceOp::Max)) }
 }
 
 ///|
 /// Defer `DataFrame::count`: a 1-row `Int` frame of each column's non-null cell
 /// count (every dtype).
 pub fn LazyFrame::count(self : LazyFrame) -> LazyFrame {
-  { plan: Reduce(self.plan, LazyReduceOp::Count) }
+  { plan: Unary(self.plan, Reduce(LazyReduceOp::Count)) }
 }
 
 ///|
 /// Defer `DataFrame::null_count`: a 1-row `Int` frame of each column's null
 /// count — the complement of `count`.
 pub fn LazyFrame::null_count(self : LazyFrame) -> LazyFrame {
-  { plan: Reduce(self.plan, LazyReduceOp::NullCount) }
+  { plan: Unary(self.plan, Reduce(LazyReduceOp::NullCount)) }
 }
 
 ///|

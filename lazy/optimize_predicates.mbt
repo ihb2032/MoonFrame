@@ -28,14 +28,11 @@ fn push_predicates(plan : LogicalPlan) -> LogicalPlan {
     match node {
       Scan(_) | ScanCsv(_, _, _, _) | ScanNdjson(_, _, _, _) =>
         values.push(node)
-      Select(_, exprs) => values.push(Select(pop_top(values), exprs))
-      WithColumns(_, exprs) => values.push(WithColumns(pop_top(values), exprs))
-      Filter(_, predicate) =>
+      // A `Filter` sinks into its rewritten input via `place_filter`; every
+      // other unary op is an identity rebuild over its already-rewritten child.
+      Unary(_, Filter(predicate)) =>
         values.push(place_filter(pop_top(values), predicate))
-      Sort(_, by) => values.push(Sort(pop_top(values), by))
-      Head(_, n) => values.push(Head(pop_top(values), n))
-      Tail(_, n) => values.push(Tail(pop_top(values), n))
-      Slice(_, start, end) => values.push(Slice(pop_top(values), start, end))
+      Unary(_, op) => values.push(Unary(pop_top(values), op))
       Join(_, _, options) => {
         let right = pop_top(values)
         let left = pop_top(values)
@@ -43,17 +40,6 @@ fn push_predicates(plan : LogicalPlan) -> LogicalPlan {
       }
       Aggregate(_, keys, exprs) =>
         values.push(Aggregate(pop_top(values), keys, exprs))
-      Drop(_, exprs) => values.push(Drop(pop_top(values), exprs))
-      Rename(_, pairs) => values.push(Rename(pop_top(values), pairs))
-      RenameWith(_, f) => values.push(RenameWith(pop_top(values), f))
-      Unique(_, keep, subset) =>
-        values.push(Unique(pop_top(values), keep, subset))
-      Reverse(_) => values.push(Reverse(pop_top(values)))
-      WithRowIndex(_, name, offset) =>
-        values.push(WithRowIndex(pop_top(values), name, offset))
-      DropNulls(_, subset) => values.push(DropNulls(pop_top(values), subset))
-      FillNull(_, value) => values.push(FillNull(pop_top(values), value))
-      Reduce(_, op) => values.push(Reduce(pop_top(values), op))
     }
   }
   pop_top(values)
@@ -76,18 +62,18 @@ fn place_filter(input : LogicalPlan, predicate : @expr.Expr) -> LogicalPlan {
   let mut descending = true
   while descending {
     match cur {
-      Select(inner, exprs) =>
+      Unary(inner, Select(exprs)) =>
         if all_row_stable(exprs) &&
           preserves_row_count(exprs) &&
           reads_only_bare_columns(predicate, exprs) {
-          crossed.push(ni => Select(ni, exprs))
+          crossed.push(ni => Unary(ni, Select(exprs)))
           cur = inner
         } else {
           descending = false
         }
-      WithColumns(inner, exprs) =>
+      Unary(inner, WithColumns(exprs)) =>
         if all_row_stable(exprs) && defines_none_of(exprs, predicate) {
-          crossed.push(ni => WithColumns(ni, exprs))
+          crossed.push(ni => Unary(ni, WithColumns(exprs)))
           cur = inner
         } else {
           descending = false
@@ -103,24 +89,14 @@ fn place_filter(input : LogicalPlan, predicate : @expr.Expr) -> LogicalPlan {
         } else {
           descending = false
         }
+      // Every other node is a floor: the in-memory / file scans, a `Join`, and
+      // any other unary op (`Sort` / `Head` / a second `Filter` / …) a dropping
+      // filter must not cross.
       Scan(_)
       | ScanCsv(_, _, _, _)
       | ScanNdjson(_, _, _, _)
-      | Filter(_, _)
-      | Sort(_, _)
-      | Head(_, _)
-      | Tail(_, _)
-      | Slice(_, _, _)
-      | Join(_, _, _)
-      | Drop(_, _)
-      | Rename(_, _)
-      | RenameWith(_, _)
-      | Unique(_, _, _)
-      | Reverse(_)
-      | WithRowIndex(_, _, _)
-      | DropNulls(_, _)
-      | FillNull(_, _)
-      | Reduce(_, _) => descending = false
+      | Unary(_, _)
+      | Join(_, _, _) => descending = false
     }
   }
   // The floor is `cur`. A file source takes the predicate *into* the read
@@ -145,7 +121,7 @@ fn place_filter(input : LogicalPlan, predicate : @expr.Expr) -> LogicalPlan {
       ScanCsv(path, options, projection, Some(predicate))
     ScanNdjson(path, options, projection, None) if names_a_column =>
       ScanNdjson(path, options, projection, Some(predicate))
-    _ => Filter(cur, predicate)
+    _ => Unary(cur, Filter(predicate))
   }
   for i = crossed.length() - 1; i >= 0; i = i - 1 {
     let rewrap = crossed[i]

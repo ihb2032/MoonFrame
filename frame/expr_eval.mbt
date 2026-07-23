@@ -135,6 +135,12 @@ fn eval_expr(
 ) -> Series raise @types.DataError {
   let work : Array[EvalStep] = [Eval(root)]
   let values : Array[Series] = []
+  // `scope` and `df.nrows()` are constant across the whole walk, so whether the
+  // scope is the identity permutation `[0, nrows)` is decided once here instead
+  // of re-scanned at every `Col` leaf — an expression with `k` column leaves
+  // over an `n`-row frame would otherwise pay an extra O(k·n) just to keep
+  // re-answering the same question.
+  let identity_scope = is_identity_perm(scope, df.nrows())
   for ;; {
     match work.pop() {
       None => break
@@ -153,7 +159,7 @@ fn eval_expr(
                 // the copy. A genuine sub-scope (a group's rows in the
                 // aggregation engine) still gathers.
                 values.push(
-                  if is_identity_perm(scope, df.nrows()) {
+                  if identity_scope {
                     try_column_to_numeric(df.get_column(name))
                   } else {
                     gather_series(df.get_column(name), scope)

@@ -627,7 +627,7 @@ fn infer_column_dtype(
 /// `Some(value)` when `s` is a plain base-10 integer literal that fits in
 /// a 64-bit `Int64`; `None` otherwise.
 ///
-/// We pre-screen with `@types.is_decimal_int_literal` because
+/// We pre-screen with `@text.is_decimal_int_literal` because
 /// `@string.parse_int64` defaults to `base=0`, which would otherwise accept
 /// `0x` / `0o` / `0b` prefixes (`0xFF` → 255) and underscore grouping
 /// (`1_000` → 1000). Those forms are kept as strings by pandas / polars,

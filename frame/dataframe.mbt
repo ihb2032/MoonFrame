@@ -454,8 +454,8 @@ pub fn DataFrame::gather(
 
 ///|
 /// Whether `indices` is the identity permutation `[0, 1, ..., nrows - 1]` —
-/// the case where a gather reproduces the frame unchanged. Lets `take`
-/// short-circuit a no-op gather (an already-ordered `sort`, a `filter`
+/// the case where a gather reproduces the frame unchanged. Lets `gather`
+/// short-circuit a no-op copy (an already-ordered `sort`, a `filter`
 /// that keeps every row). Fails fast: a length mismatch or the first
 /// out-of-place index returns `false` before the rest is scanned.
 fn is_identity_perm(indices : Array[Int], nrows : Int) -> Bool {
@@ -515,7 +515,7 @@ pub fn DataFrame::to_builtin(self : DataFrame) -> DataFrame {
 ///|
 /// Rebuild the frame from `new_cols` and `nrows`, reusing this frame's schema
 /// and `O(1)` name→index cache verbatim. The schema-preserving constructor
-/// behind the row-only transforms (`head` / `tail` / `slice` / `take` /
+/// behind the row-only transforms (`head` / `tail` / `slice` / `gather` /
 /// `fill_null` / `unique`) and the backend re-representations (`to_numeric` /
 /// `to_builtin`): the column values or backing change but the names and dtypes
 /// do not, so the cache stays valid and these never pay to rebuild it through

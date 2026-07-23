@@ -18,11 +18,11 @@
 // constructors come for free once their types are re-exported. Only the
 // value types (including the GroupBy `GroupedDataFrame`, the Join
 // `JoinType` / `JoinOptions`, the HTML `HtmlOptions`, and the Chart
-// `ChartKind` / `ChartSpec`), the `@types` free functions
-// (`compare_string_lex` / `is_decimal_int_literal` /
-// `format_scalar_literal`), and the `io` free functions need explicit
-// re-export. The `@ops` package no longer exists
-// (it was folded into `@frame`).
+// `ChartKind` / `ChartSpec`) and the `io` free functions need explicit
+// re-export. (The text / literal helpers that once lived in `@types` —
+// `compare_string_lex`, `is_decimal_int_literal`, `format_scalar` — are now in
+// the internal `@text` / `@literal` packages and are not part of the public
+// surface.) The `@ops` package no longer exists (it was folded into `@frame`).
 //
 // The expression / lazy layers follow the same rule for inherent methods:
 // `Expr::{with_alias,cast,eq,sum,...}` and the `LazyFrame` / `LazyGroupBy`

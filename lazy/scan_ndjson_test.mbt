@@ -126,7 +126,7 @@ test "scan_ndjson builders are total; a missing file fails only at collect" {
     })
     is Err(@types.DataError::IoError(_)),
   )
-  // …and through read_ndjson_with_options when none did.
+  // …and through read_ndjson when none did.
   assert_true(
     (Ok(scan_ndjson(absent).collect()) catch { e => Err(e) })
     is Err(@types.DataError::IoError(_)),

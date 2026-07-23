@@ -1,4 +1,4 @@
-// Direct tests for `@types.compare_string_lex` — the canonical code-point
+// Direct tests for `@text.compare_string_lex` — the canonical code-point
 // string ordering every user-facing sort / min / max routes through.
 
 ///|

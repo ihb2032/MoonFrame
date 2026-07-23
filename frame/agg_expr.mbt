@@ -64,9 +64,10 @@
 /// Raises:
 /// - `InvalidOperation(...)` — an expression is not reduction-shaped, or
 ///   the handle's `groups` no longer satisfy the `group_by` invariants (an
-///   empty group, or a row index outside the source) — the pub fields
-///   expose live arrays, so external mutation is re-checked here rather
-///   than allowed to drive the folds into an abort.
+///   empty group, or a row index outside the source). The fields are
+///   `priv`, so no external caller can reach the arrays; only in-package
+///   code could plant such a handle, and it is re-checked here rather than
+///   allowed to drive the folds into an abort.
 /// - `ColumnNotFound(name)` — an expression references an absent column.
 /// - `TypeMismatch(...)` — an expression's dtypes don't unify (e.g. `sum`
 ///   over a `String` column), from the first group's evaluation — or from
@@ -77,14 +78,14 @@ pub fn GroupedDataFrame::agg(
   self : GroupedDataFrame,
   exprs : Array[@expr.Expr],
 ) -> DataFrame raise @types.DataError {
-  // Re-validate the `group_by` invariants before any fold: the pub fields
-  // are read-only (no reassignment) but the Array values read from them are
-  // live objects, so a cross-package caller can empty a group or plant a
-  // stray row index after construction. The folds below index the source
-  // unguarded on the strength of these invariants (`g[0]`, the bare-column
-  // reducer's `read(i)`), so a corrupted handle must raise here — one
-  // O(total indices) pass, the same order as `agg` itself — instead of
-  // aborting downstream (the never-abort gate).
+  // Re-validate the `group_by` invariants before any fold: the fields are
+  // `priv`, so no cross-package caller can reach the `groups` arrays — but
+  // in-package code (a future refactor, or the whitebox corruption test)
+  // could still empty a group or plant a stray row index after construction.
+  // The folds below index the source unguarded on the strength of these
+  // invariants (`g[0]`, the bare-column reducer's `read(i)`), so a corrupted
+  // handle must raise here — one O(total indices) pass, the same order as
+  // `agg` itself — instead of aborting downstream (the never-abort gate).
   let nrows = self.source.nrows()
   for g in self.groups {
     if g.is_empty() {

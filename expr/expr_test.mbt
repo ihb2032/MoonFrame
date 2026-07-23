@@ -214,37 +214,11 @@ test "deep trees don't overflow structural equality: `==` is iterative" {
 }
 
 ///|
-test "equality: each variant is unequal to every other variant" {
-  // One representative of each of the sixteen `Expr` variants. Comparing
-  // every ordered pair of distinct variants exercises each per-variant arm of
-  // the handwritten structural equality as the *first* operand — the arms a
-  // future variant addition is forced to extend.
-  let reps : ReadOnlyArray[Expr] = [
-    col("a"),
-    lit_int(1),
-    lit_series(Series::from_ints("s", [1])),
-    col("a") + col("b"),
-    -col("a"),
-    col("a").sum(),
-    col("a").str_to_uppercase(),
-    col("a").cast(@types.DataType::Float),
-    col("a").with_alias("z"),
-    when(col("c")).then(lit_int(1)).otherwise(lit_int(0)),
-    col("a").fill_null(lit_int(0)),
-    col("a").fill_nan(lit_float(0.0)),
-    col("a").is_in([@types.Scalar::Int(1)]),
-    col("a").is_between(lit_int(0), lit_int(10)),
-    map_many(label="m", [col("a")], fn(vs) { vs[0] }),
-    col("a").map_batches(label="mb", fn(s) { s }),
-  ]
-  for i in 0..<reps.length() {
-    for j in 0..<reps.length() {
-      if i != j {
-        assert_not_eq(reps[i], reps[j])
-      }
-    }
-  }
-}
+// The "each variant is unequal to every other variant" coverage test moved to
+// `expr_variant_wbtest.mbt`, where a whitebox `expr_variant_tag` match makes
+// adding an `Expr` variant a compile error until its representative is added —
+// closing the silent gap this blackbox list left (a forgotten rep dropped a
+// variant's equality coverage without any signal).
 
 ///|
 test "equality: fill_null and fill_nan compare structurally, each its own kind" {

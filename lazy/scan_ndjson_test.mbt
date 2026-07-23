@@ -156,3 +156,23 @@ test "scan_ndjson absorbs a predicate the same way, down to the dropped-row cave
     is Err(@types.DataError::ColumnNotFound("nope")),
   )
 }
+
+///|
+test "a column-less predicate on an NDJSON scan keeps every row, matching eager" {
+  let path = "_build/lazy_scan_ndjson_columnless_pred.ndjson"
+  write_ndjson_fixture(path)
+  // Same as scan_csv: a literal-true predicate references no column, so it is
+  // not absorbed — the pruner would build a zero-column key frame that INV7
+  // collapses to 0×0, dropping every row. It stays a Filter above the scan.
+  let keep_all = @expr.lit_bool(true)
+  let out = scan_ndjson(path).filter(keep_all).collect()
+  assert_eq(out, @io.read_ndjson(path).filter(keep_all))
+  assert_eq(out.shape(), (4, 3))
+  assert_eq(out.check_invariants(), Ok(()))
+  // The false case is 0 rows either way, so only the true case distinguishes
+  // a correct fix from the row-count-losing bug.
+  let keep_none = @expr.lit_bool(false)
+  let none = scan_ndjson(path).filter(keep_none).collect()
+  assert_eq(none, @io.read_ndjson(path).filter(keep_none))
+  assert_eq(none.shape(), (0, 3))
+}

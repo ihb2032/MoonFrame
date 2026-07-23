@@ -1595,6 +1595,24 @@ test "scan_csv absorbs a filter directly on it; a second one stays above" {
 }
 
 ///|
+test "scan_csv: a column-less predicate is not absorbed, it stays a FILTER" {
+  // A predicate that names no column cannot ride into the scan: with no key
+  // columns the pruner would build a 0×0 frame and lose the row count. It stays
+  // a FILTER node above the whole scan, which still yields every row for the
+  // literal to broadcast over. Both the CSV and NDJSON sources behave alike.
+  let csv = scan_csv("sales.csv").filter(@expr.lit_bool(true))
+  assert_eq(
+    csv.explain(optimized=true),
+    "FILTER true\n  SCAN_CSV \"sales.csv\"",
+  )
+  let ndjson = scan_ndjson("events.ndjson").filter(@expr.lit_bool(false))
+  assert_eq(
+    ndjson.explain(optimized=true),
+    "FILTER false\n  SCAN_NDJSON \"events.ndjson\"",
+  )
+}
+
+///|
 test "scan_csv: an aggregation narrows the scan to its keys and reads" {
   let plan = scan_csv("sales.csv")
     .group_by([@expr.col("region")])

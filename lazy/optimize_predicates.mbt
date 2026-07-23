@@ -129,10 +129,21 @@ fn place_filter(input : LogicalPlan, predicate : @expr.Expr) -> LogicalPlan {
   // that already absorbed one keeps its own and the new predicate stays a
   // node above it — combining them would reorder which operand's evaluation
   // error surfaces first.
+  //
+  // Only a predicate that names at least one column may be absorbed. A
+  // column-less predicate (a literal like `lit_bool(true)`, a no-input `map`)
+  // reads no key columns, so the pruner would build a zero-column key frame;
+  // INV7 collapses that to `0×0`, erasing the file's real row count and
+  // dropping every row — `filter(true)` would return nothing where the eager
+  // read keeps all. Such a predicate stays a `Filter` above the scan, where it
+  // broadcasts over the fully-read frame exactly as the eager path does. (This
+  // is the predicate mirror of the zero-match projection falling back to a full
+  // read: a scan cannot carry a row count through an empty column set.)
+  let names_a_column = !predicate.referenced_columns().is_empty()
   let mut result = match cur {
-    ScanCsv(path, options, projection, None) =>
+    ScanCsv(path, options, projection, None) if names_a_column =>
       ScanCsv(path, options, projection, Some(predicate))
-    ScanNdjson(path, options, projection, None) =>
+    ScanNdjson(path, options, projection, None) if names_a_column =>
       ScanNdjson(path, options, projection, Some(predicate))
     _ => Filter(cur, predicate)
   }

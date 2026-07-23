@@ -242,6 +242,29 @@ test "an absorbed predicate reports the same errors as the eager filter" {
 }
 
 ///|
+test "a column-less predicate on a scan keeps every row, matching eager" {
+  let path = "_build/lazy_scan_csv_columnless_pred.csv"
+  write_fixture(path)
+  // A literal-true predicate references no column, so it must NOT be absorbed
+  // into the scan: the pruner would build a zero-column key frame, INV7 would
+  // collapse it to 0×0, and every one of the file's four rows would be dropped.
+  // It stays a Filter above the scan and broadcasts over the fully-read frame,
+  // so `collect` keeps all four rows exactly as the eager read-then-filter.
+  let keep_all = @expr.lit_bool(true)
+  let out = scan_csv(path).filter(keep_all).collect()
+  assert_eq(out, @io.read_csv(path).filter(keep_all))
+  assert_eq(out.shape(), (4, 3))
+  assert_eq(out.check_invariants(), Ok(()))
+  // `lit_bool(false)` also matches eager — but 0 rows either way, so testing
+  // only the false case would have masked the bug: a lost row count yields 0
+  // rows too. The true case is what distinguishes a correct fix.
+  let keep_none = @expr.lit_bool(false)
+  let none = scan_csv(path).filter(keep_none).collect()
+  assert_eq(none, @io.read_csv(path).filter(keep_none))
+  assert_eq(none.shape(), (0, 3))
+}
+
+///|
 test "a parse error in a row the predicate drops no longer surfaces" {
   // The documented consequence of push-down, and the mirror of projection
   // push-down's own caveat: the dropped row's cells in columns the predicate

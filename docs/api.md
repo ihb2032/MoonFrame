@@ -1272,7 +1272,11 @@ error confined to a dropped column *or* to a row the predicate drops goes
 unraised; dtype inference still walks the whole file, so dtypes are unchanged.
 The plan shows it as `SCAN_CSV "f.csv" [cols] WHERE (pred)`. Only the first
 predicate is absorbed (combining two would reorder which operand's error
-surfaces first). Deferred (out of scope): dead-expression elimination,
+surfaces first), and only a predicate that names at least one column — a
+column-less one (`lit_bool(true)`, a no-input `map`) has no key column for the
+reader to prune on, so it stays a `Filter` above the scan and broadcasts over
+the fully-read frame, matching the eager read-then-filter. Deferred (out of
+scope): dead-expression elimination,
 narrowing / predicate-splitting through joins, sinking filters below sorts, and
 streaming a file source — the reader still tokenises the whole file.
 

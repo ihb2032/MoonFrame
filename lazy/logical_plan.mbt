@@ -163,9 +163,9 @@ fn seen_plan(seen : Array[LogicalPlan], node : LogicalPlan) -> Bool {
 ///|
 /// Whether the plan is DAG-shaped: some node object reachable twice (nested
 /// self-joins built from a shared `LazyFrame`). The walk marks every node by
-/// identity and stops at the first repeat, so it is linear in the number of
-/// distinct nodes even on a deeply shared plan — it never re-expands what it
-/// has already seen.
+/// identity and stops at the first repeat, so it never re-expands a shared
+/// subplan — it avoids the 2^depth blow-up of a naive walk, at a cost
+/// quadratic in the (small) distinct-node count from the identity `seen` scan.
 fn has_shared_subplan(plan : LogicalPlan) -> Bool {
   let seen : Array[LogicalPlan] = []
   let stack : Array[LogicalPlan] = [plan]

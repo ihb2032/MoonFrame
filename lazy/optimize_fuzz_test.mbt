@@ -8,9 +8,10 @@
 /// the executor) is bitwise-equal, with error parity, to the eager verb chain
 /// it defers. Each case builds the SAME pipeline two ways: lazily (optimized)
 /// and eagerly (the as-built reference), then asserts the two agree cell for
-/// cell *and backend* (structural `DataFrame` equality observes the
-/// Builtin/Numeric backend, which is exactly where an unfenced backend flip
-/// would show up).
+/// cell (NaN-aware), with error parity. Value equality is the contract: a
+/// backend flip that changes a value surfaces in the cells, while the backend
+/// tag itself is an implementation detail the oracle intentionally ignores (see
+/// `frames_equiv`).
 ///
 /// Driven by quickcheck: each case draws a rich frame and a pipeline shape
 /// from `@gen` combinators, and `forall_shrink` collapses a failing case to a
@@ -157,7 +158,7 @@ fn rows_to_frame(
   ])
 }
 
-// ── Oracle (NaN-aware, backend-aware structural equivalence) ─────────
+// ── Oracle (NaN-aware structural equivalence) ────────────────────────
 
 ///|
 /// NaN-aware structural equivalence of two frames — the oracle the differential
@@ -166,12 +167,18 @@ fn rows_to_frame(
 /// NaN is unequal even to *itself*; that makes `==` useless as an
 /// optimizer-equivalence check on NaN-bearing data (it would flag a divergence
 /// for every NaN frame regardless of what the optimizer did). This comparator
-/// instead requires: identical column names and order, identical per-column
-/// dtype AND storage backend (so a genuine Builtin↔Numeric flip is still
-/// caught — the exact hazard under review), and cell-for-cell equality where
-/// two NaN cells count as equal (matching the package's `==` contract for every
-/// other value, signed zeros included). Returns `None` on equivalence, else a
-/// one-line reason.
+/// instead requires identical column names and order, identical per-column
+/// dtype, and cell-for-cell equality where two NaN cells count as equal
+/// (matching the package's `==` contract for every other value, signed zeros
+/// included). Storage backend is deliberately NOT compared: `ColumnStorage`'s
+/// `==` is backend-agnostic by design (a value's backend is an implementation
+/// detail of its content, not part of its identity), so a backend tag is not
+/// part of the value contract the optimizer must preserve — and a backend flip
+/// that *does* change a value is caught by the cell comparison below. Backend
+/// parity per se is guarded separately, by `series/backend_parity_test.mbt`.
+/// Returns `None` on equivalence, else a one-line reason. (An earlier
+/// `oc != oc.to_builtin()` "flip detector" here was inert: that `==` is exactly
+/// the backend-agnostic one, so it was always `false`.)
 fn frames_equiv(
   opt : @frame.DataFrame,
   eag : @frame.DataFrame,
@@ -189,15 +196,6 @@ fn frames_equiv(
     let ec = eag.get_column(name)
     if oc.dtype() != ec.dtype() {
       return Some("col \{name}: dtype \{oc.dtype()} vs \{ec.dtype()}")
-    }
-    // Backend parity — the Builtin/Numeric flip detector. A column is `Numeric`
-    // iff it differs from its `to_builtin` form (same values, Builtin backend).
-    let o_numeric = oc != oc.to_builtin()
-    let e_numeric = ec != ec.to_builtin()
-    if o_numeric != e_numeric {
-      return Some(
-        "col \{name}: backend flip (opt Numeric=\{o_numeric}, eager Numeric=\{e_numeric})",
-      )
     }
     let ocells = oc.to_scalars()
     let ecells = ec.to_scalars()
@@ -903,5 +901,99 @@ test "fuzz: zero-match file projections preserve exact eager errors" {
       prop,
     ),
     max_success=fuzz_cases(200),
+  )
+}
+
+// ── Test 5: predicate push-down into file sources ──────────────────────
+
+///|
+/// A generated file + predicate: random rows written to disk, then a filter
+/// that references a real column (so the optimizer absorbs it into the scan and
+/// exercises `read_csv_pruned`, the row-pruning reader Test 4's projection-only
+/// pipeline never reaches; the NDJSON twin shares the pruning path and is
+/// covered by `scan_ndjson_test.mbt`).
+struct PrunedFileCase {
+  rows : Array[RichRow]
+  pred : @expr.Expr
+} derive(Debug)
+
+///|
+pub extend PrunedFileCase with Debug::{to_repr}
+
+///|
+fn gen_pruned_file_case() -> @gen.Gen[PrunedFileCase] {
+  @gen.liftA2(
+    (rows, pred) => PrunedFileCase::{ rows, pred },
+    gen_rows(7),
+    gen_stacked_pred(),
+  )
+}
+
+///|
+fn shrink_pruned_file_case(c : PrunedFileCase) -> Iter[PrunedFileCase] {
+  @shrink.Shrink::shrink(c.rows).map(rows => PrunedFileCase::{ ..c, rows, })
+}
+
+///|
+/// The round-trip-clean subset of the rich schema: the `Int` and `String`
+/// columns (`g` / `a` / `b` / `s`), dropping the `Float` `fk`. `NaN` /
+/// `±inf` / `-0.0` do not survive a default CSV write→read, and this
+/// differential compares two reads of the same file, so isolating the pruned
+/// reader's logic means keeping the fixture lossless rather than testing float
+/// round-tripping (which `io`'s own tests own). `gen_stacked_pred` only
+/// references `a` / `g` / `s`, all present here.
+fn rows_to_clean_frame(
+  rows : Array[RichRow],
+) -> @frame.DataFrame raise @types.DataError {
+  @frame.DataFrame::new([
+    @series.Series::from_int_options("g", rows.map(r => r.0)),
+    @series.Series::from_int_options("a", rows.map(r => r.2)),
+    @series.Series::from_int_options("b", rows.map(r => r.3)),
+    @series.Series::from_string_options("s", rows.map(r => r.4)),
+  ])
+}
+
+///|
+/// A filter on a `scan_csv` leaf is absorbed into the scan, which builds the
+/// predicate's columns, prunes the rows, and parses the rest for survivors alone
+/// (`read_csv_pruned`). That row-pruning path — distinct from the projection-only
+/// narrowing Test 4 covers — must collect bitwise-equal to an eager
+/// read-then-filter of the same file. Fuzz it: write generated rows, then
+/// compare the pruned scan against the eager read+filter. Clean Int/String data
+/// round-trips losslessly through the CSV header, so both sides read identical
+/// data and any divergence is the pruned reader's own.
+test "fuzz: predicate push-down into a CSV source stays eager-equivalent" {
+  let csv_path = "_build/lazy_optimize_fuzz_pruned.csv"
+  let prop = (c : PrunedFileCase) => {
+    // Write the fixture up front (the property itself must not raise; the chains
+    // defer their reads to `check_equiv`). Clean Int/String data never actually
+    // raises here, so a raise would be a real fault.
+    let setup = Ok(@io.write_csv(csv_path, rows_to_clean_frame(c.rows))) catch {
+      e => Err(e)
+    }
+    match setup {
+      Err(_) => @qc.property(false).counterexample("fixture write raised")
+      Ok(_) => {
+        // The absorbed filter drives `read_csv_pruned`; the eager read+filter of
+        // the same file is the reference. A CSV header always carries the
+        // schema, so even an empty or all-null frame round-trips faithfully —
+        // both sides read identical data and any divergence is the reader's own.
+        let lazy_chain : () -> LazyFrame raise @types.DataError = () => {
+          scan_csv(csv_path).filter(c.pred)
+        }
+        let eager_chain = () => @io.read_csv(csv_path).filter(c.pred)
+        // A single filter over clean data is a single-fault plan, so any error
+        // must match exactly.
+        match
+          check_equiv("pruned-csv", lazy_chain, eager_chain, strict_errors=true) {
+          Some(msg) => @qc.property(false).counterexample(msg)
+          None => @qc.property(true)
+        }
+      }
+    }
+  }
+  @qc.quick_check(
+    @qc.forall_shrink(gen_pruned_file_case(), shrink_pruned_file_case, prop),
+    max_success=fuzz_cases(150),
   )
 }

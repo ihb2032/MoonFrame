@@ -535,15 +535,18 @@ fn DataFrame::with_same_schema(
 }
 
 ///|
-/// Clamp an `n`-row request into `[0, len]`: a negative request yields `0`, a
-/// request past the end yields `len`. Shared by the `head` / `tail` slices and
-/// the `to_html` / `to_markdown` row caps.
-fn clamp_take(n : Int, len : Int) -> Int {
-  if n < 0 {
-    0
-  } else if n > len {
-    len
-  } else {
-    n
-  }
+/// Resolve a `subset` selector — an `Array[Expr]` of column keys — to the named
+/// columns, validating in order. Each key names a column through the §0 naming
+/// rule (`Expr::output_name`: a bare `col("x")` names `"x"`, an alias names the
+/// alias), and `get_column` raises `ColumnNotFound` on the first name absent
+/// from the frame, before any per-row work runs. The key expression is **never
+/// evaluated** — only its output name is consulted — the shared "name-only"
+/// contract behind the `subset` of `drop`, `drop_nulls`, and `unique`. A
+/// repeated key resolves the same column twice; each caller absorbs that (a
+/// collapsing drop set, an AND of validity masks, a repeated group-key cell).
+fn DataFrame::resolve_subset_columns(
+  self : DataFrame,
+  keys : Array[@expr.Expr],
+) -> Array[Series] raise @types.DataError {
+  keys.map(key => self.get_column(expr_output_name(key)))
 }

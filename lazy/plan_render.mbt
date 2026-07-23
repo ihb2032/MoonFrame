@@ -10,7 +10,7 @@
 /// inputs stacked left-then-right at the same depth. Expressions render
 /// through `@expr.Expr`'s `Show` (the documented operator form), and
 /// `Scan` prints only the captured frame's shape — `SCAN [rows×cols]` —
-/// never its data. A file source (`ScanCsv` / `ScanNdjson`) prints its label
+/// never its data. A file source (a `Csv` / `Ndjson` scan) prints its label
 /// and path (quoted and escaped like a string literal) and, once the
 /// optimizer has filled it, the projected column list — `SCAN_CSV
 /// "sales.csv" [region, revenue]` — but never reads the file. Total:
@@ -233,7 +233,7 @@ fn nulls_label(nulls : @types.NullOrder) -> String {
 ///|
 /// Render a file-source leaf — `LABEL "path"` plus, once the optimizer has
 /// filled it, the projected column list (`LABEL "path" [a, b]`). Shared by
-/// `ScanCsv` and `ScanNdjson`, which differ only in the label: the path is
+/// the `Csv` and `Ndjson` scan sources, which differ only in the label: the path is
 /// quoted and escaped like a string literal, and the projection (when present)
 /// reuses the `SELECT` / `SORT` bracketed-list shape. Total — never reads the
 /// file.

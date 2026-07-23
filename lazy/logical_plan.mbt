@@ -22,7 +22,7 @@
 /// `LazyGroupBy` (plain builder state, no node) until `agg` completes
 /// them into a plan stage that does.
 ///
-/// `ScanCsv` and `ScanNdjson` are the leaves that *read* at collect time
+/// The `Csv` and `Ndjson` sources of a `Scan` leaf *read* at collect time
 /// rather than capturing an already-built frame: each holds a path, the
 /// format's read options (`CsvReadOptions` / `JsonReadOptions`) to parse
 /// under, and an optional projection. The projection starts empty (`None` —
@@ -112,7 +112,7 @@ priv enum LazyReduceOp {
 /// The child plans of a node, left-to-right — the `LogicalPlan` analogue of
 /// `Expr::children`, and the one place the IR's recursive shape is enumerated
 /// for *traversal* (the rebuild passes enumerate it again to reassemble). A
-/// leaf (`Scan` / `ScanCsv` / `ScanNdjson`) has none; `Join` has two; every
+/// leaf (`Scan`) has none; `Join` has two; every
 /// other node has exactly one. Drives the explicit-stack walks (`render`,
 /// `post_order`) so a new node joins them the moment it declares its children
 /// here.
@@ -298,7 +298,7 @@ fn memo_result(
 /// the same order. Errors are exactly the eager operators' errors,
 /// surfacing here rather than at build time. `Scan` returns the captured
 /// frame as-is — frames are immutable, so no defensive copy is needed.
-/// A file source (`ScanCsv` / `ScanNdjson`) reads through `@io` —
+/// A file source (a `Csv` / `Ndjson` scan) reads through `@io` —
 /// `read_csv` / `read_ndjson` for the as-built plan (every column) or
 /// `read_*_projected` once the optimizer has filled its projection — so a
 /// missing file (`IoError`) or a parse failure (`ParseError`) surfaces here

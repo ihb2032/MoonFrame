@@ -273,67 +273,25 @@ fn parse_csv_str_projected(
       row_numbers,
     )
   }
-  // Phase 1 (predicate push-down only): materialise just the key columns the
-  // caller names and ask its callback which rows survive, keeping both the
-  // surviving key frame and the row indices. The caller is the lazy layer —
-  // `io` sees column names and a row-selection function, never the expression
-  // language — and a named column the file lacks simply isn't built, so the
-  // callback's evaluation raises `ColumnNotFound` exactly as the eager filter
-  // would.
-  let pruned : (@frame.DataFrame, Array[Int])? = match pruner {
-    None => None
-    Some((key_columns, keep)) => {
-      let key_set = name_set(key_columns)
-      let keys : Array[@series.Series] = []
-      for col in 0..<ncols {
-        if key_set.contains(headers[col]) {
-          keys.push(build(headers[col], dtype_of(col), rows, col, None))
-        }
-      }
-      let key_frame = @frame.DataFrame::new(keys)
-      let kept = keep(key_frame)
-      Some((key_frame.gather(kept), kept))
+  // Build one column over the records `keep` selects (`None` = every row).
+  // `io` sees column names and a row-selection callback, never the expression
+  // language; a named column the file lacks simply isn't built, so a pruner's
+  // callback raises `ColumnNotFound` exactly as the eager filter would. `keep`
+  // doubles as the survivor→original-row map, so a parse error in a kept row
+  // reports its true file row (see `build_column`'s `file_row`). Inference runs
+  // over the whole file either way, so a pruned read locks in the same dtypes.
+  let build_over = fn(
+    name : String,
+    col : Int,
+    keep : Array[Int]?,
+  ) -> @series.Series raise @types.DataError {
+    let records = match keep {
+      None => rows
+      Some(k) => Array::makei(k.length(), i => rows[k[i]])
     }
+    build(name, dtype_of(col), records, col, keep)
   }
-  // Phase 2 reads the surviving records only, so a dropped row's cells are
-  // never parsed for the columns the predicate did not need.
-  let kept_rows = match pruned {
-    None => rows
-    Some((_, kept)) => Array::makei(kept.length(), i => rows[kept[i]])
-  }
-  // The original data-row index of each row in `kept_rows`, so a phase-2 parse
-  // error reports the row's true file position rather than its rank among the
-  // survivors. A full (unpruned) read keeps the identity mapping (`None`).
-  let kept_row_numbers : Array[Int]? = match pruned {
-    None => None
-    Some((_, kept)) => Some(kept)
-  }
-  let projection_set = projection.map(name_set)
-  let pruned_cols : Map[String, Unit] = match pruned {
-    Some((frame, _)) => name_set(frame.columns())
-    None => Map([])
-  }
-  let series : Array[@series.Series] = []
-  for col in 0..<ncols {
-    let name = headers[col]
-    let included = match projection_set {
-      None => true
-      Some(names) => names.contains(name)
-    }
-    if included {
-      // A predicate key column is already built and pruned — take it rather
-      // than parsing those cells a second time.
-      match pruned {
-        Some((frame, _)) if pruned_cols.contains(name) =>
-          series.push(frame.get_column(name))
-        _ =>
-          series.push(
-            build(name, dtype_of(col), kept_rows, col, kept_row_numbers),
-          )
-      }
-    }
-  }
-  @frame.DataFrame::new(series)
+  assemble_pruned_frame(headers, projection, pruner, build_over)
 }
 
 ///|
@@ -714,70 +672,27 @@ fn build_column(
       Some(m) => m[i] + 1
     }
   }
-  match dtype {
-    InferInt =>
-      build_typed_column(
-        name,
-        n,
-        cell~,
-        is_null=isnull,
-        parse=parse_int_opt,
-        err=(i, v) => {
-          @types.DataError::ParseError(
-            @types.ParseErrorDetail::Cell(
-              @types.CellParseLocation::Row,
-              name,
-              file_row(i),
-              @types.DataType::Int,
-              v,
-            ),
-          )
-        },
-        on_parse_error~,
-        build=@series.Series::from_int_options,
+  build_inferred_column(
+    name,
+    dtype,
+    n,
+    cell~,
+    is_null=isnull,
+    parse_int=parse_int_opt,
+    parse_float=v => parse_float_opt(v, allow_nonfinite_floats),
+    parse_bool=parse_bool_opt,
+    render=v => v,
+    locate=(dt, i, v) => {
+      @types.DataError::ParseError(
+        @types.ParseErrorDetail::Cell(
+          @types.CellParseLocation::Row,
+          name,
+          file_row(i),
+          dt,
+          v,
+        ),
       )
-    InferFloat =>
-      build_typed_column(
-        name,
-        n,
-        cell~,
-        is_null=isnull,
-        parse=v => parse_float_opt(v, allow_nonfinite_floats),
-        err=(i, v) => {
-          @types.DataError::ParseError(
-            @types.ParseErrorDetail::Cell(
-              @types.CellParseLocation::Row,
-              name,
-              file_row(i),
-              @types.DataType::Float,
-              v,
-            ),
-          )
-        },
-        on_parse_error~,
-        build=@series.Series::from_float_options,
-      )
-    InferBool =>
-      build_typed_column(
-        name,
-        n,
-        cell~,
-        is_null=isnull,
-        parse=parse_bool_opt,
-        err=(i, v) => {
-          @types.DataError::ParseError(
-            @types.ParseErrorDetail::Cell(
-              @types.CellParseLocation::Row,
-              name,
-              file_row(i),
-              @types.DataType::Bool,
-              v,
-            ),
-          )
-        },
-        on_parse_error~,
-        build=@series.Series::from_bool_options,
-      )
-    InferString => build_string_column(name, n, cell, isnull, v => v)
-  }
+    },
+    on_parse_error~,
+  )
 }

@@ -195,3 +195,135 @@ fn[Cell] build_string_column(
     }),
   )
 }
+
+///|
+/// The four-arm `InferredDtype` dispatch shared by the CSV and JSON readers:
+/// route the three parseable dtypes through `build_typed_column` (each with its
+/// own parser and a `locate`d error) and the `String` fallback through the
+/// total `build_string_column`. Each reader supplies only its cell accessor,
+/// null test, per-dtype parsers, string render, and error locator —
+/// `locate(dt, i, c)` builds the `ParseError` for the cell at index `i` that
+/// failed to fit dtype `dt`, letting each format place the coordinate (a CSV
+/// data row, an NDJSON line, a JSON record) and stringify the offending value
+/// its own way. The match, and the `Int → Float → Bool → String` order it
+/// mirrors from `infer_dtype`, live here once.
+fn[Cell] build_inferred_column(
+  name : String,
+  dtype : InferredDtype,
+  n : Int,
+  cell~ : (Int) -> Cell,
+  is_null~ : (Cell) -> Bool,
+  parse_int~ : (Cell) -> Int64?,
+  parse_float~ : (Cell) -> Double?,
+  parse_bool~ : (Cell) -> Bool?,
+  render~ : (Cell) -> String,
+  locate~ : (@types.DataType, Int, Cell) -> @types.DataError,
+  on_parse_error~ : OnParseError,
+) -> @series.Series raise @types.DataError {
+  match dtype {
+    InferInt =>
+      build_typed_column(
+        name,
+        n,
+        cell~,
+        is_null~,
+        parse=parse_int,
+        err=(i, c) => locate(@types.DataType::Int, i, c),
+        on_parse_error~,
+        build=@series.Series::from_int_options,
+      )
+    InferFloat =>
+      build_typed_column(
+        name,
+        n,
+        cell~,
+        is_null~,
+        parse=parse_float,
+        err=(i, c) => locate(@types.DataType::Float, i, c),
+        on_parse_error~,
+        build=@series.Series::from_float_options,
+      )
+    InferBool =>
+      build_typed_column(
+        name,
+        n,
+        cell~,
+        is_null~,
+        parse=parse_bool,
+        err=(i, c) => locate(@types.DataType::Bool, i, c),
+        on_parse_error~,
+        build=@series.Series::from_bool_options,
+      )
+    InferString => build_string_column(name, n, cell, is_null, render)
+  }
+}
+
+///|
+/// The two-phase assembly shared by the pruned CSV and JSON readers. `headers`
+/// gives the column order; `build_over(name, i, keep)` builds the column named
+/// `name` (at header index `i`) over the records `keep` selects (`None` = every
+/// record), threading each surviving record's original position for the
+/// reader's error locator. With a `pruner`, phase 1 builds only the key columns
+/// over every record, asks `keep` which rows survive, and gathers the key
+/// frame; phase 2 then builds each projected column over the survivors —
+/// reusing an already-built key column rather than parsing it a second time.
+/// Without a pruner, phase 2 builds each projected column over every record.
+///
+/// Factoring the orchestration here keeps the row-pruning contract — inference
+/// over the whole file, original-position threading for error locators, and the
+/// key-column reuse — defined once for both formats, rather than mirrored
+/// (which is how the CSV reader once shipped without the position threading the
+/// NDJSON reader had).
+fn assemble_pruned_frame(
+  headers : Array[String],
+  projection : Array[String]?,
+  pruner : (
+    Array[String],
+    (@frame.DataFrame) -> Array[Int] raise @types.DataError,
+  )?,
+  build_over : (String, Int, Array[Int]?) -> @series.Series raise @types.DataError,
+) -> @frame.DataFrame raise @types.DataError {
+  // Phase 1: build only the key columns over every record, gather the survivors.
+  let pruned : (@frame.DataFrame, Array[Int])? = match pruner {
+    None => None
+    Some((key_columns, keep)) => {
+      let key_set = name_set(key_columns)
+      let keys : Array[@series.Series] = []
+      for col, name in headers {
+        if key_set.contains(name) {
+          keys.push(build_over(name, col, None))
+        }
+      }
+      let key_frame = @frame.DataFrame::new(keys)
+      let kept = keep(key_frame)
+      Some((key_frame.gather(kept), kept))
+    }
+  }
+  let kept : Array[Int]? = match pruned {
+    None => None
+    Some((_, k)) => Some(k)
+  }
+  let projection_set = projection.map(name_set)
+  let pruned_cols : Map[String, Unit] = match pruned {
+    Some((frame, _)) => name_set(frame.columns())
+    None => Map([])
+  }
+  // Phase 2: build each projected column over the survivors (or every record).
+  let series : Array[@series.Series] = []
+  for col, name in headers {
+    let included = match projection_set {
+      None => true
+      Some(names) => names.contains(name)
+    }
+    if included {
+      // A predicate key column is already built and pruned — take it rather than
+      // parsing those cells a second time.
+      match pruned {
+        Some((frame, _)) if pruned_cols.contains(name) =>
+          series.push(frame.get_column(name))
+        _ => series.push(build_over(name, col, kept))
+      }
+    }
+  }
+  @frame.DataFrame::new(series)
+}

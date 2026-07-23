@@ -13,12 +13,14 @@
 /// to readers — `storage_kind` / `to_numeric` / `to_builtin` are the only
 /// surface that observes or chooses it.
 ///
-/// The struct is read-only from outside this package — always go
-/// through the named constructors so the underlying column maintains
-/// its data-and-validity invariants.
+/// The fields are `priv`, so the struct is opaque outside this package:
+/// readers reach a column through the accessor methods (`name()` /
+/// `storage()` / `storage_kind()` / `dtype()` / …) and build one through
+/// the named constructors, so the underlying column always keeps its
+/// data-and-validity invariants.
 pub struct Series {
-  name : String
-  storage : @column.ColumnStorage
+  priv name : String
+  priv storage : @column.ColumnStorage
 } derive(Eq, Debug)
 
 ///|

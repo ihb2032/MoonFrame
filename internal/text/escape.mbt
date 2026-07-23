@@ -1,7 +1,7 @@
-// Debug-rendering helper shared by the handwritten `Show` impls in this
-// package (`Scalar`, `DataError`, and `Field` — and through `Field`, the
-// `Schema`) and, as a `pub` cross-package helper, by the `@expr` and
-// `@lazy` plan renderers (`explain`), which escape column names, string
+// Debug-rendering helper shared, as a `pub` cross-package helper, by the
+// handwritten `Show` impls in `@types` (`Scalar`, `DataError`, and `Field` —
+// and through `Field`, the `Schema`) and by the `@expr` and `@lazy` plan
+// renderers (`explain`), which escape column names, string
 // literals, and file-source paths the same way. The `Show` impls wrap a
 // string payload in double quotes
 // (`String("ab")`, `ColumnNotFound("age")`, `Field { name: "age", ... }`),

@@ -408,7 +408,7 @@ fn BuiltinColumn::to_int(
       self.cast_cells(
         i => {
           let s = a[i]
-          // Plain base-10 only, via the shared `@types.parse_decimal_int_opt`
+          // Plain base-10 only, via the shared `@text.parse_decimal_int_opt`
           // (the CSV reader's inference routes through the same routine, so an
           // explicit cast and inference agree on what text is an integer); a
           // rejected form or an out-of-`Int64`-range value is a `ParseError`.
@@ -454,7 +454,7 @@ fn BuiltinColumn::to_float(
       self.cast_cells(
         i => {
           let s = a[i]
-          // Via the shared `@types.parse_plain_double_opt` (the CSV reader uses
+          // Via the shared `@text.parse_plain_double_opt` (the CSV reader uses
           // the same routine): `1_000`-style underscores are rejected to match
           // pandas / polars, while the `inf` / `-inf` / `nan` literals — and a
           // finite literal beyond the `Double` range, which collapses to a

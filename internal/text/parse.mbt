@@ -4,7 +4,7 @@
 /// `0x` / `0o` / `0b` base prefixes, and `1_000` underscore grouping all
 /// return `false`.
 ///
-/// Numeric recognition lives here, in `types`, so every layer agrees on
+/// Numeric recognition lives here, in `internal/text`, so every layer agrees on
 /// what counts as an integer literal: the CSV / JSON readers' type
 /// inference and the `@column` String→`Int` cast all route through this
 /// one predicate before handing the text to `@string.parse_int64`. That

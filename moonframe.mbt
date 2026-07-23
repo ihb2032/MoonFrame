@@ -57,6 +57,7 @@ pub using @types {
   type Schema,
   type SortOrder,
   type NullOrder,
+  type PhysicalType,
 }
 
 ///|

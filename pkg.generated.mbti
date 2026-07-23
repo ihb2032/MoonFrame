@@ -126,6 +126,8 @@ pub using @io {type OnParseError}
 
 pub using @types {type ParseErrorDetail}
 
+pub using @types {type PhysicalType}
+
 pub using @types {type Scalar}
 
 pub using @types {type Schema}

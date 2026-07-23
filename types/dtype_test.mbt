@@ -34,3 +34,24 @@ test "DataType equality is structural" {
   assert_not_eq(DataType::Int, DataType::Float)
   assert_not_eq(DataType::Null, DataType::Int)
 }
+
+///|
+test "DataType physical: the four concrete types map one-to-one; Null has none" {
+  assert_eq(DataType::Int.physical(), Some(PhysicalType::I64))
+  assert_eq(DataType::Float.physical(), Some(PhysicalType::F64))
+  assert_eq(DataType::Bool.physical(), Some(PhysicalType::Bool))
+  assert_eq(DataType::String.physical(), Some(PhysicalType::Utf8))
+  // `Null` is a value-level concept with no physical backend, so it maps to
+  // `None` — the type-level statement of why an all-null column can't be built.
+  assert_eq(DataType::Null.physical(), None)
+}
+
+///|
+test "PhysicalType Show and equality" {
+  inspect(PhysicalType::I64, content="I64")
+  inspect(PhysicalType::F64, content="F64")
+  inspect(PhysicalType::Bool, content="Bool")
+  inspect(PhysicalType::Utf8, content="Utf8")
+  assert_eq(PhysicalType::I64, PhysicalType::I64)
+  assert_not_eq(PhysicalType::I64, PhysicalType::F64)
+}

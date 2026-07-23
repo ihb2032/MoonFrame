@@ -52,6 +52,25 @@ pub fn DataType::is_string(self : DataType) -> Bool {
 }
 
 ///|
+/// The physical storage this logical type materialises into, or `None` for
+/// `Null` — the one logical type with **no** physical backing, so a
+/// `Null`-dtype column cannot be built (`DataFrame::empty` / `from_rows` reject
+/// it, and a bare `Null` literal has no dtype witness at evaluation). The four
+/// concrete types map one-to-one today; the indirection is what a future
+/// logical type reusing an existing buffer — a `Date` or `Datetime` as `I64`, a
+/// small `Decimal` as `I64` — would consume instead of adding a new physical
+/// column kind (see `PhysicalType`).
+pub fn DataType::physical(self : DataType) -> PhysicalType? {
+  match self {
+    Int => Some(PhysicalType::I64)
+    Float => Some(PhysicalType::F64)
+    Bool => Some(PhysicalType::Bool)
+    String => Some(PhysicalType::Utf8)
+    Null => None
+  }
+}
+
+///|
 pub impl Show for DataType with fn output(self, logger) {
   let name = match self {
     Int => "Int"

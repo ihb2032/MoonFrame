@@ -82,12 +82,17 @@ pub fn DataFrame::empty(
   let columns : Array[Series] = schema
     .fields()
     .map(f => {
-      let storage = match f.dtype() {
-        @types.DataType::Int => @column.BuiltinColumn::from_ints([])
-        @types.DataType::Float => @column.BuiltinColumn::from_floats([])
-        @types.DataType::Bool => @column.BuiltinColumn::from_bools([])
-        @types.DataType::String => @column.BuiltinColumn::from_strings([])
-        @types.DataType::Null =>
+      // Dispatch on the field's *physical* type — the buffer it needs. `Null`
+      // has none (`physical()` is `None`), which is precisely why an all-null
+      // column cannot be materialised, so the rejection reads as "no physical
+      // backend" rather than a special-cased variant.
+      let storage = match f.dtype().physical() {
+        Some(@types.PhysicalType::I64) => @column.BuiltinColumn::from_ints([])
+        Some(@types.PhysicalType::F64) => @column.BuiltinColumn::from_floats([])
+        Some(@types.PhysicalType::Bool) => @column.BuiltinColumn::from_bools([])
+        Some(@types.PhysicalType::Utf8) =>
+          @column.BuiltinColumn::from_strings([])
+        None =>
           raise @types.DataError::Unsupported(
             "cannot build empty DataFrame column of dtype Null: \{f.name()}",
           )

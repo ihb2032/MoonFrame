@@ -8,7 +8,11 @@
 ///
 /// The enum is `pub` (read-only): other packages — including `frame`, whose
 /// evaluator `match`es the tree cross-package — can inspect it but cannot
-/// construct variants (`[4036]`). The only way to build an `Expr` is the
+/// construct variants (`[4036]`). That visibility exists for the engine, not
+/// as a surface to depend on: **the variant set is not part of the
+/// compatibility promise**, and grows whenever an operator does (v0.6 added
+/// four). Code outside this module should read an expression through
+/// `to_string`, or keep a wildcard arm; `docs/api.md` states the carve-out. The only way to build an `Expr` is the
 /// constructor functions (`col` / `lit` / `lit_*` / `when`), the operator
 /// impls and the methods in `expr_ops.mbt`, so every tree is well-formed by
 /// construction. Building an expression is **total** — unknown columns and

@@ -48,6 +48,15 @@ case "$changelog_heading" in
 *) unreleased=no ;;
 esac
 
+# The heading below the newest one: the version that *is* published. Releases
+# here are linear — one section per release, newest first — so "the previous
+# entry" is exactly what `moon.mod` should still say while the newest is being
+# prepared. Comparing against it beats ordering two version strings in POSIX
+# shell, and it rejects a `moon.mod` that has run *ahead* of the release being
+# prepared, which an inequality check alone would wave through.
+previous_version=$(grep '^## v' docs/changelog.md | sed -n '2p' |
+  sed -n 's/^## v\([0-9][0-9.]*\).*/\1/p')
+
 # `## v0.5.8 → v0.6.0` → `0.6.0` (the target side).
 migration_version=$(grep -m 1 '^## v' docs/migration.md |
   sed -n 's/.*→ *v\([0-9][0-9.]*\).*/\1/p')
@@ -73,6 +82,14 @@ esac
 if [ "$unreleased" = yes ]; then
   if [ "$mod_version" = "$changelog_version" ]; then
     note "moon.mod is already v$mod_version — drop the (unreleased) marker from the changelog heading"
+  elif [ -z "$previous_version" ]; then
+    # No section below the newest: this is the first release, so there is no
+    # published version to hold `moon.mod` to. Being different is all we can ask.
+    printf 'version identity: v%s is the first release; moon.mod is v%s\n' \
+      "$changelog_version" "$mod_version"
+  elif [ "$mod_version" != "$previous_version" ]; then
+    note "moon.mod is v$mod_version, but v$previous_version is the released version the changelog names below v$changelog_version"
+    note "while v$changelog_version is unreleased, moon.mod must still publish v$previous_version"
   fi
   printf 'version identity: docs describe v%s, marked unreleased; moon.mod publishes v%s\n' \
     "$changelog_version" "$mod_version"

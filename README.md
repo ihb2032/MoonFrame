@@ -111,15 +111,19 @@ run as doc tests on every backend.
   `(col("revenue") - col("cost")).sum()`; `map_elements` / `map_many` drop to a
   host closure for anything past the built-in algebra.
 - **Defer & optimize** — `LazyFrame::LazyFrame(df)`, or `scan_csv` / `scan_ndjson` for a
-  lazy file source (deferred execution with projection pushdown, not streaming —
-  the file still materializes at `collect()`), builds a query plan you can
-  `explain()`; `collect()` runs it through a predicate- and projection-pushdown
-  optimizer, bitwise-equal to the eager pipeline for the columns it reads (a
-  pruned column is never parsed, so a parse error confined to it isn't observed).
+  lazy file source (deferred execution with projection *and* predicate pushdown
+  into the reader, not streaming — the file still tokenizes at `collect()`),
+  builds a query plan you can `explain()`; `collect()` runs it through the
+  optimizer, bitwise-equal to the eager pipeline for the cells it reads. What a
+  push-down does *not* read, it does not parse — so a parse error confined to a
+  pruned column, or to a row the pushed-down predicate drops (in a column that
+  predicate does not itself read), never surfaces. `docs/api.md` states the
+  contract in full.
 - **Join** — the full `inner` / `left` / `right` / `outer` / `cross` matrix on
   expression keys, e.g.
-  `orders.join(customers, JoinOptions::on([col("customer_id")]))` (or
-  `left_on` / `right_on` for differently-named or derived keys).
+  `orders.join(customers, JoinOptions::on([col("customer_id")]))` — or, for
+  differently-named or derived keys,
+  `JoinOptions::left_on([col("customer_id")], right_on=[col("id")])`.
 - **Summarize** — `describe()` for a per-column summary, or single statistics
   (`sum` / `mean` / `min` / `max` / …).
 - **Export** — `to_markdown()`, `to_html()`, `format_json`,
@@ -196,8 +200,8 @@ moon run examples/expressions       # with_columns → filter → agg → lazy +
 ## Design notes
 
 MoonFrame's API and column semantics are modeled on Polars — see
-[`docs/comparison.md`](docs/comparison.md) for the full alignment and the one
-deliberate difference, and [`docs/performance.md`](docs/performance.md) for the
+[`docs/comparison.md`](docs/comparison.md) for the full alignment and the
+deliberate differences, and [`docs/performance.md`](docs/performance.md) for the
 columnar layout and per-operation complexity. A few things that surprise
 newcomers:
 
@@ -216,14 +220,19 @@ blackbox `*_test.mbt` tests, and a `pkg.generated.mbti` interface snapshot:
 
 ```
 types/      value types, errors (DataError), schemas
-internal/column/  Arrow-style storage (internal) — validity bitmap + Builtin/Numeric backends behind Series
+internal/column/   Arrow-style storage — validity bitmap + Builtin/Numeric backends behind Series
+internal/text/     shared text primitives — lexicographic compare, debug escaping, decimal literal parsing
+internal/literal/  the one scalar-literal renderer, shared by expr / lazy plan rendering
 series/     Series + column-level stats + the shared reduction / rebuild / key-cell kernels
-expr/       composable column expressions — Expr AST, operators / methods, when/then/otherwise, explain
+expr/       composable column expressions — Expr AST, operators / methods, when/then/otherwise, to_string rendering
 frame/      DataFrame + every operator (one per file) + group_by + join + the expression evaluator (with_columns / select / filter / agg) + to_markdown / to_html
 io/         CSV (NyaCSV-backed), JSON, NDJSON read / write + Vega-Lite export
 lazy/       deferred query plan — LazyFrame builders, collect / explain, predicate + projection pushdown
-moonframe/  facade — re-exports the whole public API
+moonframe.mbt   the root package — facade, re-exports the whole public API
 ```
+
+The `internal/` packages are MoonBit `internal` packages: importable inside
+this module only, so they carry no compatibility promise.
 
 The data model is an Apache Arrow-style column layout (a byte-packed validity
 bitmap, `1 = valid`) with an `O(1)` name→index cache;

@@ -774,12 +774,15 @@ transforms, so every output satisfies `check_invariants()`.
   align to `max(header, cells)` with a 3-char minimum; null cells render
   empty; `|` / `\` / CR / LF are GFM-escaped. An omitted `max_rows` renders
   every row; otherwise the table is capped there and `... (N more rows)` is
-  appended (a negative `max_rows` clamps to 0).
+  appended (a negative `max_rows` clamps to 0). 0 columns → the empty string at
+  any height: a table is made of cells, so an `N×0` frame has none to draw even
+  though its rows are real — `shape()` is what reports a column-less height.
 - `to_html(options? : HtmlOptions = HtmlOptions::HtmlOptions()) -> String` — the **total**
   HTML `<table>` renderer (IO-1: pure rendering lives in `frame`, parallel to
   `to_markdown`). It emits a `<thead>` + `<tbody>`, one `<td>` per cell in
   declaration order; a null cell renders as `<td></td>`; `&` / `<` / `>` /
-  `"` / `'` are escaped to HTML entities. 0 columns → empty string; N columns
+  `"` / `'` are escaped to HTML entities. 0 columns → empty string at any
+  height (`N×0` included, as for `to_markdown`); N columns
   / 0 rows → header + empty `<tbody>`. The options add a `class` /
   `<caption>` and, via `max_rows`, a row cap with a `<tfoot>`
   `... (K more rows)` banner (negative `max_rows` clamps to 0).

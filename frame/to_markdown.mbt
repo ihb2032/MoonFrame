@@ -28,8 +28,12 @@
 /// (matching `Scalar::to_string`), so a null and a genuine empty-string
 /// cell render identically — the renderer carries no null marker.
 ///
-/// Empty frames degrade gracefully:
-///   - 0 columns → returns the empty string;
+/// A frame with nothing to tabulate degrades gracefully:
+///   - 0 columns → the empty string, at any height. A GFM table is built out
+///     of cells, so a column-less frame has none to draw — including the `N×0`
+///     frame, whose rows are real (`is_empty()` is `false`) but carry no
+///     fields. The rendering cannot show them; `shape()` is what reports the
+///     height of a column-less result;
 ///   - N columns / 0 rows → header + separator with no data rows.
 ///
 /// `max_rows` caps the output at its first rows: when `self` has more rows

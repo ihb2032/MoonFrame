@@ -174,3 +174,18 @@ test "with_row_index numbers the rows of an N×0 frame" {
     @types.Scalar::Int(2),
   ])
 }
+
+///|
+test "the table renderers draw nothing for an N×0 frame" {
+  // Both renderers are built out of cells, and this frame has none — so the
+  // rows it does have cannot appear. Pinned because the output is identical to
+  // the empty frame's while the frames are not: `shape` is what tells them
+  // apart, and a renderer that started emitting bare rows would be a silent
+  // change to a documented, `String`-typed public surface.
+  let df = nby0(2)
+  assert_eq(df.to_markdown(), "")
+  assert_eq(df.to_html(), "")
+  assert_eq(df.to_markdown(), DataFrame::DataFrame([]).to_markdown())
+  assert_false(df.is_empty())
+  assert_eq(df.shape(), (2, 0))
+}

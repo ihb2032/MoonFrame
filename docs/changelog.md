@@ -42,10 +42,10 @@ collected in [`migration.md`](migration.md).
     the scan, since combining them would reorder which operand's evaluation
     error surfaces first.
   - A column-less predicate (a literal like `lit_bool(true)`, a no-input
-    `map`) is not absorbed either: with no key column for the reader to prune
-    on, it stays a `Filter` above the scan and broadcasts over the fully-read
-    frame, matching the eager read-then-filter. (Absorbing it would build a
-    zero-column key frame, collapse it to `0×0`, and drop every row.)
+    `map`) is absorbed too: the reader prunes against a key frame with no
+    columns, which carries the file's row count as an `N×0` frame, so the
+    literal broadcasts over the real height and `filter(lit_bool(false))`
+    stops parsing cells entirely.
   - Streaming the file is still future work — the reader tokenises the whole
     file, and the saving is the typed build of the dropped rows.
 
@@ -70,6 +70,24 @@ collected in [`migration.md`](migration.md).
 
 ### Breaking
 
+- **A column-less frame carries its row count (`N × 0`).** A frame with no
+  columns was pinned to `0×0` by INV7, so every projection to zero columns
+  silently dropped the height. It no longer does, and the operations that
+  reach one keep their rows:
+  - `select([])` is `nrows() × 0`, and so is a `drop` of every column.
+  - `from_rows(schema, rows)` is always `rows.length()` tall — under an empty
+    schema, `[[], []]` is `2×0` rather than `0×0`. This makes
+    `from_rows(df.schema(), df.rows())` the identity for every frame.
+  - JSON records with no fields keep their count: `[{}, {}]` reads as `2×0`,
+    as do NDJSON lines of `{}`.
+  - A file read whose projection matches no header yields the file's rows and
+    no columns, instead of falling back to materialising every column to keep
+    the row count — a mistyped column name no longer costs a full read.
+
+  `DataFrame::DataFrame([])` is still `0×0`: it infers the height from the
+  columns, and there are none. `is_empty()` remains `nrows() == 0`, so an
+  `N×0` frame is not empty, and INV7 now states `nrows >= 0` — the property
+  that survives. A `with_columns` over an `N×0` frame computes over its rows.
 - `Field::new(name, dtype)` and `Field::with_nullable(name, dtype, nullable)`
   are replaced by the single custom constructor
   `Field::Field(name, dtype, nullable? = true)`.

@@ -355,11 +355,9 @@ pub fn DataFrame::row(
   }
   // `i` is in range and every column has `nrows` cells, so `Series::get`
   // never raises here — the bound is checked once, up front.
-  let cells : Array[@types.Scalar] = []
-  for s in self.columns {
-    cells.push(s.get(i))
-  }
-  cells
+  [
+    for s in self.columns => s.get(i)
+  ]
 }
 
 ///|

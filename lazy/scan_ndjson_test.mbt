@@ -165,9 +165,9 @@ test "scan_ndjson absorbs a predicate the same way, down to the dropped-row cave
 test "a column-less predicate on an NDJSON scan keeps every row, matching eager" {
   let path = "_build/lazy_scan_ndjson_columnless_pred.ndjson"
   write_ndjson_fixture(path)
-  // Same as scan_csv: a literal-true predicate references no column, so it is
-  // not absorbed — the pruner would build a zero-column key frame that INV7
-  // collapses to 0×0, dropping every row. It stays a Filter above the scan.
+  // Same as scan_csv: a literal-true predicate references no column, so the
+  // pruner's key frame has none either — and carries the file's rows as an
+  // `N×0` frame for the literal to broadcast over.
   let keep_all = @expr.lit_bool(true)
   let out = scan_ndjson(path).filter(keep_all).collect()
   assert_eq(out, @io.read_ndjson(path).filter(keep_all))

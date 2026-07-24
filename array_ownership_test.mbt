@@ -78,8 +78,11 @@ test "JoinOptions key builders copy their key arrays" {
 ///|
 /// The lazy builders keep their arrays alive inside the logical plan until
 /// `collect` runs, so they are the widest retention surface in the library.
-/// `drop_nulls` additionally carries its keys behind an optional parameter,
-/// the shape the lexical guard cannot see at all.
+/// `drop_nulls` additionally carries its keys behind an optional parameter.
+/// These are runtime contracts, independent of the lexical guard in
+/// `.github/scripts/` rather than a substitute for what it misses: the guard
+/// reads syntax and can only see a copy written at the boundary, while these
+/// mutate a caller's array afterwards and check the frame did not change.
 test "lazy builders copy their expression arrays" {
   let df = DataFrame::DataFrame([
     Series::from_ints("a", [2, 1]),

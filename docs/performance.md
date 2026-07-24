@@ -45,20 +45,26 @@ bitmap's `offset`.
 
 ## Operation complexity
 
-For a frame of `n` rows and `c` columns:
+For a frame of `n` rows and `c` columns. Two costs are easy to conflate, so
+they are separated below: **deciding** which rows come out (evaluating a
+predicate, ordering keys, hashing) and **materialising** them. Any verb that
+rebuilds rows pays the second across every column it carries — `k` output rows
+cost `O(k · c)`, whatever the first column cost. A verb driven by expressions
+also scales with how many it is given, and with the size of each tree; `e`
+below counts expressions, not nodes.
 
-| Operation | Complexity | Notes |
-|---|---|---|
-| `get_column` / name lookup | `O(1)` | `name → index` map |
-| `filter` | `O(n)` eval + `O(k)` gather | `k` = surviving rows |
-| `select` / `with_columns` | `O(n)` per expression | vectorized, whole-column |
-| `sort` | `O(n log n)` | stable, multi-key |
-| `group_by(...).agg(...)` | `O(n)` | hash partition on a composite key cell; each reduction folds a group over its own indices |
-| `join` | `O(n + m)` | hash equi-join, build + probe (plus output size) |
-| `unique` | `O(n)` | hash on the composite row key |
-| `sum` / `mean` / `min` / `max` / `count` | `O(n)` | single pass; `Numeric` skips validity |
-| `format_*` (JSON / CSV / NDJSON) | `O(n · c)` | one whole-frame `to_scalar_matrix` read |
-| `to_markdown` / `to_html` | `O(shown · c)` | scalarises only the rows shown — a row cap touches `shown`, not `n` |
+| Operation | Decide | Materialise | Notes |
+|---|---|---|---|
+| `get_column` / name lookup | `O(1)` | — | `name → index` map |
+| `filter` | `O(n · e)` predicate eval | `O(k · c)` | `k` = surviving rows; the gather rebuilds every column |
+| `select` / `with_columns` | `O(n)` per expression | `O(n)` per output column | vectorized, whole-column |
+| `sort` | `O(n log n)` comparisons over the key columns | `O(n · c)` | stable, multi-key; each key is evaluated once into a column |
+| `group_by(keys).agg(aggs)` | `O(n · keys)` to build the composite key cells, then `O(n)` per aggregate | `O(g · (keys + aggs))` | `g` = groups; each reduction folds a group over its own indices |
+| `join` | `O(n + m)` hash build + probe on the key columns | `O(r · c)` | `r` = output rows, which for a many-to-many match exceeds both inputs |
+| `unique` | `O(n · c)` to build a row key from every column (`O(n · s)` for a `subset` of `s`) | `O(k · c)` | hash on the composite row key |
+| `sum` / `mean` / `min` / `max` / `count` | `O(n)` per column | `O(c)` | single pass; `Numeric` skips validity |
+| `format_*` (JSON / CSV / NDJSON) | — | `O(n · c)` | one whole-frame `to_scalar_matrix` read |
+| `to_markdown` / `to_html` | — | `O(shown · c)` | scalarises only the rows shown — a row cap touches `shown`, not `n` |
 
 ## Lazy execution
 

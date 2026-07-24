@@ -195,6 +195,20 @@ collected in [`migration.md`](migration.md).
   a reader (or a captured `scan_csv` plan) uses can no longer be mutated
   through the options value.
 
+### Fixes
+
+- Renames and the no-op column ops no longer drop a declared
+  `nullable = false`. `DataFrame::rename` / `rename_with` edit each field
+  through `Field::rename`, so a rename changes the name and nothing else, and
+  `with_columns([])` / `drop([])` / `rename([])` return their input frame
+  instead of rebuilding it through `DataFrame::new`, whose derived schema names
+  every field at the `Field` constructor default. A `from_rows` frame carrying
+  an explicit `nullable = false` therefore stays equal to itself across those
+  calls — the derived `Eq` compares schemas — and a renamed column keeps the
+  constraint its caller declared. Ops that genuinely re-derive a schema
+  (`select`, a `drop` that removes a column, a `with_columns` that adds one)
+  still reset the advisory flag, as [`api.md`](api.md) documents.
+
 ## v0.5.8 — string-ordering and parse-overflow fixes
 
 A fix patch. Every v0.5.7 symbol and signature is unchanged — the root facade

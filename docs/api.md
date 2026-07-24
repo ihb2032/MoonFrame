@@ -149,9 +149,14 @@ in [`migration.md`](migration.md).
   `Field::Field(...)`. `nullable = false` is a constraint enforced by
   `DataFrame::from_rows` (a null in such a column raises
   `NullInNonNullable`); it is otherwise advisory — not inferred from a
-  column's contents, and not propagated across operations (the
-  constructor default / `DataFrame::new` / the IO readers always set it
-  `true`).
+  column's contents, and not re-derived by the ops that rebuild a schema
+  (the constructor default / `DataFrame::new` / the IO readers always set
+  it `true`, so `select`, a `drop` that removes a column, or a
+  `with_columns` that adds one resets it). It *is* carried by the ops that
+  edit a field rather than re-derive it — `Field::rename` (and so
+  `DataFrame::rename` / `rename_with`), `Schema::select` /
+  `Schema::rename`, the row-only frame transforms, and the no-ops
+  `with_columns([])` / `drop([])` / `rename([])`.
 - `struct Schema` — ordered list of `Field`s with duplicate-name
   detection.
   - `Schema::new(fields) -> Schema raise DataError` —
@@ -665,16 +670,20 @@ transforms, so every output satisfies `check_invariants()`.
   named columns, order preserved. Each key resolves to a column name via
   `Expr::output_name` (a bare `col("x")`, or an alias) — the expression is
   not evaluated. Duplicate keys idempotent; `ColumnNotFound` on the first
-  unknown.
+  unknown. An empty key list returns the frame unchanged, schema included.
 - `rename(mapping : Array[(String, String)]) -> DataFrame raise DataError`
   — apply renames in order (each step's `new_name` is visible to later
   steps, enabling a 3-step swap). `ColumnNotFound` / `DuplicateColumn`.
+  Only names change: each field is edited through `Field::rename`, so its
+  dtype and its declared `nullable` flag ride along. An empty mapping
+  returns the frame unchanged.
 - `rename_with(f : (String) -> String) -> DataFrame raise DataError` — the
   **callable** form: rename **every** column through `f` (`new = f(old)`),
   for a uniform transform (a prefix, a case fold) over the whole schema. `f`
   is total, so the only failure is `DuplicateColumn` when `f` collapses two
   columns to one name; there is no `ColumnNotFound` (no name is looked up). The
-  identity `name => name` is a no-op.
+  identity `name => name` is a no-op, and every field's metadata is carried
+  as by `rename`.
 - `sort(keys : Array[(Expr, SortOrder, NullOrder)]) -> DataFrame raise
   DataError` — stable multi-key sort. Each key is an `(Expr, order,
   null_order)` tuple, the expression evaluated over the whole frame: a bare
@@ -744,8 +753,9 @@ transforms, so every output satisfies `check_invariants()`.
 ### Expression consumers (`with_columns` / `select` / `filter`)
 
 The eager face of the `expr` engine — `DataFrame` methods that evaluate
-`@expr.Expr` trees over the whole frame. All route through `DataFrame::new`,
-so every output satisfies `check_invariants()`; all raise the evaluator's
+`@expr.Expr` trees over the whole frame. All route through `DataFrame::new`
+(or, for the no-op `with_columns([])`, return the input frame), so every
+output satisfies `check_invariants()`; all raise the evaluator's
 `DataError` (`ColumnNotFound` / `TypeMismatch` / `LengthMismatch`), plus
 `DuplicateColumn` on an output-name clash.
 
@@ -754,7 +764,8 @@ so every output satisfies `check_invariants()`; all raise the evaluator's
   existing column, replace it in place); every other column is kept. Each
   result is named by `Expr::output_name`. A length-1 (literal /
   aggregation) result broadcasts to the frame height; on a 0-row frame it
-  broadcasts to 0.
+  broadcasts to 0. An empty expression list returns the frame unchanged,
+  schema included.
 - `select(exprs : Array[Expr]) -> DataFrame raise DataError` — the output
   is **only** the evaluated expressions (a fresh frame). MoonFrame's single
   `select` verb: a names-only projection is `select(cols(["a", "b"]))` (or

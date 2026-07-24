@@ -66,8 +66,29 @@ jobs:
       - name: Show versions
         run: moon version --all
 
+      # `moon update` reaches the network for the module index, and every gate
+      # in this job runs after it — so one transient failure here skips the
+      # Array guard, the documentation guards, `moon fmt --check`, `moon info`,
+      # the all-backend tests, the fuzzer, coverage and the benchmarks, leaving
+      # a red build that says nothing about the commit. Retry a few times before
+      # calling it: an index fetch that fails three times, spaced out, is an
+      # outage rather than a flake. `shell: bash` so the same loop runs on the
+      # Windows runner, whose default shell is PowerShell.
       - name: Update package index
-        run: moon update
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            if moon update; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              delay=$((attempt * 15))
+              echo "moon update failed (attempt $attempt/3); retrying in ${delay}s" >&2
+              sleep "$delay"
+            fi
+          done
+          echo "moon update failed three times; treating it as an outage" >&2
+          exit 1
 
       # ---------------------------------------------------------------------
       # Hard-requirement gate. The pre-acceptance rubric requires four

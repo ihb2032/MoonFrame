@@ -1142,9 +1142,13 @@ are documented below.
   Consequently a `Float` column that is *entirely* non-finite and/or null
   writes as all-`null` and re-infers as `String` on read (an all-null column
   has no dtype signal) — a `Float → String` narrowing; a column with any
-  finite value keeps `Float`. `Int` cells render as JSON numbers; a magnitude
-  beyond 2^53 keeps its `Int` dtype but loses precision on a JSON round-trip
-  (the `@json` number model is `Double`), as in pandas' `to_json`.
+  finite value keeps `Float`. `Int` cells render as JSON numbers carrying their
+  verbatim decimal digits as the number's `repr`, so the whole `Int64` range —
+  including magnitudes beyond 2^53, which the `Double` number model alone would
+  round — round-trips exactly, dtype and value intact: the reader recovers the
+  integer from those digits. (Unlike pandas' `to_json`, which rounds. The
+  reader-side limit is a different case: an integer beyond `Int64`'s own range,
+  written by another producer, infers as `Float` — see `parse_json_str`.)
 - `read_json(path, options? : JsonReadOptions = JsonReadOptions::JsonReadOptions()) -> DataFrame
   raise DataError`; `write_json(path, df) -> Unit raise
   DataError` — file wrappers (`IoError`; an unpaired UTF-16 surrogate in
@@ -1175,8 +1179,9 @@ conventions.
   keys in `df.columns()` order, each line terminated by `\n` (including
   the last — matching the CSV writer's per-row LF and Polars'
   `write_ndjson`); a 0-row frame renders the empty string. Per-cell
-  rules match `format_json` (non-finite `Float` → `null`; `Int`
-  beyond ±2^53 keeps its dtype but loses precision on a round-trip).
+  rules match `format_json` (non-finite `Float` → `null`; an `Int`
+  beyond ±2^53 keeps its dtype and its exact value, carried by the same
+  verbatim digits).
 - `read_ndjson(path, options? : JsonReadOptions = JsonReadOptions::JsonReadOptions()) ->
   DataFrame raise DataError`; `write_ndjson(path, df) -> Unit raise
   DataError` — file wrappers (`IoError`; an unpaired UTF-16 surrogate in

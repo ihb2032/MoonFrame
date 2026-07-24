@@ -15,6 +15,12 @@
 /// pandas / polars behavior and avoids forcing callers to deduplicate
 /// upstream when assembling a drop list from multiple sources.
 ///
+/// Dropping nothing (`drop([])`) returns the frame itself — a literal
+/// identity, declared schema included. A drop that does remove a column
+/// rebuilds through `DataFrame::new`, whose derived schema declares every
+/// surviving field `nullable = true`: the advisory flag is not propagated
+/// across the projection, as for `select`.
+///
 /// Raises:
 /// - `ColumnNotFound(name)` — a resolved name does not exist. Reported on
 ///   the first offending key in `columns` order.
@@ -25,6 +31,13 @@ pub fn DataFrame::drop(
   self : DataFrame,
   columns : Array[@expr.Expr],
 ) -> DataFrame raise @types.DataError {
+  // No keys, nothing to resolve and nothing to remove: return `self` rather
+  // than rebuilding an equal frame, so the no-op keeps the schema it was
+  // handed (a rebuild through `DataFrame::new` re-derives it and resets a
+  // declared `nullable = false`).
+  if columns.is_empty() {
+    return self
+  }
   // Resolve each key's `output_name` to its column (`resolve_subset_columns`
   // raises `ColumnNotFound` on the first unknown name, so a bad name surfaces
   // before any survivor list is built), then fold the names into a drop set —

@@ -19,8 +19,9 @@
 /// Length-1 results (literals) broadcast to `nrows` — to zero rows on an
 /// empty frame. Errors (unknown columns, dtype mismatches, the
 /// unrepresentable `Null` literal) surface here at evaluation time;
-/// building the expressions was total. `with_columns([])` returns a frame
-/// with the same values, names, and dtypes; note the rebuild routes through
+/// building the expressions was total. `with_columns([])` adds nothing and
+/// returns the frame itself — a literal identity, declared schema included.
+/// A call that does add or replace a column rebuilds through
 /// `DataFrame::new`, whose derived schema declares every field
 /// `nullable = true` — so a `from_rows` frame carrying an explicit
 /// `nullable = false` field comes back with that flag reset (observable
@@ -29,6 +30,12 @@ pub fn DataFrame::with_columns(
   self : DataFrame,
   exprs : Array[@expr.Expr],
 ) -> DataFrame raise @types.DataError {
+  // Nothing to evaluate and nothing to add: return `self` rather than
+  // rebuilding an equal frame, so the no-op keeps the schema it was handed
+  // (the rebuild would re-derive it and reset a declared `nullable = false`).
+  if exprs.is_empty() {
+    return self
+  }
   let n = self.nrows()
   let scope = Array::makei(n, i => i)
   // `column_series` returns a fresh, owned array, so in-place replacement

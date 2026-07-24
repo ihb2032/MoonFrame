@@ -6,11 +6,20 @@
 /// enforces: row data placing a `Scalar::Null` in such a column `raise`s
 /// `NullInNonNullable(name)`. (`DataFrame::empty` builds 0-row columns, so it
 /// can never violate the constraint.) The flag is otherwise advisory — it is
-/// neither inferred from a column's contents nor propagated across operations:
-/// the constructor's `nullable` default (and so `DataFrame::new`, the IO
-/// readers, and the ops that rebuild through them) always sets
-/// `nullable = true`, so a `nullable = false` field only ever originates from
-/// an explicit `Field(..., nullable=false)` in a caller-supplied schema.
+/// neither inferred from a column's contents nor re-derived: the constructor's
+/// `nullable` default (and so `DataFrame::new`, the IO readers, and every op
+/// that rebuilds a schema through them — `select`, a `drop` that removes a
+/// column, a `with_columns` that adds one) always sets `nullable = true`, so a
+/// `nullable = false` field only ever originates from an explicit
+/// `Field(..., nullable=false)` in a caller-supplied schema.
+///
+/// A declared flag does survive the ops that *carry* a field rather than
+/// re-derive it: `Field::rename` (and so `DataFrame::rename` / `rename_with`,
+/// which change nothing but the name), `Schema::select` / `Schema::rename`,
+/// the row-only frame transforms that reuse their input's schema verbatim
+/// (`head` / `tail` / `slice` / `filter` / `sort` / `unique` / `fill_null`
+/// / …), and the no-ops `with_columns([])` / `drop([])` / `rename([])`, which
+/// return their input frame unchanged.
 ///
 /// The fields are readable but not constructible from outside `types`: build
 /// one through `Field(...)`, so a future field can be added without breaking

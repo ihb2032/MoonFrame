@@ -5,11 +5,13 @@
 /// the first violation it finds.
 ///
 /// This file is the **source of truth** for what "a well-formed
-/// `DataFrame`" means in MoonFrame v0.1. Constructors and ops are
+/// `DataFrame`" means — the current structural contract, not a snapshot of
+/// any one release. Constructors and ops are
 /// correct *iff* every output passes `check_invariants()`. Every
 /// `*_test.mbt` that builds or transforms a frame calls this helper as
 /// a final assertion — the closest practical analog to formal
-/// verification in MoonBit (real `moon prove` is overkill for v0.1).
+/// verification in MoonBit, at a fraction of the cost of carrying `moon prove`
+/// contracts through the whole frame layer.
 ///
 /// The invariants checked here, in order:
 ///

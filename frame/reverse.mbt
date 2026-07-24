@@ -1,6 +1,9 @@
 // Row-order and row-numbering verbs: `reverse` flips the row order,
-// `with_row_index` prepends a positional counter. Both are pure gathers /
-// column appends over an already-validated frame, so both are total.
+// `with_row_index` prepends a positional counter. Neither can fail on the
+// *cells* — one is a permutation that is in bounds by construction, the other a
+// column append over an already-validated frame. That makes `reverse` total;
+// `with_row_index` still raises on what a new column can clash with: a name the
+// frame already carries, and a counter that would run past `Int64::MAX`.
 
 ///|
 /// Reverse the row order, keeping every column and its dtype — Polars'

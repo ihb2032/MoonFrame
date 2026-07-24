@@ -2,10 +2,10 @@
 /// Evaluate each expression against `self` and add the results as
 /// columns. Derived columns are *declared* (`col("a") + col("b")`) rather
 /// than pre-materialised (a `lit_series(s)` carries a ready-made `Series`).
-/// The full construction surface evaluates — arithmetic, comparisons,
-/// Kleene logic, `not` / null probes, aggregations (length-1, broadcast
-/// back over the frame), `cast`, `with_alias`, `when/then/otherwise` —
-/// under the dtype / null / NaN rules documented in `expr_eval.mbt`.
+/// Every `Expr` the evaluator supports is accepted here — aggregations
+/// included, evaluating to length-1 and broadcasting back over the frame —
+/// under the dtype / null / NaN rules documented in `expr_eval.mbt`, which is
+/// the one place the node set is enumerated.
 ///
 /// Naming and placement:
 /// - each result takes its expression's output name — the leftmost column

@@ -13,9 +13,10 @@
 // `to_markdown` / `to_html` renderers
 // are now methods on `DataFrame`, so re-exporting `type DataFrame`
 // makes them automatically reachable through the facade — there is
-// nothing to list for them here. Likewise `GroupedDataFrame::agg`, the
-// `JoinOptions` builders, the `HtmlOptions` builders, and the `ChartSpec`
-// constructors come for free once their types are re-exported. Only the
+// nothing to list for them here. Likewise `GroupedDataFrame::agg` and the
+// `JoinOptions` / `HtmlOptions` / `ChartSpec` constructors — one per type since
+// v0.6 replaced the setter chains — come for free once their types are
+// re-exported. Only the
 // value types (including the GroupBy `GroupedDataFrame`, the Join
 // `JoinType` / `JoinOptions`, the HTML `HtmlOptions`, and the Chart
 // `ChartKind` / `ChartSpec`) and the `io` free functions need explicit

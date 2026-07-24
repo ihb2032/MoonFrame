@@ -6,9 +6,12 @@
 /// Each entry is an `Expr` resolved to a column name through the §0 naming
 /// rule (`Expr::output_name`): a bare `col("x")` names `"x"`, an alias names
 /// the alias. The container is `Array[Expr]` so a future column selector
-/// (`all` / `exclude` / `starts_with`) can drop the matched set without a
-/// signature change; today only `col` / aliased keys are meaningful and the
-/// expression is never evaluated — only its output name is consulted.
+/// (`all` / `exclude`) can drop the matched set without a signature change;
+/// today only `col` / aliased keys are meaningful and the expression is never
+/// evaluated — only its output name is consulted. The name-pattern selectors
+/// that do exist (`cols_starts_with` / `cols_ends_with` / `cols_contains` /
+/// `cols_matching`) need no support here: each expands to a plain `col` list
+/// against a frame before the call.
 ///
 /// Duplicate keys are tolerated and act idempotently — dropping
 /// `[col("a"), col("a")]` is the same as dropping `[col("a")]`. This matches

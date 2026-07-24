@@ -112,7 +112,9 @@ fn DataFrame::from_parts_with_fields(
 /// Build the name→index lookup cache from a column vector: position `i` maps
 /// from `columns[i].name()`. Every constructor routes through `Schema::Schema`,
 /// which rejects duplicate names before this runs, so the `(name, i)` pairs
-/// are 1:1 with the columns. Shared by `new`, `empty`, and `from_rows`.
+/// are 1:1 with the columns. Shared by every constructor that assembles a frame
+/// from a column vector — `DataFrame::DataFrame`, `empty`, `from_rows`, and the
+/// internal `from_parts` family.
 fn index_by_name(columns : Array[Series]) -> Map[String, Int] {
   Map::from_array(columns.mapi((i, c) => (c.name(), i)))
 }
@@ -127,7 +129,7 @@ fn index_by_name(columns : Array[Series]) -> Map[String, Int] {
 /// frame's "no duplicate names" invariant true regardless of how the schema
 /// was built.
 ///
-/// `raise Unsupported(...)` if any field carries `DataType::Null` — v0.1 has
+/// `raise Unsupported(...)` if any field carries `DataType::Null` — there is
 /// no concrete Null backend (and a CSV-inferred Null column has nothing to
 /// materialise into).
 pub fn DataFrame::empty(
@@ -354,7 +356,9 @@ pub fn DataFrame::to_scalar_matrix(
 }
 
 ///|
-/// Number of rows. Equal to every column's `len()`.
+/// Number of rows. With at least one column it equals every column's `len()`
+/// (INV2); a column-less `N×0` frame has none to agree with, and carries its
+/// height in the explicit `nrows` field alone.
 pub fn DataFrame::nrows(self : DataFrame) -> Int {
   self.nrows
 }

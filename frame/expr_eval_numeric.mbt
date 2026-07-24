@@ -410,6 +410,12 @@ fn sign_f64(a : Double) -> Double {
 /// overflows to infinity (a very large `decimals`) leaves the value untouched
 /// rather than producing `NaN` — at that magnitude every `Double` is already
 /// an exact multiple of the requested place.
+///
+/// `decimals` is never negative: `Expr::round` clamps it when it builds the
+/// node, and `UnOp::Round` — a `pub` read-only enum — is constructible nowhere
+/// else. Past the `decimals == 0` arm the scale is therefore at least `10`; it
+/// can overflow upward, but it cannot underflow to `0` and turn the unscaling
+/// division into `NaN`.
 fn round_places(a : Double, decimals : Int) -> Double {
   if decimals == 0 {
     return round_half_even(a)
@@ -418,7 +424,7 @@ fn round_places(a : Double, decimals : Int) -> Double {
     return a
   }
   let scale = @math.pow(10.0, decimals.to_double())
-  if scale - scale != 0.0 || scale == 0.0 {
+  if scale - scale != 0.0 {
     return a
   }
   let scaled = a * scale

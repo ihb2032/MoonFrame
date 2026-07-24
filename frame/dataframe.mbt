@@ -474,20 +474,23 @@ pub fn DataFrame::tail(self : DataFrame, n : Int) -> DataFrame {
 
 ///|
 /// Half-open `[start, end)` row slice. Bounds checks mirror
-/// `Series::slice` (and `BuiltinColumn::slice`): out-of-range starts /
-/// ends surface as `IndexOutOfBounds`, `start > end` as
-/// `InvalidOperation`.
+/// `Series::slice` (and `BuiltinColumn::slice`): an index outside the frame
+/// surfaces as `IndexOutOfBounds` — `start < 0`, or an `end` outside
+/// `[0, nrows]` — and only two individually valid indices in the wrong order
+/// are `InvalidOperation`.
 pub fn DataFrame::slice(
   self : DataFrame,
   start : Int,
   end : Int,
 ) -> DataFrame raise @types.DataError {
-  // Validate bounds once using the first column (or against `nrows` if
-  // there are no columns).
+  // Validate against `nrows` — the frame's own height, which every column
+  // agrees with (INV2) and which a column-less frame still carries. Same order
+  // and the same range test on both ends as `validate_slice_bounds`, the
+  // per-column validator this stands in for.
   if start < 0 {
     raise @types.DataError::IndexOutOfBounds(start)
   }
-  if end > self.nrows {
+  if end < 0 || end > self.nrows {
     raise @types.DataError::IndexOutOfBounds(end)
   }
   if start > end {

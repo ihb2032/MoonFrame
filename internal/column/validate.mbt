@@ -11,8 +11,15 @@
 /// Validate a half-open `[start, end)` slice against a column of length
 /// `len`, in the order both backends' `slice` rely on:
 /// - `IndexOutOfBounds(start)` when `start < 0`.
-/// - `IndexOutOfBounds(end)` when `end > len`.
+/// - `IndexOutOfBounds(end)` when `end` is outside `[0, len]`.
 /// - `InvalidOperation("slice start > end: ...")` when `start > end`.
+///
+/// Both ends are checked against the whole valid range, so which error a
+/// caller gets says what is wrong with the *argument*: an index outside the
+/// column is out of bounds, and only a pair that are each individually valid
+/// but in the wrong order is an invalid operation. Checking `end` for `> len`
+/// alone would send a negative `end` — plainly an out-of-range index — down
+/// the ordering arm instead, since any valid `start` exceeds it.
 ///
 /// `start > len` is not a separate case: it can only occur together with
 /// `end > len` or `start > end`, both already rejected above. A no-op on a
@@ -25,7 +32,7 @@ fn validate_slice_bounds(
   if start < 0 {
     raise @types.DataError::IndexOutOfBounds(start)
   }
-  if end > len {
+  if end < 0 || end > len {
     raise @types.DataError::IndexOutOfBounds(end)
   }
   if start > end {

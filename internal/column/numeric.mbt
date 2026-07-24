@@ -168,7 +168,7 @@ pub fn NumericColumn::get(
 /// Half-open `[start, end)` slice. Requires `0 <= start <= end <= len`, with
 /// the same diagnostics (and check order) as `BuiltinColumn::slice`:
 /// - `IndexOutOfBounds(start)` when `start < 0`.
-/// - `IndexOutOfBounds(end)` when `end > len`.
+/// - `IndexOutOfBounds(end)` when `end` is outside `[0, len]`.
 /// - `InvalidOperation("slice start > end: ...")` when `start > end`.
 ///
 /// Stays a `NumericColumn` — a sub-range of an all-valid column is itself

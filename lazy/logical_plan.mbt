@@ -47,8 +47,8 @@ priv enum LogicalPlan {
 
 ///|
 /// The leaf a `Scan` node reads at collect time — an in-memory frame or a file
-/// source. Collapsing the former `Scan` / `ScanCsv` / `ScanNdjson` `LogicalPlan`
-/// variants behind one `Scan(ScanSource)` leaf keeps each per-source concern in
+/// source. Collapsing the three per-format `LogicalPlan` scan variants this
+/// replaced behind one `Scan(ScanSource)` leaf keeps each per-source concern in
 /// one ScanSource-keyed place — execution (`execute_scan`), rendering
 /// (`write_scan_label`), and the projection / predicate push-down
 /// (`narrow_scan_source` and `place_filter`'s floor) — so a new scannable format

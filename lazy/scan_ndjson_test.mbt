@@ -69,7 +69,7 @@ test "scan_ndjson with projection push-down collects equal to the eager read the
 }
 
 ///|
-test "scan_ndjson_with_options honours the read options at collect time" {
+test "scan_ndjson honours its read options at collect time" {
   let path = "_build/lazy_scan_ndjson_options.ndjson"
   write_ndjson_fixture(path)
   let opts : @io.JsonReadOptions = @io.JsonReadOptions::JsonReadOptions(

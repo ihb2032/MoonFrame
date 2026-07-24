@@ -191,7 +191,7 @@ test "round: Builtin null, NaN / ±inf pass through, non-numeric raises" {
 }
 
 ///|
-test "unary numeric: Expr::explain renders the method calls" {
+test "unary numeric: Expr::to_string renders the method calls" {
   inspect(@expr.col("x").abs().to_string(), content="col(x).abs()")
   inspect(@expr.col("x").floor().to_string(), content="col(x).floor()")
   inspect(@expr.col("x").ceil().to_string(), content="col(x).ceil()")

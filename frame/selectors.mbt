@@ -63,7 +63,8 @@ pub fn cols_of_dtype(
 
 ///|
 /// The `col(...)` references of every column of `df` whose **name** matches the
-/// POSIX regular expression `pattern` (a partial match, like `str_contains_regex`)
+/// POSIX regular expression `pattern` (a partial match, like
+/// `str_contains(pattern, literal=false)` over cells)
 /// — Polars' `cs.matches(pattern)`. The dialect is POSIX (`[[:alpha:]]`, not the
 /// PCRE `\w`), and an invalid pattern raises `InvalidOperation`. Schema order;
 /// empty when nothing matches.

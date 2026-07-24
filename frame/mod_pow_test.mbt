@@ -212,7 +212,7 @@ test "pow: negative / zero exponents, Builtin arms, null, non-numeric" {
 }
 
 ///|
-test "mod / pow: Expr::explain renders % and **" {
+test "mod / pow: Expr::to_string renders % and **" {
   inspect(
     @expr.col("a").modulo(@expr.col("b")).to_string(),
     content="(col(a) % col(b))",

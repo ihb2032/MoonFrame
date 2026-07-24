@@ -60,7 +60,7 @@ test "scan_csv with projection push-down collects equal to the eager read then s
 }
 
 ///|
-test "scan_csv_with_options honours the read options at collect time" {
+test "scan_csv honours its read options at collect time" {
   let path = "_build/lazy_scan_csv_options.csv"
   let df = @frame.DataFrame::DataFrame([
     @series.Series::from_ints("a", [1, 2]),
@@ -82,7 +82,7 @@ test "scan_csv_with_options honours the read options at collect time" {
 }
 
 ///|
-test "scan_csv_with_options snapshots the null-token list" {
+test "scan_csv snapshots the null-token list from its options" {
   let path = "_build/lazy_scan_csv_aliasing.csv"
   @io.write_csv(
     path,

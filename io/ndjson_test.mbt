@@ -491,7 +491,7 @@ test "negative zero keeps its sign on an NDJSON round-trip" {
 }
 
 ///|
-test "read_ndjson_with_options honours a custom inference window" {
+test "read_ndjson honours a custom inference window from its options" {
   let path = "_build/io_ndjson_test_custom.ndjson"
   let df = @frame.DataFrame::DataFrame([
     @series.Series::from_int_options("a", [Some(1), Some(2), Some(3)]),
@@ -516,7 +516,7 @@ test "read_ndjson: missing file surfaces as IoError, not panic" {
 }
 
 ///|
-test "read_ndjson_with_options: missing file surfaces as IoError" {
+test "read_ndjson with options: missing file surfaces as IoError" {
   let result = Ok(
     @io.read_ndjson("_build/io_ndjson_test_does_not_exist.ndjson"),
   ) catch {

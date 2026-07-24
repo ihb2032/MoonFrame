@@ -511,7 +511,7 @@ test "write_json then read_json round-trips a small frame on disk" {
 }
 
 ///|
-test "read_json_with_options honours a custom inference window" {
+test "read_json honours a custom inference window from its options" {
   let path = "_build/io_json_test_custom.json"
   let df = @frame.DataFrame::DataFrame([
     @series.Series::from_int_options("a", [Some(1), Some(2), Some(3)]),
@@ -534,7 +534,7 @@ test "read_json: missing file surfaces as IoError, not panic" {
 }
 
 ///|
-test "read_json_with_options: missing file surfaces as IoError" {
+test "read_json with options: missing file surfaces as IoError" {
   let result = Ok(@io.read_json("_build/io_json_test_does_not_exist.json")) catch {
     e => Err(e)
   }

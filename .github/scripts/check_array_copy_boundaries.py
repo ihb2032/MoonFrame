@@ -59,11 +59,23 @@ def wrapped_forms(parameter: str) -> str:
 
 
 def mask_strings_and_comments(text: str) -> str:
-    """Blank strings and line comments while preserving offsets."""
+    """Blank string literals, `Char` literals and line comments, keeping offsets.
+
+    `Char` literals matter as much as strings: `'}'` would otherwise close a
+    brace that was never opened (making a nested shadow copy look top-level to
+    `top_level_copy`), `'{'` would open one that never closes, and `'"'` would
+    start a string that swallows the rest of the block. Every structural scan
+    here — brace depth, `matching_paren`, `matching_delimiter` — reads the
+    masked text, so they all agree on what is code.
+
+    Masking is idempotent: the pass leaves no quote or comment marker behind,
+    so re-masking already-masked text changes nothing.
+    """
     chars = list(text)
     index = 0
     while index < len(chars):
-        if chars[index] == '"':
+        if chars[index] in ('"', "'"):
+            quote = chars[index]
             chars[index] = " "
             index += 1
             escaped = False
@@ -75,7 +87,7 @@ def mask_strings_and_comments(text: str) -> str:
                     escaped = False
                 elif char == "\\":
                     escaped = True
-                elif char == '"':
+                elif char == quote:
                     break
         elif chars[index] == "/" and index + 1 < len(chars) and chars[index + 1] == "/":
             while index < len(chars) and chars[index] != "\n":
@@ -205,17 +217,21 @@ def top_level_copy(code: str, parameter: str) -> int | None:
 
 
 def retained_parameters(block: str) -> list[str]:
-    match = PUBLIC_FN.search(block)
+    # Mask once, up front, and read only the masked text from here on. Splitting
+    # the signature off the body means counting parentheses, and a `Char`
+    # default like `fill? : Char = ')'` would otherwise close the parameter list
+    # early.
+    masked = mask_strings_and_comments(block)
+    match = PUBLIC_FN.search(masked)
     if match is None:
         return []
-    opening = block.find("(", match.start())
-    closing = matching_paren(block, opening)
+    opening = masked.find("(", match.start())
+    closing = matching_paren(masked, opening)
     if closing is None:
         return []
-    signature = block[opening + 1 : closing]
+    signature = masked[opening + 1 : closing]
     parameters = ARRAY_PARAM.findall(signature)
-    body = block[closing + 1 :]
-    code = mask_strings_and_comments(body)
+    code = masked[closing + 1 :]
     retained: list[str] = []
     for parameter in parameters:
         field_assignment = re.search(
@@ -224,12 +240,12 @@ def retained_parameters(block: str) -> list[str]:
             code,
         )
         # Where the caller's array is first handed to something that keeps it.
-        # `constructor_retains` / `record_shorthand_retains` mask the same body,
-        # so every offset indexes the same string and they compare directly.
+        # Every detector reads the same masked body — masking is idempotent, so
+        # the helpers' own pass is a no-op — and their offsets index one string.
         sites = [
             None if field_assignment is None else field_assignment.start(),
-            constructor_retains(body, parameter),
-            record_shorthand_retains(body, parameter),
+            constructor_retains(code, parameter),
+            record_shorthand_retains(code, parameter),
         ]
         found = [site for site in sites if site is not None]
         if not found:
@@ -345,6 +361,30 @@ pub fn Box::new(flag : Bool, values : Array[Int]) -> Box {
   }
 }
 """
+    # A `Char` literal must not be read as structure: `'}'` would close the
+    # function body early, promoting the branch-local copy above to top level.
+    unsafe_branch_copy_with_char = """
+pub fn Box::new(flag : Bool, values : Array[Int]) -> Box {
+  let close = '}'
+  ignore(close)
+  if flag {
+    let values = values.copy()
+    Box(values)
+  } else {
+    Box(values)
+  }
+}
+"""
+    # ...and the mirror: `'{'` must not open one, which would demote a genuine
+    # top-level copy and report a boundary that is in fact safe.
+    safe_top_level_copy_with_char = """
+pub fn Box::new(values : Array[Int]) -> Box {
+  let open = '{'
+  ignore(open)
+  let values = values.copy()
+  Box(values)
+}
+"""
     assert retained_parameters(unsafe_record) == ["values"]
     assert retained_parameters(unsafe_enum) == ["exprs"]
     assert retained_parameters(unsafe_qualified_enum) == ["exprs"]
@@ -356,6 +396,8 @@ pub fn Box::new(flag : Bool, values : Array[Int]) -> Box {
     assert retained_parameters(borrowed) == []
     assert retained_parameters(unsafe_retain_then_copy) == ["values"]
     assert retained_parameters(unsafe_branch_copy) == ["values"]
+    assert retained_parameters(unsafe_branch_copy_with_char) == ["values"]
+    assert retained_parameters(safe_top_level_copy_with_char) == []
 
 
 def main() -> int:

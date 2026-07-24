@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       fuzz_scale:
-        description: Differential-fuzzer case multiplier for a release run
-        required: true
-        default: "10"
+        description: Differential-fuzzer case multiplier (clamped to 1..20)
+        required: false
+        default: "20"
 
 # Least privilege: this workflow only checks out the repo and runs the
 # toolchain — it never writes back, cuts a release, or touches PRs/issues.
@@ -127,21 +127,28 @@ jobs:
         if: runner.os == 'Linux'
         run: moon test --target all
 
-      # A manual workflow dispatch is the release gate. Keep ordinary PR CI at
-      # the deterministic baseline size, then repeat the optimizer differential
-      # suite here with the requested multiplier and call out the backend/IO
-      # parity suites explicitly rather than relying only on their inclusion in
-      # the workspace-wide test run above. The suite clamps the multiplier to
-      # 1..=20 and falls back to 1 for a missing or invalid value, so a stray
-      # environment variable can never make routine CI unbounded.
-      - name: Release differential fuzz expansion
-        if: runner.os == 'Linux' && github.event_name == 'workflow_dispatch'
+      # There is no release-only tier: the expanded optimizer differential
+      # suite and the parity suites run on every push and pull request, so a
+      # change cannot merge without passing what a release run would have
+      # asked of it. They are cheap enough for that — the fuzzer is ~25s at
+      # the full multiplier and the parity suites are ~1s — and the fuzzer's
+      # seeds are fixed, so a bigger case count stays deterministic.
+      #
+      # The multiplier: the suite itself clamps to 1..=20 and falls back to 1
+      # for a missing or invalid value. `inputs` is empty for push /
+      # pull_request, so the fallback below supplies the full multiplier on
+      # those events and a manual dispatch can dial it down.
+      - name: Differential fuzz expansion
+        if: runner.os == 'Linux'
         env:
-          MOONFRAME_FUZZ_SCALE: ${{ inputs.fuzz_scale }}
+          MOONFRAME_FUZZ_SCALE: ${{ inputs.fuzz_scale || '20' }}
         run: moon test lazy/optimize_fuzz_test.mbt
 
-      - name: Release backend and IO parity suites
-        if: runner.os == 'Linux' && github.event_name == 'workflow_dispatch'
+      # Both suites are part of the workspace-wide `moon test` above; running
+      # them by name keeps them individually visible in the step list, so a
+      # parity failure is legible without reading the full test log.
+      - name: Backend and IO parity suites
+        if: runner.os == 'Linux'
         run: |
           moon test series/backend_parity_test.mbt
           moon test io/roundtrip_corpus_test.mbt

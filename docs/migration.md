@@ -12,6 +12,25 @@ spellings existed for building or configuring the same value, v0.6 keeps a
 single entry point; there are no deprecated aliases. From v0.7 on the stable
 public surface evolves compatibly.
 
+### A column-less frame keeps its rows
+
+Projecting a frame to zero columns used to return `0×0`, discarding the height.
+It now returns `N×0`. Nothing needs rewriting to compile — but code that
+*asserted* the old shape, or that treated "no columns" as "no rows", changes:
+
+| expression | v0.5 | v0.6 |
+| --- | --- | --- |
+| `df.select([]).shape()` (`df` 3-row) | `(0, 0)` | `(3, 0)` |
+| `df.drop(every_column).shape()` | `(0, 0)` | `(3, 0)` |
+| `from_rows(Schema::Schema([]), [[], []]).shape()` | `(0, 0)` | `(2, 0)` |
+| `parse_json_str("[{},{}]").shape()` | `(0, 0)` | `(2, 0)` |
+| `df.select([]).is_empty()` | `true` | `false` |
+
+`DataFrame::DataFrame([])` is unchanged at `0×0` — it infers its height from
+the columns it is given. If you relied on a zero-column result reporting
+`is_empty()`, test `ncols() == 0` instead. `check_invariants()`' INV7 changed
+with it: from "a column-less frame is row-less" to `nrows >= 0`.
+
 ### `Field` has one constructor
 
 | v0.5 | v0.6 |

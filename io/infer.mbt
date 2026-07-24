@@ -274,8 +274,17 @@ fn[Cell] build_inferred_column(
 /// key-column reuse — defined once for both formats, rather than mirrored
 /// (which is how the CSV reader once shipped without the position threading the
 /// NDJSON reader had).
+///
+/// `nrows` is the record count the file itself carries, and it — not the built
+/// column vector — sets the result's height. The two are the same whenever a
+/// column survives, and differ exactly when none does: a projection that
+/// matches no header, or a record shape with no fields at all (`[{}, {}]`),
+/// reads as the `N×0` frame rather than losing the file's rows. The same count
+/// anchors the phase-1 key frame, so a predicate that reads no column still
+/// sees the file's real height.
 fn assemble_pruned_frame(
   headers : Array[String],
+  nrows : Int,
   projection : Array[String]?,
   pruner : (
     Array[String],
@@ -294,7 +303,7 @@ fn assemble_pruned_frame(
           keys.push(build_over(name, col, None))
         }
       }
-      let key_frame = @frame.DataFrame::DataFrame(keys)
+      let key_frame = @frame.DataFrame::from_parts(keys, nrows)
       let kept = keep(key_frame)
       Some((key_frame.gather(kept), kept))
     }
@@ -325,5 +334,12 @@ fn assemble_pruned_frame(
       }
     }
   }
-  @frame.DataFrame::DataFrame(series)
+  // The surviving height: the rows a pruner kept, else every record. With at
+  // least one column built these agree with `series[0].len()`; with none, this
+  // is the only thing that carries it.
+  let height = match kept {
+    None => nrows
+    Some(k) => k.length()
+  }
+  @frame.DataFrame::from_parts(series, height)
 }

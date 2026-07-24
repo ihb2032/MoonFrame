@@ -1131,6 +1131,22 @@ test "CSV file readers forward strict quote validation" {
 }
 
 ///|
+test "a projection matching no header reads the rows and no columns" {
+  // Building zero columns used to lose the file's height, so the reader had to
+  // fall back to materialising every column instead. The `N×0` frame carries
+  // the row count on its own, so nothing unrelated is inferred or parsed.
+  let path = "_build/io_csv_zero_match_projection.csv"
+  @fs.write_string_to_file(path, "a,b\n1,x\n2,y\n3,z")
+  let opts = @io.CsvReadOptions::CsvReadOptions()
+  let none_match = @io.read_csv_projected(path, opts, ["nope"])
+  assert_eq(none_match.shape(), (3, 0))
+  assert_false(none_match.is_empty())
+  // Partial-match leniency is untouched: the matched column, the same height.
+  let partial = @io.read_csv_projected(path, opts, ["b", "nope"])
+  assert_eq(partial.shape(), (3, 1))
+}
+
+///|
 test "read_csv: missing file surfaces as IoError, not panic" {
   let result = Ok(@io.read_csv("_build/io_csv_test_does_not_exist.csv")) catch {
     e => Err(e)

@@ -171,9 +171,10 @@ pub fn parse_csv_str(
 ///   `read_csv_projected` does not raise `ColumnNotFound` for an unknown
 ///   column, it just yields the ones that match. The lazy path only ever
 ///   requests real columns, and a stray `col("missing")` is still caught
-///   downstream by `select`. A projection matching **no** header falls back
-///   to a full read (`effective_projection`): building zero columns would
-///   lose the file's row count and flip the surfaced error downstream.
+///   downstream by `select`. A projection matching **no** header builds no
+///   column at all and yields the `N×0` frame — the file's rows are still
+///   counted, so a downstream `head` / `slice` bounds-checks against the real
+///   height and the surfaced error stays the as-built plan's `ColumnNotFound`.
 ///
 /// Every whole-input check runs *before* the projection filter and so is
 /// unaffected by it — strict quote validation, the empty-input short-circuit,
@@ -238,10 +239,6 @@ fn parse_csv_str_projected(
     null_set[v] = ()
   }
   let is_null = fn(v : String) -> Bool { null_set.contains(v) }
-  // A projection matching no header falls back to a full read (see
-  // `effective_projection`) so the row count survives for the as-built
-  // error to surface downstream.
-  let projection = effective_projection(projection, headers)
   let dtype_of = fn(col : Int) -> InferredDtype {
     // Inference always walks the *whole* file, even when a predicate will drop
     // rows, so a pruned read locks in the same dtypes an eager
@@ -290,7 +287,7 @@ fn parse_csv_str_projected(
     }
     build(name, dtype_of(col), records, col, keep)
   }
-  assemble_pruned_frame(headers, projection, pruner, build_over)
+  assemble_pruned_frame(headers, rows.length(), projection, pruner, build_over)
 }
 
 ///|

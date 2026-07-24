@@ -645,12 +645,21 @@ dependencies** (NyaCSV / fs / @json live only in `io`).
   read through the copy-returning accessors below.
 - Constructors (`raise DataError`): `DataFrame::DataFrame(columns)` — the
   type's own constructor (`LengthMismatch` / `DuplicateColumn`; zero columns →
-  `0×0`), see [constructor spelling](#constructor-spelling);
+  `0×0`, since with no column there is no height to infer), see
+  [constructor spelling](#constructor-spelling);
   `empty(schema)` (0-row frame; `DuplicateColumn` for a repeated field name;
   `Unsupported` for a `Null`-dtype field);
   `from_rows(schema, rows)` (`DuplicateColumn` / `LengthMismatch` /
-  `TypeMismatch` / `Unsupported` / `NullInNonNullable`; zero-column schema →
-  `0×0`, like the plain constructor).
+  `TypeMismatch` / `Unsupported` / `NullInNonNullable`; the height is always
+  `rows.length()`, so a zero-column schema over *n* width-0 rows is `n × 0`).
+- **`N × 0` is a shape.** A frame with rows and no columns is well-formed, and
+  the operations that reach one keep their height: `select([])`, a `drop` of
+  every column, `from_rows` under an empty schema, JSON records with no fields
+  (`[{}, {}]` reads as `2×0`), and a file read whose projection matches no
+  header. `is_empty()` is `nrows() == 0`, so such a frame is *not* empty, and
+  `with_columns` can still compute a column over its rows. Only
+  `DataFrame::DataFrame([])` is `0×0` — it infers the height from the columns,
+  and there are none.
   `empty` / `from_rows` re-validate the schema through `Schema::Schema` as
   defence-in-depth (every `Schema` constructor already rejects duplicates).
 - Total inspection: `shape()` / `schema()` / `columns()` (fresh array) /
@@ -691,7 +700,8 @@ transforms, so every output satisfies `check_invariants()`.
   named columns, order preserved. Each key resolves to a column name via
   `Expr::output_name` (a bare `col("x")`, or an alias) — the expression is
   not evaluated. Duplicate keys idempotent; `ColumnNotFound` on the first
-  unknown. An empty key list returns the frame unchanged, schema included.
+  unknown. An empty key list returns the frame unchanged, schema included;
+  dropping *every* column keeps the height, as `nrows() × 0`.
 - `rename(mapping : Array[(String, String)]) -> DataFrame raise DataError`
   — apply renames in order (each step's `new_name` is visible to later
   steps, enabling a 3-step swap). `ColumnNotFound` / `DuplicateColumn`.
@@ -793,7 +803,8 @@ output satisfies `check_invariants()`; all raise the evaluator's
   `select([col("a"), col("b")])`). A mix of aggregations and element-wise
   expressions broadcasts the aggregations to the frame height; an
   **all-aggregation** selection collapses to a single row (Polars'
-  `select(sum)` shape).
+  `select(sum)` shape). `select([])` projects to zero columns and, like any
+  projection, keeps the frame's height: `nrows() × 0`.
 - `filter(predicate : Expr) -> DataFrame raise DataError` —
   vectorized boolean row selection: evaluate `predicate` (which must be a
   `Bool` column of frame height; non-`Bool` → `TypeMismatch`) and keep the
@@ -1072,7 +1083,10 @@ are documented below.
   `read_csv` that builds only the named `projection` columns, behind `lazy`'s
   `scan_csv` projection pushdown. Whole-input checks (strict quote validation,
   a malformed header, or a ragged row) are unaffected, but a parse error
-  confined to a dropped column does not surface (see `lazy`).
+  confined to a dropped column does not surface (see `lazy`). Projection is
+  lenient: a requested name the header lacks is skipped, and a projection
+  matching *no* header builds nothing at all — the `N×0` frame, which keeps
+  the file's row count without inferring or parsing an unrelated column.
 - `write_csv(path, df, options? : CsvWriteOptions = CsvWriteOptions::CsvWriteOptions()) -> Unit
   raise DataError` — the file wrapper; the spreadsheet-formula safety mode
   rides on `options.sanitize_formulas` (`IoError`; a string cell or column name holding an
@@ -1092,8 +1106,9 @@ are documented below.
   across all records (sparse records → null cells) → inference (same
   order as CSV; `Number` locks `Int` when integral and in `Int64` range,
   else `Float`; `true` / `false` only for `Bool`; mixed → `String`
-  fallback) → `DataFrame::DataFrame`. Structural or syntax failures use
-  `ParseError(Message(...))`;
+  fallback) → frame. Records with no fields at all yield no header and so no
+  column, and read as the `N×0` frame: `[{}, {}]` is `2×0`. Structural or
+  syntax failures use `ParseError(Message(...))`;
   typed cell failures use `ParseError(Cell(Record, ...))`. An integer
   outside Double's exact integer range but still inside its finite numerical
   range, when inferred as
@@ -1136,7 +1151,8 @@ conventions.
   object also uses `Message`. A typed
   mismatch past the inference window (unless `options.on_parse_error = Null`)
   uses `ParseError(Cell(Line, ...))` with the physical 1-based line. Empty /
-  all-blank input → 0×0 frame.
+  all-blank input → 0×0 frame; lines that are all `{}` are rows with no
+  fields, and read as `N×0`.
 - `format_ndjson(df) -> String` — **total**. One compact object per row,
   keys in `df.columns()` order, each line terminated by `\n` (including
   the last — matching the CSV writer's per-row LF and Polars'
@@ -1333,11 +1349,10 @@ error confined to a dropped column *or* to a row the predicate drops goes
 unraised; dtype inference still walks the whole file, so dtypes are unchanged.
 The plan shows it as `SCAN_CSV "f.csv" [cols] WHERE (pred)`. Only the first
 predicate is absorbed (combining two would reorder which operand's error
-surfaces first), and only a predicate that names at least one column — a
-column-less one (`lit_bool(true)`, a no-input `map`) has no key column for the
-reader to prune on, so it stays a `Filter` above the scan and broadcasts over
-the fully-read frame, matching the eager read-then-filter. Deferred (out of
-scope): dead-expression elimination,
+surfaces first). A predicate naming no column (`lit_bool(true)`, a no-input
+`map`) is absorbed too — it prunes against a key frame with no columns, which
+still carries the file's row count (`N×0`) for the literal to broadcast over.
+Deferred (out of scope): dead-expression elimination,
 narrowing / predicate-splitting through joins, sinking filters below sorts, and
 streaming a file source — the reader still tokenises the whole file.
 

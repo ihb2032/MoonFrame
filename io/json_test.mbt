@@ -281,12 +281,13 @@ test "parse_json_str: empty array yields a 0x0 frame" {
 }
 
 ///|
-test "parse_json_str: array of empty objects collapses to 0x0" {
-  // `[{}, {}]` is N records with 0 columns, which `DataFrame::DataFrame`
-  // cannot represent; the reader collapses it to the same shape
-  // empty-input produces.
+test "parse_json_str: array of empty objects keeps the record count" {
+  // `[{}, {}]` is 2 records with 0 fields: the `N×0` frame, not the shape
+  // empty input produces. The records are there to be counted, and a later
+  // `with_columns` can still compute over them.
   let df = @io.parse_json_str("[{},{}]")
-  assert_eq(df.shape(), (0, 0))
+  assert_eq(df.shape(), (2, 0))
+  assert_false(df.is_empty())
 }
 
 ///|

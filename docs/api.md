@@ -5,10 +5,10 @@
 > the stable public surface evolves compatibly. This document is the source of
 > truth for the v0.6 public surface. Every
 > user-facing symbol re-exported by the facade appears here. (A few symbols
-> are `pub` only because they are shared across packages — MoonBit has no
-> module-internal visibility — and are deliberately kept out of both the
-> facade and this reference: they are internal kernels, not public API, and
-> may change without notice.)
+> are `pub` only because two public packages share them — MoonBit has no
+> visibility between packages narrower than `pub` — and are deliberately kept
+> out of both the facade and this reference: they are internal kernels, not
+> public API, and may change without notice.)
 
 The facade package `ihb2032/MoonFrame` re-exports every symbol below
 via `pub using @<subpkg> { ... }`, so a single
@@ -28,8 +28,12 @@ Everything in this reference — reached through the facade or through a
 sub-package import (`@types`, `@series`, `@expr`, `@frame`, `@io`,
 `@lazy`) — is API you can build on.
 
-Some symbols are `pub` only because they are shared across packages and
-MoonBit has no module-internal visibility. These are execution-engine
+Some symbols are `pub` only because two public packages share them: MoonBit
+offers no visibility between `priv` (this package only) and `pub` (anyone), so
+a kernel `frame` and `lazy` both call has to be `pub` to cross that boundary.
+Code that no *public* package needs goes further and lives in an `internal/`
+package (`internal/column` / `text` / `literal`), which the module can import
+and a downstream user cannot. These are execution-engine
 internals, not public API: each is marked
 `#internal(engine, "MoonFrame execution engine API")` at its definition and is
 deliberately absent from both the facade and this reference. **Do not depend on
@@ -227,7 +231,8 @@ with constructors, operators, and methods, then evaluate eagerly
 (`with_columns` / `select` / `filter` / `agg`, in `frame`), render
 (`to_string`), or defer and optimize (`lazy`). Building a tree is **total** —
 every failure (a missing column, a type clash) waits for evaluation. `expr`
-depends only on `types`.
+depends on `types` and `series` — `lit_series` and `map_batches` carry a
+`Series` in the tree — and on nothing above it: not `frame`, `io`, or `lazy`.
 
 - `enum Expr` — the expression tree, **read-only** outside the package
   (inspect by pattern matching; construct through `col` / `lit_*` /
@@ -1261,8 +1266,9 @@ A deferred query plan over an in-memory frame. `LazyFrame::LazyFrame(df)` starts
 plan; builder methods mirroring the eager
 verbs grow it without computing anything; `collect()` optimizes and runs it.
 Building is **total** — every failure waits for `collect`. `lazy` depends on
-`frame` + `expr`; `frame` does **not** depend on `lazy`, so there is no
-cycle.
+`frame`, `expr`, `io` (the scan sources take `CsvReadOptions` /
+`JsonReadOptions`) and `types`; nothing depends on `lazy`, and `frame` in
+particular does **not**, so there is no cycle.
 
 - `struct LazyFrame` (fields private) — wraps a private `LogicalPlan` (one
   node per eager verb; the IR never leaks into the public surface).

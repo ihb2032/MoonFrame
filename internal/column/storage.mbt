@@ -278,9 +278,10 @@ pub fn ColumnStorage::slice(
 /// `Builtin` arm, exactly as `slice` does, but out-of-range bounds are
 /// clamped into `[0, len]` (with `end` lifted to at least `start`) so it is
 /// genuinely total: it never raises and never aborts on a stray index. This
-/// is the single slice path behind the total row transforms `head` / `tail`
-/// / `DataFrame::slice`, which validate their window once against `nrows`
-/// before slicing each column — so the clamp is a no-op for them, while
+/// is the single slice path behind the total `head` / `tail` and behind the
+/// per-column half of `DataFrame::slice` — which is itself fallible, but
+/// validates its window against `nrows` once before reaching here, as
+/// `head` / `tail` clamp theirs — so the clamp is a no-op for all three, while
 /// keeping this public entry abort-free for any other caller
 /// (`feedback_lib_no_abort`).
 pub fn ColumnStorage::slice_total(

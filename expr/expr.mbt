@@ -3,7 +3,7 @@
 /// upgrade over the closure-based surfaces (the v0.1 row-predicate
 /// closure) and pre-materialised `Series` columns. An `Expr` is *data*: the
 /// evaluator in `frame` pattern-matches
-/// it, and the v0.4 lazy layer will print and rewrite it — none of which a
+/// it, and the lazy layer prints and rewrites it — none of which a
 /// closure can offer.
 ///
 /// The enum is `pub` (read-only): other packages — including `frame`, whose

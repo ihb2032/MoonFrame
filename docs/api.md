@@ -896,7 +896,10 @@ Split-apply-combine, native to the method chain
   - `first()` / `last()` → source dtype, the group's first / last cell in
     row order — null if that cell is null.
   An empty `exprs` list degenerates to a **distinct** over the key columns
-  (the unique key tuples). Routes through `DataFrame::DataFrame`, so every output
+  (the unique key tuples). The height is always the group count, so
+  `group_by([]).agg([])` over a non-empty frame is the `1×0` frame — the
+  grand-total group with nothing projected out of it — rather than `0×0`.
+  Routes through `DataFrame::from_parts`, so every output
   satisfies `check_invariants()`. Raises: `InvalidOperation` if an
   expression is not reduction-shaped (it must reduce every group to one
   value structurally — a bare column reference does not; implicit
@@ -952,7 +955,9 @@ Hash equi-join, native to the method chain (`left.join(right, options)`).
     input order (snapshot-stable).
   - `how = Cross` is the **Cartesian product** (every left row × every
     right row); it takes **no** keys, ignores `coalesce`, and keeps every
-    column of both frames (a clashing right column is suffixed).
+    column of both frames (a clashing right column is suffixed). The height
+    is the product of the two heights whether or not any column survives to
+    witness it: `2×0` cross `3×0` is `6×0`.
   - **Backend**: like the other row-gathering transforms (`filter` / `sort`
     / `gather` / `drop_nulls`), each output column lands on the backend its
     **content** implies — an all-valid numeric result converges onto

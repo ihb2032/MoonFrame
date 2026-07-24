@@ -83,6 +83,10 @@ collected in [`migration.md`](migration.md).
   - A file read whose projection matches no header yields the file's rows and
     no columns, instead of falling back to materialising every column to keep
     the row count — a mistyped column name no longer costs a full read.
+  - A join takes its height from the row plan, so a cross join of two
+    column-less frames is their product: `2×0` cross `3×0` is `6×0`.
+  - `agg` takes its height from the group count, so `group_by([]).agg([])`
+    over a non-empty frame is the `1×0` grand-total group.
 
   `DataFrame::DataFrame([])` is still `0×0`: it infers the height from the
   columns, and there are none. `is_empty()` remains `nrows() == 0`, so an

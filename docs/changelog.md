@@ -80,6 +80,11 @@ collected in [`migration.md`](migration.md).
     `from_rows(df.schema(), df.rows())` the identity for every frame.
   - JSON records with no fields keep their count: `[{}, {}]` reads as `2×0`,
     as do NDJSON lines of `{}`.
+  - CSV has no field-less row — it would be a blank line, which the reader
+    skips — so `format_csv` / `write_csv` refuse an `N×0` frame with
+    `InvalidOperation` instead of writing blank lines that read back as `0×0`.
+    The `0×0` frame still writes; only the shape that would lose rows is
+    rejected.
   - A file read whose projection matches no header yields the file's rows and
     no columns, instead of falling back to materialising every column to keep
     the row count — a mistyped column name no longer costs a full read.

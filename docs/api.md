@@ -1087,7 +1087,12 @@ are documented below.
   `InvalidOperation` if `options.delimiter` is a double
   quote or a line terminator (`\n` / `\r`), which can't unambiguously frame
   fields, or a non-BMP character, whose UTF-16 surrogate pair the
-  per-code-unit tokenizer can't match.
+  per-code-unit tokenizer can't match — and for an `N×0` frame (rows but no
+  columns) with `N > 0`, which CSV cannot encode: a row with no fields is an
+  empty line, and the reader skips empty lines, so the write would come back as
+  the empty `0×0` frame with every row gone. Refused rather than made silently
+  lossy. The `0×0` frame has no rows to lose and still writes — the empty
+  string, or the lone `\n` of its field-less header row.
 - `read_csv(path, options? : CsvReadOptions = CsvReadOptions::CsvReadOptions()) -> DataFrame
   raise DataError` — the file wrapper; strict quote validation rides on
   `options.strict_quotes` (`IoError`).

@@ -80,6 +80,21 @@ test "round-trip: Bool column and a header that needs quoting" {
 }
 
 ///|
+test "round-trip: the column-less shapes each format can and cannot carry" {
+  // `N×0` is where the three formats part company. A JSON record and an NDJSON
+  // line can be field-less (`{}`), so the height survives; a CSV row cannot be
+  // field-less, so the same frame would be blank lines the reader skips. The
+  // writer refuses it instead — the one shape outside the text fixpoint.
+  let nby0 = @frame.DataFrame::from_rows(@types.Schema::Schema([]), [[], []])
+  assert_eq(@io.parse_json_str(@io.format_json(nby0)).shape(), (2, 0))
+  assert_eq(@io.parse_ndjson_str(@io.format_ndjson(nby0)).shape(), (2, 0))
+  let csv = Ok(@io.format_csv(nby0)) catch { e => Err(e) }
+  assert_true(csv is Err(@types.DataError::InvalidOperation(_)))
+  // With no rows to lose, `0×0` stays a fixpoint on all three.
+  assert_roundtrip_fixpoint(@frame.DataFrame::DataFrame([]))
+}
+
+///|
 test "round-trip: shape edges (single row, single column, wide frame)" {
   assert_roundtrip_fixpoint(
     @frame.DataFrame::DataFrame([

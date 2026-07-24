@@ -831,10 +831,13 @@ test "format_csv: also quotes header names that contain the delimiter" {
 
 ///|
 test "format_csv: empty frame produces just the header row (or nothing)" {
-  // 0 columns, 0 rows: nothing to emit even with header on.
+  // 0 columns, 0 rows: nothing to emit even with header on. This is the shape
+  // the column-less refusal below deliberately still writes — there are no rows
+  // to lose, and both spellings read back as the same `0×0` frame.
   let empty = @frame.DataFrame::DataFrame([])
   let out = @io.format_csv(empty)
   assert_eq(out, "\n")
+  assert_eq(@io.parse_csv_str(out).shape(), (0, 0))
   // header off + empty frame: still emits one blank record terminator
   // (no cells, only the trailing newline from the header branch).
   let out_no_header = @io.format_csv(
@@ -842,6 +845,37 @@ test "format_csv: empty frame produces just the header row (or nothing)" {
     options=@io.CsvWriteOptions::CsvWriteOptions(header=false),
   )
   assert_eq(out_no_header, "")
+}
+
+///|
+test "format_csv: a frame with rows but no columns is refused, not blanked out" {
+  // `N×0` has no CSV spelling: a row with no fields is an empty line, and the
+  // reader skips empty lines. Written, a `2×0` frame would be three blank lines
+  // (header + two rows) and read back as `0×0` — both rows gone, no error.
+  // Neither header setting can encode the shape, so both refuse.
+  let nby0 = @frame.DataFrame::from_rows(@types.Schema::Schema([]), [[], []])
+  assert_eq(nby0.shape(), (2, 0))
+  let with_header = Ok(@io.format_csv(nby0)) catch { e => Err(e) }
+  assert_true(with_header is Err(@types.DataError::InvalidOperation(_)))
+  let without_header = Ok(
+    @io.format_csv(
+      nby0,
+      options=@io.CsvWriteOptions::CsvWriteOptions(header=false),
+    ),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(without_header is Err(@types.DataError::InvalidOperation(_)))
+}
+
+///|
+test "write_csv: the column-less refusal fires before the file is created" {
+  let path = "_build/io_csv_rows_without_columns.csv"
+  let nby0 = @frame.DataFrame::from_rows(@types.Schema::Schema([]), [[], [], []])
+  let result = Ok(@io.write_csv(path, nby0)) catch { e => Err(e) }
+  assert_true(result is Err(@types.DataError::InvalidOperation(_)))
+  // `format_csv` runs first, so the refusal costs no half-written file.
+  assert_false(@fs.path_exists(path))
 }
 
 ///|

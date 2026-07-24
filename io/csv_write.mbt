@@ -83,6 +83,15 @@ pub fn CsvWriteOptions::CsvWriteOptions(
 ///   line terminator (`\n` / `\r`): those collide with the hard-coded quote
 ///   character and the row terminator, so no escaping could make the output
 ///   frame fields unambiguously (see `validate_csv_delimiter`).
+/// - Raises `InvalidOperation` for an `N×0` frame — rows but no columns — with
+///   `N > 0`. CSV frames a row by its fields, so a row with no fields is an
+///   empty line, and an empty line is exactly what the reader skips: such a
+///   frame would write as `N` blank lines and read back as the empty `0×0`
+///   frame, losing every row without an error. The format has no spelling for
+///   "a row with zero fields", so the write is refused rather than silently
+///   made lossy (`validate_csv_delimiter`'s philosophy, applied to the shape).
+///   The column-less `0×0` frame has no rows to lose and still writes: the
+///   empty string, or the lone `\n` of its (field-less) header row.
 pub fn format_csv(
   df : @frame.DataFrame,
   options? : CsvWriteOptions = CsvWriteOptions::CsvWriteOptions(),
@@ -90,6 +99,12 @@ pub fn format_csv(
   validate_csv_delimiter(options.delimiter)
   let buf = StringBuilder::new()
   let names = df.columns()
+  if names.is_empty() && df.nrows() > 0 {
+    raise @types.DataError::InvalidOperation(
+      "CSV cannot represent a frame with rows but no columns (\{df.nrows()}×0): " +
+      "a row with no fields is an empty line, which reads back as no rows at all",
+    )
+  }
   // A single-column frame is the only shape whose rows can render as a bare
   // empty line (any wider row carries a delimiter), which the reader's
   // `skip_empty_lines` would discard — losing the row (or, for the header,
@@ -152,6 +167,9 @@ pub fn format_csv(
 /// shift every later cell boundary.
 /// `CsvWriteOptions::CsvWriteOptions(sanitize_formulas=true)` applies the same
 /// spreadsheet-safety transformation documented by `format_csv` before writing.
+/// Rendering runs through `format_csv` first, so its refusals come first too —
+/// an unrepresentable delimiter and the `N×0` shape (rows but no columns) both
+/// `raise InvalidOperation` before the file is opened, leaving nothing written.
 pub fn write_csv(
   path : String,
   df : @frame.DataFrame,

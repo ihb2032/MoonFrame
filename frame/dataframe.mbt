@@ -103,6 +103,43 @@ pub fn DataFrame::empty(
 }
 
 ///|
+/// Decode column `column` of a row-major `Scalar` matrix into the typed
+/// optional cells a `Series::from_*_options` constructor takes: a
+/// `Scalar::Null` becomes `None`, a cell `decode` recognises is unwrapped, and
+/// anything else `raise`s `TypeMismatch(Expected(field.dtype(), got, name))`.
+/// Rows are visited in order, so the reported cell is the first offending one.
+///
+/// The skeleton `from_rows`' four typed arms share: each supplies only the
+/// `Scalar` variant it reads and the constructor that consumes the result, so a
+/// dtype added later cannot quietly skip the null mapping or the mismatch
+/// error. `rows` is pre-validated to be `schema.len()` wide, so `row[column]`
+/// is in-bounds.
+fn[T] typed_column_cells(
+  rows : Array[Array[@types.Scalar]],
+  column : Int,
+  field : @types.Field,
+  decode : (@types.Scalar) -> T?,
+) -> Array[T?] raise @types.DataError {
+  rows.map(row => {
+    match row[column] {
+      @types.Scalar::Null => None
+      cell =>
+        match decode(cell) {
+          Some(v) => Some(v)
+          None =>
+            raise @types.DataError::TypeMismatch(
+              @types.TypeMismatchDetail::Expected(
+                field.dtype(),
+                cell.dtype(),
+                field.name(),
+              ),
+            )
+        }
+    }
+  })
+}
+
+///|
 /// Build a `DataFrame` from a row-major matrix of `Scalar`s. Each row
 /// must have exactly `schema.len()` cells, and each cell must either
 /// match the column's declared dtype or be `Scalar::Null`.
@@ -140,76 +177,52 @@ pub fn DataFrame::from_rows(
   let fields = schema.fields()
   let columns : Array[Series] = Array::makei(ncols, i => {
     let field = fields[i]
+    // Each typed arm supplies only two things — the `Scalar` variant its dtype
+    // reads, and the `Series` constructor that consumes the decoded cells. The
+    // null mapping, the `TypeMismatch` for a foreign cell, and the row order
+    // that decides which cell is reported live once, in `typed_column_cells`.
     let column = match field.dtype() {
       @types.DataType::Int =>
         Series::from_int_options(
           field.name(),
-          rows.map(row => {
-            match row[i] {
-              @types.Scalar::Int(v) => Some(v)
-              @types.Scalar::Null => None
-              other =>
-                raise @types.DataError::TypeMismatch(
-                  @types.TypeMismatchDetail::Expected(
-                    @types.DataType::Int,
-                    other.dtype(),
-                    field.name(),
-                  ),
-                )
+          typed_column_cells(rows, i, field, cell => {
+            if cell is @types.Scalar::Int(v) {
+              Some(v)
+            } else {
+              None
             }
           }),
         )
       @types.DataType::Float =>
         Series::from_float_options(
           field.name(),
-          rows.map(row => {
-            match row[i] {
-              @types.Scalar::Float(v) => Some(v)
-              @types.Scalar::Null => None
-              other =>
-                raise @types.DataError::TypeMismatch(
-                  @types.TypeMismatchDetail::Expected(
-                    @types.DataType::Float,
-                    other.dtype(),
-                    field.name(),
-                  ),
-                )
+          typed_column_cells(rows, i, field, cell => {
+            if cell is @types.Scalar::Float(v) {
+              Some(v)
+            } else {
+              None
             }
           }),
         )
       @types.DataType::Bool =>
         Series::from_bool_options(
           field.name(),
-          rows.map(row => {
-            match row[i] {
-              @types.Scalar::Bool(v) => Some(v)
-              @types.Scalar::Null => None
-              other =>
-                raise @types.DataError::TypeMismatch(
-                  @types.TypeMismatchDetail::Expected(
-                    @types.DataType::Bool,
-                    other.dtype(),
-                    field.name(),
-                  ),
-                )
+          typed_column_cells(rows, i, field, cell => {
+            if cell is @types.Scalar::Bool(v) {
+              Some(v)
+            } else {
+              None
             }
           }),
         )
       @types.DataType::String =>
         Series::from_string_options(
           field.name(),
-          rows.map(row => {
-            match row[i] {
-              @types.Scalar::String(v) => Some(v)
-              @types.Scalar::Null => None
-              other =>
-                raise @types.DataError::TypeMismatch(
-                  @types.TypeMismatchDetail::Expected(
-                    @types.DataType::String,
-                    other.dtype(),
-                    field.name(),
-                  ),
-                )
+          typed_column_cells(rows, i, field, cell => {
+            if cell is @types.Scalar::String(v) {
+              Some(v)
+            } else {
+              None
             }
           }),
         )

@@ -6,7 +6,7 @@ breaking-change steps for each release are collected in
 [`migration.md`](migration.md). Pre-1.0, breaking changes ride the minor
 version.
 
-## v0.6.0 — API convergence
+## v0.6.0 — API convergence (unreleased)
 
 The API-convergence release. MoonBit 0.10.4's `fn Type::Type(...)` custom
 constructors, optional parameters with defaults, and `internal` packages let a

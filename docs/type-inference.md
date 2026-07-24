@@ -17,9 +17,18 @@ down, choose one of:
 
 - raise `infer_schema_rows` — or set it to `0` (or any value `<= 0`) to scan
   *every* row before locking the dtype (Polars' `infer_schema_length=None`);
-- build the column with an explicit dtype; or
 - set `on_parse_error = OnParseError::Null` to downgrade the offending cell to a
-  null while keeping the column's inferred dtype (Polars' `ignore_errors=True`).
+  null while keeping the column's inferred dtype (Polars' `ignore_errors=True`);
+  or
+- convert after the read — `df.with_columns([col("x").cast(DataType::Float)])`
+  turns whatever was inferred into the dtype you want (a cell that cannot
+  convert raises).
+
+There is no schema-override parameter on the readers: no `dtypes=` / `schema=`,
+so inference is the only thing that assigns a dtype on the way in. When a frame
+must be built to a declared schema instead, construct it directly —
+`Series::from_*` per column, or `DataFrame::from_rows(schema, rows)`, which
+validates the cells against the schema you pass.
 
 ## Numeric forms
 

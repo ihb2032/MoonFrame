@@ -524,17 +524,16 @@ pub fn DataFrame::to_builtin(self : DataFrame) -> DataFrame {
 /// do not, so the cache stays valid and these never pay to rebuild it through
 /// `DataFrame::new` (`O(n)`, and able to raise). Total — the caller guarantees
 /// `new_cols` still matches the schema and carries `nrows` rows each.
+///
+/// Spelt as a struct update so that a field added to `DataFrame` later is
+/// carried over by default — only what a row transform actually changes is
+/// named here.
 fn DataFrame::with_same_schema(
   self : DataFrame,
   new_cols : Array[Series],
   nrows : Int,
 ) -> DataFrame {
-  {
-    schema: self.schema,
-    columns: new_cols,
-    nrows,
-    name_to_index: self.name_to_index,
-  }
+  { ..self, columns: new_cols, nrows }
 }
 
 ///|

@@ -3,7 +3,7 @@
 // source column). The per-cell reductions delegate to the shared kernel
 // (covered exhaustively in `series_stats_test.mbt` / `reduce_test.mbt`), so
 // the tests here focus on the frame-level behaviour:
-//   (1) shape — a 1-row frame, names and order preserved (0-column → 0×0);
+//   (1) shape — a 1-row frame, names and order preserved (0-column → 1×0);
 //   (2) the uniform numeric-only rule — numeric columns reduce, non-numeric
 //       columns become a `Null` cell kept in their source dtype (`mean`
 //       retypes numeric to `Float`; `count` is the non-null count as `Int`
@@ -166,13 +166,18 @@ test "reductions on a 0-row frame: sum is the identity, count is zero" {
 }
 
 ///|
-test "reductions on a 0-column frame collapse to 0x0" {
-  let df = DataFrame::DataFrame([])
-  assert_eq(df.sum().shape(), (0, 0))
-  assert_eq(df.mean().shape(), (0, 0))
-  assert_eq(df.min().shape(), (0, 0))
-  assert_eq(df.max().shape(), (0, 0))
-  assert_eq(df.count().shape(), (0, 0))
+test "reductions on a 0-column frame are the 1x0 summary row" {
+  // One summary row per source frame, whatever its own shape: with no column
+  // to reduce, the row is simply empty. `nby0` covers the source that has
+  // rows of its own, so the height cannot be coming from there either.
+  for df in [DataFrame::DataFrame([]), nby0(3)] {
+    assert_eq(df.sum().shape(), (1, 0))
+    assert_eq(df.mean().shape(), (1, 0))
+    assert_eq(df.min().shape(), (1, 0))
+    assert_eq(df.max().shape(), (1, 0))
+    assert_eq(df.count().shape(), (1, 0))
+    assert_eq(df.sum().check_invariants(), Ok(()))
+  }
 }
 
 // ── single-column scalar (migration target) ──────────────────────────

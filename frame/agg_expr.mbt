@@ -12,11 +12,16 @@
 /// expression (in expression order), named by the expression's
 /// output name (alias, else leftmost column reference, else `"literal"`);
 /// one row per group, in the first-appearance group order fixed by
-/// `group_by`. The result routes through `DataFrame::DataFrame`, so name
+/// `group_by`. The result routes through `DataFrame::from_parts`, so name
 /// collisions — two expressions sharing an output name, or an expression
 /// shadowing a key column — surface as `DuplicateColumn`, and every output
 /// satisfies `check_invariants()`. `agg([])` degenerates to a distinct over
 /// the key tuples (zero expressions ⇒ zero aggregated columns).
+///
+/// The height is the group count, never inferred from the output columns, so
+/// the one shape with neither a key column nor an aggregated one keeps its
+/// rows: `group_by([]).agg([])` over a non-empty frame is the `1×0` frame
+/// (the grand-total group, reduced to nothing), not `0×0`.
 ///
 /// Each expression must be **reduction-shaped** (`reduces_per_group`):
 /// aggregations and literals are per-group scalars, and every combinator —
@@ -165,7 +170,11 @@ pub fn GroupedDataFrame::agg(
     }
     out_cols.push(agg_cells_to_series(cells, probe, out_name))
   }
-  DataFrame::DataFrame(out_cols)
+  // One row per group is the shape of an aggregation, so the group count is
+  // the height — not `out_cols[0].len()`, which is the same number wherever a
+  // column exists but has nothing to read when this frame has neither a key
+  // column nor an aggregated one (`group_by([]).agg([])`).
+  DataFrame::from_parts(out_cols, self.groups.length())
 }
 
 ///|

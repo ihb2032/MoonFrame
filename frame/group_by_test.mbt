@@ -485,10 +485,12 @@ test "empty keys aggregate the whole frame as a single group" {
 }
 
 ///|
-test "empty keys and empty specs collapse to a 0x0 frame" {
+test "empty keys and empty specs keep the grand-total group as a 1x0 frame" {
+  // No key column and no aggregated column, but the group is still there: the
+  // height is the group count, not whatever the (absent) first column says.
   let out = sales_df().group_by([]).agg([])
   assert_eq(out.check_invariants(), Ok(()))
-  assert_eq(out.shape(), (0, 0))
+  assert_eq(out.shape(), (1, 0))
 }
 
 // ── Composite-key injectivity ────────────────────────────────────────

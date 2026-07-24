@@ -747,7 +747,7 @@ transforms, so every output satisfies `check_invariants()`.
   per-column or cross-dtype fills, or filling with a computed value, use
   `Expr::fill_null` through `with_columns`.
 - `null_count() -> DataFrame raise DataError` — `1 × ncols` `Int`
-  summary; 0-column collapses to `0×0`.
+  summary, including at `ncols = 0`, where it is the `1×0` summary row.
 - `sum() -> DataFrame` / `mean() -> DataFrame` / `min() -> DataFrame` /
   `max() -> DataFrame` / `count() -> DataFrame` (all `raise DataError`) —
   whole-frame reductions to a 1-row frame, one cell per source column,
@@ -760,8 +760,8 @@ transforms, so every output satisfies `check_invariants()`.
   `max` for a typed extremum over any dtype.) `count` is the
   non-null count as `Int` for every column. An empty / all-null numeric
   column gives the additive identity under `sum` and a `Null` cell under
-  `mean` / `min` / `max`; a 0-column frame collapses to `0×0`. For one
-  column's scalar, read its `Series`: `df.get_column(c).sum()`
+  `mean` / `min` / `max`; a 0-column frame reduces to the `1×0` summary row.
+  For one column's scalar, read its `Series`: `df.get_column(c).sum()`
   (= Polars `df[c].sum()`).
 - `describe() -> DataFrame raise DataError` — per-column summary, one row
   per source column, fixed `N × 8` schema (`column` / `dtype` / `count` /
@@ -896,7 +896,10 @@ Split-apply-combine, native to the method chain
   - `first()` / `last()` → source dtype, the group's first / last cell in
     row order — null if that cell is null.
   An empty `exprs` list degenerates to a **distinct** over the key columns
-  (the unique key tuples). Routes through `DataFrame::DataFrame`, so every output
+  (the unique key tuples). The height is always the group count, so
+  `group_by([]).agg([])` over a non-empty frame is the `1×0` frame — the
+  grand-total group with nothing projected out of it — rather than `0×0`.
+  Routes through `DataFrame::from_parts`, so every output
   satisfies `check_invariants()`. Raises: `InvalidOperation` if an
   expression is not reduction-shaped (it must reduce every group to one
   value structurally — a bare column reference does not; implicit
@@ -952,7 +955,9 @@ Hash equi-join, native to the method chain (`left.join(right, options)`).
     input order (snapshot-stable).
   - `how = Cross` is the **Cartesian product** (every left row × every
     right row); it takes **no** keys, ignores `coalesce`, and keeps every
-    column of both frames (a clashing right column is suffixed).
+    column of both frames (a clashing right column is suffixed). The height
+    is the product of the two heights whether or not any column survives to
+    witness it: `2×0` cross `3×0` is `6×0`.
   - **Backend**: like the other row-gathering transforms (`filter` / `sort`
     / `gather` / `drop_nulls`), each output column lands on the backend its
     **content** implies — an all-valid numeric result converges onto

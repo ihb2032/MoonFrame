@@ -91,7 +91,11 @@ fn index_by_join_key(
 /// left name). It is the explicit form of what `group_by([])`'s
 /// grand-total group is for aggregation.
 ///
-/// The result routes through `DataFrame::DataFrame`, so it satisfies
+/// The output height is the row plan's own length, never inferred from the
+/// assembled columns, so a join between two column-less frames keeps its
+/// rows: `2×0` cross `3×0` is the `6×0` frame, not `0×0`.
+///
+/// The result routes through `DataFrame::from_parts`, so it satisfies
 /// `check_invariants()`.
 ///
 /// Raises:
@@ -111,7 +115,7 @@ fn index_by_join_key(
 ///   `group_by([col("id"), col("id")])`), or two output columns still
 ///   colliding after suffixing (e.g. the left frame already has both
 ///   `value` and `value_right`, and the right contributes a non-key
-///   `value`; surfaced by `DataFrame::DataFrame`).
+///   `value`; surfaced by `DataFrame::from_parts`).
 /// - `LengthMismatch` — a `lit_series(s)` key whose embedded series is
 ///   neither length 1 nor the frame's height (the evaluator's broadcast
 ///   rule, surfacing through key evaluation).
@@ -258,6 +262,11 @@ fn DataFrame::plan_join_rows(
 /// suffixing on a name clash with the left frame, and per-column backend
 /// re-convergence (`preserve_backend`). Split from the row planning
 /// (`plan_join_rows`) so each phase reads on its own.
+///
+/// The height is the plan's — `left_rows.length()`, which every gather above
+/// produces a column of — rather than the assembled columns'. The two agree
+/// wherever a column exists, and where none does (both frames column-less)
+/// only the plan carries the height.
 fn DataFrame::assemble_join_output(
   self : DataFrame,
   other : DataFrame,
@@ -357,7 +366,11 @@ fn DataFrame::assemble_join_output(
       )
     }
   }
-  DataFrame::DataFrame(out_cols)
+  // The row plan fixes the height: every gathered column is `left_rows` long
+  // (`right_rows` is parallel to it), and when neither frame has a column to
+  // infer from, the plan is the only thing that still knows how many rows the
+  // join produced — `2×0` cross `3×0` is `6×0`.
+  DataFrame::from_parts(out_cols, left_rows.length())
 }
 
 ///|

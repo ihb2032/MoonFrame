@@ -110,6 +110,60 @@ test "with_columns re-grows an N×0 frame to its original height" {
   assert_eq(df.check_invariants(), Ok(()))
 }
 
+// ── Join and aggregation carry the height too ───────────────────────
+
+///|
+test "a cross join of two N×0 frames keeps the product height" {
+  // The Cartesian product is `left.nrows * right.nrows` rows of nothing:
+  // with no column on either side, only the row plan carries the count.
+  let out = nby0(2).join(nby0(3), JoinOptions::cross())
+  assert_eq(out.shape(), (6, 0))
+  assert_eq(out.check_invariants(), Ok(()))
+  // A zero-row side still annihilates the product.
+  assert_eq(nby0(0).join(nby0(3), JoinOptions::cross()).shape(), (0, 0))
+  assert_eq(nby0(2).join(nby0(0), JoinOptions::cross()).shape(), (0, 0))
+  // One side with a column pins the same height the plan does — the case
+  // where an inferred height happened to agree.
+  let mixed = nby0(2).join(
+    DataFrame::DataFrame([Series::from_ints("k", [1, 2, 3])]),
+    JoinOptions::cross(),
+  )
+  assert_eq(mixed.shape(), (6, 1))
+}
+
+///|
+test "a keyed join between N×0 frames keeps its matched rows" {
+  // A non-cross join needs a key, and a column-less frame can still supply
+  // one: a literal broadcasts over the frame's height, so every left row
+  // pairs with every right row — the same product, through the hash path.
+  let out = nby0(2).join(nby0(3), JoinOptions::on([@expr.lit_int(1)]))
+  assert_eq(out.shape(), (6, 0))
+  assert_eq(out.check_invariants(), Ok(()))
+}
+
+///|
+test "group_by([]).agg([]) keeps the grand-total group" {
+  // Every row lands in the one group, and nothing is projected out of it:
+  // one row, no columns.
+  let out = shape_df().group_by([]).agg([])
+  assert_eq(out.shape(), (1, 0))
+  assert_eq(out.check_invariants(), Ok(()))
+  // The same over a source that already has no columns — the group exists
+  // without a key column to witness it.
+  assert_eq(nby0(4).group_by([]).agg([]).shape(), (1, 0))
+  // A frame with no rows has no groups at all, so this one really is 0×0.
+  assert_eq(nby0(0).group_by([]).agg([]).shape(), (0, 0))
+  assert_eq(DataFrame::DataFrame([]).group_by([]).agg([]).shape(), (0, 0))
+}
+
+///|
+test "agg([]) under real keys stays a distinct over the key tuples" {
+  // The neighbouring shape: zero expressions, but the key columns still head
+  // the output, so the height was never in doubt there.
+  let df = DataFrame::DataFrame([Series::from_ints("g", [1, 1, 2])])
+  assert_eq(df.group_by([@expr.col("g")]).agg([]).shape(), (2, 1))
+}
+
 ///|
 test "with_row_index numbers the rows of an N×0 frame" {
   let df = nby0(3).with_row_index(name="i")

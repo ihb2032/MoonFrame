@@ -28,8 +28,10 @@
 /// `rewrites` counter guards
 /// against a vacuous pass: the generators must actually exercise the pushdown
 /// in a meaningful fraction of cases. `MOONFRAME_FUZZ_SCALE` multiplies each
-/// test's fixed case count for the manual release gate; absent, invalid, and
-/// non-positive values keep the ordinary CI scale of 1.
+/// test's fixed case count — CI sets it on every run, since the seeds are
+/// fixed and the expanded sweep is seconds; absent, invalid, out-of-range
+/// (the ceiling is 20), and non-positive values keep the bare scale of 1, so a
+/// plain `moon test` stays at the baseline size.
 
 ///|
 fn fuzz_scale() -> Int {

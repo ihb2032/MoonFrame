@@ -159,12 +159,12 @@ pub fn parse_json_str(
 ///      all-null column defaults to `String` (same convention as the
 ///      CSV reader — no information to disambiguate).
 ///   4. Materialise each column into a typed `Series` and wrap through
-///      `DataFrame::DataFrame`.
+///      `DataFrame::from_parts`, under the record count as the height.
 ///
-/// An empty record set, or records that are all empty objects
-/// (`[{}, {}, ...]`, which would be N rows of zero columns that
-/// `DataFrame::DataFrame` cannot model), collapse to a 0×0 frame — the same
-/// shape both readers' empty-input paths produce. A cell that doesn't
+/// An empty record set collapses to a 0×0 frame — the same shape both
+/// readers' empty-input paths produce. Records that are all empty objects
+/// (`[{}, {}, ...]`) instead keep their count as the `N×0` frame: they are
+/// rows, they just have no fields. A cell that doesn't
 /// fit its column's inferred dtype is handled per `on_parse_error`
 /// (raise `ParseError(Cell(...))`, or downgrade the cell to a null), shared
 /// by both

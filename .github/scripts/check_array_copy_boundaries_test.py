@@ -118,6 +118,62 @@ class ArrayCopyBoundaryTests(unittest.TestCase):
 }'''
         self.assertEqual(self.retained(source), [])
 
+    def test_retain_before_shadow_copy_is_unsafe(self) -> None:
+        source = """pub fn Box::new(values : Array[Int]) -> Box {
+  let result = Box(values)
+  let values = values.copy()
+  ignore(values)
+  result
+}"""
+        self.assertEqual(self.retained(source), ["values"])
+
+    def test_branch_local_shadow_copy_is_unsafe(self) -> None:
+        source = """pub fn Box::new(flag : Bool, values : Array[Int]) -> Box {
+  if flag {
+    let values = values.copy()
+    Box(values)
+  } else {
+    Box(values)
+  }
+}"""
+        self.assertEqual(self.retained(source), ["values"])
+
+    def test_char_literal_brace_does_not_hide_a_branch_copy(self) -> None:
+        # `'}'` must not close the function body: doing so would make the
+        # branch-local copy below look like a top-level one.
+        source = """pub fn Box::new(flag : Bool, values : Array[Int]) -> Box {
+  let close = '}'
+  ignore(close)
+  if flag {
+    let values = values.copy()
+    Box(values)
+  } else {
+    Box(values)
+  }
+}"""
+        self.assertEqual(self.retained(source), ["values"])
+
+    def test_char_literal_brace_does_not_hide_a_top_level_copy(self) -> None:
+        # The mirror: `'{'` must not open a scope, which would demote a real
+        # top-level copy and report a safe boundary.
+        source = """pub fn Box::new(values : Array[Int]) -> Box {
+  let open = '{'
+  ignore(open)
+  let values = values.copy()
+  Box(values)
+}"""
+        self.assertEqual(self.retained(source), [])
+
+    def test_char_literal_quote_does_not_swallow_the_body(self) -> None:
+        # `'"'` used to start a string that ran to the next double quote,
+        # blanking the retention in between.
+        source = '''pub fn Box::new(values : Array[Int]) -> Box {
+  let quote = '"'
+  ignore(quote)
+  Box(values)
+}'''
+        self.assertEqual(self.retained(source), ["values"])
+
 
 if __name__ == "__main__":
     unittest.main()

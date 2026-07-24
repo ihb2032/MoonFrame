@@ -149,7 +149,7 @@ test "rename_with the identity function is a structural no-op" {
 ///|
 test "rename_with rejects a function that collapses two columns to one name" {
   let df = rename_df()
-  // Every column maps to "same" — the rebuilding `DataFrame::new` rejects the
+  // Every column maps to "same" — the rebuilding `Schema::new` rejects the
   // duplicate.
   assert_eq(
     Ok(df.rename_with(_ => "same")) catch {
@@ -157,4 +157,79 @@ test "rename_with rejects a function that collapses two columns to one name" {
     },
     Err(@types.DataError::DuplicateColumn("same")),
   )
+}
+
+// ── Declared schema metadata rides along ─────────────────────────────
+
+///|
+/// The same two columns as `rename_df`, but built through `from_rows` under a
+/// caller-supplied schema that declares `a` non-nullable. A `DataFrame::new`
+/// fixture cannot carry such a flag — its derived schema names every field
+/// with the `Field` constructor default (`nullable = true`) — so the
+/// metadata-preservation tests need this second fixture.
+fn rename_declared_df() -> DataFrame raise @types.DataError {
+  DataFrame::from_rows(
+    @types.Schema::new([
+      @types.Field("a", @types.DataType::Int, nullable=false),
+      @types.Field("b", @types.DataType::String),
+    ]),
+    [
+      [@types.Scalar::Int(1), @types.Scalar::String("x")],
+      [@types.Scalar::Int(2), @types.Scalar::String("y")],
+    ],
+  )
+}
+
+///|
+test "rename carries the renamed field's metadata onto the new name" {
+  let df = rename_declared_df()
+  let out = df.rename([("a", "alpha")])
+  assert_eq(out.check_invariants(), Ok(()))
+  // Only the name changed: the dtype and the declared `nullable = false`
+  // rode along through `Field::rename`.
+  assert_eq(
+    out.schema().field("alpha"),
+    @types.Field::Field("alpha", @types.DataType::Int, nullable=false),
+  )
+  // The untouched column keeps its own (defaulted) flag.
+  assert_true(out.schema().field("b").nullable())
+}
+
+///|
+test "rename with an empty mapping preserves a declared schema" {
+  let df = rename_declared_df()
+  let out = df.rename([])
+  assert_eq(out.check_invariants(), Ok(()))
+  // `DataFrame`'s derived `Eq` includes the schema, so this pins the no-op
+  // as a *full* identity, metadata included.
+  assert_eq(out, df)
+  assert_false(out.schema().field("a").nullable())
+}
+
+///|
+test "rename to the same name preserves a declared schema" {
+  let df = rename_declared_df()
+  let out = df.rename([("a", "a")])
+  assert_eq(out.check_invariants(), Ok(()))
+  assert_eq(out, df)
+  assert_false(out.schema().field("a").nullable())
+}
+
+///|
+test "rename_with carries every field's metadata through the transform" {
+  let df = rename_declared_df()
+  let out = df.rename_with(name => "col_\{name}")
+  assert_eq(out.check_invariants(), Ok(()))
+  assert_eq(out.columns(), ["col_a", "col_b"])
+  assert_false(out.schema().field("col_a").nullable())
+  assert_true(out.schema().field("col_b").nullable())
+}
+
+///|
+test "rename_with the identity function preserves a declared schema" {
+  let df = rename_declared_df()
+  let out = df.rename_with(name => name)
+  assert_eq(out.check_invariants(), Ok(()))
+  assert_eq(out, df)
+  assert_false(out.schema().field("a").nullable())
 }

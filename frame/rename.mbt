@@ -10,26 +10,36 @@
 /// - `DuplicateColumn(new_name)` — `new_name` collides with another
 ///   column that still bears that name at this step.
 ///
-/// An empty mapping is a structural no-op. A `(name, name)` mapping
-/// is a no-op that still validates the source name's existence.
+/// An empty mapping returns the frame itself — a literal identity. A
+/// `(name, name)` mapping is a no-op that still validates the source name's
+/// existence.
 ///
-/// All structural invariants follow from re-running `DataFrame::new`
-/// at the end, which catches any residual duplicate.
+/// Only names change: each field is edited through `Field::rename`, so its
+/// dtype and its declared `nullable` flag ride along instead of being
+/// re-derived (`DataFrame::new` would reset the flag to the `Field`
+/// constructor default). All structural invariants follow from re-validating
+/// the edited field vector through `Schema::new`, which catches any residual
+/// duplicate.
 pub fn DataFrame::rename(
   self : DataFrame,
   mapping : Array[(String, String)],
 ) -> DataFrame raise @types.DataError {
-  // Work on a mutable name vector aligned with the column vector, so each step
-  // sees the result of earlier renames, plus a `name -> slot` index so each
-  // step's lookup and collision check are amortised `O(1)`: a wide frame
-  // renamed column-by-column (`|mapping| ≈ ncols`) was `O(ncols^2)` through the
-  // linear `search` / `contains`. The index mirrors `names` exactly — every
-  // step retargets `new_name` and retires `old_name` — so the two stay
-  // equivalent (frame names are unique, so each name maps to a single slot).
-  let names : Array[String] = self.columns()
+  if mapping.is_empty() {
+    return self
+  }
+  // Work on a mutable *field* vector aligned with the column vector (INV1 /
+  // INV3 in `check_invariants`), so each step sees the result of earlier
+  // renames and carries the rest of the field's metadata, plus a
+  // `name -> slot` index so each step's lookup and collision check are
+  // amortised `O(1)`: a wide frame renamed column-by-column
+  // (`|mapping| ≈ ncols`) was `O(ncols^2)` through the linear `search` /
+  // `contains`. The index mirrors `fields` exactly — every step retargets
+  // `new_name` and retires `old_name` — so the two stay equivalent (frame
+  // names are unique, so each name maps to a single slot).
+  let fields : Array[@types.Field] = self.schema().fields()
   let index : Map[String, Int] = Map([])
-  for i in 0..<names.length() {
-    index[names[i]] = i
+  for i in 0..<fields.length() {
+    index[fields[i].name()] = i
   }
   for pair in mapping {
     let (old_name, new_name) = pair
@@ -38,24 +48,20 @@ pub fn DataFrame::rename(
       Some(i) => i
       None => raise @types.DataError::ColumnNotFound(old_name)
     }
-    // Reject a collision with any *other* current name. `names[idx]` is still
-    // `old_name` here (≠ `new_name` in this branch), so any occurrence of
+    // Reject a collision with any *other* current name. `fields[idx]` is still
+    // named `old_name` here (≠ `new_name` in this branch), so any occurrence of
     // `new_name` must sit at a different slot — a plain membership test is
     // therefore equivalent to "exists at some i ≠ idx".
     if old_name != new_name && index.get(new_name) is Some(_) {
       raise @types.DataError::DuplicateColumn(new_name)
     }
-    names[idx] = new_name
+    fields[idx] = fields[idx].rename(new_name)
     index.remove(old_name)
     index[new_name] = idx
   }
-  // Rebuild the column list with the final names. The original column
-  // ordering and identity are preserved; only the per-column `name` is
-  // refreshed via `Series::rename`. `names` is index-aligned with the
-  // column vector, so `cols[i]` is in-bounds.
-  let cols = self.column_series()
-  let new_cols = names.mapi((i, name) => cols[i].rename(name))
-  DataFrame::new(new_cols)
+  // Rebuild under the final names. The original column ordering, identity, and
+  // per-field metadata are preserved; only each `name` is refreshed.
+  self.with_renamed_fields(fields)
 }
 
 ///|
@@ -65,19 +71,18 @@ pub fn DataFrame::rename(
 /// the whole schema rather than an explicit `old -> new` list.
 ///
 /// `f` is total, so the only failure is a collision: if `f` maps two distinct
-/// columns to the same name, the rebuilding `DataFrame::new` raises
+/// columns to the same name, the re-validating `Schema::new` raises
 /// `DuplicateColumn`. (There is no `ColumnNotFound` — every existing column is
 /// renamed, none is looked up by name.)
 ///
-/// The identity `f = name => name` is a no-op. Column order, dtypes, and the row
-/// count are unchanged; only each column's `name` is refreshed via
-/// `Series::rename`, and all structural invariants follow from re-running
-/// `DataFrame::new`.
+/// The identity `f = name => name` is a no-op. Column order, dtypes, the row
+/// count, and each field's declared `nullable` flag are unchanged; only the
+/// names are refreshed, through the same `Field::rename` edit `rename` applies.
 pub fn DataFrame::rename_with(
   self : DataFrame,
   f : (String) -> String,
 ) -> DataFrame raise @types.DataError {
-  let cols = self.column_series()
-  let new_cols = cols.map(s => s.rename(f(s.name())))
-  DataFrame::new(new_cols)
+  self.with_renamed_fields(
+    self.schema().fields().map(field => field.rename(f(field.name()))),
+  )
 }

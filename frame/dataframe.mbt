@@ -540,6 +540,36 @@ fn DataFrame::with_same_schema(
 }
 
 ///|
+/// Rebuild the frame under an edited field vector — the rename verbs' sibling
+/// of `with_same_schema`. `fields` is index-aligned with the column vector and
+/// differs from `self.schema`'s only in the field *names* (`rename` /
+/// `rename_with` map each through `Field::rename`), so this re-validates it
+/// through `Schema::new` — `raise DuplicateColumn(name)` on the first repeat —
+/// retitles each column to its field's name, and rebuilds the `O(1)`
+/// name→index cache, which unlike `with_same_schema` cannot be reused because
+/// the names moved. Row count and column order are untouched.
+///
+/// Carrying the fields rather than re-deriving them through `DataFrame::new` is
+/// what keeps a renamed column's metadata: `new` names every field with the
+/// `Field` constructor default, resetting a declared `nullable = false`, while
+/// a rename by contract changes nothing but the name.
+fn DataFrame::with_renamed_fields(
+  self : DataFrame,
+  fields : Array[@types.Field],
+) -> DataFrame raise @types.DataError {
+  let schema = @types.Schema::new(fields)
+  // `fields` is index-aligned with the column vector, so `columns[i]` is
+  // in-bounds and the rebuilt schema mirrors the columns name-for-name.
+  let new_cols = fields.mapi((i, f) => self.columns[i].rename(f.name()))
+  {
+    schema,
+    columns: new_cols,
+    nrows: self.nrows,
+    name_to_index: index_by_name(new_cols),
+  }
+}
+
+///|
 /// Resolve a `subset` selector — an `Array[Expr]` of column keys — to the named
 /// columns, validating in order. Each key names a column through the §0 naming
 /// rule (`Expr::output_name`: a bare `col("x")` names `"x"`, an alias names the

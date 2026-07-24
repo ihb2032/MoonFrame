@@ -235,9 +235,20 @@ collected in [`migration.md`](migration.md).
   schema names every field at the `Field` constructor default. A `from_rows` frame carrying
   an explicit `nullable = false` therefore stays equal to itself across those
   calls — the derived `Eq` compares schemas — and a renamed column keeps the
-  constraint its caller declared. Ops that genuinely re-derive a schema
-  (`select`, a `drop` that removes a column, a `with_columns` that adds one)
-  still reset the advisory flag, as [`api.md`](api.md) documents.
+  constraint its caller declared.
+
+- **A declared `nullable` now survives the projections too.** `select`, `drop`,
+  `with_columns` and `with_row_index` re-derived the whole schema, so a
+  `nullable = false` column came back `nullable = true` after a call that never
+  touched its cells — `df.drop([col("other")])` or a `with_columns` that only
+  appended. Metadata now follows the cells it describes: an entry that merely
+  moves a column (a bare `col("x")`, an aliased one, or a column the call
+  leaves in place) carries that column's `Field`, and only an entry that
+  *computes* — arithmetic, an aggregation, a `cast`, `fill_null` as an
+  expression — derives a fresh one. A `with_columns` replacement inherits from
+  whichever column now supplies the cells, and `join` / `group_by(...).agg(...)`
+  / the summary frames still derive, since they can introduce nulls the
+  declaration never covered.
 
 ## v0.5.8 — string-ordering and parse-overflow fixes
 

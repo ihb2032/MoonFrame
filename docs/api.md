@@ -238,7 +238,12 @@ depends on `types` and `series` — `lit_series` and `map_batches` carry a
   (inspect by pattern matching; construct through `col` / `lit_*` /
   operators / methods, not by spelling variants). The payload tag enums
   `BinOp` / `UnOp` / `AggOp` / `StrOp` are read-only implementation tags — no
-  public API names one, so the facade does not re-export them.
+  public API names one, so the facade does not re-export them. The variants are
+  `pub` for the engine's sake — `frame` evaluates the tree and `lazy` rewrites
+  it, both across a package boundary — and **are not covered by the
+  compatibility promise**: new ones arrive with new operators (see
+  [Out of scope](#out-of-scope-for-v06-so-far)). `Expr::to_string` is the
+  stable way to look at an expression from outside.
 
 ### Constructors (free functions)
 
@@ -1457,8 +1462,24 @@ facade.
 
 The whole v0.6 surface above has landed on `main`. v0.6 is one more breaking
 release (API convergence); from v0.7 on the API only grows (additive — no
-renames, removals, or signature changes). These are the tracked deferrals, all
-v0.7+:
+renames, removals, or signature changes).
+
+**One carve-out, stated plainly: a public enum can gain a variant.** MoonBit
+requires a `match` to be exhaustive, so a new variant is source-breaking for
+code that matches one without a wildcard arm — and growth here mostly *is* new
+variants (v0.6 added four to `Expr` alone: `FillNull`, `FillNan`, `IsIn`,
+`IsBetween`). Adding one is treated as additive and will keep happening. This
+matters most for the expression AST: `Expr` and its `BinOp` / `UnOp` / `AggOp`
+/ `StrOp` tags are `pub` so the evaluator in `frame` and the optimizer in
+`lazy` can walk them across package boundaries, not as a surface to consume.
+They are not re-exported by the facade, and the supported way to inspect an
+expression from outside is `Expr::to_string`. Match the AST directly and a
+future variant will stop your build; that is expected, not a regression. The
+`types` enums a caller *is* meant to match — `DataError`, `Scalar`,
+`DataType` — carry the same caveat: include a wildcard arm if a new variant
+must not break you.
+
+These are the tracked deferrals, all v0.7+:
 
 - **More expression families** — the list-returning `str.split` (blocked on a
   list dtype; the scalar `str_split_get` is done) and — further out — window

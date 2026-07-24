@@ -524,6 +524,22 @@ test "slice reports invalid bounds with the appropriate error" {
   assert_true(
     (Ok(df.slice(2, 1)) catch { e => Err(e) }) is Err(InvalidOperation(_)),
   )
+  // A negative `end` is an out-of-range index, not a misordered pair: every
+  // valid `start` is greater than it, so testing `end` for `> nrows` alone
+  // would have reported the ordering error and hidden the real offender.
+  assert_eq(
+    Ok(df.slice(0, -1)) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::IndexOutOfBounds(-1)),
+  )
+  // `start` is still reported first when both are out of range.
+  assert_eq(
+    Ok(df.slice(-2, -1)) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::IndexOutOfBounds(-2)),
+  )
 }
 
 // ── gather ─────────────────────────────────────────────────────────────

@@ -247,7 +247,7 @@ pub fn BuiltinColumn::get(
 ///
 /// Errors (checked in this order):
 /// - `IndexOutOfBounds(start)` when `start < 0`.
-/// - `IndexOutOfBounds(end)` when `end > len`.
+/// - `IndexOutOfBounds(end)` when `end` is outside `[0, len]`.
 /// - `InvalidOperation("slice start > end: ...")` when `start > end`.
 ///
 /// `start > len` is not a separate case: it can only occur together with

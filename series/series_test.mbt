@@ -175,6 +175,13 @@ test "slice bubbles column-level errors" {
   assert_true(
     (Ok(s.slice(2, 1)) catch { e => Err(e) }) is Err(InvalidOperation(_)),
   )
+  // A negative `end` is out of range, not a misordered pair.
+  assert_eq(
+    Ok(s.slice(0, -1)) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::IndexOutOfBounds(-1)),
+  )
 }
 
 // ── gather ───────────────────────────────────────────────────────────

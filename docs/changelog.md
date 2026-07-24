@@ -244,6 +244,15 @@ collected in [`migration.md`](migration.md).
 
 ### Fixes
 
+- `slice` reports a negative `end` as `IndexOutOfBounds`, the error its
+  documentation always promised for an index outside the frame. Only
+  `end > nrows` counted as out of range, so `df.slice(0, -1)` fell through to
+  the `start > end` arm and blamed the ordering — which every valid `start`
+  trivially violates against a negative `end`. `DataFrame::slice`,
+  `Series::slice`, both column backends and the deferred `LazyFrame::slice`
+  now test both ends against the whole valid range, so the variant says which
+  argument is wrong.
+
 - `round(decimals=N)` no longer perturbs a value it cannot round. Asking for
   more places than a `Double` can resolve is the identity, but the evaluator
   scaled by `10^N` and divided back regardless — and above `10^22` that scale

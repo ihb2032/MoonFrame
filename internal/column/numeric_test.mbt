@@ -147,6 +147,13 @@ test "slice: invalid bounds report the actual offender (Builtin check order)" {
   assert_true(
     (Ok(col.slice(2, 1)) catch { e => Err(e) }) is Err(InvalidOperation(_)),
   )
+  // A negative `end` is out of range, not a misordered pair.
+  assert_eq(
+    Ok(col.slice(0, -1)) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::IndexOutOfBounds(-1)),
+  )
   // Float column reaches the same start > end check.
   assert_true(
     (Ok(NumericColumn::from_floats([1.0, 2.0]).slice(1, 0)) catch {

@@ -735,6 +735,14 @@ test "collect surfaces the eager operators' errors unchanged" {
     },
     Err(@types.DataError::IndexOutOfBounds(99)),
   )
+  // A negative bound is out of range on this surface too, and the deferred
+  // node reports it exactly as the eager verb does.
+  assert_eq(
+    Ok(LazyFrame::LazyFrame(df).slice(0, -1).collect()) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::IndexOutOfBounds(-1)),
+  )
   // Inverted slice window and a missing sort column: equal to the eager
   // errors, message for message.
   assert_eq(

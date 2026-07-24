@@ -85,6 +85,10 @@ collected in [`migration.md`](migration.md).
     `InvalidOperation` instead of writing blank lines that read back as `0×0`.
     The `0×0` frame still writes; only the shape that would lose rows is
     rejected.
+  - The table renderers are the other place the shape cannot go: `to_markdown`
+    / `to_html` draw cells, and an `N×0` frame has none, so both return the
+    empty string at any height. `shape()` is what reports a column-less
+    height.
   - A file read whose projection matches no header yields the file's rows and
     no columns, instead of falling back to materialising every column to keep
     the row count — a mistyped column name no longer costs a full read.

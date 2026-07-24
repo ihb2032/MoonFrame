@@ -71,9 +71,11 @@ pub fn HtmlOptions::HtmlOptions(
 /// declaration order); a null cell renders as `<td></td>`. `&` / `<` /
 /// `>` / `"` / `'` are escaped to their HTML entities.
 ///
-/// Empty frames degrade gracefully:
-///   - 0 columns → returns the empty string (MoonFrame's own choice for a
-///     degenerate frame);
+/// A frame with nothing to tabulate degrades gracefully:
+///   - 0 columns → the empty string, at any height (MoonFrame's own choice for
+///     a table with no cells to draw). This covers the `N×0` frame too, whose
+///     rows are real (`is_empty()` is `false`) but carry no fields; `shape()`
+///     is what reports the height of a column-less result;
 ///   - N columns / 0 rows → header with an empty `<tbody>`.
 ///
 /// Total — pure string assembly over already-validated frame data, and

@@ -13,7 +13,7 @@
 /// `(3,z)` — each repeated out of order so first-appearance ordering is
 /// observable.
 fn dup_df() -> DataFrame raise @types.DataError {
-  DataFrame::new([
+  DataFrame::DataFrame([
     Series::from_ints("a", [1, 2, 1, 3, 2, 1]),
     Series::from_strings("b", ["x", "y", "x", "z", "y", "x"]),
   ])
@@ -38,7 +38,7 @@ test "unique keeps the first occurrence of each distinct row, in first-appearanc
 
 ///|
 test "unique on an all-distinct frame returns it unchanged" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_ints("a", [1, 2, 3]),
     Series::from_strings("b", ["x", "y", "z"]),
   ])
@@ -50,7 +50,7 @@ test "unique on an all-distinct frame returns it unchanged" {
 
 ///|
 test "unique collapses an all-identical frame to a single row" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_ints("a", [7, 7, 7]),
     Series::from_strings("b", ["q", "q", "q"]),
   ])
@@ -64,7 +64,7 @@ test "unique collapses an all-identical frame to a single row" {
 ///|
 test "unique treats null as an ordinary value: rows null in the same places are duplicates" {
   // Rows: (null,1), (2,null), (null,1), (2,null), (null,2).
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_int_options("a", [None, Some(2), None, Some(2), None]),
     Series::from_int_options("b", [Some(1), None, Some(1), None, Some(2)]),
   ])
@@ -82,7 +82,7 @@ test "unique treats null as an ordinary value: rows null in the same places are 
 
 ///|
 test "unique on a 0-row frame is unchanged" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_ints("a", []),
     Series::from_strings("b", []),
   ])
@@ -97,7 +97,9 @@ test "unique folds NaN and signed zero like a group key" {
   let nan = @double.not_a_number
   // Rows: NaN, NaN, 0.0, -0.0 — two NaN collapse to one, and +0.0 / -0.0
   // share a bucket, so two distinct rows survive (NaN@0, 0.0@2).
-  let df = DataFrame::new([Series::from_floats("f", [nan, nan, 0.0, -0.0])])
+  let df = DataFrame::DataFrame([
+    Series::from_floats("f", [nan, nan, 0.0, -0.0]),
+  ])
   let out = df.unique()
   assert_eq(out.shape(), (2, 1))
   assert_true(out.item(0, "f").as_float().is_nan())
@@ -137,7 +139,7 @@ test "unique keep=None keeps only rows that have no duplicate" {
 
 ///|
 test "unique keep=None on an all-duplicated frame yields zero rows" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_ints("a", [7, 7]),
     Series::from_strings("b", ["q", "q"]),
   ])
@@ -153,7 +155,7 @@ test "unique: explicit First matches the default; all-distinct is a no-op for ev
   // Explicit `First` is the defaulted call.
   assert_eq(df.unique(keep=KeepStrategy::First), df.unique())
   // On an all-distinct frame no strategy drops anything — each returns `self`.
-  let distinct = DataFrame::new([
+  let distinct = DataFrame::DataFrame([
     Series::from_ints("a", [1, 2, 3]),
     Series::from_strings("b", ["x", "y", "z"]),
   ])
@@ -168,7 +170,7 @@ test "unique: explicit First matches the default; all-distinct is a no-op for ev
 /// A frame whose `a` repeats while `tag` never does, so a subset key on `a`
 /// drops rows an all-columns dedup would keep.
 fn subset_df() -> DataFrame raise @types.DataError {
-  DataFrame::new([
+  DataFrame::DataFrame([
     Series::from_ints("a", [1, 2, 1, 2]),
     Series::from_strings("tag", ["p", "q", "r", "s"]),
   ])
@@ -218,6 +220,6 @@ test "unique with an empty subset gives every row the same key" {
   assert_eq(df.unique(subset=[]).nrows(), 1)
   assert_eq(df.unique(subset=[], keep=KeepStrategy::None).nrows(), 0)
   // A single-row frame is the one shape where `None` keeps its row.
-  let one = DataFrame::new([Series::from_ints("a", [7])])
+  let one = DataFrame::DataFrame([Series::from_ints("a", [7])])
   assert_eq(one.unique(subset=[], keep=KeepStrategy::None).nrows(), 1)
 }

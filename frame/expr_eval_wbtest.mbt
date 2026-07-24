@@ -42,7 +42,7 @@ test "broadcast_series: a length neither 1 nor target raises LengthMismatch" {
 
 ///|
 test "eval_expr under a group-subset scope: gathers and reduces only those rows" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_ints("v", [10, 20, 30, 40]),
     Series::from_int_options("w", [Some(1), None, Some(3), None]),
   ])

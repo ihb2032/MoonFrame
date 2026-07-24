@@ -4,7 +4,7 @@
 //            → filter (Expr predicate: profit > 0 & region == west)
 //            → group_by(region).agg (composite aggregation)
 //            → with_columns (when / then / otherwise tier)
-//            → lazy_frame(...).explain() + .collect()
+//            → LazyFrame::LazyFrame(...).explain() + .collect()
 //
 // All the logic lives in the sibling `analysis/` package so it is covered
 // by `analysis_test.mbt`. `main` is a thin orchestrator around `read_csv`

@@ -17,7 +17,7 @@ fn gen_i64_array(max_len : Int, lo : Int, hi : Int) -> @gen.Gen[Array[Int64]] {
 /// data (duplicates, negatives, any length).
 fn prop_sort_idempotent(xs : Array[Int64]) -> Bool {
   try {
-    let df = DataFrame::new([Series::from_ints("x", xs)])
+    let df = DataFrame::DataFrame([Series::from_ints("x", xs)])
     let once = df.sort([(@expr.col("x"), Asc, NullsLast)])
     once == once.sort([(@expr.col("x"), Asc, NullsLast)])
   } catch {
@@ -72,7 +72,7 @@ fn sorted_stably(
 /// arrays instead of leaving stability vacuously true most of the time.
 fn prop_sort_stable(keys : Array[Int64]) -> Bool {
   try {
-    let df = DataFrame::new([
+    let df = DataFrame::DataFrame([
       Series::from_ints("key", keys),
       Series::from_ints(
         "row_id",
@@ -98,7 +98,7 @@ test "property: sort preserves equal-key input order" {
 fn prop_group_by_no_row_loss(keys : Array[Int64]) -> Bool {
   let n = keys.length()
   try {
-    let df = DataFrame::new([
+    let df = DataFrame::DataFrame([
       Series::from_ints("k", keys),
       Series::from_ints("ones", Array::make(n, (1 : Int64))),
     ])

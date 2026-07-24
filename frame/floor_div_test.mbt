@@ -4,7 +4,7 @@
 
 ///|
 test "floor_div: Int floors toward -inf, not truncation (Numeric arm)" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_ints("a", [7L, -7L, 7L, -7L, 6L]),
     Series::from_ints("b", [2L, 2L, -2L, -2L, 3L]),
   ])
@@ -21,7 +21,7 @@ test "floor_div: Int floors toward -inf, not truncation (Numeric arm)" {
 
 ///|
 test "floor_div: Int division by zero is a null cell" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_ints("a", [10L, 5L]),
     Series::from_ints("b", [0L, 2L]),
   ])
@@ -34,7 +34,7 @@ test "floor_div: Int division by zero is a null cell" {
 
 ///|
 test "floor_div: mixed Int/Float promotes to a floored Float" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_ints("a", [7L]),
     Series::from_floats("b", [2.0]),
   ])
@@ -49,7 +49,7 @@ test "floor_div: mixed Int/Float promotes to a floored Float" {
 
 ///|
 test "floor_div: Float floors the quotient; zero divisor is IEEE inf/nan" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_floats("a", [7.5, 1.0, 0.0]),
     Series::from_floats("b", [2.0, 0.0, 0.0]),
   ])
@@ -76,7 +76,7 @@ test "floor_div: Float floors the quotient; zero divisor is IEEE inf/nan" {
 
 ///|
 test "floor_div: null propagates (Builtin arm) and non-numeric raises" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_int_options("a", [Some(7L), None]),
     Series::from_float_options("b", [Some(2.0), Some(2.0)]),
   ])
@@ -86,7 +86,7 @@ test "floor_div: null propagates (Builtin arm) and non-numeric raises" {
     @types.Scalar::Float(3.0),
     @types.Scalar::Null,
   ])
-  let strs = DataFrame::new([
+  let strs = DataFrame::DataFrame([
     Series::from_strings("s", ["x"]),
     Series::from_ints("n", [1L]),
   ])
@@ -110,7 +110,7 @@ test "floor_div: null propagates (Builtin arm) and non-numeric raises" {
 test "floor_div: general (Builtin) arms for every numeric dtype pair" {
   // Each operand column carries a null, so the pair takes the Builtin general
   // arm rather than the `Numeric` fast path.
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_int_options("ia", [Some(7L), Some(10L), None]),
     Series::from_int_options("ib", [Some(2L), Some(0L), Some(2L)]),
     Series::from_float_options("fa", [Some(7.5), None, Some(1.0)]),

@@ -1,6 +1,6 @@
 ///|
 fn sample_schema() -> Schema raise DataError {
-  Schema::new([
+  Schema::Schema([
     Field("a", DataType::Int),
     Field("b", DataType::Float),
     Field("c", DataType::String),
@@ -8,7 +8,7 @@ fn sample_schema() -> Schema raise DataError {
 }
 
 ///|
-test "Schema::new accepts unique fields" {
+test "Schema::Schema accepts unique fields" {
   let s = sample_schema()
   assert_eq(s.len(), 3)
   assert_false(s.is_empty())
@@ -16,9 +16,9 @@ test "Schema::new accepts unique fields" {
 }
 
 ///|
-test "Schema::new copies its input fields array" {
+test "Schema::Schema copies its input fields array" {
   let fields : Array[Field] = [Field("a", DataType::Int)]
-  let s = Schema::new(fields)
+  let s = Schema::Schema(fields)
   // Would break the validated no-duplicates invariant if the array were aliased.
   fields.push(Field("a", DataType::Float))
   assert_eq(s.len(), 1)
@@ -26,9 +26,9 @@ test "Schema::new copies its input fields array" {
 }
 
 ///|
-test "Schema::new rejects duplicate names" {
+test "Schema::Schema rejects duplicate names" {
   let dup = Ok(
-    Schema::new([
+    Schema::Schema([
       Field("a", DataType::Int),
       Field("b", DataType::Float),
       Field("a", DataType::String),
@@ -40,8 +40,8 @@ test "Schema::new rejects duplicate names" {
 }
 
 ///|
-test "Schema::new on empty input is Ok" {
-  let s = Schema::new([])
+test "Schema::Schema on empty input is Ok" {
+  let s = Schema::Schema([])
   assert_true(s.is_empty())
   assert_eq(s.len(), 0)
   assert_eq(s.field_names(), [])
@@ -164,7 +164,7 @@ test "Schema::rename rejects collision with existing column" {
 ///|
 test "Schema equality is structural" {
   assert_eq(sample_schema(), sample_schema())
-  let other = Schema::new([
+  let other = Schema::Schema([
     Field("a", DataType::Int),
     Field("b", DataType::Float),
   ])
@@ -173,7 +173,7 @@ test "Schema equality is structural" {
 
 ///|
 test "Schema Show renders fields in order" {
-  let s = Schema::new([
+  let s = Schema::Schema([
     Field("x", DataType::Int),
     Field("y", DataType::String, nullable=false),
   ])

@@ -13,7 +13,7 @@
 fn write_ndjson_fixture(path : String) -> Unit raise @types.DataError {
   @io.write_ndjson(
     path,
-    @frame.DataFrame::new([
+    @frame.DataFrame([
       @series.Series::from_ints("qty", [5, 120, 80, 200]),
       @series.Series::from_int_options("bonus", [Some(1), None, Some(3), None]),
       @series.Series::from_strings("region", ["west", "east", "west", "east"]),

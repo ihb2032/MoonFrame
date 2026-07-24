@@ -21,7 +21,7 @@ table is identical on every backend.)
 ```moonbit check
 ///|
 test "quickstart: group_by + agg" {
-  let sales = DataFrame::new([
+  let sales = DataFrame::DataFrame([
     Series::from_strings("region", ["west", "east", "west", "east"]),
     Series::from_ints("quantity", [10, 5, 7, 3]),
     Series::from_floats("revenue", [100.0, 50.0, 70.0, 30.0]),
@@ -57,7 +57,7 @@ column projection.
 ```moonbit check
 ///|
 test "quickstart: filter + select + sort" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_strings("product", ["widget", "gadget", "widget"]),
     Series::from_strings("region", ["west", "east", "east"]),
     Series::from_ints("quantity", [10, 5, 7]),
@@ -90,7 +90,7 @@ are promoted), matching Polars.
 ```moonbit check
 ///|
 test "quickstart: derive columns with with_columns" {
-  let sales = DataFrame::new([
+  let sales = DataFrame::DataFrame([
     Series::from_strings("region", ["west", "east", "north"]),
     Series::from_ints("revenue", [100, 80, 40]),
     Series::from_ints("cost", [60, 30, 20]),
@@ -124,7 +124,7 @@ rather than a closure, the lazy layer can inspect and push it down.
 ```moonbit check
 ///|
 test "quickstart: filter with an expression predicate" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_strings("region", ["west", "east", "west", "west"]),
     Series::from_ints("revenue", [100, 80, 30, 70]),
   ])
@@ -153,7 +153,7 @@ reductions above it can reduce a *derived* column — here `(revenue - cost)
 ```moonbit check
 ///|
 test "quickstart: composite aggregation" {
-  let sales = DataFrame::new([
+  let sales = DataFrame::DataFrame([
     Series::from_strings("region", ["west", "east", "west", "east"]),
     Series::from_ints("revenue", [100, 50, 70, 30]),
     Series::from_ints("cost", [60, 20, 40, 25]),
@@ -188,7 +188,7 @@ conditions).
 ```moonbit check
 ///|
 test "quickstart: conditional column with when/then/otherwise" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_strings("product", ["widget", "gadget", "gizmo"]),
     Series::from_ints("score", [80, 55, 60]),
   ])
@@ -214,7 +214,7 @@ test "quickstart: conditional column with when/then/otherwise" {
 
 ## Build a lazy plan, explain it, then collect
 
-`lazy_frame(df)` starts a deferred query: the builder methods grow a logical
+`LazyFrame::LazyFrame(df)` starts a deferred query: the builder methods grow a logical
 plan instead of computing anything, and `collect()` is the single step that
 runs it. `explain()` prints the plan as built; `explain(optimized=true)` prints
 the plan `collect` actually runs — here the optimizer has inserted a narrowing
@@ -224,12 +224,12 @@ Collecting is bitwise-equal to the same verbs run eagerly.
 ```moonbit check
 ///|
 test "quickstart: build a lazy plan, explain it, then collect" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_strings("region", ["west", "east", "west"]),
     Series::from_strings("product", ["widget", "gadget", "gizmo"]),
     Series::from_ints("revenue", [100, 50, 70]),
   ])
-  let plan = lazy_frame(df)
+  let plan = LazyFrame::LazyFrame(df)
     .filter(col("region").eq(lit_str("west")))
     .select([col("region"), col("revenue")])
   // The plan as built — a faithful mirror of the chained verbs.
@@ -275,7 +275,7 @@ can't inject markup.
 ```moonbit check
 ///|
 test "quickstart: render to HTML" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_strings("region", ["west", "east"]),
     Series::from_ints("quantity", [10, 5]),
   ])
@@ -314,7 +314,7 @@ raises `ColumnNotFound`.
 ```moonbit check
 ///|
 test "quickstart: export a Vega-Lite chart spec" {
-  let sales = DataFrame::new([
+  let sales = DataFrame::DataFrame([
     Series::from_strings("region", ["west", "east"]),
     Series::from_ints("revenue", [100, 50]),
   ])
@@ -339,11 +339,11 @@ left columns followed by the right columns.
 ```moonbit check
 ///|
 test "quickstart: inner join" {
-  let orders = DataFrame::new([
+  let orders = DataFrame::DataFrame([
     Series::from_ints("customer_id", [1, 2, 1]),
     Series::from_ints("amount", [100, 50, 70]),
   ])
-  let customers = DataFrame::new([
+  let customers = DataFrame::DataFrame([
     Series::from_ints("customer_id", [1, 2]),
     Series::from_strings("region", ["west", "east"]),
   ])
@@ -370,11 +370,11 @@ no order both survive.
 ```moonbit check
 ///|
 test "quickstart: outer join" {
-  let orders = DataFrame::new([
+  let orders = DataFrame::DataFrame([
     Series::from_ints("customer_id", [1, 2, 3]),
     Series::from_ints("amount", [100, 50, 70]),
   ])
-  let customers = DataFrame::new([
+  let customers = DataFrame::DataFrame([
     Series::from_ints("customer_id", [1, 2, 4]),
     Series::from_strings("region", ["west", "east", "north"]),
   ])
@@ -407,7 +407,7 @@ inferable dtypes — the property tests assert this over random input.
 ```moonbit check
 ///|
 test "quickstart: csv round-trip" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_strings("region", ["west", "east"]),
     Series::from_ints("quantity", [10, 5]),
   ])
@@ -460,7 +460,7 @@ intentionally lossy, so the default remains `false` and preserves exact output.
 ```moonbit check
 ///|
 test "quickstart: spreadsheet-safe csv" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_strings("user_input", ["=1+1", "ordinary"]),
   ])
   let csv = format_csv(df, options=CsvWriteOptions(sanitize_formulas=true))
@@ -478,7 +478,7 @@ JSON-records reader does.
 ```moonbit check
 ///|
 test "quickstart: ndjson round-trip" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_strings("region", ["west", "east"]),
     Series::from_ints("quantity", [10, 5]),
   ])

@@ -2,7 +2,7 @@
 //
 // Invariants asserted across the happy-path tests:
 //   (1) check_invariants() == Ok(()) — every join result routes through
-//       DataFrame::new, so it must satisfy the structural spec.
+//       DataFrame::DataFrame, so it must satisfy the structural spec.
 //   (2) output column order = left columns (original) then right non-key
 //       columns (original), key columns appearing once from the left; a
 //       right non-key column colliding with a left name gains the suffix.
@@ -16,7 +16,7 @@
 /// Employees with a foreign key `dept_id`. Row 3 (Dave) points at dept 99,
 /// which has no matching department — the unmatched-left case.
 fn employees() -> DataFrame raise @types.DataError {
-  DataFrame::new([
+  DataFrame::DataFrame([
     Series::from_ints("emp_id", [1, 2, 3, 4]),
     Series::from_strings("name", ["Alice", "Bob", "Carol", "Dave"]),
     Series::from_ints("dept_id", [10, 20, 10, 99]),
@@ -27,7 +27,7 @@ fn employees() -> DataFrame raise @types.DataError {
 /// Departments keyed by `dept_id`. Dept 30 (HR) has no employee — the
 /// unmatched-right case (always dropped by inner / left).
 fn departments() -> DataFrame raise @types.DataError {
-  DataFrame::new([
+  DataFrame::DataFrame([
     Series::from_ints("dept_id", [10, 20, 30]),
     Series::from_strings("dept_name", ["Eng", "Sales", "HR"]),
   ])
@@ -120,11 +120,11 @@ test "inner join with coalesce=false keeps both key columns" {
 
 ///|
 test "a left row matching several right rows fans out in right-row order" {
-  let left = DataFrame::new([
+  let left = DataFrame::DataFrame([
     Series::from_ints("k", [1, 2]),
     Series::from_strings("lv", ["a", "b"]),
   ])
-  let right = DataFrame::new([
+  let right = DataFrame::DataFrame([
     Series::from_ints("k", [1, 1, 2]),
     Series::from_ints("rv", [10, 20, 30]),
   ])
@@ -145,12 +145,12 @@ test "a left row matching several right rows fans out in right-row order" {
 
 ///|
 test "multi-key join matches on the key tuple" {
-  let left = DataFrame::new([
+  let left = DataFrame::DataFrame([
     Series::from_strings("a", ["x", "x", "y"]),
     Series::from_ints("b", [1, 2, 1]),
     Series::from_strings("lv", ["p", "q", "r"]),
   ])
-  let right = DataFrame::new([
+  let right = DataFrame::DataFrame([
     Series::from_strings("a", ["x", "y", "x"]),
     Series::from_ints("b", [1, 1, 2]),
     Series::from_ints("rv", [100, 200, 300]),
@@ -173,12 +173,12 @@ test "multi-key join matches on the key tuple" {
 test "join: multi-key composite is injective across field boundaries" {
   // ("a","bc") vs ("ab","c"): naive concatenation would collide and join
   // them spuriously; the composite key-cell tuple keeps them apart.
-  let left = DataFrame::new([
+  let left = DataFrame::DataFrame([
     Series::from_strings("k1", ["a", "ab"]),
     Series::from_strings("k2", ["bc", "c"]),
     Series::from_ints("lv", [1, 2]),
   ])
-  let right = DataFrame::new([
+  let right = DataFrame::DataFrame([
     Series::from_strings("k1", ["a"]),
     Series::from_strings("k2", ["bc"]),
     Series::from_ints("rv", [9]),
@@ -198,11 +198,11 @@ test "join: multi-key composite is injective across field boundaries" {
 
 ///|
 test "a right non-key column colliding with a left name gets the suffix" {
-  let left = DataFrame::new([
+  let left = DataFrame::DataFrame([
     Series::from_ints("id", [1, 2]),
     Series::from_ints("value", [100, 200]),
   ])
-  let right = DataFrame::new([
+  let right = DataFrame::DataFrame([
     Series::from_ints("id", [1, 2]),
     Series::from_ints("value", [9, 8]),
   ])
@@ -218,11 +218,11 @@ test "a right non-key column colliding with a left name gets the suffix" {
 
 ///|
 test "with_suffix customises the collision suffix" {
-  let left = DataFrame::new([
+  let left = DataFrame::DataFrame([
     Series::from_ints("id", [1]),
     Series::from_ints("value", [100]),
   ])
-  let right = DataFrame::new([
+  let right = DataFrame::DataFrame([
     Series::from_ints("id", [1]),
     Series::from_ints("value", [9]),
   ])
@@ -233,13 +233,13 @@ test "with_suffix customises the collision suffix" {
 ///|
 test "a suffix that still collides surfaces as DuplicateColumn" {
   // Left already has both "value" and "value_right"; suffixing the right
-  // "value" to "value_right" collides again, caught by DataFrame::new.
-  let left = DataFrame::new([
+  // "value" to "value_right" collides again, caught by DataFrame::DataFrame.
+  let left = DataFrame::DataFrame([
     Series::from_ints("id", [1]),
     Series::from_ints("value", [100]),
     Series::from_ints("value_right", [7]),
   ])
-  let right = DataFrame::new([
+  let right = DataFrame::DataFrame([
     Series::from_ints("id", [1]),
     Series::from_ints("value", [9]),
   ])
@@ -257,7 +257,7 @@ test "a suffix that still collides surfaces as DuplicateColumn" {
 /// Both frames carry a null key cell. Unlike `group_by`, a null key
 /// matches nothing — so the null rows never pair up, even with each other.
 fn left_nullable() -> DataFrame raise @types.DataError {
-  DataFrame::new([
+  DataFrame::DataFrame([
     Series::from_int_options("k", [Some(1), None, Some(2)]),
     Series::from_strings("lv", ["a", "b", "c"]),
   ])
@@ -265,7 +265,7 @@ fn left_nullable() -> DataFrame raise @types.DataError {
 
 ///|
 fn right_nullable() -> DataFrame raise @types.DataError {
-  DataFrame::new([
+  DataFrame::DataFrame([
     Series::from_int_options("k", [Some(1), None, Some(2)]),
     Series::from_strings("rv", ["x", "y", "z"]),
   ])
@@ -312,11 +312,11 @@ test "left join keeps a null-keyed left row with null right columns" {
 ///|
 test "Float NaN keys match each other (group_by-consistent, not pandas)" {
   let nan : Double = @double.not_a_number
-  let left = DataFrame::new([
+  let left = DataFrame::DataFrame([
     Series::from_floats("k", [nan, 1.0]),
     Series::from_strings("lv", ["a", "b"]),
   ])
-  let right = DataFrame::new([
+  let right = DataFrame::DataFrame([
     Series::from_floats("k", [nan, 1.0]),
     Series::from_ints("rv", [100, 200]),
   ])
@@ -338,11 +338,11 @@ test "right join coalesces the key to the right frame's value (signed zero)" {
   // side's key value per the coalesce contract. -0.0 and +0.0 are == as
   // scalars, so observe the sign bit through division: 1/+0.0 = +inf,
   // 1/-0.0 = -inf.
-  let left = DataFrame::new([
+  let left = DataFrame::DataFrame([
     Series::from_floats("k", [-0.0]),
     Series::from_ints("lv", [1]),
   ])
-  let right = DataFrame::new([
+  let right = DataFrame::DataFrame([
     Series::from_floats("k", [0.0]),
     Series::from_ints("rv", [2]),
   ])
@@ -364,8 +364,8 @@ test "right join coalesces the key to the right frame's value (signed zero)" {
 
 ///|
 test "cross join produces the Cartesian product" {
-  let left = DataFrame::new([Series::from_strings("lv", ["a", "b"])])
-  let right = DataFrame::new([Series::from_ints("rv", [10, 20, 30])])
+  let left = DataFrame::DataFrame([Series::from_strings("lv", ["a", "b"])])
+  let right = DataFrame::DataFrame([Series::from_ints("rv", [10, 20, 30])])
   let out = left.join(right, JoinOptions::cross())
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.columns(), ["lv", "rv"])
@@ -382,11 +382,11 @@ test "cross join produces the Cartesian product" {
 ///|
 test "cross join suffixes a right column clashing with a left name" {
   // No keys, so a shared column name is resolved purely by the suffix.
-  let left = DataFrame::new([
+  let left = DataFrame::DataFrame([
     Series::from_ints("x", [1, 2]),
     Series::from_strings("lv", ["a", "b"]),
   ])
-  let right = DataFrame::new([Series::from_ints("x", [10, 20])])
+  let right = DataFrame::DataFrame([Series::from_ints("x", [10, 20])])
   let out = left.join(right, JoinOptions::cross(suffix="_r"))
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.columns(), ["x", "lv", "x_r"])
@@ -397,8 +397,8 @@ test "cross join suffixes a right column clashing with a left name" {
 
 ///|
 test "cross join with an empty operand is empty" {
-  let left = DataFrame::new([Series::from_ints("lv", [1, 2])])
-  let right = DataFrame::new([Series::from_ints("rv", [])])
+  let left = DataFrame::DataFrame([Series::from_ints("lv", [1, 2])])
+  let right = DataFrame::DataFrame([Series::from_ints("rv", [])])
   // n x 0 = 0 rows, schema preserved.
   assert_eq(left.join(right, JoinOptions::cross()).shape(), (0, 2))
   assert_eq(right.join(left, JoinOptions::cross()).shape(), (0, 2))
@@ -406,8 +406,8 @@ test "cross join with an empty operand is empty" {
 
 ///|
 test "cross join rejects key columns" {
-  let left = DataFrame::new([Series::from_ints("k", [1])])
-  let right = DataFrame::new([Series::from_ints("k", [2])])
+  let left = DataFrame::DataFrame([Series::from_ints("k", [1])])
+  let right = DataFrame::DataFrame([Series::from_ints("k", [2])])
   // Passing keys to a cross join is a usage error (Polars rejects it too).
   assert_true(
     (Ok(
@@ -421,8 +421,8 @@ test "cross join rejects key columns" {
 
 ///|
 test "a non-cross join with an empty key list is rejected" {
-  let left = DataFrame::new([Series::from_ints("k", [1])])
-  let right = DataFrame::new([Series::from_ints("k", [2])])
+  let left = DataFrame::DataFrame([Series::from_ints("k", [1])])
+  let right = DataFrame::DataFrame([Series::from_ints("k", [2])])
   // Empty `on` no longer silently cross-joins — it must be `how = Cross`.
   assert_true(
     (Ok(left.join(right, JoinOptions::on([]))) catch { e => Err(e) })
@@ -440,11 +440,11 @@ test "a non-cross join with an empty key list is rejected" {
 
 ///|
 test "inner join with a 0-row left frame yields 0 rows, full schema" {
-  let left = DataFrame::new([
+  let left = DataFrame::DataFrame([
     Series::from_ints("k", []),
     Series::from_strings("lv", []),
   ])
-  let right = DataFrame::new([
+  let right = DataFrame::DataFrame([
     Series::from_ints("k", [1]),
     Series::from_strings("rv", ["x"]),
   ])
@@ -456,11 +456,11 @@ test "inner join with a 0-row left frame yields 0 rows, full schema" {
 
 ///|
 test "inner join with a 0-row right frame matches nothing" {
-  let left = DataFrame::new([
+  let left = DataFrame::DataFrame([
     Series::from_ints("k", [1, 2]),
     Series::from_strings("lv", ["a", "b"]),
   ])
-  let right = DataFrame::new([
+  let right = DataFrame::DataFrame([
     Series::from_ints("k", []),
     Series::from_strings("rv", []),
   ])
@@ -471,11 +471,11 @@ test "inner join with a 0-row right frame matches nothing" {
 
 ///|
 test "left join with a 0-row right frame keeps all left rows, null right" {
-  let left = DataFrame::new([
+  let left = DataFrame::DataFrame([
     Series::from_ints("k", [1, 2]),
     Series::from_strings("lv", ["a", "b"]),
   ])
-  let right = DataFrame::new([
+  let right = DataFrame::DataFrame([
     Series::from_ints("k", []),
     Series::from_strings("rv", []),
   ])
@@ -497,11 +497,11 @@ test "left join with a 0-row right frame keeps all left rows, null right" {
 
 ///|
 test "join of two 0-row frames is empty with the joined schema" {
-  let left = DataFrame::new([
+  let left = DataFrame::DataFrame([
     Series::from_ints("k", []),
     Series::from_strings("lv", []),
   ])
-  let right = DataFrame::new([
+  let right = DataFrame::DataFrame([
     Series::from_ints("k", []),
     Series::from_ints("rv", []),
   ])
@@ -524,11 +524,11 @@ test "join of two 0-row frames is empty with the joined schema" {
 /// (k=2) gather paths; the left join adds the unmatched-`None` path (k=3)
 /// for all three dtypes.
 test "join gathers Int / Float / Bool right columns: valid, null, unmatched" {
-  let left = DataFrame::new([
+  let left = DataFrame::DataFrame([
     Series::from_ints("k", [1, 2, 3]),
     Series::from_strings("lv", ["a", "b", "c"]),
   ])
-  let right = DataFrame::new([
+  let right = DataFrame::DataFrame([
     Series::from_ints("k", [1, 2]),
     Series::from_int_options("ri", [Some(7), None]),
     Series::from_float_options("rf", [Some(1.5), None]),
@@ -590,13 +590,13 @@ test "join raises ColumnNotFound for a key present left but missing right" {
 
 ///|
 test "join raises TypeMismatch when a key's dtype differs across frames" {
-  let left = DataFrame::new([
+  let left = DataFrame::DataFrame([
     Series::from_ints("k", [1, 2]),
     Series::from_strings("lv", ["a", "b"]),
   ])
   // Right "k" is a String column, so its values could never compare equal
   // to the left Int "k".
-  let right = DataFrame::new([
+  let right = DataFrame::DataFrame([
     Series::from_strings("k", ["1", "2"]),
     Series::from_ints("rv", [10, 20]),
   ])
@@ -612,11 +612,11 @@ test "join raises TypeMismatch when a key's dtype differs across frames" {
 
 ///|
 test "left_on / right_on TypeMismatch names both sides' keys" {
-  let left = DataFrame::new([
+  let left = DataFrame::DataFrame([
     Series::from_ints("lk", [1, 2]),
     Series::from_strings("lv", ["a", "b"]),
   ])
-  let right = DataFrame::new([
+  let right = DataFrame::DataFrame([
     Series::from_strings("rk", ["1", "2"]),
     Series::from_ints("rv", [10, 20]),
   ])
@@ -764,8 +764,11 @@ fn coalesce_probe(
   left_key : Series,
   right_key : Series,
 ) -> DataFrame raise @types.DataError {
-  let left = DataFrame::new([left_key, Series::from_strings("v_l", ["a", "b"])])
-  let right = DataFrame::new([
+  let left = DataFrame::DataFrame([
+    left_key,
+    Series::from_strings("v_l", ["a", "b"]),
+  ])
+  let right = DataFrame::DataFrame([
     right_key,
     Series::from_strings("v_r", ["x", "y"]),
   ])
@@ -841,12 +844,12 @@ test "coalesced outer key merge over a String key" {
 
 ///|
 test "outer join on a key tuple keeps unmatched rows from both sides" {
-  let left = DataFrame::new([
+  let left = DataFrame::DataFrame([
     Series::from_strings("a", ["x", "x", "y"]),
     Series::from_ints("b", [1, 2, 1]),
     Series::from_strings("lv", ["p", "q", "r"]),
   ])
-  let right = DataFrame::new([
+  let right = DataFrame::DataFrame([
     Series::from_strings("a", ["x", "y", "z"]),
     Series::from_ints("b", [1, 1, 2]),
     Series::from_ints("rv", [100, 200, 300]),
@@ -877,12 +880,12 @@ test "outer join on a key tuple keeps unmatched rows from both sides" {
 
 ///|
 test "right join on a key tuple keeps every right row" {
-  let left = DataFrame::new([
+  let left = DataFrame::DataFrame([
     Series::from_strings("a", ["x", "y"]),
     Series::from_ints("b", [1, 1]),
     Series::from_strings("lv", ["p", "r"]),
   ])
-  let right = DataFrame::new([
+  let right = DataFrame::DataFrame([
     Series::from_strings("a", ["x", "z"]),
     Series::from_ints("b", [1, 2]),
     Series::from_ints("rv", [100, 300]),
@@ -951,11 +954,11 @@ test "outer join: null keys on both sides each stay unmatched" {
 
 ///|
 test "right join suffixes a right non-key column clashing with a left name" {
-  let left = DataFrame::new([
+  let left = DataFrame::DataFrame([
     Series::from_ints("id", [1, 2]),
     Series::from_ints("value", [100, 200]),
   ])
-  let right = DataFrame::new([
+  let right = DataFrame::DataFrame([
     Series::from_ints("id", [1, 3]),
     Series::from_ints("value", [9, 8]),
   ])
@@ -976,11 +979,11 @@ test "right join suffixes a right non-key column clashing with a left name" {
 
 ///|
 test "right join with a 0-row left frame keeps all right rows, null left" {
-  let left = DataFrame::new([
+  let left = DataFrame::DataFrame([
     Series::from_ints("k", []),
     Series::from_strings("lv", []),
   ])
-  let right = DataFrame::new([
+  let right = DataFrame::DataFrame([
     Series::from_ints("k", [1, 2]),
     Series::from_strings("rv", ["x", "y"]),
   ])
@@ -1001,11 +1004,11 @@ test "right join with a 0-row left frame keeps all right rows, null left" {
 
 ///|
 test "outer join of two 0-row frames is empty with the joined schema" {
-  let left = DataFrame::new([
+  let left = DataFrame::DataFrame([
     Series::from_ints("k", []),
     Series::from_strings("lv", []),
   ])
-  let right = DataFrame::new([
+  let right = DataFrame::DataFrame([
     Series::from_ints("k", []),
     Series::from_ints("rv", []),
   ])
@@ -1028,8 +1031,8 @@ test "outer join of two 0-row frames is empty with the joined schema" {
 
 ///|
 test "a right join with an empty key list is rejected" {
-  let left = DataFrame::new([Series::from_ints("k", [1])])
-  let right = DataFrame::new([Series::from_ints("k", [2])])
+  let left = DataFrame::DataFrame([Series::from_ints("k", [1])])
+  let right = DataFrame::DataFrame([Series::from_ints("k", [2])])
   // The Right planner guards an empty `on` the same way the others do.
   assert_true(
     (Ok(left.join(right, JoinOptions::on([], how=JoinType::Right))) catch {
@@ -1069,13 +1072,13 @@ test "right / outer join raise ColumnNotFound for a missing key" {
 
 ///|
 test "right / outer join raise TypeMismatch when a key dtype differs" {
-  let left = DataFrame::new([
+  let left = DataFrame::DataFrame([
     Series::from_ints("k", [1, 2]),
     Series::from_strings("lv", ["a", "b"]),
   ])
   // Right "k" is a String column — the shared resolver rejects the join
   // before any row work, the same as for inner / left.
-  let right = DataFrame::new([
+  let right = DataFrame::DataFrame([
     Series::from_strings("k", ["1", "2"]),
     Series::from_ints("rv", [10, 20]),
   ])
@@ -1177,11 +1180,11 @@ test "join keeps all-valid numeric output columns on the Numeric fast path" {
   // `None` on either side, so each gathered column — including the coalesced
   // key — re-converges to `Numeric` rather than demoting to `Builtin`,
   // matching filter / sort / take / drop_nulls / fill_null.
-  let left = DataFrame::new([
+  let left = DataFrame::DataFrame([
     Series::from_ints("k", [1, 2]),
     Series::from_floats("lv", [1.5, 2.5]),
   ])
-  let right = DataFrame::new([
+  let right = DataFrame::DataFrame([
     Series::from_ints("k", [1, 2]),
     Series::from_ints("rv", [10, 20]),
   ])
@@ -1195,8 +1198,8 @@ test "join keeps all-valid numeric output columns on the Numeric fast path" {
   // Values are unchanged by the backend choice.
   assert_eq(out.item(0, "rv"), @types.Scalar::Int(10))
   // A cross join likewise injects no None: every numeric column stays Numeric.
-  let crossed = DataFrame::new([Series::from_ints("a", [1, 2])]).join(
-    DataFrame::new([Series::from_floats("b", [3.0])]),
+  let crossed = DataFrame::DataFrame([Series::from_ints("a", [1, 2])]).join(
+    DataFrame::DataFrame([Series::from_floats("b", [3.0])]),
     JoinOptions::cross(),
   )
   assert_eq(crossed.storage_kinds(), [
@@ -1243,11 +1246,11 @@ test "a right numeric column with no unmatched-left rows stays Numeric" {
   // Every left row matches, so `right_rows` carries no `None`: the gathered
   // right key and right non-key numeric columns stay on the `Numeric` fast
   // path even though the join could have injected nulls.
-  let left = DataFrame::new([
+  let left = DataFrame::DataFrame([
     Series::from_ints("k", [1, 2]),
     Series::from_ints("lv", [5, 6]),
   ])
-  let right = DataFrame::new([
+  let right = DataFrame::DataFrame([
     Series::from_ints("k", [1, 2]),
     Series::from_ints("rv", [10, 20]),
   ])
@@ -1268,11 +1271,11 @@ test "join leaves a Builtin (nullable) source column on Builtin" {
   // A source column carrying a null is `Builtin`; preserving the backend
   // keeps it there (there is no all-valid Numeric form to move to). The
   // gathered output is still correct — only the representation is unchanged.
-  let left = DataFrame::new([
+  let left = DataFrame::DataFrame([
     Series::from_ints("k", [1, 2]),
     Series::from_int_options("lv", [Some(5), None]), // Builtin (has a null)
   ])
-  let right = DataFrame::new([Series::from_ints("k", [1, 2])])
+  let right = DataFrame::DataFrame([Series::from_ints("k", [1, 2])])
   let out = left.join(right, JoinOptions::on([@expr.col("k")]))
   assert_eq(out.get_column("lv").storage_kind(), @column.StorageKind::Builtin)
   assert_eq(out.item(0, "lv"), @types.Scalar::Int(5))
@@ -1283,11 +1286,11 @@ test "join leaves a Builtin (nullable) source column on Builtin" {
 
 ///|
 test "left_on / right_on join on differently-named columns, keeping both" {
-  let left = DataFrame::new([
+  let left = DataFrame::DataFrame([
     Series::from_ints("lk", [1, 2, 3]),
     Series::from_strings("lv", ["a", "b", "c"]),
   ])
-  let right = DataFrame::new([
+  let right = DataFrame::DataFrame([
     Series::from_ints("rk", [2, 3, 4]),
     Series::from_ints("rv", [20, 30, 40]),
   ])
@@ -1315,11 +1318,11 @@ test "left_on may repeat a column for a multi-condition join" {
   // multi-condition join (Polars allows it). The repeated left key must not be
   // rejected as DuplicateColumn: the left and right key columns carry their own
   // names, so there is no output-column collision (the dedup is `on`-only).
-  let left = DataFrame::new([
+  let left = DataFrame::DataFrame([
     Series::from_ints("a", [1, 2, 3]),
     Series::from_strings("lv", ["p", "q", "r"]),
   ])
-  let right = DataFrame::new([
+  let right = DataFrame::DataFrame([
     Series::from_ints("b", [2, 9]),
     Series::from_ints("c", [2, 8]),
     Series::from_strings("rv", ["x", "y"]),
@@ -1342,11 +1345,11 @@ test "left_on may repeat a column for a multi-condition join" {
 
 ///|
 test "left_on / right_on with a derived right key matches on the value" {
-  let left = DataFrame::new([
+  let left = DataFrame::DataFrame([
     Series::from_ints("cents", [100, 250, 300]),
     Series::from_strings("item", ["a", "b", "c"]),
   ])
-  let right = DataFrame::new([
+  let right = DataFrame::DataFrame([
     Series::from_ints("dollars", [1, 3]),
     Series::from_strings("tier", ["x", "y"]),
   ])
@@ -1375,11 +1378,11 @@ test "left_on / right_on with a derived right key matches on the value" {
 // `DuplicateColumn` — a derived key produces no output column, so there is no
 // name clash to prevent. Only bare `col` keys are deduplicated.
 test "two derived keys over one source column join without a false DuplicateColumn" {
-  let left = DataFrame::new([
+  let left = DataFrame::DataFrame([
     Series::from_ints("ts", [3, 4]),
     Series::from_strings("litem", ["a", "b"]),
   ])
-  let right = DataFrame::new([
+  let right = DataFrame::DataFrame([
     Series::from_ints("ka", [4, 5]),
     Series::from_ints("kb", [6, 8]),
     Series::from_strings("ritem", ["x", "y"]),
@@ -1403,11 +1406,11 @@ test "two derived keys over one source column join without a false DuplicateColu
 
 ///|
 test "a derived `on` key turns off coalescing, keeping both source columns" {
-  let left = DataFrame::new([
+  let left = DataFrame::DataFrame([
     Series::from_ints("x", [1, 2, 3]),
     Series::from_strings("lv", ["a", "b", "c"]),
   ])
-  let right = DataFrame::new([
+  let right = DataFrame::DataFrame([
     Series::from_ints("x", [2, 3]),
     Series::from_ints("rv", [20, 30]),
   ])
@@ -1435,11 +1438,11 @@ test "a derived `on` key turns off coalescing, keeping both source columns" {
 
 ///|
 test "left_on / right_on keys: a null key matches nothing" {
-  let left = DataFrame::new([
+  let left = DataFrame::DataFrame([
     Series::from_int_options("lk", [Some(1), None]),
     Series::from_strings("lv", ["a", "b"]),
   ])
-  let right = DataFrame::new([
+  let right = DataFrame::DataFrame([
     Series::from_int_options("rk", [Some(1), None]),
     Series::from_strings("rv", ["x", "y"]),
   ])
@@ -1458,11 +1461,11 @@ test "left_on / right_on keys: a null key matches nothing" {
 
 ///|
 test "join rejects unequal-length left_on / right_on" {
-  let left = DataFrame::new([
+  let left = DataFrame::DataFrame([
     Series::from_ints("a", [1]),
     Series::from_ints("b", [2]),
   ])
-  let right = DataFrame::new([Series::from_ints("c", [1])])
+  let right = DataFrame::DataFrame([Series::from_ints("c", [1])])
   // Two left keys, one right key: the pairing is undefined.
   assert_true(
     (Ok(

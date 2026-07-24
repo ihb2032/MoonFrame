@@ -91,7 +91,7 @@ fn index_by_join_key(
 /// left name). It is the explicit form of what `group_by([])`'s
 /// grand-total group is for aggregation.
 ///
-/// The result routes through `DataFrame::new`, so it satisfies
+/// The result routes through `DataFrame::DataFrame`, so it satisfies
 /// `check_invariants()`.
 ///
 /// Raises:
@@ -111,7 +111,7 @@ fn index_by_join_key(
 ///   `group_by([col("id"), col("id")])`), or two output columns still
 ///   colliding after suffixing (e.g. the left frame already has both
 ///   `value` and `value_right`, and the right contributes a non-key
-///   `value`; surfaced by `DataFrame::new`).
+///   `value`; surfaced by `DataFrame::DataFrame`).
 /// - `LengthMismatch` — a `lit_series(s)` key whose embedded series is
 ///   neither length 1 nor the frame's height (the evaluator's broadcast
 ///   rule, surfacing through key evaluation).
@@ -357,7 +357,7 @@ fn DataFrame::assemble_join_output(
       )
     }
   }
-  DataFrame::new(out_cols)
+  DataFrame::DataFrame(out_cols)
 }
 
 ///|

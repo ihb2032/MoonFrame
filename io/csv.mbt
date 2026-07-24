@@ -122,7 +122,7 @@ pub fn CsvReadOptions::CsvReadOptions(
 ///      tokenisation, so quoted empty cells (`""`) and bare empty
 ///      cells are both honoured.
 ///   4. Each column is assembled into a typed `Series` and the result
-///      is wrapped through `DataFrame::new`.
+///      is wrapped through `DataFrame::DataFrame`.
 ///
 /// Raises:
 /// - `DuplicateColumn(name)` — two headers share a name.
@@ -136,7 +136,7 @@ pub fn CsvReadOptions::CsvReadOptions(
 ///   row outside the inference window is malformed for the inferred
 ///   type), unless `options.on_parse_error` is `Null`, which downgrades
 ///   that cell to a null instead of failing the read.
-/// - Whatever `DataFrame::new` propagates — for v0.1 this is limited
+/// - Whatever `DataFrame::DataFrame` propagates — for v0.1 this is limited
 ///   to `DuplicateColumn` / `LengthMismatch`, neither of which can
 ///   actually fire here (uniqueness is checked above; every column
 ///   is built off the same `rows.length()`).
@@ -207,7 +207,7 @@ fn parse_csv_str_projected(
   // with no headers and no rows, which would collapse to an empty
   // 0×0 frame — handled the same way here, just without the parse.
   if content.is_empty() {
-    return @frame.DataFrame::new([])
+    return @frame.DataFrame([])
   }
   if options.strict_quotes {
     validate_csv_quotes(content, options.delimiter)
@@ -223,7 +223,7 @@ fn parse_csv_str_projected(
   let (headers, rows) = split_csv_records(csv, options)
   let ncols = headers.length()
   if ncols == 0 {
-    return @frame.DataFrame::new([])
+    return @frame.DataFrame([])
   }
   validate_csv_shape(headers, rows, options)
   // Infer one dtype per column, then build the column — skipping any the
@@ -324,7 +324,7 @@ fn split_csv_records(
 
 ///|
 /// Whole-shape validation ahead of any per-cell work: reject a duplicate
-/// header up front (`DataFrame::new` would catch it via `Schema::new`, but
+/// header up front (`DataFrame::DataFrame` would catch it via `Schema::Schema`, but
 /// surfacing it here spares a wasted inference pass), and — when
 /// `strict_column_count` is on — `raise ParseError` for a data row whose
 /// cell count differs from the header's, rather than silently null-padding

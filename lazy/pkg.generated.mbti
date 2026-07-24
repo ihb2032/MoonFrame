@@ -9,8 +9,6 @@ import {
 }
 
 // Values
-pub fn lazy_frame(@frame.DataFrame) -> LazyFrame
-
 pub fn scan_csv(String, options? : @io.CsvReadOptions) -> LazyFrame
 
 pub fn scan_ndjson(String, options? : @io.JsonReadOptions) -> LazyFrame
@@ -21,6 +19,8 @@ pub fn scan_ndjson(String, options? : @io.JsonReadOptions) -> LazyFrame
 pub struct LazyFrame {
   // private fields
 }
+#as_free_fn
+pub fn LazyFrame::LazyFrame(@frame.DataFrame) -> Self
 pub fn LazyFrame::collect(Self) -> @frame.DataFrame raise @types.DataError
 pub fn LazyFrame::count(Self) -> Self
 pub fn LazyFrame::drop(Self, Array[@expr.Expr]) -> Self

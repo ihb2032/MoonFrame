@@ -1,5 +1,5 @@
 // The bare `Field(...)` spelling resolves wherever the expected type is
-// concrete — inside `Schema::new([...])`, an annotated binding, a typed array
+// concrete — inside `Schema::Schema([...])`, an annotated binding, a typed array
 // literal (see `schema_test.mbt`). These tests bind fields on their own or
 // hand them to the generic `assert_eq` / `inspect`, where no expected type is
 // available, so they use the fully qualified `Field::Field(...)` form.

@@ -16,7 +16,7 @@ test "pipeline: read_csv → filter → select → sort → describe → to_mark
   // The pipeline then runs against `read_csv`, which is the exact path
   // the plan's §6 acceptance criterion calls out.
   let path = "_build/pipeline_facade_fixture.csv"
-  let staged = DataFrame::new([
+  let staged = DataFrame::DataFrame([
     Series::from_strings("region", ["west", "east", "west", "north"]),
     Series::from_strings("product", ["widget", "widget", "gadget", "widget"]),
     Series::from_ints("quantity", [12, 7, 4, 5]),
@@ -128,7 +128,7 @@ test "pipeline: parse_csv_str → filter → select → sort → describe → to
 test "pipeline: format_json → parse_json_str round-trip" {
   // Hand-build a frame from typed Series so we can exercise the
   // re-exported Series constructors as well as the IO ones.
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_ints("id", [1, 2, 3]),
     Series::from_strings("name", ["alice", "bob", "carol"]),
     Series::from_float_options("score", [Some(91.5), None, Some(73.0)]),
@@ -151,7 +151,7 @@ test "pipeline: format_ndjson → parse_ndjson_str round-trip" {
   // Exercises the re-exported NDJSON surface (`format_ndjson` /
   // `parse_ndjson_str` / `JsonReadOptions`); a missing facade
   // re-export would surface as a type error in this file.
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_ints("id", [1, 2, 3]),
     Series::from_strings("name", ["alice", "bob", "carol"]),
     Series::from_float_options("score", [Some(91.5), None, Some(73.0)]),
@@ -171,7 +171,7 @@ test "pipeline: format_ndjson → parse_ndjson_str round-trip" {
 
 ///|
 test "pipeline: drop_nulls / fill_null / null_count compose via the facade" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_int_options("a", [Some(1), None, Some(3), Some(4)]),
     Series::from_string_options("b", [Some("x"), Some("y"), None, Some("z")]),
     Series::from_float_options("c", [Some(1.0), Some(2.0), Some(3.0), None]),
@@ -222,7 +222,7 @@ test "pipeline: drop_nulls / fill_null / null_count compose via the facade" {
 
 ///|
 test "pipeline: per-column scalars and whole-frame reductions via the facade" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_int_options("n", [Some(1), Some(2), None, Some(4)]),
     Series::from_strings("tag", ["a", "b", "c", "d"]),
   ])
@@ -253,7 +253,7 @@ test "pipeline: per-column scalars and whole-frame reductions via the facade" {
 
 ///|
 test "pipeline: group_by → agg → sort produces a grouped summary via the facade" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_strings("region", ["west", "east", "west", "east", "west"]),
     Series::from_ints("quantity", [12, 7, 4, 5, 8]),
     Series::from_floats("revenue", [120.0, 66.5, 30.0, 47.5, 90.0]),
@@ -293,12 +293,12 @@ test "pipeline: join enriches a frame then sorts via the facade" {
   // region. `JoinType` / `JoinOptions` are named explicitly so a missing
   // facade re-export surfaces as a type error in this file.
   let _ : JoinType = JoinType::Inner
-  let orders = DataFrame::new([
+  let orders = DataFrame::DataFrame([
     Series::from_ints("order_id", [1, 2, 3, 4]),
     Series::from_ints("customer_id", [10, 20, 10, 99]),
     Series::from_ints("amount", [100, 50, 70, 30]),
   ])
-  let customers = DataFrame::new([
+  let customers = DataFrame::DataFrame([
     Series::from_ints("customer_id", [10, 20, 30]),
     Series::from_strings("region", ["west", "east", "north"]),
   ])
@@ -343,7 +343,7 @@ test "pipeline: join enriches a frame then sorts via the facade" {
 
 ///|
 test "pipeline: rename / drop / with_columns compose cleanly" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_ints("x", [1, 2, 3]),
     Series::from_ints("y", [10, 20, 30]),
   ])
@@ -372,7 +372,7 @@ test "pipeline: rename / drop / with_columns compose cleanly" {
 
 ///|
 test "pipeline: filter surfaces predicate evaluation errors instead of swallowing them" {
-  let df = DataFrame::new([Series::from_ints("n", [1, 2, 3])])
+  let df = DataFrame::DataFrame([Series::from_ints("n", [1, 2, 3])])
   // The predicate references a misspelled column; the evaluator's
   // `ColumnNotFound` must propagate verbatim, *not* collapse to
   // "row excluded".
@@ -384,7 +384,7 @@ test "pipeline: filter surfaces predicate evaluation errors instead of swallowin
 
 ///|
 test "pipeline: Schema and Field surface for callers building empty frames" {
-  let schema = Schema::new([
+  let schema = Schema::Schema([
     Field("id", DataType::Int),
     Field("note", DataType::String, nullable=false),
   ])
@@ -401,7 +401,7 @@ test "pipeline: Schema and Field surface for callers building empty frames" {
 test "pipeline: ClosedInterval is reachable unqualified" {
   // The `closed` endpoint enum must ride the facade like SortOrder /
   // KeepStrategy do — a missing re-export would fail to compile here.
-  let df = DataFrame::new([Series::from_ints("n", [1, 2, 3])])
+  let df = DataFrame::DataFrame([Series::from_ints("n", [1, 2, 3])])
   let kept = df.filter(
     col("n").is_between(lit_int(1), lit_int(3), closed=ClosedInterval::Left),
   )
@@ -414,7 +414,7 @@ test "pipeline: ClosedInterval is reachable unqualified" {
 test "pipeline: the column selectors are reachable unqualified" {
   // `numeric_cols` / `cols_of_dtype` / `cols_matching` are `@frame` free
   // functions; a missing `pub using` would make these fail to compile.
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_ints("id", [1]),
     Series::from_floats("price", [2.0]),
     Series::from_strings("label", ["x"]),

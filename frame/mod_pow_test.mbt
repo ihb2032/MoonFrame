@@ -2,7 +2,7 @@
 
 ///|
 test "modulo: Int remainder carries the dividend's sign; every arm" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_ints("i", [7L, -7L, 6L]),
     Series::from_ints("j", [2L, 2L, -4L]),
     Series::from_floats("f", [7.5, -7.5, 8.0]),
@@ -42,7 +42,7 @@ test "modulo: Int remainder carries the dividend's sign; every arm" {
 
 ///|
 test "modulo: Numeric Int-by-zero divisor yields null (fast arm)" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_ints("a", [10L, 5L]),
     Series::from_ints("b", [0L, 2L]),
   ])
@@ -56,7 +56,7 @@ test "modulo: Numeric Int-by-zero divisor yields null (fast arm)" {
 
 ///|
 test "modulo: Int-by-zero null, Float-by-zero NaN, Builtin arms, non-numeric" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_int_options("i", [Some(10L), None, Some(5L)]),
     Series::from_int_options("j", [Some(0L), Some(2L), Some(3L)]),
     Series::from_float_options("f", [Some(1.0), Some(7.5), None]),
@@ -105,7 +105,7 @@ test "modulo: Int-by-zero null, Float-by-zero NaN, Builtin arms, non-numeric" {
   assert_eq(fg[1], @types.Scalar::Float(1.5))
   assert_eq(fg[2], @types.Scalar::Null)
   // Non-numeric raises.
-  let strs = DataFrame::new([
+  let strs = DataFrame::DataFrame([
     Series::from_strings("s", ["x"]),
     Series::from_ints("n", [1L]),
   ])
@@ -127,7 +127,7 @@ test "modulo: Int-by-zero null, Float-by-zero NaN, Builtin arms, non-numeric" {
 
 ///|
 test "pow: always Float; every numeric arm" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_ints("i", [2L, 4L]),
     Series::from_ints("j", [3L, 2L]),
     Series::from_floats("f", [2.0, 9.0]),
@@ -163,7 +163,7 @@ test "pow: always Float; every numeric arm" {
 
 ///|
 test "pow: negative / zero exponents, Builtin arms, null, non-numeric" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_float_options("b", [Some(2.0), Some(0.0), None]),
     Series::from_float_options("e", [Some(-1.0), Some(0.0), Some(2.0)]),
     Series::from_int_options("ib", [Some(2L), Some(3L), None]),
@@ -191,7 +191,7 @@ test "pow: negative / zero exponents, Builtin arms, null, non-numeric" {
   assert_eq(out.get_column("if").to_scalars()[1], @types.Scalar::Float(1.0))
   assert_eq(out.get_column("fi").to_scalars()[1], @types.Scalar::Float(1.0))
   // Non-numeric raises.
-  let strs = DataFrame::new([
+  let strs = DataFrame::DataFrame([
     Series::from_strings("s", ["x"]),
     Series::from_ints("n", [2L]),
   ])

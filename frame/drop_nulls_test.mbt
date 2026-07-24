@@ -17,7 +17,7 @@
 /// `drop_nulls(subset=...)` (drop only when *listed* columns are null) are
 /// both observable.
 fn drop_nulls_df() -> DataFrame raise @types.DataError {
-  DataFrame::new([
+  DataFrame::DataFrame([
     Series::from_int_options("a", [Some(1), None, Some(3), Some(4)]),
     Series::from_float_options("b", [
       Some((1.5 : Double)),
@@ -51,7 +51,7 @@ test "drop_nulls keeps only rows that are valid in every column" {
 
 ///|
 test "drop_nulls is a no-op on a fully-valid frame" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_ints("a", [1, 2, 3]),
     Series::from_strings("s", ["x", "y", "z"]),
   ])
@@ -69,7 +69,7 @@ test "drop_nulls keeps non-null NaN cells: NaN is a value, not a null" {
   // `of` is option-backed with a genuine null at row 2 and a NaN value at
   // row 3. drop_nulls drops only the missing row — both NaN rows survive,
   // because NaN is a value and only validity-0 cells count as null.
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_floats("nf", [1.0, nan, 3.0, 4.0]),
     Series::from_float_options("of", [Some(1.0), Some(2.0), None, Some(nan)]),
   ])
@@ -84,7 +84,7 @@ test "drop_nulls keeps non-null NaN cells: NaN is a value, not a null" {
 
 ///|
 test "drop_nulls collapses to a 0-row frame when every row has at least one null" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_int_options("a", [Some(1), None]),
     Series::from_float_options("b", [None, Some((2.0 : Double))]),
   ])
@@ -97,7 +97,7 @@ test "drop_nulls collapses to a 0-row frame when every row has at least one null
 
 ///|
 test "drop_nulls on a 0-row frame preserves the schema" {
-  let schema = @types.Schema::new([
+  let schema = @types.Schema([
     @types.Field("a", @types.DataType::Int),
     @types.Field("b", @types.DataType::String),
   ])
@@ -110,7 +110,7 @@ test "drop_nulls on a 0-row frame preserves the schema" {
 
 ///|
 test "drop_nulls on a 0x0 frame returns the same 0x0 frame" {
-  let df = DataFrame::new([])
+  let df = DataFrame::DataFrame([])
   let out = df.drop_nulls()
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.shape(), (0, 0))
@@ -118,7 +118,7 @@ test "drop_nulls on a 0x0 frame returns the same 0x0 frame" {
 
 ///|
 test "drop_nulls on an all-null column drops every row" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_int_options("a", [None, None, None]),
     Series::from_strings("s", ["x", "y", "z"]),
   ])
@@ -255,7 +255,7 @@ test "drop_nulls on a single-column frame matches Series::drop_nulls cell-by-cel
     None,
     Some(5),
   ])
-  let df = DataFrame::new([series])
+  let df = DataFrame::DataFrame([series])
   let out = df.drop_nulls()
   assert_eq(out.check_invariants(), Ok(()))
   let cleaned = series.drop_nulls()

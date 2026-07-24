@@ -11,7 +11,7 @@
 /// Mixed frame: a nullable Int, an all-valid Int, and a String, exercising
 /// the single- / multi-input maps and the null-in / typed-out paths.
 fn map_df() -> DataFrame raise @types.DataError {
-  DataFrame::new([
+  DataFrame::DataFrame([
     Series::from_int_options("q", [Some(1), None, Some(3)]),
     Series::from_ints("base", [10, 20, 30]),
     Series::from_strings("tag", ["a", "b", "c"]),
@@ -228,7 +228,7 @@ test "map over an empty frame yields an empty column mirroring the input dtype" 
   // unobservable. Instead of raising (which would make map the one expression
   // that cannot survive an empty frame), map mirrors the leftmost input's
   // dtype and returns an empty column. Covers an Int and a String input.
-  let empty = DataFrame::new([
+  let empty = DataFrame::DataFrame([
     Series::from_ints("i", []),
     Series::from_strings("s", []),
   ])
@@ -248,7 +248,7 @@ test "map: a closure mixing Int and Float promotes to a Float column" {
   // The engine promotes Int <-> Float, so a closure returning Int on some rows
   // and Float on others yields a Float column with every value present (Ints
   // promoted), not one that nulls the minority type. A null cell stays null.
-  let df = DataFrame::new([Series::from_ints("q", [2, 3, 4])])
+  let df = DataFrame::DataFrame([Series::from_ints("q", [2, 3, 4])])
   let out = df.with_columns([
     @expr.col("q").map_elements(label="mix", s => {
       let v = s.as_int()

@@ -10,7 +10,7 @@
 //
 // Invariants asserted across the happy-path tests:
 //   (1) check_invariants() == Ok(()) — every agg result routes through
-//       DataFrame::new, so it must satisfy the structural spec.
+//       DataFrame::DataFrame, so it must satisfy the structural spec.
 //   (2) output column order = key columns (in `keys` order) then one
 //       column per aggregation expression (in expression order).
 //   (3) group (row) order = first appearance of the key tuple.
@@ -25,7 +25,7 @@
 /// measure. Grouped by `region` it splits into `east` (rows 0, 2, 3) and
 /// `west` (rows 1, 4); `east` appears first.
 fn sales_df() -> DataFrame raise @types.DataError {
-  DataFrame::new([
+  DataFrame::DataFrame([
     Series::from_strings("region", ["east", "west", "east", "east", "west"]),
     Series::from_strings("product", [
       "widget", "widget", "gadget", "widget", "gadget",
@@ -131,7 +131,7 @@ test "with_alias overrides the aggregated column name" {
 test "group order follows first appearance, not sorted order" {
   // Keys first seen as z, a, m — the result must preserve that order
   // rather than sorting to a, m, z.
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_strings("g", ["z", "a", "z", "a", "m"]),
     Series::from_ints("v", [1, 2, 3, 4, 5]),
   ])
@@ -154,7 +154,7 @@ test "a null key forms its own group, distinct from an empty string" {
   // Column has "a", null, "" (empty string), "a". The null and the empty
   // string must NOT collapse together, and the null must survive as its
   // own group rather than being dropped.
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_string_options("k", [Some("a"), None, Some(""), Some("a")]),
     Series::from_ints("v", [1, 2, 3, 4]),
   ])
@@ -179,7 +179,7 @@ test "Float NaN keys collapse into a single group" {
   let nan : Double = @double.not_a_number
   // Keys nan, 1.0, nan — the two NaNs must land in the SAME group (they
   // render "NaN"), giving two groups, not three.
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_floats("k", [nan, 1.0, nan]),
     Series::from_ints("v", [1, 2, 3]),
   ])
@@ -200,7 +200,7 @@ test "Float -0.0 and +0.0 keys collapse into a single group" {
   // (without it the two would hash to distinct keys). Keys 0.0, -0.0, 1.5,
   // 0.0 give two groups: the zero group (rows 0, 1, 3) then the 1.5 group
   // (row 2).
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_floats("k", [0.0, -0.0, 1.5, 0.0]),
     Series::from_ints("v", [1, 2, 3, 4]),
   ])
@@ -220,7 +220,7 @@ test "Float -0.0 and +0.0 keys collapse into a single group" {
 
 ///|
 test "group_by preserves the key column dtype (Int key)" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_ints("k", [1, 1, 2]),
     Series::from_ints("v", [10, 20, 30]),
   ])
@@ -256,7 +256,7 @@ test "agg: a group whose Int sum exceeds 2^63 still means within range" {
   // `Int64`-accumulator wrap would surface here too: group "a" sums to 2^63,
   // which would flip its mean negative. It must stay 2^62.
   let two_62 : Int64 = 4611686018427387904
-  let out = DataFrame::new([
+  let out = DataFrame::DataFrame([
       Series::from_strings("g", ["a", "a", "b"]),
       Series::from_ints("v", [two_62, two_62, 1]),
     ])
@@ -272,7 +272,7 @@ test "agg: a group whose Int sum exceeds 2^63 still means within range" {
 ///|
 test "count excludes nulls; an all-null group reduces to identity / null" {
   // Group "a": one value, one null. Group "b": two nulls.
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_strings("k", ["a", "a", "b", "b"]),
     Series::from_int_options("v", [Some(1), None, None, None]),
   ])
@@ -306,7 +306,7 @@ test "agg: an all-null Float group means a null cell" {
   // path; the Float arm needs its own: a group whose Float cells are all null
   // (validity 0, distinct from a NaN value) has no present cell, so its mean
   // is a null cell rather than NaN or a hard failure.
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_strings("k", ["a", "a", "b"]),
     Series::from_float_options("v", [Some(1.0), Some(3.0), None]),
   ])
@@ -326,7 +326,7 @@ test "Float NaN propagates through sum / mean but is skipped by min / max within
   //   "a" = [1.0, NaN]      — a value plus a NaN
   //   "b" = [2.0, null]     — a value plus a missing cell
   //   "c" = [NaN, NaN]      — all NaN
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_strings("k", ["a", "a", "b", "b", "c", "c"]),
     Series::from_float_options("v", [
       Some(1.0),
@@ -372,7 +372,7 @@ test "Float NaN propagates through sum / mean but is skipped by min / max within
 /// Fixture exercising `min` / `max` across all four dtypes with a group
 /// that has values (`A`) and a group that is entirely null (`B`).
 fn extrema_df() -> DataFrame raise @types.DataError {
-  DataFrame::new([
+  DataFrame::DataFrame([
     Series::from_strings("k", ["A", "A", "B"]),
     Series::from_int_options("vi", [Some(3), Some(1), None]),
     Series::from_float_options("vf", [Some(1.5), Some(2.5), None]),
@@ -452,7 +452,7 @@ test "empty specs degenerates to distinct key combinations" {
 
 ///|
 test "group_by on a 0-row frame yields 0 groups with the key+agg schema" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_strings("k", []),
     Series::from_ints("v", []),
   ])
@@ -498,7 +498,7 @@ test "group_by: multi-key composite is injective across field boundaries" {
   // Naively concatenated, ("a","bc") and ("ab","c") both spell "abc" and
   // would collapse into one group. The composite key-cell tuple keeps
   // them apart → two groups.
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_strings("k1", ["a", "ab"]),
     Series::from_strings("k2", ["bc", "c"]),
     Series::from_ints("v", [1, 2]),

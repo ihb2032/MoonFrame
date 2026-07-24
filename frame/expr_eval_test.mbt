@@ -17,7 +17,7 @@
 /// columns (null propagation), all-valid Int / Float (clean arms), plus
 /// String / Bool columns for the `TypeMismatch` arms.
 fn arith_df() -> DataFrame raise @types.DataError {
-  DataFrame::new([
+  DataFrame::DataFrame([
     Series::from_int_options("i", [Some(1), None, Some(3)]),
     Series::from_ints("j", [10, 20, 30]),
     Series::from_float_options("f", [Some(0.5), Some(1.5), None]),
@@ -31,7 +31,7 @@ fn arith_df() -> DataFrame raise @types.DataError {
 /// Two nullable Bool columns whose row pairs enumerate `{T, F, N}²` — the
 /// full Kleene grid in one frame.
 fn kleene_df() -> DataFrame raise @types.DataError {
-  DataFrame::new([
+  DataFrame::DataFrame([
     Series::from_bool_options("p", [
       Some(true),
       Some(true),
@@ -108,7 +108,7 @@ test "add Float+Float: elementwise with null propagation" {
 ///|
 test "add: NaN is a value and propagates through, distinct from null" {
   let nan : Double = @double.not_a_number
-  let df = DataFrame::new([Series::from_floats("h", [nan, 1.0])])
+  let df = DataFrame::DataFrame([Series::from_floats("h", [nan, 1.0])])
   let out = df.with_columns([@expr.col("h") + @expr.lit_float(1.0)])
   assert_true(out.get_column("h").get(0).as_float().is_nan())
   assert_eq(out.get_column("h").get(1), @types.Scalar::Float(2.0))
@@ -250,7 +250,7 @@ test "pure-literal expressions append a broadcast 'literal' column" {
 
 ///|
 test "empty frame: column exprs and literals broadcast to zero rows" {
-  let df = DataFrame::new([Series::from_ints("a", [])])
+  let df = DataFrame::DataFrame([Series::from_ints("a", [])])
   let out = df.with_columns([@expr.col("a") + @expr.lit_int(1)])
   assert_eq(out.nrows(), 0)
   assert_eq(out.get_column("a").len(), 0)
@@ -407,7 +407,7 @@ test "divide: every numeric pair produces Float" {
 
 ///|
 test "divide by zero follows IEEE 754: ±inf and NaN, never a trap" {
-  let signs = DataFrame::new([Series::from_ints("v", [10, -10])])
+  let signs = DataFrame::DataFrame([Series::from_ints("v", [10, -10])])
   let out = signs.with_columns([@expr.col("v") / @expr.lit_int(0)])
   assert_eq(out.get_column("v").to_scalars(), [
     @types.Scalar::Float(@double.infinity),
@@ -482,7 +482,7 @@ test "negate: non-numeric operand raises TypeMismatch" {
 /// Nullable-Int against all-valid Int: drives all six comparison verbs
 /// over `<` / `=` / `>` / null rows in one frame.
 fn cmp_df() -> DataFrame raise @types.DataError {
-  DataFrame::new([
+  DataFrame::DataFrame([
     Series::from_int_options("x", [Some(1), Some(2), Some(3), None]),
     Series::from_ints("y", [2, 2, 1, 5]),
   ])
@@ -516,7 +516,7 @@ test "compare: comparison output is Bool dtype" {
 ///|
 test "compare Float: NaN is a value under IEEE 754 — non-null, all-false orderings" {
   let nan : Double = @double.not_a_number
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_floats("h", [nan, 1.0]),
     Series::from_floats("k", [nan, nan]),
   ])
@@ -569,7 +569,7 @@ test "compare across Int and Float: both promotion arms" {
 
 ///|
 test "compare String: dictionary order, not MoonBit's shortlex" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_string_options("u", [Some("fig"), Some("apple"), None]),
     Series::from_strings("v", ["apple", "apple", "pear"]),
   ])
@@ -589,7 +589,7 @@ test "compare String: dictionary order, not MoonBit's shortlex" {
 
 ///|
 test "compare Bool: false < true" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_bool_options("p", [Some(false), Some(true), None]),
   ])
   fn run(e : @expr.Expr) -> Array[@types.Scalar] raise @types.DataError {
@@ -743,7 +743,7 @@ test "is_null / is_not_null: read validity, never produce a null" {
 ///|
 test "is_nan / is_not_nan: NaN is a value, nulls propagate, Int is never NaN" {
   let nan : Double = @double.not_a_number
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_float_options("f", [Some(1.0), Some(nan), None]),
     Series::from_int_options("i", [Some(5), None, Some(7)]),
   ])
@@ -773,7 +773,7 @@ test "is_nan / is_not_nan: NaN is a value, nulls propagate, Int is never NaN" {
 
 ///|
 test "is_nan / is_not_nan: a non-numeric operand raises TypeMismatch" {
-  let df = DataFrame::new([Series::from_strings("s", ["a"])])
+  let df = DataFrame::DataFrame([Series::from_strings("s", ["a"])])
   assert_true(
     (Ok(df.with_columns([@expr.col("s").is_nan()])) catch { e => Err(e) })
     is Err(
@@ -791,7 +791,7 @@ test "is_nan / is_not_nan: a non-numeric operand raises TypeMismatch" {
 ///|
 test "fill_nan: replaces NaN, keeps finite and null cells, named after self" {
   let nan : Double = @double.not_a_number
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_float_options("x", [Some(1.5), Some(nan), None]),
   ])
   let out = df.with_columns([@expr.col("x").fill_nan(@expr.lit_float(0.0))])
@@ -813,7 +813,7 @@ test "fill_null / fill_nan evaluate exactly like their guarded-ternary spelling"
   // would compare unequal to itself (IEEE), and the fill_nan output holds
   // none.
   let nan : Double = @double.not_a_number
-  let df_i = DataFrame::new([
+  let df_i = DataFrame::DataFrame([
     Series::from_int_options("i", [Some(1), None, Some(3)]),
   ])
   assert_eq(
@@ -824,7 +824,7 @@ test "fill_null / fill_nan evaluate exactly like their guarded-ternary spelling"
       .otherwise(@expr.lit_float(0.5)),
     ]),
   )
-  let df_f = DataFrame::new([
+  let df_f = DataFrame::DataFrame([
     Series::from_float_options("f", [Some(1.5), Some(nan), None]),
   ])
   assert_eq(
@@ -852,7 +852,7 @@ test "a chained fill_null coalesce evaluates in linear work" {
   // re-evaluated the base subtree 2^24 times (an effective hang); the
   // dedicated node evaluates each link once. The first fill already leaves
   // no null, so the later links are no-ops value-wise.
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_int_options("a", [Some(1), None, Some(3)]),
   ])
   let mut e = @expr.col("a").fill_null(@expr.lit_int(0))
@@ -881,7 +881,7 @@ test "sum: skips nulls, matches Series::sum, broadcasts over the frame" {
   assert_eq(out.get_column("total").get(0), df.get_column("i").sum())
   // Float sum propagates NaN: it is a value, not a missing cell.
   let nan : Double = @double.not_a_number
-  let nans = DataFrame::new([Series::from_floats("h", [nan, 1.0])])
+  let nans = DataFrame::DataFrame([Series::from_floats("h", [nan, 1.0])])
   let nsum = nans.with_columns([@expr.col("h").sum().with_alias("t")])
   assert_true(nsum.get_column("t").get(0).as_float().is_nan())
 }
@@ -920,7 +920,7 @@ test "mean: Int and Float operands reduce to Float, NaN propagates" {
     Array::make(3, @types.Scalar::Float(1.0)),
   )
   let nan : Double = @double.not_a_number
-  let nans = DataFrame::new([Series::from_floats("h", [nan, 1.0])])
+  let nans = DataFrame::DataFrame([Series::from_floats("h", [nan, 1.0])])
   let nmean = nans.with_columns([@expr.col("h").mean().with_alias("m")])
   assert_true(nmean.get_column("m").get(0).as_float().is_nan())
 }
@@ -929,7 +929,7 @@ test "mean: Int and Float operands reduce to Float, NaN propagates" {
 test "mean: an all-null operand yields a null cell, not an error" {
   // The deliberate divergence from Series::mean (which raises
   // InvalidOperation): a reduction slot must exist for an all-null group.
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_int_options("n", [None, None]),
     Series::from_ints("k", [1, 2]),
   ])
@@ -958,7 +958,7 @@ test "mean: non-numeric operand raises TypeMismatch" {
 ///|
 test "min/max: skip nulls and NaN, match the Series reductions, keep the dtype" {
   let nan : Double = @double.not_a_number
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_int_options("i", [Some(3), None, Some(1)]),
     Series::from_floats("h", [nan, 2.0, 1.0]),
     Series::from_strings("s", ["fig", "apple", "pear"]),
@@ -987,7 +987,7 @@ test "min/max: skip nulls and NaN, match the Series reductions, keep the dtype" 
 ///|
 test "min/max: empty reductions produce a null cell in every dtype" {
   let nan : Double = @double.not_a_number
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_int_options("i", [None, None]),
     Series::from_floats("h", [nan, nan]), // all-NaN Float reduces to null
     Series::from_string_options("s", [None, None]),
@@ -1031,7 +1031,7 @@ test "count: non-null cells, never null" {
 
 ///|
 test "composite aggregation: reduce a derived column" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_ints("a", [1, 2, 3]),
     Series::from_ints("b", [4, 5, 6]),
   ])
@@ -1054,7 +1054,7 @@ test "composite aggregation: reduce a derived column" {
 
 ///|
 test "aggregations on an empty frame broadcast to zero rows" {
-  let df = DataFrame::new([Series::from_ints("a", [])])
+  let df = DataFrame::DataFrame([Series::from_ints("a", [])])
   let out = df.with_columns([
     @expr.col("a").sum().with_alias("t"),
     @expr.col("a").count().with_alias("n"),
@@ -1121,7 +1121,7 @@ test "cast: unsupported targets and impossible casts surface unchanged" {
 
 ///|
 test "ternary: true, false, null condition, and null branch cell in one frame" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_bool_options("c", [Some(true), Some(false), None, Some(true)]),
     Series::from_int_options("t", [Some(1), Some(2), Some(3), None]),
     Series::from_ints("e", [10, 20, 30, 40]),
@@ -1142,7 +1142,7 @@ test "ternary: true, false, null condition, and null branch cell in one frame" {
 
 ///|
 test "ternary: Int and Float branches unify to Float, either orientation" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_bools("c", [true, false]),
     Series::from_ints("i", [1, 2]),
     Series::from_floats("f", [0.5, 0.25]),
@@ -1169,7 +1169,7 @@ test "ternary: Int and Float branches unify to Float, either orientation" {
 
 ///|
 test "ternary: Float, Bool, and String branch arms select elementwise" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_bools("c", [true, false]),
     Series::from_floats("f", [1.5, 2.5]),
     Series::from_bools("p", [false, false]),
@@ -1205,7 +1205,7 @@ test "ternary: Float, Bool, and String branch arms select elementwise" {
 
 ///|
 test "ternary: the grade demo — literal branches against a column condition" {
-  let df = DataFrame::new([Series::from_ints("score", [55, 60, 90])])
+  let df = DataFrame::DataFrame([Series::from_ints("score", [55, 60, 90])])
   let out = df.with_columns([
     @expr.when(@expr.col("score").ge(@expr.lit_int(60)))
     .then(@expr.lit_str("pass"))
@@ -1298,7 +1298,7 @@ test "ternary: a null branch cell nulls the output (Int and Int×Float arms)" {
   // Here every *selected* branch cell is null: row 0 takes `then` (null),
   // row 1 takes `otherwise` (null), so both branch readers' `else { None }`
   // arms fire and the output is null on both rows.
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_bools("c", [true, false]),
     Series::from_int_options("ai", [None, Some(2)]),
     Series::from_int_options("bi", [Some(9), None]),
@@ -1330,7 +1330,7 @@ test "ternary: a null branch cell nulls the output (Float, Bool, String arms)" {
   // Same idea for the remaining arms: a null `then` cell (row 0, condition
   // true) and a null `otherwise` cell (row 1, condition false) exercise the
   // `else { None }` arm of both branch readers for Float, Bool, and String.
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_bools("c", [true, false]),
     Series::from_float_options("af", [None, Some(2.0)]),
     Series::from_float_options("bf", [Some(9.0), None]),
@@ -1363,7 +1363,7 @@ test "ternary: a null branch cell nulls the output (Float, Bool, String arms)" {
 
 ///|
 test "backend: all-valid numeric computed results converge to Numeric" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_ints("a", [1, 2]),
     Series::from_ints("b", [3, 4]),
     Series::from_int_options("c", [Some(5), None]),
@@ -1402,7 +1402,7 @@ test "backend: all-valid numeric computed results converge to Numeric" {
 
 ///|
 test "deep tree: derive, compare, combine, and alias in one call" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_ints("revenue", [100, 200, 300]),
     Series::from_ints("cost", [50, 250, 100]),
     Series::from_strings("region", ["west", "east", "west"]),
@@ -1431,7 +1431,7 @@ test "deep expression trees evaluate without overflowing the stack" {
   // Evaluating a tree this deep formerly overflowed the native call stack and
   // aborted — select / filter / with_columns / agg all route through the
   // evaluator. The explicit work + value stack evaluates any depth.
-  let df = DataFrame::new([Series::from_ints("x", [5])])
+  let df = DataFrame::DataFrame([Series::from_ints("x", [5])])
   let depth = 50000
   let mut e = @expr.col("x")
   for _ in 0..<depth {
@@ -1479,7 +1479,9 @@ test "numeric fast arms: mixed all-valid pairings and the unary probes" {
     @types.Scalar::Bool(false),
     @types.Scalar::Bool(false),
   ])
-  let dfn = DataFrame::new([Series::from_floats("h", [1.0, 0.0 / 0.0, 3.0])])
+  let dfn = DataFrame::DataFrame([
+    Series::from_floats("h", [1.0, 0.0 / 0.0, 3.0]),
+  ])
   let ph = dfn.with_columns([@expr.col("h").is_nan().with_alias("ph")])
   assert_eq(ph.get_column("ph").to_scalars(), [
     @types.Scalar::Bool(false),

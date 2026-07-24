@@ -12,7 +12,7 @@
 
 ///|
 test "null_count summarises each column into a single-cell Int" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_int_options("a", [Some(1), None, Some(3), None]),
     Series::from_float_options("b", [
       Some((1.5 : Double)),
@@ -40,7 +40,7 @@ test "null_count summarises each column into a single-cell Int" {
 
 ///|
 test "null_count on a fully-valid frame returns all-zero counts" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_ints("a", [1, 2, 3]),
     Series::from_strings("s", ["x", "y", "z"]),
   ])
@@ -53,7 +53,7 @@ test "null_count on a fully-valid frame returns all-zero counts" {
 
 ///|
 test "null_count on an all-null column reports the full row count" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_int_options("a", [None, None, None, None, None]),
     Series::from_string_options("s", [
       Some("x"),
@@ -71,7 +71,7 @@ test "null_count on an all-null column reports the full row count" {
 
 ///|
 test "null_count on a 0-row frame reports zero for every column" {
-  let schema = @types.Schema::new([
+  let schema = @types.Schema([
     @types.Field("a", @types.DataType::Int),
     @types.Field("b", @types.DataType::Float),
   ])
@@ -87,10 +87,10 @@ test "null_count on a 0-row frame reports zero for every column" {
 
 ///|
 test "null_count on a 0-column frame collapses to a 0x0 summary" {
-  // DataFrame::new's documented behaviour for an empty column list is
+  // DataFrame::DataFrame's documented behaviour for an empty column list is
   // nrows == 0. We can't return a 1×0 summary because there's no
   // anchor column to set nrows on; the natural fallback is (0, 0).
-  let df = DataFrame::new([])
+  let df = DataFrame::DataFrame([])
   let out = df.null_count()
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.shape(), (0, 0))
@@ -100,7 +100,7 @@ test "null_count on a 0-column frame collapses to a 0x0 summary" {
 ///|
 test "null_count preserves column order even when names sort differently" {
   // The output column order is the input order, not lexicographic.
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_int_options("z", [Some(1), None]),
     Series::from_int_options("a", [None, None]),
     Series::from_int_options("m", [Some(1), Some(2)]),
@@ -119,7 +119,7 @@ test "null_count covers every dtype branch" {
   // correct null count (the implementation goes through Series, which
   // delegates to BuiltinColumn::null_count which is dtype-agnostic, but
   // a regression here would silently miss one branch).
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_int_options("i", [Some(1), None]),
     Series::from_float_options("f", [None, Some((2.0 : Double))]),
     Series::from_bool_options("b", [None, Some(true)]),
@@ -137,7 +137,7 @@ test "null_count covers every dtype branch" {
 
 ///|
 test "null_count cell value equals the source series' null_count" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_int_options("a", [Some(1), None, Some(3)]),
     Series::from_float_options("b", [None, None, Some((1.0 : Double))]),
   ])

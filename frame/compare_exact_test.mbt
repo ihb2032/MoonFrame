@@ -5,7 +5,7 @@
 ///|
 test "expr comparison: Int vs Float is exact past 2^53 (Numeric fast arm)" {
   // i = [2^53+1, 2^53], f = [2^53, 2^53]; both columns null-free → Numeric.
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_ints("i", [9007199254740993L, 9007199254740992L]),
     Series::from_floats("f", [9007199254740992.0, 9007199254740992.0]),
   ])
@@ -48,7 +48,7 @@ test "expr comparison: Int vs Float is exact past 2^53 (Numeric fast arm)" {
 test "expr comparison: exact past 2^53 on the Builtin (nullable) arm" {
   // A null forces the general Builtin arm; the exact verdict is unchanged and
   // the null layer still nulls its row.
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_int_options("i", [Some(9007199254740993L), None]),
     Series::from_float_options("f", [Some(9007199254740992.0), Some(1.0)]),
   ])

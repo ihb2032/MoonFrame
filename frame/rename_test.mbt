@@ -11,7 +11,7 @@
 /// Two-column fixture: rename never needs to observe nulls, so a
 /// concise Int + String pair keeps the diff small.
 fn rename_df() -> DataFrame raise @types.DataError {
-  DataFrame::new([
+  DataFrame::DataFrame([
     Series::from_ints("a", [1, 2, 3]),
     Series::from_strings("b", ["x", "y", "z"]),
   ])
@@ -108,7 +108,7 @@ test "rename rejects collisions with another existing column" {
 
 ///|
 test "rename rejects a mapping that introduces a duplicate among new names" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_ints("a", [1]),
     Series::from_ints("b", [2]),
     Series::from_ints("c", [3]),
@@ -149,7 +149,7 @@ test "rename_with the identity function is a structural no-op" {
 ///|
 test "rename_with rejects a function that collapses two columns to one name" {
   let df = rename_df()
-  // Every column maps to "same" — the rebuilding `Schema::new` rejects the
+  // Every column maps to "same" — the rebuilding `Schema::Schema` rejects the
   // duplicate.
   assert_eq(
     Ok(df.rename_with(_ => "same")) catch {
@@ -163,13 +163,13 @@ test "rename_with rejects a function that collapses two columns to one name" {
 
 ///|
 /// The same two columns as `rename_df`, but built through `from_rows` under a
-/// caller-supplied schema that declares `a` non-nullable. A `DataFrame::new`
+/// caller-supplied schema that declares `a` non-nullable. A `DataFrame::DataFrame`
 /// fixture cannot carry such a flag — its derived schema names every field
 /// with the `Field` constructor default (`nullable = true`) — so the
 /// metadata-preservation tests need this second fixture.
 fn rename_declared_df() -> DataFrame raise @types.DataError {
   DataFrame::from_rows(
-    @types.Schema::new([
+    @types.Schema([
       @types.Field("a", @types.DataType::Int, nullable=false),
       @types.Field("b", @types.DataType::String),
     ]),

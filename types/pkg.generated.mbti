@@ -133,6 +133,8 @@ pub impl Show for Scalar
 pub struct Schema {
   // private fields
 } derive(Eq, @debug.Debug)
+#as_free_fn
+pub fn Schema::Schema(Array[Field]) -> Self raise DataError
 pub fn Schema::equal(Self, Self) -> Bool
 pub fn Schema::field(Self, String) -> Field raise DataError
 pub fn Schema::field_at(Self, Int) -> Field raise DataError
@@ -141,7 +143,6 @@ pub fn Schema::fields(Self) -> Array[Field]
 pub fn Schema::index_of(Self, String) -> Int raise DataError
 pub fn Schema::is_empty(Self) -> Bool
 pub fn Schema::len(Self) -> Int
-pub fn Schema::new(Array[Field]) -> Self raise DataError
 pub fn Schema::not_equal(Self, Self) -> Bool
 pub fn Schema::output(Self, &Logger) -> Unit
 pub fn Schema::rename(Self, String, String) -> Self raise DataError

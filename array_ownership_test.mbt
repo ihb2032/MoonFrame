@@ -9,9 +9,9 @@
 // `expr/expr_test.mbt`.
 
 ///|
-test "DataFrame::new copies the caller's column vector" {
+test "DataFrame::DataFrame copies the caller's column vector" {
   let columns = [Series::from_ints("a", [1, 2]), Series::from_ints("b", [3, 4])]
-  let df = DataFrame::new(columns)
+  let df = DataFrame::DataFrame(columns)
   columns.push(Series::from_ints("c", [5, 6]))
   columns[0] = Series::from_ints("z", [9, 9])
   assert_eq(df.columns(), ["a", "b"])
@@ -19,9 +19,9 @@ test "DataFrame::new copies the caller's column vector" {
 }
 
 ///|
-test "Schema::new copies the caller's field array" {
+test "Schema::Schema copies the caller's field array" {
   let fields : Array[Field] = [Field("a", DataType::Int)]
-  let schema = Schema::new(fields)
+  let schema = Schema::Schema(fields)
   fields.push(Field("b", DataType::String))
   assert_eq(schema.len(), 1)
   assert_eq(schema.field_at(0).name(), "a")
@@ -81,7 +81,7 @@ test "JoinOptions key builders copy their key arrays" {
 /// `drop_nulls` additionally carries its keys behind an optional parameter,
 /// the shape the lexical guard cannot see at all.
 test "lazy builders copy their expression arrays" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_ints("a", [2, 1]),
     Series::from_int_options("b", [Some(3), None]),
   ])
@@ -93,13 +93,13 @@ test "lazy builders copy their expression arrays" {
   let keys = [col("a")]
   let aggregates = [col("a").sum().with_alias("total")]
   let gates = [col("b")]
-  let select_plan = lazy_frame(df).select(selected)
-  let with_columns_plan = lazy_frame(df).with_columns(derived)
-  let sort_plan = lazy_frame(df).sort(ordering)
-  let drop_plan = lazy_frame(df).drop(dropped)
-  let rename_plan = lazy_frame(df).rename(renames)
-  let group_plan = lazy_frame(df).group_by(keys).agg(aggregates)
-  let drop_nulls_plan = lazy_frame(df).drop_nulls(subset=gates)
+  let select_plan = LazyFrame::LazyFrame(df).select(selected)
+  let with_columns_plan = LazyFrame::LazyFrame(df).with_columns(derived)
+  let sort_plan = LazyFrame::LazyFrame(df).sort(ordering)
+  let drop_plan = LazyFrame::LazyFrame(df).drop(dropped)
+  let rename_plan = LazyFrame::LazyFrame(df).rename(renames)
+  let group_plan = LazyFrame::LazyFrame(df).group_by(keys).agg(aggregates)
+  let drop_nulls_plan = LazyFrame::LazyFrame(df).drop_nulls(subset=gates)
   selected.push(col("b"))
   derived.push(col("a").with_alias("d"))
   ordering.push((col("b"), SortOrder::Desc, NullOrder::NullsLast))

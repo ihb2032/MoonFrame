@@ -12,7 +12,7 @@
 /// dtype-compatible / skipped split is observable. Two `Int` columns prove
 /// the fill reaches *every* compatible column, not just the first.
 fn fill_df() -> DataFrame raise @types.DataError {
-  DataFrame::new([
+  DataFrame::DataFrame([
     Series::from_int_options("a", [Some(1), None, Some(3)]),
     Series::from_int_options("a2", [None, Some(2), Some(3)]),
     Series::from_float_options("b", [Some(1.5), None, None]),
@@ -61,7 +61,7 @@ test "fill_null with a String value fills only the String columns" {
 
 ///|
 test "fill_null with a Bool value fills only the Bool columns" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_bool_options("flag", [Some(true), None, None]),
     Series::from_int_options("n", [Some(1), None, Some(3)]),
   ])
@@ -85,7 +85,7 @@ test "fill_null with a Null value is a whole-frame no-op" {
 
 ///|
 test "fill_null leaves a frame with no compatible nulls structurally identical" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_ints("a", [1, 2, 3]), // Int, no nulls
     Series::from_strings("s", ["x", "y", "z"]), // String, skipped
   ])
@@ -96,7 +96,7 @@ test "fill_null leaves a frame with no compatible nulls structurally identical" 
 
 ///|
 test "fill_null on a 0-row frame stays a 0-row frame" {
-  let schema = @types.Schema::new([
+  let schema = @types.Schema([
     @types.Field("a", @types.DataType::Int),
     @types.Field("s", @types.DataType::String),
   ])
@@ -111,7 +111,7 @@ test "fill_null on a 0-row frame stays a 0-row frame" {
 
 ///|
 test "Expr fill_null replaces an Int column's nulls in place" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_int_options("a", [Some(1), None, Some(3)]),
     Series::from_strings("s", ["x", "y", "z"]),
   ])
@@ -130,7 +130,7 @@ test "Expr fill_null replaces an Int column's nulls in place" {
 
 ///|
 test "Expr fill_null replaces a String column's nulls" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_string_options("s", [Some("a"), None, Some("c")]),
   ])
   let out = df.with_columns([@expr.col("s").fill_null(@expr.lit_str("?"))])
@@ -147,7 +147,7 @@ test "Expr fill_null keeps a non-null NaN, filling only true nulls" {
   let nan : Double = @double.not_a_number
   // `b` holds a value, a non-null NaN, then a true null. The NaN has
   // validity 1, so `is_not_null` keeps it; only the null cell is filled.
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_float_options("b", [Some(1.0), Some(nan), None]),
   ])
   let out = df.with_columns([@expr.col("b").fill_null(@expr.lit_float(0.0))])
@@ -160,7 +160,7 @@ test "Expr fill_null keeps a non-null NaN, filling only true nulls" {
 test "Expr fill_null coalesces from another column" {
   // When `value` is a column, each null in `a` takes `b`'s cell of the same
   // row — and stays null where `b` is also null (a faithful coalesce).
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_int_options("a", [Some(1), None, None]),
     Series::from_int_options("b", [Some(10), Some(20), None]),
   ])
@@ -178,7 +178,7 @@ test "Expr fill_null coalesces from another column" {
 test "Expr fill_null promotes an Int column filled with a Float value" {
   // The branches unify like a ternary's: `Int` meets `Float` by promoting
   // the whole column to `Float`.
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_int_options("a", [Some(1), None, Some(3)]),
   ])
   let out = df.with_columns([@expr.col("a").fill_null(@expr.lit_float(0.0))])
@@ -194,7 +194,7 @@ test "Expr fill_null promotes an Int column filled with a Float value" {
 test "Expr fill_null rejects a non-unifiable fill dtype with TypeMismatch" {
   // Int column, String fill value: the branches cannot unify, so evaluation
   // raises (the ternary's branch-unification error).
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_int_options("a", [Some(1), None, Some(3)]),
   ])
   assert_true(
@@ -207,7 +207,7 @@ test "Expr fill_null rejects a non-unifiable fill dtype with TypeMismatch" {
 
 ///|
 test "Expr fill_null on a missing column raises ColumnNotFound" {
-  let df = DataFrame::new([Series::from_ints("a", [1, 2, 3])])
+  let df = DataFrame::DataFrame([Series::from_ints("a", [1, 2, 3])])
   assert_eq(
     Ok(df.with_columns([@expr.col("missing").fill_null(@expr.lit_int(0))])) catch {
       e => Err(e)

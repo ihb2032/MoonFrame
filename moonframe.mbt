@@ -41,10 +41,9 @@
 // `is_between`'s `closed?` argument; the
 // `BinOp` / `UnOp` / `AggOp` / `StrOp` tag enums are inert (no public API
 // names them), so they are deliberately *not* re-exported. `@lazy` needs the
-// `lazy_frame` constructor (a free function — the bare identifier `lazy` is
-// a reserved word, and a `DataFrame` method would close an import cycle)
-// plus the `scan_csv` / `scan_ndjson` file sources, whose
-// optional options parameters ride along with `@io`.
+// `scan_csv` / `scan_ndjson` file sources, whose optional options parameters
+// ride along with `@io`; its own entry point rides along with
+// `type LazyFrame` as that type's constructor.
 
 ///|
 pub using @types {
@@ -128,10 +127,4 @@ pub using @io {
 }
 
 ///|
-pub using @lazy {
-  type LazyFrame,
-  type LazyGroupBy,
-  lazy_frame,
-  scan_csv,
-  scan_ndjson,
-}
+pub using @lazy {type LazyFrame, type LazyGroupBy, scan_csv, scan_ndjson}

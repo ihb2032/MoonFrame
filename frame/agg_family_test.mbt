@@ -27,20 +27,20 @@ test "std and variance reduce a whole frame to the sample statistics" {
   // [2, 4, 6]: mean 4, squared deviations 4 + 0 + 4 = 8, sample variance
   // (ddof = 1) 8 / 2 = 4.0, standard deviation its root, 2.0. Both are Float
   // even though the source is Int.
-  let df = DataFrame::new([Series::from_ints("x", [2, 4, 6])])
+  let df = DataFrame::DataFrame([Series::from_ints("x", [2, 4, 6])])
   assert_eq(whole(df, @expr.col("x").std()), @types.Scalar::Float(2.0))
   assert_eq(whole(df, @expr.col("x").variance()), @types.Scalar::Float(4.0))
 }
 
 ///|
 test "std over a Float column keeps Float and propagates NaN" {
-  let df = DataFrame::new([Series::from_floats("x", [1.0, 2.0, 3.0])])
+  let df = DataFrame::DataFrame([Series::from_floats("x", [1.0, 2.0, 3.0])])
   // [1, 2, 3]: variance 1.0, std 1.0.
   assert_eq(whole(df, @expr.col("x").std()), @types.Scalar::Float(1.0))
   // A non-null NaN is a value: it flows through the mean, so std / var
   // propagate it (matching sum / mean), unlike min / max / median.
   let nan = @double.not_a_number
-  let dfn = DataFrame::new([Series::from_floats("x", [1.0, 2.0, nan])])
+  let dfn = DataFrame::DataFrame([Series::from_floats("x", [1.0, 2.0, nan])])
   assert_true(whole(dfn, @expr.col("x").std()).as_float().is_nan())
   assert_true(whole(dfn, @expr.col("x").variance()).as_float().is_nan())
 }
@@ -50,7 +50,7 @@ test "variance and std of equal large-magnitude values are 0, not +inf" {
   // Two equal cells near Double-max: the true variance is 0. A two-pass mean
   // would sum them to +inf and report +inf; Welford never forms the raw sum, so
   // the finite variance survives.
-  let df = DataFrame::new([Series::from_floats("x", [1.0e308, 1.0e308])])
+  let df = DataFrame::DataFrame([Series::from_floats("x", [1.0e308, 1.0e308])])
   assert_eq(whole(df, @expr.col("x").variance()), @types.Scalar::Float(0.0))
   assert_eq(whole(df, @expr.col("x").std()), @types.Scalar::Float(0.0))
 }
@@ -62,7 +62,7 @@ test "variance and std of opposite-sign extremes saturate to +inf, never negativ
   // NEGATIVE variance, and sqrt(-inf) = NaN for std. The true variance
   // (~2e616) exceeds Double's range, so the statistic saturates to +inf,
   // as numpy (ddof=1) and Polars report.
-  let two = DataFrame::new([Series::from_floats("x", [-1.0e308, 1.0e308])])
+  let two = DataFrame::DataFrame([Series::from_floats("x", [-1.0e308, 1.0e308])])
   assert_eq(
     whole(two, @expr.col("x").variance()),
     @types.Scalar::Float(@double.infinity),
@@ -73,7 +73,7 @@ test "variance and std of opposite-sign extremes saturate to +inf, never negativ
   )
   // A longer alternating window drives the artefact to NaN instead of -inf;
   // the finite-input rescue covers it the same way.
-  let three = DataFrame::new([
+  let three = DataFrame::DataFrame([
     Series::from_floats("x", [1.0e308, -1.0e308, 1.0e308]),
   ])
   assert_eq(
@@ -82,7 +82,7 @@ test "variance and std of opposite-sign extremes saturate to +inf, never negativ
   )
   // A genuine ±inf INPUT is not rescued: it propagates through the mean
   // like sum / mean, so the statistic is NaN (inf - inf), not +inf.
-  let inf_in = DataFrame::new([
+  let inf_in = DataFrame::DataFrame([
     Series::from_floats("x", [@double.infinity, 1.0]),
   ])
   assert_true(whole(inf_in, @expr.col("x").variance()).as_float().is_nan())
@@ -93,13 +93,13 @@ test "variance and std of opposite-sign extremes saturate to +inf, never negativ
 test "std and variance are null for fewer than two non-null cells" {
   // Sample statistics need ddof = 1 < cnt: one value, or none, has no
   // sample variance, so the cell is null rather than 0.0.
-  let one = DataFrame::new([Series::from_ints("x", [5])])
+  let one = DataFrame::DataFrame([Series::from_ints("x", [5])])
   assert_eq(whole(one, @expr.col("x").std()), @types.Scalar::Null)
   assert_eq(whole(one, @expr.col("x").variance()), @types.Scalar::Null)
-  let empty = DataFrame::new([Series::from_ints("x", [])])
+  let empty = DataFrame::DataFrame([Series::from_ints("x", [])])
   assert_eq(whole(empty, @expr.col("x").std()), @types.Scalar::Null)
   // Nulls are skipped, so a lone non-null cell beside nulls is still < 2.
-  let sparse = DataFrame::new([
+  let sparse = DataFrame::DataFrame([
     Series::from_int_options("x", [Some(5), None, None]),
   ])
   assert_eq(whole(sparse, @expr.col("x").variance()), @types.Scalar::Null)
@@ -110,10 +110,10 @@ test "std and variance are null for fewer than two non-null cells" {
 ///|
 test "median is the middle of the sorted non-null cells, always Float" {
   // Odd count: the middle. Int widens, so the result is Float.
-  let odd = DataFrame::new([Series::from_ints("x", [3, 1, 2])])
+  let odd = DataFrame::DataFrame([Series::from_ints("x", [3, 1, 2])])
   assert_eq(whole(odd, @expr.col("x").median()), @types.Scalar::Float(2.0))
   // Even count: the mean of the two middles.
-  let even = DataFrame::new([Series::from_ints("x", [1, 2, 3, 4])])
+  let even = DataFrame::DataFrame([Series::from_ints("x", [1, 2, 3, 4])])
   assert_eq(whole(even, @expr.col("x").median()), @types.Scalar::Float(2.5))
 }
 
@@ -122,10 +122,10 @@ test "median skips NaN and nulls, all-missing is null" {
   let nan = @double.not_a_number
   // NaN is ordered as missing (the min / max / sort rule, not propagation):
   // the median of [1, 2, NaN] is the median of [1, 2], i.e. 1.5.
-  let df = DataFrame::new([Series::from_floats("x", [1.0, 2.0, nan])])
+  let df = DataFrame::DataFrame([Series::from_floats("x", [1.0, 2.0, nan])])
   assert_eq(whole(df, @expr.col("x").median()), @types.Scalar::Float(1.5))
   // Nulls drop out the same way; [10, null, 20, null, 30] medians to 20.0.
-  let sparse = DataFrame::new([
+  let sparse = DataFrame::DataFrame([
     Series::from_float_options("x", [
       Some(10.0),
       None,
@@ -136,7 +136,9 @@ test "median skips NaN and nulls, all-missing is null" {
   ])
   assert_eq(whole(sparse, @expr.col("x").median()), @types.Scalar::Float(20.0))
   // Every cell missing → null.
-  let allnull = DataFrame::new([Series::from_float_options("x", [None, None])])
+  let allnull = DataFrame::DataFrame([
+    Series::from_float_options("x", [None, None]),
+  ])
   assert_eq(whole(allnull, @expr.col("x").median()), @types.Scalar::Null)
 }
 
@@ -145,7 +147,7 @@ test "median of two near-Double-max middles stays finite (no overflow to Inf)" {
   // The sum of the two middle cells overflows Double before the halving, yet the
   // median lies between them and is finite. Regression guard: the naive
   // `(lo + hi) / 2` returned +Inf here.
-  let big = DataFrame::new([Series::from_floats("x", [1.6e308, 1.7e308])])
+  let big = DataFrame::DataFrame([Series::from_floats("x", [1.6e308, 1.7e308])])
   assert_eq(
     whole(big, @expr.col("x").median()),
     @types.Scalar::Float(1.6e308 / 2.0 + 1.7e308 / 2.0),
@@ -156,14 +158,16 @@ test "median of two near-Double-max middles stays finite (no overflow to Inf)" {
 
 ///|
 test "n_unique counts distinct non-null values, an Int over any dtype" {
-  let ints = DataFrame::new([Series::from_ints("x", [1, 1, 2, 3, 3, 3])])
+  let ints = DataFrame::DataFrame([Series::from_ints("x", [1, 1, 2, 3, 3, 3])])
   assert_eq(whole(ints, @expr.col("x").n_unique()), @types.Scalar::Int(3))
-  let bools = DataFrame::new([Series::from_bools("x", [true, true, false])])
+  let bools = DataFrame::DataFrame([
+    Series::from_bools("x", [true, true, false]),
+  ])
   assert_eq(whole(bools, @expr.col("x").n_unique()), @types.Scalar::Int(2))
-  let strs = DataFrame::new([Series::from_strings("x", ["a", "a", "b"])])
+  let strs = DataFrame::DataFrame([Series::from_strings("x", ["a", "a", "b"])])
   assert_eq(whole(strs, @expr.col("x").n_unique()), @types.Scalar::Int(2))
   // Empty scope → zero distinct values (never null).
-  let empty = DataFrame::new([Series::from_ints("x", [])])
+  let empty = DataFrame::DataFrame([Series::from_ints("x", [])])
   assert_eq(whole(empty, @expr.col("x").n_unique()), @types.Scalar::Int(0))
 }
 
@@ -172,10 +176,12 @@ test "n_unique buckets every NaN as one value and excludes nulls" {
   let nan = @double.not_a_number
   // Two distinct values — the finite 1.0 and the single NaN bucket — even
   // though two NaN cells appear (NaN is one value, the n_unique / group rule).
-  let floats = DataFrame::new([Series::from_floats("x", [1.0, nan, 1.0, nan])])
+  let floats = DataFrame::DataFrame([
+    Series::from_floats("x", [1.0, nan, 1.0, nan]),
+  ])
   assert_eq(whole(floats, @expr.col("x").n_unique()), @types.Scalar::Int(2))
   // Nulls are not a value here: [1, null, 1, 2] has two distinct values.
-  let sparse = DataFrame::new([
+  let sparse = DataFrame::DataFrame([
     Series::from_int_options("x", [Some(1), None, Some(1), Some(2)]),
   ])
   assert_eq(whole(sparse, @expr.col("x").n_unique()), @types.Scalar::Int(2))
@@ -192,7 +198,7 @@ test "n_unique agrees with the whole-column Series statistic" {
     Some(2),
     Some(2),
   ])
-  let df = DataFrame::new([x])
+  let df = DataFrame::DataFrame([x])
   assert_eq(
     whole(df, @expr.col("x").n_unique()),
     @types.Scalar::Int(x.n_unique().to_int64()),
@@ -203,14 +209,16 @@ test "n_unique agrees with the whole-column Series statistic" {
 
 ///|
 test "first and last take the positional cell, keeping the source dtype" {
-  let ints = DataFrame::new([Series::from_ints("x", [10, 20, 30])])
+  let ints = DataFrame::DataFrame([Series::from_ints("x", [10, 20, 30])])
   assert_eq(whole(ints, @expr.col("x").first()), @types.Scalar::Int(10))
   assert_eq(whole(ints, @expr.col("x").last()), @types.Scalar::Int(30))
-  let floats = DataFrame::new([Series::from_floats("x", [1.5, 2.5, 3.5])])
+  let floats = DataFrame::DataFrame([Series::from_floats("x", [1.5, 2.5, 3.5])])
   assert_eq(whole(floats, @expr.col("x").last()), @types.Scalar::Float(3.5))
-  let bools = DataFrame::new([Series::from_bools("x", [true, false, true])])
+  let bools = DataFrame::DataFrame([
+    Series::from_bools("x", [true, false, true]),
+  ])
   assert_eq(whole(bools, @expr.col("x").first()), @types.Scalar::Bool(true))
-  let strs = DataFrame::new([Series::from_strings("x", ["a", "b", "c"])])
+  let strs = DataFrame::DataFrame([Series::from_strings("x", ["a", "b", "c"])])
   assert_eq(whole(strs, @expr.col("x").first()), @types.Scalar::String("a"))
 }
 
@@ -218,16 +226,16 @@ test "first and last take the positional cell, keeping the source dtype" {
 test "first and last are null on a null leading or trailing cell, or empty" {
   // Positional: a null first / last cell is null, not the first / last
   // *present* value.
-  let headnull = DataFrame::new([
+  let headnull = DataFrame::DataFrame([
     Series::from_int_options("x", [None, Some(2), Some(3)]),
   ])
   assert_eq(whole(headnull, @expr.col("x").first()), @types.Scalar::Null)
-  let tailnull = DataFrame::new([
+  let tailnull = DataFrame::DataFrame([
     Series::from_int_options("x", [Some(1), Some(2), None]),
   ])
   assert_eq(whole(tailnull, @expr.col("x").last()), @types.Scalar::Null)
   // An empty scope has no first / last cell → null.
-  let empty = DataFrame::new([Series::from_ints("x", [])])
+  let empty = DataFrame::DataFrame([Series::from_ints("x", [])])
   assert_eq(whole(empty, @expr.col("x").first()), @types.Scalar::Null)
   assert_eq(whole(empty, @expr.col("x").last()), @types.Scalar::Null)
 }
@@ -236,7 +244,7 @@ test "first and last are null on a null leading or trailing cell, or empty" {
 
 ///|
 test "std, variance, and median reject non-numeric columns" {
-  let strs = DataFrame::new([Series::from_strings("x", ["a", "b"])])
+  let strs = DataFrame::DataFrame([Series::from_strings("x", ["a", "b"])])
   assert_true(
     (Ok(whole(strs, @expr.col("x").std())) catch { e => Err(e) })
     is Err(
@@ -249,7 +257,7 @@ test "std, variance, and median reject non-numeric columns" {
       @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_))
     ),
   )
-  let bools = DataFrame::new([Series::from_bools("x", [true, false])])
+  let bools = DataFrame::DataFrame([Series::from_bools("x", [true, false])])
   assert_true(
     (Ok(whole(bools, @expr.col("x").median())) catch { e => Err(e) })
     is Err(
@@ -264,7 +272,7 @@ test "std, variance, and median reject non-numeric columns" {
 /// Five-row sales fixture grouped by `region`: `east` = rows 0, 2, 3
 /// (quantity 10, 2, 6), `west` = rows 1, 4 (quantity 5, 4); `east` first.
 fn grouped_sales() -> DataFrame raise @types.DataError {
-  DataFrame::new([
+  DataFrame::DataFrame([
     Series::from_strings("region", ["east", "west", "east", "east", "west"]),
     Series::from_ints("quantity", [10, 5, 2, 6, 4]),
   ])

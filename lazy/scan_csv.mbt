@@ -5,7 +5,7 @@
 /// total, like every other `LazyFrame` constructor, so a missing file or a
 /// malformed CSV only surfaces then (as the eager reader's `IoError` /
 /// `ParseError` / `DuplicateColumn`). The payoff over
-/// `lazy_frame(read_csv(path))` is projection push-down — the optimizer
+/// `LazyFrame::LazyFrame(read_csv(path))` is projection push-down — the optimizer
 /// narrows the leaf to the columns the pipeline provably consumes, and only
 /// those are parsed, so
 /// `scan_csv("sales.csv").select([col("region"), col("revenue")]).collect()`

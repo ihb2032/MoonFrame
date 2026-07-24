@@ -49,7 +49,7 @@
 /// - `ParseError(Cell(...))` — a non-null cell does not fit its inferred
 ///   dtype, unless `options.on_parse_error` is `Null`, which downgrades that
 ///   cell to a null instead.
-/// - Whatever `DataFrame::new` propagates.
+/// - Whatever `DataFrame::DataFrame` propagates.
 pub fn parse_ndjson_str(
   content : String,
   options? : JsonReadOptions = JsonReadOptions(),

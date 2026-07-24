@@ -2,7 +2,7 @@
 
 ///|
 fn order_df() -> DataFrame raise @types.DataError {
-  DataFrame::new([
+  DataFrame::DataFrame([
     Series::from_ints("n", [1, 2, 3]),
     Series::from_strings("s", ["a", "b", "c"]),
   ])
@@ -20,9 +20,9 @@ test "reverse flips the row order and leaves the schema alone" {
   // Reversing twice is the identity.
   assert_eq(out.reverse(), df)
   // Degenerate shapes are returned unchanged rather than re-gathered.
-  let single = DataFrame::new([Series::from_ints("n", [7])])
+  let single = DataFrame::DataFrame([Series::from_ints("n", [7])])
   assert_eq(single.reverse(), single)
-  let empty = DataFrame::new([Series::from_ints("n", [])])
+  let empty = DataFrame::DataFrame([Series::from_ints("n", [])])
   assert_eq(empty.reverse(), empty)
 }
 
@@ -42,7 +42,7 @@ test "with_row_index prepends a dense counter" {
   assert_eq(renamed.item(0, "row"), @types.Scalar::Int(10))
   assert_eq(renamed.item(2, "row"), @types.Scalar::Int(12))
   // A 0-row frame gets an empty counter, not a missing column.
-  let empty = DataFrame::new([Series::from_ints("n", [])])
+  let empty = DataFrame::DataFrame([Series::from_ints("n", [])])
   assert_eq(empty.with_row_index().columns(), ["index", "n"])
   assert_eq(empty.with_row_index().nrows(), 0)
 }

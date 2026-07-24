@@ -16,7 +16,7 @@
 /// group spanning every row, so a per-group reduction reduces the same cells
 /// as the whole-column one.
 fn one_group_df(x : Series) -> DataFrame raise @types.DataError {
-  DataFrame::new([Series::from_strings("k", Array::make(x.len(), "a")), x])
+  DataFrame::DataFrame([Series::from_strings("k", Array::make(x.len(), "a")), x])
 }
 
 ///|

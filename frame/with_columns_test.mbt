@@ -7,7 +7,7 @@
 
 ///|
 fn base_df() -> DataFrame raise @types.DataError {
-  DataFrame::new([
+  DataFrame::DataFrame([
     Series::from_ints("a", [1, 2, 3]),
     Series::from_ints("b", [10, 20, 30]),
   ])
@@ -98,7 +98,7 @@ test "with_columns([]) preserves a declared schema" {
   // an empty expression list adds nothing, so it must come back untouched
   // (the derived `Eq` compares the schema too).
   let df = DataFrame::from_rows(
-    @types.Schema::new([@types.Field("a", @types.DataType::Int, nullable=false)]),
+    @types.Schema([@types.Field("a", @types.DataType::Int, nullable=false)]),
     [[@types.Scalar::Int(1)], [@types.Scalar::Int(2)]],
   )
   let out = df.with_columns([])

@@ -7,7 +7,7 @@
 /// `NullInNonNullable(name)`. (`DataFrame::empty` builds 0-row columns, so it
 /// can never violate the constraint.) The flag is otherwise advisory — it is
 /// neither inferred from a column's contents nor re-derived: the constructor's
-/// `nullable` default (and so `DataFrame::new`, the IO readers, and every op
+/// `nullable` default (and so `DataFrame::DataFrame`, the IO readers, and every op
 /// that rebuilds a schema through them — `select`, a `drop` that removes a
 /// column, a `with_columns` that adds one) always sets `nullable = true`, so a
 /// `nullable = false` field only ever originates from an explicit

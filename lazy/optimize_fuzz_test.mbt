@@ -145,11 +145,11 @@ fn gen_rows(max_rows : Int) -> @gen.Gen[Array[RichRow]] {
 ///|
 /// Build the five-column rich frame from generated rows. The fixed schema
 /// spans every dtype; by construction all columns share `rows.length()`, so
-/// `DataFrame::new` never actually raises here.
+/// `DataFrame::DataFrame` never actually raises here.
 fn rows_to_frame(
   rows : Array[RichRow],
 ) -> @frame.DataFrame raise @types.DataError {
-  @frame.DataFrame::new([
+  @frame.DataFrame([
     @series.Series::from_int_options("g", rows.map(r => r.0)),
     @series.Series::from_float_options("fk", rows.map(r => r.1)),
     @series.Series::from_int_options("a", rows.map(r => r.2)),
@@ -445,7 +445,7 @@ test "fuzz: group-by then key-filter is optimizer/eager equivalent on rich frame
   let mut rewrites = 0
   let prop = (c : AggFilterCase) => {
     let lazy_chain = () => {
-      lazy_frame(rows_to_frame(c.rows))
+      LazyFrame::LazyFrame(rows_to_frame(c.rows))
       .group_by(c.keys)
       .agg(c.aggs)
       .filter(c.pred)
@@ -554,7 +554,7 @@ test "fuzz: select/with_columns then filter is optimizer/eager equivalent" {
       @expr.col("fk").with_alias("fk2"),
     ]
     let lazy_chain = () => {
-      let lf = lazy_frame(rows_to_frame(c.rows))
+      let lf = LazyFrame::LazyFrame(rows_to_frame(c.rows))
       if c.use_select {
         lf.select(proj).filter(c.pred)
       } else {
@@ -762,7 +762,7 @@ test "fuzz: randomly stacked pipelines stay optimizer/eager equivalent" {
   let mut rewrites = 0
   let prop = (c : StackedCase) => {
     let lazy_chain = () => {
-      let mut lf = lazy_frame(rows_to_frame(c.rows))
+      let mut lf = LazyFrame::LazyFrame(rows_to_frame(c.rows))
       for v in c.verbs {
         lf = apply_lazy(lf, v)
       }
@@ -945,7 +945,7 @@ fn shrink_pruned_file_case(c : PrunedFileCase) -> Iter[PrunedFileCase] {
 fn rows_to_clean_frame(
   rows : Array[RichRow],
 ) -> @frame.DataFrame raise @types.DataError {
-  @frame.DataFrame::new([
+  @frame.DataFrame([
     @series.Series::from_int_options("g", rows.map(r => r.0)),
     @series.Series::from_int_options("a", rows.map(r => r.2)),
     @series.Series::from_int_options("b", rows.map(r => r.3)),

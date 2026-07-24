@@ -70,7 +70,7 @@ test "revenue_chart: emits a Vega-Lite v5 bar spec" {
 
 ///|
 test "revenue_by_region: missing `region` column surfaces as ColumnNotFound" {
-  let df = @moonframe.DataFrame::new([
+  let df = @moonframe.DataFrame::DataFrame([
     @moonframe.Series::from_ints("revenue", [1, 2]),
   ])
   assert_true(
@@ -83,7 +83,7 @@ test "revenue_by_region: missing `region` column surfaces as ColumnNotFound" {
 test "revenue_chart: missing charted column surfaces as ColumnNotFound" {
   // A frame with `region` but no `revenue` can't be charted on y=revenue;
   // x is validated before y, so the missing column reported is `revenue`.
-  let df = @moonframe.DataFrame::new([
+  let df = @moonframe.DataFrame::DataFrame([
     @moonframe.Series::from_strings("region", ["west", "east"]),
   ])
   assert_true(

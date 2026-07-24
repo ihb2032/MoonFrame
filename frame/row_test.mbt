@@ -5,7 +5,7 @@
 /// Reusable mixed-dtype frame for the tests below. Row 1 is all-null so
 /// every dtype has a null cell to surface as `Scalar::Null`.
 fn sample_frame() -> DataFrame raise @types.DataError {
-  DataFrame::new([
+  DataFrame::DataFrame([
     Series::from_int_options("i", [Some(7), None, Some(9)]),
     Series::from_float_options("f", [Some(1.5), None, Some(3.5)]),
     Series::from_bool_options("b", [Some(true), None, Some(false)]),
@@ -99,7 +99,7 @@ test "rows agrees with row at every index" {
 ///|
 test "rows of a frame with no rows is empty" {
   // Columns declared, zero rows — no tuples to emit.
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_ints("a", []),
     Series::from_strings("s", []),
   ])

@@ -58,5 +58,7 @@ pub fn DataFrame::select(
       height = n
     }
   }
-  DataFrame::new(evaluated.map(column => broadcast_series(column, height)))
+  DataFrame::DataFrame(
+    evaluated.map(column => broadcast_series(column, height)),
+  )
 }

@@ -4,7 +4,7 @@
 /// Construction always validates uniqueness of names; once built, a
 /// `Schema` is guaranteed to have no duplicate column names.
 ///
-/// The `fields` array is `priv`: build a schema with `Schema::new` and read a
+/// The `fields` array is `priv`: build a schema with `Schema::Schema` and read a
 /// copy via `fields()` / `field_names()`. External code cannot reach or
 /// mutate the backing array, so a validated schema stays valid.
 pub struct Schema {
@@ -26,7 +26,14 @@ pub extend Schema with Debug::{to_repr}
 ///
 /// The input array is copied, so mutating `fields` after construction
 /// cannot alter the schema or break the validated no-duplicates invariant.
-pub fn Schema::new(fields : Array[Field]) -> Schema raise DataError {
+///
+/// The type's own constructor, like `Field`'s: the bare `Schema([...])`
+/// spelling resolves where the expected type is already concrete (an
+/// annotated binding, an argument position, the qualified
+/// `@types.Schema([...])`), and a plain `let s = ...` takes
+/// `Schema::Schema([...])`.
+#as_free_fn(visibility="pub")
+pub fn Schema::Schema(fields : Array[Field]) -> Schema raise DataError {
   let seen : Map[String, Unit] = Map([])
   for f in fields {
     if seen.contains(f.name) {
@@ -41,7 +48,7 @@ pub fn Schema::new(fields : Array[Field]) -> Schema raise DataError {
 /// Return a snapshot of the schema's fields.
 ///
 /// A fresh array is returned so callers cannot mutate the schema in place
-/// and break the "no duplicate names" invariant enforced by `Schema::new`.
+/// and break the "no duplicate names" invariant enforced by `Schema::Schema`.
 pub fn Schema::fields(self : Schema) -> Array[Field] {
   self.fields.copy()
 }

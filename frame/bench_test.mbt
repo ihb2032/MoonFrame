@@ -14,7 +14,7 @@ fn fact_frame(n : Int) -> DataFrame raise @types.DataError {
     (x * 2654435761L + 1013904223L) % 100000L
   })
   let fvalues = Array::makei(n, i => (i % 100000).to_double() * 1.5)
-  DataFrame::new([
+  DataFrame::DataFrame([
     Series::from_ints("key", keys),
     Series::from_ints("value", values),
     Series::from_floats("fvalue", fvalues),
@@ -24,7 +24,7 @@ fn fact_frame(n : Int) -> DataFrame raise @types.DataError {
 ///|
 /// A `groups`-row dimension frame keyed by `key`, for the join benchmark.
 fn dim_frame(groups : Int) -> DataFrame raise @types.DataError {
-  DataFrame::new([
+  DataFrame::DataFrame([
     Series::from_ints("key", Array::makei(groups, i => i.to_int64())),
     Series::from_strings("kname", Array::makei(groups, i => "g\{i}")),
   ])

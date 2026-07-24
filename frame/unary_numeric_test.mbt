@@ -4,7 +4,7 @@
 
 ///|
 test "abs / floor / ceil / sign on the Numeric fast arm" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_ints("i", [-3L, 3L, 0L]),
     Series::from_floats("f", [-3.7, 3.2, 0.0]),
   ])
@@ -64,7 +64,7 @@ test "abs / floor / ceil / sign on the Numeric fast arm" {
 
 ///|
 test "unary numeric: Builtin arm, null propagation, NaN, non-numeric" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_int_options("i", [Some(-3L), None]),
     Series::from_float_options("f", [Some(-3.7), None]),
   ])
@@ -81,7 +81,9 @@ test "unary numeric: Builtin arm, null propagation, NaN, non-numeric" {
     @types.Scalar::Null,
   ])
   // `NaN` passes through `abs` / `sign`.
-  let nans = DataFrame::new([Series::from_floats("f", [@double.not_a_number])])
+  let nans = DataFrame::DataFrame([
+    Series::from_floats("f", [@double.not_a_number]),
+  ])
   let nout = nans.select([
     @expr.col("f").abs().with_alias("a"),
     @expr.col("f").sign().with_alias("s"),
@@ -99,7 +101,7 @@ test "unary numeric: Builtin arm, null propagation, NaN, non-numeric" {
     },
   )
   // A non-numeric operand raises.
-  let strs = DataFrame::new([Series::from_strings("s", ["x"])])
+  let strs = DataFrame::DataFrame([Series::from_strings("s", ["x"])])
   assert_true(
     (Ok(strs.select([@expr.col("s").abs()])) catch { e => Err(e) })
     is Err(
@@ -110,7 +112,7 @@ test "unary numeric: Builtin arm, null propagation, NaN, non-numeric" {
 
 ///|
 test "round: ties go to even (banker's rounding)" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_floats("x", [0.5, 1.5, 2.5, 3.5, -0.5, -1.5, -2.5, -3.5]),
   ])
   let out = df.select([@expr.col("x").round().with_alias("r")])
@@ -130,7 +132,7 @@ test "round: ties go to even (banker's rounding)" {
 
 ///|
 test "round: non-ties go to the nearest integer; Int is identity" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_ints("i", [-3L, 4L, 0L]),
     Series::from_floats("f", [3.2, 3.7, -3.7]),
   ])
@@ -152,7 +154,9 @@ test "round: non-ties go to the nearest integer; Int is identity" {
 
 ///|
 test "round: Builtin null, NaN / ±inf pass through, non-numeric raises" {
-  let df = DataFrame::new([Series::from_float_options("f", [Some(2.5), None])])
+  let df = DataFrame::DataFrame([
+    Series::from_float_options("f", [Some(2.5), None]),
+  ])
   let out = df.select([@expr.col("f").round().with_alias("r")])
   // 2.5 rounds to the even 2; a null stays null.
   assert_eq(out.get_column("r").to_scalars(), [
@@ -161,7 +165,7 @@ test "round: Builtin null, NaN / ±inf pass through, non-numeric raises" {
   ])
   // NaN and ±inf pass through unchanged.
   let inf = 1.0 / 0.0
-  let special = DataFrame::new([
+  let special = DataFrame::DataFrame([
     Series::from_floats("f", [@double.not_a_number, inf, -inf]),
   ])
   let s = special
@@ -177,7 +181,7 @@ test "round: Builtin null, NaN / ±inf pass through, non-numeric raises" {
   assert_eq(s[1], @types.Scalar::Float(inf))
   assert_eq(s[2], @types.Scalar::Float(-inf))
   // A non-numeric operand raises.
-  let strs = DataFrame::new([Series::from_strings("s", ["x"])])
+  let strs = DataFrame::DataFrame([Series::from_strings("s", ["x"])])
   assert_true(
     (Ok(strs.select([@expr.col("s").round()])) catch { e => Err(e) })
     is Err(
@@ -197,7 +201,7 @@ test "unary numeric: Expr::explain renders the method calls" {
 
 ///|
 test "round takes a decimal-place count" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_floats("f", [1.2345, 2.5, -1.2345, 0.125]),
     Series::from_ints("i", [7, 8, 9, 10]),
   ])
@@ -224,7 +228,7 @@ test "round takes a decimal-place count" {
 test "round(decimals) stays total at the numeric edges" {
   let nan = 0.0 / 0.0
   let inf = 1.0 / 0.0
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_floats("f", [nan, inf, -inf, 1.7976931348623157e308, 1.5]),
   ])
   // Non-finite cells pass through untouched, as with the whole-number form.

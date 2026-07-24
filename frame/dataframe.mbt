@@ -38,7 +38,14 @@ pub extend DataFrame with Debug::{to_repr}
 /// The input array is copied, so mutating `columns` after construction
 /// cannot perturb the frame's invariants (the `Series` values themselves
 /// are immutable).
-pub fn DataFrame::new(
+///
+/// This is the type's own constructor. The bare spelling `DataFrame([...])`
+/// resolves wherever the expected type is already concrete — an annotated
+/// binding, an argument position, or the qualified `@frame.DataFrame([...])`;
+/// a plain `let df = ...` has no expected type to resolve against, so write
+/// `DataFrame::DataFrame([...])` there.
+#as_free_fn
+pub fn DataFrame::DataFrame(
   columns : Array[Series],
 ) -> DataFrame raise @types.DataError {
   let columns = columns.copy()
@@ -49,13 +56,13 @@ pub fn DataFrame::new(
   let fields : Array[@types.Field] = columns.map(fn(c) {
     @types.Field(c.name(), c.dtype())
   })
-  let schema = @types.Schema::new(fields)
+  let schema = @types.Schema(fields)
   { schema, columns, nrows, name_to_index: index_by_name(columns) }
 }
 
 ///|
 /// Build the name→index lookup cache from a column vector: position `i` maps
-/// from `columns[i].name()`. Every constructor routes through `Schema::new`,
+/// from `columns[i].name()`. Every constructor routes through `Schema::Schema`,
 /// which rejects duplicate names before this runs, so the `(name, i)` pairs
 /// are 1:1 with the columns. Shared by `new`, `empty`, and `from_rows`.
 fn index_by_name(columns : Array[Series]) -> Map[String, Int] {
@@ -66,7 +73,7 @@ fn index_by_name(columns : Array[Series]) -> Map[String, Int] {
 /// Build a 0-row `DataFrame` matching `schema`. Each column is an empty
 /// `Series` of the field's declared dtype.
 ///
-/// The `schema` is re-validated through `Schema::new` (`raise
+/// The `schema` is re-validated through `Schema::Schema` (`raise
 /// DuplicateColumn(name)` on a repeated name): every `Schema` constructor
 /// already rejects duplicates, so this is defence-in-depth that keeps the
 /// frame's "no duplicate names" invariant true regardless of how the schema
@@ -78,7 +85,7 @@ fn index_by_name(columns : Array[Series]) -> Map[String, Int] {
 pub fn DataFrame::empty(
   schema : @types.Schema,
 ) -> DataFrame raise @types.DataError {
-  let schema = @types.Schema::new(schema.fields())
+  let schema = @types.Schema(schema.fields())
   let columns : Array[Series] = schema
     .fields()
     .map(f => {
@@ -147,7 +154,7 @@ fn[T] typed_column_cells(
 /// Raises:
 /// - `DuplicateColumn(name)` — the schema carries a repeated field name.
 ///   Every `Schema` constructor already rejects duplicates, so this is
-///   defence-in-depth: re-validating through `Schema::new` here (as `empty`
+///   defence-in-depth: re-validating through `Schema::Schema` here (as `empty`
 ///   does) keeps the "no duplicate names" invariant regardless of how the
 ///   schema reached this call.
 /// - `LengthMismatch` — a row's width differs from `schema.len()`.
@@ -161,13 +168,13 @@ pub fn DataFrame::from_rows(
   schema : @types.Schema,
   rows : Array[Array[@types.Scalar]],
 ) -> DataFrame raise @types.DataError {
-  let schema = @types.Schema::new(schema.fields())
+  let schema = @types.Schema(schema.fields())
   let ncols = schema.len()
   if !rows.all(row => row.length() == ncols) {
     raise @types.DataError::LengthMismatch
   }
   // A schema with zero columns cannot anchor a positive row count: every
-  // row had to be width-0 to pass the check above, and `DataFrame::new`'s
+  // row had to be width-0 to pass the check above, and `DataFrame::DataFrame`'s
   // convention is that a column-less frame is row-less (`0×0`). Normalise
   // `nrows` to 0 there so `from_rows` agrees with `new` / `empty` and the
   // result satisfies INV7 in `check_invariants`.
@@ -535,7 +542,7 @@ pub fn DataFrame::to_builtin(self : DataFrame) -> DataFrame {
 /// `fill_null` / `unique`) and the backend re-representations (`to_numeric` /
 /// `to_builtin`): the column values or backing change but the names and dtypes
 /// do not, so the cache stays valid and these never pay to rebuild it through
-/// `DataFrame::new` (`O(n)`, and able to raise). Total — the caller guarantees
+/// `DataFrame::DataFrame` (`O(n)`, and able to raise). Total — the caller guarantees
 /// `new_cols` still matches the schema and carries `nrows` rows each.
 ///
 /// Spelt as a struct update so that a field added to `DataFrame` later is
@@ -554,12 +561,12 @@ fn DataFrame::with_same_schema(
 /// of `with_same_schema`. `fields` is index-aligned with the column vector and
 /// differs from `self.schema`'s only in the field *names* (`rename` /
 /// `rename_with` map each through `Field::rename`), so this re-validates it
-/// through `Schema::new` — `raise DuplicateColumn(name)` on the first repeat —
+/// through `Schema::Schema` — `raise DuplicateColumn(name)` on the first repeat —
 /// retitles each column to its field's name, and rebuilds the `O(1)`
 /// name→index cache, which unlike `with_same_schema` cannot be reused because
 /// the names moved. Row count and column order are untouched.
 ///
-/// Carrying the fields rather than re-deriving them through `DataFrame::new` is
+/// Carrying the fields rather than re-deriving them through `DataFrame::DataFrame` is
 /// what keeps a renamed column's metadata: `new` names every field with the
 /// `Field` constructor default, resetting a declared `nullable = false`, while
 /// a rename by contract changes nothing but the name.
@@ -567,7 +574,7 @@ fn DataFrame::with_renamed_fields(
   self : DataFrame,
   fields : Array[@types.Field],
 ) -> DataFrame raise @types.DataError {
-  let schema = @types.Schema::new(fields)
+  let schema = @types.Schema(fields)
   // `fields` is index-aligned with the column vector, so `columns[i]` is
   // in-bounds and the rebuilt schema mirrors the columns name-for-name.
   let new_cols = fields.mapi((i, f) => self.columns[i].rename(f.name()))

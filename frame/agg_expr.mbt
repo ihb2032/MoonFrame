@@ -12,7 +12,7 @@
 /// expression (in expression order), named by the expression's
 /// output name (alias, else leftmost column reference, else `"literal"`);
 /// one row per group, in the first-appearance group order fixed by
-/// `group_by`. The result routes through `DataFrame::new`, so name
+/// `group_by`. The result routes through `DataFrame::DataFrame`, so name
 /// collisions — two expressions sharing an output name, or an expression
 /// shadowing a key column — surface as `DuplicateColumn`, and every output
 /// satisfies `check_invariants()`. `agg([])` degenerates to a distinct over
@@ -165,7 +165,7 @@ pub fn GroupedDataFrame::agg(
     }
     out_cols.push(agg_cells_to_series(cells, probe, out_name))
   }
-  DataFrame::new(out_cols)
+  DataFrame::DataFrame(out_cols)
 }
 
 ///|

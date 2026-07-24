@@ -102,7 +102,7 @@ pub fn JsonReadOptions::JsonReadOptions(
 /// - `ParseError(Cell(...))` — a non-null cell does not fit the column's
 ///   inferred dtype, unless `options.on_parse_error` is `Null`, which
 ///   downgrades that cell to a null instead.
-/// - Whatever `DataFrame::new` propagates (duplicate-header is
+/// - Whatever `DataFrame::DataFrame` propagates (duplicate-header is
 ///   pre-empted upstream; length-mismatch cannot fire because every
 ///   column is built off `records.length()`).
 pub fn parse_json_str(
@@ -119,7 +119,7 @@ pub fn parse_json_str(
   // reader (which skips blank lines) rather than raising on an absent
   // top-level value.
   if content.is_blank() {
-    return @frame.DataFrame::new([])
+    return @frame.DataFrame([])
   }
   let json = parse_json_payload(content)
   let records = match json {
@@ -160,11 +160,11 @@ pub fn parse_json_str(
 ///      all-null column defaults to `String` (same convention as the
 ///      CSV reader — no information to disambiguate).
 ///   4. Materialise each column into a typed `Series` and wrap through
-///      `DataFrame::new`.
+///      `DataFrame::DataFrame`.
 ///
 /// An empty record set, or records that are all empty objects
 /// (`[{}, {}, ...]`, which would be N rows of zero columns that
-/// `DataFrame::new` cannot model), collapse to a 0×0 frame — the same
+/// `DataFrame::DataFrame` cannot model), collapse to a 0×0 frame — the same
 /// shape both readers' empty-input paths produce. A cell that doesn't
 /// fit its column's inferred dtype is handled per `on_parse_error`
 /// (raise `ParseError(Cell(...))`, or downgrade the cell to a null), shared
@@ -197,7 +197,7 @@ fn frame_from_json_records(
   ),
 ) -> @frame.DataFrame raise @types.DataError {
   if records.is_empty() {
-    return @frame.DataFrame::new([])
+    return @frame.DataFrame([])
   }
   let objs : Array[Map[String, Json]] = Array::new(capacity=records.length())
   let headers : Array[String] = []
@@ -229,7 +229,7 @@ fn frame_from_json_records(
   }
   let ncols = headers.length()
   if ncols == 0 {
-    return @frame.DataFrame::new([])
+    return @frame.DataFrame([])
   }
   // Build one typed column per header, skipping any the projection drops; the
   // surviving columns keep first-seen header order, so a projected read is

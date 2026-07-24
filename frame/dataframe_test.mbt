@@ -5,7 +5,7 @@
 
 ///|
 test "new builds a frame from equal-length, uniquely named columns" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_ints("a", [1, 2, 3]),
     Series::from_strings("b", ["x", "y", "z"]),
   ])
@@ -18,7 +18,7 @@ test "new builds a frame from equal-length, uniquely named columns" {
 ///|
 test "new copies its input columns array" {
   let cols = [Series::from_ints("a", [1, 2])]
-  let df = DataFrame::new(cols)
+  let df = DataFrame::DataFrame(cols)
   // Would leave a ragged phantom column (push) or dangle the name→index
   // cache (pop) if the array were aliased.
   cols.push(Series::from_ints("b", [9]))
@@ -31,7 +31,7 @@ test "new copies its input columns array" {
 
 ///|
 test "new with zero columns yields a 0×0 frame" {
-  let df = DataFrame::new([])
+  let df = DataFrame::DataFrame([])
   assert_eq(df.shape(), (0, 0))
   assert_true(df.is_empty())
   assert_eq(df.columns(), [])
@@ -40,7 +40,7 @@ test "new with zero columns yields a 0×0 frame" {
 ///|
 test "new rejects columns of unequal length" {
   let r = Ok(
-    DataFrame::new([
+    DataFrame::DataFrame([
       Series::from_ints("a", [1, 2]),
       Series::from_ints("b", [1, 2, 3]),
     ]),
@@ -53,7 +53,10 @@ test "new rejects columns of unequal length" {
 ///|
 test "new rejects duplicate column names" {
   let r = Ok(
-    DataFrame::new([Series::from_ints("a", [1]), Series::from_ints("a", [2])]),
+    DataFrame::DataFrame([
+      Series::from_ints("a", [1]),
+      Series::from_ints("a", [2]),
+    ]),
   ) catch {
     e => Err(e)
   }
@@ -64,7 +67,7 @@ test "new rejects duplicate column names" {
 
 ///|
 test "empty(schema) builds a 0-row frame with the schema's dtypes" {
-  let schema = @types.Schema::new([
+  let schema = @types.Schema([
     @types.Field("i", @types.DataType::Int),
     @types.Field("f", @types.DataType::Float),
     @types.Field("b", @types.DataType::Bool),
@@ -84,7 +87,7 @@ test "empty(schema) builds a 0-row frame with the schema's dtypes" {
 
 ///|
 test "empty(empty schema) yields a 0×0 frame" {
-  let schema = @types.Schema::new([])
+  let schema = @types.Schema([])
   let df = DataFrame::empty(schema)
   assert_eq(df.shape(), (0, 0))
   assert_true(df.is_empty())
@@ -92,7 +95,7 @@ test "empty(empty schema) yields a 0×0 frame" {
 
 ///|
 test "empty rejects Null-dtype fields with Unsupported" {
-  let schema = @types.Schema::new([
+  let schema = @types.Schema([
     @types.Field("ok", @types.DataType::Int),
     @types.Field("nope", @types.DataType::Null),
   ])
@@ -105,7 +108,7 @@ test "empty rejects Null-dtype fields with Unsupported" {
 
 ///|
 test "from_rows builds a frame, mixing nulls and concrete cells" {
-  let schema = @types.Schema::new([
+  let schema = @types.Schema([
     @types.Field("i", @types.DataType::Int),
     @types.Field("f", @types.DataType::Float),
     @types.Field("b", @types.DataType::Bool),
@@ -151,7 +154,7 @@ test "from_rows builds a frame, mixing nulls and concrete cells" {
 
 ///|
 test "from_rows with empty rows produces a 0×N frame" {
-  let schema = @types.Schema::new([@types.Field("x", @types.DataType::Int)])
+  let schema = @types.Schema([@types.Field("x", @types.DataType::Int)])
   let df = DataFrame::from_rows(schema, [])
   assert_eq(df.shape(), (0, 1))
   assert_true(df.is_empty())
@@ -160,10 +163,10 @@ test "from_rows with empty rows produces a 0×N frame" {
 ///|
 /// A zero-column schema collapses to `0×0` no matter how many
 /// (necessarily width-0) rows are passed — `from_rows` agrees with
-/// `DataFrame::new([])` rather than minting a column-less `N×0` frame
+/// `DataFrame::DataFrame([])` rather than minting a column-less `N×0` frame
 /// (which would report `is_empty() == false` and violate INV7).
 test "from_rows with an empty schema collapses to 0×0" {
-  let schema = @types.Schema::new([])
+  let schema = @types.Schema([])
   let df = DataFrame::from_rows(schema, [[], [], []])
   assert_eq(df.shape(), (0, 0))
   assert_true(df.is_empty())
@@ -172,7 +175,7 @@ test "from_rows with an empty schema collapses to 0×0" {
 
 ///|
 test "from_rows rejects rows of the wrong width" {
-  let schema = @types.Schema::new([
+  let schema = @types.Schema([
     @types.Field("a", @types.DataType::Int),
     @types.Field("b", @types.DataType::Int),
   ])
@@ -186,7 +189,7 @@ test "from_rows rejects rows of the wrong width" {
 test "from_rows rejects dtype mismatches with a structured TypeMismatch" {
   // Each mismatch surfaces `TypeMismatch(Expected(expected, got, column))`, whose
   // dtypes and column name are readable without parsing a message string.
-  let s_i = @types.Schema::new([@types.Field("x", @types.DataType::Int)])
+  let s_i = @types.Schema([@types.Field("x", @types.DataType::Int)])
   assert_eq(
     Ok(DataFrame::from_rows(s_i, [[@types.Scalar::Float(1.0)]])) catch {
       e => Err(e)
@@ -201,7 +204,7 @@ test "from_rows rejects dtype mismatches with a structured TypeMismatch" {
       ),
     ),
   )
-  let s_f = @types.Schema::new([@types.Field("x", @types.DataType::Float)])
+  let s_f = @types.Schema([@types.Field("x", @types.DataType::Float)])
   assert_eq(
     Ok(DataFrame::from_rows(s_f, [[@types.Scalar::String("x")]])) catch {
       e => Err(e)
@@ -216,7 +219,7 @@ test "from_rows rejects dtype mismatches with a structured TypeMismatch" {
       ),
     ),
   )
-  let s_b = @types.Schema::new([@types.Field("x", @types.DataType::Bool)])
+  let s_b = @types.Schema([@types.Field("x", @types.DataType::Bool)])
   assert_eq(
     Ok(DataFrame::from_rows(s_b, [[@types.Scalar::Int(1)]])) catch {
       e => Err(e)
@@ -231,7 +234,7 @@ test "from_rows rejects dtype mismatches with a structured TypeMismatch" {
       ),
     ),
   )
-  let s_s = @types.Schema::new([@types.Field("x", @types.DataType::String)])
+  let s_s = @types.Schema([@types.Field("x", @types.DataType::String)])
   assert_eq(
     Ok(DataFrame::from_rows(s_s, [[@types.Scalar::Bool(true)]])) catch {
       e => Err(e)
@@ -257,7 +260,7 @@ test "from_rows rejects dtype mismatches with a structured TypeMismatch" {
 
 ///|
 test "from_rows rejects Null-dtype fields with Unsupported" {
-  let schema = @types.Schema::new([@types.Field("n", @types.DataType::Null)])
+  let schema = @types.Schema([@types.Field("n", @types.DataType::Null)])
   assert_true(
     (Ok(DataFrame::from_rows(schema, [[@types.Scalar::Null]])) catch {
       e => Err(e)
@@ -268,7 +271,7 @@ test "from_rows rejects Null-dtype fields with Unsupported" {
 
 ///|
 test "from_rows enforces non-nullable: a null cell raises NullInNonNullable" {
-  let schema = @types.Schema::new([
+  let schema = @types.Schema([
     @types.Field("id", @types.DataType::Int, nullable=false),
   ])
   let r = Ok(
@@ -284,7 +287,7 @@ test "from_rows enforces non-nullable: a null cell raises NullInNonNullable" {
 
 ///|
 test "from_rows accepts a non-nullable field with no nulls" {
-  let schema = @types.Schema::new([
+  let schema = @types.Schema([
     @types.Field("id", @types.DataType::Int, nullable=false),
   ])
   let df = DataFrame::from_rows(schema, [
@@ -299,7 +302,7 @@ test "from_rows accepts a non-nullable field with no nulls" {
 
 ///|
 test "schema mirrors the column dtypes and names in order" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_ints("a", [1]),
     Series::from_floats("b", [1.5]),
   ])
@@ -310,7 +313,7 @@ test "schema mirrors the column dtypes and names in order" {
 
 ///|
 test "columns returns names in declaration order, fresh array per call" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_ints("first", [1]),
     Series::from_ints("second", [2]),
   ])
@@ -324,7 +327,7 @@ test "columns returns names in declaration order, fresh array per call" {
 
 ///|
 test "to_scalar_matrix materialises every cell column-major, Null for nulls" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_int_options("a", [Some(1), None]),
     Series::from_strings("s", ["x", "y"]),
   ])
@@ -341,7 +344,7 @@ test "to_scalar_matrix materialises every cell column-major, Null for nulls" {
 
 ///|
 test "is_empty fires on 0 rows even with columns declared" {
-  let df = DataFrame::new([Series::from_ints("x", [])])
+  let df = DataFrame::DataFrame([Series::from_ints("x", [])])
   assert_true(df.is_empty())
   assert_eq(df.shape(), (0, 1))
 }
@@ -350,7 +353,7 @@ test "is_empty fires on 0 rows even with columns declared" {
 
 ///|
 test "get_column hits the O(1) name_to_index cache" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_ints("a", [1, 2]),
     Series::from_strings("b", ["x", "y"]),
   ])
@@ -367,7 +370,7 @@ test "get_column hits the O(1) name_to_index cache" {
 
 ///|
 test "get_column_at validates the positional index" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_ints("a", [1]),
     Series::from_ints("b", [2]),
   ])
@@ -389,7 +392,7 @@ test "get_column_at validates the positional index" {
 
 ///|
 test "get returns Scalar / Null and surfaces the right error variant" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_int_options("x", [Some(7), None, Some(9)]),
   ])
   assert_eq(df.item(0, "x"), @types.Scalar::Int(7))
@@ -414,7 +417,7 @@ test "get returns Scalar / Null and surfaces the right error variant" {
 
 ///|
 test "head returns the first n rows with the same schema" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_ints("a", [1, 2, 3, 4]),
     Series::from_strings("b", ["w", "x", "y", "z"]),
   ])
@@ -428,14 +431,14 @@ test "head returns the first n rows with the same schema" {
 
 ///|
 test "head clamps n > nrows to nrows" {
-  let df = DataFrame::new([Series::from_ints("a", [1, 2, 3])])
+  let df = DataFrame::DataFrame([Series::from_ints("a", [1, 2, 3])])
   let all = df.head(99)
   assert_eq(all.shape(), (3, 1))
 }
 
 ///|
 test "head clamps n < 0 to 0" {
-  let df = DataFrame::new([Series::from_ints("a", [1, 2, 3])])
+  let df = DataFrame::DataFrame([Series::from_ints("a", [1, 2, 3])])
   let empty = df.head(-5)
   assert_eq(empty.shape(), (0, 1))
   assert_true(empty.is_empty())
@@ -443,7 +446,7 @@ test "head clamps n < 0 to 0" {
 
 ///|
 test "tail returns the last n rows with the same schema" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_ints("a", [1, 2, 3, 4]),
     Series::from_strings("b", ["w", "x", "y", "z"]),
   ])
@@ -455,7 +458,7 @@ test "tail returns the last n rows with the same schema" {
 
 ///|
 test "tail clamps n > nrows and n < 0" {
-  let df = DataFrame::new([Series::from_ints("a", [1, 2, 3])])
+  let df = DataFrame::DataFrame([Series::from_ints("a", [1, 2, 3])])
   let all = df.tail(99)
   assert_eq(all.shape(), (3, 1))
   let empty = df.tail(-1)
@@ -466,7 +469,7 @@ test "tail clamps n > nrows and n < 0" {
 
 ///|
 test "slice mid-range produces a sub-frame preserving names + nulls" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_int_options("a", [Some(10), None, Some(30), Some(40)]),
     Series::from_strings("b", ["w", "x", "y", "z"]),
   ])
@@ -479,14 +482,14 @@ test "slice mid-range produces a sub-frame preserving names + nulls" {
 
 ///|
 test "slice [start, start) returns an empty frame" {
-  let df = DataFrame::new([Series::from_ints("x", [1, 2, 3])])
+  let df = DataFrame::DataFrame([Series::from_ints("x", [1, 2, 3])])
   let zero = df.slice(2, 2)
   assert_eq(zero.shape(), (0, 1))
 }
 
 ///|
 test "slice reports invalid bounds with the appropriate error" {
-  let df = DataFrame::new([Series::from_ints("x", [1, 2, 3])])
+  let df = DataFrame::DataFrame([Series::from_ints("x", [1, 2, 3])])
   assert_eq(
     Ok(df.slice(-1, 2)) catch {
       e => Err(e)
@@ -508,7 +511,7 @@ test "slice reports invalid bounds with the appropriate error" {
 
 ///|
 test "gather collects rows in arbitrary order across every column" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_ints("a", [10, 20, 30]),
     Series::from_strings("b", ["x", "y", "z"]),
   ])
@@ -521,7 +524,7 @@ test "gather collects rows in arbitrary order across every column" {
 
 ///|
 test "gather with empty indices produces an empty frame of the same schema" {
-  let df = DataFrame::new([Series::from_ints("x", [1, 2])])
+  let df = DataFrame::DataFrame([Series::from_ints("x", [1, 2])])
   let out = df.gather([])
   assert_true(out.is_empty())
   assert_eq(out.schema(), df.schema())
@@ -529,7 +532,7 @@ test "gather with empty indices produces an empty frame of the same schema" {
 
 ///|
 test "gather rejects out-of-bounds indices with the first offender" {
-  let df = DataFrame::new([Series::from_ints("x", [1, 2])])
+  let df = DataFrame::DataFrame([Series::from_ints("x", [1, 2])])
   assert_eq(
     Ok(df.gather([0, 5])) catch {
       e => Err(e)
@@ -548,7 +551,7 @@ test "gather rejects out-of-bounds indices with the first offender" {
 
 ///|
 test "head / tail / slice / gather all keep get_column working" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_ints("a", [1, 2, 3, 4]),
     Series::from_strings("b", ["w", "x", "y", "z"]),
   ])
@@ -574,7 +577,7 @@ test "head / tail / slice copy every dtype, valid and null cells" {
   // zero-copy view). Slice a frame whose four columns each carry a null
   // inside the kept range so every dtype branch runs and the view carries
   // the nulls through.
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_int_options("i", [Some(1), None, Some(3), Some(4)]),
     Series::from_float_options("f", [Some(1.0), Some(2.0), None, Some(4.0)]),
     Series::from_bool_options("b", [None, Some(true), Some(false), Some(true)]),
@@ -609,7 +612,7 @@ test "head null_count is correct on Builtin columns (zero-copy view)" {
   // buffer (zero-copy). `head(k)` yields an offset-0 view, so null_count /
   // count must count only the kept window — not the parent's rows past `k`
   // that linger in the shared final byte.
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_bools("b", [true, true, true]),
     Series::from_int_options("i", [Some(1), None, Some(3)]),
   ])
@@ -627,17 +630,17 @@ test "head null_count is correct on Builtin columns (zero-copy view)" {
 
 ///|
 test "structural equality compares schema + columns + nrows" {
-  let a = DataFrame::new([
+  let a = DataFrame::DataFrame([
     Series::from_ints("x", [1, 2]),
     Series::from_strings("y", ["a", "b"]),
   ])
-  let b = DataFrame::new([
+  let b = DataFrame::DataFrame([
     Series::from_ints("x", [1, 2]),
     Series::from_strings("y", ["a", "b"]),
   ])
   assert_eq(a, b)
   // Differ in a column value.
-  let c = DataFrame::new([
+  let c = DataFrame::DataFrame([
     Series::from_ints("x", [1, 2]),
     Series::from_strings("y", ["a", "c"]),
   ])
@@ -648,7 +651,7 @@ test "structural equality compares schema + columns + nrows" {
 
 ///|
 test "to_numeric converts eligible columns and keeps the rest (storage_kinds reflects it)" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     // Builtin, all-valid Int → converts to Numeric.
     Series::from_int_options("vi", [Some(1), Some(2), Some(3)]),
     // Builtin, all-valid Float → converts to Numeric.
@@ -686,7 +689,7 @@ test "to_numeric converts eligible columns and keeps the rest (storage_kinds ref
 
 ///|
 test "to_builtin materialises every column to Builtin and round-trips with to_numeric" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_ints("a", [1, 2]),
     Series::from_floats("b", [1.5, 2.5]),
     Series::from_strings("c", ["x", "y"]),
@@ -715,7 +718,7 @@ test "to_builtin materialises every column to Builtin and round-trips with to_nu
 
 ///|
 test "limit is head: first n rows, clamped the same way" {
-  let df = DataFrame::new([Series::from_ints("v", [1, 2, 3])])
+  let df = DataFrame::DataFrame([Series::from_ints("v", [1, 2, 3])])
   assert_eq(df.limit(2), df.head(2))
   assert_eq(df.limit(0).nrows(), 0)
   assert_eq(df.limit(99), df)

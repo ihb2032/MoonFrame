@@ -10,7 +10,7 @@
 
 ///|
 test "to_markdown: empty frame returns the empty string" {
-  let df = DataFrame::new([])
+  let df = DataFrame::DataFrame([])
   assert_eq(df.to_markdown(), "")
 }
 
@@ -19,7 +19,7 @@ test "to_markdown: zero rows still emits header + separator" {
   // `DataFrame::empty` produces a schema-only frame with 0 records.
   // The renderer must still surface the column layout — that's the
   // whole point of having a schema in the first place.
-  let schema = @types.Schema::new([
+  let schema = @types.Schema([
     @types.Field("a", @types.DataType::Int),
     @types.Field("b", @types.DataType::String),
   ])
@@ -35,7 +35,7 @@ test "to_markdown: zero rows still emits header + separator" {
 
 ///|
 test "to_markdown: simple Int + String frame" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_ints("a", [1, 2, 3]),
     Series::from_strings("b", ["x", "y", "z"]),
   ])
@@ -51,7 +51,7 @@ test "to_markdown: simple Int + String frame" {
 
 ///|
 test "to_markdown: null cells render as the empty string" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_int_options("n", [Some(1), None, Some(3)]),
     Series::from_string_options("s", [Some("a"), Some("b"), None]),
   ])
@@ -71,7 +71,7 @@ test "to_markdown: escapes pipe and newline in headers and cells" {
   // the GFM cell; CR / LF become a space so a multi-line value can't
   // terminate the row mid-cell. Width alignment runs on the escaped
   // text, so the `\|` expansion is measured correctly.
-  let df = DataFrame::new([Series::from_strings("a|b", ["x|y", "p\r\nq"])])
+  let df = DataFrame::DataFrame([Series::from_strings("a|b", ["x|y", "p\r\nq"])])
   let expected =
     #|| a\|b |
     #|| ---- |
@@ -87,7 +87,7 @@ test "to_markdown: a backslash before a pipe can't split the row" {
   // table-splitting pipe). The backslash is doubled and the pipe escaped,
   // so the rendered cell is `\\\|` and the data row keeps exactly its two
   // bounding pipes.
-  let df = DataFrame::new([Series::from_strings("v", ["\\|"])])
+  let df = DataFrame::DataFrame([Series::from_strings("v", ["\\|"])])
   let expected =
     #|| v    |
     #|| ---- |
@@ -104,7 +104,7 @@ test "to_markdown: column width aligns to widest header / cell" {
   // chars; widths for the numeric column come from the header (1)
   // and the widest cell ("22" → 2) and then bump to the 3-char
   // separator minimum.
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_strings("identifier", ["x", "yyy", "zzzzz"]),
     Series::from_ints("n", [1, 22, 3]),
   ])
@@ -123,7 +123,7 @@ test "to_markdown: column width respects the 3-char dash minimum" {
   // The header and every cell are single characters; without the
   // minimum the separator would collapse to `|-|` which stricter
   // CommonMark parsers reject. The renderer pads to 3 dashes.
-  let df = DataFrame::new([Series::from_strings("a", ["1", "2"])])
+  let df = DataFrame::DataFrame([Series::from_strings("a", ["1", "2"])])
   let expected =
     #|| a   |
     #|| --- |
@@ -140,7 +140,7 @@ test "to_markdown: truncates and appends `... (N more rows)`" {
   // The blank line before the banner ends the GFM table, so the banner
   // renders as the paragraph below it — glued to the last row it would
   // parse as one more single-cell table ROW.
-  let df = DataFrame::new([Series::from_ints("n", [1, 2, 3, 4, 5])])
+  let df = DataFrame::DataFrame([Series::from_ints("n", [1, 2, 3, 4, 5])])
   let expected =
     #|| n   |
     #|| --- |
@@ -154,7 +154,7 @@ test "to_markdown: truncates and appends `... (N more rows)`" {
 
 ///|
 test "to_markdown: limit >= nrows shows every row, no banner" {
-  let df = DataFrame::new([Series::from_ints("n", [1, 2])])
+  let df = DataFrame::DataFrame([Series::from_ints("n", [1, 2])])
   let expected =
     #|| n   |
     #|| --- |
@@ -170,7 +170,7 @@ test "to_markdown: limit >= nrows shows every row, no banner" {
 test "to_markdown: limit=0 shows header + separator + banner" {
   // shown=0 means the width pass only sees the header, so the
   // column width is just the header width bumped to the 3-char min.
-  let df = DataFrame::new([Series::from_ints("n", [1, 2, 3])])
+  let df = DataFrame::DataFrame([Series::from_ints("n", [1, 2, 3])])
   let expected =
     #|| n   |
     #|| --- |
@@ -182,7 +182,7 @@ test "to_markdown: limit=0 shows header + separator + banner" {
 
 ///|
 test "to_markdown: negative limit is clamped to 0" {
-  let df = DataFrame::new([Series::from_ints("n", [1, 2])])
+  let df = DataFrame::DataFrame([Series::from_ints("n", [1, 2])])
   let expected =
     #|| n   |
     #|| --- |

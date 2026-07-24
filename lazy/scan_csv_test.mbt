@@ -15,7 +15,7 @@
 fn write_fixture(path : String) -> Unit raise @types.DataError {
   @io.write_csv(
     path,
-    @frame.DataFrame::new([
+    @frame.DataFrame([
       @series.Series::from_ints("qty", [5, 120, 80, 200]),
       @series.Series::from_int_options("bonus", [Some(1), None, Some(3), None]),
       @series.Series::from_strings("region", ["west", "east", "west", "east"]),
@@ -62,7 +62,7 @@ test "scan_csv with projection push-down collects equal to the eager read then s
 ///|
 test "scan_csv_with_options honours the read options at collect time" {
   let path = "_build/lazy_scan_csv_options.csv"
-  let df = @frame.DataFrame::new([
+  let df = @frame.DataFrame([
     @series.Series::from_ints("a", [1, 2]),
     @series.Series::from_strings("b", ["p", "q"]),
   ])
@@ -82,7 +82,7 @@ test "scan_csv_with_options snapshots the null-token list" {
   let path = "_build/lazy_scan_csv_aliasing.csv"
   @io.write_csv(
     path,
-    @frame.DataFrame::new([@series.Series::from_strings("a", ["NA", "x"])]),
+    @frame.DataFrame([@series.Series::from_strings("a", ["NA", "x"])]),
   )
   let tokens = ["NA"]
   let read_opts : @io.CsvReadOptions = @io.CsvReadOptions(null_values=tokens)
@@ -104,7 +104,7 @@ test "projection push-down does not parse — or fail on — a dropped column" {
   // `a` is clean throughout.
   @io.write_csv(
     path,
-    @frame.DataFrame::new([
+    @frame.DataFrame([
       @series.Series::from_strings("a", ["1", "2"]),
       @series.Series::from_strings("b", ["10", "oops"]),
     ]),

@@ -9,12 +9,12 @@
 
 ///|
 test "explain: a bare scan prints only the frame's shape" {
-  assert_eq(lazy_frame(sales_df()).explain(), "SCAN [4×3]")
+  assert_eq(LazyFrame::LazyFrame(sales_df()).explain(), "SCAN [4×3]")
 }
 
 ///|
 test "explain: a linear pipeline reads top-down from the last verb" {
-  let plan = lazy_frame(sales_df())
+  let plan = LazyFrame::LazyFrame(sales_df())
     .filter(@expr.col("qty").gt(@expr.lit_int(50)))
     .with_columns([(@expr.col("qty") * @expr.lit_int(2)).with_alias("dbl")])
     .select([@expr.col("dbl"), @expr.col("region")])
@@ -29,7 +29,7 @@ test "explain: a linear pipeline reads top-down from the last verb" {
 
 ///|
 test "explain: sort keys carry their order and null placement" {
-  let plan = lazy_frame(sales_df()).sort([
+  let plan = LazyFrame::LazyFrame(sales_df()).sort([
     (@expr.col("qty"), @types.SortOrder::Asc, @types.NullOrder::NullsFirst),
     (@expr.col("region"), @types.SortOrder::Desc, @types.NullOrder::NullsLast),
   ])
@@ -41,7 +41,7 @@ test "explain: sort keys carry their order and null placement" {
 
 ///|
 test "explain: the row-window nodes" {
-  let base = lazy_frame(sales_df())
+  let base = LazyFrame::LazyFrame(sales_df())
   assert_eq(base.head(2).explain(), "HEAD 2\n  SCAN [4×3]")
   assert_eq(base.tail(1).explain(), "TAIL 1\n  SCAN [4×3]")
   assert_eq(base.slice(1, 3).explain(), "SLICE [1, 3)\n  SCAN [4×3]")
@@ -51,7 +51,7 @@ test "explain: the row-window nodes" {
 
 ///|
 test "explain: the whole-frame reductions each print their verb" {
-  let base = lazy_frame(sales_df())
+  let base = LazyFrame::LazyFrame(sales_df())
   assert_eq(base.sum().explain(), "SUM\n  SCAN [4×3]")
   assert_eq(base.mean().explain(), "MEAN\n  SCAN [4×3]")
   assert_eq(base.min().explain(), "MIN\n  SCAN [4×3]")
@@ -62,8 +62,8 @@ test "explain: the whole-frame reductions each print their verb" {
 
 ///|
 test "explain: every join type's label, with and without keys" {
-  let l = lazy_frame(orders_df())
-  let r = lazy_frame(cities_df())
+  let l = LazyFrame::LazyFrame(orders_df())
+  let r = LazyFrame::LazyFrame(cities_df())
   let scans = "\n  SCAN [3×2]\n  SCAN [3×2]"
   let on_id = @frame.JoinOptions::on([@expr.col("id")])
   assert_eq(l.join(r, on_id).explain(), "JOIN Inner on [col(id)]" + scans)
@@ -125,7 +125,7 @@ test "explain: every join type's label, with and without keys" {
 
 ///|
 test "explain: aggregate prints its expressions and keys" {
-  let plan = lazy_frame(sales_df())
+  let plan = LazyFrame::LazyFrame(sales_df())
     .group_by([@expr.col("region")])
     .agg([@expr.col("qty").sum().with_alias("total")])
   assert_eq(
@@ -136,7 +136,7 @@ test "explain: aggregate prints its expressions and keys" {
 
 ///|
 test "explain: aggregate composes mid-pipeline with multiple keys and expressions" {
-  let plan = lazy_frame(sales_df())
+  let plan = LazyFrame::LazyFrame(sales_df())
     .filter(@expr.col("qty").gt(@expr.lit_int(10)))
     .group_by([@expr.col("region"), @expr.col("bonus")])
     .agg([@expr.col("qty").mean().with_alias("avg"), @expr.col("qty").count()])
@@ -191,10 +191,10 @@ test "explain: an NDJSON scan prints SCAN_NDJSON and composes like the CSV sourc
 
 ///|
 test "explain: join inputs stack at the same depth with their own sub-pipelines" {
-  let l = lazy_frame(orders_df()).filter(
+  let l = LazyFrame::LazyFrame(orders_df()).filter(
     @expr.col("amount").gt(@expr.lit_int(10)),
   )
-  let r = lazy_frame(cities_df()).head(2)
+  let r = LazyFrame::LazyFrame(cities_df()).head(2)
   assert_eq(
     l.join(r, @frame.JoinOptions::on([@expr.col("id")])).explain(),
     "JOIN Inner on [col(id)]\n" +

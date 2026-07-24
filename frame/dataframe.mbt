@@ -33,7 +33,12 @@ pub extend DataFrame with Debug::{to_repr}
 /// - all columns have the same length (`raise LengthMismatch` otherwise);
 /// - no two columns share a name (`raise DuplicateColumn(name)`).
 ///
-/// Zero columns is valid and produces a 0×0 frame.
+/// Zero columns is valid and produces a `0×0` frame: with no column to anchor
+/// a height, this constructor has nothing to infer a row count from. A
+/// column-less frame *may* carry rows — `select([])`, a `drop` of every
+/// column and `from_rows` under an empty schema all keep their input's height
+/// — but those entry points know the height independently and build it
+/// through `from_parts`.
 ///
 /// The input array is copied, so mutating `columns` after construction
 /// cannot perturb the frame's invariants (the `Series` values themselves
@@ -46,8 +51,36 @@ pub extend DataFrame with Debug::{to_repr}
 pub fn DataFrame::DataFrame(
   columns : Array[Series],
 ) -> DataFrame raise @types.DataError {
-  let columns = columns.copy()
   let nrows = if columns.is_empty() { 0 } else { columns[0].len() }
+  DataFrame::from_parts(columns, nrows)
+}
+
+///|
+/// Build a `DataFrame` from a column vector and an explicit row count — the
+/// general form `DataFrame::DataFrame` narrows by inferring the height from
+/// `columns[0]`. It validates the same two things (all columns as tall as
+/// `nrows`, no two columns sharing a name) but takes the height as given, so
+/// it can build the one shape an inferred height cannot express: **`N×0`**, a
+/// frame with rows but no columns.
+///
+/// `N×0` is a real shape in MoonFrame rather than a degenerate `0×0`.
+/// Projecting a frame to zero columns keeps its height (`select([])`, a
+/// `drop` of every column), JSON records with no fields do too (`[{}, {}]`
+/// reads as `2×0`), and a file read whose projection matches no header yields
+/// the file's rows and no columns. Only INV2 ties `nrows` to the column
+/// vector, and it ranges over the columns that exist, so for a column-less
+/// frame this field carries the height alone.
+///
+/// Engine-internal. The length check is vacuous for zero columns, leaving
+/// `nrows` unvalidated there, so callers pass a non-negative count —
+/// `check_invariants`' INV7 is the property a stray negative would break.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
+pub fn DataFrame::from_parts(
+  columns : Array[Series],
+  nrows : Int,
+) -> DataFrame raise @types.DataError {
+  let columns = columns.copy()
   if !columns.all(c => c.len() == nrows) {
     raise @types.DataError::LengthMismatch
   }
@@ -149,6 +182,10 @@ fn[T] typed_column_cells(
 /// must have exactly `schema.len()` cells, and each cell must either
 /// match the column's declared dtype or be `Scalar::Null`.
 ///
+/// The height is always `rows.length()`, including under an empty schema:
+/// `from_rows(Schema::Schema([]), [[], []])` is the `2×0` frame, since
+/// width-0 rows are still rows (see `from_parts`).
+///
 /// Raises:
 /// - `DuplicateColumn(name)` — the schema carries a repeated field name.
 ///   Every `Schema` constructor already rejects duplicates, so this is
@@ -171,12 +208,11 @@ pub fn DataFrame::from_rows(
   if !rows.all(row => row.length() == ncols) {
     raise @types.DataError::LengthMismatch
   }
-  // A schema with zero columns cannot anchor a positive row count: every
-  // row had to be width-0 to pass the check above, and `DataFrame::DataFrame`'s
-  // convention is that a column-less frame is row-less (`0×0`). Normalise
-  // `nrows` to 0 there so `from_rows` agrees with `new` / `empty` and the
-  // result satisfies INV7 in `check_invariants`.
-  let nrows = if ncols == 0 { 0 } else { rows.length() }
+  // The row count comes from `rows`, never from the columns: under an empty
+  // schema every row had to be width-0 to pass the check above, and those
+  // rows still count — `from_rows(Schema::Schema([]), [[], []])` is `2×0`,
+  // not `0×0` (see `from_parts`).
+  let nrows = rows.length()
   // `fields()` materialises all fields; indexing `[0, ncols)` is in-bounds
   // (`fields.length() == schema.len() == ncols`).
   let fields = schema.fields()

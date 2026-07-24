@@ -51,13 +51,14 @@ test "drop with an empty list is a structural identity" {
 }
 
 ///|
-test "drop of every column yields a 0-column frame" {
+test "drop of every column keeps the height as an N×0 frame" {
   let df = drop_df()
   let out = df.drop([@expr.col("a"), @expr.col("b"), @expr.col("c")])
   assert_eq(out.check_invariants(), Ok(()))
-  // 0-column case: DataFrame::DataFrame clamps nrows to 0 per the v0.1
-  // contract.
-  assert_eq(out.shape(), (0, 0))
+  // Removing columns never removes rows: the result is `N×0`, and the rows
+  // are still there for a later `with_columns` to fill.
+  assert_eq(out.shape(), (df.nrows(), 0))
+  assert_false(out.is_empty())
 }
 
 // ── Output-name resolution (selector-ready container) ────────────────

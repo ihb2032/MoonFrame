@@ -25,8 +25,12 @@
 /// - `ColumnNotFound(name)` — a resolved name does not exist. Reported on
 ///   the first offending key in `columns` order.
 ///
+/// Dropping *every* column keeps the height, like any other projection to
+/// zero columns: the result is `self.nrows() × 0`, not `0×0`.
+///
 /// Structural invariants on the returned frame follow from
-/// `DataFrame::DataFrame` (called with the surviving column subset).
+/// `DataFrame::from_parts` (called with the surviving column subset and the
+/// frame's own row count, which removing columns never changes).
 pub fn DataFrame::drop(
   self : DataFrame,
   columns : Array[@expr.Expr],
@@ -47,5 +51,5 @@ pub fn DataFrame::drop(
     self.resolve_subset_columns(columns).map(s => (s.name(), ())),
   )
   let survivors = self.column_series().filter(s => !to_drop.contains(s.name()))
-  DataFrame::DataFrame(survivors)
+  DataFrame::from_parts(survivors, self.nrows)
 }

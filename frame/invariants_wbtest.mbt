@@ -129,17 +129,31 @@ test "check_invariants reports INV6 when a cache key does not match its target c
   assert_true(bad.check_invariants() is Err(msg) && msg.has_prefix("INV6"))
 }
 
-// ── INV7: 0 columns but a positive row count ────────────────────────
+// ── INV7: a negative row count ──────────────────────────────────────
 
 ///|
-test "check_invariants reports INV7 when a column-less frame has rows" {
+test "check_invariants reports INV7 when nrows is negative" {
   let bad : DataFrame = {
-    // Zero columns can't anchor a row count; the only well-formed shape
-    // for a column-less frame is 0×0.
+    // With no columns, INV2 is vacuous and `nrows` alone carries the height —
+    // so a negative count is caught here and nowhere else.
     schema: @types.Schema::Schema([]),
     columns: [],
-    nrows: 1,
+    nrows: -1,
     name_to_index: Map([]),
   }
   assert_true(bad.check_invariants() is Err(msg) && msg.has_prefix("INV7"))
+}
+
+///|
+test "check_invariants accepts a column-less frame that carries rows" {
+  // The shape INV7 used to reject: `N×0` is what a projection to zero
+  // columns leaves behind, and it is well-formed.
+  let empty_rows : DataFrame = {
+    schema: @types.Schema::Schema([]),
+    columns: [],
+    nrows: 3,
+    name_to_index: Map([]),
+  }
+  assert_true(empty_rows.check_invariants() is Ok(_))
+  assert_eq(empty_rows.shape(), (3, 0))
 }

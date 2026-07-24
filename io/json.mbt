@@ -226,16 +226,11 @@ fn frame_from_json_records(
         )
     }
   }
-  let ncols = headers.length()
-  if ncols == 0 {
-    return @frame.DataFrame::DataFrame([])
-  }
   // Build one typed column per header, skipping any the projection drops; the
   // surviving columns keep first-seen header order, so a projected read is
-  // column-for-column a sub-frame of the full read. A projection matching no
-  // header falls back to a full read (see `effective_projection`) so the row
-  // count survives for the as-built error to surface downstream.
-  let projection = effective_projection(projection, headers)
+  // column-for-column a sub-frame of the full read. Records that carry no
+  // fields at all (`[{}, {}]`) leave no header to build from and read as the
+  // `N×0` frame — the records are still records.
   // Inference always walks every record, even when a predicate will drop some,
   // so a pruned read locks in the dtypes an eager read-then-filter would.
   let build = fn(
@@ -267,7 +262,7 @@ fn frame_from_json_records(
     }
     build(name, records, lines)
   }
-  assemble_pruned_frame(headers, projection, pruner, build_over)
+  assemble_pruned_frame(headers, objs.length(), projection, pruner, build_over)
 }
 
 ///|

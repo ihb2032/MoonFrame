@@ -22,7 +22,9 @@
 /// output name (alias, else leftmost column reference, else `"literal"`),
 /// and a name produced twice raises `DuplicateColumn` at the second
 /// expression — errors surface in expression order, before later
-/// expressions are evaluated. `select([])` collapses to the 0×0 frame.
+/// expressions are evaluated. `select([])` is the projection to zero
+/// columns, and like any projection it keeps the frame's height: the result
+/// is `self.nrows() × 0`.
 ///
 /// Evaluation errors (unknown columns, dtype mismatches, the
 /// unrepresentable `Null` literal) surface here; building the expressions
@@ -51,14 +53,20 @@ pub fn DataFrame::select(
   // not frame-tall and is rejected by `broadcast_series` below with the same
   // `LengthMismatch` `with_columns` raises, rather than silently dictating an
   // off-frame output height.
+  //
+  // Projecting to *no* columns is the one case with no result to read a height
+  // from. It keeps the frame's own: a projection that drops every column is
+  // still a projection, so `select([])` is `nrows × 0` rather than a summary
+  // row of nothing.
   let n = self.nrows()
-  let mut height = 1
+  let mut height = if evaluated.is_empty() { n } else { 1 }
   for column in evaluated {
     if column.len() == n {
       height = n
     }
   }
-  DataFrame::DataFrame(
+  DataFrame::from_parts(
     evaluated.map(column => broadcast_series(column, height)),
+    height,
   )
 }

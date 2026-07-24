@@ -149,11 +149,11 @@ test "projection push-down does not parse — or fail on — a dropped column" {
 test "a projection matching no header keeps the row count and the as-built error" {
   // The optimizer writes the required-column set into the scan verbatim; it
   // cannot intersect with the file's header at plan time. When NO requested
-  // name matches, the projected read used to build a 0×0 frame — losing the
-  // 4-row count, so the slice below bounds-checked against 0 and raised
-  // IndexOutOfBounds where the as-built plan raises ColumnNotFound. The
-  // zero-match projection now falls back to a full read: optimized and
-  // unoptimized plans surface the same error.
+  // name matches, the projected read builds no column — and keeps the file's
+  // 4-row count as an `N×0` frame, so the slice below bounds-checks against
+  // the real height and the error stays the as-built plan's ColumnNotFound.
+  // (While a column-less frame was pinned to `0×0` this had to be bought with
+  // a fallback to reading every column.)
   let path = "_build/lazy_scan_csv_zero_match.csv"
   write_fixture(path)
   let plan = scan_csv(path).slice(0, 2).select([@expr.col("missing")])
@@ -255,11 +255,12 @@ test "an absorbed predicate reports the same errors as the eager filter" {
 test "a column-less predicate on a scan keeps every row, matching eager" {
   let path = "_build/lazy_scan_csv_columnless_pred.csv"
   write_fixture(path)
-  // A literal-true predicate references no column, so it must NOT be absorbed
-  // into the scan: the pruner would build a zero-column key frame, INV7 would
-  // collapse it to 0×0, and every one of the file's four rows would be dropped.
-  // It stays a Filter above the scan and broadcasts over the fully-read frame,
-  // so `collect` keeps all four rows exactly as the eager read-then-filter.
+  // A literal-true predicate references no column, so the pruner builds a
+  // zero-column key frame. That frame carries the file's four rows (`N×0`)
+  // and the literal broadcasts over them, so `collect` keeps all four exactly
+  // as the eager read-then-filter. (While a column-less frame was pinned to
+  // `0×0` the lost row count dropped every row, and the predicate had to be
+  // held back above the scan to avoid it.)
   let keep_all = @expr.lit_bool(true)
   let out = scan_csv(path).filter(keep_all).collect()
   assert_eq(out, @io.read_csv(path).filter(keep_all))

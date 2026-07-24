@@ -141,9 +141,19 @@ test "mixed selection broadcasts scalar results to the frame height" {
 }
 
 ///|
-test "select([]) collapses to the 0x0 frame" {
-  let out = sel_df().select([])
+test "select([]) projects to zero columns and keeps the height" {
+  let df = sel_df()
+  let out = df.select([])
+  assert_eq(out.shape(), (df.nrows(), 0))
+  assert_false(out.is_empty())
+  assert_eq(out.check_invariants(), Ok(()))
+}
+
+///|
+test "select([]) on a 0-row frame stays 0×0" {
+  let out = DataFrame::DataFrame([Series::from_ints("a", [])]).select([])
   assert_eq(out.shape(), (0, 0))
+  assert_true(out.is_empty())
   assert_eq(out.check_invariants(), Ok(()))
 }
 

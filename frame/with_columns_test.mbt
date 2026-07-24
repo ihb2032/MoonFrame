@@ -93,6 +93,21 @@ test "with_columns([]) returns an equal frame" {
 }
 
 ///|
+test "with_columns([]) preserves a declared schema" {
+  // A `from_rows` frame carries the caller's explicit `nullable = false`;
+  // an empty expression list adds nothing, so it must come back untouched
+  // (the derived `Eq` compares the schema too).
+  let df = DataFrame::from_rows(
+    @types.Schema::new([@types.Field("a", @types.DataType::Int, nullable=false)]),
+    [[@types.Scalar::Int(1)], [@types.Scalar::Int(2)]],
+  )
+  let out = df.with_columns([])
+  assert_eq(out.check_invariants(), Ok(()))
+  assert_eq(out, df)
+  assert_false(out.schema().field("a").nullable())
+}
+
+///|
 test "alias drives naming: a fresh alias appends, an existing one replaces" {
   let appended = base_df().with_columns([
     (@expr.col("a") + @expr.col("b")).with_alias("net"),

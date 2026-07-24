@@ -88,6 +88,25 @@ test "drop is idempotent under duplicate keys in input" {
 
 // ── Error cases ──────────────────────────────────────────────────────
 
+// ── Declared schema metadata ─────────────────────────────────────────
+
+///|
+test "drop with an empty list preserves a declared schema" {
+  // Built through `from_rows` so the schema carries an explicit
+  // `nullable = false`; a `DataFrame::new` fixture defaults every field to
+  // `nullable = true` and so cannot observe the difference.
+  let df = DataFrame::from_rows(
+    @types.Schema::new([@types.Field("a", @types.DataType::Int, nullable=false)]),
+    [[@types.Scalar::Int(1)], [@types.Scalar::Int(2)]],
+  )
+  let out = df.drop([])
+  assert_eq(out.check_invariants(), Ok(()))
+  // `DataFrame`'s derived `Eq` includes the schema, so this pins the no-op as
+  // a full identity, metadata included.
+  assert_eq(out, df)
+  assert_false(out.schema().field("a").nullable())
+}
+
 ///|
 test "drop rejects unknown columns with ColumnNotFound" {
   let df = drop_df()

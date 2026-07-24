@@ -16,30 +16,24 @@ public surface evolves compatibly.
 
 | v0.5 | v0.6 |
 | --- | --- |
-| `Field::new("age", Int)` | `Field("age", Int)` |
-| `Field::with_nullable("id", Int, false)` | `Field("id", Int, nullable=false)` |
-
-The bare `Field(...)` spelling needs a concrete expected type. It resolves
-inside `Schema::Schema([...])`, in an annotated binding
-(`let f : Field = Field("age", Int)`), and in a typed array literal; in a
-generic position such as `assert_eq(Field(...), ...)` write the full
-`Field::Field(...)`.
+| `Field::new("age", Int)` | `Field::Field("age", Int)` |
+| `Field::with_nullable("id", Int, false)` | `Field::Field("id", Int, nullable=false)` |
 
 `struct Field` is also `pub` rather than `pub(all)`: fields stay readable, but
 a record literal (`{ name: "age", dtype: Int, nullable: true }`) outside `types`
-no longer compiles — build through `Field(...)` instead.
+no longer compiles — build through `Field::Field(...)` instead.
 
 ### IO options are built by constructor
 
 | v0.5 | v0.6 |
 | --- | --- |
-| `CsvReadOptions::default()` | `CsvReadOptions()` |
-| `{ has_header: true, delimiter: ';', infer_schema_rows: 100, null_values: [""], strict_column_count: false, on_parse_error: Raise, allow_nonfinite_floats: true }` | `CsvReadOptions(delimiter=';')` |
-| `CsvWriteOptions::default()` | `CsvWriteOptions()` |
-| `JsonReadOptions::default()` | `JsonReadOptions()` |
-| `NdjsonReadOptions::default()` | `JsonReadOptions()` |
-| `parse_csv_str(text, options, strict_quotes=true)` | `parse_csv_str(text, CsvReadOptions(strict_quotes=true))` |
-| `format_csv(df, options, sanitize_formulas=true)` | `format_csv(df, CsvWriteOptions(sanitize_formulas=true))` |
+| `CsvReadOptions::default()` | `CsvReadOptions::CsvReadOptions()` |
+| `{ has_header: true, delimiter: ';', infer_schema_rows: 100, null_values: [""], strict_column_count: false, on_parse_error: Raise, allow_nonfinite_floats: true }` | `CsvReadOptions::CsvReadOptions(delimiter=';')` |
+| `CsvWriteOptions::default()` | `CsvWriteOptions::CsvWriteOptions()` |
+| `JsonReadOptions::default()` | `JsonReadOptions::JsonReadOptions()` |
+| `NdjsonReadOptions::default()` | `JsonReadOptions::JsonReadOptions()` |
+| `parse_csv_str(text, options, strict_quotes=true)` | `parse_csv_str(text, CsvReadOptions::CsvReadOptions(strict_quotes=true))` |
+| `format_csv(df, options, sanitize_formulas=true)` | `format_csv(df, CsvWriteOptions::CsvWriteOptions(sanitize_formulas=true))` |
 | `options.null_values` | `options.null_values()` |
 
 `CsvReadOptions`, `CsvWriteOptions`, and `JsonReadOptions` are `pub` rather than
@@ -136,23 +130,18 @@ pure addition.
 | `Schema::new(fields)` | `Schema::Schema(fields)` |
 | `lazy_frame(df)` | `LazyFrame::LazyFrame(df)` |
 
-`Field(...)`, `HtmlOptions(...)`, and the three IO options types already read
-this way; the three above complete the rule. A type with several genuinely
-different entry points keeps a named constructor per shape, so
-`DataFrame::empty`, `DataFrame::from_rows`, the eight `Series::from_*`,
-`JoinOptions::on` / `left_on` / `cross`, and `ChartSpec::bar` / `line` /
-`point` / `area` are unchanged.
+Construction is one spelling everywhere: `Type::Type(...)`. These three renames
+put the data types on it, and the constructors listed in the sections above
+(`Field::Field`, `CsvReadOptions::CsvReadOptions`, `HtmlOptions::HtmlOptions`,
+…) are written the same way — no constructor is exposed as a free function, so
+the `lazy_frame` the facade re-exported is gone with them. The spelling reads
+the same through the facade (`@moonframe.DataFrame::DataFrame(...)`) as through
+a direct package import (`@frame.DataFrame::DataFrame(...)`).
 
-MoonBit resolves the bare `DataFrame([...])` spelling only where the expected
-type is already concrete — an annotated binding, an argument position, a
-package-qualified `@frame.DataFrame([...])`. A plain `let df = ...` has none,
-and neither does a method chained straight off the call, so the mechanical
-rewrite for most code is `DataFrame::new(` → `DataFrame::DataFrame(`.
-
-The facade no longer re-exports a `lazy_frame` free function: a re-exported
-type occupies its own name, so `@moonframe.LazyFrame(df)` is unavailable —
-write `@moonframe.LazyFrame::LazyFrame(df)`, or import `@lazy` directly and
-call `@lazy.LazyFrame(df)`.
+A type whose construction genuinely has several shapes keeps a named
+constructor per shape, so `DataFrame::empty`, `DataFrame::from_rows`, the eight
+`Series::from_*`, `JoinOptions::on` / `left_on` / `cross`, and
+`ChartSpec::bar` / `line` / `point` / `area` are unchanged.
 
 ### Duplicate entry points are removed
 
@@ -205,8 +194,8 @@ in v0.6. Value-level access covers the user-facing cases: `Series::get` /
 
 | v0.5 | v0.6 |
 | --- | --- |
-| `HtmlOptions::default()` | `HtmlOptions()` |
-| `HtmlOptions::default().with_max_rows(20).with_caption("S")` | `HtmlOptions(max_rows=20, caption="S")` |
+| `HtmlOptions::default()` | `HtmlOptions::HtmlOptions()` |
+| `HtmlOptions::default().with_max_rows(20).with_caption("S")` | `HtmlOptions::HtmlOptions(max_rows=20, caption="S")` |
 | `df.to_html_with_options(opts)` | `df.to_html(options=opts)` |
 | `df.to_markdown_with_limit(10)` | `df.to_markdown(max_rows=10)` |
 | `JoinOptions::on(keys).with_how(Left)` | `JoinOptions::on(keys, how=Left)` |
@@ -221,9 +210,8 @@ gone — `right_on~` is required, so a sided join always names both sides — an
 there is no longer a way to set `on` *and* `left_on` / `right_on` on the same
 options, which used to be a runtime `InvalidOperation`.
 
-A `let` binding of an options value needs a type annotation
-(`let opts : HtmlOptions = HtmlOptions(max_rows=20)`), or it can be written
-inline at the call, where the expected type is concrete.
+An options value is built like every other constructor —
+`let opts = HtmlOptions::HtmlOptions(max_rows=20)`, or inline at the call.
 
 ### `*_with_options` is folded into an optional parameter
 
@@ -239,7 +227,7 @@ inline at the call, where the expected type is concrete.
 | `parse_json_records_str(text, opts)` | `parse_json_str(text, options=opts)` |
 | `parse_ndjson_str(text, opts)` | `parse_ndjson_str(text, options=opts)` |
 | `format_csv(df, opts)` | `format_csv(df, options=opts)` |
-| `parse_csv_str(text, CsvReadOptions())` | `parse_csv_str(text)` |
+| `parse_csv_str(text, CsvReadOptions::CsvReadOptions())` | `parse_csv_str(text)` |
 
 The options parameter is optional and labelled, so it has to be named at the
 call site — and a call that only wanted the defaults can drop it entirely.

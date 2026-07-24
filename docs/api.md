@@ -44,31 +44,26 @@ documented here rides the minor version.
 
 ## Constructor spelling
 
-Every type whose construction has one canonical entry point is built through
-its own name: `DataFrame(columns)`, `LazyFrame(df)`, `Schema(fields)`,
-`Field(name, dtype)`, `CsvReadOptions(...)`, `HtmlOptions(...)`. A type with
-several genuinely different entry points keeps a named constructor per shape —
-`DataFrame::empty` / `DataFrame::from_rows`, the eight `Series::from_*`,
-`JoinOptions::on` / `left_on` / `cross`, `ChartSpec::bar` / `line` / `point` /
-`area`.
+A type whose construction has one canonical entry point is built through its
+own name, always spelled `Type::Type(...)`:
 
-MoonBit resolves the bare `T(...)` spelling only where the expected type is
-already concrete:
+```moonbit
+let df = DataFrame::DataFrame([Series::from_ints("a", [1, 2])])
+let lf = LazyFrame::LazyFrame(df)
+let schema = Schema::Schema([Field::Field("a", DataType::Int)])
+let opts = CsvReadOptions::CsvReadOptions(delimiter=';')
+```
 
-| call site | spelling |
-| --- | --- |
-| annotated binding | `let df : DataFrame = DataFrame([...])` |
-| argument position | `write_csv(path, DataFrame([...]))` |
-| element of a typed array | `Schema([Field("a", Int)])` |
-| package-qualified | `@frame.DataFrame([...])` · `@types.Schema([...])` |
-| **plain `let`, or a method chained off it** | **`DataFrame::DataFrame([...])`** |
+`DataFrame`, `LazyFrame`, `Schema`, `Field`, `HtmlOptions`, `CsvReadOptions`,
+`CsvWriteOptions`, and `JsonReadOptions` all read this way, through the facade
+(`@moonframe.DataFrame::DataFrame(...)`) and through a direct package import
+(`@frame.DataFrame::DataFrame(...)`) alike. No constructor is exposed as a free
+function.
 
-The last row is the common one — `let df = ...` has no expected type to
-resolve against, and neither does `DataFrame([...]).filter(...)` — so most
-call sites in this reference are written `Type::Type(...)`. Through the facade
-that is also the only spelling: a re-exported type occupies its own name, so
-`@moonframe.DataFrame(...)` is not available; write
-`@moonframe.DataFrame::DataFrame(...)`, or import `@frame` directly.
+A type whose construction genuinely has several shapes keeps a named
+constructor per shape instead: `DataFrame::empty` / `DataFrame::from_rows`, the
+eight `Series::from_*`, `JoinOptions::on` / `left_on` / `cross`, and
+`ChartSpec::bar` / `line` / `point` / `area`.
 
 ## Error model
 
@@ -167,14 +162,11 @@ in [`migration.md`](migration.md).
   behaviour they define is documented where it is observable (string ordering
   here, type inference in [`type-inference.md`](type-inference.md)).
 - `struct Field` — column metadata: `name`, `dtype`, `nullable`. One total
-  constructor, `Field(name, dtype, nullable? = true)`; accessors `name` /
+  constructor, `Field::Field(name, dtype, nullable? = true)`; accessors `name` /
   `dtype` / `nullable`; `rename(new_name)` returns a renamed copy. The
   fields are readable but not constructible from outside `types`, so a
-  future field can be added without breaking callers. The bare
-  `Field(...)` spelling resolves wherever the expected type is concrete —
-  inside `Schema::Schema([...])`, an annotated binding, a typed array
-  literal; in a generic position such as `assert_eq` write the full
-  `Field::Field(...)`. `nullable = false` is a constraint enforced by
+  future field can be added without breaking callers.
+  `nullable = false` is a constraint enforced by
   `DataFrame::from_rows` (a null in such a column raises
   `NullInNonNullable`); it is otherwise advisory — not inferred from a
   column's contents, and not re-derived by the ops that rebuild a schema
@@ -651,10 +643,9 @@ dependencies** (NyaCSV / fs / @json live only in `io`).
   `columns`, `nrows`, and a `name_to_index` cache for `O(1)` name lookup) are
   `priv`, so a validated frame can only be built through the constructors and
   read through the copy-returning accessors below.
-- Constructors (`raise DataError`): `DataFrame(columns)` — the type's own
-  constructor (`LengthMismatch` / `DuplicateColumn`; zero columns → `0×0`),
-  written `DataFrame::DataFrame(columns)` where no expected type resolves the
-  bare spelling (see [constructor spelling](#constructor-spelling));
+- Constructors (`raise DataError`): `DataFrame::DataFrame(columns)` — the
+  type's own constructor (`LengthMismatch` / `DuplicateColumn`; zero columns →
+  `0×0`), see [constructor spelling](#constructor-spelling);
   `empty(schema)` (0-row frame; `DuplicateColumn` for a repeated field name;
   `Unsupported` for a `Null`-dtype field);
   `from_rows(schema, rows)` (`DuplicateColumn` / `LengthMismatch` /
@@ -766,7 +757,7 @@ transforms, so every output satisfies `check_invariants()`.
   empty; `|` / `\` / CR / LF are GFM-escaped. An omitted `max_rows` renders
   every row; otherwise the table is capped there and `... (N more rows)` is
   appended (a negative `max_rows` clamps to 0).
-- `to_html(options? : HtmlOptions = HtmlOptions()) -> String` — the **total**
+- `to_html(options? : HtmlOptions = HtmlOptions::HtmlOptions()) -> String` — the **total**
   HTML `<table>` renderer (IO-1: pure rendering lives in `frame`, parallel to
   `to_markdown`). It emits a `<thead>` + `<tbody>`, one `<td>` per cell in
   declaration order; a null cell renders as `<td></td>`; `&` / `<` / `>` /
@@ -775,8 +766,8 @@ transforms, so every output satisfies `check_invariants()`.
   `<caption>` and, via `max_rows`, a row cap with a `<tfoot>`
   `... (K more rows)` banner (negative `max_rows` clamps to 0).
 - `struct HtmlOptions` (fields read-only) — built via
-  `HtmlOptions(max_rows? , table_class? , caption? , escape? = true)`;
-  `HtmlOptions()` renders all rows with no `class` / `caption` and escaping
+  `HtmlOptions::HtmlOptions(max_rows? , table_class? , caption? , escape? = true)`;
+  `HtmlOptions::HtmlOptions()` renders all rows with no `class` / `caption` and escaping
   on. `escape=false` emits caption / header / cell / class strings verbatim,
   for trusted input that intentionally carries HTML.
 
@@ -1026,11 +1017,11 @@ are documented below.
   them falls back to `String` instead of being retyped to `Float`) /
   `strict_quotes` (`false`; when `true`, a linear pre-scan rejects malformed
   quoting before tokenisation). Built with
-  `CsvReadOptions(has_header? , delimiter? , infer_schema_rows? ,
+  `CsvReadOptions::CsvReadOptions(has_header? , delimiter? , infer_schema_rows? ,
   null_values? , strict_column_count? , on_parse_error? ,
   allow_nonfinite_floats? , strict_quotes?)` — every parameter defaults, so
-  `CsvReadOptions()` is the all-defaults reader and only what differs needs
-  naming, as in `CsvReadOptions(delimiter=';', strict_quotes=true)`. The
+  `CsvReadOptions::CsvReadOptions()` is the all-defaults reader and only what differs needs
+  naming, as in `CsvReadOptions::CsvReadOptions(delimiter=';', strict_quotes=true)`. The
   struct is read-only from outside `io` (no record literal); `null_values`
   is private and read back through the `null_values()` accessor, which — like
   the constructor — copies, so the reader's token list cannot be changed
@@ -1045,12 +1036,12 @@ are documented below.
   `null_value` (`""`) / `sanitize_formulas` (`false`; when `true`, a String
   cell beginning with `=`, `+`, `-`, `@`, tab, or carriage return gains a
   leading apostrophe so spreadsheets treat it as text — intentionally lossy).
-  Built with `CsvWriteOptions(header? , delimiter? , null_value? ,
-  sanitize_formulas?)`; `CsvWriteOptions()` is the all-defaults writer.
+  Built with `CsvWriteOptions::CsvWriteOptions(header? , delimiter? , null_value? ,
+  sanitize_formulas?)`; `CsvWriteOptions::CsvWriteOptions()` is the all-defaults writer.
 - `parse_csv_str(content, options) -> DataFrame
   raise DataError` — tokenise → per-column inference (`Int → Float → Bool →
   String`) → null mapping → `DataFrame::DataFrame`. The default keeps NyaCSV's
-  permissive quote handling. With `CsvReadOptions(strict_quotes=true)`, a linear pre-scan
+  permissive quote handling. With `CsvReadOptions::CsvReadOptions(strict_quotes=true)`, a linear pre-scan
   rejects an unterminated quoted field, non-separator text after a closing
   quote, or a quote inside an unquoted field as `ParseError`; escaped `""` and
   newlines inside quoted fields remain valid. `InvalidOperation` if
@@ -1064,7 +1055,7 @@ are documented below.
 - `format_csv(df, options) -> String raise
   DataError` — cells render via `Scalar::to_string`; null →
   `options.null_value`; RFC 4180 quoting; LF-terminated. With the opt-in
-  `CsvWriteOptions(sanitize_formulas=true)`, String cells beginning with `=`, `+`, `-`, `@`,
+  `CsvWriteOptions::CsvWriteOptions(sanitize_formulas=true)`, String cells beginning with `=`, `+`, `-`, `@`,
   tab, or carriage return gain a leading apostrophe before quoting so
   spreadsheets treat them as text. This intentionally lossy safety mode does
   not affect headers, nulls, numbers, booleans, or other strings; the default
@@ -1073,7 +1064,7 @@ are documented below.
   quote or a line terminator (`\n` / `\r`), which can't unambiguously frame
   fields, or a non-BMP character, whose UTF-16 surrogate pair the
   per-code-unit tokenizer can't match.
-- `read_csv(path, options? : CsvReadOptions = CsvReadOptions()) -> DataFrame
+- `read_csv(path, options? : CsvReadOptions = CsvReadOptions::CsvReadOptions()) -> DataFrame
   raise DataError` — the file wrapper; strict quote validation rides on
   `options.strict_quotes` (`IoError`).
 - `read_csv_projected(path, options, projection : Array[String])` — an
@@ -1082,7 +1073,7 @@ are documented below.
   `scan_csv` projection pushdown. Whole-input checks (strict quote validation,
   a malformed header, or a ragged row) are unaffected, but a parse error
   confined to a dropped column does not surface (see `lazy`).
-- `write_csv(path, df, options? : CsvWriteOptions = CsvWriteOptions()) -> Unit
+- `write_csv(path, df, options? : CsvWriteOptions = CsvWriteOptions::CsvWriteOptions()) -> Unit
   raise DataError` — the file wrapper; the spreadsheet-formula safety mode
   rides on `options.sanitize_formulas` (`IoError`; a string cell or column name holding an
   unpaired UTF-16 surrogate is refused with `InvalidOperation` before encoding,
@@ -1093,7 +1084,7 @@ are documented below.
 - `struct JsonReadOptions` — `infer_schema_rows` (`100`; `0` or `<= 0`
   scans every record) / `on_parse_error` (`Raise`; the shared
   `OnParseError`, documented under CSV). Built with
-  `JsonReadOptions(infer_schema_rows? , on_parse_error?)`; read-only from
+  `JsonReadOptions::JsonReadOptions(infer_schema_rows? , on_parse_error?)`; read-only from
   outside `io`. The NDJSON reader takes the same type — the two formats
   differ in framing, not in what there is to configure.
 - `parse_json_str(content, options) -> DataFrame raise DataError`
@@ -1121,7 +1112,7 @@ are documented below.
   finite value keeps `Float`. `Int` cells render as JSON numbers; a magnitude
   beyond 2^53 keeps its `Int` dtype but loses precision on a JSON round-trip
   (the `@json` number model is `Double`), as in pandas' `to_json`.
-- `read_json(path, options? : JsonReadOptions = JsonReadOptions()) -> DataFrame
+- `read_json(path, options? : JsonReadOptions = JsonReadOptions::JsonReadOptions()) -> DataFrame
   raise DataError`; `write_json(path, df) -> Unit raise
   DataError` — file wrappers (`IoError`; an unpaired UTF-16 surrogate in
   the content is refused with `InvalidOperation` before encoding).
@@ -1152,7 +1143,7 @@ conventions.
   `write_ndjson`); a 0-row frame renders the empty string. Per-cell
   rules match `format_json` (non-finite `Float` → `null`; `Int`
   beyond ±2^53 keeps its dtype but loses precision on a round-trip).
-- `read_ndjson(path, options? : JsonReadOptions = JsonReadOptions()) ->
+- `read_ndjson(path, options? : JsonReadOptions = JsonReadOptions::JsonReadOptions()) ->
   DataFrame raise DataError`; `write_ndjson(path, df) -> Unit raise
   DataError` — file wrappers (`IoError`; an unpaired UTF-16 surrogate in
   the content is refused with `InvalidOperation` before encoding).
@@ -1220,13 +1211,13 @@ cycle.
 
 ### Entry points
 
-- `LazyFrame(df : DataFrame) -> LazyFrame` — the entry point (a `Scan` leaf
+- `LazyFrame::LazyFrame(df : DataFrame) -> LazyFrame` — the entry point (a `Scan` leaf
   over the captured frame), written `LazyFrame::LazyFrame(df)` in a plain
   `let` (see [constructor spelling](#constructor-spelling)). The type's own
   constructor rather than a `DataFrame::lazy` method (that would force a
   `frame ↔ lazy` import cycle) and rather than `lazy(df)` (`lazy` is a
   MoonBit reserved word).
-- `scan_csv(path : String, options? : CsvReadOptions = CsvReadOptions()) ->
+- `scan_csv(path : String, options? : CsvReadOptions = CsvReadOptions::CsvReadOptions()) ->
   LazyFrame` — a **lazy CSV source**: the plan's leaf is a deferred read of
   `path` (a `ScanCsv` node), the streaming-friendly counterpart of eager
   `read_csv`. Nothing is read until `collect`, and projection pushdown
@@ -1235,7 +1226,7 @@ cycle.
   never builds the columns it drops. `scan_csv(p).….collect()` equals
   `read_csv(p).…` on well-formed input; because a dropped column is never
   parsed, a parse error confined to one does not surface.
-- `scan_ndjson(path : String, options? : JsonReadOptions = JsonReadOptions())
+- `scan_ndjson(path : String, options? : JsonReadOptions = JsonReadOptions::JsonReadOptions())
   -> LazyFrame` — the line-oriented sibling of `scan_csv` (a `ScanNdjson` node),
   the lazy counterpart of eager `read_ndjson`. Same projection-pushdown
   behaviour and dropped-column caveat. (There is no `scan_json` for the

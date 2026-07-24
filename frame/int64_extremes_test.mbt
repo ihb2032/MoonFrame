@@ -83,13 +83,34 @@ test "floor_div by -1 still floors: it agrees with negation everywhere" {
 }
 
 ///|
-test "modulo at Int64::MIN % -1 is zero" {
+test "modulo at Int64::MIN % -1 is zero on every backend" {
+  // `%` is evaluated as part of the same division `//` is, so it faults on the
+  // same pair — but only on some backends: wasm's `i64.rem_s` defines
+  // `Int64::MIN % -1` as `0`, while a native build lowers `%` to a hardware
+  // divide that raises the divide-by-zero fault. `0` is the answer either way
+  // (a remainder by ±1 is always 0), so `rem_i64` returns it without dividing.
   assert_eq(extremes_result((a, b) => a.modulo(b)), [
     @types.Scalar::Int(0),
     @types.Scalar::Int(0),
     @types.Scalar::Int(0),
     @types.Scalar::Int(0),
   ])
+}
+
+///|
+test "modulo by -1 is zero for every dividend, like modulo by 1" {
+  // The special case must agree with the general path wherever that path is
+  // defined: `a % -1` and `a % 1` are both `0` for every `a`.
+  let df = DataFrame::DataFrame([
+    Series::from_ints("a", [7L, -7L, 0L, 9223372036854775807L, i64_min]),
+  ])
+  let out = df.select([
+    @expr.col("a").modulo(@expr.lit_int(-1)).with_alias("m"),
+    @expr.col("a").modulo(@expr.lit_int(1)).with_alias("p"),
+  ])
+  let zeros = Array::make(5, @types.Scalar::Int(0))
+  assert_eq(out.get_column("m").to_scalars(), zeros)
+  assert_eq(out.get_column("p").to_scalars(), zeros)
 }
 
 ///|

@@ -266,10 +266,32 @@ fn eval_div(left : Series, right : Series) -> Series raise @types.DataError {
 /// `floor_div`), so an all-valid `Int / Int` pair can still yield nulls;
 /// `Float` modulo by zero is `NaN`.
 fn eval_mod(left : Series, right : Series) -> Series raise @types.DataError {
-  eval_binary_nullzero(left, right, "take the remainder of", (a, b) => a % b, (
-    a,
-    b,
-  ) => a % b)
+  eval_binary_nullzero(
+    left,
+    right,
+    "take the remainder of",
+    (a, b) => rem_i64(a, b),
+    (a, b) => a % b,
+  )
+}
+
+///|
+/// `a % b` for two `Int64`s. The caller has already excluded a zero divisor.
+///
+/// `-1` is special-cased for the same reason `floor_div_i64` special-cases it:
+/// the pair `Int64::MIN % -1` is evaluated as part of a division whose quotient
+/// (`2^63`) does not fit, and the backends disagree about what that means.
+/// Wasm's `i64.rem_s` defines the result as `0`, but a native build lowers `%`
+/// to a hardware divide, where `INT64_MIN % -1` raises the same fault as a
+/// divide by zero — aborting the whole evaluation. The remainder of a division
+/// by `-1` (or by `1`) is `0` for every dividend, so returning it directly is
+/// the value every backend that defines the operation already produces, and it
+/// never reaches the instruction that faults.
+fn rem_i64(a : Int64, b : Int64) -> Int64 {
+  if b == -1L {
+    return 0L
+  }
+  a % b
 }
 
 ///|
@@ -285,14 +307,15 @@ fn eval_pow(left : Series, right : Series) -> Series raise @types.DataError {
 ///
 /// `-1` is special-cased because it is the one divisor whose quotient can
 /// leave `Int64`: `Int64::MIN // -1` is `2^63`. `Int64::/` does not wrap there
-/// the way `+` / `-` / `*` / `neg` do — wasm's `i64.div_s` **traps** on that
-/// pair by specification — so the general path below would abort rather than
-/// return. Division by `-1` is exact for every dividend (the remainder is
-/// always `0`, so the floor adjustment never fires) and equals negation, which
-/// *does* wrap. Routing it through `-a` therefore returns the same value as
-/// the general path wherever that path is defined, and the wrapped
-/// `Int64::MIN` where it is not — matching `neg` / `abs` / `*` on the same
-/// overflow, and numpy's `//`.
+/// the way `+` / `-` / `*` / `neg` do — **every backend faults**: wasm's
+/// `i64.div_s` traps on that pair by specification, and a native build lowers
+/// `/` to a hardware divide that raises the same fault as a divide by zero. So
+/// the general path below would abort rather than return. Division by `-1` is
+/// exact for every dividend (the remainder is always `0`, so the floor
+/// adjustment never fires) and equals negation, which *does* wrap. Routing it
+/// through `-a` therefore returns the same value as the general path wherever
+/// that path is defined, and the wrapped `Int64::MIN` where it is not —
+/// matching `neg` / `abs` / `*` on the same overflow, and numpy's `//`.
 fn floor_div_i64(a : Int64, b : Int64) -> Int64 {
   if b == -1L {
     return -a

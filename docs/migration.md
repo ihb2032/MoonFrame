@@ -73,8 +73,8 @@ no longer compiles — build through `Field::Field(...)` instead.
 | `CsvWriteOptions::default()` | `CsvWriteOptions::CsvWriteOptions()` |
 | `JsonReadOptions::default()` | `JsonReadOptions::JsonReadOptions()` |
 | `NdjsonReadOptions::default()` | `JsonReadOptions::JsonReadOptions()` |
-| `parse_csv_str(text, options, strict_quotes=true)` | `parse_csv_str(text, CsvReadOptions::CsvReadOptions(strict_quotes=true))` |
-| `format_csv(df, options, sanitize_formulas=true)` | `format_csv(df, CsvWriteOptions::CsvWriteOptions(sanitize_formulas=true))` |
+| `parse_csv_str(text, options, strict_quotes=true)` | `parse_csv_str(text, options=CsvReadOptions::CsvReadOptions(strict_quotes=true))` |
+| `format_csv(df, options, sanitize_formulas=true)` | `format_csv(df, options=CsvWriteOptions::CsvWriteOptions(sanitize_formulas=true))` |
 | `options.null_values` | `options.null_values()` |
 
 `CsvReadOptions`, `CsvWriteOptions`, and `JsonReadOptions` are `pub` rather than
@@ -82,14 +82,17 @@ no longer compiles — build through `Field::Field(...)` instead.
 a constructor parameter with the previous default, and only what differs needs
 naming. Adding a field is therefore additive from here on.
 
-`NdjsonReadOptions` is removed — the NDJSON reader and `scan_ndjson_with_options`
-take `JsonReadOptions`, which has the same two fields.
+`NdjsonReadOptions` is removed: what took it in v0.5 — the NDJSON reader and
+the then-current `scan_ndjson_with_options` — takes `JsonReadOptions`, which has
+the same two fields. (Those `*_with_options` names are themselves v0.5 spellings;
+the same release folded them into the plain entry points, so the v0.6 call is
+`scan_ndjson(path, options=…)`. See the table below.)
 
-The `strict_quotes` and `sanitize_formulas` parameters are gone from
+The `strict_quotes` and `sanitize_formulas` parameters are gone from the v0.5
 `parse_csv_str` / `read_csv_with_options` / `read_csv_projected` and
 `format_csv` / `write_csv_with_options`; set them on the options instead. The
-lazy `scan_csv_with_options` picks up strict quote validation this way, which
-the parameter form could not express.
+lazy scan picks up strict quote validation this way, which the parameter form
+could not express.
 
 `CsvReadOptions.null_values` is now private, read through `null_values()`, which
 returns a copy — as does the constructor, so mutating either array cannot change

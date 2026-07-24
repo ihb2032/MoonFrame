@@ -89,7 +89,9 @@ See [`api.md`](api.md) for the per-operation semantics and
 Beyond the complexity notes above, a `moon bench` micro-benchmark suite measures
 real throughput. Run it from the repo root with `moon bench`.
 
-Each library package carries a `bench_test.mbt` file. Because the benches are
+The four execution packages — `series`, `frame`, `io`, `lazy` — each carry a
+`bench_test.mbt` file; the packages that only define values or build trees
+(`types`, `expr`, the `internal/` helpers) have nothing to time. Because the benches are
 ordinary test blocks, `moon check` compiles them and `moon bench` executes
 them — and CI runs both, so a benchmark that stops compiling or running fails
 the build. There is deliberately **no** performance threshold, since timings
@@ -106,6 +108,8 @@ are machine-dependent and a pass/fail bar would be flaky. The suite covers, at
   through the lazy optimizer.
 
 The headline result confirms the design intent: on all-valid numeric columns the
-`Numeric` backend reduces several times faster than `Builtin` — roughly an order
-of magnitude for `sum` at 1M rows — while `count` stays `O(1)`. Exact figures
-vary by machine; run the suite locally for numbers on your hardware.
+`Numeric` backend reduces several times faster than `Builtin`, the widest gap
+being `sum` at 1M rows, while `count` stays `O(1)`. No ratio is quoted here on
+purpose — the repo pins no reference hardware and stores no baseline output, so
+any number printed in prose would drift with the implementation and the
+toolchain. Run `moon bench` for figures on your own machine.

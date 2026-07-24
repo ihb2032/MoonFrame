@@ -226,7 +226,9 @@ pub fn Expr::sign(self : Expr) -> Expr {
 /// `0`) rounds to that many decimal places — `decimals=2` sends `1.005` to
 /// `1.0` or `1.01` as binary floating point dictates, the same caveat Polars
 /// carries. A negative `decimals` clamps to `0`, and an `Int` column is the
-/// identity at any setting. (The other rounding modes remain a deferred
+/// identity at any setting. So is a place finer than the value's own
+/// resolution: `round(decimals=20)` returns `123456.789` unchanged rather than
+/// perturbing it by an ulp. (The other rounding modes remain a deferred
 /// additive refinement; this is the ties-to-even form.)
 pub fn Expr::round(self : Expr, decimals? : Int = 0) -> Expr {
   Unary(UnOp::Round(if decimals < 0 { 0 } else { decimals }), self)

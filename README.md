@@ -110,7 +110,7 @@ run as doc tests on every backend.
   `with_columns` / `filter` / `agg`, including compound reductions like
   `(col("revenue") - col("cost")).sum()`; `map_elements` / `map_many` drop to a
   host closure for anything past the built-in algebra.
-- **Defer & optimize** — `lazy_frame(df)`, or `scan_csv` / `scan_ndjson` for a
+- **Defer & optimize** — `LazyFrame::LazyFrame(df)`, or `scan_csv` / `scan_ndjson` for a
   lazy file source (deferred execution with projection pushdown, not streaming —
   the file still materializes at `collect()`), builds a query plan you can
   `explain()`; `collect()` runs it through a predicate- and projection-pushdown
@@ -147,7 +147,7 @@ let summary = @moonframe.read_csv("sales.csv")
 ```
 
 The same frame also exports as a styled HTML `<table>` via
-`summary.to_html(options=HtmlOptions(caption="Summary"))`, or as a
+`summary.to_html(options=HtmlOptions::HtmlOptions(caption="Summary"))`, or as a
 [Vega-Lite v5](https://vega.github.io/vega-lite/) chart spec via
 `format_vega_lite(summary, ChartSpec::bar("region", "revenue"))` — ready to
 paste into the [Vega editor](https://vega.github.io/editor/).

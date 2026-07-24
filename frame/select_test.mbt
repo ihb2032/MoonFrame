@@ -12,7 +12,7 @@
 
 ///|
 fn sel_df() -> DataFrame raise @types.DataError {
-  DataFrame::new([
+  DataFrame::DataFrame([
     Series::from_ints("a", [1, 2, 3]),
     Series::from_ints("b", [10, 20, 30]),
     Series::from_strings("region", ["west", "east", "west"]),
@@ -24,7 +24,7 @@ fn sel_df() -> DataFrame raise @types.DataError {
 /// nullable Float so the projection tests can observe null preservation on
 /// column `c`.
 fn select_df() -> DataFrame raise @types.DataError {
-  DataFrame::new([
+  DataFrame::DataFrame([
     Series::from_ints("a", [1, 2, 3]),
     Series::from_strings("b", ["x", "y", "z"]),
     Series::from_float_options("c", [Some(1.5), None, Some(2.5)]),
@@ -33,7 +33,7 @@ fn select_df() -> DataFrame raise @types.DataError {
 
 ///|
 test "bare-column projection reorders and preserves cells, backends kept" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_ints("n", [1, 2, 3]),
     Series::from_int_options("m", [Some(1), None, Some(3)]),
   ])
@@ -149,7 +149,7 @@ test "select([]) collapses to the 0x0 frame" {
 
 ///|
 test "single-row frame: frame-tall and scalar results coincide at one row" {
-  let df = DataFrame::new([Series::from_ints("a", [5])])
+  let df = DataFrame::DataFrame([Series::from_ints("a", [5])])
   let out = df.select([@expr.col("a"), @expr.col("a").sum().with_alias("t")])
   assert_eq(out.shape(), (1, 2))
   assert_eq(out.get_column("a").get(0), @types.Scalar::Int(5))
@@ -158,7 +158,7 @@ test "single-row frame: frame-tall and scalar results coincide at one row" {
 
 ///|
 test "zero-row frame: a frame-tall result pins the height at zero" {
-  let df = DataFrame::new([Series::from_ints("a", [])])
+  let df = DataFrame::DataFrame([Series::from_ints("a", [])])
   let out = df.select([@expr.col("a"), @expr.col("a").sum().with_alias("t")])
   assert_eq(out.shape(), (0, 2))
   assert_eq(out.get_column("t").dtype(), @types.DataType::Int)
@@ -167,7 +167,7 @@ test "zero-row frame: a frame-tall result pins the height at zero" {
 
 ///|
 test "zero-row frame: an all-scalar selection still yields its one-row summary" {
-  let df = DataFrame::new([Series::from_ints("a", [])])
+  let df = DataFrame::DataFrame([Series::from_ints("a", [])])
   let out = df.select([
     @expr.col("a").sum().with_alias("t"),
     @expr.col("a").count().with_alias("n"),
@@ -297,13 +297,13 @@ test "historical pin: duplicate bare columns, and missing wins over duplicate" {
 ///|
 test "select does not propagate a nullable=false flag (it is advisory)" {
   // A nullable=false field only originates from an explicit from_rows schema;
-  // select rebuilds through DataFrame::new, which names every output column
+  // select rebuilds through DataFrame::DataFrame, which names every output column
   // with the Field constructor default (nullable=true). So the declared flag
   // is not carried across the op — pinning the advisory contract the Field
   // doc promises, so a future
   // change that inferred or propagated nullability has to be deliberate.
-  let schema = @types.Schema::new([
-    @types.Field("id", @types.DataType::Int, nullable=false),
+  let schema = @types.Schema::Schema([
+    @types.Field::Field("id", @types.DataType::Int, nullable=false),
   ])
   let df = DataFrame::from_rows(schema, [
     [@types.Scalar::Int(1)],

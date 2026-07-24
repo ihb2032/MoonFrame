@@ -72,18 +72,15 @@ collected in [`migration.md`](migration.md).
 
 - `Field::new(name, dtype)` and `Field::with_nullable(name, dtype, nullable)`
   are replaced by the single custom constructor
-  `Field(name, dtype, nullable? = true)`. The bare `Field(...)` spelling
-  resolves wherever the expected type is concrete (inside `Schema::new([...])`,
-  an annotated binding, a typed array literal); a generic position such as
-  `assert_eq` takes the full `Field::Field(...)`.
+  `Field::Field(name, dtype, nullable? = true)`.
 - `struct Field` is `pub` rather than `pub(all)`: its fields stay readable
   (directly and through the `name` / `dtype` / `nullable` accessors) but it can
   no longer be built from a record literal outside `types`. Construction goes
-  through `Field(...)`, so a future field can be added without breaking callers.
+  through `Field::Field(...)`, so a future field can be added without breaking callers.
 - The IO options types follow the same shape. `CsvReadOptions::default()`,
   `CsvWriteOptions::default()`, and `JsonReadOptions::default()` are replaced by
-  the all-defaulted constructors `CsvReadOptions(...)`, `CsvWriteOptions(...)`,
-  and `JsonReadOptions(...)`, and the three types are `pub` rather than
+  the all-defaulted constructors `CsvReadOptions::CsvReadOptions(...)`, `CsvWriteOptions::CsvWriteOptions(...)`,
+  and `JsonReadOptions::JsonReadOptions(...)`, and the three types are `pub` rather than
   `pub(all)` — name only the fields that differ instead of spelling out a
   record literal, and a future field no longer breaks callers.
 - `NdjsonReadOptions` is gone: `read_ndjson_with_options`, `parse_ndjson_str`,
@@ -107,7 +104,7 @@ collected in [`migration.md`](migration.md).
   passed the all-defaults options can drop the argument.
 - The remaining builder chains collapse into their constructors. `HtmlOptions`
   loses `default()` and its four `with_*` setters for
-  `HtmlOptions(max_rows? , table_class? , caption? , escape? = true)`;
+  `HtmlOptions::HtmlOptions(max_rows? , table_class? , caption? , escape? = true)`;
   `JoinOptions::on` / `left_on` / `cross` take `how` / `suffix` / `coalesce`
   (and, for `left_on`, a required `right_on~`) directly, retiring all six
   `with_*` methods including the `with_coalesce_auto` added in v0.5.8; and
@@ -148,7 +145,7 @@ collected in [`migration.md`](migration.md).
   (the `Expr::col` / `Expr::lit` static methods they were generated from are
   removed, matching the `lit_int` family); `Expr::explain` — an exact alias of
   `Expr::to_string` — is removed, while `LazyFrame::explain`, which renders a
-  real plan, stays; `LazyFrame::from` is removed in favour of `lazy_frame(df)`;
+  real plan, stays; `LazyFrame::from` is removed in favour of `LazyFrame::LazyFrame(df)`;
   and the internal aliases `NumericColumn::from_int64s` / `from_doubles` and
   the `ColumnStorage::from_builtin` / `from_numeric` wrappers collapse into
   `from_ints` / `from_floats` and the enum variants.
@@ -194,6 +191,21 @@ collected in [`migration.md`](migration.md).
   `null_values()` accessor. Both it and the constructor copy, so the token list
   a reader (or a captured `scan_csv` plan) uses can no longer be mutated
   through the options value.
+- **Every canonical constructor is now the type's own name, spelled
+  `Type::Type(...)`.** `DataFrame::new` becomes `DataFrame::DataFrame`,
+  `Schema::new` becomes `Schema::Schema`, and the lazy entry point
+  `lazy_frame(df)` becomes `LazyFrame::LazyFrame(df)`, joining `Field::Field`,
+  `HtmlOptions::HtmlOptions`, and the three IO options types. One rule now
+  covers the whole surface: a type with a single canonical entry point is built
+  through its own name, and a type with genuinely different entry points keeps
+  a named constructor per shape (`DataFrame::empty` / `from_rows`, the eight
+  `Series::from_*`, `JoinOptions::on` / `left_on` / `cross`, `ChartSpec::bar` /
+  `line` / `point` / `area`).
+  - No constructor is exposed as a free function any more: the `#as_free_fn`
+    forms are gone, and with them the last `lazy_frame` free function, which
+    the facade re-exported. `Type::Type(...)` is the one spelling, and it reads
+    the same through the facade (`@moonframe.DataFrame::DataFrame(...)`) as
+    through a direct package import (`@frame.DataFrame::DataFrame(...)`).
 
 ### Fixes
 
@@ -201,8 +213,8 @@ collected in [`migration.md`](migration.md).
   `nullable = false`. `DataFrame::rename` / `rename_with` edit each field
   through `Field::rename`, so a rename changes the name and nothing else, and
   `with_columns([])` / `drop([])` / `rename([])` return their input frame
-  instead of rebuilding it through `DataFrame::new`, whose derived schema names
-  every field at the `Field` constructor default. A `from_rows` frame carrying
+  instead of rebuilding it through the `DataFrame` constructor, whose derived
+  schema names every field at the `Field` constructor default. A `from_rows` frame carrying
   an explicit `nullable = false` therefore stays equal to itself across those
   calls — the derived `Eq` compares schemas — and a renamed column keeps the
   constraint its caller declared. Ops that genuinely re-derive a schema

@@ -18,7 +18,7 @@
 /// with a null cell, a fully-valid `Bool` column, and a `String` column.
 /// Exercises every dtype branch each reduction may encounter.
 fn stats_df() -> DataFrame raise @types.DataError {
-  DataFrame::new([
+  DataFrame::DataFrame([
     Series::from_int_options("i", [Some(1), None, Some(2), Some(3)]),
     Series::from_float_options("f", [
       Some((1.0 : Double)),
@@ -79,7 +79,7 @@ test "mean reduces numeric columns to Float, nulls non-numeric" {
 test "mean of an empty / all-null numeric column is a Null cell" {
   // An all-null numeric column → Null mean cell (not InvalidOperation); the
   // output column is still retyped to Float.
-  let allnull = DataFrame::new([
+  let allnull = DataFrame::DataFrame([
     Series::from_int_options("a", [None, None]),
     Series::from_float_options("b", [None, None]),
   ])
@@ -90,7 +90,7 @@ test "mean of an empty / all-null numeric column is a Null cell" {
   assert_eq(r.get_column("a").dtype(), @types.DataType::Float)
   // An empty (0-row) numeric column likewise → Null mean cell.
   let empty = DataFrame::empty(
-    @types.Schema::new([@types.Field("a", @types.DataType::Int)]),
+    @types.Schema::Schema([@types.Field::Field("a", @types.DataType::Int)]),
   )
   assert_eq(empty.mean().item(0, "a"), @types.Scalar::Null)
 }
@@ -143,10 +143,10 @@ test "count is the non-null cell count for every column, as a 1-row Int frame" {
 ///|
 test "reductions on a 0-row frame: sum is the identity, count is zero" {
   let df = DataFrame::empty(
-    @types.Schema::new([
-      @types.Field("i", @types.DataType::Int),
-      @types.Field("f", @types.DataType::Float),
-      @types.Field("s", @types.DataType::String),
+    @types.Schema::Schema([
+      @types.Field::Field("i", @types.DataType::Int),
+      @types.Field::Field("f", @types.DataType::Float),
+      @types.Field::Field("s", @types.DataType::String),
     ]),
   )
   // sum → additive identity for numeric, Null for non-numeric; still 1 row.
@@ -167,7 +167,7 @@ test "reductions on a 0-row frame: sum is the identity, count is zero" {
 
 ///|
 test "reductions on a 0-column frame collapse to 0x0" {
-  let df = DataFrame::new([])
+  let df = DataFrame::DataFrame([])
   assert_eq(df.sum().shape(), (0, 0))
   assert_eq(df.mean().shape(), (0, 0))
   assert_eq(df.min().shape(), (0, 0))

@@ -7,7 +7,7 @@
 /// verb (Polars' `df.drop_nulls(subset)`):
 /// - **omitted** → every column gates (drop a row null in **any** column).
 ///   A 0-column frame is the special case: there are no columns whose
-///   validity could fail, so every row passes; with `DataFrame::new`'s
+///   validity could fail, so every row passes; with `DataFrame::DataFrame`'s
 ///   convention that a 0-column frame has `nrows = 0`, the output is
 ///   structurally identical to the input.
 /// - **`Some(keys)`** → only the columns named by `keys` gate; a row null in

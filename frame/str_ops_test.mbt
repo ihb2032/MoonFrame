@@ -11,7 +11,7 @@
 /// A String column mixing cases, surrounding whitespace, and a null cell, so
 /// one fixture exercises case, trim, length, the predicates, and substitution.
 fn str_df() -> DataFrame raise @types.DataError {
-  DataFrame::new([
+  DataFrame::DataFrame([
     Series::from_string_options("s", [
       Some("Hello"),
       Some(" hi "),
@@ -56,7 +56,9 @@ test "str_strip_chars: trims surrounding whitespace, selected standalone" {
 ///|
 test "str_len_chars: counts Unicode characters, all-valid converging onto Numeric" {
   // A supplementary-plane character (`😀`, two UTF-16 code units) counts once.
-  let df = DataFrame::new([Series::from_strings("s", ["a", "héllo", "😀"])])
+  let df = DataFrame::DataFrame([
+    Series::from_strings("s", ["a", "héllo", "😀"]),
+  ])
   let out = df.with_columns([@expr.col("s").str_len_chars().with_alias("n")])
   assert_eq(out.get_column("n").to_scalars(), [
     @types.Scalar::Int(1),
@@ -117,7 +119,7 @@ test "str_starts_with / str_ends_with: prefix and suffix predicates" {
 
 ///|
 test "str_replace / str_replace_all: literal substitution, first vs every, nulls pass through" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_string_options("s", [Some("a-a-a"), None, Some("a")]),
   ])
   let first = df.with_columns([
@@ -152,14 +154,14 @@ test "str_reverse: reverses characters per cell, nulls pass through" {
 ///|
 test "str_reverse: respects surrogate pairs, reversing by codepoint" {
   // The emoji is one codepoint (two UTF-16 units), so it reverses as a unit.
-  let df = DataFrame::new([Series::from_strings("s", ["a😀b"])])
+  let df = DataFrame::DataFrame([Series::from_strings("s", ["a😀b"])])
   let out = df.select([@expr.col("s").str_reverse()])
   assert_eq(out.get_column("s").to_scalars(), [@types.Scalar::String("b😀a")])
 }
 
 ///|
 test "str_pad_start / str_pad_end: pad to a character width; default fill is space; never truncates" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_string_options("s", [
       Some("7"),
       Some("hi"),
@@ -191,14 +193,14 @@ test "str_pad_start / str_pad_end: pad to a character width; default fill is spa
 test "str_pad_start: the width counts characters, not UTF-16 units" {
   // "😀" is one character but two UTF-16 units; padding to width 3 adds two fill
   // characters (codepoint-based), for a three-character result.
-  let df = DataFrame::new([Series::from_strings("s", ["😀"])])
+  let df = DataFrame::DataFrame([Series::from_strings("s", ["😀"])])
   let out = df.select([@expr.col("s").str_pad_start(3, fill='.')])
   assert_eq(out.get_column("s").to_scalars(), [@types.Scalar::String("..😀")])
 }
 
 ///|
 test "str_zfill: zero-pads to a character width, sign-aware, never truncates" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_string_options("s", [
       Some("42"),
       Some("-5"),
@@ -231,14 +233,14 @@ test "str_zfill: zero-pads to a character width, sign-aware, never truncates" {
 test "str_zfill: the width counts characters, not UTF-16 units" {
   // "😀" is one character but two UTF-16 units; zero-padding to width 3 adds two
   // zeros for a three-character result.
-  let df = DataFrame::new([Series::from_strings("s", ["😀"])])
+  let df = DataFrame::DataFrame([Series::from_strings("s", ["😀"])])
   let out = df.select([@expr.col("s").str_zfill(3)])
   assert_eq(out.get_column("s").to_scalars(), [@types.Scalar::String("00😀")])
 }
 
 ///|
 test "str_zfill: a non-String operand raises TypeMismatch" {
-  let df = DataFrame::new([Series::from_ints("n", [1])])
+  let df = DataFrame::DataFrame([Series::from_ints("n", [1])])
   assert_true(
     (Ok(df.select([@expr.col("n").str_zfill(3)])) catch { e => Err(e) })
     is Err(
@@ -249,7 +251,7 @@ test "str_zfill: a non-String operand raises TypeMismatch" {
 
 ///|
 test "str_contains_regex: POSIX-regex partial match, nulls pass through" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_string_options("s", [
       Some("abc"),
       Some("a1c"),
@@ -279,7 +281,7 @@ test "str_contains_regex: POSIX-regex partial match, nulls pass through" {
 
 ///|
 test "str_replace_regex / str_replace_all_regex: first vs every match" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_string_options("s", [Some("a12b345"), None]),
   ])
   let out = df.select([
@@ -300,7 +302,7 @@ test "str_replace_regex / str_replace_all_regex: first vs every match" {
 
 ///|
 test "str regex: an invalid or PCRE-only pattern raises InvalidOperation" {
-  let df = DataFrame::new([Series::from_strings("s", ["x"])])
+  let df = DataFrame::DataFrame([Series::from_strings("s", ["x"])])
   // An unclosed bracket is a genuine syntax error.
   assert_true(
     (Ok(df.select([@expr.col("s").str_contains("[", literal=false)])) catch {
@@ -319,7 +321,7 @@ test "str regex: an invalid or PCRE-only pattern raises InvalidOperation" {
 
 ///|
 test "str regex: a non-String operand is a TypeMismatch" {
-  let df = DataFrame::new([Series::from_ints("n", [1])])
+  let df = DataFrame::DataFrame([Series::from_ints("n", [1])])
   assert_true(
     (Ok(df.select([@expr.col("n").str_contains("a", literal=false)])) catch {
       e => Err(e)
@@ -332,7 +334,7 @@ test "str regex: a non-String operand is a TypeMismatch" {
 
 ///|
 test "str_extract: whole match by default, capture groups by index, null on no match" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_string_options("s", [Some("abc123"), Some("xyz"), None]),
   ])
   let out = df.select([
@@ -363,14 +365,16 @@ test "str_extract: whole match by default, capture groups by index, null on no m
 test "str_extract: a group that did not participate is null even on a match" {
   // The pattern has no capture group, so group 1 is absent — null despite the
   // whole pattern matching.
-  let df = DataFrame::new([Series::from_strings("s", ["abc123"])])
+  let df = DataFrame::DataFrame([Series::from_strings("s", ["abc123"])])
   let out = df.select([@expr.col("s").str_extract("[0-9]+", group=1)])
   assert_eq(out.get_column("s").to_scalars(), [@types.Scalar::Null])
 }
 
 ///|
 test "str_count_matches: non-overlapping match count, all-valid rides Numeric" {
-  let df = DataFrame::new([Series::from_strings("s", ["a1b22c333", "abc", ""])])
+  let df = DataFrame::DataFrame([
+    Series::from_strings("s", ["a1b22c333", "abc", ""]),
+  ])
   let out = df.with_columns([
     @expr.col("s").str_count_matches("[0-9]+").with_alias("n"),
   ])
@@ -385,7 +389,7 @@ test "str_count_matches: non-overlapping match count, all-valid rides Numeric" {
 
 ///|
 test "str_count_matches: a null cell stays null (Builtin)" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_string_options("s", [Some("x1x2"), None]),
   ])
   let out = df.with_columns([
@@ -400,7 +404,7 @@ test "str_count_matches: a null cell stays null (Builtin)" {
 
 ///|
 test "str_slice: character substring with offset and length, clamped and total" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_string_options("s", [Some("hello"), Some("hi"), None]),
   ])
   let out = df.select([
@@ -451,14 +455,14 @@ test "str_slice: character substring with offset and length, clamped and total" 
 test "str_slice: character-based, so a surrogate pair is never split" {
   // "a😀b" is 3 codepoints; slicing one char at offset 1 is the whole emoji,
   // not half a UTF-16 surrogate.
-  let df = DataFrame::new([Series::from_strings("s", ["a😀b"])])
+  let df = DataFrame::DataFrame([Series::from_strings("s", ["a😀b"])])
   let out = df.select([@expr.col("s").str_slice(1, length=1)])
   assert_eq(out.get_column("s").to_scalars(), [@types.Scalar::String("😀")])
 }
 
 ///|
 test "str_slice: a non-String operand raises TypeMismatch" {
-  let df = DataFrame::new([Series::from_ints("n", [1])])
+  let df = DataFrame::DataFrame([Series::from_ints("n", [1])])
   assert_true(
     (Ok(df.select([@expr.col("n").str_slice(0)])) catch { e => Err(e) })
     is Err(
@@ -469,7 +473,7 @@ test "str_slice: a non-String operand raises TypeMismatch" {
 
 ///|
 test "str_len_bytes counts UTF-8 bytes, all-valid rides Numeric" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_strings("s", ["a", "ab", "😀", "a😀"]),
   ])
   let out = df.with_columns([@expr.col("s").str_len_bytes().with_alias("n")])
@@ -485,7 +489,9 @@ test "str_len_bytes counts UTF-8 bytes, all-valid rides Numeric" {
 
 ///|
 test "str_len_bytes: a null cell stays null (Builtin)" {
-  let df = DataFrame::new([Series::from_string_options("s", [Some("ab"), None])])
+  let df = DataFrame::DataFrame([
+    Series::from_string_options("s", [Some("ab"), None]),
+  ])
   let out = df.with_columns([@expr.col("s").str_len_bytes().with_alias("n")])
   assert_eq(out.get_column("n").to_scalars(), [
     @types.Scalar::Int(2),
@@ -496,7 +502,7 @@ test "str_len_bytes: a null cell stays null (Builtin)" {
 
 ///|
 test "str_strip_chars: a custom charset strips those chars; the default stays whitespace" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_string_options("s", [Some("xxhixx"), Some(" hi "), None]),
   ])
   // Custom set "x": strips leading / trailing 'x'; " hi " has none, unchanged.
@@ -519,7 +525,7 @@ test "str_strip_chars: a custom charset strips those chars; the default stays wh
 
 ///|
 test "str_split_get returns the index-th field, null when out of range" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_string_options("s", [Some("a,b,c"), Some("solo"), None]),
   ])
   let out = df.select([
@@ -564,7 +570,7 @@ test "str: a predicate filters rows by a (case-sensitive) string test" {
 
 ///|
 test "str: a namespace op wraps an aggregation inside grouped agg" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_strings("region", ["west", "east", "west"]),
     Series::from_strings("name", ["alice", "bob", "carol"]),
   ])
@@ -600,7 +606,7 @@ test "str: an op on a literal broadcasts over the frame" {
 
 ///|
 test "str: a non-String operand is a TypeMismatch" {
-  let df = DataFrame::new([Series::from_ints("n", [1, 2, 3])])
+  let df = DataFrame::DataFrame([Series::from_ints("n", [1, 2, 3])])
   let result = Ok(df.with_columns([@expr.col("n").str_to_uppercase()])) catch {
     e => Err(e)
   }

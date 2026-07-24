@@ -85,7 +85,7 @@ pub fn graded(
 /// with the filter sunk below the projection and the scan narrowed to the
 /// columns the query reads.
 pub fn report_plan(df : @moonframe.DataFrame) -> @moonframe.LazyFrame {
-  @moonframe.lazy_frame(df)
+  @moonframe.LazyFrame::LazyFrame(df)
   .with_columns([
     (@moonframe.col("revenue") * @moonframe.lit_float(1.5)).with_alias(
       "revenue_adj",

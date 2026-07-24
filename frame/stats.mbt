@@ -102,7 +102,7 @@ pub fn DataFrame::count(self : DataFrame) -> DataFrame raise @types.DataError {
 /// length-1 result columns into a 1-row `DataFrame`. The shared driver behind
 /// the five public reductions above.
 ///
-/// Raises only through the 1-row `DataFrame::new`, whose failure paths
+/// Raises only through the 1-row `DataFrame::DataFrame`, whose failure paths
 /// (duplicate name / length mismatch) cannot fire here — the output column
 /// names are exactly `self`'s (already unique) and every output column has
 /// length 1 — so the raise is forwarded, never actually taken. (A 0-column
@@ -115,7 +115,7 @@ fn DataFrame::reduce_to_row(
   for s in self.column_series() {
     cols.push(reduce_column(s, op))
   }
-  DataFrame::new(cols)
+  DataFrame::DataFrame(cols)
 }
 
 ///|

@@ -53,7 +53,7 @@ test "clean: surfaces ColumnNotFound when the `score` column is missing" {
   // Pipeline assumes `score`. Without it the gating step fails up
   // front, so the caller sees a structured error instead of a
   // silently-mangled frame.
-  let df = @moonframe.DataFrame::new([
+  let df = @moonframe.DataFrame::DataFrame([
     @moonframe.Series::from_ints("id", [1, 2]),
   ])
   assert_true(
@@ -67,7 +67,7 @@ test "clean: surfaces ColumnNotFound when the `note` column is missing" {
   // `score` exists, gating succeeds → but `fill_null` then targets
   // `note`, which doesn't exist. The error must come back as
   // `ColumnNotFound("note")`, not a silent no-op.
-  let df = @moonframe.DataFrame::new([
+  let df = @moonframe.DataFrame::DataFrame([
     @moonframe.Series::from_int_options("score", [Some(1), None, Some(3)]),
   ])
   assert_true(
@@ -81,7 +81,7 @@ test "clean: passes through a frame that already has no nulls" {
   // No work to do — gating drops nothing, fill_null is a no-op
   // because `note` has no nulls. The frame should come back
   // structurally identical.
-  let df = @moonframe.DataFrame::new([
+  let df = @moonframe.DataFrame::DataFrame([
     @moonframe.Series::from_ints("id", [1, 2]),
     @moonframe.Series::from_strings("note", ["a", "b"]),
     @moonframe.Series::from_floats("score", [1.0, 2.0]),

@@ -16,7 +16,7 @@ test "a trailing filter sinks below a string-namespace with_columns stage" {
   // string-specific rule — the same swap arithmetic earns.
   let derived = [@expr.col("region").str_to_uppercase().with_alias("upper")]
   let predicate = @expr.col("qty").gt(@expr.lit_int(50))
-  let plan = lazy_frame(df).with_columns(derived).filter(predicate)
+  let plan = LazyFrame::LazyFrame(df).with_columns(derived).filter(predicate)
   assert_eq(
     plan.explain(optimized=true),
     "WITH_COLUMNS [col(region).str_to_uppercase() as upper]\n" +
@@ -35,7 +35,7 @@ test "a string predicate sinks below a selection passing its bare column" {
   // is dead).
   let projection = [@expr.col("region"), @expr.col("qty")]
   let predicate = @expr.col("region").str_starts_with("w")
-  let plan = lazy_frame(df).select(projection).filter(predicate)
+  let plan = LazyFrame::LazyFrame(df).select(projection).filter(predicate)
   assert_eq(
     plan.explain(optimized=true),
     "SELECT [col(region), col(qty)]\n" +
@@ -59,7 +59,7 @@ test "fence: a string op over an aggregation keeps a group filter above" {
     @expr.col("region").first().str_to_uppercase().with_alias("u"),
   ]
   let predicate = @expr.col("region").eq(@expr.lit_str("west"))
-  let plan = lazy_frame(df)
+  let plan = LazyFrame::LazyFrame(df)
     .group_by([@expr.col("region")])
     .agg(aggs)
     .filter(predicate)

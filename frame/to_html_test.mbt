@@ -10,7 +10,7 @@
 
 ///|
 test "to_html: empty frame (0x0) returns the empty string" {
-  let df = DataFrame::new([])
+  let df = DataFrame::DataFrame([])
   assert_eq(df.to_html(), "")
 }
 
@@ -19,9 +19,9 @@ test "to_html: zero rows still emits header + empty tbody" {
   // A schema-only frame must still surface the column layout; the
   // `<tbody>` is present but carries no `<tr>` (as pandas' `to_html`
   // renders a 0-row frame).
-  let schema = @types.Schema::new([
-    @types.Field("a", @types.DataType::Int),
-    @types.Field("b", @types.DataType::String),
+  let schema = @types.Schema::Schema([
+    @types.Field::Field("a", @types.DataType::Int),
+    @types.Field::Field("b", @types.DataType::String),
   ])
   let df = DataFrame::empty(schema)
   let expected =
@@ -40,7 +40,7 @@ test "to_html: zero rows still emits header + empty tbody" {
 
 ///|
 test "to_html: simple Int + String frame" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_ints("a", [1, 2, 3]),
     Series::from_strings("b", ["x", "y", "z"]),
   ])
@@ -61,7 +61,7 @@ test "to_html: simple Int + String frame" {
 
 ///|
 test "to_html: null cells render as empty <td></td>" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_int_options("n", [Some(1), None, Some(3)]),
     Series::from_string_options("s", [Some("a"), Some("b"), None]),
   ])
@@ -84,7 +84,7 @@ test "to_html: null cells render as empty <td></td>" {
 test "to_html: wide Unicode column names and cells pass through" {
   // Non-ASCII codepoints (including a supplementary-plane emoji) are not
   // markup-significant, so they survive the escape pass verbatim.
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_strings("地区", ["华东"]),
     Series::from_strings("trend", ["📈"]),
   ])
@@ -103,8 +103,8 @@ test "to_html: wide Unicode column names and cells pass through" {
 
 ///|
 test "to_html: equals to_html with default options" {
-  let df = DataFrame::new([Series::from_ints("n", [1, 2])])
-  assert_eq(df.to_html(), df.to_html(options=HtmlOptions()))
+  let df = DataFrame::DataFrame([Series::from_ints("n", [1, 2])])
+  assert_eq(df.to_html(), df.to_html(options=HtmlOptions::HtmlOptions()))
 }
 
 // ── escaping ────────────────────────────────────────────────────────
@@ -114,7 +114,7 @@ test "to_html: escapes &, <, >, \", ' in headers and cells (default)" {
   // Both column names carry a `<` / `&`; the cells exercise every
   // escaped character plus ordinary text, so the `&amp;`/`&lt;`/`&gt;`/
   // `&quot;`/`&#39;` rules (and the verbatim fall-through) are all covered.
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_strings("x<y", ["<script>alert(1)</script>"]),
     Series::from_strings("a&b", ["he said \"hi\" & it's left"]),
   ])
@@ -133,8 +133,8 @@ test "to_html: escapes &, <, >, \", ' in headers and cells (default)" {
 
 ///|
 test "to_html: escape=false passes markup through verbatim" {
-  let df = DataFrame::new([Series::from_strings("h", ["<b>bold</b>"])])
-  let opts : HtmlOptions = HtmlOptions(escape=false)
+  let df = DataFrame::DataFrame([Series::from_strings("h", ["<b>bold</b>"])])
+  let opts : HtmlOptions = HtmlOptions::HtmlOptions(escape=false)
   let expected =
     #|<table>
     #|<thead>
@@ -152,8 +152,8 @@ test "to_html: escape=false passes markup through verbatim" {
 
 ///|
 test "to_html: max_rows truncates with a tfoot banner" {
-  let df = DataFrame::new([Series::from_ints("n", [1, 2, 3, 4, 5])])
-  let opts : HtmlOptions = HtmlOptions(max_rows=2)
+  let df = DataFrame::DataFrame([Series::from_ints("n", [1, 2, 3, 4, 5])])
+  let opts : HtmlOptions = HtmlOptions::HtmlOptions(max_rows=2)
   let expected =
     #|<table>
     #|<thead>
@@ -173,8 +173,8 @@ test "to_html: max_rows truncates with a tfoot banner" {
 
 ///|
 test "to_html: negative max_rows clamps to 0 (header + banner)" {
-  let df = DataFrame::new([Series::from_ints("n", [1, 2])])
-  let opts : HtmlOptions = HtmlOptions(max_rows=-3)
+  let df = DataFrame::DataFrame([Series::from_ints("n", [1, 2])])
+  let opts : HtmlOptions = HtmlOptions::HtmlOptions(max_rows=-3)
   let expected =
     #|<table>
     #|<thead>
@@ -192,8 +192,8 @@ test "to_html: negative max_rows clamps to 0 (header + banner)" {
 
 ///|
 test "to_html: max_rows >= nrows shows all rows, no banner" {
-  let df = DataFrame::new([Series::from_ints("n", [1, 2])])
-  let opts : HtmlOptions = HtmlOptions(max_rows=100)
+  let df = DataFrame::DataFrame([Series::from_ints("n", [1, 2])])
+  let opts : HtmlOptions = HtmlOptions::HtmlOptions(max_rows=100)
   let expected =
     #|<table>
     #|<thead>
@@ -212,8 +212,8 @@ test "to_html: max_rows >= nrows shows all rows, no banner" {
 
 ///|
 test "to_html: with_table_class sets the class attribute" {
-  let df = DataFrame::new([Series::from_ints("n", [1])])
-  let opts : HtmlOptions = HtmlOptions(table_class="dataframe")
+  let df = DataFrame::DataFrame([Series::from_ints("n", [1])])
+  let opts : HtmlOptions = HtmlOptions::HtmlOptions(table_class="dataframe")
   let expected =
     #|<table class="dataframe">
     #|<thead>
@@ -229,8 +229,8 @@ test "to_html: with_table_class sets the class attribute" {
 
 ///|
 test "to_html: with_caption emits an escaped caption" {
-  let df = DataFrame::new([Series::from_ints("n", [1])])
-  let opts : HtmlOptions = HtmlOptions(caption="Sales & totals")
+  let df = DataFrame::DataFrame([Series::from_ints("n", [1])])
+  let opts : HtmlOptions = HtmlOptions::HtmlOptions(caption="Sales & totals")
   let expected =
     #|<table>
     #|<caption>Sales &amp; totals</caption>
@@ -247,11 +247,11 @@ test "to_html: with_caption emits an escaped caption" {
 
 ///|
 test "to_html: class + caption + max_rows compose" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_strings("region", ["west", "east", "north"]),
     Series::from_ints("n", [10, 5, 7]),
   ])
-  let opts : HtmlOptions = HtmlOptions(
+  let opts : HtmlOptions = HtmlOptions::HtmlOptions(
     table_class="dataframe",
     caption="Top regions",
     max_rows=2,

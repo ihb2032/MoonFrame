@@ -55,7 +55,7 @@ test "widget_report: missing `product` column surfaces as ColumnNotFound" {
   // source frame is missing it, the `is_widget_row` predicate bubbles
   // `ColumnNotFound` up through `filter` rather than silently excluding
   // every row.
-  let df = @moonframe.DataFrame::new([
+  let df = @moonframe.DataFrame::DataFrame([
     @moonframe.Series::from_ints("id", [1, 2, 3]),
   ])
   assert_true(
@@ -68,7 +68,7 @@ test "widget_report: missing `product` column surfaces as ColumnNotFound" {
 test "widget_report: select error surfaces when a required column is missing" {
   // `product` exists (so the filter succeeds) but `region` does not
   // — the next step (`select`) must propagate the ColumnNotFound.
-  let df = @moonframe.DataFrame::new([
+  let df = @moonframe.DataFrame::DataFrame([
     @moonframe.Series::from_strings("product", ["widget", "gadget"]),
   ])
   assert_true(
@@ -83,7 +83,7 @@ test "widget_report: sort error surfaces when `quantity` is missing post-filter"
   // `revenue` but no `quantity`. `select` fails when it asks for
   // `quantity` — so this also exercises the `select` error path,
   // but with a different missing column from the previous case.
-  let df = @moonframe.DataFrame::new([
+  let df = @moonframe.DataFrame::DataFrame([
     @moonframe.Series::from_strings("product", ["widget"]),
     @moonframe.Series::from_strings("region", ["west"]),
     @moonframe.Series::from_floats("price", [9.5]),
@@ -99,7 +99,7 @@ test "widget_report: sort error surfaces when `quantity` is missing post-filter"
 test "is_widget_row: keeps matching rows and drops the rest" {
   // Apply the reified predicate through `filter`, exercising both branches
   // of the closure: a "widget" cell is kept, a "gadget" cell dropped.
-  let df = @moonframe.DataFrame::new([
+  let df = @moonframe.DataFrame::DataFrame([
     @moonframe.Series::from_strings("product", ["widget", "gadget"]),
   ])
   let kept = df.filter(is_widget_row())
@@ -127,7 +127,9 @@ test "is_widget_row: a null product cell drops the row, not the report" {
 
 ///|
 test "is_widget_row: surfaces accessor error when `product` column is absent" {
-  let df = @moonframe.DataFrame::new([@moonframe.Series::from_ints("id", [1])])
+  let df = @moonframe.DataFrame::DataFrame([
+    @moonframe.Series::from_ints("id", [1]),
+  ])
   assert_true(
     (Ok(df.filter(is_widget_row())) catch { e => Err(e) })
     is Err(@moonframe.DataError::ColumnNotFound("product")),
@@ -140,7 +142,7 @@ test "is_widget_row: a non-String product column surfaces a typed mismatch" {
   // (here Int) makes `Scalar::as_string` raise `TypeMismatch(Expected(...))` — the structured
   // typed-cell error, whose dtypes are readable directly (`expected String, got
   // Int`), distinct from the missing-column case above.
-  let df = @moonframe.DataFrame::new([
+  let df = @moonframe.DataFrame::DataFrame([
     @moonframe.Series::from_ints("product", [1, 2]),
   ])
   let err = Ok(df.filter(is_widget_row())) catch { e => Err(e) }

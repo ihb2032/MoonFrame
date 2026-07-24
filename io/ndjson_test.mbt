@@ -17,7 +17,7 @@
 
 ///|
 test "format_ndjson: simple Int + String frame" {
-  let df = @frame.DataFrame::new([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_ints("n", [1, 2, 3]),
     @series.Series::from_strings("s", ["a", "b", "c"]),
   ])
@@ -31,7 +31,7 @@ test "format_ndjson: simple Int + String frame" {
 
 ///|
 test "format_ndjson: null cells emit JSON null" {
-  let df = @frame.DataFrame::new([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_int_options("n", [Some(1), None]),
     @series.Series::from_string_options("s", [None, Some("x")]),
   ])
@@ -45,7 +45,7 @@ test "format_ndjson: null cells emit JSON null" {
 test "format_ndjson: special characters get standard escapes" {
   // Same four escapes the JSON-records writer pins; the builtin
   // stringifier produces them, so this locks in the convention.
-  let df = @frame.DataFrame::new([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_strings("s", ["a\"b\\c\nd\te"]),
   ])
   assert_eq(@io.format_ndjson(df), "{\"s\":\"a\\\"b\\\\c\\nd\\te\"}\n")
@@ -55,7 +55,9 @@ test "format_ndjson: special characters get standard escapes" {
 test "format_ndjson: zero-row frame emits the empty string" {
   // No rows → no lines → empty output (the NDJSON analogue of the
   // JSON-records writer's `[]`).
-  let schema = @types.Schema::new([@types.Field("a", @types.DataType::Int)])
+  let schema = @types.Schema::Schema([
+    @types.Field::Field("a", @types.DataType::Int),
+  ])
   let df = @frame.DataFrame::empty(schema)
   assert_eq(@io.format_ndjson(df), "")
 }
@@ -67,7 +69,7 @@ test "format_ndjson: non-finite floats emit JSON null" {
   // JSON-records writer does.
   let inf = id_double(1.0) / id_double(0.0)
   let nan = id_double(0.0) / id_double(0.0)
-  let df = @frame.DataFrame::new([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_floats("x", [1.5, inf, -inf, nan]),
   ])
   let text = @io.format_ndjson(df)
@@ -84,7 +86,7 @@ test "format_ndjson: non-finite floats emit JSON null" {
 test "round-trip: a large Int64 survives NDJSON write→read" {
   // NDJSON shares `scalar_to_json` / `json_value_as_int`, so the large-Int64
   // verbatim-repr fix carries over: values past 2^53 stay exact Ints.
-  let df = @frame.DataFrame::new([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_ints("n", [9007199254740993L, 9223372036854775807L]),
   ])
   let text = @io.format_ndjson(df)
@@ -289,7 +291,7 @@ test "parse_ndjson_str: a line with no trailing newline still parses" {
 
 ///|
 test "parse_ndjson_str: lines of empty objects collapse to 0x0" {
-  // `{}` per line is N rows of zero columns, which `DataFrame::new`
+  // `{}` per line is N rows of zero columns, which `DataFrame::DataFrame`
   // cannot represent; collapses to the empty-input shape.
   let content =
     #|{}
@@ -328,7 +330,7 @@ test "parse_ndjson_str: typed mismatch has structured line context" {
   let result = Ok(
     @io.parse_ndjson_str(
       content,
-      options=@io.JsonReadOptions(infer_schema_rows=2),
+      options=@io.JsonReadOptions::JsonReadOptions(infer_schema_rows=2),
     ),
   ) catch {
     e => Err(e)
@@ -358,7 +360,7 @@ test "parse_ndjson_str: a build-stage type error reports the physical file line"
   let result = Ok(
     @io.parse_ndjson_str(
       content,
-      options=@io.JsonReadOptions(infer_schema_rows=2),
+      options=@io.JsonReadOptions::JsonReadOptions(infer_schema_rows=2),
     ),
   ) catch {
     e => Err(e)
@@ -393,7 +395,7 @@ test "parse_ndjson_str: infer_schema_rows=0 scans every line" {
     #|{"x":2.5}
   let df = @io.parse_ndjson_str(
     content,
-    options=@io.JsonReadOptions(infer_schema_rows=0),
+    options=@io.JsonReadOptions::JsonReadOptions(infer_schema_rows=0),
   )
   assert_eq(df.get_column("x").dtype(), @types.DataType::Float)
   assert_eq(df.item(0, "x"), @types.Scalar::Float(1.0))
@@ -411,7 +413,7 @@ test "parse_ndjson_str: on_parse_error=Null nulls an out-of-window misfit" {
     #|{"x":"three"}
   let df = @io.parse_ndjson_str(
     content,
-    options=@io.JsonReadOptions(
+    options=@io.JsonReadOptions::JsonReadOptions(
       infer_schema_rows=2,
       on_parse_error=@io.OnParseError::Null,
     ),
@@ -426,7 +428,7 @@ test "parse_ndjson_str: on_parse_error=Null nulls an out-of-window misfit" {
 ///|
 test "write_ndjson then read_ndjson round-trips a small frame on disk" {
   let path = "_build/io_ndjson_test_roundtrip.ndjson"
-  let df = @frame.DataFrame::new([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_ints("n", [1, 2, 3]),
     @series.Series::from_strings("s", ["x", "y", "z"]),
   ])
@@ -476,7 +478,9 @@ test "negative zero keeps its sign on an NDJSON round-trip" {
   // A repr-less number renders through Double's Show, which drops the sign
   // of -0.0 — the token `0` would read back as +0.0 and `1.0 / x` flip from
   // -inf to +inf. The writer pins the exact token instead.
-  let df = @frame.DataFrame::new([@series.Series::from_floats("a", [-0.0, 1.5])])
+  let df = @frame.DataFrame::DataFrame([
+    @series.Series::from_floats("a", [-0.0, 1.5]),
+  ])
   let text = @io.format_ndjson(df)
   assert_true(text.contains("-0.0"))
   let back = @io.parse_ndjson_str(text)
@@ -488,13 +492,13 @@ test "negative zero keeps its sign on an NDJSON round-trip" {
 ///|
 test "read_ndjson_with_options honours a custom inference window" {
   let path = "_build/io_ndjson_test_custom.ndjson"
-  let df = @frame.DataFrame::new([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_int_options("a", [Some(1), Some(2), Some(3)]),
   ])
   @io.write_ndjson(path, df)
   let parsed = @io.read_ndjson(
     path,
-    options=@io.JsonReadOptions(infer_schema_rows=1),
+    options=@io.JsonReadOptions::JsonReadOptions(infer_schema_rows=1),
   )
   assert_eq(parsed.check_invariants(), Ok(()))
   assert_eq(parsed.get_column("a").dtype(), @types.DataType::Int)
@@ -524,7 +528,7 @@ test "read_ndjson_with_options: missing file surfaces as IoError" {
 test "write_ndjson: invalid path surfaces as IoError" {
   // Aim the writer at a directory that doesn't exist so the underlying
   // `@fs` call surfaces `IOError`, promoted to `DataError::IoError`.
-  let df = @frame.DataFrame::new([@series.Series::from_ints("a", [1])])
+  let df = @frame.DataFrame::DataFrame([@series.Series::from_ints("a", [1])])
   let result = Ok(
     @io.write_ndjson("_build/no_such_dir_io_ndjson_test/file.ndjson", df),
   ) catch {
@@ -537,7 +541,7 @@ test "write_ndjson: invalid path surfaces as IoError" {
 
 ///|
 test "format_ndjson / parse_ndjson_str round-trip preserves data" {
-  let df = @frame.DataFrame::new([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_int_options("n", [Some(1), None, Some(3)]),
     @series.Series::from_floats("r", [
       (1.5 : Double),

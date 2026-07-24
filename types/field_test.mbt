@@ -1,12 +1,12 @@
-// The bare `Field(...)` spelling resolves wherever the expected type is
-// concrete — inside `Schema::new([...])`, an annotated binding, a typed array
+// The bare `Field::Field(...)` spelling resolves wherever the expected type is
+// concrete — inside `Schema::Schema([...])`, an annotated binding, a typed array
 // literal (see `schema_test.mbt`). These tests bind fields on their own or
 // hand them to the generic `assert_eq` / `inspect`, where no expected type is
 // available, so they use the fully qualified `Field::Field(...)` form.
 
 ///|
 test "Field defaults to nullable" {
-  let f : Field = Field("age", DataType::Int)
+  let f : Field = Field::Field("age", DataType::Int)
   assert_eq(f.name(), "age")
   assert_eq(f.dtype(), DataType::Int)
   assert_true(f.nullable())
@@ -14,16 +14,16 @@ test "Field defaults to nullable" {
 
 ///|
 test "Field honours an explicit nullable flag" {
-  let f : Field = Field("id", DataType::Int, nullable=false)
+  let f : Field = Field::Field("id", DataType::Int, nullable=false)
   assert_eq(f.name(), "id")
   assert_false(f.nullable())
-  let g : Field = Field("note", DataType::String, nullable=true)
+  let g : Field = Field::Field("note", DataType::String, nullable=true)
   assert_true(g.nullable())
 }
 
 ///|
 test "Field::rename returns a new field, leaves the source intact" {
-  let original : Field = Field("a", DataType::Float)
+  let original : Field = Field::Field("a", DataType::Float)
   let renamed = original.rename("b")
   assert_eq(renamed.name(), "b")
   assert_eq(renamed.dtype(), DataType::Float)

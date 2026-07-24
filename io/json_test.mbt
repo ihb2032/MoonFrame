@@ -13,7 +13,7 @@
 
 ///|
 test "format_json: simple Int + String frame" {
-  let df = @frame.DataFrame::new([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_ints("n", [1, 2, 3]),
     @series.Series::from_strings("s", ["a", "b", "c"]),
   ])
@@ -28,7 +28,7 @@ test "format_json: simple Int + String frame" {
 
 ///|
 test "format_json: null cells emit JSON null" {
-  let df = @frame.DataFrame::new([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_int_options("n", [Some(1), None]),
     @series.Series::from_string_options("s", [None, Some("x")]),
   ])
@@ -43,7 +43,7 @@ test "format_json: special characters get standard escapes" {
   // `\"`, `\\`, `\n`, `\t` are the four escapes the v0.1 plan
   // pins explicitly. We rely on the builtin stringifier, so the
   // assertion locks in the convention rather than re-deriving it.
-  let df = @frame.DataFrame::new([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_strings("s", ["a\"b\\c\nd\te"]),
   ])
   assert_eq(@io.format_json(df), "[{\"s\":\"a\\\"b\\\\c\\nd\\te\"}]")
@@ -51,7 +51,9 @@ test "format_json: special characters get standard escapes" {
 
 ///|
 test "format_json: zero-row frame emits an empty array" {
-  let schema = @types.Schema::new([@types.Field("a", @types.DataType::Int)])
+  let schema = @types.Schema::Schema([
+    @types.Field::Field("a", @types.DataType::Int),
+  ])
   let df = @frame.DataFrame::empty(schema)
   assert_eq(@io.format_json(df), "[]")
 }
@@ -72,7 +74,7 @@ fn id_double(x : Double) -> Double {
 test "format_json: non-finite floats emit JSON null" {
   let inf = id_double(1.0) / id_double(0.0)
   let nan = id_double(0.0) / id_double(0.0)
-  let df = @frame.DataFrame::new([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_floats("x", [1.5, inf, -inf, nan]),
   ])
   let js = @io.format_json(df)
@@ -151,7 +153,7 @@ test "round-trip: a large Int64 beyond 2^53 keeps Int dtype and exact value" {
   // 2^53, 2^53+1 (the first Int64 with no exact Double), and Int64::MAX all
   // used to corrupt to a Float(Infinity) cell on round-trip; the verbatim-repr
   // writer and the repr-recovering reader keep them exact.
-  let df = @frame.DataFrame::new([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_ints("n", [
       9007199254740992L, 9007199254740993L, 9223372036854775807L, 7L,
     ]),
@@ -280,7 +282,7 @@ test "parse_json_str: empty array yields a 0x0 frame" {
 
 ///|
 test "parse_json_str: array of empty objects collapses to 0x0" {
-  // `[{}, {}]` is N records with 0 columns, which `DataFrame::new`
+  // `[{}, {}]` is N records with 0 columns, which `DataFrame::DataFrame`
   // cannot represent; the reader collapses it to the same shape
   // empty-input produces.
   let df = @io.parse_json_str("[{},{}]")
@@ -331,7 +333,7 @@ test "parse_json_str: typed mismatch has structured record context" {
   let result = Ok(
     @io.parse_json_str(
       content,
-      options=@io.JsonReadOptions(infer_schema_rows=2),
+      options=@io.JsonReadOptions::JsonReadOptions(infer_schema_rows=2),
     ),
   ) catch {
     e => Err(e)
@@ -360,7 +362,7 @@ test "parse_json_str: Float column with non-number past inference errors" {
   let result = Ok(
     @io.parse_json_str(
       content,
-      options=@io.JsonReadOptions(infer_schema_rows=2),
+      options=@io.JsonReadOptions::JsonReadOptions(infer_schema_rows=2),
     ),
   ) catch {
     e => Err(e)
@@ -390,7 +392,7 @@ test "parse_json_str: Bool column with non-bool past inference errors" {
   let result = Ok(
     @io.parse_json_str(
       content,
-      options=@io.JsonReadOptions(infer_schema_rows=2),
+      options=@io.JsonReadOptions::JsonReadOptions(infer_schema_rows=2),
     ),
   ) catch {
     e => Err(e)
@@ -421,7 +423,7 @@ test "parse_json_str: infer_schema_rows=0 scans every record" {
   let content = "[{\"x\":1},{\"x\":2.5}]"
   let df = @io.parse_json_str(
     content,
-    options=@io.JsonReadOptions(infer_schema_rows=0),
+    options=@io.JsonReadOptions::JsonReadOptions(infer_schema_rows=0),
   )
   assert_eq(df.get_column("x").dtype(), @types.DataType::Float)
   assert_eq(df.item(0, "x"), @types.Scalar::Float(1.0))
@@ -436,7 +438,7 @@ test "parse_json_str: on_parse_error=Null nulls an out-of-window misfit" {
   let content = "[{\"x\":1},{\"x\":2},{\"x\":\"three\"}]"
   let df = @io.parse_json_str(
     content,
-    options=@io.JsonReadOptions(
+    options=@io.JsonReadOptions::JsonReadOptions(
       infer_schema_rows=2,
       on_parse_error=@io.OnParseError::Null,
     ),
@@ -494,7 +496,7 @@ test "parse_json_str: nested array / object cells fall back to String" {
 ///|
 test "write_json then read_json round-trips a small frame on disk" {
   let path = "_build/io_json_test_roundtrip.json"
-  let df = @frame.DataFrame::new([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_ints("n", [1, 2, 3]),
     @series.Series::from_strings("s", ["x", "y", "z"]),
   ])
@@ -510,13 +512,13 @@ test "write_json then read_json round-trips a small frame on disk" {
 ///|
 test "read_json_with_options honours a custom inference window" {
   let path = "_build/io_json_test_custom.json"
-  let df = @frame.DataFrame::new([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_int_options("a", [Some(1), Some(2), Some(3)]),
   ])
   @io.write_json(path, df)
   let parsed = @io.read_json(
     path,
-    options=@io.JsonReadOptions(infer_schema_rows=1),
+    options=@io.JsonReadOptions::JsonReadOptions(infer_schema_rows=1),
   )
   assert_eq(parsed.check_invariants(), Ok(()))
   assert_eq(parsed.get_column("a").dtype(), @types.DataType::Int)
@@ -543,7 +545,7 @@ test "write_json: invalid path surfaces as IoError" {
   // Same shape as the CSV writer error test: aim the writer at a
   // directory that doesn't exist so the underlying `@fs` call
   // surfaces `IOError`, which we promote to `DataError::IoError`.
-  let df = @frame.DataFrame::new([@series.Series::from_ints("a", [1])])
+  let df = @frame.DataFrame::DataFrame([@series.Series::from_ints("a", [1])])
   let result = Ok(
     @io.write_json("_build/no_such_dir_io_json_test/file.json", df),
   ) catch {
@@ -556,7 +558,7 @@ test "write_json: invalid path surfaces as IoError" {
 
 ///|
 test "format_json / parse_json_str round-trip preserves data" {
-  let df = @frame.DataFrame::new([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_int_options("n", [Some(1), None, Some(3)]),
     @series.Series::from_floats("r", [
       (1.5 : Double),
@@ -583,7 +585,7 @@ test "round-trip narrows an all-integral Float column to Int (documented caveat)
   // values are preserved. This pins the behaviour documented in this module's
   // header (Caveat 1) — and is why the round-trip test above uses fractional
   // cells (1.5 / 2.5 / 3.5), which stay `Float`.
-  let df = @frame.DataFrame::new([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_floats("r", [(2.0 : Double), (3.0 : Double)]),
   ])
   assert_eq(df.get_column("r").dtype(), @types.DataType::Float)

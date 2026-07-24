@@ -152,7 +152,7 @@ test "report_plan: collect runs the plan and equals the eager pipeline" {
 ///|
 test "enrich: a missing source column surfaces as ColumnNotFound" {
   // No `cost` column, so `revenue - cost` can't be evaluated.
-  let df = @moonframe.DataFrame::new([
+  let df = @moonframe.DataFrame::DataFrame([
     @moonframe.Series::from_ints("revenue", [1, 2]),
     @moonframe.Series::from_ints("quantity", [1, 2]),
   ])

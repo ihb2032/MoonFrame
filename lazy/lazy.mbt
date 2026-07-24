@@ -6,7 +6,7 @@
 /// chained, and `explain`ed, even when collecting it would fail. All
 /// computation (and all failure) happens in `collect`, which interprets
 /// the plan through the public eager operators: with no optimizer in
-/// front, `lazy_frame(df).f(…).g(…).collect()` is bitwise-equal to
+/// front, `LazyFrame::LazyFrame(df).f(…).g(…).collect()` is bitwise-equal to
 /// `df.f(…).g(…)` — the faithful-deferred-executor contract every test in
 /// `lazy_test.mbt` pins.
 ///
@@ -15,23 +15,20 @@
 /// paragraph above promises holds for the arguments too, not just the
 /// captured frames.
 ///
-/// The entry point is the static constructor `LazyFrame::from(df)` with
-/// the free-function alias `lazy_frame(df)` (the `read_csv` feel) — not a
-/// `DataFrame` method, which would have to live in `frame` and close a
-/// `frame ↔ lazy` import cycle, and not `lazy(df)`, since `lazy` is a
-/// MoonBit reserved word.
+/// The entry point is the type's own constructor, `LazyFrame::LazyFrame(df)`
+/// — not a `DataFrame` method, which would have to live in `frame` and close a
+/// `frame ↔ lazy` import cycle, and not `lazy(df)`, since `lazy` is a MoonBit
+/// reserved word.
 pub struct LazyFrame {
   priv plan : LogicalPlan
 }
 
 ///|
-/// Wrap an in-memory frame as the leaf of a new plan (a `Scan` node), for the
-/// `read_csv(path)` hand-feel: `lazy_frame(df).filter(…).collect()`. Total —
-/// the frame is captured as-is, and frames are immutable, so the plan can
-/// never observe later state. A free function rather than a `DataFrame`
-/// method (that would live in `frame` and close a `frame ↔ lazy` import
-/// cycle) and rather than `lazy(df)` (`lazy` is a MoonBit reserved word).
-pub fn lazy_frame(df : @frame.DataFrame) -> LazyFrame {
+/// Wrap an in-memory frame as the leaf of a new plan (a `Scan` node):
+/// `LazyFrame::LazyFrame(df).filter(…).collect()`. Total — the frame is
+/// captured as-is, and frames are immutable, so the plan can never observe
+/// later state.
+pub fn LazyFrame::LazyFrame(df : @frame.DataFrame) -> LazyFrame {
   { plan: Scan(InMemory(df)) }
 }
 

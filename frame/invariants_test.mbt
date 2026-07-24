@@ -8,8 +8,8 @@
 // ── Constructors preserve invariants ─────────────────────────────────
 
 ///|
-test "check_invariants holds for DataFrame::new with several columns" {
-  let df = DataFrame::new([
+test "check_invariants holds for DataFrame::DataFrame with several columns" {
+  let df = DataFrame::DataFrame([
     Series::from_ints("a", [1, 2, 3]),
     Series::from_strings("b", ["x", "y", "z"]),
     Series::from_float_options("c", [Some(1.5), None, Some(2.5)]),
@@ -19,17 +19,17 @@ test "check_invariants holds for DataFrame::new with several columns" {
 
 ///|
 test "check_invariants holds for the zero-column frame" {
-  let df = DataFrame::new([])
+  let df = DataFrame::DataFrame([])
   assert_eq(df.check_invariants(), Ok(()))
 }
 
 ///|
 test "check_invariants holds for empty(schema) with every dtype" {
-  let schema = @types.Schema::new([
-    @types.Field("i", @types.DataType::Int),
-    @types.Field("f", @types.DataType::Float),
-    @types.Field("b", @types.DataType::Bool),
-    @types.Field("s", @types.DataType::String),
+  let schema = @types.Schema::Schema([
+    @types.Field::Field("i", @types.DataType::Int),
+    @types.Field::Field("f", @types.DataType::Float),
+    @types.Field::Field("b", @types.DataType::Bool),
+    @types.Field::Field("s", @types.DataType::String),
   ])
   let df = DataFrame::empty(schema)
   assert_eq(df.check_invariants(), Ok(()))
@@ -37,9 +37,9 @@ test "check_invariants holds for empty(schema) with every dtype" {
 
 ///|
 test "check_invariants holds for from_rows with nulls" {
-  let schema = @types.Schema::new([
-    @types.Field("i", @types.DataType::Int),
-    @types.Field("s", @types.DataType::String),
+  let schema = @types.Schema::Schema([
+    @types.Field::Field("i", @types.DataType::Int),
+    @types.Field::Field("s", @types.DataType::String),
   ])
   let df = DataFrame::from_rows(schema, [
     [@types.Scalar::Int(1), @types.Scalar::String("a")],
@@ -52,7 +52,7 @@ test "check_invariants holds for from_rows with nulls" {
 
 ///|
 test "check_invariants holds after head / tail / slice / gather" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_ints("a", [1, 2, 3, 4]),
     Series::from_strings("b", ["w", "x", "y", "z"]),
   ])

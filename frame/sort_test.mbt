@@ -23,7 +23,7 @@
 
 ///|
 test "sort ascending with NullsLast puts smaller values first, nulls last" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_int_options("a", [Some(2), None, Some(1), Some(3)]),
   ])
   let out = df.sort([(@expr.col("a"), Asc, NullsLast)])
@@ -35,7 +35,7 @@ test "sort ascending with NullsLast puts smaller values first, nulls last" {
 
 ///|
 test "sort descending with NullsLast reverses the value order, nulls last" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_int_options("a", [Some(2), None, Some(1), Some(3)]),
   ])
   let out = df.sort([(@expr.col("a"), Desc, NullsLast)])
@@ -47,7 +47,7 @@ test "sort descending with NullsLast reverses the value order, nulls last" {
 
 ///|
 test "sort NullsFirst moves missing values to the head, either direction" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_int_options("a", [Some(2), None, Some(1)]),
   ])
   // asc + NullsFirst — value order still ascending, but null moves
@@ -71,7 +71,7 @@ test "sort NullsFirst moves missing values to the head, either direction" {
 /// exercise. Row ordering inside `a` is intentionally non-monotonic to
 /// make the ascending result observable.
 fn sort_df() -> DataFrame raise @types.DataError {
-  DataFrame::new([
+  DataFrame::DataFrame([
     Series::from_ints("a", [3, 1, 4, 1, 5]),
     Series::from_float_options("b", [
       Some((2.5 : Double)),
@@ -166,7 +166,7 @@ test "sort Float with equal values preserves original order (stability)" {
   // non-null, non-NaN floats compare equal. Two 1.0s in the fixture
   // exercise that arm; stability requires their original ordering to
   // survive (tag "b" before tag "c").
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_floats("v", [3.0, 1.0, 1.0, 2.0]),
     Series::from_strings("tag", ["a", "b", "c", "d"]),
   ])
@@ -244,7 +244,9 @@ test "sort String breaks length ties lexicographically (shorter wins on prefix m
   // A naive sort that compared by length first (MoonBit's built-in
   // `<` on `String`) would put "ab" before "abd" *and* before "abc",
   // not catching the char-by-char difference between "abc" and "abd".
-  let df = DataFrame::new([Series::from_strings("s", ["abd", "ab", "abc"])])
+  let df = DataFrame::DataFrame([
+    Series::from_strings("s", ["abd", "ab", "abc"]),
+  ])
   let out = df.sort([(@expr.col("s"), Asc, NullsLast)])
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.item(0, "s"), @types.Scalar::String("ab"))
@@ -279,7 +281,7 @@ test "sort Bool ascending puts false before true (stable)" {
 ///|
 test "sort multi-key: secondary key only matters for tied primaries" {
   // Two-column fixture: a has ties (X, X, Y, Y), b distinguishes.
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_strings("a", ["X", "X", "Y", "Y"]),
     Series::from_ints("b", [2, 1, 2, 1]),
   ])
@@ -300,7 +302,7 @@ test "sort multi-key: secondary key only matters for tied primaries" {
 
 ///|
 test "sort multi-key: primary asc + secondary desc" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_strings("dept", ["eng", "eng", "ops", "ops", "ops"]),
     Series::from_ints("salary", [100, 200, 50, 150, 75]),
   ])
@@ -336,7 +338,7 @@ test "sort multi-key: empty key set is an identity sort" {
 
 ///|
 test "sort on an all-equal column is the identity (stability)" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_ints("k", [7, 7, 7, 7, 7]),
     Series::from_strings("tag", ["a", "b", "c", "d", "e"]),
   ])
@@ -350,7 +352,7 @@ test "sort on an all-equal column is the identity (stability)" {
 
 ///|
 test "sort on a 0x0 frame returns the same 0x0 frame" {
-  let df = DataFrame::new([])
+  let df = DataFrame::DataFrame([])
   let out = df.sort(
     ([] : Array[(@expr.Expr, @types.SortOrder, @types.NullOrder)]),
   )
@@ -360,9 +362,9 @@ test "sort on a 0x0 frame returns the same 0x0 frame" {
 
 ///|
 test "sort on a 0-row frame preserves the schema and stays empty" {
-  let schema = @types.Schema::new([
-    @types.Field("a", @types.DataType::Int),
-    @types.Field("b", @types.DataType::String),
+  let schema = @types.Schema::Schema([
+    @types.Field::Field("a", @types.DataType::Int),
+    @types.Field::Field("b", @types.DataType::String),
   ])
   let df = DataFrame::empty(schema)
   let out = df.sort([(@expr.col("a"), Asc, NullsLast)])
@@ -373,7 +375,7 @@ test "sort on a 0-row frame preserves the schema and stays empty" {
 
 ///|
 test "sort on a single-row frame is the identity" {
-  let df = DataFrame::new([Series::from_ints("a", [42])])
+  let df = DataFrame::DataFrame([Series::from_ints("a", [42])])
   let out = df.sort([(@expr.col("a"), Desc, NullsLast)])
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out, df)
@@ -381,7 +383,7 @@ test "sort on a single-row frame is the identity" {
 
 ///|
 test "sort on an all-null Int column is a stable identity" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_int_options("a", [None, None, None]),
     Series::from_strings("s", ["x", "y", "z"]),
   ])
@@ -400,7 +402,7 @@ test "sort on an all-null Int column is a stable identity" {
 ///|
 test "sort Float treats NaN identically to Null (NullsLast)" {
   let nan = (0.0 : Double) / (0.0 : Double)
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_float_options("v", [
       Some((1.0 : Double)),
       Some(nan),
@@ -434,7 +436,7 @@ test "sort Float treats NaN identically to Null (NullsLast)" {
 ///|
 test "sort Float NullsFirst groups NaN with Null at the top" {
   let nan = (0.0 : Double) / (0.0 : Double)
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_float_options("v", [Some((1.0 : Double)), Some(nan), None]),
     Series::from_strings("s", ["one", "nan", "null"]),
   ])
@@ -454,7 +456,7 @@ test "sort multi-key: NaN in a secondary Float key orders like null within a tie
   // decides every position: reals sort ascending, then the NaN/null bucket
   // (NullsLast) in source order — NaN must order exactly like null, even as a
   // tiebreaker key.
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_strings("g", ["A", "A", "A", "A"]),
     Series::from_float_options("v", [
       Some(nan),
@@ -482,7 +484,7 @@ test "sort by a derived key orders rows by the computed value" {
   // The key `a + b` is never materialised into the output — only the
   // permutation it induces is. Rows: (a=1,b=5)→6, (a=4,b=1)→5,
   // (a=2,b=2)→4, (a=3,b=0)→3. Ascending by the sum reverses the rows.
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_ints("a", [1, 4, 2, 3]),
     Series::from_ints("b", [5, 1, 2, 0]),
     Series::from_strings("tag", ["six", "five", "four", "three"]),
@@ -502,7 +504,7 @@ test "sort by a derived key descending and as a multi-key tiebreaker" {
   // Primary key `dept`, tiebreaker the negative of `salary` so the
   // higher earner sorts first within a department — a computed key
   // standing in for a `Desc` flag.
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_strings("dept", ["ops", "eng", "ops", "eng"]),
     Series::from_ints("salary", [50, 100, 150, 200]),
   ])
@@ -600,7 +602,7 @@ test "sort exercises the build_sort_key dispatch on each dtype" {
   // accessors. To cover every cascade step, sort once per dtype —
   // `Int` hits the first arm, `Float` the second, `Bool` the third,
   // and `String` the terminal arm.
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_ints("i", [2, 1]),
     Series::from_floats("f", [(2.0 : Double), (1.0 : Double)]),
     Series::from_bools("b", [true, false]),
@@ -630,7 +632,7 @@ test "sort gathers a nullable Bool column including its null cell" {
   // must copy a Bool column's *null* cell (not only its valid cells) when
   // that row is permuted. Sorting by `k` moves the `None` flag into the
   // lead row, exercising the null arm of the Bool gather.
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_int_options("k", [Some(2), Some(1)]),
     Series::from_bool_options("flag", [Some(true), None]),
   ])

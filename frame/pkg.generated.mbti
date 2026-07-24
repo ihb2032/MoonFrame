@@ -27,6 +27,7 @@ pub fn numeric_cols(DataFrame) -> Array[@expr.Expr]
 pub struct DataFrame {
   // private fields
 } derive(Eq, @debug.Debug)
+pub fn DataFrame::DataFrame(Array[@series.Series]) -> Self raise @types.DataError
 pub fn DataFrame::check_invariants(Self) -> Result[Unit, String]
 pub fn DataFrame::column_series(Self) -> Array[@series.Series]
 pub fn DataFrame::columns(Self) -> Array[String]
@@ -52,7 +53,6 @@ pub fn DataFrame::max(Self) -> Self raise @types.DataError
 pub fn DataFrame::mean(Self) -> Self raise @types.DataError
 pub fn DataFrame::min(Self) -> Self raise @types.DataError
 pub fn DataFrame::ncols(Self) -> Int
-pub fn DataFrame::new(Array[@series.Series]) -> Self raise @types.DataError
 pub fn DataFrame::not_equal(Self, Self) -> Bool
 pub fn DataFrame::nrows(Self) -> Int
 pub fn DataFrame::null_count(Self) -> Self raise @types.DataError
@@ -89,7 +89,6 @@ pub struct HtmlOptions {
   caption : String?
   escape : Bool
 } derive(Eq, @debug.Debug)
-#as_free_fn
 pub fn HtmlOptions::HtmlOptions(max_rows? : Int, table_class? : String, caption? : String, escape? : Bool) -> Self
 pub fn HtmlOptions::equal(Self, Self) -> Bool
 pub fn HtmlOptions::not_equal(Self, Self) -> Bool

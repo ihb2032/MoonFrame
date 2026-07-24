@@ -10,7 +10,7 @@
 
 ///|
 fn agg_expr_df() -> DataFrame raise @types.DataError {
-  DataFrame::new([
+  DataFrame::DataFrame([
     Series::from_strings("region", ["west", "east", "west", "east", "west"]),
     Series::from_ints("revenue", [10, 20, 30, 40, 50]),
     Series::from_ints("cost", [5, 25, 10, 20, 30]),
@@ -75,7 +75,7 @@ test "the single-pass fast path matches the general evaluator, values and backen
   // `mean` / `min` / `max` onto a null cell (the `Builtin` result) while
   // `sum` / `count` stay all-valid (the `Numeric` result), so both backends
   // are exercised on both paths.
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_strings("k", ["a", "b", "a", "c", "b", "a"]),
     Series::from_int_options("v", [
       Some(1),
@@ -133,7 +133,7 @@ test "compound aggregations: derived operands and combined reductions" {
 
 ///|
 test "multiple expressions over multiple keys" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_strings("region", ["w", "w", "e", "e"]),
     Series::from_strings("product", ["a", "b", "a", "a"]),
     Series::from_ints("qty", [1, 2, 3, 4]),
@@ -162,7 +162,7 @@ test "multiple expressions over multiple keys" {
 
 ///|
 test "all-null group: sum is the additive identity, mean and extrema are null" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_strings("k", ["a", "a", "b"]),
     Series::from_int_options("v", [Some(1), Some(3), None]),
   ])
@@ -196,7 +196,7 @@ test "all-null group: sum is the additive identity, mean and extrema are null" {
 ///|
 test "NaN propagates through sum/mean and is skipped by max" {
   let nan : Double = @double.not_a_number
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_strings("k", ["a", "a", "b"]),
     Series::from_floats("v", [1.0, nan, 2.0]),
     Series::from_floats("w", [nan, nan, 1.0]),
@@ -271,7 +271,7 @@ test "scalar combinators: literal, neg, null probe, cast, when/then/otherwise" {
 
 ///|
 test "extrema cover Bool and String operands, all-null groups as null cells" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_strings("k", ["a", "a", "b"]),
     Series::from_bool_options("flag", [Some(true), Some(false), None]),
     Series::from_string_options("tag", [Some("x"), Some("y"), None]),
@@ -309,7 +309,7 @@ test "expression naming: leftmost column reference, literal fallback" {
 
 ///|
 test "computed columns converge onto Numeric when all-valid, Builtin when not" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_strings("k", ["a", "a", "b"]),
     Series::from_int_options("v", [Some(1), Some(3), None]),
   ])
@@ -361,7 +361,7 @@ test "an empty key list reduces the whole frame as one grand-total group" {
 
 ///|
 test "a zero-row frame aggregates to zero groups with correctly typed columns" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_strings("k", []),
     Series::from_ints("v", []),
   ])
@@ -429,7 +429,7 @@ test "deep non-reduction aggregation expressions are rejected without overflow" 
   // stack: a deeply nested expression whose leaf is a bare column overflowed
   // and aborted before `agg` could reject it. The explicit-stack walk reaches
   // the column at any depth and raises a clean error instead of aborting.
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_ints("k", [1, 1, 2]),
     Series::from_ints("a", [10, 20, 30]),
   ])
@@ -452,7 +452,7 @@ test "rejection is structural: singleton groups reject a bare column too" {
   // evaluate to length 1 per group — a dynamic length test would pass on
   // this data and fail on tomorrow's. The structural gate rejects it
   // regardless of group sizes.
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_strings("k", ["a", "b"]),
     Series::from_ints("v", [1, 2]),
   ])
@@ -497,7 +497,7 @@ test "evaluation errors surface before any group work" {
 }
 
 ///|
-test "output name collisions raise DuplicateColumn via DataFrame::new" {
+test "output name collisions raise DuplicateColumn via DataFrame::DataFrame" {
   // Two reductions over the same column share its leftmost-name output.
   assert_eq(
     Ok(
@@ -520,7 +520,7 @@ test "output name collisions raise DuplicateColumn via DataFrame::new" {
     },
     Err(@types.DataError::DuplicateColumn("region")),
   )
-  // Collisions surface at DataFrame::new, after every expression has
+  // Collisions surface at DataFrame::DataFrame, after every expression has
   // evaluated — so a later evaluation error wins over an earlier name
   // collision (unlike select, whose seen-check fires per expression).
   assert_eq(
@@ -617,7 +617,7 @@ test "grouped agg of an all-null map reduction is the additive identity, not an 
 /// — even though every real group reduces to an `Int`. The probe is
 /// deferred, so the grouped path agrees with the select path.
 test "grouped agg accepts a dtype-changing map closure under a numeric reduction" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_strings("g", ["x", "x", "y"]),
     Series::from_strings("s", ["a", "bb", "ccc"]),
   ])
@@ -647,7 +647,7 @@ test "grouped agg accepts a dtype-changing map closure under a numeric reduction
 /// empty-scope probe is consumed: it types a derived reduction's 0-row
 /// output — and still gates a dtype-changing map it cannot type.
 test "grouped agg over zero groups consumes the deferred probe" {
-  let empty = DataFrame::new([
+  let empty = DataFrame::DataFrame([
     Series::from_strings("g", []),
     Series::from_ints("q", []),
   ])

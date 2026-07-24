@@ -36,7 +36,7 @@
 /// disagree, in addition to the empty / all-null case noted above.
 ///
 /// Raises only because the summary frame is built through the fallible
-/// `DataFrame::new`; the output columns are hardcoded-unique and equal
+/// `DataFrame::DataFrame`; the output columns are hardcoded-unique and equal
 /// length, so the raise is forwarded, never actually taken. The 0-column
 /// case collapses to a `0×8` frame: zero source columns ⇒ zero output
 /// rows, but the eight schema columns are still present so downstream
@@ -72,9 +72,9 @@ pub fn DataFrame::describe(
     maxs.push(render_extremum(s.max()))
   }
   // The output columns share a length (`self.ncols()`) and the names are
-  // hardcoded-unique, so `DataFrame::new` always succeeds; the raise is
+  // hardcoded-unique, so `DataFrame::DataFrame` always succeeds; the raise is
   // forwarded rather than caught.
-  DataFrame::new([
+  DataFrame::DataFrame([
     Series::from_strings("column", names),
     Series::from_strings("dtype", dtypes),
     Series::from_ints("count", counts),

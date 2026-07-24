@@ -8,7 +8,7 @@
 /// A 5-column frame spanning every dtype, with two `name_*` columns so a name
 /// regex has something to anchor on.
 fn mixed_df() -> DataFrame raise @types.DataError {
-  DataFrame::new([
+  DataFrame::DataFrame([
     Series::from_ints("id", [1, 2]),
     Series::from_floats("price", [1.5, 2.5]),
     Series::from_strings("name_a", ["x", "y"]),

@@ -33,7 +33,7 @@ fn describe_schema() -> Array[String] {
 ///   - mean's raise branch fires for "b" and "s" (TypeMismatch)
 ///   - render_extremum's is_null=false branch fires for every column
 fn describe_df() -> DataFrame raise @types.DataError {
-  DataFrame::new([
+  DataFrame::DataFrame([
     Series::from_int_options("i", [Some(1), None, Some(3), Some(5)]),
     Series::from_float_options("f", [
       Some((1.0 : Double)),
@@ -150,9 +150,9 @@ test "describe on a 0-row numeric frame routes mean / min / max to Null" {
   // Empty Int column → Series::mean raises InvalidOperation,
   // Series::min / max return Scalar::Null. Both map to the
   // `render_extremum` is_null=true branch.
-  let schema = @types.Schema::new([
-    @types.Field("a", @types.DataType::Int),
-    @types.Field("b", @types.DataType::Float),
+  let schema = @types.Schema::Schema([
+    @types.Field::Field("a", @types.DataType::Int),
+    @types.Field::Field("b", @types.DataType::Float),
   ])
   let df = DataFrame::empty(schema)
   let out = df.describe()
@@ -174,7 +174,9 @@ test "describe on an all-null numeric column routes mean / min / max to Null" {
   // The raise arm of `s.mean()` is exercised by the InvalidOperation
   // path here (numeric column with zero non-null cells), distinct from
   // the TypeMismatch path covered by the Bool / String rows above.
-  let df = DataFrame::new([Series::from_int_options("a", [None, None, None])])
+  let df = DataFrame::DataFrame([
+    Series::from_int_options("a", [None, None, None]),
+  ])
   let out = df.describe()
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.item(0, "count"), @types.Scalar::Int(0))
@@ -189,7 +191,7 @@ test "describe on an all-null numeric column routes mean / min / max to Null" {
 test "describe on an all-null String column produces typed-null extrema" {
   // String column with no non-null cells: render_extremum's
   // is_null=true branch still applies to a non-numeric column.
-  let df = DataFrame::new([Series::from_string_options("s", [None, None])])
+  let df = DataFrame::DataFrame([Series::from_string_options("s", [None, None])])
   let out = df.describe()
   assert_eq(out.item(0, "dtype"), @types.Scalar::String("String"))
   assert_eq(out.item(0, "count"), @types.Scalar::Int(0))
@@ -202,7 +204,7 @@ test "describe on an all-null String column produces typed-null extrema" {
 
 ///|
 test "describe on a 0-column frame collapses to a 0x8 result" {
-  let df = DataFrame::new([])
+  let df = DataFrame::DataFrame([])
   let out = df.describe()
   assert_eq(out.check_invariants(), Ok(()))
   // No source columns → no output rows, but the eight schema columns
@@ -217,7 +219,7 @@ test "describe on a 0-column frame collapses to a 0x8 result" {
 test "describe on an all-String frame leaves mean Null for every row" {
   // Every source column is non-numeric → every `s.mean()` raises
   // TypeMismatch → every mean cell is Null.
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_strings("a", ["x", "y"]),
     Series::from_strings("b", ["m", "n"]),
   ])
@@ -233,7 +235,7 @@ test "describe on an all-String frame leaves mean Null for every row" {
 
 ///|
 test "describe preserves source column order in the `column` row labels" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_ints("z", [1, 2]),
     Series::from_ints("a", [3, 4]),
     Series::from_ints("m", [5, 6]),

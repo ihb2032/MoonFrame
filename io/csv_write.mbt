@@ -27,9 +27,8 @@ pub struct CsvWriteOptions {
 ///|
 /// Build write options. Every field has a default: header on, comma
 /// delimiter, null cells emitted as the empty string, and no formula
-/// sanitisation. `CsvWriteOptions()` is the all-defaults writer; name only
-/// what differs, as in `CsvWriteOptions(delimiter=';')`.
-#as_free_fn
+/// sanitisation. `CsvWriteOptions::CsvWriteOptions()` is the all-defaults writer; name only
+/// what differs, as in `CsvWriteOptions::CsvWriteOptions(delimiter=';')`.
 pub fn CsvWriteOptions::CsvWriteOptions(
   header? : Bool = true,
   delimiter? : Char = ',',
@@ -86,7 +85,7 @@ pub fn CsvWriteOptions::CsvWriteOptions(
 ///   frame fields unambiguously (see `validate_csv_delimiter`).
 pub fn format_csv(
   df : @frame.DataFrame,
-  options? : CsvWriteOptions = CsvWriteOptions(),
+  options? : CsvWriteOptions = CsvWriteOptions::CsvWriteOptions(),
 ) -> String raise @types.DataError {
   validate_csv_delimiter(options.delimiter)
   let buf = StringBuilder::new()
@@ -145,18 +144,18 @@ pub fn format_csv(
 
 ///|
 /// Write a `DataFrame` to a CSV file. `options` defaults to
-/// `CsvWriteOptions()`, so `write_csv(path, df)` is the default-options
+/// `CsvWriteOptions::CsvWriteOptions()`, so `write_csv(path, df)` is the default-options
 /// write. `IOError` from the file system surfaces as
 /// `raise IoError(message)`. A string cell (or column name) holding an
 /// unpaired UTF-16 surrogate is refused with `raise InvalidOperation` — the
 /// UTF-8 file encoding would swallow the following delimiter and silently
 /// shift every later cell boundary.
-/// `CsvWriteOptions(sanitize_formulas=true)` applies the same
+/// `CsvWriteOptions::CsvWriteOptions(sanitize_formulas=true)` applies the same
 /// spreadsheet-safety transformation documented by `format_csv` before writing.
 pub fn write_csv(
   path : String,
   df : @frame.DataFrame,
-  options? : CsvWriteOptions = CsvWriteOptions(),
+  options? : CsvWriteOptions = CsvWriteOptions::CsvWriteOptions(),
 ) -> Unit raise @types.DataError {
   let content = format_csv(df, options~)
   write_text(path, content)

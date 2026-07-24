@@ -33,8 +33,6 @@ pub fn format_ndjson(@frame.DataFrame) -> String
 
 pub fn format_vega_lite(@frame.DataFrame, @io.ChartSpec) -> String raise @types.DataError
 
-pub fn lazy_frame(@frame.DataFrame) -> @lazy.LazyFrame
-
 pub fn lit(@types.Scalar) -> @expr.Expr
 
 pub fn lit_bool(Bool) -> @expr.Expr

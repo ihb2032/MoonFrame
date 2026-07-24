@@ -5,7 +5,7 @@
 
 ///|
 test "agg rejects an in-package-corrupted groups handle" {
-  let base = DataFrame::new([
+  let base = DataFrame::DataFrame([
     @series.Series::from_strings("region", ["east", "west", "east"]),
     @series.Series::from_ints("quantity", [10, 5, 2]),
   ])

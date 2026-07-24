@@ -13,7 +13,7 @@
 
 ///|
 fn drop_df() -> DataFrame raise @types.DataError {
-  DataFrame::new([
+  DataFrame::DataFrame([
     Series::from_ints("a", [1, 2, 3]),
     Series::from_strings("b", ["x", "y", "z"]),
     Series::from_floats("c", [(1.5 : Double), (2.5 : Double), (3.5 : Double)]),
@@ -55,7 +55,7 @@ test "drop of every column yields a 0-column frame" {
   let df = drop_df()
   let out = df.drop([@expr.col("a"), @expr.col("b"), @expr.col("c")])
   assert_eq(out.check_invariants(), Ok(()))
-  // 0-column case: DataFrame::new clamps nrows to 0 per the v0.1
+  // 0-column case: DataFrame::DataFrame clamps nrows to 0 per the v0.1
   // contract.
   assert_eq(out.shape(), (0, 0))
 }
@@ -93,10 +93,12 @@ test "drop is idempotent under duplicate keys in input" {
 ///|
 test "drop with an empty list preserves a declared schema" {
   // Built through `from_rows` so the schema carries an explicit
-  // `nullable = false`; a `DataFrame::new` fixture defaults every field to
+  // `nullable = false`; a `DataFrame::DataFrame` fixture defaults every field to
   // `nullable = true` and so cannot observe the difference.
   let df = DataFrame::from_rows(
-    @types.Schema::new([@types.Field("a", @types.DataType::Int, nullable=false)]),
+    @types.Schema::Schema([
+      @types.Field::Field("a", @types.DataType::Int, nullable=false),
+    ]),
     [[@types.Scalar::Int(1)], [@types.Scalar::Int(2)]],
   )
   let out = df.drop([])

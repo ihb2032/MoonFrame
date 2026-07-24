@@ -2,7 +2,7 @@
 
 ///|
 test "is_between: both endpoints are inclusive" {
-  let df = DataFrame::new([Series::from_ints("a", [0L, 1L, 5L, 10L, 11L])])
+  let df = DataFrame::DataFrame([Series::from_ints("a", [0L, 1L, 5L, 10L, 11L])])
   let out = df.select([
     @expr.col("a")
     .is_between(@expr.lit_int(1), @expr.lit_int(10))
@@ -20,7 +20,7 @@ test "is_between: both endpoints are inclusive" {
 
 ///|
 test "is_between: Float, String, and Bool ordering" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_floats("f", [0.5, 2.0, 3.5]),
     Series::from_strings("s", ["apple", "cherry", "zebra"]),
     Series::from_bools("b", [true, false, true]),
@@ -56,7 +56,9 @@ test "is_between: Float, String, and Bool ordering" {
 
 ///|
 test "is_between: a null cell yields null" {
-  let df = DataFrame::new([Series::from_int_options("a", [Some(5L), None])])
+  let df = DataFrame::DataFrame([
+    Series::from_int_options("a", [Some(5L), None]),
+  ])
   let out = df.select([
     @expr.col("a")
     .is_between(@expr.lit_int(0), @expr.lit_int(10))
@@ -70,7 +72,7 @@ test "is_between: a null cell yields null" {
 
 ///|
 test "is_between: column bounds propagate nulls under Kleene AND" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_ints("a", [5L, 20L]),
     Series::from_int_options("lo", [None, None]),
     Series::from_ints("hi", [10L, 10L]),
@@ -90,7 +92,7 @@ test "is_between: column bounds propagate nulls under Kleene AND" {
 test "is_between: equals ge().land(le()), operand shared" {
   // A *computed* operand is evaluated once by the dedicated node; the result
   // must still match the explicit `ge & le` lowering cell for cell.
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_int_options("x", [Some(2L), Some(7L), None]),
   ])
   let operand = @expr.col("x") + @expr.lit_int(1)
@@ -114,7 +116,7 @@ test "is_between: equals ge().land(le()), operand shared" {
 
 ///|
 test "is_between: a non-orderable operand raises structured TypeMismatch" {
-  let df = DataFrame::new([Series::from_strings("s", ["x"])])
+  let df = DataFrame::DataFrame([Series::from_strings("s", ["x"])])
   assert_eq(
     Ok(
       df.select([@expr.col("s").is_between(@expr.lit_int(0), @expr.lit_int(10))]),
@@ -135,7 +137,7 @@ test "is_between: a non-orderable operand raises structured TypeMismatch" {
 
 ///|
 test "is_between: reduces per group over an aggregation" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_strings("k", ["x", "x", "y"]),
     Series::from_ints("v", [10L, 20L, 5L]),
   ])
@@ -155,7 +157,7 @@ test "is_between: reduces per group over an aggregation" {
 
 ///|
 test "is_between honours each closed setting" {
-  let df = DataFrame::new([Series::from_ints("n", [1, 2, 3, 4])])
+  let df = DataFrame::DataFrame([Series::from_ints("n", [1, 2, 3, 4])])
   let bounds = (@expr.lit_int(2), @expr.lit_int(3))
   let (lo, hi) = bounds
   let mask = fn(

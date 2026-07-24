@@ -37,7 +37,7 @@ pub fn revenue_by_region(
 /// a pure `DataFrame` method that cannot fail.
 pub fn revenue_table(summary : @moonframe.DataFrame) -> String {
   summary.to_html(
-    options=@moonframe.HtmlOptions(
+    options=@moonframe.HtmlOptions::HtmlOptions(
       table_class="dataframe",
       caption="Revenue by region",
     ),

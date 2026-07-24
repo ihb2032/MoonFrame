@@ -75,7 +75,6 @@ pub struct CsvReadOptions {
   strict_quotes : Bool
   // private fields
 }
-#as_free_fn
 pub fn CsvReadOptions::CsvReadOptions(has_header? : Bool, delimiter? : Char, infer_schema_rows? : Int, null_values? : Array[String], strict_column_count? : Bool, on_parse_error? : OnParseError, allow_nonfinite_floats? : Bool, strict_quotes? : Bool) -> Self
 pub fn CsvReadOptions::null_values(Self) -> Array[String]
 
@@ -85,14 +84,12 @@ pub struct CsvWriteOptions {
   null_value : String
   sanitize_formulas : Bool
 }
-#as_free_fn
 pub fn CsvWriteOptions::CsvWriteOptions(header? : Bool, delimiter? : Char, null_value? : String, sanitize_formulas? : Bool) -> Self
 
 pub struct JsonReadOptions {
   infer_schema_rows : Int
   on_parse_error : OnParseError
 }
-#as_free_fn
 pub fn JsonReadOptions::JsonReadOptions(infer_schema_rows? : Int, on_parse_error? : OnParseError) -> Self
 
 pub(all) enum OnParseError {

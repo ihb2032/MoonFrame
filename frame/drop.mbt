@@ -17,7 +17,7 @@
 ///
 /// Dropping nothing (`drop([])`) returns the frame itself — a literal
 /// identity, declared schema included. A drop that does remove a column
-/// rebuilds through `DataFrame::new`, whose derived schema declares every
+/// rebuilds through `DataFrame::DataFrame`, whose derived schema declares every
 /// surviving field `nullable = true`: the advisory flag is not propagated
 /// across the projection, as for `select`.
 ///
@@ -26,14 +26,14 @@
 ///   the first offending key in `columns` order.
 ///
 /// Structural invariants on the returned frame follow from
-/// `DataFrame::new` (called with the surviving column subset).
+/// `DataFrame::DataFrame` (called with the surviving column subset).
 pub fn DataFrame::drop(
   self : DataFrame,
   columns : Array[@expr.Expr],
 ) -> DataFrame raise @types.DataError {
   // No keys, nothing to resolve and nothing to remove: return `self` rather
   // than rebuilding an equal frame, so the no-op keeps the schema it was
-  // handed (a rebuild through `DataFrame::new` re-derives it and resets a
+  // handed (a rebuild through `DataFrame::DataFrame` re-derives it and resets a
   // declared `nullable = false`).
   if columns.is_empty() {
     return self
@@ -47,5 +47,5 @@ pub fn DataFrame::drop(
     self.resolve_subset_columns(columns).map(s => (s.name(), ())),
   )
   let survivors = self.column_series().filter(s => !to_drop.contains(s.name()))
-  DataFrame::new(survivors)
+  DataFrame::DataFrame(survivors)
 }

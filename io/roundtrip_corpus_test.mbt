@@ -27,7 +27,7 @@ fn assert_roundtrip_fixpoint(df : @frame.DataFrame) -> Unit raise {
 test "round-trip: hostile string cells survive every format's escaping" {
   // Every character class a CSV / JSON writer has to escape, plus lookalikes
   // (a string that reads as a number / a bool must stay a string on read-back).
-  let df = @frame.DataFrame::new([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_strings("s", [
       "", // empty
        "a,b", // CSV delimiter
@@ -48,7 +48,7 @@ test "round-trip: hostile string cells survive every format's escaping" {
 
 ///|
 test "round-trip: numeric edges (big Int64, non-integral and signed-zero Float)" {
-  let df = @frame.DataFrame::new([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_ints("i", [
       0L, -1L, 9223372036854775807L, // Int64::MAX
        -9223372036854775808L, // Int64::MIN
@@ -61,7 +61,7 @@ test "round-trip: numeric edges (big Int64, non-integral and signed-zero Float)"
 
 ///|
 test "round-trip: nulls in every dtype, mixed columns" {
-  let df = @frame.DataFrame::new([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_int_options("i", [Some(1L), None, Some(-3L)]),
     @series.Series::from_float_options("f", [None, Some(2.5), None]),
     @series.Series::from_string_options("s", [Some("x"), Some(""), None]),
@@ -72,7 +72,7 @@ test "round-trip: nulls in every dtype, mixed columns" {
 
 ///|
 test "round-trip: Bool column and a header that needs quoting" {
-  let df = @frame.DataFrame::new([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_bools("has,comma", [true, false, true]),
     @series.Series::from_strings("with\"quote", ["a", "b", "c"]),
   ])
@@ -82,13 +82,15 @@ test "round-trip: Bool column and a header that needs quoting" {
 ///|
 test "round-trip: shape edges (single row, single column, wide frame)" {
   assert_roundtrip_fixpoint(
-    @frame.DataFrame::new([
+    @frame.DataFrame::DataFrame([
       @series.Series::from_ints("a", [42L]),
       @series.Series::from_strings("b", ["only"]),
     ]),
   )
   assert_roundtrip_fixpoint(
-    @frame.DataFrame::new([@series.Series::from_strings("c", ["p", "q", "r"])]),
+    @frame.DataFrame::DataFrame([
+      @series.Series::from_strings("c", ["p", "q", "r"]),
+    ]),
   )
 }
 
@@ -129,9 +131,12 @@ fn csv_roundtrip(
   @io.parse_csv_str(
     @io.format_csv(
       df,
-      options=@io.CsvWriteOptions(delimiter~, null_value=null_token),
+      options=@io.CsvWriteOptions::CsvWriteOptions(
+        delimiter~,
+        null_value=null_token,
+      ),
     ),
-    options=@io.CsvReadOptions(
+    options=@io.CsvReadOptions::CsvReadOptions(
       delimiter~,
       infer_schema_rows=0,
       null_values=[null_token],
@@ -144,7 +149,7 @@ fn csv_roundtrip(
 fn json_roundtrip(df : @frame.DataFrame) -> @frame.DataFrame raise {
   @io.parse_json_str(
     @io.format_json(df),
-    options=@io.JsonReadOptions(infer_schema_rows=0),
+    options=@io.JsonReadOptions::JsonReadOptions(infer_schema_rows=0),
   )
 }
 
@@ -152,7 +157,7 @@ fn json_roundtrip(df : @frame.DataFrame) -> @frame.DataFrame raise {
 fn ndjson_roundtrip(df : @frame.DataFrame) -> @frame.DataFrame raise {
   @io.parse_ndjson_str(
     @io.format_ndjson(df),
-    options=@io.JsonReadOptions(infer_schema_rows=0),
+    options=@io.JsonReadOptions::JsonReadOptions(infer_schema_rows=0),
   )
 }
 
@@ -165,7 +170,7 @@ fn assert_lossless_in_every_format(df : @frame.DataFrame) -> Unit raise {
 
 ///|
 test "cell property: hostile text and empty/null cells keep their positions" {
-  let df = @frame.DataFrame::new([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_string_options("\u{FEFF}first,\"header", [
       Some(""),
       None,
@@ -190,7 +195,7 @@ test "cell property: hostile text and empty/null cells keep their positions" {
 
 ///|
 test "cell property: finite numeric extremes survive with exact Float bits" {
-  let df = @frame.DataFrame::new([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_ints("i", [
       -9223372036854775808L, -9007199254740993L, -1L, 0L, 1L, 9007199254740993L,
       9223372036854775807L,
@@ -205,27 +210,29 @@ test "cell property: finite numeric extremes survive with exact Float bits" {
 
 ///|
 test "cell property: signed zero changes only where CSV documents it" {
-  let df = @frame.DataFrame::new([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_floats("f", [-0.0, 0.0, 1.5]),
   ])
   assert_same_cells(df, json_roundtrip(df))
   assert_same_cells(df, ndjson_roundtrip(df))
   assert_same_cells(
-    @frame.DataFrame::new([@series.Series::from_floats("f", [0.0, 0.0, 1.5])]),
+    @frame.DataFrame::DataFrame([
+      @series.Series::from_floats("f", [0.0, 0.0, 1.5]),
+    ]),
     csv_roundtrip(df),
   )
 }
 
 ///|
 test "cell property: non-finite JSON cells canonicalize in place" {
-  let df = @frame.DataFrame::new([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_floats("f", [
       1.5, @double.not_a_number, @double.infinity, @double.neg_infinity, -1.7976931348623157e308,
     ]),
     @series.Series::from_ints("row", [0L, 1L, 2L, 3L, 4L]),
   ])
   assert_same_cells(df, csv_roundtrip(df))
-  let canonical = @frame.DataFrame::new([
+  let canonical = @frame.DataFrame::DataFrame([
     @series.Series::from_float_options("f", [
       Some(1.5),
       None,
@@ -241,11 +248,14 @@ test "cell property: non-finite JSON cells canonicalize in place" {
 
 ///|
 test "rejection property: an unsafe CSV delimiter returns DataError" {
-  let df = @frame.DataFrame::new([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_strings("s", ["left", "right"]),
   ])
   let result = Ok(
-    @io.format_csv(df, options=@io.CsvWriteOptions(delimiter='\u{FEFF}')),
+    @io.format_csv(
+      df,
+      options=@io.CsvWriteOptions::CsvWriteOptions(delimiter='\u{FEFF}'),
+    ),
   ) catch {
     error => Err(error)
   }

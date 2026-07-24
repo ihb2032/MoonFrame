@@ -10,7 +10,7 @@
 /// A grouping key and a nullable Int payload — exercises the batched map's
 /// null-through path and its use as a per-group reduction.
 fn mb_df() -> DataFrame raise @types.DataError {
-  DataFrame::new([
+  DataFrame::DataFrame([
     Series::from_strings("region", ["west", "east", "west", "east", "west"]),
     Series::from_int_options("q", [Some(1), None, Some(3), Some(4), Some(5)]),
   ])
@@ -46,7 +46,7 @@ test "map_batches: applies the closure to the whole column at once (Int out)" {
 
 ///|
 test "map_batches: an all-valid numeric result converges onto Numeric" {
-  let df = DataFrame::new([Series::from_ints("base", [10, 20, 30])])
+  let df = DataFrame::DataFrame([Series::from_ints("base", [10, 20, 30])])
   let out = df.with_columns([
     @expr.col("base")
     .map_batches(label="halved", s => {
@@ -102,7 +102,7 @@ test "map_batches: a closure raise propagates from the consuming verb" {
 test "map_batches: a length-1 result broadcasts over the frame in with_columns" {
   // A reducing closure used outside `agg`: its length-1 result broadcasts to
   // every row, exactly like a scalar literal.
-  let df = DataFrame::new([Series::from_ints("v", [10, 20, 30])])
+  let df = DataFrame::DataFrame([Series::from_ints("v", [10, 20, 30])])
   let out = df.with_columns([
     @expr.col("v")
     .map_batches(label="total", returns_scalar=true, s => {
@@ -122,7 +122,7 @@ test "map_batches: returns_scalar acts as a custom aggregation in agg" {
   // A "range" reduction (max - min) — not one of the built-in aggregations.
   // Each group's rows are handed to the closure, which returns a length-1
   // series that becomes the group's cell.
-  let out = DataFrame::new([
+  let out = DataFrame::DataFrame([
       Series::from_strings("region", ["west", "east", "west", "east", "west"]),
       Series::from_ints("v", [10, 20, 30, 40, 50]),
     ])
@@ -171,7 +171,7 @@ test "map_batches: a bare (non-scalar) map is rejected as an aggregation" {
 
 ///|
 test "map_batches over an empty frame yields an empty column" {
-  let empty = DataFrame::new([Series::from_ints("i", [])])
+  let empty = DataFrame::DataFrame([Series::from_ints("i", [])])
   let out = empty.with_columns([@expr.col("i").map_batches(label="id", s => s)])
   assert_eq(out.shape(), (0, 1))
   assert_eq(out.get_column("i").dtype(), @types.DataType::Int)

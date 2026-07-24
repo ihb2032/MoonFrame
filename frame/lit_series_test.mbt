@@ -10,7 +10,7 @@
 ///|
 /// Three-row base frame for the literal-series tests.
 fn lit_series_df() -> DataFrame raise @types.DataError {
-  DataFrame::new([
+  DataFrame::DataFrame([
     Series::from_ints("a", [1, 2, 3]),
     Series::from_strings("b", ["x", "y", "z"]),
   ])
@@ -193,7 +193,7 @@ test "lit_series: a bare literal series is not reduction-shaped under agg" {
 
 ///|
 test "lit_series on an empty frame accepts a 0-length series" {
-  let empty = DataFrame::new([Series::from_ints("i", [])])
+  let empty = DataFrame::DataFrame([Series::from_ints("i", [])])
   let out = empty.with_columns([@expr.lit_series(Series::from_ints("z", []))])
   assert_eq(out.shape(), (0, 2))
   assert_eq(out.columns(), ["i", "z"])

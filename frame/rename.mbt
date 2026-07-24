@@ -16,9 +16,9 @@
 ///
 /// Only names change: each field is edited through `Field::rename`, so its
 /// dtype and its declared `nullable` flag ride along instead of being
-/// re-derived (`DataFrame::new` would reset the flag to the `Field`
+/// re-derived (`DataFrame::DataFrame` would reset the flag to the `Field`
 /// constructor default). All structural invariants follow from re-validating
-/// the edited field vector through `Schema::new`, which catches any residual
+/// the edited field vector through `Schema::Schema`, which catches any residual
 /// duplicate.
 pub fn DataFrame::rename(
   self : DataFrame,
@@ -71,7 +71,7 @@ pub fn DataFrame::rename(
 /// the whole schema rather than an explicit `old -> new` list.
 ///
 /// `f` is total, so the only failure is a collision: if `f` maps two distinct
-/// columns to the same name, the re-validating `Schema::new` raises
+/// columns to the same name, the re-validating `Schema::Schema` raises
 /// `DuplicateColumn`. (There is no `ColumnNotFound` — every existing column is
 /// renamed, none is looked up by name.)
 ///

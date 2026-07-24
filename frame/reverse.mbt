@@ -28,7 +28,7 @@ pub fn DataFrame::reverse(self : DataFrame) -> DataFrame {
 /// the frame's own columns, as in Polars.
 ///
 /// Raises `DuplicateColumn(name)` when the frame already has a column of that
-/// name — the frame's own invariant, surfaced through `DataFrame::new`. The
+/// name — the frame's own invariant, surfaced through `DataFrame::DataFrame`. The
 /// counter is dense and always non-null, so it never changes any other
 /// column's dtype or nullability.
 pub fn DataFrame::with_row_index(
@@ -45,5 +45,5 @@ pub fn DataFrame::with_row_index(
   for column in self.column_series() {
     columns.push(column)
   }
-  DataFrame::new(columns)
+  DataFrame::DataFrame(columns)
 }

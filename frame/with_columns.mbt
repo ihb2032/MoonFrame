@@ -22,7 +22,7 @@
 /// building the expressions was total. `with_columns([])` adds nothing and
 /// returns the frame itself — a literal identity, declared schema included.
 /// A call that does add or replace a column rebuilds through
-/// `DataFrame::new`, whose derived schema declares every field
+/// `DataFrame::DataFrame`, whose derived schema declares every field
 /// `nullable = true` — so a `from_rows` frame carrying an explicit
 /// `nullable = false` field comes back with that flag reset (observable
 /// through the schema and the derived `Eq`).
@@ -55,5 +55,5 @@ pub fn DataFrame::with_columns(
       None => out.push(renamed)
     }
   }
-  DataFrame::new(out)
+  DataFrame::DataFrame(out)
 }

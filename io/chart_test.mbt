@@ -19,7 +19,7 @@
 /// `val` (`Int`), single row — the smallest frame that exercises both
 /// encoding-`type` branches.
 fn catval_df() -> @frame.DataFrame raise @types.DataError {
-  @frame.DataFrame::new([
+  @frame.DataFrame::DataFrame([
     @series.Series::from_strings("cat", ["x"]),
     @series.Series::from_ints("val", [1]),
   ])
@@ -29,7 +29,7 @@ fn catval_df() -> @frame.DataFrame raise @types.DataError {
 /// Three-column fixture adding a `grp` (`String`) column for the `color`
 /// encoding.
 fn catvalgrp_df() -> @frame.DataFrame raise @types.DataError {
-  @frame.DataFrame::new([
+  @frame.DataFrame::DataFrame([
     @series.Series::from_strings("cat", ["x"]),
     @series.Series::from_ints("val", [1]),
     @series.Series::from_strings("grp", ["a"]),
@@ -56,7 +56,7 @@ test "format_vega_lite: quotes in a column name are escaped in the Vega field pa
   // Vega compiles the field into a datum accessor expression, where a bare
   // quote terminates the string early and the exported spec throws at
   // compile time instead of rendering.
-  let df = @frame.DataFrame::new([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_strings("cat", ["x"]),
     @series.Series::from_ints("it's \"q\"", [1]),
   ])
@@ -86,7 +86,7 @@ test "format_vega_lite: a `.` in a column name is escaped in the Vega field path
   // Vega-Lite reads an unescaped `.` as nested-object access, so a column
   // literally named `price.usd` must be escaped to `price\.usd` to resolve to
   // the real column rather than silently plotting nothing.
-  let df = @frame.DataFrame::new([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_strings("cat", ["x"]),
     @series.Series::from_ints("price.usd", [1]),
   ])
@@ -118,7 +118,7 @@ test "format_vega_lite: color_type overrides the color channel's field type" {
   // A numeric grouping column ("g") would infer `quantitative` (a continuous
   // gradient); color_type forces the chosen type. Covers all four
   // VegaType variants.
-  let df = @frame.DataFrame::new([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_strings("cat", ["x"]),
     @series.Series::from_ints("val", [1]),
     @series.Series::from_ints("g", [1]),
@@ -208,7 +208,7 @@ test "format_vega_lite: color adds a color encoding channel" {
 test "format_vega_lite: field type follows column dtype (Float→quantitative, Bool→nominal)" {
   // Complements the canonical case (Int→quantitative, String→nominal): a
   // Float column is quantitative and a Bool column is nominal.
-  let df = @frame.DataFrame::new([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_floats("ratio", [1.5]),
     @series.Series::from_bools("flag", [true]),
   ])
@@ -227,7 +227,7 @@ test "format_vega_lite: null and non-finite float cells become JSON null" {
   // literal), all render as `null`.
   let inf = id_double(1.0) / id_double(0.0)
   let nan = id_double(0.0) / id_double(0.0)
-  let df = @frame.DataFrame::new([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_strings("label", ["a", "b", "c", "d"]),
     @series.Series::from_float_options("amount", [
       Some(1.5),
@@ -246,9 +246,9 @@ test "format_vega_lite: null and non-finite float cells become JSON null" {
 
 ///|
 test "format_vega_lite: a frame with columns but no rows yields empty data.values" {
-  let schema = @types.Schema::new([
-    @types.Field("cat", @types.DataType::String),
-    @types.Field("val", @types.DataType::Int),
+  let schema = @types.Schema::Schema([
+    @types.Field::Field("cat", @types.DataType::String),
+    @types.Field::Field("val", @types.DataType::Int),
   ])
   let empty = @frame.DataFrame::empty(schema)
   inspect(

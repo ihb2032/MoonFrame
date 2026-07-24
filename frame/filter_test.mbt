@@ -8,7 +8,7 @@
 
 ///|
 fn where_df() -> DataFrame raise @types.DataError {
-  DataFrame::new([
+  DataFrame::DataFrame([
     Series::from_ints("qty", [5, 120, 80, 200]),
     Series::from_strings("region", ["west", "east", "west", "west"]),
   ])
@@ -49,7 +49,7 @@ test "a compound `&` predicate keeps the rows where every clause holds" {
 ///|
 test "null predicate cells drop their rows, like false" {
   // Directly null mask cells: a nullable Bool column as the predicate.
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_ints("id", [1, 2, 3]),
     Series::from_bool_options("flag", [Some(true), None, Some(false)]),
   ])
@@ -57,7 +57,7 @@ test "null predicate cells drop their rows, like false" {
   assert_eq(out.get_column("id").to_scalars(), [@types.Scalar::Int(1)])
   // Null comparison cells (null-propagating `ge` over a nullable column)
   // drop their row the same way.
-  let df2 = DataFrame::new([
+  let df2 = DataFrame::DataFrame([
     Series::from_int_options("x", [Some(10), None, Some(1)]),
   ])
   let out2 = df2.filter(@expr.col("x").ge(@expr.lit_int(5)))
@@ -66,7 +66,7 @@ test "null predicate cells drop their rows, like false" {
 
 ///|
 test "Kleene predicates: a dominant true keeps, an unknown drops" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_ints("id", [1, 2]),
     Series::from_bool_options("a", [Some(true), None]),
     Series::from_bool_options("b", [None, Some(true)]),
@@ -107,7 +107,7 @@ test "length-1 predicates broadcast: aggregation comparisons gate the frame" {
 
 ///|
 test "zero-row frame: column and broadcast predicates both stay empty" {
-  let df = DataFrame::new([Series::from_ints("a", [])])
+  let df = DataFrame::DataFrame([Series::from_ints("a", [])])
   assert_eq(df.filter(@expr.col("a").gt(@expr.lit_int(0))).nrows(), 0)
   let out = df.filter(@expr.lit_bool(true))
   assert_eq(out.shape(), (0, 1))
@@ -116,7 +116,7 @@ test "zero-row frame: column and broadcast predicates both stay empty" {
 
 ///|
 test "column backends survive the row filter" {
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_ints("n", [1, 2, 3]),
     Series::from_int_options("m", [Some(1), None, Some(3)]),
   ])
@@ -169,7 +169,7 @@ test "evaluation errors surface: unknown column in the predicate" {
 test "pipeline: derive with with_columns, then filter on the derived column" {
   // The expression target feel: declare a derived column, then gate rows
   // on it and a second condition with the `&` operator.
-  let df = DataFrame::new([
+  let df = DataFrame::DataFrame([
     Series::from_ints("revenue", [100, 200, 300]),
     Series::from_ints("cost", [150, 120, 100]),
     Series::from_strings("region", ["west", "east", "west"]),

@@ -15,7 +15,7 @@
 fn write_fixture(path : String) -> Unit raise @types.DataError {
   @io.write_csv(
     path,
-    @frame.DataFrame([
+    @frame.DataFrame::DataFrame([
       @series.Series::from_ints("qty", [5, 120, 80, 200]),
       @series.Series::from_int_options("bonus", [Some(1), None, Some(3), None]),
       @series.Series::from_strings("region", ["west", "east", "west", "east"]),
@@ -62,13 +62,17 @@ test "scan_csv with projection push-down collects equal to the eager read then s
 ///|
 test "scan_csv_with_options honours the read options at collect time" {
   let path = "_build/lazy_scan_csv_options.csv"
-  let df = @frame.DataFrame([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_ints("a", [1, 2]),
     @series.Series::from_strings("b", ["p", "q"]),
   ])
-  let write_opts : @io.CsvWriteOptions = @io.CsvWriteOptions(delimiter=';')
+  let write_opts : @io.CsvWriteOptions = @io.CsvWriteOptions::CsvWriteOptions(
+    delimiter=';',
+  )
   @io.write_csv(path, df, options=write_opts)
-  let read_opts : @io.CsvReadOptions = @io.CsvReadOptions(delimiter=';')
+  let read_opts : @io.CsvReadOptions = @io.CsvReadOptions::CsvReadOptions(
+    delimiter=';',
+  )
   // The `;` delimiter must reach the parser, and projection push-down must
   // narrow under those same options.
   assert_eq(
@@ -82,10 +86,12 @@ test "scan_csv_with_options snapshots the null-token list" {
   let path = "_build/lazy_scan_csv_aliasing.csv"
   @io.write_csv(
     path,
-    @frame.DataFrame([@series.Series::from_strings("a", ["NA", "x"])]),
+    @frame.DataFrame::DataFrame([@series.Series::from_strings("a", ["NA", "x"])]),
   )
   let tokens = ["NA"]
-  let read_opts : @io.CsvReadOptions = @io.CsvReadOptions(null_values=tokens)
+  let read_opts : @io.CsvReadOptions = @io.CsvReadOptions::CsvReadOptions(
+    null_values=tokens,
+  )
   let planned = scan_csv(path, options=read_opts)
   // Mutating the caller's null-token list must not reach the captured plan:
   // "NA" stays a null token for the collect below. The options copy on
@@ -93,7 +99,9 @@ test "scan_csv_with_options snapshots the null-token list" {
   // source array nor a read-back one aliases what the reader uses.
   tokens.clear()
   read_opts.null_values().clear()
-  let fresh : @io.CsvReadOptions = @io.CsvReadOptions(null_values=["NA"])
+  let fresh : @io.CsvReadOptions = @io.CsvReadOptions::CsvReadOptions(null_values=[
+    "NA",
+  ])
   assert_eq(planned.collect(), @io.read_csv(path, options=fresh))
 }
 
@@ -104,12 +112,14 @@ test "projection push-down does not parse — or fail on — a dropped column" {
   // `a` is clean throughout.
   @io.write_csv(
     path,
-    @frame.DataFrame([
+    @frame.DataFrame::DataFrame([
       @series.Series::from_strings("a", ["1", "2"]),
       @series.Series::from_strings("b", ["10", "oops"]),
     ]),
   )
-  let opts : @io.CsvReadOptions = @io.CsvReadOptions(infer_schema_rows=1)
+  let opts : @io.CsvReadOptions = @io.CsvReadOptions::CsvReadOptions(
+    infer_schema_rows=1,
+  )
   // The full eager read parses `b` and fails on `oops`.
   assert_eq(
     Ok(@io.read_csv(path, options=opts)) catch {
@@ -273,7 +283,7 @@ test "a parse error in a row the predicate drops no longer surfaces" {
   @fs.write_string_to_file(path, "qty,note\n5,1\n120,oops\n")
   // A one-row inference window locks `note` to Int from the first record, so
   // the second record's `oops` is a genuine cell parse error.
-  let narrow = @io.CsvReadOptions(infer_schema_rows=1)
+  let narrow = @io.CsvReadOptions::CsvReadOptions(infer_schema_rows=1)
   // Eager: the whole file is parsed, so the bad cell fails the read.
   assert_true(
     (Ok(@io.read_csv(path, options=narrow)) catch { e => Err(e) })
@@ -309,7 +319,7 @@ test "an absorbed predicate reports a kept row's parse error at its true file ro
   // through `kept_lines`.
   let path = "_build/lazy_scan_csv_predicate_row_number.csv"
   @fs.write_string_to_file(path, "qty,note\n5,1\n60,2\n120,oops\n")
-  let narrow = @io.CsvReadOptions(infer_schema_rows=1)
+  let narrow = @io.CsvReadOptions::CsvReadOptions(infer_schema_rows=1)
   let predicate = @expr.col("qty").gt(@expr.lit_int(50))
   // Eager parses the whole file and fails on `oops` at data row 3.
   let eager = Ok(@io.read_csv(path, options=narrow).filter(predicate)) catch {

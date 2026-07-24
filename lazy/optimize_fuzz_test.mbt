@@ -149,7 +149,7 @@ fn gen_rows(max_rows : Int) -> @gen.Gen[Array[RichRow]] {
 fn rows_to_frame(
   rows : Array[RichRow],
 ) -> @frame.DataFrame raise @types.DataError {
-  @frame.DataFrame([
+  @frame.DataFrame::DataFrame([
     @series.Series::from_int_options("g", rows.map(r => r.0)),
     @series.Series::from_float_options("fk", rows.map(r => r.1)),
     @series.Series::from_int_options("a", rows.map(r => r.2)),
@@ -945,7 +945,7 @@ fn shrink_pruned_file_case(c : PrunedFileCase) -> Iter[PrunedFileCase] {
 fn rows_to_clean_frame(
   rows : Array[RichRow],
 ) -> @frame.DataFrame raise @types.DataError {
-  @frame.DataFrame([
+  @frame.DataFrame::DataFrame([
     @series.Series::from_int_options("g", rows.map(r => r.0)),
     @series.Series::from_int_options("a", rows.map(r => r.2)),
     @series.Series::from_int_options("b", rows.map(r => r.3)),

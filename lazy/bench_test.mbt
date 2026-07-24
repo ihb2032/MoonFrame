@@ -13,7 +13,7 @@ fn fact_frame(n : Int) -> @frame.DataFrame raise @types.DataError {
     (x * 2654435761L + 1013904223L) % 100000L
   })
   let fvalues = Array::makei(n, i => (i % 100000).to_double() * 1.5)
-  @frame.DataFrame([
+  @frame.DataFrame::DataFrame([
     @series.Series::from_ints("key", keys),
     @series.Series::from_ints("value", values),
     @series.Series::from_floats("fvalue", fvalues),

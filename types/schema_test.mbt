@@ -1,9 +1,9 @@
 ///|
 fn sample_schema() -> Schema raise DataError {
   Schema::Schema([
-    Field("a", DataType::Int),
-    Field("b", DataType::Float),
-    Field("c", DataType::String),
+    Field::Field("a", DataType::Int),
+    Field::Field("b", DataType::Float),
+    Field::Field("c", DataType::String),
   ])
 }
 
@@ -17,10 +17,10 @@ test "Schema::Schema accepts unique fields" {
 
 ///|
 test "Schema::Schema copies its input fields array" {
-  let fields : Array[Field] = [Field("a", DataType::Int)]
+  let fields : Array[Field] = [Field::Field("a", DataType::Int)]
   let s = Schema::Schema(fields)
   // Would break the validated no-duplicates invariant if the array were aliased.
-  fields.push(Field("a", DataType::Float))
+  fields.push(Field::Field("a", DataType::Float))
   assert_eq(s.len(), 1)
   assert_eq(s.field_names(), ["a"])
 }
@@ -29,9 +29,9 @@ test "Schema::Schema copies its input fields array" {
 test "Schema::Schema rejects duplicate names" {
   let dup = Ok(
     Schema::Schema([
-      Field("a", DataType::Int),
-      Field("b", DataType::Float),
-      Field("a", DataType::String),
+      Field::Field("a", DataType::Int),
+      Field::Field("b", DataType::Float),
+      Field::Field("a", DataType::String),
     ]),
   ) catch {
     e => Err(e)
@@ -58,14 +58,14 @@ test "Schema::index_of / field / field_at" {
     },
     Err(DataError::ColumnNotFound("missing")),
   )
-  assert_eq(s.field("b"), Field("b", DataType::Float))
+  assert_eq(s.field("b"), Field::Field("b", DataType::Float))
   assert_eq(
     Ok(s.field("missing")) catch {
       e => Err(e)
     },
     Err(DataError::ColumnNotFound("missing")),
   )
-  assert_eq(s.field_at(0), Field("a", DataType::Int))
+  assert_eq(s.field_at(0), Field::Field("a", DataType::Int))
   assert_eq(
     Ok(s.field_at(3)) catch {
       e => Err(e)
@@ -85,7 +85,7 @@ test "Schema::select projects in requested order" {
   let s = sample_schema()
   let sub = s.select(["c", "a"])
   assert_eq(sub.field_names(), ["c", "a"])
-  assert_eq(sub.field_at(0), Field("c", DataType::String))
+  assert_eq(sub.field_at(0), Field::Field("c", DataType::String))
 }
 
 ///|
@@ -122,7 +122,7 @@ test "Schema::rename happy path" {
   let s = sample_schema()
   let renamed = s.rename("b", "bb")
   assert_eq(renamed.field_names(), ["a", "bb", "c"])
-  assert_eq(renamed.field_at(1), Field("bb", DataType::Float))
+  assert_eq(renamed.field_at(1), Field::Field("bb", DataType::Float))
   // Original is unchanged.
   assert_eq(s.field_names(), ["a", "b", "c"])
 }
@@ -165,8 +165,8 @@ test "Schema::rename rejects collision with existing column" {
 test "Schema equality is structural" {
   assert_eq(sample_schema(), sample_schema())
   let other = Schema::Schema([
-    Field("a", DataType::Int),
-    Field("b", DataType::Float),
+    Field::Field("a", DataType::Int),
+    Field::Field("b", DataType::Float),
   ])
   assert_not_eq(sample_schema(), other)
 }
@@ -174,8 +174,8 @@ test "Schema equality is structural" {
 ///|
 test "Schema Show renders fields in order" {
   let s = Schema::Schema([
-    Field("x", DataType::Int),
-    Field("y", DataType::String, nullable=false),
+    Field::Field("x", DataType::Int),
+    Field::Field("y", DataType::String, nullable=false),
   ])
   inspect(
     s,
@@ -190,7 +190,7 @@ test "Schema::fields returns a snapshot, mutating it does not break the schema" 
   assert_eq(copy.length(), 3)
   assert_eq(copy[0].name(), "a")
   // Mutate the returned array; the schema must remain intact.
-  copy.push(Field("a", DataType::Float))
+  copy.push(Field::Field("a", DataType::Float))
   assert_eq(copy.length(), 4)
   assert_eq(s.len(), 3)
   assert_eq(s.field_names(), ["a", "b", "c"])

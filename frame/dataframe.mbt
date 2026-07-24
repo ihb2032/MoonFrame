@@ -39,12 +39,10 @@ pub extend DataFrame with Debug::{to_repr}
 /// cannot perturb the frame's invariants (the `Series` values themselves
 /// are immutable).
 ///
-/// This is the type's own constructor. The bare spelling `DataFrame([...])`
-/// resolves wherever the expected type is already concrete — an annotated
-/// binding, an argument position, or the qualified `@frame.DataFrame([...])`;
-/// a plain `let df = ...` has no expected type to resolve against, so write
-/// `DataFrame::DataFrame([...])` there.
-#as_free_fn
+/// The type's own constructor — the spelling every canonically-constructed
+/// type in MoonFrame uses (`Schema::Schema`, `Field::Field`, the options
+/// types). The entry points that build a frame a *different* way keep their
+/// own names: `empty` from a schema, `from_rows` from a `Scalar` matrix.
 pub fn DataFrame::DataFrame(
   columns : Array[Series],
 ) -> DataFrame raise @types.DataError {
@@ -54,9 +52,9 @@ pub fn DataFrame::DataFrame(
     raise @types.DataError::LengthMismatch
   }
   let fields : Array[@types.Field] = columns.map(fn(c) {
-    @types.Field(c.name(), c.dtype())
+    @types.Field::Field(c.name(), c.dtype())
   })
-  let schema = @types.Schema(fields)
+  let schema = @types.Schema::Schema(fields)
   { schema, columns, nrows, name_to_index: index_by_name(columns) }
 }
 
@@ -85,7 +83,7 @@ fn index_by_name(columns : Array[Series]) -> Map[String, Int] {
 pub fn DataFrame::empty(
   schema : @types.Schema,
 ) -> DataFrame raise @types.DataError {
-  let schema = @types.Schema(schema.fields())
+  let schema = @types.Schema::Schema(schema.fields())
   let columns : Array[Series] = schema
     .fields()
     .map(f => {
@@ -168,7 +166,7 @@ pub fn DataFrame::from_rows(
   schema : @types.Schema,
   rows : Array[Array[@types.Scalar]],
 ) -> DataFrame raise @types.DataError {
-  let schema = @types.Schema(schema.fields())
+  let schema = @types.Schema::Schema(schema.fields())
   let ncols = schema.len()
   if !rows.all(row => row.length() == ncols) {
     raise @types.DataError::LengthMismatch
@@ -574,7 +572,7 @@ fn DataFrame::with_renamed_fields(
   self : DataFrame,
   fields : Array[@types.Field],
 ) -> DataFrame raise @types.DataError {
-  let schema = @types.Schema(fields)
+  let schema = @types.Schema::Schema(fields)
   // `fields` is index-aligned with the column vector, so `columns[i]` is
   // in-bounds and the rebuilt schema mirrors the columns name-for-name.
   let new_cols = fields.mapi((i, f) => self.columns[i].rename(f.name()))

@@ -71,9 +71,9 @@ test "null_count on an all-null column reports the full row count" {
 
 ///|
 test "null_count on a 0-row frame reports zero for every column" {
-  let schema = @types.Schema([
-    @types.Field("a", @types.DataType::Int),
-    @types.Field("b", @types.DataType::Float),
+  let schema = @types.Schema::Schema([
+    @types.Field::Field("a", @types.DataType::Int),
+    @types.Field::Field("b", @types.DataType::Float),
   ])
   let df = DataFrame::empty(schema)
   let out = df.null_count()

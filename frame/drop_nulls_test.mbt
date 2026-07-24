@@ -97,9 +97,9 @@ test "drop_nulls collapses to a 0-row frame when every row has at least one null
 
 ///|
 test "drop_nulls on a 0-row frame preserves the schema" {
-  let schema = @types.Schema([
-    @types.Field("a", @types.DataType::Int),
-    @types.Field("b", @types.DataType::String),
+  let schema = @types.Schema::Schema([
+    @types.Field::Field("a", @types.DataType::Int),
+    @types.Field::Field("b", @types.DataType::String),
   ])
   let df = DataFrame::empty(schema)
   let out = df.drop_nulls()

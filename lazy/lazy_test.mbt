@@ -10,7 +10,7 @@
 /// 4×3 mixed frame: a plain Int column, a nullable Int column, and a
 /// String key column — enough surface for every deferred verb.
 fn sales_df() -> @frame.DataFrame raise @types.DataError {
-  @frame.DataFrame([
+  @frame.DataFrame::DataFrame([
     @series.Series::from_ints("qty", [5, 120, 80, 200]),
     @series.Series::from_int_options("bonus", [Some(1), None, Some(3), None]),
     @series.Series::from_strings("region", ["west", "east", "west", "east"]),
@@ -20,7 +20,7 @@ fn sales_df() -> @frame.DataFrame raise @types.DataError {
 ///|
 /// Join left side: order ids and amounts (3×2).
 fn orders_df() -> @frame.DataFrame raise @types.DataError {
-  @frame.DataFrame([
+  @frame.DataFrame::DataFrame([
     @series.Series::from_ints("id", [1, 2, 3]),
     @series.Series::from_ints("amount", [10, 20, 30]),
   ])
@@ -30,7 +30,7 @@ fn orders_df() -> @frame.DataFrame raise @types.DataError {
 /// Join right side: partially overlapping ids (3×2) — id 1 is only on the
 /// left, id 4 only here, so Inner / Left / Right / Outer all differ.
 fn cities_df() -> @frame.DataFrame raise @types.DataError {
-  @frame.DataFrame([
+  @frame.DataFrame::DataFrame([
     @series.Series::from_ints("id", [2, 3, 4]),
     @series.Series::from_strings("city", ["bern", "cork", "delft"]),
   ])
@@ -118,7 +118,7 @@ test "a reduction caps an optimized pipeline; a filter above it stays above" {
 
 ///|
 test "a whole-frame reduction on an empty frame matches eager" {
-  let empty = @frame.DataFrame([
+  let empty = @frame.DataFrame::DataFrame([
     @series.Series::from_ints("a", []),
     @series.Series::from_strings("b", []),
   ])
@@ -165,7 +165,7 @@ test "a dtype-changing map under a grouped reduction collects like eager" {
   // The deferred dtype probe must behave identically through the lazy
   // Aggregate node: the closure's Int output types the reduction, not the
   // Map's String input column.
-  let df = @frame.DataFrame([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_strings("g", ["x", "x", "y"]),
     @series.Series::from_strings("s", ["a", "bb", "ccc"]),
   ])
@@ -189,7 +189,7 @@ test "a dtype-changing map under a grouped reduction collects like eager" {
 
 ///|
 test "a batched map collects like eager, row-wise and as a group reduction" {
-  let df = @frame.DataFrame([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_strings("g", ["x", "x", "y"]),
     @series.Series::from_ints("v", [10, 20, 30]),
   ])
@@ -229,7 +229,7 @@ test "nested self-joins execute each shared subplan once, not once per occurrenc
   // memoised executor runs each distinct node once, so this collects
   // instantly and equals the eager chain — the per-occurrence fold
   // OOM-aborted at depth ~24.
-  let df = @frame.DataFrame([@series.Series::from_ints("a", [1])])
+  let df = @frame.DataFrame::DataFrame([@series.Series::from_ints("a", [1])])
   let opts = @frame.JoinOptions::on([@expr.col("a")])
   let mut lf = LazyFrame::LazyFrame(df)
   let mut eager = df
@@ -247,7 +247,7 @@ test "a shared subplan renders once, with a marker on re-encounter" {
   // The right Join input is the same node object as the left, so the
   // printer marks the repeat instead of re-expanding it — explain stays
   // linear (and total) on DAG-shaped plans.
-  let df = @frame.DataFrame([@series.Series::from_ints("a", [1])])
+  let df = @frame.DataFrame::DataFrame([@series.Series::from_ints("a", [1])])
   let shared = LazyFrame::LazyFrame(df).filter(
     @expr.col("a").gt(@expr.lit_int(0)),
   )
@@ -654,11 +654,11 @@ test "join inputs run their own deferred sub-pipelines" {
 
 ///|
 test "join on left_on / right_on and derived keys collects to the eager equivalent" {
-  let l = @frame.DataFrame([
+  let l = @frame.DataFrame::DataFrame([
     @series.Series::from_ints("lk", [1, 2, 3]),
     @series.Series::from_strings("lv", ["a", "b", "c"]),
   ])
-  let r = @frame.DataFrame([
+  let r = @frame.DataFrame::DataFrame([
     @series.Series::from_ints("rk", [2, 3, 4]),
     @series.Series::from_ints("rv", [20, 30, 40]),
   ])
@@ -907,7 +907,7 @@ test "group-by building is total; the errors wait for collect" {
 
 ///|
 test "a zero-row source aggregates to zero groups" {
-  let df = @frame.DataFrame([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_ints("qty", []),
     @series.Series::from_strings("region", []),
   ])
@@ -923,7 +923,7 @@ test "a zero-row source aggregates to zero groups" {
 
 ///|
 test "a zero-row source flows through the whole pipeline" {
-  let df = @frame.DataFrame([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_ints("qty", []),
     @series.Series::from_strings("region", []),
   ])

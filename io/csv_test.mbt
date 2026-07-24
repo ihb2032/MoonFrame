@@ -116,7 +116,7 @@ test "parse_csv_str: has_header=false synthesises column1, column2, …" {
     #|
   let df = @io.parse_csv_str(
     content,
-    options=@io.CsvReadOptions(has_header=false),
+    options=@io.CsvReadOptions::CsvReadOptions(has_header=false),
   )
   assert_eq(df.check_invariants(), Ok(()))
   assert_eq(df.columns(), ["column1", "column2", "column3"])
@@ -132,7 +132,10 @@ test "parse_csv_str: custom delimiter (semicolon) splits cells correctly" {
     #|1;2;3
     #|4;5;6
     #|
-  let df = @io.parse_csv_str(content, options=@io.CsvReadOptions(delimiter=';'))
+  let df = @io.parse_csv_str(
+    content,
+    options=@io.CsvReadOptions::CsvReadOptions(delimiter=';'),
+  )
   assert_eq(df.check_invariants(), Ok(()))
   assert_eq(df.shape(), (2, 3))
   assert_eq(df.columns(), ["a", "b", "c"])
@@ -146,7 +149,9 @@ test "parse_csv_str: a delimiter colliding with the quote or a line terminator i
   // separate fields — the reader refuses them up front, the same configurations
   // format_csv refuses, instead of silently mis-splitting.
   for d in ['"', '\n', '\r'] {
-    let options : @io.CsvReadOptions = @io.CsvReadOptions(delimiter=d)
+    let options : @io.CsvReadOptions = @io.CsvReadOptions::CsvReadOptions(
+      delimiter=d,
+    )
     let result = Ok(@io.parse_csv_str("a,b\n1,2\n", options~)) catch {
       e => Err(e)
     }
@@ -156,9 +161,11 @@ test "parse_csv_str: a delimiter colliding with the quote or a line terminator i
 
 ///|
 test "format_csv: a delimiter colliding with the quote or a line terminator is rejected" {
-  let df = @frame.DataFrame([@series.Series::from_ints("a", [1, 2])])
+  let df = @frame.DataFrame::DataFrame([@series.Series::from_ints("a", [1, 2])])
   for d in ['"', '\n', '\r'] {
-    let options : @io.CsvWriteOptions = @io.CsvWriteOptions(delimiter=d)
+    let options : @io.CsvWriteOptions = @io.CsvWriteOptions::CsvWriteOptions(
+      delimiter=d,
+    )
     let result = Ok(@io.format_csv(df, options~)) catch { e => Err(e) }
     assert_true(result is Err(@types.DataError::InvalidOperation(_)))
   }
@@ -169,13 +176,15 @@ test "parse_csv_str / format_csv: a supplementary-plane (non-BMP) delimiter is r
   // U+1D11E (𝄞) is a UTF-16 surrogate pair; the per-code-unit tokenizer could
   // never match it, so without the guard a round-trip would silently merge
   // every column into one. Both surfaces refuse it up front.
-  let read_opts : @io.CsvReadOptions = @io.CsvReadOptions(delimiter='\u{1D11E}')
+  let read_opts : @io.CsvReadOptions = @io.CsvReadOptions::CsvReadOptions(
+    delimiter='\u{1D11E}',
+  )
   let r = Ok(@io.parse_csv_str("a,b\n1,2\n", options=read_opts)) catch {
     e => Err(e)
   }
   assert_true(r is Err(@types.DataError::InvalidOperation(_)))
-  let df = @frame.DataFrame([@series.Series::from_ints("a", [1, 2])])
-  let write_opts : @io.CsvWriteOptions = @io.CsvWriteOptions(
+  let df = @frame.DataFrame::DataFrame([@series.Series::from_ints("a", [1, 2])])
+  let write_opts : @io.CsvWriteOptions = @io.CsvWriteOptions::CsvWriteOptions(
     delimiter='\u{1D11E}',
   )
   let w = Ok(@io.format_csv(df, options=write_opts)) catch { e => Err(e) }
@@ -192,7 +201,7 @@ test "parse_csv_str: custom null_values let NA / N/A become null" {
     #|
   let df = @io.parse_csv_str(
     content,
-    options=@io.CsvReadOptions(null_values=["NA", "N/A"]),
+    options=@io.CsvReadOptions::CsvReadOptions(null_values=["NA", "N/A"]),
   )
   assert_eq(df.check_invariants(), Ok(()))
   // "a" is Int because NA was skipped during inference; "b" is
@@ -265,7 +274,10 @@ test "parse_csv_str: infer_schema_rows limits the inference window" {
     #|1.5
     #|
   let result = Ok(
-    @io.parse_csv_str(content, options=@io.CsvReadOptions(infer_schema_rows=1)),
+    @io.parse_csv_str(
+      content,
+      options=@io.CsvReadOptions::CsvReadOptions(infer_schema_rows=1),
+    ),
   ) catch {
     e => Err(e)
   }
@@ -317,7 +329,7 @@ test "parse_csv_str: strict_column_count rejects a ragged row" {
   let result = Ok(
     @io.parse_csv_str(
       content,
-      options=@io.CsvReadOptions(strict_column_count=true),
+      options=@io.CsvReadOptions::CsvReadOptions(strict_column_count=true),
     ),
   ) catch {
     e => Err(e)
@@ -336,7 +348,7 @@ test "parse_csv_str: strict_column_count passes a uniform-width frame" {
     #|
   let df = @io.parse_csv_str(
     content,
-    options=@io.CsvReadOptions(strict_column_count=true),
+    options=@io.CsvReadOptions::CsvReadOptions(strict_column_count=true),
   )
   assert_eq(df.check_invariants(), Ok(()))
   assert_eq(df.shape(), (2, 3))
@@ -355,7 +367,7 @@ test "parse_csv_str: malformed quotes remain lenient by default" {
     let implicit = @io.parse_csv_str(content)
     let explicit = @io.parse_csv_str(
       content,
-      options=@io.CsvReadOptions(strict_quotes=false),
+      options=@io.CsvReadOptions::CsvReadOptions(strict_quotes=false),
     )
     assert_eq(implicit, explicit)
     let column = implicit.columns()[implicit.ncols() - 1]
@@ -375,7 +387,10 @@ test "parse_csv_str: strict_quotes rejects all malformed quote shapes" {
   for case in cases {
     let (content, expected) = case
     let result = Ok(
-      @io.parse_csv_str(content, options=@io.CsvReadOptions(strict_quotes=true)),
+      @io.parse_csv_str(
+        content,
+        options=@io.CsvReadOptions::CsvReadOptions(strict_quotes=true),
+      ),
     ) catch {
       e => Err(e)
     }
@@ -390,7 +405,7 @@ test "parse_csv_str: strict_quotes rejects all malformed quote shapes" {
 
 ///|
 test "parse_csv_str: strict_quotes accepts escaped quotes and quoted CRLF" {
-  let options : @io.CsvReadOptions = @io.CsvReadOptions(
+  let options : @io.CsvReadOptions = @io.CsvReadOptions::CsvReadOptions(
     delimiter=';',
     strict_column_count=true,
     strict_quotes=true,
@@ -414,7 +429,10 @@ test "parse_csv_str: empty content yields a 0x0 frame" {
 
 ///|
 test "parse_csv_str: has_header=false on empty input also yields 0x0" {
-  let df = @io.parse_csv_str("", options=@io.CsvReadOptions(has_header=false))
+  let df = @io.parse_csv_str(
+    "",
+    options=@io.CsvReadOptions::CsvReadOptions(has_header=false),
+  )
   assert_eq(df.check_invariants(), Ok(()))
   assert_eq(df.shape(), (0, 0))
 }
@@ -435,7 +453,10 @@ test "parse_csv_str: has_header=false on row-less (whitespace) input yields 0x0"
   // Non-empty content skips the empty-input short-circuit, but NyaCSV
   // reduces "\n" to zero rows; the has_header=false branch then takes the
   // `rows.is_empty()` path and synthesises zero column names → 0×0.
-  let df = @io.parse_csv_str("\n", options=@io.CsvReadOptions(has_header=false))
+  let df = @io.parse_csv_str(
+    "\n",
+    options=@io.CsvReadOptions::CsvReadOptions(has_header=false),
+  )
   assert_eq(df.check_invariants(), Ok(()))
   assert_eq(df.shape(), (0, 0))
 }
@@ -473,7 +494,10 @@ test "parse_csv_str: non-numeric in a Float-locked column is structured" {
     #|oops
     #|
   let result = Ok(
-    @io.parse_csv_str(content, options=@io.CsvReadOptions(infer_schema_rows=2)),
+    @io.parse_csv_str(
+      content,
+      options=@io.CsvReadOptions::CsvReadOptions(infer_schema_rows=2),
+    ),
   ) catch {
     e => Err(e)
   }
@@ -503,7 +527,10 @@ test "parse_csv_str: non-bool value outside inference is structured" {
     #|maybe
     #|
   let result = Ok(
-    @io.parse_csv_str(content, options=@io.CsvReadOptions(infer_schema_rows=2)),
+    @io.parse_csv_str(
+      content,
+      options=@io.CsvReadOptions::CsvReadOptions(infer_schema_rows=2),
+    ),
   ) catch {
     e => Err(e)
   }
@@ -532,7 +559,10 @@ test "parse_csv_str: non-int outside the inference window is structured" {
     #|x
     #|
   let result = Ok(
-    @io.parse_csv_str(content, options=@io.CsvReadOptions(infer_schema_rows=2)),
+    @io.parse_csv_str(
+      content,
+      options=@io.CsvReadOptions::CsvReadOptions(infer_schema_rows=2),
+    ),
   ) catch {
     e => Err(e)
   }
@@ -570,7 +600,7 @@ test "parse_csv_str: infer_schema_rows=0 scans every row to fix late dtype shift
     #|
   let df = @io.parse_csv_str(
     content,
-    options=@io.CsvReadOptions(infer_schema_rows=0),
+    options=@io.CsvReadOptions::CsvReadOptions(infer_schema_rows=0),
   )
   assert_eq(df.check_invariants(), Ok(()))
   assert_eq(df.get_column("x").dtype(), @types.DataType::Float)
@@ -592,7 +622,7 @@ test "parse_csv_str: on_parse_error=Null downgrades an out-of-window misfit to n
     #|
   let df = @io.parse_csv_str(
     content,
-    options=@io.CsvReadOptions(
+    options=@io.CsvReadOptions::CsvReadOptions(
       infer_schema_rows=2,
       on_parse_error=@io.OnParseError::Null,
     ),
@@ -626,7 +656,7 @@ test "parse_csv_str: allow_nonfinite_floats gates nan / inf float inference" {
   assert_true(as_float.item(2, "x") is @types.Scalar::Float(_))
   let as_string = @io.parse_csv_str(
     content,
-    options=@io.CsvReadOptions(allow_nonfinite_floats=false),
+    options=@io.CsvReadOptions::CsvReadOptions(allow_nonfinite_floats=false),
   )
   assert_eq(as_string.get_column("x").dtype(), @types.DataType::String)
   assert_eq(as_string.item(0, "x"), @types.Scalar::String("nan"))
@@ -648,7 +678,7 @@ test "parse_csv_str: allow_nonfinite=false rejects a leading inf (is_inf gate)" 
     #|
   let df = @io.parse_csv_str(
     content,
-    options=@io.CsvReadOptions(allow_nonfinite_floats=false),
+    options=@io.CsvReadOptions::CsvReadOptions(allow_nonfinite_floats=false),
   )
   assert_eq(df.get_column("x").dtype(), @types.DataType::String)
   assert_eq(df.item(0, "x"), @types.Scalar::String("inf"))
@@ -659,7 +689,7 @@ test "parse_csv_str: allow_nonfinite=false rejects a leading inf (is_inf gate)" 
 
 ///|
 test "format_csv: header on, mixed dtypes, null cell becomes empty" {
-  let df = @frame.DataFrame([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_int_options("n", [Some(1), Some(2), None]),
     @series.Series::from_strings("s", ["a", "b", "c"]),
   ])
@@ -675,11 +705,14 @@ test "format_csv: header on, mixed dtypes, null cell becomes empty" {
 
 ///|
 test "format_csv: header off skips the first row" {
-  let df = @frame.DataFrame([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_ints("a", [1, 2]),
     @series.Series::from_ints("b", [3, 4]),
   ])
-  let out = @io.format_csv(df, options=@io.CsvWriteOptions(header=false))
+  let out = @io.format_csv(
+    df,
+    options=@io.CsvWriteOptions::CsvWriteOptions(header=false),
+  )
   let expected =
     #|1,3
     #|2,4
@@ -689,11 +722,14 @@ test "format_csv: header off skips the first row" {
 
 ///|
 test "format_csv: custom delimiter (semicolon)" {
-  let df = @frame.DataFrame([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_ints("a", [1, 2]),
     @series.Series::from_strings("b", ["x", "y"]),
   ])
-  let out = @io.format_csv(df, options=@io.CsvWriteOptions(delimiter=';'))
+  let out = @io.format_csv(
+    df,
+    options=@io.CsvWriteOptions::CsvWriteOptions(delimiter=';'),
+  )
   let expected =
     #|a;b
     #|1;x
@@ -704,10 +740,13 @@ test "format_csv: custom delimiter (semicolon)" {
 
 ///|
 test "format_csv: custom null_value rendering" {
-  let df = @frame.DataFrame([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_int_options("n", [Some(1), None, Some(3)]),
   ])
-  let out = @io.format_csv(df, options=@io.CsvWriteOptions(null_value="NA"))
+  let out = @io.format_csv(
+    df,
+    options=@io.CsvWriteOptions::CsvWriteOptions(null_value="NA"),
+  )
   let expected =
     #|n
     #|1
@@ -719,21 +758,21 @@ test "format_csv: custom null_value rendering" {
 
 ///|
 test "format_csv: formula sanitization covers spreadsheet trigger prefixes" {
-  let df = @frame.DataFrame([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_strings("s", [
       "=SUM(A1)", "+1", "-1", "@name", "\t=1", "\r=1", "",
     ]),
   ])
   let out = @io.format_csv(
     df,
-    options=@io.CsvWriteOptions(sanitize_formulas=true),
+    options=@io.CsvWriteOptions::CsvWriteOptions(sanitize_formulas=true),
   )
   assert_eq(out, "s\n'=SUM(A1)\n'+1\n'-1\n'@name\n'\t=1\n\"'\r=1\"\n\"\"\n")
 }
 
 ///|
 test "format_csv: formula sanitization changes only formula-like String cells" {
-  let df = @frame.DataFrame([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_string_options("s", [Some("-1"), None, Some("a,b")]),
     @series.Series::from_ints("i", [-1, 2, 3]),
     @series.Series::from_floats("f", [-1.5, 2.5, 3.5]),
@@ -741,7 +780,7 @@ test "format_csv: formula sanitization changes only formula-like String cells" {
   ])
   let out = @io.format_csv(
     df,
-    options=@io.CsvWriteOptions(sanitize_formulas=true),
+    options=@io.CsvWriteOptions::CsvWriteOptions(sanitize_formulas=true),
   )
   assert_eq(
     out, "s,i,f,b\n'-1,-1,-1.5,true\n,2,2.5,false\n\"a,b\",3,3.5,true\n",
@@ -750,13 +789,13 @@ test "format_csv: formula sanitization changes only formula-like String cells" {
 
 ///|
 test "format_csv: formula sanitization is opt-in and false is byte-identical" {
-  let df = @frame.DataFrame([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_strings("s", ["=SUM(A1)", "ordinary"]),
   ])
   let default_out = @io.format_csv(df)
   let explicit_false = @io.format_csv(
     df,
-    options=@io.CsvWriteOptions(sanitize_formulas=false),
+    options=@io.CsvWriteOptions::CsvWriteOptions(sanitize_formulas=false),
   )
   assert_eq(default_out, "s\n=SUM(A1)\nordinary\n")
   assert_eq(explicit_false, default_out)
@@ -764,7 +803,7 @@ test "format_csv: formula sanitization is opt-in and false is byte-identical" {
 
 ///|
 test "format_csv: quotes cells with delimiter, quote, newline, or CR" {
-  let df = @frame.DataFrame([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_strings("a", [
       "needs,comma", "needs\"quote", "needs\nlf", "needs\rcr",
     ]),
@@ -778,7 +817,9 @@ test "format_csv: quotes cells with delimiter, quote, newline, or CR" {
 
 ///|
 test "format_csv: also quotes header names that contain the delimiter" {
-  let df = @frame.DataFrame([@series.Series::from_ints("hello,world", [1, 2])])
+  let df = @frame.DataFrame::DataFrame([
+    @series.Series::from_ints("hello,world", [1, 2]),
+  ])
   let out = @io.format_csv(df)
   let expected =
     #|"hello,world"
@@ -791,23 +832,23 @@ test "format_csv: also quotes header names that contain the delimiter" {
 ///|
 test "format_csv: empty frame produces just the header row (or nothing)" {
   // 0 columns, 0 rows: nothing to emit even with header on.
-  let empty = @frame.DataFrame([])
+  let empty = @frame.DataFrame::DataFrame([])
   let out = @io.format_csv(empty)
   assert_eq(out, "\n")
   // header off + empty frame: still emits one blank record terminator
   // (no cells, only the trailing newline from the header branch).
   let out_no_header = @io.format_csv(
     empty,
-    options=@io.CsvWriteOptions(header=false),
+    options=@io.CsvWriteOptions::CsvWriteOptions(header=false),
   )
   assert_eq(out_no_header, "")
 }
 
 ///|
 test "format_csv: 0 rows with declared schema emits header only" {
-  let schema = @types.Schema([
-    @types.Field("a", @types.DataType::Int),
-    @types.Field("b", @types.DataType::String),
+  let schema = @types.Schema::Schema([
+    @types.Field::Field("a", @types.DataType::Int),
+    @types.Field::Field("b", @types.DataType::String),
   ])
   let df = @frame.DataFrame::empty(schema)
   let out = @io.format_csv(df)
@@ -833,7 +874,7 @@ test "parse_csv_str: strips a leading UTF-8 BOM from the first column name" {
 
 ///|
 test "parse_csv_str ∘ format_csv: round-trip preserves dtypes and values" {
-  let df = @frame.DataFrame([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_int_options("n", [Some(1), None, Some(3)]),
     @series.Series::from_floats("r", [
       (1.5 : Double),
@@ -858,7 +899,7 @@ test "parse_csv_str ∘ format_csv: round-trip preserves dtypes and values" {
 
 ///|
 test "round-trip: a single-column null row survives (no blank-line drop)" {
-  let df = @frame.DataFrame([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_int_options("n", [Some(1), None, Some(3)]),
   ])
   let text = @io.format_csv(df)
@@ -876,7 +917,7 @@ test "round-trip: a single-column null row survives (no blank-line drop)" {
 
 ///|
 test "round-trip: an all-null single column keeps every row" {
-  let df = @frame.DataFrame([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_int_options("n", [None, None, None]),
   ])
   let text = @io.format_csv(df)
@@ -893,7 +934,9 @@ test "round-trip: an all-null single column keeps every row" {
 
 ///|
 test "round-trip: a single column named \"\" keeps its name and rows" {
-  let df = @frame.DataFrame([@series.Series::from_ints("", [10, 20, 30])])
+  let df = @frame.DataFrame::DataFrame([
+    @series.Series::from_ints("", [10, 20, 30]),
+  ])
   let text = @io.format_csv(df)
   // The empty header is written as `""`, so the first data row is not lifted
   // into the header and the column name is not lost.
@@ -909,7 +952,7 @@ test "round-trip: a single column named \"\" keeps its name and rows" {
 
 ///|
 test "format_csv: a wider frame's empty cells stay bare (single-column-only quoting)" {
-  let df = @frame.DataFrame([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_int_options("a", [Some(1), None]),
     @series.Series::from_int_options("b", [None, Some(2)]),
   ])
@@ -925,7 +968,7 @@ test "parse_csv_str ∘ format_csv: round-trips quoted delimiters, quotes, and n
   // delimiter, an embedded double quote, or a line break must survive a
   // write→read round trip — the writer quotes/escapes it, and the reader
   // (NyaCSV with newlines-in-quotes) reassembles the multi-line record.
-  let df = @frame.DataFrame([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_strings("text", [
       "needs,comma", "has \"quote\"", "two\nlines",
     ]),
@@ -946,7 +989,7 @@ test "parse_csv_str ∘ format_csv: round-trips quoted delimiters, quotes, and n
 ///|
 test "write_csv then read_csv round-trips a small frame on disk" {
   let path = "_build/io_csv_test_roundtrip.csv"
-  let df = @frame.DataFrame([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_ints("n", [1, 2, 3]),
     @series.Series::from_strings("s", ["x", "y", "z"]),
   ])
@@ -986,8 +1029,12 @@ test "U+FEFF is rejected as a CSV delimiter" {
   // tokenizing, so a U+FEFF delimiter whose first field is empty loses its
   // leading delimiter on read-back and every cell shifts left — rejected
   // like the quote/terminator/non-BMP collisions.
-  let df = @frame.DataFrame([@series.Series::from_strings("a", ["x"])])
-  let opts : @io.CsvWriteOptions = @io.CsvWriteOptions(delimiter='\u{FEFF}')
+  let df = @frame.DataFrame::DataFrame([
+    @series.Series::from_strings("a", ["x"]),
+  ])
+  let opts : @io.CsvWriteOptions = @io.CsvWriteOptions::CsvWriteOptions(
+    delimiter='\u{FEFF}',
+  )
   assert_true(
     (Ok(@io.format_csv(df, options=opts)) catch { e => Err(e) })
     is Err(@types.DataError::InvalidOperation(_)),
@@ -999,7 +1046,7 @@ test "a leading U+FEFF in the first column name survives the round-trip" {
   // Bare at byte 0 the U+FEFF would be stripped as a BOM on read-back,
   // silently renaming the column; the writer force-quotes the file's very
   // first field so a leading quote shields it.
-  let df = @frame.DataFrame([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_strings("\u{FEFF}id", ["v"]),
     @series.Series::from_strings("b", ["w"]),
   ])
@@ -1013,7 +1060,9 @@ test "write_csv still writes well-formed surrogate pairs" {
   // The guard only rejects *unpaired* surrogates: a supplementary-plane
   // character stored as a proper pair round-trips unharmed.
   let path = "_build/io_csv_surrogate_pair_ok.csv"
-  let df = @frame.DataFrame([@series.Series::from_strings("s", ["𝄞clef"])])
+  let df = @frame.DataFrame::DataFrame([
+    @series.Series::from_strings("s", ["𝄞clef"]),
+  ])
   @io.write_csv(path, df)
   assert_eq(@io.read_csv(path), df)
 }
@@ -1021,17 +1070,18 @@ test "write_csv still writes well-formed surrogate pairs" {
 ///|
 test "write_csv_with_options + read_csv_with_options honour custom shape" {
   let path = "_build/io_csv_test_custom.csv"
-  let df = @frame.DataFrame([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_int_options("a", [Some(1), None]),
     @series.Series::from_strings("b", ["p", "q"]),
   ])
-  let write_opts : @io.CsvWriteOptions = @io.CsvWriteOptions(
+  let write_opts : @io.CsvWriteOptions = @io.CsvWriteOptions::CsvWriteOptions(
     delimiter=';',
     null_value="NA",
   )
-  let read_opts : @io.CsvReadOptions = @io.CsvReadOptions(delimiter=';', null_values=[
-    "NA",
-  ])
+  let read_opts : @io.CsvReadOptions = @io.CsvReadOptions::CsvReadOptions(
+    delimiter=';',
+    null_values=["NA"],
+  )
   @io.write_csv(path, df, options=write_opts)
   let parsed = @io.read_csv(path, options=read_opts)
   assert_eq(parsed.check_invariants(), Ok(()))
@@ -1043,8 +1093,14 @@ test "write_csv_with_options + read_csv_with_options honour custom shape" {
 ///|
 test "write_csv_with_options forwards formula sanitization" {
   let path = "_build/io_csv_formula_sanitized.csv"
-  let df = @frame.DataFrame([@series.Series::from_strings("s", ["=SUM(A1)"])])
-  @io.write_csv(path, df, options=@io.CsvWriteOptions(sanitize_formulas=true))
+  let df = @frame.DataFrame::DataFrame([
+    @series.Series::from_strings("s", ["=SUM(A1)"]),
+  ])
+  @io.write_csv(
+    path,
+    df,
+    options=@io.CsvWriteOptions::CsvWriteOptions(sanitize_formulas=true),
+  )
   let parsed = @io.read_csv(path)
   assert_eq(parsed.item(0, "s"), @types.Scalar::String("'=SUM(A1)"))
 }
@@ -1054,12 +1110,19 @@ test "CSV file readers forward strict quote validation" {
   let path = "_build/io_csv_strict_quotes.csv"
   @fs.write_string_to_file(path, "a,b\n1,\"unclosed")
   let eager = Ok(
-    @io.read_csv(path, options=@io.CsvReadOptions(strict_quotes=true)),
+    @io.read_csv(
+      path,
+      options=@io.CsvReadOptions::CsvReadOptions(strict_quotes=true),
+    ),
   ) catch {
     e => Err(e)
   }
   let projected = Ok(
-    @io.read_csv_projected(path, @io.CsvReadOptions(strict_quotes=true), ["a"]),
+    @io.read_csv_projected(
+      path,
+      @io.CsvReadOptions::CsvReadOptions(strict_quotes=true),
+      ["a"],
+    ),
   ) catch {
     e => Err(e)
   }
@@ -1088,7 +1151,7 @@ test "write_csv: invalid path surfaces as IoError" {
   // Write into a directory that does not exist. The native fs
   // backend rejects the open call with an IOError; we promote it
   // to the DataError variant.
-  let df = @frame.DataFrame([@series.Series::from_ints("a", [1])])
+  let df = @frame.DataFrame::DataFrame([@series.Series::from_ints("a", [1])])
   let result = Ok(@io.write_csv("_build/no_such_dir_io_test/file.csv", df)) catch {
     e => Err(e)
   }
@@ -1097,7 +1160,7 @@ test "write_csv: invalid path surfaces as IoError" {
 
 ///|
 test "write_csv_with_options: invalid path surfaces as IoError" {
-  let df = @frame.DataFrame([@series.Series::from_ints("a", [1])])
+  let df = @frame.DataFrame::DataFrame([@series.Series::from_ints("a", [1])])
   let result = Ok(@io.write_csv("_build/no_such_dir_io_test_2/file.csv", df)) catch {
     e => Err(e)
   }
@@ -1108,7 +1171,7 @@ test "write_csv_with_options: invalid path surfaces as IoError" {
 
 ///|
 test "CsvReadOptions::default exposes expected defaults" {
-  let opts = @io.CsvReadOptions()
+  let opts = @io.CsvReadOptions::CsvReadOptions()
   assert_eq(opts.has_header, true)
   assert_eq(opts.delimiter, ',')
   assert_eq(opts.infer_schema_rows, 100)
@@ -1120,7 +1183,7 @@ test "CsvReadOptions::default exposes expected defaults" {
 
 ///|
 test "CsvWriteOptions::default exposes expected defaults" {
-  let opts = @io.CsvWriteOptions()
+  let opts = @io.CsvWriteOptions::CsvWriteOptions()
   assert_eq(opts.header, true)
   assert_eq(opts.delimiter, ',')
   assert_eq(opts.null_value, "")

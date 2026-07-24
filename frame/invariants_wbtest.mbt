@@ -10,9 +10,9 @@
 test "check_invariants reports INV1 when schema and columns lengths disagree" {
   let bad : DataFrame = {
     // Schema says two columns, columns vector has one.
-    schema: @types.Schema([
-      @types.Field("a", @types.DataType::Int),
-      @types.Field("b", @types.DataType::Int),
+    schema: @types.Schema::Schema([
+      @types.Field::Field("a", @types.DataType::Int),
+      @types.Field::Field("b", @types.DataType::Int),
     ]),
     columns: [Series::from_ints("a", [1, 2, 3])],
     nrows: 3,
@@ -26,7 +26,9 @@ test "check_invariants reports INV1 when schema and columns lengths disagree" {
 ///|
 test "check_invariants reports INV2 when a column's length disagrees with nrows" {
   let bad : DataFrame = {
-    schema: @types.Schema([@types.Field("a", @types.DataType::Int)]),
+    schema: @types.Schema::Schema([
+      @types.Field::Field("a", @types.DataType::Int),
+    ]),
     columns: [Series::from_ints("a", [1, 2, 3])],
     nrows: 99, // deliberate mismatch
     name_to_index: { "a": 0 },
@@ -39,7 +41,9 @@ test "check_invariants reports INV2 when a column's length disagrees with nrows"
 ///|
 test "check_invariants reports INV3 when schema field name does not match column name" {
   let bad : DataFrame = {
-    schema: @types.Schema([@types.Field("renamed", @types.DataType::Int)]),
+    schema: @types.Schema::Schema([
+      @types.Field::Field("renamed", @types.DataType::Int),
+    ]),
     columns: [Series::from_ints("original", [1, 2, 3])],
     nrows: 3,
     name_to_index: { "renamed": 0 },
@@ -52,7 +56,9 @@ test "check_invariants reports INV3 when schema field name does not match column
 ///|
 test "check_invariants reports INV4 when schema dtype does not match column dtype" {
   let bad : DataFrame = {
-    schema: @types.Schema([@types.Field("a", @types.DataType::Float)]),
+    schema: @types.Schema::Schema([
+      @types.Field::Field("a", @types.DataType::Float),
+    ]),
     columns: [Series::from_ints("a", [1, 2, 3])], // dtype Int, not Float
     nrows: 3,
     name_to_index: { "a": 0 },
@@ -65,9 +71,9 @@ test "check_invariants reports INV4 when schema dtype does not match column dtyp
 ///|
 test "check_invariants reports INV5 when name_to_index size disagrees with columns" {
   let bad : DataFrame = {
-    schema: @types.Schema([
-      @types.Field("a", @types.DataType::Int),
-      @types.Field("b", @types.DataType::Int),
+    schema: @types.Schema::Schema([
+      @types.Field::Field("a", @types.DataType::Int),
+      @types.Field::Field("b", @types.DataType::Int),
     ]),
     columns: [Series::from_ints("a", [1]), Series::from_ints("b", [2])],
     nrows: 1,
@@ -82,7 +88,9 @@ test "check_invariants reports INV5 when name_to_index size disagrees with colum
 ///|
 test "check_invariants reports INV6 when a cache entry points out of range" {
   let bad : DataFrame = {
-    schema: @types.Schema([@types.Field("a", @types.DataType::Int)]),
+    schema: @types.Schema::Schema([
+      @types.Field::Field("a", @types.DataType::Int),
+    ]),
     columns: [Series::from_ints("a", [1])],
     nrows: 1,
     // Index 7 is out of [0, 1).
@@ -94,7 +102,9 @@ test "check_invariants reports INV6 when a cache entry points out of range" {
 ///|
 test "check_invariants reports INV6 when a cache entry points to a negative index" {
   let bad : DataFrame = {
-    schema: @types.Schema([@types.Field("a", @types.DataType::Int)]),
+    schema: @types.Schema::Schema([
+      @types.Field::Field("a", @types.DataType::Int),
+    ]),
     columns: [Series::from_ints("a", [1])],
     nrows: 1,
     name_to_index: { "a": -3 },
@@ -107,9 +117,9 @@ test "check_invariants reports INV6 when a cache entry points to a negative inde
 ///|
 test "check_invariants reports INV6 when a cache key does not match its target column" {
   let bad : DataFrame = {
-    schema: @types.Schema([
-      @types.Field("a", @types.DataType::Int),
-      @types.Field("b", @types.DataType::Int),
+    schema: @types.Schema::Schema([
+      @types.Field::Field("a", @types.DataType::Int),
+      @types.Field::Field("b", @types.DataType::Int),
     ]),
     columns: [Series::from_ints("a", [1]), Series::from_ints("b", [2])],
     nrows: 1,
@@ -126,7 +136,7 @@ test "check_invariants reports INV7 when a column-less frame has rows" {
   let bad : DataFrame = {
     // Zero columns can't anchor a row count; the only well-formed shape
     // for a column-less frame is 0×0.
-    schema: @types.Schema([]),
+    schema: @types.Schema::Schema([]),
     columns: [],
     nrows: 1,
     name_to_index: Map([]),

@@ -96,7 +96,9 @@ test "drop with an empty list preserves a declared schema" {
   // `nullable = false`; a `DataFrame::DataFrame` fixture defaults every field to
   // `nullable = true` and so cannot observe the difference.
   let df = DataFrame::from_rows(
-    @types.Schema([@types.Field("a", @types.DataType::Int, nullable=false)]),
+    @types.Schema::Schema([
+      @types.Field::Field("a", @types.DataType::Int, nullable=false),
+    ]),
     [[@types.Scalar::Int(1)], [@types.Scalar::Int(2)]],
   )
   let out = df.drop([])

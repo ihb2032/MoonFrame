@@ -13,13 +13,13 @@
 /// read time, the same reason Polars has `scan_ndjson` but no `scan_json`.)
 ///
 /// `options` (inference window, parse-error policy) defaults to
-/// `JsonReadOptions()`, mirroring eager `read_ndjson`. It is captured into the
+/// `JsonReadOptions::JsonReadOptions()`, mirroring eager `read_ndjson`. It is captured into the
 /// plan and applied by the reader at collect time; projection push-down narrows
 /// which columns those options parse, never which options apply. The projection
 /// starts `None` (read every column) — only the optimizer fills it.
 pub fn scan_ndjson(
   path : String,
-  options? : @io.JsonReadOptions = @io.JsonReadOptions(),
+  options? : @io.JsonReadOptions = @io.JsonReadOptions::JsonReadOptions(),
 ) -> LazyFrame {
   { plan: Scan(Ndjson(path, options, None, None)) }
 }

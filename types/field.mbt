@@ -11,7 +11,7 @@
 /// that rebuilds a schema through them — `select`, a `drop` that removes a
 /// column, a `with_columns` that adds one) always sets `nullable = true`, so a
 /// `nullable = false` field only ever originates from an explicit
-/// `Field(..., nullable=false)` in a caller-supplied schema.
+/// `Field::Field(..., nullable=false)` in a caller-supplied schema.
 ///
 /// A declared flag does survive the ops that *carry* a field rather than
 /// re-derive it: `Field::rename` (and so `DataFrame::rename` / `rename_with`,
@@ -22,7 +22,7 @@
 /// return their input frame unchanged.
 ///
 /// The fields are readable but not constructible from outside `types`: build
-/// one through `Field(...)`, so a future field can be added without breaking
+/// one through `Field::Field(...)`, so a future field can be added without breaking
 /// callers.
 pub struct Field {
   name : String
@@ -43,7 +43,6 @@ pub extend Field with Debug::{to_repr}
 /// Build a field. `nullable` defaults to `true`, the common setting for
 /// inferred CSV / JSON columns; pass `nullable=false` to declare the
 /// constraint `DataFrame::from_rows` enforces.
-#as_free_fn(visibility="pub")
 pub fn Field::Field(
   name : String,
   dtype : DataType,

@@ -75,9 +75,8 @@ pub struct JsonReadOptions {
 ///|
 /// Build read options. Both fields have defaults: scan the first 100 records
 /// for inference and fail the read on a cell that doesn't fit its inferred
-/// dtype. `JsonReadOptions()` is the all-defaults reader; name only what
-/// differs, as in `JsonReadOptions(on_parse_error=Null)`.
-#as_free_fn
+/// dtype. `JsonReadOptions::JsonReadOptions()` is the all-defaults reader; name only what
+/// differs, as in `JsonReadOptions::JsonReadOptions(on_parse_error=Null)`.
 pub fn JsonReadOptions::JsonReadOptions(
   infer_schema_rows? : Int = DEFAULT_INFER_SCHEMA_ROWS,
   on_parse_error? : OnParseError = Raise,
@@ -107,7 +106,7 @@ pub fn JsonReadOptions::JsonReadOptions(
 ///   column is built off `records.length()`).
 pub fn parse_json_str(
   content : String,
-  options? : JsonReadOptions = JsonReadOptions(),
+  options? : JsonReadOptions = JsonReadOptions::JsonReadOptions(),
 ) -> @frame.DataFrame raise @types.DataError {
   // Strip a leading UTF-8 BOM (shared with the CSV / NDJSON readers); `@json.parse`
   // rejects a stray `U+FEFF` at column 0, so a file saved by Excel would otherwise
@@ -119,7 +118,7 @@ pub fn parse_json_str(
   // reader (which skips blank lines) rather than raising on an absent
   // top-level value.
   if content.is_blank() {
-    return @frame.DataFrame([])
+    return @frame.DataFrame::DataFrame([])
   }
   let json = parse_json_payload(content)
   let records = match json {
@@ -197,7 +196,7 @@ fn frame_from_json_records(
   ),
 ) -> @frame.DataFrame raise @types.DataError {
   if records.is_empty() {
-    return @frame.DataFrame([])
+    return @frame.DataFrame::DataFrame([])
   }
   let objs : Array[Map[String, Json]] = Array::new(capacity=records.length())
   let headers : Array[String] = []
@@ -229,7 +228,7 @@ fn frame_from_json_records(
   }
   let ncols = headers.length()
   if ncols == 0 {
-    return @frame.DataFrame([])
+    return @frame.DataFrame::DataFrame([])
   }
   // Build one typed column per header, skipping any the projection drops; the
   // surviving columns keep first-seen header order, so a projected read is
@@ -272,12 +271,12 @@ fn frame_from_json_records(
 }
 
 ///|
-/// Read a JSON records file. `options` defaults to `JsonReadOptions()`, so
+/// Read a JSON records file. `options` defaults to `JsonReadOptions::JsonReadOptions()`, so
 /// `read_json(path)` is the default-options read. Filesystem errors surface
 /// as `raise IoError(message)`.
 pub fn read_json(
   path : String,
-  options? : JsonReadOptions = JsonReadOptions(),
+  options? : JsonReadOptions = JsonReadOptions::JsonReadOptions(),
 ) -> @frame.DataFrame raise @types.DataError {
   let content = read_text(path)
   parse_json_str(content, options~)

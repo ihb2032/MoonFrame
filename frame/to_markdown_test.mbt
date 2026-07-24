@@ -19,9 +19,9 @@ test "to_markdown: zero rows still emits header + separator" {
   // `DataFrame::empty` produces a schema-only frame with 0 records.
   // The renderer must still surface the column layout — that's the
   // whole point of having a schema in the first place.
-  let schema = @types.Schema([
-    @types.Field("a", @types.DataType::Int),
-    @types.Field("b", @types.DataType::String),
+  let schema = @types.Schema::Schema([
+    @types.Field::Field("a", @types.DataType::Int),
+    @types.Field::Field("b", @types.DataType::String),
   ])
   let df = DataFrame::empty(schema)
   let expected =

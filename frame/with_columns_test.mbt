@@ -98,7 +98,9 @@ test "with_columns([]) preserves a declared schema" {
   // an empty expression list adds nothing, so it must come back untouched
   // (the derived `Eq` compares the schema too).
   let df = DataFrame::from_rows(
-    @types.Schema([@types.Field("a", @types.DataType::Int, nullable=false)]),
+    @types.Schema::Schema([
+      @types.Field::Field("a", @types.DataType::Int, nullable=false),
+    ]),
     [[@types.Scalar::Int(1)], [@types.Scalar::Int(2)]],
   )
   let out = df.with_columns([])

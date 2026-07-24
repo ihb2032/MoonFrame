@@ -15,17 +15,17 @@
 /// the one place a narrowed scan diverges from a full eager read.)
 ///
 /// `options` (delimiter, header, null strings, inference window, parse-error
-/// policy, strict quotes, …) defaults to `CsvReadOptions()`, mirroring eager
+/// policy, strict quotes, …) defaults to `CsvReadOptions::CsvReadOptions()`, mirroring eager
 /// `read_csv`. It is captured into the plan and applied by the reader at
 /// collect time; projection push-down narrows which columns those options
 /// parse, never which options apply. The projection starts `None` (read every
 /// column) — only the optimizer fills it.
 pub fn scan_csv(
   path : String,
-  options? : @io.CsvReadOptions = @io.CsvReadOptions(),
+  options? : @io.CsvReadOptions = @io.CsvReadOptions::CsvReadOptions(),
 ) -> LazyFrame {
   // The one mutable container in the options — the null-token list — is
-  // already copied by `CsvReadOptions(...)`, the only way to build one, so
+  // already copied by `CsvReadOptions::CsvReadOptions(...)`, the only way to build one, so
   // the captured plan cannot observe a later mutation of the caller's array.
   { plan: Scan(Csv(path, options, None, None)) }
 }

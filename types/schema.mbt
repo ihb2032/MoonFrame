@@ -27,12 +27,8 @@ pub extend Schema with Debug::{to_repr}
 /// The input array is copied, so mutating `fields` after construction
 /// cannot alter the schema or break the validated no-duplicates invariant.
 ///
-/// The type's own constructor, like `Field`'s: the bare `Schema([...])`
-/// spelling resolves where the expected type is already concrete (an
-/// annotated binding, an argument position, the qualified
-/// `@types.Schema([...])`), and a plain `let s = ...` takes
-/// `Schema::Schema([...])`.
-#as_free_fn(visibility="pub")
+/// The type's own constructor, like `Field::Field` — the spelling every
+/// canonically-constructed type in MoonFrame uses.
 pub fn Schema::Schema(fields : Array[Field]) -> Schema raise DataError {
   let seen : Map[String, Unit] = Map([])
   for f in fields {

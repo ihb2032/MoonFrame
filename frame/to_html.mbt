@@ -16,7 +16,7 @@
 
 ///|
 /// Options for `DataFrame::to_html`. Fields are read-only outside the
-/// package — build them through `HtmlOptions(...)`, naming only what differs
+/// package — build them through `HtmlOptions::HtmlOptions(...)`, naming only what differs
 /// from the defaults:
 ///
 ///   * `max_rows` — cap the number of data rows. `None` (the default)
@@ -48,10 +48,9 @@ pub extend HtmlOptions with Debug::{to_repr}
 
 ///|
 /// Build render options. Omitting a parameter keeps its default: every row
-/// rendered, no `class`, no `<caption>`, and HTML escaping on. `HtmlOptions()`
+/// rendered, no `class`, no `<caption>`, and HTML escaping on. `HtmlOptions::HtmlOptions()`
 /// is the default rendering; name only what differs, as in
-/// `HtmlOptions(max_rows=20, caption="Summary")`.
-#as_free_fn
+/// `HtmlOptions::HtmlOptions(max_rows=20, caption="Summary")`.
 pub fn HtmlOptions::HtmlOptions(
   max_rows? : Int,
   table_class? : String,
@@ -63,7 +62,7 @@ pub fn HtmlOptions::HtmlOptions(
 
 ///|
 /// Render a `DataFrame` as an HTML `<table>`. `options` defaults to
-/// `HtmlOptions()` — all rows, no `class` / `<caption>`, HTML-escaped — and
+/// `HtmlOptions::HtmlOptions()` — all rows, no `class` / `<caption>`, HTML-escaped — and
 /// otherwise supplies an optional `class` / `<caption>`, a row cap with a
 /// `<tfoot>` `... (K more rows)` banner, and optional escaping.
 ///
@@ -81,7 +80,7 @@ pub fn HtmlOptions::HtmlOptions(
 /// `options.max_rows` is clamped into `[0, nrows]`, so no input can fail.
 pub fn DataFrame::to_html(
   self : DataFrame,
-  options? : HtmlOptions = HtmlOptions(),
+  options? : HtmlOptions = HtmlOptions::HtmlOptions(),
 ) -> String {
   let nrows = self.nrows()
   let shown = match options.max_rows {

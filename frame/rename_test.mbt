@@ -169,9 +169,9 @@ test "rename_with rejects a function that collapses two columns to one name" {
 /// metadata-preservation tests need this second fixture.
 fn rename_declared_df() -> DataFrame raise @types.DataError {
   DataFrame::from_rows(
-    @types.Schema([
-      @types.Field("a", @types.DataType::Int, nullable=false),
-      @types.Field("b", @types.DataType::String),
+    @types.Schema::Schema([
+      @types.Field::Field("a", @types.DataType::Int, nullable=false),
+      @types.Field::Field("b", @types.DataType::String),
     ]),
     [
       [@types.Scalar::Int(1), @types.Scalar::String("x")],

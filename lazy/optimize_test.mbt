@@ -180,7 +180,7 @@ test "the flagship pipeline narrows through every stage" {
 
 ///|
 test "a zero-row frame narrows and collects equal" {
-  let df = @frame.DataFrame([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_ints("a", []),
     @series.Series::from_strings("b", []),
   ])
@@ -565,7 +565,7 @@ test "predicate pushdown keeps a derived aggregate key's backend canonical" {
   // same backend — the row-gather canonicalises an all-valid numeric result
   // onto `Numeric` — so `collect` stays equal to the eager chain (which
   // `Series` equality, observing the backend, would otherwise reject).
-  let df = @frame.DataFrame([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_ints("k", [3, 4, 7, 9]),
     @series.Series::from_int_options("a", [None, None, Some(10), Some(20)]),
     @series.Series::from_ints("b", [1, 1, 1, 1]),
@@ -595,7 +595,7 @@ test "fence: a sign-sensitive predicate stays above an aggregate on a signed-zer
   // aggregate would filter the group's rows by their individual signs and
   // change the surviving sum. The filter must stay above the aggregate.
   let neg_zero = -1.0 * id_double(0.0)
-  let df = @frame.DataFrame([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_floats("k", [0.0, neg_zero]),
     @series.Series::from_ints("v", [1, 2]),
   ])
@@ -620,7 +620,7 @@ test "fence: a pow predicate with a negative exponent also stays above a signed-
   // reveals a folded key's sign exactly as division does — the filter must stay
   // above the aggregate, not sink into the group's individual rows.
   let neg_zero = -1.0 * id_double(0.0)
-  let df = @frame.DataFrame([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_floats("k", [0.0, neg_zero]),
     @series.Series::from_ints("v", [1, 2]),
   ])
@@ -644,7 +644,7 @@ test "predicate pushdown still sinks a division-free predicate below an aggregat
   // reveals a zero's sign — so a comparison predicate on the key still sinks
   // (and must, to keep the optimization for the common case).
   let neg_zero = -1.0 * id_double(0.0)
-  let df = @frame.DataFrame([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_floats("k", [0.0, neg_zero, 5.0]),
     @series.Series::from_ints("v", [1, 2, 3]),
   ])
@@ -662,7 +662,7 @@ test "deep optimizer predicates don't overflow: the pushdown walks are iterative
   // A key predicate this deep formerly overflowed the native stack and aborted
   // inside row_stable / signed_zero_safe during optimization — before the executor
   // even ran. The explicit-stack walks analyse any depth.
-  let df = @frame.DataFrame([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_floats("k", [0.0, 5.0]),
     @series.Series::from_ints("v", [1, 2]),
   ])
@@ -686,7 +686,7 @@ test "deep aggregation expressions don't overflow the group pushdown gate" {
   // stack inside group_cell_stable when the optimizer tested whether a key
   // predicate could sink below the aggregate. The explicit-stack walk analyses
   // any depth.
-  let df = @frame.DataFrame([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_ints("k", [1, 1, 2]),
     @series.Series::from_ints("v", [10, 20, 30]),
   ])
@@ -716,7 +716,7 @@ test "deep lazy plans collect without overflowing: execute and the optimizer are
   // (`explain` is not asserted at this depth: a plan's indentation grows per
   // level, so its rendered string is O(depth²) — too large to materialise. The
   // explain golden tests cover render at ordinary depths.)
-  let df = @frame.DataFrame([@series.Series::from_ints("a", [1, 2])])
+  let df = @frame.DataFrame::DataFrame([@series.Series::from_ints("a", [1, 2])])
   let mut lf = LazyFrame::LazyFrame(df)
   for _ in 0..<100000 {
     lf = lf.head(1)
@@ -729,7 +729,9 @@ test "deep crossable spine collects without overflowing: place_filter is iterati
   // place_filter sinks the filter through every crossable Select; a spine this
   // deep formerly overflowed the native stack inside place_filter (and
   // push_projection rebuilding it). collect drives the optimizer then execute.
-  let df = @frame.DataFrame([@series.Series::from_ints("a", [1, 2, 3])])
+  let df = @frame.DataFrame::DataFrame([
+    @series.Series::from_ints("a", [1, 2, 3]),
+  ])
   let mut lf = LazyFrame::LazyFrame(df)
   for _ in 0..<20000 {
     lf = lf.select([@expr.col("a")])
@@ -745,7 +747,7 @@ test "predicate pushdown keeps a derived select column's backend canonical" {
   // filter drops the row, so the eager (compute-then-filter) and optimized
   // (filter-then-compute) chains would build `s` on different backends were
   // the gather not canonicalising.
-  let df = @frame.DataFrame([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_ints("k", [3, 4, 7, 9]),
     @series.Series::from_int_options("a", [None, None, Some(10), Some(20)]),
     @series.Series::from_ints("b", [1, 1, 1, 1]),
@@ -1195,7 +1197,7 @@ test "fence: a predicate on a derived key stays above the aggregation" {
 
 ///|
 test "fence: a non-row-stable extra key keeps the group filter above" {
-  let df = @frame.DataFrame([
+  let df = @frame.DataFrame::DataFrame([
     @series.Series::from_strings("k", ["a", "a", "b"]),
     @series.Series::from_ints("v", [1, 2, 10]),
   ])

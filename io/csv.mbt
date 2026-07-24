@@ -77,12 +77,11 @@ pub fn CsvReadOptions::null_values(self : CsvReadOptions) -> Array[String] {
 /// delimiter, scan the first 100 rows for inference, treat the empty string
 /// as null, tolerate ragged rows, fail the read on a cell that doesn't fit
 /// its inferred dtype, accept non-finite float literals, and tokenise
-/// leniently. `CsvReadOptions()` is the all-defaults reader; name only what
-/// differs, as in `CsvReadOptions(delimiter=';', strict_quotes=true)`.
+/// leniently. `CsvReadOptions::CsvReadOptions()` is the all-defaults reader; name only what
+/// differs, as in `CsvReadOptions::CsvReadOptions(delimiter=';', strict_quotes=true)`.
 ///
 /// `null_values` is copied, so mutating the array afterwards cannot alter
 /// the options.
-#as_free_fn
 pub fn CsvReadOptions::CsvReadOptions(
   has_header? : Bool = true,
   delimiter? : Char = ',',
@@ -146,12 +145,12 @@ pub fn CsvReadOptions::CsvReadOptions(
 /// (`1,"unclosed` → last cell `unclosed`); text after a closing quote is
 /// folded into the same field (`"ab"cd` → `abcd`); and a lone quote inside
 /// an unquoted field is kept literally (`ab"cd` → `ab"cd`). A strict
-/// RFC-4180 reader rejects all three; `CsvReadOptions(strict_quotes=true)`
+/// RFC-4180 reader rejects all three; `CsvReadOptions::CsvReadOptions(strict_quotes=true)`
 /// runs a linear validation pass before tokenisation and rejects them as
 /// `ParseError`.
 pub fn parse_csv_str(
   content : String,
-  options? : CsvReadOptions = CsvReadOptions(),
+  options? : CsvReadOptions = CsvReadOptions::CsvReadOptions(),
 ) -> @frame.DataFrame raise @types.DataError {
   parse_csv_str_projected(content, options, None)
 }
@@ -207,7 +206,7 @@ fn parse_csv_str_projected(
   // with no headers and no rows, which would collapse to an empty
   // 0×0 frame — handled the same way here, just without the parse.
   if content.is_empty() {
-    return @frame.DataFrame([])
+    return @frame.DataFrame::DataFrame([])
   }
   if options.strict_quotes {
     validate_csv_quotes(content, options.delimiter)
@@ -223,7 +222,7 @@ fn parse_csv_str_projected(
   let (headers, rows) = split_csv_records(csv, options)
   let ncols = headers.length()
   if ncols == 0 {
-    return @frame.DataFrame([])
+    return @frame.DataFrame::DataFrame([])
   }
   validate_csv_shape(headers, rows, options)
   // Infer one dtype per column, then build the column — skipping any the
@@ -358,14 +357,14 @@ fn validate_csv_shape(
 }
 
 ///|
-/// Read a CSV file. `options` defaults to `CsvReadOptions()`, so
+/// Read a CSV file. `options` defaults to `CsvReadOptions::CsvReadOptions()`, so
 /// `read_csv(path)` is the default-options read. `IOError` from the file
 /// system surfaces as `raise IoError(message)`.
-/// `CsvReadOptions(strict_quotes=true)` rejects malformed quoting before
+/// `CsvReadOptions::CsvReadOptions(strict_quotes=true)` rejects malformed quoting before
 /// NyaCSV tokenisation, as documented by `parse_csv_str`.
 pub fn read_csv(
   path : String,
-  options? : CsvReadOptions = CsvReadOptions(),
+  options? : CsvReadOptions = CsvReadOptions::CsvReadOptions(),
 ) -> @frame.DataFrame raise @types.DataError {
   let content = read_text(path)
   parse_csv_str(content, options~)
@@ -419,7 +418,7 @@ pub fn read_csv_pruned(
 /// materialised (see `parse_csv_str_projected` for the precise contract,
 /// including the one behavioural consequence: a parse error confined to a
 /// dropped column does not surface). `IOError` from the file system surfaces
-/// as `raise IoError(message)`. `CsvReadOptions(strict_quotes=true)` validates the whole input
+/// as `raise IoError(message)`. `CsvReadOptions::CsvReadOptions(strict_quotes=true)` validates the whole input
 /// before applying the projection.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")

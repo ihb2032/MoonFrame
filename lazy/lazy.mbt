@@ -15,10 +15,10 @@
 /// paragraph above promises holds for the arguments too, not just the
 /// captured frames.
 ///
-/// The entry point is the type's own constructor, `LazyFrame(df)` — not a
-/// `DataFrame` method, which would have to live in `frame` and close a
-/// `frame ↔ lazy` import cycle, and not `lazy(df)`, since `lazy` is a
-/// MoonBit reserved word.
+/// The entry point is the type's own constructor, `LazyFrame::LazyFrame(df)`
+/// — not a `DataFrame` method, which would have to live in `frame` and close a
+/// `frame ↔ lazy` import cycle, and not `lazy(df)`, since `lazy` is a MoonBit
+/// reserved word.
 pub struct LazyFrame {
   priv plan : LogicalPlan
 }
@@ -28,12 +28,6 @@ pub struct LazyFrame {
 /// `LazyFrame::LazyFrame(df).filter(…).collect()`. Total — the frame is
 /// captured as-is, and frames are immutable, so the plan can never observe
 /// later state.
-///
-/// As on `DataFrame`, the bare spelling `LazyFrame(df)` resolves where the
-/// expected type is already concrete (an annotated binding, an argument
-/// position, the qualified `@lazy.LazyFrame(df)`); a plain `let lf = ...`
-/// takes `LazyFrame::LazyFrame(df)`.
-#as_free_fn
 pub fn LazyFrame::LazyFrame(df : @frame.DataFrame) -> LazyFrame {
   { plan: Scan(InMemory(df)) }
 }

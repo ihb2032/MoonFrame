@@ -294,7 +294,7 @@ fn assemble_pruned_frame(
           keys.push(build_over(name, col, None))
         }
       }
-      let key_frame = @frame.DataFrame(keys)
+      let key_frame = @frame.DataFrame::DataFrame(keys)
       let kept = keep(key_frame)
       Some((key_frame.gather(kept), kept))
     }
@@ -325,5 +325,5 @@ fn assemble_pruned_frame(
       }
     }
   }
-  @frame.DataFrame(series)
+  @frame.DataFrame::DataFrame(series)
 }

@@ -96,9 +96,9 @@ test "fill_null leaves a frame with no compatible nulls structurally identical" 
 
 ///|
 test "fill_null on a 0-row frame stays a 0-row frame" {
-  let schema = @types.Schema([
-    @types.Field("a", @types.DataType::Int),
-    @types.Field("s", @types.DataType::String),
+  let schema = @types.Schema::Schema([
+    @types.Field::Field("a", @types.DataType::Int),
+    @types.Field::Field("s", @types.DataType::String),
   ])
   let df = DataFrame::empty(schema)
   let out = df.fill_null(@types.Scalar::Int(0))

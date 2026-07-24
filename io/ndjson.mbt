@@ -52,7 +52,7 @@
 /// - Whatever `DataFrame::DataFrame` propagates.
 pub fn parse_ndjson_str(
   content : String,
-  options? : JsonReadOptions = JsonReadOptions(),
+  options? : JsonReadOptions = JsonReadOptions::JsonReadOptions(),
 ) -> @frame.DataFrame raise @types.DataError {
   parse_ndjson_str_projected(content, options, None)
 }
@@ -121,12 +121,12 @@ fn parse_ndjson_str_projected(
 }
 
 ///|
-/// Read an NDJSON file. `options` defaults to `JsonReadOptions()`, so
+/// Read an NDJSON file. `options` defaults to `JsonReadOptions::JsonReadOptions()`, so
 /// `read_ndjson(path)` is the default-options read. Filesystem errors surface
 /// as `raise IoError(message)`.
 pub fn read_ndjson(
   path : String,
-  options? : JsonReadOptions = JsonReadOptions(),
+  options? : JsonReadOptions = JsonReadOptions::JsonReadOptions(),
 ) -> @frame.DataFrame raise @types.DataError {
   let content = read_text(path)
   parse_ndjson_str(content, options~)

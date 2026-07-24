@@ -302,8 +302,8 @@ test "select does not propagate a nullable=false flag (it is advisory)" {
   // is not carried across the op — pinning the advisory contract the Field
   // doc promises, so a future
   // change that inferred or propagated nullability has to be deliberate.
-  let schema = @types.Schema([
-    @types.Field("id", @types.DataType::Int, nullable=false),
+  let schema = @types.Schema::Schema([
+    @types.Field::Field("id", @types.DataType::Int, nullable=false),
   ])
   let df = DataFrame::from_rows(schema, [
     [@types.Scalar::Int(1)],

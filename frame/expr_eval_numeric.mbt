@@ -441,10 +441,9 @@ fn sign_f64(a : Double) -> Double {
 /// carries the usual binary-floating-point caveat (`1.005` at two places is
 /// whatever the nearest `Double` says it is, exactly as in Polars).
 ///
-/// Total at every input: a non-finite value passes through, and a scale that
-/// overflows to infinity (a very large `decimals`) leaves the value untouched
-/// rather than producing `NaN` — at that magnitude every `Double` is already
-/// an exact multiple of the requested place.
+/// Total at every input: a non-finite value passes through, and a place finer
+/// than the value's own resolution leaves it untouched rather than perturbing
+/// it — see `DOUBLE_INTEGRAL_FLOOR`.
 ///
 /// `decimals` is never negative: `Expr::round` clamps it when it builds the
 /// node, and `UnOp::Round` — a `pub` read-only enum — is constructible nowhere
@@ -463,14 +462,25 @@ fn round_places(a : Double, decimals : Int) -> Double {
     return a
   }
   let scaled = a * scale
-  // Scaling past the exactly-representable range cannot change the value's
-  // decimal expansion, so leave it alone instead of round-tripping through
-  // infinity.
-  if scaled - scaled != 0.0 {
+  // At or past `2^52` the scaled value is already an integer, so rounding it
+  // is a no-op and `a` itself is the exact answer. Returning it is not just a
+  // shortcut: scaling up and dividing back rounds twice through a `10^decimals`
+  // that is itself inexact above `10^22`, which moves the value by an ulp
+  // (`123456.789` at 20 places came back as `123456.78900000002`). Asking for
+  // more places than the value can resolve must be the identity. An overflow to
+  // infinity lands here too, so it is likewise left alone rather than divided
+  // back through infinity.
+  if scaled >= DOUBLE_INTEGRAL_FLOOR || scaled <= -DOUBLE_INTEGRAL_FLOOR {
     return a
   }
   round_half_even(scaled) / scale
 }
+
+///|
+/// `2^52`, the magnitude past which consecutive `Double`s are at least `1.0`
+/// apart — so every value at or above it is an integer, with no fractional
+/// part left for a decimal place to round.
+const DOUBLE_INTEGRAL_FLOOR : Double = 4503599627370496.0
 
 ///|
 /// Round a `Double` to the nearest integer value, ties to even (banker's

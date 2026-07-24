@@ -244,6 +244,16 @@ collected in [`migration.md`](migration.md).
 
 ### Fixes
 
+- `round(decimals=N)` no longer perturbs a value it cannot round. Asking for
+  more places than a `Double` can resolve is the identity, but the evaluator
+  scaled by `10^N` and divided back regardless — and above `10^22` that scale
+  is itself inexact, so the round trip moved the value by an ulp:
+  `round(decimals=20)` turned `123456.789` into `123456.78900000002`, and
+  `1.5` came back as `1.4999999999999998` at 99 places. The value is now
+  returned unchanged once the requested place is finer than its own
+  resolution; the overflow case that already short-circuited is folded into
+  the same test.
+
 - Renames and the no-op column ops no longer drop a declared
   `nullable = false`. `DataFrame::rename` / `rename_with` edit each field
   through `Field::rename`, so a rename changes the name and nothing else, and

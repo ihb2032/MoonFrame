@@ -249,3 +249,30 @@ test "round(decimals) stays total at the numeric edges" {
   let huge = df.select([@expr.col("f").round(decimals=400).with_alias("r")])
   assert_eq(huge.get_column("r").to_scalars()[4], @types.Scalar::Float(1.5))
 }
+
+///|
+test "round(decimals) is the identity past the value's own resolution" {
+  // Asking for more places than a `Double` can resolve must return the value
+  // unchanged. Scaling by `10^decimals` and dividing back does not: above
+  // `10^22` the scale is itself inexact, so the round trip moved the value by
+  // an ulp even though rounding could not have.
+  let df = DataFrame::DataFrame([
+    Series::from_floats("f", [1.5, -1.5, 123456.789, 0.1, 1.0e15]),
+  ])
+  for places in [17, 20, 30, 99, 300, 308, 309, 400] {
+    let out = df.select([@expr.col("f").round(decimals=places).with_alias("r")])
+    assert_eq(out.get_column("r").to_scalars(), df.get_column("f").to_scalars())
+  }
+  // A value that is already integral is untouched at any place, however few.
+  let integral = df.select([@expr.col("f").round(decimals=2).with_alias("r")])
+  assert_eq(integral.item(4, "r"), @types.Scalar::Float(1.0e15))
+  // The guard must not swallow the rounding that a fine place genuinely does:
+  // a magnitude small enough to still have a fraction at that place rounds.
+  let small = DataFrame::DataFrame([
+    Series::from_floats("f", [4.0e-18, 6.0e-18, 1.0e-300]),
+  ])
+  let rounded = small.select([@expr.col("f").round(decimals=17).with_alias("r")])
+  assert_eq(rounded.item(0, "r"), @types.Scalar::Float(0.0))
+  assert_eq(rounded.item(1, "r"), @types.Scalar::Float(1.0e-17))
+  assert_eq(rounded.item(2, "r"), @types.Scalar::Float(0.0))
+}

@@ -297,8 +297,10 @@ depends only on `types`.
   (banker's rounding, Polars' default: `2.5` and `-2.5` both round to `±2`) to
   `decimals` places — `0` (the default) meaning whole numbers. A negative
   `decimals` clamps to `0`; at other settings the result carries the usual
-  binary-floating-point caveat, and a value whose scaling would overflow is
-  returned unchanged rather than becoming `NaN`.
+  binary-floating-point caveat. Asking for a place finer than the value's own
+  resolution is the identity — `round(decimals=20)` returns `123456.789`
+  unchanged, and a value whose scaling would overflow is likewise returned as
+  it is rather than becoming `NaN`.
   Each keeps the operand's dtype (`Int → Int`, `Float → Float`; `floor` /
   `ceil` / `round` leave an `Int` unchanged). `NaN` passes through
   (`sign(NaN) = NaN`); a null stays null; a non-numeric operand raises

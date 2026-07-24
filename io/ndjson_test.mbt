@@ -290,14 +290,15 @@ test "parse_ndjson_str: a line with no trailing newline still parses" {
 }
 
 ///|
-test "parse_ndjson_str: lines of empty objects collapse to 0x0" {
-  // `{}` per line is N rows of zero columns, which `DataFrame::DataFrame`
-  // cannot represent; collapses to the empty-input shape.
+test "parse_ndjson_str: lines of empty objects keep the line count" {
+  // `{}` per line is 2 rows of zero columns — the `N×0` frame, distinct from
+  // the empty-input shape.
   let content =
     #|{}
     #|{}
   let df = @io.parse_ndjson_str(content)
-  assert_eq(df.shape(), (0, 0))
+  assert_eq(df.shape(), (2, 0))
+  assert_false(df.is_empty())
 }
 
 // ── parse_ndjson_str: error paths ───────────────────────────────────

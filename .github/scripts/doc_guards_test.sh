@@ -34,10 +34,13 @@ expect() {
 # ── version identity ──────────────────────────────────────────────────────
 mkfixture() {
   # mkfixture <dir> <mod-version> <api-version> <changelog-heading> <migration-target>
+  # The changelog always carries a published v0.5.8 section below the newest
+  # one, as the real file does — that is what `moon.mod` is held to while the
+  # newest release is being prepared.
   mkdir -p "$1/docs"
   printf 'name = "x"\n\nversion = "%s"\n' "$2" >"$1/moon.mod"
   printf '# MoonFrame v%s — Public API\n' "$3" >"$1/docs/api.md"
-  printf '# Changelog\n\n%s\n' "$4" >"$1/docs/changelog.md"
+  printf '# Changelog\n\n%s\n\nbody\n\n## v0.5.8 — before\n' "$4" >"$1/docs/changelog.md"
   printf '# Migration\n\n## v0.0.0 → v%s\n' "$5" >"$1/docs/migration.md"
 }
 
@@ -46,7 +49,7 @@ expect 0 'version: released and consistent' \
   sh "$scripts/check_version_identity.sh" "$work/v_released"
 
 mkfixture "$work/v_unreleased" 0.5.8 0.6 '## v0.6.0 — done (unreleased)' 0.6.0
-expect 0 'version: unreleased, moon.mod lagging on purpose' \
+expect 0 'version: unreleased, moon.mod still on the published version' \
   sh "$scripts/check_version_identity.sh" "$work/v_unreleased"
 
 mkfixture "$work/v_silent" 0.5.8 0.6 '## v0.6.0 — done' 0.6.0
@@ -56,6 +59,26 @@ expect 1 'version: moon.mod lagging with no marker' \
 mkfixture "$work/v_stale_marker" 0.6.0 0.6 '## v0.6.0 — done (unreleased)' 0.6.0
 expect 1 'version: published but still marked unreleased' \
   sh "$scripts/check_version_identity.sh" "$work/v_stale_marker"
+
+# The false negative an equality check alone leaves open: `moon.mod` naming a
+# version that is neither the release being prepared nor the one published.
+mkfixture "$work/v_unreleased_ahead" 9.9.9 0.6 '## v0.6.0 — done (unreleased)' 0.6.0
+expect 1 'version: unreleased, moon.mod ahead of the release being prepared' \
+  sh "$scripts/check_version_identity.sh" "$work/v_unreleased_ahead"
+
+mkfixture "$work/v_unreleased_behind" 0.5.7 0.6 '## v0.6.0 — done (unreleased)' 0.6.0
+expect 1 'version: unreleased, moon.mod behind the published version' \
+  sh "$scripts/check_version_identity.sh" "$work/v_unreleased_behind"
+
+# First release: nothing published below it, so there is no version to hold
+# `moon.mod` to.
+mkdir -p "$work/v_first/docs"
+printf 'name = "x"\n\nversion = "0.0.0"\n' >"$work/v_first/moon.mod"
+printf '# MoonFrame v0.1 — Public API\n' >"$work/v_first/docs/api.md"
+printf '# Changelog\n\n## v0.1.0 — first (unreleased)\n' >"$work/v_first/docs/changelog.md"
+printf '# Migration\n\n## v0.0.0 → v0.1.0\n' >"$work/v_first/docs/migration.md"
+expect 0 'version: first release has no published predecessor' \
+  sh "$scripts/check_version_identity.sh" "$work/v_first"
 
 mkfixture "$work/v_api" 0.6.0 0.5 '## v0.6.0 — done' 0.6.0
 expect 1 'version: api.md on another series' \

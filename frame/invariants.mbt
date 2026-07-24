@@ -20,8 +20,9 @@
 ///   INV5  name_to_index.length() == columns.length()
 ///   INV6  for every (name, i) in name_to_index:
 ///           0 ≤ i < ncols AND columns[i].name() == name
-///   INV7  ncols == 0  ⇒  nrows == 0  (a column-less frame is row-less,
-///           the `0×0` convention `new` / `empty` / `from_rows` keep)
+///   INV7  nrows >= 0  (the height is a count; INV2 pins it to the columns
+///           but ranges only over the columns that exist, so for a
+///           column-less `N×0` frame this is the whole constraint)
 ///
 /// Soundness lemma — INV5 ∧ INV6 imply the cache is a *bijection*
 /// onto column indices, hence:
@@ -95,12 +96,15 @@ pub fn DataFrame::check_invariants(self : DataFrame) -> Result[Unit, String] {
     }
   }
 
-  // ── INV7: a column-less frame carries no rows ──────────────────────
-  // With no columns to pin a length, `nrows` is otherwise unconstrained
-  // (INV2 only ranges over existing columns). `new` / `empty` always
-  // produce `0×0`; this rejects a stray `0×N` that bypassed them.
-  if ncols == 0 && self.nrows != 0 {
-    return Err("INV7 violated: frame has 0 columns but nrows is \{self.nrows}")
+  // ── INV7: the row count is a count ─────────────────────────────────
+  // A column-less frame is *not* pinned to `0×0`: projecting a frame to zero
+  // columns keeps its height, so `N×0` is a legal shape and `nrows` carries
+  // that height alone (INV2 above only ranges over the columns that exist,
+  // and is vacuous when there are none). What remains true of every frame is
+  // that the height is non-negative — for a frame with columns INV2 already
+  // forces it, since no `Series` is shorter than empty.
+  if self.nrows < 0 {
+    return Err("INV7 violated: frame has a negative nrows \{self.nrows}")
   }
   Ok(())
 }

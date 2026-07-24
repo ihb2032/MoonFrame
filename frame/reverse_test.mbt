@@ -55,3 +55,26 @@ test "with_row_index rejects a name the frame already carries" {
     is Err(@types.DataError::DuplicateColumn("n")),
   )
 }
+
+///|
+test "with_row_index rejects an offset the counter would overflow" {
+  // The 3-row counter needs `offset ..= offset + 2`. One short of the top,
+  // MoonBit's wrapping `+` would hand back MAX-1, MAX, MIN — a column that
+  // runs backwards at the last row instead of counting.
+  let df = order_df()
+  let max = 9223372036854775807L
+  assert_true(
+    (Ok(df.with_row_index(offset=max - 1)) catch { e => Err(e) })
+    is Err(@types.DataError::InvalidOperation(_)),
+  )
+  // The last offset that still fits is accepted, and reaches exactly the top.
+  let fits = df.with_row_index(offset=max - 2)
+  assert_eq(fits.item(2, "index"), @types.Scalar::Int(max))
+  // A 0-row frame has no counter to overflow, so any offset is fine.
+  let empty = DataFrame::DataFrame([Series::from_ints("n", [])])
+  assert_eq(empty.with_row_index(offset=max).nrows(), 0)
+  // The bound is one-sided: counting only ever goes up, so the far negative
+  // end is reachable.
+  let low = df.with_row_index(offset=-9223372036854775808L)
+  assert_eq(low.item(0, "index"), @types.Scalar::Int(-9223372036854775808L))
+}

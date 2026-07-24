@@ -143,7 +143,8 @@ pub fn LazyFrame::reverse(self : LazyFrame) -> LazyFrame {
 /// Defer `DataFrame::with_row_index`: prepend an `Int` counter column named
 /// `name` (default `"index"`) running from `offset`. Total like every builder
 /// — a name that collides with an existing column surfaces as
-/// `DuplicateColumn` at `collect`.
+/// `DuplicateColumn` at `collect`, and an `offset` the counter would overflow
+/// as `InvalidOperation` there.
 pub fn LazyFrame::with_row_index(
   self : LazyFrame,
   name? : String = "index",

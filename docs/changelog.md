@@ -254,6 +254,13 @@ collected in [`migration.md`](migration.md).
   resolution; the overflow case that already short-circuited is folded into
   the same test.
 
+- `with_row_index(offset=…)` refuses an offset its counter cannot reach
+  instead of wrapping through it. With `offset` within `nrows` of
+  `Int64::MAX` the additions carried round to `Int64::MIN`, so the column
+  documented as a dense increasing counter ended on a negative jump. It is now
+  `InvalidOperation`, as in Polars; the far negative end is untouched, since
+  counting only ever goes up.
+
 - Renames and the no-op column ops no longer drop a declared
   `nullable = false`. `DataFrame::rename` / `rename_with` edit each field
   through `Field::rename`, so a rename changes the name and nothing else, and

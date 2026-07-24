@@ -168,15 +168,23 @@ in [`migration.md`](migration.md).
   future field can be added without breaking callers.
   `nullable = false` is a constraint enforced by
   `DataFrame::from_rows` (a null in such a column raises
-  `NullInNonNullable`); it is otherwise advisory — not inferred from a
-  column's contents, and not re-derived by the ops that rebuild a schema
-  (the constructor default / `DataFrame::DataFrame` / the IO readers always set
-  it `true`, so `select`, a `drop` that removes a column, or a
-  `with_columns` that adds one resets it). It *is* carried by the ops that
-  edit a field rather than re-derive it — `Field::rename` (and so
-  `DataFrame::rename` / `rename_with`), `Schema::select` /
-  `Schema::rename`, the row-only frame transforms, and the no-ops
-  `with_columns([])` / `drop([])` / `rename([])`.
+  `NullInNonNullable`). It is never *inferred* from a column's contents — the
+  constructor default, `DataFrame::DataFrame` and the IO readers all set it
+  `true` — so it originates only in a caller-supplied schema. From there it
+  **travels with the cells it describes**:
+  - *carried* by every op that moves a column — `Field::rename` (and so
+    `DataFrame::rename` / `rename_with`), `Schema::select` / `Schema::rename`,
+    the row-only frame transforms (`head` / `filter` / `sort` / `unique` /
+    `fill_null` / …), `with_row_index`, the columns `drop` and `select` leave
+    in place, and any `select` / `with_columns` entry that is a bare `col("x")`
+    or an aliased one (a replacement inherits from the column now supplying the
+    cells);
+  - *re-derived*, back to `nullable = true`, by every op that computes cells —
+    arithmetic, aggregations, `cast`, `fill_null` as an expression,
+    `group_by(...).agg(...)`, `join`, and the summary frames.
+
+  So the flag stays honest without inspection: validated once by `from_rows`,
+  it thereafter only accompanies cells that validation covered.
 - `struct Schema` — ordered list of `Field`s with duplicate-name
   detection.
   - `Schema::Schema(fields) -> Schema raise DataError` —

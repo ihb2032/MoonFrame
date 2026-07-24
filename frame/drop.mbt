@@ -17,9 +17,8 @@
 ///
 /// Dropping nothing (`drop([])`) returns the frame itself — a literal
 /// identity, declared schema included. A drop that does remove a column
-/// rebuilds through `DataFrame::DataFrame`, whose derived schema declares every
-/// surviving field `nullable = true`: the advisory flag is not propagated
-/// across the projection, as for `select`.
+/// filters the field vector alongside the column vector, so every surviving
+/// column keeps the field it arrived with, its declared `nullable` included.
 ///
 /// Raises:
 /// - `ColumnNotFound(name)` — a resolved name does not exist. Reported on
@@ -50,6 +49,10 @@ pub fn DataFrame::drop(
   let to_drop : Map[String, Unit] = Map::from_array(
     self.resolve_subset_columns(columns).map(s => (s.name(), ())),
   )
+  // Columns and fields are index-aligned and name-for-name equal (INV3), so the
+  // same predicate filters both: a survivor keeps the field it arrived with,
+  // declared `nullable` included, rather than one re-derived from its dtype.
   let survivors = self.column_series().filter(s => !to_drop.contains(s.name()))
-  DataFrame::from_parts(survivors, self.nrows)
+  let fields = self.schema.fields().filter(f => !to_drop.contains(f.name()))
+  DataFrame::from_parts_with_fields(survivors, fields, self.nrows)
 }

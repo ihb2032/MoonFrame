@@ -18,6 +18,11 @@
 ///   row: `df.select([col("a").sum()])` is the one-row summary frame, not
 ///   `nrows` copies of it.
 ///
+/// Column metadata follows the cells: an entry that only renames a column (a
+/// bare `col("x")`, or an aliased one) carries that column's `Field`, declared
+/// `nullable` included, while a computed entry gets a field derived from the
+/// result.
+///
 /// Naming follows `with_columns`: each column takes its expression's
 /// output name (alias, else leftmost column reference, else `"literal"`),
 /// and a name produced twice raises `DuplicateColumn` at the second
@@ -35,6 +40,8 @@ pub fn DataFrame::select(
 ) -> DataFrame raise @types.DataError {
   let scope = Array::makei(self.nrows(), i => i)
   let evaluated : Array[Series] = []
+  let fields : Array[@types.Field] = []
+  let source_fields = self.schema.fields()
   let seen : Map[String, Unit] = Map([])
   for expr in exprs {
     let column = eval_expr(expr, self, scope)
@@ -43,6 +50,7 @@ pub fn DataFrame::select(
       raise @types.DataError::DuplicateColumn(name)
     }
     seen[name] = ()
+    fields.push(self.carried_field(source_fields, expr, column, name))
     evaluated.push(column.rename(name))
   }
   // The output height is the frame's own row count when any result is
@@ -65,8 +73,9 @@ pub fn DataFrame::select(
       height = n
     }
   }
-  DataFrame::from_parts(
+  DataFrame::from_parts_with_fields(
     evaluated.map(column => broadcast_series(column, height)),
+    fields,
     height,
   )
 }

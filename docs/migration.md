@@ -12,6 +12,28 @@ spellings existed for building or configuring the same value, v0.6 keeps a
 single entry point; there are no deprecated aliases. From v0.7 on the stable
 public surface evolves compatibly.
 
+### A declared `nullable` survives the projections
+
+`Field.nullable = false` used to be reset by any op that re-derived a schema,
+so a projection could quietly widen a caller's declared constraint. It is now
+carried by every op that only moves a column, and re-derived only by ops that
+compute cells. Nothing needs rewriting to compile; what changes is the schema
+of the result — and, through the derived `Eq`, frame equality.
+
+| expression (over a `from_rows` frame declaring `id` non-nullable) | v0.5 | v0.6 |
+| --- | --- | --- |
+| `df.select([col("id")]).schema().field("id").nullable()` | `true` | `false` |
+| `df.drop([col("other")]).schema().field("id").nullable()` | `true` | `false` |
+| `df.with_columns([lit_int(0).with_alias("n")])` … `id` | `true` | `false` |
+| `df.with_row_index()` … `id` | `true` | `false` |
+| `df.select([(col("id") + lit_int(1)).with_alias("id")])` … `id` | `true` | `true` |
+
+If you were relying on a projection to *widen* a declared field — using
+`select` to hand a non-nullable column to code that expects a nullable one —
+state it explicitly: rebuild through `DataFrame::from_rows` with the schema you
+want, or `DataFrame::DataFrame(df.column_series())`, whose derived schema
+declares everything nullable.
+
 ### A column-less frame keeps its rows
 
 Projecting a frame to zero columns used to return `0×0`, discarding the height.

@@ -45,5 +45,11 @@ pub fn DataFrame::with_row_index(
   for column in self.column_series() {
     columns.push(column)
   }
-  DataFrame::DataFrame(columns)
+  // Prepending a column leaves every existing one exactly where it was, so
+  // each keeps the field it arrived with rather than a re-derived one.
+  let fields = [@types.Field::Field(name, @types.DataType::Int)]
+  for field in self.schema.fields() {
+    fields.push(field)
+  }
+  DataFrame::from_parts_with_fields(columns, fields, n)
 }

@@ -1,9 +1,10 @@
 # MoonFrame quickstart (runnable)
 
 Every code block below is a **doc test**: `moon test` compiles and runs it on
-all four backends (wasm / wasm-gc / js / native), so these examples cannot
-silently rot — if the public API or its output changes, CI fails here until the
-example (and its expected output) is updated with `moon test --update`.
+the default backend, and CI additionally runs `moon test --target all` over all
+four (wasm / wasm-gc / js / native). So these examples cannot silently rot — if
+the public API or its output changes, CI fails here until the example (and its
+expected output) is updated with `moon test --update`.
 
 These blocks use the sub-package aliases (`Series`, `DataFrame`, `col`, …)
 re-exported by the facade. In application code you would

@@ -1467,8 +1467,9 @@ v0.7+:
   operator family — `floor_div`, `mod`, `pow`, `abs` / `floor` / `ceil` /
   `sign` / `round` — and the string family — `str_reverse` / `str_pad_*` /
   `str_zfill` / `str_slice` / `str_len_bytes` / `str_split_get`, the
-  custom-charset `str_strip_chars`, and the regex ops `str_*_regex` /
-  `str_extract` / `str_count_matches` — are now done.)
+  custom-charset `str_strip_chars`, and regex matching through
+  `literal=false` plus the regex-only `str_extract` / `str_count_matches` —
+  are now done.)
 - **Lazy scan depth** — streaming execution (v0.6's scan does projection- and
   predicate-pushdown but still tokenises the whole file), plus columnar sources
   (Parquet / IPC) once eager readers exist.

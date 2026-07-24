@@ -177,7 +177,8 @@ variants (`ColumnNotFound`, `ParseError`, …) on the `Err`. The full model is i
 ## Documentation
 
 - [`quickstart.mbt.md`](quickstart.mbt.md) — a runnable tour; every snippet is
-  executed by `moon test` on all four backends, so it never goes stale
+  executed by `moon test`, and by CI across all four backends, so it never goes
+  stale
 - [`docs/api.md`](docs/api.md) — the complete public-API reference
 - [`docs/comparison.md`](docs/comparison.md) — how MoonFrame aligns with, and
   deliberately differs from, Polars / pandas
@@ -236,8 +237,9 @@ this module only, so they carry no compatibility promise.
 
 The data model is an Apache Arrow-style column layout (a byte-packed validity
 bitmap, `1 = valid`) with an `O(1)` name→index cache;
-`DataFrame::check_invariants()` is a formal structural spec (INV1–INV7) asserted
-by every operator test. The usual loop:
+`DataFrame::check_invariants()` is a formal structural spec (INV1–INV7); every
+operator's test suite asserts it over that operator's representative outputs.
+The usual loop:
 
 ```sh
 moon check     # type-check the workspace

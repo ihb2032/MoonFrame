@@ -297,35 +297,29 @@ fn parse_csv_str_projected(
 ///|
 /// Settle the headers / rows split of a parsed CSV based on `has_header`.
 /// NyaCSV always lifts the first record into `header()`, so the
-/// `has_header = false` branch pushes it back into the data section and
-/// synthesises `column1..columnN` names.
+/// `has_header = false` branch puts it back at the head of the data section
+/// and synthesises `column1..columnN` names.
+///
+/// Both arms build fresh vectors rather than handing NyaCSV's own containers
+/// on, so the caller owns what it gets.
 fn split_csv_records(
   csv : @nyacsv.CSV,
   options : CsvReadOptions,
 ) -> (Array[String], Array[Array[String]]) {
-  let headers : Array[String] = []
-  let rows : Array[Array[String]] = []
   if options.has_header {
-    for h in csv.header() {
-      headers.push(h)
-    }
-    for r in csv.data() {
-      rows.push(r)
-    }
-  } else {
-    let first = csv.header()
-    if !first.is_empty() {
-      rows.push(first)
-    }
-    for r in csv.data() {
-      rows.push(r)
-    }
-    let ncols = if rows.is_empty() { 0 } else { rows[0].length() }
-    for i in 0..<ncols {
-      headers.push("column\{i + 1}")
-    }
+    return ([..csv.header()], [..csv.data()])
   }
-  (headers, rows)
+  // An empty `header()` means the file held no records at all: there is no
+  // first row to give back, and so no width to name columns from.
+  let first = csv.header()
+  let rows : Array[Array[String]] = [
+    ..if !first.is_empty() {
+      [first]
+    },
+    ..csv.data(),
+  ]
+  let ncols = if rows.is_empty() { 0 } else { rows[0].length() }
+  ([ for i in 0..<ncols => "column\{i + 1}" ], rows)
 }
 
 ///|

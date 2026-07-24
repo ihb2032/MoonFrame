@@ -21,18 +21,18 @@
 /// unrepresentable `Null` literal) surface here at evaluation time;
 /// building the expressions was total. `with_columns([])` adds nothing and
 /// returns the frame itself — a literal identity, declared schema included.
-/// A call that does add or replace a column rebuilds through
-/// `DataFrame::DataFrame`, whose derived schema declares every field
-/// `nullable = true` — so a `from_rows` frame carrying an explicit
-/// `nullable = false` field comes back with that flag reset (observable
-/// through the schema and the derived `Eq`).
+/// A call that adds or replaces a column leaves the schema of every *other*
+/// column alone: each keeps the field it arrived with, declared `nullable`
+/// included. The column an expression writes takes a carried field when the
+/// expression only renames one (a bare `col("x")`, or an aliased one — so a
+/// replacement inherits from whichever column now supplies the cells) and a
+/// freshly derived one, `nullable = true`, when it computes.
 pub fn DataFrame::with_columns(
   self : DataFrame,
   exprs : Array[@expr.Expr],
 ) -> DataFrame raise @types.DataError {
   // Nothing to evaluate and nothing to add: return `self` rather than
-  // rebuilding an equal frame, so the no-op keeps the schema it was handed
-  // (the rebuild would re-derive it and reset a declared `nullable = false`).
+  // rebuilding an equal frame.
   if exprs.is_empty() {
     return self
   }
@@ -41,6 +41,12 @@ pub fn DataFrame::with_columns(
   // `column_series` returns a fresh, owned array, so in-place replacement
   // can't perturb `self`.
   let out = self.column_series()
+  // The field vector travels beside the column vector: an untouched column
+  // keeps the field it arrived with, and a replaced or added one takes the
+  // field its expression carries. `fields` is mutated in step with `out`, so
+  // the source lookup reads its own copy.
+  let fields = self.schema.fields()
+  let source_fields = self.schema.fields()
   let seen : Map[String, Unit] = Map([])
   for expr in exprs {
     let column = broadcast_series(eval_expr(expr, self, scope), n)
@@ -49,11 +55,18 @@ pub fn DataFrame::with_columns(
       raise @types.DataError::DuplicateColumn(name)
     }
     seen[name] = ()
+    let field = self.carried_field(source_fields, expr, column, name)
     let renamed = column.rename(name)
     match self.name_to_index.get(name) {
-      Some(i) => out[i] = renamed
-      None => out.push(renamed)
+      Some(i) => {
+        out[i] = renamed
+        fields[i] = field
+      }
+      None => {
+        out.push(renamed)
+        fields.push(field)
+      }
     }
   }
-  DataFrame::DataFrame(out)
+  DataFrame::from_parts_with_fields(out, fields, n)
 }

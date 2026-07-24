@@ -80,13 +80,30 @@ pub fn DataFrame::from_parts(
   columns : Array[Series],
   nrows : Int,
 ) -> DataFrame raise @types.DataError {
+  DataFrame::from_parts_with_fields(
+    columns,
+    columns.map(c => @types.Field::Field(c.name(), c.dtype())),
+    nrows,
+  )
+}
+
+///|
+/// `from_parts` under a caller-supplied field vector — the constructor behind
+/// the projections that *carry* metadata rather than re-derive it (`select`,
+/// `drop`, `with_columns`). `fields` is index-aligned with `columns` and
+/// agrees with each column's name and dtype; what it can differ in is the
+/// declared `nullable`, which a derived field would reset to the `Field`
+/// constructor default. Re-validated through `Schema::Schema`, so a repeated
+/// name still raises `DuplicateColumn`.
+fn DataFrame::from_parts_with_fields(
+  columns : Array[Series],
+  fields : Array[@types.Field],
+  nrows : Int,
+) -> DataFrame raise @types.DataError {
   let columns = columns.copy()
   if !columns.all(c => c.len() == nrows) {
     raise @types.DataError::LengthMismatch
   }
-  let fields : Array[@types.Field] = columns.map(fn(c) {
-    @types.Field::Field(c.name(), c.dtype())
-  })
   let schema = @types.Schema::Schema(fields)
   { schema, columns, nrows, name_to_index: index_by_name(columns) }
 }
@@ -588,6 +605,63 @@ fn DataFrame::with_same_schema(
   nrows : Int,
 ) -> DataFrame {
   { ..self, columns: new_cols, nrows }
+}
+
+///|
+/// The column an expression only *renames*, if any. `col("x")` reads column
+/// `x` and changes nothing about its cells; `col("x").with_alias("y")` changes
+/// nothing but the name. Every other expression computes — including `cast`,
+/// which keeps the cells but not the dtype — so it has no source column whose
+/// metadata the result could inherit.
+///
+/// Written without a wildcard so a new `Expr` variant has to state whether it
+/// is a pure rename rather than defaulting to "no".
+fn projection_source(expr : @expr.Expr) -> String? {
+  match expr {
+    @expr.Expr::Col(name) => Some(name)
+    @expr.Expr::Alias(inner, _) => projection_source(inner)
+    @expr.Expr::Lit(_)
+    | @expr.Expr::LitSeries(_)
+    | @expr.Expr::Binary(_, _, _)
+    | @expr.Expr::Unary(_, _)
+    | @expr.Expr::Agg(_, _)
+    | @expr.Expr::Str(_, _)
+    | @expr.Expr::Cast(_, _)
+    | @expr.Expr::Ternary(_, _, _)
+    | @expr.Expr::FillNull(_, _)
+    | @expr.Expr::FillNan(_, _)
+    | @expr.Expr::IsIn(_, _)
+    | @expr.Expr::IsBetween(_, _, _, _)
+    | @expr.Expr::Map(_, _, _)
+    | @expr.Expr::MapBatches(_, _, _, _) => None
+  }
+}
+
+///|
+/// The `Field` a projected column carries. An expression that only renames a
+/// column leaves its cells untouched, so the result keeps that column's
+/// declared `nullable` under the output name; a computed one gets a field
+/// derived from the result, whose flag is the `Field` constructor default.
+///
+/// `source_fields` is the frame's own field vector, materialised once by the
+/// caller rather than per expression. A named source column is always present:
+/// the expression was evaluated against this frame first, and a name the frame
+/// lacks raised `ColumnNotFound` there.
+fn DataFrame::carried_field(
+  self : DataFrame,
+  source_fields : Array[@types.Field],
+  expr : @expr.Expr,
+  column : Series,
+  name : String,
+) -> @types.Field {
+  let carried = match projection_source(expr) {
+    Some(src) => self.name_to_index.get(src).map(i => source_fields[i])
+    None => None
+  }
+  match carried {
+    Some(field) => field.rename(name)
+    None => @types.Field::Field(name, column.dtype())
+  }
 }
 
 ///|

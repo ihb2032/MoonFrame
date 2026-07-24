@@ -5,21 +5,34 @@
 /// `nullable = false` is a declared constraint that `DataFrame::from_rows`
 /// enforces: row data placing a `Scalar::Null` in such a column `raise`s
 /// `NullInNonNullable(name)`. (`DataFrame::empty` builds 0-row columns, so it
-/// can never violate the constraint.) The flag is otherwise advisory — it is
-/// neither inferred from a column's contents nor re-derived: the constructor's
-/// `nullable` default (and so `DataFrame::DataFrame`, the IO readers, and every op
-/// that rebuilds a schema through them — `select`, a `drop` that removes a
-/// column, a `with_columns` that adds one) always sets `nullable = true`, so a
-/// `nullable = false` field only ever originates from an explicit
+/// can never violate the constraint.) The flag is never *inferred* from a
+/// column's contents: the constructor's `nullable` default — and so
+/// `DataFrame::DataFrame` and the IO readers — always sets `nullable = true`,
+/// so a `nullable = false` field only ever originates from an explicit
 /// `Field::Field(..., nullable=false)` in a caller-supplied schema.
 ///
-/// A declared flag does survive the ops that *carry* a field rather than
-/// re-derive it: `Field::rename` (and so `DataFrame::rename` / `rename_with`,
-/// which change nothing but the name), `Schema::select` / `Schema::rename`,
-/// the row-only frame transforms that reuse their input's schema verbatim
-/// (`head` / `tail` / `slice` / `filter` / `sort` / `unique` / `fill_null`
-/// / …), and the no-ops `with_columns([])` / `drop([])` / `rename([])`, which
-/// return their input frame unchanged.
+/// Once declared, it travels with the cells it describes. Every operation that
+/// *moves* a column carries its field rather than re-deriving one:
+/// `Field::rename` (and so `DataFrame::rename` / `rename_with`, which change
+/// nothing but the name), `Schema::select` / `Schema::rename`, the row-only
+/// frame transforms that reuse their input's schema verbatim (`head` / `tail`
+/// / `slice` / `filter` / `sort` / `unique` / `fill_null` / …), and the
+/// projections: a `select` or `with_columns` entry that is a bare `col("x")`
+/// (or an aliased one, which carries the field renamed), every column `drop`
+/// or `select` leaves in place, and the counter-prepending `with_row_index`.
+/// A column *replaced* through `with_columns` takes the field of whichever
+/// column now supplies its cells.
+///
+/// An operation that *computes* cells derives a fresh field instead, with the
+/// constructor default: arithmetic, aggregations, `cast`, `fill_null` as an
+/// expression, `group_by(...).agg(...)`, `join` (an outer one introduces
+/// nulls), and the summary frames (`describe` / `null_count` / `sum` / …).
+/// The declaration was made about the input's cells, not about these.
+///
+/// That split is what keeps the flag honest without ever inspecting a column:
+/// it is validated once, by `from_rows`, and thereafter only accompanies cells
+/// it was validated against — the operations that carry it drop, reorder or
+/// rename, and never introduce a value.
 ///
 /// The fields are readable but not constructible from outside `types`: build
 /// one through `Field::Field(...)`, so a future field can be added without breaking

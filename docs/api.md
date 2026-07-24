@@ -42,6 +42,34 @@ Compatibility follows the changelog's policy: backwards-compatible additions
 and bug fixes ship in patch releases, and — pre-1.0 — a change to the surface
 documented here rides the minor version.
 
+## Constructor spelling
+
+Every type whose construction has one canonical entry point is built through
+its own name: `DataFrame(columns)`, `LazyFrame(df)`, `Schema(fields)`,
+`Field(name, dtype)`, `CsvReadOptions(...)`, `HtmlOptions(...)`. A type with
+several genuinely different entry points keeps a named constructor per shape —
+`DataFrame::empty` / `DataFrame::from_rows`, the eight `Series::from_*`,
+`JoinOptions::on` / `left_on` / `cross`, `ChartSpec::bar` / `line` / `point` /
+`area`.
+
+MoonBit resolves the bare `T(...)` spelling only where the expected type is
+already concrete:
+
+| call site | spelling |
+| --- | --- |
+| annotated binding | `let df : DataFrame = DataFrame([...])` |
+| argument position | `write_csv(path, DataFrame([...]))` |
+| element of a typed array | `Schema([Field("a", Int)])` |
+| package-qualified | `@frame.DataFrame([...])` · `@types.Schema([...])` |
+| **plain `let`, or a method chained off it** | **`DataFrame::DataFrame([...])`** |
+
+The last row is the common one — `let df = ...` has no expected type to
+resolve against, and neither does `DataFrame([...]).filter(...)` — so most
+call sites in this reference are written `Type::Type(...)`. Through the facade
+that is also the only spelling: a re-exported type occupies its own name, so
+`@moonframe.DataFrame(...)` is not available; write
+`@moonframe.DataFrame::DataFrame(...)`, or import `@frame` directly.
+
 ## Error model
 
 Every operation that can fail on bad input or I/O is an effectful
@@ -144,13 +172,13 @@ in [`migration.md`](migration.md).
   fields are readable but not constructible from outside `types`, so a
   future field can be added without breaking callers. The bare
   `Field(...)` spelling resolves wherever the expected type is concrete —
-  inside `Schema::new([...])`, an annotated binding, a typed array
+  inside `Schema::Schema([...])`, an annotated binding, a typed array
   literal; in a generic position such as `assert_eq` write the full
   `Field::Field(...)`. `nullable = false` is a constraint enforced by
   `DataFrame::from_rows` (a null in such a column raises
   `NullInNonNullable`); it is otherwise advisory — not inferred from a
   column's contents, and not re-derived by the ops that rebuild a schema
-  (the constructor default / `DataFrame::new` / the IO readers always set
+  (the constructor default / `DataFrame::DataFrame` / the IO readers always set
   it `true`, so `select`, a `drop` that removes a column, or a
   `with_columns` that adds one resets it). It *is* carried by the ops that
   edit a field rather than re-derive it — `Field::rename` (and so
@@ -159,7 +187,7 @@ in [`migration.md`](migration.md).
   `with_columns([])` / `drop([])` / `rename([])`.
 - `struct Schema` — ordered list of `Field`s with duplicate-name
   detection.
-  - `Schema::new(fields) -> Schema raise DataError` —
+  - `Schema::Schema(fields) -> Schema raise DataError` —
     `raise DuplicateColumn(name)` on the first repeated name. Empty is
     valid.
   - Total inspection: `fields` / `field_names` / `len` / `is_empty`.
@@ -623,14 +651,16 @@ dependencies** (NyaCSV / fs / @json live only in `io`).
   `columns`, `nrows`, and a `name_to_index` cache for `O(1)` name lookup) are
   `priv`, so a validated frame can only be built through the constructors and
   read through the copy-returning accessors below.
-- Constructors (`raise DataError`): `new(columns)`
-  (`LengthMismatch` / `DuplicateColumn`; zero columns → `0×0`);
+- Constructors (`raise DataError`): `DataFrame(columns)` — the type's own
+  constructor (`LengthMismatch` / `DuplicateColumn`; zero columns → `0×0`),
+  written `DataFrame::DataFrame(columns)` where no expected type resolves the
+  bare spelling (see [constructor spelling](#constructor-spelling));
   `empty(schema)` (0-row frame; `DuplicateColumn` for a repeated field name;
   `Unsupported` for a `Null`-dtype field);
   `from_rows(schema, rows)` (`DuplicateColumn` / `LengthMismatch` /
   `TypeMismatch` / `Unsupported` / `NullInNonNullable`; zero-column schema →
-  `0×0`, like `new`).
-  `empty` / `from_rows` re-validate the schema through `Schema::new` as
+  `0×0`, like the plain constructor).
+  `empty` / `from_rows` re-validate the schema through `Schema::Schema` as
   defence-in-depth (every `Schema` constructor already rejects duplicates).
 - Total inspection: `shape()` / `schema()` / `columns()` (fresh array) /
   `column_series()` (fresh array of the immutable `Series`) / `nrows()` /
@@ -753,7 +783,7 @@ transforms, so every output satisfies `check_invariants()`.
 ### Expression consumers (`with_columns` / `select` / `filter`)
 
 The eager face of the `expr` engine — `DataFrame` methods that evaluate
-`@expr.Expr` trees over the whole frame. All route through `DataFrame::new`
+`@expr.Expr` trees over the whole frame. All route through `DataFrame::DataFrame`
 (or, for the no-op `with_columns([])`, return the input frame), so every
 output satisfies `check_invariants()`; all raise the evaluator's
 `DataError` (`ColumnNotFound` / `TypeMismatch` / `LengthMismatch`), plus
@@ -856,7 +886,7 @@ Split-apply-combine, native to the method chain
   - `first()` / `last()` → source dtype, the group's first / last cell in
     row order — null if that cell is null.
   An empty `exprs` list degenerates to a **distinct** over the key columns
-  (the unique key tuples). Routes through `DataFrame::new`, so every output
+  (the unique key tuples). Routes through `DataFrame::DataFrame`, so every output
   satisfies `check_invariants()`. Raises: `InvalidOperation` if an
   expression is not reduction-shaped (it must reduce every group to one
   value structurally — a bare column reference does not; implicit
@@ -919,7 +949,7 @@ Hash equi-join, native to the method chain (`left.join(right, options)`).
     `Numeric` (even from a `Builtin` source), while a column that gains a
     null from an unmatched row (or is `Bool` / `String`) is `Builtin`. Only
     the representation is affected; values and dtypes are unchanged.
-  - Routes through `DataFrame::new`, so every output satisfies
+  - Routes through `DataFrame::DataFrame`, so every output satisfies
     `check_invariants()`. Raises: `ColumnNotFound` (a key expression
     references an absent column; first offending key in key order, the left
     key evaluated before the right), `TypeMismatch` (a key's left and right
@@ -931,7 +961,7 @@ Hash equi-join, native to the method chain (`left.join(right, options)`).
     repeat, like `group_by([col("id"), col("id")])`; derived keys are not
     name-checked, since two distinct derived keys sharing a leftmost name are
     different keys and contribute no output column; or two output columns
-    still colliding after suffixing — surfaced by `DataFrame::new`),
+    still colliding after suffixing — surfaced by `DataFrame::DataFrame`),
     `LengthMismatch` (a `lit_series` key whose embedded series is neither
     length 1 nor the frame's height).
 - `enum JoinType` — `Inner` / `Left` / `Right` / `Outer` / `Cross`.
@@ -1019,7 +1049,7 @@ are documented below.
   sanitize_formulas?)`; `CsvWriteOptions()` is the all-defaults writer.
 - `parse_csv_str(content, options) -> DataFrame
   raise DataError` — tokenise → per-column inference (`Int → Float → Bool →
-  String`) → null mapping → `DataFrame::new`. The default keeps NyaCSV's
+  String`) → null mapping → `DataFrame::DataFrame`. The default keeps NyaCSV's
   permissive quote handling. With `CsvReadOptions(strict_quotes=true)`, a linear pre-scan
   rejects an unterminated quoted field, non-separator text after a closing
   quote, or a quote inside an unquoted field as `ParseError`; escaped `""` and
@@ -1071,7 +1101,7 @@ are documented below.
   across all records (sparse records → null cells) → inference (same
   order as CSV; `Number` locks `Int` when integral and in `Int64` range,
   else `Float`; `true` / `false` only for `Bool`; mixed → `String`
-  fallback) → `DataFrame::new`. Structural or syntax failures use
+  fallback) → `DataFrame::DataFrame`. Structural or syntax failures use
   `ParseError(Message(...))`;
   typed cell failures use `ParseError(Cell(Record, ...))`. An integer
   outside Double's exact integer range but still inside its finite numerical
@@ -1175,7 +1205,7 @@ It shares `format_json`' `scalar_to_json` cell mapping, so a
 
 ## `lazy` — Lazy query layer
 
-A deferred query plan over an in-memory frame. `lazy_frame(df)` starts a
+A deferred query plan over an in-memory frame. `LazyFrame::LazyFrame(df)` starts a
 plan; builder methods mirroring the eager
 verbs grow it without computing anything; `collect()` optimizes and runs it.
 Building is **total** — every failure waits for `collect`. `lazy` depends on
@@ -1190,9 +1220,10 @@ cycle.
 
 ### Entry points
 
-- `lazy_frame(df : DataFrame) -> LazyFrame` — the entry point (a `Scan` leaf
-  over the captured frame), for the `read_csv(path)` hand-feel. A free
-  function rather than a `DataFrame::lazy` method (that would force a
+- `LazyFrame(df : DataFrame) -> LazyFrame` — the entry point (a `Scan` leaf
+  over the captured frame), written `LazyFrame::LazyFrame(df)` in a plain
+  `let` (see [constructor spelling](#constructor-spelling)). The type's own
+  constructor rather than a `DataFrame::lazy` method (that would force a
   `frame ↔ lazy` import cycle) and rather than `lazy(df)` (`lazy` is a
   MoonBit reserved word).
 - `scan_csv(path : String, options? : CsvReadOptions = CsvReadOptions()) ->
@@ -1353,8 +1384,7 @@ API names them).
   `read_csv` · `read_json` · `read_ndjson` ·
   `write_csv` · `write_json` ·
   `write_ndjson` · `write_vega_lite`
-- From `@lazy`: `LazyFrame` · `LazyGroupBy` · `lazy_frame` · `scan_csv` ·
-  `scan_ndjson`
+- From `@lazy`: `LazyFrame` · `LazyGroupBy` · `scan_csv` · `scan_ndjson`
 
 `using @pkg { type T }` also creates constructor aliases, so
 `@moonframe.Scalar::Int(42)`, `@moonframe.SortOrder::Desc`,

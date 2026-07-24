@@ -20,7 +20,7 @@ public surface evolves compatibly.
 | `Field::with_nullable("id", Int, false)` | `Field("id", Int, nullable=false)` |
 
 The bare `Field(...)` spelling needs a concrete expected type. It resolves
-inside `Schema::new([...])`, in an annotated binding
+inside `Schema::Schema([...])`, in an annotated binding
 (`let f : Field = Field("age", Int)`), and in a typed array literal; in a
 generic position such as `assert_eq(Field(...), ...)` write the full
 `Field::Field(...)`.
@@ -128,6 +128,32 @@ regex forms with `literal=false`, so pinned plan snapshots need updating.
 (engine seams). `LazyFrame::unique` accepts `keep?` like the eager verb — a
 pure addition.
 
+### Canonical constructors are the type's own name
+
+| v0.5 | v0.6 |
+| --- | --- |
+| `DataFrame::new(columns)` | `DataFrame::DataFrame(columns)` |
+| `Schema::new(fields)` | `Schema::Schema(fields)` |
+| `lazy_frame(df)` | `LazyFrame::LazyFrame(df)` |
+
+`Field(...)`, `HtmlOptions(...)`, and the three IO options types already read
+this way; the three above complete the rule. A type with several genuinely
+different entry points keeps a named constructor per shape, so
+`DataFrame::empty`, `DataFrame::from_rows`, the eight `Series::from_*`,
+`JoinOptions::on` / `left_on` / `cross`, and `ChartSpec::bar` / `line` /
+`point` / `area` are unchanged.
+
+MoonBit resolves the bare `DataFrame([...])` spelling only where the expected
+type is already concrete — an annotated binding, an argument position, a
+package-qualified `@frame.DataFrame([...])`. A plain `let df = ...` has none,
+and neither does a method chained straight off the call, so the mechanical
+rewrite for most code is `DataFrame::new(` → `DataFrame::DataFrame(`.
+
+The facade no longer re-exports a `lazy_frame` free function: a re-exported
+type occupies its own name, so `@moonframe.LazyFrame(df)` is unavailable —
+write `@moonframe.LazyFrame::LazyFrame(df)`, or import `@lazy` directly and
+call `@lazy.LazyFrame(df)`.
+
 ### Duplicate entry points are removed
 
 | v0.5 | v0.6 |
@@ -135,7 +161,7 @@ pure addition.
 | `Expr::col("a")` | `col("a")` |
 | `Expr::lit(scalar)` | `lit(scalar)` |
 | `expr.explain()` | `expr.to_string()` |
-| `LazyFrame::from(df)` | `lazy_frame(df)` |
+| `LazyFrame::from(df)` | `LazyFrame::LazyFrame(df)` |
 | `Series::new(name, storage)` / `Series::from_builtin(name, column)` | `Series::from_ints` / `from_floats` / `from_strings` / `from_bools` / `from_*_options` |
 
 `LazyFrame::explain` is untouched — it renders an actual query plan, not a

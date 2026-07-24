@@ -80,7 +80,7 @@ semantic choices:
 - `&` / `|` are Kleene-logical (not bitwise); the method spellings are
   `land` / `lor` (`and` is a reserved word, so there is no `Expr::and`).
 - Names dodging reserved words: `with_alias` (`alias`), `variance` (`var`),
-  `lazy_frame` / `LazyFrame::from` (`lazy`).
+  `LazyFrame(df)` rather than `lazy(df)` or `df.lazy()` (`lazy`).
 - Options structs instead of keyword arguments (`JoinOptions`,
   `CsvReadOptions`, …), since MoonBit has no kwargs.
 

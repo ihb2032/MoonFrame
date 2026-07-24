@@ -73,7 +73,7 @@ collected in [`migration.md`](migration.md).
 - `Field::new(name, dtype)` and `Field::with_nullable(name, dtype, nullable)`
   are replaced by the single custom constructor
   `Field(name, dtype, nullable? = true)`. The bare `Field(...)` spelling
-  resolves wherever the expected type is concrete (inside `Schema::new([...])`,
+  resolves wherever the expected type is concrete (inside `Schema::Schema([...])`,
   an annotated binding, a typed array literal); a generic position such as
   `assert_eq` takes the full `Field::Field(...)`.
 - `struct Field` is `pub` rather than `pub(all)`: its fields stay readable
@@ -148,7 +148,7 @@ collected in [`migration.md`](migration.md).
   (the `Expr::col` / `Expr::lit` static methods they were generated from are
   removed, matching the `lit_int` family); `Expr::explain` — an exact alias of
   `Expr::to_string` — is removed, while `LazyFrame::explain`, which renders a
-  real plan, stays; `LazyFrame::from` is removed in favour of `lazy_frame(df)`;
+  real plan, stays; `LazyFrame::from` is removed in favour of `LazyFrame::LazyFrame(df)`;
   and the internal aliases `NumericColumn::from_int64s` / `from_doubles` and
   the `ColumnStorage::from_builtin` / `from_numeric` wrappers collapse into
   `from_ints` / `from_floats` and the enum variants.
@@ -194,6 +194,22 @@ collected in [`migration.md`](migration.md).
   `null_values()` accessor. Both it and the constructor copy, so the token list
   a reader (or a captured `scan_csv` plan) uses can no longer be mutated
   through the options value.
+- **Every canonical constructor is now the type's own name.** `DataFrame::new`
+  becomes `DataFrame::DataFrame`, `Schema::new` becomes `Schema::Schema`, and
+  the lazy entry point `lazy_frame(df)` becomes `LazyFrame::LazyFrame(df)` —
+  joining `Field(...)`, `HtmlOptions(...)`, and the three IO options types,
+  which already read this way. One rule now covers the whole surface: a type
+  with a single canonical entry point is built through its own name, and a type
+  with genuinely different entry points keeps a named constructor per shape
+  (`DataFrame::empty` / `from_rows`, the eight `Series::from_*`,
+  `JoinOptions::on` / `left_on` / `cross`, `ChartSpec::bar` / `line` / `point`
+  / `area`). MoonBit resolves the bare `DataFrame([...])` spelling only where
+  the expected type is already concrete — an annotated binding, an argument
+  position, a package-qualified `@frame.DataFrame([...])` — so a plain
+  `let df = ...` is written `DataFrame::DataFrame([...])`, as
+  [`api.md`](api.md) tabulates. The facade no longer re-exports `lazy_frame`:
+  a re-exported type occupies its own name, so through `@moonframe` the
+  spelling is `LazyFrame::LazyFrame(df)`.
 
 ### Fixes
 
@@ -201,8 +217,8 @@ collected in [`migration.md`](migration.md).
   `nullable = false`. `DataFrame::rename` / `rename_with` edit each field
   through `Field::rename`, so a rename changes the name and nothing else, and
   `with_columns([])` / `drop([])` / `rename([])` return their input frame
-  instead of rebuilding it through `DataFrame::new`, whose derived schema names
-  every field at the `Field` constructor default. A `from_rows` frame carrying
+  instead of rebuilding it through the `DataFrame` constructor, whose derived
+  schema names every field at the `Field` constructor default. A `from_rows` frame carrying
   an explicit `nullable = false` therefore stays equal to itself across those
   calls — the derived `Eq` compares schemas — and a renamed column keeps the
   constraint its caller declared. Ops that genuinely re-derive a schema

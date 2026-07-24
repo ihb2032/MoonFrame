@@ -27,7 +27,11 @@
 ///   backend — `Int` division by zero is backend-divergent, so it is
 ///   never emitted.
 /// - **Comparisons** (`eq/ne/lt/le/gt/ge`): produce `Bool`; `Int ↔ Float`
-///   compare after promotion, `String` compares by `compare_string_lex`
+///   compare **exactly** — the `Int64` is never promoted to `Double`, so two
+///   distinct values cannot collide above `2^53` (`cmp_int_double` in
+///   `expr_eval_compare.mbt`, over the `@types` primitives `int64_eq_double` /
+///   `int64_lt_double` / `double_lt_int64`; a deliberate departure from
+///   Polars' Float64-supertype rule), `String` compares by `compare_string_lex`
 ///   (dictionary order, not MoonBit's shortlex), `Bool` orders
 ///   `false < true`; mixed non-numeric pairs are `TypeMismatch`. A null
 ///   on either side nulls the cell; NaN is a *value* under IEEE 754

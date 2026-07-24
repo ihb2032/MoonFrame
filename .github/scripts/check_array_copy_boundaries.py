@@ -9,6 +9,12 @@ enum/constructor payloads unless the retained value is an explicit `.copy()`.
 `Some` / `Ok` / `Err` are transparent: a payload holding `Some(values)` retains
 `values` exactly as a bare `values` would.
 
+A `let values = values.copy()` shadow binding also clears the parameter, but
+only when it is at the body's top level *and* precedes every retention. Both
+conditions matter: rebinding after the array was handed on leaves the original
+aliased, and a copy inside one branch says nothing about the others — neither
+of which this lexical guard could otherwise tell apart from the real idiom.
+
 Algorithms that only read an array are unaffected. If a future boundary
 delegates to a helper that copies, keep the copy visible at the public boundary
 instead of weakening this check — a copy hidden one call away is invisible here
@@ -138,8 +144,8 @@ def split_top_level(text: str) -> list[str]:
     return parts
 
 
-def constructor_retains(block: str, parameter: str) -> bool:
-    """Whether a bare or qualified constructor receives `parameter`."""
+def constructor_retains(block: str, parameter: str) -> int | None:
+    """Offset of the first bare or qualified constructor receiving `parameter`."""
     code = mask_strings_and_comments(block)
     constructor = re.compile(
         r"(?<![A-Za-z0-9_:@.])"
@@ -159,12 +165,12 @@ def constructor_retains(block: str, parameter: str) -> bool:
             rf"^(?:[a-z][A-Za-z0-9_]*\s*=\s*)?{wrapped_forms(parameter)}$"
         )
         if any(direct.fullmatch(part) for part in parts):
-            return True
-    return False
+            return match.start()
+    return None
 
 
-def record_shorthand_retains(block: str, parameter: str) -> bool:
-    """Whether a record item uses `{ parameter }` field shorthand."""
+def record_shorthand_retains(block: str, parameter: str) -> int | None:
+    """Offset of the first record item using `{ parameter }` field shorthand."""
     code = mask_strings_and_comments(block)
     for opening, char in enumerate(code):
         if char != "{":
@@ -173,8 +179,29 @@ def record_shorthand_retains(block: str, parameter: str) -> bool:
         if closing is None:
             continue
         if parameter in split_top_level(code[opening + 1 : closing]):
-            return True
-    return False
+            return opening
+    return None
+
+
+def top_level_copy(code: str, parameter: str) -> int | None:
+    """Offset of a `let p = p.copy()` shadow binding at the body's top level.
+
+    Only a top-level binding protects every path out of the function. One
+    inside an `if` / `match` arm leaves the other arms holding the caller's
+    array, and this guard is lexical — it cannot see which branch a retention
+    sits in — so a nested shadow copy is not accepted as protection.
+    """
+    pattern = re.compile(
+        rf"\blet\s+{re.escape(parameter)}\s*=\s*"
+        rf"{re.escape(parameter)}\s*\.copy\s*\(\s*\)"
+    )
+    for match in pattern.finditer(code):
+        # `code` starts after the signature's `)`, so the function body's own
+        # opening brace is the only one enclosing a top-level statement.
+        prefix = code[: match.start()]
+        if prefix.count("{") - prefix.count("}") == 1:
+            return match.start()
+    return None
 
 
 def retained_parameters(block: str) -> list[str]:
@@ -191,24 +218,29 @@ def retained_parameters(block: str) -> list[str]:
     code = mask_strings_and_comments(body)
     retained: list[str] = []
     for parameter in parameters:
-        copied_binding = re.search(
-            rf"\blet\s+{re.escape(parameter)}\s*=\s*"
-            rf"{re.escape(parameter)}\s*\.copy\s*\(\s*\)",
-            code,
-        )
-        if copied_binding:
-            continue
         field_assignment = re.search(
             rf"\b[A-Za-z_][A-Za-z0-9_]*\s*:\s*{wrapped_forms(parameter)}"
             rf"(?![A-Za-z0-9_]|\s*\.copy\s*\()",
             code,
         )
-        if (
-            field_assignment
-            or constructor_retains(body, parameter)
-            or record_shorthand_retains(body, parameter)
-        ):
-            retained.append(parameter)
+        # Where the caller's array is first handed to something that keeps it.
+        # `constructor_retains` / `record_shorthand_retains` mask the same body,
+        # so every offset indexes the same string and they compare directly.
+        sites = [
+            None if field_assignment is None else field_assignment.start(),
+            constructor_retains(body, parameter),
+            record_shorthand_retains(body, parameter),
+        ]
+        found = [site for site in sites if site is not None]
+        if not found:
+            continue
+        # A shadow copy protects a retention only if it already ran: rebinding
+        # *after* the array was handed on leaves the original aliased, and a
+        # copy nested in one branch says nothing about the others.
+        copied_at = top_level_copy(code, parameter)
+        if copied_at is not None and copied_at < min(found):
+            continue
+        retained.append(parameter)
     return retained
 
 
@@ -292,6 +324,27 @@ pub fn sum(values : Array[Int]) -> Int {
   values.fold(init=0, (acc, value) => acc + value)
 }
 """
+    # A shadow copy that runs after the array was already handed on protects
+    # nothing — the retained value is still the caller's array.
+    unsafe_retain_then_copy = """
+pub fn Box::new(values : Array[Int]) -> Box {
+  let result = Box(values)
+  let values = values.copy()
+  ignore(values)
+  result
+}
+"""
+    # ...nor does one confined to a single branch: the other branch retains.
+    unsafe_branch_copy = """
+pub fn Box::new(flag : Bool, values : Array[Int]) -> Box {
+  if flag {
+    let values = values.copy()
+    Box(values)
+  } else {
+    Box(values)
+  }
+}
+"""
     assert retained_parameters(unsafe_record) == ["values"]
     assert retained_parameters(unsafe_enum) == ["exprs"]
     assert retained_parameters(unsafe_qualified_enum) == ["exprs"]
@@ -301,6 +354,8 @@ pub fn sum(values : Array[Int]) -> Int {
     assert retained_parameters(safe_copy) == []
     assert retained_parameters(safe_shadow_copy) == []
     assert retained_parameters(borrowed) == []
+    assert retained_parameters(unsafe_retain_then_copy) == ["values"]
+    assert retained_parameters(unsafe_branch_copy) == ["values"]
 
 
 def main() -> int:

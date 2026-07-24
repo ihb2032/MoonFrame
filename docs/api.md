@@ -224,8 +224,8 @@ interface, so they are not part of the surface this document covers.
 
 A reified, composable column expression — a small recursive tree you build
 with constructors, operators, and methods, then evaluate eagerly
-(`with_columns` / `select` / `filter` / `agg`, in `frame`), introspect
-(`explain`), or defer and optimize (`lazy`). Building a tree is **total** —
+(`with_columns` / `select` / `filter` / `agg`, in `frame`), render
+(`to_string`), or defer and optimize (`lazy`). Building a tree is **total** —
 every failure (a missing column, a type clash) waits for evaluation. `expr`
 depends only on `types`.
 
@@ -469,8 +469,9 @@ inputs: a **column** input makes it frame-tall, so over an empty frame the
 closure never runs and it returns an empty column mirroring the leftmost
 input's dtype; an **all-literal** map (no column read) is length-1 like a
 bare `lit`, so the closure runs once and broadcasts even over an empty
-frame. The result is named after the leftmost input; `label` shows only in
-`explain`. The optimizer treats a map as a value barrier (like `cast`): no
+frame. The result is named after the leftmost input; `label` shows only in the
+rendered form (`Expr::to_string`, and so any plan `explain` that quotes it).
+The optimizer treats a map as a value barrier (like `cast`): no
 filter sinks across it.
 
 Where `map_elements` hands the closure one `Scalar` per row, `map_batches`
@@ -496,15 +497,16 @@ reduction-shape gate like any non-reducing expression.
 
 ### Introspection (all total)
 
-- `explain(self) -> String`, and the `Show` impl, render the documented
-  operator form: `col(name)`, quoted string literals, parenthesised infix
+- `to_string(self) -> String`, and the `Show` impl behind it, render the
+  documented operator form: `col(name)`, quoted string literals, parenthesised infix
   binaries `(l op r)`, prefix `(-e)` / `(not e)`, postfix `e.is_null()` /
   `e.sum()` / `e.str_contains("p")` / `e.cast(T)`, `e as name`,
   `when(c).then(a).otherwise(b)`, `map("label", [inputs])` /
   `map_batches("label", [inputs])` (the latter with `, returns_scalar=true`
   when flagged) for the closure escape hatches (the closure opaque), and
   `lit_series("name", len)` for an embedded literal series (its data opaque).
-  `LazyFrame::explain` reuses it for plan lines.
+  `LazyFrame::explain` reuses it for plan lines — the two are distinct:
+  `Expr::to_string` renders one expression, `LazyFrame::explain` a whole plan.
 - `children` / `referenced_columns` / `output_name` are engine seams as of
   v0.6 (`#internal`, absent from the generated interface): the evaluator and
   the lazy optimizer walk expressions with them — Polars keeps the equivalents
@@ -537,11 +539,15 @@ raising `DataError` at evaluation time — building the tree never fails:
   to). A deliberate departure from Polars' Float64-supertype promotion, chosen
   for correctness; same-dtype comparisons are always exact.
 - **String namespace** (`str_to_uppercase` / `str_contains` / …) maps each
-  cell of a String operand through a literal `StrOp` — case (ASCII-only),
+  cell of a String operand through a `StrOp` — case (ASCII-only),
   `strip_chars` (ASCII whitespace), `len_chars` (an `Int`), the `contains` /
   `starts_with` / `ends_with` predicates (`Bool`), and `replace` /
-  `replace_all`. Null cells stay null, a non-String operand is a
-  `TypeMismatch`, and all are total.
+  `replace_all`. Null cells stay null and a non-String operand is a
+  `TypeMismatch`. The literal ops are per-value total; the regex path is not —
+  `str_contains` / `str_replace` / `str_replace_all` with `literal=false`, and
+  `str_extract` / `str_count_matches`, which are regex-only, compile their
+  pattern once per evaluation and raise `InvalidOperation` if it does not
+  compile (see the string namespace above for the dialect).
 - **NaN** inherits the shared reduction rules — `sum` / `mean` (and the
   mean-based `std` / `variance`) propagate a `NaN`, `min` / `max` and the
   order statistic `median` skip it, `n_unique` buckets every `NaN` as one
@@ -835,10 +841,19 @@ output satisfies `check_invariants()`; all raise the evaluator's
   Row identity is the composite cell tuple `group_by` / `join` key on, so a
   `Float` `NaN` equals `NaN`, `-0.0` folds into `+0.0`, and a **null** cell is
   an ordinary value (rows that are null in the same places and equal elsewhere
-  are duplicates). The schema and column order are unchanged; a frame no
-  strategy would thin (all-distinct, or 0-row) is returned as-is. (Polars'
-  `subset` parameter — dedup on a column subset — is deferred: resolving column
-  names would make `unique` fallible, and this is the total, all-columns form.)
+  are duplicates). The schema and column order are unchanged — `subset` narrows
+  the *key*, never the output — and a frame no strategy would thin
+  (all-distinct, or 0-row) is returned as-is.
+  `subset` (Polars' parameter of the same name) picks the columns that form the
+  key. It is resolved **by name, never evaluated** — each entry contributes its
+  `output_name` (a bare `col("x")` names `x`, an aliased entry its alias), the
+  same name-only contract `drop` / `drop_nulls` use — so the key is always
+  stored cells, not computed ones. Omitting `subset` keys on every column; an
+  empty `subset` keys on none, which makes every row a duplicate of every other
+  (`First` / `Last` keep one, `None` keeps zero). Resolving those names is what
+  makes the verb fallible: the first name the frame lacks is `ColumnNotFound`,
+  raised before any per-row work — by the eager call itself, and at `collect`
+  for the deferred `LazyFrame::unique`.
 
 A computed numeric result lands on the `Numeric` backend when all-valid,
 `Builtin` otherwise; a `col(...)` reference is canonicalised the same way —
@@ -1265,17 +1280,19 @@ cycle.
   MoonBit reserved word).
 - `scan_csv(path : String, options? : CsvReadOptions = CsvReadOptions::CsvReadOptions()) ->
   LazyFrame` — a **lazy CSV source**: the plan's leaf is a deferred read of
-  `path` (a `ScanCsv` node), the streaming-friendly counterpart of eager
-  `read_csv`. Nothing is read until `collect`, and projection pushdown
+  `path` (a file-backed `Scan` source), the streaming-friendly counterpart of
+  eager `read_csv`. Nothing is read until `collect`, and projection pushdown
   (below) narrows the parse to the columns the pipeline consumes — so
   `scan_csv("sales.csv").select([col("region"), col("revenue")]).collect()`
   never builds the columns it drops. `scan_csv(p).….collect()` equals
   `read_csv(p).…` on well-formed input; because a dropped column is never
-  parsed, a parse error confined to one does not surface.
+  parsed, a parse error confined to one does not surface — and, once a
+  predicate is pushed into the read too, neither does one confined to a row the
+  predicate drops (in a column the predicate does not itself read).
 - `scan_ndjson(path : String, options? : JsonReadOptions = JsonReadOptions::JsonReadOptions())
-  -> LazyFrame` — the line-oriented sibling of `scan_csv` (a `ScanNdjson` node),
-  the lazy counterpart of eager `read_ndjson`. Same projection-pushdown
-  behaviour and dropped-column caveat. (There is no `scan_json` for the
+  -> LazyFrame` — the line-oriented sibling of `scan_csv` (likewise a
+  file-backed `Scan` source), the lazy counterpart of eager `read_ndjson`. Same
+  push-down behaviour and unsurfaced-error caveats. (There is no `scan_json` for the
   single-array shape `[{...}]`: it must be parsed whole, so nothing can be
   pruned at read time.)
 
@@ -1402,9 +1419,10 @@ and the free functions are listed explicitly. The inert `BinOp` / `UnOp`
 API names them).
 
 - From `@types`: `DataError` · `CellParseLocation` · `ParseErrorDetail` ·
-  `DataType` · `PhysicalType` · `Scalar` · `Field` · `Schema` · `SortOrder` ·
-  `NullOrder`
-- From `@expr`: `Expr` · `WhenThen` · `WhenThenElse` · `col` · `cols` ·
+  `TypeMismatchDetail` · `DataType` · `PhysicalType` · `Scalar` · `Field` ·
+  `Schema` · `SortOrder` · `NullOrder`
+- From `@expr`: `Expr` · `ClosedInterval` · `WhenThen` · `WhenThenElse` ·
+  `col` · `cols` ·
   `lit` · `lit_int` · `lit_float` · `lit_str` · `lit_bool` · `lit_series` ·
   `when` · `map_many`
 - From `@series`: `Series`
@@ -1449,5 +1467,5 @@ v0.7+:
   predicate-pushdown but still tokenises the whole file), plus columnar sources
   (Parquet / IPC) once eager readers exist.
 - **Optimizer extensions** — dead-expression elimination, narrowing /
-  predicate-splitting through joins, and sinking filters below sorts (v0.5
-  pushes predicates and projections only).
+  predicate-splitting through joins, and sinking filters below sorts (the two
+  passes that ship push predicates and projections only).

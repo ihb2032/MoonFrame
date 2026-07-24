@@ -250,7 +250,7 @@ test "str_zfill: a non-String operand raises TypeMismatch" {
 }
 
 ///|
-test "str_contains_regex: POSIX-regex partial match, nulls pass through" {
+test "str_contains(literal=false): POSIX-regex partial match, nulls pass through" {
   let df = DataFrame::DataFrame([
     Series::from_string_options("s", [
       Some("abc"),
@@ -280,7 +280,7 @@ test "str_contains_regex: POSIX-regex partial match, nulls pass through" {
 }
 
 ///|
-test "str_replace_regex / str_replace_all_regex: first vs every match" {
+test "str_replace / str_replace_all (literal=false): first vs every match" {
   let df = DataFrame::DataFrame([
     Series::from_string_options("s", [Some("a12b345"), None]),
   ])

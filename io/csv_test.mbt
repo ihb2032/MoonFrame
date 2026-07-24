@@ -1102,7 +1102,7 @@ test "write_csv still writes well-formed surrogate pairs" {
 }
 
 ///|
-test "write_csv_with_options + read_csv_with_options honour custom shape" {
+test "write_csv + read_csv honour a custom options shape" {
   let path = "_build/io_csv_test_custom.csv"
   let df = @frame.DataFrame::DataFrame([
     @series.Series::from_int_options("a", [Some(1), None]),
@@ -1125,7 +1125,7 @@ test "write_csv_with_options + read_csv_with_options honour custom shape" {
 }
 
 ///|
-test "write_csv_with_options forwards formula sanitization" {
+test "write_csv forwards formula sanitization from its options" {
   let path = "_build/io_csv_formula_sanitized.csv"
   let df = @frame.DataFrame::DataFrame([
     @series.Series::from_strings("s", ["=SUM(A1)"]),
@@ -1189,7 +1189,7 @@ test "read_csv: missing file surfaces as IoError, not panic" {
 }
 
 ///|
-test "read_csv_with_options: missing file surfaces as IoError" {
+test "read_csv with options: missing file surfaces as IoError" {
   let result = Ok(@io.read_csv("_build/io_csv_test_does_not_exist.csv")) catch {
     e => Err(e)
   }
@@ -1209,7 +1209,7 @@ test "write_csv: invalid path surfaces as IoError" {
 }
 
 ///|
-test "write_csv_with_options: invalid path surfaces as IoError" {
+test "write_csv with options: invalid path surfaces as IoError" {
   let df = @frame.DataFrame::DataFrame([@series.Series::from_ints("a", [1])])
   let result = Ok(@io.write_csv("_build/no_such_dir_io_test_2/file.csv", df)) catch {
     e => Err(e)

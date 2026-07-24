@@ -50,6 +50,37 @@ You can browse and install extra skills here:
   prefer assertion tests. You can use `moon coverage analyze > uncovered.log` to
   see which parts of your code are not covered by tests.
 
+## Documentation guards
+
+CI protects prose the way it protects code, for the parts of it that can be
+checked mechanically. Run them the same way CI does:
+
+```sh
+sh .github/scripts/doc_guards_test.sh      # the guards' own self-test
+sh .github/scripts/check_version_identity.sh
+sh .github/scripts/check_facade_docs.sh
+sh .github/scripts/check_stale_names.sh
+```
+
+- **Version identity** — `moon.mod`, `docs/api.md`, `docs/changelog.md`, and
+  `docs/migration.md` must name one release. While a release is being prepared
+  on `main`, the changelog's newest heading carries `(unreleased)` and
+  `moon.mod` still publishes the previous version; **cutting the release means
+  dropping that marker and bumping `moon.mod` together**, which is what the
+  guard enforces.
+- **Facade coverage** — every symbol re-exported by the root package appears in
+  the facade list in `docs/api.md`, and nothing lingers there that has been
+  removed.
+- **Stale names** — a removed identifier must not appear in current-state prose
+  or a source comment. `docs/changelog.md` and `docs/migration.md` are exempt
+  (history is their content); a single line that must name one takes the marker
+  `doc-guard: historical`.
+
+A fourth pass, `review_absolute_wording.sh`, annotates absolute claims ("all",
+"every", "never", "total") in prose a PR adds. It never fails the build — it
+asks a human to confirm the claim still holds, because that is the wording this
+repository's documentation drifts on.
+
 ## Completion Requirements
 
 - Keep test coverage at 100%. Before finishing a change, run

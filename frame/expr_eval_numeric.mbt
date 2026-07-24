@@ -282,9 +282,21 @@ fn eval_pow(left : Series, right : Series) -> Series raise @types.DataError {
 ///|
 /// `a // b` for two `Int64`s, rounding toward −∞ rather than the truncation
 /// `Int64::/` gives. The caller has already excluded a zero divisor.
-/// `Int64::MIN // -1` wraps like every other `Int64` overflow (total, never
-/// aborts).
+///
+/// `-1` is special-cased because it is the one divisor whose quotient can
+/// leave `Int64`: `Int64::MIN // -1` is `2^63`. `Int64::/` does not wrap there
+/// the way `+` / `-` / `*` / `neg` do — wasm's `i64.div_s` **traps** on that
+/// pair by specification — so the general path below would abort rather than
+/// return. Division by `-1` is exact for every dividend (the remainder is
+/// always `0`, so the floor adjustment never fires) and equals negation, which
+/// *does* wrap. Routing it through `-a` therefore returns the same value as
+/// the general path wherever that path is defined, and the wrapped
+/// `Int64::MIN` where it is not — matching `neg` / `abs` / `*` on the same
+/// overflow, and numpy's `//`.
 fn floor_div_i64(a : Int64, b : Int64) -> Int64 {
+  if b == -1L {
+    return -a
+  }
   let q = a / b
   // `/` truncates toward zero and `%` carries the dividend's sign, so a
   // negative, non-integral true quotient truncates one above its floor.

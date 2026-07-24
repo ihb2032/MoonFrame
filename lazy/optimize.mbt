@@ -152,12 +152,21 @@
 /// *errors* a failing plan reports), narrowing or predicate-splitting
 /// through `Join`, sinking filters below `Sort`, and streaming a file source
 /// (the reader still tokenises the whole file; push-down skips the *typed*
-/// build of dropped rows, not the read). `optimize` is also not idempotent — re-optimizing an
-/// already-rewritten plan would stack another (harmless) narrowing select
-/// over an in-memory `Scan` (a file source's in-place projection just
-/// recomputes to the same set) — which is moot in practice: plans are
-/// immutable, and each `collect` or `explain(optimized=true)` call rewrites
-/// the as-built plan exactly once.
+/// build of dropped rows, not the read).
+///
+/// The projection pass is idempotent (`push_projection ∘ push_projection ==
+/// push_projection`): a bare-column `Select` over an in-memory `Scan` is
+/// recognised as the narrowing it already is (`already_narrows_inmemory`), so
+/// re-optimizing never stacks a second one, and a file source's projection
+/// just recomputes to the same set. `optimize` as a whole is idempotent too
+/// except on one shape: a filter that can sink *past* a `Select` the
+/// projection pass inserts. The predicate pass runs first, so a re-optimize
+/// sinks that filter below the inserted select and the projection pass rebuilds
+/// around the new position — a fixed-point-across-passes concern left for a
+/// future multi-pass optimizer. It is moot in practice: plans are immutable,
+/// and each `collect` or `explain(optimized=true)` rewrites the as-built plan
+/// exactly once. `lazy/idempotence_wbtest.mbt` pins the projection-pass
+/// property and the whole-optimize property on the shapes that hold.
 fn optimize(plan : LogicalPlan) -> LogicalPlan {
   // A DAG-shaped plan — nested self-joins share node objects by reference —
   // is left as-built: both passes rebuild tree-wise, so rewriting would

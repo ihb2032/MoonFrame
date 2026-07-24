@@ -31,12 +31,27 @@ pub fn DataFrame::reverse(self : DataFrame) -> DataFrame {
 /// name — the frame's own invariant, surfaced through `DataFrame::DataFrame`. The
 /// counter is dense and always non-null, so it never changes any other
 /// column's dtype or nullability.
+///
+/// Raises `InvalidOperation` when the last number would not fit: the counter
+/// runs `offset ..= offset + nrows - 1`, and past `Int64::MAX` MoonBit's
+/// wrapping addition would carry it round to `Int64::MIN`, leaving a column
+/// that is neither increasing nor dense. Polars refuses the same overflow
+/// against its own index type.
 pub fn DataFrame::with_row_index(
   self : DataFrame,
   name? : String = "index",
   offset? : Int64 = 0,
 ) -> DataFrame raise @types.DataError {
   let n = self.nrows()
+  // Rearranged to `offset > MAX - (n - 1)` so the check itself cannot overflow:
+  // `n - 1` is at most `Int::MAX`, far inside the subtraction's range. Only the
+  // top end can run out — every counter step is upward, so a negative `offset`
+  // moves away from `Int64::MIN`, never toward it.
+  if n > 0 && offset > 9223372036854775807L - (n - 1).to_int64() {
+    raise @types.DataError::InvalidOperation(
+      "row index overflows Int64: offset \{offset} with \{n} rows",
+    )
+  }
   let index = @series.Series::from_ints(
     name,
     Array::makei(n, i => offset + i.to_int64()),

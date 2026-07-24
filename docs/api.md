@@ -696,7 +696,9 @@ dependencies** (NyaCSV / fs / @json live only in `io`).
 - `with_row_index(name? : String = "index", offset? : Int64 = 0) -> DataFrame
   raise DataError` — prepend a dense, never-null `Int` counter running from
   `offset`, ahead of the frame's own columns (Polars' placement).
-  `DuplicateColumn(name)` if the frame already has that column.
+  `DuplicateColumn(name)` if the frame already has that column;
+  `InvalidOperation` if the last number would pass `Int64::MAX`, where the
+  counter would wrap to `Int64::MIN` and stop increasing.
 - `check_invariants() -> Result[Unit, String]` — verification helper
   (deliberately **not** migrated to `raise`). `Ok(())` iff the frame
   satisfies its seven structural invariants; otherwise `Err(msg)`.

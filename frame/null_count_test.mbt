@@ -4,8 +4,8 @@
 //   (1) check_invariants() == Ok(()) — formal spec from invariants.mbt
 //   (2) result.columns() == df.columns() — names + order preserved
 //   (3) every column in the result is dtype Int (the count itself)
-//   (4) result.shape() == (1, df.ncols()) — except for the 0-column
-//       edge case, which collapses to (0, 0)
+//   (4) result.shape() == (1, df.ncols()) — including the 0-column edge
+//       case, which is the 1×0 summary
 //   (5) the cell in result column `c` equals df.get_column(c).null_count()
 
 // ── Happy paths ──────────────────────────────────────────────────────
@@ -86,15 +86,16 @@ test "null_count on a 0-row frame reports zero for every column" {
 }
 
 ///|
-test "null_count on a 0-column frame collapses to a 0x0 summary" {
-  // DataFrame::DataFrame's documented behaviour for an empty column list is
-  // nrows == 0. We can't return a 1×0 summary because there's no
-  // anchor column to set nrows on; the natural fallback is (0, 0).
-  let df = DataFrame::DataFrame([])
-  let out = df.null_count()
-  assert_eq(out.check_invariants(), Ok(()))
-  assert_eq(out.shape(), (0, 0))
-  assert_eq(out.columns(), df.columns())
+test "null_count on a 0-column frame is a 1x0 summary" {
+  // The summary row exists for every source frame; a source with no columns
+  // just leaves it with no cells. Its own height is irrelevant — a 0×0 and an
+  // N×0 frame summarise alike.
+  for df in [DataFrame::DataFrame([]), nby0(3)] {
+    let out = df.null_count()
+    assert_eq(out.check_invariants(), Ok(()))
+    assert_eq(out.shape(), (1, 0))
+    assert_eq(out.columns(), df.columns())
+  }
 }
 
 ///|

@@ -102,11 +102,15 @@ pub fn DataFrame::count(self : DataFrame) -> DataFrame raise @types.DataError {
 /// length-1 result columns into a 1-row `DataFrame`. The shared driver behind
 /// the five public reductions above.
 ///
-/// Raises only through the 1-row `DataFrame::DataFrame`, whose failure paths
+/// The result is one row for every source frame, its own height included: a
+/// 0-row frame reduces to a 1-row summary, and a 0-column one to `1×0` — the
+/// row with nothing in it. The height is passed explicitly for the latter,
+/// since there is then no column to infer it from.
+///
+/// Raises only through the 1-row `DataFrame::from_parts`, whose failure paths
 /// (duplicate name / length mismatch) cannot fire here — the output column
 /// names are exactly `self`'s (already unique) and every output column has
-/// length 1 — so the raise is forwarded, never actually taken. (A 0-column
-/// frame produces zero output columns, i.e. a `0×0` result.)
+/// length 1 — so the raise is forwarded, never actually taken.
 fn DataFrame::reduce_to_row(
   self : DataFrame,
   op : FrameReduceOp,
@@ -115,7 +119,7 @@ fn DataFrame::reduce_to_row(
   for s in self.column_series() {
     cols.push(reduce_column(s, op))
   }
-  DataFrame::DataFrame(cols)
+  DataFrame::from_parts(cols, 1)
 }
 
 ///|

@@ -24,11 +24,16 @@ libraries — not a derivative work of either codebase.
 - **The four verbs take expressions** — `select` / `filter` / `agg` /
   `with_columns` each take `Expr`s, on both `DataFrame` and `LazyFrame`, as
   do the `sort` / `group_by` / `join` / `drop` keys.
-- **Expression engine** — `col` / `lit_*`, arithmetic `+ - * /`, Kleene
-  `& |`, comparisons, `when / then / otherwise`, the aggregations
+- **Expression engine** — `col` / `lit_*`, arithmetic `+ - * /` plus
+  `floor_div` / `modulo` / `pow` and the unary `abs` / `floor` / `ceil` /
+  `sign` / `round`, Kleene `& |`, comparisons and the `is_in` / `is_between` /
+  `is_null` / `is_nan` predicates, `when / then / otherwise`, the aggregations
   (`sum` / `mean` / `min` / `max` / `count` / `std` / `variance` /
-  `median` / `n_unique` / `first` / `last`), a `str_*` namespace, and the
-  `map_elements` / `map_many` UDF escape hatch.
+  `median` / `n_unique` / `first` / `last`), a `str_*` namespace with both
+  literal and regex matching (`str_contains` / `str_replace` / `str_replace_all`
+  take `literal?`; `str_extract` / `str_count_matches` are regex-only), and the
+  `map_elements` / `map_batches` / `map_many` UDF escape hatch. Per-operator
+  rules — dtype, null, and `NaN` — are in [`api.md`](api.md).
 - **`null` is missing** — a null propagates through arithmetic and
   comparison (Arrow / Polars); `&` / `|` are three-valued (Kleene).
 - **`NaN` is a value, not missing** — `sum` / `mean` propagate `NaN`;
@@ -46,11 +51,13 @@ libraries — not a derivative work of either codebase.
 - **Whole-frame vs single-column reductions** — `df.sum()` returns a
   one-row frame (Polars' `df.sum()`); a scalar comes from
   `df.get_column(c).sum()` (Polars' `df[c].sum()`).
-- **`unique()`** keeps first-appearance order (`maintain_order=True`).
-- **Lazy file sources** — `scan_csv` / `scan_ndjson` with projection
-  pushdown; there is no `scan_json` for the single-array shape (it must be
-  parsed whole, the same reason Polars has `scan_ndjson` but not
-  `scan_json`).
+- **`unique(subset?, keep?)`** keeps first-appearance order
+  (`maintain_order=True`), dedups on a column subset when given one, and takes
+  Polars' `keep` strategies (`First` / `Last` / `None`).
+- **Lazy file sources** — `scan_csv` / `scan_ndjson` with both projection and
+  predicate pushdown into the reader; there is no `scan_json` for the
+  single-array shape (it must be parsed whole, the same reason Polars has
+  `scan_ndjson` but not `scan_json`).
 - **I/O inference** — `infer_schema_rows = 0` scans every row (Polars'
   `infer_schema_length=None`); `on_parse_error = Null` downgrades a bad cell
   to null (Polars' `ignore_errors=True`); a non-finite `Float` writes as
@@ -58,17 +65,26 @@ libraries — not a derivative work of either codebase.
 
 ## Deliberate differences
 
-MoonFrame deviates from Polars' `NaN` handling in exactly two places:
+Where MoonFrame knowingly does something else than Polars. Two are about
+`NaN`; the third is about mixed-dtype comparison.
 
 - **`sort` treats `NaN` as missing.** When sorting, a `Float` `NaN` is ordered
   by the key's `NullOrder` (like a null), whereas Polars treats `NaN` as a
   value that sorts last independently of `nulls_last`. This was the v0.2 design
-  choice and is kept through v0.5.
+  choice and remains the current behaviour.
 - **`median` skips `NaN`.** As an order statistic it follows the `min` / `max`
   rule and ignores `NaN`, whereas Polars propagates `NaN` through `median`.
+- **Mixed `Int` / `Float` comparison is exact.** An `Int64` compared against a
+  `Float` is *not* promoted to `Double` first, so two distinct values never
+  collide above 2^53: `Int64::MAX` is not equal to the `2^63` `Double` a
+  promotion would round it to. Polars applies its Float64-supertype rule and
+  compares the rounded values. Correctness was chosen over parity here; it
+  shows in the comparison operators and the predicates built on them
+  (`is_in` / `is_between`). Same-dtype comparisons are exact either way, and a
+  join refuses a mixed-dtype key outright rather than deciding for you.
 
-Everywhere else (`sum` / `mean` / `group_by` / `join` / comparisons) `NaN` is a
-value, as in Polars.
+For `NaN` everywhere else — `sum` / `mean` / `group_by` / `join` /
+comparisons — it is a value, as in Polars.
 
 ## Forced by MoonBit (not behavioral)
 
@@ -86,19 +102,28 @@ semantic choices:
 
 ## Out of scope (vs Polars)
 
-Not implemented; some are on the v0.6+ roadmap (see
-[changelog](changelog.md)):
+Not implemented. The tracked deferrals — the ones with a place in a later
+release — are listed as such in [`api.md`](api.md); this is what a Polars user
+will not find here today:
 
 - **Dtypes** — only `Int` / `Float` / `Bool` / `String` / `Null`; no
-  `Date` / `Datetime` / `List` / `Struct` / `Categorical`.
-- **Expressions** — no window / rolling functions, no `pivot` / `melt`;
-  arithmetic is `+ - * /` only (no `pow` / `mod` / `abs` / `round` /
-  `floor_div` yet); string matching is literal (no regex engine yet).
-- **Lazy** — plan-level predicate and projection pushdown ship; predicate
-  pushdown *into the file parser* and streaming execution do not (projection
-  pushdown does reach `scan_csv` / `scan_ndjson`); no `scan_parquet` /
-  `scan_ipc`.
-- **`unique`** — whole-row only (no `subset` / `keep`).
+  `Date` / `Datetime` / `Duration` / `List` / `Struct` / `Categorical`. This is
+  the deferral the others hang off: the list-returning `str.split`, the datetime
+  expression family, and a reader that takes a declared schema all need a dtype
+  before they can exist.
+- **Expressions** — no window / rolling / `over` functions, no cumulative or
+  `shift` / `diff` family, and no `pivot` / `melt` reshaping.
+- **Lazy** — no streaming execution: a scan pushes projections and predicates
+  down into the reader, but still tokenises the whole file. No columnar sources
+  (`scan_parquet` / `scan_ipc`) either — those wait on eager readers for the
+  formats.
+- **Optimizer** — the two passes are projection and predicate pushdown.
+  Dead-expression elimination, predicate splitting through joins, and sinking
+  filters below sorts are not implemented.
+- **Reader schema override** — CSV / JSON dtypes come from content inference
+  only; there is no `dtypes=` / `schema=` parameter. Build the frame yourself
+  (`Series::from_*`, or `from_rows` with a `Schema`) when a column's type must
+  be pinned. See [`type-inference.md`](type-inference.md).
 
 See [`api.md`](api.md) for the full public surface and
 [`migration.md`](migration.md) for the version history.

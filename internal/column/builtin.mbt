@@ -1,5 +1,5 @@
 ///|
-/// Apache Arrow style columnar storage used by `Series` in v0.1.
+/// Apache Arrow style columnar storage used by `Series`.
 ///
 /// The column splits values from validity. `data` is a typed array of raw
 /// values (no `Option` boxing); `validity` is a bit-packed `Bitmap` where

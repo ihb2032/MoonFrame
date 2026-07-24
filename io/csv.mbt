@@ -1,7 +1,9 @@
 // CSV serialisation for `DataFrame`. The reader sits on top of NyaCSV
-// for tokenisation and adds four pieces v0.1 needs: header / no-header
-// switching, per-column type inference (Int → Float → Bool → String),
-// a configurable null-string mapping, and opt-in strict quote validation.
+// for tokenisation and adds what a typeless format needs to reach a typed
+// frame: header / no-header switching, per-column type inference
+// (Int → Float → Bool → String), a configurable null-string mapping, ragged-row
+// and quote strictness, and the projection / predicate seams the lazy scan
+// pushes into.
 // The writer mirrors the
 // reader, rendering each cell via `Scalar::to_string` and quoting only
 // when a cell would otherwise be ambiguous (contains the delimiter, a
@@ -36,7 +38,7 @@
 ///   few or too many cells) `raise ParseError` instead of being
 ///   silently null-padded (short row) or truncated (long row). Defaults
 ///   to `false`, preserving the lenient behaviour that tolerates ragged
-///   rows (a permissive CSV idiom, and what the v0.1 reader did).
+///   rows (a permissive CSV idiom, and the reader's long-standing default).
 /// - `on_parse_error` — what to do when a non-null cell past the
 ///   inference window fails to parse under its column's locked-in dtype.
 ///   `Raise` (default) fails with `ParseError(Cell(...))`; `Null`
@@ -135,7 +137,7 @@ pub fn CsvReadOptions::CsvReadOptions(
 ///   row outside the inference window is malformed for the inferred
 ///   type), unless `options.on_parse_error` is `Null`, which downgrades
 ///   that cell to a null instead of failing the read.
-/// - Whatever `DataFrame::DataFrame` propagates — for v0.1 this is limited
+/// - Whatever `DataFrame::DataFrame` propagates — which is limited
 ///   to `DuplicateColumn` / `LengthMismatch`, neither of which can
 ///   actually fire here (uniqueness is checked above; every column
 ///   is built off the same `rows.length()`).
@@ -167,8 +169,9 @@ pub fn parse_csv_str(
 ///   unparsed, and unmaterialised. This is the projection-pushdown path the
 ///   lazy `scan_csv` source uses: the optimizer narrows the read to exactly
 ///   the columns a pipeline consumes. A requested name that matches no header
-///   is silently ignored (lenient projection, as in Polars): the public
-///   `read_csv_projected` does not raise `ColumnNotFound` for an unknown
+///   is silently ignored (lenient projection, as in Polars): the
+///   engine-internal `read_csv_projected` — an `#internal` seam, absent from
+///   the generated interface — does not raise `ColumnNotFound` for an unknown
 ///   column, it just yields the ones that match. The lazy path only ever
 ///   requests real columns, and a stray `col("missing")` is still caught
 ///   downstream by `select`. A projection matching **no** header builds no

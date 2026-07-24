@@ -1,7 +1,10 @@
 ///|
-/// Numeric-operand kernels for the expression evaluator: the elementwise
-/// arithmetic (`+` / `-` / `*`), division (`/`), unary negation, and the
-/// `is_nan` / `is_not_nan` probes. Each carries a `Numeric`×`Numeric` all-valid
+/// Numeric-operand kernels for the expression evaluator — every `Expr` node
+/// whose operands must be numbers: the binary arithmetic and its always-`Float`
+/// siblings, the `Int`-preserving `//` / `%`, the unary shaping ops, and the
+/// `NaN` probes. (Deliberately not enumerated one by one: the list grows with
+/// the operator set, and `expr/expr_ops.mbt` is where each verb's contract
+/// lives.) Each kernel carries a `Numeric`×`Numeric` all-valid
 /// fast arm that stays on the `Numeric` backend and a nullable general arm that
 /// re-converges through `try_column_to_numeric`. The shared cell gates
 /// (`zip_present` / `map_present`) and the `binary_type_mismatch_error` builder

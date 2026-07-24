@@ -5,7 +5,7 @@
 // mirrors the CSV reader — Int → Float → Bool → String, with nulls
 // passing through transparently — so the round-trip
 // `read_csv → write_json → read_json` preserves dtypes for most
-// frames whose JSON values stay within the four v0.1 dtypes.
+// frames whose JSON values stay within the four concrete dtypes.
 //
 // Caveat 1 — integral-valued `Float`. JSON has a single number type and
 // `Double::to_string` drops the fractional part of a whole value

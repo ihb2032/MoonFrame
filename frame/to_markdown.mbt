@@ -5,7 +5,7 @@
 // fixed-width terminal. Null cells render as the empty string,
 // delegating to `Scalar::to_string`.
 //
-// v0.1 picks GFM tables specifically because they are the lingua
+// GFM tables specifically, because they are the lingua
 // franca of MoonFrame's two output targets — `README.md` snippets and
 // JupyterBook-style notebooks — and they round-trip through every
 // Markdown parser we care about without a dedicated renderer

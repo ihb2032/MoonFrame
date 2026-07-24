@@ -100,7 +100,7 @@ pub fn Series::mean_opt(self : Series) -> Double? {
 
 ///|
 /// Minimum non-null cell as a `Scalar`, by the natural order of the
-/// series' dtype (Polars' `Series.min`). Total — every v0.1 dtype has an
+/// series' dtype (Polars' `Series.min`). Total — every dtype has an
 /// order, so it never fails (unlike the v0.1 `Result`-wrapped form this
 /// replaces).
 ///

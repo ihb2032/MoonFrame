@@ -44,6 +44,19 @@ fn push_projection(
           // in-memory frame gets a `Select` inserted, a file source writes the
           // requirement into its projection field.
           Scan(source) => values.push(narrow_scan_source(node, source, req))
+          // A bare-column `Select` sitting directly on an in-memory scan is
+          // *already* the narrowing that `narrow_scan_source` would insert
+          // below it, so letting the scan narrow too would stack a second,
+          // identical projection — and re-optimizing would stack another every
+          // pass. Keep this `Select` as the narrowing and hand the scan no
+          // requirement, so the pass is idempotent and a bare projection over
+          // an in-memory frame is never doubled. Only in-memory: a file
+          // source narrows by writing its projection field (no inserted node),
+          // which already recomputes to the same set.
+          Unary(input, op) if already_narrows_inmemory(input, op) => {
+            work.push(Rebuild1(c => Unary(c, op)))
+            work.push(Visit(input, None))
+          }
           // Every unary op rebuilds identically over its rewritten child; only
           // the requirement it hands its input differs (`frame_op_required`).
           Unary(input, op) => {
@@ -144,6 +157,34 @@ fn columns_read(exprs : Array[@expr.Expr]) -> @set.Set[String] {
 /// union).
 fn add_all(acc : @set.Set[String], names : @set.Set[String]) -> Unit {
   names.each(name => acc.add(name))
+}
+
+///|
+/// Whether `op` sitting on `input` is a bare-column `Select` that already
+/// narrows an in-memory scan — the shape `narrow_scan_source` would otherwise
+/// insert a duplicate of. True when `input` is `Scan(InMemory(df))` and `op` is
+/// a `Select` whose entries are all bare `col(name)` naming a *proper, non-empty
+/// subset* of `df`'s columns: exactly the requirement the scan would narrow to,
+/// so the `Select` is that narrowing and no second one is needed. A `Select`
+/// that reads every column (nothing to narrow) or computes (not a pure
+/// projection) is not this shape and narrows — or not — through the normal path.
+fn already_narrows_inmemory(input : LogicalPlan, op : FrameOp) -> Bool {
+  guard input is Scan(InMemory(df)) && op is Select(exprs) else { return false }
+  let cols = df.columns()
+  let read : @set.Set[String] = @set.Set([])
+  for expr in exprs {
+    // Any computed entry, or a name the scan lacks, means this is not a clean
+    // projection onto the scan's columns: it either transforms or raises
+    // `ColumnNotFound`, so it is not the narrowing the scan would insert. Let
+    // the normal path narrow to whatever real columns it does read.
+    guard expr is @expr.Expr::Col(name) && cols.contains(name) else {
+      return false
+    }
+    read.add(name)
+  }
+  // A proper, non-empty subset: some column is dropped (else there is nothing to
+  // narrow) and at least one is kept.
+  read.length() > 0 && read.length() < cols.length()
 }
 
 ///|

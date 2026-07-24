@@ -222,11 +222,9 @@ test "explain defaults to the plan as built; optimized=true is the before/after 
   // `optimized=false` explicitly.
   assert_eq(plan.explain(), "SELECT [col(qty)]\n  SCAN [4×3]")
   assert_eq(plan.explain(), plan.explain(optimized=false))
-  // After: the narrowing select `collect` actually runs is visible.
-  assert_eq(
-    plan.explain(optimized=true),
-    "SELECT [col(qty)]\n" + "  SELECT [col(qty)]\n" + "    SCAN [4×3]",
-  )
+  // After: the select is itself the narrowing over the in-memory scan, so the
+  // optimizer inserts nothing below it — a bare projection is never doubled.
+  assert_eq(plan.explain(optimized=true), "SELECT [col(qty)]\n  SCAN [4×3]")
 }
 
 ///|
@@ -403,7 +401,8 @@ test "with_columns at the root is a no-op (its full layout is the result)" {
 ///|
 test "join is a barrier, but each side restarts its own pass" {
   let opts = @frame.JoinOptions::on([@expr.col("id")])
-  // A selection *below* the left side narrows that side's scan.
+  // A selection *below* the left side narrows that side's scan — the bare
+  // `select` is itself that narrowing, so nothing is inserted beneath it.
   let narrowed_side = LazyFrame::LazyFrame(orders_df())
     .select([@expr.col("id")])
     .join(LazyFrame::LazyFrame(cities_df()), opts)
@@ -411,8 +410,7 @@ test "join is a barrier, but each side restarts its own pass" {
     narrowed_side.explain(optimized=true),
     "JOIN Inner on [col(id)]\n" +
     "  SELECT [col(id)]\n" +
-    "    SELECT [col(id)]\n" +
-    "      SCAN [3×2]\n" +
+    "    SCAN [3×2]\n" +
     "  SCAN [3×2]",
   )
   // A selection *above* the join narrows neither side: splitting a

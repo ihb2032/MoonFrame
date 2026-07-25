@@ -223,7 +223,8 @@ blackbox `*_test.mbt` tests, and a `pkg.generated.mbti` interface snapshot:
 
 ```
 types/      value types, errors (DataError), schemas
-internal/column/   Arrow-style storage — validity bitmap + Builtin/Numeric backends; wrapped by Series, and matched directly by frame's evaluator for the numeric fast paths (a deliberate engine-only coupling, not a public seam)
+internal/column/   Arrow-style storage — validity bitmap + Builtin/Numeric backends; wrapped by Series and read by internal/kernel, and named by no other package
+internal/kernel/   the vectorized expression kernels — Series broadcasting, arithmetic / logic / comparison / string ops, ternary, map, and the dtype inference behind a computed column; called by frame's evaluator
 internal/text/     shared text primitives — lexicographic compare, debug escaping, decimal literal parsing
 internal/literal/  the one scalar-literal renderer, shared by expr / lazy plan rendering
 internal/ir/       module-internal expression AST — ExprNode + the operator tags, walked by the engine
@@ -236,7 +237,22 @@ moonframe.mbt   the root package — facade over the public API (fluent-chain in
 ```
 
 The `internal/` packages are MoonBit `internal` packages: importable inside
-this module only, so they carry no compatibility promise.
+this module only, so they carry no compatibility promise. Where a new piece of
+engine work belongs follows one rule — **only the packages below `series` name
+the physical column**:
+
+```
+frame            what a verb means: row sets, scheduling, schema, errors
+  └─ internal/kernel   how a column is computed: one pass per operator
+       └─ series       what a column is: dtype, validity, backend convergence
+            └─ internal/column   how a column is laid out: buffers + bitmap
+```
+
+So a new vectorized operator goes in `internal/kernel`, not in `frame`; a new
+column-level primitive goes in `series`; and `frame` reads a column only
+through `Series` (its production build does not import `internal/column` at
+all — the test build does, to assert which backend an operator's output lands
+on).
 
 The data model is an Apache Arrow-style column layout (a byte-packed validity
 bitmap, `1 = valid`) with an `O(1)` name→index cache;

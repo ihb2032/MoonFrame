@@ -392,9 +392,10 @@ test "typed accessors reject the wrong dtype" {
     },
     Err(
       @types.DataError::TypeMismatch(
-        @types.TypeMismatchDetail::Column(
+        @types.TypeMismatchDetail::Expected(
           @types.DataType::Int,
           @types.DataType::String,
+          "",
         ),
       ),
     ),
@@ -405,9 +406,10 @@ test "typed accessors reject the wrong dtype" {
     },
     Err(
       @types.DataError::TypeMismatch(
-        @types.TypeMismatchDetail::Column(
+        @types.TypeMismatchDetail::Expected(
           @types.DataType::Float,
           @types.DataType::String,
+          "",
         ),
       ),
     ),
@@ -418,9 +420,10 @@ test "typed accessors reject the wrong dtype" {
     },
     Err(
       @types.DataError::TypeMismatch(
-        @types.TypeMismatchDetail::Column(
+        @types.TypeMismatchDetail::Expected(
           @types.DataType::Bool,
           @types.DataType::String,
+          "",
         ),
       ),
     ),
@@ -431,9 +434,10 @@ test "typed accessors reject the wrong dtype" {
     },
     Err(
       @types.DataError::TypeMismatch(
-        @types.TypeMismatchDetail::Column(
+        @types.TypeMismatchDetail::Expected(
           @types.DataType::String,
           @types.DataType::Int,
+          "",
         ),
       ),
     ),

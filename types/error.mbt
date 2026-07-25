@@ -38,9 +38,6 @@ pub(all) enum TypeMismatchDetail {
   /// A value had the wrong dtype. Fields are `(expected, got, column)`, where
   /// `column` is empty when the mismatch is not tied to a named column.
   Expected(DataType, DataType, String)
-  /// A raw column-buffer accessor received the wrong dtype. Fields are
-  /// `(expected, got)`.
-  Column(DataType, DataType)
   /// A binary operation rejected its operands. Fields are
   /// `(operation, left, right)`.
   Operation(String, DataType, DataType)
@@ -100,8 +97,6 @@ pub fn DataError::message(self : DataError) -> String {
           } else {
             "Type mismatch: column \"\{column}\" expected \{expected}, got \{got}"
           }
-        Column(expected, got) =>
-          "Type mismatch: expected \{expected} column, got \{got}"
         Operation(operation, left, right) =>
           "Type mismatch: cannot \{operation} \{left} and \{right}"
       }
@@ -150,8 +145,6 @@ pub impl Show for DataError with fn output(self, logger) {
           logger.write_string(
             "TypeMismatch(Expected(\{expected}, \{got}, \"\{@text.escape_debug(column)}\"))",
           )
-        Column(expected, got) =>
-          logger.write_string("TypeMismatch(Column(\{expected}, \{got}))")
         Operation(operation, left, right) =>
           logger.write_string(
             "TypeMismatch(Operation(\"\{@text.escape_debug(operation)}\", \{left}, \{right}))",

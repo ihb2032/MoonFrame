@@ -45,7 +45,9 @@ pub extend JoinType with Debug::{to_repr}
 ///     column; a derived key such as `col("ts") / lit_int(86400)` matches
 ///     on the computed value. `["region", "product"]`-style multi-key joins
 ///     become `[col("region"), col("product")]`, matched on the tuple. An
-///     empty list is a documented cross join (see `DataFrame::join`).
+///     empty key list is **invalid** for `on` — a non-`Cross` join requires at
+///     least one key (`DataFrame::join` raises `InvalidOperation`); use
+///     `JoinOptions::cross()` for a Cartesian product.
 ///   * `left_on` / `right_on` — paired key expressions evaluated on the
 ///     left and right frame respectively, for joining on differently-named
 ///     or differently-derived keys (`left_on([col("a")])` against

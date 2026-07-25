@@ -136,28 +136,13 @@ pub fn DataFrame::empty(
   schema : @types.Schema,
 ) -> DataFrame raise @types.DataError {
   let schema = @types.Schema::Schema(schema.fields())
+  // Each empty column's physical dispatch (the buffer its dtype needs, and the
+  // `Null`-dtype rejection) lives in `series`, which owns the column, so this
+  // constructor no longer matches storage backends. A `Null` field has no
+  // physical backend, so `Series::empty_of` raises `Unsupported`.
   let columns : Array[Series] = schema
     .fields()
-    .map(f => {
-      // Dispatch on the field's *physical* type — the buffer it needs. `Null`
-      // has none (`physical()` is `None`), which is precisely why an all-null
-      // column cannot be materialised, so the rejection reads as "no physical
-      // backend" rather than a special-cased variant.
-      let storage = match @column.physical_type(f.dtype()) {
-        Some(@column.PhysicalType::I64) => @column.BuiltinColumn::from_ints([])
-        Some(@column.PhysicalType::F64) =>
-          @column.BuiltinColumn::from_floats([])
-        Some(@column.PhysicalType::Bool) =>
-          @column.BuiltinColumn::from_bools([])
-        Some(@column.PhysicalType::Utf8) =>
-          @column.BuiltinColumn::from_strings([])
-        None =>
-          raise @types.DataError::Unsupported(
-            "cannot build empty DataFrame column of dtype Null: \{f.name()}",
-          )
-      }
-      Series::from_builtin(f.name(), storage)
-    })
+    .map(f => Series::empty_of(f.name(), f.dtype()))
   { schema, columns, nrows: 0, name_to_index: index_by_name(columns) }
 }
 

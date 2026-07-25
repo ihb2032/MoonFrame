@@ -223,7 +223,7 @@ blackbox `*_test.mbt` tests, and a `pkg.generated.mbti` interface snapshot:
 
 ```
 types/      value types, errors (DataError), schemas
-internal/column/   Arrow-style storage — validity bitmap + Builtin/Numeric backends behind Series
+internal/column/   Arrow-style storage — validity bitmap + Builtin/Numeric backends; wrapped by Series, and matched directly by frame's evaluator for the numeric fast paths (a deliberate engine-only coupling, not a public seam)
 internal/text/     shared text primitives — lexicographic compare, debug escaping, decimal literal parsing
 internal/literal/  the one scalar-literal renderer, shared by expr / lazy plan rendering
 internal/ir/       module-internal expression AST — ExprNode + the operator tags, walked by the engine

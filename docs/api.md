@@ -31,22 +31,24 @@ fluent-chain intermediates (`WhenThen` / `WhenThenElse` / `GroupedDataFrame` /
 be chained through rather than named), and the `#internal` engine seams
 described next. Neither is part of the surface this document governs.
 
-Some symbols are `pub` only because two public packages share them: MoonBit
-offers no visibility between `priv` (this package only) and `pub` (anyone), so
-a kernel `frame` and `lazy` both call has to be `pub` to cross that boundary.
-Code that no *public* package needs goes further and lives in an `internal/`
-package (`internal/column` storage, `internal/text` / `internal/literal`
-primitives, and `internal/ir` — the expression AST and its operator tags),
-which the module can import and a downstream user cannot: a generated `.mbti`
-for an internal package is not an external compatibility surface, and its
-`pub(all)` symbols exist only for in-module cross-package use. These are
-execution-engine internals, not public API: each is marked
-`#internal(engine, "MoonFrame execution engine API")` at its definition and is
-deliberately absent from both the facade and the generated reference. **Do not
-depend on them** — they carry no compatibility promise and may change signature
-or disappear in any release. The marker raises an alert if a *downstream*
-module reaches for one; within this module (MoonFrame's own packages, examples
-and tests included) it is silent, since those are the intended callers.
+Two distinct mechanisms keep non-public code off the compatibility surface.
+**Engine seams** are symbols that must be `pub` because two public packages
+share them — MoonBit offers no visibility between `priv` (this package only) and
+`pub` (anyone), so a kernel `frame` and `lazy` both call has to cross that
+boundary as `pub`. Each carries `#internal(engine, "MoonFrame execution engine
+API")`, which raises an alert if a *downstream* module reaches for it (silent
+within this module — MoonFrame's own packages, examples, and tests are the
+intended callers), and `#doc(hidden)`, which keeps it out of the generated
+`.mbti`; so it is absent from both the facade and the generated reference.
+**Internal packages** go further: code that no public package needs lives in an
+`internal/` path (`internal/column` storage, `internal/text` /
+`internal/literal` primitives, and `internal/ir` — the expression AST and its
+operator tags). MoonBit forbids a downstream module from importing an
+`internal/` package at all, so those symbols carry no per-symbol marker — the
+module boundary itself is the wall, and a generated `.mbti` for an internal
+package is not an external compatibility surface. **Do not depend on either** —
+neither carries a compatibility promise, and both may change signature or
+disappear in any release.
 
 Compatibility follows the changelog's policy: backwards-compatible additions
 and bug fixes ship in patch releases, and — pre-1.0 — a change to the public

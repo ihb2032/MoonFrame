@@ -2,8 +2,9 @@
 
 Source-level breaking changes between MoonFrame releases. Pre-1.0, breaking
 changes ride the minor version. For the feature history behind each release see
-[`changelog.md`](changelog.md); for the current public surface see
-[`api.md`](api.md).
+[`changelog.md`](changelog.md); for the API concepts and compatibility model
+see [`api.md`](api.md), and the per-symbol reference on
+[mooncakes.io](https://mooncakes.io/docs/ihb2032/MoonFrame).
 
 ## v0.5.8 → v0.6.0
 

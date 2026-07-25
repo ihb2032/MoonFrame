@@ -115,7 +115,10 @@ are machine-dependent and a pass/fail bar would be flaky. The suite covers, at
 
 The headline result confirms the design intent: on all-valid numeric columns the
 `Numeric` backend reduces several times faster than `Builtin`, the widest gap
-being `sum` at 1M rows, while `count` stays `O(1)`. No ratio is quoted here on
+being `sum` at 1M rows, while `count` on `Numeric` is `O(1)` — it has no
+validity bitmap to scan (the general `count` is the `O(n)` per-column pass the
+complexity table lists; a compact `Builtin` bitmap scans in about `O(n / 8)`).
+No ratio is quoted here on
 purpose — the repo pins no reference hardware and stores no baseline output, so
 any number printed in prose would drift with the implementation and the
 toolchain. Run `moon bench` for figures on your own machine.

@@ -137,6 +137,7 @@ jobs:
           sh .github/scripts/check_version_identity.sh
           sh .github/scripts/check_facade_docs.sh
           sh .github/scripts/check_stale_names.sh
+          sh .github/scripts/check_enum_surface.sh
 
       # Advisory, never a failure: absolute claims ("all", "every", "never")
       # in prose this branch adds, annotated on the diff so a reviewer

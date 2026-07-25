@@ -147,9 +147,68 @@ mkstale "$work/s_history" docs/changelog.md '`DataFrame::new` is gone.'
 expect 0 'stale: changelog is exempt' \
   sh "$scripts/check_stale_names.sh" "$work/s_history"
 
+# ── enum surface ──────────────────────────────────────────────────────────
+mkenum() {
+  # mkenum <dir> <mbti-path> <mbti-body> <snapshot-body|-->
+  # `--` as the snapshot writes no snapshot file (the missing-snapshot case).
+  mkdir -p "$1/$(dirname "$2")" "$1/.github/scripts"
+  (cd "$1" && git init -q . && git config user.email t@t &&
+    git config user.name t && git config core.autocrlf false)
+  printf '%s\n' "$3" >"$1/$2"
+  if [ "$4" != "--" ]; then
+    printf '%s\n' "$4" >"$1/.github/scripts/enum_surface.snapshot"
+  fi
+  (cd "$1" && git add -A && git commit -qm f)
+}
+
+enum_mbti='pub(all) enum Color {
+  Red
+  Green
+} derive(Eq)'
+# The extracted surface is sorted, so Green precedes Red.
+enum_snap='Color | enum | Green
+Color | enum | Red'
+
+mkenum "$work/e_ok" types/pkg.generated.mbti "$enum_mbti" "$enum_snap"
+expect 0 'enum: surface matches the snapshot' \
+  sh "$scripts/check_enum_surface.sh" "$work/e_ok"
+
+mkenum "$work/e_added" types/pkg.generated.mbti 'pub(all) enum Color {
+  Red
+  Green
+  Blue
+} derive(Eq)' "$enum_snap"
+expect 1 'enum: a variant added since the snapshot' \
+  sh "$scripts/check_enum_surface.sh" "$work/e_added"
+
+mkenum "$work/e_removed" types/pkg.generated.mbti 'pub(all) enum Color {
+  Red
+} derive(Eq)' "$enum_snap"
+expect 1 'enum: a variant removed since the snapshot' \
+  sh "$scripts/check_enum_surface.sh" "$work/e_removed"
+
+mkenum "$work/e_missing" types/pkg.generated.mbti "$enum_mbti" --
+expect 1 'enum: snapshot absent' \
+  sh "$scripts/check_enum_surface.sh" "$work/e_missing"
+
+# A plain `pub enum` exposes no variants, and an `internal/` package carries no
+# promise — neither is locked, so both leave an empty surface matching an empty
+# snapshot.
+mkenum "$work/e_internal" internal/col/pkg.generated.mbti "$enum_mbti" ''
+expect 0 'enum: internal packages are not locked' \
+  sh "$scripts/check_enum_surface.sh" "$work/e_internal"
+
+mkenum "$work/e_opaque" types/pkg.generated.mbti 'pub enum Color {
+  Red
+  Green
+}' ''
+expect 0 'enum: a plain pub enum is not matchable, so not locked' \
+  sh "$scripts/check_enum_surface.sh" "$work/e_opaque"
+
 # ── the repository itself ─────────────────────────────────────────────────
 expect 0 'repo: version identity' sh "$scripts/check_version_identity.sh" "$root"
 expect 0 'repo: facade docs' sh "$scripts/check_facade_docs.sh" "$root"
 expect 0 'repo: stale names' sh "$scripts/check_stale_names.sh" "$root"
+expect 0 'repo: enum surface' sh "$scripts/check_enum_surface.sh" "$root"
 
 printf 'doc guards: %s cases pass\n' "$cases"

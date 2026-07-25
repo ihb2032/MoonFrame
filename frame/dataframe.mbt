@@ -143,11 +143,13 @@ pub fn DataFrame::empty(
       // has none (`physical()` is `None`), which is precisely why an all-null
       // column cannot be materialised, so the rejection reads as "no physical
       // backend" rather than a special-cased variant.
-      let storage = match f.dtype().physical() {
-        Some(@types.PhysicalType::I64) => @column.BuiltinColumn::from_ints([])
-        Some(@types.PhysicalType::F64) => @column.BuiltinColumn::from_floats([])
-        Some(@types.PhysicalType::Bool) => @column.BuiltinColumn::from_bools([])
-        Some(@types.PhysicalType::Utf8) =>
+      let storage = match @column.physical_type(f.dtype()) {
+        Some(@column.PhysicalType::I64) => @column.BuiltinColumn::from_ints([])
+        Some(@column.PhysicalType::F64) =>
+          @column.BuiltinColumn::from_floats([])
+        Some(@column.PhysicalType::Bool) =>
+          @column.BuiltinColumn::from_bools([])
+        Some(@column.PhysicalType::Utf8) =>
           @column.BuiltinColumn::from_strings([])
         None =>
           raise @types.DataError::Unsupported(

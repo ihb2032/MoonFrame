@@ -137,15 +137,10 @@ in [`migration.md`](migration.md).
   for a value that does not fit its inferred dtype; other syntax and shape
   failures use `ParseError(Message(detail))`.
 - `enum DataType` — `Int | Float | Bool | String | Null`, with
-  `is_numeric` / `is_integer` / `is_float` / `is_string` / `is_bool`, and
-  `physical() -> PhysicalType?` mapping the *logical* type to its physical
-  storage (`Null → None` — the one logical type with no physical backend, which
-  is why an all-null column cannot be materialised).
-- `enum PhysicalType` — `I64 | F64 | Bool | Utf8`, the buffer kind a column's
-  logical `DataType` materialises into. The four concrete logical types map
-  one-to-one to it today; the indirection is what a future logical type reusing
-  an existing buffer (a `Date` / `Datetime` as `I64`, a small `Decimal` as
-  `I64`) would consume rather than adding a new physical column kind.
+  `is_numeric` / `is_integer` / `is_float` / `is_string` / `is_bool`. The
+  logical→physical mapping (which buffer kind a dtype materialises into) is a
+  storage concern and lives in the module-internal `internal/column` package,
+  not on the public type.
 - `enum Scalar` — cell value (`Int` carries `Int64`, `Float` carries
   `Double`). Total: `dtype` / `is_null` / `to_string` (value form, e.g.
   `Int(42) → "42"`, `Null → ""`). Fallible (`raise DataError`):
@@ -1438,7 +1433,7 @@ module-internal `internal/ir` package, which downstream cannot import and no
 public API names, so there is nothing to re-export for it.
 
 - From `@types`: `DataError` · `CellParseLocation` · `ParseErrorDetail` ·
-  `TypeMismatchDetail` · `DataType` · `PhysicalType` · `Scalar` · `Field` ·
+  `TypeMismatchDetail` · `DataType` · `Scalar` · `Field` ·
   `Schema` · `SortOrder` · `NullOrder` · `ClosedInterval`
 - From `@expr`: `Expr` ·
   `col` · `cols` ·

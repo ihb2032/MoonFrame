@@ -73,7 +73,6 @@ pub using @types {
   type SortOrder,
   type NullOrder,
   type ClosedInterval,
-  type PhysicalType,
 }
 
 ///|

@@ -25,8 +25,9 @@ pub impl Show for Expr with fn output(self, logger) {
 pub extend Expr with Show::{to_string, output}
 
 ///|
-/// Handwritten `@debug.Debug`: the `Map` variant's closure payload has no
-/// `Debug`, so the enum cannot `derive` one. The debug form delegates to
+/// Handwritten `@debug.Debug`: the `@ir.ExprNode` `Map` / `MapBatches` closures
+/// have no `Debug`, so neither the AST node nor the `Expr` wrapping it can
+/// `derive` one. The debug form delegates to
 /// the `Show` rendering (`to_string`), which already presents every variant —
 /// `Map` by its `(label, inputs)`, the closure opaque — in the documented
 /// operator form. Debug output surfaces only in `assert_eq` failure messages
@@ -41,19 +42,13 @@ pub impl @debug.Debug for Expr with fn to_repr(self) {
 pub extend Expr with Debug::{to_repr}
 
 ///|
-/// The immediate sub-expressions of a node, left to right — the single
-/// place that encodes the tree's recursive shape. Every tree walk that
-/// recurses uniformly rides this: `referenced_columns` and `output_name`
-/// here, and the lazy optimizer's `row_stable` / `group_cell_stable`
-/// analyses across the package boundary (hence `pub` — methods live with
-/// their type). A new variant declares its child structure once, here,
-/// rather than in every walk. A `Ternary` lists all three arms with the
-/// condition first; the one walk that must skip the condition — output
-/// *naming* — special-cases it rather than reading children. A `Map` lists
-/// its input expressions (a fresh copy, so a caller can never alias — and
-/// mutate — the node's own `inputs`). Leaves (`Col` / `Lit` / `LitSeries`)
-/// have none — a `LitSeries` carries materialised data, not sub-expressions.
-/// Total — it only inspects shape.
+/// The immediate sub-expressions of a node, left to right, as opaque `Expr`
+/// handles — the wrapper-level face of `@ir.ExprNode::children`, which is the
+/// single place that encodes the tree's recursive shape. The `expr`-side walks
+/// (`referenced_columns` / `output_name`) ride this; the lazy optimizer's
+/// `row_stable` / `group_cell_stable` walk the raw `@ir.ExprNode` children
+/// directly. A new variant declares its child structure once, in `ExprNode`,
+/// and both faces follow. Total — it only inspects shape.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
 pub fn Expr::children(self : Expr) -> Array[Expr] {

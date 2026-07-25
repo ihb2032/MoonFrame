@@ -31,7 +31,7 @@ fn row_stable(expr : @ir.ExprNode) -> Bool {
   // Iterative tree walk (explicit stack, not the call stack) so a deeply nested
   // predicate cannot overflow and abort during optimization — total at any
   // depth, as this function's doc promises. Every node must be row-local;
-  // `children()` drives the descent, so a new `Expr` variant is covered the
+  // `children()` drives the descent, so a new `ExprNode` variant is covered the
   // moment it declares its children.
   let stack : Array[@ir.ExprNode] = [expr]
   for ;; {

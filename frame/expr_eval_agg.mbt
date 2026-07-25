@@ -33,8 +33,9 @@ fn eval_agg(op : @ir.AggOp, operand : Series) -> Series raise @types.DataError {
 }
 
 ///|
-/// Map the read-only `@ir.AggOp` (matchable here, constructible only in
-/// `expr`) into the frame-local `ReduceOp` the shared reduction kernel
+/// Map the module-internal `@ir.AggOp` (in `internal/ir`, matchable and
+/// constructible anywhere in the module) into the frame-local `ReduceOp`
+/// the shared reduction kernel
 /// speaks. Shared by the scoped `eval_agg` and the grouped `agg`
 /// single-pass fast path (`bare_col_agg`), so the two map the same op the
 /// same way. Exhaustive with no wildcard: a future `AggOp` variant fails

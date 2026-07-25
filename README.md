@@ -224,8 +224,9 @@ types/      value types, errors (DataError), schemas
 internal/column/   Arrow-style storage — validity bitmap + Builtin/Numeric backends behind Series
 internal/text/     shared text primitives — lexicographic compare, debug escaping, decimal literal parsing
 internal/literal/  the one scalar-literal renderer, shared by expr / lazy plan rendering
+internal/ir/       module-internal expression AST — ExprNode + the operator tags, walked by the engine
 series/     Series + column-level stats + the shared reduction / rebuild / key-cell kernels
-expr/       composable column expressions — Expr AST, operators / methods, when/then/otherwise, to_string rendering
+expr/       opaque Expr handle — constructors, operators, when/then/otherwise builders, to_string rendering
 frame/      DataFrame + every operator (one per file) + group_by + join + the expression evaluator (with_columns / select / filter / agg) + to_markdown / to_html
 io/         CSV (NyaCSV-backed), JSON, NDJSON read / write + Vega-Lite export
 lazy/       deferred query plan — LazyFrame builders, collect / explain, predicate + projection pushdown

@@ -621,7 +621,7 @@ fn DataFrame::with_same_schema(
 /// which keeps the cells but not the dtype — so it has no source column whose
 /// metadata the result could inherit.
 ///
-/// Written without a wildcard so a new `Expr` variant has to state whether it
+/// Written without a wildcard so a new `ExprNode` variant has to state whether it
 /// is a pure rename rather than defaulting to "no".
 fn projection_source(expr : @ir.ExprNode) -> String? {
   match expr {

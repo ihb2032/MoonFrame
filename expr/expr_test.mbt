@@ -215,8 +215,9 @@ test "deep trees don't overflow structural equality: `==` is iterative" {
 
 ///|
 // The "each variant is unequal to every other variant" coverage test moved to
-// `expr_variant_wbtest.mbt`, where a whitebox `expr_variant_tag` match makes
-// adding an `Expr` variant a compile error until its representative is added —
+// `expr_node_variant_wbtest.mbt`, where a whitebox `expr_node_variant_tag` match
+// makes adding an `ExprNode` variant a compile error until its representative is
+// added —
 // closing the silent gap this blackbox list left (a forgotten rep dropped a
 // variant's equality coverage without any signal).
 

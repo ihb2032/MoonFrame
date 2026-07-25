@@ -3,9 +3,10 @@
 // optimizer walk. Keeping them in an `internal/` package makes them a hard,
 // language-enforced boundary — a downstream module cannot import this package
 // at all — rather than a documentation convention, so the AST genuinely cannot
-// leak into the public surface. The public, buildable-and-matchable `Expr`
-// handle lives in `expr`; the constructible-by-callers `ClosedInterval` lives
-// in `types`.
+// leak into the public surface. The public `Expr` handle lives in `expr` — it
+// is buildable but **opaque** (no variants to match from outside); only the
+// in-module engine reads the `ExprNode` stored inside it. The
+// constructible-by-callers `ClosedInterval` lives in `types`.
 //
 // A node's children are `ExprNode`, not the `@expr.Expr` wrapper: the wrapper
 // references this package for its field, so this package cannot reference the

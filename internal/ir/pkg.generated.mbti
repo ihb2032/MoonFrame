@@ -5,6 +5,7 @@ import {
   "ihb2032/MoonFrame/series",
   "ihb2032/MoonFrame/types",
   "moonbitlang/core/debug",
+  "moonbitlang/core/set",
 }
 
 // Values
@@ -71,6 +72,8 @@ pub(all) enum ExprNode {
 pub fn ExprNode::children(Self) -> Array[Self]
 pub fn ExprNode::equal(Self, Self) -> Bool
 pub fn ExprNode::not_equal(Self, Self) -> Bool
+pub fn ExprNode::output_name(Self) -> String
+pub fn ExprNode::referenced_columns(Self) -> @set.Set[String]
 pub impl Eq for ExprNode
 
 pub(all) enum StrOp {

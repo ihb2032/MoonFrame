@@ -4,7 +4,9 @@ Version-by-version feature history for MoonFrame, newest first. The
 authoritative public-API reference is [`api.md`](api.md); the source-level
 breaking-change steps for each release are collected in
 [`migration.md`](migration.md). Pre-1.0, breaking changes ride the minor
-version.
+version — including a new variant on a public `pub(all)` enum, which is
+source-breaking under MoonBit's exhaustive `match` even though it reads as
+additive.
 
 ## v0.6.0 — API convergence (unreleased)
 

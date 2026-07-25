@@ -258,11 +258,11 @@ test "pipeline: group_by → agg → sort produces a grouped summary via the fac
     Series::from_ints("quantity", [12, 7, 4, 5, 8]),
     Series::from_floats("revenue", [120.0, 66.5, 30.0, 47.5, 90.0]),
   ])
-  // `group_by` returns a `GroupedDataFrame` (re-exported type) and `agg`
-  // takes reduction expressions built from the re-exported `col` — all
-  // through the facade. A missing re-export would surface as a type error
-  // in this file.
-  let grouped : GroupedDataFrame = df.group_by([col("region")])
+  // `group_by` and `agg` chain through the facade — `col` and the verbs are
+  // re-exported, so this reads unqualified. The intermediate `GroupedDataFrame`
+  // is deliberately *not* re-exported (a user never names it, only threads it
+  // through `.agg`), so the binding is left to inference rather than annotated.
+  let grouped = df.group_by([col("region")])
   let summary = grouped
     .agg([
       col("quantity").count().with_alias("quantity_count"),

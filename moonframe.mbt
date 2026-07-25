@@ -26,18 +26,30 @@
 // surface.) The `@ops` package no longer exists (it was folded into `@frame`).
 //
 // The expression / lazy layers follow the same rule for inherent methods:
-// `Expr::{with_alias,cast,eq,sum,...}` and the `LazyFrame` / `LazyGroupBy`
-// methods remain available with their
-// re-exported types. Trait-backed dot methods are different: `expr_ops.mbt`
-// exposes them through explicit `pub extend Expr with Trait::{method}`
-// declarations, while operator syntax is provided by the corresponding trait
-// impls (`Add` / `Sub` / `Mul` / `Div` / `BitAnd` / `BitOr` / `Neg`). Keep the
-// explicit extensions; an impl alone no longer exposes its method through dot
-// syntax. So `@expr`
-// needs explicit re-export only for the free constructors (`col` /
+// `Expr::{with_alias,cast,eq,sum,...}` and the `LazyFrame` methods remain
+// available with their re-exported types. Trait-backed dot methods are
+// different: `expr_ops.mbt` exposes them through explicit
+// `pub extend Expr with Trait::{method}` declarations, while operator syntax is
+// provided by the corresponding trait impls (`Add` / `Sub` / `Mul` / `Div` /
+// `BitAnd` / `BitOr` / `Neg`). Keep the explicit extensions; an impl alone no
+// longer exposes its method through dot syntax.
+//
+// A type is re-exported only when a downstream caller must *name* it — to
+// construct it (`Scalar::Int`, `HtmlOptions::HtmlOptions`), annotate it
+// (`Array[Expr]`, `let df : DataFrame`), or match its variants. The
+// fluent-chain intermediates are deliberately NOT re-exported: `WhenThen` /
+// `WhenThenElse` (threaded through `when(c).then(a).otherwise(b)`) and
+// `GroupedDataFrame` / `LazyGroupBy` (through `group_by(k).agg(e)`). A caller
+// never names one — it only chains a method off the previous step's return
+// value, and dot-method resolution follows that value's own type, so the chain
+// compiles cross-module without the name in scope (verified against a real
+// downstream module). They stay `pub` in their home packages, since the verb
+// that returns one must be; the facade simply does not proxy the name.
+//
+// So `@expr` needs explicit re-export only for the free constructors (`col` /
 // `cols` / `lit` / `lit_int` / `lit_float` / `lit_str` / `lit_bool` /
 // `lit_series` / `when` / `map_many` — `map_elements` is a method, riding
-// along with `type Expr`) and the builder types `WhenThen` / `WhenThenElse`.
+// along with `type Expr`).
 // The `ClosedInterval` enum that names `is_between`'s `closed?` argument now
 // lives in `@types` (the expression AST carries it, and the AST is below
 // `expr`), so it is re-exported from there. The expression AST itself —
@@ -67,8 +79,6 @@ pub using @types {
 ///|
 pub using @expr {
   type Expr,
-  type WhenThen,
-  type WhenThenElse,
   col,
   cols,
   lit,
@@ -92,7 +102,6 @@ pub using @series {type Series}
 pub using @frame {
   type DataFrame,
   type KeepStrategy,
-  type GroupedDataFrame,
   type JoinType,
   type JoinOptions,
   type HtmlOptions,
@@ -130,4 +139,4 @@ pub using @io {
 }
 
 ///|
-pub using @lazy {type LazyFrame, type LazyGroupBy, scan_csv, scan_ndjson}
+pub using @lazy {type LazyFrame, scan_csv, scan_ndjson}

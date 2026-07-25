@@ -499,34 +499,37 @@ pub(all) enum ReduceOp {
 }
 
 ///|
-/// Resolve a `ReduceOp` to its window reducer plus the `ColumnData` probe that
-/// fixes the output dtype: `Count` / `NUnique` are always `Int`, `Mean` / `Std`
-/// / `Var` / `Median` always `Float`, and `Sum` / `Min` / `Max` / `First` /
-/// `Last` keep the source dtype. Shared by the grouped (`agg`) and scoped
-/// (`eval_agg`) reductions so the op → reducer mapping lives in one place.
-/// `Sum` / `Mean` / `Std` / `Var` / `Median` `raise` `TypeMismatch` here for a
-/// non-numeric column, before any window work.
+/// Resolve a `ReduceOp` to its window reducer plus the dtype probe that fixes
+/// the output column's type: `Count` / `NUnique` are always `Int`, `Mean` /
+/// `Std` / `Var` / `Median` always `Float`, and `Sum` / `Min` / `Max` /
+/// `First` / `Last` keep the source dtype. Shared by the grouped (`agg`) and
+/// scoped (`eval_agg`) reductions so the op → reducer mapping lives in one
+/// place. `Sum` / `Mean` / `Std` / `Var` / `Median` `raise` `TypeMismatch`
+/// here for a non-numeric column, before any window work.
+///
+/// The probe is a logical `DataType`, not a physical witness column: the
+/// caller (`frame`'s aggregation layer) only forwards it back into
+/// `scalars_to_series`, and forwarding a dtype keeps the storage
+/// representation on this side of the seam.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
 pub fn reducer_for(
-  storage : @column.ColumnStorage,
+  column : Series,
   op : ReduceOp,
-) -> ((Int, (Int) -> Int) -> @types.Scalar, @column.ColumnData) raise @types.DataError {
+) -> ((Int, (Int) -> Int) -> @types.Scalar, @types.DataType) raise @types.DataError {
+  let storage = column.storage
   match op {
-    Count => (reduce_count(storage), @column.ColumnData::Int([]))
-    Sum => (reduce_arith(storage, want_mean=false), storage.data())
-    Mean =>
-      (reduce_arith(storage, want_mean=true), @column.ColumnData::Float([]))
-    Min => (reduce_extremum(storage, want_min=true), storage.data())
-    Max => (reduce_extremum(storage, want_min=false), storage.data())
-    Std =>
-      (reduce_variance(storage, want_std=true), @column.ColumnData::Float([]))
-    Var =>
-      (reduce_variance(storage, want_std=false), @column.ColumnData::Float([]))
-    Median => (reduce_median(storage), @column.ColumnData::Float([]))
-    NUnique => (reduce_nunique(storage), @column.ColumnData::Int([]))
-    First => (reduce_first_last(storage, want_first=true), storage.data())
-    Last => (reduce_first_last(storage, want_first=false), storage.data())
+    Count => (reduce_count(storage), @types.DataType::Int)
+    Sum => (reduce_arith(storage, want_mean=false), storage.dtype())
+    Mean => (reduce_arith(storage, want_mean=true), @types.DataType::Float)
+    Min => (reduce_extremum(storage, want_min=true), storage.dtype())
+    Max => (reduce_extremum(storage, want_min=false), storage.dtype())
+    Std => (reduce_variance(storage, want_std=true), @types.DataType::Float)
+    Var => (reduce_variance(storage, want_std=false), @types.DataType::Float)
+    Median => (reduce_median(storage), @types.DataType::Float)
+    NUnique => (reduce_nunique(storage), @types.DataType::Int)
+    First => (reduce_first_last(storage, want_first=true), storage.dtype())
+    Last => (reduce_first_last(storage, want_first=false), storage.dtype())
   }
 }
 
@@ -542,15 +545,22 @@ pub fn reducer_for(
 /// value: the catch-all `None` arm is reached by the nullable reductions
 /// (`mean` / `min` / `max` / `std` / `var` / `median` over an empty / all-null
 /// window, and `first` / `last` over a null cell), so no arm is dead.
+///
+/// `probe` is the logical dtype the caller resolved (`reducer_for`'s second
+/// result, the cells' own inferred dtype, or an empty-scope evaluation's), so
+/// no caller outside this package has to name a storage type to build a
+/// column. `Null` is not a column dtype — it is a value-level concept with no
+/// physical backend — so it `raise`s `Unsupported`, exactly as
+/// `Series::empty_of` does.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
 pub fn scalars_to_series(
-  probe : @column.ColumnData,
+  probe : @types.DataType,
   name : String,
   cells : Array[@types.Scalar],
-) -> Series {
+) -> Series raise @types.DataError {
   let built = match probe {
-    @column.ColumnData::Int(_) =>
+    @types.DataType::Int =>
       Series::from_int_options(
         name,
         cells.map(c => {
@@ -560,7 +570,7 @@ pub fn scalars_to_series(
           }
         }),
       )
-    @column.ColumnData::Float(_) =>
+    @types.DataType::Float =>
       Series::from_float_options(
         name,
         cells.map(c => {
@@ -570,7 +580,7 @@ pub fn scalars_to_series(
           }
         }),
       )
-    @column.ColumnData::Bool(_) =>
+    @types.DataType::Bool =>
       Series::from_bool_options(
         name,
         cells.map(c => {
@@ -580,7 +590,7 @@ pub fn scalars_to_series(
           }
         }),
       )
-    @column.ColumnData::String(_) =>
+    @types.DataType::String =>
       Series::from_string_options(
         name,
         cells.map(c => {
@@ -589,6 +599,10 @@ pub fn scalars_to_series(
             _ => None
           }
         }),
+      )
+    @types.DataType::Null =>
+      raise @types.DataError::Unsupported(
+        "cannot build a column of dtype Null: \{name}",
       )
   }
   try_column_to_numeric(built)

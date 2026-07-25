@@ -129,7 +129,7 @@ fn DataFrame::reduce_to_row(
 /// column by the shared `scalars_to_series`.
 ///
 /// Numeric-only for `sum` / `mean` / `min` / `max`: a `Bool` / `String`
-/// column yields a `Null` cell kept in its source dtype (`probe = data`),
+/// column yields a `Null` cell kept in its source dtype (`probe = dtype`),
 /// while a numeric column reduces (`mean` retyped to `Float`). `count` is
 /// dtype-independent — always the non-null count as `Int`. This is distinct
 /// from the expression engine's `eval_agg` (which reduces every dtype and
@@ -140,26 +140,23 @@ fn reduce_column(
   op : FrameReduceOp,
 ) -> Series raise @types.DataError {
   let name = s.name()
-  // `data` doubles as the numeric test (its variant) and, for the
-  // dtype-preserving reductions, the output `probe`; `ColumnData` has no
-  // `Null` variant, so there is no dead arm to thread through. The accessor
-  // wraps the backing array without copying it.
-  let data = s.storage().data()
-  let numeric = match data {
-    @column.ColumnData::Int(_) | @column.ColumnData::Float(_) => true
-    _ => false
-  }
+  // The column's own dtype doubles as the numeric test and, for the
+  // dtype-preserving reductions, the output `probe`. A column dtype is never
+  // `Null` (that is a value-level concept), so `is_numeric` decides the test
+  // without a dead arm and `scalars_to_series` never sees the dtype it rejects.
+  let dtype = s.dtype()
+  let numeric = dtype.is_numeric()
   let (cell, probe) = match op {
     FrameReduceOp::Count =>
-      (@types.Scalar::Int(s.count().to_int64()), @column.ColumnData::Int([]))
+      (@types.Scalar::Int(s.count().to_int64()), @types.DataType::Int)
     // `Series::sum` only raises for a non-numeric dtype, which the `numeric`
     // guard excludes — so the call never actually raises here.
     FrameReduceOp::Sum =>
-      (if numeric { s.sum() } else { @types.Scalar::Null }, data)
+      (if numeric { s.sum() } else { @types.Scalar::Null }, dtype)
     FrameReduceOp::Min =>
-      (if numeric { s.min() } else { @types.Scalar::Null }, data)
+      (if numeric { s.min() } else { @types.Scalar::Null }, dtype)
     FrameReduceOp::Max =>
-      (if numeric { s.max() } else { @types.Scalar::Null }, data)
+      (if numeric { s.max() } else { @types.Scalar::Null }, dtype)
     FrameReduceOp::Mean => {
       // `mean_opt` is the total form of `Series::mean`: `Some` for a numeric
       // column with a non-null cell, `None` for an empty / all-null one (where
@@ -172,7 +169,7 @@ fn reduce_column(
       } else {
         @types.Scalar::Null
       }
-      (cell, if numeric { @column.ColumnData::Float([]) } else { data })
+      (cell, if numeric { @types.DataType::Float } else { dtype })
     }
   }
   scalars_to_series(probe, name, [cell])

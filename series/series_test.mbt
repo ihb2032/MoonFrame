@@ -707,3 +707,43 @@ test "Series::head / tail / reverse mirror the DataFrame verbs" {
   assert_eq(s.reverse().name(), "v")
   assert_eq(s.reverse().reverse(), s)
 }
+
+// ── reduction column builder ─────────────────────────────────────────
+
+///|
+test "scalars_to_series projects reduced cells onto the probe dtype" {
+  // The probe fixes the dtype; each cell projects "matching variant → value,
+  // anything else (including Null) → null". An all-valid numeric result then
+  // converges onto the Numeric backend, like every other computed column.
+  let ints = scalars_to_series(@types.DataType::Int, "n", [
+    @types.Scalar::Int(1),
+    @types.Scalar::Int(2),
+  ])
+  assert_eq(ints.dtype(), @types.DataType::Int)
+  assert_eq(ints.storage_kind(), @column.StorageKind::Numeric)
+  let mixed = scalars_to_series(@types.DataType::Float, "f", [
+    @types.Scalar::Float(1.5),
+    @types.Scalar::Int(2),
+    @types.Scalar::Null,
+  ])
+  assert_eq(mixed.to_scalars(), [
+    @types.Scalar::Float(1.5),
+    @types.Scalar::Null,
+    @types.Scalar::Null,
+  ])
+  assert_eq(mixed.storage_kind(), @column.StorageKind::Builtin)
+}
+
+///|
+test "scalars_to_series rejects Null, the dtype with no column backend" {
+  // No reduction can produce it — `reducer_for`'s probes come from a column's
+  // own dtype and `infer_cells_dtype` returns `None` rather than `Null` — so
+  // this arm exists to keep the projection total over `DataType`, and says so
+  // the same way `Series::empty_of` does.
+  assert_eq(
+    Ok(scalars_to_series(@types.DataType::Null, "n", [@types.Scalar::Null])) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::Unsupported("cannot build a column of dtype Null: n")),
+  )
+}

@@ -118,16 +118,15 @@ pub fn GroupedDataFrame::agg(
   }
   for expr in exprs {
     let out_name = expr_output_name(expr)
-    // `(probe, cells)`: a *deferred* fallback `ColumnData` that types (and
-    // gates) the column only when the cells carry no dtype of their own
-    // (zero groups, or an all-null result), plus one reduced `Scalar` per
-    // group in group order. Both branches feed `agg_cells_to_series`, which
-    // types the column from the cells themselves and converges an all-valid
-    // numeric result onto `Numeric`, so the fast path is cell-for-cell *and
-    // backend* identical to the general one — it only changes how the cells
-    // are computed.
+    // `(probe, cells)`: a *deferred* fallback dtype that types (and gates) the
+    // column only when the cells carry no dtype of their own (zero groups, or
+    // an all-null result), plus one reduced `Scalar` per group in group order.
+    // Both branches feed `agg_cells_to_series`, which types the column from
+    // the cells themselves and converges an all-valid numeric result onto
+    // `Numeric`, so the fast path is cell-for-cell *and backend* identical to
+    // the general one — it only changes how the cells are computed.
     let (probe, cells) : (
-      () -> @column.ColumnData raise @types.DataError,
+      () -> @types.DataType raise @types.DataError,
       Array[@types.Scalar],
     ) = match bare_col_agg(expr.node()) {
       // Fast path: an aggregation over a bare column, `col(name).<agg>()`.
@@ -137,10 +136,7 @@ pub fn GroupedDataFrame::agg(
       // work), then fold each group's row indices straight off the source
       // column — no per-group sub-column is gathered.
       Some((name, rop)) => {
-        let (reducer, probe) = reducer_for(
-          self.source.get_column(name).storage(),
-          rop,
-        )
+        let (reducer, probe) = reducer_for(self.source.get_column(name), rop)
         (() => probe, self.groups.map(g => reducer(g.length(), k => g[k])))
       }
       // General path: a derived or compound reduction such as
@@ -163,7 +159,7 @@ pub fn GroupedDataFrame::agg(
           )
         }
         (
-          () => eval_expr(expr, self.source, []).storage().data(),
+          () => eval_expr(expr, self.source, []).dtype(),
           self.groups.map(g => eval_expr(expr, self.source, g).to_scalars()[0]),
         )
       }
@@ -286,7 +282,7 @@ fn bare_col_agg(expr : @ir.ExprNode) -> (String, ReduceOp)? {
 /// differs (reachable via `first` / `last` / `min` / `max`).
 fn agg_cells_to_series(
   cells : Array[@types.Scalar],
-  fallback : () -> @column.ColumnData raise @types.DataError,
+  fallback : () -> @types.DataType raise @types.DataError,
   name : String,
 ) -> Series raise @types.DataError {
   let cells = @kernel.promote_mixed_int_float(cells)

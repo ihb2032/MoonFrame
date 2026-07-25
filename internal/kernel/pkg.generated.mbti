@@ -2,7 +2,6 @@
 package "ihb2032/MoonFrame/internal/kernel"
 
 import {
-  "ihb2032/MoonFrame/internal/column",
   "ihb2032/MoonFrame/internal/ir",
   "ihb2032/MoonFrame/series",
   "ihb2032/MoonFrame/types",
@@ -48,7 +47,7 @@ pub fn eval_ternary(@series.Series, @series.Series, @series.Series) -> @series.S
 
 pub fn eval_unary_num(@series.Series, String, (Int64) -> Int64, (Double) -> Double) -> @series.Series raise @types.DataError
 
-pub fn infer_cells_dtype(Array[@types.Scalar]) -> @column.ColumnData?
+pub fn infer_cells_dtype(Array[@types.Scalar]) -> @types.DataType?
 
 pub fn kleene_and(Bool?, Bool?) -> Bool?
 

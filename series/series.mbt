@@ -1,23 +1,21 @@
 ///|
 /// A one-dimensional, dtype-aware column with a name. `Series` is the
-/// per-column unit behind `DataFrame`: it bundles a `ColumnStorage` (the
-/// pluggable backend seam — `Builtin` Arrow storage with an explicit
-/// validity bitmap, or the all-valid unboxed `Numeric` fast path) with a
-/// column name, and exposes the structural, nullability, transform, and
-/// cast surface that ops / IO layers rely on. Statistics live in
-/// `series_stats.mbt`.
+/// per-column unit behind `DataFrame`, exposing the structural, nullability,
+/// transform, cast, and (in `series_stats.mbt`) statistics surface that the
+/// ops / IO layers build on.
 ///
-/// The `storage` field is a `ColumnStorage` as of v0.3 (it was a bare
-/// `BuiltinColumn` through v0.2). Every accessor forwards to the
-/// identically-named `ColumnStorage` method, so the backend is transparent
-/// to readers — `storage_kind` / `to_numeric` / `to_builtin` are the only
-/// surface that observes or chooses it.
+/// Its backend is an internal representation — Arrow-style storage with an
+/// explicit validity bitmap, or an all-valid unboxed numeric fast path — chosen
+/// and canonicalised by the engine. It is transparent to callers: a public
+/// caller neither observes nor selects a backend, and computed or rebuilt
+/// results are re-converged onto the fast path automatically. (The backend seam
+/// and its selectors are engine-internal; see `internal/column` and
+/// [`docs/performance.md`](../docs/performance.md).)
 ///
-/// The fields are `priv`, so the struct is opaque outside this package:
-/// readers reach a column through the accessor methods (`name()` /
-/// `storage()` / `storage_kind()` / `dtype()` / …) and build one through
-/// the named constructors, so the underlying column always keeps its
-/// data-and-validity invariants.
+/// The fields are `priv`, so the struct is opaque outside this package: reach a
+/// column through the value-level accessors (`name()` / `dtype()` / `len()` /
+/// `get()` / `to_scalars()` / …) and build one through the named constructors,
+/// so the underlying column always keeps its data-and-validity invariants.
 pub struct Series {
   priv name : String
   priv storage : @column.ColumnStorage
@@ -710,8 +708,8 @@ pub fn Series::fill_null(
 ///   value, so the only failure is the unsupported-target guard below.
 ///
 /// Null slots are preserved verbatim. A numeric result lands on the
-/// `Builtin` backend (re-converge with `to_numeric` for the fast path).
-/// `Bool` and `Null` targets `raise Unsupported(_)`.
+/// `Builtin` backend; the engine re-converges it onto the unboxed fast path
+/// where a later step benefits. `Bool` and `Null` targets `raise Unsupported(_)`.
 pub fn Series::cast(
   self : Series,
   target : @types.DataType,

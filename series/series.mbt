@@ -54,6 +54,30 @@ pub fn Series::from_builtin(
 }
 
 ///|
+/// An empty (0-row) `Series` of the given dtype — the physical dispatch behind
+/// `DataFrame::empty`, kept here in `series` (which owns the column) so `frame`
+/// need not match storage backends to build an empty column. A `Null` dtype has
+/// no physical backend, so it `raise`s `Unsupported`.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
+pub fn Series::empty_of(
+  name : String,
+  dtype : @types.DataType,
+) -> Series raise @types.DataError {
+  let storage = match @column.physical_type(dtype) {
+    Some(@column.PhysicalType::I64) => @column.BuiltinColumn::from_ints([])
+    Some(@column.PhysicalType::F64) => @column.BuiltinColumn::from_floats([])
+    Some(@column.PhysicalType::Bool) => @column.BuiltinColumn::from_bools([])
+    Some(@column.PhysicalType::Utf8) => @column.BuiltinColumn::from_strings([])
+    None =>
+      raise @types.DataError::Unsupported(
+        "cannot build an empty column of dtype Null: \{name}",
+      )
+  }
+  Series::from_builtin(name, storage)
+}
+
+///|
 /// Build an `Int` series from raw values (no nulls). Lands on the `Numeric`
 /// fast-path backend — no validity bitmap is allocated.
 ///

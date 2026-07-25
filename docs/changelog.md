@@ -115,6 +115,17 @@ collected in [`migration.md`](migration.md).
   columns, and there are none. `is_empty()` remains `nrows() == 0`, so an
   `N×0` frame is not empty, and INV7 now states `nrows >= 0` — the property
   that survives. A `with_columns` over an `N×0` frame computes over its rows.
+- **Structured error detail on `TypeMismatch` / `ParseError`.** In v0.5 these
+  two `DataError` variants each carried a flat `String`. They now carry typed
+  detail enums — `TypeMismatch(TypeMismatchDetail)` and
+  `ParseError(ParseErrorDetail)` — so a handler can inspect a type mismatch
+  (expected / actual dtype, and the column when one is known) or a parse
+  failure (the failing cell's location, column, 1-based position, expected
+  dtype, and raw value) structurally rather than scraping a message string.
+  `DataError::message()` still renders the same human-readable text, so code
+  that only formats the error is unaffected; code that matched
+  `TypeMismatch(s)` / `ParseError(s)` for the string now matches the detail
+  enum (or calls `message()`).
 - `Field::new(name, dtype)` and `Field::with_nullable(name, dtype, nullable)`
   are replaced by the single custom constructor
   `Field::Field(name, dtype, nullable? = true)`.

@@ -133,6 +133,20 @@ the new home:
 | `@frame.SortOrder::Desc` | `@types.SortOrder::Desc` |
 | `@frame.NullOrder::NullsLast` | `@types.NullOrder::NullsLast` |
 
+### `DataError::TypeMismatch` / `ParseError` carry structured detail
+
+In v0.5 both variants held a flat `String`. They now hold typed detail enums —
+`TypeMismatchDetail` and `ParseErrorDetail` — so a handler can branch on the
+failure instead of parsing a message. The rendered text
+(`DataError::message()`) is unchanged, so a `catch` that only formats the error
+needs no change; a `match` that bound the string does:
+
+| v0.5 | v0.6 |
+| --- | --- |
+| `TypeMismatch(msg)` — `msg : String` | `TypeMismatch(detail)` — `detail : TypeMismatchDetail` |
+| `ParseError(msg)` — `msg : String` | `ParseError(detail)` — `detail : ParseErrorDetail` |
+| `e.message()` | `e.message()` (unchanged) |
+
 ### `Expr` is opaque; `ClosedInterval` moved to `types`
 
 The expression tree is no longer a matchable `pub enum Expr`. It is an opaque

@@ -37,11 +37,13 @@
 // needs explicit re-export only for the free constructors (`col` /
 // `cols` / `lit` / `lit_int` / `lit_float` / `lit_str` / `lit_bool` /
 // `lit_series` / `when` / `map_many` — `map_elements` is a method, riding
-// along with `type Expr`), the builder types `WhenThen` /
-// `WhenThenElse`, and the `ClosedInterval` enum that names
-// `is_between`'s `closed?` argument; the
-// `BinOp` / `UnOp` / `AggOp` / `StrOp` tag enums are inert (no public API
-// names them), so they are deliberately *not* re-exported. `@lazy` needs the
+// along with `type Expr`) and the builder types `WhenThen` / `WhenThenElse`.
+// The `ClosedInterval` enum that names `is_between`'s `closed?` argument now
+// lives in `@types` (the expression AST carries it, and the AST is below
+// `expr`), so it is re-exported from there. The expression AST itself —
+// `ExprNode` and its `BinOp` / `UnOp` / `AggOp` / `StrOp` tags — lives in the
+// module-internal `internal/ir` package, unreachable downstream and named by
+// no public API, so there is nothing to re-export for it. `@lazy` needs the
 // `scan_csv` / `scan_ndjson` file sources, whose optional options parameters
 // ride along with `@io`; its own entry point rides along with
 // `type LazyFrame` as that type's constructor.
@@ -58,6 +60,7 @@ pub using @types {
   type Schema,
   type SortOrder,
   type NullOrder,
+  type ClosedInterval,
   type PhysicalType,
 }
 
@@ -66,7 +69,6 @@ pub using @expr {
   type Expr,
   type WhenThen,
   type WhenThenElse,
-  type ClosedInterval,
   col,
   cols,
   lit,

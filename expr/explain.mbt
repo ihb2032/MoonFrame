@@ -57,22 +57,9 @@ pub extend Expr with Debug::{to_repr}
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
 pub fn Expr::children(self : Expr) -> Array[Expr] {
-  match self {
-    Col(_) | Lit(_) | LitSeries(_) => []
-    Binary(_, l, r) => [l, r]
-    Unary(_, e) | Agg(_, e) | Str(_, e) | Cast(e, _) | Alias(e, _) => [e]
-    Ternary(c, t, f) => [c, t, f]
-    // Operand first, fill value second — so the naming walk finds the
-    // operand's name before the value's, exactly as the old ternary
-    // lowering's `then`-before-`otherwise` order did.
-    FillNull(o, v) | FillNan(o, v) => [o, v]
-    // The `IsIn` set is literal data, not sub-expressions — only the operand is
-    // a child. `IsBetween` lists its operand and both bounds.
-    IsIn(e, _) => [e]
-    IsBetween(x, lo, hi, _) => [x, lo, hi]
-    Map(_, inputs, _) => inputs.copy()
-    MapBatches(_, inputs, _, _) => inputs.copy()
-  }
+  // The AST's shape lives on `@ir.ExprNode::children`; wrap each raw child back
+  // into the opaque `Expr` this returns, so a caller walks the handle.
+  self.node.children().map(Expr::of)
 }
 
 ///|
@@ -108,7 +95,7 @@ fn collect_columns(expr : Expr, acc : @set.Set[String]) -> Unit {
     match stack.pop() {
       None => break
       Some(e) => {
-        match e {
+        match e.node {
           Col(name) => acc.add(name)
           _ => ()
         }
@@ -164,13 +151,13 @@ fn leftmost_name(expr : Expr) -> String? {
     match stack.pop() {
       None => break
       Some(e) =>
-        match e {
+        match e.node {
           Col(name) => return Some(name)
           LitSeries(s) => return Some(s.name())
           Alias(_, name) => return Some(name)
           Ternary(_, t, f) => {
-            stack.push(f)
-            stack.push(t)
+            stack.push(Expr::of(f))
+            stack.push(Expr::of(t))
           }
           _ => {
             let children = e.children()
@@ -194,7 +181,7 @@ priv enum WriteTask {
   Node(Expr)
   ScalarLit(@types.Scalar)
   CastTarget(@types.DataType)
-  StrSuffix(StrOp)
+  StrSuffix(@ir.StrOp)
 }
 
 ///|
@@ -226,7 +213,7 @@ fn write_expr(logger : &Logger, expr : Expr) -> Unit {
 /// left to right (built forward, then pushed in reverse so the first pops
 /// first). The per-variant shapes mirror the recursive renderer exactly.
 fn push_write_tasks(stack : Array[WriteTask], expr : Expr) -> Unit {
-  let tasks : Array[WriteTask] = match expr {
+  let tasks : Array[WriteTask] = match expr.node {
     // `col(name)` and `Alias`'s ` as name` render the name UNQUOTED, unlike a
     // string literal (`@literal.format_scalar` quotes those), so
     // `col("x")` stays distinct
@@ -241,45 +228,57 @@ fn push_write_tasks(stack : Array[WriteTask], expr : Expr) -> Unit {
     // every cell.
     LitSeries(s) =>
       [Frag("lit_series(\"\{@text.escape_debug(s.name())}\", \{s.len()})")]
+    // A `Node` holds the opaque `Expr`, so every AST child is wrapped with
+    // `Expr::of` before it is pushed for expansion.
     Binary(op, l, r) =>
-      [Frag("("), Node(l), Frag(" \{binop_symbol(op)} "), Node(r), Frag(")")]
+      [
+        Frag("("),
+        Node(Expr::of(l)),
+        Frag(" \{binop_symbol(op)} "),
+        Node(Expr::of(r)),
+        Frag(")"),
+      ]
     Unary(op, e) =>
       match op {
-        Neg => [Frag("(-"), Node(e), Frag(")")]
-        Not => [Frag("(not "), Node(e), Frag(")")]
-        IsNull => [Node(e), Frag(".is_null()")]
-        IsNotNull => [Node(e), Frag(".is_not_null()")]
-        IsNan => [Node(e), Frag(".is_nan()")]
-        IsNotNan => [Node(e), Frag(".is_not_nan()")]
-        Abs => [Node(e), Frag(".abs()")]
-        Floor => [Node(e), Frag(".floor()")]
-        Ceil => [Node(e), Frag(".ceil()")]
-        Sign => [Node(e), Frag(".sign()")]
-        Round(0) => [Node(e), Frag(".round()")]
-        Round(d) => [Node(e), Frag(".round(decimals=\{d})")]
+        Neg => [Frag("(-"), Node(Expr::of(e)), Frag(")")]
+        Not => [Frag("(not "), Node(Expr::of(e)), Frag(")")]
+        IsNull => [Node(Expr::of(e)), Frag(".is_null()")]
+        IsNotNull => [Node(Expr::of(e)), Frag(".is_not_null()")]
+        IsNan => [Node(Expr::of(e)), Frag(".is_nan()")]
+        IsNotNan => [Node(Expr::of(e)), Frag(".is_not_nan()")]
+        Abs => [Node(Expr::of(e)), Frag(".abs()")]
+        Floor => [Node(Expr::of(e)), Frag(".floor()")]
+        Ceil => [Node(Expr::of(e)), Frag(".ceil()")]
+        Sign => [Node(Expr::of(e)), Frag(".sign()")]
+        Round(0) => [Node(Expr::of(e)), Frag(".round()")]
+        Round(d) => [Node(Expr::of(e)), Frag(".round(decimals=\{d})")]
       }
-    Agg(op, e) => [Node(e), Frag(agg_suffix(op))]
-    Str(op, e) => [Node(e), StrSuffix(op)]
-    Cast(e, target) => [Node(e), Frag(".cast("), CastTarget(target), Frag(")")]
-    Alias(e, name) => [Node(e), Frag(" as \{@text.escape_debug(name)}")]
+    Agg(op, e) => [Node(Expr::of(e)), Frag(agg_suffix(op))]
+    Str(op, e) => [Node(Expr::of(e)), StrSuffix(op)]
+    Cast(e, target) =>
+      [Node(Expr::of(e)), Frag(".cast("), CastTarget(target), Frag(")")]
+    Alias(e, name) =>
+      [Node(Expr::of(e)), Frag(" as \{@text.escape_debug(name)}")]
     Ternary(c, t, f) =>
       [
         Frag("when("),
-        Node(c),
+        Node(Expr::of(c)),
         Frag(").then("),
-        Node(t),
+        Node(Expr::of(t)),
         Frag(").otherwise("),
-        Node(f),
+        Node(Expr::of(f)),
         Frag(")"),
       ]
     // Postfix method-call form, mirroring the construction route — the
     // operand appears once, so a chained coalesce renders linearly.
-    FillNull(o, v) => [Node(o), Frag(".fill_null("), Node(v), Frag(")")]
-    FillNan(o, v) => [Node(o), Frag(".fill_nan("), Node(v), Frag(")")]
+    FillNull(o, v) =>
+      [Node(Expr::of(o)), Frag(".fill_null("), Node(Expr::of(v)), Frag(")")]
+    FillNan(o, v) =>
+      [Node(Expr::of(o)), Frag(".fill_nan("), Node(Expr::of(v)), Frag(")")]
     // `col(a).is_in([1, 2])`: the operand, then each set member rendered as a
     // literal (`format_scalar`, like a `Lit`) inside `[...]`.
     IsIn(operand, members) => {
-      let ts : Array[WriteTask] = [Node(operand), Frag(".is_in([")]
+      let ts : Array[WriteTask] = [Node(Expr::of(operand)), Frag(".is_in([")]
       for i in 0..<members.length() {
         if i > 0 {
           ts.push(Frag(", "))
@@ -293,17 +292,17 @@ fn push_write_tasks(stack : Array[WriteTask], expr : Expr) -> Unit {
     // A non-default `closed` renders as the named argument that builds it.
     IsBetween(x, lo, hi, closed) => {
       let ts : Array[WriteTask] = [
-        Node(x),
+        Node(Expr::of(x)),
         Frag(".is_between("),
-        Node(lo),
+        Node(Expr::of(lo)),
         Frag(", "),
-        Node(hi),
+        Node(Expr::of(hi)),
       ]
       match closed {
-        ClosedInterval::Both => ()
-        ClosedInterval::Left => ts.push(Frag(", closed=Left"))
-        ClosedInterval::Right => ts.push(Frag(", closed=Right"))
-        ClosedInterval::None => ts.push(Frag(", closed=None"))
+        @types.ClosedInterval::Both => ()
+        @types.ClosedInterval::Left => ts.push(Frag(", closed=Left"))
+        @types.ClosedInterval::Right => ts.push(Frag(", closed=Right"))
+        @types.ClosedInterval::None => ts.push(Frag(", closed=None"))
       }
       ts.push(Frag(")"))
       ts
@@ -319,7 +318,7 @@ fn push_write_tasks(stack : Array[WriteTask], expr : Expr) -> Unit {
         if i > 0 {
           ts.push(Frag(", "))
         }
-        ts.push(Node(inputs[i]))
+        ts.push(Node(Expr::of(inputs[i])))
       }
       ts.push(Frag("])"))
       ts
@@ -335,7 +334,7 @@ fn push_write_tasks(stack : Array[WriteTask], expr : Expr) -> Unit {
         if i > 0 {
           ts.push(Frag(", "))
         }
-        ts.push(Node(inputs[i]))
+        ts.push(Node(Expr::of(inputs[i])))
       }
       ts.push(
         Frag(if returns_scalar { "], returns_scalar=true)" } else { "])" }),
@@ -351,7 +350,7 @@ fn push_write_tasks(stack : Array[WriteTask], expr : Expr) -> Unit {
 ///|
 /// Infix symbol for a binary tag — the call-site spelling (`&` / `|` for
 /// the Kleene connectives, comparison glyphs for the method family).
-fn binop_symbol(op : BinOp) -> String {
+fn binop_symbol(op : @ir.BinOp) -> String {
   match op {
     Add => "+"
     Sub => "-"
@@ -373,7 +372,7 @@ fn binop_symbol(op : BinOp) -> String {
 
 ///|
 /// Postfix method spelling for an aggregation tag.
-fn agg_suffix(op : AggOp) -> String {
+fn agg_suffix(op : @ir.AggOp) -> String {
   match op {
     Sum => ".sum()"
     Mean => ".mean()"
@@ -395,7 +394,7 @@ fn agg_suffix(op : AggOp) -> String {
 /// operations carry literal arguments that are quoted and escaped like a
 /// `lit_str` — `.str_contains("foo")`, `.str_replace("a", "b")` — so a plan
 /// line stays unambiguous and on one line.
-fn write_str_suffix(logger : &Logger, op : StrOp) -> Unit {
+fn write_str_suffix(logger : &Logger, op : @ir.StrOp) -> Unit {
   match op {
     ToUppercase => logger.write_string(".str_to_uppercase()")
     ToLowercase => logger.write_string(".str_to_lowercase()")

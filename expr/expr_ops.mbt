@@ -5,7 +5,7 @@
 /// reference itself is total. A free function, like the `lit*` family — the
 /// facade re-exports it.
 pub fn col(name : String) -> Expr {
-  Col(name)
+  Expr::of(@ir.ExprNode::Col(name))
 }
 
 ///|
@@ -25,7 +25,7 @@ pub fn cols(names : Array[String]) -> Array[Expr] {
 /// (`lit_int` / `lit_float` / `lit_str` / `lit_bool`), which avoid
 /// spelling the `Scalar` variant at call sites.
 pub fn lit(value : @types.Scalar) -> Expr {
-  Lit(value)
+  Expr::of(@ir.ExprNode::Lit(value))
 }
 
 ///|
@@ -66,7 +66,7 @@ pub fn lit_bool(value : Bool) -> Expr {
 /// Building the node is total; the length check happens at evaluation, in
 /// `frame`.
 pub fn lit_series(series : @series.Series) -> Expr {
-  LitSeries(series)
+  Expr::of(@ir.ExprNode::LitSeries(series))
 }
 
 ///|
@@ -75,7 +75,7 @@ pub fn lit_series(series : @series.Series) -> Expr {
 /// either side nulls the output cell, non-numeric operands are
 /// `TypeMismatch`.
 pub impl Add for Expr with fn add(self, other) {
-  Binary(BinOp::Add, self, other)
+  Expr::of(@ir.ExprNode::Binary(@ir.BinOp::Add, self.node, other.node))
 }
 
 ///|
@@ -84,7 +84,7 @@ pub extend Expr with Add::{add}
 ///|
 /// `a - b` — numeric subtraction, same promotion / null rules as `+`.
 pub impl Sub for Expr with fn sub(self, other) {
-  Binary(BinOp::Sub, self, other)
+  Expr::of(@ir.ExprNode::Binary(@ir.BinOp::Sub, self.node, other.node))
 }
 
 ///|
@@ -93,7 +93,7 @@ pub extend Expr with Sub::{sub}
 ///|
 /// `a * b` — numeric multiplication, same promotion / null rules as `+`.
 pub impl Mul for Expr with fn mul(self, other) {
-  Binary(BinOp::Mul, self, other)
+  Expr::of(@ir.ExprNode::Binary(@ir.BinOp::Mul, self.node, other.node))
 }
 
 ///|
@@ -106,7 +106,7 @@ pub extend Expr with Mul::{mul}
 /// behaviour differs across backends, so it is never emitted. A null on
 /// either side nulls the output cell.
 pub impl Div for Expr with fn div(self, other) {
-  Binary(BinOp::Div, self, other)
+  Expr::of(@ir.ExprNode::Binary(@ir.BinOp::Div, self.node, other.node))
 }
 
 ///|
@@ -123,7 +123,7 @@ pub extend Expr with Div::{div}
 /// either side nulls the output cell; a non-numeric operand raises
 /// `TypeMismatch`.
 pub fn Expr::floor_div(self : Expr, other : Expr) -> Expr {
-  Binary(BinOp::FloorDiv, self, other)
+  Expr::of(@ir.ExprNode::Binary(@ir.BinOp::FloorDiv, self.node, other.node))
 }
 
 ///|
@@ -134,7 +134,7 @@ pub fn Expr::floor_div(self : Expr, other : Expr) -> Expr {
 /// modulo by zero is `NaN`. A null on either side nulls the output cell; a
 /// non-numeric operand raises `TypeMismatch`.
 pub fn Expr::modulo(self : Expr, other : Expr) -> Expr {
-  Binary(BinOp::Mod, self, other)
+  Expr::of(@ir.ExprNode::Binary(@ir.BinOp::Mod, self.node, other.node))
 }
 
 ///|
@@ -145,7 +145,7 @@ pub fn Expr::modulo(self : Expr, other : Expr) -> Expr {
 /// `NaN`). A null on either side nulls the output cell; a non-numeric operand
 /// raises `TypeMismatch`.
 pub fn Expr::pow(self : Expr, other : Expr) -> Expr {
-  Binary(BinOp::Pow, self, other)
+  Expr::of(@ir.ExprNode::Binary(@ir.BinOp::Pow, self.node, other.node))
 }
 
 ///|
@@ -157,7 +157,7 @@ pub fn Expr::pow(self : Expr, other : Expr) -> Expr {
 /// the alias: `a.land(b)` — `and` is a MoonBit reserved word (mutual
 /// recursion), so the core trait's own spelling serves instead.
 pub impl BitAnd for Expr with fn land(self, other) {
-  Binary(BinOp::And, self, other)
+  Expr::of(@ir.ExprNode::Binary(@ir.BinOp::And, self.node, other.node))
 }
 
 ///|
@@ -169,7 +169,7 @@ pub extend Expr with BitAnd::{land}
 /// operator-choice rationale as `&`; the method alias is likewise the impl
 /// spelling, `a.lor(b)` (paired with `land` rather than a lone `or`).
 pub impl BitOr for Expr with fn lor(self, other) {
-  Binary(BinOp::Or, self, other)
+  Expr::of(@ir.ExprNode::Binary(@ir.BinOp::Or, self.node, other.node))
 }
 
 ///|
@@ -179,7 +179,7 @@ pub extend Expr with BitOr::{lor}
 /// `-e` — numeric negation. `Int` negation wraps on `Int64` minimum
 /// (MoonBit semantics — total, never aborts); `Float` follows IEEE 754.
 pub impl Neg for Expr with fn neg(self) {
-  Unary(UnOp::Neg, self)
+  Expr::of(@ir.ExprNode::Unary(@ir.UnOp::Neg, self.node))
 }
 
 ///|
@@ -190,7 +190,7 @@ pub extend Expr with Neg::{neg}
 /// `Float → Float` (`|NaN| = NaN`, `|-0.0| = 0.0`). A null stays null; a
 /// non-numeric operand raises `TypeMismatch`.
 pub fn Expr::abs(self : Expr) -> Expr {
-  Unary(UnOp::Abs, self)
+  Expr::of(@ir.ExprNode::Unary(@ir.UnOp::Abs, self.node))
 }
 
 ///|
@@ -198,7 +198,7 @@ pub fn Expr::abs(self : Expr) -> Expr {
 /// Int` unchanged (an integer is its own floor). `±inf` / `NaN` pass through.
 /// A null stays null; a non-numeric operand raises `TypeMismatch`.
 pub fn Expr::floor(self : Expr) -> Expr {
-  Unary(UnOp::Floor, self)
+  Expr::of(@ir.ExprNode::Unary(@ir.UnOp::Floor, self.node))
 }
 
 ///|
@@ -206,7 +206,7 @@ pub fn Expr::floor(self : Expr) -> Expr {
 /// Int` unchanged. `±inf` / `NaN` pass through. A null stays null; a
 /// non-numeric operand raises `TypeMismatch`.
 pub fn Expr::ceil(self : Expr) -> Expr {
-  Unary(UnOp::Ceil, self)
+  Expr::of(@ir.ExprNode::Unary(@ir.UnOp::Ceil, self.node))
 }
 
 ///|
@@ -214,7 +214,7 @@ pub fn Expr::ceil(self : Expr) -> Expr {
 /// Int`, `Float → Float`). `Float` `NaN` stays `NaN` and `±0.0` gives `0.0`. A
 /// null stays null; a non-numeric operand raises `TypeMismatch`.
 pub fn Expr::sign(self : Expr) -> Expr {
-  Unary(UnOp::Sign, self)
+  Expr::of(@ir.ExprNode::Unary(@ir.UnOp::Sign, self.node))
 }
 
 ///|
@@ -231,7 +231,12 @@ pub fn Expr::sign(self : Expr) -> Expr {
 /// perturbing it by an ulp. (The other rounding modes remain a deferred
 /// additive refinement; this is the ties-to-even form.)
 pub fn Expr::round(self : Expr, decimals? : Int = 0) -> Expr {
-  Unary(UnOp::Round(if decimals < 0 { 0 } else { decimals }), self)
+  Expr::of(
+    @ir.ExprNode::Unary(
+      @ir.UnOp::Round(if decimals < 0 { 0 } else { decimals }),
+      self.node,
+    ),
+  )
 }
 
 ///|
@@ -242,37 +247,37 @@ pub fn Expr::round(self : Expr, decimals? : Int = 0) -> Expr {
 /// `a.gt(x) & b.lt(y)` needs none of the parentheses Polars' operator
 /// comparisons force. A null on either side nulls the output cell.
 pub fn Expr::eq(self : Expr, other : Expr) -> Expr {
-  Binary(BinOp::Eq, self, other)
+  Expr::of(@ir.ExprNode::Binary(@ir.BinOp::Eq, self.node, other.node))
 }
 
 ///|
 /// `a.ne(b)` — elementwise inequality (`Bool` column, null-propagating).
 pub fn Expr::ne(self : Expr, other : Expr) -> Expr {
-  Binary(BinOp::Ne, self, other)
+  Expr::of(@ir.ExprNode::Binary(@ir.BinOp::Ne, self.node, other.node))
 }
 
 ///|
 /// `a.lt(b)` — elementwise `<` (`Bool` column, null-propagating).
 pub fn Expr::lt(self : Expr, other : Expr) -> Expr {
-  Binary(BinOp::Lt, self, other)
+  Expr::of(@ir.ExprNode::Binary(@ir.BinOp::Lt, self.node, other.node))
 }
 
 ///|
 /// `a.le(b)` — elementwise `<=` (`Bool` column, null-propagating).
 pub fn Expr::le(self : Expr, other : Expr) -> Expr {
-  Binary(BinOp::Le, self, other)
+  Expr::of(@ir.ExprNode::Binary(@ir.BinOp::Le, self.node, other.node))
 }
 
 ///|
 /// `a.gt(b)` — elementwise `>` (`Bool` column, null-propagating).
 pub fn Expr::gt(self : Expr, other : Expr) -> Expr {
-  Binary(BinOp::Gt, self, other)
+  Expr::of(@ir.ExprNode::Binary(@ir.BinOp::Gt, self.node, other.node))
 }
 
 ///|
 /// `a.ge(b)` — elementwise `>=` (`Bool` column, null-propagating).
 pub fn Expr::ge(self : Expr, other : Expr) -> Expr {
-  Binary(BinOp::Ge, self, other)
+  Expr::of(@ir.ExprNode::Binary(@ir.BinOp::Ge, self.node, other.node))
 }
 
 ///|
@@ -284,7 +289,7 @@ pub fn Expr::ge(self : Expr, other : Expr) -> Expr {
 /// member matches nothing (it has no value to equal), an empty set is `false`
 /// for every present cell, and a null cell yields null.
 pub fn Expr::is_in(self : Expr, members : Array[@types.Scalar]) -> Expr {
-  IsIn(self, members.copy())
+  Expr::of(@ir.ExprNode::IsIn(self.node, members.copy()))
 }
 
 ///|
@@ -300,30 +305,30 @@ pub fn Expr::is_between(
   self : Expr,
   lo : Expr,
   hi : Expr,
-  closed? : ClosedInterval = Both,
+  closed? : @types.ClosedInterval = Both,
 ) -> Expr {
-  IsBetween(self, lo, hi, closed)
+  Expr::of(@ir.ExprNode::IsBetween(self.node, lo.node, hi.node, closed))
 }
 
 ///|
 /// Kleene logical negation of a `Bool` expression (`not(null) = null`).
 /// A method because MoonBit has no overloadable unary `~` / `!`.
 pub fn Expr::not(self : Expr) -> Expr {
-  Unary(UnOp::Not, self)
+  Expr::of(@ir.ExprNode::Unary(@ir.UnOp::Not, self.node))
 }
 
 ///|
 /// `Bool` column that is `true` where the operand is null. Reads validity
 /// only, so the result is itself never null (total).
 pub fn Expr::is_null(self : Expr) -> Expr {
-  Unary(UnOp::IsNull, self)
+  Expr::of(@ir.ExprNode::Unary(@ir.UnOp::IsNull, self.node))
 }
 
 ///|
 /// `Bool` column that is `true` where the operand is non-null — the
 /// complement of `is_null`, equally total.
 pub fn Expr::is_not_null(self : Expr) -> Expr {
-  Unary(UnOp::IsNotNull, self)
+  Expr::of(@ir.ExprNode::Unary(@ir.UnOp::IsNotNull, self.node))
 }
 
 ///|
@@ -335,7 +340,7 @@ pub fn Expr::is_not_null(self : Expr) -> Expr {
 /// result cell is null — since `NaN` is a real value distinct from a missing
 /// one. Building the node is total.
 pub fn Expr::is_nan(self : Expr) -> Expr {
-  Unary(UnOp::IsNan, self)
+  Expr::of(@ir.ExprNode::Unary(@ir.UnOp::IsNan, self.node))
 }
 
 ///|
@@ -343,7 +348,7 @@ pub fn Expr::is_nan(self : Expr) -> Expr {
 /// — the complement of `is_nan` on non-null cells, propagating nulls the same
 /// way (a missing cell stays null). Same numeric-operand requirement.
 pub fn Expr::is_not_nan(self : Expr) -> Expr {
-  Unary(UnOp::IsNotNan, self)
+  Expr::of(@ir.ExprNode::Unary(@ir.UnOp::IsNotNan, self.node))
 }
 
 ///|
@@ -362,7 +367,7 @@ pub fn Expr::is_not_nan(self : Expr) -> Expr {
 /// evaluates) `self` once, so a chain of fills stays linear in tree size
 /// and work. Building the node is total.
 pub fn Expr::fill_nan(self : Expr, value : Expr) -> Expr {
-  FillNan(self, value)
+  Expr::of(@ir.ExprNode::FillNan(self.node, value.node))
 }
 
 ///|
@@ -387,7 +392,7 @@ pub fn Expr::fill_nan(self : Expr, value : Expr) -> Expr {
 /// exponentially with chain length. Building the node is total; errors
 /// surface when a consuming verb evaluates it.
 pub fn Expr::fill_null(self : Expr, value : Expr) -> Expr {
-  FillNull(self, value)
+  Expr::of(@ir.ExprNode::FillNull(self.node, value.node))
 }
 
 ///|
@@ -395,35 +400,35 @@ pub fn Expr::fill_null(self : Expr, value : Expr) -> Expr {
 /// under `agg`). Inherits `Series::sum` semantics: NaN propagates,
 /// nulls are skipped, non-numeric operands are `TypeMismatch`.
 pub fn Expr::sum(self : Expr) -> Expr {
-  Agg(AggOp::Sum, self)
+  Expr::of(@ir.ExprNode::Agg(@ir.AggOp::Sum, self.node))
 }
 
 ///|
 /// Mean of the operand over the evaluation scope (`Series::mean`
 /// semantics: NaN propagates, nulls are skipped).
 pub fn Expr::mean(self : Expr) -> Expr {
-  Agg(AggOp::Mean, self)
+  Expr::of(@ir.ExprNode::Agg(@ir.AggOp::Mean, self.node))
 }
 
 ///|
 /// Minimum of the operand over the evaluation scope (`Series::min`
 /// semantics: NaN and nulls are skipped).
 pub fn Expr::min(self : Expr) -> Expr {
-  Agg(AggOp::Min, self)
+  Expr::of(@ir.ExprNode::Agg(@ir.AggOp::Min, self.node))
 }
 
 ///|
 /// Maximum of the operand over the evaluation scope (`Series::max`
 /// semantics: NaN and nulls are skipped).
 pub fn Expr::max(self : Expr) -> Expr {
-  Agg(AggOp::Max, self)
+  Expr::of(@ir.ExprNode::Agg(@ir.AggOp::Max, self.node))
 }
 
 ///|
 /// Count of non-null cells of the operand over the evaluation scope
 /// (`Series::count` semantics).
 pub fn Expr::count(self : Expr) -> Expr {
-  Agg(AggOp::Count, self)
+  Expr::of(@ir.ExprNode::Agg(@ir.AggOp::Count, self.node))
 }
 
 ///|
@@ -432,7 +437,7 @@ pub fn Expr::count(self : Expr) -> Expr {
 /// skipped, fewer than two non-null cells reduce to null, and a non-numeric
 /// operand is `TypeMismatch`. Always a `Float`.
 pub fn Expr::std(self : Expr) -> Expr {
-  Agg(AggOp::Std, self)
+  Expr::of(@ir.ExprNode::Agg(@ir.AggOp::Std, self.node))
 }
 
 ///|
@@ -441,7 +446,7 @@ pub fn Expr::std(self : Expr) -> Expr {
 /// `Float`. Spelled `variance` because `var` is a reserved MoonBit word (the
 /// `with_alias` / `.land()` situation), so Polars' `var` becomes `variance`.
 pub fn Expr::variance(self : Expr) -> Expr {
-  Agg(AggOp::Var, self)
+  Expr::of(@ir.ExprNode::Agg(@ir.AggOp::Var, self.node))
 }
 
 ///|
@@ -450,7 +455,7 @@ pub fn Expr::variance(self : Expr) -> Expr {
 /// reduces to null, and a non-numeric operand is `TypeMismatch`. Always a
 /// `Float` (`Int` widens), so an even count averages its two middles.
 pub fn Expr::median(self : Expr) -> Expr {
-  Agg(AggOp::Median, self)
+  Expr::of(@ir.ExprNode::Agg(@ir.AggOp::Median, self.node))
 }
 
 ///|
@@ -458,7 +463,7 @@ pub fn Expr::median(self : Expr) -> Expr {
 /// (`Series::n_unique` semantics: every NaN is one bucket, `-0.0` folds into
 /// `+0.0`). Total over every dtype, never null — an `Int`.
 pub fn Expr::n_unique(self : Expr) -> Expr {
-  Agg(AggOp::NUnique, self)
+  Expr::of(@ir.ExprNode::Agg(@ir.AggOp::NUnique, self.node))
 }
 
 ///|
@@ -466,14 +471,14 @@ pub fn Expr::n_unique(self : Expr) -> Expr {
 /// the operand's dtype. Positional — a null first cell is null, an empty scope
 /// is null, and a present `NaN` passes through verbatim.
 pub fn Expr::first(self : Expr) -> Expr {
-  Agg(AggOp::First, self)
+  Expr::of(@ir.ExprNode::Agg(@ir.AggOp::First, self.node))
 }
 
 ///|
 /// Last cell of the operand over the evaluation scope, in row order, keeping
 /// the operand's dtype. The positional mirror of `first`.
 pub fn Expr::last(self : Expr) -> Expr {
-  Agg(AggOp::Last, self)
+  Expr::of(@ir.ExprNode::Agg(@ir.AggOp::Last, self.node))
 }
 
 ///|
@@ -486,7 +491,7 @@ pub fn Expr::last(self : Expr) -> Expr {
 /// of the string namespace: every `str_*` method builds a `Str` node over a
 /// `StrOp` tag, evaluated cell by cell in `frame`.
 pub fn Expr::str_to_uppercase(self : Expr) -> Expr {
-  Str(StrOp::ToUppercase, self)
+  Expr::of(@ir.ExprNode::Str(@ir.StrOp::ToUppercase, self.node))
 }
 
 ///|
@@ -494,7 +499,7 @@ pub fn Expr::str_to_uppercase(self : Expr) -> Expr {
 /// `str.to_lowercase`, with `str_to_uppercase`'s ASCII-only case-mapping
 /// caveat), the case mirror of `str_to_uppercase`.
 pub fn Expr::str_to_lowercase(self : Expr) -> Expr {
-  Str(StrOp::ToLowercase, self)
+  Expr::of(@ir.ExprNode::Str(@ir.StrOp::ToLowercase, self.node))
 }
 
 ///|
@@ -505,8 +510,9 @@ pub fn Expr::str_to_lowercase(self : Expr) -> Expr {
 /// matter). Null cells stay null.
 pub fn Expr::str_strip_chars(self : Expr, chars? : String) -> Expr {
   match chars {
-    None => Str(StrOp::StripChars, self)
-    Some(set) => Str(StrOp::StripCharsCustom(set), self)
+    None => Expr::of(@ir.ExprNode::Str(@ir.StrOp::StripChars, self.node))
+    Some(set) =>
+      Expr::of(@ir.ExprNode::Str(@ir.StrOp::StripCharsCustom(set), self.node))
   }
 }
 
@@ -516,7 +522,7 @@ pub fn Expr::str_strip_chars(self : Expr, chars? : String) -> Expr {
 /// once, not as its two UTF-16 code units. Null cells stay null; an all-valid
 /// result rides the `Numeric` fast path like every computed numeric column.
 pub fn Expr::str_len_chars(self : Expr) -> Expr {
-  Str(StrOp::LenChars, self)
+  Expr::of(@ir.ExprNode::Str(@ir.StrOp::LenChars, self.node))
 }
 
 ///|
@@ -526,7 +532,7 @@ pub fn Expr::str_len_chars(self : Expr) -> Expr {
 /// which counts every character as 1). Null cells stay null; an all-valid
 /// result rides the `Numeric` fast path.
 pub fn Expr::str_len_bytes(self : Expr) -> Expr {
-  Str(StrOp::LenBytes, self)
+  Expr::of(@ir.ExprNode::Str(@ir.StrOp::LenBytes, self.node))
 }
 
 ///|
@@ -536,7 +542,7 @@ pub fn Expr::str_len_bytes(self : Expr) -> Expr {
 /// `index + 1` fields (or a negative `index`) yields **null**. `"a,b,c"` split
 /// on `","` at index 1 is `"b"`. Null cells stay null.
 pub fn Expr::str_split_get(self : Expr, sep : String, index : Int) -> Expr {
-  Str(StrOp::SplitGet(sep, index), self)
+  Expr::of(@ir.ExprNode::Str(@ir.StrOp::SplitGet(sep, index), self.node))
 }
 
 ///|
@@ -554,9 +560,9 @@ pub fn Expr::str_contains(
   literal? : Bool = true,
 ) -> Expr {
   if literal {
-    Str(StrOp::Contains(pattern), self)
+    Expr::of(@ir.ExprNode::Str(@ir.StrOp::Contains(pattern), self.node))
   } else {
-    Str(StrOp::ContainsRegex(pattern), self)
+    Expr::of(@ir.ExprNode::Str(@ir.StrOp::ContainsRegex(pattern), self.node))
   }
 }
 
@@ -564,14 +570,14 @@ pub fn Expr::str_contains(
 /// A `Bool` column that is `true` where the cell starts with `prefix`
 /// (Polars `str.starts_with`). Null cells stay null.
 pub fn Expr::str_starts_with(self : Expr, prefix : String) -> Expr {
-  Str(StrOp::StartsWith(prefix), self)
+  Expr::of(@ir.ExprNode::Str(@ir.StrOp::StartsWith(prefix), self.node))
 }
 
 ///|
 /// A `Bool` column that is `true` where the cell ends with `suffix`
 /// (Polars `str.ends_with`). Null cells stay null.
 pub fn Expr::str_ends_with(self : Expr, suffix : String) -> Expr {
-  Str(StrOp::EndsWith(suffix), self)
+  Expr::of(@ir.ExprNode::Str(@ir.StrOp::EndsWith(suffix), self.node))
 }
 
 ///|
@@ -588,9 +594,11 @@ pub fn Expr::str_replace(
   literal? : Bool = true,
 ) -> Expr {
   if literal {
-    Str(StrOp::Replace(pattern, value), self)
+    Expr::of(@ir.ExprNode::Str(@ir.StrOp::Replace(pattern, value), self.node))
   } else {
-    Str(StrOp::ReplaceRegex(pattern, value), self)
+    Expr::of(
+      @ir.ExprNode::Str(@ir.StrOp::ReplaceRegex(pattern, value), self.node),
+    )
   }
 }
 
@@ -605,9 +613,13 @@ pub fn Expr::str_replace_all(
   literal? : Bool = true,
 ) -> Expr {
   if literal {
-    Str(StrOp::ReplaceAll(pattern, value), self)
+    Expr::of(
+      @ir.ExprNode::Str(@ir.StrOp::ReplaceAll(pattern, value), self.node),
+    )
   } else {
-    Str(StrOp::ReplaceAllRegex(pattern, value), self)
+    Expr::of(
+      @ir.ExprNode::Str(@ir.StrOp::ReplaceAllRegex(pattern, value), self.node),
+    )
   }
 }
 
@@ -616,7 +628,7 @@ pub fn Expr::str_replace_all(
 /// `str.reverse()`. Surrogate pairs are respected (reversal is by codepoint,
 /// not UTF-16 unit); null cells stay null.
 pub fn Expr::str_reverse(self : Expr) -> Expr {
-  Str(StrOp::Reverse, self)
+  Expr::of(@ir.ExprNode::Str(@ir.StrOp::Reverse, self.node))
 }
 
 ///|
@@ -629,14 +641,14 @@ pub fn Expr::str_pad_start(
   width : Int,
   fill? : Char = ' ',
 ) -> Expr {
-  Str(StrOp::PadStart(width, fill), self)
+  Expr::of(@ir.ExprNode::Str(@ir.StrOp::PadStart(width, fill), self.node))
 }
 
 ///|
 /// Right-pad each cell of a String column with `fill` until it is `width`
 /// **characters** long — Polars' `str.pad_end`, the mirror of `str_pad_start`.
 pub fn Expr::str_pad_end(self : Expr, width : Int, fill? : Char = ' ') -> Expr {
-  Str(StrOp::PadEnd(width, fill), self)
+  Expr::of(@ir.ExprNode::Str(@ir.StrOp::PadEnd(width, fill), self.node))
 }
 
 ///|
@@ -648,7 +660,7 @@ pub fn Expr::str_pad_end(self : Expr, width : Int, fill? : Char = ' ') -> Expr {
 /// cells stay null. The width counts characters, consistent with
 /// `str_len_chars`.
 pub fn Expr::str_zfill(self : Expr, width : Int) -> Expr {
-  Str(StrOp::ZFill(width), self)
+  Expr::of(@ir.ExprNode::Str(@ir.StrOp::ZFill(width), self.node))
 }
 
 ///|
@@ -664,7 +676,7 @@ pub fn Expr::str_extract(
   pattern : String,
   group? : Int = 0,
 ) -> Expr {
-  Str(StrOp::Extract(pattern, group), self)
+  Expr::of(@ir.ExprNode::Str(@ir.StrOp::Extract(pattern, group), self.node))
 }
 
 ///|
@@ -675,7 +687,7 @@ pub fn Expr::str_extract(
 /// invalid-pattern error; a null cell stays null and a non-String operand
 /// raises `TypeMismatch`.
 pub fn Expr::str_count_matches(self : Expr, pattern : String) -> Expr {
-  Str(StrOp::CountMatches(pattern), self)
+  Expr::of(@ir.ExprNode::Str(@ir.StrOp::CountMatches(pattern), self.node))
 }
 
 ///|
@@ -689,7 +701,7 @@ pub fn Expr::str_count_matches(self : Expr, pattern : String) -> Expr {
 /// `str_len_chars`; a null cell stays null and a non-String operand raises
 /// `TypeMismatch`.
 pub fn Expr::str_slice(self : Expr, offset : Int, length? : Int) -> Expr {
-  Str(StrOp::Slice(offset, length), self)
+  Expr::of(@ir.ExprNode::Str(@ir.StrOp::Slice(offset, length), self.node))
 }
 
 ///|
@@ -697,7 +709,7 @@ pub fn Expr::str_slice(self : Expr, offset : Int, length? : Int) -> Expr {
 /// `Series::cast` (so the supported dtype pairs — and the `Unsupported`
 /// cases — are exactly the eager ones).
 pub fn Expr::cast(self : Expr, target : @types.DataType) -> Expr {
-  Cast(self, target)
+  Expr::of(@ir.ExprNode::Cast(self.node, target))
 }
 
 ///|
@@ -706,7 +718,7 @@ pub fn Expr::cast(self : Expr, target : @types.DataType) -> Expr {
 /// its leftmost column reference, or `"literal"` for a column-less tree.
 /// Called `with_alias` — `alias` itself is a MoonBit reserved word.
 pub fn Expr::with_alias(self : Expr, name : String) -> Expr {
-  Alias(self, name)
+  Expr::of(@ir.ExprNode::Alias(self.node, name))
 }
 
 ///|
@@ -748,7 +760,9 @@ pub fn WhenThen::then(self : WhenThen, value : Expr) -> WhenThenElse {
 /// Supply the branch taken where the condition is `false`, completing the
 /// conditional as a `Ternary` expression node.
 pub fn WhenThenElse::otherwise(self : WhenThenElse, value : Expr) -> Expr {
-  Ternary(self.cond, self.then_value, value)
+  Expr::of(
+    @ir.ExprNode::Ternary(self.cond.node, self.then_value.node, value.node),
+  )
 }
 
 ///|
@@ -776,7 +790,7 @@ pub fn Expr::map_elements(
   label~ : String,
   f : (@types.Scalar) -> @types.Scalar raise @types.DataError,
 ) -> Expr {
-  Map(label, [self], vs => f(vs[0]))
+  Expr::of(@ir.ExprNode::Map(label, [self.node], vs => f(vs[0])))
 }
 
 ///|
@@ -808,7 +822,9 @@ pub fn Expr::map_batches(
   returns_scalar? : Bool = false,
   f : (@series.Series) -> @series.Series raise @types.DataError,
 ) -> Expr {
-  MapBatches(label, [self], returns_scalar, vs => f(vs[0]))
+  Expr::of(
+    @ir.ExprNode::MapBatches(label, [self.node], returns_scalar, vs => f(vs[0])),
+  )
 }
 
 ///|
@@ -828,5 +844,5 @@ pub fn map_many(
   inputs : Array[Expr],
   f : (Array[@types.Scalar]) -> @types.Scalar raise @types.DataError,
 ) -> Expr {
-  Map(label, inputs.copy(), f)
+  Expr::of(@ir.ExprNode::Map(label, inputs.map(e => e.node), f))
 }

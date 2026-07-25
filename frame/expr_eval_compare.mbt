@@ -1,6 +1,6 @@
 ///|
 /// The comparison kernel (`eq` / `ne` / `lt` / `le` / `gt` / `ge`). `CmpVerb`
-/// re-tags the six comparison `@expr.BinOp`s so the cell loop matches
+/// re-tags the six comparison `@ir.BinOp`s so the cell loop matches
 /// exhaustively; `apply_cmp` derives every verdict from the dtype's `lt` / `eq`
 /// primitives (so IEEE NaN falls out right — a comparison against NaN is
 /// `false`, `ne` `true`), and `compare_cells` adds the null layer. Produces a
@@ -8,7 +8,7 @@
 
 ///|
 /// Which comparison a `Binary` comparison tag asked for, carried into the
-/// shared cell loop. A package-local re-tag of the six `@expr.BinOp`
+/// shared cell loop. A package-local re-tag of the six `@ir.BinOp`
 /// comparison constructors so `compare_cells` can match exhaustively
 /// without dead arms for the non-comparison tags (`Add` / `And` / … never
 /// reach it).

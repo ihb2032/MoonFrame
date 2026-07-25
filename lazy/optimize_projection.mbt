@@ -177,7 +177,7 @@ fn already_narrows_inmemory(input : LogicalPlan, op : FrameOp) -> Bool {
     // projection onto the scan's columns: it either transforms or raises
     // `ColumnNotFound`, so it is not the narrowing the scan would insert. Let
     // the normal path narrow to whatever real columns it does read.
-    guard expr is @expr.Expr::Col(name) && cols.contains(name) else {
+    guard expr.node() is @ir.ExprNode::Col(name) && cols.contains(name) else {
       return false
     }
     read.add(name)

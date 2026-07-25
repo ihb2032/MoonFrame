@@ -171,9 +171,55 @@ mkenum "$work/e_opaque" types/pkg.generated.mbti 'pub enum Color {
 expect 0 'enum: a plain pub enum is not matchable, so not locked' \
   sh "$scripts/check_enum_surface.sh" "$work/e_opaque"
 
+# ── facade surface ────────────────────────────────────────────────────────
+mkfacadesurface() {
+  # mkfacadesurface <dir> <mbti-body> <snapshot-body|-->
+  # `--` as the snapshot writes no snapshot file (the missing-snapshot case).
+  mkdir -p "$1/.github/scripts"
+  printf '%s\n' "$2" >"$1/pkg.generated.mbti"
+  if [ "$3" != "--" ]; then
+    printf '%s\n' "$3" >"$1/.github/scripts/facade_surface.snapshot"
+  fi
+}
+
+fs_mbti='pub fn col(String) -> @expr.Expr
+pub using @expr {type Expr}
+pub using @types {type Scalar}'
+# The extracted surface is sorted: `fn` before `type`, then by name.
+fs_snap='fn col
+type Expr <- expr
+type Scalar <- types'
+
+mkfacadesurface "$work/fs_ok" "$fs_mbti" "$fs_snap"
+expect 0 'facade surface: matches the snapshot' \
+  sh "$scripts/check_facade_surface.sh" "$work/fs_ok"
+
+mkfacadesurface "$work/fs_added" 'pub fn col(String) -> @expr.Expr
+pub using @expr {type Expr}
+pub using @types {type Scalar}
+pub using @frame {type GroupedDataFrame}' "$fs_snap"
+expect 1 'facade surface: a symbol added since the snapshot' \
+  sh "$scripts/check_facade_surface.sh" "$work/fs_added"
+
+mkfacadesurface "$work/fs_removed" 'pub using @expr {type Expr}
+pub using @types {type Scalar}' "$fs_snap"
+expect 1 'facade surface: a symbol removed since the snapshot' \
+  sh "$scripts/check_facade_surface.sh" "$work/fs_removed"
+
+mkfacadesurface "$work/fs_moved" 'pub fn col(String) -> @expr.Expr
+pub using @types {type Expr}
+pub using @types {type Scalar}' "$fs_snap"
+expect 1 'facade surface: a type changed source package' \
+  sh "$scripts/check_facade_surface.sh" "$work/fs_moved"
+
+mkfacadesurface "$work/fs_missing" "$fs_mbti" --
+expect 1 'facade surface: snapshot absent' \
+  sh "$scripts/check_facade_surface.sh" "$work/fs_missing"
+
 # ── the repository itself ─────────────────────────────────────────────────
 expect 0 'repo: version identity' sh "$scripts/check_version_identity.sh" "$root"
 expect 0 'repo: stale names' sh "$scripts/check_stale_names.sh" "$root"
 expect 0 'repo: enum surface' sh "$scripts/check_enum_surface.sh" "$root"
+expect 0 'repo: facade surface' sh "$scripts/check_facade_surface.sh" "$root"
 
 printf 'doc guards: %s cases pass\n' "$cases"

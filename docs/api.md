@@ -23,10 +23,18 @@ on every backend).
 
 ## API stability & compatibility
 
-The facade package `ihb2032/MoonFrame` is the supported public surface.
-Everything in this reference — reached through the facade or through a
-sub-package import (`@types`, `@series`, `@expr`, `@frame`, `@io`,
-`@lazy`) — is API you can build on.
+The facade package `ihb2032/MoonFrame` is the supported compatibility
+surface: every symbol in this reference is re-exported there, and that
+re-exported set is exactly what the stability promise below covers. The
+public sub-packages (`@types`, `@series`, `@expr`, `@frame`, `@io`,
+`@lazy`) stay directly importable for a caller who only needs a slice, and
+a symbol the facade re-exports is the *same* stable symbol reached that
+way. A sub-package symbol the facade does **not** re-export, however,
+carries no compatibility promise. Two kinds exist: the fluent-chain
+intermediates (`WhenThen` / `WhenThenElse` / `GroupedDataFrame` /
+`LazyGroupBy` — `pub` only because the verb returning one must be, and
+meant to be chained through rather than named), and the `#internal` engine
+seams described next. Neither is part of the surface this document governs.
 
 Some symbols are `pub` only because two public packages share them: MoonBit
 offers no visibility between `priv` (this package only) and `pub` (anyone), so
@@ -48,7 +56,14 @@ tests included) it is silent, since those are the intended callers.
 
 Compatibility follows the changelog's policy: backwards-compatible additions
 and bug fixes ship in patch releases, and — pre-1.0 — a change to the surface
-documented here rides the minor version.
+documented here rides the minor version. One case is easy to mistake for
+additive: adding a variant to a `pub(all)` enum (`DataError` and its
+error-detail enums, `DataType`, `Scalar`, `SortOrder`, `NullOrder`,
+`ClosedInterval`, …) is **source-breaking** — MoonBit `match` is exhaustive,
+so a caller's existing match stops compiling — and therefore rides the minor
+version too, semantically-additive though it looks. Only a caller whose match
+carries a wildcard arm (`_ => …`) stays source-compatible across such an
+addition.
 
 ## Constructor spelling
 

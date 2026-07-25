@@ -59,18 +59,21 @@ pub fn Scalar::to_string(self : Scalar) -> String {
 }
 
 ///|
+/// The `TypeMismatch(Expected(want, got, ""))` a typed accessor raises when a
+/// cell is not `want`: the dtype is read off `got`, and `message()` rebuilds
+/// the "expected T, got X" wording (`X = Null` for a null cell, whose dtype is
+/// `Null`). Generic in the accessor's return type since it only ever raises.
+fn[T] expected_type(got : Scalar, want : DataType) -> T raise DataError {
+  raise TypeMismatch(TypeMismatchDetail::Expected(want, got.dtype(), ""))
+}
+
+///|
 /// `Int` cells return their `Int64`; other concrete variants and `Null`
 /// `raise TypeMismatch(Expected(...))`.
 pub fn Scalar::as_int(self : Scalar) -> Int64 raise DataError {
   match self {
     Int(v) => v
-    // Structured: the dtypes are read off the error, and `message()` rebuilds
-    // the old "expected Int, got X" wording (`X = Null` for a null cell, whose
-    // dtype is `Null`).
-    other =>
-      raise TypeMismatch(
-        TypeMismatchDetail::Expected(DataType::Int, other.dtype(), ""),
-      )
+    other => expected_type(other, DataType::Int)
   }
 }
 
@@ -81,10 +84,7 @@ pub fn Scalar::as_float(self : Scalar) -> Double raise DataError {
   match self {
     Float(v) => v
     Int(v) => v.to_double()
-    other =>
-      raise TypeMismatch(
-        TypeMismatchDetail::Expected(DataType::Float, other.dtype(), ""),
-      )
+    other => expected_type(other, DataType::Float)
   }
 }
 
@@ -94,10 +94,7 @@ pub fn Scalar::as_float(self : Scalar) -> Double raise DataError {
 pub fn Scalar::as_bool(self : Scalar) -> Bool raise DataError {
   match self {
     Bool(v) => v
-    other =>
-      raise TypeMismatch(
-        TypeMismatchDetail::Expected(DataType::Bool, other.dtype(), ""),
-      )
+    other => expected_type(other, DataType::Bool)
   }
 }
 
@@ -107,10 +104,7 @@ pub fn Scalar::as_bool(self : Scalar) -> Bool raise DataError {
 pub fn Scalar::as_string(self : Scalar) -> String raise DataError {
   match self {
     String(v) => v
-    other =>
-      raise TypeMismatch(
-        TypeMismatchDetail::Expected(DataType::String, other.dtype(), ""),
-      )
+    other => expected_type(other, DataType::String)
   }
 }
 
@@ -128,6 +122,14 @@ fn type_mismatch_for_compare(
 }
 
 ///|
+/// The shared `Null`-`raise` for `eq` / `lt`: a comparison against `Null` is an
+/// error the caller must guard, not a silent `false`. `Bool`-typed to slot into
+/// the comparison match arms, like `type_mismatch_for_compare`.
+fn null_compare_error() -> Bool raise DataError {
+  raise TypeMismatch(TypeMismatchDetail::Message("cannot compare with Null"))
+}
+
+///|
 /// Equality between two `Scalar`s. Two `Null`s, or `Null` and a value,
 /// `raise TypeMismatch` — callers must guard nullability explicitly. Mixed
 /// numeric types (`Int` vs `Float`) compare **exactly** — the `Int64` is not
@@ -139,10 +141,7 @@ fn type_mismatch_for_compare(
 /// follows IEEE 754 (`NaN == NaN` is `false`).
 pub fn Scalar::eq(self : Scalar, other : Scalar) -> Bool raise DataError {
   match (self, other) {
-    (Null, _) | (_, Null) =>
-      raise TypeMismatch(
-        TypeMismatchDetail::Message("cannot compare with Null"),
-      )
+    (Null, _) | (_, Null) => null_compare_error()
     (Int(a), Int(b)) => a == b
     (Float(a), Float(b)) => a == b
     (Int(a), Float(b)) => int64_eq_double(a, b)
@@ -161,10 +160,7 @@ pub fn Scalar::eq(self : Scalar, other : Scalar) -> Bool raise DataError {
 /// departure from Polars as `eq`.
 pub fn Scalar::lt(self : Scalar, other : Scalar) -> Bool raise DataError {
   match (self, other) {
-    (Null, _) | (_, Null) =>
-      raise TypeMismatch(
-        TypeMismatchDetail::Message("cannot compare with Null"),
-      )
+    (Null, _) | (_, Null) => null_compare_error()
     (Int(a), Int(b)) => a < b
     (Float(a), Float(b)) => a < b
     (Int(a), Float(b)) => int64_lt_double(a, b)

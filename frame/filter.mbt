@@ -49,11 +49,12 @@ pub fn filter_row_indices(
   // length-1 mask (literal / aggregation) over the frame, down to zero
   // rows on an empty one.
   let mask = @kernel.broadcast_series(eval_expr(predicate, self, scope), n)
-  let cells = match mask.storage().data() {
-    @column.ColumnData::Bool(a) => a
-    @column.ColumnData::Int(_)
-    | @column.ColumnData::Float(_)
-    | @column.ColumnData::String(_) =>
+  // `bool_cells` is `None` for any other dtype — what a non-`Bool` predicate
+  // *means* is this verb's call, so the message is raised here rather than at
+  // the column seam.
+  let cells = match bool_cells(mask) {
+    Some(cells) => cells
+    None =>
       raise @types.DataError::TypeMismatch(
         @types.TypeMismatchDetail::Message(
           "filter predicate must be Bool, got \{mask.dtype()}",
@@ -64,6 +65,6 @@ pub fn filter_row_indices(
   // mask through `validity_bools` (like `drop_nulls` / `sort`) rather than
   // `.validity()` directly: a `Bool` column is always `Builtin` today, but the
   // helper also covers a synthesised all-valid mask should that ever change.
-  let valid = validity_bools(mask.storage())
+  let valid = validity_bools(mask)
   scope.filter(i => valid[i] && cells[i])
 }

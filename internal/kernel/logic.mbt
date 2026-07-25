@@ -16,8 +16,8 @@ pub fn eval_logic(
   verb : String,
   combine : (Bool?, Bool?) -> Bool?,
 ) -> Series raise @types.DataError {
-  let lv = validity_bools(left.storage())
-  let rv = validity_bools(right.storage())
+  let lv = validity_bools(left)
+  let rv = validity_bools(right)
   match (left.storage().data(), right.storage().data()) {
     (@column.ColumnData::Bool(a), @column.ColumnData::Bool(b)) =>
       Series::from_bool_options(
@@ -87,7 +87,7 @@ pub fn kleene_or(a : Bool?, b : Bool?) -> Bool? {
 /// Kleene logical negation kernel: `not(true) = false`, `not(false) =
 /// true`, `not(null) = null`. Non-`Bool` operands raise.
 pub fn eval_not(operand : Series) -> Series raise @types.DataError {
-  let valid = validity_bools(operand.storage())
+  let valid = validity_bools(operand)
   match operand.storage().data() {
     @column.ColumnData::Bool(a) =>
       Series::from_bool_options(

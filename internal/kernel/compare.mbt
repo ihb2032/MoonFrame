@@ -174,8 +174,8 @@ pub fn eval_compare(
     (@column.ColumnStorage::Builtin(_), _)
     | (_, @column.ColumnStorage::Builtin(_)) => ()
   }
-  let lv = validity_bools(left.storage())
-  let rv = validity_bools(right.storage())
+  let lv = validity_bools(left)
+  let rv = validity_bools(right)
   let cells = match (left.storage().data(), right.storage().data()) {
     (@column.ColumnData::Int(a), @column.ColumnData::Int(b)) =>
       compare_cells(

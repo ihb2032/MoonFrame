@@ -20,6 +20,7 @@ using @series {
   slice_series,
   clamp_take,
   validity_bools,
+  bool_cells,
   rebuild_options,
   preserve_backend,
   try_column_to_numeric,

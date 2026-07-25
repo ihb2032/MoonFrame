@@ -38,7 +38,7 @@ pub fn eval_str(
         ),
       )
   }
-  let valid = validity_bools(operand.storage())
+  let valid = validity_bools(operand)
   let name = operand.name()
   let n = data.length()
   let out = match op {

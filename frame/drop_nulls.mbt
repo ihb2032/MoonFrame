@@ -42,12 +42,12 @@ pub fn DataFrame::drop_nulls(
   // No gating column carries a null (so also: an empty gate set) → no row can
   // be dropped. Return `self` rather than materialising masks and gathering
   // an identical copy; `null_count` is O(1) for a `Numeric` column.
-  if gating.all(c => c.storage().null_count() == 0) {
+  if gating.all(c => c.null_count() == 0) {
     return self
   }
   // Materialise each gating column's validity mask (`validity_bools` skips the
   // throwaway bitmap for any `Numeric` gating column in the mix).
-  let masks = gating.map(c => validity_bools(c.storage()))
+  let masks = gating.map(c => validity_bools(c))
   // Keep row `i` when every gating mask is valid there. The kept indices come
   // straight from `[0, nrows)`, so `gather` cannot fail.
   let kept = Array::makei(self.nrows(), i => i).filter(i => masks.all(m => m[i]))

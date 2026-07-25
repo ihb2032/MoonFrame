@@ -63,8 +63,8 @@ pub fn eval_arith(
     (@column.ColumnStorage::Builtin(_), _)
     | (_, @column.ColumnStorage::Builtin(_)) => ()
   }
-  let lv = validity_bools(left.storage())
-  let rv = validity_bools(right.storage())
+  let lv = validity_bools(left)
+  let rv = validity_bools(right)
   let out = match (left.storage().data(), right.storage().data()) {
     (@column.ColumnData::Int(a), @column.ColumnData::Int(b)) =>
       Series::from_int_options(
@@ -134,8 +134,8 @@ fn eval_binary_float(
     (@column.ColumnStorage::Builtin(_), _)
     | (_, @column.ColumnStorage::Builtin(_)) => ()
   }
-  let lv = validity_bools(left.storage())
-  let rv = validity_bools(right.storage())
+  let lv = validity_bools(left)
+  let rv = validity_bools(right)
   let out = match (left.storage().data(), right.storage().data()) {
     (@column.ColumnData::Int(a), @column.ColumnData::Int(b)) =>
       Series::from_float_options(
@@ -217,8 +217,8 @@ fn eval_binary_nullzero(
     (@column.ColumnStorage::Builtin(_), _)
     | (_, @column.ColumnStorage::Builtin(_)) => ()
   }
-  let lv = validity_bools(left.storage())
-  let rv = validity_bools(right.storage())
+  let lv = validity_bools(left)
+  let rv = validity_bools(right)
   let out = match (left.storage().data(), right.storage().data()) {
     (@column.ColumnData::Int(a), @column.ColumnData::Int(b)) =>
       Series::from_int_options(
@@ -390,7 +390,7 @@ pub fn eval_unary_num(
       }
     @column.ColumnStorage::Builtin(_) => ()
   }
-  let valid = validity_bools(operand.storage())
+  let valid = validity_bools(operand)
   let out = match operand.storage().data() {
     @column.ColumnData::Int(a) =>
       Series::from_int_options(
@@ -541,7 +541,7 @@ pub fn eval_is_nan(
       }
     @column.ColumnStorage::Builtin(_) => ()
   }
-  let valid = validity_bools(operand.storage())
+  let valid = validity_bools(operand)
   match operand.storage().data() {
     @column.ColumnData::Float(a) =>
       Series::from_bool_options(

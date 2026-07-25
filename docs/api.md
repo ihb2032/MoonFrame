@@ -91,10 +91,13 @@ Provably-total operations (`head` / `tail` / `Series::min` /
 `Series::drop_nulls` / `to_markdown` / `to_html` / the inspection accessors
 / …) return their value directly and never raise.
 
-The one deliberate exception is `DataFrame::check_invariants()`, which
-keeps its `Result[Unit, String]` shape — it is a verification /
-diagnostic affordance (its error is a `String` describing the first
-violated invariant), not a data transform.
+`DataFrame::check_invariants()` — which verifies the seven structural
+invariants and returns `Err(msg)` naming the first violation — is a
+`#doc(hidden)` **internal** diagnostic, not public API: a downstream user builds
+a `DataFrame` only through the controlled constructors and operators, each of
+which already establishes those invariants, so there is nothing outside the
+module to hand it. It is absent from the generated interface; the in-module and
+blackbox test assertions that use it reach it across the package boundary.
 
 ### Migration
 
@@ -717,9 +720,9 @@ dependencies** (NyaCSV / fs / @json live only in `io`).
   `DuplicateColumn(name)` if the frame already has that column;
   `InvalidOperation` if the last number would pass `Int64::MAX`, where the
   counter would wrap to `Int64::MIN` and stop increasing.
-- `check_invariants() -> Result[Unit, String]` — verification helper
-  (deliberately **not** migrated to `raise`). `Ok(())` iff the frame
-  satisfies its seven structural invariants; otherwise `Err(msg)`.
+
+(`check_invariants()` — the structural-invariant verifier — is `#doc(hidden)`
+internal, not a public method; see [Error handling](#error-handling).)
 
 ### DataFrame operator methods (folded-in `ops`)
 

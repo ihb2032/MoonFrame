@@ -37,6 +37,19 @@
 /// Consequently we do not separately check "every column has a cache
 /// entry" — it's a corollary, and the test budget is better spent on
 /// the irredundant checks above.
+///
+/// Not public API — `#doc(hidden)` keeps it out of the generated interface and
+/// this reference. A downstream user builds a `DataFrame` only through the
+/// controlled constructors and operators, every one of which already
+/// establishes these invariants, so nothing outside the module could hand this
+/// a frame to check. It exists for in-module and blackbox test assertions and
+/// fuzz / property tests, which reach it across the package boundary; the
+/// `INV1..INV7` numbering and the `String` diagnostics are test-facing detail,
+/// not a stable surface. (It carries no `#internal` alert precisely because the
+/// blackbox test packages that assert on it are outside `frame` — an alert
+/// would fire on every one under `--deny-warn`. A future *user-facing*
+/// validator, if ever wanted, would be a separate `raise DataError` method.)
+#doc(hidden)
 pub fn DataFrame::check_invariants(self : DataFrame) -> Result[Unit, String] {
   let ncols = self.columns.length()
   let schema_fields = self.schema.fields()

@@ -28,7 +28,6 @@ pub struct DataFrame {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn DataFrame::DataFrame(Array[@series.Series]) -> Self raise @types.DataError
-pub fn DataFrame::check_invariants(Self) -> Result[Unit, String]
 pub fn DataFrame::column_series(Self) -> Array[@series.Series]
 pub fn DataFrame::columns(Self) -> Array[String]
 pub fn DataFrame::count(Self) -> Self raise @types.DataError

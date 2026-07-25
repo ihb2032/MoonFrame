@@ -1,7 +1,9 @@
 # Changelog
 
-Version-by-version feature history for MoonFrame, newest first. The
-authoritative public-API reference is [`api.md`](api.md); the source-level
+Version-by-version feature history for MoonFrame, newest first. The API
+concepts and compatibility model live in [`api.md`](api.md), and the per-symbol
+reference is generated from the docstrings on
+[mooncakes.io](https://mooncakes.io/docs/ihb2032/MoonFrame); the source-level
 breaking-change steps for each release are collected in
 [`migration.md`](migration.md). Pre-1.0, breaking changes ride the minor
 version — including a new variant on a public `pub(all)` enum, which is

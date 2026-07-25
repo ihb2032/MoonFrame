@@ -4,8 +4,9 @@
 first `infer_schema_rows` rows (default `100`), in the order
 `Int → Float → Bool → String`. The per-reader options that tune this
 (`infer_schema_rows`, `on_parse_error`, and CSV's `allow_nonfinite_floats`) are
-documented with each reader in [`api.md`](api.md); this page explains the rules
-those options govern.
+documented with each reader on
+[mooncakes.io](https://mooncakes.io/docs/ihb2032/MoonFrame); this page explains
+the rules those options govern.
 
 ## Beyond the inference window
 

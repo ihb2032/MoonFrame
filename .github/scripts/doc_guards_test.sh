@@ -173,46 +173,106 @@ expect 0 'enum: a plain pub enum is not matchable, so not locked' \
 
 # ── facade surface ────────────────────────────────────────────────────────
 mkfacadesurface() {
-  # mkfacadesurface <dir> <mbti-body> <snapshot-body|-->
+  # mkfacadesurface <dir> <root-mbti> <frame-mbti> <snapshot-body|-->
   # `--` as the snapshot writes no snapshot file (the missing-snapshot case).
-  mkdir -p "$1/.github/scripts"
+  # The guard reads every tracked public interface, so the fixture is a git
+  # repository with a root facade and one public package.
+  mkdir -p "$1/.github/scripts" "$1/frame"
+  (cd "$1" && git init -q . && git config user.email t@t &&
+    git config user.name t && git config core.autocrlf false)
   printf '%s\n' "$2" >"$1/pkg.generated.mbti"
-  if [ "$3" != "--" ]; then
-    printf '%s\n' "$3" >"$1/.github/scripts/facade_surface.snapshot"
+  printf '%s\n' "$3" >"$1/frame/pkg.generated.mbti"
+  if [ "$4" != "--" ]; then
+    printf '%s\n' "$4" >"$1/.github/scripts/facade_surface.snapshot"
   fi
+  (cd "$1" && git add -A && git commit -qm f)
 }
 
-fs_mbti='pub fn col(String) -> @expr.Expr
-pub using @expr {type Expr}
-pub using @types {type Scalar}'
-# The extracted surface is sorted: `fn` before `type`, then by name.
-fs_snap='fn col
-type Expr <- expr
-type Scalar <- types'
+fs_root='#alias(column)
+pub fn col(String) -> @expr.Expr
+pub using @frame {type DataFrame}
+pub using @frame {type HtmlOptions}'
+# `DataFrame` is re-exported and `GroupedDataFrame` is not: the fluent-chain
+# intermediate a caller reaches by chaining off `group_by`, never by name.
+fs_frame='pub struct DataFrame {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn DataFrame::DataFrame(Array[@series.Series]) -> Self
+pub fn DataFrame::filter(Self) -> Self
+#alias(limit)
+pub fn DataFrame::head(Self, Int) -> Self
+pub impl Eq for DataFrame
+pub struct GroupedDataFrame {
+  // private fields
+}
+pub fn GroupedDataFrame::agg(Self) -> DataFrame
+pub struct HtmlOptions {
+  escape : Bool
+} derive(Eq)'
+# The extracted surface is sorted, so the kinds group alphabetically.
+fs_snap='alias DataFrame::limit <- frame
+alias column <- root
+ctor DataFrame::DataFrame <- frame
+field HtmlOptions.escape <- frame
+fn col <- root
+impl Eq for DataFrame <- frame
+intermediate GroupedDataFrame <- frame
+method DataFrame::filter <- frame
+method DataFrame::head <- frame
+method GroupedDataFrame::agg <- frame
+type DataFrame <- frame
+type HtmlOptions <- frame'
 
-mkfacadesurface "$work/fs_ok" "$fs_mbti" "$fs_snap"
+mkfacadesurface "$work/fs_ok" "$fs_root" "$fs_frame" "$fs_snap"
 expect 0 'facade surface: matches the snapshot' \
   sh "$scripts/check_facade_surface.sh" "$work/fs_ok"
 
-mkfacadesurface "$work/fs_added" 'pub fn col(String) -> @expr.Expr
-pub using @expr {type Expr}
-pub using @types {type Scalar}
-pub using @frame {type GroupedDataFrame}' "$fs_snap"
-expect 1 'facade surface: a symbol added since the snapshot' \
-  sh "$scripts/check_facade_surface.sh" "$work/fs_added"
+# The gap a root-file-only lock left open: a method added to a re-exported
+# type reaches callers as `@moonframe.DataFrame::debug_storage` while the
+# facade's own free functions and type names are untouched.
+mkfacadesurface "$work/fs_method" "$fs_root" "$fs_frame
+pub fn DataFrame::debug_storage(Self) -> Int" "$fs_snap"
+expect 1 'facade surface: a method added to a re-exported type' \
+  sh "$scripts/check_facade_surface.sh" "$work/fs_method"
 
-mkfacadesurface "$work/fs_removed" 'pub using @expr {type Expr}
-pub using @types {type Scalar}' "$fs_snap"
-expect 1 'facade surface: a symbol removed since the snapshot' \
+mkfacadesurface "$work/fs_impl" "$fs_root" "$fs_frame
+pub impl Show for DataFrame" "$fs_snap"
+expect 1 'facade surface: a trait impl added to a re-exported type' \
+  sh "$scripts/check_facade_surface.sh" "$work/fs_impl"
+
+mkfacadesurface "$work/fs_field" "$fs_root" \
+  "$(printf '%s\n' "$fs_frame" |
+    awk '{ print } /^  escape : Bool/ { print "  max_rows : Int?" }')" \
+  "$fs_snap"
+expect 1 'facade surface: a field added to a re-exported struct' \
+  sh "$scripts/check_facade_surface.sh" "$work/fs_field"
+
+# An `#alias` is a second callable spelling, so dropping it retracts a name.
+mkfacadesurface "$work/fs_alias" "$fs_root" \
+  "$(printf '%s\n' "$fs_frame" | grep -v '^#alias')" "$fs_snap"
+expect 1 'facade surface: a method alias dropped' \
+  sh "$scripts/check_facade_surface.sh" "$work/fs_alias"
+
+# Reclassification, in both directions: a re-exported type demoted to a
+# fluent-chain intermediate is as much a break as a new export.
+mkfacadesurface "$work/fs_unexported" \
+  "$(printf '%s\n' "$fs_root" | grep -v 'HtmlOptions')" "$fs_frame" "$fs_snap"
+expect 1 'facade surface: a type no longer re-exported by the facade' \
+  sh "$scripts/check_facade_surface.sh" "$work/fs_unexported"
+
+mkfacadesurface "$work/fs_removed" \
+  "$(printf '%s\n' "$fs_root" | grep -v -e 'pub fn col' -e '^#alias')" \
+  "$fs_frame" "$fs_snap"
+expect 1 'facade surface: a free function removed since the snapshot' \
   sh "$scripts/check_facade_surface.sh" "$work/fs_removed"
 
-mkfacadesurface "$work/fs_moved" 'pub fn col(String) -> @expr.Expr
-pub using @types {type Expr}
-pub using @types {type Scalar}' "$fs_snap"
+mkfacadesurface "$work/fs_moved" \
+  "$(printf '%s\n' "$fs_root" | sed 's/@frame {type DataFrame}/@lazy {type DataFrame}/')" \
+  "$fs_frame" "$fs_snap"
 expect 1 'facade surface: a type changed source package' \
   sh "$scripts/check_facade_surface.sh" "$work/fs_moved"
 
-mkfacadesurface "$work/fs_missing" "$fs_mbti" --
+mkfacadesurface "$work/fs_missing" "$fs_root" "$fs_frame" --
 expect 1 'facade surface: snapshot absent' \
   sh "$scripts/check_facade_surface.sh" "$work/fs_missing"
 

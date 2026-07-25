@@ -1,35 +1,414 @@
-fn col
-fn cols
-fn cols_contains
-fn cols_ends_with
-fn cols_matching
-fn cols_of_dtype
-fn cols_starts_with
-fn format_csv
-fn format_json
-fn format_ndjson
-fn format_vega_lite
-fn lit
-fn lit_bool
-fn lit_float
-fn lit_int
-fn lit_series
-fn lit_str
-fn map_many
-fn numeric_cols
-fn parse_csv_str
-fn parse_json_str
-fn parse_ndjson_str
-fn read_csv
-fn read_json
-fn read_ndjson
-fn scan_csv
-fn scan_ndjson
-fn when
-fn write_csv
-fn write_json
-fn write_ndjson
-fn write_vega_lite
+alias DataFrame::limit <- frame
+alias LazyFrame::limit <- lazy
+ctor CsvReadOptions::CsvReadOptions <- io
+ctor CsvWriteOptions::CsvWriteOptions <- io
+ctor DataFrame::DataFrame <- frame
+ctor Field::Field <- types
+ctor HtmlOptions::HtmlOptions <- frame
+ctor JsonReadOptions::JsonReadOptions <- io
+ctor LazyFrame::LazyFrame <- lazy
+ctor Schema::Schema <- types
+field ChartSpec.color <- io
+field ChartSpec.color_type <- io
+field ChartSpec.kind <- io
+field ChartSpec.title <- io
+field ChartSpec.x <- io
+field ChartSpec.y <- io
+field CsvReadOptions.allow_nonfinite_floats <- io
+field CsvReadOptions.delimiter <- io
+field CsvReadOptions.has_header <- io
+field CsvReadOptions.infer_schema_rows <- io
+field CsvReadOptions.on_parse_error <- io
+field CsvReadOptions.strict_column_count <- io
+field CsvReadOptions.strict_quotes <- io
+field CsvWriteOptions.delimiter <- io
+field CsvWriteOptions.header <- io
+field CsvWriteOptions.null_value <- io
+field CsvWriteOptions.sanitize_formulas <- io
+field Field.dtype <- types
+field Field.name <- types
+field Field.nullable <- types
+field HtmlOptions.caption <- frame
+field HtmlOptions.escape <- frame
+field HtmlOptions.max_rows <- frame
+field HtmlOptions.table_class <- frame
+field JoinOptions.coalesce <- frame
+field JoinOptions.how <- frame
+field JoinOptions.left_on <- frame
+field JoinOptions.on <- frame
+field JoinOptions.right_on <- frame
+field JoinOptions.suffix <- frame
+field JsonReadOptions.infer_schema_rows <- io
+field JsonReadOptions.on_parse_error <- io
+fn col <- expr
+fn col <- root
+fn cols <- expr
+fn cols <- root
+fn cols_contains <- frame
+fn cols_contains <- root
+fn cols_ends_with <- frame
+fn cols_ends_with <- root
+fn cols_matching <- frame
+fn cols_matching <- root
+fn cols_of_dtype <- frame
+fn cols_of_dtype <- root
+fn cols_starts_with <- frame
+fn cols_starts_with <- root
+fn format_csv <- io
+fn format_csv <- root
+fn format_json <- io
+fn format_json <- root
+fn format_ndjson <- io
+fn format_ndjson <- root
+fn format_vega_lite <- io
+fn format_vega_lite <- root
+fn lit <- expr
+fn lit <- root
+fn lit_bool <- expr
+fn lit_bool <- root
+fn lit_float <- expr
+fn lit_float <- root
+fn lit_int <- expr
+fn lit_int <- root
+fn lit_series <- expr
+fn lit_series <- root
+fn lit_str <- expr
+fn lit_str <- root
+fn map_many <- expr
+fn map_many <- root
+fn numeric_cols <- frame
+fn numeric_cols <- root
+fn parse_csv_str <- io
+fn parse_csv_str <- root
+fn parse_json_str <- io
+fn parse_json_str <- root
+fn parse_ndjson_str <- io
+fn parse_ndjson_str <- root
+fn read_csv <- io
+fn read_csv <- root
+fn read_json <- io
+fn read_json <- root
+fn read_ndjson <- io
+fn read_ndjson <- root
+fn scan_csv <- lazy
+fn scan_csv <- root
+fn scan_ndjson <- lazy
+fn scan_ndjson <- root
+fn when <- expr
+fn when <- root
+fn write_csv <- io
+fn write_csv <- root
+fn write_json <- io
+fn write_json <- root
+fn write_ndjson <- io
+fn write_ndjson <- root
+fn write_vega_lite <- io
+fn write_vega_lite <- root
+impl @debug.Debug for Expr <- expr
+impl Add for Expr <- expr
+impl BitAnd for Expr <- expr
+impl BitOr for Expr <- expr
+impl Div for Expr <- expr
+impl Eq for Expr <- expr
+impl Mul for Expr <- expr
+impl Neg for Expr <- expr
+impl Show for DataError <- types
+impl Show for DataType <- types
+impl Show for Expr <- expr
+impl Show for Field <- types
+impl Show for Scalar <- types
+impl Show for Schema <- types
+impl Sub for Expr <- expr
+intermediate GroupedDataFrame <- frame
+intermediate LazyGroupBy <- lazy
+intermediate WhenThen <- expr
+intermediate WhenThenElse <- expr
+method CellParseLocation::equal <- types
+method CellParseLocation::not_equal <- types
+method CellParseLocation::to_repr <- types
+method ChartKind::equal <- io
+method ChartKind::not_equal <- io
+method ChartKind::to_repr <- io
+method ChartSpec::area <- io
+method ChartSpec::bar <- io
+method ChartSpec::equal <- io
+method ChartSpec::line <- io
+method ChartSpec::not_equal <- io
+method ChartSpec::point <- io
+method ChartSpec::to_repr <- io
+method ClosedInterval::equal <- types
+method ClosedInterval::not_equal <- types
+method ClosedInterval::to_repr <- types
+method CsvReadOptions::null_values <- io
+method DataError::equal <- types
+method DataError::message <- types
+method DataError::not_equal <- types
+method DataError::output <- types
+method DataError::to_repr <- types
+method DataError::to_string <- types
+method DataFrame::column_series <- frame
+method DataFrame::columns <- frame
+method DataFrame::count <- frame
+method DataFrame::describe <- frame
+method DataFrame::drop <- frame
+method DataFrame::drop_nulls <- frame
+method DataFrame::empty <- frame
+method DataFrame::equal <- frame
+method DataFrame::fill_null <- frame
+method DataFrame::filter <- frame
+method DataFrame::from_rows <- frame
+method DataFrame::gather <- frame
+method DataFrame::get_column <- frame
+method DataFrame::get_column_at <- frame
+method DataFrame::group_by <- frame
+method DataFrame::head <- frame
+method DataFrame::is_empty <- frame
+method DataFrame::item <- frame
+method DataFrame::join <- frame
+method DataFrame::max <- frame
+method DataFrame::mean <- frame
+method DataFrame::min <- frame
+method DataFrame::ncols <- frame
+method DataFrame::not_equal <- frame
+method DataFrame::nrows <- frame
+method DataFrame::null_count <- frame
+method DataFrame::rename <- frame
+method DataFrame::rename_with <- frame
+method DataFrame::reverse <- frame
+method DataFrame::row <- frame
+method DataFrame::rows <- frame
+method DataFrame::schema <- frame
+method DataFrame::select <- frame
+method DataFrame::shape <- frame
+method DataFrame::slice <- frame
+method DataFrame::sort <- frame
+method DataFrame::sum <- frame
+method DataFrame::tail <- frame
+method DataFrame::to_html <- frame
+method DataFrame::to_markdown <- frame
+method DataFrame::to_repr <- frame
+method DataFrame::unique <- frame
+method DataFrame::with_columns <- frame
+method DataFrame::with_row_index <- frame
+method DataType::equal <- types
+method DataType::is_bool <- types
+method DataType::is_float <- types
+method DataType::is_integer <- types
+method DataType::is_numeric <- types
+method DataType::is_string <- types
+method DataType::not_equal <- types
+method DataType::output <- types
+method DataType::to_repr <- types
+method DataType::to_string <- types
+method Expr::abs <- expr
+method Expr::add <- expr
+method Expr::cast <- expr
+method Expr::ceil <- expr
+method Expr::count <- expr
+method Expr::div <- expr
+method Expr::eq <- expr
+method Expr::equal <- expr
+method Expr::fill_nan <- expr
+method Expr::fill_null <- expr
+method Expr::first <- expr
+method Expr::floor <- expr
+method Expr::floor_div <- expr
+method Expr::ge <- expr
+method Expr::gt <- expr
+method Expr::is_between <- expr
+method Expr::is_in <- expr
+method Expr::is_nan <- expr
+method Expr::is_not_nan <- expr
+method Expr::is_not_null <- expr
+method Expr::is_null <- expr
+method Expr::land <- expr
+method Expr::last <- expr
+method Expr::le <- expr
+method Expr::lor <- expr
+method Expr::lt <- expr
+method Expr::map_batches <- expr
+method Expr::map_elements <- expr
+method Expr::max <- expr
+method Expr::mean <- expr
+method Expr::median <- expr
+method Expr::min <- expr
+method Expr::modulo <- expr
+method Expr::mul <- expr
+method Expr::n_unique <- expr
+method Expr::ne <- expr
+method Expr::neg <- expr
+method Expr::not <- expr
+method Expr::not_equal <- expr
+method Expr::output <- expr
+method Expr::pow <- expr
+method Expr::round <- expr
+method Expr::sign <- expr
+method Expr::std <- expr
+method Expr::str_contains <- expr
+method Expr::str_count_matches <- expr
+method Expr::str_ends_with <- expr
+method Expr::str_extract <- expr
+method Expr::str_len_bytes <- expr
+method Expr::str_len_chars <- expr
+method Expr::str_pad_end <- expr
+method Expr::str_pad_start <- expr
+method Expr::str_replace <- expr
+method Expr::str_replace_all <- expr
+method Expr::str_reverse <- expr
+method Expr::str_slice <- expr
+method Expr::str_split_get <- expr
+method Expr::str_starts_with <- expr
+method Expr::str_strip_chars <- expr
+method Expr::str_to_lowercase <- expr
+method Expr::str_to_uppercase <- expr
+method Expr::str_zfill <- expr
+method Expr::sub <- expr
+method Expr::sum <- expr
+method Expr::to_repr <- expr
+method Expr::to_string <- expr
+method Expr::variance <- expr
+method Expr::with_alias <- expr
+method Field::dtype <- types
+method Field::equal <- types
+method Field::name <- types
+method Field::not_equal <- types
+method Field::nullable <- types
+method Field::output <- types
+method Field::rename <- types
+method Field::to_repr <- types
+method Field::to_string <- types
+method GroupedDataFrame::agg <- frame
+method HtmlOptions::equal <- frame
+method HtmlOptions::not_equal <- frame
+method HtmlOptions::to_repr <- frame
+method JoinOptions::cross <- frame
+method JoinOptions::equal <- frame
+method JoinOptions::left_on <- frame
+method JoinOptions::not_equal <- frame
+method JoinOptions::on <- frame
+method JoinOptions::to_repr <- frame
+method JoinType::equal <- frame
+method JoinType::not_equal <- frame
+method JoinType::to_repr <- frame
+method KeepStrategy::equal <- frame
+method KeepStrategy::not_equal <- frame
+method KeepStrategy::to_repr <- frame
+method LazyFrame::collect <- lazy
+method LazyFrame::count <- lazy
+method LazyFrame::drop <- lazy
+method LazyFrame::drop_nulls <- lazy
+method LazyFrame::explain <- lazy
+method LazyFrame::fill_null <- lazy
+method LazyFrame::filter <- lazy
+method LazyFrame::group_by <- lazy
+method LazyFrame::head <- lazy
+method LazyFrame::join <- lazy
+method LazyFrame::max <- lazy
+method LazyFrame::mean <- lazy
+method LazyFrame::min <- lazy
+method LazyFrame::null_count <- lazy
+method LazyFrame::rename <- lazy
+method LazyFrame::rename_with <- lazy
+method LazyFrame::reverse <- lazy
+method LazyFrame::select <- lazy
+method LazyFrame::slice <- lazy
+method LazyFrame::sort <- lazy
+method LazyFrame::sum <- lazy
+method LazyFrame::tail <- lazy
+method LazyFrame::unique <- lazy
+method LazyFrame::with_columns <- lazy
+method LazyFrame::with_row_index <- lazy
+method LazyGroupBy::agg <- lazy
+method NullOrder::equal <- types
+method NullOrder::not_equal <- types
+method NullOrder::to_repr <- types
+method OnParseError::equal <- io
+method OnParseError::not_equal <- io
+method OnParseError::to_repr <- io
+method ParseErrorDetail::equal <- types
+method ParseErrorDetail::not_equal <- types
+method ParseErrorDetail::to_repr <- types
+method Scalar::as_bool <- types
+method Scalar::as_float <- types
+method Scalar::as_int <- types
+method Scalar::as_string <- types
+method Scalar::dtype <- types
+method Scalar::eq <- types
+method Scalar::equal <- types
+method Scalar::gt <- types
+method Scalar::gte <- types
+method Scalar::is_null <- types
+method Scalar::lt <- types
+method Scalar::lte <- types
+method Scalar::not_equal <- types
+method Scalar::output <- types
+method Scalar::to_repr <- types
+method Scalar::to_string <- types
+method Schema::equal <- types
+method Schema::field <- types
+method Schema::field_at <- types
+method Schema::field_names <- types
+method Schema::fields <- types
+method Schema::index_of <- types
+method Schema::is_empty <- types
+method Schema::len <- types
+method Schema::not_equal <- types
+method Schema::output <- types
+method Schema::rename <- types
+method Schema::select <- types
+method Schema::to_repr <- types
+method Schema::to_string <- types
+method Series::cast <- series
+method Series::count <- series
+method Series::drop_nulls <- series
+method Series::dtype <- series
+method Series::equal <- series
+method Series::fill_null <- series
+method Series::first <- series
+method Series::from_bool_options <- series
+method Series::from_bools <- series
+method Series::from_float_options <- series
+method Series::from_floats <- series
+method Series::from_int_options <- series
+method Series::from_ints <- series
+method Series::from_string_options <- series
+method Series::from_strings <- series
+method Series::gather <- series
+method Series::get <- series
+method Series::head <- series
+method Series::is_empty <- series
+method Series::is_null <- series
+method Series::last <- series
+method Series::len <- series
+method Series::max <- series
+method Series::mean <- series
+method Series::median <- series
+method Series::min <- series
+method Series::n_unique <- series
+method Series::name <- series
+method Series::not_equal <- series
+method Series::null_count <- series
+method Series::rename <- series
+method Series::reverse <- series
+method Series::slice <- series
+method Series::sort <- series
+method Series::std <- series
+method Series::sum <- series
+method Series::tail <- series
+method Series::to_repr <- series
+method Series::to_scalars <- series
+method Series::variance <- series
+method SortOrder::equal <- types
+method SortOrder::not_equal <- types
+method SortOrder::to_repr <- types
+method TypeMismatchDetail::equal <- types
+method TypeMismatchDetail::not_equal <- types
+method TypeMismatchDetail::to_repr <- types
+method VegaType::equal <- io
+method VegaType::not_equal <- io
+method VegaType::to_repr <- io
+method WhenThen::then <- expr
+method WhenThenElse::otherwise <- expr
 type CellParseLocation <- types
 type ChartKind <- io
 type ChartSpec <- io

@@ -74,13 +74,18 @@ sh .github/scripts/check_facade_surface.sh
   removing, or renaming a variant is source-breaking under exhaustive `match`,
   so it fails here until the snapshot is regenerated deliberately
   (`sh .github/scripts/check_enum_surface.sh --write`).
-- **Facade surface** — the root facade's exact export set (re-exported free
-  functions, and types with their source package) is pinned in
-  `.github/scripts/facade_surface.snapshot`. `moon info` and the downstream
-  fixture catch under-exports and interface drift; this catches an *over-export*
-  — a symbol accidentally added to the facade, which becomes a breaking change
-  once published. Any add / remove / source-package change fails until the
-  snapshot is regenerated (`sh .github/scripts/check_facade_surface.sh --write`).
+- **Facade surface** — the whole callable surface the facade promises is
+  pinned in `.github/scripts/facade_surface.snapshot`. Re-exporting a *type*
+  carries everything callable on it — constructors, methods (including the
+  ones `pub extend` exposes), `#alias` spellings, trait impls, public fields —
+  so the snapshot covers every public package's symbols, tagged with its source
+  package and with whether the facade names the type or leaves it a
+  fluent-chain intermediate. `moon info` and the downstream fixture catch
+  under-exports and interface drift; this catches an *over-export* — a symbol
+  that reaches callers as `@moonframe.Type::method` without any facade change,
+  and becomes a breaking change once published. Any add / remove /
+  reclassification / source-package change fails until the snapshot is
+  regenerated (`sh .github/scripts/check_facade_surface.sh --write`).
 - **Stale names** — a removed identifier must not appear in current-state prose
   or a source comment. `docs/changelog.md` and `docs/migration.md` are exempt
   (history is their content); a single line that must name one takes the marker

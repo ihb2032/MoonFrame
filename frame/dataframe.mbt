@@ -684,9 +684,9 @@ fn DataFrame::carried_field(
 /// the names moved. Row count and column order are untouched.
 ///
 /// Carrying the fields rather than re-deriving them through `DataFrame::DataFrame` is
-/// what keeps a renamed column's metadata: `new` names every field with the
-/// `Field` constructor default, resetting a declared `nullable = false`, while
-/// a rename by contract changes nothing but the name.
+/// what keeps a renamed column's metadata: that constructor names every field
+/// with the `Field` constructor default, resetting a declared `nullable = false`,
+/// while a rename by contract changes nothing but the name.
 fn DataFrame::with_renamed_fields(
   self : DataFrame,
   fields : Array[@types.Field],

@@ -1436,12 +1436,12 @@ public API names, so there is nothing to re-export for it.
 - From `@types`: `DataError` · `CellParseLocation` · `ParseErrorDetail` ·
   `TypeMismatchDetail` · `DataType` · `PhysicalType` · `Scalar` · `Field` ·
   `Schema` · `SortOrder` · `NullOrder` · `ClosedInterval`
-- From `@expr`: `Expr` · `WhenThen` · `WhenThenElse` ·
+- From `@expr`: `Expr` ·
   `col` · `cols` ·
   `lit` · `lit_int` · `lit_float` · `lit_str` · `lit_bool` · `lit_series` ·
   `when` · `map_many`
 - From `@series`: `Series`
-- From `@frame`: `DataFrame` · `KeepStrategy` · `GroupedDataFrame` ·
+- From `@frame`: `DataFrame` · `KeepStrategy` ·
   `JoinType` · `JoinOptions` · `HtmlOptions` · `numeric_cols` ·
   `cols_of_dtype` · `cols_matching` · `cols_starts_with` · `cols_ends_with` ·
   `cols_contains`
@@ -1453,7 +1453,15 @@ public API names, so there is nothing to re-export for it.
   `read_csv` · `read_json` · `read_ndjson` ·
   `write_csv` · `write_json` ·
   `write_ndjson` · `write_vega_lite`
-- From `@lazy`: `LazyFrame` · `LazyGroupBy` · `scan_csv` · `scan_ndjson`
+- From `@lazy`: `LazyFrame` · `scan_csv` · `scan_ndjson`
+
+The chained intermediates — `WhenThen` / `WhenThenElse` (from
+`when(c).then(a).otherwise(b)`) and `GroupedDataFrame` / `LazyGroupBy` (from
+`group_by(k).agg(e)`) — are **not** in this list. A caller never names one: it
+only chains the next method off the previous step's return value, and
+dot-method resolution follows that value's type, so the chain works through the
+facade without the name in scope. They remain `pub` in `@expr` / `@frame` /
+`@lazy` for anyone who does import those packages directly.
 
 `using @pkg { type T }` also creates constructor aliases, so
 `@moonframe.Scalar::Int(42)`, `@moonframe.SortOrder::Desc`,

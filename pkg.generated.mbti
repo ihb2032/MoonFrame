@@ -102,8 +102,6 @@ pub using @expr {type Expr}
 
 pub using @types {type Field}
 
-pub using @frame {type GroupedDataFrame}
-
 pub using @frame {type HtmlOptions}
 
 pub using @frame {type JoinOptions}
@@ -115,8 +113,6 @@ pub using @io {type JsonReadOptions}
 pub using @frame {type KeepStrategy}
 
 pub using @lazy {type LazyFrame}
-
-pub using @lazy {type LazyGroupBy}
 
 pub using @types {type NullOrder}
 
@@ -137,10 +133,6 @@ pub using @types {type SortOrder}
 pub using @types {type TypeMismatchDetail}
 
 pub using @io {type VegaType}
-
-pub using @expr {type WhenThen}
-
-pub using @expr {type WhenThenElse}
 
 // Traits
 

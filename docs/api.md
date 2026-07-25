@@ -32,8 +32,12 @@ Some symbols are `pub` only because two public packages share them: MoonBit
 offers no visibility between `priv` (this package only) and `pub` (anyone), so
 a kernel `frame` and `lazy` both call has to be `pub` to cross that boundary.
 Code that no *public* package needs goes further and lives in an `internal/`
-package (`internal/column` / `text` / `literal`), which the module can import
-and a downstream user cannot. These are execution-engine
+package (`internal/column` storage, `internal/text` / `internal/literal`
+primitives, and `internal/ir` — the expression AST and its operator tags),
+which the module can import and a downstream user cannot: a generated `.mbti`
+for an internal package is not an external compatibility surface, and its
+`pub(all)` symbols exist only for in-module cross-package use. These are
+execution-engine
 internals, not public API: each is marked
 `#internal(engine, "MoonFrame execution engine API")` at its definition and is
 deliberately absent from both the facade and this reference. **Do not depend on

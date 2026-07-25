@@ -6,9 +6,11 @@
 /// This lives in `frame`, not `expr`: evaluation reads `Series` internals
 /// (raw `data()` buffers plus validity bitmaps), and that capability —
 /// like every DataFrame / Series method — is pinned to this package by
-/// method coherence. `expr` stays a pure AST leaf over `types`; this file
-/// is the one place that `match`es the tree cross-package (a `pub`
-/// read-only enum is matchable here but constructible only in `expr`).
+/// method coherence. The public `@expr.Expr` is an opaque handle; the AST it
+/// wraps is `@ir.ExprNode`, in the module-internal `internal/ir` package. This
+/// file enters through the `Expr::node()` seam and matches `@ir.ExprNode`
+/// directly — the tree walk is over the AST node, not the handle, and a
+/// downstream module can reach neither.
 ///
 /// `scope` is the ordered row-index set an expression is evaluated under:
 /// `[0, nrows)` for whole-frame contexts, a group's row indices under
@@ -47,9 +49,13 @@
 ///   `to_lowercase`), `strip_chars` (ASCII whitespace), `len_chars` (an Int
 ///   Unicode-character count), the literal predicates `contains` /
 ///   `starts_with` / `ends_with` (Bool), and the literal substitutions
-///   `replace` (first) / `replace_all` (all). Null cells stay null, a
-///   non-String operand is a `TypeMismatch`, all are total (no value can
-///   raise), and matching is always literal — there is no regex engine yet.
+///   `replace` (first) / `replace_all` (all), plus the regex operations
+///   (`str_contains` / `str_replace` / `str_replace_all` with `literal=false`,
+///   and `str_extract` / `str_count_matches`), implemented in
+///   `expr_eval_str.mbt`. Null cells stay null and a non-String operand is a
+///   `TypeMismatch`; a literal operation is total per value, but a regex
+///   operation compiles its pattern once per evaluation and may raise
+///   `InvalidOperation` for an invalid pattern — the one non-total path.
 /// - **Aggregations** (`sum/mean/min/max/count/std/var/median/n_unique/
 ///   first/last`): reduce the operand over
 ///   the scope to a length-1 column through the shared `reduce.mbt` kernel —

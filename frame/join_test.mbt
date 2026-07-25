@@ -1190,7 +1190,7 @@ test "join keeps all-valid numeric output columns on the Numeric fast path" {
   ])
   let out = left.join(right, JoinOptions::on([@expr.col("k")]))
   assert_eq(out.columns(), ["k", "lv", "rv"])
-  assert_eq(out.storage_kinds(), [
+  assert_eq(out.column_series().map(column => column.storage_kind()), [
     @column.StorageKind::Numeric, // coalesced key (left Numeric, all matched)
     @column.StorageKind::Numeric, // left non-key
     @column.StorageKind::Numeric, // right non-key, no None injected
@@ -1202,7 +1202,7 @@ test "join keeps all-valid numeric output columns on the Numeric fast path" {
     DataFrame::DataFrame([Series::from_floats("b", [3.0])]),
     JoinOptions::cross(),
   )
-  assert_eq(crossed.storage_kinds(), [
+  assert_eq(crossed.column_series().map(column => column.storage_kind()), [
     @column.StorageKind::Numeric,
     @column.StorageKind::Numeric,
   ])
@@ -1259,7 +1259,7 @@ test "a right numeric column with no unmatched-left rows stays Numeric" {
     JoinOptions::on([@expr.col("k")], how=JoinType::Left),
   )
   assert_eq(out.columns(), ["k", "lv", "rv"])
-  assert_eq(out.storage_kinds(), [
+  assert_eq(out.column_series().map(column => column.storage_kind()), [
     @column.StorageKind::Numeric, // coalesced key, all matched → no None
     @column.StorageKind::Numeric, // left non-key
     @column.StorageKind::Numeric, // right non-key, all matched → no None

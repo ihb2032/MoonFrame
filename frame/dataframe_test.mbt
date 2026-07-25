@@ -682,10 +682,10 @@ test "structural equality compares schema + columns + nrows" {
   assert_not_eq(a, c)
 }
 
-// ── storage backend control: storage_kinds / to_numeric / to_builtin ──
+// ── storage backend control: storage_kind / to_numeric / to_builtin ──
 
 ///|
-test "to_numeric converts eligible columns and keeps the rest (storage_kinds reflects it)" {
+test "to_numeric converts eligible columns and keeps the rest (storage_kind reflects it)" {
   let df = DataFrame::DataFrame([
     // Builtin, all-valid Int → converts to Numeric.
     Series::from_int_options("vi", [Some(1), Some(2), Some(3)]),
@@ -698,7 +698,7 @@ test "to_numeric converts eligible columns and keeps the rest (storage_kinds ref
     // Already Numeric → returned unchanged.
     Series::from_ints("ai", [7, 8, 9]),
   ])
-  assert_eq(df.storage_kinds(), [
+  assert_eq(df.column_series().map(column => column.storage_kind()), [
     @column.StorageKind::Builtin,
     @column.StorageKind::Builtin,
     @column.StorageKind::Builtin,
@@ -707,7 +707,7 @@ test "to_numeric converts eligible columns and keeps the rest (storage_kinds ref
   ])
   let n = df.to_numeric()
   // Eligible columns moved; nullable / non-numeric / already-Numeric kept.
-  assert_eq(n.storage_kinds(), [
+  assert_eq(n.column_series().map(column => column.storage_kind()), [
     @column.StorageKind::Numeric,
     @column.StorageKind::Numeric,
     @column.StorageKind::Builtin,
@@ -729,13 +729,13 @@ test "to_builtin materialises every column to Builtin and round-trips with to_nu
     Series::from_floats("b", [1.5, 2.5]),
     Series::from_strings("c", ["x", "y"]),
   ])
-  assert_eq(df.storage_kinds(), [
+  assert_eq(df.column_series().map(column => column.storage_kind()), [
     @column.StorageKind::Numeric,
     @column.StorageKind::Numeric,
     @column.StorageKind::Builtin,
   ])
   let b = df.to_builtin()
-  assert_eq(b.storage_kinds(), [
+  assert_eq(b.column_series().map(column => column.storage_kind()), [
     @column.StorageKind::Builtin,
     @column.StorageKind::Builtin,
     @column.StorageKind::Builtin,
@@ -744,11 +744,14 @@ test "to_builtin materialises every column to Builtin and round-trips with to_nu
   // the numeric columns.
   assert_eq(b.check_invariants(), Ok(()))
   assert_eq(b.get_column("a").to_scalars(), df.get_column("a").to_scalars())
-  assert_eq(b.to_numeric().storage_kinds(), [
-    @column.StorageKind::Numeric,
-    @column.StorageKind::Numeric,
-    @column.StorageKind::Builtin,
-  ])
+  assert_eq(
+    b.to_numeric().column_series().map(column => column.storage_kind()),
+    [
+      @column.StorageKind::Numeric,
+      @column.StorageKind::Numeric,
+      @column.StorageKind::Builtin,
+    ],
+  )
 }
 
 ///|

@@ -37,7 +37,7 @@ fn[T] select_cells(
 /// must share a dtype, except that `Int` meets `Float` by promoting to
 /// `Float` — the arithmetic promotion rule applied to selection. An
 /// all-valid numeric result converges onto the `Numeric` backend.
-fn eval_ternary(
+pub fn eval_ternary(
   cond : Series,
   then_v : Series,
   else_v : Series,

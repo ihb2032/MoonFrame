@@ -28,7 +28,7 @@
 /// like the `Null` literal. The column is named after the leftmost input (or
 /// `"literal"` when there are none), agreeing with `Expr::output_name`; the
 /// consuming verb renames it through `expr_output_name` regardless.
-fn eval_map_apply(
+pub fn eval_map_apply(
   evaluated : Array[Series],
   f : (Array[@types.Scalar]) -> @types.Scalar raise @types.DataError,
 ) -> Series raise @types.DataError {
@@ -82,7 +82,7 @@ fn eval_map_apply(
 /// (which falls back to the leftmost input's backend, raising only when there
 /// is no column input at all) and grouped `agg` (which falls back to the
 /// reduction's empty-scope probe).
-fn infer_cells_dtype(cells : Array[@types.Scalar]) -> @column.ColumnData? {
+pub fn infer_cells_dtype(cells : Array[@types.Scalar]) -> @column.ColumnData? {
   for cell in cells {
     match cell {
       @types.Scalar::Int(_) => return Some(@column.ColumnData::Int([]))
@@ -119,17 +119,18 @@ fn map_mixes_int_and_float(cells : Array[@types.Scalar]) -> Bool {
 /// minority type is promoted rather than nulled by the first-non-null-cell
 /// projection in `infer_cells_dtype`. A mix involving `Bool` / `String` never
 /// promotes and is returned unchanged.
-fn promote_mixed_int_float(
+pub fn promote_mixed_int_float(
   cells : Array[@types.Scalar],
 ) -> Array[@types.Scalar] {
-  if map_mixes_int_and_float(cells) {
-    cells.map(c => {
-      match c {
-        @types.Scalar::Int(v) => @types.Scalar::Float(v.to_double())
-        _ => c
-      }
-    })
-  } else {
-    cells
-  }
+  // Return the unpromoted list via an early `return`, not an `else { cells }`
+  // block: to the lexical array-copy boundary guard a bare `{ cells }` block is
+  // indistinguishable from record-shorthand retention of a public `Array`
+  // parameter, which it (rightly, by its conservative design) rejects.
+  guard map_mixes_int_and_float(cells) else { return cells }
+  cells.map(c => {
+    match c {
+      @types.Scalar::Int(v) => @types.Scalar::Float(v.to_double())
+      _ => c
+    }
+  })
 }

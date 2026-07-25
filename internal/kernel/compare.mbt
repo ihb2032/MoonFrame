@@ -12,7 +12,7 @@
 /// comparison constructors so `compare_cells` can match exhaustively
 /// without dead arms for the non-comparison tags (`Add` / `And` / … never
 /// reach it).
-priv enum CmpVerb {
+pub(all) enum CmpVerb {
   Eq
   Ne
   Lt
@@ -133,7 +133,7 @@ fn[T] compare_cells(
 /// built-in `String` order is shortlex), `Bool` orders `false < true`,
 /// and any other pairing — including `Bool` / `String` against numbers —
 /// raises `TypeMismatch`. Null and NaN behavior live in `compare_cells`.
-fn eval_compare(
+pub fn eval_compare(
   left : Series,
   right : Series,
   verb : CmpVerb,
@@ -225,7 +225,7 @@ fn eval_compare(
         right_valid=rv,
         get_left=i => a[i],
         get_right=i => b[i],
-        less_than=(x, y) => @text.compare_string_lex(x, y) < 0,
+        less_than=(x, y) => @types.compare_strings_lex(x, y) < 0,
         equal=(x, y) => x == y,
         verb~,
       )

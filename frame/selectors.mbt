@@ -72,7 +72,7 @@ pub fn cols_matching(
   df : DataFrame,
   pattern : String,
 ) -> Array[@expr.Expr] raise @types.DataError {
-  let re = compile_regex(pattern)
+  let re = @kernel.compile_regex(pattern)
   cols_where(df, field => re.execute(field.name()) is Some(_))
 }
 

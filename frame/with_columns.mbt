@@ -49,7 +49,7 @@ pub fn DataFrame::with_columns(
   let source_fields = self.schema.fields()
   let seen : Map[String, Unit] = Map([])
   for expr in exprs {
-    let column = broadcast_series(eval_expr(expr, self, scope), n)
+    let column = @kernel.broadcast_series(eval_expr(expr, self, scope), n)
     let name = expr_output_name(expr)
     if seen.contains(name) {
       raise @types.DataError::DuplicateColumn(name)

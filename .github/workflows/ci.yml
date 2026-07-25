@@ -137,6 +137,21 @@ jobs:
           sh .github/scripts/check_version_identity.sh
           sh .github/scripts/check_facade_docs.sh
           sh .github/scripts/check_stale_names.sh
+          sh .github/scripts/check_enum_surface.sh
+
+      # A real downstream module: it lives outside this one and imports ONLY the
+      # root facade (`@moonframe`), the way a user's project does. `moon check`
+      # compiles a spread of typical pipelines, so the facade failing to
+      # re-export a symbol a caller must name — or a fluent-chain intermediate
+      # (`WhenThen` / `GroupedDataFrame` / …) becoming necessary to name —
+      # surfaces as a red build here instead of biting the first user to try it.
+      # It is a nested module (its own moon.mod), so the root `moon check` /
+      # `fmt` / `info` above skip it; it is exercised explicitly. Linux-only,
+      # matching the other guards.
+      - name: Guard the facade against a downstream consumer
+        if: runner.os == 'Linux'
+        working-directory: .github/fixtures/facade_smoke
+        run: moon check
 
       # Advisory, never a failure: absolute claims ("all", "every", "never")
       # in prose this branch adds, annotated on the diff so a reviewer

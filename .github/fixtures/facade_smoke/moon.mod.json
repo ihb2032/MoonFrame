@@ -1,0 +1,4 @@
+{
+  "name": "moonframe-facade-smoke",
+  "deps": { "ihb2032/MoonFrame": { "path": "../../.." } }
+}

@@ -525,14 +525,13 @@ reduction-shape gate like any non-reducing expression.
 - `children` / `referenced_columns` / `output_name` are engine seams as of
   v0.6 (`#internal`, absent from the generated interface): the evaluator and
   the lazy optimizer walk expressions with them — Polars keeps the equivalents
-  behind its `.meta` namespace. The naming rule they implement is still part of
-  the contract: an alias wins, else the leftmost column reference, else
+  behind its `.meta` namespace. `children` yields a node's immediate
+  sub-expressions left to right (a ternary lists its condition first; a leaf
+  returns none). The naming rule `output_name` implements is still part of the
+  contract: an alias wins, else the leftmost column reference, else
   `"literal"` for a column-less tree (a ternary draws its name from the value
   branches, never the condition), and every verb that names an output column
   follows it.
-- `children(self) -> Array[Expr]` — the immediate sub-expressions of a
-  node, left to right (a ternary lists its condition first); leaves return
-  none.
 
 ### Evaluation semantics
 
@@ -1428,7 +1427,7 @@ single `import "ihb2032/MoonFrame" @moonframe` reaches the whole surface.
 Because the operator verbs and `to_markdown` are **methods on
 `DataFrame`**, re-exporting `type DataFrame` makes them automatically
 reachable; likewise the `Expr` operators / methods ride along with
-`type Expr`, and the `LazyFrame` / `LazyGroupBy` methods with their types —
+`type Expr`, and the `LazyFrame` methods with its type —
 so only the value types
 and the free functions are listed explicitly. The expression AST — `ExprNode`
 and its `BinOp` / `UnOp` / `AggOp` / `StrOp` tags — lives in the

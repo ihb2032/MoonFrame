@@ -13,14 +13,15 @@
 // `to_markdown` / `to_html` renderers
 // are now methods on `DataFrame`, so re-exporting `type DataFrame`
 // makes them automatically reachable through the facade — there is
-// nothing to list for them here. Likewise `GroupedDataFrame::agg` and the
+// nothing to list for them here. Likewise the
 // `JoinOptions` / `HtmlOptions` / `ChartSpec` constructors — one per type since
 // v0.6 replaced the setter chains — come for free once their types are
 // re-exported. Only the
-// value types (including the GroupBy `GroupedDataFrame`, the Join
-// `JoinType` / `JoinOptions`, the HTML `HtmlOptions`, and the Chart
-// `ChartKind` / `ChartSpec`) and the `io` free functions need explicit
-// re-export. (The text / literal helpers that once lived in `@types` —
+// value types (the Join `JoinType` / `JoinOptions`, the HTML `HtmlOptions`, and
+// the Chart `ChartKind` / `ChartSpec`) and the `io` free functions need explicit
+// re-export. (`GroupedDataFrame::agg` is reached the other way — by chaining off
+// `group_by`'s return, not by naming the type; see the fluent-chain note below.)
+// (The text / literal helpers that once lived in `@types` —
 // `compare_string_lex`, `is_decimal_int_literal`, `format_scalar` — are now in
 // the internal `@text` / `@literal` packages and are not part of the public
 // surface.) The `@ops` package no longer exists (it was folded into `@frame`).

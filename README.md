@@ -230,7 +230,7 @@ expr/       opaque Expr handle — constructors, operators, when/then/otherwise 
 frame/      DataFrame + every operator (one per file) + group_by + join + the expression evaluator (with_columns / select / filter / agg) + to_markdown / to_html
 io/         CSV (NyaCSV-backed), JSON, NDJSON read / write + Vega-Lite export
 lazy/       deferred query plan — LazyFrame builders, collect / explain, predicate + projection pushdown
-moonframe.mbt   the root package — facade, re-exports the whole public API
+moonframe.mbt   the root package — facade over the public API (fluent-chain intermediates stay in their sub-packages)
 ```
 
 The `internal/` packages are MoonBit `internal` packages: importable inside

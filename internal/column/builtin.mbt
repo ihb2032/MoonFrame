@@ -502,7 +502,7 @@ pub fn BuiltinColumn::to_string_column(self : BuiltinColumn) -> BuiltinColumn {
 ///|
 /// Return the underlying raw data array and validity bitmap (no `Option`
 /// boxing). Data at null slots is a placeholder — always consult
-/// `validity` before reading. `raise TypeMismatch(Column(...))` when the column is
+/// `validity` before reading. `raise TypeMismatch(Expected(...))` when the column is
 /// not an `Int` column.
 pub fn BuiltinColumn::int_values(
   self : BuiltinColumn,
@@ -511,7 +511,11 @@ pub fn BuiltinColumn::int_values(
     Int(a) => (a, self.validity)
     Float(_) | Bool(_) | String(_) =>
       raise @types.DataError::TypeMismatch(
-        @types.TypeMismatchDetail::Column(@types.DataType::Int, self.dtype()),
+        @types.TypeMismatchDetail::Expected(
+          @types.DataType::Int,
+          self.dtype(),
+          "",
+        ),
       )
   }
 }
@@ -525,7 +529,11 @@ pub fn BuiltinColumn::float_values(
     Float(a) => (a, self.validity)
     Int(_) | Bool(_) | String(_) =>
       raise @types.DataError::TypeMismatch(
-        @types.TypeMismatchDetail::Column(@types.DataType::Float, self.dtype()),
+        @types.TypeMismatchDetail::Expected(
+          @types.DataType::Float,
+          self.dtype(),
+          "",
+        ),
       )
   }
 }
@@ -539,7 +547,11 @@ pub fn BuiltinColumn::bool_values(
     Bool(a) => (a, self.validity)
     Int(_) | Float(_) | String(_) =>
       raise @types.DataError::TypeMismatch(
-        @types.TypeMismatchDetail::Column(@types.DataType::Bool, self.dtype()),
+        @types.TypeMismatchDetail::Expected(
+          @types.DataType::Bool,
+          self.dtype(),
+          "",
+        ),
       )
   }
 }
@@ -553,7 +565,11 @@ pub fn BuiltinColumn::string_values(
     String(a) => (a, self.validity)
     Int(_) | Float(_) | Bool(_) =>
       raise @types.DataError::TypeMismatch(
-        @types.TypeMismatchDetail::Column(@types.DataType::String, self.dtype()),
+        @types.TypeMismatchDetail::Expected(
+          @types.DataType::String,
+          self.dtype(),
+          "",
+        ),
       )
   }
 }

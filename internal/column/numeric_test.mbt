@@ -217,9 +217,10 @@ test "typed accessors reject the wrong dtype (numeric column has no Bool/String)
     },
     Err(
       @types.DataError::TypeMismatch(
-        @types.TypeMismatchDetail::Column(
+        @types.TypeMismatchDetail::Expected(
           @types.DataType::Int,
           @types.DataType::Float,
+          "",
         ),
       ),
     ),
@@ -230,9 +231,10 @@ test "typed accessors reject the wrong dtype (numeric column has no Bool/String)
     },
     Err(
       @types.DataError::TypeMismatch(
-        @types.TypeMismatchDetail::Column(
+        @types.TypeMismatchDetail::Expected(
           @types.DataType::Float,
           @types.DataType::Int,
+          "",
         ),
       ),
     ),
@@ -245,9 +247,10 @@ test "typed accessors reject the wrong dtype (numeric column has no Bool/String)
     },
     Err(
       @types.DataError::TypeMismatch(
-        @types.TypeMismatchDetail::Column(
+        @types.TypeMismatchDetail::Expected(
           @types.DataType::Bool,
           @types.DataType::Int,
+          "",
         ),
       ),
     ),
@@ -258,9 +261,10 @@ test "typed accessors reject the wrong dtype (numeric column has no Bool/String)
     },
     Err(
       @types.DataError::TypeMismatch(
-        @types.TypeMismatchDetail::Column(
+        @types.TypeMismatchDetail::Expected(
           @types.DataType::Bool,
           @types.DataType::Float,
+          "",
         ),
       ),
     ),
@@ -271,9 +275,10 @@ test "typed accessors reject the wrong dtype (numeric column has no Bool/String)
     },
     Err(
       @types.DataError::TypeMismatch(
-        @types.TypeMismatchDetail::Column(
+        @types.TypeMismatchDetail::Expected(
           @types.DataType::String,
           @types.DataType::Int,
+          "",
         ),
       ),
     ),
@@ -284,9 +289,10 @@ test "typed accessors reject the wrong dtype (numeric column has no Bool/String)
     },
     Err(
       @types.DataError::TypeMismatch(
-        @types.TypeMismatchDetail::Column(
+        @types.TypeMismatchDetail::Expected(
           @types.DataType::String,
           @types.DataType::Float,
+          "",
         ),
       ),
     ),

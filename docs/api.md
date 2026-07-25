@@ -116,7 +116,7 @@ in [`migration.md`](migration.md).
   `Message` carries syntax or shape diagnostics; `Cell` exposes a typed-cell
   failure's location, column, 1-based position, expected dtype, and value.
 - `enum TypeMismatchDetail { Message(String); Expected(DataType, DataType,
-  String); Column(DataType, DataType); Operation(String, DataType, DataType) }`
+  String); Operation(String, DataType, DataType) }`
   — the direct payload of `DataError::TypeMismatch`.
 - `suberror DataError` — `pub(all) suberror` with 10 variants:
   `ColumnNotFound` / `DuplicateColumn` /
@@ -130,8 +130,7 @@ in [`migration.md`](migration.md).
   variants. `DataError::message()` renders a human-readable description;
   the `Show` impl renders the variant form for assertion snapshots.
   `TypeMismatch(Expected(expected, got, column))` carries a value mismatch
-  (`column` is `""` when not column-bound). Raw column-buffer accessors use
-  `TypeMismatch(Column(expected, got))`; binary arithmetic, ordering, and
+  (`column` is `""` when not column-bound); binary arithmetic, ordering, and
   incomparable non-null comparisons use
   `TypeMismatch(Operation(operation, left, right))`. Their `message()` output
   preserves the historical wording. Diagnostics outside those shared shapes

@@ -30,12 +30,6 @@ test "DataError::message covers every variant" {
   )
   inspect(
     DataError::TypeMismatch(
-      TypeMismatchDetail::Column(DataType::Int, DataType::Float),
-    ).message(),
-    content="Type mismatch: expected Int column, got Float",
-  )
-  inspect(
-    DataError::TypeMismatch(
       TypeMismatchDetail::Operation(
         "take the remainder of",
         DataType::String,
@@ -154,12 +148,6 @@ test "DataError Show covers every remaining variant" {
       TypeMismatchDetail::Expected(DataType::Int, DataType::Null, ""),
     ),
     content="TypeMismatch(Expected(Int, Null, \"\"))",
-  )
-  inspect(
-    DataError::TypeMismatch(
-      TypeMismatchDetail::Column(DataType::Int, DataType::Float),
-    ),
-    content="TypeMismatch(Column(Int, Float))",
   )
   inspect(
     DataError::TypeMismatch(

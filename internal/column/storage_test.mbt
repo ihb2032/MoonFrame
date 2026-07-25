@@ -269,9 +269,10 @@ test "int_values / float_values: both arms, with synthesised validity on Numeric
     },
     Err(
       @types.DataError::TypeMismatch(
-        @types.TypeMismatchDetail::Column(
+        @types.TypeMismatchDetail::Expected(
           @types.DataType::Float,
           @types.DataType::Int,
+          "",
         ),
       ),
     ),
@@ -282,9 +283,10 @@ test "int_values / float_values: both arms, with synthesised validity on Numeric
     },
     Err(
       @types.DataError::TypeMismatch(
-        @types.TypeMismatchDetail::Column(
+        @types.TypeMismatchDetail::Expected(
           @types.DataType::Float,
           @types.DataType::Int,
+          "",
         ),
       ),
     ),
@@ -304,9 +306,10 @@ test "bool_values / string_values: Builtin success, Numeric mismatches" {
     },
     Err(
       @types.DataError::TypeMismatch(
-        @types.TypeMismatchDetail::Column(
+        @types.TypeMismatchDetail::Expected(
           @types.DataType::Bool,
           @types.DataType::Int,
+          "",
         ),
       ),
     ),
@@ -317,9 +320,10 @@ test "bool_values / string_values: Builtin success, Numeric mismatches" {
     },
     Err(
       @types.DataError::TypeMismatch(
-        @types.TypeMismatchDetail::Column(
+        @types.TypeMismatchDetail::Expected(
           @types.DataType::String,
           @types.DataType::Int,
+          "",
         ),
       ),
     ),

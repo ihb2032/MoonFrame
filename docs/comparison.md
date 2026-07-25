@@ -125,5 +125,7 @@ will not find here today:
   (`Series::from_*`, or `from_rows` with a `Schema`) when a column's type must
   be pinned. See [`type-inference.md`](type-inference.md).
 
-See [`api.md`](api.md) for the full public surface and
+See [`api.md`](api.md) for the API concepts and compatibility model, the
+per-symbol reference on
+[mooncakes.io](https://mooncakes.io/docs/ihb2032/MoonFrame), and
 [`migration.md`](migration.md) for the version history.

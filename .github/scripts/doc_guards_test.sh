@@ -88,40 +88,6 @@ mkfixture "$work/v_migration" 0.6.0 0.6 '## v0.6.0 — done' 0.5.9
 expect 1 'version: migration targets another release' \
   sh "$scripts/check_version_identity.sh" "$work/v_migration"
 
-# ── facade docs ───────────────────────────────────────────────────────────
-mkfacade() {
-  # mkfacade <dir> <mbti-body> <doc-list>
-  mkdir -p "$1/docs"
-  printf '%s\n' "$2" >"$1/pkg.generated.mbti"
-  printf '# Doc\n\n%s\n\ntail\n' "$3" >"$1/docs/api.md"
-}
-mbti='pub fn col(String) -> @expr.Expr
-pub using @types {type Scalar}
-pub using @expr {type Expr}'
-
-mkfacade "$work/f_ok" "$mbti" '- From `@types`: `Scalar`
-- From `@expr`: `Expr` · `col`'
-expect 0 'facade: complete list' sh "$scripts/check_facade_docs.sh" "$work/f_ok"
-
-mkfacade "$work/f_missing_type" "$mbti" '- From `@types`: `Scalar`
-- From `@expr`: `col`'
-expect 1 'facade: type re-exported but undocumented' \
-  sh "$scripts/check_facade_docs.sh" "$work/f_missing_type"
-
-mkfacade "$work/f_missing_fn" "$mbti" '- From `@types`: `Scalar`
-- From `@expr`: `Expr`'
-expect 1 'facade: free function re-exported but undocumented' \
-  sh "$scripts/check_facade_docs.sh" "$work/f_missing_fn"
-
-mkfacade "$work/f_moved" "$mbti" '- From `@expr`: `Scalar` · `Expr` · `col`'
-expect 1 'facade: type documented under the wrong package' \
-  sh "$scripts/check_facade_docs.sh" "$work/f_moved"
-
-mkfacade "$work/f_ghost" "$mbti" '- From `@types`: `Scalar` · `Ghost`
-- From `@expr`: `Expr` · `col`'
-expect 1 'facade: documented symbol no longer re-exported' \
-  sh "$scripts/check_facade_docs.sh" "$work/f_ghost"
-
 # ── stale names ───────────────────────────────────────────────────────────
 mkstale() {
   # mkstale <dir> <file> <content>
@@ -207,7 +173,6 @@ expect 0 'enum: a plain pub enum is not matchable, so not locked' \
 
 # ── the repository itself ─────────────────────────────────────────────────
 expect 0 'repo: version identity' sh "$scripts/check_version_identity.sh" "$root"
-expect 0 'repo: facade docs' sh "$scripts/check_facade_docs.sh" "$root"
 expect 0 'repo: stale names' sh "$scripts/check_stale_names.sh" "$root"
 expect 0 'repo: enum surface' sh "$scripts/check_enum_surface.sh" "$root"
 

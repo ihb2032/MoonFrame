@@ -123,9 +123,9 @@ jobs:
       # Documentation guards. Everything else in this workflow protects
       # executable content — sources, interfaces, tests, snapshots — which is
       # why prose is where this repository's drift collects instead. These
-      # three check the parts of the prose that *are* mechanically checkable
-      # against the code: the release version, the facade symbol list, and
-      # names that no longer exist. Written in `sh` rather than Python (as the
+      # check the parts that *are* mechanically checkable against the code: the
+      # release version, names that no longer exist, and the public
+      # matchable-enum surface. Written in `sh` rather than Python (as the
       # Array-boundary guard above is) so they run identically on a
       # contributor's machine without a Python install; the self-test runs
       # first, so a guard that has stopped catching anything fails here rather
@@ -135,7 +135,6 @@ jobs:
         run: |
           sh .github/scripts/doc_guards_test.sh
           sh .github/scripts/check_version_identity.sh
-          sh .github/scripts/check_facade_docs.sh
           sh .github/scripts/check_stale_names.sh
           sh .github/scripts/check_enum_surface.sh
 

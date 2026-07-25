@@ -58,8 +58,8 @@ checked mechanically. Run them the same way CI does:
 ```sh
 sh .github/scripts/doc_guards_test.sh      # the guards' own self-test
 sh .github/scripts/check_version_identity.sh
-sh .github/scripts/check_facade_docs.sh
 sh .github/scripts/check_stale_names.sh
+sh .github/scripts/check_enum_surface.sh
 ```
 
 - **Version identity** — `moon.mod`, `docs/api.md`, `docs/changelog.md`, and
@@ -68,9 +68,11 @@ sh .github/scripts/check_stale_names.sh
   `moon.mod` still publishes the previous version; **cutting the release means
   dropping that marker and bumping `moon.mod` together**, which is what the
   guard enforces.
-- **Facade coverage** — every symbol re-exported by the root package appears in
-  the facade list in `docs/api.md`, and nothing lingers there that has been
-  removed.
+- **Enum surface** — the exact variant set of every public `pub(all)` enum /
+  suberror is pinned in `.github/scripts/enum_surface.snapshot`. Adding,
+  removing, or renaming a variant is source-breaking under exhaustive `match`,
+  so it fails here until the snapshot is regenerated deliberately
+  (`sh .github/scripts/check_enum_surface.sh --write`).
 - **Stale names** — a removed identifier must not appear in current-state prose
   or a source comment. `docs/changelog.md` and `docs/migration.md` are exempt
   (history is their content); a single line that must name one takes the marker

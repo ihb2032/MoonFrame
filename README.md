@@ -179,7 +179,9 @@ variants (`ColumnNotFound`, `ParseError`, …) on the `Err`. The full model is i
 - [`quickstart.mbt.md`](quickstart.mbt.md) — a runnable tour; every snippet is
   executed by `moon test`, and by CI across all four backends, so it never goes
   stale
-- [`docs/api.md`](docs/api.md) — the complete public-API reference
+- [`docs/api.md`](docs/api.md) — API concepts & the compatibility model; the
+  per-symbol reference is generated from the docstrings on
+  [mooncakes.io](https://mooncakes.io/docs/ihb2032/MoonFrame)
 - [`docs/comparison.md`](docs/comparison.md) — how MoonFrame aligns with, and
   deliberately differs from, Polars / pandas
 - [`docs/performance.md`](docs/performance.md) — columnar layout, the `Numeric`

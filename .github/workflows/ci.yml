@@ -124,8 +124,9 @@ jobs:
       # executable content — sources, interfaces, tests, snapshots — which is
       # why prose is where this repository's drift collects instead. These
       # check the parts that *are* mechanically checkable against the code: the
-      # release version, names that no longer exist, and the public
-      # matchable-enum surface. Written in `sh` rather than Python (as the
+      # release version, names that no longer exist, the public matchable-enum
+      # surface, and the root facade's exact export set. Written in `sh` rather
+      # than Python (as the
       # Array-boundary guard above is) so they run identically on a
       # contributor's machine without a Python install; the self-test runs
       # first, so a guard that has stopped catching anything fails here rather
@@ -137,6 +138,7 @@ jobs:
           sh .github/scripts/check_version_identity.sh
           sh .github/scripts/check_stale_names.sh
           sh .github/scripts/check_enum_surface.sh
+          sh .github/scripts/check_facade_surface.sh
 
       # A real downstream module: it lives outside this one and imports ONLY the
       # root facade (`@moonframe`), the way a user's project does. `moon check`

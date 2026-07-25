@@ -129,7 +129,7 @@ pub fn GroupedDataFrame::agg(
     let (probe, cells) : (
       () -> @column.ColumnData raise @types.DataError,
       Array[@types.Scalar],
-    ) = match bare_col_agg(expr) {
+    ) = match bare_col_agg(expr.node()) {
       // Fast path: an aggregation over a bare column, `col(name).<agg>()`.
       // Resolve the reducer and validity mask once through the shared kernel
       // (which raises `ColumnNotFound` on the absent column and `TypeMismatch`
@@ -195,40 +195,40 @@ fn reduces_per_group(expr : @expr.Expr) -> Bool {
   // which the doc calls structural and total. `Lit` / `Agg` are terminal (an
   // aggregation reduces regardless of its operand), `Col` / `Map` / `LitSeries`
   // fail, and the combinators require every child to reduce.
-  let stack : Array[@expr.Expr] = [expr]
+  let stack : Array[@ir.ExprNode] = [expr.node()]
   for ;; {
     match stack.pop() {
       None => break
       Some(e) =>
         match e {
-          @expr.Expr::Col(_)
-          | @expr.Expr::Map(_, _, _)
-          | @expr.Expr::LitSeries(_) => return false
+          @ir.ExprNode::Col(_)
+          | @ir.ExprNode::Map(_, _, _)
+          | @ir.ExprNode::LitSeries(_) => return false
           // A batch map reduces per group only when flagged `returns_scalar`:
           // then it is terminal like `Agg` (its result is the group's single
           // cell); otherwise it is row-wise like `Map` and does not reduce.
-          @expr.Expr::MapBatches(_, _, returns_scalar, _) =>
+          @ir.ExprNode::MapBatches(_, _, returns_scalar, _) =>
             if !returns_scalar {
               return false
             }
-          @expr.Expr::Lit(_) | @expr.Expr::Agg(_, _) => ()
-          @expr.Expr::Binary(_, l, r)
-          | @expr.Expr::FillNull(l, r)
-          | @expr.Expr::FillNan(l, r) => {
+          @ir.ExprNode::Lit(_) | @ir.ExprNode::Agg(_, _) => ()
+          @ir.ExprNode::Binary(_, l, r)
+          | @ir.ExprNode::FillNull(l, r)
+          | @ir.ExprNode::FillNan(l, r) => {
             stack.push(l)
             stack.push(r)
           }
-          @expr.Expr::Unary(_, e2)
-          | @expr.Expr::Str(_, e2)
-          | @expr.Expr::Cast(e2, _)
-          | @expr.Expr::Alias(e2, _)
-          | @expr.Expr::IsIn(e2, _) => stack.push(e2)
-          @expr.Expr::Ternary(c, t, f) => {
+          @ir.ExprNode::Unary(_, e2)
+          | @ir.ExprNode::Str(_, e2)
+          | @ir.ExprNode::Cast(e2, _)
+          | @ir.ExprNode::Alias(e2, _)
+          | @ir.ExprNode::IsIn(e2, _) => stack.push(e2)
+          @ir.ExprNode::Ternary(c, t, f) => {
             stack.push(c)
             stack.push(t)
             stack.push(f)
           }
-          @expr.Expr::IsBetween(x, lo, hi, _) => {
+          @ir.ExprNode::IsBetween(x, lo, hi, _) => {
             stack.push(x)
             stack.push(lo)
             stack.push(hi)
@@ -250,11 +250,15 @@ fn reduces_per_group(expr : @expr.Expr) -> Bool {
 /// derived operand (`(col("a") - col("b")).sum()`, `col("x").cast(...).sum()`)
 /// or any non-aggregation returns `None` and takes the general per-group
 /// evaluator — which the fast path reproduces cell for cell.
-fn bare_col_agg(expr : @expr.Expr) -> (String, ReduceOp)? {
+fn bare_col_agg(expr : @ir.ExprNode) -> (String, ReduceOp)? {
   match expr {
-    @expr.Expr::Alias(inner, _) => bare_col_agg(inner)
-    @expr.Expr::Agg(op, @expr.Expr::Col(name)) =>
-      Some((name, reduce_op_of_agg(op)))
+    @ir.ExprNode::Alias(inner, _) => bare_col_agg(inner)
+    // The `Agg`'s operand is an AST node, so its `Col`-ness is a second step.
+    @ir.ExprNode::Agg(op, operand) =>
+      match operand {
+        @ir.ExprNode::Col(name) => Some((name, reduce_op_of_agg(op)))
+        _ => None
+      }
     _ => None
   }
 }

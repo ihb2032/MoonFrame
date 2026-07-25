@@ -86,7 +86,7 @@ pub using @io {type ChartKind}
 
 pub using @io {type ChartSpec}
 
-pub using @expr {type ClosedInterval}
+pub using @types {type ClosedInterval}
 
 pub using @io {type CsvReadOptions}
 

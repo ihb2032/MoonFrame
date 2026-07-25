@@ -70,6 +70,22 @@ collected in [`migration.md`](migration.md).
 
 ### Breaking
 
+- **`Expr` is opaque; its AST is module-internal.** The expression tree used to
+  be a `pub enum Expr` a downstream package could pattern-match. It is now an
+  opaque `struct`, and the AST it wraps — `ExprNode` and the `BinOp` / `UnOp` /
+  `AggOp` / `StrOp` tags — lives in a new `internal/ir` package that no
+  downstream module can import. Building expressions is unchanged (`col` /
+  `lit_*` / the operators and methods); what is gone is matching an `Expr`'s
+  variants from outside `MoonFrame`, which was never part of the intended
+  surface. `Expr::to_string` renders one for inspection. The upshot is that the
+  AST can grow a node with any new operator without breaking a caller — the
+  compatibility promise no longer has an expression-AST exception.
+  - `ClosedInterval` (the `is_between` `closed?` argument) moves from `expr` to
+    `types`, since the AST — now below `expr` — carries it. Through the facade
+    the name is unchanged (`@moonframe.ClosedInterval`); a direct sub-package
+    import spells it `@types.ClosedInterval` instead of `@expr.ClosedInterval`,
+    the same relocation `SortOrder` / `NullOrder` had.
+
 - **A column-less frame carries its row count (`N × 0`).** A frame with no
   columns was pinned to `0×0` by INV7, so every projection to zero columns
   silently dropped the height. It no longer does, and the operations that

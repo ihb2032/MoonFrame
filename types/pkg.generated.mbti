@@ -38,6 +38,16 @@ pub fn CellParseLocation::equal(Self, Self) -> Bool
 pub fn CellParseLocation::not_equal(Self, Self) -> Bool
 pub fn CellParseLocation::to_repr(Self) -> @debug.Repr
 
+pub(all) enum ClosedInterval {
+  Both
+  Left
+  Right
+  None
+} derive(Eq, @debug.Debug)
+pub fn ClosedInterval::equal(Self, Self) -> Bool
+pub fn ClosedInterval::not_equal(Self, Self) -> Bool
+pub fn ClosedInterval::to_repr(Self) -> @debug.Repr
+
 pub(all) enum DataType {
   Int
   Float

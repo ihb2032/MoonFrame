@@ -623,24 +623,24 @@ fn DataFrame::with_same_schema(
 ///
 /// Written without a wildcard so a new `Expr` variant has to state whether it
 /// is a pure rename rather than defaulting to "no".
-fn projection_source(expr : @expr.Expr) -> String? {
+fn projection_source(expr : @ir.ExprNode) -> String? {
   match expr {
-    @expr.Expr::Col(name) => Some(name)
-    @expr.Expr::Alias(inner, _) => projection_source(inner)
-    @expr.Expr::Lit(_)
-    | @expr.Expr::LitSeries(_)
-    | @expr.Expr::Binary(_, _, _)
-    | @expr.Expr::Unary(_, _)
-    | @expr.Expr::Agg(_, _)
-    | @expr.Expr::Str(_, _)
-    | @expr.Expr::Cast(_, _)
-    | @expr.Expr::Ternary(_, _, _)
-    | @expr.Expr::FillNull(_, _)
-    | @expr.Expr::FillNan(_, _)
-    | @expr.Expr::IsIn(_, _)
-    | @expr.Expr::IsBetween(_, _, _, _)
-    | @expr.Expr::Map(_, _, _)
-    | @expr.Expr::MapBatches(_, _, _, _) => None
+    @ir.ExprNode::Col(name) => Some(name)
+    @ir.ExprNode::Alias(inner, _) => projection_source(inner)
+    @ir.ExprNode::Lit(_)
+    | @ir.ExprNode::LitSeries(_)
+    | @ir.ExprNode::Binary(_, _, _)
+    | @ir.ExprNode::Unary(_, _)
+    | @ir.ExprNode::Agg(_, _)
+    | @ir.ExprNode::Str(_, _)
+    | @ir.ExprNode::Cast(_, _)
+    | @ir.ExprNode::Ternary(_, _, _)
+    | @ir.ExprNode::FillNull(_, _)
+    | @ir.ExprNode::FillNan(_, _)
+    | @ir.ExprNode::IsIn(_, _)
+    | @ir.ExprNode::IsBetween(_, _, _, _)
+    | @ir.ExprNode::Map(_, _, _)
+    | @ir.ExprNode::MapBatches(_, _, _, _) => None
   }
 }
 
@@ -661,7 +661,7 @@ fn DataFrame::carried_field(
   column : Series,
   name : String,
 ) -> @types.Field {
-  let carried = match projection_source(expr) {
+  let carried = match projection_source(expr.node()) {
     Some(src) => self.name_to_index.get(src).map(i => source_fields[i])
     None => None
   }

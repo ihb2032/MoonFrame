@@ -1,5 +1,5 @@
 ///|
-/// The string-namespace kernel: apply a `@expr.StrOp` to each cell of a String
+/// The string-namespace kernel: apply a `@ir.StrOp` to each cell of a String
 /// operand — case, `strip_chars` (default or custom charset), `len_chars` /
 /// `len_bytes`, `reverse`, `pad`, `slice`, `split_get`, the literal `contains` /
 /// `starts_with` / `ends_with` predicates and `replace` / `replace_all`, and the
@@ -23,10 +23,7 @@
 /// ops compile their POSIX pattern **once** (hoisted out of the per-cell map),
 /// so an invalid pattern raises `InvalidOperation` once per evaluation — the
 /// only non-total path — while literal matching stays per-value total.
-fn eval_str(
-  op : @expr.StrOp,
-  operand : Series,
-) -> Series raise @types.DataError {
+fn eval_str(op : @ir.StrOp, operand : Series) -> Series raise @types.DataError {
   let data = match operand.storage().data() {
     @column.ColumnData::String(a) => a
     @column.ColumnData::Int(_)
@@ -42,62 +39,62 @@ fn eval_str(
   let name = operand.name()
   let n = data.length()
   let out = match op {
-    @expr.StrOp::ToUppercase =>
+    @ir.StrOp::ToUppercase =>
       Series::from_string_options(
         name,
         map_present(n, valid, i => data[i].to_upper()),
       )
-    @expr.StrOp::ToLowercase =>
+    @ir.StrOp::ToLowercase =>
       Series::from_string_options(
         name,
         map_present(n, valid, i => data[i].to_lower()),
       )
-    @expr.StrOp::StripChars =>
+    @ir.StrOp::StripChars =>
       Series::from_string_options(
         name,
         map_present(n, valid, i => data[i].trim().to_owned()),
       )
-    @expr.StrOp::LenChars =>
+    @ir.StrOp::LenChars =>
       Series::from_int_options(
         name,
         map_present(n, valid, i => data[i].char_length().to_int64()),
       )
-    @expr.StrOp::Contains(pattern) =>
+    @ir.StrOp::Contains(pattern) =>
       Series::from_bool_options(
         name,
         map_present(n, valid, i => data[i].contains(pattern)),
       )
-    @expr.StrOp::StartsWith(prefix) =>
+    @ir.StrOp::StartsWith(prefix) =>
       Series::from_bool_options(
         name,
         map_present(n, valid, i => data[i].has_prefix(prefix)),
       )
-    @expr.StrOp::EndsWith(suffix) =>
+    @ir.StrOp::EndsWith(suffix) =>
       Series::from_bool_options(
         name,
         map_present(n, valid, i => data[i].has_suffix(suffix)),
       )
-    @expr.StrOp::Replace(pattern, value) =>
+    @ir.StrOp::Replace(pattern, value) =>
       Series::from_string_options(
         name,
         map_present(n, valid, i => data[i].replace(old=pattern, new=value)),
       )
-    @expr.StrOp::ReplaceAll(pattern, value) =>
+    @ir.StrOp::ReplaceAll(pattern, value) =>
       Series::from_string_options(
         name,
         map_present(n, valid, i => data[i].replace_all(old=pattern, new=value)),
       )
-    @expr.StrOp::Reverse =>
+    @ir.StrOp::Reverse =>
       Series::from_string_options(
         name,
         map_present(n, valid, i => data[i].rev()),
       )
-    @expr.StrOp::PadStart(width, fill) =>
+    @ir.StrOp::PadStart(width, fill) =>
       Series::from_string_options(
         name,
         map_present(n, valid, i => pad_start_chars(data[i], width, fill)),
       )
-    @expr.StrOp::PadEnd(width, fill) =>
+    @ir.StrOp::PadEnd(width, fill) =>
       Series::from_string_options(
         name,
         map_present(n, valid, i => pad_end_chars(data[i], width, fill)),
@@ -105,14 +102,14 @@ fn eval_str(
     // The `*Regex` ops compile the pattern once here — outside `map_present`, so
     // an invalid pattern raises once per evaluation, never per cell — then run
     // it over each present cell (`String` cells auto-coerce to `StringView`).
-    @expr.StrOp::ContainsRegex(pattern) => {
+    @ir.StrOp::ContainsRegex(pattern) => {
       let re = compile_regex(pattern)
       Series::from_bool_options(
         name,
         map_present(n, valid, i => re.execute(data[i]) is Some(_)),
       )
     }
-    @expr.StrOp::ReplaceRegex(pattern, value) => {
+    @ir.StrOp::ReplaceRegex(pattern, value) => {
       let re = compile_regex(pattern)
       Series::from_string_options(
         name,
@@ -121,7 +118,7 @@ fn eval_str(
         }),
       )
     }
-    @expr.StrOp::ReplaceAllRegex(pattern, value) => {
+    @ir.StrOp::ReplaceAllRegex(pattern, value) => {
       let re = compile_regex(pattern)
       Series::from_string_options(
         name,
@@ -131,7 +128,7 @@ fn eval_str(
     // `Extract` nulls a present cell that does not match (or whose group is
     // absent), so it builds `Array[String?]` directly rather than through
     // `map_present`, whose `f` cannot itself produce a null.
-    @expr.StrOp::Extract(pattern, group) => {
+    @ir.StrOp::Extract(pattern, group) => {
       let re = compile_regex(pattern)
       Series::from_string_options(
         name,
@@ -144,31 +141,31 @@ fn eval_str(
         }),
       )
     }
-    @expr.StrOp::CountMatches(pattern) => {
+    @ir.StrOp::CountMatches(pattern) => {
       let re = compile_regex(pattern)
       Series::from_int_options(
         name,
         map_present(n, valid, i => re.find(data[i]).count().to_int64()),
       )
     }
-    @expr.StrOp::Slice(offset, length) =>
+    @ir.StrOp::Slice(offset, length) =>
       Series::from_string_options(
         name,
         map_present(n, valid, i => slice_chars(data[i], offset, length)),
       )
-    @expr.StrOp::LenBytes =>
+    @ir.StrOp::LenBytes =>
       Series::from_int_options(
         name,
         map_present(n, valid, i => @utf8.encode(data[i]).length().to_int64()),
       )
-    @expr.StrOp::StripCharsCustom(chars) =>
+    @ir.StrOp::StripCharsCustom(chars) =>
       Series::from_string_options(
         name,
         map_present(n, valid, i => data[i].trim(chars~).to_owned()),
       )
     // `SplitGet` nulls a present cell that has no `index`-th field, so it builds
     // `Array[String?]` directly rather than through `map_present`.
-    @expr.StrOp::SplitGet(sep, index) =>
+    @ir.StrOp::SplitGet(sep, index) =>
       Series::from_string_options(
         name,
         Array::makei(n, i => {
@@ -179,7 +176,7 @@ fn eval_str(
           }
         }),
       )
-    @expr.StrOp::ZFill(width) =>
+    @ir.StrOp::ZFill(width) =>
       Series::from_string_options(
         name,
         map_present(n, valid, i => zfill_chars(data[i], width)),

@@ -442,7 +442,7 @@ fn resolve_join_keys(
   let seen : Map[String, Unit] = Map([])
   for i in 0..<left_exprs.length() {
     let name = expr_output_name(left_exprs[i])
-    if dedup && left_exprs[i] is @expr.Expr::Col(_) {
+    if dedup && left_exprs[i].node() is @ir.ExprNode::Col(_) {
       if seen.contains(name) {
         raise @types.DataError::DuplicateColumn(name)
       }
@@ -516,8 +516,8 @@ fn coalesce_key_names(options : JoinOptions) -> Array[String]? {
   }
   let names = []
   for k in options.on {
-    match k {
-      @expr.Expr::Col(name) => names.push(name)
+    match k.node() {
+      @ir.ExprNode::Col(name) => names.push(name)
       _ => return None
     }
   }

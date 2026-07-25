@@ -13,7 +13,7 @@
 // `agg` builds on, pinned here at the evaluator level.
 //
 // The `AggOp` ↔ `ReduceOp` mirror: `reduce_op_of_agg`'s exhaustive match
-// already fails compilation when `@expr.AggOp` gains a variant, but nothing
+// already fails compilation when `@ir.AggOp` gains a variant, but nothing
 // broke when `@series.ReduceOp` gained one `AggOp` lacks — the docstring on
 // `AggOp` could only ask for lockstep by convention. The parity test below
 // closes that direction with a wildcard-free `ordinal` match over `ReduceOp`.
@@ -99,8 +99,8 @@ test "ReduceOp mirrors AggOp one-to-one through reduce_op_of_agg" {
   ]
   let ords : Array[Int] = []
   for e in built {
-    match e {
-      @expr.Expr::Agg(op, _) => ords.push(ordinal(reduce_op_of_agg(op)))
+    match e.node() {
+      @ir.ExprNode::Agg(op, _) => ords.push(ordinal(reduce_op_of_agg(op)))
       _ => ()
     }
   }

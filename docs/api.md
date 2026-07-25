@@ -226,24 +226,27 @@ interface, so they are not part of the surface this document covers.
 
 ## `expr` — Expression engine
 
-A reified, composable column expression — a small recursive tree you build
-with constructors, operators, and methods, then evaluate eagerly
+A composable column expression — a value you build with constructors,
+operators, and methods, then evaluate eagerly
 (`with_columns` / `select` / `filter` / `agg`, in `frame`), render
-(`to_string`), or defer and optimize (`lazy`). Building a tree is **total** —
+(`to_string`), or defer and optimize (`lazy`). Building one is **total** —
 every failure (a missing column, a type clash) waits for evaluation. `expr`
 depends on `types` and `series` — `lit_series` and `map_batches` carry a
-`Series` in the tree — and on nothing above it: not `frame`, `io`, or `lazy`.
+`Series` — and on nothing above it: not `frame`, `io`, or `lazy`.
 
-- `enum Expr` — the expression tree, **read-only** outside the package
-  (inspect by pattern matching; construct through `col` / `lit_*` /
-  operators / methods, not by spelling variants). The payload tag enums
-  `BinOp` / `UnOp` / `AggOp` / `StrOp` are read-only implementation tags — no
-  public API names one, so the facade does not re-export them. The variants are
-  `pub` for the engine's sake — `frame` evaluates the tree and `lazy` rewrites
-  it, both across a package boundary — and **are not covered by the
-  compatibility promise**: new ones arrive with new operators (see
-  [Out of scope](#out-of-scope-for-v06-so-far)). `Expr::to_string` is the
-  stable way to look at an expression from outside.
+- `struct Expr` — the expression handle, **opaque**: you build it and pass it
+  on, or render it with `to_string`; it exposes no variants to match. The AST
+  it wraps lives in the module-internal `internal/ir` package, which a
+  downstream module cannot import, so it is not part of the public API and can
+  grow a node whenever an operator does without breaking a caller. (The engine
+  — `frame`'s evaluator, `lazy`'s optimizer — is in-module and walks the AST
+  directly.) `Expr::to_string` is the way to look at an expression from
+  outside; there is no matchable structure to depend on.
+- `struct WhenThen` / `struct WhenThenElse` — the intermediate builders of the
+  `when(c).then(a).otherwise(b)` chain, likewise **opaque**: the only move on a
+  `WhenThen` is `.then(value)`, and on a `WhenThenElse` is `.otherwise(value)`,
+  which completes the `Expr`. Their fields are private; a chain is the sole
+  construction route.
 
 ### Constructors (free functions)
 
@@ -1425,14 +1428,15 @@ Because the operator verbs and `to_markdown` are **methods on
 reachable; likewise the `Expr` operators / methods ride along with
 `type Expr`, and the `LazyFrame` / `LazyGroupBy` methods with their types —
 so only the value types
-and the free functions are listed explicitly. The inert `BinOp` / `UnOp`
-/ `AggOp` / `StrOp` tag enums are deliberately **not** re-exported (no public
-API names them).
+and the free functions are listed explicitly. The expression AST — `ExprNode`
+and its `BinOp` / `UnOp` / `AggOp` / `StrOp` tags — lives in the
+module-internal `internal/ir` package, which downstream cannot import and no
+public API names, so there is nothing to re-export for it.
 
 - From `@types`: `DataError` · `CellParseLocation` · `ParseErrorDetail` ·
   `TypeMismatchDetail` · `DataType` · `PhysicalType` · `Scalar` · `Field` ·
-  `Schema` · `SortOrder` · `NullOrder`
-- From `@expr`: `Expr` · `ClosedInterval` · `WhenThen` · `WhenThenElse` ·
+  `Schema` · `SortOrder` · `NullOrder` · `ClosedInterval`
+- From `@expr`: `Expr` · `WhenThen` · `WhenThenElse` ·
   `col` · `cols` ·
   `lit` · `lit_int` · `lit_float` · `lit_str` · `lit_bool` · `lit_series` ·
   `when` · `map_many`
@@ -1464,19 +1468,16 @@ The whole v0.6 surface above has landed on `main`. v0.6 is one more breaking
 release (API convergence); from v0.7 on the API only grows (additive — no
 renames, removals, or signature changes).
 
-**One carve-out, stated plainly: a public enum can gain a variant.** MoonBit
+**One thing to know about growth: a public enum can gain a variant.** MoonBit
 requires a `match` to be exhaustive, so a new variant is source-breaking for
-code that matches one without a wildcard arm — and growth here mostly *is* new
-variants (v0.6 added four to `Expr` alone: `FillNull`, `FillNan`, `IsIn`,
-`IsBetween`). Adding one is treated as additive and will keep happening. This
-matters most for the expression AST: `Expr` and its `BinOp` / `UnOp` / `AggOp`
-/ `StrOp` tags are `pub` so the evaluator in `frame` and the optimizer in
-`lazy` can walk them across package boundaries, not as a surface to consume.
-They are not re-exported by the facade, and the supported way to inspect an
-expression from outside is `Expr::to_string`. Match the AST directly and a
-future variant will stop your build; that is expected, not a regression. The
-`types` enums a caller *is* meant to match — `DataError`, `Scalar`,
-`DataType` — carry the same caveat: include a wildcard arm if a new variant
+code that matches one without a wildcard arm, and adding one is treated as
+additive here. The expression AST — where variants grow the most (v0.6 added
+four) — is *not* a public enum for exactly this reason: `Expr` is opaque and
+its `ExprNode` / `BinOp` / `UnOp` / `AggOp` / `StrOp` AST lives in the
+module-internal `internal/ir` package, so a downstream caller cannot match it
+and a new node cannot break one. Inspect an expression with `Expr::to_string`.
+The enums a caller *is* meant to match — `DataError`, `Scalar`, `DataType`,
+`SortOrder`, … — remain public; include a wildcard arm if a future variant
 must not break you.
 
 These are the tracked deferrals, all v0.7+:

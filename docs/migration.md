@@ -133,6 +133,22 @@ the new home:
 | `@frame.SortOrder::Desc` | `@types.SortOrder::Desc` |
 | `@frame.NullOrder::NullsLast` | `@types.NullOrder::NullsLast` |
 
+### `Expr` is opaque; `ClosedInterval` moved to `types`
+
+The expression tree is no longer a matchable `pub enum Expr`. It is an opaque
+handle whose AST (`ExprNode` and the `BinOp` / `UnOp` / `AggOp` / `StrOp` tags)
+lives in the module-internal `internal/ir` package. Building expressions is
+unchanged; code that *matched* an `Expr`'s variants from outside `MoonFrame`
+must instead render it with `Expr::to_string` (the AST was never an intended
+consumption surface). `ClosedInterval` moves with the AST's home, from `expr`
+to `types` — the facade name is unchanged, only a direct sub-package import
+differs:
+
+| v0.5 | v0.6 |
+| --- | --- |
+| `match expr { @expr.Col(name) => … }` | `expr.to_string()` (no variant match) |
+| `@expr.ClosedInterval::Both` | `@types.ClosedInterval::Both` |
+
 ### `unique` takes a subset, and is now fallible
 
 `DataFrame::unique` gained Polars' `subset` — the columns whose values form the

@@ -161,7 +161,7 @@ test "is_between honours each closed setting" {
   let bounds = (@expr.lit_int(2), @expr.lit_int(3))
   let (lo, hi) = bounds
   let mask = fn(
-    closed : @expr.ClosedInterval,
+    closed : @types.ClosedInterval,
   ) -> Array[@types.Scalar] raise @types.DataError {
     df
     .select([@expr.col("n").is_between(lo, hi, closed~).with_alias("in")])
@@ -169,26 +169,26 @@ test "is_between honours each closed setting" {
     .to_scalars()
   }
   // Both endpoints (the default) keeps 2 and 3.
-  assert_eq(mask(@expr.ClosedInterval::Both), [
+  assert_eq(mask(@types.ClosedInterval::Both), [
     @types.Scalar::Bool(false),
     @types.Scalar::Bool(true),
     @types.Scalar::Bool(true),
     @types.Scalar::Bool(false),
   ])
   // Left keeps the lower bound only, Right the upper, None neither.
-  assert_eq(mask(@expr.ClosedInterval::Left), [
+  assert_eq(mask(@types.ClosedInterval::Left), [
     @types.Scalar::Bool(false),
     @types.Scalar::Bool(true),
     @types.Scalar::Bool(false),
     @types.Scalar::Bool(false),
   ])
-  assert_eq(mask(@expr.ClosedInterval::Right), [
+  assert_eq(mask(@types.ClosedInterval::Right), [
     @types.Scalar::Bool(false),
     @types.Scalar::Bool(false),
     @types.Scalar::Bool(true),
     @types.Scalar::Bool(false),
   ])
-  assert_eq(mask(@expr.ClosedInterval::None), [
+  assert_eq(mask(@types.ClosedInterval::None), [
     @types.Scalar::Bool(false),
     @types.Scalar::Bool(false),
     @types.Scalar::Bool(false),
@@ -198,18 +198,18 @@ test "is_between honours each closed setting" {
   // argument that builds it.
   assert_not_eq(
     @expr.col("n").is_between(lo, hi),
-    @expr.col("n").is_between(lo, hi, closed=@expr.ClosedInterval::Left),
+    @expr.col("n").is_between(lo, hi, closed=@types.ClosedInterval::Left),
   )
   inspect(
-    @expr.col("n").is_between(lo, hi, closed=@expr.ClosedInterval::None),
+    @expr.col("n").is_between(lo, hi, closed=@types.ClosedInterval::None),
     content="col(n).is_between(2, 3, closed=None)",
   )
   inspect(
-    @expr.col("n").is_between(lo, hi, closed=@expr.ClosedInterval::Left),
+    @expr.col("n").is_between(lo, hi, closed=@types.ClosedInterval::Left),
     content="col(n).is_between(2, 3, closed=Left)",
   )
   inspect(
-    @expr.col("n").is_between(lo, hi, closed=@expr.ClosedInterval::Right),
+    @expr.col("n").is_between(lo, hi, closed=@types.ClosedInterval::Right),
     content="col(n).is_between(2, 3, closed=Right)",
   )
   // The default renders bare, so existing plan snapshots are unchanged.

@@ -1,7 +1,7 @@
 ///|
 /// The aggregation kernel: reduce an evaluated operand over its scope to a
 /// length-1 column through the shared `reducer_for` machinery, plus
-/// `reduce_op_of_agg` — the map from the read-only `@expr.AggOp` to the
+/// `reduce_op_of_agg` — the map from the read-only `@ir.AggOp` to the
 /// frame-local `ReduceOp`, shared with the grouped-`agg` fast path so the two
 /// route each op the same way.
 
@@ -26,34 +26,31 @@
 /// Numeric outputs converge onto the `Numeric` backend, the expression-engine
 /// convention for computed columns; consumers broadcast the length-1 result
 /// back over their scope.
-fn eval_agg(
-  op : @expr.AggOp,
-  operand : Series,
-) -> Series raise @types.DataError {
+fn eval_agg(op : @ir.AggOp, operand : Series) -> Series raise @types.DataError {
   let (reducer, probe) = reducer_for(operand.storage(), reduce_op_of_agg(op))
   let cell = reducer(operand.len(), k => k)
   scalars_to_series(probe, operand.name(), [cell])
 }
 
 ///|
-/// Map the read-only `@expr.AggOp` (matchable here, constructible only in
+/// Map the read-only `@ir.AggOp` (matchable here, constructible only in
 /// `expr`) into the frame-local `ReduceOp` the shared reduction kernel
 /// speaks. Shared by the scoped `eval_agg` and the grouped `agg`
 /// single-pass fast path (`bare_col_agg`), so the two map the same op the
 /// same way. Exhaustive with no wildcard: a future `AggOp` variant fails
 /// compilation here rather than silently routing to a wrong reduction.
-fn reduce_op_of_agg(op : @expr.AggOp) -> ReduceOp {
+fn reduce_op_of_agg(op : @ir.AggOp) -> ReduceOp {
   match op {
-    @expr.AggOp::Sum => ReduceOp::Sum
-    @expr.AggOp::Mean => ReduceOp::Mean
-    @expr.AggOp::Min => ReduceOp::Min
-    @expr.AggOp::Max => ReduceOp::Max
-    @expr.AggOp::Count => ReduceOp::Count
-    @expr.AggOp::Std => ReduceOp::Std
-    @expr.AggOp::Var => ReduceOp::Var
-    @expr.AggOp::Median => ReduceOp::Median
-    @expr.AggOp::NUnique => ReduceOp::NUnique
-    @expr.AggOp::First => ReduceOp::First
-    @expr.AggOp::Last => ReduceOp::Last
+    @ir.AggOp::Sum => ReduceOp::Sum
+    @ir.AggOp::Mean => ReduceOp::Mean
+    @ir.AggOp::Min => ReduceOp::Min
+    @ir.AggOp::Max => ReduceOp::Max
+    @ir.AggOp::Count => ReduceOp::Count
+    @ir.AggOp::Std => ReduceOp::Std
+    @ir.AggOp::Var => ReduceOp::Var
+    @ir.AggOp::Median => ReduceOp::Median
+    @ir.AggOp::NUnique => ReduceOp::NUnique
+    @ir.AggOp::First => ReduceOp::First
+    @ir.AggOp::Last => ReduceOp::Last
   }
 }

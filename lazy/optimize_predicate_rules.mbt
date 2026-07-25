@@ -27,34 +27,34 @@
 /// row-local and raises only on scope-independent facts (names, dtypes) —
 /// a `Str` op is per-cell and total, raising only the dtype-level
 /// `TypeMismatch` of a non-String operand.
-fn row_stable(expr : @expr.Expr) -> Bool {
+fn row_stable(expr : @ir.ExprNode) -> Bool {
   // Iterative tree walk (explicit stack, not the call stack) so a deeply nested
   // predicate cannot overflow and abort during optimization — total at any
   // depth, as this function's doc promises. Every node must be row-local;
   // `children()` drives the descent, so a new `Expr` variant is covered the
   // moment it declares its children.
-  let stack : Array[@expr.Expr] = [expr]
+  let stack : Array[@ir.ExprNode] = [expr]
   for ;; {
     match stack.pop() {
       None => break
       Some(e) =>
         match e {
-          @expr.Expr::Agg(_, _)
-          | @expr.Expr::Cast(_, _)
-          | @expr.Expr::Map(_, _, _)
-          | @expr.Expr::MapBatches(_, _, _, _)
-          | @expr.Expr::LitSeries(_) => return false
-          @expr.Expr::Col(_)
-          | @expr.Expr::Lit(_)
-          | @expr.Expr::Binary(_, _, _)
-          | @expr.Expr::Unary(_, _)
-          | @expr.Expr::Str(_, _)
-          | @expr.Expr::Alias(_, _)
-          | @expr.Expr::Ternary(_, _, _)
-          | @expr.Expr::FillNull(_, _)
-          | @expr.Expr::FillNan(_, _)
-          | @expr.Expr::IsIn(_, _)
-          | @expr.Expr::IsBetween(_, _, _, _) =>
+          @ir.ExprNode::Agg(_, _)
+          | @ir.ExprNode::Cast(_, _)
+          | @ir.ExprNode::Map(_, _, _)
+          | @ir.ExprNode::MapBatches(_, _, _, _)
+          | @ir.ExprNode::LitSeries(_) => return false
+          @ir.ExprNode::Col(_)
+          | @ir.ExprNode::Lit(_)
+          | @ir.ExprNode::Binary(_, _, _)
+          | @ir.ExprNode::Unary(_, _)
+          | @ir.ExprNode::Str(_, _)
+          | @ir.ExprNode::Alias(_, _)
+          | @ir.ExprNode::Ternary(_, _, _)
+          | @ir.ExprNode::FillNull(_, _)
+          | @ir.ExprNode::FillNan(_, _)
+          | @ir.ExprNode::IsIn(_, _)
+          | @ir.ExprNode::IsBetween(_, _, _, _) =>
             for child in e.children() {
               stack.push(child)
             }
@@ -68,7 +68,7 @@ fn row_stable(expr : @expr.Expr) -> Bool {
 /// `row_stable` over a stage's whole expression list — one scope-bound or
 /// value-raising expression fences the stage.
 fn all_row_stable(exprs : Array[@expr.Expr]) -> Bool {
-  exprs.all(row_stable)
+  exprs.all(e => row_stable(e.node()))
 }
 
 ///|
@@ -96,11 +96,11 @@ fn signed_zero_safe(expr : @expr.Expr) -> Bool {
     match stack.pop() {
       None => break
       Some(e) =>
-        match e {
-          @expr.Expr::Binary(
-            @expr.BinOp::Div
-            | @expr.BinOp::FloorDiv
-            | @expr.BinOp::Pow,
+        match e.node() {
+          @ir.ExprNode::Binary(
+            @ir.BinOp::Div
+            | @ir.BinOp::FloorDiv
+            | @ir.BinOp::Pow,
             _,
             _
           ) => return false
@@ -138,19 +138,19 @@ fn signed_zero_safe(expr : @expr.Expr) -> Bool {
 /// and the Kleene connectives over non-null cells stay non-null, as do
 /// the unary wrappers, the string-namespace transforms, and a ternary over
 /// a non-null condition.
-fn group_cell_stable(expr : @expr.Expr) -> Bool {
+fn group_cell_stable(expr : @ir.ExprNode) -> Bool {
   // Iterative walk like `row_stable`: total at any predicate depth. An `Agg`
   // node is terminal here — its verdict is its op's (the reducing ops fence,
   // `Sum`/`Count`/`NUnique` defer to `row_stable` of the operand) — so its
   // operand is never pushed for further `group_cell_stable` descent.
-  let stack : Array[@expr.Expr] = [expr]
+  let stack : Array[@ir.ExprNode] = [expr]
   for ;; {
     match stack.pop() {
       None => break
       Some(e) =>
         match e {
-          @expr.Expr::Col(_) => return false
-          @expr.Expr::Lit(value) =>
+          @ir.ExprNode::Col(_) => return false
+          @ir.ExprNode::Lit(value) =>
             match value {
               @types.Scalar::Null => return false
               @types.Scalar::Int(_)
@@ -158,34 +158,34 @@ fn group_cell_stable(expr : @expr.Expr) -> Bool {
               | @types.Scalar::Bool(_)
               | @types.Scalar::String(_) => ()
             }
-          @expr.Expr::Agg(op, operand) =>
+          @ir.ExprNode::Agg(op, operand) =>
             match op {
-              @expr.AggOp::Sum | @expr.AggOp::Count | @expr.AggOp::NUnique =>
+              @ir.AggOp::Sum | @ir.AggOp::Count | @ir.AggOp::NUnique =>
                 if !row_stable(operand) {
                   return false
                 }
-              @expr.AggOp::Mean
-              | @expr.AggOp::Min
-              | @expr.AggOp::Max
-              | @expr.AggOp::Std
-              | @expr.AggOp::Var
-              | @expr.AggOp::Median
-              | @expr.AggOp::First
-              | @expr.AggOp::Last => return false
+              @ir.AggOp::Mean
+              | @ir.AggOp::Min
+              | @ir.AggOp::Max
+              | @ir.AggOp::Std
+              | @ir.AggOp::Var
+              | @ir.AggOp::Median
+              | @ir.AggOp::First
+              | @ir.AggOp::Last => return false
             }
-          @expr.Expr::Cast(_, _)
-          | @expr.Expr::Map(_, _, _)
-          | @expr.Expr::MapBatches(_, _, _, _)
-          | @expr.Expr::LitSeries(_) => return false
-          @expr.Expr::Binary(_, _, _)
-          | @expr.Expr::Unary(_, _)
-          | @expr.Expr::Str(_, _)
-          | @expr.Expr::Alias(_, _)
-          | @expr.Expr::FillNull(_, _)
-          | @expr.Expr::FillNan(_, _)
-          | @expr.Expr::Ternary(_, _, _)
-          | @expr.Expr::IsIn(_, _)
-          | @expr.Expr::IsBetween(_, _, _, _) =>
+          @ir.ExprNode::Cast(_, _)
+          | @ir.ExprNode::Map(_, _, _)
+          | @ir.ExprNode::MapBatches(_, _, _, _)
+          | @ir.ExprNode::LitSeries(_) => return false
+          @ir.ExprNode::Binary(_, _, _)
+          | @ir.ExprNode::Unary(_, _)
+          | @ir.ExprNode::Str(_, _)
+          | @ir.ExprNode::Alias(_, _)
+          | @ir.ExprNode::FillNull(_, _)
+          | @ir.ExprNode::FillNan(_, _)
+          | @ir.ExprNode::Ternary(_, _, _)
+          | @ir.ExprNode::IsIn(_, _)
+          | @ir.ExprNode::IsBetween(_, _, _, _) =>
             for child in e.children() {
               stack.push(child)
             }
@@ -200,7 +200,7 @@ fn group_cell_stable(expr : @expr.Expr) -> Bool {
 /// unstable cell fences the aggregation (an empty list is vacuously
 /// stable: a keys-only aggregation has no stitched columns to flip).
 fn all_group_cells_stable(exprs : Array[@expr.Expr]) -> Bool {
-  exprs.all(group_cell_stable)
+  exprs.all(e => group_cell_stable(e.node()))
 }
 
 ///|
@@ -231,8 +231,8 @@ fn reads_only_bare_columns(
 /// Whether the selection list contains `name` as a bare `col(name)` item.
 fn has_bare_column(exprs : Array[@expr.Expr], name : String) -> Bool {
   for expr in exprs {
-    match expr {
-      @expr.Expr::Col(n) => if n == name { return true }
+    match expr.node() {
+      @ir.ExprNode::Col(n) => if n == name { return true }
       _ => ()
     }
   }

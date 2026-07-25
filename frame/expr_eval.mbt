@@ -104,17 +104,17 @@
 /// carries the opaque closure and its input count so the combiner can pop that
 /// many already-evaluated operands.
 priv enum EvalStep {
-  Eval(@expr.Expr)
-  ApplyBinary(@expr.BinOp)
-  ApplyUnary(@expr.UnOp)
-  ApplyAgg(@expr.AggOp)
-  ApplyStr(@expr.StrOp)
+  Eval(@ir.ExprNode)
+  ApplyBinary(@ir.BinOp)
+  ApplyUnary(@ir.UnOp)
+  ApplyAgg(@ir.AggOp)
+  ApplyStr(@ir.StrOp)
   ApplyCast(@types.DataType)
   ApplyAlias(String)
   ApplyTernary
   ApplyFill(FillKind)
   ApplyIsIn(Array[@types.Scalar])
-  ApplyIsBetween(@expr.ClosedInterval)
+  ApplyIsBetween(@types.ClosedInterval)
   ApplyMap((Array[@types.Scalar]) -> @types.Scalar raise @types.DataError, Int)
   ApplyMapBatches((Array[Series]) -> Series raise @types.DataError, Int)
 }
@@ -147,7 +147,7 @@ fn eval_expr(
   df : DataFrame,
   scope : Array[Int],
 ) -> Series raise @types.DataError {
-  let work : Array[EvalStep] = [Eval(root)]
+  let work : Array[EvalStep] = [Eval(root.node())]
   let values : Array[Series] = []
   // `scope` and `df.nrows()` are constant across the whole walk, so whether the
   // scope is the identity permutation `[0, nrows)` is decided once here instead
@@ -160,9 +160,9 @@ fn eval_expr(
       None => break
       Some(step) =>
         match step {
-          Eval(expr) =>
-            match expr {
-              @expr.Expr::Col(name) =>
+          Eval(node) =>
+            match node {
+              @ir.ExprNode::Col(name) =>
                 // The whole-frame verbs evaluate over the identity scope
                 // `[0, nrows)`; gathering a column onto itself there is a full
                 // per-row copy + re-box. Short-circuit to
@@ -179,39 +179,39 @@ fn eval_expr(
                     gather_series(df.get_column(name), scope)
                   },
                 )
-              @expr.Expr::Lit(value) => values.push(singleton_series(value))
+              @ir.ExprNode::Lit(value) => values.push(singleton_series(value))
               // A literal series is used verbatim, like a scalar `Lit` is its
               // length-1 column: the result's length is the series' own, and
               // the consumers (`broadcast_series` in the verbs, `broadcast_pair`
               // in `Binary`) align it — broadcasting a length-1 series, passing
               // a frame-tall one through, raising `LengthMismatch` otherwise.
-              @expr.Expr::LitSeries(s) => values.push(s)
-              @expr.Expr::Binary(op, l, r) => {
+              @ir.ExprNode::LitSeries(s) => values.push(s)
+              @ir.ExprNode::Binary(op, l, r) => {
                 work.push(ApplyBinary(op))
                 work.push(Eval(r))
                 work.push(Eval(l))
               }
-              @expr.Expr::Unary(op, e) => {
+              @ir.ExprNode::Unary(op, e) => {
                 work.push(ApplyUnary(op))
                 work.push(Eval(e))
               }
-              @expr.Expr::Agg(op, e) => {
+              @ir.ExprNode::Agg(op, e) => {
                 work.push(ApplyAgg(op))
                 work.push(Eval(e))
               }
-              @expr.Expr::Str(op, e) => {
+              @ir.ExprNode::Str(op, e) => {
                 work.push(ApplyStr(op))
                 work.push(Eval(e))
               }
-              @expr.Expr::Cast(e, target) => {
+              @ir.ExprNode::Cast(e, target) => {
                 work.push(ApplyCast(target))
                 work.push(Eval(e))
               }
-              @expr.Expr::Alias(e, name) => {
+              @ir.ExprNode::Alias(e, name) => {
                 work.push(ApplyAlias(name))
                 work.push(Eval(e))
               }
-              @expr.Expr::Ternary(c, t, f) => {
+              @ir.ExprNode::Ternary(c, t, f) => {
                 work.push(ApplyTernary)
                 work.push(Eval(f))
                 work.push(Eval(t))
@@ -221,31 +221,31 @@ fn eval_expr(
               // evaluated ONCE here, where the ternary lowering evaluated it
               // twice (as condition input and as `then` branch) — a chained
               // coalesce is linear work instead of exponential.
-              @expr.Expr::FillNull(o, v) => {
+              @ir.ExprNode::FillNull(o, v) => {
                 work.push(ApplyFill(FillKind::Nulls))
                 work.push(Eval(v))
                 work.push(Eval(o))
               }
-              @expr.Expr::FillNan(o, v) => {
+              @ir.ExprNode::FillNan(o, v) => {
                 work.push(ApplyFill(FillKind::Nans))
                 work.push(Eval(v))
                 work.push(Eval(o))
               }
               // The set rides along on the `ApplyIsIn` step; only the operand
               // is evaluated.
-              @expr.Expr::IsIn(e, members) => {
+              @ir.ExprNode::IsIn(e, members) => {
                 work.push(ApplyIsIn(members))
                 work.push(Eval(e))
               }
               // Operand first (popped last), then both bounds — evaluated once
               // each; the dedicated node is what lets the operand be shared.
-              @expr.Expr::IsBetween(x, lo, hi, closed) => {
+              @ir.ExprNode::IsBetween(x, lo, hi, closed) => {
                 work.push(ApplyIsBetween(closed))
                 work.push(Eval(hi))
                 work.push(Eval(lo))
                 work.push(Eval(x))
               }
-              @expr.Expr::Map(_, inputs, f) => {
+              @ir.ExprNode::Map(_, inputs, f) => {
                 work.push(ApplyMap(f, inputs.length()))
                 for i = inputs.length() - 1; i >= 0; i = i - 1 {
                   work.push(Eval(inputs[i]))
@@ -255,7 +255,7 @@ fn eval_expr(
               // is accepted as a per-group reduction); evaluation is identical
               // either way — the closure runs over the operands' evaluated
               // series and its result rides the length contract below.
-              @expr.Expr::MapBatches(_, inputs, _, f) => {
+              @ir.ExprNode::MapBatches(_, inputs, _, f) => {
                 work.push(ApplyMapBatches(f, inputs.length()))
                 for i = inputs.length() - 1; i >= 0; i = i - 1 {
                   work.push(Eval(inputs[i]))
@@ -268,30 +268,30 @@ fn eval_expr(
             let (left, right) = broadcast_pair(lhs, rhs)
             values.push(
               match op {
-                @expr.BinOp::Add =>
+                @ir.BinOp::Add =>
                   eval_arith(left, right, "add", (x, y) => x + y, (x, y) => {
                     x + y
                   })
-                @expr.BinOp::Sub =>
+                @ir.BinOp::Sub =>
                   eval_arith(left, right, "subtract", (x, y) => x - y, (x, y) => {
                     x - y
                   })
-                @expr.BinOp::Mul =>
+                @ir.BinOp::Mul =>
                   eval_arith(left, right, "multiply", (x, y) => x * y, (x, y) => {
                     x * y
                   })
-                @expr.BinOp::Div => eval_div(left, right)
-                @expr.BinOp::FloorDiv => eval_floor_div(left, right)
-                @expr.BinOp::Mod => eval_mod(left, right)
-                @expr.BinOp::Pow => eval_pow(left, right)
-                @expr.BinOp::Eq => eval_compare(left, right, CmpVerb::Eq)
-                @expr.BinOp::Ne => eval_compare(left, right, CmpVerb::Ne)
-                @expr.BinOp::Lt => eval_compare(left, right, CmpVerb::Lt)
-                @expr.BinOp::Le => eval_compare(left, right, CmpVerb::Le)
-                @expr.BinOp::Gt => eval_compare(left, right, CmpVerb::Gt)
-                @expr.BinOp::Ge => eval_compare(left, right, CmpVerb::Ge)
-                @expr.BinOp::And => eval_logic(left, right, "and", kleene_and)
-                @expr.BinOp::Or => eval_logic(left, right, "or", kleene_or)
+                @ir.BinOp::Div => eval_div(left, right)
+                @ir.BinOp::FloorDiv => eval_floor_div(left, right)
+                @ir.BinOp::Mod => eval_mod(left, right)
+                @ir.BinOp::Pow => eval_pow(left, right)
+                @ir.BinOp::Eq => eval_compare(left, right, CmpVerb::Eq)
+                @ir.BinOp::Ne => eval_compare(left, right, CmpVerb::Ne)
+                @ir.BinOp::Lt => eval_compare(left, right, CmpVerb::Lt)
+                @ir.BinOp::Le => eval_compare(left, right, CmpVerb::Le)
+                @ir.BinOp::Gt => eval_compare(left, right, CmpVerb::Gt)
+                @ir.BinOp::Ge => eval_compare(left, right, CmpVerb::Ge)
+                @ir.BinOp::And => eval_logic(left, right, "and", kleene_and)
+                @ir.BinOp::Or => eval_logic(left, right, "or", kleene_or)
               },
             )
           }
@@ -299,40 +299,40 @@ fn eval_expr(
             let operand = pop_value(values)
             values.push(
               match op {
-                @expr.UnOp::Neg => eval_neg(operand)
-                @expr.UnOp::Not => eval_not(operand)
-                @expr.UnOp::IsNull =>
+                @ir.UnOp::Neg => eval_neg(operand)
+                @ir.UnOp::Not => eval_not(operand)
+                @ir.UnOp::IsNull =>
                   Series::from_bools(
                     operand.name(),
                     validity_bools(operand.storage()).map(v => !v),
                   )
-                @expr.UnOp::IsNotNull =>
+                @ir.UnOp::IsNotNull =>
                   Series::from_bools(
                     operand.name(),
                     validity_bools(operand.storage()),
                   )
-                @expr.UnOp::IsNan => eval_is_nan(operand, true)
-                @expr.UnOp::IsNotNan => eval_is_nan(operand, false)
-                @expr.UnOp::Abs =>
+                @ir.UnOp::IsNan => eval_is_nan(operand, true)
+                @ir.UnOp::IsNotNan => eval_is_nan(operand, false)
+                @ir.UnOp::Abs =>
                   eval_unary_num(
                     operand,
                     "take the absolute value of",
                     a => a.abs(),
                     a => a.abs(),
                   )
-                @expr.UnOp::Floor =>
+                @ir.UnOp::Floor =>
                   eval_unary_num(operand, "take the floor of", a => a, a => {
                     a.floor()
                   })
-                @expr.UnOp::Ceil =>
+                @ir.UnOp::Ceil =>
                   eval_unary_num(operand, "take the ceiling of", a => a, a => {
                     a.ceil()
                   })
-                @expr.UnOp::Sign =>
+                @ir.UnOp::Sign =>
                   eval_unary_num(
                     operand, "take the sign of", sign_i64, sign_f64,
                   )
-                @expr.UnOp::Round(decimals) =>
+                @ir.UnOp::Round(decimals) =>
                   eval_unary_num(operand, "round", a => a, v => {
                     round_places(v, decimals)
                   })

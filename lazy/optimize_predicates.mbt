@@ -78,7 +78,7 @@ fn place_filter(input : LogicalPlan, predicate : @expr.Expr) -> LogicalPlan {
           descending = false
         }
       Aggregate(inner, keys, exprs) =>
-        if row_stable(predicate) &&
+        if row_stable(predicate.node()) &&
           all_row_stable(keys) &&
           reads_only_bare_columns(predicate, keys) &&
           signed_zero_safe(predicate) &&

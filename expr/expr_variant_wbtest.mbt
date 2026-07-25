@@ -10,11 +10,12 @@
 // because matching `Expr`'s variants needs in-package visibility.
 
 ///|
-/// A distinct tag per `Expr` variant, in declaration order — exhaustive and
+/// A distinct tag per `ExprNode` variant, in declaration order — exhaustive and
 /// wildcard-free on purpose, so adding a variant forces an arm here (a compile
 /// error at this test file) rather than silently dropping its equality coverage.
+/// Reaches the AST through the `#doc(hidden)` `node()` accessor, in-package.
 fn expr_variant_tag(e : Expr) -> Int {
-  match e {
+  match e.node() {
     Col(_) => 0
     Lit(_) => 1
     LitSeries(_) => 2

@@ -31,71 +31,8 @@ pub fn when(Expr) -> WhenThen
 // Errors
 
 // Types and methods
-pub enum AggOp {
-  Sum
-  Mean
-  Min
-  Max
-  Count
-  Std
-  Var
-  Median
-  NUnique
-  First
-  Last
-} derive(Eq, @debug.Debug)
-pub fn AggOp::equal(Self, Self) -> Bool
-pub fn AggOp::not_equal(Self, Self) -> Bool
-pub fn AggOp::to_repr(Self) -> @debug.Repr
-
-pub enum BinOp {
-  Add
-  Sub
-  Mul
-  Div
-  FloorDiv
-  Mod
-  Pow
-  Eq
-  Ne
-  Lt
-  Le
-  Gt
-  Ge
-  And
-  Or
-} derive(Eq, @debug.Debug)
-pub fn BinOp::equal(Self, Self) -> Bool
-pub fn BinOp::not_equal(Self, Self) -> Bool
-pub fn BinOp::to_repr(Self) -> @debug.Repr
-
-pub(all) enum ClosedInterval {
-  Both
-  Left
-  Right
-  None
-} derive(Eq, @debug.Debug)
-pub fn ClosedInterval::equal(Self, Self) -> Bool
-pub fn ClosedInterval::not_equal(Self, Self) -> Bool
-pub fn ClosedInterval::to_repr(Self) -> @debug.Repr
-
-pub enum Expr {
-  Col(String)
-  Lit(@types.Scalar)
-  LitSeries(@series.Series)
-  Binary(BinOp, Expr, Expr)
-  Unary(UnOp, Expr)
-  Agg(AggOp, Expr)
-  Str(StrOp, Expr)
-  Cast(Expr, @types.DataType)
-  Alias(Expr, String)
-  Ternary(Expr, Expr, Expr)
-  FillNull(Expr, Expr)
-  FillNan(Expr, Expr)
-  IsIn(Expr, Array[@types.Scalar])
-  IsBetween(Expr, Expr, Expr, ClosedInterval)
-  Map(String, Array[Expr], (Array[@types.Scalar]) -> @types.Scalar raise @types.DataError)
-  MapBatches(String, Array[Expr], Bool, (Array[@series.Series]) -> @series.Series raise @types.DataError)
+pub struct Expr {
+  // private fields
 }
 pub fn Expr::abs(Self) -> Self
 pub fn Expr::add(Self, Self) -> Self
@@ -112,7 +49,7 @@ pub fn Expr::floor(Self) -> Self
 pub fn Expr::floor_div(Self, Self) -> Self
 pub fn Expr::ge(Self, Self) -> Self
 pub fn Expr::gt(Self, Self) -> Self
-pub fn Expr::is_between(Self, Self, Self, closed? : ClosedInterval) -> Self
+pub fn Expr::is_between(Self, Self, Self, closed? : @types.ClosedInterval) -> Self
 pub fn Expr::is_in(Self, Array[@types.Scalar]) -> Self
 pub fn Expr::is_nan(Self) -> Self
 pub fn Expr::is_not_nan(Self) -> Self
@@ -175,51 +112,6 @@ pub impl Neg for Expr
 pub impl Show for Expr
 pub impl Sub for Expr
 pub impl @debug.Debug for Expr
-
-pub enum StrOp {
-  ToUppercase
-  ToLowercase
-  StripChars
-  LenChars
-  Contains(String)
-  StartsWith(String)
-  EndsWith(String)
-  Replace(String, String)
-  ReplaceAll(String, String)
-  Reverse
-  PadStart(Int, Char)
-  PadEnd(Int, Char)
-  ContainsRegex(String)
-  ReplaceRegex(String, String)
-  ReplaceAllRegex(String, String)
-  Extract(String, Int)
-  CountMatches(String)
-  Slice(Int, Int?)
-  LenBytes
-  StripCharsCustom(String)
-  SplitGet(String, Int)
-  ZFill(Int)
-} derive(Eq, @debug.Debug)
-pub fn StrOp::equal(Self, Self) -> Bool
-pub fn StrOp::not_equal(Self, Self) -> Bool
-pub fn StrOp::to_repr(Self) -> @debug.Repr
-
-pub enum UnOp {
-  Neg
-  Not
-  IsNull
-  IsNotNull
-  IsNan
-  IsNotNan
-  Abs
-  Floor
-  Ceil
-  Sign
-  Round(Int)
-} derive(Eq, @debug.Debug)
-pub fn UnOp::equal(Self, Self) -> Bool
-pub fn UnOp::not_equal(Self, Self) -> Bool
-pub fn UnOp::to_repr(Self) -> @debug.Repr
 
 pub struct WhenThen {
   // private fields

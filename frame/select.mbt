@@ -74,7 +74,7 @@ pub fn DataFrame::select(
     }
   }
   DataFrame::from_parts_with_fields(
-    evaluated.map(column => broadcast_series(column, height)),
+    evaluated.map(column => @kernel.broadcast_series(column, height)),
     fields,
     height,
   )

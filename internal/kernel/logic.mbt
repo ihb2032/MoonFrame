@@ -10,7 +10,7 @@
 /// combiner (`kleene_and` / `kleene_or`) and the verb their `TypeMismatch`
 /// message names. Non-`Bool` operands raise. The output is nullable by
 /// nature and lands on the `Builtin` backend.
-fn eval_logic(
+pub fn eval_logic(
   left : Series,
   right : Series,
   verb : String,
@@ -63,7 +63,7 @@ fn eval_logic(
 /// no matter what the other side holds, null included; two known `true`s
 /// are `true`; everything else (a null meeting `true` or another null) is
 /// unknown, `None`.
-fn kleene_and(a : Bool?, b : Bool?) -> Bool? {
+pub fn kleene_and(a : Bool?, b : Bool?) -> Bool? {
   match (a, b) {
     (Some(false), _) | (_, Some(false)) => Some(false)
     (Some(true), Some(true)) => Some(true)
@@ -75,7 +75,7 @@ fn kleene_and(a : Bool?, b : Bool?) -> Bool? {
 /// Kleene three-valued OR over nullable booleans (the `or_kleene` dual):
 /// a known `true` dominates regardless of the other side, null included;
 /// two known `false`s are `false`; everything else is unknown, `None`.
-fn kleene_or(a : Bool?, b : Bool?) -> Bool? {
+pub fn kleene_or(a : Bool?, b : Bool?) -> Bool? {
   match (a, b) {
     (Some(true), _) | (_, Some(true)) => Some(true)
     (Some(false), Some(false)) => Some(false)
@@ -86,7 +86,7 @@ fn kleene_or(a : Bool?, b : Bool?) -> Bool? {
 ///|
 /// Kleene logical negation kernel: `not(true) = false`, `not(false) =
 /// true`, `not(null) = null`. Non-`Bool` operands raise.
-fn eval_not(operand : Series) -> Series raise @types.DataError {
+pub fn eval_not(operand : Series) -> Series raise @types.DataError {
   let valid = validity_bools(operand.storage())
   match operand.storage().data() {
     @column.ColumnData::Bool(a) =>

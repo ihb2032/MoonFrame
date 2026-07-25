@@ -23,7 +23,10 @@
 /// ops compile their POSIX pattern **once** (hoisted out of the per-cell map),
 /// so an invalid pattern raises `InvalidOperation` once per evaluation — the
 /// only non-total path — while literal matching stays per-value total.
-fn eval_str(op : @ir.StrOp, operand : Series) -> Series raise @types.DataError {
+pub fn eval_str(
+  op : @ir.StrOp,
+  operand : Series,
+) -> Series raise @types.DataError {
   let data = match operand.storage().data() {
     @column.ColumnData::String(a) => a
     @column.ColumnData::Int(_)
@@ -253,7 +256,7 @@ fn extract_match(re : @string.Regex, cell : String, group : Int) -> String? {
 /// per evaluation, never per cell. The engine's dialect is POSIX, so a PCRE
 /// class like `\d` is itself a parse error, surfaced here with the engine's own
 /// message.
-fn compile_regex(pattern : String) -> @string.Regex raise @types.DataError {
+pub fn compile_regex(pattern : String) -> @string.Regex raise @types.DataError {
   @string.Regex::Regex(pattern) catch {
     e =>
       raise @types.DataError::InvalidOperation(

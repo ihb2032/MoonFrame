@@ -289,8 +289,8 @@ fn agg_cells_to_series(
   fallback : () -> @column.ColumnData raise @types.DataError,
   name : String,
 ) -> Series raise @types.DataError {
-  let cells = promote_mixed_int_float(cells)
-  let probe = match infer_cells_dtype(cells) {
+  let cells = @kernel.promote_mixed_int_float(cells)
+  let probe = match @kernel.infer_cells_dtype(cells) {
     Some(p) => p
     None => fallback()
   }

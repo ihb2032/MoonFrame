@@ -31,7 +31,7 @@
 /// - **Comparisons** (`eq/ne/lt/le/gt/ge`): produce `Bool`; `Int ↔ Float`
 ///   compare **exactly** — the `Int64` is never promoted to `Double`, so two
 ///   distinct values cannot collide above `2^53` (`cmp_int_double` in
-///   `expr_eval_compare.mbt`, over the `@types` primitives `int64_eq_double` /
+///   `internal/kernel/compare.mbt`, over the `@types` primitives `int64_eq_double` /
 ///   `int64_lt_double` / `double_lt_int64`; a deliberate departure from
 ///   Polars' Float64-supertype rule), `String` compares by `compare_string_lex`
 ///   (dictionary order, not MoonBit's shortlex), `Bool` orders
@@ -52,7 +52,7 @@
 ///   `replace` (first) / `replace_all` (all), plus the regex operations
 ///   (`str_contains` / `str_replace` / `str_replace_all` with `literal=false`,
 ///   and `str_extract` / `str_count_matches`), implemented in
-///   `expr_eval_str.mbt`. Null cells stay null and a non-String operand is a
+///   `internal/kernel/str.mbt`. Null cells stay null and a non-String operand is a
 ///   `TypeMismatch`; a literal operation is total per value, but a regex
 ///   operation compiles its pattern once per evaluation and may raise
 ///   `InvalidOperation` for an invalid pattern — the one non-total path.
@@ -185,7 +185,8 @@ fn eval_expr(
                     gather_series(df.get_column(name), scope)
                   },
                 )
-              @ir.ExprNode::Lit(value) => values.push(singleton_series(value))
+              @ir.ExprNode::Lit(value) =>
+                values.push(@kernel.singleton_series(value))
               // A literal series is used verbatim, like a scalar `Lit` is its
               // length-1 column: the result's length is the series' own, and
               // the consumers (`broadcast_series` in the verbs, `broadcast_pair`
@@ -271,33 +272,43 @@ fn eval_expr(
           ApplyBinary(op) => {
             let rhs = pop_value(values)
             let lhs = pop_value(values)
-            let (left, right) = broadcast_pair(lhs, rhs)
+            let (left, right) = @kernel.broadcast_pair(lhs, rhs)
             values.push(
               match op {
                 @ir.BinOp::Add =>
-                  eval_arith(left, right, "add", (x, y) => x + y, (x, y) => {
+                  @kernel.eval_arith(left, right, "add", (x, y) => x + y, (x, y) => {
                     x + y
                   })
                 @ir.BinOp::Sub =>
-                  eval_arith(left, right, "subtract", (x, y) => x - y, (x, y) => {
-                    x - y
-                  })
+                  @kernel.eval_arith(left, right, "subtract", (x, y) => x - y, (
+                    x,
+                    y,
+                  ) => x - y)
                 @ir.BinOp::Mul =>
-                  eval_arith(left, right, "multiply", (x, y) => x * y, (x, y) => {
-                    x * y
-                  })
-                @ir.BinOp::Div => eval_div(left, right)
-                @ir.BinOp::FloorDiv => eval_floor_div(left, right)
-                @ir.BinOp::Mod => eval_mod(left, right)
-                @ir.BinOp::Pow => eval_pow(left, right)
-                @ir.BinOp::Eq => eval_compare(left, right, CmpVerb::Eq)
-                @ir.BinOp::Ne => eval_compare(left, right, CmpVerb::Ne)
-                @ir.BinOp::Lt => eval_compare(left, right, CmpVerb::Lt)
-                @ir.BinOp::Le => eval_compare(left, right, CmpVerb::Le)
-                @ir.BinOp::Gt => eval_compare(left, right, CmpVerb::Gt)
-                @ir.BinOp::Ge => eval_compare(left, right, CmpVerb::Ge)
-                @ir.BinOp::And => eval_logic(left, right, "and", kleene_and)
-                @ir.BinOp::Or => eval_logic(left, right, "or", kleene_or)
+                  @kernel.eval_arith(left, right, "multiply", (x, y) => x * y, (
+                    x,
+                    y,
+                  ) => x * y)
+                @ir.BinOp::Div => @kernel.eval_div(left, right)
+                @ir.BinOp::FloorDiv => @kernel.eval_floor_div(left, right)
+                @ir.BinOp::Mod => @kernel.eval_mod(left, right)
+                @ir.BinOp::Pow => @kernel.eval_pow(left, right)
+                @ir.BinOp::Eq =>
+                  @kernel.eval_compare(left, right, @kernel.CmpVerb::Eq)
+                @ir.BinOp::Ne =>
+                  @kernel.eval_compare(left, right, @kernel.CmpVerb::Ne)
+                @ir.BinOp::Lt =>
+                  @kernel.eval_compare(left, right, @kernel.CmpVerb::Lt)
+                @ir.BinOp::Le =>
+                  @kernel.eval_compare(left, right, @kernel.CmpVerb::Le)
+                @ir.BinOp::Gt =>
+                  @kernel.eval_compare(left, right, @kernel.CmpVerb::Gt)
+                @ir.BinOp::Ge =>
+                  @kernel.eval_compare(left, right, @kernel.CmpVerb::Ge)
+                @ir.BinOp::And =>
+                  @kernel.eval_logic(left, right, "and", @kernel.kleene_and)
+                @ir.BinOp::Or =>
+                  @kernel.eval_logic(left, right, "or", @kernel.kleene_or)
               },
             )
           }
@@ -305,8 +316,8 @@ fn eval_expr(
             let operand = pop_value(values)
             values.push(
               match op {
-                @ir.UnOp::Neg => eval_neg(operand)
-                @ir.UnOp::Not => eval_not(operand)
+                @ir.UnOp::Neg => @kernel.eval_neg(operand)
+                @ir.UnOp::Not => @kernel.eval_not(operand)
                 @ir.UnOp::IsNull =>
                   Series::from_bools(
                     operand.name(),
@@ -317,30 +328,33 @@ fn eval_expr(
                     operand.name(),
                     validity_bools(operand.storage()),
                   )
-                @ir.UnOp::IsNan => eval_is_nan(operand, true)
-                @ir.UnOp::IsNotNan => eval_is_nan(operand, false)
+                @ir.UnOp::IsNan => @kernel.eval_is_nan(operand, true)
+                @ir.UnOp::IsNotNan => @kernel.eval_is_nan(operand, false)
                 @ir.UnOp::Abs =>
-                  eval_unary_num(
+                  @kernel.eval_unary_num(
                     operand,
                     "take the absolute value of",
                     a => a.abs(),
                     a => a.abs(),
                   )
                 @ir.UnOp::Floor =>
-                  eval_unary_num(operand, "take the floor of", a => a, a => {
+                  @kernel.eval_unary_num(operand, "take the floor of", a => a, a => {
                     a.floor()
                   })
                 @ir.UnOp::Ceil =>
-                  eval_unary_num(operand, "take the ceiling of", a => a, a => {
-                    a.ceil()
-                  })
+                  @kernel.eval_unary_num(
+                    operand,
+                    "take the ceiling of",
+                    a => a,
+                    a => a.ceil(),
+                  )
                 @ir.UnOp::Sign =>
-                  eval_unary_num(
-                    operand, "take the sign of", sign_i64, sign_f64,
+                  @kernel.eval_unary_num(
+                    operand, "take the sign of", @kernel.sign_i64, @kernel.sign_f64,
                   )
                 @ir.UnOp::Round(decimals) =>
-                  eval_unary_num(operand, "round", a => a, v => {
-                    round_places(v, decimals)
+                  @kernel.eval_unary_num(operand, "round", a => a, v => {
+                    @kernel.round_places(v, decimals)
                   })
               },
             )
@@ -351,7 +365,7 @@ fn eval_expr(
           }
           ApplyStr(op) => {
             let operand = pop_value(values)
-            values.push(eval_str(op, operand))
+            values.push(@kernel.eval_str(op, operand))
           }
           ApplyCast(target) => {
             let operand = pop_value(values)
@@ -365,7 +379,7 @@ fn eval_expr(
             let else_v = pop_value(values)
             let then_v = pop_value(values)
             let cond = pop_value(values)
-            values.push(eval_ternary(cond, then_v, else_v))
+            values.push(@kernel.eval_ternary(cond, then_v, else_v))
           }
           ApplyFill(kind) => {
             let value_v = pop_value(values)
@@ -383,22 +397,22 @@ fn eval_expr(
                   operand.name(),
                   validity_bools(operand.storage()),
                 )
-              FillKind::Nans => eval_is_nan(operand, false)
+              FillKind::Nans => @kernel.eval_is_nan(operand, false)
             }
-            values.push(eval_ternary(cond, operand, value_v))
+            values.push(@kernel.eval_ternary(cond, operand, value_v))
           }
           ApplyIsIn(members) => {
             let operand = pop_value(values)
-            values.push(eval_is_in(operand, members))
+            values.push(@kernel.eval_is_in(operand, members))
           }
           ApplyIsBetween(closed) => {
             let hi_v = pop_value(values)
             let lo_v = pop_value(values)
             let x_v = pop_value(values)
-            values.push(eval_is_between(x_v, lo_v, hi_v, closed))
+            values.push(@kernel.eval_is_between(x_v, lo_v, hi_v, closed))
           }
           ApplyMap(f, arity) =>
-            values.push(eval_map_apply(pop_inputs(values, arity), f))
+            values.push(@kernel.eval_map_apply(pop_inputs(values, arity), f))
           // Hand the whole evaluated series to the closure and canonicalise the
           // backend of its result — an all-valid numeric column returned on
           // `Builtin` lands on `Numeric`, keeping `collect ≡ execute`.
@@ -433,125 +447,6 @@ fn pop_inputs(stack : Array[Series], arity : Int) -> Array[Series] {
     popped.push(pop_value(stack))
   }
   Array::makei(arity, i => popped[arity - 1 - i])
-}
-
-///|
-/// Materialise a scalar literal as a length-1 series — the `Lit` node's
-/// column form (named `singleton_series` to keep it distinct from the public
-/// `lit_series`, which embeds a whole `Series` as a `LitSeries` node). It
-/// carries the name `"literal"` (the output-name fallback for column-less
-/// expressions); consumers rename the final result via `expr_output_name`, so
-/// the name here only shows through for pure-literal expressions. A concrete
-/// scalar lands on whatever backend its `Series::from_*` constructor picks —
-/// `Numeric` for `Int` / `Float`, `Builtin` for `Bool` / `String` (the
-/// same convention as computed results). `Scalar::Null` has no column
-/// representation — the storage layer has no Null-dtype backend (same gap
-/// `DataFrame::empty` reports for Null fields) — so it raises
-/// `Unsupported` at evaluation; typed null literals stay out of v0.4.
-fn singleton_series(value : @types.Scalar) -> Series raise @types.DataError {
-  match value {
-    @types.Scalar::Int(v) => Series::from_ints("literal", [v])
-    @types.Scalar::Float(v) => Series::from_floats("literal", [v])
-    @types.Scalar::Bool(v) => Series::from_bools("literal", [v])
-    @types.Scalar::String(v) => Series::from_strings("literal", [v])
-    @types.Scalar::Null =>
-      raise @types.DataError::Unsupported(
-        "cannot evaluate a Null literal: no Null-dtype column backend",
-      )
-  }
-}
-
-///|
-/// Align two evaluation results for an elementwise kernel: equal lengths
-/// pass through, a length-1 side is broadcast (gathered at index 0) to the
-/// other side's length — including to zero rows, where the gather of an
-/// empty index set never touches the value. For most operands both sides of
-/// a `Binary` evaluate under the *same* scope, so their lengths are drawn
-/// from `{1, |scope|}` and always align; a `lit_series` is the exception — it
-/// evaluates at the embedded series' own length — so a public
-/// `lit_series(len2) + lit_series(len3)` reaches the mismatch arm, which
-/// raises `LengthMismatch` (keeping the helper total rather than indexing out
-/// of bounds). Covered by `lit_series_test.mbt` (public path) and
-/// `expr_eval_wbtest.mbt` (the helper directly).
-fn broadcast_pair(
-  left : Series,
-  right : Series,
-) -> (Series, Series) raise @types.DataError {
-  let m = left.len()
-  let n = right.len()
-  if m == n {
-    (left, right)
-  } else if m == 1 {
-    (gather_series(left, Array::make(n, 0)), right)
-  } else if n == 1 {
-    (left, gather_series(right, Array::make(m, 0)))
-  } else {
-    raise @types.DataError::LengthMismatch
-  }
-}
-
-///|
-/// Stretch one evaluation result onto a frame-tall column slot of `target`
-/// rows: an already-matching length passes through, a length-1 result (a
-/// literal or aggregation) is gathered at index 0 over every row —
-/// including to zero rows, where the empty gather never touches the value.
-/// Most results' lengths are drawn from `{1, |scope|}` (with `target =
-/// |scope|`) and always fit; a `lit_series` is the exception — it evaluates
-/// at the embedded series' own length — so a public
-/// `df.with_columns([lit_series(len2)])` on an off-length frame reaches the
-/// mismatch arm, which raises `LengthMismatch` (keeping the helper total
-/// rather than indexing out of bounds). Covered by `lit_series_test.mbt`
-/// (public path) and `expr_eval_wbtest.mbt` (the helper directly).
-fn broadcast_series(s : Series, target : Int) -> Series raise @types.DataError {
-  if s.len() == target {
-    s
-  } else if s.len() == 1 {
-    gather_series(s, Array::make(target, 0))
-  } else {
-    raise @types.DataError::LengthMismatch
-  }
-}
-
-///|
-/// Build the cells of a binary elementwise op: index `i` is `Some(f(i))` when
-/// both operands are present there, else `None` — the Arrow / Polars rule that
-/// a null on either side nulls the output cell. The shared null-gate behind the
-/// arithmetic (`eval_arith`) and division (`eval_div`) kernels, so each dtype
-/// arm supplies only its per-cell op. Total — `f` only reads two present cells.
-fn[T] zip_present(
-  n : Int,
-  lv : Array[Bool],
-  rv : Array[Bool],
-  f : (Int) -> T,
-) -> Array[T?] {
-  Array::makei(n, i => if lv[i] && rv[i] { Some(f(i)) } else { None })
-}
-
-///|
-/// Build the cells of a unary elementwise op: index `i` is `Some(f(i))` when the
-/// operand is present there, else `None` — a null cell maps to a null result.
-/// The shared null-gate behind the negation (`eval_neg`), logical-not
-/// (`eval_not`), and string-namespace (`eval_str`) kernels, so each arm supplies
-/// only its per-cell map. The single-operand sibling of `zip_present`. Total —
-/// `f` only reads a present cell.
-fn[T] map_present(n : Int, valid : Array[Bool], f : (Int) -> T) -> Array[T?] {
-  Array::makei(n, i => if valid[i] { Some(f(i)) } else { None })
-}
-
-///|
-/// Build the structured error a binary numeric / ordering kernel raises when
-/// its operands are not a supported pair. `TypeMismatch(Operation(...))` keeps the operation
-/// and both dtypes programmable while its `message()` preserves the historical
-/// `cannot <verb> <left> and <right>` wording. (`eval_logic` names the Bool
-/// requirement instead, so it keeps its own error shape.)
-fn binary_type_mismatch_error(
-  verb : String,
-  left : Series,
-  right : Series,
-) -> @types.DataError {
-  @types.DataError::TypeMismatch(
-    @types.TypeMismatchDetail::Operation(verb, left.dtype(), right.dtype()),
-  )
 }
 
 ///|

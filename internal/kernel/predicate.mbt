@@ -19,7 +19,7 @@
 /// A `String` / `Bool` / `Int` column whose members are all of that same dtype
 /// takes the O(n + m) `try_fast_is_in` fast path instead; everything with a
 /// floating-point comparison subtlety stays on the exact general path.
-fn eval_is_in(
+pub fn eval_is_in(
   operand : Series,
   members : Array[@types.Scalar],
 ) -> Series raise @types.DataError {
@@ -143,7 +143,7 @@ fn try_fast_is_in(operand : Series, members : Array[@types.Scalar]) -> Series? {
 /// `x` arrives already evaluated (once) and is shared by both comparisons — the
 /// whole reason `IsBetween` is a dedicated node rather than a lowering that
 /// would embed the operand's subtree twice.
-fn eval_is_between(
+pub fn eval_is_between(
   x : Series,
   lo : Series,
   hi : Series,

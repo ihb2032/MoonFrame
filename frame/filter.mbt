@@ -48,7 +48,7 @@ pub fn filter_row_indices(
   // Evaluation yields a frame-tall or length-1 column — stretch a
   // length-1 mask (literal / aggregation) over the frame, down to zero
   // rows on an empty one.
-  let mask = broadcast_series(eval_expr(predicate, self, scope), n)
+  let mask = @kernel.broadcast_series(eval_expr(predicate, self, scope), n)
   let cells = match mask.storage().data() {
     @column.ColumnData::Bool(a) => a
     @column.ColumnData::Int(_)

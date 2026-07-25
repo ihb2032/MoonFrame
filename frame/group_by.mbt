@@ -85,7 +85,7 @@ pub fn DataFrame::group_by(
   let scope = Array::makei(n, i => i)
   let seen : Map[String, Unit] = Map([])
   let key_columns = keys.map(key => {
-    let column = broadcast_series(eval_expr(key, self, scope), n)
+    let column = @kernel.broadcast_series(eval_expr(key, self, scope), n)
     let name = expr_output_name(key)
     if seen.contains(name) {
       raise @types.DataError::DuplicateColumn(name)

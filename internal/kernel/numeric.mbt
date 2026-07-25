@@ -21,7 +21,7 @@
 /// aborts); `Float` follows IEEE 754, so NaN propagates as a value. An
 /// all-valid numeric result converges onto the `Numeric` backend
 /// (`try_column_to_numeric`); a nullable one stays `Builtin`.
-fn eval_arith(
+pub fn eval_arith(
   left : Series,
   right : Series,
   verb : String,
@@ -258,7 +258,7 @@ fn eval_binary_nullzero(
 /// divides in `Double` and division by zero follows IEEE 754 — `x/0 → ±inf`,
 /// `0/0 → NaN` — on every backend rather than trapping (`Int` division by zero
 /// is backend-divergent, so it is never emitted).
-fn eval_div(left : Series, right : Series) -> Series raise @types.DataError {
+pub fn eval_div(left : Series, right : Series) -> Series raise @types.DataError {
   eval_binary_float(left, right, "divide", (a, b) => a / b)
 }
 
@@ -268,7 +268,7 @@ fn eval_div(left : Series, right : Series) -> Series raise @types.DataError {
 /// remainder). `Int` modulo by zero produces a **null** cell (as for
 /// `floor_div`), so an all-valid `Int / Int` pair can still yield nulls;
 /// `Float` modulo by zero is `NaN`.
-fn eval_mod(left : Series, right : Series) -> Series raise @types.DataError {
+pub fn eval_mod(left : Series, right : Series) -> Series raise @types.DataError {
   eval_binary_nullzero(
     left,
     right,
@@ -300,7 +300,7 @@ fn rem_i64(a : Int64, b : Int64) -> Int64 {
 ///|
 /// `Pow` — exponentiation, **always `Float`** (see `Expr::pow`). Every numeric
 /// pair raises in `Double` (`@math.pow`), total under IEEE 754.
-fn eval_pow(left : Series, right : Series) -> Series raise @types.DataError {
+pub fn eval_pow(left : Series, right : Series) -> Series raise @types.DataError {
   eval_binary_float(left, right, "exponentiate", (a, b) => @math.pow(a, b))
 }
 
@@ -339,7 +339,7 @@ fn floor_div_i64(a : Int64, b : Int64) -> Int64 {
 /// produces a **null** cell (no integer infinity, and a backend integer divide
 /// by zero traps), so even an all-valid `Int / Int` pair can yield nulls;
 /// `Float` division by zero follows IEEE 754 (`±inf` / `nan`) and stays a value.
-fn eval_floor_div(
+pub fn eval_floor_div(
   left : Series,
   right : Series,
 ) -> Series raise @types.DataError {
@@ -358,7 +358,7 @@ fn eval_floor_div(
 /// so `-NaN` is still NaN and `-0.0` is the negative zero. A null cell
 /// stays null; non-numeric operands raise. An all-valid result converges
 /// onto the `Numeric` backend, as for binary arithmetic.
-fn eval_neg(operand : Series) -> Series raise @types.DataError {
+pub fn eval_neg(operand : Series) -> Series raise @types.DataError {
   eval_unary_num(operand, "negate", a => -a, a => -a)
 }
 
@@ -368,7 +368,7 @@ fn eval_neg(operand : Series) -> Series raise @types.DataError {
 /// `TypeMismatch` message uses. `Int op → Int`, `Float op → Float`; a null cell
 /// stays null; a non-numeric operand raises. An all-valid result converges onto
 /// the `Numeric` backend, as for binary arithmetic.
-fn eval_unary_num(
+pub fn eval_unary_num(
   operand : Series,
   verb : String,
   int_op : (Int64) -> Int64,
@@ -412,7 +412,7 @@ fn eval_unary_num(
 
 ///|
 /// Sign of an `Int64` — `-1` / `0` / `1`.
-fn sign_i64(a : Int64) -> Int64 {
+pub fn sign_i64(a : Int64) -> Int64 {
   if a > 0L {
     1L
   } else if a < 0L {
@@ -425,7 +425,7 @@ fn sign_i64(a : Int64) -> Int64 {
 ///|
 /// Sign of a `Double` — `-1.0` / `0.0` / `1.0`; `NaN` stays `NaN` and `±0.0`
 /// gives `0.0`.
-fn sign_f64(a : Double) -> Double {
+pub fn sign_f64(a : Double) -> Double {
   if a.is_nan() {
     a
   } else if a > 0.0 {
@@ -453,7 +453,7 @@ fn sign_f64(a : Double) -> Double {
 /// else. Past the `decimals == 0` arm the scale is therefore at least `10`; it
 /// can overflow upward, but it cannot underflow to `0` and turn the unscaling
 /// division into `NaN`.
-fn round_places(a : Double, decimals : Int) -> Double {
+pub fn round_places(a : Double, decimals : Int) -> Double {
   if decimals == 0 {
     return round_half_even(a)
   }
@@ -518,7 +518,7 @@ fn round_half_even(a : Double) -> Double {
 /// `is_null`. A present `Float` cell is tested by IEEE `is_nan`; a present
 /// `Int` cell is never `NaN` (so the constant `!want_nan`); a non-numeric
 /// operand raises `TypeMismatch`. Lands on the nullable `Builtin` backend.
-fn eval_is_nan(
+pub fn eval_is_nan(
   operand : Series,
   want_nan : Bool,
 ) -> Series raise @types.DataError {

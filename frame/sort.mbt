@@ -66,7 +66,7 @@ pub fn DataFrame::sort(
   let scope = Array::makei(n, i => i)
   let sort_keys = keys.map(key => {
     let (expr, order, null_order) = key
-    let column = broadcast_series(eval_expr(expr, self, scope), n)
+    let column = @kernel.broadcast_series(eval_expr(expr, self, scope), n)
     @series.build_sort_key(column.storage(), order, null_order)
   })
   // Stable mergesort produces the permutation; `gather` applies it to the

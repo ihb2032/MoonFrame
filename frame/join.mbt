@@ -448,8 +448,14 @@ fn resolve_join_keys(
       }
       seen[name] = ()
     }
-    let lcol = broadcast_series(eval_expr(left_exprs[i], left, lscope), ln)
-    let rcol = broadcast_series(eval_expr(right_exprs[i], right, rscope), rn)
+    let lcol = @kernel.broadcast_series(
+      eval_expr(left_exprs[i], left, lscope),
+      ln,
+    )
+    let rcol = @kernel.broadcast_series(
+      eval_expr(right_exprs[i], right, rscope),
+      rn,
+    )
     if lcol.dtype() != rcol.dtype() {
       // For `left_on` / `right_on` the two keys can be named differently, so
       // name both sides; an `on` join shares one name and keeps the short form.

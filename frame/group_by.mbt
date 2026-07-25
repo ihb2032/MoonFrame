@@ -23,13 +23,7 @@ pub struct GroupedDataFrame {
   priv source : DataFrame
   priv key_columns : Array[Series]
   priv groups : Array[Array[Int]]
-} derive(Eq, Debug)
-
-///|
-pub extend GroupedDataFrame with Eq::{equal, not_equal}
-
-///|
-pub extend GroupedDataFrame with Debug::{to_repr}
+}
 
 ///|
 /// Partition `self` into groups by the `keys` expressions — MoonFrame's

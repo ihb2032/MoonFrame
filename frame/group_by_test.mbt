@@ -516,7 +516,7 @@ test "group_by: multi-key composite is injective across field boundaries" {
 test "group_by raises ColumnNotFound for an unknown key column" {
   let df = sales_df()
   assert_eq(
-    Ok(df.group_by([@expr.col("nope")])) catch {
+    Ok(df.group_by([@expr.col("nope")]) |> ignore) catch {
       e => Err(e)
     },
     Err(@types.DataError::ColumnNotFound("nope")),
@@ -530,7 +530,7 @@ test "group_by raises DuplicateColumn for a key column named twice" {
   // identically-named "region" columns; it is rejected up front at the
   // repeat, in `keys` order.
   assert_eq(
-    Ok(df.group_by([@expr.col("region"), @expr.col("region")])) catch {
+    Ok(df.group_by([@expr.col("region"), @expr.col("region")]) |> ignore) catch {
       e => Err(e)
     },
     Err(@types.DataError::DuplicateColumn("region")),
@@ -538,7 +538,7 @@ test "group_by raises DuplicateColumn for a key column named twice" {
   // A *missing* key still surfaces as ColumnNotFound at its first
   // appearance, before the duplicate at the second is examined.
   assert_eq(
-    Ok(df.group_by([@expr.col("nope"), @expr.col("nope")])) catch {
+    Ok(df.group_by([@expr.col("nope"), @expr.col("nope")]) |> ignore) catch {
       e => Err(e)
     },
     Err(@types.DataError::ColumnNotFound("nope")),
@@ -693,7 +693,10 @@ test "a key expression whose dtypes do not unify raises structured TypeMismatch"
   // region is String, quantity is Int — `+` cannot unify them, and the key
   // evaluation surfaces the error at `group_by`, in `keys` order.
   assert_eq(
-    Ok(sales_df().group_by([@expr.col("region") + @expr.col("quantity")])) catch {
+    Ok(
+      sales_df().group_by([@expr.col("region") + @expr.col("quantity")])
+      |> ignore,
+    ) catch {
       e => Err(e)
     },
     Err(
@@ -717,7 +720,8 @@ test "two keys producing the same output name raise DuplicateColumn" {
       sales_df().group_by([
         @expr.col("region").with_alias("k"),
         @expr.col("product").with_alias("k"),
-      ]),
+      ])
+      |> ignore,
     ) catch {
       e => Err(e)
     },

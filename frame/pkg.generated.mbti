@@ -76,11 +76,8 @@ pub fn DataFrame::with_row_index(Self, name? : String, offset? : Int64) -> Self 
 
 pub struct GroupedDataFrame {
   // private fields
-} derive(Eq, @debug.Debug)
+}
 pub fn GroupedDataFrame::agg(Self, Array[@expr.Expr]) -> DataFrame raise @types.DataError
-pub fn GroupedDataFrame::equal(Self, Self) -> Bool
-pub fn GroupedDataFrame::not_equal(Self, Self) -> Bool
-pub fn GroupedDataFrame::to_repr(Self) -> @debug.Repr
 
 pub struct HtmlOptions {
   max_rows : Int?

@@ -301,13 +301,17 @@ pub fn LazyGroupBy::agg(
 /// and a required-columns pass then drops scan columns nothing downstream
 /// reads (and, for a `scan_csv` source, never parses them). The rewrites'
 /// contract is exactly this method's, so they change
-/// what work happens, never what comes back. The (optimized) plan is then
-/// walked bottom-up, delegating each node to the public eager operator it
-/// defers, so the result is bitwise-equal to running the same verbs
-/// eagerly in the same order, and the errors are exactly the eager
-/// operators' errors (`ColumnNotFound`, `TypeMismatch`,
-/// `IndexOutOfBounds`, …). To see the rewritten plan this method actually
-/// runs, render it with `explain(optimized=true)`.
+/// what work happens, and for a successful result never what comes back: the
+/// (optimized) plan is walked bottom-up, delegating each node to the public
+/// eager operator it defers, so the result is bitwise-equal to running the same
+/// verbs eagerly in the same order. Errors match the eager operators'
+/// (`ColumnNotFound`, `TypeMismatch`, `IndexOutOfBounds`, …) with one
+/// carve-out: a `scan_csv` / `scan_ndjson` source absorbs projection and
+/// predicate pushdown, so it never parses a column no consumer reads, nor the
+/// non-predicate cells of a row the predicate drops — a `ParseError` confined
+/// there, which an eager read-then-filter would raise, does not surface. Every
+/// other operator still produces its eager error. To see the rewritten plan
+/// this method actually runs, render it with `explain(optimized=true)`.
 pub fn LazyFrame::collect(
   self : LazyFrame,
 ) -> @frame.DataFrame raise @types.DataError {

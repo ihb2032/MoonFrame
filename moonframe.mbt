@@ -1,6 +1,7 @@
 // MoonFrame — facade package. Re-exports the public API from the
-// sub-packages so callers can `import "ihb2032/MoonFrame"` and access every
-// symbol in one place. The public sub-packages remain directly importable for
+// sub-packages so callers can `import "ihb2032/MoonFrame"` and reach the
+// supported stable surface — every symbol a normal caller must name — in one
+// place. The public sub-packages remain directly importable for
 // callers who only need a slice of the surface (e.g. just `@types` for the
 // value types); the `column` storage layer is internal (`internal/column`)
 // and is not part of the public API.
@@ -14,8 +15,10 @@
 // are now methods on `DataFrame`, so re-exporting `type DataFrame`
 // makes them automatically reachable through the facade — there is
 // nothing to list for them here. Likewise the
-// `JoinOptions` / `HtmlOptions` / `ChartSpec` constructors — one per type since
-// v0.6 replaced the setter chains — come for free once their types are
+// `JoinOptions` / `HtmlOptions` / `ChartSpec` constructors — the named
+// constructors that replaced v0.6's setter chains (`JoinOptions::on` /
+// `left_on` / `cross`, `ChartSpec::bar` / `line` / `point` / `area`, and
+// `HtmlOptions::HtmlOptions`) — come for free once their types are
 // re-exported. Only the
 // value types (the Join `JoinType` / `JoinOptions`, the HTML `HtmlOptions`, and
 // the Chart `ChartKind` / `ChartSpec`) and the `io` free functions need explicit

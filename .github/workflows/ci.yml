@@ -144,9 +144,13 @@ jobs:
       # re-export a symbol a caller must name — or a fluent-chain intermediate
       # (`WhenThen` / `GroupedDataFrame` / …) becoming necessary to name —
       # surfaces as a red build here instead of biting the first user to try it.
-      # It is a nested module (its own moon.mod), so the root `moon check` /
-      # `fmt` / `info` above skip it; it is exercised explicitly. Linux-only,
-      # matching the other guards.
+      # It is a nested module (its own JSON manifest — `moon.mod.json` /
+      # `moon.pkg.json`), so the root `moon check` / `fmt` / `info` above skip it
+      # as a module boundary; it is exercised explicitly. The JSON manifest is
+      # kept deliberately: the fixture path-depends on `../../..`, which the JSON
+      # `deps` field supports directly — the newer `moon.mod` format needs a
+      # `moon.work` workspace for a local path dep, unneeded machinery here.
+      # Linux-only, matching the other guards.
       - name: Guard the facade against a downstream consumer
         if: runner.os == 'Linux'
         working-directory: .github/fixtures/facade_smoke

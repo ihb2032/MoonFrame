@@ -58,112 +58,23 @@ pub fn Expr::children(self : Expr) -> Array[Expr] {
 }
 
 ///|
-/// Every column name the tree references, as a set — membership only;
-/// iteration order is neither significant nor guaranteed. A `Ternary`'s
-/// condition counts — the optimizer must keep a column alive even if only
-/// the condition reads it — unlike output *naming*, which draws from the
-/// value branches only. Duplicates collapse: `col("a") + col("a")`
-/// references `{"a"}`.
+/// Every column name the tree references, as a set — the handle-level face of
+/// `@ir.ExprNode::referenced_columns` (the analysis itself lives in
+/// `internal/ir`, beside the AST). A `Ternary`'s condition counts. Total.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
 pub fn Expr::referenced_columns(self : Expr) -> @set.Set[String] {
-  let acc : @set.Set[String] = @set.Set([])
-  collect_columns(self, acc)
-  acc
+  self.node.referenced_columns()
 }
 
 ///|
-/// Depth-first, left-to-right accumulation behind `referenced_columns`:
-/// record a `Col`'s name, then recurse into every child. Only the naming
-/// leaf is special-cased; the recursion rides `Expr::children`, so a new
-/// variant is covered the moment it declares its children there.
-fn collect_columns(expr : Expr, acc : @set.Set[String]) -> Unit {
-  // Walk an explicit heap stack rather than the call stack: a deeply nested
-  // user-built tree (`col("a") + col("a") + …` tens of thousands deep) would
-  // otherwise overflow the native stack and abort — breaking the "total —
-  // nothing can fail" contract these introspection walks promise. Children are
-  // pushed right-to-left so the leftmost pops first — consistent with the other
-  // explicit-stack walks (`leftmost_name` / `write_expr`); for a `Set` result
-  // the visit order is not observable anyway.
-  let stack : Array[Expr] = [expr]
-  for ;; {
-    match stack.pop() {
-      None => break
-      Some(e) => {
-        match e.node {
-          Col(name) => acc.add(name)
-          _ => ()
-        }
-        let children = e.children()
-        for i = children.length() - 1; i >= 0; i = i - 1 {
-          stack.push(children[i])
-        }
-      }
-    }
-  }
-}
-
-///|
-/// The output-column name this expression produces — Polars' naming rule:
-/// an alias wins, otherwise the leftmost column reference's name,
-/// otherwise `"literal"` for a column-less tree. One rule, two consumers
-/// that must never drift apart: the eager materialisers in `frame`
-/// (`with_columns` / `select` / `agg`) name their output
-/// columns with it, and the lazy optimizer's projection pushdown uses it
-/// to know which names a deferred `with_columns` stage *defines* — a
-/// defined name need not exist in the stage's input, so pruning must not
-/// require it there. Total — naming walks plain data.
+/// The output-column name this expression produces (Polars' naming rule: an
+/// alias wins, else the leftmost column reference, else `"literal"`) — the
+/// handle-level face of `@ir.ExprNode::output_name`. Total.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
 pub fn Expr::output_name(self : Expr) -> String {
-  leftmost_name(self).unwrap_or("literal")
-}
-
-///|
-/// Depth-first, left-to-right search for the first *naming* node behind
-/// `output_name`. An `Alias` names its whole subtree, so an alias anywhere
-/// on the leftmost path wins over the `Col` beneath it; the wrappers
-/// (`Unary` / `Agg` / `Cast`) and the binary / map operands are
-/// name-transparent, so the search rides `Expr::children` for them, taking
-/// the first child to yield a name (a `Map` is thus named after its leftmost
-/// input, like Polars' `map_elements`). A `LitSeries` names itself after the
-/// series it carries — like a `Col`, so a bare `lit_series(s)` outputs a
-/// column named `s.name()`. A `Ternary` draws its name from the value branches —
-/// `then` first, `otherwise` as fallback — never from the condition (the
-/// condition gates rows, it does not produce output values), so it is
-/// matched explicitly rather than walking all of its children.
-/// (`referenced_columns`, by contrast, includes condition columns —
-/// pushdown must keep them alive.)
-fn leftmost_name(expr : Expr) -> String? {
-  // Leftmost-first search over an explicit stack (see `collect_columns` for why
-  // the call stack is avoided). The first naming node reached — `Col` /
-  // `LitSeries` / `Alias` — wins. A `Ternary` names itself from the value
-  // branches only (`then` before `otherwise`), never the condition, so it
-  // pushes just those two; every other composite rides `children` with the
-  // leftmost on top. Leaves with no name (a bare `Lit`) fall through to `None`.
-  let stack : Array[Expr] = [expr]
-  for ;; {
-    match stack.pop() {
-      None => break
-      Some(e) =>
-        match e.node {
-          Col(name) => return Some(name)
-          LitSeries(s) => return Some(s.name())
-          Alias(_, name) => return Some(name)
-          Ternary(_, t, f) => {
-            stack.push(Expr::of(f))
-            stack.push(Expr::of(t))
-          }
-          _ => {
-            let children = e.children()
-            for i = children.length() - 1; i >= 0; i = i - 1 {
-              stack.push(children[i])
-            }
-          }
-        }
-    }
-  }
-  None
+  self.node.output_name()
 }
 
 ///|

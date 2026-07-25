@@ -1,10 +1,10 @@
 ///|
 /// Introspection over the expression tree: a handwritten `Show` rendering
 /// the documented operator form, its `to_string` exposing that rendering as a
-/// `String` (shared later by `LazyFrame::explain`'s plan printer), and
-/// `referenced_columns` collecting every column a tree reads (the input
-/// the lazy optimizer's projection / predicate pushdown runs on). All
-/// three are total — they walk data, nothing can fail.
+/// `String` (shared later by `LazyFrame::explain`'s plan printer), and the thin
+/// handle-level accessors (`children` / `referenced_columns` / `output_name`)
+/// that delegate to the AST analysis living beside the tree in `internal/ir`.
+/// All are total — they walk shape, nothing can fail.
 
 ///|
 /// Render the documented operator form, e.g.
@@ -44,11 +44,12 @@ pub extend Expr with Debug::{to_repr}
 ///|
 /// The immediate sub-expressions of a node, left to right, as opaque `Expr`
 /// handles — the wrapper-level face of `@ir.ExprNode::children`, which is the
-/// single place that encodes the tree's recursive shape. The `expr`-side walks
-/// (`referenced_columns` / `output_name`) ride this; the lazy optimizer's
-/// `row_stable` / `group_cell_stable` walk the raw `@ir.ExprNode` children
-/// directly. A new variant declares its child structure once, in `ExprNode`,
-/// and both faces follow. Total — it only inspects shape.
+/// single place that encodes the tree's recursive shape. A new variant declares
+/// its child structure once, in `ExprNode`, and every walk over it follows: this
+/// handle-level face, the `internal/ir` analyses behind `referenced_columns` /
+/// `output_name`, and the lazy optimizer's `row_stable` / `group_cell_stable`
+/// (which walk the raw `@ir.ExprNode` children directly). Total — it only
+/// inspects shape.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
 pub fn Expr::children(self : Expr) -> Array[Expr] {
@@ -92,8 +93,9 @@ priv enum WriteTask {
 
 ///|
 /// Renderer behind `Show`, driven by an explicit heap stack instead of the call
-/// stack so a deeply nested tree can't overflow and abort (see
-/// `collect_columns`). Every composite form is self-delimiting (parentheses or
+/// stack so a deeply nested tree can't overflow and abort (the same discipline
+/// as `@ir.ExprNode::referenced_columns`). Every composite form is
+/// self-delimiting (parentheses or
 /// a closing `)` of a method call), so a node expands into a fixed sequence of
 /// fragments and child placeholders; the emitted text is byte-for-byte the
 /// recursive form's.

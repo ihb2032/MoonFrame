@@ -3,7 +3,7 @@
 /// of the executor — the predicate pass that sinks filters toward the
 /// scan, and the projection pushdown that narrows scans to the columns
 /// actually read. Two halves. The *equivalence* tests pin the
-/// optimizer's contract — `collect` stays bitwise-equal to the eager
+/// optimizer's contract — `collect` stays equal to the eager
 /// chain, with error parity, exactly on the pipelines where a rewrite
 /// fires and on the fences where it must not (several fences guard real
 /// divergences: a broadcast aggregation's scope, a `mean`'s
@@ -896,7 +896,7 @@ test "a key predicate that empties every group still collects equal" {
     .filter(predicate)
   // Below the aggregation the filter leaves zero rows, so the executor
   // aggregates zero groups — the empty-scope probe in `agg` pins
-  // the output dtype, keeping the 0-row frames bitwise-equal.
+  // the output dtype, keeping the 0-row frames equal.
   let out = plan.collect()
   assert_eq(out, df.group_by([@expr.col("region")]).agg(aggs).filter(predicate))
   assert_eq(out.nrows(), 0)
@@ -932,7 +932,7 @@ test "fence: a mean aggregation pins the filter above the group stage" {
   // The east group's bonus cells are all null, so its mean is a null
   // cell and the stitched column stays `Builtin`. Filtering rows first
   // would erase that group, leave only valid cells, and converge the
-  // column onto the `Numeric` backend — bitwise-unequal output. The
+  // column onto the `Numeric` backend — unequal output. The
   // fence is what keeps this assertion true.
   let aggs = [@expr.col("bonus").mean().with_alias("avg")]
   let predicate = @expr.col("region").eq(@expr.lit_str("west"))
@@ -1504,7 +1504,7 @@ test "a map is a value barrier: it blocks the filter sink, like cast" {
     "  WITH_COLUMNS [map(\"x10\", [col(qty)])]\n" +
     "    SCAN [4×3]",
   )
-  // ...and collect stays bitwise-equal to the eager chain through it.
+  // ...and collect stays equal to the eager chain through it.
   assert_eq(plan.collect(), df.with_columns(derived).filter(predicate))
 }
 
@@ -1529,7 +1529,7 @@ test "a lit_series is a barrier: it blocks the filter sink, like cast" {
     "  WITH_COLUMNS [lit_series(\"flag\", 4)]\n" +
     "    SCAN [4×3]",
   )
-  // ...and collect stays bitwise-equal to the eager chain through it.
+  // ...and collect stays equal to the eager chain through it.
   assert_eq(plan.collect(), df.with_columns(derived).filter(predicate))
 }
 

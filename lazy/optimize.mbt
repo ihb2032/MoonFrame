@@ -8,7 +8,7 @@
 /// and the `Csv` / `Ndjson` file sources alike — to the columns its
 /// consumers provably read, so dead columns never ride through row-level work
 /// (and, for a file source, are never even parsed). The inviolable contract
-/// is the executor's own: `execute(optimize(p))` is bitwise-equal to
+/// is the executor's own: `execute(optimize(p))` is equal to
 /// `execute(p)` for every plan that collects. Neither pass ever alters a
 /// user-written node's *content* (predicates, expression lists, keys stay
 /// verbatim); the predicate pass re-orders whole `Filter` nodes downward, and
@@ -37,7 +37,7 @@
 /// malformed cell no stage reads — is not raised by the optimized plan, where
 /// the unoptimized full read would surface it. This is the defining property
 /// of projection push-down into a source (and matches Polars' `scan_csv` /
-/// `scan_ndjson`): every plan that *collects* still collects bitwise-equal,
+/// `scan_ndjson`): every plan that *collects* still collects equal,
 /// every whole-input failure (a malformed header or line, a ragged row, a
 /// missing file) still fails identically, and a parse error in a *kept* column
 /// still surfaces unchanged — only an error isolated to a pruned-away column

@@ -6,11 +6,13 @@
 ///
 /// The design discipline is **transparent forwarding**: every accessor here
 /// matches both arms and delegates to the identically-named method on the
-/// underlying column, so the call sites that read a column through
-/// `.storage().data()` / `.storage().validity()` (in `drop_nulls` /
-/// `group_by` / `join` / `sort`) keep compiling verbatim once
-/// `Series::storage()` flips its return type. The `Numeric` arm has no
-/// stored bitmap, so `validity()` synthesises an all-valid one on demand
+/// underlying column, so a caller reads a column the same way whichever
+/// backend it sits on. Who those callers are is a layering rule rather than a
+/// list: `ColumnStorage` is consumed directly by `series` and
+/// `internal/kernel` only, and every package above them reaches column
+/// capability through engine seams that return a `Series`, a scalar, or a
+/// freshly built array — never this buffer. The `Numeric` arm has no stored
+/// bitmap, so `validity()` synthesises an all-valid one on demand
 /// (`Bitmap::all_valid(len)`) — the one point the two backends diverge.
 ///
 /// Two shapes of accessor:

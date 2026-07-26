@@ -24,7 +24,7 @@ fn write_fixture(path : String) -> Unit raise @types.DataError {
 }
 
 ///|
-test "scan_csv collects bitwise-equal to the eager read of the same file" {
+test "scan_csv collects equal to the eager read of the same file" {
   let path = "_build/lazy_scan_csv_roundtrip.csv"
   write_fixture(path)
   let out = scan_csv(path).collect()

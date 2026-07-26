@@ -294,7 +294,7 @@ fn memo_result(
 /// delegates to the public eager operator it mirrors (`Filter` →
 /// `filter`, `WithColumns` → `with_columns`, …), so with no
 /// optimizer in front the lazy layer is a *faithful deferred executor*:
-/// collecting a plan is bitwise-equal to running the same verbs eagerly in
+/// collecting a plan is equal to running the same verbs eagerly in
 /// the same order. Errors are exactly the eager operators' errors,
 /// surfacing here rather than at build time. `Scan` returns the captured
 /// frame as-is — frames are immutable, so no defensive copy is needed.

@@ -1,7 +1,7 @@
 ///|
 /// Blackbox behavior tests for the lazy layer's contract: builders are
 /// total and only defer; `collect` is a faithful deferred executor —
-/// bitwise-equal to the eager chain, node by node and composed; the two
+/// equal to the eager chain, node by node and composed; the two
 /// entry points agree; and every failure surfaces at collect time as the
 /// underlying eager operator's error. Plan-rendering snapshots live in
 /// `logical_plan_test.mbt`; the shared fixture frames live here.
@@ -610,7 +610,7 @@ test "every join type collects to its eager equivalent" {
 }
 
 ///|
-test "a composite pipeline collects bitwise-equal to the eager chain" {
+test "a composite pipeline collects equal to the eager chain" {
   let df = sales_df()
   let predicate = @expr.col("qty").gt(@expr.lit_int(10))
   let derived = [(@expr.col("qty") - @expr.col("bonus")).with_alias("net")]
@@ -788,7 +788,7 @@ test "a deferred derived-key group-by collects to the eager equivalent" {
   let df = sales_df()
   // The grouping key is an expression, not a bare column: bucket on
   // qty > 50. Both faces evaluate it at collect / call time, so the lazy
-  // result stays bitwise-equal to the eager one.
+  // result stays equal to the eager one.
   let keys = [@expr.col("qty").gt(@expr.lit_int(50)).with_alias("big")]
   let aggs = [@expr.col("qty").sum().with_alias("total")]
   let lazy_out = LazyFrame::LazyFrame(df).group_by(keys).agg(aggs).collect()

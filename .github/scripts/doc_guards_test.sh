@@ -533,10 +533,20 @@ mkseams "$work/es_widened" \
 expect_out 1 'hidden cross-package surface changed' 'engine seams: a seam signature widened' \
   sh "$scripts/check_engine_seams.sh" "$work/es_widened"
 
+# The attributes are a pair, and each half alone fails: an alert on a symbol
+# the interface still publishes, or a symbol hidden from the interface — and so
+# from every guard that reads one — with nothing stopping a downstream call.
 mkseams "$work/es_unpaired" \
   "$(printf '%s\n' "$es_source" | grep -v '^#doc(hidden)$')" "$es_snap"
-expect_out 1 'without #doc(hidden)' 'engine seams: an alert without the interface hide' \
+expect_out 1 'only one of the two attributes' \
+  'engine seams: an alert without the interface hide' \
   sh "$scripts/check_engine_seams.sh" "$work/es_unpaired"
+
+mkseams "$work/es_hidden_only" \
+  "$(printf '%s\n' "$es_source" | grep -v '^#internal(engine')" "$es_snap"
+expect_out 1 'only one of the two attributes' \
+  'engine seams: hidden from the interface with no alert' \
+  sh "$scripts/check_engine_seams.sh" "$work/es_hidden_only"
 
 mkseams "$work/es_missing" "$es_source" --
 expect_out 1 'snapshot' 'engine seams: snapshot absent' \

@@ -75,6 +75,29 @@ match stops compiling — and therefore rides the minor version too,
 semantically-additive though it looks. Only a caller whose match carries a
 wildcard arm (`_ => …`) stays source-compatible across such an addition.
 
+**`Expr` equality is structural over the tree as built.** `Expr` is opaque and
+its AST is module-internal, but `==` on two expressions — and, through their
+derived `Eq`, on a `JoinOptions` or a `DataFrame` that embeds one — compares
+that tree, so the contract has to be stated rather than left to the
+representation:
+
+- Two expressions are equal when they were *built* the same way. Nothing is
+  simplified or normalised on the way in, so `col("a") + lit_int(0)` is not
+  equal to `col("a")`, and a comparison written `lit_int(1).lt(col("a"))` is
+  not equal to `col("a").gt(lit_int(1))`.
+- A closure has no identity, so `map_elements` / `map_many` / `map_batches`
+  compare on their label and inputs with the function opaque: two `map_many`
+  expressions sharing a label and inputs are equal whatever their closures do.
+  The label is the function's identity — give distinct functions distinct
+  labels.
+- Because equality is structural, *how an operator lowers* is observable. If a
+  release changes the node a verb builds — even to a semantically identical
+  one — expressions that used to compare equal may stop, and that rides the
+  minor version like any other behaviour change.
+
+Comparing rendered expressions (`Expr::to_string`) is the stable alternative
+when what you want is "did my builder produce the expression I meant".
+
 A **public struct field** is the same case in a different costume. A `pub
 struct` with public fields is read-only from outside — a caller cannot build or
 mutate one — but it *can* destructure one, and MoonBit requires a struct

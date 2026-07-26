@@ -74,8 +74,11 @@ pub fn ExprNode::children(self : ExprNode) -> Array[ExprNode] {
 /// have no `Eq`, so the enum cannot `derive` one. Two `Map` nodes are equal on
 /// `(label, inputs)` with the function opaque; `MapBatches` also compares its
 /// `returns_scalar` flag. Every other variant compares recursively. The
-/// `@expr.Expr` wrapper derives its `Eq` off this, so `DataFrame` / `LogicalPlan`
-/// equality reaches here.
+/// `@expr.Expr` wrapper forwards its own handwritten `Eq` to this one, so
+/// `DataFrame` / `JoinOptions` / `LogicalPlan` equality reaches here — which
+/// makes this relation *observable through the facade*. `docs/api.md` states
+/// the contract that follows from it: equality is structural over the tree as
+/// built, so changing how an operator lowers changes it.
 pub impl Eq for ExprNode with fn equal(self, other) {
   nodes_structurally_equal(self, other)
 }

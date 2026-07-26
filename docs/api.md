@@ -61,6 +61,21 @@ match stops compiling — and therefore rides the minor version too,
 semantically-additive though it looks. Only a caller whose match carries a
 wildcard arm (`_ => …`) stays source-compatible across such an addition.
 
+A **public struct field** is the same case in a different costume. A `pub
+struct` with public fields is read-only from outside — a caller cannot build or
+mutate one — but it *can* destructure one, and MoonBit requires a struct
+pattern to name every field or carry `..`. So a new field is source-breaking
+for that caller, and the representation, not just the accessors, is the
+promise. The types that keep public fields do so because reading them is the
+API — the options records (`CsvReadOptions`, `CsvWriteOptions`,
+`JsonReadOptions`, `HtmlOptions`, `JoinOptions`, `ChartSpec`) are built through
+their named constructors and inspected through their fields — while a type with
+its own accessors keeps its representation private, which is what makes a
+future field genuinely additive there (`Field`, `Schema`, `Series`,
+`DataFrame`, `Expr`, `LazyFrame`). Which fields are public is pinned
+symbol-by-symbol in `.github/scripts/facade_surface.snapshot`, so adding one is
+a deliberate act, not a side effect.
+
 ## Packages
 
 The public surface is split across six packages; the facade re-exports them so

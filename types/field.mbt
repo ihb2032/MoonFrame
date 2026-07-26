@@ -34,13 +34,17 @@
 /// it was validated against — the operations that carry it drop, reorder or
 /// rename, and never introduce a value.
 ///
-/// The fields are readable but not constructible from outside `types`: build
-/// one through `Field::Field(...)`, so a future field can be added without breaking
-/// callers.
+/// The fields are `priv`, so the struct is opaque outside this package: build
+/// one through `Field::Field(...)` and read it through `name()` / `dtype()` /
+/// `nullable()`. That is what actually keeps a future field additive — a
+/// readable field is also *matchable*, and MoonBit requires a struct pattern
+/// to name every field or carry `..`, so a public field's arrival would break
+/// a caller's pattern exactly as a new `pub(all)` enum variant breaks a
+/// `match`.
 pub struct Field {
-  name : String
-  dtype : DataType
-  nullable : Bool
+  priv name : String
+  priv dtype : DataType
+  priv nullable : Bool
 } derive(Eq, Debug)
 
 ///|

@@ -54,16 +54,24 @@ the columns it is given. If you relied on a zero-column result reporting
 `is_empty()`, test `ncols() == 0` instead. `check_invariants()`' INV7 changed
 with it: from "a column-less frame is row-less" to `nrows >= 0`.
 
-### `Field` has one constructor
+### `Field` has one constructor, and its fields are private
 
 | v0.5 | v0.6 |
 | --- | --- |
 | `Field::new("age", Int)` | `Field::Field("age", Int)` |
 | `Field::with_nullable("id", Int, false)` | `Field::Field("id", Int, nullable=false)` |
+| `f.name` / `f.dtype` / `f.nullable` | `f.name()` / `f.dtype()` / `f.nullable()` |
 
-`struct Field` is also `pub` rather than `pub(all)`: fields stay readable, but
-a record literal (`{ name: "age", dtype: Int, nullable: true }`) outside `types`
-no longer compiles — build through `Field::Field(...)` instead.
+`struct Field` is opaque: a record literal (`{ name: "age", dtype: Int,
+nullable: true }`) outside `types` no longer compiles — build through
+`Field::Field(...)` — and the three fields are `priv`, read through the
+accessors of the same names. Reading a field was the smaller half of what
+public fields allowed; the larger half was destructuring one, and since a
+struct pattern must name every field or carry `..`, that would have made any
+field this type gains later a breaking change. The options records
+(`CsvReadOptions`, `CsvWriteOptions`, `JsonReadOptions`, `HtmlOptions`,
+`JoinOptions`, `ChartSpec`) keep their readable fields — inspecting them is
+their read API — at that same documented cost.
 
 ### IO options are built by constructor
 

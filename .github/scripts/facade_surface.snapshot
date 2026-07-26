@@ -25,9 +25,6 @@ field CsvWriteOptions.delimiter <- io
 field CsvWriteOptions.header <- io
 field CsvWriteOptions.null_value <- io
 field CsvWriteOptions.sanitize_formulas <- io
-field Field.dtype <- types
-field Field.name <- types
-field Field.nullable <- types
 field HtmlOptions.caption <- frame
 field HtmlOptions.escape <- frame
 field HtmlOptions.max_rows <- frame

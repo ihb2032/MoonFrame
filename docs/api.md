@@ -25,11 +25,22 @@ the stability promise below covers. The public sub-packages (`@types`,
 `@series`, `@expr`, `@frame`, `@io`, `@lazy`) stay directly importable for a
 caller who only needs a slice, and a symbol the facade re-exports is the *same*
 stable symbol reached that way. A sub-package symbol the facade does **not**
-re-export, however, carries no compatibility promise. Two kinds exist: the
-fluent-chain intermediates (`WhenThen` / `WhenThenElse` / `GroupedDataFrame` /
-`LazyGroupBy` — `pub` only because the verb returning one must be, and meant to
-be chained through rather than named), and the `#internal` engine seams
-described next. Neither is part of the surface this document governs.
+re-export is one of two kinds, and they are promised differently.
+
+The **fluent-chain intermediates** — `WhenThen` / `WhenThenElse` /
+`GroupedDataFrame` / `LazyGroupBy`, `pub` only because the verb returning one
+must be — are promised at the level of the chain, not the name. What is stable
+is that `when(c).then(a).otherwise(b)` and `group_by(k).agg(e)` keep compiling
+and keep meaning what they mean: the step methods, their signatures, and the
+type the chain ends in. What is *not* promised is the name of the step in
+between: it is absent from the facade, so a caller who annotates or stores one
+(rather than chaining straight through) is reaching past the supported surface,
+and a release may rename or replace it. The chain methods are pinned in
+`.github/scripts/facade_surface.snapshot` alongside everything else the facade
+reaches, and that lock is deliberately narrow: exactly these four types may be
+public without being re-exported.
+
+The other kind — the **`#internal` engine seams** — carries no promise at all.
 
 Two distinct mechanisms keep non-public code off the compatibility surface.
 **Engine seams** are symbols that must be `pub` because two public packages

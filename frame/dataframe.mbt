@@ -71,9 +71,11 @@ pub fn DataFrame::DataFrame(
 /// vector, and it ranges over the columns that exist, so for a column-less
 /// frame this field carries the height alone.
 ///
-/// Engine-internal. The length check is vacuous for zero columns, leaving
-/// `nrows` unvalidated there, so callers pass a non-negative count —
-/// `check_invariants`' INV7 is the property a stray negative would break.
+/// Engine-internal, and it establishes INV7 rather than assuming it: a
+/// negative `nrows` raises `InvalidOperation`. The length check that forces a
+/// non-negative height for a frame with columns is vacuous at zero columns —
+/// the very shape this constructor exists to build — so this is where that
+/// invariant has to be closed.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
 pub fn DataFrame::from_parts(
@@ -101,6 +103,16 @@ fn DataFrame::from_parts_with_fields(
   nrows : Int,
 ) -> DataFrame raise @types.DataError {
   let columns = columns.copy()
+  // INV7, closed here rather than asked of the caller. For a frame with
+  // columns the length check below already forces a non-negative height (no
+  // `Series` is shorter than empty), but it is vacuous at zero columns —
+  // exactly the shape this constructor exists to build — so `N×0` is the one
+  // case where a stray negative would reach a `DataFrame` and stay there.
+  if nrows < 0 {
+    raise @types.DataError::InvalidOperation(
+      "a frame's row count cannot be negative: \{nrows}",
+    )
+  }
   if !columns.all(c => c.len() == nrows) {
     raise @types.DataError::LengthMismatch
   }

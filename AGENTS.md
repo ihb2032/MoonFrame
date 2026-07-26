@@ -92,7 +92,12 @@ sh .github/scripts/check_engine_seams.sh
 - **Stale names** — a removed identifier must not appear in current-state prose
   or a source comment. `docs/changelog.md` and `docs/migration.md` are exempt
   (history is their content); a single line that must name one takes the marker
-  `doc-guard: historical`.
+  `doc-guard: historical`. It matches distinctive spellings only — a bare word
+  like `take` names live methods too — and it cannot see a *claim* that drifted
+  rather than a name. **When a symbol's visibility or representation changes,
+  re-read the changelog and migration sections that describe it**: those are
+  current-state prose that no guard scans, and both have shipped statements
+  contradicting the interface they document.
 - **Internal packages** — the set of `internal/*` package *names* on disk must
   equal the set README's repository-structure block and `docs/api.md` name.
   They have no public surface, so no other guard notices one appearing or

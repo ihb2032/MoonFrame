@@ -76,6 +76,38 @@ test "JoinOptions key builders copy their key arrays" {
 }
 
 ///|
+/// Copying on the way in is only half of it: while the key lists were public
+/// fields, reading one handed back the array itself, so a caller could push a
+/// key into options a `LazyFrame::join` had already captured and change what
+/// the built plan collected. The accessors copy on the way out, and this pins
+/// both ends of that — the options value and a plan holding it.
+test "JoinOptions key accessors copy on the way out" {
+  let left = DataFrame::DataFrame([
+    Series::from_ints("id", [1, 2]),
+    Series::from_ints("t", [7, 8]),
+  ])
+  let right = DataFrame::DataFrame([
+    Series::from_ints("id", [1, 2]),
+    Series::from_ints("t", [7, 9]),
+  ])
+  let options = JoinOptions::on([col("id")])
+  let plan = LazyFrame::LazyFrame(left).join(
+    LazyFrame::LazyFrame(right),
+    options,
+  )
+  let rows = plan.collect().nrows()
+  // Mutating what an accessor returned reaches neither the options nor the
+  // captured plan: joining on `id` alone keeps both rows, and a second key on
+  // `t` would drop one.
+  options.on_keys().push(col("t"))
+  options.left_keys().push(col("t"))
+  options.right_keys().push(col("t"))
+  assert_eq(options, JoinOptions::on([col("id")]))
+  assert_eq(plan.collect().nrows(), rows)
+  assert_eq(rows, 2)
+}
+
+///|
 /// The lazy builders keep their arrays alive inside the logical plan until
 /// `collect` runs, so they are the widest retention surface in the library.
 /// `drop_nulls` additionally carries its keys behind an optional parameter.

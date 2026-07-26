@@ -71,7 +71,11 @@ struct pattern must name every field or carry `..`, that would have made any
 field this type gains later a breaking change. The options records
 (`CsvReadOptions`, `CsvWriteOptions`, `JsonReadOptions`, `HtmlOptions`,
 `JoinOptions`, `ChartSpec`) keep their readable fields — inspecting them is
-their read API — at that same documented cost.
+their read API — at that same documented cost. The exceptions are the fields
+holding a mutable array, `CsvReadOptions.null_values` and `JoinOptions`' three
+key lists: reading one of those would hand back the array itself, so each is
+private behind a copying accessor (`null_values()`, `on_keys()` /
+`left_keys()` / `right_keys()`).
 
 ### IO options are built by constructor
 

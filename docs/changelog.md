@@ -180,9 +180,13 @@ collected in [`migration.md`](migration.md).
 - `JoinOptions::left_on` now requires `right_on~` at the call site, so an
   unpaired sided join no longer compiles, and mixing `on` with
   `left_on` / `right_on` is unspellable: the three constructors each fill one
-  key shape and no caller outside `frame` can set a field. The engine keeps its
-  defensive check for the mixed state, now reachable only from an in-package
-  test.
+  key shape, and the three key lists are `priv`, read through the copying
+  `on_keys()` / `left_keys()` / `right_keys()`. Private and not merely
+  unassignable — a public `Array` field hands back the array itself, which was
+  enough to push a key into options a `LazyFrame::join` had already captured
+  and change what the built plan collected. `how` / `suffix` / `coalesce` stay
+  public: they are immutable values. The engine keeps its defensive check for
+  the mixed state, now reachable only from an in-package test.
 - The storage-backend surface leaves the public API. `Series::storage` /
   `storage_kind` / `to_numeric` / `to_builtin` / `is_canonical` /`mean_opt` and
   `DataFrame::to_numeric` / `to_builtin` /

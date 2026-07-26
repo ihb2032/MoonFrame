@@ -31,9 +31,6 @@ field HtmlOptions.max_rows : Int? <- frame
 field HtmlOptions.table_class : String? <- frame
 field JoinOptions.coalesce : Bool? <- frame
 field JoinOptions.how : JoinType <- frame
-field JoinOptions.left_on : Array[@expr.Expr] <- frame
-field JoinOptions.on : Array[@expr.Expr] <- frame
-field JoinOptions.right_on : Array[@expr.Expr] <- frame
 field JoinOptions.suffix : String <- frame
 field JsonReadOptions.infer_schema_rows : Int <- io
 field JsonReadOptions.on_parse_error : OnParseError <- io
@@ -280,9 +277,12 @@ method HtmlOptions::not_equal(Self, Self) -> Bool <- frame
 method HtmlOptions::to_repr(Self) -> @debug.Repr <- frame
 method JoinOptions::cross(suffix? : String) -> Self <- frame
 method JoinOptions::equal(Self, Self) -> Bool <- frame
+method JoinOptions::left_keys(Self) -> Array[@expr.Expr] <- frame
 method JoinOptions::left_on(Array[@expr.Expr], right_on~ : Array[@expr.Expr], how? : JoinType, suffix? : String, coalesce? : Bool) -> Self <- frame
 method JoinOptions::not_equal(Self, Self) -> Bool <- frame
 method JoinOptions::on(Array[@expr.Expr], how? : JoinType, suffix? : String, coalesce? : Bool) -> Self <- frame
+method JoinOptions::on_keys(Self) -> Array[@expr.Expr] <- frame
+method JoinOptions::right_keys(Self) -> Array[@expr.Expr] <- frame
 method JoinOptions::to_repr(Self) -> @debug.Repr <- frame
 method JoinType::equal(Self, Self) -> Bool <- frame
 method JoinType::not_equal(Self, Self) -> Bool <- frame

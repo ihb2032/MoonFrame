@@ -73,14 +73,43 @@ pub extend JoinType with Debug::{to_repr}
 ///     present on that row (the two are equal on a matched pair) — the left
 ///     on `Inner` / `Left`, the right on `Right`, and the present side per
 ///     row on `Outer`.
+/// The three key lists are `priv`, read through the copying `on_keys()` /
+/// `left_keys()` / `right_keys()`. A public `Array` field is readable, and
+/// reading an array hands over the array *itself* — enough to push a key into
+/// an options value a `LazyFrame::join` already captured, changing what a
+/// built plan collects. The constructors copy on the way in for the same
+/// reason; these accessors close the way out. The remaining fields are
+/// immutable values, so they stay public.
 pub struct JoinOptions {
-  on : Array[@expr.Expr]
-  left_on : Array[@expr.Expr]
-  right_on : Array[@expr.Expr]
+  priv on : Array[@expr.Expr]
+  priv left_on : Array[@expr.Expr]
+  priv right_on : Array[@expr.Expr]
   how : JoinType
   suffix : String
   coalesce : Bool?
 } derive(Eq, Debug)
+
+///|
+/// The shared key expressions (`JoinOptions::on`), or an empty array for a
+/// sided or cross join. A copy: mutating it cannot alter the options, or any
+/// plan holding them.
+pub fn JoinOptions::on_keys(self : JoinOptions) -> Array[@expr.Expr] {
+  self.on.copy()
+}
+
+///|
+/// The left-side key expressions (`JoinOptions::left_on`), or an empty array
+/// when the join keys by `on` or is a cross join. A copy, like `on_keys`.
+pub fn JoinOptions::left_keys(self : JoinOptions) -> Array[@expr.Expr] {
+  self.left_on.copy()
+}
+
+///|
+/// The right-side key expressions paired with `left_keys`, or an empty array
+/// when the join keys by `on` or is a cross join. A copy, like `on_keys`.
+pub fn JoinOptions::right_keys(self : JoinOptions) -> Array[@expr.Expr] {
+  self.right_on.copy()
+}
 
 ///|
 pub extend JoinOptions with Eq::{equal, not_equal}

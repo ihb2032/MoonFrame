@@ -203,10 +203,13 @@ fn join_label(options : @frame.JoinOptions) -> String {
     @frame.JoinType::Outer => "Outer"
     @frame.JoinType::Cross => "Cross"
   }
-  if !options.on.is_empty() {
-    "JOIN \{how} on \{exprs_label(options.on)}"
-  } else if !options.left_on.is_empty() || !options.right_on.is_empty() {
-    "JOIN \{how} left_on \{exprs_label(options.left_on)} right_on \{exprs_label(options.right_on)}"
+  let on = options.on_keys()
+  let left_on = options.left_keys()
+  let right_on = options.right_keys()
+  if !on.is_empty() {
+    "JOIN \{how} on \{exprs_label(on)}"
+  } else if !left_on.is_empty() || !right_on.is_empty() {
+    "JOIN \{how} left_on \{exprs_label(left_on)} right_on \{exprs_label(right_on)}"
   } else {
     "JOIN \{how}"
   }

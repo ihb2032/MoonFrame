@@ -111,10 +111,15 @@ its own accessors keeps its representation private, which is what makes a
 future field genuinely additive there (`Field`, `Schema`, `Series`,
 `DataFrame`, `Expr`, `LazyFrame`).
 
-The line runs per field, not per type: `CsvReadOptions.null_values` is private
-with a copying `null_values()` accessor, so that one field's representation is
-*not* on the surface even though its neighbours are — the array would otherwise
-be mutable through the options value. Which fields are public is pinned
+The line runs per field, not per type, and it falls in the same place every
+time: **a field holding a mutable array is private, behind an accessor that
+copies.** `CsvReadOptions.null_values` and `JoinOptions`' three key lists are
+the two cases (`null_values()`, `on_keys()` / `left_keys()` / `right_keys()`).
+Reading a public `Array` field hands back the array *itself*, not a view of it,
+which is enough to change a value someone else is holding — including one a
+`LazyFrame` captured into a built plan. Their neighbours (`how`, `suffix`,
+`escape`, …) are immutable values and stay public. Which fields are public is
+pinned
 field-by-field in `.github/scripts/facade_surface.snapshot`, with their types,
 so adding one is a deliberate act rather than a side effect — and that snapshot,
 not a summary sentence, is the list.

@@ -195,6 +195,22 @@ fi
 # this, so the shape is banned rather than snapshotted: keep the field `priv`
 # and hand out a copy from an accessor. (`Bytes` and `String` are immutable in
 # MoonBit, so a field holding one is a value like any other.)
+unexported_fns=$(printf '%s\n' "$current" |
+  sed -n 's/^fn \(.*\) <- \(.*\)$/\2 \1/p' | sed 's/(.*//' | LC_ALL=C sort -u |
+  awk '{ if ($1 == "root") root[$2] = 1; else pkg[$2] = $1 }
+       END { for (n in pkg) if (!(n in root)) print "  " n " (in " pkg[n] ")" }' |
+  LC_ALL=C sort)
+if [ -n "$unexported_fns" ]; then
+  printf 'facade surface: a public free function the facade does not re-export:\n'
+  printf '%s\n' "$unexported_fns"
+  printf '  Types can be reachable-but-unnamed (the fluent chain steps); a\n'
+  printf '  free function cannot — nothing chains to it, so one the facade\n'
+  printf '  omits is either an under-export a caller cannot reach through the\n'
+  printf '  supported surface, or a helper that should not be `pub` at all.\n'
+  printf '  Re-export it in moonframe.mbt, or make it `priv` / an engine seam.\n'
+  exit 1
+fi
+
 mutable_fields=$(printf '%s\n' "$current" |
   grep -E '^field [^:]*: .*((Array|FixedArray|Map|Set|Ref|ArrayView)\[|\b(StringBuilder|Buffer)\b)' ||
   true)

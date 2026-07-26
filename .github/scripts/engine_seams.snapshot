@@ -40,6 +40,17 @@ series | doc_hidden internal_engine | pub fn stable_mergesort_indices(n : Int, c
 series | doc_hidden internal_engine | pub fn try_column_to_numeric(s : Series) -> Series
 series | doc_hidden internal_engine | pub fn validity_bools(column : Series) -> Array[Bool]
 series | doc_hidden internal_engine | pub(all) enum ReduceOp
+series | doc_hidden internal_engine | variant ReduceOp::Count
+series | doc_hidden internal_engine | variant ReduceOp::First
+series | doc_hidden internal_engine | variant ReduceOp::Last
+series | doc_hidden internal_engine | variant ReduceOp::Max
+series | doc_hidden internal_engine | variant ReduceOp::Mean
+series | doc_hidden internal_engine | variant ReduceOp::Median
+series | doc_hidden internal_engine | variant ReduceOp::Min
+series | doc_hidden internal_engine | variant ReduceOp::NUnique
+series | doc_hidden internal_engine | variant ReduceOp::Std
+series | doc_hidden internal_engine | variant ReduceOp::Sum
+series | doc_hidden internal_engine | variant ReduceOp::Var
 types | doc_hidden internal_engine | pub fn compare_strings_lex(a : String, b : String) -> Int
 types | doc_hidden internal_engine | pub fn double_fits_int64(n : Double) -> Bool
 types | doc_hidden internal_engine | pub fn double_lt_int64(a : Double, b : Int64) -> Bool

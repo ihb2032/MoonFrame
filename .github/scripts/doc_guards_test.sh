@@ -276,6 +276,19 @@ mkfacadesurface "$work/fs_missing" "$fs_root" "$fs_frame" --
 expect 1 'facade surface: snapshot absent' \
   sh "$scripts/check_facade_surface.sh" "$work/fs_missing"
 
+# The allowlist is checked ahead of the snapshot, so a leaked public type fails
+# even once someone has regenerated the snapshot over it — which is exactly the
+# hole a regenerable-everything lock leaves.
+mkfacadesurface "$work/fs_leak" "$fs_root" "$fs_frame
+pub struct LeakedHelper {
+  // private fields
+}
+pub fn LeakedHelper::run(Self) -> Int" "$fs_snap
+intermediate LeakedHelper <- frame
+method LeakedHelper::run <- frame"
+expect 1 'facade surface: a public type outside the intermediate allowlist' \
+  sh "$scripts/check_facade_surface.sh" "$work/fs_leak"
+
 # ── internal package manifest ─────────────────────────────────────────────
 mkinternal() {
   # mkinternal <dir> <disk-packages> <readme-body> <api-body>
@@ -319,6 +332,93 @@ mkinternal "$work/ip_stale" "column" "$ip_readme" "$ip_api"
 expect 1 'internal packages: a documented package that no longer exists' \
   sh "$scripts/check_internal_packages.sh" "$work/ip_stale"
 
+# ── production layering ───────────────────────────────────────────────────
+mklayering() {
+  # mklayering <dir> <frame-manifest> <internal-kernel-manifest> <root-manifest>
+  # A miniature of the real graph: a root facade over six public packages, a
+  # `series` that owns the column, and the two internal layers below it.
+  mkdir -p "$1"
+  (cd "$1" && git init -q . && git config user.email t@t &&
+    git config user.name t && git config core.autocrlf false)
+  for pkg in expr io lazy types; do
+    mkdir -p "$1/$pkg"
+    printf 'import {\n  "ihb2032/MoonFrame/types",\n}\n' >"$1/$pkg/moon.pkg"
+    printf 'package "ihb2032/MoonFrame/%s"\n' "$pkg" \
+      >"$1/$pkg/pkg.generated.mbti"
+  done
+  mkdir -p "$1/series" "$1/frame" "$1/internal/column" "$1/internal/kernel"
+  printf 'import {\n  "ihb2032/MoonFrame/internal/column",\n}\n' \
+    >"$1/series/moon.pkg"
+  printf 'import {\n  "ihb2032/MoonFrame/types",\n}\n' \
+    >"$1/internal/column/moon.pkg"
+  printf 'package "ihb2032/MoonFrame/series"\n' >"$1/series/pkg.generated.mbti"
+  printf '%s\n' "$2" >"$1/frame/moon.pkg"
+  printf '%s\n' "$3" >"$1/internal/kernel/moon.pkg"
+  printf '%s\n' "$4" >"$1/moon.pkg"
+  printf 'package "ihb2032/MoonFrame/frame"\n' >"$1/frame/pkg.generated.mbti"
+  (cd "$1" && git add -A && git commit -qm f)
+}
+
+# `frame` reaches the column only through `series`; its *test* block names the
+# storage layer deliberately, which is the distinction the guard must draw.
+ly_frame='import {
+  "ihb2032/MoonFrame/series",
+  "ihb2032/MoonFrame/internal/kernel",
+}
+
+import {
+  "ihb2032/MoonFrame/internal/column",
+} for "test"'
+ly_kernel='import {
+  "ihb2032/MoonFrame/internal/column",
+  "ihb2032/MoonFrame/series",
+}'
+ly_root='import {
+  "ihb2032/MoonFrame/expr",
+  "ihb2032/MoonFrame/frame",
+  "ihb2032/MoonFrame/io",
+  "ihb2032/MoonFrame/lazy",
+  "ihb2032/MoonFrame/series",
+  "ihb2032/MoonFrame/types",
+}'
+
+mklayering "$work/ly_ok" "$ly_frame" "$ly_kernel" "$ly_root"
+expect 0 'layering: production graph obeys the rule (test imports reach further)' \
+  sh "$scripts/check_layering.sh" "$work/ly_ok"
+
+mklayering "$work/ly_column" 'import {
+  "ihb2032/MoonFrame/series",
+  "ihb2032/MoonFrame/internal/column",
+}' "$ly_kernel" "$ly_root"
+expect 1 'layering: frame imports the physical column layer' \
+  sh "$scripts/check_layering.sh" "$work/ly_column"
+
+mklayering "$work/ly_reverse" "$ly_frame" 'import {
+  "ihb2032/MoonFrame/internal/column",
+  "ihb2032/MoonFrame/frame",
+}' "$ly_root"
+expect 1 'layering: an internal package imports a verb package' \
+  sh "$scripts/check_layering.sh" "$work/ly_reverse"
+
+mklayering "$work/ly_root_dep" "$ly_frame" "$ly_kernel" 'import {
+  "ihb2032/MoonFrame/expr",
+  "ihb2032/MoonFrame/frame",
+  "ihb2032/MoonFrame/io",
+  "ihb2032/MoonFrame/lazy",
+  "ihb2032/MoonFrame/series",
+  "ihb2032/MoonFrame/types",
+  "ihb2032/MoonFrame/internal/kernel",
+}'
+expect 1 'layering: the facade imports beyond the six public packages' \
+  sh "$scripts/check_layering.sh" "$work/ly_root_dep"
+
+mklayering "$work/ly_leak" "$ly_frame" "$ly_kernel" "$ly_root"
+printf 'package "ihb2032/MoonFrame/frame"\n\nimport {\n  "ihb2032/MoonFrame/internal/column",\n}\n' \
+  >"$work/ly_leak/frame/pkg.generated.mbti"
+(cd "$work/ly_leak" && git add -A && git commit -qm leak)
+expect 1 'layering: an internal package named in a public interface' \
+  sh "$scripts/check_layering.sh" "$work/ly_leak"
+
 # ── the repository itself ─────────────────────────────────────────────────
 expect 0 'repo: version identity' sh "$scripts/check_version_identity.sh" "$root"
 expect 0 'repo: stale names' sh "$scripts/check_stale_names.sh" "$root"
@@ -326,5 +426,6 @@ expect 0 'repo: enum surface' sh "$scripts/check_enum_surface.sh" "$root"
 expect 0 'repo: facade surface' sh "$scripts/check_facade_surface.sh" "$root"
 expect 0 'repo: internal packages' \
   sh "$scripts/check_internal_packages.sh" "$root"
+expect 0 'repo: layering' sh "$scripts/check_layering.sh" "$root"
 
 printf 'doc guards: %s cases pass\n' "$cases"

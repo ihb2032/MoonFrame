@@ -38,6 +38,14 @@
 #
 #   sh .github/scripts/check_facade_surface.sh --write
 #
+# One thing a regenerable snapshot cannot express is a rule, and the
+# intermediates are one: a public type the facade does not name exists only
+# because the verb returning it must be `pub`, and there are exactly four.
+# `--write` would happily bless a fifth — a helper type that leaked out of an
+# implementation — as "intermediate" and, from then on, as part of the shipped
+# surface. So the allowlist below is checked *before* the snapshot, and an
+# unexpected non-facade public type fails whatever the snapshot says.
+#
 # Scope. Every tracked `pkg.generated.mbti` outside `internal/` and
 # `examples/`: the six public packages plus the root facade. Internal packages
 # are unimportable downstream, and `#internal(engine)` seams carry
@@ -64,6 +72,13 @@ cd "$root"
 
 snapshot=".github/scripts/facade_surface.snapshot"
 mbti="pkg.generated.mbti"
+
+# The public types the facade deliberately does not name: each is a step in a
+# fluent chain (`when(c).then(a).otherwise(b)`, `group_by(k).agg(e)`), `pub`
+# only because the verb returning it must be, and reached by chaining off that
+# verb's return value rather than by name. Widen this only alongside the facade
+# comment that explains why the type is unnameable — never to make a guard pass.
+intermediates="WhenThen WhenThenElse GroupedDataFrame LazyGroupBy"
 
 # Tracked public interfaces only: `git ls-files` never lists a `_build` copy,
 # `internal/` (at any depth) carries no compatibility promise, and `examples/`
@@ -129,6 +144,27 @@ extract() {
 
 current=$(extract)
 count() { printf '%s\n' "$1" | grep -cE ' <- ' || true; }
+
+# The rule, checked ahead of — and independently of — the snapshot, so
+# regenerating cannot turn a leaked helper type into a shipped one. Every
+# public type the facade does not name must be one of the known chain steps.
+unexpected=$(printf '%s\n' "$current" | sed -n 's/^intermediate \([A-Za-z0-9_]*\) <- \(.*\)/\1 \2/p' |
+  while read -r name pkg; do
+    for allowed in $intermediates; do
+      [ "$allowed" != "$name" ] || continue 2
+    done
+    printf '  %s (in %s)\n' "$name" "$pkg"
+  done)
+if [ -n "$unexpected" ]; then
+  printf 'facade surface: a public type the facade does not re-export:\n'
+  printf '%s\n' "$unexpected"
+  printf '  A public type the facade does not name is reachable-but-unnamed:\n'
+  printf '  callable through whatever returns it, yet impossible to annotate.\n'
+  printf '  That is deliberate for the fluent chain steps and an accident\n'
+  printf '  otherwise — make the type `priv`, or re-export it and say why.\n'
+  printf '  Allowed: %s\n' "$intermediates"
+  exit 1
+fi
 
 if [ "$write" -eq 1 ]; then
   printf '%s\n' "$current" >"$snapshot"

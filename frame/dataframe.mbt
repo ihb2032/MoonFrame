@@ -312,11 +312,17 @@ pub fn DataFrame::columns(self : DataFrame) -> Array[String] {
 }
 
 ///|
-/// The columns as `Series`, in declaration order. A fresh array is
-/// returned (the `Series` themselves are immutable, storage shared), so
-/// ops / IO layers can iterate columns directly instead of repeatedly
-/// looking each up by name; mutating the returned array can't perturb the
-/// frame's invariants.
+/// The columns as `Series`, in declaration order — the total, ordered way to
+/// walk a frame column by column, parallel to `columns()` and the schema's
+/// fields. Reach for it instead of looping over `columns()` and calling
+/// `get_column(name)` per name: that pays a lookup per column and is fallible
+/// on a name this frame does not have, while this is neither.
+///
+/// A fresh array is returned (the `Series` themselves are immutable, storage
+/// shared), so mutating it cannot perturb the frame's invariants. It is a
+/// user-facing accessor, not an engine seam: it hands back the public `Series`
+/// type and never the storage behind it, and the frame's own operators use it
+/// for exactly the same reason a caller would.
 pub fn DataFrame::column_series(self : DataFrame) -> Array[Series] {
   self.columns.copy()
 }

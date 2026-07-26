@@ -41,8 +41,9 @@ within this module — MoonFrame's own packages, examples, and tests are the
 intended callers), and `#doc(hidden)`, which keeps it out of the generated
 `.mbti`; so it is absent from both the facade and the generated reference.
 **Internal packages** go further: code that no public package needs lives in an
-`internal/` path (`internal/column` storage, `internal/text` /
-`internal/literal` primitives, and `internal/ir` — the expression AST and its
+`internal/` path (`internal/column` storage, `internal/kernel` — the vectorized
+expression kernels — `internal/text` / `internal/literal` primitives, and
+`internal/ir`, the expression AST and its
 operator tags). MoonBit forbids a downstream module from importing an
 `internal/` package at all, so those symbols carry no per-symbol marker — the
 module boundary itself is the wall, and a generated `.mbti` for an internal
@@ -84,9 +85,13 @@ The public surface is split across six packages; the facade re-exports them so
 - **`lazy`** — `LazyFrame`, the deferred query plan: the builders, `collect` /
   `explain`, and the optimizer (see [Query optimizer](#query-optimizer)).
 
-Storage backends (`internal/column`), the text / literal primitives
-(`internal/text` / `internal/literal`), and the expression AST (`internal/ir`)
-live in module-internal packages a downstream module cannot import.
+Storage backends (`internal/column`), the vectorized expression kernels
+(`internal/kernel`), the text / literal primitives (`internal/text` /
+`internal/literal`), and the expression AST (`internal/ir`) live in
+module-internal packages a downstream module cannot import. They stack in that
+order — `frame` schedules, `internal/kernel` computes a column, `series` owns
+what a column is, `internal/column` owns how it is laid out — so only the
+packages below `series` name the physical representation.
 
 ## Constructor spelling
 
@@ -150,7 +155,8 @@ Source-level changes between releases (v0.1 → … → v0.6) are collected in
 
 ## Evaluation semantics
 
-Expression trees (`expr`) are applied by the `frame` evaluator, vectorized
+Expression trees (`expr`) are applied by the `frame` evaluator — which walks
+the tree and calls the `internal/kernel` column kernels — vectorized
 (whole-column at a time), raising `DataError` at evaluation time — building the
 tree never fails:
 

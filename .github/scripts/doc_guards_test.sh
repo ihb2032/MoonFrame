@@ -276,10 +276,55 @@ mkfacadesurface "$work/fs_missing" "$fs_root" "$fs_frame" --
 expect 1 'facade surface: snapshot absent' \
   sh "$scripts/check_facade_surface.sh" "$work/fs_missing"
 
+# ── internal package manifest ─────────────────────────────────────────────
+mkinternal() {
+  # mkinternal <dir> <disk-packages> <readme-body> <api-body>
+  # `<disk-packages>` is a space-separated list of `internal/<name>` packages
+  # to create, each as a bare build manifest.
+  mkdir -p "$1/docs"
+  (cd "$1" && git init -q . && git config user.email t@t &&
+    git config user.name t && git config core.autocrlf false)
+  for pkg in $2; do
+    mkdir -p "$1/internal/$pkg"
+    printf 'import {}\n' >"$1/internal/$pkg/moon.pkg"
+  done
+  printf '%s\n' "$3" >"$1/README.md"
+  printf '%s\n' "$4" >"$1/docs/api.md"
+  (cd "$1" && git add -A && git commit -qm f)
+}
+
+ip_readme='types/      value types
+internal/column/   Arrow-style storage
+internal/kernel/   vectorized expression kernels'
+ip_api='Storage (`internal/column`) and the expression kernels
+(`internal/kernel`) live in module-internal packages a downstream module
+cannot import at all.'
+
+mkinternal "$work/ip_ok" "column kernel" "$ip_readme" "$ip_api"
+expect 0 'internal packages: docs and tree agree' \
+  sh "$scripts/check_internal_packages.sh" "$work/ip_ok"
+
+# The drift this exists for: a package extracted without saying what belongs
+# in it, so the docs still describe the architecture it replaced.
+mkinternal "$work/ip_undocumented" "column kernel text" "$ip_readme" "$ip_api"
+expect 1 'internal packages: a package the docs never mention' \
+  sh "$scripts/check_internal_packages.sh" "$work/ip_undocumented"
+
+mkinternal "$work/ip_readme_only" "column kernel" "$ip_readme" \
+  'Storage (`internal/column`) lives in a module-internal package.'
+expect 1 'internal packages: a package missing from docs/api.md' \
+  sh "$scripts/check_internal_packages.sh" "$work/ip_readme_only"
+
+mkinternal "$work/ip_stale" "column" "$ip_readme" "$ip_api"
+expect 1 'internal packages: a documented package that no longer exists' \
+  sh "$scripts/check_internal_packages.sh" "$work/ip_stale"
+
 # ── the repository itself ─────────────────────────────────────────────────
 expect 0 'repo: version identity' sh "$scripts/check_version_identity.sh" "$root"
 expect 0 'repo: stale names' sh "$scripts/check_stale_names.sh" "$root"
 expect 0 'repo: enum surface' sh "$scripts/check_enum_surface.sh" "$root"
 expect 0 'repo: facade surface' sh "$scripts/check_facade_surface.sh" "$root"
+expect 0 'repo: internal packages' \
+  sh "$scripts/check_internal_packages.sh" "$root"
 
 printf 'doc guards: %s cases pass\n' "$cases"

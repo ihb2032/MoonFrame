@@ -61,6 +61,7 @@ sh .github/scripts/check_version_identity.sh
 sh .github/scripts/check_stale_names.sh
 sh .github/scripts/check_enum_surface.sh
 sh .github/scripts/check_facade_surface.sh
+sh .github/scripts/check_internal_packages.sh
 ```
 
 - **Version identity** — `moon.mod`, `docs/api.md`, `docs/changelog.md`, and
@@ -90,8 +91,13 @@ sh .github/scripts/check_facade_surface.sh
   or a source comment. `docs/changelog.md` and `docs/migration.md` are exempt
   (history is their content); a single line that must name one takes the marker
   `doc-guard: historical`.
+- **Internal packages** — the set of `internal/*` packages on disk must equal
+  the set README's repository-structure block and `docs/api.md` describe. They
+  have no public surface, so no other guard notices one appearing or
+  disappearing — and an internal package is where a whole class of work is
+  supposed to live, so one the docs never mention gets bypassed.
 
-A fourth pass, `review_absolute_wording.sh`, annotates absolute claims ("all",
+One more pass, `review_absolute_wording.sh`, annotates absolute claims ("all",
 "every", "never", "total") in prose a PR adds. It never fails the build — it
 asks a human to confirm the claim still holds, because that is the wording this
 repository's documentation drifts on.

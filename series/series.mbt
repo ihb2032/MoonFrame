@@ -2,7 +2,7 @@
 /// A one-dimensional, dtype-aware column with a name. `Series` is the
 /// per-column unit behind `DataFrame`, exposing the structural, nullability,
 /// transform, cast, and (in `series_stats.mbt`) statistics surface that the
-/// ops / IO layers build on.
+/// `frame` and `io` layers build on.
 ///
 /// Its backend is an internal representation — Arrow-style storage with an
 /// explicit validity bitmap, or an all-valid unboxed numeric fast path — chosen
@@ -261,11 +261,12 @@ pub fn Series::to_scalars(self : Series) -> Array[@types.Scalar] {
 }
 
 ///|
-/// Expose the underlying `ColumnStorage`. Ops layers use this to reach the
-/// typed (`int_values` / `float_values` / ...) accessors and the
-/// `data()` / `validity()` reads, bypassing `Scalar` boxing. The return
-/// type changed from `BuiltinColumn` to `ColumnStorage` in v0.3; the
-/// `data()` / `validity()` surface is identical, so column-reading call
+/// Expose the underlying `ColumnStorage`. The one caller outside this package
+/// is `internal/kernel`, which reads the typed (`int_values` / `float_values`
+/// / …) accessors and `data()` / `validity()` to run a column pass without
+/// `Scalar` boxing; `frame` and above never call it — they hold the `Series`.
+/// The return type changed from `BuiltinColumn` to `ColumnStorage` in v0.3;
+/// the `data()` / `validity()` surface is identical, so column-reading call
 /// sites are unaffected.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
@@ -400,23 +401,99 @@ pub fn validity_bools(column : Series) -> Array[Bool] {
 }
 
 ///|
-/// The `Bool` cells of a mask column, or `None` when the column holds another
-/// dtype. `filter` and the lazy scan that absorbed a predicate read a mask by
-/// plain index alongside `validity_bools`; resolving it here keeps the
-/// storage match — and the exhaustiveness over `ColumnData`'s four variants
-/// that makes this total — inside the package that owns the column, so the
-/// caller decides only what a non-`Bool` predicate means to *it*. Like the
-/// other bulk reads at this seam, the returned array is the column's own
-/// buffer: read it, never write it.
+/// The ascending positions where a `Bool` mask column is `true`, or `None`
+/// when the column holds another dtype. A null cell is not a `true` — an
+/// unknown is not a keep, the Kleene reading `filter` and the predicate-absorbed
+/// file scans both want.
+///
+/// The result is a freshly built index array, which is the point: handing back
+/// the mask's own `Array[Bool]` would give a caller in another package the
+/// ability to write into a live column's buffer, and a `Series` is supposed to
+/// be immutable once built. Deciding what a non-`Bool` predicate *means* stays
+/// with the caller — hence `None` rather than a raise.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
-pub fn bool_cells(column : Series) -> Array[Bool]? {
-  match column.storage.data() {
-    @column.ColumnData::Bool(cells) => Some(cells)
+pub fn mask_true_indices(mask : Series) -> Array[Int]? {
+  let cells = match mask.storage.data() {
+    @column.ColumnData::Bool(cells) => cells
     @column.ColumnData::Int(_)
     | @column.ColumnData::Float(_)
-    | @column.ColumnData::String(_) => None
+    | @column.ColumnData::String(_) => return None
   }
+  let valid = validity_bools(mask)
+  let kept : Array[Int] = []
+  for i in 0..<cells.length() {
+    if valid[i] && cells[i] {
+      kept.push(i)
+    }
+  }
+  Some(kept)
+}
+
+///|
+/// Merge two equal-dtype, equal-length columns into one, taking `base`'s cell
+/// where it is non-null and `fill`'s otherwise; a cell null on both sides
+/// stays null. The coalesced join key: `base` is one side's key gathered over
+/// the output rows, `fill` the other's, and on a matched row the two agree —
+/// so the choice only shows where the row is present on a single side.
+///
+/// A column-level merge, so it lives beside the column rather than in the join
+/// that wants it: the cells come out of `base`'s own buffer, and reading that
+/// buffer is this package's business. `fill` is read through the total
+/// `to_scalars`, so no unreachable error arm is introduced — the caller's
+/// equal-dtype precondition guarantees the matching `Scalar` variant, and the
+/// `_` arm catches only the both-null case.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
+pub fn coalesce_columns(base : Series, fill : Series, name : String) -> Series {
+  let base_valid = validity_bools(base)
+  let fills = fill.to_scalars()
+  // The four closures differ only in the `Scalar` variant they read `fill` as.
+  rebuild_options(
+    base,
+    name,
+    base.len(),
+    (a, i) => {
+      if base_valid[i] {
+        Some(a[i])
+      } else {
+        match fills[i] {
+          @types.Scalar::Int(v) => Some(v)
+          _ => None
+        }
+      }
+    },
+    (a, i) => {
+      if base_valid[i] {
+        Some(a[i])
+      } else {
+        match fills[i] {
+          @types.Scalar::Float(v) => Some(v)
+          _ => None
+        }
+      }
+    },
+    (a, i) => {
+      if base_valid[i] {
+        Some(a[i])
+      } else {
+        match fills[i] {
+          @types.Scalar::Bool(v) => Some(v)
+          _ => None
+        }
+      }
+    },
+    (a, i) => {
+      if base_valid[i] {
+        Some(a[i])
+      } else {
+        match fills[i] {
+          @types.Scalar::String(v) => Some(v)
+          _ => None
+        }
+      }
+    },
+  )
 }
 
 ///|
@@ -455,9 +532,12 @@ pub fn slice_series(s : Series, start : Int, len : Int) -> Series {
 /// sinking a `Filter` below a stage (recomputing a derived column over the
 /// surviving rows) cannot flip its backend from `Builtin` to `Numeric` and
 /// make `collect` diverge from the eager chain that `Series` equality observes.
-#doc(hidden)
-#internal(engine, "MoonFrame execution engine API")
-pub fn rebuild_options(
+///
+/// Package-private, deliberately: the four closures receive the source's own
+/// typed data array, so anything holding this could write into a live column.
+/// Every caller is in this package — the row gathers and `coalesce_columns` —
+/// and the seam other packages get is the finished `Series`.
+fn rebuild_options(
   source : Series,
   name : String,
   n : Int,

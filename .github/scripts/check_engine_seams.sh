@@ -74,16 +74,18 @@ extract() {
       # A declaration consumes the run. Only `pub` ones are seams; a private
       # one still clears the attributes so they cannot leak onto a later
       # declaration.
-      /^(pub|fn|let|struct|enum|impl|type|test|suberror|extern)/ {
+      /^(pub|fn|let|const|struct|enum|impl|type|test|suberror|extern)/ {
         if ($0 !~ /^pub/ || (hidden == 0 && internal == 0)) {
           flush_attrs()
           next
         }
         # Join a wrapped signature into one line: keep appending until the
         # header closes with `{` (every fn / struct / enum body opens one) or,
-        # for `pub extend T with Trait::{…}`, with `}`.
+        # for `pub extend T with Trait::{…}`, with `}`. A top-level value has
+        # no body to open, so it is taken as it stands — without this it would
+        # swallow every declaration up to the next brace.
         decl = $0
-        while (decl !~ /[{}][ \t]*$/) {
+        while (decl !~ /[{}][ \t]*$/ && decl !~ /^pub (let|const) /) {
           if ((getline nextline) <= 0) break
           sub(/^[ \t]+/, "", nextline)
           decl = decl " " nextline

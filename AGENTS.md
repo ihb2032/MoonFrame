@@ -115,8 +115,11 @@ sh .github/scripts/check_engine_seams.sh
   out of the generated interface, which is exactly why the facade lock cannot
   see them; this is where adding one — or widening one, a seam that starts
   handing another package a mutable buffer — has to be noticed
-  (`sh .github/scripts/check_engine_seams.sh --write`). `#internal(engine)`
-  without `#doc(hidden)` is rejected outright rather than snapshotted.
+  (`sh .github/scripts/check_engine_seams.sh --write`). The two attributes are
+  a pair and either half alone is rejected outright: an alert on a symbol the
+  interface still publishes, or — the quieter mistake — a symbol hidden from
+  the interface, and so from every guard that reads one, with nothing stopping
+  a downstream call.
 
 One more pass, `review_absolute_wording.sh`, annotates absolute claims ("all",
 "every", "never", "total") in prose a PR adds. It never fails the build — it

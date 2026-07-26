@@ -17,13 +17,14 @@
 # own `Array`, say, which hands another package the ability to mutate a value
 # that is supposed to be immutable. That shows up as a diff.
 #
-# One rule is checked outright rather than snapshotted: `#internal(engine)`
-# without `#doc(hidden)` is incoherent — the symbol would sit in the public
-# interface as a compatibility promise while alerting anyone who used it. The
-# reverse (`#doc(hidden)` alone) is legitimate but rare, and the snapshot is
-# where it gets approved: `DataFrame::check_invariants` carries no alert on
-# purpose, because the blackbox test packages that assert on it live outside
-# `frame` and would each trip one under `--deny-warn`.
+# One rule is checked outright rather than snapshotted: the two attributes come
+# as a pair, in both directions. `#internal(engine)` without `#doc(hidden)`
+# would sit in the public interface as a compatibility promise while alerting
+# anyone who used it. `#doc(hidden)` without `#internal(engine)` is the quieter
+# mistake and the more dangerous one — hiding a symbol from the `.mbti` does
+# not stop a downstream caller reaching it, it only stops anyone *noticing*:
+# no alert, no entry in the generated reference, and invisible to the facade
+# lock. A symbol like that is public API by accident.
 #
 # Nothing here upgrades a seam into a compatibility promise. The point is that
 # adding one, or widening one, is a decision someone made on purpose:
@@ -101,15 +102,19 @@ extract() {
 current=$(extract)
 count() { printf '%s\n' "$1" | grep -c ' | ' || true; }
 
-# `#internal(engine)` promises the symbol is not part of the interface; without
-# `#doc(hidden)` it would be listed in one. Not snapshottable — just wrong.
-incoherent=$(printf '%s\n' "$current" | grep ' | internal_engine | ' || true)
-if [ -n "$incoherent" ]; then
-  printf 'engine seams: #internal(engine) without #doc(hidden):\n'
-  printf '%s\n' "$incoherent" | sed 's/^/  /'
-  printf '  The alert says "not for downstream" while the generated interface\n'
-  printf '  still publishes it. Add #doc(hidden), or drop the alert and accept\n'
-  printf '  it as public API.\n'
+# The attributes come as a pair. Either alone leaves a symbol that is public in
+# practice but unaccounted for in one direction or the other.
+half_marked=$(printf '%s\n' "$current" |
+  grep -E ' \| (internal_engine|doc_hidden) \| ' || true)
+if [ -n "$half_marked" ]; then
+  printf 'engine seams: a seam carrying only one of the two attributes:\n'
+  printf '%s\n' "$half_marked" | sed 's/^/  /'
+  printf '  #internal(engine) alone says "not for downstream" while the\n'
+  printf '  generated interface still publishes it. #doc(hidden) alone hides\n'
+  printf '  the symbol from the reference and from every guard that reads a\n'
+  printf '  .mbti, without stopping anyone calling it — public API by\n'
+  printf '  accident. Add the missing attribute, or drop both and accept the\n'
+  printf '  symbol as public API.\n'
   exit 1
 fi
 

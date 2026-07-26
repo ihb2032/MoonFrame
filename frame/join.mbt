@@ -543,7 +543,7 @@ fn coalesce_key_names(options : JoinOptions) -> Array[String]? {
 /// pre-checked equal key dtype guarantees the matching `Scalar` variant, the
 /// `_` arm catching only the both-null case.
 fn coalesce_into(base : Series, fill : Series, name : String) -> Series {
-  let base_valid = validity_bools(base.storage())
+  let base_valid = validity_bools(base)
   let fills = fill.to_scalars()
   // Each output cell takes `base`'s value where present, else `fill`'s; a
   // both-null cell falls through both to a null. The four closures differ only

@@ -60,9 +60,9 @@ pub fn eval_ternary(
         ),
       )
   }
-  let cv = validity_bools(c2.storage())
-  let tv = validity_bools(t2.storage())
-  let ev = validity_bools(e2.storage())
+  let cv = validity_bools(c2)
+  let tv = validity_bools(t2)
+  let ev = validity_bools(e2)
   let out = match (t2.storage().data(), e2.storage().data()) {
     (@column.ColumnData::Int(a), @column.ColumnData::Int(b)) =>
       Series::from_int_options(

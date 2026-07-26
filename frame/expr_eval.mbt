@@ -321,13 +321,10 @@ fn eval_expr(
                 @ir.UnOp::IsNull =>
                   Series::from_bools(
                     operand.name(),
-                    validity_bools(operand.storage()).map(v => !v),
+                    validity_bools(operand).map(v => !v),
                   )
                 @ir.UnOp::IsNotNull =>
-                  Series::from_bools(
-                    operand.name(),
-                    validity_bools(operand.storage()),
-                  )
+                  Series::from_bools(operand.name(), validity_bools(operand))
                 @ir.UnOp::IsNan => @kernel.eval_is_nan(operand, true)
                 @ir.UnOp::IsNotNan => @kernel.eval_is_nan(operand, false)
                 @ir.UnOp::Abs =>
@@ -393,10 +390,7 @@ fn eval_expr(
             // convergence stay byte-for-byte identical.
             let cond = match kind {
               FillKind::Nulls =>
-                Series::from_bools(
-                  operand.name(),
-                  validity_bools(operand.storage()),
-                )
+                Series::from_bools(operand.name(), validity_bools(operand))
               FillKind::Nans => @kernel.eval_is_nan(operand, false)
             }
             values.push(@kernel.eval_ternary(cond, operand, value_v))

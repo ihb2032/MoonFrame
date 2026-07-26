@@ -541,16 +541,6 @@ fn is_identity_perm(indices : Array[Int], nrows : Int) -> Bool {
 // ── Storage backend control ───────────────────────────────────────────
 
 ///|
-/// The storage backend of each column, in declaration order — `Numeric`
-/// for all-valid unboxed numeric columns, `Builtin` otherwise. Parallel to
-/// `columns()` / the schema's fields.
-#doc(hidden)
-#internal(engine, "MoonFrame execution engine API")
-pub fn DataFrame::storage_kinds(self : DataFrame) -> Array[@column.StorageKind] {
-  self.columns.map(c => c.storage_kind())
-}
-
-///|
 /// Move every eligible column onto the `Numeric` fast-path backend,
 /// best-effort and **total**: an all-valid Int / Float column converts; a
 /// column carrying nulls, a non-numeric column, or one already `Numeric` is

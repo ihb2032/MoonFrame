@@ -213,7 +213,7 @@ pub fn Series::get(
 /// / JSON / Markdown) use this to walk a column without a per-cell
 /// bounds-checked `get`.
 pub fn Series::to_scalars(self : Series) -> Array[@types.Scalar] {
-  let valid = validity_bools(self.storage)
+  let valid = validity_bools(self)
   // Both the index (to consult `valid`) and the value are needed per cell, so
   // an index+value comprehension reads more directly than a `makei` over `a[i]`.
   match self.storage.data() {
@@ -387,13 +387,35 @@ pub fn preserve_backend(source : Series, rebuilt : Series) -> Series {
 /// `drop_nulls`) and the elementwise expression kernels (`expr_eval`,
 /// whose operands are frequently `Numeric`) read the mask by plain index, so
 /// they share this instead of each repacking a throwaway bitmap for a
-/// `Numeric` column.
+/// `Numeric` column. Takes the `Series`, not its storage, so a caller reads a
+/// column's validity without naming the storage layer.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
-pub fn validity_bools(storage : @column.ColumnStorage) -> Array[Bool] {
+pub fn validity_bools(column : Series) -> Array[Bool] {
+  let storage = column.storage
   match storage.kind() {
     @column.StorageKind::Numeric => Array::make(storage.len(), true)
     @column.StorageKind::Builtin => storage.validity().to_bools()
+  }
+}
+
+///|
+/// The `Bool` cells of a mask column, or `None` when the column holds another
+/// dtype. `filter` and the lazy scan that absorbed a predicate read a mask by
+/// plain index alongside `validity_bools`; resolving it here keeps the
+/// storage match — and the exhaustiveness over `ColumnData`'s four variants
+/// that makes this total — inside the package that owns the column, so the
+/// caller decides only what a non-`Bool` predicate means to *it*. Like the
+/// other bulk reads at this seam, the returned array is the column's own
+/// buffer: read it, never write it.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
+pub fn bool_cells(column : Series) -> Array[Bool]? {
+  match column.storage.data() {
+    @column.ColumnData::Bool(cells) => Some(cells)
+    @column.ColumnData::Int(_)
+    | @column.ColumnData::Float(_)
+    | @column.ColumnData::String(_) => None
   }
 }
 
@@ -647,7 +669,7 @@ pub fn Series::fill_null(
   self : Series,
   value : @types.Scalar,
 ) -> Series raise @types.DataError {
-  let valid = validity_bools(self.storage)
+  let valid = validity_bools(self)
   let filled = match value {
     @types.Scalar::Null =>
       raise @types.DataError::TypeMismatch(

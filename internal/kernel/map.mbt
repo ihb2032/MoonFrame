@@ -53,18 +53,16 @@ pub fn eval_map_apply(
   let cells = promote_mixed_int_float(cells)
   // No non-null cell fixes the dtype when either the scope is empty (a 0-row
   // frame with a column input calls the closure zero times) or every result
-  // cell is null. In both cases fall back to the leftmost input's own column
-  // backend as the dtype witness (its array contents are ignored:
-  // `scalars_to_series` reads the probe's variant only), yielding an empty or
-  // all-null column of that dtype rather than raising — so `map` survives an
-  // empty frame, and an all-null map matches Polars' tolerance of a
-  // null-returning closure, mirroring that input's dtype as `name` already
-  // mirrors its name. Only a column-less map (no input to borrow a backend
-  // from, e.g. `map_many([], _ => Null)`) has no witness and raises
-  // `Unsupported`, like a `Null` literal.
+  // cell is null. In both cases fall back to the leftmost input's own dtype as
+  // the witness, yielding an empty or all-null column of that dtype rather
+  // than raising — so `map` survives an empty frame, and an all-null map
+  // matches Polars' tolerance of a null-returning closure, mirroring that
+  // input's dtype as `name` already mirrors its name. Only a column-less map
+  // (no input to borrow a dtype from, e.g. `map_many([], _ => Null)`) has no
+  // witness and raises `Unsupported`, like a `Null` literal.
   let probe = match infer_cells_dtype(cells) {
     Some(p) => Some(p)
-    None => evaluated.get(0).map(lead => lead.storage().data())
+    None => evaluated.get(0).map(lead => lead.dtype())
   }
   match probe {
     Some(p) => scalars_to_series(p, name, cells)
@@ -78,17 +76,18 @@ pub fn eval_map_apply(
 ///|
 /// The output-column dtype probe for a list of result cells: the first
 /// non-null cell fixes the dtype (`Int` / `Float` / `Bool` / `String`); an
-/// all-null or empty cell list yields `None`. Shared by the `Map` evaluator
-/// (which falls back to the leftmost input's backend, raising only when there
-/// is no column input at all) and grouped `agg` (which falls back to the
-/// reduction's empty-scope probe).
-pub fn infer_cells_dtype(cells : Array[@types.Scalar]) -> @column.ColumnData? {
+/// all-null or empty cell list yields `None`. `Scalar::Null` carries no dtype,
+/// so it never fixes one — which is why the result is an `Option` rather than
+/// a `DataType::Null`. Shared by the `Map` evaluator (which falls back to the
+/// leftmost input's dtype, raising only when there is no column input at all)
+/// and grouped `agg` (which falls back to the reduction's empty-scope probe).
+pub fn infer_cells_dtype(cells : Array[@types.Scalar]) -> @types.DataType? {
   for cell in cells {
     match cell {
-      @types.Scalar::Int(_) => return Some(@column.ColumnData::Int([]))
-      @types.Scalar::Float(_) => return Some(@column.ColumnData::Float([]))
-      @types.Scalar::Bool(_) => return Some(@column.ColumnData::Bool([]))
-      @types.Scalar::String(_) => return Some(@column.ColumnData::String([]))
+      @types.Scalar::Int(_) => return Some(@types.DataType::Int)
+      @types.Scalar::Float(_) => return Some(@types.DataType::Float)
+      @types.Scalar::Bool(_) => return Some(@types.DataType::Bool)
+      @types.Scalar::String(_) => return Some(@types.DataType::String)
       @types.Scalar::Null => ()
     }
   }

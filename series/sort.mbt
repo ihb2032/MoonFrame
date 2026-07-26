@@ -5,19 +5,18 @@
 // build on this, so one column's ordering means the same thing either way.
 
 ///|
-/// Resolve a column's `ColumnStorage` into a typed `SortKey`, matching on
-/// the concrete backing array via `storage.data()` — `ColumnData`'s four
-/// variants are exhaustive, so there's no fallback branch to `unwrap`.
+/// Resolve a column into a typed `SortKey`, matching on the concrete backing
+/// array via `storage.data()` — `ColumnData`'s four variants are exhaustive,
+/// so there's no fallback branch to `unwrap`.
 /// Missingness (`Null`, plus `NaN` for `Float`) is pre-computed into a
 /// dense `Array[Bool]` here, once per key, so the comparator reads it by
 /// plain index instead of repeating a bitmap lookup on every comparison.
-/// Reads only `validity()` / `data()`, both of which `ColumnStorage`
-/// forwards, so the v0.3 `Series::storage()` flip needed no logic change
-/// here — only this parameter's type.
+/// Takes the `Series` and reaches its storage here, so `frame`'s multi-key
+/// sort hands over a column rather than a storage representation.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
 pub fn build_sort_key(
-  storage : @column.ColumnStorage,
+  column : Series,
   order : @types.SortOrder,
   null_order : @types.NullOrder,
 ) -> SortKey {
@@ -25,7 +24,8 @@ pub fn build_sort_key(
   // only `Int` / `Float` and is all-valid (mask all-`true`), while `Bool` /
   // `String` are always `Builtin` — so for a `Numeric` `Float` the only
   // "missing" source is the `is_nan` test in the `Float` arm below.
-  let valid = validity_bools(storage)
+  let valid = validity_bools(column)
+  let storage = column.storage
   match storage.data() {
     @column.ColumnData::Int(a) =>
       SortKey::Int(
@@ -303,7 +303,7 @@ pub fn Series::sort(
   order? : @types.SortOrder = Asc,
   nulls? : @types.NullOrder = NullsLast,
 ) -> Series {
-  let key = build_sort_key(self.storage, order, nulls)
+  let key = build_sort_key(self, order, nulls)
   let perm = stable_mergesort_indices(self.len(), (i, j) => {
     compare_one_key(key, i, j)
   })

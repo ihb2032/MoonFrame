@@ -1,6 +1,5 @@
 import {
   "ihb2032/MoonFrame/expr",
-  "ihb2032/MoonFrame/internal/column",
   "ihb2032/MoonFrame/internal/ir",
   "ihb2032/MoonFrame/internal/kernel",
   "ihb2032/MoonFrame/series",
@@ -10,7 +9,14 @@ import {
   "moonbitlang/core/string",
 }
 
+// `internal/column` is a test-only dependency here. `frame` decides what a
+// verb *means* and leaves the physical column representation to `series` and
+// `internal/kernel`, so no source file below names a storage type. The tests
+// still pin which backend an operator's output lands on — "backend is a
+// function of content" is engine-wide behaviour worth asserting — and naming
+// `StorageKind` is what that assertion needs.
 import {
+  "ihb2032/MoonFrame/internal/column",
   "moonbitlang/core/bench",
   "moonbitlang/core/double",
   "moonbitlang/core/test",

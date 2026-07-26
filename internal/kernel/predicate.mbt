@@ -29,7 +29,7 @@ pub fn eval_is_in(
   }
   let mut acc = Series::from_bool_options(
     operand.name(),
-    map_present(operand.len(), validity_bools(operand.storage()), _ => false),
+    map_present(operand.len(), validity_bools(operand), _ => false),
   )
   for m in members {
     if m.is_null() {
@@ -58,7 +58,7 @@ pub fn eval_is_in(
 /// path.
 fn try_fast_is_in(operand : Series, members : Array[@types.Scalar]) -> Series? {
   let n = operand.len()
-  let valid = validity_bools(operand.storage())
+  let valid = validity_bools(operand)
   let name = operand.name()
   match operand.storage().data() {
     @column.ColumnData::String(data) => {

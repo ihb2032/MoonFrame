@@ -27,7 +27,7 @@
 /// convention for computed columns; consumers broadcast the length-1 result
 /// back over their scope.
 fn eval_agg(op : @ir.AggOp, operand : Series) -> Series raise @types.DataError {
-  let (reducer, probe) = reducer_for(operand.storage(), reduce_op_of_agg(op))
+  let (reducer, probe) = reducer_for(operand, reduce_op_of_agg(op))
   let cell = reducer(operand.len(), k => k)
   scalars_to_series(probe, operand.name(), [cell])
 }

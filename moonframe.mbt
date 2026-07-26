@@ -3,8 +3,13 @@
 // supported stable surface — every symbol a normal caller must name — in one
 // place. The public sub-packages remain directly importable for
 // callers who only need a slice of the surface (e.g. just `@types` for the
-// value types); the `column` storage layer is internal (`internal/column`)
-// and is not part of the public API.
+// value types). Everything under `internal/` — the `internal/column` storage
+// layer, the `internal/kernel` vectorized column passes, the
+// `internal/text` / `internal/literal` primitives, and the `internal/ir`
+// expression AST — is unimportable downstream and is not part of the public
+// API. README's "Contributing" section is the authoritative package map and
+// states the layering rule between them; this file lists only what bears on
+// what the facade re-exports.
 //
 // Note: the operator verbs (`select` / `drop` / `rename` /
 // `filter` / `with_columns` /

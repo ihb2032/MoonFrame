@@ -95,9 +95,13 @@ See [`api.md`](api.md) for the per-operation semantics and
 Beyond the complexity notes above, a `moon bench` micro-benchmark suite measures
 real throughput. Run it from the repo root with `moon bench`.
 
-The four execution packages — `series`, `frame`, `io`, `lazy` — each carry a
-`bench_test.mbt` file; the packages that only define values or build trees
-(`types`, `expr`, the `internal/` helpers) have nothing to time. Because the benches are
+The four packages that own a `bench_test.mbt` file are `series`, `frame`, `io`,
+and `lazy`; the packages that only define values or build trees (`types`,
+`expr`, `internal/text` / `internal/literal` / `internal/ir`) have nothing to
+time. `internal/kernel` does real work — it is where the vectorized column
+passes live — but it is measured through the `frame` expression benchmarks that
+drive it, which is what a caller actually pays; a regression isolated to one
+kernel would want its own micro-benchmark added here. Because the benches are
 ordinary test blocks, `moon check` compiles them and `moon bench` executes
 them — and CI runs both, so a benchmark that stops compiling or running fails
 the build. There is deliberately **no** performance threshold, since timings

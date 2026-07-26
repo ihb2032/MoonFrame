@@ -359,6 +359,22 @@ expect_out 1 'helper (in frame)' \
   'facade surface: a package free function the facade does not re-export' \
   sh "$scripts/check_facade_surface.sh" "$work/fs_unexported_fn"
 
+# A public top-level value is reachable the same way a free function is, and
+# invisible to the lock until the extractor knows the shape.
+mkfacadesurface "$work/fs_value" "$fs_root" "$fs_frame
+pub const MAX_ROWS : Int = 1000" "$fs_snap
+value const MAX_ROWS : Int = 1000 <- frame"
+expect_out 1 'MAX_ROWS (in frame)' \
+  'facade surface: a public constant the facade does not re-export' \
+  sh "$scripts/check_facade_surface.sh" "$work/fs_value"
+
+mkfacadesurface "$work/fs_value_mutable" "$fs_root" "$fs_frame
+pub let DEFAULTS : Array[String] = []" "$fs_snap
+value let DEFAULTS : Array[String] = [] <- frame" 'pub using @frame {type DataFrame, type HtmlOptions, DEFAULTS}'
+expect_out 1 'holding a mutable container' \
+  'facade surface: a public top-level value holding a mutable container' \
+  sh "$scripts/check_facade_surface.sh" "$work/fs_value_mutable"
+
 # Both rules match on package *and* name. A bare-name rule would let a second
 # package publish a symbol and ride on the facade entry that belongs to the
 # first: `frame` growing its own `col`, or `io` its own `WhenThen`.
@@ -712,6 +728,31 @@ mkseams "$work/es_hidden_only" \
 expect_out 1 'only one of the two attributes' \
   'engine seams: hidden from the interface with no alert' \
   sh "$scripts/check_engine_seams.sh" "$work/es_hidden_only"
+
+# A top-level value opens no body, so the signature joiner must take it as it
+# stands — otherwise it swallows every declaration up to the next brace, and
+# the seam after this one disappears from the snapshot.
+mkseams "$work/es_value" "$es_source
+
+///|
+#doc(hidden)
+#internal(engine, \"MoonFrame execution engine API\")
+pub let seam_limit : Int = 3
+
+///|
+#doc(hidden)
+#internal(engine, \"MoonFrame execution engine API\")
+pub fn after_the_value(column : Series) -> Int {
+  ignore(column)
+}" 'series | doc_hidden internal_engine | pub fn after_the_value(column : Series) -> Int
+series | doc_hidden internal_engine | pub fn reducer_for( column : Series, op : ReduceOp, ) -> (Int, @types.DataType)
+series | doc_hidden internal_engine | pub fn validity_bools(column : Series) -> Array[Bool]
+series | doc_hidden internal_engine | pub let seam_limit : Int = 3
+series | doc_hidden internal_engine | pub(all) enum ReduceOp
+series | doc_hidden internal_engine | variant ReduceOp::Mean
+series | doc_hidden internal_engine | variant ReduceOp::Sum'
+expect 0 'engine seams: a top-level value seam, and the one after it' \
+  sh "$scripts/check_engine_seams.sh" "$work/es_value"
 
 mkseams "$work/es_missing" "$es_source" --
 expect_out 1 'snapshot' 'engine seams: snapshot absent' \

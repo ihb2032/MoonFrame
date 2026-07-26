@@ -145,6 +145,17 @@ extract() {
         alias = ""
         next
       }
+      # A public top-level value is as reachable as a function and as breaking
+      # to change: `pub let` / `pub const` carry a type, and a constant whose
+      # value or type moves is a caller-visible change. None exist today; the
+      # extractor covers them so the first one is a decision, not an omission.
+      /^pub (let|const) / {
+        decl = $0
+        sub(/^pub /, "", decl)
+        print "value " decl " <- " pkg
+        alias = ""
+        next
+      }
       /^pub impl / { print "impl " $3 " for " $5 " <- " pkg; alias = ""; next }
       /^pub(\(all\))? (struct|enum|suberror|trait) / {
         tname = $3
@@ -223,30 +234,32 @@ facade_fns=$(awk '
 ' "$facade_source" | LC_ALL=C sort -u)
 
 unexported_fns=$(printf '%s\n' "$current" |
-  sed -n 's/^fn \(.*\) <- \(.*\)$/\2 \1/p' | sed 's/(.*//' | LC_ALL=C sort -u |
+  sed -n -e 's/^fn \(.*\) <- \(.*\)$/\2 \1/p' \
+    -e 's/^value \(let\|const\) \([A-Za-z_][A-Za-z0-9_]*\).* <- \(.*\)$/\3 \2/p' |
+  sed 's/(.*//' | LC_ALL=C sort -u |
   grep -v '^root ' |
   while read -r pkg name; do
     printf '%s\n' "$facade_fns" | grep -qx "$name $pkg" && continue
     printf '  %s (in %s)\n' "$name" "$pkg"
   done)
 if [ -n "$unexported_fns" ]; then
-  printf 'facade surface: a public free function the facade does not re-export:\n'
+  printf 'facade surface: a public symbol the facade does not re-export:\n'
   printf '%s\n' "$unexported_fns"
   printf '  Types can be reachable-but-unnamed (the fluent chain steps); a\n'
-  printf '  free function cannot — nothing chains to it, so one the facade\n'
-  printf '  omits is either an under-export a caller cannot reach through the\n'
-  printf '  supported surface, or a helper that should not be `pub` at all.\n'
-  printf '  (A same-named function on the facade does not count unless it is\n'
-  printf '  re-exported from this package.) Re-export it in moonframe.mbt, or\n'
-  printf '  make it `priv` / an engine seam.\n'
+  printf '  free function or a top-level value cannot — nothing chains to one,\n'
+  printf '  so one the facade omits is either an under-export a caller cannot\n'
+  printf '  reach through the supported surface, or a helper that should not\n'
+  printf '  be `pub` at all. (A same-named symbol on the facade does not count\n'
+  printf '  unless it is re-exported from this package.) Re-export it, or make\n'
+  printf '  it `priv` / an engine seam.\n'
   exit 1
 fi
 
 mutable_fields=$(printf '%s\n' "$current" |
-  grep -E '^field [^:]*: .*((Array|FixedArray|Map|Set|Ref|ArrayView)\[|\b(StringBuilder|Buffer)\b)' ||
+  grep -E '^(field|value) [^:]*: .*((Array|FixedArray|Map|Set|Ref|ArrayView)\[|\b(StringBuilder|Buffer)\b)' ||
   true)
 if [ -n "$mutable_fields" ]; then
-  printf 'facade surface: a public field holding a mutable container:\n'
+  printf 'facade surface: a public field or value holding a mutable container:\n'
   printf '%s\n' "$mutable_fields" | sed 's/^/  /'
   printf '  Reading it hands the container itself to the caller, who can then\n'
   printf '  write through it — into a value already captured elsewhere. Make\n'

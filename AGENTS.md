@@ -71,7 +71,10 @@ sh .github/scripts/check_engine_seams.sh
   on `main`, the changelog's newest heading carries `(unreleased)` and
   `moon.mod` still publishes the previous version; **cutting the release means
   dropping that marker and bumping `moon.mod` together**, which is what the
-  guard enforces.
+  guard enforces. In that state README must also carry the version-channel
+  notice naming both versions — it is the page that says `moon add`, and that
+  command installs the older one — and the notice must go when the release
+  ships.
 - **Enum surface** — the exact variant set of every public `pub(all)` enum /
   suberror is pinned in `.github/scripts/enum_surface.snapshot`. Adding,
   removing, or renaming a variant is source-breaking under exhaustive `match`,

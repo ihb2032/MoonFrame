@@ -2,12 +2,12 @@ expr | doc_hidden internal_engine | pub fn Expr::children(self : Expr) -> Array[
 expr | doc_hidden internal_engine | pub fn Expr::node(self : Expr) -> @ir.ExprNode
 expr | doc_hidden internal_engine | pub fn Expr::output_name(self : Expr) -> String
 expr | doc_hidden internal_engine | pub fn Expr::referenced_columns(self : Expr) -> @set.Set[String]
+frame | doc_hidden internal_engine | pub fn DataFrame::check_invariants(self : DataFrame) -> Result[Unit, String]
 frame | doc_hidden internal_engine | pub fn DataFrame::from_parts( columns : Array[Series], nrows : Int, ) -> DataFrame raise @types.DataError
 frame | doc_hidden internal_engine | pub fn DataFrame::to_builtin(self : DataFrame) -> DataFrame
 frame | doc_hidden internal_engine | pub fn DataFrame::to_numeric(self : DataFrame) -> DataFrame
 frame | doc_hidden internal_engine | pub fn DataFrame::to_scalar_matrix( self : DataFrame, ) -> Array[Array[@types.Scalar]]
 frame | doc_hidden internal_engine | pub fn filter_row_indices( df : DataFrame, predicate : @expr.Expr, ) -> Array[Int] raise @types.DataError
-frame | doc_hidden | pub fn DataFrame::check_invariants(self : DataFrame) -> Result[Unit, String]
 io | doc_hidden internal_engine | pub fn read_csv_projected( path : String, options : CsvReadOptions, projection : Array[String], ) -> @frame.DataFrame raise @types.DataError
 io | doc_hidden internal_engine | pub fn read_csv_pruned( path : String, options : CsvReadOptions, projection : Array[String]?, key_columns : Array[String], keep : (@frame.DataFrame) -> Array[Int] raise @types.DataError, ) -> @frame.DataFrame raise @types.DataError
 io | doc_hidden internal_engine | pub fn read_ndjson_projected( path : String, options : JsonReadOptions, projection : Array[String], ) -> @frame.DataFrame raise @types.DataError

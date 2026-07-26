@@ -47,10 +47,13 @@ Two distinct mechanisms keep non-public code off the compatibility surface.
 share them — MoonBit offers no visibility between `priv` (this package only) and
 `pub` (anyone), so a kernel `frame` and `lazy` both call has to cross that
 boundary as `pub`. Each carries `#internal(engine, "MoonFrame execution engine
-API")`, which raises an alert if a *downstream* module reaches for it (silent
-within this module — MoonFrame's own packages, examples, and tests are the
-intended callers), and `#doc(hidden)`, which keeps it out of the generated
-`.mbti`; so it is absent from both the facade and the generated reference.
+API")`, which raises an alert if a *downstream* module reaches for it, and
+`#doc(hidden)`, which keeps it out of the generated `.mbti`; so it is absent
+from both the facade and the generated reference. The alert is silent for a
+caller under this module's `ihb2032/MoonFrame/` prefix — MoonFrame's own
+sub-packages, their tests, and the examples are the intended callers. The one
+in-module caller the prefix does not cover is the root package itself, whose
+name *is* the module name, so its `moon.pkg` allows the alert explicitly.
 **Internal packages** go further: code that no public package needs lives in an
 `internal/` path (`internal/column` storage, `internal/kernel` — the vectorized
 expression kernels — `internal/text` / `internal/literal` primitives, and

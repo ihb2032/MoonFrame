@@ -10,3 +10,15 @@ import {
 import {
   "moonbitlang/core/test",
 } for "test"
+
+// The `#internal(engine, …)` alert is silent for callers under this module's
+// `ihb2032/MoonFrame/` prefix — every sub-package and its blackbox tests — and
+// the root package is the one in-module caller the prefix does not cover, since
+// its name *is* the module name. Its integration tests assert
+// `check_invariants()` on the frames each pipeline produces, so without this
+// they would be the only in-module callers that alert. Scoped to this package
+// deliberately: the sources here are the facade re-exports and those tests, and
+// a downstream module compiles with its own settings, so the alert still
+// reaches the callers it is for.
+
+warnings = "-alert_engine"

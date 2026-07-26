@@ -50,9 +50,11 @@ snapshot=".github/scripts/engine_seams.snapshot"
 
 # Public packages only: the root facade and the six re-exported ones. An
 # `internal/` package is unimportable downstream, so a `pub` inside it promises
-# nothing and needs no lock. Test files are not the surface.
+# nothing and needs no lock. Test files are not the surface — both spellings:
+# a `_wbtest.mbt` compiles *inside* its package, so a `pub` helper declared
+# there is even less of an external symbol than a blackbox one.
 files=$(git ls-files '*.mbt' |
-  grep -v '_test\.mbt$' |
+  grep -vE '_(test|wbtest)\.mbt$' |
   grep -v '^internal/' | grep -v '/internal/' |
   grep -v '^examples/' || true)
 

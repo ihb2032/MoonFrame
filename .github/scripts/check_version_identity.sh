@@ -91,12 +91,28 @@ if [ "$unreleased" = yes ]; then
     note "moon.mod is v$mod_version, but v$previous_version is the released version the changelog names below v$changelog_version"
     note "while v$changelog_version is unreleased, moon.mod must still publish v$previous_version"
   fi
+  # While the docs run ahead of the published version, README has to say so.
+  # It is the page that tells a reader to run `moon add`, and what that
+  # installs is the *previous* release — so a snippet copied from it may name
+  # something that release does not have. The notice must name both versions,
+  # which is also what makes it go stale loudly at release time.
+  if [ -f README.md ]; then
+    if ! grep -q "unreleased v${changelog_version%.*} API" README.md; then
+      note "README must carry the version-channel notice while v$changelog_version is unreleased: **This page documents the unreleased v${changelog_version%.*} API.**"
+    elif ! grep -q "v$mod_version" README.md; then
+      note "README's version-channel notice must name v$mod_version, what \`moon add\` installs"
+    fi
+  fi
   printf 'version identity: docs describe v%s, marked unreleased; moon.mod publishes v%s\n' \
     "$changelog_version" "$mod_version"
 else
   if [ "$mod_version" != "$changelog_version" ]; then
     note "moon.mod is v$mod_version but the docs describe v$changelog_version"
     note "either bump moon.mod, or mark the changelog heading '(unreleased)' while it is being prepared"
+  fi
+  # Released: the notice would now be lying about a version that shipped.
+  if [ -f README.md ] && grep -q 'documents the unreleased' README.md; then
+    note "v$changelog_version is released — drop README's unreleased-version notice"
   fi
 fi
 

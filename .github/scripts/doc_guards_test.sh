@@ -53,15 +53,28 @@ expect_out() {
 
 # ── version identity ──────────────────────────────────────────────────────
 mkfixture() {
-  # mkfixture <dir> <mod-version> <api-version> <changelog-heading> <migration-target>
+  # mkfixture <dir> <mod-version> <api-version> <changelog-heading> <migration-target> [readme]
   # The changelog always carries a published v0.5.8 section below the newest
   # one, as the real file does — that is what `moon.mod` is held to while the
-  # newest release is being prepared.
+  # newest release is being prepared. Without an explicit README the fixture
+  # gets the one its state calls for: the version-channel notice while the
+  # newest release is unreleased, and no notice once it ships.
   mkdir -p "$1/docs"
   printf 'name = "x"\n\nversion = "%s"\n' "$2" >"$1/moon.mod"
   printf '# MoonFrame v%s — Public API\n' "$3" >"$1/docs/api.md"
   printf '# Changelog\n\n%s\n\nbody\n\n## v0.5.8 — before\n' "$4" >"$1/docs/changelog.md"
   printf '# Migration\n\n## v0.0.0 → v%s\n' "$5" >"$1/docs/migration.md"
+  if [ $# -ge 6 ]; then
+    printf '%s\n' "$6" >"$1/README.md"
+  else
+    case "$4" in
+    *'(unreleased)'*)
+      printf 'This page documents the unreleased v%s API; moon add installs v%s.\n' \
+        "$3" "$2" >"$1/README.md"
+      ;;
+    *) printf '# x\n' >"$1/README.md" ;;
+    esac
+  fi
 }
 
 mkfixture "$work/v_released" 0.6.0 0.6 '## v0.6.0 — done' 0.6.0
@@ -107,6 +120,27 @@ expect 1 'version: api.md on another series' \
 mkfixture "$work/v_migration" 0.6.0 0.6 '## v0.6.0 — done' 0.5.9
 expect 1 'version: migration targets another release' \
   sh "$scripts/check_version_identity.sh" "$work/v_migration"
+
+# README is the page that says `moon add`, and while the docs run ahead of the
+# published release that command installs something else — so the notice is
+# required exactly while the newest release is unreleased, and forbidden after.
+mkfixture "$work/v_no_notice" 0.5.8 0.6 '## v0.6.0 — done (unreleased)' 0.6.0 \
+  '# MoonFrame
+
+Install it with `moon add`.'
+expect_out 1 'version-channel notice' 'version: README missing the unreleased notice' \
+  sh "$scripts/check_version_identity.sh" "$work/v_no_notice"
+
+mkfixture "$work/v_notice_wrong_version" 0.5.8 0.6 \
+  '## v0.6.0 — done (unreleased)' 0.6.0 \
+  'This page documents the unreleased v0.6 API; the published one is older.'
+expect_out 1 'must name v0.5.8' 'version: notice does not name the published version' \
+  sh "$scripts/check_version_identity.sh" "$work/v_notice_wrong_version"
+
+mkfixture "$work/v_stale_notice" 0.6.0 0.6 '## v0.6.0 — done' 0.6.0 \
+  'This page documents the unreleased v0.6 API; moon add installs v0.5.8.'
+expect_out 1 'drop README' 'version: notice left behind after the release shipped' \
+  sh "$scripts/check_version_identity.sh" "$work/v_stale_notice"
 
 # ── stale names ───────────────────────────────────────────────────────────
 mkstale() {

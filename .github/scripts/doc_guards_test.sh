@@ -291,6 +291,17 @@ mkfacadesurface "$work/fs_field_type" "$fs_root" \
 expect 1 'facade surface: a public field type changed' \
   sh "$scripts/check_facade_surface.sh" "$work/fs_field_type"
 
+# A mutable container in a public field is refused outright, not snapshotted:
+# the snapshot below lists it, and the rule fires anyway.
+mkfacadesurface "$work/fs_mutable_field" "$fs_root" \
+  "$(printf '%s\n' "$fs_frame" |
+    awk '{ print } /^  escape : Bool$/ { print "  classes : Array[String]" }')" \
+  "$fs_snap
+field HtmlOptions.classes : Array[String] <- frame"
+expect_out 1 'field HtmlOptions.classes : Array[String]' \
+  'facade surface: a public field holding a mutable array' \
+  sh "$scripts/check_facade_surface.sh" "$work/fs_mutable_field"
+
 # The constructor case is the same shape, and the one most easily mistaken for
 # additive: an optional parameter with a default becoming required.
 mkfacadesurface "$work/fs_required" "$fs_root" \

@@ -338,6 +338,15 @@ expect 1 'facade surface: a public field type changed' \
 
 # A mutable container in a public field is refused outright, not snapshotted:
 # the snapshot below lists it, and the rule fires anyway.
+# A free function has no chain to be reached through, so one the facade omits
+# is either unreachable through the supported surface or should not be `pub`.
+mkfacadesurface "$work/fs_unexported_fn" "$fs_root" "$fs_frame
+pub fn helper(String) -> Int" "$fs_snap
+fn helper(String) -> Int <- frame"
+expect_out 1 'helper (in frame)' \
+  'facade surface: a package free function the facade does not re-export' \
+  sh "$scripts/check_facade_surface.sh" "$work/fs_unexported_fn"
+
 mkfacadesurface "$work/fs_mutable_field" "$fs_root" \
   "$(printf '%s\n' "$fs_frame" |
     awk '{ print } /^  escape : Bool$/ { print "  classes : Array[String]" }')" \
@@ -607,9 +616,22 @@ pub fn reducer_for(
   op : ReduceOp,
 ) -> (Int, @types.DataType) {
   ignore(column)
+}
+
+///|
+/// A hidden enum two packages share: matchable and constructible by both, and
+/// absent from every `.mbti`, so its variants ride in this snapshot.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
+pub(all) enum ReduceOp {
+  Sum
+  Mean
 }'
 es_snap='series | doc_hidden internal_engine | pub fn reducer_for( column : Series, op : ReduceOp, ) -> (Int, @types.DataType)
-series | doc_hidden internal_engine | pub fn validity_bools(column : Series) -> Array[Bool]'
+series | doc_hidden internal_engine | pub fn validity_bools(column : Series) -> Array[Bool]
+series | doc_hidden internal_engine | pub(all) enum ReduceOp
+series | doc_hidden internal_engine | variant ReduceOp::Mean
+series | doc_hidden internal_engine | variant ReduceOp::Sum'
 
 mkseams "$work/es_ok" "$es_source" "$es_snap"
 expect 0 'engine seams: match the snapshot (an unattributed pub is not a seam)' \
@@ -638,6 +660,14 @@ expect_out 1 'hidden cross-package surface changed' 'engine seams: a seam signat
 # The attributes are a pair, and each half alone fails: an alert on a symbol
 # the interface still publishes, or a symbol hidden from the interface — and so
 # from every guard that reads one — with nothing stopping a downstream call.
+# Adding a variant to a hidden shared enum widens the seam as surely as a
+# signature change, and no `.mbti` records it.
+mkseams "$work/es_variant" \
+  "$(printf '%s\n' "$es_source" | awk '{ print } /^  Mean$/ { print "  Product" }')" \
+  "$es_snap"
+expect_out 1 'variant ReduceOp::Product' 'engine seams: a hidden enum gained a variant' \
+  sh "$scripts/check_engine_seams.sh" "$work/es_variant"
+
 mkseams "$work/es_unpaired" \
   "$(printf '%s\n' "$es_source" | grep -v '^#doc(hidden)$')" "$es_snap"
 expect_out 1 'only one of the two attributes' \

@@ -95,6 +95,22 @@ extract() {
         if (hidden) attrs = "doc_hidden"
         if (internal) attrs = (attrs == "" ? "" : attrs " ") "internal_engine"
         print pkg " | " attrs " | " decl
+        # A hidden `pub(all)` enum is matchable and constructible by the
+        # packages that share it, so its variant set is part of the seam the
+        # same way a signature is — and it reaches no `.mbti`, so the
+        # enum-surface lock cannot see it either. Record each variant.
+        if (decl ~ /^pub\(all\) (enum|suberror) /) {
+          ename = decl
+          sub(/^pub\(all\) (enum|suberror) /, "", ename)
+          sub(/ .*/, "", ename)
+          while ((getline vline) > 0) {
+            if (vline ~ /^\}/) break
+            v = vline
+            sub(/^[ \t]+/, "", v)
+            sub(/[ \t]+$/, "", v)
+            if (v != "") print pkg " | " attrs " | variant " ename "::" v
+          }
+        }
         flush_attrs()
       }
     ' "$f"

@@ -89,12 +89,14 @@ sh .github/scripts/check_engine_seams.sh
   leaves it a fluent-chain intermediate. Signatures matter because half of what
   breaks a caller leaves the names alone: a parameter type, a `raise`
   appearing, an optional parameter becoming required, a field widening to `?`.
-  Two rules sit ahead of the snapshot, so regenerating cannot legalize them:
-  only the four fluent-chain types may be public without being re-exported,
-  and **no public field may hold a mutable container** (`Array` / `Map` / …) —
-  reading one hands the container itself to the caller. Keep such a field
-  `priv` behind an accessor that copies, as `CsvReadOptions::null_values` and
-  `JoinOptions::on_keys` do. `moon info` and the downstream fixture catch
+  Three rules sit ahead of the snapshot, so regenerating cannot legalize them:
+  only the four fluent-chain types may be public without being re-exported;
+  every public free function must have a facade counterpart (nothing chains to
+  a function, so one the facade omits is unreachable through the supported
+  surface); and **no public field may hold a mutable container** (`Array` /
+  `Map` / …) — reading one hands the container itself to the caller. Keep such
+  a field `priv` behind an accessor that copies, as
+  `CsvReadOptions::null_values` and `JoinOptions::on_keys` do. `moon info` and the downstream fixture catch
   under-exports and interface drift; this catches an *over-export* — a symbol
   that reaches callers as `@moonframe.Type::method` without any facade change,
   and becomes a breaking change once published. Any add / remove /
@@ -127,10 +129,12 @@ sh .github/scripts/check_engine_seams.sh
   means changing the rule in the guard first, then both documents.
 - **Engine seams** — every `pub` symbol in a public package carrying
   `#internal(engine, …)` / `#doc(hidden)`, with its normalised signature,
-  pinned in `.github/scripts/engine_seams.snapshot`. `#doc(hidden)` keeps these
-  out of the generated interface, which is exactly why the facade lock cannot
-  see them; this is where adding one — or widening one, a seam that starts
-  handing another package a mutable buffer — has to be noticed
+  pinned in `.github/scripts/engine_seams.snapshot`, including the variants of
+  a hidden `pub(all)` enum, which the enum-surface lock cannot see either.
+  `#doc(hidden)` keeps these out of the generated interface, which is exactly
+  why the facade lock cannot see them; this is where adding one — or widening
+  one, a seam that starts handing another package a mutable buffer — has to be
+  noticed
   (`sh .github/scripts/check_engine_seams.sh --write`). The two attributes are
   a pair and either half alone is rejected outright: an alert on a symbol the
   interface still publishes, or — the quieter mistake — a symbol hidden from

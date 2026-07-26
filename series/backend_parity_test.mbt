@@ -1,14 +1,20 @@
 // Backend-parity harness: a logical numeric column has two physical
 // representations — the general `Builtin` (Arrow data + validity bitmap) and
-// the unboxed all-valid `Numeric` fast path — and *every* public `Series`
-// operation must return the same value, dtype, null-ness, and error variant on
-// both, regardless of which backend a value happens to sit on. This is the
-// standing guard against the class of bug where one backend decides an
-// out-of-range index crashes and the other returns null (the backend-flip
-// hazard behind the collect/execute divergence fixed earlier): every op is run
-// on both backends of the same column and the two results are asserted
-// identical, NaN- and null-aware, including adversarial gather / slice / get
-// indices (out-of-bounds, negative, `Int::MAX`).
+// the unboxed all-valid `Numeric` fast path — and a public `Series` operation
+// must return the same value, dtype, null-ness, and error variant on both,
+// regardless of which backend a value happens to sit on. That is the
+// invariant. This is the standing guard against the class of bug where one
+// backend decides an out-of-range index crashes and the other returns null
+// (the backend-flip hazard behind the collect/execute divergence fixed
+// earlier): every backend-sensitive op is run on both backends of the same
+// column and the two results are asserted identical, NaN- and null-aware,
+// including adversarial gather / slice / get indices (out-of-bounds, negative,
+// `Int::MAX`).
+//
+// What that leaves out, and why: the `Series::from_*` constructors, which
+// *build* the two representations this harness compares; `name`, which no
+// backend can influence; `to_repr`, whose rendering is derived from the same
+// cells; and `to_scalars`, the primitive the comparison itself is written in.
 
 ///|
 /// Float equality that counts two `NaN`s as equal (so a reduction that
@@ -87,9 +93,12 @@ fn same_series_result(
 }
 
 ///|
-/// Run every public `Series` operation on both backends of the same logical
-/// column and assert the two agree. `bt` is `Builtin`-backed, `nu` is
-/// `Numeric`-backed; the caller guarantees they hold the same values.
+/// Run every backend-sensitive public `Series` operation on both backends of
+/// the same logical column and assert the two agree — the inspection,
+/// reduction, transform, cast, index and ordering surface, plus `Eq` (see the
+/// file header for the four the harness deliberately does not re-derive).
+/// `bt` is `Builtin`-backed, `nu` is `Numeric`-backed; the caller guarantees
+/// they hold the same values.
 fn assert_backend_parity(bt : Series, nu : Series) -> Unit raise {
   // The two are the same logical column on different backends.
   assert_eq(bt.storage_kind(), @column.StorageKind::Builtin)

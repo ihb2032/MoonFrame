@@ -125,7 +125,9 @@ jobs:
       # why prose is where this repository's drift collects instead. These
       # check the parts that *are* mechanically checkable against the code: the
       # release version, names that no longer exist, the public matchable-enum
-      # surface, and the root facade's exact export set. Written in `sh` rather
+      # surface, and the whole callable surface the facade promises — every
+      # method, field and impl a re-exported type carries with it, not just the
+      # names the facade itself lists. Written in `sh` rather
       # than Python (as the
       # Array-boundary guard above is) so they run identically on a
       # contributor's machine without a Python install; the self-test runs

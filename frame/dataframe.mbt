@@ -142,8 +142,9 @@ fn index_by_name(columns : Array[Series]) -> Map[String, Int] {
 /// was built.
 ///
 /// `raise Unsupported(...)` if any field carries `DataType::Null` — there is
-/// no concrete Null backend (and a CSV-inferred Null column has nothing to
-/// materialise into).
+/// no concrete Null backend to materialise into. Only an explicitly built
+/// schema can carry it here: the readers never infer `Null`, and a probe
+/// window that is entirely null falls back to `String`.
 pub fn DataFrame::empty(
   schema : @types.Schema,
 ) -> DataFrame raise @types.DataError {

@@ -13,10 +13,17 @@
 # something replaced — opts out with the marker `doc-guard: historical` on the
 # same line.
 #
-# Only identifiers are checked. Prose claims that also drift — "the public
-# `read_csv_projected`", "the `HtmlOptions` builders", "all are total" — wrap
-# across lines and have no fixed spelling; those are what review and the
-# advisory wording pass are for.
+# Only identifiers are checked, and only ones with a distinctive spelling. Two
+# things this cannot do, both learned the hard way:
+#
+#   * A *claim* that drifts — "its fields stay readable", "adding a field is
+#     therefore additive" — wraps across lines, has no fixed spelling, and is
+#     wrong only relative to the interface. When a symbol's visibility changes,
+#     re-read the sections that describe it; no guard here will.
+#   * A bare word. `take` became `Series::gather` in v0.6, but `take` also
+#     names live methods (`Bitmap::take`, `ColumnStorage::take`) and is an
+#     ordinary English verb, so pinning it would fire on prose. The names below
+#     are the ones a substring match can tell apart.
 #
 # Usage: .github/scripts/check_stale_names.sh [repo-root]
 # Exit 0 when clean, 1 when a removed name is found.
@@ -43,7 +50,9 @@ write_json_records
 _with_options
 str_contains_regex
 str_replace_regex
-str_replace_all_regex'
+str_replace_all_regex
+DataFrame::storage_kinds
+coalesce_into'
 
 # `|| true`: a `grep` that filters everything out exits 1, which `set -e` would
 # turn into a silent failure of the whole script.

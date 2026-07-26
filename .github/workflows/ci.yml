@@ -114,6 +114,26 @@ jobs:
         if: runner.os == 'Linux'
         run: moon fmt --check
 
+      # (3/4) `moon info`: regenerate the interface (`pkg.generated.mbti`)
+      # files and fail on any drift. Ahead of the guards below on purpose —
+      # three of them read those files, so regenerating first means an
+      # accidental export is diagnosed by the guard that can name it ("a method
+      # added to a re-exported type", "an internal package in a public
+      # interface") rather than by a generic interface diff.
+      - name: (3/4) moon info (interface drift check)
+        if: runner.os == 'Linux'
+        run: |
+          moon info
+          # `git diff --exit-code` only inspects *tracked* files, so a newly
+          # added package whose generated `pkg.generated.mbti` was never
+          # committed would slip through green. `git add -N` (intent-to-add)
+          # pulls untracked output into the diff first, so both tracked drift
+          # and a new package's uncommitted mbti fail the gate. `.gitignore`
+          # still excludes `_build` / `PLAN*.md`, so only real interface drift
+          # trips it.
+          git add -N .
+          git diff --exit-code
+
       - name: Guard public Array copy boundaries
         if: runner.os == 'Linux'
         run: |
@@ -178,22 +198,6 @@ jobs:
           sh .github/scripts/review_absolute_wording.sh "$PR_BASE_SHA"
         env:
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-
-      # (3/4) `moon info`: regenerate the interface (`pkg.generated.mbti`)
-      # files and fail on any drift.
-      - name: (3/4) moon info (interface drift check)
-        if: runner.os == 'Linux'
-        run: |
-          moon info
-          # `git diff --exit-code` only inspects *tracked* files, so a newly
-          # added package whose generated `pkg.generated.mbti` was never
-          # committed would slip through green. `git add -N` (intent-to-add)
-          # pulls untracked output into the diff first, so both tracked drift
-          # and a new package's uncommitted mbti fail the gate. `.gitignore`
-          # still excludes `_build` / `PLAN*.md`, so only real interface drift
-          # trips it.
-          git add -N .
-          git diff --exit-code
 
       # (4/4) `moon test`. Every OS runs the default target so
       # platform-specific behaviour (notably the filesystem-backed read/write

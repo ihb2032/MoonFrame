@@ -91,18 +91,19 @@ pub fn HtmlOptions::not_equal(Self, Self) -> Bool
 pub fn HtmlOptions::to_repr(Self) -> @debug.Repr
 
 pub struct JoinOptions {
-  on : Array[@expr.Expr]
-  left_on : Array[@expr.Expr]
-  right_on : Array[@expr.Expr]
   how : JoinType
   suffix : String
   coalesce : Bool?
+  // private fields
 } derive(Eq, @debug.Debug)
 pub fn JoinOptions::cross(suffix? : String) -> Self
 pub fn JoinOptions::equal(Self, Self) -> Bool
+pub fn JoinOptions::left_keys(Self) -> Array[@expr.Expr]
 pub fn JoinOptions::left_on(Array[@expr.Expr], right_on~ : Array[@expr.Expr], how? : JoinType, suffix? : String, coalesce? : Bool) -> Self
 pub fn JoinOptions::not_equal(Self, Self) -> Bool
 pub fn JoinOptions::on(Array[@expr.Expr], how? : JoinType, suffix? : String, coalesce? : Bool) -> Self
+pub fn JoinOptions::on_keys(Self) -> Array[@expr.Expr]
+pub fn JoinOptions::right_keys(Self) -> Array[@expr.Expr]
 pub fn JoinOptions::to_repr(Self) -> @debug.Repr
 
 pub(all) enum JoinType {

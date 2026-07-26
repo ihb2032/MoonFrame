@@ -4,21 +4,6 @@
 // ── Constructors ─────────────────────────────────────────────────────
 
 ///|
-test "new / from_builtin wrap an existing column" {
-  let col = @column.BuiltinColumn::from_int_options([Some(1), None, Some(3)])
-  // `new` takes a `ColumnStorage` (v0.3); `from_builtin` wraps a
-  // `BuiltinColumn` into one — the two end up equal.
-  let a = Series::new("age", @column.ColumnStorage::Builtin(col))
-  let b = Series::from_builtin("age", col)
-  assert_eq(a.name(), "age")
-  assert_eq(a.dtype(), @types.DataType::Int)
-  assert_eq(a.len(), 3)
-  assert_eq(a.null_count(), 1)
-  assert_eq(a.storage_kind(), @column.StorageKind::Builtin)
-  assert_eq(a, b)
-}
-
-///|
 test "from_ints / from_int_options" {
   let raw = Series::from_ints("x", [1, 2, 3])
   assert_eq(raw.dtype(), @types.DataType::Int)
@@ -127,10 +112,15 @@ test "get returns Scalar / Null / IndexOutOfBounds" {
 
 ///|
 test "storage exposes the underlying column unchanged" {
-  let col = @column.BuiltinColumn::from_strings(["x", "y"])
-  let s = Series::from_builtin("c", col)
-  // `storage()` returns a `ColumnStorage` (v0.3) — the Builtin column wrapped.
-  assert_eq(s.storage(), @column.ColumnStorage::Builtin(col))
+  // A `String` column is always `Builtin`-backed, so the public constructor
+  // reaches the same storage the seam hands back.
+  let s = Series::from_strings("c", ["x", "y"])
+  assert_eq(
+    s.storage(),
+    @column.ColumnStorage::Builtin(
+      @column.BuiltinColumn::from_strings(["x", "y"]),
+    ),
+  )
 }
 
 // ── rename ───────────────────────────────────────────────────────────

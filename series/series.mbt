@@ -34,9 +34,14 @@ pub extend Series with Debug::{to_repr}
 /// constructor at the backend seam. The backend (and validity / null-count)
 /// is whatever the storage already carries. Callers holding a
 /// `BuiltinColumn` use `from_builtin` instead.
-#doc(hidden)
-#internal(engine, "MoonFrame execution engine API")
-pub fn Series::new(name : String, storage : @column.ColumnStorage) -> Series {
+///
+/// Package-private. A `#doc(hidden)` seam is still `pub` to the compiler, so
+/// one taking a storage type is an entry point a downstream caller could reach
+/// past `Series` with; this one has no caller outside this package, so it need
+/// not be `pub` at all. The seams that remain — `storage()` for
+/// `internal/kernel`, `Expr::node` for the evaluator and optimizer — are the
+/// ones another package genuinely needs.
+fn Series::new(name : String, storage : @column.ColumnStorage) -> Series {
   { name, storage }
 }
 
@@ -44,9 +49,8 @@ pub fn Series::new(name : String, storage : @column.ColumnStorage) -> Series {
 /// Wrap an existing `BuiltinColumn` under the given name, behind a
 /// `ColumnStorage::Builtin`. The source-compatible path for callers that
 /// already hold a `BuiltinColumn` (the v0.2 `new` signature).
-#doc(hidden)
-#internal(engine, "MoonFrame execution engine API")
-pub fn Series::from_builtin(
+/// Package-private for the same reason as `new`.
+fn Series::from_builtin(
   name : String,
   storage : @column.BuiltinColumn,
 ) -> Series {

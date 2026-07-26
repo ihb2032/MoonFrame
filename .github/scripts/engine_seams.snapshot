@@ -16,10 +16,8 @@ series | doc_hidden internal_engine | pub enum SortKey
 series | doc_hidden internal_engine | pub extend KeyCell with Eq::{equal, not_equal}
 series | doc_hidden internal_engine | pub extend KeyCell with Hash::{hash, hash_combine}
 series | doc_hidden internal_engine | pub fn Series::empty_of( name : String, dtype : @types.DataType, ) -> Series raise @types.DataError
-series | doc_hidden internal_engine | pub fn Series::from_builtin( name : String, storage : @column.BuiltinColumn, ) -> Series
 series | doc_hidden internal_engine | pub fn Series::is_canonical(self : Series) -> Bool
 series | doc_hidden internal_engine | pub fn Series::mean_opt(self : Series) -> Double?
-series | doc_hidden internal_engine | pub fn Series::new(name : String, storage : @column.ColumnStorage) -> Series
 series | doc_hidden internal_engine | pub fn Series::storage(self : Series) -> @column.ColumnStorage
 series | doc_hidden internal_engine | pub fn Series::storage_kind(self : Series) -> @column.StorageKind
 series | doc_hidden internal_engine | pub fn Series::to_builtin(self : Series) -> Series

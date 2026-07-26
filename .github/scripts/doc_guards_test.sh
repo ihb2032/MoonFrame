@@ -238,10 +238,12 @@ expect 0 'enum: a plain pub enum is not matchable, so not locked' \
 
 # ── facade surface ────────────────────────────────────────────────────────
 mkfacadesurface() {
-  # mkfacadesurface <dir> <root-mbti> <frame-mbti> <snapshot-body|-->
+  # mkfacadesurface <dir> <root-mbti> <frame-mbti> <snapshot-body|--> [facade-source] [io-mbti]
   # `--` as the snapshot writes no snapshot file (the missing-snapshot case).
   # The guard reads every tracked public interface, so the fixture is a git
-  # repository with a root facade and one public package.
+  # repository with a root facade and one public package — plus, when a case
+  # needs a second one, an `io`. The facade *source* is read too, for which
+  # package each re-exported free function comes from.
   mkdir -p "$1/.github/scripts" "$1/frame"
   (cd "$1" && git init -q . && git config user.email t@t &&
     git config user.name t && git config core.autocrlf false)
@@ -249,6 +251,16 @@ mkfacadesurface() {
   printf '%s\n' "$3" >"$1/frame/pkg.generated.mbti"
   if [ "$4" != "--" ]; then
     printf '%s\n' "$4" >"$1/.github/scripts/facade_surface.snapshot"
+  fi
+  if [ $# -ge 5 ]; then
+    printf '%s\n' "$5" >"$1/moonframe.mbt"
+  else
+    printf 'pub using @frame {type DataFrame, type HtmlOptions}\n' \
+      >"$1/moonframe.mbt"
+  fi
+  if [ $# -ge 6 ]; then
+    mkdir -p "$1/io"
+    printf '%s\n' "$6" >"$1/io/pkg.generated.mbti"
   fi
   (cd "$1" && git add -A && git commit -qm f)
 }
@@ -346,6 +358,27 @@ fn helper(String) -> Int <- frame"
 expect_out 1 'helper (in frame)' \
   'facade surface: a package free function the facade does not re-export' \
   sh "$scripts/check_facade_surface.sh" "$work/fs_unexported_fn"
+
+# Both rules match on package *and* name. A bare-name rule would let a second
+# package publish a symbol and ride on the facade entry that belongs to the
+# first: `frame` growing its own `col`, or `io` its own `WhenThen`.
+mkfacadesurface "$work/fs_fn_collision" "$fs_root" "$fs_frame
+pub fn col(String) -> @expr.Expr" "$fs_snap
+fn col(String) -> @expr.Expr <- frame" 'pub using @expr {col}
+pub using @frame {type DataFrame, type HtmlOptions}'
+expect_out 1 'col (in frame)' \
+  'facade surface: a second package publishing a facade function name' \
+  sh "$scripts/check_facade_surface.sh" "$work/fs_fn_collision"
+
+mkfacadesurface "$work/fs_type_collision" "$fs_root" "$fs_frame" "$fs_snap
+intermediate WhenThen <- io
+method WhenThen::then(Self) -> Self <- io" '' 'pub struct WhenThen {
+  // private fields
+}
+pub fn WhenThen::then(Self) -> Self'
+expect_out 1 'WhenThen (in io)' \
+  'facade surface: an allowed intermediate name in the wrong package' \
+  sh "$scripts/check_facade_surface.sh" "$work/fs_type_collision"
 
 mkfacadesurface "$work/fs_mutable_field" "$fs_root" \
   "$(printf '%s\n' "$fs_frame" |

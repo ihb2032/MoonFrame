@@ -11,6 +11,26 @@ documented with each reader on
 [mooncakes.io](https://mooncakes.io/docs/ihb2032/MoonFrame); this page explains
 the rules those options govern.
 
+## An all-null window infers `String`
+
+The four dtypes above are the whole range: a reader never infers
+`DataType::Null`. When every cell in the probe window is empty (or a
+`null_values` token, or `null` in JSON) there is nothing to type the column
+from, so it lands on `String` — the dtype that accepts whatever the rows past
+the window turn out to hold, rather than one that would reject them.
+
+```
+id,note
+1,
+2,
+3,filled in later
+```
+
+With the default window this reads `note` as a `String` column: null, null,
+`"filled in later"`. The consequence worth knowing is the one below — a column
+typed this way accepts any later cell, where a column inferred as `Int` from
+its first rows does not.
+
 ## Beyond the inference window
 
 **A non-null cell *beyond* the inference window that does not fit the inferred

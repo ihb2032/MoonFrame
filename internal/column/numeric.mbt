@@ -11,7 +11,7 @@
 ///
 /// The win is twofold and measurable (see `numeric_test.mbt`):
 ///   1. **construction / sub-views** allocate no validity `Bytes`:
-///      `from_int64s` / `from_doubles` are just the data array, and `slice` /
+///      `from_ints` / `from_floats` are just the data array, and `slice` /
 ///      `take` repack only the data — `BuiltinColumn` additionally allocates
 ///      (`from_ints`) or repacks (`slice` / `take`) a `Bitmap`;
 ///   2. **reductions** read the raw array with no `validity().to_bools()`

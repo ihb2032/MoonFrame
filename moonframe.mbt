@@ -11,20 +11,19 @@
 // states the layering rule between them; this file lists only what bears on
 // what the facade re-exports.
 //
-// Note: the operator verbs (`select` / `drop` / `rename` /
-// `filter` / `with_columns` /
-// `sort` / `drop_nulls` /
-// `fill_null` / `null_count` / `count` / `sum` /
-// `mean` / `min` / `max` / `describe` / `group_by` / `join`) and the
-// `to_markdown` / `to_html` renderers
-// are now methods on `DataFrame`, so re-exporting `type DataFrame`
-// makes them automatically reachable through the facade — there is
-// nothing to list for them here. Likewise the
+// Note: the operator verbs are methods on `DataFrame` — `select` / `filter` /
+// `with_columns` / `group_by` / `join` / `sort` and the rest — as are the
+// `to_markdown` / `to_html` renderers, so re-exporting `type DataFrame` makes
+// every one of them reachable through the facade and there is nothing to list
+// for them here. They are deliberately not enumerated: a hand-written list of
+// methods is stale the first time one is added, and
+// `.github/scripts/facade_surface.snapshot` is the enumeration, generated from
+// the interfaces. Likewise the
 // `JoinOptions` / `HtmlOptions` / `ChartSpec` constructors — the named
-// constructors that replaced v0.6's setter chains (`JoinOptions::on` /
-// `left_on` / `cross`, `ChartSpec::bar` / `line` / `point` / `area`, and
-// `HtmlOptions::HtmlOptions`) — come for free once their types are
-// re-exported. The rule is that simple: **methods and constructors ride along
+// constructors v0.6 introduced in place of the pre-v0.6 setter chains
+// (`JoinOptions::on` / `left_on` / `cross`, `ChartSpec::bar` / `line` /
+// `point` / `area`, and `HtmlOptions::HtmlOptions`) — come for free once their
+// types are re-exported. The rule is that simple: **methods and constructors ride along
 // with a re-exported type; type names and free functions still need an
 // explicit line here.** So the lists below are the value types (the Join
 // `JoinType` / `JoinOptions`, the HTML `HtmlOptions`, the Chart `ChartKind` /

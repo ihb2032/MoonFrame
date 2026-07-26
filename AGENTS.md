@@ -85,7 +85,13 @@ sh .github/scripts/check_engine_seams.sh
   tagged with its source package and with whether the facade names the type or
   leaves it a fluent-chain intermediate. Signatures matter because half of what
   breaks a caller leaves the names alone: a parameter type, a `raise`
-  appearing, an optional parameter becoming required, a field widening to `?`. `moon info` and the downstream fixture catch
+  appearing, an optional parameter becoming required, a field widening to `?`.
+  Two rules sit ahead of the snapshot, so regenerating cannot legalize them:
+  only the four fluent-chain types may be public without being re-exported,
+  and **no public field may hold a mutable container** (`Array` / `Map` / …) —
+  reading one hands the container itself to the caller. Keep such a field
+  `priv` behind an accessor that copies, as `CsvReadOptions::null_values` and
+  `JoinOptions::on_keys` do. `moon info` and the downstream fixture catch
   under-exports and interface drift; this catches an *over-export* — a symbol
   that reaches callers as `@moonframe.Type::method` without any facade change,
   and becomes a breaking change once published. Any add / remove /

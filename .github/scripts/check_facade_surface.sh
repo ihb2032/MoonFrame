@@ -187,6 +187,27 @@ if [ -n "$unexpected" ]; then
   exit 1
 fi
 
+# The second rule the snapshot cannot express. Reading a public field gives the
+# caller the value *itself*, which for a mutable container means a shared,
+# writable handle — enough to change a value someone else is holding, including
+# one a `LazyFrame` captured into a built plan. Both cases the repository has
+# had (`CsvReadOptions.null_values`, `JoinOptions`' key lists) were exactly
+# this, so the shape is banned rather than snapshotted: keep the field `priv`
+# and hand out a copy from an accessor. (`Bytes` and `String` are immutable in
+# MoonBit, so a field holding one is a value like any other.)
+mutable_fields=$(printf '%s\n' "$current" |
+  grep -E '^field [^:]*: .*((Array|FixedArray|Map|Set|Ref|ArrayView)\[|\b(StringBuilder|Buffer)\b)' ||
+  true)
+if [ -n "$mutable_fields" ]; then
+  printf 'facade surface: a public field holding a mutable container:\n'
+  printf '%s\n' "$mutable_fields" | sed 's/^/  /'
+  printf '  Reading it hands the container itself to the caller, who can then\n'
+  printf '  write through it — into a value already captured elsewhere. Make\n'
+  printf '  the field `priv` and add an accessor that returns a copy, as\n'
+  printf '  `CsvReadOptions::null_values` and `JoinOptions::on_keys` do.\n'
+  exit 1
+fi
+
 if [ "$write" -eq 1 ]; then
   printf '%s\n' "$current" >"$snapshot"
   printf 'facade surface: wrote %s (%s symbols)\n' "$snapshot" "$(count "$current")"

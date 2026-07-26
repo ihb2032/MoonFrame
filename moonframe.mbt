@@ -24,11 +24,15 @@
 // constructors that replaced v0.6's setter chains (`JoinOptions::on` /
 // `left_on` / `cross`, `ChartSpec::bar` / `line` / `point` / `area`, and
 // `HtmlOptions::HtmlOptions`) — come for free once their types are
-// re-exported. Only the
-// value types (the Join `JoinType` / `JoinOptions`, the HTML `HtmlOptions`, and
-// the Chart `ChartKind` / `ChartSpec`) and the `io` free functions need explicit
-// re-export. (`GroupedDataFrame::agg` is reached the other way — by chaining off
-// `group_by`'s return, not by naming the type; see the fluent-chain note below.)
+// re-exported. The rule is that simple: **methods and constructors ride along
+// with a re-exported type; type names and free functions still need an
+// explicit line here.** So the lists below are the value types (the Join
+// `JoinType` / `JoinOptions`, the HTML `HtmlOptions`, the Chart `ChartKind` /
+// `ChartSpec`, …) plus every free function a caller reaches by name — `@expr`'s
+// constructors, `@frame`'s column selectors, `@io`'s readers and writers, and
+// `@lazy`'s file sources. (`GroupedDataFrame::agg` is reached the other way —
+// by chaining off `group_by`'s return, not by naming the type; see the
+// fluent-chain note below.)
 // (The text / literal helpers that once lived in `@types` —
 // `compare_string_lex`, `is_decimal_int_literal`, `format_scalar` — are now in
 // the internal `@text` / `@literal` packages and are not part of the public

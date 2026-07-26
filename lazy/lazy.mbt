@@ -6,7 +6,7 @@
 /// chained, and `explain`ed, even when collecting it would fail. All
 /// computation (and all failure) happens in `collect`, which interprets
 /// the plan through the public eager operators: with no optimizer in
-/// front, `LazyFrame::LazyFrame(df).f(…).g(…).collect()` is bitwise-equal to
+/// front, `LazyFrame::LazyFrame(df).f(…).g(…).collect()` equals
 /// `df.f(…).g(…)` — the faithful-deferred-executor contract every test in
 /// `lazy_test.mbt` pins.
 ///
@@ -303,7 +303,7 @@ pub fn LazyGroupBy::agg(
 /// contract is exactly this method's, so they change
 /// what work happens, and for a successful result never what comes back: the
 /// (optimized) plan is walked bottom-up, delegating each node to the public
-/// eager operator it defers, so the result is bitwise-equal to running the same
+/// eager operator it defers, so the result equals running the same
 /// verbs eagerly in the same order. Errors match the eager operators'
 /// (`ColumnNotFound`, `TypeMismatch`, `IndexOutOfBounds`, …) with one
 /// carve-out: a `scan_csv` / `scan_ndjson` source absorbs projection and

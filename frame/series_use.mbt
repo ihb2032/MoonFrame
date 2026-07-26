@@ -7,8 +7,10 @@
 // the composite-key cell encoding (`key_cell` / `KeyCell`) — live in `series`
 // because the `Series` methods that need them must, by method coherence, sit
 // beside the type. This `using` import binds them unqualified here so the
-// DataFrame transforms, the expression evaluator, `group_by`, `join`, and
-// `sort` read them by bare name exactly as when they were frame-local.
+// DataFrame transforms, the expression evaluator, `group_by` and `join` read
+// them by bare name exactly as when they were frame-local. (`sort` calls the
+// sort kernel `@series.`-qualified instead — the binding list is what a file
+// needs, not a rule about which files may use it.)
 //
 // Each of them hands back a `Series`, a freshly built array, or a scalar —
 // never a live column's own buffer. That is the boundary's real content: this

@@ -189,3 +189,31 @@ test "the table renderers draw nothing for an N×0 frame" {
   assert_false(df.is_empty())
   assert_eq(df.shape(), (2, 0))
 }
+
+///|
+/// The one shape where a stray height reaches the frame: with columns, the
+/// length check forces `nrows >= 0`, but at zero columns it has nothing to
+/// range over — so `from_parts` closes INV7 itself rather than trusting the
+/// caller, and a legitimate `N×0` still builds.
+test "from_parts refuses a negative height, and keeps building N×0" {
+  assert_eq(
+    Ok(@frame.DataFrame::from_parts([], -1)) catch {
+      e => Err(e)
+    },
+    Err(
+      @types.DataError::InvalidOperation(
+        "a frame's row count cannot be negative: -1",
+      ),
+    ),
+  )
+  // The check is the same for a frame with columns, which the length check
+  // would otherwise reject as a mismatch.
+  assert_true(
+    (Ok(@frame.DataFrame::from_parts([@series.Series::from_ints("a", [1])], -1)) catch {
+      e => Err(e)
+    })
+    is Err(@types.DataError::InvalidOperation(_)),
+  )
+  assert_eq(@frame.DataFrame::from_parts([], 4).shape(), (4, 0))
+  assert_eq(@frame.DataFrame::from_parts([], 0).shape(), (0, 0))
+}

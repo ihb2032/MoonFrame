@@ -81,13 +81,18 @@ cd "$root"
 
 snapshot=".github/scripts/facade_surface.snapshot"
 mbti="pkg.generated.mbti"
+facade_source="moonframe.mbt"
 
 # The public types the facade deliberately does not name: each is a step in a
 # fluent chain (`when(c).then(a).otherwise(b)`, `group_by(k).agg(e)`), `pub`
 # only because the verb returning it must be, and reached by chaining off that
 # verb's return value rather than by name. Widen this only alongside the facade
 # comment that explains why the type is unnameable — never to make a guard pass.
-intermediates="WhenThen WhenThenElse GroupedDataFrame LazyGroupBy"
+#
+# Package-qualified, because a bare name is a weaker claim than it looks: the
+# allowlist says *this* type in *this* package is chained through, and `io`
+# growing its own `WhenThen` is a different symbol that nothing chains to.
+intermediates="expr/WhenThen expr/WhenThenElse frame/GroupedDataFrame lazy/LazyGroupBy"
 
 # Tracked public interfaces only: `git ls-files` never lists a `_build` copy,
 # `internal/` (at any depth) carries no compatibility promise, and `examples/`
@@ -172,7 +177,7 @@ count() { printf '%s\n' "$1" | grep -cE ' <- ' || true; }
 unexpected=$(printf '%s\n' "$current" | sed -n 's/^intermediate \([A-Za-z0-9_]*\) <- \(.*\)/\1 \2/p' |
   while read -r name pkg; do
     for allowed in $intermediates; do
-      [ "$allowed" != "$name" ] || continue 2
+      [ "$allowed" != "$pkg/$name" ] || continue 2
     done
     printf '  %s (in %s)\n' "$name" "$pkg"
   done)
@@ -195,11 +200,35 @@ fi
 # this, so the shape is banned rather than snapshotted: keep the field `priv`
 # and hand out a copy from an accessor. (`Bytes` and `String` are immutable in
 # MoonBit, so a field holding one is a value like any other.)
+# Which package each facade free function is re-exported *from*, read off the
+# `pub using @pkg { … }` blocks. The generated root interface records that
+# provenance for types and not for functions, and matching on the bare name
+# would let `frame` publish its own `col` and ride on the one `expr` already
+# put on the facade.
+facade_fns=$(awk '
+  /^pub using @[a-z_]+ \{/ { pkg = $3; sub(/^@/, "", pkg); sub(/\{.*/, "", pkg); inblock = 1 }
+  inblock {
+    line = $0
+    sub(/^pub using @[a-z_]+ \{/, "", line)
+    sub(/\}.*/, "", line)
+    n = split(line, items, ",")
+    for (i = 1; i <= n; i++) {
+      item = items[i]
+      gsub(/[ \t]/, "", item)
+      if (item == "" || item ~ /^type/) continue
+      print item " " pkg
+    }
+  }
+  inblock && /\}/ { inblock = 0 }
+' "$facade_source" | LC_ALL=C sort -u)
+
 unexported_fns=$(printf '%s\n' "$current" |
   sed -n 's/^fn \(.*\) <- \(.*\)$/\2 \1/p' | sed 's/(.*//' | LC_ALL=C sort -u |
-  awk '{ if ($1 == "root") root[$2] = 1; else pkg[$2] = $1 }
-       END { for (n in pkg) if (!(n in root)) print "  " n " (in " pkg[n] ")" }' |
-  LC_ALL=C sort)
+  grep -v '^root ' |
+  while read -r pkg name; do
+    printf '%s\n' "$facade_fns" | grep -qx "$name $pkg" && continue
+    printf '  %s (in %s)\n' "$name" "$pkg"
+  done)
 if [ -n "$unexported_fns" ]; then
   printf 'facade surface: a public free function the facade does not re-export:\n'
   printf '%s\n' "$unexported_fns"
@@ -207,7 +236,9 @@ if [ -n "$unexported_fns" ]; then
   printf '  free function cannot — nothing chains to it, so one the facade\n'
   printf '  omits is either an under-export a caller cannot reach through the\n'
   printf '  supported surface, or a helper that should not be `pub` at all.\n'
-  printf '  Re-export it in moonframe.mbt, or make it `priv` / an engine seam.\n'
+  printf '  (A same-named function on the facade does not count unless it is\n'
+  printf '  re-exported from this package.) Re-export it in moonframe.mbt, or\n'
+  printf '  make it `priv` / an engine seam.\n'
   exit 1
 fi
 

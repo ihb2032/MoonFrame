@@ -89,11 +89,11 @@ their read API — at that same documented cost.
 `CsvReadOptions`, `CsvWriteOptions`, and `JsonReadOptions` are `pub` rather than
 `pub(all)`, so a record literal no longer compiles outside `io`; every field has
 a constructor parameter with the previous default, and only what differs needs
-naming. Their fields stay readable, which is the point of an options record —
-and also why a field added later is *not* additive: a public field can be
-destructured, and a struct pattern must name every field or carry `..`. Field
-additions to these types ride the minor version, like a new `pub(all)` enum
-variant.
+naming. Their fields stay readable — with one exception, `null_values` below —
+which is the point of an options record, and also why a field added later is
+*not* additive: a public field can be destructured, and a struct pattern must
+name every field or carry `..`. Field additions to these types ride the minor
+version, like a new `pub(all)` enum variant.
 
 `NdjsonReadOptions` is removed: what took it in v0.5 — the NDJSON reader and
 the then-current `scan_ndjson_with_options` — takes `JsonReadOptions`, which has

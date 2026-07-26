@@ -128,8 +128,10 @@ jobs:
       # surface, the whole callable surface the facade promises — every
       # method, field and impl a re-exported type carries with it, not just the
       # names the facade itself lists — the set of internal packages the
-      # architecture docs describe, and the layering rule those documents state,
-      # read back off the build manifests. Written in `sh` rather
+      # architecture docs describe, the layering rule those documents state,
+      # read back off the build manifests, and the hidden cross-package engine
+      # seams, which by construction reach no generated interface and so are
+      # invisible to every guard above. Written in `sh` rather
       # than Python (as the
       # Array-boundary guard above is) so they run identically on a
       # contributor's machine without a Python install; the self-test runs
@@ -145,6 +147,7 @@ jobs:
           sh .github/scripts/check_facade_surface.sh
           sh .github/scripts/check_internal_packages.sh
           sh .github/scripts/check_layering.sh
+          sh .github/scripts/check_engine_seams.sh
 
       # A real downstream module: it lives outside this one and imports ONLY the
       # root facade (`@moonframe`), the way a user's project does. `moon check`

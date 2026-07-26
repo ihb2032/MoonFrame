@@ -63,6 +63,7 @@ sh .github/scripts/check_enum_surface.sh
 sh .github/scripts/check_facade_surface.sh
 sh .github/scripts/check_internal_packages.sh
 sh .github/scripts/check_layering.sh
+sh .github/scripts/check_engine_seams.sh
 ```
 
 - **Version identity** — `moon.mod`, `docs/api.md`, `docs/changelog.md`, and
@@ -100,11 +101,22 @@ sh .github/scripts/check_layering.sh
   names, not whether the descriptions are accurate.
 - **Layering** — the production package graph, read off the `moon.pkg`
   manifests: `internal/column` is imported by `series` and `internal/kernel`
-  and by nothing else, no `internal/*` package imports `frame` / `io` / `lazy`,
-  the facade imports exactly the six public packages, and no public
-  `pkg.generated.mbti` names an internal package. Test-only import blocks are
+  and by nothing else, `internal/kernel` only by `frame`, no `internal/*`
+  package imports `frame` / `io` / `lazy`, the facade imports exactly the six
+  public packages, and no public `pkg.generated.mbti` names an internal
+  package. Every other production edge is pinned in
+  `.github/scripts/layering.snapshot`, so a new dependency lands deliberately
+  (`sh .github/scripts/check_layering.sh --write`). Test-only import blocks are
   exempt by design (`frame`'s tests name `StorageKind`). Changing the layering
   means changing the rule in the guard first, then both documents.
+- **Engine seams** — every `pub` symbol in a public package carrying
+  `#internal(engine, …)` / `#doc(hidden)`, with its normalised signature,
+  pinned in `.github/scripts/engine_seams.snapshot`. `#doc(hidden)` keeps these
+  out of the generated interface, which is exactly why the facade lock cannot
+  see them; this is where adding one — or widening one, a seam that starts
+  handing another package a mutable buffer — has to be noticed
+  (`sh .github/scripts/check_engine_seams.sh --write`). `#internal(engine)`
+  without `#doc(hidden)` is rejected outright rather than snapshotted.
 
 One more pass, `review_absolute_wording.sh`, annotates absolute claims ("all",
 "every", "never", "total") in prose a PR adds. It never fails the build — it

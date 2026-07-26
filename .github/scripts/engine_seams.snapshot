@@ -1,0 +1,48 @@
+expr | doc_hidden internal_engine | pub fn Expr::children(self : Expr) -> Array[Expr]
+expr | doc_hidden internal_engine | pub fn Expr::node(self : Expr) -> @ir.ExprNode
+expr | doc_hidden internal_engine | pub fn Expr::output_name(self : Expr) -> String
+expr | doc_hidden internal_engine | pub fn Expr::referenced_columns(self : Expr) -> @set.Set[String]
+frame | doc_hidden internal_engine | pub fn DataFrame::from_parts( columns : Array[Series], nrows : Int, ) -> DataFrame raise @types.DataError
+frame | doc_hidden internal_engine | pub fn DataFrame::to_builtin(self : DataFrame) -> DataFrame
+frame | doc_hidden internal_engine | pub fn DataFrame::to_numeric(self : DataFrame) -> DataFrame
+frame | doc_hidden internal_engine | pub fn DataFrame::to_scalar_matrix( self : DataFrame, ) -> Array[Array[@types.Scalar]]
+frame | doc_hidden internal_engine | pub fn filter_row_indices( df : DataFrame, predicate : @expr.Expr, ) -> Array[Int] raise @types.DataError
+frame | doc_hidden | pub fn DataFrame::check_invariants(self : DataFrame) -> Result[Unit, String]
+io | doc_hidden internal_engine | pub fn read_csv_projected( path : String, options : CsvReadOptions, projection : Array[String], ) -> @frame.DataFrame raise @types.DataError
+io | doc_hidden internal_engine | pub fn read_csv_pruned( path : String, options : CsvReadOptions, projection : Array[String]?, key_columns : Array[String], keep : (@frame.DataFrame) -> Array[Int] raise @types.DataError, ) -> @frame.DataFrame raise @types.DataError
+io | doc_hidden internal_engine | pub fn read_ndjson_projected( path : String, options : JsonReadOptions, projection : Array[String], ) -> @frame.DataFrame raise @types.DataError
+io | doc_hidden internal_engine | pub fn read_ndjson_pruned( path : String, options : JsonReadOptions, projection : Array[String]?, key_columns : Array[String], keep : (@frame.DataFrame) -> Array[Int] raise @types.DataError, ) -> @frame.DataFrame raise @types.DataError
+series | doc_hidden internal_engine | pub enum SortKey
+series | doc_hidden internal_engine | pub extend KeyCell with Eq::{equal, not_equal}
+series | doc_hidden internal_engine | pub extend KeyCell with Hash::{hash, hash_combine}
+series | doc_hidden internal_engine | pub fn Series::empty_of( name : String, dtype : @types.DataType, ) -> Series raise @types.DataError
+series | doc_hidden internal_engine | pub fn Series::from_builtin( name : String, storage : @column.BuiltinColumn, ) -> Series
+series | doc_hidden internal_engine | pub fn Series::is_canonical(self : Series) -> Bool
+series | doc_hidden internal_engine | pub fn Series::mean_opt(self : Series) -> Double?
+series | doc_hidden internal_engine | pub fn Series::new(name : String, storage : @column.ColumnStorage) -> Series
+series | doc_hidden internal_engine | pub fn Series::storage(self : Series) -> @column.ColumnStorage
+series | doc_hidden internal_engine | pub fn Series::storage_kind(self : Series) -> @column.StorageKind
+series | doc_hidden internal_engine | pub fn Series::to_builtin(self : Series) -> Series
+series | doc_hidden internal_engine | pub fn Series::to_numeric(self : Series) -> Series raise @types.DataError
+series | doc_hidden internal_engine | pub fn build_sort_key( column : Series, order : @types.SortOrder, null_order : @types.NullOrder, ) -> SortKey
+series | doc_hidden internal_engine | pub fn clamp_take(n : Int, len : Int) -> Int
+series | doc_hidden internal_engine | pub fn coalesce_columns(base : Series, fill : Series, name : String) -> Series
+series | doc_hidden internal_engine | pub fn compare_one_key(key : SortKey, i : Int, j : Int) -> Int
+series | doc_hidden internal_engine | pub fn gather_series(s : Series, idx : Array[Int]) -> Series
+series | doc_hidden internal_engine | pub fn gather_series_opt( s : Series, idx : Array[Int?], out_name : String, ) -> Series
+series | doc_hidden internal_engine | pub fn key_cell(sc : @types.Scalar) -> KeyCell
+series | doc_hidden internal_engine | pub fn mask_true_indices(mask : Series) -> Array[Int]?
+series | doc_hidden internal_engine | pub fn preserve_backend(source : Series, rebuilt : Series) -> Series
+series | doc_hidden internal_engine | pub fn reducer_for( column : Series, op : ReduceOp, ) -> ((Int, (Int) -> Int) -> @types.Scalar, @types.DataType) raise @types.DataError
+series | doc_hidden internal_engine | pub fn scalars_to_series( probe : @types.DataType, name : String, cells : Array[@types.Scalar], ) -> Series raise @types.DataError
+series | doc_hidden internal_engine | pub fn slice_series(s : Series, start : Int, len : Int) -> Series
+series | doc_hidden internal_engine | pub fn stable_mergesort_indices(n : Int, cmp : (Int, Int) -> Int) -> Array[Int]
+series | doc_hidden internal_engine | pub fn try_column_to_numeric(s : Series) -> Series
+series | doc_hidden internal_engine | pub fn validity_bools(column : Series) -> Array[Bool]
+series | doc_hidden internal_engine | pub(all) enum ReduceOp
+types | doc_hidden internal_engine | pub fn compare_strings_lex(a : String, b : String) -> Int
+types | doc_hidden internal_engine | pub fn double_fits_int64(n : Double) -> Bool
+types | doc_hidden internal_engine | pub fn double_lt_int64(a : Double, b : Int64) -> Bool
+types | doc_hidden internal_engine | pub fn int64_eq_double(a : Int64, b : Double) -> Bool
+types | doc_hidden internal_engine | pub fn int64_lt_double(a : Int64, b : Double) -> Bool
+types | doc_hidden internal_engine | pub fn[T] fold_extremum( n : Int, get : (Int) -> T, skip : (Int) -> Bool, better : (T, T) -> Bool, ) -> T?

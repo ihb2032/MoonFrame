@@ -31,6 +31,26 @@ expect() {
   fi
 }
 
+expect_out() {
+  # expect_out <want-exit> <substring> <label> <command…>
+  # For guards that check several things: an exit code alone cannot tell which
+  # one fired, and a case that passes for the wrong reason is a case that has
+  # stopped testing anything.
+  want=$1
+  needle=$2
+  label=$3
+  shift 3
+  got=0
+  "$@" >"$work/out" 2>&1 || got=$?
+  cases=$((cases + 1))
+  if [ "$got" -ne "$want" ] || ! grep -qF -- "$needle" "$work/out"; then
+    printf 'FAIL %s: expected exit %s mentioning "%s", got %s\n' \
+      "$label" "$want" "$needle" "$got"
+    sed 's/^/     /' "$work/out"
+    exit 1
+  fi
+}
+
 # ── version identity ──────────────────────────────────────────────────────
 mkfixture() {
   # mkfixture <dir> <mod-version> <api-version> <changelog-heading> <migration-target>
@@ -336,7 +356,10 @@ expect 1 'internal packages: a documented package that no longer exists' \
 mklayering() {
   # mklayering <dir> <frame-manifest> <internal-kernel-manifest> <root-manifest>
   # A miniature of the real graph: a root facade over six public packages, a
-  # `series` that owns the column, and the two internal layers below it.
+  # `series` that owns the column, and the two internal layers below it. The
+  # edge snapshot is generated from the fixture itself — these cases are about
+  # the *rules*, and a rule violation must fail before the snapshot is even
+  # consulted, so writing one that matches proves exactly that.
   mkdir -p "$1"
   (cd "$1" && git init -q . && git config user.email t@t &&
     git config user.name t && git config core.autocrlf false)
@@ -356,7 +379,9 @@ mklayering() {
   printf '%s\n' "$3" >"$1/internal/kernel/moon.pkg"
   printf '%s\n' "$4" >"$1/moon.pkg"
   printf 'package "ihb2032/MoonFrame/frame"\n' >"$1/frame/pkg.generated.mbti"
+  mkdir -p "$1/.github/scripts"
   (cd "$1" && git add -A && git commit -qm f)
+  sh "$scripts/check_layering.sh" "$1" --write >/dev/null 2>&1 || true
 }
 
 # `frame` reaches the column only through `series`; its *test* block names the
@@ -383,21 +408,31 @@ ly_root='import {
 }'
 
 mklayering "$work/ly_ok" "$ly_frame" "$ly_kernel" "$ly_root"
-expect 0 'layering: production graph obeys the rule (test imports reach further)' \
+expect 0 'layering: production graph obeys the rules (test imports reach further)' \
   sh "$scripts/check_layering.sh" "$work/ly_ok"
 
 mklayering "$work/ly_column" 'import {
   "ihb2032/MoonFrame/series",
   "ihb2032/MoonFrame/internal/column",
 }' "$ly_kernel" "$ly_root"
-expect 1 'layering: frame imports the physical column layer' \
+expect_out 1 'imports internal/column' 'layering: frame imports the physical column layer' \
   sh "$scripts/check_layering.sh" "$work/ly_column"
+
+# The execution engine's machinery is `frame`'s to drive: another public
+# package reaching past it for the kernel routes computation around the layer
+# that decides what a verb means.
+mklayering "$work/ly_kernel_importer" "$ly_frame" "$ly_kernel" "$ly_root"
+printf 'import {\n  "ihb2032/MoonFrame/types",\n  "ihb2032/MoonFrame/internal/kernel",\n}\n' \
+  >"$work/ly_kernel_importer/io/moon.pkg"
+(cd "$work/ly_kernel_importer" && git add -A && git commit -qm kernel)
+expect_out 1 'imports internal/kernel' 'layering: a public package other than frame imports the kernel' \
+  sh "$scripts/check_layering.sh" "$work/ly_kernel_importer"
 
 mklayering "$work/ly_reverse" "$ly_frame" 'import {
   "ihb2032/MoonFrame/internal/column",
   "ihb2032/MoonFrame/frame",
 }' "$ly_root"
-expect 1 'layering: an internal package imports a verb package' \
+expect_out 1 'stays below the verbs' 'layering: an internal package imports a verb package' \
   sh "$scripts/check_layering.sh" "$work/ly_reverse"
 
 mklayering "$work/ly_root_dep" "$ly_frame" "$ly_kernel" 'import {
@@ -409,15 +444,103 @@ mklayering "$work/ly_root_dep" "$ly_frame" "$ly_kernel" 'import {
   "ihb2032/MoonFrame/types",
   "ihb2032/MoonFrame/internal/kernel",
 }'
-expect 1 'layering: the facade imports beyond the six public packages' \
+expect_out 1 'the root facade imports' 'layering: the facade imports beyond the six public packages' \
   sh "$scripts/check_layering.sh" "$work/ly_root_dep"
 
 mklayering "$work/ly_leak" "$ly_frame" "$ly_kernel" "$ly_root"
 printf 'package "ihb2032/MoonFrame/frame"\n\nimport {\n  "ihb2032/MoonFrame/internal/column",\n}\n' \
   >"$work/ly_leak/frame/pkg.generated.mbti"
 (cd "$work/ly_leak" && git add -A && git commit -qm leak)
-expect 1 'layering: an internal package named in a public interface' \
+expect_out 1 'names an internal package' 'layering: an internal package named in a public interface' \
   sh "$scripts/check_layering.sh" "$work/ly_leak"
+
+# Everything the rules do not forbid is still pinned: a new edge between two
+# packages breaks no rule, and is exactly the structural decision the snapshot
+# is there to surface.
+mklayering "$work/ly_new_edge" "$ly_frame" "$ly_kernel" "$ly_root"
+printf 'import {\n  "ihb2032/MoonFrame/types",\n  "ihb2032/MoonFrame/series",\n}\n' \
+  >"$work/ly_new_edge/expr/moon.pkg"
+(cd "$work/ly_new_edge" && git add -A && git commit -qm edge)
+expect_out 1 'dependency graph changed' 'layering: a new production edge the rules allow' \
+  sh "$scripts/check_layering.sh" "$work/ly_new_edge"
+
+mklayering "$work/ly_no_snapshot" "$ly_frame" "$ly_kernel" "$ly_root"
+rm -f "$work/ly_no_snapshot/.github/scripts/layering.snapshot"
+expect_out 1 'snapshot' 'layering: snapshot absent' \
+  sh "$scripts/check_layering.sh" "$work/ly_no_snapshot"
+
+# ── engine seams ──────────────────────────────────────────────────────────
+mkseams() {
+  # mkseams <dir> <series-source> <snapshot-body|-->
+  mkdir -p "$1/series" "$1/.github/scripts"
+  (cd "$1" && git init -q . && git config user.email t@t &&
+    git config user.name t && git config core.autocrlf false)
+  printf '%s\n' "$2" >"$1/series/series.mbt"
+  if [ "$3" != "--" ]; then
+    printf '%s\n' "$3" >"$1/.github/scripts/engine_seams.snapshot"
+  fi
+  (cd "$1" && git add -A && git commit -qm f)
+}
+
+es_source='///|
+/// A public constructor, no attributes: ordinary API, not a seam.
+pub fn Series::from_ints(name : String, values : Array[Int64]) -> Series {
+  ignore(name)
+}
+
+///|
+/// A seam: shared across packages, hidden from the interface.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
+pub fn validity_bools(column : Series) -> Array[Bool] {
+  ignore(column)
+}
+
+///|
+/// A wrapped signature, which the extractor joins into one line.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
+pub fn reducer_for(
+  column : Series,
+  op : ReduceOp,
+) -> (Int, @types.DataType) {
+  ignore(column)
+}'
+es_snap='series | doc_hidden internal_engine | pub fn reducer_for( column : Series, op : ReduceOp, ) -> (Int, @types.DataType)
+series | doc_hidden internal_engine | pub fn validity_bools(column : Series) -> Array[Bool]'
+
+mkseams "$work/es_ok" "$es_source" "$es_snap"
+expect 0 'engine seams: match the snapshot (an unattributed pub is not a seam)' \
+  sh "$scripts/check_engine_seams.sh" "$work/es_ok"
+
+mkseams "$work/es_added" "$es_source
+
+///|
+#doc(hidden)
+#internal(engine, \"MoonFrame execution engine API\")
+pub fn bool_cells(column : Series) -> Array[Bool]? {
+  ignore(column)
+}" "$es_snap"
+expect_out 1 'hidden cross-package surface changed' 'engine seams: a new hidden seam' \
+  sh "$scripts/check_engine_seams.sh" "$work/es_added"
+
+# The widening this exists for: same name, same visibility, a return type that
+# now hands another package a live buffer.
+mkseams "$work/es_widened" \
+  "$(printf '%s\n' "$es_source" |
+    sed 's/-> Array\[Bool\] {/-> (Array[Bool], @column.Bitmap) {/')" \
+  "$es_snap"
+expect_out 1 'hidden cross-package surface changed' 'engine seams: a seam signature widened' \
+  sh "$scripts/check_engine_seams.sh" "$work/es_widened"
+
+mkseams "$work/es_unpaired" \
+  "$(printf '%s\n' "$es_source" | grep -v '^#doc(hidden)$')" "$es_snap"
+expect_out 1 'without #doc(hidden)' 'engine seams: an alert without the interface hide' \
+  sh "$scripts/check_engine_seams.sh" "$work/es_unpaired"
+
+mkseams "$work/es_missing" "$es_source" --
+expect_out 1 'snapshot' 'engine seams: snapshot absent' \
+  sh "$scripts/check_engine_seams.sh" "$work/es_missing"
 
 # ── the repository itself ─────────────────────────────────────────────────
 expect 0 'repo: version identity' sh "$scripts/check_version_identity.sh" "$root"
@@ -427,5 +550,6 @@ expect 0 'repo: facade surface' sh "$scripts/check_facade_surface.sh" "$root"
 expect 0 'repo: internal packages' \
   sh "$scripts/check_internal_packages.sh" "$root"
 expect 0 'repo: layering' sh "$scripts/check_layering.sh" "$root"
+expect 0 'repo: engine seams' sh "$scripts/check_engine_seams.sh" "$root"
 
 printf 'doc guards: %s cases pass\n' "$cases"

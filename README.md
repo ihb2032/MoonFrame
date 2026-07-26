@@ -238,21 +238,28 @@ moonframe.mbt   the root package — facade over the public API (fluent-chain in
 
 The `internal/` packages are MoonBit `internal` packages: importable inside
 this module only, so they carry no compatibility promise. Where a new piece of
-engine work belongs follows one rule — **only the packages below `series` name
-the physical column**:
+engine work belongs is decided by one rule, written as the import it allows —
+**`internal/column` is imported by `series` and `internal/kernel`, and by
+nothing else**:
 
 ```
-frame            what a verb means: row sets, scheduling, schema, errors
-  └─ internal/kernel   how a column is computed: one pass per operator
-       └─ series       what a column is: dtype, validity, backend convergence
-            └─ internal/column   how a column is laid out: buffers + bitmap
+internal/column   how a column is laid out: data buffers + validity bitmap
+series            what a column is: dtype, validity, backend convergence
+internal/kernel   how a column is computed: one vectorized pass per operator
+frame and above   what a verb means: row sets, scheduling, schema, errors
 ```
 
-So a new vectorized operator goes in `internal/kernel`, not in `frame`; a new
-column-level primitive goes in `series`; and `frame` reads a column only
-through `Series` (its production build does not import `internal/column` at
-all — the test build does, to assert which backend an operator's output lands
-on).
+`internal/kernel` sits beside `series` rather than above it: it needs the
+representation to keep the numeric fast paths, and it hands `frame` back a
+`Series`. So a new vectorized operator goes in `internal/kernel` — where naming
+the physical column is the point — a new column-level primitive goes in
+`series`, and `frame` reads a column only through `Series`. `frame`'s
+production build does not import `internal/column` at all; its test build does,
+to assert which backend an operator's output lands on.
+
+The dependency graph is a DAG, not a chain — `expr` and `internal/ir` sit off
+to one side of it — and `.github/scripts/check_layering.sh` enforces the rule
+above against the manifests rather than trusting this paragraph.
 
 The data model is an Apache Arrow-style column layout (a byte-packed validity
 bitmap, `1 = valid`) with an `O(1)` name→index cache;

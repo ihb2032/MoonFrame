@@ -62,6 +62,7 @@ sh .github/scripts/check_stale_names.sh
 sh .github/scripts/check_enum_surface.sh
 sh .github/scripts/check_facade_surface.sh
 sh .github/scripts/check_internal_packages.sh
+sh .github/scripts/check_layering.sh
 ```
 
 - **Version identity** — `moon.mod`, `docs/api.md`, `docs/changelog.md`, and
@@ -91,11 +92,19 @@ sh .github/scripts/check_internal_packages.sh
   or a source comment. `docs/changelog.md` and `docs/migration.md` are exempt
   (history is their content); a single line that must name one takes the marker
   `doc-guard: historical`.
-- **Internal packages** — the set of `internal/*` packages on disk must equal
-  the set README's repository-structure block and `docs/api.md` describe. They
-  have no public surface, so no other guard notices one appearing or
+- **Internal packages** — the set of `internal/*` package *names* on disk must
+  equal the set README's repository-structure block and `docs/api.md` name.
+  They have no public surface, so no other guard notices one appearing or
   disappearing — and an internal package is where a whole class of work is
-  supposed to live, so one the docs never mention gets bypassed.
+  supposed to live, so one the docs never mention gets bypassed. It checks
+  names, not whether the descriptions are accurate.
+- **Layering** — the production package graph, read off the `moon.pkg`
+  manifests: `internal/column` is imported by `series` and `internal/kernel`
+  and by nothing else, no `internal/*` package imports `frame` / `io` / `lazy`,
+  the facade imports exactly the six public packages, and no public
+  `pkg.generated.mbti` names an internal package. Test-only import blocks are
+  exempt by design (`frame`'s tests name `StorageKind`). Changing the layering
+  means changing the rule in the guard first, then both documents.
 
 One more pass, `review_absolute_wording.sh`, annotates absolute claims ("all",
 "every", "never", "total") in prose a PR adds. It never fails the build — it

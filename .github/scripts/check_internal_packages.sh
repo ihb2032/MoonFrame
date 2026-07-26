@@ -7,12 +7,17 @@
 # and prose is where "which package does this code belong in?" is actually
 # answered.
 #
-# So this pins the one thing that must not drift: the set of internal packages
-# on disk equals the set the architecture docs describe. README's
-# repository-structure block lists each one with its job; `docs/api.md` names
-# them where it explains why they carry no compatibility promise. Adding a
-# package without saying what belongs in it — the drift that let vectorized
-# execution live in two places at once — fails here.
+# So this pins one thing, exactly: the set of internal package *names* on disk
+# equals the set the architecture docs name. README's repository-structure
+# block lists each one with its job; `docs/api.md` names them where it explains
+# why they carry no compatibility promise. Adding a package without listing it
+# in either — the drift that left the package map describing the architecture
+# the kernel extraction replaced — fails here.
+#
+# What it does not check: whether those descriptions are *accurate*, whether
+# the two documents agree about a package's job, or which way the imports run.
+# The last of those is `check_layering.sh`, which reads the manifests; the
+# first two are review's job, since no guard can read intent out of a sentence.
 #
 # Usage: .github/scripts/check_internal_packages.sh [repo-root]
 # Exit 0 when the docs and the tree agree, 1 on drift.

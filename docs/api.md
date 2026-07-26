@@ -103,10 +103,13 @@ The public surface is split across six packages; the facade re-exports them so
 Storage backends (`internal/column`), the vectorized expression kernels
 (`internal/kernel`), the text / literal primitives (`internal/text` /
 `internal/literal`), and the expression AST (`internal/ir`) live in
-module-internal packages a downstream module cannot import. They stack in that
-order — `frame` schedules, `internal/kernel` computes a column, `series` owns
-what a column is, `internal/column` owns how it is laid out — so only the
-packages below `series` name the physical representation.
+module-internal packages a downstream module cannot import. Responsibility
+runs `frame` schedules → `internal/kernel` computes a column → `series` owns
+what a column is → `internal/column` owns how it is laid out, and the rule that
+keeps it that way is an import allowlist: `internal/column` is imported by
+`series` and `internal/kernel` only, so `frame` and everything above it reach a
+column through `Series`. `.github/scripts/check_layering.sh` checks that
+against the build manifests.
 
 ## Constructor spelling
 

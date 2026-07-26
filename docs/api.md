@@ -109,9 +109,15 @@ API — the options records (`CsvReadOptions`, `CsvWriteOptions`,
 their named constructors and inspected through their fields — while a type with
 its own accessors keeps its representation private, which is what makes a
 future field genuinely additive there (`Field`, `Schema`, `Series`,
-`DataFrame`, `Expr`, `LazyFrame`). Which fields are public is pinned
-symbol-by-symbol in `.github/scripts/facade_surface.snapshot`, so adding one is
-a deliberate act, not a side effect.
+`DataFrame`, `Expr`, `LazyFrame`).
+
+The line runs per field, not per type: `CsvReadOptions.null_values` is private
+with a copying `null_values()` accessor, so that one field's representation is
+*not* on the surface even though its neighbours are — the array would otherwise
+be mutable through the options value. Which fields are public is pinned
+field-by-field in `.github/scripts/facade_surface.snapshot`, with their types,
+so adding one is a deliberate act rather than a side effect — and that snapshot,
+not a summary sentence, is the list.
 
 ## Packages
 

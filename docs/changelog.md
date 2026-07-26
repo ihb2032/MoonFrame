@@ -140,7 +140,8 @@ collected in [`migration.md`](migration.md).
   the all-defaulted constructors `CsvReadOptions::CsvReadOptions(...)`, `CsvWriteOptions::CsvWriteOptions(...)`,
   and `JsonReadOptions::JsonReadOptions(...)`, and the three types are `pub` rather than
   `pub(all)` — name only the fields that differ instead of spelling out a
-  record literal. Their fields stay public, because reading them is what an
+  record literal. Their fields stay public — bar `CsvReadOptions.null_values`,
+  private behind a copying accessor (below) — because reading them is what an
   options record is for; that keeps the *field set* part of the compatibility
   surface, since a public field can be destructured (see `api.md`, "API
   stability & compatibility").

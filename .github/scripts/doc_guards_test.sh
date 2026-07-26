@@ -511,13 +511,19 @@ expect_out 1 'snapshot' 'layering: snapshot absent' \
 
 # ── engine seams ──────────────────────────────────────────────────────────
 mkseams() {
-  # mkseams <dir> <series-source> <snapshot-body|-->
+  # mkseams <dir> <series-source> <snapshot-body|--> [test-source]
+  # The optional fourth argument lands in a `_wbtest.mbt`, which the guard must
+  # skip: a whitebox test compiles inside its own package, so a `pub` helper
+  # there is not an external symbol at all.
   mkdir -p "$1/series" "$1/.github/scripts"
   (cd "$1" && git init -q . && git config user.email t@t &&
     git config user.name t && git config core.autocrlf false)
   printf '%s\n' "$2" >"$1/series/series.mbt"
   if [ "$3" != "--" ]; then
     printf '%s\n' "$3" >"$1/.github/scripts/engine_seams.snapshot"
+  fi
+  if [ $# -ge 4 ]; then
+    printf '%s\n' "$4" >"$1/series/series_wbtest.mbt"
   fi
   (cd "$1" && git add -A && git commit -qm f)
 }
@@ -591,6 +597,18 @@ expect_out 1 'only one of the two attributes' \
 mkseams "$work/es_missing" "$es_source" --
 expect_out 1 'snapshot' 'engine seams: snapshot absent' \
   sh "$scripts/check_engine_seams.sh" "$work/es_missing"
+
+# A test-only helper carrying the seam attributes is not part of the surface,
+# in either test spelling. Left in scope it would land in the snapshot and fail
+# CI over a symbol no caller outside its own package can name.
+mkseams "$work/es_wbtest" "$es_source" "$es_snap" '///|
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
+pub fn test_only_probe(column : Series) -> Int {
+  ignore(column)
+}'
+expect 0 'engine seams: a whitebox test declaration is out of scope' \
+  sh "$scripts/check_engine_seams.sh" "$work/es_wbtest"
 
 # ── the repository itself ─────────────────────────────────────────────────
 expect 0 'repo: version identity' sh "$scripts/check_version_identity.sh" "$root"

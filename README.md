@@ -249,10 +249,12 @@ internal/kernel   how a column is computed: one vectorized pass per operator
 frame and above   what a verb means: row sets, scheduling, schema, errors
 ```
 
-`internal/kernel` sits beside `series` rather than above it: it needs the
-representation to keep the numeric fast paths, and it hands `frame` back a
-`Series`. So a new vectorized operator goes in `internal/kernel` — where naming
-the physical column is the point — a new column-level primitive goes in
+Two different relations are stacked there, and it helps to keep them apart:
+`internal/kernel` **depends on** `series` (it takes columns and hands columns
+back), while being its **peer in storage access** — both may name the physical
+column, because a vectorized pass needs the representation to keep the numeric
+fast paths. So a new vectorized operator goes in `internal/kernel` — where
+naming the physical column is the point — a new column-level primitive goes in
 `series`, and `frame` reads a column only through `Series`. `frame`'s
 production build does not import `internal/column` at all; its test build does,
 to assert which backend an operator's output lands on.

@@ -13,34 +13,55 @@
 #   frame and above   what a verb means: row sets, scheduling, schema, errors
 #
 # `series` and `internal/kernel` import `internal/column`; nothing else does.
-# `internal/kernel` sits *beside* `series` rather than above it — it needs the
-# representation to keep the numeric fast paths — which is precisely the nuance
+# Note the two relations that the four-line stack above blurs together:
+# `internal/kernel` *depends on* `series` — it takes and returns columns — but
+# is its *peer in storage access*, because a vectorized pass needs the
+# representation to keep the numeric fast paths. Which is precisely the nuance
 # a layer diagram loses and an import list does not.
 #
-# Four checks:
+# Five checks:
 #   1. `internal/column` is imported only by `series` and `internal/kernel`.
-#   2. No `internal/*` package imports `frame` / `io` / `lazy` — the internal
+#   2. `internal/kernel` is imported only by `frame`. It is the execution
+#      engine's private machinery; `io` or `lazy` reaching past `frame` for it
+#      would route computation around the layer that owns what a verb means.
+#   3. No `internal/*` package imports `frame` / `io` / `lazy` — the internal
 #      layers stay below the verbs, never circling back.
-#   3. The root facade imports exactly the six public packages.
-#   4. No public package's generated interface names an `internal/` package:
+#   4. The root facade imports exactly the six public packages.
+#   5. No public package's generated interface names an `internal/` package:
 #      an internal type reaching a public signature is the leak all of this
 #      exists to prevent.
+#
+# Those five are rules: they hold for reasons, and changing one means changing
+# the reason. Every *other* production edge is pinned in a snapshot instead —
+# a new dependency between two packages is not wrong on its face, but it is a
+# structural decision, and this is where it gets made deliberately:
+#
+#   sh .github/scripts/check_layering.sh --write
 #
 # Production imports only. A `import { ... } for "test"` block is the test
 # configuration and is deliberately allowed to reach further — `frame`'s tests
 # name `StorageKind` to assert which backend an operator's output lands on,
 # which is behaviour worth pinning and not a layering violation.
 #
-# Usage: .github/scripts/check_layering.sh [repo-root]
-# Exit 0 when the manifests obey the rule, 1 on a violation.
+# Usage: .github/scripts/check_layering.sh [repo-root] [--write]
+# Exit 0 when the manifests obey the rules and match the snapshot, 1 otherwise.
 
 set -eu
 
-root="${1:-.}"
+root="."
+write=0
+for arg in "$@"; do
+  case "$arg" in
+    --write) write=1 ;;
+    *) root="$arg" ;;
+  esac
+done
 cd "$root"
 
+snapshot=".github/scripts/layering.snapshot"
 module="ihb2032/MoonFrame"
 column_importers="series internal/kernel"
+kernel_importers="frame"
 public_packages="expr frame io lazy series types"
 verb_packages="frame io lazy"
 
@@ -98,6 +119,10 @@ edge_violations=$(printf '%s\n' "$edges" | while IFS= read -r edge; do
     printf '%s imports internal/column; only [%s] may\n' \
       "$from" "$column_importers"
   fi
+  if [ "$to" = "internal/kernel" ] && ! in_list "$from" "$kernel_importers"; then
+    printf '%s imports internal/kernel; only [%s] may\n' \
+      "$from" "$kernel_importers"
+  fi
   case "$from" in
     internal/*)
       if in_list "$to" "$verb_packages"; then
@@ -114,7 +139,7 @@ if [ -n "$edge_violations" ]; then
   fail=1
 fi
 
-# 3: the facade's own dependencies are the public surface it re-exports.
+# 4: the facade's own dependencies are the public surface it re-exports.
 root_deps=$(printf '%s\n' "$edges" | sed -n 's/^root -> //p' | LC_ALL=C sort -u |
   tr '\n' ' ' | sed 's/ *$//')
 expected_root=$(printf '%s\n' $public_packages | LC_ALL=C sort -u |
@@ -123,7 +148,7 @@ if [ "$root_deps" != "$expected_root" ]; then
   report "the root facade imports [$root_deps]; expected exactly [$expected_root]"
 fi
 
-# 4: an internal type in a public interface is the leak, whatever the manifests
+# 5: an internal type in a public interface is the leak, whatever the manifests
 # say. `moon info` regenerates these, so this reads the committed result.
 for pkg in $public_packages; do
   mbti="$pkg/pkg.generated.mbti"
@@ -144,5 +169,31 @@ if [ "$fail" -ne 0 ]; then
   exit 1
 fi
 
-printf 'layering: %s production edges obey the rule\n' \
+# The rules above cover the edges that must never appear. The snapshot covers
+# the rest: every production edge, so a new dependency anywhere in the module
+# is a diff rather than a silent widening of who knows about whom.
+if [ "$write" -eq 1 ]; then
+  printf '%s\n' "$edges" >"$snapshot"
+  printf 'layering: wrote %s (%s edges)\n' \
+    "$snapshot" "$(printf '%s\n' "$edges" | grep -c ' -> ')"
+  exit 0
+fi
+
+if [ ! -f "$snapshot" ]; then
+  printf 'layering: snapshot %s missing — run with --write to create it\n' \
+    "$snapshot"
+  exit 1
+fi
+
+if ! diff_out=$(printf '%s\n' "$edges" | diff -u "$snapshot" - 2>&1); then
+  printf 'layering: the production dependency graph changed.\n'
+  printf '  A package started (or stopped) depending on another. That is a\n'
+  printf '  structural decision — which layer may know about which — so it\n'
+  printf '  lands deliberately. If it is intended, regenerate:\n'
+  printf '    sh .github/scripts/check_layering.sh --write\n'
+  printf '%s\n' "$diff_out" | sed 's/^/    /'
+  exit 1
+fi
+
+printf 'layering: %s production edges obey the rules and match the snapshot\n' \
   "$(printf '%s\n' "$edges" | grep -c ' -> ')"

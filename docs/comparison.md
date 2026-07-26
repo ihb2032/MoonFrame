@@ -1,5 +1,8 @@
 # MoonFrame and Polars / pandas
 
+> Documents the unreleased v0.6 API; `moon add` installs the published
+> v0.5.8, whose reference is on mooncakes.io. See [Install](../README.md#install).
+
 MoonFrame is an **original MoonBit implementation** — no Polars or pandas
 source was translated. What it borrows is the *shape*: the DataFrame and
 expression API and the column semantics are modeled on

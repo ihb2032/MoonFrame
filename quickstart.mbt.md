@@ -1,5 +1,8 @@
 # MoonFrame quickstart (runnable)
 
+> Documents the unreleased v0.6 API; `moon add` installs the published
+> v0.5.8, whose reference is on mooncakes.io. See [Install](README.md#install).
+
 Every code block below is a **doc test**: `moon test` compiles and runs it on
 the default backend, and CI additionally runs `moon test --target all` over all
 four (wasm / wasm-gc / js / native). So these examples cannot silently rot — if

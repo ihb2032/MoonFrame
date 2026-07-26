@@ -3,6 +3,11 @@
 > Status: **v0.6 — the API-convergence release** (a tail of parallel spellings
 > collapsed onto one entry each). It is one more breaking release; from v0.7 on
 > the stable public surface evolves compatibly.
+>
+> Documents the unreleased v0.6 API; `moon add` installs the published
+> v0.5.8, whose reference is on mooncakes.io. The per-symbol links below
+> therefore describe v0.5.8 until v0.6 ships. See
+> [Install](../README.md#install).
 
 This guide covers the **cross-cutting behaviour** of the public API — the
 compatibility model, the error model, evaluation semantics, the query

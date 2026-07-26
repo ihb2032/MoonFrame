@@ -131,20 +131,24 @@ collected in [`migration.md`](migration.md).
 - `Field::new(name, dtype)` and `Field::with_nullable(name, dtype, nullable)`
   are replaced by the single custom constructor
   `Field::Field(name, dtype, nullable? = true)`.
-- `struct Field` is `pub` rather than `pub(all)`: its fields stay readable
-  (directly and through the `name` / `dtype` / `nullable` accessors) but it can
-  no longer be built from a record literal outside `types`. Construction goes
-  through `Field::Field(...)`, so a future field can be added without breaking callers.
+- `struct Field` is `pub` rather than `pub(all)`, so it can no longer be built
+  from a record literal outside `types`; construction goes through
+  `Field::Field(...)`. Its fields went private later in this same release (see
+  below), read through the `name()` / `dtype()` / `nullable()` accessors.
 - The IO options types follow the same shape. `CsvReadOptions::default()`,
   `CsvWriteOptions::default()`, and `JsonReadOptions::default()` are replaced by
   the all-defaulted constructors `CsvReadOptions::CsvReadOptions(...)`, `CsvWriteOptions::CsvWriteOptions(...)`,
   and `JsonReadOptions::JsonReadOptions(...)`, and the three types are `pub` rather than
   `pub(all)` — name only the fields that differ instead of spelling out a
-  record literal, and a future field no longer breaks callers.
+  record literal. Their fields stay public, because reading them is what an
+  options record is for; that keeps the *field set* part of the compatibility
+  surface, since a public field can be destructured (see `api.md`, "API
+  stability & compatibility").
 - `NdjsonReadOptions` is gone: `read_ndjson_with_options`, `parse_ndjson_str`,
   `read_ndjson_projected`, and `scan_ndjson_with_options` take
   `JsonReadOptions`. The two types were structurally identical; a
-  format-specific field can be added back additively when one exists.
+  format-specific field can be added back when one exists, riding the minor
+  version as any public-field addition does.
 - The two loose reader/writer flags moved into the options they configure:
   `strict_quotes` is now `CsvReadOptions.strict_quotes` (so the lazy
   `scan_csv_with_options` gets it too, which the parameter form never offered)
@@ -180,7 +184,7 @@ collected in [`migration.md`](migration.md).
   test.
 - The storage-backend surface leaves the public API. `Series::storage` /
   `storage_kind` / `to_numeric` / `to_builtin` / `is_canonical` /`mean_opt` and
-  `DataFrame::storage_kinds` / `to_numeric` / `to_builtin` /
+  `DataFrame::to_numeric` / `to_builtin` /
   `to_scalar_matrix` are marked `#doc(hidden)` `#internal(engine, ...)`: they
   stay `pub` so the engine can use them across package boundaries, but they no
   longer appear in the generated interface and using them from outside the
@@ -189,11 +193,14 @@ collected in [`migration.md`](migration.md).
   imports that package at all.
 - The engine seams leave the public interface. `series` publishes **no** free
   functions at all now: `gather_series` / `gather_series_opt` / `slice_series`
-  / `rebuild_options` / `preserve_backend` / `try_column_to_numeric` /
-  `validity_bools` / `reducer_for` / `scalars_to_series` / `key_cell` and the
+  / `preserve_backend` / `try_column_to_numeric` / `validity_bools` /
+  `mask_true_indices` / `coalesce_columns` / `reducer_for` /
+  `scalars_to_series` / `key_cell` and the
   `ReduceOp` / `KeyCell` types are `#internal`, as are `types`'
   `fold_extremum` and the exact Int/Double comparison primitives and `io`'s
-  `read_csv_projected` / `read_ndjson_projected`.
+  `read_csv_projected` / `read_ndjson_projected`. The full set, with
+  signatures, is pinned in `.github/scripts/engine_seams.snapshot`; none of it
+  is a compatibility promise.
 - The text and rendering helpers move behind a hard boundary: `internal/text`
   now owns `compare_string_lex`, `escape_debug`, `is_decimal_int_literal`,
   `parse_decimal_int_opt`, and `parse_plain_double_opt`, and the new

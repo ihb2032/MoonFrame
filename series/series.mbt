@@ -519,7 +519,7 @@ pub fn slice_series(s : Series, start : Int, len : Int) -> Series {
 /// for a null slot.
 ///
 /// This is the single 4-arm `match data() -> from_*_options` skeleton behind
-/// `gather_series`' nullable path, `gather_series_opt`, and `coalesce_into`:
+/// `gather_series`' nullable path, `gather_series_opt`, and `coalesce_columns`:
 /// the per-caller cell logic is all that differs between them, so it is all
 /// each caller supplies. The `match` stays exhaustive over the four dtypes —
 /// every arm is the live path for a column of that dtype, so none is dead.
@@ -569,8 +569,8 @@ fn rebuild_options(
 /// `Numeric` fast path, and a `Builtin` source whose gathered rows leave it
 /// all-valid re-converges onto `Numeric` too (via `rebuild_options`), so
 /// the backend is a function of the gathered content, not the source — the
-/// invariant predicate pushdown relies on. Backs `drop_nulls`, `take`, and
-/// the row-gather DataFrame transforms.
+/// invariant predicate pushdown relies on. Backs `drop_nulls`,
+/// `Series::gather`, and the row-gather DataFrame transforms.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
 pub fn gather_series(s : Series, idx : Array[Int]) -> Series {
@@ -858,7 +858,7 @@ pub fn Series::storage_kind(self : Series) -> @column.StorageKind {
 ///|
 /// Whether this column sits on its **canonical** storage backend — the fixed
 /// point of `try_column_to_numeric`, the representation every
-/// content-determined transform (`gather` / `drop_nulls` / `filter` / `take`
+/// content-determined transform (`gather` / `drop_nulls` / `filter`
 /// and the expression engine's computed columns) lands its result on.
 ///
 /// A column is canonical unless it is a `Builtin` column that is both

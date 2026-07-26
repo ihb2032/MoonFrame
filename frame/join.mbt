@@ -307,7 +307,7 @@ fn DataFrame::assemble_join_output(
   // Assemble the output columns. Left columns are gathered with `None ->
   // null` (a kept unmatched-right row has no left cell). A coalesced key
   // sits in its left position but draws each cell from whichever side is
-  // present (`coalesce_into`); the matching right key column is then dropped
+  // present (`coalesce_columns`); the matching right key column is then dropped
   // below.
   //
   // Each assembled column is re-converged to its source's backend with
@@ -338,9 +338,9 @@ fn DataFrame::assemble_join_output(
       // `-0.0` and `+0.0` share a group, so a `Right` join must surface the
       // right's signed zero, not the left's.
       let merged = match options.how {
-        Right => coalesce_into(right_key, left_key, col.name())
+        Right => coalesce_columns(right_key, left_key, col.name())
         Inner | Left | Outer | Cross =>
-          coalesce_into(left_key, right_key, col.name())
+          coalesce_columns(left_key, right_key, col.name())
       }
       out_cols.push(preserve_backend(col, merged))
     } else {
@@ -528,69 +528,4 @@ fn coalesce_key_names(options : JoinOptions) -> Array[String]? {
     }
   }
   Some(names)
-}
-
-///|
-/// Merge two gathered, equal-dtype, equal-length key columns into one,
-/// taking `base`'s cell where it is non-null and `fill`'s otherwise. Used
-/// for a coalesced join key: `base` is the left key gathered over the output
-/// rows, `fill` the right key. On a matched row the two are equal, so the
-/// choice only shows where the row is present on a single side (`base` null
-/// → take `fill`); a row null on **both** sides (a kept null-keyed row)
-/// stays null. Builds through the shared `rebuild_options` skeleton
-/// (dispatching on `base`'s storage variant once), reading `fill` through the
-/// total `to_scalars` so no unreachable error arm is introduced — the
-/// pre-checked equal key dtype guarantees the matching `Scalar` variant, the
-/// `_` arm catching only the both-null case.
-fn coalesce_into(base : Series, fill : Series, name : String) -> Series {
-  let base_valid = validity_bools(base)
-  let fills = fill.to_scalars()
-  // Each output cell takes `base`'s value where present, else `fill`'s; a
-  // both-null cell falls through both to a null. The four closures differ only
-  // in the `Scalar` variant they read `fill` as.
-  rebuild_options(
-    base,
-    name,
-    base.len(),
-    (a, i) => {
-      if base_valid[i] {
-        Some(a[i])
-      } else {
-        match fills[i] {
-          @types.Scalar::Int(v) => Some(v)
-          _ => None
-        }
-      }
-    },
-    (a, i) => {
-      if base_valid[i] {
-        Some(a[i])
-      } else {
-        match fills[i] {
-          @types.Scalar::Float(v) => Some(v)
-          _ => None
-        }
-      }
-    },
-    (a, i) => {
-      if base_valid[i] {
-        Some(a[i])
-      } else {
-        match fills[i] {
-          @types.Scalar::Bool(v) => Some(v)
-          _ => None
-        }
-      }
-    },
-    (a, i) => {
-      if base_valid[i] {
-        Some(a[i])
-      } else {
-        match fills[i] {
-          @types.Scalar::String(v) => Some(v)
-          _ => None
-        }
-      }
-    },
-  )
 }

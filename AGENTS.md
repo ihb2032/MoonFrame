@@ -78,12 +78,14 @@ sh .github/scripts/check_engine_seams.sh
   so it fails here until the snapshot is regenerated deliberately
   (`sh .github/scripts/check_enum_surface.sh --write`).
 - **Facade surface** — the whole callable surface the facade promises is
-  pinned in `.github/scripts/facade_surface.snapshot`. Re-exporting a *type*
-  carries everything callable on it — constructors, methods (including the
-  ones `pub extend` exposes), `#alias` spellings, trait impls, public fields —
-  so the snapshot covers every public package's symbols, tagged with its source
-  package and with whether the facade names the type or leaves it a
-  fluent-chain intermediate. `moon info` and the downstream fixture catch
+  pinned in `.github/scripts/facade_surface.snapshot`, **with signatures**.
+  Re-exporting a *type* carries everything callable on it — constructors,
+  methods (including the ones `pub extend` exposes), `#alias` spellings, trait
+  impls, public fields — so the snapshot covers every public package's symbols,
+  tagged with its source package and with whether the facade names the type or
+  leaves it a fluent-chain intermediate. Signatures matter because half of what
+  breaks a caller leaves the names alone: a parameter type, a `raise`
+  appearing, an optional parameter becoming required, a field widening to `?`. `moon info` and the downstream fixture catch
   under-exports and interface drift; this catches an *over-export* — a symbol
   that reaches callers as `@moonframe.Type::method` without any facade change,
   and becomes a breaking change once published. Any add / remove /

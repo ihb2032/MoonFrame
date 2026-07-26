@@ -62,6 +62,14 @@ mkfixture() {
   mkdir -p "$1/docs"
   printf 'name = "x"\n\nversion = "%s"\n' "$2" >"$1/moon.mod"
   printf '# MoonFrame v%s — Public API\n' "$3" >"$1/docs/api.md"
+  # Every entry point carries the notice while the newest release is
+  # unreleased, so a fixture that varies README varies only README.
+  case "$4" in
+  *'(unreleased)'*)
+    printf 'Documents the unreleased v%s API; moon add installs v%s.\n' \
+      "$3" "$2" >>"$1/docs/api.md"
+    ;;
+  esac
   printf '# Changelog\n\n%s\n\nbody\n\n## v0.5.8 — before\n' "$4" >"$1/docs/changelog.md"
   printf '# Migration\n\n## v0.0.0 → v%s\n' "$5" >"$1/docs/migration.md"
   if [ $# -ge 6 ]; then
@@ -107,9 +115,12 @@ expect 1 'version: unreleased, moon.mod behind the published version' \
 # `moon.mod` to.
 mkdir -p "$work/v_first/docs"
 printf 'name = "x"\n\nversion = "0.0.0"\n' >"$work/v_first/moon.mod"
-printf '# MoonFrame v0.1 — Public API\n' >"$work/v_first/docs/api.md"
+printf '# MoonFrame v0.1 — Public API\n\nDocuments the unreleased v0.1 API; moon add installs v0.0.0.\n' \
+  >"$work/v_first/docs/api.md"
 printf '# Changelog\n\n## v0.1.0 — first (unreleased)\n' >"$work/v_first/docs/changelog.md"
 printf '# Migration\n\n## v0.0.0 → v0.1.0\n' >"$work/v_first/docs/migration.md"
+printf 'Documents the unreleased v0.1 API; moon add installs v0.0.0.\n' \
+  >"$work/v_first/README.md"
 expect 0 'version: first release has no published predecessor' \
   sh "$scripts/check_version_identity.sh" "$work/v_first"
 

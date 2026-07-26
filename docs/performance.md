@@ -1,5 +1,8 @@
 # Performance notes
 
+> Documents the unreleased v0.6 API; `moon add` installs the published
+> v0.5.8, whose reference is on mooncakes.io. See [Install](../README.md#install).
+
 MoonFrame is built on an Apache Arrow-style **columnar** layout. This page
 records the complexity of each operation and the storage design behind it.
 These are analytical notes on complexity and layout; for measured throughput a

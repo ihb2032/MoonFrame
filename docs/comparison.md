@@ -24,9 +24,11 @@ libraries — not a derivative work of either codebase.
 
 ## Aligned with Polars
 
-- **The four verbs take expressions** — `select` / `filter` / `agg` /
-  `with_columns` each take `Expr`s, on both `DataFrame` and `LazyFrame`, as
-  do the `sort` / `group_by` / `join` / `drop` keys.
+- **The four verbs take expressions** — `select` / `filter` / `with_columns`
+  take `Expr`s on both `DataFrame` and `LazyFrame`, and so does `agg`, reached
+  as `group_by(keys).agg(aggregations)` through the grouped intermediate each
+  layer returns; the `sort` / `group_by` / `join` / `drop` keys are expressions
+  too.
 - **Expression engine** — `col` / `lit_*`, arithmetic `+ - * /` plus
   `floor_div` / `modulo` / `pow` and the unary `abs` / `floor` / `ceil` /
   `sign` / `round`, Kleene `& |`, comparisons and the `is_in` / `is_between` /

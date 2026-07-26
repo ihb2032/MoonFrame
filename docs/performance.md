@@ -65,7 +65,8 @@ below counts expressions, not nodes.
 | `group_by(keys).agg(aggs)` | `O(n · keys)` to build the composite key cells, then `O(n)` per aggregate | `O(g · (keys + aggs))` | `g` = groups; each reduction folds a group over its own indices |
 | `join` | `O(n + m)` hash build + probe on the key columns | `O(r · c)` | `r` = output rows, which for a many-to-many match exceeds both inputs |
 | `unique` | `O(n · c)` to build a row key from every column (`O(n · s)` for a `subset` of `s`) | `O(k · c)` | hash on the composite row key |
-| `sum` / `mean` / `min` / `max` / `count` | `O(n)` per column | `O(c)` | single pass; `Numeric` skips validity |
+| `sum` / `mean` / `min` / `max` | `O(n)` per column | `O(c)` | single pass; `Numeric` skips validity |
+| `count` | `O(1)` on `Numeric`, `O(n)` bits on `Builtin` | `O(c)` | non-null count: a `Numeric` column has none, a `Builtin` one scans its packed bitmap (`n / 8` bytes) |
 | `format_*` (JSON / CSV / NDJSON) | — | `O(n · c)` | one whole-frame `to_scalar_matrix` read |
 | `to_markdown` / `to_html` | — | `O(shown · c)` | scalarises only the rows shown — a row cap touches `shown`, not `n` |
 
@@ -126,8 +127,8 @@ are machine-dependent and a pass/fail bar would be flaky. The suite covers, at
 The headline result confirms the design intent: on all-valid numeric columns the
 `Numeric` backend reduces several times faster than `Builtin`, the widest gap
 being `sum` at 1M rows, while `count` on `Numeric` is `O(1)` — it has no
-validity bitmap to scan (the general `count` is the `O(n)` per-column pass the
-complexity table lists; a compact `Builtin` bitmap scans in about `O(n / 8)`).
+validity bitmap to scan, where a `Builtin` column reads about `n / 8` bytes of
+packed bitmap, as the table above says.
 No ratio is quoted here on
 purpose — the repo pins no reference hardware and stores no baseline output, so
 any number printed in prose would drift with the implementation and the

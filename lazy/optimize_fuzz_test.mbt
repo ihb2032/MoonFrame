@@ -5,7 +5,7 @@
 /// signed zero, near-Double::MAX values, >2^53 integers, strings, and several
 /// columns at once. The invariant under test is the
 /// optimizer's own contract — `collect()` (which runs `optimize` in front of
-/// the executor) is bitwise-equal, with error parity, to the eager verb chain
+/// the executor) is equal, with error parity, to the eager verb chain
 /// it defers. Each case builds the SAME pipeline two ways: lazily (optimized)
 /// and eagerly (the as-built reference), then asserts the two agree cell for
 /// cell (NaN-aware), with error parity. Value equality is the contract: a
@@ -959,7 +959,7 @@ fn rows_to_clean_frame(
 /// A filter on a `scan_csv` leaf is absorbed into the scan, which builds the
 /// predicate's columns, prunes the rows, and parses the rest for survivors alone
 /// (`read_csv_pruned`). That row-pruning path — distinct from the projection-only
-/// narrowing Test 4 covers — must collect bitwise-equal to an eager
+/// narrowing Test 4 covers — must collect equal to an eager
 /// read-then-filter of the same file. Fuzz it: write generated rows, then
 /// compare the pruned scan against the eager read+filter. Clean Int/String data
 /// round-trips losslessly through the CSV header, so both sides read identical

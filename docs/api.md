@@ -326,7 +326,7 @@ and there are none.
   defines and adds the names it reads; `Join` is a barrier (each side restarts
   its own pass).
 
-The rewrites never change results: `collect` stays bitwise-equal to the eager
+The rewrites never change results: `collect` stays equal to the eager
 chain, and a failing plan still fails (a single broken stage reports the same
 eager error; a plan with several independently broken stages may report a
 different one of its own errors once a filter sinks past a broken stage — which

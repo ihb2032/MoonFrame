@@ -31,7 +31,7 @@ fn write_raw(path : String, content : String) -> Unit raise @types.DataError {
 }
 
 ///|
-test "scan_ndjson collects bitwise-equal to the eager read of the same file" {
+test "scan_ndjson collects equal to the eager read of the same file" {
   let path = "_build/lazy_scan_ndjson_roundtrip.ndjson"
   write_ndjson_fixture(path)
   let out = scan_ndjson(path).collect()

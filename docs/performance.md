@@ -72,8 +72,11 @@ below counts expressions, not nodes.
 ## Lazy execution
 
 `collect()` runs two result-preserving rewrites before executing, and the
-output is **bitwise-equal** to the eager pipeline (with one documented
-exception, noted below):
+output **equals** the eager pipeline's — same schema, same cells, same errors,
+which is what `DataFrame`'s `Eq` compares and what the differential suite
+asserts (with one documented exception, noted below). Not a claim about
+physical layout: the backend a column lands on is an internal representation,
+and two equal frames may hold their cells differently.
 
 - **Predicate pushdown** sinks each `filter` toward the scan, so rows drop
   as early as the operator provably commutes with the predicate.
@@ -87,7 +90,7 @@ exception, noted below):
 Because a pruned column is never parsed, a parse error confined to it — or to a
 row a pushed-down predicate drops, in a column the predicate does not read — is
 what an optimized plan will not surface that a full eager read would: the
-intentional divergence from bitwise equality, and it only applies to file
+intentional divergence from that equality, and it only applies to file
 sources (`scan_csv` / `scan_ndjson`).
 
 See [`api.md`](api.md) for the per-operation semantics and

@@ -266,10 +266,13 @@ built on them, and `scan_csv` / `scan_ndjson` for projection push-down.
 ### The storage-backend methods are engine seams
 
 `Series::storage` / `storage_kind` / `to_numeric` / `to_builtin` /
-`is_canonical` / `mean_opt` and `DataFrame::storage_kinds` / `to_numeric` /
+`is_canonical` / `mean_opt` and `DataFrame::to_numeric` /
 `to_builtin` / `to_scalar_matrix` are no longer public API. They remain `pub`
 for the library's own cross-package use but are marked `#internal`, so they are
 absent from the generated interface and calling them from another module warns.
+
+`DataFrame::storage_kinds` is gone outright rather than hidden: read the
+backend per column through `Series::storage_kind` if you are inside the engine.
 
 They existed to expose the columnar backend, which moved to `internal/column`
 in v0.6. Value-level access covers the user-facing cases: `Series::get` /

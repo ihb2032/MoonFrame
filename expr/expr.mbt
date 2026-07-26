@@ -62,10 +62,19 @@ fn Expr::of(node : @ir.ExprNode) -> Expr {
 }
 
 ///|
-/// Structural equality, delegated to the handwritten `@ir.ExprNode` equality
-/// (the `Map` / `MapBatches` closures block a derived one). This is what
-/// `DataFrame` / the lazy `LogicalPlan` reach through their derived `Eq` when a
-/// structure embeds an `Expr`.
+/// Structural equality over the tree **as built** — delegated to the
+/// handwritten `@ir.ExprNode` equality (the `Map` / `MapBatches` closures block
+/// a derived one). `DataFrame`, `JoinOptions` and the lazy `LogicalPlan` reach
+/// it through their derived `Eq` whenever a structure embeds an `Expr`.
+///
+/// It is not semantic equality, and the two ways it differs are worth knowing:
+/// `col("a") + lit_int(0)` does not equal `col("a")`, since nothing simplifies
+/// a tree on the way in; and two `map_many` expressions with the same label and
+/// inputs are equal whatever their closures do, because a closure has no
+/// identity to compare — the label *is* the function identity, and giving two
+/// different functions the same label is the caller's mistake to avoid.
+/// `docs/api.md` states this as a compatibility contract, since it makes how an
+/// operator lowers observable from outside.
 pub impl Eq for Expr with fn equal(self, other) {
   self.node == other.node
 }

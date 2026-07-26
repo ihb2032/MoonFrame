@@ -284,3 +284,21 @@ test "equality: is_between compares operand and both bounds" {
   // Never equal to a non-`IsBetween` node.
   assert_not_eq(a, col("a"))
 }
+
+///|
+/// The compatibility contract `docs/api.md` states for `==` on expressions:
+/// structural over the tree as built, with a closure compared by its label.
+/// Both halves surprise someone — they are pinned here so a change to either
+/// has to be a decision.
+test "equality: structural as built, closures compared by label" {
+  // Nothing is simplified on the way in, so an identity operand still counts,
+  // and an operator flipped end-for-end is a different tree.
+  assert_not_eq(col("a") + lit_int(0), col("a"))
+  assert_not_eq(lit_int(1).lt(col("a")), col("a").gt(lit_int(1)))
+  // A closure has no identity: same label, same inputs, equal — whatever the
+  // two functions actually do. The label is the function identity.
+  let doubled = map_many(label="f", [col("a")], cells => cells[0])
+  let nulled = map_many(label="f", [col("a")], _ => @types.Scalar::Null)
+  assert_eq(doubled, nulled)
+  assert_not_eq(doubled, map_many(label="g", [col("a")], cells => cells[0]))
+}

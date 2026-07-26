@@ -26,6 +26,11 @@ test "value types are reachable by name" {
   let scalar : @moonframe.Scalar = @moonframe.Scalar::Int(1)
   assert_eq(schema.len(), 1)
   assert_eq(scalar.to_string(), "1")
+  // `Field` is opaque: built through its constructor, read through its
+  // accessors. A downstream module never names its representation, so a field
+  // added to it stays additive — which is the point of keeping them private.
+  assert_eq(field.name(), "a")
+  assert_eq(field.dtype(), @moonframe.DataType::Int)
   assert_true(field.nullable())
 }
 

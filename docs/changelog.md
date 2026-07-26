@@ -175,8 +175,9 @@ collected in [`migration.md`](migration.md).
 - `JoinOptions::left_on` now requires `right_on~` at the call site, so an
   unpaired sided join no longer compiles, and mixing `on` with
   `left_on` / `right_on` is unspellable: the three constructors each fill one
-  key shape and the fields stay private. The engine keeps its defensive check
-  for the mixed state, now reachable only from an in-package test.
+  key shape and no caller outside `frame` can set a field. The engine keeps its
+  defensive check for the mixed state, now reachable only from an in-package
+  test.
 - The storage-backend surface leaves the public API. `Series::storage` /
   `storage_kind` / `to_numeric` / `to_builtin` / `is_canonical` /`mean_opt` and
   `DataFrame::storage_kinds` / `to_numeric` / `to_builtin` /
@@ -249,6 +250,14 @@ collected in [`migration.md`](migration.md).
   `null_values()` accessor. Both it and the constructor copy, so the token list
   a reader (or a captured `scan_csv` plan) uses can no longer be mutated
   through the options value.
+- `Field`'s representation goes private. `name` / `dtype` / `nullable` are
+  `priv`, read through the accessors of the same names that already existed. A
+  public field is not only readable but *matchable*, and a struct pattern must
+  name every field or carry `..` — so leaving them public would have made any
+  field the type gains later a source-breaking change, the opposite of what its
+  docstring promised. The options records keep their readable fields
+  deliberately: inspecting them is their read API, at the cost `api.md` now
+  states.
 - **Every canonical constructor is now the type's own name, spelled
   `Type::Type(...)`.** `DataFrame::new` becomes `DataFrame::DataFrame`,
   `Schema::new` becomes `Schema::Schema`, and the lazy entry point

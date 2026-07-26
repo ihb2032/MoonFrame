@@ -20,21 +20,30 @@
 # This guard therefore pins the *whole* set, read from every public package's
 # generated interface and tagged with its source package:
 #
-#   fn <name> <- <pkg>              free function (`<- root` = the facade's own)
+#   fn <sig> <- <pkg>               free function (`<- root` = the facade's own)
 #   type <Name> <- <pkg>            public type the facade re-exports by name
 #   intermediate <Name> <- <pkg>    public type the facade deliberately does
 #                                   not name: a fluent-chain step (`WhenThen`,
 #                                   `GroupedDataFrame`, …) reached only by
 #                                   chaining off the previous return value
-#   ctor <Type>::<Type> <- <pkg>    canonical constructor
-#   method <Type>::<name> <- <pkg>  inherent or extension-exposed method
-#   alias <Type>::<name> <- <pkg>   second callable spelling (`#alias`)
+#   ctor <sig> <- <pkg>             canonical constructor
+#   method <sig> <- <pkg>           inherent or extension-exposed method
+#   alias <Type>::<name> <- <pkg>   second callable spelling (`#alias`); the
+#                                   signature is pinned on the method it renames
 #   impl <Trait> for <Type> <- <pkg>
-#   field <Type>.<name> <- <pkg>    public struct field
+#   field <Type>.<name> : <ty> <- <pkg>   public struct field
 #
-# Any addition, removal, rename, reclassification (a re-exported type becoming
-# an intermediate, or the reverse), or source-package change fails until the
-# snapshot is regenerated deliberately:
+# Signatures, not names. Half of what breaks a caller leaves every name in
+# place: `head(Self, Int)` becoming `head(Self, Int64)`, an optional parameter
+# becoming required, a `raise` appearing on a verb that was total, a public
+# field widening from `Bool` to `Bool?`. `moon info` does not catch those
+# either — it only checks that the committed interface matches the source,
+# which it does the moment both are changed together. `moon info` writes one
+# line per signature, so the interface line *is* the normalised form to pin.
+#
+# Any addition, removal, rename, signature change, reclassification (a
+# re-exported type becoming an intermediate, or the reverse), or source-package
+# change fails until the snapshot is regenerated deliberately:
 #
 #   sh .github/scripts/check_facade_surface.sh --write
 #
@@ -110,14 +119,22 @@ extract() {
         next
       }
       /^pub fn / {
-        sig = $3
-        sub(/\(.*/, "", sig)
-        if (sig ~ /::/) {
-          split(sig, part, "::")
-          print (part[1] == part[2] ? "ctor " : "method ") sig " <- " pkg
+        # The whole declaration, not just the name: a caller breaks on
+        # `head(Self, Int) -> head(Self, Int64)`, on an optional parameter
+        # becoming required, and on a `raise` appearing, none of which changes
+        # a name. `moon info` writes one line per signature, so the line *is*
+        # the normalised form.
+        decl = $0
+        sub(/^pub fn /, "", decl)
+        sub(/^\[[^]]*\] */, "", decl)
+        name = decl
+        sub(/\(.*/, "", name)
+        if (name ~ /::/) {
+          split(name, part, "::")
+          print (part[1] == part[2] ? "ctor " : "method ") decl " <- " pkg
           if (alias != "") print "alias " part[1] "::" alias " <- " pkg
         } else {
-          print "fn " sig " <- " pkg
+          print "fn " decl " <- " pkg
           if (alias != "") print "alias " alias " <- " pkg
         }
         alias = ""
@@ -134,9 +151,13 @@ extract() {
       }
       # A struct body line: `  <name> : <type>`. Enum variants never carry a
       # `:`, and an opaque struct says `// private fields` instead, so only
-      # genuinely public fields land here.
+      # genuinely public fields land here. The type rides along for the same
+      # reason a signature does — `Bool` widening to `Bool?` is a break that
+      # leaves the field name untouched.
       /^  [A-Za-z_][A-Za-z0-9_]* : / && tname != "" {
-        print "field " tname "." $1 " <- " pkg
+        fdecl = $0
+        sub(/^ +/, "", fdecl)
+        print "field " tname "." fdecl " <- " pkg
       }
     ' "$f"
   done | LC_ALL=C sort -u

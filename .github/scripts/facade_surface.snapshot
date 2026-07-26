@@ -1,106 +1,106 @@
 alias DataFrame::limit <- frame
 alias LazyFrame::limit <- lazy
-ctor CsvReadOptions::CsvReadOptions <- io
-ctor CsvWriteOptions::CsvWriteOptions <- io
-ctor DataFrame::DataFrame <- frame
-ctor Field::Field <- types
-ctor HtmlOptions::HtmlOptions <- frame
-ctor JsonReadOptions::JsonReadOptions <- io
-ctor LazyFrame::LazyFrame <- lazy
-ctor Schema::Schema <- types
-field ChartSpec.color <- io
-field ChartSpec.color_type <- io
-field ChartSpec.kind <- io
-field ChartSpec.title <- io
-field ChartSpec.x <- io
-field ChartSpec.y <- io
-field CsvReadOptions.allow_nonfinite_floats <- io
-field CsvReadOptions.delimiter <- io
-field CsvReadOptions.has_header <- io
-field CsvReadOptions.infer_schema_rows <- io
-field CsvReadOptions.on_parse_error <- io
-field CsvReadOptions.strict_column_count <- io
-field CsvReadOptions.strict_quotes <- io
-field CsvWriteOptions.delimiter <- io
-field CsvWriteOptions.header <- io
-field CsvWriteOptions.null_value <- io
-field CsvWriteOptions.sanitize_formulas <- io
-field HtmlOptions.caption <- frame
-field HtmlOptions.escape <- frame
-field HtmlOptions.max_rows <- frame
-field HtmlOptions.table_class <- frame
-field JoinOptions.coalesce <- frame
-field JoinOptions.how <- frame
-field JoinOptions.left_on <- frame
-field JoinOptions.on <- frame
-field JoinOptions.right_on <- frame
-field JoinOptions.suffix <- frame
-field JsonReadOptions.infer_schema_rows <- io
-field JsonReadOptions.on_parse_error <- io
-fn col <- expr
-fn col <- root
-fn cols <- expr
-fn cols <- root
-fn cols_contains <- frame
-fn cols_contains <- root
-fn cols_ends_with <- frame
-fn cols_ends_with <- root
-fn cols_matching <- frame
-fn cols_matching <- root
-fn cols_of_dtype <- frame
-fn cols_of_dtype <- root
-fn cols_starts_with <- frame
-fn cols_starts_with <- root
-fn format_csv <- io
-fn format_csv <- root
-fn format_json <- io
-fn format_json <- root
-fn format_ndjson <- io
-fn format_ndjson <- root
-fn format_vega_lite <- io
-fn format_vega_lite <- root
-fn lit <- expr
-fn lit <- root
-fn lit_bool <- expr
-fn lit_bool <- root
-fn lit_float <- expr
-fn lit_float <- root
-fn lit_int <- expr
-fn lit_int <- root
-fn lit_series <- expr
-fn lit_series <- root
-fn lit_str <- expr
-fn lit_str <- root
-fn map_many <- expr
-fn map_many <- root
-fn numeric_cols <- frame
-fn numeric_cols <- root
-fn parse_csv_str <- io
-fn parse_csv_str <- root
-fn parse_json_str <- io
-fn parse_json_str <- root
-fn parse_ndjson_str <- io
-fn parse_ndjson_str <- root
-fn read_csv <- io
-fn read_csv <- root
-fn read_json <- io
-fn read_json <- root
-fn read_ndjson <- io
-fn read_ndjson <- root
-fn scan_csv <- lazy
-fn scan_csv <- root
-fn scan_ndjson <- lazy
-fn scan_ndjson <- root
-fn when <- expr
-fn when <- root
-fn write_csv <- io
-fn write_csv <- root
-fn write_json <- io
-fn write_json <- root
-fn write_ndjson <- io
-fn write_ndjson <- root
-fn write_vega_lite <- io
-fn write_vega_lite <- root
+ctor CsvReadOptions::CsvReadOptions(has_header? : Bool, delimiter? : Char, infer_schema_rows? : Int, null_values? : Array[String], strict_column_count? : Bool, on_parse_error? : OnParseError, allow_nonfinite_floats? : Bool, strict_quotes? : Bool) -> Self <- io
+ctor CsvWriteOptions::CsvWriteOptions(header? : Bool, delimiter? : Char, null_value? : String, sanitize_formulas? : Bool) -> Self <- io
+ctor DataFrame::DataFrame(Array[@series.Series]) -> Self raise @types.DataError <- frame
+ctor Field::Field(String, DataType, nullable? : Bool) -> Self <- types
+ctor HtmlOptions::HtmlOptions(max_rows? : Int, table_class? : String, caption? : String, escape? : Bool) -> Self <- frame
+ctor JsonReadOptions::JsonReadOptions(infer_schema_rows? : Int, on_parse_error? : OnParseError) -> Self <- io
+ctor LazyFrame::LazyFrame(@frame.DataFrame) -> Self <- lazy
+ctor Schema::Schema(Array[Field]) -> Self raise DataError <- types
+field ChartSpec.color : String? <- io
+field ChartSpec.color_type : VegaType? <- io
+field ChartSpec.kind : ChartKind <- io
+field ChartSpec.title : String? <- io
+field ChartSpec.x : String <- io
+field ChartSpec.y : String <- io
+field CsvReadOptions.allow_nonfinite_floats : Bool <- io
+field CsvReadOptions.delimiter : Char <- io
+field CsvReadOptions.has_header : Bool <- io
+field CsvReadOptions.infer_schema_rows : Int <- io
+field CsvReadOptions.on_parse_error : OnParseError <- io
+field CsvReadOptions.strict_column_count : Bool <- io
+field CsvReadOptions.strict_quotes : Bool <- io
+field CsvWriteOptions.delimiter : Char <- io
+field CsvWriteOptions.header : Bool <- io
+field CsvWriteOptions.null_value : String <- io
+field CsvWriteOptions.sanitize_formulas : Bool <- io
+field HtmlOptions.caption : String? <- frame
+field HtmlOptions.escape : Bool <- frame
+field HtmlOptions.max_rows : Int? <- frame
+field HtmlOptions.table_class : String? <- frame
+field JoinOptions.coalesce : Bool? <- frame
+field JoinOptions.how : JoinType <- frame
+field JoinOptions.left_on : Array[@expr.Expr] <- frame
+field JoinOptions.on : Array[@expr.Expr] <- frame
+field JoinOptions.right_on : Array[@expr.Expr] <- frame
+field JoinOptions.suffix : String <- frame
+field JsonReadOptions.infer_schema_rows : Int <- io
+field JsonReadOptions.on_parse_error : OnParseError <- io
+fn col(String) -> @expr.Expr <- root
+fn col(String) -> Expr <- expr
+fn cols(Array[String]) -> Array[@expr.Expr] <- root
+fn cols(Array[String]) -> Array[Expr] <- expr
+fn cols_contains(@frame.DataFrame, String) -> Array[@expr.Expr] <- root
+fn cols_contains(DataFrame, String) -> Array[@expr.Expr] <- frame
+fn cols_ends_with(@frame.DataFrame, String) -> Array[@expr.Expr] <- root
+fn cols_ends_with(DataFrame, String) -> Array[@expr.Expr] <- frame
+fn cols_matching(@frame.DataFrame, String) -> Array[@expr.Expr] raise @types.DataError <- root
+fn cols_matching(DataFrame, String) -> Array[@expr.Expr] raise @types.DataError <- frame
+fn cols_of_dtype(@frame.DataFrame, @types.DataType) -> Array[@expr.Expr] <- root
+fn cols_of_dtype(DataFrame, @types.DataType) -> Array[@expr.Expr] <- frame
+fn cols_starts_with(@frame.DataFrame, String) -> Array[@expr.Expr] <- root
+fn cols_starts_with(DataFrame, String) -> Array[@expr.Expr] <- frame
+fn format_csv(@frame.DataFrame, options? : @io.CsvWriteOptions) -> String raise @types.DataError <- root
+fn format_csv(@frame.DataFrame, options? : CsvWriteOptions) -> String raise @types.DataError <- io
+fn format_json(@frame.DataFrame) -> String <- io
+fn format_json(@frame.DataFrame) -> String <- root
+fn format_ndjson(@frame.DataFrame) -> String <- io
+fn format_ndjson(@frame.DataFrame) -> String <- root
+fn format_vega_lite(@frame.DataFrame, @io.ChartSpec) -> String raise @types.DataError <- root
+fn format_vega_lite(@frame.DataFrame, ChartSpec) -> String raise @types.DataError <- io
+fn lit(@types.Scalar) -> @expr.Expr <- root
+fn lit(@types.Scalar) -> Expr <- expr
+fn lit_bool(Bool) -> @expr.Expr <- root
+fn lit_bool(Bool) -> Expr <- expr
+fn lit_float(Double) -> @expr.Expr <- root
+fn lit_float(Double) -> Expr <- expr
+fn lit_int(Int64) -> @expr.Expr <- root
+fn lit_int(Int64) -> Expr <- expr
+fn lit_series(@series.Series) -> @expr.Expr <- root
+fn lit_series(@series.Series) -> Expr <- expr
+fn lit_str(String) -> @expr.Expr <- root
+fn lit_str(String) -> Expr <- expr
+fn map_many(label~ : String, Array[@expr.Expr], (Array[@types.Scalar]) -> @types.Scalar raise @types.DataError) -> @expr.Expr <- root
+fn map_many(label~ : String, Array[Expr], (Array[@types.Scalar]) -> @types.Scalar raise @types.DataError) -> Expr <- expr
+fn numeric_cols(@frame.DataFrame) -> Array[@expr.Expr] <- root
+fn numeric_cols(DataFrame) -> Array[@expr.Expr] <- frame
+fn parse_csv_str(String, options? : @io.CsvReadOptions) -> @frame.DataFrame raise @types.DataError <- root
+fn parse_csv_str(String, options? : CsvReadOptions) -> @frame.DataFrame raise @types.DataError <- io
+fn parse_json_str(String, options? : @io.JsonReadOptions) -> @frame.DataFrame raise @types.DataError <- root
+fn parse_json_str(String, options? : JsonReadOptions) -> @frame.DataFrame raise @types.DataError <- io
+fn parse_ndjson_str(String, options? : @io.JsonReadOptions) -> @frame.DataFrame raise @types.DataError <- root
+fn parse_ndjson_str(String, options? : JsonReadOptions) -> @frame.DataFrame raise @types.DataError <- io
+fn read_csv(String, options? : @io.CsvReadOptions) -> @frame.DataFrame raise @types.DataError <- root
+fn read_csv(String, options? : CsvReadOptions) -> @frame.DataFrame raise @types.DataError <- io
+fn read_json(String, options? : @io.JsonReadOptions) -> @frame.DataFrame raise @types.DataError <- root
+fn read_json(String, options? : JsonReadOptions) -> @frame.DataFrame raise @types.DataError <- io
+fn read_ndjson(String, options? : @io.JsonReadOptions) -> @frame.DataFrame raise @types.DataError <- root
+fn read_ndjson(String, options? : JsonReadOptions) -> @frame.DataFrame raise @types.DataError <- io
+fn scan_csv(String, options? : @io.CsvReadOptions) -> @lazy.LazyFrame <- root
+fn scan_csv(String, options? : @io.CsvReadOptions) -> LazyFrame <- lazy
+fn scan_ndjson(String, options? : @io.JsonReadOptions) -> @lazy.LazyFrame <- root
+fn scan_ndjson(String, options? : @io.JsonReadOptions) -> LazyFrame <- lazy
+fn when(@expr.Expr) -> @expr.WhenThen <- root
+fn when(Expr) -> WhenThen <- expr
+fn write_csv(String, @frame.DataFrame, options? : @io.CsvWriteOptions) -> Unit raise @types.DataError <- root
+fn write_csv(String, @frame.DataFrame, options? : CsvWriteOptions) -> Unit raise @types.DataError <- io
+fn write_json(String, @frame.DataFrame) -> Unit raise @types.DataError <- io
+fn write_json(String, @frame.DataFrame) -> Unit raise @types.DataError <- root
+fn write_ndjson(String, @frame.DataFrame) -> Unit raise @types.DataError <- io
+fn write_ndjson(String, @frame.DataFrame) -> Unit raise @types.DataError <- root
+fn write_vega_lite(String, @frame.DataFrame, @io.ChartSpec) -> Unit raise @types.DataError <- root
+fn write_vega_lite(String, @frame.DataFrame, ChartSpec) -> Unit raise @types.DataError <- io
 impl @debug.Debug for Expr <- expr
 impl Add for Expr <- expr
 impl BitAnd for Expr <- expr
@@ -120,292 +120,292 @@ intermediate GroupedDataFrame <- frame
 intermediate LazyGroupBy <- lazy
 intermediate WhenThen <- expr
 intermediate WhenThenElse <- expr
-method CellParseLocation::equal <- types
-method CellParseLocation::not_equal <- types
-method CellParseLocation::to_repr <- types
-method ChartKind::equal <- io
-method ChartKind::not_equal <- io
-method ChartKind::to_repr <- io
-method ChartSpec::area <- io
-method ChartSpec::bar <- io
-method ChartSpec::equal <- io
-method ChartSpec::line <- io
-method ChartSpec::not_equal <- io
-method ChartSpec::point <- io
-method ChartSpec::to_repr <- io
-method ClosedInterval::equal <- types
-method ClosedInterval::not_equal <- types
-method ClosedInterval::to_repr <- types
-method CsvReadOptions::null_values <- io
-method DataError::equal <- types
-method DataError::message <- types
-method DataError::not_equal <- types
-method DataError::output <- types
-method DataError::to_repr <- types
-method DataError::to_string <- types
-method DataFrame::column_series <- frame
-method DataFrame::columns <- frame
-method DataFrame::count <- frame
-method DataFrame::describe <- frame
-method DataFrame::drop <- frame
-method DataFrame::drop_nulls <- frame
-method DataFrame::empty <- frame
-method DataFrame::equal <- frame
-method DataFrame::fill_null <- frame
-method DataFrame::filter <- frame
-method DataFrame::from_rows <- frame
-method DataFrame::gather <- frame
-method DataFrame::get_column <- frame
-method DataFrame::get_column_at <- frame
-method DataFrame::group_by <- frame
-method DataFrame::head <- frame
-method DataFrame::is_empty <- frame
-method DataFrame::item <- frame
-method DataFrame::join <- frame
-method DataFrame::max <- frame
-method DataFrame::mean <- frame
-method DataFrame::min <- frame
-method DataFrame::ncols <- frame
-method DataFrame::not_equal <- frame
-method DataFrame::nrows <- frame
-method DataFrame::null_count <- frame
-method DataFrame::rename <- frame
-method DataFrame::rename_with <- frame
-method DataFrame::reverse <- frame
-method DataFrame::row <- frame
-method DataFrame::rows <- frame
-method DataFrame::schema <- frame
-method DataFrame::select <- frame
-method DataFrame::shape <- frame
-method DataFrame::slice <- frame
-method DataFrame::sort <- frame
-method DataFrame::sum <- frame
-method DataFrame::tail <- frame
-method DataFrame::to_html <- frame
-method DataFrame::to_markdown <- frame
-method DataFrame::to_repr <- frame
-method DataFrame::unique <- frame
-method DataFrame::with_columns <- frame
-method DataFrame::with_row_index <- frame
-method DataType::equal <- types
-method DataType::is_bool <- types
-method DataType::is_float <- types
-method DataType::is_integer <- types
-method DataType::is_numeric <- types
-method DataType::is_string <- types
-method DataType::not_equal <- types
-method DataType::output <- types
-method DataType::to_repr <- types
-method DataType::to_string <- types
-method Expr::abs <- expr
-method Expr::add <- expr
-method Expr::cast <- expr
-method Expr::ceil <- expr
-method Expr::count <- expr
-method Expr::div <- expr
-method Expr::eq <- expr
-method Expr::equal <- expr
-method Expr::fill_nan <- expr
-method Expr::fill_null <- expr
-method Expr::first <- expr
-method Expr::floor <- expr
-method Expr::floor_div <- expr
-method Expr::ge <- expr
-method Expr::gt <- expr
-method Expr::is_between <- expr
-method Expr::is_in <- expr
-method Expr::is_nan <- expr
-method Expr::is_not_nan <- expr
-method Expr::is_not_null <- expr
-method Expr::is_null <- expr
-method Expr::land <- expr
-method Expr::last <- expr
-method Expr::le <- expr
-method Expr::lor <- expr
-method Expr::lt <- expr
-method Expr::map_batches <- expr
-method Expr::map_elements <- expr
-method Expr::max <- expr
-method Expr::mean <- expr
-method Expr::median <- expr
-method Expr::min <- expr
-method Expr::modulo <- expr
-method Expr::mul <- expr
-method Expr::n_unique <- expr
-method Expr::ne <- expr
-method Expr::neg <- expr
-method Expr::not <- expr
-method Expr::not_equal <- expr
-method Expr::output <- expr
-method Expr::pow <- expr
-method Expr::round <- expr
-method Expr::sign <- expr
-method Expr::std <- expr
-method Expr::str_contains <- expr
-method Expr::str_count_matches <- expr
-method Expr::str_ends_with <- expr
-method Expr::str_extract <- expr
-method Expr::str_len_bytes <- expr
-method Expr::str_len_chars <- expr
-method Expr::str_pad_end <- expr
-method Expr::str_pad_start <- expr
-method Expr::str_replace <- expr
-method Expr::str_replace_all <- expr
-method Expr::str_reverse <- expr
-method Expr::str_slice <- expr
-method Expr::str_split_get <- expr
-method Expr::str_starts_with <- expr
-method Expr::str_strip_chars <- expr
-method Expr::str_to_lowercase <- expr
-method Expr::str_to_uppercase <- expr
-method Expr::str_zfill <- expr
-method Expr::sub <- expr
-method Expr::sum <- expr
-method Expr::to_repr <- expr
-method Expr::to_string <- expr
-method Expr::variance <- expr
-method Expr::with_alias <- expr
-method Field::dtype <- types
-method Field::equal <- types
-method Field::name <- types
-method Field::not_equal <- types
-method Field::nullable <- types
-method Field::output <- types
-method Field::rename <- types
-method Field::to_repr <- types
-method Field::to_string <- types
-method GroupedDataFrame::agg <- frame
-method HtmlOptions::equal <- frame
-method HtmlOptions::not_equal <- frame
-method HtmlOptions::to_repr <- frame
-method JoinOptions::cross <- frame
-method JoinOptions::equal <- frame
-method JoinOptions::left_on <- frame
-method JoinOptions::not_equal <- frame
-method JoinOptions::on <- frame
-method JoinOptions::to_repr <- frame
-method JoinType::equal <- frame
-method JoinType::not_equal <- frame
-method JoinType::to_repr <- frame
-method KeepStrategy::equal <- frame
-method KeepStrategy::not_equal <- frame
-method KeepStrategy::to_repr <- frame
-method LazyFrame::collect <- lazy
-method LazyFrame::count <- lazy
-method LazyFrame::drop <- lazy
-method LazyFrame::drop_nulls <- lazy
-method LazyFrame::explain <- lazy
-method LazyFrame::fill_null <- lazy
-method LazyFrame::filter <- lazy
-method LazyFrame::group_by <- lazy
-method LazyFrame::head <- lazy
-method LazyFrame::join <- lazy
-method LazyFrame::max <- lazy
-method LazyFrame::mean <- lazy
-method LazyFrame::min <- lazy
-method LazyFrame::null_count <- lazy
-method LazyFrame::rename <- lazy
-method LazyFrame::rename_with <- lazy
-method LazyFrame::reverse <- lazy
-method LazyFrame::select <- lazy
-method LazyFrame::slice <- lazy
-method LazyFrame::sort <- lazy
-method LazyFrame::sum <- lazy
-method LazyFrame::tail <- lazy
-method LazyFrame::unique <- lazy
-method LazyFrame::with_columns <- lazy
-method LazyFrame::with_row_index <- lazy
-method LazyGroupBy::agg <- lazy
-method NullOrder::equal <- types
-method NullOrder::not_equal <- types
-method NullOrder::to_repr <- types
-method OnParseError::equal <- io
-method OnParseError::not_equal <- io
-method OnParseError::to_repr <- io
-method ParseErrorDetail::equal <- types
-method ParseErrorDetail::not_equal <- types
-method ParseErrorDetail::to_repr <- types
-method Scalar::as_bool <- types
-method Scalar::as_float <- types
-method Scalar::as_int <- types
-method Scalar::as_string <- types
-method Scalar::dtype <- types
-method Scalar::eq <- types
-method Scalar::equal <- types
-method Scalar::gt <- types
-method Scalar::gte <- types
-method Scalar::is_null <- types
-method Scalar::lt <- types
-method Scalar::lte <- types
-method Scalar::not_equal <- types
-method Scalar::output <- types
-method Scalar::to_repr <- types
-method Scalar::to_string <- types
-method Schema::equal <- types
-method Schema::field <- types
-method Schema::field_at <- types
-method Schema::field_names <- types
-method Schema::fields <- types
-method Schema::index_of <- types
-method Schema::is_empty <- types
-method Schema::len <- types
-method Schema::not_equal <- types
-method Schema::output <- types
-method Schema::rename <- types
-method Schema::select <- types
-method Schema::to_repr <- types
-method Schema::to_string <- types
-method Series::cast <- series
-method Series::count <- series
-method Series::drop_nulls <- series
-method Series::dtype <- series
-method Series::equal <- series
-method Series::fill_null <- series
-method Series::first <- series
-method Series::from_bool_options <- series
-method Series::from_bools <- series
-method Series::from_float_options <- series
-method Series::from_floats <- series
-method Series::from_int_options <- series
-method Series::from_ints <- series
-method Series::from_string_options <- series
-method Series::from_strings <- series
-method Series::gather <- series
-method Series::get <- series
-method Series::head <- series
-method Series::is_empty <- series
-method Series::is_null <- series
-method Series::last <- series
-method Series::len <- series
-method Series::max <- series
-method Series::mean <- series
-method Series::median <- series
-method Series::min <- series
-method Series::n_unique <- series
-method Series::name <- series
-method Series::not_equal <- series
-method Series::null_count <- series
-method Series::rename <- series
-method Series::reverse <- series
-method Series::slice <- series
-method Series::sort <- series
-method Series::std <- series
-method Series::sum <- series
-method Series::tail <- series
-method Series::to_repr <- series
-method Series::to_scalars <- series
-method Series::variance <- series
-method SortOrder::equal <- types
-method SortOrder::not_equal <- types
-method SortOrder::to_repr <- types
-method TypeMismatchDetail::equal <- types
-method TypeMismatchDetail::not_equal <- types
-method TypeMismatchDetail::to_repr <- types
-method VegaType::equal <- io
-method VegaType::not_equal <- io
-method VegaType::to_repr <- io
-method WhenThen::then <- expr
-method WhenThenElse::otherwise <- expr
+method CellParseLocation::equal(Self, Self) -> Bool <- types
+method CellParseLocation::not_equal(Self, Self) -> Bool <- types
+method CellParseLocation::to_repr(Self) -> @debug.Repr <- types
+method ChartKind::equal(Self, Self) -> Bool <- io
+method ChartKind::not_equal(Self, Self) -> Bool <- io
+method ChartKind::to_repr(Self) -> @debug.Repr <- io
+method ChartSpec::area(String, String, color? : String, color_type? : VegaType, title? : String) -> Self <- io
+method ChartSpec::bar(String, String, color? : String, color_type? : VegaType, title? : String) -> Self <- io
+method ChartSpec::equal(Self, Self) -> Bool <- io
+method ChartSpec::line(String, String, color? : String, color_type? : VegaType, title? : String) -> Self <- io
+method ChartSpec::not_equal(Self, Self) -> Bool <- io
+method ChartSpec::point(String, String, color? : String, color_type? : VegaType, title? : String) -> Self <- io
+method ChartSpec::to_repr(Self) -> @debug.Repr <- io
+method ClosedInterval::equal(Self, Self) -> Bool <- types
+method ClosedInterval::not_equal(Self, Self) -> Bool <- types
+method ClosedInterval::to_repr(Self) -> @debug.Repr <- types
+method CsvReadOptions::null_values(Self) -> Array[String] <- io
+method DataError::equal(Self, Self) -> Bool <- types
+method DataError::message(Self) -> String <- types
+method DataError::not_equal(Self, Self) -> Bool <- types
+method DataError::output(Self, &Logger) -> Unit <- types
+method DataError::to_repr(Self) -> @debug.Repr <- types
+method DataError::to_string(Self) -> String <- types
+method DataFrame::column_series(Self) -> Array[@series.Series] <- frame
+method DataFrame::columns(Self) -> Array[String] <- frame
+method DataFrame::count(Self) -> Self raise @types.DataError <- frame
+method DataFrame::describe(Self) -> Self raise @types.DataError <- frame
+method DataFrame::drop(Self, Array[@expr.Expr]) -> Self raise @types.DataError <- frame
+method DataFrame::drop_nulls(Self, subset? : Array[@expr.Expr]) -> Self raise @types.DataError <- frame
+method DataFrame::empty(@types.Schema) -> Self raise @types.DataError <- frame
+method DataFrame::equal(Self, Self) -> Bool <- frame
+method DataFrame::fill_null(Self, @types.Scalar) -> Self raise @types.DataError <- frame
+method DataFrame::filter(Self, @expr.Expr) -> Self raise @types.DataError <- frame
+method DataFrame::from_rows(@types.Schema, Array[Array[@types.Scalar]]) -> Self raise @types.DataError <- frame
+method DataFrame::gather(Self, Array[Int]) -> Self raise @types.DataError <- frame
+method DataFrame::get_column(Self, String) -> @series.Series raise @types.DataError <- frame
+method DataFrame::get_column_at(Self, Int) -> @series.Series raise @types.DataError <- frame
+method DataFrame::group_by(Self, Array[@expr.Expr]) -> GroupedDataFrame raise @types.DataError <- frame
+method DataFrame::head(Self, Int) -> Self <- frame
+method DataFrame::is_empty(Self) -> Bool <- frame
+method DataFrame::item(Self, Int, String) -> @types.Scalar raise @types.DataError <- frame
+method DataFrame::join(Self, Self, JoinOptions) -> Self raise @types.DataError <- frame
+method DataFrame::max(Self) -> Self raise @types.DataError <- frame
+method DataFrame::mean(Self) -> Self raise @types.DataError <- frame
+method DataFrame::min(Self) -> Self raise @types.DataError <- frame
+method DataFrame::ncols(Self) -> Int <- frame
+method DataFrame::not_equal(Self, Self) -> Bool <- frame
+method DataFrame::nrows(Self) -> Int <- frame
+method DataFrame::null_count(Self) -> Self raise @types.DataError <- frame
+method DataFrame::rename(Self, Array[(String, String)]) -> Self raise @types.DataError <- frame
+method DataFrame::rename_with(Self, (String) -> String) -> Self raise @types.DataError <- frame
+method DataFrame::reverse(Self) -> Self <- frame
+method DataFrame::row(Self, Int) -> Array[@types.Scalar] raise @types.DataError <- frame
+method DataFrame::rows(Self) -> Array[Array[@types.Scalar]] <- frame
+method DataFrame::schema(Self) -> @types.Schema <- frame
+method DataFrame::select(Self, Array[@expr.Expr]) -> Self raise @types.DataError <- frame
+method DataFrame::shape(Self) -> (Int, Int) <- frame
+method DataFrame::slice(Self, Int, Int) -> Self raise @types.DataError <- frame
+method DataFrame::sort(Self, Array[(@expr.Expr, @types.SortOrder, @types.NullOrder)]) -> Self raise @types.DataError <- frame
+method DataFrame::sum(Self) -> Self raise @types.DataError <- frame
+method DataFrame::tail(Self, Int) -> Self <- frame
+method DataFrame::to_html(Self, options? : HtmlOptions) -> String <- frame
+method DataFrame::to_markdown(Self, max_rows? : Int) -> String <- frame
+method DataFrame::to_repr(Self) -> @debug.Repr <- frame
+method DataFrame::unique(Self, subset? : Array[@expr.Expr], keep? : KeepStrategy) -> Self raise @types.DataError <- frame
+method DataFrame::with_columns(Self, Array[@expr.Expr]) -> Self raise @types.DataError <- frame
+method DataFrame::with_row_index(Self, name? : String, offset? : Int64) -> Self raise @types.DataError <- frame
+method DataType::equal(Self, Self) -> Bool <- types
+method DataType::is_bool(Self) -> Bool <- types
+method DataType::is_float(Self) -> Bool <- types
+method DataType::is_integer(Self) -> Bool <- types
+method DataType::is_numeric(Self) -> Bool <- types
+method DataType::is_string(Self) -> Bool <- types
+method DataType::not_equal(Self, Self) -> Bool <- types
+method DataType::output(Self, &Logger) -> Unit <- types
+method DataType::to_repr(Self) -> @debug.Repr <- types
+method DataType::to_string(Self) -> String <- types
+method Expr::abs(Self) -> Self <- expr
+method Expr::add(Self, Self) -> Self <- expr
+method Expr::cast(Self, @types.DataType) -> Self <- expr
+method Expr::ceil(Self) -> Self <- expr
+method Expr::count(Self) -> Self <- expr
+method Expr::div(Self, Self) -> Self <- expr
+method Expr::eq(Self, Self) -> Self <- expr
+method Expr::equal(Self, Self) -> Bool <- expr
+method Expr::fill_nan(Self, Self) -> Self <- expr
+method Expr::fill_null(Self, Self) -> Self <- expr
+method Expr::first(Self) -> Self <- expr
+method Expr::floor(Self) -> Self <- expr
+method Expr::floor_div(Self, Self) -> Self <- expr
+method Expr::ge(Self, Self) -> Self <- expr
+method Expr::gt(Self, Self) -> Self <- expr
+method Expr::is_between(Self, Self, Self, closed? : @types.ClosedInterval) -> Self <- expr
+method Expr::is_in(Self, Array[@types.Scalar]) -> Self <- expr
+method Expr::is_nan(Self) -> Self <- expr
+method Expr::is_not_nan(Self) -> Self <- expr
+method Expr::is_not_null(Self) -> Self <- expr
+method Expr::is_null(Self) -> Self <- expr
+method Expr::land(Self, Self) -> Self <- expr
+method Expr::last(Self) -> Self <- expr
+method Expr::le(Self, Self) -> Self <- expr
+method Expr::lor(Self, Self) -> Self <- expr
+method Expr::lt(Self, Self) -> Self <- expr
+method Expr::map_batches(Self, label~ : String, returns_scalar? : Bool, (@series.Series) -> @series.Series raise @types.DataError) -> Self <- expr
+method Expr::map_elements(Self, label~ : String, (@types.Scalar) -> @types.Scalar raise @types.DataError) -> Self <- expr
+method Expr::max(Self) -> Self <- expr
+method Expr::mean(Self) -> Self <- expr
+method Expr::median(Self) -> Self <- expr
+method Expr::min(Self) -> Self <- expr
+method Expr::modulo(Self, Self) -> Self <- expr
+method Expr::mul(Self, Self) -> Self <- expr
+method Expr::n_unique(Self) -> Self <- expr
+method Expr::ne(Self, Self) -> Self <- expr
+method Expr::neg(Self) -> Self <- expr
+method Expr::not(Self) -> Self <- expr
+method Expr::not_equal(Self, Self) -> Bool <- expr
+method Expr::output(Self, &Logger) -> Unit <- expr
+method Expr::pow(Self, Self) -> Self <- expr
+method Expr::round(Self, decimals? : Int) -> Self <- expr
+method Expr::sign(Self) -> Self <- expr
+method Expr::std(Self) -> Self <- expr
+method Expr::str_contains(Self, String, literal? : Bool) -> Self <- expr
+method Expr::str_count_matches(Self, String) -> Self <- expr
+method Expr::str_ends_with(Self, String) -> Self <- expr
+method Expr::str_extract(Self, String, group? : Int) -> Self <- expr
+method Expr::str_len_bytes(Self) -> Self <- expr
+method Expr::str_len_chars(Self) -> Self <- expr
+method Expr::str_pad_end(Self, Int, fill? : Char) -> Self <- expr
+method Expr::str_pad_start(Self, Int, fill? : Char) -> Self <- expr
+method Expr::str_replace(Self, String, String, literal? : Bool) -> Self <- expr
+method Expr::str_replace_all(Self, String, String, literal? : Bool) -> Self <- expr
+method Expr::str_reverse(Self) -> Self <- expr
+method Expr::str_slice(Self, Int, length? : Int) -> Self <- expr
+method Expr::str_split_get(Self, String, Int) -> Self <- expr
+method Expr::str_starts_with(Self, String) -> Self <- expr
+method Expr::str_strip_chars(Self, chars? : String) -> Self <- expr
+method Expr::str_to_lowercase(Self) -> Self <- expr
+method Expr::str_to_uppercase(Self) -> Self <- expr
+method Expr::str_zfill(Self, Int) -> Self <- expr
+method Expr::sub(Self, Self) -> Self <- expr
+method Expr::sum(Self) -> Self <- expr
+method Expr::to_repr(Self) -> @debug.Repr <- expr
+method Expr::to_string(Self) -> String <- expr
+method Expr::variance(Self) -> Self <- expr
+method Expr::with_alias(Self, String) -> Self <- expr
+method Field::dtype(Self) -> DataType <- types
+method Field::equal(Self, Self) -> Bool <- types
+method Field::name(Self) -> String <- types
+method Field::not_equal(Self, Self) -> Bool <- types
+method Field::nullable(Self) -> Bool <- types
+method Field::output(Self, &Logger) -> Unit <- types
+method Field::rename(Self, String) -> Self <- types
+method Field::to_repr(Self) -> @debug.Repr <- types
+method Field::to_string(Self) -> String <- types
+method GroupedDataFrame::agg(Self, Array[@expr.Expr]) -> DataFrame raise @types.DataError <- frame
+method HtmlOptions::equal(Self, Self) -> Bool <- frame
+method HtmlOptions::not_equal(Self, Self) -> Bool <- frame
+method HtmlOptions::to_repr(Self) -> @debug.Repr <- frame
+method JoinOptions::cross(suffix? : String) -> Self <- frame
+method JoinOptions::equal(Self, Self) -> Bool <- frame
+method JoinOptions::left_on(Array[@expr.Expr], right_on~ : Array[@expr.Expr], how? : JoinType, suffix? : String, coalesce? : Bool) -> Self <- frame
+method JoinOptions::not_equal(Self, Self) -> Bool <- frame
+method JoinOptions::on(Array[@expr.Expr], how? : JoinType, suffix? : String, coalesce? : Bool) -> Self <- frame
+method JoinOptions::to_repr(Self) -> @debug.Repr <- frame
+method JoinType::equal(Self, Self) -> Bool <- frame
+method JoinType::not_equal(Self, Self) -> Bool <- frame
+method JoinType::to_repr(Self) -> @debug.Repr <- frame
+method KeepStrategy::equal(Self, Self) -> Bool <- frame
+method KeepStrategy::not_equal(Self, Self) -> Bool <- frame
+method KeepStrategy::to_repr(Self) -> @debug.Repr <- frame
+method LazyFrame::collect(Self) -> @frame.DataFrame raise @types.DataError <- lazy
+method LazyFrame::count(Self) -> Self <- lazy
+method LazyFrame::drop(Self, Array[@expr.Expr]) -> Self <- lazy
+method LazyFrame::drop_nulls(Self, subset? : Array[@expr.Expr]) -> Self <- lazy
+method LazyFrame::explain(Self, optimized? : Bool) -> String <- lazy
+method LazyFrame::fill_null(Self, @types.Scalar) -> Self <- lazy
+method LazyFrame::filter(Self, @expr.Expr) -> Self <- lazy
+method LazyFrame::group_by(Self, Array[@expr.Expr]) -> LazyGroupBy <- lazy
+method LazyFrame::head(Self, Int) -> Self <- lazy
+method LazyFrame::join(Self, Self, @frame.JoinOptions) -> Self <- lazy
+method LazyFrame::max(Self) -> Self <- lazy
+method LazyFrame::mean(Self) -> Self <- lazy
+method LazyFrame::min(Self) -> Self <- lazy
+method LazyFrame::null_count(Self) -> Self <- lazy
+method LazyFrame::rename(Self, Array[(String, String)]) -> Self <- lazy
+method LazyFrame::rename_with(Self, (String) -> String) -> Self <- lazy
+method LazyFrame::reverse(Self) -> Self <- lazy
+method LazyFrame::select(Self, Array[@expr.Expr]) -> Self <- lazy
+method LazyFrame::slice(Self, Int, Int) -> Self <- lazy
+method LazyFrame::sort(Self, Array[(@expr.Expr, @types.SortOrder, @types.NullOrder)]) -> Self <- lazy
+method LazyFrame::sum(Self) -> Self <- lazy
+method LazyFrame::tail(Self, Int) -> Self <- lazy
+method LazyFrame::unique(Self, subset? : Array[@expr.Expr], keep? : @frame.KeepStrategy) -> Self <- lazy
+method LazyFrame::with_columns(Self, Array[@expr.Expr]) -> Self <- lazy
+method LazyFrame::with_row_index(Self, name? : String, offset? : Int64) -> Self <- lazy
+method LazyGroupBy::agg(Self, Array[@expr.Expr]) -> LazyFrame <- lazy
+method NullOrder::equal(Self, Self) -> Bool <- types
+method NullOrder::not_equal(Self, Self) -> Bool <- types
+method NullOrder::to_repr(Self) -> @debug.Repr <- types
+method OnParseError::equal(Self, Self) -> Bool <- io
+method OnParseError::not_equal(Self, Self) -> Bool <- io
+method OnParseError::to_repr(Self) -> @debug.Repr <- io
+method ParseErrorDetail::equal(Self, Self) -> Bool <- types
+method ParseErrorDetail::not_equal(Self, Self) -> Bool <- types
+method ParseErrorDetail::to_repr(Self) -> @debug.Repr <- types
+method Scalar::as_bool(Self) -> Bool raise DataError <- types
+method Scalar::as_float(Self) -> Double raise DataError <- types
+method Scalar::as_int(Self) -> Int64 raise DataError <- types
+method Scalar::as_string(Self) -> String raise DataError <- types
+method Scalar::dtype(Self) -> DataType <- types
+method Scalar::eq(Self, Self) -> Bool raise DataError <- types
+method Scalar::equal(Self, Self) -> Bool <- types
+method Scalar::gt(Self, Self) -> Bool raise DataError <- types
+method Scalar::gte(Self, Self) -> Bool raise DataError <- types
+method Scalar::is_null(Self) -> Bool <- types
+method Scalar::lt(Self, Self) -> Bool raise DataError <- types
+method Scalar::lte(Self, Self) -> Bool raise DataError <- types
+method Scalar::not_equal(Self, Self) -> Bool <- types
+method Scalar::output(Self, &Logger) -> Unit <- types
+method Scalar::to_repr(Self) -> @debug.Repr <- types
+method Scalar::to_string(Self) -> String <- types
+method Schema::equal(Self, Self) -> Bool <- types
+method Schema::field(Self, String) -> Field raise DataError <- types
+method Schema::field_at(Self, Int) -> Field raise DataError <- types
+method Schema::field_names(Self) -> Array[String] <- types
+method Schema::fields(Self) -> Array[Field] <- types
+method Schema::index_of(Self, String) -> Int raise DataError <- types
+method Schema::is_empty(Self) -> Bool <- types
+method Schema::len(Self) -> Int <- types
+method Schema::not_equal(Self, Self) -> Bool <- types
+method Schema::output(Self, &Logger) -> Unit <- types
+method Schema::rename(Self, String, String) -> Self raise DataError <- types
+method Schema::select(Self, Array[String]) -> Self raise DataError <- types
+method Schema::to_repr(Self) -> @debug.Repr <- types
+method Schema::to_string(Self) -> String <- types
+method Series::cast(Self, @types.DataType) -> Self raise @types.DataError <- series
+method Series::count(Self) -> Int <- series
+method Series::drop_nulls(Self) -> Self <- series
+method Series::dtype(Self) -> @types.DataType <- series
+method Series::equal(Self, Self) -> Bool <- series
+method Series::fill_null(Self, @types.Scalar) -> Self raise @types.DataError <- series
+method Series::first(Self) -> @types.Scalar <- series
+method Series::from_bool_options(String, Array[Bool?]) -> Self <- series
+method Series::from_bools(String, Array[Bool]) -> Self <- series
+method Series::from_float_options(String, Array[Double?]) -> Self <- series
+method Series::from_floats(String, Array[Double]) -> Self <- series
+method Series::from_int_options(String, Array[Int64?]) -> Self <- series
+method Series::from_ints(String, Array[Int64]) -> Self <- series
+method Series::from_string_options(String, Array[String?]) -> Self <- series
+method Series::from_strings(String, Array[String]) -> Self <- series
+method Series::gather(Self, Array[Int]) -> Self raise @types.DataError <- series
+method Series::get(Self, Int) -> @types.Scalar raise @types.DataError <- series
+method Series::head(Self, Int) -> Self <- series
+method Series::is_empty(Self) -> Bool <- series
+method Series::is_null(Self, Int) -> Bool raise @types.DataError <- series
+method Series::last(Self) -> @types.Scalar <- series
+method Series::len(Self) -> Int <- series
+method Series::max(Self) -> @types.Scalar <- series
+method Series::mean(Self) -> Double raise @types.DataError <- series
+method Series::median(Self) -> Double raise @types.DataError <- series
+method Series::min(Self) -> @types.Scalar <- series
+method Series::n_unique(Self) -> Int <- series
+method Series::name(Self) -> String <- series
+method Series::not_equal(Self, Self) -> Bool <- series
+method Series::null_count(Self) -> Int <- series
+method Series::rename(Self, String) -> Self <- series
+method Series::reverse(Self) -> Self <- series
+method Series::slice(Self, Int, Int) -> Self raise @types.DataError <- series
+method Series::sort(Self, order? : @types.SortOrder, nulls? : @types.NullOrder) -> Self <- series
+method Series::std(Self) -> Double raise @types.DataError <- series
+method Series::sum(Self) -> @types.Scalar raise @types.DataError <- series
+method Series::tail(Self, Int) -> Self <- series
+method Series::to_repr(Self) -> @debug.Repr <- series
+method Series::to_scalars(Self) -> Array[@types.Scalar] <- series
+method Series::variance(Self) -> Double raise @types.DataError <- series
+method SortOrder::equal(Self, Self) -> Bool <- types
+method SortOrder::not_equal(Self, Self) -> Bool <- types
+method SortOrder::to_repr(Self) -> @debug.Repr <- types
+method TypeMismatchDetail::equal(Self, Self) -> Bool <- types
+method TypeMismatchDetail::not_equal(Self, Self) -> Bool <- types
+method TypeMismatchDetail::to_repr(Self) -> @debug.Repr <- types
+method VegaType::equal(Self, Self) -> Bool <- io
+method VegaType::not_equal(Self, Self) -> Bool <- io
+method VegaType::to_repr(Self) -> @debug.Repr <- io
+method WhenThen::then(Self, Expr) -> WhenThenElse <- expr
+method WhenThenElse::otherwise(Self, Expr) -> Expr <- expr
 type CellParseLocation <- types
 type ChartKind <- io
 type ChartSpec <- io

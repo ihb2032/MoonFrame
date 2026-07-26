@@ -229,17 +229,20 @@ pub fn GroupedDataFrame::agg(Self) -> DataFrame
 pub struct HtmlOptions {
   escape : Bool
 } derive(Eq)'
-# The extracted surface is sorted, so the kinds group alphabetically.
+# The extracted surface is sorted, so the kinds group alphabetically. Each
+# callable carries its whole signature: a caller breaks on a parameter type, a
+# return type, an optional parameter becoming required, or a `raise` appearing,
+# and none of those changes a name.
 fs_snap='alias DataFrame::limit <- frame
 alias column <- root
-ctor DataFrame::DataFrame <- frame
-field HtmlOptions.escape <- frame
-fn col <- root
+ctor DataFrame::DataFrame(Array[@series.Series]) -> Self <- frame
+field HtmlOptions.escape : Bool <- frame
+fn col(String) -> @expr.Expr <- root
 impl Eq for DataFrame <- frame
 intermediate GroupedDataFrame <- frame
-method DataFrame::filter <- frame
-method DataFrame::head <- frame
-method GroupedDataFrame::agg <- frame
+method DataFrame::filter(Self) -> Self <- frame
+method DataFrame::head(Self, Int) -> Self <- frame
+method GroupedDataFrame::agg(Self) -> DataFrame <- frame
 type DataFrame <- frame
 type HtmlOptions <- frame'
 
@@ -259,6 +262,43 @@ mkfacadesurface "$work/fs_impl" "$fs_root" "$fs_frame
 pub impl Show for DataFrame" "$fs_snap"
 expect 1 'facade surface: a trait impl added to a re-exported type' \
   sh "$scripts/check_facade_surface.sh" "$work/fs_impl"
+
+# The four shapes a name-only lock waved through. Each keeps every symbol name
+# in place and breaks a caller anyway.
+mkfacadesurface "$work/fs_param" "$fs_root" \
+  "$(printf '%s\n' "$fs_frame" | sed 's/head(Self, Int)/head(Self, Int64)/')" \
+  "$fs_snap"
+expect 1 'facade surface: a parameter type changed' \
+  sh "$scripts/check_facade_surface.sh" "$work/fs_param"
+
+mkfacadesurface "$work/fs_return" "$fs_root" \
+  "$(printf '%s\n' "$fs_frame" |
+    sed 's/^pub fn DataFrame::filter(Self) -> Self$/pub fn DataFrame::filter(Self) -> GroupedDataFrame/')" \
+  "$fs_snap"
+expect 1 'facade surface: a return type changed' \
+  sh "$scripts/check_facade_surface.sh" "$work/fs_return"
+
+mkfacadesurface "$work/fs_raise" "$fs_root" \
+  "$(printf '%s\n' "$fs_frame" |
+    sed 's/^pub fn DataFrame::filter(Self) -> Self$/pub fn DataFrame::filter(Self) -> Self raise @types.DataError/')" \
+  "$fs_snap"
+expect 1 'facade surface: a raise effect appeared' \
+  sh "$scripts/check_facade_surface.sh" "$work/fs_raise"
+
+mkfacadesurface "$work/fs_field_type" "$fs_root" \
+  "$(printf '%s\n' "$fs_frame" | sed 's/^  escape : Bool$/  escape : Bool?/')" \
+  "$fs_snap"
+expect 1 'facade surface: a public field type changed' \
+  sh "$scripts/check_facade_surface.sh" "$work/fs_field_type"
+
+# The constructor case is the same shape, and the one most easily mistaken for
+# additive: an optional parameter with a default becoming required.
+mkfacadesurface "$work/fs_required" "$fs_root" \
+  "$(printf '%s\n' "$fs_frame" |
+    sed 's/^pub fn DataFrame::DataFrame(Array\[@series.Series\]) -> Self$/pub fn DataFrame::DataFrame(Array[@series.Series], strict : Bool) -> Self/')" \
+  "$fs_snap"
+expect 1 'facade surface: a constructor gained a required parameter' \
+  sh "$scripts/check_facade_surface.sh" "$work/fs_required"
 
 mkfacadesurface "$work/fs_field" "$fs_root" \
   "$(printf '%s\n' "$fs_frame" |

@@ -81,10 +81,11 @@ semantically-additive though it looks. Only a caller whose match carries a
 wildcard arm (`_ => …`) stays source-compatible across such an addition.
 
 **`Expr` equality is structural over the tree as built.** `Expr` is opaque and
-its AST is module-internal, but `==` on two expressions — and, through their
-derived `Eq`, on a `JoinOptions` or a `DataFrame` that embeds one — compares
-that tree, so the contract has to be stated rather than left to the
-representation:
+its AST is module-internal, but `==` on two expressions compares that tree —
+directly, and through the derived `Eq` of any public value that holds
+expressions, which today means `JoinOptions`. (`DataFrame` equality compares
+schema, columns and row count; a frame holds no expression tree.) So the
+contract has to be stated rather than left to the representation:
 
 - Two expressions are equal when they were *built* the same way. Nothing is
   simplified or normalised on the way in, so `col("a") + lit_int(0)` is not

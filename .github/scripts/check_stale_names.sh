@@ -52,6 +52,15 @@ str_contains_regex
 str_replace_regex
 str_replace_all_regex
 DataFrame::storage_kinds
+DataFrame::take
+LazyFrame::from
+Expr::col
+Expr::lit
+JoinOptions::with_
+ChartSpec::with_
+HtmlOptions::with_
+to_markdown_with_limit
+to_html_with_options
 coalesce_into'
 
 # `|| true`: a `grep` that filters everything out exits 1, which `set -e` would

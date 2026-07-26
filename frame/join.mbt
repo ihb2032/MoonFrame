@@ -25,17 +25,20 @@ fn index_by_join_key(
 
 ///|
 /// Equi-join `self` (the left frame) with `other` (the right frame) on the
-/// key **expressions** in `options.on` (or the paired `left_on` /
-/// `right_on`), producing a new `DataFrame`.
+/// key **expressions** the options carry — `JoinOptions::on(keys)`, or the
+/// paired `JoinOptions::left_on(keys, right_on=keys)` — producing a new
+/// `DataFrame`.
 ///
 /// Each key is an arbitrary expression, evaluated over the whole frame
 /// under the rules in `expr_eval.mbt`, exactly like a `sort` / `group_by`
-/// key: `options.on` is applied to both frames (a bare `col("id")` joins on
+/// key: an `on` key is applied to both frames (a bare `col("id")` joins on
 /// an existing column, a derived key such as `col("ts") / lit_int(86400)`
-/// joins on the computed value), while `left_on` / `right_on` evaluate
+/// joins on the computed value), while a sided pair evaluates
 /// position-paired keys on the left and right frame respectively (for
 /// differently-named or differently-derived keys). A key that reduces to a
 /// single cell (a literal, or an aggregation) broadcasts over the frame.
+/// Reading back what an options value carries is `on_keys()` /
+/// `left_keys()` / `right_keys()`, each returning a copy.
 ///
 /// Two rows match when every key holds an equal value, using the same
 /// composite-`KeyCell`-tuple encoding `group_by` uses (see
@@ -107,9 +110,9 @@ fn index_by_join_key(
 ///   unify. Reported on the first such key, in key order.
 /// - `InvalidOperation(detail)` — no keys for a non-`Cross` join (use
 ///   `how = Cross` for a Cartesian product), any keys on a `Cross` join
-///   (which takes none), both `on` and `left_on` / `right_on` given (they
-///   are mutually exclusive), or `left_on` and `right_on` of unequal
-///   length.
+///   (which takes none), or a sided pair of unequal length. (Mixing shared
+///   and sided keys is a fourth case the engine still checks, though the
+///   three constructors make it unspellable from outside `frame`.)
 /// - `DuplicateColumn(name)` — either two keys with the same output name
 ///   (rejected at the repeat during key resolution, like
 ///   `group_by([col("id"), col("id")])`), or two output columns still

@@ -51,10 +51,10 @@ fn string_cells(col : BuiltinColumn) -> (Array[String], Bitmap) {
 
 ///|
 /// A validity mask from a plain `Bool` vector, `true` ↦ valid. What
-/// `Bitmap::from_bools` did before it was deleted: production never builds a
-/// mask that way — it builds one from the option vector a constructor was
-/// given, or all-valid — so spelling a mask out bit by bit is a test's need
-/// and lives with the tests.
+/// `Bitmap::from_bools` did before it was deleted (doc-guard: historical):
+/// production never builds a mask that way — it builds one from the option
+/// vector a constructor was given, or all-valid — so spelling a mask out bit
+/// by bit is a test's need and lives with the tests.
 fn mask(bits : Array[Bool]) -> Bitmap {
   Bitmap::from_options(bits.map(b => if b { Some(0) } else { None }))
 }

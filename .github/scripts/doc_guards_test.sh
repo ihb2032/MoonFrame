@@ -875,6 +875,26 @@ printf '///|\npub fn consume(c : Series) -> Int {\n  ignore(Series::is_canonical
 expect 0 'engine seams: a Type::method call counts' \
   sh "$scripts/check_engine_seams.sh" "$work/es_type_call"
 
+# A consumer writing into a buffer the seam handed it. Nothing about this
+# shows up in an import, a signature, or a snapshot — the whole point of
+# checking it here.
+mkseams "$work/es_mutation" "$es_source" "$es_snap"
+printf '///|\npub fn consume(c : Series) -> Int {\n  match c.storage().data() {\n    ColumnData::Int(a) => a[0] = 1L\n    _ => ()\n  }\n  ignore(validity_bools(c))\n  ignore(reducer_for(c, ReduceOp::Sum))\n  ignore(after_the_value(c))\n  ignore(bool_cells(c))\n  0\n}\n' \
+  >"$work/es_mutation/io/io.mbt"
+(cd "$work/es_mutation" && git add -A && git commit -qm mutation)
+expect_out 1 'writes into a live column buffer' \
+  'engine seams: a consumer mutating a column buffer' \
+  sh "$scripts/check_engine_seams.sh" "$work/es_mutation"
+
+# Writing into an array the consumer built itself is ordinary code, and a
+# rule that cannot tell the two apart would just be turned off.
+mkseams "$work/es_own_array" "$es_source" "$es_snap"
+printf '///|\npub fn consume(c : Series) -> Int {\n  let out : Array[Int64] = [0L]\n  match c.storage().data() {\n    ColumnData::Int(a) => out[0] = a[0]\n    _ => ()\n  }\n  ignore(validity_bools(c))\n  ignore(reducer_for(c, ReduceOp::Sum))\n  ignore(after_the_value(c))\n  ignore(bool_cells(c))\n  0\n}\n' \
+  >"$work/es_own_array/io/io.mbt"
+(cd "$work/es_own_array" && git add -A && git commit -qm ownarray)
+expect 0 'engine seams: writing into a locally built array is fine' \
+  sh "$scripts/check_engine_seams.sh" "$work/es_own_array"
+
 mkseams "$work/es_missing" "$es_source" --
 expect_out 1 'snapshot' 'engine seams: snapshot absent' \
   sh "$scripts/check_engine_seams.sh" "$work/es_missing"

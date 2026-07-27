@@ -282,6 +282,74 @@ if [ -n "$half_marked" ]; then
   exit 1
 fi
 
+# The widest seam in the list is `Series::storage`, and what makes it wide is
+# not its signature: it hands `internal/kernel` the column's *live* buffers,
+# through `data()` and the typed `*_values()` readers. A column is logically
+# immutable and buffers are shared by zero-copy slicing, so one index
+# assignment into one of those arrays corrupts the column it came from and
+# every column sharing the buffer — with no import, no signature, and no
+# snapshot changing to show it. Read-only is therefore a rule and not a
+# comment: in any package that receives a buffer this way, a name bound out of
+# a `ColumnData` pattern or a `*_values()` destructuring may not be assigned
+# into. `series` and `internal/column` are exempt — they own the column and
+# build the arrays in the first place.
+mutations=$(printf '%s\n' "$production_files" | while IFS= read -r f; do
+  case "$f" in
+    internal/column/* | series/* | "") continue ;;
+  esac
+  [ -f "$f" ] || continue
+  awk -v file="$f" '
+    { line[NR] = $0 }
+    # `... ColumnData::Int(a) ...` and `let (a, v) = c.int_values()` both bind
+    # a name to a buffer the column still owns.
+    {
+      s = $0
+      while ((i = index(s, "ColumnData::")) > 0) {
+        s = substr(s, i + 12)
+        p = index(s, "(")
+        if (p == 0) break
+        after = substr(s, p + 1)
+        q = index(after, ")")
+        if (q == 0) break
+        name = substr(after, 1, q - 1)
+        if (name ~ /^[A-Za-z_][A-Za-z0-9_]*$/) live[name] = 1
+        s = after
+      }
+    }
+    /_values\(\)/ && /^[[:space:]]*let[[:space:]]*\(/ {
+      s = $0
+      sub(/^[^(]*\(/, "", s)
+      sub(/\).*/, "", s)
+      n = split(s, parts, ",")
+      for (k = 1; k <= n; k++) {
+        gsub(/[[:space:]]/, "", parts[k])
+        if (parts[k] ~ /^[A-Za-z_][A-Za-z0-9_]*$/) live[parts[k]] = 1
+      }
+    }
+    END {
+      for (n = 1; n <= NR; n++) {
+        l = line[n]
+        if (l ~ /^[[:space:]]*\/\//) continue
+        for (name in live) {
+          if (l ~ ("(^|[^A-Za-z0-9_.])" name "\\[[^]]*\\][[:space:]]*=[^=]")) {
+            printf "%s:%d: writes into `%s`, a buffer the column owns\n", \
+              file, n, name
+          }
+        }
+      }
+    }
+  ' "$f"
+done)
+if [ -n "$mutations" ]; then
+  printf 'engine seams: a consumer writes into a live column buffer:\n'
+  printf '%s\n' "$mutations" | sed 's/^/  /'
+  printf '  `data()` and the `*_values()` readers hand back the arrays the\n'
+  printf '  column itself holds, not copies, and slicing shares them further.\n'
+  printf '  Build a new array and return it — a kernel reads a column, it\n'
+  printf '  does not edit one.\n'
+  exit 1
+fi
+
 # A seam nothing outside its package calls has to be argued for by name. This
 # runs before `--write` on purpose: regenerating the snapshot must not be a way
 # to accept one.

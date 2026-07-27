@@ -74,7 +74,7 @@ fn Bitmap::all_valid(len : Int) -> Bitmap {
 ///|
 /// `Some(_)` ↦ valid, `None` ↦ null. Works for any element type because
 /// only the `Some/None` shape is inspected.
-pub fn[T] Bitmap::from_options(values : Array[T?]) -> Bitmap {
+fn[T] Bitmap::from_options(values : Array[T?]) -> Bitmap {
   pack(values.length(), i => values[i] is Some(_))
 }
 

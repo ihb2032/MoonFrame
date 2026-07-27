@@ -650,19 +650,32 @@ expect_out 1 'snapshot' 'layering: snapshot absent' \
 
 # ── engine seams ──────────────────────────────────────────────────────────
 mkseams() {
-  # mkseams <dir> <series-source> <snapshot-body|--> [test-source]
+  # mkseams <dir> <series-source> <snapshot-body|--> [test-source] [allowlist]
   # The optional fourth argument lands in a `_wbtest.mbt`, which the guard must
   # skip: a whitebox test compiles inside its own package, so a `pub` helper
-  # there is not an external symbol at all.
-  mkdir -p "$1/series" "$1/.github/scripts"
+  # there is not an external symbol at all. The fifth is the allowlist of seams
+  # allowed to have no production caller (absent file = nothing allowed).
+  #
+  # Every fixture gets an `io` package that imports `series` and calls the
+  # seams, because a seam nothing outside its package calls is a failure now:
+  # without a consumer these fixtures would all trip that rule instead of
+  # testing what they are named for. `io` and not `frame`, so the two fixtures
+  # that write their own `frame` keep saying only what they mean to.
+  mkdir -p "$1/series" "$1/io" "$1/.github/scripts"
   (cd "$1" && git init -q . && git config user.email t@t &&
     git config user.name t && git config core.autocrlf false)
   printf '%s\n' "$2" >"$1/series/series.mbt"
+  printf 'import {\n  "ihb2032/MoonFrame/series",\n}\n' >"$1/io/moon.pkg"
+  printf '///|\npub fn consume(c : Series) -> Int {\n  ignore(validity_bools(c))\n  ignore(reducer_for(c, ReduceOp::Sum))\n  ignore(after_the_value(c))\n  ignore(bool_cells(c))\n  0\n}\n' \
+    >"$1/io/io.mbt"
   if [ "$3" != "--" ]; then
     printf '%s\n' "$3" >"$1/.github/scripts/engine_seams.snapshot"
   fi
-  if [ $# -ge 4 ]; then
+  if [ $# -ge 4 ] && [ -n "$4" ]; then
     printf '%s\n' "$4" >"$1/series/series_wbtest.mbt"
+  fi
+  if [ $# -ge 5 ]; then
+    printf '%s\n' "$5" >"$1/.github/scripts/engine_seams.allowlist"
   fi
   (cd "$1" && git add -A && git commit -qm f)
 }
@@ -701,8 +714,8 @@ pub(all) enum ReduceOp {
   Sum
   Mean
 }'
-es_snap='series | doc_hidden internal_engine | pub fn reducer_for( column : Series, op : ReduceOp, ) -> (Int, @types.DataType) | used by: (no production caller outside series)
-series | doc_hidden internal_engine | pub fn validity_bools(column : Series) -> Array[Bool] | used by: (no production caller outside series)
+es_snap='series | doc_hidden internal_engine | pub fn reducer_for( column : Series, op : ReduceOp, ) -> (Int, @types.DataType) | used by: io
+series | doc_hidden internal_engine | pub fn validity_bools(column : Series) -> Array[Bool] | used by: io
 series | doc_hidden internal_engine | pub(all) enum ReduceOp
 series | doc_hidden internal_engine | variant ReduceOp::Mean
 series | doc_hidden internal_engine | variant ReduceOp::Sum'
@@ -769,9 +782,9 @@ pub let seam_limit : Int = 3
 #internal(engine, \"MoonFrame execution engine API\")
 pub fn after_the_value(column : Series) -> Int {
   ignore(column)
-}" 'series | doc_hidden internal_engine | pub fn after_the_value(column : Series) -> Int | used by: (no production caller outside series)
-series | doc_hidden internal_engine | pub fn reducer_for( column : Series, op : ReduceOp, ) -> (Int, @types.DataType) | used by: (no production caller outside series)
-series | doc_hidden internal_engine | pub fn validity_bools(column : Series) -> Array[Bool] | used by: (no production caller outside series)
+}" 'series | doc_hidden internal_engine | pub fn after_the_value(column : Series) -> Int | used by: io
+series | doc_hidden internal_engine | pub fn reducer_for( column : Series, op : ReduceOp, ) -> (Int, @types.DataType) | used by: io
+series | doc_hidden internal_engine | pub fn validity_bools(column : Series) -> Array[Bool] | used by: io
 series | doc_hidden internal_engine | pub let seam_limit : Int = 3
 series | doc_hidden internal_engine | pub(all) enum ReduceOp
 series | doc_hidden internal_engine | variant ReduceOp::Mean
@@ -805,6 +818,48 @@ expect 0 'engine seams: a declaration of the same name is not a call' \
 mkseams "$work/es_missing" "$es_source" --
 expect_out 1 'snapshot' 'engine seams: snapshot absent' \
   sh "$scripts/check_engine_seams.sh" "$work/es_missing"
+
+# The rule the allowlist exists for. A seam nothing outside its package calls
+# is `pub` for no reason the architecture can state, and the snapshot used to
+# record that quietly — which is how five of them survived a release cycle.
+es_orphan="$es_source
+
+///|
+#doc(hidden)
+#internal(engine, \"MoonFrame execution engine API\")
+pub fn Series::is_canonical(self : Series) -> Bool {
+  ignore(self)
+}"
+es_orphan_snap="series | doc_hidden internal_engine | pub fn Series::is_canonical(self : Series) -> Bool | used by: (no production caller outside series)
+$es_snap"
+
+mkseams "$work/es_orphan" "$es_orphan" "$es_orphan_snap"
+expect_out 1 'no production caller outside its package' \
+  'engine seams: a seam nothing outside the package calls' \
+  sh "$scripts/check_engine_seams.sh" "$work/es_orphan"
+
+# Listed, with a reason, in a file `--write` does not touch: allowed. This is
+# also what pins the key spelling — `pkg/Symbol`, the reason after an em dash.
+mkseams "$work/es_allowed" "$es_orphan" "$es_orphan_snap" '' \
+  '# a comment, and a blank line, are both fine
+
+series/Series::is_canonical — asserted by another package, which has no other way to see it'
+expect 0 'engine seams: a caller-less seam listed with its reason' \
+  sh "$scripts/check_engine_seams.sh" "$work/es_allowed"
+
+# Regenerating must not be a way to accept one: the rule runs before --write.
+mkseams "$work/es_orphan_write" "$es_orphan" "$es_orphan_snap"
+expect_out 1 'no production caller outside its package' \
+  'engine seams: --write does not launder a caller-less seam' \
+  sh "$scripts/check_engine_seams.sh" "$work/es_orphan_write" --write
+
+# And the list stays honest the other way: an entry for a seam that has a
+# caller now (or was renamed, or deleted) is an exception nobody re-read.
+mkseams "$work/es_stale_allow" "$es_source" "$es_snap" '' \
+  'series/validity_bools — a reason that stopped being true when io started calling it'
+expect_out 1 'an exception that is no longer needed' \
+  'engine seams: an allowlist entry whose seam gained a caller' \
+  sh "$scripts/check_engine_seams.sh" "$work/es_stale_allow"
 
 # A test-only helper carrying the seam attributes is not part of the surface,
 # in either test spelling. Left in scope it would land in the snapshot and fail

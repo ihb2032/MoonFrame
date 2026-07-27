@@ -59,6 +59,19 @@ caller under this module's `ihb2032/MoonFrame/` prefix — MoonFrame's own
 sub-packages, their tests, and the examples are the intended callers. The one
 in-module caller the prefix does not cover is the root package itself, whose
 name *is* the module name, so its `moon.pkg` allows the alert explicitly.
+
+Being useful to a test is not what makes a symbol a seam. A test that needs to
+reach inside a package can be a whitebox test, compiled within it, so a helper
+only its own package's tests want does not need to be `pub` at all — and if no
+production code calls it either, it is dead weight in a production source file
+and gets deleted. `.github/scripts/check_engine_seams.sh` enforces exactly
+that: a seam with no production caller outside its own package fails the build
+unless it is listed, with its reason, in `engine_seams.allowlist`. Three are
+listed today, and all three exist to be *asserted* by tests in another package
+that have no other way to see what they check —
+`DataFrame::check_invariants` (the structural check behind INV1–INV7),
+`Series::is_canonical` (the backend-canonicalisation invariant), and
+`Series::storage_kind` (which backend an operator's output landed on).
 **Internal packages** go further: code that no public package needs lives in an
 `internal/` path (`internal/column` storage, `internal/kernel` — the vectorized
 expression kernels — `internal/text` / `internal/literal` primitives, and

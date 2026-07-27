@@ -22,8 +22,24 @@
 # Callers, because the question worth asking about a seam is not only whether
 # its signature moved but whether anything outside its own package still needs
 # it: two storage-taking constructors turned out to have no such caller and
-# stopped being `pub` at all. A seam marked `(no production caller outside …)`
-# is one kept alive by tests — sometimes right, always worth re-reading.
+# stopped being `pub` at all, and three backend-forcing helpers that only tests
+# ever called were deleted rather than kept. A seam with no such caller is not
+# a seam — it is a symbol the compiler lets anyone reach for no reason the
+# architecture can state.
+#
+# So that case is a failure, not a note. The exceptions are named below in
+# `allowed_no_production_callers`, each with the reason it is one, and the list
+# is the one part of this guard that `--write` cannot touch: adding a seam that
+# nothing outside its package calls means editing this file, in the diff,
+# where it can be argued with. The two entries today are both symbols whose
+# whole purpose is to be asserted, by tests that live in another package and
+# have no other way to see what they check. Being convenient for a test is not
+# on the list. Note what the alternative is not: making such a symbol private
+# does not work here, because `unused_value` counts production callers only, so
+# the strict warning gate rejects a private function that only tests call —
+# correctly. A symbol no production code calls and no other package has to
+# assert is dead weight in a production source file, and the fix is to delete
+# it and write the test against what production does use.
 #
 # The list is derived rather than maintained by hand, which keeps it in step
 # with the code, but it is not a resolved call graph. Two filters do the real
@@ -63,6 +79,16 @@ done
 cd "$root"
 
 snapshot=".github/scripts/engine_seams.snapshot"
+
+# Seams no production code outside the declaring package calls, and the reason
+# each is allowed to stay `pub` anyway: one `pkg/Symbol — reason` per line, `#`
+# for comments. A separate file rather than a constant here, so that adding an
+# exception is a line in a diff of its own; nothing writes it, `--write`
+# included.
+allowlist=".github/scripts/engine_seams.allowlist"
+allowed_no_production_callers=$(
+  [ -f "$allowlist" ] && grep -v '^[[:space:]]*#' "$allowlist" || true
+)
 
 # Public packages only: the root facade and the six re-exported ones. An
 # `internal/` package is unimportable downstream, so a `pub` inside it promises
@@ -233,6 +259,76 @@ if [ -n "$half_marked" ]; then
   printf '  .mbti, without stopping anyone calling it — public API by\n'
   printf '  accident. Add the missing attribute, or drop both and accept the\n'
   printf '  symbol as public API.\n'
+  exit 1
+fi
+
+# A seam nothing outside its package calls has to be argued for by name. This
+# runs before `--write` on purpose: regenerating the snapshot must not be a way
+# to accept one.
+seam_key() {
+  # seam_key <line> → `pkg/Symbol` for a `pub fn` seam, empty for anything else.
+  line=$1
+  pkg=${line%% | *}
+  rest=${line#* | * | }
+  decl=${rest%% | used by:*}
+  case "$decl" in
+    "pub fn "* | "pub fn["*) ;;
+    *) return ;;
+  esac
+  sym=${decl#pub fn}
+  sym=${sym# }
+  case "$sym" in
+    \[*) sym=${sym#*\] } ;;
+  esac
+  printf '%s/%s' "$pkg" "${sym%%(*}"
+}
+
+allowed_entry() {
+  printf '%s\n' "$allowed_no_production_callers" | while IFS= read -r entry; do
+    [ -n "$entry" ] || continue
+    case "$entry" in
+      "$1 — "*) printf '%s' "$entry" ;;
+    esac
+  done
+}
+
+caller_less=$(printf '%s\n' "$current" |
+  grep -F '| used by: (no production caller outside' || true)
+
+unlisted=$(printf '%s\n' "$caller_less" | while IFS= read -r line; do
+  [ -n "$line" ] || continue
+  key=$(seam_key "$line")
+  [ -n "$key" ] || continue
+  [ -n "$(allowed_entry "$key")" ] || printf '%s\n' "$key"
+done)
+if [ -n "$unlisted" ]; then
+  printf 'engine seams: a seam with no production caller outside its package:\n'
+  printf '%s\n' "$unlisted" | sed 's/^/  /'
+  printf '  Nothing but tests reaches these, so `pub` buys the architecture\n'
+  printf '  nothing: delete the symbol and assert through what production does\n'
+  printf '  use, or — if another package genuinely has to assert it and has no\n'
+  printf '  other way to see it — add it to allowed_no_production_callers in\n'
+  printf '  this script, with the reason, in a reviewable diff.\n'
+  exit 1
+fi
+
+# And the list stays honest in the other direction: an entry whose seam gained a
+# caller, changed name, or went away is one nobody has re-read since.
+stale=$(printf '%s\n' "$allowed_no_production_callers" | while IFS= read -r entry; do
+  [ -n "$entry" ] || continue
+  key=${entry%% — *}
+  # `if`, not `&&`: a final iteration whose test fails would make the loop —
+  # and so the substitution, and so this `set -e` script — exit non-zero.
+  hit=$(printf '%s\n' "$caller_less" | while IFS= read -r line; do
+    if [ "$(seam_key "$line")" = "$key" ]; then printf 'yes'; fi
+  done)
+  [ -n "$hit" ] || printf '%s\n' "$key"
+done)
+if [ -n "$stale" ]; then
+  printf 'engine seams: an exception that is no longer needed:\n'
+  printf '%s\n' "$stale" | sed 's/^/  /'
+  printf '  It has a production caller now, was renamed, or is gone. Drop the\n'
+  printf '  entry — an exception nobody re-reads is how the list grows.\n'
   exit 1
 fi
 

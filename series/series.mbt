@@ -8,11 +8,12 @@
 /// explicit validity bitmap, or an all-valid unboxed numeric fast path — chosen
 /// and canonicalised by the engine, and computed or rebuilt results are
 /// re-converged onto the fast path automatically. The **supported** API neither
-/// observes nor selects it: the methods that inspect or force a backend
-/// (`storage` / `storage_kind` / `to_numeric` / `to_builtin` / `is_canonical`)
-/// are engine seams, absent from the generated interface and carrying no
-/// compatibility promise, so a caller outside this module has no supported way
-/// to tell which one a column is on. See `internal/column` and
+/// observes nor selects it: the few methods that do (`storage` /
+/// `storage_kind` / `is_canonical`) are engine seams, absent from the generated
+/// interface and carrying no compatibility promise, so a caller outside this
+/// module has no supported way to tell which one a column is on — and no way at
+/// all to choose it, since nothing here moves a column onto a backend its
+/// content does not call for. See `internal/column` and
 /// [`docs/performance.md`](../docs/performance.md).
 ///
 /// The fields are `priv`, so the struct is opaque outside this package: reach a
@@ -856,6 +857,15 @@ pub fn Series::cast(
 /// Which storage backend currently backs this column: `Numeric` for the
 /// all-valid unboxed fast path (built by `from_ints` / `from_floats`, and
 /// preserved through structural transforms), `Builtin` otherwise.
+///
+/// No production code outside this package calls it — the packages above
+/// choose a backend through `try_column_to_numeric` / `preserve_backend`
+/// rather than by asking. It stays `pub` for the *assertions*: "an operator's
+/// output backend is a function of its content" is engine-wide behaviour, and
+/// the operators live in `frame`, whose tests are a separate package and can
+/// only observe the backend through a `pub` reader. That is a declared
+/// exception in the seam guard's allowlist, not a precedent — see
+/// `#internal(engine)` in `docs/api.md`.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
 pub fn Series::storage_kind(self : Series) -> @column.StorageKind {
@@ -887,6 +897,12 @@ pub fn Series::storage_kind(self : Series) -> @column.StorageKind {
 /// `Numeric`. A backend-preserving transform (`slice` / `head` / `fill_null`)
 /// can still return a non-canonical column when its source was one — the
 /// invariant governs the content-determined path, not every column.
+///
+/// Like every invariant predicate in this repository it has no production
+/// caller: what it is *for* is being asserted, once per transform that claims
+/// to produce a canonical column. That is why it stays `pub` while the
+/// backend-forcing helpers around it did not, and it is listed as such in the
+/// seam guard's allowlist.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
 pub fn Series::is_canonical(self : Series) -> Bool {
@@ -903,27 +919,4 @@ pub fn Series::is_canonical(self : Series) -> Bool {
         }
       }
   }
-}
-
-///|
-/// Move this column onto the `Numeric` fast-path backend. The values are
-/// unchanged — only the backing representation. `raise TypeMismatch` for a
-/// non-numeric column and `raise InvalidOperation` for one carrying nulls
-/// (a `NumericColumn` has no validity bitmap to record them); an
-/// already-`Numeric` column is returned unchanged.
-#doc(hidden)
-#internal(engine, "MoonFrame execution engine API")
-pub fn Series::to_numeric(self : Series) -> Series raise @types.DataError {
-  Series::new(self.name, self.storage.to_numeric())
-}
-
-///|
-/// Materialise this column onto the general-purpose `Builtin` backend (the
-/// inverse of `to_numeric`). Total and lossless: an all-valid `Numeric`
-/// column widens to a `BuiltinColumn` with an all-valid bitmap; a `Builtin`
-/// column is returned unchanged.
-#doc(hidden)
-#internal(engine, "MoonFrame execution engine API")
-pub fn Series::to_builtin(self : Series) -> Series {
-  Series::from_builtin(self.name, self.storage.to_builtin())
 }

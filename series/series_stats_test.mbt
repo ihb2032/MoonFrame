@@ -266,9 +266,9 @@ test "min / max Bool flip when the running extremum must change" {
 test "reductions agree on the Numeric fast path and the Builtin path" {
   // The v0.3 fix routes a `Numeric`-backed series' reductions to the
   // bitmap-free fold; this pins that the fast path can never diverge from the
-  // general `Builtin` path on the same values (`to_builtin()` forces Builtin).
+  // general `Builtin` path on the same values (`builtin_twin` rebuilds the same cells on Builtin).
   let ints = Series::from_ints("x", [3, 1, 4, 1, 5, 9, 2, 6])
-  let bints = ints.to_builtin()
+  let bints = builtin_twin(ints)
   assert_eq(ints.storage_kind(), @column.StorageKind::Numeric)
   assert_eq(bints.storage_kind(), @column.StorageKind::Builtin)
   assert_eq(ints.sum(), bints.sum())
@@ -279,7 +279,7 @@ test "reductions agree on the Numeric fast path and the Builtin path" {
   // backends must reach the same verdict on every reduction.
   let nan : Double = @double.not_a_number
   let flts = Series::from_floats("x", [2.5, nan, 1.0, 4.0])
-  let bflts = flts.to_builtin()
+  let bflts = builtin_twin(flts)
   assert_eq(flts.storage_kind(), @column.StorageKind::Numeric)
   assert_true(flts.sum().as_float().is_nan() && bflts.sum().as_float().is_nan())
   assert_true(flts.mean().is_nan() && bflts.mean().is_nan())

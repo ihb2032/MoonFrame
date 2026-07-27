@@ -8,11 +8,14 @@
 /// schema in lock-step with the column vector — and *read* through the
 /// copy-returning accessors (`columns()` / `column_series()` / `schema()`).
 /// External code cannot reach the live `columns` / `name_to_index` containers,
-/// so it cannot mutate a validated frame into an inconsistent state. The
-/// preserved invariants:
-///   * `schema.field_names() == columns.map(.name)`
-///   * `columns.all(c => c.len() == nrows)`
-///   * `name_to_index[name] == i  ⇔  columns[i].name == name`
+/// so it cannot mutate a validated frame into an inconsistent state.
+///
+/// What every constructor here establishes and every transform preserves is
+/// that the four parts agree: the schema mirrors the columns (names and
+/// dtypes), every column is `nrows` tall, `nrows` is non-negative, and the
+/// lookup cache maps each name to the position that carries it. The normative
+/// list is INV1–INV7 in `frame/invariants.mbt`, spelled out there once and
+/// checked by `check_invariants`; restating it here is how the two drift.
 pub struct DataFrame {
   priv schema : @types.Schema
   priv columns : Array[Series]
@@ -557,45 +560,14 @@ fn is_identity_perm(indices : Array[Int], nrows : Int) -> Bool {
   true
 }
 
-// ── Storage backend control ───────────────────────────────────────────
-
-///|
-/// Move every eligible column onto the `Numeric` fast-path backend,
-/// best-effort and **total**: an all-valid Int / Float column converts; a
-/// column carrying nulls, a non-numeric column, or one already `Numeric` is
-/// kept unchanged (via the non-raising `try_column_to_numeric`, so a column
-/// that cannot move never fails the whole frame). Names, dtypes, and values
-/// are unchanged — only the backing representation of the converted columns
-/// — so the schema and `O(1)` lookup cache are reused verbatim.
-#doc(hidden)
-#internal(engine, "MoonFrame execution engine API")
-pub fn DataFrame::to_numeric(self : DataFrame) -> DataFrame {
-  let new_cols = self.columns.map(try_column_to_numeric)
-  self.with_same_schema(new_cols, self.nrows)
-}
-
-///|
-/// Materialise every column onto the general-purpose `Builtin` backend (the
-/// inverse of `to_numeric`). Total and lossless — `Numeric` columns widen
-/// with an all-valid bitmap, `Builtin` columns are unchanged — so names,
-/// dtypes, and values are preserved and the schema / lookup cache are
-/// reused verbatim.
-#doc(hidden)
-#internal(engine, "MoonFrame execution engine API")
-pub fn DataFrame::to_builtin(self : DataFrame) -> DataFrame {
-  let new_cols = self.columns.map(c => c.to_builtin())
-  self.with_same_schema(new_cols, self.nrows)
-}
-
 // ── Internal helpers ──────────────────────────────────────────────────
 
 ///|
 /// Rebuild the frame from `new_cols` and `nrows`, reusing this frame's schema
 /// and `O(1)` name→index cache verbatim. The schema-preserving constructor
 /// behind the row-only transforms (`head` / `tail` / `slice` / `gather` /
-/// `fill_null` / `unique`) and the backend re-representations (`to_numeric` /
-/// `to_builtin`): the column values or backing change but the names and dtypes
-/// do not, so the cache stays valid and these never pay to rebuild it through
+/// `fill_null` / `unique`): the column values or backing change but the names
+/// and dtypes do not, so the cache stays valid and these never pay to rebuild it through
 /// `DataFrame::DataFrame` (`O(n)`, and able to raise). Total — the caller guarantees
 /// `new_cols` still matches the schema and carries `nrows` rows each.
 ///

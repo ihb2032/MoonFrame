@@ -554,8 +554,10 @@ test "format_ndjson / parse_ndjson_str round-trip preserves data" {
   ])
   let text = @io.format_ndjson(df)
   let df2 = @io.parse_ndjson_str(text)
-  // The reader produces Builtin-backed columns; the round-trip preserves the
-  // *data*, so compare on a common backend (the original's `r`, built with
-  // `from_floats`, is on the Numeric fast path).
-  assert_eq(df.to_builtin(), df2.to_builtin())
+  // Compare what the round-trip is supposed to preserve — the schema and
+  // the cells — rather than the frames themselves: frame equality also
+  // compares the physical backend, and the reader always builds `Builtin`
+  // columns while the original `r` was built with `from_floats` (Numeric).
+  assert_eq(df2.schema(), df.schema())
+  assert_eq(df2.to_scalar_matrix(), df.to_scalar_matrix())
 }

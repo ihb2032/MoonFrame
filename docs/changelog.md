@@ -188,14 +188,23 @@ collected in [`migration.md`](migration.md).
   public: they are immutable values. The engine keeps its defensive check for
   the mixed state, now reachable only from an in-package test.
 - The storage-backend surface leaves the public API. `Series::storage` /
-  `storage_kind` / `to_numeric` / `to_builtin` / `is_canonical` /`mean_opt` and
-  `DataFrame::to_numeric` / `to_builtin` /
-  `to_scalar_matrix` are marked `#doc(hidden)` `#internal(engine, ...)`: they
-  stay `pub` so the engine can use them across package boundaries, but they no
-  longer appear in the generated interface and using them from outside the
-  module warns. Handing out a `ColumnStorage` / `StorageKind` was the last
-  public leak of the `internal/column` types — `frame`'s interface no longer
-  imports that package at all.
+  `storage_kind` / `is_canonical` / `mean_opt` and `DataFrame::to_scalar_matrix`
+  are marked `#doc(hidden)` `#internal(engine, ...)`: they stay `pub` because
+  another package needs them — `internal/kernel` reads a column's storage,
+  `io` reads a frame's cells in one pass, and the backend the operators in
+  `frame` return is asserted by tests that live in `frame` — but they no longer
+  appear in the generated interface and using them from outside the module
+  warns. Handing out a `ColumnStorage` / `StorageKind` was the last public leak
+  of the `internal/column` types — `frame`'s interface no longer imports that
+  package at all.
+- The methods that *forced* a backend are gone rather than hidden:
+  `Series::to_numeric` / `to_builtin` and `DataFrame::to_numeric` /
+  `to_builtin`. Nothing in the engine called them — a column reaches the
+  unboxed fast path from its own content, through `try_column_to_numeric`, and
+  never moves back — so they were public only for the tests that forced a
+  backend to compare the two. Those tests now build the pair they compare out
+  of the ordinary constructors: `from_ints` lands on `Numeric`,
+  `from_int_options` on `Builtin`.
 - The engine seams leave the public interface. `series` publishes **no** free
   functions at all now: `gather_series` / `gather_series_opt` / `slice_series`
   / `preserve_backend` / `try_column_to_numeric` / `validity_bools` /

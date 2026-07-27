@@ -270,8 +270,10 @@ The dependency graph is a DAG, not a chain — `expr` and `internal/ir` sit off
 to one side of it — and `.github/scripts/check_layering.sh` enforces the rule
 above against the manifests rather than trusting this paragraph.
 
-The data model is an Apache Arrow-style column layout (a byte-packed validity
-bitmap, `1 = valid`) with an `O(1)` name→index cache;
+The data model is an Apache Arrow-style column layout — a data buffer beside a
+byte-packed validity bitmap (`1 = valid`), except on the `Numeric` fast path,
+where an all-valid `Int` / `Float` column carries no bitmap at all — with an
+`O(1)` name→index cache;
 `DataFrame::check_invariants()` is a formal structural spec (INV1–INV7); every
 operator's test suite asserts it over that operator's representative outputs.
 The usual loop:

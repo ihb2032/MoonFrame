@@ -47,8 +47,8 @@ fn Series::new(name : String, storage : @column.ColumnStorage) -> Series {
 
 ///|
 /// Wrap an existing `BuiltinColumn` under the given name, behind a
-/// `ColumnStorage::Builtin`. The source-compatible path for callers that
-/// already hold a `BuiltinColumn` (the v0.2 `new` signature).
+/// `ColumnStorage::Builtin` — the adapter the constructors and transforms in
+/// this package use when they have already produced a `BuiltinColumn`.
 /// Package-private for the same reason as `new`.
 fn Series::from_builtin(
   name : String,

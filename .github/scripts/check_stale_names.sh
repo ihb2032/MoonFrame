@@ -20,10 +20,14 @@
 #     therefore additive" — wraps across lines, has no fixed spelling, and is
 #     wrong only relative to the interface. When a symbol's visibility changes,
 #     re-read the sections that describe it; no guard here will.
-#   * A bare word. `take` became `Series::gather` in v0.6, but `take` also
-#     names live methods (`Bitmap::take`, `ColumnStorage::take`) and is an
-#     ordinary English verb, so pinning it would fire on prose. The names below
-#     are the ones a substring match can tell apart.
+#   * A bare word, repository-wide. `take` became `Series::gather` in v0.6, but
+#     `take` also names live methods (`Bitmap::take`, `ColumnStorage::take`)
+#     and is an ordinary English verb, so pinning it everywhere would fire on
+#     prose. Where a bare name is worth pinning in *one* file — the file that
+#     used to own the symbol, whose comments are the ones that will name it —
+#     write the entry as `path/to/file.mbt:name` and it is checked there alone.
+#     That is how the `Bitmap` comments naming its own deleted constructors are
+#     held, while `Series::from_bools` goes on living.
 #
 # Usage: .github/scripts/check_stale_names.sh [repo-root]
 # Exit 0 when clean, 1 when a removed name is found.
@@ -78,7 +82,11 @@ ChartSpec::with_
 HtmlOptions::with_
 to_markdown_with_limit
 to_html_with_options
-coalesce_into'
+coalesce_into
+internal/column/bitmap.mbt:from_bools
+internal/column/bitmap.mbt:bit_and
+internal/column/bitmap.mbt:all_null
+internal/kernel/numeric.mbt:expr_eval.mbt'
 
 # `|| true`: a `grep` that filters everything out exits 1, which `set -e` would
 # turn into a silent failure of the whole script.
@@ -95,7 +103,26 @@ fi
 fail=0
 printf '%s\n' "$patterns" | while IFS= read -r pattern; do
   [ -n "$pattern" ] || continue
-  hits=$(printf '%s\n' "$files" | tr '\n' '\0' |
+  # A pattern written `path/to/file.mbt:name` is checked in that file alone.
+  # This is what makes a *bare* name pinnable: `from_bools` was deleted from
+  # `Bitmap` while `Series::from_bools` and `BuiltinColumn::from_bools` are
+  # live, so a repository-wide entry would fire on every one of them — and the
+  # comment that named the deleted one, in the file that used to own it, went
+  # unnoticed for exactly that reason.
+  scope=""
+  case "$pattern" in
+    *.mbt:* | *.md:*)
+      scope=${pattern%%:*}
+      pattern=${pattern#*:}
+      ;;
+  esac
+  if [ -n "$scope" ]; then
+    scoped=$(printf '%s\n' "$files" | grep -x -F -- "$scope" || true)
+    [ -n "$scoped" ] || continue
+  else
+    scoped=$files
+  fi
+  hits=$(printf '%s\n' "$scoped" | tr '\n' '\0' |
     xargs -0 grep -n -F -- "$pattern" 2>/dev/null |
     grep -v 'doc-guard: historical' || true)
   if [ -n "$hits" ]; then

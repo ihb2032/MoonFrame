@@ -18,7 +18,6 @@ pub struct Bitmap {
   len : Int
 } derive(@debug.Debug)
 pub fn Bitmap::equal(Self, Self) -> Bool
-pub fn[T] Bitmap::from_options(Array[T?]) -> Self
 pub fn Bitmap::is_null(Self, Int) -> Bool raise @types.DataError
 pub fn Bitmap::is_valid_total(Self, Int) -> Bool
 pub fn Bitmap::len(Self) -> Int

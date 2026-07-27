@@ -123,8 +123,12 @@ done); do
   syms=$(printf '%s\n' "$production_files" | grep "^$pkg/[^/]*\$" |
     while IFS= read -r f; do
       [ -f "$f" ] || continue
-      grep -h '^pub fn ' "$f" || true
-    done | sed 's/^pub fn //; s/(.*//; s/\[.*//' | LC_ALL=C sort -u)
+      # `pub fn[T] …` is a declaration too. Matching only the ungenerified
+      # spelling left every generic function out of the audit entirely — one
+      # was `pub` for its own package's use and nobody could see it here.
+      grep -hE '^pub fn(\[[^]]*\])? ' "$f" || true
+    done | sed 's/^pub fn//; s/^\[[^]]*\]//; s/^[[:space:]]*//; s/(.*//' |
+    LC_ALL=C sort -u)
   for sym in $syms; do
     checked=$((checked + 1))
     if ! has_outside_caller "$pkg" "$sym"; then
@@ -142,7 +146,7 @@ stale=$(printf '%s\n' "$allowed" | while IFS= read -r entry; do
   key=${entry%% — *}
   pkg=$(printf '%s' "$key" | sed 's|/[^/]*$||')
   sym=${key##*/}
-  if ! grep -q "^pub fn $sym(" $(printf '%s\n' "$production_files" |
+  if ! grep -qE "^pub fn(\[[^]]*\])? $sym\(" $(printf '%s\n' "$production_files" |
     grep "^$pkg/[^/]*\$" | tr '\n' ' ') 2>/dev/null; then
     printf '%s (no such `pub fn`)\n' "$key"
   elif has_outside_caller "$pkg" "$sym"; then

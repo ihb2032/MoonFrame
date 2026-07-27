@@ -659,6 +659,17 @@ printf '{ "import": ["ihb2032/MoonFrame/frame"] }\n' \
 expect_out 1 'legacy JSON manifest' 'layering: a package outside the parsed manifests' \
   sh "$scripts/check_layering.sh" "$work/ly_json"
 
+# A whitebox-test import is test configuration, exactly like a blackbox one.
+# Reading it as a production edge would put a test-only dependency into the
+# graph the rules are checked against — and `internal/column` carries such a
+# block now, so this is one manifest away from mattering.
+mklayering "$work/ly_wbtest" "$ly_frame" "$ly_kernel" "$ly_root"
+printf 'import {\n}\n\nimport {\n  "ihb2032/MoonFrame/frame",\n} for "wbtest"\n' \
+  >"$work/ly_wbtest/types/moon.pkg"
+(cd "$work/ly_wbtest" && git add -A && git commit -qm wbtest)
+expect 0 'layering: a whitebox-test import is not a production edge' \
+  sh "$scripts/check_layering.sh" "$work/ly_wbtest"
+
 mklayering "$work/ly_json_fixture" "$ly_frame" "$ly_kernel" "$ly_root"
 mkdir -p "$work/ly_json_fixture/.github/fixtures/smoke"
 printf '{ "import": ["ihb2032/MoonFrame"] }\n' \
@@ -895,6 +906,20 @@ printf '///|\npub fn consume(c : Series) -> Int {\n  let out : Array[Int64] = [0
 expect 0 'engine seams: writing into a locally built array is fine' \
   sh "$scripts/check_engine_seams.sh" "$work/es_own_array"
 
+# The limit, pinned rather than described. Two types can carry the same method
+# name, and a receiver call cannot say which one it reached: here `io` calls
+# `something.reducer_for(` on its own type, and the seam of that name is
+# credited to `io` anyway. A clean caller list therefore means "nothing is
+# obviously uncalled", not "everything left is needed" — if that ever changes,
+# this case is what says so.
+mkseams "$work/es_ambiguous" "$es_orphan" "$(printf '%s\n' "$es_orphan_snap" |
+  sed 's/pub fn Series::is_canonical(self : Series) -> Bool | used by: (no production caller outside series)/pub fn Series::is_canonical(self : Series) -> Bool | used by: io/')"
+printf '///|\npub struct Report {\n  n : Int\n}\n\n///|\npub fn Report::is_canonical(self : Report) -> Bool {\n  ignore(self)\n  true\n}\n\n///|\npub fn consume(c : Series, r : Report) -> Int {\n  ignore(r.is_canonical())\n  ignore(validity_bools(c))\n  ignore(reducer_for(c, ReduceOp::Sum))\n  ignore(after_the_value(c))\n  ignore(bool_cells(c))\n  0\n}\n' \
+  >"$work/es_ambiguous/io/io.mbt"
+(cd "$work/es_ambiguous" && git add -A && git commit -qm ambiguous)
+expect 0 'engine seams: a same-named method on another type still counts (known limit)' \
+  sh "$scripts/check_engine_seams.sh" "$work/es_ambiguous"
+
 mkseams "$work/es_missing" "$es_source" --
 expect_out 1 'snapshot' 'engine seams: snapshot absent' \
   sh "$scripts/check_engine_seams.sh" "$work/es_missing"
@@ -954,8 +979,8 @@ expect 0 'engine seams: a whitebox test declaration is out of scope' \
   sh "$scripts/check_engine_seams.sh" "$work/es_wbtest"
 
 # ── internal surface ──────────────────────────────────────────────────────
-mkinternal() {
-  # mkinternal <dir> <internal-column-source> [allowlist] [kernel-source]
+mksurface() {
+  # mksurface <dir> <internal-column-source> [allowlist] [kernel-source]
   # `series` imports `internal/column` and is where a legitimate caller lives;
   # the optional kernel source is a second consumer, for the case where the
   # only use is a function *passed* rather than called.
@@ -989,12 +1014,12 @@ pub fn BuiltinColumn::placeholders_normalized(self : BuiltinColumn) -> Bool {
   ignore(self)
 }'
 
-mkinternal "$work/is_unreachable" "$is_source"
+mksurface "$work/is_unreachable" "$is_source"
 expect_out 1 'nothing outside its package calls' \
   'internal surface: a pub nothing outside the package calls' \
   sh "$scripts/check_internal_surface.sh" "$work/is_unreachable"
 
-mkinternal "$work/is_listed" "$is_source" \
+mksurface "$work/is_listed" "$is_source" \
   '# a comment
 
 internal/column/BuiltinColumn::placeholders_normalized — an invariant that exists to be asserted'
@@ -1002,7 +1027,7 @@ expect 0 'internal surface: an unreachable pub listed with its reason' \
   sh "$scripts/check_internal_surface.sh" "$work/is_listed"
 
 # An entry for a symbol that has a caller now is an exception nobody re-read.
-mkinternal "$work/is_stale" "$is_source" \
+mksurface "$work/is_stale" "$is_source" \
   'internal/column/BuiltinColumn::placeholders_normalized — an invariant that exists to be asserted
 internal/column/BuiltinColumn::len — a reason that stopped being true when series started calling it'
 expect_out 1 'no longer needed' \
@@ -1012,7 +1037,7 @@ expect_out 1 'no longer needed' \
 # A free function handed to a higher-order kernel is used, though the call site
 # never spells a parenthesis after its name — the false positive that made two
 # real helpers look unreachable.
-mkinternal "$work/is_passed" '///|
+mksurface "$work/is_passed" '///|
 pub fn BuiltinColumn::len(self : BuiltinColumn) -> Int {
   ignore(self)
 }
@@ -1027,6 +1052,49 @@ pub fn read(c : BuiltinColumn) -> Int {
 }'
 expect 0 'internal surface: a function passed rather than called is used' \
   sh "$scripts/check_internal_surface.sh" "$work/is_passed"
+
+# `pub fn[T]` is a declaration the audit has to see. Matching only the
+# ungenerified spelling skipped every generic function silently — the audit
+# reported a clean surface while one `pub` had never been looked at.
+is_generic_source='///|
+pub fn BuiltinColumn::len(self : BuiltinColumn) -> Int {
+  ignore(self)
+}
+
+///|
+pub fn[T] Bitmap::from_options(values : Array[T?]) -> Bitmap {
+  ignore(values)
+}'
+
+mksurface "$work/is_generic" "$is_generic_source"
+expect_out 1 'internal/column/Bitmap::from_options' \
+  'internal surface: an unreachable generic pub fn' \
+  sh "$scripts/check_internal_surface.sh" "$work/is_generic"
+
+mksurface "$work/is_generic_listed" "$is_generic_source" \
+  'internal/column/Bitmap::from_options — a reason, for the generic case'
+expect 0 'internal surface: a listed generic pub fn' \
+  sh "$scripts/check_internal_surface.sh" "$work/is_generic_listed"
+
+# The stale half has to read the generic spelling too, or an entry for a
+# generic function reads as "no such `pub fn`" and fails for the wrong reason.
+mksurface "$work/is_generic_stale" '///|
+pub fn BuiltinColumn::len(self : BuiltinColumn) -> Int {
+  ignore(self)
+}
+
+///|
+pub fn[T] Bitmap::from_options(values : Array[T?]) -> Bitmap {
+  ignore(values)
+}' 'internal/column/Bitmap::from_options — a reason that stopped being true' '///|
+pub fn read(c : BuiltinColumn) -> Int {
+  ignore(c.len())
+  ignore(Bitmap::from_options([Some(1)]))
+  0
+}'
+expect_out 1 'has a caller now' \
+  'internal surface: a listed generic that gained a caller' \
+  sh "$scripts/check_internal_surface.sh" "$work/is_generic_stale"
 
 # ── the repository itself ─────────────────────────────────────────────────
 expect 0 'repo: version identity' sh "$scripts/check_version_identity.sh" "$root"

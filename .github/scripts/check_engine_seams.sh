@@ -170,8 +170,8 @@ extract() {
 
 # Production sources and production import edges, read once. The edges are what
 # keeps a same-named method elsewhere from being read as a call: `Series` and
-# `ColumnStorage` both have a `to_builtin`, and only `io` and `lazy` import
-# `frame`, so only they can be calling `DataFrame::to_builtin`.
+# `DataFrame` both have a `head`, and only `io` and `lazy` import `frame`, so
+# only they can be calling one of `frame`'s seams.
 production_files=$(git ls-files '*.mbt' | grep -vE '_(test|wbtest)\.mbt$' || true)
 
 production_edges=$(git ls-files '*moon.pkg' | grep -v '^examples/' |
@@ -181,7 +181,7 @@ production_edges=$(git ls-files '*moon.pkg' | grep -v '^examples/' |
     awk -v pkg="$pkg" '
       /^import \{/ { inblock = 1; n = 0; next }
       inblock && /^\}/ {
-        if ($0 !~ /for "test"/) for (i = 1; i <= n; i++) print pkg " " dep[i]
+        if ($0 !~ /for "(wb)?test"/) for (i = 1; i <= n; i++) print pkg " " dep[i]
         inblock = 0
         next
       }

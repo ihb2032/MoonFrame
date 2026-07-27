@@ -8,14 +8,25 @@
 # surface is invisible to it. What is invisible grows.
 #
 # This reads the sources instead and pins every `pub` declaration in a public
-# package that carries either attribute, with its normalised signature:
+# package that carries either attribute, with its normalised signature and the
+# packages that call it:
 #
-#   <pkg> | <attrs> | pub fn mask_true_indices(mask : Series) -> Array[Int]?
+#   series | doc_hidden internal_engine |
+#     pub fn mask_true_indices(mask : Series) -> Array[Int]? | used by: frame
 #
 # Signature and not just the name, because the risk here is a seam quietly
 # widening — one that used to return a `Series` starting to return the column's
 # own `Array`, say, which hands another package the ability to mutate a value
 # that is supposed to be immutable. That shows up as a diff.
+#
+# Callers, because the question worth asking about a seam is not only whether
+# its signature moved but whether anything outside its own package still needs
+# it: two storage-taking constructors turned out to have no such caller and
+# stopped being `pub` at all. A seam marked `(no production caller outside …)`
+# is one kept alive by tests — sometimes right, always worth re-reading. The
+# list is derived by scanning production sources, not maintained by hand, so
+# unlike a written rationale it cannot drift; it is a lexical scan, so a
+# same-named method elsewhere can widen it.
 #
 # One rule is checked outright rather than snapshotted: the two attributes come
 # as a pair, in both directions. `#internal(engine)` without `#doc(hidden)`
@@ -119,7 +130,43 @@ extract() {
   done | LC_ALL=C sort -u
 }
 
-current=$(extract)
+# Which packages call each seam in production. Recorded because the question a
+# reviewer needs to ask about a seam is not "did its signature change" but "does
+# anything outside its own package still need it" — that is what made two
+# storage-taking constructors removable, and it is the difference between a
+# seam that carries the engine and one kept alive by a test. Derived rather
+# than written down: a hand-maintained rationale list drifts, this cannot.
+consumers_of() {
+  # consumers_of <declaring-pkg> <symbol>
+  short=${2##*::}
+  case "$short" in
+    "" | *[!A-Za-z0-9_]*) printf '%s' "-"; return ;;
+  esac
+  found=$(git ls-files '*.mbt' |
+    grep -vE '_(test|wbtest)\.mbt$' |
+    grep -v "^$1/" |
+    tr '\n' '\0' |
+    xargs -0 grep -nE "(^|[^A-Za-z0-9_])${short}\(" 2>/dev/null |
+    grep -v ':[0-9]*: *//' |
+    sed 's/:[0-9]*:.*//' |
+    sed 's|/[^/]*$||' | LC_ALL=C sort -u | tr '\n' ',' | sed 's/,$//')
+  [ -n "$found" ] || found="(no production caller outside $1)"
+  printf '%s' "$found"
+}
+
+current=$(extract | while IFS= read -r line; do
+  [ -n "$line" ] || continue
+  pkg=${line%% | *}
+  decl=${line##* | }
+  case "$decl" in
+    "pub fn "*)
+      sym=${decl#pub fn }
+      sym=${sym%%(*}
+      printf '%s | used by: %s\n' "$line" "$(consumers_of "$pkg" "$sym")"
+      ;;
+    *) printf '%s\n' "$line" ;;
+  esac
+done)
 count() { printf '%s\n' "$1" | grep -c ' | ' || true; }
 
 # The attributes come as a pair. Either alone leaves a symbol that is public in

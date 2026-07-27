@@ -255,8 +255,16 @@ if [ -n "$unexported_fns" ]; then
   exit 1
 fi
 
+# `\b` is a GNU extension rather than POSIX ERE, so whether a bare
+# `StringBuilder` field matched depended on which grep ran. The bracketed
+# container types carry their own delimiter (`[`); the two that do not are
+# matched with a trailing non-identifier character or the line end. The
+# delimiter is deliberately only on the trailing side: a leading
+# `[^[:alnum:]_]` directly after `.*` inside an alternation is mis-handled by
+# at least one grep in use here, and a type merely *ending* in one of these
+# names is worth the same look anyway.
 mutable_fields=$(printf '%s\n' "$current" |
-  grep -E '^(field|value) [^:]*: .*((Array|FixedArray|Map|Set|Ref|ArrayView)\[|\b(StringBuilder|Buffer)\b)' ||
+  grep -E '^(field|value) [^:]*: .*((Array|FixedArray|Map|Set|Ref|ArrayView)\[|(StringBuilder|Buffer)([^[:alnum:]_]|$))' ||
   true)
 if [ -n "$mutable_fields" ]; then
   printf 'facade surface: a public field or value holding a mutable container:\n'

@@ -225,7 +225,7 @@ pub fn eval_compare(
         right_valid=rv,
         get_left=i => a[i],
         get_right=i => b[i],
-        less_than=(x, y) => @types.compare_strings_lex(x, y) < 0,
+        less_than=(x, y) => @text.compare_string_lex(x, y) < 0,
         equal=(x, y) => x == y,
         verb~,
       )

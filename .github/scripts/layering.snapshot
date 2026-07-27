@@ -14,6 +14,7 @@ internal/ir -> series
 internal/ir -> types
 internal/kernel -> internal/column
 internal/kernel -> internal/ir
+internal/kernel -> internal/text
 internal/kernel -> series
 internal/kernel -> types
 internal/literal -> internal/text

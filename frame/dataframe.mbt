@@ -8,11 +8,14 @@
 /// schema in lock-step with the column vector — and *read* through the
 /// copy-returning accessors (`columns()` / `column_series()` / `schema()`).
 /// External code cannot reach the live `columns` / `name_to_index` containers,
-/// so it cannot mutate a validated frame into an inconsistent state. The
-/// preserved invariants:
-///   * `schema.field_names() == columns.map(.name)`
-///   * `columns.all(c => c.len() == nrows)`
-///   * `name_to_index[name] == i  ⇔  columns[i].name == name`
+/// so it cannot mutate a validated frame into an inconsistent state.
+///
+/// What every constructor here establishes and every transform preserves is
+/// that the four parts agree: the schema mirrors the columns (names and
+/// dtypes), every column is `nrows` tall, `nrows` is non-negative, and the
+/// lookup cache maps each name to the position that carries it. The normative
+/// list is INV1–INV7 in `frame/invariants.mbt`, spelled out there once and
+/// checked by `check_invariants`; restating it here is how the two drift.
 pub struct DataFrame {
   priv schema : @types.Schema
   priv columns : Array[Series]

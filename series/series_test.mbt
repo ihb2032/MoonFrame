@@ -358,7 +358,7 @@ test "cast to Int: identity / Float→Int / Bool→Int / String→Int" {
   let i = Series::from_ints("x", [1, 2])
   // cast borrows the Builtin road, so an identity Int→Int cast materialises
   // onto the Builtin backend — it equals the widened original, not `i` itself.
-  assert_eq(i.cast(@types.DataType::Int), i.to_builtin())
+  assert_eq(i.cast(@types.DataType::Int), builtin_twin(i))
   assert_eq(
     i.cast(@types.DataType::Int).storage_kind(),
     @column.StorageKind::Builtin,
@@ -382,7 +382,7 @@ test "cast to Float: identity / Int→Float / Bool→Float / String→Float" {
   let f = Series::from_floats("x", [1.0])
   // Same as the Int cast: identity Float→Float materialises onto the Builtin
   // backend.
-  assert_eq(f.cast(@types.DataType::Float), f.to_builtin())
+  assert_eq(f.cast(@types.DataType::Float), builtin_twin(f))
   let i = Series::from_ints("x", [3])
   assert_eq(i.cast(@types.DataType::Float).get(0), @types.Scalar::Float(3.0))
   let b = Series::from_bools("x", [true, false])
@@ -477,35 +477,46 @@ test "Series::slice(0, k) null_count counts only the window (zero-copy view)" {
 }
 
 ///|
-test "to_numeric: success, already-Numeric, and round-trip equivalence" {
-  // Builtin all-valid Int / Float move to the fast path.
-  let bi = Series::from_int_options("x", [Some(1), Some(2), Some(3)])
-  assert_eq(bi.storage_kind(), @column.StorageKind::Builtin)
-  let ni = bi.to_numeric()
-  assert_eq(ni.storage_kind(), @column.StorageKind::Numeric)
-  // Values are unchanged by the backend swap.
-  assert_eq(ni.to_scalars(), bi.to_scalars())
-  let bf = Series::from_float_options("y", [Some(1.5), Some(2.5)])
-  assert_eq(bf.to_numeric().storage_kind(), @column.StorageKind::Numeric)
-  // Already Numeric → returned unchanged.
-  let already = Series::from_ints("z", [7, 8])
-  assert_eq(already.to_numeric(), already)
+test "the two backends of one column are interchangeable, both ways round" {
+  // The nullable constructor reaches `Builtin`, `try_column_to_numeric` moves
+  // back to the fast path, and neither step touches a cell — which is what
+  // lets the parity harness build its pair out of public API alone.
+  let n = Series::from_ints("x", [1, 2, 3])
+  assert_eq(n.storage_kind(), @column.StorageKind::Numeric)
+  let b = Series::from_int_options("x", [Some(1), Some(2), Some(3)])
+  assert_eq(b.storage_kind(), @column.StorageKind::Builtin)
+  assert_eq(b.to_scalars(), n.to_scalars())
+  assert_eq(try_column_to_numeric(b), n)
+  // A column carrying a null has no fast-path form: it stays as it is.
+  let nullable = Series::from_int_options("x", [Some(1), None])
+  assert_eq(try_column_to_numeric(nullable), nullable)
 }
 
 ///|
-test "to_numeric: rejects nulls and non-numeric columns" {
-  let with_null = Series::from_int_options("x", [Some(1), None])
-  assert_true(
-    (Ok(with_null.to_numeric()) catch { e => Err(e) })
-    is Err(@types.DataError::InvalidOperation(_)),
-  )
-  let strings = Series::from_strings("x", ["a", "b"])
-  assert_true(
-    (Ok(strings.to_numeric()) catch { e => Err(e) })
-    is Err(
-      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_))
-    ),
-  )
+test "is_canonical is exactly try_column_to_numeric's backend fixed point" {
+  // Every arm of the predicate, pinned to the canonicaliser it mirrors:
+  // is_canonical(s) is true exactly when try_column_to_numeric leaves the
+  // backend unchanged (a canonical column is a no-op; a non-canonical one is
+  // moved off its backend). Asserting both together stops the two drifting.
+  fn check(s : Series, want : Bool) -> Unit raise {
+    assert_eq(s.is_canonical(), want)
+    assert_eq(s.storage_kind() == try_column_to_numeric(s).storage_kind(), want)
+  }
+
+  // Numeric backend: always canonical.
+  check(Series::from_ints("x", [1, 2, 3]), true)
+  check(Series::from_floats("x", [1.5, 2.5]), true)
+  // Builtin, all-valid, numeric: NOT canonical — it can move onto Numeric.
+  check(Series::from_int_options("x", [Some(1), Some(2)]), false)
+  check(Series::from_float_options("x", [Some(1.5)]), false)
+  // Builtin carrying a null: canonical — no bitmap-free backend to move to.
+  check(Series::from_int_options("x", [Some(1), None]), true)
+  check(Series::from_float_options("x", [None]), true)
+  // Builtin Bool / String: canonical — the fast path is numeric-only.
+  check(Series::from_bools("x", [true, false]), true)
+  check(Series::from_bool_options("x", [Some(true), None]), true)
+  check(Series::from_strings("x", ["a", "b"]), true)
+  check(Series::from_string_options("x", [None, Some("z")]), true)
 }
 
 ///|
@@ -538,46 +549,6 @@ test "gather_series: a stray out-of-range index is a null cell on both backends"
     @types.Scalar::Float(2.5),
     @types.Scalar::Null,
   ])
-}
-
-///|
-test "to_builtin: total, lossless round-trip from Numeric" {
-  let n = Series::from_ints("x", [1, 2, 3])
-  let b = n.to_builtin()
-  assert_eq(b.storage_kind(), @column.StorageKind::Builtin)
-  assert_eq(b.to_scalars(), n.to_scalars())
-  // Numeric → Builtin → Numeric returns to the original.
-  assert_eq(b.to_numeric(), n)
-  // Already Builtin → unchanged.
-  let already = Series::from_int_options("x", [Some(1), None])
-  assert_eq(already.to_builtin(), already)
-}
-
-///|
-test "is_canonical is exactly try_column_to_numeric's backend fixed point" {
-  // Every arm of the predicate, pinned to the canonicaliser it mirrors:
-  // is_canonical(s) is true exactly when try_column_to_numeric leaves the
-  // backend unchanged (a canonical column is a no-op; a non-canonical one is
-  // moved off its backend). Asserting both together stops the two drifting.
-  fn check(s : Series, want : Bool) -> Unit raise {
-    assert_eq(s.is_canonical(), want)
-    assert_eq(s.storage_kind() == try_column_to_numeric(s).storage_kind(), want)
-  }
-
-  // Numeric backend: always canonical.
-  check(Series::from_ints("x", [1, 2, 3]), true)
-  check(Series::from_floats("x", [1.5, 2.5]), true)
-  // Builtin, all-valid, numeric: NOT canonical — it can move onto Numeric.
-  check(Series::from_int_options("x", [Some(1), Some(2)]), false)
-  check(Series::from_float_options("x", [Some(1.5)]), false)
-  // Builtin carrying a null: canonical — no bitmap-free backend to move to.
-  check(Series::from_int_options("x", [Some(1), None]), true)
-  check(Series::from_float_options("x", [None]), true)
-  // Builtin Bool / String: canonical — the fast path is numeric-only.
-  check(Series::from_bools("x", [true, false]), true)
-  check(Series::from_bool_options("x", [Some(true), None]), true)
-  check(Series::from_strings("x", ["a", "b"]), true)
-  check(Series::from_string_options("x", [None, Some("z")]), true)
 }
 
 ///|

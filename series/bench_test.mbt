@@ -28,8 +28,8 @@ test "series construction: Numeric vs Builtin vs Float" (b : @bench.T) {
     b.bench(name="construct/from_ints(numeric)/\{n}", () => {
       b.keep(Series::from_ints("x", ints))
     })
-    b.bench(name="construct/from_ints+to_builtin(builtin)/\{n}", () => {
-      b.keep(Series::from_ints("x", ints).to_builtin())
+    b.bench(name="construct/from_int_options(builtin)/\{n}", () => {
+      b.keep(Series::from_int_options("x", ints.map(v => Some(v))))
     })
     b.bench(name="construct/from_floats/\{n}", () => {
       b.keep(Series::from_floats("x", floats))
@@ -42,7 +42,7 @@ test "series reductions: Numeric fast path vs Builtin" (b : @bench.T) {
   for n in [1000, 100000, 1000000] {
     let ints = scrambled_ints(n)
     let numeric = Series::from_ints("x", ints)
-    let builtin = Series::from_ints("x", ints).to_builtin()
+    let builtin = Series::from_int_options("x", ints.map(v => Some(v)))
     b.bench(name="sum/numeric/\{n}", () => {
       b.keep(numeric.sum() catch { _ => @types.Scalar::Null })
     })

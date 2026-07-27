@@ -4,8 +4,6 @@ expr | doc_hidden internal_engine | pub fn Expr::output_name(self : Expr) -> Str
 expr | doc_hidden internal_engine | pub fn Expr::referenced_columns(self : Expr) -> @set.Set[String] | used by: lazy
 frame | doc_hidden internal_engine | pub fn DataFrame::check_invariants(self : DataFrame) -> Result[Unit, String] | used by: (no production caller outside frame)
 frame | doc_hidden internal_engine | pub fn DataFrame::from_parts( columns : Array[Series], nrows : Int, ) -> DataFrame raise @types.DataError | used by: io
-frame | doc_hidden internal_engine | pub fn DataFrame::to_builtin(self : DataFrame) -> DataFrame | used by: (no production caller outside frame)
-frame | doc_hidden internal_engine | pub fn DataFrame::to_numeric(self : DataFrame) -> DataFrame | used by: (no production caller outside frame)
 frame | doc_hidden internal_engine | pub fn DataFrame::to_scalar_matrix( self : DataFrame, ) -> Array[Array[@types.Scalar]] | used by: io
 frame | doc_hidden internal_engine | pub fn filter_row_indices( df : DataFrame, predicate : @expr.Expr, ) -> Array[Int] raise @types.DataError | used by: lazy
 io | doc_hidden internal_engine | pub fn read_csv_projected( path : String, options : CsvReadOptions, projection : Array[String], ) -> @frame.DataFrame raise @types.DataError | used by: lazy
@@ -20,8 +18,6 @@ series | doc_hidden internal_engine | pub fn Series::is_canonical(self : Series)
 series | doc_hidden internal_engine | pub fn Series::mean_opt(self : Series) -> Double? | used by: frame
 series | doc_hidden internal_engine | pub fn Series::storage(self : Series) -> @column.ColumnStorage | used by: internal/kernel
 series | doc_hidden internal_engine | pub fn Series::storage_kind(self : Series) -> @column.StorageKind | used by: (no production caller outside series)
-series | doc_hidden internal_engine | pub fn Series::to_builtin(self : Series) -> Series | used by: frame
-series | doc_hidden internal_engine | pub fn Series::to_numeric(self : Series) -> Series raise @types.DataError | used by: (no production caller outside series)
 series | doc_hidden internal_engine | pub fn build_sort_key( column : Series, order : @types.SortOrder, null_order : @types.NullOrder, ) -> SortKey | used by: frame
 series | doc_hidden internal_engine | pub fn clamp_take(n : Int, len : Int) -> Int | used by: frame
 series | doc_hidden internal_engine | pub fn coalesce_columns(base : Series, fill : Series, name : String) -> Series | used by: frame

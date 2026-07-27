@@ -93,6 +93,44 @@ fn same_series_result(
 }
 
 ///|
+/// The `Builtin`-backed twin of a numeric column: same name, same cells, the
+/// general representation instead of the unboxed fast path. Built through the
+/// nullable constructors, which are the supported way to reach that backend —
+/// the harness sets up the pair it compares out of public API rather than out
+/// of an engine converter, so nothing in a production source file exists only
+/// to make this test possible. A column that is already `Builtin` (`Bool`,
+/// `String`, or one carrying nulls) is returned as it is.
+fn builtin_twin(s : Series) -> Series {
+  match s.dtype() {
+    @types.DataType::Int =>
+      Series::from_int_options(
+        s.name(),
+        s
+        .to_scalars()
+        .map(cell => {
+          match cell {
+            @types.Scalar::Int(v) => Some(v)
+            _ => None
+          }
+        }),
+      )
+    @types.DataType::Float =>
+      Series::from_float_options(
+        s.name(),
+        s
+        .to_scalars()
+        .map(cell => {
+          match cell {
+            @types.Scalar::Float(v) => Some(v)
+            _ => None
+          }
+        }),
+      )
+    _ => s
+  }
+}
+
+///|
 /// Run every backend-sensitive public `Series` operation on both backends of
 /// the same logical column and assert the two agree — the inspection,
 /// reduction, transform, cast, index and ordering surface, plus `Eq` (see the
@@ -110,8 +148,8 @@ fn assert_backend_parity(bt : Series, nu : Series) -> Unit raise {
   // retain the library's intentional `NaN != NaN` behavior on both sides.
   // Renaming supplies a uniformly unequal control without assuming the
   // column is non-empty.
-  let bt_equivalent = bt.to_builtin()
-  let nu_equivalent = nu.to_builtin()
+  let bt_equivalent = builtin_twin(bt)
+  let nu_equivalent = builtin_twin(nu)
   assert_eq(bt == bt_equivalent, nu == nu_equivalent)
   assert_eq(bt != bt_equivalent, nu != nu_equivalent)
   assert_eq(bt == bt.rename("different"), nu == nu.rename("different"))
@@ -323,9 +361,9 @@ test "every Series op agrees across the Builtin and Numeric backends" {
     Series::from_floats("a", []),
   ]
   for s in int_cols {
-    assert_backend_parity(s.to_builtin(), s.to_numeric())
+    assert_backend_parity(builtin_twin(s), try_column_to_numeric(s))
   }
   for s in float_cols {
-    assert_backend_parity(s.to_builtin(), s.to_numeric())
+    assert_backend_parity(builtin_twin(s), try_column_to_numeric(s))
   }
 }

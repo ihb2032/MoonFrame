@@ -557,45 +557,14 @@ fn is_identity_perm(indices : Array[Int], nrows : Int) -> Bool {
   true
 }
 
-// ── Storage backend control ───────────────────────────────────────────
-
-///|
-/// Move every eligible column onto the `Numeric` fast-path backend,
-/// best-effort and **total**: an all-valid Int / Float column converts; a
-/// column carrying nulls, a non-numeric column, or one already `Numeric` is
-/// kept unchanged (via the non-raising `try_column_to_numeric`, so a column
-/// that cannot move never fails the whole frame). Names, dtypes, and values
-/// are unchanged — only the backing representation of the converted columns
-/// — so the schema and `O(1)` lookup cache are reused verbatim.
-#doc(hidden)
-#internal(engine, "MoonFrame execution engine API")
-pub fn DataFrame::to_numeric(self : DataFrame) -> DataFrame {
-  let new_cols = self.columns.map(try_column_to_numeric)
-  self.with_same_schema(new_cols, self.nrows)
-}
-
-///|
-/// Materialise every column onto the general-purpose `Builtin` backend (the
-/// inverse of `to_numeric`). Total and lossless — `Numeric` columns widen
-/// with an all-valid bitmap, `Builtin` columns are unchanged — so names,
-/// dtypes, and values are preserved and the schema / lookup cache are
-/// reused verbatim.
-#doc(hidden)
-#internal(engine, "MoonFrame execution engine API")
-pub fn DataFrame::to_builtin(self : DataFrame) -> DataFrame {
-  let new_cols = self.columns.map(c => c.to_builtin())
-  self.with_same_schema(new_cols, self.nrows)
-}
-
 // ── Internal helpers ──────────────────────────────────────────────────
 
 ///|
 /// Rebuild the frame from `new_cols` and `nrows`, reusing this frame's schema
 /// and `O(1)` name→index cache verbatim. The schema-preserving constructor
 /// behind the row-only transforms (`head` / `tail` / `slice` / `gather` /
-/// `fill_null` / `unique`) and the backend re-representations (`to_numeric` /
-/// `to_builtin`): the column values or backing change but the names and dtypes
-/// do not, so the cache stays valid and these never pay to rebuild it through
+/// `fill_null` / `unique`): the column values or backing change but the names
+/// and dtypes do not, so the cache stays valid and these never pay to rebuild it through
 /// `DataFrame::DataFrame` (`O(n)`, and able to raise). Total — the caller guarantees
 /// `new_cols` still matches the schema and carries `nrows` rows each.
 ///

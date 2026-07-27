@@ -19,20 +19,24 @@
 # representation to keep the numeric fast paths. Which is precisely the nuance
 # a layer diagram loses and an import list does not.
 #
-# Five checks:
+# The checks:
 #   1. `internal/column` is imported only by `series` and `internal/kernel`.
 #   2. `internal/kernel` is imported only by `frame`. It is the execution
 #      engine's private machinery; `io` or `lazy` reaching past `frame` for it
 #      would route computation around the layer that owns what a verb means.
 #   3. No `internal/*` package imports `frame` / `io` / `lazy` — the internal
 #      layers stay below the verbs, never circling back.
-#   4. The root facade imports exactly the six public packages.
-#   5. No public package's generated interface names an `internal/` package:
+#   4. Every package depends only on what its declared set allows: the
+#      direction of the stack, package by package.
+#   5. The graph is acyclic — the property that gives "direction" a meaning,
+#      and the one no list of allowed edges can be trusted to imply.
+#   6. The root facade imports exactly the six public packages.
+#   7. No public package's generated interface names an `internal/` package:
 #      an internal type reaching a public signature is the leak all of this
 #      exists to prevent.
 #
-# Those five are rules: they hold for reasons, and changing one means changing
-# the reason. Every *other* production edge is pinned in a snapshot instead —
+# Those are rules: they hold for reasons, and changing one means changing the
+# reason. Every *other* production edge is pinned in a snapshot instead —
 # a new dependency between two packages is not wrong on its face, but it is a
 # structural decision, and this is where it gets made deliberately:
 #
@@ -63,6 +67,25 @@ module="ihb2032/MoonFrame"
 column_importers="series internal/kernel"
 kernel_importers="frame"
 public_packages="expr frame io lazy series types"
+
+# What each package is allowed to depend on. The snapshot records the edges
+# that exist; this records the edges that *may* exist, which is the difference
+# between noticing a change and refusing a reversal. Without it, `types`
+# starting to depend on `series`, or `expr` on `frame`, is a snapshot away from
+# permanent — the direction of the whole stack is exactly what should not be
+# regenerable. A package absent here may depend on nothing inside the module.
+allowed_root="expr frame io lazy series types"
+allowed_types="internal/text"
+allowed_series="types internal/column internal/text"
+allowed_expr="types series internal/ir internal/literal internal/text"
+allowed_frame="types series expr internal/ir internal/kernel"
+allowed_io="types series frame internal/text"
+allowed_lazy="types expr frame io internal/ir internal/literal internal/text"
+allowed_internal_column="types internal/text"
+allowed_internal_kernel="types series internal/column internal/ir"
+allowed_internal_ir="types series"
+allowed_internal_literal="types internal/text"
+allowed_internal_text=""
 verb_packages="frame io lazy"
 
 fail=0
@@ -108,7 +131,7 @@ in_list() {
   return 1
 }
 
-# 1 + 2: every production edge, checked against the two structural rules. The
+# 1–4: every production edge, checked against the structural rules. The
 # loop runs in a pipeline — a subshell — so it reports by *printing* its
 # findings and the verdict is taken from the collected text out here.
 edge_violations=$(printf '%s\n' "$edges" | while IFS= read -r edge; do
@@ -131,6 +154,16 @@ edge_violations=$(printf '%s\n' "$edges" | while IFS= read -r edge; do
       fi
       ;;
   esac
+  # The direction of the stack, one package at a time.
+  allowed_var="allowed_$(printf '%s' "$from" | tr '/-' '__')"
+  eval "allowed=\${$allowed_var-UNDECLARED}"
+  if [ "$allowed" = UNDECLARED ]; then
+    printf '%s has no declared dependency set; add one to the layering rules\n' \
+      "$from"
+  elif ! in_list "$to" "$allowed"; then
+    printf '%s imports %s, which is not in its allowed set [%s]\n' \
+      "$from" "$to" "$allowed"
+  fi
 done)
 if [ -n "$edge_violations" ]; then
   printf '%s\n' "$edge_violations" | while IFS= read -r line; do
@@ -139,7 +172,56 @@ if [ -n "$edge_violations" ]; then
   fail=1
 fi
 
-# 4: the facade's own dependencies are the public surface it re-exports.
+# 5: acyclicity, by Kahn's algorithm over the production edges. The allowed
+# sets above already forbid every reversal anyone has thought of; this catches
+# the one nobody did, including a cycle spread across three packages. It is a
+# property of the graph rather than a list, so unlike the snapshot there is
+# nothing to regenerate.
+cycle=$(printf '%s\n' "$edges" | awk '
+  { from = $1; to = $3; edge[NR] = from " " to; node[from] = 1; node[to] = 1 }
+  END {
+    n = NR
+    removed = 1
+    while (removed) {
+      removed = 0
+      for (v in node) {
+        if (!node[v]) continue
+        # A node with no surviving outgoing edge, or none incoming, cannot sit
+        # on a cycle. Peeling both ends leaves exactly the cyclic core, so the
+        # report names the packages in the cycle rather than everything that
+        # can reach one.
+        has_out = 0
+        has_in = 0
+        for (i = 1; i <= n; i++) {
+          if (!edge[i]) continue
+          split(edge[i], e, " ")
+          if (e[1] == v) has_out = 1
+          if (e[2] == v) has_in = 1
+        }
+        if (!has_out || !has_in) {
+          node[v] = 0
+          for (i = 1; i <= n; i++) {
+            if (!edge[i]) continue
+            split(edge[i], e, " ")
+            if (e[1] == v || e[2] == v) edge[i] = ""
+          }
+          removed = 1
+        }
+      }
+    }
+    for (v in node) if (node[v]) print v
+  }
+' | LC_ALL=C sort)
+if [ -n "$cycle" ]; then
+  printf 'layering: the production dependency graph has a cycle.\n'
+  printf '%s\n' "$cycle" | sed 's/^/  in the cycle: /'
+  printf '  Every layering rule here assumes a direction; a cycle means there\n'
+  printf '  is none, and no snapshot can make one acceptable. Break it by\n'
+  printf '  moving the shared code down to a package both sides may depend on.\n'
+  fail=1
+fi
+
+# 6: the facade's own dependencies are the public surface it re-exports.
 root_deps=$(printf '%s\n' "$edges" | sed -n 's/^root -> //p' | LC_ALL=C sort -u |
   tr '\n' ' ' | sed 's/ *$//')
 expected_root=$(printf '%s\n' $public_packages | LC_ALL=C sort -u |
@@ -148,7 +230,7 @@ if [ "$root_deps" != "$expected_root" ]; then
   report "the root facade imports [$root_deps]; expected exactly [$expected_root]"
 fi
 
-# 5: an internal type in a public interface is the leak, whatever the manifests
+# 7: an internal type in a public interface is the leak, whatever the manifests
 # say. `moon info` regenerates these, so this reads the committed result.
 for pkg in $public_packages; do
   mbti="$pkg/pkg.generated.mbti"

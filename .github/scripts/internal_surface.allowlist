@@ -1,0 +1,14 @@
+# `pub` symbols in `internal/` packages that no other package calls, and the
+# reason each stays `pub`. Read by check_internal_surface.sh: an unlisted one
+# fails the build, and a listed one that gains a caller (or goes away) fails
+# too, so the list cannot outlive its reasons.
+#
+# The bar is narrow. "A test uses it" is not a reason — an internal package's
+# tests belong inside it, as `_wbtest.mbt`, where a package-private symbol is
+# in reach. What earns a line here is a symbol that cannot be private either,
+# because no production code calls it at all and `unused_value` rejects a
+# private function in that state: an assertion that exists to be made and
+# nothing else.
+#
+# Format: pkg/Symbol — reason
+internal/column/BuiltinColumn::placeholders_normalized — the placeholder invariant every constructor, cast and transform is supposed to maintain; it exists to be asserted, so it has no production caller and cannot be private

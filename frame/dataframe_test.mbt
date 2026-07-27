@@ -683,6 +683,40 @@ test "structural equality compares schema + columns + nrows" {
 }
 
 ///|
+test "frame equality is by content, not by the backend its columns sit on" {
+  // The storage backend is an implementation detail of a column's content, and
+  // the public contract is that equality cannot see it: these two frames hold
+  // the same names, dtypes and cells, and the constructors put every column
+  // pair on a different backend (`from_*` on the unboxed fast path, the
+  // all-`Some` `from_*_options` on the general one). A change to how the
+  // engine picks a backend — canonicalisation, a reader, a kernel — must not
+  // be able to change what `==` answers here.
+  let fast = DataFrame::DataFrame([
+    Series::from_ints("i", [1, 2, 3]),
+    Series::from_floats("f", [1.5, 2.5, 3.5]),
+  ])
+  let general = DataFrame::DataFrame([
+    Series::from_int_options("i", [Some(1), Some(2), Some(3)]),
+    Series::from_float_options("f", [Some(1.5), Some(2.5), Some(3.5)]),
+  ])
+  assert_eq(fast.column_series().map(column => column.storage_kind()), [
+    @column.StorageKind::Numeric,
+    @column.StorageKind::Numeric,
+  ])
+  assert_eq(general.column_series().map(column => column.storage_kind()), [
+    @column.StorageKind::Builtin,
+    @column.StorageKind::Builtin,
+  ])
+  assert_eq(fast, general)
+  // And a genuine difference is still a difference across backends.
+  let differing = DataFrame::DataFrame([
+    Series::from_int_options("i", [Some(1), Some(2), Some(9)]),
+    Series::from_float_options("f", [Some(1.5), Some(2.5), Some(3.5)]),
+  ])
+  assert_not_eq(fast, differing)
+}
+
+///|
 test "limit is head: first n rows, clamped the same way" {
   let df = DataFrame::DataFrame([Series::from_ints("v", [1, 2, 3])])
   assert_eq(df.limit(2), df.head(2))

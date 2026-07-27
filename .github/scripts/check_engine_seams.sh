@@ -42,12 +42,15 @@
 # it and write the test against what production does use.
 #
 # The list is derived rather than maintained by hand, which keeps it in step
-# with the code, but it is not a resolved call graph. Two filters do the real
+# with the code, but it is not a resolved call graph. Three filters do the real
 # work: only packages that *import* the declaring one are searched (nothing else
-# can name its symbols), and declaration and comment lines are dropped. What
-# remains is a lexical match on the short name, so a dependent package calling
-# a same-named method on a different receiver still counts — read a caller list
-# as "this package mentions the name", not as proof of a call.
+# can name its symbols), declaration and comment lines are dropped, and the
+# match follows how the symbol can be spelled at a call site — a method through
+# a receiver or its owning type, a free function bare or package-qualified but
+# never through a receiver. What is left is the case no spelling separates: the
+# same method name on a different receiver, `x.storage(` wherever `x` came
+# from. Read a caller list as "this package calls something spelled this way",
+# not as proof of a call.
 #
 # One rule is checked outright rather than snapshotted: the two attributes come
 # as a pair, in both directions. `#internal(engine)` without `#doc(hidden)`
@@ -203,6 +206,23 @@ consumers_of() {
   case "$short" in
     "" | *[!A-Za-z0-9_]*) printf '%s' "-"; return ;;
   esac
+  # How the symbol can be *spelled* at a call site, which is most of what keeps
+  # a same-named something-else from counting. A method is reached through a
+  # receiver (`col.storage(`) or its type (`Series::storage(`, with or without
+  # a package qualifier); a free function is reached bare (`validity_bools(`)
+  # or package-qualified (`@series.validity_bools(`) — never through a
+  # receiver, so `col.validity_bools(` is a different symbol and no longer
+  # counts. What this still cannot tell apart is the same method name on
+  # another receiver: `x.storage(` counts wherever `x` came from.
+  case "$2" in
+    *::*)
+      owner=${2%::*}
+      call_pattern="(\.[[:space:]]*${short}\(|${owner}::${short}\()"
+      ;;
+    *)
+      call_pattern="((^|[^A-Za-z0-9_.])${short}\(|@[A-Za-z0-9_]+\.${short}\()"
+      ;;
+  esac
   candidates=$(dependents_of "$1" | grep -v "^$1$" || true)
   [ -n "$candidates" ] || { printf '(no production caller outside %s)' "$1"; return; }
   found=$(printf '%s\n' "$candidates" | while IFS= read -r cand; do
@@ -216,7 +236,7 @@ consumers_of() {
     # Line-level, so a comment or a same-named *declaration* in the dependent
     # package does not read as a call.
     hits=$(printf '%s\n' "$files" | tr '\n' '\0' |
-      xargs -0 grep -nE "(^|[^A-Za-z0-9_])${short}\(" 2>/dev/null |
+      xargs -0 grep -nE "$call_pattern" 2>/dev/null |
       grep -vE '^([^:]*:)?[0-9]+:[[:space:]]*//' |
       grep -vE '^([^:]*:)?[0-9]+:[[:space:]]*(pub )?fn(\[[^]]*\])? ' || true)
     [ -z "$hits" ] || printf '%s\n' "$cand"

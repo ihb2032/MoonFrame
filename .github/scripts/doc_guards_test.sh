@@ -648,6 +648,25 @@ rm -f "$work/ly_no_snapshot/.github/scripts/layering.snapshot"
 expect_out 1 'snapshot' 'layering: snapshot absent' \
   sh "$scripts/check_layering.sh" "$work/ly_no_snapshot"
 
+# The way past every rule above: declare the imports in the legacy JSON
+# manifest, which nothing here parses. The fixture's own JSON manifest is
+# exempt — it belongs to a separate module built against the published facade.
+mklayering "$work/ly_json" "$ly_frame" "$ly_kernel" "$ly_root"
+mkdir -p "$work/ly_json/sneaky"
+printf '{ "import": ["ihb2032/MoonFrame/frame"] }\n' \
+  >"$work/ly_json/sneaky/moon.pkg.json"
+(cd "$work/ly_json" && git add -A && git commit -qm json)
+expect_out 1 'legacy JSON manifest' 'layering: a package outside the parsed manifests' \
+  sh "$scripts/check_layering.sh" "$work/ly_json"
+
+mklayering "$work/ly_json_fixture" "$ly_frame" "$ly_kernel" "$ly_root"
+mkdir -p "$work/ly_json_fixture/.github/fixtures/smoke"
+printf '{ "import": ["ihb2032/MoonFrame"] }\n' \
+  >"$work/ly_json_fixture/.github/fixtures/smoke/moon.pkg.json"
+(cd "$work/ly_json_fixture" && git add -A && git commit -qm fixture)
+expect 0 'layering: the CI fixture keeps its JSON manifest' \
+  sh "$scripts/check_layering.sh" "$work/ly_json_fixture"
+
 # ── engine seams ──────────────────────────────────────────────────────────
 mkseams() {
   # mkseams <dir> <series-source> <snapshot-body|--> [test-source] [allowlist]
@@ -719,6 +738,18 @@ series | doc_hidden internal_engine | pub fn validity_bools(column : Series) -> 
 series | doc_hidden internal_engine | pub(all) enum ReduceOp
 series | doc_hidden internal_engine | variant ReduceOp::Mean
 series | doc_hidden internal_engine | variant ReduceOp::Sum'
+
+es_orphan="$es_source
+
+///|
+#doc(hidden)
+#internal(engine, \"MoonFrame execution engine API\")
+pub fn Series::is_canonical(self : Series) -> Bool {
+  ignore(self)
+}"
+es_orphan_snap="series | doc_hidden internal_engine | pub fn Series::is_canonical(self : Series) -> Bool | used by: (no production caller outside series)
+$es_snap"
+
 
 mkseams "$work/es_ok" "$es_source" "$es_snap"
 expect 0 'engine seams: match the snapshot (an unattributed pub is not a seam)' \
@@ -815,6 +846,35 @@ printf '///|\npub fn DataFrame::validity_bools(self : DataFrame) -> Int {\n  0\n
 expect 0 'engine seams: a declaration of the same name is not a call' \
   sh "$scripts/check_engine_seams.sh" "$work/es_decl_only"
 
+# How the symbol is spelled at the call site carries the rest of the weight. A
+# free function is never reached through a receiver, so `c.validity_bools(` is
+# a method on something else — counting it would report a seam as live while
+# nothing calls it, which is the false negative that lets a dead seam stay.
+mkseams "$work/es_receiver" "$es_source" "$es_snap"
+printf '///|\npub fn consume(c : Series) -> Int {\n  ignore(c.validity_bools())\n  ignore(reducer_for(c, ReduceOp::Sum))\n  ignore(after_the_value(c))\n  ignore(bool_cells(c))\n  0\n}\n' \
+  >"$work/es_receiver/io/io.mbt"
+(cd "$work/es_receiver" && git add -A && git commit -qm receiver)
+expect_out 1 'no production caller outside its package' \
+  'engine seams: a receiver call is not a call to the free function' \
+  sh "$scripts/check_engine_seams.sh" "$work/es_receiver"
+
+# The two spellings that *are* calls: package-qualified for a free function,
+# and through the owning type for a method.
+mkseams "$work/es_qualified" "$es_source" "$es_snap"
+printf '///|\npub fn consume(c : Series) -> Int {\n  ignore(@series.validity_bools(c))\n  ignore(reducer_for(c, ReduceOp::Sum))\n  ignore(after_the_value(c))\n  ignore(bool_cells(c))\n  0\n}\n' \
+  >"$work/es_qualified/io/io.mbt"
+(cd "$work/es_qualified" && git add -A && git commit -qm qualified)
+expect 0 'engine seams: a package-qualified free call counts' \
+  sh "$scripts/check_engine_seams.sh" "$work/es_qualified"
+
+mkseams "$work/es_type_call" "$es_orphan" "$(printf '%s\n' "$es_orphan_snap" |
+  sed 's/pub fn Series::is_canonical(self : Series) -> Bool | used by: (no production caller outside series)/pub fn Series::is_canonical(self : Series) -> Bool | used by: io/')"
+printf '///|\npub fn consume(c : Series) -> Int {\n  ignore(Series::is_canonical(c))\n  ignore(validity_bools(c))\n  ignore(reducer_for(c, ReduceOp::Sum))\n  ignore(after_the_value(c))\n  ignore(bool_cells(c))\n  0\n}\n' \
+  >"$work/es_type_call/io/io.mbt"
+(cd "$work/es_type_call" && git add -A && git commit -qm typecall)
+expect 0 'engine seams: a Type::method call counts' \
+  sh "$scripts/check_engine_seams.sh" "$work/es_type_call"
+
 mkseams "$work/es_missing" "$es_source" --
 expect_out 1 'snapshot' 'engine seams: snapshot absent' \
   sh "$scripts/check_engine_seams.sh" "$work/es_missing"
@@ -822,17 +882,6 @@ expect_out 1 'snapshot' 'engine seams: snapshot absent' \
 # The rule the allowlist exists for. A seam nothing outside its package calls
 # is `pub` for no reason the architecture can state, and the snapshot used to
 # record that quietly — which is how five of them survived a release cycle.
-es_orphan="$es_source
-
-///|
-#doc(hidden)
-#internal(engine, \"MoonFrame execution engine API\")
-pub fn Series::is_canonical(self : Series) -> Bool {
-  ignore(self)
-}"
-es_orphan_snap="series | doc_hidden internal_engine | pub fn Series::is_canonical(self : Series) -> Bool | used by: (no production caller outside series)
-$es_snap"
-
 mkseams "$work/es_orphan" "$es_orphan" "$es_orphan_snap"
 expect_out 1 'no production caller outside its package' \
   'engine seams: a seam nothing outside the package calls' \

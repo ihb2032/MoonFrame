@@ -18,9 +18,9 @@
 /// `arrow-rs`, `pyarrow`); note that some MoonBit ecosystem libraries (e.g.
 /// `smallbearrr/pandas`) use the opposite convention.
 pub struct Bitmap {
-  bits : Bytes
-  offset : Int
-  len : Int
+  priv bits : Bytes
+  priv offset : Int
+  priv len : Int
 } derive(Debug)
 
 ///|

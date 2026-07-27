@@ -38,7 +38,7 @@ pub fn eval_arith(
   // raise in the general arm as before.
   match (left.storage(), right.storage()) {
     (@column.ColumnStorage::Numeric(x), @column.ColumnStorage::Numeric(y)) =>
-      return match (x.data, y.data) {
+      return match (x.numeric_data(), y.numeric_data()) {
         (@column.NumericData::Int(a), @column.NumericData::Int(b)) =>
           Series::from_ints(
             left.name(),
@@ -107,7 +107,7 @@ fn eval_binary_float(
 ) -> Series raise @types.DataError {
   match (left.storage(), right.storage()) {
     (@column.ColumnStorage::Numeric(x), @column.ColumnStorage::Numeric(y)) =>
-      return match (x.data, y.data) {
+      return match (x.numeric_data(), y.numeric_data()) {
         (@column.NumericData::Int(a), @column.NumericData::Int(b)) =>
           Series::from_floats(
             left.name(),
@@ -182,7 +182,7 @@ fn eval_binary_nullzero(
 ) -> Series raise @types.DataError {
   match (left.storage(), right.storage()) {
     (@column.ColumnStorage::Numeric(x), @column.ColumnStorage::Numeric(y)) =>
-      return match (x.data, y.data) {
+      return match (x.numeric_data(), y.numeric_data()) {
         // A zero divisor nulls its cell, so an all-valid pair can still leave
         // the `Numeric` fast path — re-converge afterwards.
         (@column.NumericData::Int(a), @column.NumericData::Int(b)) =>
@@ -376,7 +376,7 @@ pub fn eval_unary_num(
 ) -> Series raise @types.DataError {
   match operand.storage() {
     @column.ColumnStorage::Numeric(x) =>
-      return match x.data {
+      return match x.numeric_data() {
         @column.NumericData::Int(a) =>
           Series::from_ints(
             operand.name(),
@@ -527,7 +527,7 @@ pub fn eval_is_nan(
   // constant `!want_nan` per cell.
   match operand.storage() {
     @column.ColumnStorage::Numeric(x) =>
-      return match x.data {
+      return match x.numeric_data() {
         @column.NumericData::Int(a) =>
           Series::from_bools(
             operand.name(),

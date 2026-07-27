@@ -25,8 +25,8 @@
 /// pandas / polars `int64` / `float64` defaults so reductions neither
 /// silently overflow nor lose precision.
 pub struct BuiltinColumn {
-  data : ColumnData
-  validity : Bitmap
+  priv data : ColumnData
+  priv validity : Bitmap
 } derive(Eq, Debug)
 
 ///|

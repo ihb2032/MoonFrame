@@ -284,15 +284,16 @@ fi
 
 # The widest seam in the list is `Series::storage`, and what makes it wide is
 # not its signature: it hands `internal/kernel` the column's *live* buffers,
-# through `data()` and the typed `*_values()` readers. A column is logically
-# immutable and buffers are shared by zero-copy slicing, so one index
-# assignment into one of those arrays corrupts the column it came from and
-# every column sharing the buffer — with no import, no signature, and no
-# snapshot changing to show it. Read-only is therefore a rule and not a
-# comment: in any package that receives a buffer this way, a name bound out of
-# a `ColumnData` pattern or a `*_values()` destructuring may not be assigned
-# into. `series` and `internal/column` are exempt — they own the column and
-# build the arrays in the first place.
+# through `data()`. A column is logically immutable and buffers are shared by
+# zero-copy slicing, so one index assignment into one of those arrays corrupts
+# the column it came from and every column sharing the buffer — with no import,
+# no signature, and no snapshot changing to show it. Read-only is therefore a
+# rule and not a comment: in any package that receives a buffer this way, a
+# name bound out of a `ColumnData` pattern may not be assigned into. A typed
+# `*_values()` reader is covered too, though none exists today — the family
+# that did was deleted for having no production caller, and the check is
+# cheaper to keep than to re-derive if one comes back. `series` and
+# `internal/column` are exempt: they own the column and build the arrays.
 mutations=$(printf '%s\n' "$production_files" | while IFS= read -r f; do
   case "$f" in
     internal/column/* | series/* | "") continue ;;
@@ -343,8 +344,8 @@ done)
 if [ -n "$mutations" ]; then
   printf 'engine seams: a consumer writes into a live column buffer:\n'
   printf '%s\n' "$mutations" | sed 's/^/  /'
-  printf '  `data()` and the `*_values()` readers hand back the arrays the\n'
-  printf '  column itself holds, not copies, and slicing shares them further.\n'
+  printf '  `data()` hands back the arrays the column itself holds, not\n'
+  printf '  copies, and slicing shares them further.\n'
   printf '  Build a new array and return it — a kernel reads a column, it\n'
   printf '  does not edit one.\n'
   exit 1

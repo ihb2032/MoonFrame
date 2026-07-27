@@ -1,6 +1,6 @@
-// Blackbox tests for `BuiltinColumn` (Arrow layout). Only the public API
-// is used; the `data` and `validity` fields are observed indirectly via
-// `int_values` / `float_values` / `bool_values` / `string_values`.
+// Tests for `BuiltinColumn` (Arrow layout), compiled inside the package: the
+// `data` and `validity` buffers are read through the `data()` accessor and the
+// dtype-unwrapping helpers in `cells_wbtest.mbt`.
 
 // ── Constructors ─────────────────────────────────────────────────────
 

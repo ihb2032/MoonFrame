@@ -1,0 +1,16 @@
+# Engine seams that no production code outside their own package calls, and are
+# `pub` anyway. Read by check_engine_seams.sh: a seam with no such caller that
+# is not listed here fails the build, and a listed one that gains a caller (or
+# goes away) fails too, so the list cannot quietly outlive its reasons.
+#
+# The bar is not "a test needs it". A test that needs to reach inside a package
+# can be a whitebox test, and a symbol only its own package's tests want is dead
+# weight in a production source file — the fix there is to delete it and assert
+# through what production actually uses. What earns a line here is a symbol
+# whose entire purpose is to be *asserted*, by tests in a different package that
+# have no other way to see what they are checking.
+#
+# Format: pkg/Symbol — reason
+frame/DataFrame::check_invariants — the structural check itself (INV1–INV7); the frame, io and lazy suites all assert that a frame they built is well-formed, and nothing else can see a private field
+series/Series::is_canonical — the backend-canonicalisation invariant; the operators that must return a canonical column live in frame, whose tests are a separate package
+series/Series::storage_kind — the only way a test outside series can see which backend an operator's output landed on, which is engine-wide behaviour worth pinning

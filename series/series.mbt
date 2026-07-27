@@ -329,9 +329,9 @@ pub fn Series::gather(
 /// `feedback_lib_no_abort`). The null-free Int /
 /// Float arms rebuild through the `NumericColumn` constructors, which copy
 /// their input since the 0.5.2 immutable-ingestion change — one extra `O(n)`
-/// array copy per converged column (the column package's own
-/// `ColumnStorage::to_numeric` keeps its zero-copy move via direct struct
-/// construction).
+/// array copy per converged column. (The buffer-free move the column package
+/// used to offer alongside it is gone: nothing outside `series` converged a
+/// column, so the entry point went with it.)
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
 pub fn try_column_to_numeric(s : Series) -> Series {

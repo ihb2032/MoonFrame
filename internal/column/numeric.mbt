@@ -9,7 +9,7 @@
 /// Polars, where a buffer with `null_count == 0` skips the validity check on
 /// the hot path.
 ///
-/// The win is twofold and measurable (see `numeric_test.mbt`):
+/// The win is twofold and measurable (see `numeric_wbtest.mbt`):
 ///   1. **construction / sub-views** allocate no validity `Bytes`:
 ///      `from_ints` / `from_floats` are just the data array, and `slice` /
 ///      `take` repack only the data — `BuiltinColumn` additionally allocates
@@ -30,9 +30,9 @@
 /// all-valid numeric `Series`, not just a parallel implementation. Cross-dtype
 /// transforms
 /// (`cast` / `to_int` / `to_float`) are
-/// intentionally absent: a caller that needs them goes through `to_builtin()`
-/// and lets `BuiltinColumn` do the work, keeping this type's surface to the
-/// fast-path operations that actually benefit from the missing bitmap.
+/// intentionally absent: `ColumnStorage::cast` widens to the `Builtin` backend
+/// and lets `BuiltinColumn` do the work, keeping this type to the fast-path
+/// operations that actually benefit from the missing bitmap.
 pub struct NumericColumn {
   priv data : NumericData
 } derive(Eq, Debug)
@@ -237,7 +237,7 @@ pub fn NumericColumn::take(
 /// immutable, so the two may safely share it) and `Bitmap::all_valid(len)`
 /// records that every slot is present. The widening is value-preserving — it
 /// equals `BuiltinColumn::from_ints` / `from_floats` on the same data (proven
-/// in `numeric_test.mbt`). It reuses the array via a struct literal rather than
+/// in `numeric_wbtest.mbt`). It reuses the array via a struct literal rather than
 /// `from_ints` / `from_floats`, which now defensively copy.
 fn NumericColumn::to_builtin(self : NumericColumn) -> BuiltinColumn {
   match self.data {

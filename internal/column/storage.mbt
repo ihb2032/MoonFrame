@@ -21,16 +21,16 @@
 ///     the backend (a sub-range of an all-valid `Numeric` column is itself
 ///     all-valid, so it stays `Numeric` — the fast path survives the
 ///     transform).
-///   * **cross-dtype transforms** (`cast`) route
-///     through `to_builtin()` and let `BuiltinColumn` do the work, returning
-///     a `Builtin`-backed result rather than re-implementing the whole cast
-///     machine on the `Numeric` arm. This keeps `NumericColumn`'s surface
-///     lean (the numeric fast path only); a caller that wants the result
-///     back on the `Numeric` backend re-converges with `to_numeric()`.
+///   * **cross-dtype transforms** (`cast`) widen to the `Builtin` backend
+///     first, package-privately, and let `BuiltinColumn` do the work rather
+///     than re-implementing the whole cast machine on the `Numeric` arm. This
+///     keeps `NumericColumn`'s surface lean (the numeric fast path only), and
+///     the result comes back `Builtin`-backed.
 ///
-/// `to_numeric()` is the convergence direction: an all-valid Int / Float
-/// `Builtin` column moves onto `NumericColumn`; a column with nulls or a
-/// non-numeric dtype `raise`s rather than silently losing information.
+/// Convergence runs the other way and lives above this package:
+/// `@series.try_column_to_numeric` moves an all-valid Int / Float column onto
+/// `NumericColumn` and leaves every other column as it is. Nothing here
+/// selects a backend for a caller — a column's backend follows its content.
 
 ///|
 /// Which backend a `ColumnStorage` (or `Series`) currently uses. `ArrowLike`

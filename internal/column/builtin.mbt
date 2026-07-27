@@ -17,8 +17,8 @@
 ///
 /// As of v0.3 a `ColumnStorage` abstraction (plus a `NumericColumn` for
 /// unboxed-numeric fast paths) sits above this layer at the `Series` backend
-/// seam (see `storage.mbt`); it leaves `BuiltinColumn`'s own public API
-/// unchanged — a `Series` simply holds one of the two backends behind it.
+/// seam (see `storage.mbt`) — a `Series` simply holds one of the two backends
+/// behind it, and reaches this one through `ColumnStorage`.
 ///
 /// Numeric columns are 64-bit: the `Int` variant stores `Int64` and the
 /// `Float` variant stores `Double`, matching `Scalar`'s payloads and the

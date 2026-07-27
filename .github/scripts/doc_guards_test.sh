@@ -519,7 +519,13 @@ mklayering() {
     git config user.name t && git config core.autocrlf false)
   for pkg in expr io lazy types; do
     mkdir -p "$1/$pkg"
-    printf 'import {\n  "ihb2032/MoonFrame/types",\n}\n' >"$1/$pkg/moon.pkg"
+    # `types` is the bottom of the stack and depends on nothing in the module;
+    # the rest sit on it.
+    if [ "$pkg" = types ]; then
+      printf 'import {\n}\n' >"$1/$pkg/moon.pkg"
+    else
+      printf 'import {\n  "ihb2032/MoonFrame/types",\n}\n' >"$1/$pkg/moon.pkg"
+    fi
     printf 'package "ihb2032/MoonFrame/%s"\n' "$pkg" \
       >"$1/$pkg/pkg.generated.mbti"
   done
@@ -607,6 +613,25 @@ printf 'package "ihb2032/MoonFrame/frame"\n\nimport {\n  "ihb2032/MoonFrame/inte
 (cd "$work/ly_leak" && git add -A && git commit -qm leak)
 expect_out 1 'names an internal package' 'layering: an internal package named in a public interface' \
   sh "$scripts/check_layering.sh" "$work/ly_leak"
+
+# Direction, which a snapshot cannot hold: `types` depending on `series` is a
+# reversal of the stack, not a new edge to consider.
+mklayering "$work/ly_reversed" "$ly_frame" "$ly_kernel" "$ly_root"
+printf 'import {\n  "ihb2032/MoonFrame/series",\n}\n' \
+  >"$work/ly_reversed/types/moon.pkg"
+(cd "$work/ly_reversed" && git add -A && git commit -qm reversed)
+expect_out 1 'not in its allowed set' 'layering: a package depending upward' \
+  sh "$scripts/check_layering.sh" "$work/ly_reversed"
+
+# And the property that gives direction its meaning. This cycle runs the long
+# way round — `expr` through `types` and back — so no single edge looks wrong.
+mklayering "$work/ly_cycle" "$ly_frame" "$ly_kernel" "$ly_root"
+printf 'import {\n  "ihb2032/MoonFrame/expr",\n}\n' \
+  >"$work/ly_cycle/types/moon.pkg"
+printf 'import {\n  "ihb2032/MoonFrame/types",\n}\n' >"$work/ly_cycle/expr/moon.pkg"
+(cd "$work/ly_cycle" && git add -A && git commit -qm cycle)
+expect_out 1 'has a cycle' 'layering: a dependency cycle' \
+  sh "$scripts/check_layering.sh" "$work/ly_cycle"
 
 # Everything the rules do not forbid is still pinned: a new edge between two
 # packages breaks no rule, and is exactly the structural decision the snapshot

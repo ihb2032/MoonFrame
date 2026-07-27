@@ -122,7 +122,10 @@ sh .github/scripts/check_engine_seams.sh
   and by nothing else, `internal/kernel` only by `frame`, no `internal/*`
   package imports `frame` / `io` / `lazy`, the facade imports exactly the six
   public packages, and no public `pkg.generated.mbti` names an internal
-  package. Every other production edge is pinned in
+  package. Two rules hold the *direction* the snapshot cannot: each package
+  declares what it may depend on, and the graph must stay acyclic — a
+  reversal or a cycle is not a new edge to accept but a change of what the
+  stack means. Every other production edge is pinned in
   `.github/scripts/layering.snapshot`, so a new dependency lands deliberately
   (`sh .github/scripts/check_layering.sh --write`). Test-only import blocks are
   exempt by design (`frame`'s tests name `StorageKind`). Changing the layering

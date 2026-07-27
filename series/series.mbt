@@ -320,13 +320,13 @@ pub fn Series::gather(
 /// Best-effort, **total** move of one column onto the `Numeric` fast-path
 /// backend: an all-valid Int / Float `Builtin` column is rebuilt on
 /// `NumericColumn`; every other column — already `Numeric`, carrying nulls,
-/// or non-numeric — is returned unchanged. Unlike `Series::to_numeric` this
-/// never raises: it is the per-column step behind the total
-/// `DataFrame::to_numeric`, the canonicalisation in the row gathers
-/// (`gather_series` / `Series::gather` / `rebuild_options`) and
-/// `preserve_backend`, and the expression engine's computed-column convergence,
-/// so a column that cannot move is simply kept rather than failing (and rather
-/// than leaving a dead error arm, `feedback_lib_no_abort`). The null-free Int /
+/// or non-numeric — is returned unchanged. This is the whole of how a column
+/// reaches that backend after construction: the canonicalisation in the row
+/// gathers (`gather_series` / `Series::gather` / `rebuild_options`), in
+/// `preserve_backend`, and in the expression engine's computed-column
+/// convergence. Total by design, so a column that cannot move is simply kept
+/// rather than failing (and rather than leaving a dead error arm,
+/// `feedback_lib_no_abort`). The null-free Int /
 /// Float arms rebuild through the `NumericColumn` constructors, which copy
 /// their input since the 0.5.2 immutable-ingestion change — one extra `O(n)`
 /// array copy per converged column (the column package's own

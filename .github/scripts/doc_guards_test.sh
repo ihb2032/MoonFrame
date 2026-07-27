@@ -838,6 +838,13 @@ expect_out 1 'no production caller outside its package' \
   'engine seams: a seam nothing outside the package calls' \
   sh "$scripts/check_engine_seams.sh" "$work/es_orphan"
 
+# The remediation has to name the file to edit. It said "add it to the list in
+# this script" while the list had already moved to its own file, which sends a
+# maintainer to fix the guard that just fired at them.
+expect_out 1 '.github/scripts/engine_seams.allowlist' \
+  'engine seams: the fix names the allowlist file' \
+  sh "$scripts/check_engine_seams.sh" "$work/es_orphan"
+
 # Listed, with a reason, in a file `--write` does not touch: allowed. This is
 # also what pins the key spelling — `pkg/Symbol`, the reason after an em dash.
 mkseams "$work/es_allowed" "$es_orphan" "$es_orphan_snap" '' \
@@ -859,6 +866,10 @@ mkseams "$work/es_stale_allow" "$es_source" "$es_snap" '' \
   'series/validity_bools — a reason that stopped being true when io started calling it'
 expect_out 1 'an exception that is no longer needed' \
   'engine seams: an allowlist entry whose seam gained a caller' \
+  sh "$scripts/check_engine_seams.sh" "$work/es_stale_allow"
+
+expect_out 1 '.github/scripts/engine_seams.allowlist' \
+  'engine seams: dropping a stale entry names the allowlist file' \
   sh "$scripts/check_engine_seams.sh" "$work/es_stale_allow"
 
 # A test-only helper carrying the seam attributes is not part of the surface,

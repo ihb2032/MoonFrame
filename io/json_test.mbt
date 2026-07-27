@@ -571,12 +571,10 @@ test "format_json / parse_json_str round-trip preserves data" {
   ])
   let json = @io.format_json(df)
   let df2 = @io.parse_json_str(json)
-  // Compare what the round-trip is supposed to preserve — the schema and
-  // the cells — rather than the frames themselves: frame equality also
-  // compares the physical backend, and the reader always builds `Builtin`
-  // columns while the original `r` was built with `from_floats` (Numeric).
-  assert_eq(df2.schema(), df.schema())
-  assert_eq(df2.to_scalar_matrix(), df.to_scalar_matrix())
+  // Frame equality is by content — dtype, null-ness, and cell values — not by
+  // representation, so the reader building `Builtin` columns where the
+  // original `r` took the `Numeric` fast path does not enter into it.
+  assert_eq(df2, df)
 }
 
 ///|

@@ -53,6 +53,10 @@ str_replace_regex
 str_replace_all_regex
 DataFrame::storage_kinds
 DataFrame::take
+Series::to_numeric
+Series::to_builtin
+DataFrame::to_numeric
+DataFrame::to_builtin
 LazyFrame::from
 Expr::col
 Expr::lit

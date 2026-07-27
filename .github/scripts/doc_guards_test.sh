@@ -1095,6 +1095,33 @@ pub fn read(c : BuiltinColumn) -> Int {
 expect_out 1 'has a caller now' \
   'internal surface: a listed generic that gained a caller' \
   sh "$scripts/check_internal_surface.sh" "$work/is_generic_stale"
+# A published field is the layout itself becoming reachable, so the interface
+# of an internal package must not carry one. Written straight into the fixture
+# rather than through the source builder: the rule reads the generated
+# interface, which is what a reviewer sees.
+mkmbti() {
+  # mkmbti <dir> <struct-body>
+  mkdir -p "$1/internal/column" "$1/.github/scripts"
+  (cd "$1" && git init -q . && git config user.email t@t &&
+    git config user.name t && git config core.autocrlf false)
+  printf 'import {\n}\n' >"$1/internal/column/moon.pkg"
+  printf '///|\nfn unused() -> Int {\n  0\n}\n' >"$1/internal/column/column.mbt"
+  printf 'package "ihb2032/MoonFrame/internal/column"\n\n// Types and methods\npub struct Bitmap {\n%s} derive(Eq)\npub fn Bitmap::len(Self) -> Int\n' \
+    "$2" >"$1/internal/column/pkg.generated.mbti"
+  (cd "$1" && git add -A && git commit -qm f)
+}
+
+mkmbti "$work/is_field" '  bits : Bytes
+  len : Int
+'
+expect_out 1 'a published field in an internal package' \
+  'internal surface: a field in an internal interface' \
+  sh "$scripts/check_internal_surface.sh" "$work/is_field"
+
+mkmbti "$work/is_no_field" '  // private fields
+'
+expect 0 'internal surface: private fields leave the interface clean' \
+  sh "$scripts/check_internal_surface.sh" "$work/is_no_field"
 
 # ── the repository itself ─────────────────────────────────────────────────
 expect 0 'repo: version identity' sh "$scripts/check_version_identity.sh" "$root"

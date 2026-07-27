@@ -174,5 +174,31 @@ if [ -n "$stale" ]; then
   exit 1
 fi
 
-printf 'internal surface: %s internal `pub fn` are reachable or listed\n' \
-  "$checked"
+# Functions are one half of what a package hands over; a struct's fields are
+# the other, and a published field is the worse of the two — it makes the
+# *layout* something another package may depend on, where the methods beside it
+# already answer what a consumer needs. So an internal package's generated
+# interface must not carry one. (The interfaces are tracked, so a change shows
+# in the diff either way; what this adds is that putting a field back is a
+# decision someone argues for rather than a line nobody notices.)
+fields=$(git ls-files 'internal/*/pkg.generated.mbti' |
+  while IFS= read -r mbti; do
+    [ -f "$mbti" ] || continue
+    awk -v file="$mbti" '
+      /^pub struct / { inblock = 1; next }
+      /^\}/ { inblock = 0; next }
+      inblock && /^  [a-zA-Z_]+ : / { printf "%s: %s\n", file, $1 }
+    ' "$mbti"
+  done)
+if [ -n "$fields" ]; then
+  printf 'internal surface: a published field in an internal package:\n'
+  printf '%s\n' "$fields" | sed 's/^/  /'
+  printf '  A field in the interface makes the layout itself reachable from\n'
+  printf '  the packages above — `series` and `internal/kernel` can then hold a\n'
+  printf '  representation rather than an accessor. Mark it `priv`; if another\n'
+  printf '  package really has to read it, give it a named accessor instead,\n'
+  printf '  which this audit can see and account for.\n'
+  exit 1
+fi
+
+printf 'internal surface: %s internal `pub fn`, no published field\n' "$checked"

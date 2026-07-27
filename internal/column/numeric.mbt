@@ -218,74 +218,6 @@ pub fn NumericColumn::take(
 
 // ── Typed accessors (zero-boxing; all-valid bitmap synthesised) ────────
 
-///|
-/// Return the raw `Int64` array paired with an all-valid `Bitmap` sized to
-/// the column, matching `BuiltinColumn::int_values`' `(data, validity)` shape
-/// so the two are interchangeable through `ColumnStorage`. The bitmap is
-/// synthesised on demand — the column stores none. `raise
-/// TypeMismatch(Expected(Int, Float, ""))` when this is a `Float` column.
-pub fn NumericColumn::int_values(
-  self : NumericColumn,
-) -> (Array[Int64], Bitmap) raise @types.DataError {
-  match self.data {
-    Int(a) => (a, Bitmap::all_valid(a.length()))
-    Float(_) =>
-      raise @types.DataError::TypeMismatch(
-        @types.TypeMismatchDetail::Expected(
-          @types.DataType::Int,
-          self.dtype(),
-          "",
-        ),
-      )
-  }
-}
-
-///|
-/// Like `int_values` but for `Float` columns. `raise
-/// TypeMismatch(Expected(Float, Int, ""))` when this is an `Int` column.
-pub fn NumericColumn::float_values(
-  self : NumericColumn,
-) -> (Array[Double], Bitmap) raise @types.DataError {
-  match self.data {
-    Float(a) => (a, Bitmap::all_valid(a.length()))
-    Int(_) =>
-      raise @types.DataError::TypeMismatch(
-        @types.TypeMismatchDetail::Expected(
-          @types.DataType::Float,
-          self.dtype(),
-          "",
-        ),
-      )
-  }
-}
-
-///|
-/// Always `raise TypeMismatch(Expected(...))` — a `NumericColumn` is numeric by
-/// construction, so it never holds `Bool` cells. Present so
-/// `ColumnStorage::bool_values` can forward to both arms uniformly.
-pub fn NumericColumn::bool_values(
-  self : NumericColumn,
-) -> (Array[Bool], Bitmap) raise @types.DataError {
-  raise @types.DataError::TypeMismatch(
-    @types.TypeMismatchDetail::Expected(@types.DataType::Bool, self.dtype(), ""),
-  )
-}
-
-///|
-/// Always `raise TypeMismatch(Expected(...))` — a `NumericColumn` never holds `String`
-/// cells. Present so `ColumnStorage::string_values` forwards uniformly.
-pub fn NumericColumn::string_values(
-  self : NumericColumn,
-) -> (Array[String], Bitmap) raise @types.DataError {
-  raise @types.DataError::TypeMismatch(
-    @types.TypeMismatchDetail::Expected(
-      @types.DataType::String,
-      self.dtype(),
-      "",
-    ),
-  )
-}
-
 // ── Materialise ───────────────────────────────────────────────────────
 
 ///|
@@ -296,23 +228,13 @@ pub fn NumericColumn::string_values(
 /// equals `BuiltinColumn::from_ints` / `from_floats` on the same data (proven
 /// in `numeric_test.mbt`). It reuses the array via a struct literal rather than
 /// `from_ints` / `from_floats`, which now defensively copy.
-pub fn NumericColumn::to_builtin(self : NumericColumn) -> BuiltinColumn {
+fn NumericColumn::to_builtin(self : NumericColumn) -> BuiltinColumn {
   match self.data {
     Int(a) =>
       { data: ColumnData::Int(a), validity: Bitmap::all_valid(a.length()) }
     Float(a) =>
       { data: ColumnData::Float(a), validity: Bitmap::all_valid(a.length()) }
   }
-}
-
-///|
-/// Render every cell to its `String` value-form, yielding a `String`
-/// `BuiltinColumn` (a numeric column cannot stay `Numeric` once stringified).
-/// Total: an all-valid numeric column has no null placeholder and no
-/// non-renderable cell, so this routes through `to_builtin` and reuses
-/// `BuiltinColumn::to_string_column` rather than duplicating the rendering.
-pub fn NumericColumn::to_string_column(self : NumericColumn) -> BuiltinColumn {
-  self.to_builtin().to_string_column()
 }
 
 // ── Reductions (all-valid fast path) ──────────────────────────────────

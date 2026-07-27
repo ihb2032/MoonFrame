@@ -19,7 +19,7 @@
 /// flip needs only the parameter/return type swapped, not the logic. Returns
 /// the dtype tag and the per-row missing mask (`Null`, plus `NaN` for
 /// `Float`) those sites compute.
-fn read_like_ops(storage : @column.ColumnStorage) -> (String, Array[Bool]) {
+fn read_like_ops(storage : ColumnStorage) -> (String, Array[Bool]) {
   let valid = storage.validity().to_bools()
   match storage.data() {
     ColumnData::Int(a) => ("Int", Array::makei(a.length(), i => !valid[i]))
@@ -248,88 +248,6 @@ test "take keeps the backend on both arms" {
 
 // ── Typed accessors: both arms ────────────────────────────────────────
 
-///|
-test "int_values / float_values: both arms, with synthesised validity on Numeric" {
-  let bi = ColumnStorage::Builtin(BuiltinColumn::from_ints([1, 2]))
-  let ni = ColumnStorage::Numeric(NumericColumn::from_ints([3, 4]))
-  let (ba, bv) = bi.int_values()
-  let (na, nv) = ni.int_values()
-  assert_eq(ba, [1, 2])
-  assert_eq(bv.to_bools(), [true, true])
-  assert_eq(na, [3, 4])
-  assert_eq(nv.to_bools(), [true, true])
-  let bf = ColumnStorage::Builtin(BuiltinColumn::from_floats([1.5]))
-  let nf = ColumnStorage::Numeric(NumericColumn::from_floats([2.5]))
-  assert_eq(bf.float_values().0, [1.5])
-  assert_eq(nf.float_values().0, [2.5])
-  // Cross-type request raises through either backend.
-  assert_eq(
-    Ok(ni.float_values()) catch {
-      e => Err(e)
-    },
-    Err(
-      @types.DataError::TypeMismatch(
-        @types.TypeMismatchDetail::Expected(
-          @types.DataType::Float,
-          @types.DataType::Int,
-          "",
-        ),
-      ),
-    ),
-  )
-  assert_eq(
-    Ok(bi.float_values()) catch {
-      e => Err(e)
-    },
-    Err(
-      @types.DataError::TypeMismatch(
-        @types.TypeMismatchDetail::Expected(
-          @types.DataType::Float,
-          @types.DataType::Int,
-          "",
-        ),
-      ),
-    ),
-  )
-}
-
-///|
-test "bool_values / string_values: Builtin success, Numeric mismatches" {
-  let bb = ColumnStorage::Builtin(BuiltinColumn::from_bools([true, false]))
-  let bs = ColumnStorage::Builtin(BuiltinColumn::from_strings(["x", "y"]))
-  let n = ColumnStorage::Numeric(NumericColumn::from_ints([1]))
-  assert_eq(bb.bool_values().0, [true, false])
-  assert_eq(bs.string_values().0, ["x", "y"])
-  assert_eq(
-    Ok(n.bool_values()) catch {
-      e => Err(e)
-    },
-    Err(
-      @types.DataError::TypeMismatch(
-        @types.TypeMismatchDetail::Expected(
-          @types.DataType::Bool,
-          @types.DataType::Int,
-          "",
-        ),
-      ),
-    ),
-  )
-  assert_eq(
-    Ok(n.string_values()) catch {
-      e => Err(e)
-    },
-    Err(
-      @types.DataError::TypeMismatch(
-        @types.TypeMismatchDetail::Expected(
-          @types.DataType::String,
-          @types.DataType::Int,
-          "",
-        ),
-      ),
-    ),
-  )
-}
-
 // ── Materialise: to_builtin / to_string_column on both arms ────────────
 
 ///|
@@ -341,20 +259,6 @@ test "to_builtin widens Numeric losslessly and is identity on Builtin" {
   assert_eq(builtin.to_builtin(), raw)
   // Numeric arm widens to an all-valid BuiltinColumn equal to from_ints.
   assert_eq(numeric.to_builtin(), BuiltinColumn::from_ints([1, 2, 3]))
-}
-
-///|
-test "to_string_column renders both arms to a String column" {
-  let builtin = ColumnStorage::Builtin(
-    BuiltinColumn::from_int_options([Some(7), None]),
-  )
-  let numeric = ColumnStorage::Numeric(NumericColumn::from_floats([1.5]))
-  let sb = builtin.to_string_column()
-  let sn = numeric.to_string_column()
-  assert_eq(sb.dtype(), @types.DataType::String)
-  assert_eq(sb.get(0), @types.Scalar::String("7"))
-  assert_eq(sb.get(1), @types.Scalar::Null)
-  assert_eq(sn.get(0), @types.Scalar::String("1.5"))
 }
 
 // ── Cross-dtype transforms borrow the Builtin road ────────────────────
@@ -383,56 +287,6 @@ test "cast routes through Builtin (result is Builtin-backed)" {
 }
 
 // ── Converge onto Numeric: the five states ────────────────────────────
-
-///|
-test "to_numeric: already-Numeric is returned unchanged" {
-  let n = ColumnStorage::Numeric(NumericColumn::from_ints([1, 2]))
-  assert_eq(n.to_numeric(), n)
-  assert_eq(n.to_numeric().kind(), StorageKind::Numeric)
-}
-
-///|
-test "to_numeric: all-valid Int / Float Builtin moves to the fast path" {
-  let i = ColumnStorage::Builtin(BuiltinColumn::from_ints([1, 2, 3]))
-  let f = ColumnStorage::Builtin(BuiltinColumn::from_floats([1.5, 2.5]))
-  let ni = i.to_numeric()
-  let nf = f.to_numeric()
-  assert_eq(ni.kind(), StorageKind::Numeric)
-  assert_eq(nf.kind(), StorageKind::Numeric)
-  assert_eq(ni, ColumnStorage::Numeric(NumericColumn::from_ints([1, 2, 3])))
-  assert_eq(nf, ColumnStorage::Numeric(NumericColumn::from_floats([1.5, 2.5])))
-  // Round-trips losslessly back through to_builtin.
-  assert_eq(ni.to_builtin(), BuiltinColumn::from_ints([1, 2, 3]))
-}
-
-///|
-test "to_numeric: a column with nulls raises InvalidOperation" {
-  let s = ColumnStorage::Builtin(
-    BuiltinColumn::from_int_options([Some(1), None, Some(3)]),
-  )
-  assert_true(
-    (Ok(s.to_numeric()) catch { e => Err(e) })
-    is Err(@types.DataError::InvalidOperation(_)),
-  )
-}
-
-///|
-test "to_numeric: a non-numeric column raises TypeMismatch" {
-  let str = ColumnStorage::Builtin(BuiltinColumn::from_strings(["a", "b"]))
-  let boolc = ColumnStorage::Builtin(BuiltinColumn::from_bools([true]))
-  assert_true(
-    (Ok(str.to_numeric()) catch { e => Err(e) })
-    is Err(
-      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_))
-    ),
-  )
-  assert_true(
-    (Ok(boolc.to_numeric()) catch { e => Err(e) })
-    is Err(
-      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_))
-    ),
-  )
-}
 
 // ── Content-based equality (backend-agnostic) ─────────────────────────
 

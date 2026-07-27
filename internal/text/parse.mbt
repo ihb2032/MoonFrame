@@ -14,7 +14,7 @@
 /// way every ordering routes through `compare_string_lex`) keeps an
 /// explicit cast consistent with what the reader inferred for the same
 /// text.
-pub fn is_decimal_int_literal(s : String) -> Bool {
+fn is_decimal_int_literal(s : String) -> Bool {
   let mut seen_digit = false
   let mut first = true
   for ch in s.iter() {

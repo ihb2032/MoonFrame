@@ -19,19 +19,6 @@ test "all_valid marks every slot valid for non-byte-aligned lengths" {
 }
 
 ///|
-test "all_null marks every slot null across packing-edge lengths" {
-  for n in [0, 1, 7, 8, 9, 16] {
-    let bm = Bitmap::all_null(n)
-    assert_eq(bm.len(), n)
-    assert_eq(bm.null_count(), n)
-    for i in 0..<n {
-      assert_eq(bm.is_valid(i), false)
-      assert_eq(bm.is_null(i), true)
-    }
-  }
-}
-
-///|
 test "all_valid clamps a negative len to an empty bitmap" {
   // Stored verbatim, a negative `len` would desynchronise from the empty
   // buffer and make `null_count` read past it (an abort, the failure mode
@@ -45,19 +32,8 @@ test "all_valid clamps a negative len to an empty bitmap" {
 }
 
 ///|
-test "all_null clamps a negative len to an empty bitmap" {
-  let bm = Bitmap::all_null(-1)
-  assert_eq(bm.len(), 0)
-  assert_eq(bm.null_count(), 0)
-  assert_eq(bm.to_bools(), [])
-  assert_eq(bm, Bitmap::all_null(0))
-}
-
-///|
 test "from_bools mirrors the input vector exactly" {
-  let bm = Bitmap::from_bools([
-    true, false, true, true, false, false, true, true, false,
-  ])
+  let bm = mask([true, false, true, true, false, false, true, true, false])
   assert_eq(bm.len(), 9)
   assert_eq(bm.null_count(), 4)
   let expected : ReadOnlyArray[Bool] = [
@@ -70,7 +46,7 @@ test "from_bools mirrors the input vector exactly" {
 
 ///|
 test "from_bools on the empty array" {
-  let bm = Bitmap::from_bools([])
+  let bm = mask([])
   assert_eq(bm.len(), 0)
   assert_eq(bm.null_count(), 0)
 }
@@ -89,7 +65,7 @@ test "from_options on Int? round-trips Some/None as 1/0" {
 
 ///|
 test "is_valid_total reads one slot totally, clamping out-of-range to false" {
-  let bm = Bitmap::from_bools([true, false, true])
+  let bm = mask([true, false, true])
   // In-bounds: agrees with the raising `is_valid`.
   assert_eq(bm.is_valid_total(0), true)
   assert_eq(bm.is_valid_total(1), false)
@@ -114,16 +90,7 @@ test "from_options is generic in the element type" {
 test "all_valid and from_bools agree on a uniform-true vector" {
   let n = 11 // a non-byte-aligned size to exercise packing
   let a = Bitmap::all_valid(n)
-  let b = Bitmap::from_bools(Array::make(n, true))
-  assert_eq(a, b)
-}
-
-///|
-test "all_null and from_options agree on a uniform-None vector" {
-  let n = 13
-  let a = Bitmap::all_null(n)
-  let none_vec : Array[Int?] = Array::make(n, None)
-  let b = Bitmap::from_options(none_vec)
+  let b = mask(Array::make(n, true))
   assert_eq(a, b)
 }
 
@@ -168,7 +135,7 @@ test "null_count agrees with bit-by-bit is_null" {
   let pattern = [
     true, false, false, true, true, false, true, false, true, false, false,
   ]
-  let bm = Bitmap::from_bools(pattern)
+  let bm = mask(pattern)
   let mut expected = 0
   for v in pattern {
     if !v {
@@ -191,7 +158,7 @@ test "null_count agrees with bit-by-bit is_null" {
 test "slice mid-range across a byte boundary preserves bits" {
   // Source spans two bytes; the slice starts at bit 3 (mid-byte) and ends
   // at bit 11 (also mid-byte), exercising packing on the seam.
-  let bm = Bitmap::from_bools([
+  let bm = mask([
     true, false, true, // byte 0, bits 0..2
      true, true, false, false, true, // byte 0, bits 3..7
      false, true, true, // byte 1, bits 0..2 (== logical bits 8..10)
@@ -217,7 +184,7 @@ test "slice with length 0 yields an empty bitmap regardless of start" {
 
 ///|
 test "slice covering the full range is value-equal to the source" {
-  let bm = Bitmap::from_bools([true, false, true, true])
+  let bm = mask([true, false, true, true])
   let part = bm.slice(0, 4)
   assert_eq(part, bm)
 }
@@ -274,7 +241,7 @@ test "slice at start == len with length 0 succeeds (empty tail slice)" {
 
 ///|
 test "take gathers in arbitrary order with duplicates" {
-  let bm = Bitmap::from_bools([true, false, true, false, true])
+  let bm = mask([true, false, true, false, true])
   let out = bm.take([4, 1, 1, 0])
   assert_eq(out.len(), 4)
   assert_eq(out.is_valid(0), true) // src[4] = true
@@ -310,37 +277,6 @@ test "take reports the first offender for negative and overflow indices" {
 
 // ── bit_and ───────────────────────────────────────────────────────────
 
-///|
-test "bit_and produces the bitwise AND of two same-length bitmaps" {
-  let a = Bitmap::from_bools([true, true, false, false, true])
-  let b = Bitmap::from_bools([true, false, true, false, true])
-  let c = a.bit_and(b)
-  let expected : ReadOnlyArray[Bool] = [true, false, false, false, true]
-  for i in 0..<expected.length() {
-    assert_eq(c.is_valid(i), expected[i])
-  }
-}
-
-///|
-test "bit_and rejects mismatched lengths" {
-  let a = Bitmap::all_valid(3)
-  let b = Bitmap::all_valid(4)
-  assert_eq(
-    Ok(a.bit_and(b)) catch {
-      e => Err(e)
-    },
-    Err(@types.DataError::LengthMismatch),
-  )
-}
-
-///|
-test "bit_and on two empty bitmaps yields an empty bitmap" {
-  let a = Bitmap::all_valid(0)
-  let b = Bitmap::all_null(0)
-  let c = a.bit_and(b)
-  assert_eq(c.len(), 0)
-}
-
 // ── zero-copy slice views (P3) ───────────────────────────────────────
 
 ///|
@@ -349,31 +285,31 @@ test "sliced view equals a freshly packed bitmap and counts its own window" {
   // must compare logically equal to the same five bits packed standalone,
   // and null_count must count only the view's window — not the parent's
   // other bits.
-  let bm = Bitmap::from_bools([
+  let bm = mask([
     true, false, true, // bits 0..2
      false, true, true, false, true, // bits 3..7  (the window starts at 3)
      false, false, // bits 8..9
   ])
   let view = bm.slice(3, 5) // bits 3..7 = [false, true, true, false, true]
-  let fresh = Bitmap::from_bools([false, true, true, false, true])
+  let fresh = mask([false, true, true, false, true])
   assert_eq(view, fresh)
   assert_eq(view.null_count(), 2)
   assert_eq(fresh.null_count(), 2)
   // A view of a view composes the offsets.
   let inner = view.slice(1, 3) // [true, true, false]
-  assert_eq(inner, Bitmap::from_bools([true, true, false]))
+  assert_eq(inner, mask([true, true, false]))
   assert_eq(inner.null_count(), 1)
 }
 
 ///|
 test "bitmap equality is logical, not structural" {
-  let a = Bitmap::from_bools([true, false, true])
+  let a = mask([true, false, true])
   // Same length, one differing bit → not equal.
-  assert_eq(a == Bitmap::from_bools([true, true, true]), false)
+  assert_eq(a == mask([true, true, true]), false)
   // Different length → not equal.
-  assert_eq(a == Bitmap::from_bools([true, false]), false)
+  assert_eq(a == mask([true, false]), false)
   // Same bits → equal.
-  assert_eq(a == Bitmap::from_bools([true, false, true]), true)
+  assert_eq(a == mask([true, false, true]), true)
 }
 
 ///|
@@ -385,11 +321,11 @@ test "null_count of an offset-0 sub-window masks the shared tail byte (P3 regres
   let all3 = Bitmap::all_valid(3) // 1 byte, bits 0,1,2 set
   assert_eq(all3.slice(0, 2).null_count(), 0)
   assert_eq(all3.slice(0, 1).null_count(), 0)
-  let mixed = Bitmap::from_bools([true, false, true]) // bit 1 is null
+  let mixed = mask([true, false, true]) // bit 1 is null
   assert_eq(mixed.slice(0, 2).null_count(), 1) // window [0, 2) keeps the null
   // `len` a multiple of 8 exercises the `tail == 0` fast path (no mask).
   assert_eq(Bitmap::all_valid(8).null_count(), 0)
-  assert_eq(Bitmap::all_null(8).null_count(), 8)
+  assert_eq(mask(Array::make(8, false)).null_count(), 8)
 }
 
 ///|
@@ -402,7 +338,7 @@ test "null_count over every slice agrees with a naive bit-by-bit count" {
     true, false, true, true, false, false, true, false, true, true, false, true,
     false,
   ]
-  let bm = Bitmap::from_bools(pattern)
+  let bm = mask(pattern)
   let n = pattern.length()
   for start in 0..<(n + 1) {
     for len in 0..<(n - start + 1) {

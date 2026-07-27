@@ -7,3 +7,11 @@ import {
   "moonbitlang/core/double",
   "moonbitlang/core/test",
 } for "test"
+
+// The package's own test suite is whitebox: it asserts buffer contents,
+// placeholder normalisation and backend widening, none of which is visible
+// from outside the package now that the typed readers are gone.
+import {
+  "moonbitlang/core/double",
+  "moonbitlang/core/test",
+} for "wbtest"

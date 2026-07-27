@@ -8,11 +8,11 @@
 /// `Bool = false`, `String = ""`). The cell-at-a-time API consults `validity`
 /// first — `get` answers `Null` rather than `0`, and every `Scalar` a caller
 /// receives is masked that way — so no placeholder reaches a value the library
-/// hands out. The bulk readers do not mask, and cannot: `data()` and the typed
-/// `*_values()` accessors return the dense buffer as it is, placeholders
-/// included, paired with the validity that says which slots mean anything.
-/// Reading one without the other is the mistake they exist to make possible
-/// (a vectorized kernel walks both), and `placeholders_normalized` is what
+/// hands out. The bulk reader does not mask, and cannot: `data()` returns the
+/// dense buffer as it is, placeholders included, paired with the validity that
+/// says which slots mean anything. Reading one without the other is the
+/// mistake it exists to make possible (a vectorized kernel walks both), and
+/// `placeholders_normalized` is what
 /// asserts the buffer keeps the canonical placeholder at every null slot.
 ///
 /// As of v0.3 a `ColumnStorage` abstraction (plus a `NumericColumn` for

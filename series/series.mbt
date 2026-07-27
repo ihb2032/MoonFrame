@@ -270,9 +270,9 @@ pub fn Series::to_scalars(self : Series) -> Array[@types.Scalar] {
 
 ///|
 /// Expose the underlying `ColumnStorage`. The one caller outside this package
-/// is `internal/kernel`, which reads the typed (`int_values` / `float_values`
-/// / …) accessors and `data()` / `validity()` to run a column pass without
-/// `Scalar` boxing; `frame` and above never call it — they hold the `Series`.
+/// is `internal/kernel`, which walks `data()` alongside `validity()` to run a
+/// column pass without `Scalar` boxing; `frame` and above never call it — they
+/// hold the `Series`.
 /// The return type changed from `BuiltinColumn` to `ColumnStorage` in v0.3;
 /// the `data()` / `validity()` surface is identical, so column-reading call
 /// sites are unaffected.

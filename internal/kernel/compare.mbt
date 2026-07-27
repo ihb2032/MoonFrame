@@ -145,7 +145,7 @@ pub fn eval_compare(
   // same as the general arm's all-valid output.
   match (left.storage(), right.storage()) {
     (@column.ColumnStorage::Numeric(x), @column.ColumnStorage::Numeric(y)) =>
-      return match (x.data, y.data) {
+      return match (x.numeric_data(), y.numeric_data()) {
         (@column.NumericData::Int(a), @column.NumericData::Int(b)) =>
           Series::from_bools(
             left.name(),

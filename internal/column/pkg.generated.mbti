@@ -13,9 +13,7 @@ pub fn physical_type(@types.DataType) -> PhysicalType?
 
 // Types and methods
 pub struct Bitmap {
-  bits : Bytes
-  offset : Int
-  len : Int
+  // private fields
 } derive(@debug.Debug)
 pub fn Bitmap::equal(Self, Self) -> Bool
 pub fn Bitmap::is_null(Self, Int) -> Bool raise @types.DataError
@@ -30,8 +28,7 @@ pub fn Bitmap::to_repr(Self) -> @debug.Repr
 pub impl Eq for Bitmap
 
 pub struct BuiltinColumn {
-  data : ColumnData
-  validity : Bitmap
+  // private fields
 } derive(Eq, @debug.Debug)
 pub fn BuiltinColumn::cast(Self, @types.DataType) -> Self raise @types.DataError
 pub fn BuiltinColumn::data(Self) -> ColumnData
@@ -90,7 +87,7 @@ pub fn ColumnStorage::validity(Self) -> Bitmap
 pub impl Eq for ColumnStorage
 
 pub struct NumericColumn {
-  data : NumericData
+  // private fields
 } derive(Eq, @debug.Debug)
 pub fn NumericColumn::data(Self) -> ColumnData
 pub fn NumericColumn::dtype(Self) -> @types.DataType
@@ -106,6 +103,7 @@ pub fn NumericColumn::mean(Self) -> Double raise @types.DataError
 pub fn NumericColumn::min(Self) -> @types.Scalar
 pub fn NumericColumn::not_equal(Self, Self) -> Bool
 pub fn NumericColumn::null_count(Self) -> Int
+pub fn NumericColumn::numeric_data(Self) -> NumericData
 pub fn NumericColumn::slice(Self, Int, Int) -> Self raise @types.DataError
 pub fn NumericColumn::sum(Self) -> @types.Scalar
 pub fn NumericColumn::take(Self, Array[Int]) -> Self raise @types.DataError

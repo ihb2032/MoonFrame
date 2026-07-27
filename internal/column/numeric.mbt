@@ -34,7 +34,7 @@
 /// and lets `BuiltinColumn` do the work, keeping this type's surface to the
 /// fast-path operations that actually benefit from the missing bitmap.
 pub struct NumericColumn {
-  data : NumericData
+  priv data : NumericData
 } derive(Eq, Debug)
 
 ///|
@@ -113,6 +113,17 @@ pub fn NumericColumn::is_empty(self : NumericColumn) -> Bool {
 /// bitmap to popcount, the answer is structural.
 pub fn NumericColumn::null_count(_self : NumericColumn) -> Int {
   0
+}
+
+///|
+/// The unboxed buffer as the two-variant `NumericData` this backend can
+/// actually hold. `data()` widens the same array into the four-variant
+/// `ColumnData` every backend shares, which costs a vectorized pass two arms
+/// that cannot happen; the kernels match this instead. The array is shared
+/// (read-only), and the field itself is package-private so the buffer is
+/// reached by a name the surface audit can see.
+pub fn NumericColumn::numeric_data(self : NumericColumn) -> NumericData {
+  self.data
 }
 
 ///|

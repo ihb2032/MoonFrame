@@ -86,7 +86,7 @@ pub fn NumericColumn::from_floats(values : Array[Double]) -> NumericColumn {
 ///|
 /// The column's logical `DataType` — `Int` or `Float` (a `NumericColumn` is
 /// numeric by construction).
-pub fn NumericColumn::dtype(self : NumericColumn) -> @types.DataType {
+fn NumericColumn::dtype(self : NumericColumn) -> @types.DataType {
   match self.data {
     Int(_) => @types.DataType::Int
     Float(_) => @types.DataType::Float
@@ -95,7 +95,7 @@ pub fn NumericColumn::dtype(self : NumericColumn) -> @types.DataType {
 
 ///|
 /// Number of cells.
-pub fn NumericColumn::len(self : NumericColumn) -> Int {
+fn NumericColumn::len(self : NumericColumn) -> Int {
   match self.data {
     Int(a) => a.length()
     Float(a) => a.length()
@@ -104,14 +104,14 @@ pub fn NumericColumn::len(self : NumericColumn) -> Int {
 
 ///|
 /// `true` when the column has no cells.
-pub fn NumericColumn::is_empty(self : NumericColumn) -> Bool {
+fn NumericColumn::is_empty(self : NumericColumn) -> Bool {
   self.len() == 0
 }
 
 ///|
 /// Always `0`: an all-valid column has no nulls by construction. Total — no
 /// bitmap to popcount, the answer is structural.
-pub fn NumericColumn::null_count(_self : NumericColumn) -> Int {
+fn NumericColumn::null_count(_self : NumericColumn) -> Int {
   0
 }
 
@@ -130,7 +130,7 @@ pub fn NumericColumn::numeric_data(self : NumericColumn) -> NumericData {
 /// The raw backing storage as a `ColumnData`, so callers (and the
 /// `ColumnStorage::Numeric` arm) read values through the same total `data()`
 /// surface `BuiltinColumn` exposes. The element array is shared (read-only).
-pub fn NumericColumn::data(self : NumericColumn) -> ColumnData {
+fn NumericColumn::data(self : NumericColumn) -> ColumnData {
   match self.data {
     Int(a) => ColumnData::Int(a)
     Float(a) => ColumnData::Float(a)
@@ -145,7 +145,7 @@ pub fn NumericColumn::data(self : NumericColumn) -> ColumnData {
 /// bounds check is the method's only real work. It mirrors
 /// `BuiltinColumn::is_null`'s diagnostic so the two are interchangeable
 /// through `ColumnStorage`.
-pub fn NumericColumn::is_null(
+fn NumericColumn::is_null(
   self : NumericColumn,
   index : Int,
 ) -> Bool raise @types.DataError {
@@ -160,7 +160,7 @@ pub fn NumericColumn::is_null(
 /// `raise IndexOutOfBounds`. No null branch: a slot in `[0, len)` is always a
 /// present value, so the read skips the validity check `BuiltinColumn::get`
 /// must perform.
-pub fn NumericColumn::get(
+fn NumericColumn::get(
   self : NumericColumn,
   index : Int,
 ) -> @types.Scalar raise @types.DataError {
@@ -185,7 +185,7 @@ pub fn NumericColumn::get(
 /// Stays a `NumericColumn` — a sub-range of an all-valid column is itself
 /// all-valid, so there is no bitmap to slice (the win over
 /// `BuiltinColumn::slice`, which repacks one).
-pub fn NumericColumn::slice(
+fn NumericColumn::slice(
   self : NumericColumn,
   start : Int,
   end : Int,
@@ -216,7 +216,7 @@ fn NumericColumn::slice_unchecked(
 /// Gather: produce a new column whose i-th entry is `self[indices[i]]`. Any
 /// out-of-bounds index `raise IndexOutOfBounds(idx)`, matching
 /// `BuiltinColumn::take`. Stays a `NumericColumn` (no bitmap to gather).
-pub fn NumericColumn::take(
+fn NumericColumn::take(
   self : NumericColumn,
   indices : Array[Int],
 ) -> NumericColumn raise @types.DataError {

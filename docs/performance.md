@@ -72,12 +72,19 @@ below counts expressions, not nodes.
 
 ## Lazy execution
 
-`collect()` runs two result-preserving rewrites before executing, and the
-output **equals** the eager pipeline's — same schema, same cells, same errors,
-which is what `DataFrame`'s `Eq` compares and what the differential suite
-asserts (with one documented exception, noted below). Not a claim about
-physical layout: the backend a column lands on is an internal representation,
-and two equal frames may hold their cells differently.
+`collect()` runs two result-preserving rewrites before executing, and a plan
+that succeeds produces what the eager pipeline produces — same schema, same
+cells, which is what `DataFrame`'s `Eq` compares and what the differential
+suite asserts. Not a claim about physical layout: the backend a column lands
+on is an internal representation, and two equal frames may hold their cells
+differently.
+
+A plan that fails still fails, and a plan with a single broken stage reports
+the eager error. Two things can change *which* error you see, or whether a
+particular one happens at all: a plan with several independently broken stages
+may surface a different one of its own errors once a filter sinks past a broken
+stage (which one surfaced was an artifact of stage order to begin with), and a
+file source's push-down can prune the data an error was hiding in — see below.
 
 - **Predicate pushdown** sinks each `filter` toward the scan, so rows drop
   as early as the operator provably commutes with the predicate.
@@ -90,9 +97,10 @@ and two equal frames may hold their cells differently.
 
 Because a pruned column is never parsed, a parse error confined to it — or to a
 row a pushed-down predicate drops, in a column the predicate does not read — is
-what an optimized plan will not surface that a full eager read would: the
-intentional divergence from that equality, and it only applies to file
-sources (`scan_csv` / `scan_ndjson`).
+what an optimized plan will not surface that a full eager read would. That is
+the deliberate one, and it applies only to file sources (`scan_csv` /
+`scan_ndjson`); [`api.md`](api.md) states both cases as the plan-level
+contract.
 
 See [`api.md`](api.md) for the per-operation semantics and
 [`comparison.md`](comparison.md) for how the semantics line up with Polars.

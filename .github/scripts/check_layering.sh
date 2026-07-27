@@ -42,10 +42,12 @@
 #
 #   sh .github/scripts/check_layering.sh --write
 #
-# Production imports only. A `import { ... } for "test"` block is the test
-# configuration and is deliberately allowed to reach further — `frame`'s tests
-# name `StorageKind` to assert which backend an operator's output lands on,
-# which is behaviour worth pinning and not a layering violation.
+# Production imports only. A test-configuration block — `for "test"` for the
+# blackbox suite, `for "wbtest"` for the whitebox one — is deliberately allowed
+# to reach further: `frame`'s tests name `StorageKind` to assert which backend
+# an operator's output lands on, which is behaviour worth pinning and not a
+# layering violation. Both spellings are dropped here, so a test-only
+# dependency never enters the graph as a production edge.
 #
 # Usage: .github/scripts/check_layering.sh [repo-root] [--write]
 # Exit 0 when the manifests obey the rules and match the snapshot, 1 otherwise.
@@ -119,10 +121,11 @@ edges=$(git ls-files '*moon.pkg' | grep -v '^examples/' |
     [ "$pkg" != "." ] || pkg=root
     awk -v pkg="$pkg" -v module="$module" '
       /^import \{/ { inblock = 1; n = 0; next }
-      # A block closed by `} for "test"` is the test configuration: buffered
-      # and dropped, so only production edges are emitted.
+      # A block closed by a `for "test"` / `for "wbtest"` marker is a test
+      # configuration: buffered and dropped, so only production edges are
+      # emitted.
       inblock && /^\}/ {
-        if ($0 !~ /for "test"/) {
+        if ($0 !~ /for "(wb)?test"/) {
           for (i = 1; i <= n; i++) print pkg " -> " dep[i]
         }
         inblock = 0

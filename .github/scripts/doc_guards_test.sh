@@ -779,6 +779,29 @@ series | doc_hidden internal_engine | variant ReduceOp::Sum'
 expect 0 'engine seams: a top-level value seam, and the one after it' \
   sh "$scripts/check_engine_seams.sh" "$work/es_value"
 
+# The caller scan reads a name, so two things have to keep it honest: a package
+# that cannot import the declaring one is not searched at all, and a
+# declaration of the same name is not a call. Both fixtures would otherwise
+# report `frame` as a consumer and hide a seam nothing calls.
+mkseams "$work/es_same_name" "$es_source" "$es_snap"
+mkdir -p "$work/es_same_name/frame"
+printf 'import {\n}\n' >"$work/es_same_name/frame/moon.pkg"
+printf '///|\npub fn DataFrame::validity_bools(self : DataFrame) -> Int {\n  0\n}\n' \
+  >"$work/es_same_name/frame/frame.mbt"
+(cd "$work/es_same_name" && git add -A && git commit -qm samename)
+expect 0 'engine seams: a same-named symbol in a package that cannot import the seam' \
+  sh "$scripts/check_engine_seams.sh" "$work/es_same_name"
+
+mkseams "$work/es_decl_only" "$es_source" "$es_snap"
+mkdir -p "$work/es_decl_only/frame"
+printf 'import {\n  "ihb2032/MoonFrame/series",\n}\n' \
+  >"$work/es_decl_only/frame/moon.pkg"
+printf '///|\npub fn DataFrame::validity_bools(self : DataFrame) -> Int {\n  0\n}\n' \
+  >"$work/es_decl_only/frame/frame.mbt"
+(cd "$work/es_decl_only" && git add -A && git commit -qm declonly)
+expect 0 'engine seams: a declaration of the same name is not a call' \
+  sh "$scripts/check_engine_seams.sh" "$work/es_decl_only"
+
 mkseams "$work/es_missing" "$es_source" --
 expect_out 1 'snapshot' 'engine seams: snapshot absent' \
   sh "$scripts/check_engine_seams.sh" "$work/es_missing"

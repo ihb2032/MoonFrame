@@ -23,10 +23,15 @@
 # its signature moved but whether anything outside its own package still needs
 # it: two storage-taking constructors turned out to have no such caller and
 # stopped being `pub` at all. A seam marked `(no production caller outside …)`
-# is one kept alive by tests — sometimes right, always worth re-reading. The
-# list is derived by scanning production sources, not maintained by hand, so
-# unlike a written rationale it cannot drift; it is a lexical scan, so a
-# same-named method elsewhere can widen it.
+# is one kept alive by tests — sometimes right, always worth re-reading.
+#
+# The list is derived rather than maintained by hand, which keeps it in step
+# with the code, but it is not a resolved call graph. Two filters do the real
+# work: only packages that *import* the declaring one are searched (nothing else
+# can name its symbols), and declaration and comment lines are dropped. What
+# remains is a lexical match on the short name, so a dependent package calling
+# a same-named method on a different receiver still counts — read a caller list
+# as "this package mentions the name", not as proof of a call.
 #
 # One rule is checked outright rather than snapshotted: the two attributes come
 # as a pair, in both directions. `#internal(engine)` without `#doc(hidden)`
@@ -72,6 +77,10 @@ files=$(git ls-files '*.mbt' |
 extract() {
   printf '%s\n' "$files" | while IFS= read -r f; do
     [ -n "$f" ] || continue
+    # `git ls-files` still lists a file deleted in the working tree but not yet
+    # staged; reading it would abort the scan and silently drop every seam
+    # after it.
+    [ -f "$f" ] || continue
     pkg=$(dirname "$f")
     [ "$pkg" != "." ] || pkg=root
     awk -v pkg="$pkg" '
@@ -130,26 +139,62 @@ extract() {
   done | LC_ALL=C sort -u
 }
 
-# Which packages call each seam in production. Recorded because the question a
-# reviewer needs to ask about a seam is not "did its signature change" but "does
-# anything outside its own package still need it" — that is what made two
-# storage-taking constructors removable, and it is the difference between a
-# seam that carries the engine and one kept alive by a test. Derived rather
-# than written down: a hand-maintained rationale list drifts, this cannot.
+# Production sources and production import edges, read once. The edges are what
+# keeps a same-named method elsewhere from being read as a call: `Series` and
+# `ColumnStorage` both have a `to_builtin`, and only `io` and `lazy` import
+# `frame`, so only they can be calling `DataFrame::to_builtin`.
+production_files=$(git ls-files '*.mbt' | grep -vE '_(test|wbtest)\.mbt$' || true)
+
+production_edges=$(git ls-files '*moon.pkg' | grep -v '^examples/' |
+  while IFS= read -r manifest; do
+    pkg=$(dirname "$manifest")
+    [ "$pkg" != "." ] || pkg=root
+    awk -v pkg="$pkg" '
+      /^import \{/ { inblock = 1; n = 0; next }
+      inblock && /^\}/ {
+        if ($0 !~ /for "test"/) for (i = 1; i <= n; i++) print pkg " " dep[i]
+        inblock = 0
+        next
+      }
+      inblock {
+        want = "\"ihb2032/MoonFrame/"
+        if (index($0, want) > 0) {
+          d = substr($0, index($0, want) + length(want))
+          sub(/".*/, "", d)
+          dep[++n] = d
+        }
+      }
+    ' "$manifest"
+  done | LC_ALL=C sort -u)
+
+dependents_of() {
+  printf '%s\n' "$production_edges" | awk -v want="$1" '$2 == want { print $1 }'
+}
+
 consumers_of() {
   # consumers_of <declaring-pkg> <symbol>
   short=${2##*::}
   case "$short" in
     "" | *[!A-Za-z0-9_]*) printf '%s' "-"; return ;;
   esac
-  found=$(git ls-files '*.mbt' |
-    grep -vE '_(test|wbtest)\.mbt$' |
-    grep -v "^$1/" |
-    tr '\n' '\0' |
-    xargs -0 grep -nE "(^|[^A-Za-z0-9_])${short}\(" 2>/dev/null |
-    grep -v ':[0-9]*: *//' |
-    sed 's/:[0-9]*:.*//' |
-    sed 's|/[^/]*$||' | LC_ALL=C sort -u | tr '\n' ',' | sed 's/,$//')
+  candidates=$(dependents_of "$1" | grep -v "^$1$" || true)
+  [ -n "$candidates" ] || { printf '(no production caller outside %s)' "$1"; return; }
+  found=$(printf '%s\n' "$candidates" | while IFS= read -r cand; do
+    [ -n "$cand" ] || continue
+    if [ "$cand" = root ]; then
+      files=$(printf '%s\n' "$production_files" | grep -v '/' || true)
+    else
+      files=$(printf '%s\n' "$production_files" | grep "^$cand/[^/]*\$" || true)
+    fi
+    [ -n "$files" ] || continue
+    # Line-level, so a comment or a same-named *declaration* in the dependent
+    # package does not read as a call.
+    hits=$(printf '%s\n' "$files" | tr '\n' '\0' |
+      xargs -0 grep -nE "(^|[^A-Za-z0-9_])${short}\(" 2>/dev/null |
+      grep -vE '^([^:]*:)?[0-9]+:[[:space:]]*//' |
+      grep -vE '^([^:]*:)?[0-9]+:[[:space:]]*(pub )?fn(\[[^]]*\])? ' || true)
+    [ -z "$hits" ] || printf '%s\n' "$cand"
+  done | LC_ALL=C sort -u | tr '\n' ',' | sed 's/,$//')
   [ -n "$found" ] || found="(no production caller outside $1)"
   printf '%s' "$found"
 }
@@ -159,8 +204,14 @@ current=$(extract | while IFS= read -r line; do
   pkg=${line%% | *}
   decl=${line##* | }
   case "$decl" in
-    "pub fn "*)
-      sym=${decl#pub fn }
+    "pub fn "* | "pub fn["*)
+      # `pub fn[T] name(...)` is a function too: matching only the ungenerified
+      # spelling left generic seams with no caller line at all.
+      sym=${decl#pub fn}
+      sym=${sym# }
+      case "$sym" in
+        \[*) sym=${sym#*\] } ;;
+      esac
       sym=${sym%%(*}
       printf '%s | used by: %s\n' "$line" "$(consumers_of "$pkg" "$sym")"
       ;;

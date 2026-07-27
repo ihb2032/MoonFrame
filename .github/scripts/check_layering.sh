@@ -97,6 +97,22 @@ report() {
 # One `<pkg> -> <dep>` edge per production import of a package in this module.
 # `git ls-files` never lists a `_build` copy; `examples/` are programs built on
 # the facade, not layers of it.
+# Every rule below reads `moon.pkg`, so a package written with the legacy
+# `moon.pkg.json` manifest would carry dependencies this guard never sees — a
+# way past the whole file that costs nothing to close. One JSON manifest is
+# expected: the CI fixture that builds a separate module against the published
+# facade, which is deliberately not part of this module's graph.
+json_manifests=$(git ls-files '*moon.pkg.json' |
+  grep -v '^.github/fixtures/' || true)
+if [ -n "$json_manifests" ]; then
+  printf 'layering: a package using the legacy JSON manifest:\n'
+  printf '%s\n' "$json_manifests" | sed 's/^/  /'
+  printf '  Every rule here parses `moon.pkg`, so the imports declared in a\n'
+  printf '  `moon.pkg.json` are invisible to the dependency graph, the import\n'
+  printf '  allowlists, and the cycle check. Convert it to `moon.pkg`.\n'
+  exit 1
+fi
+
 edges=$(git ls-files '*moon.pkg' | grep -v '^examples/' |
   while IFS= read -r manifest; do
     pkg=$(dirname "$manifest")

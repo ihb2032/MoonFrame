@@ -42,12 +42,15 @@
 # it and write the test against what production does use.
 #
 # The list is derived rather than maintained by hand, which keeps it in step
-# with the code, but it is not a resolved call graph. Two filters do the real
+# with the code, but it is not a resolved call graph. Three filters do the real
 # work: only packages that *import* the declaring one are searched (nothing else
-# can name its symbols), and declaration and comment lines are dropped. What
-# remains is a lexical match on the short name, so a dependent package calling
-# a same-named method on a different receiver still counts — read a caller list
-# as "this package mentions the name", not as proof of a call.
+# can name its symbols), declaration and comment lines are dropped, and the
+# match follows how the symbol can be spelled at a call site — a method through
+# a receiver or its owning type, a free function bare or package-qualified but
+# never through a receiver. What is left is the case no spelling separates: the
+# same method name on a different receiver, `x.storage(` wherever `x` came
+# from. Read a caller list as "this package calls something spelled this way",
+# not as proof of a call.
 #
 # One rule is checked outright rather than snapshotted: the two attributes come
 # as a pair, in both directions. `#internal(engine)` without `#doc(hidden)`
@@ -203,6 +206,23 @@ consumers_of() {
   case "$short" in
     "" | *[!A-Za-z0-9_]*) printf '%s' "-"; return ;;
   esac
+  # How the symbol can be *spelled* at a call site, which is most of what keeps
+  # a same-named something-else from counting. A method is reached through a
+  # receiver (`col.storage(`) or its type (`Series::storage(`, with or without
+  # a package qualifier); a free function is reached bare (`validity_bools(`)
+  # or package-qualified (`@series.validity_bools(`) — never through a
+  # receiver, so `col.validity_bools(` is a different symbol and no longer
+  # counts. What this still cannot tell apart is the same method name on
+  # another receiver: `x.storage(` counts wherever `x` came from.
+  case "$2" in
+    *::*)
+      owner=${2%::*}
+      call_pattern="(\.[[:space:]]*${short}\(|${owner}::${short}\()"
+      ;;
+    *)
+      call_pattern="((^|[^A-Za-z0-9_.])${short}\(|@[A-Za-z0-9_]+\.${short}\()"
+      ;;
+  esac
   candidates=$(dependents_of "$1" | grep -v "^$1$" || true)
   [ -n "$candidates" ] || { printf '(no production caller outside %s)' "$1"; return; }
   found=$(printf '%s\n' "$candidates" | while IFS= read -r cand; do
@@ -216,7 +236,7 @@ consumers_of() {
     # Line-level, so a comment or a same-named *declaration* in the dependent
     # package does not read as a call.
     hits=$(printf '%s\n' "$files" | tr '\n' '\0' |
-      xargs -0 grep -nE "(^|[^A-Za-z0-9_])${short}\(" 2>/dev/null |
+      xargs -0 grep -nE "$call_pattern" 2>/dev/null |
       grep -vE '^([^:]*:)?[0-9]+:[[:space:]]*//' |
       grep -vE '^([^:]*:)?[0-9]+:[[:space:]]*(pub )?fn(\[[^]]*\])? ' || true)
     [ -z "$hits" ] || printf '%s\n' "$cand"
@@ -259,6 +279,74 @@ if [ -n "$half_marked" ]; then
   printf '  .mbti, without stopping anyone calling it — public API by\n'
   printf '  accident. Add the missing attribute, or drop both and accept the\n'
   printf '  symbol as public API.\n'
+  exit 1
+fi
+
+# The widest seam in the list is `Series::storage`, and what makes it wide is
+# not its signature: it hands `internal/kernel` the column's *live* buffers,
+# through `data()` and the typed `*_values()` readers. A column is logically
+# immutable and buffers are shared by zero-copy slicing, so one index
+# assignment into one of those arrays corrupts the column it came from and
+# every column sharing the buffer — with no import, no signature, and no
+# snapshot changing to show it. Read-only is therefore a rule and not a
+# comment: in any package that receives a buffer this way, a name bound out of
+# a `ColumnData` pattern or a `*_values()` destructuring may not be assigned
+# into. `series` and `internal/column` are exempt — they own the column and
+# build the arrays in the first place.
+mutations=$(printf '%s\n' "$production_files" | while IFS= read -r f; do
+  case "$f" in
+    internal/column/* | series/* | "") continue ;;
+  esac
+  [ -f "$f" ] || continue
+  awk -v file="$f" '
+    { line[NR] = $0 }
+    # `... ColumnData::Int(a) ...` and `let (a, v) = c.int_values()` both bind
+    # a name to a buffer the column still owns.
+    {
+      s = $0
+      while ((i = index(s, "ColumnData::")) > 0) {
+        s = substr(s, i + 12)
+        p = index(s, "(")
+        if (p == 0) break
+        after = substr(s, p + 1)
+        q = index(after, ")")
+        if (q == 0) break
+        name = substr(after, 1, q - 1)
+        if (name ~ /^[A-Za-z_][A-Za-z0-9_]*$/) live[name] = 1
+        s = after
+      }
+    }
+    /_values\(\)/ && /^[[:space:]]*let[[:space:]]*\(/ {
+      s = $0
+      sub(/^[^(]*\(/, "", s)
+      sub(/\).*/, "", s)
+      n = split(s, parts, ",")
+      for (k = 1; k <= n; k++) {
+        gsub(/[[:space:]]/, "", parts[k])
+        if (parts[k] ~ /^[A-Za-z_][A-Za-z0-9_]*$/) live[parts[k]] = 1
+      }
+    }
+    END {
+      for (n = 1; n <= NR; n++) {
+        l = line[n]
+        if (l ~ /^[[:space:]]*\/\//) continue
+        for (name in live) {
+          if (l ~ ("(^|[^A-Za-z0-9_.])" name "\\[[^]]*\\][[:space:]]*=[^=]")) {
+            printf "%s:%d: writes into `%s`, a buffer the column owns\n", \
+              file, n, name
+          }
+        }
+      }
+    }
+  ' "$f"
+done)
+if [ -n "$mutations" ]; then
+  printf 'engine seams: a consumer writes into a live column buffer:\n'
+  printf '%s\n' "$mutations" | sed 's/^/  /'
+  printf '  `data()` and the `*_values()` readers hand back the arrays the\n'
+  printf '  column itself holds, not copies, and slicing shares them further.\n'
+  printf '  Build a new array and return it — a kernel reads a column, it\n'
+  printf '  does not edit one.\n'
   exit 1
 fi
 

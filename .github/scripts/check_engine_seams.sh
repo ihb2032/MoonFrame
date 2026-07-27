@@ -27,13 +27,13 @@
 # a seam — it is a symbol the compiler lets anyone reach for no reason the
 # architecture can state.
 #
-# So that case is a failure, not a note. The exceptions are named below in
-# `allowed_no_production_callers`, each with the reason it is one, and the list
-# is the one part of this guard that `--write` cannot touch: adding a seam that
-# nothing outside its package calls means editing this file, in the diff,
-# where it can be argued with. The two entries today are both symbols whose
-# whole purpose is to be asserted, by tests that live in another package and
-# have no other way to see what they check. Being convenient for a test is not
+# So that case is a failure, not a note. The exceptions are named in
+# `engine_seams.allowlist`, each with the reason it is one, and that file is
+# the one part of this guard `--write` cannot touch: adding a seam that nothing
+# outside its package calls means editing it, in a diff of its own, where it
+# can be argued with. The entries today are all symbols whose whole purpose is
+# to be asserted, by tests that live in another package and have no other way
+# to see what they check. Being convenient for a test is not
 # on the list. Note what the alternative is not: making such a symbol private
 # does not work here, because `unused_value` counts production callers only, so
 # the strict warning gate rejects a private function that only tests call —
@@ -307,8 +307,8 @@ if [ -n "$unlisted" ]; then
   printf '  Nothing but tests reaches these, so `pub` buys the architecture\n'
   printf '  nothing: delete the symbol and assert through what production does\n'
   printf '  use, or — if another package genuinely has to assert it and has no\n'
-  printf '  other way to see it — add it to allowed_no_production_callers in\n'
-  printf '  this script, with the reason, in a reviewable diff.\n'
+  printf '  other way to see it — add it with its reason to\n'
+  printf '  %s, in a reviewable diff.\n' "$allowlist"
   exit 1
 fi
 
@@ -328,7 +328,8 @@ if [ -n "$stale" ]; then
   printf 'engine seams: an exception that is no longer needed:\n'
   printf '%s\n' "$stale" | sed 's/^/  /'
   printf '  It has a production caller now, was renamed, or is gone. Drop the\n'
-  printf '  entry — an exception nobody re-reads is how the list grows.\n'
+  printf '  entry from %s —\n' "$allowlist"
+  printf '  an exception nobody re-reads is how the list grows.\n'
   exit 1
 fi
 

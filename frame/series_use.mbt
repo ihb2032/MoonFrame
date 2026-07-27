@@ -5,8 +5,12 @@
 // convergence (`preserve_backend` / `try_column_to_numeric`), the shared
 // reduction dispatch (`reducer_for` / `scalars_to_series` / `ReduceOp`), and
 // the composite-key cell encoding (`key_cell` / `KeyCell`) — live in `series`
-// because the `Series` methods that need them must, by method coherence, sit
-// beside the type. This `using` import binds them unqualified here so the
+// because each reads a column's private representation, and `Series` owns it.
+// Method coherence pins the *methods* there; these are free functions, and
+// what pins them is that moving one out would mean either handing the storage
+// upward again or importing `series` from a package `series` imports — which
+// the layering guard now refuses in both directions. This `using` import
+// binds them unqualified here so the
 // DataFrame transforms, the expression evaluator, `group_by` and `join` read
 // them by bare name exactly as when they were frame-local. (`sort` calls the
 // sort kernel `@series.`-qualified instead — the binding list is what a file

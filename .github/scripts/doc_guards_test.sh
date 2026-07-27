@@ -701,8 +701,8 @@ pub(all) enum ReduceOp {
   Sum
   Mean
 }'
-es_snap='series | doc_hidden internal_engine | pub fn reducer_for( column : Series, op : ReduceOp, ) -> (Int, @types.DataType)
-series | doc_hidden internal_engine | pub fn validity_bools(column : Series) -> Array[Bool]
+es_snap='series | doc_hidden internal_engine | pub fn reducer_for( column : Series, op : ReduceOp, ) -> (Int, @types.DataType) | used by: (no production caller outside series)
+series | doc_hidden internal_engine | pub fn validity_bools(column : Series) -> Array[Bool] | used by: (no production caller outside series)
 series | doc_hidden internal_engine | pub(all) enum ReduceOp
 series | doc_hidden internal_engine | variant ReduceOp::Mean
 series | doc_hidden internal_engine | variant ReduceOp::Sum'
@@ -769,9 +769,9 @@ pub let seam_limit : Int = 3
 #internal(engine, \"MoonFrame execution engine API\")
 pub fn after_the_value(column : Series) -> Int {
   ignore(column)
-}" 'series | doc_hidden internal_engine | pub fn after_the_value(column : Series) -> Int
-series | doc_hidden internal_engine | pub fn reducer_for( column : Series, op : ReduceOp, ) -> (Int, @types.DataType)
-series | doc_hidden internal_engine | pub fn validity_bools(column : Series) -> Array[Bool]
+}" 'series | doc_hidden internal_engine | pub fn after_the_value(column : Series) -> Int | used by: (no production caller outside series)
+series | doc_hidden internal_engine | pub fn reducer_for( column : Series, op : ReduceOp, ) -> (Int, @types.DataType) | used by: (no production caller outside series)
+series | doc_hidden internal_engine | pub fn validity_bools(column : Series) -> Array[Bool] | used by: (no production caller outside series)
 series | doc_hidden internal_engine | pub let seam_limit : Int = 3
 series | doc_hidden internal_engine | pub(all) enum ReduceOp
 series | doc_hidden internal_engine | variant ReduceOp::Mean

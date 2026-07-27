@@ -6,11 +6,14 @@
 ///
 /// Its backend is an internal representation — Arrow-style storage with an
 /// explicit validity bitmap, or an all-valid unboxed numeric fast path — chosen
-/// and canonicalised by the engine. It is transparent to callers: a public
-/// caller neither observes nor selects a backend, and computed or rebuilt
-/// results are re-converged onto the fast path automatically. (The backend seam
-/// and its selectors are engine-internal; see `internal/column` and
-/// [`docs/performance.md`](../docs/performance.md).)
+/// and canonicalised by the engine, and computed or rebuilt results are
+/// re-converged onto the fast path automatically. The **supported** API neither
+/// observes nor selects it: the methods that inspect or force a backend
+/// (`storage` / `storage_kind` / `to_numeric` / `to_builtin` / `is_canonical`)
+/// are engine seams, absent from the generated interface and carrying no
+/// compatibility promise, so a caller outside this module has no supported way
+/// to tell which one a column is on. See `internal/column` and
+/// [`docs/performance.md`](../docs/performance.md).
 ///
 /// The fields are `priv`, so the struct is opaque outside this package: reach a
 /// column through the value-level accessors (`name()` / `dtype()` / `len()` /

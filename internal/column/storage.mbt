@@ -196,9 +196,12 @@ pub fn ColumnStorage::null_count(self : ColumnStorage) -> Int {
 }
 
 ///|
-/// The raw backing storage, discriminated by dtype. Forwarded so the
-/// `col.storage().data()` reads in `group_by` / `join` / `sort` keep
-/// compiling unchanged after the `Series.storage` flip.
+/// The raw backing storage, discriminated by dtype, forwarded to whichever
+/// backend the column is on. The bulk read behind the vectorized kernels:
+/// `internal/kernel` matches this to walk a column's cells without boxing one
+/// `Scalar` per row. It is not a read for the verb layer — `frame` reaches a
+/// column through `Series`, and the layering guard refuses the import that
+/// would let it do otherwise.
 ///
 /// This returns the column's *live* backing array (no copy), and `ColumnData`
 /// is `pub(all)` so the engine can `match` it across packages. Treat the array
@@ -216,9 +219,9 @@ pub fn ColumnStorage::data(self : ColumnStorage) -> ColumnData {
 ///|
 /// The validity bitmap (`1 = valid`). The `Numeric` arm has no stored
 /// bitmap, so it synthesises an all-valid one sized to the column — the one
-/// point the two backends diverge. Forwarded so the
-/// `col.storage().validity().to_bools()` reads in `drop_nulls` / `group_by`
-/// / `join` / `sort` keep compiling unchanged after the flip.
+/// point the two backends diverge. The other half of the bulk read: `data()`
+/// hands back a dense buffer whose null slots hold a placeholder, and this
+/// says which slots those are.
 pub fn ColumnStorage::validity(self : ColumnStorage) -> Bitmap {
   match self {
     Builtin(c) => c.validity()

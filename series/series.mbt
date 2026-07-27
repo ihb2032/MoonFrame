@@ -536,10 +536,13 @@ pub fn slice_series(s : Series, start : Int, len : Int) -> Series {
 /// cell selection that leaves an Int / Float column all-valid lands on the
 /// `Numeric` fast path, even when its source carried nulls those dropped rows
 /// held. This makes a column's backend a function of its *content*, not of how
-/// it was produced — the invariant the query optimizer relies on, so that
-/// sinking a `Filter` below a stage (recomputing a derived column over the
-/// surviving rows) cannot flip its backend from `Builtin` to `Numeric` and
-/// make `collect` diverge from the eager chain that `Series` equality observes.
+/// it was produced — the invariant that keeps a rewritten plan on the same
+/// execution path as the chain it rewrites, so that sinking a `Filter` below a
+/// stage (recomputing a derived column over the surviving rows) cannot leave
+/// the result on a different backend, with different per-cell costs, from the
+/// eager chain. Not an equality concern: `ColumnStorage`'s `Eq` compares
+/// content, so two columns holding the same cells are equal whichever backend
+/// they sit on. It is the reason the backend can be asserted at all.
 ///
 /// Package-private, deliberately: the four closures receive the source's own
 /// typed data array, so anything holding this could write into a live column.

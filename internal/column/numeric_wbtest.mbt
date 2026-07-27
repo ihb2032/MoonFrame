@@ -194,111 +194,6 @@ test "take: gathers per dtype, OOB reports first offender" {
 
 // ── Typed accessors ───────────────────────────────────────────────────
 
-///|
-test "int_values / float_values: raw array + synthesised all-valid bitmap" {
-  let (iv, ivalid) = NumericColumn::from_ints([1, 2, 3]).int_values()
-  assert_eq(iv, [1, 2, 3])
-  // No stored bitmap — validity is synthesised all-valid, sized to the column.
-  assert_eq(ivalid.to_bools(), [true, true, true])
-  assert_eq(ivalid.null_count(), 0)
-  let (fv, fvalid) = NumericColumn::from_floats([1.5, 2.5]).float_values()
-  assert_eq(fv, [(1.5 : Double), (2.5 : Double)])
-  assert_eq(fvalid.to_bools(), [true, true])
-}
-
-///|
-test "typed accessors reject the wrong dtype (numeric column has no Bool/String)" {
-  let i = NumericColumn::from_ints([1])
-  let f = NumericColumn::from_floats([1.0])
-  // Cross-numeric mismatch.
-  assert_eq(
-    Ok(f.int_values()) catch {
-      e => Err(e)
-    },
-    Err(
-      @types.DataError::TypeMismatch(
-        @types.TypeMismatchDetail::Expected(
-          @types.DataType::Int,
-          @types.DataType::Float,
-          "",
-        ),
-      ),
-    ),
-  )
-  assert_eq(
-    Ok(i.float_values()) catch {
-      e => Err(e)
-    },
-    Err(
-      @types.DataError::TypeMismatch(
-        @types.TypeMismatchDetail::Expected(
-          @types.DataType::Float,
-          @types.DataType::Int,
-          "",
-        ),
-      ),
-    ),
-  )
-  // bool_values / string_values always mismatch — it is numeric by
-  // construction (both backing dtypes exercised).
-  assert_eq(
-    Ok(i.bool_values()) catch {
-      e => Err(e)
-    },
-    Err(
-      @types.DataError::TypeMismatch(
-        @types.TypeMismatchDetail::Expected(
-          @types.DataType::Bool,
-          @types.DataType::Int,
-          "",
-        ),
-      ),
-    ),
-  )
-  assert_eq(
-    Ok(f.bool_values()) catch {
-      e => Err(e)
-    },
-    Err(
-      @types.DataError::TypeMismatch(
-        @types.TypeMismatchDetail::Expected(
-          @types.DataType::Bool,
-          @types.DataType::Float,
-          "",
-        ),
-      ),
-    ),
-  )
-  assert_eq(
-    Ok(i.string_values()) catch {
-      e => Err(e)
-    },
-    Err(
-      @types.DataError::TypeMismatch(
-        @types.TypeMismatchDetail::Expected(
-          @types.DataType::String,
-          @types.DataType::Int,
-          "",
-        ),
-      ),
-    ),
-  )
-  assert_eq(
-    Ok(f.string_values()) catch {
-      e => Err(e)
-    },
-    Err(
-      @types.DataError::TypeMismatch(
-        @types.TypeMismatchDetail::Expected(
-          @types.DataType::String,
-          @types.DataType::Float,
-          "",
-        ),
-      ),
-    ),
-  )
-}
-
 // ── Materialise ───────────────────────────────────────────────────────
 
 ///|
@@ -314,19 +209,6 @@ test "to_builtin: equals from_ints / from_floats (the bitmap alloc avoided)" {
   assert_eq(widened_f, BuiltinColumn::from_floats(ys))
   assert_eq(widened_f.dtype(), @types.DataType::Float)
   assert_eq(widened_f.null_count(), 0)
-}
-
-///|
-test "to_string_column: renders each cell via the Builtin path" {
-  assert_eq(
-    NumericColumn::from_ints([1, 2, -3]).to_string_column().data(),
-    ColumnData::String(["1", "2", "-3"]),
-  )
-  let f = NumericColumn::from_floats([1.5, 2.5]).to_string_column()
-  assert_eq(f.dtype(), @types.DataType::String)
-  assert_eq(f.null_count(), 0)
-  // Agrees with widening first, then stringifying the Builtin column.
-  assert_eq(f, BuiltinColumn::from_floats([1.5, 2.5]).to_string_column())
 }
 
 // ── Reductions: sum (all-valid fast path) ─────────────────────────────
@@ -366,7 +248,7 @@ test "sum equals the widened BuiltinColumn's reduction (cross-check)" {
   // materialised Builtin column over its valid cells.
   let xs : Array[Int64] = [5, -3, 8, 0, 12]
   let numeric_sum = NumericColumn::from_ints(xs).sum()
-  let (data, validity) = NumericColumn::from_ints(xs).to_builtin().int_values()
+  let (data, validity) = int_cells(NumericColumn::from_ints(xs).to_builtin())
   let valid = validity.to_bools()
   let mut acc : Int64 = 0
   for i in 0..<data.length() {

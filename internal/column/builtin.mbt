@@ -141,11 +141,11 @@ pub fn BuiltinColumn::dtype(self : BuiltinColumn) -> @types.DataType {
 
 ///|
 /// The raw backing storage, discriminated by dtype. `ColumnData` is
-/// `pub(all)`, so callers in other packages (sort, stats) match on the
-/// concrete element type once and read values totally, rather than
-/// cascading through the `*_values` accessors and `unwrap`-ing the final
-/// branch the type system can't see is exhaustive. The element arrays are
-/// shared (read-only), matching `int_values` / `float_values` / etc.
+/// `pub(all)`, so the one consumer that reads a column in bulk
+/// (`internal/kernel`, through `ColumnStorage`) matches the concrete element
+/// type once and reads every value totally, in a single vectorized pass. The
+/// element arrays are the column own, shared rather than copied, and
+/// read-only by rule — the seam guard refuses an assignment into one.
 pub fn BuiltinColumn::data(self : BuiltinColumn) -> ColumnData {
   self.data
 }
@@ -186,7 +186,7 @@ pub fn BuiltinColumn::null_count(self : BuiltinColumn) -> Int {
 /// Whether every null slot's `data` holds this dtype's canonical placeholder
 /// (`Int = 0`, `Float = 0.0`, `Bool = false`, `String = ""`). The
 /// constructors, casts, and row transforms all write these, so a null slot's
-/// value never leaks through `data()` / the `*_values` accessors — and, since
+/// value never leaks out of a `Scalar`-returning read — and, since
 /// `BuiltinColumn` `derive`s `Eq` over the raw `data` array (null slots
 /// included), two logically equal columns that differed only in a null slot's
 /// placeholder would otherwise compare unequal. Surfaced as a predicate so a
@@ -492,7 +492,7 @@ fn BuiltinColumn::to_float(
 /// Total: every dtype has a value-form rendering, so there is no failure
 /// path. Unlike `to_int` / `to_float` (which can fail on out-of-range or
 /// malformed input) this never raises.
-pub fn BuiltinColumn::to_string_column(self : BuiltinColumn) -> BuiltinColumn {
+fn BuiltinColumn::to_string_column(self : BuiltinColumn) -> BuiltinColumn {
   match self.data {
     String(_) => self
     Int(a) => self.cast_cells(i => a[i].to_string(), "", b => String(b))
@@ -501,82 +501,5 @@ pub fn BuiltinColumn::to_string_column(self : BuiltinColumn) -> BuiltinColumn {
       self.cast_cells(i => if a[i] { "true" } else { "false" }, "", b => {
         String(b)
       })
-  }
-}
-
-// ── Typed accessors (zero-boxing fast path for ops) ──────────────────
-
-///|
-/// Return the underlying raw data array and validity bitmap (no `Option`
-/// boxing). Data at null slots is a placeholder — always consult
-/// `validity` before reading. `raise TypeMismatch(Expected(...))` when the column is
-/// not an `Int` column.
-pub fn BuiltinColumn::int_values(
-  self : BuiltinColumn,
-) -> (Array[Int64], Bitmap) raise @types.DataError {
-  match self.data {
-    Int(a) => (a, self.validity)
-    Float(_) | Bool(_) | String(_) =>
-      raise @types.DataError::TypeMismatch(
-        @types.TypeMismatchDetail::Expected(
-          @types.DataType::Int,
-          self.dtype(),
-          "",
-        ),
-      )
-  }
-}
-
-///|
-/// Like `int_values` but for `Float` columns.
-pub fn BuiltinColumn::float_values(
-  self : BuiltinColumn,
-) -> (Array[Double], Bitmap) raise @types.DataError {
-  match self.data {
-    Float(a) => (a, self.validity)
-    Int(_) | Bool(_) | String(_) =>
-      raise @types.DataError::TypeMismatch(
-        @types.TypeMismatchDetail::Expected(
-          @types.DataType::Float,
-          self.dtype(),
-          "",
-        ),
-      )
-  }
-}
-
-///|
-/// Like `int_values` but for `Bool` columns.
-pub fn BuiltinColumn::bool_values(
-  self : BuiltinColumn,
-) -> (Array[Bool], Bitmap) raise @types.DataError {
-  match self.data {
-    Bool(a) => (a, self.validity)
-    Int(_) | Float(_) | String(_) =>
-      raise @types.DataError::TypeMismatch(
-        @types.TypeMismatchDetail::Expected(
-          @types.DataType::Bool,
-          self.dtype(),
-          "",
-        ),
-      )
-  }
-}
-
-///|
-/// Like `int_values` but for `String` columns.
-pub fn BuiltinColumn::string_values(
-  self : BuiltinColumn,
-) -> (Array[String], Bitmap) raise @types.DataError {
-  match self.data {
-    String(a) => (a, self.validity)
-    Int(_) | Float(_) | Bool(_) =>
-      raise @types.DataError::TypeMismatch(
-        @types.TypeMismatchDetail::Expected(
-          @types.DataType::String,
-          self.dtype(),
-          "",
-        ),
-      )
   }
 }

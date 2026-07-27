@@ -953,6 +953,81 @@ pub fn test_only_probe(column : Series) -> Int {
 expect 0 'engine seams: a whitebox test declaration is out of scope' \
   sh "$scripts/check_engine_seams.sh" "$work/es_wbtest"
 
+# ── internal surface ──────────────────────────────────────────────────────
+mkinternal() {
+  # mkinternal <dir> <internal-column-source> [allowlist] [kernel-source]
+  # `series` imports `internal/column` and is where a legitimate caller lives;
+  # the optional kernel source is a second consumer, for the case where the
+  # only use is a function *passed* rather than called.
+  mkdir -p "$1/internal/column" "$1/series" "$1/.github/scripts"
+  (cd "$1" && git init -q . && git config user.email t@t &&
+    git config user.name t && git config core.autocrlf false)
+  printf 'import {\n}\n' >"$1/internal/column/moon.pkg"
+  printf '%s\n' "$2" >"$1/internal/column/column.mbt"
+  printf 'import {\n  "ihb2032/MoonFrame/internal/column",\n}\n' \
+    >"$1/series/moon.pkg"
+  printf '%s\n' "${4:-///|
+pub fn read(c : BuiltinColumn) -> Int {
+  ignore(c.len())
+  0
+}}" >"$1/series/series.mbt"
+  if [ $# -ge 3 ] && [ -n "$3" ]; then
+    printf '%s\n' "$3" >"$1/.github/scripts/internal_surface.allowlist"
+  fi
+  (cd "$1" && git add -A && git commit -qm f)
+}
+
+is_source='///|
+/// Called from `series`: reachable, and stays `pub`.
+pub fn BuiltinColumn::len(self : BuiltinColumn) -> Int {
+  ignore(self)
+}
+
+///|
+/// Nothing outside this package names it.
+pub fn BuiltinColumn::placeholders_normalized(self : BuiltinColumn) -> Bool {
+  ignore(self)
+}'
+
+mkinternal "$work/is_unreachable" "$is_source"
+expect_out 1 'nothing outside its package calls' \
+  'internal surface: a pub nothing outside the package calls' \
+  sh "$scripts/check_internal_surface.sh" "$work/is_unreachable"
+
+mkinternal "$work/is_listed" "$is_source" \
+  '# a comment
+
+internal/column/BuiltinColumn::placeholders_normalized — an invariant that exists to be asserted'
+expect 0 'internal surface: an unreachable pub listed with its reason' \
+  sh "$scripts/check_internal_surface.sh" "$work/is_listed"
+
+# An entry for a symbol that has a caller now is an exception nobody re-read.
+mkinternal "$work/is_stale" "$is_source" \
+  'internal/column/BuiltinColumn::placeholders_normalized — an invariant that exists to be asserted
+internal/column/BuiltinColumn::len — a reason that stopped being true when series started calling it'
+expect_out 1 'no longer needed' \
+  'internal surface: an entry whose symbol gained a caller' \
+  sh "$scripts/check_internal_surface.sh" "$work/is_stale"
+
+# A free function handed to a higher-order kernel is used, though the call site
+# never spells a parenthesis after its name — the false positive that made two
+# real helpers look unreachable.
+mkinternal "$work/is_passed" '///|
+pub fn BuiltinColumn::len(self : BuiltinColumn) -> Int {
+  ignore(self)
+}
+
+///|
+pub fn sign_i64(a : Int64) -> Int64 {
+  a
+}' '' '///|
+pub fn read(c : BuiltinColumn) -> Int {
+  ignore(c.len())
+  apply(@column.sign_i64)
+}'
+expect 0 'internal surface: a function passed rather than called is used' \
+  sh "$scripts/check_internal_surface.sh" "$work/is_passed"
+
 # ── the repository itself ─────────────────────────────────────────────────
 expect 0 'repo: version identity' sh "$scripts/check_version_identity.sh" "$root"
 expect 0 'repo: stale names' sh "$scripts/check_stale_names.sh" "$root"
@@ -962,5 +1037,7 @@ expect 0 'repo: internal packages' \
   sh "$scripts/check_internal_packages.sh" "$root"
 expect 0 'repo: layering' sh "$scripts/check_layering.sh" "$root"
 expect 0 'repo: engine seams' sh "$scripts/check_engine_seams.sh" "$root"
+expect 0 'repo: internal surface' \
+  sh "$scripts/check_internal_surface.sh" "$root"
 
 printf 'doc guards: %s cases pass\n' "$cases"

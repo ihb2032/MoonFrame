@@ -17,7 +17,7 @@
 ///
 /// Two shapes of accessor:
 ///   * **structural / value reads** (`dtype` / `len` / `get` / `slice` /
-///     `take` / `*_values` …) forward to both arms; `slice` / `take` keep
+///     `take` / `data` / `validity` …) forward to both arms; `slice` / `take` keep
 ///     the backend (a sub-range of an all-valid `Numeric` column is itself
 ///     all-valid, so it stays `Numeric` — the fast path survives the
 ///     transform).
@@ -333,53 +333,6 @@ pub fn ColumnStorage::take(
 
 // ── Typed accessors (zero-boxing; forwarded to both arms) ─────────────
 
-///|
-/// Raw `Int64` array + validity bitmap (the `Numeric` arm synthesises an
-/// all-valid one). `raise TypeMismatch(Expected(...))` on a non-`Int` column.
-pub fn ColumnStorage::int_values(
-  self : ColumnStorage,
-) -> (Array[Int64], Bitmap) raise @types.DataError {
-  match self {
-    Builtin(c) => c.int_values()
-    Numeric(c) => c.int_values()
-  }
-}
-
-///|
-/// Like `int_values` but for `Float` columns.
-pub fn ColumnStorage::float_values(
-  self : ColumnStorage,
-) -> (Array[Double], Bitmap) raise @types.DataError {
-  match self {
-    Builtin(c) => c.float_values()
-    Numeric(c) => c.float_values()
-  }
-}
-
-///|
-/// Like `int_values` but for `Bool` columns. A `Numeric` column is never
-/// `Bool`, so its arm always `raise TypeMismatch(Expected(...))`.
-pub fn ColumnStorage::bool_values(
-  self : ColumnStorage,
-) -> (Array[Bool], Bitmap) raise @types.DataError {
-  match self {
-    Builtin(c) => c.bool_values()
-    Numeric(c) => c.bool_values()
-  }
-}
-
-///|
-/// Like `int_values` but for `String` columns. A `Numeric` column is never
-/// `String`, so its arm always `raise TypeMismatch(Expected(...))`.
-pub fn ColumnStorage::string_values(
-  self : ColumnStorage,
-) -> (Array[String], Bitmap) raise @types.DataError {
-  match self {
-    Builtin(c) => c.string_values()
-    Numeric(c) => c.string_values()
-  }
-}
-
 // ── Materialise ───────────────────────────────────────────────────────
 
 ///|
@@ -387,21 +340,10 @@ pub fn ColumnStorage::string_values(
 /// Total: a `Builtin` is already one; a `Numeric` widens losslessly via
 /// `NumericColumn::to_builtin` (an all-valid bitmap is synthesised). The
 /// escape hatch the cross-dtype transforms route through.
-pub fn ColumnStorage::to_builtin(self : ColumnStorage) -> BuiltinColumn {
+fn ColumnStorage::to_builtin(self : ColumnStorage) -> BuiltinColumn {
   match self {
     Builtin(c) => c
     Numeric(c) => c.to_builtin()
-  }
-}
-
-///|
-/// Render every cell to its `String` value-form, yielding a `String`
-/// `BuiltinColumn`. Total — every dtype has a value-form rendering. The
-/// result is non-numeric so it is necessarily a `BuiltinColumn`.
-pub fn ColumnStorage::to_string_column(self : ColumnStorage) -> BuiltinColumn {
-  match self {
-    Builtin(c) => c.to_string_column()
-    Numeric(c) => c.to_string_column()
   }
 }
 
@@ -422,44 +364,3 @@ pub fn ColumnStorage::cast(
 }
 
 // ── Converge onto the Numeric backend ─────────────────────────────────
-
-///|
-/// Move an all-valid Int / Float column onto the `Numeric` fast-path
-/// backend. An already-`Numeric` column is returned as-is. A `Builtin`
-/// column converts only when it can do so without loss:
-/// - `raise InvalidOperation` when it carries any null (a `NumericColumn`
-///   has no validity bitmap, so nulls cannot be represented);
-/// - `raise TypeMismatch` when its dtype is `Bool` / `String` (the fast
-///   path is numeric-only).
-///
-/// The null-free Int / Float arms reuse the raw data array (it is the true
-/// data, every slot being valid), so the move allocates no new buffer.
-pub fn ColumnStorage::to_numeric(
-  self : ColumnStorage,
-) -> ColumnStorage raise @types.DataError {
-  match self {
-    Numeric(_) => self
-    Builtin(c) => {
-      let nulls = c.null_count()
-      if nulls > 0 {
-        raise @types.DataError::InvalidOperation(
-          "cannot convert a column with nulls to Numeric (null_count=\{nulls})",
-        )
-      } else {
-        match c.data() {
-          // Reuse the raw data array (the source column owns it and is
-          // immutable) rather than `from_int64s` / `from_doubles`, which now
-          // defensively copy — keeping the move buffer-free as documented.
-          ColumnData::Int(a) => Numeric({ data: NumericData::Int(a) })
-          ColumnData::Float(a) => Numeric({ data: NumericData::Float(a) })
-          ColumnData::Bool(_) | ColumnData::String(_) =>
-            raise @types.DataError::TypeMismatch(
-              @types.TypeMismatchDetail::Message(
-                "cannot convert a \{c.dtype()} column to Numeric (only Int / Float)",
-              ),
-            )
-        }
-      }
-    }
-  }
-}

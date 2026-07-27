@@ -63,30 +63,12 @@ pub impl Eq for Bitmap with fn equal(self, other) {
 /// would desynchronise `len` from the (empty) buffer — `null_count`'s
 /// tail-byte read would then index past it and abort, the one failure mode
 /// the never-abort rule forbids.
-pub fn Bitmap::all_valid(len : Int) -> Bitmap {
+fn Bitmap::all_valid(len : Int) -> Bitmap {
   let len = if len < 0 { 0 } else { len }
   let n = bytes_needed(len)
   let buf = FixedArray::make(n, (0xff : Int).to_byte())
   mask_tail(buf, len)
   { bits: buffer_to_bytes(buf), offset: 0, len }
-}
-
-///|
-/// All `len` slots marked null. A negative `len` clamps to 0, exactly as
-/// in `all_valid` (and for the same reason).
-pub fn Bitmap::all_null(len : Int) -> Bitmap {
-  let len = if len < 0 { 0 } else { len }
-  {
-    bits: buffer_to_bytes(FixedArray::make(bytes_needed(len), Byte::default())),
-    offset: 0,
-    len,
-  }
-}
-
-///|
-/// `true` ↦ valid, `false` ↦ null.
-pub fn Bitmap::from_bools(values : Array[Bool]) -> Bitmap {
-  pack(values.length(), i => values[i])
 }
 
 ///|
@@ -107,10 +89,7 @@ pub fn Bitmap::len(self : Bitmap) -> Int {
 ///|
 /// `true` when slot `index` is valid (bit is 1). Out-of-bounds
 /// `raise IndexOutOfBounds`.
-pub fn Bitmap::is_valid(
-  self : Bitmap,
-  index : Int,
-) -> Bool raise @types.DataError {
+fn Bitmap::is_valid(self : Bitmap, index : Int) -> Bool raise @types.DataError {
   if index < 0 || index >= self.len {
     raise @types.DataError::IndexOutOfBounds(index)
   }
@@ -269,23 +248,6 @@ pub fn Bitmap::take(
 /// cannot panic.
 fn Bitmap::take_view(self : Bitmap, indices : Array[Int]) -> Bitmap {
   pack(indices.length(), i => self.is_valid_total(indices[i]))
-}
-
-///|
-/// Bitwise AND across two bitmaps of the same logical length — a public
-/// utility for combining two validity masks into one. Named `bit_and`
-/// because `and` is a reserved keyword in MoonBit. Raises `LengthMismatch`
-/// if the lengths differ.
-pub fn Bitmap::bit_and(
-  self : Bitmap,
-  other : Bitmap,
-) -> Bitmap raise @types.DataError {
-  if self.len != other.len {
-    raise @types.DataError::LengthMismatch
-  }
-  pack(self.len, i => {
-    bit_at(self.bits, self.offset + i) && bit_at(other.bits, other.offset + i)
-  })
 }
 
 // ── Internal helpers ──────────────────────────────────────────────────

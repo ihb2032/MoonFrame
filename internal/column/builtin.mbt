@@ -130,7 +130,7 @@ pub fn BuiltinColumn::from_string_options(
 
 ///|
 /// The column's logical `DataType`, read from the `data` arm.
-pub fn BuiltinColumn::dtype(self : BuiltinColumn) -> @types.DataType {
+fn BuiltinColumn::dtype(self : BuiltinColumn) -> @types.DataType {
   match self.data {
     Int(_) => @types.DataType::Int
     Float(_) => @types.DataType::Float
@@ -146,7 +146,7 @@ pub fn BuiltinColumn::dtype(self : BuiltinColumn) -> @types.DataType {
 /// type once and reads every value totally, in a single vectorized pass. The
 /// element arrays are the column own, shared rather than copied, and
 /// read-only by rule — the seam guard refuses an assignment into one.
-pub fn BuiltinColumn::data(self : BuiltinColumn) -> ColumnData {
+fn BuiltinColumn::data(self : BuiltinColumn) -> ColumnData {
   self.data
 }
 
@@ -155,13 +155,13 @@ pub fn BuiltinColumn::data(self : BuiltinColumn) -> ColumnData {
 /// read every slot in order: `validity().to_bools()` materialises the mask
 /// once so a bounded loop indexes it totally, instead of catching a
 /// per-slot `is_valid` raise. The bitmap is shared (read-only).
-pub fn BuiltinColumn::validity(self : BuiltinColumn) -> Bitmap {
+fn BuiltinColumn::validity(self : BuiltinColumn) -> Bitmap {
   self.validity
 }
 
 ///|
 /// Number of cells.
-pub fn BuiltinColumn::len(self : BuiltinColumn) -> Int {
+fn BuiltinColumn::len(self : BuiltinColumn) -> Int {
   match self.data {
     Int(a) => a.length()
     Float(a) => a.length()
@@ -172,13 +172,13 @@ pub fn BuiltinColumn::len(self : BuiltinColumn) -> Int {
 
 ///|
 /// `true` when the column has no cells.
-pub fn BuiltinColumn::is_empty(self : BuiltinColumn) -> Bool {
+fn BuiltinColumn::is_empty(self : BuiltinColumn) -> Bool {
   self.len() == 0
 }
 
 ///|
 /// Number of null cells (the count of zero bits in `validity`).
-pub fn BuiltinColumn::null_count(self : BuiltinColumn) -> Int {
+fn BuiltinColumn::null_count(self : BuiltinColumn) -> Int {
   self.validity.null_count()
 }
 
@@ -221,7 +221,7 @@ fn[T : Eq] null_slots_hold(
 
 ///|
 /// `raise IndexOutOfBounds` if `index` is outside `[0, len)`.
-pub fn BuiltinColumn::is_null(
+fn BuiltinColumn::is_null(
   self : BuiltinColumn,
   index : Int,
 ) -> Bool raise @types.DataError {
@@ -231,7 +231,7 @@ pub fn BuiltinColumn::is_null(
 ///|
 /// Read a single cell as a `Scalar`. Out-of-bounds index
 /// `raise IndexOutOfBounds`.
-pub fn BuiltinColumn::get(
+fn BuiltinColumn::get(
   self : BuiltinColumn,
   index : Int,
 ) -> @types.Scalar raise @types.DataError {
@@ -260,7 +260,7 @@ pub fn BuiltinColumn::get(
 /// `start > len` is not a separate case: it can only occur together with
 /// `end > len` (→ `IndexOutOfBounds(end)`) or `start > end`
 /// (→ `InvalidOperation`), both already rejected above.
-pub fn BuiltinColumn::slice(
+fn BuiltinColumn::slice(
   self : BuiltinColumn,
   start : Int,
   end : Int,
@@ -294,7 +294,7 @@ fn BuiltinColumn::slice_unchecked(
 ///|
 /// Gather: produce a new column whose i-th entry is `self[indices[i]]`.
 /// Any out-of-bounds index `raise IndexOutOfBounds(idx)`.
-pub fn BuiltinColumn::take(
+fn BuiltinColumn::take(
   self : BuiltinColumn,
   indices : Array[Int],
 ) -> BuiltinColumn raise @types.DataError {
@@ -319,7 +319,7 @@ pub fn BuiltinColumn::take(
 /// `to_int` / `to_float` helpers this dispatches to), and `String` renders
 /// every dtype through the total `to_string_column`. `Bool` and `Null`
 /// targets are unsupported and `raise Unsupported`.
-pub fn BuiltinColumn::cast(
+fn BuiltinColumn::cast(
   self : BuiltinColumn,
   target : @types.DataType,
 ) -> BuiltinColumn raise @types.DataError {

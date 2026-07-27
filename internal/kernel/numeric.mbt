@@ -8,7 +8,7 @@
 /// fast arm that stays on the `Numeric` backend and a nullable general arm that
 /// re-converges through `try_column_to_numeric`. The shared cell gates
 /// (`zip_present` / `map_present`) and the `binary_type_mismatch_error` builder
-/// live with the evaluator shell in `expr_eval.mbt`.
+/// are shared across the kernels in this package, in `shared.mbt`.
 
 ///|
 /// Shared kernel for `+` / `-` / `*` over two equal-length operands

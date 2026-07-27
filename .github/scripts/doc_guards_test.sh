@@ -156,7 +156,7 @@ expect_out 1 'drop README' 'version: notice left behind after the release shippe
 # ── stale names ───────────────────────────────────────────────────────────
 mkstale() {
   # mkstale <dir> <file> <content>
-  mkdir -p "$1/docs"
+  mkdir -p "$1/docs" "$1/$(dirname "$2")"
   (cd "$1" && git init -q . && git config user.email t@t &&
     git config user.name t && git config core.autocrlf false)
   printf '%s\n' "$3" >"$1/$2"
@@ -177,6 +177,19 @@ expect 0 'stale: removed name behind the historical marker' \
 mkstale "$work/s_history" docs/changelog.md '`DataFrame::new` is gone.'
 expect 0 'stale: changelog is exempt' \
   sh "$scripts/check_stale_names.sh" "$work/s_history"
+
+# A file-scoped entry (`path:name`) is what makes a bare name pinnable: the
+# repository has live symbols of the same short name, so the pattern must fire
+# in the one file that used to own the deleted one and nowhere else.
+mkstale "$work/s_scoped" internal/column/bitmap.mbt \
+  '/// packs validity like `from_bools` did.'
+expect_out 1 'from_bools' 'stale: a bare name in the file it is scoped to' \
+  sh "$scripts/check_stale_names.sh" "$work/s_scoped"
+
+mkstale "$work/s_scoped_elsewhere" series/series.mbt \
+  '/// `Series::from_bools` builds a Bool column.'
+expect 0 'stale: the same bare name outside that file is untouched' \
+  sh "$scripts/check_stale_names.sh" "$work/s_scoped_elsewhere"
 
 # ── enum surface ──────────────────────────────────────────────────────────
 mkenum() {

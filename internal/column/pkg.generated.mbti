@@ -30,9 +30,6 @@ pub impl Eq for Bitmap
 pub struct BuiltinColumn {
   // private fields
 } derive(Eq, @debug.Debug)
-pub fn BuiltinColumn::cast(Self, @types.DataType) -> Self raise @types.DataError
-pub fn BuiltinColumn::data(Self) -> ColumnData
-pub fn BuiltinColumn::dtype(Self) -> @types.DataType
 pub fn BuiltinColumn::equal(Self, Self) -> Bool
 pub fn BuiltinColumn::from_bool_options(Array[Bool?]) -> Self
 pub fn BuiltinColumn::from_bools(Array[Bool]) -> Self
@@ -42,17 +39,9 @@ pub fn BuiltinColumn::from_int_options(Array[Int64?]) -> Self
 pub fn BuiltinColumn::from_ints(Array[Int64]) -> Self
 pub fn BuiltinColumn::from_string_options(Array[String?]) -> Self
 pub fn BuiltinColumn::from_strings(Array[String]) -> Self
-pub fn BuiltinColumn::get(Self, Int) -> @types.Scalar raise @types.DataError
-pub fn BuiltinColumn::is_empty(Self) -> Bool
-pub fn BuiltinColumn::is_null(Self, Int) -> Bool raise @types.DataError
-pub fn BuiltinColumn::len(Self) -> Int
 pub fn BuiltinColumn::not_equal(Self, Self) -> Bool
-pub fn BuiltinColumn::null_count(Self) -> Int
 pub fn BuiltinColumn::placeholders_normalized(Self) -> Bool
-pub fn BuiltinColumn::slice(Self, Int, Int) -> Self raise @types.DataError
-pub fn BuiltinColumn::take(Self, Array[Int]) -> Self raise @types.DataError
 pub fn BuiltinColumn::to_repr(Self) -> @debug.Repr
-pub fn BuiltinColumn::validity(Self) -> Bitmap
 
 pub(all) enum ColumnData {
   Int(Array[Int64])
@@ -89,24 +78,15 @@ pub impl Eq for ColumnStorage
 pub struct NumericColumn {
   // private fields
 } derive(Eq, @debug.Debug)
-pub fn NumericColumn::data(Self) -> ColumnData
-pub fn NumericColumn::dtype(Self) -> @types.DataType
 pub fn NumericColumn::equal(Self, Self) -> Bool
 pub fn NumericColumn::from_floats(Array[Double]) -> Self
 pub fn NumericColumn::from_ints(Array[Int64]) -> Self
-pub fn NumericColumn::get(Self, Int) -> @types.Scalar raise @types.DataError
-pub fn NumericColumn::is_empty(Self) -> Bool
-pub fn NumericColumn::is_null(Self, Int) -> Bool raise @types.DataError
-pub fn NumericColumn::len(Self) -> Int
 pub fn NumericColumn::max(Self) -> @types.Scalar
 pub fn NumericColumn::mean(Self) -> Double raise @types.DataError
 pub fn NumericColumn::min(Self) -> @types.Scalar
 pub fn NumericColumn::not_equal(Self, Self) -> Bool
-pub fn NumericColumn::null_count(Self) -> Int
 pub fn NumericColumn::numeric_data(Self) -> NumericData
-pub fn NumericColumn::slice(Self, Int, Int) -> Self raise @types.DataError
 pub fn NumericColumn::sum(Self) -> @types.Scalar
-pub fn NumericColumn::take(Self, Array[Int]) -> Self raise @types.DataError
 pub fn NumericColumn::to_repr(Self) -> @debug.Repr
 
 pub(all) enum NumericData {

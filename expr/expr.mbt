@@ -11,11 +11,19 @@
 /// variants. Outside this package an expression is a value you build and pass
 /// on, or render with `to_string` — there is no matching on its shape. The AST
 /// itself lives in the module-internal `internal/ir` package, which a
-/// downstream module cannot import at all, so it is not — and cannot become —
-/// part of the public API or the compatibility promise: a node can be added
-/// whenever an operator is, without breaking any caller. The engine reads the
-/// shape through the `node()` accessor; `frame` and `lazy` are in-module and
-/// match `@ir.ExprNode` directly.
+/// downstream module cannot import at all, so no caller can name a node, match
+/// one, or hold one: adding a node for a new operator breaks nobody.
+///
+/// The shape is not entirely private, though, and the difference matters: `Eq`
+/// below compares the trees, so *how an existing operator lowers* is
+/// observable from outside even though the nodes are not. Changing the node a
+/// verb builds — to a semantically identical one, even — can change what `==`
+/// answers, which is why `docs/api.md` states that as a contract rather than
+/// leaving it to the representation. Visibility and behaviour are two
+/// promises, and only the first one is closed here.
+///
+/// The engine reads the shape through the `node()` accessor; `frame` and
+/// `lazy` are in-module and match `@ir.ExprNode` directly.
 ///
 /// The wrapped AST carries `@ir.ExprNode` children, not `Expr`, so this package
 /// bridges the two: a constructor unwraps its child `Expr`s with `.node`, and a

@@ -256,7 +256,7 @@ fn Bitmap::take_view(self : Bitmap, indices : Array[Int]) -> Bitmap {
 /// Build a bitmap of `len` slots whose `i`-th bit is `1` (valid) exactly
 /// when `valid(i)` is true. This is the closure-parameterised core shared by
 /// every constructor and transform that packs per-slot validity into a fresh
-/// byte buffer (`from_bools`, `from_options`, `take`, `bit_and`); each caller
+/// byte buffer — `from_options`, and the `take_view` behind `take`; each caller
 /// supplies only its own `valid` predicate. The result is tight (`offset =
 /// 0`, buffer exactly `⌈len / 8⌉` bytes). `valid` runs once per slot in
 /// `[0, len)`, so the caller must keep every index it reads (e.g.
@@ -274,8 +274,8 @@ fn pack(len : Int, valid : (Int) -> Bool) -> Bitmap {
 ///|
 /// `⌈len / 8⌉`, clamped to 0 for non-positive `len`. Computed without a
 /// `len + 7` term so it never overflows `Int`, even for a `len` near
-/// `Int::MAX` (the result stays total — `all_valid` / `all_null` / `pack`
-/// pass it to `FixedArray::make`, which aborts on a negative size).
+/// `Int::MAX` (the result stays total — `all_valid` and `pack` pass it to
+/// `FixedArray::make`, which aborts on a negative size).
 fn bytes_needed(len : Int) -> Int {
   if len <= 0 {
     0

@@ -13,6 +13,17 @@
 # file of its own package, which is all its own code needs — or delete it if
 # nothing calls it at all.
 #
+# The same question is asked of types, where the answer matters more: a
+# `pub(all) enum` hands another package the power to match and construct every
+# variant, a deeper coupling than a method call. A type is used when a package
+# that imports this one *names* it — which is a reliable thing to grep for,
+# unlike `len` or `get`. One exception is built in rather than listed: a type
+# this package's own public interface already carries (returned by a `pub fn`,
+# nested in another public type) must be `pub` whether or not any caller writes
+# its name, because MoonBit refuses a public definition that depends on a
+# private type. `Bitmap` is that case — `validity()` hands one back, and no
+# package outside ever names it.
+#
 # Where that collides with the test suite, the answer is the test suite: an
 # internal package's tests belong *inside* it, as `_wbtest.mbt`, where they can
 # assert what the package actually holds. `internal/column`'s suite moved there
@@ -105,6 +116,28 @@ has_outside_caller() {
   return 1
 }
 
+has_outside_mention() {
+  # has_outside_mention <declaring-pkg> <type-name>
+  # A type is used by naming it — in a signature, a `match` arm, a
+  # construction — so any mention outside a comment counts.
+  importers=$(printf '%s\n' "$edges" | awk -v want="$1" '$2 == want { print $1 }' |
+    grep -v "^$1$" || true)
+  [ -n "$importers" ] || return 1
+  for imp in $importers; do
+    if [ "$imp" = root ]; then
+      files=$(printf '%s\n' "$production_files" | grep -v '/' || true)
+    else
+      files=$(printf '%s\n' "$production_files" | grep "^$imp/[^/]*\$" || true)
+    fi
+    [ -n "$files" ] || continue
+    hits=$(printf '%s\n' "$files" | tr '\n' '\0' |
+      xargs -0 grep -nE "(^|[^A-Za-z0-9_])$2([^A-Za-z0-9_]|\$)" 2>/dev/null |
+      grep -vE '^([^:]*:)?[0-9]+:[[:space:]]*//' || true)
+    [ -z "$hits" ] || return 0
+  done
+  return 1
+}
+
 is_allowed() {
   found=$(printf '%s\n' "$allowed" | while IFS= read -r entry; do
     [ -n "$entry" ] || continue
@@ -134,6 +167,40 @@ done); do
     if ! has_outside_caller "$pkg" "$sym"; then
       is_allowed "$pkg/$sym" ||
         unreachable="$unreachable$pkg/$sym
+"
+    fi
+  done
+  # Types travel further than functions: a `pub(all) enum` hands another
+  # package the power to match and construct every variant, which is a deeper
+  # coupling than calling a method. They are also the easier half to check —
+  # a type name is a distinctive word, where `len` or `get` is not — so a
+  # mention anywhere in a package that imports this one counts as use.
+  types=$(printf '%s\n' "$production_files" | grep "^$pkg/[^/]*\$" |
+    while IFS= read -r f; do
+      [ -f "$f" ] || continue
+      grep -hE '^pub(\(all\))? (struct|enum|type|suberror) ' "$f" || true
+    done |
+    sed 's/^pub(all) //; s/^pub //; s/^\(struct\|enum\|type\|suberror\) //' |
+    sed 's/[ (\[{].*//' | LC_ALL=C sort -u)
+  for ty in $types; do
+    checked=$((checked + 1))
+    # A type named in this package's own public interface — returned by a
+    # `pub fn`, carried by a public field, nested in another public type —
+    # has to be `pub`, whether or not any caller ever writes its name:
+    # MoonBit refuses a public definition that depends on a private type. So
+    # `Bitmap` stays public because `validity()` hands one back, while nothing
+    # outside this package mentions it. Reading the generated interface rather
+    # than the sources is what makes the signatures one line each.
+    mbti="$pkg/pkg.generated.mbti"
+    in_own_surface=""
+    if [ -f "$mbti" ]; then
+      in_own_surface=$(grep -E "(^|[^A-Za-z0-9_])$ty([^A-Za-z0-9_]|\$)" "$mbti" |
+        grep -vE "^pub(\(all\))? (struct|enum|type|suberror) $ty([^A-Za-z0-9_]|\$)" |
+        head -1 || true)
+    fi
+    if [ -z "$in_own_surface" ] && ! has_outside_mention "$pkg" "$ty"; then
+      is_allowed "$pkg/$ty" ||
+        unreachable="$unreachable$pkg/$ty
 "
     fi
   done
@@ -201,4 +268,5 @@ if [ -n "$fields" ]; then
   exit 1
 fi
 
-printf 'internal surface: %s internal `pub fn`, no published field\n' "$checked"
+printf 'internal surface: %s internal `pub` symbols reachable, no published field\n' \
+  "$checked"

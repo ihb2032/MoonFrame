@@ -660,13 +660,13 @@ test "data buffer length matches validity length for every constructor" {
   let raw_i = BuiltinColumn::from_ints([1, 2, 3, 4, 5])
   let (data, validity) = int_cells(raw_i)
   assert_eq(data.length(), 5)
-  assert_eq(validity.len(), 5)
+  assert_eq(validity.len, 5)
   assert_eq(validity.null_count(), 0)
   // Option constructors → validity reflects the Some/None mask exactly.
   let opt = BuiltinColumn::from_int_options([Some(1), None, Some(3), None])
   let (d2, v2) = int_cells(opt)
   assert_eq(d2.length(), 4)
-  assert_eq(v2.len(), 4)
+  assert_eq(v2.len, 4)
   assert_eq(v2.null_count(), 2)
 }
 

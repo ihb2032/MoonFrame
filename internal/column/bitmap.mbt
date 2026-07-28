@@ -81,12 +81,6 @@ fn[T] Bitmap::from_options(values : Array[T?]) -> Bitmap {
 // ── Inspection ────────────────────────────────────────────────────────
 
 ///|
-/// Number of logical slots (not bytes).
-pub fn Bitmap::len(self : Bitmap) -> Int {
-  self.len
-}
-
-///|
 /// `true` when slot `index` is valid (bit is 1). Out-of-bounds
 /// `raise IndexOutOfBounds`.
 fn Bitmap::is_valid(self : Bitmap, index : Int) -> Bool raise @types.DataError {
@@ -99,10 +93,7 @@ fn Bitmap::is_valid(self : Bitmap, index : Int) -> Bool raise @types.DataError {
 ///|
 /// `true` when slot `index` is null (bit is 0). Out-of-bounds
 /// `raise IndexOutOfBounds`.
-pub fn Bitmap::is_null(
-  self : Bitmap,
-  index : Int,
-) -> Bool raise @types.DataError {
+fn Bitmap::is_null(self : Bitmap, index : Int) -> Bool raise @types.DataError {
   !self.is_valid(index)
 }
 
@@ -132,7 +123,7 @@ pub fn Bitmap::is_valid_total(self : Bitmap, index : Int) -> Bool {
 /// (and a constructor-built bitmap keeps those bits zero, so the mask is a
 /// no-op there). An `offset != 0` view has no byte-aligned start, so it
 /// counts its window bit by bit.
-pub fn Bitmap::null_count(self : Bitmap) -> Int {
+fn Bitmap::null_count(self : Bitmap) -> Int {
   if self.offset == 0 {
     let full = self.len / 8
     let mut valid = 0
@@ -173,43 +164,6 @@ pub fn Bitmap::to_bools(self : Bitmap) -> Array[Bool] {
 // ── Transforms ────────────────────────────────────────────────────────
 
 ///|
-/// Half-open `[start, start + length)` slice as a **zero-copy view**: the
-/// result shares this bitmap's underlying buffer and only advances `offset`
-/// by `start`, so a slice is `O(1)` with no repacking. Safe because `Bytes`
-/// is immutable. Errors:
-/// - `IndexOutOfBounds(start)` if `start < 0` or `start > len`.
-/// - `IndexOutOfBounds(start + length)` if `start + length > len`.
-/// - `InvalidOperation` if `length < 0`.
-pub fn Bitmap::slice(
-  self : Bitmap,
-  start : Int,
-  length : Int,
-) -> Bitmap raise @types.DataError {
-  if start < 0 || start > self.len {
-    raise @types.DataError::IndexOutOfBounds(start)
-  }
-  if length < 0 {
-    raise @types.DataError::InvalidOperation("slice length < 0: \{length}")
-  }
-  // Compare against the remaining room, not `start + length`: `start` is already
-  // in `[0, len]`, so `len - start` cannot overflow, whereas a near-`Int::MAX`
-  // `length` would wrap `start + length` negative and slip past this guard —
-  // producing an over-long view over a tiny buffer that a later read aborts on.
-  // (`bytes_needed` dodges the same `len + 7` overflow.) The error payload
-  // computes the offending end overflow-safely too — saturating instead of
-  // wrapping into a nonsense negative "index" that would misdirect debugging.
-  if length > self.len - start {
-    let end = if length > 0x7fffffff - start {
-      0x7fffffff
-    } else {
-      start + length
-    }
-    raise @types.DataError::IndexOutOfBounds(end)
-  }
-  self.slice_view(start, length)
-}
-
-///|
 /// Total zero-copy view of `[start, start + length)` — the shared core
 /// behind `slice` (which validates the bounds then calls this) and the total
 /// `BuiltinColumn::slice_unchecked`. It just shares the buffer and advances
@@ -217,24 +171,6 @@ pub fn Bitmap::slice(
 /// `start + length <= len`; both delegators guarantee that.
 fn Bitmap::slice_view(self : Bitmap, start : Int, length : Int) -> Bitmap {
   { bits: self.bits, offset: self.offset + start, len: length }
-}
-
-///|
-/// Gather: produce a new bitmap whose i-th bit is `self[indices[i]]`. Any
-/// out-of-bounds index `raise IndexOutOfBounds(idx)`. Unlike
-/// `slice`, an arbitrary gather can't be expressed as a contiguous view, so
-/// `take` repacks into a fresh tight buffer (reading each source bit through
-/// this bitmap's `offset`).
-pub fn Bitmap::take(
-  self : Bitmap,
-  indices : Array[Int],
-) -> Bitmap raise @types.DataError {
-  for i in indices {
-    if i < 0 || i >= self.len {
-      raise @types.DataError::IndexOutOfBounds(i)
-    }
-  }
-  self.take_view(indices)
 }
 
 ///|

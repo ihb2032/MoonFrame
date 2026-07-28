@@ -1,7 +1,7 @@
 // Interval-endpoint vocabulary for `Expr::is_between`. It lives in `types`
 // rather than `expr` because the expression AST (`internal/ir`'s `ExprNode`)
 // carries it on the `IsBetween` node, and `ir` sits below `expr` — the same
-// reason `SortOrder` / `NullOrder` moved here in v0.6. Constructible by callers
+// reason `SortOrder` / `NullOrder` live here too. Constructible by callers
 // (unlike the AST tags), so it stays a public, facade-re-exported type.
 
 ///|

@@ -8,11 +8,11 @@
 // indistinguishable in the output (the renderer carries no null marker).
 //
 // Like `to_markdown`, this is a pure, dependency-free renderer that
-// lives on `DataFrame` rather than in `io` (the v0.2 IO-1 boundary:
+// lives on `DataFrame` rather than in `io` (the IO boundary:
 // rendering stays in `frame`, only external serialisation lives in
 // `io`). Values are read column-major through `column_series()` /
-// `to_scalars()`, exactly as `to_markdown` does, so the v0.3 Stage 2
-// `Series::storage` change is invisible here.
+// `to_scalars()`, exactly as `to_markdown` does, so a change to
+// `Series::storage` is invisible here.
 
 ///|
 /// Options for `DataFrame::to_html`. Fields are read-only outside the

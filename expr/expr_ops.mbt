@@ -829,7 +829,7 @@ pub fn Expr::map_batches(
 
 ///|
 /// Apply a host closure across several input columns, row by row — the
-/// multi-input escape hatch, and the reified replacement for the v0.1
+/// multi-input escape hatch, and the reified replacement for the original
 /// closure `filter` predicate: `f` is handed one `@types.Scalar` per input
 /// in `inputs` order (null cells as `Scalar::Null`) and is called for every
 /// row, so a row predicate is `map_many(..., f).` returning a `Bool`. A

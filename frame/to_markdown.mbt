@@ -9,10 +9,10 @@
 // franca of MoonFrame's two output targets — `README.md` snippets and
 // JupyterBook-style notebooks — and they round-trip through every
 // Markdown parser we care about without a dedicated renderer
-// dependency. v0.2 moves the renderer onto `DataFrame` as a method (the
-// IO-1 boundary: pure rendering lives in `frame`, only external
-// serialisation stays in `io`); it remains a small, self-contained,
-// dependency-free function.
+// dependency. The renderer is a `DataFrame` method rather than an `io`
+// entry point (the IO boundary: pure rendering lives in `frame`, only
+// external serialisation stays in `io`); it remains a small,
+// self-contained, dependency-free function.
 
 ///|
 /// Render a `DataFrame` as a GitHub-flavored Markdown table.

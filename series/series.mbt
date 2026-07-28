@@ -273,9 +273,9 @@ pub fn Series::to_scalars(self : Series) -> Array[@types.Scalar] {
 /// is `internal/kernel`, which walks `data()` alongside `validity()` to run a
 /// column pass without `Scalar` boxing; `frame` and above never call it — they
 /// hold the `Series`.
-/// The return type changed from `BuiltinColumn` to `ColumnStorage` in v0.3;
-/// the `data()` / `validity()` surface is identical, so column-reading call
-/// sites are unaffected.
+/// The type handed back is `ColumnStorage` rather than a bare
+/// `BuiltinColumn`; the `data()` / `validity()` surface is the same either
+/// way, so a column-reading call site does not care which backend it got.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
 pub fn Series::storage(self : Series) -> @column.ColumnStorage {
@@ -328,7 +328,7 @@ pub fn Series::gather(
 /// rather than failing (and rather than leaving a dead error arm,
 /// `feedback_lib_no_abort`). The null-free Int /
 /// Float arms rebuild through the `NumericColumn` constructors, which copy
-/// their input since the 0.5.2 immutable-ingestion change — one extra `O(n)`
+/// their input, ingestion being immutable — one extra `O(n)`
 /// array copy per converged column. (The buffer-free move the column package
 /// used to offer alongside it is gone: nothing outside `series` converged a
 /// column, so the entry point went with it.)

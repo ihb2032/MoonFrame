@@ -23,7 +23,7 @@
 /// `agg`. Every result is either `|scope|` tall or a
 /// length-1 broadcastable (literals and aggregations).
 ///
-/// Semantics, in one place (the v0.4 §0 matrix — every rule inherited
+/// Semantics, in one place (every rule inherited
 /// from the existing `Series` / `Scalar` surface, no new invention):
 /// - **Arithmetic** (`+ - *`): `Int op Int → Int`, any `Float` operand
 ///   promotes to `Float`; a null on either side nulls the output cell;
@@ -97,7 +97,7 @@
 ///   result — a length-1 series fills the scope, a frame-tall one passes
 ///   through, anything else is `LengthMismatch`. It reads no frame column, so
 ///   evaluation never raises on the frame's contents.
-/// - **Backend convention** (the v0.3 review Q2 decision): a *computed*
+/// - **Backend convention**: a *computed*
 ///   result converges onto the `Numeric` fast path whenever it is an
 ///   all-valid numeric column (`try_column_to_numeric`), and lands on
 ///   `Builtin` otherwise (nullable, `Bool`, `String`). A `col(...)` reference

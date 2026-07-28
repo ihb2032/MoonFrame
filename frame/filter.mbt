@@ -5,7 +5,7 @@
 /// be printed, and a lazy `Filter` node can introspect it for predicate
 /// pushdown. A row-wise host predicate is still reachable through the
 /// `map_many` escape hatch — `filter(map_many(label~, inputs, f))` reifies
-/// the v0.1 closure predicate as a `Bool`-returning `Expr`.
+/// the original closure predicate as a `Bool`-returning `Expr`.
 ///
 /// The predicate must evaluate to a `Bool` column (`TypeMismatch`
 /// otherwise). A row is kept where its cell is `true`; `false` **and

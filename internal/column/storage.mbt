@@ -1,7 +1,7 @@
 ///|
 /// Pluggable column-storage seam. `ColumnStorage` is the closed enum a
-/// `Series` holds instead of a bare `BuiltinColumn` (the v0.3 core breaking
-/// change, wired in S3): one arm per backend, each forwarding the shared
+/// `Series` holds instead of a bare `BuiltinColumn`: one arm per backend,
+/// each forwarding the shared
 /// accessor surface to the column it wraps.
 ///
 /// The design discipline is **transparent forwarding**: every accessor here

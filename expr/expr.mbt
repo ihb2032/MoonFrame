@@ -1,6 +1,6 @@
 ///|
 /// A composable column expression — the reified upgrade over the closure-based
-/// surfaces (the v0.1 row-predicate closure) and pre-materialised `Series`
+/// surfaces (the original row-predicate closure) and pre-materialised `Series`
 /// columns. An `Expr` is built through the constructor functions
 /// (`col` / `lit` / `lit_*` / `when`), the operator impls, and the methods in
 /// `expr_ops.mbt`, so every tree is well-formed by construction. Building one is

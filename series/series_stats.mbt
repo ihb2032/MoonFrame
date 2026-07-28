@@ -101,7 +101,7 @@ pub fn Series::mean_opt(self : Series) -> Double? {
 ///|
 /// Minimum non-null cell as a `Scalar`, by the natural order of the
 /// series' dtype (Polars' `Series.min`). Total — every dtype has an
-/// order, so it never fails (unlike the v0.1 `Result`-wrapped form this
+/// order, so it never fails (unlike the `Result`-wrapped form this
 /// replaces).
 ///
 /// - Empty / all-null → `Scalar::Null`.
@@ -127,7 +127,7 @@ pub fn Series::min(self : Series) -> @types.Scalar {
 ///|
 /// Maximum non-null cell as a `Scalar` (Polars' `Series.max`). Mirrors
 /// `min` with the order reversed; the `Float` NaN and empty-series rules
-/// are identical. Total — unlike the v0.1 `Result`-wrapped form this
+/// are identical. Total — unlike the `Result`-wrapped form this
 /// replaces.
 pub fn Series::max(self : Series) -> @types.Scalar {
   if self.storage is @column.ColumnStorage::Numeric(nc) {

@@ -1,4 +1,4 @@
-// Blackbox tests for the full `NumericColumn` (PLAN_v0.3.md §3 S1). The
+// Whitebox tests for the full `NumericColumn`. The
 // all-valid numeric backend has a real, testable difference from
 // `BuiltinColumn`, not an empty abstraction:
 //   • construction / sub-views store only the data array (no validity
@@ -7,7 +7,8 @@
 //   • `to_builtin` widening is exactly `BuiltinColumn::from_ints` /
 //     `from_floats` (the bitmap allocation the numeric path avoided), and is
 //     value-preserving.
-// Reductions inherit v0.2 / Polars NaN semantics: `NaN` propagates through
+// Reductions inherit the library's Polars-aligned NaN semantics: `NaN`
+// propagates through
 // `sum` / `mean` (it is a value, not missing) but is skipped by `min` /
 // `max` (treated as missing, like `sort`).
 

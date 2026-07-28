@@ -226,7 +226,7 @@ test "pipeline: per-column scalars and whole-frame reductions via the facade" {
     Series::from_int_options("n", [Some(1), Some(2), None, Some(4)]),
     Series::from_strings("tag", ["a", "b", "c", "d"]),
   ])
-  // A single column's scalar reduction reads through its Series (the v0.4
+  // A single column's scalar reduction reads through its Series (the
   // `df.sum("n")` migration target).
   assert_eq(df.get_column("n").count(), 3)
   assert_eq(df.get_column("n").sum(), Scalar::Int(7))

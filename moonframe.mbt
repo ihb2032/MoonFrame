@@ -20,7 +20,7 @@
 // `.github/scripts/facade_surface.snapshot` is the enumeration, generated from
 // the interfaces. Likewise the
 // `JoinOptions` / `HtmlOptions` / `ChartSpec` constructors — the named
-// constructors v0.6 introduced in place of the pre-v0.6 setter chains
+// constructors that replaced the setter chains
 // (`JoinOptions::on` / `left_on` / `cross`, `ChartSpec::bar` / `line` /
 // `point` / `area`, and `HtmlOptions::HtmlOptions`) — come for free once their
 // types are re-exported. The rule is that simple: **methods and constructors ride along
@@ -103,7 +103,7 @@ pub using @expr {
 }
 
 ///|
-/// `Series` lives in its own `@series` package (extracted in v0.5 so the
+/// `Series` lives in its own `@series` package (extracted so the
 /// expression layer can build on the per-column unit); re-exporting the type
 /// carries its constructors (`from_ints` / …) and methods along, so the facade
 /// name `@moonframe.Series` is unchanged for callers.

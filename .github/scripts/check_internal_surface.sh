@@ -220,6 +220,7 @@ is_allowed() {
 unreachable=""
 ambiguous=""
 checked=0
+checked_fns=0
 allowlisted=0
 
 # Every `Type::method` declared anywhere in the module, so a short name can be
@@ -245,6 +246,7 @@ done); do
     LC_ALL=C sort -u)
   for sym in $syms; do
     checked=$((checked + 1))
+    checked_fns=$((checked_fns + 1))
     if ! has_outside_caller "$pkg" "$sym"; then
       if is_allowed "$pkg/$sym"; then
         allowlisted=$((allowlisted + 1))
@@ -429,6 +431,26 @@ fi
 # the ones credited by a shared name. Saying "reachable" claimed evidence the
 # run does not have.
 ambiguous_n=$(printf '%s' "$ambiguous" | grep -c . || true)
+
+# What the run does not enumerate, counted rather than left to be assumed: the
+# methods a `derive` generates and the `pub impl` / `pub extend` lines, which
+# exist in the generated interface but in no source declaration. They are not
+# audited because the question cannot be answered by name — a derived `equal`
+# is reached through `==`, and through the `derive` of any type that embeds
+# this one, neither of which writes the method's name anywhere. Flagging them
+# would produce a list nobody could act on; counting them keeps the gap visible
+# instead of implied.
+generated_n=0
+for mbti in $(git ls-files 'internal/*/pkg.generated.mbti'); do
+  [ -f "$mbti" ] || continue
+  in_mbti=$(grep -c '^pub fn \|^pub impl \|^pub extend ' "$mbti" || true)
+  generated_n=$((generated_n + in_mbti))
+done
+generated_n=$((generated_n - checked_fns))
+[ "$generated_n" -ge 0 ] || generated_n=0
+
 printf 'internal surface: %s internal `pub` symbols audited' "$checked"
-printf ' (%s allowlisted, %s credited by name only), no published field\n' \
+printf ' (%s allowlisted, %s credited by name only), no published field;\n' \
   "$allowlisted" "$ambiguous_n"
+printf '  %s derived / impl symbols in the generated interfaces are outside the audit\n' \
+  "$generated_n"

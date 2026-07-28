@@ -186,7 +186,11 @@ sh .github/scripts/check_internal_surface.sh
   cannot say which symbol was meant; those pass, but the *set* of them is
   pinned in `.github/scripts/internal_surface.ambiguous`, so one more falling
   into "cannot tell" is a diff to approve rather than a line in a passing run
-  (`sh .github/scripts/check_internal_surface.sh --write`). **A clean run means
+  (`sh .github/scripts/check_internal_surface.sh --write`). The methods a
+  `derive` generates and the `pub impl` / `pub extend` lines are outside the
+  audit — a derived `equal` is reached through `==` and through the `derive` of
+  any type embedding this one, neither of which writes its name — so the run
+  counts them rather than pretending to have looked. **A clean run means
   nothing is provably unused, not that everything left is needed.**
 
 One more pass, `review_absolute_wording.sh`, annotates absolute claims ("all",

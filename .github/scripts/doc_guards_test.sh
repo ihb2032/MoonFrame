@@ -927,6 +927,17 @@ expect_out 1 'writes into a live column buffer' \
   'engine seams: a one-hop alias of a column buffer' \
   sh "$scripts/check_engine_seams.sh" "$work/es_alias"
 
+# The numeric fast path has its own reader, `numeric_data()`, handing back the
+# same live arrays under a different enum. The rule knew one enum and its
+# comment claimed it covered the buffers.
+mkseams "$work/es_numeric_data" "$es_source" "$es_snap"
+printf '///|\npub fn consume(c : Series) -> Int {\n  match c.storage().numeric_data() {\n    NumericData::Int(values) => values[0] = 0L\n    _ => ()\n  }\n  ignore(validity_bools(c))\n  ignore(reducer_for(c, ReduceOp::Sum))\n  ignore(after_the_value(c))\n  ignore(bool_cells(c))\n  0\n}\n' \
+  >"$work/es_numeric_data/io/io.mbt"
+(cd "$work/es_numeric_data" && git add -A && git commit -qm numericdata)
+expect_out 1 'writes into a live column buffer' \
+  'engine seams: the numeric buffer is a column buffer too' \
+  sh "$scripts/check_engine_seams.sh" "$work/es_numeric_data"
+
 # The limit, pinned rather than described. Two types can carry the same method
 # name, and a receiver call cannot say which one it reached: here `io` calls
 # `something.reducer_for(` on its own type, and the seam of that name is

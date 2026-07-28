@@ -264,7 +264,7 @@ test "min / max Bool flip when the running extremum must change" {
 
 ///|
 test "reductions agree on the Numeric fast path and the Builtin path" {
-  // The v0.3 fix routes a `Numeric`-backed series' reductions to the
+  // The fix routes a `Numeric`-backed series' reductions to the
   // bitmap-free fold; this pins that the fast path can never diverge from the
   // general `Builtin` path on the same values (`builtin_twin` rebuilds the same cells on Builtin).
   let ints = Series::from_ints("x", [3, 1, 4, 1, 5, 9, 2, 6])

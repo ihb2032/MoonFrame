@@ -21,13 +21,6 @@ focused foundation for everyday tabular work, not a full pandas clone.
 
 ## Install
 
-> **This page documents the unreleased v0.6 API.** `moon add` installs the
-> published **v0.5.8**, whose reference is the one on
-> [mooncakes.io](https://mooncakes.io/docs/ihb2032/MoonFrame) — so a snippet
-> from here may name a constructor or parameter that release does not have.
-> For v0.5.8, read the README at the `v0.5.8` tag; for what changed, see
-> [`docs/migration.md`](docs/migration.md).
-
 MoonFrame is published on
 [mooncakes.io](https://mooncakes.io/docs/ihb2032/MoonFrame). Add it to your
 module's dependencies:

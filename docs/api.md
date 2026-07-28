@@ -1,13 +1,8 @@
-# MoonFrame v0.6 — API Concepts & Compatibility
+# MoonFrame — API Concepts & Compatibility
 
-> Status: **v0.6 — the API-convergence release** (a tail of parallel spellings
-> collapsed onto one entry each). It is one more breaking release; from v0.7 on
-> the stable public surface evolves compatibly.
->
-> Documents the unreleased v0.6 API; `moon add` installs the published
-> v0.5.8, whose reference is on mooncakes.io. The per-symbol links below
-> therefore describe v0.5.8 until v0.6 ships. See
-> [Install](../README.md#install).
+> This describes `main`. What a published release contains is in
+> [`changelog.md`](changelog.md); what changed between two of them, and how to
+> move, is in [`migration.md`](migration.md).
 
 This guide covers the **cross-cutting behaviour** of the public API — the
 compatibility model, the error model, evaluation semantics, the query
@@ -83,13 +78,14 @@ package is not an external compatibility surface. **Do not depend on either** �
 neither carries a compatibility promise, and both may change signature or
 disappear in any release.
 
-Compatibility follows the changelog's policy: backwards-compatible additions
-and bug fixes ship in patch releases, and — pre-1.0 — a change to the public
-surface rides the minor version. One case is easy to mistake for additive:
+What the promise covers is the facade surface, not a particular release
+number: pre-1.0, additions and fixes ride a patch version and a change to that
+surface rides the minor one, and every release says which it was in
+[`changelog.md`](changelog.md). One case is easy to mistake for additive:
 adding a variant to a `pub(all)` enum (`DataError` and its error-detail enums,
 `DataType`, `Scalar`, `SortOrder`, `NullOrder`, `ClosedInterval`, …) is
 **source-breaking** — MoonBit `match` is exhaustive, so a caller's existing
-match stops compiling — and therefore rides the minor version too,
+match stops compiling — and therefore counts as a surface change,
 semantically-additive though it looks. Only a caller whose match carries a
 wildcard arm (`_ => …`) stays source-compatible across such an addition.
 
@@ -235,7 +231,7 @@ blackbox test assertions that use it reach it across the package boundary.
 
 ### Migration
 
-Source-level changes between releases (v0.1 → … → v0.6) are collected in
+Source-level changes between releases are collected in
 [`migration.md`](migration.md).
 
 ## Evaluation semantics
@@ -386,25 +382,20 @@ facade without the name in scope. They remain `pub` in `@expr` / `@frame` /
 `@moonframe.Scalar::Int(42)`, `@moonframe.SortOrder::Desc`, and
 `@moonframe.DataError::ColumnNotFound("y")` all resolve through the facade.
 
-## Out of scope for v0.6 (so far)
+## Out of scope (so far)
 
-The whole v0.6 surface has landed on `main`. v0.6 is one more breaking release
-(API convergence); from v0.7 on the API only grows (additive — no renames,
-removals, or signature changes, with the exhaustive-`match` enum caveat noted
-under [API stability](#api-stability--compatibility)).
-
-The expression AST is where variants grow the most (v0.6 added four), which is
+The expression AST is where variants grow the most, which is
 exactly why it is *not* a public enum: `Expr` is opaque and its `ExprNode` AST
 lives in module-internal `internal/ir`, so a downstream caller cannot match it
 and a new node cannot break one. Inspect an expression with `Expr::to_string`.
 
-These are the tracked deferrals, all v0.7+:
+These are the tracked deferrals:
 
 - **More expression families** — the list-returning `str.split` (blocked on a
   list dtype; the scalar `str_split_get` is done) and — further out — window and
-  datetime expressions (the repo has no datetime type yet). The v0.6 operator /
-  method set is frozen; these extend it.
-- **Lazy scan depth** — streaming execution (v0.6's scan does projection- and
+  datetime expressions (the repo has no datetime type yet). These extend the
+  current operator / method set rather than changing it.
+- **Lazy scan depth** — streaming execution (the scan does projection- and
   predicate-pushdown but still tokenises the whole file), plus columnar sources
   (Parquet / IPC) once eager readers exist.
 - **Optimizer extensions** — dead-expression elimination, narrowing /

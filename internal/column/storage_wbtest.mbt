@@ -1,5 +1,4 @@
-// Blackbox tests for the `ColumnStorage` seam (S0 spike, PLAN_v0.3.md §3
-// S0). Two validation jobs:
+// Whitebox tests for the `ColumnStorage` seam. Two validation jobs:
 //
 //   • point 1 — coverage gate × closed enum: every accessor's `match` is
 //     called on BOTH a Builtin-backed and a Numeric-backed storage, so both

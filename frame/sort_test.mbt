@@ -2,7 +2,7 @@
 // `(Expr, order, null_order)` tuple; a single-key sort passes a
 // one-element array and a multi-key sort lists several. The bare
 // `col(name)` keys here also pin the historical name-keyed sort
-// behavior — the sort verb took plain String keys before v0.5, and a
+// behavior — the sort verb once took plain String keys, and a
 // list of `col` references reproduces that name-keyed sort row-for-row.
 // Computed keys (sorting by a value that never lands in the output) get
 // their own section near the end.

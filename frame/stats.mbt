@@ -32,7 +32,7 @@
 // A 0-column frame collapses to `0×0` (there is no column to anchor the
 // single row), matching `null_count`.
 //
-// The v0.4 per-column scalar reductions (`df.sum("col")` → `Scalar`) are
+// The per-column scalar reductions (`df.sum("col")` → `Scalar`) are
 // retired: read one column's scalar through its `Series`, e.g.
 // `df.get_column("col").sum()` (= Polars `df["col"].sum()`).
 

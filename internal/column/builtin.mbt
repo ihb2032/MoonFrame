@@ -15,7 +15,7 @@
 /// `placeholders_normalized` is what
 /// asserts the buffer keeps the canonical placeholder at every null slot.
 ///
-/// As of v0.3 a `ColumnStorage` abstraction (plus a `NumericColumn` for
+/// A `ColumnStorage` abstraction (plus a `NumericColumn` for
 /// unboxed-numeric fast paths) sits above this layer at the `Series` backend
 /// seam (see `storage.mbt`) — a `Series` simply holds one of the two backends
 /// behind it, and reaches this one through `ColumnStorage`.

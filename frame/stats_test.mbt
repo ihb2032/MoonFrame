@@ -10,8 +10,8 @@
 //       for every dtype);
 //   (3) the empty / all-null edges — `sum` is the additive identity while
 //       `mean` / `min` / `max` are a `Null` cell (not `InvalidOperation`);
-//   (4) the single-column scalar path through `Series` (the v0.4
-//       `df.sum("col")` migration target).
+//   (4) the single-column scalar path through `Series`, which is what
+//       `df.sum("col")` reads through.
 
 ///|
 /// Mixed-dtype fixture: an `Int` column with a null cell, a `Float` column

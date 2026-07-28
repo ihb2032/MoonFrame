@@ -15,7 +15,7 @@ test "JoinType equality" {
   assert_not_eq(JoinType::Inner, JoinType::Left)
   assert_not_eq(JoinType::Inner, JoinType::Cross)
   assert_not_eq(JoinType::Left, JoinType::Cross)
-  // The two v0.3 additions are distinct from each other and the v0.2 set.
+  // The two later additions are distinct from each other and from the rest.
   assert_not_eq(JoinType::Inner, JoinType::Right)
   assert_not_eq(JoinType::Inner, JoinType::Outer)
   assert_not_eq(JoinType::Left, JoinType::Right)

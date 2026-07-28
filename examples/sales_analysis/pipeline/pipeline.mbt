@@ -10,7 +10,7 @@
 /// both lets `main` print them and the test assert on them without
 /// the helper having to know about either side.
 ///
-/// v0.2 method-chain form: every step is a `DataFrame` method that
+/// Method-chain form: every step is a `DataFrame` method that
 /// raises on failure, so the four fallible steps (`filter`, `select`,
 /// `sort`, and the always-`Ok`-in-practice `describe`) chain
 /// directly. No `.bind` / `.map` plumbing and no explicit

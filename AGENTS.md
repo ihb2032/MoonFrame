@@ -67,15 +67,14 @@ sh .github/scripts/check_engine_seams.sh
 sh .github/scripts/check_internal_surface.sh
 ```
 
-- **Version identity** — `moon.mod`, `docs/api.md`, `docs/changelog.md`, and
-  `docs/migration.md` must name one release. While a release is being prepared
-  on `main`, the changelog's newest heading carries `(unreleased)` and
-  `moon.mod` still publishes the previous version; **cutting the release means
-  dropping that marker and bumping `moon.mod` together**, which is what the
-  guard enforces. In that state README must also carry the version-channel
-  notice naming both versions — it is the page that says `moon add`, and that
-  command installs the older one — and the notice must go when the release
-  ships.
+- **Version identity** — `moon.mod`, `docs/changelog.md` and
+  `docs/migration.md` must name one release, and nothing else names one at all:
+  the guides describe `main` and promise the facade surface, so a reader never
+  has to reconcile two numbers, and prose never goes stale for saying which
+  release it belongs to. While a release is being prepared on `main`, the
+  changelog's newest heading carries `(unreleased)` and `moon.mod` still
+  publishes the previous version; **cutting the release means dropping that
+  marker and bumping `moon.mod` together**, which is what the guard enforces.
 - **Enum surface** — the exact variant set of every public `pub(all)` enum /
   suberror is pinned in `.github/scripts/enum_surface.snapshot`. Adding,
   removing, or renaming a variant is source-breaking under exhaustive `match`,

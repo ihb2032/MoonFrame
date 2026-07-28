@@ -1,5 +1,5 @@
-// Blackbox tests for null filling, split across the two surfaces v0.5
-// exposes:
+// Blackbox tests for null filling, split across the two surfaces it is
+// exposed through:
 //   * the frame-wide `DataFrame::fill_null(value)`, which fills every
 //     dtype-compatible column and leaves the rest verbatim;
 //   * the per-column `Expr::fill_null(value)`, driven through `with_columns`

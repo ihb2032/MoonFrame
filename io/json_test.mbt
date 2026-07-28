@@ -3,7 +3,7 @@
 // `write_json` wrappers.
 //
 // The string-level pipeline (DataFrame ↔ JSON text) is exercised
-// across the four v0.1 dtypes, the null mapping, sparse / mixed
+// across the four dtypes, the null mapping, sparse / mixed
 // records, the malformed-input error paths, and the format → parse
 // round-trip. The builtin `@json` package handles the actual
 // stringification, so the tests pin the *records layout* MoonFrame
@@ -40,8 +40,8 @@ test "format_json: null cells emit JSON null" {
 
 ///|
 test "format_json: special characters get standard escapes" {
-  // `\"`, `\\`, `\n`, `\t` are the four escapes the v0.1 plan
-  // pins explicitly. We rely on the builtin stringifier, so the
+  // `\"`, `\\`, `\n`, `\t` are the four escapes pinned
+  // explicitly. We rely on the builtin stringifier, so the
   // assertion locks in the convention rather than re-deriving it.
   let df = @frame.DataFrame::DataFrame([
     @series.Series::from_strings("s", ["a\"b\\c\nd\te"]),

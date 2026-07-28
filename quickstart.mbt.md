@@ -223,7 +223,9 @@ plan instead of computing anything, and `collect()` is the single step that
 runs it. `explain()` prints the plan as built; `explain(optimized=true)` prints
 the plan `collect` actually runs — here the optimizer has inserted a narrowing
 `SELECT` over the scan, pruning the `product` column the query never reads.
-Collecting is bitwise-equal to the same verbs run eagerly.
+Collecting produces the same schema and the same cells as running those verbs
+eagerly — which is what `DataFrame`'s `==` compares. The physical layout is not
+part of that: a column may land on a different storage backend either way.
 
 ```moonbit check
 ///|

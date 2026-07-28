@@ -1,4 +1,4 @@
-// MoonFrame example: the v0.4 expression + lazy-query layer end to end.
+// MoonFrame example: the expression + lazy-query layer end to end.
 //
 //   read_csv → with_columns (derive profit, unit_price)
 //            → filter (Expr predicate: profit > 0 & region == west)

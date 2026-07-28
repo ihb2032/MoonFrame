@@ -47,9 +47,15 @@
 # "everything left is needed".
 #
 # Usage: .github/scripts/check_internal_surface.sh [repo-root]
-# Exit 0 when every internal `pub fn` is reachable or listed, 1 otherwise.
+# Exit 0 when no internal public function or public type is provably unused;
+# allowlisted symbols and name-only evidence pass and are reported separately.
+# Exit 1 when one is unreachable, or an allowlist entry is no longer needed.
 
 set -eu
+
+# Shared with the engine-seam guard: both look for callers, and neither should
+# count a name inside a string or a comment as one.
+. "$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)/lib_moonbit_source.sh"
 
 root="${1:-.}"
 cd "$root"
@@ -120,40 +126,6 @@ has_outside_caller() {
   return 1
 }
 
-# Strip what is not code before matching a name: string contents and trailing
-# `//` comments. A whole-line comment filter was not enough — `foo() // returns
-# NumericData` and `let msg = "ColumnStorage"` both kept a type alive that no
-# code touched, which is backwards for an audit whose job is finding the
-# unused.
-#
-# Character by character rather than by regex, because `s/"[^"]*"//` gets an
-# escaped quote wrong in the dangerous direction: in
-# `let m = "prefix \" Spare"` it takes `"prefix \"` for the whole string and
-# leaves ` Spare"` standing as code, inventing a use rather than losing one.
-# The scanner tracks three things — inside a string, just after a backslash,
-# past a `//` — which is all MoonBit needs here: there are no block comments,
-# and a string cannot span a line.
-strip_noncode() {
-  awk '{
-    out = ""
-    instr = 0
-    esc = 0
-    n = length($0)
-    for (i = 1; i <= n; i++) {
-      c = substr($0, i, 1)
-      if (instr) {
-        if (esc) { esc = 0 }
-        else if (c == "\\") { esc = 1 }
-        else if (c == "\"") { instr = 0; out = out "\"" }
-        continue
-      }
-      if (c == "\"") { instr = 1; out = out "\""; continue }
-      if (c == "/" && i < n && substr($0, i + 1, 1) == "/") break
-      out = out c
-    }
-    print out
-  }'
-}
 
 has_qualified_caller() {
   # has_qualified_caller <declaring-pkg> <Type::method>

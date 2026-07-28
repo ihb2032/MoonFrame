@@ -69,12 +69,14 @@ fn transpose_verb(verb : CmpVerb) -> CmpVerb {
 /// primitives (every comparison with it is `false`).
 fn cmp_int_double(verb : CmpVerb, a : Int64, b : Double) -> Bool {
   match verb {
-    CmpVerb::Eq => @types.int64_eq_double(a, b)
-    CmpVerb::Ne => !@types.int64_eq_double(a, b)
-    CmpVerb::Lt => @types.int64_lt_double(a, b)
-    CmpVerb::Le => @types.int64_lt_double(a, b) || @types.int64_eq_double(a, b)
-    CmpVerb::Gt => @types.double_lt_int64(b, a)
-    CmpVerb::Ge => @types.double_lt_int64(b, a) || @types.int64_eq_double(a, b)
+    CmpVerb::Eq => @numeric.int64_eq_double(a, b)
+    CmpVerb::Ne => !@numeric.int64_eq_double(a, b)
+    CmpVerb::Lt => @numeric.int64_lt_double(a, b)
+    CmpVerb::Le =>
+      @numeric.int64_lt_double(a, b) || @numeric.int64_eq_double(a, b)
+    CmpVerb::Gt => @numeric.double_lt_int64(b, a)
+    CmpVerb::Ge =>
+      @numeric.double_lt_int64(b, a) || @numeric.int64_eq_double(a, b)
   }
 }
 

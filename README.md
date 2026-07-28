@@ -231,6 +231,7 @@ types/      value types, errors (DataError), schemas
 internal/column/   Arrow-style storage — validity bitmap + Builtin/Numeric backends; wrapped by Series and read by internal/kernel, and named by no other package
 internal/kernel/   the vectorized expression kernels — Series broadcasting, arithmetic / logic / comparison / string ops, ternary, map, and the dtype inference behind a computed column; called by frame's evaluator
 internal/text/     shared text primitives — lexicographic compare, debug escaping, decimal literal parsing
+internal/numeric/  shared numeric primitives — exact Int64/Double comparison and the extremum fold, used from types up through the kernels
 internal/literal/  the one scalar-literal renderer, shared by expr / lazy plan rendering
 internal/ir/       module-internal expression AST — ExprNode + the operator tags, walked by the engine
 series/     Series + column-level stats + the shared reduction / rebuild / key-cell kernels

@@ -37,7 +37,7 @@
 /// - **Comparisons** (`eq/ne/lt/le/gt/ge`): produce `Bool`; `Int ↔ Float`
 ///   compare **exactly** — the `Int64` is never promoted to `Double`, so two
 ///   distinct values cannot collide above `2^53` (`cmp_int_double` in
-///   `internal/kernel/compare.mbt`, over the `@types` primitives `int64_eq_double` /
+///   `internal/kernel/compare.mbt`, over the `@numeric` primitives `int64_eq_double` /
 ///   `int64_lt_double` / `double_lt_int64`; a deliberate departure from
 ///   Polars' Float64-supertype rule), `String` compares by `compare_string_lex`
 ///   (dictionary order, not MoonBit's shortlex), `Bool` orders

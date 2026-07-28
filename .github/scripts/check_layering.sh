@@ -77,17 +77,18 @@ public_packages="expr frame io lazy series types"
 # permanent — the direction of the whole stack is exactly what should not be
 # regenerable. A package absent here may depend on nothing inside the module.
 allowed_root="expr frame io lazy series types"
-allowed_types="internal/text"
-allowed_series="types internal/column internal/text"
+allowed_types="internal/text internal/numeric"
+allowed_series="types internal/column internal/text internal/numeric"
 allowed_expr="types series internal/ir internal/literal internal/text"
 allowed_frame="types series expr internal/ir internal/kernel"
-allowed_io="types series frame internal/text"
+allowed_io="types series frame internal/text internal/numeric"
 allowed_lazy="types expr frame io internal/ir internal/literal internal/text"
-allowed_internal_column="types internal/text"
-allowed_internal_kernel="types series internal/column internal/ir internal/text"
+allowed_internal_column="types internal/text internal/numeric"
+allowed_internal_kernel="types series internal/column internal/ir internal/text internal/numeric"
 allowed_internal_ir="types series"
 allowed_internal_literal="types internal/text"
 allowed_internal_text=""
+allowed_internal_numeric=""
 verb_packages="frame io lazy"
 
 fail=0

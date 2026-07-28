@@ -153,7 +153,7 @@ fn reduce_extremum(
         let get = k => a[at(k)]
         let skip = k => !present(at(k))
         let better = (x, y) => if want_min { x < y } else { x > y }
-        match @types.fold_extremum(n, get, skip, better) {
+        match @numeric.fold_extremum(n, get, skip, better) {
           Some(b) => @types.Scalar::Int(b)
           None => @types.Scalar::Null
         }
@@ -164,7 +164,7 @@ fn reduce_extremum(
         // `NaN` is treated as missing (skipped), as in `Series::min`.
         let skip = k => !present(at(k)) || a[at(k)].is_nan()
         let better = (x, y) => if want_min { x < y } else { x > y }
-        match @types.fold_extremum(n, get, skip, better) {
+        match @numeric.fold_extremum(n, get, skip, better) {
           Some(b) => @types.Scalar::Float(b)
           None => @types.Scalar::Null
         }
@@ -175,7 +175,7 @@ fn reduce_extremum(
         let skip = k => !present(at(k))
         // `false < true`: under min `false` beats `true`, under max reverse.
         let better = (x, y) => if want_min { !x && y } else { x && !y }
-        match @types.fold_extremum(n, get, skip, better) {
+        match @numeric.fold_extremum(n, get, skip, better) {
           Some(b) => @types.Scalar::Bool(b)
           None => @types.Scalar::Null
         }
@@ -191,7 +191,7 @@ fn reduce_extremum(
             @text.compare_string_lex(x, y) > 0
           }
         }
-        match @types.fold_extremum(n, get, skip, better) {
+        match @numeric.fold_extremum(n, get, skip, better) {
           Some(b) => @types.Scalar::String(b)
           None => @types.Scalar::Null
         }

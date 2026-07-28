@@ -9,24 +9,24 @@
 
 ///|
 test "col and lit: the free constructors build stable nodes" {
-  assert_eq(col("a"), col("a"))
-  assert_eq(lit(@types.Scalar::Int(7)), lit(@types.Scalar::Int(7)))
+  assert_same_expr(col("a"), col("a"))
+  assert_same_expr(lit(@types.Scalar::Int(7)), lit(@types.Scalar::Int(7)))
 }
 
 ///|
 test "cols: maps names to a column-reference list, preserving order" {
-  assert_eq(cols(["a", "b", "c"]), [col("a"), col("b"), col("c")])
+  assert_same_exprs(cols(["a", "b", "c"]), [col("a"), col("b"), col("c")])
   // The empty list is the empty projection, not an error.
-  assert_eq(cols([]), [])
+  assert_same_exprs(cols([]), [])
 }
 
 ///|
 test "lit: typed shorthands agree with the generic form" {
-  assert_eq(lit_int(7), lit(@types.Scalar::Int(7)))
-  assert_eq(lit_float(0.5), lit(@types.Scalar::Float(0.5)))
-  assert_eq(lit_str("x"), lit(@types.Scalar::String("x")))
-  assert_eq(lit_bool(true), lit(@types.Scalar::Bool(true)))
-  assert_eq(lit(@types.Scalar::Null), lit(@types.Scalar::Null))
+  assert_same_expr(lit_int(7), lit(@types.Scalar::Int(7)))
+  assert_same_expr(lit_float(0.5), lit(@types.Scalar::Float(0.5)))
+  assert_same_expr(lit_str("x"), lit(@types.Scalar::String("x")))
+  assert_same_expr(lit_bool(true), lit(@types.Scalar::Bool(true)))
+  assert_same_expr(lit(@types.Scalar::Null), lit(@types.Scalar::Null))
 }
 
 ///|
@@ -35,9 +35,9 @@ test "logical operators and their method aliases build identical nodes" {
   // `BitAnd` / `BitOr` impl spellings themselves.
   let p = col("p")
   let q = col("q")
-  assert_eq(p.land(q), p & q)
-  assert_eq(p.lor(q), p | q)
-  assert_not_eq(p & q, p | q)
+  assert_same_expr(p.land(q), p & q)
+  assert_same_expr(p.lor(q), p | q)
+  assert_diff_expr(p & q, p | q)
 }
 
 ///|
@@ -47,24 +47,30 @@ test "postfix comparisons bind tighter than logical operators" {
   // two completed comparisons as its operands.
   let left = col("a").gt(lit_int(0))
   let right = col("b").lt(lit_int(5))
-  assert_eq(col("a").gt(lit_int(0)) & col("b").lt(lit_int(5)), left & right)
+  assert_same_expr(
+    col("a").gt(lit_int(0)) & col("b").lt(lit_int(5)),
+    left & right,
+  )
 }
 
 ///|
 test "method chains compose left to right" {
   let summed = col("a").sum()
-  assert_eq(col("a").sum().with_alias("x"), summed.with_alias("x"))
+  assert_same_expr(col("a").sum().with_alias("x"), summed.with_alias("x"))
   // Wrapping order is part of the tree: alias-then-sum is a different
   // expression from sum-then-alias.
-  assert_not_eq(col("a").sum().with_alias("x"), col("a").with_alias("x").sum())
+  assert_diff_expr(
+    col("a").sum().with_alias("x"),
+    col("a").with_alias("x").sum(),
+  )
 }
 
 ///|
 test "operator precedence: multiplicative over additive, unary minus tightest" {
   let prod = col("b") * col("c")
-  assert_eq(col("a") + col("b") * col("c"), col("a") + prod)
+  assert_same_expr(col("a") + col("b") * col("c"), col("a") + prod)
   let negx = -col("x")
-  assert_eq(-col("x") + col("y"), negx + col("y"))
+  assert_same_expr(-col("x") + col("y"), negx + col("y"))
 }
 
 ///|
@@ -72,7 +78,7 @@ test "when/then/otherwise: held builder steps equal the one-shot chain" {
   let cond = col("score").ge(lit_int(60))
   let staged = when(cond)
   let staged2 = staged.then(lit_str("pass"))
-  assert_eq(
+  assert_same_expr(
     staged2.otherwise(lit_str("fail")),
     when(cond).then(lit_str("pass")).otherwise(lit_str("fail")),
   )
@@ -83,12 +89,12 @@ test "map_elements builds the single-input map_many node" {
   // `map_elements(self, label, f)` is `map_many(label, [self], _)`; the
   // closures differ (one adapts a single cell), but they are opaque to
   // `Eq`, so the construction routes compare equal on `(label, inputs)`.
-  assert_eq(
+  assert_same_expr(
     col("x").map_elements(label="m", fn(s) { s }),
     map_many(label="m", [col("x")], fn(vs) { vs[0] }),
   )
   // `inputs` order is preserved, like every other multi-operand node.
-  assert_not_eq(
+  assert_diff_expr(
     map_many(label="m", [col("a"), col("b")], fn(vs) { vs[0] }),
     map_many(label="m", [col("b"), col("a")], fn(vs) { vs[0] }),
   )
@@ -101,7 +107,7 @@ test "map_many copies its inputs array" {
   let ins = [col("a")]
   let e = map_many(label="m", ins, fn(vs) { vs[0] })
   ins.push(col("b"))
-  assert_eq(e, map_many(label="m", [col("a")], fn(vs) { vs[0] }))
+  assert_same_expr(e, map_many(label="m", [col("a")], fn(vs) { vs[0] }))
 }
 
 ///|
@@ -153,8 +159,8 @@ test "a chained coalesce builds a linear tree" {
   for i in 1..<=24 {
     e2 = e2.fill_null(col("f\{i}"))
   }
-  assert_eq(e, e2)
-  assert_not_eq(e, e2.fill_null(lit_int(0)))
+  assert_same_expr(e, e2)
+  assert_diff_expr(e, e2.fill_null(lit_int(0)))
 }
 
 ///|
@@ -166,6 +172,6 @@ test "when/then/otherwise: the conditional is an ordinary expression" {
     .then(lit_int(1))
     .otherwise(lit_int(0))
   let aliased = grade.with_alias("g")
-  assert_eq(aliased, grade.with_alias("g"))
-  assert_not_eq(grade + col("bonus"), col("bonus") + grade)
+  assert_same_expr(aliased, grade.with_alias("g"))
+  assert_diff_expr(grade + col("bonus"), col("bonus") + grade)
 }

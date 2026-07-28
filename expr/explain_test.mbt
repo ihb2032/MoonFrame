@@ -316,26 +316,28 @@ test "children: each variant exposes its immediate sub-expressions, left to righ
   let a = col("a")
   let b = col("b")
   // Leaves have no children.
-  assert_eq(col("x").children(), [])
-  assert_eq(lit_int(1).children(), [])
+  assert_same_exprs(col("x").children(), [])
+  assert_same_exprs(lit_int(1).children(), [])
   // A binary lists both operands, left to right.
-  assert_eq((a + b).children(), [a, b])
+  assert_same_exprs((a + b).children(), [a, b])
   // The single-child wrappers expose their one operand.
-  assert_eq((-a).children(), [a])
-  assert_eq(a.is_null().children(), [a])
-  assert_eq(a.sum().children(), [a])
-  assert_eq(a.cast(@types.DataType::Float).children(), [a])
-  assert_eq(a.with_alias("x").children(), [a])
+  assert_same_exprs((-a).children(), [a])
+  assert_same_exprs(a.is_null().children(), [a])
+  assert_same_exprs(a.sum().children(), [a])
+  assert_same_exprs(a.cast(@types.DataType::Float).children(), [a])
+  assert_same_exprs(a.with_alias("x").children(), [a])
   // A ternary lists all three arms, condition first.
   let cond = a.gt(lit_int(0))
-  assert_eq(when(cond).then(a).otherwise(b).children(), [cond, a, b])
+  assert_same_exprs(when(cond).then(a).otherwise(b).children(), [cond, a, b])
   // `is_in` exposes only its operand — the set is literal data, not children.
-  assert_eq(a.is_in([@types.Scalar::Int(1)]).children(), [a])
+  assert_same_exprs(a.is_in([@types.Scalar::Int(1)]).children(), [a])
   // `is_between` lists its operand and both bounds.
-  assert_eq(a.is_between(lit_int(0), b).children(), [a, lit_int(0), b])
+  assert_same_exprs(a.is_between(lit_int(0), b).children(), [a, lit_int(0), b])
   // A map lists its input expressions (none for an empty input list).
-  assert_eq(map_many(label="m", [a, b], fn(vs) { vs[0] }).children(), [a, b])
-  assert_eq(
+  assert_same_exprs(map_many(label="m", [a, b], fn(vs) { vs[0] }).children(), [
+    a, b,
+  ])
+  assert_same_exprs(
     map_many(label="m", [], fn(_vs) { @types.Scalar::Null }).children(),
     [],
   )
@@ -348,7 +350,7 @@ test "children: a map's returned array never aliases the node's inputs" {
   let m = map_many(label="m", [col("a")], fn(vs) { vs[0] })
   let kids = m.children()
   kids.push(col("injected"))
-  assert_eq(m.children(), [col("a")])
+  assert_same_exprs(m.children(), [col("a")])
 }
 
 ///|
@@ -409,7 +411,7 @@ test "lit_series: a leaf with no child expressions and no column references" {
   let s = Series::from_ints("v", [1, 2, 3])
   // It carries materialised data, not sub-expressions, and reads no frame
   // column — so the optimizer's pruning keeps nothing alive for it.
-  assert_eq(lit_series(s).children(), [])
+  assert_same_exprs(lit_series(s).children(), [])
   assert_eq(lit_series(s).referenced_columns().to_array(), [])
 }
 

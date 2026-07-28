@@ -180,6 +180,24 @@ differs:
 | `match expr { @expr.Col(name) => … }` | `expr.to_string()` (no variant match) |
 | `@expr.ClosedInterval::Both` | `@types.ClosedInterval::Both` |
 
+### `Expr` and `JoinOptions` no longer compare with `==`
+
+Expression equality compared the internal tree, which made *how an operator
+lowers* observable: a release that normalised a tree or merged two node kinds
+would have changed what compared equal, without changing what any expression
+means. The impl is removed rather than promised. `JoinOptions` holds
+expressions as its key lists, so its derived equality goes too.
+
+Compare renderings, which is what `explain()` prints and what stays stable:
+
+| v0.5 | v0.6 |
+| --- | --- |
+| `assert_eq(built, col("a") + lit_int(1))` | `assert_eq(built.to_string(), (col("a") + lit_int(1)).to_string())` |
+| `opts_a == opts_b` | compare `how` / `suffix` / `coalesce` and the rendered `on_keys()` / `left_keys()` / `right_keys()` |
+
+Rendering does not distinguish what it does not print: a `lit_series` shows as
+its name and length, so two literal series over different cells render alike.
+
 ### `unique` takes a subset, and is now fallible
 
 `DataFrame::unique` gained Polars' `subset` — the columns whose values form the

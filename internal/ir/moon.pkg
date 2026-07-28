@@ -4,3 +4,7 @@ import {
   "moonbitlang/core/debug",
   "moonbitlang/core/set",
 }
+
+import {
+  "moonbitlang/core/test",
+} for "test"

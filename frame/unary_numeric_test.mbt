@@ -219,7 +219,7 @@ test "round takes a decimal-place count" {
   // An Int column is the identity at any setting.
   assert_eq(rounded.item(0, "int"), @types.Scalar::Int(7))
   // A negative count clamps to 0 rather than raising.
-  assert_eq(@expr.col("f").round(decimals=-3), @expr.col("f").round())
+  assert_same_expr(@expr.col("f").round(decimals=-3), @expr.col("f").round())
   // A non-default count renders as the argument that builds it.
   inspect(@expr.col("f").round(decimals=2), content="col(f).round(decimals=2)")
 }

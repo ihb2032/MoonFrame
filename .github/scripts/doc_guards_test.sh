@@ -1163,6 +1163,27 @@ pub fn read(c : BuiltinColumn, s : Spare) -> Int {
 expect 0 'internal surface: a type another package names is used' \
   sh "$scripts/check_internal_surface.sh" "$work/is_type_used"
 
+# A name in a trailing comment or inside a string is not a use. Both kept a
+# type alive that nothing called, which is the wrong direction for an audit
+# whose job is finding the unused.
+mksurface "$work/is_type_comment" "$is_type_source" '' '///|
+pub fn read(c : BuiltinColumn) -> Int {
+  ignore(c.len()) // a Spare would go here one day
+  0
+}'
+expect_out 1 'internal/column/Spare' \
+  'internal surface: a type named only in a trailing comment' \
+  sh "$scripts/check_internal_surface.sh" "$work/is_type_comment"
+
+mksurface "$work/is_type_string" "$is_type_source" '' '///|
+pub fn read(c : BuiltinColumn) -> String {
+  ignore(c.len())
+  "Spare"
+}'
+expect_out 1 'internal/column/Spare' \
+  'internal surface: a type named only inside a string' \
+  sh "$scripts/check_internal_surface.sh" "$work/is_type_string"
+
 # The limit of matching a method by short name, pinned rather than described:
 # two types carry a `len`, only one is called from outside, and the audit
 # credits both. A clean run means "nothing is obviously unreachable", not
@@ -1178,6 +1199,36 @@ pub fn Bitmap::len(self : Bitmap) -> Int {
 }'
 expect 0 'internal surface: a same-named method on another type still counts (known limit)' \
   sh "$scripts/check_internal_surface.sh" "$work/is_same_name"
+
+# …and says so. Passing quietly and being checked should not look the same, so
+# a credit that rests on a shared short name is listed as what it is.
+expect_out 0 'credited by a shared method name' \
+  'internal surface: an ambiguous credit is reported, not implied' \
+  sh "$scripts/check_internal_surface.sh" "$work/is_same_name"
+
+# A caller that names the owner is exact, so it is not listed as ambiguous
+# even when the short name is shared.
+mksurface "$work/is_qualified" '///|
+pub fn BuiltinColumn::len(self : BuiltinColumn) -> Int {
+  ignore(self)
+}
+
+///|
+pub fn Bitmap::len(self : Bitmap) -> Int {
+  ignore(self)
+}' '' '///|
+pub fn read(c : BuiltinColumn, b : Bitmap) -> Int {
+  ignore(BuiltinColumn::len(c))
+  ignore(Bitmap::len(b))
+  0
+}'
+got_out=$(sh "$scripts/check_internal_surface.sh" "$work/is_qualified" 2>&1 || true)
+cases=$((cases + 1))
+if printf '%s' "$got_out" | grep -q 'credited by a shared method name'; then
+  printf 'FAIL internal surface: an owner-qualified call is not ambiguous\n'
+  printf '%s\n' "$got_out" | sed 's/^/     /'
+  exit 1
+fi
 
 # ── the repository itself ─────────────────────────────────────────────────
 expect 0 'repo: version identity' sh "$scripts/check_version_identity.sh" "$root"

@@ -219,8 +219,12 @@ newcomers:
 
 ## Contributing
 
-The codebase is a small, layered stack of packages; each has its own sources,
-blackbox `*_test.mbt` tests, and a `pkg.generated.mbti` interface snapshot:
+The codebase is a small, layered stack of packages; each has its own sources, a
+`pkg.generated.mbti` interface snapshot, and tests. A public package is tested
+from outside, through `*_test.mbt`, because that is how a caller reaches it; an
+`internal/` package is tested from within, through `*_wbtest.mbt`, so that
+asserting its representation does not require making that representation
+public:
 
 ```
 types/      value types, errors (DataError), schemas

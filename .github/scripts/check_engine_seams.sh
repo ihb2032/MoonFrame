@@ -300,8 +300,10 @@ fi
 # rule and not a comment: in any package that receives a buffer this way, a
 # name bound out of a `ColumnData` pattern — or a `let b = a` alias of one, or
 # a typed `*_values()` destructuring — may neither be assigned into nor have a
-# mutating `Array` method called on it. `series` and `internal/column` are
-# exempt: they own the column and build the arrays.
+# mutating `Array` method called on it. Only `internal/column` is exempt: it
+# builds the arrays in the first place. `series` used to be exempt too, on the
+# grounds that it owns the column; it does not own the buffers, and it passes
+# the rule without the exemption, so it no longer has one.
 #
 # What it cannot see, stated plainly because the alternative is trusting it too
 # far: an alias of an alias, a buffer passed to a function that mutates its
@@ -312,25 +314,30 @@ fi
 # change, and it is the honest fix.
 mutations=$(printf '%s\n' "$production_files" | while IFS= read -r f; do
   case "$f" in
-    internal/column/* | series/* | "") continue ;;
+    internal/column/* | "") continue ;;
   esac
   [ -f "$f" ] || continue
   awk -v file="$f" '
     { line[NR] = $0 }
-    # `... ColumnData::Int(a) ...` and `let (a, v) = c.int_values()` both bind
-    # a name to a buffer the column still owns.
+    # Both enums the storage layer hands out bind a name to a buffer the column
+    # still owns: `ColumnData` from `data()`, and `NumericData` from
+    # `numeric_data()` — the fast path'"'"'s own reader, which the rule missed
+    # while its comment claimed the buffers were covered.
     {
-      s = $0
-      while ((i = index(s, "ColumnData::")) > 0) {
-        s = substr(s, i + 12)
-        p = index(s, "(")
-        if (p == 0) break
-        after = substr(s, p + 1)
-        q = index(after, ")")
-        if (q == 0) break
-        name = substr(after, 1, q - 1)
-        if (name ~ /^[A-Za-z_][A-Za-z0-9_]*$/) live[name] = 1
-        s = after
+      ne = split("ColumnData:: NumericData::", enums, " ")
+      for (e = 1; e <= ne; e++) {
+        s = $0
+        while ((i = index(s, enums[e])) > 0) {
+          s = substr(s, i + length(enums[e]))
+          p = index(s, "(")
+          if (p == 0) break
+          after = substr(s, p + 1)
+          q = index(after, ")")
+          if (q == 0) break
+          name = substr(after, 1, q - 1)
+          if (name ~ /^[A-Za-z_][A-Za-z0-9_]*$/) live[name] = 1
+          s = after
+        }
       }
     }
     /_values\(\)/ && /^[[:space:]]*let[[:space:]]*\(/ {

@@ -3,12 +3,18 @@
 /// engine behind `DataFrame::with_columns` (and every other expression
 /// consumer: `select` / `filter` / `agg`).
 ///
-/// This lives in `frame`, not `expr`: evaluation reads `Series` internals
-/// (raw `data()` buffers plus validity bitmaps), and that capability —
-/// like every DataFrame / Series method — is pinned to this package by
-/// method coherence. The public `@expr.Expr` is an opaque handle; the AST it
-/// wraps is `@ir.ExprNode`, in the module-internal `internal/ir` package. This
-/// file enters through the `Expr::node()` seam and matches `@ir.ExprNode`
+/// This lives in `frame`, not `expr`, because evaluation is a DataFrame
+/// question: what a column name resolves to, what shape a result must have,
+/// which error surfaces first, and how a scope narrows the rows. The reading
+/// and the arithmetic sit below it — `series` owns a column's cells and
+/// `internal/kernel` the vectorized pass over them, and this package reaches
+/// both through helpers that hand back a `Series`, a scalar, or a fresh
+/// array. It holds no column buffer of its own; the layering guard refuses
+/// the import that would let it.
+///
+/// The public `@expr.Expr` is an opaque handle; the AST it wraps is
+/// `@ir.ExprNode`, in the module-internal `internal/ir` package. This file
+/// enters through the `Expr::node()` seam and matches `@ir.ExprNode`
 /// directly — the tree walk is over the AST node, not the handle, and a
 /// downstream module can reach neither.
 ///

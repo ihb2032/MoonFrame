@@ -1120,6 +1120,37 @@ pub(all) enum Spare {
   Two
 }'
 
+# A type's own methods and impls name it by construction, so accepting any
+# mention of it in the package's interface let a type prove its own necessity:
+# `pub fn Spare::equal` says Spare must be public because Spare's method needs
+# it. Only another declaration carrying the type is evidence.
+is_circular_source='///|
+pub fn BuiltinColumn::len(self : BuiltinColumn) -> Int {
+  ignore(self)
+}
+
+///|
+pub(all) enum Spare {
+  A
+} derive(Eq)'
+
+mksurface "$work/is_circular" "$is_circular_source"
+printf 'package "ihb2032/MoonFrame/internal/column"\n\n// Types and methods\npub(all) enum Spare {\n  A\n} derive(Eq)\npub fn Spare::equal(Self, Self) -> Bool\npub fn Spare::not_equal(Self, Self) -> Bool\npub impl Eq for Spare\npub fn BuiltinColumn::len(Self) -> Int\n' \
+  >"$work/is_circular/internal/column/pkg.generated.mbti"
+(cd "$work/is_circular" && git add -A && git commit -qm circular)
+expect_out 1 'internal/column/Spare' \
+  'internal surface: a type carried only by its own methods is not justified' \
+  sh "$scripts/check_internal_surface.sh" "$work/is_circular"
+
+# Carried by another declaration — that is what forces `pub`, since a public
+# definition cannot depend on a private type.
+mksurface "$work/is_carried" "$is_circular_source"
+printf 'package "ihb2032/MoonFrame/internal/column"\n\n// Types and methods\npub(all) enum Spare {\n  A\n} derive(Eq)\npub fn Spare::equal(Self, Self) -> Bool\npub impl Eq for Spare\npub fn BuiltinColumn::len(Self) -> Int\npub fn BuiltinColumn::spare(Self) -> Spare\n' \
+  >"$work/is_carried/internal/column/pkg.generated.mbti"
+(cd "$work/is_carried" && git add -A && git commit -qm carried)
+expect 0 'internal surface: a type another declaration carries is justified' \
+  sh "$scripts/check_internal_surface.sh" "$work/is_carried"
+
 mksurface "$work/is_type" "$is_type_source"
 expect_out 1 'internal/column/Spare' \
   'internal surface: a public type nobody outside names' \

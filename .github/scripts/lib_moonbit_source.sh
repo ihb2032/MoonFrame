@@ -28,47 +28,68 @@
 # every `\{…}` is kept, because a call written there is a call: missing it
 # would report a symbol as unused, and keeping the surrounding prose would
 # report prose as a use. A `#|` line is dropped whole — nothing in it runs.
+# The scan is a mode stack, not a counter, because the shapes nest: an
+# interpolation holds code, that code may hold another string, and that string
+# may interpolate again. A counter that merely balances braces ends the
+# interpolation at the first `}` it meets — including one inside a `'}'` char
+# literal — and everything after it changes meaning: the rest of the string
+# reads as code, or real code reads as string. Both directions are wrong for an
+# audit whose answer is "is this symbol used".
+#
+#   CODE   `"` → STR   `'` → CHAR   `//` → rest of line is a comment
+#   STR    `\{` → INTERP   `"` → pop   (contents dropped)
+#   CHAR   `'` → pop                    (contents dropped)
+#   INTERP `"` → STR   `'` → CHAR   `}` at depth 1 → pop   (contents kept)
 strip_noncode() {
   awk '
     {
       line = $0
       # A raw segment is text to the end of the line, whatever it contains.
       if (line ~ /^[ \t]*#\|/) { print ""; next }
+      sp = 0
+      mode[0] = "code"
       # An interpolated segment is text too, but `\{…}` inside it is code.
       if (line ~ /^[ \t]*\$\|/) {
         sub(/^[ \t]*\$\|/, "", line)
-        instr = 1
-      } else {
-        instr = 0
+        sp = 1
+        mode[1] = "str"
       }
       out = ""
       esc = 0
-      ininterp = 0
-      depth = 0
       n = length(line)
       for (i = 1; i <= n; i++) {
         c = substr(line, i, 1)
-        if (ininterp) {
-          if (c == "{") depth++
+        m = mode[sp]
+        if (esc) {
+          esc = 0
+          # `\{` inside a string opens an interpolation; every other escape is
+          # one more character of text (or of a char literal).
+          if (c == "{" && m == "str") {
+            sp++
+            mode[sp] = "interp"
+            dep[sp] = 1
+            out = out " "
+          }
+          continue
+        }
+        if (m == "str" || m == "char") {
+          if (c == "\\") { esc = 1; continue }
+          if (m == "str" && c == "\"") { sp--; out = out "\"" ; continue }
+          if (m == "char" && c == "\x27") { sp--; continue }
+          continue
+        }
+        # code or interp: both are code, and both can open a literal.
+        if (c == "\"") { sp++; mode[sp] = "str"; out = out "\""; continue }
+        if (c == "\x27") { sp++; mode[sp] = "char"; continue }
+        if (m == "interp") {
+          if (c == "{") { dep[sp]++ }
           else if (c == "}") {
-            depth--
-            if (depth == 0) { ininterp = 0; out = out " "; continue }
+            if (dep[sp] == 1) { sp--; out = out " "; continue }
+            dep[sp]--
           }
           out = out c
           continue
         }
-        if (instr) {
-          if (esc) {
-            esc = 0
-            # `\{` opens an interpolation; every other escape is just text.
-            if (c == "{") { ininterp = 1; depth = 1; out = out " " }
-            continue
-          }
-          if (c == "\\") { esc = 1; continue }
-          if (c == "\"") { instr = 0; out = out "\"" }
-          continue
-        }
-        if (c == "\"") { instr = 1; out = out "\""; continue }
         if (c == "/" && i < n && substr(line, i + 1, 1) == "/") break
         out = out c
       }

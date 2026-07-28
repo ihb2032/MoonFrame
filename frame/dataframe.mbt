@@ -5,8 +5,10 @@
 ///
 /// The fields are `priv` (private to this package), so a frame can only ever
 /// be *built* through the constructors below — which rebuild the cache and the
-/// schema in lock-step with the column vector — and *read* through the
-/// copy-returning accessors (`columns()` / `column_series()` / `schema()`).
+/// schema in lock-step with the column vector — and *read* through accessors
+/// that hand out nothing the caller can write back through: `columns()` and
+/// `column_series()` build a fresh array each call, and `schema()` returns a
+/// `Schema`, whose own fields are private behind a copying reader.
 /// External code cannot reach the live `columns` / `name_to_index` containers,
 /// so it cannot mutate a validated frame into an inconsistent state.
 ///

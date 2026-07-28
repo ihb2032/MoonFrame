@@ -60,7 +60,7 @@ below counts expressions, not nodes.
 | `select` / `with_columns` | `O(n)` per expression | `O(n)` per output column | vectorized, whole-column |
 | `sort` | `O(n log n)` comparisons over the key columns | `O(n · c)` | stable, multi-key; each key is evaluated once into a column |
 | `group_by(keys).agg(aggs)` | `O(n · keys)` to build the composite key cells, then `O(n)` per aggregate | `O(g · (keys + aggs))` | `g` = groups; each reduction folds a group over its own indices |
-| `join` | `O(n + m)` hash build + probe on the key columns | `O(r · c)` | `r` = output rows, which for a many-to-many match exceeds both inputs |
+| `join` | `O(e)` to evaluate the `k` key expressions on each side, then `O((n + m) · k)` to build and probe the composite keys | `O(r · c)` | `r` = matched rows, which for a many-to-many match exceeds both inputs; the probe also builds a row plan of length `r` before any column is touched |
 | `unique` | `O(n · c)` to build a row key from every column (`O(n · s)` for a `subset` of `s`) | `O(k · c)` | hash on the composite row key |
 | `sum` / `mean` / `min` / `max` | `O(n)` per column | `O(c)` | single pass; `Numeric` skips validity |
 | `count` | `O(1)` on `Numeric`, `O(n)` bits on `Builtin` | `O(c)` | non-null count: a `Numeric` column has none, a `Builtin` one scans its packed bitmap (`n / 8` bytes) |
@@ -69,8 +69,8 @@ below counts expressions, not nodes.
 
 ## Lazy execution
 
-`collect()` runs two result-preserving rewrites before executing, and a plan
-that succeeds produces what the eager pipeline produces — same schema, same
+`collect()` runs two rewrites before executing, and a plan that succeeds
+produces what the eager pipeline produces — same schema, same
 cells, which is what `DataFrame`'s `Eq` compares and what the differential
 suite asserts. Not a claim about physical layout: the backend a column lands
 on is an internal representation, and two equal frames may hold their cells

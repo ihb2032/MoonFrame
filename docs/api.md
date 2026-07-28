@@ -312,7 +312,10 @@ and there are none.
 
 ## Query optimizer
 
-`collect` runs two total, result-preserving rewrites before executing:
+`collect` runs two total rewrites before executing. They preserve the cells a
+successful plan produces; what they can change is whether an error in data the
+optimized plan never reads is seen at all — see the file-source exception
+below:
 
 - **Predicate pushdown** sinks each `filter` toward the scan so rows drop as
   early as possible — below a selection when its expressions are row-local (no

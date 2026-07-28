@@ -298,11 +298,18 @@ fi
 # the column it came from and every column sharing the buffer — with no import,
 # no signature, and no snapshot changing to show it. Read-only is therefore a
 # rule and not a comment: in any package that receives a buffer this way, a
-# name bound out of a `ColumnData` pattern may not be assigned into. A typed
-# `*_values()` reader is covered too, though none exists today — the family
-# that did was deleted for having no production caller, and the check is
-# cheaper to keep than to re-derive if one comes back. `series` and
-# `internal/column` are exempt: they own the column and build the arrays.
+# name bound out of a `ColumnData` pattern — or a `let b = a` alias of one, or
+# a typed `*_values()` destructuring — may neither be assigned into nor have a
+# mutating `Array` method called on it. `series` and `internal/column` are
+# exempt: they own the column and build the arrays.
+#
+# What it cannot see, stated plainly because the alternative is trusting it too
+# far: an alias of an alias, a buffer passed to a function that mutates its
+# parameter, and any mutation reached through a closure. A lexical rule catches
+# the shapes someone writes by hand and none of the ones they could hide. The
+# arrangement that would need no rule at all is a seam that hands over a
+# read-only view instead of the array — that is an API change, not a guard
+# change, and it is the honest fix.
 mutations=$(printf '%s\n' "$production_files" | while IFS= read -r f; do
   case "$f" in
     internal/column/* | series/* | "") continue ;;
@@ -336,7 +343,27 @@ mutations=$(printf '%s\n' "$production_files" | while IFS= read -r f; do
         if (parts[k] ~ /^[A-Za-z_][A-Za-z0-9_]*$/) live[parts[k]] = 1
       }
     }
+    # `let b = a` hands the same buffer a second name, and everything below
+    # applies to it too. One hop, not a closure: an alias of an alias, or one
+    # that travels through a function parameter, is past what reading lines can
+    # follow — see the note above the rule.
+    {
+      s = $0
+      if (match(s, /^[[:space:]]*let[[:space:]]+[A-Za-z_][A-Za-z0-9_]*[[:space:]]*=[[:space:]]*[A-Za-z_][A-Za-z0-9_]*[[:space:]]*$/)) {
+        lhs = s
+        sub(/^[[:space:]]*let[[:space:]]+/, "", lhs)
+        rhs = lhs
+        sub(/[[:space:]]*=.*/, "", lhs)
+        sub(/^[^=]*=[[:space:]]*/, "", rhs)
+        sub(/[[:space:]]*$/, "", rhs)
+        if (rhs in live) live[lhs] = 1
+      }
+    }
     END {
+      # The shapes that write through a name: an indexed assignment, and the
+      # `Array` methods that mutate in place.
+      mutators = "push pop unsafe_pop clear resize retain remove insert swap sort sort_by reverse fill shuffle append push_iter map_inplace"
+      nm = split(mutators, mut, " ")
       for (n = 1; n <= NR; n++) {
         l = line[n]
         if (l ~ /^[[:space:]]*\/\//) continue
@@ -344,6 +371,13 @@ mutations=$(printf '%s\n' "$production_files" | while IFS= read -r f; do
           if (l ~ ("(^|[^A-Za-z0-9_.])" name "\\[[^]]*\\][[:space:]]*=[^=]")) {
             printf "%s:%d: writes into `%s`, a buffer the column owns\n", \
               file, n, name
+            continue
+          }
+          for (k = 1; k <= nm; k++) {
+            if (l ~ ("(^|[^A-Za-z0-9_.])" name "\\." mut[k] "\\(")) {
+              printf "%s:%d: `%s.%s(` mutates a buffer the column owns\n", \
+                file, n, name, mut[k]
+            }
           }
         }
       }

@@ -908,6 +908,25 @@ printf '///|\npub fn consume(c : Series) -> Int {\n  let out : Array[Int64] = [0
 expect 0 'engine seams: writing into a locally built array is fine' \
   sh "$scripts/check_engine_seams.sh" "$work/es_own_array"
 
+# An index assignment is the obvious way to write through the name and not the
+# only one: `push` grows the column's own array just as destructively.
+mkseams "$work/es_mutating_method" "$es_source" "$es_snap"
+printf '///|\npub fn consume(c : Series) -> Int {\n  match c.storage().data() {\n    ColumnData::Int(a) => a.push(1L)\n    _ => ()\n  }\n  ignore(validity_bools(c))\n  ignore(reducer_for(c, ReduceOp::Sum))\n  ignore(after_the_value(c))\n  ignore(bool_cells(c))\n  0\n}\n' \
+  >"$work/es_mutating_method/io/io.mbt"
+(cd "$work/es_mutating_method" && git add -A && git commit -qm pushcase)
+expect_out 1 'mutates a buffer the column owns' \
+  'engine seams: a mutating method on a column buffer' \
+  sh "$scripts/check_engine_seams.sh" "$work/es_mutating_method"
+
+# And giving the buffer a second name does not make it a different buffer.
+mkseams "$work/es_alias" "$es_source" "$es_snap"
+printf '///|\npub fn consume(c : Series) -> Int {\n  match c.storage().data() {\n    ColumnData::Int(a) => {\n      let alias = a\n      alias[0] = 1L\n    }\n    _ => ()\n  }\n  ignore(validity_bools(c))\n  ignore(reducer_for(c, ReduceOp::Sum))\n  ignore(after_the_value(c))\n  ignore(bool_cells(c))\n  0\n}\n' \
+  >"$work/es_alias/io/io.mbt"
+(cd "$work/es_alias" && git add -A && git commit -qm aliascase)
+expect_out 1 'writes into a live column buffer' \
+  'engine seams: a one-hop alias of a column buffer' \
+  sh "$scripts/check_engine_seams.sh" "$work/es_alias"
+
 # The limit, pinned rather than described. Two types can carry the same method
 # name, and a receiver call cannot say which one it reached: here `io` calls
 # `something.reducer_for(` on its own type, and the seam of that name is

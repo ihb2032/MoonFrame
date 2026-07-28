@@ -57,7 +57,14 @@ set -eu
 # count a name inside a string or a comment as one.
 . "$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)/lib_moonbit_source.sh"
 
-root="${1:-.}"
+root="."
+write=0
+for arg in "$@"; do
+  case "$arg" in
+    --write) write=1 ;;
+    *) root="$arg" ;;
+  esac
+done
 cd "$root"
 
 allowlist=".github/scripts/internal_surface.allowlist"
@@ -380,14 +387,41 @@ if [ -n "$fields" ]; then
   exit 1
 fi
 
+# The symbols whose only evidence is a shared name pass — the audit has nothing
+# against them — but the *set* is pinned, so growing it is a decision someone
+# made rather than a line in a passing run nobody read. That is the difference
+# between "we know this is fine" and "we cannot tell", which a green check
+# otherwise flattens into one thing.
+ambiguous_snapshot=".github/scripts/internal_surface.ambiguous"
+ambiguous_now=$(printf '%s' "$ambiguous" | sed 's/ (.*//' | LC_ALL=C sort -u)
+if [ "$write" -eq 1 ]; then
+  printf '%s\n' "$ambiguous_now" >"$ambiguous_snapshot"
+  printf 'internal surface: wrote %s (%s entries)\n' "$ambiguous_snapshot" \
+    "$(printf '%s' "$ambiguous_now" | grep -c . || true)"
+  exit 0
+fi
+if [ -f "$ambiguous_snapshot" ]; then
+  if ! amb_diff=$(printf '%s\n' "$ambiguous_now" |
+    diff -u "$ambiguous_snapshot" - 2>&1); then
+    printf 'internal surface: the set credited by name only changed:\n'
+    printf '%s\n' "$amb_diff" | sed 's/^/  /'
+    printf '  A symbol here has no evidence but a receiver call on a shared\n'
+    printf '  method name, or a bare free-function token — the audit cannot say\n'
+    printf '  which type or which binding was meant. One appearing is worth a\n'
+    printf '  look: an owner-qualified call (`Bitmap::len(b)`) settles it, and\n'
+    printf '  so does making the symbol private and seeing what breaks. If it\n'
+    printf '  is genuinely unsettleable, regenerate:\n'
+    printf '    sh .github/scripts/check_internal_surface.sh --write\n'
+    exit 1
+  fi
+elif [ -n "$ambiguous_now" ]; then
+  printf 'internal surface: %s is missing — run with --write to create it\n' \
+    "$ambiguous_snapshot"
+  exit 1
+fi
 if [ -n "$ambiguous" ]; then
-  printf 'internal surface: credited by a shared method name, not by an owner:\n'
+  printf 'internal surface: credited by a shared name, not by an owner:\n'
   printf '%s' "$ambiguous" | sed 's/^/  /'
-  printf '  These pass. The evidence is a receiver call — `.len(`, `.get(` — and\n'
-  printf '  more than one type in the module carries that name, so it does not\n'
-  printf '  say which one was called. Read them as unchecked rather than\n'
-  printf '  checked: to settle one, look for a real caller or make it private\n'
-  printf '  and see whether anything breaks.\n'
 fi
 
 # "Audited", not "reachable": the total counts every symbol the run looked at,

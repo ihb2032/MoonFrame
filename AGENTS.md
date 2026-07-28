@@ -182,9 +182,12 @@ sh .github/scripts/check_internal_surface.sh
   `.github/scripts/internal_surface.allowlist`. Fields never appear in an
   internal interface: a field publishes the layout where the methods beside it
   publish what a consumer needs. Callers are matched by spelling, so evidence
-  that rests on a shared method name (`.len(`) or a bare free-function token is
-  reported as such and counted separately — **a clean run means nothing is
-  provably unused, not that everything left is needed**.
+  that rests on a shared method name (`.len(`) or a bare free-function token
+  cannot say which symbol was meant; those pass, but the *set* of them is
+  pinned in `.github/scripts/internal_surface.ambiguous`, so one more falling
+  into "cannot tell" is a diff to approve rather than a line in a passing run
+  (`sh .github/scripts/check_internal_surface.sh --write`). **A clean run means
+  nothing is provably unused, not that everything left is needed.**
 
 One more pass, `review_absolute_wording.sh`, annotates absolute claims ("all",
 "every", "never", "total") in prose a PR adds. It never fails the build — it

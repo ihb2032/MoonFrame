@@ -283,18 +283,27 @@ done); do
     sed 's/[ (\[{].*//' | LC_ALL=C sort -u)
   for ty in $types; do
     checked=$((checked + 1))
-    # A type named in this package's own public interface — returned by a
-    # `pub fn`, carried by a public field, nested in another public type —
-    # has to be `pub`, whether or not any caller ever writes its name:
-    # MoonBit refuses a public definition that depends on a private type. So
-    # `Bitmap` stays public because `validity()` hands one back, while nothing
-    # outside this package mentions it. Reading the generated interface rather
-    # than the sources is what makes the signatures one line each.
+    # A type carried by *another* declaration in this package's own public
+    # interface — returned by some other `pub fn`, held in a public field,
+    # nested in another public type — has to be `pub` whether or not any caller
+    # writes its name: MoonBit refuses a public definition that depends on a
+    # private type. `Bitmap` is that case: `ColumnStorage::validity` hands one
+    # back, and nothing outside this package names it.
+    #
+    # "Another declaration" is the whole point, and the first version of this
+    # missed it. A type's own methods and impls mention the type by
+    # construction — `StorageKind::equal`, `pub impl Eq for ColumnStorage`,
+    # every `derive` — so accepting any mention let a type prove its own
+    # necessity: it needs to be public because its methods need it to be. Those
+    # lines are dropped here, which leaves only evidence from something else.
     mbti="$pkg/pkg.generated.mbti"
     in_own_surface=""
     if [ -f "$mbti" ]; then
       in_own_surface=$(grep -E "(^|[^A-Za-z0-9_])$ty([^A-Za-z0-9_]|\$)" "$mbti" |
         grep -vE "^pub(\(all\))? (struct|enum|type|suberror) $ty([^A-Za-z0-9_]|\$)" |
+        grep -vE "^pub fn(\[[^]]*\])? $ty::" |
+        grep -vE "^pub impl( \[[^]]*\])? .* for $ty([^A-Za-z0-9_]|\$)" |
+        grep -vE "^pub extend $ty with " |
         head -1 || true)
     fi
     if [ -z "$in_own_surface" ] && ! has_outside_mention "$pkg" "$ty"; then
@@ -312,9 +321,13 @@ stale=$(printf '%s\n' "$allowed" | while IFS= read -r entry; do
   key=${entry%% — *}
   pkg=$(printf '%s' "$key" | sed 's|/[^/]*$||')
   sym=${key##*/}
-  if ! grep -qE "^pub fn(\[[^]]*\])? $sym\(" $(printf '%s\n' "$production_files" |
-    grep "^$pkg/[^/]*\$" | tr '\n' ' ') 2>/dev/null; then
-    printf '%s (no such `pub fn`)\n' "$key"
+  # A listed symbol may be either half of what this audits — a function or a
+  # type — so both spellings count as "still there". Checking only for a
+  # `pub fn` would report a type exception as a symbol that no longer exists.
+  if ! grep -qE "^pub fn(\[[^]]*\])? $sym\(|^pub(\(all\))? (struct|enum|type|suberror) $sym([^A-Za-z0-9_]|\$)" \
+    $(printf '%s\n' "$production_files" |
+      grep "^$pkg/[^/]*\$" | tr '\n' ' ') 2>/dev/null; then
+    printf '%s (no such `pub fn` or public type)\n' "$key"
   elif has_outside_caller "$pkg" "$sym"; then
     printf '%s (has a caller now)\n' "$key"
   fi

@@ -146,9 +146,9 @@ priv enum FillKind {
 /// scope index is in `[0, nrows)` (the public consumers build it from
 /// `nrows` themselves). Errors — unknown column, dtype mismatch, the
 /// unrepresentable `Null` literal — surface here; building the tree was
-/// total. The dispatch is a closed `match` over the `Expr` variants (each
-/// kernel a closed dtype `match` in turn) with no wildcard, so a future
-/// `Expr` variant fails compilation here rather than silently falling
+/// total. The dispatch is a closed `match` over the `@ir.ExprNode` variants
+/// (each kernel a closed dtype `match` in turn) with no wildcard, so a future
+/// node fails compilation here rather than silently falling
 /// through. The walk is iterative — an explicit work + value stack, not the
 /// call stack — so an arbitrarily deep tree evaluates without overflowing and
 /// aborting. `df` / `scope` are constant across the walk (a sub-scope is fixed

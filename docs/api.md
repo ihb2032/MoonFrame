@@ -67,16 +67,19 @@ that have no other way to see what they check —
 `DataFrame::check_invariants` (the structural check behind INV1–INV7),
 `Series::is_canonical` (the backend-canonicalisation invariant), and
 `Series::storage_kind` (which backend an operator's output landed on).
-**Internal packages** go further: code that no public package needs lives in an
-`internal/` path (`internal/column` storage, `internal/kernel` — the vectorized
-expression kernels — `internal/text` / `internal/literal` primitives, and
-`internal/ir`, the expression AST and its
-operator tags). MoonBit forbids a downstream module from importing an
-`internal/` package at all, so those symbols carry no per-symbol marker — the
-module boundary itself is the wall, and a generated `.mbti` for an internal
-package is not an external compatibility surface. **Do not depend on either** —
-neither carries a compatibility promise, and both may change signature or
-disappear in any release.
+**Internal packages** go further: code a downstream caller never needs to name
+lives in an `internal/` path (`internal/column` storage, `internal/kernel` —
+the vectorized expression kernels — `internal/text` / `internal/literal`
+primitives, and `internal/ir`, the expression AST and its operator tags).
+MoonBit forbids a downstream module from importing an `internal/` package at
+all, so those symbols carry no per-symbol marker — the module boundary itself
+is the wall, and a generated `.mbti` for an internal
+package is not an external compatibility surface. The public packages here do
+depend on them, which is the point: what an internal package holds is
+implementation the library needs and a caller does not, and no public
+signature may name one. **Do not depend on either** — neither carries a
+compatibility promise, and both may change signature or disappear in any
+release.
 
 What the promise covers is the facade surface, not a particular release
 number: pre-1.0, additions and fixes ride a patch version and a change to that

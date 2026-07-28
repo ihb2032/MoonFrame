@@ -14,13 +14,13 @@
 /// downstream module cannot import at all, so no caller can name a node, match
 /// one, or hold one: adding a node for a new operator breaks nobody.
 ///
-/// The shape is not entirely private, though, and the difference matters: `Eq`
-/// below compares the trees, so *how an existing operator lowers* is
-/// observable from outside even though the nodes are not. Changing the node a
-/// verb builds — to a semantically identical one, even — can change what `==`
-/// answers, which is why `docs/api.md` states that as a contract rather than
-/// leaving it to the representation. Visibility and behaviour are two
-/// promises, and only the first one is closed here.
+/// The shape is not observable either: there is no `==` on an expression. One
+/// existed, comparing the two trees, and it made *how an operator lowers* a
+/// promise to callers — normalising a tree or merging two node kinds would
+/// have changed what compared equal without changing what any expression
+/// means. `to_string()` is what a caller inspects with instead; it renders
+/// what it prints, so two literal series differing only in their cells render
+/// alike.
 ///
 /// The engine reads the shape through the `node()` accessor; `frame` and
 /// `lazy` are in-module and match `@ir.ExprNode` directly.

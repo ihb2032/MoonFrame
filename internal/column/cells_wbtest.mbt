@@ -84,7 +84,11 @@ fn placeholders_normalized(col : BuiltinColumn) -> Bool {
 
 ///|
 /// `true` when every null slot (`valid[i] == false`) of `data` holds `ph`.
-fn[T : Eq] null_slots_hold(data : Array[T], valid : Array[Bool], ph : T) -> Bool {
+fn[T : Eq] null_slots_hold(
+  data : Array[T],
+  valid : Array[Bool],
+  ph : T,
+) -> Bool {
   for i in 0..<data.length() {
     if !valid[i] && data[i] != ph {
       return false

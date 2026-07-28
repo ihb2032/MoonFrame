@@ -1136,6 +1136,49 @@ mkmbti "$work/is_no_field" '  // private fields
 expect 0 'internal surface: private fields leave the interface clean' \
   sh "$scripts/check_internal_surface.sh" "$work/is_no_field"
 
+# Types are audited too: a `pub(all) enum` nobody outside names is capability
+# handed over — the power to match and construct every variant — for no reason.
+is_type_source='///|
+pub fn BuiltinColumn::len(self : BuiltinColumn) -> Int {
+  ignore(self)
+}
+
+///|
+pub(all) enum Spare {
+  One
+  Two
+}'
+
+mksurface "$work/is_type" "$is_type_source"
+expect_out 1 'internal/column/Spare' \
+  'internal surface: a public type nobody outside names' \
+  sh "$scripts/check_internal_surface.sh" "$work/is_type"
+
+mksurface "$work/is_type_used" "$is_type_source" '' '///|
+pub fn read(c : BuiltinColumn, s : Spare) -> Int {
+  ignore(c.len())
+  ignore(s)
+  0
+}'
+expect 0 'internal surface: a type another package names is used' \
+  sh "$scripts/check_internal_surface.sh" "$work/is_type_used"
+
+# The limit of matching a method by short name, pinned rather than described:
+# two types carry a `len`, only one is called from outside, and the audit
+# credits both. A clean run means "nothing is obviously unreachable", not
+# "everything left is needed" — if that ever changes, this case says so.
+mksurface "$work/is_same_name" '///|
+pub fn BuiltinColumn::len(self : BuiltinColumn) -> Int {
+  ignore(self)
+}
+
+///|
+pub fn Bitmap::len(self : Bitmap) -> Int {
+  ignore(self)
+}'
+expect 0 'internal surface: a same-named method on another type still counts (known limit)' \
+  sh "$scripts/check_internal_surface.sh" "$work/is_same_name"
+
 # ── the repository itself ─────────────────────────────────────────────────
 expect 0 'repo: version identity' sh "$scripts/check_version_identity.sh" "$root"
 expect 0 'repo: stale names' sh "$scripts/check_stale_names.sh" "$root"

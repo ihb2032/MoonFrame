@@ -272,6 +272,24 @@ mkfacadesurface "$work/fs_ok" "$fs_root" "$fs_frame" "$fs_snap"
 expect 0 'facade surface: matches the snapshot' \
   sh "$scripts/check_facade_surface.sh" "$work/fs_ok"
 
+# `pub type` is a public type like the others, and the extractor used to read
+# only `struct` / `enum` / `suberror` / `trait` — so one could appear in a
+# public package, reach callers, and never enter the snapshot or the
+# not-re-exported check.
+mkfacadesurface "$work/fs_type" "$fs_root" "$fs_frame
+pub type RowKey Int" "$fs_snap"
+expect_out 1 'RowKey' 'facade surface: a new pub type is not invisible' \
+  sh "$scripts/check_facade_surface.sh" "$work/fs_type"
+
+# And one the facade does re-export is classified as a type, not an
+# unaccounted-for intermediate.
+mkfacadesurface "$work/fs_type_named" "$fs_root
+pub using @frame {type RowKey}" "$fs_frame
+pub type RowKey Int" "$fs_snap
+type RowKey <- frame"
+expect 0 'facade surface: a re-exported pub type is a facade type' \
+  sh "$scripts/check_facade_surface.sh" "$work/fs_type_named"
+
 # The gap a root-file-only lock left open: a method added to a re-exported
 # type reaches callers as `@moonframe.DataFrame::debug_storage` while the
 # facade's own free functions and type names are untouched.
@@ -1222,6 +1240,9 @@ pub fn read(c : BuiltinColumn) -> Int {
   let sign_i64 = 0
   sign_i64
 }'
+# The set that can only be credited by name is pinned, so the fixture writes it
+# once before asserting on the report — the same two steps a maintainer takes.
+sh "$scripts/check_internal_surface.sh" "$work/is_free_bare" --write >/dev/null
 expect_out 0 'bare-name evidence only' \
   'internal surface: a free function credited by a bare token is reported' \
   sh "$scripts/check_internal_surface.sh" "$work/is_free_bare"
@@ -1243,13 +1264,26 @@ pub fn BuiltinColumn::len(self : BuiltinColumn) -> Int {
 pub fn Bitmap::len(self : Bitmap) -> Int {
   ignore(self)
 }'
+sh "$scripts/check_internal_surface.sh" "$work/is_same_name" --write >/dev/null
 expect 0 'internal surface: a same-named method on another type still counts (known limit)' \
   sh "$scripts/check_internal_surface.sh" "$work/is_same_name"
 
 # …and says so. Passing quietly and being checked should not look the same, so
 # a credit that rests on a shared short name is listed as what it is.
-expect_out 0 'credited by a shared method name' \
+expect_out 0 'credited by a shared name' \
   'internal surface: an ambiguous credit is reported, not implied' \
+  sh "$scripts/check_internal_surface.sh" "$work/is_same_name"
+
+# The set is pinned, so one more symbol falling into "cannot tell" is a diff
+# somebody approves rather than a line in a passing run. Adding a second
+# shared-name method to the same fixture changes the set.
+printf '///|\npub fn Bitmap::get(self : Bitmap, i : Int) -> Int {\n  ignore(self)\n  i\n}\n\n///|\npub fn BuiltinColumn::get(self : BuiltinColumn, i : Int) -> Int {\n  ignore(self)\n  i\n}\n' \
+  >>"$work/is_same_name/internal/column/column.mbt"
+printf '///|\npub fn read2(c : BuiltinColumn) -> Int {\n  c.get(0)\n}\n' \
+  >>"$work/is_same_name/series/series.mbt"
+(cd "$work/is_same_name" && git add -A && git commit -qm grew)
+expect_out 1 'the set credited by name only changed' \
+  'internal surface: a new unsettleable credit is a diff, not a footnote' \
   sh "$scripts/check_internal_surface.sh" "$work/is_same_name"
 
 # A caller that names the owner is exact, so it is not listed as ambiguous

@@ -239,9 +239,7 @@ moonframe.mbt   the root package — facade over the public API (fluent-chain in
 
 The `internal/` packages are MoonBit `internal` packages: importable inside
 this module only, so they carry no compatibility promise. Where a new piece of
-engine work belongs is decided by one rule, written as the import it allows —
-**`internal/column` is imported by `series` and `internal/kernel`, and by
-nothing else**:
+engine work belongs follows from what each layer owns:
 
 ```
 internal/column   how a column is laid out: data buffers + validity bitmap
@@ -261,8 +259,10 @@ production build does not import `internal/column` at all; its test build does,
 to assert which backend an operator's output lands on.
 
 The dependency graph is a DAG, not a chain — `expr` and `internal/ir` sit off
-to one side of it — and `.github/scripts/check_layering.sh` enforces the rule
-above against the manifests rather than trusting this paragraph.
+to one side of it. Which package may import which is not restated here on
+purpose: `.github/scripts/check_layering.sh` holds that rule and enforces it
+against the manifests, so there is one copy of it and it cannot quietly stop
+being true.
 
 The data model is an Apache Arrow-style column layout — a data buffer beside a
 byte-packed validity bitmap (`1 = valid`), except on the `Numeric` fast path,

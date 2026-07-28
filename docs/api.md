@@ -61,12 +61,10 @@ only its own package's tests want does not need to be `pub` at all — and if no
 production code calls it either, it is dead weight in a production source file
 and gets deleted. `.github/scripts/check_engine_seams.sh` enforces exactly
 that: a seam with no production caller outside its own package fails the build
-unless it is listed, with its reason, in `engine_seams.allowlist`. Three are
-listed today, and all three exist to be *asserted* by tests in another package
-that have no other way to see what they check —
-`DataFrame::check_invariants` (the structural check behind INV1–INV7),
-`Series::is_canonical` (the backend-canonicalisation invariant), and
-`Series::storage_kind` (which backend an operator's output landed on).
+unless it is listed, with its reason, in `engine_seams.allowlist` — which is
+where the exceptions and their reasons live, rather than here. What earns a
+line there is a symbol whose whole purpose is to be *asserted*, by tests in
+another package that have no other way to see what they check.
 **Internal packages** go further: code a downstream caller never needs to name
 lives in an `internal/` path (`internal/column` storage, `internal/kernel` —
 the vectorized expression kernels — `internal/text` / `internal/literal`
@@ -171,11 +169,10 @@ Storage backends (`internal/column`), the vectorized expression kernels
 `internal/literal`), and the expression AST (`internal/ir`) live in
 module-internal packages a downstream module cannot import. Responsibility
 runs `frame` schedules → `internal/kernel` computes a column → `series` owns
-what a column is → `internal/column` owns how it is laid out, and the rule that
-keeps it that way is an import allowlist: `internal/column` is imported by
-`series` and `internal/kernel` only, so `frame` and everything above it reach a
-column through `Series`. `.github/scripts/check_layering.sh` checks that
-against the build manifests.
+what a column is → `internal/column` owns how it is laid out. What keeps it
+that way is an import allowlist, which lives in
+`.github/scripts/check_layering.sh` and is checked against the build manifests
+on every run — one copy, in the place that can fail.
 
 ## Constructor spelling
 

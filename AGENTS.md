@@ -50,6 +50,34 @@ You can browse and install extra skills here:
   prefer assertion tests. You can use `moon coverage analyze > uncovered.log` to
   see which parts of your code are not covered by tests.
 
+## One fact, one home
+
+Every drift this repository has had came from the same shape: a fact written in
+two places, changed in one. The equality contract lived in a docstring and in
+the API guide; the import allowlist lived in three documents and a script; a
+release number lived on six pages. Each time, the copy nobody edited became a
+confident, wrong instruction.
+
+So a fact gets one home, and everything else points at it. Where it goes:
+
+| Fact | Home |
+| --- | --- |
+| A rule CI enforces (imports, seams, surfaces) | the guard script that enforces it — it cannot silently stop being true |
+| The structural invariants of a `DataFrame` | `frame/invariants.mbt` (INV1–INV7) |
+| What one symbol does | its docstring — the reference on mooncakes.io is generated from it |
+| Cross-cutting API behaviour (errors, evaluation, the optimizer) | `docs/api.md` |
+| Cost and complexity | `docs/performance.md` |
+| How MoonFrame differs from Polars / pandas | `docs/comparison.md` |
+| What a release changed / how to upgrade | `docs/changelog.md`, `docs/migration.md` |
+| What each guard governs and how to run it | this file |
+
+A pointer is not a copy: "the import allowlist is in `check_layering.sh`" stays
+true when the allowlist changes, while "`internal/column` is imported by
+`series` and `internal/kernel`" does not. Prefer describing *why* something is
+where it is — that is what a second file can add without duplicating the fact —
+and leave the enumerable part to its home. When you catch yourself restating a
+rule for the reader's convenience, link instead.
+
 ## Documentation guards
 
 CI protects prose the way it protects code, for the parts of it that can be
@@ -121,11 +149,11 @@ sh .github/scripts/check_internal_surface.sh
   supposed to live, so one the docs never mention gets bypassed. It checks
   names, not whether the descriptions are accurate.
 - **Layering** — the production package graph, read off the `moon.pkg`
-  manifests: `internal/column` is imported by `series` and `internal/kernel`
-  and by nothing else, `internal/kernel` only by `frame`, no `internal/*`
-  package imports `frame` / `io` / `lazy`, the facade imports exactly the six
-  public packages, and no public `pkg.generated.mbti` names an internal
-  package. Two rules hold the *direction* the snapshot cannot: each package
+  manifests. Which package may import which is written once, in the guard that
+  enforces it (`.github/scripts/check_layering.sh`) — the import allowlists,
+  the packages that may reach the storage and kernel layers, the facade's exact
+  dependency set, and the ban on an internal type in a public
+  `pkg.generated.mbti`. Two rules hold the *direction* the snapshot cannot: each package
   declares what it may depend on, and the graph must stay acyclic — a
   reversal or a cycle is not a new edge to accept but a change of what the
   stack means. Every other production edge is pinned in

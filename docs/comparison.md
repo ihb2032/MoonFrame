@@ -1,8 +1,5 @@
 # MoonFrame and Polars / pandas
 
-> Documents the unreleased v0.6 API; `moon add` installs the published
-> v0.5.8, whose reference is on mooncakes.io. See [Install](../README.md#install).
-
 MoonFrame is an **original MoonBit implementation** — no Polars or pandas
 source was translated. What it borrows is the *shape*: the DataFrame and
 expression API and the column semantics are modeled on
@@ -75,8 +72,8 @@ Where MoonFrame knowingly does something else than Polars. Two are about
 
 - **`sort` treats `NaN` as missing.** When sorting, a `Float` `NaN` is ordered
   by the key's `NullOrder` (like a null), whereas Polars treats `NaN` as a
-  value that sorts last independently of `nulls_last`. This was the v0.2 design
-  choice and remains the current behaviour.
+  value that sorts last independently of `nulls_last`. This is a deliberate
+  divergence, not an oversight.
 - **`median` skips `NaN`.** As an order statistic it follows the `min` / `max`
   rule and ignores `NaN`, whereas Polars propagates `NaN` through `median`.
 - **Mixed `Int` / `Float` comparison is exact.** An `Int64` compared against a

@@ -1,8 +1,5 @@
 # Type inference (CSV / JSON / NDJSON)
 
-> Documents the unreleased v0.6 API; `moon add` installs the published
-> v0.5.8, whose reference is on mooncakes.io. See [Install](../README.md#install).
-
 `read_csv` / `read_json` / `read_ndjson` infer each column's dtype from the
 first `infer_schema_rows` rows (default `100`), in the order
 `Int → Float → Bool → String`. The per-reader options that tune this

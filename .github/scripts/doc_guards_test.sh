@@ -1184,6 +1184,50 @@ expect_out 1 'internal/column/Spare' \
   'internal surface: a type named only inside a string' \
   sh "$scripts/check_internal_surface.sh" "$work/is_type_string"
 
+# The escaped quote is where a regex-based stripper fails in the dangerous
+# direction: it reads `"prefix \"` as the whole string and leaves the rest
+# standing as code, inventing a use. Each of these hides the name in a string
+# that a naive `"[^"]*"` would mis-cut.
+for esc_case in 'let m = "prefix \" Spare"' \
+  'let m = "prefix \\\\" + "x"' \
+  'let m = "// Spare"' \
+  'let m = "prefix \" // Spare"'; do
+  mksurface "$work/is_type_escape" "$is_type_source" '' "///|
+pub fn read(c : BuiltinColumn) -> Int {
+  ignore(c.len())
+  $esc_case
+  0
+}"
+  expect_out 1 'internal/column/Spare' \
+    "internal surface: a type hidden in a string — $esc_case" \
+    sh "$scripts/check_internal_surface.sh" "$work/is_type_escape"
+  rm -rf "$work/is_type_escape"
+done
+
+# A free function has the same ambiguity in its own shape: a bare token is how
+# a caller passes one as a value, and also how a local of that name reads.
+mksurface "$work/is_free_bare" '///|
+pub fn BuiltinColumn::len(self : BuiltinColumn) -> Int {
+  ignore(self)
+}
+
+///|
+pub fn sign_i64(a : Int64) -> Int64 {
+  a
+}' '' '///|
+pub fn read(c : BuiltinColumn) -> Int {
+  ignore(c.len())
+  let sign_i64 = 0
+  sign_i64
+}'
+expect_out 0 'bare-name evidence only' \
+  'internal surface: a free function credited by a bare token is reported' \
+  sh "$scripts/check_internal_surface.sh" "$work/is_free_bare"
+
+expect_out 0 'symbols audited' \
+  'internal surface: the summary says audited, not reachable' \
+  sh "$scripts/check_internal_surface.sh" "$work/is_free_bare"
+
 # The limit of matching a method by short name, pinned rather than described:
 # two types carry a `len`, only one is called from outside, and the audit
 # credits both. A clean run means "nothing is obviously unreachable", not

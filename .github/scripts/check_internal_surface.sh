@@ -37,11 +37,14 @@
 # exists to be asserted and nothing else.
 #
 # What this cannot see, and it is worth knowing: callers are matched by how the
-# symbol can be spelled, so a method whose short name is shared with a
-# cross-package one — `data`, `len`, `get` — reads as called wherever that name
-# is called. The guard therefore under-reports rather than over-reports: what
-# it flags is genuinely unreachable from outside, and a clean run is not proof
-# that everything left is needed.
+# symbol can be spelled, so `.len(` says a `len` was called and not whose, and
+# a bare `sign_i64` reads the same as a local of that name. Rather than let
+# that pass as proof, the run says which credits rest on it — a symbol whose
+# only evidence is a shared method name or a bare free-function token is
+# listed, and the summary counts it separately. Those still pass: the audit has
+# no evidence *against* them either. What it flags outright is what is
+# genuinely unreachable, so a clean run means "nothing is provably unused", not
+# "everything left is needed".
 #
 # Usage: .github/scripts/check_internal_surface.sh [repo-root]
 # Exit 0 when every internal `pub fn` is reachable or listed, 1 otherwise.
@@ -117,15 +120,39 @@ has_outside_caller() {
   return 1
 }
 
-# Strip what is not code before matching a name: a trailing `//` comment and
-# the contents of string literals. A whole-line comment filter was not enough —
-# `foo() // returns NumericData` and `let msg = "ColumnStorage"` both kept a
-# type alive that nothing actually used, which is the wrong direction for an
-# audit whose job is to find the unused. (MoonBit has no block comments, so
-# line-wise stripping sees the whole picture. A `//` inside a string literal is
-# cut early by this, which can only *lose* a match — the safe direction.)
+# Strip what is not code before matching a name: string contents and trailing
+# `//` comments. A whole-line comment filter was not enough — `foo() // returns
+# NumericData` and `let msg = "ColumnStorage"` both kept a type alive that no
+# code touched, which is backwards for an audit whose job is finding the
+# unused.
+#
+# Character by character rather than by regex, because `s/"[^"]*"//` gets an
+# escaped quote wrong in the dangerous direction: in
+# `let m = "prefix \" Spare"` it takes `"prefix \"` for the whole string and
+# leaves ` Spare"` standing as code, inventing a use rather than losing one.
+# The scanner tracks three things — inside a string, just after a backslash,
+# past a `//` — which is all MoonBit needs here: there are no block comments,
+# and a string cannot span a line.
 strip_noncode() {
-  sed -e 's/"[^"]*"/""/g' -e 's#//.*##'
+  awk '{
+    out = ""
+    instr = 0
+    esc = 0
+    n = length($0)
+    for (i = 1; i <= n; i++) {
+      c = substr($0, i, 1)
+      if (instr) {
+        if (esc) { esc = 0 }
+        else if (c == "\\") { esc = 1 }
+        else if (c == "\"") { instr = 0; out = out "\"" }
+        continue
+      }
+      if (c == "\"") { instr = 1; out = out "\""; continue }
+      if (c == "/" && i < n && substr($0, i + 1, 1) == "/") break
+      out = out c
+    }
+    print out
+  }'
 }
 
 has_qualified_caller() {
@@ -147,6 +174,30 @@ has_qualified_caller() {
     hits=$(printf '%s\n' "$files" | while IFS= read -r f; do
       [ -f "$f" ] || continue
       strip_noncode <"$f" | grep -nE "${owner}::${short}\(" || true
+    done)
+    [ -z "$hits" ] || return 0
+  done
+  return 1
+}
+
+has_qualified_free_caller() {
+  # has_qualified_free_caller <declaring-pkg> <free-function>
+  # The unambiguous half for a free function: `@alias.name`, which names the
+  # package it came from. A bare token could be a local of the same name.
+  importers=$(printf '%s\n' "$edges" | awk -v want="$1" '$2 == want { print $1 }' |
+    grep -v "^$1$" || true)
+  [ -n "$importers" ] || return 1
+  for imp in $importers; do
+    if [ "$imp" = root ]; then
+      files=$(printf '%s\n' "$production_files" | grep -v '/' || true)
+    else
+      files=$(printf '%s\n' "$production_files" | grep "^$imp/[^/]*\$" || true)
+    fi
+    [ -n "$files" ] || continue
+    hits=$(printf '%s\n' "$files" | while IFS= read -r f; do
+      [ -f "$f" ] || continue
+      strip_noncode <"$f" |
+        grep -nE "@[A-Za-z0-9_]+\.$2([^A-Za-z0-9_]|\$)" || true
     done)
     [ -z "$hits" ] || return 0
   done
@@ -190,6 +241,7 @@ is_allowed() {
 unreachable=""
 ambiguous=""
 checked=0
+allowlisted=0
 
 # Every `Type::method` declared anywhere in the module, so a short name can be
 # asked how many types carry it. This is what separates "a caller names the
@@ -215,9 +267,12 @@ done); do
   for sym in $syms; do
     checked=$((checked + 1))
     if ! has_outside_caller "$pkg" "$sym"; then
-      is_allowed "$pkg/$sym" ||
+      if is_allowed "$pkg/$sym"; then
+        allowlisted=$((allowlisted + 1))
+      else
         unreachable="$unreachable$pkg/$sym
 "
+      fi
     elif [ "${sym#*::}" != "$sym" ]; then
       # It has a caller — but if a receiver call was the only evidence and the
       # method's short name belongs to more than one type, the evidence does
@@ -229,6 +284,15 @@ done); do
         '$2 == s { print $1 }' | LC_ALL=C sort -u | wc -l | tr -d ' ')
       if [ "$owners" -gt 1 ] && ! has_qualified_caller "$pkg" "$sym"; then
         ambiguous="$ambiguous$pkg/$sym (shared with $((owners - 1)) other type(s))
+"
+      fi
+    else
+      # A free function has the same problem in its own shape: the evidence
+      # may be a bare `sign_i64` token, which is how a caller passes one as a
+      # value — and also how a local of that name reads. A package-qualified
+      # `@kernel.sign_i64` names the package and settles it.
+      if ! has_qualified_free_caller "$pkg" "$sym"; then
+        ambiguous="$ambiguous$pkg/$sym (bare-name evidence only)
 "
       fi
     fi
@@ -341,5 +405,11 @@ if [ -n "$ambiguous" ]; then
   printf '  and see whether anything breaks.\n'
 fi
 
-printf 'internal surface: %s internal `pub` symbols reachable, no published field\n' \
-  "$checked"
+# "Audited", not "reachable": the total counts every symbol the run looked at,
+# which includes the ones the allowlist excuses for having no caller at all and
+# the ones credited by a shared name. Saying "reachable" claimed evidence the
+# run does not have.
+ambiguous_n=$(printf '%s' "$ambiguous" | grep -c . || true)
+printf 'internal surface: %s internal `pub` symbols audited' "$checked"
+printf ' (%s allowlisted, %s credited by name only), no published field\n' \
+  "$allowlisted" "$ambiguous_n"

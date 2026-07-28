@@ -183,9 +183,10 @@ variants (`ColumnNotFound`, `ParseError`, …) on the `Err`. The full model is i
 
 ## Documentation
 
-- [`quickstart.mbt.md`](quickstart.mbt.md) — a runnable tour; every snippet is
-  executed by `moon test`, and by CI across all four backends, so it never goes
-  stale
+- [`quickstart.mbt.md`](quickstart.mbt.md) — a runnable tour; every snippet and
+  its expected output is executed by `moon test`, and by CI across all four
+  backends, so a code block cannot drift from the API. The prose around them is
+  reviewed, not executed
 - [`docs/api.md`](docs/api.md) — API concepts & the compatibility model; the
   per-symbol reference is generated from the docstrings on
   [mooncakes.io](https://mooncakes.io/docs/ihb2032/MoonFrame)

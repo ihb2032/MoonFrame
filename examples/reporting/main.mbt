@@ -1,5 +1,5 @@
 // MoonFrame example: a small reporting pipeline that turns a sales CSV
-// into the v0.3 output formats.
+// into its output formats.
 //
 //   read_csv → group_by(region) + agg(sum revenue, sum quantity)
 //            → sort(revenue desc)

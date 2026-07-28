@@ -64,6 +64,7 @@ sh .github/scripts/check_facade_surface.sh
 sh .github/scripts/check_internal_packages.sh
 sh .github/scripts/check_layering.sh
 sh .github/scripts/check_engine_seams.sh
+sh .github/scripts/check_internal_surface.sh
 ```
 
 - **Version identity** — `moon.mod`, `docs/api.md`, `docs/changelog.md`, and
@@ -103,8 +104,11 @@ sh .github/scripts/check_engine_seams.sh
   reclassification / source-package change fails until the snapshot is
   regenerated (`sh .github/scripts/check_facade_surface.sh --write`).
 - **Stale names** — a removed identifier must not appear in current-state prose
-  or a source comment. `docs/changelog.md` and `docs/migration.md` are exempt
-  (history is their content); a single line that must name one takes the marker
+  or in a comment that explains something: tracked `*.md`, `*.mbt`, the CI
+  workflow and the package manifests. The guard scripts are not scanned — the
+  list of removed names lives in one of them. `docs/changelog.md` and
+  `docs/migration.md` are exempt (history is their content); a line that must
+  name one takes the marker
   `doc-guard: historical`. It matches distinctive spellings only — a bare word
   like `take` names live methods too — and it cannot see a *claim* that drifted
   rather than a name. **When a symbol's visibility or representation changes,
@@ -143,6 +147,17 @@ sh .github/scripts/check_engine_seams.sh
   interface still publishes, or — the quieter mistake — a symbol hidden from
   the interface, and so from every guard that reads one, with nothing stopping
   a downstream call.
+- **Internal surface** — the same question, asked inside the module. A `pub`
+  function or type in an `internal/` package must be used by another package;
+  otherwise it is package-private (its tests move in with it, as `_wbtest.mbt`)
+  or deleted, and the few that cannot be either — an invariant predicate exists
+  to be asserted and so has no caller — are listed with their reason in
+  `.github/scripts/internal_surface.allowlist`. Fields never appear in an
+  internal interface: a field publishes the layout where the methods beside it
+  publish what a consumer needs. Callers are matched by spelling, so evidence
+  that rests on a shared method name (`.len(`) or a bare free-function token is
+  reported as such and counted separately — **a clean run means nothing is
+  provably unused, not that everything left is needed**.
 
 One more pass, `review_absolute_wording.sh`, annotates absolute claims ("all",
 "every", "never", "total") in prose a PR adds. It never fails the build — it

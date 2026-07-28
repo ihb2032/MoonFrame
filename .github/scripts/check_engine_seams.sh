@@ -44,9 +44,10 @@
 # The list is derived rather than maintained by hand, which keeps it in step
 # with the code, but it is not a resolved call graph. Three filters do the real
 # work: only packages that *import* the declaring one are searched (nothing else
-# can name its symbols), declaration and comment lines are dropped, and the
-# match follows how the symbol can be spelled at a call site — a method through
-# a receiver or its owning type, a free function bare or package-qualified but
+# can name its symbols); strings, comments and declaration lines are removed
+# before matching, so `let msg = "validity_bools("` is not a call; and the match
+# follows how the symbol can be spelled at a call site — a method through a
+# receiver or its owning type, a free function bare or package-qualified but
 # never through a receiver. What is left is the case no spelling separates: the
 # same method name on a different receiver, `x.storage(` wherever `x` came
 # from. Read a caller list as "this package calls something spelled this way",
@@ -70,6 +71,10 @@
 # Exit 0 when the seams match the snapshot, 1 on drift (or a missing one).
 
 set -eu
+
+# Shared with the internal-surface guard: both look for callers, and neither
+# should count a name inside a string or a comment as one.
+. "$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)/lib_moonbit_source.sh"
 
 root="."
 write=0
@@ -233,12 +238,16 @@ consumers_of() {
       files=$(printf '%s\n' "$production_files" | grep "^$cand/[^/]*\$" || true)
     fi
     [ -n "$files" ] || continue
-    # Line-level, so a comment or a same-named *declaration* in the dependent
-    # package does not read as a call.
-    hits=$(printf '%s\n' "$files" | tr '\n' '\0' |
-      xargs -0 grep -nE "$call_pattern" 2>/dev/null |
-      grep -vE '^([^:]*:)?[0-9]+:[[:space:]]*//' |
-      grep -vE '^([^:]*:)?[0-9]+:[[:space:]]*(pub )?fn(\[[^]]*\])? ' || true)
+    # Strings and comments are removed before matching, so
+    # `let msg = "validity_bools("` and `do_work() // validity_bools(` do not
+    # read as calls — the failure that matters here, since a seam credited with
+    # a caller it does not have escapes the "no production caller" rule below.
+    # A same-named *declaration* in the dependent package is dropped too.
+    hits=$(printf '%s\n' "$files" | while IFS= read -r f; do
+      [ -f "$f" ] || continue
+      strip_noncode <"$f" | grep -nE "$call_pattern" |
+        grep -vE '^[0-9]+:[[:space:]]*(pub )?fn(\[[^]]*\])? ' || true
+    done)
     [ -z "$hits" ] || printf '%s\n' "$cand"
   done | LC_ALL=C sort -u | tr '\n' ',' | sed 's/,$//')
   [ -n "$found" ] || found="(no production caller outside $1)"

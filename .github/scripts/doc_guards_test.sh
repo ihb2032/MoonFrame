@@ -874,6 +874,25 @@ expect 0 'engine seams: a declaration of the same name is not a call' \
 # free function is never reached through a receiver, so `c.validity_bools(` is
 # a method on something else — counting it would report a seam as live while
 # nothing calls it, which is the false negative that lets a dead seam stay.
+# A name inside a string or after `//` is not a call. It matters more here than
+# anywhere: a seam credited with a caller it does not have slips past the "no
+# production caller" rule and keeps a `pub` nobody needs. Each of these hides
+# the seam's name where a raw grep would still find it, including the escaped
+# quote a regex-based stripper mis-cuts.
+for hidden_case in 'let msg = "validity_bools("' \
+  'ignore(after_the_value(c)) // validity_bools(' \
+  'let msg = "prefix \" validity_bools("' \
+  'let msg = "// validity_bools("'; do
+  mkseams "$work/es_hidden_call" "$es_source" "$es_snap"
+  printf '///|\npub fn consume(c : Series) -> Int {\n  %s\n  ignore(reducer_for(c, ReduceOp::Sum))\n  ignore(after_the_value(c))\n  ignore(bool_cells(c))\n  0\n}\n' \
+    "$hidden_case" >"$work/es_hidden_call/io/io.mbt"
+  (cd "$work/es_hidden_call" && git add -A && git commit -qm hidden)
+  expect_out 1 'no production caller outside its package' \
+    "engine seams: a name hidden in text is not a call — $hidden_case" \
+    sh "$scripts/check_engine_seams.sh" "$work/es_hidden_call"
+  rm -rf "$work/es_hidden_call"
+done
+
 mkseams "$work/es_receiver" "$es_source" "$es_snap"
 printf '///|\npub fn consume(c : Series) -> Int {\n  ignore(c.validity_bools())\n  ignore(reducer_for(c, ReduceOp::Sum))\n  ignore(after_the_value(c))\n  ignore(bool_cells(c))\n  0\n}\n' \
   >"$work/es_receiver/io/io.mbt"

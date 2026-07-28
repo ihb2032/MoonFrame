@@ -93,29 +93,29 @@ match stops compiling — and therefore rides the minor version too,
 semantically-additive though it looks. Only a caller whose match carries a
 wildcard arm (`_ => …`) stays source-compatible across such an addition.
 
-**`Expr` equality is structural over the tree as built.** `Expr` is opaque and
-its AST is module-internal, but `==` on two expressions compares that tree —
-directly, and through the derived `Eq` of any public value that holds
-expressions, which today means `JoinOptions`. (`DataFrame` equality compares
-schema, columns and row count; a frame holds no expression tree.) So the
-contract has to be stated rather than left to the representation:
+**`Expr` has no equality, and neither does `JoinOptions`.** An expression is
+opaque: its AST lives in a module-internal package, and the only way to compare
+two of them structurally would have been to compare that tree. That is a
+promise the library is not willing to make — it would mean *how an operator
+lowers* is part of the API, so normalising a tree, merging two node kinds, or
+giving a verb a dedicated node instead of a lowered one would silently change
+what compares equal. `JoinOptions` holds expressions as its key lists, so it
+loses equality for the same reason.
 
-- Two expressions are equal when they were *built* the same way. Nothing is
-  simplified or normalised on the way in, so `col("a") + lit_int(0)` is not
-  equal to `col("a")`, and a comparison written `lit_int(1).lt(col("a"))` is
-  not equal to `col("a").gt(lit_int(1))`.
-- A closure has no identity, so `map_elements` / `map_many` / `map_batches`
-  compare on their label and inputs with the function opaque: two `map_many`
-  expressions sharing a label and inputs are equal whatever their closures do.
-  The label is the function's identity — give distinct functions distinct
-  labels.
-- Because equality is structural, *how an operator lowers* is observable. If a
-  release changes the node a verb builds — even to a semantically identical
-  one — expressions that used to compare equal may stop, and that rides the
-  minor version like any other behaviour change.
+Compare rendered expressions instead — `Expr::to_string()`, which is what
+`explain()` prints and what the plan renderer uses:
 
-Comparing rendered expressions (`Expr::to_string`) is the stable alternative
-when what you want is "did my builder produce the expression I meant".
+```moonbit
+assert_eq((col("a") + lit_int(1)).to_string(), "(a + 1)")
+```
+
+Rendering answers the question worth asking — "did my builder produce the
+expression I meant" — and it stays readable when it fails. It does not
+distinguish what it does not print: a `lit_series` renders as its name and
+length, so two literal series with different cells render alike.
+
+(`DataFrame` equality is unaffected: a frame holds columns, not expressions,
+and compares schema, columns and row count.)
 
 A **public struct field** is the same case in a different costume. A `pub
 struct` with public fields is read-only from outside — a caller cannot build or

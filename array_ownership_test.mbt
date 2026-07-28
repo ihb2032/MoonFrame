@@ -71,8 +71,11 @@ test "JoinOptions key builders copy their key arrays" {
   let on = JoinOptions::on(keys)
   let sided = JoinOptions::left_on(keys, right_on=keys)
   keys.push(col("other"))
-  assert_eq(on, JoinOptions::on([col("id")]))
-  assert_eq(sided, JoinOptions::left_on([col("id")], right_on=[col("id")]))
+  assert_eq(join_shape(on), join_shape(JoinOptions::on([col("id")])))
+  assert_eq(
+    join_shape(sided),
+    join_shape(JoinOptions::left_on([col("id")], right_on=[col("id")])),
+  )
 }
 
 ///|
@@ -102,7 +105,7 @@ test "JoinOptions key accessors copy on the way out" {
   options.on_keys().push(col("t"))
   options.left_keys().push(col("t"))
   options.right_keys().push(col("t"))
-  assert_eq(options, JoinOptions::on([col("id")]))
+  assert_eq(join_shape(options), join_shape(JoinOptions::on([col("id")])))
   assert_eq(plan.collect().nrows(), rows)
   assert_eq(rows, 2)
 }
@@ -150,4 +153,21 @@ test "lazy builders copy their expression arrays" {
   assert_eq(rename_plan.collect().columns(), ["x", "b"])
   assert_eq(group_plan.collect().columns(), ["a", "total"])
   assert_eq(drop_nulls_plan.collect().nrows(), 1)
+}
+
+///|
+/// Join options compare on what they mean — kind, suffix, coalesce choice, and
+/// the keys as rendered. The keys are expressions and `Expr` carries no `==`,
+/// so there is none on the whole value either.
+fn join_shape(
+  o : JoinOptions,
+) -> (JoinType, String, Bool?, Array[String], Array[String], Array[String]) {
+  (
+    o.how,
+    o.suffix,
+    o.coalesce,
+    o.on_keys().map(e => e.to_string()),
+    o.left_keys().map(e => e.to_string()),
+    o.right_keys().map(e => e.to_string()),
+  )
 }

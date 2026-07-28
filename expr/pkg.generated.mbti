@@ -41,7 +41,6 @@ pub fn Expr::ceil(Self) -> Self
 pub fn Expr::count(Self) -> Self
 pub fn Expr::div(Self, Self) -> Self
 pub fn Expr::eq(Self, Self) -> Self
-pub fn Expr::equal(Self, Self) -> Bool
 pub fn Expr::fill_nan(Self, Self) -> Self
 pub fn Expr::fill_null(Self, Self) -> Self
 pub fn Expr::first(Self) -> Self
@@ -72,7 +71,6 @@ pub fn Expr::n_unique(Self) -> Self
 pub fn Expr::ne(Self, Self) -> Self
 pub fn Expr::neg(Self) -> Self
 pub fn Expr::not(Self) -> Self
-pub fn Expr::not_equal(Self, Self) -> Bool
 pub fn Expr::output(Self, &Logger) -> Unit
 pub fn Expr::pow(Self, Self) -> Self
 pub fn Expr::round(Self, decimals? : Int) -> Self
@@ -106,7 +104,6 @@ pub impl Add for Expr
 pub impl BitAnd for Expr
 pub impl BitOr for Expr
 pub impl Div for Expr
-pub impl Eq for Expr
 pub impl Mul for Expr
 pub impl Neg for Expr
 pub impl Show for Expr

@@ -103,7 +103,6 @@ impl Add for Expr <- expr
 impl BitAnd for Expr <- expr
 impl BitOr for Expr <- expr
 impl Div for Expr <- expr
-impl Eq for Expr <- expr
 impl Mul for Expr <- expr
 impl Neg for Expr <- expr
 impl Show for DataError <- types
@@ -201,7 +200,6 @@ method Expr::ceil(Self) -> Self <- expr
 method Expr::count(Self) -> Self <- expr
 method Expr::div(Self, Self) -> Self <- expr
 method Expr::eq(Self, Self) -> Self <- expr
-method Expr::equal(Self, Self) -> Bool <- expr
 method Expr::fill_nan(Self, Self) -> Self <- expr
 method Expr::fill_null(Self, Self) -> Self <- expr
 method Expr::first(Self) -> Self <- expr
@@ -232,7 +230,6 @@ method Expr::n_unique(Self) -> Self <- expr
 method Expr::ne(Self, Self) -> Self <- expr
 method Expr::neg(Self) -> Self <- expr
 method Expr::not(Self) -> Self <- expr
-method Expr::not_equal(Self, Self) -> Bool <- expr
 method Expr::output(Self, &Logger) -> Unit <- expr
 method Expr::pow(Self, Self) -> Self <- expr
 method Expr::round(Self, decimals? : Int) -> Self <- expr
@@ -276,10 +273,8 @@ method HtmlOptions::equal(Self, Self) -> Bool <- frame
 method HtmlOptions::not_equal(Self, Self) -> Bool <- frame
 method HtmlOptions::to_repr(Self) -> @debug.Repr <- frame
 method JoinOptions::cross(suffix? : String) -> Self <- frame
-method JoinOptions::equal(Self, Self) -> Bool <- frame
 method JoinOptions::left_keys(Self) -> Array[@expr.Expr] <- frame
 method JoinOptions::left_on(Array[@expr.Expr], right_on~ : Array[@expr.Expr], how? : JoinType, suffix? : String, coalesce? : Bool) -> Self <- frame
-method JoinOptions::not_equal(Self, Self) -> Bool <- frame
 method JoinOptions::on(Array[@expr.Expr], how? : JoinType, suffix? : String, coalesce? : Bool) -> Self <- frame
 method JoinOptions::on_keys(Self) -> Array[@expr.Expr] <- frame
 method JoinOptions::right_keys(Self) -> Array[@expr.Expr] <- frame

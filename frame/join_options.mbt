@@ -87,7 +87,7 @@ pub struct JoinOptions {
   how : JoinType
   suffix : String
   coalesce : Bool?
-} derive(Eq, Debug)
+} derive(Debug)
 
 ///|
 /// The shared key expressions (`JoinOptions::on`), or an empty array for a
@@ -110,9 +110,6 @@ pub fn JoinOptions::left_keys(self : JoinOptions) -> Array[@expr.Expr] {
 pub fn JoinOptions::right_keys(self : JoinOptions) -> Array[@expr.Expr] {
   self.right_on.copy()
 }
-
-///|
-pub extend JoinOptions with Eq::{equal, not_equal}
 
 ///|
 pub extend JoinOptions with Debug::{to_repr}

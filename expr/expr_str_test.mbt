@@ -98,87 +98,92 @@ test "str: a parameter is quoted and escaped like a string literal" {
 }
 
 ///|
-test "str: structural equality compares the op tag and the operand" {
-  // Same op + same operand → equal.
-  assert_eq(col("s").str_to_uppercase(), col("s").str_to_uppercase())
-  assert_eq(col("s").str_contains("a"), col("s").str_contains("a"))
+test "str: the rendering distinguishes the op tag, its arguments, and the operand" {
+  // Same op + same operand → the same tree.
+  assert_same_expr(col("s").str_to_uppercase(), col("s").str_to_uppercase())
+  assert_same_expr(col("s").str_contains("a"), col("s").str_contains("a"))
   // A differing operation, a differing literal argument, or a differing
-  // operand each breaks equality — `Contains("a")` and `Contains("b")` are
-  // distinct tags.
-  assert_eq(col("s").str_to_uppercase() == col("s").str_to_lowercase(), false)
-  assert_eq(col("s").str_contains("a") == col("s").str_contains("b"), false)
-  assert_eq(col("s").str_to_uppercase() == col("t").str_to_uppercase(), false)
+  // operand each makes a different tree — `Contains("a")` and `Contains("b")`
+  // are distinct tags.
+  assert_diff_expr(col("s").str_to_uppercase(), col("s").str_to_lowercase())
+  assert_diff_expr(col("s").str_contains("a"), col("s").str_contains("b"))
+  assert_diff_expr(col("s").str_to_uppercase(), col("t").str_to_uppercase())
   // The parameterised pad tag distinguishes on both width and fill.
-  assert_eq(
+  assert_same_expr(
     col("s").str_pad_start(3, fill='0'),
     col("s").str_pad_start(3, fill='0'),
   )
-  assert_eq(
-    col("s").str_pad_start(3, fill='0') == col("s").str_pad_start(4, fill='0'),
-    false,
+  assert_diff_expr(
+    col("s").str_pad_start(3, fill='0'),
+    col("s").str_pad_start(4, fill='0'),
   )
-  assert_eq(
-    col("s").str_pad_start(3, fill='0') == col("s").str_pad_start(3, fill='x'),
-    false,
+  assert_diff_expr(
+    col("s").str_pad_start(3, fill='0'),
+    col("s").str_pad_start(3, fill='x'),
   )
-  assert_eq(col("s").str_reverse() == col("s").str_to_uppercase(), false)
+  assert_diff_expr(col("s").str_reverse(), col("s").str_to_uppercase())
   // A regex op is distinct from its literal namesake and from a differing
   // pattern.
-  assert_eq(
+  assert_same_expr(
     col("s").str_contains("a", literal=false),
     col("s").str_contains("a", literal=false),
   )
-  assert_eq(
-    col("s").str_contains("a", literal=false) ==
+  assert_diff_expr(
+    col("s").str_contains("a", literal=false),
     col("s").str_contains("b", literal=false),
-    false,
   )
-  assert_eq(
-    col("s").str_contains("a", literal=false) == col("s").str_contains("a"),
-    false,
+  assert_diff_expr(
+    col("s").str_contains("a", literal=false),
+    col("s").str_contains("a"),
   )
   // `Extract` distinguishes on both pattern and group index.
-  assert_eq(
+  assert_same_expr(
     col("s").str_extract("a", group=1),
     col("s").str_extract("a", group=1),
   )
-  assert_eq(
-    col("s").str_extract("a", group=1) == col("s").str_extract("a", group=2),
-    false,
+  assert_diff_expr(
+    col("s").str_extract("a", group=1),
+    col("s").str_extract("a", group=2),
   )
-  assert_eq(col("s").str_extract("a") == col("s").str_extract("b"), false)
-  assert_eq(
-    col("s").str_count_matches("a") == col("s").str_count_matches("b"),
-    false,
+  assert_diff_expr(col("s").str_extract("a"), col("s").str_extract("b"))
+  assert_diff_expr(
+    col("s").str_count_matches("a"),
+    col("s").str_count_matches("b"),
   )
   // `Slice` distinguishes on both offset and (optional) length.
-  assert_eq(col("s").str_slice(1, length=2), col("s").str_slice(1, length=2))
-  assert_eq(col("s").str_slice(1) == col("s").str_slice(2), false)
-  assert_eq(
-    col("s").str_slice(1, length=2) == col("s").str_slice(1, length=3),
-    false,
+  assert_same_expr(
+    col("s").str_slice(1, length=2),
+    col("s").str_slice(1, length=2),
   )
-  assert_eq(col("s").str_slice(1) == col("s").str_slice(1, length=2), false)
+  assert_diff_expr(col("s").str_slice(1), col("s").str_slice(2))
+  assert_diff_expr(
+    col("s").str_slice(1, length=2),
+    col("s").str_slice(1, length=3),
+  )
+  assert_diff_expr(col("s").str_slice(1), col("s").str_slice(1, length=2))
   // `len_bytes` is a distinct op from `len_chars`; a custom strip differs from
   // the default and from a different charset; `split_get` distinguishes on both
   // separator and index.
-  assert_eq(col("s").str_len_bytes() == col("s").str_len_chars(), false)
-  assert_eq(
-    col("s").str_strip_chars(chars="x") == col("s").str_strip_chars(),
-    false,
+  assert_diff_expr(col("s").str_len_bytes(), col("s").str_len_chars())
+  assert_diff_expr(
+    col("s").str_strip_chars(chars="x"),
+    col("s").str_strip_chars(),
   )
-  assert_eq(
-    col("s").str_strip_chars(chars="x") == col("s").str_strip_chars(chars="y"),
-    false,
+  assert_diff_expr(
+    col("s").str_strip_chars(chars="x"),
+    col("s").str_strip_chars(chars="y"),
   )
-  assert_eq(col("s").str_split_get(",", 1), col("s").str_split_get(",", 1))
-  assert_eq(
-    col("s").str_split_get(",", 1) == col("s").str_split_get(";", 1),
-    false,
+  assert_same_expr(
+    col("s").str_split_get(",", 1),
+    col("s").str_split_get(",", 1),
   )
-  assert_eq(
-    col("s").str_split_get(",", 1) == col("s").str_split_get(",", 2),
-    false,
+  assert_diff_expr(
+    col("s").str_split_get(",", 1),
+    col("s").str_split_get(";", 1),
+  )
+  assert_diff_expr(
+    col("s").str_split_get(",", 1),
+    col("s").str_split_get(",", 2),
   )
 }
 
@@ -187,8 +192,8 @@ test "str: children, naming, and column references see through the wrapper" {
   // A `Str` node exposes its single operand, and both naming and reference
   // collection treat it transparently — the operation keeps the source
   // column's name unless an alias overrides it.
-  assert_eq(col("s").str_to_uppercase().children(), [col("s")])
-  assert_eq(col("s").str_contains("a").children(), [col("s")])
+  assert_same_exprs(col("s").str_to_uppercase().children(), [col("s")])
+  assert_same_exprs(col("s").str_contains("a").children(), [col("s")])
   assert_eq(col("s").str_to_uppercase().output_name(), "s")
   assert_eq(col("s").str_to_uppercase().with_alias("up").output_name(), "up")
   assert_eq(col("s").str_replace("a", "b").referenced_columns().to_array(), [

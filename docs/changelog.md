@@ -81,6 +81,16 @@ collected in [`migration.md`](migration.md).
     the name is unchanged (`@moonframe.ClosedInterval`); a direct sub-package
     import spells it `@types.ClosedInterval` instead of `@expr.ClosedInterval`,
     the same relocation `SortOrder` / `NullOrder` had.
+- **`Expr` and `JoinOptions` lose `==`.** Making the AST module-internal closed
+  the *visibility* half of that promise, and equality was the half left open:
+  comparing two expressions compared their trees, so how an operator lowers was
+  observable from outside, and a normalisation or a merged node kind would have
+  changed what compared equal. The impl is gone rather than documented, and
+  `JoinOptions` — whose key lists are expressions — goes with it. Compare
+  `Expr::to_string()` instead: `(col("a") + lit_int(1)).to_string()` is
+  `"(a + 1)"`, which is also what `explain()` prints. For join options, compare
+  the parts that mean something — `how` / `suffix` / `coalesce` and the
+  rendered `on_keys()` / `left_keys()` / `right_keys()`.
 
 - **A column-less frame carries its row count (`N × 0`).** A frame with no
   columns was pinned to `0×0` by INV7, so every projection to zero columns

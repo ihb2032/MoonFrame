@@ -196,7 +196,7 @@ test "is_between honours each closed setting" {
   ])
   // The endpoint rule is part of the expression's identity, and renders as the
   // argument that builds it.
-  assert_not_eq(
+  assert_diff_expr(
     @expr.col("n").is_between(lo, hi),
     @expr.col("n").is_between(lo, hi, closed=@types.ClosedInterval::Left),
   )

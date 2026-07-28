@@ -157,7 +157,7 @@ extract() {
         next
       }
       /^pub impl / { print "impl " $3 " for " $5 " <- " pkg; alias = ""; next }
-      /^pub(\(all\))? (struct|enum|suberror|trait) / {
+      /^pub(\(all\))? (struct|enum|type|suberror|trait) / {
         tname = $3
         sub(/[{].*/, "", tname)
         key = tname " " pkg

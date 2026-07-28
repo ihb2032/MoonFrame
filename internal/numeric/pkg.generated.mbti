@@ -1,0 +1,22 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ihb2032/MoonFrame/internal/numeric"
+
+// Values
+pub fn double_fits_int64(Double) -> Bool
+
+pub fn double_lt_int64(Double, Int64) -> Bool
+
+pub fn[T] fold_extremum(Int, (Int) -> T, (Int) -> Bool, (T, T) -> Bool) -> T?
+
+pub fn int64_eq_double(Int64, Double) -> Bool
+
+pub fn int64_lt_double(Int64, Double) -> Bool
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

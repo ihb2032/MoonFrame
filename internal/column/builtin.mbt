@@ -359,7 +359,7 @@ fn BuiltinColumn::to_int(
             raise @types.DataError::ParseError(
               @types.ParseErrorDetail::Message("cannot cast Infinity to Int"),
             )
-          } else if !@types.double_fits_int64(x) {
+          } else if !@numeric.double_fits_int64(x) {
             raise @types.DataError::ParseError(
               @types.ParseErrorDetail::Message(
                 "Float value out of Int range: \{x}",

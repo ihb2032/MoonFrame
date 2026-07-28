@@ -144,8 +144,8 @@ pub fn Scalar::eq(self : Scalar, other : Scalar) -> Bool raise DataError {
     (Null, _) | (_, Null) => null_compare_error()
     (Int(a), Int(b)) => a == b
     (Float(a), Float(b)) => a == b
-    (Int(a), Float(b)) => int64_eq_double(a, b)
-    (Float(a), Int(b)) => int64_eq_double(b, a)
+    (Int(a), Float(b)) => @numeric.int64_eq_double(a, b)
+    (Float(a), Int(b)) => @numeric.int64_eq_double(b, a)
     (Bool(a), Bool(b)) => a == b
     (String(a), String(b)) => a == b
     _ => type_mismatch_for_compare(self, other)
@@ -163,8 +163,8 @@ pub fn Scalar::lt(self : Scalar, other : Scalar) -> Bool raise DataError {
     (Null, _) | (_, Null) => null_compare_error()
     (Int(a), Int(b)) => a < b
     (Float(a), Float(b)) => a < b
-    (Int(a), Float(b)) => int64_lt_double(a, b)
-    (Float(a), Int(b)) => double_lt_int64(a, b)
+    (Int(a), Float(b)) => @numeric.int64_lt_double(a, b)
+    (Float(a), Int(b)) => @numeric.double_lt_int64(a, b)
     (Bool(a), Bool(b)) => (a |> bool_to_int) < (b |> bool_to_int)
     (String(a), String(b)) => @text.compare_string_lex(a, b) < 0
     _ => type_mismatch_for_compare(self, other)

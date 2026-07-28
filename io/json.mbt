@@ -433,7 +433,7 @@ fn infer_json_column_dtype(
 /// Try to read `j` as an `Int64`. For a finite `Number` the check is
 /// value-based: accept it when it is exactly integer-valued
 /// (`n == n.trunc()`) and within `Int64` range (checked by
-/// `@types.double_fits_int64`, since `Int64::MAX` isn't exactly representable
+/// `@numeric.double_fits_int64`, since `Int64::MAX` isn't exactly representable
 /// as a `Double`), so a token like `1.0e2` lands as `Int(100)`, matching
 /// pandas / polars on equivalent CSV. A `Number` whose magnitude overflowed
 /// the `Double` (parsed as `±Infinity`) is recovered from its preserved `repr`
@@ -458,7 +458,7 @@ fn json_value_as_int(j : Json) -> Int64? {
     Number(n, repr=None) =>
       if n != n.trunc() {
         None
-      } else if !@types.double_fits_int64(n) {
+      } else if !@numeric.double_fits_int64(n) {
         None
       } else {
         Some(n.to_int64())

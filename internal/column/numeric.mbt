@@ -373,7 +373,7 @@ fn NumericColumn::extremum(
       let get = i => a[i]
       let skip = fn(_i) { false }
       let better = (x, y) => if want_min { x < y } else { x > y }
-      let best = @types.fold_extremum(a.length(), get, skip, better)
+      let best = @numeric.fold_extremum(a.length(), get, skip, better)
       match best {
         None => @types.Scalar::Null
         Some(b) => @types.Scalar::Int(b)
@@ -383,7 +383,7 @@ fn NumericColumn::extremum(
       let get = i => a[i]
       let skip = i => a[i].is_nan()
       let better = (x, y) => if want_min { x < y } else { x > y }
-      let best = @types.fold_extremum(a.length(), get, skip, better)
+      let best = @numeric.fold_extremum(a.length(), get, skip, better)
       match best {
         None => @types.Scalar::Null
         Some(b) => @types.Scalar::Float(b)

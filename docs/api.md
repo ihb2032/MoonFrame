@@ -12,9 +12,10 @@ The **per-symbol reference** — every type, constructor, method, and free
 function, with its signature and documentation — is generated from the
 docstrings and browsable on
 [mooncakes.io](https://mooncakes.io/docs/ihb2032/MoonFrame). Runnable,
-CI-verified examples of the whole surface live in
+CI-verified examples of the representative workflows live in
 [`quickstart.mbt.md`](../quickstart.mbt.md) (doc tests executed by `moon test`
-on every backend).
+on every backend) — a broad tour rather than a per-symbol catalogue, which is
+what the generated reference above is for.
 
 ## API stability & compatibility
 
@@ -375,8 +376,9 @@ public API names, so there is nothing to re-export for it.
 
 The chained intermediates — `WhenThen` / `WhenThenElse` (from
 `when(c).then(a).otherwise(b)`) and `GroupedDataFrame` / `LazyGroupBy` (from
-`group_by(k).agg(e)`) — are **not** re-exported. A caller never names one: it
-only chains the next method off the previous step's return value, and
+`group_by(k).agg(e)`) — are **not** re-exported. Reaching the library through
+the facade never requires naming one: a caller only chains the next method off
+the previous step's return value, and
 dot-method resolution follows that value's type, so the chain works through the
 facade without the name in scope. They remain `pub` in `@expr` / `@frame` /
 `@lazy` for anyone who does import those packages directly.

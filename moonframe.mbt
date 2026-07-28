@@ -51,11 +51,11 @@
 // (`Array[Expr]`, `let df : DataFrame`), or match its variants. The
 // fluent-chain intermediates are deliberately NOT re-exported: `WhenThen` /
 // `WhenThenElse` (threaded through `when(c).then(a).otherwise(b)`) and
-// `GroupedDataFrame` / `LazyGroupBy` (through `group_by(k).agg(e)`). A caller
-// never names one — it only chains a method off the previous step's return
-// value, and dot-method resolution follows that value's own type, so the chain
-// compiles cross-module without the name in scope (verified against a real
-// downstream module). They stay `pub` in their home packages, since the verb
+// `GroupedDataFrame` / `LazyGroupBy` (through `group_by(k).agg(e)`). Reaching
+// the library through this facade never requires naming one — a caller chains
+// a method off the previous step's return value, and dot-method resolution
+// follows that value's own type, so the chain compiles cross-module without
+// the name in scope (verified against a real downstream module). They stay `pub` in their home packages, since the verb
 // that returns one must be; the facade simply does not proxy the name.
 //
 // So `@expr` needs explicit re-export only for the free constructors (`col` /

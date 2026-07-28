@@ -156,7 +156,26 @@ extract() {
         alias = ""
         next
       }
-      /^pub impl / { print "impl " $3 " for " $5 " <- " pkg; alias = ""; next }
+      # `pub impl Trait for Type`, and `pub impl[T] Trait for Type[T]` — the
+      # generic form shifts every field, so the trait and the type are found by
+      # locating `for` rather than by counting words. Reading `$3` and `$5`
+      # turned a generic impl into `impl [T] for for`, and two different ones
+      # into the same line, which `sort -u` then merged out of the snapshot.
+      /^pub impl / {
+        rest = $0
+        sub(/^pub impl/, "", rest)
+        sub(/^(\[[^]]*\])?[ \t]*/, "", rest)
+        idx = index(rest, " for ")
+        if (idx > 0) {
+          trait_name = substr(rest, 1, idx - 1)
+          target = substr(rest, idx + 5)
+          print "impl " trait_name " for " target " <- " pkg
+        } else {
+          print "impl " rest " <- " pkg
+        }
+        alias = ""
+        next
+      }
       /^pub(\(all\))? (struct|enum|type|suberror|trait) / {
         tname = $3
         sub(/[{].*/, "", tname)

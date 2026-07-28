@@ -11,4 +11,3 @@
 # nothing else.
 #
 # Format: pkg/Symbol — reason
-internal/column/BuiltinColumn::placeholders_normalized — the placeholder invariant every constructor, cast and transform is supposed to maintain; it exists to be asserted, so it has no production caller and cannot be private

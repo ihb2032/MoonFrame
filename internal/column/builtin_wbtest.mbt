@@ -12,14 +12,14 @@ test "placeholders_normalized flags a leaked value in a null slot, per dtype" {
   // dtypes.
   let mask = Bitmap::from_options([Some(0L), None])
   let leak_i : BuiltinColumn = { data: Int([0L, 99L]), validity: mask }
-  assert_false(leak_i.placeholders_normalized())
+  assert_false(placeholders_normalized(leak_i))
   let leak_f : BuiltinColumn = { data: Float([0.0, 9.9]), validity: mask }
-  assert_false(leak_f.placeholders_normalized())
+  assert_false(placeholders_normalized(leak_f))
   let leak_b : BuiltinColumn = { data: Bool([false, true]), validity: mask }
-  assert_false(leak_b.placeholders_normalized())
+  assert_false(placeholders_normalized(leak_b))
   let leak_s : BuiltinColumn = { data: String(["", "leak"]), validity: mask }
-  assert_false(leak_s.placeholders_normalized())
+  assert_false(placeholders_normalized(leak_s))
   // The same validity with the canonical placeholder in the null slot passes.
   let ok_i : BuiltinColumn = { data: Int([0L, 0L]), validity: mask }
-  assert_true(ok_i.placeholders_normalized())
+  assert_true(placeholders_normalized(ok_i))
 }

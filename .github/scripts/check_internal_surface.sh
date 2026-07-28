@@ -107,19 +107,33 @@ has_outside_caller() {
       files=$(printf '%s\n' "$production_files" | grep "^$imp/[^/]*\$" || true)
     fi
     [ -n "$files" ] || continue
-    hits=$(printf '%s\n' "$files" | tr '\n' '\0' |
-      xargs -0 grep -nE "$pattern" 2>/dev/null |
-      grep -vE '^([^:]*:)?[0-9]+:[[:space:]]*//' |
-      grep -vE '^([^:]*:)?[0-9]+:[[:space:]]*(pub )?fn(\[[^]]*\])? ' || true)
+    hits=$(printf '%s\n' "$files" | while IFS= read -r f; do
+      [ -f "$f" ] || continue
+      strip_noncode <"$f" | grep -nE "$pattern" |
+        grep -vE '^[0-9]+:[[:space:]]*(pub )?fn(\[[^]]*\])? ' || true
+    done)
     [ -z "$hits" ] || return 0
   done
   return 1
 }
 
-has_outside_mention() {
-  # has_outside_mention <declaring-pkg> <type-name>
-  # A type is used by naming it — in a signature, a `match` arm, a
-  # construction — so any mention outside a comment counts.
+# Strip what is not code before matching a name: a trailing `//` comment and
+# the contents of string literals. A whole-line comment filter was not enough —
+# `foo() // returns NumericData` and `let msg = "ColumnStorage"` both kept a
+# type alive that nothing actually used, which is the wrong direction for an
+# audit whose job is to find the unused. (MoonBit has no block comments, so
+# line-wise stripping sees the whole picture. A `//` inside a string literal is
+# cut early by this, which can only *lose* a match — the safe direction.)
+strip_noncode() {
+  sed -e 's/"[^"]*"/""/g' -e 's#//.*##'
+}
+
+has_qualified_caller() {
+  # has_qualified_caller <declaring-pkg> <Type::method>
+  # The unambiguous half of `has_outside_caller`: only the `Type::method(`
+  # spelling, which names the owner and so cannot be another type's method.
+  owner=${2%::*}
+  short=${2##*::}
   importers=$(printf '%s\n' "$edges" | awk -v want="$1" '$2 == want { print $1 }' |
     grep -v "^$1$" || true)
   [ -n "$importers" ] || return 1
@@ -130,9 +144,34 @@ has_outside_mention() {
       files=$(printf '%s\n' "$production_files" | grep "^$imp/[^/]*\$" || true)
     fi
     [ -n "$files" ] || continue
-    hits=$(printf '%s\n' "$files" | tr '\n' '\0' |
-      xargs -0 grep -nE "(^|[^A-Za-z0-9_])$2([^A-Za-z0-9_]|\$)" 2>/dev/null |
-      grep -vE '^([^:]*:)?[0-9]+:[[:space:]]*//' || true)
+    hits=$(printf '%s\n' "$files" | while IFS= read -r f; do
+      [ -f "$f" ] || continue
+      strip_noncode <"$f" | grep -nE "${owner}::${short}\(" || true
+    done)
+    [ -z "$hits" ] || return 0
+  done
+  return 1
+}
+
+has_outside_mention() {
+  # has_outside_mention <declaring-pkg> <type-name>
+  # A type is used by naming it — in a signature, a `match` arm, a
+  # construction — so any mention in code counts.
+  importers=$(printf '%s\n' "$edges" | awk -v want="$1" '$2 == want { print $1 }' |
+    grep -v "^$1$" || true)
+  [ -n "$importers" ] || return 1
+  for imp in $importers; do
+    if [ "$imp" = root ]; then
+      files=$(printf '%s\n' "$production_files" | grep -v '/' || true)
+    else
+      files=$(printf '%s\n' "$production_files" | grep "^$imp/[^/]*\$" || true)
+    fi
+    [ -n "$files" ] || continue
+    hits=$(printf '%s\n' "$files" | while IFS= read -r f; do
+      [ -f "$f" ] || continue
+      strip_noncode <"$f" | grep -nE "(^|[^A-Za-z0-9_])$2([^A-Za-z0-9_]|\$)" |
+        sed "s|^|$f:|" || true
+    done)
     [ -z "$hits" ] || return 0
   done
   return 1
@@ -149,7 +188,18 @@ is_allowed() {
 }
 
 unreachable=""
+ambiguous=""
 checked=0
+
+# Every `Type::method` declared anywhere in the module, so a short name can be
+# asked how many types carry it. This is what separates "a caller names the
+# owner" from "a caller wrote `.len(` and there are four `len`s".
+all_methods=$(printf '%s\n' "$production_files" | while IFS= read -r f; do
+  [ -f "$f" ] || continue
+  grep -hE '^(pub(\(all\))? )?fn(\[[^]]*\])? [A-Za-z_][A-Za-z0-9_]*::' "$f" || true
+done | sed 's/^pub(all) //; s/^pub //; s/^fn//; s/^\[[^]]*\]//; s/^[[:space:]]*//; s/(.*//' |
+  LC_ALL=C sort -u)
+
 for pkg in $(git ls-files 'internal/*/moon.pkg' | while IFS= read -r m; do
   dirname "$m"
 done); do
@@ -168,6 +218,19 @@ done); do
       is_allowed "$pkg/$sym" ||
         unreachable="$unreachable$pkg/$sym
 "
+    elif [ "${sym#*::}" != "$sym" ]; then
+      # It has a caller — but if a receiver call was the only evidence and the
+      # method's short name belongs to more than one type, the evidence does
+      # not say *which* type was called. Those pass, and are listed, because
+      # "the audit is silent" and "the audit checked this" should not look the
+      # same. `Type::method(` spellings are exact and never land here.
+      short=${sym##*::}
+      owners=$(printf '%s\n' "$all_methods" | awk -F'::' -v s="$short" \
+        '$2 == s { print $1 }' | LC_ALL=C sort -u | wc -l | tr -d ' ')
+      if [ "$owners" -gt 1 ] && ! has_qualified_caller "$pkg" "$sym"; then
+        ambiguous="$ambiguous$pkg/$sym (shared with $((owners - 1)) other type(s))
+"
+      fi
     fi
   done
   # Types travel further than functions: a `pub(all) enum` hands another
@@ -266,6 +329,16 @@ if [ -n "$fields" ]; then
   printf '  package really has to read it, give it a named accessor instead,\n'
   printf '  which this audit can see and account for.\n'
   exit 1
+fi
+
+if [ -n "$ambiguous" ]; then
+  printf 'internal surface: credited by a shared method name, not by an owner:\n'
+  printf '%s' "$ambiguous" | sed 's/^/  /'
+  printf '  These pass. The evidence is a receiver call — `.len(`, `.get(` — and\n'
+  printf '  more than one type in the module carries that name, so it does not\n'
+  printf '  say which one was called. Read them as unchecked rather than\n'
+  printf '  checked: to settle one, look for a real caller or make it private\n'
+  printf '  and see whether anything breaks.\n'
 fi
 
 printf 'internal surface: %s internal `pub` symbols reachable, no published field\n' \

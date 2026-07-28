@@ -1,6 +1,8 @@
-// Blackbox tests for the Arrow-style validity `Bitmap`. Only the public
-// API is exercised; the bit-packing layout is verified indirectly through
-// `is_valid` / `is_null` / `null_count`.
+// Whitebox tests for the Arrow-style validity `Bitmap`. They compile inside
+// the package and exercise it there on purpose: the constructors, the bit
+// reads, and the view mechanics behind a zero-copy slice are package-private,
+// because the layer above reaches a column's validity through
+// `ColumnStorage` and never the bitmap itself.
 
 // ── Constructors ─────────────────────────────────────────────────────
 
@@ -9,7 +11,7 @@ test "all_valid marks every slot valid for non-byte-aligned lengths" {
   // Cover the packing-edge cases the plan calls out explicitly.
   for n in [0, 1, 7, 8, 9, 16, 17] {
     let bm = Bitmap::all_valid(n)
-    assert_eq(bm.len(), n)
+    assert_eq(bm.len, n)
     assert_eq(bm.null_count(), 0)
     for i in 0..<n {
       assert_eq(bm.is_valid(i), true)
@@ -25,7 +27,7 @@ test "all_valid clamps a negative len to an empty bitmap" {
   // the never-abort rule forbids). Clamped, the result is exactly the
   // empty bitmap.
   let bm = Bitmap::all_valid(-3)
-  assert_eq(bm.len(), 0)
+  assert_eq(bm.len, 0)
   assert_eq(bm.null_count(), 0)
   assert_eq(bm.to_bools(), [])
   assert_eq(bm, Bitmap::all_valid(0))
@@ -34,7 +36,7 @@ test "all_valid clamps a negative len to an empty bitmap" {
 ///|
 test "from_bools mirrors the input vector exactly" {
   let bm = mask([true, false, true, true, false, false, true, true, false])
-  assert_eq(bm.len(), 9)
+  assert_eq(bm.len, 9)
   assert_eq(bm.null_count(), 4)
   let expected : ReadOnlyArray[Bool] = [
     true, false, true, true, false, false, true, true, false,
@@ -47,14 +49,14 @@ test "from_bools mirrors the input vector exactly" {
 ///|
 test "from_bools on the empty array" {
   let bm = mask([])
-  assert_eq(bm.len(), 0)
+  assert_eq(bm.len, 0)
   assert_eq(bm.null_count(), 0)
 }
 
 ///|
 test "from_options on Int? round-trips Some/None as 1/0" {
   let bm = Bitmap::from_options([Some(1), None, Some(3), None, None])
-  assert_eq(bm.len(), 5)
+  assert_eq(bm.len, 5)
   assert_eq(bm.null_count(), 3)
   assert_eq(bm.is_valid(0), true)
   assert_eq(bm.is_valid(1), false)
@@ -79,7 +81,7 @@ test "is_valid_total reads one slot totally, clamping out-of-range to false" {
 test "from_options is generic in the element type" {
   // String options must also work — the function only looks at Some/None.
   let bm = Bitmap::from_options([Some("a"), None, Some("c")])
-  assert_eq(bm.len(), 3)
+  assert_eq(bm.len, 3)
   assert_eq(bm.null_count(), 1)
   assert_eq(bm.is_valid(1), false)
 }
@@ -144,7 +146,7 @@ test "null_count agrees with bit-by-bit is_null" {
   }
   assert_eq(bm.null_count(), expected)
   let mut by_iter = 0
-  for i in 0..<bm.len() {
+  for i in 0..<bm.len {
     if bm.is_null(i) {
       by_iter = by_iter + 1
     }
@@ -164,8 +166,8 @@ test "slice mid-range across a byte boundary preserves bits" {
      false, true, true, // byte 1, bits 0..2 (== logical bits 8..10)
      false, // byte 1, bit 3 (== logical bit 11)
   ])
-  let part = bm.slice(3, 8)
-  assert_eq(part.len(), 8)
+  let part = bm.slice_view(3, 8)
+  assert_eq(part.len, 8)
   let expected : ReadOnlyArray[Bool] = [
     true, true, false, false, true, false, true, true,
   ]
@@ -177,64 +179,16 @@ test "slice mid-range across a byte boundary preserves bits" {
 ///|
 test "slice with length 0 yields an empty bitmap regardless of start" {
   let bm = Bitmap::all_valid(5)
-  let part = bm.slice(2, 0)
-  assert_eq(part.len(), 0)
+  let part = bm.slice_view(2, 0)
+  assert_eq(part.len, 0)
   assert_eq(part.null_count(), 0)
 }
 
 ///|
 test "slice covering the full range is value-equal to the source" {
   let bm = mask([true, false, true, true])
-  let part = bm.slice(0, 4)
+  let part = bm.slice_view(0, 4)
   assert_eq(part, bm)
-}
-
-///|
-test "slice rejects negative start, start past len, and overshoot" {
-  let bm = Bitmap::all_valid(4)
-  assert_eq(
-    Ok(bm.slice(-1, 2)) catch {
-      e => Err(e)
-    },
-    Err(@types.DataError::IndexOutOfBounds(-1)),
-  )
-  assert_eq(
-    Ok(bm.slice(5, 0)) catch {
-      e => Err(e)
-    },
-    Err(@types.DataError::IndexOutOfBounds(5)),
-  )
-  assert_eq(
-    Ok(bm.slice(2, 5)) catch {
-      e => Err(e)
-    },
-    Err(@types.DataError::IndexOutOfBounds(7)),
-  )
-  // An overshoot whose `start + length` overflows Int (length near Int::MAX)
-  // must still be rejected, not wrap past the guard into an over-long view that
-  // a later read aborts on. The payload saturates instead of wrapping into a
-  // nonsense negative "index" that would misdirect debugging.
-  assert_eq(
-    Ok(bm.slice(2, 2147483647)) catch {
-      e => Err(e)
-    },
-    Err(@types.DataError::IndexOutOfBounds(2147483647)),
-  )
-}
-
-///|
-test "slice rejects negative length with InvalidOperation" {
-  let bm = Bitmap::all_valid(4)
-  assert_true(
-    (Ok(bm.slice(0, -1)) catch { e => Err(e) }) is Err(InvalidOperation(_)),
-  )
-}
-
-///|
-test "slice at start == len with length 0 succeeds (empty tail slice)" {
-  let bm = Bitmap::all_valid(3)
-  let tail = bm.slice(3, 0)
-  assert_eq(tail.len(), 0)
 }
 
 // ── take ──────────────────────────────────────────────────────────────
@@ -242,8 +196,8 @@ test "slice at start == len with length 0 succeeds (empty tail slice)" {
 ///|
 test "take gathers in arbitrary order with duplicates" {
   let bm = mask([true, false, true, false, true])
-  let out = bm.take([4, 1, 1, 0])
-  assert_eq(out.len(), 4)
+  let out = bm.take_view([4, 1, 1, 0])
+  assert_eq(out.len, 4)
   assert_eq(out.is_valid(0), true) // src[4] = true
   assert_eq(out.is_valid(1), false) // src[1] = false
   assert_eq(out.is_valid(2), false) // src[1] = false (duplicate)
@@ -253,26 +207,9 @@ test "take gathers in arbitrary order with duplicates" {
 ///|
 test "take with empty index array returns an empty bitmap" {
   let bm = Bitmap::all_valid(3)
-  let out = bm.take([])
-  assert_eq(out.len(), 0)
+  let out = bm.take_view([])
+  assert_eq(out.len, 0)
   assert_eq(out.null_count(), 0)
-}
-
-///|
-test "take reports the first offender for negative and overflow indices" {
-  let bm = Bitmap::all_valid(2)
-  assert_eq(
-    Ok(bm.take([0, 5])) catch {
-      e => Err(e)
-    },
-    Err(@types.DataError::IndexOutOfBounds(5)),
-  )
-  assert_eq(
-    Ok(bm.take([-1])) catch {
-      e => Err(e)
-    },
-    Err(@types.DataError::IndexOutOfBounds(-1)),
-  )
 }
 
 // ── bit_and ───────────────────────────────────────────────────────────
@@ -290,13 +227,13 @@ test "sliced view equals a freshly packed bitmap and counts its own window" {
      false, true, true, false, true, // bits 3..7  (the window starts at 3)
      false, false, // bits 8..9
   ])
-  let view = bm.slice(3, 5) // bits 3..7 = [false, true, true, false, true]
+  let view = bm.slice_view(3, 5) // bits 3..7 = [false, true, true, false, true]
   let fresh = mask([false, true, true, false, true])
   assert_eq(view, fresh)
   assert_eq(view.null_count(), 2)
   assert_eq(fresh.null_count(), 2)
   // A view of a view composes the offsets.
-  let inner = view.slice(1, 3) // [true, true, false]
+  let inner = view.slice_view(1, 3) // [true, true, false]
   assert_eq(inner, mask([true, true, false]))
   assert_eq(inner.null_count(), 1)
 }
@@ -319,10 +256,10 @@ test "null_count of an offset-0 sub-window masks the shared tail byte (P3 regres
   // bits past `len` are live sibling bits. The popcount fast path must mask
   // them; before the fix this returned a too-small (even negative) count.
   let all3 = Bitmap::all_valid(3) // 1 byte, bits 0,1,2 set
-  assert_eq(all3.slice(0, 2).null_count(), 0)
-  assert_eq(all3.slice(0, 1).null_count(), 0)
+  assert_eq(all3.slice_view(0, 2).null_count(), 0)
+  assert_eq(all3.slice_view(0, 1).null_count(), 0)
   let mixed = mask([true, false, true]) // bit 1 is null
-  assert_eq(mixed.slice(0, 2).null_count(), 1) // window [0, 2) keeps the null
+  assert_eq(mixed.slice_view(0, 2).null_count(), 1) // window [0, 2) keeps the null
   // `len` a multiple of 8 exercises the `tail == 0` fast path (no mask).
   assert_eq(Bitmap::all_valid(8).null_count(), 0)
   assert_eq(mask(Array::make(8, false)).null_count(), 8)
@@ -348,7 +285,7 @@ test "null_count over every slice agrees with a naive bit-by-bit count" {
           expected = expected + 1
         }
       }
-      assert_eq(bm.slice(start, len).null_count(), expected)
+      assert_eq(bm.slice_view(start, len).null_count(), expected)
     }
   }
 }

@@ -16,13 +16,8 @@ pub struct Bitmap {
   // private fields
 } derive(@debug.Debug)
 pub fn Bitmap::equal(Self, Self) -> Bool
-pub fn Bitmap::is_null(Self, Int) -> Bool raise @types.DataError
 pub fn Bitmap::is_valid_total(Self, Int) -> Bool
-pub fn Bitmap::len(Self) -> Int
 pub fn Bitmap::not_equal(Self, Self) -> Bool
-pub fn Bitmap::null_count(Self) -> Int
-pub fn Bitmap::slice(Self, Int, Int) -> Self raise @types.DataError
-pub fn Bitmap::take(Self, Array[Int]) -> Self raise @types.DataError
 pub fn Bitmap::to_bools(Self) -> Array[Bool]
 pub fn Bitmap::to_repr(Self) -> @debug.Repr
 pub impl Eq for Bitmap

@@ -58,7 +58,7 @@ pub impl Eq for Bitmap with fn equal(self, other) {
 
 ///|
 /// All `len` slots marked valid. A negative `len` clamps to 0 (an empty
-/// bitmap): these two constructors are the only place a caller-supplied
+/// bitmap): this is the only place a caller-supplied
 /// length becomes a bitmap's `len`, and a negative `len` stored verbatim
 /// would desynchronise `len` from the (empty) buffer — `null_count`'s
 /// tail-byte read would then index past it and abort, the one failure mode

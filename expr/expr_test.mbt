@@ -1,11 +1,13 @@
 ///|
-/// Blackbox equality / shape semantics for the `Expr` tree. The enum is
-/// read-only outside `expr` (`[4036]` — this file cannot spell
-/// `Expr::Col(..)` directly), so trees are asserted by comparing
-/// construction routes under `Expr`'s handwritten `Eq`. Construction-route equivalences
-/// (operator vs method alias, builder chains)
-/// live in `expr_ops_test.mbt`; rendering and column-collection in
-/// `explain_test.mbt`; evaluation semantics in `frame/expr_eval_test.mbt`.
+/// Blackbox shape semantics for the `Expr` tree. `Expr` is an opaque handle
+/// over an AST this file cannot name — no variant to spell, and no equality to
+/// compare with — so two trees are asserted through their rendering, which is
+/// what the shared `assert_same_expr` / `assert_diff_expr` do. What that pins
+/// is the documented surface: same shape renders the same, and any difference
+/// in shape shows. Construction-route equivalences (operator vs method alias,
+/// builder chains) live in `expr_ops_test.mbt`; rendering and
+/// column-collection in `explain_test.mbt`; evaluation semantics in
+/// `frame/expr_eval_test.mbt`.
 
 ///|
 test "col: different names are different nodes" {
@@ -125,9 +127,9 @@ test "ternary: condition and both branches each distinguish nodes" {
 ///|
 test "map: label and inputs distinguish nodes; the closure is opaque" {
   let same_a = map_many(label="m", [col("a")], fn(vs) { vs[0] })
-  // Two maps with the same label and inputs are equal even when they hold
-  // *different* closures — equality reads `(label, inputs)`, never the
-  // (uncomparable) function.
+  // Two maps with the same label and inputs render alike even when they hold
+  // *different* closures — a map shows `(label, inputs)` and never the
+  // (unshowable) function.
   assert_same_expr(
     same_a,
     map_many(label="m", [col("a")], fn(_vs) { @types.Scalar::Null }),
@@ -140,15 +142,15 @@ test "map: label and inputs distinguish nodes; the closure is opaque" {
     same_a,
     map_many(label="m", [col("a"), col("b")], fn(vs) { vs[0] }),
   )
-  // A map is never equal to a non-map (the mismatched-variant fallthrough).
+  // A map never renders like a non-map.
   assert_diff_expr(same_a, col("a"))
 }
 
 ///|
 test "map_batches: label, returns_scalar, and inputs distinguish nodes" {
   let same_a = col("a").map_batches(label="m", fn(s) { s })
-  // Same label + returns_scalar + inputs are equal even with different
-  // closures — the function is opaque to equality.
+  // Same label + returns_scalar + inputs render alike even with different
+  // closures — the function is not part of what a node shows.
   assert_same_expr(
     same_a,
     col("a").map_batches(label="m", fn(_s) { Series::from_ints("z", []) }),
@@ -162,8 +164,8 @@ test "map_batches: label, returns_scalar, and inputs distinguish nodes" {
     same_a,
     col("a").map_batches(label="m", returns_scalar=true, fn(s) { s }),
   )
-  // Never equal to a non-`MapBatches` node — including a same-label `Map`
-  // (the mismatched-variant fallthrough).
+  // Never renders like a non-`MapBatches` node — including a same-label
+  // `Map`, which is a different kind however alike its payload looks.
   assert_diff_expr(same_a, col("a"))
   assert_diff_expr(same_a, map_many(label="m", [col("a")], fn(vs) { vs[0] }))
 }
@@ -184,11 +186,12 @@ test "construction is total: nonsense trees still build" {
 }
 
 ///|
-test "deep trees don't overflow structural equality: `==` is iterative" {
-  // A left-nested tree this deep formerly overflowed the native stack and
-  // aborted inside the handwritten `Eq` — reached by `==` / `assert_eq` and the
-  // derived equality of any structure embedding an `Expr`. The explicit
-  // work-stack compares any depth without aborting.
+test "deep trees don't overflow: rendering is iterative" {
+  // A left-nested tree this deep overflows any walk that recurses on the call
+  // stack, and an overflow aborts. The renderer drives an explicit work stack
+  // instead, so a tree of any depth renders — which is what the assertions
+  // below compare, and what every caller reaching a tree through `to_string`
+  // depends on.
   let depth = 200000
   let mut a = col("a")
   let mut b = col("a")
@@ -202,18 +205,18 @@ test "deep trees don't overflow structural equality: `==` is iterative" {
 }
 
 ///|
-// The "each variant is unequal to every other variant" coverage test moved to
-// `expr_node_variant_wbtest.mbt`, where a whitebox `expr_node_variant_tag` match
-// makes adding an `ExprNode` variant a compile error until its representative is
-// added —
-// closing the silent gap this blackbox list left (a forgotten rep dropped a
-// variant's equality coverage without any signal).
+// The "each variant is unequal to every other variant" coverage test lives in
+// `internal/ir`, beside the equality it pins: a `variant_tag` match there makes
+// adding an `ExprNode` variant a compile error until its representative is
+// added, closing the silent gap this blackbox list left (a forgotten rep
+// dropped a variant's equality coverage without any signal). It cannot live
+// here in any case — `Expr` carries no equality for a blackbox test to reach.
 
 ///|
-test "equality: fill_null and fill_nan compare structurally, each its own kind" {
+test "shape: fill_null and fill_nan are each their own kind" {
   // The two guard the same shape but are separate variants (not one shared
-  // arm): each compares equal to itself, unequal on a differing value, and
-  // unequal to the other kind even with identical operands.
+  // arm): each renders like itself, differently on a differing value, and
+  // differently from the other kind even with identical operands.
   assert_same_expr(
     col("a").fill_null(lit_int(0)),
     col("a").fill_null(lit_int(0)),
@@ -237,7 +240,7 @@ test "equality: fill_null and fill_nan compare structurally, each its own kind" 
 }
 
 ///|
-test "equality: is_in compares operand and its literal set" {
+test "shape: is_in carries its operand and its literal set" {
   let a = col("a").is_in([@types.Scalar::Int(1), @types.Scalar::Int(2)])
   assert_same_expr(
     a,
@@ -259,7 +262,7 @@ test "equality: is_in compares operand and its literal set" {
     a,
     col("a").is_in([@types.Scalar::Int(1), @types.Scalar::Float(2.0)]),
   )
-  // Never equal to a non-`IsIn` node (the mismatched-variant fallthrough).
+  // Never renders like a non-`IsIn` node.
   assert_diff_expr(a, col("a"))
 }
 
@@ -275,28 +278,30 @@ test "is_in copies its literal set at the public boundary" {
 }
 
 ///|
-test "equality: is_between compares operand and both bounds" {
+test "shape: is_between carries its operand and both bounds" {
   let a = col("a").is_between(lit_int(0), lit_int(10))
   assert_same_expr(a, col("a").is_between(lit_int(0), lit_int(10)))
   assert_diff_expr(a, col("b").is_between(lit_int(0), lit_int(10)))
   assert_diff_expr(a, col("a").is_between(lit_int(1), lit_int(10)))
   assert_diff_expr(a, col("a").is_between(lit_int(0), lit_int(9)))
-  // Never equal to a non-`IsBetween` node.
+  // Never renders like a non-`IsBetween` node.
   assert_diff_expr(a, col("a"))
 }
 
 ///|
-/// The compatibility contract `docs/api.md` states for `==` on expressions:
-/// structural over the tree as built, with a closure compared by its label.
-/// Both halves surprise someone — they are pinned here so a change to either
-/// has to be a decision.
-test "equality: structural as built, closures compared by label" {
+/// What `docs/api.md` points callers at now that expressions have no equality:
+/// compare renderings. So the rendering has to answer the question a caller
+/// asks it — "did my builder produce the expression I meant" — which means it
+/// shows the tree *as built*, and shows a closure by its label. Both halves
+/// surprise someone, so both are pinned here and a change to either has to be
+/// a decision.
+test "rendering: shows the tree as built, closures by label" {
   // Nothing is simplified on the way in, so an identity operand still counts,
   // and an operator flipped end-for-end is a different tree.
   assert_diff_expr(col("a") + lit_int(0), col("a"))
   assert_diff_expr(lit_int(1).lt(col("a")), col("a").gt(lit_int(1)))
-  // A closure has no identity: same label, same inputs, equal — whatever the
-  // two functions actually do. The label is the function identity.
+  // A closure has nothing to show: same label, same inputs, same rendering —
+  // whatever the two functions actually do. The label is the identity.
   let doubled = map_many(label="f", [col("a")], cells => cells[0])
   let nulled = map_many(label="f", [col("a")], _ => @types.Scalar::Null)
   assert_same_expr(doubled, nulled)

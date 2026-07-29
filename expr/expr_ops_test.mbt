@@ -1,8 +1,8 @@
 ///|
 /// Blackbox construction-route tests for the `expr_ops.mbt` surface: every
 /// route that is *supposed* to build the same node (operator vs method alias,
-/// builder chain vs one-shot chain) is
-/// pinned equal under `Expr`'s handwritten `Eq`, and the chain ergonomics the design
+/// builder chain vs one-shot chain) is pinned by rendering to the same form,
+/// which is all an opaque handle exposes, and the chain ergonomics the design
 /// leans on (postfix methods binding tighter than `&` / `|`) are pinned by
 /// parenthesisation equivalence. Tree-shape semantics live in
 /// `expr_test.mbt`, rendering in `explain_test.mbt`.
@@ -87,8 +87,8 @@ test "when/then/otherwise: held builder steps equal the one-shot chain" {
 ///|
 test "map_elements builds the single-input map_many node" {
   // `map_elements(self, label, f)` is `map_many(label, [self], _)`; the
-  // closures differ (one adapts a single cell), but they are opaque to
-  // `Eq`, so the construction routes compare equal on `(label, inputs)`.
+  // closures differ (one adapts a single cell), but a closure has nothing to
+  // render, so both routes come out as the same `(label, inputs)` form.
   assert_same_expr(
     col("x").map_elements(label="m", fn(s) { s }),
     map_many(label="m", [col("x")], fn(vs) { vs[0] }),
@@ -103,7 +103,7 @@ test "map_elements builds the single-input map_many node" {
 ///|
 test "map_many copies its inputs array" {
   // Mutating the caller's array after building must not alter the node
-  // (pinned through `Eq`, which compares `(label, inputs)`).
+  // (pinned through the rendering, which lists `(label, inputs)`).
   let ins = [col("a")]
   let e = map_many(label="m", ins, fn(vs) { vs[0] })
   ins.push(col("b"))

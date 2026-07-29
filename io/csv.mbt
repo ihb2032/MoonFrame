@@ -1,13 +1,11 @@
-// CSV serialisation for `DataFrame`. The reader sits on top of NyaCSV
-// for tokenisation and adds what a typeless format needs to reach a typed
-// frame: header / no-header switching, per-column type inference
+// The CSV read path for `DataFrame`. It sits on top of NyaCSV for
+// tokenisation and adds what a typeless format needs to reach a typed frame:
+// header / no-header switching, per-column type inference
 // (Int → Float → Bool → String), a configurable null-string mapping, ragged-row
 // and quote strictness, and the projection / predicate seams the lazy scan
-// pushes into.
-// The writer mirrors the
-// reader, rendering each cell via `Scalar::to_string` and quoting only
-// when a cell would otherwise be ambiguous (contains the delimiter, a
-// double quote, or a line break).
+// pushes into. The write path is a file of its own (`io/csv_write.mbt`); what
+// the two must agree on — which delimiters are legal — is decided here, by the
+// validator both call.
 
 ///|
 /// Options that control how a CSV input is parsed into a `DataFrame`.

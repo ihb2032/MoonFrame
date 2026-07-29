@@ -4,11 +4,12 @@
 /// verbs name-for-name. Building is **total** — every builder just wraps
 /// the plan in one more node, so a `LazyFrame` can always be constructed,
 /// chained, and `explain`ed, even when collecting it would fail. All
-/// computation (and all failure) happens in `collect`, which interprets
-/// the plan through the public eager operators: with no optimizer in
-/// front, `LazyFrame::LazyFrame(df).f(…).g(…).collect()` equals
-/// `df.f(…).g(…)` — the faithful-deferred-executor contract every test in
-/// `lazy_test.mbt` pins.
+/// computation (and all failure) happens in `collect`, which optimizes the
+/// plan and then interprets it through the public eager operators:
+/// `LazyFrame::LazyFrame(df).f(…).g(…).collect()` equals `df.f(…).g(…)` — the
+/// faithful-deferred-executor contract every test in `lazy_test.mbt` pins, and
+/// the reason the optimizer's rewrites have to preserve results rather than
+/// merely preserve rows.
 ///
 /// Every builder that takes an array copies it, so a plan can never
 /// observe later mutation of a caller's argument — the immutability the

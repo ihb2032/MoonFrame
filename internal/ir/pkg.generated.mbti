@@ -70,11 +70,8 @@ pub(all) enum ExprNode {
   MapBatches(String, ArrayView[ExprNode], Bool, (Array[@series.Series]) -> @series.Series raise @types.DataError)
 }
 pub fn ExprNode::children(Self) -> Array[Self]
-pub fn ExprNode::equal(Self, Self) -> Bool
-pub fn ExprNode::not_equal(Self, Self) -> Bool
 pub fn ExprNode::output_name(Self) -> String
 pub fn ExprNode::referenced_columns(Self) -> @set.Set[String]
-pub impl Eq for ExprNode
 
 pub(all) enum StrOp {
   ToUppercase

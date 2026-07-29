@@ -27,10 +27,9 @@
 pub struct BuiltinColumn {
   priv data : ColumnData
   priv validity : Bitmap
-} derive(Eq, Debug)
+} derive(Debug)
 
 ///|
-pub extend BuiltinColumn with Eq::{equal, not_equal}
 
 ///|
 pub extend BuiltinColumn with Debug::{to_repr}
@@ -44,10 +43,9 @@ pub(all) enum ColumnData {
   Float(ArrayView[Double])
   Bool(ArrayView[Bool])
   String(ArrayView[String])
-} derive(Eq, Debug)
+} derive(Debug)
 
 ///|
-pub extend ColumnData with Eq::{equal, not_equal}
 
 ///|
 pub extend ColumnData with Debug::{to_repr}

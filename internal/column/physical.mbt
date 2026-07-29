@@ -20,10 +20,9 @@ pub(all) enum PhysicalType {
   F64
   Bool
   Utf8
-} derive(Eq, Debug)
+} derive(Debug)
 
 ///|
-pub extend PhysicalType with Eq::{equal, not_equal}
 
 ///|
 pub extend PhysicalType with Show::{to_string, output}

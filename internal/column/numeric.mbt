@@ -35,10 +35,9 @@
 /// operations that actually benefit from the missing bitmap.
 pub struct NumericColumn {
   priv data : NumericData
-} derive(Eq, Debug)
+} derive(Debug)
 
 ///|
-pub extend NumericColumn with Eq::{equal, not_equal}
 
 ///|
 pub extend NumericColumn with Debug::{to_repr}
@@ -51,10 +50,9 @@ pub extend NumericColumn with Debug::{to_repr}
 pub(all) enum NumericData {
   Int(ArrayView[Int64])
   Float(ArrayView[Double])
-} derive(Eq, Debug)
+} derive(Debug)
 
 ///|
-pub extend NumericData with Eq::{equal, not_equal}
 
 ///|
 pub extend NumericData with Debug::{to_repr}

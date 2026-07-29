@@ -3,21 +3,21 @@
 //   • point 1 — coverage gate × closed enum: every accessor's `match` is
 //     called on BOTH a Builtin-backed and a Numeric-backed storage, so both
 //     arms execute and `moon coverage analyze` reports no dead arm.
-//   • point 2 — `Series.storage` flip is mechanical: `read_like_ops`
-//     reproduces, verbatim, the read pattern the four ops files use through
-//     `.storage()` (`drop_nulls` / `group_by` / `join` / `sort`). It takes a
-//     `ColumnStorage` (not a `BuiltinColumn`), proving the only edit those
-//     sites need is the storage type — the `.validity().to_bools()` and
-//     `match .data() { ... }` body is unchanged.
+//   • point 2 — the shape the engine actually reads: `read_like_ops`
+//     reproduces, verbatim, the `.validity().to_bools()` + `match .data()`
+//     pattern its callers use, so the accessors are exercised the way they are
+//     used and not only one call at a time. That pattern has since retreated
+//     below the verb layer — `frame` reads columns through seams returning a
+//     `Series`, a scalar, or a fresh array, and cannot name a storage at all —
+//     so what is left of it lives in `series` and `internal/kernel`.
 
 ///|
-/// The exact read shape of `series/sort.mbt::build_sort_key` (and the
-/// `.validity().to_bools()` + `match .data()` reads in `group_by` / `join` /
-/// `drop_nulls`), but parameterised over `ColumnStorage`. That it compiles
-/// and runs against `ColumnStorage` is the empirical proof of point 2: the
-/// flip needs only the parameter/return type swapped, not the logic. Returns
-/// the dtype tag and the per-row missing mask (`Null`, plus `NaN` for
-/// `Float`) those sites compute.
+/// The exact read shape of `build_sort_key` in `series`: mask first, then a
+/// four-arm match on the buffer, with `Float` folding `NaN` into missing.
+/// Running it here on both backends is point 2 — the accessors answer that
+/// pattern identically whichever arm they land on. Returns the dtype tag and
+/// the per-row missing mask (`Null`, plus `NaN` for `Float`) that site
+/// computes.
 fn read_like_ops(storage : ColumnStorage) -> (String, Array[Bool]) {
   let valid = storage.validity().to_bools()
   match storage.data() {

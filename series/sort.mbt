@@ -1,8 +1,9 @@
 // The single-column sort kernel: resolve a column into a typed key with a
-// pre-computed missing mask, compare two of its cells under a direction and
-// a missing-placement rule, and order indices with a stable bottom-up
-// mergesort. `Series::sort` and `frame`'s multi-key `DataFrame::sort` both
-// build on this, so one column's ordering means the same thing either way.
+// pre-computed missing mask, and compare two of its cells under a direction
+// and a missing-placement rule. `Series::sort` and `frame`'s multi-key
+// `DataFrame::sort` both build on this, so one column's ordering means the
+// same thing either way; both then hand the comparator to the stable index
+// sort in `internal/order`, which knows nothing about columns.
 
 ///|
 /// Resolve a column into a typed `SortKey`, matching on the concrete backing
@@ -59,7 +60,7 @@ pub fn build_sort_key(
   }
 }
 
-// ── Internal: comparator + stable mergesort ───────────────────────────
+// ── Internal: the resolved key and its comparator ─────────────────────
 
 ///|
 /// Package-private resolved form of a sort key: the raw data buffer, a

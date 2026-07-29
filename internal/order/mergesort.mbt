@@ -42,7 +42,7 @@ pub fn stable_mergesort_indices(n : Int, cmp : (Int, Int) -> Int) -> Array[Int] 
       // Derive the run boundaries by subtraction against the room left
       // (`n - start`, `n - mid`) rather than `start + width` / `start + 2*width`,
       // so the arithmetic can't overflow `Int` on a pathologically large `n`
-      // (the overflow-avoidance `bitmap.mbt` also uses). `right_end` is the
+      // (the same overflow-avoidance the validity bitmap uses). `right_end` is the
       // second run's end, so advancing `start` to it equals the old
       // `start + 2*width`: both land at `min(start + 2*width, n)` and end the
       // pass once they reach `n`.

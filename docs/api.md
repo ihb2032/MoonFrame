@@ -200,6 +200,65 @@ constructor per shape instead: `DataFrame::empty` / `DataFrame::from_rows`, the
 eight `Series::from_*`, `JoinOptions::on` / `left_on` / `cross`, and
 `ChartSpec::bar` / `line` / `point` / `area`.
 
+## Naming conventions
+
+Names here are regular enough that guessing usually works, which makes the few
+places where two similar names mean different things worth stating outright.
+
+**`to_x` never fails; `as_x` can.** `Scalar::to_string` renders *any* cell for
+display — `Int(42)` gives `"42"`, and a null cell gives `""` — while
+`Scalar::as_string` is a typed read that raises `TypeMismatch` unless the cell
+really is a `String`. The pair is the sharpest edge in the library: the two
+names differ by two letters, both compile on any `Scalar`, and the wrong one
+does not fail — it silently stringifies a number. Reach for `as_*` when a wrong
+dtype is a bug you want reported, and `to_string` only when you want display
+text whatever the cell holds.
+
+**`_opt` is the total twin of a raising reduction.** `Series::mean` raises on an
+empty or all-null column; `Series::mean_opt` returns `Double?` instead. Where
+both exist, they compute the same thing and differ only in how "no answer"
+arrives.
+
+**Three prefixes, three different absences.** `null` is a missing cell,
+`nan` is the `Float` value, and `_options` in a constructor means the cells
+themselves are `T?`. So `fill_null` and `fill_nan` are different operators (a
+`NaN` is present, just not a number), `Series::from_floats` takes
+`Array[Double]` while `from_float_options` takes `Array[Double?]`, and
+`drop_nulls` never looks at `NaN`. Sorting is the one place the two
+deliberately meet — it orders `NaN` as missing — and
+[`docs/comparison.md`](comparison.md) is where that convention and its
+divergence from Polars are set out.
+
+**`str` is the expression layer; `string` is the dtype.** Expression-level
+string work is `str_*` (`str_contains`, `str_slice`, …) and its literal
+constructor is `lit_str`, because that is the namespace Polars uses. The dtype
+and anything that names it spell it out: `DataType::String`,
+`Series::from_strings`, `Scalar::String`.
+
+**Only `drop` removes.** `DataFrame::drop` removes columns and `drop_nulls`
+removes rows; there is no `remove`, `delete`, `without`, or `exclude` anywhere
+in the surface. If you are looking for a verb that takes things away, it is
+spelled `drop`.
+
+**An axis-shaped result says which axis in its docstring, not its name.**
+`DataFrame::rows` is row-major (`result[r][c]`, one entry per row) and
+`DataFrame::to_scalar_matrix` is its column-major transpose (`result[c][r]`,
+one entry per column). Nothing in either name says so, so read the signature:
+a silently transposed matrix type-checks.
+
+**The lazy surface mirrors the eager one by name, with one gap.** A verb that
+exists on both is spelled identically — `filter`, `select`, `sort`, `head`,
+`slice`, `join`, `group_by`, `unique`, `reverse`, `with_row_index` — so a
+pipeline reads the same either way. The exception is `DataFrame::gather`: it
+takes explicit row indices and has no `LazyFrame` counterpart. Nothing else
+positional is missing (`head` / `tail` / `slice` / `reverse` /
+`with_row_index` are all deferrable), so if you need a gather in a lazy
+pipeline, `collect` first — and take the absence as a statement about `gather`
+alone, not about positional work.
+
+For how a type is constructed, see [Constructor spelling](#constructor-spelling)
+above; for which names the facade re-exports, see [Facade](#facade).
+
 ## Error model
 
 Every operation that can fail on bad input or I/O is an effectful function with

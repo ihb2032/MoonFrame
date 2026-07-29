@@ -21,7 +21,7 @@ You can browse and install extra skills here:
   the order of each block is irrelevant. In some refactorings, you can process
   block by block independently.
 
-- Try to keep deprecated blocks in file called `deprecated.mbt` in each
+- Try to keep deprecated blocks in file called `deprecated.mbt` in each <!-- doc-guard: unresolved -->
   directory.
 
 ## Tooling
@@ -93,6 +93,7 @@ sh .github/scripts/check_internal_packages.sh
 sh .github/scripts/check_layering.sh
 sh .github/scripts/check_engine_seams.sh
 sh .github/scripts/check_internal_surface.sh
+sh .github/scripts/check_comment_references.sh
 ```
 
 - **Version identity** — `moon.mod`, `docs/changelog.md` and
@@ -200,6 +201,25 @@ sh .github/scripts/check_internal_surface.sh
   any type embedding this one, neither of which writes its name — so the run
   counts them rather than pretending to have looked. **A clean run means
   nothing is provably unused, not that everything left is needed.**
+
+- **Comment references** — a comment that names something is making a claim,
+  and two of those a machine can check: `@pkg.Name` must be a name that package
+  declares, `Type::method` must be a pair that exists, and a `path/file.mbt` <!-- doc-guard: unresolved -->
+  must be a file — resolved as a sibling first, then from the root, so a
+  cross-package reference has to say which package. Evidence comes from code
+  only: two comments naming the same dead symbol are the drift, not proof of
+  each other. A qualifier this module does not define (`@debug`, `@string`) is
+  external and skipped, as is a `Type::method` whose type the module does not
+  declare — the standard library is not read here, so a miss there would say
+  nothing. Two markers skip a line, and choosing between them is choosing what
+  you are claiming: `doc-guard: historical` says the name *was* real, and
+  `doc-guard: unresolved` says it was never meant to resolve — a convention
+  (`deprecated.mbt`), a deliberate absence ("no dedicated `foo_test.mbt`"), a <!-- doc-guard: unresolved -->
+  basename several packages share. In Markdown the marker goes in an HTML
+  comment so a reader of the rendered page never sees it. **What no guard can
+  check is the sentence around the name**: every comment corrected in this
+  repository so far named only living symbols and still described something
+  that had changed.
 
 One more pass, `review_absolute_wording.sh`, annotates absolute claims ("all",
 "every", "never", "total") in prose a PR adds. It never fails the build — it

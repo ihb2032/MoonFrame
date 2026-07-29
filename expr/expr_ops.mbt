@@ -772,7 +772,8 @@ pub fn WhenThenElse::otherwise(self : WhenThenElse, value : Expr) -> Expr {
 /// receives the operand's cell as a `@types.Scalar` (a null cell as
 /// `Scalar::Null`) and returns the output cell. `label` names the step in
 /// `explain` / `Show` output — the function itself is opaque to
-/// introspection, equality, and the optimizer.
+/// introspection, to rendering, and to the optimizer, which treats the node as
+/// a barrier because it cannot see through the closure.
 ///
 /// Building the node is total; `f` runs at evaluation, once per row, and
 /// may `raise` (the error propagates from the consuming verb). The output
@@ -800,7 +801,8 @@ pub fn Expr::map_elements(
 /// `@series.Series` and takes back a `Series`, so a vectorised kernel (a
 /// cumulative sum, a rank, a rolling window) runs once over the column rather
 /// than cell by cell. `label` names the step in `explain` / `Show`; the
-/// closure is opaque to introspection, equality, and the optimizer.
+/// closure is opaque to introspection, to rendering, and to the optimizer,
+/// which treats the node as a barrier because it cannot see through it.
 ///
 /// Building the node is total; `f` runs at evaluation and may `raise`. The
 /// returned series rides the same length contract as `lit_series`: a

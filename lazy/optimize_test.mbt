@@ -6,8 +6,8 @@
 /// optimizer's contract — `collect` stays equal to the eager
 /// chain, with error parity, exactly on the pipelines where a rewrite
 /// fires and on the fences where it must not (several fences guard real
-/// divergences: a broadcast aggregation's scope, a `mean`'s
-/// backend-flipping null cell, a `cast`'s value-dependent rejection).
+/// divergences: a broadcast aggregation's scope, a `cast`'s value-dependent
+/// rejection; a `mean`'s null cell is fenced conservatively).
 /// The *structural* tests pin what the rewrites did to the tree — which
 /// filters sank below which stages, which scans narrowed, in which
 /// column order, and which arms must stay no-ops — by snapshotting
@@ -561,8 +561,9 @@ test "predicate pushdown keeps a derived aggregate key's backend canonical" {
   // rows (nullable, so `Builtin`) then filters; the optimized chain filters
   // then computes it over the survivors (all-valid). Both must land on the
   // same backend — the row-gather canonicalises an all-valid numeric result
-  // onto `Numeric` — so `collect` stays equal to the eager chain (which
-  // `Series` equality, observing the backend, would otherwise reject).
+  // onto `Numeric`. Column equality compares content and not the backend, so
+  // this pins the canonicalisation itself rather than a difference `collect`
+  // would otherwise report.
   let df = @frame.DataFrame::DataFrame([
     @series.Series::from_ints("k", [3, 4, 7, 9]),
     @series.Series::from_int_options("a", [None, None, Some(10), Some(20)]),
@@ -871,9 +872,9 @@ test "a key predicate sinks below an aggregation" {
     .agg(aggs)
     .filter(predicate)
   // Every row of a group shares its key tuple, so filtering rows by key
-  // before grouping drops exactly the groups the filter would have
-  // dropped after — and sum / count cells can never be null, so the
-  // stitched columns' backend cannot flip when groups disappear.
+  // before grouping drops exactly the groups the filter would have dropped
+  // after — and sum / count cells are never null, which is what clears them
+  // to sink.
   assert_eq(
     plan.explain(optimized=true),
     "AGGREGATE [col(qty).sum() as total, col(bonus).count() as n] BY [col(region)]\n" +
@@ -929,11 +930,11 @@ test "fence: a predicate reading an aggregation output stays above" {
 ///|
 test "fence: a mean aggregation pins the filter above the group stage" {
   let df = sales_df()
-  // The east group's bonus cells are all null, so its mean is a null
-  // cell and the stitched column stays `Builtin`. Filtering rows first
-  // would erase that group, leave only valid cells, and converge the
-  // column onto the `Numeric` backend — unequal output. The
-  // fence is what keeps this assertion true.
+  // `mean` is fenced, so the filter stays above the aggregate whatever the
+  // data does — here the east group's bonus cells are all null, the case the
+  // fence was originally argued from. What is pinned is the plan shape and
+  // parity with the eager chain, not a claim that sinking would change the
+  // result; see `group_cell_stable` for why the fence is conservative.
   let aggs = [@expr.col("bonus").mean().with_alias("avg")]
   let predicate = @expr.col("region").eq(@expr.lit_str("west"))
   let plan = LazyFrame::LazyFrame(df)
@@ -957,8 +958,7 @@ test "fence: a mean aggregation pins the filter above the group stage" {
 test "a key predicate sinks below a distinct-count aggregation" {
   let df = sales_df()
   // `n_unique` cells are always a non-null `Int`, so — like `sum` / `count` —
-  // the stitched columns' backend cannot flip when a group disappears, and a
-  // key predicate sinks past the aggregation.
+  // a key predicate sinks past the aggregation.
   let aggs = [
     @expr.col("qty").n_unique().with_alias("nu"),
     @expr.col("bonus").n_unique().with_alias("nb"),
@@ -1123,8 +1123,8 @@ test "fence: a null literal in the aggregation list pins the filter above" {
     .group_by([@expr.col("region")])
     .agg(aggs)
     .filter(predicate)
-  // A null literal is a null cell by definition — the backend-flip
-  // hazard in its purest form — so the filter stays above, and collect
+  // A null literal is a null cell by definition, so it fails the never-null
+  // half of the rule in its purest form: the filter stays above, and collect
   // behaves exactly as the as-built plan does.
   assert_eq(
     plan.explain(optimized=true),

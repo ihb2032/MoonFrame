@@ -3,13 +3,12 @@
 // supported stable surface — every symbol a normal caller must name — in one
 // place. The public sub-packages remain directly importable for
 // callers who only need a slice of the surface (e.g. just `@types` for the
-// value types). Everything under `internal/` — the `internal/column` storage
-// layer, the `internal/kernel` vectorized column passes, the
-// `internal/text` / `internal/literal` primitives, and the `internal/ir`
-// expression AST — is unimportable downstream and is not part of the public
-// API. README's "Contributing" section is the authoritative package map and
-// states the layering rule between them; this file lists only what bears on
-// what the facade re-exports.
+// value types). Everything under `internal/` is unimportable downstream and is
+// not part of the public API; README's "Contributing" section is the
+// authoritative package map — which packages exist and what each holds — and
+// states the layering rule between them. Naming a subset of them here is how
+// that map goes stale, so this file lists only what bears on what the facade
+// re-exports.
 //
 // Note: the operator verbs are methods on `DataFrame` — `select` / `filter` /
 // `with_columns` / `group_by` / `join` / `sort` and the rest — as are the

@@ -3,8 +3,8 @@
 // and report the same truncation count; only the surrounding syntax (an HTML
 // `<table>` vs a GFM pipe table) and the per-cell escaping differ, so the parts
 // that don't differ live here once rather than once per renderer. (The row-cap
-// clamp they also share is `@order.clamp_take`, the one every row-count
-// request in the library goes through.)
+// clamp they also share is `@order.clamp_take`, the same saturating limit
+// behind `head` / `tail`.)
 
 ///|
 /// Materialise the first `shown` rows of `df` as a row-major matrix of cell

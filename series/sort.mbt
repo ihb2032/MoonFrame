@@ -63,7 +63,9 @@ pub fn build_sort_key(
 // ── Internal: the resolved key and its comparator ─────────────────────
 
 ///|
-/// Package-private resolved form of a sort key: the raw data buffer, a
+/// Module-internal resolved form of a sort key — an engine seam, not a public
+/// type: the variants stay unnameable outside this package, while `frame`'s
+/// multi-key sort holds one to compare with. The raw data buffer, a
 /// dense per-row `missing` mask (`Null`, or `NaN` for `Float`), and the
 /// per-key direction / null placement. Pre-resolving missingness lets
 /// the comparator stay branch-free per element type (no `Scalar` boxing,

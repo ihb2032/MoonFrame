@@ -79,8 +79,9 @@ pub fn ExprNode::children(self : ExprNode) -> Array[ExprNode] {
 /// forward an `Eq` here, and that is exactly what was removed — an equality
 /// over the tree *as built* leaks how an operator lowers, so a caller could
 /// depend on a lowering being one shape rather than another. What is left is
-/// an internal relation the tests here pin, which is why the coverage guard
-/// beside it can be a whitebox match on the variants.
+/// an internal relation this package's own tests pin — including the coverage
+/// guard beside it, whose exhaustive match on the variants is what makes
+/// adding one a compile error there.
 pub impl Eq for ExprNode with fn equal(self, other) {
   nodes_structurally_equal(self, other)
 }

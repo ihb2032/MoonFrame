@@ -9,9 +9,11 @@ import {
   "moonbitlang/core/test",
 } for "test"
 
-// The package's own test suite is whitebox: it asserts buffer contents,
+// Most of the package's tests are whitebox: they assert buffer contents,
 // placeholder normalisation and backend widening, none of which is visible
-// from outside the package now that the typed readers are gone.
+// from outside the package now that the typed readers are gone. The blackbox
+// half covers what the package does have a contract for — the shared test
+// assertions and the dtype mapping.
 import {
   "moonbitlang/core/double",
   "moonbitlang/core/test",

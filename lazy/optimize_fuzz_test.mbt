@@ -534,12 +534,13 @@ fn shrink_select_filter_case(c : SelectFilterCase) -> Iter[SelectFilterCase] {
 }
 
 ///|
-/// The select / with_columns backend-flip hazard: a derived nullable column
-/// (`a + b`) whose nulls fall exactly on rows a trailing filter drops. Eager
-/// computes the column over all rows (nullable ⇒ `Builtin`) then filters; the
-/// optimizer sinks the filter and computes it over the survivors (which may be
-/// all-valid ⇒ `Numeric` unless the gather canonicalises). Both must land on
-/// the same backend, so structural equality holds. Also exercises the
+/// The select / with_columns canonicalisation hazard: a derived nullable
+/// column (`a + b`) whose nulls fall exactly on rows a trailing filter drops.
+/// Eager computes the column over all rows (nullable ⇒ `Builtin`) then
+/// filters; the optimizer sinks the filter and computes it over the survivors
+/// (all-valid ⇒ `Numeric` unless the gather canonicalises). Equality compares
+/// content rather than backend, so what this pins is that the *cells* agree
+/// either way. Also exercises the
 /// row-count-preservation and bare-column pass-through fences with strings.
 test "fuzz: select/with_columns then filter is optimizer/eager equivalent" {
   let prop = (c : SelectFilterCase) => {

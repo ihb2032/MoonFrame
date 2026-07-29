@@ -214,20 +214,23 @@ does not fail — it silently stringifies a number. Reach for `as_*` when a wron
 dtype is a bug you want reported, and `to_string` only when you want display
 text whatever the cell holds.
 
-**`_opt` is the total twin of a raising reduction.** `Series::mean` raises on an
-empty or all-null column; `Series::mean_opt` returns `Double?` instead. Where
-both exist, they compute the same thing and differ only in how "no answer"
-arrives.
+**A reduction that can have no answer raises; it does not return an option.**
+`Series::mean` raises `InvalidOperation` on an empty or all-null column and
+`TypeMismatch` on a non-numeric one — two different causes, told apart by the
+error. There is no `mean_opt` on the supported surface: catch the error where
+you want a fallback, which keeps the two causes distinguishable at the point
+you handle them.
 
-**Three prefixes, three different absences.** `null` is a missing cell,
-`nan` is the `Float` value, and `_options` in a constructor means the cells
-themselves are `T?`. So `fill_null` and `fill_nan` are different operators (a
-`NaN` is present, just not a number), `Series::from_floats` takes
-`Array[Double]` while `from_float_options` takes `Array[Double?]`, and
-`drop_nulls` never looks at `NaN`. Sorting is the one place the two
-deliberately meet — it orders `NaN` as missing — and
-[`docs/comparison.md`](comparison.md) is where that convention and its
-divergence from Polars are set out.
+**`null`, `nan`, and `_options` mark three different absences.** `null` is a
+missing cell; `nan` is a `Float` value that happens not to be a number; and the
+`_options` suffix on a constructor means the cells themselves arrive as `T?`
+(`Series::from_floats` takes `Array[Double]`, `from_float_options` takes
+`Array[Double?]`). So `fill_null` and `fill_nan` are different operators, and
+`drop_nulls` never looks at a `NaN`. Where the two do meet is inside the
+reductions, and they do not agree with each other: `sum` and `mean` let a `NaN`
+propagate, while `min`, `max`, `median` and `sort` order it as missing —
+[`docs/comparison.md`](comparison.md) sets out that split and where it diverges
+from Polars.
 
 **`str` is the expression layer; `string` is the dtype.** Expression-level
 string work is `str_*` (`str_contains`, `str_slice`, …) and its literal
@@ -235,26 +238,28 @@ constructor is `lit_str`, because that is the namespace Polars uses. The dtype
 and anything that names it spell it out: `DataType::String`,
 `Series::from_strings`, `Scalar::String`.
 
-**Only `drop` removes.** `DataFrame::drop` removes columns and `drop_nulls`
-removes rows; there is no `remove`, `delete`, `without`, or `exclude` anywhere
-in the surface. If you are looking for a verb that takes things away, it is
-spelled `drop`.
+**`drop` is the only removal *verb*.** When a name says it takes something
+away, that name is `drop`: `DataFrame::drop` for columns, `drop_nulls` for
+rows. No `remove`, `delete`, `without`, or `exclude` spelling exists anywhere
+on the surface. Plenty of other verbs return fewer rows than they were given —
+`filter`, `unique`, `head`, `tail`, `slice`, `gather` — they just do not
+describe themselves as removal.
 
-**An axis-shaped result says which axis in its docstring, not its name.**
-`DataFrame::rows` is row-major (`result[r][c]`, one entry per row) and
-`DataFrame::to_scalar_matrix` is its column-major transpose (`result[c][r]`,
-one entry per column). Nothing in either name says so, so read the signature:
-a silently transposed matrix type-checks.
+**Row-major is the supported shape.** `DataFrame::rows` hands back
+`result[r][c]` — one entry per row, cells in column order — with
+`DataFrame::row(i)` for a single row and `item(r, name)` for a single cell.
+There is no supported column-major reader: a `Series` already *is* a column, so
+reach a column through `get_column(name)` rather than transposing a matrix.
 
-**The lazy surface mirrors the eager one by name, with one gap.** A verb that
-exists on both is spelled identically — `filter`, `select`, `sort`, `head`,
-`slice`, `join`, `group_by`, `unique`, `reverse`, `with_row_index` — so a
-pipeline reads the same either way. The exception is `DataFrame::gather`: it
-takes explicit row indices and has no `LazyFrame` counterpart. Nothing else
-positional is missing (`head` / `tail` / `slice` / `reverse` /
-`with_row_index` are all deferrable), so if you need a gather in a lazy
-pipeline, `collect` first — and take the absence as a statement about `gather`
-alone, not about positional work.
+**Every deferrable positional verb has the same name in both layers, bar one.**
+`head`, `tail`, `slice`, `reverse` and `with_row_index` are spelled identically
+on `DataFrame` and `LazyFrame`, as are `filter`, `select`, `sort`, `join`,
+`group_by` and `unique`, so a pipeline reads the same either way. Of that
+positional group only `DataFrame::gather` — which takes explicit row indices —
+has no `LazyFrame` counterpart; `collect` first if you need one. This says
+nothing about the eager surface as a whole: `describe`, `rows` / `row` /
+`item`, and `to_html` / `to_markdown` are eager readers with no lazy spelling
+by design, since each one materialises.
 
 For how a type is constructed, see [Constructor spelling](#constructor-spelling)
 above; for which names the facade re-exports, see [Facade](#facade).

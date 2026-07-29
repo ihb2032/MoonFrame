@@ -72,7 +72,7 @@ pub fn DataFrame::sort(
   // Stable mergesort produces the permutation; `gather` applies it to the
   // original frame. Every index in the permutation is in `[0, nrows)` by
   // construction, so `gather` cannot fail.
-  let perm = @series.stable_mergesort_indices(n, (i, j) => {
+  let perm = @order.stable_mergesort_indices(n, (i, j) => {
     compare_rows(sort_keys, i, j)
   })
   self.gather(perm)

@@ -1,11 +1,12 @@
 // `frame` builds on `series`: `Series` is the per-column unit `DataFrame`
-// wraps, and the column-level helpers bound below — row gather / slice / count
-// clamp, the validity-mask read, the mask-to-row-indices read, the two-column
+// wraps, and the column-level helpers bound below — row gather / slice, the
+// validity-mask read, the mask-to-row-indices read, the two-column
 // coalesce, backend
 // convergence (`preserve_backend` / `try_column_to_numeric`), the shared
 // reduction dispatch (`reducer_for` / `scalars_to_series` / `ReduceOp`), and
 // the composite-key cell encoding (`key_cell` / `KeyCell`) — live in `series`
-// because each reads a column's private representation, and `Series` owns it.
+// because each one reads a column's private representation or builds a column
+// through it, and `Series` owns that representation.
 // Method coherence pins the *methods* there; these are free functions, and
 // what pins them is that moving one out would mean either handing the storage
 // upward again or importing `series` from a package `series` imports — which
@@ -32,7 +33,6 @@ using @series {
   gather_series,
   gather_series_opt,
   slice_series,
-  clamp_take,
   validity_bools,
   mask_true_indices,
   coalesce_columns,

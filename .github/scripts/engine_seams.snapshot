@@ -19,7 +19,6 @@ series | doc_hidden internal_engine | pub fn Series::mean_opt(self : Series) -> 
 series | doc_hidden internal_engine | pub fn Series::storage(self : Series) -> @column.ColumnStorage | used by: internal/kernel
 series | doc_hidden internal_engine | pub fn Series::storage_kind(self : Series) -> @column.StorageKind | used by: (no production caller outside series)
 series | doc_hidden internal_engine | pub fn build_sort_key( column : Series, order : @types.SortOrder, null_order : @types.NullOrder, ) -> SortKey | used by: frame
-series | doc_hidden internal_engine | pub fn clamp_take(n : Int, len : Int) -> Int | used by: frame
 series | doc_hidden internal_engine | pub fn coalesce_columns(base : Series, fill : Series, name : String) -> Series | used by: frame
 series | doc_hidden internal_engine | pub fn compare_one_key(key : SortKey, i : Int, j : Int) -> Int | used by: frame
 series | doc_hidden internal_engine | pub fn gather_series(s : Series, idx : Array[Int]) -> Series | used by: frame,internal/kernel
@@ -30,7 +29,6 @@ series | doc_hidden internal_engine | pub fn preserve_backend(source : Series, r
 series | doc_hidden internal_engine | pub fn reducer_for( column : Series, op : ReduceOp, ) -> ((Int, (Int) -> Int) -> @types.Scalar, @types.DataType) raise @types.DataError | used by: frame
 series | doc_hidden internal_engine | pub fn scalars_to_series( probe : @types.DataType, name : String, cells : Array[@types.Scalar], ) -> Series raise @types.DataError | used by: frame,internal/kernel
 series | doc_hidden internal_engine | pub fn slice_series(s : Series, start : Int, len : Int) -> Series | used by: frame
-series | doc_hidden internal_engine | pub fn stable_mergesort_indices(n : Int, cmp : (Int, Int) -> Int) -> Array[Int] | used by: frame
 series | doc_hidden internal_engine | pub fn try_column_to_numeric(s : Series) -> Series | used by: frame,internal/kernel
 series | doc_hidden internal_engine | pub fn validity_bools(column : Series) -> Array[Bool] | used by: frame,internal/kernel
 series | doc_hidden internal_engine | pub(all) enum ReduceOp

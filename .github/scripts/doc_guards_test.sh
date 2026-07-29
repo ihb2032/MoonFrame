@@ -927,6 +927,54 @@ expect_out 1 'writes into a live column buffer' \
   'engine seams: a one-hop alias of a column buffer' \
   sh "$scripts/check_engine_seams.sh" "$work/es_alias"
 
+# A second alias is not a second buffer either. Names are collected in source
+# order, and MoonBit will not let one be used before it is bound, so a chain is
+# followed to whatever depth someone writes — the rule's own comment used to
+# claim otherwise.
+mkseams "$work/es_alias_chain" "$es_source" "$es_snap"
+printf '///|\npub fn consume(c : Series) -> Int {\n  match c.storage().data() {\n    ColumnData::Int(a) => {\n      let one = a\n      let two = one\n      let three = two\n      three[0] = 1L\n    }\n    _ => ()\n  }\n  ignore(validity_bools(c))\n  ignore(reducer_for(c, ReduceOp::Sum))\n  ignore(after_the_value(c))\n  ignore(bool_cells(c))\n  0\n}\n' \
+  >"$work/es_alias_chain/io/io.mbt"
+(cd "$work/es_alias_chain" && git add -A && git commit -qm aliaschain)
+expect_out 1 'writes into a live column buffer' \
+  'engine seams: an alias chain is still the same buffer' \
+  sh "$scripts/check_engine_seams.sh" "$work/es_alias_chain"
+
+# A closure body is text in the same file, so a mutation hidden inside one is
+# read like any other.
+mkseams "$work/es_closure" "$es_source" "$es_snap"
+printf '///|\npub fn consume(c : Series) -> Int {\n  match c.storage().data() {\n    ColumnData::Int(a) => {\n      let write = () => a.push(2L)\n      write()\n    }\n    _ => ()\n  }\n  ignore(validity_bools(c))\n  ignore(reducer_for(c, ReduceOp::Sum))\n  ignore(after_the_value(c))\n  ignore(bool_cells(c))\n  0\n}\n' \
+  >"$work/es_closure/io/io.mbt"
+(cd "$work/es_closure" && git add -A && git commit -qm closurecase)
+expect_out 1 'mutates a buffer the column owns' \
+  'engine seams: a mutation inside a closure is still a mutation' \
+  sh "$scripts/check_engine_seams.sh" "$work/es_closure"
+
+# `series` owns the column and not the buffers inside it, which is why its
+# exemption was dropped. This is what dropping it bought.
+mkseams "$work/es_series_writes" "$es_source
+
+///|
+pub fn tamper(c : Series) -> Unit {
+  match c.storage().data() {
+    ColumnData::Int(a) => a[0] = 9L
+    _ => ()
+  }
+}" "$es_snap"
+expect_out 1 'writes into a live column buffer' \
+  'engine seams: the owning package is not exempt either' \
+  sh "$scripts/check_engine_seams.sh" "$work/es_series_writes"
+
+# The limit that matters, pinned rather than described: hand the buffer to a
+# function and the write happens under a name this rule never saw bound. No
+# reading of lines finds that one — a seam that hands back a read-only view
+# instead of the array is what would, and that is an API change.
+mkseams "$work/es_helper" "$es_source" "$es_snap"
+printf '///|\nfn scribble(target : Array[Int64]) -> Unit {\n  target[0] = 1L\n}\n\n///|\npub fn consume(c : Series) -> Int {\n  match c.storage().data() {\n    ColumnData::Int(a) => scribble(a)\n    _ => ()\n  }\n  ignore(validity_bools(c))\n  ignore(reducer_for(c, ReduceOp::Sum))\n  ignore(after_the_value(c))\n  ignore(bool_cells(c))\n  0\n}\n' \
+  >"$work/es_helper/io/io.mbt"
+(cd "$work/es_helper" && git add -A && git commit -qm helpercase)
+expect 0 'engine seams: a buffer mutated through a helper parameter escapes (known limit)' \
+  sh "$scripts/check_engine_seams.sh" "$work/es_helper"
+
 # The numeric fast path has its own reader, `numeric_data()`, handing back the
 # same live arrays under a different enum. The rule knew one enum and its
 # comment claimed it covered the buffers.

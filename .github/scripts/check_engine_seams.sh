@@ -306,12 +306,16 @@ fi
 # the rule without the exemption, so it no longer has one.
 #
 # What it cannot see, stated plainly because the alternative is trusting it too
-# far: an alias of an alias, a buffer passed to a function that mutates its
-# parameter, and any mutation reached through a closure. A lexical rule catches
-# the shapes someone writes by hand and none of the ones they could hide. The
-# arrangement that would need no rule at all is a seam that hands over a
-# read-only view instead of the array — that is an API change, not a guard
-# change, and it is the honest fix.
+# far: a buffer handed to a function, which writes through a parameter name
+# this never saw bound, and by the same token one stored in a structure and
+# mutated later. What it *does* follow, which an earlier version of this note
+# denied: an alias of an alias to any depth — names are collected in source
+# order and MoonBit will not let one be used before it is bound — and a
+# mutation inside a closure, whose body is text in the same file like any
+# other. So the gap is procedure boundaries, not indirection. The arrangement
+# that would need no rule at all is a seam that hands over a read-only view
+# instead of the array — that is an API change, not a guard change, and it is
+# the honest fix.
 mutations=$(printf '%s\n' "$production_files" | while IFS= read -r f; do
   case "$f" in
     internal/column/* | "") continue ;;
@@ -351,9 +355,10 @@ mutations=$(printf '%s\n' "$production_files" | while IFS= read -r f; do
       }
     }
     # `let b = a` hands the same buffer a second name, and everything below
-    # applies to it too. One hop, not a closure: an alias of an alias, or one
-    # that travels through a function parameter, is past what reading lines can
-    # follow — see the note above the rule.
+    # applies to it too. Chains come free: this runs in source order, and a
+    # name cannot be aliased before it is bound, so `b` is already live when
+    # `let c = b` is read. What no amount of line-reading follows is a buffer
+    # that crosses into another function — see the note above the rule.
     {
       s = $0
       if (match(s, /^[[:space:]]*let[[:space:]]+[A-Za-z_][A-Za-z0-9_]*[[:space:]]*=[[:space:]]*[A-Za-z_][A-Za-z0-9_]*[[:space:]]*$/)) {

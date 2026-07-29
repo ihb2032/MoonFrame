@@ -7,11 +7,13 @@
 /// This file is the **source of truth** for what "a well-formed
 /// `DataFrame`" means — the current structural contract, not a snapshot of
 /// any one release. Constructors and ops are
-/// correct *iff* every output passes `check_invariants()`. Every
-/// `*_test.mbt` that builds or transforms a frame calls this helper as
-/// a final assertion — the closest practical analog to formal
-/// verification in MoonBit, at a fraction of the cost of carrying `moon prove`
-/// contracts through the whole frame layer.
+/// correct *iff* every output passes `check_invariants()`. Each operator's own
+/// suite asserts it on representative outputs — the closest practical analog to
+/// formal verification in MoonBit, at a fraction of the cost of carrying
+/// `moon prove` contracts through the whole frame layer. It is a discipline
+/// applied where an operator's *shape* is what is under test, not a rule every
+/// test file follows: a suite about rendering or membership has nothing to gain
+/// from re-asserting the frame it built, and many do not.
 ///
 /// The invariants checked here, in order:
 ///

@@ -154,7 +154,8 @@ test "a chained coalesce builds a linear tree" {
   // ~21 chars per link; the old lowering would render 2^24 subtree copies
   // (hundreds of MB), so a small linear bound separates the two regimes.
   assert_true(rendered.length() < 800)
-  // Structural equality over the chain is likewise linear and exact.
+  // Rendering the chain twice is likewise linear, and exact enough to tell
+  // one more link apart.
   let mut e2 = col("x")
   for i in 1..<=24 {
     e2 = e2.fill_null(col("f\{i}"))

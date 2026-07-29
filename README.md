@@ -220,11 +220,14 @@ newcomers:
 ## Contributing
 
 The codebase is a small, layered stack of packages; each has its own sources, a
-`pkg.generated.mbti` interface snapshot, and tests. A public package is tested
-from outside, through `*_test.mbt`, because that is how a caller reaches it; an
-`internal/` package is tested from within, through `*_wbtest.mbt`, so that
-asserting its representation does not require making that representation
-public:
+`pkg.generated.mbti` interface snapshot, and tests. Which kind of test a thing
+gets follows from what is under test rather than from which directory it sits
+in: a contract a caller can reach is tested from outside, through `*_test.mbt`,
+and a representation is tested from within, through `*_wbtest.mbt`, so that
+asserting it does not require making it public. Public packages are therefore
+mostly blackbox and `internal/` ones mostly whitebox — but an internal package
+with a contract of its own (a parser, a renderer, a comparison) has blackbox
+tests too:
 
 ```
 types/      value types, errors (DataError), schemas

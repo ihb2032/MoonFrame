@@ -116,11 +116,12 @@ fn signed_zero_safe(expr : @expr.Expr) -> Bool {
 
 ///|
 /// Whether an aggregation expression's per-group cell is provably
-/// independent of *which other groups exist*: never null (so the stitched
-/// column's `Builtin` / `Numeric` backend cannot flip when groups
-/// disappear — `agg` converges an all-valid numeric column onto
-/// `Numeric`, and structural equality sees the difference) and never
-/// raising on values (so a dropped group cannot take its error with it).
+/// independent of *which other groups exist*: never null, and never raising on
+/// values (so a dropped group cannot take its error with it). The null half is
+/// **conservative** — it was argued from a stitched column changing backend
+/// when an all-null group disappears, and column equality no longer observes
+/// the backend at all. It is kept because the argument for dropping it has not
+/// been made, not because that one still holds; see the note on `optimize`.
 /// `sum` / `count` / `n_unique` always produce a non-null value, but only
 /// over a `row_stable` operand — a `sum(col.cast(Int))` or `sum(col.map(…))`
 /// still raises on the cells its operand meets, so a value-raising operand

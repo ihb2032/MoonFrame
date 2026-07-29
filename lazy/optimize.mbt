@@ -89,12 +89,15 @@
 ///   `group_cell_stable` — its per-group cell can neither be null nor raise
 ///   on values: `sum` / `count` over a `row_stable` operand and non-null
 ///   literals qualify (a `sum(col.cast(…))` does not — its operand can raise
-///   on the cells it meets), `mean` /
-///   `min` / `max` do not (an all-null group yields a null cell, and
-///   dropping that group would flip the stitched column's backend from
-///   `Builtin` to `Numeric`, which the structural `Series` equality
-///   observes), and `cast` does not (a dropped group could be the one whose
-///   value fails to convert).
+///   on the cells it meets), `mean` / `min` / `max` do not, and `cast` does
+///   not (a dropped group could be the one whose value fails to convert).
+///   The `mean` / `min` / `max` fence is **conservative**: it was argued from
+///   an all-null group's null cell flipping the stitched column's backend,
+///   which column equality has since stopped observing (it compares dtype,
+///   length, null-ness and values, never the backend). Loosening it therefore
+///   needs its own argument — that per-group values, null-ness and raised
+///   errors are all unchanged when other groups disappear — not the removal of
+///   the old one.
 /// - Everything else stops the descent. `Head` / `Tail` / `Slice` pick
 ///   rows by *position*, and filtering re-numbers positions. `Sort` and
 ///   another `Filter` are value-safe to cross for row-stable predicates

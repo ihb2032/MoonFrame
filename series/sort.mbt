@@ -73,10 +73,10 @@ pub fn build_sort_key(
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
 pub enum SortKey {
-  Int(Array[Int64], Array[Bool], @types.SortOrder, @types.NullOrder)
-  Float(Array[Double], Array[Bool], @types.SortOrder, @types.NullOrder)
-  Bool(Array[Bool], Array[Bool], @types.SortOrder, @types.NullOrder)
-  String(Array[String], Array[Bool], @types.SortOrder, @types.NullOrder)
+  Int(ArrayView[Int64], Array[Bool], @types.SortOrder, @types.NullOrder)
+  Float(ArrayView[Double], Array[Bool], @types.SortOrder, @types.NullOrder)
+  Bool(ArrayView[Bool], Array[Bool], @types.SortOrder, @types.NullOrder)
+  String(ArrayView[String], Array[Bool], @types.SortOrder, @types.NullOrder)
 }
 
 ///|

@@ -11,7 +11,7 @@
 /// `false` the cell comes from the matching branch reader — which itself
 /// yields `None` for a null branch cell.
 fn[T] select_cells(
-  cond : Array[Bool],
+  cond : ArrayView[Bool],
   cond_valid : Array[Bool],
   get_then : (Int) -> T?,
   get_else : (Int) -> T?,

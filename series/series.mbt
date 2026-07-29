@@ -552,10 +552,10 @@ fn rebuild_options(
   source : Series,
   name : String,
   n : Int,
-  int_cell : (Array[Int64], Int) -> Int64?,
-  float_cell : (Array[Double], Int) -> Double?,
-  bool_cell : (Array[Bool], Int) -> Bool?,
-  string_cell : (Array[String], Int) -> String?,
+  int_cell : (ArrayView[Int64], Int) -> Int64?,
+  float_cell : (ArrayView[Double], Int) -> Double?,
+  bool_cell : (ArrayView[Bool], Int) -> Bool?,
+  string_cell : (ArrayView[String], Int) -> String?,
 ) -> Series {
   let rebuilt = match source.storage.data() {
     @column.ColumnData::Int(a) =>
@@ -745,7 +745,7 @@ pub fn Series::drop_nulls(self : Series) -> Series {
 /// Build the fill buffer for `fill_null`: keep each valid cell, replace
 /// every null slot (`valid[i] == false`) with `v`. The four per-dtype
 /// arms share this closure instead of repeating the `mapi` verbatim.
-fn[T] fill_buffer(data : Array[T], valid : Array[Bool], v : T) -> Array[T] {
+fn[T] fill_buffer(data : ArrayView[T], valid : Array[Bool], v : T) -> Array[T] {
   data.mapi((i, x) => if valid[i] { x } else { v })
 }
 

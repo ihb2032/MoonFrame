@@ -40,10 +40,10 @@ pub extend BuiltinColumn with Debug::{to_repr}
 /// value; nullability is tracked in the enclosing column's `validity`
 /// bitmap.
 pub(all) enum ColumnData {
-  Int(Array[Int64])
-  Float(Array[Double])
-  Bool(Array[Bool])
-  String(Array[String])
+  Int(ArrayView[Int64])
+  Float(ArrayView[Double])
+  Bool(ArrayView[Bool])
+  String(ArrayView[String])
 } derive(Eq, Debug)
 
 ///|

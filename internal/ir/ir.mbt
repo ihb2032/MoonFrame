@@ -31,16 +31,16 @@ pub(all) enum ExprNode {
   Ternary(ExprNode, ExprNode, ExprNode)
   FillNull(ExprNode, ExprNode)
   FillNan(ExprNode, ExprNode)
-  IsIn(ExprNode, Array[@types.Scalar])
+  IsIn(ExprNode, ArrayView[@types.Scalar])
   IsBetween(ExprNode, ExprNode, ExprNode, @types.ClosedInterval)
   Map(
     String,
-    Array[ExprNode],
+    ArrayView[ExprNode],
     (Array[@types.Scalar]) -> @types.Scalar raise @types.DataError
   )
   MapBatches(
     String,
-    Array[ExprNode],
+    ArrayView[ExprNode],
     Bool,
     (Array[@series.Series]) -> @series.Series raise @types.DataError
   )
@@ -64,8 +64,8 @@ pub fn ExprNode::children(self : ExprNode) -> Array[ExprNode] {
     FillNull(o, v) | FillNan(o, v) => [o, v]
     IsIn(e, _) => [e]
     IsBetween(x, lo, hi, _) => [x, lo, hi]
-    Map(_, inputs, _) => inputs.copy()
-    MapBatches(_, inputs, _, _) => inputs.copy()
+    Map(_, inputs, _) => inputs.to_owned()
+    MapBatches(_, inputs, _, _) => inputs.to_owned()
   }
 }
 

@@ -11,7 +11,7 @@
 /// The `Int` buffer and validity mask of a column the caller knows is `Int`;
 /// an empty buffer for any other dtype, which fails the assertion that
 /// follows rather than the test.
-fn int_cells(col : BuiltinColumn) -> (Array[Int64], Bitmap) {
+fn int_cells(col : BuiltinColumn) -> (ArrayView[Int64], Bitmap) {
   match col.data() {
     ColumnData::Int(a) => (a, col.validity())
     ColumnData::Float(_) | ColumnData::Bool(_) | ColumnData::String(_) =>
@@ -21,7 +21,7 @@ fn int_cells(col : BuiltinColumn) -> (Array[Int64], Bitmap) {
 
 ///|
 /// The `Float` buffer and validity mask; see `int_cells`.
-fn float_cells(col : BuiltinColumn) -> (Array[Double], Bitmap) {
+fn float_cells(col : BuiltinColumn) -> (ArrayView[Double], Bitmap) {
   match col.data() {
     ColumnData::Float(a) => (a, col.validity())
     ColumnData::Int(_) | ColumnData::Bool(_) | ColumnData::String(_) =>
@@ -31,7 +31,7 @@ fn float_cells(col : BuiltinColumn) -> (Array[Double], Bitmap) {
 
 ///|
 /// The `Bool` buffer and validity mask; see `int_cells`.
-fn bool_cells(col : BuiltinColumn) -> (Array[Bool], Bitmap) {
+fn bool_cells(col : BuiltinColumn) -> (ArrayView[Bool], Bitmap) {
   match col.data() {
     ColumnData::Bool(a) => (a, col.validity())
     ColumnData::Int(_) | ColumnData::Float(_) | ColumnData::String(_) =>
@@ -41,7 +41,7 @@ fn bool_cells(col : BuiltinColumn) -> (Array[Bool], Bitmap) {
 
 ///|
 /// The `String` buffer and validity mask; see `int_cells`.
-fn string_cells(col : BuiltinColumn) -> (Array[String], Bitmap) {
+fn string_cells(col : BuiltinColumn) -> (ArrayView[String], Bitmap) {
   match col.data() {
     ColumnData::String(a) => (a, col.validity())
     ColumnData::Int(_) | ColumnData::Float(_) | ColumnData::Bool(_) =>
@@ -85,7 +85,7 @@ fn placeholders_normalized(col : BuiltinColumn) -> Bool {
 ///|
 /// `true` when every null slot (`valid[i] == false`) of `data` holds `ph`.
 fn[T : Eq] null_slots_hold(
-  data : Array[T],
+  data : ArrayView[T],
   valid : Array[Bool],
   ph : T,
 ) -> Bool {

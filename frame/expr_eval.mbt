@@ -125,7 +125,7 @@ priv enum EvalStep {
   ApplyAlias(String)
   ApplyTernary
   ApplyFill(FillKind)
-  ApplyIsIn(Array[@types.Scalar])
+  ApplyIsIn(ArrayView[@types.Scalar])
   ApplyIsBetween(@types.ClosedInterval)
   ApplyMap((Array[@types.Scalar]) -> @types.Scalar raise @types.DataError, Int)
   ApplyMapBatches((Array[Series]) -> Series raise @types.DataError, Int)

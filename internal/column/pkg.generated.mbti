@@ -38,10 +38,10 @@ pub fn BuiltinColumn::not_equal(Self, Self) -> Bool
 pub fn BuiltinColumn::to_repr(Self) -> @debug.Repr
 
 pub(all) enum ColumnData {
-  Int(Array[Int64])
-  Float(Array[Double])
-  Bool(Array[Bool])
-  String(Array[String])
+  Int(ArrayView[Int64])
+  Float(ArrayView[Double])
+  Bool(ArrayView[Bool])
+  String(ArrayView[String])
 } derive(Eq, @debug.Debug)
 pub fn ColumnData::equal(Self, Self) -> Bool
 pub fn ColumnData::not_equal(Self, Self) -> Bool
@@ -73,8 +73,8 @@ pub struct NumericColumn {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn NumericColumn::equal(Self, Self) -> Bool
-pub fn NumericColumn::from_floats(Array[Double]) -> Self
-pub fn NumericColumn::from_ints(Array[Int64]) -> Self
+pub fn NumericColumn::from_floats(ArrayView[Double]) -> Self
+pub fn NumericColumn::from_ints(ArrayView[Int64]) -> Self
 pub fn NumericColumn::max(Self) -> @types.Scalar
 pub fn NumericColumn::mean(Self) -> Double raise @types.DataError
 pub fn NumericColumn::min(Self) -> @types.Scalar
@@ -84,8 +84,8 @@ pub fn NumericColumn::sum(Self) -> @types.Scalar
 pub fn NumericColumn::to_repr(Self) -> @debug.Repr
 
 pub(all) enum NumericData {
-  Int(Array[Int64])
-  Float(Array[Double])
+  Int(ArrayView[Int64])
+  Float(ArrayView[Double])
 } derive(Eq, @debug.Debug)
 pub fn NumericData::equal(Self, Self) -> Bool
 pub fn NumericData::not_equal(Self, Self) -> Bool

@@ -179,15 +179,23 @@ sh .github/scripts/check_internal_surface.sh
   otherwise it is package-private (its tests move in with it, as `_wbtest.mbt`)
   or deleted, and the few that cannot be either — an invariant predicate exists
   to be asserted and so has no caller — are listed with their reason in
-  `.github/scripts/internal_surface.allowlist`. Fields never appear in an
-  internal interface: a field publishes the layout where the methods beside it
-  publish what a consumer needs. Callers are matched by spelling, so evidence
-  that rests on a shared method name (`.len(`) or a bare free-function token
-  cannot say which symbol was meant; those pass, but the *set* of them is
-  pinned in `.github/scripts/internal_surface.ambiguous`, so one more falling
-  into "cannot tell" is a diff to approve rather than a line in a passing run
-  (`sh .github/scripts/check_internal_surface.sh --write`). The methods a
-  `derive` generates and the `pub impl` / `pub extend` lines are outside the
+  `.github/scripts/internal_surface.allowlist`. The symbols come from the
+  package's generated interface rather than its source, which is what makes the
+  count complete: a `derive`'s methods and every `pub impl` are in it. A source
+  `pub fn` the interface does *not* carry fails outright — inside an internal
+  package `#doc(hidden)` buys nothing the module boundary has not already
+  bought, and it hides the symbol from every reader of the interface, this
+  audit included. Fields never appear in one either: a field publishes the
+  layout where the methods beside it publish what a consumer needs. Callers are
+  matched by spelling, and where a spelling cannot say *which* symbol was meant
+  (`.len(`, or a bare free-function token), the compiler is asked instead — the
+  symbol is made private, the module is type-checked, and a diagnostic in
+  another package proves the call. Probes run one batch per package, with a
+  second pass alone for whatever the batch left unproven, since the first
+  package to fail blocks the ones above it. Where no toolchain is available the
+  unsettled set is pinned in `.github/scripts/internal_surface.ambiguous`
+  instead (`sh .github/scripts/check_internal_surface.sh --write`). The methods
+  a `derive` generates and the `pub impl` / `pub extend` lines stay outside the
   audit — a derived `equal` is reached through `==` and through the `derive` of
   any type embedding this one, neither of which writes its name — so the run
   counts them rather than pretending to have looked. **A clean run means

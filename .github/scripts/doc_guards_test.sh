@@ -1031,6 +1031,15 @@ pub fn read(c : BuiltinColumn) -> Int {
   if [ $# -ge 3 ] && [ -n "$3" ]; then
     printf '%s\n' "$3" >"$1/.github/scripts/internal_surface.allowlist"
   fi
+  # The audit reads what the package publishes, so a fixture has to publish
+  # something. Everything `pub` in the source is in the interface here, which
+  # is the ordinary case; the fixtures that need the two to disagree overwrite
+  # this file afterwards.
+  {
+    printf 'package "ihb2032/MoonFrame/internal/column"\n\n// Values\n'
+    grep -E '^pub fn|^pub(\(all\))? (struct|enum|type|suberror) ' \
+      "$1/internal/column/column.mbt" || true
+  } >"$1/internal/column/pkg.generated.mbti"
   (cd "$1" && git add -A && git commit -qm f)
 }
 
@@ -1140,6 +1149,13 @@ mkmbti() {
   printf '///|\nfn unused() -> Int {\n  0\n}\n' >"$1/internal/column/column.mbt"
   printf 'package "ihb2032/MoonFrame/internal/column"\n\n// Types and methods\npub struct Bitmap {\n%s} derive(Eq)\npub fn Bitmap::len(Self) -> Int\n' \
     "$2" >"$1/internal/column/pkg.generated.mbti"
+  # A consumer, so the only thing this fixture can fail on is the field rule:
+  # a type nothing outside names is a finding of its own.
+  mkdir -p "$1/series"
+  printf 'import {\n  "ihb2032/MoonFrame/internal/column",\n}\n' \
+    >"$1/series/moon.pkg"
+  printf '///|\nfn read(b : Bitmap) -> Int {\n  ignore(b)\n  0\n}\n' \
+    >"$1/series/series.mbt"
   (cd "$1" && git add -A && git commit -qm f)
 }
 
@@ -1311,10 +1327,38 @@ printf '///|\npub fn Bitmap::get(self : Bitmap, i : Int) -> Int {\n  ignore(self
   >>"$work/is_same_name/internal/column/column.mbt"
 printf '///|\npub fn read2(c : BuiltinColumn) -> Int {\n  c.get(0)\n}\n' \
   >>"$work/is_same_name/series/series.mbt"
+printf 'pub fn Bitmap::get(Self, Int) -> Int\npub fn BuiltinColumn::get(Self, Int) -> Int\n' \
+  >>"$work/is_same_name/internal/column/pkg.generated.mbti"
 (cd "$work/is_same_name" && git add -A && git commit -qm grew)
 expect_out 1 'the set credited by name only changed' \
   'internal surface: a new unsettleable credit is a diff, not a footnote' \
   sh "$scripts/check_internal_surface.sh" "$work/is_same_name"
+
+# The audit reads the interface, so a symbol kept out of it is a symbol the
+# audit cannot see — and inside an internal package hiding one buys nothing the
+# module boundary has not already bought.
+mksurface "$work/is_hidden" "$is_source"
+printf 'package "ihb2032/MoonFrame/internal/column"\n\n// Values\npub fn BuiltinColumn::len(Self) -> Int\n' \
+  >"$work/is_hidden/internal/column/pkg.generated.mbti"
+(cd "$work/is_hidden" && git add -A && git commit -qm hidden)
+expect_out 1 'the generated interface does not carry' \
+  'internal surface: a pub the interface omits is reported' \
+  sh "$scripts/check_internal_surface.sh" "$work/is_hidden"
+
+# The other direction: an interface entry with no source declaration is what a
+# `derive` produces. It is real surface and it is counted, but no name-based
+# rule can find its callers — so it is not audited, and an uncalled one is not
+# a failure.
+mksurface "$work/is_derived" "$is_source
+"
+printf 'pub fn BuiltinColumn::equal(Self, Self) -> Bool\npub impl Eq for BuiltinColumn\n' \
+  >>"$work/is_derived/internal/column/pkg.generated.mbti"
+printf '%s\n' 'internal/column/BuiltinColumn::placeholders_normalized — an invariant that exists to be asserted' \
+  >"$work/is_derived/.github/scripts/internal_surface.allowlist"
+(cd "$work/is_derived" && git add -A && git commit -qm derived)
+expect_out 0 'derived / impl symbols' \
+  'internal surface: a derived symbol is counted, not audited' \
+  sh "$scripts/check_internal_surface.sh" "$work/is_derived"
 
 # A caller that names the owner is exact, so it is not listed as ambiguous
 # even when the short name is shared.

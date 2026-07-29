@@ -51,7 +51,7 @@ pub fn DataFrame::to_markdown(self : DataFrame, max_rows? : Int) -> String {
   let nrows = self.nrows()
   let shown = match max_rows {
     None => nrows
-    Some(limit) => clamp_take(limit, nrows)
+    Some(limit) => @order.clamp_take(limit, nrows)
   }
   let body = format_markdown(self, shown)
   if shown < nrows {

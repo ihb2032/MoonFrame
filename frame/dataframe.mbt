@@ -464,7 +464,7 @@ pub fn DataFrame::rows(self : DataFrame) -> Array[Array[@types.Scalar]] {
 /// the two surfaces verb-for-verb aligned.
 #alias(limit)
 pub fn DataFrame::head(self : DataFrame, n : Int) -> DataFrame {
-  let m = clamp_take(n, self.nrows)
+  let m = @order.clamp_take(n, self.nrows)
   // `0 <= m <= nrows == c.len()`, so the contiguous row slice is in-bounds
   // and needs no bounds-checking `Result`.
   let new_cols : Array[Series] = self.columns.map(c => slice_series(c, 0, m))
@@ -476,7 +476,7 @@ pub fn DataFrame::head(self : DataFrame, n : Int) -> DataFrame {
 /// Last `n` rows (or all rows if `n >= nrows`). Negative `n` clamps to
 /// `0`. Total — never fails.
 pub fn DataFrame::tail(self : DataFrame, n : Int) -> DataFrame {
-  let m = clamp_take(n, self.nrows)
+  let m = @order.clamp_take(n, self.nrows)
   let start = self.nrows - m
   // Same in-bounds argument as `head`: `start + m == nrows == c.len()`.
   let new_cols : Array[Series] = self.columns.map(c => slice_series(c, start, m))

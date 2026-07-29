@@ -69,8 +69,8 @@ another package that have no other way to see what they check.
 **Internal packages** go further: code a downstream caller never needs to name
 lives in an `internal/` path (`internal/column` storage, `internal/kernel` —
 the vectorized expression kernels — `internal/text` / `internal/literal` /
-`internal/numeric` primitives, and `internal/ir`, the expression AST and its
-operator tags).
+`internal/numeric` / `internal/order` primitives, and `internal/ir`, the
+expression AST and its operator tags).
 MoonBit forbids a downstream module from importing an `internal/` package at
 all, so those symbols carry no per-symbol marker — the module boundary itself
 is the wall, and a generated `.mbti` for an internal
@@ -167,10 +167,10 @@ The public surface is split across six packages; the facade re-exports them so
   `explain`, and the optimizer (see [Query optimizer](#query-optimizer)).
 
 Storage backends (`internal/column`), the vectorized expression kernels
-(`internal/kernel`), the text / literal / numeric primitives (`internal/text` /
-`internal/literal` / `internal/numeric`), and the expression AST
-(`internal/ir`) live in module-internal packages a downstream module cannot
-import. Responsibility
+(`internal/kernel`), the text / literal / numeric / position primitives
+(`internal/text` / `internal/literal` / `internal/numeric` / `internal/order`),
+and the expression AST (`internal/ir`) live in module-internal packages a
+downstream module cannot import. Responsibility
 runs `frame` schedules → `internal/kernel` computes a column → `series` owns
 what a column is → `internal/column` owns how it is laid out. What keeps it
 that way is an import allowlist, which lives in

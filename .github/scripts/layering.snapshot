@@ -6,6 +6,7 @@ expr -> types
 frame -> expr
 frame -> internal/ir
 frame -> internal/kernel
+frame -> internal/order
 frame -> series
 frame -> types
 internal/column -> internal/numeric
@@ -41,6 +42,7 @@ root -> series
 root -> types
 series -> internal/column
 series -> internal/numeric
+series -> internal/order
 series -> internal/text
 series -> types
 types -> internal/numeric

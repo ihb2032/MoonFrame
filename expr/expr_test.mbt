@@ -1,11 +1,13 @@
 ///|
-/// Blackbox equality / shape semantics for the `Expr` tree. The enum is
-/// read-only outside `expr` (`[4036]` — this file cannot spell
-/// `Expr::Col(..)` directly), so trees are asserted by comparing
-/// construction routes under `Expr`'s handwritten `Eq`. Construction-route equivalences
-/// (operator vs method alias, builder chains)
-/// live in `expr_ops_test.mbt`; rendering and column-collection in
-/// `explain_test.mbt`; evaluation semantics in `frame/expr_eval_test.mbt`.
+/// Blackbox shape semantics for the `Expr` tree. `Expr` is an opaque handle
+/// over an AST this file cannot name — no variant to spell, and no equality to
+/// compare with — so two trees are asserted through their rendering, which is
+/// what the shared `assert_same_expr` / `assert_diff_expr` do. What that pins
+/// is the documented surface: same shape renders the same, and any difference
+/// in shape shows. Construction-route equivalences (operator vs method alias,
+/// builder chains) live in `expr_ops_test.mbt`; rendering and
+/// column-collection in `explain_test.mbt`; evaluation semantics in
+/// `frame/expr_eval_test.mbt`.
 
 ///|
 test "col: different names are different nodes" {
@@ -184,11 +186,12 @@ test "construction is total: nonsense trees still build" {
 }
 
 ///|
-test "deep trees don't overflow structural equality: `==` is iterative" {
-  // A left-nested tree this deep formerly overflowed the native stack and
-  // aborted inside the handwritten `Eq` — reached by `==` / `assert_eq` and the
-  // derived equality of any structure embedding an `Expr`. The explicit
-  // work-stack compares any depth without aborting.
+test "deep trees don't overflow: rendering is iterative" {
+  // A left-nested tree this deep overflows any walk that recurses on the call
+  // stack, and an overflow aborts. The renderer drives an explicit work stack
+  // instead, so a tree of any depth renders — which is what the assertions
+  // below compare, and what every caller reaching a tree through `to_string`
+  // depends on.
   let depth = 200000
   let mut a = col("a")
   let mut b = col("a")
@@ -202,12 +205,12 @@ test "deep trees don't overflow structural equality: `==` is iterative" {
 }
 
 ///|
-// The "each variant is unequal to every other variant" coverage test moved to
-// `expr_node_variant_wbtest.mbt`, where a whitebox `expr_node_variant_tag` match
-// makes adding an `ExprNode` variant a compile error until its representative is
-// added —
-// closing the silent gap this blackbox list left (a forgotten rep dropped a
-// variant's equality coverage without any signal).
+// The "each variant is unequal to every other variant" coverage test lives in
+// `internal/ir`, beside the equality it pins: a `variant_tag` match there makes
+// adding an `ExprNode` variant a compile error until its representative is
+// added, closing the silent gap this blackbox list left (a forgotten rep
+// dropped a variant's equality coverage without any signal). It cannot live
+// here in any case — `Expr` carries no equality for a blackbox test to reach.
 
 ///|
 test "equality: fill_null and fill_nan compare structurally, each its own kind" {

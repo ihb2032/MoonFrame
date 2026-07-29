@@ -1,8 +1,9 @@
 ///|
 /// Blackbox tests for the string namespace at the expression layer: the
 /// `Show` / `explain` rendering of every `str_*` method (including the
-/// quoting / escaping of literal arguments), the `Str` arm of the handwritten
-/// `Eq` (which has a wildcard fallthrough, so it is pinned by hand), and the
+/// quoting / escaping of literal arguments), the distinctness of the string
+/// operations from one another (each renders as its own form, pinned by hand
+/// because one arm renders them all), and the
 /// introspection primitives — `children`, `output_name`, and
 /// `referenced_columns` — treating the wrapper transparently. The per-cell
 /// evaluation semantics live in `frame`'s `str_ops_test.mbt`.

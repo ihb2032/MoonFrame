@@ -6,7 +6,7 @@
 /// because one arm renders them all), and the
 /// introspection primitives — `children`, `output_name`, and
 /// `referenced_columns` — treating the wrapper transparently. The per-cell
-/// evaluation semantics live in `frame`'s `str_ops_test.mbt`.
+/// evaluation semantics live in `frame`'s `frame/str_ops_test.mbt`.
 
 ///|
 test "str: every namespace method renders as a postfix call" {

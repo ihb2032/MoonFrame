@@ -169,6 +169,7 @@ jobs:
           sh .github/scripts/check_layering.sh
           sh .github/scripts/check_engine_seams.sh
           sh .github/scripts/check_internal_surface.sh
+          sh .github/scripts/check_comment_references.sh
 
       # A real downstream module: it lives outside this one and imports ONLY the
       # root facade (`@moonframe`), the way a user's project does. `moon check`

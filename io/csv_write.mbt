@@ -1,8 +1,9 @@
 // The CSV write path: `CsvWriteOptions`, the `format_csv` renderer, the
-// `write_csv` entry point, and the quoting
-// rule (`write_quoted`), split from `csv.mbt` so reading and writing read
-// apart. `validate_csv_delimiter` stays beside the reader: both directions
-// reject the same delimiter set through it.
+// `write_csv` entry point, the per-cell rendering (`render_csv_scalar`, which
+// is where the opt-in spreadsheet-formula guard applies), and the quoting rule
+// (`write_quoted`) — split from `io/csv.mbt` so reading and writing read apart.
+// `validate_csv_delimiter` stays beside the reader: both directions reject the
+// same delimiter set through it.
 
 ///|
 /// Options that control how a `DataFrame` is rendered as CSV text.

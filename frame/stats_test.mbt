@@ -1,7 +1,7 @@
 // Blackbox tests for the whole-frame reductions `DataFrame::sum` / `mean` /
 // `min` / `max` / `count`, each returning a 1-row `DataFrame` (one cell per
 // source column). The per-cell reductions delegate to the shared kernel
-// (covered exhaustively in `series_stats_test.mbt` / `reduce_test.mbt`), so
+// (covered exhaustively in `series/series_stats_test.mbt` / `reduce_test.mbt`), so
 // the tests here focus on the frame-level behaviour:
 //   (1) shape — a 1-row frame, names and order preserved (0-column → 1×0);
 //   (2) the uniform numeric-only rule — numeric columns reduce, non-numeric

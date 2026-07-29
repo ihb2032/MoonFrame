@@ -10,7 +10,7 @@
 // collide the way a naive delimiter-joined string might.
 //
 // One-file-one-test exemption: these row-key builders have no dedicated
-// `row_key_test.mbt`. They are exercised to full coverage through the
+// `row_key_test.mbt`. (doc-guard: unresolved) They are exercised to full coverage through the
 // `group_by` and `join` blackbox tests that depend on them.
 
 ///|

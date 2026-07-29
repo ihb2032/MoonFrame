@@ -3,7 +3,7 @@
 // loop lives in one place rather than once per package.
 //
 // One-file-one-test exemption: this generic helper has no dedicated
-// `fold_test.mbt`. It is covered through the column / series `min` / `max`
+// `fold_test.mbt`. (doc-guard: unresolved) It is covered through the column / series `min` / `max`
 // tests that exercise the empty (`None`), all-skipped, and replacement paths.
 
 ///|

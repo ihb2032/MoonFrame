@@ -1,12 +1,14 @@
 ///|
 /// The deferred query IR behind `LazyFrame`: a private tree with one node
-/// per eager `DataFrame` verb, plus the two walkers that consume it —
-/// `execute` (the `collect` engine) and `render` (the `explain` printer).
-/// The enum stays `priv`: every `match` over it lives in this package, so
-/// nothing of the IR leaks into the public surface (`LazyFrame` exposes
-/// builders and the two walkers only). Building nodes is total — a plan is
-/// plain data — and every failure a pipeline can produce is deferred to
-/// `execute`, which surfaces the underlying eager operator's `DataError`.
+/// per eager `DataFrame` verb, the traversal helpers every consumer shares,
+/// and `execute` — the engine behind `collect`. The other walker, `render`
+/// behind `explain`, is a file of its own (`lazy/plan_render.mbt`), so plan
+/// display and plan execution read apart. The enum stays `priv`: every
+/// `match` over it lives in this package, so nothing of the IR leaks into the
+/// public surface (`LazyFrame` exposes builders and the two walkers' results
+/// only). Building nodes is total — a plan is plain data — and every failure a
+/// pipeline can produce is deferred to `execute`, which surfaces the
+/// underlying eager operator's `DataError`.
 ///
 /// `Head` / `Tail` are nodes of their own rather than sugar over `Slice`:
 /// the eager `head` / `tail` clamp out-of-range `n` and never fail, while

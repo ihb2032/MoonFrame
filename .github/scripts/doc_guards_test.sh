@@ -1432,6 +1432,129 @@ if printf '%s' "$got_out" | grep -q 'credited by a shared method name'; then
   exit 1
 fi
 
+# ── comment references ────────────────────────────────────────────────────
+# A fixture module with one package that declares things, one that names them
+# in comments, and a prose file — the three places a reference can sit.
+mkrefs() {
+  # mkrefs <dir> <comment-carrying source> [prose]
+  mkdir -p "$1/series" "$1/frame" "$1/docs"
+  (cd "$1" && git init -q . && git config user.email t@t &&
+    git config user.name t && git config core.autocrlf false)
+  printf 'import {\n}\n' >"$1/series/moon.pkg"
+  # The type is declared here, not merely carried by a method: a pair is only
+  # checked when this module defines its owner, which is what keeps
+  # `Double::to_string` out of the audit.
+  printf '///|\npub struct Series {\n  n : Int\n}\n\n///|\npub fn gather_series(n : Int) -> Int {\n  n\n}\n\n///|\npub fn Series::len(self : Series) -> Int {\n  self.n\n}\n' \
+    >"$1/series/series.mbt"
+  printf 'import {\n  "ihb2032/MoonFrame/series",\n}\n' >"$1/frame/moon.pkg"
+  printf '%s\n' "$2" >"$1/frame/frame.mbt"
+  printf '%s\n' "${3:-# Guide}" >"$1/docs/guide.md"
+  (cd "$1" && git add -A && git commit -qm f)
+}
+
+mkrefs "$work/cr_ok" '///|
+/// Calls `@series.gather_series` and `Series::len`, described in
+/// `series/series.mbt`.
+pub fn use_it() -> Int {
+  0
+}'
+expect_out 0 'resolve' 'comment references: every reference resolves' \
+  sh "$scripts/check_comment_references.sh" "$work/cr_ok"
+
+mkrefs "$work/cr_pkg" '///|
+/// Calls `@series.vanished_fn`.
+pub fn use_it() -> Int {
+  0
+}'
+expect_out 1 'does not declare' \
+  'comment references: a package that does not declare the name' \
+  sh "$scripts/check_comment_references.sh" "$work/cr_pkg"
+
+mkrefs "$work/cr_method" '///|
+/// Reads `Series::vanished`.
+pub fn use_it() -> Int {
+  0
+}'
+expect_out 1 'has no such method' \
+  'comment references: a method the type does not have' \
+  sh "$scripts/check_comment_references.sh" "$work/cr_method"
+
+# The standard library is not read here, so a pair whose owner this module does
+# not define says nothing either way — flagging it would make the guard cry
+# wolf on every `Double::to_string` in a doc comment.
+mkrefs "$work/cr_stdlib" '///|
+/// Formats with `Double::to_string` and clamps at `Int::MAX`.
+pub fn use_it() -> Int {
+  0
+}'
+expect 0 'comment references: a standard-library method is not this module'"'"'s to check' \
+  sh "$scripts/check_comment_references.sh" "$work/cr_stdlib"
+
+mkrefs "$work/cr_file" '///|
+/// See `series/gone.mbt`.
+pub fn use_it() -> Int {
+  0
+}'
+expect_out 1 'no such file' 'comment references: a file that is not there' \
+  sh "$scripts/check_comment_references.sh" "$work/cr_file"
+
+# Evidence is code, never another comment: two comments naming the same dead
+# symbol must not vouch for each other.
+mkrefs "$work/cr_circular" '///|
+/// One comment names `@series.ghost_fn`.
+pub fn use_it() -> Int {
+  0
+}
+
+///|
+/// Another comment names `@series.ghost_fn` too.
+pub fn use_it_again() -> Int {
+  0
+}'
+expect_out 1 'does not declare' \
+  'comment references: a second comment is not evidence for the first' \
+  sh "$scripts/check_comment_references.sh" "$work/cr_circular"
+
+mkrefs "$work/cr_marked" '///|
+/// There is no dedicated `frame/frame_test.mbt`. (doc-guard: unresolved)
+pub fn use_it() -> Int {
+  0
+}'
+expect 0 'comment references: a deliberate absence carries its marker' \
+  sh "$scripts/check_comment_references.sh" "$work/cr_marked"
+
+# Prose is checked the same way, and its marker hides in an HTML comment so a
+# reader of the rendered page never sees the machinery.
+mkrefs "$work/cr_prose" '///|
+/// Fine.
+pub fn use_it() -> Int {
+  0
+}' '# Guide
+
+The verb is `@series.gather_series`, and `@series.gone_fn` is not.'
+expect_out 1 'does not declare' 'comment references: prose is checked too' \
+  sh "$scripts/check_comment_references.sh" "$work/cr_prose"
+
+mkrefs "$work/cr_prose_marked" '///|
+/// Fine.
+pub fn use_it() -> Int {
+  0
+}' '# Guide
+
+There is no `@series.gone_fn`. <!-- doc-guard: unresolved -->'
+expect 0 'comment references: a marker in prose hides from the reader' \
+  sh "$scripts/check_comment_references.sh" "$work/cr_prose_marked"
+
+# Code is not scanned — only comments. A symbol a package legitimately calls
+# is not a reference to check, and a string that looks like one is not either.
+mkrefs "$work/cr_code" '///|
+/// Fine.
+pub fn use_it() -> String {
+  "@series.not_a_reference"
+}'
+expect 0 'comment references: code and strings are not comments' \
+  sh "$scripts/check_comment_references.sh" "$work/cr_code"
+
 # ── the repository itself ─────────────────────────────────────────────────
 expect 0 'repo: version identity' sh "$scripts/check_version_identity.sh" "$root"
 expect 0 'repo: stale names' sh "$scripts/check_stale_names.sh" "$root"
@@ -1443,5 +1566,7 @@ expect 0 'repo: layering' sh "$scripts/check_layering.sh" "$root"
 expect 0 'repo: engine seams' sh "$scripts/check_engine_seams.sh" "$root"
 expect 0 'repo: internal surface' \
   sh "$scripts/check_internal_surface.sh" "$root"
+expect 0 'repo: comment references' \
+  sh "$scripts/check_comment_references.sh" "$root"
 
 printf 'doc guards: %s cases pass\n' "$cases"

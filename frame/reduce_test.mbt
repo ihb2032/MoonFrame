@@ -3,7 +3,7 @@
 // The whole-column `Series` reductions (`sum` / `mean` / `min` / `max` /
 // `count` / `std` / `variance` / `median` / `first` / `last`) and the grouped
 // `agg` (the expression evaluator) reduce through one shared index-generic
-// kernel (`reduce.mbt`). On a single-group frame both reduce exactly the same
+// kernel (`series/reduce.mbt`). On a single-group frame both reduce exactly the same
 // cells, so they must agree cell-for-cell. These tests pin that unification —
 // the point of folding the former copies into one kernel — across every dtype
 // and the `NaN` rules (`sum` / `mean` / `std` / `variance` propagate, `min` /

@@ -64,7 +64,7 @@
 ///   `InvalidOperation` for an invalid pattern — the one non-total path.
 /// - **Aggregations** (`sum/mean/min/max/count/std/var/median/n_unique/
 ///   first/last`): reduce the operand over
-///   the scope to a length-1 column through the shared `reduce.mbt` kernel —
+///   the scope to a length-1 column through the shared `series/reduce.mbt` kernel —
 ///   `sum` / `mean` / `std` / `var` propagate NaN and reject non-numeric
 ///   dtypes, `min` / `max` / `median` skip NaN (`median` numeric-only),
 ///   `count` counts non-null cells, `n_unique` the distinct non-null values,

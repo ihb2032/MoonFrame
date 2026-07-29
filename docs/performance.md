@@ -109,7 +109,7 @@ See [`api.md`](api.md) for the per-operation semantics and
 Beyond the complexity notes above, a `moon bench` micro-benchmark suite measures
 real throughput. Run it from the repo root with `moon bench`.
 
-The four packages that own a `bench_test.mbt` file are `series`, `frame`, `io`,
+The four packages that own a `bench_test.mbt` file are `series`, `frame`, `io`, <!-- doc-guard: unresolved -->
 and `lazy`; the packages that only define values or build trees (`types`,
 `expr`, `internal/text` / `internal/literal` / `internal/ir`) have nothing to
 time. `internal/kernel` does real work — it is where the vectorized column

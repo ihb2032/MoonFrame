@@ -86,8 +86,8 @@ fn all_row_stable(exprs : Array[@expr.Expr]) -> Bool {
 /// back out) — so a signed-zero-safe predicate gives every row of a folded group
 /// the same verdict and may sink below the aggregate, while one that divides or
 /// exponentiates could drop only part of the group and must stay above. Walks
-/// `children()` like `row_stable`, so a future `Expr` variant is covered without
-/// a wildcard.
+/// `children()` like `row_stable`, so a node kind added later is walked without
+/// this rule naming it — the handle exposes shape, not variants.
 fn signed_zero_safe(expr : @expr.Expr) -> Bool {
   // Iterative walk like `row_stable`: a deeply nested predicate stays total
   // instead of overflowing the call stack during optimization.

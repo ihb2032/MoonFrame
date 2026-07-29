@@ -14,7 +14,7 @@
 // `Show` forms escape.
 //
 // One-file-one-test exemption: this helper has no dedicated
-// `escape_test.mbt`. It is covered through the `Scalar` / `DataError` /
+// `escape_test.mbt`. (doc-guard: unresolved) It is covered through the `Scalar` / `DataError` /
 // `Field` `Show` tests that render payloads containing `"` and `\`.
 
 ///|

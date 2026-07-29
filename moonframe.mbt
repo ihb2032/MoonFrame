@@ -40,7 +40,7 @@
 // The expression / lazy layers follow the same rule for inherent methods:
 // `Expr::{with_alias,cast,eq,sum,...}` and the `LazyFrame` methods remain
 // available with their re-exported types. Trait-backed dot methods are
-// different: `expr_ops.mbt` exposes them through explicit
+// different: `expr/expr_ops.mbt` exposes them through explicit
 // `pub extend Expr with Trait::{method}` declarations, while operator syntax is
 // provided by the corresponding trait impls (`Add` / `Sub` / `Mul` / `Div` /
 // `BitAnd` / `BitOr` / `Neg`). Keep the explicit extensions; an impl alone no

@@ -96,7 +96,7 @@ semantic choices:
 - Comparisons are **methods** (`eq` / `ne` / `lt` / `le` / `gt` / `ge`), not
   `==` / `<`, which MoonBit pins to `Bool` / `Int` returns.
 - `&` / `|` are Kleene-logical (not bitwise); the method spellings are
-  `land` / `lor` (`and` is a reserved word, so there is no `Expr::and`).
+  `land` / `lor` (`and` is a reserved word, so there is no `Expr::and`). <!-- doc-guard: unresolved -->
 - Names dodging reserved words: `with_alias` (`alias`), `variance` (`var`),
   `LazyFrame::LazyFrame(df)` rather than `lazy(df)` or `df.lazy()` (`lazy`).
 - Options structs instead of keyword arguments (`JoinOptions`,

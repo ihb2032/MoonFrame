@@ -2,7 +2,7 @@
 // `Compare` on `String` is shortlex (length first, then code unit), which
 // surprises users expecting dictionary order, so every user-facing ordering
 // routes through the helper here instead. Kept in its own file — mirroring
-// `parse.mbt`'s `is_decimal_int_literal` — rather than inside `scalar.mbt`,
+// `parse.mbt`'s `is_decimal_int_literal` — rather than inside `types/scalar.mbt`,
 // because it is a free string-ordering function, not part of the `Scalar`
 // value type.
 //

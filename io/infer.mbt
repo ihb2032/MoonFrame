@@ -10,7 +10,7 @@
 // its own cell accessor, null test, per-dtype probes, and error wording.
 //
 // One-file-one-test exemption: this shared inference skeleton has no
-// dedicated `infer_test.mbt`. It is covered through the CSV / JSON / NDJSON
+// dedicated `infer_test.mbt`. (doc-guard: unresolved) It is covered through the CSV / JSON / NDJSON
 // reader blackbox tests that drive it.
 
 ///|

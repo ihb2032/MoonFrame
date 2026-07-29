@@ -84,7 +84,7 @@ pub fn singleton_series(value : @types.Scalar) -> Series raise @types.DataError 
 /// side's length — including to zero rows, where the empty gather never touches
 /// the value. Two `lit_series` of differing length reach the mismatch arm and
 /// raise `LengthMismatch` (keeping the helper total). Covered by
-/// `lit_series_test.mbt` (public path) and `expr_eval_wbtest.mbt` (directly).
+/// `frame/lit_series_test.mbt` (public path) and `frame/expr_eval_wbtest.mbt` (directly).
 pub fn broadcast_pair(
   left : Series,
   right : Series,
@@ -106,8 +106,8 @@ pub fn broadcast_pair(
 /// Stretch one evaluation result onto a column slot of `target` rows: a
 /// matching length passes through, a length-1 result (a literal or aggregation)
 /// is gathered at index 0 over every row (including to zero rows). Any other
-/// length raises `LengthMismatch`. Covered by `lit_series_test.mbt` (public
-/// path) and `expr_eval_wbtest.mbt` (directly).
+/// length raises `LengthMismatch`. Covered by `frame/lit_series_test.mbt` (public
+/// path) and `frame/expr_eval_wbtest.mbt` (directly).
 pub fn broadcast_series(
   s : Series,
   target : Int,

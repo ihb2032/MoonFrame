@@ -4,7 +4,7 @@
 // duplicated per backend.
 //
 // One-file-one-test exemption: these helpers have no dedicated
-// `validate_test.mbt`. They are covered through the `BuiltinColumn` /
+// `validate_test.mbt`. (doc-guard: unresolved) They are covered through the `BuiltinColumn` /
 // `NumericColumn` `slice` / `take` tests that exercise each rejection path.
 
 ///|

@@ -325,3 +325,28 @@ test "select carries a declared nullable=false through a bare projection" {
   ])
   assert_true(computed.schema().field("id").nullable())
 }
+
+///|
+test "a deeply aliased projection resolves its source column without overflow" {
+  // `Expr::with_alias` stacks without bound, and the field a projection carries
+  // is decided by peeling those aliases to see whether the expression only
+  // *renames* a column (`projection_source`). Peeling on the call stack
+  // overflowed and aborted at this depth; a cursor reaches the column, so the
+  // declared `nullable` still rides along however many aliases sit on top.
+  let schema = @types.Schema::Schema([
+    @types.Field::Field("id", @types.DataType::Int, nullable=false),
+  ])
+  let df = DataFrame::from_rows(schema, [
+    [@types.Scalar::Int(1)],
+    [@types.Scalar::Int(2)],
+  ])
+  let mut e = @expr.col("id")
+  for _ in 0..<100000 {
+    e = e.with_alias("id")
+  }
+  let out = df.select([e])
+  assert_eq(out.columns(), ["id"])
+  assert_eq(out.get_column("id"), df.get_column("id"))
+  assert_false(out.schema().field("id").nullable())
+  assert_eq(out.check_invariants(), Ok(()))
+}

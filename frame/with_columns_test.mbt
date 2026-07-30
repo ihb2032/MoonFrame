@@ -147,3 +147,20 @@ test "a derived column equals the equivalent hand-built series" {
     .get_column("a")
   assert_eq(derived, Series::from_ints("a", [11, 22, 33]))
 }
+
+///|
+test "a deeply aliased column definition survives with_columns" {
+  // The same alias peel `select` performs decides the field a `with_columns`
+  // output carries, so the depth guard belongs on both verbs (see
+  // `select_test.mbt`). Replacing an existing column here also exercises the
+  // in-place path rather than the append.
+  let df = DataFrame::DataFrame([Series::from_ints("a", [1, 2, 3])])
+  let mut e = @expr.col("a")
+  for _ in 0..<100000 {
+    e = e.with_alias("a")
+  }
+  let out = df.with_columns([e])
+  assert_eq(out.columns(), ["a"])
+  assert_eq(out.get_column("a"), df.get_column("a"))
+  assert_eq(out.check_invariants(), Ok(()))
+}

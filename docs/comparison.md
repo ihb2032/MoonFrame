@@ -68,7 +68,8 @@ libraries — not a derivative work of either codebase.
 ## Deliberate differences
 
 Where MoonFrame knowingly does something else than Polars. Two are about
-`NaN`; the third is about mixed-dtype comparison.
+`NaN`, one about mixed-dtype comparison, and one about how a call is
+configured.
 
 - **`sort` treats `NaN` as missing.** When sorting, a `Float` `NaN` is ordered
   by the key's `NullOrder` (like a null), whereas Polars treats `NaN` as a
@@ -84,6 +85,15 @@ Where MoonFrame knowingly does something else than Polars. Two are about
   shows in the comparison operators and the predicates built on them
   (`is_in` / `is_between`). Same-dtype comparisons are exact either way, and a
   join refuses a mixed-dtype key outright rather than deciding for you.
+- **Configuration is an options struct**, not a bag of per-call arguments:
+  `read_csv(path, options=CsvReadOptions::CsvReadOptions(delimiter=';'))` where
+  Polars takes `pl.read_csv(path, separator=";")`. Not a language limit —
+  MoonBit has labelled optional parameters, and the options constructors are
+  built out of them (`CsvReadOptions::CsvReadOptions(delimiter=';')` names one
+  field and defaults the rest). It is about what the parameter *is*: one value a
+  caller can name once and reuse across reads, pass through a helper that knows
+  nothing about its fields, and gain a field on without any signature changing.
+  The same struct then serves the eager reader and its `scan_*` counterpart.
 
 For `NaN` everywhere else — `sum` / `mean` / `group_by` / `join` /
 comparisons — it is a value, as in Polars.
@@ -99,8 +109,6 @@ semantic choices:
   `land` / `lor` (`and` is a reserved word, so there is no `Expr::and`). <!-- doc-guard: unresolved -->
 - Names dodging reserved words: `with_alias` (`alias`), `variance` (`var`),
   `LazyFrame::LazyFrame(df)` rather than `lazy(df)` or `df.lazy()` (`lazy`).
-- Options structs instead of keyword arguments (`JoinOptions`,
-  `CsvReadOptions`, …), since MoonBit has no kwargs.
 
 ## Out of scope (vs Polars)
 

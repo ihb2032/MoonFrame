@@ -3,8 +3,8 @@
 /// Remaining columns keep their relative order — MoonFrame's single drop
 /// verb (Polars' `df.drop(...)`).
 ///
-/// Each entry is an `Expr` resolved to a column name through the §0 naming
-/// rule (`Expr::output_name`): a bare `col("x")` names `"x"`, an alias names
+/// Each entry is an `Expr` resolved to a column name through
+/// `Expr::output_name`: a bare `col("x")` names `"x"`, an alias names
 /// the alias. The container is `Array[Expr]` so a future column selector
 /// (`all` / `exclude`) can drop the matched set without a signature change;
 /// today only `col` / aliased keys are meaningful and the expression is never

@@ -982,11 +982,13 @@ test "a key predicate sinks below a distinct-count aggregation" {
 ///|
 test "fence: a std aggregation pins the filter above the group stage" {
   let df = sales_df()
-  // The east group's bonus cells are all null, so its `std` is a null cell and
-  // the stitched column stays `Builtin`; like `mean`, dropping that group
-  // first would converge the survivors onto `Numeric` — a different output —
-  // so the fence keeps the filter above. (`variance` / `median` / `first` /
-  // `last` are fenced for the same reason: each can go null on a group.)
+  // The east group's bonus cells are all null, so its `std` is a null cell —
+  // the case the fence was argued from. Like `mean`, `std` is fenced, so the
+  // filter stays above the aggregate whatever the data does. What is pinned is
+  // the plan shape and parity with the eager chain, not a claim that sinking
+  // would change the result; see `group_cell_stable` for why the fence is
+  // conservative. (`variance` / `median` / `first` / `last` are fenced the same
+  // way: each can go null on a group.)
   let aggs = [@expr.col("bonus").std().with_alias("s")]
   let predicate = @expr.col("region").eq(@expr.lit_str("west"))
   let plan = LazyFrame::LazyFrame(df)

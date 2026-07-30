@@ -1,9 +1,14 @@
 ///|
 /// Logical data type for a column.
 ///
-/// `Null` represents a column that carries no inferred type (e.g. an
-/// all-null CSV column where inference could not promote it to anything
-/// more specific). Concrete columns always carry one of the other variants.
+/// `Null` is the dtype of a *missing value*, not of a column: it is what
+/// `Scalar::Null.dtype()` reports, and so what a `TypeMismatch`'s "expected T,
+/// got Null" names when a null cell reaches a typed read. A hand-built `Schema`
+/// may also carry it, but nothing materialises a column on it —
+/// `DataFrame::empty` raises `Unsupported` for such a field, `cast` refuses it
+/// as a target, and **no reader infers it**: an all-null probe window falls back
+/// to `String` (see [`docs/type-inference.md`](../docs/type-inference.md)).
+/// Concrete columns always carry one of the other variants.
 pub(all) enum DataType {
   Int
   Float

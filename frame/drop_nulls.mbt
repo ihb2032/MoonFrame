@@ -6,13 +6,13 @@
 /// `subset` selects the gating columns — MoonFrame's single null-dropping
 /// verb (Polars' `df.drop_nulls(subset)`):
 /// - **omitted** → every column gates (drop a row null in **any** column).
-///   A 0-column frame is the special case: there are no columns whose
-///   validity could fail, so every row passes; with `DataFrame::DataFrame`'s
-///   convention that a 0-column frame has `nrows = 0`, the output is
-///   structurally identical to the input.
+///   An `N×0` frame is the degenerate case: no column's validity can fail, so
+///   all `N` rows pass and the output is structurally identical to the input.
+///   (`DataFrame::DataFrame([])` is the `N = 0` instance of that, not a rule of
+///   its own — a column-less frame built through `select([])` keeps its height.)
 /// - **`Some(keys)`** → only the columns named by `keys` gate; a row null in
 ///   an unlisted column is kept. Each key is an `Expr` resolved to a column
-///   name through the §0 naming rule (`Expr::output_name`) — a bare
+///   name through `Expr::output_name` — a bare
 ///   `col("x")` names `"x"`. The `Array[Expr]` container mirrors `drop` and
 ///   leaves room for a future column selector; today only `col` / aliased
 ///   keys are meaningful and the expression is never evaluated.

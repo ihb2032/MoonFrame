@@ -1,7 +1,7 @@
 // Blackbox tests for `DataFrame::drop`.
 //
-// `drop` takes `Array[Expr]` keys, each resolved to a column name via the
-// §0 naming rule (`Expr::output_name`); the `col(name)` keys here also pin
+// `drop` takes `Array[Expr]` keys, each resolved to a column name via
+// `Expr::output_name`; the `col(name)` keys here also pin
 // the historical name-keyed drop behavior, and the aliased key pins the
 // output-name resolution that keeps the container open for future selectors.
 //

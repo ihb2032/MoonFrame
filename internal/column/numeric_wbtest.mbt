@@ -202,7 +202,8 @@ test "to_builtin: equals from_ints / from_floats (the bitmap alloc avoided)" {
   let xs : Array[Int64] = [3, 1, 4, 1, 5]
   let widened_i = NumericColumn::from_ints(xs).to_builtin()
   // The numeric column carried no bitmap; widening materialises exactly the
-  // all-valid Builtin column — `derive(Eq)` proves it cell-for-cell.
+  // all-valid Builtin column — this package's structural `Eq`
+  // (`equality_wbtest.mbt`) proves it cell-for-cell.
   assert_eq(widened_i, BuiltinColumn::from_ints(xs))
   assert_eq(widened_i.null_count(), 0)
   let ys : Array[Double] = [2.0, 7.0, 1.0]
@@ -330,10 +331,10 @@ test "min / max: Float skips NaN, all-NaN / empty → Null" {
   assert_eq(NumericColumn::from_floats([]).max(), @types.Scalar::Null)
 }
 
-// ── Eq derive ─────────────────────────────────────────────────────────
+// ── Structural equality ───────────────────────────────────────────────
 
 ///|
-test "Eq derive: structural, dtype-discriminated" {
+test "structural equality: cell-wise, dtype-discriminated" {
   assert_eq(NumericColumn::from_ints([1, 2]), NumericColumn::from_ints([1, 2]))
   assert_not_eq(
     NumericColumn::from_ints([1, 2]),

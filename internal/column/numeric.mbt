@@ -12,8 +12,9 @@
 /// The win is twofold and measurable (see `numeric_wbtest.mbt`):
 ///   1. **construction / sub-views** allocate no validity `Bytes`:
 ///      `from_ints` / `from_floats` are just the data array, and `slice` /
-///      `take` repack only the data — `BuiltinColumn` additionally allocates
-///      (`from_ints`) or repacks (`slice` / `take`) a `Bitmap`;
+///      `take` copy only the data — where `BuiltinColumn` additionally
+///      allocates a `Bitmap` (`from_ints`), repacks one (`take`), or carries a
+///      zero-copy view of its parent's (`slice`);
 ///   2. **reductions** read the raw array with no `validity().to_bools()`
 ///      materialisation and no per-slot `if valid[i]` branch that `Series`'
 ///      reductions run: `sum` / `mean` are a tight fold over the array, and
@@ -181,8 +182,8 @@ fn NumericColumn::get(
 /// - `InvalidOperation("slice start > end: ...")` when `start > end`.
 ///
 /// Stays a `NumericColumn` — a sub-range of an all-valid column is itself
-/// all-valid, so there is no bitmap to slice (the win over
-/// `BuiltinColumn::slice`, which repacks one).
+/// all-valid, so there is no bitmap here at all, where `BuiltinColumn::slice`
+/// still carries a zero-copy view of its parent's.
 fn NumericColumn::slice(
   self : NumericColumn,
   start : Int,

@@ -295,8 +295,10 @@ from another module warns.
 
 `DataFrame::storage_kinds`, `Series::to_numeric` / `to_builtin` and
 `DataFrame::to_numeric` / `to_builtin` are gone outright rather than hidden.
-Nothing selects a backend: a column takes the unboxed fast path when its
-content allows it, and the constructors are the only way to ask for one —
+Nothing selects a backend: a column takes the unboxed fast path when the
+operation that produced it canonicalises *and* its content allows it (see
+[`performance.md`](performance.md#the-numeric-fast-path)), and the constructors
+are the closest thing to asking for one —
 `from_ints` / `from_floats` build a `Numeric` column, the nullable
 `from_*_options` a `Builtin` one.
 

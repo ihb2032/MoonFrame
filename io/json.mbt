@@ -13,9 +13,10 @@
 // re-inferred as `Int` on read-back (`json_value_as_int` accepts any
 // `Number` equal to its truncation). The dtype narrows `Float → Int`;
 // the values themselves are unchanged. This is inherent to JSON's
-// typeless numbers — and it is the one place CSV and JSON inference
-// diverge: the CSV reader keeps `"2.0"` as `Float` only because the
-// *text* still carries the decimal point, which a JSON number does not.
+// typeless numbers: the CSV reader keeps `"2.0"` as `Float` only because the
+// *text* still carries the decimal point, which a JSON number does not. It is
+// the first of the three ways the two readers part company — the other two are
+// the caveats below, and all three are collected in `docs/type-inference.md`.
 //
 // Caveat 2 — large `Int64`. JSON numbers (and `@json`'s reader) are
 // IEEE-754 `Double`, so an `Int64` whose magnitude exceeds 2^53 has no exact

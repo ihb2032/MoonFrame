@@ -677,16 +677,19 @@ push a projection into, so there is no `scan_json`.)
 ### A canonical storage backend
 
 A column's storage backend — the unboxed `Numeric` fast path versus the general
-`Builtin` backend — is now a function of its *content*, not of how it was built:
-any row gather (`filter` / `gather` / `take` / `drop_nulls`, a grouped key, an
-aggregation) that leaves an all-valid Int / Float column re-converges it onto
-`Numeric`. This closes a predicate-pushdown soundness gap — sinking a `Filter`
-below a stage carrying a *derived* column or group key (say
-`group_by([col("a") + col("b")])`) recomputes that column over the surviving
-rows, and without the canonical form it could land on a different backend than
-the eager chain, which `Series` equality observes, making `collect` diverge from
-`execute`. (`slice` / `head` / `tail` stay zero-copy views that keep the source
-backend.)
+`Builtin` backend — now follows its *content* on the paths that canonicalise,
+rather than the constructor that happened to build it: any row gather (`filter`
+/ `gather` / `take` / `drop_nulls`, a grouped key, an aggregation) that leaves
+an all-valid Int / Float column re-converges it onto `Numeric`. This closes a
+predicate-pushdown soundness gap — sinking a `Filter` below a stage carrying a
+*derived* column or group key (say `group_by([col("a") + col("b")])`) recomputes
+that column over the surviving rows, and without the canonical form it could
+land on a different backend than the eager chain, which `Series` equality
+observes, making `collect` diverge from `execute`. Convergence is not
+universal — the backend-*preserving* transforms (`slice` / `head` / `tail`) hand
+the source's backend through instead, and they copy the sliced row data, sharing
+only the parent's validity bitmap as a zero-copy view. Which paths canonicalise
+and which preserve is listed in [`performance.md`](performance.md#the-numeric-fast-path).
 
 ### `Series` in its own package; naming finalised
 

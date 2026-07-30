@@ -5,12 +5,13 @@
 # repository itself, which must stay clean.
 #
 # What it costs, because the answer differs by platform enough to look like a
-# hang: a single guard over this repository is seconds, but this runs 145 cases,
+# hang: a single guard over this repository is seconds, but this runs ~150 cases,
 # most of them a whole guard over a fixture tree, so it is thousands of
 # processes. On Linux that is cheap — CI runs this and all nine guards in one
 # step, under a minute on `ubuntu-latest`. Under Windows Git Bash / MSYS, where
-# `fork` is emulated, a measured run took 24m30s wall (17m of it system time)
-# and passed all 145 cases: slow, not stuck. While iterating on one guard, run
+# `fork` is emulated, a measured run of the 145 cases this had at the time took
+# 24m30s wall (17m of it system time) and passed every one: slow, not stuck.
+# While iterating on one guard, run
 # that guard directly — each is seconds — and leave the sweep to a push or CI.
 #
 # Usage: .github/scripts/doc_guards_test.sh [repo-root]
@@ -61,6 +62,14 @@ expect_out() {
 }
 
 # ── version identity ──────────────────────────────────────────────────────
+mkgit() {
+  # mkgit <dir> — a work tree, so a guard reading `git ls-files` sees exactly
+  # the fixture's own files and never walks up into a surrounding repository.
+  (cd "$1" && git init -q . && git config user.email t@t &&
+    git config user.name t && git config core.autocrlf false &&
+    git add -A && git commit -qm f)
+}
+
 mkfixture() {
   # mkfixture <dir> <mod-version> <changelog-heading> <migration-target>
   # Three files name a release and nobody else does: the manifest and the two
@@ -73,6 +82,7 @@ mkfixture() {
   printf 'name = "x"\n\nversion = "%s"\n' "$2" >"$1/moon.mod"
   printf '# Changelog\n\n%s\n\nbody\n\n## v0.5.8 — before\n' "$3" >"$1/docs/changelog.md"
   printf '# Migration\n\n## v0.0.0 → v%s\n' "$4" >"$1/docs/migration.md"
+  mkgit "$1"
 }
 
 mkfixture "$work/v_released" 0.6.0 '## v0.6.0 — done' 0.6.0
@@ -107,12 +117,78 @@ mkdir -p "$work/v_first/docs"
 printf 'name = "x"\n\nversion = "0.0.0"\n' >"$work/v_first/moon.mod"
 printf '# Changelog\n\n## v0.1.0 — first (unreleased)\n' >"$work/v_first/docs/changelog.md"
 printf '# Migration\n\n## v0.0.0 → v0.1.0\n' >"$work/v_first/docs/migration.md"
+mkgit "$work/v_first"
 expect 0 'version: first release has no published predecessor' \
   sh "$scripts/check_version_identity.sh" "$work/v_first"
 
 mkfixture "$work/v_migration" 0.6.0 '## v0.6.0 — done' 0.5.9
 expect 1 'version: migration targets another release' \
   sh "$scripts/check_version_identity.sh" "$work/v_migration"
+
+# The other half of the rule: no fourth place names a release. The three
+# fixtures above are already the clean case — each passes with only the three
+# homes tracked — so what is left is a stray, and the third-party versions that
+# must *not* read as one.
+addfile() {
+  # addfile <dir> <path> <content>
+  mkdir -p "$1/$(dirname "$2")"
+  printf '%s\n' "$3" >"$1/$2"
+  (cd "$1" && git add -A && git commit -qm f)
+}
+
+mkfixture "$work/v_stray_md" 0.5.8 '## v0.6.0 — done (unreleased)' 0.6.0
+addfile "$work/v_stray_md" README.md 'Install MoonFrame v0.6.0 to follow along.'
+expect_out 1 'names a release' 'version: a guide names a release' \
+  sh "$scripts/check_version_identity.sh" "$work/v_stray_md"
+
+mkfixture "$work/v_stray_comment" 0.5.8 '## v0.6.0 — done (unreleased)' 0.6.0
+addfile "$work/v_stray_comment" src/a.mbt '/// Added in v0.4.2.
+fn f() -> Int { 1 }'
+expect_out 1 'names a release' 'version: a docstring names a release' \
+  sh "$scripts/check_version_identity.sh" "$work/v_stray_comment"
+
+# A code line is not prose: a version-shaped string literal is data, and a
+# parser test is entitled to one.
+mkfixture "$work/v_code_literal" 0.5.8 '## v0.6.0 — done (unreleased)' 0.6.0
+addfile "$work/v_code_literal" src/a.mbt 'fn f() -> String { "1.2.3" }'
+expect 0 'version: a string literal in code is not a release name' \
+  sh "$scripts/check_version_identity.sh" "$work/v_code_literal"
+
+# Third-party versions, each excluded by the token its own line carries.
+mkfixture "$work/v_third_party" 0.5.8 '## v0.6.0 — done (unreleased)' 0.6.0
+addfile "$work/v_third_party" README.md 'MoonBit v0.10.4 changed the manifest.'
+addfile "$work/v_third_party" .github/workflows/ci.yml '  MOONBIT_INSTALL_VERSION: "0.10.4+2cc641edf"
+      - uses: actions/checkout@fbc6f39 # v5.1.0'
+addfile "$work/v_third_party" moon.pkg '# depends on "owner/pkg@1.2.3"'
+expect 0 'version: third-party versions are not this project'"'"'s release' \
+  sh "$scripts/check_version_identity.sh" "$work/v_third_party"
+
+# The escape hatch, shared with the stale-name guard: a line that must name a
+# past release says so.
+mkfixture "$work/v_historical" 0.5.8 '## v0.6.0 — done (unreleased)' 0.6.0
+addfile "$work/v_historical" README.md 'Read from v0.5.0 on. <!-- doc-guard: historical -->'
+expect 0 'version: a marked line may name a past release' \
+  sh "$scripts/check_version_identity.sh" "$work/v_historical"
+
+# Each exclusion is exactly as wide as it is written. Both of these were widened
+# once by stripping the reason at whitespace instead of at the `#`: `MoonBit v`
+# became a bare `MoonBit`, waving through any sentence that mentions the
+# language, and `doc-guard: historical` became `doc-guard:`, letting the *other*
+# marker silence a version too.
+mkfixture "$work/v_narrow" 0.5.8 '## v0.6.0 — done (unreleased)' 0.6.0
+addfile "$work/v_narrow" README.md 'A MoonBit dataframe library, v0.4.0.
+Also v0.3.0. <!-- doc-guard: unresolved -->'
+expect_out 1 'names a release' 'version: the third-party exclusions stay narrow' \
+  sh "$scripts/check_version_identity.sh" "$work/v_narrow"
+
+# A guard that cannot read the file list must not report success.
+mkdir -p "$work/v_no_git/docs"
+printf 'name = "x"\n\nversion = "0.6.0"\n' >"$work/v_no_git/moon.mod"
+printf '# Changelog\n\n## v0.6.0 — done\n\n## v0.5.8 — before\n' >"$work/v_no_git/docs/changelog.md"
+printf '# Migration\n\n## v0.0.0 → v0.6.0\n' >"$work/v_no_git/docs/migration.md"
+expect_out 1 'no work tree' 'version: the scan cannot be skipped silently' \
+  env GIT_CEILING_DIRECTORIES="$work" sh "$scripts/check_version_identity.sh" \
+  "$work/v_no_git"
 
 # ── stale names ───────────────────────────────────────────────────────────
 mkstale() {

@@ -7,7 +7,11 @@
 #
 # Nothing else names a release: the guides describe `main` and promise the
 # facade surface, not a version, so a reader never has to reconcile two
-# numbers. The two history documents must always agree with each other. `moon.mod` may lag
+# numbers. Both halves of that are checked — the three above must agree with
+# each other, and the scan at the bottom of this file holds every other tracked
+# piece of prose to naming no release at all.
+#
+# The two history documents must always agree with each other. `moon.mod` may lag
 # them — a release is prepared on `main` before it is published — but only
 # while the changelog says so *explicitly*, by marking its newest heading
 # `(unreleased)`:
@@ -20,7 +24,8 @@
 #
 # Usage: .github/scripts/check_version_identity.sh [repo-root]
 # Exit 0 when consistent, 1 otherwise (every problem is printed, not just the
-# first).
+# first). The root must be a git work tree: the scan reads its file list from
+# `git ls-files`, and a guard that skipped it must not report success.
 
 set -eu
 
@@ -91,8 +96,83 @@ else
   fi
 fi
 
+# ── Nothing else names a release ──────────────────────────────────────────
+# Comparing the three files enforces half of the rule. The other half — that
+# there is no *fourth* place — is what keeps the reader from having two numbers
+# to reconcile, and it is the half that used to be documentation only: a
+# "MoonFrame v0.5.4" in a guide or a docstring broke the rule with nothing to
+# say so, and went stale the moment the next release cut.
+#
+# Scope: tracked prose. Markdown, plus every line of the CI workflow and the
+# package manifests (a release number misleads from a YAML comment as readily as
+# from a docstring), plus comment lines in MoonBit sources — a *code* line there
+# is not prose, and a string literal like "1.2.3" in a parser test is not a
+# claim about anything. Minus:
+#   docs/changelog.md, docs/migration.md   two of the three homes
+#   .github/scripts/                       these scripts quote the format
+#
+# A third-party version is not a release of this project, and each kind is
+# recognised by a token the line already carries — see `third_party` below. Add
+# a line there when a new dependency's version arrives, so the exclusion is a
+# decision someone wrote down. A line that must name a *past* release of this
+# project takes the shared `doc-guard: historical` marker.
+if ! git rev-parse --git-dir >/dev/null 2>&1; then
+  printf 'version identity: no work tree — the release-name scan cannot run\n'
+  exit 1
+fi
+
+release_shape='v?[0-9]+\.[0-9]+\.[0-9]+'
+# One per line: `regex # why`. The reason is stripped at the `#`, which no
+# pattern contains — a whitespace split would eat the `v` of `MoonBit v` and the
+# `historical` of the marker, quietly widening both.
+third_party='MOONBIT_INSTALL_VERSION|moonc  # the pinned toolchain
+MoonBit v               # the language, in prose
+uses:                   # a pinned action, versioned in a trailing comment
+/[A-Za-z0-9_.-]+@[0-9]  # a dependency, `owner/pkg@X.Y.Z`
+:version = "            # the manifest key itself, on its own line
+doc-guard: historical    # a deliberate reference to a past release'
+exclude=$(printf '%s\n' "$third_party" | sed 's/[[:space:]]*#.*$//' | grep . |
+  tr '\n' '|' | sed 's/|$//')
+
+prose=$(git ls-files '*.md' |
+  grep -vE '^docs/(changelog|migration)\.md$' |
+  grep -v '^\.github/scripts/' || true)
+config=$(git ls-files '*.yml' '*.yaml' 'moon.mod' '*moon.pkg' |
+  grep -v '^\.github/scripts/' || true)
+sources=$(git ls-files '*.mbt' | grep -v '^\.github/scripts/' || true)
+
+# `|| true` on every filter: a `grep` that matches nothing exits 1, which
+# `set -e` would turn into a silent failure of the guard rather than a clean run.
+scan() {
+  # scan <newline-separated files> <line-pattern>
+  [ -n "$1" ] || return 0
+  printf '%s\n' "$1" | tr '\n' '\0' |
+    xargs -0 grep -nE "$2" 2>/dev/null || true
+}
+stray=$(
+  {
+    scan "$prose" "$release_shape"
+    scan "$config" "$release_shape"
+    scan "$sources" "^[[:space:]]*(///|//).*$release_shape"
+  } | grep . | grep -vE "$exclude" || true
+)
+scanned=$(printf '%s\n%s\n%s\n' "$prose" "$config" "$sources" | grep -c . || true)
+
+if [ -n "$stray" ]; then
+  printf 'version identity: something other than the three homes names a release:\n'
+  printf '%s\n' "$stray" | sed 's/^/  /'
+  printf '  Only moon.mod, docs/changelog.md and docs/migration.md name a\n'
+  printf '  release. Prose that names one goes stale at the next one and leaves\n'
+  printf '  the reader two numbers to reconcile, so describe `main` and the\n'
+  printf '  facade surface instead. A line about a past release takes\n'
+  printf '  `doc-guard: historical`; a third-party version needs a line in this\n'
+  printf '  script'"'"'s `third_party` list.\n'
+  fail=1
+fi
+
 if [ "$fail" -ne 0 ]; then
   printf 'version identity: inconsistent\n'
   exit 1
 fi
-printf 'version identity: consistent (v%s)\n' "$changelog_version"
+printf 'version identity: consistent (v%s); no release named outside the three homes in %s tracked files\n' \
+  "$changelog_version" "$scanned"

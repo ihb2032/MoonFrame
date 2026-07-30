@@ -100,9 +100,13 @@ sh .github/scripts/check_comment_references.sh
   `docs/migration.md` must name one release, and nothing else names one at all:
   the guides describe `main` and promise the facade surface, so a reader never
   has to reconcile two numbers, and prose never goes stale for saying which
-  release it belongs to. While a release is being prepared on `main`, the
-  changelog's newest heading carries `(unreleased)` and `moon.mod` still
-  publishes the previous version; **cutting the release means dropping that
+  release it belongs to. Both halves are enforced — the three are compared, and
+  every other tracked piece of prose (Markdown, the workflow and manifests,
+  comment lines in sources) is scanned for a release-shaped version, with
+  third-party versions excluded by a list in the guard and a past release opting
+  out through `doc-guard: historical`. While a release is being prepared on
+  `main`, the changelog's newest heading carries `(unreleased)` and `moon.mod`
+  still publishes the previous version; **cutting the release means dropping that
   marker and bumping `moon.mod` together**, which is what the guard enforces.
 - **Enum surface** — the exact variant set of every public `pub(all)` enum /
   suberror is pinned in `.github/scripts/enum_surface.snapshot`. Adding,

@@ -360,10 +360,13 @@ tree never fails:
   cell — null if that cell is null or the scope empty); a length-1 result
   broadcasts against frame-tall results.
 - **Map** (`map_elements` / `map_many`) runs the closure once per row over the
-  input cells (each a `Scalar`, a null as `Scalar::Null`); the output dtype is
-  the first non-null result's; an all-null (or empty) result borrows the
-  leftmost column input's dtype, and only a column-less map with no non-null
-  result cell raises `Unsupported`. The optimizer treats a map as a value
+  input cells (each a `Scalar`, a null as `Scalar::Null`). The output dtype is
+  the first non-null result's, except that results mixing `Int` and `Float`
+  promote to `Float` like the arithmetic above rather than nulling the minority
+  type; an all-null (or empty) result borrows the leftmost **input**
+  expression's dtype, a literal included, and only a map with no input at all
+  and no non-null result cell (`map_many(label~, [], …)`) has nothing to borrow
+  from and raises `Unsupported`. The optimizer treats a map as a value
   barrier — no filter sinks across it.
 - **Batched map** (`map_batches`) runs the closure once over the whole
   evaluated `Series` and takes back a `Series`, canonicalised onto its content

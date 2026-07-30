@@ -1,11 +1,15 @@
 ///|
 /// Keep only the rows where `predicate` evaluates to `true` — MoonFrame's
-/// single row-selection verb. The predicate is an `Expr`, not a closure:
-/// it evaluates vectorized (one column pass, not one call per row), it can
-/// be printed, and a lazy `Filter` node can introspect it for predicate
-/// pushdown. A row-wise host predicate is still reachable through the
-/// `map_many` escape hatch — `filter(map_many(label~, inputs, f))` reifies
-/// the original closure predicate as a `Bool`-returning `Expr`.
+/// single row-selection verb. The predicate is an `Expr`, not a closure, and
+/// that is what the built-in expression algebra buys: it evaluates vectorized
+/// (one column pass per node, not one call per row), it can be printed, and a
+/// lazy `Filter` node can introspect it for predicate pushdown. A row-wise host
+/// predicate is still reachable through the `map_many` escape hatch —
+/// `filter(map_many(label~, inputs, f))` reifies the original closure predicate
+/// as a `Bool`-returning `Expr` — but a closure buys none of the three: the map
+/// node renders as its label with the closure opaque, the optimizer can only
+/// treat it as a barrier and sinks no filter across it, and `f` is called once
+/// per row (once per batch for `map_batches`).
 ///
 /// The predicate must evaluate to a `Bool` column (`TypeMismatch`
 /// otherwise). A row is kept where its cell is `true`; `false` **and

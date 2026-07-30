@@ -93,8 +93,8 @@
 ///   leftmost input's *logical dtype* and yields an all-null column of
 ///   that dtype (Polars' tolerance of a null-returning map) — the dtype only,
 ///   never that input's storage backend, which the result decides from its own
-///   content like any computed column; only a
-///   *column-less* map (no input to borrow a dtype from, e.g.
+///   content like any computed column. Any input can be that witness, a literal
+///   included; only a *zero-input* map (nothing to borrow a dtype from, e.g.
 ///   `map_many([], _ => Null)`) has no dtype witness and raises
 ///   `Unsupported`, as for the `Null` literal.
 ///   The map's height follows its inputs, like every other expression: a

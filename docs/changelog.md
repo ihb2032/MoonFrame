@@ -87,7 +87,7 @@ source-level upgrade steps are collected in [`migration.md`](migration.md).
   changed what compared equal. The impl is gone rather than documented, and
   `JoinOptions` — whose key lists are expressions — goes with it. Compare
   `Expr::to_string()` instead: `(col("a") + lit_int(1)).to_string()` is
-  `"(a + 1)"`, which is also what `explain()` prints. For join options, compare
+  `"(col(a) + 1)"`, which is also what `explain()` prints. For join options, compare
   the parts that mean something — `how` / `suffix` / `coalesce` and the
   rendered `on_keys()` / `left_keys()` / `right_keys()`.
 

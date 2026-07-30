@@ -106,7 +106,7 @@ Compare rendered expressions instead — `Expr::to_string()`, which is what
 `explain()` prints and what the plan renderer uses:
 
 ```moonbit
-assert_eq((col("a") + lit_int(1)).to_string(), "(a + 1)")
+assert_eq((col("a") + lit_int(1)).to_string(), "(col(a) + 1)")
 ```
 
 Rendering answers the question worth asking — "did my builder produce the

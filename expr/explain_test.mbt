@@ -9,6 +9,15 @@
 /// the lazy optimizer's pruning both lean on them.
 
 ///|
+/// `api.md` and `changelog.md` both offer this exact expression as the way to
+/// compare two trees now that `Expr` has no `==`, and both quoted the wrong
+/// string for a while. Pinning it here is what makes the documented form
+/// falsifiable: a rendering change fails the build instead of the docs.
+test "show: the form the docs offer in place of expression equality" {
+  assert_eq((col("a") + lit_int(1)).to_string(), "(col(a) + 1)")
+}
+
+///|
 test "show: the documented alias form" {
   let profit = (col("revenue") - col("cost")).with_alias("profit")
   inspect(profit, content="(col(revenue) - col(cost)) as profit")

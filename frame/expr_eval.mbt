@@ -78,10 +78,12 @@
 ///   and free to `raise`). The output dtype is the first non-null result's,
 ///   except that a mix of `Int` and `Float` results promotes to `Float` (the
 ///   engine's `Int ↔ Float` rule) rather than nulling the minority. An
-///   all-null result has no non-null cell to fix the dtype, so it falls back
-///   to the leftmost input's column backend and yields an all-null column of
-///   that dtype (Polars' tolerance of a null-returning map); only a
-///   *column-less* map (no input to borrow a backend from, e.g.
+///   all-null result has no non-null cell to fix the dtype, so it borrows the
+///   leftmost input's *logical dtype* and yields an all-null column of
+///   that dtype (Polars' tolerance of a null-returning map) — the dtype only,
+///   never that input's storage backend, which the result decides from its own
+///   content like any computed column; only a
+///   *column-less* map (no input to borrow a dtype from, e.g.
 ///   `map_many([], _ => Null)`) has no dtype witness and raises
 ///   `Unsupported`, as for the `Null` literal.
 ///   The map's height follows its inputs, like every other expression: a

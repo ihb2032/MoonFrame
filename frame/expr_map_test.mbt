@@ -141,8 +141,10 @@ test "map: a closure raise propagates from the consuming verb" {
 ///|
 test "map: an all-null result falls back to the input dtype as an all-null column" {
   // Every cell maps to null, so no non-null cell fixes the dtype. Rather than
-  // fail, the map falls back to the leftmost input's backend (q is Int) and
-  // yields an all-null Int column — Polars tolerates a null-returning map.
+  // fail, the map borrows the leftmost input's dtype (q is Int) and yields an
+  // all-null Int column — Polars tolerates a null-returning map. The dtype is
+  // all that is borrowed: an all-null column carries a validity bitmap, so the
+  // result is `Builtin` whatever backend `q` was stored on.
   let out = map_df().with_columns([
     @expr.col("q").map_elements(label="nullify", _s => @types.Scalar::Null),
   ])
@@ -153,11 +155,26 @@ test "map: an all-null result falls back to the input dtype as an all-null colum
     @types.Scalar::Null,
   ])
   assert_eq(out.check_invariants(), Ok(()))
+  // Mapping a `Numeric`-backed input the same way pins that the backend is not
+  // borrowed with the dtype: the result's own content decides it, as for every
+  // computed column.
+  assert_eq(
+    map_df().get_column("base").storage_kind(),
+    @column.StorageKind::Numeric,
+  )
+  let from_numeric = map_df().with_columns([
+    @expr.col("base").map_elements(label="nullify", _s => @types.Scalar::Null),
+  ])
+  assert_eq(from_numeric.get_column("base").dtype(), @types.DataType::Int)
+  assert_eq(
+    from_numeric.get_column("base").storage_kind(),
+    @column.StorageKind::Builtin,
+  )
 }
 
 ///|
 test "map: a column-less all-null map has no dtype witness and raises" {
-  // With no column input there is no backend to borrow as the dtype witness,
+  // With no column input there is no input dtype to borrow as the witness,
   // so an all-null result still has nowhere to land and raises (like a Null
   // literal). This is the only remaining all-null raise.
   let result = Ok(

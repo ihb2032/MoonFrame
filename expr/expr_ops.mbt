@@ -779,9 +779,11 @@ pub fn WhenThenElse::otherwise(self : WhenThenElse, value : Expr) -> Expr {
 /// may `raise` (the error propagates from the consuming verb). The output
 /// column's dtype is that of the first non-null `Scalar` the closure
 /// returns — an all-null (or empty) result has no such cell, so its dtype
-/// falls back to `self`'s own column backend, yielding an all-null (or empty)
+/// falls back to `self`'s own dtype, yielding an all-null (or empty)
 /// column of that dtype rather than the `Unsupported` a bare `Null` literal
-/// raises (Polars' tolerance of a null-returning map). The result is
+/// raises (Polars' tolerance of a null-returning map). Only the dtype is
+/// borrowed; the result's backend follows its own content, as every computed
+/// column's does. The result is
 /// named after `self` (its leftmost column), so `with_alias` renames it.
 /// Use it inside `with_columns` / `select` / `filter` like any other
 /// expression; the optimizer treats it as a value barrier (it can raise on

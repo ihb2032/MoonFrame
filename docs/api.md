@@ -215,12 +215,17 @@ does not fail — it silently stringifies a number. Reach for `as_*` when a wron
 dtype is a bug you want reported, and `to_string` only when you want display
 text whatever the cell holds.
 
-**A reduction that can have no answer raises; it does not return an option.**
-`Series::mean` raises `InvalidOperation` on an empty or all-null column and
-`TypeMismatch` on a non-numeric one — two different causes, told apart by the
-error. There is no `mean_opt` on the supported surface: catch the error where
-you want a fallback, which keeps the two causes distinguishable at the point
-you handle them.
+**A `Double`-returning reduction raises where it has no answer; it does not
+return an option.** `Series::mean` raises `InvalidOperation` on an empty or
+all-null column and `TypeMismatch` on a non-numeric one — two different causes,
+told apart by the error. There is no `mean_opt` on the supported surface: catch
+the error where you want a fallback, which keeps the two causes distinguishable
+at the point you handle them; `std` / `variance` / `median` read the same way.
+The reductions that return a `Scalar` are total instead, that type being able to
+carry the empty case: `min` / `max` / `first` / `last` give `Scalar::Null`, and
+`sum` gives the additive identity (`Scalar::Int(0)` / `Scalar::Float(0.0)`),
+though `sum` still raises `TypeMismatch` on a non-numeric column. Each symbol's
+docstring states its own rule.
 
 **`null`, `nan`, and `_options` mark three different absences.** `null` is a
 missing cell; `nan` is a `Float` value that happens not to be a number; and the

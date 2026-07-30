@@ -198,9 +198,15 @@ sh .github/scripts/check_comment_references.sh
   instead (`sh .github/scripts/check_internal_surface.sh --write`). The methods
   a `derive` generates and the `pub impl` / `pub extend` lines stay outside the
   audit — a derived `equal` is reached through `==` and through the `derive` of
-  any type embedding this one, neither of which writes its name — so the run
-  counts them rather than pretending to have looked. **A clean run means
-  nothing is provably unused, not that everything left is needed.**
+  any type embedding this one, neither of which writes its name — so they are
+  **pinned** in `.github/scripts/internal_generated.snapshot` rather than
+  audited. A count going up says something grew without saying what; the
+  snapshot makes the next one a question to answer. Usually the answer is that
+  a test wanted an operator, and then the `impl` belongs in a `_wbtest.mbt`,
+  which compiles inside its package and publishes nothing — that is where the
+  column and AST equalities live, after a review found thirteen of them in the
+  interfaces. **A clean run means nothing is provably unused, not that
+  everything left is needed.**
 
 - **Comment references** — a comment that names something is making a claim,
   and two of those a machine can check: `@pkg.Name` must be a name that package

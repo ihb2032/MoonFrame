@@ -48,10 +48,18 @@ pub(all) enum ExprNode {
 
 ///|
 /// The immediate sub-nodes of a node, left to right — the one place the AST's
-/// recursive shape is encoded. Every uniform tree walk rides this: the engine's
-/// `referenced_columns` / `output_name` (via `@expr.Expr`) and the lazy
-/// optimizer's `row_stable` / `group_cell_stable`. A new variant declares its
-/// child structure once, here. A `Ternary` lists all three arms, condition
+/// recursive *shape* is encoded, and only the shape. Every walk rides this for
+/// its descent: the engine's `referenced_columns` / `output_name` (via
+/// `@expr.Expr`) and the lazy optimizer's `row_stable` / `group_cell_stable`.
+/// What none of them inherits from here is the *semantics* of a new variant.
+/// `referenced_columns` alone is uniform enough to be automatic; the others
+/// classify per variant — naming (`leftmost_name` in `analysis.mbt`, where
+/// `Alias` / `LitSeries` / `Ternary` mean something particular) and pushdown
+/// soundness (row-local vs value barrier vs shape barrier) are decisions, so a
+/// variant added here fails to compile against their exhaustive `match`es until
+/// each one is made. That is the intended sequence, not an inconvenience.
+///
+/// A `Ternary` lists all three arms, condition
 /// first; a `Map` a fresh copy of its inputs, so a caller cannot alias — and
 /// mutate — the node's own array. Leaves (`Col` / `Lit` / `LitSeries`) have
 /// none. Total.

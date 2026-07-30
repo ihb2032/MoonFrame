@@ -24,15 +24,22 @@
 /// into a `LengthMismatch`, so no filter crosses it either. Everything else
 /// (column reads, scalar literals, the operators, the total unary probes,
 /// the string-namespace transforms, aliasing, ternary selection) is
-/// row-local and raises only on scope-independent facts (names, dtypes) —
-/// a `Str` op is per-cell and total, raising only the dtype-level
-/// `TypeMismatch` of a non-String operand.
+/// row-local and raises only on **scope-independent** facts, which is the
+/// property that matters here rather than totality: the dtype-level
+/// `TypeMismatch` of a non-String operand, and — for the regex `Str` ops — the
+/// `InvalidOperation` of a pattern that does not compile. That compile happens
+/// once per evaluation, hoisted out of the per-cell map
+/// (`internal/kernel/str.mbt`), so it depends on the pattern and not on the rows
+/// present: dropping rows cannot make an invalid pattern compile, or a valid one
+/// fail. Only a per-*value* raise would be unsound to sink across, since the
+/// dropped row could be the one that raised.
 fn row_stable(expr : @ir.ExprNode) -> Bool {
   // Iterative tree walk (explicit stack, not the call stack) so a deeply nested
   // predicate cannot overflow and abort during optimization — total at any
-  // depth, as this function's doc promises. Every node must be row-local;
-  // `children()` drives the descent, so a new `ExprNode` variant is covered the
-  // moment it declares its children.
+  // depth, as this function's doc promises. `children()` drives the *descent*,
+  // but the classification below is per variant and the `match` is exhaustive by
+  // design (no wildcard): a new `ExprNode` variant does not inherit a verdict
+  // here, it fails to compile until someone decides whether it is row-local.
   let stack : Array[@ir.ExprNode] = [expr]
   for ;; {
     match stack.pop() {

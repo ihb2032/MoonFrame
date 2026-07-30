@@ -75,11 +75,12 @@ source-level upgrade steps are collected in [`migration.md`](migration.md).
   surface. `Expr::to_string` renders one for inspection. The upshot is that the
   AST can grow a node with any new operator without breaking a caller — the
   compatibility promise no longer has an expression-AST exception.
-  - `ClosedInterval` (the `is_between` `closed?` argument) moves from `expr` to
-    `types`, since the AST — now below `expr` — carries it. Through the facade
-    the name is unchanged (`@moonframe.ClosedInterval`); a direct sub-package
-    import spells it `@types.ClosedInterval` instead of `@expr.ClosedInterval`,
-    the same relocation `SortOrder` / `NullOrder` had.
+  - `ClosedInterval` (the `is_between` `closed?` argument, new in this release)
+    lives in `types` rather than `expr`, since the AST — now below `expr` —
+    carries it. Through the facade that is `@moonframe.ClosedInterval`; a direct
+    sub-package import spells it `@types.ClosedInterval`. No v0.5 caller has
+    anything to move: the same reasoning relocated `SortOrder` / `NullOrder`,
+    but those did exist before.
 - **`Expr` and `JoinOptions` lose `==`.** Making the AST module-internal closed
   the *visibility* half of that promise, and equality was the half left open:
   comparing two expressions compared their trees, so how an operator lowers was
@@ -156,15 +157,18 @@ source-level upgrade steps are collected in [`migration.md`](migration.md).
   stability & compatibility").
 - `NdjsonReadOptions` is gone: `read_ndjson_with_options`, `parse_ndjson_str`,
   `read_ndjson_projected`, and `scan_ndjson_with_options` take
-  `JsonReadOptions`. The two types were structurally identical; a
+  `JsonReadOptions`. (The `*_with_options` names here are the v0.5 spellings —
+  the entry-point fold below retires them in this same release.) The two types
+  were structurally identical; a
   format-specific field can be added back when one exists, riding the minor
   version as any public-field addition does.
 - The two loose reader/writer flags moved into the options they configure:
   `strict_quotes` is now `CsvReadOptions.strict_quotes` (so the lazy
   `scan_csv_with_options` gets it too, which the parameter form never offered)
   and `sanitize_formulas` is now `CsvWriteOptions.sanitize_formulas`.
-  `parse_csv_str`, `read_csv_with_options`, `read_csv_projected`, `format_csv`,
-  and `write_csv_with_options` lose their trailing optional parameter.
+  The v0.5 `parse_csv_str`, `read_csv_with_options`, `read_csv_projected`,
+  `format_csv`, and `write_csv_with_options` lose their trailing optional
+  parameter (and the `*_with_options` names themselves are folded away below).
 - Every `*_with_options` entry point is folded into its plain form as a
   defaulted optional parameter: `read_csv(path, options?)`,
   `write_csv(path, df, options?)`, `read_json(path, options?)`,
@@ -179,7 +183,8 @@ source-level upgrade steps are collected in [`migration.md`](migration.md).
   `HtmlOptions::HtmlOptions(max_rows? , table_class? , caption? , escape? = true)`;
   `JoinOptions::on` / `left_on` / `cross` take `how` / `suffix` / `coalesce`
   (and, for `left_on`, a required `right_on~`) directly, retiring all six
-  `with_*` methods including the `with_coalesce_auto` added in v0.5.8; and
+  `with_*` methods — v0.5.8's five, plus a `with_coalesce_auto` that was added
+  and withdrawn inside this unreleased line, so no release ever carried it; and
   `ChartSpec::bar` / `line` / `point` / `area` take `color` / `color_type` /
   `title`, retiring their three `with_*` methods. Thirteen builder methods
   become zero.
@@ -266,9 +271,10 @@ source-level upgrade steps are collected in [`migration.md`](migration.md).
   (`#internal`, absent from the generated interface); Polars keeps the
   equivalents behind its `.meta` namespace. `expr`'s interface no longer
   exposes `Set` either.
-- `LazyFrame::unique` gains the `keep? : KeepStrategy` its eager counterpart has
-  had since v0.5.8 — the two had silently diverged (and the docs already
-  described the lazy verb as taking it). A non-default strategy shows in
+- `LazyFrame::unique` gains the `keep? : KeepStrategy` the eager `DataFrame::unique`
+  gained earlier in this same line — the two had silently diverged while both
+  were unreleased (and the docs already described the lazy verb as taking it;
+  v0.5.8 shipped neither). A non-default strategy shows in
   `explain` as `UNIQUE keep=Last` / `UNIQUE keep=None`.
 - `SortOrder` / `NullOrder` move from `frame` to `types`, so `Series::sort` can
   name them without depending on `frame`. The facade re-exports them from their

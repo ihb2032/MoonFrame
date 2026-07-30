@@ -171,14 +171,16 @@ handle whose AST (`ExprNode` and the `BinOp` / `UnOp` / `AggOp` / `StrOp` tags)
 lives in the module-internal `internal/ir` package. Building expressions is
 unchanged; code that *matched* an `Expr`'s variants from outside `MoonFrame`
 must instead render it with `Expr::to_string` (the AST was never an intended
-consumption surface). `ClosedInterval` moves with the AST's home, from `expr`
-to `types` — the facade name is unchanged, only a direct sub-package import
-differs:
+consumption surface):
 
 | v0.5 | v0.6 |
 | --- | --- |
 | `match expr { @expr.Col(name) => … }` | `expr.to_string()` (no variant match) |
-| `@expr.ClosedInterval::Both` | `@types.ClosedInterval::Both` |
+
+`ClosedInterval` (the `is_between` `closed?` argument) is new in v0.6 and lives
+in `types`, beside the AST that carries it — `@moonframe.ClosedInterval` through
+the facade, `@types.ClosedInterval` through a direct sub-package import. There
+is nothing to move: v0.5 had no such type.
 
 ### `Expr` and `JoinOptions` no longer compare with `==`
 
@@ -218,14 +220,14 @@ unknown name surfaces at `collect`.
 | v0.5 | v0.6 |
 | --- | --- |
 | `df.take(indices)` | `df.gather(indices)` |
-| `expr.str_contains_regex(pat)` | `expr.str_contains(pat, literal=false)` |
-| `expr.str_replace_regex(pat, v)` | `expr.str_replace(pat, v, literal=false)` |
-| `expr.str_replace_all_regex(pat, v)` | `expr.str_replace_all(pat, v, literal=false)` |
 
 `Series::gather` is unchanged; `DataFrame::take` took the same name as in
-Polars. The `literal` default stays `true`, so every existing literal call is
-unaffected — only the regex spellings move. `LazyFrame::explain` renders the
-regex forms with `literal=false`, so pinned plan snapshots need updating.
+Polars.
+
+Regex string matching is new in v0.6 and arrives as a `literal? : Bool` argument
+on the existing methods (`expr.str_contains(pat, literal=false)`), not as a
+separate `*_regex` name. The default stays `true`, so every v0.5 call is
+unaffected and renders in `explain` exactly as before.
 
 `Expr::children` / `referenced_columns` / `output_name` are now `#internal`
 (engine seams). `LazyFrame::unique` accepts `keep?` like the eager verb — a
@@ -321,7 +323,6 @@ in v0.6. Value-level access covers the user-facing cases: `Series::get` /
 | `df.to_markdown_with_limit(10)` | `df.to_markdown(max_rows=10)` |
 | `JoinOptions::on(keys).with_how(Left)` | `JoinOptions::on(keys, how=Left)` |
 | `JoinOptions::on(keys).with_coalesce(true)` | `JoinOptions::on(keys, coalesce=true)` |
-| `JoinOptions::on(keys).with_coalesce_auto()` | `JoinOptions::on(keys)` (omit `coalesce`) |
 | `JoinOptions::left_on(l).with_right_on(r)` | `JoinOptions::left_on(l, right_on=r)` |
 | `JoinOptions::cross().with_suffix("_r")` | `JoinOptions::cross(suffix="_r")` |
 | `ChartSpec::bar(x, y).with_color("region").with_title("T")` | `ChartSpec::bar(x, y, color="region", title="T")` |

@@ -220,17 +220,22 @@ source-level upgrade steps are collected in [`migration.md`](migration.md).
   / `preserve_backend` / `try_column_to_numeric` / `validity_bools` /
   `mask_true_indices` / `coalesce_columns` / `reducer_for` /
   `scalars_to_series` / `key_cell` and the
-  `ReduceOp` / `KeyCell` types are `#internal`, as are `types`'
-  `fold_extremum` and the exact Int/Double comparison primitives and `io`'s
+  `ReduceOp` / `KeyCell` types are `#internal`, as are `io`'s
   `read_csv_projected` / `read_ndjson_projected`. The full set, with
   signatures, is pinned in `.github/scripts/engine_seams.snapshot`; none of it
   is a compatibility promise.
-- The text and rendering helpers move behind a hard boundary: `internal/text`
-  now owns `compare_string_lex`, `escape_debug`, `is_decimal_int_literal`,
-  `parse_decimal_int_opt`, and `parse_plain_double_opt`, and the new
-  `internal/literal` owns the shared literal renderer (`format_scalar_literal`,
-  now `format_scalar`). The facade stops re-exporting the three of them it
-  used to publish; `types` and `series` are now types-and-methods only.
+- The shared primitives move behind a hard package boundary rather than being
+  hidden where they were: `internal/text` now owns `compare_string_lex`,
+  `escape_debug`, `is_decimal_int_literal`, `parse_decimal_int_opt`, and
+  `parse_plain_double_opt`; `internal/numeric` owns `fold_extremum`,
+  `double_fits_int64`, and the exact Int/Double comparison primitives
+  (`int64_eq_double` / `int64_lt_double` / `double_lt_int64`), which `types`
+  imports and calls rather than declares; and the new `internal/literal` owns
+  the shared literal renderer (`format_scalar_literal`, now `format_scalar`).
+  These are not `#internal` symbols in their old homes — a downstream module
+  cannot import an `internal/` package at all. The facade stops re-exporting
+  the three of them it used to publish; `types` and `series` are now
+  types-and-methods only.
 - The duplicate entry points are gone. `col` / `lit` are plain free functions
   (the `Expr::col` / `Expr::lit` static methods they were generated from are
   removed, matching the `lit_int` family); `Expr::explain` — an exact alias of

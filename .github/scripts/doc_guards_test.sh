@@ -4,6 +4,15 @@
 # each one is run here against fixtures that must trip it, and against the
 # repository itself, which must stay clean.
 #
+# What it costs, because the answer differs by platform enough to look like a
+# hang: a single guard over this repository is seconds, but this runs 145 cases,
+# most of them a whole guard over a fixture tree, so it is thousands of
+# processes. On Linux that is cheap — CI runs this and all nine guards in one
+# step, under a minute on `ubuntu-latest`. Under Windows Git Bash / MSYS, where
+# `fork` is emulated, a measured run took 24m30s wall (17m of it system time)
+# and passed all 145 cases: slow, not stuck. While iterating on one guard, run
+# that guard directly — each is seconds — and leave the sweep to a push or CI.
+#
 # Usage: .github/scripts/doc_guards_test.sh [repo-root]
 # Exit 0 when every case behaves, 1 on the first that does not.
 

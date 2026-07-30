@@ -439,22 +439,26 @@ pub fn sign_f64(a : Double) -> Double {
 
 ///|
 /// Round to `decimals` places, ties to even — the general form behind
-/// `Expr::round`. `decimals = 0` is `round_half_even` itself; otherwise the
+/// `Expr::round`. `decimals <= 0` is `round_half_even` itself; otherwise the
 /// value is scaled by `10^decimals`, rounded, and unscaled, so the result
 /// carries the usual binary-floating-point caveat (`1.005` at two places is
 /// whatever the nearest `Double` says it is, exactly as in Polars).
 ///
-/// Total at every input: a non-finite value passes through, and a place finer
-/// than the value's own resolution leaves it untouched rather than perturbing
-/// it — see `DOUBLE_INTEGRAL_FLOOR`.
+/// Total at every input, including every `Int` a caller can pass: a non-finite
+/// value passes through, and a place finer than the value's own resolution
+/// leaves it untouched rather than perturbing it — see `DOUBLE_INTEGRAL_FLOOR`.
 ///
-/// `decimals` is never negative: `Expr::round` clamps it when it builds the
-/// node, and `UnOp::Round` — a `pub` read-only enum — is constructible nowhere
-/// else. Past the `decimals == 0` arm the scale is therefore at least `10`; it
-/// can overflow upward, but it cannot underflow to `0` and turn the unscaling
-/// division into `NaN`.
+/// A **negative** `decimals` folds into that first arm rather than being
+/// rejected or trusted away. `Expr::round` clamps one to `0` when it builds the
+/// node, so the production path never sends one here — but this function is
+/// reachable from anywhere in the module, and a negative place underflows
+/// `10^decimals` to `0.0`, whose unscaling division would hand back `NaN`.
+/// Treating `decimals <= 0` as "round to an integer" is the same answer the
+/// clamp gives, established where it cannot be bypassed instead of argued from a
+/// caller's behaviour. Past that arm the scale is therefore at least `10`: it can
+/// still overflow upward (handled below), but it cannot underflow to `0`.
 pub fn round_places(a : Double, decimals : Int) -> Double {
-  if decimals == 0 {
+  if decimals <= 0 {
     return round_half_even(a)
   }
   if a - a != 0.0 {

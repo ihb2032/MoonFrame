@@ -313,15 +313,15 @@ fn DataFrame::assemble_join_output(
   // present (`coalesce_columns`); the matching right key column is then dropped
   // below.
   //
-  // Each assembled column is re-converged to its source's backend with
-  // `preserve_backend`, so a `Numeric` source column that picks up no null
-  // (no `None` row injected on this side, and `Numeric` sources carry none
-  // of their own) stays on the `Numeric` fast path rather than silently
-  // demoting to `Builtin` — matching `filter` / `sort` / `gather` /
-  // `drop_nulls` / `fill_null`, which all preserve the backend. A column
-  // that does pick up a null (an unmatched row's `None`) is necessarily
-  // nullable and stays `Builtin`. The coalesced key follows the **left** key
-  // column's backend (its values share the pre-checked-equal key dtype).
+  // A join is a row rebuild, so each output column canonicalises onto the
+  // backend its own gathered cells imply (`docs/performance.md` classifies the
+  // paths): all-valid numeric cells land on `Numeric`, and a column that picks
+  // up a null from an unmatched row's `None` is nullable and stays `Builtin`.
+  // `gather_series_opt` already does that — the `preserve_backend` wrapper is
+  // the belt to its braces, a no-op on a canonicalised result either way, kept
+  // so a future gather that stops canonicalising cannot silently demote a
+  // `Numeric` source here. The coalesced key follows the **left** key column's
+  // backend (its values share the pre-checked-equal key dtype).
   let out_cols : Array[Series] = []
   for col in self.column_series() {
     if coalesce && on_set.contains(col.name()) {

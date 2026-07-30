@@ -312,6 +312,20 @@ source-level upgrade steps are collected in [`migration.md`](migration.md).
 
 ### Fixes
 
+- `agg` raises `LengthMismatch` when a group's reduction is not one cell. A
+  `map_batches(returns_scalar=true)` closure is only *declared* to reduce; the
+  shape gate is structural, so whether the closure honours the declaration is
+  knowable per group. One returning several cells silently kept the first, and
+  one returning none indexed an empty array and aborted. Both now meet the same
+  length contract every other expression consumer enforces — which is what the
+  method's own documentation already promised.
+
+- A `map` whose result is all null borrows a *literal* input's dtype, as its
+  documentation described. The fallback always read the leftmost evaluated
+  input, literal or column; only the prose, and the `Unsupported` message for the
+  case that has no input at all, called that case "column-less". The message now
+  says "no input expression" — the condition it always tested.
+
 - A deeply aliased expression no longer overflows the stack. `with_alias` stacks
   without bound, and two readers peeled those aliases *recursively* to answer a
   question about the expression underneath: whether a projection only renames a

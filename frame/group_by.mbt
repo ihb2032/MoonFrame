@@ -63,6 +63,9 @@ pub struct GroupedDataFrame {
 ///   Reported on the first offending key, in `keys` order.
 /// - `TypeMismatch(...)` — a key expression's dtypes don't unify. Reported
 ///   on the first offending key, in `keys` order.
+/// - `LengthMismatch` — a key is neither frame-tall nor length-1, which only a
+///   `lit_series` or a `map_batches` closure can produce (the shared length
+///   contract in `expr_eval.mbt`). Reported on the first such key.
 /// - `DuplicateColumn(name)` — two keys produce the same output name (which
 ///   would otherwise have `agg` emit two identically-named key columns and
 ///   fail late with a confusing collision). Reported at the second such
@@ -78,9 +81,10 @@ pub fn DataFrame::group_by(
   // aggregation) key up to frame height, name by the expression's output
   // name, and reject a name produced twice up front — before `agg` could
   // build two same-named key columns. Evaluation raises `ColumnNotFound` /
-  // `TypeMismatch` on the first offending key (in `keys` order); the
-  // seen-check raises `DuplicateColumn` at the repeat, after that key's own
-  // evaluation (so an evaluation error there surfaces first, like `select`).
+  // `TypeMismatch` / `LengthMismatch` on the first offending key (in `keys`
+  // order); the seen-check raises `DuplicateColumn` at the repeat, after that
+  // key's own evaluation (so an evaluation error there surfaces first, like
+  // `select`).
   let n = self.nrows()
   let scope = Array::makei(n, i => i)
   let seen : Map[String, Unit] = Map([])

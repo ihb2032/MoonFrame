@@ -248,6 +248,14 @@ fn NumericColumn::to_builtin(self : NumericColumn) -> BuiltinColumn {
 }
 
 // ── Reductions (all-valid fast path) ──────────────────────────────────
+//
+// A second implementation of rules that are stated canonically elsewhere:
+// `series/reduce.mbt` holds the null / `NaN` / empty-window semantics every
+// column reduction follows, and `Series::sum` / `mean` / `min` / `max` route a
+// `Numeric` column here instead, for the bitmap-free fold. The docstrings below
+// therefore restate those rules for a direct `@column` caller — change them
+// there first, and expect `series/backend_parity_test.mbt` to be what catches a
+// divergence, since nothing about this file's types can.
 
 ///|
 /// Plain `Int64` fold over the whole array — every slot is present, so unlike

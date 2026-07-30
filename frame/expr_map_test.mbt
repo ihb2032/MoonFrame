@@ -3,7 +3,7 @@
 /// `map_many` — driven through the expression verbs. Covers single- and
 /// multi-input application, the per-row `Scalar` interface (null cells in,
 /// null / typed cells out), dtype inference (each backend, the `Numeric`
-/// convergence, the all-null fallback and the column-less raise), the literal / aggregation
+/// convergence, the all-null fallback and the zero-input raise), the literal / aggregation
 /// broadcast, closure error propagation, and the multi-input form's use as
 /// a `filter` predicate, matching the equivalent native expression.
 
@@ -173,8 +173,8 @@ test "map: an all-null result falls back to the input dtype as an all-null colum
 }
 
 ///|
-test "map: a column-less all-null map has no dtype witness and raises" {
-  // With no column input there is no input dtype to borrow as the witness,
+test "map: a zero-input all-null map has no dtype witness and raises" {
+  // With no input expression at all there is no dtype to borrow as the witness,
   // so an all-null result still has nowhere to land and raises (like a Null
   // literal). This is the only remaining all-null raise.
   let result = Ok(
@@ -188,10 +188,28 @@ test "map: a column-less all-null map has no dtype witness and raises" {
     result,
     Err(
       @types.DataError::Unsupported(
-        "cannot infer the dtype of a map result with no non-null cell and no column input: no Null-dtype column backend",
+        "cannot infer the dtype of a map result with no non-null cell and no input expression: no Null-dtype column backend",
       ),
     ),
   )
+}
+
+///|
+test "map: an all-null map borrows a literal input's dtype, not just a column's" {
+  // The witness is the leftmost *evaluated input*, so a literal supplies one as
+  // readily as a column read — which is why the raise above needs a map with no
+  // input at all, not merely one that reads no frame column.
+  let out = map_df().with_columns([
+    @expr.map_many(label="void", [@expr.lit_float(1.5)], _vs => {
+      @types.Scalar::Null
+    }).with_alias("o"),
+  ])
+  assert_eq(out.get_column("o").dtype(), @types.DataType::Float)
+  assert_eq(out.get_column("o").to_scalars(), [
+    @types.Scalar::Null,
+    @types.Scalar::Null,
+    @types.Scalar::Null,
+  ])
 }
 
 ///|

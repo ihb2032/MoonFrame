@@ -8,7 +8,16 @@
 # Nothing fails, so nothing says so, and the next reader is told something
 # untrue by the file they opened to learn from.
 #
-# Three reference shapes are checked, everywhere a comment can carry one:
+# Scope: tracked Markdown, and comment lines in tracked `*.mbt` outside
+# `examples/`. Those are the files whose prose describes MoonBit symbols, and the
+# `.mbti` interfaces supply the index of what exists. Comments in the guard
+# scripts, the CI workflow and the package manifests are *not* scanned — a
+# reference that breaks there breaks silently, which is how this guard's own
+# header once came to describe a mechanism the script below had replaced. If a
+# shell or YAML comment starts carrying symbol references worth checking, widen
+# the two file lists rather than the sentence above.
+#
+# Three reference shapes are checked, in those files:
 #
 #   * `@pkg.Name` / `@pkg.Type::method` — the package must be one of this
 #     module's, and it must actually declare that name. A qualifier this module
@@ -25,6 +34,8 @@
 # What it cannot check is the sentence around the name — a comment can name
 # only living symbols and still describe behaviour that changed. That kind is
 # found by reading, and by asking of every claim "what would prove this false".
+# Neither can it see a reference in a file it does not read; the scope above is
+# the whole of what a green run says.
 #
 # `docs/changelog.md` and `docs/migration.md` are exempt: naming what was
 # removed is their content. Elsewhere two markers skip a line, and which one

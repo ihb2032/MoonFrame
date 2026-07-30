@@ -370,15 +370,14 @@ pub fn try_column_to_numeric(s : Series) -> Series {
 ///|
 /// Re-converge a freshly rebuilt (`Builtin`-backed) column to `source`'s
 /// backend: a `Numeric` source's all-valid rebuild moves back onto the
-/// `Numeric` fast path, a `Builtin` source's stays `Builtin`. The
-/// backend-*preserving* re-convergence, kept for the transforms that must hold
-/// their source backend rather than canonicalise — `fill_null` (whose filled
-/// column is built straight on `Builtin`). The row gathers (`gather_series` /
-/// `Series::gather`) and `rebuild_options` now **canonicalise** instead (an
-/// all-valid numeric result lands on `Numeric` whatever its source held), so a
-/// caller wrapping a `rebuild_options` result here — the join assembly — gets a
-/// no-op passthrough; the slices (`slice_series`) preserve the backend by
-/// sharing the validity bitmap (the row data is copied), never reaching here.
+/// `Numeric` fast path, a `Builtin` source's stays `Builtin`. This is the
+/// *preserve* class in `docs/performance.md`, which classifies every path — for
+/// the transforms that must hold their source's backend rather than derive one
+/// from content, `fill_null` being the one that needs it (its filled column is
+/// built straight on `Builtin`). A caller whose input already canonicalised —
+/// the join assembly, over a `rebuild_options` result — gets a no-op
+/// passthrough; the slices preserve the backend by sharing the validity bitmap
+/// and never reach here.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
 pub fn preserve_backend(source : Series, rebuilt : Series) -> Series {

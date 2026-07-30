@@ -778,7 +778,10 @@ pub fn WhenThenElse::otherwise(self : WhenThenElse, value : Expr) -> Expr {
 /// Building the node is total; `f` runs at evaluation, once per row, and
 /// may `raise` (the error propagates from the consuming verb). The output
 /// column's dtype is that of the first non-null `Scalar` the closure
-/// returns — an all-null (or empty) result has no such cell, so its dtype
+/// returns, except that a closure returning both `Int` and `Float` cells
+/// promotes the column to `Float` — the engine's `Int → Float` rule — rather
+/// than nulling whichever type came second. An all-null (or empty) result has
+/// no such cell, so its dtype
 /// falls back to `self`'s own dtype, yielding an all-null (or empty)
 /// column of that dtype rather than the `Unsupported` a bare `Null` literal
 /// raises (Polars' tolerance of a null-returning map). Only the dtype is
@@ -836,13 +839,15 @@ pub fn Expr::map_batches(
 /// multi-input escape hatch, and the reified replacement for the original
 /// closure `filter` predicate: `f` is handed one `@types.Scalar` per input
 /// in `inputs` order (null cells as `Scalar::Null`) and is called for every
-/// row, so a row predicate is `map_many(..., f).` returning a `Bool`. A
+/// row, so a row predicate is a `map_many(..., f)` returning a `Bool`. A
 /// free function rather than a method (there is no single `self`); `inputs`
 /// may mix columns, literals, and aggregations, the length-1 results
 /// broadcasting over the row count. Same opacity, totality, dtype
 /// inference, naming (after the leftmost input), and value-barrier rules as
-/// `map_elements`. The `inputs` array is copied, so mutating it after
-/// construction cannot alter the built expression.
+/// `map_elements` — with the dtype fallback reading the leftmost input,
+/// whatever it is, so only an empty `inputs` leaves an all-null result with no
+/// witness and raises `Unsupported`. The `inputs` array is copied, so mutating
+/// it after construction cannot alter the built expression.
 pub fn map_many(
   label~ : String,
   inputs : Array[Expr],

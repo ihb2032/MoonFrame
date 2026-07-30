@@ -134,6 +134,11 @@ jobs:
           git add -N .
           git diff --exit-code
 
+      # A public boundary taking an `Array` must not retain the caller's — see
+      # AGENTS.md for the rule and what the lexical guard can and cannot see. Its
+      # own cases run first, so a guard that has stopped catching anything fails
+      # here instead of passing vacuously; the behavioural half rides along in
+      # `moon test` below.
       - name: Guard public Array copy boundaries
         if: runner.os == 'Linux'
         run: |
@@ -142,17 +147,12 @@ jobs:
 
       # Documentation guards. Everything else in this workflow protects
       # executable content — sources, interfaces, tests, snapshots — which is
-      # why prose is where this repository's drift collects instead. These
-      # check the parts that *are* mechanically checkable against the code: the
-      # release version, names that no longer exist, the public matchable-enum
-      # surface, the whole callable surface the facade promises — every
-      # method, field and impl a re-exported type carries with it, not just the
-      # names the facade itself lists — the set of internal packages the
-      # architecture docs describe, the layering rule those documents state,
-      # read back off the build manifests, and the hidden cross-package engine
-      # seams, which by construction reach no generated interface and so are
-      # invisible to every guard above. Written in `sh` rather
-      # than Python (as the
+      # why prose is where this repository's drift collects instead. These check
+      # the parts of it that *are* mechanically checkable against the code.
+      # What each one governs is documented in AGENTS.md, one entry per guard;
+      # re-enumerating it here is how a copy goes stale, and this comment did —
+      # it named seven of the nine for a while. Written in `sh`
+      # rather than Python (as the
       # Array-boundary guard above is) so they run identically on a
       # contributor's machine without a Python install; the self-test runs
       # first, so a guard that has stopped catching anything fails here rather

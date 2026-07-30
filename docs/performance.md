@@ -29,17 +29,22 @@ An `Int` / `Float` column carrying no nulls *can* be stored as a
   check — the `null_count == 0` fast path;
 - `count` needs no scan at all: with no bitmap there is nothing to count.
 
-Content decides which columns land there, never the caller — but only on the
-paths that *canonicalise*: `from_ints` / `from_floats`, the row gathers
-(`gather` / `filter` / `drop_nulls` / `unique` / `sort` / `join`), and the
-expression engine's computed columns, each of which converges onto `Numeric`
-when its result has no null. Three kinds of path deliberately do not: the
-nullable constructors (`from_*_options` build a `Builtin` column even when every
-cell is `Some`), `cast` (its result materializes on `Builtin` whatever it started
-from), and the backend-*preserving* transforms (`slice` / `head` / `tail` /
-`fill_null`, which hand their source's backend through). So an all-valid numeric
-column is not necessarily a `Numeric` one, and reaching the fast path is not a
-latch a column can never leave.
+Content decides which columns land there, never the caller. Which *paths* ask
+the question is the classification below — the one place it is enumerated, so a
+comment beside an operation says why it is in its class rather than restating
+the membership.
+
+| Class | Paths | Backend of the result |
+|---|---|---|
+| Canonicalise | `from_ints` / `from_floats`; every row rebuild (`gather`, and the `filter` / `sort` / `unique` / `join` / `drop_nulls` that route through one); the expression engine's computed columns, `map_batches` results included | `Numeric` when the produced cells carry no null, `Builtin` otherwise — a function of the content, never of the source |
+| Identity short-circuit | a verb above with no work to do, which returns `self` rather than rebuilding an equal frame: a `filter` keeping every row, a keyless `sort`, a `unique` dropping nothing, a `drop_nulls` over null-free gating columns, `with_columns([])` | the source's, verbatim — so an all-valid `Builtin` column stays `Builtin` |
+| Preserve | `slice` / `head` / `tail` (which share the parent's validity bitmap); `fill_null` (built on `Builtin`, then re-converged to its source's backend) | the source's |
+| Always `Builtin` | the nullable constructors (`from_*_options`, even when every cell is `Some`); `cast` | `Builtin`, whatever the source held |
+
+So an all-valid numeric column is not necessarily a `Numeric` one, and reaching
+the fast path is not a latch a column can never leave. The two middle classes
+are why: a verb that canonicalises when it rebuilds rows does not rebuild them
+when it has no work, and returning `self` is worth more than the convergence.
 
 None of that is observable through the supported API: the fast path is a
 representation optimization, never a correctness fork — values, dtypes and

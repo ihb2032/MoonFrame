@@ -79,6 +79,12 @@
 ///   the fallback probe when zero groups / an all-null result leave no
 ///   dtype witness.
 /// - `DuplicateColumn(name)` — two output column names collide.
+/// - `LengthMismatch` — a group's reduction produced something other than one
+///   cell, which is the `expr_eval.mbt` length contract narrowed to a group. The
+///   built-in aggregations, the literals, and the combinators over them cannot;
+///   a `map_batches(returns_scalar=true)` closure declared to reduce can, by
+///   returning a series of another length. Reported on the first group that
+///   does, in group order.
 pub fn GroupedDataFrame::agg(
   self : GroupedDataFrame,
   exprs : Array[@expr.Expr],
@@ -160,7 +166,7 @@ pub fn GroupedDataFrame::agg(
         }
         (
           () => eval_expr(expr, self.source, []).dtype(),
-          self.groups.map(g => eval_expr(expr, self.source, g).to_scalars()[0]),
+          self.groups.map(g => group_cell(eval_expr(expr, self.source, g))),
         )
       }
     }
@@ -171,6 +177,21 @@ pub fn GroupedDataFrame::agg(
   // column exists but has nothing to read when this frame has neither a key
   // column nor an aggregated one (`group_by([]).agg([])`).
   DataFrame::from_parts(out_cols, self.groups.length())
+}
+
+///|
+/// The one cell a group's reduction produced. Every expression that reaches
+/// here passed the structural `reduces_per_group` gate, and the built-in
+/// reductions and literals it admits are length-1 by construction — but one
+/// admitted node computes its own length: a `map_batches(returns_scalar=true)`
+/// whose closure is *declared* to reduce and hands back a series of some other
+/// length anyway. That is the length contract `broadcast_series` enforces for
+/// every other consumer, so it raises the same `LengthMismatch` here rather than
+/// reading cell 0 — which would silently keep the first of several cells, and
+/// index an empty array on none at all.
+fn group_cell(reduced : Series) -> @types.Scalar raise @types.DataError {
+  guard reduced.len() == 1 else { raise @types.DataError::LengthMismatch }
+  reduced.to_scalars()[0]
 }
 
 ///|

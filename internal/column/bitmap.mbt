@@ -90,8 +90,9 @@ pub fn Bitmap::is_valid_total(self : Bitmap, index : Int) -> Bool {
 /// the bits ahead of the first byte boundary inside the window are read
 /// individually, then every whole byte is popcounted (one `popcount_byte` per 8
 /// slots), then the trailing partial byte is masked down to its in-window bits.
-/// So the cost is `len / 8` byte reads plus at most 14 bit reads, rather than
-/// `len` of them — and it is a zero-copy `slice` that produces a non-zero
+/// So the cost is `len / 8` whole-byte reads, at most 7 single-bit reads for the
+/// head, and at most one masked byte read for the tail — rather than `len`
+/// single-bit reads. And it is a zero-copy `slice` that produces a non-zero
 /// `offset`, so the unaligned case is the sliced-column case, which
 /// `Series::count` walks once per column.
 ///

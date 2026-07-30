@@ -9,14 +9,17 @@
 /// `select(cols(["a", "b"]))` — and behaves identically: a list of bare
 /// `col` references projects those columns in that order.
 ///
-/// Output height (the Polars `select` rule). Evaluation yields columns
-/// that are frame-tall or length-1 (literals and aggregations):
+/// Output height (the Polars `select` rule), under the length contract in
+/// `expr_eval.mbt`:
 /// - any frame-tall result fixes the height at `self.nrows()`, and every
 ///   length-1 result broadcasts up to it — down to zero rows on an empty
 ///   frame;
 /// - if **every** expression reduces to length 1, the output is a single
 ///   row: `df.select([col("a").sum()])` is the one-row summary frame, not
-///   `nrows` copies of it.
+///   `nrows` copies of it;
+/// - a result of any other length — only a `lit_series` or a `map_batches`
+///   closure can produce one — raises `LengthMismatch` rather than dictating
+///   an off-frame height.
 ///
 /// Column metadata follows the cells: an entry that only renames a column (a
 /// bare `col("x")`, or an aliased one) carries that column's `Field`, declared
@@ -32,8 +35,8 @@
 /// is `self.nrows() × 0`.
 ///
 /// Evaluation errors (unknown columns, dtype mismatches, the
-/// unrepresentable `Null` literal) surface here; building the expressions
-/// was total.
+/// unrepresentable `Null` literal, an off-frame result length) surface here;
+/// building the expressions was total.
 pub fn DataFrame::select(
   self : DataFrame,
   exprs : Array[@expr.Expr],
@@ -55,12 +58,9 @@ pub fn DataFrame::select(
   }
   // The output height is the frame's own row count when any result is
   // frame-tall, otherwise 1 — every result is then a length-1 literal or
-  // aggregation, which collapses to a single summary row. Most results are
-  // drawn from {1, nrows} (evaluated under the whole-frame scope), but a
-  // `lit_series` carries its OWN length: one that is neither 1 nor `nrows` is
-  // not frame-tall and is rejected by `broadcast_series` below with the same
-  // `LengthMismatch` `with_columns` raises, rather than silently dictating an
-  // off-frame output height.
+  // aggregation, which collapses to a single summary row. A result of neither
+  // length is off-frame rather than height-setting, and `broadcast_series`
+  // below rejects it under the shared length contract (`expr_eval.mbt`).
   //
   // Projecting to *no* columns is the one case with no result to read a height
   // from. It keeps the frame's own: a projection that drops every column is

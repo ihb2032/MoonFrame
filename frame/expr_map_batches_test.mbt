@@ -150,6 +150,38 @@ test "map_batches: returns_scalar acts as a custom aggregation in agg" {
 }
 
 ///|
+test "map_batches: a returns_scalar closure that does not reduce raises LengthMismatch" {
+  // `returns_scalar` is a *declaration*, checked structurally before evaluation;
+  // whether the closure honours it is only knowable per group. Two cells is the
+  // silent-truncation case (cell 0 would have been kept) and zero cells the
+  // index-an-empty-array one, so both must reach the length contract every other
+  // expression consumer enforces.
+  let grouped = () => {
+    DataFrame::DataFrame([
+      Series::from_strings("region", ["west", "east", "west"]),
+      Series::from_ints("q", [1, 2, 3]),
+    ]).group_by([@expr.col("region")])
+  }
+  let wrong_lengths : Array[Array[Int64]] = [[7, 8], []]
+  for cells in wrong_lengths {
+    assert_eq(
+      Ok(
+        grouped().agg([
+          @expr.col("q")
+          .map_batches(label="wrong", returns_scalar=true, _s => {
+            Series::from_ints("wrong", cells)
+          })
+          .with_alias("q_wrong"),
+        ]),
+      ) catch {
+        e => Err(e)
+      },
+      Err(@types.DataError::LengthMismatch),
+    )
+  }
+}
+
+///|
 test "map_batches: a bare (non-scalar) map is rejected as an aggregation" {
   // Without `returns_scalar`, the node is row-wise, so the reduction-shape
   // gate rejects it before evaluation — the same gate a bare `col` trips.

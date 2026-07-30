@@ -17,7 +17,10 @@
 /// reduces to a single cell (a literal, or an aggregation such as
 /// `col("q").sum()`) broadcasts over the frame — every row shares it, so
 /// it is a stable no-op that leaves earlier keys and the input order
-/// untouched.
+/// untouched. A key of any other length — only a `lit_series` or a
+/// `map_batches` closure can produce one — raises `LengthMismatch` under the
+/// shared length contract, rather than ordering rows by a key it has no cell
+/// for.
 ///
 /// The sort is **stable** (bottom-up merge sort on row indices): two
 /// rows that compare equal under every key keep their original relative
@@ -39,7 +42,8 @@
 ///
 /// Evaluation errors surface here (building the keys was total): a key
 /// referencing an unknown column raises `ColumnNotFound` on the first
-/// offending key, a dtype clash raises `TypeMismatch`, and the
+/// offending key, a dtype clash raises `TypeMismatch`, an off-frame key length
+/// raises `LengthMismatch`, and the
 /// unrepresentable `Null` literal raises `Unsupported`. Every evaluated
 /// key is one of `Int` / `Float` / `Bool` / `String` (there is no
 /// Null-dtype backend), so it is always sortable.
@@ -60,8 +64,8 @@ pub fn DataFrame::sort(
   // buffer + missing mask once, up front, so the dispatch happens per-key
   // rather than per-comparison. A length-1 key (literal / aggregation)
   // broadcasts to frame height — a stable no-op. Evaluation raises on the
-  // first offending key (unknown column, dtype clash); `Array::map`
-  // forwards that raise.
+  // first offending key (unknown column, dtype clash, off-frame length);
+  // `Array::map` forwards that raise.
   let n = self.nrows()
   let scope = Array::makei(n, i => i)
   let sort_keys = keys.map(key => {

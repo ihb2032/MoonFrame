@@ -4,8 +4,8 @@
 /// result cells onto a dtype — the first non-null cell fixes it
 /// (`infer_cells_dtype`), an `Int`/`Float` mix promotes to `Float`
 /// (`promote_mixed_int_float`), and an all-null result falls back to the
-/// leftmost input's *logical dtype*. `infer_cells_dtype` is shared with grouped
-/// `agg`.
+/// leftmost input's *logical dtype* — any input, a literal as much as a column.
+/// `infer_cells_dtype` is shared with grouped `agg`.
 
 ///|
 /// Apply a `Map` node's opaque closure `f` across its already-evaluated
@@ -24,10 +24,12 @@
 /// An all-null or empty result has no non-null cell to fix the dtype, so it
 /// borrows the leftmost input's *logical dtype* as the type witness and yields
 /// an all-null (or empty) column of that dtype — matching Polars' tolerance of
-/// a null-returning map. Only the dtype is borrowed, never the input's storage
+/// a null-returning map. Any input serves as that witness, a literal included:
+/// it is the leftmost *evaluated input*, not the leftmost column read. Only the
+/// dtype is borrowed, never the input's storage
 /// backend: `scalars_to_series` lands the result on the backend its own content
 /// implies, so an all-null result stays `Builtin` however the input was stored,
-/// and an empty numeric one converges onto `Numeric`. Only a column-less map
+/// and an empty numeric one converges onto `Numeric`. Only a **zero-input** map
 /// with no non-null cell (e.g.
 /// `map_many([], _ => Null)`) has no dtype witness and raises `Unsupported`,
 /// like the `Null` literal. The column is named after the leftmost input (or
@@ -62,9 +64,11 @@ pub fn eval_map_apply(
   // the witness, yielding an empty or all-null column of that dtype rather
   // than raising — so `map` survives an empty frame, and an all-null map
   // matches Polars' tolerance of a null-returning closure, mirroring that
-  // input's dtype as `name` already mirrors its name. Only a column-less map
-  // (no input to borrow a dtype from, e.g. `map_many([], _ => Null)`) has no
-  // witness and raises `Unsupported`, like a `Null` literal.
+  // input's dtype as `name` already mirrors its name. `evaluated.get(0)` is any
+  // input, literal included — what a witness needs is a dtype, not a frame
+  // column. Only a zero-input map (nothing to borrow a dtype from, e.g.
+  // `map_many([], _ => Null)`) has no witness and raises `Unsupported`, like a
+  // `Null` literal.
   let probe = match infer_cells_dtype(cells) {
     Some(p) => Some(p)
     None => evaluated.get(0).map(lead => lead.dtype())
@@ -73,7 +77,7 @@ pub fn eval_map_apply(
     Some(p) => scalars_to_series(p, name, cells)
     None =>
       raise @types.DataError::Unsupported(
-        "cannot infer the dtype of a map result with no non-null cell and no column input: no Null-dtype column backend",
+        "cannot infer the dtype of a map result with no non-null cell and no input expression: no Null-dtype column backend",
       )
   }
 }
@@ -84,8 +88,8 @@ pub fn eval_map_apply(
 /// all-null or empty cell list yields `None`. `Scalar::Null` carries no dtype,
 /// so it never fixes one — which is why the result is an `Option` rather than
 /// a `DataType::Null`. Shared by the `Map` evaluator (which falls back to the
-/// leftmost input's dtype, raising only when there is no column input at all)
-/// and grouped `agg` (which falls back to the reduction's empty-scope probe).
+/// leftmost input's dtype, raising only when there is no input at all) and
+/// grouped `agg` (which falls back to the reduction's empty-scope probe).
 pub fn infer_cells_dtype(cells : Array[@types.Scalar]) -> @types.DataType? {
   for cell in cells {
     match cell {

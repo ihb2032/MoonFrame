@@ -1,4 +1,5 @@
-// One index-generic reduction kernel behind every column reduction.
+// The index-generic reduction kernel, and the **canonical** statement of the
+// null / `NaN` rules every column reduction follows.
 //
 // `Series::sum` / `mean` / `min` / `max`, the grouped `agg`
 // reducers, and the scoped `eval_agg` each used to carry their own
@@ -16,17 +17,26 @@
 // window reducer here, so it serves the whole-column, per-group, and per-scope
 // surfaces with one fold and one set of null / `NaN` rules.
 //
-// The `NaN` rules live here in one place: `sum` / `mean` add `NaN` in (it is a
+// The rules, canonically: `sum` / `mean` add `NaN` in (it is a
 // value, only `Null` is missing) so it propagates — and `var` / `std`, built on
 // the mean, propagate it too; the extremum fold skips it (treated as missing,
 // matching Polars' regular `min` / `max` and `sort`), and `median`, an order
 // statistic, skips it the same way. `n_unique` keys a `NaN` into one bucket (it
 // is one value), and `first` / `last` are positional, so they skip nothing —
-// a present `NaN` is returned verbatim. An all-valid `Numeric` column has no
-// bitmap, so `reduce_present` hands back a constant-`true` predicate for it —
-// no mask is allocated, and the `Series` reductions still dispatch to
-// `NumericColumn`'s bitmap-free fast path before reaching here, so the two stay
-// cell-for-cell in agreement.
+// a present `NaN` is returned verbatim.
+//
+// One qualification, since "canonical" is not "only": four of the `Series`
+// reductions — `sum` / `mean` / `min` / `max` — dispatch a `Numeric`-backed
+// column to `NumericColumn`'s bitmap-free fold (`internal/column/numeric.mbt`)
+// before reaching here, and that fold implements the empty-column and `NaN`
+// rules above a second time. So these are the rules to *read*, and to change
+// first, but not the only code that encodes them: the two are held cell-for-cell
+// in step by `series/backend_parity_test.mbt`, which runs every
+// backend-sensitive `Series` op on both representations of the same column and
+// asserts the results identical. The remaining reductions take no such fast
+// path — this kernel already skips the validity materialisation for an all-valid
+// `Numeric` column (`reduce_present` hands back a constant-`true` predicate),
+// which is most of what the fast path buys.
 
 ///|
 /// Per-row presence predicate, hoisted once per reduction. A `Builtin` column

@@ -159,10 +159,13 @@ pub fn Series::n_unique(self : Series) -> Int {
 // The remaining five reductions (`std` / `variance` / `median` / `first` /
 // `last`) fold straight through the shared `reduce.mbt` kernel — the same one
 // the grouped `agg` and scoped `eval_agg` reduce through — so a whole-series
-// reduction agrees with the per-group and per-scope forms cell for cell. Unlike
-// `sum` / `mean` / `min` / `max`, they take no bitmap-free `Numeric` fast path:
-// the kernel already skips validity materialisation for an all-valid `Numeric`
-// column (`reduce_present`), and these are the colder reductions.
+// reduction agrees with the per-group and per-scope forms cell for cell, and
+// only one piece of code decides what a null or a `NaN` does to them. The four
+// above are the exception `reduce.mbt` names: each dispatches a `Numeric` column
+// to a second implementation of those rules, and the parity suite rather than
+// the type system is what keeps the two in agreement. These take no such fast
+// path — the kernel already skips validity materialisation for an all-valid
+// `Numeric` column (`reduce_present`), and these are the colder reductions.
 
 ///|
 /// Sample standard deviation (`ddof = 1`, Polars' default) of the non-null

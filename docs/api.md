@@ -46,7 +46,8 @@ The other kind — the **`#internal` engine seams** — carries no promise at al
 Two distinct mechanisms keep non-public code off the compatibility surface.
 **Engine seams** are symbols that must be `pub` because two public packages
 share them — MoonBit offers no visibility between `priv` (this package only) and
-`pub` (anyone), so a kernel `frame` and `lazy` both call has to cross that
+`pub` (anyone), so an `expr` accessor that both `frame` and `lazy` read a built
+expression through (`Expr::node`, `Expr::output_name`) has to cross that
 boundary as `pub`. Each carries `#internal(engine, "MoonFrame execution engine
 API")`, which raises an alert if a *downstream* module reaches for it, and
 `#doc(hidden)`, which keeps it out of the generated `.mbti`; so it is absent

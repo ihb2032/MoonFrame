@@ -1,9 +1,18 @@
 #!/usr/bin/env python3
-"""Focused regression tests for the MoonBit Array ownership guard."""
+"""Focused regression tests for the MoonBit Array ownership guard.
 
+Two halves: `retained_parameters`, the lexical judgement about one function, and
+the repository walk that decides *which* functions it is asked about. The second
+half used to go untested, which is the half whose failure is silent — a guard
+that looks at nothing still prints that it passed.
+"""
+
+import subprocess
+import tempfile
 import unittest
+from pathlib import Path
 
-from check_array_copy_boundaries import retained_parameters
+from check_array_copy_boundaries import audit, retained_parameters, source_files
 
 
 class ArrayCopyBoundaryTests(unittest.TestCase):
@@ -173,6 +182,95 @@ class ArrayCopyBoundaryTests(unittest.TestCase):
   Box(values)
 }'''
         self.assertEqual(self.retained(source), ["values"])
+
+
+class SourceDiscoveryTests(unittest.TestCase):
+    """The repository walk: what the guard is handed to judge.
+
+    Each case builds a throwaway git repository, because tracking is what
+    `source_files` asks about — the point of reading the index instead of a list
+    of directory names is that a package nobody remembered to list is still
+    covered.
+    """
+
+    def repo(self, files: dict[str, str]) -> Path:
+        # `ignore_cleanup_errors` because `git init` leaves read-only objects
+        # behind, which a plain teardown refuses to unlink on some platforms;
+        # failing to delete a temporary directory is not a test result.
+        holder = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
+        self.addCleanup(holder.cleanup)
+        root = Path(holder.name)
+        for name, text in files.items():
+            path = root / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(text, encoding="utf-8")
+        subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+        subprocess.run(["git", "add", "-A"], cwd=root, check=True)
+        return root
+
+    def relative(self, root: Path) -> list[str]:
+        return [path.relative_to(root).as_posix() for path in source_files(root)]
+
+    def test_a_package_nobody_listed_is_still_scanned(self) -> None:
+        root = self.repo(
+            {
+                "moon.pkg": "{}",
+                "facade.mbt": "",
+                "brand_new_package/moon.pkg": "{}",
+                "brand_new_package/thing.mbt": "",
+                "internal/deep/nested.mbt": "",
+            }
+        )
+        self.assertEqual(
+            self.relative(root),
+            ["brand_new_package/thing.mbt", "facade.mbt", "internal/deep/nested.mbt"],
+        )
+
+    def test_tests_and_the_downstream_fixture_are_excluded(self) -> None:
+        root = self.repo(
+            {
+                "frame/frame.mbt": "",
+                "frame/frame_test.mbt": "",
+                "frame/frame_wbtest.mbt": "",
+                ".github/fixtures/smoke/smoke.mbt": "",
+            }
+        )
+        self.assertEqual(self.relative(root), ["frame/frame.mbt"])
+
+    def test_an_untracked_file_is_not_part_of_the_surface(self) -> None:
+        root = self.repo({"frame/frame.mbt": ""})
+        (root / "frame" / "scratch.mbt").write_text("", encoding="utf-8")
+        self.assertEqual(self.relative(root), ["frame/frame.mbt"])
+
+    def test_audit_reports_a_retention_in_a_discovered_package(self) -> None:
+        root = self.repo(
+            {
+                "brand_new_package/thing.mbt": """///|
+pub fn Box::Box(values : Array[Int]) -> Box {
+  { values }
+}
+""",
+            }
+        )
+        self.assertEqual(
+            audit(root),
+            [
+                "brand_new_package/thing.mbt: Box::Box directly retains Array "
+                "parameter 'values'; copy it at the public boundary"
+            ],
+        )
+
+    def test_audit_passes_a_package_that_copies(self) -> None:
+        root = self.repo(
+            {
+                "brand_new_package/thing.mbt": """///|
+pub fn Box::Box(values : Array[Int]) -> Box {
+  { values: values.copy() }
+}
+""",
+            }
+        )
+        self.assertEqual(audit(root), [])
 
 
 if __name__ == "__main__":

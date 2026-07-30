@@ -25,21 +25,15 @@ those boundaries.
 from __future__ import annotations
 
 import re
+import subprocess
 import sys
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SOURCE_ROOTS = (
-    "types",
-    "series",
-    "expr",
-    "frame",
-    "lazy",
-    "io",
-    "internal",
-    "examples",
-)
+# The fixture module under `.github/` is a *downstream* consumer built against
+# the published surface; its boundaries are its own, not this module's.
+EXCLUDED_PREFIX = ".github/"
 PUBLIC_FN = re.compile(r"\bpub\s+fn(?:\[[^\]]+\])?\s+([A-Za-z0-9_:]+)\s*\(")
 # `?` marks an optional parameter and `~` a labelled one; both still hand the
 # callee a caller-owned array.
@@ -260,32 +254,43 @@ def retained_parameters(block: str) -> list[str]:
     return retained
 
 
-def source_files() -> list[Path]:
-    # The facade package lives in the repository root, so its own `.mbt` files
-    # are part of the public surface the guard covers.
-    candidates: list[Path] = list(ROOT.glob("*.mbt"))
-    for directory in SOURCE_ROOTS:
-        root = ROOT / directory
-        if not root.is_dir():
-            continue
-        candidates.extend(root.rglob("*.mbt"))
+def source_files(root: Path = ROOT) -> list[Path]:
+    """Every production `.mbt` file the repository tracks.
+
+    Asked of git rather than read off a list of directories, because a list is
+    something a new package can be added without: a top-level package whose name
+    nobody appended would have gone unscanned behind a green run, and the guard
+    would have reported passing on a surface it never looked at. Tracking is the
+    condition that actually matters — an untracked file is not part of the
+    published surface — so it is the condition the guard uses. Test files are
+    excluded (a test is not a public boundary), as is `.github/`.
+    """
+    listed = subprocess.run(
+        ["git", "ls-files", "-z", "*.mbt"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.split("\0")
     return sorted(
-        path
-        for path in candidates
-        if not path.name.endswith(("_test.mbt", "_wbtest.mbt"))
+        root / name
+        for name in listed
+        if name
+        and not name.startswith(EXCLUDED_PREFIX)
+        and not name.endswith(("_test.mbt", "_wbtest.mbt"))
     )
 
 
-def audit() -> list[str]:
+def audit(root: Path = ROOT) -> list[str]:
     failures: list[str] = []
-    for path in source_files():
+    for path in source_files(root):
         text = path.read_text(encoding="utf-8")
         for block in re.split(r"(?m)^///\|\s*$", text):
             fn_match = PUBLIC_FN.search(block)
             if fn_match is None:
                 continue
             for parameter in retained_parameters(block):
-                relative = path.relative_to(ROOT).as_posix()
+                relative = path.relative_to(root).as_posix()
                 failures.append(
                     f"{relative}: {fn_match.group(1)} directly retains Array parameter "
                     f"'{parameter}'; copy it at the public boundary"
@@ -293,115 +298,12 @@ def audit() -> list[str]:
     return failures
 
 
-def self_test() -> None:
-    unsafe_record = """
-pub fn Box::new(values : Array[Int]) -> Box {
-  { values: values }
-}
-"""
-    unsafe_enum = """
-pub fn Plan::select(exprs : Array[Expr]) -> Plan {
-  Select(exprs)
-}
-"""
-    unsafe_qualified_enum = """
-pub fn Plan::select(exprs : Array[Expr]) -> Plan {
-  @plan.LogicalPlan::Select(exprs)
-}
-"""
-    unsafe_shorthand = """
-pub fn Box::new(values : Array[Int]) -> Box {
-  { values }
-}
-"""
-    safe_copy = """
-pub fn Box::new(values : Array[Int]) -> Box {
-  { values: values.copy() }
-}
-"""
-    safe_shadow_copy = """
-pub fn Box::new(values : Array[Int]) -> Box {
-  let values = values.copy()
-  { values }
-}
-"""
-    unsafe_optional = """
-pub fn Plan::drop_nulls(subset? : Array[Expr]) -> Plan {
-  { plan: DropNulls(subset) }
-}
-"""
-    unsafe_wrapped = """
-pub fn Plan::drop_nulls(subset : Array[Expr]) -> Plan {
-  { plan: DropNulls(Some(subset)) }
-}
-"""
-    borrowed = """
-pub fn sum(values : Array[Int]) -> Int {
-  values.fold(init=0, (acc, value) => acc + value)
-}
-"""
-    # A shadow copy that runs after the array was already handed on protects
-    # nothing — the retained value is still the caller's array.
-    unsafe_retain_then_copy = """
-pub fn Box::new(values : Array[Int]) -> Box {
-  let result = Box(values)
-  let values = values.copy()
-  ignore(values)
-  result
-}
-"""
-    # ...nor does one confined to a single branch: the other branch retains.
-    unsafe_branch_copy = """
-pub fn Box::new(flag : Bool, values : Array[Int]) -> Box {
-  if flag {
-    let values = values.copy()
-    Box(values)
-  } else {
-    Box(values)
-  }
-}
-"""
-    # A `Char` literal must not be read as structure: `'}'` would close the
-    # function body early, promoting the branch-local copy above to top level.
-    unsafe_branch_copy_with_char = """
-pub fn Box::new(flag : Bool, values : Array[Int]) -> Box {
-  let close = '}'
-  ignore(close)
-  if flag {
-    let values = values.copy()
-    Box(values)
-  } else {
-    Box(values)
-  }
-}
-"""
-    # ...and the mirror: `'{'` must not open one, which would demote a genuine
-    # top-level copy and report a boundary that is in fact safe.
-    safe_top_level_copy_with_char = """
-pub fn Box::new(values : Array[Int]) -> Box {
-  let open = '{'
-  ignore(open)
-  let values = values.copy()
-  Box(values)
-}
-"""
-    assert retained_parameters(unsafe_record) == ["values"]
-    assert retained_parameters(unsafe_enum) == ["exprs"]
-    assert retained_parameters(unsafe_qualified_enum) == ["exprs"]
-    assert retained_parameters(unsafe_shorthand) == ["values"]
-    assert retained_parameters(unsafe_optional) == ["subset"]
-    assert retained_parameters(unsafe_wrapped) == ["subset"]
-    assert retained_parameters(safe_copy) == []
-    assert retained_parameters(safe_shadow_copy) == []
-    assert retained_parameters(borrowed) == []
-    assert retained_parameters(unsafe_retain_then_copy) == ["values"]
-    assert retained_parameters(unsafe_branch_copy) == ["values"]
-    assert retained_parameters(unsafe_branch_copy_with_char) == ["values"]
-    assert retained_parameters(safe_top_level_copy_with_char) == []
-
-
 def main() -> int:
-    self_test()
+    # The guard's own behaviour is pinned in `check_array_copy_boundaries_test.py`,
+    # which CI runs first — so a guard that has stopped catching anything fails
+    # there rather than passing vacuously here. The cases used to be spelled twice,
+    # once in each file, which is one copy too many for the same reason any other
+    # duplicated fact is.
     failures = audit()
     if failures:
         print("Array copy boundary check failed:", file=sys.stderr)

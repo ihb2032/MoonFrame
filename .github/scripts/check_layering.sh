@@ -135,10 +135,18 @@ edges=$(git ls-files '*moon.pkg' | grep -v '^examples/' |
       }
       inblock {
         want = "\"" module "/"
+        exact = "\"" module "\""
         if (index($0, want) > 0) {
           d = substr($0, index($0, want) + length(want))
           sub(/".*/, "", d)
           dep[++n] = d
+        } else if (index($0, exact) > 0) {
+          # The root facade package: its path *is* the module name, with nothing
+          # after it, so the prefix above — which needs a `/` — cannot see it.
+          # Left unseen it would be an import no rule below could reject, which
+          # is the one direction the stack must not run. Keyed `root`, as the
+          # manifest in the repository root is.
+          dep[++n] = "root"
         }
       }
     ' "$manifest"
@@ -159,6 +167,15 @@ edge_violations=$(printf '%s\n' "$edges" | while IFS= read -r edge; do
   [ -n "$edge" ] || continue
   from=${edge%% -> *}
   to=${edge##* -> }
+  # The facade is the top of the stack: it re-exports the packages below it, so a
+  # package importing it would close a loop through every one of them — and would
+  # make the facade a dependency of the code it exists to publish. `examples/` are
+  # the intended consumers and are not in this graph at all.
+  if [ "$to" = root ]; then
+    printf '%s imports the root facade; nothing below it may depend on it\n' \
+      "$from"
+    continue
+  fi
   if [ "$to" = "internal/column" ] && ! in_list "$from" "$column_importers"; then
     printf '%s imports internal/column; only [%s] may\n' \
       "$from" "$column_importers"

@@ -560,7 +560,14 @@ fields=$(git ls-files 'internal/*/pkg.generated.mbti' |
     awk -v file="$mbti" '
       /^pub struct / { inblock = 1; next }
       /^\}/ { inblock = 0; next }
-      inblock && /^  [a-zA-Z_]+ : / { printf "%s: %s\n", file, $1 }
+      # `mut <name> : <type>` is a published field too — the most exposed kind,
+      # since the layer above could write through it. Matching only the plain
+      # form would have skipped it, so the one field shape worth catching most
+      # would have been the one shape this rule could not see.
+      inblock && /^  (mut )?[a-zA-Z_]+ : / {
+        name = ($1 == "mut") ? $2 : $1
+        printf "%s: %s\n", file, name
+      }
     ' "$mbti"
   done)
 if [ -n "$fields" ]; then

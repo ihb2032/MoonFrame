@@ -4,7 +4,8 @@
 /// result cells onto a dtype — the first non-null cell fixes it
 /// (`infer_cells_dtype`), an `Int`/`Float` mix promotes to `Float`
 /// (`promote_mixed_int_float`), and an all-null result falls back to the
-/// leftmost input's backend. `infer_cells_dtype` is shared with grouped `agg`.
+/// leftmost input's *logical dtype*. `infer_cells_dtype` is shared with grouped
+/// `agg`.
 
 ///|
 /// Apply a `Map` node's opaque closure `f` across its already-evaluated
@@ -21,9 +22,13 @@
 /// returns, then `scalars_to_series` projects the cells onto it (an off-type
 /// cell becomes null; an all-valid numeric result converges onto `Numeric`).
 /// An all-null or empty result has no non-null cell to fix the dtype, so it
-/// falls back to the leftmost input's column backend and yields an all-null
-/// (or empty) column of that dtype — matching Polars' tolerance of a
-/// null-returning map. Only a column-less map with no non-null cell (e.g.
+/// borrows the leftmost input's *logical dtype* as the type witness and yields
+/// an all-null (or empty) column of that dtype — matching Polars' tolerance of
+/// a null-returning map. Only the dtype is borrowed, never the input's storage
+/// backend: `scalars_to_series` lands the result on the backend its own content
+/// implies, so an all-null result stays `Builtin` however the input was stored,
+/// and an empty numeric one converges onto `Numeric`. Only a column-less map
+/// with no non-null cell (e.g.
 /// `map_many([], _ => Null)`) has no dtype witness and raises `Unsupported`,
 /// like the `Null` literal. The column is named after the leftmost input (or
 /// `"literal"` when there are none), agreeing with `Expr::output_name`; the

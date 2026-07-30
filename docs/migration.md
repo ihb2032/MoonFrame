@@ -272,18 +272,21 @@ into `from_ints` / `from_floats` and the enum variants.
 `compare_string_lex`, `is_decimal_int_literal`, and `format_scalar_literal`
 were re-exported by the facade in v0.5; they are gone from it. They — plus
 `escape_debug` and the two literal parsers — now live in the private packages
-`internal/text` / `internal/literal`, which downstream code cannot import.
+`internal/text` / `internal/literal`, and `types`' `fold_extremum` /
+`double_fits_int64` in `internal/numeric`; downstream code cannot import any of
+them, since MoonBit refuses a cross-module `internal/` import outright. They are
+not hidden-but-present in `types`: that package declares none of them any more.
 Their behaviour is still part of the library's contract where it is observable:
 string ordering is by Unicode code point (`Series::sort` / `DataFrame::sort` /
 `Scalar::lt`), and literal parsing drives CSV / JSON type inference.
 
-Likewise `series`' kernel functions (`gather_series`, `reducer_for`,
-`key_cell`, …, plus `ReduceOp` / `KeyCell`), `types`' `fold_extremum` and
-exact-comparison primitives, and `io`'s `read_csv_projected` /
-`read_ndjson_projected` are marked `#internal`: still `pub` for the library's
-own use across packages, but absent from the generated interfaces and warned
-about from another module. Use the `Series` methods and `DataFrame` verbs
-built on them, and `scan_csv` / `scan_ndjson` for projection push-down.
+`series`' kernel functions (`gather_series`, `reducer_for`, `key_cell`, …, plus
+`ReduceOp` / `KeyCell`) and `io`'s `read_csv_projected` /
+`read_ndjson_projected` take the other route: they stay in place, marked
+`#internal` — still `pub` for the library's own use across packages, but absent
+from the generated interfaces and warned about from another module. Use the
+`Series` methods and `DataFrame` verbs built on them, and `scan_csv` /
+`scan_ndjson` for projection push-down.
 
 ### The storage-backend methods are engine seams
 

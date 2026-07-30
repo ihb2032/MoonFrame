@@ -129,13 +129,14 @@ the sweep to the push.
   leaves it a fluent-chain intermediate. Signatures matter because half of what
   breaks a caller leaves the names alone: a parameter type, a `raise`
   appearing, an optional parameter becoming required, a field widening to `?`.
-  Three rules sit ahead of the snapshot, so regenerating cannot legalize them:
+  Four rules sit ahead of the snapshot, so regenerating cannot legalize them:
   only the four fluent-chain types may be public without being re-exported;
-  every public free function must have a facade counterpart (nothing chains to
-  a function, so one the facade omits is unreachable through the supported
-  surface); and **no public field may hold a mutable container** (`Array` /
-  `Map` / …) — reading one hands the container itself to the caller. Keep such
-  a field `priv` behind an accessor that copies, as
+  every public free function or top-level value must have a facade counterpart
+  (nothing chains to one, so one the facade omits is unreachable through the
+  supported surface); **no public field may hold a mutable container** (`Array` /
+  `Map` / …) — reading one hands the container itself to the caller; and **no
+  public field may be `mut`**, which would let a caller write through it. Keep a
+  container field `priv` behind an accessor that copies, as
   `CsvReadOptions::null_values` and `JoinOptions::on_keys` do. `moon info` and the downstream fixture catch
   under-exports and interface drift; this catches an *over-export* — a symbol
   that reaches callers as `@moonframe.Type::method` without any facade change,
@@ -156,8 +157,9 @@ the sweep to the push.
   contradicting the interface they document.
 - **Internal packages** — the set of `internal/*` package *names* on disk must
   equal the set README's repository-structure block and `docs/api.md` name.
-  They have no public surface, so no other guard notices one appearing or
-  disappearing — and an internal package is where a whole class of work is
+  They have no public surface, so no guard but layering notices one appearing or
+  disappearing (and layering sees the edges, not the prose) — and an internal
+  package is where a whole class of work is
   supposed to live, so one the docs never mention gets bypassed. It checks
   names, not whether the descriptions are accurate.
 - **Layering** — the production package graph, read off the `moon.pkg`
@@ -237,8 +239,9 @@ the sweep to the push.
 - **Comment references** — a comment that names something is making a claim,
   and two of those a machine can check: `@pkg.Name` must be a name that package
   declares, `Type::method` must be a pair that exists, and a `path/file.mbt` <!-- doc-guard: unresolved -->
-  must be a file — resolved as a sibling first, then from the root, so a
-  cross-package reference has to say which package. Evidence comes from code
+  must be a file — resolved as a sibling, then from the root, then from `docs/`
+  and `.github/` (so a bare doc or guard filename resolves from anywhere, while
+  a source file has to say which package). Evidence comes from code
   only: two comments naming the same dead symbol are the drift, not proof of
   each other. A qualifier this module does not define (`@debug`, `@string`) is
   external and skipped, as is a `Type::method` whose type the module does not
@@ -254,7 +257,8 @@ the sweep to the push.
   that had changed.
 
 One more pass, `review_absolute_wording.sh`, annotates absolute claims ("all",
-"every", "never", "total") in prose a PR adds. It never fails the build — it
+"every", "never", "always", "total", "only", "full surface") in prose a PR adds.
+It never fails the build — it
 asks a human to confirm the claim still holds, because that is the wording this
 repository's documentation drifts on.
 

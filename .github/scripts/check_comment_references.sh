@@ -25,8 +25,11 @@
 #     nothing here can say what it holds.
 #   * `Type::method` — that exact pair must exist. A method renamed or moved to
 #     another type breaks it; the type existing is not enough.
-#   * `path/to/file.mbt` — the file must exist, resolved against the naming
-#     file's own directory first (a sibling), then the repository root.
+#   * `path/to/file.mbt`, `.md` or `.sh` — the file must exist. Resolution tries
+#     the naming file's own directory first (a sibling), then the repository
+#     root, then `docs/`, `.github/` and `.github/scripts/` — so a bare
+#     `api.md` or `check_layering.sh` resolves from anywhere, while a source
+#     file has to say which package.
 #
 # Evidence comes from code, never from other comments: a symbol two comments
 # agree on and no declaration carries is exactly the drift being looked for.

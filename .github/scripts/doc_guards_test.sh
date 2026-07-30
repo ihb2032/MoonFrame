@@ -1546,7 +1546,7 @@ pub fn read(c : BuiltinColumn, b : Bitmap) -> Int {
 }'
 got_out=$(sh "$scripts/check_internal_surface.sh" "$work/is_qualified" 2>&1 || true)
 cases=$((cases + 1))
-if printf '%s' "$got_out" | grep -q 'credited by a shared method name'; then
+if printf '%s' "$got_out" | grep -q 'credited by a shared name'; then
   printf 'FAIL internal surface: an owner-qualified call is not ambiguous\n'
   printf '%s\n' "$got_out" | sed 's/^/     /'
   exit 1

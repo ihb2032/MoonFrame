@@ -3,8 +3,9 @@
 # downstream, so nothing in it is a compatibility promise and the seam lock
 # (`check_engine_seams.sh`) skips it entirely — which left its `pub` surface
 # the one part of the repository nothing governed. `pub` still means something
-# there: it is the difference between a symbol `series` and `internal/kernel`
-# can reach and one only its own package can. A helper that is `pub` because a
+# there: it is the difference between a symbol every package that imports this
+# one can reach (the set is per package — see `layering.snapshot`) and one only
+# its own package can. A helper that is `pub` because a
 # test found it convenient hands the packages above it capability nobody chose
 # to give them, and capability that exists gets used.
 #
@@ -525,8 +526,9 @@ done)
 if [ -n "$unreachable" ]; then
   printf 'internal surface: a `pub` nothing outside its package calls:\n'
   printf '%s' "$unreachable" | sed 's/^/  /'
-  printf '  `pub` in an internal package buys reach into it from `series` and\n'
-  printf '  `internal/kernel`, nothing else — so one nobody calls is capability\n'
+  printf '  `pub` in an internal package buys reach into it from the packages\n'
+  printf '  that import it and nothing else (which packages those are is per\n'
+  printf '  package — see layering.snapshot) — so one nobody calls is capability\n'
   printf '  handed over for no reason. Make it a plain `fn` (still visible to\n'
   printf '  every file of its own package, with its tests as `_wbtest.mbt`), or\n'
   printf '  delete it if nothing calls it at all. If it cannot be private\n'
@@ -580,7 +582,7 @@ if [ -n "$fields" ]; then
   printf 'internal surface: a published field in an internal package:\n'
   printf '%s\n' "$fields" | sed 's/^/  /'
   printf '  A field in the interface makes the layout itself reachable from\n'
-  printf '  the packages above — `series` and `internal/kernel` can then hold a\n'
+  printf '  every package that imports this one — they can then hold a\n'
   printf '  representation rather than an accessor. Mark it `priv`; if another\n'
   printf '  package really has to read it, give it a named accessor instead,\n'
   printf '  which this audit can see and account for.\n'

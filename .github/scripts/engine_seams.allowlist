@@ -12,5 +12,5 @@
 #
 # Format: pkg/Symbol — reason
 frame/DataFrame::check_invariants — the structural check itself (INV1–INV7); the frame, io and lazy suites all assert that a frame they built is well-formed, and nothing else can see a private field
-series/Series::is_canonical — the backend-canonicalisation invariant; the operators that must return a canonical column live in frame, whose tests are a separate package
+series/Series::is_canonical — the backend-canonicalisation invariant; the operators that must return a canonical column are series' own row rebuilds (gather / gather_series / drop_nulls / try_column_to_numeric), and series' blackbox tests are a separate package that can only assert it if the predicate is pub
 series/Series::storage_kind — the only way a test outside series can see which backend an operator's output landed on, which is engine-wide behaviour worth pinning

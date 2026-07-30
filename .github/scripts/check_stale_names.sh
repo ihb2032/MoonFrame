@@ -22,7 +22,7 @@
 #     wrong only relative to the interface. When a symbol's visibility changes,
 #     re-read the sections that describe it; no guard here will.
 #   * A bare word, repository-wide. `take` became `Series::gather` in v0.6, but
-#     `take` also names live methods (`Bitmap::take`, `ColumnStorage::take`)
+#     `take` also names live methods (`ColumnStorage::take`, `Bitmap::take_view`)
 #     and is an ordinary English verb, so pinning it everywhere would fire on
 #     prose. Where a bare name is worth pinning in *one* file — the file that
 #     used to own the symbol, whose comments are the ones that will name it —

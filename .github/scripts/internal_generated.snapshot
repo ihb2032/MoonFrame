@@ -1,5 +1,3 @@
-internal/column/Bitmap::equal
-internal/column/Bitmap::not_equal
 internal/column/Bitmap::to_repr
 internal/column/BuiltinColumn::to_repr
 internal/column/ColumnData::to_repr
@@ -8,15 +6,10 @@ internal/column/ColumnStorage::not_equal
 internal/column/ColumnStorage::to_repr
 internal/column/NumericColumn::to_repr
 internal/column/NumericData::to_repr
-internal/column/PhysicalType::output
-internal/column/PhysicalType::to_repr
-internal/column/PhysicalType::to_string
 internal/column/StorageKind::equal
 internal/column/StorageKind::not_equal
 internal/column/StorageKind::to_repr
-internal/column/pub impl Eq for Bitmap
 internal/column/pub impl Eq for ColumnStorage
-internal/column/pub impl Show for PhysicalType
 internal/ir/AggOp::equal
 internal/ir/AggOp::not_equal
 internal/ir/AggOp::to_repr

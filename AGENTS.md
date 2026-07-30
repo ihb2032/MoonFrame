@@ -201,12 +201,25 @@ sh .github/scripts/check_comment_references.sh
   any type embedding this one, neither of which writes its name — so they are
   **pinned** in `.github/scripts/internal_generated.snapshot` rather than
   audited. A count going up says something grew without saying what; the
-  snapshot makes the next one a question to answer. Usually the answer is that
-  a test wanted an operator, and then the `impl` belongs in a `_wbtest.mbt`,
-  which compiles inside its package and publishes nothing — that is where the
-  column and AST equalities live, after a review found thirteen of them in the
-  interfaces. **A clean run means nothing is provably unused, not that
-  everything left is needed.**
+  snapshot makes the next one a question to answer — but the question is about
+  the *impl*, not the method beside it. MoonBit promotes a trait impl's methods
+  to regular methods ([0079]), and neither half of that can be declined: leaving
+  the `pub extend` out is a deprecation error, and writing a non-`pub` one makes
+  `equal` an unused function. So an impl a package must keep visible publishes
+  `equal` / `not_equal` / `to_repr` with it, and every such line in the snapshot
+  is forced by an impl above it: `ColumnStorage`'s content equality (which
+  `Series` and `DataFrame` compare through), the `Debug` chain their `derive`
+  needs down to the buffers, `StorageKind`'s reader for `frame`'s
+  backend assertions, and the AST tags whose `Eq` the node comparison in
+  `internal/ir/equality_wbtest.mbt` consumes. The answer to "does this need to be
+  here" is therefore whether *production* needs that impl at all: if only a test
+  wants the operator, the impl belongs in a `_wbtest.mbt`, which compiles inside
+  its package and publishes nothing — that is where the column and AST
+  equalities live, after a review found thirteen of them in the interfaces, and
+  where `Bitmap`'s went once it turned out that only a test ever compared two
+  validity buffers. If nothing needs it, the impl goes: `PhysicalType` carries no
+  trait at all, because a caller matches on the tag. **A clean run means nothing
+  is provably unused, not that everything left is needed.**
 
 - **Comment references** — a comment that names something is making a claim,
   and two of those a machine can check: `@pkg.Name` must be a name that package

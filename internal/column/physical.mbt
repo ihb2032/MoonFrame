@@ -15,30 +15,21 @@
 /// indices into a dictionary. Today the four concrete logical types map to
 /// their four physical types one-to-one (see `physical_type`), so the split is
 /// structure rather than new capability.
+///
+/// Carries no `Show` / `Debug` / `Eq`: a caller *matches* on a physical tag
+/// (`series`' empty-column dispatch is the only one), and nothing renders or
+/// compares one. Deriving or hand-writing a trait here would publish it —
+/// MoonBit promotes a trait impl's methods to regular methods, so an impl this
+/// package needs to keep visible cannot avoid putting `to_string` / `to_repr` /
+/// `equal` in the generated interface with it — which is capability this side of
+/// the module boundary can reach for no reason any of it has. A future
+/// diagnostic that wants the tag's name adds the derive then, with a caller to
+/// point at.
 pub(all) enum PhysicalType {
   I64
   F64
   Bool
   Utf8
-} derive(Debug)
-
-///|
-
-///|
-pub extend PhysicalType with Show::{to_string, output}
-
-///|
-pub extend PhysicalType with Debug::{to_repr}
-
-///|
-pub impl Show for PhysicalType with fn output(self, logger) {
-  let name = match self {
-    I64 => "I64"
-    F64 => "F64"
-    Bool => "Bool"
-    Utf8 => "Utf8"
-  }
-  logger.write_string(name)
 }
 
 ///|

@@ -29,12 +29,13 @@
 # assert what the package actually holds. `internal/column`'s suite moved there
 # when the typed readers it was keeping alive were deleted.
 #
-# Exceptions live in `internal_surface.allowlist`, one `pkg/Symbol — reason`
-# per line, for the case the rule cannot cover: a symbol with no production
-# caller anywhere, which therefore cannot be private either, because
-# `unused_value` counts production callers only and the strict warning gate
-# turns that into an error. An invariant predicate is the honest example — it
-# exists to be asserted and nothing else.
+# Should a symbol ever be neither — no production caller anywhere, and so no
+# way to make it private either, because `unused_value` counts production
+# callers only and the strict warning gate turns that into an error — it takes a
+# line in `internal_surface.allowlist`, `pkg/Symbol — reason`. An invariant
+# predicate is the shape that would earn one: it exists to be asserted and
+# nothing else. The run reports how many such lines there are; the bar for
+# adding one is that both alternatives are genuinely closed.
 #
 # What the symbol list comes from matters as much as the rule. Grepping source
 # for `pub fn` answers "what did someone write", and the question is "what does
@@ -44,9 +45,11 @@
 # therefore answerable by name, or generated and therefore not (a derived
 # `equal` is reached through `==`, and through the `derive` of any type that
 # embeds this one — no caller writes its name, so no name-based rule can find
-# it). The generated ones are counted, not audited, and the interfaces that
-# carry them are tracked files: adding one is already a diff. The two lists are
-# also compared, because a `pub fn` that is in the source and *not* in the
+# it). The generated ones are not audited but they are **pinned**, against
+# `internal_generated.snapshot` — see the section below that builds it: a count
+# going up says something grew without saying what, and the interface diff alone
+# left thirteen impls published only because a test wanted `==`. The two lists
+# are also compared, because a `pub fn` that is in the source and *not* in the
 # interface is hidden from every reader of one, including this audit.
 #
 # Callers are matched by how a symbol can be spelled, and a spelling is not
@@ -61,10 +64,13 @@
 # approves.
 #
 # Usage: .github/scripts/check_internal_surface.sh [repo-root]
+#        .github/scripts/check_internal_surface.sh --write   (regenerate both
+#        snapshots, after deciding that what changed in them should have)
 # Exit 0 when no internal public function or public type is provably unused.
 # Exit 1 when one is unreachable, when an allowlist entry is no longer needed,
-# when the probe shows a symbol nothing outside its package uses, or when a
-# public function is missing from the generated interface.
+# when the probe shows a symbol nothing outside its package uses, when a
+# public function is missing from the generated interface, or when either
+# snapshot — the derived / impl surface, the name-only set — has drifted.
 
 set -eu
 

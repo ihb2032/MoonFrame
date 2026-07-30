@@ -81,7 +81,8 @@ rule for the reader's convenience, link instead.
 ## Documentation guards
 
 CI protects prose the way it protects code, for the parts of it that can be
-checked mechanically. Run them the same way CI does:
+checked mechanically. Run them the same way CI does — from Git Bash or WSL on
+Windows, where `sh` is not on the default PowerShell `PATH`:
 
 ```sh
 sh .github/scripts/doc_guards_test.sh      # the guards' own self-test
@@ -95,6 +96,12 @@ sh .github/scripts/check_engine_seams.sh
 sh .github/scripts/check_internal_surface.sh
 sh .github/scripts/check_comment_references.sh
 ```
+
+The self-test is the slow one, and slow enough on Windows to look stuck: it runs
+~150 cases, most of them a whole guard over a fixture tree, which is under a
+minute on the Linux runner and around 25 on Git Bash, where `fork` is emulated.
+While iterating on one guard, run that guard alone — each is seconds — and leave
+the sweep to the push.
 
 - **Version identity** — `moon.mod`, `docs/changelog.md` and
   `docs/migration.md` must name one release, and nothing else names one at all:
@@ -182,9 +189,11 @@ sh .github/scripts/check_comment_references.sh
 - **Internal surface** — the same question, asked inside the module. A `pub`
   function or type in an `internal/` package must be used by another package;
   otherwise it is package-private (its tests move in with it, as `_wbtest.mbt`)
-  or deleted, and the few that cannot be either — an invariant predicate exists
-  to be asserted and so has no caller — are listed with their reason in
-  `.github/scripts/internal_surface.allowlist`. The symbols come from the
+  or deleted. One that could be neither — an invariant predicate exists to be
+  asserted, so it has no caller and `unused_value` refuses to let it be private —
+  would take a line with its reason in
+  `.github/scripts/internal_surface.allowlist`; the guard reports how many are
+  in there. The symbols come from the
   package's generated interface rather than its source, which is what makes the
   count complete: a `derive`'s methods and every `pub impl` are in it. A source
   `pub fn` the interface does *not* carry fails outright — inside an internal
@@ -248,6 +257,31 @@ One more pass, `review_absolute_wording.sh`, annotates absolute claims ("all",
 "every", "never", "total") in prose a PR adds. It never fails the build — it
 asks a human to confirm the claim still holds, because that is the wording this
 repository's documentation drifts on.
+
+## Array ownership guard
+
+A public function that takes an `Array[...]` must not retain the caller's array:
+the caller still holds it, so a frame or an expression built from one would
+change under later mutation. Copy at the boundary, and keep the `.copy()`
+*visible there* — one hidden a call away is invisible to the check and to the
+reader. Two things enforce it, and neither subsumes the other:
+
+```sh
+python -B .github/scripts/check_array_copy_boundaries_test.py   # the guard's own cases
+python -B .github/scripts/check_array_copy_boundaries.py        # the guard
+```
+
+The guard is a deliberately small lexical pass over one `///|` block at a time —
+it reads public `Array` parameters (positional, `subset?`, `keys~`) and rejects
+retaining one in a field or a constructor payload without a copy, treating
+`Some` / `Ok` / `Err` as transparent. Being lexical, it is conservative: it can
+reject a shape that is actually safe, which is a prompt to make the copy visible
+rather than to weaken the rule. What it cannot see is behaviour, so the runtime
+side is the root `array_ownership_test.mbt` (and `expr/expr_test.mbt` for
+`Expr::is_in`, pinned beside its own package) — mutate the array you passed in,
+then assert the built value did not move. The same rule covers the reading side:
+**no public field may hold an `Array` / `Map`**, since reading one hands over the
+container itself (the facade-surface guard enforces that half).
 
 ## Completion Requirements
 

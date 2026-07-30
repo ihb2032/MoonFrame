@@ -219,19 +219,21 @@ newcomers:
 
 ## Contributing
 
-The codebase is a small, layered stack of packages; each has its own sources, a
-`pkg.generated.mbti` interface snapshot, and tests. Which kind of test a thing
-gets follows from what is under test rather than from which directory it sits
-in: a contract a caller can reach is tested from outside, through `*_test.mbt`,
-and a representation is tested from within, through `*_wbtest.mbt`, so that
-asserting it does not require making it public. Public packages are therefore
-mostly blackbox and `internal/` ones mostly whitebox — but an internal package
-with a contract of its own (a parser, a renderer, a comparison) has blackbox
-tests too:
+The codebase is a small, layered stack of packages; each has its own sources and
+a `pkg.generated.mbti` interface snapshot. Which kind of test a thing gets
+follows from what is under test rather than from which directory it sits in: a
+contract a caller can reach is tested from outside, through `*_test.mbt`, and a
+representation is tested from within, through `*_wbtest.mbt`, so that asserting
+it does not require making it public. Public packages are therefore mostly
+blackbox and `internal/` ones mostly whitebox — an internal package with a
+contract of its own (a parser, a renderer, a comparison) has blackbox tests too,
+and one whose whole surface is driven from a single caller has none of its own
+(`internal/kernel` is covered through `frame`'s expression evaluator, which is
+what exercises every kernel a caller can reach):
 
 ```
 types/      value types, errors (DataError), schemas
-internal/column/   Arrow-style storage — validity bitmap + Builtin/Numeric backends; wrapped by Series and read by internal/kernel, and named by no other package
+internal/column/   Arrow-style storage — validity bitmap + Builtin/Numeric backends; wrapped by Series and read by internal/kernel (which packages may name it is enforced by check_layering.sh)
 internal/kernel/   the vectorized expression kernels — Series broadcasting, arithmetic / logic / comparison / string ops, ternary, map, and the dtype inference behind a computed column; called by frame's evaluator
 internal/text/     shared text primitives — lexicographic compare, debug escaping, decimal literal parsing
 internal/numeric/  shared numeric primitives — exact Int64/Double comparison and the extremum fold, used from types up through the kernels
@@ -240,7 +242,7 @@ internal/literal/  the one scalar-literal renderer, shared by expr / lazy plan r
 internal/ir/       module-internal expression AST — ExprNode + the operator tags, walked by the engine
 series/     Series + column-level stats + the shared reduction / rebuild / key-cell kernels
 expr/       opaque Expr handle — constructors, operators, when/then/otherwise builders, to_string rendering
-frame/      DataFrame + every operator (one per file) + group_by + join + the expression evaluator (with_columns / select / filter / agg) + to_markdown / to_html
+frame/      DataFrame + the operators (usually one per file) + group_by + join + the expression evaluator (with_columns / select / filter / agg) + to_markdown / to_html
 io/         CSV (NyaCSV-backed), JSON, NDJSON read / write + Vega-Lite export
 lazy/       deferred query plan — LazyFrame builders, collect / explain, predicate + projection pushdown
 moonframe.mbt   the root package — facade over the public API (fluent-chain intermediates stay in their sub-packages)
@@ -277,8 +279,8 @@ The data model is an Apache Arrow-style column layout — a data buffer beside a
 byte-packed validity bitmap (`1 = valid`), except on the `Numeric` fast path,
 where an all-valid `Int` / `Float` column carries no bitmap at all — with an
 `O(1)` name→index cache;
-`DataFrame::check_invariants()` is a formal structural spec (INV1–INV7); every
-operator's test suite asserts it over that operator's representative outputs.
+`DataFrame::check_invariants()` is a formal structural spec (INV1–INV7), and the
+operator test suites assert it over representative outputs.
 The usual loop:
 
 ```sh

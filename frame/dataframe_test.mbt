@@ -1,10 +1,10 @@
 // Blackbox tests for `DataFrame`. Row access (`row` / `rows`) lives in
 // `row_test.mbt`.
 
-// ── Constructors: new ────────────────────────────────────────────────
+// ── Constructors: DataFrame::DataFrame ───────────────────────────────
 
 ///|
-test "new builds a frame from equal-length, uniquely named columns" {
+test "the constructor builds a frame from equal-length, uniquely named columns" {
   let df = DataFrame::DataFrame([
     Series::from_ints("a", [1, 2, 3]),
     Series::from_strings("b", ["x", "y", "z"]),
@@ -16,7 +16,7 @@ test "new builds a frame from equal-length, uniquely named columns" {
 }
 
 ///|
-test "new copies its input columns array" {
+test "the constructor copies its input columns array" {
   let cols = [Series::from_ints("a", [1, 2])]
   let df = DataFrame::DataFrame(cols)
   // Would leave a ragged phantom column (push) or dangle the name→index
@@ -30,7 +30,7 @@ test "new copies its input columns array" {
 }
 
 ///|
-test "new with zero columns yields a 0×0 frame" {
+test "the constructor with zero columns yields a 0×0 frame" {
   let df = DataFrame::DataFrame([])
   assert_eq(df.shape(), (0, 0))
   assert_true(df.is_empty())
@@ -38,7 +38,7 @@ test "new with zero columns yields a 0×0 frame" {
 }
 
 ///|
-test "new rejects columns of unequal length" {
+test "the constructor rejects columns of unequal length" {
   let r = Ok(
     DataFrame::DataFrame([
       Series::from_ints("a", [1, 2]),
@@ -51,7 +51,7 @@ test "new rejects columns of unequal length" {
 }
 
 ///|
-test "new rejects duplicate column names" {
+test "the constructor rejects duplicate column names" {
   let r = Ok(
     DataFrame::DataFrame([
       Series::from_ints("a", [1]),

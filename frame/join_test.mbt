@@ -1179,7 +1179,7 @@ test "join keeps all-valid numeric output columns on the Numeric fast path" {
   // `from_floats` constructors land on `Numeric`). An inner join injects no
   // `None` on either side, so each gathered column — including the coalesced
   // key — re-converges to `Numeric` rather than demoting to `Builtin`,
-  // matching filter / sort / take / drop_nulls / fill_null.
+  // matching filter / sort / gather / drop_nulls.
   let left = DataFrame::DataFrame([
     Series::from_ints("k", [1, 2]),
     Series::from_floats("lv", [1.5, 2.5]),

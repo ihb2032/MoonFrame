@@ -63,10 +63,10 @@ fn mask(bits : Array[Bool]) -> Bitmap {
 /// Whether every null slot's `data` holds this dtype's canonical placeholder
 /// (`Int = 0`, `Float = 0.0`, `Bool = false`, `String = ""`). The constructors,
 /// casts and row transforms all write these, so a null slot's value never
-/// leaks out of a `Scalar`-returning read — and, since `BuiltinColumn` derives
-/// `Eq` over the raw `data` array, null slots included, two logically equal
-/// columns differing only in a null slot's placeholder would otherwise compare
-/// unequal.
+/// leaks out of a `Scalar`-returning read — and, since this package's own `Eq`
+/// for `BuiltinColumn` (`equality_wbtest.mbt`) compares the raw `data` array,
+/// null slots included, two logically equal columns differing only in a null
+/// slot's placeholder would otherwise compare unequal.
 ///
 /// It lives with the tests because asserting it is all it was ever for: as a
 /// production function it had no caller, which made it a `pub` the packages

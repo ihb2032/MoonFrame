@@ -39,14 +39,19 @@ test "binary: nesting shape is preserved, not flattened" {
 }
 
 ///|
-test "binary: all twelve operator tags are pairwise distinct nodes" {
+test "binary: every operator tag builds a pairwise distinct node" {
   let a = col("a")
   let b = col("b")
+  // One entry per `BinOp` variant, so two operators can never lower to the same
+  // node — the property the whole `assert_diff_expr` family rests on.
   let trees : ReadOnlyArray[Expr] = [
     a + b,
     a - b,
     a * b,
     a / b,
+    a.floor_div(b),
+    a.modulo(b),
+    a.pow(b),
     a.eq(b),
     a.ne(b),
     a.lt(b),

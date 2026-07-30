@@ -13,14 +13,3 @@ test "physical_type: the four concrete types map one-to-one; Null has none" {
   // `None` — the type-level statement of why an all-null column can't be built.
   assert_true(physical_type(@types.DataType::Null) is None)
 }
-
-///|
-test "PhysicalType renders its tag" {
-  // `Show` is the one trait this type publishes for a reason beyond a test:
-  // a physical tag appears in diagnostics. Equality does not — a caller
-  // matches on the tag.
-  inspect(PhysicalType::I64, content="I64")
-  inspect(PhysicalType::F64, content="F64")
-  inspect(PhysicalType::Bool, content="Bool")
-  inspect(PhysicalType::Utf8, content="Utf8")
-}

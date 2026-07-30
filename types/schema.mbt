@@ -7,8 +7,19 @@
 /// The `fields` array is `priv`: build a schema with `Schema::Schema` and read a
 /// copy via `fields()` / `field_names()`. External code cannot reach or
 /// mutate the backing array, so a validated schema stays valid.
+///
+/// `index` is the name→position map behind `index_of`, and through it `field` /
+/// `select` / `rename`. It is derived from `fields` and built in lock-step with
+/// it, never separately: the constructors are the only writers, and each one
+/// builds both. Uniqueness is what makes it total — every name maps to exactly
+/// the position that carries it — so it is the same validation pass that
+/// establishes both. A schema is immutable, so one scan at construction replaces
+/// a scan per lookup: resolving `c` names against a `c`-column schema was `O(c²)`
+/// while every resolution walked the array, which is the shape a wide `select`
+/// or `rename` hits.
 pub struct Schema {
   priv fields : Array[Field]
+  priv index : Map[String, Int]
 } derive(Eq, Debug)
 
 ///|
@@ -30,14 +41,24 @@ pub extend Schema with Debug::{to_repr}
 /// The type's own constructor, like `Field::Field` — the spelling every
 /// canonically-constructed type in MoonFrame uses.
 pub fn Schema::Schema(fields : Array[Field]) -> Schema raise DataError {
-  let seen : Map[String, Unit] = Map([])
-  for f in fields {
-    if seen.contains(f.name) {
+  { fields: fields.copy(), index: name_index(fields) }
+}
+
+///|
+/// The name→position map for a field vector, `raise DuplicateColumn(name)` on
+/// the first repeated name. The uniqueness check and the lookup map are the same
+/// pass on purpose: a map keyed by name *is* the check (a name already present is
+/// the duplicate), and building them separately is how the two could disagree.
+/// Every `Schema` value in this file is built through here.
+fn name_index(fields : Array[Field]) -> Map[String, Int] raise DataError {
+  let index : Map[String, Int] = Map([])
+  for i, f in fields {
+    if index.contains(f.name) {
       raise DuplicateColumn(f.name)
     }
-    seen[f.name] = ()
+    index[f.name] = i
   }
-  { fields: fields.copy() }
+  index
 }
 
 ///|
@@ -69,8 +90,9 @@ pub fn Schema::field_names(self : Schema) -> Array[String] {
 
 ///|
 /// The index of the column named `name`, or `raise ColumnNotFound(name)`.
+/// `O(1)` — the name index is built once, when the schema is.
 pub fn Schema::index_of(self : Schema, name : String) -> Int raise DataError {
-  match self.fields.search_by(f => f.name == name) {
+  match self.index.get(name) {
     Some(i) => i
     None => raise ColumnNotFound(name)
   }
@@ -100,16 +122,19 @@ pub fn Schema::select(
   names : Array[String],
 ) -> Schema raise DataError {
   let picked : Array[Field] = []
-  let seen : Map[String, Unit] = Map([])
+  // The result's own name index doubles as the duplicate check, so the
+  // projection needs no second membership structure — and the checks stay in
+  // `names` order, which is what decides *which* error a bad selection reports.
+  let index : Map[String, Int] = Map([])
   for n in names {
-    if seen.contains(n) {
+    if index.contains(n) {
       raise DuplicateColumn(n)
     }
-    seen[n] = ()
     // `field` raises `ColumnNotFound(n)` for an unknown name; it propagates.
     picked.push(self.field(n))
+    index[n] = picked.length() - 1
   }
-  { fields: picked }
+  { fields: picked, index }
 }
 
 ///|
@@ -126,14 +151,17 @@ pub fn Schema::rename(
     return self
   }
   let idx = self.index_of(old_name)
-  // A *present* `new_name` is the collision case — a total membership
-  // check over the fields, with no raising probe.
-  if self.fields.search_by(fn(f) { f.name == new_name }) is Some(_) {
+  // A *present* `new_name` is the collision case — an `O(1)` membership check
+  // against the name index, with no raising probe.
+  if self.index.contains(new_name) {
     raise DuplicateColumn(new_name)
   }
   let next = self.fields.copy()
   next[idx] = self.fields[idx].rename(new_name)
-  { fields: next }
+  // Rebuilt rather than patched: the names are unique by the check above, so
+  // this cannot raise, and one derivation of the index means there is no second
+  // place for it to fall out of step with the fields.
+  { fields: next, index: name_index(next) }
 }
 
 ///|

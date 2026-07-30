@@ -1,15 +1,18 @@
 #!/bin/sh
 #
-# Pre-commit quality gate. Mirrors the machine-checked gates CI enforces,
-# so a bad commit is caught locally before it is pushed:
+# Pre-commit quality gate — the fast core subset of what CI runs, so the
+# mistakes that are cheap to catch are caught before a push:
 #   1. type-check with warnings treated as errors (0 warnings);
 #   2. refresh formatting and the generated `.mbti` interfaces, failing if
 #      either leaves changes you haven't staged (run `moon fmt && moon info`
 #      and stage the result, then re-commit);
-#   3. run the test suite.
+#   3. run the test suite on the default target.
 #
-# Coverage is deliberately left to CI (`moon coverage analyze`): it is too
-# slow to run on every commit. To skip this hook in a pinch use
+# It is deliberately *not* the whole gate: the every-backend run, coverage,
+# the benchmarks, the fuzz and parity suites, and the documentation /
+# architecture guards are all too slow for every commit and run in CI instead.
+# The complete list lives in `.github/workflows/ci.yml`, with what each guard
+# governs in `AGENTS.md`. To skip this hook in a pinch use
 # `git commit --no-verify`.
 set -e
 

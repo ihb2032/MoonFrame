@@ -24,35 +24,7 @@ pub struct Bitmap {
 } derive(Debug)
 
 ///|
-pub extend Bitmap with Eq::{equal, not_equal}
-
-///|
 pub extend Bitmap with Debug::{to_repr}
-
-///|
-/// Logical equality: two bitmaps are equal iff they have the same length
-/// and the same validity bit at every logical slot. The comparison walks
-/// the `[offset, offset + len)` windows rather than the raw buffers, so a
-/// zero-copy `slice` view equals a freshly packed bitmap with the same bits
-/// (a derived structural `Eq` would compare `offset` / buffer identity and
-/// wrongly call them unequal). For two tight, offset-0 bitmaps — every
-/// bitmap before `slice` views existed — this agrees bit-for-bit with the
-/// old structural equality.
-pub impl Eq for Bitmap with fn equal(self, other) {
-  if self.len != other.len {
-    false
-  } else {
-    let mut equal = true
-    for i in 0..<self.len {
-      if bit_at(self.bits, self.offset + i) !=
-        bit_at(other.bits, other.offset + i) {
-        equal = false
-        break
-      }
-    }
-    equal
-  }
-}
 
 // ── Constructors ──────────────────────────────────────────────────────
 
@@ -114,37 +86,48 @@ pub fn Bitmap::is_valid_total(self : Bitmap, index : Int) -> Bool {
 ///|
 /// Number of null (0) bits in the logical range `[offset, offset + len)`.
 ///
-/// When `offset == 0` the window is byte-aligned at the front, so the full
-/// bytes `[0, len / 8)` are popcounted whole (one `popcount_byte` per 8
-/// slots) and only the final partial byte is masked down to its in-window
-/// bits `[0, len % 8)`. That mask is essential: a zero-copy `slice` view
-/// shares its parent's buffer, so the bits past `len` in that last byte may
-/// be live sibling bits — popcounting them unmasked would over-count valids
-/// (and a constructor-built bitmap keeps those bits zero, so the mask is a
-/// no-op there). An `offset != 0` view has no byte-aligned start, so it
-/// counts its window bit by bit.
+/// Counted a byte at a time wherever the window allows it, at **any** `offset`:
+/// the bits ahead of the first byte boundary inside the window are read
+/// individually, then every whole byte is popcounted (one `popcount_byte` per 8
+/// slots), then the trailing partial byte is masked down to its in-window bits.
+/// So the cost is `len / 8` byte reads plus at most 14 bit reads, rather than
+/// `len` of them — and it is a zero-copy `slice` that produces a non-zero
+/// `offset`, so the unaligned case is the sliced-column case, which
+/// `Series::count` walks once per column.
+///
+/// Both the head split and the tail mask are essential rather than
+/// optimizations: a `slice` view shares its parent's buffer, so the bits outside
+/// `[offset, offset + len)` may be live sibling bits, and popcounting a byte
+/// that straddles the window edge would count them as valids. (A
+/// constructor-built bitmap is tight and offset-0, so its head is empty and the
+/// bits past `len` are zero — there the split and the mask are both no-ops.)
 fn Bitmap::null_count(self : Bitmap) -> Int {
-  if self.offset == 0 {
-    let full = self.len / 8
-    let mut valid = 0
-    for i in 0..<full {
-      valid = valid + popcount_byte(self.bits[i])
+  let mut valid = 0
+  // The head: bits from `offset` up to the next byte boundary — none when the
+  // window already starts on one, and never past the window's own end.
+  let misalignment = self.offset % 8
+  let head = if misalignment == 0 { 0 } else { 8 - misalignment }
+  let head_len = if head < self.len { head } else { self.len }
+  for i in 0..<head_len {
+    if bit_at(self.bits, self.offset + i) {
+      valid = valid + 1
     }
-    let tail = self.len % 8
-    if tail != 0 {
-      let mask = (1 << tail) - 1
-      valid = valid + popcount_byte((self.bits[full].to_int() & mask).to_byte())
-    }
-    self.len - valid
-  } else {
-    let mut valid = 0
-    for i in 0..<self.len {
-      if bit_at(self.bits, self.offset + i) {
-        valid = valid + 1
-      }
-    }
-    self.len - valid
   }
+  // What is left starts on a byte boundary, so it splits into whole bytes and a
+  // partial tail exactly as an offset-0 window does.
+  let rest = self.len - head_len
+  let first_byte = (self.offset + head_len) / 8
+  let full = rest / 8
+  for i in 0..<full {
+    valid = valid + popcount_byte(self.bits[first_byte + i])
+  }
+  let tail = rest % 8
+  if tail != 0 {
+    let mask = (1 << tail) - 1
+    valid = valid +
+      popcount_byte((self.bits[first_byte + full].to_int() & mask).to_byte())
+  }
+  self.len - valid
 }
 
 ///|

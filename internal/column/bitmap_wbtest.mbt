@@ -214,7 +214,7 @@ test "take with empty index array returns an empty bitmap" {
 
 // ── bit_and ───────────────────────────────────────────────────────────
 
-// ── zero-copy slice views (P3) ───────────────────────────────────────
+// ── zero-copy slice views ────────────────────────────────────────────
 
 ///|
 test "sliced view equals a freshly packed bitmap and counts its own window" {
@@ -250,7 +250,7 @@ test "bitmap equality is logical, not structural" {
 }
 
 ///|
-test "null_count of an offset-0 sub-window masks the shared tail byte (P3 regression)" {
+test "null_count of an offset-0 sub-window masks the shared tail byte" {
   // A slice that starts at bit 0 but is shorter than its parent, yet rounds
   // up to the same byte count, shares the parent's final byte — where the
   // bits past `len` are live sibling bits. The popcount fast path must mask
@@ -269,14 +269,17 @@ test "null_count of an offset-0 sub-window masks the shared tail byte (P3 regres
 test "null_count over every slice agrees with a naive bit-by-bit count" {
   // Property: for a fixed pattern the null_count of every
   // `[start, start + len)` slice equals the per-bit count — covering offset 0
-  // and offset != 0, full bytes and masked tails, all against the
-  // shared-buffer fast path.
-  let pattern = [
-    true, false, true, true, false, false, true, false, true, true, false, true,
-    false,
-  ]
+  // and offset != 0, an unaligned head, whole popcounted bytes in the middle,
+  // and masked tails, all against the shared-buffer fast path.
+  //
+  // The pattern spans four bytes so an *unaligned* window can still contain
+  // whole bytes: the byte-at-a-time middle is only reachable when the window
+  // holds eight bits past its head, which a three-byte pattern never leaves room
+  // for. Its period is 5, coprime with a byte's 8 bits and longer than the
+  // buffer, so no two bytes of it hold the same mix.
+  let n = 29
+  let pattern = Array::makei(n, i => i % 5 != 2)
   let bm = mask(pattern)
-  let n = pattern.length()
   for start in 0..<(n + 1) {
     for len in 0..<(n - start + 1) {
       let mut expected = 0

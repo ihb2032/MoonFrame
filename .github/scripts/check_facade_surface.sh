@@ -184,12 +184,16 @@ extract() {
         alias = ""
         next
       }
-      # A struct body line: `  <name> : <type>`. Enum variants never carry a
-      # `:`, and an opaque struct says `// private fields` instead, so only
-      # genuinely public fields land here. The type rides along for the same
-      # reason a signature does — `Bool` widening to `Bool?` is a break that
-      # leaves the field name untouched.
-      /^  [A-Za-z_][A-Za-z0-9_]* : / && tname != "" {
+      # A struct body line: `  <name> : <type>`, or `  mut <name> : <type>`.
+      # Enum variants never carry a `:`, and an opaque struct says
+      # `// private fields` instead, so only genuinely public fields land here.
+      # The type rides along for the same reason a signature does — `Bool`
+      # widening to `Bool?` is a break that leaves the field name untouched — and
+      # so does `mut`, which the rule below rejects outright. Matching it here is
+      # what makes that possible: a pattern without the optional `mut` skips such
+      # a field entirely, leaving it out of the snapshot *and* out of reach of
+      # every rule, which is the quietest way for one to appear.
+      /^  (mut )?[A-Za-z_][A-Za-z0-9_]* : / && tname != "" {
         fdecl = $0
         sub(/^ +/, "", fdecl)
         print "field " tname "." fdecl " <- " pkg
@@ -292,6 +296,23 @@ if [ -n "$mutable_fields" ]; then
   printf '  write through it — into a value already captured elsewhere. Make\n'
   printf '  the field `priv` and add an accessor that returns a copy, as\n'
   printf '  `CsvReadOptions::null_values` and `JoinOptions::on_keys` do.\n'
+  exit 1
+fi
+
+# The same leak one step earlier, and for any type at all: `mut` on a public
+# field lets a caller *assign* into a value it merely read, so every holder of
+# that value — a captured plan, an options struct passed to two readers — sees
+# the change. No type here has one; the rule is what keeps that true, now that
+# the extractor above can see one.
+mutable_field_decls=$(printf '%s\n' "$current" |
+  grep -E '^field [A-Za-z0-9_]+\.mut ' || true)
+if [ -n "$mutable_field_decls" ]; then
+  printf 'facade surface: a public `mut` field:\n'
+  printf '%s\n' "$mutable_field_decls" | sed 's/^/  /'
+  printf '  A caller that can read the value can now write into it, and every\n'
+  printf '  other holder of that value sees the write. Every public type here is\n'
+  printf '  immutable once built: keep the field `priv` behind a constructor, and\n'
+  printf '  return a modified copy where a setter was wanted.\n'
   exit 1
 fi
 

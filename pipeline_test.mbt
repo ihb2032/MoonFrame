@@ -7,14 +7,15 @@
 // on `DataFrame`, reached automatically through the `type DataFrame`
 // re-export.
 
-// ── End-to-end file-backed pipeline (matches PLAN §6.4) ──────────────
+// ── End-to-end file-backed pipeline ─────────────────────────────────
 
 ///|
 test "pipeline: read_csv → filter → select → sort → describe → to_markdown" {
   // Stage a fixture in `_build/` via the public `write_csv` API so the
-  // test stays self-contained — no checked-in fixture file required.
-  // The pipeline then runs against `read_csv`, which is the exact path
-  // the plan's §6 acceptance criterion calls out.
+  // test stays self-contained — no checked-in fixture file required. The
+  // pipeline then runs against `read_csv`, so the whole path a user takes —
+  // write a file, read it back, transform, render — is covered end to end
+  // through the facade alone.
   let path = "_build/pipeline_facade_fixture.csv"
   let staged = DataFrame::DataFrame([
     Series::from_strings("region", ["west", "east", "west", "north"]),

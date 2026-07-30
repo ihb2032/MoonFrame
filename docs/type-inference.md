@@ -53,7 +53,14 @@ validates the cells against the schema you pass.
 
 ## Numeric forms
 
-Numeric parsing follows pandas / polars conventions:
+The three readers agree on the priority order and the window, but not on what a
+number *looks like* — a CSV cell is text the reader parses, while a JSON or
+NDJSON value arrives already typed from a standards-conformant parser. So the
+numeric rules are per-format.
+
+### CSV tokens
+
+Token parsing follows pandas / polars conventions:
 
 - `0x` / `0o` / `0b` prefixes and `1_000` underscore grouping stay `String` —
   they are *not* read as numbers.
@@ -61,6 +68,23 @@ Numeric parsing follows pandas / polars conventions:
   is promoted to `Float`, not silently truncated.
 - `nan` / `inf` / `infinity` tokens — and a finite literal beyond the `Double`
   range, which collapses to `±Inf` per IEEE 754 (e.g. `1e999`) — are accepted as
-  `Float` by default. CSV's `allow_nonfinite_floats = false` rejects them during
+  `Float` by default. `allow_nonfinite_floats = false` rejects them during
   inference, so a column of such tokens falls back to `String` instead of being
   read as `Float`.
+
+### JSON / NDJSON numbers
+
+Standard JSON has a single number type and no `nan` / `inf` / `infinity`
+literals, so those rules do not carry over:
+
+- a bare `NaN` / `Infinity` token is a *parse* failure, not a `Float` cell.
+  There is no `allow_nonfinite_floats` on `JsonReadOptions` because there is
+  nothing for it to accept, and `write_json` / `write_ndjson` write a non-finite
+  cell as JSON `null` (pandas' `to_json` convention) — so it reads back as a
+  null, not as `±Inf`.
+- an integer within `Int64`'s range round-trips exactly even past 2^53: the
+  writer records its verbatim digits alongside the number and the reader recovers
+  them. Only a JSON integer beyond `Int64`'s own range infers `Float`.
+- a whole-valued `Float` (`2.0`) is written `2` and re-infers as `Int`. This is
+  the one direction CSV keeps that JSON cannot: the text `"2.0"` still carries a
+  decimal point, and a JSON number does not.

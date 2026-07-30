@@ -116,7 +116,7 @@ jobs:
 
       # (3/4) `moon info`: regenerate the interface (`pkg.generated.mbti`)
       # files and fail on any drift. Ahead of the guards below on purpose —
-      # three of them read those files, so regenerating first means an
+      # several of them read those files, so regenerating first means an
       # accidental export is diagnosed by the guard that can name it ("a method
       # added to a re-exported type", "an internal package in a public
       # interface") rather than by a generic interface diff.

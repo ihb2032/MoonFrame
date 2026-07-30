@@ -245,11 +245,13 @@ on the surface. Plenty of other verbs return fewer rows than they were given —
 `filter`, `unique`, `head`, `tail`, `slice`, `gather` — they just do not
 describe themselves as removal.
 
-**Row-major is the supported shape.** `DataFrame::rows` hands back
+**Row-major is the supported *matrix* shape.** `DataFrame::rows` hands back
 `result[r][c]` — one entry per row, cells in column order — with
 `DataFrame::row(i)` for a single row and `item(r, name)` for a single cell.
-There is no supported column-major reader: a `Series` already *is* a column, so
-reach a column through `get_column(name)` rather than transposing a matrix.
+There is no column-major counterpart to `rows`, and none is needed: a `Series`
+already *is* a column, so read one with `get_column(name)` and walk every column
+in declaration order with `column_series()` — total, where a `get_column` per
+name is both fallible and a lookup each time.
 
 **Every deferrable positional verb has the same name in both layers, bar one.**
 `head`, `tail`, `slice`, `reverse` and `with_row_index` are spelled identically

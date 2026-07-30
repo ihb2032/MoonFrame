@@ -29,8 +29,10 @@
 //     reduction kernel's total accessors, not `DataFrame`'s old raising
 //     per-column reductions.)
 //
-// A 0-column frame collapses to `0×0` (there is no column to anchor the
-// single row), matching `null_count`.
+// A 0-column frame reduces to `1×0`: there is one summary row per source
+// frame whatever its shape, and with no column to reduce that row is simply
+// empty. `reduce_to_row` passes the height explicitly for that reason, as
+// `null_count` does.
 //
 // The per-column scalar reductions (`df.sum("col")` → `Scalar`) are
 // retired: read one column's scalar through its `Series`, e.g.

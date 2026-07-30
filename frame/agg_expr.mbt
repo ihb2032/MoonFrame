@@ -247,15 +247,22 @@ fn reduces_per_group(expr : @expr.Expr) -> Bool {
 /// or any non-aggregation returns `None` and takes the general per-group
 /// evaluator — which the fast path reproduces cell for cell.
 fn bare_col_agg(expr : @ir.ExprNode) -> (String, ReduceOp)? {
-  match expr {
-    @ir.ExprNode::Alias(inner, _) => bare_col_agg(inner)
-    // The `Agg`'s operand is an AST node, so its `Col`-ness is a second step.
-    @ir.ExprNode::Agg(op, operand) =>
-      match operand {
-        @ir.ExprNode::Col(name) => Some((name, reduce_op_of_agg(op)))
-        _ => None
-      }
-    _ => None
+  // The aliases are peeled with a cursor rather than the call stack:
+  // `with_alias` stacks without bound, so a recursive peel would overflow on a
+  // deep one — the same reason the engine's other expression walks are
+  // iterative. Only `Alias` advances the cursor; everything else answers.
+  let mut node = expr
+  for ;; {
+    match node {
+      @ir.ExprNode::Alias(inner, _) => node = inner
+      // The `Agg`'s operand is an AST node, so its `Col`-ness is a second step.
+      @ir.ExprNode::Agg(op, operand) =>
+        return match operand {
+          @ir.ExprNode::Col(name) => Some((name, reduce_op_of_agg(op)))
+          _ => None
+        }
+      _ => return None
+    }
   }
 }
 

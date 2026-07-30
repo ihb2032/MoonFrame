@@ -1220,7 +1220,7 @@ test "write_csv with options: invalid path surfaces as IoError" {
 // ── CsvReadOptions / CsvWriteOptions defaults ─────────────────────────
 
 ///|
-test "CsvReadOptions::default exposes expected defaults" {
+test "CsvReadOptions defaults every field" {
   let opts = @io.CsvReadOptions::CsvReadOptions()
   assert_eq(opts.has_header, true)
   assert_eq(opts.delimiter, ',')
@@ -1232,7 +1232,7 @@ test "CsvReadOptions::default exposes expected defaults" {
 }
 
 ///|
-test "CsvWriteOptions::default exposes expected defaults" {
+test "CsvWriteOptions defaults every field" {
   let opts = @io.CsvWriteOptions::CsvWriteOptions()
   assert_eq(opts.header, true)
   assert_eq(opts.delimiter, ',')

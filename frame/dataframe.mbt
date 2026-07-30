@@ -13,11 +13,9 @@
 /// so it cannot mutate a validated frame into an inconsistent state.
 ///
 /// What every constructor here establishes and every transform preserves is
-/// that the four parts agree: the schema mirrors the columns (names and
-/// dtypes), every column is `nrows` tall, `nrows` is non-negative, and the
-/// lookup cache maps each name to the position that carries it. The normative
-/// list is INV1–INV7 in `frame/invariants.mbt`, spelled out there once and
-/// checked by `check_invariants`; restating it here is how the two drift.
+/// that those four parts agree. That agreement is written once — as INV1–INV7 in
+/// `frame/invariants.mbt`, checked by `check_invariants` — and deliberately not
+/// restated here, since a second copy is how the two would drift.
 pub struct DataFrame {
   priv schema : @types.Schema
   priv columns : Array[Series]
@@ -593,24 +591,33 @@ fn DataFrame::with_same_schema(
 ///
 /// Written without a wildcard so a new `ExprNode` variant has to state whether it
 /// is a pure rename rather than defaulting to "no".
+///
+/// Aliases are peeled with a cursor rather than the call stack: `with_alias`
+/// stacks without bound, so a recursive peel would overflow on a deep one — the
+/// same reason every other expression walk in the engine is iterative. Only
+/// `Alias` advances the cursor; every other variant is an answer, so the loop
+/// runs once per alias and stops.
 fn projection_source(expr : @ir.ExprNode) -> String? {
-  match expr {
-    @ir.ExprNode::Col(name) => Some(name)
-    @ir.ExprNode::Alias(inner, _) => projection_source(inner)
-    @ir.ExprNode::Lit(_)
-    | @ir.ExprNode::LitSeries(_)
-    | @ir.ExprNode::Binary(_, _, _)
-    | @ir.ExprNode::Unary(_, _)
-    | @ir.ExprNode::Agg(_, _)
-    | @ir.ExprNode::Str(_, _)
-    | @ir.ExprNode::Cast(_, _)
-    | @ir.ExprNode::Ternary(_, _, _)
-    | @ir.ExprNode::FillNull(_, _)
-    | @ir.ExprNode::FillNan(_, _)
-    | @ir.ExprNode::IsIn(_, _)
-    | @ir.ExprNode::IsBetween(_, _, _, _)
-    | @ir.ExprNode::Map(_, _, _)
-    | @ir.ExprNode::MapBatches(_, _, _, _) => None
+  let mut node = expr
+  for ;; {
+    match node {
+      @ir.ExprNode::Alias(inner, _) => node = inner
+      @ir.ExprNode::Col(name) => return Some(name)
+      @ir.ExprNode::Lit(_)
+      | @ir.ExprNode::LitSeries(_)
+      | @ir.ExprNode::Binary(_, _, _)
+      | @ir.ExprNode::Unary(_, _)
+      | @ir.ExprNode::Agg(_, _)
+      | @ir.ExprNode::Str(_, _)
+      | @ir.ExprNode::Cast(_, _)
+      | @ir.ExprNode::Ternary(_, _, _)
+      | @ir.ExprNode::FillNull(_, _)
+      | @ir.ExprNode::FillNan(_, _)
+      | @ir.ExprNode::IsIn(_, _)
+      | @ir.ExprNode::IsBetween(_, _, _, _)
+      | @ir.ExprNode::Map(_, _, _)
+      | @ir.ExprNode::MapBatches(_, _, _, _) => return None
+    }
   }
 }
 
@@ -673,8 +680,8 @@ fn DataFrame::with_renamed_fields(
 
 ///|
 /// Resolve a `subset` selector — an `Array[Expr]` of column keys — to the named
-/// columns, validating in order. Each key names a column through the §0 naming
-/// rule (`Expr::output_name`: a bare `col("x")` names `"x"`, an alias names the
+/// columns, validating in order. Each key names a column through
+/// `Expr::output_name` (a bare `col("x")` names `"x"`, an alias names the
 /// alias), and `get_column` raises `ColumnNotFound` on the first name absent
 /// from the frame, before any per-row work runs. The key expression is **never
 /// evaluated** — only its output name is consulted — the shared "name-only"

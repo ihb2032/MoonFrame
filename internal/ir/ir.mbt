@@ -149,11 +149,15 @@ pub extend AggOp with Eq::{equal, not_equal}
 pub extend AggOp with Debug::{to_repr}
 
 ///|
-/// String-operation tag carried by `Str` — one variant per method of the
+/// String-operation tag carried by `Str` — the lowered forms of the
 /// `Expr::str_*` namespace, the parameterised ones carrying their literal
-/// arguments so a tag is self-contained and structurally comparable. The regex
-/// variants (`ContainsRegex` / `ReplaceRegex` / `ReplaceAllRegex` / `Extract` /
-/// `CountMatches`) carry a POSIX pattern; the rest are literal.
+/// arguments so a tag is self-contained and structurally comparable. Not one
+/// variant per method: a method whose argument selects the matching mode lowers
+/// to a different tag per mode, which is why the regex variants
+/// (`ContainsRegex` / `ReplaceRegex` / `ReplaceAllRegex` / `Extract` /
+/// `CountMatches`, each carrying a POSIX pattern) outnumber the `literal?`-taking
+/// methods that reach them, and why `StripChars` and `StripCharsCustom` are two
+/// tags for one method.
 pub(all) enum StrOp {
   ToUppercase
   ToLowercase

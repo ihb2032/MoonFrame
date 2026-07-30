@@ -388,6 +388,19 @@ expect_out 1 'field HtmlOptions.classes : Array[String]' \
   'facade surface: a public field holding a mutable array' \
   sh "$scripts/check_facade_surface.sh" "$work/fs_mutable_field"
 
+# `mut` on a public field is the same leak without the container, and it used to
+# be doubly invisible: the field extractor matched only the plain `name : Type`
+# form, so such a field entered neither the snapshot nor any rule. The snapshot
+# here lists it — as the mutable-container case above does — so the case can only
+# pass by the rule firing.
+mkfacadesurface "$work/fs_mut_field" "$fs_root" \
+  "$(printf '%s\n' "$fs_frame" | sed 's/^  escape : Bool$/  mut escape : Bool/')" \
+  "$(printf '%s\n' "$fs_snap" |
+    sed 's/^field HtmlOptions\.escape : Bool <- frame$/field HtmlOptions.mut escape : Bool <- frame/')"
+expect_out 1 'a public `mut` field' \
+  'facade surface: a public field is mutable' \
+  sh "$scripts/check_facade_surface.sh" "$work/fs_mut_field"
+
 # The constructor case is the same shape, and the one most easily mistaken for
 # additive: an optional parameter with a default becoming required.
 mkfacadesurface "$work/fs_required" "$fs_root" \
@@ -589,6 +602,19 @@ mklayering "$work/ly_root_dep" "$ly_frame" "$ly_kernel" 'import {
 }'
 expect_out 1 'the root facade imports' 'layering: the facade imports beyond the six public packages' \
   sh "$scripts/check_layering.sh" "$work/ly_root_dep"
+
+# The other direction, and the one the edge extractor could not see: the facade
+# package's path *is* the module name, with no `/` after it, so an import of it
+# read as no edge at all — leaving the one dependency that closes a loop through
+# every package the facade re-exports invisible to all five rules above.
+mklayering "$work/ly_imports_root" 'import {
+  "ihb2032/MoonFrame/series",
+  "ihb2032/MoonFrame/internal/kernel",
+  "ihb2032/MoonFrame",
+}' "$ly_kernel" "$ly_root"
+expect_out 1 'imports the root facade' \
+  'layering: a package below the facade imports it' \
+  sh "$scripts/check_layering.sh" "$work/ly_imports_root"
 
 mklayering "$work/ly_leak" "$ly_frame" "$ly_kernel" "$ly_root"
 printf 'package "ihb2032/MoonFrame/frame"\n\nimport {\n  "ihb2032/MoonFrame/internal/column",\n}\n' \
@@ -1218,6 +1244,15 @@ mkmbti "$work/is_no_field" '  // private fields
 '
 expect 0 'internal surface: private fields leave the interface clean' \
   sh "$scripts/check_internal_surface.sh" "$work/is_no_field"
+
+# `mut <name> : <type>` is a published field too, and the worst kind — the layer
+# above could write through it. The pattern used to match only the plain form,
+# so the one field shape most worth catching was the one it could not see.
+mkmbti "$work/is_mut_field" '  mut len : Int
+'
+expect_out 1 'a published field in an internal package' \
+  'internal surface: a mutable field in an internal interface' \
+  sh "$scripts/check_internal_surface.sh" "$work/is_mut_field"
 
 # Types are audited too: a `pub(all) enum` nobody outside names is capability
 # handed over — the power to match and construct every variant — for no reason.

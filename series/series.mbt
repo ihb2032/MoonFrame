@@ -5,9 +5,12 @@
 /// `frame` and `io` layers build on.
 ///
 /// Its backend is an internal representation — Arrow-style storage with an
-/// explicit validity bitmap, or an all-valid unboxed numeric fast path — chosen
-/// and canonicalised by the engine, and computed or rebuilt results are
-/// re-converged onto the fast path automatically. The **supported** API neither
+/// explicit validity bitmap, or an all-valid unboxed numeric fast path — decided
+/// by a column's content rather than by its caller: the row rebuilds and the
+/// expression engine's computed columns converge a null-free numeric result onto
+/// the fast path (`try_column_to_numeric`), while the nullable constructors,
+/// `cast`, and the backend-preserving windows leave a column on whichever
+/// backend they found it. The **supported** API neither
 /// observes nor selects it: the few methods that do (`storage` /
 /// `storage_kind` / `is_canonical`) are engine seams, absent from the generated
 /// interface and carrying no compatibility promise, so a caller outside this

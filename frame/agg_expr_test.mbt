@@ -674,3 +674,30 @@ test "grouped agg over zero groups consumes the deferred probe" {
     ),
   )
 }
+
+///|
+test "a deeply aliased aggregation takes the bare-column fast path without overflow" {
+  // `bare_col_agg` peels top-level aliases to recognise `col(n).<agg>()` — the
+  // fast path a plain aggregation takes — and `with_alias` stacks without bound.
+  // Peeling on the call stack overflowed and aborted at this depth; the cursor
+  // reaches the aggregation, so the result is the same as the unaliased form
+  // under the alias's own name.
+  let df = DataFrame::DataFrame([
+    Series::from_ints("k", [1, 1, 2]),
+    Series::from_ints("a", [10, 20, 30]),
+  ])
+  let mut e = @expr.col("a").sum()
+  for _ in 0..<100000 {
+    e = e.with_alias("total")
+  }
+  let out = df.group_by([@expr.col("k")]).agg([e])
+  assert_eq(out.columns(), ["k", "total"])
+  assert_eq(
+    out.get_column("total"),
+    df
+    .group_by([@expr.col("k")])
+    .agg([@expr.col("a").sum().with_alias("total")])
+    .get_column("total"),
+  )
+  assert_eq(out.check_invariants(), Ok(()))
+}

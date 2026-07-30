@@ -1,6 +1,6 @@
 // Grounding tests for the `check_invariants` specification:
-// prove that every P5 constructor (`new`, `empty`, `from_rows`) and
-// every P5 structural transform (`head`, `tail`, `slice`, `gather`)
+// prove that every constructor (`DataFrame::DataFrame`, `empty`, `from_rows`)
+// and every structural transform (`head`, `tail`, `slice`, `gather`)
 // yields a DataFrame that satisfies the invariants. If any of these
 // regress, every downstream op test that relies on `check_invariants`
 // would too — so this file is the canary.

@@ -15,12 +15,9 @@ pub fn physical_type(@types.DataType) -> PhysicalType?
 pub struct Bitmap {
   // private fields
 } derive(@debug.Debug)
-pub fn Bitmap::equal(Self, Self) -> Bool
 pub fn Bitmap::is_valid_total(Self, Int) -> Bool
-pub fn Bitmap::not_equal(Self, Self) -> Bool
 pub fn Bitmap::to_bools(Self) -> Array[Bool]
 pub fn Bitmap::to_repr(Self) -> @debug.Repr
-pub impl Eq for Bitmap
 
 pub struct BuiltinColumn {
   // private fields
@@ -88,11 +85,7 @@ pub(all) enum PhysicalType {
   F64
   Bool
   Utf8
-} derive(@debug.Debug)
-pub fn PhysicalType::output(Self, &Logger) -> Unit
-pub fn PhysicalType::to_repr(Self) -> @debug.Repr
-pub fn PhysicalType::to_string(Self) -> String
-pub impl Show for PhysicalType
+}
 
 pub(all) enum StorageKind {
   Builtin

@@ -209,8 +209,9 @@ source-level upgrade steps are collected in [`migration.md`](migration.md).
 - The methods that *forced* a backend are gone rather than hidden:
   `Series::to_numeric` / `to_builtin` and `DataFrame::to_numeric` /
   `to_builtin`. Nothing in the engine called them — a column reaches the
-  unboxed fast path from its own content, through `try_column_to_numeric`, and
-  never moves back — so they were public only for the tests that forced a
+  unboxed fast path from its own content, through `try_column_to_numeric`, with
+  nothing a caller can say to put it there or take it away — so they were
+  public only for the tests that forced a
   backend to compare the two. Those tests now build the pair they compare out
   of the ordinary constructors: `from_ints` lands on `Numeric`,
   `from_int_options` on `Builtin`.
@@ -305,6 +306,26 @@ source-level upgrade steps are collected in [`migration.md`](migration.md).
     through a direct package import (`@frame.DataFrame::DataFrame(...)`).
 
 ### Fixes
+
+- A deeply aliased expression no longer overflows the stack. `with_alias` stacks
+  without bound, and two readers peeled those aliases *recursively* to answer a
+  question about the expression underneath: whether a projection only renames a
+  column (so its declared `nullable` rides along) and whether an aggregation is
+  the plain `col(n).<agg>()` its fast path handles. Both peel with a loop now,
+  like every other expression walk in the engine, so a hundred thousand aliases
+  resolve where they used to abort.
+
+- Three costs the notes in [`performance.md`](performance.md) already claimed:
+  `count` on a *sliced* nullable column reads bytes again (a zero-copy slice
+  advances its validity view's bit offset, and the popcount path bailed to one
+  read per row whenever that offset was not a multiple of 8 — on exactly the
+  columns slicing produces); a `Schema` resolves a name in `O(1)`, building its
+  `name → index` map in the pass that already rejected duplicates, where
+  `index_of` / `field` / `select` / `rename` used to walk the field array once
+  per name (`O(c²)` to project `c` columns); and comparing two columns no longer
+  materialises both validity masks as dense arrays before it has even compared
+  their dtypes. No result changes — these are the same answers, arrived at the
+  way the page says.
 
 - `slice` reports a negative `end` as `IndexOutOfBounds`, the error its
   documentation always promised for an index outside the frame. Only
@@ -413,7 +434,8 @@ suite and tightens module metadata and documentation.
 
 ### Benchmarks
 
-Each library package now carries a `bench_test.mbt` file driving `moon bench`:
+The four packages that own execution carry a `bench_test.mbt` file driving
+`moon bench`:
 `series` reductions contrasting the `Numeric` fast path against `Builtin`,
 `frame` `sort` / `group_by` / `join` / `filter`, `io` string parsing, and an
 eager-vs-lazy pipeline — at 1K / 100K / 1M rows where scaling is informative.

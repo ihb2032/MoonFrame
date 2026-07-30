@@ -319,7 +319,11 @@ tree never fails:
 - **Result length**: every consumer (`select` / `with_columns` / `filter` /
   `sort` / `group_by` / `agg` / `join` keys) accepts a result of the evaluation
   height or of length 1, which broadcasts over it — down to zero rows on an
-  empty frame — and raises `LengthMismatch` on any other length. The built-in
+  empty frame — and raises `LengthMismatch` on any other length. What fixes the
+  evaluation height differs: `with_columns` takes the frame's, so a length-1
+  result always broadcasts to `nrows`; `select` reads it off the results, so
+  when *every* expression reduces to length 1 the output is the one-row summary
+  frame (`df.select([col("a").sum()])` is `1×1`, not `nrows` copies). The built-in
   algebra only produces those two; the two nodes carrying a caller's own data
   can produce a third (a `lit_series` keeps its series' length, a `map_batches`
   closure returns what it likes), which is where the error comes from. Under
@@ -400,7 +404,15 @@ and there are none.
 `collect` runs two total rewrites before executing. They preserve the cells a
 successful plan produces; what they can change is whether an error in data the
 optimized plan never reads is seen at all — see the file-source exception
-below:
+below.
+
+One plan shape opts out entirely: when a `LazyFrame` value is shared across both
+sides of a `join`, the plan is a DAG rather than a tree, and both passes return
+it untouched — rewriting is tree-wise, so it would materialise the shared
+subplan once per occurrence. Such a plan executes as built (the memoised
+executor still runs each shared subplan once), and `explain(optimized=true)`
+renders the as-built tree. Everything below describes a plan without that
+sharing, which is every chain the builders produce otherwise:
 
 - **Predicate pushdown** sinks each `filter` toward the scan so rows drop as
   early as possible — below a selection when its expressions are row-local (no

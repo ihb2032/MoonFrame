@@ -316,6 +316,14 @@ the tree and calls the `internal/kernel` column kernels — vectorized
 (whole-column at a time), raising `DataError` at evaluation time — building the
 tree never fails:
 
+- **Result length**: every consumer (`select` / `with_columns` / `filter` /
+  `sort` / `group_by` / `agg` / `join` keys) accepts a result of the evaluation
+  height or of length 1, which broadcasts over it — down to zero rows on an
+  empty frame — and raises `LengthMismatch` on any other length. The built-in
+  algebra only produces those two; the two nodes carrying a caller's own data
+  can produce a third (a `lit_series` keeps its series' length, a `map_batches`
+  closure returns what it likes), which is where the error comes from. Under
+  `agg` the contract narrows to one cell per group.
 - **Type promotion**: `Int op Int → Int`, `Float op Float → Float`, mixed
   promotes `Int → Float`; non-numeric arithmetic →
   `TypeMismatch(Operation(operation, left, right))`. `/` and `pow` are always
@@ -359,14 +367,13 @@ tree never fails:
   barrier — no filter sinks across it.
 - **Batched map** (`map_batches`) runs the closure once over the whole
   evaluated `Series` and takes back a `Series`, canonicalised onto its content
-  backend; the result broadcasts like a `lit_series` (frame-tall passes
-  through, length-1 broadcasts, else `LengthMismatch`). `returns_scalar=true`
-  marks it a per-group reduction accepted by `agg`.
+  backend; whatever length that series has meets the result-length contract
+  above. `returns_scalar=true` marks it a per-group reduction accepted by `agg`,
+  where the contract asks for exactly one cell per group.
 - **Literal series** (`lit_series`) is used verbatim — the data analogue of a
-  scalar literal's length-1 column — and the consumers broadcast it: a length-1
-  series fills the scope, a frame-tall one passes through, anything else is
-  `LengthMismatch`. Its backend is preserved (handed through, not re-derived),
-  and it reads no frame column.
+  scalar literal's length-1 column — and meets the same contract at its own
+  length. Its backend is preserved (handed through, not re-derived), and it
+  reads no frame column.
 
 ## The `N × 0` shape
 

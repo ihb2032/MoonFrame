@@ -10,9 +10,11 @@
 /// The predicate must evaluate to a `Bool` column (`TypeMismatch`
 /// otherwise). A row is kept where its cell is `true`; `false` **and
 /// null** cells drop the row (the Polars rule — an unknown is not a
-/// keep). A length-1 result — a literal, or an aggregation comparison
-/// like `col("qty").sum().gt(lit_int(0))` — broadcasts over the frame,
-/// keeping every row or none.
+/// keep). The mask rides the length contract in `expr_eval.mbt`: a length-1
+/// result — a literal, or an aggregation comparison like
+/// `col("qty").sum().gt(lit_int(0))` — broadcasts over the frame, keeping every
+/// row or none, while a mask that is neither frame-tall nor length-1 raises
+/// `LengthMismatch` instead of selecting rows by position.
 ///
 /// The returned frame has the same schema as `self` (a
 /// rejects-everything predicate leaves a 0-row frame with the original
@@ -21,8 +23,8 @@
 /// converges onto the backend its content implies (an all-valid numeric
 /// column lands on `Numeric`) — the engine-wide "backend is a function of
 /// content" rule, not a verbatim carry-over. Evaluation errors (unknown
-/// columns, dtype mismatches) surface here; building the predicate was
-/// total.
+/// columns, dtype mismatches, an off-frame mask length) surface here; building
+/// the predicate was total.
 pub fn DataFrame::filter(
   self : DataFrame,
   predicate : @expr.Expr,
@@ -45,9 +47,9 @@ pub fn filter_row_indices(
   let self = df
   let n = self.nrows()
   let scope = Array::makei(n, i => i)
-  // Evaluation yields a frame-tall or length-1 column — stretch a
-  // length-1 mask (literal / aggregation) over the frame, down to zero
-  // rows on an empty one.
+  // Stretch a length-1 mask (literal / aggregation) over the frame, down to
+  // zero rows on an empty one, and reject an off-frame one — the shared length
+  // contract (`expr_eval.mbt`).
   let mask = @kernel.broadcast_series(eval_expr(predicate, self, scope), n)
   // The rows the mask keeps, read on the column's own side of the seam — a
   // null cell is not a keep, alongside `false`. `None` means the predicate

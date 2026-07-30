@@ -20,8 +20,19 @@
 ///
 /// `scope` is the ordered row-index set an expression is evaluated under:
 /// `[0, nrows)` for whole-frame contexts, a group's row indices under
-/// `agg`. Every result is either `|scope|` tall or a
-/// length-1 broadcastable (literals and aggregations).
+/// `agg`.
+///
+/// **The length contract**, which every consuming verb enforces through
+/// `@kernel.broadcast_series` and none of them restates: a result of `|scope|`
+/// cells passes through, a length-1 result (a literal, an aggregation)
+/// broadcasts over the scope — down to zero rows on an empty one — and **any
+/// other length raises `LengthMismatch`**. The built-in algebra only ever
+/// produces the first two, which is why the third is easy to forget; the two
+/// nodes carrying a caller's own data do not. A `lit_series(s)` keeps `s`'s own
+/// length and a `map_batches` closure returns whatever length it likes, so a
+/// three-row frame and a two-cell series is the `LengthMismatch` case, not a
+/// silently reshaped frame. Under `agg` the contract narrows to one cell per
+/// group, since a group's reduction is a single value.
 ///
 /// Semantics, in one place (every rule inherited
 /// from the existing `Series` / `Scalar` surface, no new invention):

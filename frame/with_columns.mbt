@@ -16,9 +16,12 @@
 /// - two expressions producing the same output name raise
 ///   `DuplicateColumn` at the second — nothing silently wins.
 ///
-/// Length-1 results (literals) broadcast to `nrows` — to zero rows on an
-/// empty frame. Errors (unknown columns, dtype mismatches, the
-/// unrepresentable `Null` literal) surface here at evaluation time;
+/// Every result rides the length contract in `expr_eval.mbt`: a frame-tall one
+/// becomes the column, a length-1 one (a literal) broadcasts to `nrows` — to
+/// zero rows on an empty frame — and any other length raises `LengthMismatch`,
+/// which only a `lit_series` or a `map_batches` closure can produce. Errors
+/// (unknown columns, dtype mismatches, the unrepresentable `Null` literal, an
+/// off-frame length) surface here at evaluation time;
 /// building the expressions was total. `with_columns([])` adds nothing and
 /// returns the frame itself — a literal identity, declared schema included.
 /// A call that adds or replaces a column leaves the schema of every *other*

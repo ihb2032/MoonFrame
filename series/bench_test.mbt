@@ -58,7 +58,9 @@ test "series reductions: Numeric fast path vs Builtin" (b : @bench.T) {
     b.bench(name="min/numeric/\{n}", () => b.keep(numeric.min()))
     b.bench(name="min/builtin/\{n}", () => b.keep(builtin.min()))
     b.bench(name="max/numeric/\{n}", () => b.keep(numeric.max()))
+    b.bench(name="max/builtin/\{n}", () => b.keep(builtin.max()))
     b.bench(name="count/numeric/\{n}", () => b.keep(numeric.count()))
+    b.bench(name="count/builtin/\{n}", () => b.keep(builtin.count()))
   }
 }
 
@@ -69,4 +71,18 @@ test "series windowing: gather / slice" (b : @bench.T) {
   let reverse = Array::makei(n, i => n - 1 - i)
   b.bench(name="gather/reverse/\{n}", () => b.keep(gather_series(s, reverse)))
   b.bench(name="slice/first-half/\{n}", () => b.keep(slice_series(s, 0, n / 2)))
+  // A nullable `Builtin` column slid off byte alignment: its validity is a
+  // zero-copy view whose `offset` is not a multiple of 8, which is the input the
+  // byte-at-a-time `null_count` path has to handle without falling back to a
+  // bit-per-row scan. `slice/first-half` above cannot reach it — a `Numeric`
+  // column has no bitmap, and offset 0 is aligned by construction.
+  let nullable = Series::from_int_options(
+    "x",
+    Array::makei(n, i => if i % 7 == 0 { None } else { Some(i.to_int64()) }),
+  )
+  b.bench(name="slice/unaligned-offset/\{n}", () => {
+    b.keep(slice_series(nullable, 3, n))
+  })
+  let unaligned = slice_series(nullable, 3, n)
+  b.bench(name="count/builtin-unaligned/\{n}", () => b.keep(unaligned.count()))
 }

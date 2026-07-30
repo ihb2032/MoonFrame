@@ -171,13 +171,18 @@ fn add_all(acc : @set.Set[String], names : @set.Set[String]) -> Unit {
 fn already_narrows_inmemory(input : LogicalPlan, op : FrameOp) -> Bool {
   guard input is Scan(InMemory(df)) && op is Select(exprs) else { return false }
   let cols = df.columns()
+  // The scan's names as a membership set, built once. Scanning the name array
+  // per expression instead would cost `O(exprs · columns)` on every `Select`
+  // over an in-memory scan — which a wide frame pays in full, since a projection
+  // that keeps most columns reaches the last expression before answering.
+  let available : @set.Set[String] = @set.Set(cols)
   let read : @set.Set[String] = @set.Set([])
   for expr in exprs {
     // Any computed entry, or a name the scan lacks, means this is not a clean
     // projection onto the scan's columns: it either transforms or raises
     // `ColumnNotFound`, so it is not the narrowing the scan would insert. Let
     // the normal path narrow to whatever real columns it does read.
-    guard expr.node() is @ir.ExprNode::Col(name) && cols.contains(name) else {
+    guard expr.node() is @ir.ExprNode::Col(name) && available.contains(name) else {
       return false
     }
     read.add(name)

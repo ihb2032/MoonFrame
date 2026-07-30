@@ -33,10 +33,10 @@
 /// selects a backend for a caller — a column's backend follows its content.
 
 ///|
-/// Which backend a `ColumnStorage` (or `Series`) currently uses. `ArrowLike`
-/// from the original `moonframe.txt` draft is intentionally absent —
-/// post-P3.5 `Builtin` *is* the Arrow layout (data + validity bitmap,
-/// `1 = valid`), so a separate variant would be an empty shell.
+/// Which backend a `ColumnStorage` (or `Series`) currently uses. A third
+/// `ArrowLike` variant is intentionally absent: `Builtin` *is* the Arrow layout
+/// (data buffer + validity bitmap, `1 = valid`), so a separate variant would be
+/// an empty shell.
 pub(all) enum StorageKind {
   Builtin
   Numeric
@@ -80,17 +80,15 @@ pub impl Eq for ColumnStorage with fn equal(self, other) {
   if self.len() != other.len() {
     return false
   }
-  let av = self.validity().to_bools()
-  let bv = other.validity().to_bools()
   match (self.data(), other.data()) {
     (ColumnData::Int(a), ColumnData::Int(b)) =>
-      storage_cells_equal(a, b, av, bv, (x, y) => x == y)
+      storage_cells_equal(a, b, self, other, (x, y) => x == y)
     (ColumnData::Float(a), ColumnData::Float(b)) =>
-      storage_cells_equal(a, b, av, bv, (x, y) => x == y)
+      storage_cells_equal(a, b, self, other, (x, y) => x == y)
     (ColumnData::Bool(a), ColumnData::Bool(b)) =>
-      storage_cells_equal(a, b, av, bv, (x, y) => x == y)
+      storage_cells_equal(a, b, self, other, (x, y) => x == y)
     (ColumnData::String(a), ColumnData::String(b)) =>
-      storage_cells_equal(a, b, av, bv, (x, y) => x == y)
+      storage_cells_equal(a, b, self, other, (x, y) => x == y)
     // Different dtypes (different `ColumnData` variants) are never equal.
     // Spelled variant-by-variant (no wildcard) so a future `ColumnData`
     // variant fails compilation here instead of silently comparing unequal
@@ -123,27 +121,49 @@ pub impl Eq for ColumnStorage with fn equal(self, other) {
 }
 
 ///|
-/// Per-cell equality for `ColumnStorage::equal`: parallel value arrays `a` /
-/// `b` (equal length by the caller's check) and their validity `av` / `bv`. A
-/// cell pair is equal when both are null, or both valid with `eq`-equal values;
-/// a valid-vs-null pair is unequal. `eq` is the dtype's value comparison, so
-/// `Float` keeps `NaN != NaN`.
+/// Per-cell equality for `ColumnStorage::equal`: parallel value arrays `a` / `b`
+/// (equal length by the caller's check) and the columns `sa` / `sb` they came
+/// out of, read one validity slot at a time. A cell pair is equal when both are
+/// null, or both valid with `eq`-equal values; a valid-vs-null pair is unequal.
+/// `eq` is the dtype's value comparison, so `Float` keeps `NaN != NaN`.
+///
+/// Taking the columns rather than two dense `Array[Bool]` masks is what keeps a
+/// comparison allocation-free: materialising both masks meant two `n`-entry
+/// arrays *before* the dtypes had even been compared, so a `Series` or
+/// `DataFrame` equality — which reaches here once per column — paid for them on
+/// every column, and a mismatched pair paid before answering `false`.
 fn[T] storage_cells_equal(
   a : ArrayView[T],
   b : ArrayView[T],
-  av : Array[Bool],
-  bv : Array[Bool],
+  sa : ColumnStorage,
+  sb : ColumnStorage,
   eq : (T, T) -> Bool,
 ) -> Bool {
   for i in 0..<a.length() {
-    if av[i] != bv[i] {
+    let valid = sa.valid_at(i)
+    if valid != sb.valid_at(i) {
       return false
     }
-    if av[i] && !eq(a[i], b[i]) {
+    if valid && !eq(a[i], b[i]) {
       return false
     }
   }
   true
+}
+
+///|
+/// Whether slot `index` holds a value — the single-slot validity read behind
+/// `storage_cells_equal`, **total** (an out-of-range index reads as null rather
+/// than raising, like `Bitmap::is_valid_total`). The `Numeric` arm answers
+/// without a bitmap at all, since it has none and every slot is present by
+/// construction; the `Builtin` arm reads one bit out of the buffer it already
+/// owns. Neither allocates, which is the point — the dense `validity()`
+/// materialisation is for the callers that walk every slot anyway.
+fn ColumnStorage::valid_at(self : ColumnStorage, index : Int) -> Bool {
+  match self {
+    Builtin(c) => c.validity().is_valid_total(index)
+    Numeric(_) => true
+  }
 }
 
 // ── Inspection (transparent forwarding, both arms) ────────────────────

@@ -21,7 +21,7 @@
 /// floating-point comparison subtlety stays on the exact general path.
 pub fn eval_is_in(
   operand : Series,
-  members : Array[@types.Scalar],
+  members : ArrayView[@types.Scalar],
 ) -> Series raise @types.DataError {
   match try_fast_is_in(operand, members) {
     Some(result) => return result
@@ -56,7 +56,10 @@ pub fn eval_is_in(
 /// and the `TypeMismatch` on an incomparable member all stay on that one path.
 /// A null cell yields null and a null member is skipped, matching the general
 /// path.
-fn try_fast_is_in(operand : Series, members : Array[@types.Scalar]) -> Series? {
+fn try_fast_is_in(
+  operand : Series,
+  members : ArrayView[@types.Scalar],
+) -> Series? {
   let n = operand.len()
   let valid = validity_bools(operand)
   let name = operand.name()

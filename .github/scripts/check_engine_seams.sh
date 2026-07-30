@@ -291,31 +291,27 @@ if [ -n "$half_marked" ]; then
   exit 1
 fi
 
-# The widest seam in the list is `Series::storage`, and what makes it wide is
-# not its signature: it hands `internal/kernel` the column's *live* buffers,
-# through `data()`. A column is logically immutable and buffers are shared by
-# zero-copy slicing, so one index assignment into one of those arrays corrupts
-# the column it came from and every column sharing the buffer — with no import,
-# no signature, and no snapshot changing to show it. Read-only is therefore a
-# rule and not a comment: in any package that receives a buffer this way, a
-# name bound out of a `ColumnData` pattern — or a `let b = a` alias of one, or
-# a typed `*_values()` destructuring — may neither be assigned into nor have a
-# mutating `Array` method called on it. Only `internal/column` is exempt: it
-# builds the arrays in the first place. `series` used to be exempt too, on the
-# grounds that it owns the column; it does not own the buffers, and it passes
-# the rule without the exemption, so it no longer has one.
+# The widest seam in the list is `Series::storage`: it hands `internal/kernel`
+# the column's *live* buffers through `data()`. A column is logically immutable
+# and buffers are shared by zero-copy slicing, so one index assignment into one
+# of those arrays would corrupt the column it came from and every column
+# sharing the buffer — with no import, no signature, and no snapshot changing
+# to show it.
 #
-# What it cannot see, stated plainly because the alternative is trusting it too
-# far: a buffer handed to a function, which writes through a parameter name
-# this never saw bound, and by the same token one stored in a structure and
-# mutated later. What it *does* follow, which an earlier version of this note
-# denied: an alias of an alias to any depth — names are collected in source
-# order and MoonBit will not let one be used before it is bound — and a
-# mutation inside a closure, whose body is text in the same file like any
-# other. So the gap is procedure boundaries, not indirection. The arrangement
-# that would need no rule at all is a seam that hands over a read-only view
-# instead of the array — that is an API change, not a guard change, and it is
-# the honest fix.
+# The type now refuses that: `ColumnData` and `NumericData` carry `ArrayView`,
+# which has no `op_set` and none of `Array`'s in-place methods, so a write
+# through a buffer this seam hands out does not compile. The same holds for the
+# AST's `IsIn` / `Map` / `MapBatches` payloads.
+#
+# This rule stays as the tripwire for the change that would undo it: a payload
+# widened back to an owned `Array`, or a new seam that hands one out. Then the
+# lexical check below is what notices, in any package that receives a buffer —
+# a name bound out of a `ColumnData` pattern, a `let b = a` alias of one, or a
+# typed destructuring may neither be assigned into nor have a mutating `Array`
+# method called on it. Only `internal/column` is exempt: it builds the arrays.
+# What the rule never could see is a buffer handed to another function and
+# written through a parameter name — which is exactly why the fix was to change
+# the type rather than to deepen the grep.
 mutations=$(printf '%s\n' "$production_files" | while IFS= read -r f; do
   case "$f" in
     internal/column/* | "") continue ;;

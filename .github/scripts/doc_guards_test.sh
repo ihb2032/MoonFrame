@@ -1564,6 +1564,25 @@ expect 0 'repo: internal packages' \
   sh "$scripts/check_internal_packages.sh" "$root"
 expect 0 'repo: layering' sh "$scripts/check_layering.sh" "$root"
 expect 0 'repo: engine seams' sh "$scripts/check_engine_seams.sh" "$root"
+# The half no name-based rule can audit — a derived `equal` is reached through
+# `==` — is pinned instead of counted, so one appearing is a diff. A review had
+# to read every internal interface by hand to find thirteen published only
+# because a test wanted an operator; this is what makes the fourteenth cheap.
+mksurface "$work/is_derived_snap" "$is_source" \
+  'internal/column/BuiltinColumn::placeholders_normalized — an invariant that exists to be asserted'
+printf 'pub fn BuiltinColumn::equal(Self, Self) -> Bool\npub impl Eq for BuiltinColumn\n' \
+  >>"$work/is_derived_snap/internal/column/pkg.generated.mbti"
+(cd "$work/is_derived_snap" && git add -A && git commit -qm derived)
+sh "$scripts/check_internal_surface.sh" "$work/is_derived_snap" --write >/dev/null
+expect 0 'internal surface: the derived surface matches its snapshot' \
+  sh "$scripts/check_internal_surface.sh" "$work/is_derived_snap"
+printf 'pub fn Bitmap::equal(Self, Self) -> Bool\n' \
+  >>"$work/is_derived_snap/internal/column/pkg.generated.mbti"
+(cd "$work/is_derived_snap" && git add -A && git commit -qm grew)
+expect_out 1 'derived / impl surface changed' \
+  'internal surface: a new derived symbol is a diff, not a count' \
+  sh "$scripts/check_internal_surface.sh" "$work/is_derived_snap"
+
 expect 0 'repo: internal surface' \
   sh "$scripts/check_internal_surface.sh" "$root"
 expect 0 'repo: comment references' \

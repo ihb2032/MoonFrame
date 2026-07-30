@@ -129,8 +129,8 @@ pub impl Eq for ColumnStorage with fn equal(self, other) {
 /// a valid-vs-null pair is unequal. `eq` is the dtype's value comparison, so
 /// `Float` keeps `NaN != NaN`.
 fn[T] storage_cells_equal(
-  a : Array[T],
-  b : Array[T],
+  a : ArrayView[T],
+  b : ArrayView[T],
   av : Array[Bool],
   bv : Array[Bool],
   eq : (T, T) -> Bool,
@@ -203,12 +203,14 @@ pub fn ColumnStorage::null_count(self : ColumnStorage) -> Int {
 /// column through `Series`, and the layering guard refuses the import that
 /// would let it do otherwise.
 ///
-/// This returns the column's *live* backing array (no copy), and `ColumnData`
-/// is `pub(all)` so the engine can `match` it across packages. Treat the array
-/// as read-only: mutating it in place would corrupt the column (and any other
-/// column that shares the buffer through zero-copy conversion such as
-/// `to_numeric`). Columns are logically immutable; this accessor exists for
-/// reading, not editing.
+/// This hands out the column's *live* buffer with no copy, as an
+/// `ArrayView` — readable and indexable, but with no `op_set` and none of
+/// `Array`'s in-place methods, so a consumer cannot write through it. That is
+/// the point: a column is logically immutable and buffers are shared by
+/// zero-copy slicing, so one index assignment would corrupt this column and
+/// every column sharing the buffer, with no signature or import changing to
+/// show it. The view makes that a compile error rather than a convention.
+/// `ColumnData` stays `pub(all)` so the engine can `match` it across packages.
 pub fn ColumnStorage::data(self : ColumnStorage) -> ColumnData {
   match self {
     Builtin(c) => c.data()

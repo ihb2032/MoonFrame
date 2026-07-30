@@ -35,10 +35,9 @@
 /// operations that actually benefit from the missing bitmap.
 pub struct NumericColumn {
   priv data : NumericData
-} derive(Eq, Debug)
+} derive(Debug)
 
 ///|
-pub extend NumericColumn with Eq::{equal, not_equal}
 
 ///|
 pub extend NumericColumn with Debug::{to_repr}
@@ -49,12 +48,11 @@ pub extend NumericColumn with Debug::{to_repr}
 /// valid). Numeric only — `Bool` / `String` columns are always backed by a
 /// `BuiltinColumn`, so `NumericData` has just the two numeric arms.
 pub(all) enum NumericData {
-  Int(Array[Int64])
-  Float(Array[Double])
-} derive(Eq, Debug)
+  Int(ArrayView[Int64])
+  Float(ArrayView[Double])
+} derive(Debug)
 
 ///|
-pub extend NumericData with Eq::{equal, not_equal}
 
 ///|
 pub extend NumericData with Debug::{to_repr}
@@ -66,8 +64,8 @@ pub extend NumericData with Debug::{to_repr}
 /// may be missing, build a `BuiltinColumn` (`from_int_options`) and keep the
 /// column `Builtin` instead. No validity `Bitmap` is allocated. `values` is
 /// copied, so the column owns its data.
-pub fn NumericColumn::from_ints(values : Array[Int64]) -> NumericColumn {
-  { data: Int(values.copy()) }
+pub fn NumericColumn::from_ints(values : ArrayView[Int64]) -> NumericColumn {
+  { data: Int(values.to_owned()) }
 }
 
 ///|
@@ -77,8 +75,8 @@ pub fn NumericColumn::from_ints(values : Array[Int64]) -> NumericColumn {
 /// this column has none) — and it participates in reductions exactly as
 /// Polars treats it: propagating through `sum` / `mean`, skipped by
 /// `min` / `max`. `values` is copied, so the column owns its data.
-pub fn NumericColumn::from_floats(values : Array[Double]) -> NumericColumn {
-  { data: Float(values.copy()) }
+pub fn NumericColumn::from_floats(values : ArrayView[Double]) -> NumericColumn {
+  { data: Float(values.to_owned()) }
 }
 
 // ── Inspection ────────────────────────────────────────────────────────
@@ -258,7 +256,7 @@ fn NumericColumn::to_builtin(self : NumericColumn) -> BuiltinColumn {
 /// `mean`, whose output is `Double`, widens through `fold_int_as_double`
 /// instead: an `Int64` accumulator there would wrap past 2^63 and flip the
 /// mean's sign even though `Double` represents the true value.
-fn fold_int64(a : Array[Int64]) -> Int64 {
+fn fold_int64(a : ArrayView[Int64]) -> Int64 {
   let mut acc : Int64 = 0
   for x in a {
     acc = acc + x
@@ -272,7 +270,7 @@ fn fold_int64(a : Array[Int64]) -> Int64 {
 /// is `Double`, accumulating in `Double` from the start cannot wrap past 2^63
 /// (which would flip the sign, yielding a mean outside `[min, max]`), unlike
 /// `fold_int64`. Matches Polars, which computes an `Int`-column mean in f64.
-fn fold_int_as_double(a : Array[Int64]) -> Double {
+fn fold_int_as_double(a : ArrayView[Int64]) -> Double {
   let mut acc : Double = 0.0
   for x in a {
     acc = acc + x.to_double()
@@ -284,7 +282,7 @@ fn fold_int_as_double(a : Array[Int64]) -> Double {
 /// Plain `Double` fold over the whole array. `NaN` participates (it is a
 /// present value, not missing), so a single `NaN` cell propagates to a `NaN`
 /// total — Polars `sum` / `mean` semantics. Shared by `sum` and `mean`.
-fn fold_double(a : Array[Double]) -> Double {
+fn fold_double(a : ArrayView[Double]) -> Double {
   let mut acc : Double = 0.0
   for x in a {
     acc = acc + x

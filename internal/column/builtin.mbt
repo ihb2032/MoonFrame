@@ -27,10 +27,9 @@
 pub struct BuiltinColumn {
   priv data : ColumnData
   priv validity : Bitmap
-} derive(Eq, Debug)
+} derive(Debug)
 
 ///|
-pub extend BuiltinColumn with Eq::{equal, not_equal}
 
 ///|
 pub extend BuiltinColumn with Debug::{to_repr}
@@ -40,14 +39,13 @@ pub extend BuiltinColumn with Debug::{to_repr}
 /// value; nullability is tracked in the enclosing column's `validity`
 /// bitmap.
 pub(all) enum ColumnData {
-  Int(Array[Int64])
-  Float(Array[Double])
-  Bool(Array[Bool])
-  String(Array[String])
-} derive(Eq, Debug)
+  Int(ArrayView[Int64])
+  Float(ArrayView[Double])
+  Bool(ArrayView[Bool])
+  String(ArrayView[String])
+} derive(Debug)
 
 ///|
-pub extend ColumnData with Eq::{equal, not_equal}
 
 ///|
 pub extend ColumnData with Debug::{to_repr}

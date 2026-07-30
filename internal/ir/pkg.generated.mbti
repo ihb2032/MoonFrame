@@ -64,17 +64,14 @@ pub(all) enum ExprNode {
   Ternary(ExprNode, ExprNode, ExprNode)
   FillNull(ExprNode, ExprNode)
   FillNan(ExprNode, ExprNode)
-  IsIn(ExprNode, Array[@types.Scalar])
+  IsIn(ExprNode, ArrayView[@types.Scalar])
   IsBetween(ExprNode, ExprNode, ExprNode, @types.ClosedInterval)
-  Map(String, Array[ExprNode], (Array[@types.Scalar]) -> @types.Scalar raise @types.DataError)
-  MapBatches(String, Array[ExprNode], Bool, (Array[@series.Series]) -> @series.Series raise @types.DataError)
+  Map(String, ArrayView[ExprNode], (Array[@types.Scalar]) -> @types.Scalar raise @types.DataError)
+  MapBatches(String, ArrayView[ExprNode], Bool, (Array[@series.Series]) -> @series.Series raise @types.DataError)
 }
 pub fn ExprNode::children(Self) -> Array[Self]
-pub fn ExprNode::equal(Self, Self) -> Bool
-pub fn ExprNode::not_equal(Self, Self) -> Bool
 pub fn ExprNode::output_name(Self) -> String
 pub fn ExprNode::referenced_columns(Self) -> @set.Set[String]
-pub impl Eq for ExprNode
 
 pub(all) enum StrOp {
   ToUppercase

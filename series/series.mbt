@@ -8,8 +8,9 @@
 /// explicit validity bitmap, or an all-valid unboxed numeric fast path — decided
 /// by a column's content rather than by its caller: the row rebuilds and the
 /// expression engine's computed columns converge a null-free numeric result onto
-/// the fast path (`try_column_to_numeric`), while the nullable constructors,
-/// `cast`, and the backend-preserving windows leave a column on whichever
+/// the fast path (`try_column_to_numeric`), the nullable constructors and
+/// `cast` produce a `Builtin` column whatever they started from, and the
+/// backend-preserving windows leave a column on whichever
 /// backend they found it. The **supported** API neither
 /// observes nor selects it: the few methods that do (`storage` /
 /// `storage_kind` / `is_canonical`) are engine seams, absent from the generated
@@ -273,7 +274,8 @@ pub fn Series::to_scalars(self : Series) -> Array[@types.Scalar] {
 
 ///|
 /// Expose the underlying `ColumnStorage`. The one caller outside this package
-/// is `internal/kernel`, which walks `data()` alongside `validity()` to run a
+/// is `internal/kernel`, which walks `data()` — alongside the mask
+/// `validity_bools` hands it — to run a
 /// column pass without `Scalar` boxing; `frame` and above never call it — they
 /// hold the `Series`.
 /// The type handed back is `ColumnStorage` rather than a bare
@@ -394,8 +396,9 @@ pub fn preserve_backend(source : Series, rebuilt : Series) -> Series {
 /// `ColumnStorage::validity()` would allocate for a backend that has none —
 /// a `Numeric` column is present in every slot by construction. Equivalent
 /// to `storage.validity().to_bools()` but without the intermediate bitmap on
-/// the fast path. The row-level scanners (`sort` / `group_by` / `join` /
-/// `drop_nulls`) and the elementwise expression kernels (`expr_eval`,
+/// the fast path. The row-level scanners (`sort` and `drop_nulls`; `group_by`
+/// and `join` build keys from `to_scalars` instead) and the elementwise
+/// expression kernels (`expr_eval` and `internal/kernel`,
 /// whose operands are frequently `Numeric`) read the mask by plain index, so
 /// they share this instead of each repacking a throwaway bitmap for a
 /// `Numeric` column. Takes the `Series`, not its storage, so a caller reads a
@@ -582,8 +585,10 @@ fn rebuild_options(
 /// `Numeric` fast path, and a `Builtin` source whose gathered rows leave it
 /// all-valid re-converges onto `Numeric` too (via `rebuild_options`), so
 /// the backend is a function of the gathered content, not the source — the
-/// invariant predicate pushdown relies on. Backs `drop_nulls`,
-/// `Series::gather`, and the row-gather DataFrame transforms.
+/// invariant predicate pushdown relies on. Backs `drop_nulls` and the
+/// row-gather DataFrame transforms. `Series::gather` keeps the same backend
+/// invariant by a different route (`ColumnStorage::take`, which *raises* on an
+/// out-of-range index rather than yielding a null cell).
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
 pub fn gather_series(s : Series, idx : Array[Int]) -> Series {

@@ -260,8 +260,11 @@ fn push_write_tasks(stack : Array[WriteTask], expr : Expr) -> Unit {
 }
 
 ///|
-/// Infix symbol for a binary tag — the call-site spelling (`&` / `|` for
-/// the Kleene connectives, comparison glyphs for the method family).
+/// Infix symbol for a binary tag — the operator where one exists (`&` / `|`
+/// for the Kleene connectives), and the conventional mathematical glyph where
+/// the builder is a method: `<` for `.lt()`, and `//` / `%` / `**` for
+/// `.floor_div()` / `.modulo()` / `.pow()`, none of which MoonBit spells as an
+/// operator. Display syntax, not a call site to copy.
 fn binop_symbol(op : @ir.BinOp) -> String {
   match op {
     Add => "+"

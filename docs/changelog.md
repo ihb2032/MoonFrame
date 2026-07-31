@@ -249,9 +249,9 @@ source-level upgrade steps are collected in [`migration.md`](migration.md).
   and the internal aliases `NumericColumn::from_int64s` / `from_doubles` and
   the `ColumnStorage::from_builtin` / `from_numeric` wrappers collapse into
   `from_ints` / `from_floats` and the enum variants.
-- `Series::new` / `Series::from_builtin`, which took a storage backend, join
-  the engine seams (`#internal`, absent from the interface). `Series::from_*`
-  are the public constructors.
+- `Series::new` / `Series::from_builtin`, which took a storage backend, are
+  package-private — not engine seams but plain `fn`s, since nothing outside
+  `series` called them. `Series::from_*` are the public constructors.
 - The JSON entry points join the four-verb grid: `parse_json_records_str` /
   `format_json_records` / `write_json_records` are now `parse_json_str` /
   `format_json` / `write_json`, matching `read_json` and the CSV / NDJSON

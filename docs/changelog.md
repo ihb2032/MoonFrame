@@ -10,7 +10,7 @@ version — including a new variant on a public `pub(all)` enum, which is
 source-breaking under MoonBit's exhaustive `match` even though it reads as
 additive.
 
-## v0.6.0 — API convergence (unreleased)
+## v0.6.0 — API convergence
 
 The API-convergence release. MoonBit 0.10.4's `fn Type::Type(...)` custom
 constructors, optional parameters with defaults, and `internal` packages let a
@@ -44,14 +44,78 @@ source-level upgrade steps are collected in [`migration.md`](migration.md).
   - Streaming the file is still future work — the reader tokenises the whole
     file, and the saving is the typed build of the dropped rows.
 
-- `Expr::is_between` takes Polars' `closed?` (new `enum ClosedInterval`:
-  `Both` / `Left` / `Right` / `None`), and `Expr::round` takes `decimals?`.
-  Both default to today's behaviour — both-closed and whole numbers — so
-  existing calls are unaffected, and both render in `explain` as the argument
-  that builds them (`col(n).is_between(2, 3, closed=Left)`,
-  `col(f).round(decimals=2)`). A negative `decimals` clamps to `0`, and
-  rounding stays total at the numeric edges: non-finite values and any scaling
-  that would overflow pass through unchanged.
+- **The numeric expression family.** `Expr` gains the arithmetic verbs Polars
+  spells the same way: `abs` / `floor` / `ceil` / `sign` unary, and
+  `floor_div` / `modulo` / `pow` binary. `floor_div` and `modulo` are named methods rather
+  than operators: MoonBit reads `//` as a line comment, and no `Expr` operator
+  maps to `%`. Dtype follows the rule `+` already set — same-dtype `Int`
+  stays `Int`, any `Float` operand promotes — with two exceptions worth
+  stating: `pow` is always `Float`, and `floor_div` / `modulo` by an `Int` zero
+  yield a **null** cell rather than trapping, since integers have no infinity
+  (their `Float` forms follow IEEE 754 to `±inf` / `NaN` as `/` does).
+  `floor` / `ceil` leave an `Int` unchanged, `NaN` and `±inf` pass through, a
+  null cell stays null, and a non-numeric operand raises `TypeMismatch`.
+- **`is_in`, `is_between` and `round`.** `Expr::is_in(members)` is a `Bool`
+  column, true where the cell equals one of the literal `members`: an OR of
+  `eq` over the set, which a `String` / `Bool` / `Int` column whose members
+  share its dtype takes as an equivalent single-pass membership test instead.
+  A `Null` member matches nothing, an empty set is `false` for every present
+  cell, a null cell yields null, and a member whose dtype cannot compare with
+  the column raises `TypeMismatch`.
+  `Expr::is_between(lower, upper, closed? = Both)` carries Polars'
+  `ClosedInterval` (`Both` / `Left` / `Right` / `None`), and
+  `Expr::round(decimals? = 0)` rounds to a fixed number of places. Both render
+  in `explain` as the argument that builds them
+  (`col(n).is_between(2, 3, closed=Left)`, `col(f).round(decimals=2)`). A
+  negative `decimals` clamps to `0`, and rounding stays total at the numeric
+  edges: non-finite values and any scaling that would overflow pass through
+  unchanged.
+- **Nine more string ops.** `str_reverse`, the padding trio
+  `str_pad_start(width, fill? = ' ')` / `str_pad_end` / `str_zfill(width)`,
+  `str_slice(offset, length?)`, `str_split_get(sep, index)`, `str_len_bytes`,
+  and the regex pair `str_extract(pattern, group? = 0)` /
+  `str_count_matches(pattern)`. `str_zfill` is the sign-aware pad: a leading
+  `+` / `-` keeps its place and the zeros go after it, so `"-5"` to width 4 is
+  `"-005"`. `str_slice` counts characters from a 0-based `offset` that may be
+  negative to count from the end, and clamps both bounds to the cell, so it
+  never raises on a value; `str_split_get` is a scalar slice of Polars'
+  `str.split`, which returns a list this repo has no dtype for, and yields
+  null past the last field. `str_len_bytes` counts UTF-8 bytes where
+  `str_len_chars` counts characters. Widths and offsets are character-based
+  throughout, so a surrogate pair is never split; a null cell stays null, and
+  a non-String operand raises `TypeMismatch`.
+- **`Expr::map_batches(label~, returns_scalar? = false, f)`** — the batched
+  escape hatch. Where `map_elements` hands `f` one `Scalar` per row,
+  `map_batches` hands it the whole evaluated `Series` and takes a `Series`
+  back, so a vectorized kernel (a cumulative sum, a rank, a rolling window)
+  runs once over the column. The result rides `lit_series`' length contract: a
+  frame-tall result passes through, a length-1 result broadcasts, any other
+  length raises `LengthMismatch`. Set `returns_scalar` when `f` reduces to a
+  length-1 series, and the node counts as a per-group reduction — accepted as
+  a custom aggregation inside `group_by(...).agg([...])`, where `f` receives
+  each group's rows. `label` names the step in `explain`; the closure itself
+  is opaque to introspection and to the optimizer, which treats the node as a
+  barrier no filter sinks across.
+- **Column selectors.** Six helpers read a frame's schema and return the
+  `Array[Expr]` of `col(name)` references for the columns they match, in
+  schema order, to fill any verb that takes an expression list:
+  `numeric_cols(df)` (Polars' `cs.numeric()`), `cols_of_dtype(df, dtype)`,
+  `cols_matching(df, pattern)` — a POSIX regex over the column *name* — and
+  the literal-name tests `cols_starts_with` / `cols_ends_with` /
+  `cols_contains`. The result is an ordinary array, so it composes with
+  hand-written entries: `df.select([col("id"), ..numeric_cols(df)])`,
+  `df.drop(cols_matching(df, "_tmp$"))`. Expansion is eager — a selector reads
+  `df.schema()`, so the frame appears twice at the call site, and a
+  `LazyFrame` has no schema to read until `collect`. `cols_matching` raises
+  `InvalidOperation` on an invalid pattern; the other five are total.
+- **`rename_with(f)`** renames every column through a callback, on both
+  surfaces (`LazyFrame` defers it), for when a rule — a prefix to strip, a
+  case to fold — describes the whole schema better than an explicit
+  `old -> new` list. Column order, dtypes, the row count and each field's
+  declared `nullable` are unchanged; the identity `name => name` is a no-op.
+  There is no `ColumnNotFound`, since nothing is looked up by name — the one
+  failure is a collision, two columns `f` maps to the same name, which raises
+  `DuplicateColumn`.
 - `DataFrame::reverse()` and
   `DataFrame::with_row_index(name? = "index", offset? = 0)` land on both
   surfaces (`LazyFrame` defers each through its own plan node, rendered as
@@ -62,6 +126,23 @@ source-level upgrade steps are collected in [`migration.md`](migration.md).
   the *same* per-column kernel `DataFrame::sort` uses — moved into `series` for
   this — so one column's ordering means the same thing at either level,
   including `NaN`-counts-as-missing and stability.
+- **`Series` statistics.** `std()` and `variance()` are the sample (`ddof = 1`)
+  forms Polars defaults to, computed by Welford's algorithm so a
+  finite-variance window of near-`Double`-max values still lands finite;
+  `median()` is the middle of the sorted non-null values, or the mean of the
+  two middles for an even count. All three are numeric-only and widen `Int` to
+  `Double`. They split on `NaN` by the rule each belongs to: a present `NaN`
+  propagates through `std` / `variance`, as it does through `sum` / `mean`, and
+  is skipped by `median`, the order-statistic rule `sort` / `min` / `max`
+  follow. Fewer than two non-null cells raises `InvalidOperation` for `std` /
+  `variance` — the sample denominator `cnt - 1` has no value — as does an
+  empty, all-null or all-`NaN` series for `median`. `first()` and `last()`
+  complete the set on the other side of that split: positional, so they skip
+  nothing and return a present `NaN` verbatim, and total — an empty series, or
+  a null cell in the position asked for, yields `Scalar::Null`.
+- **Whole-frame reductions on `LazyFrame`.** `sum` / `mean` / `min` / `max` /
+  `count` / `null_count` defer their eager twins, each collapsing the plan to
+  the 1-row frame `collect` would produce from the eager call.
 
 ### Breaking
 
@@ -184,7 +265,7 @@ source-level upgrade steps are collected in [`migration.md`](migration.md).
   `JoinOptions::on` / `left_on` / `cross` take `how` / `suffix` / `coalesce`
   (and, for `left_on`, a required `right_on~`) directly, retiring all six
   `with_*` methods — v0.5.8's five, plus a `with_coalesce_auto` that was added
-  and withdrawn inside this unreleased line, so no release ever carried it; and
+  and withdrawn before this release cut, so no release ever carried it; and
   `ChartSpec::bar` / `line` / `point` / `area` take `color` / `color_type` /
   `title`, retiring their three `with_*` methods. Thirteen builder methods
   become zero.

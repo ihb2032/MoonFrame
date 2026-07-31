@@ -1,7 +1,9 @@
 ///|
-/// Optimizer interaction with the string namespace. A `Str` node is per-cell
-/// and total (it raises only the dtype-level `TypeMismatch` of a non-String
-/// operand), so it is `row_stable` — a filter sinks past a `with_columns`
+/// Optimizer interaction with the string namespace. A `Str` node raises only on
+/// scope-independent facts — the dtype-level `TypeMismatch` of a non-String
+/// operand, and for the regex ops the `InvalidOperation` of a pattern that does
+/// not compile, hoisted out of the per-cell map — never on a value, so it is
+/// `row_stable` — a filter sinks past a `with_columns`
 /// that derives a string column, exactly as it does past arithmetic. And a
 /// `Str` wrapping an aggregation inherits that aggregation's
 /// group-cell-stability, so an `str_*` over `first` keeps a group filter

@@ -8,9 +8,11 @@
 #      and stage the result, then re-commit);
 #   3. run the test suite on the default target.
 #
-# It is deliberately *not* the whole gate: the every-backend run, coverage,
-# the benchmarks, the fuzz and parity suites, and the documentation /
-# architecture guards are all too slow for every commit and run in CI instead.
+# It is deliberately *not* the whole gate: the every-backend run, coverage, the
+# benchmarks, and the documentation / architecture guards are all too slow for
+# every commit and run in CI instead. The fuzz and parity suites do run here —
+# they are ordinary test files, so the `moon test` below picks them up — but the
+# fuzzer runs at its baseline size; only CI sets MOONFRAME_FUZZ_SCALE.
 # The complete list lives in `.github/workflows/ci.yml`, with what each guard
 # governs in `AGENTS.md`. To skip this hook in a pinch use
 # `git commit --no-verify`.

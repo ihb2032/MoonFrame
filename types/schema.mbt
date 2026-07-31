@@ -49,7 +49,8 @@ pub fn Schema::Schema(fields : Array[Field]) -> Schema raise DataError {
 /// the first repeated name. The uniqueness check and the lookup map are the same
 /// pass on purpose: a map keyed by name *is* the check (a name already present is
 /// the duplicate), and building them separately is how the two could disagree.
-/// Every `Schema` value in this file is built through here.
+/// Every `Schema` built from a field vector comes through here; `select`, which
+/// walks names rather than fields, runs the same one-pass rule inline.
 fn name_index(fields : Array[Field]) -> Map[String, Int] raise DataError {
   let index : Map[String, Int] = Map([])
   for i, f in fields {

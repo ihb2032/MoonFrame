@@ -364,7 +364,7 @@ pub fn eval_neg(operand : Series) -> Series raise @types.DataError {
 
 ///|
 /// Shared kernel for a numeric unary op (`neg` / `abs` / `floor` / `ceil` /
-/// `sign`): each supplies its `Int64` and `Double` cell op plus the verb its
+/// `sign` / `round`): each supplies its `Int64` and `Double` cell op plus the verb its
 /// `TypeMismatch` message uses. `Int op → Int`, `Float op → Float`; a null cell
 /// stays null; a non-numeric operand raises. An all-valid result converges onto
 /// the `Numeric` backend, as for binary arithmetic.

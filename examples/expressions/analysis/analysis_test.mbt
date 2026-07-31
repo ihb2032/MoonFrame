@@ -112,9 +112,10 @@ test "report_plan: explains as built, then shows the optimized plan" {
       #|      SCAN [6×5]
     ),
   )
-  // Optimized — the filter sinks below the projection it commutes with,
-  // and a narrowing SELECT prunes the scan to the two columns the query
-  // actually reads (region, revenue).
+  // Optimized — the filter sinks below the WITH_COLUMNS it commutes with
+  // (the outer SELECT stays above it, as built), and a narrowing SELECT is
+  // inserted over the scan for the two columns the query actually reads
+  // (region, revenue).
   inspect(
     plan.explain(optimized=true),
     content=(

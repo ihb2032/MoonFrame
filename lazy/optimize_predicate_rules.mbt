@@ -15,9 +15,9 @@
 /// first half — their value is computed over the whole scope, so a
 /// filtered scope changes it. `Cast` fails the second half — its parse /
 /// range rejection raises on the *values* it meets, so dropping a row
-/// can drop the very cell that would have raised. `Map` fails it the same
-/// way — its opaque closure can `raise` on the values it meets — so a `Map`
-/// is a value barrier, exactly like `Cast`. A `LitSeries` is a *shape*
+/// can drop the very cell that would have raised. `Map` and `MapBatches` fail
+/// it the same way — an opaque closure can `raise` on the values it meets — so
+/// both are value barriers, exactly like `Cast`. A `LitSeries` is a *shape*
 /// barrier: a frame-tall literal column is positional (cell `i` is row `i`),
 /// so dropping rows before the stage would leave it mismatched against the
 /// now-shorter frame — pushing a filter past it could turn a working plan

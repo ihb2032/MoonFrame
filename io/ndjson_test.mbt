@@ -517,8 +517,16 @@ test "read_ndjson: missing file surfaces as IoError, not panic" {
 
 ///|
 test "read_ndjson with options: missing file surfaces as IoError" {
+  // The open failure precedes any option, so passing a non-default one must
+  // not change which error surfaces.
   let result = Ok(
-    @io.read_ndjson("_build/io_ndjson_test_does_not_exist.ndjson"),
+    @io.read_ndjson(
+      "_build/io_ndjson_test_does_not_exist.ndjson",
+      options=@io.JsonReadOptions::JsonReadOptions(
+        infer_schema_rows=1,
+        on_parse_error=@io.OnParseError::Null,
+      ),
+    ),
   ) catch {
     e => Err(e)
   }

@@ -282,8 +282,10 @@ pub fn Expr::ge(self : Expr, other : Expr) -> Expr {
 
 ///|
 /// `a.is_in(members)` — a `Bool` column, `true` where the cell equals one of
-/// the literal `members`. Evaluated as an OR of `eq` over the set, so each
-/// member is compared exactly as `a.eq(lit(member))` would: `Int` / `Float`
+/// the literal `members`. Each member is compared exactly as `a.eq(lit(member))`
+/// would — the general path is an OR of `eq` over the set, and a
+/// `String` / `Bool` / `Int` column whose members share its dtype takes an
+/// equivalent single-pass membership test instead: `Int` / `Float`
 /// members compare across types exactly (no `2^53` collision), and a member
 /// whose dtype cannot compare with the column raises `TypeMismatch`. A `Null`
 /// member matches nothing (it has no value to equal), an empty set is `false`
@@ -489,7 +491,7 @@ pub fn Expr::last(self : Expr) -> Expr {
 /// Null cells stay null, the result keeps the operand's column name, and a
 /// non-String operand is a `TypeMismatch` at evaluation. The leading method
 /// of the string namespace: every `str_*` method builds a `Str` node over a
-/// `StrOp` tag, evaluated cell by cell in `frame`.
+/// `StrOp` tag, evaluated cell by cell in `internal/kernel/str.mbt`.
 pub fn Expr::str_to_uppercase(self : Expr) -> Expr {
   Expr::of(@ir.ExprNode::Str(@ir.StrOp::ToUppercase, self.node))
 }

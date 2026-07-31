@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       fuzz_scale:
-        description: Differential-fuzzer case multiplier (clamped to 1..20)
+        description: Differential-fuzzer case multiplier (1..20; anything else runs 1x)
         required: false
         default: "20"
 
@@ -189,7 +189,8 @@ jobs:
         working-directory: .github/fixtures/facade_smoke
         run: moon check
 
-      # Advisory, never a failure: absolute claims ("all", "every", "never")
+      # Advisory, never a failure: absolute claims ("all", "every", "never",
+      # "always", "total", "only", "full surface")
       # in prose this branch adds, annotated on the diff so a reviewer
       # confirms each one still holds. The checkout is shallow, so the base
       # commit is fetched on its own before the diff.
@@ -220,8 +221,10 @@ jobs:
       # the full multiplier and the parity suites are ~1s — and the fuzzer's
       # seeds are fixed, so a bigger case count stays deterministic.
       #
-      # The multiplier: the suite itself clamps to 1..=20 and falls back to 1
-      # for a missing or invalid value. `inputs` is empty for push /
+      # The multiplier: the suite accepts 1..=20 and falls back to 1 for
+      # anything else — missing, unparseable, non-positive, or above the
+      # ceiling. It does not clamp, so dispatching 50 runs 1x, not 20x.
+      # `inputs` is empty for push /
       # pull_request, so the fallback below supplies the full multiplier on
       # those events and a manual dispatch can dial it down.
       - name: Differential fuzz expansion

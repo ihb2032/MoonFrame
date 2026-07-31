@@ -415,7 +415,7 @@ test "cast to String renders value-style across dtypes" {
   assert_eq(s.cast(@types.DataType::String), s)
 }
 
-// ── storage backend control: storage_kind / to_numeric / to_builtin ──
+// ── storage backend: storage_kind / is_canonical / try_column_to_numeric ──
 
 ///|
 test "row gathers canonicalise an all-valid result; slices preserve the backend" {

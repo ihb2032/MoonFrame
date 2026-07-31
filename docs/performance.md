@@ -93,7 +93,9 @@ Each row reuses the symbols in its own line — `k` is the surviving rows of a
 
 ## Lazy execution
 
-`collect()` runs two rewrites before executing, and a plan that succeeds
+`collect()` runs two rewrites before executing — unless the plan is a DAG (one
+`LazyFrame` value shared across both sides of a `join`), which skips both and
+executes as built; see [`api.md`](api.md). A plan that succeeds
 produces what the eager pipeline produces — same schema, same
 cells, which is what `DataFrame`'s `Eq` compares and what the differential
 suite asserts. Not a claim about physical layout: the backend a column lands
@@ -133,11 +135,16 @@ real throughput. Run it from the repo root with `moon bench`.
 
 The four packages that own a `bench_test.mbt` file are `series`, `frame`, `io`, <!-- doc-guard: unresolved -->
 and `lazy`; the packages that only define values or build trees (`types`,
-`expr`, `internal/text` / `internal/literal` / `internal/ir`) have nothing to
-time. `internal/kernel` does real work — it is where the vectorized column
-passes live — but it is measured through the `frame` expression benchmarks that
-drive it, which is what a caller actually pays; a regression isolated to one
-kernel would want its own micro-benchmark added here. Because the benches are
+`expr`, `internal/literal` / `internal/ir`) have nothing to time. The rest do
+real work and are measured through a caller instead, which is what that caller
+actually pays: `internal/kernel` (the vectorized column passes) and
+`internal/column` (the two storage backends and the validity bitmap) through the
+`frame` expression benchmarks, `internal/order` (the stable index sort, the row
+clamp) through `frame`'s `sort` and `series`' `head` / `tail`, and
+`internal/text` / `internal/numeric` (per-cell parsing, ordering, and exact
+mixed-numeric comparison) through the `io` reader benchmarks and the `series`
+reductions. A regression isolated to one of them would want its own
+micro-benchmark added here. Because the benches are
 ordinary test blocks, `moon check` compiles them and `moon bench` executes
 them — and CI runs both, so a benchmark that stops compiling or running fails
 the build. There is deliberately **no** performance threshold, since timings

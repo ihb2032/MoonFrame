@@ -25,11 +25,12 @@
 /// disturb. When *several* stages are independently broken, sinking a
 /// filter below another broken stage can change which of their errors
 /// surfaces first — both are real errors of the same plan, and which one
-/// wins was an artifact of stage order to begin with. The one failure
-/// mode that would be value-dependent — `cast`'s parse / range rejection,
-/// where dropping a row could drop the very cell that raises — is fenced
+/// wins was an artifact of stage order to begin with. The failure modes that
+/// would be value-dependent — `cast`'s parse / range rejection, and the opaque
+/// closure of a `map` / `map_batches`, where dropping a row could drop the very
+/// cell that raises — are fenced
 /// off entirely: no `Filter` ever crosses a stage whose expressions
-/// contain a `Cast` (see `row_stable`).
+/// contain one (see `row_stable`).
 ///
 /// The sole deliberate exception is a file source's projection (the `Csv` /
 /// `Ndjson` sources). Narrowing it to the columns its consumers read means a

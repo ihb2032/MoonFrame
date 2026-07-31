@@ -8,10 +8,10 @@
 
 ///|
 /// Which comparison a `Binary` comparison tag asked for, carried into the
-/// shared cell loop. A package-local re-tag of the six `@ir.BinOp`
-/// comparison constructors so `compare_cells` can match exhaustively
-/// without dead arms for the non-comparison tags (`Add` / `And` / … never
-/// reach it).
+/// shared cell loop. A re-tag of the six `@ir.BinOp` comparison constructors
+/// so `compare_cells` can match exhaustively without dead arms for the
+/// non-comparison tags (`Add` / `And` / … never reach it); `frame`'s evaluator
+/// picks the verb when it dispatches a comparison node.
 pub(all) enum CmpVerb {
   Eq
   Ne
@@ -65,7 +65,7 @@ fn transpose_verb(verb : CmpVerb) -> CmpVerb {
 /// One comparison verdict between an `Int64` cell and a `Double` cell,
 /// **exact** — no `Int`→`Double` promotion, so it mirrors `Scalar`'s
 /// mixed-numeric arms and avoids the `2^53` collisions the Float64-supertype
-/// widening would produce. NaN falls out right through the `@types`
+/// widening would produce. NaN falls out right through the `@numeric`
 /// primitives (every comparison with it is `false`).
 fn cmp_int_double(verb : CmpVerb, a : Int64, b : Double) -> Bool {
   match verb {

@@ -535,7 +535,17 @@ test "read_json: missing file surfaces as IoError, not panic" {
 
 ///|
 test "read_json with options: missing file surfaces as IoError" {
-  let result = Ok(@io.read_json("_build/io_json_test_does_not_exist.json")) catch {
+  // The open failure precedes any option, so passing a non-default one must
+  // not change which error surfaces.
+  let result = Ok(
+    @io.read_json(
+      "_build/io_json_test_does_not_exist.json",
+      options=@io.JsonReadOptions::JsonReadOptions(
+        infer_schema_rows=1,
+        on_parse_error=@io.OnParseError::Null,
+      ),
+    ),
+  ) catch {
     e => Err(e)
   }
   assert_true(result is Err(@types.DataError::IoError(_)))

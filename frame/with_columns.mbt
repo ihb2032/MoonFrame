@@ -8,8 +8,11 @@
 /// the one place the node set is enumerated.
 ///
 /// Naming and placement:
-/// - each result takes its expression's output name — the leftmost column
-///   reference, or `"literal"` for a pure-literal tree (`expr_output_name`);
+/// - each result takes its expression's output name — an alias if the tree
+///   carries one, else the leftmost column reference, else `"literal"` for a
+///   pure-literal tree (`expr_output_name`). The alias clause is what decides
+///   replace-vs-append below: `col("a").with_alias("b")` appends `b`, it does
+///   not replace `a`;
 /// - an output name already present in `self` **replaces** that column in
 ///   place (original position kept);
 /// - a new output name **appends** rightmost, in expression order;

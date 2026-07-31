@@ -598,10 +598,8 @@ test "sort surfaces a structured TypeMismatch from a non-unifiable derived key" 
 
 ///|
 test "sort exercises the build_sort_key dispatch on each dtype" {
-  // The dispatch in `build_sort_key` cascades through the four typed
-  // accessors. To cover every cascade step, sort once per dtype —
-  // `Int` hits the first arm, `Float` the second, `Bool` the third,
-  // and `String` the terminal arm.
+  // `build_sort_key` matches `ColumnData`'s four variants exhaustively. To
+  // cover every arm, sort once per dtype — `Int`, `Float`, `Bool`, `String`.
   let df = DataFrame::DataFrame([
     Series::from_ints("i", [2, 1]),
     Series::from_floats("f", [(2.0 : Double), (1.0 : Double)]),

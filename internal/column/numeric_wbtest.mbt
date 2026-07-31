@@ -15,7 +15,7 @@
 // ── Construction + inspection ─────────────────────────────────────────
 
 ///|
-test "from_int64s / from_doubles: structural all-valid, no bitmap" {
+test "from_ints / from_floats: structural all-valid, no bitmap" {
   let i = NumericColumn::from_ints([10, 20, 30])
   assert_eq(i.len(), 3)
   assert_eq(i.dtype(), @types.DataType::Int)
@@ -32,9 +32,9 @@ test "from_int64s / from_doubles: structural all-valid, no bitmap" {
 }
 
 ///|
-// Defensive copy: `from_int64s` / `from_doubles` copy their input, so the
+// Defensive copy: `from_ints` / `from_floats` copy their input, so the
 // column is independent of the caller's array.
-test "from_int64s / from_doubles copy their input" {
+test "from_ints / from_floats copy their input" {
   let ints : Array[Int64] = [1, 2, 3]
   let ic = NumericColumn::from_ints(ints)
   ints[0] = 99
@@ -193,8 +193,6 @@ test "take: gathers per dtype, OOB reports first offender" {
   )
 }
 
-// ── Typed accessors ───────────────────────────────────────────────────
-
 // ── Materialise ───────────────────────────────────────────────────────
 
 ///|
@@ -352,14 +350,14 @@ test "structural equality: cell-wise, dtype-discriminated" {
 }
 
 ///|
-test "from_ints / from_floats alias the raw constructors" {
+test "from_ints / from_floats build equal columns from equal input" {
   assert_eq(NumericColumn::from_ints([1, 2]), NumericColumn::from_ints([1, 2]))
   assert_eq(
     NumericColumn::from_floats([1.5, 2.5]),
     NumericColumn::from_floats([1.5, 2.5]),
   )
-  // The alias inherits the defensive copy: mutating the caller's array
-  // afterwards leaves the column unchanged.
+  // The defensive copy again, on the equality path: mutating the caller's
+  // array afterwards leaves the column unchanged.
   let values : Array[Int64] = [1, 2]
   let col = NumericColumn::from_ints(values)
   values.push(3)

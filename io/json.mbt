@@ -102,7 +102,7 @@ pub fn JsonReadOptions::JsonReadOptions(
 /// - `ParseError(Cell(...))` — a non-null cell does not fit the column's
 ///   inferred dtype, unless `options.on_parse_error` is `Null`, which
 ///   downgrades that cell to a null instead.
-/// - Whatever `DataFrame::DataFrame` propagates (duplicate-header is
+/// - Whatever `DataFrame::from_parts` propagates (duplicate-header is
 ///   pre-empted upstream; length-mismatch cannot fire because every
 ///   column is built off `records.length()`).
 pub fn parse_json_str(
@@ -316,8 +316,9 @@ pub fn write_json(
 // ── internals ──────────────────────────────────────────────────────────
 
 ///|
-/// Wrap `@json.parse`'s raising convention behind a `Result` so the
-/// parser's main pipeline stays in straight-line `match` form. The
+/// Re-raise `@json.parse`'s failure as this module's `ParseError`, so the
+/// parser's main pipeline sees one error type and stays in straight-line
+/// `match` form. The
 /// concrete `ParseError` is rendered through its `Show` impl so the
 /// caller sees the same diagnostic the standard library would.
 fn parse_json_payload(content : String) -> Json raise @types.DataError {
@@ -395,7 +396,8 @@ fn scalar_to_json(s : @types.Scalar) -> Json {
 ///|
 /// Fetch the value of `name` from `obj`. A missing field on a sparse
 /// record is treated as a null cell — every record was already
-/// validated as a JSON object by `parse_json_str` before
+/// validated as a JSON object by `frame_from_json_records` (the shared entry
+/// both the JSON and NDJSON readers pass through) before
 /// reaching this helper, so the lookup boils down to a single map
 /// access.
 fn lookup_field(obj : Map[String, Json], name : String) -> Json {
@@ -508,8 +510,8 @@ fn json_value_as_bool(j : Json) -> Bool? {
 /// the String-fallback analogue of the module's integral-`Float` Caveat 1),
 /// booleans render `true` / `false`, strings pass through verbatim, and any
 /// composite (`Array` / `Object`) falls through to `@json.stringify`.
-/// `Null` is filtered out upstream — the build loop calls
-/// `values.push(None)` for null cells without invoking this helper —
+/// `Null` is filtered out upstream — the String-column builder in `infer.mbt`
+/// yields `None` for a null cell without invoking this helper —
 /// so the catch-all only fires on composites in practice.
 fn json_value_to_string_fallback(j : Json) -> String {
   match j {

@@ -36,7 +36,8 @@ fn is_decimal_int_literal(s : String) -> Bool {
 /// prefixes and `1_000` underscore grouping via `is_decimal_int_literal` (the
 /// forms pandas / polars keep as strings), then hands the text to
 /// `@string.parse_int64`, mapping its failure (a value beyond `Int64`'s range,
-/// say) to `None`. The shared routine behind the CSV reader's `Int` inference
+/// say) to `None`. The shared routine behind the CSV reader's `Int` inference,
+/// the JSON reader's recovery of an over-large integer from its preserved text,
 /// and the `@column` String→`Int` cast, so an inferred column and an explicit
 /// cast agree on what text is an integer.
 pub fn parse_decimal_int_opt(s : String) -> Int64? {

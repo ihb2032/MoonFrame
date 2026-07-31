@@ -38,8 +38,8 @@ fn main {
     println("\nGraded by revenue tier:")
     println(@analysis.graded(df).to_markdown())
     // 5) A deferred `LazyFrame`: inspect the plan, then collect it. The
-    //    optimized form shows the filter sunk below the projection and the
-    //    scan narrowed to the columns the query reads.
+    //    optimized form shows the filter sunk below the `with_columns` stage
+    //    and a narrowing projection inserted over the scan.
     let plan = @analysis.report_plan(df)
     println("\nLazy plan (as built):")
     println(plan.explain())

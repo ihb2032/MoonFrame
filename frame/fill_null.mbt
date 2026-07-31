@@ -16,8 +16,8 @@
 /// dtype (a compatible fill is dtype-preserving) and every other column is
 /// untouched — so names, dtypes, and the row count are unchanged. The
 /// returned frame therefore reuses `self`'s schema and `O(1)` name→index
-/// cache verbatim (the same same-schema rebuild `head` / `tail` /
-/// `to_numeric` use) rather than re-deriving them through `DataFrame::DataFrame`.
+/// cache verbatim (the same same-schema rebuild `head` / `tail` / `reverse`
+/// use) rather than re-deriving them through `DataFrame::DataFrame`.
 ///
 /// `raise`-typed because `Series::fill_null` is, but the compatibility gate
 /// means it is only ever called on a column it cannot fail on (a matching

@@ -1,9 +1,11 @@
 #!/bin/sh
 # Internal-package manifest guard. The `internal/` packages have no public
-# surface, so nothing else in this workflow notices when one appears, moves, or
-# disappears: `moon info` regenerates an interface no downstream module can
-# import, the facade and enum locks skip them by design, and the stale-name
-# guard only knows the identifiers it was told about. What is left is prose —
+# surface, so almost nothing else in this workflow notices when one appears,
+# moves, or disappears: `moon info` regenerates an interface no downstream module
+# can import, the facade and enum locks skip them by design, and the stale-name
+# guard only knows the identifiers it was told about. The one that does notice is
+# `check_layering.sh`, which fails a new package with no declared dependency set
+# and pins the edge list — but it sees the graph, not the prose. What is left is
 # and prose is where "which package does this code belong in?" is actually
 # answered.
 #
@@ -32,8 +34,9 @@ cd "$root"
 disk=$(git ls-files 'internal/*/moon.pkg' | sed 's#/moon\.pkg$##' | LC_ALL=C sort)
 
 # In README: the repository-structure block lists a package at line start,
-# `internal/<name>/` followed by its description. A mention inside prose or a
-# layering diagram is indented, so only the inventory counts.
+# `internal/<name>/` followed by its description. The trailing `/` is what makes
+# it an inventory line: prose and the layering diagram name a package without
+# one, so only the inventory counts.
 readme=$(sed -n 's#^\(internal/[a-z_]*\)/[ \t].*#\1#p' README.md |
   LC_ALL=C sort -u)
 

@@ -226,8 +226,6 @@ fn NumericColumn::take(
   }
 }
 
-// ── Typed accessors (zero-boxing; all-valid bitmap synthesised) ────────
-
 // ── Materialise ───────────────────────────────────────────────────────
 
 ///|

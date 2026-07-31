@@ -1,7 +1,8 @@
 #!/bin/sh
 # Advisory: flag absolute wording in added prose so a reviewer checks it.
 #
-# "all", "every", "never", "total", "only" are the words this repository's
+# "all", "every", "never", "always", "total", "only", "full surface" are the
+# words this repository's
 # documentation drifts on, because each is a claim that one new exception
 # silently falsifies — and the exception is usually added by someone who never
 # reads the sentence. Recent examples: "all are total" (the regex string ops

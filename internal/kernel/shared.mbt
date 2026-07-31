@@ -21,9 +21,11 @@ using @series {
 ///|
 /// Build the cells of a binary elementwise op: index `i` is `Some(f(i))` when
 /// both operands are present there, else `None` — the Arrow / Polars rule that
-/// a null on either side nulls the output cell. The shared null-gate behind the
-/// arithmetic (`eval_arith`) and division (`eval_div`) kernels, so each dtype
-/// arm supplies only its per-cell op. Total — `f` only reads two present cells.
+/// a null on either side nulls the output cell. The shared null-gate behind
+/// every binary numeric kernel in this package — arithmetic, division, the
+/// `Double`-result forms (`pow`), and the null-on-zero forms (`%`, `//`) — so
+/// each dtype arm supplies only its per-cell op. Total — `f` only reads two
+/// present cells.
 fn[T] zip_present(
   n : Int,
   lv : Array[Bool],
@@ -36,8 +38,9 @@ fn[T] zip_present(
 ///|
 /// Build the cells of a unary elementwise op: index `i` is `Some(f(i))` when the
 /// operand is present there, else `None` — a null cell maps to a null result.
-/// The shared null-gate behind the negation (`eval_neg`), logical-not
-/// (`eval_not`), and string-namespace (`eval_str`) kernels, so each arm supplies
+/// The shared null-gate behind every unary kernel in this package — the numeric
+/// unary ops (`eval_unary_num`, so `neg` through `round`), logical-not, the NaN
+/// probes, `is_in`, and the string namespace — so each arm supplies
 /// only its per-cell map. The single-operand sibling of `zip_present`. Total —
 /// `f` only reads a present cell.
 fn[T] map_present(n : Int, valid : Array[Bool], f : (Int) -> T) -> Array[T?] {

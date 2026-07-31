@@ -31,7 +31,8 @@ pub fn DataFrame::reverse(self : DataFrame) -> DataFrame {
 /// the frame's own columns, as in Polars.
 ///
 /// Raises `DuplicateColumn(name)` when the frame already has a column of that
-/// name — the frame's own invariant, surfaced through `DataFrame::DataFrame`. The
+/// name — the frame's own invariant, surfaced by the `Schema` the rebuild
+/// derives (`DataFrame::from_parts_with_fields`). The
 /// counter is dense and always non-null, so it never changes any other
 /// column's dtype or nullability.
 ///

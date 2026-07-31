@@ -364,7 +364,8 @@ test "quickstart: inner join" {
 }
 ```
 
-`how=Right` and `how=Outer` select the other join types. A full **outer** join keeps
+`how=Left`, `how=Right` and `how=Outer` select the other keyed join types, and
+`JoinOptions::cross()` the keyless one. A full **outer** join keeps
 the unmatched rows from *both* sides; coalescing the key
 (`coalesce=true`) merges it into one column, taking each row's value from
 whichever side is present — so the order with no customer and the customer with
@@ -405,7 +406,9 @@ test "quickstart: outer join" {
 
 `format_csv` / `parse_csv_str` are the string-level serialisers (the
 file-backed `read_csv` / `write_csv` wrap them). Round-tripping is faithful for
-inferable dtypes — the property tests assert this over random input.
+inferable dtypes — a generated property asserts it over random `Int` columns,
+and a hand-written adversarial corpus covers the other dtypes and their edges
+(embedded quotes and newlines, nulls, big `Int64`s, signed zero).
 
 ```moonbit check
 ///|

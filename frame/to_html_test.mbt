@@ -211,7 +211,7 @@ test "to_html: max_rows >= nrows shows all rows, no banner" {
 // ── class / caption ─────────────────────────────────────────────────
 
 ///|
-test "to_html: with_table_class sets the class attribute" {
+test "to_html: table_class sets the class attribute" {
   let df = DataFrame::DataFrame([Series::from_ints("n", [1])])
   let opts : HtmlOptions = HtmlOptions::HtmlOptions(table_class="dataframe")
   let expected =
@@ -228,7 +228,7 @@ test "to_html: with_table_class sets the class attribute" {
 }
 
 ///|
-test "to_html: with_caption emits an escaped caption" {
+test "to_html: caption is emitted escaped" {
   let df = DataFrame::DataFrame([Series::from_ints("n", [1])])
   let opts : HtmlOptions = HtmlOptions::HtmlOptions(caption="Sales & totals")
   let expected =

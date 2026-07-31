@@ -13,8 +13,10 @@
 # minor version).
 #
 # Scope. Every tracked `pkg.generated.mbti` outside `internal/` — the public
-# packages. Internal packages carry no compatibility promise, so their enums
-# are not locked. Only `pub(all)` enums/suberrors are matchable from outside; a
+# packages, and the `examples/` programs alongside them, which publish an
+# interface like any other package. Internal packages carry no compatibility
+# promise, so their enums are not locked. Only `pub(all)` enums/suberrors are
+# matchable from outside; a
 # plain `pub enum` exposes no variants and is skipped.
 #
 # Adding, removing, or renaming a variant — or adding a whole public enum —

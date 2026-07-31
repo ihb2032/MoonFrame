@@ -1,6 +1,7 @@
 // Blackbox tests for the unary numeric ops `Expr::abs` / `floor` / `ceil` /
-// `sign`: per-dtype behavior on both backends, NaN pass-through, null
-// propagation, and the non-numeric type error.
+// `sign` / `round`: per-dtype behavior on both backends, NaN pass-through, null
+// propagation, and the non-numeric type error — plus, for `round`, the
+// half-to-even rule, the `decimals~` places, and the non-finite edges.
 
 ///|
 test "abs / floor / ceil / sign on the Numeric fast arm" {

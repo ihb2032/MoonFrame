@@ -245,9 +245,7 @@ test "take keeps the backend on both arms" {
   )
 }
 
-// ── Typed accessors: both arms ────────────────────────────────────────
-
-// ── Materialise: to_builtin / to_string_column on both arms ────────────
+// ── Materialise: to_builtin on both arms ──────────────────────────────
 
 ///|
 test "to_builtin widens Numeric losslessly and is identity on Builtin" {
@@ -284,8 +282,6 @@ test "cast routes through Builtin (result is Builtin-backed)" {
     is Err(@types.DataError::Unsupported(_)),
   )
 }
-
-// ── Converge onto Numeric: the five states ────────────────────────────
 
 // ── Content-based equality (backend-agnostic) ─────────────────────────
 

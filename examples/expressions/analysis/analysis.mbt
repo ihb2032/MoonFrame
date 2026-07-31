@@ -82,8 +82,8 @@ pub fn graded(
 /// `collect`. The pipeline filters to the west, scales revenue, and
 /// projects two columns; `explain` prints the plan and
 /// `explain(optimized=true)` prints the plan `collect` actually runs,
-/// with the filter sunk below the projection and the scan narrowed to the
-/// columns the query reads.
+/// with the filter sunk below the `with_columns` stage it commutes with and
+/// a narrowing projection inserted over the scan.
 pub fn report_plan(df : @moonframe.DataFrame) -> @moonframe.LazyFrame {
   @moonframe.LazyFrame::LazyFrame(df)
   .with_columns([

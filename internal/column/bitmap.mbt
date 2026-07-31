@@ -148,21 +148,21 @@ pub fn Bitmap::to_bools(self : Bitmap) -> Array[Bool] {
 // ── Transforms ────────────────────────────────────────────────────────
 
 ///|
-/// Total zero-copy view of `[start, start + length)` — the shared core
-/// behind `slice` (which validates the bounds then calls this) and the total
-/// `BuiltinColumn::slice_unchecked`. It just shares the buffer and advances
-/// `offset`, so the caller must keep `0 <= start` and
-/// `start + length <= len`; both delegators guarantee that.
+/// Total zero-copy view of `[start, start + length)` — the validity half of
+/// `BuiltinColumn::slice_unchecked`, which is where `BuiltinColumn::slice`
+/// lands once it has validated the bounds. It just shares the buffer and
+/// advances `offset`, so the caller must keep `0 <= start` and
+/// `start + length <= len`; that one caller guarantees it.
 fn Bitmap::slice_view(self : Bitmap, start : Int, length : Int) -> Bitmap {
   { bits: self.bits, offset: self.offset + start, len: length }
 }
 
 ///|
-/// Total gather core behind `take`: a new bitmap whose i-th bit is
+/// Total gather core: a new bitmap whose i-th bit is
 /// `self[indices[i]]`, **without** bounds-checking the indices — the gather
-/// counterpart of `slice_view`. Shared by `take` (which validates first) and
-/// `BuiltinColumn::take` (whose `validate_gather_indices` has already checked
-/// the same indices against the same length), so a gather is bounds-checked
+/// counterpart of `slice_view`. Its one caller is `BuiltinColumn::take`, whose
+/// `validate_gather_indices` has already checked the same indices against the
+/// same length, so a gather is bounds-checked
 /// exactly once. An out-of-range index reads as `false` via `is_valid_total`
 /// rather than aborting, so a caller that breaks the in-bounds contract still
 /// cannot panic.
@@ -176,7 +176,8 @@ fn Bitmap::take_view(self : Bitmap, indices : Array[Int]) -> Bitmap {
 /// Build a bitmap of `len` slots whose `i`-th bit is `1` (valid) exactly
 /// when `valid(i)` is true. This is the closure-parameterised core shared by
 /// every constructor and transform that packs per-slot validity into a fresh
-/// byte buffer — `from_options`, and the `take_view` behind `take`; each caller
+/// byte buffer — `from_options`, and the `take_view` behind
+/// `BuiltinColumn::take`; each caller
 /// supplies only its own `valid` predicate. The result is tight (`offset =
 /// 0`, buffer exactly `⌈len / 8⌉` bytes). `valid` runs once per slot in
 /// `[0, len)`, so the caller must keep every index it reads (e.g.

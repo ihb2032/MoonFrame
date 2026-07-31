@@ -1,10 +1,13 @@
 ///|
 /// The membership / range predicate kernels behind `Expr::is_in` and
-/// `Expr::is_between`. Both yield a nullable `Bool` column and are built
-/// entirely from the comparison (`eval_compare`) and Kleene (`eval_logic`)
-/// kernels, so their semantics — exact `Int`/`Float` comparison, `String` /
-/// `Bool` ordering, null propagation, and the `TypeMismatch` on an unorderable
-/// pair — can never drift from `eq` / `ge` / `le` and the connectives.
+/// `Expr::is_between`. Both yield a nullable `Bool` column, and both reach
+/// their semantics — exact `Int`/`Float` comparison, `String` / `Bool`
+/// ordering, null propagation, and the `TypeMismatch` on an unorderable pair —
+/// from the comparison (`eval_compare`) and Kleene (`eval_logic`) kernels, so
+/// they cannot drift from `eq` / `ge` / `le` and the connectives. `is_in` has
+/// one exception, `try_fast_is_in`: a hash-set pass for the dtypes where
+/// membership is plain equality, kept deliberately narrow so nothing with a
+/// floating-point subtlety leaves the shared path (see its own docstring).
 
 ///|
 /// `is_in`: `true` where the cell equals one of `members`. The general path
@@ -141,8 +144,10 @@ fn try_fast_is_in(
 }
 
 ///|
-/// `is_between`: the both-closed `lo <= x <= hi`, evaluated as
-/// `x.ge(lo) & x.le(hi)` through the shared comparison and Kleene-AND kernels.
+/// `is_between`: the range test `lo <= x <= hi`, with each endpoint included or
+/// excluded per `closed` — `Both` evaluates as `x.ge(lo) & x.le(hi)`, and
+/// `Left` / `Right` / `None` swap the corresponding side to a strict `gt` / `lt`
+/// — through the shared comparison and Kleene-AND kernels.
 /// `x` arrives already evaluated (once) and is shared by both comparisons — the
 /// whole reason `IsBetween` is a dedicated node rather than a lowering that
 /// would embed the operand's subtree twice.

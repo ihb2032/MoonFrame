@@ -113,9 +113,10 @@ fn index_by_join_key(
 ///   (which takes none), or a sided pair of unequal length. (Mixing shared
 ///   and sided keys is a fourth case the engine still checks, though the
 ///   three constructors make it unspellable from outside `frame`.)
-/// - `DuplicateColumn(name)` — either two keys with the same output name
-///   (rejected at the repeat during key resolution, like
-///   `group_by([col("id"), col("id")])`), or two output columns still
+/// - `DuplicateColumn(name)` — either a repeated shared key that names a
+///   column twice (only an `on` join of bare `col` keys is deduplicated, so
+///   only that form can reach this, like `group_by([col("id"), col("id")])`),
+///   or two output columns still
 ///   colliding after suffixing (e.g. the left frame already has both
 ///   `value` and `value_right`, and the right contributes a non-key
 ///   `value`; surfaced by `DataFrame::from_parts`).

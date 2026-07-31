@@ -10,9 +10,9 @@
 //
 // Coverage targets:
 //   - The empty-columns shortcut (0 source columns ⇒ 0 result rows).
-//   - The `s.mean()` success branch (numeric column with at least one
-//     non-null cell) AND the raise branch (non-numeric column OR
-//     empty / all-null numeric column).
+//   - Both arms of `s.mean_opt()`, the total accessor `describe` reads: a
+//     value (numeric column with at least one non-null cell) AND `None`
+//     (non-numeric column, or an empty / all-null numeric one).
 //   - `render_extremum` is_null=true (empty / all-null column) AND
 //     is_null=false (column with at least one non-null cell).
 //   - Every concrete dtype (Int / Float / Bool / String) reaches the
@@ -29,8 +29,8 @@ fn describe_schema() -> Array[String] {
 ///|
 /// Mixed-dtype fixture covering Int (nullable), Float (nullable), Bool,
 /// and String. Picked so:
-///   - mean's success branch fires for "i" and "f"
-///   - mean's raise branch fires for "b" and "s" (TypeMismatch)
+///   - `mean_opt` yields a value for "i" and "f"
+///   - `mean_opt` yields `None` for "b" and "s" (non-numeric)
 ///   - render_extremum's is_null=false branch fires for every column
 fn describe_df() -> DataFrame raise @types.DataError {
   DataFrame::DataFrame([
@@ -171,9 +171,9 @@ test "describe on a 0-row numeric frame routes mean / min / max to Null" {
 
 ///|
 test "describe on an all-null numeric column routes mean / min / max to Null" {
-  // The raise arm of `s.mean()` is exercised by the InvalidOperation
-  // path here (numeric column with zero non-null cells), distinct from
-  // the TypeMismatch path covered by the Bool / String rows above.
+  // `mean_opt`'s `None` arm reached by the empty-scope route here (numeric
+  // column with zero non-null cells), distinct from the non-numeric route
+  // covered by the Bool / String rows above.
   let df = DataFrame::DataFrame([
     Series::from_int_options("a", [None, None, None]),
   ])
@@ -217,8 +217,8 @@ test "describe on a 0-column frame collapses to a 0x8 result" {
 
 ///|
 test "describe on an all-String frame leaves mean Null for every row" {
-  // Every source column is non-numeric → every `s.mean()` raises
-  // TypeMismatch → every mean cell is Null.
+  // Every source column is non-numeric → every `s.mean_opt()` is `None`
+  // → every mean cell is Null.
   let df = DataFrame::DataFrame([
     Series::from_strings("a", ["x", "y"]),
     Series::from_strings("b", ["m", "n"]),

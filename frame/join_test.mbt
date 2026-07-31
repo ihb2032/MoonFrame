@@ -4,11 +4,16 @@
 //   (1) check_invariants() == Ok(()) — every join result routes through
 //       DataFrame::DataFrame, so it must satisfy the structural spec.
 //   (2) output column order = left columns (original) then right non-key
-//       columns (original), key columns appearing once from the left; a
-//       right non-key column colliding with a left name gains the suffix.
-//   (3) row order = left rows in order; within a left row, right matches
-//       in ascending right-row order. Unmatched left rows (Left join) come
-//       in their left position with null right columns.
+//       columns (original); a right non-key column colliding with a left name
+//       gains the suffix. A shared key appears once when the join coalesces
+//       (Inner and Left by default, taking the left value; Right taking the
+//       right) and twice — `k` and `k_right` — when it does not (Outer by
+//       default, or any join with `coalesce=false`).
+//   (3) row order = the driving side's rows in order, and within one of them
+//       the other side's matches in ascending row order. Left and Inner drive
+//       from the left (an unmatched left row keeps its position with null
+//       right columns); Right drives from the right; Outer is the left-driven
+//       order followed by the unmatched right rows.
 
 // ── Fixtures ─────────────────────────────────────────────────────────
 

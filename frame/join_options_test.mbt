@@ -1,9 +1,10 @@
 // Blackbox tests for `JoinType` / `JoinOptions`.
 //
-// `JoinOptions`' fields are private outside the package, so these tests pin
-// the three constructors' defaults and their named overrides *through the
-// derived `Eq`* — e.g. naming a parameter with its default value must yield a
-// value equal to the bare call, while a non-default must not. The end-to-end
+// `JoinOptions` carries no `==` (its key lists are expressions), so these tests
+// pin the three constructors' defaults and their named overrides through
+// `assert_same_join`, which compares the parts that mean something: `how` /
+// `suffix` / `coalesce` and the rendered key lists. Naming a parameter with its
+// default value must yield the bare call's value, a non-default must not. The end-to-end
 // join behaviour they imply (inner default, `"_right"` suffix) is exercised
 // against real frames in `join_test.mbt`.
 
@@ -44,7 +45,7 @@ test "cross builds a keyless Cross spec" {
 ///|
 test "on / left_on copy their key arrays" {
   // Mutating the caller's array after building the options must not alter
-  // the join specification (pinned through the derived `Eq`).
+  // the join specification (pinned through `assert_same_join`).
   let keys = [@expr.col("id")]
   let base = JoinOptions::on(keys)
   keys.push(@expr.col("v"))

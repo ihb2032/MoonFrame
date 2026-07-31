@@ -359,7 +359,7 @@ test "std / variance are the sample statistics (ddof = 1)" {
   let s = Series::from_ints("x", [1, 2, 3])
   assert_eq(s.variance(), (1.0 : Double))
   assert_eq(s.std(), (1.0 : Double))
-  // Int widens to Double; nulls are skipped. [2,4,6]: mean 4, dev² 4+0+4 = 8,
+  // Nulls are skipped. [2,4,6]: mean 4, dev² 4+0+4 = 8,
   // / 2 = 4.0 variance, std 2.0.
   let f = Series::from_float_options("x", [
     Some(2.0),

@@ -1,8 +1,7 @@
-// The bare `Field::Field(...)` spelling resolves wherever the expected type is
-// concrete — inside `Schema::Schema([...])`, an annotated binding, a typed array
-// literal (see `schema_test.mbt`). These tests bind fields on their own or
-// hand them to the generic `assert_eq` / `inspect`, where no expected type is
-// available, so they use the fully qualified `Field::Field(...)` form.
+// `Field::Field(...)` is the constructor's only spelling — the type-named
+// constructor form every `pub struct` here uses. These tests bind fields on
+// their own or hand them to the generic `assert_eq` / `inspect`, so they write
+// it out in full, exactly as `schema_test.mbt` does inside `Schema::Schema([...])`.
 
 ///|
 test "Field defaults to nullable" {

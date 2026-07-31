@@ -196,7 +196,7 @@ test "Float NaN keys collapse into a single group" {
 ///|
 test "Float -0.0 and +0.0 keys collapse into a single group" {
   // +0.0 and -0.0 are IEEE-equal and both render "0", so they must land in
-  // the SAME group — exercising the `KFloat` zero-fold in `row_key.mbt`
+  // the SAME group — exercising the `KFloat` zero-fold in `series/key_cell.mbt`
   // (without it the two would hash to distinct keys). Keys 0.0, -0.0, 1.5,
   // 0.0 give two groups: the zero group (rows 0, 1, 3) then the 1.5 group
   // (row 2).

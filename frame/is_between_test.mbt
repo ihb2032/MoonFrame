@@ -1,4 +1,5 @@
-// Blackbox tests for `Expr::is_between` — both-closed `lo <= x <= hi`.
+// Blackbox tests for `Expr::is_between` — the range test `lo <= x <= hi`, whose
+// `closed~` argument decides which endpoints are included (`Both` by default).
 
 ///|
 test "is_between: both endpoints are inclusive" {

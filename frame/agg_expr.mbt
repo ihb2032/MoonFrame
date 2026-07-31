@@ -7,8 +7,9 @@
 /// collapses to a single cell per expression.
 ///
 /// Output shape: the key columns head the frame (in key order, each named
-/// by its key expression's output name and keeping its evaluated dtype and
-/// backend, one representative row per group), followed by one column per
+/// by its key expression's output name and keeping its evaluated dtype —
+/// the backend, like every row gather's, follows the gathered content —
+/// one representative row per group), followed by one column per
 /// expression (in expression order), named by the expression's
 /// output name (alias, else leftmost column reference, else `"literal"`);
 /// one row per group, in the first-appearance group order fixed by
@@ -115,9 +116,10 @@ pub fn GroupedDataFrame::agg(
   let out_cols : Array[Series] = []
   // Key columns: gather one representative cell per group from the
   // materialised key columns `group_by` already built (each named by its
-  // expression's output name and carrying its evaluated dtype / backend) —
+  // expression's output name and carrying its evaluated dtype) —
   // `g[0]` is in-bounds since the validation above rejected empty groups,
-  // and `gather_series` keeps the key column's name, dtype, and backend.
+  // and `gather_series` keeps the key column's name and dtype. The backend is
+  // canonicalised from the gathered rows, as after any row gather.
   let reps = self.groups.map(g => g[0])
   for key_column in self.key_columns {
     out_cols.push(gather_series(key_column, reps))

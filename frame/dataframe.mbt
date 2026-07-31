@@ -566,7 +566,7 @@ fn is_identity_perm(indices : Array[Int], nrows : Int) -> Bool {
 /// Rebuild the frame from `new_cols` and `nrows`, reusing this frame's schema
 /// and `O(1)` name→index cache verbatim. The schema-preserving constructor
 /// behind the row-only transforms (`head` / `tail` / `slice` / `gather` /
-/// `fill_null` / `unique`): the column values or backing change but the names
+/// `fill_null` / `reverse` / `unique`): the column values or backing change but the names
 /// and dtypes do not, so the cache stays valid and these never pay to rebuild it through
 /// `DataFrame::DataFrame` (`O(n)`, and able to raise). Total — the caller guarantees
 /// `new_cols` still matches the schema and carries `nrows` rows each.

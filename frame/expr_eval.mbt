@@ -63,8 +63,10 @@
 ///   total, the output is never null.
 /// - **String namespace** (`str_to_uppercase` / `str_contains` / …): apply a
 ///   `StrOp` to each cell of a String operand — case (`to_uppercase` /
-///   `to_lowercase`), `strip_chars` (ASCII whitespace), `len_chars` (an Int
-///   Unicode-character count), the literal predicates `contains` /
+///   `to_lowercase`), `strip_chars` (ASCII whitespace by default, or a given
+///   charset), the length probes `len_chars` / `len_bytes` (Int), the shape
+///   transforms `reverse` / `pad_start` / `pad_end` / `zfill` / `slice` /
+///   `split_get`, the literal predicates `contains` /
 ///   `starts_with` / `ends_with` (Bool), and the literal substitutions
 ///   `replace` (first) / `replace_all` (all), plus the regex operations
 ///   (`str_contains` / `str_replace` / `str_replace_all` with `literal=false`,

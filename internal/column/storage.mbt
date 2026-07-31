@@ -353,8 +353,6 @@ pub fn ColumnStorage::take(
   }
 }
 
-// ── Typed accessors (zero-boxing; forwarded to both arms) ─────────────
-
 // ── Materialise ───────────────────────────────────────────────────────
 
 ///|
@@ -375,8 +373,8 @@ fn ColumnStorage::to_builtin(self : ColumnStorage) -> BuiltinColumn {
 /// Cast to `target` — the single cross-dtype conversion — routing through
 /// `to_builtin()` so `BuiltinColumn`'s cast machine is reused rather than
 /// duplicated on the `Numeric` arm. The result is `Builtin`-backed;
-/// re-converge with `to_numeric()` if a numeric target should land back on
-/// the fast path. Supported targets and failure modes match
+/// `@series.try_column_to_numeric` re-converges it if a numeric target should
+/// land back on the fast path. Supported targets and failure modes match
 /// `BuiltinColumn::cast`.
 pub fn ColumnStorage::cast(
   self : ColumnStorage,
@@ -384,5 +382,3 @@ pub fn ColumnStorage::cast(
 ) -> ColumnStorage raise @types.DataError {
   ColumnStorage::Builtin(self.to_builtin().cast(target))
 }
-
-// ── Converge onto the Numeric backend ─────────────────────────────────

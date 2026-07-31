@@ -359,8 +359,6 @@ test "cast dispatches by dtype and rejects Bool / Null targets" {
   )
 }
 
-// ── typed accessors ──────────────────────────────────────────────────
-
 // ── coverage fill: per-dtype is_null / get null branches ─────────────
 
 ///|

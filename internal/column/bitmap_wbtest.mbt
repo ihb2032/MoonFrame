@@ -34,7 +34,7 @@ test "all_valid clamps a negative len to an empty bitmap" {
 }
 
 ///|
-test "from_bools mirrors the input vector exactly" {
+test "mask mirrors the input vector exactly" {
   let bm = mask([true, false, true, true, false, false, true, true, false])
   assert_eq(bm.len, 9)
   assert_eq(bm.null_count(), 4)
@@ -47,7 +47,7 @@ test "from_bools mirrors the input vector exactly" {
 }
 
 ///|
-test "from_bools on the empty array" {
+test "mask on the empty array" {
   let bm = mask([])
   assert_eq(bm.len, 0)
   assert_eq(bm.null_count(), 0)
@@ -89,7 +89,7 @@ test "from_options is generic in the element type" {
 // ── Cross-constructor equivalence ─────────────────────────────────────
 
 ///|
-test "all_valid and from_bools agree on a uniform-true vector" {
+test "all_valid and mask agree on a uniform-true vector" {
   let n = 11 // a non-byte-aligned size to exercise packing
   let a = Bitmap::all_valid(n)
   let b = mask(Array::make(n, true))
@@ -154,10 +154,10 @@ test "null_count agrees with bit-by-bit is_null" {
   assert_eq(by_iter, expected)
 }
 
-// ── slice ─────────────────────────────────────────────────────────────
+// ── slice_view ────────────────────────────────────────────────────────
 
 ///|
-test "slice mid-range across a byte boundary preserves bits" {
+test "slice_view mid-range across a byte boundary preserves bits" {
   // Source spans two bytes; the slice starts at bit 3 (mid-byte) and ends
   // at bit 11 (also mid-byte), exercising packing on the seam.
   let bm = mask([
@@ -177,7 +177,7 @@ test "slice mid-range across a byte boundary preserves bits" {
 }
 
 ///|
-test "slice with length 0 yields an empty bitmap regardless of start" {
+test "slice_view with length 0 yields an empty bitmap regardless of start" {
   let bm = Bitmap::all_valid(5)
   let part = bm.slice_view(2, 0)
   assert_eq(part.len, 0)
@@ -185,16 +185,16 @@ test "slice with length 0 yields an empty bitmap regardless of start" {
 }
 
 ///|
-test "slice covering the full range is value-equal to the source" {
+test "slice_view covering the full range is value-equal to the source" {
   let bm = mask([true, false, true, true])
   let part = bm.slice_view(0, 4)
   assert_eq(part, bm)
 }
 
-// ── take ──────────────────────────────────────────────────────────────
+// ── take_view ─────────────────────────────────────────────────────────
 
 ///|
-test "take gathers in arbitrary order with duplicates" {
+test "take_view gathers in arbitrary order with duplicates" {
   let bm = mask([true, false, true, false, true])
   let out = bm.take_view([4, 1, 1, 0])
   assert_eq(out.len, 4)
@@ -205,20 +205,18 @@ test "take gathers in arbitrary order with duplicates" {
 }
 
 ///|
-test "take with empty index array returns an empty bitmap" {
+test "take_view with empty index array returns an empty bitmap" {
   let bm = Bitmap::all_valid(3)
   let out = bm.take_view([])
   assert_eq(out.len, 0)
   assert_eq(out.null_count(), 0)
 }
 
-// ── bit_and ───────────────────────────────────────────────────────────
-
 // ── zero-copy slice views ────────────────────────────────────────────
 
 ///|
 test "sliced view equals a freshly packed bitmap and counts its own window" {
-  // slice(3, 5) is a zero-copy view (offset 3 into the parent's buffer); it
+  // slice_view(3, 5) is zero-copy (offset 3 into the parent's buffer); it
   // must compare logically equal to the same five bits packed standalone,
   // and null_count must count only the view's window — not the parent's
   // other bits.

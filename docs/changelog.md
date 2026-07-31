@@ -10,7 +10,7 @@ version — including a new variant on a public `pub(all)` enum, which is
 source-breaking under MoonBit's exhaustive `match` even though it reads as
 additive.
 
-## v0.6.0 — API convergence (unreleased)
+## v0.6.0 — API convergence
 
 The API-convergence release. MoonBit 0.10.4's `fn Type::Type(...)` custom
 constructors, optional parameters with defaults, and `internal` packages let a
@@ -184,7 +184,7 @@ source-level upgrade steps are collected in [`migration.md`](migration.md).
   `JoinOptions::on` / `left_on` / `cross` take `how` / `suffix` / `coalesce`
   (and, for `left_on`, a required `right_on~`) directly, retiring all six
   `with_*` methods — v0.5.8's five, plus a `with_coalesce_auto` that was added
-  and withdrawn inside this unreleased line, so no release ever carried it; and
+  and withdrawn before this release cut, so no release ever carried it; and
   `ChartSpec::bar` / `line` / `point` / `area` take `color` / `color_type` /
   `title`, retiring their three `with_*` methods. Thirteen builder methods
   become zero.

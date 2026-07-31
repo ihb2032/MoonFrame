@@ -1190,7 +1190,17 @@ test "read_csv: missing file surfaces as IoError, not panic" {
 
 ///|
 test "read_csv with options: missing file surfaces as IoError" {
-  let result = Ok(@io.read_csv("_build/io_csv_test_does_not_exist.csv")) catch {
+  // The open failure precedes any option, so passing a non-default one must
+  // not change which error surfaces.
+  let result = Ok(
+    @io.read_csv(
+      "_build/io_csv_test_does_not_exist.csv",
+      options=@io.CsvReadOptions::CsvReadOptions(
+        has_header=false,
+        delimiter=';',
+      ),
+    ),
+  ) catch {
     e => Err(e)
   }
   assert_true(result is Err(@types.DataError::IoError(_)))
@@ -1211,7 +1221,16 @@ test "write_csv: invalid path surfaces as IoError" {
 ///|
 test "write_csv with options: invalid path surfaces as IoError" {
   let df = @frame.DataFrame::DataFrame([@series.Series::from_ints("a", [1])])
-  let result = Ok(@io.write_csv("_build/no_such_dir_io_test_2/file.csv", df)) catch {
+  let result = Ok(
+    @io.write_csv(
+      "_build/no_such_dir_io_test_2/file.csv",
+      df,
+      options=@io.CsvWriteOptions::CsvWriteOptions(
+        header=false,
+        null_value="NA",
+      ),
+    ),
+  ) catch {
     e => Err(e)
   }
   assert_true(result is Err(@types.DataError::IoError(_)))
@@ -1229,6 +1248,7 @@ test "CsvReadOptions defaults every field" {
   assert_eq(opts.strict_column_count, false)
   assert_eq(opts.on_parse_error, @io.OnParseError::Raise)
   assert_eq(opts.allow_nonfinite_floats, true)
+  assert_eq(opts.strict_quotes, false)
 }
 
 ///|
@@ -1237,4 +1257,5 @@ test "CsvWriteOptions defaults every field" {
   assert_eq(opts.header, true)
   assert_eq(opts.delimiter, ',')
   assert_eq(opts.null_value, "")
+  assert_eq(opts.sanitize_formulas, false)
 }

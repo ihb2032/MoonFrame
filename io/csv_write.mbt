@@ -52,9 +52,11 @@ pub fn CsvWriteOptions::CsvWriteOptions(
 ///   or `\n` is wrapped in double quotes; interior double quotes are
 ///   doubled (`"` → `""`). Cells that need no quoting are written
 ///   verbatim so the output matches the simple "no quotes" CSV idiom
-///   whenever possible. The lone exception: in a single-column frame an
-///   empty cell (or an empty column name) is written as `""` rather than a
-///   bare blank, so the row is not a blank line the reader would skip.
+///   whenever possible. Two cells are quoted anyway: in a single-column frame
+///   an empty cell (or an empty column name) is written as `""` rather than a
+///   bare blank, so the row is not a blank line the reader would skip; and a
+///   first field opening with a byte-order mark is quoted so the mark cannot
+///   be read as part of the file's own preamble.
 /// - Round-trip caveat: cells render via `Scalar::to_string`, so a `Float`
 ///   whose value is a whole number is written without a fractional part
 ///   (`2.0` → `2`) and is re-inferred as `Int` on read — the same dtype

@@ -267,8 +267,7 @@ fn chart_mark(kind : ChartKind) -> String {
 /// Build one Vega-Lite encoding-channel object `{"field": <name>, "type":
 /// <vega-type>}`. An explicit `type_override` wins; otherwise the field `type`
 /// follows the column dtype: a numeric column (`Int` / `Float`) is
-/// `"quantitative"`; everything else (`String` / `Bool`, and an all-null
-/// `Null` column) is `"nominal"`.
+/// `"quantitative"`; every other dtype is `"nominal"`.
 fn encoding_channel(
   field : String,
   dtype : @types.DataType,

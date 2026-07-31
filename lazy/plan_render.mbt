@@ -12,8 +12,9 @@
 /// `Scan` prints only the captured frame's shape — `SCAN [rows×cols]` —
 /// never its data. A file source (a `Csv` / `Ndjson` scan) prints its label
 /// and path (quoted and escaped like a string literal) and, once the
-/// optimizer has filled it, the projected column list — `SCAN_CSV
-/// "sales.csv" [region, revenue]` — but never reads the file. Total:
+/// optimizer has filled them, the projected column list and any absorbed
+/// predicate — `SCAN_CSV "sales.csv" [region, revenue] WHERE (col(qty) > 50)`
+/// — but never reads the file. Total:
 /// rendering walks plain data, including plans that would fail to `collect`.
 fn render(plan : LogicalPlan, buf : StringBuilder, depth : Int) -> Unit {
   // Explicit-stack pre-order walk (not the call stack), so a deeply nested plan
@@ -60,7 +61,8 @@ fn render(plan : LogicalPlan, buf : StringBuilder, depth : Int) -> Unit {
 /// per-node half of `render`, split out so the iterative walk emits each label
 /// and schedules its children separately. Expressions render through
 /// `@expr.Expr`'s `Show`; `Scan` prints only its frame's shape and a file source
-/// its label, path, and (once the optimizer fills it) projection — never data.
+/// its label, path, and (once the optimizer fills them) projection and absorbed
+/// predicate — never data.
 fn write_plan_label(plan : LogicalPlan, buf : StringBuilder) -> Unit {
   match plan {
     Scan(source) => write_scan_label(source, buf)

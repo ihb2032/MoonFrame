@@ -43,8 +43,9 @@
 ///   downgrades the offending cell to a null cell and keeps the column's
 ///   inferred dtype (Polars' `ignore_errors=True`). See `OnParseError`.
 /// - `allow_nonfinite_floats` — when `true` (default), the float probe
-///   accepts the `nan` / `inf` / `infinity` literals `@string.parse_double`
-///   recognises, so a column of those tokens infers as `Float`. When
+///   accepts every non-finite result: the `nan` / `inf` / `infinity` literals,
+///   and a finite literal that overflows `Double` to a signed `Infinity`
+///   (`1e999`), so a column of those tokens infers as `Float`. When
 ///   `false`, the probe rejects them, so such a column falls back to
 ///   `String` instead of being silently retyped to `Float` (a
 ///   non-finite token past the window is then a parse failure handled per
@@ -121,7 +122,8 @@ pub fn CsvReadOptions::CsvReadOptions(
 ///      tokenisation, so quoted empty cells (`""`) and bare empty
 ///      cells are both honoured.
 ///   4. Each column is assembled into a typed `Series` and the result
-///      is wrapped through `DataFrame::DataFrame`.
+///      is wrapped through `DataFrame::from_parts` (an empty input
+///      short-circuits to `DataFrame::DataFrame([])` before this point).
 ///
 /// Raises:
 /// - `DuplicateColumn(name)` — two headers share a name.
@@ -135,10 +137,10 @@ pub fn CsvReadOptions::CsvReadOptions(
 ///   row outside the inference window is malformed for the inferred
 ///   type), unless `options.on_parse_error` is `Null`, which downgrades
 ///   that cell to a null instead of failing the read.
-/// - Whatever `DataFrame::DataFrame` propagates — which is limited
-///   to `DuplicateColumn` / `LengthMismatch`, neither of which can
-///   actually fire here (uniqueness is checked above; every column
-///   is built off the same `rows.length()`).
+/// - Whatever `DataFrame::from_parts` propagates — `DuplicateColumn` /
+///   `LengthMismatch` / a negative-height `InvalidOperation`, none of which
+///   can actually fire here (uniqueness is checked above; every column
+///   is built off the same non-negative `rows.length()`).
 ///
 /// By default, tokenisation keeps NyaCSV's lenient quote handling. An
 /// unterminated quoted field at end-of-input is read as a complete field
@@ -576,21 +578,21 @@ fn infer_column_dtype(
 /// `Some(value)` when `s` is a plain base-10 integer literal that fits in
 /// a 64-bit `Int64`; `None` otherwise.
 ///
-/// We pre-screen with `@text.is_decimal_int_literal` because
-/// `@string.parse_int64` defaults to `base=0`, which would otherwise accept
-/// `0x` / `0o` / `0b` prefixes (`0xFF` → 255) and underscore grouping
+/// `@text.parse_decimal_int_opt` pre-screens for a plain decimal literal
+/// because `@string.parse_int64` defaults to `base=0`, which would otherwise
+/// accept `0x` / `0o` / `0b` prefixes (`0xFF` → 255) and underscore grouping
 /// (`1_000` → 1000). Those forms are kept as strings by pandas / polars,
 /// so accepting them during inference would silently retype columns of
 /// hex codes, IDs, or formatted numbers. Restricting to decimal keeps
-/// inference predictable. The same predicate gates the `@column`
+/// inference predictable. The same routine backs the `internal/column`
 /// String→`Int` cast, so inference and an explicit cast agree.
 fn parse_int_opt(s : String) -> Int64? {
   @text.parse_decimal_int_opt(s)
 }
 
 ///|
-/// `Some(value)` when `s` parses as a `Double` via `@string.parse_double`;
-/// `None` on parse failure.
+/// `Some(value)` when `s` reads as a `Double` through
+/// `@text.parse_plain_double_opt`; `None` when it does not.
 ///
 /// Strings containing `_` are rejected up front: `@string.parse_double`
 /// accepts underscore grouping (`1_000` → `1000.0`), but — like the
@@ -598,8 +600,10 @@ fn parse_int_opt(s : String) -> Int64? {
 /// how CSV numbers are written, and pandas / polars keep such cells as
 /// strings.
 ///
-/// `allow_nonfinite` gates the `nan` / `inf` / `infinity` literals
-/// `parse_double` recognises: when `true` they are accepted and become
+/// `allow_nonfinite` gates every non-finite result: the `nan` / `inf` /
+/// `infinity` literals, and equally a finite literal whose magnitude overflows
+/// `Double` (`1e999`), which IEEE 754 rounds to a signed `Infinity` rather than
+/// failing. When `true` they are accepted and become
 /// `Double` NaN / ±Infinity (the historical default); when `false` they
 /// are rejected (`None`), so a column of such tokens stays `String` rather
 /// than being silently retyped to `Float`. The same predicate gates both

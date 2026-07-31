@@ -334,7 +334,9 @@ pub fn LazyFrame::collect(
 /// By default this is the plan **as built** — a faithful mirror of the
 /// chained verbs, which is the package's contract. Pass `optimized=true`
 /// to render the plan `collect` actually runs instead: a sunk `FILTER`
-/// appears below the stages it crossed, and the projection pushdown shows
+/// appears below the stages it crossed — or disappears into the leaf as a
+/// `WHERE` suffix, when the stage it reaches is a file source that can apply
+/// it while reading — and the projection pushdown shows
 /// up as a narrowing `SELECT` over an in-memory `SCAN` or as the column list
 /// on a `SCAN_CSV` source, so printing both forms is the before/after view
 /// of what the optimizer moved and pruned. (Polars' `LazyFrame::explain(optimized)` is the

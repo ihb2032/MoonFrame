@@ -1,7 +1,8 @@
 ///|
 /// The string-namespace kernel: apply a `@ir.StrOp` to each cell of a String
 /// operand — case, `strip_chars` (default or custom charset), `len_chars` /
-/// `len_bytes`, `reverse`, `pad`, `slice`, `split_get`, the literal `contains` /
+/// `len_bytes`, `reverse`, `pad`, `zfill`, `slice`, `split_get`, the literal
+/// `contains` /
 /// `starts_with` / `ends_with` predicates and `replace` / `replace_all`, and the
 /// POSIX-regex `contains_regex` / `replace_regex` / `replace_all_regex` /
 /// `extract` / `count_matches`. A non-String operand raises `TypeMismatch`, null
@@ -14,12 +15,12 @@
 /// `TypeMismatch`, decided once for the whole column (scope-independent, so
 /// the optimizer treats a `Str` node as row-stable). A null cell maps to a
 /// null result; a present cell maps through the underlying total `String`
-/// method, so no *value* can raise. `ToUppercase` / `ToLowercase` /
-/// `StripChars` / `Replace` / `ReplaceAll` / `Reverse` / `PadStart` / `PadEnd` /
-/// `ReplaceRegex` / `ReplaceAllRegex` produce a String column, `LenChars` an Int
-/// (the Unicode character count — an all-valid result converges onto the
-/// `Numeric` fast path like every computed numeric), and the `Contains` /
-/// `StartsWith` / `EndsWith` / `ContainsRegex` predicates a Bool. The `*Regex`
+/// method, so no *value* can raise. The output dtype follows the op: the
+/// predicates (`Contains` / `StartsWith` / `EndsWith` / `ContainsRegex`) give a
+/// Bool column; `LenChars` / `LenBytes` / `CountMatches` an Int (an all-valid
+/// result converges onto the `Numeric` fast path like every computed numeric);
+/// and everything else — the case, strip, replace, pad, `ZFill`, `Reverse`,
+/// `Slice`, `SplitGet` and `Extract` forms — a String column. The `*Regex`
 /// ops compile their POSIX pattern **once** (hoisted out of the per-cell map),
 /// so an invalid pattern raises `InvalidOperation` once per evaluation — the
 /// only non-total path — while literal matching stays per-value total.
@@ -252,8 +253,10 @@ fn extract_match(re : @string.Regex, cell : String, group : Int) -> String? {
 
 ///|
 /// Compile a regex `pattern` once, mapping the core engine's parse error to an
-/// `InvalidOperation` — the `*Regex` string ops' one raising path, taken once
-/// per evaluation, never per cell. The engine's dialect is POSIX, so a PCRE
+/// `InvalidOperation` — the `*Regex` string ops' one raising path, hoisted out
+/// of the per-cell map so it is taken once per evaluation, never per cell.
+/// `frame`'s `cols_matching` selector compiles through here too, matching
+/// column names rather than cells. The engine's dialect is POSIX, so a PCRE
 /// class like `\d` is itself a parse error, surfaced here with the engine's own
 /// message.
 pub fn compile_regex(pattern : String) -> @string.Regex raise @types.DataError {

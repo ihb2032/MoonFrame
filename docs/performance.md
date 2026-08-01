@@ -83,7 +83,7 @@ Each row reuses the symbols in its own line — `k` is the surviving rows of a
 | `filter` | `O(n · E)` predicate eval | `O(k · c)` | `k` = surviving rows; the gather rebuilds every column |
 | `select` / `with_columns` | `O(n · E)` over the expressions given | `O(n)` per output column | vectorized, whole-column: one pass per node, never per cell |
 | `sort` | `O(n · E)` to evaluate the `q` keys into columns, then `O(n log n · q)` comparisons — a tie on one key falls through to the next | `O(n · c)` | stable, multi-key |
-| `group_by(keys).agg(aggs)` | `O(n · E)` for the key and aggregate expressions, plus `O(n · q)` to build the composite key cells | `O(g · (q + a))` | `g` = groups, `a` = aggregates; each reduction folds a group over its own indices |
+| `group_by(keys).agg(aggs)` | `O(n · E)` for the key and aggregate expressions, `O(n · q)` to build the composite key cells, and `O(n · a)` for the folds | `O(g · (q + a))` | `g` = groups, `a` = aggregates; each reduction folds a group over its own indices, and the groups partition the `n` rows, so all `a` of them together walk each row once |
 | `join` | evaluating the key expressions over both frames — `O(n · E)` and `O(m · E)` — then `O((n + m) · q)` to build and probe the composite keys | `O(r · c)` | `r` = **output** rows: matched pairs, plus the unmatched rows `Left` / `Right` / `Outer` keep. A many-to-many match makes it exceed both inputs, and the probe builds a row plan of length `r` before any column is touched |
 | `unique` | `O(n · c)` to build a row key from every column (`O(n · s)` for a `subset` of `s`) | `O(k · c)` | hash on the composite row key |
 | `sum` / `mean` / `min` / `max` | `O(n)` per column | `O(c)` | single pass; `Numeric` skips validity |

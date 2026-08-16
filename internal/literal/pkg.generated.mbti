@@ -15,4 +15,3 @@ pub fn format_scalar(@types.Scalar) -> String
 // Type aliases
 
 // Traits
-

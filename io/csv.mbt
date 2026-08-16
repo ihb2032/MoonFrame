@@ -215,7 +215,7 @@ fn parse_csv_str_projected(
   if options.strict_quotes {
     validate_csv_quotes(content, options.delimiter)
   }
-  let csv_options : @nyacsv.CSVOptions = {
+  let csv_options = @nyacsv.CSVOptions::{
     delimiter: options.delimiter,
     allow_newlines_in_quotes: true,
     quote_char: '"',

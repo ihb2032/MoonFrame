@@ -58,4 +58,3 @@ pub fn Series::variance(Self) -> Double raise @types.DataError
 // Type aliases
 
 // Traits
-

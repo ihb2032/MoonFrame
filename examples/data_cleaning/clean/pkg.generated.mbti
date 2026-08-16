@@ -16,4 +16,3 @@ pub fn clean(@frame.DataFrame) -> @frame.DataFrame raise @types.DataError
 // Type aliases
 
 // Traits
-

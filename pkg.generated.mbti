@@ -133,4 +133,3 @@ pub using @types {type TypeMismatchDetail}
 pub using @io {type VegaType}
 
 // Traits
-

@@ -17,4 +17,3 @@ pub fn parse_plain_double_opt(String) -> Double?
 // Type aliases
 
 // Traits
-

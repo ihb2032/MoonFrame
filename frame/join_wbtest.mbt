@@ -10,7 +10,7 @@
 test "join rejects options carrying both `on` and `left_on` / `right_on`" {
   let left = DataFrame::DataFrame([Series::from_ints("k", [1])])
   let right = DataFrame::DataFrame([Series::from_ints("k", [1])])
-  let both : JoinOptions = {
+  let both = JoinOptions::{
     on: [@expr.col("k")],
     left_on: [@expr.col("k")],
     right_on: [@expr.col("k")],

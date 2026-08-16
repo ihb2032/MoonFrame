@@ -8,7 +8,7 @@
 
 ///|
 test "check_invariants reports INV1 when schema and columns lengths disagree" {
-  let bad : DataFrame = {
+  let bad = DataFrame::{
     // Schema says two columns, columns vector has one.
     schema: @types.Schema::Schema([
       @types.Field::Field("a", @types.DataType::Int),
@@ -25,7 +25,7 @@ test "check_invariants reports INV1 when schema and columns lengths disagree" {
 
 ///|
 test "check_invariants reports INV2 when a column's length disagrees with nrows" {
-  let bad : DataFrame = {
+  let bad = DataFrame::{
     schema: @types.Schema::Schema([
       @types.Field::Field("a", @types.DataType::Int),
     ]),
@@ -40,7 +40,7 @@ test "check_invariants reports INV2 when a column's length disagrees with nrows"
 
 ///|
 test "check_invariants reports INV3 when schema field name does not match column name" {
-  let bad : DataFrame = {
+  let bad = DataFrame::{
     schema: @types.Schema::Schema([
       @types.Field::Field("renamed", @types.DataType::Int),
     ]),
@@ -55,7 +55,7 @@ test "check_invariants reports INV3 when schema field name does not match column
 
 ///|
 test "check_invariants reports INV4 when schema dtype does not match column dtype" {
-  let bad : DataFrame = {
+  let bad = DataFrame::{
     schema: @types.Schema::Schema([
       @types.Field::Field("a", @types.DataType::Float),
     ]),
@@ -70,7 +70,7 @@ test "check_invariants reports INV4 when schema dtype does not match column dtyp
 
 ///|
 test "check_invariants reports INV5 when name_to_index size disagrees with columns" {
-  let bad : DataFrame = {
+  let bad = DataFrame::{
     schema: @types.Schema::Schema([
       @types.Field::Field("a", @types.DataType::Int),
       @types.Field::Field("b", @types.DataType::Int),
@@ -87,7 +87,7 @@ test "check_invariants reports INV5 when name_to_index size disagrees with colum
 
 ///|
 test "check_invariants reports INV6 when a cache entry points out of range" {
-  let bad : DataFrame = {
+  let bad = DataFrame::{
     schema: @types.Schema::Schema([
       @types.Field::Field("a", @types.DataType::Int),
     ]),
@@ -101,7 +101,7 @@ test "check_invariants reports INV6 when a cache entry points out of range" {
 
 ///|
 test "check_invariants reports INV6 when a cache entry points to a negative index" {
-  let bad : DataFrame = {
+  let bad = DataFrame::{
     schema: @types.Schema::Schema([
       @types.Field::Field("a", @types.DataType::Int),
     ]),
@@ -116,7 +116,7 @@ test "check_invariants reports INV6 when a cache entry points to a negative inde
 
 ///|
 test "check_invariants reports INV6 when a cache key does not match its target column" {
-  let bad : DataFrame = {
+  let bad = DataFrame::{
     schema: @types.Schema::Schema([
       @types.Field::Field("a", @types.DataType::Int),
       @types.Field::Field("b", @types.DataType::Int),
@@ -133,7 +133,7 @@ test "check_invariants reports INV6 when a cache key does not match its target c
 
 ///|
 test "check_invariants reports INV7 when nrows is negative" {
-  let bad : DataFrame = {
+  let bad = DataFrame::{
     // With no columns, INV2 is vacuous and `nrows` alone carries the height —
     // so a negative count is caught here and nowhere else.
     schema: @types.Schema::Schema([]),
@@ -148,7 +148,7 @@ test "check_invariants reports INV7 when nrows is negative" {
 test "check_invariants accepts a column-less frame that carries rows" {
   // The shape INV7 used to reject: `N×0` is what a projection to zero
   // columns leaves behind, and it is well-formed.
-  let empty_rows : DataFrame = {
+  let empty_rows = DataFrame::{
     schema: @types.Schema::Schema([]),
     columns: [],
     nrows: 3,

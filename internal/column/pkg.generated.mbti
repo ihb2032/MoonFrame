@@ -98,4 +98,3 @@ pub fn StorageKind::to_repr(Self) -> @debug.Repr
 // Type aliases
 
 // Traits
-

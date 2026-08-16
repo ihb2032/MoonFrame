@@ -20,4 +20,3 @@ pub fn revenue_table(@frame.DataFrame) -> String
 // Type aliases
 
 // Traits
-

@@ -55,4 +55,3 @@ pub fn LazyGroupBy::agg(Self, Array[@expr.Expr]) -> LazyFrame
 // Type aliases
 
 // Traits
-

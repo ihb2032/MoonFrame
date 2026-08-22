@@ -12,6 +12,19 @@
 // `csv_test.mbt` / `json_test.mbt` / `ndjson_test.mbt`.
 
 ///|
+/// Build a one-code-unit string holding an isolated UTF-16 surrogate half
+/// (`0xD800`–`0xDBFF` high or `0xDC00`–`0xDFFF` low). moonc 0.10.9 closed
+/// the easier routes: string literals reject `\u{D800}` (compile error) and
+/// the JSON parser refuses `\uD800` escapes, so the write-side surrogate
+/// guards are exercised by assembling the raw code unit directly. Shared by
+/// the surrogate rejection tests in this package.
+fn lone_surrogate_str(code_unit : Int) -> String {
+  let b = StringBuilder::new()
+  b.write_char(Int::unsafe_to_char(code_unit))
+  b.to_string()
+}
+
+///|
 /// Assert the text fixpoint `emit(parse(emit(df))) == emit(df)` on every format
 /// for one frame; the enclosing test's name identifies the fixture on failure.
 fn assert_roundtrip_fixpoint(df : @frame.DataFrame) -> Unit raise {
@@ -279,9 +292,13 @@ test "rejection property: an unsafe CSV delimiter returns DataError" {
 
 ///|
 test "rejection property: isolated surrogate halves never reach a file" {
-  let df = @io.parse_ndjson_str(
-    "{\"s\":\"\\ud800\",\"kind\":\"high\"}\n{\"s\":\"\\udfff\",\"kind\":\"low\"}\n",
-  )
+  let df = @frame.DataFrame::DataFrame([
+    @series.Series::from_strings("s", [
+      lone_surrogate_str(0xD800),
+      lone_surrogate_str(0xDFFF),
+    ]),
+    @series.Series::from_strings("kind", ["high", "low"]),
+  ])
   let csv = Ok(@io.write_csv("_build/io_corpus_surrogate.csv", df)) catch {
     error => Err(error)
   }

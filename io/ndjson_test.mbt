@@ -444,11 +444,13 @@ test "write_ndjson then read_ndjson round-trips a small frame on disk" {
 
 ///|
 test "write_ndjson refuses a cell holding an unpaired surrogate" {
-  // A lone surrogate is ingestible (JSON's \uD800 escape parses to a cell
-  // holding the bare code unit, and the builtin stringifier emits it
-  // verbatim), but the UTF-8 file encoder would merge it with the following
-  // quote, corrupting the line framing — so the write is refused up front.
-  let df = @io.parse_ndjson_str("{\"a\":\"\\ud800\",\"b\":1}\n")
+  // A lone surrogate can sit in a cell, but the UTF-8 file encoder would
+  // merge it with the following quote, corrupting the line framing — so the
+  // write is refused up front.
+  let df = @frame.DataFrame::DataFrame([
+    @series.Series::from_strings("a", [lone_surrogate_str(0xD800)]),
+    @series.Series::from_ints("b", [1]),
+  ])
   assert_eq(df.item(0, "b"), @types.Scalar::Int(1))
   let w = Ok(@io.write_ndjson("_build/io_ndjson_surrogate_reject.ndjson", df)) catch {
     e => Err(e)

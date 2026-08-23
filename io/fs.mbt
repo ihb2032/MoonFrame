@@ -43,7 +43,9 @@ fn find_unpaired_surrogate(content : String) -> Int? {
 ///
 /// Rejects content holding an unpaired UTF-16 surrogate (`raise
 /// InvalidOperation`) before encoding: MoonBit strings can legally hold one
-/// (e.g. ingested from a JSON `\uD800` escape), but the UTF-8 file encoder
+/// (e.g. assembled from a raw code unit with `Int::unsafe_to_char` — since
+/// moonc 0.10.9 neither string literals nor the JSON parser accept one), but
+/// the UTF-8 file encoder
 /// merges a lone high surrogate with the *following* code unit — swallowing
 /// a CSV delimiter or a JSON closing quote and silently shifting every cell
 /// boundary after it. Refusing up front matches `validate_csv_delimiter`'s

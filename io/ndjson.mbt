@@ -15,7 +15,7 @@
 // non-finite `Float` (`NaN` / `±Infinity`) is emitted as `null` to keep
 // each line valid JSON, and an `Int` keeps its dtype and round-trips exactly
 // across the full `Int64` range — it is written as verbatim decimal text and
-// recovered from the number's preserved `repr` (json.mbt Caveat 2), even
+// recovered from the number's preserved `repr` (json_core.mbt Caveat 2), even
 // though the `@json` number model is `Double`.
 //
 // Reading is lenient about line endings: lines are split on `\n`, a

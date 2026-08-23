@@ -10,8 +10,8 @@
 // serialisation to an external interchange format (the IO-1 boundary:
 // `frame` keeps pure rendering like `to_markdown` / `to_html`; `io` owns
 // the parsers and the JSON/CSV/NDJSON serialisers). It is a free function
-// parallel to `format_json`, and it shares that file's
-// `scalar_to_json` cell mapping through the common `df_to_json_records`
+// parallel to `format_json`, and it shares the family's `scalar_to_json`
+// cell mapping (`json_core.mbt`) through the common `df_to_json_records`
 // helper — so a `data.values` cell follows exactly the same conventions
 // as a JSON-records cell (nulls and non-finite floats become JSON `null`).
 //

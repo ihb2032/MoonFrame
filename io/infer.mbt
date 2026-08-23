@@ -309,6 +309,17 @@ fn[Cell] build_inferred_column(
 }
 
 ///|
+/// The pruner a pushed-down read carries: the key columns to build in
+/// phase 1, and the callback (built by the lazy layer from the absorbed
+/// predicate) that decides which rows survive into phase 2. Named once so
+/// every signature that threads it — the string-level projected cores, the
+/// JSON records core, and the frame assembler — spells the same contract.
+type RowPruner = (
+  Array[String],
+  (@frame.DataFrame) -> Array[Int] raise @types.DataError,
+)
+
+///|
 /// The two-phase assembly shared by the pruned CSV and JSON readers. `headers`
 /// gives the column order; `build_over(name, i, keep)` builds the column named
 /// `name` (at header index `i`) over the records `keep` selects (`None` = every
@@ -336,10 +347,7 @@ fn assemble_pruned_frame(
   headers : Array[String],
   nrows : Int,
   projection : Array[String]?,
-  pruner : (
-    Array[String],
-    (@frame.DataFrame) -> Array[Int] raise @types.DataError,
-  )?,
+  pruner : RowPruner?,
   build_over : (String, Int, Array[Int]?) -> @series.Series raise @types.DataError,
 ) -> @frame.DataFrame raise @types.DataError {
   // Phase 1: build only the key columns over every record, gather the survivors.

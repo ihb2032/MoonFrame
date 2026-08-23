@@ -193,10 +193,7 @@ fn parse_csv_str_projected(
   content : String,
   options : CsvReadOptions,
   projection : Array[String]?,
-  pruner? : (
-    Array[String],
-    (@frame.DataFrame) -> Array[Int] raise @types.DataError,
-  ),
+  pruner? : RowPruner,
 ) -> @frame.DataFrame raise @types.DataError {
   // Refuse a delimiter that collides with the quote character or a row
   // terminator before parsing — the same configurations `format_csv` rejects,
@@ -368,67 +365,6 @@ pub fn read_csv(
 ) -> @frame.DataFrame raise @types.DataError {
   let content = read_text(path)
   parse_csv_str(content, options~)
-}
-
-///|
-/// Read a CSV file, keeping only the rows `predicate` selects — the file-backed
-/// entry behind the lazy `scan_csv` source's **predicate push-down**. An
-/// `#internal` engine seam, like `read_csv_projected`.
-///
-/// The read runs in two phases over one tokenisation of the whole file:
-///   1. build only the `key_columns`, infer their dtypes from the whole file
-///      exactly as an unfiltered read would, and ask `keep` — a callback the
-///      lazy layer builds from the absorbed predicate — which rows survive;
-///   2. build the `projection` columns for **those rows alone**.
-///
-/// Taking names and a callback rather than an expression keeps `io` below the
-/// expression language: the reader knows *which* columns to resolve and which
-/// rows survived, never *why*.
-///
-/// Dtypes therefore match an eager `read_csv(...).filter(...)` cell for cell —
-/// inference always sees the full file — while the typed parse of a dropped
-/// row's cells never runs. That is the deliberate consequence, and the same
-/// one projection push-down already documents: a `ParseError` confined to a
-/// row the predicate drops (in a column the predicate does not read) no longer
-/// surfaces. Whole-input checks — strict quotes, a malformed header, a ragged
-/// row — run before either phase and are unaffected.
-#doc(hidden)
-#internal(engine, "MoonFrame execution engine API")
-pub fn read_csv_pruned(
-  path : String,
-  options : CsvReadOptions,
-  projection : Array[String]?,
-  key_columns : Array[String],
-  keep : (@frame.DataFrame) -> Array[Int] raise @types.DataError,
-) -> @frame.DataFrame raise @types.DataError {
-  let content = read_text(path)
-  parse_csv_str_projected(
-    content,
-    options,
-    projection,
-    pruner=(key_columns, keep),
-  )
-}
-
-///|
-/// Read a CSV file, building only the columns named in `projection` — the
-/// file-backed entry behind the lazy `scan_csv` source's projection
-/// pushdown. Identical to `read_csv` except that a column whose
-/// header name is not in `projection` is never inferred, parsed, or
-/// materialised (see `parse_csv_str_projected` for the precise contract,
-/// including the one behavioural consequence: a parse error confined to a
-/// dropped column does not surface). `IOError` from the file system surfaces
-/// as `raise IoError(message)`. `CsvReadOptions::CsvReadOptions(strict_quotes=true)` validates the whole input
-/// before applying the projection.
-#doc(hidden)
-#internal(engine, "MoonFrame execution engine API")
-pub fn read_csv_projected(
-  path : String,
-  options : CsvReadOptions,
-  projection : Array[String],
-) -> @frame.DataFrame raise @types.DataError {
-  let content = read_text(path)
-  parse_csv_str_projected(content, options, Some(projection))
 }
 
 ///|

@@ -102,10 +102,7 @@ fn frame_from_json_records(
   on_parse_error : OnParseError,
   projection : Array[String]?,
   source_lines : Array[Int]?,
-  pruner? : (
-    Array[String],
-    (@frame.DataFrame) -> Array[Int] raise @types.DataError,
-  ),
+  pruner? : RowPruner,
 ) -> @frame.DataFrame raise @types.DataError {
   if records.is_empty() {
     return @frame.DataFrame::DataFrame([])

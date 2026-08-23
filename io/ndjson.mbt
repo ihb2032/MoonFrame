@@ -71,10 +71,7 @@ fn parse_ndjson_str_projected(
   content : String,
   options : JsonReadOptions,
   projection : Array[String]?,
-  pruner? : (
-    Array[String],
-    (@frame.DataFrame) -> Array[Int] raise @types.DataError,
-  ),
+  pruner? : RowPruner,
 ) -> @frame.DataFrame raise @types.DataError {
   // Strip a leading UTF-8 BOM (shared with the CSV / JSON readers) before the
   // line split, so a BOM on the first record line doesn't make `@json.parse`
@@ -130,55 +127,6 @@ pub fn read_ndjson(
 ) -> @frame.DataFrame raise @types.DataError {
   let content = read_text(path)
   parse_ndjson_str(content, options~)
-}
-
-///|
-/// Read an NDJSON file, keeping only the rows `predicate` selects — the
-/// file-backed entry behind the lazy `scan_ndjson` source's **predicate
-/// push-down**, and the NDJSON twin of `read_csv_pruned`. An `#internal`
-/// engine seam.
-///
-/// Every line is still parsed and validated (a malformed or non-object line
-/// fails exactly as in a full read); the push-down skips the *typed* build of
-/// the columns the predicate does not read, for the records it drops. Dtype
-/// inference still walks every record, so dtypes match an eager
-/// read-then-filter, and a dropped record's cell error in a non-key column no
-/// longer surfaces — the same trade projection push-down documents.
-#doc(hidden)
-#internal(engine, "MoonFrame execution engine API")
-pub fn read_ndjson_pruned(
-  path : String,
-  options : JsonReadOptions,
-  projection : Array[String]?,
-  key_columns : Array[String],
-  keep : (@frame.DataFrame) -> Array[Int] raise @types.DataError,
-) -> @frame.DataFrame raise @types.DataError {
-  let content = read_text(path)
-  parse_ndjson_str_projected(
-    content,
-    options,
-    projection,
-    pruner=(key_columns, keep),
-  )
-}
-
-///|
-/// Read an NDJSON file, building only the columns named in `projection` — the
-/// file-backed entry behind the lazy `scan_ndjson` source's projection
-/// pushdown. Identical to `read_ndjson` except that a column whose
-/// header name is not in `projection` is never inferred or built (see
-/// `frame_from_json_records` for the precise contract, including the one
-/// behavioural consequence: a parse error confined to a dropped column does not
-/// surface). Filesystem errors surface as `raise IoError(message)`.
-#doc(hidden)
-#internal(engine, "MoonFrame execution engine API")
-pub fn read_ndjson_projected(
-  path : String,
-  options : JsonReadOptions,
-  projection : Array[String],
-) -> @frame.DataFrame raise @types.DataError {
-  let content = read_text(path)
-  parse_ndjson_str_projected(content, options, Some(projection))
 }
 
 ///|

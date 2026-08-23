@@ -8,12 +8,12 @@ ctor HtmlOptions::HtmlOptions(max_rows? : Int, table_class? : String, caption? :
 ctor JsonReadOptions::JsonReadOptions(infer_schema_rows? : Int, on_parse_error? : OnParseError) -> Self <- io
 ctor LazyFrame::LazyFrame(@frame.DataFrame) -> Self <- lazy
 ctor Schema::Schema(Array[Field]) -> Self raise DataError <- types
-field ChartSpec.color : String? <- io
-field ChartSpec.color_type : VegaType? <- io
-field ChartSpec.kind : ChartKind <- io
-field ChartSpec.title : String? <- io
-field ChartSpec.x : String <- io
-field ChartSpec.y : String <- io
+field ChartSpec.color : String? <- chart
+field ChartSpec.color_type : VegaType? <- chart
+field ChartSpec.kind : ChartKind <- chart
+field ChartSpec.title : String? <- chart
+field ChartSpec.x : String <- chart
+field ChartSpec.y : String <- chart
 field CsvReadOptions.allow_nonfinite_floats : Bool <- io
 field CsvReadOptions.delimiter : Char <- io
 field CsvReadOptions.has_header : Bool <- io
@@ -54,8 +54,8 @@ fn format_json(@frame.DataFrame) -> String <- io
 fn format_json(@frame.DataFrame) -> String <- root
 fn format_ndjson(@frame.DataFrame) -> String <- io
 fn format_ndjson(@frame.DataFrame) -> String <- root
-fn format_vega_lite(@frame.DataFrame, @io.ChartSpec) -> String raise @types.DataError <- root
-fn format_vega_lite(@frame.DataFrame, ChartSpec) -> String raise @types.DataError <- io
+fn format_vega_lite(@frame.DataFrame, @chart.ChartSpec) -> String raise @types.DataError <- root
+fn format_vega_lite(@frame.DataFrame, ChartSpec) -> String raise @types.DataError <- chart
 fn lit(@types.Scalar) -> @expr.Expr <- root
 fn lit(@types.Scalar) -> Expr <- expr
 fn lit_bool(Bool) -> @expr.Expr <- root
@@ -96,8 +96,8 @@ fn write_json(String, @frame.DataFrame) -> Unit raise @types.DataError <- io
 fn write_json(String, @frame.DataFrame) -> Unit raise @types.DataError <- root
 fn write_ndjson(String, @frame.DataFrame) -> Unit raise @types.DataError <- io
 fn write_ndjson(String, @frame.DataFrame) -> Unit raise @types.DataError <- root
-fn write_vega_lite(String, @frame.DataFrame, @io.ChartSpec) -> Unit raise @types.DataError <- root
-fn write_vega_lite(String, @frame.DataFrame, ChartSpec) -> Unit raise @types.DataError <- io
+fn write_vega_lite(String, @frame.DataFrame, @chart.ChartSpec) -> Unit raise @types.DataError <- root
+fn write_vega_lite(String, @frame.DataFrame, ChartSpec) -> Unit raise @types.DataError <- chart
 impl @debug.Debug for Expr <- expr
 impl Add for Expr <- expr
 impl BitAnd for Expr <- expr
@@ -119,16 +119,16 @@ intermediate WhenThenElse <- expr
 method CellParseLocation::equal(Self, Self) -> Bool <- types
 method CellParseLocation::not_equal(Self, Self) -> Bool <- types
 method CellParseLocation::to_repr(Self) -> @debug.Repr <- types
-method ChartKind::equal(Self, Self) -> Bool <- io
-method ChartKind::not_equal(Self, Self) -> Bool <- io
-method ChartKind::to_repr(Self) -> @debug.Repr <- io
-method ChartSpec::area(String, String, color? : String, color_type? : VegaType, title? : String) -> Self <- io
-method ChartSpec::bar(String, String, color? : String, color_type? : VegaType, title? : String) -> Self <- io
-method ChartSpec::equal(Self, Self) -> Bool <- io
-method ChartSpec::line(String, String, color? : String, color_type? : VegaType, title? : String) -> Self <- io
-method ChartSpec::not_equal(Self, Self) -> Bool <- io
-method ChartSpec::point(String, String, color? : String, color_type? : VegaType, title? : String) -> Self <- io
-method ChartSpec::to_repr(Self) -> @debug.Repr <- io
+method ChartKind::equal(Self, Self) -> Bool <- chart
+method ChartKind::not_equal(Self, Self) -> Bool <- chart
+method ChartKind::to_repr(Self) -> @debug.Repr <- chart
+method ChartSpec::area(String, String, color? : String, color_type? : VegaType, title? : String) -> Self <- chart
+method ChartSpec::bar(String, String, color? : String, color_type? : VegaType, title? : String) -> Self <- chart
+method ChartSpec::equal(Self, Self) -> Bool <- chart
+method ChartSpec::line(String, String, color? : String, color_type? : VegaType, title? : String) -> Self <- chart
+method ChartSpec::not_equal(Self, Self) -> Bool <- chart
+method ChartSpec::point(String, String, color? : String, color_type? : VegaType, title? : String) -> Self <- chart
+method ChartSpec::to_repr(Self) -> @debug.Repr <- chart
 method ClosedInterval::equal(Self, Self) -> Bool <- types
 method ClosedInterval::not_equal(Self, Self) -> Bool <- types
 method ClosedInterval::to_repr(Self) -> @debug.Repr <- types
@@ -396,14 +396,14 @@ method SortOrder::to_repr(Self) -> @debug.Repr <- types
 method TypeMismatchDetail::equal(Self, Self) -> Bool <- types
 method TypeMismatchDetail::not_equal(Self, Self) -> Bool <- types
 method TypeMismatchDetail::to_repr(Self) -> @debug.Repr <- types
-method VegaType::equal(Self, Self) -> Bool <- io
-method VegaType::not_equal(Self, Self) -> Bool <- io
-method VegaType::to_repr(Self) -> @debug.Repr <- io
+method VegaType::equal(Self, Self) -> Bool <- chart
+method VegaType::not_equal(Self, Self) -> Bool <- chart
+method VegaType::to_repr(Self) -> @debug.Repr <- chart
 method WhenThen::then(Self, Expr) -> WhenThenElse <- expr
 method WhenThenElse::otherwise(Self, Expr) -> Expr <- expr
 type CellParseLocation <- types
-type ChartKind <- io
-type ChartSpec <- io
+type ChartKind <- chart
+type ChartSpec <- chart
 type ClosedInterval <- types
 type CsvReadOptions <- io
 type CsvWriteOptions <- io
@@ -426,4 +426,4 @@ type Schema <- types
 type Series <- series
 type SortOrder <- types
 type TypeMismatchDetail <- types
-type VegaType <- io
+type VegaType <- chart

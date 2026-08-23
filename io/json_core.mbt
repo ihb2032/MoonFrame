@@ -1,8 +1,8 @@
 // The JSON-records shared core: everything the JSON family of readers and
 // emitters agree on, so the formats cannot drift apart. Three consumers
 // meet here — `json.mbt` (one top-level array of records), `ndjson.mbt`
-// (one object per line), and `chart.mbt` (a Vega-Lite `data.values`
-// array) — all driving the same records → frame core
+// (one object per line), and the `chart` package (a Vega-Lite
+// `data.values` array) — all driving the same records → frame core
 // (`frame_from_json_records`) and the same cell mapping (`scalar_to_json`
 // / `df_to_json_records`). Per-column type inference mirrors the CSV
 // reader — Int → Float → Bool → String, with nulls passing through
@@ -181,12 +181,18 @@ fn frame_from_json_records(
 /// Materialise `df` as an array of flat JSON record objects — one
 /// `Json::object` per row, keys in column-declaration order, every cell
 /// mapped through `scalar_to_json` (so nulls and non-finite floats land on
-/// JSON `null`). Shared by the three records-shaped emitters:
-/// `format_json` wraps the array in one top-level `[...]`,
-/// `format_ndjson` stringifies one object per line, and `format_vega_lite`
-/// inlines it as a Vega-Lite `data.values` array — so the cell conventions
-/// stay identical across all three without re-implementing the row walk.
-fn df_to_json_records(df : @frame.DataFrame) -> Array[Json] {
+/// JSON `null`). Shared by the records-shaped emitters: `format_json`
+/// wraps the array in one top-level `[...]`, `format_ndjson` stringifies
+/// one object per line, and the chart package's `format_vega_lite` inlines
+/// it as a Vega-Lite `data.values` array — so the cell conventions stay
+/// identical across all of them without re-implementing the row walk.
+/// That last consumer is cross-package, which is why this is the one
+/// symbol here that leaves the package: an `#internal(engine)` seam
+/// (hidden from the interface, flagged for downstream callers), keeping
+/// the cell mapping single-sourced instead of copied into `chart`.
+#doc(hidden)
+#internal(engine, "MoonFrame chart export shares the JSON records cell conventions")
+pub fn df_to_json_records(df : @frame.DataFrame) -> Array[Json] {
   let names = df.columns()
   let nrows = df.nrows()
   // Materialise the whole frame once (column-major) through the shared

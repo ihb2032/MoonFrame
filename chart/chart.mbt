@@ -6,14 +6,15 @@
 // runtime and renders without further wiring, so there is no private
 // chart-data shape to learn: it is the standard declarative spec.
 //
-// This lives in `io` rather than on `DataFrame` because it is a
-// serialisation to an external interchange format (the IO-1 boundary:
-// `frame` keeps pure rendering like `to_markdown` / `to_html`; `io` owns
-// the parsers and the JSON/CSV/NDJSON serialisers). It is a free function
-// parallel to `format_json`, and it shares the family's `scalar_to_json`
-// cell mapping (`json_core.mbt`) through the common `df_to_json_records`
-// helper — so a `data.values` cell follows exactly the same conventions
-// as a JSON-records cell (nulls and non-finite floats become JSON `null`).
+// This is its own package rather than a method on `DataFrame` or a corner
+// of `io`: chart-spec export is serialisation to an external interchange
+// format, not pure rendering (`frame` keeps `to_markdown` / `to_html`)
+// and not tabular interchange (`io` owns the CSV / JSON / NDJSON readers
+// and writers). It stays aligned with the JSON serialisers' cell
+// conventions by driving the same records walk as `format_json` /
+// `format_ndjson` — the `@io`-internal `df_to_json_records` seam — so a
+// `data.values` cell follows exactly the same conventions as a
+// JSON-records cell (nulls and non-finite floats become JSON `null`).
 //
 // Unlike `format_json` (which is **total**), `format_vega_lite`
 // `raise`s: a `ChartSpec` names the `x` / `y` / `color` columns, and a
@@ -230,7 +231,7 @@ pub fn format_vega_lite(
   }
   obj["encoding"] = Json::object(encoding)
   let data : Map[String, Json] = Map([])
-  data["values"] = Json::array(df_to_json_records(df))
+  data["values"] = Json::array(@io.df_to_json_records(df))
   obj["data"] = Json::object(data)
   Json::object(obj).stringify()
 }
@@ -247,7 +248,7 @@ pub fn write_vega_lite(
   spec : ChartSpec,
 ) -> Unit raise @types.DataError {
   let content = format_vega_lite(df, spec)
-  write_text(path, content)
+  @io.write_text(path, content)
 }
 
 // ── internals ──────────────────────────────────────────────────────────

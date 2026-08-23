@@ -27,8 +27,8 @@
 // explicit line here.** So the lists below are the value types (the Join
 // `JoinType` / `JoinOptions`, the HTML `HtmlOptions`, the Chart `ChartKind` /
 // `ChartSpec`, …) plus every free function a caller reaches by name — `@expr`'s
-// constructors, `@frame`'s column selectors, `@io`'s readers and writers, and
-// `@lazy`'s file sources. (`GroupedDataFrame::agg` is reached the other way —
+// constructors, `@frame`'s column selectors, `@io`'s readers and writers,
+// `@chart`'s spec export, and `@lazy`'s file sources. (`GroupedDataFrame::agg` is reached the other way —
 // by chaining off `group_by`'s return, not by naming the type; see the
 // fluent-chain note below.)
 // (The text / literal helpers that once lived in `@types` —
@@ -129,13 +129,9 @@ pub using @io {
   type CsvWriteOptions,
   type JsonReadOptions,
   type OnParseError,
-  type ChartKind,
-  type ChartSpec,
-  type VegaType,
   format_csv,
   format_json,
   format_ndjson,
-  format_vega_lite,
   parse_csv_str,
   parse_json_str,
   parse_ndjson_str,
@@ -145,6 +141,14 @@ pub using @io {
   write_csv,
   write_json,
   write_ndjson,
+}
+
+///|
+pub using @chart {
+  type ChartKind,
+  type ChartSpec,
+  type VegaType,
+  format_vega_lite,
   write_vega_lite,
 }
 

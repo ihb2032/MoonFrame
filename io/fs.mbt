@@ -39,7 +39,13 @@ fn find_unpaired_surrogate(content : String) -> Int? {
 
 ///|
 /// Write a string to a file, mapping a file-system `IOError` to
-/// `DataError::IoError`. Shared by every `write_*` entry point.
+/// `DataError::IoError`. Shared by every `write_*` entry point — io's own
+/// and the chart package's `write_vega_lite`, whose cross-package reach is
+/// why this is an `#internal(engine)` seam (hidden from the interface,
+/// flagged for downstream callers) rather than package-private: the
+/// unpaired-surrogate refusal below is a guard, and a guard that exists in
+/// one serialiser but not another is a hole, so every file writer routes
+/// through this one copy of it.
 ///
 /// Rejects content holding an unpaired UTF-16 surrogate (`raise
 /// InvalidOperation`) before encoding: MoonBit strings can legally hold one
@@ -51,7 +57,12 @@ fn find_unpaired_surrogate(content : String) -> Int? {
 /// boundary after it. Refusing up front matches `validate_csv_delimiter`'s
 /// philosophy: reject a write that cannot round-trip rather than corrupt
 /// the file silently.
-fn write_text(path : String, content : String) -> Unit raise @types.DataError {
+#doc(hidden)
+#internal(engine, "MoonFrame chart export shares the guarded file writer")
+pub fn write_text(
+  path : String,
+  content : String,
+) -> Unit raise @types.DataError {
   match find_unpaired_surrogate(content) {
     Some(i) =>
       raise @types.DataError::InvalidOperation(

@@ -2,6 +2,7 @@
 package "ihb2032/MoonFrame"
 
 import {
+  "ihb2032/MoonFrame/chart",
   "ihb2032/MoonFrame/expr",
   "ihb2032/MoonFrame/frame",
   "ihb2032/MoonFrame/io",
@@ -31,7 +32,7 @@ pub fn format_json(@frame.DataFrame) -> String
 
 pub fn format_ndjson(@frame.DataFrame) -> String
 
-pub fn format_vega_lite(@frame.DataFrame, @io.ChartSpec) -> String raise @types.DataError
+pub fn format_vega_lite(@frame.DataFrame, @chart.ChartSpec) -> String raise @types.DataError
 
 pub fn lit(@types.Scalar) -> @expr.Expr
 
@@ -73,7 +74,7 @@ pub fn write_json(String, @frame.DataFrame) -> Unit raise @types.DataError
 
 pub fn write_ndjson(String, @frame.DataFrame) -> Unit raise @types.DataError
 
-pub fn write_vega_lite(String, @frame.DataFrame, @io.ChartSpec) -> Unit raise @types.DataError
+pub fn write_vega_lite(String, @frame.DataFrame, @chart.ChartSpec) -> Unit raise @types.DataError
 
 // Errors
 
@@ -82,9 +83,9 @@ pub fn write_vega_lite(String, @frame.DataFrame, @io.ChartSpec) -> Unit raise @t
 // Type aliases
 pub using @types {type CellParseLocation}
 
-pub using @io {type ChartKind}
+pub using @chart {type ChartKind}
 
-pub using @io {type ChartSpec}
+pub using @chart {type ChartSpec}
 
 pub using @types {type ClosedInterval}
 
@@ -130,6 +131,6 @@ pub using @types {type SortOrder}
 
 pub using @types {type TypeMismatchDetail}
 
-pub using @io {type VegaType}
+pub using @chart {type VegaType}
 
 // Traits

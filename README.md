@@ -243,7 +243,8 @@ internal/ir/       module-internal expression AST — ExprNode + the operator ta
 series/     Series + column-level stats + the shared reduction / rebuild / key-cell kernels
 expr/       opaque Expr handle — constructors, operators, when/then/otherwise builders, to_string rendering
 frame/      DataFrame + the operators (usually one per file) + group_by + join + the expression evaluator (with_columns / select / filter / agg) + to_markdown / to_html
-io/         CSV (NyaCSV-backed), JSON, NDJSON read / write + Vega-Lite export
+io/         CSV (NyaCSV-backed), JSON, NDJSON read / write + their options types
+chart/      Vega-Lite export — ChartSpec / ChartKind / VegaType builders, format_vega_lite / write_vega_lite (shares io's JSON cell conventions)
 lazy/       deferred query plan — LazyFrame builders, collect / explain, predicate + projection pushdown
 moonframe.mbt   the root package — facade over the public API (fluent-chain intermediates stay in their sub-packages)
 ```

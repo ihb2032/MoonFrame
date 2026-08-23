@@ -1,3 +1,6 @@
+chart -> frame
+chart -> io
+chart -> types
 expr -> internal/ir
 expr -> internal/literal
 expr -> internal/text
@@ -34,6 +37,7 @@ lazy -> internal/literal
 lazy -> internal/text
 lazy -> io
 lazy -> types
+root -> chart
 root -> expr
 root -> frame
 root -> io

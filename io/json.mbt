@@ -478,7 +478,7 @@ fn json_value_as_float(j : Json) -> Double? {
   match j {
     // `@json.parse` parks a `Double`-overflowing integer as `±Infinity` but
     // keeps its exact digits in `repr`; re-parsing those digits recovers the
-    // nearest finite `Double` — as the CSV reader's `parse_double` does — rather
+    // nearest finite `Double` — as `parse_float_opt` does — rather
     // than the lossy Infinity. `parse_float_opt` routes through that same
     // `@string.parse_double` (and accepts the non-finite forms), so a magnitude
     // that overflows `Double` itself folds back to the original Infinity `n`. A

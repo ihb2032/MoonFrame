@@ -575,53 +575,6 @@ fn infer_column_dtype(
 }
 
 ///|
-/// `Some(value)` when `s` is a plain base-10 integer literal that fits in
-/// a 64-bit `Int64`; `None` otherwise.
-///
-/// `@text.parse_decimal_int_opt` pre-screens for a plain decimal literal
-/// because `@string.parse_int64` defaults to `base=0`, which would otherwise
-/// accept `0x` / `0o` / `0b` prefixes (`0xFF` → 255) and underscore grouping
-/// (`1_000` → 1000). Those forms are kept as strings by pandas / polars,
-/// so accepting them during inference would silently retype columns of
-/// hex codes, IDs, or formatted numbers. Restricting to decimal keeps
-/// inference predictable. The same routine backs the `internal/column`
-/// String→`Int` cast, so inference and an explicit cast agree.
-fn parse_int_opt(s : String) -> Int64? {
-  @text.parse_decimal_int_opt(s)
-}
-
-///|
-/// `Some(value)` when `s` reads as a `Double` through
-/// `@text.parse_plain_double_opt`; `None` when it does not.
-///
-/// Strings containing `_` are rejected up front: `@string.parse_double`
-/// accepts underscore grouping (`1_000` → `1000.0`), but — like the
-/// `0x` / `0o` / `0b` forms screened out of `parse_int_opt` — that is not
-/// how CSV numbers are written, and pandas / polars keep such cells as
-/// strings.
-///
-/// `allow_nonfinite` gates every non-finite result: the `nan` / `inf` /
-/// `infinity` literals, and equally a finite literal whose magnitude overflows
-/// `Double` (`1e999`), which IEEE 754 rounds to a signed `Infinity` rather than
-/// failing. When `true` they are accepted and become
-/// `Double` NaN / ±Infinity (the historical default); when `false` they
-/// are rejected (`None`), so a column of such tokens stays `String` rather
-/// than being silently retyped to `Float`. The same predicate gates both
-/// the inference probe and the typed-column build, so the two agree on
-/// whether a non-finite literal counts as a `Float`.
-fn parse_float_opt(s : String, allow_nonfinite : Bool) -> Double? {
-  match @text.parse_plain_double_opt(s) {
-    Some(x) =>
-      if !allow_nonfinite && (x.is_nan() || x.is_inf()) {
-        None
-      } else {
-        Some(x)
-      }
-    None => None
-  }
-}
-
-///|
 /// `Some(true)` / `Some(false)` for the literal strings `true` /
 /// `false` in any ASCII casing; `None` otherwise. Numeric `0` / `1`
 /// are intentionally **not** accepted — those round-trip as `Int`,

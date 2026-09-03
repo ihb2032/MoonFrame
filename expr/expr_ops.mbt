@@ -755,7 +755,7 @@ pub fn when(cond : Expr) -> WhenThen {
 ///|
 /// Supply the branch taken where the condition is `true`.
 pub fn WhenThen::then(self : WhenThen, value : Expr) -> WhenThenElse {
-  { cond: self.cond, then_value: value }
+  { cond: self.cond, then_value: value, }
 }
 
 ///|

@@ -65,7 +65,7 @@ pub fn Field::Field(
   dtype : DataType,
   nullable? : Bool = true,
 ) -> Field {
-  { name, dtype, nullable }
+  { name, dtype, nullable, }
 }
 
 ///|
@@ -90,7 +90,7 @@ pub fn Field::nullable(self : Field) -> Bool {
 ///|
 /// Return a copy of this field with a new name.
 pub fn Field::rename(self : Field, new_name : String) -> Field {
-  { ..self, name: new_name }
+  { ..self, name: new_name, }
 }
 
 ///|

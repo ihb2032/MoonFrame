@@ -7,7 +7,10 @@
 // <= 0` meaning "scan every row", Polars' `infer_schema_length=None`) and
 // the build-time parse-failure policy (`OnParseError`: raise vs. null the
 // offending cell) — defined in exactly one place; each reader supplies only
-// its own cell accessor, null test, per-dtype probes, and error wording.
+// its own cell accessor, null test, and error wording. The numeric-text
+// probes (`parse_int_opt` / `parse_float_opt`) are shared here too: the CSV
+// inference path and the JSON readers' `repr`-digit recovery both route
+// through them (the CSV-only `bool` probe stays in `csv.mbt`).
 //
 // One-file-one-test exemption: this shared inference skeleton has no
 // dedicated `infer_test.mbt`. (doc-guard: unresolved) It is covered through the CSV / JSON / NDJSON
@@ -125,6 +128,53 @@ fn[Cell] infer_dtype(
     InferBool
   } else {
     InferString
+  }
+}
+
+///|
+/// `Some(value)` when `s` is a plain base-10 integer literal that fits in
+/// a 64-bit `Int64`; `None` otherwise.
+///
+/// `@text.parse_decimal_int_opt` pre-screens for a plain decimal literal
+/// because `@string.parse_int64` defaults to `base=0`, which would otherwise
+/// accept `0x` / `0o` / `0b` prefixes (`0xFF` → 255) and underscore grouping
+/// (`1_000` → 1000). Those forms are kept as strings by pandas / polars,
+/// so accepting them during inference would silently retype columns of
+/// hex codes, IDs, or formatted numbers. Restricting to decimal keeps
+/// inference predictable. The same routine backs the `internal/column`
+/// String→`Int` cast, so inference and an explicit cast agree.
+fn parse_int_opt(s : String) -> Int64? {
+  @text.parse_decimal_int_opt(s)
+}
+
+///|
+/// `Some(value)` when `s` reads as a `Double` through
+/// `@text.parse_plain_double_opt`; `None` when it does not.
+///
+/// Strings containing `_` are rejected up front: `@string.parse_double`
+/// accepts underscore grouping (`1_000` → `1000.0`), but — like the
+/// `0x` / `0o` / `0b` forms screened out of `parse_int_opt` — that is not
+/// how the text formats write numbers, and pandas / polars keep such cells
+/// as strings.
+///
+/// `allow_nonfinite` gates every non-finite result: the `nan` / `inf` /
+/// `infinity` literals, and equally a finite literal whose magnitude overflows
+/// `Double` (`1e999`), which IEEE 754 rounds to a signed `Infinity` rather than
+/// failing. When `true` they are accepted and become
+/// `Double` NaN / ±Infinity (the historical default); when `false` they
+/// are rejected (`None`), so a column of such tokens stays `String` rather
+/// than being silently retyped to `Float`. The same predicate gates both
+/// the inference probe and the typed-column build, so the two agree on
+/// whether a non-finite literal counts as a `Float`.
+fn parse_float_opt(s : String, allow_nonfinite : Bool) -> Double? {
+  match @text.parse_plain_double_opt(s) {
+    Some(x) =>
+      if !allow_nonfinite && (x.is_nan() || x.is_inf()) {
+        None
+      } else {
+        Some(x)
+      }
+    None => None
   }
 }
 
@@ -259,6 +309,17 @@ fn[Cell] build_inferred_column(
 }
 
 ///|
+/// The pruner a pushed-down read carries: the key columns to build in
+/// phase 1, and the callback (built by the lazy layer from the absorbed
+/// predicate) that decides which rows survive into phase 2. Named once so
+/// every signature that threads it — the string-level projected cores, the
+/// JSON records core, and the frame assembler — spells the same contract.
+type RowPruner = (
+  Array[String],
+  (@frame.DataFrame) -> Array[Int] raise @types.DataError,
+)
+
+///|
 /// The two-phase assembly shared by the pruned CSV and JSON readers. `headers`
 /// gives the column order; `build_over(name, i, keep)` builds the column named
 /// `name` (at header index `i`) over the records `keep` selects (`None` = every
@@ -286,10 +347,7 @@ fn assemble_pruned_frame(
   headers : Array[String],
   nrows : Int,
   projection : Array[String]?,
-  pruner : (
-    Array[String],
-    (@frame.DataFrame) -> Array[Int] raise @types.DataError,
-  )?,
+  pruner : RowPruner?,
   build_over : (String, Int, Array[Int]?) -> @series.Series raise @types.DataError,
 ) -> @frame.DataFrame raise @types.DataError {
   // Phase 1: build only the key columns over every record, gather the survivors.

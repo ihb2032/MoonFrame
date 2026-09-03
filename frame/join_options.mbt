@@ -130,7 +130,7 @@ pub fn JoinOptions::on(
   suffix? : String = "_right",
   coalesce? : Bool,
 ) -> JoinOptions {
-  { on: keys.copy(), left_on: [], right_on: [], how, suffix, coalesce }
+  { on: keys.copy(), left_on: [], right_on: [], how, suffix, coalesce, }
 }
 
 ///|
@@ -167,5 +167,5 @@ pub fn JoinOptions::left_on(
 /// `suffix` still applies to a right column whose name clashes with a left
 /// one; `coalesce` is irrelevant (there are no keys to merge).
 pub fn JoinOptions::cross(suffix? : String = "_right") -> JoinOptions {
-  { on: [], left_on: [], right_on: [], how: Cross, suffix, coalesce: None }
+  { on: [], left_on: [], right_on: [], how: Cross, suffix, coalesce: None, }
 }

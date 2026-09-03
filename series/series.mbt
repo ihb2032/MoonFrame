@@ -50,7 +50,7 @@ pub extend Series with Debug::{to_repr}
 /// `internal/kernel`, `Expr::node` for the evaluator and optimizer — are the
 /// ones another package genuinely needs.
 fn Series::new(name : String, storage : @column.ColumnStorage) -> Series {
-  { name, storage }
+  { name, storage, }
 }
 
 ///|
@@ -62,7 +62,7 @@ fn Series::from_builtin(
   name : String,
   storage : @column.BuiltinColumn,
 ) -> Series {
-  { name, storage: @column.ColumnStorage::Builtin(storage) }
+  { name, storage: @column.ColumnStorage::Builtin(storage), }
 }
 
 ///|
@@ -293,7 +293,7 @@ pub fn Series::storage(self : Series) -> @column.ColumnStorage {
 /// Return a copy of this series with a different column name. Storage
 /// is shared (immutable), so this is `O(1)`.
 pub fn Series::rename(self : Series, new_name : String) -> Series {
-  { name: new_name, storage: self.storage }
+  { name: new_name, storage: self.storage, }
 }
 
 ///|
@@ -305,7 +305,7 @@ pub fn Series::slice(
   start : Int,
   end : Int,
 ) -> Series raise @types.DataError {
-  { name: self.name, storage: self.storage.slice(start, end) }
+  { name: self.name, storage: self.storage.slice(start, end), }
 }
 
 ///|
@@ -318,7 +318,10 @@ pub fn Series::gather(
   self : Series,
   indices : Array[Int],
 ) -> Series raise @types.DataError {
-  try_column_to_numeric({ name: self.name, storage: self.storage.take(indices) })
+  try_column_to_numeric({
+    name: self.name,
+    storage: self.storage.take(indices),
+  })
 }
 
 ///|
@@ -520,7 +523,7 @@ pub fn coalesce_columns(base : Series, fill : Series, name : String) -> Series {
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
 pub fn slice_series(s : Series, start : Int, len : Int) -> Series {
-  { name: s.name, storage: s.storage.slice_total(start, start + len) }
+  { name: s.name, storage: s.storage.slice_total(start, start + len), }
 }
 
 ///|
@@ -858,7 +861,7 @@ pub fn Series::cast(
   self : Series,
   target : @types.DataType,
 ) -> Series raise @types.DataError {
-  { name: self.name, storage: self.storage.cast(target) }
+  { name: self.name, storage: self.storage.cast(target), }
 }
 
 // ── Storage backend control ───────────────────────────────────────────

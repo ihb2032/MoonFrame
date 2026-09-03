@@ -31,7 +31,7 @@
 /// here is never itself re-escaped. Total — pure string assembly, no failure
 /// path.
 pub fn escape_debug(s : String) -> String {
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   for ch in s.iter() {
     match ch {
       '\\' => {

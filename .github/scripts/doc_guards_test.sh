@@ -590,7 +590,7 @@ expect 1 'internal packages: a documented package that no longer exists' \
 # ── production layering ───────────────────────────────────────────────────
 mklayering() {
   # mklayering <dir> <frame-manifest> <internal-kernel-manifest> <root-manifest>
-  # A miniature of the real graph: a root facade over six public packages, a
+  # A miniature of the real graph: a root facade over seven public packages, a
   # `series` that owns the column, and the two internal layers below it. The
   # edge snapshot is generated from the fixture itself — these cases are about
   # the *rules*, and a rule violation must fail before the snapshot is even
@@ -598,7 +598,7 @@ mklayering() {
   mkdir -p "$1"
   (cd "$1" && git init -q . && git config user.email t@t &&
     git config user.name t && git config core.autocrlf false)
-  for pkg in expr io lazy types; do
+  for pkg in chart expr io lazy types; do
     mkdir -p "$1/$pkg"
     # `types` is the bottom of the stack and depends on nothing in the module;
     # the rest sit on it.
@@ -640,6 +640,7 @@ ly_kernel='import {
   "ihb2032/MoonFrame/series",
 }'
 ly_root='import {
+  "ihb2032/MoonFrame/chart",
   "ihb2032/MoonFrame/expr",
   "ihb2032/MoonFrame/frame",
   "ihb2032/MoonFrame/io",
@@ -677,6 +678,7 @@ expect_out 1 'stays below the verbs' 'layering: an internal package imports a ve
   sh "$scripts/check_layering.sh" "$work/ly_reverse"
 
 mklayering "$work/ly_root_dep" "$ly_frame" "$ly_kernel" 'import {
+  "ihb2032/MoonFrame/chart",
   "ihb2032/MoonFrame/expr",
   "ihb2032/MoonFrame/frame",
   "ihb2032/MoonFrame/io",
@@ -685,7 +687,7 @@ mklayering "$work/ly_root_dep" "$ly_frame" "$ly_kernel" 'import {
   "ihb2032/MoonFrame/types",
   "ihb2032/MoonFrame/internal/kernel",
 }'
-expect_out 1 'the root facade imports' 'layering: the facade imports beyond the six public packages' \
+expect_out 1 'the root facade imports' 'layering: the facade imports beyond the seven public packages' \
   sh "$scripts/check_layering.sh" "$work/ly_root_dep"
 
 # The other direction, and the one the edge extractor could not see: the facade

@@ -15,7 +15,7 @@
 // non-finite `Float` (`NaN` / `±Infinity`) is emitted as `null` to keep
 // each line valid JSON, and an `Int` keeps its dtype and round-trips exactly
 // across the full `Int64` range — it is written as verbatim decimal text and
-// recovered from the number's preserved `repr` (json.mbt Caveat 2), even
+// recovered from the number's preserved `repr` (json_core.mbt Caveat 2), even
 // though the `@json` number model is `Double`.
 //
 // Reading is lenient about line endings: lines are split on `\n`, a
@@ -71,10 +71,7 @@ fn parse_ndjson_str_projected(
   content : String,
   options : JsonReadOptions,
   projection : Array[String]?,
-  pruner? : (
-    Array[String],
-    (@frame.DataFrame) -> Array[Int] raise @types.DataError,
-  ),
+  pruner? : RowPruner,
 ) -> @frame.DataFrame raise @types.DataError {
   // Strip a leading UTF-8 BOM (shared with the CSV / JSON readers) before the
   // line split, so a BOM on the first record line doesn't make `@json.parse`
@@ -133,55 +130,6 @@ pub fn read_ndjson(
 }
 
 ///|
-/// Read an NDJSON file, keeping only the rows `predicate` selects — the
-/// file-backed entry behind the lazy `scan_ndjson` source's **predicate
-/// push-down**, and the NDJSON twin of `read_csv_pruned`. An `#internal`
-/// engine seam.
-///
-/// Every line is still parsed and validated (a malformed or non-object line
-/// fails exactly as in a full read); the push-down skips the *typed* build of
-/// the columns the predicate does not read, for the records it drops. Dtype
-/// inference still walks every record, so dtypes match an eager
-/// read-then-filter, and a dropped record's cell error in a non-key column no
-/// longer surfaces — the same trade projection push-down documents.
-#doc(hidden)
-#internal(engine, "MoonFrame execution engine API")
-pub fn read_ndjson_pruned(
-  path : String,
-  options : JsonReadOptions,
-  projection : Array[String]?,
-  key_columns : Array[String],
-  keep : (@frame.DataFrame) -> Array[Int] raise @types.DataError,
-) -> @frame.DataFrame raise @types.DataError {
-  let content = read_text(path)
-  parse_ndjson_str_projected(
-    content,
-    options,
-    projection,
-    pruner=(key_columns, keep),
-  )
-}
-
-///|
-/// Read an NDJSON file, building only the columns named in `projection` — the
-/// file-backed entry behind the lazy `scan_ndjson` source's projection
-/// pushdown. Identical to `read_ndjson` except that a column whose
-/// header name is not in `projection` is never inferred or built (see
-/// `frame_from_json_records` for the precise contract, including the one
-/// behavioural consequence: a parse error confined to a dropped column does not
-/// surface). Filesystem errors surface as `raise IoError(message)`.
-#doc(hidden)
-#internal(engine, "MoonFrame execution engine API")
-pub fn read_ndjson_projected(
-  path : String,
-  options : JsonReadOptions,
-  projection : Array[String],
-) -> @frame.DataFrame raise @types.DataError {
-  let content = read_text(path)
-  parse_ndjson_str_projected(content, options, Some(projection))
-}
-
-///|
 /// Render a `DataFrame` as an NDJSON string: one flat JSON object per
 /// row, each terminated by `\n` (including the last, matching the CSV
 /// writer's per-row LF and Polars' `write_ndjson`). A 0-row frame
@@ -199,7 +147,7 @@ pub fn format_ndjson(df : @frame.DataFrame) -> String {
   // Share the column-major record walk with `format_json` /
   // `format_vega_lite` (see `df_to_json_records`); NDJSON differs only in
   // the framing — one object per line, each terminated by `\n`.
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   for obj in df_to_json_records(df) {
     buf.write_string(obj.stringify())
     buf.write_char('\n')

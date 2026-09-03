@@ -5,7 +5,7 @@
 ///|
 /// A CSV document: an `id,key,value,label` header followed by `n` data rows.
 fn csv_doc(n : Int) -> String {
-  let sb = StringBuilder::new()
+  let sb = StringBuilder()
   sb.write_string("id,key,value,label\n")
   for i in 0..<n {
     sb.write_string("\{i},\{i % 1000},\{(i * 7 + 3) % 100000},row\{i}\n")
@@ -16,7 +16,7 @@ fn csv_doc(n : Int) -> String {
 ///|
 /// An NDJSON document of the same shape — one JSON object per line.
 fn ndjson_doc(n : Int) -> String {
-  let sb = StringBuilder::new()
+  let sb = StringBuilder()
   for i in 0..<n {
     sb.write_string(
       "{\"id\":\{i},\"key\":\{i % 1000},\"value\":\{(i * 7 + 3) % 100000},\"label\":\"row\{i}\"}\n",

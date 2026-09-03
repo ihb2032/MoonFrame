@@ -193,10 +193,7 @@ fn parse_csv_str_projected(
   content : String,
   options : CsvReadOptions,
   projection : Array[String]?,
-  pruner? : (
-    Array[String],
-    (@frame.DataFrame) -> Array[Int] raise @types.DataError,
-  ),
+  pruner? : RowPruner,
 ) -> @frame.DataFrame raise @types.DataError {
   // Refuse a delimiter that collides with the quote character or a row
   // terminator before parsing — the same configurations `format_csv` rejects,
@@ -371,67 +368,6 @@ pub fn read_csv(
 }
 
 ///|
-/// Read a CSV file, keeping only the rows `predicate` selects — the file-backed
-/// entry behind the lazy `scan_csv` source's **predicate push-down**. An
-/// `#internal` engine seam, like `read_csv_projected`.
-///
-/// The read runs in two phases over one tokenisation of the whole file:
-///   1. build only the `key_columns`, infer their dtypes from the whole file
-///      exactly as an unfiltered read would, and ask `keep` — a callback the
-///      lazy layer builds from the absorbed predicate — which rows survive;
-///   2. build the `projection` columns for **those rows alone**.
-///
-/// Taking names and a callback rather than an expression keeps `io` below the
-/// expression language: the reader knows *which* columns to resolve and which
-/// rows survived, never *why*.
-///
-/// Dtypes therefore match an eager `read_csv(...).filter(...)` cell for cell —
-/// inference always sees the full file — while the typed parse of a dropped
-/// row's cells never runs. That is the deliberate consequence, and the same
-/// one projection push-down already documents: a `ParseError` confined to a
-/// row the predicate drops (in a column the predicate does not read) no longer
-/// surfaces. Whole-input checks — strict quotes, a malformed header, a ragged
-/// row — run before either phase and are unaffected.
-#doc(hidden)
-#internal(engine, "MoonFrame execution engine API")
-pub fn read_csv_pruned(
-  path : String,
-  options : CsvReadOptions,
-  projection : Array[String]?,
-  key_columns : Array[String],
-  keep : (@frame.DataFrame) -> Array[Int] raise @types.DataError,
-) -> @frame.DataFrame raise @types.DataError {
-  let content = read_text(path)
-  parse_csv_str_projected(
-    content,
-    options,
-    projection,
-    pruner=(key_columns, keep),
-  )
-}
-
-///|
-/// Read a CSV file, building only the columns named in `projection` — the
-/// file-backed entry behind the lazy `scan_csv` source's projection
-/// pushdown. Identical to `read_csv` except that a column whose
-/// header name is not in `projection` is never inferred, parsed, or
-/// materialised (see `parse_csv_str_projected` for the precise contract,
-/// including the one behavioural consequence: a parse error confined to a
-/// dropped column does not surface). `IOError` from the file system surfaces
-/// as `raise IoError(message)`. `CsvReadOptions::CsvReadOptions(strict_quotes=true)` validates the whole input
-/// before applying the projection.
-#doc(hidden)
-#internal(engine, "MoonFrame execution engine API")
-pub fn read_csv_projected(
-  path : String,
-  options : CsvReadOptions,
-  projection : Array[String],
-) -> @frame.DataFrame raise @types.DataError {
-  let content = read_text(path)
-  parse_csv_str_projected(content, options, Some(projection))
-}
-
-///|
 /// State of the strict CSV quote validator. The validator mirrors RFC-4180's
 /// field grammar without tokenising or allocating cells; NyaCSV remains the
 /// parser after this pass succeeds.
@@ -572,53 +508,6 @@ fn infer_column_dtype(
     is_float=v => parse_float_opt(v, allow_nonfinite_floats) is Some(_),
     is_bool=v => parse_bool_opt(v) is Some(_),
   )
-}
-
-///|
-/// `Some(value)` when `s` is a plain base-10 integer literal that fits in
-/// a 64-bit `Int64`; `None` otherwise.
-///
-/// `@text.parse_decimal_int_opt` pre-screens for a plain decimal literal
-/// because `@string.parse_int64` defaults to `base=0`, which would otherwise
-/// accept `0x` / `0o` / `0b` prefixes (`0xFF` → 255) and underscore grouping
-/// (`1_000` → 1000). Those forms are kept as strings by pandas / polars,
-/// so accepting them during inference would silently retype columns of
-/// hex codes, IDs, or formatted numbers. Restricting to decimal keeps
-/// inference predictable. The same routine backs the `internal/column`
-/// String→`Int` cast, so inference and an explicit cast agree.
-fn parse_int_opt(s : String) -> Int64? {
-  @text.parse_decimal_int_opt(s)
-}
-
-///|
-/// `Some(value)` when `s` reads as a `Double` through
-/// `@text.parse_plain_double_opt`; `None` when it does not.
-///
-/// Strings containing `_` are rejected up front: `@string.parse_double`
-/// accepts underscore grouping (`1_000` → `1000.0`), but — like the
-/// `0x` / `0o` / `0b` forms screened out of `parse_int_opt` — that is not
-/// how CSV numbers are written, and pandas / polars keep such cells as
-/// strings.
-///
-/// `allow_nonfinite` gates every non-finite result: the `nan` / `inf` /
-/// `infinity` literals, and equally a finite literal whose magnitude overflows
-/// `Double` (`1e999`), which IEEE 754 rounds to a signed `Infinity` rather than
-/// failing. When `true` they are accepted and become
-/// `Double` NaN / ±Infinity (the historical default); when `false` they
-/// are rejected (`None`), so a column of such tokens stays `String` rather
-/// than being silently retyped to `Float`. The same predicate gates both
-/// the inference probe and the typed-column build, so the two agree on
-/// whether a non-finite literal counts as a `Float`.
-fn parse_float_opt(s : String, allow_nonfinite : Bool) -> Double? {
-  match @text.parse_plain_double_opt(s) {
-    Some(x) =>
-      if !allow_nonfinite && (x.is_nan() || x.is_inf()) {
-        None
-      } else {
-        Some(x)
-      }
-    None => None
-  }
 }
 
 ///|

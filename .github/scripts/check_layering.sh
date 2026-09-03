@@ -68,7 +68,7 @@ snapshot=".github/scripts/layering.snapshot"
 module="ihb2032/MoonFrame"
 column_importers="series internal/kernel"
 kernel_importers="frame"
-public_packages="expr frame io lazy series types"
+public_packages="chart expr frame io lazy series types"
 
 # What each package is allowed to depend on. The snapshot records the edges
 # that exist; this records the edges that *may* exist, which is the difference
@@ -76,11 +76,12 @@ public_packages="expr frame io lazy series types"
 # starting to depend on `series`, or `expr` on `frame`, is a snapshot away from
 # permanent — the direction of the whole stack is exactly what should not be
 # regenerable. A package absent here may depend on nothing inside the module.
-allowed_root="expr frame io lazy series types"
+allowed_root="chart expr frame io lazy series types"
 allowed_types="internal/text internal/numeric"
 allowed_series="types internal/column internal/text internal/numeric internal/order"
 allowed_expr="types series internal/ir internal/literal internal/text"
 allowed_frame="types series expr internal/ir internal/kernel internal/order"
+allowed_chart="types frame io"
 allowed_io="types series frame internal/text internal/numeric"
 allowed_lazy="types expr frame io internal/ir internal/literal internal/text"
 allowed_internal_column="types internal/text internal/numeric"

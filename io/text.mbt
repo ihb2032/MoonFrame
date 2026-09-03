@@ -3,6 +3,11 @@
 // apart — historically CSV stripped the BOM while JSON / NDJSON did not, so a
 // file saved by Excel read cleanly through one format and failed through the
 // others.
+//
+// One-file-one-test exemption: this shared normalizer has no dedicated
+// `text_test.mbt`. (doc-guard: unresolved) It is covered through the
+// per-format BOM tests in `csv_test.mbt` / `json_test.mbt` /
+// `ndjson_test.mbt`.
 
 ///|
 /// Strip a single leading UTF-8 BOM (`U+FEFF`) if present, returning the rest

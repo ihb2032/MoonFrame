@@ -422,7 +422,7 @@ fn gen_agg_pred() -> @gen.Gen[@expr.Expr] {
 ///|
 fn gen_agg_filter_case() -> @gen.Gen[AggFilterCase] {
   @gen.liftA4(
-    (rows, keys, aggs, pred) => AggFilterCase::{ rows, keys, aggs, pred },
+    (rows, keys, aggs, pred) => AggFilterCase::{ rows, keys, aggs, pred, },
     gen_rows(6),
     gen_agg_keys(),
     gen_agg_aggs(),
@@ -521,7 +521,7 @@ fn gen_select_pred() -> @gen.Gen[@expr.Expr] {
 ///|
 fn gen_select_filter_case() -> @gen.Gen[SelectFilterCase] {
   @gen.liftA3(
-    (rows, use_select, pred) => SelectFilterCase::{ rows, use_select, pred },
+    (rows, use_select, pred) => SelectFilterCase::{ rows, use_select, pred, },
     gen_rows(6),
     gen_one_in(2),
     gen_select_pred(),
@@ -728,7 +728,7 @@ fn gen_stacked_pred() -> @gen.Gen[@expr.Expr] {
 ///|
 fn gen_stacked_case() -> @gen.Gen[StackedCase] {
   @gen.liftA3(
-    (rows, verbs, pred) => StackedCase::{ rows, verbs, pred },
+    (rows, verbs, pred) => StackedCase::{ rows, verbs, pred, },
     gen_rows(7),
     gen_verbs(),
     gen_stacked_pred(),
@@ -819,7 +819,7 @@ pub extend FileProjectionCase with Debug::{to_repr}
 ///|
 fn gen_file_projection_case() -> @gen.Gen[FileProjectionCase] {
   @gen.liftA2(
-    (missing, head) => FileProjectionCase::{ missing, head },
+    (missing, head) => FileProjectionCase::{ missing, head, },
     @gen.one_of_array(["missing", "ghost", "G", "a ", ""]),
     @gen.int_range(0, 7),
   )
@@ -926,7 +926,7 @@ pub extend PrunedFileCase with Debug::{to_repr}
 ///|
 fn gen_pruned_file_case() -> @gen.Gen[PrunedFileCase] {
   @gen.liftA2(
-    (rows, pred) => PrunedFileCase::{ rows, pred },
+    (rows, pred) => PrunedFileCase::{ rows, pred, },
     gen_rows(7),
     gen_stacked_pred(),
   )

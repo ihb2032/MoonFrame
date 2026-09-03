@@ -2,6 +2,7 @@
 package "ihb2032/MoonFrame"
 
 import {
+  "ihb2032/MoonFrame/chart",
   "ihb2032/MoonFrame/expr",
   "ihb2032/MoonFrame/frame",
   "ihb2032/MoonFrame/io",
@@ -25,13 +26,7 @@ pub fn cols_of_dtype(@frame.DataFrame, @types.DataType) -> Array[@expr.Expr]
 
 pub fn cols_starts_with(@frame.DataFrame, String) -> Array[@expr.Expr]
 
-pub fn format_csv(@frame.DataFrame, options? : @io.CsvWriteOptions) -> String raise @types.DataError
-
-pub fn format_json(@frame.DataFrame) -> String
-
-pub fn format_ndjson(@frame.DataFrame) -> String
-
-pub fn format_vega_lite(@frame.DataFrame, @io.ChartSpec) -> String raise @types.DataError
+pub fn format_vega_lite(@frame.DataFrame, @chart.ChartSpec) -> String raise @types.DataError
 
 pub fn lit(@types.Scalar) -> @expr.Expr
 
@@ -48,12 +43,6 @@ pub fn lit_str(String) -> @expr.Expr
 pub fn map_many(label~ : String, Array[@expr.Expr], (Array[@types.Scalar]) -> @types.Scalar raise @types.DataError) -> @expr.Expr
 
 pub fn numeric_cols(@frame.DataFrame) -> Array[@expr.Expr]
-
-pub fn parse_csv_str(String, options? : @io.CsvReadOptions) -> @frame.DataFrame raise @types.DataError
-
-pub fn parse_json_str(String, options? : @io.JsonReadOptions) -> @frame.DataFrame raise @types.DataError
-
-pub fn parse_ndjson_str(String, options? : @io.JsonReadOptions) -> @frame.DataFrame raise @types.DataError
 
 pub fn read_csv(String, options? : @io.CsvReadOptions) -> @frame.DataFrame raise @types.DataError
 
@@ -73,7 +62,7 @@ pub fn write_json(String, @frame.DataFrame) -> Unit raise @types.DataError
 
 pub fn write_ndjson(String, @frame.DataFrame) -> Unit raise @types.DataError
 
-pub fn write_vega_lite(String, @frame.DataFrame, @io.ChartSpec) -> Unit raise @types.DataError
+pub fn write_vega_lite(String, @frame.DataFrame, @chart.ChartSpec) -> Unit raise @types.DataError
 
 // Errors
 
@@ -82,9 +71,9 @@ pub fn write_vega_lite(String, @frame.DataFrame, @io.ChartSpec) -> Unit raise @t
 // Type aliases
 pub using @types {type CellParseLocation}
 
-pub using @io {type ChartKind}
+pub using @chart {type ChartKind}
 
-pub using @io {type ChartSpec}
+pub using @chart {type ChartSpec}
 
 pub using @types {type ClosedInterval}
 
@@ -130,6 +119,6 @@ pub using @types {type SortOrder}
 
 pub using @types {type TypeMismatchDetail}
 
-pub using @io {type VegaType}
+pub using @chart {type VegaType}
 
 // Traits

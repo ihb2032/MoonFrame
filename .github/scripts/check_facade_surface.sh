@@ -94,6 +94,19 @@ facade_source="moonframe.mbt"
 # growing its own `WhenThen` is a different symbol that nothing chains to.
 intermediates="expr/WhenThen expr/WhenThenElse frame/GroupedDataFrame lazy/LazyGroupBy"
 
+# The public free functions the facade deliberately does not re-export: the
+# string-level serialiser family. Building a frame from in-memory text is a
+# slice of the surface reached through the `io` package itself
+# (`@io.parse_csv_str`) — the way `read_csv(StringIO(...))` is in pandas — so
+# the facade's first-contact face keeps the file-level verbs alone. Their
+# signatures stay pinned by the snapshot below like any other public symbol;
+# only the re-export requirement is lifted for these six. Widen this only
+# alongside the facade comment that explains why a function is left off the
+# facade — never to make a guard pass.
+#
+# Package-qualified for the same reason as the intermediates list.
+qualified_reach="io/format_csv io/format_json io/format_ndjson io/parse_csv_str io/parse_json_str io/parse_ndjson_str"
+
 # Tracked public interfaces only: `git ls-files` never lists a `_build` copy,
 # `internal/` (at any depth) carries no compatibility promise, and `examples/`
 # is programs rather than library surface.
@@ -263,6 +276,9 @@ unexported_fns=$(printf '%s\n' "$current" |
   grep -v '^root ' |
   while read -r pkg name; do
     printf '%s\n' "$facade_fns" | grep -qx "$name $pkg" && continue
+    for allowed in $qualified_reach; do
+      [ "$allowed" != "$pkg/$name" ] || continue 2
+    done
     printf '  %s (in %s)\n' "$name" "$pkg"
   done)
 if [ -n "$unexported_fns" ]; then
@@ -273,8 +289,10 @@ if [ -n "$unexported_fns" ]; then
   printf '  so one the facade omits is either an under-export a caller cannot\n'
   printf '  reach through the supported surface, or a helper that should not\n'
   printf '  be `pub` at all. (A same-named symbol on the facade does not count\n'
-  printf '  unless it is re-exported from this package.) Re-export it, or make\n'
-  printf '  it `priv` / an engine seam.\n'
+  printf '  unless it is re-exported from this package.) Re-export it, reach\n'
+  printf '  it through its package deliberately (the string-level serialiser\n'
+  printf '  family does), or make it `priv` / an engine seam.\n'
+  printf '  Deliberately package-qualified: %s\n' "$qualified_reach"
   exit 1
 fi
 

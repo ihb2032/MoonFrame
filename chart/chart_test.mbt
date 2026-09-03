@@ -1,4 +1,4 @@
-// Blackbox tests for `@io.format_vega_lite` / `@io.write_vega_lite` and
+// Blackbox tests for `@chart.format_vega_lite` / `@chart.write_vega_lite` and
 // the `ChartKind` / `ChartSpec` builders.
 //
 // The renderer assembles a Vega-Lite v5 spec through the builtin `@json`,
@@ -10,9 +10,17 @@
 // test parses the output back with `@json.parse` to self-certify it is
 // well-formed JSON.
 //
-// `id_double` (defeats constant folding for the non-finite-float test) is
-// defined in `json_test.mbt` and shared across this package's blackbox
-// tests.
+// `id_double` (defeats constant folding for the non-finite-float test)
+// is a blackbox-test helper; this package's copy lives below, since
+// helpers do not cross package boundaries even between test suites.
+
+///|
+/// Identity that defeats compile-time constant folding, so `x / 0.0`
+/// evaluates to a runtime ±Infinity / NaN rather than being rejected as
+/// a constant division by zero.
+fn id_double(x : Double) -> Double {
+  x
+}
 
 ///|
 /// Two-column fixture: a nominal `cat` (`String`) and a quantitative
@@ -44,7 +52,7 @@ test "format_vega_lite: bar chart emits a complete Vega-Lite v5 spec" {
   // both encoding channels (nominal x / quantitative y, inferred from the
   // column dtypes), and the frame inlined as `data.values`.
   inspect(
-    @io.format_vega_lite(catval_df(), @io.ChartSpec::bar("cat", "val")),
+    @chart.format_vega_lite(catval_df(), @chart.ChartSpec::bar("cat", "val")),
     content=(
       #|{"$schema":"https://vega.github.io/schema/vega-lite/v5.json","mark":"bar","encoding":{"x":{"field":"cat","type":"nominal"},"y":{"field":"val","type":"quantitative"}},"data":{"values":[{"cat":"x","val":1}]}}
     ),
@@ -60,7 +68,10 @@ test "format_vega_lite: quotes in a column name are escaped in the Vega field pa
     @series.Series::from_strings("cat", ["x"]),
     @series.Series::from_ints("it's \"q\"", [1]),
   ])
-  let spec = @io.format_vega_lite(df, @io.ChartSpec::bar("cat", "it's \"q\""))
+  let spec = @chart.format_vega_lite(
+    df,
+    @chart.ChartSpec::bar("cat", "it's \"q\""),
+  )
   let field = match @json.parse(spec) {
     Object(obj) =>
       match obj.get("encoding") {
@@ -92,7 +103,7 @@ test "format_vega_lite: a `.` in a column name is escaped in the Vega field path
   ])
   let field = match
     @json.parse(
-      @io.format_vega_lite(df, @io.ChartSpec::bar("cat", "price.usd")),
+      @chart.format_vega_lite(df, @chart.ChartSpec::bar("cat", "price.usd")),
     ) {
     Object(obj) =>
       match obj.get("encoding") {
@@ -124,15 +135,15 @@ test "format_vega_lite: color_type overrides the color channel's field type" {
     @series.Series::from_ints("g", [1]),
   ])
   let cases = [
-    (@io.VegaType::Quantitative, "quantitative"),
-    (@io.VegaType::Nominal, "nominal"),
-    (@io.VegaType::Ordinal, "ordinal"),
-    (@io.VegaType::Temporal, "temporal"),
+    (@chart.VegaType::Quantitative, "quantitative"),
+    (@chart.VegaType::Nominal, "nominal"),
+    (@chart.VegaType::Ordinal, "ordinal"),
+    (@chart.VegaType::Temporal, "temporal"),
   ]
   for case in cases {
     let (vt, expected) = case
-    let spec = @io.ChartSpec::point("cat", "val", color="g", color_type=vt)
-    let got = match @json.parse(@io.format_vega_lite(df, spec)) {
+    let spec = @chart.ChartSpec::point("cat", "val", color="g", color_type=vt)
+    let got = match @json.parse(@chart.format_vega_lite(df, spec)) {
       Object(obj) =>
         match obj.get("encoding") {
           Some(Object(enc)) =>
@@ -159,14 +170,14 @@ test "format_vega_lite: each ChartKind maps to its Vega-Lite mark" {
   // strings — and the parse doubles as a well-formedness check.
   let df = catval_df()
   let cases = [
-    (@io.ChartSpec::bar("cat", "val"), "bar"),
-    (@io.ChartSpec::line("cat", "val"), "line"),
-    (@io.ChartSpec::point("cat", "val"), "point"),
-    (@io.ChartSpec::area("cat", "val"), "area"),
+    (@chart.ChartSpec::bar("cat", "val"), "bar"),
+    (@chart.ChartSpec::line("cat", "val"), "line"),
+    (@chart.ChartSpec::point("cat", "val"), "point"),
+    (@chart.ChartSpec::area("cat", "val"), "area"),
   ]
   for case in cases {
     let (spec, expected_mark) = case
-    let mark = match @json.parse(@io.format_vega_lite(df, spec)) {
+    let mark = match @json.parse(@chart.format_vega_lite(df, spec)) {
       Object(obj) =>
         match obj.get("mark") {
           Some(String(m)) => m
@@ -181,9 +192,9 @@ test "format_vega_lite: each ChartKind maps to its Vega-Lite mark" {
 ///|
 test "format_vega_lite: title injects a top-level title" {
   inspect(
-    @io.format_vega_lite(
+    @chart.format_vega_lite(
       catval_df(),
-      @io.ChartSpec::bar("cat", "val", title="Sales"),
+      @chart.ChartSpec::bar("cat", "val", title="Sales"),
     ),
     content=(
       #|{"$schema":"https://vega.github.io/schema/vega-lite/v5.json","title":"Sales","mark":"bar","encoding":{"x":{"field":"cat","type":"nominal"},"y":{"field":"val","type":"quantitative"}},"data":{"values":[{"cat":"x","val":1}]}}
@@ -194,9 +205,9 @@ test "format_vega_lite: title injects a top-level title" {
 ///|
 test "format_vega_lite: color adds a color encoding channel" {
   inspect(
-    @io.format_vega_lite(
+    @chart.format_vega_lite(
       catvalgrp_df(),
-      @io.ChartSpec::bar("cat", "val", color="grp"),
+      @chart.ChartSpec::bar("cat", "val", color="grp"),
     ),
     content=(
       #|{"$schema":"https://vega.github.io/schema/vega-lite/v5.json","mark":"bar","encoding":{"x":{"field":"cat","type":"nominal"},"y":{"field":"val","type":"quantitative"},"color":{"field":"grp","type":"nominal"}},"data":{"values":[{"cat":"x","val":1,"grp":"a"}]}}
@@ -213,7 +224,7 @@ test "format_vega_lite: field type follows column dtype (Float→quantitative, B
     @series.Series::from_bools("flag", [true]),
   ])
   inspect(
-    @io.format_vega_lite(df, @io.ChartSpec::point("ratio", "flag")),
+    @chart.format_vega_lite(df, @chart.ChartSpec::point("ratio", "flag")),
     content=(
       #|{"$schema":"https://vega.github.io/schema/vega-lite/v5.json","mark":"point","encoding":{"x":{"field":"ratio","type":"quantitative"},"y":{"field":"flag","type":"nominal"}},"data":{"values":[{"ratio":1.5,"flag":true}]}}
     ),
@@ -237,7 +248,7 @@ test "format_vega_lite: null and non-finite float cells become JSON null" {
     ]),
   ])
   inspect(
-    @io.format_vega_lite(df, @io.ChartSpec::bar("label", "amount")),
+    @chart.format_vega_lite(df, @chart.ChartSpec::bar("label", "amount")),
     content=(
       #|{"$schema":"https://vega.github.io/schema/vega-lite/v5.json","mark":"bar","encoding":{"x":{"field":"label","type":"nominal"},"y":{"field":"amount","type":"quantitative"}},"data":{"values":[{"label":"a","amount":1.5},{"label":"b","amount":null},{"label":"c","amount":null},{"label":"d","amount":null}]}}
     ),
@@ -252,7 +263,7 @@ test "format_vega_lite: a frame with columns but no rows yields empty data.value
   ])
   let empty = @frame.DataFrame::empty(schema)
   inspect(
-    @io.format_vega_lite(empty, @io.ChartSpec::bar("cat", "val")),
+    @chart.format_vega_lite(empty, @chart.ChartSpec::bar("cat", "val")),
     content=(
       #|{"$schema":"https://vega.github.io/schema/vega-lite/v5.json","mark":"bar","encoding":{"x":{"field":"cat","type":"nominal"},"y":{"field":"val","type":"quantitative"}},"data":{"values":[]}}
     ),
@@ -263,9 +274,9 @@ test "format_vega_lite: a frame with columns but no rows yields empty data.value
 test "format_vega_lite: output is well-formed JSON (parses back to an object)" {
   // The most complex spec (title + color) round-trips through the builtin
   // JSON reader, self-certifying it is a legal Vega-Lite v5 document.
-  let spec = @io.format_vega_lite(
+  let spec = @chart.format_vega_lite(
     catvalgrp_df(),
-    @io.ChartSpec::area("cat", "val", title="T", color="grp"),
+    @chart.ChartSpec::area("cat", "val", title="T", color="grp"),
   )
   assert_true((Ok(@json.parse(spec)) catch { e => Err(e) }) is Ok(Object(_)))
 }
@@ -277,7 +288,7 @@ test "format_vega_lite: an unknown x column raises ColumnNotFound first" {
   // Both x and y are absent; x is resolved first, so its name surfaces.
   let df = catval_df()
   assert_eq(
-    Ok(@io.format_vega_lite(df, @io.ChartSpec::bar("nox", "noy"))) catch {
+    Ok(@chart.format_vega_lite(df, @chart.ChartSpec::bar("nox", "noy"))) catch {
       e => Err(e)
     },
     Err(@types.DataError::ColumnNotFound("nox")),
@@ -288,7 +299,7 @@ test "format_vega_lite: an unknown x column raises ColumnNotFound first" {
 test "format_vega_lite: an unknown y column raises ColumnNotFound" {
   let df = catval_df()
   assert_eq(
-    Ok(@io.format_vega_lite(df, @io.ChartSpec::bar("cat", "noy"))) catch {
+    Ok(@chart.format_vega_lite(df, @chart.ChartSpec::bar("cat", "noy"))) catch {
       e => Err(e)
     },
     Err(@types.DataError::ColumnNotFound("noy")),
@@ -300,9 +311,9 @@ test "format_vega_lite: an unknown color column raises ColumnNotFound" {
   let df = catval_df()
   assert_eq(
     Ok(
-      @io.format_vega_lite(
+      @chart.format_vega_lite(
         df,
-        @io.ChartSpec::bar("cat", "val", color="nocolor"),
+        @chart.ChartSpec::bar("cat", "val", color="nocolor"),
       ),
     ) catch {
       e => Err(e)
@@ -318,9 +329,9 @@ test "format_vega_lite: y is validated before the color column" {
   let df = catval_df()
   assert_eq(
     Ok(
-      @io.format_vega_lite(
+      @chart.format_vega_lite(
         df,
-        @io.ChartSpec::bar("cat", "noy", color="nocolor"),
+        @chart.ChartSpec::bar("cat", "noy", color="nocolor"),
       ),
     ) catch {
       e => Err(e)
@@ -335,11 +346,11 @@ test "format_vega_lite: y is validated before the color column" {
 test "write_vega_lite writes the spec to disk verbatim" {
   let path = "_build/io_chart_test_write.json"
   let df = catval_df()
-  let spec = @io.ChartSpec::bar("cat", "val", title="Disk")
-  @io.write_vega_lite(path, df, spec)
+  let spec = @chart.ChartSpec::bar("cat", "val", title="Disk")
+  @chart.write_vega_lite(path, df, spec)
   // The file holds exactly what `format_vega_lite` produces.
   let on_disk = @fs.read_file_to_string(path)
-  assert_eq(on_disk, @io.format_vega_lite(df, spec))
+  assert_eq(on_disk, @chart.format_vega_lite(df, spec))
 }
 
 ///|
@@ -349,10 +360,10 @@ test "write_vega_lite: invalid path surfaces as IoError" {
   // (same shape as the JSON / CSV writer error tests).
   let df = catval_df()
   let result = Ok(
-    @io.write_vega_lite(
+    @chart.write_vega_lite(
       "_build/no_such_dir_io_chart_test/file.json",
       df,
-      @io.ChartSpec::bar("cat", "val"),
+      @chart.ChartSpec::bar("cat", "val"),
     ),
   ) catch {
     e => Err(e)

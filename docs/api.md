@@ -23,10 +23,10 @@ The facade package `ihb2032/MoonFrame` is the supported compatibility surface:
 the symbols it re-exports — browsable on
 [mooncakes.io](https://mooncakes.io/docs/ihb2032/MoonFrame) — are exactly what
 the stability promise below covers. The public sub-packages (`@types`,
-`@series`, `@expr`, `@frame`, `@io`, `@lazy`) stay directly importable for a
+`@series`, `@expr`, `@frame`, `@io`, `@chart`, `@lazy`) stay directly importable for a
 caller who only needs a slice, and a symbol the facade re-exports is the *same*
 stable symbol reached that way. A sub-package symbol the facade does **not**
-re-export is one of two kinds, and they are promised differently.
+re-export is one of three kinds, and they are promised differently.
 
 The **fluent-chain intermediates** — `WhenThen` / `WhenThenElse` /
 `GroupedDataFrame` / `LazyGroupBy`, `pub` only because the verb returning one
@@ -41,7 +41,18 @@ and a release may rename or replace it. The chain methods are pinned in
 reaches, and that lock is deliberately narrow: exactly these four types may be
 public without being re-exported.
 
-The other kind — the **`#internal` engine seams** — carries no promise at all.
+The **string-level serialisers** — `io`'s `parse_csv_str` / `parse_json_str` /
+`parse_ndjson_str` and `format_csv` / `format_json` / `format_ndjson` — are
+the second kind: public in `io`, deliberately absent from the facade.
+Building a frame from in-memory text is a slice of the surface rather than
+its centre — the way `read_csv(StringIO(...))` is a deliberate extra step in
+pandas — so the first-contact face keeps the file-level verbs alone and
+these are reached through `@io` directly, by name. Their signatures are
+pinned in the snapshot like any other public symbol's; beyond that, no
+promise is attached to the spelling yet — where the surface goes in later
+releases is still open.
+
+The third kind — the **`#internal` engine seams** — carries no promise at all.
 
 Two distinct mechanisms keep non-public code off the compatibility surface.
 **Engine seams** are symbols that must be `pub` because two public packages
@@ -145,7 +156,7 @@ not a summary sentence, is the list.
 
 ## Packages
 
-The public surface is split across six packages; the facade re-exports them so
+The public surface is split across seven packages; the facade re-exports them so
 `import "ihb2032/MoonFrame" @moonframe` reaches everything (see
 [Facade](#facade)). Each package is also directly importable.
 
@@ -162,8 +173,11 @@ The public surface is split across six packages; the facade re-exports them so
 - **`frame`** — `DataFrame` and the operator verbs (`select` / `filter` /
   `with_columns` / `group_by` / `join` / `sort` / … — all methods), the eager
   expression evaluator, and the Markdown / HTML renderers.
-- **`io`** — the CSV / JSON / NDJSON readers and writers, the Vega-Lite chart
-  export, and their options types. The one package with external dependencies.
+- **`io`** — the CSV / JSON / NDJSON readers and writers and their options
+  types. The one package with external dependencies.
+- **`chart`** — the Vega-Lite export: the `ChartSpec` / `ChartKind` /
+  `VegaType` builders and `format_vega_lite` / `write_vega_lite`, sharing
+  `io`'s JSON cell conventions through an engine seam.
 - **`lazy`** — `LazyFrame`, the deferred query plan: the builders, `collect` /
   `explain`, and the optimizer (see [Query optimizer](#query-optimizer)).
 
@@ -478,6 +492,15 @@ the previous step's return value, and
 dot-method resolution follows that value's type, so the chain works through the
 facade without the name in scope. They remain `pub` in `@expr` / `@frame` /
 `@lazy` for anyone who does import those packages directly.
+
+The string-level serialisers — `parse_csv_str` / `parse_json_str` /
+`parse_ndjson_str` and `format_csv` / `format_json` / `format_ndjson` — are
+likewise **not** re-exported, for the opposite reason: not chain steps but
+named entry points, reached by importing `@io` and qualifying rather than
+through the facade. Building a frame from in-memory text is a slice of the
+surface rather than its centre — the way `read_csv(StringIO(...))` is a
+deliberate extra step in pandas — so the first-contact face keeps the
+file-level verbs and the option types alone.
 
 `using @pkg { type T }` also creates constructor aliases, so
 `@moonframe.Scalar::Int(42)`, `@moonframe.SortOrder::Desc`, and

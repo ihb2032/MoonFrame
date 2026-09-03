@@ -29,7 +29,7 @@ permissions:
 # gate (moon check --deny-warn && moon fmt --check && moon info && moon test)
 # first.
 env:
-  MOONBIT_INSTALL_VERSION: "0.10.9+6e6c44045"
+  MOONBIT_INSTALL_VERSION: "0.10.11+6ff76a5f9"
 
 jobs:
   build:
@@ -171,8 +171,10 @@ jobs:
           sh .github/scripts/check_internal_surface.sh
           sh .github/scripts/check_comment_references.sh
 
-      # A real downstream module: it lives outside this one and imports ONLY the
-      # root facade (`@moonframe`), the way a user's project does. `moon check`
+      # A real downstream module: it lives outside this one and imports the
+      # root facade (`@moonframe`), the way a user's project does — plus the
+      # `io` package for the string-level serialisers, which the facade
+      # deliberately does not re-export (see the fixture's header). `moon check`
       # compiles a spread of typical pipelines, so the facade failing to
       # re-export a symbol a caller must name — or a fluent-chain intermediate
       # (`WhenThen` / `GroupedDataFrame` / …) becoming necessary to name —

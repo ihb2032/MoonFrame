@@ -19,21 +19,40 @@
 /// guards are exercised by assembling the raw code unit directly. Shared by
 /// the surrogate rejection tests in this package.
 fn lone_surrogate_str(code_unit : Int) -> String {
-  let b = StringBuilder::new()
+  let b = StringBuilder()
   b.write_char(Int::unsafe_to_char(code_unit))
   b.to_string()
 }
 
 ///|
+/// One interchange format in the corpus: its string-level emitter and
+/// parser. Both assertions below are driven by this table — wiring a new
+/// format into the corpus is adding a row here (plus a `*_roundtrip`
+/// helper below when it needs reader options to be byte-faithful), not
+/// another copy of the assertion.
+struct WireFormat {
+  emit : (@frame.DataFrame) -> String raise @types.DataError
+  parse : (String) -> @frame.DataFrame raise @types.DataError
+}
+
+///|
+let wire_formats : Array[WireFormat] = [
+  { emit: df => @io.format_csv(df), parse: text => @io.parse_csv_str(text), },
+  { emit: df => @io.format_json(df), parse: text => @io.parse_json_str(text), },
+  {
+    emit: df => @io.format_ndjson(df),
+    parse: text => @io.parse_ndjson_str(text),
+  },
+]
+
+///|
 /// Assert the text fixpoint `emit(parse(emit(df))) == emit(df)` on every format
 /// for one frame; the enclosing test's name identifies the fixture on failure.
 fn assert_roundtrip_fixpoint(df : @frame.DataFrame) -> Unit raise {
-  let csv = @io.format_csv(df)
-  assert_eq(@io.format_csv(@io.parse_csv_str(csv)), csv)
-  let json = @io.format_json(df)
-  assert_eq(@io.format_json(@io.parse_json_str(json)), json)
-  let ndjson = @io.format_ndjson(df)
-  assert_eq(@io.format_ndjson(@io.parse_ndjson_str(ndjson)), ndjson)
+  for fmt in wire_formats {
+    let text = (fmt.emit)(df)
+    assert_eq((fmt.emit)((fmt.parse)(text)), text)
+  }
 }
 
 ///|
@@ -190,10 +209,20 @@ fn ndjson_roundtrip(df : @frame.DataFrame) -> @frame.DataFrame raise {
 }
 
 ///|
+/// The per-format lossless round-trips — the option-tuned counterparts of
+/// `wire_formats` above. A format needing reader options to come back
+/// cell-identical gets its helper here and a row in this table.
+let lossless_roundtrips : Array[(@frame.DataFrame) -> @frame.DataFrame raise] = [
+  df => csv_roundtrip(df),
+  df => json_roundtrip(df),
+  df => ndjson_roundtrip(df),
+]
+
+///|
 fn assert_lossless_in_every_format(df : @frame.DataFrame) -> Unit raise {
-  assert_same_cells(df, csv_roundtrip(df))
-  assert_same_cells(df, json_roundtrip(df))
-  assert_same_cells(df, ndjson_roundtrip(df))
+  for roundtrip in lossless_roundtrips {
+    assert_same_cells(df, roundtrip(df))
+  }
 }
 
 ///|

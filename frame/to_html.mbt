@@ -57,7 +57,7 @@ pub fn HtmlOptions::HtmlOptions(
   caption? : String,
   escape? : Bool = true,
 ) -> HtmlOptions {
-  { max_rows, table_class, caption, escape }
+  { max_rows, table_class, caption, escape, }
 }
 
 ///|
@@ -114,7 +114,7 @@ fn format_html(df : DataFrame, shown : Int, options : HtmlOptions) -> String {
   // Pre-render the visible cells once (raw strings, the column-major frame read
   // transposed into per-row cells); each is HTML-escaped on write below.
   let cells = table_cell_matrix(df, shown)
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   buf <+ "<table"
   if options.table_class is Some(cls) {
     buf <+ " class=\"\{html_escape(cls, escape)}\""
@@ -163,7 +163,7 @@ fn html_escape(s : String, escape : Bool) -> String {
   if !escape {
     return s
   }
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   for ch in s.iter() {
     match ch {
       '&' => buf.write_string("&amp;")

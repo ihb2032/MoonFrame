@@ -1,9 +1,15 @@
 // Downstream facade smoke test.
 //
-// This module lives outside `ihb2032/MoonFrame` and imports ONLY the root
+// This module lives outside `ihb2032/MoonFrame` and imports the root
 // facade (`@moonframe`), exactly as a real user would. It compiles a spread of
 // typical pipelines; `moon check` here fails if the facade ever stops
 // re-exporting a symbol a downstream program needs to *name*.
+//
+// The one deliberate extra import is `@io` for the string-level serialisers
+// (`format_csv` / `parse_csv_str`): the facade intentionally does not
+// re-export that family — building a frame from in-memory text is reached
+// through the `io` package directly — so this fixture mirrors the qualified
+// spelling a facade caller is expected to use for them.
 //
 // It deliberately chains through the fluent intermediates — `when().then()
 // .otherwise()`, `group_by().agg()`, and their lazy twins — without ever
@@ -129,8 +135,8 @@ test "io and error handling" {
   let df = @moonframe.DataFrame::DataFrame([
     @moonframe.Series::from_ints("a", [1, 2]),
   ])
-  let csv = @moonframe.format_csv(df)
-  let back = @moonframe.parse_csv_str(csv)
+  let csv = @io.format_csv(df)
+  let back = @io.parse_csv_str(csv)
   assert_eq(back.nrows(), 2)
   // The error type is nameable on a recovery boundary — a missing column
   // raises `DataError`, re-wrapped here into a `Result`.

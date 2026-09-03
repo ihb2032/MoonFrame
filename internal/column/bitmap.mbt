@@ -40,7 +40,7 @@ fn Bitmap::all_valid(len : Int) -> Bitmap {
   let n = bytes_needed(len)
   let buf = FixedArray::make(n, (0xff : Int).to_byte())
   mask_tail(buf, len)
-  { bits: buffer_to_bytes(buf), offset: 0, len }
+  { bits: buffer_to_bytes(buf), offset: 0, len, }
 }
 
 ///|
@@ -154,7 +154,7 @@ pub fn Bitmap::to_bools(self : Bitmap) -> Array[Bool] {
 /// advances `offset`, so the caller must keep `0 <= start` and
 /// `start + length <= len`; that one caller guarantees it.
 fn Bitmap::slice_view(self : Bitmap, start : Int, length : Int) -> Bitmap {
-  { bits: self.bits, offset: self.offset + start, len: length }
+  { bits: self.bits, offset: self.offset + start, len: length, }
 }
 
 ///|
@@ -189,7 +189,7 @@ fn pack(len : Int, valid : (Int) -> Bool) -> Bitmap {
       set_bit_unchecked(buf, i)
     }
   }
-  { bits: buffer_to_bytes(buf), offset: 0, len }
+  { bits: buffer_to_bytes(buf), offset: 0, len, }
 }
 
 ///|

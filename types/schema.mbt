@@ -41,7 +41,7 @@ pub extend Schema with Debug::{to_repr}
 /// The type's own constructor, like `Field::Field` — the spelling every
 /// canonically-constructed type in MoonFrame uses.
 pub fn Schema::Schema(fields : Array[Field]) -> Schema raise DataError {
-  { fields: fields.copy(), index: name_index(fields) }
+  { fields: fields.copy(), index: name_index(fields), }
 }
 
 ///|
@@ -135,7 +135,7 @@ pub fn Schema::select(
     picked.push(self.field(n))
     index[n] = picked.length() - 1
   }
-  { fields: picked, index }
+  { fields: picked, index, }
 }
 
 ///|
@@ -162,7 +162,7 @@ pub fn Schema::rename(
   // Rebuilt rather than patched: the names are unique by the check above, so
   // this cannot raise, and one derivation of the index means there is no second
   // place for it to fall out of step with the fields.
-  { fields: next, index: name_index(next) }
+  { fields: next, index: name_index(next), }
 }
 
 ///|

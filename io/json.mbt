@@ -40,7 +40,7 @@ pub fn JsonReadOptions::JsonReadOptions(
   infer_schema_rows? : Int = DEFAULT_INFER_SCHEMA_ROWS,
   on_parse_error? : OnParseError = Raise,
 ) -> JsonReadOptions {
-  { infer_schema_rows, on_parse_error }
+  { infer_schema_rows, on_parse_error, }
 }
 
 ///|

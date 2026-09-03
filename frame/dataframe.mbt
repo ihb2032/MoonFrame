@@ -120,7 +120,7 @@ fn DataFrame::from_parts_with_fields(
     raise @types.DataError::LengthMismatch
   }
   let schema = @types.Schema::Schema(fields)
-  { schema, columns, nrows, name_to_index: index_by_name(columns) }
+  { schema, columns, nrows, name_to_index: index_by_name(columns), }
 }
 
 ///|
@@ -159,7 +159,7 @@ pub fn DataFrame::empty(
   let columns : Array[Series] = schema
     .fields()
     .map(f => Series::empty_of(f.name(), f.dtype()))
-  { schema, columns, nrows: 0, name_to_index: index_by_name(columns) }
+  { schema, columns, nrows: 0, name_to_index: index_by_name(columns), }
 }
 
 ///|
@@ -303,7 +303,7 @@ pub fn DataFrame::from_rows(
     }
     column
   })
-  { schema, columns, nrows, name_to_index: index_by_name(columns) }
+  { schema, columns, nrows, name_to_index: index_by_name(columns), }
 }
 
 // ── Inspection ────────────────────────────────────────────────────────
@@ -579,7 +579,7 @@ fn DataFrame::with_same_schema(
   new_cols : Array[Series],
   nrows : Int,
 ) -> DataFrame {
-  { ..self, columns: new_cols, nrows }
+  { ..self, columns: new_cols, nrows, }
 }
 
 ///|

@@ -147,7 +147,7 @@ pub fn format_ndjson(df : @frame.DataFrame) -> String {
   // Share the column-major record walk with `format_json` /
   // `format_vega_lite` (see `df_to_json_records`); NDJSON differs only in
   // the framing — one object per line, each terminated by `\n`.
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   for obj in df_to_json_records(df) {
     buf.write_string(obj.stringify())
     buf.write_char('\n')

@@ -118,7 +118,7 @@ pub fn ChartSpec::bar(
   color_type? : VegaType,
   title? : String,
 ) -> ChartSpec {
-  { kind: Bar, x, y, color, title, color_type }
+  { kind: Bar, x, y, color, title, color_type, }
 }
 
 ///|
@@ -139,7 +139,7 @@ pub fn ChartSpec::line(
   color_type? : VegaType,
   title? : String,
 ) -> ChartSpec {
-  { kind: Line, x, y, color, title, color_type }
+  { kind: Line, x, y, color, title, color_type, }
 }
 
 ///|
@@ -160,7 +160,7 @@ pub fn ChartSpec::point(
   color_type? : VegaType,
   title? : String,
 ) -> ChartSpec {
-  { kind: Point, x, y, color, title, color_type }
+  { kind: Point, x, y, color, title, color_type, }
 }
 
 ///|
@@ -181,7 +181,7 @@ pub fn ChartSpec::area(
   color_type? : VegaType,
   title? : String,
 ) -> ChartSpec {
-  { kind: Area, x, y, color, title, color_type }
+  { kind: Area, x, y, color, title, color_type, }
 }
 
 ///|
@@ -296,7 +296,7 @@ fn encoding_channel(
 /// backslash makes the name a literal field access (the JSON stringifier
 /// then escapes the backslash itself). A single forward pass, total.
 fn escape_vega_field(name : String) -> String {
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   for ch in name.iter() {
     if ch == '\\' ||
       ch == '.' ||

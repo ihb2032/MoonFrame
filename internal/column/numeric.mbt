@@ -66,7 +66,7 @@ pub extend NumericData with Debug::{to_repr}
 /// column `Builtin` instead. No validity `Bitmap` is allocated. `values` is
 /// copied, so the column owns its data.
 pub fn NumericColumn::from_ints(values : ArrayView[Int64]) -> NumericColumn {
-  { data: Int(values.to_owned()) }
+  { data: Int(values.to_owned()), }
 }
 
 ///|
@@ -77,7 +77,7 @@ pub fn NumericColumn::from_ints(values : ArrayView[Int64]) -> NumericColumn {
 /// Polars treats it: propagating through `sum` / `mean`, skipped by
 /// `min` / `max`. `values` is copied, so the column owns its data.
 pub fn NumericColumn::from_floats(values : ArrayView[Double]) -> NumericColumn {
-  { data: Float(values.to_owned()) }
+  { data: Float(values.to_owned()), }
 }
 
 // ── Inspection ────────────────────────────────────────────────────────
@@ -206,8 +206,8 @@ fn NumericColumn::slice_unchecked(
 ) -> NumericColumn {
   let n = end - start
   match self.data {
-    Int(a) => { data: Int(Array::makei(n, i => a[start + i])) }
-    Float(a) => { data: Float(Array::makei(n, i => a[start + i])) }
+    Int(a) => { data: Int(Array::makei(n, i => a[start + i])), }
+    Float(a) => { data: Float(Array::makei(n, i => a[start + i])), }
   }
 }
 
@@ -221,8 +221,8 @@ fn NumericColumn::take(
 ) -> NumericColumn raise @types.DataError {
   validate_gather_indices(indices, self.len())
   match self.data {
-    Int(a) => { data: Int(indices.map(i => a[i])) }
-    Float(a) => { data: Float(indices.map(i => a[i])) }
+    Int(a) => { data: Int(indices.map(i => a[i])), }
+    Float(a) => { data: Float(indices.map(i => a[i])), }
   }
 }
 
@@ -239,9 +239,9 @@ fn NumericColumn::take(
 fn NumericColumn::to_builtin(self : NumericColumn) -> BuiltinColumn {
   match self.data {
     Int(a) =>
-      { data: ColumnData::Int(a), validity: Bitmap::all_valid(a.length()) }
+      { data: ColumnData::Int(a), validity: Bitmap::all_valid(a.length()), }
     Float(a) =>
-      { data: ColumnData::Float(a), validity: Bitmap::all_valid(a.length()) }
+      { data: ColumnData::Float(a), validity: Bitmap::all_valid(a.length()), }
   }
 }
 

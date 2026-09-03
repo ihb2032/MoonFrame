@@ -26,7 +26,7 @@ fn idem_other() -> @frame.DataFrame raise @types.DataError {
 
 ///|
 fn plan_render(plan : LogicalPlan) -> String {
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   render(plan, buf, 0)
   buf.to_string()
 }

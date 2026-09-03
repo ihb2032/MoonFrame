@@ -19,7 +19,7 @@
 /// guards are exercised by assembling the raw code unit directly. Shared by
 /// the surrogate rejection tests in this package.
 fn lone_surrogate_str(code_unit : Int) -> String {
-  let b = StringBuilder::new()
+  let b = StringBuilder()
   b.write_char(Int::unsafe_to_char(code_unit))
   b.to_string()
 }

@@ -114,5 +114,5 @@ pub fn DataFrame::group_by(
       None => by_key[id] = [i]
     }
   }
-  { source: self, key_columns, groups: by_key.values().collect() }
+  { source: self, key_columns, groups: by_key.values().collect(), }
 }

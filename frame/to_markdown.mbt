@@ -103,7 +103,7 @@ fn format_markdown(df : DataFrame, shown : Int) -> String {
     }
     w
   })
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   write_row(buf, names, widths)
   // Separator row: dashes of `widths[c]` per column, padded with one
   // space on each side to match the data-row layout.
@@ -168,7 +168,7 @@ fn char_count(s : String) -> Int {
 /// escape before measuring), so the two-character expansions are
 /// accounted for.
 fn escape_md_cell(s : String) -> String {
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   for ch in s.iter() {
     match ch {
       '\\' => {

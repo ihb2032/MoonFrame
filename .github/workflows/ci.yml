@@ -29,7 +29,7 @@ permissions:
 # gate (moon check --deny-warn && moon fmt --check && moon info && moon test)
 # first.
 env:
-  MOONBIT_INSTALL_VERSION: "0.10.9+6e6c44045"
+  MOONBIT_INSTALL_VERSION: "0.10.11+6ff76a5f9"
 
 jobs:
   build:

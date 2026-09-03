@@ -56,7 +56,7 @@ pub extend ColumnData with Debug::{to_repr}
 /// Build an `Int` column from raw values (no nulls). `values` is copied, so
 /// the column owns its data and is unaffected by later mutation of the array.
 pub fn BuiltinColumn::from_ints(values : Array[Int64]) -> BuiltinColumn {
-  { data: Int(values.copy()), validity: Bitmap::all_valid(values.length()) }
+  { data: Int(values.copy()), validity: Bitmap::all_valid(values.length()), }
 }
 
 ///|
@@ -73,7 +73,7 @@ pub fn BuiltinColumn::from_int_options(values : Array[Int64?]) -> BuiltinColumn 
 /// Build a `Float` column from raw values (no nulls). `values` is copied, so
 /// the column owns its data and is unaffected by later mutation of the array.
 pub fn BuiltinColumn::from_floats(values : Array[Double]) -> BuiltinColumn {
-  { data: Float(values.copy()), validity: Bitmap::all_valid(values.length()) }
+  { data: Float(values.copy()), validity: Bitmap::all_valid(values.length()), }
 }
 
 ///|
@@ -92,7 +92,7 @@ pub fn BuiltinColumn::from_float_options(
 /// Build a `Bool` column from raw values (no nulls). `values` is copied, so
 /// the column owns its data and is unaffected by later mutation of the array.
 pub fn BuiltinColumn::from_bools(values : Array[Bool]) -> BuiltinColumn {
-  { data: Bool(values.copy()), validity: Bitmap::all_valid(values.length()) }
+  { data: Bool(values.copy()), validity: Bitmap::all_valid(values.length()), }
 }
 
 ///|
@@ -109,7 +109,7 @@ pub fn BuiltinColumn::from_bool_options(values : Array[Bool?]) -> BuiltinColumn 
 /// Build a `String` column from raw values (no nulls). `values` is copied, so
 /// the column owns its data and is unaffected by later mutation of the array.
 pub fn BuiltinColumn::from_strings(values : Array[String]) -> BuiltinColumn {
-  { data: String(values.copy()), validity: Bitmap::all_valid(values.length()) }
+  { data: String(values.copy()), validity: Bitmap::all_valid(values.length()), }
 }
 
 ///|
@@ -249,7 +249,7 @@ fn BuiltinColumn::slice_unchecked(
     Bool(a) => Bool(Array::makei(n, i => a[start + i]))
     String(a) => String(Array::makei(n, i => a[start + i]))
   }
-  { data: data_out, validity: self.validity.slice_view(start, n) }
+  { data: data_out, validity: self.validity.slice_view(start, n), }
 }
 
 ///|
@@ -269,7 +269,7 @@ fn BuiltinColumn::take(
   // Indices are already validated against the same `len`, so gather the
   // validity bits through the unchecked `take_view` — no second O(n) bounds
   // scan, and no unreachable raise arm.
-  { data: data_out, validity: self.validity.take_view(indices) }
+  { data: data_out, validity: self.validity.take_view(indices), }
 }
 
 // ── Cast ──────────────────────────────────────────────────────────────
@@ -320,7 +320,7 @@ fn[U] BuiltinColumn::cast_cells(
       fill
     }
   })
-  { data: wrap(buf), validity: self.validity }
+  { data: wrap(buf), validity: self.validity, }
 }
 
 ///|

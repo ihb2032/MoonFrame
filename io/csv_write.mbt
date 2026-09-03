@@ -36,7 +36,7 @@ pub fn CsvWriteOptions::CsvWriteOptions(
   null_value? : String = "",
   sanitize_formulas? : Bool = false,
 ) -> CsvWriteOptions {
-  { header, delimiter, null_value, sanitize_formulas }
+  { header, delimiter, null_value, sanitize_formulas, }
 }
 
 ///|
@@ -100,7 +100,7 @@ pub fn format_csv(
   options? : CsvWriteOptions = CsvWriteOptions::CsvWriteOptions(),
 ) -> String raise @types.DataError {
   validate_csv_delimiter(options.delimiter)
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   let names = df.columns()
   if names.is_empty() && df.nrows() > 0 {
     raise @types.DataError::InvalidOperation(
@@ -194,7 +194,7 @@ fn render_csv_scalar(
     @types.Scalar::Null => null_value
     @types.Scalar::String(value) =>
       if sanitize_formulas && starts_spreadsheet_formula(value) {
-        let buf = StringBuilder::new()
+        let buf = StringBuilder()
         buf.write_string("'")
         buf.write_string(value)
         buf.to_string()

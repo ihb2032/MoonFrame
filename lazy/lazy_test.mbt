@@ -4,7 +4,7 @@
 /// equal to the eager chain, node by node and composed; the two
 /// entry points agree; and every failure surfaces at collect time as the
 /// underlying eager operator's error. Plan-rendering snapshots live in
-/// `logical_plan_test.mbt`; the shared fixture frames live here.
+/// `plan_render_test.mbt`; the shared fixture frames live here.
 
 ///|
 /// 4×3 mixed frame: a plain Int column, a nullable Int column, and a

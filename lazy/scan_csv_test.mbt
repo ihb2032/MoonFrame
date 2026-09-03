@@ -5,7 +5,7 @@
 /// only fails at collect. Fixtures are written under `_build/` (the build
 /// directory) with `@io.write_csv`, the same pattern the `io` file tests use.
 /// Plan-rendering snapshots — the `SCAN_CSV` node and its written projection —
-/// live in `logical_plan_test.mbt` and `optimize_test.mbt`.
+/// live in `plan_render_test.mbt` and `optimize_projection_test.mbt`.
 
 ///|
 /// Write a small 4×3 fixture frame to `path`. Numeric-only (no floats), so the

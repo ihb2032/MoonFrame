@@ -5,8 +5,8 @@
 /// total. Clean fixtures are written with `@io.write_ndjson`; the one fixture
 /// that needs a column whose JSON type a typed frame cannot model — an `Int`
 /// that later turns into a string — is written as raw text through `@fs`.
-/// Plan-rendering snapshots live in `logical_plan_test.mbt` and
-/// `optimize_test.mbt`.
+/// Plan-rendering snapshots live in `plan_render_test.mbt` and
+/// `optimize_projection_test.mbt`.
 
 ///|
 /// Write a small clean fixture frame to `path` as NDJSON.

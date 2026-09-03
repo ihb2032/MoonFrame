@@ -126,8 +126,9 @@ run as doc tests on every backend.
   `JoinOptions::left_on([col("customer_id")], right_on=[col("id")])`.
 - **Summarize** — `describe()` for a per-column summary, or single statistics
   (`sum` / `mean` / `min` / `max` / …).
-- **Export** — `to_markdown()`, `to_html()`, `format_json`,
-  `format_ndjson`, and `format_vega_lite` (a Vega-Lite v5 chart spec).
+- **Export** — `to_markdown()` / `to_html()`, `format_vega_lite` (a Vega-Lite
+  v5 chart spec), and — through the `io` package — the string-level
+  `format_csv` / `format_json` / `format_ndjson`.
 
 For example, summarise the same data by region:
 

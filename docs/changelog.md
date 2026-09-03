@@ -10,6 +10,60 @@ version — including a new variant on a public `pub(all)` enum, which is
 source-breaking under MoonBit's exhaustive `match` even though it reads as
 additive.
 
+## v0.7.0 — focused io, narrower first contact (unreleased)
+
+The surface-focus release. `io` returns to the tabular-interchange charter its
+header always claimed — chart export moves to a package of its own — and the
+root facade keeps the file-level verbs as its first-contact face, with the
+string-level serialisers reached through `@io` directly. Both changes narrow
+what a reader meets first without removing capability: every moved or
+de-listed symbol still exists, at the same signature, one qualification away.
+The source-level upgrade steps are collected in [`migration.md`](migration.md).
+
+### Breaking
+
+- **Chart export lives in `chart`, not `io`.** Vega-Lite export is
+  serialisation to an external interchange format, not tabular interchange:
+  `ChartSpec` / `ChartKind` / `VegaType` and `format_vega_lite` /
+  `write_vega_lite` move to a new `chart` package, and `io`'s public face
+  narrows from 14 functions / 8 types to 12 / 5. The root facade re-exports
+  the same names from the new home, so facade callers are unaffected; only
+  direct `@io.ChartSpec`-style qualification moves. The JSON cell
+  conventions stay single-sourced — `chart` drives io's records walk through
+  an `#internal(engine)` seam instead of copying it.
+
+- **The string-level serialisers are off the root facade.**
+  `parse_csv_str` / `parse_json_str` / `parse_ndjson_str` and `format_csv` /
+  `format_json` / `format_ndjson` stay public in `io` but are no longer
+  re-exported by `ihb2032/MoonFrame`: building a frame from in-memory text is
+  a slice of the surface — reached through `@io.parse_csv_str(...)` the way
+  `read_csv(StringIO(...))` is in pandas — not part of the first-contact
+  face, which keeps the file-level `read_*` / `write_*` verbs and the option
+  types. The facade-surface guard pins the new policy the same way it pins
+  the fluent-chain intermediates: the six names sit on a package-qualified
+  allowlist ahead of the snapshot, so a seventh un-re-exported function
+  fails the build rather than shipping quietly.
+
+### Internal restructuring (no behaviour change)
+
+- The shared numeric-text probes move from `csv.mbt` to `infer.mbt`, beside
+  the inference skeleton that owns them (the JSON readers' big-integer
+  recovery had been reaching them backwards across the package's file map).
+- The JSON-records core shared by the JSON and NDJSON readers — and, since
+  the chart split, by `chart` — moves to `json_core.mbt`.
+- The four `#internal(engine)` scan push-down seams gather into
+  `scan_seams.mbt`, the push-down contract written once in the file header
+  instead of restated four times.
+- The write-path CSV tests mirror the source split (`csv_write_test.mbt`
+  beside `csv_write.mbt`), and the three-format round-trip corpus is driven
+  by a format table — wiring a new format into the corpus becomes adding a
+  row, which is also the shape a future format's tests should take.
+
+### Tooling
+
+- CI pins moonc 0.10.11 (was 0.10.9); `StringBuilder` construction follows
+  the constructor spelling the newer deprecation asks for.
+
 ## v0.6.0 — API convergence
 
 The API-convergence release. MoonBit 0.10.4's `fn Type::Type(...)` custom

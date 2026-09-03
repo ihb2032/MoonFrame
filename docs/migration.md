@@ -6,12 +6,55 @@ changes ride the minor version. For the feature history behind each release see
 see [`api.md`](api.md), and the per-symbol reference on
 [mooncakes.io](https://mooncakes.io/docs/ihb2032/MoonFrame).
 
+## v0.6.0 → v0.7.0
+
+v0.7 is a pre-1.0 breaking release — the surface-focus one: `io` returns to
+tabular interchange and the root facade narrows its first-contact face. Both
+breaks are qualification moves; no symbol is deleted and no signature
+changes.
+
+### `@io.ChartSpec` is `@chart.ChartSpec`
+
+Chart export (Vega-Lite) moved from `io` to the new `chart` package, along
+with `ChartKind` / `VegaType` / `format_vega_lite` / `write_vega_lite`. The
+root facade re-exports them from the new home, so `@moonframe.ChartSpec` and
+the unqualified facade spellings keep working; only code that names the chart
+types through `@io` moves:
+
+```moonbit
+// before
+let spec : @io.ChartSpec = @io.ChartSpec::bar("region", "revenue")
+@io.write_vega_lite("chart.vl.json", df, spec)
+
+// after
+let spec : @chart.ChartSpec = @chart.ChartSpec::bar("region", "revenue")
+@chart.write_vega_lite("chart.vl.json", df, spec)
+```
+
+### The string-level serialisers left the root facade
+
+`parse_csv_str` / `parse_json_str` / `parse_ndjson_str` and `format_csv` /
+`format_json` / `format_ndjson` are still public in `io` — same signatures —
+but the root facade no longer re-exports them. Import the io package and
+qualify:
+
+```moonbit
+// before (through the facade)
+let df = parse_csv_str("a,b\n1,2\n")
+
+// after
+let df = @io.parse_csv_str("a,b\n1,2\n")
+```
+
+The file-level verbs (`read_csv` / `read_json` / `read_ndjson` /
+`write_csv` / `write_json` / `write_ndjson`), the three option types, and
+`OnParseError` stay on the facade.
+
 ## v0.5.8 → v0.6.0
 
 v0.6 is a pre-1.0 breaking release — the API-convergence one. Where two
 spellings existed for building or configuring the same value, v0.6 keeps a
-single entry point; there are no deprecated aliases. From v0.7 on the stable
-public surface evolves compatibly.
+single entry point; there are no deprecated aliases.
 
 ### A declared `nullable` survives the projections
 

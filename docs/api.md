@@ -26,7 +26,7 @@ the stability promise below covers. The public sub-packages (`@types`,
 `@series`, `@expr`, `@frame`, `@io`, `@chart`, `@lazy`) stay directly importable for a
 caller who only needs a slice, and a symbol the facade re-exports is the *same*
 stable symbol reached that way. A sub-package symbol the facade does **not**
-re-export is one of two kinds, and they are promised differently.
+re-export is one of three kinds, and they are promised differently.
 
 The **fluent-chain intermediates** — `WhenThen` / `WhenThenElse` /
 `GroupedDataFrame` / `LazyGroupBy`, `pub` only because the verb returning one
@@ -41,7 +41,18 @@ and a release may rename or replace it. The chain methods are pinned in
 reaches, and that lock is deliberately narrow: exactly these four types may be
 public without being re-exported.
 
-The other kind — the **`#internal` engine seams** — carries no promise at all.
+The **string-level serialisers** — `io`'s `parse_csv_str` / `parse_json_str` /
+`parse_ndjson_str` and `format_csv` / `format_json` / `format_ndjson` — are
+the second kind: public in `io`, deliberately absent from the facade.
+Building a frame from in-memory text is a slice of the surface rather than
+its centre — the way `read_csv(StringIO(...))` is a deliberate extra step in
+pandas — so the first-contact face keeps the file-level verbs alone and
+these are reached through `@io` directly, by name. Their signatures are
+pinned in the snapshot like any other public symbol's; beyond that, no
+promise is attached to the spelling yet — where the surface goes in later
+releases is still open.
+
+The third kind — the **`#internal` engine seams** — carries no promise at all.
 
 Two distinct mechanisms keep non-public code off the compatibility surface.
 **Engine seams** are symbols that must be `pub` because two public packages
@@ -481,6 +492,15 @@ the previous step's return value, and
 dot-method resolution follows that value's type, so the chain works through the
 facade without the name in scope. They remain `pub` in `@expr` / `@frame` /
 `@lazy` for anyone who does import those packages directly.
+
+The string-level serialisers — `parse_csv_str` / `parse_json_str` /
+`parse_ndjson_str` and `format_csv` / `format_json` / `format_ndjson` — are
+likewise **not** re-exported, for the opposite reason: not chain steps but
+named entry points, reached by importing `@io` and qualifying rather than
+through the facade. Building a frame from in-memory text is a slice of the
+surface rather than its centre — the way `read_csv(StringIO(...))` is a
+deliberate extra step in pandas — so the first-contact face keeps the
+file-level verbs and the option types alone.
 
 `using @pkg { type T }` also creates constructor aliases, so
 `@moonframe.Scalar::Int(42)`, `@moonframe.SortOrder::Desc`, and

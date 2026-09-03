@@ -405,7 +405,11 @@ test "quickstart: outer join" {
 ## CSV round-trip without touching the filesystem
 
 `format_csv` / `parse_csv_str` are the string-level serialisers (the
-file-backed `read_csv` / `write_csv` wrap them). Round-tripping is faithful for
+file-backed `read_csv` / `write_csv` wrap them). They live in the `io` package
+and are deliberately not re-exported by the root facade — building a frame
+from in-memory text is a deliberate step off the first-contact face, spelled
+`@io.format_csv` / `@io.parse_csv_str` once `io` is imported. Round-tripping
+is faithful for
 inferable dtypes — a generated property asserts it over random `Int` columns,
 and a hand-written adversarial corpus covers the other dtypes and their edges
 (embedded quotes and newlines, nulls, big `Int64`s, signed zero).
@@ -417,7 +421,7 @@ test "quickstart: csv round-trip" {
     Series::from_strings("region", ["west", "east"]),
     Series::from_ints("quantity", [10, 5]),
   ])
-  let csv = format_csv(df)
+  let csv = @io.format_csv(df)
   inspect(
     csv,
     content=(
@@ -427,7 +431,7 @@ test "quickstart: csv round-trip" {
       #|
     ),
   )
-  let parsed = parse_csv_str(csv)
+  let parsed = @io.parse_csv_str(csv)
   inspect(
     parsed.to_markdown(),
     content=(
@@ -450,7 +454,7 @@ permissive parser.
 ```moonbit check
 ///|
 test "quickstart: strict csv quotes" {
-  let parsed = parse_csv_str(
+  let parsed = @io.parse_csv_str(
     "text\n\"say \"\"hi\"\"\"\n",
     options=CsvReadOptions::CsvReadOptions(strict_quotes=true),
   )
@@ -469,7 +473,7 @@ test "quickstart: spreadsheet-safe csv" {
   let df = DataFrame::DataFrame([
     Series::from_strings("user_input", ["=1+1", "ordinary"]),
   ])
-  let csv = format_csv(
+  let csv = @io.format_csv(
     df,
     options=CsvWriteOptions::CsvWriteOptions(sanitize_formulas=true),
   )
@@ -480,7 +484,8 @@ test "quickstart: spreadsheet-safe csv" {
 ## NDJSON (JSON Lines) round-trip
 
 `format_ndjson` / `parse_ndjson_str` are the string-level NDJSON serialisers
-(the file-backed `read_ndjson` / `write_ndjson` wrap them). Each row is one JSON
+(the file-backed `read_ndjson` / `write_ndjson` wrap them), reached through
+`@io.` qualification like the CSV pair above. Each row is one JSON
 object on its own line, terminated by `\n`; reading infers dtypes exactly as the
 JSON-records reader does.
 
@@ -491,7 +496,7 @@ test "quickstart: ndjson round-trip" {
     Series::from_strings("region", ["west", "east"]),
     Series::from_ints("quantity", [10, 5]),
   ])
-  let ndjson = format_ndjson(df)
+  let ndjson = @io.format_ndjson(df)
   inspect(
     ndjson,
     content=(
@@ -500,7 +505,7 @@ test "quickstart: ndjson round-trip" {
       #|
     ),
   )
-  let parsed = parse_ndjson_str(ndjson)
+  let parsed = @io.parse_ndjson_str(ndjson)
   inspect(
     parsed.to_markdown(),
     content=(

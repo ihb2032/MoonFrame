@@ -1,11 +1,15 @@
 // Integration tests for the facade package. Every symbol used here is
-// reached through `ihb2032/MoonFrame` (no `@types` / `@frame` / `@io`
+// reached through `ihb2032/MoonFrame` (no `@types` / `@frame`
 // qualifications), so these tests double as the practical completeness
 // check for the `pub using` re-exports in `moonframe.mbt`. A missing
 // re-export here surfaces as a type error rather than a silent gap in
 // the public surface. The operator verbs and `to_markdown` are methods
 // on `DataFrame`, reached automatically through the `type DataFrame`
-// re-export.
+// re-export. The one deliberate exception: the string-level serialisers
+// (`parse_*_str` / `format_*`) stay behind `@io` (see `moonframe.mbt`'s
+// header for the reasoning), so those calls below are `@io`-qualified —
+// and the facade's exact symbol set, that absence included, is pinned by
+// `.github/scripts/facade_surface.snapshot`.
 
 // ── End-to-end file-backed pipeline ─────────────────────────────────
 
@@ -71,7 +75,7 @@ test "pipeline: parse_csv_str → filter → select → sort → describe → to
     #|south,gadget,12.0,10,,true
     #|east,widget,9.5,7,66.5,false
     #|
-  let df = parse_csv_str(csv)
+  let df = @io.parse_csv_str(csv)
   assert_eq(df.shape(), (6, 6))
   assert_eq(df.check_invariants(), Ok(()))
 
@@ -135,8 +139,8 @@ test "pipeline: format_json → parse_json_str round-trip" {
     Series::from_float_options("score", [Some(91.5), None, Some(73.0)]),
   ])
   assert_eq(df.check_invariants(), Ok(()))
-  let json = format_json(df)
-  let restored = parse_json_str(json)
+  let json = @io.format_json(df)
+  let restored = @io.parse_json_str(json)
   assert_eq(restored.shape(), df.shape())
   assert_eq(restored.columns(), df.columns())
   assert_eq(restored.item(0, "id"), Scalar::Int(1))
@@ -158,8 +162,8 @@ test "pipeline: format_ndjson → parse_ndjson_str round-trip" {
     Series::from_float_options("score", [Some(91.5), None, Some(73.0)]),
   ])
   assert_eq(df.check_invariants(), Ok(()))
-  let ndjson = format_ndjson(df)
-  let restored = parse_ndjson_str(ndjson)
+  let ndjson = @io.format_ndjson(df)
+  let restored = @io.parse_ndjson_str(ndjson)
   assert_eq(restored.shape(), df.shape())
   assert_eq(restored.columns(), df.columns())
   assert_eq(restored.item(0, "id"), Scalar::Int(1))

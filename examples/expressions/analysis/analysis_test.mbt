@@ -1,5 +1,5 @@
 // Blackbox tests for the expression / lazy helpers. The CSV input is
-// driven through `parse_csv_str` so the tests are deterministic and
+// driven through `@io.parse_csv_str` so the tests are deterministic and
 // file-free; `main.mbt` is the only piece that touches `read_csv` / the
 // filesystem. Revenue / cost / quantity are chosen so every derived value
 // (profit, unit_price, the scaled revenue, the per-region means) is exact
@@ -18,7 +18,7 @@ let sample_csv : String =
 
 ///|
 fn read_sample() -> @moonframe.DataFrame raise @moonframe.DataError {
-  @moonframe.parse_csv_str(sample_csv)
+  @io.parse_csv_str(sample_csv)
 }
 
 ///|

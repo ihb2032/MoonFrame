@@ -133,7 +133,9 @@ the sweep to the push.
   only the four fluent-chain types may be public without being re-exported;
   every public free function or top-level value must have a facade counterpart
   (nothing chains to one, so one the facade omits is unreachable through the
-  supported surface); **no public field may hold a mutable container** (`Array` /
+  supported surface) — the one deliberate exception being `io`'s string-level
+  serialiser family, reached through `@io` qualification the way the chain
+  steps are reached by chaining; **no public field may hold a mutable container** (`Array` /
   `Map` / …) — reading one hands the container itself to the caller; and **no
   public field may be `mut`**, which would let a caller write through it. Keep a
   container field `priv` behind an accessor that copies, as

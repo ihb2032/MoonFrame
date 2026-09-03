@@ -27,8 +27,13 @@
 // explicit line here.** So the lists below are the value types (the Join
 // `JoinType` / `JoinOptions`, the HTML `HtmlOptions`, the Chart `ChartKind` /
 // `ChartSpec`, …) plus every free function a caller reaches by name — `@expr`'s
-// constructors, `@frame`'s column selectors, `@io`'s readers and writers,
-// `@chart`'s spec export, and `@lazy`'s file sources. (`GroupedDataFrame::agg` is reached the other way —
+// constructors, `@frame`'s column selectors, `@io`'s file-level readers and
+// writers, `@chart`'s spec export, and `@lazy`'s file sources. The string-level
+// serialisers (`parse_csv_str` / `parse_json_str` / `parse_ndjson_str` /
+// `format_csv` / `format_json` / `format_ndjson`) are deliberately NOT
+// re-exported: building a frame from in-memory text is a slice of the
+// surface, reached through `@io` directly, not part of the first-contact
+// face. (`GroupedDataFrame::agg` is reached the other way —
 // by chaining off `group_by`'s return, not by naming the type; see the
 // fluent-chain note below.)
 // (The text / literal helpers that once lived in `@types` —
@@ -129,12 +134,6 @@ pub using @io {
   type CsvWriteOptions,
   type JsonReadOptions,
   type OnParseError,
-  format_csv,
-  format_json,
-  format_ndjson,
-  parse_csv_str,
-  parse_json_str,
-  parse_ndjson_str,
   read_csv,
   read_json,
   read_ndjson,

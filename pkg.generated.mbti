@@ -26,12 +26,6 @@ pub fn cols_of_dtype(@frame.DataFrame, @types.DataType) -> Array[@expr.Expr]
 
 pub fn cols_starts_with(@frame.DataFrame, String) -> Array[@expr.Expr]
 
-pub fn format_csv(@frame.DataFrame, options? : @io.CsvWriteOptions) -> String raise @types.DataError
-
-pub fn format_json(@frame.DataFrame) -> String
-
-pub fn format_ndjson(@frame.DataFrame) -> String
-
 pub fn format_vega_lite(@frame.DataFrame, @chart.ChartSpec) -> String raise @types.DataError
 
 pub fn lit(@types.Scalar) -> @expr.Expr
@@ -49,12 +43,6 @@ pub fn lit_str(String) -> @expr.Expr
 pub fn map_many(label~ : String, Array[@expr.Expr], (Array[@types.Scalar]) -> @types.Scalar raise @types.DataError) -> @expr.Expr
 
 pub fn numeric_cols(@frame.DataFrame) -> Array[@expr.Expr]
-
-pub fn parse_csv_str(String, options? : @io.CsvReadOptions) -> @frame.DataFrame raise @types.DataError
-
-pub fn parse_json_str(String, options? : @io.JsonReadOptions) -> @frame.DataFrame raise @types.DataError
-
-pub fn parse_ndjson_str(String, options? : @io.JsonReadOptions) -> @frame.DataFrame raise @types.DataError
 
 pub fn read_csv(String, options? : @io.CsvReadOptions) -> @frame.DataFrame raise @types.DataError
 

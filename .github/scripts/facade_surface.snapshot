@@ -48,12 +48,9 @@ fn cols_of_dtype(@frame.DataFrame, @types.DataType) -> Array[@expr.Expr] <- root
 fn cols_of_dtype(DataFrame, @types.DataType) -> Array[@expr.Expr] <- frame
 fn cols_starts_with(@frame.DataFrame, String) -> Array[@expr.Expr] <- root
 fn cols_starts_with(DataFrame, String) -> Array[@expr.Expr] <- frame
-fn format_csv(@frame.DataFrame, options? : @io.CsvWriteOptions) -> String raise @types.DataError <- root
 fn format_csv(@frame.DataFrame, options? : CsvWriteOptions) -> String raise @types.DataError <- io
 fn format_json(@frame.DataFrame) -> String <- io
-fn format_json(@frame.DataFrame) -> String <- root
 fn format_ndjson(@frame.DataFrame) -> String <- io
-fn format_ndjson(@frame.DataFrame) -> String <- root
 fn format_vega_lite(@frame.DataFrame, @chart.ChartSpec) -> String raise @types.DataError <- root
 fn format_vega_lite(@frame.DataFrame, ChartSpec) -> String raise @types.DataError <- chart
 fn lit(@types.Scalar) -> @expr.Expr <- root
@@ -72,11 +69,8 @@ fn map_many(label~ : String, Array[@expr.Expr], (Array[@types.Scalar]) -> @types
 fn map_many(label~ : String, Array[Expr], (Array[@types.Scalar]) -> @types.Scalar raise @types.DataError) -> Expr <- expr
 fn numeric_cols(@frame.DataFrame) -> Array[@expr.Expr] <- root
 fn numeric_cols(DataFrame) -> Array[@expr.Expr] <- frame
-fn parse_csv_str(String, options? : @io.CsvReadOptions) -> @frame.DataFrame raise @types.DataError <- root
 fn parse_csv_str(String, options? : CsvReadOptions) -> @frame.DataFrame raise @types.DataError <- io
-fn parse_json_str(String, options? : @io.JsonReadOptions) -> @frame.DataFrame raise @types.DataError <- root
 fn parse_json_str(String, options? : JsonReadOptions) -> @frame.DataFrame raise @types.DataError <- io
-fn parse_ndjson_str(String, options? : @io.JsonReadOptions) -> @frame.DataFrame raise @types.DataError <- root
 fn parse_ndjson_str(String, options? : JsonReadOptions) -> @frame.DataFrame raise @types.DataError <- io
 fn read_csv(String, options? : @io.CsvReadOptions) -> @frame.DataFrame raise @types.DataError <- root
 fn read_csv(String, options? : CsvReadOptions) -> @frame.DataFrame raise @types.DataError <- io

@@ -1,5 +1,5 @@
 // Blackbox tests for the sales-analysis pipeline helpers. The CSV
-// inputs are driven through `parse_csv_str` so the tests are
+// inputs are driven through `@io.parse_csv_str` so the tests are
 // deterministic and file-free; `main.mbt` is the only piece that
 // touches `read_csv`.
 
@@ -13,7 +13,7 @@ test "widget_report: keeps widget rows, projects 4 cols, sorts by quantity desc"
     #|south,gadget,12.0,10,120.0,true
     #|east,widget,9.5,7,66.5,false
     #|
-  let df = @moonframe.parse_csv_str(csv)
+  let df = @io.parse_csv_str(csv)
   let (sorted, summary) = widget_report(df)
 
   // The filter kept the three widget rows; select pinned the 4
@@ -39,7 +39,7 @@ test "widget_report: empty product set collapses to a 0-row widget frame" {
     #|west,gadget,12.0,8,96.0,true
     #|south,gizmo,15.0,3,45.0,true
     #|
-  let df = @moonframe.parse_csv_str(csv)
+  let df = @io.parse_csv_str(csv)
   let (sorted, summary) = widget_report(df)
   // No widgets in the source → kept row count is zero, but the
   // projection keeps the schema verbatim.
@@ -119,7 +119,7 @@ test "is_widget_row: a null product cell drops the row, not the report" {
     #|west,widget,9.5,12,114.0,true
     #|south,,12.0,10,120.0,true
     #|
-  let df = @moonframe.parse_csv_str(csv)
+  let df = @io.parse_csv_str(csv)
   let (sorted, _) = widget_report(df)
   assert_eq(sorted.shape(), (1, 4))
   assert_eq(sorted.item(0, "region"), @moonframe.Scalar::String("west"))

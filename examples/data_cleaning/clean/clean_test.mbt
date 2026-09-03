@@ -1,5 +1,5 @@
 // Blackbox tests for the data-cleaning helper. CSV inputs are driven
-// through `parse_csv_str` so the tests are deterministic and
+// through `@io.parse_csv_str` so the tests are deterministic and
 // file-free; `main.mbt` is the only piece that touches `read_csv` /
 // `write_csv`.
 
@@ -18,7 +18,7 @@ test "clean: drops rows with null `score` and fills remaining null `note` cells"
     #|5,dave,,fifth
     #|6,erin,68.5,
     #|
-  let df = @moonframe.parse_csv_str(csv)
+  let df = @io.parse_csv_str(csv)
   let cleaned = clean(df)
 
   // 4 rows survive the `score` gate; columns stay in declaration order.

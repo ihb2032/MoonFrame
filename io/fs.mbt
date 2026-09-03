@@ -1,6 +1,12 @@
 // File-system access for the IO readers and writers: the single place that
 // translates `@fs`'s `IOError` into the library's `DataError::IoError`, so the
 // `read_*` / `write_*` entry points don't each repeat the catch.
+//
+// One-file-one-test exemption: this shared plumbing has no dedicated
+// `fs_test.mbt`. (doc-guard: unresolved) It is covered through the
+// file-backed `read_csv` / `write_csv` / `write_json` / `write_ndjson`
+// tests in the per-format test files and the surrogate-refusal corpus in
+// `roundtrip_corpus_test.mbt`.
 
 ///|
 /// Read a whole file as a string, mapping a file-system `IOError` to

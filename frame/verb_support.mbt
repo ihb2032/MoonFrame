@@ -44,17 +44,18 @@ fn DataFrame::from_parts_with_fields(
     raise @types.DataError::LengthMismatch
   }
   let schema = @types.Schema::Schema(fields)
-  { schema, columns, nrows, name_to_index: index_by_name(columns), }
+  { schema, columns, nrows, }
 }
 
 ///|
 /// Rebuild the frame from `new_cols` and `nrows`, reusing this frame's schema
-/// and `O(1)` name→index cache verbatim. The schema-preserving constructor
-/// behind the row-only transforms (`head` / `tail` / `slice` / `gather` /
-/// `fill_null` / `reverse` / `unique`): the column values or backing change but the names
-/// and dtypes do not, so the cache stays valid and these never pay to rebuild it through
-/// `DataFrame::DataFrame` (`O(n)`, and able to raise). Total — the caller guarantees
-/// `new_cols` still matches the schema and carries `nrows` rows each.
+/// verbatim. The schema-preserving constructor behind the row-only transforms
+/// (`head` / `tail` / `slice` / `gather` / `fill_null` / `reverse` / `unique`):
+/// the column values or backing change but the names and dtypes do not, so the
+/// schema — and the name→position index it carries — stays valid, and these
+/// never pay to rebuild it through `DataFrame::DataFrame` (`O(n)`, and able to
+/// raise). Total — the caller guarantees `new_cols` still matches the schema
+/// and carries `nrows` rows each.
 ///
 /// Spelt as a struct update so that a field added to `DataFrame` later is
 /// carried over by default — only what a row transform actually changes is
@@ -115,7 +116,8 @@ fn projection_source(expr : @ir.ExprNode) -> String? {
 /// `source_fields` is the frame's own field vector, materialised once by the
 /// caller rather than per expression. A named source column is always present:
 /// the expression was evaluated against this frame first, and a name the frame
-/// lacks raised `ColumnNotFound` there.
+/// lacks raised `ColumnNotFound` there — so the total `index_maybe` probe can
+/// never miss, and an error-branching lookup would be dead code.
 fn DataFrame::carried_field(
   self : DataFrame,
   source_fields : Array[@types.Field],
@@ -124,7 +126,7 @@ fn DataFrame::carried_field(
   name : String,
 ) -> @types.Field {
   let carried = match projection_source(expr.node()) {
-    Some(src) => self.name_to_index.get(src).map(i => source_fields[i])
+    Some(src) => self.schema.index_maybe(src).map(i => source_fields[i])
     None => None
   }
   match carried {
@@ -139,9 +141,9 @@ fn DataFrame::carried_field(
 /// differs from `self.schema`'s only in the field *names* (`rename` /
 /// `rename_with` map each through `Field::rename`), so this re-validates it
 /// through `Schema::Schema` — `raise DuplicateColumn(name)` on the first repeat —
-/// retitles each column to its field's name, and rebuilds the `O(1)`
-/// name→index cache, which unlike `with_same_schema` cannot be reused because
-/// the names moved. Row count and column order are untouched.
+/// which also builds the fresh name→position index the moved names need, and
+/// retitles each column to its field's name. Row count and column order are
+/// untouched.
 ///
 /// Carrying the fields rather than re-deriving them through `DataFrame::DataFrame` is
 /// what keeps a renamed column's metadata: that constructor names every field
@@ -155,12 +157,7 @@ fn DataFrame::with_renamed_fields(
   // `fields` is index-aligned with the column vector, so `columns[i]` is
   // in-bounds and the rebuilt schema mirrors the columns name-for-name.
   let new_cols = fields.mapi((i, f) => self.columns[i].rename(f.name()))
-  {
-    schema,
-    columns: new_cols,
-    nrows: self.nrows,
-    name_to_index: index_by_name(new_cols),
-  }
+  { schema, columns: new_cols, nrows: self.nrows, }
 }
 
 ///|

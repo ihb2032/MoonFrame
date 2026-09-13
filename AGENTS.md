@@ -63,7 +63,7 @@ So a fact gets one home, and everything else points at it. Where it goes:
 | Fact | Home |
 | --- | --- |
 | A rule CI enforces (imports, seams, surfaces) | the guard script that enforces it — it cannot silently stop being true |
-| The structural invariants of a `DataFrame` | `frame/invariants.mbt` (INV1–INV7) |
+| The structural invariants of a `DataFrame` | `frame/invariants.mbt` (INV1–INV5) |
 | What one symbol does | its docstring — the reference on mooncakes.io is generated from it |
 | Cross-cutting API behaviour (errors, evaluation, the optimizer) | `docs/api.md` |
 | Cost and complexity | `docs/performance.md` |

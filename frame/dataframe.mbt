@@ -1,26 +1,26 @@
 ///|
 /// A column-oriented, schema-aware table. `DataFrame` owns an ordered list
-/// of equally-tall `Series`, a derived `Schema`, and a private
-/// `name_to_index` cache so column lookup by name is `O(1)`.
+/// of equally-tall `Series` and a derived `Schema`; column lookup by name is
+/// `O(1)` through the schema's own index, which is the one name→position
+/// map a frame carries.
 ///
 /// The fields are `priv` (private to this package), so a frame can only ever
-/// be *built* through the constructors below — which rebuild the cache and the
-/// schema in lock-step with the column vector — and *read* through accessors
+/// be *built* through the constructors below — which rebuild the schema in
+/// lock-step with the column vector — and *read* through accessors
 /// that hand out nothing the caller can write back through: `columns()` and
 /// `column_series()` build a fresh array each call, and `schema()` returns a
 /// `Schema`, whose own fields are private behind a copying reader.
-/// External code cannot reach the live `columns` / `name_to_index` containers,
+/// External code cannot reach the live `columns` container,
 /// so it cannot mutate a validated frame into an inconsistent state.
 ///
 /// What every constructor here establishes and every transform preserves is
-/// that those four parts agree. That agreement is written once — as INV1–INV7 in
+/// that those parts agree. That agreement is written once — as INV1–INV5 in
 /// `frame/invariants.mbt`, checked by `check_invariants` — and deliberately not
 /// restated here, since a second copy is how the two would drift.
 pub struct DataFrame {
   priv schema : @types.Schema
   priv columns : Array[Series]
   priv nrows : Int
-  priv name_to_index : Map[String, Int]
 } derive(Eq, Debug)
 
 ///|
@@ -93,17 +93,6 @@ pub fn DataFrame::from_parts(
 }
 
 ///|
-/// Build the name→index lookup cache from a column vector: position `i` maps
-/// from `columns[i].name()`. Every constructor routes through `Schema::Schema`,
-/// which rejects duplicate names before this runs, so the `(name, i)` pairs
-/// are 1:1 with the columns. Shared by every constructor that assembles a frame
-/// from a column vector — `DataFrame::DataFrame`, `empty`, `from_rows`, and the
-/// internal `from_parts` family.
-fn index_by_name(columns : Array[Series]) -> Map[String, Int] {
-  Map::from_array(columns.mapi((i, c) => (c.name(), i)))
-}
-
-///|
 /// Build a 0-row `DataFrame` matching `schema`. Each column is an empty
 /// `Series` of the field's declared dtype.
 ///
@@ -128,7 +117,7 @@ pub fn DataFrame::empty(
   let columns : Array[Series] = schema
     .fields()
     .map(f => Series::empty_of(f.name(), f.dtype()))
-  { schema, columns, nrows: 0, name_to_index: index_by_name(columns), }
+  { schema, columns, nrows: 0, }
 }
 
 ///|
@@ -272,7 +261,7 @@ pub fn DataFrame::from_rows(
     }
     column
   })
-  { schema, columns, nrows, name_to_index: index_by_name(columns), }
+  { schema, columns, nrows, }
 }
 
 // ── Inspection ────────────────────────────────────────────────────────
@@ -364,10 +353,10 @@ pub fn DataFrame::get_column(
   self : DataFrame,
   name : String,
 ) -> Series raise @types.DataError {
-  match self.name_to_index.get(name) {
-    Some(i) => self.columns[i]
-    None => raise @types.DataError::ColumnNotFound(name)
-  }
+  // INV1 (schema and columns agree on arity) keeps `index_of`'s result in
+  // range for the column vector, so the lookup is the schema's `O(1)` index
+  // and nothing else.
+  self.columns[self.schema.index_of(name)]
 }
 
 ///|

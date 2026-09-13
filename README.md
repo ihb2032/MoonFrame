@@ -281,7 +281,7 @@ The data model is an Apache Arrow-style column layout — a data buffer beside a
 byte-packed validity bitmap (`1 = valid`), except on the `Numeric` fast path,
 where an all-valid `Int` / `Float` column carries no bitmap at all — with an
 `O(1)` name→index cache;
-`DataFrame::check_invariants()` is a formal structural spec (INV1–INV7), and the
+`DataFrame::check_invariants()` is a formal structural spec (INV1–INV5), and the
 operator test suites assert it over representative outputs.
 The usual loop:
 

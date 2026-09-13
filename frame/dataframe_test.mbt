@@ -371,7 +371,7 @@ test "is_empty fires on 0 rows even with columns declared" {
 // ── Accessors ────────────────────────────────────────────────────────
 
 ///|
-test "get_column hits the O(1) name_to_index cache" {
+test "get_column resolves names through the schema's O(1) index" {
   let df = DataFrame::DataFrame([
     Series::from_ints("a", [1, 2]),
     Series::from_strings("b", ["x", "y"]),
@@ -582,7 +582,7 @@ test "gather rejects out-of-bounds indices with the first offender" {
   )
 }
 
-// ── name_to_index cache survives transforms ──────────────────────────
+// ── name lookup survives transforms ──────────────────────────────────
 
 ///|
 test "head / tail / slice / gather all keep get_column working" {
@@ -591,7 +591,8 @@ test "head / tail / slice / gather all keep get_column working" {
     Series::from_strings("b", ["w", "x", "y", "z"]),
   ])
   // After every transform, every declared column must still be
-  // reachable by name (i.e. the name_to_index cache survives).
+  // reachable by name (i.e. the schema index and the column vector
+  // stay in step).
   let after_head = df.head(2)
   assert_eq(after_head.get_column("a").len(), 2)
   assert_eq(after_head.get_column("b").len(), 2)

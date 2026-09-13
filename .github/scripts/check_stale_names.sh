@@ -87,7 +87,11 @@ coalesce_into
 internal/column/bitmap.mbt:from_bools
 internal/column/bitmap.mbt:bit_and
 internal/column/bitmap.mbt:all_null
-internal/kernel/numeric.mbt:expr_eval.mbt'
+internal/kernel/numeric.mbt:expr_eval.mbt
+# Removed with the frame cache consolidation (unreleased): the schema index
+# is the only name-to-position map.
+name_to_index
+index_by_name'
 
 # `|| true`: a `grep` that filters everything out exits 1, which `set -e` would
 # turn into a silent failure of the whole script.

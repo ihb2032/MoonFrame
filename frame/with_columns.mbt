@@ -63,7 +63,9 @@ pub fn DataFrame::with_columns(
     seen[name] = ()
     let field = self.carried_field(source_fields, expr, column, name)
     let renamed = column.rename(name)
-    match self.name_to_index.get(name) {
+    // The schema's index decides overwrite-or-append: a name the frame
+    // already carries replaces that column in place, a new name appends.
+    match self.schema.index_maybe(name) {
       Some(i) => {
         out[i] = renamed
         fields[i] = field

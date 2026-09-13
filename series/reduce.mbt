@@ -27,7 +27,7 @@
 //
 // One qualification, since "canonical" is not "only": four of the `Series`
 // reductions — `sum` / `mean` / `min` / `max` — dispatch a `Numeric`-backed
-// column to `NumericColumn`'s bitmap-free fold (`internal/column/numeric.mbt`)
+// column to `NumericColumn`'s bitmap-free fold (`internal/column/numeric_reduce.mbt`)
 // before reaching here, and that fold implements the empty-column and `NaN`
 // rules above a second time. So these are the rules to *read*, and to change
 // first, but not the only code that encodes them: the two are held cell-for-cell

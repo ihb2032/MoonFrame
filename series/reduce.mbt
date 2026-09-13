@@ -74,7 +74,7 @@ fn reduce_arith(
 ) -> ((Int, (Int) -> Int) -> @types.Scalar) raise @types.DataError {
   let present = reduce_present(storage)
   match storage.data() {
-    @column.ColumnData::Int(a) =>
+    @column.ColumnData::I64(a) =>
       if want_mean {
         // The mean's output is `Double`, so accumulate the numerator in
         // `Double` from the start. An `Int64` accumulator would silently wrap
@@ -110,7 +110,7 @@ fn reduce_arith(
           @types.Scalar::Int(acc)
         }
       }
-    @column.ColumnData::Float(a) =>
+    @column.ColumnData::F64(a) =>
       fn(n : Int, at : (Int) -> Int) {
         let mut acc = 0.0
         let mut cnt = 0
@@ -133,7 +133,7 @@ fn reduce_arith(
           @types.Scalar::Float(acc)
         }
       }
-    @column.ColumnData::Bool(_) | @column.ColumnData::String(_) => {
+    @column.ColumnData::Bool(_) | @column.ColumnData::Utf8(_) => {
       let verb = if want_mean { "mean" } else { "sum" }
       raise @types.DataError::TypeMismatch(
         @types.TypeMismatchDetail::Message(
@@ -158,7 +158,7 @@ fn reduce_extremum(
 ) -> (Int, (Int) -> Int) -> @types.Scalar {
   let present = reduce_present(storage)
   match storage.data() {
-    @column.ColumnData::Int(a) =>
+    @column.ColumnData::I64(a) =>
       fn(n : Int, at : (Int) -> Int) {
         let get = k => a[at(k)]
         let skip = k => !present(at(k))
@@ -168,7 +168,7 @@ fn reduce_extremum(
           None => @types.Scalar::Null
         }
       }
-    @column.ColumnData::Float(a) =>
+    @column.ColumnData::F64(a) =>
       fn(n : Int, at : (Int) -> Int) {
         let get = k => a[at(k)]
         // `NaN` is treated as missing (skipped), as in `Series::min`.
@@ -190,7 +190,7 @@ fn reduce_extremum(
           None => @types.Scalar::Null
         }
       }
-    @column.ColumnData::String(a) =>
+    @column.ColumnData::Utf8(a) =>
       fn(n : Int, at : (Int) -> Int) {
         let get = k => a[at(k)]
         let skip = k => !present(at(k))
@@ -241,9 +241,9 @@ fn numeric_double_reader(
   op : String,
 ) -> ((Int) -> Double) raise @types.DataError {
   match storage.data() {
-    @column.ColumnData::Int(a) => i => a[i].to_double()
-    @column.ColumnData::Float(a) => i => a[i]
-    @column.ColumnData::Bool(_) | @column.ColumnData::String(_) =>
+    @column.ColumnData::I64(a) => i => a[i].to_double()
+    @column.ColumnData::F64(a) => i => a[i]
+    @column.ColumnData::Bool(_) | @column.ColumnData::Utf8(_) =>
       raise @types.DataError::TypeMismatch(
         @types.TypeMismatchDetail::Message(
           "\{op} undefined for \{storage.dtype()}",
@@ -411,14 +411,14 @@ fn count_distinct(
 ) -> (Int, (Int) -> Int) -> Int {
   let present = reduce_present(storage)
   let key_of : (Int) -> KeyCell = match storage.data() {
-    @column.ColumnData::Int(a) => i => KInt(a[i])
+    @column.ColumnData::I64(a) => i => KInt(a[i])
     // The `Float` arm shares `float_key_cell` with `key_cell` (NaN → KNaN,
     // -0.0 → +0.0) so it keys on the native `Double` without boxing a `Scalar`
     // per cell, like the other three arms — n_unique / group_by / join stay in
     // agreement on "distinct" by construction, not by hand-synced copies.
-    @column.ColumnData::Float(a) => i => float_key_cell(a[i])
+    @column.ColumnData::F64(a) => i => float_key_cell(a[i])
     @column.ColumnData::Bool(a) => i => KBool(a[i])
-    @column.ColumnData::String(a) => i => KStr(a[i])
+    @column.ColumnData::Utf8(a) => i => KStr(a[i])
   }
   fn(n : Int, at : (Int) -> Int) {
     let seen : Map[KeyCell, Unit] = Map([])
@@ -462,10 +462,10 @@ fn reduce_first_last(
   // `Scalar` at a source row. Only ever called on a present row (the null /
   // empty cases short-circuit to `Null` first), so it never reads a null slot.
   let read : (Int) -> @types.Scalar = match storage.data() {
-    @column.ColumnData::Int(a) => i => @types.Scalar::Int(a[i])
-    @column.ColumnData::Float(a) => i => @types.Scalar::Float(a[i])
+    @column.ColumnData::I64(a) => i => @types.Scalar::Int(a[i])
+    @column.ColumnData::F64(a) => i => @types.Scalar::Float(a[i])
     @column.ColumnData::Bool(a) => i => @types.Scalar::Bool(a[i])
-    @column.ColumnData::String(a) => i => @types.Scalar::String(a[i])
+    @column.ColumnData::Utf8(a) => i => @types.Scalar::String(a[i])
   }
   fn(n : Int, at : (Int) -> Int) {
     if n == 0 {

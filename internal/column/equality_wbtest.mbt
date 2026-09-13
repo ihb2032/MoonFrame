@@ -50,12 +50,12 @@ impl Eq for Bitmap with fn equal(self, other) {
 ///|
 impl Eq for ColumnData with fn equal(self, other) {
   match (self, other) {
-    (Int(a), Int(b)) => a == b
-    (Float(a), Float(b)) => a == b
+    (I64(a), I64(b)) => a == b
+    (F64(a), F64(b)) => a == b
     (Bool(a), Bool(b)) => a == b
-    (String(a), String(b)) => a == b
+    (Utf8(a), Utf8(b)) => a == b
     // A different dtype is a different column, whatever the cells hold.
-    (Int(_), _) | (Float(_), _) | (Bool(_), _) | (String(_), _) => false
+    (I64(_), _) | (F64(_), _) | (Bool(_), _) | (Utf8(_), _) => false
   }
 }
 

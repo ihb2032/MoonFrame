@@ -45,14 +45,14 @@ pub fn try_column_to_numeric(s : Series) -> Series {
         s
       } else {
         match s.storage.data() {
-          @column.ColumnData::Int(a) =>
+          @column.ColumnData::I64(a) =>
             Series::new(
               s.name,
               @column.ColumnStorage::Numeric(
                 @column.NumericColumn::from_ints(a),
               ),
             )
-          @column.ColumnData::Float(a) =>
+          @column.ColumnData::F64(a) =>
             Series::new(
               s.name,
               @column.ColumnStorage::Numeric(
@@ -61,7 +61,7 @@ pub fn try_column_to_numeric(s : Series) -> Series {
             )
           // No wildcard: a future `ColumnData` variant must decide here
           // whether it converges onto the `Numeric` backend.
-          @column.ColumnData::Bool(_) | @column.ColumnData::String(_) => s
+          @column.ColumnData::Bool(_) | @column.ColumnData::Utf8(_) => s
         }
       }
   }
@@ -172,8 +172,8 @@ pub fn Series::is_canonical(self : Series) -> Bool {
         true
       } else {
         match self.storage.data() {
-          @column.ColumnData::Int(_) | @column.ColumnData::Float(_) => false
-          @column.ColumnData::Bool(_) | @column.ColumnData::String(_) => true
+          @column.ColumnData::I64(_) | @column.ColumnData::F64(_) => false
+          @column.ColumnData::Bool(_) | @column.ColumnData::Utf8(_) => true
         }
       }
   }

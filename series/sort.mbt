@@ -32,14 +32,14 @@ pub fn build_sort_key(
   let valid = validity_bools(column)
   let storage = column.storage
   match storage.data() {
-    @column.ColumnData::Int(a) =>
+    @column.ColumnData::I64(a) =>
       SortKey::Int(
         a,
         Array::makei(a.length(), i => !valid[i]),
         order,
         null_order,
       )
-    @column.ColumnData::Float(a) =>
+    @column.ColumnData::F64(a) =>
       // NaN behaves like Null for ordering (see `sort`).
       SortKey::Float(
         a,
@@ -54,7 +54,7 @@ pub fn build_sort_key(
         order,
         null_order,
       )
-    @column.ColumnData::String(a) =>
+    @column.ColumnData::Utf8(a) =>
       SortKey::String(
         a,
         Array::makei(a.length(), i => !valid[i]),

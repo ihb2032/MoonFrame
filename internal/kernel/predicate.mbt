@@ -67,7 +67,7 @@ fn try_fast_is_in(
   let valid = validity_bools(operand)
   let name = operand.name()
   match operand.storage().data() {
-    @column.ColumnData::String(data) => {
+    @column.ColumnData::Utf8(data) => {
       let set : Map[String, Unit] = Map([])
       for m in members {
         match m {
@@ -89,7 +89,7 @@ fn try_fast_is_in(
         ),
       )
     }
-    @column.ColumnData::Int(data) => {
+    @column.ColumnData::I64(data) => {
       let set : Map[Int64, Unit] = Map([])
       for m in members {
         match m {
@@ -139,7 +139,7 @@ fn try_fast_is_in(
         ),
       )
     }
-    @column.ColumnData::Float(_) => None
+    @column.ColumnData::F64(_) => None
   }
 }
 

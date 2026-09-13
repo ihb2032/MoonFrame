@@ -45,11 +45,11 @@ test "from_ints / from_floats copy their input" {
 test "data() exposes the shared raw array as ColumnData" {
   assert_eq(
     NumericColumn::from_ints([1, 2, 3]).data(),
-    ColumnData::Int([1, 2, 3]),
+    ColumnData::I64([1, 2, 3]),
   )
   assert_eq(
     NumericColumn::from_floats([1.0, 2.0]).data(),
-    ColumnData::Float([1.0, 2.0]),
+    ColumnData::F64([1.0, 2.0]),
   )
 }
 

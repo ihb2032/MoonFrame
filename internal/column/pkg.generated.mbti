@@ -33,10 +33,10 @@ pub fn BuiltinColumn::from_strings(Array[String]) -> Self
 pub fn BuiltinColumn::to_repr(Self) -> @debug.Repr
 
 pub(all) enum ColumnData {
-  Int(ArrayView[Int64])
-  Float(ArrayView[Double])
+  I64(ArrayView[Int64])
+  F64(ArrayView[Double])
   Bool(ArrayView[Bool])
-  String(ArrayView[String])
+  Utf8(ArrayView[String])
 } derive(@debug.Debug)
 pub fn ColumnData::to_repr(Self) -> @debug.Repr
 

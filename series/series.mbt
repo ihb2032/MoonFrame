@@ -236,7 +236,7 @@ pub fn Series::to_scalars(self : Series) -> Array[@types.Scalar] {
   // Both the index (to consult `valid`) and the value are needed per cell, so
   // an index+value comprehension reads more directly than a `makei` over `a[i]`.
   match self.storage.data() {
-    @column.ColumnData::Int(a) =>
+    @column.ColumnData::I64(a) =>
       [
         for i, v in a => {
           if valid[i] {
@@ -246,7 +246,7 @@ pub fn Series::to_scalars(self : Series) -> Array[@types.Scalar] {
           }
         }
       ]
-    @column.ColumnData::Float(a) =>
+    @column.ColumnData::F64(a) =>
       [
         for i, v in a => {
           if valid[i] {
@@ -266,7 +266,7 @@ pub fn Series::to_scalars(self : Series) -> Array[@types.Scalar] {
           }
         }
       ]
-    @column.ColumnData::String(a) =>
+    @column.ColumnData::Utf8(a) =>
       [
         for i, v in a => {
           if valid[i] {
@@ -382,7 +382,7 @@ pub fn Series::fill_null(
       )
     @types.Scalar::Int(v) =>
       match self.storage.data() {
-        @column.ColumnData::Int(data) => {
+        @column.ColumnData::I64(data) => {
           let buf = fill_buffer(data, valid, v)
           Series::from_builtin(self.name, @column.BuiltinColumn::from_ints(buf))
         }
@@ -395,7 +395,7 @@ pub fn Series::fill_null(
       }
     @types.Scalar::Float(v) =>
       match self.storage.data() {
-        @column.ColumnData::Float(data) => {
+        @column.ColumnData::F64(data) => {
           let buf = fill_buffer(data, valid, v)
           Series::from_builtin(
             self.name,
@@ -427,7 +427,7 @@ pub fn Series::fill_null(
       }
     @types.Scalar::String(v) =>
       match self.storage.data() {
-        @column.ColumnData::String(data) => {
+        @column.ColumnData::Utf8(data) => {
           let buf = fill_buffer(data, valid, v)
           Series::from_builtin(
             self.name,

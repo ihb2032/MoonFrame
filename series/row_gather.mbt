@@ -36,9 +36,9 @@
 pub fn mask_true_indices(mask : Series) -> Array[Int]? {
   let cells = match mask.storage.data() {
     @column.ColumnData::Bool(cells) => cells
-    @column.ColumnData::Int(_)
-    | @column.ColumnData::Float(_)
-    | @column.ColumnData::String(_) => return None
+    @column.ColumnData::I64(_)
+    | @column.ColumnData::F64(_)
+    | @column.ColumnData::Utf8(_) => return None
   }
   let valid = validity_bools(mask)
   let kept : Array[Int] = []
@@ -170,13 +170,13 @@ fn rebuild_options(
   string_cell : (ArrayView[String], Int) -> String?,
 ) -> Series {
   let rebuilt = match source.storage.data() {
-    @column.ColumnData::Int(a) =>
+    @column.ColumnData::I64(a) =>
       Series::from_int_options(name, Array::makei(n, k => int_cell(a, k)))
-    @column.ColumnData::Float(a) =>
+    @column.ColumnData::F64(a) =>
       Series::from_float_options(name, Array::makei(n, k => float_cell(a, k)))
     @column.ColumnData::Bool(a) =>
       Series::from_bool_options(name, Array::makei(n, k => bool_cell(a, k)))
-    @column.ColumnData::String(a) =>
+    @column.ColumnData::Utf8(a) =>
       Series::from_string_options(name, Array::makei(n, k => string_cell(a, k)))
   }
   try_column_to_numeric(rebuilt)
@@ -222,9 +222,9 @@ pub fn gather_series(s : Series, idx : Array[Int]) -> Series {
   let fast = s.storage.kind() is @column.StorageKind::Numeric &&
     idx.iter().all(k => k >= 0 && k < n)
   match s.storage.data() {
-    @column.ColumnData::Int(a) if fast =>
+    @column.ColumnData::I64(a) if fast =>
       Series::from_ints(s.name, idx.map(k => a[k]))
-    @column.ColumnData::Float(a) if fast =>
+    @column.ColumnData::F64(a) if fast =>
       Series::from_floats(s.name, idx.map(k => a[k]))
     _ => {
       let validity = s.storage.validity()
@@ -312,12 +312,12 @@ pub fn gather_series_opt(
     None
   }
   match (s.storage.data(), matched) {
-    (@column.ColumnData::Int(a), Some(rows)) =>
+    (@column.ColumnData::I64(a), Some(rows)) =>
       Series::from_ints(out_name, rows.map(j => a[j]))
-    (@column.ColumnData::Float(a), Some(rows)) =>
+    (@column.ColumnData::F64(a), Some(rows)) =>
       Series::from_floats(out_name, rows.map(j => a[j]))
-    (@column.ColumnData::Int(_) | @column.ColumnData::Float(_), None)
-    | (@column.ColumnData::Bool(_) | @column.ColumnData::String(_), _) => {
+    (@column.ColumnData::I64(_) | @column.ColumnData::F64(_), None)
+    | (@column.ColumnData::Bool(_) | @column.ColumnData::Utf8(_), _) => {
       let validity = s.storage.validity()
       // Output cell `k` reads source row `idx[k]` when it is `Some` (and the
       // cell there is valid), else a null. Read each matched row's validity by

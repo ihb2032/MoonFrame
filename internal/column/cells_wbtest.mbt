@@ -13,8 +13,8 @@
 /// follows rather than the test.
 fn int_cells(col : BuiltinColumn) -> (ArrayView[Int64], Bitmap) {
   match col.data() {
-    ColumnData::Int(a) => (a, col.validity())
-    ColumnData::Float(_) | ColumnData::Bool(_) | ColumnData::String(_) =>
+    ColumnData::I64(a) => (a, col.validity())
+    ColumnData::F64(_) | ColumnData::Bool(_) | ColumnData::Utf8(_) =>
       ([], col.validity())
   }
 }
@@ -23,8 +23,8 @@ fn int_cells(col : BuiltinColumn) -> (ArrayView[Int64], Bitmap) {
 /// The `Float` buffer and validity mask; see `int_cells`.
 fn float_cells(col : BuiltinColumn) -> (ArrayView[Double], Bitmap) {
   match col.data() {
-    ColumnData::Float(a) => (a, col.validity())
-    ColumnData::Int(_) | ColumnData::Bool(_) | ColumnData::String(_) =>
+    ColumnData::F64(a) => (a, col.validity())
+    ColumnData::I64(_) | ColumnData::Bool(_) | ColumnData::Utf8(_) =>
       ([], col.validity())
   }
 }
@@ -34,7 +34,7 @@ fn float_cells(col : BuiltinColumn) -> (ArrayView[Double], Bitmap) {
 fn bool_cells(col : BuiltinColumn) -> (ArrayView[Bool], Bitmap) {
   match col.data() {
     ColumnData::Bool(a) => (a, col.validity())
-    ColumnData::Int(_) | ColumnData::Float(_) | ColumnData::String(_) =>
+    ColumnData::I64(_) | ColumnData::F64(_) | ColumnData::Utf8(_) =>
       ([], col.validity())
   }
 }
@@ -43,8 +43,8 @@ fn bool_cells(col : BuiltinColumn) -> (ArrayView[Bool], Bitmap) {
 /// The `String` buffer and validity mask; see `int_cells`.
 fn string_cells(col : BuiltinColumn) -> (ArrayView[String], Bitmap) {
   match col.data() {
-    ColumnData::String(a) => (a, col.validity())
-    ColumnData::Int(_) | ColumnData::Float(_) | ColumnData::Bool(_) =>
+    ColumnData::Utf8(a) => (a, col.validity())
+    ColumnData::I64(_) | ColumnData::F64(_) | ColumnData::Bool(_) =>
       ([], col.validity())
   }
 }
@@ -75,10 +75,10 @@ fn mask(bits : Array[Bool]) -> Bitmap {
 fn placeholders_normalized(col : BuiltinColumn) -> Bool {
   let valid = col.validity.to_bools()
   match col.data {
-    ColumnData::Int(a) => null_slots_hold(a, valid, 0L)
-    ColumnData::Float(a) => null_slots_hold(a, valid, 0.0)
+    ColumnData::I64(a) => null_slots_hold(a, valid, 0L)
+    ColumnData::F64(a) => null_slots_hold(a, valid, 0.0)
     ColumnData::Bool(a) => null_slots_hold(a, valid, false)
-    ColumnData::String(a) => null_slots_hold(a, valid, "")
+    ColumnData::Utf8(a) => null_slots_hold(a, valid, "")
   }
 }
 

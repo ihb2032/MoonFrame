@@ -51,9 +51,9 @@ pub fn eval_ternary(
   }
   let cond_cells = match c2.storage().data() {
     @column.ColumnData::Bool(a) => a
-    @column.ColumnData::Int(_)
-    | @column.ColumnData::Float(_)
-    | @column.ColumnData::String(_) =>
+    @column.ColumnData::I64(_)
+    | @column.ColumnData::F64(_)
+    | @column.ColumnData::Utf8(_) =>
       raise @types.DataError::TypeMismatch(
         @types.TypeMismatchDetail::Message(
           "when condition must be Bool, got \{c2.dtype()}",
@@ -64,7 +64,7 @@ pub fn eval_ternary(
   let tv = validity_bools(t2)
   let ev = validity_bools(e2)
   let out = match (t2.storage().data(), e2.storage().data()) {
-    (@column.ColumnData::Int(a), @column.ColumnData::Int(b)) =>
+    (@column.ColumnData::I64(a), @column.ColumnData::I64(b)) =>
       Series::from_int_options(
         t2.name(),
         select_cells(
@@ -74,7 +74,7 @@ pub fn eval_ternary(
           i => if ev[i] { Some(b[i]) } else { None },
         ),
       )
-    (@column.ColumnData::Int(a), @column.ColumnData::Float(b)) =>
+    (@column.ColumnData::I64(a), @column.ColumnData::F64(b)) =>
       Series::from_float_options(
         t2.name(),
         select_cells(
@@ -84,7 +84,7 @@ pub fn eval_ternary(
           i => if ev[i] { Some(b[i]) } else { None },
         ),
       )
-    (@column.ColumnData::Float(a), @column.ColumnData::Int(b)) =>
+    (@column.ColumnData::F64(a), @column.ColumnData::I64(b)) =>
       Series::from_float_options(
         t2.name(),
         select_cells(
@@ -94,7 +94,7 @@ pub fn eval_ternary(
           i => if ev[i] { Some(b[i].to_double()) } else { None },
         ),
       )
-    (@column.ColumnData::Float(a), @column.ColumnData::Float(b)) =>
+    (@column.ColumnData::F64(a), @column.ColumnData::F64(b)) =>
       Series::from_float_options(
         t2.name(),
         select_cells(
@@ -114,7 +114,7 @@ pub fn eval_ternary(
           i => if ev[i] { Some(b[i]) } else { None },
         ),
       )
-    (@column.ColumnData::String(a), @column.ColumnData::String(b)) =>
+    (@column.ColumnData::Utf8(a), @column.ColumnData::Utf8(b)) =>
       Series::from_string_options(
         t2.name(),
         select_cells(
@@ -124,8 +124,8 @@ pub fn eval_ternary(
           i => if ev[i] { Some(b[i]) } else { None },
         ),
       )
-    (@column.ColumnData::Bool(_) | @column.ColumnData::String(_), _)
-    | (_, @column.ColumnData::Bool(_) | @column.ColumnData::String(_)) =>
+    (@column.ColumnData::Bool(_) | @column.ColumnData::Utf8(_), _)
+    | (_, @column.ColumnData::Bool(_) | @column.ColumnData::Utf8(_)) =>
       raise @types.DataError::TypeMismatch(
         @types.TypeMismatchDetail::Message(
           "when/then/otherwise branches do not unify: \{t2.dtype()} and \{e2.dtype()}",

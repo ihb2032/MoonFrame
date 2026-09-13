@@ -77,8 +77,8 @@ fn BuiltinColumn::to_int(
   self : BuiltinColumn,
 ) -> BuiltinColumn raise @types.DataError {
   match self.data {
-    Int(_) => self
-    Float(a) =>
+    I64(_) => self
+    F64(a) =>
       self.cast_cells(
         i => {
           let x = a[i]
@@ -101,11 +101,11 @@ fn BuiltinColumn::to_int(
           }
         },
         0,
-        b => Int(b),
+        b => I64(b),
       )
     Bool(a) =>
-      self.cast_cells(i => (if a[i] { 1 } else { 0 }).to_int64(), 0, b => Int(b))
-    String(a) =>
+      self.cast_cells(i => (if a[i] { 1 } else { 0 }).to_int64(), 0, b => I64(b))
+    Utf8(a) =>
       self.cast_cells(
         i => {
           let s = a[i]
@@ -124,7 +124,7 @@ fn BuiltinColumn::to_int(
           }
         },
         0,
-        b => Int(b),
+        b => I64(b),
       )
   }
 }
@@ -147,11 +147,11 @@ fn BuiltinColumn::to_float(
   self : BuiltinColumn,
 ) -> BuiltinColumn raise @types.DataError {
   match self.data {
-    Float(_) => self
-    Int(a) => self.cast_cells(i => a[i].to_double(), 0.0, b => Float(b))
+    F64(_) => self
+    I64(a) => self.cast_cells(i => a[i].to_double(), 0.0, b => F64(b))
     Bool(a) =>
-      self.cast_cells(i => if a[i] { 1.0 } else { 0.0 }, 0.0, b => Float(b))
-    String(a) =>
+      self.cast_cells(i => if a[i] { 1.0 } else { 0.0 }, 0.0, b => F64(b))
+    Utf8(a) =>
       self.cast_cells(
         i => {
           let s = a[i]
@@ -172,7 +172,7 @@ fn BuiltinColumn::to_float(
           }
         },
         0.0,
-        b => Float(b),
+        b => F64(b),
       )
   }
 }
@@ -188,12 +188,10 @@ fn BuiltinColumn::to_float(
 /// malformed input) this never raises.
 fn BuiltinColumn::to_string_column(self : BuiltinColumn) -> BuiltinColumn {
   match self.data {
-    String(_) => self
-    Int(a) => self.cast_cells(i => a[i].to_string(), "", b => String(b))
-    Float(a) => self.cast_cells(i => a[i].to_string(), "", b => String(b))
+    Utf8(_) => self
+    I64(a) => self.cast_cells(i => a[i].to_string(), "", b => Utf8(b))
+    F64(a) => self.cast_cells(i => a[i].to_string(), "", b => Utf8(b))
     Bool(a) =>
-      self.cast_cells(i => if a[i] { "true" } else { "false" }, "", b => {
-        String(b)
-      })
+      self.cast_cells(i => if a[i] { "true" } else { "false" }, "", b => Utf8(b))
   }
 }

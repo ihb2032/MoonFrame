@@ -4,8 +4,8 @@
 /// The column splits values from validity. `data` is a typed array of raw
 /// values (no `Option` boxing); `validity` is a bit-packed `Bitmap` where
 /// `1 = valid, 0 = null`, matching Arrow's binary layout. Null slots in
-/// `data` carry a per-dtype placeholder (`Int = 0`, `Float = 0.0`,
-/// `Bool = false`, `String = ""`). The cell-at-a-time API consults `validity`
+/// `data` carry a per-dtype placeholder (`I64 = 0`, `F64 = 0.0`,
+/// `Bool = false`, `Utf8 = ""`). The cell-at-a-time API consults `validity`
 /// first — `get` answers `Null` rather than `0`, and every `Scalar` a caller
 /// receives is masked that way — so no placeholder reaches a value the library
 /// hands out. The bulk reader does not mask, and cannot: `data()` returns the
@@ -20,8 +20,8 @@
 /// seam (see `storage.mbt`) — a `Series` simply holds one of the two backends
 /// behind it, and reaches this one through `ColumnStorage`.
 ///
-/// Numeric columns are 64-bit: the `Int` variant stores `Int64` and the
-/// `Float` variant stores `Double`, matching `Scalar`'s payloads and the
+/// Numeric columns are 64-bit: the `I64` variant stores `Int64` and the
+/// `F64` variant stores `Double`, matching `Scalar`'s payloads and the
 /// pandas / polars `int64` / `float64` defaults so reductions neither
 /// silently overflow nor lose precision.
 pub struct BuiltinColumn {
@@ -39,10 +39,10 @@ pub extend BuiltinColumn with Debug::{to_repr}
 /// value; nullability is tracked in the enclosing column's `validity`
 /// bitmap.
 pub(all) enum ColumnData {
-  Int(ArrayView[Int64])
-  Float(ArrayView[Double])
+  I64(ArrayView[Int64])
+  F64(ArrayView[Double])
   Bool(ArrayView[Bool])
-  String(ArrayView[String])
+  Utf8(ArrayView[String])
 } derive(Debug)
 
 ///|
@@ -56,7 +56,7 @@ pub extend ColumnData with Debug::{to_repr}
 /// Build an `Int` column from raw values (no nulls). `values` is copied, so
 /// the column owns its data and is unaffected by later mutation of the array.
 pub fn BuiltinColumn::from_ints(values : Array[Int64]) -> BuiltinColumn {
-  { data: Int(values.copy()), validity: Bitmap::all_valid(values.length()), }
+  { data: I64(values.copy()), validity: Bitmap::all_valid(values.length()), }
 }
 
 ///|
@@ -64,7 +64,7 @@ pub fn BuiltinColumn::from_ints(values : Array[Int64]) -> BuiltinColumn {
 /// receive `0` as the data placeholder; public APIs never expose it.
 pub fn BuiltinColumn::from_int_options(values : Array[Int64?]) -> BuiltinColumn {
   {
-    data: Int(values.map(v => v.unwrap_or(0))),
+    data: I64(values.map(v => v.unwrap_or(0))),
     validity: Bitmap::from_options(values),
   }
 }
@@ -73,7 +73,7 @@ pub fn BuiltinColumn::from_int_options(values : Array[Int64?]) -> BuiltinColumn 
 /// Build a `Float` column from raw values (no nulls). `values` is copied, so
 /// the column owns its data and is unaffected by later mutation of the array.
 pub fn BuiltinColumn::from_floats(values : Array[Double]) -> BuiltinColumn {
-  { data: Float(values.copy()), validity: Bitmap::all_valid(values.length()), }
+  { data: F64(values.copy()), validity: Bitmap::all_valid(values.length()), }
 }
 
 ///|
@@ -83,7 +83,7 @@ pub fn BuiltinColumn::from_float_options(
   values : Array[Double?],
 ) -> BuiltinColumn {
   {
-    data: Float(values.map(v => v.unwrap_or(0.0))),
+    data: F64(values.map(v => v.unwrap_or(0.0))),
     validity: Bitmap::from_options(values),
   }
 }
@@ -109,7 +109,7 @@ pub fn BuiltinColumn::from_bool_options(values : Array[Bool?]) -> BuiltinColumn 
 /// Build a `String` column from raw values (no nulls). `values` is copied, so
 /// the column owns its data and is unaffected by later mutation of the array.
 pub fn BuiltinColumn::from_strings(values : Array[String]) -> BuiltinColumn {
-  { data: String(values.copy()), validity: Bitmap::all_valid(values.length()), }
+  { data: Utf8(values.copy()), validity: Bitmap::all_valid(values.length()), }
 }
 
 ///|
@@ -119,7 +119,7 @@ pub fn BuiltinColumn::from_string_options(
   values : Array[String?],
 ) -> BuiltinColumn {
   {
-    data: String(values.map(v => v.unwrap_or(""))),
+    data: Utf8(values.map(v => v.unwrap_or(""))),
     validity: Bitmap::from_options(values),
   }
 }
@@ -130,10 +130,10 @@ pub fn BuiltinColumn::from_string_options(
 /// The column's logical `DataType`, read from the `data` arm.
 fn BuiltinColumn::dtype(self : BuiltinColumn) -> @types.DataType {
   match self.data {
-    Int(_) => @types.DataType::Int
-    Float(_) => @types.DataType::Float
+    I64(_) => @types.DataType::Int
+    F64(_) => @types.DataType::Float
     Bool(_) => @types.DataType::Bool
-    String(_) => @types.DataType::String
+    Utf8(_) => @types.DataType::String
   }
 }
 
@@ -161,10 +161,10 @@ fn BuiltinColumn::validity(self : BuiltinColumn) -> Bitmap {
 /// Number of cells.
 fn BuiltinColumn::len(self : BuiltinColumn) -> Int {
   match self.data {
-    Int(a) => a.length()
-    Float(a) => a.length()
+    I64(a) => a.length()
+    F64(a) => a.length()
     Bool(a) => a.length()
-    String(a) => a.length()
+    Utf8(a) => a.length()
   }
 }
 
@@ -200,10 +200,10 @@ fn BuiltinColumn::get(
     @types.Scalar::Null
   } else {
     match self.data {
-      Int(a) => @types.Scalar::Int(a[index])
-      Float(a) => @types.Scalar::Float(a[index])
+      I64(a) => @types.Scalar::Int(a[index])
+      F64(a) => @types.Scalar::Float(a[index])
       Bool(a) => @types.Scalar::Bool(a[index])
-      String(a) => @types.Scalar::String(a[index])
+      Utf8(a) => @types.Scalar::String(a[index])
     }
   }
 }
@@ -244,10 +244,10 @@ fn BuiltinColumn::slice_unchecked(
 ) -> BuiltinColumn {
   let n = end - start
   let data_out : ColumnData = match self.data {
-    Int(a) => Int(Array::makei(n, i => a[start + i]))
-    Float(a) => Float(Array::makei(n, i => a[start + i]))
+    I64(a) => I64(Array::makei(n, i => a[start + i]))
+    F64(a) => F64(Array::makei(n, i => a[start + i]))
     Bool(a) => Bool(Array::makei(n, i => a[start + i]))
-    String(a) => String(Array::makei(n, i => a[start + i]))
+    Utf8(a) => Utf8(Array::makei(n, i => a[start + i]))
   }
   { data: data_out, validity: self.validity.slice_view(start, n), }
 }
@@ -261,10 +261,10 @@ fn BuiltinColumn::take(
 ) -> BuiltinColumn raise @types.DataError {
   validate_gather_indices(indices, self.len())
   let data_out : ColumnData = match self.data {
-    Int(a) => Int(indices.map(i => a[i]))
-    Float(a) => Float(indices.map(i => a[i]))
+    I64(a) => I64(indices.map(i => a[i]))
+    F64(a) => F64(indices.map(i => a[i]))
     Bool(a) => Bool(indices.map(i => a[i]))
-    String(a) => String(indices.map(i => a[i]))
+    Utf8(a) => Utf8(indices.map(i => a[i]))
   }
   // Indices are already validated against the same `len`, so gather the
   // validity bits through the unchecked `take_view` — no second O(n) bounds

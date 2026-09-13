@@ -81,40 +81,40 @@ pub impl Eq for ColumnStorage with fn equal(self, other) {
     return false
   }
   match (self.data(), other.data()) {
-    (ColumnData::Int(a), ColumnData::Int(b)) =>
+    (ColumnData::I64(a), ColumnData::I64(b)) =>
       storage_cells_equal(a, b, self, other, (x, y) => x == y)
-    (ColumnData::Float(a), ColumnData::Float(b)) =>
+    (ColumnData::F64(a), ColumnData::F64(b)) =>
       storage_cells_equal(a, b, self, other, (x, y) => x == y)
     (ColumnData::Bool(a), ColumnData::Bool(b)) =>
       storage_cells_equal(a, b, self, other, (x, y) => x == y)
-    (ColumnData::String(a), ColumnData::String(b)) =>
+    (ColumnData::Utf8(a), ColumnData::Utf8(b)) =>
       storage_cells_equal(a, b, self, other, (x, y) => x == y)
     // Different dtypes (different `ColumnData` variants) are never equal.
     // Spelled variant-by-variant (no wildcard) so a future `ColumnData`
     // variant fails compilation here instead of silently comparing unequal
     // to every column — itself included.
     (
-      ColumnData::Int(_),
-      ColumnData::Float(_)
+      ColumnData::I64(_),
+      ColumnData::F64(_)
       | ColumnData::Bool(_)
-      | ColumnData::String(_),
+      | ColumnData::Utf8(_),
     )
     | (
-      ColumnData::Float(_),
-      ColumnData::Int(_)
+      ColumnData::F64(_),
+      ColumnData::I64(_)
       | ColumnData::Bool(_)
-      | ColumnData::String(_),
+      | ColumnData::Utf8(_),
     )
     | (
       ColumnData::Bool(_),
-      ColumnData::Int(_)
-      | ColumnData::Float(_)
-      | ColumnData::String(_),
+      ColumnData::I64(_)
+      | ColumnData::F64(_)
+      | ColumnData::Utf8(_),
     )
     | (
-      ColumnData::String(_),
-      ColumnData::Int(_)
-      | ColumnData::Float(_)
+      ColumnData::Utf8(_),
+      ColumnData::I64(_)
+      | ColumnData::F64(_)
       | ColumnData::Bool(_),
     ) => false
   }

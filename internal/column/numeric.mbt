@@ -133,8 +133,8 @@ pub fn NumericColumn::numeric_data(self : NumericColumn) -> NumericData {
 /// surface `BuiltinColumn` exposes. The element array is shared (read-only).
 fn NumericColumn::data(self : NumericColumn) -> ColumnData {
   match self.data {
-    Int(a) => ColumnData::Int(a)
-    Float(a) => ColumnData::Float(a)
+    Int(a) => ColumnData::I64(a)
+    Float(a) => ColumnData::F64(a)
   }
 }
 
@@ -241,8 +241,8 @@ fn NumericColumn::take(
 fn NumericColumn::to_builtin(self : NumericColumn) -> BuiltinColumn {
   match self.data {
     Int(a) =>
-      { data: ColumnData::Int(a), validity: Bitmap::all_valid(a.length()), }
+      { data: ColumnData::I64(a), validity: Bitmap::all_valid(a.length()), }
     Float(a) =>
-      { data: ColumnData::Float(a), validity: Bitmap::all_valid(a.length()), }
+      { data: ColumnData::F64(a), validity: Bitmap::all_valid(a.length()), }
   }
 }

@@ -20,6 +20,13 @@
 /// content does not call for. See `internal/column` and
 /// [`docs/performance.md`](../docs/performance.md).
 ///
+/// The engine machinery the verbs build on lives in sibling files:
+/// `row_gather.mbt` (the row-rebuild machine — an index vector, a window, a
+/// mask, or a column merge turned into a new `Series`) and `backend.mbt`
+/// (the storage-backend machine — converge / preserve / read / assert).
+/// Both are engine seams serving `frame` and `internal/kernel`, not
+/// `Series` API.
+///
 /// The fields are `priv`, so the struct is opaque outside this package: reach a
 /// column through the value-level accessors (`name()` / `dtype()` / `len()` /
 /// `get()` / `to_scalars()` / …) and build one through the named constructors,

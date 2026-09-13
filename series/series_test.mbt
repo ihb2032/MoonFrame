@@ -1,5 +1,6 @@
 // Blackbox tests for `Series` (structural surface). Statistics live in
-// `series_stats_test.mbt`.
+// `series_stats_test.mbt`; the storage-backend machine's tests in
+// `backend_test.mbt` (cell-level parity in `backend_parity_test.mbt`).
 
 // ── Constructors ─────────────────────────────────────────────────────
 

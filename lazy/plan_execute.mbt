@@ -47,51 +47,25 @@ fn execute(plan : LogicalPlan) -> @frame.DataFrame raise @types.DataError {
 }
 
 ///|
-/// Read one `ScanSource` into a frame — the `Scan` leaf's half of `execute`. An
-/// in-memory source returns its captured frame as-is (frames are immutable, so
-/// no defensive copy); a file source reads through `@io` — the pruned reader
-/// when the optimizer absorbed a predicate, the projected reader once it filled
-/// a projection, the whole-file reader otherwise — so a missing file (`IoError`)
-/// or a parse failure (`ParseError`) surfaces here. One place to add a new
-/// scannable format's read.
+/// Read one `ScanSource` into a frame — the `Scan` leaf's half of `execute`.
+/// An in-memory source returns its captured frame as-is (frames are
+/// immutable, so no defensive copy); a file source reads through its driver —
+/// the whole-file read for the as-built plan, the projected read once the
+/// optimizer filled a projection, the pruned read once it absorbed a
+/// predicate — then assembles the batch into a frame here: the engine, not
+/// the driver, owns assembly. A missing file (`IoError`) or a parse failure
+/// (`ParseError`) surfaces here too. One place to add a new scannable
+/// format's read.
 fn execute_scan(source : ScanSource) -> @frame.DataFrame raise @types.DataError {
   match source {
     InMemory(df) => df
-    // Hand `io` the predicate's column names and a row-selection callback rather
-    // than the expression itself, so the reader stays below the expression
-    // language (see `read_csv_pruned`).
-    Csv(path, options, projection, predicate) =>
-      match predicate {
-        Some(pred) =>
-          @io.read_csv_pruned(
-            path,
-            options,
-            projection,
-            predicate_columns(pred),
-            df => @frame.filter_row_indices(df, pred),
-          )
-        None =>
-          match projection {
-            None => @io.read_csv(path, options~)
-            Some(columns) => @io.read_csv_projected(path, options, columns)
-          }
-      }
-    Ndjson(path, options, projection, predicate) =>
-      match predicate {
-        Some(pred) =>
-          @io.read_ndjson_pruned(
-            path,
-            options,
-            projection,
-            predicate_columns(pred),
-            df => @frame.filter_row_indices(df, pred),
-          )
-        None =>
-          match projection {
-            None => @io.read_ndjson(path, options~)
-            Some(columns) => @io.read_ndjson_projected(path, options, columns)
-          }
-      }
+    File(fs) => {
+      let batch = fs.driver.scan(
+        projection=fs.projection,
+        predicate=fs.predicate,
+      )
+      @frame.DataFrame::from_parts(batch.columns(), batch.height())
+    }
   }
 }
 
@@ -137,16 +111,4 @@ fn apply_frame_op(
         NullCount => df.null_count()
       }
   }
-}
-
-///|
-/// The columns an absorbed scan predicate reads, as a plain name list — the
-/// shape the `io` pruned readers take, so they never see an `Expr`. Order is
-/// irrelevant: the reader filters its own header order by membership.
-fn predicate_columns(predicate : @expr.Expr) -> Array[String] {
-  let names : Array[String] = []
-  for name in predicate.referenced_columns() {
-    names.push(name)
-  }
-  names
 }

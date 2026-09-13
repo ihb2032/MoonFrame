@@ -88,9 +88,10 @@
 ///   sides, deferred with the projection pass's join narrowing — but
 ///   both sides restart their own descent, so filters inside either
 ///   side still sink. The in-memory `Scan` is the floor. A **file source**
-///   goes one step further: the predicate is absorbed into the `Csv` /
-///   `Ndjson` scan source itself, so the reader prunes rows while parsing (see
-///   `@io.read_csv_pruned`) and no `Filter` node remains above the leaf.
+///   goes one step further: the predicate is absorbed into the file scan
+///   source itself, so the driver prunes rows while reading (the io drivers'
+///   pruned core, `io/scan_driver.mbt`) and no `Filter` node remains above
+///   the leaf.
 ///   Only the first predicate is absorbed — combining two would reorder
 ///   which operand's evaluation error surfaces first — so a second filter
 ///   stays a node above the scan.
@@ -180,10 +181,10 @@ fn place_filter(input : LogicalPlan, predicate : @expr.Expr) -> LogicalPlan {
   // one. (While a column-less frame was pinned to `0×0` such a predicate had
   // to be held back above the scan, or the lost row count dropped every row.)
   let mut result = match cur {
-    Scan(Csv(path, options, projection, None)) =>
-      Scan(Csv(path, options, projection, Some(predicate)))
-    Scan(Ndjson(path, options, projection, None)) =>
-      Scan(Ndjson(path, options, projection, Some(predicate)))
+    // Only a file source with no absorbed predicate yet takes this one in;
+    // struct-update keeps the driver and the pushed projection verbatim.
+    Scan(File(fs)) if fs.predicate is None =>
+      Scan(File({ ..fs, predicate: Some(predicate), }))
     _ => Unary(cur, Filter(predicate))
   }
   for i = crossed.length() - 1; i >= 0; i = i - 1 {

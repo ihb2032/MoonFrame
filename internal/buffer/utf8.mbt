@@ -36,7 +36,8 @@ pub extend Utf8Array with Debug::{to_repr}
 /// later mutation of the array.
 pub fn Utf8Array::from_strings(values : Array[String]) -> Utf8Array {
   let bytes = FixedArray::make(total_encoded_len(values), (0 : Byte))
-  let offsets : FixedArray[Int] = FixedArray::make(values.length() + 1, 0)
+  let n = values.length()
+  let offsets : FixedArray[Int] = FixedArray::make(n + 1, 0)
   let mut at = 0
   for i, v in values {
     at = at + encode_into(v, bytes, at)
@@ -46,7 +47,7 @@ pub fn Utf8Array::from_strings(values : Array[String]) -> Utf8Array {
     bytes: Bytes::from_array(Array::from_fixed_array(bytes)),
     base: 0,
     offsets,
-    len: values.length(),
+    len: n,
   }
 }
 

@@ -253,13 +253,11 @@ fn narrow_scan_source(
           }
         }
       }
-    Csv(path, options, _, predicate) =>
+    // A file source narrows by re-arming its pushed projection; the driver and
+    // any absorbed predicate ride along verbatim.
+    File(fs) =>
       narrow_scan(node, req, columns => {
-        Scan(Csv(path, options, Some(columns), predicate))
-      })
-    Ndjson(path, options, _, predicate) =>
-      narrow_scan(node, req, columns => {
-        Scan(Ndjson(path, options, Some(columns), predicate))
+        Scan(File({ ..fs, projection: Some(columns), }))
       })
   }
 }

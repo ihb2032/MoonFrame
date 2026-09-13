@@ -80,10 +80,13 @@ fn write_plan_label(plan : LogicalPlan, buf : StringBuilder) -> Unit {
 fn write_scan_label(source : ScanSource, buf : StringBuilder) -> Unit {
   match source {
     InMemory(df) => buf <+ "SCAN [\{df.nrows()}×\{df.ncols()}]"
-    Csv(path, _, projection, predicate) =>
-      render_scan_source(buf, "SCAN_CSV", path, projection, predicate)
-    Ndjson(path, _, projection, predicate) =>
-      render_scan_source(buf, "SCAN_NDJSON", path, projection, predicate)
+    File(fs) =>
+      render_scan_source(
+        buf,
+        "SCAN_\{fs.driver.label()}",
+        fs.projection,
+        fs.predicate,
+      )
   }
 }
 
@@ -236,20 +239,21 @@ fn nulls_label(nulls : @types.NullOrder) -> String {
 }
 
 ///|
-/// Render a file-source leaf — `LABEL "path"` plus, once the optimizer has
-/// filled it, the projected column list (`LABEL "path" [a, b]`). Shared by
-/// the `Csv` and `Ndjson` scan sources, which differ only in the label: the path is
-/// quoted and escaped like a string literal, and the projection (when present)
-/// reuses the `SELECT` / `SORT` bracketed-list shape. Total — never reads the
-/// file.
+/// Render a file-source leaf — `SCAN_<format> "path"` plus, once the
+/// optimizer has filled them, the projected column list and the absorbed
+/// predicate (`SCAN_CSV "path" [a, b] WHERE (...)`). Shared by every file
+/// driver, which differ only in the label head their driver supplies (the
+/// path is quoted and escaped there, like a string literal); the projection
+/// (when present) reuses the `SELECT` / `SORT` bracketed-list shape, and an
+/// absorbed predicate prints after it, so the leaf reads "which columns,
+/// then which rows". Total — never reads the file.
 fn render_scan_source(
   buf : StringBuilder,
-  label : String,
-  path : String,
+  head : String,
   projection : Array[String]?,
   predicate : @expr.Expr?,
 ) -> Unit {
-  buf <+ "\{label} \"\{@text.escape_debug(path)}\""
+  buf.write_string(head)
   match projection {
     None => ()
     Some(columns) => buf <+ " \{list_label(columns)}"

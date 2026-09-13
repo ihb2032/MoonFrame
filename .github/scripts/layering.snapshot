@@ -27,8 +27,13 @@ internal/kernel -> series
 internal/kernel -> types
 internal/literal -> internal/text
 internal/literal -> types
+internal/scan -> expr
+internal/scan -> series
+internal/scan -> types
+io -> expr
 io -> frame
 io -> internal/numeric
+io -> internal/scan
 io -> internal/text
 io -> series
 io -> types
@@ -36,6 +41,7 @@ lazy -> expr
 lazy -> frame
 lazy -> internal/ir
 lazy -> internal/literal
+lazy -> internal/scan
 lazy -> internal/text
 lazy -> io
 lazy -> series

@@ -68,6 +68,13 @@ source-level upgrade steps are collected in [`migration.md`](migration.md).
 
 ### Internal restructuring (no behaviour change)
 
+- The lazy scan sources read through a scan-driver seam: a readable format
+  implements a label and a read (`internal/scan`), io's CSV / NDJSON drivers
+  are the format faces, and the lazy engine's execute / narrow / render /
+  absorb points collapse from per-format arms to driver calls. Wiring a new
+  scannable format is one driver plus its `scan_*` builder — push-down and
+  rendering come with the interface. The four file-backed engine seams the
+  drivers replace are gone; eager `read_csv` / `read_ndjson` are unchanged.
 - The optimizer's two passes compose through an explicit pass table:
   pass order is data, a new pass is one rewrite function plus one row, and
   the DAG guard stays in front of the pipeline. Each pass's soundness-rule

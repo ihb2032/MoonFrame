@@ -39,5 +39,15 @@ pub fn scan_csv(
   // The one mutable container in the options — the null-token list — is
   // already copied by `CsvReadOptions::CsvReadOptions(...)`, the only way to build one, so
   // the captured plan cannot observe a later mutation of the caller's array.
-  { plan: Scan(Csv(path, options, None, None)), }
+  // The driver record is plain data: building it reads nothing, so the
+  // builder stays total like every other LazyFrame constructor.
+  {
+    plan: Scan(
+      File({
+        driver: @io.csv_scan_driver(path, options),
+        projection: None,
+        predicate: None,
+      }),
+    ),
+  }
 }

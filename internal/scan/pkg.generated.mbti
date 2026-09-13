@@ -1,0 +1,31 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ihb2032/MoonFrame/internal/scan"
+
+import {
+  "ihb2032/MoonFrame/expr",
+  "ihb2032/MoonFrame/series",
+  "ihb2032/MoonFrame/types",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct ScanBatch {
+  // private fields
+}
+pub fn ScanBatch::batch(Array[@series.Series], Int) -> Self
+pub fn ScanBatch::columns(Self) -> Array[@series.Series]
+pub fn ScanBatch::height(Self) -> Int
+
+pub struct ScanDriver {
+  // private fields
+}
+pub fn ScanDriver::driver(() -> String, (Array[String]?, @expr.Expr?) -> ScanBatch raise @types.DataError) -> Self
+pub fn ScanDriver::label(Self) -> String
+pub fn ScanDriver::scan(Self, projection? : Array[String]?, predicate? : @expr.Expr?) -> ScanBatch raise @types.DataError
+
+// Type aliases
+
+// Traits

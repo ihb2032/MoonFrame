@@ -1,7 +1,5 @@
-internal/buffer/Bitmap::is_valid
 internal/buffer/Bitmap::to_repr
 internal/buffer/Utf8Array::to_repr
-internal/buffer/Utf8Array::total_byte_len
 internal/column/BuiltinColumn::to_repr
 internal/column/ColumnData::to_repr
 internal/column/ColumnStorage::equal

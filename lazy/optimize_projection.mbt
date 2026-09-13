@@ -4,9 +4,8 @@
 /// the CSV / NDJSON file sources (by writing their projection field) — to the
 /// columns its consumers provably read. `push_projection` walks the plan
 /// iteratively over `ProjStep`; the small requirement helpers (`columns_read`,
-/// `widened`, `narrow_scan`, `sorted_names`, `add_all`) sit beside it. The
-/// per-node requirement rules and the pass ordering rationale are on `optimize`
-/// in `optimize.mbt`.
+/// `widened`, `narrow_scan`, `sorted_names`, `add_all`) sit beside it. The pass
+/// ordering rationale is on `optimize` in `optimize.mbt`.
 
 ///|
 /// One step of the iterative projection pass: `Visit` descends into a node
@@ -30,6 +29,41 @@ priv enum ProjStep {
 /// child(ren) off an explicit value stack — so a deeply nested plan optimizes
 /// without overflowing and aborting (total at any depth). Every narrowing
 /// decision and requirement is bit-for-bit the recursion's.
+///
+/// # The requirement rules
+///
+/// - `None` — the consumer may observe this node's *entire* output
+///   (the plan root, or anything under a barrier node): its layout must
+///   survive untouched, so no narrowing happens at this node's leaves
+///   unless a descendant re-establishes a requirement of its own.
+/// - `Some(s)` — the consumer reads only the named columns, **by name**,
+///   and is insensitive to the node's column order and to extra columns.
+///   Only the two by-name readers originate this: `Select` and
+///   `Aggregate`, whose outputs are fully determined by their expression
+///   / key lists. The layout-preserving nodes (`Filter` / `Sort` /
+///   `Head` / `Tail` / `Slice`) pass the requirement through, widened by
+///   the columns they read themselves; `WithColumns` subtracts the names
+///   its expressions *define* (those need not exist in its input) and
+///   adds the names they *read*. `Join` stays a barrier — splitting a
+///   requirement across two sides whose outputs interleave under suffix
+///   renaming is column provenance, deferred — but both sides restart
+///   their own pass, so a `Select` deep under a join still narrows its
+///   own scan.
+///
+/// Why the order insensitivity matters: narrowing a `with_columns` input
+/// can turn an in-place column *replacement* into an *append* (the
+/// replaced name no longer exists in the narrowed input), perturbing the
+/// intermediate column order. That perturbation is only ever visible to
+/// the requirement's originator — a by-name reader — never to the plan
+/// root, which always starts at `None`. The `Aggregate` executor reads
+/// its keys in key-list order, not input order, so it qualifies too.
+///
+/// Deliberately deferred: pruning dead expressions from `Select` /
+/// `WithColumns` lists (changes which expressions evaluate, hence which
+/// *errors* a failing plan reports), narrowing or predicate-splitting
+/// through `Join`, sinking filters below `Sort`, and streaming a file source
+/// (the reader still tokenises the whole file; push-down skips the *typed*
+/// build of dropped rows, not the read).
 fn push_projection(
   plan : LogicalPlan,
   required : @set.Set[String]?,

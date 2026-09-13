@@ -1,11 +1,12 @@
-// The projection pass is idempotent: `push_projection(push_projection(p)) ==
-// push_projection(p)` for every plan shape. It used to stack a second,
-// identical narrowing `Select` over an in-memory scan on each pass;
+// Each pass of the optimizer pipeline is individually idempotent, and the
+// pass table pins the order. The projection pass used to stack a second,
+// identical narrowing `Select` over an in-memory scan on each run;
 // `already_narrows_inmemory` now recognises a bare-column `Select` as the
-// narrowing and inserts nothing below it. `push_projection` is package-private,
-// so the property is asserted here rather than through the public `explain`.
+// narrowing and inserts nothing below it. `push_projection` and the pass
+// table are package-private, so the properties are asserted here rather than
+// through the public `explain`.
 //
-// Full `optimize` (predicate pass then projection pass) is idempotent on every
+// Full `optimize` (every pass once, in table order) is idempotent on every
 // shape *except* one: a filter that can sink past a `Select` the projection
 // pass inserts. The predicate pass runs first, so on a re-optimize it sinks the
 // filter below that inserted select and the projection pass rebuilds around the
@@ -44,12 +45,52 @@ fn assert_projection_idempotent(plan : LogicalPlan) -> String raise {
 }
 
 ///|
-/// `optimize(optimize(plan)) == optimize(plan)` — both passes. Only sound on
-/// plans without the filter-sinks-past-an-inserted-select interaction.
+/// `optimize(optimize(plan)) == optimize(plan)` — the whole pipeline. Only
+/// sound on plans without the filter-sinks-past-an-inserted-select interaction.
 fn assert_optimize_idempotent(plan : LogicalPlan) -> String raise {
   let once = optimize(plan)
   assert_eq(plan_render(once), plan_render(optimize(once)))
   plan_render(once)
+}
+
+///|
+/// Every pass in `optimizer_passes` is idempotent at its pipeline position:
+/// running the passes up to and including it twice in a row changes nothing.
+/// Compared through the rendered form, like the helpers above.
+fn assert_passes_idempotent(plan : LogicalPlan) -> String raise {
+  let mut current = plan
+  for rewrite in optimizer_passes {
+    let once = rewrite(current)
+    let twice = rewrite(once)
+    assert_eq(plan_render(once), plan_render(twice))
+    current = once
+  }
+  plan_render(current)
+}
+
+///|
+test "every pass in the pipeline is idempotent across plan shapes" {
+  let df = idem_frame()
+  let plans = [
+    // A bare projection directly over the scan.
+    LazyFrame::LazyFrame(df).select([@expr.col("a")]).plan,
+    // Filter + narrowing select: the predicate pass absorbs the filter into
+    // nothing (an in-memory scan is its floor, so it stays a node) and the
+    // projection pass is stable on the result.
+    LazyFrame::LazyFrame(df)
+    .filter(@expr.col("b").gt(@expr.lit_int(4)))
+    .select([@expr.col("a")]).plan,
+    // A join: each side restarts its own passes.
+    LazyFrame::LazyFrame(df)
+    .select([@expr.col("a")])
+    .join(
+      LazyFrame::LazyFrame(idem_other()),
+      @frame.JoinOptions::on([@expr.col("a")]),
+    ).plan,
+  ]
+  for plan in plans {
+    assert_passes_idempotent(plan) |> ignore
+  }
 }
 
 ///|

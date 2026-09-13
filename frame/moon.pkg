@@ -5,8 +5,6 @@ import {
   "ihb2032/MoonFrame/internal/order",
   "ihb2032/MoonFrame/series",
   "ihb2032/MoonFrame/types",
-  "moonbitlang/core/encoding/utf8",
-  "moonbitlang/core/math",
   "moonbitlang/core/string",
 }
 

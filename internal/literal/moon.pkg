@@ -2,7 +2,3 @@ import {
   "ihb2032/MoonFrame/internal/text",
   "ihb2032/MoonFrame/types",
 }
-
-import {
-  "moonbitlang/core/test",
-} for "test"

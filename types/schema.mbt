@@ -100,6 +100,19 @@ pub fn Schema::index_of(self : Schema, name : String) -> Int raise DataError {
 }
 
 ///|
+/// The index of the column named `name`, or `None` — the total probe over the
+/// same index `index_of` reads. Not public API: the engine's rebuild paths
+/// reach it across the package boundary the way they reach `Expr::node` —
+/// the decision an overwrite-or-append rebuild makes must not raise, and a
+/// caller that already knows the name exists (evaluation reported
+/// `ColumnNotFound` first) needs an option, not an unreachable error branch.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
+pub fn Schema::index_maybe(self : Schema, name : String) -> Int? {
+  self.index.get(name)
+}
+
+///|
 /// Return the `Field` for `name`, or `raise ColumnNotFound(name)`.
 pub fn Schema::field(self : Schema, name : String) -> Field raise DataError {
   self.fields[self.index_of(name)]

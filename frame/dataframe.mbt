@@ -1,26 +1,26 @@
 ///|
 /// A column-oriented, schema-aware table. `DataFrame` owns an ordered list
-/// of equally-tall `Series`, a derived `Schema`, and a private
-/// `name_to_index` cache so column lookup by name is `O(1)`.
+/// of equally-tall `Series` and a derived `Schema`; column lookup by name is
+/// `O(1)` through the schema's own index, which is the one name→position
+/// map a frame carries.
 ///
 /// The fields are `priv` (private to this package), so a frame can only ever
-/// be *built* through the constructors below — which rebuild the cache and the
-/// schema in lock-step with the column vector — and *read* through accessors
+/// be *built* through the constructors below — which rebuild the schema in
+/// lock-step with the column vector — and *read* through accessors
 /// that hand out nothing the caller can write back through: `columns()` and
 /// `column_series()` build a fresh array each call, and `schema()` returns a
 /// `Schema`, whose own fields are private behind a copying reader.
-/// External code cannot reach the live `columns` / `name_to_index` containers,
+/// External code cannot reach the live `columns` container,
 /// so it cannot mutate a validated frame into an inconsistent state.
 ///
 /// What every constructor here establishes and every transform preserves is
-/// that those four parts agree. That agreement is written once — as INV1–INV7 in
+/// that those parts agree. That agreement is written once — as INV1–INV5 in
 /// `frame/invariants.mbt`, checked by `check_invariants` — and deliberately not
 /// restated here, since a second copy is how the two would drift.
 pub struct DataFrame {
   priv schema : @types.Schema
   priv columns : Array[Series]
   priv nrows : Int
-  priv name_to_index : Map[String, Int]
 } derive(Eq, Debug)
 
 ///|
@@ -93,48 +93,6 @@ pub fn DataFrame::from_parts(
 }
 
 ///|
-/// `from_parts` under a caller-supplied field vector — the constructor behind
-/// the projections that *carry* metadata rather than re-derive it (`select`,
-/// `drop`, `with_columns`). `fields` is index-aligned with `columns` and
-/// agrees with each column's name and dtype; what it can differ in is the
-/// declared `nullable`, which a derived field would reset to the `Field`
-/// constructor default. Re-validated through `Schema::Schema`, so a repeated
-/// name still raises `DuplicateColumn`.
-fn DataFrame::from_parts_with_fields(
-  columns : Array[Series],
-  fields : Array[@types.Field],
-  nrows : Int,
-) -> DataFrame raise @types.DataError {
-  let columns = columns.copy()
-  // INV7, closed here rather than asked of the caller. For a frame with
-  // columns the length check below already forces a non-negative height (no
-  // `Series` is shorter than empty), but it is vacuous at zero columns —
-  // exactly the shape this constructor exists to build — so `N×0` is the one
-  // case where a stray negative would reach a `DataFrame` and stay there.
-  if nrows < 0 {
-    raise @types.DataError::InvalidOperation(
-      "a frame's row count cannot be negative: \{nrows}",
-    )
-  }
-  if !columns.all(c => c.len() == nrows) {
-    raise @types.DataError::LengthMismatch
-  }
-  let schema = @types.Schema::Schema(fields)
-  { schema, columns, nrows, name_to_index: index_by_name(columns), }
-}
-
-///|
-/// Build the name→index lookup cache from a column vector: position `i` maps
-/// from `columns[i].name()`. Every constructor routes through `Schema::Schema`,
-/// which rejects duplicate names before this runs, so the `(name, i)` pairs
-/// are 1:1 with the columns. Shared by every constructor that assembles a frame
-/// from a column vector — `DataFrame::DataFrame`, `empty`, `from_rows`, and the
-/// internal `from_parts` family.
-fn index_by_name(columns : Array[Series]) -> Map[String, Int] {
-  Map::from_array(columns.mapi((i, c) => (c.name(), i)))
-}
-
-///|
 /// Build a 0-row `DataFrame` matching `schema`. Each column is an empty
 /// `Series` of the field's declared dtype.
 ///
@@ -159,7 +117,7 @@ pub fn DataFrame::empty(
   let columns : Array[Series] = schema
     .fields()
     .map(f => Series::empty_of(f.name(), f.dtype()))
-  { schema, columns, nrows: 0, name_to_index: index_by_name(columns), }
+  { schema, columns, nrows: 0, }
 }
 
 ///|
@@ -303,7 +261,7 @@ pub fn DataFrame::from_rows(
     }
     column
   })
-  { schema, columns, nrows, name_to_index: index_by_name(columns), }
+  { schema, columns, nrows, }
 }
 
 // ── Inspection ────────────────────────────────────────────────────────
@@ -395,10 +353,10 @@ pub fn DataFrame::get_column(
   self : DataFrame,
   name : String,
 ) -> Series raise @types.DataError {
-  match self.name_to_index.get(name) {
-    Some(i) => self.columns[i]
-    None => raise @types.DataError::ColumnNotFound(name)
-  }
+  // INV1 (schema and columns agree on arity) keeps `index_of`'s result in
+  // range for the column vector, so the lookup is the schema's `O(1)` index
+  // and nothing else.
+  self.columns[self.schema.index_of(name)]
 }
 
 ///|
@@ -454,243 +412,6 @@ pub fn DataFrame::rows(self : DataFrame) -> Array[Array[@types.Scalar]] {
 }
 
 // ── Transforms ────────────────────────────────────────────────────────
-
-///|
-/// First `n` rows (or all rows if `n >= nrows`). Negative `n` clamps to
-/// `0`. Total — never fails. Also exposed under its Polars / SQL name
-/// `limit` (via `#alias`) — the eager twin of `LazyFrame::limit`, keeping
-/// the two surfaces verb-for-verb aligned.
-#alias(limit)
-pub fn DataFrame::head(self : DataFrame, n : Int) -> DataFrame {
-  let m = @order.clamp_take(n, self.nrows)
-  // `0 <= m <= nrows == c.len()`, so the contiguous row slice is in-bounds
-  // and needs no bounds-checking `Result`.
-  let new_cols : Array[Series] = self.columns.map(c => slice_series(c, 0, m))
-  // Names and schema are unchanged — reuse the cache verbatim.
-  self.with_same_schema(new_cols, m)
-}
-
-///|
-/// Last `n` rows (or all rows if `n >= nrows`). Negative `n` clamps to
-/// `0`. Total — never fails.
-pub fn DataFrame::tail(self : DataFrame, n : Int) -> DataFrame {
-  let m = @order.clamp_take(n, self.nrows)
-  let start = self.nrows - m
-  // Same in-bounds argument as `head`: `start + m == nrows == c.len()`.
-  let new_cols : Array[Series] = self.columns.map(c => slice_series(c, start, m))
-  self.with_same_schema(new_cols, m)
-}
-
-///|
-/// Half-open `[start, end)` row slice. Bounds checks mirror
-/// `Series::slice` (and `BuiltinColumn::slice`): an index outside the frame
-/// surfaces as `IndexOutOfBounds` — `start < 0`, or an `end` outside
-/// `[0, nrows]` — and only two individually valid indices in the wrong order
-/// are `InvalidOperation`.
-pub fn DataFrame::slice(
-  self : DataFrame,
-  start : Int,
-  end : Int,
-) -> DataFrame raise @types.DataError {
-  // Validate against `nrows` — the frame's own height, which every column
-  // agrees with (INV2) and which a column-less frame still carries. Same order
-  // and the same range test on both ends as `validate_slice_bounds`, the
-  // per-column validator this stands in for.
-  if start < 0 {
-    raise @types.DataError::IndexOutOfBounds(start)
-  }
-  if end < 0 || end > self.nrows {
-    raise @types.DataError::IndexOutOfBounds(end)
-  }
-  if start > end {
-    raise @types.DataError::InvalidOperation(
-      "slice start > end: \{start} > \{end}",
-    )
-  }
-  // Bounds were already validated against `self.nrows`, which equals every
-  // column's length, so the contiguous slice is in-bounds.
-  let new_cols : Array[Series] = self.columns.map(c => {
-    slice_series(c, start, end - start)
-  })
-  self.with_same_schema(new_cols, end - start)
-}
-
-///|
-/// Gather rows by index. Returns a frame whose i-th row is
-/// `self[indices[i]]`. Any out-of-bounds index surfaces as
-/// `IndexOutOfBounds(idx)`.
-pub fn DataFrame::gather(
-  self : DataFrame,
-  indices : Array[Int],
-) -> DataFrame raise @types.DataError {
-  for i in indices {
-    if i < 0 || i >= self.nrows {
-      raise @types.DataError::IndexOutOfBounds(i)
-    }
-  }
-  // An identity permutation (`indices == [0, nrows)`) gathers every row in
-  // place — a no-op rebuild — so return `self`. The check is `O(n)` with an
-  // early exit, dwarfed by the gather it can skip; a genuine reorder or a
-  // strict subset (a `filter` / `drop_nulls` that drops rows) fails it on the
-  // length test or the first out-of-place index.
-  if is_identity_perm(indices, self.nrows) {
-    return self
-  }
-  // Indices were just validated against `self.nrows`, so the per-column
-  // gather is in-bounds.
-  let new_cols = self.columns.map(c => gather_series(c, indices))
-  self.with_same_schema(new_cols, indices.length())
-}
-
-///|
-/// Whether `indices` is the identity permutation `[0, 1, ..., nrows - 1]` —
-/// the case where a gather reproduces the frame unchanged. Lets `gather`
-/// short-circuit a no-op copy (an already-ordered `sort`, a `filter`
-/// that keeps every row). Fails fast: a length mismatch or the first
-/// out-of-place index returns `false` before the rest is scanned.
-fn is_identity_perm(indices : Array[Int], nrows : Int) -> Bool {
-  if indices.length() != nrows {
-    return false
-  }
-  for i in 0..<indices.length() {
-    if indices[i] != i {
-      return false
-    }
-  }
-  true
-}
-
-// ── Internal helpers ──────────────────────────────────────────────────
-
-///|
-/// Rebuild the frame from `new_cols` and `nrows`, reusing this frame's schema
-/// and `O(1)` name→index cache verbatim. The schema-preserving constructor
-/// behind the row-only transforms (`head` / `tail` / `slice` / `gather` /
-/// `fill_null` / `reverse` / `unique`): the column values or backing change but the names
-/// and dtypes do not, so the cache stays valid and these never pay to rebuild it through
-/// `DataFrame::DataFrame` (`O(n)`, and able to raise). Total — the caller guarantees
-/// `new_cols` still matches the schema and carries `nrows` rows each.
-///
-/// Spelt as a struct update so that a field added to `DataFrame` later is
-/// carried over by default — only what a row transform actually changes is
-/// named here.
-fn DataFrame::with_same_schema(
-  self : DataFrame,
-  new_cols : Array[Series],
-  nrows : Int,
-) -> DataFrame {
-  { ..self, columns: new_cols, nrows, }
-}
-
-///|
-/// The column an expression only *renames*, if any. `col("x")` reads column
-/// `x` and changes nothing about its cells; `col("x").with_alias("y")` changes
-/// nothing but the name. Every other expression computes — including `cast`,
-/// which keeps the cells but not the dtype — so it has no source column whose
-/// metadata the result could inherit.
-///
-/// Written without a wildcard so a new `ExprNode` variant has to state whether it
-/// is a pure rename rather than defaulting to "no".
-///
-/// Aliases are peeled with a cursor rather than the call stack: `with_alias`
-/// stacks without bound, so a recursive peel would overflow on a deep one — the
-/// same reason every other expression walk in the engine is iterative. Only
-/// `Alias` advances the cursor; every other variant is an answer, so the loop
-/// runs once per alias and stops.
-fn projection_source(expr : @ir.ExprNode) -> String? {
-  let mut node = expr
-  for ;; {
-    match node {
-      @ir.ExprNode::Alias(inner, _) => node = inner
-      @ir.ExprNode::Col(name) => return Some(name)
-      @ir.ExprNode::Lit(_)
-      | @ir.ExprNode::LitSeries(_)
-      | @ir.ExprNode::Binary(_, _, _)
-      | @ir.ExprNode::Unary(_, _)
-      | @ir.ExprNode::Agg(_, _)
-      | @ir.ExprNode::Str(_, _)
-      | @ir.ExprNode::Cast(_, _)
-      | @ir.ExprNode::Ternary(_, _, _)
-      | @ir.ExprNode::FillNull(_, _)
-      | @ir.ExprNode::FillNan(_, _)
-      | @ir.ExprNode::IsIn(_, _)
-      | @ir.ExprNode::IsBetween(_, _, _, _)
-      | @ir.ExprNode::Map(_, _, _)
-      | @ir.ExprNode::MapBatches(_, _, _, _) => return None
-    }
-  }
-}
-
-///|
-/// The `Field` a projected column carries. An expression that only renames a
-/// column leaves its cells untouched, so the result keeps that column's
-/// declared `nullable` under the output name; a computed one gets a field
-/// derived from the result, whose flag is the `Field` constructor default.
-///
-/// `source_fields` is the frame's own field vector, materialised once by the
-/// caller rather than per expression. A named source column is always present:
-/// the expression was evaluated against this frame first, and a name the frame
-/// lacks raised `ColumnNotFound` there.
-fn DataFrame::carried_field(
-  self : DataFrame,
-  source_fields : Array[@types.Field],
-  expr : @expr.Expr,
-  column : Series,
-  name : String,
-) -> @types.Field {
-  let carried = match projection_source(expr.node()) {
-    Some(src) => self.name_to_index.get(src).map(i => source_fields[i])
-    None => None
-  }
-  match carried {
-    Some(field) => field.rename(name)
-    None => @types.Field::Field(name, column.dtype())
-  }
-}
-
-///|
-/// Rebuild the frame under an edited field vector — the rename verbs' sibling
-/// of `with_same_schema`. `fields` is index-aligned with the column vector and
-/// differs from `self.schema`'s only in the field *names* (`rename` /
-/// `rename_with` map each through `Field::rename`), so this re-validates it
-/// through `Schema::Schema` — `raise DuplicateColumn(name)` on the first repeat —
-/// retitles each column to its field's name, and rebuilds the `O(1)`
-/// name→index cache, which unlike `with_same_schema` cannot be reused because
-/// the names moved. Row count and column order are untouched.
-///
-/// Carrying the fields rather than re-deriving them through `DataFrame::DataFrame` is
-/// what keeps a renamed column's metadata: that constructor names every field
-/// with the `Field` constructor default, resetting a declared `nullable = false`,
-/// while a rename by contract changes nothing but the name.
-fn DataFrame::with_renamed_fields(
-  self : DataFrame,
-  fields : Array[@types.Field],
-) -> DataFrame raise @types.DataError {
-  let schema = @types.Schema::Schema(fields)
-  // `fields` is index-aligned with the column vector, so `columns[i]` is
-  // in-bounds and the rebuilt schema mirrors the columns name-for-name.
-  let new_cols = fields.mapi((i, f) => self.columns[i].rename(f.name()))
-  {
-    schema,
-    columns: new_cols,
-    nrows: self.nrows,
-    name_to_index: index_by_name(new_cols),
-  }
-}
-
-///|
-/// Resolve a `subset` selector — an `Array[Expr]` of column keys — to the named
-/// columns, validating in order. Each key names a column through
-/// `Expr::output_name` (a bare `col("x")` names `"x"`, an alias names the
-/// alias), and `get_column` raises `ColumnNotFound` on the first name absent
-/// from the frame, before any per-row work runs. The key expression is **never
-/// evaluated** — only its output name is consulted — the shared "name-only"
-/// contract behind the `subset` of `drop`, `drop_nulls`, and `unique`. A
-/// repeated key resolves the same column twice; each caller absorbs that (a
-/// collapsing drop set, an AND of validity masks, a repeated group-key cell).
-fn DataFrame::resolve_subset_columns(
-  self : DataFrame,
-  keys : Array[@expr.Expr],
-) -> Array[Series] raise @types.DataError {
-  keys.map(key => self.get_column(expr_output_name(key)))
-}
+//
+// The row-window transforms (`head` / `tail` / `slice` / `gather`) are a
+// family of their own and live in `frame/window.mbt`.

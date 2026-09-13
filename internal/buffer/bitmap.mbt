@@ -35,7 +35,7 @@ pub extend Bitmap with Debug::{to_repr}
 /// would desynchronise `len` from the (empty) buffer — `null_count`'s
 /// tail-byte read would then index past it and abort, the one failure mode
 /// the never-abort rule forbids.
-fn Bitmap::all_valid(len : Int) -> Bitmap {
+pub fn Bitmap::all_valid(len : Int) -> Bitmap {
   let len = if len < 0 { 0 } else { len }
   let n = bytes_needed(len)
   let buf = FixedArray::make(n, (0xff : Int).to_byte())
@@ -46,7 +46,7 @@ fn Bitmap::all_valid(len : Int) -> Bitmap {
 ///|
 /// `Some(_)` ↦ valid, `None` ↦ null. Works for any element type because
 /// only the `Some/None` shape is inspected.
-fn[T] Bitmap::from_options(values : Array[T?]) -> Bitmap {
+pub fn[T] Bitmap::from_options(values : Array[T?]) -> Bitmap {
   pack(values.length(), i => values[i] is Some(_))
 }
 
@@ -65,7 +65,10 @@ fn Bitmap::is_valid(self : Bitmap, index : Int) -> Bool raise @types.DataError {
 ///|
 /// `true` when slot `index` is null (bit is 0). Out-of-bounds
 /// `raise IndexOutOfBounds`.
-fn Bitmap::is_null(self : Bitmap, index : Int) -> Bool raise @types.DataError {
+pub fn Bitmap::is_null(
+  self : Bitmap,
+  index : Int,
+) -> Bool raise @types.DataError {
   !self.is_valid(index)
 }
 
@@ -102,7 +105,7 @@ pub fn Bitmap::is_valid_total(self : Bitmap, index : Int) -> Bool {
 /// that straddles the window edge would count them as valids. (A
 /// constructor-built bitmap is tight and offset-0, so its head is empty and the
 /// bits past `len` are zero — there the split and the mask are both no-ops.)
-fn Bitmap::null_count(self : Bitmap) -> Int {
+pub fn Bitmap::null_count(self : Bitmap) -> Int {
   let mut valid = 0
   // The head: bits from `offset` up to the next byte boundary — none when the
   // window already starts on one, and never past the window's own end.
@@ -153,7 +156,7 @@ pub fn Bitmap::to_bools(self : Bitmap) -> Array[Bool] {
 /// lands once it has validated the bounds. It just shares the buffer and
 /// advances `offset`, so the caller must keep `0 <= start` and
 /// `start + length <= len`; that one caller guarantees it.
-fn Bitmap::slice_view(self : Bitmap, start : Int, length : Int) -> Bitmap {
+pub fn Bitmap::slice_view(self : Bitmap, start : Int, length : Int) -> Bitmap {
   { bits: self.bits, offset: self.offset + start, len: length, }
 }
 
@@ -166,7 +169,7 @@ fn Bitmap::slice_view(self : Bitmap, start : Int, length : Int) -> Bitmap {
 /// exactly once. An out-of-range index reads as `false` via `is_valid_total`
 /// rather than aborting, so a caller that breaks the in-bounds contract still
 /// cannot panic.
-fn Bitmap::take_view(self : Bitmap, indices : Array[Int]) -> Bitmap {
+pub fn Bitmap::take_view(self : Bitmap, indices : Array[Int]) -> Bitmap {
   pack(indices.length(), i => self.is_valid_total(indices[i]))
 }
 

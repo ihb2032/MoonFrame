@@ -315,9 +315,9 @@ test "from_int_options stores 0 placeholder at null slots" {
   let col = BuiltinColumn::from_int_options([Some(1), None, Some(3)])
   let (data, validity) = int_cells(col)
   assert_eq(data, [1, 0, 3])
-  assert_eq(validity.is_valid(0), true)
-  assert_eq(validity.is_valid(1), false)
-  assert_eq(validity.is_valid(2), true)
+  assert_eq(validity.is_valid_total(0), true)
+  assert_eq(validity.is_valid_total(1), false)
+  assert_eq(validity.is_valid_total(2), true)
 }
 
 ///|
@@ -325,8 +325,8 @@ test "from_float_options stores 0.0 placeholder at null slots" {
   let col = BuiltinColumn::from_float_options([None, Some(2.5)])
   let (data, validity) = float_cells(col)
   assert_eq(data, [(0.0 : Double), (2.5 : Double)])
-  assert_eq(validity.is_valid(0), false)
-  assert_eq(validity.is_valid(1), true)
+  assert_eq(validity.is_valid_total(0), false)
+  assert_eq(validity.is_valid_total(1), true)
 }
 
 ///|
@@ -334,7 +334,7 @@ test "from_bool_options stores false placeholder at null slots" {
   let col = BuiltinColumn::from_bool_options([Some(true), None])
   let (data, validity) = bool_cells(col)
   assert_eq(data, [true, false])
-  assert_eq(validity.is_valid(1), false)
+  assert_eq(validity.is_valid_total(1), false)
 }
 
 ///|
@@ -342,8 +342,8 @@ test "from_string_options stores \"\" placeholder at null slots" {
   let col = BuiltinColumn::from_string_options([None, Some("hi")])
   let (data, validity) = string_cells(col)
   assert_eq(data, ["", "hi"])
-  assert_eq(validity.is_valid(0), false)
-  assert_eq(validity.is_valid(1), true)
+  assert_eq(validity.is_valid_total(0), false)
+  assert_eq(validity.is_valid_total(1), true)
 }
 
 ///|
@@ -352,13 +352,13 @@ test "data buffer length matches validity length for every constructor" {
   let raw_i = BuiltinColumn::from_ints([1, 2, 3, 4, 5])
   let (data, validity) = int_cells(raw_i)
   assert_eq(data.length(), 5)
-  assert_eq(validity.len, 5)
+  assert_eq(validity.to_bools().length(), 5)
   assert_eq(validity.null_count(), 0)
   // Option constructors → validity reflects the Some/None mask exactly.
   let opt = BuiltinColumn::from_int_options([Some(1), None, Some(3), None])
   let (d2, v2) = int_cells(opt)
   assert_eq(d2.length(), 4)
-  assert_eq(v2.len, 4)
+  assert_eq(v2.to_bools().length(), 4)
   assert_eq(v2.null_count(), 2)
 }
 
@@ -375,7 +375,7 @@ test "cast Int -> Float preserves the validity bitmap" {
   // Validity is unchanged across the cast.
   let (_, src_validity) = int_cells(col)
   let (_, dst_validity) = float_cells(out)
-  assert_eq(src_validity, dst_validity)
+  assert_eq(src_validity.to_bools(), dst_validity.to_bools())
   // And the null slots in the output read as Null, not 0.0.
   assert_eq(out.get(1), @types.Scalar::Null)
   assert_eq(out.get(3), @types.Scalar::Null)

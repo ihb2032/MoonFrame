@@ -66,28 +66,40 @@ pub fn eval_arith(
   let lv = validity_bools(left)
   let rv = validity_bools(right)
   let out = match (left.storage().data(), right.storage().data()) {
-    (@column.ColumnData::Int(a), @column.ColumnData::Int(b)) =>
+    (@column.ColumnData::I64(a), @column.ColumnData::I64(b)) if left
+      .dtype()
+      .is_numeric() &&
+      right.dtype().is_numeric() =>
       Series::from_int_options(
         left.name(),
         zip_present(a.length(), lv, rv, i => int_op(a[i], b[i])),
       )
-    (@column.ColumnData::Int(a), @column.ColumnData::Float(b)) =>
+    (@column.ColumnData::I64(a), @column.ColumnData::F64(b)) if left
+      .dtype()
+      .is_numeric() &&
+      right.dtype().is_numeric() =>
       Series::from_float_options(
         left.name(),
         zip_present(a.length(), lv, rv, i => float_op(a[i].to_double(), b[i])),
       )
-    (@column.ColumnData::Float(a), @column.ColumnData::Int(b)) =>
+    (@column.ColumnData::F64(a), @column.ColumnData::I64(b)) if left
+      .dtype()
+      .is_numeric() &&
+      right.dtype().is_numeric() =>
       Series::from_float_options(
         left.name(),
         zip_present(a.length(), lv, rv, i => float_op(a[i], b[i].to_double())),
       )
-    (@column.ColumnData::Float(a), @column.ColumnData::Float(b)) =>
+    (@column.ColumnData::F64(a), @column.ColumnData::F64(b)) =>
       Series::from_float_options(
         left.name(),
         zip_present(a.length(), lv, rv, i => float_op(a[i], b[i])),
       )
-    (@column.ColumnData::Bool(_) | @column.ColumnData::String(_), _)
-    | (_, @column.ColumnData::Bool(_) | @column.ColumnData::String(_)) =>
+    (@column.ColumnData::I64(_), @column.ColumnData::I64(_))
+    | (@column.ColumnData::I64(_), @column.ColumnData::F64(_))
+    | (@column.ColumnData::F64(_), @column.ColumnData::I64(_))
+    | (@column.ColumnData::Bool(_) | @column.ColumnData::Utf8(_), _)
+    | (_, @column.ColumnData::Bool(_) | @column.ColumnData::Utf8(_)) =>
       raise binary_type_mismatch_error(verb, left, right)
   }
   try_column_to_numeric(out)
@@ -137,30 +149,42 @@ fn eval_binary_float(
   let lv = validity_bools(left)
   let rv = validity_bools(right)
   let out = match (left.storage().data(), right.storage().data()) {
-    (@column.ColumnData::Int(a), @column.ColumnData::Int(b)) =>
+    (@column.ColumnData::I64(a), @column.ColumnData::I64(b)) if left
+      .dtype()
+      .is_numeric() &&
+      right.dtype().is_numeric() =>
       Series::from_float_options(
         left.name(),
         zip_present(a.length(), lv, rv, i => {
           float_op(a[i].to_double(), b[i].to_double())
         }),
       )
-    (@column.ColumnData::Int(a), @column.ColumnData::Float(b)) =>
+    (@column.ColumnData::I64(a), @column.ColumnData::F64(b)) if left
+      .dtype()
+      .is_numeric() &&
+      right.dtype().is_numeric() =>
       Series::from_float_options(
         left.name(),
         zip_present(a.length(), lv, rv, i => float_op(a[i].to_double(), b[i])),
       )
-    (@column.ColumnData::Float(a), @column.ColumnData::Int(b)) =>
+    (@column.ColumnData::F64(a), @column.ColumnData::I64(b)) if left
+      .dtype()
+      .is_numeric() &&
+      right.dtype().is_numeric() =>
       Series::from_float_options(
         left.name(),
         zip_present(a.length(), lv, rv, i => float_op(a[i], b[i].to_double())),
       )
-    (@column.ColumnData::Float(a), @column.ColumnData::Float(b)) =>
+    (@column.ColumnData::F64(a), @column.ColumnData::F64(b)) =>
       Series::from_float_options(
         left.name(),
         zip_present(a.length(), lv, rv, i => float_op(a[i], b[i])),
       )
-    (@column.ColumnData::Bool(_) | @column.ColumnData::String(_), _)
-    | (_, @column.ColumnData::Bool(_) | @column.ColumnData::String(_)) =>
+    (@column.ColumnData::I64(_), @column.ColumnData::I64(_))
+    | (@column.ColumnData::I64(_), @column.ColumnData::F64(_))
+    | (@column.ColumnData::F64(_), @column.ColumnData::I64(_))
+    | (@column.ColumnData::Bool(_) | @column.ColumnData::Utf8(_), _)
+    | (_, @column.ColumnData::Bool(_) | @column.ColumnData::Utf8(_)) =>
       raise binary_type_mismatch_error(verb, left, right)
   }
   try_column_to_numeric(out)
@@ -220,7 +244,10 @@ fn eval_binary_nullzero(
   let lv = validity_bools(left)
   let rv = validity_bools(right)
   let out = match (left.storage().data(), right.storage().data()) {
-    (@column.ColumnData::Int(a), @column.ColumnData::Int(b)) =>
+    (@column.ColumnData::I64(a), @column.ColumnData::I64(b)) if left
+      .dtype()
+      .is_numeric() &&
+      right.dtype().is_numeric() =>
       Series::from_int_options(
         left.name(),
         Array::makei(a.length(), i => {
@@ -231,23 +258,32 @@ fn eval_binary_nullzero(
           }
         }),
       )
-    (@column.ColumnData::Int(a), @column.ColumnData::Float(b)) =>
+    (@column.ColumnData::I64(a), @column.ColumnData::F64(b)) if left
+      .dtype()
+      .is_numeric() &&
+      right.dtype().is_numeric() =>
       Series::from_float_options(
         left.name(),
         zip_present(a.length(), lv, rv, i => float_op(a[i].to_double(), b[i])),
       )
-    (@column.ColumnData::Float(a), @column.ColumnData::Int(b)) =>
+    (@column.ColumnData::F64(a), @column.ColumnData::I64(b)) if left
+      .dtype()
+      .is_numeric() &&
+      right.dtype().is_numeric() =>
       Series::from_float_options(
         left.name(),
         zip_present(a.length(), lv, rv, i => float_op(a[i], b[i].to_double())),
       )
-    (@column.ColumnData::Float(a), @column.ColumnData::Float(b)) =>
+    (@column.ColumnData::F64(a), @column.ColumnData::F64(b)) =>
       Series::from_float_options(
         left.name(),
         zip_present(a.length(), lv, rv, i => float_op(a[i], b[i])),
       )
-    (@column.ColumnData::Bool(_) | @column.ColumnData::String(_), _)
-    | (_, @column.ColumnData::Bool(_) | @column.ColumnData::String(_)) =>
+    (@column.ColumnData::I64(_), @column.ColumnData::I64(_))
+    | (@column.ColumnData::I64(_), @column.ColumnData::F64(_))
+    | (@column.ColumnData::F64(_), @column.ColumnData::I64(_))
+    | (@column.ColumnData::Bool(_) | @column.ColumnData::Utf8(_), _)
+    | (_, @column.ColumnData::Bool(_) | @column.ColumnData::Utf8(_)) =>
       raise binary_type_mismatch_error(verb, left, right)
   }
   try_column_to_numeric(out)
@@ -392,17 +428,20 @@ pub fn eval_unary_num(
   }
   let valid = validity_bools(operand)
   let out = match operand.storage().data() {
-    @column.ColumnData::Int(a) =>
+    // Dtype-gated: a Date column is I64-typed but is not a number.
+    @column.ColumnData::I64(a) if operand.dtype().is_numeric() =>
       Series::from_int_options(
         operand.name(),
         map_present(a.length(), valid, i => int_op(a[i])),
       )
-    @column.ColumnData::Float(a) =>
+    @column.ColumnData::F64(a) =>
       Series::from_float_options(
         operand.name(),
         map_present(a.length(), valid, i => float_op(a[i])),
       )
-    @column.ColumnData::Bool(_) | @column.ColumnData::String(_) =>
+    @column.ColumnData::I64(_)
+    | @column.ColumnData::Bool(_)
+    | @column.ColumnData::Utf8(_) =>
       raise @types.DataError::TypeMismatch(
         @types.TypeMismatchDetail::Message("cannot \{verb} \{operand.dtype()}"),
       )
@@ -547,17 +586,19 @@ pub fn eval_is_nan(
   }
   let valid = validity_bools(operand)
   match operand.storage().data() {
-    @column.ColumnData::Float(a) =>
+    @column.ColumnData::F64(a) =>
       Series::from_bool_options(
         operand.name(),
         map_present(a.length(), valid, i => a[i].is_nan() == want_nan),
       )
-    @column.ColumnData::Int(a) =>
+    @column.ColumnData::I64(a) if operand.dtype().is_numeric() =>
       Series::from_bool_options(
         operand.name(),
         map_present(a.length(), valid, _ => !want_nan),
       )
-    @column.ColumnData::Bool(_) | @column.ColumnData::String(_) => {
+    @column.ColumnData::I64(_)
+    | @column.ColumnData::Bool(_)
+    | @column.ColumnData::Utf8(_) => {
       let probe = if want_nan { "is_nan" } else { "is_not_nan" }
       raise @types.DataError::TypeMismatch(
         @types.TypeMismatchDetail::Message(

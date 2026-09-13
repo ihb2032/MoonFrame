@@ -11,7 +11,18 @@ see [`api.md`](api.md), and the per-symbol reference on
 v0.7 is a pre-1.0 breaking release — the surface-focus one: `io` returns to
 tabular interchange and the root facade narrows its first-contact face. Both
 breaks are qualification moves; no symbol is deleted and no signature
-changes.
+changes. The one widening break is the `Date` dtype: two public enums gained
+a variant.
+
+### `DataType` / `Scalar` gained a `Date` variant
+
+`DataType::Date` and `Scalar::Date(days)` (whole days since the Unix epoch)
+are new, which makes an exhaustive `match` over either enum fail to compile
+until it handles the variant. Add a `Date` arm — what the variant means is
+documented on the enum, and a column of it rides the same 64-bit buffer an
+`Int` column always held, so nothing about column storage changes. A
+`match` that handles every variant *except* by a catch-all `_` arm needs no
+change.
 
 ### `@io.ChartSpec` is `@chart.ChartSpec`
 

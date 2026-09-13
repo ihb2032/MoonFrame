@@ -912,7 +912,7 @@ test "fuzz: zero-match file projections preserve exact eager errors" {
 ///|
 /// A generated file + predicate: random rows written to disk, then a filter
 /// that references a real column (so the optimizer absorbs it into the scan and
-/// exercises `read_csv_pruned`, the row-pruning reader Test 4's projection-only
+/// drives the CSV driver's row-pruning read, which Test 4's projection-only
 /// pipeline never reaches; the NDJSON twin shares the pruning path and is
 /// covered by `scan_ndjson_test.mbt`).
 struct PrunedFileCase {
@@ -958,10 +958,11 @@ fn rows_to_clean_frame(
 
 ///|
 /// A filter on a `scan_csv` leaf is absorbed into the scan, which builds the
-/// predicate's columns, prunes the rows, and parses the rest for survivors alone
-/// (`read_csv_pruned`). That row-pruning path — distinct from the projection-only
-/// narrowing Test 4 covers — must collect equal to an eager
-/// read-then-filter of the same file. Fuzz it: write generated rows, then
+/// predicate's columns, prunes the rows, and parses the rest for survivors
+/// alone (the CSV driver's row-pruning read). That row-pruning path —
+/// distinct from the projection-only narrowing Test 4 covers — must collect
+/// equal to an eager read-then-filter of the same file. Fuzz it: write
+/// generated rows, then
 /// compare the pruned scan against the eager read+filter. Clean Int/String data
 /// round-trips losslessly through the CSV header, so both sides read identical
 /// data and any divergence is the pruned reader's own.
@@ -977,8 +978,9 @@ test "fuzz: predicate push-down into a CSV source stays eager-equivalent" {
     match setup {
       Err(_) => @qc.property(false).counterexample("fixture write raised")
       Ok(_) => {
-        // The absorbed filter drives `read_csv_pruned`; the eager read+filter of
-        // the same file is the reference. A CSV header always carries the
+        // The absorbed filter drives the CSV driver's row-pruning read; the
+        // eager read+filter of the same file is the reference. A CSV header
+        // always carries the
         // schema, so even an empty or all-null frame round-trips faithfully —
         // both sides read identical data and any divergence is the reader's own.
         let lazy_chain : () -> LazyFrame raise @types.DataError = () => {

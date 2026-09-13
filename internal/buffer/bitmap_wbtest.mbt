@@ -290,3 +290,27 @@ test "null_count over every slice agrees with a naive bit-by-bit count" {
     }
   }
 }
+
+///|
+/// A validity mask from a plain `Bool` vector, `true` ↦ valid. Spelling a
+/// mask out bit by bit is a test's need — production builds one from the
+/// option vector a constructor was given, or all-valid.
+fn mask(bits : Array[Bool]) -> Bitmap {
+  Bitmap::from_options(bits.map(b => if b { Some(0) } else { None }))
+}
+
+///|
+/// Test-only content equality: production compares bitmaps through
+/// `ColumnStorage::equal` (validity cell by cell), never bitmap-to-bitmap, so
+/// the impl lives here with the tests that need it.
+impl Eq for Bitmap with fn equal(self, other) {
+  if self.len != other.len {
+    return false
+  }
+  for i in 0..<self.len {
+    if self.is_valid_total(i) != other.is_valid_total(i) {
+      return false
+    }
+  }
+  true
+}

@@ -116,11 +116,12 @@ Not implemented. The tracked deferrals — the ones with a place in a later
 release — are listed as such in [`api.md`](api.md); this is what a Polars user
 will not find here today:
 
-- **Dtypes** — only `Int` / `Float` / `Bool` / `String` / `Null`; no
-  `Date` / `Datetime` / `Duration` / `List` / `Struct` / `Categorical`. This is
-  the deferral the others hang off: the list-returning `str.split`, the datetime
-  expression family, and a reader that takes a declared schema all need a dtype
-  before they can exist.
+- **Dtypes** — `Int` / `Float` / `Bool` / `String` / `Null` / `Date`; no
+  `Datetime` / `Duration` / `List` / `Struct` / `Categorical`. The dtypes a
+  column can carry are the ones registered in the dtype registry; the missing
+  ones are the deferral the others hang off: the list-returning `str.split`,
+  the datetime expression family, and a reader that takes a declared schema
+  all need a dtype before they can exist.
 - **Expressions** — no window / rolling / `over` functions, no cumulative or
   `shift` / `diff` family, and no `pivot` / `melt` reshaping.
 - **Lazy** — no streaming execution: a scan pushes projections and predicates

@@ -179,7 +179,7 @@ test "scan_csv builders are total; a missing file fails only at collect" {
     scan_csv(absent).select([@expr.col("a")]).explain(optimized=true),
     "SELECT [col(a)]\n  SCAN_CSV \"_build/lazy_scan_csv_absent.csv\" [a]",
   )
-  // Collect surfaces the missing file as IoError — through read_csv_projected
+  // Collect surfaces the missing file as IoError — through the CSV driver
   // when a projection fired…
   assert_true(
     (Ok(scan_csv(absent).select([@expr.col("a")]).collect()) catch {

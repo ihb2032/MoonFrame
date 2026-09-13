@@ -24,7 +24,7 @@ pub(all) enum ExprNode {
   LitSeries(@series.Series)
   Binary(BinOp, ExprNode, ExprNode)
   Unary(UnOp, ExprNode)
-  Agg(AggOp, ExprNode)
+  Agg(@series.ReduceOp, ExprNode)
   Str(StrOp, ExprNode)
   Cast(ExprNode, @types.DataType)
   Alias(ExprNode, String)
@@ -128,33 +128,6 @@ pub extend UnOp with Eq::{equal, not_equal}
 
 ///|
 pub extend UnOp with Debug::{to_repr}
-
-///|
-/// Aggregation tag carried by `Agg`. `Sum` / `Mean` propagate NaN and
-/// `Std` / `Var` carry it through the mean; `Min` / `Max` and `Median` skip it;
-/// `Count` counts non-null cells and `NUnique` the distinct non-null values;
-/// `First` / `Last` are positional. Mirrored one-to-one by `@series.ReduceOp`,
-/// the reduction kernel's vocabulary (`frame`'s `reduce_op_of_agg` maps between
-/// them) — a variant added here must be added there too.
-pub(all) enum AggOp {
-  Sum
-  Mean
-  Min
-  Max
-  Count
-  Std
-  Var
-  Median
-  NUnique
-  First
-  Last
-} derive(Eq, Debug)
-
-///|
-pub extend AggOp with Eq::{equal, not_equal}
-
-///|
-pub extend AggOp with Debug::{to_repr}
 
 ///|
 /// String-operation tag carried by `Str` — the lowered forms of the

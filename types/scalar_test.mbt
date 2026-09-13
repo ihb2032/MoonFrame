@@ -328,3 +328,38 @@ test "Scalar::as_bool / as_string remaining error paths" {
   )
   assert_true((Ok(Scalar::Int(0).as_string()) catch { e => Err(e) }) is Err(_))
 }
+
+///|
+test "Scalar::Date renders ISO across the epoch and leap years" {
+  // The epoch itself, pre-epoch dates (negative day counts), and a leap-day.
+  assert_eq(Scalar::Date(0L).to_string(), "1970-01-01")
+  assert_eq(Scalar::Date(-1L).to_string(), "1969-12-31")
+  assert_eq(Scalar::Date(19723L).to_string(), "2024-01-01")
+  assert_eq(Scalar::Date(19754L).to_string(), "2024-02-01")
+  // 2024-12-31 = 19723 + 365 (2024 is a leap year; Feb 29 included), so
+  // day 20089 is already 2025-01-01.
+  assert_eq(Scalar::Date(20088L).to_string(), "2024-12-31")
+  assert_eq(Scalar::Date(20089L).to_string(), "2025-01-01")
+  // The Show form keeps the variant spelling with the ISO inside.
+  // The Show form keeps the variant spelling with the ISO inside.
+  inspect(Scalar::Date(0L), content="Date(1970-01-01)")
+  // The dtype reports Date.
+  assert_eq(Scalar::Date(0L).dtype(), DataType::Date)
+}
+
+///|
+test "Scalar::Date compares date-wise and refuses every other dtype" {
+  assert_true(Scalar::Date(5L).eq(Scalar::Date(5L)))
+  assert_true(Scalar::Date(4L).lt(Scalar::Date(5L)))
+  assert_true(Scalar::Date(5L).gt(Scalar::Date(4L)))
+  // Cross-dtype: the day count never equals the Int, and comparing raises
+  // the same Operation mismatch any other incomparable pair does.
+  assert_true(
+    (Ok(Scalar::Date(5L).eq(Scalar::Int(5L))) catch { e => Err(e) }) is Err(_),
+  )
+  assert_true(
+    (Ok(Scalar::Date(5L).lt(Scalar::Int(6L))) catch { e => Err(e) }) is Err(_),
+  )
+  // Typed accessors refuse it like any other foreign variant.
+  assert_true((Ok(Scalar::Date(0L).as_int()) catch { e => Err(e) }) is Err(_))
+}

@@ -36,6 +36,7 @@ pub fn format_scalar(value : @types.Scalar) -> String {
       }
     Bool(v) => v.to_string()
     String(v) => "\"\{@text.escape_debug(v)}\""
+    Date(_) => value.to_string()
     Null => "null"
   }
 }

@@ -59,10 +59,21 @@ priv enum LogicalPlan {
 /// `LogicalPlan` variant to every plan walk. A file source carries the pushed
 /// projection (the column list) and the absorbed predicate the optimizer fills
 /// in; the in-memory source carries neither (its narrowing inserts a `Select`).
+/// The per-format read state of a file-backed leaf: the driver that knows the
+/// format (handed in by the `scan_*` builder, built in `io`) plus the push-down
+/// state the optimizer fills in — the projection it narrows and the predicate
+/// it absorbs. Neither is driver state: the same driver value can sit under
+/// any number of plan shapes.
+priv struct FileScan {
+  driver : @scan.ScanDriver
+  projection : Array[String]?
+  predicate : @expr.Expr?
+}
+
+///|
 priv enum ScanSource {
   InMemory(@frame.DataFrame)
-  Csv(String, @io.CsvReadOptions, Array[String]?, @expr.Expr?)
-  Ndjson(String, @io.JsonReadOptions, Array[String]?, @expr.Expr?)
+  File(FileScan)
 }
 
 ///|

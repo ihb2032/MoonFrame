@@ -1,0 +1,42 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ihb2032/MoonFrame/internal/buffer"
+
+import {
+  "ihb2032/MoonFrame/types",
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct Bitmap {
+  // private fields
+} derive(@debug.Debug)
+pub fn Bitmap::all_valid(Int) -> Self
+pub fn[T] Bitmap::from_options(Array[T?]) -> Self
+pub fn Bitmap::is_null(Self, Int) -> Bool raise @types.DataError
+pub fn Bitmap::is_valid_total(Self, Int) -> Bool
+pub fn Bitmap::null_count(Self) -> Int
+pub fn Bitmap::slice_view(Self, Int, Int) -> Self
+pub fn Bitmap::take_view(Self, Array[Int]) -> Self
+pub fn Bitmap::to_bools(Self) -> Array[Bool]
+pub fn Bitmap::to_repr(Self) -> @debug.Repr
+
+pub struct Utf8Array {
+  // private fields
+} derive(@debug.Debug)
+pub fn Utf8Array::cell_eq(Self, Int, Self, Int) -> Bool
+pub fn Utf8Array::from_string_options(Array[String?]) -> Self
+pub fn Utf8Array::from_strings(Array[String]) -> Self
+pub fn Utf8Array::get(Self, Int) -> String
+pub fn Utf8Array::len(Self) -> Int
+pub fn Utf8Array::slice_view(Self, Int, Int) -> Self
+pub fn Utf8Array::take_view(Self, Array[Int]) -> Self
+pub fn Utf8Array::to_repr(Self) -> @debug.Repr
+pub fn Utf8Array::to_strings(Self) -> Array[String]
+
+// Type aliases
+
+// Traits

@@ -7,13 +7,14 @@
 //
 // So it sits in a whitebox file: compiled inside the package, available to
 // every `_wbtest.mbt` here, and absent from the generated interface that the
-// internal-surface audit reads. The same goes for the four operator tags,
-// whose equality this one consumes.
+// internal-surface audit reads. The same goes for the operator tags, whose
+// equality this one consumes (`ReduceOp`'s lives in `series` for the same
+// reason).
 //
-// The four operator tags keep their `derive(Eq)` in production, and that is a
+// The operator tags keep their `derive(Eq)` in production, and that is a
 // deliberate line rather than an oversight: this comparison consumes it one
 // file over, and hand-copying a fifteen-variant payload comparison into a test
-// file to unpublish four symbols would trade a real risk of drift for a
+// file to unpublish those symbols would trade a real risk of drift for a
 // cosmetic win.
 //
 // The wildcard-free matches are load-bearing and stay that way: a variant

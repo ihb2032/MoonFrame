@@ -402,35 +402,35 @@ pub fn Expr::fill_null(self : Expr, value : Expr) -> Expr {
 /// under `agg`). Inherits `Series::sum` semantics: NaN propagates,
 /// nulls are skipped, non-numeric operands are `TypeMismatch`.
 pub fn Expr::sum(self : Expr) -> Expr {
-  Expr::of(@ir.ExprNode::Agg(@ir.AggOp::Sum, self.node))
+  Expr::of(@ir.ExprNode::Agg(@series.ReduceOp::Sum, self.node))
 }
 
 ///|
 /// Mean of the operand over the evaluation scope (`Series::mean`
 /// semantics: NaN propagates, nulls are skipped).
 pub fn Expr::mean(self : Expr) -> Expr {
-  Expr::of(@ir.ExprNode::Agg(@ir.AggOp::Mean, self.node))
+  Expr::of(@ir.ExprNode::Agg(@series.ReduceOp::Mean, self.node))
 }
 
 ///|
 /// Minimum of the operand over the evaluation scope (`Series::min`
 /// semantics: NaN and nulls are skipped).
 pub fn Expr::min(self : Expr) -> Expr {
-  Expr::of(@ir.ExprNode::Agg(@ir.AggOp::Min, self.node))
+  Expr::of(@ir.ExprNode::Agg(@series.ReduceOp::Min, self.node))
 }
 
 ///|
 /// Maximum of the operand over the evaluation scope (`Series::max`
 /// semantics: NaN and nulls are skipped).
 pub fn Expr::max(self : Expr) -> Expr {
-  Expr::of(@ir.ExprNode::Agg(@ir.AggOp::Max, self.node))
+  Expr::of(@ir.ExprNode::Agg(@series.ReduceOp::Max, self.node))
 }
 
 ///|
 /// Count of non-null cells of the operand over the evaluation scope
 /// (`Series::count` semantics).
 pub fn Expr::count(self : Expr) -> Expr {
-  Expr::of(@ir.ExprNode::Agg(@ir.AggOp::Count, self.node))
+  Expr::of(@ir.ExprNode::Agg(@series.ReduceOp::Count, self.node))
 }
 
 ///|
@@ -439,7 +439,7 @@ pub fn Expr::count(self : Expr) -> Expr {
 /// skipped, fewer than two non-null cells reduce to null, and a non-numeric
 /// operand is `TypeMismatch`. Always a `Float`.
 pub fn Expr::std(self : Expr) -> Expr {
-  Expr::of(@ir.ExprNode::Agg(@ir.AggOp::Std, self.node))
+  Expr::of(@ir.ExprNode::Agg(@series.ReduceOp::Std, self.node))
 }
 
 ///|
@@ -448,7 +448,7 @@ pub fn Expr::std(self : Expr) -> Expr {
 /// `Float`. Spelled `variance` because `var` is a reserved MoonBit word (the
 /// `with_alias` / `.land()` situation), so Polars' `var` becomes `variance`.
 pub fn Expr::variance(self : Expr) -> Expr {
-  Expr::of(@ir.ExprNode::Agg(@ir.AggOp::Var, self.node))
+  Expr::of(@ir.ExprNode::Agg(@series.ReduceOp::Var, self.node))
 }
 
 ///|
@@ -457,7 +457,7 @@ pub fn Expr::variance(self : Expr) -> Expr {
 /// reduces to null, and a non-numeric operand is `TypeMismatch`. Always a
 /// `Float` (`Int` widens), so an even count averages its two middles.
 pub fn Expr::median(self : Expr) -> Expr {
-  Expr::of(@ir.ExprNode::Agg(@ir.AggOp::Median, self.node))
+  Expr::of(@ir.ExprNode::Agg(@series.ReduceOp::Median, self.node))
 }
 
 ///|
@@ -465,7 +465,7 @@ pub fn Expr::median(self : Expr) -> Expr {
 /// (`Series::n_unique` semantics: every NaN is one bucket, `-0.0` folds into
 /// `+0.0`). Total over every dtype, never null — an `Int`.
 pub fn Expr::n_unique(self : Expr) -> Expr {
-  Expr::of(@ir.ExprNode::Agg(@ir.AggOp::NUnique, self.node))
+  Expr::of(@ir.ExprNode::Agg(@series.ReduceOp::NUnique, self.node))
 }
 
 ///|
@@ -473,14 +473,14 @@ pub fn Expr::n_unique(self : Expr) -> Expr {
 /// the operand's dtype. Positional — a null first cell is null, an empty scope
 /// is null, and a present `NaN` passes through verbatim.
 pub fn Expr::first(self : Expr) -> Expr {
-  Expr::of(@ir.ExprNode::Agg(@ir.AggOp::First, self.node))
+  Expr::of(@ir.ExprNode::Agg(@series.ReduceOp::First, self.node))
 }
 
 ///|
 /// Last cell of the operand over the evaluation scope, in row order, keeping
 /// the operand's dtype. The positional mirror of `first`.
 pub fn Expr::last(self : Expr) -> Expr {
-  Expr::of(@ir.ExprNode::Agg(@ir.AggOp::Last, self.node))
+  Expr::of(@ir.ExprNode::Agg(@series.ReduceOp::Last, self.node))
 }
 
 ///|

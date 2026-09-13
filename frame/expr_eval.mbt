@@ -134,7 +134,7 @@ priv enum EvalStep {
   Eval(@ir.ExprNode)
   ApplyBinary(@ir.BinOp)
   ApplyUnary(@ir.UnOp)
-  ApplyAgg(@ir.AggOp)
+  ApplyAgg(ReduceOp)
   ApplyStr(@ir.StrOp)
   ApplyCast(@types.DataType)
   ApplyAlias(String)

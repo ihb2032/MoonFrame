@@ -74,7 +74,11 @@ fn reduce_arith(
 ) -> ((Int, (Int) -> Int) -> @types.Scalar) raise @types.DataError {
   let present = reduce_present(storage)
   match storage.data() {
-    @column.ColumnData::Int(a) =>
+    // The dtype gate, not the buffer variant, decides numericity: a Date
+    // column is I64-typed but is not a number, and summing day-counts is a
+    // bug, not a reduction. Non-numeric columns raise at factory time, before
+    // any window is folded.
+    @column.ColumnData::I64(a) if storage.dtype().is_numeric() =>
       if want_mean {
         // The mean's output is `Double`, so accumulate the numerator in
         // `Double` from the start. An `Int64` accumulator would silently wrap
@@ -110,7 +114,7 @@ fn reduce_arith(
           @types.Scalar::Int(acc)
         }
       }
-    @column.ColumnData::Float(a) =>
+    @column.ColumnData::F64(a) =>
       fn(n : Int, at : (Int) -> Int) {
         let mut acc = 0.0
         let mut cnt = 0
@@ -133,7 +137,9 @@ fn reduce_arith(
           @types.Scalar::Float(acc)
         }
       }
-    @column.ColumnData::Bool(_) | @column.ColumnData::String(_) => {
+    @column.ColumnData::I64(_)
+    | @column.ColumnData::Bool(_)
+    | @column.ColumnData::Utf8(_) => {
       let verb = if want_mean { "mean" } else { "sum" }
       raise @types.DataError::TypeMismatch(
         @types.TypeMismatchDetail::Message(
@@ -158,17 +164,24 @@ fn reduce_extremum(
 ) -> (Int, (Int) -> Int) -> @types.Scalar {
   let present = reduce_present(storage)
   match storage.data() {
-    @column.ColumnData::Int(a) =>
+    @column.ColumnData::I64(a) =>
       fn(n : Int, at : (Int) -> Int) {
         let get = k => a[at(k)]
         let skip = k => !present(at(k))
         let better = (x, y) => if want_min { x < y } else { x > y }
         match @numeric.fold_extremum(n, get, skip, better) {
-          Some(b) => @types.Scalar::Int(b)
+          // The extremum lifts through the dtype: a Date column min/maxes
+          // to a Date, not to the day count its I64 buffer holds.
+          Some(b) =>
+            if storage.dtype() is @types.DataType::Date {
+              @types.Scalar::Date(b)
+            } else {
+              @types.Scalar::Int(b)
+            }
           None => @types.Scalar::Null
         }
       }
-    @column.ColumnData::Float(a) =>
+    @column.ColumnData::F64(a) =>
       fn(n : Int, at : (Int) -> Int) {
         let get = k => a[at(k)]
         // `NaN` is treated as missing (skipped), as in `Series::min`.
@@ -190,9 +203,9 @@ fn reduce_extremum(
           None => @types.Scalar::Null
         }
       }
-    @column.ColumnData::String(a) =>
+    @column.ColumnData::Utf8(a) =>
       fn(n : Int, at : (Int) -> Int) {
-        let get = k => a[at(k)]
+        let get = k => a.get(at(k))
         let skip = k => !present(at(k))
         let better = (x, y) => {
           if want_min {
@@ -241,9 +254,12 @@ fn numeric_double_reader(
   op : String,
 ) -> ((Int) -> Double) raise @types.DataError {
   match storage.data() {
-    @column.ColumnData::Int(a) => i => a[i].to_double()
-    @column.ColumnData::Float(a) => i => a[i]
-    @column.ColumnData::Bool(_) | @column.ColumnData::String(_) =>
+    @column.ColumnData::I64(a) if storage.dtype().is_numeric() =>
+      i => a[i].to_double()
+    @column.ColumnData::F64(a) => i => a[i]
+    @column.ColumnData::I64(_)
+    | @column.ColumnData::Bool(_)
+    | @column.ColumnData::Utf8(_) =>
       raise @types.DataError::TypeMismatch(
         @types.TypeMismatchDetail::Message(
           "\{op} undefined for \{storage.dtype()}",
@@ -411,14 +427,14 @@ fn count_distinct(
 ) -> (Int, (Int) -> Int) -> Int {
   let present = reduce_present(storage)
   let key_of : (Int) -> KeyCell = match storage.data() {
-    @column.ColumnData::Int(a) => i => KInt(a[i])
+    @column.ColumnData::I64(a) => i => KInt(a[i])
     // The `Float` arm shares `float_key_cell` with `key_cell` (NaN → KNaN,
     // -0.0 → +0.0) so it keys on the native `Double` without boxing a `Scalar`
     // per cell, like the other three arms — n_unique / group_by / join stay in
     // agreement on "distinct" by construction, not by hand-synced copies.
-    @column.ColumnData::Float(a) => i => float_key_cell(a[i])
+    @column.ColumnData::F64(a) => i => float_key_cell(a[i])
     @column.ColumnData::Bool(a) => i => KBool(a[i])
-    @column.ColumnData::String(a) => i => KStr(a[i])
+    @column.ColumnData::Utf8(a) => i => KStr(a.get(i))
   }
   fn(n : Int, at : (Int) -> Int) {
     let seen : Map[KeyCell, Unit] = Map([])
@@ -461,12 +477,11 @@ fn reduce_first_last(
   // Resolve the dtype dispatch once: a reader that builds the source-dtype
   // `Scalar` at a source row. Only ever called on a present row (the null /
   // empty cases short-circuit to `Null` first), so it never reads a null slot.
-  let read : (Int) -> @types.Scalar = match storage.data() {
-    @column.ColumnData::Int(a) => i => @types.Scalar::Int(a[i])
-    @column.ColumnData::Float(a) => i => @types.Scalar::Float(a[i])
-    @column.ColumnData::Bool(a) => i => @types.Scalar::Bool(a[i])
-    @column.ColumnData::String(a) => i => @types.Scalar::String(a[i])
-  }
+  // The read lifts through the dtype registry, so an I64-riding dtype
+  // (Date) surfaces its own Scalar rather than the buffer's Int.
+  let dt = storage.dtype()
+  let data = storage.data()
+  let read : (Int) -> @types.Scalar = i => @column.scalar_of(dt, data, i)
   fn(n : Int, at : (Int) -> Int) {
     if n == 0 {
       @types.Scalar::Null
@@ -482,16 +497,14 @@ fn reduce_first_last(
 }
 
 ///|
-/// The eleven reductions the shared kernel resolves. Lives here in `series` and
-/// is `pub(all)` so the `frame`-side aggregations can construct it. `series`
-/// sits below the expression layer and does not import `internal/ir`, so it
-/// cannot name the AST aggregation tag `@ir.AggOp` — it carries its own
-/// reduction vocabulary instead, and `frame`'s `reduce_op_of_agg` maps
-/// `@ir.AggOp` into it for both the grouped (`agg`) and scoped (`eval_agg`)
-/// reductions.
-///
-/// This variant list mirrors `@ir.AggOp` one-to-one. Keep the two in lockstep —
-/// a reduction added here must also be added to `@ir.AggOp` and to that map.
+/// The eleven reductions the shared kernel resolves — the single aggregation
+/// vocabulary, one fact with one home. The expression AST's `Agg` node carries
+/// a `ReduceOp` directly (`internal/ir` imports `series`), `frame`'s evaluator
+/// and grouped-`agg` fast path dispatch on it, and `reducer_for` right below
+/// resolves it — so adding a reduction is one variant here plus its
+/// `reducer_for` arm and the public `Expr` builder, with no mirror enum and no
+/// translation layer to keep in lockstep. `pub(all)` so the engine packages
+/// can construct it.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
 pub(all) enum ReduceOp {
@@ -506,7 +519,10 @@ pub(all) enum ReduceOp {
   NUnique
   First
   Last
-}
+} derive(Eq)
+
+///|
+pub extend ReduceOp with Eq::{equal, not_equal}
 
 ///|
 /// Resolve a `ReduceOp` to its window reducer plus the dtype probe that fixes
@@ -606,6 +622,16 @@ pub fn scalars_to_series(
         cells.map(c => {
           match c {
             @types.Scalar::String(v) => Some(v)
+            _ => None
+          }
+        }),
+      )
+    @types.DataType::Date =>
+      Series::from_date_options(
+        name,
+        cells.map(c => {
+          match c {
+            @types.Scalar::Date(v) => Some(v)
             _ => None
           }
         }),

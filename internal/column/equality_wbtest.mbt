@@ -15,47 +15,16 @@
 // `ColumnData` fails to compile here until it says what equal means — the
 // property the `derive` used to give.
 //
-// `Bitmap` is here for the same reason and one more: MoonBit promotes a trait
-// impl's methods to regular methods, so a `pub impl Eq` cannot help publishing
-// `equal` / `not_equal` beside it. Keeping the impl in this file is therefore the
-// only way a bitmap comparison stays a test's tool rather than three symbols in
-// the interface.
-
-///|
-/// Logical equality: two bitmaps are equal iff they have the same length and the
-/// same validity bit at every logical slot. The comparison walks the
-/// `[offset, offset + len)` windows rather than the raw buffers, so a zero-copy
-/// `slice` view equals a freshly packed bitmap with the same bits — where a
-/// structural comparison would read `offset` and the shared buffer and call them
-/// unequal. That is exactly what makes it a *test's* relation: production never
-/// asks whether two validity buffers match (`ColumnStorage::equal` compares
-/// cells, one slot at a time), while a test that builds the same window two ways
-/// does.
-impl Eq for Bitmap with fn equal(self, other) {
-  if self.len != other.len {
-    false
-  } else {
-    let mut equal = true
-    for i in 0..<self.len {
-      if bit_at(self.bits, self.offset + i) !=
-        bit_at(other.bits, other.offset + i) {
-        equal = false
-        break
-      }
-    }
-    equal
-  }
-}
 
 ///|
 impl Eq for ColumnData with fn equal(self, other) {
   match (self, other) {
-    (Int(a), Int(b)) => a == b
-    (Float(a), Float(b)) => a == b
+    (I64(a), I64(b)) => a == b
+    (F64(a), F64(b)) => a == b
     (Bool(a), Bool(b)) => a == b
-    (String(a), String(b)) => a == b
+    (Utf8(a), Utf8(b)) => a.to_strings() == b.to_strings()
     // A different dtype is a different column, whatever the cells hold.
-    (Int(_), _) | (Float(_), _) | (Bool(_), _) | (String(_), _) => false
+    (I64(_), _) | (F64(_), _) | (Bool(_), _) | (Utf8(_), _) => false
   }
 }
 
@@ -70,7 +39,8 @@ impl Eq for NumericData with fn equal(self, other) {
 
 ///|
 impl Eq for BuiltinColumn with fn equal(self, other) {
-  self.data == other.data && self.validity == other.validity
+  self.data == other.data &&
+  self.validity.to_bools() == other.validity.to_bools()
 }
 
 ///|

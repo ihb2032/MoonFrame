@@ -18,9 +18,31 @@ root facade keeps the file-level verbs as its first-contact face, with the
 string-level serialisers reached through `@io` directly. Both changes narrow
 what a reader meets first without removing capability: every moved or
 de-listed symbol still exists, at the same signature, one qualification away.
-The source-level upgrade steps are collected in [`migration.md`](migration.md).
+The engine side gains a `Date` dtype riding the existing 64-bit buffer, and
+the dtype facts those engines dispatch on gather into one registry. The
+source-level upgrade steps are collected in [`migration.md`](migration.md).
+
+### Features
+
+- **`Date` is a dtype.** `DataType::Date` and `Scalar::Date` (whole days
+  since the Unix epoch, rendered as ISO `YYYY-MM-DD`) join the value model.
+  A `Date` column rides the existing 64-bit integer buffer, so comparing,
+  sorting, grouping, and `min` / `max` / `count` / `n_unique` / `first` /
+  `last` work on it through the same paths as any other column — while the
+  arithmetic reductions (`sum` / `mean` / `std` / `var` / `median`), a
+  comparison against a plain `Int`, and `cast` in either direction are
+  `TypeMismatch` / `Unsupported`: day-counts are not dates. Readers never
+  infer `Date` (ISO-shaped CSV text arrives as `String`); CSV / JSON / the
+  table and chart renderers write its ISO form, and a Vega-Lite encoding on
+  a `Date` column encodes as `temporal`. Build one through
+  `lit(Scalar::Date(days))`, `DataFrame::from_rows`, or a `Date`-typed
+  `Schema` field.
 
 ### Breaking
+
+- **`DataType` and `Scalar` gained a `Date` variant.** A downstream
+  exhaustive `match` over either enum fails to compile until it handles
+  `Date` (see [`migration.md`](migration.md)).
 
 - **Chart export lives in `chart`, not `io`.** Vega-Lite export is
   serialisation to an external interchange format, not tabular interchange:
@@ -46,14 +68,39 @@ The source-level upgrade steps are collected in [`migration.md`](migration.md).
 
 ### Internal restructuring (no behaviour change)
 
+- The lazy scan sources read through a scan-driver seam: a readable format
+  implements a label and a read (`internal/scan`), io's CSV / NDJSON drivers
+  are the format faces, and the lazy engine's execute / narrow / render /
+  absorb points collapse from per-format arms to driver calls. Wiring a new
+  scannable format is one driver plus its `scan_*` builder — push-down and
+  rendering come with the interface. The four file-backed engine seams the
+  drivers replace are gone; eager `read_csv` / `read_ndjson` are unchanged.
+- The optimizer's two passes compose through an explicit pass table:
+  pass order is data, a new pass is one rewrite function plus one row, and
+  the DAG guard stays in front of the pipeline. Each pass's soundness-rule
+  documentation moved onto the pass it describes, and the idempotence
+  white-box tests now assert every pass idempotent at its pipeline position.
+- The aggregation tag the AST carries is `@series.ReduceOp` directly. The
+  one-to-one mirror (`internal/ir.AggOp`) and `frame`'s translation layer
+  (`reduce_op_of_agg`) are gone — adding an aggregation is one `ReduceOp`
+  variant, its `reducer_for` arm, and the public `Expr` builder.
+- The `ColumnData` variants carry the physical names (`I64` / `F64` /
+  `Bool` / `Utf8`) they always had the shapes of, aligning the column
+  buffers with `PhysicalType` one-to-one.
+- The per-dtype facts the engine packages dispatched on separately — display
+  name, physical buffer, numericity — gather into a dtype registry in
+  `types`, and `BuiltinColumn` carries its logical dtype instead of deriving
+  it from the buffer variant. That identity/representation split is what
+  lets `Date` reuse the 64-bit buffer: the column's dtype is registered, not
+  inferred from its cells.
 - The shared numeric-text probes move from `csv.mbt` to `infer.mbt`, beside
   the inference skeleton that owns them (the JSON readers' big-integer
   recovery had been reaching them backwards across the package's file map).
 - The JSON-records core shared by the JSON and NDJSON readers — and, since
   the chart split, by `chart` — moves to `json_core.mbt`.
-- The four `#internal(engine)` scan push-down seams gather into
-  `scan_seams.mbt`, the push-down contract written once in the file header
-  instead of restated four times.
+- The four `#internal(engine)` scan push-down seams are superseded by the
+  scan-driver seam (`internal/scan` + io's `scan_driver.mbt`), whose header
+  carries the push-down contract once for every format.
 - The write-path CSV tests mirror the source split (`csv_write_test.mbt`
   beside `csv_write.mbt`), and the three-format round-trip corpus is driven
   by a format table — wiring a new format into the corpus becomes adding a

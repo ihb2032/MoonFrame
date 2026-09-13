@@ -2,23 +2,17 @@
 package "ihb2032/MoonFrame/internal/column"
 
 import {
+  "ihb2032/MoonFrame/internal/buffer",
   "ihb2032/MoonFrame/types",
   "moonbitlang/core/debug",
 }
 
 // Values
-pub fn physical_type(@types.DataType) -> PhysicalType?
+pub fn scalar_of(@types.DataType, ColumnData, Int) -> @types.Scalar
 
 // Errors
 
 // Types and methods
-pub struct Bitmap {
-  // private fields
-} derive(@debug.Debug)
-pub fn Bitmap::is_valid_total(Self, Int) -> Bool
-pub fn Bitmap::to_bools(Self) -> Array[Bool]
-pub fn Bitmap::to_repr(Self) -> @debug.Repr
-
 pub struct BuiltinColumn {
   // private fields
 } derive(@debug.Debug)
@@ -26,6 +20,7 @@ pub fn BuiltinColumn::from_bool_options(Array[Bool?]) -> Self
 pub fn BuiltinColumn::from_bools(Array[Bool]) -> Self
 pub fn BuiltinColumn::from_float_options(Array[Double?]) -> Self
 pub fn BuiltinColumn::from_floats(Array[Double]) -> Self
+pub fn BuiltinColumn::from_i64_options(@types.DataType, Array[Int64?]) -> Self
 pub fn BuiltinColumn::from_int_options(Array[Int64?]) -> Self
 pub fn BuiltinColumn::from_ints(Array[Int64]) -> Self
 pub fn BuiltinColumn::from_string_options(Array[String?]) -> Self
@@ -33,10 +28,10 @@ pub fn BuiltinColumn::from_strings(Array[String]) -> Self
 pub fn BuiltinColumn::to_repr(Self) -> @debug.Repr
 
 pub(all) enum ColumnData {
-  Int(ArrayView[Int64])
-  Float(ArrayView[Double])
+  I64(ArrayView[Int64])
+  F64(ArrayView[Double])
   Bool(ArrayView[Bool])
-  String(ArrayView[String])
+  Utf8(@buffer.Utf8Array)
 } derive(@debug.Debug)
 pub fn ColumnData::to_repr(Self) -> @debug.Repr
 
@@ -59,7 +54,7 @@ pub fn ColumnStorage::slice(Self, Int, Int) -> Self raise @types.DataError
 pub fn ColumnStorage::slice_total(Self, Int, Int) -> Self
 pub fn ColumnStorage::take(Self, Array[Int]) -> Self raise @types.DataError
 pub fn ColumnStorage::to_repr(Self) -> @debug.Repr
-pub fn ColumnStorage::validity(Self) -> Bitmap
+pub fn ColumnStorage::validity(Self) -> @buffer.Bitmap
 pub impl Eq for ColumnStorage
 
 pub struct NumericColumn {
@@ -79,13 +74,6 @@ pub(all) enum NumericData {
   Float(ArrayView[Double])
 } derive(@debug.Debug)
 pub fn NumericData::to_repr(Self) -> @debug.Repr
-
-pub(all) enum PhysicalType {
-  I64
-  F64
-  Bool
-  Utf8
-}
 
 pub(all) enum StorageKind {
   Builtin

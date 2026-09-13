@@ -53,6 +53,7 @@ pub(all) enum DataType {
   Float
   Bool
   String
+  Date
   Null
 } derive(Eq, @debug.Debug)
 pub fn DataType::equal(Self, Self) -> Bool
@@ -103,6 +104,7 @@ pub(all) enum Scalar {
   Float(Double)
   Bool(Bool)
   String(String)
+  Date(Int64)
   Null
 } derive(Eq, @debug.Debug)
 pub fn Scalar::as_bool(Self) -> Bool raise DataError

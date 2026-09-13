@@ -67,7 +67,9 @@ fn try_fast_is_in(
   let valid = validity_bools(operand)
   let name = operand.name()
   match operand.storage().data() {
-    @column.ColumnData::String(data) => {
+    @column.ColumnData::Utf8(buf) => {
+      // Decoded once per side: cell membership reads materialised Strings.
+      let data = buf.to_strings()
       let set : Map[String, Unit] = Map([])
       for m in members {
         match m {
@@ -89,7 +91,10 @@ fn try_fast_is_in(
         ),
       )
     }
-    @column.ColumnData::Int(data) => {
+    // Dtype-gated: a Date column is I64-typed, but its cells must not match
+    // Int members through the fast path — the general path compares Scalars,
+    // which keep the dtypes distinct.
+    @column.ColumnData::I64(data) if operand.dtype() is @types.DataType::Int => {
       let set : Map[Int64, Unit] = Map([])
       for m in members {
         match m {
@@ -139,7 +144,7 @@ fn try_fast_is_in(
         ),
       )
     }
-    @column.ColumnData::Float(_) => None
+    @column.ColumnData::F64(_) | @column.ColumnData::I64(_) => None
   }
 }
 

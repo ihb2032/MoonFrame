@@ -28,10 +28,12 @@ pub fn eval_str(
   op : @ir.StrOp,
   operand : Series,
 ) -> Series raise @types.DataError {
+  // Decoded once up front: the string ops read materialised Strings (the
+  // regex engine and the String methods speak UTF-16), one decode per cell.
   let data = match operand.storage().data() {
-    @column.ColumnData::String(a) => a
-    @column.ColumnData::Int(_)
-    | @column.ColumnData::Float(_)
+    @column.ColumnData::Utf8(a) => a.to_strings()
+    @column.ColumnData::I64(_)
+    | @column.ColumnData::F64(_)
     | @column.ColumnData::Bool(_) =>
       raise @types.DataError::TypeMismatch(
         @types.TypeMismatchDetail::Message(

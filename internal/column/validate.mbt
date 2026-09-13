@@ -12,7 +12,7 @@
 /// `len`, in the order both backends' `slice` rely on:
 /// - `IndexOutOfBounds(start)` when `start < 0`.
 /// - `IndexOutOfBounds(end)` when `end` is outside `[0, len]`.
-/// - `InvalidOperation("slice start > end: ...")` when `start > end`.
+/// - `InvalidOperation("slice start > end: .")` when `start > end`.
 ///
 /// Both ends are checked against the whole valid range, so which error a
 /// caller gets says what is wrong with the *argument*: an index outside the

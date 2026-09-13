@@ -1,20 +1,22 @@
 ///|
-/// The query optimizer: two **total** plan→plan rewrites — pure tree
-/// walking, no raise, no abort — that `collect` runs in front of the
-/// executor and `explain(optimized=true)` renders for inspection. The
-/// predicate pass runs first and sinks `Filter` nodes toward the scan so
-/// rows drop as early as possible; the projection pass then runs a
-/// required-columns analysis and narrows each scan — the in-memory `Scan`
-/// and the `Csv` / `Ndjson` file sources alike — to the columns its
-/// consumers provably read, so dead columns never ride through row-level work
-/// (and, for a file source, are never even parsed). The inviolable contract
-/// is the executor's own: `execute(optimize(p))` is equal to
-/// `execute(p)` for every plan that collects. Neither pass ever alters a
-/// user-written node's *content* (predicates, expression lists, keys stay
-/// verbatim); the predicate pass re-orders whole `Filter` nodes downward, and
-/// the projection pass narrows a scan two ways — inserting a `Select` of bare
-/// column references over an in-memory `Scan`, or writing the column set into
-/// a file source's own projection field.
+/// The query optimizer: a fixed pipeline of **total** plan→plan rewrites —
+/// pure tree walking, no raise, no abort — that `collect` runs in front of
+/// the executor and `explain(optimized=true)` renders for inspection. The
+/// passes and their run order are the table `optimizer_passes`; a new pass
+/// is a rewrite function documented beside its own soundness rules plus one
+/// row in that table. Today there are two: the predicate pass runs first and
+/// sinks `Filter` nodes toward the scan so rows drop as early as possible;
+/// the projection pass then runs a required-columns analysis and narrows
+/// each scan — the in-memory `Scan` and the `Csv` / `Ndjson` file sources
+/// alike — to the columns its consumers provably read, so dead columns never
+/// ride through row-level work (and, for a file source, are never even
+/// parsed). The inviolable contract is the executor's own:
+/// `execute(optimize(p))` is equal to `execute(p)` for every plan that
+/// collects. No pass ever alters a user-written node's *content* (predicates,
+/// expression lists, keys stay verbatim); the predicate pass re-orders whole
+/// `Filter` nodes downward, and the projection pass narrows a scan two ways —
+/// inserting a `Select` of bare column references over an in-memory `Scan`,
+/// or writing the column set into a file source's own projection field.
 ///
 /// Error faithfulness under re-ordering: a plan that fails to collect
 /// still fails after optimization. When exactly one stage is broken, it
@@ -44,133 +46,25 @@
 /// still surfaces unchanged — only an error isolated to a pruned-away column
 /// goes unraised.
 ///
-/// # The predicate pass
+/// # The pipeline
 ///
-/// A filter may sink below a stage only when dropping rows first provably
-/// cannot change the stage's output on the surviving rows, its errors, or
-/// the filter's own verdicts:
+/// Pass order is explicit data — the `optimizer_passes` table — not an
+/// implicit fact of how calls nest, so adding a pass cannot silently change
+/// what runs when. Running the predicate pass first keeps the projection
+/// analysis honest: a sunk filter is just another layout-preserving node by
+/// the time the projection pass sees it, so its predicate columns stay alive
+/// at the scan, and the narrowing `Select` lands *under* the sunk filter.
 ///
-/// - `Select` — crossed when every selected expression is `row_stable`
-///   *and* the selection preserves its input's row count (it reads at
-///   least one column, mapping rows one-to-one rather than collapsing to a
-///   single literal row: an all-constant selection collapses any input,
-///   even zero rows, to one row, so a dropping filter must stay above it),
-///   and every column the predicate reads appears in the selection as a
-///   *bare* `col(name)` (so the predicate sees the same values below, and
-///   a predicate the selection would have starved of its column still
-///   fails identically — a computed or renamed column fences the filter
-///   above).
-/// - `WithColumns` — crossed under the same `row_stable` rule when the
-///   stage *defines* none of the predicate's columns (a defined name has
-///   different values — or no existence at all — below the stage; its
-///   pass-through columns are identical on both sides by construction).
-/// - `Aggregate` — crossed when the predicate is `row_stable` and reads
-///   only *bare-column* keys (a key written as `col(name)`: every row of a
-///   group shares its key tuple, so filtering groups after aggregation and
-///   filtering their rows before it drop exactly the same groups, in the
-///   same first-appearance order — and a bare key's output column holds its
-///   input column verbatim, so the predicate reads identical values below).
-///   The predicate must also be `signed_zero_safe`: a `Float` key folds `-0.0`
-///   and `+0.0` into one group, yet the group's output row keeps its
-///   representative's signed key, and division and a negative exponent are the
-///   operators that tell the two apart (`1/+0.0 = +inf` vs `1/-0.0 = -inf`,
-///   `(+0.0) ** -1 = +inf` vs `(-0.0) ** -1 = -inf`), so such a predicate could
-///   drop only part of a folded group below the aggregate and change its
-///   surviving reduction.
-///   Every key must also be `row_stable`, not only the ones the predicate
-///   reads: each key is materialised as an output column (and joins the
-///   grouping tuple). An aggregate key broadcasts a whole-scope reduction,
-///   so a filtered scope would silently recompute its output cell; a cast /
-///   map / lit-series key is value-raising or positional per `row_stable`.
-///   All four must stay above the filter.
-///   A *derived* key (any non-`Col` expression) outputs a computed column
-///   whose name need not exist in the input at all, so a predicate over it
-///   stays above; predicates over aggregation *outputs* read non-key names
-///   and stay above the same way. Every aggregation must also be
-///   `group_cell_stable` — its per-group cell can neither be null nor raise
-///   on values: `sum` / `count` over a `row_stable` operand and non-null
-///   literals qualify (a `sum(col.cast(…))` does not — its operand can raise
-///   on the cells it meets), `mean` / `min` / `max` do not, and `cast` does
-///   not (a dropped group could be the one whose value fails to convert).
-///   The `mean` / `min` / `max` fence is **conservative**: it was argued from
-///   an all-null group's null cell flipping the stitched column's backend,
-///   which column equality has since stopped observing (it compares dtype,
-///   length, null-ness and values, never the backend). Loosening it therefore
-///   needs its own argument — that per-group values, null-ness and raised
-///   errors are all unchanged when other groups disappear — not the removal of
-///   the old one.
-/// - Everything else stops the descent. `Head` / `Tail` / `Slice` pick
-///   rows by *position*, and filtering re-numbers positions. `Sort` and
-///   another `Filter` are value-safe to cross for row-stable predicates
-///   but are deliberately left in place: crossing a filter re-orders
-///   which predicate evaluates first, and crossing a sort buys nothing
-///   until the executor can exploit sortedness. `Join` needs column
-///   provenance through suffix renaming to split a predicate across its
-///   sides, deferred with the projection pass's join narrowing — but
-///   both sides restart their own descent, so filters inside either
-///   side still sink. The in-memory `Scan` is the floor. A **file source**
-///   goes one step further: the predicate is absorbed into the `Csv` /
-///   `Ndjson` scan source itself, so the reader prunes rows while parsing (see
-///   `@io.read_csv_pruned`) and no `Filter` node remains above the leaf.
-///   Only the first predicate is absorbed — combining two would reorder
-///   which operand's evaluation error surfaces first — so a second filter
-///   stays a node above the scan.
-///
-/// # The projection pass
-///
-/// A top-down "required columns" analysis:
-///
-/// - `None` — the consumer may observe this node's *entire* output
-///   (the plan root, or anything under a barrier node): its layout must
-///   survive untouched, so no narrowing happens at this node's leaves
-///   unless a descendant re-establishes a requirement of its own.
-/// - `Some(s)` — the consumer reads only the named columns, **by name**,
-///   and is insensitive to the node's column order and to extra columns.
-///   Only the two by-name readers originate this: `Select` and
-///   `Aggregate`, whose outputs are fully determined by their expression
-///   / key lists. The layout-preserving nodes (`Filter` / `Sort` /
-///   `Head` / `Tail` / `Slice`) pass the requirement through, widened by
-///   the columns they read themselves; `WithColumns` subtracts the names
-///   its expressions *define* (those need not exist in its input) and
-///   adds the names they *read*. `Join` stays a barrier — splitting a
-///   requirement across two sides whose outputs interleave under suffix
-///   renaming is column provenance, deferred — but both sides restart
-///   their own pass, so a `Select` deep under a join still narrows its
-///   own scan.
-///
-/// Why the order insensitivity matters: narrowing a `with_columns` input
-/// can turn an in-place column *replacement* into an *append* (the
-/// replaced name no longer exists in the narrowed input), perturbing the
-/// intermediate column order. That perturbation is only ever visible to
-/// the requirement's originator — a by-name reader — never to the plan
-/// root, which always starts at `None`. The `Aggregate` executor reads
-/// its keys in key-list order, not input order, so it qualifies too.
-///
-/// Running the predicate pass first keeps the analysis honest: a sunk
-/// filter is just another layout-preserving node by the time the
-/// projection pass sees it, so its predicate columns stay alive at the
-/// scan, and the narrowing `Select` lands *under* the sunk filter.
-///
-/// Deliberately deferred: pruning dead expressions from `Select` /
-/// `WithColumns` lists (changes which expressions evaluate, hence which
-/// *errors* a failing plan reports), narrowing or predicate-splitting
-/// through `Join`, sinking filters below `Sort`, and streaming a file source
-/// (the reader still tokenises the whole file; push-down skips the *typed*
-/// build of dropped rows, not the read).
-///
-/// The projection pass is idempotent (`push_projection ∘ push_projection ==
-/// push_projection`): a bare-column `Select` over an in-memory `Scan` is
-/// recognised as the narrowing it already is (`already_narrows_inmemory`), so
-/// re-optimizing never stacks a second one, and a file source's projection
-/// just recomputes to the same set. `optimize` as a whole is idempotent too
-/// except on one shape: a filter that can sink *past* a `Select` the
-/// projection pass inserts. The predicate pass runs first, so a re-optimize
-/// sinks that filter below the inserted select and the projection pass rebuilds
-/// around the new position — a fixed-point-across-passes concern left for a
-/// future multi-pass optimizer. It is moot in practice: plans are immutable,
-/// and each `collect` or `explain(optimized=true)` rewrites the as-built plan
-/// exactly once. `lazy/idempotence_wbtest.mbt` pins the projection-pass
-/// property and the whole-optimize property on the shapes that hold.
+/// Each pass is idempotent on its own, and `optimize` as a whole is
+/// idempotent too except on one shape: a filter that can sink *past* a
+/// `Select` the projection pass inserts. Each pass runs exactly once per
+/// `optimize`, so a re-optimize sinks that filter below the inserted select
+/// and the projection pass rebuilds around the new position — a
+/// fixed-point-across-passes concern, deliberately left alone: plans are
+/// immutable, and each `collect` or `explain(optimized=true)` rewrites the
+/// as-built plan exactly once. `lazy/idempotence_wbtest.mbt` pins every
+/// pass's own idempotence and the whole-pipeline property on the shapes
+/// that hold.
 fn optimize(plan : LogicalPlan) -> LogicalPlan {
   // A DAG-shaped plan — nested self-joins share node objects by reference —
   // is left as-built: both passes rebuild tree-wise, so rewriting would
@@ -183,5 +77,22 @@ fn optimize(plan : LogicalPlan) -> LogicalPlan {
   if has_shared_subplan(plan) {
     return plan
   }
-  push_projection(push_predicates(plan), None)
+  let mut optimized = plan
+  for rewrite in optimizer_passes {
+    optimized = rewrite(optimized)
+  }
+  optimized
 }
+
+///|
+/// The pass table, in run order — the single statement of what the optimizer
+/// does and in what sequence: each entry is one total plan→plan rewrite, run
+/// once, left to right. A new pass is a rewrite function (its own file, with
+/// its soundness rules documented beside it) plus one row here. The
+/// projection pass runs at the plan root, so its entry hands the root
+/// requirement `None`: only a by-name reader under the root re-establishes a
+/// requirement of its own.
+let optimizer_passes : Array[(LogicalPlan) -> LogicalPlan] = [
+  push_predicates,
+  plan => push_projection(plan, None),
+]

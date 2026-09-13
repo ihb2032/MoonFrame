@@ -11,52 +11,42 @@
 /// The `Int` buffer and validity mask of a column the caller knows is `Int`;
 /// an empty buffer for any other dtype, which fails the assertion that
 /// follows rather than the test.
-fn int_cells(col : BuiltinColumn) -> (ArrayView[Int64], Bitmap) {
+fn int_cells(col : BuiltinColumn) -> (ArrayView[Int64], @buffer.Bitmap) {
   match col.data() {
-    ColumnData::Int(a) => (a, col.validity())
-    ColumnData::Float(_) | ColumnData::Bool(_) | ColumnData::String(_) =>
+    ColumnData::I64(a) => (a, col.validity())
+    ColumnData::F64(_) | ColumnData::Bool(_) | ColumnData::Utf8(_) =>
       ([], col.validity())
   }
 }
 
 ///|
 /// The `Float` buffer and validity mask; see `int_cells`.
-fn float_cells(col : BuiltinColumn) -> (ArrayView[Double], Bitmap) {
+fn float_cells(col : BuiltinColumn) -> (ArrayView[Double], @buffer.Bitmap) {
   match col.data() {
-    ColumnData::Float(a) => (a, col.validity())
-    ColumnData::Int(_) | ColumnData::Bool(_) | ColumnData::String(_) =>
+    ColumnData::F64(a) => (a, col.validity())
+    ColumnData::I64(_) | ColumnData::Bool(_) | ColumnData::Utf8(_) =>
       ([], col.validity())
   }
 }
 
 ///|
 /// The `Bool` buffer and validity mask; see `int_cells`.
-fn bool_cells(col : BuiltinColumn) -> (ArrayView[Bool], Bitmap) {
+fn bool_cells(col : BuiltinColumn) -> (ArrayView[Bool], @buffer.Bitmap) {
   match col.data() {
     ColumnData::Bool(a) => (a, col.validity())
-    ColumnData::Int(_) | ColumnData::Float(_) | ColumnData::String(_) =>
+    ColumnData::I64(_) | ColumnData::F64(_) | ColumnData::Utf8(_) =>
       ([], col.validity())
   }
 }
 
 ///|
 /// The `String` buffer and validity mask; see `int_cells`.
-fn string_cells(col : BuiltinColumn) -> (ArrayView[String], Bitmap) {
+fn string_cells(col : BuiltinColumn) -> (Array[String], @buffer.Bitmap) {
   match col.data() {
-    ColumnData::String(a) => (a, col.validity())
-    ColumnData::Int(_) | ColumnData::Float(_) | ColumnData::Bool(_) =>
+    ColumnData::Utf8(a) => (a.to_strings(), col.validity())
+    ColumnData::I64(_) | ColumnData::F64(_) | ColumnData::Bool(_) =>
       ([], col.validity())
   }
-}
-
-///|
-/// A validity mask from a plain `Bool` vector, `true` ↦ valid. What
-/// `Bitmap::from_bools` did before it was deleted (doc-guard: historical):
-/// production never builds a mask that way — it builds one from the option
-/// vector a constructor was given, or all-valid — so spelling a mask out bit
-/// by bit is a test's need and lives with the tests.
-fn mask(bits : Array[Bool]) -> Bitmap {
-  Bitmap::from_options(bits.map(b => if b { Some(0) } else { None }))
 }
 
 ///|
@@ -75,10 +65,10 @@ fn mask(bits : Array[Bool]) -> Bitmap {
 fn placeholders_normalized(col : BuiltinColumn) -> Bool {
   let valid = col.validity.to_bools()
   match col.data {
-    ColumnData::Int(a) => null_slots_hold(a, valid, 0L)
-    ColumnData::Float(a) => null_slots_hold(a, valid, 0.0)
+    ColumnData::I64(a) => null_slots_hold(a, valid, 0L)
+    ColumnData::F64(a) => null_slots_hold(a, valid, 0.0)
     ColumnData::Bool(a) => null_slots_hold(a, valid, false)
-    ColumnData::String(a) => null_slots_hold(a, valid, "")
+    ColumnData::Utf8(a) => null_slots_hold(a.to_strings(), valid, "")
   }
 }
 

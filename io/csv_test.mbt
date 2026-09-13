@@ -709,11 +709,10 @@ test "CSV file readers forward strict quote validation" {
     e => Err(e)
   }
   let projected = Ok(
-    @io.read_csv_projected(
+    @io.csv_scan_driver(
       path,
       @io.CsvReadOptions::CsvReadOptions(strict_quotes=true),
-      ["a"],
-    ),
+    ).scan(projection=Some(["a"])),
   ) catch {
     e => Err(e)
   }
@@ -729,12 +728,14 @@ test "a projection matching no header reads the rows and no columns" {
   let path = "_build/io_csv_zero_match_projection.csv"
   @fs.write_string_to_file(path, "a,b\n1,x\n2,y\n3,z")
   let opts = @io.CsvReadOptions::CsvReadOptions()
-  let none_match = @io.read_csv_projected(path, opts, ["nope"])
-  assert_eq(none_match.shape(), (3, 0))
-  assert_false(none_match.is_empty())
+  // Through the driver face the lazy engine reads: the batch keeps the row
+  // count on its own, so nothing unrelated is inferred or parsed.
+  let driver = @io.csv_scan_driver(path, opts)
+  let none_match = driver.scan(projection=Some(["nope"]))
+  assert_eq((none_match.columns().length(), none_match.height()), (0, 3))
   // Partial-match leniency is untouched: the matched column, the same height.
-  let partial = @io.read_csv_projected(path, opts, ["b", "nope"])
-  assert_eq(partial.shape(), (3, 1))
+  let partial = driver.scan(projection=Some(["b", "nope"]))
+  assert_eq((partial.columns().length(), partial.height()), (1, 3))
 }
 
 ///|

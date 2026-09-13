@@ -20,6 +20,7 @@ DataError | suberror | ParseError(ParseErrorDetail)
 DataError | suberror | TypeMismatch(TypeMismatchDetail)
 DataError | suberror | Unsupported(String)
 DataType | enum | Bool
+DataType | enum | Date
 DataType | enum | Float
 DataType | enum | Int
 DataType | enum | Null
@@ -39,6 +40,7 @@ OnParseError | enum | Raise
 ParseErrorDetail | enum | Cell(CellParseLocation, String, Int, DataType, String)
 ParseErrorDetail | enum | Message(String)
 Scalar | enum | Bool(Bool)
+Scalar | enum | Date(Int64)
 Scalar | enum | Float(Double)
 Scalar | enum | Int(Int64)
 Scalar | enum | Null

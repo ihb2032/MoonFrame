@@ -245,7 +245,7 @@ fn binop_symbol(op : @ir.BinOp) -> String {
 
 ///|
 /// Postfix method spelling for an aggregation tag.
-fn agg_suffix(op : @ir.AggOp) -> String {
+fn agg_suffix(op : @series.ReduceOp) -> String {
   match op {
     Sum => ".sum()"
     Mean => ".mean()"

@@ -9,12 +9,16 @@
 ///
 /// The `Float` variant carries a 64-bit `Double`; the `Int` variant carries
 /// a 64-bit `Int64`. Use `as_float` for explicit access; `Int` is also
-/// accepted via numeric promotion to `Double`.
+/// accepted via numeric promotion to `Double`. The `Date` variant carries
+/// whole days since the Unix epoch (`1970-01-01` = day `0`), rendering as an
+/// ISO `YYYY-MM-DD` string; it compares date-wise against another `Date` and
+/// `raise`s against any other dtype.
 pub(all) enum Scalar {
   Int(Int64)
   Float(Double)
   Bool(Bool)
   String(String)
+  Date(Int64)
   Null
 } derive(Eq, Debug)
 
@@ -35,6 +39,7 @@ pub fn Scalar::dtype(self : Scalar) -> DataType {
     Float(_) => DataType::Float
     Bool(_) => DataType::Bool
     String(_) => DataType::String
+    Date(_) => DataType::Date
     Null => DataType::Null
   }
 }
@@ -47,13 +52,15 @@ pub fn Scalar::is_null(self : Scalar) -> Bool {
 
 ///|
 /// Value-style rendering: `Int(42)` → `"42"`, `String("ab")` → `"ab"`,
-/// `Null` → `""`. Use the `Show` impl for the variant-form rendering.
+/// `Date(0)` → `"1970-01-01"`, `Null` → `""`. Use the `Show` impl for the
+/// variant-form rendering.
 pub fn Scalar::to_string(self : Scalar) -> String {
   match self {
     Int(v) => v.to_string()
     Float(v) => v.to_string()
     Bool(v) => v.to_string()
     String(v) => v
+    Date(v) => date_days_to_iso(v)
     Null => ""
   }
 }
@@ -148,6 +155,7 @@ pub fn Scalar::eq(self : Scalar, other : Scalar) -> Bool raise DataError {
     (Float(a), Int(b)) => @numeric.int64_eq_double(b, a)
     (Bool(a), Bool(b)) => a == b
     (String(a), String(b)) => a == b
+    (Date(a), Date(b)) => a == b
     _ => type_mismatch_for_compare(self, other)
   }
 }
@@ -167,6 +175,7 @@ pub fn Scalar::lt(self : Scalar, other : Scalar) -> Bool raise DataError {
     (Float(a), Int(b)) => @numeric.double_lt_int64(a, b)
     (Bool(a), Bool(b)) => (a |> bool_to_int) < (b |> bool_to_int)
     (String(a), String(b)) => @text.compare_string_lex(a, b) < 0
+    (Date(a), Date(b)) => a < b
     _ => type_mismatch_for_compare(self, other)
   }
 }
@@ -194,6 +203,7 @@ fn comparable_pair(a : Scalar, b : Scalar) -> Bool {
     (Int(_) | Float(_), Int(_) | Float(_)) => true
     (Bool(_), Bool(_)) => true
     (String(_), String(_)) => true
+    (Date(_), Date(_)) => true
     _ => false
   }
 }
@@ -241,6 +251,37 @@ pub impl Show for Scalar with fn output(self, logger) {
     Float(v) => logger.write_string("Float(\{v})")
     Bool(v) => logger.write_string("Bool(\{v})")
     String(v) => logger.write_string("String(\"\{@text.escape_debug(v)}\")")
+    Date(v) => logger.write_string("Date(\{date_days_to_iso(v)})")
     Null => logger.write_string("Null")
   }
+}
+
+///|
+/// Render whole days since the Unix epoch as an ISO `YYYY-MM-DD` date —
+/// the one rendering a `Scalar::Date` has (value form, `Show` form, CSV /
+/// JSON cell form all share it, so the spellings cannot drift). Proleptic
+/// Gregorian, via the days-to-civil algorithm: negative day counts (dates
+/// before 1970) included.
+fn date_days_to_iso(days : Int64) -> String {
+  let z = days + 719468L
+  // Floor division, so dates before the era anchor land in the previous
+  // 400-year era instead of truncating toward zero.
+  let era = if z >= 0 { z / 146097L } else { (z - 146096L) / 146097L }
+  let doe = z - era * 146097L
+  let yoe = (doe - doe / 1460L + doe / 36524L - doe / 146096L) / 365L
+  let y = yoe + era * 400L
+  let doy = doe - (365L * yoe + yoe / 4L - yoe / 100L)
+  let mp = (5L * doy + 2L) / 153L
+  let d = doy - (153L * mp + 2L) / 5L + 1L
+  let m = if mp < 10L { mp + 3L } else { mp - 9L }
+  let year = if m <= 2L { y + 1L } else { y }
+  fn pad2(n : Int64) -> String {
+    if n < 10 {
+      "0\{n}"
+    } else {
+      n.to_string()
+    }
+  }
+
+  "\{year}-\{pad2(m)}-\{pad2(d)}"
 }

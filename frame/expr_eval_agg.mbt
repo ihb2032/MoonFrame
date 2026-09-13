@@ -1,9 +1,8 @@
 ///|
 /// The aggregation kernel: reduce an evaluated operand over its scope to a
-/// length-1 column through the shared `reducer_for` machinery, plus
-/// `reduce_op_of_agg` — the map from the read-only `@ir.AggOp` to the
-/// frame-local `ReduceOp`, shared with the grouped-`agg` fast path so the two
-/// route each op the same way.
+/// length-1 column through the shared `reducer_for` machinery — the same
+/// `ReduceOp` vocabulary the AST's `Agg` node carries, shared with the
+/// grouped-`agg` fast path so both route each op the same way.
 
 ///|
 /// Reduce an evaluated operand (length `|scope|`) to a length-1 column — the
@@ -26,32 +25,8 @@
 /// Numeric outputs converge onto the `Numeric` backend, the expression-engine
 /// convention for computed columns; consumers broadcast the length-1 result
 /// back over their scope.
-fn eval_agg(op : @ir.AggOp, operand : Series) -> Series raise @types.DataError {
-  let (reducer, probe) = reducer_for(operand, reduce_op_of_agg(op))
+fn eval_agg(op : ReduceOp, operand : Series) -> Series raise @types.DataError {
+  let (reducer, probe) = reducer_for(operand, op)
   let cell = reducer(operand.len(), k => k)
   scalars_to_series(probe, operand.name(), [cell])
-}
-
-///|
-/// Map the module-internal `@ir.AggOp` (in `internal/ir`, matchable and
-/// constructible anywhere in the module) into the frame-local `ReduceOp`
-/// the shared reduction kernel
-/// speaks. Shared by the scoped `eval_agg` and the grouped `agg`
-/// single-pass fast path (`bare_col_agg`), so the two map the same op the
-/// same way. Exhaustive with no wildcard: a future `AggOp` variant fails
-/// compilation here rather than silently routing to a wrong reduction.
-fn reduce_op_of_agg(op : @ir.AggOp) -> ReduceOp {
-  match op {
-    @ir.AggOp::Sum => ReduceOp::Sum
-    @ir.AggOp::Mean => ReduceOp::Mean
-    @ir.AggOp::Min => ReduceOp::Min
-    @ir.AggOp::Max => ReduceOp::Max
-    @ir.AggOp::Count => ReduceOp::Count
-    @ir.AggOp::Std => ReduceOp::Std
-    @ir.AggOp::Var => ReduceOp::Var
-    @ir.AggOp::Median => ReduceOp::Median
-    @ir.AggOp::NUnique => ReduceOp::NUnique
-    @ir.AggOp::First => ReduceOp::First
-    @ir.AggOp::Last => ReduceOp::Last
-  }
 }

@@ -184,8 +184,11 @@ The public surface is split across seven packages; the facade re-exports them so
 Storage backends (`internal/column`), the vectorized expression kernels
 (`internal/kernel`), the text / literal / numeric / position primitives
 (`internal/text` / `internal/literal` / `internal/numeric` / `internal/order`),
-and the expression AST (`internal/ir`) live in module-internal packages a
-downstream module cannot import. Responsibility
+the raw buffer primitives (`internal/buffer` — the validity bitmap and the
+UTF-8 string buffer), the scan-driver seam (`internal/scan` — what a readable
+source implements so the lazy engine stays format-agnostic), and the
+expression AST (`internal/ir`) live in
+module-internal packages a downstream module cannot import. Responsibility
 runs `frame` schedules → `internal/kernel` computes a column → `series` owns
 what a column is → `internal/column` owns how it is laid out. What keeps it
 that way is an import allowlist, which lives in
@@ -480,7 +483,7 @@ operators / methods ride along with `type Expr`, and the `LazyFrame` methods
 with its type — so only the value types and the free functions are listed
 explicitly (browse the full re-exported set on
 [mooncakes.io](https://mooncakes.io/docs/ihb2032/MoonFrame)). The expression AST
-— `ExprNode` and its `BinOp` / `UnOp` / `AggOp` / `StrOp` tags — lives in the
+— `ExprNode` and its `BinOp` / `UnOp` / `StrOp` tags — lives in the
 module-internal `internal/ir` package, which downstream cannot import and no
 public API names, so there is nothing to re-export for it.
 
@@ -516,8 +519,9 @@ and a new node cannot break one. Inspect an expression with `Expr::to_string`.
 These are the tracked deferrals:
 
 - **More expression families** — the list-returning `str.split` (blocked on a
-  list dtype; the scalar `str_split_get` is done) and — further out — window and
-  datetime expressions (the repo has no datetime type yet). These extend the
+  list dtype; the scalar `str_split_get` is done) and — further out — window
+  and datetime expressions (a `Date` value type exists; date arithmetic,
+  extraction, and formatting expressions do not). These extend the
   current operator / method set rather than changing it.
 - **Lazy scan depth** — streaming execution (the scan does projection- and
   predicate-pushdown but still tokenises the whole file), plus columnar sources

@@ -164,22 +164,25 @@ fn group_cell_stable(expr : @ir.ExprNode) -> Bool {
               @types.Scalar::Int(_)
               | @types.Scalar::Float(_)
               | @types.Scalar::Bool(_)
-              | @types.Scalar::String(_) => ()
+              | @types.Scalar::String(_)
+              | @types.Scalar::Date(_) => ()
             }
           @ir.ExprNode::Agg(op, operand) =>
             match op {
-              @ir.AggOp::Sum | @ir.AggOp::Count | @ir.AggOp::NUnique =>
+              @series.ReduceOp::Sum
+              | @series.ReduceOp::Count
+              | @series.ReduceOp::NUnique =>
                 if !row_stable(operand) {
                   return false
                 }
-              @ir.AggOp::Mean
-              | @ir.AggOp::Min
-              | @ir.AggOp::Max
-              | @ir.AggOp::Std
-              | @ir.AggOp::Var
-              | @ir.AggOp::Median
-              | @ir.AggOp::First
-              | @ir.AggOp::Last => return false
+              @series.ReduceOp::Mean
+              | @series.ReduceOp::Min
+              | @series.ReduceOp::Max
+              | @series.ReduceOp::Std
+              | @series.ReduceOp::Var
+              | @series.ReduceOp::Median
+              | @series.ReduceOp::First
+              | @series.ReduceOp::Last => return false
             }
           @ir.ExprNode::Cast(_, _)
           | @ir.ExprNode::Map(_, _, _)

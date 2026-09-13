@@ -1,3 +1,2 @@
-import {
-  "moonbitlang/core/test",
-} for "wbtest"
+// The package's tests are whitebox (`mergesort`'s stability pins) and assert
+// through `assert_eq` alone, so no test-only import is needed.

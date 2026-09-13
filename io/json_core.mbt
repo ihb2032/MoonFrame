@@ -107,7 +107,7 @@ fn frame_from_json_records(
   if records.is_empty() {
     return @frame.DataFrame::DataFrame([])
   }
-  let objs : Array[Map[String, Json]] = Array::new(capacity=records.length())
+  let objs : Array[Map[String, Json]] = Array(capacity=records.length())
   let headers : Array[String] = []
   let header_set : Map[String, Unit] = Map([])
   for i, rec in records {

@@ -4,11 +4,6 @@ import {
   "ihb2032/MoonFrame/types",
 }
 
-import {
-  "moonbitlang/core/double",
-  "moonbitlang/core/test",
-} for "test"
-
 // Most of the package's tests are whitebox: they assert buffer contents,
 // placeholder normalisation and backend widening, none of which is visible
 // from outside the package now that the typed readers are gone. The blackbox
@@ -16,5 +11,4 @@ import {
 // assertions and the dtype mapping.
 import {
   "moonbitlang/core/double",
-  "moonbitlang/core/test",
 } for "wbtest"

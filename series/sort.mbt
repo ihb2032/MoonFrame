@@ -4,6 +4,10 @@
 // `DataFrame::sort` both build on this, so one column's ordering means the
 // same thing either way; both then hand the comparator to the stable index
 // sort in `internal/order`, which knows nothing about columns.
+//
+// The file also hosts the row-order verbs (`sort` / `head` / `tail` /
+// `reverse`): four spellings over one row-selection machine, built on
+// `row_gather.mbt`'s `gather_series` and `slice_series`.
 
 ///|
 /// Resolve a column into a typed `SortKey`, matching on the concrete backing

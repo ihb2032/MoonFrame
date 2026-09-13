@@ -32,11 +32,10 @@ pub extend Expr with Show::{to_string, output}
 /// `Map` by its `(label, inputs)`, the closure opaque — in the documented
 /// operator form. Debug output surfaces in `debug_inspect` and in the failure
 /// message of any assertion over something that embeds an expression — the
-/// handle itself has no equality to fail. `Repr` has no public constructor, so
-/// delegating to an existing `Debug` (here `String`'s) is the one way to
-/// build one.
+/// handle itself has no equality to fail. `Repr`'s public constructor wraps
+/// the `Show` rendering's string directly.
 pub impl @debug.Debug for Expr with fn to_repr(self) {
-  @debug.Debug::to_repr(self.to_string())
+  @debug.Repr(self.to_string())
 }
 
 ///|

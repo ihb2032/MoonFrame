@@ -241,8 +241,16 @@ fn NumericColumn::take(
 fn NumericColumn::to_builtin(self : NumericColumn) -> BuiltinColumn {
   match self.data {
     Int(a) =>
-      { data: ColumnData::I64(a), validity: Bitmap::all_valid(a.length()), }
+      {
+        dtype: @types.DataType::Int,
+        data: ColumnData::I64(a),
+        validity: Bitmap::all_valid(a.length()),
+      }
     Float(a) =>
-      { data: ColumnData::F64(a), validity: Bitmap::all_valid(a.length()), }
+      {
+        dtype: @types.DataType::Float,
+        data: ColumnData::F64(a),
+        validity: Bitmap::all_valid(a.length()),
+      }
   }
 }

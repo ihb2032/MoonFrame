@@ -170,8 +170,15 @@ fn rebuild_options(
   string_cell : (ArrayView[String], Int) -> String?,
 ) -> Series {
   let rebuilt = match source.storage.data() {
+    // The I64 arm rebuilds through the *dtype*, not the variant: a Date
+    // column is I64-typed, and rebuilding it through `from_int_options`
+    // would silently retype every gathered row as Int.
     @column.ColumnData::I64(a) =>
-      Series::from_int_options(name, Array::makei(n, k => int_cell(a, k)))
+      if source.dtype() is @types.DataType::Date {
+        Series::from_date_options(name, Array::makei(n, k => int_cell(a, k)))
+      } else {
+        Series::from_int_options(name, Array::makei(n, k => int_cell(a, k)))
+      }
     @column.ColumnData::F64(a) =>
       Series::from_float_options(name, Array::makei(n, k => float_cell(a, k)))
     @column.ColumnData::Bool(a) =>

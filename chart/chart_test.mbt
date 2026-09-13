@@ -370,3 +370,21 @@ test "write_vega_lite: invalid path surfaces as IoError" {
   }
   assert_true(result is Err(@types.DataError::IoError(_)))
 }
+
+///|
+test "a Date channel encodes as temporal" {
+  // A Date x-axis is a time scale, not a nominal category: the dtype registry's
+  // Date row drives the Vega type through the frame's column dtype.
+  let df = @frame.DataFrame::from_rows(
+    @types.Schema::Schema([
+      @types.Field::Field("d", @types.DataType::Date),
+      @types.Field::Field("v", @types.DataType::Int),
+    ]),
+    [
+      [@types.Scalar::Date(19723L), @types.Scalar::Int(1)],
+      [@types.Scalar::Date(19724L), @types.Scalar::Int(2)],
+    ],
+  )
+  let json = format_vega_lite(df, ChartSpec::line("d", "v"))
+  assert_true(json.contains("\"type\":\"temporal\""))
+}

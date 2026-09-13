@@ -83,11 +83,16 @@ pub fn Series::empty_of(
   name : String,
   dtype : @types.DataType,
 ) -> Series raise @types.DataError {
-  let storage = match @column.physical_type(dtype) {
-    Some(@column.PhysicalType::I64) => @column.BuiltinColumn::from_ints([])
-    Some(@column.PhysicalType::F64) => @column.BuiltinColumn::from_floats([])
-    Some(@column.PhysicalType::Bool) => @column.BuiltinColumn::from_bools([])
-    Some(@column.PhysicalType::Utf8) => @column.BuiltinColumn::from_strings([])
+  let storage = match dtype.physical() {
+    Some(@types.PhysicalType::I64) =>
+      if dtype is @types.DataType::Date {
+        @column.BuiltinColumn::from_i64_options(dtype, [])
+      } else {
+        @column.BuiltinColumn::from_ints([])
+      }
+    Some(@types.PhysicalType::F64) => @column.BuiltinColumn::from_floats([])
+    Some(@types.PhysicalType::Bool) => @column.BuiltinColumn::from_bools([])
+    Some(@types.PhysicalType::Utf8) => @column.BuiltinColumn::from_strings([])
     None =>
       raise @types.DataError::Unsupported(
         "cannot build an empty column of dtype Null: \{name}",
@@ -176,6 +181,25 @@ pub fn Series::from_string_options(
   Series::from_builtin(name, @column.BuiltinColumn::from_string_options(values))
 }
 
+///|
+/// Build a `Date` series from optional raw day-counts (whole days since the
+/// Unix epoch, `1970-01-01` = day `0`), `None` entries nulls. The date face
+/// of the shared `I64` buffer constructor: the cells are the same `Int64`
+/// buffer an int column carries, with date semantics on read — the registry's
+/// per-dtype lift turns a cell back into a `Scalar::Date`.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
+pub fn Series::from_date_options(
+  name : String,
+  values : Array[Int64?],
+) -> Series {
+  Series::from_builtin(
+    name,
+    @column.BuiltinColumn::from_i64_options(@types.DataType::Date, values),
+  )
+}
+
+// ── Inspection ────────────────────────────────────────────────────────
 // ── Inspection ────────────────────────────────────────────────────────
 
 ///|
@@ -230,53 +254,20 @@ pub fn Series::get(
 /// Materialise every cell as a `Scalar` (`Null` for null cells), in order.
 /// Total — reads the backing array and validity mask once. Renderers (CSV
 /// / JSON / Markdown) use this to walk a column without a per-cell
-/// bounds-checked `get`.
+/// bounds-checked `get`. Each present cell lifts through the dtype registry
+/// (`scalar_of`), so an `I64`-riding dtype like `Date` surfaces its own
+/// `Scalar` variant, not the buffer's.
 pub fn Series::to_scalars(self : Series) -> Array[@types.Scalar] {
   let valid = validity_bools(self)
-  // Both the index (to consult `valid`) and the value are needed per cell, so
-  // an index+value comprehension reads more directly than a `makei` over `a[i]`.
-  match self.storage.data() {
-    @column.ColumnData::I64(a) =>
-      [
-        for i, v in a => {
-          if valid[i] {
-            @types.Scalar::Int(v)
-          } else {
-            @types.Scalar::Null
-          }
-        }
-      ]
-    @column.ColumnData::F64(a) =>
-      [
-        for i, v in a => {
-          if valid[i] {
-            @types.Scalar::Float(v)
-          } else {
-            @types.Scalar::Null
-          }
-        }
-      ]
-    @column.ColumnData::Bool(a) =>
-      [
-        for i, v in a => {
-          if valid[i] {
-            @types.Scalar::Bool(v)
-          } else {
-            @types.Scalar::Null
-          }
-        }
-      ]
-    @column.ColumnData::Utf8(a) =>
-      [
-        for i, v in a => {
-          if valid[i] {
-            @types.Scalar::String(v)
-          } else {
-            @types.Scalar::Null
-          }
-        }
-      ]
-  }
+  let data = self.storage.data()
+  let dtype = self.dtype()
+  Array::makei(valid.length(), i => {
+    if valid[i] {
+      @column.scalar_of(dtype, data, i)
+    } else {
+      @types.Scalar::Null
+    }
+  })
 }
 
 ///|
@@ -438,6 +429,22 @@ pub fn Series::fill_null(
           raise @types.DataError::TypeMismatch(
             @types.TypeMismatchDetail::Message(
               "fill_null type String does not match column type \{self.dtype()}",
+            ),
+          )
+      }
+    // A Date value fills its own dtype only — gated on the column's *dtype*,
+    // not the buffer variant: an Int column is also I64-typed, and filling it
+    // with day-counts would silently misinterpret it.
+    @types.Scalar::Date(v) =>
+      match self.storage.data() {
+        @column.ColumnData::I64(data) if self.dtype() is @types.DataType::Date => {
+          let buf = fill_buffer(data, valid, v)
+          Series::from_date_options(self.name, buf.map(x => Some(x)))
+        }
+        _ =>
+          raise @types.DataError::TypeMismatch(
+            @types.TypeMismatchDetail::Message(
+              "fill_null type Date does not match column type \{self.dtype()}",
             ),
           )
       }

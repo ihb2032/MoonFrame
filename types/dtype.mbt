@@ -9,11 +9,22 @@
 /// as a target, and **no reader infers it**: an all-null probe window falls back
 /// to `String` (see [`docs/type-inference.md`](../docs/type-inference.md)).
 /// Concrete columns always carry one of the other variants.
+///
+/// A logical dtype is more than its variant: its display name, the physical
+/// buffer its columns ride, and its numericity are registered in
+/// `dtype_registry.mbt`, whose per-dtype rows are the compile-forced
+/// registration point for a dtype added here.
 pub(all) enum DataType {
   Int
   Float
   Bool
   String
+  /// A calendar date, stored as whole days since the Unix epoch
+  /// (`1970-01-01` = day 0, negative for earlier dates) — an `I64` physical
+  /// buffer with date semantics. Not numeric: arithmetic on days is a
+  /// `TypeMismatch`, comparisons / ordering / grouping are date-wise. Readers
+  /// never infer it (an ISO-shaped CSV column arrives as `String`).
+  Date
   Null
 } derive(Eq, Debug)
 
@@ -40,8 +51,10 @@ pub fn DataType::is_float(self : DataType) -> Bool {
 
 ///|
 /// `true` for `Int` and `Float` — both are usable in numeric reductions.
+/// Reads the registry's `numeric` flag, so an `I64`-riding dtype like `Date`
+/// is correctly *not* numeric.
 pub fn DataType::is_numeric(self : DataType) -> Bool {
-  self is Int || self is Float
+  self.dtype_profile().numeric
 }
 
 ///|
@@ -57,13 +70,8 @@ pub fn DataType::is_string(self : DataType) -> Bool {
 }
 
 ///|
+/// The `Show` spelling renders the registry's display name — the name is
+/// registered per dtype, not matched here.
 pub impl Show for DataType with fn output(self, logger) {
-  let name = match self {
-    Int => "Int"
-    Float => "Float"
-    Bool => "Bool"
-    String => "String"
-    Null => "Null"
-  }
-  logger.write_string(name)
+  logger.write_string(self.display_name())
 }

@@ -97,6 +97,7 @@ pub fn infer_cells_dtype(cells : Array[@types.Scalar]) -> @types.DataType? {
       @types.Scalar::Float(_) => return Some(@types.DataType::Float)
       @types.Scalar::Bool(_) => return Some(@types.DataType::Bool)
       @types.Scalar::String(_) => return Some(@types.DataType::String)
+      @types.Scalar::Date(_) => return Some(@types.DataType::Date)
       @types.Scalar::Null => ()
     }
   }

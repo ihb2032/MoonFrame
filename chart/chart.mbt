@@ -268,7 +268,8 @@ fn chart_mark(kind : ChartKind) -> String {
 /// Build one Vega-Lite encoding-channel object `{"field": <name>, "type":
 /// <vega-type>}`. An explicit `type_override` wins; otherwise the field `type`
 /// follows the column dtype: a numeric column (`Int` / `Float`) is
-/// `"quantitative"`; every other dtype is `"nominal"`.
+/// `"quantitative"`, a `Date` column is `"temporal"` (its ISO cells sort
+/// chronologically), and every other dtype is `"nominal"`.
 fn encoding_channel(
   field : String,
   dtype : @types.DataType,
@@ -278,7 +279,14 @@ fn encoding_channel(
   channel["field"] = Json::string(escape_vega_field(field))
   let vtype = match type_override {
     Some(t) => vega_type_string(t)
-    None => if dtype.is_numeric() { "quantitative" } else { "nominal" }
+    None =>
+      if dtype.is_numeric() {
+        "quantitative"
+      } else if dtype is @types.DataType::Date {
+        "temporal"
+      } else {
+        "nominal"
+      }
   }
   channel["type"] = Json::string(vtype)
   Json::object(channel)

@@ -25,6 +25,12 @@
 /// pandas / polars `int64` / `float64` defaults so reductions neither
 /// silently overflow nor lose precision.
 pub struct BuiltinColumn {
+  /// The logical dtype the column carries — the *identity* half of the
+  /// column, independent of the `data` variant (the *representation* half):
+  /// a `Date` column is `I64`-typed cells under a `Date` dtype, which is the
+  /// whole point of the split. Set by every constructor; the invariant
+  /// `dtype.physical()` agrees with the `data` variant is constructor-guaranteed.
+  priv dtype : @types.DataType
   priv data : ColumnData
   priv validity : Bitmap
 } derive(Debug)
@@ -56,7 +62,11 @@ pub extend ColumnData with Debug::{to_repr}
 /// Build an `Int` column from raw values (no nulls). `values` is copied, so
 /// the column owns its data and is unaffected by later mutation of the array.
 pub fn BuiltinColumn::from_ints(values : Array[Int64]) -> BuiltinColumn {
-  { data: I64(values.copy()), validity: Bitmap::all_valid(values.length()), }
+  {
+    dtype: @types.DataType::Int,
+    data: I64(values.copy()),
+    validity: Bitmap::all_valid(values.length()),
+  }
 }
 
 ///|
@@ -64,6 +74,7 @@ pub fn BuiltinColumn::from_ints(values : Array[Int64]) -> BuiltinColumn {
 /// receive `0` as the data placeholder; public APIs never expose it.
 pub fn BuiltinColumn::from_int_options(values : Array[Int64?]) -> BuiltinColumn {
   {
+    dtype: @types.DataType::Int,
     data: I64(values.map(v => v.unwrap_or(0))),
     validity: Bitmap::from_options(values),
   }
@@ -73,7 +84,11 @@ pub fn BuiltinColumn::from_int_options(values : Array[Int64?]) -> BuiltinColumn 
 /// Build a `Float` column from raw values (no nulls). `values` is copied, so
 /// the column owns its data and is unaffected by later mutation of the array.
 pub fn BuiltinColumn::from_floats(values : Array[Double]) -> BuiltinColumn {
-  { data: F64(values.copy()), validity: Bitmap::all_valid(values.length()), }
+  {
+    dtype: @types.DataType::Float,
+    data: F64(values.copy()),
+    validity: Bitmap::all_valid(values.length()),
+  }
 }
 
 ///|
@@ -83,6 +98,7 @@ pub fn BuiltinColumn::from_float_options(
   values : Array[Double?],
 ) -> BuiltinColumn {
   {
+    dtype: @types.DataType::Float,
     data: F64(values.map(v => v.unwrap_or(0.0))),
     validity: Bitmap::from_options(values),
   }
@@ -92,7 +108,11 @@ pub fn BuiltinColumn::from_float_options(
 /// Build a `Bool` column from raw values (no nulls). `values` is copied, so
 /// the column owns its data and is unaffected by later mutation of the array.
 pub fn BuiltinColumn::from_bools(values : Array[Bool]) -> BuiltinColumn {
-  { data: Bool(values.copy()), validity: Bitmap::all_valid(values.length()), }
+  {
+    dtype: @types.DataType::Bool,
+    data: Bool(values.copy()),
+    validity: Bitmap::all_valid(values.length()),
+  }
 }
 
 ///|
@@ -100,6 +120,7 @@ pub fn BuiltinColumn::from_bools(values : Array[Bool]) -> BuiltinColumn {
 /// receive `false` as the data placeholder.
 pub fn BuiltinColumn::from_bool_options(values : Array[Bool?]) -> BuiltinColumn {
   {
+    dtype: @types.DataType::Bool,
     data: Bool(values.map(v => v.unwrap_or(false))),
     validity: Bitmap::from_options(values),
   }
@@ -109,7 +130,11 @@ pub fn BuiltinColumn::from_bool_options(values : Array[Bool?]) -> BuiltinColumn 
 /// Build a `String` column from raw values (no nulls). `values` is copied, so
 /// the column owns its data and is unaffected by later mutation of the array.
 pub fn BuiltinColumn::from_strings(values : Array[String]) -> BuiltinColumn {
-  { data: Utf8(values.copy()), validity: Bitmap::all_valid(values.length()), }
+  {
+    dtype: @types.DataType::String,
+    data: Utf8(values.copy()),
+    validity: Bitmap::all_valid(values.length()),
+  }
 }
 
 ///|
@@ -119,7 +144,28 @@ pub fn BuiltinColumn::from_string_options(
   values : Array[String?],
 ) -> BuiltinColumn {
   {
+    dtype: @types.DataType::String,
     data: Utf8(values.map(v => v.unwrap_or(""))),
+    validity: Bitmap::from_options(values),
+  }
+}
+
+///|
+/// Build a column of an `I64`-riding logical dtype (a dtype whose registry
+/// `physical` is `I64`: `Int`, or a date-like dtype such as `Date`) from
+/// optional raw cells, `None` entries nulls with the `0` placeholder. `dtype`
+/// fixes the column's *identity* — the cells are the same `Int64` buffer for
+/// every `I64` rider; what differs is the per-dtype lift in `scalar_of`, which turns a
+/// raw cell back into the dtype own `Scalar` on read. The caller must pass a
+/// dtype whose physical is `I64` (every caller is a constructor of one
+/// specific dtype, so the agreement is by construction).
+pub fn BuiltinColumn::from_i64_options(
+  dtype : @types.DataType,
+  values : Array[Int64?],
+) -> BuiltinColumn {
+  {
+    dtype,
+    data: I64(values.map(v => v.unwrap_or(0))),
     validity: Bitmap::from_options(values),
   }
 }
@@ -127,14 +173,11 @@ pub fn BuiltinColumn::from_string_options(
 // ── Inspection ────────────────────────────────────────────────────────
 
 ///|
-/// The column's logical `DataType`, read from the `data` arm.
+/// The column's logical `DataType` — the identity the column was built with,
+/// not something derived from the buffer (a `Date` column reads `Date`, though
+/// its cells are `I64`-typed).
 fn BuiltinColumn::dtype(self : BuiltinColumn) -> @types.DataType {
-  match self.data {
-    I64(_) => @types.DataType::Int
-    F64(_) => @types.DataType::Float
-    Bool(_) => @types.DataType::Bool
-    Utf8(_) => @types.DataType::String
-  }
+  self.dtype
 }
 
 ///|
@@ -199,12 +242,33 @@ fn BuiltinColumn::get(
   if self.validity.is_null(index) {
     @types.Scalar::Null
   } else {
-    match self.data {
-      I64(a) => @types.Scalar::Int(a[index])
-      F64(a) => @types.Scalar::Float(a[index])
-      Bool(a) => @types.Scalar::Bool(a[index])
-      Utf8(a) => @types.Scalar::String(a[index])
-    }
+    scalar_of(self.dtype, self.data, index)
+  }
+}
+
+///|
+/// Lift one valid cell of a column's buffer to its logical `Scalar`. The
+/// physical variants map to their payload `Scalar`s, except `I64` — the
+/// buffer logical dtypes share — where the dtype decides: the registry's
+/// riders (`Int` identity, `Date` epoch) lift their own way. This is the one
+/// place identity and representation meet on the read side; the write half is
+/// `from_i64_options`. `index` must address a valid (present) slot — callers
+/// check validity first, so no null placeholder can leak out as a value.
+pub fn scalar_of(
+  dtype : @types.DataType,
+  data : ColumnData,
+  index : Int,
+) -> @types.Scalar {
+  match data {
+    I64(a) =>
+      if dtype is @types.DataType::Date {
+        @types.Scalar::Date(a[index])
+      } else {
+        @types.Scalar::Int(a[index])
+      }
+    F64(a) => @types.Scalar::Float(a[index])
+    Bool(a) => @types.Scalar::Bool(a[index])
+    Utf8(a) => @types.Scalar::String(a[index])
   }
 }
 
@@ -249,7 +313,11 @@ fn BuiltinColumn::slice_unchecked(
     Bool(a) => Bool(Array::makei(n, i => a[start + i]))
     Utf8(a) => Utf8(Array::makei(n, i => a[start + i]))
   }
-  { data: data_out, validity: self.validity.slice_view(start, n), }
+  {
+    dtype: self.dtype,
+    data: data_out,
+    validity: self.validity.slice_view(start, n),
+  }
 }
 
 ///|
@@ -269,5 +337,9 @@ fn BuiltinColumn::take(
   // Indices are already validated against the same `len`, so gather the
   // validity bits through the unchecked `take_view` — no second O(n) bounds
   // scan, and no unreachable raise arm.
-  { data: data_out, validity: self.validity.take_view(indices), }
+  {
+    dtype: self.dtype,
+    data: data_out,
+    validity: self.validity.take_view(indices),
+  }
 }

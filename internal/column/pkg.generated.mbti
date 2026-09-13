@@ -7,7 +7,7 @@ import {
 }
 
 // Values
-pub fn physical_type(@types.DataType) -> PhysicalType?
+pub fn scalar_of(@types.DataType, ColumnData, Int) -> @types.Scalar
 
 // Errors
 
@@ -26,6 +26,7 @@ pub fn BuiltinColumn::from_bool_options(Array[Bool?]) -> Self
 pub fn BuiltinColumn::from_bools(Array[Bool]) -> Self
 pub fn BuiltinColumn::from_float_options(Array[Double?]) -> Self
 pub fn BuiltinColumn::from_floats(Array[Double]) -> Self
+pub fn BuiltinColumn::from_i64_options(@types.DataType, Array[Int64?]) -> Self
 pub fn BuiltinColumn::from_int_options(Array[Int64?]) -> Self
 pub fn BuiltinColumn::from_ints(Array[Int64]) -> Self
 pub fn BuiltinColumn::from_string_options(Array[String?]) -> Self
@@ -79,13 +80,6 @@ pub(all) enum NumericData {
   Float(ArrayView[Double])
 } derive(@debug.Debug)
 pub fn NumericData::to_repr(Self) -> @debug.Repr
-
-pub(all) enum PhysicalType {
-  I64
-  F64
-  Bool
-  Utf8
-}
 
 pub(all) enum StorageKind {
   Builtin

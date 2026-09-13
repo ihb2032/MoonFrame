@@ -19,11 +19,9 @@
 /// behind `numeric_cols`. Wildcard-free, so a future dtype must decide its
 /// numeric-ness here.
 fn is_numeric_dtype(dtype : @types.DataType) -> Bool {
-  match dtype {
-    @types.DataType::Int | @types.DataType::Float => true
-    @types.DataType::Bool | @types.DataType::String | @types.DataType::Null =>
-      false
-  }
+  // Reads the dtype registry (through `is_numeric`), so an `I64`-riding
+  // dtype like `Date` is correctly not numeric.
+  dtype.is_numeric()
 }
 
 ///|

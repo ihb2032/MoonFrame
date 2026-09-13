@@ -64,7 +64,8 @@ pub fn eval_ternary(
   let tv = validity_bools(t2)
   let ev = validity_bools(e2)
   let out = match (t2.storage().data(), e2.storage().data()) {
-    (@column.ColumnData::I64(a), @column.ColumnData::I64(b)) =>
+    (@column.ColumnData::I64(a), @column.ColumnData::I64(b)) if t2.dtype() ==
+      e2.dtype() =>
       Series::from_int_options(
         t2.name(),
         select_cells(
@@ -74,7 +75,9 @@ pub fn eval_ternary(
           i => if ev[i] { Some(b[i]) } else { None },
         ),
       )
-    (@column.ColumnData::I64(a), @column.ColumnData::F64(b)) =>
+    (@column.ColumnData::I64(a), @column.ColumnData::F64(b)) if t2
+      .dtype()
+      .is_numeric() =>
       Series::from_float_options(
         t2.name(),
         select_cells(
@@ -84,7 +87,9 @@ pub fn eval_ternary(
           i => if ev[i] { Some(b[i]) } else { None },
         ),
       )
-    (@column.ColumnData::F64(a), @column.ColumnData::I64(b)) =>
+    (@column.ColumnData::F64(a), @column.ColumnData::I64(b)) if e2
+      .dtype()
+      .is_numeric() =>
       Series::from_float_options(
         t2.name(),
         select_cells(
@@ -124,7 +129,10 @@ pub fn eval_ternary(
           i => if ev[i] { Some(b[i]) } else { None },
         ),
       )
-    (@column.ColumnData::Bool(_) | @column.ColumnData::Utf8(_), _)
+    (@column.ColumnData::I64(_), @column.ColumnData::I64(_))
+    | (@column.ColumnData::I64(_), @column.ColumnData::F64(_))
+    | (@column.ColumnData::F64(_), @column.ColumnData::I64(_))
+    | (@column.ColumnData::Bool(_) | @column.ColumnData::Utf8(_), _)
     | (_, @column.ColumnData::Bool(_) | @column.ColumnData::Utf8(_)) =>
       raise @types.DataError::TypeMismatch(
         @types.TypeMismatchDetail::Message(

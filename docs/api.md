@@ -516,8 +516,9 @@ and a new node cannot break one. Inspect an expression with `Expr::to_string`.
 These are the tracked deferrals:
 
 - **More expression families** — the list-returning `str.split` (blocked on a
-  list dtype; the scalar `str_split_get` is done) and — further out — window and
-  datetime expressions (the repo has no datetime type yet). These extend the
+  list dtype; the scalar `str_split_get` is done) and — further out — window
+  and datetime expressions (a `Date` value type exists; date arithmetic,
+  extraction, and formatting expressions do not). These extend the
   current operator / method set rather than changing it.
 - **Lazy scan depth** — streaming execution (the scan does projection- and
   predicate-pushdown but still tokenises the whole file), plus columnar sources

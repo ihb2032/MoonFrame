@@ -16,6 +16,7 @@ series | doc_hidden internal_engine | pub enum SortKey
 series | doc_hidden internal_engine | pub extend KeyCell with Eq::{equal, not_equal}
 series | doc_hidden internal_engine | pub extend KeyCell with Hash::{hash, hash_combine}
 series | doc_hidden internal_engine | pub fn Series::empty_of( name : String, dtype : @types.DataType, ) -> Series raise @types.DataError | used by: frame
+series | doc_hidden internal_engine | pub fn Series::from_date_options( name : String, values : Array[Int64?], ) -> Series | used by: frame,internal/kernel
 series | doc_hidden internal_engine | pub fn Series::is_canonical(self : Series) -> Bool | used by: (no production caller outside series)
 series | doc_hidden internal_engine | pub fn Series::mean_opt(self : Series) -> Double? | used by: frame
 series | doc_hidden internal_engine | pub fn Series::storage(self : Series) -> @column.ColumnStorage | used by: internal/kernel

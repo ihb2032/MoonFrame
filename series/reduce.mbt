@@ -74,7 +74,11 @@ fn reduce_arith(
 ) -> ((Int, (Int) -> Int) -> @types.Scalar) raise @types.DataError {
   let present = reduce_present(storage)
   match storage.data() {
-    @column.ColumnData::I64(a) =>
+    // The dtype gate, not the buffer variant, decides numericity: a Date
+    // column is I64-typed but is not a number, and summing day-counts is a
+    // bug, not a reduction. Non-numeric columns raise at factory time, before
+    // any window is folded.
+    @column.ColumnData::I64(a) if storage.dtype().is_numeric() =>
       if want_mean {
         // The mean's output is `Double`, so accumulate the numerator in
         // `Double` from the start. An `Int64` accumulator would silently wrap
@@ -133,7 +137,9 @@ fn reduce_arith(
           @types.Scalar::Float(acc)
         }
       }
-    @column.ColumnData::Bool(_) | @column.ColumnData::Utf8(_) => {
+    @column.ColumnData::I64(_)
+    | @column.ColumnData::Bool(_)
+    | @column.ColumnData::Utf8(_) => {
       let verb = if want_mean { "mean" } else { "sum" }
       raise @types.DataError::TypeMismatch(
         @types.TypeMismatchDetail::Message(
@@ -164,7 +170,14 @@ fn reduce_extremum(
         let skip = k => !present(at(k))
         let better = (x, y) => if want_min { x < y } else { x > y }
         match @numeric.fold_extremum(n, get, skip, better) {
-          Some(b) => @types.Scalar::Int(b)
+          // The extremum lifts through the dtype: a Date column min/maxes
+          // to a Date, not to the day count its I64 buffer holds.
+          Some(b) =>
+            if storage.dtype() is @types.DataType::Date {
+              @types.Scalar::Date(b)
+            } else {
+              @types.Scalar::Int(b)
+            }
           None => @types.Scalar::Null
         }
       }
@@ -241,9 +254,12 @@ fn numeric_double_reader(
   op : String,
 ) -> ((Int) -> Double) raise @types.DataError {
   match storage.data() {
-    @column.ColumnData::I64(a) => i => a[i].to_double()
+    @column.ColumnData::I64(a) if storage.dtype().is_numeric() =>
+      i => a[i].to_double()
     @column.ColumnData::F64(a) => i => a[i]
-    @column.ColumnData::Bool(_) | @column.ColumnData::Utf8(_) =>
+    @column.ColumnData::I64(_)
+    | @column.ColumnData::Bool(_)
+    | @column.ColumnData::Utf8(_) =>
       raise @types.DataError::TypeMismatch(
         @types.TypeMismatchDetail::Message(
           "\{op} undefined for \{storage.dtype()}",
@@ -461,12 +477,11 @@ fn reduce_first_last(
   // Resolve the dtype dispatch once: a reader that builds the source-dtype
   // `Scalar` at a source row. Only ever called on a present row (the null /
   // empty cases short-circuit to `Null` first), so it never reads a null slot.
-  let read : (Int) -> @types.Scalar = match storage.data() {
-    @column.ColumnData::I64(a) => i => @types.Scalar::Int(a[i])
-    @column.ColumnData::F64(a) => i => @types.Scalar::Float(a[i])
-    @column.ColumnData::Bool(a) => i => @types.Scalar::Bool(a[i])
-    @column.ColumnData::Utf8(a) => i => @types.Scalar::String(a[i])
-  }
+  // The read lifts through the dtype registry, so an I64-riding dtype
+  // (Date) surfaces its own Scalar rather than the buffer's Int.
+  let dt = storage.dtype()
+  let data = storage.data()
+  let read : (Int) -> @types.Scalar = i => @column.scalar_of(dt, data, i)
   fn(n : Int, at : (Int) -> Int) {
     if n == 0 {
       @types.Scalar::Null
@@ -607,6 +622,16 @@ pub fn scalars_to_series(
         cells.map(c => {
           match c {
             @types.Scalar::String(v) => Some(v)
+            _ => None
+          }
+        }),
+      )
+    @types.DataType::Date =>
+      Series::from_date_options(
+        name,
+        cells.map(c => {
+          match c {
+            @types.Scalar::Date(v) => Some(v)
             _ => None
           }
         }),

@@ -41,28 +41,33 @@ pub fn try_column_to_numeric(s : Series) -> Series {
   match s.storage.kind() {
     @column.StorageKind::Numeric => s
     @column.StorageKind::Builtin =>
-      if s.storage.null_count() > 0 {
-        s
-      } else {
-        match s.storage.data() {
-          @column.ColumnData::I64(a) =>
-            Series::new(
-              s.name,
-              @column.ColumnStorage::Numeric(
-                @column.NumericColumn::from_ints(a),
-              ),
-            )
-          @column.ColumnData::F64(a) =>
-            Series::new(
-              s.name,
-              @column.ColumnStorage::Numeric(
-                @column.NumericColumn::from_floats(a),
-              ),
-            )
-          // No wildcard: a future `ColumnData` variant must decide here
-          // whether it converges onto the `Numeric` backend.
-          @column.ColumnData::Bool(_) | @column.ColumnData::Utf8(_) => s
-        }
+      match s.storage.data() {
+        // The `Numeric` backend is dtype-less: only a *numeric* dtype (the
+        // registry's `numeric` flag) with no nulls may converge onto it, so
+        // an all-valid `Date` column — also I64-typed, also null-free —
+        // keeps its `Builtin` buffer instead of losing its identity on the
+        // fast path.
+        @column.ColumnData::I64(a) if s.dtype().is_numeric() &&
+          s.storage.null_count() == 0 =>
+          Series::new(
+            s.name,
+            @column.ColumnStorage::Numeric(@column.NumericColumn::from_ints(a)),
+          )
+        @column.ColumnData::F64(a) if s.storage.null_count() == 0 =>
+          Series::new(
+            s.name,
+            @column.ColumnStorage::Numeric(
+              @column.NumericColumn::from_floats(a),
+            ),
+          )
+        // Everything else stays `Builtin` as-is: a null-free Int / Float
+        // column never reaches this arm (its guard passed), so the arm
+        // carries Date (numericity false), any null-carrying Int / Float,
+        // and Bool / String.
+        @column.ColumnData::I64(_)
+        | @column.ColumnData::F64(_)
+        | @column.ColumnData::Bool(_)
+        | @column.ColumnData::Utf8(_) => s
       }
   }
 }

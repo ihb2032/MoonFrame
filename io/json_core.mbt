@@ -240,6 +240,9 @@ fn scalar_to_json(s : @types.Scalar) -> Json {
       }
     @types.Scalar::Bool(v) => Json::boolean(v)
     @types.Scalar::String(v) => Json::string(v)
+    // A date leaves as its ISO spelling (the same rendering the CSV writer
+    // and `Scalar::to_string` use), so the two interchange formats agree.
+    @types.Scalar::Date(_) => Json::string(s.to_string())
   }
 }
 

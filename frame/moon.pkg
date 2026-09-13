@@ -21,4 +21,5 @@ import {
   "moonbitlang/core/test",
   "moonbitlang/quickcheck" @qc,
   "moonbitlang/quickcheck/gen",
+  "ihb2032/MoonFrame/io",
 } for "test"

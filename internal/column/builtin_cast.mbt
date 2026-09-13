@@ -11,17 +11,25 @@
 /// Cast by target dtype — the single public cross-dtype conversion. `Int`
 /// truncates / parses, `Float` promotes / parses (per the file-private
 /// `to_int` / `to_float` helpers this dispatches to), and `String` renders
-/// every dtype through the total `to_string_column`. `Bool` and `Null`
-/// targets are unsupported and `raise Unsupported`.
+/// every dtype through the total `to_string_column`. `Bool`, `Null`, and
+/// `Date` targets are unsupported and `raise Unsupported`; a `Date` *source*
+/// is rejected the same way — rendering its cells as day-counts or reusing
+/// the buffer under another dtype would be a silent misinterpretation, and a
+/// real `Date` cast (ISO parse, days extraction) is a semantic decision that
+/// lands with the first consumer that needs one.
 fn BuiltinColumn::cast(
   self : BuiltinColumn,
   target : @types.DataType,
 ) -> BuiltinColumn raise @types.DataError {
+  if self.dtype() is @types.DataType::Date {
+    raise @types.DataError::Unsupported("cast from Date")
+  }
   match target {
     Int => self.to_int()
     Float => self.to_float()
     String => self.to_string_column()
     Bool => raise @types.DataError::Unsupported("cast to Bool")
+    Date => raise @types.DataError::Unsupported("cast to Date")
     Null => raise @types.DataError::Unsupported("cast to Null")
   }
 }
@@ -41,6 +49,7 @@ fn BuiltinColumn::cast(
 /// not forced to adopt an error it never produces.
 fn[U] BuiltinColumn::cast_cells(
   self : BuiltinColumn,
+  result_dtype : @types.DataType,
   conv : (Int) -> U raise?,
   fill : U,
   wrap : (Array[U]) -> ColumnData,
@@ -53,7 +62,7 @@ fn[U] BuiltinColumn::cast_cells(
       fill
     }
   })
-  { data: wrap(buf), validity: self.validity, }
+  { dtype: result_dtype, data: wrap(buf), validity: self.validity, }
 }
 
 ///|
@@ -80,6 +89,7 @@ fn BuiltinColumn::to_int(
     I64(_) => self
     F64(a) =>
       self.cast_cells(
+        @types.DataType::Int,
         i => {
           let x = a[i]
           if x.is_nan() {
@@ -104,9 +114,15 @@ fn BuiltinColumn::to_int(
         b => I64(b),
       )
     Bool(a) =>
-      self.cast_cells(i => (if a[i] { 1 } else { 0 }).to_int64(), 0, b => I64(b))
+      self.cast_cells(
+        @types.DataType::Int,
+        i => (if a[i] { 1 } else { 0 }).to_int64(),
+        0,
+        b => I64(b),
+      )
     Utf8(a) =>
       self.cast_cells(
+        @types.DataType::Int,
         i => {
           let s = a[i]
           // Plain base-10 only, via the shared `@text.parse_decimal_int_opt`
@@ -148,11 +164,20 @@ fn BuiltinColumn::to_float(
 ) -> BuiltinColumn raise @types.DataError {
   match self.data {
     F64(_) => self
-    I64(a) => self.cast_cells(i => a[i].to_double(), 0.0, b => F64(b))
+    I64(a) =>
+      self.cast_cells(@types.DataType::Float, i => a[i].to_double(), 0.0, b => {
+        F64(b)
+      })
     Bool(a) =>
-      self.cast_cells(i => if a[i] { 1.0 } else { 0.0 }, 0.0, b => F64(b))
+      self.cast_cells(
+        @types.DataType::Float,
+        i => if a[i] { 1.0 } else { 0.0 },
+        0.0,
+        b => F64(b),
+      )
     Utf8(a) =>
       self.cast_cells(
+        @types.DataType::Float,
         i => {
           let s = a[i]
           // Via the shared `@text.parse_plain_double_opt` (the CSV reader uses
@@ -189,9 +214,20 @@ fn BuiltinColumn::to_float(
 fn BuiltinColumn::to_string_column(self : BuiltinColumn) -> BuiltinColumn {
   match self.data {
     Utf8(_) => self
-    I64(a) => self.cast_cells(i => a[i].to_string(), "", b => Utf8(b))
-    F64(a) => self.cast_cells(i => a[i].to_string(), "", b => Utf8(b))
+    I64(a) =>
+      self.cast_cells(@types.DataType::String, i => a[i].to_string(), "", b => {
+        Utf8(b)
+      })
+    F64(a) =>
+      self.cast_cells(@types.DataType::String, i => a[i].to_string(), "", b => {
+        Utf8(b)
+      })
     Bool(a) =>
-      self.cast_cells(i => if a[i] { "true" } else { "false" }, "", b => Utf8(b))
+      self.cast_cells(
+        @types.DataType::String,
+        i => if a[i] { "true" } else { "false" },
+        "",
+        b => Utf8(b),
+      )
   }
 }

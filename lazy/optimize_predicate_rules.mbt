@@ -164,7 +164,8 @@ fn group_cell_stable(expr : @ir.ExprNode) -> Bool {
               @types.Scalar::Int(_)
               | @types.Scalar::Float(_)
               | @types.Scalar::Bool(_)
-              | @types.Scalar::String(_) => ()
+              | @types.Scalar::String(_)
+              | @types.Scalar::Date(_) => ()
             }
           @ir.ExprNode::Agg(op, operand) =>
             match op {

@@ -179,7 +179,8 @@ pub fn eval_compare(
   let lv = validity_bools(left)
   let rv = validity_bools(right)
   let cells = match (left.storage().data(), right.storage().data()) {
-    (@column.ColumnData::I64(a), @column.ColumnData::I64(b)) =>
+    (@column.ColumnData::I64(a), @column.ColumnData::I64(b)) if left.dtype() ==
+      right.dtype() =>
       compare_cells(
         a.length(),
         left_valid=lv,
@@ -190,11 +191,15 @@ pub fn eval_compare(
         equal=(x, y) => x == y,
         verb~,
       )
-    (@column.ColumnData::I64(a), @column.ColumnData::F64(b)) =>
+    (@column.ColumnData::I64(a), @column.ColumnData::F64(b)) if left
+      .dtype()
+      .is_numeric() =>
       compare_cells_mixed(a.length(), lv, rv, i => {
         cmp_int_double(verb, a[i], b[i])
       })
-    (@column.ColumnData::F64(a), @column.ColumnData::I64(b)) =>
+    (@column.ColumnData::F64(a), @column.ColumnData::I64(b)) if right
+      .dtype()
+      .is_numeric() =>
       compare_cells_mixed(a.length(), lv, rv, i => {
         cmp_double_int(verb, a[i], b[i])
       })
@@ -231,7 +236,10 @@ pub fn eval_compare(
         equal=(x, y) => x == y,
         verb~,
       )
-    (@column.ColumnData::Bool(_) | @column.ColumnData::Utf8(_), _)
+    (@column.ColumnData::I64(_), @column.ColumnData::I64(_))
+    | (@column.ColumnData::I64(_), @column.ColumnData::F64(_))
+    | (@column.ColumnData::F64(_), @column.ColumnData::I64(_))
+    | (@column.ColumnData::Bool(_) | @column.ColumnData::Utf8(_), _)
     | (_, @column.ColumnData::Bool(_) | @column.ColumnData::Utf8(_)) =>
       raise binary_type_mismatch_error("compare", left, right)
   }

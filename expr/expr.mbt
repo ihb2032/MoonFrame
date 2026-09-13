@@ -3,7 +3,9 @@
 /// surfaces (the original row-predicate closure) and pre-materialised `Series`
 /// columns. An `Expr` is built through the constructor functions
 /// (`col` / `lit` / `lit_*` / `when`), the operator impls, and the methods,
-/// so every tree is well-formed by construction. Building one is
+/// so every tree is well-formed by construction; the `when` chain stages
+/// through the `WhenThen` / `WhenThenElse` types below, completing as a
+/// `Ternary`. Building one is
 /// **total** — unknown columns and dtype mismatches surface at evaluation time
 /// (in `frame`), never here.
 ///
@@ -110,4 +112,48 @@ pub fn Expr::output_name(self : Expr) -> String {
 /// inside this package by the constructors and the introspection walks.
 fn Expr::of(node : @ir.ExprNode) -> Expr {
   { node, }
+}
+
+///|
+/// First step of the conditional chain
+/// `when(cond).then(a).otherwise(b)` — holds the `Bool` condition until
+/// `then` supplies the matching branch. Constructible only through `when`,
+/// which is a `pub` function and so cannot return a `priv` type — that, and
+/// nothing else, is why the struct is `pub`. Its field is private, so the only
+/// thing a caller can do with a `WhenThen` is call `then`.
+pub struct WhenThen {
+  priv cond : Expr
+}
+
+///|
+/// Second step of the conditional chain — condition plus `then` branch,
+/// waiting for `otherwise` to complete the expression. Same private-field
+/// rationale as `WhenThen`: the only move is `otherwise`.
+pub struct WhenThenElse {
+  priv cond : Expr
+  priv then_value : Expr
+}
+
+///|
+/// Open a conditional expression: `when(cond).then(a).otherwise(b)`
+/// evaluates to `a` where `cond` is `true`, `b` where it is `false`, and
+/// null where `cond` is null. The chain is the only construction route, so
+/// a conditional is complete by the time it becomes an `Expr`.
+pub fn when(cond : Expr) -> WhenThen {
+  { cond, }
+}
+
+///|
+/// Supply the branch taken where the condition is `true`.
+pub fn WhenThen::then(self : WhenThen, value : Expr) -> WhenThenElse {
+  { cond: self.cond, then_value: value, }
+}
+
+///|
+/// Supply the branch taken where the condition is `false`, completing the
+/// conditional as a `Ternary` expression node.
+pub fn WhenThenElse::otherwise(self : WhenThenElse, value : Expr) -> Expr {
+  Expr::of(
+    @ir.ExprNode::Ternary(self.cond.node, self.then_value.node, value.node),
+  )
 }

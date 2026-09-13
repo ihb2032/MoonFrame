@@ -419,7 +419,9 @@ pub fn Series::fill_null(
     @types.Scalar::String(v) =>
       match self.storage.data() {
         @column.ColumnData::Utf8(data) => {
-          let buf = fill_buffer(data, valid, v)
+          let buf = data
+            .to_strings()
+            .mapi((i, x) => if valid[i] { x } else { v })
           Series::from_builtin(
             self.name,
             @column.BuiltinColumn::from_strings(buf),

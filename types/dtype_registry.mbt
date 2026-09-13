@@ -75,9 +75,7 @@ fn DataType::dtype_profile(self : DataType) -> DTypeProfile {
 ///|
 /// The `Show` spelling of the dtype — the single home of the display name
 /// (`DataType::output` renders through this).
-#doc(hidden)
-#internal(engine, "MoonFrame execution engine API")
-pub fn DataType::display_name(self : DataType) -> String {
+fn DataType::display_name(self : DataType) -> String {
   self.dtype_profile().display
 }
 

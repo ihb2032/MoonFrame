@@ -10,7 +10,7 @@ test "placeholders_normalized flags a leaked value in a null slot, per dtype" {
   // serves every dtype. Each column leaves a non-placeholder value in null row
   // 1, exercising the false arm of the predicate's `data` match on all four
   // dtypes.
-  let mask = Bitmap::from_options([Some(0L), None])
+  let mask = @buffer.Bitmap::from_options([Some(0L), None])
   let leak_i = BuiltinColumn::{
     dtype: @types.DataType::Int,
     data: I64([0L, 99L]),
@@ -31,7 +31,7 @@ test "placeholders_normalized flags a leaked value in a null slot, per dtype" {
   assert_false(placeholders_normalized(leak_b))
   let leak_s = BuiltinColumn::{
     dtype: @types.DataType::String,
-    data: Utf8(["", "leak"]),
+    data: Utf8(@buffer.Utf8Array::from_strings(["", "leak"])),
     validity: mask,
   }
   assert_false(placeholders_normalized(leak_s))

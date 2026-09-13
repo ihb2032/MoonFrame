@@ -105,7 +105,7 @@ pub fn coalesce_columns(base : Series, fill : Series, name : String) -> Series {
     },
     (a, i) => {
       if base_valid[i] {
-        Some(a[i])
+        Some(a.get(i))
       } else {
         match fills[i] {
           @types.Scalar::String(v) => Some(v)
@@ -156,8 +156,9 @@ pub fn slice_series(s : Series, start : Int, len : Int) -> Series {
 /// content, so two columns holding the same cells are equal whichever backend
 /// they sit on. It is the reason the backend can be asserted at all.
 ///
-/// Package-private, deliberately: the four closures receive the source's own
-/// typed data array, so anything holding this could write into a live column.
+/// Package-private, deliberately: the four closures receive the source own
+/// typed data (the Utf8Array hands out decoded cells, never its byte buffer),
+/// so anything holding this could at most read the column it came from.
 /// Every caller is in this package — the row gathers and `coalesce_columns` —
 /// and the seam other packages get is the finished `Series`.
 fn rebuild_options(
@@ -167,7 +168,7 @@ fn rebuild_options(
   int_cell : (ArrayView[Int64], Int) -> Int64?,
   float_cell : (ArrayView[Double], Int) -> Double?,
   bool_cell : (ArrayView[Bool], Int) -> Bool?,
-  string_cell : (ArrayView[String], Int) -> String?,
+  string_cell : (@buffer.Utf8Array, Int) -> String?,
 ) -> Series {
   let rebuilt = match source.storage.data() {
     // The I64 arm rebuilds through the *dtype*, not the variant: a Date
@@ -267,7 +268,7 @@ fn rebuild_by_row(
     (a, k) => row_at(k).map(j => a[j]),
     (a, k) => row_at(k).map(j => a[j]),
     (a, k) => row_at(k).map(j => a[j]),
-    (a, k) => row_at(k).map(j => a[j]),
+    (a, k) => row_at(k).map(j => a.get(j)),
   )
 }
 

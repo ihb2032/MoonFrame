@@ -73,7 +73,7 @@ pub extend ColumnStorage with Debug::{to_repr}
 /// and the other did not (`gather` vs `slice`, `from_ints` vs an all-`Some`
 /// `from_int_options`, …). This drives `Series` and `DataFrame` equality (both
 /// `derive(Eq)` over their fields, reaching here), so `df.head(2) ==
-/// df.filter(...)` reflects content, not representation. A valid `NaN` cell
+/// df.filter(.)` reflects content, not representation. A valid `NaN` cell
 /// still makes a column unequal to an identical one (`NaN != NaN`, matching
 /// `Double` equality); only null-ness and equal values decide the rest.
 pub impl Eq for ColumnStorage with fn equal(self, other) {
@@ -87,8 +87,25 @@ pub impl Eq for ColumnStorage with fn equal(self, other) {
       storage_cells_equal(a, b, self, other, (x, y) => x == y)
     (ColumnData::Bool(a), ColumnData::Bool(b)) =>
       storage_cells_equal(a, b, self, other, (x, y) => x == y)
-    (ColumnData::Utf8(a), ColumnData::Utf8(b)) =>
-      storage_cells_equal(a, b, self, other, (x, y) => x == y)
+    (ColumnData::Utf8(a), ColumnData::Utf8(b)) => {
+      // Byte-wise cell equality over the UTF-8 buffers: no decode, and UTF-8
+      // byte equality is exactly `String` equality. Same validity-per-slot
+      // semantics as `storage_cells_equal`.
+      let mut equal = true
+      let n = a.len()
+      for i in 0..<n {
+        let va = self.valid_at(i)
+        if va != other.valid_at(i) {
+          equal = false
+          break
+        }
+        if va && !a.cell_eq(i, b, i) {
+          equal = false
+          break
+        }
+      }
+      equal
+    }
     // Different dtypes (different `ColumnData` variants) are never equal.
     // Spelled variant-by-variant (no wildcard) so a future `ColumnData`
     // variant fails compilation here instead of silently comparing unequal
@@ -244,10 +261,10 @@ pub fn ColumnStorage::data(self : ColumnStorage) -> ColumnData {
 /// point the two backends diverge. The other half of the bulk read: `data()`
 /// hands back a dense buffer whose null slots hold a placeholder, and this
 /// says which slots those are.
-pub fn ColumnStorage::validity(self : ColumnStorage) -> Bitmap {
+pub fn ColumnStorage::validity(self : ColumnStorage) -> @buffer.Bitmap {
   match self {
     Builtin(c) => c.validity()
-    Numeric(c) => Bitmap::all_valid(c.len())
+    Numeric(c) => @buffer.Bitmap::all_valid(c.len())
   }
 }
 

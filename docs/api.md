@@ -184,8 +184,9 @@ The public surface is split across seven packages; the facade re-exports them so
 Storage backends (`internal/column`), the vectorized expression kernels
 (`internal/kernel`), the text / literal / numeric / position primitives
 (`internal/text` / `internal/literal` / `internal/numeric` / `internal/order`),
-and the expression AST (`internal/ir`) live in module-internal packages a
-downstream module cannot import. Responsibility
+the raw buffer primitives (`internal/buffer` — the validity bitmap and the
+UTF-8 string buffer), and the expression AST (`internal/ir`) live in
+module-internal packages a downstream module cannot import. Responsibility
 runs `frame` schedules → `internal/kernel` computes a column → `series` owns
 what a column is → `internal/column` owns how it is laid out. What keeps it
 that way is an import allowlist, which lives in

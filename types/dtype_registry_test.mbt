@@ -17,12 +17,13 @@ test "physical: the concrete dtypes map to their buffers; Null has none" {
 
 ///|
 test "display names are the registered spellings" {
-  assert_eq(DataType::Int.display_name(), "Int")
-  assert_eq(DataType::Float.display_name(), "Float")
-  assert_eq(DataType::Bool.display_name(), "Bool")
-  assert_eq(DataType::String.display_name(), "String")
-  assert_eq(DataType::Date.display_name(), "Date")
-  assert_eq(DataType::Null.display_name(), "Null")
+  // Read through the public Show rendering, which the registry feeds.
+  assert_eq(DataType::Int.to_string(), "Int")
+  assert_eq(DataType::Float.to_string(), "Float")
+  assert_eq(DataType::Bool.to_string(), "Bool")
+  assert_eq(DataType::String.to_string(), "String")
+  assert_eq(DataType::Date.to_string(), "Date")
+  assert_eq(DataType::Null.to_string(), "Null")
 }
 
 ///|

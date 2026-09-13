@@ -55,9 +55,11 @@ pub fn build_sort_key(
         null_order,
       )
     @column.ColumnData::Utf8(a) =>
+      // Decoded once here: comparisons during the sort read the materialised
+      // strings rather than decoding per comparison.
       SortKey::String(
-        a,
-        Array::makei(a.length(), i => !valid[i]),
+        a.to_strings(),
+        Array::makei(a.len(), i => !valid[i]),
         order,
         null_order,
       )

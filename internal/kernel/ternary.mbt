@@ -119,16 +119,20 @@ pub fn eval_ternary(
           i => if ev[i] { Some(b[i]) } else { None },
         ),
       )
-    (@column.ColumnData::Utf8(a), @column.ColumnData::Utf8(b)) =>
+    (@column.ColumnData::Utf8(a), @column.ColumnData::Utf8(b)) => {
+      // Decoded once per branch: selection copies materialised Strings.
+      let sa = a.to_strings()
+      let sb = b.to_strings()
       Series::from_string_options(
         t2.name(),
         select_cells(
           cond_cells,
           cv,
-          i => if tv[i] { Some(a[i]) } else { None },
-          i => if ev[i] { Some(b[i]) } else { None },
+          i => if tv[i] { Some(sa[i]) } else { None },
+          i => if ev[i] { Some(sb[i]) } else { None },
         ),
       )
+    }
     (@column.ColumnData::I64(_), @column.ColumnData::I64(_))
     | (@column.ColumnData::I64(_), @column.ColumnData::F64(_))
     | (@column.ColumnData::F64(_), @column.ColumnData::I64(_))

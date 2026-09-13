@@ -205,7 +205,7 @@ fn reduce_extremum(
       }
     @column.ColumnData::Utf8(a) =>
       fn(n : Int, at : (Int) -> Int) {
-        let get = k => a[at(k)]
+        let get = k => a.get(at(k))
         let skip = k => !present(at(k))
         let better = (x, y) => {
           if want_min {
@@ -434,7 +434,7 @@ fn count_distinct(
     // agreement on "distinct" by construction, not by hand-synced copies.
     @column.ColumnData::F64(a) => i => float_key_cell(a[i])
     @column.ColumnData::Bool(a) => i => KBool(a[i])
-    @column.ColumnData::Utf8(a) => i => KStr(a[i])
+    @column.ColumnData::Utf8(a) => i => KStr(a.get(i))
   }
   fn(n : Int, at : (Int) -> Int) {
     let seen : Map[KeyCell, Unit] = Map([])

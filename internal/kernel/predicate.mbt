@@ -67,7 +67,9 @@ fn try_fast_is_in(
   let valid = validity_bools(operand)
   let name = operand.name()
   match operand.storage().data() {
-    @column.ColumnData::Utf8(data) => {
+    @column.ColumnData::Utf8(buf) => {
+      // Decoded once per side: cell membership reads materialised Strings.
+      let data = buf.to_strings()
       let set : Map[String, Unit] = Map([])
       for m in members {
         match m {

@@ -234,6 +234,7 @@ what exercises every kernel a caller can reach):
 
 ```
 types/      value types, errors (DataError), schemas
+internal/buffer/   the raw buffer primitives — the Arrow validity bitmap and the UTF-8 (bytes + offsets) string buffer every columnar layout flattens from
 internal/column/   Arrow-style storage — validity bitmap + Builtin/Numeric backends; wrapped by Series and read by internal/kernel (which packages may name it is enforced by check_layering.sh)
 internal/kernel/   the vectorized expression kernels — Series broadcasting, arithmetic / logic / comparison / string ops, ternary, map, and the dtype inference behind a computed column; called by frame's evaluator
 internal/text/     shared text primitives — lexicographic compare, debug escaping, decimal literal parsing

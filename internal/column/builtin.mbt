@@ -32,7 +32,7 @@ pub struct BuiltinColumn {
   /// `dtype.physical()` agrees with the `data` variant is constructor-guaranteed.
   priv dtype : @types.DataType
   priv data : ColumnData
-  priv validity : Bitmap
+  priv validity : @buffer.Bitmap
 } derive(Debug)
 
 ///|
@@ -48,7 +48,7 @@ pub(all) enum ColumnData {
   I64(ArrayView[Int64])
   F64(ArrayView[Double])
   Bool(ArrayView[Bool])
-  Utf8(ArrayView[String])
+  Utf8(@buffer.Utf8Array)
 } derive(Debug)
 
 ///|
@@ -65,7 +65,7 @@ pub fn BuiltinColumn::from_ints(values : Array[Int64]) -> BuiltinColumn {
   {
     dtype: @types.DataType::Int,
     data: I64(values.copy()),
-    validity: Bitmap::all_valid(values.length()),
+    validity: @buffer.Bitmap::all_valid(values.length()),
   }
 }
 
@@ -76,7 +76,7 @@ pub fn BuiltinColumn::from_int_options(values : Array[Int64?]) -> BuiltinColumn 
   {
     dtype: @types.DataType::Int,
     data: I64(values.map(v => v.unwrap_or(0))),
-    validity: Bitmap::from_options(values),
+    validity: @buffer.Bitmap::from_options(values),
   }
 }
 
@@ -87,7 +87,7 @@ pub fn BuiltinColumn::from_floats(values : Array[Double]) -> BuiltinColumn {
   {
     dtype: @types.DataType::Float,
     data: F64(values.copy()),
-    validity: Bitmap::all_valid(values.length()),
+    validity: @buffer.Bitmap::all_valid(values.length()),
   }
 }
 
@@ -100,7 +100,7 @@ pub fn BuiltinColumn::from_float_options(
   {
     dtype: @types.DataType::Float,
     data: F64(values.map(v => v.unwrap_or(0.0))),
-    validity: Bitmap::from_options(values),
+    validity: @buffer.Bitmap::from_options(values),
   }
 }
 
@@ -111,7 +111,7 @@ pub fn BuiltinColumn::from_bools(values : Array[Bool]) -> BuiltinColumn {
   {
     dtype: @types.DataType::Bool,
     data: Bool(values.copy()),
-    validity: Bitmap::all_valid(values.length()),
+    validity: @buffer.Bitmap::all_valid(values.length()),
   }
 }
 
@@ -122,7 +122,7 @@ pub fn BuiltinColumn::from_bool_options(values : Array[Bool?]) -> BuiltinColumn 
   {
     dtype: @types.DataType::Bool,
     data: Bool(values.map(v => v.unwrap_or(false))),
-    validity: Bitmap::from_options(values),
+    validity: @buffer.Bitmap::from_options(values),
   }
 }
 
@@ -132,8 +132,8 @@ pub fn BuiltinColumn::from_bool_options(values : Array[Bool?]) -> BuiltinColumn 
 pub fn BuiltinColumn::from_strings(values : Array[String]) -> BuiltinColumn {
   {
     dtype: @types.DataType::String,
-    data: Utf8(values.copy()),
-    validity: Bitmap::all_valid(values.length()),
+    data: Utf8(@buffer.Utf8Array::from_strings(values)),
+    validity: @buffer.Bitmap::all_valid(values.length()),
   }
 }
 
@@ -145,8 +145,8 @@ pub fn BuiltinColumn::from_string_options(
 ) -> BuiltinColumn {
   {
     dtype: @types.DataType::String,
-    data: Utf8(values.map(v => v.unwrap_or(""))),
-    validity: Bitmap::from_options(values),
+    data: Utf8(@buffer.Utf8Array::from_string_options(values)),
+    validity: @buffer.Bitmap::from_options(values),
   }
 }
 
@@ -166,7 +166,7 @@ pub fn BuiltinColumn::from_i64_options(
   {
     dtype,
     data: I64(values.map(v => v.unwrap_or(0))),
-    validity: Bitmap::from_options(values),
+    validity: @buffer.Bitmap::from_options(values),
   }
 }
 
@@ -196,7 +196,7 @@ fn BuiltinColumn::data(self : BuiltinColumn) -> ColumnData {
 /// read every slot in order: `validity().to_bools()` materialises the mask
 /// once so a bounded loop indexes it totally, instead of catching a
 /// per-slot `is_valid` raise. The bitmap is shared (read-only).
-fn BuiltinColumn::validity(self : BuiltinColumn) -> Bitmap {
+fn BuiltinColumn::validity(self : BuiltinColumn) -> @buffer.Bitmap {
   self.validity
 }
 
@@ -207,7 +207,7 @@ fn BuiltinColumn::len(self : BuiltinColumn) -> Int {
     I64(a) => a.length()
     F64(a) => a.length()
     Bool(a) => a.length()
-    Utf8(a) => a.length()
+    Utf8(a) => a.len()
   }
 }
 
@@ -268,7 +268,7 @@ pub fn scalar_of(
       }
     F64(a) => @types.Scalar::Float(a[index])
     Bool(a) => @types.Scalar::Bool(a[index])
-    Utf8(a) => @types.Scalar::String(a[index])
+    Utf8(a) => @types.Scalar::String(a.get(index))
   }
 }
 
@@ -280,7 +280,7 @@ pub fn scalar_of(
 /// Errors (checked in this order):
 /// - `IndexOutOfBounds(start)` when `start < 0`.
 /// - `IndexOutOfBounds(end)` when `end` is outside `[0, len]`.
-/// - `InvalidOperation("slice start > end: ...")` when `start > end`.
+/// - `InvalidOperation("slice start > end: .")` when `start > end`.
 ///
 /// `start > len` is not a separate case: it can only occur together with
 /// `end > len` (→ `IndexOutOfBounds(end)`) or `start > end`
@@ -311,7 +311,7 @@ fn BuiltinColumn::slice_unchecked(
     I64(a) => I64(Array::makei(n, i => a[start + i]))
     F64(a) => F64(Array::makei(n, i => a[start + i]))
     Bool(a) => Bool(Array::makei(n, i => a[start + i]))
-    Utf8(a) => Utf8(Array::makei(n, i => a[start + i]))
+    Utf8(a) => Utf8(a.slice_view(start, n))
   }
   {
     dtype: self.dtype,
@@ -332,7 +332,7 @@ fn BuiltinColumn::take(
     I64(a) => I64(indices.map(i => a[i]))
     F64(a) => F64(indices.map(i => a[i]))
     Bool(a) => Bool(indices.map(i => a[i]))
-    Utf8(a) => Utf8(indices.map(i => a[i]))
+    Utf8(a) => Utf8(a.take_view(indices))
   }
   // Indices are already validated against the same `len`, so gather the
   // validity bits through the unchecked `take_view` — no second O(n) bounds

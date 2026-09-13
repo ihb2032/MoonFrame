@@ -1,4 +1,5 @@
 import {
+  "ihb2032/MoonFrame/internal/buffer",
   "ihb2032/MoonFrame/internal/numeric",
   "ihb2032/MoonFrame/internal/order",
   "ihb2032/MoonFrame/internal/column",

@@ -181,7 +181,7 @@ fn NumericColumn::get(
 /// the same diagnostics (and check order) as `BuiltinColumn::slice`:
 /// - `IndexOutOfBounds(start)` when `start < 0`.
 /// - `IndexOutOfBounds(end)` when `end` is outside `[0, len]`.
-/// - `InvalidOperation("slice start > end: ...")` when `start > end`.
+/// - `InvalidOperation("slice start > end: .")` when `start > end`.
 ///
 /// Stays a `NumericColumn` — a sub-range of an all-valid column is itself
 /// all-valid, so there is no bitmap here at all, where `BuiltinColumn::slice`
@@ -244,13 +244,13 @@ fn NumericColumn::to_builtin(self : NumericColumn) -> BuiltinColumn {
       {
         dtype: @types.DataType::Int,
         data: ColumnData::I64(a),
-        validity: Bitmap::all_valid(a.length()),
+        validity: @buffer.Bitmap::all_valid(a.length()),
       }
     Float(a) =>
       {
         dtype: @types.DataType::Float,
         data: ColumnData::F64(a),
-        validity: Bitmap::all_valid(a.length()),
+        validity: @buffer.Bitmap::all_valid(a.length()),
       }
   }
 }

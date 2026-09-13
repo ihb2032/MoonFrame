@@ -124,7 +124,7 @@ fn BuiltinColumn::to_int(
       self.cast_cells(
         @types.DataType::Int,
         i => {
-          let s = a[i]
+          let s = a.get(i)
           // Plain base-10 only, via the shared `@text.parse_decimal_int_opt`
           // (the CSV reader's inference routes through the same routine, so an
           // explicit cast and inference agree on what text is an integer); a
@@ -179,7 +179,7 @@ fn BuiltinColumn::to_float(
       self.cast_cells(
         @types.DataType::Float,
         i => {
-          let s = a[i]
+          let s = a.get(i)
           // Via the shared `@text.parse_plain_double_opt` (the CSV reader uses
           // the same routine): `1_000`-style underscores are rejected to match
           // pandas / polars, while the `inf` / `-inf` / `nan` literals — and a
@@ -216,18 +216,18 @@ fn BuiltinColumn::to_string_column(self : BuiltinColumn) -> BuiltinColumn {
     Utf8(_) => self
     I64(a) =>
       self.cast_cells(@types.DataType::String, i => a[i].to_string(), "", b => {
-        Utf8(b)
+        Utf8(@buffer.Utf8Array::from_strings(b))
       })
     F64(a) =>
       self.cast_cells(@types.DataType::String, i => a[i].to_string(), "", b => {
-        Utf8(b)
+        Utf8(@buffer.Utf8Array::from_strings(b))
       })
     Bool(a) =>
       self.cast_cells(
         @types.DataType::String,
         i => if a[i] { "true" } else { "false" },
         "",
-        b => Utf8(b),
+        b => Utf8(@buffer.Utf8Array::from_strings(b)),
       )
   }
 }

@@ -179,8 +179,12 @@ pub fn eval_compare(
   let lv = validity_bools(left)
   let rv = validity_bools(right)
   let cells = match (left.storage().data(), right.storage().data()) {
-    (@column.ColumnData::I64(a), @column.ColumnData::I64(b)) if left.dtype() ==
-      right.dtype() =>
+    // The dtype gates read the registry's `comparable_with`: the same dtype
+    // compares, two numerics compare, and an I64 rider (Date) never compares
+    // against a plain Int through the shared buffer.
+    (@column.ColumnData::I64(a), @column.ColumnData::I64(b)) if left
+      .dtype()
+      .comparable_with(right.dtype()) =>
       compare_cells(
         a.length(),
         left_valid=lv,
@@ -193,13 +197,13 @@ pub fn eval_compare(
       )
     (@column.ColumnData::I64(a), @column.ColumnData::F64(b)) if left
       .dtype()
-      .is_numeric() =>
+      .comparable_with(right.dtype()) =>
       compare_cells_mixed(a.length(), lv, rv, i => {
         cmp_int_double(verb, a[i], b[i])
       })
-    (@column.ColumnData::F64(a), @column.ColumnData::I64(b)) if right
+    (@column.ColumnData::F64(a), @column.ColumnData::I64(b)) if left
       .dtype()
-      .is_numeric() =>
+      .comparable_with(right.dtype()) =>
       compare_cells_mixed(a.length(), lv, rv, i => {
         cmp_double_int(verb, a[i], b[i])
       })
@@ -225,17 +229,22 @@ pub fn eval_compare(
         equal=(x, y) => x == y,
         verb~,
       )
-    (@column.ColumnData::Utf8(a), @column.ColumnData::Utf8(b)) =>
+    (@column.ColumnData::Utf8(a), @column.ColumnData::Utf8(b)) => {
+      // Decoded once per side: the comparison reads materialised strings
+      // rather than decoding each cell per comparison.
+      let sa = a.to_strings()
+      let sb = b.to_strings()
       compare_cells(
-        a.length(),
+        sa.length(),
         left_valid=lv,
         right_valid=rv,
-        get_left=i => a[i],
-        get_right=i => b[i],
+        get_left=i => sa[i],
+        get_right=i => sb[i],
         less_than=(x, y) => @text.compare_string_lex(x, y) < 0,
         equal=(x, y) => x == y,
         verb~,
       )
+    }
     (@column.ColumnData::I64(_), @column.ColumnData::I64(_))
     | (@column.ColumnData::I64(_), @column.ColumnData::F64(_))
     | (@column.ColumnData::F64(_), @column.ColumnData::I64(_))

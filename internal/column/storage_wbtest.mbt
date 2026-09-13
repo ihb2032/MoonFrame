@@ -25,7 +25,7 @@ fn read_like_ops(storage : ColumnStorage) -> (String, Array[Bool]) {
     ColumnData::F64(a) =>
       ("Float", Array::makei(a.length(), i => !valid[i] || a[i].is_nan()))
     ColumnData::Bool(a) => ("Bool", Array::makei(a.length(), i => !valid[i]))
-    ColumnData::Utf8(a) => ("String", Array::makei(a.length(), i => !valid[i]))
+    ColumnData::Utf8(a) => ("String", Array::makei(a.len(), i => !valid[i]))
   }
 }
 
@@ -69,7 +69,10 @@ test "data / get: both backends" {
   let builtin = ColumnStorage::Builtin(BuiltinColumn::from_strings(["x", "y"]))
   let numeric = ColumnStorage::Numeric(NumericColumn::from_ints([10, 20]))
   // data() forwards to the underlying ColumnData on each arm.
-  assert_eq(builtin.data(), ColumnData::Utf8(["x", "y"]))
+  assert_eq(
+    builtin.data(),
+    ColumnData::Utf8(@buffer.Utf8Array::from_strings(["x", "y"])),
+  )
   assert_eq(numeric.data(), ColumnData::I64([10, 20]))
   // get() forwards on each arm; OOB raises through either.
   assert_eq(builtin.get(0), @types.Scalar::String("x"))
@@ -324,4 +327,19 @@ test "ColumnStorage equality is content-based, not backend-sensitive" {
   // StorageKind keeps its own tag-based derive(Eq).
   assert_eq(StorageKind::Builtin, StorageKind::Builtin)
   assert_not_eq(StorageKind::Builtin, StorageKind::Numeric)
+}
+
+///|
+test "Utf8 columns with the same cells but different validity are unequal" {
+  // At the storage level (the equality Series/DataFrame compare through):
+  // the validity branch must fire, not just the byte comparison.
+  let full = ColumnStorage::Builtin(BuiltinColumn::from_strings(["x", "y"]))
+  let with_null = ColumnStorage::Builtin(
+    BuiltinColumn::from_string_options([Some("x"), None]),
+  )
+  assert_false(full == with_null)
+  assert_false(with_null == full)
+  // And same values + same validity is equal through the byte path.
+  let again = ColumnStorage::Builtin(BuiltinColumn::from_strings(["x", "y"]))
+  assert_true(full == again)
 }

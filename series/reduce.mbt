@@ -482,16 +482,14 @@ fn reduce_first_last(
 }
 
 ///|
-/// The eleven reductions the shared kernel resolves. Lives here in `series` and
-/// is `pub(all)` so the `frame`-side aggregations can construct it. `series`
-/// sits below the expression layer and does not import `internal/ir`, so it
-/// cannot name the AST aggregation tag `@ir.AggOp` — it carries its own
-/// reduction vocabulary instead, and `frame`'s `reduce_op_of_agg` maps
-/// `@ir.AggOp` into it for both the grouped (`agg`) and scoped (`eval_agg`)
-/// reductions.
-///
-/// This variant list mirrors `@ir.AggOp` one-to-one. Keep the two in lockstep —
-/// a reduction added here must also be added to `@ir.AggOp` and to that map.
+/// The eleven reductions the shared kernel resolves — the single aggregation
+/// vocabulary, one fact with one home. The expression AST's `Agg` node carries
+/// a `ReduceOp` directly (`internal/ir` imports `series`), `frame`'s evaluator
+/// and grouped-`agg` fast path dispatch on it, and `reducer_for` right below
+/// resolves it — so adding a reduction is one variant here plus its
+/// `reducer_for` arm and the public `Expr` builder, with no mirror enum and no
+/// translation layer to keep in lockstep. `pub(all)` so the engine packages
+/// can construct it.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
 pub(all) enum ReduceOp {
@@ -506,7 +504,10 @@ pub(all) enum ReduceOp {
   NUnique
   First
   Last
-}
+} derive(Eq)
+
+///|
+pub extend ReduceOp with Eq::{equal, not_equal}
 
 ///|
 /// Resolve a `ReduceOp` to its window reducer plus the dtype probe that fixes

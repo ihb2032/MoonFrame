@@ -48,7 +48,7 @@ test "equality: each variant is unequal to every other variant" {
     LitSeries(@series.Series::from_ints("s", [1])),
     Binary(BinOp::Add, a, Col("b")),
     Unary(UnOp::Neg, a),
-    Agg(AggOp::Sum, a),
+    Agg(@series.ReduceOp::Sum, a),
     Str(StrOp::ToUppercase, a),
     Cast(a, @types.DataType::Float),
     Alias(a, "z"),
@@ -102,7 +102,9 @@ test "equality: within a variant, a differing payload is unequal" {
     (Binary(BinOp::Add, a, b) : ExprNode) == Binary(BinOp::Sub, a, b),
   )
   assert_false((Unary(UnOp::Neg, a) : ExprNode) == Unary(UnOp::Not, a))
-  assert_false((Agg(AggOp::Sum, a) : ExprNode) == Agg(AggOp::Mean, a))
+  assert_false(
+    (Agg(@series.ReduceOp::Sum, a) : ExprNode) == Agg(@series.ReduceOp::Mean, a),
+  )
   assert_false(
     (Str(StrOp::ToUppercase, a) : ExprNode) == Str(StrOp::ToLowercase, a),
   )

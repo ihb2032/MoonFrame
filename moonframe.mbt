@@ -69,7 +69,7 @@
 // The `ClosedInterval` enum that names `is_between`'s `closed?` argument now
 // lives in `@types` (the expression AST carries it, and the AST is below
 // `expr`), so it is re-exported from there. The expression AST itself —
-// `ExprNode` and its `BinOp` / `UnOp` / `AggOp` / `StrOp` tags — lives in the
+// `ExprNode` and its `BinOp` / `UnOp` / `StrOp` tags — lives in the
 // module-internal `internal/ir` package, unreachable downstream and named by
 // no public API, so there is nothing to re-export for it. `@lazy` needs the
 // `scan_csv` / `scan_ndjson` file sources, whose optional options parameters

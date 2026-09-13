@@ -10,9 +10,6 @@ internal/column/StorageKind::equal
 internal/column/StorageKind::not_equal
 internal/column/StorageKind::to_repr
 internal/column/pub impl Eq for ColumnStorage
-internal/ir/AggOp::equal
-internal/ir/AggOp::not_equal
-internal/ir/AggOp::to_repr
 internal/ir/BinOp::equal
 internal/ir/BinOp::not_equal
 internal/ir/BinOp::to_repr

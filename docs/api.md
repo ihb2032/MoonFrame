@@ -480,7 +480,7 @@ operators / methods ride along with `type Expr`, and the `LazyFrame` methods
 with its type — so only the value types and the free functions are listed
 explicitly (browse the full re-exported set on
 [mooncakes.io](https://mooncakes.io/docs/ihb2032/MoonFrame)). The expression AST
-— `ExprNode` and its `BinOp` / `UnOp` / `AggOp` / `StrOp` tags — lives in the
+— `ExprNode` and its `BinOp` / `UnOp` / `StrOp` tags — lives in the
 module-internal `internal/ir` package, which downstream cannot import and no
 public API names, so there is nothing to re-export for it.
 

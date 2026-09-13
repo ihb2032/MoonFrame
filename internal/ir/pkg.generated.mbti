@@ -13,23 +13,6 @@ import {
 // Errors
 
 // Types and methods
-pub(all) enum AggOp {
-  Sum
-  Mean
-  Min
-  Max
-  Count
-  Std
-  Var
-  Median
-  NUnique
-  First
-  Last
-} derive(Eq, @debug.Debug)
-pub fn AggOp::equal(Self, Self) -> Bool
-pub fn AggOp::not_equal(Self, Self) -> Bool
-pub fn AggOp::to_repr(Self) -> @debug.Repr
-
 pub(all) enum BinOp {
   Add
   Sub
@@ -57,7 +40,7 @@ pub(all) enum ExprNode {
   LitSeries(@series.Series)
   Binary(BinOp, ExprNode, ExprNode)
   Unary(UnOp, ExprNode)
-  Agg(AggOp, ExprNode)
+  Agg(@series.ReduceOp, ExprNode)
   Str(StrOp, ExprNode)
   Cast(ExprNode, @types.DataType)
   Alias(ExprNode, String)

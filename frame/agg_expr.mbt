@@ -281,7 +281,7 @@ fn bare_col_agg(expr : @ir.ExprNode) -> (String, ReduceOp)? {
       // The `Agg`'s operand is an AST node, so its `Col`-ness is a second step.
       @ir.ExprNode::Agg(op, operand) =>
         return match operand {
-          @ir.ExprNode::Col(name) => Some((name, reduce_op_of_agg(op)))
+          @ir.ExprNode::Col(name) => Some((name, op))
           _ => None
         }
       _ => return None

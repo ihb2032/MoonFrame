@@ -88,6 +88,11 @@ internal/column/bitmap.mbt:from_bools
 internal/column/bitmap.mbt:bit_and
 internal/column/bitmap.mbt:all_null
 internal/kernel/numeric.mbt:expr_eval.mbt
+# Removed with the AggOp-to-ReduceOp convergence (unreleased): the AST Agg
+# node carries @series.ReduceOp directly, so the mirror enum and the frame
+# translation layer are gone.
+AggOp
+reduce_op_of_agg
 # Removed with the frame cache consolidation (unreleased): the schema index
 # is the only name-to-position map.
 name_to_index

@@ -36,6 +36,7 @@ lazy -> internal/ir
 lazy -> internal/literal
 lazy -> internal/text
 lazy -> io
+lazy -> series
 lazy -> types
 root -> chart
 root -> expr

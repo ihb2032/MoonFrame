@@ -1,10 +1,9 @@
 ///|
-/// Introspection over the expression tree: a handwritten `Show` rendering
-/// the documented operator form, its `to_string` exposing that rendering as a
-/// `String` (shared later by `LazyFrame::explain`'s plan printer), and the thin
-/// handle-level accessors (`children` / `referenced_columns` / `output_name`)
-/// that delegate to the AST analysis living beside the tree in `internal/ir`.
-/// All are total — they walk shape, nothing can fail.
+/// Rendering of the expression tree: a handwritten `Show` presenting the
+/// documented operator form, its `to_string` exposing that rendering as a
+/// `String` (shared later by `LazyFrame::explain`'s plan printer), and the
+/// handwritten `@debug.Debug` delegating to it. All total — they walk shape,
+/// nothing can fail.
 
 ///|
 /// Render the documented operator form, e.g.
@@ -40,46 +39,6 @@ pub impl @debug.Debug for Expr with fn to_repr(self) {
 
 ///|
 pub extend Expr with Debug::{to_repr}
-
-///|
-/// The immediate sub-expressions of a node, left to right, as opaque `Expr`
-/// handles — the wrapper-level face of `@ir.ExprNode::children`, which is the
-/// single place that encodes the tree's recursive shape. A new variant declares
-/// its child structure once, in `ExprNode`, and every walk takes its *descent*
-/// from there: this handle-level face, the `internal/ir` analyses behind
-/// `referenced_columns` / `output_name`, and the lazy optimizer's `row_stable` /
-/// `group_cell_stable` (which walk the raw `@ir.ExprNode` children directly).
-/// What a variant does not inherit is what those walks *decide* about it — the
-/// naming and pushdown analyses classify variant by variant, under exhaustive
-/// `match`es that stop compiling until the new one is classified. Total — it only
-/// inspects shape.
-#doc(hidden)
-#internal(engine, "MoonFrame execution engine API")
-pub fn Expr::children(self : Expr) -> Array[Expr] {
-  // The AST's shape lives on `@ir.ExprNode::children`; wrap each raw child back
-  // into the opaque `Expr` this returns, so a caller walks the handle.
-  self.node.children().map(Expr::of)
-}
-
-///|
-/// Every column name the tree references, as a set — the handle-level face of
-/// `@ir.ExprNode::referenced_columns` (the analysis itself lives in
-/// `internal/ir`, beside the AST). A `Ternary`'s condition counts. Total.
-#doc(hidden)
-#internal(engine, "MoonFrame execution engine API")
-pub fn Expr::referenced_columns(self : Expr) -> @set.Set[String] {
-  self.node.referenced_columns()
-}
-
-///|
-/// The output-column name this expression produces (Polars' naming rule: an
-/// alias wins, else the leftmost column reference, else `"literal"`) — the
-/// handle-level face of `@ir.ExprNode::output_name`. Total.
-#doc(hidden)
-#internal(engine, "MoonFrame execution engine API")
-pub fn Expr::output_name(self : Expr) -> String {
-  self.node.output_name()
-}
 
 ///|
 /// A pending step for the iterative `write_expr`: either a literal string

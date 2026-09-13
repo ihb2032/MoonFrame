@@ -122,7 +122,7 @@ test "scan_ndjson builders are total; a missing file fails only at collect" {
     scan_ndjson(absent).select([@expr.col("a")]).explain(optimized=true),
     "SELECT [col(a)]\n  SCAN_NDJSON \"_build/lazy_scan_ndjson_absent.ndjson\" [a]",
   )
-  // Collect surfaces the missing file as IoError — through read_ndjson_projected
+  // Collect surfaces the missing file as IoError — through the NDJSON driver
   // when a projection fired…
   assert_true(
     (Ok(scan_ndjson(absent).select([@expr.col("a")]).collect()) catch {

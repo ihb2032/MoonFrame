@@ -88,6 +88,17 @@ internal/column/bitmap.mbt:from_bools
 internal/column/bitmap.mbt:bit_and
 internal/column/bitmap.mbt:all_null
 internal/kernel/numeric.mbt:expr_eval.mbt
+# Removed with the column/buffer restructure (unreleased): the physical
+# mapping moved into the dtype registry (@types.DataType::physical).
+internal/column/bitmap.mbt
+physical_type
+# Removed with the scan-driver seam (unreleased): the four pruned / projected
+# engine seams collapsed into the io scan drivers (csv_scan_driver /
+# ndjson_scan_driver).
+read_csv_pruned
+read_csv_projected
+read_ndjson_pruned
+read_ndjson_projected
 # Removed with the AggOp-to-ReduceOp convergence (unreleased): the AST Agg
 # node carries @series.ReduceOp directly, so the mirror enum and the frame
 # translation layer are gone.

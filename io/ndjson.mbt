@@ -58,7 +58,7 @@ pub fn parse_ndjson_str(
 }
 
 ///|
-/// Shared core behind `parse_ndjson_str` and `read_ndjson_projected`: the full
+/// Shared core behind `parse_ndjson_str` and the NDJSON scan driver's read: the full
 /// line-split / per-line parse pipeline documented on `parse_ndjson_str`, with
 /// one extra knob — `projection`. `None` builds every column; `Some(names)`
 /// builds only the named columns (in first-seen header order), the

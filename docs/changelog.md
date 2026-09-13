@@ -98,9 +98,9 @@ source-level upgrade steps are collected in [`migration.md`](migration.md).
   recovery had been reaching them backwards across the package's file map).
 - The JSON-records core shared by the JSON and NDJSON readers — and, since
   the chart split, by `chart` — moves to `json_core.mbt`.
-- The four `#internal(engine)` scan push-down seams gather into
-  `scan_seams.mbt`, the push-down contract written once in the file header
-  instead of restated four times.
+- The four `#internal(engine)` scan push-down seams are superseded by the
+  scan-driver seam (`internal/scan` + io's `scan_driver.mbt`), whose header
+  carries the push-down contract once for every format.
 - The write-path CSV tests mirror the source split (`csv_write_test.mbt`
   beside `csv_write.mbt`), and the three-format round-trip corpus is driven
   by a format table — wiring a new format into the corpus becomes adding a

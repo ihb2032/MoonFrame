@@ -158,7 +158,7 @@ pub fn parse_csv_str(
 }
 
 ///|
-/// Shared core behind `parse_csv_str` and `read_csv_projected`: the full
+/// Shared core behind `parse_csv_str` and the CSV scan driver's read: the full
 /// parse pipeline documented on `parse_csv_str`, with one extra knob —
 /// `projection`.
 ///
@@ -170,8 +170,7 @@ pub fn parse_csv_str(
 ///   lazy `scan_csv` source uses: the optimizer narrows the read to exactly
 ///   the columns a pipeline consumes. A requested name that matches no header
 ///   is silently ignored (lenient projection, as in Polars): the
-///   engine-internal `read_csv_projected` — an `#internal` seam, absent from
-///   the generated interface — does not raise `ColumnNotFound` for an unknown
+///   scan driver does not raise `ColumnNotFound` for an unknown
 ///   column, it just yields the ones that match. The lazy path only ever
 ///   requests real columns, and a stray `col("missing")` is still caught
 ///   downstream by `select`. A projection matching **no** header builds no

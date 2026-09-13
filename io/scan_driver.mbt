@@ -6,18 +6,38 @@
 // rendering come from the driver interface, not from per-format branches in
 // the engine.
 //
-// The push-down contract each driver honours — a pushed-down read differs
-// from an eager read only in the work it skips, never in the frame it
-// yields — lives once in `scan_seams.mbt`'s header, beside the string-level
-// projected cores both drivers call. Taking the predicate as an `Expr` looks
-// like a layering exception, but only its column names and a row-selection
-// callback reach the reader core: the format never learns the expression
-// language, only *which* columns to resolve and which rows survived.
+// Taking the predicate as an `Expr` looks like a layering exception, but
+// only its column names and a row-selection callback reach the reader core:
+// the format never learns the expression language, only *which* columns to
+// resolve and which rows survived. Both drivers extract `ScanBatch` through
+// `DataFrame`'s public accessors — the eager cores they wrap still assemble
+// a frame (assembly is the `io → frame` edge's remaining job), and the batch
+// is the driver face on the same result.
 //
-// Both drivers extract `ScanBatch` through `DataFrame`'s public accessors —
-// the eager cores they wrap still assemble a frame (assembly is the
-// `io → frame` edge's remaining job), and the batch is the driver face on
-// the same result.
+// The push-down contract both drivers honour — a pushed-down read differs
+// from an eager read only in the work it skips, never in the frame it
+// yields:
+//
+//   - Whole-input checks run first and see the full input: strict quote
+//     validation, BOM stripping, the empty-input short-circuit, malformed
+//     or non-object records, duplicate headers, the ragged-row guard. A
+//     pushed-down read fails on malformed input exactly as a full one.
+//   - Dtype inference always walks the whole file, so a pruned read locks
+//     in the dtypes an eager `read_csv(..).filter(..)` would — the typed
+//     build, not the inference, is what the push-down skips.
+//   - The one observable trade is that same skipping: a `ParseError`
+//     confined to a dropped column (projection) or to a row the predicate
+//     drops in a column it does not read (pruning) never surfaces,
+//     because those cells are never parsed.
+//   - Row identity survives pruning: each kept record's original file
+//     row / line threads through to the error locator, so a parse error
+//     in a kept row still reports its true position.
+//   - The pruned read reuses its already-built key columns rather than
+//     parsing them a second time (the core's phase 2).
+//
+// The string-level cores themselves (`parse_csv_str_projected` /
+// `parse_ndjson_str_projected`) live with their format files, package-private
+// to `io`.
 
 ///|
 /// The CSV scan driver: a path plus the options to parse it under, read at

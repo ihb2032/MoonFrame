@@ -2,8 +2,8 @@
 /// A composable column expression — the reified upgrade over the closure-based
 /// surfaces (the original row-predicate closure) and pre-materialised `Series`
 /// columns. An `Expr` is built through the constructor functions
-/// (`col` / `lit` / `lit_*` / `when`), the operator impls, and the methods in
-/// `expr_ops.mbt`, so every tree is well-formed by construction. Building one is
+/// (`col` / `lit` / `lit_*` / `when`), the operator impls, and the methods,
+/// so every tree is well-formed by construction. Building one is
 /// **total** — unknown columns and dtype mismatches surface at evaluation time
 /// (in `frame`), never here.
 ///
@@ -22,12 +22,15 @@
 /// what it prints, so two literal series differing only in their cells render
 /// alike.
 ///
-/// The engine reads the shape through the `node()` accessor; `frame` and
-/// `lazy` are in-module and match `@ir.ExprNode` directly.
+/// The engine reads the shape through four accessors beside the type —
+/// `node()` hands over the wrapped AST, and `children()` /
+/// `referenced_columns()` / `output_name()` answer its introspection
+/// questions. `frame` and `lazy` are in-module and match `@ir.ExprNode`
+/// directly.
 ///
 /// The wrapped AST carries `@ir.ExprNode` children, not `Expr`, so this package
-/// bridges the two: a constructor unwraps its child `Expr`s with `.node`, and a
-/// walk (in `explain.mbt`) wraps `ExprNode` children back into `Expr`. The
+/// bridges the two: a constructor unwraps its child `Expr`s with `.node`, and
+/// the `children` accessor below wraps `ExprNode` children back into `Expr`. The
 /// nodes, in construction-route order:
 /// - `Col` / `Lit` / `LitSeries` — leaves (`col`, `lit` / `lit_*`,
 ///   `lit_series`); a `LitSeries` embeds a pre-materialised `@series.Series`;
@@ -60,6 +63,46 @@ pub struct Expr {
 #internal(engine, "MoonFrame execution engine API")
 pub fn Expr::node(self : Expr) -> @ir.ExprNode {
   self.node
+}
+
+///|
+/// The immediate sub-expressions of a node, left to right, as opaque `Expr`
+/// handles — the wrapper-level face of `@ir.ExprNode::children`, which is the
+/// single place that encodes the tree's recursive shape. A new variant declares
+/// its child structure once, in `ExprNode`, and every walk takes its *descent*
+/// from there: this handle-level face, the `internal/ir` analyses behind
+/// `referenced_columns` / `output_name`, and the lazy optimizer's `row_stable` /
+/// `group_cell_stable` (which walk the raw `@ir.ExprNode` children directly).
+/// What a variant does not inherit is what those walks *decide* about it — the
+/// naming and pushdown analyses classify variant by variant, under exhaustive
+/// `match`es that stop compiling until the new one is classified. Total — it only
+/// inspects shape.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
+pub fn Expr::children(self : Expr) -> Array[Expr] {
+  // The AST's shape lives on `@ir.ExprNode::children`; wrap each raw child back
+  // into the opaque `Expr` this returns, so a caller walks the handle.
+  self.node.children().map(Expr::of)
+}
+
+///|
+/// Every column name the tree references, as a set — the handle-level face of
+/// `@ir.ExprNode::referenced_columns` (the analysis itself lives in
+/// `internal/ir`, beside the AST). A `Ternary`'s condition counts. Total.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
+pub fn Expr::referenced_columns(self : Expr) -> @set.Set[String] {
+  self.node.referenced_columns()
+}
+
+///|
+/// The output-column name this expression produces (Polars' naming rule: an
+/// alias wins, else the leftmost column reference, else `"literal"`) — the
+/// handle-level face of `@ir.ExprNode::output_name`. Total.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
+pub fn Expr::output_name(self : Expr) -> String {
+  self.node.output_name()
 }
 
 ///|

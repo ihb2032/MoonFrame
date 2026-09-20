@@ -1,5 +1,5 @@
 // The file-format scan drivers behind the lazy scan sources: a driver is the
-// `@scan.ScanDriver` face one readable format puts on its read, and these two
+// `ScanDriver` face one readable format puts on its read, and these two
 // are the whole of what `lazy` knows about CSV and NDJSON. A new scannable
 // format adds a driver here (beside its options type) plus its `scan_*`
 // builder in `lazy` — execution, projection / predicate push-down and plan

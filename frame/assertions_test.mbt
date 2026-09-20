@@ -5,7 +5,7 @@
 using @test {assert_eq, assert_not_eq}
 
 ///|
-/// `Series` moved to the `series` package; bind it unqualified for the
+/// `Series` lives in the `series` package; bound unqualified for the
 /// blackbox tests in this package (which build fixtures via `Series::from_*`),
 /// mirroring the same `using` in the package's main scope.
 using @series {type Series}

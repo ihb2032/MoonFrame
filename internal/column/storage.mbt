@@ -9,7 +9,7 @@
 /// underlying column, so a caller reads a column the same way whichever
 /// backend it sits on. Who those callers are is a layering rule rather than a
 /// list: `ColumnStorage` is consumed directly by `series` and
-/// `internal/kernel` only, and every package above them reaches column
+/// the kernel layer only, and every package above them reaches column
 /// capability through engine seams that return a `Series`, a scalar, or a
 /// freshly built array — never this buffer. The `Numeric` arm has no stored
 /// bitmap, so `validity()` synthesises an all-valid one on demand
@@ -235,7 +235,7 @@ pub fn ColumnStorage::null_count(self : ColumnStorage) -> Int {
 ///|
 /// The raw backing storage, discriminated by dtype, forwarded to whichever
 /// backend the column is on. The bulk read behind the vectorized kernels:
-/// `internal/kernel` matches this to walk a column's cells without boxing one
+/// the kernel layer matches this to walk a column's cells without boxing one
 /// `Scalar` per row. It is not a read for the verb layer — `frame` reaches a
 /// column through `Series`, and the layering guard refuses the import that
 /// would let it do otherwise.

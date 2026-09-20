@@ -6,14 +6,14 @@
 /// Evaluation is a DataFrame question, not an expression-tree one: what a
 /// column name resolves to, what shape a result must have, which error
 /// surfaces first, and how a scope narrows the rows. The reading and the
-/// arithmetic sit below it — `series` owns a column's cells and
-/// `internal/kernel` the vectorized pass over them, and this package reaches
+/// arithmetic sit below it — `series` owns a column's cells and the
+/// kernel layer the vectorized pass over them, and this package reaches
 /// both through helpers that hand back a `Series`, a scalar, or a fresh
 /// array. It holds no column buffer of its own; the layering guard refuses
 /// the import that would let it.
 ///
-/// The public `Expr` is an opaque handle; the AST it wraps is an `ExprNode`
-/// in the module-internal `internal/ir` package. Evaluation enters through
+/// The public `Expr` is an opaque handle; the AST it wraps is a
+/// module-internal `ExprNode`. Evaluation enters through
 /// the `Expr::node()` seam and matches the `ExprNode` tree
 /// directly — the walk is over the AST node, not the handle, and a
 /// downstream module can reach neither.
@@ -148,9 +148,9 @@ priv enum EvalStep {
 
 ///|
 /// Which emptiness a fill step patches: `Nulls` fills null cells (guarding on
-/// the validity mask), `Nans` fills `Float` NaN cells. Names the boolean the
-/// `ApplyFill` step used to carry so both call sites and the combiner read the
-/// same word instead of re-deriving "true = nulls".
+/// the validity mask), `Nans` fills `Float` NaN cells. One word both call
+/// sites and the combiner read, instead of each re-deriving "true = nulls"
+/// from a boolean.
 priv enum FillKind {
   Nulls
   Nans

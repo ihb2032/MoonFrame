@@ -2,8 +2,8 @@
 // null / `NaN` rules every column reduction follows.
 //
 // `Series::sum` / `mean` / `min` / `max`, the grouped `agg`
-// reducers, and the scoped `eval_agg` each used to carry their own
-// null-skipping / `NaN`-handling fold. They now share the factories here: each
+// reducers, and the scoped `eval_agg` all route through the factories here
+// rather than carrying null-skipping / `NaN`-handling folds of their own: each
 // resolves the dtype dispatch and (for the `Builtin` backend) the validity
 // mask **once**, returning a total fold that reduces an index window — a count
 // `n` plus an indexing function `at` mapping `0 ..< n` onto source rows — to a
@@ -502,7 +502,7 @@ fn reduce_first_last(
 ///|
 /// The eleven reductions the shared kernel resolves — the single aggregation
 /// vocabulary, one fact with one home. The expression AST's `Agg` node carries
-/// a `ReduceOp` directly (`internal/ir` imports `series`), `frame`'s evaluator
+/// a `ReduceOp` directly (the AST package imports `series`), `frame`'s evaluator
 /// and grouped-`agg` fast path dispatch on it, and `reducer_for` right below
 /// resolves it — so adding a reduction is one variant here plus its
 /// `reducer_for` arm and the public `Expr` builder, with no mirror enum and no

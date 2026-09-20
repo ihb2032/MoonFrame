@@ -13,7 +13,7 @@
 // grows for a buffer no existing one can serve (a fixed-point `Decimal`, say).
 // A dtype riding an existing buffer is *defined* by how it reinterprets the
 // buffer's raw cell on read — that lift lives in one place,
-// `internal/column`'s `scalar_of` (the `I64` arm branches per dtype), which
+// the column layer's `scalar_of` (the `I64` arm branches per dtype), which
 // is where the next I64 rider registers its read side.
 
 ///|

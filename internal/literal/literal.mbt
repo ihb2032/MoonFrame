@@ -6,7 +6,7 @@
 ///|
 /// Display-syntax rendering of a literal `Scalar` — the one spelling shared
 /// by the `expr` explain renderer and the `lazy` plan printer, so the two
-/// can never drift apart (each used to carry a hand-synced private copy).
+/// can never drift apart.
 /// `Int` / `Bool` render bare, a `String` is quoted and
 /// `escape_debug`-escaped so it stays distinguishable and on one line, and
 /// the (unevaluatable) null literal renders as `null`. A `Float` stays

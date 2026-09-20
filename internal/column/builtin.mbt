@@ -183,7 +183,7 @@ fn BuiltinColumn::dtype(self : BuiltinColumn) -> @types.DataType {
 ///|
 /// The raw backing storage, discriminated by dtype. `ColumnData` is
 /// `pub(all)`, so the consumers that read a column in bulk (`series` and
-/// `internal/kernel`, both through `ColumnStorage`) match the concrete element
+/// the kernel layer, both through `ColumnStorage`) match the concrete element
 /// type once and read every value totally, in a single vectorized pass. The
 /// element arrays are the column own, shared rather than copied, and
 /// read-only by rule — the seam guard refuses an assignment into one.

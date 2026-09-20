@@ -2,7 +2,6 @@ chart -> frame
 chart -> io
 chart -> types
 expr -> internal/ir
-expr -> internal/literal
 expr -> internal/text
 expr -> series
 expr -> types
@@ -25,8 +24,6 @@ internal/kernel -> internal/numeric
 internal/kernel -> internal/text
 internal/kernel -> series
 internal/kernel -> types
-internal/literal -> internal/text
-internal/literal -> types
 internal/scan -> expr
 internal/scan -> series
 internal/scan -> types
@@ -40,7 +37,6 @@ io -> types
 lazy -> expr
 lazy -> frame
 lazy -> internal/ir
-lazy -> internal/literal
 lazy -> internal/scan
 lazy -> internal/text
 lazy -> io

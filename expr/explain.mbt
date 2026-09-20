@@ -4,6 +4,17 @@
 /// `String` (shared later by `LazyFrame::explain`'s plan printer), and the
 /// handwritten `Debug` delegating to it. All total — they walk shape,
 /// nothing can fail.
+///
+/// Two rendering conventions share this file, and only one of them is bound
+/// to method spellings: the arithmetic / comparison operators render as
+/// **display syntax** (`//`, `%`, `**` — glyphs, not the `floor_div` /
+/// `modulo` / `pow` call sites they came from), while the postfix method
+/// renderings (`agg_suffix`, `write_str_suffix`) spell the *public method
+/// names* so a reader can copy an `explain` line back into code. The price
+/// of the second convention is that renaming a public `Expr` method does
+/// not rename its suffix here — a rename must update the suffix table in
+/// the same change, which no guard can force (the outputs are strings, and
+/// the old spelling is still a plausible diagnostic).
 
 ///|
 /// Render the documented operator form, e.g.
@@ -69,7 +80,7 @@ fn write_expr(logger : &Logger, expr : Expr) -> Unit {
       Some(task) =>
         match task {
           Frag(s) => logger.write_string(s)
-          ScalarLit(v) => logger.write_string(@literal.format_scalar(v))
+          ScalarLit(v) => logger.write_string(format_scalar(v))
           CastTarget(t) => t.output(logger)
           StrSuffix(op) => write_str_suffix(logger, op)
           Node(e) => push_write_tasks(stack, e)

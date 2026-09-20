@@ -1,3 +1,11 @@
+// The default home of the constructor surface: the `col` / `lit` families,
+// the arithmetic / comparison / logic operators, the predicates and probes,
+// the fill verbs, the aggregations, and `cast` / `alias` all live here; a
+// family with its own namespace (the `str_*` methods, the `map` escape
+// hatch) gets its own file, `expr_str.mbt` / `expr_map.mbt`, and a new
+// family (datetime, window) should follow that split rather than widen
+// this one.
+
 ///|
 /// Reference a column by name, for the Polars-style call shape
 /// `col("a") + col("b")`. The name resolves at *evaluation* time —

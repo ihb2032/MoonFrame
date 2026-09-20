@@ -142,7 +142,7 @@ fn write_frame_op_label(op : FrameOp, buf : StringBuilder) -> Unit {
         None => ()
       }
     }
-    FillNull(value) => buf <+ "FILL_NULL \{@literal.format_scalar(value)}"
+    FillNull(value) => buf <+ "FILL_NULL \{@expr.format_scalar(value)}"
     Reduce(op) =>
       match op {
         Sum => buf <+ "SUM"

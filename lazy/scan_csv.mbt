@@ -41,13 +41,13 @@ pub fn scan_csv(
   // the captured plan cannot observe a later mutation of the caller's array.
   // The driver record is plain data: building it reads nothing, so the
   // builder stays total like every other LazyFrame constructor.
-  {
-    plan: Scan(
-      File({
-        driver: @io.csv_scan_driver(path, options),
-        projection: None,
-        predicate: None,
-      }),
-    ),
-  }
+  { plan: fresh_file_scan(@io.csv_scan_driver(path, options)), }
+}
+
+///|
+/// The plan leaf both `scan_*` builders return: a deferred read through
+/// `driver` with no projection and no predicate — a fresh leaf reads every
+/// column and filters nothing; only the optimizer fills those.
+fn fresh_file_scan(driver : @scan.ScanDriver) -> LogicalPlan {
+  Scan(File({ driver, projection: None, predicate: None, }))
 }

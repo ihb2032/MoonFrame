@@ -1,8 +1,9 @@
 // The scaffolding the verbs rebuild a frame through — the package-private
 // constructors and the expression classifier shared by the verb files, kept
 // apart from the type core (the type, its public constructors, and the
-// accessors) so each verb family stands on its own. The row-window family is
-// the one that needs no scaffolding beyond `with_same_schema`. Consumers:
+// accessors) so each verb family stands on its own. The row-window family
+// rebuilds through `with_same_schema` alone and borrows `is_identity_perm`
+// besides. Consumers:
 //
 //   - `from_parts_with_fields` ← select / drop / with_columns / reverse
 //     (and, through it, the `from_parts` seam io builds frames from)
@@ -11,6 +12,8 @@
 //   - `carried_field`          ← select / with_columns
 //   - `with_renamed_fields`    ← rename / rename_with
 //   - `resolve_subset_columns` ← drop / drop_nulls / unique
+//   - `is_identity_perm`       ← gather's no-op short-circuit; the expression
+//     evaluator's whole-frame scope detection shares it
 //
 // A new verb starts here: pick the rebuild path that matches what it changes
 // (rows only, an edited field vector, renamed fields) instead of
@@ -188,4 +191,23 @@ fn DataFrame::resolve_subset_columns(
   keys : Array[@expr.Expr],
 ) -> Array[Series] raise @types.DataError {
   keys.map(key => self.get_column(key.output_name()))
+}
+
+///|
+/// Whether `indices` is the identity permutation `[0, 1, ..., nrows - 1]` —
+/// the case where a gather reproduces the frame unchanged. Lets `gather`
+/// short-circuit a no-op copy (an already-ordered `sort`, a `filter`
+/// that keeps every row). Fails fast: a length mismatch or the first
+/// out-of-place index returns `false` before the rest is scanned. The
+/// expression evaluator reuses it to detect a whole-frame scope.
+fn is_identity_perm(indices : Array[Int], nrows : Int) -> Bool {
+  if indices.length() != nrows {
+    return false
+  }
+  for i in 0..<indices.length() {
+    if indices[i] != i {
+      return false
+    }
+  }
+  true
 }

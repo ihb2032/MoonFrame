@@ -3,8 +3,8 @@
 // their exact diagnostics — are produced from one source rather than
 // duplicated per backend.
 //
-// One-file-one-test exemption: these helpers have no dedicated
-// dedicated file. (doc-guard: unresolved) They are covered through the `BuiltinColumn` /
+// One-file-one-test exemption: this shared file has no dedicated test file
+// of its own. (doc-guard: unresolved) It is covered through the `BuiltinColumn` /
 // `NumericColumn` `slice` / `take` tests that exercise each rejection path.
 
 ///|

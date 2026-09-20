@@ -1,3 +1,13 @@
+// The join verb: matching two frames' rows on composite keys across every
+// `how`. Two phases, so each reads on its own — `plan_join_rows` builds the
+// output rows as parallel optional-index vectors (a `Cross` join is the
+// keyless Cartesian product; a key join hashes one side's key tuples and
+// probes with the other), and `assemble_join_output` gathers both frames'
+// columns into the planned rows, coalescing key columns where the options
+// and `how` allow. Key spelling — `on` vs `left_on` / `right_on`, the
+// bare-column checks, suffix pairs — is resolved by `resolve_join_keys` and
+// its helpers under the record contract `join_options.mbt` owns.
+
 ///|
 /// Index a frame's rows by composite join key: maps each non-null key tuple
 /// to the ascending list of row indices that carry it. A row whose key has

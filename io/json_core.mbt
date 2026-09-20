@@ -368,19 +368,6 @@ fn json_value_to_string_fallback(j : Json) -> String {
 }
 
 ///|
-/// The message-level spelling of a typed source coordinate — the prefix
-/// every reader renders a `Row` / `Line` / `Record` location with, single
-/// home for the row / line / record vocabulary, so a hand-spelled prefix
-/// cannot drift from the typed one.
-fn locator_text(loc : @types.CellParseLocation, n : Int) -> String {
-  match loc {
-    Row => "row \{n}"
-    Line => "line \{n}"
-    Record => "record \{n}"
-  }
-}
-
-///|
 /// Locate a record in a build-stage error message: a 1-based **file line**
 /// when the caller supplies a per-record line map (the NDJSON reader, whose
 /// blank-line skipping makes the record index diverge from the physical line),

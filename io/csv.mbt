@@ -154,7 +154,7 @@ pub fn parse_csv_str(
   content : String,
   options? : CsvReadOptions = CsvReadOptions::CsvReadOptions(),
 ) -> @frame.DataFrame raise @types.DataError {
-  parse_csv_str_projected(content, options, None)
+  parse_csv_str_projected(content, options, None, None)
 }
 
 ///|
@@ -192,7 +192,7 @@ fn parse_csv_str_projected(
   content : String,
   options : CsvReadOptions,
   projection : Array[String]?,
-  pruner? : RowPruner,
+  pruner : RowPruner?,
 ) -> @frame.DataFrame raise @types.DataError {
   // Refuse a delimiter that collides with the quote character or a row
   // terminator before parsing — the same configurations `format_csv` rejects,

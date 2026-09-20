@@ -72,12 +72,7 @@ pub fn csv_scan_driver(
     content,
     projection,
     pruner,
-  ) => {
-    match pruner {
-      Some(p) => parse_csv_str_projected(content, options, projection, pruner=p)
-      None => parse_csv_str_projected(content, options, projection)
-    }
-  })
+  ) => parse_csv_str_projected(content, options, projection, pruner))
 }
 
 ///|
@@ -93,13 +88,7 @@ pub fn ndjson_scan_driver(
     content,
     projection,
     pruner,
-  ) => {
-    match pruner {
-      Some(p) =>
-        parse_ndjson_str_projected(content, options, projection, pruner=p)
-      None => parse_ndjson_str_projected(content, options, projection)
-    }
-  })
+  ) => parse_ndjson_str_projected(content, options, projection, pruner))
 }
 
 ///|

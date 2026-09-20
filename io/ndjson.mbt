@@ -53,7 +53,7 @@ pub fn parse_ndjson_str(
   content : String,
   options? : JsonReadOptions = JsonReadOptions::JsonReadOptions(),
 ) -> @frame.DataFrame raise @types.DataError {
-  parse_ndjson_str_projected(content, options, None)
+  parse_ndjson_str_projected(content, options, None, None)
 }
 
 ///|
@@ -70,7 +70,7 @@ fn parse_ndjson_str_projected(
   content : String,
   options : JsonReadOptions,
   projection : Array[String]?,
-  pruner? : RowPruner,
+  pruner : RowPruner?,
 ) -> @frame.DataFrame raise @types.DataError {
   // Strip a leading UTF-8 BOM (shared with the CSV / JSON readers) before the
   // line split, so a BOM on the first record line doesn't make `@json.parse`

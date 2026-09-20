@@ -110,12 +110,7 @@ fn push_projection(
           }
         }
       Rebuild1(f) => values.push(f(pop_top(values)))
-      RebuildJoin(options) => {
-        // Right is on top (pushed last), left just below.
-        let right = pop_top(values)
-        let left = pop_top(values)
-        values.push(Join(left, right, options))
-      }
+      RebuildJoin(options) => rejoin(values, options)
     }
   }
   pop_top(values)

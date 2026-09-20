@@ -101,11 +101,7 @@ fn push_predicates(plan : LogicalPlan) -> LogicalPlan {
       Unary(_, Filter(predicate)) =>
         values.push(place_filter(pop_top(values), predicate))
       Unary(_, op) => values.push(Unary(pop_top(values), op))
-      Join(_, _, options) => {
-        let right = pop_top(values)
-        let left = pop_top(values)
-        values.push(Join(left, right, options))
-      }
+      Join(_, _, options) => rejoin(values, options)
       Aggregate(_, keys, exprs) =>
         values.push(Aggregate(pop_top(values), keys, exprs))
     }

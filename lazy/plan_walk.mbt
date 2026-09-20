@@ -4,8 +4,8 @@
 /// shape, `post_order` / `post_order_unique` linearise it for the
 /// value-stack folds, the identity-dedup family (`seen_plan`,
 /// `contains_join`, `has_shared_subplan`) guards the DAG-shaped plans only a
-/// `join` can build, and `memo_result` / `pop_top` read a fold's value
-/// stack. Their consumers are the executor, the two optimizer passes, and
+/// `join` can build, and `memo_result` / `pop_top` / `rejoin` work a fold's
+/// value stack. Their consumers are the executor, the two optimizer passes, and
 /// the renderer.
 
 ///|
@@ -56,6 +56,16 @@ fn[T] pop_top(stack : Array[T]) -> T {
   let top = stack[stack.length() - 1]
   let _ = stack.pop()
   top
+}
+
+///|
+/// Reassemble a `Join` from the two inputs a post-order fold leaves on its
+/// value stack — the right operand on top (pushed last), the left just below —
+/// the shape both optimizer passes' rebuild loops share.
+fn rejoin(values : Array[LogicalPlan], options : @frame.JoinOptions) -> Unit {
+  let right = pop_top(values)
+  let left = pop_top(values)
+  values.push(Join(left, right, options))
 }
 
 ///|

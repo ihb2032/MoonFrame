@@ -112,6 +112,17 @@ source-level upgrade steps are collected in [`migration.md`](migration.md).
   the newer compiler stops counting as used. `StringBuilder` construction
   follows the newer deprecation's spelling.
 
+### Fixes
+
+- Gathering a **sliced** string column returned the wrong cells: the
+  zero-copy slice view re-bases its offsets but keeps the parent's byte
+  buffer, and the gather core read source bytes through the offsets alone,
+  without the view's `base` — so a `slice(1, n).gather(...)` on a string
+  column silently copied bytes from the front of the parent buffer. The
+  gather now reads `base + offsets`, the same arithmetic `get` and the
+  byte-wise equality use, and a slice-then-gather regression test pins the
+  public-API path (`Utf8Array::take_view` in `internal/buffer`).
+
 ## v0.6.0 — API convergence
 
 The API-convergence release. MoonBit 0.10.4's `fn Type::Type(...)` custom

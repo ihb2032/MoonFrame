@@ -30,6 +30,23 @@ test "row gathers canonicalise an all-valid result; slices preserve the backend"
 }
 
 ///|
+test "gathering a sliced string column reads the view's window, not the parent's front" {
+  // `slice` keeps a zero-copy byte view whose window starts past the parent's
+  // first cells; a later `gather` copies bytes through that window
+  // (`base + offsets`), exactly as `get` reads them. Reading the parent's
+  // front instead would silently return the wrong cells.
+  let s = Series::from_strings("s", ["a", "bb", "ccc", "dddd"])
+  let view = s.slice(1, 4)
+  let gathered = view.gather([2, 0, 1, 0])
+  assert_eq(gathered.to_scalars(), [
+    @types.Scalar::String("dddd"),
+    @types.Scalar::String("bb"),
+    @types.Scalar::String("ccc"),
+    @types.Scalar::String("bb"),
+  ])
+}
+
+///|
 test "Series equality is content-based, independent of the storage backend" {
   // The backends differ by construction (from_ints -> Numeric, all-Some
   // from_int_options -> Builtin), but the columns are logically identical, so

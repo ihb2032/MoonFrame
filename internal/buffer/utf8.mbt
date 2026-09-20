@@ -284,7 +284,7 @@ pub fn Utf8Array::take_view(
   let offsets : FixedArray[Int] = FixedArray::make(n + 1, 0)
   let mut at = 0
   for k in 0..<n {
-    let src = self.offsets[indices[k]]
+    let src = self.base + self.offsets[indices[k]]
     for b in 0..<lens[k] {
       bytes[at + b] = self.bytes[src + b]
     }

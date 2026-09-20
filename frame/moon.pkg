@@ -5,7 +5,6 @@ import {
   "ihb2032/MoonFrame/internal/order",
   "ihb2032/MoonFrame/series",
   "ihb2032/MoonFrame/types",
-  "moonbitlang/core/string",
 }
 
 // `internal/column` is a test-only dependency here. `frame` decides what a

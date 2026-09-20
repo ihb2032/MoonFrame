@@ -1,3 +1,3 @@
-import {
-  "moonbitlang/core/double",
-}
+// The exact Int64/Double comparison primitives and the extremum fold are
+// self-contained: no module-internal imports, and the numeric types they
+// speak are builtins.

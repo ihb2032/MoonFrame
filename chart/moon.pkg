@@ -2,12 +2,11 @@ import {
   "ihb2032/MoonFrame/frame",
   "ihb2032/MoonFrame/io",
   "ihb2032/MoonFrame/types",
-  "moonbitlang/core/debug",
-  "moonbitlang/core/json",
 }
 
 import {
   "ihb2032/MoonFrame/series",
+  "moonbitlang/core/json",
   "moonbitlang/core/test",
   "moonbitlang/x/fs",
 } for "test"

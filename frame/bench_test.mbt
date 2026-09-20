@@ -7,6 +7,9 @@
 /// An `n`-row fact frame: an integer `key` with 1000 distinct groups, a
 /// scrambled integer `value`, and a float `fvalue`. The scramble is a cheap
 /// wrap-on-overflow hash (no RNG in this toolchain), so `value` is unsorted.
+/// Byte-identical twin: `lazy/bench_test.mbt` builds the same rows so its
+/// eager-vs-lazy contrast stays comparable to these operator benches —
+/// change one, change both.
 fn fact_frame(n : Int) -> DataFrame raise @types.DataError {
   let keys = Array::makei(n, i => (i % 1000).to_int64())
   let values = Array::makei(n, i => {

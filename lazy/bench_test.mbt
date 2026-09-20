@@ -5,7 +5,11 @@
 
 ///|
 /// An `n`-row fact frame: an integer `key` with 1000 distinct groups, a
-/// scrambled integer `value`, and a float `fvalue`.
+/// scrambled integer `value`, and a float `fvalue`. Byte-identical twin of
+/// `frame/bench_test.mbt`'s fixture, so the eager side of each contrast below
+/// matches that package's operator benches — change one, change both. (Each
+/// blackbox test package has its own namespace, so the twin is a copy, not an
+/// import.)
 fn fact_frame(n : Int) -> @frame.DataFrame raise @types.DataError {
   let keys = Array::makei(n, i => (i % 1000).to_int64())
   let values = Array::makei(n, i => {

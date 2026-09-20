@@ -1,10 +1,14 @@
-// Cell gates and the shared error builder used across the vectorized kernels.
-// They are `series`-level, not `frame`-level: a kernel reads a validity mask and
-// builds an `Option`-cell array, and raises the binary type-mismatch error, all
+// Four blocks, all serving the kernels that operate on `Series` operands:
+// the `using` seams that bind the `series` primitives the kernels read by
+// bare name; the two cell gates (`zip_present` / `map_present`) that add the
+// null layer to every elementwise kernel; the shared binary type-mismatch
+// error builder; and the broadcast / singleton alignment helpers the frame
+// verbs share with the evaluator. A kernel reads a validity mask and builds
+// an `Option`-cell array, and raises the binary type-mismatch error, all
 // without the caller (`frame`'s evaluator) seeing a storage backend.
 //
-// The kernels build on `series`: `Series` is the operand and result unit, and the
-// seams bound below let a kernel read a column's validity mask, converge an
+// The kernels build on `series`: `Series` is the operand and result unit, and
+// the seams bound below let a kernel read a column's validity mask, converge an
 // all-valid numeric result back onto the fast path, and build a result column from
 // scalars. This `using` import binds them unqualified so the kernels read them by
 // bare name.
@@ -22,10 +26,10 @@ using @series {
 /// Build the cells of a binary elementwise op: index `i` is `Some(f(i))` when
 /// both operands are present there, else `None` — the Arrow / Polars rule that
 /// a null on either side nulls the output cell. The shared null-gate behind
-/// every binary numeric kernel in this package — arithmetic, division, the
-/// `Double`-result forms (`pow`), and the null-on-zero forms (`%`, `//`) — so
-/// each dtype arm supplies only its per-cell op. Total — `f` only reads two
-/// present cells.
+/// every binary kernel in this package — arithmetic, division, the
+/// `Double`-result forms (`pow`), the null-on-zero forms (`%`, `//`), and the
+/// comparison kernel's nullable cell loop — so each dtype arm supplies only
+/// its per-cell op. Total — `f` only reads two present cells.
 fn[T] zip_present(
   n : Int,
   lv : Array[Bool],

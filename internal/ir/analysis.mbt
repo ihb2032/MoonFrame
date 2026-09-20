@@ -44,7 +44,11 @@ pub fn ExprNode::referenced_columns(self : ExprNode) -> @set.Set[String] {
 /// `agg`) name their output columns with it, and the lazy optimizer's projection
 /// pushdown uses it to know which names a deferred `with_columns` stage
 /// *defines* — a defined name need not exist in the stage's input, so pruning
-/// must not require it there.
+/// must not require it there. The data side of the same rule — the kernels'
+/// leftmost-input column naming and the `"literal"` sentinel a singleton series
+/// carries — mirrors this rule; those names are transitory (the consuming verb
+/// renames through this one), which is why the rule's single statement lives
+/// here rather than in the kernels.
 pub fn ExprNode::output_name(self : ExprNode) -> String {
   leftmost_name(self).unwrap_or("literal")
 }

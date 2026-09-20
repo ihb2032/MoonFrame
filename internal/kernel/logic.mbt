@@ -5,17 +5,32 @@
 /// and the output is nullable, on the `Builtin` backend.
 
 ///|
+/// Which boolean connective a `Binary` logic tag asked for. A re-tag of the
+/// two logic `BinOp` constructors, the `CmpVerb` pattern: pairing the verb
+/// and the cell combiner at the call site left the two halves free to drift
+/// (`"and"` with `kleene_or` compiled fine), so the connective is one value
+/// here and `eval_logic` derives both halves from it.
+pub(all) enum LogicOp {
+  And
+  Or
+}
+
+///|
 /// Kleene logic kernel over two equal-length `Bool` operands
 /// (post-`broadcast_pair`); `&` and `|` differ only in the nullable cell
 /// combiner (`kleene_and` / `kleene_or`) and the verb their `TypeMismatch`
-/// message names. Non-`Bool` operands raise. The output is nullable by
-/// nature and lands on the `Builtin` backend.
+/// message names — both derived from the one `LogicOp` value. Non-`Bool`
+/// operands raise. The output is nullable by nature and lands on the
+/// `Builtin` backend.
 pub fn eval_logic(
   left : Series,
   right : Series,
-  verb : String,
-  combine : (Bool?, Bool?) -> Bool?,
+  op : LogicOp,
 ) -> Series raise @types.DataError {
+  let (verb, combine) = match op {
+    LogicOp::And => ("and", kleene_and)
+    LogicOp::Or => ("or", kleene_or)
+  }
   let lv = validity_bools(left)
   let rv = validity_bools(right)
   match (left.storage().data(), right.storage().data()) {
@@ -63,7 +78,7 @@ pub fn eval_logic(
 /// no matter what the other side holds, null included; two known `true`s
 /// are `true`; everything else (a null meeting `true` or another null) is
 /// unknown, `None`.
-pub fn kleene_and(a : Bool?, b : Bool?) -> Bool? {
+fn kleene_and(a : Bool?, b : Bool?) -> Bool? {
   match (a, b) {
     (Some(false), _) | (_, Some(false)) => Some(false)
     (Some(true), Some(true)) => Some(true)
@@ -75,7 +90,7 @@ pub fn kleene_and(a : Bool?, b : Bool?) -> Bool? {
 /// Kleene three-valued OR over nullable booleans (the `or_kleene` dual):
 /// a known `true` dominates regardless of the other side, null included;
 /// two known `false`s are `false`; everything else is unknown, `None`.
-pub fn kleene_or(a : Bool?, b : Bool?) -> Bool? {
+fn kleene_or(a : Bool?, b : Bool?) -> Bool? {
   match (a, b) {
     (Some(true), _) | (_, Some(true)) => Some(true)
     (Some(false), Some(false)) => Some(false)

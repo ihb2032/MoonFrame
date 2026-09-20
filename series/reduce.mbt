@@ -550,17 +550,18 @@ pub fn reducer_for(
 }
 
 ///|
-/// Project per-window reduction `Scalar`s into a typed output column. `probe`
-/// fixes the output dtype, so an all-null result (every cell `Null`) still
-/// types correctly; each cell is projected "matching variant → `Some`,
-/// anything else (including `Null`) → `None`"; and an all-valid numeric result
-/// then converges onto the `Numeric` fast path (`try_column_to_numeric`, a
-/// no-op for a nullable, `Bool`, or `String` column, which keeps `Builtin`).
-/// This is the single column builder behind the grouped (`agg`) and scoped
-/// (`eval_agg`) reductions, so both agree on backend as well as on every cell
-/// value: the catch-all `None` arm is reached by the nullable reductions
-/// (`mean` / `min` / `max` / `std` / `var` / `median` over an empty / all-null
-/// window, and `first` / `last` over a null cell), so no arm is dead.
+/// Project per-window reduction `Scalar`s into a typed output column: the
+/// per-dtype projection is the column layer's `BuiltinColumn::from_scalars`
+/// (the bulk write side of the identity/representation meet, whose read side
+/// is `scalar_of`), and this wrapper adds what a `Series` needs — the column
+/// name and the all-valid numeric convergence onto the `Numeric` fast path
+/// (`try_column_to_numeric`, a no-op for a nullable, `Bool`, or `String`
+/// column, which keeps `Builtin`). This is the single column builder behind
+/// the grouped (`agg`) and scoped (`eval_agg`) reductions, so both agree on
+/// backend as well as on every cell value: the projection's catch-all `None`
+/// arm is reached by the nullable reductions (`mean` / `min` / `max` / `std` /
+/// `var` / `median` over an empty / all-null window, and `first` / `last`
+/// over a null cell), so no arm is dead.
 ///
 /// `probe` is the logical dtype the caller resolved (`reducer_for`'s second
 /// result, the cells' own inferred dtype, or an empty-scope evaluation's), so
@@ -575,61 +576,10 @@ pub fn scalars_to_series(
   name : String,
   cells : Array[@types.Scalar],
 ) -> Series raise @types.DataError {
-  let built = match probe {
-    @types.DataType::Int =>
-      Series::from_int_options(
-        name,
-        cells.map(c => {
-          match c {
-            @types.Scalar::Int(v) => Some(v)
-            _ => None
-          }
-        }),
-      )
-    @types.DataType::Float =>
-      Series::from_float_options(
-        name,
-        cells.map(c => {
-          match c {
-            @types.Scalar::Float(v) => Some(v)
-            _ => None
-          }
-        }),
-      )
-    @types.DataType::Bool =>
-      Series::from_bool_options(
-        name,
-        cells.map(c => {
-          match c {
-            @types.Scalar::Bool(v) => Some(v)
-            _ => None
-          }
-        }),
-      )
-    @types.DataType::String =>
-      Series::from_string_options(
-        name,
-        cells.map(c => {
-          match c {
-            @types.Scalar::String(v) => Some(v)
-            _ => None
-          }
-        }),
-      )
-    @types.DataType::Date =>
-      Series::from_date_options(
-        name,
-        cells.map(c => {
-          match c {
-            @types.Scalar::Date(v) => Some(v)
-            _ => None
-          }
-        }),
-      )
-    @types.DataType::Null =>
-      raise @types.DataError::Unsupported(
-        "cannot build a column of dtype Null: \{name}",
-      )
-  }
-  try_column_to_numeric(built)
+  try_column_to_numeric(
+    Series::from_builtin(
+      name,
+      @column.BuiltinColumn::from_scalars(probe, cells, name~),
+    ),
+  )
 }

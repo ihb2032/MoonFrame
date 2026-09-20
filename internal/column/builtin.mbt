@@ -157,8 +157,9 @@ pub fn BuiltinColumn::from_string_options(
 /// fixes the column's *identity* — the cells are the same `Int64` buffer for
 /// every `I64` rider; what differs is the per-dtype lift in `scalar_of`, which turns a
 /// raw cell back into the dtype own `Scalar` on read. The caller must pass a
-/// dtype whose physical is `I64` (every caller is a constructor of one
-/// specific dtype, so the agreement is by construction).
+/// dtype whose physical is `I64` (every caller arrives through the
+/// `physical()` dispatch or is a constructor of one specific dtype, so the
+/// agreement is by construction).
 pub fn BuiltinColumn::from_i64_options(
   dtype : @types.DataType,
   values : Array[Int64?],
@@ -167,6 +168,78 @@ pub fn BuiltinColumn::from_i64_options(
     dtype,
     data: I64(values.map(v => v.unwrap_or(0))),
     validity: @buffer.Bitmap::from_options(values),
+  }
+}
+
+///|
+/// Project already-computed result cells onto a column of `probe`'s dtype —
+/// the bulk write side of the identity/representation meet whose read side is
+/// `scalar_of`: each cell is "matching variant → `Some`, anything else
+/// (including `Null`) → `None`", so an off-type cell becomes a null rather
+/// than an error, and the caller (the reduction and map builders above this
+/// package) never names a storage type. `probe` must be a storable dtype —
+/// `Null` is a value-level concept with no physical backend, so it `raise`s
+/// `Unsupported` (`name~` is the output column's name, carried only into that
+/// diagnostic). The result is `Builtin`-backed; converging an all-valid
+/// numeric result onto `Numeric` stays with the caller, who owns the
+/// column's `Series` wrapping. Exhaustive over `DataType`, so a new dtype
+/// fails compilation here until its projection is written.
+pub fn BuiltinColumn::from_scalars(
+  probe : @types.DataType,
+  cells : Array[@types.Scalar],
+  name~ : String,
+) -> BuiltinColumn raise @types.DataError {
+  match probe {
+    @types.DataType::Int =>
+      BuiltinColumn::from_int_options(
+        cells.map(c => {
+          match c {
+            @types.Scalar::Int(v) => Some(v)
+            _ => None
+          }
+        }),
+      )
+    @types.DataType::Float =>
+      BuiltinColumn::from_float_options(
+        cells.map(c => {
+          match c {
+            @types.Scalar::Float(v) => Some(v)
+            _ => None
+          }
+        }),
+      )
+    @types.DataType::Bool =>
+      BuiltinColumn::from_bool_options(
+        cells.map(c => {
+          match c {
+            @types.Scalar::Bool(v) => Some(v)
+            _ => None
+          }
+        }),
+      )
+    @types.DataType::String =>
+      BuiltinColumn::from_string_options(
+        cells.map(c => {
+          match c {
+            @types.Scalar::String(v) => Some(v)
+            _ => None
+          }
+        }),
+      )
+    @types.DataType::Date =>
+      BuiltinColumn::from_i64_options(
+        probe,
+        cells.map(c => {
+          match c {
+            @types.Scalar::Date(v) => Some(v)
+            _ => None
+          }
+        }),
+      )
+    @types.DataType::Null =>
+      raise @types.DataError::Unsupported(
+        "cannot build a column of dtype Null: \{name}",
+      )
   }
 }
 

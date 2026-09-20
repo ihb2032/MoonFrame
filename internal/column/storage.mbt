@@ -82,30 +82,17 @@ pub impl Eq for ColumnStorage with fn equal(self, other) {
   }
   match (self.data(), other.data()) {
     (ColumnData::I64(a), ColumnData::I64(b)) =>
-      storage_cells_equal(a, b, self, other, (x, y) => x == y)
+      storage_cells_equal(a.length(), self, other, i => a[i] == b[i])
     (ColumnData::F64(a), ColumnData::F64(b)) =>
-      storage_cells_equal(a, b, self, other, (x, y) => x == y)
+      storage_cells_equal(a.length(), self, other, i => a[i] == b[i])
     (ColumnData::Bool(a), ColumnData::Bool(b)) =>
-      storage_cells_equal(a, b, self, other, (x, y) => x == y)
-    (ColumnData::Utf8(a), ColumnData::Utf8(b)) => {
+      storage_cells_equal(a.length(), self, other, i => a[i] == b[i])
+    (ColumnData::Utf8(a), ColumnData::Utf8(b)) =>
       // Byte-wise cell equality over the UTF-8 buffers: no decode, and UTF-8
-      // byte equality is exactly `String` equality. Same validity-per-slot
-      // semantics as `storage_cells_equal`.
-      let mut equal = true
-      let n = a.len()
-      for i in 0..<n {
-        let va = self.valid_at(i)
-        if va != other.valid_at(i) {
-          equal = false
-          break
-        }
-        if va && !a.cell_eq(i, b, i) {
-          equal = false
-          break
-        }
-      }
-      equal
-    }
+      // byte equality is exactly `String` equality. The same shared loop —
+      // a `Utf8Array` is not an `ArrayView`, so the cell verdict arrives as
+      // a closure instead.
+      storage_cells_equal(a.len(), self, other, i => a.cell_eq(i, b, i))
     // Different dtypes (different `ColumnData` variants) are never equal.
     // Spelled variant-by-variant (no wildcard) so a future `ColumnData`
     // variant fails compilation here instead of silently comparing unequal
@@ -138,30 +125,31 @@ pub impl Eq for ColumnStorage with fn equal(self, other) {
 }
 
 ///|
-/// Per-cell equality for `ColumnStorage::equal`: parallel value arrays `a` / `b`
-/// (equal length by the caller's check) and the columns `sa` / `sb` they came
-/// out of, read one validity slot at a time. A cell pair is equal when both are
-/// null, or both valid with `eq`-equal values; a valid-vs-null pair is unequal.
-/// `eq` is the dtype's value comparison, so `Float` keeps `NaN != NaN`.
+/// Per-cell equality for `ColumnStorage::equal`: the two columns read one
+/// validity slot at a time, each slot's value verdict supplied as `eq(i)` (a
+/// closure, so the `Utf8` arm's two-buffer `cell_eq` rides the same loop the
+/// `ArrayView`-backed arms give an inline comparison). A cell pair is equal
+/// when both are null, or both valid with `eq`-equal values; a valid-vs-null
+/// pair is unequal. `eq` is the dtype's value comparison, so `Float` keeps
+/// `NaN != NaN`.
 ///
 /// Taking the columns rather than two dense `Array[Bool]` masks is what keeps a
 /// comparison allocation-free: materialising both masks meant two `n`-entry
 /// arrays *before* the dtypes had even been compared, so a `Series` or
 /// `DataFrame` equality — which reaches here once per column — paid for them on
 /// every column, and a mismatched pair paid before answering `false`.
-fn[T] storage_cells_equal(
-  a : ArrayView[T],
-  b : ArrayView[T],
+fn storage_cells_equal(
+  n : Int,
   sa : ColumnStorage,
   sb : ColumnStorage,
-  eq : (T, T) -> Bool,
+  eq : (Int) -> Bool,
 ) -> Bool {
-  for i in 0..<a.length() {
+  for i in 0..<n {
     let valid = sa.valid_at(i)
     if valid != sb.valid_at(i) {
       return false
     }
-    if valid && !eq(a[i], b[i]) {
+    if valid && !eq(i) {
       return false
     }
   }

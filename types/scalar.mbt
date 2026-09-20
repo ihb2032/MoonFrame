@@ -196,15 +196,14 @@ pub fn Scalar::lte(self : Scalar, other : Scalar) -> Bool raise DataError {
 /// the incomparable-dtypes fallthrough. `Null` counts: it reaches the
 /// dedicated `Null`-`raise` arm, whose fixed message has no operand order
 /// to preserve. The gate `gt` / `gte` consult so their transposed
-/// delegation cannot also transpose the diagnostic.
+/// delegation cannot also transpose the diagnostic. Every non-`Null`
+/// verdict is the dtype registry's `comparable_with` — the same gate the
+/// column-level comparison kernel reads — reached through `Scalar::dtype`,
+/// so the two layers cannot disagree about which pairs compare.
 fn comparable_pair(a : Scalar, b : Scalar) -> Bool {
   match (a, b) {
     (Null, _) | (_, Null) => true
-    (Int(_) | Float(_), Int(_) | Float(_)) => true
-    (Bool(_), Bool(_)) => true
-    (String(_), String(_)) => true
-    (Date(_), Date(_)) => true
-    _ => false
+    _ => a.dtype().comparable_with(b.dtype())
   }
 }
 

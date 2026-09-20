@@ -421,8 +421,3 @@ pub fn DataFrame::rows(self : DataFrame) -> Array[Array[@types.Scalar]] {
   let cols = self.to_scalar_matrix()
   Array::makei(self.nrows, r => cols.map(c => c[r]))
 }
-
-// ── Transforms ────────────────────────────────────────────────────────
-//
-// The row-window transforms (`head` / `tail` / `slice` / `gather`) are a
-// family of their own.

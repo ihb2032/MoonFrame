@@ -81,7 +81,9 @@
 ///   `sum` / `mean` / `std` / `var` propagate NaN and reject non-numeric
 ///   dtypes, `min` / `max` / `median` skip NaN (`median` numeric-only),
 ///   `count` counts non-null cells, `n_unique` the distinct non-null values,
-///   and `first` / `last` are positional. One deliberate divergence: an
+///   and `first` / `last` are positional. This enumeration is the
+///   evaluator-side view of rules the series reducer's header states
+///   canonically — change them there first. One deliberate divergence: an
 ///   empty / all-null `mean` is a **null cell**, not
 ///   `InvalidOperation` — per-group reductions (E4) must be able to
 ///   produce a null for an all-null group, mirroring Polars.
@@ -440,16 +442,4 @@ fn pop_inputs(stack : Array[Series], arity : Int) -> Array[Series] {
     popped.push(pop_value(stack))
   }
   Array::makei(arity, i => popped[arity - 1 - i])
-}
-
-///|
-/// The output column name for an expression (Polars' naming rule): an
-/// alias wins, otherwise the leftmost column reference's name, otherwise
-/// `"literal"` for a column-less tree. Delegates to `Expr::output_name` —
-/// the rule is defined once on the expression itself, so the eager
-/// materialisers here and the lazy optimizer's column pruning (which must
-/// know the names a deferred `with_columns` defines) can never drift
-/// apart.
-fn expr_output_name(expr : @expr.Expr) -> String {
-  expr.output_name()
 }

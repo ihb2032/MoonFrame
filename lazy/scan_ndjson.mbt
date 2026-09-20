@@ -24,13 +24,5 @@ pub fn scan_ndjson(
   path : String,
   options? : @io.JsonReadOptions = @io.JsonReadOptions::JsonReadOptions(),
 ) -> LazyFrame {
-  {
-    plan: Scan(
-      File({
-        driver: @io.ndjson_scan_driver(path, options),
-        projection: None,
-        predicate: None,
-      }),
-    ),
-  }
+  { plan: fresh_file_scan(@io.ndjson_scan_driver(path, options)), }
 }

@@ -172,19 +172,21 @@ fn post_order_unique(plan : LogicalPlan) -> Array[LogicalPlan] {
 /// The memoised result of `node`, scanned newest-first so the common case —
 /// a linear pipeline reading the frame computed immediately before — hits on
 /// the first probe. `post_order_unique` emits every child before its parent,
-/// so the scan always finds its node; the `idx` initialiser is the total
-/// fallback for that impossible miss (mirroring `pop_top`'s
-/// stack-invariant indexed read).
+/// so the scan always finds its node; that contract has no type-level
+/// spelling (the key is physical identity, which nothing hashes), so a miss
+/// is refused with `InvalidOperation` instead of answered with some other
+/// node's frame — a wrong-entry answer would turn a broken walk into
+/// silently wrong data.
 fn memo_result(
   memo : Array[(LogicalPlan, @frame.DataFrame)],
   node : LogicalPlan,
-) -> @frame.DataFrame {
-  let mut idx = 0
+) -> @frame.DataFrame raise @types.DataError {
   for i = memo.length() - 1; i >= 0; i = i - 1 {
     if physical_equal(memo[i].0, node) {
-      idx = i
-      break
+      return memo[i].1
     }
   }
-  memo[idx].1
+  raise @types.DataError::InvalidOperation(
+    "plan memo miss: the fold read a node the post-order walk never emitted",
+  )
 }

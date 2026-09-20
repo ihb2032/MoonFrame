@@ -74,6 +74,14 @@ pub extend DataError with Show::{to_string, output}
 pub extend DataError with Debug::{to_repr}
 
 ///|
+/// The wording the JSON `Cell` diagnostics render their `expected` dtype
+/// with. This is the message half of the JSON readers' per-dtype number
+/// acceptance, which lives in `io/json_core.mbt` (`json_value_as_int` /
+/// `json_value_as_float`): an `Int`-locked column still rejects fractional
+/// numbers, so its diagnostic names `an Int`, while a `Float`-locked column
+/// accepts any JSON number shape, so a rejection can only be of a
+/// non-number and says `a number`. The policy and this wording change
+/// together — nothing mechanical ties them.
 fn json_cell_expectation(expected : DataType) -> String {
   match expected {
     Int => "an Int"

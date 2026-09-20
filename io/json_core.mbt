@@ -161,14 +161,8 @@ fn frame_from_json_records(
     _col : Int,
     keep : Array[Int]?,
   ) -> @series.Series raise @types.DataError {
-    let records = match keep {
-      None => objs
-      Some(k) => Array::makei(k.length(), i => objs[k[i]])
-    }
-    let lines = match keep {
-      None => source_lines
-      Some(k) => source_lines.map(l => Array::makei(k.length(), i => l[k[i]]))
-    }
+    let records = kept_records(keep, objs)
+    let lines = source_lines.map(l => kept_records(keep, l))
     build(name, records, lines)
   }
   assemble_pruned_frame(headers, objs.length(), projection, pruner, build_over)
@@ -292,24 +286,15 @@ fn infer_json_column_dtype(
 /// `double_fits_int64`, since `Int64::MAX` isn't exactly representable
 /// as a `Double`), so a token like `1.0e2` lands as `Int(100)`, matching
 /// pandas / polars on equivalent CSV. A `Number` whose magnitude overflowed
-/// the `Double` (parsed as `±Infinity`) is recovered from its preserved `repr`
-/// digits via `parse_int_opt`: a plain in-range decimal becomes the exact
-/// `Int64`, while anything else (a genuine `1e100` float, or an integer beyond
-/// `Int64`'s range) stays `None` and infers as `Float`.
-///
-/// Booleans, strings, and null are intentionally rejected — JSON has
-/// strong types and silently promoting `true → 1` would surprise
+/// the `Double` is recovered from its preserved `repr` digits — the
+/// large-`Int64` round-trip rule, stated in full once as the file header's
+/// Caveat 2. Booleans, strings, and null are intentionally rejected — JSON
+/// has strong types and silently promoting `true → 1` would surprise
 /// callers used to pandas / polars semantics.
 fn json_value_as_int(j : Json) -> Int64? {
   match j {
-    // A `Double`-overflowing integer is parsed as ±Infinity with its exact
-    // decimal preserved in `repr`; a finite `Number` never carries one. So a
-    // present `repr` means recover the precise `Int64` from that text — a plain
-    // in-range decimal wins, anything else (a real `1e100`, or an integer past
-    // `Int64`) stays `None` and infers as `Float` — and the writer emits every
-    // `Int`'s exact decimal via `Json::number(.., repr=..)`. A finite `Number`
-    // takes the value-based path: integer-valued and within `Int64` range
-    // becomes `Int`, matching the integral-float-stays-`Int` rule.
+    // The `repr`-digit recovery is the file header's Caveat 2; a present
+    // `repr` means an overflowed integer, recovered exactly from its text.
     Number(_, repr=Some(text)) => parse_int_opt(text)
     Number(n, repr=None) =>
       if n != n.trunc() {
@@ -383,17 +368,29 @@ fn json_value_to_string_fallback(j : Json) -> String {
 }
 
 ///|
+/// The message-level spelling of a typed source coordinate — the prefix
+/// every reader renders a `Row` / `Line` / `Record` location with, single
+/// home for the row / line / record vocabulary, so a hand-spelled prefix
+/// cannot drift from the typed one.
+fn locator_text(loc : @types.CellParseLocation, n : Int) -> String {
+  match loc {
+    Row => "row \{n}"
+    Line => "line \{n}"
+    Record => "record \{n}"
+  }
+}
+
+///|
 /// Locate a record in a build-stage error message: a 1-based **file line**
 /// when the caller supplies a per-record line map (the NDJSON reader, whose
 /// blank-line skipping makes the record index diverge from the physical line),
 /// or a 1-based **record** number for the JSON-array reader (where records have
 /// no line of their own). `source_lines` is parallel to the record array, so
-/// the index is always in range.
+/// the index is always in range. Derived from `json_cell_parse_location` —
+/// the typed coordinate is the single fact; this is its message rendering.
 fn json_record_locator(source_lines : Array[Int]?, i : Int) -> String {
-  match source_lines {
-    Some(lines) => "line \{lines[i]}"
-    None => "record \{i + 1}"
-  }
+  let (loc, n) = json_cell_parse_location(source_lines, i)
+  locator_text(loc, n)
 }
 
 ///|

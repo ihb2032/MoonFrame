@@ -40,6 +40,25 @@
 // to `io`.
 
 ///|
+/// The one driver skeleton both format drivers ride: read the file, turn an
+/// absorbed predicate into the pruner contract (its key columns plus the
+/// row-selection callback — the single place that pairing is spelled), and
+/// wrap the format core's frame as a batch. A format driver is then its
+/// label and its projected / pruned core, nothing else.
+fn file_scan_driver(
+  path : String,
+  label : String,
+  read : (String, Array[String]?, RowPruner?) -> @frame.DataFrame raise @types.DataError,
+) -> @scan.ScanDriver {
+  @scan.ScanDriver::driver(() => label, (projection, predicate) => {
+    let pruner : RowPruner? = predicate.map(pred => {
+      (predicate_columns(pred), df => @frame.filter_row_indices(df, pred))
+    })
+    batch_of(read(read_text(path), projection, pruner))
+  })
+}
+
+///|
 /// The CSV scan driver: a path plus the options to parse it under, read at
 /// `scan` time through the same projected / pruned core the eager reader
 /// uses. Built by `csv_scan_driver`, which hands `lazy` the driver record.
@@ -49,25 +68,15 @@ pub fn csv_scan_driver(
   path : String,
   options : CsvReadOptions,
 ) -> @scan.ScanDriver {
-  @scan.ScanDriver::driver(() => "CSV \"\{@text.escape_debug(path)}\"", (
+  file_scan_driver(path, "CSV \"\{@text.escape_debug(path)}\"", (
+    content,
     projection,
-    predicate,
+    pruner,
   ) => {
-    let content = read_text(path)
-    let frame = match predicate {
-      Some(pred) =>
-        parse_csv_str_projected(
-          content,
-          options,
-          projection,
-          pruner=(
-            predicate_columns(pred),
-            df => @frame.filter_row_indices(df, pred),
-          ),
-        )
+    match pruner {
+      Some(p) => parse_csv_str_projected(content, options, projection, pruner=p)
       None => parse_csv_str_projected(content, options, projection)
     }
-    batch_of(frame)
   })
 }
 
@@ -80,25 +89,16 @@ pub fn ndjson_scan_driver(
   path : String,
   options : JsonReadOptions,
 ) -> @scan.ScanDriver {
-  @scan.ScanDriver::driver(() => "NDJSON \"\{@text.escape_debug(path)}\"", (
+  file_scan_driver(path, "NDJSON \"\{@text.escape_debug(path)}\"", (
+    content,
     projection,
-    predicate,
+    pruner,
   ) => {
-    let content = read_text(path)
-    let frame = match predicate {
-      Some(pred) =>
-        parse_ndjson_str_projected(
-          content,
-          options,
-          projection,
-          pruner=(
-            predicate_columns(pred),
-            df => @frame.filter_row_indices(df, pred),
-          ),
-        )
+    match pruner {
+      Some(p) =>
+        parse_ndjson_str_projected(content, options, projection, pruner=p)
       None => parse_ndjson_str_projected(content, options, projection)
     }
-    batch_of(frame)
   })
 }
 

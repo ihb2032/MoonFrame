@@ -1,12 +1,14 @@
-// Text-content normalization shared by the string-level readers (CSV / JSON /
-// NDJSON). Keeping BOM handling in one place stops the formats from drifting
-// apart — historically CSV stripped the BOM while JSON / NDJSON did not, so a
-// file saved by Excel read cleanly through one format and failed through the
-// others.
+// What every string-level reader (CSV / JSON / NDJSON) shares, kept in one
+// place so the formats cannot drift apart: BOM handling (historically CSV
+// stripped the BOM while JSON / NDJSON did not, so a file saved by Excel read
+// cleanly through one format and failed through the others), and the message
+// spelling of a typed source coordinate — the prefix every reader renders a
+// `Row` / `Line` / `Record` location with.
 //
-// One-file-one-test exemption: this shared normalizer has no dedicated
-// test file of its own. (doc-guard: unresolved) It is covered through the
-// per-format BOM tests in the CSV / JSON / NDJSON suites.
+// One-file-one-test exemption: this shared file has no dedicated test file
+// of its own. (doc-guard: unresolved) It is covered through the per-format
+// BOM tests and the parse-error message tests in the CSV / JSON / NDJSON
+// suites.
 
 ///|
 /// Strip a single leading UTF-8 BOM (`U+FEFF`) if present, returning the rest
@@ -23,5 +25,18 @@ fn strip_utf8_bom(content : String) -> String {
     content.view().view(start_offset=1).to_owned()
   } else {
     content
+  }
+}
+
+///|
+/// The message-level spelling of a typed source coordinate — the prefix
+/// every reader renders a `Row` / `Line` / `Record` location with, single
+/// home for the row / line / record vocabulary, so a hand-spelled prefix
+/// cannot drift from the typed one.
+fn locator_text(loc : @types.CellParseLocation, n : Int) -> String {
+  match loc {
+    Row => "row \{n}"
+    Line => "line \{n}"
+    Record => "record \{n}"
   }
 }

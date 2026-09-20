@@ -48,11 +48,9 @@
 ///   filtering their rows before it drop exactly the same groups, in the
 ///   same first-appearance order — and a bare key's output column holds its
 ///   input column verbatim, so the predicate reads identical values below).
-///   The predicate must also be `signed_zero_safe`: a `Float` key folds `-0.0`
-///   and `+0.0` into one group, yet the group's output row keeps its
-///   representative's signed key, and division and a negative exponent are the
-///   operators that tell the two apart (`1/+0.0 = +inf` vs `1/-0.0 = -inf`,
-///   `(+0.0) ** -1 = +inf` vs `(-0.0) ** -1 = -inf`), so such a predicate could
+///   The predicate must also be `signed_zero_safe` — the signed-zero rule
+///   stated in full on that analysis in `optimize_predicate_rules.mbt`; its
+///   `Aggregate` hook is the `Float` key fold, so an unsafe predicate could
 ///   drop only part of a folded group below the aggregate and change its
 ///   surviving reduction.
 ///   Every key must also be `row_stable`, not only the ones the predicate
@@ -152,7 +150,7 @@ fn place_filter(input : LogicalPlan, predicate : @expr.Expr) -> LogicalPlan {
         if row_stable(predicate.node()) &&
           all_row_stable(keys) &&
           reads_only_bare_columns(predicate, keys) &&
-          signed_zero_safe(predicate) &&
+          signed_zero_safe(predicate.node()) &&
           all_group_cells_stable(exprs) {
           crossed.push(ni => Aggregate(ni, keys, exprs))
           cur = inner

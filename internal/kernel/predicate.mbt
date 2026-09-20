@@ -64,59 +64,29 @@ fn try_fast_is_in(
   operand : Series,
   members : ArrayView[@types.Scalar],
 ) -> Series? {
-  let n = operand.len()
   let valid = validity_bools(operand)
   let name = operand.name()
   match operand.storage().data() {
-    @column.ColumnData::Utf8(buf) => {
-      // Decoded once per side: cell membership reads materialised Strings.
-      let data = buf.to_strings()
-      let set : Map[String, Unit] = Map([])
-      for m in members {
-        match m {
-          @types.Scalar::String(s) => set[s] = ()
-          @types.Scalar::Null => ()
-          _ => return None
+    // Decoded once per side: cell membership reads materialised Strings.
+    @column.ColumnData::Utf8(buf) =>
+      hash_set_is_in(name, buf.to_strings(), valid, members, m => {
+        if m is @types.Scalar::String(v) {
+          Some(v)
+        } else {
+          None
         }
-      }
-      Some(
-        Series::from_bool_options(
-          name,
-          Array::makei(n, i => {
-            if valid[i] {
-              Some(set.contains(data[i]))
-            } else {
-              None
-            }
-          }),
-        ),
-      )
-    }
+      })
     // Dtype-gated: a Date column is I64-typed, but its cells must not match
     // Int members through the fast path — the general path compares Scalars,
     // which keep the dtypes distinct.
-    @column.ColumnData::I64(data) if operand.dtype() is @types.DataType::Int => {
-      let set : Map[Int64, Unit] = Map([])
-      for m in members {
-        match m {
-          @types.Scalar::Int(v) => set[v] = ()
-          @types.Scalar::Null => ()
-          _ => return None
+    @column.ColumnData::I64(data) if operand.dtype() is @types.DataType::Int =>
+      hash_set_is_in(name, data, valid, members, m => {
+        if m is @types.Scalar::Int(v) {
+          Some(v)
+        } else {
+          None
         }
-      }
-      Some(
-        Series::from_bool_options(
-          name,
-          Array::makei(n, i => {
-            if valid[i] {
-              Some(set.contains(data[i]))
-            } else {
-              None
-            }
-          }),
-        ),
-      )
-    }
+      })
     @column.ColumnData::Bool(data) => {
       let mut has_true = false
       let mut has_false = false
@@ -135,7 +105,7 @@ fn try_fast_is_in(
       Some(
         Series::from_bool_options(
           name,
-          Array::makei(n, i => {
+          Array::makei(operand.len(), i => {
             if valid[i] {
               Some(if data[i] { has_true } else { has_false })
             } else {
@@ -147,6 +117,44 @@ fn try_fast_is_in(
     }
     @column.ColumnData::F64(_) | @column.ColumnData::I64(_) => None
   }
+}
+
+///|
+/// The hash-set membership both dtype-keyed arms of `try_fast_is_in` run:
+/// build the set over the members — a null member is skipped, a member whose
+/// dtype is not the column's own abandons the fast path (`None`, deferring to
+/// the exact kernel where cross-type semantics live) — then answer every
+/// valid cell with one set lookup, a null cell with null.
+fn[T : Eq + Hash] hash_set_is_in(
+  name : String,
+  data : ArrayView[T],
+  valid : Array[Bool],
+  members : ArrayView[@types.Scalar],
+  key_of : (@types.Scalar) -> T?,
+) -> Series? {
+  let set : Map[T, Unit] = Map([])
+  for m in members {
+    match m {
+      @types.Scalar::Null => ()
+      _ =>
+        match key_of(m) {
+          Some(k) => set[k] = ()
+          None => return None
+        }
+    }
+  }
+  Some(
+    Series::from_bool_options(
+      name,
+      Array::makei(data.length(), i => {
+        if valid[i] {
+          Some(set.contains(data[i]))
+        } else {
+          None
+        }
+      }),
+    ),
+  )
 }
 
 ///|

@@ -55,12 +55,13 @@ fn reduce_present(storage : @column.ColumnStorage) -> (Int) -> Bool {
 }
 
 ///|
-/// `sum` / `mean` reducer over an index window. `sum` accumulates `Int` in
-/// `Int64` (overflowing past 2^63 — the price of an exact integer sum) and
-/// `Float` in `Double`; `mean`, whose output is `Double`, accumulates `Int` in
-/// `Double` too, so it cannot wrap past 2^63 and flip the mean's sign (matching
-/// Polars). `NaN` is summed in (so it propagates) — only a `Null`
-/// cell is skipped. With `want_mean` the running total divides by the non-null
+/// `sum` / `mean` reducer over an index window. The accumulation is the
+/// shared folds in `internal/numeric` — `fold_int64_sum` (the exact `Int64`
+/// sum, wrapping past 2^63) and `fold_double_sum` (the `Double` accumulator
+/// that widens an `Int` cell before adding, so a mean cannot wrap, and that
+/// sums a present `NaN` in, so it propagates) — whose docstrings state those
+/// rules once; this reducer adds the window mapping and the empty-window
+/// translation. With `want_mean` the running total divides by the non-null
 /// count and is `Scalar::Null` for an empty / all-null window (the surfaces
 /// translate that: `Series::mean` to `InvalidOperation`, the grouped / scoped
 /// reducers to a null cell); otherwise the result is the dtype-preserving sum,
@@ -81,20 +82,15 @@ fn reduce_arith(
     // any window is folded.
     @column.ColumnData::I64(a) if storage.dtype().is_numeric() =>
       if want_mean {
-        // The mean's output is `Double`, so accumulate the numerator in
-        // `Double` from the start. An `Int64` accumulator would silently wrap
-        // past 2^63 and flip the mean's sign — a result outside `[min, max]` —
-        // even though `Double` represents the true mean (matching Polars).
+        // The mean's output is `Double`, so the accumulator widens each cell
+        // before adding (`fold_double_sum`) — the mean-safe form the shared
+        // fold documents; a count of 0 is the empty / all-null window.
         fn(n : Int, at : (Int) -> Int) {
-          let mut acc = 0.0
-          let mut cnt = 0
-          for k in 0..<n {
-            let i = at(k)
-            if present(i) {
-              acc = acc + a[i].to_double()
-              cnt = cnt + 1
-            }
-          }
+          let (acc, cnt) = @numeric.fold_double_sum(
+            n,
+            k => a[at(k)].to_double(),
+            k => present(at(k)),
+          )
           if cnt == 0 {
             @types.Scalar::Null
           } else {
@@ -102,32 +98,23 @@ fn reduce_arith(
           }
         }
       } else {
-        // `sum` keeps the `Int` dtype, so it stays an exact `Int64` fold —
-        // sums past 2^63 overflow, the documented price of an integer sum.
+        // `sum` keeps the `Int` dtype, so it stays the exact `Int64` fold
+        // (`fold_int64_sum`) — sums past 2^63 overflow, the documented price
+        // of an integer sum.
         fn(n : Int, at : (Int) -> Int) {
-          let mut acc : Int64 = 0
-          for k in 0..<n {
-            let i = at(k)
-            if present(i) {
-              acc = acc + a[i]
-            }
-          }
-          @types.Scalar::Int(acc)
+          @types.Scalar::Int(
+            @numeric.fold_int64_sum(n, k => a[at(k)], k => present(at(k))),
+          )
         }
       }
     @column.ColumnData::F64(a) =>
       fn(n : Int, at : (Int) -> Int) {
-        let mut acc = 0.0
-        let mut cnt = 0
-        for k in 0..<n {
-          let i = at(k)
-          // `NaN` is a value, not missing: it participates and propagates to a
-          // `NaN` total; only a null cell (`!present`) is skipped.
-          if present(i) {
-            acc = acc + a[i]
-            cnt = cnt + 1
-          }
-        }
+        // `NaN` is a value, not missing: it participates and propagates to a
+        // `NaN` total; only a null cell (`!present`) is skipped — the shared
+        // `fold_double_sum` rule.
+        let (acc, cnt) = @numeric.fold_double_sum(n, k => a[at(k)], k => {
+          present(at(k))
+        })
         if want_mean {
           if cnt == 0 {
             @types.Scalar::Null

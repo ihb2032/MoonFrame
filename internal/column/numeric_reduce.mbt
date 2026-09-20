@@ -1,57 +1,18 @@
 // The all-valid reductions over `NumericColumn`: `sum` / `mean` / `min` /
-// `max` and the fold kernels behind them, kept apart from the fast-path
-// layout file so the two read apart (the name mirrors
-// the series-side reducer file).
+// `max`, kept apart from the fast-path layout file so the two read apart (the
+// name mirrors the series-side reducer file). The accumulations themselves
+// are the shared folds in `internal/numeric` (`fold_int64_sum` /
+// `fold_double_sum` / `fold_extremum`), so this file is dispatch only: each
+// arm picks the fold, the reader, and the constant-true presence an
+// all-valid column has.
 //
 // A second implementation of rules that are stated canonically elsewhere:
 // The series-side reducer holds the null / `NaN` / empty-window semantics every
 // column reduction follows, and `Series::sum` / `mean` / `min` / `max` route a
-// `Numeric` column here instead, for the bitmap-free fold. The docstrings below
-// therefore restate those rules for a direct `@column` caller — change them
+// `Numeric` column here instead, for the bitmap-free fold. The rules live in
+// the shared fold docstrings and the series-side canonical notes; change them
 // there first, and expect the backend parity tests to catch a
 // divergence, since nothing about this file's types can.
-
-///|
-/// Plain `Int64` fold over the whole array — every slot is present, so unlike
-/// the general `Builtin`-backend reduction there is no `validity().to_bools()`
-/// and no per-slot `if valid[i]` branch. Used by `sum`, which keeps the `Int`
-/// dtype (so sums past 2^63 overflow — the price of an exact integer sum).
-/// `mean`, whose output is `Double`, widens through `fold_int_as_double`
-/// instead: an `Int64` accumulator there would wrap past 2^63 and flip the
-/// mean's sign even though `Double` represents the true value.
-fn fold_int64(a : ArrayView[Int64]) -> Int64 {
-  let mut acc : Int64 = 0
-  for x in a {
-    acc = acc + x
-  }
-  acc
-}
-
-///|
-/// Fold an `Int64` array into a `Double`, widening each cell before adding.
-/// The accumulator behind `mean` for an `Int` column: because the mean's output
-/// is `Double`, accumulating in `Double` from the start cannot wrap past 2^63
-/// (which would flip the sign, yielding a mean outside `[min, max]`), unlike
-/// `fold_int64`. Matches Polars, which computes an `Int`-column mean in f64.
-fn fold_int_as_double(a : ArrayView[Int64]) -> Double {
-  let mut acc : Double = 0.0
-  for x in a {
-    acc = acc + x.to_double()
-  }
-  acc
-}
-
-///|
-/// Plain `Double` fold over the whole array. `NaN` participates (it is a
-/// present value, not missing), so a single `NaN` cell propagates to a `NaN`
-/// total — Polars `sum` / `mean` semantics. Shared by `sum` and `mean`.
-fn fold_double(a : ArrayView[Double]) -> Double {
-  let mut acc : Double = 0.0
-  for x in a {
-    acc = acc + x
-  }
-  acc
-}
 
 ///|
 /// Sum of every cell.
@@ -69,8 +30,14 @@ fn fold_double(a : ArrayView[Double]) -> Double {
 /// 100% coverage (`feedback_lib_no_abort`).
 pub fn NumericColumn::sum(self : NumericColumn) -> @types.Scalar {
   match self.data {
-    Int(a) => @types.Scalar::Int(fold_int64(a))
-    Float(a) => @types.Scalar::Float(fold_double(a))
+    Int(a) =>
+      @types.Scalar::Int(
+        @numeric.fold_int64_sum(a.length(), i => a[i], _ => true),
+      )
+    Float(a) =>
+      @types.Scalar::Float(
+        @numeric.fold_double_sum(a.length(), i => a[i], _ => true).0,
+      )
   }
 }
 
@@ -79,7 +46,8 @@ pub fn NumericColumn::sum(self : NumericColumn) -> @types.Scalar {
 ///
 /// The denominator is the cell count `len` — every slot is present, so there
 /// is no non-null count to compute. A `Float` `NaN` propagates through the
-/// sum to a `NaN` mean (Polars semantics).
+/// sum to a `NaN` mean (Polars semantics); an `Int` column accumulates in
+/// `Double` (`fold_double_sum` widening each cell), the mean-safe form.
 ///
 /// `raise InvalidOperation` on an empty column: the mean of zero values is
 /// undefined (`0 / 0`), a genuine failure mode (unlike `sum`'s identity), so
@@ -93,8 +61,9 @@ pub fn NumericColumn::mean(
     raise @types.DataError::InvalidOperation("mean of empty column")
   }
   let total = match self.data {
-    Int(a) => fold_int_as_double(a)
-    Float(a) => fold_double(a)
+    Int(a) =>
+      @numeric.fold_double_sum(a.length(), i => a[i].to_double(), _ => true).0
+    Float(a) => @numeric.fold_double_sum(a.length(), i => a[i], _ => true).0
   }
   total / n.to_double()
 }

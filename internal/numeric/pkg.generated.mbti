@@ -6,7 +6,11 @@ pub fn double_fits_int64(Double) -> Bool
 
 pub fn double_lt_int64(Double, Int64) -> Bool
 
+pub fn fold_double_sum(Int, (Int) -> Double, (Int) -> Bool) -> (Double, Int)
+
 pub fn[T] fold_extremum(Int, (Int) -> T, (Int) -> Bool, (T, T) -> Bool) -> T?
+
+pub fn fold_int64_sum(Int, (Int) -> Int64, (Int) -> Bool) -> Int64
 
 pub fn int64_eq_double(Int64, Double) -> Bool
 

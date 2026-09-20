@@ -249,10 +249,10 @@ fn BuiltinColumn::get(
 ///|
 /// Lift one valid cell of a column's buffer to its logical `Scalar`. The
 /// physical variants map to their payload `Scalar`s, except `I64` — the
-/// buffer logical dtypes share — where the dtype decides: the registry's
-/// riders (`Int` identity, `Date` epoch) lift their own way. This is the one
-/// place identity and representation meet on the read side; the write half is
-/// `from_i64_options`. `index` must address a valid (present) slot — callers
+/// buffer logical dtypes share — where the registry's rider lift
+/// (`i64_rider_scalar`) decides; the identity/representation meet on the
+/// read side lives there, and the write half is `from_i64_options`.
+/// `index` must address a valid (present) slot — callers
 /// check validity first, so no null placeholder can leak out as a value.
 pub fn scalar_of(
   dtype : @types.DataType,
@@ -260,11 +260,12 @@ pub fn scalar_of(
   index : Int,
 ) -> @types.Scalar {
   match data {
+    // The rider lift is the registry's (`i64_rider_scalar`); `Int` is its own
+    // `I64` meaning, the lift's `None` arm.
     I64(a) =>
-      if dtype is @types.DataType::Date {
-        @types.Scalar::Date(a[index])
-      } else {
-        @types.Scalar::Int(a[index])
+      match dtype.i64_rider_scalar(a[index]) {
+        Some(s) => s
+        None => @types.Scalar::Int(a[index])
       }
     F64(a) => @types.Scalar::Float(a[index])
     Bool(a) => @types.Scalar::Bool(a[index])

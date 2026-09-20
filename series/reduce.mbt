@@ -158,13 +158,13 @@ fn reduce_extremum(
         let skip = k => !present(at(k))
         let better = (x, y) => if want_min { x < y } else { x > y }
         match @numeric.fold_extremum(n, get, skip, better) {
-          // The extremum lifts through the dtype: a Date column min/maxes
-          // to a Date, not to the day count its I64 buffer holds.
+          // The extremum lifts through the dtype via the registry's rider
+          // lift (`i64_rider_scalar`): a Date column min/maxes to a Date,
+          // not to the day count its I64 buffer holds.
           Some(b) =>
-            if storage.dtype() is @types.DataType::Date {
-              @types.Scalar::Date(b)
-            } else {
-              @types.Scalar::Int(b)
+            match storage.dtype().i64_rider_scalar(b) {
+              Some(s) => s
+              None => @types.Scalar::Int(b)
             }
           None => @types.Scalar::Null
         }

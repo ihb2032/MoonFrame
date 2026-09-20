@@ -1,7 +1,8 @@
-// Display-syntax rendering for literal scalars, shared by the expression
+// Display-syntax rendering for literal scalars, shared by this package's
 // explain renderer and the lazy plan printer so the two spellings can never
-// drift apart. Internal: it is a renderer detail, not a value-formatting API
-// users should depend on (`Scalar::to_string` is the user-facing form).
+// drift apart. An engine seam rather than a public API: it is a renderer
+// detail, not a value-formatting API users should depend on
+// (`Scalar::to_string` is the user-facing form).
 
 ///|
 /// Display-syntax rendering of a literal `Scalar` — the one spelling shared
@@ -18,6 +19,8 @@
 /// `NaN` / `Infinity` / `-Infinity` are non-finite and keep their own
 /// spelling. Display syntax, not the debug form `Scalar`'s own `Show`
 /// produces.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
 pub fn format_scalar(value : @types.Scalar) -> String {
   match value {
     Int(v) => v.to_string()

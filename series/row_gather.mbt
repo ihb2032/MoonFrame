@@ -171,15 +171,18 @@ fn rebuild_options(
   string_cell : (@buffer.Utf8Array, Int) -> String?,
 ) -> Series {
   let rebuilt = match source.storage.data() {
-    // The I64 arm rebuilds through the *dtype*, not the variant: a Date
-    // column is I64-typed, and rebuilding it through `from_int_options`
-    // would silently retype every gathered row as Int.
+    // The I64 arm rebuilds through the *dtype*, not the variant: the
+    // dtype-carrying constructor keeps a Date column a Date (an `Int`
+    // rebuild would silently retype every gathered row), and no per-dtype
+    // branch is needed — the identity flows with the dtype argument.
     @column.ColumnData::I64(a) =>
-      if source.dtype() is @types.DataType::Date {
-        Series::from_date_options(name, Array::makei(n, k => int_cell(a, k)))
-      } else {
-        Series::from_int_options(name, Array::makei(n, k => int_cell(a, k)))
-      }
+      Series::from_builtin(
+        name,
+        @column.BuiltinColumn::from_i64_options(
+          source.dtype(),
+          Array::makei(n, k => int_cell(a, k)),
+        ),
+      )
     @column.ColumnData::F64(a) =>
       Series::from_float_options(name, Array::makei(n, k => float_cell(a, k)))
     @column.ColumnData::Bool(a) =>
@@ -313,7 +316,11 @@ pub fn gather_series_opt(
   // unmatched (`None`) row is itself all-valid — build the numeric array
   // straight onto the `Numeric` backend, skipping the `Array[T?]` + `Bitmap`
   // round-trip `rebuild_options` would allocate only to drop on re-convergence.
-  // Mirrors `gather_series`' `Numeric` arm.
+  // The rule — I64 rows to `from_ints`, F64 rows to `from_floats`, `Bool` /
+  // `Utf8` never `Numeric`-backed — is `gather_series`' `Numeric` arm, the
+  // single statement of it; this entry point's gate differs (matched `Some`
+  // rows, not a bounds scan), so the pair of arms is a mirror that must move
+  // with that one, held in step by the backend parity harness.
   let matched = if s.storage.kind() is @column.StorageKind::Numeric {
     collect_matched(idx, s.len())
   } else {

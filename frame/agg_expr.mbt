@@ -37,11 +37,11 @@
 /// stays out of scope.)
 ///
 /// Evaluation reuses the shared expression engine with `scope =` each
-/// group's row indices, inheriting the documented dtype / null / NaN
-/// rules verbatim: `sum` / `mean` propagate NaN and reject non-numeric
-/// dtypes, `min` / `max` skip NaN and are total over every dtype, an
-/// all-null group sums to the additive identity and means to a null
-/// cell, `count` counts non-null cells. Dtype errors (`ColumnNotFound`,
+/// group's row indices, inheriting the evaluator's documented aggregation
+/// semantics (the Aggregations enumeration in `expr_eval.mbt`, whose
+/// canonical home is the series reducer's header) verbatim, including the
+/// grouped reading of them: an all-null group sums to the additive
+/// identity and means to a null cell. Dtype errors (`ColumnNotFound`,
 /// `TypeMismatch`) surface from the per-group evaluation itself (the
 /// bare-column fast path still reports them up front, resolving its
 /// reducer before any group work); the output dtype is taken from the
@@ -125,7 +125,7 @@ pub fn GroupedDataFrame::agg(
     out_cols.push(gather_series(key_column, reps))
   }
   for expr in exprs {
-    let out_name = expr_output_name(expr)
+    let out_name = expr.output_name()
     // `(probe, cells)`: a *deferred* fallback dtype that types (and gates) the
     // column only when the cells carry no dtype of their own (zero groups, or
     // an all-null result), plus one reduced `Scalar` per group in group order.
@@ -262,30 +262,22 @@ fn reduces_per_group(expr : @expr.Expr) -> Bool {
 /// Recognise the single-pass fast-path shape — an aggregation directly over
 /// a bare column reference, `col(name).<agg>()` for any aggregation op —
 /// returning the source column name and reduction op,
-/// else `None`. Top-level aliases are peeled first: `col(name).sum()
-/// .with_alias("total")` is the common idiom and an alias only renames the
-/// result (the output name comes from `expr_output_name` either way). The
-/// aggregation's operand must be a *bare* `Col`; an aggregation over a
-/// derived operand (`(col("a") - col("b")).sum()`, `col("x").cast(...).sum()`)
+/// else `None`. Top-level aliases are peeled first (`strip_alias_layers`): 
+/// `col(name).sum().with_alias("total")` is the common idiom and an alias only
+/// renames the result (the output name comes from `Expr::output_name` either
+/// way). The aggregation's operand must be a *bare* `Col`; an aggregation over
+/// a derived operand (`(col("a") - col("b")).sum()`, `col("x").cast(...).sum()`)
 /// or any non-aggregation returns `None` and takes the general per-group
 /// evaluator — which the fast path reproduces cell for cell.
 fn bare_col_agg(expr : @ir.ExprNode) -> (String, ReduceOp)? {
-  // The aliases are peeled with a cursor rather than the call stack:
-  // `with_alias` stacks without bound, so a recursive peel would overflow on a
-  // deep one — the same reason the engine's other expression walks are
-  // iterative. Only `Alias` advances the cursor; everything else answers.
-  let mut node = expr
-  for ;; {
-    match node {
-      @ir.ExprNode::Alias(inner, _) => node = inner
-      // The `Agg`'s operand is an AST node, so its `Col`-ness is a second step.
-      @ir.ExprNode::Agg(op, operand) =>
-        return match operand {
-          @ir.ExprNode::Col(name) => Some((name, op))
-          _ => None
-        }
-      _ => return None
-    }
+  match strip_alias_layers(expr) {
+    // The `Agg`'s operand is an AST node, so its `Col`-ness is a second step.
+    @ir.ExprNode::Agg(op, operand) =>
+      match operand {
+        @ir.ExprNode::Col(name) => Some((name, op))
+        _ => None
+      }
+    _ => None
   }
 }
 

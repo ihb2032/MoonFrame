@@ -445,7 +445,7 @@ fn resolve_join_keys(
   let dedup = options.left_on.is_empty()
   let seen : Map[String, Unit] = Map([])
   for i in 0..<left_exprs.length() {
-    let name = expr_output_name(left_exprs[i])
+    let name = left_exprs[i].output_name()
     if dedup && left_exprs[i].node() is @ir.ExprNode::Col(_) {
       if seen.contains(name) {
         raise @types.DataError::DuplicateColumn(name)
@@ -466,7 +466,7 @@ fn resolve_join_keys(
       let where_ = if options.left_on.is_empty() {
         "join key \"\{name}\""
       } else {
-        "join key \"\{name}\" (left) / \"\{expr_output_name(right_exprs[i])}\" (right)"
+        "join key \"\{name}\" (left) / \"\{right_exprs[i].output_name()}\" (right)"
       }
       raise @types.DataError::TypeMismatch(
         @types.TypeMismatchDetail::Message(

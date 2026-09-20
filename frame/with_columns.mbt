@@ -10,7 +10,7 @@
 /// Naming and placement:
 /// - each result takes its expression's output name — an alias if the tree
 ///   carries one, else the leftmost column reference, else `"literal"` for a
-///   pure-literal tree (`expr_output_name`). The alias clause is what decides
+///   pure-literal tree (`Expr::output_name`). The alias clause is what decides
 ///   replace-vs-append below: `col("a").with_alias("b")` appends `b`, it does
 ///   not replace `a`;
 /// - an output name already present in `self` **replaces** that column in
@@ -56,7 +56,7 @@ pub fn DataFrame::with_columns(
   let seen : Map[String, Unit] = Map([])
   for expr in exprs {
     let column = @kernel.broadcast_series(eval_expr(expr, self, scope), n)
-    let name = expr_output_name(expr)
+    let name = expr.output_name()
     if seen.contains(name) {
       raise @types.DataError::DuplicateColumn(name)
     }

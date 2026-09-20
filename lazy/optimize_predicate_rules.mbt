@@ -93,24 +93,44 @@ fn all_row_stable(exprs : Array[@expr.Expr]) -> Bool {
 /// back out) — so a signed-zero-safe predicate gives every row of a folded group
 /// the same verdict and may sink below the aggregate, while one that divides or
 /// exponentiates could drop only part of the group and must stay above. Walks
-/// `children()` like `row_stable`, so a node kind added later is walked without
-/// this rule naming it — the handle exposes shape, not variants.
-fn signed_zero_safe(expr : @expr.Expr) -> Bool {
+/// `children()` like `row_stable`, so a wrapper node kind added later is walked
+/// without this rule naming it — but the `BinOp` match below is exhaustive:
+/// a new operator fails compilation here until it is classified, because the
+/// silent default would be the unsound one (a sign-reading operator passing as
+/// safe could drop half a folded group).
+fn signed_zero_safe(expr : @ir.ExprNode) -> Bool {
   // Iterative walk like `row_stable`: a deeply nested predicate stays total
   // instead of overflowing the call stack during optimization.
-  let stack : Array[@expr.Expr] = [expr]
+  let stack : Array[@ir.ExprNode] = [expr]
   for ;; {
     match stack.pop() {
       None => break
       Some(e) =>
-        match e.node() {
-          @ir.ExprNode::Binary(
-            @ir.BinOp::Div
-            | @ir.BinOp::FloorDiv
-            | @ir.BinOp::Pow,
-            _,
-            _
-          ) => return false
+        match e {
+          @ir.ExprNode::Binary(op, _, _) =>
+            match op {
+              // The sign-observing operators fence the descent.
+              @ir.BinOp::Div | @ir.BinOp::FloorDiv | @ir.BinOp::Pow =>
+                return false
+              // Everything else in the operator vocabulary treats `-0.0` and
+              // `+0.0` as equal (arithmetic that cannot carry the sign into a
+              // readable position, and every comparison), so the walk descends.
+              @ir.BinOp::Add
+              | @ir.BinOp::Sub
+              | @ir.BinOp::Mul
+              | @ir.BinOp::Mod
+              | @ir.BinOp::Eq
+              | @ir.BinOp::Ne
+              | @ir.BinOp::Lt
+              | @ir.BinOp::Le
+              | @ir.BinOp::Gt
+              | @ir.BinOp::Ge
+              | @ir.BinOp::And
+              | @ir.BinOp::Or =>
+                for child in e.children() {
+                  stack.push(child)
+                }
+            }
           _ =>
             for child in e.children() {
               stack.push(child)
@@ -125,10 +145,9 @@ fn signed_zero_safe(expr : @expr.Expr) -> Bool {
 /// Whether an aggregation expression's per-group cell is provably
 /// independent of *which other groups exist*: never null, and never raising on
 /// values (so a dropped group cannot take its error with it). The null half is
-/// **conservative** — it was argued from a stitched column changing backend
-/// when an all-null group disappears, and column equality no longer observes
-/// the backend at all. It is kept because the argument for dropping it has not
-/// been made, not because that one still holds; see the note on `optimize`.
+/// **conservative** — why it is kept, and what loosening it would take, is
+/// stated once in the crossing-rules header of `push_predicates`
+/// (`optimize_predicates.mbt`), the pass driver this rule serves.
 /// `sum` / `count` / `n_unique` always produce a non-null value, but only
 /// over a `row_stable` operand — a `sum(col.cast(Int))` or `sum(col.map(…))`
 /// still raises on the cells its operand meets, so a value-raising operand

@@ -65,6 +65,13 @@ test "take_view copies the selected byte ranges verbatim" {
   assert_eq(taken.to_strings(), ["z", "x", "λλ"])
   let reordered = a.take_view([1, 1])
   assert_eq(reordered.to_strings(), ["λλ", "λλ"])
+  // Gathering a *view* reads through the view's window, not the parent's
+  // front: `base` must be added on the source side exactly as `get` does.
+  let view = a.slice_view(1, 2)
+  let gathered = view.take_view([1, 0, 1])
+  assert_eq(gathered.to_strings(), ["z", "λλ", "z"])
+  let nested = a.slice_view(1, 2).slice_view(0, 1)
+  assert_eq(nested.take_view([0, 0]).to_strings(), ["λλ", "λλ"])
 }
 
 ///|

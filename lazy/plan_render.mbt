@@ -22,6 +22,12 @@ fn render(plan : LogicalPlan, buf : StringBuilder, depth : Int) -> Unit {
   // any depth. Each node writes its own label; `render_input`'s old job (a fresh
   // line before every input) becomes "a newline before every node but the
   // first", preserving `explain`'s no-leading / no-trailing-newline contract.
+  // Sharing can enter a plan only through a `Join`, so a join-free plan is a
+  // linear chain with no node reachable twice: the identity `seen` scan the
+  // DAG-shaped half needs is pure overhead on it (the same `contains_join`
+  // fast path `has_shared_subplan` / `post_order_unique` take), and the walk
+  // below skips the scan outright instead of paying it per node.
+  let dedup = contains_join(plan)
   let stack : Array[(LogicalPlan, Int)] = [(plan, depth)]
   let seen : Array[LogicalPlan] = []
   let mut first = true
@@ -41,11 +47,13 @@ fn render(plan : LogicalPlan, buf : StringBuilder, depth : Int) -> Unit {
     // marker instead of re-expanding — re-expansion is 2^depth lines, which
     // would break `explain`'s total-at-any-depth promise by exhausting
     // memory. Tree plans never repeat a node, so their output is unchanged.
-    if seen_plan(seen, node) {
-      buf.write_string(" (shared, rendered above)")
-      continue
+    if dedup {
+      if seen_plan(seen, node) {
+        buf.write_string(" (shared, rendered above)")
+        continue
+      }
+      seen.push(node)
     }
-    seen.push(node)
     // Push children deepest-last so the leftmost child is visited next and a
     // `Join`'s left subtree fully precedes its right (the old left-then-right
     // `render_input` order).
@@ -134,7 +142,7 @@ fn write_frame_op_label(op : FrameOp, buf : StringBuilder) -> Unit {
         None => ()
       }
     }
-    FillNull(value) => buf <+ "FILL_NULL \{@literal.format_scalar(value)}"
+    FillNull(value) => buf <+ "FILL_NULL \{@expr.format_scalar(value)}"
     Reduce(op) =>
       match op {
         Sum => buf <+ "SUM"

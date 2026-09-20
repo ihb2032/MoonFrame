@@ -99,7 +99,7 @@ fn parse_ndjson_str_projected(
       err =>
         raise @types.DataError::ParseError(
           @types.ParseErrorDetail::Message(
-            "line \{i + 1}: invalid JSON: \{err}",
+            "\{locator_text(@types.CellParseLocation::Line, i + 1)}: invalid JSON: \{err}",
           ),
         )
     }

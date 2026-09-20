@@ -44,7 +44,11 @@ pub fn ExprNode::referenced_columns(self : ExprNode) -> @set.Set[String] {
 /// `agg`) name their output columns with it, and the lazy optimizer's projection
 /// pushdown uses it to know which names a deferred `with_columns` stage
 /// *defines* — a defined name need not exist in the stage's input, so pruning
-/// must not require it there.
+/// must not require it there. The data side of the same rule — the kernels'
+/// leftmost-input column naming and the `"literal"` sentinel a singleton series
+/// carries — mirrors this rule; those names are transitory (the consuming verb
+/// renames through this one), which is why the rule's single statement lives
+/// here rather than in the kernels.
 pub fn ExprNode::output_name(self : ExprNode) -> String {
   leftmost_name(self).unwrap_or("literal")
 }
@@ -61,7 +65,10 @@ pub fn ExprNode::output_name(self : ExprNode) -> String {
 /// `otherwise` as fallback — never from the condition (the condition gates rows,
 /// it does not produce output values), so it is matched explicitly rather than
 /// walking all of its children. (`referenced_columns`, by contrast, includes
-/// condition columns — pushdown must keep them alive.)
+/// condition columns — pushdown must keep them alive.) The match is exhaustive
+/// with no wildcard: a new variant that should name itself (the `LitSeries`
+/// situation) fails compilation here instead of silently falling through to
+/// `"literal"`.
 fn leftmost_name(node : ExprNode) -> String? {
   let stack : Array[ExprNode] = [node]
   for ;; {
@@ -76,7 +83,19 @@ fn leftmost_name(node : ExprNode) -> String? {
             stack.push(f)
             stack.push(t)
           }
-          _ => {
+          // Name-transparent — the search rides `children` for these.
+          Lit(_)
+          | Binary(_, _, _)
+          | Unary(_, _)
+          | Agg(_, _)
+          | Str(_, _)
+          | Cast(_, _)
+          | FillNull(_, _)
+          | FillNan(_, _)
+          | IsIn(_, _)
+          | IsBetween(_, _, _, _)
+          | Map(_, _, _)
+          | MapBatches(_, _, _, _) => {
             let children = e.children()
             for i = children.length() - 1; i >= 0; i = i - 1 {
               stack.push(children[i])

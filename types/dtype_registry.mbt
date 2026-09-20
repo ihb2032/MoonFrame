@@ -12,9 +12,9 @@
 // rides the `I64` buffer), while the physical set is frozen by design and only
 // grows for a buffer no existing one can serve (a fixed-point `Decimal`, say).
 // A dtype riding an existing buffer is *defined* by how it reinterprets the
-// buffer's raw cell on read — that lift lives in one place,
-// the column layer's `scalar_of` (the `I64` arm branches per dtype), which
-// is where the next I64 rider registers its read side.
+// buffer's raw cell on read — that lift is `i64_rider_scalar` below, the row
+// where the next I64 rider registers its read side (the write side carries the
+// dtype through `from_i64_options`, so it needs no per-dtype branch at all).
 
 ///|
 /// The physical buffer kind a column's logical `DataType` is materialised
@@ -101,4 +101,22 @@ pub fn DataType::physical(self : DataType) -> PhysicalType? {
 #internal(engine, "MoonFrame execution engine API")
 pub fn DataType::comparable_with(self : DataType, other : DataType) -> Bool {
   self == other || (self.is_numeric() && other.is_numeric())
+}
+
+///|
+/// How an `I64`-riding dtype reinterprets a raw buffer cell on read — the
+/// value-side definition of a rider, registered once here: every reader that
+/// must turn an `Int64` cell back into the column's own `Scalar` (the column
+/// layer's `scalar_of`, the extremum reducers lifting their best value) goes
+/// through this lift instead of branching per dtype at its own site. `None`
+/// for every dtype that is its own `I64` meaning (`Int`) or does not ride the
+/// buffer at all — the caller's plain-`Int` path. The next I64 rider adds one
+/// arm here and every lift follows.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
+pub fn DataType::i64_rider_scalar(self : DataType, v : Int64) -> Scalar? {
+  match self {
+    Date => Some(Scalar::Date(v))
+    _ => None
+  }
 }

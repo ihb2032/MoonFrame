@@ -83,12 +83,10 @@ pub fn Series::empty_of(
   dtype : @types.DataType,
 ) -> Series raise @types.DataError {
   let storage = match dtype.physical() {
+    // The I64 riders share one buffer, so the dtype-carrying constructor
+    // serves both `Int` and its riders (`Date`) — no per-dtype branch.
     Some(@types.PhysicalType::I64) =>
-      if dtype is @types.DataType::Date {
-        @column.BuiltinColumn::from_i64_options(dtype, [])
-      } else {
-        @column.BuiltinColumn::from_ints([])
-      }
+      @column.BuiltinColumn::from_i64_options(dtype, [])
     Some(@types.PhysicalType::F64) => @column.BuiltinColumn::from_floats([])
     Some(@types.PhysicalType::Bool) => @column.BuiltinColumn::from_bools([])
     Some(@types.PhysicalType::Utf8) => @column.BuiltinColumn::from_strings([])
@@ -198,7 +196,6 @@ pub fn Series::from_date_options(
   )
 }
 
-// ── Inspection ────────────────────────────────────────────────────────
 // ── Inspection ────────────────────────────────────────────────────────
 
 ///|

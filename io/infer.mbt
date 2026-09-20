@@ -11,6 +11,8 @@
 // probes (`parse_int_opt` / `parse_float_opt`) are shared here too: the CSV
 // inference path and the JSON readers' `repr`-digit recovery both route
 // through them (the CSV-only `bool` probe stays with the CSV reader).
+// The frame-level orchestration around these cores — survivor compaction
+// and the two-phase pruned assembly — lives in `assembly.mbt`.
 //
 // One-file-one-test exemption: this shared inference skeleton has no
 // dedicated test file of its own. (doc-guard: unresolved) It is covered
@@ -18,19 +20,6 @@
 
 ///|
 const DEFAULT_INFER_SCHEMA_ROWS : Int = 100
-
-///|
-/// A membership set over a name list — a `Map[String, Unit]` for O(1)
-/// `contains`, built once so the projection / pruned-column / key-column
-/// checks in the CSV and JSON readers don't rescan (or reallocate) a name
-/// array per header.
-fn name_set(names : Array[String]) -> Map[String, Unit] {
-  let set : Map[String, Unit] = Map([])
-  for name in names {
-    set[name] = ()
-  }
-  set
-}
 
 ///|
 /// The four dtypes inference can pick. `Null` is intentionally absent —
@@ -306,98 +295,4 @@ fn[Cell] build_inferred_column(
       )
     InferString => build_string_column(name, n, cell, is_null, render)
   }
-}
-
-///|
-/// The pruner a pushed-down read carries: the key columns to build in
-/// phase 1, and the callback (built by the lazy layer from the absorbed
-/// predicate) that decides which rows survive into phase 2. Named once so
-/// every signature that threads it — the string-level projected cores, the
-/// JSON records core, and the frame assembler — spells the same contract.
-type RowPruner = (
-  Array[String],
-  (@frame.DataFrame) -> Array[Int] raise @types.DataError,
-)
-
-///|
-/// The two-phase assembly shared by the pruned CSV and JSON readers. `headers`
-/// gives the column order; `build_over(name, i, keep)` builds the column named
-/// `name` (at header index `i`) over the records `keep` selects (`None` = every
-/// record), threading each surviving record's original position for the
-/// reader's error locator. With a `pruner`, phase 1 builds only the key columns
-/// over every record, asks `keep` which rows survive, and gathers the key
-/// frame; phase 2 then builds each projected column over the survivors —
-/// reusing an already-built key column rather than parsing it a second time.
-/// Without a pruner, phase 2 builds each projected column over every record.
-///
-/// Factoring the orchestration here keeps the row-pruning contract — inference
-/// over the whole file, original-position threading for error locators, and the
-/// key-column reuse — defined once for both formats, rather than mirrored
-/// (which is how the CSV reader once shipped without the position threading the
-/// NDJSON reader had).
-///
-/// `nrows` is the record count the file itself carries, and it — not the built
-/// column vector — sets the result's height. The two are the same whenever a
-/// column survives, and differ exactly when none does: a projection that
-/// matches no header, or a record shape with no fields at all (`[{}, {}]`),
-/// reads as the `N×0` frame rather than losing the file's rows. The same count
-/// anchors the phase-1 key frame, so a predicate that reads no column still
-/// sees the file's real height.
-fn assemble_pruned_frame(
-  headers : Array[String],
-  nrows : Int,
-  projection : Array[String]?,
-  pruner : RowPruner?,
-  build_over : (String, Int, Array[Int]?) -> @series.Series raise @types.DataError,
-) -> @frame.DataFrame raise @types.DataError {
-  // Phase 1: build only the key columns over every record, gather the survivors.
-  let pruned : (@frame.DataFrame, Array[Int])? = match pruner {
-    None => None
-    Some((key_columns, keep)) => {
-      let key_set = name_set(key_columns)
-      let keys : Array[@series.Series] = []
-      for col, name in headers {
-        if key_set.contains(name) {
-          keys.push(build_over(name, col, None))
-        }
-      }
-      let key_frame = @frame.DataFrame::from_parts(keys, nrows)
-      let kept = keep(key_frame)
-      Some((key_frame.gather(kept), kept))
-    }
-  }
-  let kept : Array[Int]? = match pruned {
-    None => None
-    Some((_, k)) => Some(k)
-  }
-  let projection_set = projection.map(name_set)
-  let pruned_cols : Map[String, Unit] = match pruned {
-    Some((frame, _)) => name_set(frame.columns())
-    None => Map([])
-  }
-  // Phase 2: build each projected column over the survivors (or every record).
-  let series : Array[@series.Series] = []
-  for col, name in headers {
-    let included = match projection_set {
-      None => true
-      Some(names) => names.contains(name)
-    }
-    if included {
-      // A predicate key column is already built and pruned — take it rather than
-      // parsing those cells a second time.
-      match pruned {
-        Some((frame, _)) if pruned_cols.contains(name) =>
-          series.push(frame.get_column(name))
-        _ => series.push(build_over(name, col, kept))
-      }
-    }
-  }
-  // The surviving height: the rows a pruner kept, else every record. With at
-  // least one column built these agree with `series[0].len()`; with none, this
-  // is the only thing that carries it.
-  let height = match kept {
-    None => nrows
-    Some(k) => k.length()
-  }
-  @frame.DataFrame::from_parts(series, height)
 }

@@ -4,12 +4,21 @@
 // the count lived in a hand-bumped comment). `variant_tag` closes that — an
 // exhaustive, wildcard-free match, so a new `ExprNode` variant is a compile
 // error HERE until its arm exists, landing the author beside the `reps` list
-// they must also extend. The production match-sites already force the variant
+// they must also extend, and the pinned `VARIANT_COUNT` below fails if a tail
+// rep is missing. The production match-sites already force the variant
 // to be handled; this brings the same compile signal to the equality test.
 //
 // The relation belongs to the AST, `Expr` no longer carries an `==` to reach
 // it through, and a package's own tests are what its coverage is measured by —
 // so the test sits here, with the AST.
+
+///|
+/// The number of `ExprNode` variants, pinned as an assertion rather than a
+/// comment: `variant_tag`'s declaration order gives each variant its tag, and
+/// this count is what the one-rep-per-variant list is measured against. A new
+/// variant's `variant_tag` arm compiles only in this file, so the pinned count
+/// is the second thing its addition trips.
+const VARIANT_COUNT : Int = 16
 
 ///|
 /// A distinct tag per `ExprNode` variant, in declaration order — exhaustive and
@@ -65,12 +74,16 @@ test "equality: each variant is unequal to every other variant" {
     Map("m", [a], vs => vs[0]),
     MapBatches("mb", [a], false, s => s[0]),
   ]
-  // The reps carry one of every variant, in tag order with no gap — so the
-  // count is derived from `variant_tag` rather than hand-maintained, a
-  // duplicated or misordered rep is caught, and a variant added to
-  // `variant_tag` above (a compile error there) is not left untested here.
+  // The reps carry one of every variant, in tag order with no gap — a
+  // duplicated, misordered, or interior-omitted rep is caught by the sequence
+  // assertion below. What that assertion alone cannot see is an omitted
+  // *tail* rep (dropping the last-declared variant still leaves a contiguous
+  // `[0 .. len)`), so the count is pinned beside it: `VARIANT_COUNT` is the
+  // number of `variant_tag` arms, and a variant added there makes the pinned
+  // count fail until its rep lands.
   let tags = Array::makei(reps.length(), i => variant_tag(reps[i]))
   assert_eq(tags, Array::makei(reps.length(), i => i))
+  assert_eq(reps.length(), VARIANT_COUNT)
   // Comparing every ordered pair of distinct variants exercises each
   // per-variant arm of the structural equality as the *first* operand — the arm
   // a future variant addition is forced to extend.

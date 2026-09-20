@@ -280,10 +280,7 @@ fn parse_csv_str_projected(
     col : Int,
     keep : Array[Int]?,
   ) -> @series.Series raise @types.DataError {
-    let records = match keep {
-      None => rows
-      Some(k) => Array::makei(k.length(), i => rows[k[i]])
-    }
+    let records = kept_records(keep, rows)
     build(name, dtype_of(col), records, col, keep)
   }
   assemble_pruned_frame(headers, rows.length(), projection, pruner, build_over)
@@ -344,7 +341,7 @@ fn validate_csv_shape(
       if row.length() != ncols {
         raise @types.DataError::ParseError(
           @types.ParseErrorDetail::Message(
-            "row \{i + 1}: expected \{ncols} columns, got \{row.length()}",
+            "\{locator_text(@types.CellParseLocation::Row, i + 1)}: expected \{ncols} columns, got \{row.length()}",
           ),
         )
       }

@@ -87,25 +87,12 @@ fn cmp_double_int(verb : CmpVerb, a : Double, b : Int64) -> Bool {
 }
 
 ///|
-/// `compare_cells` for a mixed `Int64` / `Double` pair, whose two sides have
-/// different cell types so a single-`T` reader / predicate does not fit. Takes
-/// the per-row verdict directly; the null layer is identical.
-fn compare_cells_mixed(
-  n : Int,
-  lv : Array[Bool],
-  rv : Array[Bool],
-  verdict : (Int) -> Bool,
-) -> Array[Bool?] {
-  Array::makei(n, i => if lv[i] && rv[i] { Some(verdict(i)) } else { None })
-}
-
-///|
 /// Build the `Bool?` cells of one comparison over two equal-length
 /// operands, given a cell reader per side and the dtype's two primitive
 /// predicates. The verdict itself is `apply_cmp` (NaN semantics live
-/// there); this loop adds the null layer — NaN is a *value* (the cell
-/// stays non-null), while a null on either side nulls the cell before the
-/// predicates run.
+/// there); the null layer is the shared `zip_present` gate every binary
+/// kernel uses — NaN is a *value* (the cell stays non-null), while a null
+/// on either side nulls the cell before the predicates run.
 fn[T] compare_cells(
   n : Int,
   left_valid~ : Array[Bool],
@@ -116,12 +103,8 @@ fn[T] compare_cells(
   equal~ : (T, T) -> Bool,
   verb~ : CmpVerb,
 ) -> Array[Bool?] {
-  Array::makei(n, i => {
-    if left_valid[i] && right_valid[i] {
-      Some(apply_cmp(verb, less_than, equal, get_left(i), get_right(i)))
-    } else {
-      None
-    }
+  zip_present(n, left_valid, right_valid, i => {
+    apply_cmp(verb, less_than, equal, get_left(i), get_right(i))
   })
 }
 
@@ -198,15 +181,14 @@ pub fn eval_compare(
     (@column.ColumnData::I64(a), @column.ColumnData::F64(b)) if left
       .dtype()
       .comparable_with(right.dtype()) =>
-      compare_cells_mixed(a.length(), lv, rv, i => {
-        cmp_int_double(verb, a[i], b[i])
-      })
+      // The mixed pair's two sides have different cell types, so a
+      // single-`T` reader / predicate does not fit; the per-row verdict is
+      // taken directly over the same shared null gate.
+      zip_present(a.length(), lv, rv, i => cmp_int_double(verb, a[i], b[i]))
     (@column.ColumnData::F64(a), @column.ColumnData::I64(b)) if left
       .dtype()
       .comparable_with(right.dtype()) =>
-      compare_cells_mixed(a.length(), lv, rv, i => {
-        cmp_double_int(verb, a[i], b[i])
-      })
+      zip_present(a.length(), lv, rv, i => cmp_double_int(verb, a[i], b[i]))
     (@column.ColumnData::F64(a), @column.ColumnData::F64(b)) =>
       compare_cells(
         a.length(),

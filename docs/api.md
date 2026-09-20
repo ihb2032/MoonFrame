@@ -80,8 +80,8 @@ line there is a symbol whose whole purpose is to be *asserted*, by tests in
 another package that have no other way to see what they check.
 **Internal packages** go further: code a downstream caller never needs to name
 lives in an `internal/` path (`internal/column` storage, `internal/kernel` —
-the vectorized expression kernels — `internal/text` / `internal/literal` /
-`internal/numeric` / `internal/order` primitives, and `internal/ir`, the
+the vectorized expression kernels — `internal/text` / `internal/numeric` /
+`internal/order` primitives, and `internal/ir`, the
 expression AST and its operator tags).
 MoonBit forbids a downstream module from importing an `internal/` package at
 all, so those symbols carry no per-symbol marker — the module boundary itself
@@ -182,8 +182,8 @@ The public surface is split across seven packages; the facade re-exports them so
   `explain`, and the optimizer (see [Query optimizer](#query-optimizer)).
 
 Storage backends (`internal/column`), the vectorized expression kernels
-(`internal/kernel`), the text / literal / numeric / position primitives
-(`internal/text` / `internal/literal` / `internal/numeric` / `internal/order`),
+(`internal/kernel`), the text / numeric / position primitives
+(`internal/text` / `internal/numeric` / `internal/order`),
 the raw buffer primitives (`internal/buffer` — the validity bitmap and the
 UTF-8 string buffer), the scan-driver seam (`internal/scan` — what a readable
 source implements so the lazy engine stays format-agnostic), and the

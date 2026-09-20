@@ -105,12 +105,38 @@ source-level upgrade steps are collected in [`migration.md`](migration.md).
   beside `csv_write.mbt`), and the three-format round-trip corpus is driven
   by a format table — wiring a new format into the corpus becomes adding a
   row, which is also the shape a future format's tests should take.
+- A cohesion pass over the whole module single-homes the facts that were
+  written twice. The kernel's three binary numeric kernels share one
+  pairing skeleton (`numeric_fast_pair` / `numeric_general_pair`) instead
+  of six near-identical matrices, and every arithmetic / shaping operator
+  the evaluator dispatches has a named kernel entry (`eval_add` through
+  `eval_round`), so verb strings and cell closures live in the kernel. The
+  sum folds join `fold_extremum` in `internal/numeric`; the I64-rider lift
+  registers in the dtype registry (`DataType::i64_rider_scalar`); the
+  scalar projection lands beside its read-side mirror
+  (`BuiltinColumn::from_scalars`); the readers' two-phase assembly moves
+  to `io/assembly.mbt`; the optimizer's `signed_zero_safe` matches its
+  operator set exhaustively, like its sibling soundness rules. The
+  one-function `internal/literal` package folds into `expr` as an engine
+  seam. No public interface changes: every public package's `.mbti` is
+  byte-identical to `v0.6.0`'s.
 
 ### Tooling
 
 - CI pins moonc 0.10.13 (was 0.10.9), and the manifests drop the imports
   the newer compiler stops counting as used. `StringBuilder` construction
   follows the newer deprecation's spelling.
+
+### Fixes
+
+- Gathering a **sliced** string column returned the wrong cells: the
+  zero-copy slice view re-bases its offsets but keeps the parent's byte
+  buffer, and the gather core read source bytes through the offsets alone,
+  without the view's `base` — so a `slice(1, n).gather(...)` on a string
+  column silently copied bytes from the front of the parent buffer. The
+  gather now reads `base + offsets`, the same arithmetic `get` and the
+  byte-wise equality use, and a slice-then-gather regression test pins the
+  public-API path (`Utf8Array::take_view` in `internal/buffer`).
 
 ## v0.6.0 — API convergence
 

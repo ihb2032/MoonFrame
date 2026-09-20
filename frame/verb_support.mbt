@@ -69,6 +69,25 @@ fn DataFrame::with_same_schema(
 }
 
 ///|
+/// Peel every top-level `Alias` layer off `expr`, returning the node beneath.
+/// A cursor rather than the call stack: `with_alias` stacks without bound, so
+/// a recursive peel would overflow on a deep one — the same reason every
+/// other expression walk in the engine is iterative. The single statement of
+/// the alias-peel rule; the consumers that classify the node beneath it
+/// (`projection_source` here, `bare_col_agg` in `agg_expr.mbt`) share it
+/// instead of each re-deriving the loop and its reason.
+fn strip_alias_layers(expr : @ir.ExprNode) -> @ir.ExprNode {
+  let mut node = expr
+  for ;; {
+    match node {
+      @ir.ExprNode::Alias(inner, _) => node = inner
+      _ => break
+    }
+  }
+  node
+}
+
+///|
 /// The column an expression only *renames*, if any. `col("x")` reads column
 /// `x` and changes nothing about its cells; `col("x").with_alias("y")` changes
 /// nothing but the name. Every other expression computes — including `cast`,
@@ -77,33 +96,27 @@ fn DataFrame::with_same_schema(
 ///
 /// Written without a wildcard so a new `ExprNode` variant has to state whether it
 /// is a pure rename rather than defaulting to "no".
-///
-/// Aliases are peeled with a cursor rather than the call stack: `with_alias`
-/// stacks without bound, so a recursive peel would overflow on a deep one — the
-/// same reason every other expression walk in the engine is iterative. Only
-/// `Alias` advances the cursor; every other variant is an answer, so the loop
-/// runs once per alias and stops.
 fn projection_source(expr : @ir.ExprNode) -> String? {
-  let mut node = expr
-  for ;; {
-    match node {
-      @ir.ExprNode::Alias(inner, _) => node = inner
-      @ir.ExprNode::Col(name) => return Some(name)
-      @ir.ExprNode::Lit(_)
-      | @ir.ExprNode::LitSeries(_)
-      | @ir.ExprNode::Binary(_, _, _)
-      | @ir.ExprNode::Unary(_, _)
-      | @ir.ExprNode::Agg(_, _)
-      | @ir.ExprNode::Str(_, _)
-      | @ir.ExprNode::Cast(_, _)
-      | @ir.ExprNode::Ternary(_, _, _)
-      | @ir.ExprNode::FillNull(_, _)
-      | @ir.ExprNode::FillNan(_, _)
-      | @ir.ExprNode::IsIn(_, _)
-      | @ir.ExprNode::IsBetween(_, _, _, _)
-      | @ir.ExprNode::Map(_, _, _)
-      | @ir.ExprNode::MapBatches(_, _, _, _) => return None
-    }
+  // `Alias` is listed for exhaustiveness though `strip_alias_layers` never
+  // returns one — the match stays wildcard-free, so a new variant must
+  // state whether it is a pure rename.
+  match strip_alias_layers(expr) {
+    @ir.ExprNode::Col(name) => Some(name)
+    @ir.ExprNode::Alias(_, _)
+    | @ir.ExprNode::Lit(_)
+    | @ir.ExprNode::LitSeries(_)
+    | @ir.ExprNode::Binary(_, _, _)
+    | @ir.ExprNode::Unary(_, _)
+    | @ir.ExprNode::Agg(_, _)
+    | @ir.ExprNode::Str(_, _)
+    | @ir.ExprNode::Cast(_, _)
+    | @ir.ExprNode::Ternary(_, _, _)
+    | @ir.ExprNode::FillNull(_, _)
+    | @ir.ExprNode::FillNan(_, _)
+    | @ir.ExprNode::IsIn(_, _)
+    | @ir.ExprNode::IsBetween(_, _, _, _)
+    | @ir.ExprNode::Map(_, _, _)
+    | @ir.ExprNode::MapBatches(_, _, _, _) => None
   }
 }
 
@@ -174,5 +187,5 @@ fn DataFrame::resolve_subset_columns(
   self : DataFrame,
   keys : Array[@expr.Expr],
 ) -> Array[Series] raise @types.DataError {
-  keys.map(key => self.get_column(expr_output_name(key)))
+  keys.map(key => self.get_column(key.output_name()))
 }

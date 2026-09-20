@@ -33,8 +33,9 @@
 /// with no non-null cell (e.g.
 /// `map_many([], _ => Null)`) has no dtype witness and raises `Unsupported`,
 /// like the `Null` literal. The column is named after the leftmost input (or
-/// `"literal"` when there are none), agreeing with `Expr::output_name`; the
-/// consuming verb renames it through `expr_output_name` regardless.
+/// `"literal"` when there are none) — the data-side mirror of the naming rule
+/// `ExprNode::output_name` states; the name is transitory (the consuming verb
+/// renames the column through the AST rule) and no behaviour keys off it.
 pub fn eval_map_apply(
   evaluated : Array[Series],
   f : (Array[@types.Scalar]) -> @types.Scalar raise @types.DataError,

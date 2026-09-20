@@ -15,11 +15,17 @@ pub fn broadcast_series(@series.Series, Int) -> @series.Series raise @types.Data
 
 pub fn compile_regex(String) -> @string.Regex raise @types.DataError
 
-pub fn eval_arith(@series.Series, @series.Series, String, (Int64, Int64) -> Int64, (Double, Double) -> Double) -> @series.Series raise @types.DataError
+pub fn eval_abs(@series.Series) -> @series.Series raise @types.DataError
+
+pub fn eval_add(@series.Series, @series.Series) -> @series.Series raise @types.DataError
+
+pub fn eval_ceil(@series.Series) -> @series.Series raise @types.DataError
 
 pub fn eval_compare(@series.Series, @series.Series, CmpVerb) -> @series.Series raise @types.DataError
 
 pub fn eval_div(@series.Series, @series.Series) -> @series.Series raise @types.DataError
+
+pub fn eval_floor(@series.Series) -> @series.Series raise @types.DataError
 
 pub fn eval_floor_div(@series.Series, @series.Series) -> @series.Series raise @types.DataError
 
@@ -27,13 +33,17 @@ pub fn eval_is_between(@series.Series, @series.Series, @series.Series, @types.Cl
 
 pub fn eval_is_in(@series.Series, ArrayView[@types.Scalar]) -> @series.Series raise @types.DataError
 
-pub fn eval_is_nan(@series.Series, Bool) -> @series.Series raise @types.DataError
+pub fn eval_is_nan(@series.Series) -> @series.Series raise @types.DataError
 
-pub fn eval_logic(@series.Series, @series.Series, String, (Bool?, Bool?) -> Bool?) -> @series.Series raise @types.DataError
+pub fn eval_is_not_nan(@series.Series) -> @series.Series raise @types.DataError
+
+pub fn eval_logic(@series.Series, @series.Series, LogicOp) -> @series.Series raise @types.DataError
 
 pub fn eval_map_apply(Array[@series.Series], (Array[@types.Scalar]) -> @types.Scalar raise @types.DataError) -> @series.Series raise @types.DataError
 
 pub fn eval_mod(@series.Series, @series.Series) -> @series.Series raise @types.DataError
+
+pub fn eval_mul(@series.Series, @series.Series) -> @series.Series raise @types.DataError
 
 pub fn eval_neg(@series.Series) -> @series.Series raise @types.DataError
 
@@ -41,25 +51,19 @@ pub fn eval_not(@series.Series) -> @series.Series raise @types.DataError
 
 pub fn eval_pow(@series.Series, @series.Series) -> @series.Series raise @types.DataError
 
+pub fn eval_round(@series.Series, Int) -> @series.Series raise @types.DataError
+
+pub fn eval_sign(@series.Series) -> @series.Series raise @types.DataError
+
 pub fn eval_str(@ir.StrOp, @series.Series) -> @series.Series raise @types.DataError
+
+pub fn eval_sub(@series.Series, @series.Series) -> @series.Series raise @types.DataError
 
 pub fn eval_ternary(@series.Series, @series.Series, @series.Series) -> @series.Series raise @types.DataError
 
-pub fn eval_unary_num(@series.Series, String, (Int64) -> Int64, (Double) -> Double) -> @series.Series raise @types.DataError
-
 pub fn infer_cells_dtype(Array[@types.Scalar]) -> @types.DataType?
 
-pub fn kleene_and(Bool?, Bool?) -> Bool?
-
-pub fn kleene_or(Bool?, Bool?) -> Bool?
-
 pub fn promote_mixed_int_float(Array[@types.Scalar]) -> Array[@types.Scalar]
-
-pub fn round_places(Double, Int) -> Double
-
-pub fn sign_f64(Double) -> Double
-
-pub fn sign_i64(Int64) -> Int64
 
 pub fn singleton_series(@types.Scalar) -> @series.Series raise @types.DataError
 
@@ -73,6 +77,11 @@ pub(all) enum CmpVerb {
   Le
   Gt
   Ge
+}
+
+pub(all) enum LogicOp {
+  And
+  Or
 }
 
 // Type aliases

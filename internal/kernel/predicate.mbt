@@ -43,7 +43,7 @@ pub fn eval_is_in(
     let mask = eval_compare(lhs, rhs, CmpVerb::Eq)
     // `acc` and `mask` are both `operand`-tall, so `eval_logic` (which assumes
     // equal-length operands) needs no further broadcast.
-    acc = eval_logic(acc, mask, "or", kleene_or)
+    acc = eval_logic(acc, mask, LogicOp::Or)
   }
   acc
 }
@@ -177,5 +177,5 @@ pub fn eval_is_between(
   let (xh, hil) = broadcast_pair(x, hi)
   let le = eval_compare(xh, hil, upper)
   let (g, l) = broadcast_pair(ge, le)
-  eval_logic(g, l, "and", kleene_and)
+  eval_logic(g, l, LogicOp::And)
 }

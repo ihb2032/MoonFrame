@@ -48,7 +48,7 @@ pub fn DataFrame::select(
   let seen : Map[String, Unit] = Map([])
   for expr in exprs {
     let column = eval_expr(expr, self, scope)
-    let name = expr_output_name(expr)
+    let name = expr.output_name()
     if seen.contains(name) {
       raise @types.DataError::DuplicateColumn(name)
     }

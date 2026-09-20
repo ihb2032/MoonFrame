@@ -387,4 +387,11 @@ test "a Date channel encodes as temporal" {
   )
   let json = format_vega_lite(df, ChartSpec::line("d", "v"))
   assert_true(json.contains("\"type\":\"temporal\""))
+  // `temporal` is only correct if the data cells are ISO date strings — that
+  // is the cross-package half of the contract (the JSON records' date
+  // mapping), and a change to the unit spelling would leave the `"type"`
+  // assertion green while Vega silently stops reading the dates. Pin the
+  // units too.
+  assert_true(json.contains("\"d\":\"2024-01-01\""))
+  assert_true(json.contains("\"d\":\"2024-01-02\""))
 }

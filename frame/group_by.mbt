@@ -90,7 +90,7 @@ pub fn DataFrame::group_by(
   let seen : Map[String, Unit] = Map([])
   let key_columns = keys.map(key => {
     let column = @kernel.broadcast_series(eval_expr(key, self, scope), n)
-    let name = expr_output_name(key)
+    let name = key.output_name()
     if seen.contains(name) {
       raise @types.DataError::DuplicateColumn(name)
     }

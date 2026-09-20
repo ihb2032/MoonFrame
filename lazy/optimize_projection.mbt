@@ -1,10 +1,9 @@
 ///|
-/// The projection pass: a top-down required-columns analysis that narrows each
-/// scan source — the in-memory source (by inserting a bare-column `Select`) and
-/// the CSV / NDJSON file sources (by writing their projection field) — to the
-/// columns its consumers provably read. `push_projection` walks the plan
-/// iteratively over `ProjStep`; the small requirement helpers (`columns_read`,
-/// `widened`, `narrow_scan`, `sorted_names`, `add_all`) sit beside it.
+/// The projection pass's file map: `push_projection` is the iterative walk
+/// over `ProjStep`, and the small requirement helpers (`columns_read`,
+/// `widened`, `narrow_scan_source`, `sorted_names`, `add_all`) sit beside
+/// it. The pass itself and its per-node requirement rules are documented on
+/// `push_projection`.
 
 ///|
 /// One step of the iterative projection pass: `Visit` descends into a node
@@ -193,6 +192,17 @@ fn add_all(acc : @set.Set[String], names : @set.Set[String]) -> Unit {
 }
 
 ///|
+/// Whether a kept-column count means the in-memory scan actually narrows:
+/// at least one column kept and at least one dropped. The single statement
+/// of the in-memory narrowing condition — `narrow_scan_source` inserts its
+/// `Select` under it, and `already_narrows_inmemory` recognises that
+/// `Select` by it — so the guard and the narrowing it guards cannot drift
+/// apart (a drift would stack a second `Select` on re-optimization).
+fn inmemory_narrows_to(kept : Int, total : Int) -> Bool {
+  kept > 0 && kept < total
+}
+
+///|
 /// Whether `op` sitting on `input` is a bare-column `Select` that already
 /// narrows an in-memory scan — the shape `narrow_scan_source` would otherwise
 /// insert a duplicate of. True when `input` is `Scan(InMemory(df))` and `op` is
@@ -220,9 +230,7 @@ fn already_narrows_inmemory(input : LogicalPlan, op : FrameOp) -> Bool {
     }
     read.add(name)
   }
-  // A proper, non-empty subset: some column is dropped (else there is nothing to
-  // narrow) and at least one is kept.
-  read.length() > 0 && read.length() < cols.length()
+  inmemory_narrows_to(read.length(), cols.length())
 }
 
 ///|
@@ -231,8 +239,16 @@ fn already_narrows_inmemory(input : LogicalPlan, op : FrameOp) -> Bool {
 /// alone. The in-memory source gets a bare-column `Select` inserted only when
 /// the requirement is a proper, non-empty subset of its columns (it carries no
 /// projection field); a file source writes the requirement into its own
-/// projection via `narrow_scan`. `node` is the original `Scan(source)`, returned
-/// unchanged when there is nothing to narrow.
+/// projection (sorted, for a deterministic `explain` — the file's columns
+/// aren't known until it is parsed, so there is nothing to intersect here, and
+/// the reader filters the requirement against the real header at collect time,
+/// keeping the file's own column order; the driver and any absorbed predicate
+/// ride along verbatim). An unbounded requirement (`None`) or an empty one —
+/// an all-literal consumer that reads no source column — leaves the scan whole
+/// (mirroring the in-memory guard), so the read still yields its columns
+/// and a row count rather than collapsing to nothing. A required name absent
+/// from the file is simply never built; whichever expression references it
+/// raises the same `ColumnNotFound` it would in the unoptimized plan.
 fn narrow_scan_source(
   node : LogicalPlan,
   source : ScanSource,
@@ -245,50 +261,25 @@ fn narrow_scan_source(
         Some(needed) => {
           let cols = df.columns()
           let survivors = cols.filter(name => needed.contains(name))
-          if survivors.length() > 0 && survivors.length() < cols.length() {
+          if inmemory_narrows_to(survivors.length(), cols.length()) {
             Unary(node, Select(survivors.map(name => @expr.col(name))))
           } else {
             node
           }
         }
       }
-    // A file source narrows by re-arming its pushed projection; the driver and
-    // any absorbed predicate ride along verbatim.
     File(fs) =>
-      narrow_scan(node, req, columns => {
-        Scan(File({ ..fs, projection: Some(columns), }))
-      })
-  }
-}
-
-///|
-/// Narrow a file source (`Scan(File(..))`) to the required columns,
-/// shared by both because they differ only in the node constructor `rebuild`
-/// wraps. The file's columns aren't known until it is parsed, so there is
-/// nothing to intersect here: the requirement is written verbatim into the
-/// node's projection (sorted, for a deterministic `explain`), and the reader
-/// filters it against the real header at collect time, keeping the file's own
-/// column order. An unbounded requirement (`None`) or an empty one — an
-/// all-literal consumer that reads no source column — leaves the scan whole
-/// (mirroring the in-memory `Scan` guard), so the read still yields its columns
-/// and a row count rather than collapsing to nothing. A required name absent
-/// from the file is simply never built; whichever expression references it
-/// raises the same `ColumnNotFound` it would in the unoptimized plan.
-fn narrow_scan(
-  plan : LogicalPlan,
-  required : @set.Set[String]?,
-  rebuild : (Array[String]) -> LogicalPlan,
-) -> LogicalPlan {
-  match required {
-    None => plan
-    Some(needed) => {
-      let columns = sorted_names(needed)
-      if columns.is_empty() {
-        plan
-      } else {
-        rebuild(columns)
+      match req {
+        None => node
+        Some(needed) => {
+          let columns = sorted_names(needed)
+          if columns.is_empty() {
+            node
+          } else {
+            Scan(File({ ..fs, projection: Some(columns), }))
+          }
+        }
       }
-    }
   }
 }
 

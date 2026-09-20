@@ -2,9 +2,19 @@
 // `DataFrame::to_markdown`. Both materialise the same visible window of cells
 // and report the same truncation count; only the surrounding syntax (an HTML
 // `<table>` vs a GFM pipe table) and the per-cell escaping differ, so the parts
-// that don't differ live here once rather than once per renderer. (The row-cap
-// clamp they also share is `clamp_take`, the same saturating limit
-// behind `head` / `tail`.)
+// that don't differ live here once rather than once per renderer.
+
+///|
+/// The visible-row count both renderers clamp to: no cap renders every row,
+/// a cap saturates into `[0, nrows]` (`clamp_take`, the same limit behind
+/// `head` / `tail`). The row-cap rule stated once, so a renderer cannot
+/// decide its own truncation semantics.
+fn visible_rows(nrows : Int, max_rows : Int?) -> Int {
+  match max_rows {
+    None => nrows
+    Some(limit) => @order.clamp_take(limit, nrows)
+  }
+}
 
 ///|
 /// Materialise the first `shown` rows of `df` as a row-major matrix of cell

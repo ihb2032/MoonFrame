@@ -81,7 +81,9 @@
 ///   `sum` / `mean` / `std` / `var` propagate NaN and reject non-numeric
 ///   dtypes, `min` / `max` / `median` skip NaN (`median` numeric-only),
 ///   `count` counts non-null cells, `n_unique` the distinct non-null values,
-///   and `first` / `last` are positional. One deliberate divergence: an
+///   and `first` / `last` are positional. This enumeration is the
+///   evaluator-side view of rules the series reducer's header states
+///   canonically — change them there first. One deliberate divergence: an
 ///   empty / all-null `mean` is a **null cell**, not
 ///   `InvalidOperation` — per-group reductions (E4) must be able to
 ///   produce a null for an all-null group, mirroring Polars.
@@ -154,6 +156,21 @@ priv enum EvalStep {
 priv enum FillKind {
   Nulls
   Nans
+}
+
+///|
+/// The null probes are plain validity reads, built once for their two
+/// consumers: `IsNull` (and anything guarding on where a null sits) keeps the
+/// cells a null occupies, `IsNotNull` (and `FillKind::Nulls`' guard) keeps the
+/// rest. Both land on the non-nullable `Builtin` backend.
+fn is_null_mask(operand : Series) -> Series {
+  Series::from_bools(operand.name(), validity_bools(operand).map(v => !v))
+}
+
+///|
+/// The complement of `is_null_mask`, cell for cell.
+fn is_not_null_mask(operand : Series) -> Series {
+  Series::from_bools(operand.name(), validity_bools(operand))
 }
 
 ///|
@@ -296,20 +313,9 @@ fn eval_expr(
             let (left, right) = @kernel.broadcast_pair(lhs, rhs)
             values.push(
               match op {
-                @ir.BinOp::Add =>
-                  @kernel.eval_arith(left, right, "add", (x, y) => x + y, (x, y) => {
-                    x + y
-                  })
-                @ir.BinOp::Sub =>
-                  @kernel.eval_arith(left, right, "subtract", (x, y) => x - y, (
-                    x,
-                    y,
-                  ) => x - y)
-                @ir.BinOp::Mul =>
-                  @kernel.eval_arith(left, right, "multiply", (x, y) => x * y, (
-                    x,
-                    y,
-                  ) => x * y)
+                @ir.BinOp::Add => @kernel.eval_add(left, right)
+                @ir.BinOp::Sub => @kernel.eval_sub(left, right)
+                @ir.BinOp::Mul => @kernel.eval_mul(left, right)
                 @ir.BinOp::Div => @kernel.eval_div(left, right)
                 @ir.BinOp::FloorDiv => @kernel.eval_floor_div(left, right)
                 @ir.BinOp::Mod => @kernel.eval_mod(left, right)
@@ -327,9 +333,9 @@ fn eval_expr(
                 @ir.BinOp::Ge =>
                   @kernel.eval_compare(left, right, @kernel.CmpVerb::Ge)
                 @ir.BinOp::And =>
-                  @kernel.eval_logic(left, right, "and", @kernel.kleene_and)
+                  @kernel.eval_logic(left, right, @kernel.LogicOp::And)
                 @ir.BinOp::Or =>
-                  @kernel.eval_logic(left, right, "or", @kernel.kleene_or)
+                  @kernel.eval_logic(left, right, @kernel.LogicOp::Or)
               },
             )
           }
@@ -339,41 +345,16 @@ fn eval_expr(
               match op {
                 @ir.UnOp::Neg => @kernel.eval_neg(operand)
                 @ir.UnOp::Not => @kernel.eval_not(operand)
-                @ir.UnOp::IsNull =>
-                  Series::from_bools(
-                    operand.name(),
-                    validity_bools(operand).map(v => !v),
-                  )
-                @ir.UnOp::IsNotNull =>
-                  Series::from_bools(operand.name(), validity_bools(operand))
-                @ir.UnOp::IsNan => @kernel.eval_is_nan(operand, true)
-                @ir.UnOp::IsNotNan => @kernel.eval_is_nan(operand, false)
-                @ir.UnOp::Abs =>
-                  @kernel.eval_unary_num(
-                    operand,
-                    "take the absolute value of",
-                    a => a.abs(),
-                    a => a.abs(),
-                  )
-                @ir.UnOp::Floor =>
-                  @kernel.eval_unary_num(operand, "take the floor of", a => a, a => {
-                    a.floor()
-                  })
-                @ir.UnOp::Ceil =>
-                  @kernel.eval_unary_num(
-                    operand,
-                    "take the ceiling of",
-                    a => a,
-                    a => a.ceil(),
-                  )
-                @ir.UnOp::Sign =>
-                  @kernel.eval_unary_num(
-                    operand, "take the sign of", @kernel.sign_i64, @kernel.sign_f64,
-                  )
+                @ir.UnOp::IsNull => is_null_mask(operand)
+                @ir.UnOp::IsNotNull => is_not_null_mask(operand)
+                @ir.UnOp::IsNan => @kernel.eval_is_nan(operand)
+                @ir.UnOp::IsNotNan => @kernel.eval_is_not_nan(operand)
+                @ir.UnOp::Abs => @kernel.eval_abs(operand)
+                @ir.UnOp::Floor => @kernel.eval_floor(operand)
+                @ir.UnOp::Ceil => @kernel.eval_ceil(operand)
+                @ir.UnOp::Sign => @kernel.eval_sign(operand)
                 @ir.UnOp::Round(decimals) =>
-                  @kernel.eval_unary_num(operand, "round", a => a, v => {
-                    @kernel.round_places(v, decimals)
-                  })
+                  @kernel.eval_round(operand, decimals)
               },
             )
           }
@@ -410,9 +391,8 @@ fn eval_expr(
             // `fill_nan` passes it through as null), naming, and backend
             // convergence stay byte-for-byte identical.
             let cond = match kind {
-              FillKind::Nulls =>
-                Series::from_bools(operand.name(), validity_bools(operand))
-              FillKind::Nans => @kernel.eval_is_nan(operand, false)
+              FillKind::Nulls => is_not_null_mask(operand)
+              FillKind::Nans => @kernel.eval_is_not_nan(operand)
             }
             values.push(@kernel.eval_ternary(cond, operand, value_v))
           }
@@ -462,16 +442,4 @@ fn pop_inputs(stack : Array[Series], arity : Int) -> Array[Series] {
     popped.push(pop_value(stack))
   }
   Array::makei(arity, i => popped[arity - 1 - i])
-}
-
-///|
-/// The output column name for an expression (Polars' naming rule): an
-/// alias wins, otherwise the leftmost column reference's name, otherwise
-/// `"literal"` for a column-less tree. Delegates to `Expr::output_name` —
-/// the rule is defined once on the expression itself, so the eager
-/// materialisers here and the lazy optimizer's column pruning (which must
-/// know the names a deferred `with_columns` defines) can never drift
-/// apart.
-fn expr_output_name(expr : @expr.Expr) -> String {
-  expr.output_name()
 }

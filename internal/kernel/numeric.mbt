@@ -10,69 +10,79 @@
 /// are shared across the kernels in this package.
 
 ///|
-/// Shared kernel for `+` / `-` / `*` over two equal-length operands
-/// (post-`broadcast_pair`); each operator supplies its `Int64` and
-/// `Double` cell ops plus the verb its `TypeMismatch(Operation(...))` field uses.
-/// Dtype rules: `Int op Int → Int`, any `Float` operand promotes the
-/// result to `Float`, anything non-numeric raises. A null on either side
-/// nulls the output cell (Arrow / Polars arithmetic propagation). `Int`
-/// arithmetic wraps on overflow (MoonBit `Int64` semantics — total, never
-/// aborts); `Float` follows IEEE 754, so NaN propagates as a value. An
-/// all-valid numeric result converges onto the `Numeric` backend
-/// (`try_column_to_numeric`); a nullable one stays `Builtin`.
-pub fn eval_arith(
+/// The single home of the numeric-pairing contract every binary kernel
+/// follows: how an `Int` and a `Float` operand pair up (any `Float` operand
+/// promotes the cell pair to `Float`), the dtype gate that keeps an
+/// I64-buffered rider (`Date`) out of the numeric arms, the all-valid
+/// `Numeric`×`Numeric` fast arm, and the shared `TypeMismatch` for a
+/// non-numeric pairing. The binary kernels differ only in their
+/// `Int, Int` behaviour, which each supplies as its `int_int` callback; the
+/// three `Float`-involving pairings are built here once from `float_op`.
+/// A new `NumericData` variant fails every exhaustive match in this file
+/// until it is classified, the same discipline the kernels' own arms follow.
+fn numeric_fast_pair(
+  left : Series,
+  right : Series,
+  int_int : (ArrayView[Int64], ArrayView[Int64]) -> Series,
+  float_op : (Double, Double) -> Double,
+) -> Series? {
+  // Both operands are all-valid by construction, so the result is too —
+  // compute it in one pass over the raw arrays and land straight back on
+  // the `Numeric` backend, skipping the two validity materialisations, the
+  // `Option` boxing, and the popcount re-convergence the general arm pays.
+  // `NumericData` has exactly the two numeric arms, so the inner dispatch is
+  // exhaustive with no dead arm; `Bool` / `String` columns are never
+  // `Numeric`-backed and raise in `numeric_general_pair` as before.
+  match (left.storage(), right.storage()) {
+    (@column.ColumnStorage::Numeric(x), @column.ColumnStorage::Numeric(y)) =>
+      Some(
+        match (x.numeric_data(), y.numeric_data()) {
+          (@column.NumericData::Int(a), @column.NumericData::Int(b)) =>
+            int_int(a, b)
+          (@column.NumericData::Int(a), @column.NumericData::Float(b)) =>
+            Series::from_floats(
+              left.name(),
+              Array::makei(a.length(), i => float_op(a[i].to_double(), b[i])),
+            )
+          (@column.NumericData::Float(a), @column.NumericData::Int(b)) =>
+            Series::from_floats(
+              left.name(),
+              Array::makei(a.length(), i => float_op(a[i], b[i].to_double())),
+            )
+          (@column.NumericData::Float(a), @column.NumericData::Float(b)) =>
+            Series::from_floats(
+              left.name(),
+              Array::makei(a.length(), i => float_op(a[i], b[i])),
+            )
+        },
+      )
+    (@column.ColumnStorage::Builtin(_), _)
+    | (_, @column.ColumnStorage::Builtin(_)) => None
+  }
+}
+
+///|
+/// The nullable general half of the shared binary skeleton: materialise the
+/// two validity masks, gate the I64-buffered arms on both dtypes being
+/// numeric (an I64 buffer may carry the `Date` rider), run the three
+/// `Float`-involving pairings through `zip_present` + `float_op`, delegate
+/// `Int, Int` to the kernel's `int_int` callback, and raise the shared
+/// `TypeMismatch` for every non-numeric pairing. The caller converges an
+/// all-valid result back onto the `Numeric` backend.
+fn numeric_general_pair(
   left : Series,
   right : Series,
   verb : String,
-  int_op : (Int64, Int64) -> Int64,
+  int_int : (ArrayView[Int64], ArrayView[Int64], Array[Bool], Array[Bool]) -> Series,
   float_op : (Double, Double) -> Double,
 ) -> Series raise @types.DataError {
-  // `Numeric`×`Numeric` fast arm: both operands are all-valid by
-  // construction, so the result is too — compute it in one pass over the
-  // raw arrays and land straight back on the `Numeric` backend, skipping
-  // the two validity materialisations, the `Option` boxing, and the
-  // popcount re-convergence the general arm below pays. `NumericData` has
-  // exactly the two numeric arms, so the inner dispatch is exhaustive with
-  // no dead arm; `Bool` / `String` columns are never `Numeric`-backed and
-  // raise in the general arm as before.
-  match (left.storage(), right.storage()) {
-    (@column.ColumnStorage::Numeric(x), @column.ColumnStorage::Numeric(y)) =>
-      return match (x.numeric_data(), y.numeric_data()) {
-        (@column.NumericData::Int(a), @column.NumericData::Int(b)) =>
-          Series::from_ints(
-            left.name(),
-            Array::makei(a.length(), i => int_op(a[i], b[i])),
-          )
-        (@column.NumericData::Int(a), @column.NumericData::Float(b)) =>
-          Series::from_floats(
-            left.name(),
-            Array::makei(a.length(), i => float_op(a[i].to_double(), b[i])),
-          )
-        (@column.NumericData::Float(a), @column.NumericData::Int(b)) =>
-          Series::from_floats(
-            left.name(),
-            Array::makei(a.length(), i => float_op(a[i], b[i].to_double())),
-          )
-        (@column.NumericData::Float(a), @column.NumericData::Float(b)) =>
-          Series::from_floats(
-            left.name(),
-            Array::makei(a.length(), i => float_op(a[i], b[i])),
-          )
-      }
-    (@column.ColumnStorage::Builtin(_), _)
-    | (_, @column.ColumnStorage::Builtin(_)) => ()
-  }
   let lv = validity_bools(left)
   let rv = validity_bools(right)
-  let out = match (left.storage().data(), right.storage().data()) {
+  match (left.storage().data(), right.storage().data()) {
     (@column.ColumnData::I64(a), @column.ColumnData::I64(b)) if left
       .dtype()
       .is_numeric() &&
-      right.dtype().is_numeric() =>
-      Series::from_int_options(
-        left.name(),
-        zip_present(a.length(), lv, rv, i => int_op(a[i], b[i])),
-      )
+      right.dtype().is_numeric() => int_int(a, b, lv, rv)
     (@column.ColumnData::I64(a), @column.ColumnData::F64(b)) if left
       .dtype()
       .is_numeric() &&
@@ -101,7 +111,73 @@ pub fn eval_arith(
     | (_, @column.ColumnData::Bool(_) | @column.ColumnData::Utf8(_)) =>
       raise binary_type_mismatch_error(verb, left, right)
   }
-  try_column_to_numeric(out)
+}
+
+///|
+/// Shared kernel for `+` / `-` / `*` over two equal-length operands
+/// (post-`broadcast_pair`); each operator supplies its `Int64` and
+/// `Double` cell ops plus the verb its `TypeMismatch(Operation(...))` field uses.
+/// Dtype rules: `Int op Int → Int`, any `Float` operand promotes the
+/// result to `Float`, anything non-numeric raises. A null on either side
+/// nulls the output cell (Arrow / Polars arithmetic propagation). `Int`
+/// arithmetic wraps on overflow (MoonBit `Int64` semantics — total, never
+/// aborts); `Float` follows IEEE 754, so NaN propagates as a value. An
+/// all-valid numeric result converges onto the `Numeric` backend
+/// (`try_column_to_numeric`); a nullable one stays `Builtin`.
+fn eval_arith(
+  left : Series,
+  right : Series,
+  verb : String,
+  int_op : (Int64, Int64) -> Int64,
+  float_op : (Double, Double) -> Double,
+) -> Series raise @types.DataError {
+  match
+    numeric_fast_pair(
+      left,
+      right,
+      (a, b) => {
+        Series::from_ints(
+          left.name(),
+          Array::makei(a.length(), i => int_op(a[i], b[i])),
+        )
+      },
+      float_op,
+    ) {
+    Some(fast) => fast
+    None =>
+      try_column_to_numeric(
+        numeric_general_pair(
+          left,
+          right,
+          verb,
+          (a, b, lv, rv) => {
+            Series::from_int_options(
+              left.name(),
+              zip_present(a.length(), lv, rv, i => int_op(a[i], b[i])),
+            )
+          },
+          float_op,
+        ),
+      )
+  }
+}
+
+///|
+/// `+` — the `eval_arith` instance behind `Expr` addition.
+pub fn eval_add(left : Series, right : Series) -> Series raise @types.DataError {
+  eval_arith(left, right, "add", (a, b) => a + b, (a, b) => a + b)
+}
+
+///|
+/// `-` — the `eval_arith` instance behind `Expr` subtraction.
+pub fn eval_sub(left : Series, right : Series) -> Series raise @types.DataError {
+  eval_arith(left, right, "subtract", (a, b) => a - b, (a, b) => a - b)
+}
+
+///|
+/// `*` — the `eval_arith` instance behind `Expr` multiplication.
+pub fn eval_mul(left : Series, right : Series) -> Series raise @types.DataError {
+  eval_arith(left, right, "multiply", (a, b) => a * b, (a, b) => a * b)
 }
 
 ///|
@@ -116,77 +192,39 @@ fn eval_binary_float(
   verb : String,
   float_op : (Double, Double) -> Double,
 ) -> Series raise @types.DataError {
-  match (left.storage(), right.storage()) {
-    (@column.ColumnStorage::Numeric(x), @column.ColumnStorage::Numeric(y)) =>
-      return match (x.numeric_data(), y.numeric_data()) {
-        (@column.NumericData::Int(a), @column.NumericData::Int(b)) =>
-          Series::from_floats(
-            left.name(),
-            Array::makei(a.length(), i => {
-              float_op(a[i].to_double(), b[i].to_double())
-            }),
-          )
-        (@column.NumericData::Int(a), @column.NumericData::Float(b)) =>
-          Series::from_floats(
-            left.name(),
-            Array::makei(a.length(), i => float_op(a[i].to_double(), b[i])),
-          )
-        (@column.NumericData::Float(a), @column.NumericData::Int(b)) =>
-          Series::from_floats(
-            left.name(),
-            Array::makei(a.length(), i => float_op(a[i], b[i].to_double())),
-          )
-        (@column.NumericData::Float(a), @column.NumericData::Float(b)) =>
-          Series::from_floats(
-            left.name(),
-            Array::makei(a.length(), i => float_op(a[i], b[i])),
-          )
-      }
-    (@column.ColumnStorage::Builtin(_), _)
-    | (_, @column.ColumnStorage::Builtin(_)) => ()
+  match
+    numeric_fast_pair(
+      left,
+      right,
+      (a, b) => {
+        Series::from_floats(
+          left.name(),
+          Array::makei(a.length(), i => {
+            float_op(a[i].to_double(), b[i].to_double())
+          }),
+        )
+      },
+      float_op,
+    ) {
+    Some(fast) => fast
+    None =>
+      try_column_to_numeric(
+        numeric_general_pair(
+          left,
+          right,
+          verb,
+          (a, b, lv, rv) => {
+            Series::from_float_options(
+              left.name(),
+              zip_present(a.length(), lv, rv, i => {
+                float_op(a[i].to_double(), b[i].to_double())
+              }),
+            )
+          },
+          float_op,
+        ),
+      )
   }
-  let lv = validity_bools(left)
-  let rv = validity_bools(right)
-  let out = match (left.storage().data(), right.storage().data()) {
-    (@column.ColumnData::I64(a), @column.ColumnData::I64(b)) if left
-      .dtype()
-      .is_numeric() &&
-      right.dtype().is_numeric() =>
-      Series::from_float_options(
-        left.name(),
-        zip_present(a.length(), lv, rv, i => {
-          float_op(a[i].to_double(), b[i].to_double())
-        }),
-      )
-    (@column.ColumnData::I64(a), @column.ColumnData::F64(b)) if left
-      .dtype()
-      .is_numeric() &&
-      right.dtype().is_numeric() =>
-      Series::from_float_options(
-        left.name(),
-        zip_present(a.length(), lv, rv, i => float_op(a[i].to_double(), b[i])),
-      )
-    (@column.ColumnData::F64(a), @column.ColumnData::I64(b)) if left
-      .dtype()
-      .is_numeric() &&
-      right.dtype().is_numeric() =>
-      Series::from_float_options(
-        left.name(),
-        zip_present(a.length(), lv, rv, i => float_op(a[i], b[i].to_double())),
-      )
-    (@column.ColumnData::F64(a), @column.ColumnData::F64(b)) =>
-      Series::from_float_options(
-        left.name(),
-        zip_present(a.length(), lv, rv, i => float_op(a[i], b[i])),
-      )
-    (@column.ColumnData::I64(_), @column.ColumnData::I64(_))
-    | (@column.ColumnData::I64(_), @column.ColumnData::F64(_))
-    | (@column.ColumnData::F64(_), @column.ColumnData::I64(_))
-    | (@column.ColumnData::Bool(_) | @column.ColumnData::Utf8(_), _)
-    | (_, @column.ColumnData::Bool(_) | @column.ColumnData::Utf8(_)) =>
-      raise binary_type_mismatch_error(verb, left, right)
-  }
-  try_column_to_numeric(out)
 }
 
 ///|
@@ -203,89 +241,51 @@ fn eval_binary_nullzero(
   int_op : (Int64, Int64) -> Int64,
   float_op : (Double, Double) -> Double,
 ) -> Series raise @types.DataError {
-  match (left.storage(), right.storage()) {
-    (@column.ColumnStorage::Numeric(x), @column.ColumnStorage::Numeric(y)) =>
-      return match (x.numeric_data(), y.numeric_data()) {
+  match
+    numeric_fast_pair(
+      left,
+      right,
+      (a, b) => {
         // A zero divisor nulls its cell, so an all-valid pair can still leave
         // the `Numeric` fast path — re-converge afterwards.
-        (@column.NumericData::Int(a), @column.NumericData::Int(b)) =>
-          try_column_to_numeric(
+        try_column_to_numeric(
+          Series::from_int_options(
+            left.name(),
+            Array::makei(a.length(), i => {
+              if b[i] == 0L {
+                None
+              } else {
+                Some(int_op(a[i], b[i]))
+              }
+            }),
+          ),
+        )
+      },
+      float_op,
+    ) {
+    Some(fast) => fast
+    None =>
+      try_column_to_numeric(
+        numeric_general_pair(
+          left,
+          right,
+          verb,
+          (a, b, lv, rv) => {
             Series::from_int_options(
               left.name(),
               Array::makei(a.length(), i => {
-                if b[i] == 0L {
-                  None
-                } else {
+                if lv[i] && rv[i] && b[i] != 0L {
                   Some(int_op(a[i], b[i]))
+                } else {
+                  None
                 }
               }),
-            ),
-          )
-        (@column.NumericData::Int(a), @column.NumericData::Float(b)) =>
-          Series::from_floats(
-            left.name(),
-            Array::makei(a.length(), i => float_op(a[i].to_double(), b[i])),
-          )
-        (@column.NumericData::Float(a), @column.NumericData::Int(b)) =>
-          Series::from_floats(
-            left.name(),
-            Array::makei(a.length(), i => float_op(a[i], b[i].to_double())),
-          )
-        (@column.NumericData::Float(a), @column.NumericData::Float(b)) =>
-          Series::from_floats(
-            left.name(),
-            Array::makei(a.length(), i => float_op(a[i], b[i])),
-          )
-      }
-    (@column.ColumnStorage::Builtin(_), _)
-    | (_, @column.ColumnStorage::Builtin(_)) => ()
+            )
+          },
+          float_op,
+        ),
+      )
   }
-  let lv = validity_bools(left)
-  let rv = validity_bools(right)
-  let out = match (left.storage().data(), right.storage().data()) {
-    (@column.ColumnData::I64(a), @column.ColumnData::I64(b)) if left
-      .dtype()
-      .is_numeric() &&
-      right.dtype().is_numeric() =>
-      Series::from_int_options(
-        left.name(),
-        Array::makei(a.length(), i => {
-          if lv[i] && rv[i] && b[i] != 0L {
-            Some(int_op(a[i], b[i]))
-          } else {
-            None
-          }
-        }),
-      )
-    (@column.ColumnData::I64(a), @column.ColumnData::F64(b)) if left
-      .dtype()
-      .is_numeric() &&
-      right.dtype().is_numeric() =>
-      Series::from_float_options(
-        left.name(),
-        zip_present(a.length(), lv, rv, i => float_op(a[i].to_double(), b[i])),
-      )
-    (@column.ColumnData::F64(a), @column.ColumnData::I64(b)) if left
-      .dtype()
-      .is_numeric() &&
-      right.dtype().is_numeric() =>
-      Series::from_float_options(
-        left.name(),
-        zip_present(a.length(), lv, rv, i => float_op(a[i], b[i].to_double())),
-      )
-    (@column.ColumnData::F64(a), @column.ColumnData::F64(b)) =>
-      Series::from_float_options(
-        left.name(),
-        zip_present(a.length(), lv, rv, i => float_op(a[i], b[i])),
-      )
-    (@column.ColumnData::I64(_), @column.ColumnData::I64(_))
-    | (@column.ColumnData::I64(_), @column.ColumnData::F64(_))
-    | (@column.ColumnData::F64(_), @column.ColumnData::I64(_))
-    | (@column.ColumnData::Bool(_) | @column.ColumnData::Utf8(_), _)
-    | (_, @column.ColumnData::Bool(_) | @column.ColumnData::Utf8(_)) =>
-      raise binary_type_mismatch_error(verb, left, right)
-  }
-  try_column_to_numeric(out)
 }
 
 ///|
@@ -400,12 +400,49 @@ pub fn eval_neg(operand : Series) -> Series raise @types.DataError {
 }
 
 ///|
+/// `abs` — the `eval_unary_num` instance behind `Expr::abs`.
+pub fn eval_abs(operand : Series) -> Series raise @types.DataError {
+  eval_unary_num(operand, "take the absolute value of", a => a.abs(), a => {
+    a.abs()
+  })
+}
+
+///|
+/// `floor` — the `eval_unary_num` instance behind `Expr::floor`.
+pub fn eval_floor(operand : Series) -> Series raise @types.DataError {
+  eval_unary_num(operand, "take the floor of", a => a, a => a.floor())
+}
+
+///|
+/// `ceil` — the `eval_unary_num` instance behind `Expr::ceil`.
+pub fn eval_ceil(operand : Series) -> Series raise @types.DataError {
+  eval_unary_num(operand, "take the ceiling of", a => a, a => a.ceil())
+}
+
+///|
+/// `sign` — the `eval_unary_num` instance behind `Expr::sign`.
+pub fn eval_sign(operand : Series) -> Series raise @types.DataError {
+  eval_unary_num(operand, "take the sign of", sign_i64, sign_f64)
+}
+
+///|
+/// `round` — the `eval_unary_num` instance behind `Expr::round`, rounding
+/// each `Float` cell to `decimals` places (`round_places`); `Int` cells pass
+/// through.
+pub fn eval_round(
+  operand : Series,
+  decimals : Int,
+) -> Series raise @types.DataError {
+  eval_unary_num(operand, "round", a => a, v => round_places(v, decimals))
+}
+
+///|
 /// Shared kernel for a numeric unary op (`neg` / `abs` / `floor` / `ceil` /
 /// `sign` / `round`): each supplies its `Int64` and `Double` cell op plus the verb its
 /// `TypeMismatch` message uses. `Int op → Int`, `Float op → Float`; a null cell
 /// stays null; a non-numeric operand raises. An all-valid result converges onto
 /// the `Numeric` backend, as for binary arithmetic.
-pub fn eval_unary_num(
+fn eval_unary_num(
   operand : Series,
   verb : String,
   int_op : (Int64) -> Int64,
@@ -452,7 +489,7 @@ pub fn eval_unary_num(
 
 ///|
 /// Sign of an `Int64` — `-1` / `0` / `1`.
-pub fn sign_i64(a : Int64) -> Int64 {
+fn sign_i64(a : Int64) -> Int64 {
   if a > 0L {
     1L
   } else if a < 0L {
@@ -465,7 +502,7 @@ pub fn sign_i64(a : Int64) -> Int64 {
 ///|
 /// Sign of a `Double` — `-1.0` / `0.0` / `1.0`; `NaN` stays `NaN` and `±0.0`
 /// gives `0.0`.
-pub fn sign_f64(a : Double) -> Double {
+fn sign_f64(a : Double) -> Double {
   if a.is_nan() {
     a
   } else if a > 0.0 {
@@ -498,7 +535,7 @@ pub fn sign_f64(a : Double) -> Double {
 /// clamp gives, established where it cannot be bypassed instead of argued from a
 /// caller's behaviour. Past that arm the scale is therefore at least `10`: it can
 /// still overflow upward (handled below), but it cannot underflow to `0`.
-pub fn round_places(a : Double, decimals : Int) -> Double {
+fn round_places(a : Double, decimals : Int) -> Double {
   if decimals <= 0 {
     return round_half_even(a)
   }
@@ -557,13 +594,28 @@ fn round_half_even(a : Double) -> Double {
 }
 
 ///|
-/// Build the nullable `Bool` cells of `is_nan` (`want_nan = true`) or
-/// `is_not_nan` (`want_nan = false`) over a numeric operand. `NaN` is a
-/// *value*, so a null cell stays null — the probe propagates nulls, unlike
-/// `is_null`. A present `Float` cell is tested by IEEE `is_nan`; a present
-/// `Int` cell is never `NaN` (so the constant `!want_nan`); a non-numeric
+/// Build the nullable `Bool` cells of `is_nan` over a numeric operand. `NaN`
+/// is a *value*, so a null cell stays null — the probe propagates nulls,
+/// unlike `is_null`. A present `Float` cell is tested by IEEE `is_nan`; a
+/// present `Int` cell is never `NaN` (so the constant `false`); a non-numeric
 /// operand raises `TypeMismatch`. Lands on the nullable `Builtin` backend.
-pub fn eval_is_nan(
+pub fn eval_is_nan(operand : Series) -> Series raise @types.DataError {
+  nan_probe(operand, true)
+}
+
+///|
+/// Build the nullable `Bool` cells of `is_not_nan` — the complement of
+/// `eval_is_nan` cell by cell, so a null cell stays null rather than counting
+/// as "not NaN". A present `Int` cell is always not-NaN; a non-numeric operand
+/// raises `TypeMismatch`. Lands on the nullable `Builtin` backend.
+pub fn eval_is_not_nan(operand : Series) -> Series raise @types.DataError {
+  nan_probe(operand, false)
+}
+
+///|
+/// The shared NaN-probe core behind `eval_is_nan` / `eval_is_not_nan`:
+/// `want_nan` picks the polarity, the two public entries name it.
+fn nan_probe(
   operand : Series,
   want_nan : Bool,
 ) -> Series raise @types.DataError {

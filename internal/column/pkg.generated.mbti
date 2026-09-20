@@ -23,6 +23,7 @@ pub fn BuiltinColumn::from_floats(Array[Double]) -> Self
 pub fn BuiltinColumn::from_i64_options(@types.DataType, Array[Int64?]) -> Self
 pub fn BuiltinColumn::from_int_options(Array[Int64?]) -> Self
 pub fn BuiltinColumn::from_ints(Array[Int64]) -> Self
+pub fn BuiltinColumn::from_scalars(@types.DataType, Array[@types.Scalar], name~ : String) -> Self raise @types.DataError
 pub fn BuiltinColumn::from_string_options(Array[String?]) -> Self
 pub fn BuiltinColumn::from_strings(Array[String]) -> Self
 pub fn BuiltinColumn::to_repr(Self) -> @debug.Repr

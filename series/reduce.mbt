@@ -55,12 +55,13 @@ fn reduce_present(storage : @column.ColumnStorage) -> (Int) -> Bool {
 }
 
 ///|
-/// `sum` / `mean` reducer over an index window. `sum` accumulates `Int` in
-/// `Int64` (overflowing past 2^63 — the price of an exact integer sum) and
-/// `Float` in `Double`; `mean`, whose output is `Double`, accumulates `Int` in
-/// `Double` too, so it cannot wrap past 2^63 and flip the mean's sign (matching
-/// Polars). `NaN` is summed in (so it propagates) — only a `Null`
-/// cell is skipped. With `want_mean` the running total divides by the non-null
+/// `sum` / `mean` reducer over an index window. The accumulation is the
+/// shared folds in `internal/numeric` — `fold_int64_sum` (the exact `Int64`
+/// sum, wrapping past 2^63) and `fold_double_sum` (the `Double` accumulator
+/// that widens an `Int` cell before adding, so a mean cannot wrap, and that
+/// sums a present `NaN` in, so it propagates) — whose docstrings state those
+/// rules once; this reducer adds the window mapping and the empty-window
+/// translation. With `want_mean` the running total divides by the non-null
 /// count and is `Scalar::Null` for an empty / all-null window (the surfaces
 /// translate that: `Series::mean` to `InvalidOperation`, the grouped / scoped
 /// reducers to a null cell); otherwise the result is the dtype-preserving sum,
@@ -81,20 +82,15 @@ fn reduce_arith(
     // any window is folded.
     @column.ColumnData::I64(a) if storage.dtype().is_numeric() =>
       if want_mean {
-        // The mean's output is `Double`, so accumulate the numerator in
-        // `Double` from the start. An `Int64` accumulator would silently wrap
-        // past 2^63 and flip the mean's sign — a result outside `[min, max]` —
-        // even though `Double` represents the true mean (matching Polars).
+        // The mean's output is `Double`, so the accumulator widens each cell
+        // before adding (`fold_double_sum`) — the mean-safe form the shared
+        // fold documents; a count of 0 is the empty / all-null window.
         fn(n : Int, at : (Int) -> Int) {
-          let mut acc = 0.0
-          let mut cnt = 0
-          for k in 0..<n {
-            let i = at(k)
-            if present(i) {
-              acc = acc + a[i].to_double()
-              cnt = cnt + 1
-            }
-          }
+          let (acc, cnt) = @numeric.fold_double_sum(
+            n,
+            k => a[at(k)].to_double(),
+            k => present(at(k)),
+          )
           if cnt == 0 {
             @types.Scalar::Null
           } else {
@@ -102,32 +98,23 @@ fn reduce_arith(
           }
         }
       } else {
-        // `sum` keeps the `Int` dtype, so it stays an exact `Int64` fold —
-        // sums past 2^63 overflow, the documented price of an integer sum.
+        // `sum` keeps the `Int` dtype, so it stays the exact `Int64` fold
+        // (`fold_int64_sum`) — sums past 2^63 overflow, the documented price
+        // of an integer sum.
         fn(n : Int, at : (Int) -> Int) {
-          let mut acc : Int64 = 0
-          for k in 0..<n {
-            let i = at(k)
-            if present(i) {
-              acc = acc + a[i]
-            }
-          }
-          @types.Scalar::Int(acc)
+          @types.Scalar::Int(
+            @numeric.fold_int64_sum(n, k => a[at(k)], k => present(at(k))),
+          )
         }
       }
     @column.ColumnData::F64(a) =>
       fn(n : Int, at : (Int) -> Int) {
-        let mut acc = 0.0
-        let mut cnt = 0
-        for k in 0..<n {
-          let i = at(k)
-          // `NaN` is a value, not missing: it participates and propagates to a
-          // `NaN` total; only a null cell (`!present`) is skipped.
-          if present(i) {
-            acc = acc + a[i]
-            cnt = cnt + 1
-          }
-        }
+        // `NaN` is a value, not missing: it participates and propagates to a
+        // `NaN` total; only a null cell (`!present`) is skipped — the shared
+        // `fold_double_sum` rule.
+        let (acc, cnt) = @numeric.fold_double_sum(n, k => a[at(k)], k => {
+          present(at(k))
+        })
         if want_mean {
           if cnt == 0 {
             @types.Scalar::Null
@@ -171,13 +158,13 @@ fn reduce_extremum(
         let skip = k => !present(at(k))
         let better = (x, y) => if want_min { x < y } else { x > y }
         match @numeric.fold_extremum(n, get, skip, better) {
-          // The extremum lifts through the dtype: a Date column min/maxes
-          // to a Date, not to the day count its I64 buffer holds.
+          // The extremum lifts through the dtype via the registry's rider
+          // lift (`i64_rider_scalar`): a Date column min/maxes to a Date,
+          // not to the day count its I64 buffer holds.
           Some(b) =>
-            if storage.dtype() is @types.DataType::Date {
-              @types.Scalar::Date(b)
-            } else {
-              @types.Scalar::Int(b)
+            match storage.dtype().i64_rider_scalar(b) {
+              Some(s) => s
+              None => @types.Scalar::Int(b)
             }
           None => @types.Scalar::Null
         }
@@ -563,17 +550,18 @@ pub fn reducer_for(
 }
 
 ///|
-/// Project per-window reduction `Scalar`s into a typed output column. `probe`
-/// fixes the output dtype, so an all-null result (every cell `Null`) still
-/// types correctly; each cell is projected "matching variant → `Some`,
-/// anything else (including `Null`) → `None`"; and an all-valid numeric result
-/// then converges onto the `Numeric` fast path (`try_column_to_numeric`, a
-/// no-op for a nullable, `Bool`, or `String` column, which keeps `Builtin`).
-/// This is the single column builder behind the grouped (`agg`) and scoped
-/// (`eval_agg`) reductions, so both agree on backend as well as on every cell
-/// value: the catch-all `None` arm is reached by the nullable reductions
-/// (`mean` / `min` / `max` / `std` / `var` / `median` over an empty / all-null
-/// window, and `first` / `last` over a null cell), so no arm is dead.
+/// Project per-window reduction `Scalar`s into a typed output column: the
+/// per-dtype projection is the column layer's `BuiltinColumn::from_scalars`
+/// (the bulk write side of the identity/representation meet, whose read side
+/// is `scalar_of`), and this wrapper adds what a `Series` needs — the column
+/// name and the all-valid numeric convergence onto the `Numeric` fast path
+/// (`try_column_to_numeric`, a no-op for a nullable, `Bool`, or `String`
+/// column, which keeps `Builtin`). This is the single column builder behind
+/// the grouped (`agg`) and scoped (`eval_agg`) reductions, so both agree on
+/// backend as well as on every cell value: the projection's catch-all `None`
+/// arm is reached by the nullable reductions (`mean` / `min` / `max` / `std` /
+/// `var` / `median` over an empty / all-null window, and `first` / `last`
+/// over a null cell), so no arm is dead.
 ///
 /// `probe` is the logical dtype the caller resolved (`reducer_for`'s second
 /// result, the cells' own inferred dtype, or an empty-scope evaluation's), so
@@ -588,61 +576,10 @@ pub fn scalars_to_series(
   name : String,
   cells : Array[@types.Scalar],
 ) -> Series raise @types.DataError {
-  let built = match probe {
-    @types.DataType::Int =>
-      Series::from_int_options(
-        name,
-        cells.map(c => {
-          match c {
-            @types.Scalar::Int(v) => Some(v)
-            _ => None
-          }
-        }),
-      )
-    @types.DataType::Float =>
-      Series::from_float_options(
-        name,
-        cells.map(c => {
-          match c {
-            @types.Scalar::Float(v) => Some(v)
-            _ => None
-          }
-        }),
-      )
-    @types.DataType::Bool =>
-      Series::from_bool_options(
-        name,
-        cells.map(c => {
-          match c {
-            @types.Scalar::Bool(v) => Some(v)
-            _ => None
-          }
-        }),
-      )
-    @types.DataType::String =>
-      Series::from_string_options(
-        name,
-        cells.map(c => {
-          match c {
-            @types.Scalar::String(v) => Some(v)
-            _ => None
-          }
-        }),
-      )
-    @types.DataType::Date =>
-      Series::from_date_options(
-        name,
-        cells.map(c => {
-          match c {
-            @types.Scalar::Date(v) => Some(v)
-            _ => None
-          }
-        }),
-      )
-    @types.DataType::Null =>
-      raise @types.DataError::Unsupported(
-        "cannot build a column of dtype Null: \{name}",
-      )
-  }
-  try_column_to_numeric(built)
+  try_column_to_numeric(
+    Series::from_builtin(
+      name,
+      @column.BuiltinColumn::from_scalars(probe, cells, name~),
+    ),
+  )
 }

@@ -241,7 +241,6 @@ internal/kernel/   the vectorized expression kernels — Series broadcasting, ar
 internal/text/     shared text primitives — lexicographic compare, debug escaping, decimal literal parsing
 internal/numeric/  shared numeric primitives — exact Int64/Double comparison and the extremum fold, used from types up through the kernels
 internal/order/    shared position primitives — the stable index sort behind every sort, and the row-count clamp behind every head / tail / limit
-internal/literal/  the one scalar-literal renderer, shared by expr / lazy plan rendering
 internal/ir/       module-internal expression AST — ExprNode + the operator tags, walked by the engine
 series/     Series + column-level stats + the shared reduction / rebuild / key-cell kernels
 expr/       opaque Expr handle — constructors, operators, when/then/otherwise builders, to_string rendering

@@ -15,16 +15,6 @@
 // build-time expansion (a lazy `LazyFrame` has no schema until `collect`).
 
 ///|
-/// Whether `dtype` is one of the numeric dtypes (`Int` / `Float`) — the rule
-/// behind `numeric_cols`. Wildcard-free, so a future dtype must decide its
-/// numeric-ness here.
-fn is_numeric_dtype(dtype : @types.DataType) -> Bool {
-  // Reads the dtype registry (through `is_numeric`), so an `I64`-riding
-  // dtype like `Date` is correctly not numeric.
-  dtype.is_numeric()
-}
-
-///|
 /// The `col(name)` references of every column of `df` whose `Field` satisfies
 /// `keep`, in schema order — the shared driver behind the public selectors.
 fn cols_where(
@@ -43,9 +33,10 @@ fn cols_where(
 ///|
 /// The `col(...)` references of every **numeric** (`Int` / `Float`) column of
 /// `df`, in schema order — Polars' `cs.numeric()`. `df.select(numeric_cols(df))`
-/// keeps only the numeric columns.
+/// keeps only the numeric columns. The registry's numericity flag is the whole
+/// test (an `I64`-riding dtype like `Date` is correctly not numeric).
 pub fn numeric_cols(df : DataFrame) -> Array[@expr.Expr] {
-  cols_where(df, field => is_numeric_dtype(field.dtype()))
+  cols_where(df, field => field.dtype().is_numeric())
 }
 
 ///|

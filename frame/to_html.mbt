@@ -85,10 +85,7 @@ pub fn DataFrame::to_html(
   options? : HtmlOptions = HtmlOptions::HtmlOptions(),
 ) -> String {
   let nrows = self.nrows()
-  let shown = match options.max_rows {
-    None => nrows
-    Some(n) => @order.clamp_take(n, nrows)
-  }
+  let shown = visible_rows(nrows, options.max_rows)
   format_html(self, shown, options)
 }
 

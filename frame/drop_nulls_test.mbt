@@ -4,7 +4,7 @@
 // a subset.
 //
 // Invariants asserted on every successful drop:
-//   (1) check_invariants() == Ok(()) — formal spec from invariants.mbt
+//   (1) check_invariants() == Ok(()) — the formal structural spec
 //   (2) result.schema() == df.schema() — drop is row-only
 //   (3) result.columns() == df.columns() — column order + names stable
 //   (4) result.nrows() equals the number of rows that survived the gate

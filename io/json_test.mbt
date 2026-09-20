@@ -593,8 +593,8 @@ test "round-trip narrows an all-integral Float column to Int (documented caveat)
   // fractional part of a whole value (`2.0` → "2"), so a `Float` column whose
   // cells are all integral comes back as `Int` after `format_json` →
   // `parse_json_str`. Only the dtype narrows (`Float → Int`); the
-  // values are preserved. This pins the behaviour documented in this module's
-  // header (Caveat 1) — and is why the round-trip test above uses fractional
+  // values are preserved. This pins the documented integral-`Float`
+  // narrowing caveat — and is why the round-trip test above uses fractional
   // cells (1.5 / 2.5 / 3.5), which stay `Float`.
   let df = @frame.DataFrame::DataFrame([
     @series.Series::from_floats("r", [(2.0 : Double), (3.0 : Double)]),

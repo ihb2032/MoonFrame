@@ -14,8 +14,8 @@
 /// so it cannot mutate a validated frame into an inconsistent state.
 ///
 /// What every constructor here establishes and every transform preserves is
-/// that those parts agree. That agreement is written once — as INV1–INV5 in
-/// `frame/invariants.mbt`, checked by `check_invariants` — and deliberately not
+/// that those parts agree. That agreement is written once — as INV1–INV5,
+/// checked by `check_invariants` — and deliberately not
 /// restated here, since a second copy is how the two would drift.
 pub struct DataFrame {
   priv schema : @types.Schema
@@ -111,7 +111,7 @@ pub fn DataFrame::empty(
 ) -> DataFrame raise @types.DataError {
   let schema = @types.Schema::Schema(schema.fields())
   // Each empty column's physical dispatch (the buffer its dtype needs, and the
-  // `Null`-dtype rejection) lives in `series`, which owns the column, so this
+  // `Null`-dtype rejection) is `series`'s — it owns the column — so this
   // constructor no longer matches storage backends. A `Null` field has no
   // physical backend, so `Series::empty_of` raises `Unsupported`.
   let columns : Array[Series] = schema
@@ -164,7 +164,7 @@ fn[T] typed_column_cells(
 ///
 /// The height is always `rows.length()`, including under an empty schema:
 /// `from_rows(Schema::Schema([]), [[], []])` is the `2×0` frame, since
-/// width-0 rows are still rows (see `from_parts`).
+/// width-0 rows are still rows (the shape `from_parts` builds).
 ///
 /// Raises:
 /// - `DuplicateColumn(name)` — the schema carries a repeated field name.
@@ -191,7 +191,7 @@ pub fn DataFrame::from_rows(
   // The row count comes from `rows`, never from the columns: under an empty
   // schema every row had to be width-0 to pass the check above, and those
   // rows still count — `from_rows(Schema::Schema([]), [[], []])` is `2×0`,
-  // not `0×0` (see `from_parts`).
+  // not `0×0`.
   let nrows = rows.length()
   // `fields()` materialises all fields; indexing `[0, ncols)` is in-bounds
   // (`fields.length() == schema.len() == ncols`).
@@ -201,7 +201,7 @@ pub fn DataFrame::from_rows(
     // Each typed arm supplies only two things — the `Scalar` variant its dtype
     // reads, and the `Series` constructor that consumes the decoded cells. The
     // null mapping, the `TypeMismatch` for a foreign cell, and the row order
-    // that decides which cell is reported live once, in `typed_column_cells`.
+    // that decides which cell is reported live once, in this shared helper.
     let column = match field.dtype() {
       @types.DataType::Int =>
         Series::from_int_options(
@@ -425,4 +425,4 @@ pub fn DataFrame::rows(self : DataFrame) -> Array[Array[@types.Scalar]] {
 // ── Transforms ────────────────────────────────────────────────────────
 //
 // The row-window transforms (`head` / `tail` / `slice` / `gather`) are a
-// family of their own and live in `frame/window.mbt`.
+// family of their own.

@@ -1,7 +1,7 @@
 // AST metadata analysis over `ExprNode` — the column-reference set a tree reads
 // and the output-column name it produces. These are pure walks of the AST
-// shape, so they live beside it in `internal/ir` rather than on the public
-// `@expr.Expr` handle; the engine reaches them through `Expr::node()`. Both are
+// shape, so they live beside it rather than on the public
+// `Expr` handle; the engine reaches them through `Expr::node()`. Both are
 // total — they only inspect shape, and the walks are iterative (explicit heap
 // stack, not the call stack) so an arbitrarily deep tree cannot overflow and
 // abort.

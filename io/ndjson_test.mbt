@@ -10,8 +10,8 @@
 // builtin `@json` package handles the actual stringification.
 //
 // Note: `id_double` (defeats constant folding for the non-finite-float
-// test) is defined in `json_test.mbt` and shared across this package's
-// blackbox tests, so it is reused here rather than redefined.
+// test) is defined once and shared across this package's blackbox
+// tests, so it is reused here rather than redefined.
 
 // ── format_ndjson: emission ─────────────────────────────────────────
 

@@ -1,12 +1,10 @@
 ///|
-/// File-backed behaviour of the lazy NDJSON source, mirroring
-/// `scan_csv_test.mbt`: `collect` reads through `@io`, projection push-down
+/// File-backed behaviour of the lazy NDJSON source, mirroring the CSV
+/// source: `collect` reads through `@io`, projection push-down
 /// narrows the parse to the columns a pipeline consumes, and the builders stay
 /// total. Clean fixtures are written with `@io.write_ndjson`; the one fixture
 /// that needs a column whose JSON type a typed frame cannot model — an `Int`
 /// that later turns into a string — is written as raw text through `@fs`.
-/// Plan-rendering snapshots live in `plan_render_test.mbt` and
-/// `optimize_projection_test.mbt`.
 
 ///|
 /// Write a small clean fixture frame to `path` as NDJSON.

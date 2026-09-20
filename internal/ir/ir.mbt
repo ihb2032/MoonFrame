@@ -1,14 +1,14 @@
 // The expression AST, module-internal. `ExprNode` and its operator tags are
-// the shape a `@expr.Expr` wraps and the shape `frame`'s evaluator and `lazy`'s
-// optimizer walk. Keeping them in an `internal/` package makes them a hard,
+// the shape an `Expr` wraps and the shape `frame`'s evaluator and `lazy`'s
+// optimizer walk. Keeping them in an internal package makes them a hard,
 // language-enforced boundary — a downstream module cannot import this package
 // at all — rather than a documentation convention, so the AST genuinely cannot
-// leak into the public surface. The public `Expr` handle lives in `expr` — it
+// leak into the public surface. The public `Expr` handle above it
 // is buildable but **opaque** (no variants to match from outside); only the
 // in-module engine reads the `ExprNode` stored inside it. The
-// constructible-by-callers `ClosedInterval` lives in `types`.
+// constructible-by-callers `ClosedInterval` belongs to the value-type layer.
 //
-// A node's children are `ExprNode`, not the `@expr.Expr` wrapper: the wrapper
+// A node's children are `ExprNode`, not the `Expr` wrapper: the wrapper
 // references this package for its field, so this package cannot reference the
 // wrapper back without a cycle. `expr` bridges the two — its constructors
 // unwrap child `Expr`s to `ExprNode`, and its walks wrap `ExprNode` children
@@ -17,7 +17,8 @@
 ///|
 /// The expression AST. `pub(all)` so `expr` can construct nodes and the engine
 /// (`frame` / `lazy`) can `match` them, but reachable only inside this module.
-/// The variant tour lives on the `@expr.Expr` docstring, the public face.
+/// The variant tour is carried by the public `Expr` handle's documentation, the
+/// public face.
 pub(all) enum ExprNode {
   Col(String)
   Lit(@types.Scalar)
@@ -50,10 +51,11 @@ pub(all) enum ExprNode {
 /// The immediate sub-nodes of a node, left to right — the one place the AST's
 /// recursive *shape* is encoded, and only the shape. Every walk rides this for
 /// its descent: the engine's `referenced_columns` / `output_name` (via
-/// `@expr.Expr`) and the lazy optimizer's `row_stable` / `group_cell_stable`.
+/// the `Expr` handle) and the lazy optimizer's `row_stable` /
+/// `group_cell_stable`.
 /// What none of them inherits from here is the *semantics* of a new variant.
 /// `referenced_columns` alone is uniform enough to be automatic; the others
-/// classify per variant — naming (`leftmost_name` in `analysis.mbt`, where
+/// classify per variant — naming (the `leftmost_name` rule, where
 /// `Alias` / `LitSeries` / `Ternary` mean something particular) and pushdown
 /// soundness (row-local vs value barrier vs shape barrier) are decisions, so a
 /// variant added here fails to compile against their exhaustive `match`es until

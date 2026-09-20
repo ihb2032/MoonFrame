@@ -4,9 +4,9 @@
 // a `Binary` evaluate under the same scope, so their lengths are drawn from
 // `{1, |scope|}` and align; a `lit_series` evaluates at its own length, so a
 // public `lit_series(len2) + lit_series(len3)` reaches the guard (also covered
-// through the public surface by `lit_series_test.mbt`). Pinned here directly
-// at the helper for a focused contract, the same rationale as
-// `invariants_wbtest.mbt`.
+// through the public surface by the literal-series blackbox tests). Pinned here
+// directly at the helper for a focused contract, the same rationale as
+// the invariants whitebox pins.
 //
 // `eval_expr` under a partial scope: the whole-frame consumers pass the
 // whole-frame scope; the group-subset behavior is the contract the grouped

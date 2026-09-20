@@ -1,12 +1,11 @@
 // Defensive-copy contracts for the public boundaries that *retain* a
-// caller-owned `Array`. The CI guard
-// (`.github/scripts/check_array_copy_boundaries.py`) is lexical: it only sees
+// caller-owned `Array`. The CI guard for this rule
+// is lexical: it only sees
 // a `.copy()` spelled at the boundary itself, so a boundary that copies inside
 // a helper — or one whose parameter shape the guard cannot parse — needs its
 // behaviour pinned here instead. Every test mutates the caller's array after
 // the call and asserts the constructed value never observes the mutation.
-// `Expr::is_in` keeps the same pin beside its own package, in
-// `expr/expr_test.mbt`.
+// `Expr::is_in` keeps the same pin in its own package's tests.
 
 ///|
 test "DataFrame::DataFrame copies the caller's column vector" {
@@ -114,8 +113,8 @@ test "JoinOptions key accessors copy on the way out" {
 /// The lazy builders keep their arrays alive inside the logical plan until
 /// `collect` runs, so they are the widest retention surface in the library.
 /// `drop_nulls` additionally carries its keys behind an optional parameter.
-/// These are runtime contracts, independent of the lexical guard in
-/// `.github/scripts/` rather than a substitute for what it misses: the guard
+/// These are runtime contracts, independent of the lexical guard rather than
+/// a substitute for what it misses: the guard
 /// reads syntax and can only see a copy written at the boundary, while these
 /// mutate a caller's array afterwards and check the frame did not change.
 test "lazy builders copy their expression arrays" {

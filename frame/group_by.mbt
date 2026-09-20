@@ -33,7 +33,7 @@ pub struct GroupedDataFrame {
 /// result is deterministic and snapshot-stable without a sort.
 ///
 /// Each key is an arbitrary expression, evaluated over the whole frame
-/// under the rules in `expr_eval.mbt`, exactly like a `sort` key: a bare
+/// under the evaluator's shared rules, exactly like a `sort` key: a bare
 /// `col("region")` groups by an existing column, a derived key such as
 /// `(col("a") + col("b"))` groups by the computed value, and a key that
 /// reduces to a single cell (a literal, or an aggregation like
@@ -43,8 +43,8 @@ pub struct GroupedDataFrame {
 /// else leftmost column reference, else `"literal"`) and keeping its
 /// evaluated dtype.
 ///
-/// Group identity is the composite `KeyCell` tuple of the row's key cells
-/// (see `frame/row_key.mbt`), hashed on the native cell values, so:
+/// Group identity is the composite `KeyCell` tuple of the row's key cells,
+/// hashed on the native cell values, so:
 ///   * a `Float` `NaN` collapses into one group — matching Polars, where
 ///     `NaN` compares equal for grouping (the same rule `join` keys on);
 ///     `-0.0` and `+0.0` likewise share a group;
@@ -65,7 +65,7 @@ pub struct GroupedDataFrame {
 ///   on the first offending key, in `keys` order.
 /// - `LengthMismatch` — a key is neither frame-tall nor length-1, which only a
 ///   `lit_series` or a `map_batches` closure can produce (the shared length
-///   contract in `expr_eval.mbt`). Reported on the first such key.
+///   contract). Reported on the first such key.
 /// - `DuplicateColumn(name)` — two keys produce the same output name (which
 ///   would otherwise have `agg` emit two identically-named key columns and
 ///   fail late with a confusing collision). Reported at the second such

@@ -5,9 +5,9 @@
 /// what the shared `assert_same_expr` / `assert_diff_expr` do. What that pins
 /// is the documented surface: same shape renders the same, and any difference
 /// in shape shows. Construction-route equivalences (operator vs method alias,
-/// builder chains) live in `expr_ops_test.mbt`; rendering and
-/// column-collection in `explain_test.mbt`; evaluation semantics in
-/// `frame/expr_eval_test.mbt`.
+/// builder chains) live in the construction-route tests; rendering and
+/// column-collection in the rendering tests; evaluation semantics in
+/// the frame layer's evaluation tests.
 
 ///|
 test "col: different names are different nodes" {
@@ -210,8 +210,8 @@ test "deep trees don't overflow: rendering is iterative" {
 }
 
 ///|
-// The "each variant is unequal to every other variant" coverage test lives in
-// `internal/ir`, beside the equality it pins: a `variant_tag` match there makes
+// The "each variant is unequal to every other variant" coverage test lives
+// beside the AST equality it pins: a `variant_tag` match there makes
 // adding an `ExprNode` variant a compile error until its representative is
 // added, closing the silent gap this blackbox list left (a forgotten rep
 // dropped a variant's equality coverage without any signal). It cannot live
@@ -294,7 +294,8 @@ test "shape: is_between carries its operand and both bounds" {
 }
 
 ///|
-/// What `docs/api.md` points callers at now that expressions have no equality:
+/// What the documented answer to "are these two expressions the same" is, now
+/// that expressions have no equality:
 /// compare renderings. So the rendering has to answer the question a caller
 /// asks it — "did my builder produce the expression I meant" — which means it
 /// shows the tree *as built*, and shows a closure by its label. Both halves

@@ -1,12 +1,12 @@
 // Canonical string ordering for MoonFrame. MoonBit's built-in `<` /
 // `Compare` on `String` is shortlex (length first, then code unit), which
 // surprises users expecting dictionary order, so every user-facing ordering
-// routes through the helper here instead. Kept in its own file — mirroring
-// `parse.mbt`'s `is_decimal_int_literal` — rather than inside `types/scalar.mbt`,
-// because it is a free string-ordering function, not part of the `Scalar`
-// value type.
+// routes through the helper here instead. It is a free string-ordering
+// function, not part of the `Scalar` value type — the same standing as
+// `is_decimal_int_literal` on the parse side — so it is not a `Scalar`
+// method.
 //
-// Direct tests live in `compare_test.mbt` (code-point ordering, surrogate-pair
+// Direct tests pin it (code-point ordering, surrogate-pair
 // recombination, prefix / equality); the `Scalar::lt`, `Series::min` / `max`,
 // and `sort` tests additionally exercise it end-to-end.
 

@@ -1,4 +1,4 @@
-// Blackbox tests for Series reductions in `series_stats.mbt`.
+// Blackbox tests for Series reductions.
 
 // ── count ────────────────────────────────────────────────────────────
 

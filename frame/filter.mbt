@@ -14,7 +14,7 @@
 /// The predicate must evaluate to a `Bool` column (`TypeMismatch`
 /// otherwise). A row is kept where its cell is `true`; `false` **and
 /// null** cells drop the row (the Polars rule — an unknown is not a
-/// keep). The mask rides the length contract in `expr_eval.mbt`: a length-1
+/// keep). The mask rides the shared length contract: a length-1
 /// result — a literal, or an aggregation comparison like
 /// `col("qty").sum().gt(lit_int(0))` — broadcasts over the frame, keeping every
 /// row or none, while a mask that is neither frame-tall nor length-1 raises
@@ -53,7 +53,7 @@ pub fn filter_row_indices(
   let scope = Array::makei(n, i => i)
   // Stretch a length-1 mask (literal / aggregation) over the frame, down to
   // zero rows on an empty one, and reject an off-frame one — the shared length
-  // contract (`expr_eval.mbt`).
+  // contract.
   let mask = @kernel.broadcast_series(eval_expr(predicate, self, scope), n)
   // The rows the mask keeps, read on the column's own side of the seam — a
   // null cell is not a keep, alongside `false`. `None` means the predicate

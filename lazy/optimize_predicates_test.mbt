@@ -5,10 +5,7 @@
 /// fences where it must stay: several fences guard real divergences (a
 /// broadcast aggregation's scope, a `cast`'s value-dependent rejection, a
 /// signed-zero group key; a `mean`'s null cell is fenced conservatively),
-/// each pinned by plan-shape snapshot plus `collect ≡ eager` parity. The
-/// projection pass's battery lives in `optimize_projection_test.mbt`, the
-/// cross-pass shapes in `optimize_test.mbt`; the shared fixture frames live
-/// in `lazy_test.mbt`.
+/// each pinned by plan-shape snapshot plus `collect ≡ eager` parity.
 
 ///|
 test "drop/rename/rename_with/unique/drop_nulls/fill_null are predicate barriers" {
@@ -465,7 +462,8 @@ test "fence: a mean aggregation pins the filter above the group stage" {
   // data does — here the east group's bonus cells are all null, the case the
   // fence was originally argued from. What is pinned is the plan shape and
   // parity with the eager chain, not a claim that sinking would change the
-  // result; see `group_cell_stable` for why the fence is conservative.
+  // result; the fence is conservative because the pass fences every
+  // aggregation whose per-group cell can go null.
   let aggs = [@expr.col("bonus").mean().with_alias("avg")]
   let predicate = @expr.col("region").eq(@expr.lit_str("west"))
   let plan = LazyFrame::LazyFrame(df)
@@ -517,9 +515,10 @@ test "fence: a std aggregation pins the filter above the group stage" {
   // the case the fence was argued from. Like `mean`, `std` is fenced, so the
   // filter stays above the aggregate whatever the data does. What is pinned is
   // the plan shape and parity with the eager chain, not a claim that sinking
-  // would change the result; see `group_cell_stable` for why the fence is
-  // conservative. (`variance` / `median` / `first` / `last` are fenced the same
-  // way: each can go null on a group.)
+  // would change the result; the fence is conservative because the pass
+  // fences every aggregation whose per-group cell can go null. (`variance` /
+  // `median` / `first` / `last` are fenced the same way: each can go null on
+  // a group.)
   let aggs = [@expr.col("bonus").std().with_alias("s")]
   let predicate = @expr.col("region").eq(@expr.lit_str("west"))
   let plan = LazyFrame::LazyFrame(df)
@@ -1040,8 +1039,8 @@ test "a lit_series is a barrier: it blocks the filter sink, like cast" {
   assert_eq(plan.collect(), df.with_columns(derived).filter(predicate))
 }
 
-// ── File-source predicate absorption (structural; the file-backed collect
-// equivalences live in scan_csv_test.mbt) ──
+// ── File-source predicate absorption (structural; the sibling tests pin the
+// file-backed collect equivalences) ──
 
 ///|
 test "scan_csv: an absorbed predicate keeps its columns out of the projection" {

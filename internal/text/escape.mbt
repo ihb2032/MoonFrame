@@ -1,6 +1,7 @@
 // Debug-rendering helper shared, as a `pub` cross-package helper, by the
-// handwritten `Show` impls in `@types` (`Scalar`, `DataError`, and `Field` —
-// and through `Field`, the `Schema`) and by the `@expr` and `@lazy` plan
+// handwritten `Show` impls for the value types (`Scalar`, `DataError`, and
+// `Field` —
+// and through `Field`, the `Schema`) and by the expression and lazy plan
 // renderers (`explain`), which escape column names, string
 // literals, and file-source paths the same way. The `Show` impls wrap a
 // string payload in double quotes
@@ -14,7 +15,7 @@
 // `Show` forms escape.
 //
 // One-file-one-test exemption: this helper has no dedicated
-// `escape_test.mbt`. (doc-guard: unresolved) It is covered through the `Scalar` / `DataError` /
+// test file of its own. (doc-guard: unresolved) It is covered through the `Scalar` / `DataError` /
 // `Field` `Show` tests that render payloads containing `"` and `\`.
 
 ///|

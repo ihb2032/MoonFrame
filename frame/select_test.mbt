@@ -7,8 +7,7 @@
 /// zero-row frames, the evaluation-time error paths, and a block of
 /// historical pins asserting `select([col(n), ...])` reproduces exactly the
 /// projection the names-based `select([n, ...])` used to give. The
-/// evaluator's dtype / null / broadcast semantics live in
-/// `expr_eval_test.mbt`.
+/// evaluator's dtype / null / broadcast semantics have their own suite.
 
 ///|
 fn sel_df() -> DataFrame raise @types.DataError {
@@ -310,7 +309,7 @@ test "select carries a declared nullable=false through a bare projection" {
   // A bare `col` reads that column and changes nothing about its cells, so
   // the declaration still describes the output and rides along; a computed
   // expression produces different cells and gets a freshly derived field.
-  // (See `nullable_propagation_test.mbt` for the whole contract.)
+  // The whole nullable-propagation contract is pinned in its own suite.
   let schema = @types.Schema::Schema([
     @types.Field::Field("id", @types.DataType::Int, nullable=false),
   ])

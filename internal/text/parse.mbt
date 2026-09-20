@@ -4,10 +4,10 @@
 /// `0x` / `0o` / `0b` base prefixes, and `1_000` underscore grouping all
 /// return `false`.
 ///
-/// Numeric recognition lives here, in `internal/text`, so every layer agrees on
+/// Numeric recognition lives here, in the text layer, so every layer agrees on
 /// what counts as an integer literal: the CSV / JSON readers' type
-/// inference and the `@column` String→`Int` cast all route through this
-/// one predicate before handing the text to `@string.parse_int64`. That
+/// inference and the column-level String→`Int` cast all route through this
+/// one predicate before handing the text to `parse_int64`. That
 /// parser defaults to `base = 0` and would otherwise silently accept hex
 /// / octal / binary prefixes (`0xFF` → 255) and underscores (`1_000` →
 /// 1000) — forms pandas / polars keep as strings. Sharing the screen (the
@@ -35,11 +35,11 @@ fn is_decimal_int_literal(s : String) -> Bool {
 /// Parse a plain base-10 integer, or `None`. Screens out `0x` / `0o` / `0b`
 /// prefixes and `1_000` underscore grouping via `is_decimal_int_literal` (the
 /// forms pandas / polars keep as strings), then hands the text to
-/// `@string.parse_int64`, mapping its failure (a value beyond `Int64`'s range,
+/// `parse_int64`, mapping its failure (a value beyond `Int64`'s range,
 /// say) to `None`. The shared routine behind the CSV reader's `Int` inference,
 /// the JSON reader's recovery of an over-large integer from its preserved text,
-/// and the `@column` String→`Int` cast, so an inferred column and an explicit
-/// cast agree on what text is an integer.
+/// and the column-level String→`Int` cast, so an inferred column and an
+/// explicit cast agree on what text is an integer.
 pub fn parse_decimal_int_opt(s : String) -> Int64? {
   if !is_decimal_int_literal(s) {
     return None
@@ -53,12 +53,13 @@ pub fn parse_decimal_int_opt(s : String) -> Int64? {
 
 ///|
 /// Parse a "plain" `Double`, or `None`. Rejects `1_000`-style underscore
-/// grouping up front (`@string.parse_double` would accept it, but pandas /
+/// grouping up front (`parse_double` would accept it, but pandas /
 /// polars keep such cells as strings), then hands the text to
-/// `@string.parse_double`. The `nan` / `inf` / `infinity` literals it
+/// `parse_double`. The `nan` / `inf` / `infinity` literals it
 /// recognises are returned as-is — the caller decides whether to keep them (the
-/// CSV reader gates them behind `allow_nonfinite`; the `@column` String→`Float`
-/// cast accepts them). A finite literal beyond the `Double` range collapses to
+/// CSV reader gates them behind `allow_nonfinite`; the column-level
+/// String→`Float` cast accepts them). A finite literal beyond the `Double`
+/// range collapses to
 /// a signed `Infinity` (IEEE 754 overflow), exactly like the explicit `inf`
 /// literal — so it too is gated by `allow_nonfinite` on the CSV path, rather
 /// than being rejected as unparseable. Shared so inference and an explicit cast
@@ -68,7 +69,7 @@ pub fn parse_plain_double_opt(s : String) -> Double? {
     return None
   }
   try @string.parse_double(s.view()) catch {
-    // `@string.parse_double` fails for two disjoint reasons: a genuine
+    // `parse_double` fails for two disjoint reasons: a genuine
     // non-number, or a finite literal whose magnitude overflows `Double`. Per
     // IEEE 754 (and the documented String→Float contract) the overflow case
     // rounds to a signed `Infinity` rather than failing — matching the explicit
@@ -103,7 +104,7 @@ pub fn parse_plain_double_opt(s : String) -> Double? {
 /// `1.5`, `1.`, `.5`), and an optional `e` / `E` exponent whose own sign is
 /// optional but which needs at least one digit. It deliberately rejects the
 /// `nan` / `inf` / `infinity` forms (those *parse*, so never reach the caller's
-/// failure path), the `0x…` hex-float form (`@string.parse_double` rejects it
+/// failure path), the `0x…` hex-float form (`parse_double` rejects it
 /// too), and `1_000` underscore grouping (screened earlier). The grammar is a
 /// subset of what `parse_double` accepts as a finite number, so a `true` result
 /// guarantees the parse failure was overflow, never a syntax error. Backs

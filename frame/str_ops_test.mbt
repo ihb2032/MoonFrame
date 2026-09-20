@@ -4,8 +4,8 @@
 /// column, null propagation, the non-String `TypeMismatch`, the `Numeric`
 /// convergence of the Int-valued `str_len_chars`, and integration with
 /// `select` / `filter` / grouped `agg` and the literal broadcast. The
-/// rendering / equality / introspection of the nodes themselves live in
-/// `expr`'s `expr/expr_str_test.mbt`.
+/// rendering / equality / introspection of the nodes themselves have
+/// their own coverage.
 
 ///|
 /// A String column mixing cases, surrounding whitespace, and a null cell, so

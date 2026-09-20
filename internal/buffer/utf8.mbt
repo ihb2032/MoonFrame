@@ -92,7 +92,7 @@ fn encoded_len(s : String) -> Int {
         i = i + 2
       } else {
         // High surrogate whose pair is missing or not a low surrogate: the
-        // WTF-8 3-byte spelling, so the cell round-trips (see `encode_into`).
+        // WTF-8 3-byte spelling, so the cell round-trips through `encode_into`.
         len = len + 3
         i = i + 1
       }

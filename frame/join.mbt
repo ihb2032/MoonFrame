@@ -30,7 +30,7 @@ fn index_by_join_key(
 /// `DataFrame`.
 ///
 /// Each key is an arbitrary expression, evaluated over the whole frame
-/// under the rules in `expr_eval.mbt`, exactly like a `sort` / `group_by`
+/// under the evaluator's shared rules, exactly like a `sort` / `group_by`
 /// key: an `on` key is applied to both frames (a bare `col("id")` joins on
 /// an existing column, a derived key such as `col("ts") / lit_int(86400)`
 /// joins on the computed value), while a sided pair evaluates
@@ -41,9 +41,9 @@ fn index_by_join_key(
 /// `left_keys()` / `right_keys()`, each returning a copy.
 ///
 /// Two rows match when every key holds an equal value, using the same
-/// composite-`KeyCell`-tuple encoding `group_by` uses (see
-/// `frame/row_key.mbt`; the tuple is structurally injective across key
-/// columns). The one deliberate difference from `group_by`: a **null** key
+/// composite-`KeyCell`-tuple encoding `group_by` uses; the tuple is
+/// structurally injective across key columns. The one deliberate difference
+/// from `group_by`: a **null** key
 /// cell matches **nothing** (`null != null`, the SQL / Polars default) —
 /// such an unmatched row is dropped by `Inner` and kept (with the other
 /// side's columns null) by `Left` / `Right` / `Outer`. A `Float` `NaN` key
@@ -138,9 +138,9 @@ pub fn DataFrame::join(
 /// right row kept with no left match) and `right_rows[r]` its right row
 /// (`None` = a left row kept with no right match). At least one side is
 /// always `Some`. A `Cross` join is the keyless Cartesian product; the key
-/// joins hash one frame by key and probe it with the other. Split from the
-/// column assembly (`assemble_join_output`) so row planning and output
-/// materialisation each read on their own.
+/// joins hash one frame by key and probe it with the other. Row planning
+/// and the column assembly are kept as separate phases, so each
+/// reads on its own.
 fn DataFrame::plan_join_rows(
   self : DataFrame,
   other : DataFrame,
@@ -264,8 +264,8 @@ fn DataFrame::plan_join_rows(
 /// Phase 2 of `join`: materialise the output columns from the row plan —
 /// key coalescing, per-column gathers (`None -> null`), right-column
 /// suffixing on a name clash with the left frame, and per-column backend
-/// re-convergence (`preserve_backend`). Split from the row planning
-/// (`plan_join_rows`) so each phase reads on its own.
+/// re-convergence (`preserve_backend`). The row planning is a separate
+/// phase, so each phase reads on its own.
 ///
 /// The height is the plan's — `left_rows.length()`, which every gather above
 /// produces a column of — rather than the assembled columns'. The two agree
@@ -315,8 +315,8 @@ fn DataFrame::assemble_join_output(
   // below.
   //
   // A join is a row rebuild, so each output column canonicalises onto the
-  // backend its own gathered cells imply (`docs/performance.md` classifies the
-  // paths): all-valid numeric cells land on `Numeric`, and a column that picks
+  // backend its own gathered cells imply (the documented row-rebuild
+  // classification): all-valid numeric cells land on `Numeric`, and a column that picks
   // up a null from an unmatched row's `None` is nullable and stays `Builtin`.
   // `gather_series_opt` already does that — the `preserve_backend` wrapper is
   // the belt to its braces, a no-op on a canonicalised result either way, kept

@@ -26,7 +26,7 @@ pub extend KeepStrategy with Debug::{to_repr}
 ///|
 /// Drop duplicate rows — Polars' `df.unique(maintain_order=True)`. Two rows are
 /// duplicates when every cell is equal under the same composite `KeyCell`
-/// encoding `group_by` and `join` use (see `frame/row_key.mbt`): a `Float`
+/// encoding `group_by` and `join` use: a `Float`
 /// `NaN` equals `NaN`, `-0.0` folds into `+0.0`, and — like a `group_by` key — a
 /// **null** cell is an ordinary value, so two rows that are null in the same
 /// places (and equal elsewhere) are duplicates.

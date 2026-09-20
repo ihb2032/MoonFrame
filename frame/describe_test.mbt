@@ -1,7 +1,7 @@
 // Blackbox tests for `DataFrame::describe`.
 //
 // Invariants asserted on every successful summary:
-//   (1) check_invariants() == Ok(()) — formal spec from invariants.mbt
+//   (1) check_invariants() == Ok(()) — the formal structural spec
 //   (2) result.columns() == fixed schema (regardless of input)
 //   (3) result.nrows() == df.ncols() (one row per source column)
 //   (4) result column dtypes are pinned: column, dtype, min, max are

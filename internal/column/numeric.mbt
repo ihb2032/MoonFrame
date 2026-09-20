@@ -9,8 +9,8 @@
 /// Polars, where a buffer with `null_count == 0` skips the validity check on
 /// the hot path.
 ///
-/// The win is twofold and measurable (construction in `numeric_wbtest.mbt`,
-/// reductions in `numeric_reduce_wbtest.mbt`):
+/// The win is twofold and measurable, white-box-tested end to end:
+///
 ///   1. **construction / sub-views** allocate no validity `Bytes`:
 ///      `from_ints` / `from_floats` are just the data array, and `slice` /
 ///      `take` copy only the data — where `BuiltinColumn` additionally
@@ -30,7 +30,7 @@
 /// `min` / `max` dispatch straight here on a `Numeric`-backed
 /// column — so the bitmap-free fold is the path actually taken for an
 /// all-valid numeric `Series`, not just a parallel implementation (the folds
-/// live in `numeric_reduce.mbt`). Cross-dtype
+/// live in this package's fold file). Cross-dtype
 /// transforms
 /// (`cast` / `to_int` / `to_float`) are
 /// intentionally absent: `ColumnStorage::cast` widens to the `Builtin` backend
@@ -236,7 +236,7 @@ fn NumericColumn::take(
 /// immutable, so the two may safely share it) and `Bitmap::all_valid(len)`
 /// records that every slot is present. The widening is value-preserving — it
 /// equals `BuiltinColumn::from_ints` / `from_floats` on the same data (proven
-/// in `numeric_wbtest.mbt`). It reuses the array via a struct literal rather than
+/// by the white-box structural equality). It reuses the array via a struct literal rather than
 /// `from_ints` / `from_floats`, which now defensively copy.
 fn NumericColumn::to_builtin(self : NumericColumn) -> BuiltinColumn {
   match self.data {

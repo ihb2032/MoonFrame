@@ -6,7 +6,7 @@
 // `suffix` / `coalesce` and the rendered key lists. Naming a parameter with its
 // default value must yield the bare call's value, a non-default must not. The end-to-end
 // join behaviour they imply (inner default, `"_right"` suffix) is exercised
-// against real frames in `join_test.mbt`.
+// against real frames in the sibling join tests.
 
 ///|
 test "JoinType equality" {

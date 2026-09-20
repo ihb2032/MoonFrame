@@ -1,5 +1,5 @@
-// Column-selector helpers. Each reads a frame's schema and returns the
-// `Array[@expr.Expr]` of `col(name)` references for the columns it matches, to
+// Column-selector helpers. Each reads a frame's schema and returns an
+// `Array[Expr]` of `col(name)` references for the columns it matches, to
 // fill a verb's expression container — `select` / `drop` / `with_columns` /
 // `group_by` all take `Array[Expr]`, so a selector names a set of columns by a
 // rule instead of one by one:

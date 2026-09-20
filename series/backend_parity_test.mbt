@@ -133,8 +133,9 @@ fn builtin_twin(s : Series) -> Series {
 ///|
 /// Run every backend-sensitive public `Series` operation on both backends of
 /// the same logical column and assert the two agree — the inspection,
-/// reduction, transform, cast, index and ordering surface, plus `Eq` (see the
-/// file header for the four the harness deliberately does not re-derive).
+/// reduction, transform, cast, index and ordering surface, plus `Eq`. A
+/// handful of members are deliberately not re-derived; the header above names
+/// them and says why.
 /// `bt` is `Builtin`-backed, `nu` is `Numeric`-backed; the caller guarantees
 /// they hold the same values.
 fn assert_backend_parity(bt : Series, nu : Series) -> Unit raise {

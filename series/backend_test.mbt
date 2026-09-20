@@ -1,7 +1,7 @@
-// Blackbox tests for the storage-backend machine (`backend.mbt`): a
+// Blackbox tests for the storage-backend machine: a
 // column's backend is a function of its content, asserted through the
-// `storage_kind` / `is_canonical` seams. The differential harness in
-// `backend_parity_test.mbt` guards the same machine at the cell level.
+// `storage_kind` / `is_canonical` seams. The differential parity harness
+// guards the same machine at the cell level.
 
 // ── storage backend: storage_kind / is_canonical / try_column_to_numeric ──
 

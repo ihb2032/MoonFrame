@@ -8,7 +8,7 @@
 // their own section near the end.
 //
 // Invariants asserted on every successful sort:
-//   (1) check_invariants() == Ok(()) — formal spec from invariants.mbt
+//   (1) check_invariants() == Ok(()) — the formal structural spec
 //   (2) result.schema() == df.schema() — sort is row-only, columns
 //       (names, dtypes, order) survive verbatim
 //   (3) result.columns() == df.columns() — column order is stable

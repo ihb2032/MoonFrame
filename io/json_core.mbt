@@ -1,7 +1,7 @@
 // The JSON-records shared core: everything the JSON family of readers and
 // emitters agree on, so the formats cannot drift apart. Three consumers
-// meet here — `json.mbt` (one top-level array of records), `ndjson.mbt`
-// (one object per line), and the `chart` package (a Vega-Lite
+// meet here — the one-top-level-array records reader, the line-delimited
+// reader (one object per line), and the `chart` package (a Vega-Lite
 // `data.values` array) — all driving the same records → frame core
 // (`frame_from_json_records`) and the same cell mapping (`scalar_to_json`
 // / `df_to_json_records`). Per-column type inference mirrors the CSV
@@ -19,7 +19,7 @@
 // typeless numbers: the CSV reader keeps `"2.0"` as `Float` only because the
 // *text* still carries the decimal point, which a JSON number does not. It is
 // the first of the three ways the two readers part company — the other two are
-// the caveats below, and all three are collected in `docs/type-inference.md`.
+// the caveats below.
 //
 // Caveat 2 — large `Int64`. JSON numbers (and `@json`'s reader) are
 // IEEE-754 `Double`, so an `Int64` whose magnitude exceeds 2^53 has no exact
@@ -50,7 +50,7 @@
 // free.
 //
 // One-file-one-test exemption: this shared core has no dedicated
-// `json_core_test.mbt`. (doc-guard: unresolved) It is covered through the
+// test file of its own. (doc-guard: unresolved) It is covered through the
 // JSON / NDJSON / chart blackbox tests that drive it.
 
 ///|
@@ -152,9 +152,9 @@ fn frame_from_json_records(
   }
   // Build one column over the records `keep` selects (`None` = every record),
   // mapping each surviving record's original line through `keep` so a parse
-  // error in a kept record still reports its true file line (see
-  // `build_json_column`). Inference runs over every record either way. A named
-  // column the file lacks is not built, so a pruner's callback raises
+  // error in a kept record still reports its true file line. Inference runs
+  // over every record either way. A named column the file lacks is not
+  // built, so a pruner's callback raises
   // `ColumnNotFound` exactly as the eager filter would.
   let build_over = fn(
     name : String,
@@ -363,7 +363,7 @@ fn json_value_as_bool(j : Json) -> Bool? {
 /// the String-fallback analogue of the module's integral-`Float` Caveat 1),
 /// booleans render `true` / `false`, strings pass through verbatim, and any
 /// composite (`Array` / `Object`) falls through to `@json.stringify`.
-/// `Null` is filtered out upstream — the String-column builder in `infer.mbt`
+/// `Null` is filtered out upstream — the shared String-column builder
 /// yields `None` for a null cell without invoking this helper —
 /// so the catch-all only fires on composites in practice.
 fn json_value_to_string_fallback(j : Json) -> String {
@@ -410,7 +410,7 @@ fn json_cell_parse_location(
 
 ///|
 /// Materialise one column from the record array using the dtype
-/// chosen by inference. Mirrors `build_column` in `csv.mbt`: each
+/// chosen by inference. Mirrors the CSV reader's `build_column`: each
 /// branch walks the records in row order and converts the cell into
 /// the typed array slot; a value past the inference window that fails
 /// to match the locked-in dtype is handled per `on_parse_error`

@@ -1,5 +1,5 @@
 ///|
-/// The string-namespace kernel: apply a `@ir.StrOp` to each cell of a String
+/// The string-namespace kernel: apply a `StrOp` to each cell of a String
 /// operand — case, `strip_chars` (default or custom charset), `len_chars` /
 /// `len_bytes`, `reverse`, `pad`, `zfill`, `slice`, `split_get`, the literal
 /// `contains` /

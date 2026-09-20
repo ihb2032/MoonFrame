@@ -1,7 +1,7 @@
 // Blackbox tests for `DataFrame::null_count`.
 //
 // Invariants asserted on every successful summary:
-//   (1) check_invariants() == Ok(()) — formal spec from invariants.mbt
+//   (1) check_invariants() == Ok(()) — the formal structural spec
 //   (2) result.columns() == df.columns() — names + order preserved
 //   (3) every column in the result is dtype Int (the count itself)
 //   (4) result.shape() == (1, df.ncols()) — including the 0-column edge

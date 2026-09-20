@@ -10,11 +10,11 @@
 // its own cell accessor, null test, and error wording. The numeric-text
 // probes (`parse_int_opt` / `parse_float_opt`) are shared here too: the CSV
 // inference path and the JSON readers' `repr`-digit recovery both route
-// through them (the CSV-only `bool` probe stays in `csv.mbt`).
+// through them (the CSV-only `bool` probe stays with the CSV reader).
 //
 // One-file-one-test exemption: this shared inference skeleton has no
-// dedicated `infer_test.mbt`. (doc-guard: unresolved) It is covered through the CSV / JSON / NDJSON
-// reader blackbox tests that drive it.
+// dedicated test file of its own. (doc-guard: unresolved) It is covered
+// through the CSV / JSON / NDJSON reader blackbox tests that drive it.
 
 ///|
 const DEFAULT_INFER_SCHEMA_ROWS : Int = 100
@@ -141,7 +141,7 @@ fn[Cell] infer_dtype(
 /// (`1_000` → 1000). Those forms are kept as strings by pandas / polars,
 /// so accepting them during inference would silently retype columns of
 /// hex codes, IDs, or formatted numbers. Restricting to decimal keeps
-/// inference predictable. The same routine backs the `internal/column`
+/// inference predictable. The same routine backs the column layer's
 /// String→`Int` cast, so inference and an explicit cast agree.
 fn parse_int_opt(s : String) -> Int64? {
   @text.parse_decimal_int_opt(s)

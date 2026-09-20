@@ -8,7 +8,7 @@
 /// `n_unique` buckets NaN as one and excludes nulls, and `first` / `last` are
 /// positional (a null leading / trailing cell, or an empty scope, is null).
 /// Non-numeric `std` / `var` / `median` raise `TypeMismatch`. Construction and
-/// rendering live in `expr`'s tests; this pins evaluation.
+/// rendering have their own coverage; this pins evaluation.
 
 ///|
 /// The single cell of the whole-frame reduction `e` over `df`, via `select`:

@@ -191,7 +191,7 @@ pub fn ChartSpec::area(
 /// set, `color`, each `{field, type}` with the `type` inferred from the
 /// column dtype: numeric → `"quantitative"`, otherwise → `"nominal"`) +
 /// `data.values` (the frame inlined as JSON records, sharing
-/// `format_json`' cell mapping — null and non-finite-float cells
+/// `format_json`'s cell mapping — null and non-finite-float cells
 /// become JSON `null`). A frame with the encoded columns but zero rows
 /// yields `"data":{"values":[]}`.
 ///

@@ -5,9 +5,8 @@
 // others.
 //
 // One-file-one-test exemption: this shared normalizer has no dedicated
-// `text_test.mbt`. (doc-guard: unresolved) It is covered through the
-// per-format BOM tests in `csv_test.mbt` / `json_test.mbt` /
-// `ndjson_test.mbt`.
+// test file of its own. (doc-guard: unresolved) It is covered through the
+// per-format BOM tests in the CSV / JSON / NDJSON suites.
 
 ///|
 /// Strip a single leading UTF-8 BOM (`U+FEFF`) if present, returning the rest

@@ -81,8 +81,8 @@ pub fn Field::dtype(self : Field) -> DataType {
 }
 
 ///|
-/// The declared `nullable` flag (see the type doc for how `DataFrame::from_rows`
-/// enforces it).
+/// The declared `nullable` flag. `DataFrame::from_rows` enforces it, raising
+/// on a null in a non-nullable column.
 pub fn Field::nullable(self : Field) -> Bool {
   self.nullable
 }

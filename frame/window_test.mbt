@@ -1,9 +1,9 @@
 // Blackbox tests for the row-window verbs — `head` / `tail` / `slice` /
-// `gather` — split from `dataframe_test.mbt` alongside the verbs' move to
-// `window.mbt`. The verbs keep a frame's schema verbatim and move or trim
-// rows; that name lookup keeps working after a transform is pinned back in
-// `dataframe_test.mbt`, whose "name lookup survives transforms" section is
-// about the schema index rather than about this family.
+// `gather` — one family to a file, matching the verbs' own home. The verbs
+// keep a frame's schema verbatim and move or trim rows; that name lookup
+// keeps working after a transform is pinned in the type-core suite, whose
+// "name lookup survives transforms" section is about the schema index
+// rather than about this family.
 
 // ── head / tail ──────────────────────────────────────────────────────
 

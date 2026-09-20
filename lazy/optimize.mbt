@@ -32,7 +32,7 @@
 /// closure of a `map` / `map_batches`, where dropping a row could drop the very
 /// cell that raises — are fenced
 /// off entirely: no `Filter` ever crosses a stage whose expressions
-/// contain one (see `row_stable`).
+/// contain one; the row-locality rule is the fence.
 ///
 /// The sole deliberate exception is a file source's projection (the `Csv` /
 /// `Ndjson` sources). Narrowing it to the columns its consumers read means a
@@ -62,7 +62,7 @@
 /// and the projection pass rebuilds around the new position — a
 /// fixed-point-across-passes concern, deliberately left alone: plans are
 /// immutable, and each `collect` or `explain(optimized=true)` rewrites the
-/// as-built plan exactly once. `lazy/idempotence_wbtest.mbt` pins every
+/// as-built plan exactly once. The white-box tests pin every
 /// pass's own idempotence and the whole-pipeline property on the shapes
 /// that hold.
 fn optimize(plan : LogicalPlan) -> LogicalPlan {

@@ -5,8 +5,8 @@
 /// total, like every other `LazyFrame` constructor, so a missing file or a
 /// malformed CSV only surfaces then (as the eager reader's `IoError` /
 /// `ParseError` / `DuplicateColumn`). It is not a *streaming* read — the reader
-/// still tokenises the whole file, and streaming it is tracked as future work in
-/// [`docs/api.md`](../docs/api.md).
+/// still tokenises the whole file, and streaming it is tracked as future
+/// work.
 ///
 /// The payoff over `LazyFrame::LazyFrame(read_csv(path))` is that this leaf
 /// absorbs both push-downs, so the work it skips is work the eager pipeline

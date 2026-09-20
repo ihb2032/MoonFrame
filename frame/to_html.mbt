@@ -8,9 +8,9 @@
 // indistinguishable in the output (the renderer carries no null marker).
 //
 // Like `to_markdown`, this is a pure, dependency-free renderer that
-// lives on `DataFrame` rather than in `io` (the IO boundary:
-// rendering stays in `frame`, only external serialisation lives in
-// `io`). Values are read column-major through `column_series()` /
+// sits on `DataFrame` (the IO boundary: the rendering here is pure,
+// and only external serialisation writes to the outside).
+// Values are read column-major through `column_series()` /
 // `to_scalars()`, exactly as `to_markdown` does, so a change to
 // `Series::storage` is invisible here.
 
@@ -23,7 +23,7 @@
 ///     renders every row; `Some(n)` shows the first `n` and appends a
 ///     `<tfoot>` banner (`... (K more rows)`) for the remainder. A
 ///     negative `n` clamps to 0 (header + banner, no data rows),
-///     matching `to_markdown`'s `max_rows`.
+///     matching the Markdown renderer's row cap.
 ///   * `table_class` — value of the `<table class="...">` attribute.
 ///     `None` (the default) omits the attribute.
 ///   * `caption` — text of a leading `<caption>` element. `None` (the

@@ -10,8 +10,8 @@
 // shape *except* one: a filter that can sink past a `Select` the projection
 // pass inserts. The predicate pass runs first, so on a re-optimize it sinks the
 // filter below that inserted select and the projection pass rebuilds around the
-// new position — a fixed-point-across-passes concern (deferred, see `optimize`).
-// The cases asserted here avoid it.
+// new position — a fixed-point-across-passes concern, deferred. The cases
+// asserted here avoid it.
 
 ///|
 /// Frames built through `io`, so this white-box test needs no `series` import

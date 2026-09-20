@@ -6,8 +6,9 @@
 /// from the comparison (`eval_compare`) and Kleene (`eval_logic`) kernels, so
 /// they cannot drift from `eq` / `ge` / `le` and the connectives. `is_in` has
 /// one exception, `try_fast_is_in`: a hash-set pass for the dtypes where
-/// membership is plain equality, kept deliberately narrow so nothing with a
-/// floating-point subtlety leaves the shared path (see its own docstring).
+/// membership is plain equality, kept deliberately narrow — only `String`,
+/// `Bool`, and `Int` columns whose members share that dtype — so nothing with a
+/// floating-point subtlety leaves the shared path.
 
 ///|
 /// `is_in`: `true` where the cell equals one of `members`. The general path

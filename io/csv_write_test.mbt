@@ -1,6 +1,5 @@
 // Blackbox tests for `@io.format_csv` / `@io.write_csv` — the write half
-// of the CSV interchange, mirroring `csv_write.mbt` against the read half
-// in `csv_test.mbt`. Covers the option surface (delimiter, null_value,
+// of the CSV interchange. Covers the option surface (delimiter, null_value,
 // formula sanitisation, header mode), the quoting rules, the write-side
 // refusals (column-less frames, unsafe delimiters, unpaired surrogates),
 // and the read-back round-trips that pin reader / writer agreement on
@@ -255,7 +254,7 @@ test "round-trip: a single-column null row survives (no blank-line drop)" {
   ])
   let text = @io.format_csv(df)
   // The null row is emitted as a quoted empty, not a bare blank line the
-  // reader's `skip_empty_lines` would discard.
+  // reader's blank-line skipping would discard.
   assert_eq(text, "n\n1\n\"\"\n3\n")
   let parsed = @io.parse_csv_str(text)
   assert_eq(parsed.check_invariants(), Ok(()))

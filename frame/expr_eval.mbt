@@ -1,21 +1,21 @@
 ///|
-/// Vectorized evaluation of `@expr.Expr` against a `DataFrame` — the
+/// Vectorized evaluation of `Expr` against a `DataFrame` — the
 /// engine behind `DataFrame::with_columns` (and every other expression
 /// consumer: `select` / `filter` / `agg`).
 ///
-/// This lives in `frame`, not `expr`, because evaluation is a DataFrame
-/// question: what a column name resolves to, what shape a result must have,
-/// which error surfaces first, and how a scope narrows the rows. The reading
-/// and the arithmetic sit below it — `series` owns a column's cells and
+/// Evaluation is a DataFrame question, not an expression-tree one: what a
+/// column name resolves to, what shape a result must have, which error
+/// surfaces first, and how a scope narrows the rows. The reading and the
+/// arithmetic sit below it — `series` owns a column's cells and
 /// `internal/kernel` the vectorized pass over them, and this package reaches
 /// both through helpers that hand back a `Series`, a scalar, or a fresh
 /// array. It holds no column buffer of its own; the layering guard refuses
 /// the import that would let it.
 ///
-/// The public `@expr.Expr` is an opaque handle; the AST it wraps is
-/// `@ir.ExprNode`, in the module-internal `internal/ir` package. This file
-/// enters through the `Expr::node()` seam and matches `@ir.ExprNode`
-/// directly — the tree walk is over the AST node, not the handle, and a
+/// The public `Expr` is an opaque handle; the AST it wraps is an `ExprNode`
+/// in the module-internal `internal/ir` package. Evaluation enters through
+/// the `Expr::node()` seam and matches the `ExprNode` tree
+/// directly — the walk is over the AST node, not the handle, and a
 /// downstream module can reach neither.
 ///
 /// `scope` is the ordered row-index set an expression is evaluated under:
@@ -23,7 +23,7 @@
 /// `agg`.
 ///
 /// **The length contract**, which every consuming verb enforces through
-/// `@kernel.broadcast_series` and none of them restates: a result of `|scope|`
+/// `broadcast_series` and none of them restates: a result of `|scope|`
 /// cells passes through, a length-1 result (a literal, an aggregation)
 /// broadcasts over the scope — down to zero rows on an empty one — and **any
 /// other length raises `LengthMismatch`**. The built-in algebra only ever
@@ -47,8 +47,8 @@
 ///   never emitted.
 /// - **Comparisons** (`eq/ne/lt/le/gt/ge`): produce `Bool`; `Int ↔ Float`
 ///   compare **exactly** — the `Int64` is never promoted to `Double`, so two
-///   distinct values cannot collide above `2^53` (`cmp_int_double` in
-///   `internal/kernel/compare.mbt`, over the `@numeric` primitives `int64_eq_double` /
+///   distinct values cannot collide above `2^53` (`cmp_int_double`,
+///   over the numeric primitives `int64_eq_double` /
 ///   `int64_lt_double` / `double_lt_int64`; a deliberate departure from
 ///   Polars' Float64-supertype rule), `String` compares by `compare_string_lex`
 ///   (dictionary order, not MoonBit's shortlex), `Bool` orders
@@ -70,14 +70,14 @@
 ///   `starts_with` / `ends_with` (Bool), and the literal substitutions
 ///   `replace` (first) / `replace_all` (all), plus the regex operations
 ///   (`str_contains` / `str_replace` / `str_replace_all` with `literal=false`,
-///   and `str_extract` / `str_count_matches`), implemented in
-///   `internal/kernel/str.mbt`. Null cells stay null and a non-String operand is a
+///   and `str_extract` / `str_count_matches`), implemented in the
+///   kernel's string pass. Null cells stay null and a non-String operand is a
 ///   `TypeMismatch`; a literal operation is total per value, but a regex
 ///   operation compiles its pattern once per evaluation and may raise
 ///   `InvalidOperation` for an invalid pattern — the one non-total path.
 /// - **Aggregations** (`sum/mean/min/max/count/std/var/median/n_unique/
 ///   first/last`): reduce the operand over
-///   the scope to a length-1 column through the shared `series/reduce.mbt` kernel —
+///   the scope to a length-1 column through the shared reduce kernel —
 ///   `sum` / `mean` / `std` / `var` propagate NaN and reject non-numeric
 ///   dtypes, `min` / `max` / `median` skip NaN (`median` numeric-only),
 ///   `count` counts non-null cells, `n_unique` the distinct non-null values,
@@ -127,7 +127,7 @@
 /// or, once a node's operands sit on the value stack, apply its operator
 /// (`Apply*`). Lifting `eval_expr`'s post-order walk off the call stack lets an
 /// arbitrarily deep `Expr` evaluate without overflowing — the never-abort
-/// contract the introspection walks in `expr/explain.mbt` also keep. `ApplyMap`
+/// contract the explain introspection's tree walks also keep. `ApplyMap`
 /// carries the opaque closure and its input count so the combiner can pop that
 /// many already-evaluated operands.
 priv enum EvalStep {
@@ -161,7 +161,7 @@ priv enum FillKind {
 /// scope index is in `[0, nrows)` (the public consumers build it from
 /// `nrows` themselves). Errors — unknown column, dtype mismatch, the
 /// unrepresentable `Null` literal — surface here; building the tree was
-/// total. The dispatch is a closed `match` over the `@ir.ExprNode` variants
+/// total. The dispatch is a closed `match` over the `ExprNode` variants
 /// (each kernel a closed dtype `match` in turn) with no wildcard, so a future
 /// node fails compilation here rather than silently falling
 /// through. The walk is iterative — an explicit work + value stack, not the
@@ -468,7 +468,7 @@ fn pop_inputs(stack : Array[Series], arity : Int) -> Array[Series] {
 /// The output column name for an expression (Polars' naming rule): an
 /// alias wins, otherwise the leftmost column reference's name, otherwise
 /// `"literal"` for a column-less tree. Delegates to `Expr::output_name` —
-/// the rule lives in `expr`, beside `referenced_columns`, so the eager
+/// the rule is defined once on the expression itself, so the eager
 /// materialisers here and the lazy optimizer's column pruning (which must
 /// know the names a deferred `with_columns` defines) can never drift
 /// apart.

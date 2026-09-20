@@ -1,5 +1,5 @@
-// Statistics on a `Series`. Split from `series.mbt` so the structural
-// surface stays narrow; everything here is a pure reduction over the
+// Statistics on a `Series` — a narrow, purely structural face:
+// everything here is a pure reduction over the
 // underlying column.
 
 ///|
@@ -20,7 +20,8 @@ pub fn Series::count(self : Series) -> Int {
 /// - Empty / all-null numeric series → `Scalar::Int(0)` or
 ///   `Scalar::Float(0.0)` (additive identity). An all-`NaN` `Float` series
 ///   sums to `NaN`, not the identity — every cell is a present value.
-/// - Non-numeric series (`Bool`, `String`) → `raise TypeMismatch`.
+/// - Non-numeric series (`Bool`, `String`, and an I64-riding dtype like
+///   `Date`) → `raise TypeMismatch`.
 pub fn Series::sum(self : Series) -> @types.Scalar raise @types.DataError {
   // Numeric fast path: a bitmap-free tight fold over the raw array — no
   // `validity().to_bools()` materialisation and no per-slot `if valid[i]`
@@ -149,7 +150,7 @@ pub fn Series::max(self : Series) -> @types.Scalar {
 /// `-0.0` rendering split them, diverging from `group_by`.
 pub fn Series::n_unique(self : Series) -> Int {
   // Folds through the same `count_distinct` core the `n_unique` reduction uses
-  // (reduce.mbt), keying cells by `key_cell` — the `KeyCell` encoding
+  // keying cells by `key_cell` — the `KeyCell` encoding
   // `group_by` / `join` hash on — so the distinct count agrees with grouping
   // rather than diverging on `Double::to_string`'s `-0.0` rendering. Reading the
   // typed column directly also avoids materialising an `Array[Scalar]`.
@@ -157,11 +158,11 @@ pub fn Series::n_unique(self : Series) -> Int {
 }
 
 // The remaining five reductions (`std` / `variance` / `median` / `first` /
-// `last`) fold straight through the shared `reduce.mbt` kernel — the same one
+// `last`) fold straight through the shared reduction kernel — the same one
 // the grouped `agg` and scoped `eval_agg` reduce through — so a whole-series
 // reduction agrees with the per-group and per-scope forms cell for cell, and
 // only one piece of code decides what a null or a `NaN` does to them. The four
-// above are the exception `reduce.mbt` names: each dispatches a `Numeric` column
+// above are the exception the canonical rules name: each dispatches a `Numeric` column
 // to a second implementation of those rules, and the parity suite rather than
 // the type system is what keeps the two in agreement. These take no such fast
 // path — the kernel already skips validity materialisation for an all-valid

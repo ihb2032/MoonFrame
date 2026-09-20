@@ -36,7 +36,7 @@
 /// a list value; MoonFrame has no list dtype, so implicit list-aggregation
 /// stays out of scope.)
 ///
-/// Evaluation reuses the `expr_eval.mbt` engine with `scope =` each
+/// Evaluation reuses the shared expression engine with `scope =` each
 /// group's row indices, inheriting the documented dtype / null / NaN
 /// rules verbatim: `sum` / `mean` propagate NaN and reject non-numeric
 /// dtypes, `min` / `max` skip NaN and are total over every dtype, an
@@ -69,7 +69,7 @@
 ///
 /// Raises:
 /// - `InvalidOperation(...)` — an expression is not reduction-shaped, or
-///   the handle's `groups` no longer satisfy the `group_by` invariants (an
+///   the handle's row groups no longer satisfy the `group_by` invariants (an
 ///   empty group, or a row index outside the source). The fields are
 ///   `priv`, so no external caller can reach the arrays; only in-package
 ///   code could plant such a handle, and it is re-checked here rather than
@@ -81,7 +81,7 @@
 ///   dtype witness.
 /// - `DuplicateColumn(name)` — two output column names collide.
 /// - `LengthMismatch` — a group's reduction produced something other than one
-///   cell, which is the `expr_eval.mbt` length contract narrowed to a group. The
+///   cell, which is the shared length contract narrowed to a group. The
 ///   built-in aggregations, the literals, and the combinators over them cannot;
 ///   a `map_batches(returns_scalar=true)` closure declared to reduce can, by
 ///   returning a series of another length. Reported on the first group that
@@ -95,7 +95,7 @@ pub fn GroupedDataFrame::agg(
   // in-package code (a future refactor, or the whitebox corruption test)
   // could still empty a group or plant a stray row index after construction.
   // The folds below index the source unguarded on the strength of these
-  // invariants (`g[0]`, the bare-column reducer's `read(i)`), so a corrupted
+  // invariants (`g[0]`, the bare-column reducer's per-row read), so a corrupted
   // handle must raise here — one O(total indices) pass, the same order as
   // `agg` itself — instead of aborting downstream (the never-abort gate).
   let nrows = self.source.nrows()

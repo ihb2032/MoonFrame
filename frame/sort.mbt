@@ -11,7 +11,7 @@
 /// compare equal under all earlier keys.
 ///
 /// Each key is an arbitrary expression, evaluated over the whole frame
-/// under the rules in `expr_eval.mbt`: a bare `col("q")` sorts by an
+/// under the evaluator's shared rules: a bare `col("q")` sorts by an
 /// existing column, a derived key like `col("a") + col("b")` sorts by the
 /// computed value without materialising it into the output. A key that
 /// reduces to a single cell (a literal, or an aggregation such as

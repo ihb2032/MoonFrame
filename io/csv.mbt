@@ -3,7 +3,7 @@
 // header / no-header switching, per-column type inference
 // (Int → Float → Bool → String), a configurable null-string mapping, ragged-row
 // and quote strictness, and the projection / predicate seams the lazy scan
-// pushes into. The write path is a file of its own (`io/csv_write.mbt`); what
+// pushes into. Reading and writing are separate paths; what
 // the two must agree on — which delimiters are legal — is decided here, by the
 // validator both call.
 
@@ -41,7 +41,7 @@
 ///   inference window fails to parse under its column's locked-in dtype.
 ///   `Raise` (default) fails with `ParseError(Cell(...))`; `Null`
 ///   downgrades the offending cell to a null cell and keeps the column's
-///   inferred dtype (Polars' `ignore_errors=True`). See `OnParseError`.
+///   inferred dtype (Polars' `ignore_errors=True`).
 /// - `allow_nonfinite_floats` — when `true` (default), the float probe
 ///   accepts every non-finite result: the `nan` / `inf` / `infinity` literals,
 ///   and a finite literal that overflows `Double` to a signed `Infinity`
@@ -159,7 +159,7 @@ pub fn parse_csv_str(
 
 ///|
 /// Shared core behind `parse_csv_str` and the CSV scan driver's read: the full
-/// parse pipeline documented on `parse_csv_str`, with one extra knob —
+/// parse pipeline `parse_csv_str` runs, with one extra knob —
 /// `projection`.
 ///
 /// - `None` — build every column (the eager `read_csv` / `parse_csv_str`
@@ -273,7 +273,7 @@ fn parse_csv_str_projected(
   // language; a named column the file lacks simply isn't built, so a pruner's
   // callback raises `ColumnNotFound` exactly as the eager filter would. `keep`
   // doubles as the survivor→original-row map, so a parse error in a kept row
-  // reports its true file row (see `build_column`'s `file_row`). Inference runs
+  // reports its true file row. Inference runs
   // over the whole file either way, so a pruned read locks in the same dtypes.
   let build_over = fn(
     name : String,
@@ -357,7 +357,7 @@ fn validate_csv_shape(
 /// `read_csv(path)` is the default-options read. `IOError` from the file
 /// system surfaces as `raise IoError(message)`.
 /// `CsvReadOptions::CsvReadOptions(strict_quotes=true)` rejects malformed quoting before
-/// NyaCSV tokenisation, as documented by `parse_csv_str`.
+/// NyaCSV tokenisation, exactly as `parse_csv_str` does.
 pub fn read_csv(
   path : String,
   options? : CsvReadOptions = CsvReadOptions::CsvReadOptions(),

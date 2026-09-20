@@ -1,6 +1,6 @@
 // The dtype-conversion policy over `BuiltinColumn`'s buffers: `cast` and the
-// `to_int` / `to_float` / `to_string_column` implementations behind it — split
-// from `builtin.mbt` so the Arrow layout and the conversion rules read apart.
+// `to_int` / `to_float` / `to_string_column` implementations behind it, kept
+// apart from the buffer-layout file so the two read separately.
 // Parsing strictness is a shared fact, not a local choice: text cells route
 // through the same `@text` probes the CSV reader's inference uses, so an
 // explicit cast and inference agree on what a cell means.

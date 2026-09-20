@@ -4,8 +4,7 @@
 /// the CSV / NDJSON file sources (by writing their projection field) — to the
 /// columns its consumers provably read. `push_projection` walks the plan
 /// iteratively over `ProjStep`; the small requirement helpers (`columns_read`,
-/// `widened`, `narrow_scan`, `sorted_names`, `add_all`) sit beside it. The pass
-/// ordering rationale is on `optimize` in `optimize.mbt`.
+/// `widened`, `narrow_scan`, `sorted_names`, `add_all`) sit beside it.
 
 ///|
 /// One step of the iterative projection pass: `Visit` descends into a node
@@ -263,7 +262,7 @@ fn narrow_scan_source(
 }
 
 ///|
-/// Narrow a file source (`Scan(Csv)` / `Scan(Ndjson)`) to the required columns,
+/// Narrow a file source (`Scan(File(..))`) to the required columns,
 /// shared by both because they differ only in the node constructor `rebuild`
 /// wraps. The file's columns aren't known until it is parsed, so there is
 /// nothing to intersect here: the requirement is written verbatim into the

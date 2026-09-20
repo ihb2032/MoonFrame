@@ -9,8 +9,8 @@
 /// the lazy optimizer's pruning both lean on them.
 
 ///|
-/// `api.md` and `changelog.md` both offer this exact expression as the way to
-/// compare two trees now that `Expr` has no `==`, and both quoted the wrong
+/// The documented guidance offers this exact expression as the way to
+/// compare two trees now that `Expr` has no `==`, and it quoted the wrong
 /// string for a while. Pinning it here is what makes the documented form
 /// falsifiable: a rendering change fails the build instead of the docs.
 test "show: the form the docs offer in place of expression equality" {
@@ -219,7 +219,7 @@ test "show: a map_batches renders like a map, flagging returns_scalar" {
 
 ///|
 test "debug: an expression's repr is its quoted operator form" {
-  // `@debug.Debug` (what `assert_eq` uses for failure messages) is
+  // `Debug` (what `assert_eq` uses for failure messages) is
   // handwritten — the `Map` closure blocks `derive` — and delegates to the
   // `Show` rendering. This pins it and, more to the point, covers the
   // handwritten `to_repr`, which `assert_eq` reaches only on failure.

@@ -4,7 +4,7 @@
 // coalesce, backend
 // convergence (`preserve_backend` / `try_column_to_numeric`), the shared
 // reduction dispatch (`reducer_for` / `scalars_to_series` / `ReduceOp`), and
-// the composite-key cell encoding (`key_cell` / `KeyCell`) — live in `series`
+// the composite-key cell encoding (`key_cell` / `KeyCell`) — belong to `series`
 // because each one reads a column's private representation or builds a column
 // through it, and `Series` owns that representation.
 // Method coherence pins the *methods* there; these are free functions, and
@@ -14,7 +14,7 @@
 // binds them unqualified here so the
 // DataFrame transforms, the expression evaluator, `group_by` and `join` read
 // them by bare name exactly as when they were frame-local. (`sort` calls the
-// sort kernel `@series.`-qualified instead — the binding list is what a file
+// sort kernel package-qualified instead — the binding list is what a file
 // needs, not a rule about which files may use it.)
 //
 // Each of them hands back a `Series`, a freshly built array, or a scalar —

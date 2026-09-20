@@ -3,11 +3,11 @@
 // and a missing-placement rule. `Series::sort` and `frame`'s multi-key
 // `DataFrame::sort` both build on this, so one column's ordering means the
 // same thing either way; both then hand the comparator to the stable index
-// sort in `internal/order`, which knows nothing about columns.
+// sort, which knows nothing about columns.
 //
-// The file also hosts the row-order verbs (`sort` / `head` / `tail` /
-// `reverse`): four spellings over one row-selection machine, built on
-// `row_gather.mbt`'s `gather_series` and `slice_series`.
+// The row-order verbs (`sort` / `head` / `tail` /
+// `reverse`) are four spellings over one row-selection machine, built on
+// the `gather_series` and `slice_series` row-rebuild primitives.
 
 ///|
 /// Resolve a column into a typed `SortKey`, matching on the concrete backing
@@ -40,7 +40,7 @@ pub fn build_sort_key(
         null_order,
       )
     @column.ColumnData::F64(a) =>
-      // NaN behaves like Null for ordering (see `sort`).
+      // NaN behaves like Null for ordering.
       SortKey::Float(
         a,
         Array::makei(a.length(), i => !valid[i] || a[i].is_nan()),
@@ -180,8 +180,8 @@ fn compare_with_missing(
 }
 
 ///|
-/// `-1` when missing sorts before non-missing (`@types.NullsFirst`), `1` when
-/// missing sorts after non-missing (`@types.NullsLast`). The sign is applied
+/// `-1` when missing sorts before non-missing (`NullsFirst`), `1` when
+/// missing sorts after non-missing (`NullsLast`). The sign is applied
 /// from the left-hand side's perspective in `compare_with_missing`.
 fn missing_offset(null_order : @types.NullOrder) -> Int {
   match null_order {

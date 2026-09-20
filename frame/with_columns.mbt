@@ -4,8 +4,8 @@
 /// than pre-materialised (a `lit_series(s)` carries a ready-made `Series`).
 /// Every `Expr` the evaluator supports is accepted here — aggregations
 /// included, evaluating to length-1 and broadcasting back over the frame —
-/// under the dtype / null / NaN rules documented in `expr_eval.mbt`, which is
-/// the one place the node set is enumerated.
+/// under the evaluator's shared dtype / null / NaN rules, which are also
+/// where the node set is enumerated.
 ///
 /// Naming and placement:
 /// - each result takes its expression's output name — an alias if the tree
@@ -19,7 +19,7 @@
 /// - two expressions producing the same output name raise
 ///   `DuplicateColumn` at the second — nothing silently wins.
 ///
-/// Every result rides the length contract in `expr_eval.mbt`: a frame-tall one
+/// Every result rides the shared length contract: a frame-tall one
 /// becomes the column, a length-1 one (a literal) broadcasts to `nrows` — to
 /// zero rows on an empty frame — and any other length raises `LengthMismatch`,
 /// which only a `lit_series` or a `map_batches` closure can produce. Errors

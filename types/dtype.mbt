@@ -7,12 +7,12 @@
 /// may also carry it, but nothing materialises a column on it —
 /// `DataFrame::empty` raises `Unsupported` for such a field, `cast` refuses it
 /// as a target, and **no reader infers it**: an all-null probe window falls back
-/// to `String` (see [`docs/type-inference.md`](../docs/type-inference.md)).
+/// to `String`.
 /// Concrete columns always carry one of the other variants.
 ///
 /// A logical dtype is more than its variant: its display name, the physical
 /// buffer its columns ride, and its numericity are registered in
-/// `dtype_registry.mbt`, whose per-dtype rows are the compile-forced
+/// the dtype registry, whose per-dtype rows are the compile-forced
 /// registration point for a dtype added here.
 pub(all) enum DataType {
   Int

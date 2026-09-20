@@ -44,11 +44,11 @@
 ///
 /// Both attributes, therefore. `#doc(hidden)` keeps it out of the generated
 /// interface and this reference; `#internal(engine, …)` is what actually stops
-/// a downstream caller depending on it, since hiding a symbol from the `.mbti`
-/// does not stop anyone calling it. The alert is silent for every package
+/// a downstream caller depending on it, since hiding a symbol from the
+/// generated interface does not stop anyone calling it. The alert is silent for every package
 /// under this module's `ihb2032/MoonFrame/` prefix — including the blackbox
 /// test packages named above — and the one in-module caller it does not exempt
-/// is the root package, whose name *is* the module name; the root `moon.pkg`
+/// is the root package, whose name *is* the module name; the root manifest
 /// allows the alert there for that reason.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")

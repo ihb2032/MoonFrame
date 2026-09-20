@@ -1,14 +1,12 @@
 ///|
-/// The traversal helpers every plan walker shares, split from
-/// `logical_plan.mbt` so the IR's recursive shape and its DAG handling read
-/// apart from the data definition: `plan_children` enumerates the tree
+/// The traversal helpers every plan walker shares, kept apart from the IR
+/// definition itself: `plan_children` enumerates the tree
 /// shape, `post_order` / `post_order_unique` linearise it for the
 /// value-stack folds, the identity-dedup family (`seen_plan`,
 /// `contains_join`, `has_shared_subplan`) guards the DAG-shaped plans only a
 /// `join` can build, and `memo_result` / `pop_top` read a fold's value
-/// stack. Consumers: the executor (`plan_execute.mbt`), the two optimizer
-/// passes (`optimize_predicates.mbt` / `optimize_projection.mbt`), and the
-/// renderer (`plan_render.mbt`).
+/// stack. Their consumers are the executor, the two optimizer passes, and
+/// the renderer.
 
 ///|
 /// The child plans of a node, left-to-right — the `LogicalPlan` analogue of
@@ -66,7 +64,7 @@ fn[T] pop_top(stack : Array[T]) -> T {
 /// reference, so `lf.join(lf, …)` builds a DAG whose `Join` holds the same
 /// node object twice; identity is what tells a genuinely shared subplan from
 /// two equal-but-separate builds. Linear scan: reached only for a join-bearing
-/// plan (a join-free chain skips the dedup walks entirely, see `contains_join`),
+/// plan (a join-free chain skips the dedup walks entirely),
 /// whose distinct-node count is small, so the callers' cost stays quadratic in
 /// that small count at worst.
 fn seen_plan(seen : Array[LogicalPlan], node : LogicalPlan) -> Bool {
@@ -80,7 +78,7 @@ fn seen_plan(seen : Array[LogicalPlan], node : LogicalPlan) -> Bool {
 
 ///|
 /// Whether the plan contains a `Join`. `Join` is the one binary node (every
-/// other node is unary — see `plan_children`), and `LazyFrame::join`, capturing
+/// other node is unary), and `LazyFrame::join`, capturing
 /// the other frame's plan by reference, is the only builder that can make a
 /// subplan reachable twice. So a join-free plan is a *linear chain* with nothing
 /// shared: the identity dedup the DAG walks perform is pure overhead on it, and

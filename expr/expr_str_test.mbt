@@ -6,7 +6,7 @@
 /// because one arm renders them all), and the
 /// introspection primitives — `children`, `output_name`, and
 /// `referenced_columns` — treating the wrapper transparently. The per-cell
-/// evaluation semantics live in `frame`'s `frame/str_ops_test.mbt`.
+/// evaluation semantics live in the frame layer's string tests.
 
 ///|
 test "str: every namespace method renders as a postfix call" {
@@ -82,7 +82,7 @@ test "str: every namespace method renders as a postfix call" {
 test "str: a parameter is quoted and escaped like a string literal" {
   // Each argument escapes `"` / `\` / control characters so a plan line stays
   // unambiguous and on one line — the same rule a rendered `lit_str` follows
-  // (`@literal.format_scalar`).
+  // (`format_scalar`).
   inspect(
     col("s").str_contains("a\"b"),
     content="col(s).str_contains(\"a\\\"b\")",

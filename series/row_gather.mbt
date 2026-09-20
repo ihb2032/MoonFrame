@@ -1,13 +1,13 @@
 // The row-rebuild machine: turn a description of a row set — an index
 // vector, optional indices, a contiguous window, a predicate mask, a
 // two-column merge — into a new `Series`. The `pub` entries are
-// `#doc(hidden)` + `#internal(engine)` engine seams, pinned signature and
-// consumers in `engine_seams.snapshot`; none is on the supported surface.
+// `#doc(hidden)` + `#internal(engine)` engine seams, with pinned signatures and
+// consumers; none is on the supported surface.
 // They serve the engine layers above, not the `Series` API. Consumers:
 //
 //   - `gather_series`     ← the row gathers of `frame` (reverse / unique /
 //     window, the aggregation row collection, the expression engine) and
-//     `internal/kernel`'s broadcast kernels
+//     the kernel layer's broadcast kernels
 //   - `gather_series_opt` +
 //     `coalesce_columns`  ← `join`'s output assembly
 //   - `mask_true_indices` ← `filter` and the predicate-absorbing file scans

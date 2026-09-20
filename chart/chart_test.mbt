@@ -11,7 +11,7 @@
 // well-formed JSON.
 //
 // `id_double` (defeats constant folding for the non-finite-float test)
-// is a blackbox-test helper; this package's copy lives below, since
+// is a blackbox-test helper; this package defines its own copy, since
 // helpers do not cross package boundaries even between test suites.
 
 ///|

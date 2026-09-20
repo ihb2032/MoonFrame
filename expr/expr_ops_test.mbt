@@ -1,11 +1,12 @@
 ///|
-/// Blackbox construction-route tests for the `expr_ops.mbt` surface: every
+/// Blackbox construction-route tests for the operator-and-constructor
+/// surface: every
 /// route that is *supposed* to build the same node (operator vs method alias,
 /// builder chain vs one-shot chain) is pinned by rendering to the same form,
 /// which is all an opaque handle exposes, and the chain ergonomics the design
 /// leans on (postfix methods binding tighter than `&` / `|`) are pinned by
 /// parenthesisation equivalence. Tree-shape semantics live in
-/// `expr_test.mbt`, rendering in `explain_test.mbt`.
+/// the shape-semantics tests, rendering in the rendering tests.
 
 ///|
 test "col and lit: the free constructors build stable nodes" {

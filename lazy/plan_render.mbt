@@ -1,7 +1,7 @@
 // Rendering behind `LazyFrame::explain`: the tree printer (`render` /
-// `write_plan_label`) and its per-shape label helpers, split from
-// `logical_plan.mbt` so plan display and plan traversal / execution read
-// apart. Everything here is total: rendering walks plain data, including
+// `write_plan_label`) and its per-shape label helpers, kept apart from the
+// IR definition and the executor so each reads alone. Everything here is
+// total: rendering walks plain data, including
 // plans that would fail to `collect`.
 
 ///|

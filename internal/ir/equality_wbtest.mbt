@@ -1,15 +1,15 @@
 // The structural equality over `ExprNode`, defined where the only code that
 // needs it lives. No production code in this module compares two nodes: the
 // engine matches on them, walks them, and renders them. What did need this
-// relation was a public `Eq` on `@expr.Expr`, and removing that was the point
+// relation was a public `Eq` on `Expr`, and removing that was the point
 // — an equality over the tree *as built* would have made how an operator
 // lowers part of the API.
 //
 // So it sits in a whitebox file: compiled inside the package, available to
-// every `_wbtest.mbt` here, and absent from the generated interface that the
+// every white-box file here, and absent from the generated interface that the
 // internal-surface audit reads. The same goes for the operator tags, whose
-// equality this one consumes (`ReduceOp`'s lives in `series` for the same
-// reason).
+// equality this one consumes (each tag type's equality likewise sits with the
+// type that owns it, for the same reason).
 //
 // The operator tags keep their `derive(Eq)` in production, and that is a
 // deliberate line rather than an oversight: this comparison consumes it one
@@ -27,7 +27,7 @@
 /// `(label, inputs)` with the function opaque; `MapBatches` also compares its
 /// `returns_scalar` flag. Every other variant compares recursively.
 ///
-/// Nothing outside this package reaches it: the `@expr.Expr` handle used to
+/// Nothing outside this package reaches it: the `Expr` handle used to
 /// forward an `Eq` here, and that is exactly what was removed — an equality
 /// over the tree *as built* leaks how an operator lowers, so a caller could
 /// depend on a lowering being one shape rather than another. What is left is

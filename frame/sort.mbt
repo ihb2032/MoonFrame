@@ -1,4 +1,9 @@
-// ── Operations ────────────────────────────────────────────────────────
+// The sort verb: arranging rows under ordered expression keys. Each key is
+// evaluated over the whole frame and resolved to a typed buffer once
+// (`build_sort_key`), a stable mergesort turns the key comparisons into a
+// row permutation, and `gather` — the row-movement verb — applies it. The
+// comparator across the resolved keys is `compare_rows`; an empty key set
+// is the identity.
 
 ///|
 /// Sort `self` by one or more `Expr` keys, applied in order — MoonFrame's

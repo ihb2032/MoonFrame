@@ -4,10 +4,6 @@
 // `DataFrame::sort` both build on this, so one column's ordering means the
 // same thing either way; both then hand the comparator to the stable index
 // sort, which knows nothing about columns.
-//
-// The row-order verbs (`sort` / `head` / `tail` /
-// `reverse`) are four spellings over one row-selection machine, built on
-// the `gather_series` and `slice_series` row-rebuild primitives.
 
 ///|
 /// Resolve a column into a typed `SortKey`, matching on the concrete backing
@@ -210,35 +206,4 @@ pub fn Series::sort(
     compare_one_key(key, i, j)
   })
   gather_series(self, perm)
-}
-
-///|
-/// The first `n` cells, or every cell when `n` exceeds the length — the
-/// `Series` twin of `DataFrame::head`. A negative `n` clamps to an empty
-/// series. Total.
-pub fn Series::head(self : Series, n : Int) -> Series {
-  slice_series(self, 0, @order.clamp_take(n, self.len()))
-}
-
-///|
-/// The last `n` cells, or every cell when `n` exceeds the length — the
-/// `Series` twin of `DataFrame::tail`. A negative `n` clamps to an empty
-/// series. Total.
-pub fn Series::tail(self : Series, n : Int) -> Series {
-  let len = self.len()
-  let take = @order.clamp_take(n, len)
-  // `slice_series`' third argument is the window *length*, not the end index —
-  // pass `take` (as `DataFrame::tail` does), so `start + take == len` stays in
-  // bounds. Passing `len` here relied on the slice clamping an over-large end
-  // back down, and `start + len` overflows `Int` for a column past ~2^30 rows,
-  // wrapping negative and yielding an empty result.
-  slice_series(self, len - take, take)
-}
-
-///|
-/// The cells in reverse order, name unchanged — Polars' `Series.reverse`.
-/// Total.
-pub fn Series::reverse(self : Series) -> Series {
-  let len = self.len()
-  gather_series(self, Array::makei(len, i => len - 1 - i))
 }

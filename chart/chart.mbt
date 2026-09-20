@@ -81,10 +81,12 @@ fn vega_type_string(t : VegaType) -> String {
 ///
 /// `x` / `y` / `color` are column names resolved against the frame at
 /// `format_vega_lite` time (a missing name raises `ColumnNotFound`); each
-/// column's dtype decides its Vega-Lite field `type` (numeric →
-/// `quantitative`, otherwise → `nominal`), unless `color_type` overrides the
-/// `color` channel — e.g. a numeric grouping column (a cluster id) rendered as
-/// `Nominal` distinct colors rather than a continuous gradient.
+/// column's dtype decides its Vega-Lite field `type` — the rule
+/// `format_vega_lite`'s doc states (numeric → `quantitative`, `Date` →
+/// `temporal`, otherwise → `nominal`) — unless `color_type` overrides the
+/// `color` channel: e.g. a numeric grouping column (a cluster id) rendered as
+/// `Nominal` distinct colors rather than a continuous gradient (only
+/// `color` honours an override; `x` / `y` keep dtype inference).
 pub struct ChartSpec {
   kind : ChartKind
   x : String
@@ -103,14 +105,9 @@ pub extend ChartSpec with Debug::{to_repr}
 ///|
 /// A bar chart of `y` against `x` (Vega-Lite `mark: "bar"`).
 ///
-/// `color` maps a column to the Vega-Lite `color` encoding (grouping /
-/// colouring the marks by it); `color_type` overrides that channel's field
-/// `type` instead of inferring it from the column dtype — use `Nominal` (or
-/// `Ordinal`) to render a *numeric* grouping column, a cluster id or a year,
-/// as distinct per-group colors rather than the continuous gradient
-/// `quantitative` would produce (only `color` honours this; `x` / `y` keep
-/// dtype inference). `title` carries the chart title. Omitting any of them
-/// leaves it out of the rendered spec.
+/// The optional `color` / `color_type` / `title` parameters carry the
+/// `ChartSpec` doc's colour-encoding and title contract (only `color`
+/// honours a `color_type` override; `x` / `y` keep dtype inference).
 pub fn ChartSpec::bar(
   x : String,
   y : String,
@@ -124,14 +121,9 @@ pub fn ChartSpec::bar(
 ///|
 /// A line chart of `y` against `x` (Vega-Lite `mark: "line"`).
 ///
-/// `color` maps a column to the Vega-Lite `color` encoding (grouping /
-/// colouring the marks by it); `color_type` overrides that channel's field
-/// `type` instead of inferring it from the column dtype — use `Nominal` (or
-/// `Ordinal`) to render a *numeric* grouping column, a cluster id or a year,
-/// as distinct per-group colors rather than the continuous gradient
-/// `quantitative` would produce (only `color` honours this; `x` / `y` keep
-/// dtype inference). `title` carries the chart title. Omitting any of them
-/// leaves it out of the rendered spec.
+/// The optional `color` / `color_type` / `title` parameters carry the
+/// `ChartSpec` doc's colour-encoding and title contract (only `color`
+/// honours a `color_type` override; `x` / `y` keep dtype inference).
 pub fn ChartSpec::line(
   x : String,
   y : String,
@@ -145,14 +137,9 @@ pub fn ChartSpec::line(
 ///|
 /// A scatter (point) chart of `y` against `x` (Vega-Lite `mark: "point"`).
 ///
-/// `color` maps a column to the Vega-Lite `color` encoding (grouping /
-/// colouring the marks by it); `color_type` overrides that channel's field
-/// `type` instead of inferring it from the column dtype — use `Nominal` (or
-/// `Ordinal`) to render a *numeric* grouping column, a cluster id or a year,
-/// as distinct per-group colors rather than the continuous gradient
-/// `quantitative` would produce (only `color` honours this; `x` / `y` keep
-/// dtype inference). `title` carries the chart title. Omitting any of them
-/// leaves it out of the rendered spec.
+/// The optional `color` / `color_type` / `title` parameters carry the
+/// `ChartSpec` doc's colour-encoding and title contract (only `color`
+/// honours a `color_type` override; `x` / `y` keep dtype inference).
 pub fn ChartSpec::point(
   x : String,
   y : String,
@@ -164,16 +151,11 @@ pub fn ChartSpec::point(
 }
 
 ///|
-/// A area chart of `y` against `x` (Vega-Lite `mark: "area"`).
+/// An area chart of `y` against `x` (Vega-Lite `mark: "area"`).
 ///
-/// `color` maps a column to the Vega-Lite `color` encoding (grouping /
-/// colouring the marks by it); `color_type` overrides that channel's field
-/// `type` instead of inferring it from the column dtype — use `Nominal` (or
-/// `Ordinal`) to render a *numeric* grouping column, a cluster id or a year,
-/// as distinct per-group colors rather than the continuous gradient
-/// `quantitative` would produce (only `color` honours this; `x` / `y` keep
-/// dtype inference). `title` carries the chart title. Omitting any of them
-/// leaves it out of the rendered spec.
+/// The optional `color` / `color_type` / `title` parameters carry the
+/// `ChartSpec` doc's colour-encoding and title contract (only `color`
+/// honours a `color_type` override; `x` / `y` keep dtype inference).
 pub fn ChartSpec::area(
   x : String,
   y : String,
@@ -188,12 +170,17 @@ pub fn ChartSpec::area(
 /// Render `df` and `spec` as a complete Vega-Lite v5 specification JSON
 /// string: `$schema` (pinned to the Vega-Lite v5 schema URL) + optional
 /// `title` + `mark` (from `spec.kind`) + `encoding` (`x` / `y` and, when
-/// set, `color`, each `{field, type}` with the `type` inferred from the
-/// column dtype: numeric → `"quantitative"`, otherwise → `"nominal"`) +
-/// `data.values` (the frame inlined as JSON records, sharing
-/// `format_json`'s cell mapping — null and non-finite-float cells
-/// become JSON `null`). A frame with the encoded columns but zero rows
-/// yields `"data":{"values":[]}`.
+/// set, `color`, each `{field, type}`) + `data.values` (the frame inlined
+/// as JSON records, sharing `format_json`'s cell mapping — null and
+/// non-finite-float cells become JSON `null`). A frame with the encoded
+/// columns but zero rows yields `"data":{"values":[]}`.
+///
+/// Each encoding channel's field `type` follows its column's dtype — the
+/// single statement of the dtype→type rule: a numeric column (`Int` /
+/// `Float`) is `"quantitative"`, a `Date` column is `"temporal"` (its ISO
+/// cells — `data.values`' date units, via the JSON records' ISO mapping —
+/// sort chronologically), and every other dtype is `"nominal"` — unless
+/// the channel carries an explicit `color_type` override.
 ///
 /// The spec's `x` / `y` / `color` columns are resolved left-to-right; the
 /// first name absent from `df` raises `ColumnNotFound(name)` — this is the

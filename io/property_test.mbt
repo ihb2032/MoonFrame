@@ -16,36 +16,14 @@ fn gen_i64_array(max_len : Int) -> @gen.Gen[Array[Int64]] {
 }
 
 ///|
-fn prop_csv_roundtrip(xs : Array[Int64]) -> Bool {
+/// The text-fixpoint property for one wire format: parsing the emitted text
+/// and re-emitting it reproduces the text exactly. Driven by the
+/// `wire_formats` table, so a fourth format joins by adding its row there.
+fn prop_roundtrip(fmt : WireFormat, xs : Array[Int64]) -> Bool {
   try {
     let df = @frame.DataFrame::DataFrame([@series.Series::from_ints("x", xs)])
-    let text = @io.format_csv(df)
-    let back = @io.parse_csv_str(text)
-    @io.format_csv(back) == text
-  } catch {
-    _ => false
-  }
-}
-
-///|
-fn prop_json_roundtrip(xs : Array[Int64]) -> Bool {
-  try {
-    let df = @frame.DataFrame::DataFrame([@series.Series::from_ints("x", xs)])
-    let text = @io.format_json(df)
-    let back = @io.parse_json_str(text)
-    @io.format_json(back) == text
-  } catch {
-    _ => false
-  }
-}
-
-///|
-fn prop_ndjson_roundtrip(xs : Array[Int64]) -> Bool {
-  try {
-    let df = @frame.DataFrame::DataFrame([@series.Series::from_ints("x", xs)])
-    let text = @io.format_ndjson(df)
-    let back = @io.parse_ndjson_str(text)
-    @io.format_ndjson(back) == text
+    let text = (fmt.emit)(df)
+    (fmt.emit)((fmt.parse)(text)) == text
   } catch {
     _ => false
   }
@@ -53,15 +31,21 @@ fn prop_ndjson_roundtrip(xs : Array[Int64]) -> Bool {
 
 ///|
 test "property: CSV round-trips a single Int column" {
-  @qc.quick_check(@qc.forall(gen_i64_array(30), prop_csv_roundtrip))
+  @qc.quick_check(
+    @qc.forall(gen_i64_array(30), xs => prop_roundtrip(wire_formats[0], xs)),
+  )
 }
 
 ///|
 test "property: JSON round-trips a single Int column" {
-  @qc.quick_check(@qc.forall(gen_i64_array(30), prop_json_roundtrip))
+  @qc.quick_check(
+    @qc.forall(gen_i64_array(30), xs => prop_roundtrip(wire_formats[1], xs)),
+  )
 }
 
 ///|
 test "property: NDJSON round-trips a single Int column" {
-  @qc.quick_check(@qc.forall(gen_i64_array(30), prop_ndjson_roundtrip))
+  @qc.quick_check(
+    @qc.forall(gen_i64_array(30), xs => prop_roundtrip(wire_formats[2], xs)),
+  )
 }

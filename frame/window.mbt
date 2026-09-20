@@ -91,22 +91,3 @@ pub fn DataFrame::gather(
   let new_cols = self.columns.map(c => gather_series(c, indices))
   self.with_same_schema(new_cols, indices.length())
 }
-
-///|
-/// Whether `indices` is the identity permutation `[0, 1, ..., nrows - 1]` —
-/// the case where a gather reproduces the frame unchanged. Lets `gather`
-/// short-circuit a no-op copy (an already-ordered `sort`, a `filter`
-/// that keeps every row). Fails fast: a length mismatch or the first
-/// out-of-place index returns `false` before the rest is scanned. The
-/// expression evaluator reuses it to detect a whole-frame scope.
-fn is_identity_perm(indices : Array[Int], nrows : Int) -> Bool {
-  if indices.length() != nrows {
-    return false
-  }
-  for i in 0..<indices.length() {
-    if indices[i] != i {
-      return false
-    }
-  }
-  true
-}

@@ -729,6 +729,6 @@ test "two keys producing the same output name raise DuplicateColumn" {
   )
 }
 
-// The corrupted-`groups` handle case moved to the whitebox suite:
-// `GroupedDataFrame`'s fields are now `priv`, so the
+// The corrupted-`groups` handle case lives in the whitebox suite:
+// `GroupedDataFrame`'s fields are `priv`, so the
 // handle can only be corrupted from inside the package.

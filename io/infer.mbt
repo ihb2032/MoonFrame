@@ -135,7 +135,7 @@ fn[Cell] infer_dtype(
 /// `Some(value)` when `s` is a plain base-10 integer literal that fits in
 /// a 64-bit `Int64`; `None` otherwise.
 ///
-/// `@text.parse_decimal_int_opt` pre-screens for a plain decimal literal
+/// `parse_decimal_int_opt` pre-screens for a plain decimal literal
 /// because `@string.parse_int64` defaults to `base=0`, which would otherwise
 /// accept `0x` / `0o` / `0b` prefixes (`0xFF` → 255) and underscore grouping
 /// (`1_000` → 1000). Those forms are kept as strings by pandas / polars,
@@ -149,7 +149,7 @@ fn parse_int_opt(s : String) -> Int64? {
 
 ///|
 /// `Some(value)` when `s` reads as a `Double` through
-/// `@text.parse_plain_double_opt`; `None` when it does not.
+/// `parse_plain_double_opt`; `None` when it does not.
 ///
 /// Strings containing `_` are rejected up front: `@string.parse_double`
 /// accepts underscore grouping (`1_000` → `1000.0`), but — like the

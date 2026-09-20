@@ -297,8 +297,8 @@ fn narrow_scan(
 /// projection pass writes into a file source's projection. Core `Set`
 /// iteration is
 /// unordered, so without this `explain(optimized=true)` would vary run to
-/// run. Ordering routes through `@text.compare_string_lex` (dictionary
-/// order), like every other user-facing ordering in MoonFrame, rather than
+/// run. Ordering is dictionary order, like every other user-facing ordering
+/// in MoonFrame, rather than
 /// the built-in shortlex `Compare` on `String`; it is presentation only,
 /// since the reader re-derives the read order from the file's own header.
 fn sorted_names(names : @set.Set[String]) -> Array[String] {

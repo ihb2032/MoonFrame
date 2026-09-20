@@ -505,7 +505,7 @@ test "the column / row verbs render in explain, with each fill-value form" {
     ),
   )
   // fill_null renders every scalar value form (through
-  // `@literal.format_scalar`), including a whole-valued Float, which
+  // the shared scalar-display renderer), including a whole-valued Float, which
   // keeps its `.0` so it stays distinct from an Int literal.
   inspect(
     LazyFrame::LazyFrame(df).fill_null(@types.Scalar::Int(0)).explain(),

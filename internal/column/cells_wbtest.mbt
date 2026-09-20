@@ -1,11 +1,10 @@
 // Reading a column's buffers, for tests that assert what is *in* them —
 // placeholders at null slots, a cast preserving validity, a constructor's
 // buffer and mask agreeing in length. The column itself offers `data()`, an
-// untyped enum, because its production consumers (`series` and
-// `internal/kernel`) match every dtype in one pass; the typed readers it used to carry existed
-// for these assertions alone and are gone. Unwrapping the dtype a test already
-// knows is a test's business, so it lives here, inside the package the
-// whitebox suite compiles into.
+// untyped enum, because its production consumers (`series` and the kernel
+// layer) match every dtype in one pass; unwrapping a dtype a test already
+// knows is test work, so the typed readers live here, inside the package
+// the whitebox suite compiles into.
 
 ///|
 /// The `Int` buffer and validity mask of a column the caller knows is `Int`;

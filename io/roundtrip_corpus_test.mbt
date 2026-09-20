@@ -7,9 +7,9 @@
 // floats, and multi-column mixes — without coupling to the frame's internal
 // dtype flags, and it stays stable under the documented lossy narrowings
 // (integral `Float`→`Int` in JSON, all-null→`String`), which happen on the
-// first emit and are therefore already fixed points. Complements the generated
-// single-Int property in `property_test.mbt` and the per-caveat unit tests in
-// `csv_test.mbt` / `json_test.mbt` / `ndjson_test.mbt`.
+// first emit and are therefore already fixed points. Complements the
+// generated single-Int property test and the per-caveat unit tests in the
+// per-format suites.
 
 ///|
 /// Build a one-code-unit string holding an isolated UTF-16 surrogate half

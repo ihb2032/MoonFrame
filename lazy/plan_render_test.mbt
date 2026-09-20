@@ -3,9 +3,9 @@
 /// every node form, root-at-top with two more spaces per input level,
 /// compact `SCAN [rows×cols]` / `SCAN_CSV "path"` leaves, and the label
 /// helpers across every `JoinType` / `@types.SortOrder` / `@types.NullOrder`. Execution
-/// semantics (collect ≡ eager) live in `lazy_test.mbt`, which also defines
-/// the shared fixture frames; the expression rendering itself is pinned by
-/// `expr`'s own `explain` tests.
+/// semantics (collect ≡ eager) belong to the package's contract tests, which
+/// also define the shared fixture frames; the expression rendering itself is
+/// pinned by `expr`'s own `explain` tests.
 
 ///|
 test "explain: a bare scan prints only the frame's shape" {

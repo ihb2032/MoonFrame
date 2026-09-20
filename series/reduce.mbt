@@ -27,11 +27,11 @@
 //
 // One qualification, since "canonical" is not "only": four of the `Series`
 // reductions — `sum` / `mean` / `min` / `max` — dispatch a `Numeric`-backed
-// column to `NumericColumn`'s bitmap-free fold (`internal/column/numeric_reduce.mbt`)
+// column to the bitmap-free fold beside the fast-path layout
 // before reaching here, and that fold implements the empty-column and `NaN`
 // rules above a second time. So these are the rules to *read*, and to change
 // first, but not the only code that encodes them: the two are held cell-for-cell
-// in step by `series/backend_parity_test.mbt`, which runs every
+// in step by the differential parity harness, which runs every
 // backend-sensitive `Series` op on both representations of the same column and
 // asserts the results identical. The remaining reductions take no such fast
 // path — this kernel already skips the validity materialisation for an all-valid
@@ -65,7 +65,8 @@ fn reduce_present(storage : @column.ColumnStorage) -> (Int) -> Bool {
 /// translate that: `Series::mean` to `InvalidOperation`, the grouped / scoped
 /// reducers to a null cell); otherwise the result is the dtype-preserving sum,
 /// the additive identity for an empty / all-null window. A non-numeric
-/// (`Bool` / `String`) column `raise`s `TypeMismatch` here — at factory time,
+/// column (the registry numericity flag: `Bool` / `String`, and an I64-riding
+/// dtype like `Date`) `raise`s `TypeMismatch` here — at factory time,
 /// before any window is folded — matching the previous per-surface reducers,
 /// which rejected the dtype up front (and so reject it even for zero groups).
 fn reduce_arith(
@@ -246,7 +247,8 @@ fn reduce_count(
 /// reader: an `Int` cell widens through `to_double`, a `Float` cell reads
 /// directly. Shared by the numeric-only reductions `variance` / `std` and
 /// `median`, which otherwise repeat this same three-arm match. A non-numeric
-/// (`Bool` / `String`) column has no such reading, so it `raise`s `TypeMismatch`
+/// column (registry numericity: `Bool` / `String`, and an I64-riding dtype
+/// like `Date`) has no such reading, so it `raise`s `TypeMismatch`
 /// here — naming the operation (`op`) that asked — at factory time, before any
 /// window is folded, exactly as `reduce_arith` rejects a non-numeric column.
 fn numeric_double_reader(
@@ -282,7 +284,8 @@ fn numeric_double_reader(
 /// apart, e.g. opposite signs near `±1.8e308`), the result saturates to
 /// `+inf` — never a negative variance or a `NaN` std from the internal
 /// overflow — matching numpy / Polars. Numeric only: a
-/// non-numeric (`Bool` / `String`) column `raise`s `TypeMismatch` here at
+/// non-numeric column (registry numericity: `Bool` / `String`, and an
+/// I64-riding dtype like `Date`) `raise`s `TypeMismatch` here at
 /// factory time, before any window is folded, exactly as `reduce_arith` does.
 /// A `NaN` is a present value: when at least two non-null cells are present it
 /// counts toward `cnt` and **propagates** — the mean is `NaN`, hence every

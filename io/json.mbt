@@ -5,9 +5,9 @@
 // the read options, the string / file entry points, and the `@json`
 // payload adapter. Everything the JSON family shares — the
 // records → frame core (also driven by NDJSON), the cell mapping (also
-// feeding chart export), and the round-trip caveats — lives in
-// `json_core.mbt`; the line-delimited sibling (NDJSON / JSON Lines)
-// lives in `ndjson.mbt`.
+// feeding chart export), and the round-trip caveats — is factored into
+// the shared core the whole family drives; the line-delimited sibling
+// (NDJSON / JSON Lines) is a format face of its own.
 
 ///|
 /// Options that control how a JSON records payload is parsed into a
@@ -22,7 +22,7 @@
 ///   inference window fails to parse under its column's locked-in dtype:
 ///   `Raise` (default) fails with `ParseError(Cell(...))`; `Null`
 ///   downgrades the offending cell to a null and continues (Polars'
-///   `ignore_errors=True`). See `OnParseError`.
+///   `ignore_errors=True`).
 ///
 /// The NDJSON reader shares this type: the two formats differ in framing,
 /// not in what there is to configure.
@@ -50,9 +50,8 @@ pub fn JsonReadOptions::JsonReadOptions(
 /// an array surfaces as `ParseError`. The array's elements are then
 /// handed to `frame_from_json_records`, which validates each is an
 /// object, collects headers in first-seen order across all records,
-/// infers one dtype per column, and materialises the frame (see that
-/// helper for the per-column rules). An empty array — like empty or
-/// whitespace-only input — yields a 0×0 frame.
+/// infers one dtype per column, and materialises the frame. An empty
+/// array — like empty or whitespace-only input — yields a 0×0 frame.
 ///
 /// Raises:
 /// - `ParseError(Message(...))` — malformed JSON, a top-level value that is

@@ -8,7 +8,7 @@
 /// by the `expr` explain renderer and the `lazy` plan printer, so the two
 /// can never drift apart (each used to carry a hand-synced private copy).
 /// `Int` / `Bool` render bare, a `String` is quoted and
-/// `@text.escape_debug`-escaped so it stays distinguishable and on one line, and
+/// `escape_debug`-escaped so it stays distinguishable and on one line, and
 /// the (unevaluatable) null literal renders as `null`. A `Float` stays
 /// distinct from an `Int`: `Double::to_string` prints a finite whole value
 /// without a decimal point (`1.0` -> `"1"`), so a `.0` suffix is re-added,

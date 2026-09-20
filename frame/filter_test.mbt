@@ -3,8 +3,9 @@
 /// the null→drop rule, broadcast (literal / aggregation) predicates,
 /// schema and backend preservation, and the evaluation-time error paths.
 /// The predicate *evaluation* semantics (comparison dtype matrix, Kleene
-/// tables, NaN) live in `expr_eval_test.mbt`; the `map_many` escape hatch
-/// that reifies a row-wise host predicate is covered in `expr_map_test.mbt`.
+/// tables, NaN) are pinned by the evaluator's own suite; the `map_many`
+/// escape hatch that reifies a row-wise host predicate has dedicated
+/// coverage of its own.
 
 ///|
 fn where_df() -> DataFrame raise @types.DataError {

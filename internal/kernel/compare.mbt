@@ -1,6 +1,6 @@
 ///|
 /// The comparison kernel (`eq` / `ne` / `lt` / `le` / `gt` / `ge`). `CmpVerb`
-/// re-tags the six comparison `@ir.BinOp`s so the cell loop matches
+/// re-tags the six comparison `BinOp`s so the cell loop matches
 /// exhaustively; `apply_cmp` derives every verdict from the dtype's `lt` / `eq`
 /// primitives (so IEEE NaN falls out right — a comparison against NaN is
 /// `false`, `ne` `true`), and `compare_cells` adds the null layer. Produces a
@@ -8,7 +8,7 @@
 
 ///|
 /// Which comparison a `Binary` comparison tag asked for, carried into the
-/// shared cell loop. A re-tag of the six `@ir.BinOp` comparison constructors
+/// shared cell loop. A re-tag of the six `BinOp` comparison constructors
 /// so `compare_cells` can match exhaustively without dead arms for the
 /// non-comparison tags (`Add` / `And` / … never reach it); `frame`'s evaluator
 /// picks the verb when it dispatches a comparison node.
@@ -130,7 +130,7 @@ fn[T] compare_cells(
 /// (post-`broadcast_pair`), producing a nullable `Bool` column. The dtype
 /// matrix mirrors `Scalar::eq` / `Scalar::lt` (the `Scalar` comparison
 /// precedent): `Int ↔ Float` compare **exactly** (no `Int`→`Double`
-/// promotion — see `cmp_int_double`), `String` compares by
+/// promotion — `cmp_int_double` compares them exactly), `String` compares by
 /// `compare_string_lex` (dictionary order — MoonBit's
 /// built-in `String` order is shortlex), `Bool` orders `false < true`,
 /// and any other pairing — including `Bool` / `String` against numbers —
@@ -140,7 +140,7 @@ pub fn eval_compare(
   right : Series,
   verb : CmpVerb,
 ) -> Series raise @types.DataError {
-  // `Numeric`×`Numeric` fast arm (see `eval_arith`): both sides all-valid,
+  // `Numeric`×`Numeric` fast arm, as in `eval_arith`: both sides all-valid,
   // so every cell compares — build the `Bool` cells directly through
   // `apply_cmp`, with no validity arrays and no `Bool?` boxing. The result
   // is nullable-free but `Bool`, so it lands on `Builtin` (`from_bools`),

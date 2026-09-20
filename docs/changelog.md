@@ -108,8 +108,9 @@ source-level upgrade steps are collected in [`migration.md`](migration.md).
 
 ### Tooling
 
-- CI pins moonc 0.10.11 (was 0.10.9); `StringBuilder` construction follows
-  the constructor spelling the newer deprecation asks for.
+- CI pins moonc 0.10.13 (was 0.10.9), and the manifests drop the imports
+  the newer compiler stops counting as used. `StringBuilder` construction
+  follows the newer deprecation's spelling.
 
 ## v0.6.0 — API convergence
 

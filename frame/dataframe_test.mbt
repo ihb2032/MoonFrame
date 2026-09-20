@@ -1,7 +1,6 @@
 // Blackbox tests for `DataFrame` — the type, its constructors, inspection,
-// and accessors. Row access (`row` / `rows`) lives in `row_test.mbt`, and
-// the row-window verbs (`head` / `tail` / `slice` / `gather`) in
-// `window_test.mbt`.
+// and accessors. Row access (`row` / `rows`) has its own suite, as do
+// the row-window verbs (`head` / `tail` / `slice` / `gather`).
 
 // ── Constructors: DataFrame::DataFrame ───────────────────────────────
 

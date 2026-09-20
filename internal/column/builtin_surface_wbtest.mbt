@@ -1,6 +1,6 @@
 // Tests for `BuiltinColumn` (Arrow layout), compiled inside the package: the
-// `data` and `validity` buffers are read through the `data()` accessor and the
-// dtype-unwrapping helpers in `cells_wbtest.mbt`.
+// `data` and `validity` buffers are read through the `data()` accessor and
+// the package-shared dtype-unwrapping helpers.
 
 // ── Constructors ─────────────────────────────────────────────────────
 

@@ -1,9 +1,10 @@
-// `fold_extremum` — the generic extremum accumulation shared by `@column`'s
-// `NumericColumn::min` / `max` and `@series`' reductions, so the `best : T?`
+// `fold_extremum` — the generic extremum accumulation shared by the column
+// layer's `NumericColumn::min` / `max` and the series layer's reductions, so
+// the `best : T?`
 // loop lives in one place rather than once per package.
 //
 // One-file-one-test exemption: this generic helper has no dedicated
-// `fold_test.mbt`. (doc-guard: unresolved) It is covered through the column / series `min` / `max`
+// test file of its own. (doc-guard: unresolved) It is covered through the column / series `min` / `max`
 // tests that exercise the empty (`None`), all-skipped, and replacement paths.
 
 ///|

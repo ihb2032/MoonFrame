@@ -6,9 +6,7 @@
 /// *equivalence* tests pin `collect ≡ eager` exactly on the pipelines where
 /// the narrowing fires and the guards where it must not; the *structural*
 /// tests snapshot `explain(optimized=true)` against the as-built
-/// `explain()` — the before/after pair. The predicate pass's battery lives
-/// in `optimize_predicates_test.mbt`, the cross-pass shapes in
-/// `optimize_test.mbt`; the shared fixture frames live in `lazy_test.mbt`.
+/// `explain()` — the before/after pair.
 
 ///|
 test "narrowed scan: a single-column selection still collects equal" {
@@ -434,9 +432,9 @@ test "nested selects: the outer requirement never prunes the inner expression li
 // ── The CSV source's projection push-down ────────────────────────────────
 //
 // Structural snapshots only — `explain` never reads the file. Unlike the
-// in-memory `Scan`, whose narrowing *inserts* a `SELECT`, a CSV scan (`Scan(Csv(...))`) narrows
+// in-memory `Scan`, whose narrowing *inserts* a `SELECT`, a CSV file scan narrows
 // in place: the projected columns ride on the node as `SCAN_CSV "path"
-// [cols]`. The file-backed collect equivalences live in `scan_csv_test.mbt`.
+// [cols]`. The sibling tests pin the file-backed collect equivalences.
 
 ///|
 test "scan_csv: a selection writes its columns into the scan, no inserted select" {

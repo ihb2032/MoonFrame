@@ -1,6 +1,6 @@
 ///|
-/// The crossing-soundness rules for the predicate pass (`place_filter` in
-/// `optimize_predicates.mbt`): the per-expression analyses that decide whether
+/// The crossing-soundness rules the predicate pass applies on its descent:
+/// the per-expression analyses that decide whether
 /// dropping rows before a stage can change its output, its errors, or the
 /// predicate's own verdicts. `row_stable` (row-local, non-value-raising),
 /// `signed_zero_safe` (signed-zero safety on a `Float` group key),
@@ -28,8 +28,8 @@
 /// property that matters here rather than totality: the dtype-level
 /// `TypeMismatch` of a non-String operand, and — for the regex `Str` ops — the
 /// `InvalidOperation` of a pattern that does not compile. That compile happens
-/// once per evaluation, hoisted out of the per-cell map
-/// (`internal/kernel/str.mbt`), so it depends on the pattern and not on the rows
+/// once per evaluation, hoisted out of the per-cell map,
+/// so it depends on the pattern and not on the rows
 /// present: dropping rows cannot make an invalid pattern compile, or a valid one
 /// fail. Only a per-*value* raise would be unsound to sink across, since the
 /// dropped row could be the one that raised.

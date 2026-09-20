@@ -4,8 +4,8 @@
 // bare-column reductions `col(c).<agg>()`, aliased to the `"<col>_<kind>"`
 // names the retired `AggSpec` produced, so they double as a regression pin
 // on that behaviour. The expression-specific surface (compound / derived
-// reductions, the reduction-shape gate, naming and backend rules) lives in
-// agg_expr_test.mbt; here the focus is group partitioning and the per-group
+// reductions, the reduction-shape gate, naming and backend rules) has its
+// own blackbox suite; here the focus is group partitioning and the per-group
 // dtype-of-result behaviour.
 //
 // Invariants asserted across the happy-path tests:
@@ -196,8 +196,8 @@ test "Float NaN keys collapse into a single group" {
 ///|
 test "Float -0.0 and +0.0 keys collapse into a single group" {
   // +0.0 and -0.0 are IEEE-equal and both render "0", so they must land in
-  // the SAME group — exercising the `KFloat` zero-fold in `series/key_cell.mbt`
-  // (without it the two would hash to distinct keys). Keys 0.0, -0.0, 1.5,
+  // the SAME group — exercising the `KFloat` zero-fold in the shared key
+  // encoding (without it the two would hash to distinct keys). Keys 0.0, -0.0, 1.5,
   // 0.0 give two groups: the zero group (rows 0, 1, 3) then the 1.5 group
   // (row 2).
   let df = DataFrame::DataFrame([
@@ -729,6 +729,6 @@ test "two keys producing the same output name raise DuplicateColumn" {
   )
 }
 
-// The corrupted-`groups` handle case moved to the whitebox
-// `group_by_wbtest.mbt`: `GroupedDataFrame`'s fields are now `priv`, so the
+// The corrupted-`groups` handle case moved to the whitebox suite:
+// `GroupedDataFrame`'s fields are now `priv`, so the
 // handle can only be corrupted from inside the package.

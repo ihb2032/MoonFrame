@@ -1,6 +1,6 @@
 // Blackbox tests pinning the expr comparison kernel's exact `Int` vs `Float`
 // behavior (no 2^53 promotion) — the eval-path mirror of the `Scalar::eq` /
-// `Scalar::lt` tests in `types/scalar_test.mbt`.
+// `Scalar::lt` tests.
 
 ///|
 test "expr comparison: Int vs Float is exact past 2^53 (Numeric fast arm)" {

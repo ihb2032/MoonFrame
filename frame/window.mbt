@@ -1,11 +1,9 @@
 // The row-window verbs: `head` / `tail` / `slice` / `gather` — the transforms
-// that keep a frame's schema verbatim and move or trim *rows*. Split from
-// `dataframe.mbt` (which keeps the type, its constructors, and the accessors)
-// so the type core and the row family read apart — the one-family-per-file
-// shape every other verb file follows (`reverse.mbt` for row order,
-// `unique.mbt` for row identity, `sort.mbt` for row arrangement). The row cap
-// they share is `@order.clamp_take`, the same saturating limit behind the
-// visible window in `table_render.mbt`.
+// that keep a frame's schema verbatim and move or trim *rows*, one verb family
+// per file like the other verbs (`reverse` for row order,
+// `unique` for row identity, `sort` for row arrangement). The row cap
+// they share is `clamp_take`, the same saturating limit behind the
+// table renderer's visible window.
 
 ///|
 /// First `n` rows (or all rows if `n >= nrows`). Negative `n` clamps to

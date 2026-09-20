@@ -8,7 +8,7 @@
 /// `Str` wrapping an aggregation inherits that aggregation's
 /// group-cell-stability, so an `str_*` over `first` keeps a group filter
 /// above the aggregate. Both pin the `Str` arms added to `row_stable` /
-/// `group_cell_stable`; the shared fixtures live in `lazy_test.mbt`.
+/// `group_cell_stable`; the shared fixtures are the package's own.
 
 ///|
 test "a trailing filter sinks below a string-namespace with_columns stage" {

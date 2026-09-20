@@ -2,15 +2,15 @@
 // partition rows by one or more key columns; this module assembles a row's key
 // cells into the value that hashes and compares as a `Map` key. The per-cell
 // normalisation — `NaN` collapsing to one bucket, `-0.0` folding into `+0.0`,
-// the `KeyCell` encoding itself — lives one layer down in `series`
-// (`@series.key_cell` / `@series.KeyCell`, bound unqualified through
-// `series_use.mbt`), shared there with `Series::n_unique`; this file only
+// the `KeyCell` encoding itself — is the `series` layer's (`key_cell` /
+// `KeyCell` there, bound unqualified through the shared `using` import),
+// shared with `Series::n_unique`; this file only
 // builds the per-row tuples on top of it. Multi-key injectivity is structural:
 // a tuple `[a, b]` equals only another `[a, b]`, so distinct key tuples never
 // collide the way a naive delimiter-joined string might.
 //
-// One-file-one-test exemption: these row-key builders have no dedicated
-// `row_key_test.mbt`. (doc-guard: unresolved) They are exercised to full coverage through the
+// One-file-one-test exemption: these row-key builders have no dedicated test
+// file of their own. (doc-guard: unresolved) They are exercised to full coverage through the
 // `group_by` and `join` blackbox tests that depend on them.
 
 ///|

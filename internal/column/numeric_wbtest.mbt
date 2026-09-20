@@ -6,7 +6,7 @@
 //   • `to_builtin` widening is exactly `BuiltinColumn::from_ints` /
 //     `from_floats` (the bitmap allocation the numeric path avoided), and is
 //     value-preserving.
-// The reduction fast path is tested in `numeric_reduce_wbtest.mbt`.
+// The reduction fast path has its own white-box file.
 
 // ── Construction + inspection ─────────────────────────────────────────
 
@@ -197,7 +197,7 @@ test "to_builtin: equals from_ints / from_floats (the bitmap alloc avoided)" {
   let widened_i = NumericColumn::from_ints(xs).to_builtin()
   // The numeric column carried no bitmap; widening materialises exactly the
   // all-valid Builtin column — this package's structural `Eq`
-  // (`equality_wbtest.mbt`) proves it cell-for-cell.
+  // impl proves it cell-for-cell.
   assert_eq(widened_i, BuiltinColumn::from_ints(xs))
   assert_eq(widened_i.null_count(), 0)
   let ys : Array[Double] = [2.0, 7.0, 1.0]

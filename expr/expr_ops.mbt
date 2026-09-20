@@ -70,7 +70,7 @@ pub fn lit_series(series : @series.Series) -> Expr {
 }
 
 ///|
-/// `a + b` — numeric addition. Evaluation rules (`frame/expr_eval.mbt`):
+/// `a + b` — numeric addition. Evaluation rules:
 /// `Int + Int → Int`, any `Float` operand promotes to `Float`, a null on
 /// either side nulls the output cell, non-numeric operands are
 /// `TypeMismatch`.

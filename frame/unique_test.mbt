@@ -1,7 +1,7 @@
 // Blackbox tests for `DataFrame::unique` — full-row dedup keeping the first
 // occurrence of each distinct row, in first-appearance order (Polars'
 // `maintain_order=True`). Row identity reuses the composite `KeyCell` encoding
-// `group_by` / `join` key on (see `frame/row_key.mbt`), so null is an ordinary
+// `group_by` / `join` key on, so null is an ordinary
 // value, `NaN` equals `NaN`, and `-0.0` folds into `+0.0`.
 //
 // Invariants asserted on a successful dedup: check_invariants() == Ok(()),

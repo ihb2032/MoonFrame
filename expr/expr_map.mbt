@@ -6,14 +6,14 @@
 /// across, and the output dtype and name follow the leftmost input.
 /// `map_batches` (batched, optionally a per-group reduction) and `map_many`
 /// (multi-input, a free function) are deltas on it. Evaluation lives in
-/// `frame/expr_eval.mbt`; the whitebox rendering coverage in
-/// `map_batches_wbtest.mbt`.
+/// the frame layer's evaluator; the whitebox rendering coverage in
+/// this package's whitebox tests.
 
 ///|
 /// Apply a host closure to each row of `self` — the single-input escape
 /// hatch (Polars' `map_elements`). Where the operators and methods above
 /// cover the documented algebra, `map_elements` reaches past it: `f`
-/// receives the operand's cell as a `@types.Scalar` (a null cell as
+/// receives the operand's cell as a `Scalar` (a null cell as
 /// `Scalar::Null`) and returns the output cell. `label` names the step in
 /// `explain` / `Show` output — the function itself is opaque to
 /// introspection, to rendering, and to the optimizer, which treats the node as
@@ -46,8 +46,8 @@ pub fn Expr::map_elements(
 ///|
 /// Apply a host closure to `self`'s whole evaluated column at once — the
 /// batched escape hatch (Polars' `map_batches`). Where `map_elements` hands
-/// `f` one `@types.Scalar` per row, `map_batches` hands it the entire
-/// `@series.Series` and takes back a `Series`, so a vectorised kernel (a
+/// `f` one `Scalar` per row, `map_batches` hands it the entire
+/// `Series` and takes back a `Series`, so a vectorised kernel (a
 /// cumulative sum, a rank, a rolling window) runs once over the column rather
 /// than cell by cell. `label` names the step in `explain` / `Show`; the
 /// closure is opaque to introspection, to rendering, and to the optimizer,
@@ -81,7 +81,7 @@ pub fn Expr::map_batches(
 ///|
 /// Apply a host closure across several input columns, row by row — the
 /// multi-input escape hatch, and the reified replacement for the original
-/// closure `filter` predicate: `f` is handed one `@types.Scalar` per input
+/// closure `filter` predicate: `f` is handed one `Scalar` per input
 /// in `inputs` order (null cells as `Scalar::Null`) and is called for every
 /// row, so a row predicate is a `map_many(..., f)` returning a `Bool`. A
 /// free function rather than a method (there is no single `self`); `inputs`

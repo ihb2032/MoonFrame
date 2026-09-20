@@ -7,7 +7,7 @@
 //
 // It is asserted by reading the series back out rather than by comparing two
 // nodes. `Series` has a content-based equality of its own, so the cells can be
-// checked directly, and `internal/ir` does not have to publish an equality over
+// checked directly, and no equality has to be published over
 // the AST for a test in this package to reach.
 
 ///|

@@ -7,7 +7,6 @@ import {
   "ihb2032/MoonFrame/series",
   "ihb2032/MoonFrame/types",
   "moonbit-community/NyaCSV" @nyacsv,
-  "moonbitlang/core/debug",
   "moonbitlang/core/json",
   "moonbitlang/x/fs",
 }

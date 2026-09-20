@@ -1,9 +1,9 @@
 // The CSV write path: `CsvWriteOptions`, the `format_csv` renderer, the
 // `write_csv` entry point, the per-cell rendering (`render_csv_scalar`, which
 // is where the opt-in spreadsheet-formula guard applies), and the quoting rule
-// (`write_quoted`) — split from `io/csv.mbt` so reading and writing read apart.
-// `validate_csv_delimiter` stays beside the reader: both directions reject the
-// same delimiter set through it.
+// (`write_quoted`) — a write path kept apart from the read path, so each
+// direction can be read on its own. Both directions reject the same
+// delimiter set through `validate_csv_delimiter`.
 
 ///|
 /// Options that control how a `DataFrame` is rendered as CSV text.
@@ -85,14 +85,15 @@ pub fn CsvWriteOptions::CsvWriteOptions(
 /// - Raises `InvalidOperation` if `options.delimiter` is a double quote or a
 ///   line terminator (`\n` / `\r`): those collide with the hard-coded quote
 ///   character and the row terminator, so no escaping could make the output
-///   frame fields unambiguously (see `validate_csv_delimiter`).
+///   frame fields unambiguously.
 /// - Raises `InvalidOperation` for an `N×0` frame — rows but no columns — with
 ///   `N > 0`. CSV frames a row by its fields, so a row with no fields is an
 ///   empty line, and an empty line is exactly what the reader skips: such a
 ///   frame would write as `N` blank lines and read back as the empty `0×0`
 ///   frame, losing every row without an error. The format has no spelling for
 ///   "a row with zero fields", so the write is refused rather than silently
-///   made lossy (`validate_csv_delimiter`'s philosophy, applied to the shape).
+///   made lossy — the delimiter refusal's refuse-don't-corrupt stance,
+///   applied to the shape.
 ///   The column-less `0×0` frame has no rows to lose and still writes: the
 ///   empty string, or the lone `\n` of its (field-less) header row.
 pub fn format_csv(
@@ -110,10 +111,10 @@ pub fn format_csv(
   }
   // A single-column frame is the only shape whose rows can render as a bare
   // empty line (any wider row carries a delimiter), which the reader's
-  // `skip_empty_lines` would discard — losing the row (or, for the header,
+  // blank-line skipping would discard — losing the row (or, for the header,
   // the column name). Force such empty cells / names to `""` so the line
-  // stays non-empty; the reader maps the quoted-empty token back to null via
-  // `null_values`, exactly as it does a bare empty cell in a wider row.
+  // stays non-empty; the reader's null mapping turns the quoted-empty token
+  // back to a null cell, exactly as it does a bare empty cell in a wider row.
   let single_column = names.length() == 1
   if options.header {
     for i, name in names {
@@ -169,7 +170,7 @@ pub fn format_csv(
 /// UTF-8 file encoding would swallow the following delimiter and silently
 /// shift every later cell boundary.
 /// `CsvWriteOptions::CsvWriteOptions(sanitize_formulas=true)` applies the same
-/// spreadsheet-safety transformation documented by `format_csv` before writing.
+/// spreadsheet-safety transformation as `format_csv` before writing.
 /// Rendering runs through `format_csv` first, so its refusals come first too —
 /// an unrepresentable delimiter and the `N×0` shape (rows but no columns) both
 /// `raise InvalidOperation` before the file is opened, leaving nothing written.

@@ -58,9 +58,9 @@ priv enum FrameReduceOp {
 
 ///|
 /// Sum every column as a 1-row `DataFrame`: numeric columns hold their sum
-/// (source dtype preserved), non-numeric columns a `Null` cell. See the file
-/// header for the full semantics. For one column's scalar use
-/// `df.get_column(name).sum()`.
+/// (source dtype preserved), non-numeric columns a `Null` cell — the same
+/// uniform cell semantics every whole-frame reduction here follows. For one
+/// column's scalar use `df.get_column(name).sum()`.
 pub fn DataFrame::sum(self : DataFrame) -> DataFrame raise @types.DataError {
   self.reduce_to_row(FrameReduceOp::Sum)
 }

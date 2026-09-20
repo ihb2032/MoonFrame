@@ -14,8 +14,8 @@
 //     outside this package)
 //
 // The `pub` entries are `#doc(hidden)` + `#internal(engine)` engine seams,
-// pinned signature and consumers in `engine_seams.snapshot`. The
-// differential harness `backend_parity_test.mbt` guards exactly this
+// with pinned signatures and consumers. The
+// differential parity harness guards exactly this
 // machine: the same cells must behave identically whichever backend they
 // sit on.
 
@@ -76,8 +76,8 @@ pub fn try_column_to_numeric(s : Series) -> Series {
 /// Re-converge a freshly rebuilt (`Builtin`-backed) column to `source`'s
 /// backend: a `Numeric` source's all-valid rebuild moves back onto the
 /// `Numeric` fast path, a `Builtin` source's stays `Builtin`. This is the
-/// *preserve* class in `docs/performance.md`, which classifies every path — for
-/// the transforms that must hold their source's backend rather than derive one
+/// *preserve* class — the transforms that must hold their source's backend
+/// rather than derive one
 /// from content, `fill_null` being the one that needs it (its filled column is
 /// built straight on `Builtin`). A caller whose input already canonicalised —
 /// the join assembly, over a `rebuild_options` result — gets a no-op
@@ -101,7 +101,7 @@ pub fn preserve_backend(source : Series, rebuilt : Series) -> Series {
 /// to `storage.validity().to_bools()` but without the intermediate bitmap on
 /// the fast path. The row-level scanners (`sort` and `drop_nulls`; `group_by`
 /// and `join` build keys from `to_scalars` instead) and the elementwise
-/// expression kernels (`expr_eval` and `internal/kernel`,
+/// expression kernels (the frame evaluator and the kernel layer,
 /// whose operands are frequently `Numeric`) read the mask by plain index, so
 /// they share this instead of each repacking a throwaway bitmap for a
 /// `Numeric` column. Takes the `Series`, not its storage, so a caller reads a
@@ -127,8 +127,8 @@ pub fn validity_bools(column : Series) -> Array[Bool] {
 /// output backend is a function of its content" is engine-wide behaviour, and
 /// the operators live in `frame`, whose tests are a separate package and can
 /// only observe the backend through a `pub` reader. That is a declared
-/// exception in the seam guard's allowlist, not a precedent — see
-/// `#internal(engine)` in `docs/api.md`.
+/// exception in the seam guard's allowlist, not a precedent — the documented
+/// contract for an `#internal(engine)` seam.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
 pub fn Series::storage_kind(self : Series) -> @column.StorageKind {

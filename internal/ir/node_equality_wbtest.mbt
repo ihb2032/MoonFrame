@@ -7,9 +7,9 @@
 // they must also extend. The production match-sites already force the variant
 // to be handled; this brings the same compile signal to the equality test.
 //
-// The test lives in this package rather than in `expr`, where it started: the
-// relation belongs to the AST, `Expr` no longer carries an `==` to reach it
-// through, and a package's own tests are what its coverage is measured by.
+// The relation belongs to the AST, `Expr` no longer carries an `==` to reach
+// it through, and a package's own tests are what its coverage is measured by —
+// so the test sits here, with the AST.
 
 ///|
 /// A distinct tag per `ExprNode` variant, in declaration order — exhaustive and

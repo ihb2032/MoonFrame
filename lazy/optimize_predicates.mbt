@@ -2,10 +2,9 @@
 /// The predicate pass driver: sink each `Filter` toward the scan so rows drop
 /// as early as possible. `push_predicates` rewrites the plan bottom-up and
 /// `place_filter` sinks one predicate through the stages it may cross. The
-/// crossing-soundness rules those two consult (`row_stable`, `signed_zero_safe`,
-/// `group_cell_stable`, the bare-column / row-count / defines tests) live in
-/// `optimize_predicate_rules.mbt`; the whole-optimizer overview is on `optimize`
-/// in `optimize.mbt`.
+/// crossing-soundness rules those two consult — row-locality, signed-zero
+/// safety, group-cell stability, and the bare-column / row-count / defines
+/// tests — are shared predicates defined in this package.
 
 ///|
 /// The predicate pass: push every input first, then sink a `Filter` into its
@@ -89,9 +88,8 @@
 ///   both sides restart their own descent, so filters inside either
 ///   side still sink. The in-memory `Scan` is the floor. A **file source**
 ///   goes one step further: the predicate is absorbed into the file scan
-///   source itself, so the driver prunes rows while reading (the io drivers'
-///   pruned core, `io/scan_driver.mbt`) and no `Filter` node remains above
-///   the leaf.
+///   source itself, so the driver prunes rows while reading and no `Filter`
+///   node remains above the leaf.
 ///   Only the first predicate is absorbed — combining two would reorder
 ///   which operand's evaluation error surfaces first — so a second filter
 ///   stays a node above the scan.

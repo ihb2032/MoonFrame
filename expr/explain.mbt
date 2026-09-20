@@ -2,7 +2,7 @@
 /// Rendering of the expression tree: a handwritten `Show` presenting the
 /// documented operator form, its `to_string` exposing that rendering as a
 /// `String` (shared later by `LazyFrame::explain`'s plan printer), and the
-/// handwritten `@debug.Debug` delegating to it. All total — they walk shape,
+/// handwritten `Debug` delegating to it. All total — they walk shape,
 /// nothing can fail.
 
 ///|
@@ -24,7 +24,7 @@ pub impl Show for Expr with fn output(self, logger) {
 pub extend Expr with Show::{to_string, output}
 
 ///|
-/// Handwritten `@debug.Debug`: the `@ir.ExprNode` `Map` / `MapBatches` closures
+/// Handwritten `Debug`: the `ExprNode` `Map` / `MapBatches` closures
 /// have no `Debug`, so neither the AST node nor the `Expr` wrapping it can
 /// `derive` one. The debug form delegates to
 /// the `Show` rendering (`to_string`), which already presents every variant —
@@ -43,7 +43,7 @@ pub extend Expr with Debug::{to_repr}
 ///|
 /// A pending step for the iterative `write_expr`: either a literal string
 /// fragment to emit, a sub-expression still to expand, or one of the three leaf
-/// writers that take more than a plain string (`@literal.format_scalar`
+/// writers that take more than a plain string (`format_scalar`
 /// for a `Lit`, a `Cast` target, a `Str` suffix).
 priv enum WriteTask {
   Frag(String)
@@ -56,7 +56,7 @@ priv enum WriteTask {
 ///|
 /// Renderer behind `Show`, driven by an explicit heap stack instead of the call
 /// stack so a deeply nested tree can't overflow and abort (the same discipline
-/// as `@ir.ExprNode::referenced_columns`). Every composite form is
+/// as `ExprNode::referenced_columns`). Every composite form is
 /// self-delimiting (parentheses or
 /// a closing `)` of a method call), so a node expands into a fixed sequence of
 /// fragments and child placeholders; the emitted text is byte-for-byte the
@@ -85,7 +85,7 @@ fn write_expr(logger : &Logger, expr : Expr) -> Unit {
 fn push_write_tasks(stack : Array[WriteTask], expr : Expr) -> Unit {
   let tasks : Array[WriteTask] = match expr.node {
     // `col(name)` and `Alias`'s ` as name` render the name UNQUOTED, unlike a
-    // string literal (`@literal.format_scalar` quotes those), so
+    // string literal (`format_scalar` quotes those), so
     // `col("x")` stays distinct
     // from `lit_str("x")` in a plan line. A name containing literal parens can
     // therefore read paren-ambiguously (`col(a)b)`); that is display-only and
@@ -332,7 +332,7 @@ fn write_str_suffix(logger : &Logger, op : @ir.StrOp) -> Unit {
 ///|
 /// Render one parameterised string-op call `.name("arg", …)`, each argument
 /// quoted and `escape_debug`-escaped exactly like a rendered `lit_str`
-/// (`@literal.format_scalar`), so a pattern containing a `"` or a
+/// (`format_scalar`), so a pattern containing a `"` or a
 /// control character stays on one unambiguous line.
 fn write_str_call(
   logger : &Logger,

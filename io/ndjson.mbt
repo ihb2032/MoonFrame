@@ -1,7 +1,7 @@
 // NDJSON (Newline-Delimited JSON, a.k.a. JSON Lines / `.ndjson` /
 // `.jsonl`) serialisation for `DataFrame`. The wire shape is one flat
 // JSON object per line (`{...}\n{...}\n...`) — the streaming-friendly
-// sibling of the single-array "records" layout in `json.mbt`. Polars'
+// sibling of the single-array "records" layout. Polars'
 // `read_ndjson` / `write_ndjson` and pandas' `read_json(lines=True)` /
 // `to_json(lines=True)` speak the same format.
 //
@@ -15,8 +15,8 @@
 // non-finite `Float` (`NaN` / `±Infinity`) is emitted as `null` to keep
 // each line valid JSON, and an `Int` keeps its dtype and round-trips exactly
 // across the full `Int64` range — it is written as verbatim decimal text and
-// recovered from the number's preserved `repr` (json_core.mbt Caveat 2), even
-// though the `@json` number model is `Double`.
+// recovered from the number's preserved `repr` (the shared core's
+// large-`Int64` caveat), even though the `@json` number model is `Double`.
 //
 // Reading is lenient about line endings: lines are split on `\n`, a
 // trailing `\r` (CRLF input) is tolerated as JSON whitespace by
@@ -37,8 +37,7 @@
 ///      which validates each is an object, collects headers in
 ///      first-seen order across all records (sparse records → null
 ///      cells), infers one dtype per column, and materialises the
-///      frame (see that helper, shared with `parse_json_str`,
-///      for the per-column rules).
+///      frame under per-column rules shared with `parse_json_str`.
 ///
 /// Empty input — or input that is entirely blank lines — yields a 0×0
 /// frame, matching `parse_json_str`'s empty-array behaviour.
@@ -59,14 +58,14 @@ pub fn parse_ndjson_str(
 
 ///|
 /// Shared core behind `parse_ndjson_str` and the NDJSON scan driver's read: the full
-/// line-split / per-line parse pipeline documented on `parse_ndjson_str`, with
+/// line-split / per-line parse pipeline `parse_ndjson_str` runs, with
 /// one extra knob — `projection`. `None` builds every column; `Some(names)`
 /// builds only the named columns (in first-seen header order), the
 /// projection-pushdown path the lazy `scan_ndjson` source uses. Every line is
 /// still parsed (streaming is deferred), and record validation runs before the
 /// column filter — so a projected read fails on a malformed or non-object line
 /// exactly as a full read does; only a parse error confined to a dropped column
-/// goes unraised (see `frame_from_json_records`).
+/// goes unraised — that column is never built.
 fn parse_ndjson_str_projected(
   content : String,
   options : JsonReadOptions,
@@ -145,7 +144,7 @@ pub fn read_ndjson(
 /// each record object.
 pub fn format_ndjson(df : @frame.DataFrame) -> String {
   // Share the column-major record walk with `format_json` /
-  // `format_vega_lite` (see `df_to_json_records`); NDJSON differs only in
+  // `format_vega_lite`; NDJSON differs only in
   // the framing — one object per line, each terminated by `\n`.
   let buf = StringBuilder()
   for obj in df_to_json_records(df) {

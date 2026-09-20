@@ -1,5 +1,5 @@
-// Whitebox tests for `NumericColumn`'s reduction fast path (the folds in
-// `numeric_reduce.mbt`). Reductions inherit the library's Polars-aligned NaN
+// Whitebox tests for `NumericColumn`'s reduction fast path (the folds in the
+// fold file). Reductions inherit the library's Polars-aligned NaN
 // semantics: `NaN` propagates through `sum` / `mean` (it is a value, not
 // missing) but is skipped by `min` / `max` (treated as missing, like `sort`).
 

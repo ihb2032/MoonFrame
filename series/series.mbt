@@ -1,7 +1,7 @@
 ///|
 /// A one-dimensional, dtype-aware column with a name. `Series` is the
 /// per-column unit behind `DataFrame`, exposing the structural, nullability,
-/// transform, cast, and (in `series_stats.mbt`) statistics surface that the
+/// transform, cast, and statistics surface that the
 /// `frame` and `io` layers build on.
 ///
 /// Its backend is an internal representation — Arrow-style storage with an
@@ -17,14 +17,13 @@
 /// interface and carrying no compatibility promise, so a caller outside this
 /// module has no supported way to tell which one a column is on — and no way at
 /// all to choose it, since nothing here moves a column onto a backend its
-/// content does not call for. See `internal/column` and
-/// [`docs/performance.md`](../docs/performance.md).
+/// content does not call for.
 ///
-/// The engine machinery the verbs build on lives in sibling files:
-/// `row_gather.mbt` (the row-rebuild machine — an index vector, a window, a
-/// mask, or a column merge turned into a new `Series`) and `backend.mbt`
-/// (the storage-backend machine — converge / preserve / read / assert).
-/// Both are engine seams serving `frame` and `internal/kernel`, not
+/// The engine machinery the verbs build on is the row-rebuild machine (an
+/// index vector, a window, a
+/// mask, or a column merge turned into a new `Series`) and the storage-backend
+/// machine (converge / preserve / read / assert).
+/// Both are engine seams serving `frame` and the kernel layer, not
 /// `Series` API.
 ///
 /// The fields are `priv`, so the struct is opaque outside this package: reach a
@@ -54,7 +53,7 @@ pub extend Series with Debug::{to_repr}
 /// one taking a storage type is an entry point a downstream caller could reach
 /// past `Series` with; this one has no caller outside this package, so it need
 /// not be `pub` at all. The seams that remain — `storage()` for
-/// `internal/kernel`, `Expr::node` for the evaluator and optimizer — are the
+/// the kernel layer, `Expr::node` for the evaluator and optimizer — are the
 /// ones another package genuinely needs.
 fn Series::new(name : String, storage : @column.ColumnStorage) -> Series {
   { name, storage, }
@@ -272,7 +271,7 @@ pub fn Series::to_scalars(self : Series) -> Array[@types.Scalar] {
 
 ///|
 /// Expose the underlying `ColumnStorage`. The one caller outside this package
-/// is `internal/kernel`, which walks `data()` — alongside the mask
+/// is the kernel layer, which walks `data()` — alongside the mask
 /// `validity_bools` hands it — to run a
 /// column pass without `Scalar` boxing; `frame` and above never call it — they
 /// hold the `Series`.

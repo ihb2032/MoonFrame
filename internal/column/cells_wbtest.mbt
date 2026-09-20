@@ -20,7 +20,7 @@ fn int_cells(col : BuiltinColumn) -> (ArrayView[Int64], @buffer.Bitmap) {
 }
 
 ///|
-/// The `Float` buffer and validity mask; see `int_cells`.
+/// The `Float` buffer and validity mask, mirroring `int_cells`.
 fn float_cells(col : BuiltinColumn) -> (ArrayView[Double], @buffer.Bitmap) {
   match col.data() {
     ColumnData::F64(a) => (a, col.validity())
@@ -30,7 +30,7 @@ fn float_cells(col : BuiltinColumn) -> (ArrayView[Double], @buffer.Bitmap) {
 }
 
 ///|
-/// The `Bool` buffer and validity mask; see `int_cells`.
+/// The `Bool` buffer and validity mask, mirroring `int_cells`.
 fn bool_cells(col : BuiltinColumn) -> (ArrayView[Bool], @buffer.Bitmap) {
   match col.data() {
     ColumnData::Bool(a) => (a, col.validity())
@@ -40,7 +40,7 @@ fn bool_cells(col : BuiltinColumn) -> (ArrayView[Bool], @buffer.Bitmap) {
 }
 
 ///|
-/// The `String` buffer and validity mask; see `int_cells`.
+/// The `String` buffer and validity mask, mirroring `int_cells`.
 fn string_cells(col : BuiltinColumn) -> (Array[String], @buffer.Bitmap) {
   match col.data() {
     ColumnData::Utf8(a) => (a.to_strings(), col.validity())
@@ -54,7 +54,7 @@ fn string_cells(col : BuiltinColumn) -> (Array[String], @buffer.Bitmap) {
 /// (`Int = 0`, `Float = 0.0`, `Bool = false`, `String = ""`). The constructors,
 /// casts and row transforms all write these, so a null slot's value never
 /// leaks out of a `Scalar`-returning read — and, since this package's own `Eq`
-/// for `BuiltinColumn` (`equality_wbtest.mbt`) compares the raw `data` array,
+/// for `BuiltinColumn` compares the raw `data` array,
 /// null slots included, two logically equal columns differing only in a null
 /// slot's placeholder would otherwise compare unequal.
 ///

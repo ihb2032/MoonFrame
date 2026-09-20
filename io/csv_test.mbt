@@ -1,8 +1,8 @@
 // Blackbox tests for `@io.parse_csv_str` and the file-backed `read_csv`
 // wrappers — the read half of the CSV interchange. The write half
-// (`format_csv` / `write_csv`) lives in `csv_write_test.mbt`, mirroring
-// the `csv.mbt` / `csv_write.mbt` source split; the three-format
-// round-trip corpus is `roundtrip_corpus_test.mbt`.
+// (`format_csv` / `write_csv`) has a blackbox suite of its own; the
+// three-format round-trip corpus is driven by a separate adversarial
+// suite.
 //
 // The fast path (string → DataFrame) is exercised across header
 // modes, custom delimiters, the null mapping, type inference, edge

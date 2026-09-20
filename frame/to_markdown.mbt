@@ -6,12 +6,12 @@
 // delegating to `Scalar::to_string`.
 //
 // GFM tables specifically, because they are the lingua
-// franca of MoonFrame's two output targets — `README.md` snippets and
+// franca of MoonFrame's two output targets — repository prose and
 // JupyterBook-style notebooks — and they round-trip through every
 // Markdown parser we care about without a dedicated renderer
 // dependency. The renderer is a `DataFrame` method rather than an `io`
-// entry point (the IO boundary: pure rendering lives in `frame`, only
-// external serialisation stays in `io`); it remains a small,
+// entry point (the IO boundary: the rendering here is pure, and only
+// external serialisation writes to the outside); it remains a small,
 // self-contained, dependency-free function.
 
 ///|

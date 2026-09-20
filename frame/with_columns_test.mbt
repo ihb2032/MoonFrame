@@ -3,7 +3,7 @@
 /// replace-in-place vs append, within-call duplicate detection, identity
 /// on an empty expression list, and equivalence with a hand-built
 /// materialised series. The evaluator's dtype / null / broadcast semantics
-/// live in `expr_eval_test.mbt`.
+/// have their own suite.
 
 ///|
 fn base_df() -> DataFrame raise @types.DataError {
@@ -151,8 +151,8 @@ test "a derived column equals the equivalent hand-built series" {
 ///|
 test "a deeply aliased column definition survives with_columns" {
   // The same alias peel `select` performs decides the field a `with_columns`
-  // output carries, so the depth guard belongs on both verbs (see
-  // `select_test.mbt`). Replacing an existing column here also exercises the
+  // output carries, so the depth guard belongs on both verbs. Replacing an
+  // existing column here also exercises the
   // in-place path rather than the append.
   let df = DataFrame::DataFrame([Series::from_ints("a", [1, 2, 3])])
   let mut e = @expr.col("a")

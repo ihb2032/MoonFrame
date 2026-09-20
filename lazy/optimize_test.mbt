@@ -3,9 +3,9 @@
 /// meet — `explain`'s before/after pair (the as-built plan beside the one
 /// `collect` actually runs), the flagship pipeline where a filter sinks
 /// *and* a scan narrows under it, and the depth-totality probes that keep
-/// the executor and both passes iterative. The per-pass batteries live in
-/// `optimize_projection_test.mbt` and `optimize_predicates_test.mbt`; the
-/// shared fixture frames live in `lazy_test.mbt`.
+/// the executor and both passes iterative. The projection and predicate
+/// passes each carry their own battery; the shared fixture frames are the
+/// package's own.
 
 ///|
 test "explain defaults to the plan as built; optimized=true is the before/after pair" {

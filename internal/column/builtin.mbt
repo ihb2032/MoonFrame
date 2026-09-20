@@ -17,7 +17,7 @@
 ///
 /// A `ColumnStorage` abstraction (plus a `NumericColumn` for
 /// unboxed-numeric fast paths) sits above this layer at the `Series` backend
-/// seam (see `storage.mbt`) — a `Series` simply holds one of the two backends
+/// seam — a `Series` simply holds one of the two backends
 /// behind it, and reaches this one through `ColumnStorage`.
 ///
 /// Numeric columns are 64-bit: the `I64` variant stores `Int64` and the

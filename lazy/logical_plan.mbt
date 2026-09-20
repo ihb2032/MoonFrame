@@ -1,10 +1,9 @@
 ///|
 /// The deferred query IR behind `LazyFrame`: a private tree with one node
 /// per eager `DataFrame` verb, and nothing else — the tree's consumers each
-/// read in a file of their own: the traversal helpers every walker shares
-/// (`lazy/plan_walk.mbt`), plan execution (`lazy/plan_execute.mbt`,
-/// `execute` behind `collect`), and plan display (`lazy/plan_render.mbt`,
-/// `render` behind `explain`). The enum stays `priv`: every
+/// read in a file of their own: the shared traversal helpers, plan execution
+/// (`execute` behind `collect`), and plan display (`render` behind
+/// `explain`). The enum stays `priv`: every
 /// `match` over it lives in this package, so nothing of the IR leaks into
 /// the public surface (`LazyFrame` exposes builders and the two walkers' results
 /// only). Building nodes is total — a plan is plain data — and every failure a
@@ -25,22 +24,21 @@
 /// `LazyGroupBy` (plain builder state, no node) until `agg` completes
 /// them into a plan stage that does.
 ///
-/// The `Csv` and `Ndjson` sources of a `Scan` leaf *read* at collect time
-/// rather than capturing an already-built frame: each holds a path, the
-/// format's read options (`CsvReadOptions` / `JsonReadOptions`) to parse
-/// under, and an optional projection. The projection starts empty (`None` —
-/// read every column, the faithful mirror of eager `read_csv` /
-/// `read_ndjson`) and is filled by the optimizer's projection pass with the
-/// columns a pipeline provably consumes, so the parser builds only those.
-/// The fourth field is an absorbed **predicate**: the optimizer moves a filter
-/// sitting on the leaf into the node, and the reader then builds the
+/// A file source of a `Scan` leaf *reads* at collect time rather than
+/// capturing an already-built frame: it holds the format's driver — which
+/// knows the path and the options to read under — plus the push-down state
+/// the optimizer fills in. The pushed projection starts empty (read every
+/// column, the faithful mirror of an eager read) and is filled with the
+/// columns a pipeline provably consumes, so the driver builds only those.
+/// The absorbed **predicate** starts empty too: the optimizer moves a filter
+/// sitting on the leaf into the node, and the driver then builds the
 /// predicate's columns, prunes the rows, and parses the rest for the survivors
-/// alone (streaming the file itself is still future work). Unlike the in-memory
-/// `Scan`, whose narrowing *inserts* a `Select`, a file source narrows in
-/// place by carrying its own projection. (There is no `ScanJson` for the
-/// single-array shape `[{...}]`: a JSON array must be parsed whole to find its
-/// records, so there is nothing to prune at read time — the same reason Polars
-/// has `scan_ndjson` but no `scan_json`.)
+/// alone (streaming the file itself is still future work). Unlike the
+/// in-memory `Scan`, whose narrowing *inserts* a `Select`, a file source
+/// narrows in place by carrying its own projection. (There is no JSON-array
+/// scan for the single-array shape `[{...}]`: a JSON array must be parsed
+/// whole to find its records, so there is nothing to prune at read time — the
+/// same reason Polars has `scan_ndjson` but no `scan_json`.)
 priv enum LogicalPlan {
   Scan(ScanSource)
   Unary(LogicalPlan, FrameOp)

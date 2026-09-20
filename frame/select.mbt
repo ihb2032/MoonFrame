@@ -1,16 +1,16 @@
 ///|
 /// Project the frame to exactly the evaluated expressions — MoonFrame's
 /// single `select` verb (Polars' `df.select(...)`). Each expression is
-/// evaluated over the whole frame under the dtype / null / NaN rules in
-/// `expr_eval.mbt`, so a projection can pick an existing column
+/// evaluated over the whole frame under the evaluator's shared dtype / null /
+/// NaN rules, so a projection can pick an existing column
 /// (`col("a")`), compute a new one (`col("a") + col("b")`), aggregate
 /// (`col("a").sum()`), or inject a literal. The plain names-only projection
 /// of earlier versions is `select([col("a"), col("b")])` — or, equivalently,
 /// `select(cols(["a", "b"]))` — and behaves identically: a list of bare
 /// `col` references projects those columns in that order.
 ///
-/// Output height (the Polars `select` rule), under the length contract in
-/// `expr_eval.mbt`:
+/// Output height (the Polars `select` rule), under the shared length
+/// contract:
 /// - any frame-tall result fixes the height at `self.nrows()`, and every
 ///   length-1 result broadcasts up to it — down to zero rows on an empty
 ///   frame;
@@ -60,7 +60,7 @@ pub fn DataFrame::select(
   // frame-tall, otherwise 1 — every result is then a length-1 literal or
   // aggregation, which collapses to a single summary row. A result of neither
   // length is off-frame rather than height-setting, and `broadcast_series`
-  // below rejects it under the shared length contract (`expr_eval.mbt`).
+  // below rejects it under the shared length contract.
   //
   // Projecting to *no* columns is the one case with no result to read a height
   // from. It keeps the frame's own: a projection that drops every column is

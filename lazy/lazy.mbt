@@ -7,7 +7,7 @@
 /// computation (and all failure) happens in `collect`, which optimizes the
 /// plan and then interprets it through the public eager operators:
 /// `LazyFrame::LazyFrame(df).f(…).g(…).collect()` equals `df.f(…).g(…)` — the
-/// faithful-deferred-executor contract every test in `lazy_test.mbt` pins, and
+/// faithful-deferred-executor contract the package's tests pin, and
 /// the reason the optimizer's rewrites have to preserve results rather than
 /// merely preserve rows.
 ///
@@ -297,7 +297,7 @@ pub fn LazyGroupBy::agg(
 ///|
 /// Run the plan and materialize the result — the only point in the lazy
 /// layer that computes (or fails). The plan first passes through the
-/// total optimizer rewrites (`optimize.mbt`): filters sink below the
+/// total optimizer rewrites: filters sink below the
 /// stages they provably commute with, so rows drop as early as possible,
 /// and a required-columns pass then drops scan columns nothing downstream
 /// reads (and, for a `scan_csv` source, never parses them). The rewrites'

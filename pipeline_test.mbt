@@ -1,15 +1,16 @@
 // Integration tests for the facade package. Every symbol used here is
-// reached through `ihb2032/MoonFrame` (no `@types` / `@frame`
+// reached through the facade module itself (no sub-package
 // qualifications), so these tests double as the practical completeness
-// check for the `pub using` re-exports in `moonframe.mbt`. A missing
+// check for the facade's `pub using` re-exports. A missing
 // re-export here surfaces as a type error rather than a silent gap in
 // the public surface. The operator verbs and `to_markdown` are methods
 // on `DataFrame`, reached automatically through the `type DataFrame`
 // re-export. The one deliberate exception: the string-level serialisers
-// (`parse_*_str` / `format_*`) stay behind `@io` (see `moonframe.mbt`'s
-// header for the reasoning), so those calls below are `@io`-qualified —
+// (`parse_*_str` / `format_*`) are deliberately not re-exported — building a
+// frame from in-memory text is a slice of the surface reached through the io
+// layer directly — so those calls below are io-qualified,
 // and the facade's exact symbol set, that absence included, is pinned by
-// `.github/scripts/facade_surface.snapshot`.
+// the facade-surface enumeration.
 
 // ── End-to-end file-backed pipeline ─────────────────────────────────
 

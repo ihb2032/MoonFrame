@@ -1,6 +1,6 @@
 // The scan-driver seam: the interface a *readable source* implements so the
 // lazy engine can execute, narrow, and render it without knowing the format.
-// A new scannable format is one driver (its own file, beside its options
+// A new scannable format is one driver (with its own options
 // type) plus the `scan_*` builder that hands it to the engine — the
 // optimizer's projection / predicate push-down and the plan renderer apply
 // to it automatically, because those are driver calls, not format-aware
@@ -80,7 +80,9 @@ pub fn ScanDriver::driver(
 }
 
 ///|
-/// The format-facing part of the plan label (see the field doc).
+/// The format-facing part of the plan label — the format token and the
+/// origin, with the path already escaped; the renderer adds the plan state
+/// around it.
 pub fn ScanDriver::label(self : ScanDriver) -> String {
   (self.label_fn)()
 }

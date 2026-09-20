@@ -4,9 +4,8 @@
 /// structural (data-independent) rejection, naming and collision rules,
 /// all-null / NaN group semantics, zero-group frames, and the backend
 /// convention for computed columns. The group-partitioning behaviour and
-/// the historical `"<col>_<kind>"`-named reductions live in
-/// group_by_test.mbt; the evaluator's own dtype / null / NaN rules live in
-/// expr_eval_test.mbt.
+/// the historical `"<col>_<kind>"`-named reductions have their own suite,
+/// as do the evaluator's own dtype / null / NaN rules.
 
 ///|
 fn agg_expr_df() -> DataFrame raise @types.DataError {

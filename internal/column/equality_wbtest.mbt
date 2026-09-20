@@ -3,7 +3,7 @@
 // convenience for an assertion — no production code in this package or above
 // it compares any of these types — and a convenience for a test is not a
 // reason to publish a symbol. A whitebox file compiles inside the package, so
-// these `impl`s satisfy `assert_eq` in every `_wbtest.mbt` here while staying
+// these `impl`s satisfy `assert_eq` in every white-box file here while staying
 // out of the generated interface, which is what the internal-surface audit
 // reads.
 //

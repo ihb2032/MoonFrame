@@ -9,7 +9,7 @@
 //     used and not only one call at a time. That pattern has since retreated
 //     below the verb layer — `frame` reads columns through seams returning a
 //     `Series`, a scalar, or a fresh array, and cannot name a storage at all —
-//     so what is left of it lives in `series` and `internal/kernel`.
+//     so the rest of the responsibility sits with `series` and `internal/kernel`.
 
 ///|
 /// The exact read shape of `build_sort_key` in `series`: mask first, then a

@@ -1,5 +1,6 @@
 // Composite group / join key encoding. `Series::n_unique` (this package)
-// and `group_by` / `join` (the `frame` package, whose `frame/row_key.mbt` builds
+// and `group_by` / `join` (the `frame` package, whose row-key builder
+// constructs
 // per-row keys from `key_cell`) all partition cells by one or more key values;
 // this module turns a single key cell into a value that hashes and compares
 // correctly as a `Map` key. It replaces the earlier per-row `Scalar::to_string`
@@ -19,7 +20,7 @@
 // naive delimiter-joined string might.
 //
 // One-file-one-test exemption: this internal encoding has no dedicated
-// `key_cell_test.mbt`. (doc-guard: unresolved) It is exercised to full coverage through `n_unique`
+// test file of its own. (doc-guard: unresolved) It is exercised to full coverage through `n_unique`
 // here and the `group_by` / `join` blackbox tests in `frame` that depend on it.
 
 ///|
@@ -28,7 +29,7 @@
 /// `-0.0` to fold — both differ from `Scalar`'s IEEE-following `Eq` — and a
 /// key never needs `Scalar`'s numeric-promotion comparisons. `KNull` lets
 /// `group_by` give a null cell its own group; `join` rejects a null key
-/// before building the tuple (see `join_row_key`).
+/// before building the tuple.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
 enum KeyCell {
@@ -55,7 +56,7 @@ pub extend KeyCell with Hash::{hash, hash_combine}
 /// (so every NaN shares one group / key) and `-0.0` folds into the canonical
 /// `KFloat(0.0)` (`-0.0 == 0.0`, and both rendered `"0"` under the old string
 /// key). Shared by `key_cell` below and `count_distinct`'s native-`Double`
-/// reader (`reduce.mbt`) so `n_unique` / `group_by` / `join` agree, cell for
+/// reader so `n_unique` / `group_by` / `join` agree, cell for
 /// cell, on what counts as one distinct value.
 fn float_key_cell(v : Double) -> KeyCell {
   if v.is_nan() {

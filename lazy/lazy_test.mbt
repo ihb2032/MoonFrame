@@ -3,8 +3,8 @@
 /// total and only defer; `collect` is a faithful deferred executor —
 /// equal to the eager chain, node by node and composed; the two
 /// entry points agree; and every failure surfaces at collect time as the
-/// underlying eager operator's error. Plan-rendering snapshots live in
-/// `plan_render_test.mbt`; the shared fixture frames live here.
+/// underlying eager operator's error. Rendering has its own snapshot
+/// battery; the shared fixture frames live here.
 
 ///|
 /// 4×3 mixed frame: a plain Int column, a nullable Int column, and a

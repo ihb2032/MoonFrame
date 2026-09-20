@@ -1,9 +1,8 @@
 ///|
 /// The engine behind `collect`: a bottom-up plan interpreter that delegates
 /// each node to the public eager operator it defers, plus the `Scan`-leaf and
-/// `Unary`-node halves (`execute_scan`, `apply_frame_op`). Split from
-/// `logical_plan.mbt` so plan execution and plan display (`plan_render.mbt`)
-/// each read apart from the IR they walk.
+/// `Unary`-node halves (`execute_scan`, `apply_frame_op`), kept apart from
+/// the IR definition and the renderer so each reads alone.
 
 ///|
 /// Bottom-up plan interpreter — the whole of `collect`. Each node

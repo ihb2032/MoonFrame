@@ -1,14 +1,14 @@
 // The all-valid reductions over `NumericColumn`: `sum` / `mean` / `min` /
-// `max` and the fold kernels behind them — split from `numeric.mbt` so the
-// fast-path layout and the folds over it read apart (the name mirrors
-// `series/reduce.mbt`).
+// `max` and the fold kernels behind them, kept apart from the fast-path
+// layout file so the two read apart (the name mirrors
+// the series-side reducer file).
 //
 // A second implementation of rules that are stated canonically elsewhere:
-// `series/reduce.mbt` holds the null / `NaN` / empty-window semantics every
+// The series-side reducer holds the null / `NaN` / empty-window semantics every
 // column reduction follows, and `Series::sum` / `mean` / `min` / `max` route a
 // `Numeric` column here instead, for the bitmap-free fold. The docstrings below
 // therefore restate those rules for a direct `@column` caller — change them
-// there first, and expect `series/backend_parity_test.mbt` to be what catches a
+// there first, and expect the backend parity tests to catch a
 // divergence, since nothing about this file's types can.
 
 ///|

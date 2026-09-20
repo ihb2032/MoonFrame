@@ -10,8 +10,7 @@
 /// and eagerly (the as-built reference), then asserts the two agree cell for
 /// cell (NaN-aware), with error parity. Value equality is the contract: a
 /// backend flip that changes a value surfaces in the cells, while the backend
-/// tag itself is an implementation detail the oracle intentionally ignores (see
-/// `frames_equiv`).
+/// tag itself is an implementation detail the oracle intentionally ignores.
 ///
 /// Driven by quickcheck: each case draws a rich frame and a pipeline shape
 /// from `@gen` combinators, and `forall_shrink` collapses a failing case to a
@@ -177,7 +176,7 @@ fn rows_to_frame(
 /// detail of its content, not part of its identity), so a backend tag is not
 /// part of the value contract the optimizer must preserve — and a backend flip
 /// that *does* change a value is caught by the cell comparison below. Backend
-/// parity per se is guarded separately, by `series/backend_parity_test.mbt`.
+/// parity per se is guarded separately, by the series package's own tests.
 /// Returns `None` on equivalence, else a one-line reason. (An earlier
 /// `oc != oc.to_builtin()` "flip detector" here was inert: that `==` is exactly
 /// the backend-agnostic one, so it was always `false`.)
@@ -456,7 +455,7 @@ test "fuzz: group-by then key-filter is optimizer/eager equivalent on rich frame
       rows_to_frame(c.rows).group_by(c.keys).agg(c.aggs).filter(c.pred)
     }
     // Did the optimizer actually rewrite this plan? (Guards against a vacuous
-    // pass — see the assertion after the run.)
+    // pass — the assertion after the run checks it.)
     let rewritten = try {
       let plan = lazy_chain()
       plan.explain(optimized=true) != plan.explain()
@@ -914,7 +913,7 @@ test "fuzz: zero-match file projections preserve exact eager errors" {
 /// that references a real column (so the optimizer absorbs it into the scan and
 /// drives the CSV driver's row-pruning read, which Test 4's projection-only
 /// pipeline never reaches; the NDJSON twin shares the pruning path and is
-/// covered by `scan_ndjson_test.mbt`).
+/// covered by its own tests).
 struct PrunedFileCase {
   rows : Array[RichRow]
   pred : @expr.Expr

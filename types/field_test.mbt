@@ -1,7 +1,7 @@
 // `Field::Field(...)` is the constructor's only spelling — the type-named
 // constructor form every `pub struct` here uses. These tests bind fields on
 // their own or hand them to the generic `assert_eq` / `inspect`, so they write
-// it out in full, exactly as `schema_test.mbt` does inside `Schema::Schema([...])`.
+// it out in full, exactly as the schema tests do inside `Schema::Schema([...])`.
 
 ///|
 test "Field defaults to nullable" {

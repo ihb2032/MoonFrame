@@ -3,7 +3,7 @@
 // and report the same truncation count; only the surrounding syntax (an HTML
 // `<table>` vs a GFM pipe table) and the per-cell escaping differ, so the parts
 // that don't differ live here once rather than once per renderer. (The row-cap
-// clamp they also share is `@order.clamp_take`, the same saturating limit
+// clamp they also share is `clamp_take`, the same saturating limit
 // behind `head` / `tail`.)
 
 ///|

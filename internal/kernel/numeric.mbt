@@ -3,12 +3,11 @@
 /// whose operands must be numbers: the binary arithmetic and its always-`Float`
 /// siblings, the `Int`-preserving `//` / `%`, the unary shaping ops, and the
 /// `NaN` probes. (Deliberately not enumerated one by one: the list grows with
-/// the operator set, and `expr/expr_ops.mbt` is where each verb's contract
-/// lives.) Each kernel carries a `Numeric`×`Numeric` all-valid
+/// the operator set.) Each kernel carries a `Numeric`×`Numeric` all-valid
 /// fast arm that stays on the `Numeric` backend and a nullable general arm that
 /// re-converges through `try_column_to_numeric`. The shared cell gates
 /// (`zip_present` / `map_present`) and the `binary_type_mismatch_error` builder
-/// are shared across the kernels in this package, in `shared.mbt`.
+/// are shared across the kernels in this package.
 
 ///|
 /// Shared kernel for `+` / `-` / `*` over two equal-length operands
@@ -299,7 +298,8 @@ pub fn eval_div(left : Series, right : Series) -> Series raise @types.DataError 
 }
 
 ///|
-/// `Mod` — remainder (see `Expr::modulo`). Same-dtype `Int / Int → Int`
+/// `Mod` — remainder, the kernel behind `Expr::modulo`. Same-dtype
+/// `Int / Int → Int`
 /// carrying the dividend's sign; any `Float` operand promotes to `Float` (IEEE
 /// remainder). `Int` modulo by zero produces a **null** cell (as for
 /// `floor_div`), so an all-valid `Int / Int` pair can still yield nulls;
@@ -334,8 +334,9 @@ fn rem_i64(a : Int64, b : Int64) -> Int64 {
 }
 
 ///|
-/// `Pow` — exponentiation, **always `Float`** (see `Expr::pow`). Every numeric
-/// pair raises in `Double` (`@math.pow`), total under IEEE 754.
+/// `Pow` — exponentiation, **always `Float`**, the kernel behind `Expr::pow`.
+/// Every numeric pair raises in `Double` (the `pow` primitive), total under
+/// IEEE 754.
 pub fn eval_pow(left : Series, right : Series) -> Series raise @types.DataError {
   eval_binary_float(left, right, "exponentiate", (a, b) => @math.pow(a, b))
 }
@@ -485,7 +486,8 @@ pub fn sign_f64(a : Double) -> Double {
 ///
 /// Total at every input, including every `Int` a caller can pass: a non-finite
 /// value passes through, and a place finer than the value's own resolution
-/// leaves it untouched rather than perturbing it — see `DOUBLE_INTEGRAL_FLOOR`.
+/// leaves it untouched rather than perturbing it (`DOUBLE_INTEGRAL_FLOOR` is
+/// the cutoff).
 ///
 /// A **negative** `decimals` folds into that first arm rather than being
 /// rejected or trusted away. `Expr::round` clamps one to `0` when it builds the
@@ -536,7 +538,7 @@ const DOUBLE_INTEGRAL_FLOOR : Double = 4503599627370496.0
 /// exactly-half case — the floor when it is already even, else the ceil.
 fn round_half_even(a : Double) -> Double {
   // Non-finite passes through: `a - a` is `0.0` only for a finite `a` (both
-  // `NaN` and `±inf` yield `NaN`) — the finiteness probe `@literal.format_scalar`
+  // `NaN` and `±inf` yield `NaN`) — the finiteness probe `format_scalar`
   // also uses.
   if a - a != 0.0 {
     return a
@@ -565,7 +567,7 @@ pub fn eval_is_nan(
   operand : Series,
   want_nan : Bool,
 ) -> Series raise @types.DataError {
-  // `Numeric` fast arm (see `eval_arith`): all cells present, so the probe
+  // `Numeric` fast arm, as in `eval_arith`: all cells present, so the probe
   // is a raw-array pass — an `Int` cell is never NaN, so its arm is the
   // constant `!want_nan` per cell.
   match operand.storage() {

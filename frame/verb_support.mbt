@@ -1,8 +1,8 @@
 // The scaffolding the verbs rebuild a frame through — the package-private
-// constructors and the expression classifier shared by the verb files, which
-// is why they live apart from the type core (`dataframe.mbt` keeps the type,
-// its public constructors, and the accessors; `window.mbt` keeps the one verb
-// family that needed no scaffolding beyond `with_same_schema`). Consumers:
+// constructors and the expression classifier shared by the verb files, kept
+// apart from the type core (the type, its public constructors, and the
+// accessors) so each verb family stands on its own. The row-window family is
+// the one that needs no scaffolding beyond `with_same_schema`. Consumers:
 //
 //   - `from_parts_with_fields` ← select / drop / with_columns / reverse
 //     (and, through it, the `from_parts` seam io builds frames from)

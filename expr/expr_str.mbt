@@ -1,10 +1,9 @@
 ///|
 /// The `.str_*` string namespace (Polars' `str` accessors), one method per
 /// `StrOp` tag. Every `str_*` method builds a `Str` node over its tag,
-/// evaluated cell by cell in `internal/kernel/str.mbt` and rendered by the
-/// `Str` arm in `explain.mbt`; the family's expression-layer tests live in
-/// `expr_str_test.mbt`, the per-cell evaluation semantics in
-/// `frame/str_ops_test.mbt`.
+/// evaluated cell by cell by the string kernel and rendered by the
+/// `Str` arm of the explainer; the per-cell evaluation semantics are pinned
+/// in the frame layer's string tests.
 
 ///|
 /// Uppercase the **ASCII** letters of a String column — the shape of
@@ -108,7 +107,7 @@ pub fn Expr::str_ends_with(self : Expr, suffix : String) -> Expr {
 /// Replace the first occurrence of `pattern` with `value` in each cell of a
 /// String column — Polars' `str.replace`. `literal` defaults to `true` (plain
 /// substring); `literal=false` reads `pattern` as a POSIX regular expression
-/// (see `str_contains` for the dialect and the invalid-pattern error), with
+/// (same dialect and invalid-pattern error as `str_contains`), with
 /// `value` inserted literally — no capture-group references yet. A cell without
 /// a match is unchanged; null cells stay null.
 pub fn Expr::str_replace(
@@ -192,8 +191,8 @@ pub fn Expr::str_zfill(self : Expr, width : Int) -> Expr {
 /// nullable `String` column (Polars' `str.extract`). `group` (default `0`, the
 /// **whole match** — Polars defaults to the first capture group `1` instead)
 /// selects a capture group; a cell that does not match, or whose chosen group
-/// did not participate, yields **null**. See `str_contains` for the regex
-/// dialect and the invalid-pattern error; a null cell stays null and a
+/// did not participate, yields **null**. The regex dialect and the
+/// invalid-pattern error are `str_contains`'s; a null cell stays null and a
 /// non-String operand raises `TypeMismatch`.
 pub fn Expr::str_extract(
   self : Expr,
@@ -207,8 +206,8 @@ pub fn Expr::str_extract(
 /// Count the non-overlapping matches of the POSIX regular expression `pattern`
 /// in each cell — an `Int` column (Polars' `str.count_matches`), `0` where the
 /// pattern does not match. An all-valid result rides the `Numeric` fast path,
-/// like `str_len_chars`. See `str_contains` for the regex dialect and the
-/// invalid-pattern error; a null cell stays null and a non-String operand
+/// like `str_len_chars`. The regex dialect and the invalid-pattern error are
+/// `str_contains`'s; a null cell stays null and a non-String operand
 /// raises `TypeMismatch`.
 pub fn Expr::str_count_matches(self : Expr, pattern : String) -> Expr {
   Expr::of(@ir.ExprNode::Str(@ir.StrOp::CountMatches(pattern), self.node))

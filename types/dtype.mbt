@@ -58,6 +58,20 @@ pub fn DataType::is_numeric(self : DataType) -> Bool {
 }
 
 ///|
+/// Whether a pair of dtypes reaches a comparison kernel's value arms: the same
+/// dtype, or two numeric dtypes (`Int` vs `Float` compares exactly). This is
+/// the column-level compare gate — it keeps an `I64`-riding dtype like `Date`
+/// from comparing against a plain `Int`, whose cells are indistinguishable at
+/// the physical level but unrelated logically. A derived rule, not a
+/// registered one: same dtype or two `is_numeric` dtypes, with no per-dtype
+/// arm of its own.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
+pub fn DataType::comparable_with(self : DataType, other : DataType) -> Bool {
+  self == other || (self.is_numeric() && other.is_numeric())
+}
+
+///|
 /// `true` only for the `Bool` variant.
 pub fn DataType::is_bool(self : DataType) -> Bool {
   self is Bool

@@ -197,7 +197,7 @@ pub fn Scalar::lte(self : Scalar, other : Scalar) -> Bool raise DataError {
 /// dedicated `Null`-`raise` arm, whose fixed message has no operand order
 /// to preserve. The gate `gt` / `gte` consult so their transposed
 /// delegation cannot also transpose the diagnostic. Every non-`Null`
-/// verdict is the dtype registry's `comparable_with` — the same gate the
+/// verdict is `DataType::comparable_with` — the same gate the
 /// column-level comparison kernel reads — reached through `Scalar::dtype`,
 /// so the two layers cannot disagree about which pairs compare.
 fn comparable_pair(a : Scalar, b : Scalar) -> Bool {

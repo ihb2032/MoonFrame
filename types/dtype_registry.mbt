@@ -92,18 +92,6 @@ pub fn DataType::physical(self : DataType) -> PhysicalType? {
 }
 
 ///|
-/// Whether a pair of dtypes reaches a comparison kernel's value arms: the same
-/// dtype, or two numeric dtypes (`Int` vs `Float` compares exactly). This is
-/// the column-level compare gate — it keeps an `I64`-riding dtype like `Date`
-/// from comparing against a plain `Int`, whose cells are indistinguishable at
-/// the physical level but unrelated logically.
-#doc(hidden)
-#internal(engine, "MoonFrame execution engine API")
-pub fn DataType::comparable_with(self : DataType, other : DataType) -> Bool {
-  self == other || (self.is_numeric() && other.is_numeric())
-}
-
-///|
 /// How an `I64`-riding dtype reinterprets a raw buffer cell on read — the
 /// value-side definition of a rider, registered once here: every reader that
 /// must turn an `Int64` cell back into the column's own `Scalar` (the column

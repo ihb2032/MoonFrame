@@ -93,6 +93,10 @@ source-level upgrade steps are collected in [`migration.md`](migration.md).
   it from the buffer variant. That identity/representation split is what
   lets `Date` reuse the 64-bit buffer: the column's dtype is registered, not
   inferred from its cells.
+- The comparison gate `DataType::comparable_with` moves from the registry
+  file to the dtype predicates in `dtype.mbt`: it reads the registry's
+  numericity flag through `is_numeric` but is itself a derived pairwise
+  rule — same dtype, or two numerics — not a registered per-dtype fact.
 - The shared numeric-text probes move from `csv.mbt` to `infer.mbt`, beside
   the inference skeleton that owns them (the JSON readers' big-integer
   recovery had been reaching them backwards across the package's file map).

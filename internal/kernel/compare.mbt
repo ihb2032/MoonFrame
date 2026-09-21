@@ -162,7 +162,7 @@ pub fn eval_compare(
   let lv = validity_bools(left)
   let rv = validity_bools(right)
   let cells = match (left.storage().data(), right.storage().data()) {
-    // The dtype gates read the registry's `comparable_with`: the same dtype
+    // The dtype gates read `DataType::comparable_with`: the same dtype
     // compares, two numerics compare, and an I64 rider (Date) never compares
     // against a plain Int through the shared buffer.
     (@column.ColumnData::I64(a), @column.ColumnData::I64(b)) if left

@@ -1,6 +1,6 @@
-// Registry behavior pins: the physical mapping, the display names, the
-// numericity flag, and the pair-comparability gate — each read through the
-// accessor the engine packages use, so the registry's rows stay honest.
+// Registry behavior pins: the physical mapping, the display names, and the
+// numericity flag — each read through the accessor the engine packages use,
+// so the registry's rows stay honest.
 
 ///|
 test "physical: the concrete dtypes map to their buffers; Null has none" {
@@ -35,15 +35,4 @@ test "numericity: Int and Float only, however the buffers align" {
   // Date is I64-typed but is not a number: summing day-counts is a bug.
   assert_false(DataType::Date.is_numeric())
   assert_false(DataType::Null.is_numeric())
-}
-
-///|
-test "comparable_with: same dtype or two numerics" {
-  assert_true(DataType::Date.comparable_with(DataType::Date))
-  assert_true(DataType::Int.comparable_with(DataType::Float))
-  assert_true(DataType::Float.comparable_with(DataType::Int))
-  // The I64 rider never compares against the plain Int.
-  assert_false(DataType::Date.comparable_with(DataType::Int))
-  assert_false(DataType::String.comparable_with(DataType::Int))
-  assert_false(DataType::Bool.comparable_with(DataType::Date))
 }

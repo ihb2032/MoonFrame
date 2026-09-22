@@ -68,7 +68,11 @@ test "clean: surfaces ColumnNotFound when the `note` column is missing" {
   // `note`, which doesn't exist. The error must come back as
   // `ColumnNotFound("note")`, not a silent no-op.
   let df = @moonframe.DataFrame::DataFrame([
-    @moonframe.Series::from_int_options("score", [Some(1), None, Some(3)]),
+    @moonframe.Series::from_scalars("score", [
+      @moonframe.Scalar::Int(1),
+      @moonframe.Scalar::Null,
+      @moonframe.Scalar::Int(3),
+    ]),
   ])
   assert_true(
     (Ok(clean(df)) catch { e => Err(e) })

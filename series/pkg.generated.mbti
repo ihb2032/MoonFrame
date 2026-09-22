@@ -21,13 +21,10 @@ pub fn Series::dtype(Self) -> @types.DataType
 pub fn Series::equal(Self, Self) -> Bool
 pub fn Series::fill_null(Self, @types.Scalar) -> Self raise @types.DataError
 pub fn Series::first(Self) -> @types.Scalar
-pub fn Series::from_bool_options(String, Array[Bool?]) -> Self
 pub fn Series::from_bools(String, Array[Bool]) -> Self
-pub fn Series::from_float_options(String, Array[Double?]) -> Self
 pub fn Series::from_floats(String, Array[Double]) -> Self
-pub fn Series::from_int_options(String, Array[Int64?]) -> Self
 pub fn Series::from_ints(String, Array[Int64]) -> Self
-pub fn Series::from_string_options(String, Array[String?]) -> Self
+pub fn Series::from_scalars(String, Array[@types.Scalar], dtype? : @types.DataType) -> Self raise @types.DataError
 pub fn Series::from_strings(String, Array[String]) -> Self
 pub fn Series::gather(Self, Array[Int]) -> Self raise @types.DataError
 pub fn Series::get(Self, Int) -> @types.Scalar raise @types.DataError

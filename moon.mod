@@ -12,7 +12,7 @@ import {
   "moonbitlang/quickcheck@0.14.0",
 }
 
-readme = "README.md"
+readme = "README.mbt.md"
 
 repository = "https://github.com/ihb2032/MoonFrame"
 

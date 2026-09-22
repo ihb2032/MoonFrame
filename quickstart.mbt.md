@@ -9,7 +9,7 @@ expected output) is updated with `moon test --update`.
 These blocks use the sub-package aliases (`Series`, `DataFrame`, `col`, …)
 re-exported by the facade. In application code you would
 `import "ihb2032/MoonFrame" @moonframe` and prefix the same names with
-`@moonframe.` (see [`README.md`](README.md)), or import a single sub-package
+`@moonframe.` (see [`README.mbt.md`](README.mbt.md)), or import a single sub-package
 (`@frame`, `@io`, …) for a slice of the surface.
 
 ## Build a frame, then group and aggregate

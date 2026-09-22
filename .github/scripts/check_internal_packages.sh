@@ -36,8 +36,16 @@ disk=$(git ls-files 'internal/*/moon.pkg' | sed 's#/moon\.pkg$##' | LC_ALL=C sor
 # In README: the repository-structure block lists a package at line start,
 # `internal/<name>/` followed by its description. The trailing `/` is what makes
 # it an inventory line: prose and the layering diagram name a package without
-# one, so only the inventory counts.
-readme=$(sed -n 's#^\(internal/[a-z_]*\)/[ \t].*#\1#p' README.md |
+# one, so only the inventory counts. The README is the tested single source
+# `README.mbt.md`; `README.md` is a symlink to it, which a checkout without
+# symlink support (core.symlinks=false, the Windows default) materialises as a
+# one-line pointer — follow that pointer so the guard reads the real file
+# either way.
+readme_file=README.md
+if [ "$(cat README.md)" = "README.mbt.md" ]; then
+  readme_file=README.mbt.md
+fi
+readme=$(sed -n 's#^\(internal/[a-z_]*\)/[ \t].*#\1#p' "$readme_file" |
   LC_ALL=C sort -u)
 
 # In api.md: named inline, in the paragraph that explains the module boundary.

@@ -216,6 +216,23 @@ jobs:
         if: runner.os == 'Linux'
         run: moon test --target all
 
+      # The API-reference generator (`moon doc` — the MoonBit counterpart of
+      # a Doxygen run, HTML from the docstrings into `_build/doc`). Linux
+      # only, deliberately: the generator is the thing this step exists to
+      # verify, and its Windows behaviour is not trustworthy enough to gate
+      # on (it can report success while leaving the output incomplete), so
+      # Linux is where generation is verified every push. The sanity checks
+      # assert the run produced a real site, not just exit 0: pages for the
+      # module, and the root facade's own page among them.
+      - name: Generate API docs (moon doc)
+        if: runner.os == 'Linux'
+        run: |
+          moon doc
+          pages=$(find _build/doc -name '*.html' | wc -l)
+          echo "moon doc generated $pages HTML pages"
+          test "$pages" -gt 0
+          test -f _build/doc/ihb2032/MoonFrame/moonframe.mbt.html
+
       # There is no release-only tier: the expanded optimizer differential
       # suite and the parity suites run on every push and pull request, so a
       # change cannot merge without passing what a release run would have

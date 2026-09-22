@@ -14,10 +14,10 @@ import {
   "ihb2032/MoonFrame/series",
   "moonbitlang/core/bench",
   "moonbitlang/core/double",
+  "moonbitlang/core/env",
   "moonbitlang/core/test",
   "moonbitlang/quickcheck" @qc,
   "moonbitlang/quickcheck/gen",
   "moonbitlang/quickcheck/shrink",
   "moonbitlang/x/fs",
-  "moonbitlang/x/sys",
 } for "test"

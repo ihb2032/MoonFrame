@@ -8,10 +8,12 @@
 ///|
 /// Sort `self` by one or more `Expr` keys, applied in order — MoonFrame's
 /// single sort verb (Polars' `df.sort(...)`). `keys` is an array of
-/// `(key, order, null_order)` tuples: a single-key sort passes a
-/// one-element array (`df.sort([(col("q"), Desc, NullsLast)])`), a
+/// `(key, descending, nulls_last)` tuples — two plain flags, Polars'
+/// `descending` / `nulls_last`: a single-key sort passes a
+/// one-element array (`df.sort([(col("q"), true, true)])` — descending,
+/// nulls last), a
 /// multi-key sort lists several
-/// (`df.sort([(col("dept"), Asc, NullsLast), (col("salary"), Desc, NullsLast)])`).
+/// (`df.sort([(col("dept"), false, true), (col("salary"), true, true)])`).
 /// Earlier keys dominate; later keys only break ties between rows that
 /// compare equal under all earlier keys.
 ///
@@ -29,11 +31,11 @@
 ///
 /// The sort is **stable** (bottom-up merge sort on row indices): two
 /// rows that compare equal under every key keep their original relative
-/// order. This is what makes `[(col("dept"), Asc, _), (col("salary"), Desc, _)]`
+/// order. This is what makes `[(col("dept"), false, _), (col("salary"), true, _)]`
 /// behave the same as "sort by dept, then within each dept sort by
 /// salary descending".
 ///
-/// Null and `NaN` placement is governed by each key's `null_order`.
+/// Null and `NaN` placement is governed by each key's `nulls_last`.
 /// `NaN` in a `Float` key is treated identically to `Null` for
 /// ordering — IEEE 754 makes `<` / `>` against NaN return `false`, so a
 /// naive comparator would scatter NaNs unpredictably. (This is the one
@@ -57,7 +59,7 @@
 /// returns 0 ⇒ stability preserves the input order.
 pub fn DataFrame::sort(
   self : DataFrame,
-  keys : Array[(@expr.Expr, @types.SortOrder, @types.NullOrder)],
+  keys : Array[(@expr.Expr, Bool, Bool)],
 ) -> DataFrame raise @types.DataError {
   // No keys ⇒ every comparison returns 0 ⇒ a stable sort is the identity.
   // Return `self` rather than building an identity permutation and gathering
@@ -74,9 +76,9 @@ pub fn DataFrame::sort(
   let n = self.nrows()
   let scope = Array::makei(n, i => i)
   let sort_keys = keys.map(key => {
-    let (expr, order, null_order) = key
+    let (expr, descending, nulls_last) = key
     let column = @kernel.broadcast_series(eval_expr(expr, self, scope), n)
-    @series.build_sort_key(column, order, null_order)
+    @series.build_sort_key(column, descending, nulls_last)
   })
   // Stable mergesort produces the permutation; `gather` applies it to the
   // original frame. Every index in the permutation is in `[0, nrows)` by

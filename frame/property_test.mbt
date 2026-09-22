@@ -18,8 +18,8 @@ fn gen_i64_array(max_len : Int, lo : Int, hi : Int) -> @gen.Gen[Array[Int64]] {
 fn prop_sort_idempotent(xs : Array[Int64]) -> Bool {
   try {
     let df = DataFrame::DataFrame([Series::from_ints("x", xs)])
-    let once = df.sort([(@expr.col("x"), Asc, NullsLast)])
-    once == once.sort([(@expr.col("x"), Asc, NullsLast)])
+    let once = df.sort([(@expr.col("x"), false, true)])
+    once == once.sort([(@expr.col("x"), false, true)])
   } catch {
     _ => false
   }
@@ -79,8 +79,8 @@ fn prop_sort_stable(keys : Array[Int64]) -> Bool {
         Array::makei(keys.length(), i => i.to_int64()),
       ),
     ])
-    let ascending = df.sort([(@expr.col("key"), Asc, NullsLast)])
-    let descending = df.sort([(@expr.col("key"), Desc, NullsLast)])
+    let ascending = df.sort([(@expr.col("key"), false, true)])
+    let descending = df.sort([(@expr.col("key"), true, true)])
     sorted_stably(ascending, true) && sorted_stably(descending, false)
   } catch {
     _ => false

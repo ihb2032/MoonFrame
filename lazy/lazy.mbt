@@ -65,12 +65,12 @@ pub fn LazyFrame::select(
 
 ///|
 /// Defer `DataFrame::sort`: reorder rows by one or more
-/// `(key, order, null placement)` keys, later keys breaking ties. Each key
+/// `(key, descending, nulls_last)` keys, later keys breaking ties. Each key
 /// is an `Expr` evaluated over the whole frame at collect time, so a
 /// missing column or a dtype clash only surfaces then.
 pub fn LazyFrame::sort(
   self : LazyFrame,
-  by : Array[(@expr.Expr, @types.SortOrder, @types.NullOrder)],
+  by : Array[(@expr.Expr, Bool, Bool)],
 ) -> LazyFrame {
   { plan: Unary(self.plan, Sort(by.copy())), }
 }

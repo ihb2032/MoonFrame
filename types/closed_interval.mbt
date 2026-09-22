@@ -1,8 +1,7 @@
 // Interval-endpoint vocabulary for `Expr::is_between`. This is value-type
 // material rather than an expression-layer construct because the expression
 // AST (`ExprNode`) carries it on the `IsBetween` node, and the AST layer sits
-// below the expression layer — the same
-// reason `SortOrder` / `NullOrder` live here too. Constructible by callers
+// below the expression layer. Constructible by callers
 // (unlike the AST tags), so it stays a public, facade-re-exported type.
 
 ///|

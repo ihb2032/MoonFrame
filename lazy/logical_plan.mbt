@@ -89,7 +89,7 @@ priv enum FrameOp {
   Select(Array[@expr.Expr])
   WithColumns(Array[@expr.Expr])
   Filter(@expr.Expr)
-  Sort(Array[(@expr.Expr, @types.SortOrder, @types.NullOrder)])
+  Sort(Array[(@expr.Expr, Bool, Bool)])
   Head(Int)
   Tail(Int)
   Slice(Int, Int)

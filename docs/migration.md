@@ -10,11 +10,11 @@ and [GitHub Pages](https://ihb2032.github.io/MoonFrame/).
 ## v0.6.0 → v0.7.0 (unreleased)
 
 v0.7 is a pre-1.0 breaking release — the surface-focus one: `io` returns to
-tabular interchange and the root facade narrows its first-contact face. Both
-breaks are qualification moves; no symbol is deleted and no signature
-changes. The one widening break is the `Date` dtype: two public enums gained
-a variant. The narrow one is on the error side: the two error-detail enums
-became `#non_exhaustive`.
+tabular interchange and the root facade narrows its first-contact face. Those
+breaks are qualification moves. The widening break is the `Date` dtype: two
+public enums gained a variant. The narrow one is on the error side: the two
+error-detail enums became `#non_exhaustive`. Two enums are deleted outright —
+the sort vocabulary became Polars' two flags.
 
 ### `DataType` / `Scalar` gained a `Date` variant
 
@@ -48,6 +48,35 @@ fn describe(detail : @moonframe.TypeMismatchDetail) -> String {
 From v0.7.0 on, a new diagnostic shape added to either enum is **not** a
 breaking change: this arm absorbs it. `DataError` itself is unchanged — a
 new error kind remains a deliberate, breaking change.
+
+### `SortOrder` / `NullOrder` are gone; sort keys are two flags
+
+Sort direction and null placement leave the enum vocabulary — they are
+Polars' `descending` / `nulls_last` flags now. `DataFrame::sort` /
+`LazyFrame::sort` take `(key, descending, nulls_last)` tuples, and
+`Series::sort` takes labeled `descending?` (default `false`) /
+`nulls_last?` (default `true`, the previous default). The mapping is
+mechanical:
+
+| before | after |
+| --- | --- |
+| `SortOrder::Asc` | `false` |
+| `SortOrder::Desc` | `true` |
+| `NullOrder::NullsFirst` | `false` |
+| `NullOrder::NullsLast` | `true` |
+
+```moonbit
+// before
+df.sort([(col("quantity"), SortOrder::Desc, NullOrder::NullsLast)])
+s.sort(order=Desc, nulls=NullsFirst)
+
+// after
+df.sort([(col("quantity"), true, true)])  // (key, descending, nulls_last)
+s.sort(descending=true, nulls_last=false)
+```
+
+An `explain` rendering does not change: a plan still reads
+`SORT [col(qty) Desc NullsLast]`.
 
 ### `@io.ChartSpec` is `@chart.ChartSpec`
 

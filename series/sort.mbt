@@ -18,8 +18,8 @@
 #internal(engine, "MoonFrame execution engine API")
 pub fn build_sort_key(
   column : Series,
-  order : @types.SortOrder,
-  null_order : @types.NullOrder,
+  descending : Bool,
+  nulls_last : Bool,
 ) -> SortKey {
   // `validity_bools` is total over both backends: a `Numeric` column carries
   // only `Int` / `Float` and is all-valid (mask all-`true`), while `Bool` /
@@ -32,23 +32,23 @@ pub fn build_sort_key(
       SortKey::Int(
         a,
         Array::makei(a.length(), i => !valid[i]),
-        order,
-        null_order,
+        descending,
+        nulls_last,
       )
     @column.ColumnData::F64(a) =>
       // NaN behaves like Null for ordering.
       SortKey::Float(
         a,
         Array::makei(a.length(), i => !valid[i] || a[i].is_nan()),
-        order,
-        null_order,
+        descending,
+        nulls_last,
       )
     @column.ColumnData::Bool(a) =>
       SortKey::Bool(
         a,
         Array::makei(a.length(), i => !valid[i]),
-        order,
-        null_order,
+        descending,
+        nulls_last,
       )
     @column.ColumnData::Utf8(a) =>
       // Decoded once here: comparisons during the sort read the materialised
@@ -56,8 +56,8 @@ pub fn build_sort_key(
       SortKey::String(
         a.to_strings(),
         Array::makei(a.len(), i => !valid[i]),
-        order,
-        null_order,
+        descending,
+        nulls_last,
       )
   }
 }
@@ -69,33 +69,34 @@ pub fn build_sort_key(
 /// type: the variants stay unnameable outside this package, while `frame`'s
 /// multi-key sort holds one to compare with. The raw data buffer, a
 /// dense per-row `missing` mask (`Null`, or `NaN` for `Float`), and the
-/// per-key direction / null placement. Pre-resolving missingness lets
+/// per-key direction / null placement (`descending`, `nulls_last`).
+/// Pre-resolving missingness lets
 /// the comparator stay branch-free per element type (no `Scalar` boxing,
 /// no per-comparison bitmap lookup).
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
 pub enum SortKey {
-  Int(ArrayView[Int64], Array[Bool], @types.SortOrder, @types.NullOrder)
-  Float(ArrayView[Double], Array[Bool], @types.SortOrder, @types.NullOrder)
-  Bool(ArrayView[Bool], Array[Bool], @types.SortOrder, @types.NullOrder)
-  String(ArrayView[String], Array[Bool], @types.SortOrder, @types.NullOrder)
+  Int(ArrayView[Int64], Array[Bool], Bool, Bool)
+  Float(ArrayView[Double], Array[Bool], Bool, Bool)
+  Bool(ArrayView[Bool], Array[Bool], Bool, Bool)
+  String(ArrayView[String], Array[Bool], Bool, Bool)
 }
 
 ///|
 /// Single-key comparison. The validity bitmap (and, for `Float`, the
 /// NaN check) decides "missing"; missingness combines with
-/// `null_order` to place missing cells, and only non-missing pairs
-/// reach the value comparison + `order` flip.
+/// `nulls_last` to place missing cells, and only non-missing pairs
+/// reach the value comparison + `descending` flip.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
 pub fn compare_one_key(key : SortKey, i : Int, j : Int) -> Int {
   match key {
-    Int(data, missing, order, null_order) => {
+    Int(data, missing, descending, nulls_last) => {
       // `missing` was materialised over `[0, n)`; `i`, `j` come from the
       // `[0, n)` permutation, so the index is in-bounds (like `data[i]`).
       let mi = missing[i]
       let mj = missing[j]
-      compare_with_missing(mi, mj, null_order, order, fn() {
+      compare_with_missing(mi, mj, nulls_last, descending, fn() {
         let a = data[i]
         let b = data[j]
         if a < b {
@@ -107,12 +108,12 @@ pub fn compare_one_key(key : SortKey, i : Int, j : Int) -> Int {
         }
       })
     }
-    Float(data, missing, order, null_order) => {
+    Float(data, missing, descending, nulls_last) => {
       // NaN was already folded into `missing` at build time, so the value
       // comparison below only runs on two non-NaN, non-null cells.
       let mi = missing[i]
       let mj = missing[j]
-      compare_with_missing(mi, mj, null_order, order, fn() {
+      compare_with_missing(mi, mj, nulls_last, descending, fn() {
         let a = data[i]
         let b = data[j]
         if a < b {
@@ -124,10 +125,10 @@ pub fn compare_one_key(key : SortKey, i : Int, j : Int) -> Int {
         }
       })
     }
-    Bool(data, missing, order, null_order) => {
+    Bool(data, missing, descending, nulls_last) => {
       let mi = missing[i]
       let mj = missing[j]
-      compare_with_missing(mi, mj, null_order, order, fn() {
+      compare_with_missing(mi, mj, nulls_last, descending, fn() {
         let a = data[i]
         let b = data[j]
         // `false < true`, matching `Scalar::lt` on Bool.
@@ -140,10 +141,10 @@ pub fn compare_one_key(key : SortKey, i : Int, j : Int) -> Int {
         }
       })
     }
-    String(data, missing, order, null_order) => {
+    String(data, missing, descending, nulls_last) => {
       let mi = missing[i]
       let mj = missing[j]
-      compare_with_missing(mi, mj, null_order, order, fn() {
+      compare_with_missing(mi, mj, nulls_last, descending, fn() {
         @text.compare_string_lex(data[i], data[j])
       })
     }
@@ -157,51 +158,54 @@ pub fn compare_one_key(key : SortKey, i : Int, j : Int) -> Int {
 fn compare_with_missing(
   mi : Bool,
   mj : Bool,
-  null_order : @types.NullOrder,
-  order : @types.SortOrder,
+  nulls_last : Bool,
+  descending : Bool,
   cmp_valid : () -> Int,
 ) -> Int {
   match (mi, mj) {
     (true, true) => 0
-    (true, false) => missing_offset(null_order)
-    (false, true) => -missing_offset(null_order)
+    (true, false) => missing_offset(nulls_last)
+    (false, true) => -missing_offset(nulls_last)
     (false, false) => {
       let raw = cmp_valid()
-      match order {
-        @types.Asc => raw
-        @types.Desc => -raw
+      if descending {
+        -raw
+      } else {
+        raw
       }
     }
   }
 }
 
 ///|
-/// `-1` when missing sorts before non-missing (`NullsFirst`), `1` when
-/// missing sorts after non-missing (`NullsLast`). The sign is applied
-/// from the left-hand side's perspective in `compare_with_missing`.
-fn missing_offset(null_order : @types.NullOrder) -> Int {
-  match null_order {
-    @types.NullsFirst => -1
-    @types.NullsLast => 1
+/// `-1` when missing sorts before non-missing (`nulls_last = false`), `1`
+/// when missing sorts after non-missing (`nulls_last = true`). The sign is
+/// applied from the left-hand side's perspective in `compare_with_missing`.
+fn missing_offset(nulls_last : Bool) -> Int {
+  if nulls_last {
+    1
+  } else {
+    -1
   }
 }
 
 ///|
 /// Sort the series' own values, returning a new series with the same name —
-/// Polars' `Series.sort`. `order` defaults to ascending and `nulls` to
-/// `NullsLast`, and both mean exactly what they mean for `DataFrame::sort`:
-/// the same kernel resolves the column, so a `Float` `NaN` counts as missing
-/// alongside `Null` (the repository's deliberate ordering convention) and
-/// ties keep their input order — the sort is stable.
+/// Polars' `Series.sort`. `descending` defaults to ascending and
+/// `nulls_last` to `true`, and both mean exactly what they mean for the
+/// corresponding `DataFrame::sort` key flags: the same kernel resolves the
+/// column, so a `Float` `NaN` counts as missing alongside `Null` (the
+/// repository's deliberate ordering convention) and ties keep their input
+/// order — the sort is stable.
 ///
 /// Total: every dtype has an order, and the permutation indexes the series
 /// itself, so nothing can fail.
 pub fn Series::sort(
   self : Series,
-  order? : @types.SortOrder = Asc,
-  nulls? : @types.NullOrder = NullsLast,
+  descending? : Bool = false,
+  nulls_last? : Bool = true,
 ) -> Series {
-  let key = build_sort_key(self, order, nulls)
+  let key = build_sort_key(self, descending, nulls_last)
   let perm = @order.stable_mergesort_indices(self.len(), (i, j) => {
     compare_one_key(key, i, j)
   })

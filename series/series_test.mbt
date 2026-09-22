@@ -432,13 +432,13 @@ test "Series::sort orders values, defaulting to ascending with nulls last" {
     @types.Scalar::Int(3),
     @types.Scalar::Null,
   ])
-  assert_eq(s.sort(order=Desc).to_scalars(), [
+  assert_eq(s.sort(descending=true).to_scalars(), [
     @types.Scalar::Int(3),
     @types.Scalar::Int(2),
     @types.Scalar::Int(1),
     @types.Scalar::Null,
   ])
-  assert_eq(s.sort(nulls=NullsFirst).to_scalars(), [
+  assert_eq(s.sort(nulls_last=false).to_scalars(), [
     @types.Scalar::Null,
     @types.Scalar::Int(1),
     @types.Scalar::Int(2),

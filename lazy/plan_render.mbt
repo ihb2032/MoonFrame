@@ -187,14 +187,14 @@ fn exprs_label(exprs : Array[@expr.Expr]) -> String {
 /// `SORT` key list, e.g. `[col(qty) Asc NullsFirst, col(region) Desc NullsLast]`
 /// — one `key order nulls` triple per key, in sort precedence order, the
 /// key rendered through `@expr.Expr`'s `Show` (the documented operator
-/// form, like the `SELECT` / `WITH_COLUMNS` expression lists).
-fn sort_label(
-  by : Array[(@expr.Expr, @types.SortOrder, @types.NullOrder)],
-) -> String {
+/// form, like the `SELECT` / `WITH_COLUMNS` expression lists). The two
+/// flags keep the rendered spellings the enums used to carry, so an
+/// `explain` snapshot written before them reads the same after.
+fn sort_label(by : Array[(@expr.Expr, Bool, Bool)]) -> String {
   list_label(
     by.map(key => {
-      let (expr, order, nulls) = key
-      "\{expr.to_string()} \{order_label(order)} \{nulls_label(nulls)}"
+      let (expr, descending, nulls_last) = key
+      "\{expr.to_string()} \{order_label(descending)} \{nulls_label(nulls_last)}"
     }),
   )
 }
@@ -230,19 +230,21 @@ fn join_label(options : @frame.JoinOptions) -> String {
 
 ///|
 /// Display name of a sort direction.
-fn order_label(order : @types.SortOrder) -> String {
-  match order {
-    @types.SortOrder::Asc => "Asc"
-    @types.SortOrder::Desc => "Desc"
+fn order_label(descending : Bool) -> String {
+  if descending {
+    "Desc"
+  } else {
+    "Asc"
   }
 }
 
 ///|
 /// Display name of a null placement.
-fn nulls_label(nulls : @types.NullOrder) -> String {
-  match nulls {
-    @types.NullOrder::NullsFirst => "NullsFirst"
-    @types.NullOrder::NullsLast => "NullsLast"
+fn nulls_label(nulls_last : Bool) -> String {
+  if nulls_last {
+    "NullsLast"
+  } else {
+    "NullsFirst"
   }
 }
 

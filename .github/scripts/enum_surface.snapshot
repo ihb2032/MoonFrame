@@ -33,8 +33,6 @@ JoinType | enum | Right
 KeepStrategy | enum | First
 KeepStrategy | enum | Last
 KeepStrategy | enum | None
-NullOrder | enum | NullsFirst
-NullOrder | enum | NullsLast
 OnParseError | enum | Null
 OnParseError | enum | Raise
 ParseErrorDetail | enum | Cell(CellParseLocation, String, Int, DataType, String)
@@ -45,8 +43,6 @@ Scalar | enum | Float(Double)
 Scalar | enum | Int(Int64)
 Scalar | enum | Null
 Scalar | enum | String(String)
-SortOrder | enum | Asc
-SortOrder | enum | Desc
 TypeMismatchDetail | enum | Expected(DataType, DataType, String)
 TypeMismatchDetail | enum | Message(String)
 TypeMismatchDetail | enum | Operation(String, DataType, DataType)

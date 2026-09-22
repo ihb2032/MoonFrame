@@ -107,7 +107,13 @@ reduce_op_of_agg
 # Removed with the frame cache consolidation (unreleased): the schema index
 # is the only name-to-position map.
 name_to_index
-index_by_name'
+index_by_name
+# Removed with the sort-flag convergence (unreleased): direction and null
+# placement are the Polars descending / nulls_last bools. The variant
+# spellings NullsFirst / NullsLast are deliberately not pinned: they live
+# on as the display words of the plan renderer.
+SortOrder
+NullOrder'
 
 # `|| true`: a `grep` that filters everything out exits 1, which `set -e` would
 # turn into a silent failure of the whole script.

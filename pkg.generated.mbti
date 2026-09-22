@@ -103,8 +103,6 @@ pub using @frame {type KeepStrategy}
 
 pub using @lazy {type LazyFrame}
 
-pub using @types {type NullOrder}
-
 pub using @io {type OnParseError}
 
 pub using @types {type ParseErrorDetail}
@@ -114,8 +112,6 @@ pub using @types {type Scalar}
 pub using @types {type Schema}
 
 pub using @series {type Series}
-
-pub using @types {type SortOrder}
 
 pub using @types {type TypeMismatchDetail}
 

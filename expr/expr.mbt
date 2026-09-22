@@ -139,6 +139,19 @@ pub struct WhenThenElse {
 /// evaluates to `a` where `cond` is `true`, `b` where it is `false`, and
 /// null where `cond` is null. The chain is the only construction route, so
 /// a conditional is complete by the time it becomes an `Expr`.
+///
+/// # Example
+/// ```mbt check
+/// test "when: the chain is the only construction route" {
+///   let tagged = when(col("qty").gt(lit_int(5)))
+///     .then(lit_str("big"))
+///     .otherwise(lit_str("small"))
+///   inspect(
+///     tagged.to_string(),
+///     content="when((col(qty) > 5)).then(\"big\").otherwise(\"small\")",
+///   )
+/// }
+/// ```
 pub fn when(cond : Expr) -> WhenThen {
   { cond, }
 }

@@ -92,6 +92,16 @@ pub fn Expr::map_batches(
 /// whatever it is, so only an empty `inputs` leaves an all-null result with no
 /// witness and raises `Unsupported`. The `inputs` array is copied, so mutating
 /// it after construction cannot alter the built expression.
+///
+/// # Example
+/// ```mbt check
+/// test "map_many: drops to a host closure" {
+///   let total = map_many(label="total", [col("a"), col("b")], cells => {
+///     @types.Scalar::Int(cells[0].as_int() + cells[1].as_int())
+///   })
+///   inspect(total.to_string(), content="map(\"total\", [col(a), col(b)])")
+/// }
+/// ```
 pub fn map_many(
   label~ : String,
   inputs : Array[Expr],

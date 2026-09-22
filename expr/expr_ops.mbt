@@ -12,6 +12,13 @@
 /// `ColumnNotFound` then if the frame has no such column; building the
 /// reference itself is total. A free function, like the `lit*` family — the
 /// facade re-exports it.
+///
+/// # Example
+/// ```mbt check
+/// test "col: renders as a reference" {
+///   inspect(col("qty").to_string(), content="col(qty)")
+/// }
+/// ```
 pub fn col(name : String) -> Expr {
   Expr::of(@ir.ExprNode::Col(name))
 }
@@ -23,6 +30,16 @@ pub fn col(name : String) -> Expr {
 /// expression verbs — `df.select(cols(["a", "b"]))` reads almost like the
 /// names-only projection it replaces. Each name resolves at evaluation
 /// time, exactly like `col`; building the list is total.
+///
+/// # Example
+/// ```mbt check
+/// test "cols: shorthand for the reference list" {
+///   debug_inspect(
+///     cols(["a", "b"]).map(e => e.to_string()),
+///     content="[\"col(a)\", \"col(b)\"]",
+///   )
+/// }
+/// ```
 pub fn cols(names : Array[String]) -> Array[Expr] {
   names.map(name => col(name))
 }
@@ -32,30 +49,65 @@ pub fn cols(names : Array[String]) -> Array[Expr] {
 /// broadcast against its siblings. Prefer the typed shorthands
 /// (`lit_int` / `lit_float` / `lit_str` / `lit_bool`), which avoid
 /// spelling the `Scalar` variant at call sites.
+///
+/// # Example
+/// ```mbt check
+/// test "lit: embeds any Scalar" {
+///   inspect(lit(@types.Scalar::Int(3L)).to_string(), content="3")
+/// }
+/// ```
 pub fn lit(value : @types.Scalar) -> Expr {
   Expr::of(@ir.ExprNode::Lit(value))
 }
 
 ///|
 /// `Int` literal (64-bit, like every MoonFrame integer cell).
+///
+/// # Example
+/// ```mbt check
+/// test "lit_int: renders bare" {
+///   inspect(lit_int(5L).to_string(), content="5")
+/// }
+/// ```
 pub fn lit_int(value : Int64) -> Expr {
   lit(@types.Scalar::Int(value))
 }
 
 ///|
 /// `Float` literal.
+///
+/// # Example
+/// ```mbt check
+/// test "lit_float: whole values keep their point" {
+///   inspect(lit_float(2.0).to_string(), content="2.0")
+/// }
+/// ```
 pub fn lit_float(value : Double) -> Expr {
   lit(@types.Scalar::Float(value))
 }
 
 ///|
 /// `String` literal.
+///
+/// # Example
+/// ```mbt check
+/// test "lit_str: renders quoted" {
+///   inspect(lit_str("ab").to_string(), content="\"ab\"")
+/// }
+/// ```
 pub fn lit_str(value : String) -> Expr {
   lit(@types.Scalar::String(value))
 }
 
 ///|
 /// `Bool` literal.
+///
+/// # Example
+/// ```mbt check
+/// test "lit_bool: renders bare" {
+///   inspect(lit_bool(true).to_string(), content="true")
+/// }
+/// ```
 pub fn lit_bool(value : Bool) -> Expr {
   lit(@types.Scalar::Bool(value))
 }
@@ -73,6 +125,14 @@ pub fn lit_bool(value : Bool) -> Expr {
 /// is a `Series`, not an `Expr`), like the `lit_*` family and `map_many`.
 /// Building the node is total; the length check happens at evaluation, in
 /// `frame`.
+///
+/// # Example
+/// ```mbt check
+/// test "lit_series: names its column after the series" {
+///   let s = @series.Series::from_ints("score", [1, 2])
+///   inspect(lit_series(s).output_name(), content="score")
+/// }
+/// ```
 pub fn lit_series(series : @series.Series) -> Expr {
   Expr::of(@ir.ExprNode::LitSeries(series))
 }

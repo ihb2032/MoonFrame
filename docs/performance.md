@@ -95,7 +95,8 @@ Each row reuses the symbols in its own line — `k` is the surviving rows of a
 
 `collect()` runs two rewrites before executing — unless the plan is a DAG (one
 `LazyFrame` value shared across both sides of a `join`), which skips both and
-executes as built; see [`api.md`](api.md). A plan that succeeds
+executes as built; `LazyFrame::collect`'s docstring states that carve-out. A
+plan that succeeds
 produces what the eager pipeline produces — same schema, same
 cells, which is what `DataFrame`'s `Eq` compares and what the differential
 suite asserts. Not a claim about physical layout: the backend a column lands
@@ -122,10 +123,11 @@ Because a pruned column is never parsed, a parse error confined to it — or to 
 row a pushed-down predicate drops, in a column the predicate does not read — is
 what an optimized plan will not surface that a full eager read would. That is
 the deliberate one, and it applies only to file sources (`scan_csv` /
-`scan_ndjson`); [`api.md`](api.md) states both cases as the plan-level
-contract.
+`scan_ndjson`); `LazyFrame::collect`'s docstring states both cases as the
+plan-level contract.
 
-See [`api.md`](api.md) for the per-operation semantics and
+See the operator docstrings (collected in the generated reference) for the
+per-operation semantics and
 [`comparison.md`](comparison.md) for how the semantics line up with Polars.
 
 ## Benchmarks

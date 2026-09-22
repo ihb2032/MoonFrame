@@ -71,63 +71,57 @@ mkgit() {
 }
 
 mkfixture() {
-  # mkfixture <dir> <mod-version> <changelog-heading> <migration-target>
-  # Three files name a release and nobody else does: the manifest and the two
-  # history documents. The guides describe `main` and promise the facade
-  # surface, so there is no version in them to keep in step. The changelog
-  # always carries a published v0.5.8 section below the newest one, as the real
-  # file does — that is what `moon.mod` is held to while the newest release is
-  # being prepared.
+  # mkfixture <dir> <mod-version> <migration-heading>
+  # Two files name a release and nobody else does: the manifest and the
+  # migration guide. The guides describe `main` and promise the facade
+  # surface, so there is no version in them to keep in step. The heading
+  # carries both numbers that matter — the arrow's target is the release
+  # being described, and the arrow's source is the published version
+  # `moon.mod` is held to while the target is marked `(unreleased)`.
   mkdir -p "$1/docs"
   printf 'name = "x"\n\nversion = "%s"\n' "$2" >"$1/moon.mod"
-  printf '# Changelog\n\n%s\n\nbody\n\n## v0.5.8 — before\n' "$3" >"$1/docs/changelog.md"
-  printf '# Migration\n\n## v0.0.0 → v%s\n' "$4" >"$1/docs/migration.md"
+  printf '# Migration\n\n%s\n' "$3" >"$1/docs/migration.md"
   mkgit "$1"
 }
 
-mkfixture "$work/v_released" 0.6.0 '## v0.6.0 — done' 0.6.0
+mkfixture "$work/v_released" 0.6.0 '## v0.5.8 → v0.6.0'
 expect 0 'version: released and consistent' \
   sh "$scripts/check_version_identity.sh" "$work/v_released"
 
-mkfixture "$work/v_unreleased" 0.5.8 '## v0.6.0 — done (unreleased)' 0.6.0
+mkfixture "$work/v_unreleased" 0.5.8 '## v0.5.8 → v0.6.0 (unreleased)'
 expect 0 'version: unreleased, moon.mod still on the published version' \
   sh "$scripts/check_version_identity.sh" "$work/v_unreleased"
 
-mkfixture "$work/v_silent" 0.5.8 '## v0.6.0 — done' 0.6.0
+mkfixture "$work/v_silent" 0.5.8 '## v0.5.8 → v0.6.0'
 expect 1 'version: moon.mod lagging with no marker' \
   sh "$scripts/check_version_identity.sh" "$work/v_silent"
 
-mkfixture "$work/v_stale_marker" 0.6.0 '## v0.6.0 — done (unreleased)' 0.6.0
+mkfixture "$work/v_stale_marker" 0.6.0 '## v0.5.8 → v0.6.0 (unreleased)'
 expect 1 'version: published but still marked unreleased' \
   sh "$scripts/check_version_identity.sh" "$work/v_stale_marker"
 
 # The false negative an equality check alone leaves open: `moon.mod` naming a
 # version that is neither the release being prepared nor the one published.
-mkfixture "$work/v_unreleased_ahead" 9.9.9 '## v0.6.0 — done (unreleased)' 0.6.0
+mkfixture "$work/v_unreleased_ahead" 9.9.9 '## v0.5.8 → v0.6.0 (unreleased)'
 expect 1 'version: unreleased, moon.mod ahead of the release being prepared' \
   sh "$scripts/check_version_identity.sh" "$work/v_unreleased_ahead"
 
-mkfixture "$work/v_unreleased_behind" 0.5.7 '## v0.6.0 — done (unreleased)' 0.6.0
+mkfixture "$work/v_unreleased_behind" 0.5.7 '## v0.5.8 → v0.6.0 (unreleased)'
 expect 1 'version: unreleased, moon.mod behind the published version' \
   sh "$scripts/check_version_identity.sh" "$work/v_unreleased_behind"
 
-# First release: nothing published below it, so there is no version to hold
-# `moon.mod` to.
+# First release: no source side on the arrow, so there is no published
+# version to hold `moon.mod` to.
 mkdir -p "$work/v_first/docs"
 printf 'name = "x"\n\nversion = "0.0.0"\n' >"$work/v_first/moon.mod"
-printf '# Changelog\n\n## v0.1.0 — first (unreleased)\n' >"$work/v_first/docs/changelog.md"
-printf '# Migration\n\n## v0.0.0 → v0.1.0\n' >"$work/v_first/docs/migration.md"
+printf '# Migration\n\n## → v0.1.0 (unreleased)\n' >"$work/v_first/docs/migration.md"
 mkgit "$work/v_first"
 expect 0 'version: first release has no published predecessor' \
   sh "$scripts/check_version_identity.sh" "$work/v_first"
 
-mkfixture "$work/v_migration" 0.6.0 '## v0.6.0 — done' 0.5.9
-expect 1 'version: migration targets another release' \
-  sh "$scripts/check_version_identity.sh" "$work/v_migration"
-
-# The other half of the rule: no fourth place names a release. The three
-# fixtures above are already the clean case — each passes with only the three
-# homes tracked — so what is left is a stray, and the third-party versions that
+# The other half of the rule: no third place names a release. The fixtures
+# above are already the clean case — each passes with only the two homes
+# tracked — so what is left is a stray, and the third-party versions that
 # must *not* read as one.
 addfile() {
   # addfile <dir> <path> <content>
@@ -136,12 +130,12 @@ addfile() {
   (cd "$1" && git add -A && git commit -qm f)
 }
 
-mkfixture "$work/v_stray_md" 0.5.8 '## v0.6.0 — done (unreleased)' 0.6.0
+mkfixture "$work/v_stray_md" 0.5.8 '## v0.5.8 → v0.6.0 (unreleased)'
 addfile "$work/v_stray_md" README.md 'Install MoonFrame v0.6.0 to follow along.'
 expect_out 1 'names a release' 'version: a guide names a release' \
   sh "$scripts/check_version_identity.sh" "$work/v_stray_md"
 
-mkfixture "$work/v_stray_comment" 0.5.8 '## v0.6.0 — done (unreleased)' 0.6.0
+mkfixture "$work/v_stray_comment" 0.5.8 '## v0.5.8 → v0.6.0 (unreleased)'
 addfile "$work/v_stray_comment" src/a.mbt '/// Added in v0.4.2.
 fn f() -> Int { 1 }'
 expect_out 1 'names a release' 'version: a docstring names a release' \
@@ -149,13 +143,13 @@ expect_out 1 'names a release' 'version: a docstring names a release' \
 
 # A code line is not prose: a version-shaped string literal is data, and a
 # parser test is entitled to one.
-mkfixture "$work/v_code_literal" 0.5.8 '## v0.6.0 — done (unreleased)' 0.6.0
+mkfixture "$work/v_code_literal" 0.5.8 '## v0.5.8 → v0.6.0 (unreleased)'
 addfile "$work/v_code_literal" src/a.mbt 'fn f() -> String { "1.2.3" }'
 expect 0 'version: a string literal in code is not a release name' \
   sh "$scripts/check_version_identity.sh" "$work/v_code_literal"
 
 # Third-party versions, each excluded by the token its own line carries.
-mkfixture "$work/v_third_party" 0.5.8 '## v0.6.0 — done (unreleased)' 0.6.0
+mkfixture "$work/v_third_party" 0.5.8 '## v0.5.8 → v0.6.0 (unreleased)'
 addfile "$work/v_third_party" README.md 'MoonBit v0.10.4 changed the manifest.'
 addfile "$work/v_third_party" .github/workflows/ci.yml '  MOONBIT_INSTALL_VERSION: "0.10.4+2cc641edf"
       - uses: actions/checkout@fbc6f39 # v5.1.0'
@@ -165,7 +159,7 @@ expect 0 'version: third-party versions are not this project'"'"'s release' \
 
 # The escape hatch, shared with the stale-name guard: a line that must name a
 # past release says so.
-mkfixture "$work/v_historical" 0.5.8 '## v0.6.0 — done (unreleased)' 0.6.0
+mkfixture "$work/v_historical" 0.5.8 '## v0.5.8 → v0.6.0 (unreleased)'
 addfile "$work/v_historical" README.md 'Read from v0.5.0 on. <!-- doc-guard: historical -->'
 expect 0 'version: a marked line may name a past release' \
   sh "$scripts/check_version_identity.sh" "$work/v_historical"
@@ -175,7 +169,7 @@ expect 0 'version: a marked line may name a past release' \
 # became a bare `MoonBit`, waving through any sentence that mentions the
 # language, and `doc-guard: historical` became `doc-guard:`, letting the *other*
 # marker silence a version too.
-mkfixture "$work/v_narrow" 0.5.8 '## v0.6.0 — done (unreleased)' 0.6.0
+mkfixture "$work/v_narrow" 0.5.8 '## v0.5.8 → v0.6.0 (unreleased)'
 addfile "$work/v_narrow" README.md 'A MoonBit dataframe library, v0.4.0.
 Also v0.3.0. <!-- doc-guard: unresolved -->'
 expect_out 1 'names a release' 'version: the third-party exclusions stay narrow' \
@@ -184,8 +178,7 @@ expect_out 1 'names a release' 'version: the third-party exclusions stay narrow'
 # A guard that cannot read the file list must not report success.
 mkdir -p "$work/v_no_git/docs"
 printf 'name = "x"\n\nversion = "0.6.0"\n' >"$work/v_no_git/moon.mod"
-printf '# Changelog\n\n## v0.6.0 — done\n\n## v0.5.8 — before\n' >"$work/v_no_git/docs/changelog.md"
-printf '# Migration\n\n## v0.0.0 → v0.6.0\n' >"$work/v_no_git/docs/migration.md"
+printf '# Migration\n\n## v0.5.8 → v0.6.0\n' >"$work/v_no_git/docs/migration.md"
 expect_out 1 'no work tree' 'version: the scan cannot be skipped silently' \
   env GIT_CEILING_DIRECTORIES="$work" sh "$scripts/check_version_identity.sh" \
   "$work/v_no_git"
@@ -211,8 +204,8 @@ mkstale "$work/s_marked" README.md 'It replaced `DataFrame::new`. doc-guard: his
 expect 0 'stale: removed name behind the historical marker' \
   sh "$scripts/check_stale_names.sh" "$work/s_marked"
 
-mkstale "$work/s_history" docs/changelog.md '`DataFrame::new` is gone.'
-expect 0 'stale: changelog is exempt' \
+mkstale "$work/s_history" docs/migration.md '`DataFrame::new` is gone.'
+expect 0 'stale: the migration guide is exempt' \
   sh "$scripts/check_stale_names.sh" "$work/s_history"
 
 # A file-scoped entry (`path:name`) is what makes a bare name pinnable: the
@@ -546,10 +539,10 @@ expect 1 'facade surface: a public type outside the intermediate allowlist' \
 
 # ── internal package manifest ─────────────────────────────────────────────
 mkinternal() {
-  # mkinternal <dir> <disk-packages> <readme-body> <api-body>
+  # mkinternal <dir> <disk-packages> <readme-body>
   # `<disk-packages>` is a space-separated list of `internal/<name>` packages
   # to create, each as a bare build manifest.
-  mkdir -p "$1/docs"
+  mkdir -p "$1"
   (cd "$1" && git init -q . && git config user.email t@t &&
     git config user.name t && git config core.autocrlf false)
   for pkg in $2; do
@@ -557,33 +550,33 @@ mkinternal() {
     printf 'import {}\n' >"$1/internal/$pkg/moon.pkg"
   done
   printf '%s\n' "$3" >"$1/README.md"
-  printf '%s\n' "$4" >"$1/docs/api.md"
   (cd "$1" && git add -A && git commit -qm f)
 }
 
 ip_readme='types/      value types
 internal/column/   Arrow-style storage
 internal/kernel/   vectorized expression kernels'
-ip_api='Storage (`internal/column`) and the expression kernels
-(`internal/kernel`) live in module-internal packages a downstream module
-cannot import at all.'
 
-mkinternal "$work/ip_ok" "column kernel" "$ip_readme" "$ip_api"
-expect 0 'internal packages: docs and tree agree' \
+mkinternal "$work/ip_ok" "column kernel" "$ip_readme"
+expect 0 'internal packages: doc and tree agree' \
   sh "$scripts/check_internal_packages.sh" "$work/ip_ok"
 
 # The drift this exists for: a package extracted without saying what belongs
-# in it, so the docs still describe the architecture it replaced.
-mkinternal "$work/ip_undocumented" "column kernel text" "$ip_readme" "$ip_api"
-expect 1 'internal packages: a package the docs never mention' \
+# in it, so the doc still describes the architecture it replaced.
+mkinternal "$work/ip_undocumented" "column kernel text" "$ip_readme"
+expect 1 'internal packages: a package the doc never mentions' \
   sh "$scripts/check_internal_packages.sh" "$work/ip_undocumented"
 
-mkinternal "$work/ip_readme_only" "column kernel" "$ip_readme" \
-  'Storage (`internal/column`) lives in a module-internal package.'
-expect 1 'internal packages: a package missing from docs/api.md' \
-  sh "$scripts/check_internal_packages.sh" "$work/ip_readme_only"
+# A package named in prose but not as an inventory line: the structure block's
+# `internal/<name>/` line start is what counts, so a prose mention does not
+# document it.
+mkinternal "$work/ip_prose_only" "column kernel" 'types/    value types
+Storage (`internal/column`) and the expression kernels live in
+module-internal packages a downstream module cannot import at all.'
+expect 1 'internal packages: a package missing from the structure block' \
+  sh "$scripts/check_internal_packages.sh" "$work/ip_prose_only"
 
-mkinternal "$work/ip_stale" "column" "$ip_readme" "$ip_api"
+mkinternal "$work/ip_stale" "column" "$ip_readme"
 expect 1 'internal packages: a documented package that no longer exists' \
   sh "$scripts/check_internal_packages.sh" "$work/ip_stale"
 

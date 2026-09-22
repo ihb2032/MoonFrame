@@ -9,7 +9,7 @@
 # the exact variant set of every public matchable enum into a committed
 # snapshot, so a change to that set cannot land without regenerating the
 # snapshot — and, with it, consciously acknowledging the compatibility impact
-# (see docs/api.md, "API stability & compatibility": such a change rides the
+# (see the README, "Compatibility": such a change rides the
 # minor version).
 #
 # Scope. Every tracked `pkg.generated.mbti` outside `internal/` — the public
@@ -82,7 +82,8 @@ if ! diff_out=$(printf '%s\n' "$current" | diff -u "$snapshot" - 2>&1); then
   printf 'enum surface: the public matchable-enum surface changed.\n'
   printf '  A pub(all) enum / suberror variant was added, removed, or renamed.\n'
   printf '  Adding a variant is source-breaking under exhaustive match, so the\n'
-  printf '  change rides the minor version (docs/api.md). If it is intended,\n'
+  printf '  change rides the minor version (README, "Compatibility"). If it is intended,
+'
   printf '  regenerate: sh .github/scripts/check_enum_surface.sh --write\n'
   printf '%s\n' "$diff_out" | sed 's/^/    /'
   exit 1

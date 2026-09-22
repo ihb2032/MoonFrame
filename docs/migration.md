@@ -1,12 +1,13 @@
 # Migration guide
 
 Source-level breaking changes between MoonFrame releases. Pre-1.0, breaking
-changes ride the minor version. For the feature history behind each release see
-[`changelog.md`](changelog.md); for the API concepts and compatibility model
-see [`api.md`](api.md), and the per-symbol reference on
-[mooncakes.io](https://mooncakes.io/docs/ihb2032/MoonFrame).
+changes ride the minor version. The feature history behind each release lives
+in the [GitHub release notes](https://github.com/ihb2032/MoonFrame/releases),
+written when the release is cut; the per-symbol reference — generated from the
+docstrings — is on [mooncakes.io](https://mooncakes.io/docs/ihb2032/MoonFrame)
+and [GitHub Pages](https://ihb2032.github.io/MoonFrame/).
 
-## v0.6.0 → v0.7.0
+## v0.6.0 → v0.7.0 (unreleased)
 
 v0.7 is a pre-1.0 breaking release — the surface-focus one: `io` returns to
 tabular interchange and the root facade narrows its first-contact face. Both
@@ -444,7 +445,7 @@ ordering now compares by Unicode code point (so supplementary-plane characters
 such as emoji sort by their true scalar value; ordering within the Basic
 Multilingual Plane is unchanged), and float-overflow detection during parsing no
 longer depends on the standard library's error-message text (parse results are
-unchanged). See the [changelog](changelog.md).
+unchanged). See the [release notes](https://github.com/ihb2032/MoonFrame/releases).
 
 ## v0.5.6 → v0.5.7
 
@@ -455,7 +456,7 @@ rewritten with current MoonBit syntax with no new or changed surface, so nothing
 a consumer imports differs. (The `expr` / `frame` / `lazy` sub-package `.mbti`
 files show `#as_free_fn` / `#alias` attributes on `col` / `lit` / `limit`, but
 those symbols stay callable exactly as before — see the
-[changelog](changelog.md).)
+[release notes](https://github.com/ihb2032/MoonFrame/releases).)
 
 ## v0.5.5 → v0.5.6
 
@@ -464,7 +465,7 @@ symbol and signature is unchanged, and nothing is renamed, removed, re-signed,
 or given a new required `match` arm. The new surface is a `moon bench` benchmark
 suite (test-scope only — nothing a consumer imports changes), a declared
 `supported_targets` in `moon.mod`, and documentation corrections (see the
-[changelog](changelog.md)).
+[release notes](https://github.com/ihb2032/MoonFrame/releases)).
 
 ## v0.5.4 → v0.5.5
 
@@ -473,7 +474,7 @@ symbol and signature is unchanged, and nothing is renamed, removed, re-signed,
 or given a new required `match` arm. The new surface is purely additive — two
 introspection predicates, `Series::is_canonical()` and
 `BuiltinColumn::placeholders_normalized()`, that assert internal representation
-invariants (see the [changelog](changelog.md)).
+invariants (see the [release notes](https://github.com/ihb2032/MoonFrame/releases)).
 
 ## v0.5.3 → v0.5.4
 
@@ -482,7 +483,7 @@ symbol and signature is unchanged, and nothing is renamed, removed, re-signed,
 or given a new required `match` arm. The new surface is purely additive — the
 API-consistency aliases (`NumericColumn::from_ints` / `from_floats`,
 `JoinOptions::with_left_on`, `DataFrame::limit`) and the `format_scalar_literal`
-facade re-export listed in the [changelog](changelog.md).
+facade re-export listed in the [release notes](https://github.com/ihb2032/MoonFrame/releases).
 
 ## v0.5.2 → v0.5.3
 
@@ -529,7 +530,7 @@ reduction specs, the rich `RowView`, the per-type `*_join` methods, the
 column-scalar reductions, and a tail of non-Polars names are all **removed
 outright** — there are no deprecated aliases. Everything below is a pure rename
 or a mechanical rewrite; for the feature side of the same release see
-[`changelog.md`](changelog.md).
+the [release notes](https://github.com/ihb2032/MoonFrame/releases).
 
 ### The four verbs take expressions
 

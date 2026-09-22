@@ -286,7 +286,7 @@ fi
 
 if [ "$fail" -ne 0 ]; then
   printf '  The package graph left the shape the architecture docs describe\n'
-  printf '  (README, "Contributing"; docs/api.md, "Packages"). Move the code,\n'
+  printf '  (README, "Contributing"). Move the code,\n'
   printf '  or — if the layering itself should change — change it here first,\n'
   printf '  in the rule, and then in both documents.\n'
   exit 1

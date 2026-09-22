@@ -31,6 +31,15 @@ You can browse and install extra skills here:
 - `moon ide` provides project navigation helpers like `peek-def`, `outline`, and
   `find-references`. See $moonbit-agent-guide for details.
 
+- `moon doc` generates the HTML API reference from the docstrings into
+  `_build/doc` (`--serve` for a local preview server, at the address it
+  prints) — the MoonBit counterpart of a Doxygen run. The published reference
+  on mooncakes.io is generated from the same docstrings, so there is one
+  source and the local run is a preview, never a second copy to maintain.
+  Generation is verified on Linux by a CI step; the Windows local run is not
+  trustworthy (it can report success while leaving the output incomplete),
+  so treat CI as the word on whether the docs build.
+
 - `moon info` is used to update the generated interface of the package, each
   package has a generated interface file `.mbti`, it is a brief formal
   description of the package. If nothing in `.mbti` changes, this means your

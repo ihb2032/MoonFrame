@@ -293,38 +293,30 @@ fn write_str_suffix(logger : &Logger, op : @ir.StrOp) -> Unit {
     // The width renders bare, the fill as a `'x'` char literal (escaped like a
     // string so a control or quote character stays on one line).
     PadStart(width, fill) =>
-      logger.write_string(
-        ".str_pad_start(\{width}, '\{@text.escape_debug(fill.to_string())}')",
-      )
+      logger <+
+        ".str_pad_start(\{width}, '\{@text.escape_debug(fill.to_string())}')"
     PadEnd(width, fill) =>
-      logger.write_string(
-        ".str_pad_end(\{width}, '\{@text.escape_debug(fill.to_string())}')",
-      )
+      logger <+
+        ".str_pad_end(\{width}, '\{@text.escape_debug(fill.to_string())}')"
     // The regex forms render as the spelling that builds them: the same
     // method with `literal=false`.
     ContainsRegex(p) =>
-      logger.write_string(
-        ".str_contains(\"\{@text.escape_debug(p)}\", literal=false)",
-      )
+      logger <+ ".str_contains(\"\{@text.escape_debug(p)}\", literal=false)"
     ReplaceRegex(a, b) =>
-      logger.write_string(
-        ".str_replace(\"\{@text.escape_debug(a)}\", \"\{@text.escape_debug(b)}\", literal=false)",
-      )
+      logger <+
+        ".str_replace(\"\{@text.escape_debug(a)}\", \"\{@text.escape_debug(b)}\", literal=false)"
     ReplaceAllRegex(a, b) =>
-      logger.write_string(
-        ".str_replace_all(\"\{@text.escape_debug(a)}\", \"\{@text.escape_debug(b)}\", literal=false)",
-      )
+      logger <+
+        ".str_replace_all(\"\{@text.escape_debug(a)}\", \"\{@text.escape_debug(b)}\", literal=false)"
     // The pattern renders quoted, the group index bare.
     Extract(pattern, group) =>
-      logger.write_string(
-        ".str_extract(\"\{@text.escape_debug(pattern)}\", \{group})",
-      )
+      logger <+ ".str_extract(\"\{@text.escape_debug(pattern)}\", \{group})"
     CountMatches(p) => write_str_call(logger, "str_count_matches", [p])
     // The offset renders bare; the length only when present.
     Slice(offset, length) =>
       match length {
-        None => logger.write_string(".str_slice(\{offset})")
-        Some(n) => logger.write_string(".str_slice(\{offset}, \{n})")
+        None => logger <+ ".str_slice(\{offset})"
+        Some(n) => logger <+ ".str_slice(\{offset}, \{n})"
       }
     LenBytes => logger.write_string(".str_len_bytes()")
     // The custom strip renders its charset as a quoted argument, so it stays
@@ -333,10 +325,8 @@ fn write_str_suffix(logger : &Logger, op : @ir.StrOp) -> Unit {
       write_str_call(logger, "str_strip_chars", [chars])
     // The separator renders quoted, the index bare.
     SplitGet(sep, index) =>
-      logger.write_string(
-        ".str_split_get(\"\{@text.escape_debug(sep)}\", \{index})",
-      )
-    ZFill(width) => logger.write_string(".str_zfill(\{width})")
+      logger <+ ".str_split_get(\"\{@text.escape_debug(sep)}\", \{index})"
+    ZFill(width) => logger <+ ".str_zfill(\{width})"
   }
 }
 

@@ -44,6 +44,17 @@ source-level upgrade steps are collected in [`migration.md`](migration.md).
   exhaustive `match` over either enum fails to compile until it handles
   `Date` (see [`migration.md`](migration.md)).
 
+- **The error-detail enums are `#non_exhaustive`.** `TypeMismatchDetail` and
+  `ParseErrorDetail` — the diagnostic shapes `DataError` variants carry — now
+  require a `..` arm in an exhaustive `match` outside the defining package,
+  which is this release's one-time cost; from here on, a new diagnostic shape
+  arriving in either is a recompile, not a break (see
+  [`migration.md`](migration.md)). `DataError` itself keeps the exhaustive
+  contract (`#non_exhaustive` is not supported on a `suberror`), and the
+  vocabulary enums are unchanged: a new `DataType` or join kind remains a
+  deliberate, breaking change, because it is a feature a caller must decide
+  about rather than a shape a handler can fall through on.
+
 - **Chart export lives in `chart`, not `io`.** Vega-Lite export is
   serialisation to an external interchange format, not tabular interchange:
   `ChartSpec` / `ChartKind` / `VegaType` and `format_vega_lite` /

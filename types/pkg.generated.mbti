@@ -91,6 +91,7 @@ pub fn NullOrder::equal(Self, Self) -> Bool
 pub fn NullOrder::not_equal(Self, Self) -> Bool
 pub fn NullOrder::to_repr(Self) -> @debug.Repr
 
+#non_exhaustive
 pub(all) enum ParseErrorDetail {
   Message(String)
   Cell(CellParseLocation, String, Int, DataType, String)
@@ -153,6 +154,7 @@ pub fn SortOrder::equal(Self, Self) -> Bool
 pub fn SortOrder::not_equal(Self, Self) -> Bool
 pub fn SortOrder::to_repr(Self) -> @debug.Repr
 
+#non_exhaustive
 pub(all) enum TypeMismatchDetail {
   Message(String)
   Expected(DataType, DataType, String)

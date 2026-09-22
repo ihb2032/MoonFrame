@@ -147,3 +147,34 @@ test "io and error handling" {
   }
   assert_true(r is Err(_))
 }
+
+///|
+/// The error-detail enums are `#non_exhaustive`: a downstream match carries a
+/// `..` arm for the diagnostic shapes it does not know, so a shape arriving in
+/// a later release is a recompile, not a break. This match is the migration
+/// sample — delete the last arm and it stops compiling, which is the compiler
+/// enforcing exactly that contract.
+test "error details match with a forward-compat arm" {
+  fn shape(d : @moonframe.TypeMismatchDetail) -> String {
+    match d {
+      Message(m) => "message: \{m}"
+      Expected(_, _, _) => "expected"
+      Operation(_, _, _) => "operation"
+      @moonframe.TypeMismatchDetail::.. => "unknown shape"
+    }
+  }
+  assert_eq(
+    shape(
+      @moonframe.TypeMismatchDetail::Expected(
+        @moonframe.DataType::Int,
+        @moonframe.DataType::String,
+        "",
+      ),
+    ),
+    "expected",
+  )
+  assert_eq(
+    shape(@moonframe.TypeMismatchDetail::Message("boom")),
+    "message: boom",
+  )
+}

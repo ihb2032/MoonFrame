@@ -14,7 +14,11 @@ pub extend CellParseLocation with Eq::{equal, not_equal}
 pub extend CellParseLocation with Debug::{to_repr}
 
 ///|
-/// Structured details carried by `DataError::ParseError`.
+/// Structured details carried by `DataError::ParseError`. `#non_exhaustive`:
+/// a new diagnostic shape here is not a breaking change — a caller matching
+/// these details carries a `..` arm for the shapes it does not know (the
+/// contract the `DataError` variants naming them inherit).
+#non_exhaustive
 pub(all) enum ParseErrorDetail {
   /// A parser or shape diagnostic that does not have a shared typed shape.
   Message(String)
@@ -31,7 +35,11 @@ pub extend ParseErrorDetail with Eq::{equal, not_equal}
 pub extend ParseErrorDetail with Debug::{to_repr}
 
 ///|
-/// Structured details carried by `DataError::TypeMismatch`.
+/// Structured details carried by `DataError::TypeMismatch`. `#non_exhaustive`:
+/// a new diagnostic shape here is not a breaking change — a caller matching
+/// these details carries a `..` arm for the shapes it does not know (the
+/// contract the `DataError` variants naming them inherit).
+#non_exhaustive
 pub(all) enum TypeMismatchDetail {
   /// A dtype diagnostic that does not have a shared typed shape.
   Message(String)
@@ -51,6 +59,14 @@ pub extend TypeMismatchDetail with Debug::{to_repr}
 
 ///|
 /// Unified error type for all MoonFrame operations.
+///
+/// The *diagnostic shapes* it carries — `ParseErrorDetail`,
+/// `TypeMismatchDetail` — are `#non_exhaustive`: a new shape is not a
+/// breaking change, and a caller matching those details carries a `..` arm
+/// for the shapes it does not know. `DataError` itself stays exhaustive:
+/// `#non_exhaustive` is not supported on a `suberror` (MoonBit v0.10.14),
+/// so a new error *kind* remains a deliberate, breaking change under the
+/// enum-surface lock.
 pub(all) suberror DataError {
   ColumnNotFound(String)
   DuplicateColumn(String)

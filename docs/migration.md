@@ -12,7 +12,8 @@ v0.7 is a pre-1.0 breaking release — the surface-focus one: `io` returns to
 tabular interchange and the root facade narrows its first-contact face. Both
 breaks are qualification moves; no symbol is deleted and no signature
 changes. The one widening break is the `Date` dtype: two public enums gained
-a variant.
+a variant. The narrow one is on the error side: the two error-detail enums
+became `#non_exhaustive`.
 
 ### `DataType` / `Scalar` gained a `Date` variant
 
@@ -23,6 +24,29 @@ documented on the enum, and a column of it rides the same 64-bit buffer an
 `Int` column always held, so nothing about column storage changes. A
 `match` that handles every variant *except* by a catch-all `_` arm needs no
 change.
+
+### Error-detail matches carry a `..` arm
+
+`TypeMismatchDetail` and `ParseErrorDetail` are now `#non_exhaustive`, so an
+exhaustive `match` over either fails to compile until it ends in a `..`
+catch-all (a plain `_` arm still compiles but warns — the `..` spelling is
+the blessed one). Add the arm and treat an unknown shape as you would an
+unknown diagnostic today:
+
+```moonbit
+fn describe(detail : @moonframe.TypeMismatchDetail) -> String {
+  match detail {
+    Message(m) => "type mismatch: \{m}"
+    Expected(expected, got, _) => "expected \{expected}, got \{got}"
+    Operation(op, left, right) => "cannot \{op} \{left} and \{right}"
+    @moonframe.TypeMismatchDetail::.. => "type mismatch"
+  }
+}
+```
+
+From v0.7.0 on, a new diagnostic shape added to either enum is **not** a
+breaking change: this arm absorbs it. `DataError` itself is unchanged — a
+new error kind remains a deliberate, breaking change.
 
 ### `@io.ChartSpec` is `@chart.ChartSpec`
 

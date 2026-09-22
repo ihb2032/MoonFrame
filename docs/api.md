@@ -97,12 +97,18 @@ What the promise covers is the facade surface, not a particular release
 number: pre-1.0, additions and fixes ride a patch version and a change to that
 surface rides the minor one, and every release says which it was in
 [`changelog.md`](changelog.md). One case is easy to mistake for additive:
-adding a variant to a `pub(all)` enum (`DataError` and its error-detail enums,
-`DataType`, `Scalar`, `SortOrder`, `NullOrder`, `ClosedInterval`, …) is
-**source-breaking** — MoonBit `match` is exhaustive, so a caller's existing
-match stops compiling — and therefore counts as a surface change,
-semantically-additive though it looks. Only a caller whose match carries a
-wildcard arm (`_ => …`) stays source-compatible across such an addition.
+adding a variant to a `pub(all)` enum (`DataError`, `DataType`, `Scalar`,
+`SortOrder`, `NullOrder`, `ClosedInterval`, …) is **source-breaking** — MoonBit
+`match` is exhaustive, so a caller's existing match stops compiling — and
+therefore counts as a surface change, semantically-additive though it looks.
+Only a caller whose match carries a wildcard arm (`_ => …`) stays
+source-compatible across such an addition. The error-detail enums are the
+exception: `TypeMismatchDetail` and `ParseErrorDetail` are `#non_exhaustive`,
+so a caller matching them carries a `..` arm for the diagnostic shapes it does
+not know (the compiler requires the arm outside the defining package), and a
+shape added to either is a recompile, not a break — a diagnostic shape is
+something a handler can fall through on, where a new `DataType` or join kind
+is a feature the caller must decide about.
 
 **`Expr` has no equality, and neither does `JoinOptions`.** An expression is
 opaque: its AST lives in a module-internal package, and the only way to compare
@@ -311,7 +317,13 @@ variants. `TypeMismatch` and `ParseError` carry structured detail enums
 (`TypeMismatchDetail` / `ParseErrorDetail`) rather than a flat string, so a
 handler can branch on the specific failure — expected / actual dtype, or a
 failing cell's location, column, and value — while `DataError::message()`
-renders the same human-readable text either way.
+renders the same human-readable text either way. Both detail enums are
+`#non_exhaustive`: a match over one ends in a `..` catch-all arm — required by
+the compiler outside the defining package — so a release adding a diagnostic
+shape recompiles the handler instead of breaking it. `DataError` itself keeps
+the exhaustive contract (`#non_exhaustive` is not supported on a `suberror`),
+so a new error kind is a deliberate breaking change under the compatibility
+model above.
 
 `DataFrame::check_invariants()` — which verifies the seven structural
 invariants and returns `Err(msg)` naming the first violation — is a

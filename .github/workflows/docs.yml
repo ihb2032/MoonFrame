@@ -1,0 +1,77 @@
+name: Docs
+
+# The hosted API reference. `moon doc` generates the HTML site from the
+# docstrings and this workflow publishes it to GitHub Pages — post-merge
+# only, deliberately: the reference documents what `main` *is*, so it is
+# rebuilt when a change lands, not while it is under review (PR CI does not
+# rebuild the site; the per-push Linux generation step this replaces was
+# removed when Pages deployment arrived). `workflow_dispatch` exists so the
+# site can be re-published by hand — after flipping a repo setting, say —
+# without waiting for the next merge.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# The deploy path needs exactly these: read the source, write the Pages
+# artifact, and the OIDC token `deploy-pages` signs the upload with. Nothing
+# broader — this workflow never touches PRs, issues, or releases.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time; a newer merge replaces the in-flight one.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+# The same toolchain pin as ci.yml — the two move together (the pinning
+# rationale lives there, beside the version it explains).
+env:
+  MOONBIT_INSTALL_VERSION: "0.10.14+7d59c7ec9"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        # Pinned to a full commit SHA rather than the movable tag, for the
+        # same reason as ci.yml's checkout: a retagged or compromised
+        # release must not silently change what runs here.
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+
+      - name: Install MoonBit
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+
+      # Linux is the platform `moon doc` is verified on (its Windows runs
+      # are not trustworthy — they can report success while leaving the
+      # output incomplete), which is why this whole workflow is Linux-only.
+      # The assertions keep a broken generator from publishing an empty
+      # site: some pages, and the root facade's own among them. The
+      # generated site is subpath-safe (relative assets, hash routing), so
+      # it serves under /MoonFrame/ unchanged.
+      - name: Generate API docs (moon doc)
+        run: |
+          moon doc
+          pages=$(find _build/doc -name '*.html' | wc -l)
+          echo "moon doc generated $pages HTML pages"
+          test "$pages" -gt 0
+          test -f _build/doc/ihb2032/MoonFrame/moonframe.mbt.html
+
+      - name: Configure Pages
+        uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5.0.0
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
+        with:
+          path: _build/doc
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5

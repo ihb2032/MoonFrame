@@ -1,4 +1,4 @@
-// Compile-time consumer fixture for the package import shown in README.md.
+// Compile-time consumer fixture for the package import shown in README.mbt.md.
 // Keeping this in a separate package makes CI resolve the public facade through
 // the documented `@moonframe` alias rather than through an internal package.
 

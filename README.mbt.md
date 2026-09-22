@@ -213,6 +213,11 @@ variants (`ColumnNotFound`, `ParseError`, …) on the `Err`. The full model is i
 
 ## Documentation
 
+- The generated API reference — built from the same docstrings and deployed
+  to [GitHub Pages](https://ihb2032.github.io/MoonFrame/) on every merge to
+  `main` (the same pages are published on
+  [mooncakes.io](https://mooncakes.io/docs/ihb2032/MoonFrame); one source,
+  two hosts)
 - [`quickstart.mbt.md`](quickstart.mbt.md) — a runnable tour; every snippet and
   its expected output is executed by `moon test`, and by CI across all four
   backends, so a code block cannot drift from the API. The prose around them is

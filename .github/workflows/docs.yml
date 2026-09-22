@@ -49,6 +49,27 @@ jobs:
           curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
           echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
 
+      # The module index fetch ci.yml runs before every gate. Without it the
+      # runner's registry index is empty and dependency resolution fails — the
+      # first deploy's failure: `moonbitlang/x` et al. "not found in the
+      # registry". Same retry loop as ci.yml's, for the same reason: one
+      # transient fetch must not fail a deployment that says nothing about the
+      # commit. `moon doc` itself reads the network only through this index.
+      - name: Update package index
+        run: |
+          for attempt in 1 2 3; do
+            if moon update; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              delay=$((attempt * 15))
+              echo "moon update failed (attempt $attempt/3); retrying in ${delay}s" >&2
+              sleep "$delay"
+            fi
+          done
+          echo "moon update failed three times; treating it as an outage" >&2
+          exit 1
+
       # Linux is the platform `moon doc` is verified on (its Windows runs
       # are not trustworthy — they can report success while leaving the
       # output incomplete), which is why this whole workflow is Linux-only.

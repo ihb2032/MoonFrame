@@ -55,7 +55,7 @@
 ///   `false < true`; mixed non-numeric pairs are `TypeMismatch`. A null
 ///   on either side nulls the cell; NaN is a *value* under IEEE 754
 ///   (`NaN == NaN` is `false`, every other comparison with NaN is
-///   `false`, `ne` is `true`) — exactly `Scalar::eq` / `Scalar::lt`.
+///   `false`, `ne` is `true`) — the comparison kernel's own matrix.
 /// - **Logic** (`&` / `|` / `not`): `Bool` operands only, Kleene
 ///   three-valued (`false & null = false`, `true | null = true`,
 ///   `not(null) = null`).

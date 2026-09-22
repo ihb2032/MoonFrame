@@ -118,6 +118,13 @@ DataType::is_integer
 DataType::is_string
 Scalar::lte
 Scalar::gte
+# Removed with the scalar-comparison convergence (unreleased): a cell
+# comparison is a column concern — the expression verbs and the comparison
+# kernel, where the exact Int/Float matrix has its one home. Bare eq / lt /
+# gt are deliberately not pinned: they name the live expression verbs.
+Scalar::eq
+Scalar::lt
+Scalar::gt
 # Removed with the sort-flag convergence (unreleased): direction and null
 # placement are the Polars descending / nulls_last bools. The variant
 # spellings NullsFirst / NullsLast are deliberately not pinned: they live

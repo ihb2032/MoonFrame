@@ -110,9 +110,9 @@ fn[T] compare_cells(
 
 ///|
 /// Comparison kernel over two equal-length operands
-/// (post-`broadcast_pair`), producing a nullable `Bool` column. The dtype
-/// matrix mirrors `Scalar::eq` / `Scalar::lt` (the `Scalar` comparison
-/// precedent): `Int ↔ Float` compare **exactly** (no `Int`→`Double`
+/// (post-`broadcast_pair`), producing a nullable `Bool` column. This kernel
+/// is the one home of the cell comparison matrix: `Int ↔ Float` compare
+/// **exactly** (no `Int`→`Double`
 /// promotion — `cmp_int_double` compares them exactly), `String` compares by
 /// `compare_string_lex` (dictionary order — MoonBit's
 /// built-in `String` order is shortlex), `Bool` orders `false < true`,

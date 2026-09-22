@@ -1,6 +1,6 @@
 // Blackbox tests pinning the expr comparison kernel's exact `Int` vs `Float`
-// behavior (no 2^53 promotion) — the eval-path mirror of the `Scalar::eq` /
-// `Scalar::lt` tests.
+// behavior (no 2^53 promotion) — the authoritative home of that exactness,
+// on both the Numeric fast arm and the Builtin nullable arm.
 
 ///|
 test "expr comparison: Int vs Float is exact past 2^53 (Numeric fast arm)" {
@@ -57,4 +57,28 @@ test "expr comparison: exact past 2^53 on the Builtin (nullable) arm" {
     @types.Scalar::Bool(false),
     @types.Scalar::Null,
   ])
+}
+
+///|
+test "expr comparison: Int vs Float at the Int64 boundaries, ±Inf and NaN" {
+  // Past the Int64 range the helpers answer from the bounds alone: `MAX` is
+  // below the 2^63 `Double` it would round to, `MIN` is above `-Inf`, and
+  // `NaN` makes every verdict `false`.
+  let df = DataFrame::DataFrame([
+    // MAX vs 2^63, MIN vs -Inf, 0 vs NaN, 0 vs +Inf — all null-free → Numeric.
+    Series::from_ints("i", [9223372036854775807L, -9223372036854775808L, 0L, 0L]),
+    Series::from_floats("f", [
+      9223372036854775808.0, @double.neg_infinity, @double.not_a_number, @double.infinity,
+    ]),
+  ])
+  let t = @types.Scalar::Bool(true)
+  let f = @types.Scalar::Bool(false)
+  let out = df.select([
+    @expr.col("i").eq(@expr.col("f")).with_alias("eq"),
+    @expr.col("i").lt(@expr.col("f")).with_alias("lt"),
+    @expr.col("i").gt(@expr.col("f")).with_alias("gt"),
+  ])
+  assert_eq(out.get_column("eq").to_scalars(), [f, f, f, f])
+  assert_eq(out.get_column("lt").to_scalars(), [t, f, f, t])
+  assert_eq(out.get_column("gt").to_scalars(), [f, t, f, f])
 }

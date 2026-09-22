@@ -7,7 +7,7 @@
 // method.
 //
 // Direct tests pin it (code-point ordering, surrogate-pair
-// recombination, prefix / equality); the `Scalar::lt`, `Series::min` / `max`,
+// recombination, prefix / equality); the `Series::min` / `max`,
 // and `sort` tests additionally exercise it end-to-end.
 
 ///|
@@ -15,8 +15,8 @@
 /// usual `-1` / `0` / `1`. MoonBit's built-in `<` / `Compare` on `String` is
 /// **shortlex** (length first, then code unit) — e.g. `"fig" < "apple"` is
 /// `true` because `"fig"` is shorter, which surprises users expecting
-/// dictionary order. Every user-facing ordering in MoonFrame (`Scalar::lt`,
-/// `Series::min` / `max`, `DataFrame::sort`) routes through this helper
+/// dictionary order. Every user-facing ordering in MoonFrame
+/// (`Series::min` / `max`, `DataFrame::sort`) routes through this helper
 /// instead of the built-in operator so they all agree.
 ///
 /// Comparison is deterministic lexicographic order by Unicode scalar value;

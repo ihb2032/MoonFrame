@@ -131,7 +131,7 @@ pub fn compare_one_key(key : SortKey, i : Int, j : Int) -> Int {
       compare_with_missing(mi, mj, nulls_last, descending, fn() {
         let a = data[i]
         let b = data[j]
-        // `false < true`, matching `Scalar::lt` on Bool.
+        // `false < true`, the Bool order the comparison kernel uses.
         if !a && b {
           -1
         } else if a && !b {

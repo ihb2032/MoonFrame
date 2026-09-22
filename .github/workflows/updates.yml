@@ -1,0 +1,56 @@
+# The scheduled updates bot: probe the two pinned version surfaces this
+# repository carries and, for each pin the world has moved past, open a
+# focused PR from the github-actions identity.
+#
+# Why bespoke: mooncakes is not an ecosystem Dependabot or Renovate knows,
+# and the toolchain pin is a build string only the compiler can spell back
+# (the CDN resolves the `latest` alias server-side and 403s listings). The
+# probe script therefore asks the two official sources directly — the
+# installed compiler for the toolchain, the refreshed registry index for the
+# dependencies — and turns each drift into a PR that follows the repository's
+# conventions (one conventional commit, a one-paragraph body).
+#
+# Everything the job needs write access to is named here and nowhere else:
+# contents + pull-requests, for pushing branches and opening PRs. It never
+# touches releases, issues, or secrets.
+#
+# Cadence: Monday 03:00 UTC, and on demand via workflow_dispatch.
+
+name: updates
+
+on:
+  schedule:
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: updates
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        # Pinned to a full commit SHA rather than the movable `v5` tag, so a
+        # retagged or compromised release can't silently change what runs in
+        # CI. Bump deliberately: resolve the new tag to its commit SHA and
+        # update the trailing version comment to match.
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+
+      - name: Install MoonBit (latest)
+        # `latest` is the install script's default when no version is passed.
+        # The probe asks the installed compiler for the resolved version
+        # string, so this machine never needs to know it in advance.
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+
+      - name: Probe pins and open update PRs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: sh .github/scripts/open_update_prs.sh .

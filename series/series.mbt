@@ -116,6 +116,8 @@ pub fn Series::from_ints(name : String, values : Array[Int64]) -> Series {
 ///|
 /// Build an `Int` series where `None` entries are nulls. Nullable, so it
 /// lands on the general-purpose `Builtin` backend.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
 pub fn Series::from_int_options(
   name : String,
   values : Array[Int64?],
@@ -137,6 +139,8 @@ pub fn Series::from_floats(name : String, values : Array[Double]) -> Series {
 ///|
 /// Build a `Float` series where `None` entries are nulls. Nullable, so it
 /// lands on the `Builtin` backend.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
 pub fn Series::from_float_options(
   name : String,
   values : Array[Double?],
@@ -154,6 +158,8 @@ pub fn Series::from_bools(name : String, values : Array[Bool]) -> Series {
 
 ///|
 /// Build a `Bool` series where `None` entries are nulls.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
 pub fn Series::from_bool_options(
   name : String,
   values : Array[Bool?],
@@ -171,11 +177,144 @@ pub fn Series::from_strings(name : String, values : Array[String]) -> Series {
 
 ///|
 /// Build a `String` series where `None` entries are nulls.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
 pub fn Series::from_string_options(
   name : String,
   values : Array[String?],
 ) -> Series {
   Series::from_builtin(name, @column.BuiltinColumn::from_string_options(values))
+}
+
+///|
+/// The one public nullable constructor — Polars' `pl.Series(name, [1, None])`
+/// translated to a statically-typed language: the cells carry their own
+/// nullness as `Scalar`, and the column's dtype is `dtype~` when given, or
+/// the dtype of the first non-null cell when not. The null-free `from_ints` /
+/// `from_floats` / `from_bools` / `from_strings` constructors stay the typed
+/// fast path; this is the door for cells that may be null — including
+/// `Scalar::Date`, which has no other public constructor.
+///
+/// Every non-null cell must carry the target dtype exactly — an `Int` cell in
+/// a `Float` column is a `cast`, not a construction, so it `raise`s
+/// `TypeMismatch(Expected(target, got, name))` here (on the first offending
+/// cell, in cell order). Two targets cannot be inferred and `raise` instead:
+/// an all-null `cells` without `dtype~` has nothing to decide from
+/// (`InvalidOperation`), and `dtype~ = Null` names no physical column
+/// (`Unsupported`). A nullable series lands on the general-purpose `Builtin`
+/// backend, like every `from_*_options` build.
+pub fn Series::from_scalars(
+  name : String,
+  cells : Array[@types.Scalar],
+  dtype? : @types.DataType,
+) -> Series raise @types.DataError {
+  let target : @types.DataType = match dtype {
+    Some(d) => d
+    None => {
+      let mut found : @types.DataType? = None
+      for cell in cells {
+        if !(cell is @types.Scalar::Null) {
+          found = Some(cell.dtype())
+          break
+        }
+      }
+      match found {
+        Some(d) => d
+        None =>
+          raise @types.DataError::InvalidOperation(
+            "cannot infer a dtype for column \"\{name}\": every cell is null, pass dtype~ to lock one",
+          )
+      }
+    }
+  }
+  match target {
+    @types.DataType::Int =>
+      Series::from_int_options(
+        name,
+        typed_cells(cells, target, name, cell => {
+          if cell is @types.Scalar::Int(v) {
+            Some(v)
+          } else {
+            None
+          }
+        }),
+      )
+    @types.DataType::Float =>
+      Series::from_float_options(
+        name,
+        typed_cells(cells, target, name, cell => {
+          if cell is @types.Scalar::Float(v) {
+            Some(v)
+          } else {
+            None
+          }
+        }),
+      )
+    @types.DataType::Bool =>
+      Series::from_bool_options(
+        name,
+        typed_cells(cells, target, name, cell => {
+          if cell is @types.Scalar::Bool(v) {
+            Some(v)
+          } else {
+            None
+          }
+        }),
+      )
+    @types.DataType::String =>
+      Series::from_string_options(
+        name,
+        typed_cells(cells, target, name, cell => {
+          if cell is @types.Scalar::String(v) {
+            Some(v)
+          } else {
+            None
+          }
+        }),
+      )
+    @types.DataType::Date =>
+      Series::from_date_options(
+        name,
+        typed_cells(cells, target, name, cell => {
+          if cell is @types.Scalar::Date(v) {
+            Some(v)
+          } else {
+            None
+          }
+        }),
+      )
+    @types.DataType::Null =>
+      raise @types.DataError::Unsupported(
+        "cannot build a column of dtype Null: \{name}",
+      )
+  }
+}
+
+///|
+/// Decode `Scalar` cells into the typed optional cells a nullable constructor
+/// takes: `Scalar::Null` becomes `None`, a cell `decode` recognises is
+/// unwrapped, and anything else `raise`s
+/// `TypeMismatch(Expected(target, got, name))`. Cells are visited in order, so
+/// the reported cell is the first offending one.
+fn[T] typed_cells(
+  cells : Array[@types.Scalar],
+  target : @types.DataType,
+  name : String,
+  decode : (@types.Scalar) -> T?,
+) -> Array[T?] raise @types.DataError {
+  cells.map(cell => {
+    match cell {
+      @types.Scalar::Null => None
+      c =>
+        match decode(c) {
+          Some(v) => Some(v)
+          None =>
+            raise @types.DataError::TypeMismatch(
+              @types.TypeMismatchDetail::Expected(target, c.dtype(), name),
+            )
+        }
+    }
+  })
 }
 
 ///|

@@ -46,6 +46,183 @@ test "from_strings / from_string_options" {
 }
 
 ///|
+test "from_scalars infers the dtype from the first non-null cell" {
+  // A leading null does not decide anything; the first non-null cell does,
+  // and later cells of the same dtype build through it.
+  let s = Series::from_scalars("x", [
+    @types.Scalar::Null,
+    @types.Scalar::Int(1),
+    @types.Scalar::Null,
+  ])
+  assert_eq(s.dtype(), @types.DataType::Int)
+  assert_eq(s.null_count(), 2)
+  assert_eq(s.get(1), @types.Scalar::Int(1))
+  // A nullable build stays on the Builtin backend.
+  assert_eq(s.storage_kind(), @column.StorageKind::Builtin)
+  // Every dtype reaches the same way — one constructor, five columns.
+  let f = Series::from_scalars("x", [@types.Scalar::Float(1.5)])
+  assert_eq(f.dtype(), @types.DataType::Float)
+  let b = Series::from_scalars("x", [@types.Scalar::Bool(true)])
+  assert_eq(b.dtype(), @types.DataType::Bool)
+  let t = Series::from_scalars("x", [@types.Scalar::String("ab")])
+  assert_eq(t.dtype(), @types.DataType::String)
+}
+
+///|
+test "from_scalars is the public way to build a Date column" {
+  let s = Series::from_scalars("d", [
+    @types.Scalar::Date(5L),
+    @types.Scalar::Null,
+  ])
+  assert_eq(s.dtype(), @types.DataType::Date)
+  assert_eq(s.null_count(), 1)
+  assert_eq(s.get(0), @types.Scalar::Date(5L))
+}
+
+///|
+test "from_scalars with dtype~ locks the column dtype" {
+  // Locking agrees with the cells: same build as inference.
+  let ok = Series::from_scalars(
+    "x",
+    [@types.Scalar::Null, @types.Scalar::Int(7)],
+    dtype=@types.DataType::Int,
+  )
+  assert_eq(ok.dtype(), @types.DataType::Int)
+  assert_eq(ok.null_count(), 1)
+  // An all-null column is buildable only through a locked dtype.
+  let all_null = Series::from_scalars(
+    "x",
+    [@types.Scalar::Null, @types.Scalar::Null],
+    dtype=@types.DataType::Float,
+  )
+  assert_eq(all_null.dtype(), @types.DataType::Float)
+  assert_eq(all_null.null_count(), 2)
+}
+
+///|
+test "from_scalars refuses a foreign cell on every dtype arm" {
+  // Each remaining arm meets a foreign non-null cell once: a Bool column
+  // handed an Int, a String column handed a Bool, a Date column handed a
+  // String. `assert_eq` against the whole error — a lowercase identifier in
+  // an `is` pattern would bind, not compare, and assert nothing.
+  fn foreign(
+    target : @types.DataType,
+    cell : @types.Scalar,
+  ) -> Result[Series, @types.DataError] {
+    Ok(Series::from_scalars("x", [@types.Scalar::Null, cell], dtype=target)) catch {
+      e => Err(e)
+    }
+  }
+  assert_eq(
+    foreign(@types.DataType::Bool, @types.Scalar::Int(1)),
+    Err(
+      @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Expected(
+          @types.DataType::Bool,
+          @types.DataType::Int,
+          "x",
+        ),
+      ),
+    ),
+  )
+  assert_eq(
+    foreign(@types.DataType::String, @types.Scalar::Bool(true)),
+    Err(
+      @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Expected(
+          @types.DataType::String,
+          @types.DataType::Bool,
+          "x",
+        ),
+      ),
+    ),
+  )
+  assert_eq(
+    foreign(@types.DataType::Date, @types.Scalar::String("x")),
+    Err(
+      @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Expected(
+          @types.DataType::Date,
+          @types.DataType::String,
+          "x",
+        ),
+      ),
+    ),
+  )
+}
+
+///|
+test "from_scalars raises on the unbuildable targets" {
+  // Nothing to infer from: every cell is null and no dtype~ was passed.
+  assert_true(
+    (Ok(Series::from_scalars("x", [@types.Scalar::Null, @types.Scalar::Null])) catch {
+      e => Err(e)
+    })
+    is Err(@types.DataError::InvalidOperation(_)),
+  )
+  // A Null target names no physical column, locked or otherwise.
+  assert_true(
+    (Ok(
+      Series::from_scalars(
+        "x",
+        [@types.Scalar::Null],
+        dtype=@types.DataType::Null,
+      ),
+    ) catch {
+      e => Err(e)
+    })
+    is Err(@types.DataError::Unsupported(_)),
+  )
+}
+
+///|
+test "from_scalars refuses a foreign cell in cell order" {
+  // Without dtype~ the first non-null cell decides, and the Float cell
+  // after it is foreign.
+  assert_true(
+    (Ok(
+      Series::from_scalars("x", [
+        @types.Scalar::Int(1),
+        @types.Scalar::Float(2.0),
+      ]),
+    ) catch {
+      e => Err(e)
+    })
+    is Err(
+      @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Expected(
+          @types.DataType::Int,
+          @types.DataType::Float,
+          "x"
+        )
+      )
+    ),
+  )
+  // With dtype~ locked, the Int cell is foreign to the Float column — an
+  // Int-to-Float promotion is a cast, not a construction.
+  assert_true(
+    (Ok(
+      Series::from_scalars(
+        "x",
+        [@types.Scalar::Null, @types.Scalar::Int(1)],
+        dtype=@types.DataType::Float,
+      ),
+    ) catch {
+      e => Err(e)
+    })
+    is Err(
+      @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Expected(
+          @types.DataType::Float,
+          @types.DataType::Int,
+          "x"
+        )
+      )
+    ),
+  )
+}
+
+///|
 // Defensive copy at the Series boundary: a Series is independent of the
 // caller's array, on both backends (Numeric for raw ints, Builtin for strings).
 test "raw Series constructors copy their input" {

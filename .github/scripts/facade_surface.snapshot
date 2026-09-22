@@ -341,13 +341,10 @@ method Series::dtype(Self) -> @types.DataType <- series
 method Series::equal(Self, Self) -> Bool <- series
 method Series::fill_null(Self, @types.Scalar) -> Self raise @types.DataError <- series
 method Series::first(Self) -> @types.Scalar <- series
-method Series::from_bool_options(String, Array[Bool?]) -> Self <- series
 method Series::from_bools(String, Array[Bool]) -> Self <- series
-method Series::from_float_options(String, Array[Double?]) -> Self <- series
 method Series::from_floats(String, Array[Double]) -> Self <- series
-method Series::from_int_options(String, Array[Int64?]) -> Self <- series
 method Series::from_ints(String, Array[Int64]) -> Self <- series
-method Series::from_string_options(String, Array[String?]) -> Self <- series
+method Series::from_scalars(String, Array[@types.Scalar], dtype? : @types.DataType) -> Self raise @types.DataError <- series
 method Series::from_strings(String, Array[String]) -> Self <- series
 method Series::gather(Self, Array[Int]) -> Self raise @types.DataError <- series
 method Series::get(Self, Int) -> @types.Scalar raise @types.DataError <- series

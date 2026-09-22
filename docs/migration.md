@@ -16,7 +16,8 @@ public enums gained a variant. The narrow one is on the error side: the two
 error-detail enums became `#non_exhaustive`. Nine value-type members were
 removed — predicates and comparisons that spelled out what a pattern match,
 a column expression, or the comparison kernel already says — and two enums
-are deleted outright: the sort vocabulary became Polars' two flags.
+are deleted outright: the sort vocabulary became Polars' two flags. The
+nullable series constructors likewise converged into one.
 
 ### `DataType` / `Scalar` gained a `Date` variant
 
@@ -104,6 +105,35 @@ s.sort(descending=true, nulls_last=false)
 
 An `explain` rendering does not change: a plan still reads
 `SORT [col(qty) Desc NullsLast]`.
+
+### Nullable series construction is one constructor
+
+`Series::from_int_options` / `from_float_options` / `from_bool_options` /
+`from_string_options` leave the public surface — the engine still builds
+nullable columns through them, but a caller constructs one through the new
+`Series::from_scalars`, Polars' `pl.Series(name, [1, None])` translated to a
+statically-typed language: the cells carry their own nullness as `Scalar`, and
+the dtype is inferred from the first non-null cell or locked with `dtype~`:
+
+```moonbit
+// before
+Series::from_int_options("score", [Some(1), None, Some(3)])
+
+// after
+Series::from_scalars("score", [
+  Scalar::Int(1),
+  Scalar::Null,
+  Scalar::Int(3),
+])
+```
+
+Every non-null cell must carry the target dtype exactly — an `Int` cell in a
+`Float` column is a `cast`, not a construction, so it `raise`s
+`TypeMismatch`. An all-null column needs `dtype~` (nothing can be inferred,
+`InvalidOperation`), and `dtype~ = Null` names no physical column
+(`Unsupported`). The null-free `from_ints` / `from_floats` / `from_bools` /
+`from_strings` stay as they were. `from_scalars` is also the first public way
+to build a `Date` column: `from_scalars("d", [Scalar::Date(5L), Scalar::Null])`.
 
 ### `@io.ChartSpec` is `@chart.ChartSpec`
 

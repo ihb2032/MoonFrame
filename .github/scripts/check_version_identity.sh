@@ -1,26 +1,30 @@
 #!/bin/sh
-# Version identity: the three places that name a release must agree.
+# Version identity: the two places that name a release must agree.
 #
 #   moon.mod            version = "X.Y.Z"      what `moon add` installs
-#   docs/changelog.md   ## vX.Y.Z — …          the newest entry
 #   docs/migration.md   ## vA.B.C → vX.Y.Z     the newest upgrade target
 #
 # Nothing else names a release: the guides describe `main` and promise the
 # facade surface, not a version, so a reader never has to reconcile two
-# numbers. Both halves of that are checked — the three above must agree with
+# numbers. Both halves of that are checked — the two above must agree with
 # each other, and the scan at the bottom of this file holds every other tracked
-# piece of prose to naming no release at all.
+# piece of prose to naming no release at all. (Per-release history lives in
+# the GitHub release notes, written when each release is cut, not tracked
+# prose — so it is not a home this guard reads.)
 #
-# The two history documents must always agree with each other. `moon.mod` may lag
-# them — a release is prepared on `main` before it is published — but only
-# while the changelog says so *explicitly*, by marking its newest heading
-# `(unreleased)`:
+# The migration document's newest heading carries both numbers that matter:
+# the arrow's target is the release the docs describe, and the arrow's source
+# is the version that *is* published. `moon.mod` may lag the target — a
+# release is prepared on `main` before it is published — but only while the
+# heading says so *explicitly*, by marking itself `(unreleased)`:
 #
-#   ## v0.6.0 — API convergence (unreleased)
+#   ## v0.6.0 → v0.7.0 (unreleased)
 #
-# Dropping that marker and bumping `moon.mod` is the release step; doing one
-# without the other fails here. That is the point: an implicit mismatch is how
-# a breaking API ships under the previous version's number.
+# While that marker is up, `moon.mod` must still publish the arrow's source
+# (v0.6.0); with the marker gone, it must publish the target. Dropping the
+# marker and bumping `moon.mod` is the release step; doing one without the
+# other fails here. That is the point: an implicit mismatch is how a breaking
+# API ships under the previous version's number.
 #
 # Usage: .github/scripts/check_version_identity.sh [repo-root]
 # Exit 0 when consistent, 1 otherwise (every problem is printed, not just the
@@ -41,64 +45,51 @@ note() {
 # `version = "0.6.0"` → `0.6.0`
 mod_version=$(sed -n 's/^version *= *"\([^"]*\)".*/\1/p' moon.mod | head -n 1)
 
-# `## v0.6.0 — API convergence (unreleased)` → `0.6.0`, plus the marker.
-changelog_heading=$(grep -m 1 '^## v' docs/changelog.md || true)
-changelog_version=$(printf '%s\n' "$changelog_heading" |
+# `## v0.6.0 → v0.7.0 (unreleased)` → target `0.7.0`, source `0.6.0`, marker.
+# The heading pattern is any `## ` section (the file's h2s are version
+# sections and nothing else); a first-release heading carries no source side
+# (`## → v0.1.0`), which the extraction below reports as an empty string.
+migration_heading=$(grep -m 1 '^## ' docs/migration.md || true)
+migration_version=$(printf '%s\n' "$migration_heading" |
+  sed -n 's/.*→ *v\([0-9][0-9.]*\).*/\1/p')
+published_version=$(printf '%s\n' "$migration_heading" |
   sed -n 's/^## v\([0-9][0-9.]*\).*/\1/p')
-case "$changelog_heading" in
+case "$migration_heading" in
 *'(unreleased)'*) unreleased=yes ;;
 *) unreleased=no ;;
 esac
 
-# The heading below the newest one: the version that *is* published. Releases
-# here are linear — one section per release, newest first — so "the previous
-# entry" is exactly what `moon.mod` should still say while the newest is being
-# prepared. Comparing against it beats ordering two version strings in POSIX
-# shell, and it rejects a `moon.mod` that has run *ahead* of the release being
-# prepared, which an inequality check alone would wave through.
-previous_version=$(grep '^## v' docs/changelog.md | sed -n '2p' |
-  sed -n 's/^## v\([0-9][0-9.]*\).*/\1/p')
-
-# `## v0.5.8 → v0.6.0` → `0.6.0` (the target side).
-migration_version=$(grep -m 1 '^## v' docs/migration.md |
-  sed -n 's/.*→ *v\([0-9][0-9.]*\).*/\1/p')
-
-for pair in "moon.mod:$mod_version" \
-  "docs/changelog.md:$changelog_version" "docs/migration.md:$migration_version"; do
+for pair in "moon.mod:$mod_version" "docs/migration.md:$migration_version"; do
   case "$pair" in
   *:) note "could not read a version out of ${pair%:*}" ;;
   esac
 done
 [ "$fail" -eq 0 ] || { printf 'version identity: unreadable\n'; exit 1; }
 
-# The documents describe one release, whatever `moon.mod` says.
-if [ "$changelog_version" != "$migration_version" ]; then
-  note "changelog is at v$changelog_version but migration upgrades to v$migration_version"
-fi
 if [ "$unreleased" = yes ]; then
-  if [ "$mod_version" = "$changelog_version" ]; then
-    note "moon.mod is already v$mod_version — drop the (unreleased) marker from the changelog heading"
-  elif [ -z "$previous_version" ]; then
-    # No section below the newest: this is the first release, so there is no
-    # published version to hold `moon.mod` to. Being different is all we can ask.
+  if [ "$mod_version" = "$migration_version" ]; then
+    note "moon.mod is already v$mod_version — drop the (unreleased) marker from the migration heading"
+  elif [ -z "$published_version" ]; then
+    # No source side on the arrow: the first release, so there is no published
+    # version to hold `moon.mod` to. Being different is all we can ask.
     printf 'version identity: v%s is the first release; moon.mod is v%s\n' \
-      "$changelog_version" "$mod_version"
-  elif [ "$mod_version" != "$previous_version" ]; then
-    note "moon.mod is v$mod_version, but v$previous_version is the released version the changelog names below v$changelog_version"
-    note "while v$changelog_version is unreleased, moon.mod must still publish v$previous_version"
+      "$migration_version" "$mod_version"
+  elif [ "$mod_version" != "$published_version" ]; then
+    note "moon.mod is v$mod_version, but v$published_version is the published version the migration arrow names"
+    note "while v$migration_version is unreleased, moon.mod must still publish v$published_version"
   fi
   printf 'version identity: docs describe v%s, marked unreleased; moon.mod publishes v%s\n' \
-    "$changelog_version" "$mod_version"
+    "$migration_version" "$mod_version"
 else
-  if [ "$mod_version" != "$changelog_version" ]; then
-    note "moon.mod is v$mod_version but the docs describe v$changelog_version"
-    note "either bump moon.mod, or mark the changelog heading '(unreleased)' while it is being prepared"
+  if [ "$mod_version" != "$migration_version" ]; then
+    note "moon.mod is v$mod_version but the docs describe v$migration_version"
+    note "either bump moon.mod, or mark the migration heading '(unreleased)' while it is being prepared"
   fi
 fi
 
 # ── Nothing else names a release ──────────────────────────────────────────
-# Comparing the three files enforces half of the rule. The other half — that
-# there is no *fourth* place — is what keeps the reader from having two numbers
+# Comparing the two files enforces half of the rule. The other half — that
+# there is no *third* place — is what keeps the reader from having two numbers
 # to reconcile, and it is the half that used to be documentation only: a
 # "MoonFrame v0.5.4" in a guide or a docstring broke the rule with nothing to
 # say so, and went stale the moment the next release cut.
@@ -108,8 +99,8 @@ fi
 # from a docstring), plus comment lines in MoonBit sources — a *code* line there
 # is not prose, and a string literal like "1.2.3" in a parser test is not a
 # claim about anything. Minus:
-#   docs/changelog.md, docs/migration.md   two of the three homes
-#   .github/scripts/                       these scripts quote the format
+#   docs/migration.md    the other home
+#   .github/scripts/     these scripts quote the format
 #
 # A third-party version is not a release of this project, and each kind is
 # recognised by a token the line already carries — see `third_party` below. Add
@@ -135,7 +126,7 @@ exclude=$(printf '%s\n' "$third_party" | sed 's/[[:space:]]*#.*$//' | grep . |
   tr '\n' '|' | sed 's/|$//')
 
 prose=$(git ls-files '*.md' |
-  grep -vE '^docs/(changelog|migration)\.md$' |
+  grep -v '^docs/migration\.md$' |
   grep -v '^\.github/scripts/' || true)
 config=$(git ls-files '*.yml' '*.yaml' 'moon.mod' '*moon.pkg' |
   grep -v '^\.github/scripts/' || true)
@@ -159,12 +150,12 @@ stray=$(
 scanned=$(printf '%s\n%s\n%s\n' "$prose" "$config" "$sources" | grep -c . || true)
 
 if [ -n "$stray" ]; then
-  printf 'version identity: something other than the three homes names a release:\n'
+  printf 'version identity: something other than the two homes names a release:\n'
   printf '%s\n' "$stray" | sed 's/^/  /'
-  printf '  Only moon.mod, docs/changelog.md and docs/migration.md name a\n'
-  printf '  release. Prose that names one goes stale at the next one and leaves\n'
-  printf '  the reader two numbers to reconcile, so describe `main` and the\n'
-  printf '  facade surface instead. A line about a past release takes\n'
+  printf '  Only moon.mod and docs/migration.md name a release. Prose that\n'
+  printf '  names one goes stale at the next one and leaves the reader two\n'
+  printf '  numbers to reconcile, so describe `main` and the facade surface\n'
+  printf '  instead. A line about a past release takes\n'
   printf '  `doc-guard: historical`; a third-party version needs a line in this\n'
   printf '  script'"'"'s `third_party` list.\n'
   fail=1
@@ -174,5 +165,5 @@ if [ "$fail" -ne 0 ]; then
   printf 'version identity: inconsistent\n'
   exit 1
 fi
-printf 'version identity: consistent (v%s); no release named outside the three homes in %s tracked files\n' \
-  "$changelog_version" "$scanned"
+printf 'version identity: consistent (v%s); no release named outside the two homes in %s tracked files\n' \
+  "$migration_version" "$scanned"

@@ -45,6 +45,25 @@ method are available in that package.
 > MoonBit v0.10.4 deprecates the legacy JSON package manifest. New and migrated
 > projects should use `moon.mod` / `moon.pkg`, as this repository does.
 
+## Compatibility
+
+The facade package — what `import "ihb2032/MoonFrame" @moonframe` re-exports —
+is the supported surface; the public sub-packages (`@types`, `@series`,
+`@expr`, `@frame`, `@io`, `@chart`, `@lazy`) stay directly importable for a
+slice of it. Two families are deliberately off the facade: the fluent-chain
+intermediates (`WhenThen` / `GroupedDataFrame` / … — chain through them without
+naming them), and the string-level serialisers, reached through `@io` by name.
+
+Pre-1.0, additions and fixes ride a patch version and a change to that surface
+rides the minor one. One case reads as additive but is not: adding a variant to
+a `pub(all)` enum (`DataType`, `Scalar`, `DataError`, …) is source-breaking
+under MoonBit's exhaustive `match` — only a caller whose match carries a
+wildcard arm stays compatible. The two error-detail enums
+(`TypeMismatchDetail`, `ParseErrorDetail`) are the exception: they are
+`#non_exhaustive`, so a match over them ends in a `..` arm and a new diagnostic
+shape is a recompile, not a break. The upgrade steps for each release are in
+[`docs/migration.md`](docs/migration.md).
+
 ## Quick start
 
 Suppose you have a `sales.csv`:
@@ -136,8 +155,8 @@ same way.
   optimizer, producing an equal frame for the cells it reads. What a
   push-down does *not* read, it does not parse — so a parse error confined to a
   pruned column, or to a row the pushed-down predicate drops (in a column that
-  predicate does not itself read), never surfaces. `docs/api.md` states the
-  contract in full.
+  predicate does not itself read), never surfaces. `LazyFrame::collect`'s
+  docstring states the contract in full.
 - **Join** — the full `inner` / `left` / `right` / `outer` / `cross` matrix on
   expression keys, e.g.
   `orders.join(customers, JoinOptions::on([col("customer_id")]))` — or, for
@@ -208,23 +227,20 @@ test "readme: bridging a raise back to a Result" {
 
 Operations that are provably total (`head`, `to_markdown`, …) just
 return their value. `DataError` is a `pub(all) suberror`, so you can match its
-variants (`ColumnNotFound`, `ParseError`, …) on the `Err`. The full model is in
-[`docs/api.md`](docs/api.md).
+variants (`ColumnNotFound`, `ParseError`, …) on the `Err`.
 
 ## Documentation
 
-- The generated API reference — built from the same docstrings and deployed
-  to [GitHub Pages](https://ihb2032.github.io/MoonFrame/) on every merge to
-  `main` (the same pages are published on
-  [mooncakes.io](https://mooncakes.io/docs/ihb2032/MoonFrame); one source,
-  two hosts)
+- The generated API reference — built from the docstrings, deployed to
+  [GitHub Pages](https://ihb2032.github.io/MoonFrame/) on every merge to
+  `main`, and published on
+  [mooncakes.io](https://mooncakes.io/docs/ihb2032/MoonFrame); one source, two
+  hosts. Per-symbol contracts live in the docstrings, and that reference is
+  where they are read.
 - [`quickstart.mbt.md`](quickstart.mbt.md) — a runnable tour; every snippet and
   its expected output is executed by `moon test`, and by CI across all four
   backends, so a code block cannot drift from the API. The prose around them is
   reviewed, not executed
-- [`docs/api.md`](docs/api.md) — API concepts & the compatibility model; the
-  per-symbol reference is generated from the docstrings on
-  [mooncakes.io](https://mooncakes.io/docs/ihb2032/MoonFrame)
 - [`docs/comparison.md`](docs/comparison.md) — how MoonFrame aligns with, and
   deliberately differs from, Polars / pandas
 - [`docs/performance.md`](docs/performance.md) — columnar layout, the `Numeric`
@@ -232,7 +248,8 @@ variants (`ColumnNotFound`, `ParseError`, …) on the `Err`. The full model is i
 - [`docs/type-inference.md`](docs/type-inference.md) — how CSV / JSON / NDJSON
   columns get their dtypes
 - [`docs/migration.md`](docs/migration.md) — upgrading across breaking releases
-- [`docs/changelog.md`](docs/changelog.md) — version-by-version feature history
+- The [release notes](https://github.com/ihb2032/MoonFrame/releases) — what
+  each release changed, written when it is cut
 
 Four runnable end-to-end programs live in [`examples/`](examples):
 
@@ -253,6 +270,11 @@ newcomers:
 
 - **`/` is always `Float`** (integer operands promote); dividing by zero gives
   IEEE `±inf` / `NaN`, never a trap.
+- **`to_x` never fails; `as_x` raises.** `Scalar::to_string` renders any cell
+  for display (a null cell gives `""`); `Scalar::as_string` is a typed read
+  that raises `TypeMismatch` on a wrong dtype. The wrong one does not fail —
+  it silently stringifies — so reach for `as_*` when a wrong dtype is a bug
+  you want reported, and `to_*` only for display text whatever the cell holds.
 - **`null` and `NaN` are different.** `null` is missing and propagates; `NaN`
   is a value (`sum` / `mean` propagate it, `min` / `max` skip it) — except in
   `sort`, which orders `NaN` as missing.

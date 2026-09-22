@@ -76,11 +76,12 @@ So a fact gets one home, and everything else points at it. Where it goes:
 | --- | --- |
 | A rule CI enforces (imports, seams, surfaces) | the guard script that enforces it — it cannot silently stop being true |
 | The structural invariants of a `DataFrame` | `frame/invariants.mbt` (INV1–INV5) |
-| What one symbol does | its docstring — the reference on mooncakes.io is generated from it |
-| Cross-cutting API behaviour (errors, evaluation, the optimizer) | `docs/api.md` |
+| What one symbol does | its docstring — the reference on mooncakes.io / GitHub Pages is generated from it |
+| A cross-cutting contract (the error model, the optimizer's) | the docstring of the symbol that owns it — `DataError` for errors, `LazyFrame::collect` for the optimizer |
 | Cost and complexity | `docs/performance.md` |
 | How MoonFrame differs from Polars / pandas | `docs/comparison.md` |
-| What a release changed / how to upgrade | `docs/changelog.md`, `docs/migration.md` |
+| How to upgrade | `docs/migration.md` |
+| What a release changed | the GitHub release notes, written when the release is cut |
 | What each guard governs and how to run it | this file |
 
 A pointer is not a copy: "the import allowlist is in `check_layering.sh`" stays
@@ -115,18 +116,21 @@ minute on the Linux runner and around 25 on Git Bash, where `fork` is emulated.
 While iterating on one guard, run that guard alone — each is seconds — and leave
 the sweep to the push.
 
-- **Version identity** — `moon.mod`, `docs/changelog.md` and
-  `docs/migration.md` must name one release, and nothing else names one at all:
+- **Version identity** — `moon.mod` and `docs/migration.md` must name one
+  release, and nothing else names one at all:
   the guides describe `main` and promise the facade surface, so a reader never
   has to reconcile two numbers, and prose never goes stale for saying which
-  release it belongs to. Both halves are enforced — the three are compared, and
+  release it belongs to. Both halves are enforced — the two are compared, and
   every other tracked piece of prose (Markdown, the workflow and manifests,
   comment lines in sources) is scanned for a release-shaped version, with
   third-party versions excluded by a list in the guard and a past release opting
-  out through `doc-guard: historical`. While a release is being prepared on
-  `main`, the changelog's newest heading carries `(unreleased)` and `moon.mod`
-  still publishes the previous version; **cutting the release means dropping that
-  marker and bumping `moon.mod` together**, which is what the guard enforces.
+  out through `doc-guard: historical`. (Per-release history is the GitHub
+  release notes, written when each release is cut — not tracked prose, so not a
+  home the guard reads.) While a release is being prepared on
+  `main`, the migration guide's newest heading carries `(unreleased)` and
+  `moon.mod` still publishes the arrow's source version; **cutting the release
+  means dropping that marker and bumping `moon.mod` together**, which is what
+  the guard enforces.
 - **Enum surface** — the exact variant set of every public `pub(all)` enum /
   suberror is pinned in `.github/scripts/enum_surface.snapshot`. Adding,
   removing, or renaming a variant is source-breaking under exhaustive `match`,
@@ -169,21 +173,21 @@ the sweep to the push.
 - **Stale names** — a removed identifier must not appear in current-state prose
   or in a comment that explains something: tracked `*.md`, `*.mbt`, the CI
   workflow and the package manifests. The guard scripts are not scanned — the
-  list of removed names lives in one of them. `docs/changelog.md` and
-  `docs/migration.md` are exempt (history is their content); a line that must
+  list of removed names lives in one of them. `docs/migration.md`
+  is exempt (history is its content); a line that must
   name one takes the marker
   `doc-guard: historical`. It matches distinctive spellings only — a bare word
   like `take` names live methods too — and it cannot see a *claim* that drifted
   rather than a name. **When a symbol's visibility or representation changes,
-  re-read the changelog and migration sections that describe it**: those are
-  current-state prose that no guard scans, and both have shipped statements
+  re-read the migration sections that describe it**: those are
+  current-state prose that no guard scans, and they have shipped statements
   contradicting the interface they document.
 - **Internal packages** — the set of `internal/*` package *names* on disk must
-  equal the set README's repository-structure block and `docs/api.md` name.
+  equal the set README's repository-structure block names.
   They have no public surface, so no guard but layering notices one appearing or
   disappearing (and layering sees the edges, not the prose) — and an internal
   package is where a whole class of work is
-  supposed to live, so one the docs never mention gets bypassed. It checks
+  supposed to live, so one the doc never mentions gets bypassed. It checks
   names, not whether the descriptions are accurate.
 - **Layering** — the production package graph, read off the `moon.pkg`
   manifests. Which package may import which is written once, in the guard that

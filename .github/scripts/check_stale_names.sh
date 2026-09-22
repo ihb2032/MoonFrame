@@ -5,7 +5,7 @@
 #
 # Scope. Tracked `*.md`, `*.mbt`, the CI workflow (`*.yml`) and the package
 # manifests — everywhere a removed name can explain something wrongly — minus:
-#   docs/changelog.md, docs/migration.md   history — old names are the content
+#   docs/migration.md                     history — old names are the content
 #   .github/scripts/                       this list itself
 # Untracked scratch (PLAN_*.md and friends) is never scanned: the file list
 # comes from `git ls-files`.
@@ -116,9 +116,8 @@ index_by_name'
 # something just as wrongly from a YAML comment as from a docstring — and the
 # manifests are where a package's dependencies are justified in words. The
 # guard scripts themselves are excluded, since the list below *is* removed
-# names, and the two history documents because old names are their content.
+# names, and the migration guide because old names are its content.
 files=$(git ls-files '*.md' '*.mbt' '*.yml' '*.yaml' 'moon.mod' '*moon.pkg' |
-  grep -v '^docs/changelog\.md$' |
   grep -v '^docs/migration\.md$' |
   grep -v '^\.github/scripts/' || true)
 

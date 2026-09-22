@@ -28,8 +28,8 @@
 #   * `path/to/file.mbt`, `.md` or `.sh` — the file must exist. Resolution tries
 #     the naming file's own directory first (a sibling), then the repository
 #     root, then `docs/`, `.github/` and `.github/scripts/` — so a bare
-#     `api.md` or `check_layering.sh` resolves from anywhere, while a source
-#     file has to say which package.
+#     `performance.md` or `check_layering.sh` resolves from anywhere, while a
+#     source file has to say which package.
 #
 # Evidence comes from code, never from other comments: a symbol two comments
 # agree on and no declaration carries is exactly the drift being looked for.
@@ -40,8 +40,8 @@
 # Neither can it see a reference in a file it does not read; the scope above is
 # the whole of what a green run says.
 #
-# `docs/changelog.md` and `docs/migration.md` are exempt: naming what was
-# removed is their content. Elsewhere two markers skip a line, and which one
+# `docs/migration.md` is exempt: naming what was
+# removed is its content. Elsewhere two markers skip a line, and which one
 # to reach for is the difference between two claims. `doc-guard: historical`
 # — the marker the stale-name guard also honours — says the name *was* real:
 # this line is about the past. `doc-guard: unresolved` says the name is not
@@ -64,7 +64,7 @@ done
 cd "$root"
 
 sources=$(git ls-files '*.mbt' | grep -v '^examples/' || true)
-prose=$(git ls-files '*.md' | grep -vE '^docs/(changelog|migration)\.md$' || true)
+prose=$(git ls-files '*.md' | grep -v '^docs/migration\.md$' || true)
 interfaces=$(git ls-files '*.mbti' | grep -v '^examples/' || true)
 
 # The packages this module defines, by their qualifier — the last path segment,

@@ -35,7 +35,8 @@ libraries — not a derivative work of either codebase.
   literal and regex matching (`str_contains` / `str_replace` / `str_replace_all`
   take `literal?`; `str_extract` / `str_count_matches` are regex-only), and the
   `map_elements` / `map_batches` / `map_many` UDF escape hatch. Per-operator
-  rules — dtype, null, and `NaN` — are in [`api.md`](api.md).
+  rules — dtype, null, and `NaN` — are each stated on the operator's own
+  docstring (the generated reference collects them).
 - **`null` is missing** — a null propagates through arithmetic and
   comparison (Arrow / Polars); `&` / `|` are three-valued (Kleene).
 - **`NaN` is a value, not missing** — `sum` / `mean` propagate `NaN`;
@@ -113,7 +114,7 @@ semantic choices:
 ## Out of scope (vs Polars)
 
 Not implemented. The tracked deferrals — the ones with a place in a later
-release — are listed as such in [`api.md`](api.md); this is what a Polars user
+release — are listed as such below; this is what a Polars user
 will not find here today:
 
 - **Dtypes** — `Int` / `Float` / `Bool` / `String` / `Null` / `Date`; no
@@ -136,7 +137,7 @@ will not find here today:
   (`Series::from_*`, or `from_rows` with a `Schema`) when a column's type must
   be pinned. See [`type-inference.md`](type-inference.md).
 
-See [`api.md`](api.md) for the API concepts and compatibility model, the
-per-symbol reference on
-[mooncakes.io](https://mooncakes.io/docs/ihb2032/MoonFrame), and
-[`migration.md`](migration.md) for the version history.
+See [`migration.md`](migration.md) for the upgrade history, the per-symbol
+reference — generated from the docstrings — on
+[mooncakes.io](https://mooncakes.io/docs/ihb2032/MoonFrame), and the README's
+"Compatibility" section for the versioning rules.

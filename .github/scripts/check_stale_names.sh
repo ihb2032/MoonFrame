@@ -107,7 +107,17 @@ reduce_op_of_agg
 # Removed with the frame cache consolidation (unreleased): the schema index
 # is the only name-to-position map.
 name_to_index
-index_by_name'
+index_by_name
+# Removed with the types-surface convergence (unreleased): a single-variant
+# dtype check is a pattern match (`dtype is Int`), and the two derivable
+# scalar comparisons compose from eq / lt. Bare `is_bool` / `is_float` are
+# deliberately not pinned: the io labeled parameters spell the same words.
+DataType::is_bool
+DataType::is_float
+DataType::is_integer
+DataType::is_string
+Scalar::lte
+Scalar::gte'
 
 # `|| true`: a `grep` that filters everything out exits 1, which `set -e` would
 # turn into a silent failure of the whole script.

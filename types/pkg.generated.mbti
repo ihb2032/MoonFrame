@@ -57,11 +57,7 @@ pub(all) enum DataType {
   Null
 } derive(Eq, @debug.Debug)
 pub fn DataType::equal(Self, Self) -> Bool
-pub fn DataType::is_bool(Self) -> Bool
-pub fn DataType::is_float(Self) -> Bool
-pub fn DataType::is_integer(Self) -> Bool
 pub fn DataType::is_numeric(Self) -> Bool
-pub fn DataType::is_string(Self) -> Bool
 pub fn DataType::not_equal(Self, Self) -> Bool
 pub fn DataType::output(Self, &Logger) -> Unit
 pub fn DataType::to_repr(Self) -> @debug.Repr
@@ -116,10 +112,8 @@ pub fn Scalar::dtype(Self) -> DataType
 pub fn Scalar::eq(Self, Self) -> Bool raise DataError
 pub fn Scalar::equal(Self, Self) -> Bool
 pub fn Scalar::gt(Self, Self) -> Bool raise DataError
-pub fn Scalar::gte(Self, Self) -> Bool raise DataError
 pub fn Scalar::is_null(Self) -> Bool
 pub fn Scalar::lt(Self, Self) -> Bool raise DataError
-pub fn Scalar::lte(Self, Self) -> Bool raise DataError
 pub fn Scalar::not_equal(Self, Self) -> Bool
 pub fn Scalar::output(Self, &Logger) -> Unit
 pub fn Scalar::to_repr(Self) -> @debug.Repr

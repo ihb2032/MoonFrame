@@ -88,10 +88,6 @@ test "Scalar::eq/lt Int-vs-Float compares exactly (no 2^53 promotion)" {
     Scalar::Int(9223372036854775807L).lt(Scalar::Float(two_pow_63)),
     true,
   )
-  assert_eq(
-    Scalar::Int(9223372036854775807L).lte(Scalar::Float(two_pow_63)),
-    true,
-  )
   // `Int64::MIN` (-2^63) is exactly representable and compares equal.
   let neg_two_pow_63 = -9223372036854775808.0
   assert_eq(
@@ -122,7 +118,6 @@ test "Scalar::eq/lt Int-vs-Float: infinities and NaN" {
   assert_eq(Scalar::Int(0).lt(Scalar::Float(nan)), false)
   assert_eq(Scalar::Int(0).gt(Scalar::Float(nan)), false)
   assert_eq(Scalar::Float(nan).lt(Scalar::Int(0)), false)
-  assert_eq(Scalar::Float(nan).gte(Scalar::Int(0)), false)
 }
 
 ///|
@@ -149,25 +144,11 @@ test "Scalar::eq cross-type raises" {
 }
 
 ///|
-test "gt / gte report an incomparable pair in call order" {
+test "gt reports an incomparable pair in call order" {
   // `gt` delegates to `other.lt(self)`, which transposes the operands — the
-  // diagnostic must still name them in the caller's order, like eq/lt/lte.
+  // diagnostic must still name them in the caller's order, like eq/lt.
   assert_eq(
     Ok(Scalar::Int(1).gt(Scalar::String("x"))) catch {
-      e => Err(e)
-    },
-    Err(
-      DataError::TypeMismatch(
-        TypeMismatchDetail::Operation(
-          "compare",
-          DataType::Int,
-          DataType::String,
-        ),
-      ),
-    ),
-  )
-  assert_eq(
-    Ok(Scalar::Int(1).gte(Scalar::String("x"))) catch {
       e => Err(e)
     },
     Err(
@@ -183,18 +164,14 @@ test "gt / gte report an incomparable pair in call order" {
   // Comparable pairs still delegate (Bool orders false < true; String
   // orders lexicographically).
   assert_true(Scalar::Bool(true).gt(Scalar::Bool(false)))
-  assert_false(Scalar::Bool(false).gte(Scalar::Bool(true)))
   assert_true(Scalar::String("fig").gt(Scalar::String("apple")))
-  assert_true(Scalar::String("fig").gte(Scalar::String("fig")))
 }
 
 ///|
-test "Scalar::lt / lte / gt / gte" {
+test "Scalar::lt / gt" {
   assert_eq(Scalar::Int(1).lt(Scalar::Int(2)), true)
   assert_eq(Scalar::Int(2).lt(Scalar::Int(2)), false)
-  assert_eq(Scalar::Int(2).lte(Scalar::Int(2)), true)
   assert_eq(Scalar::Int(2).gt(Scalar::Int(1)), true)
-  assert_eq(Scalar::Int(2).gte(Scalar::Int(2)), true)
   assert_eq(Scalar::String("a").lt(Scalar::String("b")), true)
   // Lexicographic, not shortlex: "apple" < "fig" even though "fig" is
   // shorter (the built-in `<` would rank the shorter "fig" first).
@@ -287,35 +264,13 @@ test "Scalar::lt cross-type raises" {
 }
 
 ///|
-test "Scalar::lte / gt / gte all guard Null" {
-  assert_true(
-    (Ok(Scalar::Null.lte(Scalar::Int(0))) catch { e => Err(e) }) is Err(_),
-  )
-  assert_true(
-    (Ok(Scalar::Int(0).lte(Scalar::Null)) catch { e => Err(e) }) is Err(_),
-  )
+test "Scalar::gt guards Null" {
   assert_true(
     (Ok(Scalar::Null.gt(Scalar::Int(0))) catch { e => Err(e) }) is Err(_),
   )
   assert_true(
     (Ok(Scalar::Int(0).gt(Scalar::Null)) catch { e => Err(e) }) is Err(_),
   )
-  assert_true(
-    (Ok(Scalar::Null.gte(Scalar::Int(0))) catch { e => Err(e) }) is Err(_),
-  )
-  assert_true(
-    (Ok(Scalar::Int(0).gte(Scalar::Null)) catch { e => Err(e) }) is Err(_),
-  )
-}
-
-///|
-test "Scalar::lte short-circuits at equality" {
-  // Equal values: result is true; lt never needs to fire.
-  assert_eq(Scalar::Int(5).lte(Scalar::Int(5)), true)
-  // Strictly less: falls through to lt.
-  assert_eq(Scalar::Int(4).lte(Scalar::Int(5)), true)
-  // Strictly greater: lt returns false.
-  assert_eq(Scalar::Int(6).lte(Scalar::Int(5)), false)
 }
 
 ///|

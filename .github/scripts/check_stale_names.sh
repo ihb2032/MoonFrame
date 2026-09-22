@@ -108,6 +108,16 @@ reduce_op_of_agg
 # is the only name-to-position map.
 name_to_index
 index_by_name
+# Removed with the types-surface convergence (unreleased): a single-variant
+# dtype check is a pattern match (`dtype is Int`), and the two derivable
+# scalar comparisons compose from eq / lt. Bare `is_bool` / `is_float` are
+# deliberately not pinned: the io labeled parameters spell the same words.
+DataType::is_bool
+DataType::is_float
+DataType::is_integer
+DataType::is_string
+Scalar::lte
+Scalar::gte
 # Removed with the sort-flag convergence (unreleased): direction and null
 # placement are the Polars descending / nulls_last bools. The variant
 # spellings NullsFirst / NullsLast are deliberately not pinned: they live

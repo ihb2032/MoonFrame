@@ -38,18 +38,6 @@ pub extend DataType with Show::{to_string, output}
 pub extend DataType with Debug::{to_repr}
 
 ///|
-/// `true` only for the `Int` variant.
-pub fn DataType::is_integer(self : DataType) -> Bool {
-  self is Int
-}
-
-///|
-/// `true` only for the `Float` variant.
-pub fn DataType::is_float(self : DataType) -> Bool {
-  self is Float
-}
-
-///|
 /// `true` for `Int` and `Float` — both are usable in numeric reductions.
 /// Reads the registry's `numeric` flag, so an `I64`-riding dtype like `Date`
 /// is correctly *not* numeric.
@@ -69,18 +57,6 @@ pub fn DataType::is_numeric(self : DataType) -> Bool {
 #internal(engine, "MoonFrame execution engine API")
 pub fn DataType::comparable_with(self : DataType, other : DataType) -> Bool {
   self == other || (self.is_numeric() && other.is_numeric())
-}
-
-///|
-/// `true` only for the `Bool` variant.
-pub fn DataType::is_bool(self : DataType) -> Bool {
-  self is Bool
-}
-
-///|
-/// `true` only for the `String` variant.
-pub fn DataType::is_string(self : DataType) -> Bool {
-  self is String
 }
 
 ///|

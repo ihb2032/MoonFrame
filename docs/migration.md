@@ -13,8 +13,10 @@ v0.7 is a pre-1.0 breaking release — the surface-focus one: `io` returns to
 tabular interchange and the root facade narrows its first-contact face. Those
 breaks are qualification moves. The widening break is the `Date` dtype: two
 public enums gained a variant. The narrow one is on the error side: the two
-error-detail enums became `#non_exhaustive`. Two enums are deleted outright —
-the sort vocabulary became Polars' two flags.
+error-detail enums became `#non_exhaustive`. Six value-type members were
+removed — predicates and comparisons that spelled out what a pattern match or
+a composition already says — and two enums are deleted outright: the sort
+vocabulary became Polars' two flags.
 
 ### `DataType` / `Scalar` gained a `Date` variant
 
@@ -48,6 +50,29 @@ fn describe(detail : @moonframe.TypeMismatchDetail) -> String {
 From v0.7.0 on, a new diagnostic shape added to either enum is **not** a
 breaking change: this arm absorbs it. `DataError` itself is unchanged — a
 new error kind remains a deliberate, breaking change.
+
+### Six value-type members are removed
+
+`DataType` loses the four single-variant predicates `is_bool` / `is_float` /
+`is_integer` / `is_string`, and `Scalar` loses the two derivable comparisons
+`lte` / `gte`. What stays is the part that carries semantics a caller cannot
+spell another way: `is_numeric` reads the dtype registry (a `Date` rides the
+`Int` buffer yet is not numeric), and `eq` / `lt` / `gt` are the raising
+comparisons the engine itself is built on. A single-variant check is what a
+pattern match says in MoonBit, and the removed comparisons compose from what
+stays:
+
+```moonbit
+// before
+if field.dtype().is_integer() { ... }
+assert_eq(Scalar::Int(2).gte(Scalar::Int(2)), true)
+
+// after
+if field.dtype() is Int { ... }
+let a = Scalar::Int(2)
+let b = Scalar::Int(2)
+assert_eq(a.gt(b) || a.eq(b), true)
+```
 
 ### `SortOrder` / `NullOrder` are gone; sort keys are two flags
 

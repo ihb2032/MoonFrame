@@ -178,11 +178,7 @@ method DataFrame::unique(Self, subset? : Array[@expr.Expr], keep? : KeepStrategy
 method DataFrame::with_columns(Self, Array[@expr.Expr]) -> Self raise @types.DataError <- frame
 method DataFrame::with_row_index(Self, name? : String, offset? : Int64) -> Self raise @types.DataError <- frame
 method DataType::equal(Self, Self) -> Bool <- types
-method DataType::is_bool(Self) -> Bool <- types
-method DataType::is_float(Self) -> Bool <- types
-method DataType::is_integer(Self) -> Bool <- types
 method DataType::is_numeric(Self) -> Bool <- types
-method DataType::is_string(Self) -> Bool <- types
 method DataType::not_equal(Self, Self) -> Bool <- types
 method DataType::output(Self, &Logger) -> Unit <- types
 method DataType::to_repr(Self) -> @debug.Repr <- types
@@ -321,10 +317,8 @@ method Scalar::dtype(Self) -> DataType <- types
 method Scalar::eq(Self, Self) -> Bool raise DataError <- types
 method Scalar::equal(Self, Self) -> Bool <- types
 method Scalar::gt(Self, Self) -> Bool raise DataError <- types
-method Scalar::gte(Self, Self) -> Bool raise DataError <- types
 method Scalar::is_null(Self) -> Bool <- types
 method Scalar::lt(Self, Self) -> Bool raise DataError <- types
-method Scalar::lte(Self, Self) -> Bool raise DataError <- types
 method Scalar::not_equal(Self, Self) -> Bool <- types
 method Scalar::output(Self, &Logger) -> Unit <- types
 method Scalar::to_repr(Self) -> @debug.Repr <- types

@@ -73,7 +73,7 @@ Where MoonFrame knowingly does something else than Polars. Two are about
 configured.
 
 - **`sort` treats `NaN` as missing.** When sorting, a `Float` `NaN` is ordered
-  by the key's `NullOrder` (like a null), whereas Polars treats `NaN` as a
+  by the key's `nulls_last` flag (like a null), whereas Polars treats `NaN` as a
   value that sorts last independently of `nulls_last`. This is a deliberate
   divergence, not an oversight.
 - **`median` skips `NaN`.** As an order statistic it follows the `min` / `max`

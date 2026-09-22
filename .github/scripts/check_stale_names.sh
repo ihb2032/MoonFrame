@@ -117,7 +117,13 @@ DataType::is_float
 DataType::is_integer
 DataType::is_string
 Scalar::lte
-Scalar::gte'
+Scalar::gte
+# Removed with the sort-flag convergence (unreleased): direction and null
+# placement are the Polars descending / nulls_last bools. The variant
+# spellings NullsFirst / NullsLast are deliberately not pinned: they live
+# on as the display words of the plan renderer.
+SortOrder
+NullOrder'
 
 # `|| true`: a `grep` that filters everything out exits 1, which `set -e` would
 # turn into a silent failure of the whole script.

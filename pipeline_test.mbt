@@ -38,7 +38,7 @@ test "pipeline: read_csv → filter → select → sort → describe → to_mark
   let report = df
     .filter(col("product").eq(lit_str("widget")))
     .select(cols(["region", "quantity", "revenue"]))
-    .sort([(col("quantity"), SortOrder::Desc, NullOrder::NullsLast)])
+    .sort([(col("quantity"), true, true)])
   let summary = report.describe()
 
   // Quantity desc puts west first; describe should surface that.
@@ -95,9 +95,7 @@ test "pipeline: parse_csv_str → filter → select → sort → describe → to
   assert_eq(projected.check_invariants(), Ok(()))
 
   // Sort by quantity descending — stable mergesort + NullsLast.
-  let sorted = projected.sort([
-    (col("quantity"), SortOrder::Desc, NullOrder::NullsLast),
-  ])
+  let sorted = projected.sort([(col("quantity"), true, true)])
   assert_eq(sorted.check_invariants(), Ok(()))
   assert_eq(sorted.item(0, "region"), Scalar::String("west"))
   assert_eq(sorted.item(0, "quantity"), Scalar::Int(12))
@@ -275,7 +273,7 @@ test "pipeline: group_by → agg → sort produces a grouped summary via the fac
       col("quantity").sum().with_alias("total_q"),
       col("revenue").mean().with_alias("avg_rev"),
     ])
-    .sort([(col("total_q"), SortOrder::Desc, NullOrder::NullsLast)])
+    .sort([(col("total_q"), true, true)])
   assert_eq(summary.check_invariants(), Ok(()))
   assert_eq(summary.columns(), [
     "region", "quantity_count", "total_q", "avg_rev",
@@ -313,7 +311,7 @@ test "pipeline: join enriches a frame then sorts via the facade" {
   let opts : JoinOptions = JoinOptions::on([col("customer_id")])
   let enriched = orders
     .join(customers, opts)
-    .sort([(col("amount"), SortOrder::Desc, NullOrder::NullsLast)])
+    .sort([(col("amount"), true, true)])
   assert_eq(enriched.check_invariants(), Ok(()))
   // Order 4 (customer 99) has no matching customer → dropped by inner join;
   // the key column appears once, then the right's non-key "region".
@@ -405,8 +403,8 @@ test "pipeline: Schema and Field surface for callers building empty frames" {
 
 ///|
 test "pipeline: ClosedInterval is reachable unqualified" {
-  // The `closed` endpoint enum must ride the facade like SortOrder /
-  // KeepStrategy do — a missing re-export would fail to compile here.
+  // The `closed` endpoint enum must ride the facade like KeepStrategy
+  // does — a missing re-export would fail to compile here.
   let df = DataFrame::DataFrame([Series::from_ints("n", [1, 2, 3])])
   let kept = df.filter(
     col("n").is_between(lit_int(1), lit_int(3), closed=ClosedInterval::Left),

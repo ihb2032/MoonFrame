@@ -789,9 +789,7 @@ test "row windows stop the descent" {
 ///|
 test "sort stops the descent" {
   let df = sales_df()
-  let keys = [
-    (@expr.col("qty"), @types.SortOrder::Asc, @types.NullOrder::NullsLast),
-  ]
+  let keys = [(@expr.col("qty"), false, true)]
   let predicate = @expr.col("qty").gt(@expr.lit_int(100))
   let plan = LazyFrame::LazyFrame(df).sort(keys).filter(predicate)
   // Crossing a sort is deliberately deferred — the filter stays put.

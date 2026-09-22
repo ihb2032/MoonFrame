@@ -33,7 +33,8 @@ test "quickstart: group_by + agg" {
       col("quantity").sum().with_alias("total_quantity"),
       col("revenue").mean().with_alias("avg_revenue"),
     ])
-    .sort([(col("total_quantity"), SortOrder::Desc, NullOrder::NullsLast)])
+    // each key is (key, descending, nulls_last)
+    .sort([(col("total_quantity"), true, true)])
   inspect(
     summary.to_markdown(),
     content=(
@@ -66,7 +67,8 @@ test "quickstart: filter + select + sort" {
   let out = df
     .filter(col("product").eq(lit_str("widget")))
     .select(cols(["region", "quantity"]))
-    .sort([(col("quantity"), SortOrder::Desc, NullOrder::NullsLast)])
+    // each key is (key, descending, nulls_last)
+    .sort([(col("quantity"), true, true)])
   inspect(
     out.to_markdown(),
     content=(

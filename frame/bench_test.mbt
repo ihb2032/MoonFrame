@@ -65,7 +65,7 @@ test "frame sort scaling" (b : @bench.T) {
   for n in [1000, 100000, 1000000] {
     let df = fact_frame(n)
     b.bench(name="sort/value-asc/\{n}", () => {
-      b.keep(df.sort([(@expr.col("value"), Asc, NullsLast)]) catch { _ => df })
+      b.keep(df.sort([(@expr.col("value"), false, true)]) catch { _ => df })
     })
   }
 }

@@ -22,13 +22,8 @@ pub fn revenue_by_region(
     @moonframe.col("revenue").sum().with_alias("revenue"),
     @moonframe.col("quantity").sum().with_alias("quantity"),
   ])
-  .sort([
-    (
-      @moonframe.col("revenue"),
-      @moonframe.SortOrder::Desc,
-      @moonframe.NullOrder::NullsLast,
-    ),
-  ])
+  // each key is (key, descending, nulls_last)
+  .sort([(@moonframe.col("revenue"), true, true)])
 }
 
 ///|

@@ -168,7 +168,7 @@ method DataFrame::schema(Self) -> @types.Schema <- frame
 method DataFrame::select(Self, Array[@expr.Expr]) -> Self raise @types.DataError <- frame
 method DataFrame::shape(Self) -> (Int, Int) <- frame
 method DataFrame::slice(Self, Int, Int) -> Self raise @types.DataError <- frame
-method DataFrame::sort(Self, Array[(@expr.Expr, @types.SortOrder, @types.NullOrder)]) -> Self raise @types.DataError <- frame
+method DataFrame::sort(Self, Array[(@expr.Expr, Bool, Bool)]) -> Self raise @types.DataError <- frame
 method DataFrame::sum(Self) -> Self raise @types.DataError <- frame
 method DataFrame::tail(Self, Int) -> Self <- frame
 method DataFrame::to_html(Self, options? : HtmlOptions) -> String <- frame
@@ -294,16 +294,13 @@ method LazyFrame::rename_with(Self, (String) -> String) -> Self <- lazy
 method LazyFrame::reverse(Self) -> Self <- lazy
 method LazyFrame::select(Self, Array[@expr.Expr]) -> Self <- lazy
 method LazyFrame::slice(Self, Int, Int) -> Self <- lazy
-method LazyFrame::sort(Self, Array[(@expr.Expr, @types.SortOrder, @types.NullOrder)]) -> Self <- lazy
+method LazyFrame::sort(Self, Array[(@expr.Expr, Bool, Bool)]) -> Self <- lazy
 method LazyFrame::sum(Self) -> Self <- lazy
 method LazyFrame::tail(Self, Int) -> Self <- lazy
 method LazyFrame::unique(Self, subset? : Array[@expr.Expr], keep? : @frame.KeepStrategy) -> Self <- lazy
 method LazyFrame::with_columns(Self, Array[@expr.Expr]) -> Self <- lazy
 method LazyFrame::with_row_index(Self, name? : String, offset? : Int64) -> Self <- lazy
 method LazyGroupBy::agg(Self, Array[@expr.Expr]) -> LazyFrame <- lazy
-method NullOrder::equal(Self, Self) -> Bool <- types
-method NullOrder::not_equal(Self, Self) -> Bool <- types
-method NullOrder::to_repr(Self) -> @debug.Repr <- types
 method OnParseError::equal(Self, Self) -> Bool <- io
 method OnParseError::not_equal(Self, Self) -> Bool <- io
 method OnParseError::to_repr(Self) -> @debug.Repr <- io
@@ -373,16 +370,13 @@ method Series::null_count(Self) -> Int <- series
 method Series::rename(Self, String) -> Self <- series
 method Series::reverse(Self) -> Self <- series
 method Series::slice(Self, Int, Int) -> Self raise @types.DataError <- series
-method Series::sort(Self, order? : @types.SortOrder, nulls? : @types.NullOrder) -> Self <- series
+method Series::sort(Self, descending? : Bool, nulls_last? : Bool) -> Self <- series
 method Series::std(Self) -> Double raise @types.DataError <- series
 method Series::sum(Self) -> @types.Scalar raise @types.DataError <- series
 method Series::tail(Self, Int) -> Self <- series
 method Series::to_repr(Self) -> @debug.Repr <- series
 method Series::to_scalars(Self) -> Array[@types.Scalar] <- series
 method Series::variance(Self) -> Double raise @types.DataError <- series
-method SortOrder::equal(Self, Self) -> Bool <- types
-method SortOrder::not_equal(Self, Self) -> Bool <- types
-method SortOrder::to_repr(Self) -> @debug.Repr <- types
 method TypeMismatchDetail::equal(Self, Self) -> Bool <- types
 method TypeMismatchDetail::not_equal(Self, Self) -> Bool <- types
 method TypeMismatchDetail::to_repr(Self) -> @debug.Repr <- types
@@ -408,12 +402,10 @@ type JoinType <- frame
 type JsonReadOptions <- io
 type KeepStrategy <- frame
 type LazyFrame <- lazy
-type NullOrder <- types
 type OnParseError <- io
 type ParseErrorDetail <- types
 type Scalar <- types
 type Schema <- types
 type Series <- series
-type SortOrder <- types
 type TypeMismatchDetail <- types
 type VegaType <- chart

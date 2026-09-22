@@ -83,8 +83,8 @@ test "group-by, sort, and reshaping" {
     .sort([
       (
         @moonframe.col("rev"),
-        @moonframe.SortOrder::Desc,
-        @moonframe.NullOrder::NullsLast,
+        true,
+        true,
       ),
     ])
   assert_eq(grouped.nrows(), 2)

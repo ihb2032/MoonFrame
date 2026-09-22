@@ -85,8 +85,6 @@ pub using @types {
   type Scalar,
   type Field,
   type Schema,
-  type SortOrder,
-  type NullOrder,
   type ClosedInterval,
 }
 

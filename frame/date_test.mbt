@@ -76,9 +76,7 @@ test "Date compares date-wise; a Date never compares against an Int" {
 ///|
 test "Date sorts chronologically and reduces positionally" {
   let df = date_frame()
-  let sorted = df.sort([
-    (@expr.col("d"), @types.SortOrder::Asc, @types.NullOrder::NullsLast),
-  ])
+  let sorted = df.sort([(@expr.col("d"), false, true)])
   assert_eq(iso_cells(sorted, "d"), [
     "2024-01-01", "2024-01-31", "2024-02-01", "null",
   ])

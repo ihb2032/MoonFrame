@@ -15,7 +15,8 @@ breaks are qualification moves. The widening break is the `Date` dtype: two
 public enums gained a variant. The narrow one is on the error side: the two
 error-detail enums became `#non_exhaustive`. Six value-type members were
 removed — predicates and comparisons that spelled out what a pattern match or
-a composition already says.
+a composition already says — and two enums are deleted outright: the sort
+vocabulary became Polars' two flags.
 
 ### `DataType` / `Scalar` gained a `Date` variant
 
@@ -72,6 +73,35 @@ let a = Scalar::Int(2)
 let b = Scalar::Int(2)
 assert_eq(a.gt(b) || a.eq(b), true)
 ```
+
+### `SortOrder` / `NullOrder` are gone; sort keys are two flags
+
+Sort direction and null placement leave the enum vocabulary — they are
+Polars' `descending` / `nulls_last` flags now. `DataFrame::sort` /
+`LazyFrame::sort` take `(key, descending, nulls_last)` tuples, and
+`Series::sort` takes labeled `descending?` (default `false`) /
+`nulls_last?` (default `true`, the previous default). The mapping is
+mechanical:
+
+| before | after |
+| --- | --- |
+| `SortOrder::Asc` | `false` |
+| `SortOrder::Desc` | `true` |
+| `NullOrder::NullsFirst` | `false` |
+| `NullOrder::NullsLast` | `true` |
+
+```moonbit
+// before
+df.sort([(col("quantity"), SortOrder::Desc, NullOrder::NullsLast)])
+s.sort(order=Desc, nulls=NullsFirst)
+
+// after
+df.sort([(col("quantity"), true, true)])  // (key, descending, nulls_last)
+s.sort(descending=true, nulls_last=false)
+```
+
+An `explain` rendering does not change: a plan still reads
+`SORT [col(qty) Desc NullsLast]`.
 
 ### `@io.ChartSpec` is `@chart.ChartSpec`
 

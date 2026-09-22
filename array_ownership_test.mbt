@@ -124,7 +124,7 @@ test "lazy builders copy their expression arrays" {
   ])
   let selected = [col("a")]
   let derived = [col("a").add(lit_int(1)).with_alias("c")]
-  let ordering = [(col("a"), SortOrder::Asc, NullOrder::NullsLast)]
+  let ordering = [(col("a"), false, true)]
   let dropped = [col("b")]
   let renames = [("a", "x")]
   let keys = [col("a")]
@@ -139,7 +139,7 @@ test "lazy builders copy their expression arrays" {
   let drop_nulls_plan = LazyFrame::LazyFrame(df).drop_nulls(subset=gates)
   selected.push(col("b"))
   derived.push(col("a").with_alias("d"))
-  ordering.push((col("b"), SortOrder::Desc, NullOrder::NullsLast))
+  ordering.push((col("b"), true, true))
   dropped.push(col("a"))
   renames.push(("b", "y"))
   keys.push(col("b"))

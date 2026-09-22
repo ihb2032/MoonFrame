@@ -109,7 +109,8 @@ test "readme: keep the widget rows, sort by quantity" {
     read_csv(p)
     .filter(col("product").eq(lit_str("widget")))
     .select(cols(["region", "revenue", "quantity"]))
-    .sort([(col("quantity"), SortOrder::Desc, NullOrder::NullsLast)])
+    // each key is (key, descending, nulls_last)
+    .sort([(col("quantity"), true, true)])
     .to_markdown()
   }
   inspect(

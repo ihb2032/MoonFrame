@@ -333,8 +333,8 @@ fn assert_backend_parity(bt : Series, nu : Series) -> Unit raise {
   // the container length. Cover head / tail counts of zero, one, the length,
   // past it, and negative.
   assert_true(same_series(bt.reverse(), nu.reverse()))
-  for order in [@types.SortOrder::Asc, @types.SortOrder::Desc] {
-    assert_true(same_series(bt.sort(order~), nu.sort(order~)))
+  for descending in [false, true] {
+    assert_true(same_series(bt.sort(descending~), nu.sort(descending~)))
   }
   for k in [0, 1, n, n + 5, -1] {
     assert_true(same_series(bt.head(k), nu.head(k)))

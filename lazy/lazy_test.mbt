@@ -73,8 +73,8 @@ test "each deferred verb collects to its eager equivalent" {
     df.select(projection),
   )
   let keys = [
-    (@expr.col("bonus"), @types.SortOrder::Asc, @types.NullOrder::NullsLast),
-    (@expr.col("qty"), @types.SortOrder::Desc, @types.NullOrder::NullsFirst),
+    (@expr.col("bonus"), false, true),
+    (@expr.col("qty"), true, false),
   ]
   assert_eq(LazyFrame::LazyFrame(df).sort(keys).collect(), df.sort(keys))
   assert_eq(LazyFrame::LazyFrame(df).head(2).collect(), df.head(2))
@@ -299,17 +299,10 @@ test "builders copy their array arguments — later mutation is unobservable" {
     planned_wc.collect(),
     df.with_columns([(@expr.col("qty") * @expr.lit_int(2)).with_alias("dbl")]),
   )
-  let keys = [
-    (@expr.col("qty"), @types.SortOrder::Desc, @types.NullOrder::NullsLast),
-  ]
+  let keys = [(@expr.col("qty"), true, true)]
   let planned_sort = LazyFrame::LazyFrame(df).sort(keys)
   keys.clear()
-  assert_eq(
-    planned_sort.collect(),
-    df.sort([
-      (@expr.col("qty"), @types.SortOrder::Desc, @types.NullOrder::NullsLast),
-    ]),
-  )
+  assert_eq(planned_sort.collect(), df.sort([(@expr.col("qty"), true, true)]))
   let dropped = [@expr.col("bonus")]
   let planned_drop = LazyFrame::LazyFrame(df).drop(dropped)
   dropped.push(@expr.col("qty"))
@@ -614,9 +607,7 @@ test "a composite pipeline collects equal to the eager chain" {
   let df = sales_df()
   let predicate = @expr.col("qty").gt(@expr.lit_int(10))
   let derived = [(@expr.col("qty") - @expr.col("bonus")).with_alias("net")]
-  let keys = [
-    (@expr.col("net"), @types.SortOrder::Desc, @types.NullOrder::NullsLast),
-  ]
+  let keys = [(@expr.col("net"), true, true)]
   let projection = [@expr.col("region"), @expr.col("net")]
   let lazy_out = LazyFrame::LazyFrame(df)
     .filter(predicate)
@@ -753,9 +744,7 @@ test "collect surfaces the eager operators' errors unchanged" {
       e => Err(e)
     },
   )
-  let bad_keys = [
-    (@expr.col("zzz"), @types.SortOrder::Asc, @types.NullOrder::NullsFirst),
-  ]
+  let bad_keys = [(@expr.col("zzz"), false, false)]
   assert_eq(
     Ok(LazyFrame::LazyFrame(df).sort(bad_keys).collect()) catch {
       e => Err(e)
@@ -820,9 +809,7 @@ test "a group-by pipeline composes with the other deferred verbs" {
   let predicate = @expr.col("qty").gt(@expr.lit_int(10))
   let derived = [(@expr.col("qty") * @expr.lit_int(2)).with_alias("dbl")]
   let aggs = [@expr.col("dbl").sum().with_alias("total")]
-  let keys = [
-    (@expr.col("total"), @types.SortOrder::Desc, @types.NullOrder::NullsLast),
-  ]
+  let keys = [(@expr.col("total"), true, true)]
   let lazy_out = LazyFrame::LazyFrame(df)
     .filter(predicate)
     .with_columns(derived)

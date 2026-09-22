@@ -314,11 +314,8 @@ method Scalar::as_float(Self) -> Double raise DataError <- types
 method Scalar::as_int(Self) -> Int64 raise DataError <- types
 method Scalar::as_string(Self) -> String raise DataError <- types
 method Scalar::dtype(Self) -> DataType <- types
-method Scalar::eq(Self, Self) -> Bool raise DataError <- types
 method Scalar::equal(Self, Self) -> Bool <- types
-method Scalar::gt(Self, Self) -> Bool raise DataError <- types
 method Scalar::is_null(Self) -> Bool <- types
-method Scalar::lt(Self, Self) -> Bool raise DataError <- types
 method Scalar::not_equal(Self, Self) -> Bool <- types
 method Scalar::output(Self, &Logger) -> Unit <- types
 method Scalar::to_repr(Self) -> @debug.Repr <- types

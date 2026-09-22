@@ -101,11 +101,8 @@ pub fn Scalar::as_float(Self) -> Double raise DataError
 pub fn Scalar::as_int(Self) -> Int64 raise DataError
 pub fn Scalar::as_string(Self) -> String raise DataError
 pub fn Scalar::dtype(Self) -> DataType
-pub fn Scalar::eq(Self, Self) -> Bool raise DataError
 pub fn Scalar::equal(Self, Self) -> Bool
-pub fn Scalar::gt(Self, Self) -> Bool raise DataError
 pub fn Scalar::is_null(Self) -> Bool
-pub fn Scalar::lt(Self, Self) -> Bool raise DataError
 pub fn Scalar::not_equal(Self, Self) -> Bool
 pub fn Scalar::output(Self, &Logger) -> Unit
 pub fn Scalar::to_repr(Self) -> @debug.Repr

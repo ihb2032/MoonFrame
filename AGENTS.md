@@ -119,7 +119,16 @@ the sweep to the push.
   suberror is pinned in `.github/scripts/enum_surface.snapshot`. Adding,
   removing, or renaming a variant is source-breaking under exhaustive `match`,
   so it fails here until the snapshot is regenerated deliberately
-  (`sh .github/scripts/check_enum_surface.sh --write`).
+  (`sh .github/scripts/check_enum_surface.sh --write`). The two error-detail
+  enums are the exception — they carry `#non_exhaustive`, so adding a shape
+  there breaks no downstream match, but it still regenerates this snapshot:
+  the lock is what makes the addition deliberate, not what makes it breaking.
+  The attribute also has an in-module cost the snapshot cannot see: a `match`
+  on a `#non_exhaustive` enum outside its defining package must carry a `..`
+  arm, unreachable while the variant set is closed and so uncoverable — which
+  is why only an enum whose exhaustive matches all live in its own package
+  can take it (`DataError` cannot: `suberror` rejects the attribute, and
+  `DataType` / `Scalar` are matched across the engine).
 - **Facade surface** — the whole callable surface the facade promises is
   pinned in `.github/scripts/facade_surface.snapshot`, **with signatures**.
   Re-exporting a *type* carries everything callable on it — constructors,

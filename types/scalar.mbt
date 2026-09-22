@@ -246,11 +246,11 @@ fn bool_to_int(b : Bool) -> Int {
 /// For value-style rendering use `to_string()`.
 pub impl Show for Scalar with fn output(self, logger) {
   match self {
-    Int(v) => logger.write_string("Int(\{v})")
-    Float(v) => logger.write_string("Float(\{v})")
-    Bool(v) => logger.write_string("Bool(\{v})")
-    String(v) => logger.write_string("String(\"\{@text.escape_debug(v)}\")")
-    Date(v) => logger.write_string("Date(\{date_days_to_iso(v)})")
+    Int(v) => logger <+ "Int(\{v})"
+    Float(v) => logger <+ "Float(\{v})"
+    Bool(v) => logger <+ "Bool(\{v})"
+    String(v) => logger <+ "String(\"\{@text.escape_debug(v)}\")"
+    Date(v) => logger <+ "Date(\{date_days_to_iso(v)})"
     Null => logger.write_string("Null")
   }
 }

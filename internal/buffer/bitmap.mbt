@@ -152,10 +152,10 @@ pub fn Bitmap::to_bools(self : Bitmap) -> Array[Bool] {
 
 ///|
 /// Total zero-copy view of `[start, start + length)` — the validity half of
-/// `BuiltinColumn::slice_unchecked`, which is where `BuiltinColumn::slice`
-/// lands once it has validated the bounds. It just shares the buffer and
-/// advances `offset`, so the caller must keep `0 <= start` and
-/// `start + length <= len`; that one caller guarantees it.
+/// `BuiltinColumn::slice_unchecked`, whose caller saturates the window
+/// before reaching it. It just shares the buffer and advances `offset`, so
+/// the caller must keep `0 <= start` and `start + length <= len`; that one
+/// caller guarantees it.
 pub fn Bitmap::slice_view(self : Bitmap, start : Int, length : Int) -> Bitmap {
   { bits: self.bits, offset: self.offset + start, len: length, }
 }

@@ -289,33 +289,14 @@ pub fn ColumnStorage::get(
 // ── Sub-views (backend-preserving) ────────────────────────────────────
 
 ///|
-/// Half-open `[start, end)` slice, keeping the backend: a sub-range of an
-/// all-valid `Numeric` column is itself all-valid, so it stays `Numeric`
-/// (no bitmap to repack). Bounds diagnostics match `BuiltinColumn::slice` /
-/// `NumericColumn::slice`.
-pub fn ColumnStorage::slice(
-  self : ColumnStorage,
-  start : Int,
-  end : Int,
-) -> ColumnStorage raise @types.DataError {
-  match self {
-    Builtin(c) => Builtin(c.slice(start, end))
-    Numeric(c) => Numeric(c.slice(start, end))
-  }
-}
-
-///|
-/// Total `[start, end)` slice — the no-raise counterpart of `slice`. Keeps
-/// the backend and shares the validity buffer (zero-copy view) on the
-/// `Builtin` arm, exactly as `slice` does, but out-of-range bounds are
-/// clamped into `[0, len]` (with `end` lifted to at least `start`) so it is
-/// genuinely total: it never raises and never aborts on a stray index. This
-/// is the single slice path behind the total `head` / `tail` and behind the
-/// per-column half of `DataFrame::slice` — which is itself fallible, but
-/// validates its window against `nrows` once before reaching here, as
-/// `head` / `tail` clamp theirs — so the clamp is a no-op for all three, while
-/// keeping this public entry abort-free for any other caller
-/// (`feedback_lib_no_abort`).
+/// Total `[start, end)` slice — the one slice entry the storage layer has.
+/// Keeps the backend and shares the validity buffer (zero-copy view) on the
+/// `Builtin` arm, with out-of-range bounds clamped into `[0, len]` (and
+/// `end` lifted to at least `start`) so it never aborts on a stray index.
+/// Every caller — the window verbs `head` / `tail` / `slice` — saturates its
+/// window against the frame height before reaching here, so the clamp is a
+/// no-op for all of them, while keeping this public entry abort-free for
+/// any other caller (`feedback_lib_no_abort`).
 pub fn ColumnStorage::slice_total(
   self : ColumnStorage,
   start : Int,

@@ -11,7 +11,7 @@ test "row gathers canonicalise an all-valid result; slices preserve the backend"
   // nulls keeps it on the fast path (a row subset is still all-valid).
   let s = Series::from_ints("x", [10, 20, 30, 40])
   assert_eq(s.storage_kind(), @column.StorageKind::Numeric)
-  assert_eq(s.slice(1, 3).storage_kind(), @column.StorageKind::Numeric)
+  assert_eq(s.slice(1, length=2).storage_kind(), @column.StorageKind::Numeric)
   assert_eq(s.gather([3, 0, 0]).storage_kind(), @column.StorageKind::Numeric)
   assert_eq(s.drop_nulls().storage_kind(), @column.StorageKind::Numeric)
   // A Builtin column whose nulls a *gather* drops canonicalises onto the
@@ -26,7 +26,7 @@ test "row gathers canonicalise an all-valid result; slices preserve the backend"
   // A `slice` copies its row data but views the parent's validity rather than
   // rebuilding it, so it keeps the source backend: a window still carrying a
   // null stays Builtin.
-  assert_eq(b.slice(0, 2).storage_kind(), @column.StorageKind::Builtin)
+  assert_eq(b.slice(0, length=2).storage_kind(), @column.StorageKind::Builtin)
 }
 
 ///|
@@ -36,7 +36,7 @@ test "gathering a sliced string column reads the view's window, not the parent's
   // (`base + offsets`), exactly as `get` reads them. Reading the parent's
   // front instead would silently return the wrong cells.
   let s = Series::from_strings("s", ["a", "bb", "ccc", "dddd"])
-  let view = s.slice(1, 4)
+  let view = s.slice(1, length=3)
   let gathered = view.gather([2, 0, 1, 0])
   assert_eq(gathered.to_scalars(), [
     @types.Scalar::String("dddd"),
@@ -58,7 +58,7 @@ test "Series equality is content-based, independent of the storage backend" {
   // Backend-preserving ops (slice / fill_null) vs canonicalising ops (gather /
   // from_ints) land on different backends yet compare equal on equal content.
   let b = Series::from_int_options("x", [Some(1), None, Some(3)])
-  assert_eq(b.gather([0]), b.slice(0, 1)) // both logically "x" = [1]
+  assert_eq(b.gather([0]), b.slice(0, length=1)) // both logically "x" = [1]
   assert_eq(
     b.fill_null(@types.Scalar::Int(2)),
     Series::from_ints("x", [1, 2, 3]),
@@ -70,13 +70,14 @@ test "Series::slice(0, k) null_count counts only the window (zero-copy view)" {
   // `Series::slice` shares the validity buffer (zero-copy), so a slice that
   // starts at row 0 is an offset-0 view over the parent's buffer. null_count
   // / count must see only the kept window, not the parent's rows past `k`.
-  let allv = Series::from_bools("b", [true, true, true]).slice(0, 2)
+  let allv = Series::from_bools("b", [true, true, true]).slice(0, length=2)
   assert_eq(allv.null_count(), 0)
   assert_eq(allv.count(), 2)
   // A null inside the window stays counted; the valid row just past it must
   // not mask it.
   let withnull = Series::from_int_options("i", [Some(1), None, Some(3)]).slice(
-    0, 2,
+    0,
+    length=2,
   )
   assert_eq(withnull.null_count(), 1)
   assert_eq(withnull.count(), 1)

@@ -106,6 +106,28 @@ s.sort(descending=true, nulls_last=false)
 An `explain` rendering does not change: a plan still reads
 `SORT [col(qty) Desc NullsLast]`.
 
+### `slice` is Polars' saturating window, never an error
+
+`DataFrame::slice` / `Series::slice` / `LazyFrame::slice` change both shape
+and temperament: they take Polars' `slice(offset, length)` — a negative
+`offset` counts from the end, an omitted `length` runs to the end, a given
+one saturates at what remains, and a negative one is empty — and they never
+raise, where the old half-open `[start, end)` form raised
+`IndexOutOfBounds` / `InvalidOperation` on a window it would not honour:
+
+```moonbit
+// before
+df.slice(1, 3)          // rows [1, 3), raising on bad bounds
+
+// after
+df.slice(1, length=2)   // the same two rows
+df.slice(-2)            // the last two rows (new: negative offset)
+df.slice(1)             // row 1 to the end (new: omitted length)
+```
+
+An `explain` node renders the new shape: `SLICE [1: 2]`, and `SLICE [-2: ]`
+when the length is omitted.
+
 ### Nullable series construction is one constructor
 
 `Series::from_int_options` / `from_float_options` / `from_bool_options` /

@@ -65,7 +65,7 @@ test "slice mid-range produces a sub-frame preserving names + nulls" {
     Series::from_int_options("a", [Some(10), None, Some(30), Some(40)]),
     Series::from_strings("b", ["w", "x", "y", "z"]),
   ])
-  let part = df.slice(1, 3)
+  let part = df.slice(1, length=2)
   assert_eq(part.shape(), (2, 2))
   assert_eq(part.item(0, "a"), @types.Scalar::Null)
   assert_eq(part.item(1, "a"), @types.Scalar::Int(30))
@@ -75,44 +75,37 @@ test "slice mid-range produces a sub-frame preserving names + nulls" {
 ///|
 test "slice [start, start) returns an empty frame" {
   let df = DataFrame::DataFrame([Series::from_ints("x", [1, 2, 3])])
-  let zero = df.slice(2, 2)
+  let zero = df.slice(2, length=0)
   assert_eq(zero.shape(), (0, 1))
 }
 
 ///|
-test "slice reports invalid bounds with the appropriate error" {
-  let df = DataFrame::DataFrame([Series::from_ints("x", [1, 2, 3])])
-  assert_eq(
-    Ok(df.slice(-1, 2)) catch {
-      e => Err(e)
-    },
-    Err(@types.DataError::IndexOutOfBounds(-1)),
-  )
-  assert_eq(
-    Ok(df.slice(0, 5)) catch {
-      e => Err(e)
-    },
-    Err(@types.DataError::IndexOutOfBounds(5)),
-  )
-  assert_true(
-    (Ok(df.slice(2, 1)) catch { e => Err(e) }) is Err(InvalidOperation(_)),
-  )
-  // A negative `end` is an out-of-range index, not a misordered pair: every
-  // valid `start` is greater than it, so testing `end` for `> nrows` alone
-  // would have reported the ordering error and hidden the real offender.
-  assert_eq(
-    Ok(df.slice(0, -1)) catch {
-      e => Err(e)
-    },
-    Err(@types.DataError::IndexOutOfBounds(-1)),
-  )
-  // `start` is still reported first when both are out of range.
-  assert_eq(
-    Ok(df.slice(-2, -1)) catch {
-      e => Err(e)
-    },
-    Err(@types.DataError::IndexOutOfBounds(-2)),
-  )
+test "slice saturates like Polars: negative offset from the end, omitted length to the end" {
+  let df = DataFrame::DataFrame([Series::from_ints("x", [1, 2, 3, 4, 5])])
+  // Omitted length runs to the end.
+  assert_eq(df.slice(2).shape(), (3, 1))
+  assert_eq(df.slice(2).item(0, "x"), @types.Scalar::Int(3))
+  assert_eq(df.slice(2).item(2, "x"), @types.Scalar::Int(5))
+  // A negative offset counts from the end; -1 names the last row.
+  assert_eq(df.slice(-1).shape(), (1, 1))
+  assert_eq(df.slice(-1).item(0, "x"), @types.Scalar::Int(5))
+  assert_eq(df.slice(-2).item(0, "x"), @types.Scalar::Int(4))
+  // An offset reaching past either end saturates there.
+  assert_eq(df.slice(-99).shape(), (5, 1))
+  assert_eq(df.slice(99).shape(), (0, 1))
+}
+
+///|
+test "slice saturates the length: past the end keeps what remains, negative is empty" {
+  let df = DataFrame::DataFrame([Series::from_ints("x", [1, 2, 3, 4, 5])])
+  assert_eq(df.slice(1, length=99).shape(), (4, 1))
+  assert_eq(df.slice(1, length=99).item(0, "x"), @types.Scalar::Int(2))
+  assert_eq(df.slice(-3, length=2).item(0, "x"), @types.Scalar::Int(3))
+  assert_eq(df.slice(-3, length=2).item(1, "x"), @types.Scalar::Int(4))
+  assert_eq(df.slice(2, length=-5).shape(), (0, 1))
+  // `tail(n)` is `slice(-n)` against the known height — same window either way.
+  assert_eq(df.slice(-2).item(0, "x"), df.tail(2).item(0, "x"))
+  assert_eq(df.slice(-2).shape(), df.tail(2).shape())
 }
 
 // ── gather ─────────────────────────────────────────────────────────────

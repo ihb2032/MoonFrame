@@ -43,7 +43,7 @@ pub fn Series::not_equal(Self, Self) -> Bool
 pub fn Series::null_count(Self) -> Int
 pub fn Series::rename(Self, String) -> Self
 pub fn Series::reverse(Self) -> Self
-pub fn Series::slice(Self, Int, Int) -> Self raise @types.DataError
+pub fn Series::slice(Self, Int, length? : Int) -> Self
 pub fn Series::sort(Self, descending? : Bool, nulls_last? : Bool) -> Self
 pub fn Series::std(Self) -> Double raise @types.DataError
 pub fn Series::sum(Self) -> @types.Scalar raise @types.DataError

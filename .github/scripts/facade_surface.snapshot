@@ -167,7 +167,7 @@ method DataFrame::rows(Self) -> Array[Array[@types.Scalar]] <- frame
 method DataFrame::schema(Self) -> @types.Schema <- frame
 method DataFrame::select(Self, Array[@expr.Expr]) -> Self raise @types.DataError <- frame
 method DataFrame::shape(Self) -> (Int, Int) <- frame
-method DataFrame::slice(Self, Int, Int) -> Self raise @types.DataError <- frame
+method DataFrame::slice(Self, Int, length? : Int) -> Self <- frame
 method DataFrame::sort(Self, Array[(@expr.Expr, Bool, Bool)]) -> Self raise @types.DataError <- frame
 method DataFrame::sum(Self) -> Self raise @types.DataError <- frame
 method DataFrame::tail(Self, Int) -> Self <- frame
@@ -293,7 +293,7 @@ method LazyFrame::rename(Self, Array[(String, String)]) -> Self <- lazy
 method LazyFrame::rename_with(Self, (String) -> String) -> Self <- lazy
 method LazyFrame::reverse(Self) -> Self <- lazy
 method LazyFrame::select(Self, Array[@expr.Expr]) -> Self <- lazy
-method LazyFrame::slice(Self, Int, Int) -> Self <- lazy
+method LazyFrame::slice(Self, Int, length? : Int) -> Self <- lazy
 method LazyFrame::sort(Self, Array[(@expr.Expr, Bool, Bool)]) -> Self <- lazy
 method LazyFrame::sum(Self) -> Self <- lazy
 method LazyFrame::tail(Self, Int) -> Self <- lazy
@@ -363,7 +363,7 @@ method Series::not_equal(Self, Self) -> Bool <- series
 method Series::null_count(Self) -> Int <- series
 method Series::rename(Self, String) -> Self <- series
 method Series::reverse(Self) -> Self <- series
-method Series::slice(Self, Int, Int) -> Self raise @types.DataError <- series
+method Series::slice(Self, Int, length? : Int) -> Self <- series
 method Series::sort(Self, descending? : Bool, nulls_last? : Bool) -> Self <- series
 method Series::std(Self) -> Double raise @types.DataError <- series
 method Series::sum(Self) -> @types.Scalar raise @types.DataError <- series

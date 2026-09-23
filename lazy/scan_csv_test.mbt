@@ -154,17 +154,22 @@ test "a projection matching no header keeps the row count and the as-built error
   // a fallback to reading every column.)
   let path = "_build/lazy_scan_csv_zero_match.csv"
   write_fixture(path)
-  let plan = scan_csv(path).slice(0, 2).select([@expr.col("missing")])
+  let plan = scan_csv(path).slice(0, length=2).select([@expr.col("missing")])
   let optimized = Ok(plan.collect()) catch { e => Err(e) }
   assert_eq(optimized, Err(@types.DataError::ColumnNotFound("missing")))
   // Eager equivalent of the as-built plan: same error.
-  let eager = Ok(@io.read_csv(path).slice(0, 2).select([@expr.col("missing")])) catch {
+  let eager = Ok(
+    @io.read_csv(path).slice(0, length=2).select([@expr.col("missing")]),
+  ) catch {
     e => Err(e)
   }
   assert_eq(optimized, eager)
   // A slice that only fits the real row count still collects when the
   // consumer exists: partial-match leniency is untouched.
-  let ok = scan_csv(path).slice(0, 2).select([@expr.col("qty")]).collect()
+  let ok = scan_csv(path)
+    .slice(0, length=2)
+    .select([@expr.col("qty")])
+    .collect()
   assert_eq(ok.shape(), (2, 1))
 }
 

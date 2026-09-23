@@ -32,37 +32,27 @@ pub fn DataFrame::tail(self : DataFrame, n : Int) -> DataFrame {
 }
 
 ///|
-/// Half-open `[start, end)` row slice. Bounds checks mirror
-/// `Series::slice` (and `BuiltinColumn::slice`): an index outside the frame
-/// surfaces as `IndexOutOfBounds` — `start < 0`, or an `end` outside
-/// `[0, nrows]` — and only two individually valid indices in the wrong order
-/// are `InvalidOperation`.
+/// A length-first row window — Polars' `slice(offset, length)`. The window
+/// starts `offset` rows in: a negative `offset` counts from the end
+/// (`slice(-1)` is the last row), saturating to the frame's first row when
+/// it reaches past it. `length` omitted runs to the frame's end; a given
+/// `length` saturates at the end, and a negative one is empty. Total —
+/// never fails: every out-of-range argument lands somewhere sensible rather
+/// than raising, the same saturating convention `head` / `tail` already
+/// follow.
 pub fn DataFrame::slice(
   self : DataFrame,
-  start : Int,
-  end : Int,
-) -> DataFrame raise @types.DataError {
-  // Validate against `nrows` — the frame's own height, which every column
-  // agrees with (INV2) and which a column-less frame still carries. Same order
-  // and the same range test on both ends as `validate_slice_bounds`, the
-  // per-column validator this stands in for.
-  if start < 0 {
-    raise @types.DataError::IndexOutOfBounds(start)
-  }
-  if end < 0 || end > self.nrows {
-    raise @types.DataError::IndexOutOfBounds(end)
-  }
-  if start > end {
-    raise @types.DataError::InvalidOperation(
-      "slice start > end: \{start} > \{end}",
-    )
-  }
-  // Bounds were already validated against `self.nrows`, which equals every
-  // column's length, so the contiguous slice is in-bounds.
+  offset : Int,
+  length? : Int,
+) -> DataFrame {
+  let start = @order.slice_start(offset, self.nrows)
+  let len = @order.slice_len(start, self.nrows, length)
+  // `0 <= start` and `start + len <= nrows == c.len()` by construction, so
+  // the contiguous slice is in-bounds and needs no bounds-checking `Result`.
   let new_cols : Array[Series] = self.columns.map(c => {
-    slice_series(c, start, end - start)
+    slice_series(c, start, len)
   })
-  self.with_same_schema(new_cols, end - start)
+  self.with_same_schema(new_cols, len)
 }
 
 ///|

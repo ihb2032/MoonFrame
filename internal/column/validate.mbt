@@ -1,46 +1,10 @@
 // Bounds validation shared by the two column backends (`BuiltinColumn` and
-// `NumericColumn`), so the half-open-slice and gather-index checks — and
-// their exact diagnostics — are produced from one source rather than
-// duplicated per backend.
+// `NumericColumn`), so the gather-index checks — and their exact diagnostics
+// — are produced from one source rather than duplicated per backend.
 //
 // One-file-one-test exemption: this shared file has no dedicated test file
 // of its own. (doc-guard: unresolved) It is covered through the `BuiltinColumn` /
-// `NumericColumn` `slice` / `take` tests that exercise each rejection path.
-
-///|
-/// Validate a half-open `[start, end)` slice against a column of length
-/// `len`, in the order both backends' `slice` rely on:
-/// - `IndexOutOfBounds(start)` when `start < 0`.
-/// - `IndexOutOfBounds(end)` when `end` is outside `[0, len]`.
-/// - `InvalidOperation("slice start > end: .")` when `start > end`.
-///
-/// Both ends are checked against the whole valid range, so which error a
-/// caller gets says what is wrong with the *argument*: an index outside the
-/// column is out of bounds, and only a pair that are each individually valid
-/// but in the wrong order is an invalid operation. Checking `end` for `> len`
-/// alone would send a negative `end` — plainly an out-of-range index — down
-/// the ordering arm instead, since any valid `start` exceeds it.
-///
-/// `start > len` is not a separate case: it can only occur together with
-/// `end > len` or `start > end`, both already rejected above. A no-op on a
-/// valid window, so each backend calls it and then slices unchecked.
-fn validate_slice_bounds(
-  start : Int,
-  end : Int,
-  len : Int,
-) -> Unit raise @types.DataError {
-  if start < 0 {
-    raise @types.DataError::IndexOutOfBounds(start)
-  }
-  if end < 0 || end > len {
-    raise @types.DataError::IndexOutOfBounds(end)
-  }
-  if start > end {
-    raise @types.DataError::InvalidOperation(
-      "slice start > end: \{start} > \{end}",
-    )
-  }
-}
+// `NumericColumn` `take` tests that exercise each rejection path.
 
 ///|
 /// Validate gather `indices` against a column of length `len`: the first

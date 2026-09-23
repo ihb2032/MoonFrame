@@ -781,8 +781,8 @@ test "row windows stop the descent" {
     df.tail(2).filter(predicate),
   )
   assert_eq(
-    LazyFrame::LazyFrame(df).slice(1, 3).filter(predicate).collect(),
-    df.slice(1, 3).filter(predicate),
+    LazyFrame::LazyFrame(df).slice(1, length=2).filter(predicate).collect(),
+    df.slice(1, length=2).filter(predicate),
   )
 }
 

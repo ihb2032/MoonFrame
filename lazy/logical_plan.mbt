@@ -11,11 +11,11 @@
 /// underlying eager operator's `DataError`.
 ///
 /// `Head` / `Tail` are nodes of their own rather than sugar over `Slice`:
-/// the eager `head` / `tail` clamp out-of-range `n` and never fail, while
-/// `slice` bounds-checks and raises. Folding them into `Slice` would need
-/// the input's row count at *build* time (a lazy plan doesn't have it) or
-/// would trade the clamp for a spurious `IndexOutOfBounds` at collect
-/// time — breaking the executor's faithfulness contract. One node per
+/// folding them into `Slice` would need the input's row count at *build*
+/// time (a lazy plan doesn't have it) — `tail(n)` is `slice(-n)` only
+/// against a known height. Keeping the nodes separate lets the executor
+/// defer that resolution to collect time without inventing a sentinel
+/// offset — breaking the executor's faithfulness contract. One node per
 /// distinct eager semantic keeps `collect ≡ eager` literally true.
 ///
 /// `Aggregate` is the one *fused* node — `group_by(keys).agg(exprs)`
@@ -92,7 +92,7 @@ priv enum FrameOp {
   Sort(Array[(@expr.Expr, Bool, Bool)])
   Head(Int)
   Tail(Int)
-  Slice(Int, Int)
+  Slice(Int, Int?)
   Drop(Array[@expr.Expr])
   Rename(Array[(String, String)])
   RenameWith((String) -> String)

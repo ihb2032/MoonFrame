@@ -111,8 +111,8 @@ test "row windows pass the requirement through to the scan" {
     df.tail(2).select(projection),
   )
   assert_eq(
-    LazyFrame::LazyFrame(df).slice(1, 3).select(projection).collect(),
-    df.slice(1, 3).select(projection),
+    LazyFrame::LazyFrame(df).slice(1, length=2).select(projection).collect(),
+    df.slice(1, length=2).select(projection),
   )
 }
 
@@ -316,9 +316,9 @@ test "row windows pass the requirement through verbatim" {
     "      SCAN [4×3]",
   )
   assert_eq(
-    base.slice(1, 3).select(qty).explain(optimized=true),
+    base.slice(1, length=2).select(qty).explain(optimized=true),
     "SELECT [col(qty)]\n" +
-    "  SLICE [1, 3)\n" +
+    "  SLICE [1: 2]\n" +
     "    SELECT [col(qty)]\n" +
     "      SCAN [4×3]",
   )

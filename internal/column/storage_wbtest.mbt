@@ -179,20 +179,15 @@ test "slice keeps the backend on both arms" {
     BuiltinColumn::from_int_options([Some(1), None, Some(3), Some(4)]),
   )
   let numeric = ColumnStorage::Numeric(NumericColumn::from_ints([1, 2, 3, 4]))
-  let b = builtin.slice(1, 3)
-  let n = numeric.slice(1, 3)
+  let b = builtin.slice_total(1, 3)
+  let n = numeric.slice_total(1, 3)
   assert_eq(b.kind(), StorageKind::Builtin)
   assert_eq(n.kind(), StorageKind::Numeric)
   assert_eq(b.get(0), @types.Scalar::Null)
   assert_eq(b.get(1), @types.Scalar::Int(3))
   assert_eq(n.data(), ColumnData::I64([2, 3]))
-  // Bounds diagnostics forward from the underlying column.
-  assert_eq(
-    Ok(numeric.slice(0, 9)) catch {
-      e => Err(e)
-    },
-    Err(@types.DataError::IndexOutOfBounds(9)),
-  )
+  // An out-of-range window clamps into the column instead of raising.
+  assert_eq(numeric.slice_total(0, 9).len(), 4)
 }
 
 ///|

@@ -5,8 +5,7 @@
 
 ///|
 /// The simple uppercase mapping of one code point, or the code point itself
-/// when it has none — the Unicode Standard's default single-character
-/// casing, one binary search over the sorted generated table.
+/// when it has none — one binary search over the sorted generated table.
 fn simple_upper(cp : UInt) -> UInt {
   case_lookup(unicode_simple_upper, cp)
 }
@@ -40,18 +39,63 @@ fn case_lookup(table : Array[(UInt, UInt)], cp : UInt) -> UInt {
 }
 
 ///|
-/// Map every character of a string through the simple case table — the
-/// Unicode default single-character casing. Characters without a mapping
-/// pass through unchanged.
+/// Binary search over the sorted special table: the expanding mapping's
+/// targets, or `None` when this code point's case conversion is the simple
+/// one (or identity) — the table only carries where the default conversion
+/// differs from the simple mapping.
+fn special_lookup(
+  table : Array[(UInt, Array[UInt])],
+  cp : UInt,
+) -> Array[UInt]? {
+  let mut lo = 0
+  let mut hi = table.length() - 1
+  while lo <= hi {
+    let mid = (lo + hi) / 2
+    let (from, to) = table[mid]
+    if cp == from {
+      return Some(to)
+    } else if cp < from {
+      hi = mid - 1
+    } else {
+      lo = mid + 1
+    }
+  }
+  None
+}
+
+///|
+/// Map every character of a string through the Unicode **default case
+/// conversion** — simple mappings one character to one character, plus the
+/// SpecialCasing expansions where the default conversion is one-to-many
+/// (`ß` uppercases to `SS`, the `ﬁ` ligature to `FI`). Characters without a
+/// mapping pass through unchanged. The locale-conditional lines of
+/// SpecialCasing are not in the table: this is the default conversion,
+/// which carries no locale, so `İ` lowercases to `i` + combining dot above
+/// everywhere, and the Turkish dotless rules stay a caller's rewrite.
 pub fn map_case(s : String, upper~ : Bool) -> String {
+  let specials = if upper {
+    unicode_special_upper
+  } else {
+    unicode_special_lower
+  }
   let buf = StringBuilder()
   for ch in s.iter() {
     let cp = ch.to_uint()
-    let mapped = if upper { simple_upper(cp) } else { simple_lower(cp) }
-    // Safe by construction: a mapped code point is a Unicode scalar value
-    // (the table only maps scalars to scalars), and an unmapped one came
-    // from a `Char` in the first place.
-    buf.write_char(mapped.reinterpret_as_int().unsafe_to_char())
+    match special_lookup(specials, cp) {
+      Some(targets) =>
+        for t in targets {
+          // Safe by construction: the generated table maps Unicode
+          // scalar values to Unicode scalar values.
+          buf.write_char(t.reinterpret_as_int().unsafe_to_char())
+        }
+      None => {
+        let mapped = if upper { simple_upper(cp) } else { simple_lower(cp) }
+        // Safe by construction: a mapped code point is a Unicode scalar
+        // value (the table only maps scalars to scalars), and an unmapped
+        // one came from a `Char` in the first place.
+        buf.write_char(mapped.reinterpret_as_int().unsafe_to_char())
+      }
+    }
   }
   buf.to_string()
 }

@@ -7,11 +7,13 @@
 
 ///|
 /// Uppercase every cased letter of a String column — Polars'
-/// `str.to_uppercase` — through the Unicode **simple** case mappings: one
-/// character to one character, so `é` maps to `É`, Greek and Cyrillic map
-/// across their alphabets, and a character whose uppercase would expand in
-/// length (`ß`, whose full uppercase is `SS`) passes through unchanged —
-/// the per-character map never changes a cell's length. Characters with no
+/// `str.to_uppercase` — through the Unicode **default case conversion**:
+/// the simple one-to-one mappings (`é` → `É`, Greek and Cyrillic across
+/// their alphabets) plus the SpecialCasing expansions, so `ß` uppercases
+/// to `SS` and the `ﬁ` ligature to `FI` — a cell's length can grow. The
+/// locale-conditional rules are deliberately absent: this is the default
+/// conversion, which carries no locale (the Turkish dotless-`i` rules stay
+/// a caller's rewrite). Characters with no
 /// case mapping (CJK, emoji, digits, …) pass through. Null cells stay
 /// null, the result keeps the operand's column name, and a non-String
 /// operand is a `TypeMismatch` at evaluation. The leading method
@@ -22,8 +24,9 @@ pub fn Expr::str_to_uppercase(self : Expr) -> Expr {
 
 ///|
 /// Lowercase every cased letter of a String column — Polars'
-/// `str.to_lowercase`, the case mirror of `str_to_uppercase`, simple
-/// mappings and all.
+/// `str.to_lowercase`, the case mirror of `str_to_uppercase`: default
+/// conversion, expansions and all (`İ` lowercases to `i` + combining dot
+/// above).
 pub fn Expr::str_to_lowercase(self : Expr) -> Expr {
   Expr::of(@ir.ExprNode::Str(@ir.StrOp::ToLowercase, self.node))
 }

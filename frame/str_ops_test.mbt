@@ -624,12 +624,14 @@ test "str: a non-String operand is a TypeMismatch" {
 
 ///|
 test "str case maps Unicode letters, not just ASCII" {
-  // The simple case table: é/É, Greek α/Α, Cyrillic е/Е, and ß —
-  // which has no simple uppercase mapping, so it passes through. CJK and
+  // The default case conversion: é/É, Greek α/Α, Cyrillic е/Е, and ß —
+  // whose uppercase is the SpecialCasing SS expansion — plus the ﬁ
+  // ligature and İ (which lowercases to i + combining dot above). CJK and
   // emoji carry no case mapping and pass through.
   let df = @frame.DataFrame::DataFrame([
     @series.Series::from_strings("s", [
-      "café", "αβγ", "привет", "straße", "日本語", "\u{1F600}",
+      "café", "αβγ", "привет", "straße", "日本語", "\u{1F600}", "ﬁ",
+      "İ",
     ]),
   ])
   let up = df.with_columns([@expr.col("s").str_to_uppercase().with_alias("u")])
@@ -637,12 +639,11 @@ test "str case maps Unicode letters, not just ASCII" {
     @types.Scalar::String("CAFÉ"),
     @types.Scalar::String("ΑΒΓ"),
     @types.Scalar::String("ПРИВЕТ"),
-    // ß has no simple uppercase mapping (its uppercase is the
-    // two-character SS expansion, which a length-preserving per-character
-    // map does not apply), so it passes through unchanged.
-    @types.Scalar::String("STRAßE"),
+    @types.Scalar::String("STRASSE"),
     @types.Scalar::String("日本語"),
     @types.Scalar::String("\u{1F600}"),
+    @types.Scalar::String("FI"),
+    @types.Scalar::String("İ"),
   ])
   let lo = df.with_columns([@expr.col("s").str_to_lowercase().with_alias("l")])
   assert_eq(lo.get_column("l").to_scalars(), [
@@ -652,6 +653,8 @@ test "str case maps Unicode letters, not just ASCII" {
     @types.Scalar::String("straße"),
     @types.Scalar::String("日本語"),
     @types.Scalar::String("\u{1F600}"),
+    @types.Scalar::String("ﬁ"),
+    @types.Scalar::String("i\u{307}"),
   ])
 }
 

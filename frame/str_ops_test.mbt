@@ -621,3 +621,53 @@ test "str: a non-String operand is a TypeMismatch" {
     ),
   )
 }
+
+///|
+test "str case maps Unicode letters, not just ASCII" {
+  // The simple case table: é/É, Greek α/Α, Cyrillic е/Е, and ß —
+  // which has no simple uppercase mapping, so it passes through. CJK and
+  // emoji carry no case mapping and pass through.
+  let df = @frame.DataFrame::DataFrame([
+    @series.Series::from_strings("s", [
+      "café", "αβγ", "привет", "straße", "日本語", "\u{1F600}",
+    ]),
+  ])
+  let up = df.with_columns([@expr.col("s").str_to_uppercase().with_alias("u")])
+  assert_eq(up.get_column("u").to_scalars(), [
+    @types.Scalar::String("CAFÉ"),
+    @types.Scalar::String("ΑΒΓ"),
+    @types.Scalar::String("ПРИВЕТ"),
+    // ß has no simple uppercase mapping (its uppercase is the
+    // two-character SS expansion, which a length-preserving per-character
+    // map does not apply), so it passes through unchanged.
+    @types.Scalar::String("STRAßE"),
+    @types.Scalar::String("日本語"),
+    @types.Scalar::String("\u{1F600}"),
+  ])
+  let lo = df.with_columns([@expr.col("s").str_to_lowercase().with_alias("l")])
+  assert_eq(lo.get_column("l").to_scalars(), [
+    @types.Scalar::String("café"),
+    @types.Scalar::String("αβγ"),
+    @types.Scalar::String("привет"),
+    @types.Scalar::String("straße"),
+    @types.Scalar::String("日本語"),
+    @types.Scalar::String("\u{1F600}"),
+  ])
+}
+
+///|
+test "str_strip_chars default trims Unicode whitespace, not just ASCII" {
+  // The White_Space property: NBSP, the narrow no-break space, and the
+  // ideographic space all surround the text here.
+  let df = @frame.DataFrame::DataFrame([
+    @series.Series::from_strings("s", [
+      "\u{A0}nbsp\u{A0}", "\u{202F}narrow\u{3000}", "plain",
+    ]),
+  ])
+  let out = df.with_columns([@expr.col("s").str_strip_chars().with_alias("t")])
+  assert_eq(out.get_column("t").to_scalars(), [
+    @types.Scalar::String("nbsp"),
+    @types.Scalar::String("narrow"),
+    @types.Scalar::String("plain"),
+  ])
+}

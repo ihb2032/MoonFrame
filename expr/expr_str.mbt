@@ -6,29 +6,33 @@
 /// in the frame layer's string tests.
 
 ///|
-/// Uppercase the **ASCII** letters of a String column — the shape of
-/// Polars' `str.to_uppercase`, but case mapping is currently ASCII-only
-/// (like `str_strip_chars`' ASCII whitespace set): a non-ASCII letter
-/// (`é`, `ß`, Cyrillic, …) passes through unchanged rather than mapping.
-/// Null cells stay null, the result keeps the operand's column name, and a
-/// non-String operand is a `TypeMismatch` at evaluation. The leading method
+/// Uppercase every cased letter of a String column — Polars'
+/// `str.to_uppercase` — through the Unicode **simple** case mappings: one
+/// character to one character, so `é` maps to `É`, Greek and Cyrillic map
+/// across their alphabets, and a character whose uppercase would expand in
+/// length (`ß`, whose full uppercase is `SS`) passes through unchanged —
+/// the per-character map never changes a cell's length. Characters with no
+/// case mapping (CJK, emoji, digits, …) pass through. Null cells stay
+/// null, the result keeps the operand's column name, and a non-String
+/// operand is a `TypeMismatch` at evaluation. The leading method
 /// of the string namespace.
 pub fn Expr::str_to_uppercase(self : Expr) -> Expr {
   Expr::of(@ir.ExprNode::Str(@ir.StrOp::ToUppercase, self.node))
 }
 
 ///|
-/// Lowercase the **ASCII** letters of a String column (the shape of Polars'
-/// `str.to_lowercase`, with `str_to_uppercase`'s ASCII-only case-mapping
-/// caveat), the case mirror of `str_to_uppercase`.
+/// Lowercase every cased letter of a String column — Polars'
+/// `str.to_lowercase`, the case mirror of `str_to_uppercase`, simple
+/// mappings and all.
 pub fn Expr::str_to_lowercase(self : Expr) -> Expr {
   Expr::of(@ir.ExprNode::Str(@ir.StrOp::ToLowercase, self.node))
 }
 
 ///|
 /// Strip leading and trailing characters from every cell of a String column —
-/// Polars' `str.strip_chars`. With `chars` omitted, the default set is ASCII
-/// whitespace (tab, newline, carriage-return, space); with `chars` given, every
+/// Polars' `str.strip_chars`. With `chars` omitted, the default set is the
+/// Unicode `White_Space` property (ASCII whitespace plus NBSP, the narrow
+/// no-break space, the ideographic space, …); with `chars` given, every
 /// character in that string is a strip target (order and repeats do not
 /// matter). Null cells stay null.
 pub fn Expr::str_strip_chars(self : Expr, chars? : String) -> Expr {

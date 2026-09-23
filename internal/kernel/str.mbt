@@ -48,17 +48,19 @@ pub fn eval_str(
     @ir.StrOp::ToUppercase =>
       Series::from_string_options(
         name,
-        map_present(n, valid, i => data[i].to_upper()),
+        map_present(n, valid, i => @text.map_case(data[i], upper=true)),
       )
     @ir.StrOp::ToLowercase =>
       Series::from_string_options(
         name,
-        map_present(n, valid, i => data[i].to_lower()),
+        map_present(n, valid, i => @text.map_case(data[i], upper=false)),
       )
     @ir.StrOp::StripChars =>
       Series::from_string_options(
         name,
-        map_present(n, valid, i => data[i].trim().to_owned()),
+        map_present(n, valid, i => {
+          data[i].trim(chars=@text.unicode_white_space()).to_owned()
+        }),
       )
     @ir.StrOp::LenChars =>
       Series::from_int_options(

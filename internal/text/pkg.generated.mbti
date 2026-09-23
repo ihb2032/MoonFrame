@@ -6,9 +6,17 @@ pub fn compare_string_lex(String, String) -> Int
 
 pub fn escape_debug(String) -> String
 
+pub fn map_case(String, upper~ : Bool) -> String
+
 pub fn parse_decimal_int_opt(String) -> Int64?
 
 pub fn parse_plain_double_opt(String) -> Double?
+
+pub fn simple_lower(UInt) -> UInt
+
+pub fn simple_upper(UInt) -> UInt
+
+pub fn unicode_white_space() -> String
 
 // Errors
 

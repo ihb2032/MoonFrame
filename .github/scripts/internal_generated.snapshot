@@ -20,3 +20,7 @@ internal/ir/StrOp::to_repr
 internal/ir/UnOp::equal
 internal/ir/UnOp::not_equal
 internal/ir/UnOp::to_repr
+internal/text/map_case
+internal/text/simple_lower
+internal/text/simple_upper
+internal/text/unicode_white_space

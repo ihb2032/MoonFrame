@@ -60,6 +60,24 @@ pub fn DataFrame::slice(
 }
 
 ///|
+/// The bracket-slice sugar — Polars' `df[1:3]` / `df[2:]` / `df[:-1]`: a
+/// half-open `[start, end)` row window where an omitted bound runs to that
+/// end and a negative one counts from it, saturating like every window verb,
+/// with crossed bounds an empty frame. Sugar in Polars' own sense: the
+/// bounds normalize (`between_bounds`) into the one `(offset, length)`
+/// window kernel `slice` runs, so the two spellings cannot disagree. Total —
+/// never fails. Reached as `df[a:b]`.
+#alias("_[_:_]")
+pub fn DataFrame::slice_between(
+  self : DataFrame,
+  start? : Int,
+  end? : Int,
+) -> DataFrame {
+  let (s, l) = @order.between_bounds(start, end, self.nrows)
+  self.slice(s, length=l)
+}
+
+///|
 /// Gather rows by index. Returns a frame whose i-th row is
 /// `self[indices[i]]`. Any out-of-bounds index surfaces as
 /// `IndexOutOfBounds(idx)`.

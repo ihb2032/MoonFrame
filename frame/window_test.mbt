@@ -153,3 +153,31 @@ test "gather rejects out-of-bounds indices with the first offender" {
     Err(@types.DataError::IndexOutOfBounds(-1)),
   )
 }
+
+// ── bracket access ──────────────────────────────────────────────────
+
+///|
+test "df[name] reads a column; df[a:b] is the bracket-slice sugar" {
+  let df = DataFrame::DataFrame([
+    Series::from_ints("x", [1, 2, 3, 4, 5]),
+    Series::from_strings("tag", ["a", "b", "c", "d", "e"]),
+  ])
+  // The column bracket is get_column.
+  assert_eq(df["x"].dtype(), @types.DataType::Int)
+  assert_true(
+    (Ok(df["missing"]) catch { e => Err(e) })
+    is Err(@types.DataError::ColumnNotFound("missing")),
+  )
+  // The slice bracket is slice_between: half-open, omitted to the end,
+  // negative from the end, crossed bounds empty.
+  assert_eq(df[1:3].shape(), (2, 2))
+  assert_eq(df[1:3].item(0, "x"), @types.Scalar::Int(2))
+  assert_eq(df[2:].shape(), (3, 2))
+  assert_eq(df[:2].shape(), (2, 2))
+  assert_eq(df[:].shape(), (5, 2))
+  assert_eq(df[:-1].shape(), (4, 2))
+  assert_eq(df[-2:].item(0, "tag"), @types.Scalar::String("d"))
+  assert_eq(df[3:1].shape(), (0, 2))
+  // Same kernel, so the two spellings agree on a shared window.
+  assert_eq(df[1:3], df.slice(1, length=2))
+}

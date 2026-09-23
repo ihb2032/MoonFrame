@@ -40,6 +40,7 @@ pub fn DataFrame::fill_null(Self, @types.Scalar) -> Self raise @types.DataError
 pub fn DataFrame::filter(Self, @expr.Expr) -> Self raise @types.DataError
 pub fn DataFrame::from_rows(@types.Schema, Array[Array[@types.Scalar]]) -> Self raise @types.DataError
 pub fn DataFrame::gather(Self, Array[Int]) -> Self raise @types.DataError
+#alias("_[_]")
 pub fn DataFrame::get_column(Self, String) -> @series.Series raise @types.DataError
 pub fn DataFrame::get_column_at(Self, Int) -> @series.Series raise @types.DataError
 pub fn DataFrame::group_by(Self, Array[@expr.Expr]) -> GroupedDataFrame raise @types.DataError
@@ -64,6 +65,8 @@ pub fn DataFrame::schema(Self) -> @types.Schema
 pub fn DataFrame::select(Self, Array[@expr.Expr]) -> Self raise @types.DataError
 pub fn DataFrame::shape(Self) -> (Int, Int)
 pub fn DataFrame::slice(Self, Int, length? : Int) -> Self
+#alias("_[_:_]")
+pub fn DataFrame::slice_between(Self, start? : Int, end? : Int) -> Self
 pub fn DataFrame::sort(Self, Array[(@expr.Expr, Bool, Bool)]) -> Self raise @types.DataError
 pub fn DataFrame::sum(Self) -> Self raise @types.DataError
 pub fn DataFrame::tail(Self, Int) -> Self

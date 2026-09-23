@@ -1,5 +1,9 @@
+alias DataFrame::"_[_:_]" <- frame
+alias DataFrame::"_[_]" <- frame
 alias DataFrame::limit <- frame
 alias LazyFrame::limit <- lazy
+alias Series::"_[_:_]" <- series
+alias Series::"_[_]" <- series
 ctor CsvReadOptions::CsvReadOptions(has_header? : Bool, delimiter? : Char, infer_schema_rows? : Int, null_values? : Array[String], strict_column_count? : Bool, on_parse_error? : OnParseError, allow_nonfinite_floats? : Bool, strict_quotes? : Bool) -> Self <- io
 ctor CsvWriteOptions::CsvWriteOptions(header? : Bool, delimiter? : Char, null_value? : String, sanitize_formulas? : Bool) -> Self <- io
 ctor DataFrame::DataFrame(Array[@series.Series]) -> Self raise @types.DataError <- frame
@@ -168,6 +172,7 @@ method DataFrame::schema(Self) -> @types.Schema <- frame
 method DataFrame::select(Self, Array[@expr.Expr]) -> Self raise @types.DataError <- frame
 method DataFrame::shape(Self) -> (Int, Int) <- frame
 method DataFrame::slice(Self, Int, length? : Int) -> Self <- frame
+method DataFrame::slice_between(Self, start? : Int, end? : Int) -> Self <- frame
 method DataFrame::sort(Self, Array[(@expr.Expr, Bool, Bool)]) -> Self raise @types.DataError <- frame
 method DataFrame::sum(Self) -> Self raise @types.DataError <- frame
 method DataFrame::tail(Self, Int) -> Self <- frame
@@ -364,6 +369,7 @@ method Series::null_count(Self) -> Int <- series
 method Series::rename(Self, String) -> Self <- series
 method Series::reverse(Self) -> Self <- series
 method Series::slice(Self, Int, length? : Int) -> Self <- series
+method Series::slice_between(Self, start? : Int, end? : Int) -> Self <- series
 method Series::sort(Self, descending? : Bool, nulls_last? : Bool) -> Self <- series
 method Series::std(Self) -> Double raise @types.DataError <- series
 method Series::sum(Self) -> @types.Scalar raise @types.DataError <- series

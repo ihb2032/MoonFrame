@@ -15,6 +15,29 @@ pub fn clamp_take(n : Int, len : Int) -> Int {
 }
 
 ///|
+/// Normalize the Python/Polars bracket-slice bounds — the `s[a:b]` sugar —
+/// against a known length: an omitted bound runs to that end, a negative one
+/// counts from the end, an oversized one saturates, and crossed bounds are an
+/// empty window. Returns `(start, length)` in `slice(offset, length)` form:
+/// the sugar is a translation layer over the one window kernel, never a
+/// second model.
+pub fn between_bounds(start : Int?, end : Int?, len : Int) -> (Int, Int) {
+  let s = match start {
+    None => 0
+    Some(v) => slice_start(v, len)
+  }
+  let e = match end {
+    None => len
+    Some(v) => slice_start(v, len)
+  }
+  if e < s {
+    (s, 0)
+  } else {
+    (s, e - s)
+  }
+}
+
+///|
 /// The row count a `head` / `tail` window takes under the Polars convention:
 /// a positive `n` is a saturating count (as `clamp_take`), while a negative
 /// one drops rows from the opposite end instead — `head(-k)` keeps every row

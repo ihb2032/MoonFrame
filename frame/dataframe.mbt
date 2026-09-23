@@ -358,8 +358,10 @@ pub fn DataFrame::is_empty(self : DataFrame) -> Bool {
 // ── Accessors ─────────────────────────────────────────────────────────
 
 ///|
-/// `O(1)` lookup of the column named `name`. `raise ColumnNotFound(name)`
+/// `O(1)` lookup of the column named `name` — the bracket spelling
+/// `df["qty"]` (Polars' `df["qty"]`). `raise ColumnNotFound(name)`
 /// if the column is missing.
+#alias("_[_]")
 pub fn DataFrame::get_column(
   self : DataFrame,
   name : String,

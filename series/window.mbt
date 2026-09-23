@@ -17,6 +17,20 @@ pub fn Series::slice(self : Series, offset : Int, length? : Int) -> Series {
 }
 
 ///|
+/// The bracket-slice sugar — the `Series` twin of `DataFrame::slice_between`,
+/// Polars' `s[1:3]` / `s[2:]` / `s[:-1]`: a half-open `[start, end)` cell
+/// window where an omitted bound runs to that end and a negative one counts
+/// from it, with crossed bounds an empty series. The bounds normalize
+/// (`between_bounds`) into the one `(offset, length)` window kernel `slice`
+/// runs, so the two spellings cannot disagree. Total — never fails. Reached
+/// as `s[a:b]`.
+#alias("_[_:_]")
+pub fn Series::slice_between(self : Series, start? : Int, end? : Int) -> Series {
+  let (s, l) = @order.between_bounds(start, end, self.len())
+  slice_series(self, s, l)
+}
+
+///|
 /// Gather: produce a new series whose i-th entry is `self[indices[i]]`.
 /// Out-of-bounds indices surface as `IndexOutOfBounds(idx)`. The result is
 /// canonicalised onto the `Numeric` fast path when the gathered rows leave an

@@ -133,7 +133,10 @@ pub impl Show for Scalar with fn output(self, logger) {
 /// the one rendering a `Scalar::Date` has (value form, `Show` form, CSV /
 /// JSON cell form all share it, so the spellings cannot drift). Proleptic
 /// Gregorian, via the days-to-civil algorithm: negative day counts (dates
-/// before 1970) included.
+/// before 1970) included. The year is zero-padded to four digits — ISO
+/// 8601's `YYYY` basic range is `0000`–`9999`, so year 800 renders
+/// `0800-…` and year 0 `0000-…`; a year outside the basic range carries
+/// its sign (the expanded-representation form).
 fn date_days_to_iso(days : Int64) -> String {
   let z = days + 719468L
   // Floor division, so dates before the era anchor land in the previous
@@ -155,5 +158,20 @@ fn date_days_to_iso(days : Int64) -> String {
     }
   }
 
-  "\{year}-\{pad2(m)}-\{pad2(d)}"
+  // The year pads its magnitude to four digits and carries its own sign —
+  // `Int64::MIN` cannot occur here (the algorithm's `y` is bounded by
+  // `|days| / 365`), so negating is safe.
+  fn pad4(n : Int64) -> String {
+    if n < 10 {
+      "000\{n}"
+    } else if n < 100 {
+      "00\{n}"
+    } else if n < 1000 {
+      "0\{n}"
+    } else {
+      n.to_string()
+    }
+  }
+  let year_text = if year < 0 { "-" + pad4(-year) } else { pad4(year) }
+  "\{year_text}-\{pad2(m)}-\{pad2(d)}"
 }

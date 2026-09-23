@@ -110,6 +110,16 @@ s.sort(descending=true, nulls_last=false)
 An `explain` rendering does not change: a plan still reads
 `SORT [col(qty) Desc NullsLast]`.
 
+### `Date` renders ISO-8601 years zero-padded to four digits
+
+A `Scalar::Date` whose year is under 1000 used to render without its ISO
+padding — year 800 as `800-…`, year 0 as `0-…` — where ISO 8601's `YYYY`
+basic range is `0000`–`9999`. It now renders `0800-…` and `0000-01-01`,
+a negative year carries its sign over a padded magnitude (`-0002-09-16`),
+and a year beyond 9999 keeps its expanded spelling (`-194022-09-24`).
+Dates in 1000–9999 — every date a reader or the epoch neighbourhood
+produces — render exactly as before.
+
 ### Floats order by IEEE-754: `NaN` is a value in `sort` and `median`
 
 The two bespoke "`NaN` behaves like missing" rules are gone, replaced by the

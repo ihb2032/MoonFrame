@@ -482,3 +482,31 @@ test "CsvWriteOptions defaults every field" {
   assert_eq(opts.null_value, "")
   assert_eq(opts.sanitize_formulas, false)
 }
+
+///|
+test "line_terminator controls the row separator; CRLF round-trips" {
+  let df = @frame.DataFrame::DataFrame([@series.Series::from_ints("a", [1, 2])])
+  // Default stays LF, byte for byte.
+  let lf = format_csv(df, options=CsvWriteOptions::CsvWriteOptions())
+  assert_true(lf.contains("\n") && !lf.contains("\r\n"))
+  // RFC 4180's CRLF, via Polars' knob name.
+  let crlf = format_csv(
+    df,
+    options=CsvWriteOptions::CsvWriteOptions(line_terminator="\r\n"),
+  )
+  assert_true(crlf.contains("a\r\n1\r\n2\r\n"))
+  // The reader takes CRLF back without a knob.
+  let back = parse_csv_str(crlf)
+  assert_eq(back.nrows(), 2)
+  assert_eq(back.get_column("a").to_scalars(), [
+    @types.Scalar::Int(1),
+    @types.Scalar::Int(2),
+  ])
+  // An empty terminator is refused outright.
+  assert_true(
+    (Ok(CsvWriteOptions::CsvWriteOptions(line_terminator="")) catch {
+      e => Err(e)
+    })
+    is Err(@types.DataError::InvalidOperation(_)),
+  )
+}

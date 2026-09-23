@@ -5,7 +5,7 @@ alias LazyFrame::limit <- lazy
 alias Series::"_[_:_]" <- series
 alias Series::"_[_]" <- series
 ctor CsvReadOptions::CsvReadOptions(has_header? : Bool, delimiter? : Char, infer_schema_rows? : Int, null_values? : Array[String], strict_column_count? : Bool, on_parse_error? : OnParseError, allow_nonfinite_floats? : Bool, strict_quotes? : Bool) -> Self <- io
-ctor CsvWriteOptions::CsvWriteOptions(header? : Bool, delimiter? : Char, null_value? : String, sanitize_formulas? : Bool) -> Self <- io
+ctor CsvWriteOptions::CsvWriteOptions(header? : Bool, delimiter? : Char, null_value? : String, sanitize_formulas? : Bool, line_terminator? : String) -> Self raise @types.DataError <- io
 ctor DataFrame::DataFrame(Array[@series.Series]) -> Self raise @types.DataError <- frame
 ctor Field::Field(String, DataType, nullable? : Bool) -> Self <- types
 ctor HtmlOptions::HtmlOptions(max_rows? : Int, table_class? : String, caption? : String, escape? : Bool) -> Self <- frame
@@ -27,6 +27,7 @@ field CsvReadOptions.strict_column_count : Bool <- io
 field CsvReadOptions.strict_quotes : Bool <- io
 field CsvWriteOptions.delimiter : Char <- io
 field CsvWriteOptions.header : Bool <- io
+field CsvWriteOptions.line_terminator : String <- io
 field CsvWriteOptions.null_value : String <- io
 field CsvWriteOptions.sanitize_formulas : Bool <- io
 field HtmlOptions.caption : String? <- frame

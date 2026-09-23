@@ -21,7 +21,10 @@ nullable series constructors likewise converged into one, the window
 verbs took Polars' saturating semantics — `slice` never raises, and a
 negative `head` / `tail` count drops from the opposite end — and floats
 now order by IEEE-754: `NaN` is a value in `sort` and propagates through
-`median`. String case mapping and the default trim set went Unicode.
+`median`. String case mapping and the default trim set went Unicode, and
+the standards review closed two smaller gaps: `Date` renders ISO-8601
+years zero-padded, and the CSV writer gained Polars' `line_terminator`
+knob.
 
 ### `DataType` / `Scalar` gained a `Date` variant
 
@@ -109,6 +112,15 @@ s.sort(descending=true, nulls_last=false)
 
 An `explain` rendering does not change: a plan still reads
 `SORT [col(qty) Desc NullsLast]`.
+
+### `CsvWriteOptions` gains `line_terminator`, and its constructor `raise`s
+
+Polars' `line_terminator` knob arrives additively — default `"\n"`
+unchanged, `"\r\n"` for RFC 4180's letter — and the reader takes either
+back without a knob. The one signature change: the constructor now
+`raise`s `InvalidOperation` on an empty terminator (it would fuse every
+row into one), so a `CsvWriteOptions::CsvWriteOptions(...)` call in a
+non-raising context needs the usual `catch` / propagation.
 
 ### `Date` renders ISO-8601 years zero-padded to four digits
 

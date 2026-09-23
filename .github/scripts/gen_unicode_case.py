@@ -58,10 +58,10 @@ special_upper.sort(key=lambda p: p[0])
 special_lower.sort(key=lambda p: p[0])
 
 def fmt_simple(pairs):
-    return " ".join("(0x%04X, 0x%04X)," % p for p in pairs)
+    return "\n  ".join("(0x%04X, 0x%04X)," % p for p in pairs)
 
 def fmt_special(pairs):
-    return " ".join(
+    return "\n  ".join(
         "(0x%04X, [%s])," % (cp, ", ".join("0x%04X" % t for t in to))
         for cp, to in pairs
     )

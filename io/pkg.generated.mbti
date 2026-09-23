@@ -53,8 +53,9 @@ pub struct CsvWriteOptions {
   delimiter : Char
   null_value : String
   sanitize_formulas : Bool
+  line_terminator : String
 }
-pub fn CsvWriteOptions::CsvWriteOptions(header? : Bool, delimiter? : Char, null_value? : String, sanitize_formulas? : Bool) -> Self
+pub fn CsvWriteOptions::CsvWriteOptions(header? : Bool, delimiter? : Char, null_value? : String, sanitize_formulas? : Bool, line_terminator? : String) -> Self raise @types.DataError
 
 pub struct JsonReadOptions {
   infer_schema_rows : Int

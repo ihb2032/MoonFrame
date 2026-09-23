@@ -110,6 +110,15 @@ s.sort(descending=true, nulls_last=false)
 An `explain` rendering does not change: a plan still reads
 `SORT [col(qty) Desc NullsLast]`.
 
+### `CsvWriteOptions` gains `line_terminator`, and its constructor `raise`s
+
+Polars' `line_terminator` knob arrives additively — default `"\n"`
+unchanged, `"\r\n"` for RFC 4180's letter — and the reader takes either
+back without a knob. The one signature change: the constructor now
+`raise`s `InvalidOperation` on an empty terminator (it would fuse every
+row into one), so a `CsvWriteOptions::CsvWriteOptions(...)` call in a
+non-raising context needs the usual `catch` / propagation.
+
 ### Floats order by IEEE-754: `NaN` is a value in `sort` and `median`
 
 The two bespoke "`NaN` behaves like missing" rules are gone, replaced by the

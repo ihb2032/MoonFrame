@@ -18,25 +18,38 @@
 ///   `=`, `+`, `-`, `@`, a tab, or a carriage return is prefixed with a
 ///   single quote so a spreadsheet reads it as text. Deliberately lossy:
 ///   such a cell reads back with the leading quote. Defaults to `false`.
+/// - `line_terminator` — the string written after every row, Polars'
+///   knob of the same name. The default `"\n"` (LF) matches every
+///   mainstream writer; RFC 4180's letter calls for `"\r\n"` (CRLF),
+///   and the reader accepts LF, CRLF, and CR alike, so either choice
+///   round-trips. Must not be empty — an empty terminator would fuse
+///   the rows into one.
 pub struct CsvWriteOptions {
   header : Bool
   delimiter : Char
   null_value : String
   sanitize_formulas : Bool
+  line_terminator : String
 }
 
 ///|
 /// Build write options. Every field has a default: header on, comma
-/// delimiter, null cells emitted as the empty string, and no formula
-/// sanitisation. `CsvWriteOptions::CsvWriteOptions()` is the all-defaults writer; name only
+/// delimiter, null cells emitted as the empty string, no formula
+/// sanitisation, and LF line endings. `CsvWriteOptions::CsvWriteOptions()` is the all-defaults writer; name only
 /// what differs, as in `CsvWriteOptions::CsvWriteOptions(delimiter=';')`.
 pub fn CsvWriteOptions::CsvWriteOptions(
   header? : Bool = true,
   delimiter? : Char = ',',
   null_value? : String = "",
   sanitize_formulas? : Bool = false,
-) -> CsvWriteOptions {
-  { header, delimiter, null_value, sanitize_formulas, }
+  line_terminator? : String = "\n",
+) -> CsvWriteOptions raise @types.DataError {
+  if line_terminator.is_empty() {
+    raise @types.DataError::InvalidOperation(
+      "line_terminator must not be empty: it would fuse every row into one",
+    )
+  }
+  { header, delimiter, null_value, sanitize_formulas, line_terminator, }
 }
 
 ///|
@@ -45,9 +58,9 @@ pub fn CsvWriteOptions::CsvWriteOptions(
 /// - Header (when `options.header == true`): column names joined by
 ///   `options.delimiter`, each quoted only when it would otherwise be
 ///   ambiguous.
-/// - Each row: cells joined by `options.delimiter`, terminated by `\n`
-///   (LF). Null cells are written as `options.null_value`; other cells
-///   render via `Scalar::to_string`.
+/// - Each row: cells joined by `options.delimiter`, terminated by
+///   `options.line_terminator` (LF by default). Null cells are written as
+///   `options.null_value`; other cells render via `Scalar::to_string`.
 /// - Quoting: a cell containing the delimiter, a double quote, `\r`,
 ///   or `\n` is wrapped in double quotes; interior double quotes are
 ///   doubled (`"` → `""`). Cells that need no quoting are written
@@ -129,7 +142,7 @@ pub fn format_csv(
         file_start=i == 0,
       )
     }
-    buf.write_char('\n')
+    buf.write_string(options.line_terminator)
   }
   let nrows = df.nrows()
   // Materialise the whole frame once (column-major) through the shared
@@ -156,7 +169,7 @@ pub fn format_csv(
         file_start=!options.header && r == 0 && c == 0,
       )
     }
-    buf.write_char('\n')
+    buf.write_string(options.line_terminator)
   }
   buf.to_string()
 }

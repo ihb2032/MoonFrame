@@ -622,28 +622,43 @@ test "Series::sort orders values, defaulting to ascending with nulls first, as P
 }
 
 ///|
-test "Series::sort treats NaN as missing, exactly like DataFrame::sort" {
+test "Series::sort orders NaN as a value, independent of the null placement" {
   let nan = 0.0 / 0.0
-  let s = @series.Series::from_floats("f", [2.5, nan, 1.5])
-  let sorted = s.sort().to_scalars()
-  // The NaN sorts with the missing cells, which lead under the default.
-  assert_true(sorted[0] is @types.Scalar::Float(_))
-  let first = match sorted[0] {
-    @types.Scalar::Float(v) => v.is_nan()
-    _ => false
-  }
-  assert_true(first)
-  assert_eq(sorted[1], @types.Scalar::Float(1.5))
-  assert_eq(sorted[2], @types.Scalar::Float(2.5))
-  // With nulls last, the same NaN follows the missing cells to the end.
-  let tail_sorted = s.sort(nulls_last=true).to_scalars()
-  assert_eq(tail_sorted[0], @types.Scalar::Float(1.5))
+  let s = @series.Series::from_float_options("f", [
+    Some(2.5),
+    Some(nan),
+    Some(1.5),
+    None,
+  ])
+  // Ascending, default nulls first: the null leads (it is missing), then
+  // the values in order, with the NaN — the total order's largest — last.
+  let asc = s.sort().to_scalars()
+  assert_eq(asc[0], @types.Scalar::Null)
+  assert_eq(asc[1], @types.Scalar::Float(1.5))
+  assert_eq(asc[2], @types.Scalar::Float(2.5))
   assert_true(
-    match tail_sorted[2] {
+    match asc[3] {
       @types.Scalar::Float(v) => v.is_nan()
       _ => false
     },
   )
+  // Descending: the null still leads the missing placement
+  // (direction-independent), then the values with the NaN — the largest —
+  // first.
+  let desc = s.sort(descending=true).to_scalars()
+  assert_eq(desc[0], @types.Scalar::Null)
+  assert_true(
+    match desc[1] {
+      @types.Scalar::Float(v) => v.is_nan()
+      _ => false
+    },
+  )
+  assert_eq(desc[2], @types.Scalar::Float(2.5))
+  assert_eq(desc[3], @types.Scalar::Float(1.5))
+  // Nulls last moves only the null; the NaN keeps its value position.
+  let tail = s.sort(nulls_last=true).to_scalars()
+  assert_eq(tail[0], @types.Scalar::Float(1.5))
+  assert_eq(tail[3], @types.Scalar::Null)
 }
 
 ///|
@@ -740,4 +755,40 @@ test "s[i] reads a cell (no negative wrap); s[a:b] is the bracket-slice sugar" {
   assert_eq(s[-2:].get(0), @types.Scalar::Int(3))
   assert_eq(s[3:1].len(), 0)
   assert_eq(s[1:3], s.slice(1, length=2))
+}
+
+///|
+test "sort places equal-NaN and signed-zero cells stably" {
+  let nan = 0.0 / 0.0
+  // Two NaNs compare equal under the total order, so the stable sort keeps
+  // their input order.
+  let s = @series.Series::from_float_options("f", [
+    Some(nan),
+    Some(1.0),
+    Some(nan),
+  ])
+  let sorted = s.sort().to_scalars()
+  assert_eq(sorted[0], @types.Scalar::Float(1.0))
+  assert_true(
+    match sorted[1] {
+      @types.Scalar::Float(v) => v.is_nan()
+      _ => false
+    },
+  )
+  assert_true(
+    match sorted[2] {
+      @types.Scalar::Float(v) => v.is_nan()
+      _ => false
+    },
+  )
+  // `-0.0` and `+0.0` compare equal (IEEE-equal), so the sort keeps their
+  // input order too rather than ordering by sign.
+  let z = @series.Series::from_floats("z", [-0.0, 0.0, -0.0])
+  let zs = z.sort().to_scalars()
+  assert_true(
+    match zs[0] {
+      @types.Scalar::Float(v) => v == 0.0 && 1.0 / v == @double.neg_infinity
+      _ => false
+    },
+  )
 }

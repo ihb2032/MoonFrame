@@ -118,13 +118,19 @@ test "median is the middle of the sorted non-null cells, always Float" {
 }
 
 ///|
-test "median skips NaN and nulls, all-missing is null" {
+test "median propagates NaN, skips nulls, all-missing is null" {
   let nan = @double.not_a_number
-  // NaN is ordered as missing (the min / max / sort rule, not propagation):
-  // the median of [1, 2, NaN] is the median of [1, 2], i.e. 1.5.
+  // NaN propagates — the sum / mean rule, not the min / max skip: a window
+  // that contains one has that value's order statistic.
   let df = DataFrame::DataFrame([Series::from_floats("x", [1.0, 2.0, nan])])
-  assert_eq(whole(df, @expr.col("x").median()), @types.Scalar::Float(1.5))
-  // Nulls drop out the same way; [10, null, 20, null, 30] medians to 20.0.
+  let got = whole(df, @expr.col("x").median())
+  assert_true(
+    match got {
+      @types.Scalar::Float(v) => v.is_nan()
+      _ => false
+    },
+  )
+  // Nulls drop out; [10, null, 20, null, 30] medians to 20.0.
   let sparse = DataFrame::DataFrame([
     Series::from_float_options("x", [
       Some(10.0),

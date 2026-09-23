@@ -2,6 +2,8 @@
 package "ihb2032/MoonFrame/internal/numeric"
 
 // Values
+pub fn cmp_double_total(Double, Double) -> Int
+
 pub fn double_fits_int64(Double) -> Bool
 
 pub fn double_lt_int64(Double, Int64) -> Bool

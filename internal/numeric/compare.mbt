@@ -1,4 +1,31 @@
 ///|
+/// IEEE-754 total-order comparison of two `Double`s, the ordering predicate
+/// sorting needs: finite values and the infinities order as `<` / `>` place
+/// them, and `NaN` — with which every plain comparison is `false`, so it
+/// cannot order itself at all — is **larger than every other value**. This is
+/// the `sort` / order-statistic order only; the comparison kernels keep
+/// plain IEEE semantics (`NaN == NaN` is `false`, `<` / `>` against `NaN` is
+/// `false`). `-0.0` and `+0.0` compare equal here: they are IEEE-equal, and
+/// the sort's stability keeps their input order. Total.
+pub fn cmp_double_total(a : Double, b : Double) -> Int {
+  if a.is_nan() {
+    if b.is_nan() {
+      0
+    } else {
+      1
+    }
+  } else if b.is_nan() {
+    -1
+  } else if a < b {
+    -1
+  } else if a > b {
+    1
+  } else {
+    0
+  }
+}
+
+///|
 /// Whether `n` falls in the range `Double::to_int64` converts faithfully —
 /// i.e. within `Int64`'s representable range. `Int64::MIN = -2^63` is exactly
 /// representable as a `Double`; `Int64::MAX = 2^63 - 1` is not — the largest

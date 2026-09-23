@@ -9,7 +9,8 @@
 /// Resolve a column into a typed `SortKey`, matching on the concrete backing
 /// array via `storage.data()` — `ColumnData`'s four variants are exhaustive,
 /// so there's no fallback branch to `unwrap`.
-/// Missingness (`Null`, plus `NaN` for `Float`) is pre-computed into a
+/// Missingness (`Null` — a `Float` `NaN` is a value, ordered by the total
+/// order, not missing) is pre-computed into a
 /// dense `Array[Bool]` here, once per key, so the comparator reads it by
 /// plain index instead of repeating a bitmap lookup on every comparison.
 /// Takes the `Series` and reaches its storage here, so `frame`'s multi-key
@@ -23,8 +24,7 @@ pub fn build_sort_key(
 ) -> SortKey {
   // `validity_bools` is total over both backends: a `Numeric` column carries
   // only `Int` / `Float` and is all-valid (mask all-`true`), while `Bool` /
-  // `String` are always `Builtin` — so for a `Numeric` `Float` the only
-  // "missing" source is the `is_nan` test in the `Float` arm below.
+  // `String` are always `Builtin`.
   let valid = validity_bools(column)
   let storage = column.storage
   match storage.data() {
@@ -36,10 +36,9 @@ pub fn build_sort_key(
         nulls_last,
       )
     @column.ColumnData::F64(a) =>
-      // NaN behaves like Null for ordering.
       SortKey::Float(
         a,
-        Array::makei(a.length(), i => !valid[i] || a[i].is_nan()),
+        Array::makei(a.length(), i => !valid[i]),
         descending,
         nulls_last,
       )
@@ -68,7 +67,8 @@ pub fn build_sort_key(
 /// Module-internal resolved form of a sort key — an engine seam, not a public
 /// type: the variants stay unnameable outside this package, while `frame`'s
 /// multi-key sort holds one to compare with. The raw data buffer, a
-/// dense per-row `missing` mask (`Null`, or `NaN` for `Float`), and the
+/// dense per-row `missing` mask (`Null` only — a `Float` `NaN` is a value
+/// that stays in the buffer), and the
 /// per-key direction / null placement (`descending`, `nulls_last`).
 /// Pre-resolving missingness lets
 /// the comparator stay branch-free per element type (no `Scalar` boxing,
@@ -83,10 +83,11 @@ pub enum SortKey {
 }
 
 ///|
-/// Single-key comparison. The validity bitmap (and, for `Float`, the
-/// NaN check) decides "missing"; missingness combines with
-/// `nulls_last` to place missing cells, and only non-missing pairs
-/// reach the value comparison + `descending` flip.
+/// Single-key comparison. The validity bitmap decides "missing"; missingness
+/// combines with `nulls_last` to place missing cells, and only non-missing
+/// pairs reach the value comparison + `descending` flip. A `Float` `NaN` is
+/// not missing: it reaches the value comparison, where the IEEE total order
+/// places it past every other value.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
 pub fn compare_one_key(key : SortKey, i : Int, j : Int) -> Int {
@@ -109,20 +110,14 @@ pub fn compare_one_key(key : SortKey, i : Int, j : Int) -> Int {
       })
     }
     Float(data, missing, descending, nulls_last) => {
-      // NaN was already folded into `missing` at build time, so the value
-      // comparison below only runs on two non-NaN, non-null cells.
       let mi = missing[i]
       let mj = missing[j]
       compare_with_missing(mi, mj, nulls_last, descending, fn() {
-        let a = data[i]
-        let b = data[j]
-        if a < b {
-          -1
-        } else if a > b {
-          1
-        } else {
-          0
-        }
+        // The total order places `NaN` past every other value, so it trails
+        // an ascending sort and leads a descending one — a value, ordered,
+        // never re-routed through the missing-placement rule. The
+        // `descending` flip is `compare_with_missing`'s, as for every arm.
+        @numeric.cmp_double_total(data[i], data[j])
       })
     }
     Bool(data, missing, descending, nulls_last) => {
@@ -195,9 +190,10 @@ fn missing_offset(nulls_last : Bool) -> Int {
 /// `nulls_last` to `false` — Polars' own default, which places missing cells
 /// first in an ascending sort — and both mean exactly what they mean for the
 /// corresponding `DataFrame::sort` key flags: the same kernel resolves the
-/// column, so a `Float` `NaN` counts as missing alongside `Null` (the
-/// repository's deliberate ordering convention) and ties keep their input
-/// order — the sort is stable.
+/// column, so a `Float` `NaN` orders by the IEEE total order — larger than
+/// every other value, trailing an ascending sort and leading a descending
+/// one, never re-routed through the null placement — and ties keep their
+/// input order — the sort is stable.
 ///
 /// Total: every dtype has an order, and the permutation indexes the series
 /// itself, so nothing can fail.

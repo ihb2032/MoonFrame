@@ -17,13 +17,15 @@
 // window reducer here, so it serves the whole-column, per-group, and per-scope
 // surfaces with one fold and one set of null / `NaN` rules.
 //
-// The rules, canonically: `sum` / `mean` add `NaN` in (it is a
-// value, only `Null` is missing) so it propagates — and `var` / `std`, built on
-// the mean, propagate it too; the extremum fold skips it (treated as missing,
-// matching Polars' regular `min` / `max` and `sort`), and `median`, an order
-// statistic, skips it the same way. `n_unique` keys a `NaN` into one bucket (it
-// is one value), and `first` / `last` are positional, so they skip nothing —
-// a present `NaN` is returned verbatim.
+// The rules, canonically: `NaN` is a value, only `Null` is missing.
+// `sum` / `mean` add `NaN` in so it propagates — and `var` / `std`, built on
+// the mean, propagate it too; `median`, an order statistic, propagates it the
+// same way. The extremum fold skips it (matching Polars' regular
+// `min` / `max`, the one value-following fold that does), and `sort` orders
+// it by the IEEE total order — larger than every other value, so it trails an
+// ascending sort and leads a descending one. `n_unique` keys a `NaN` into one
+// bucket (it is one value), and `first` / `last` are positional, so they skip
+// nothing — a present `NaN` is returned verbatim.
 //
 // One qualification, since "canonical" is not "only": four of the `Series`
 // reductions — `sum` / `mean` / `min` / `max` — dispatch a `Numeric`-backed
@@ -352,51 +354,58 @@ fn reduce_variance(
 /// `Scalar::Float` — `Int` widens to `Double`, so a median always types
 /// `Float` (Polars). Numeric only: a non-numeric column `raise`s
 /// `TypeMismatch` at factory time, as `reduce_arith` does. A `NaN` is
-/// **skipped** (treated as missing), the `min` / `max` and `sort` rule rather
-/// than `sum` / `mean` propagation — MoonFrame orders `NaN` as missing
-/// throughout (see `sort`), so this order statistic drops it too. An empty /
-/// all-null / all-`NaN` window reduces to `Scalar::Null`.
+/// **propagated** — the `sum` / `mean` rule, not the `min` / `max` skip: a
+/// window that contains one has that value's order statistic. An empty /
+/// all-null window reduces to `Scalar::Null`.
 fn reduce_median(
   storage : @column.ColumnStorage,
 ) -> ((Int, (Int) -> Int) -> @types.Scalar) raise @types.DataError {
   let present = reduce_present(storage)
   let read = numeric_double_reader(storage, "median")
   fn(n : Int, at : (Int) -> Int) {
-    // Collect the present, non-`NaN` values, then sort: the median is the
-    // middle by order, and `NaN` (ordered as missing here) takes no part.
+    // Collect the present values, then sort: the median is the middle by
+    // order. A `NaN` anywhere in the window is the whole answer, so it is
+    // detected before the middles are read.
     let vals : Array[Double] = []
+    let mut saw_nan = false
     for k in 0..<n {
       let i = at(k)
       if present(i) {
         let v = read(i)
-        if !v.is_nan() {
+        if v.is_nan() {
+          saw_nan = true
+        } else {
           vals.push(v)
         }
       }
     }
-    let m = vals.length()
-    if m == 0 {
-      @types.Scalar::Null
+    if saw_nan {
+      @types.Scalar::Float(@double.not_a_number)
     } else {
-      vals.sort()
-      if m % 2 == 1 {
-        @types.Scalar::Float(vals[m / 2])
+      let m = vals.length()
+      if m == 0 {
+        @types.Scalar::Null
       } else {
-        let lo = vals[m / 2 - 1]
-        let hi = vals[m / 2]
-        // Average the two middle values. The precise `(lo + hi) / 2` is kept for
-        // the common case, but two near-`Double`-max middles overflow their sum
-        // to ±Inf before the halving — even though the median lies between them
-        // and is always finite. Halve first in that case (each half stays in
-        // range). A genuinely infinite middle keeps `(lo + hi) / 2`'s result.
-        let sum = lo + hi
-        @types.Scalar::Float(
-          if sum.is_inf() {
-            lo / 2.0 + hi / 2.0
-          } else {
-            sum / 2.0
-          },
-        )
+        vals.sort()
+        if m % 2 == 1 {
+          @types.Scalar::Float(vals[m / 2])
+        } else {
+          let lo = vals[m / 2 - 1]
+          let hi = vals[m / 2]
+          // Average the two middle values. The precise `(lo + hi) / 2` is kept for
+          // the common case, but two near-`Double`-max middles overflow their sum
+          // to ±Inf before the halving — even though the median lies between them
+          // and is always finite. Halve first in that case (each half stays in
+          // range). A genuinely infinite middle keeps `(lo + hi) / 2`'s result.
+          let sum = lo + hi
+          @types.Scalar::Float(
+            if sum.is_inf() {
+              lo / 2.0 + hi / 2.0
+            } else {
+              sum / 2.0
+            },
+          )
+        }
       }
     }
   }

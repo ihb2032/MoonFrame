@@ -2,7 +2,7 @@
 // helper, and the two-phase pruned-frame orchestration the CSV and JSON
 // readers drive. This is the `io → frame` edge's remaining job — the
 // string-level parse cores stay with their format files, and the typed
-// column build stays with the inference skeleton (`infer.mbt`); what lives
+// column build stays with the inference skeleton; what lives
 // here is only what every reader must do *around* its core once a predicate
 // or projection narrows the read.
 //

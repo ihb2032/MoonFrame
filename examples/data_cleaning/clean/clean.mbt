@@ -1,7 +1,7 @@
 // Pure null-handling logic for the data-cleaning example. Living in
 // its own library package keeps `main` thin (so it can be marked
 // `#coverage.skip` without losing real coverage) and lets the
-// blackbox tests next to this file exercise every branch through
+// blackbox tests beside it exercise every branch through
 // the facade.
 
 ///|

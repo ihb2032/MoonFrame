@@ -5,7 +5,7 @@
 /// handwritten `Debug` delegating to it. All total — they walk shape,
 /// nothing can fail.
 ///
-/// Two rendering conventions share this file, and only one of them is bound
+/// Two rendering conventions share this module, and only one of them is bound
 /// to method spellings: the arithmetic / comparison operators render as
 /// **display syntax** (`//`, `%`, `**` — glyphs, not the `floor_div` /
 /// `modulo` / `pow` call sites they came from), while the postfix method

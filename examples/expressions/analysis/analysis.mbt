@@ -1,7 +1,7 @@
 // Pure expression / lazy-query logic for the `expressions` example.
 // Living in its own library package keeps `main` thin (so it can be
 // `#coverage.skip` without losing real coverage) and lets the blackbox
-// tests next to this file drive every branch through the facade —
+// tests beside it drive every branch through the facade —
 // exactly the way a downstream user would call them.
 //
 // Each function showcases one slice of the expression surface:

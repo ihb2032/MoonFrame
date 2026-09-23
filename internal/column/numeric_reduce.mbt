@@ -2,7 +2,7 @@
 // `max`, kept apart from the fast-path layout file so the two read apart (the
 // name mirrors the series-side reducer file). The accumulations themselves
 // are the shared folds in `internal/numeric` (`fold_int64_sum` /
-// `fold_double_sum` / `fold_extremum`), so this file is dispatch only: each
+// `fold_double_sum` / `fold_extremum`), so this module is dispatch only: each
 // arm picks the fold, the reader, and the constant-true presence an
 // all-valid column has.
 //
@@ -12,7 +12,7 @@
 // `Numeric` column here instead, for the bitmap-free fold. The rules live in
 // the shared fold docstrings and the series-side canonical notes; change them
 // there first, and expect the backend parity tests to catch a
-// divergence, since nothing about this file's types can.
+// divergence, since nothing about these dispatchers' types can.
 
 ///|
 /// Sum of every cell.

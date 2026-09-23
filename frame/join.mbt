@@ -6,7 +6,7 @@
 // columns into the planned rows, coalescing key columns where the options
 // and `how` allow. Key spelling — `on` vs `left_on` / `right_on`, the
 // bare-column checks, suffix pairs — is resolved by `resolve_join_keys` and
-// its helpers under the record contract `join_options.mbt` owns.
+// its helpers under the record contract `JoinOptions` owns.
 
 ///|
 /// Index a frame's rows by composite join key: maps each non-null key tuple

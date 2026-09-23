@@ -5,7 +5,7 @@
 // callers who only need a slice of the surface (e.g. just the
 // value types). Everything under `internal/` is unimportable downstream and is
 // not part of the public API. Naming more of the packages here than the facade
-// re-exports is how a package map goes stale, so this file lists only what
+// re-exports is how a package map goes stale, so the lists below name only what
 // bears on what the facade re-exports.
 //
 // Note: the operator verbs are methods on `DataFrame` — `select` / `filter` /

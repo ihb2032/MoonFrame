@@ -16,7 +16,7 @@
 /// The number of `ExprNode` variants, pinned as an assertion rather than a
 /// comment: `variant_tag`'s declaration order gives each variant its tag, and
 /// this count is what the one-rep-per-variant list is measured against. A new
-/// variant's `variant_tag` arm compiles only in this file, so the pinned count
+/// variant's `variant_tag` arm compiles only in this whitebox module, so the pinned count
 /// is the second thing its addition trips.
 const VARIANT_COUNT : Int = 16
 

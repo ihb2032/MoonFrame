@@ -77,7 +77,7 @@ fn DataFrame::with_same_schema(
 /// a recursive peel would overflow on a deep one — the same reason every
 /// other expression walk in the engine is iterative. The single statement of
 /// the alias-peel rule; the consumers that classify the node beneath it
-/// (`projection_source` here, `bare_col_agg` in `agg_expr.mbt`) share it
+/// (`projection_source` and `bare_col_agg`) share it
 /// instead of each re-deriving the loop and its reason.
 fn strip_alias_layers(expr : @ir.ExprNode) -> @ir.ExprNode {
   let mut node = expr

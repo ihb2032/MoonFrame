@@ -15,7 +15,7 @@
 // .otherwise()`, `group_by().agg()`, and their lazy twins — without ever
 // naming `WhenThen` / `WhenThenElse` / `GroupedDataFrame` / `LazyGroupBy`.
 // Those types are `pub` in their home packages but are NOT re-exported by the
-// facade; that this file compiles proves a caller never has to name one — dot
+// facade; that this module compiles proves a caller never has to name one — dot
 // resolution follows each step's return value. If a future change made one of
 // them necessary to name, this fixture would stop compiling and force the
 // question back into view.

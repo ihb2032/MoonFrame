@@ -6,8 +6,8 @@
 //
 // Cell semantics, uniform across `sum` / `mean` / `min` / `max`, follow the
 // aggregation rules the series reducer's header states canonically (the
-// evaluator-side enumeration is `expr_eval.mbt`'s Aggregations bullet); what
-// this file adds on top of them is the *frame shape*:
+// evaluator-side enumeration is the Aggregations bullet); what
+// these verbs add on top of them is the *frame shape*:
 //   - a **numeric** column (`Int` / `Float`) reduces to its value — `sum`,
 //     `min`, and `max` keep the source dtype, `mean` is always `Float`;
 //   - a **non-numeric** column (`Bool` / `String`) reduces to a `Null` cell

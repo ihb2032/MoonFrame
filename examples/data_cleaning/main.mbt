@@ -7,7 +7,7 @@
 //            → read_csv (verify the file matches expectations)
 //
 // Pipeline logic lives in the sibling `clean/` package so it is
-// covered by `clean_test.mbt`. `main` is a thin orchestrator around
+// covered by that package's blackbox tests. `main` is a thin orchestrator around
 // `read_csv` / `write_csv` / `println` and is therefore marked
 // `#coverage.skip` — every meaningful branch is in the helper.
 //

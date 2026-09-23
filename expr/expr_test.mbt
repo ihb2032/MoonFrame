@@ -1,6 +1,6 @@
 ///|
 /// Blackbox shape semantics for the `Expr` tree. `Expr` is an opaque handle
-/// over an AST this file cannot name — no variant to spell, and no equality to
+/// over an AST these tests cannot name — no variant to spell, and no equality to
 /// compare with — so two trees are asserted through their rendering, which is
 /// what the shared `assert_same_expr` / `assert_diff_expr` do. What that pins
 /// is the documented surface: same shape renders the same, and any difference

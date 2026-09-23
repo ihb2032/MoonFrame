@@ -18,7 +18,7 @@
 /// non-numeric pairing. The binary kernels differ only in their
 /// `Int, Int` behaviour, which each supplies as its `int_int` callback; the
 /// three `Float`-involving pairings are built here once from `float_op`.
-/// A new `NumericData` variant fails every exhaustive match in this file
+/// A new `NumericData` variant fails every exhaustive match here
 /// until it is classified, the same discipline the kernels' own arms follow.
 fn numeric_fast_pair(
   left : Series,

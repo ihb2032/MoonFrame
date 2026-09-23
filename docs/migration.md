@@ -21,7 +21,7 @@ nullable series constructors likewise converged into one, the window
 verbs took Polars' saturating semantics — `slice` never raises, and a
 negative `head` / `tail` count drops from the opposite end — and floats
 now order by IEEE-754: `NaN` is a value in `sort` and propagates through
-`median`.
+`median`. String case mapping and the default trim set went Unicode.
 
 ### `DataType` / `Scalar` gained a `Date` variant
 
@@ -132,6 +132,20 @@ of the window — it propagates, as `sum` / `mean` always have; the median of
 column is `NaN` (was an empty-window `InvalidOperation` on the whole-column
 path). `min` / `max` keep skipping it, null placement keeps its
 direction-independent model, and only `null` is missing.
+
+### String case mapping and the default trim set go Unicode
+
+`str_to_uppercase` / `str_to_lowercase` map every cased letter through the
+Unicode **default case conversion** — the simple one-to-one mappings (`é`
+→ `É`, Greek and Cyrillic across their alphabets) plus the SpecialCasing
+expansions — where they were ASCII-only before. A cell's length can grow:
+`straße` uppercases to `STRASSE` (`ß` → `SS`), the `ﬁ` ligature to `FI`,
+and `İ` lowercases to `i` + combining dot above. The locale-conditional
+rules (Turkish dotless `i`, final sigma) are not applied — the default
+conversion carries no locale. The default `str_strip_chars` set widens from
+ASCII whitespace to the Unicode `White_Space` property — NBSP, the narrow
+no-break space, and the ideographic space now trim alongside tab, newline,
+carriage-return, and space. A custom `chars` set is unchanged.
 
 ### `slice` is Polars' saturating window, never an error
 

@@ -177,29 +177,9 @@ fn NumericColumn::get(
 // ── Sub-views (no bitmap to repack — the construction win) ─────────────
 
 ///|
-/// Half-open `[start, end)` slice. Requires `0 <= start <= end <= len`, with
-/// the same diagnostics (and check order) as `BuiltinColumn::slice`:
-/// - `IndexOutOfBounds(start)` when `start < 0`.
-/// - `IndexOutOfBounds(end)` when `end` is outside `[0, len]`.
-/// - `InvalidOperation("slice start > end: .")` when `start > end`.
-///
-/// Stays a `NumericColumn` — a sub-range of an all-valid column is itself
-/// all-valid, so there is no bitmap here at all, where `BuiltinColumn::slice`
-/// still carries a zero-copy view of its parent's.
-fn NumericColumn::slice(
-  self : NumericColumn,
-  start : Int,
-  end : Int,
-) -> NumericColumn raise @types.DataError {
-  validate_slice_bounds(start, end, self.len())
-  self.slice_unchecked(start, end)
-}
-
-///|
-/// Total `[start, end)` slice — the shared core behind `slice` (which
-/// validates the bounds then calls this). Copies the sub-range; an all-valid
-/// column stays all-valid, so there is still no bitmap. The caller must
-/// guarantee `0 <= start <= end <= len` (enforced by `slice`, clamped by
+/// Total `[start, end)` slice — the raw sub-range core. Copies the
+/// sub-range; an all-valid column stays all-valid, so there is no bitmap.
+/// The caller must guarantee `0 <= start <= end <= len` (clamped by
 /// `ColumnStorage::slice_total`).
 fn NumericColumn::slice_unchecked(
   self : NumericColumn,

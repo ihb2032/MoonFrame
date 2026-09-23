@@ -79,7 +79,10 @@ test "each deferred verb collects to its eager equivalent" {
   assert_eq(LazyFrame::LazyFrame(df).sort(keys).collect(), df.sort(keys))
   assert_eq(LazyFrame::LazyFrame(df).head(2).collect(), df.head(2))
   assert_eq(LazyFrame::LazyFrame(df).tail(2).collect(), df.tail(2))
-  assert_eq(LazyFrame::LazyFrame(df).slice(1, 3).collect(), df.slice(1, 3))
+  assert_eq(
+    LazyFrame::LazyFrame(df).slice(1, length=2).collect(),
+    df.slice(1, length=2),
+  )
 }
 
 ///|
@@ -719,30 +722,16 @@ test "collect surfaces the eager operators' errors unchanged" {
       ),
     ),
   )
-  // Out-of-range slice bound → IndexOutOfBounds(end), as in eager slice.
+  // Saturating slice windows collect to what the eager verb produces —
+  // saturation against the collected height, never an error.
   assert_eq(
-    Ok(LazyFrame::LazyFrame(df).slice(2, 99).collect()) catch {
-      e => Err(e)
-    },
-    Err(@types.DataError::IndexOutOfBounds(99)),
+    LazyFrame::LazyFrame(df).slice(2, length=99).collect(),
+    df.slice(2, length=99),
   )
-  // A negative bound is out of range on this surface too, and the deferred
-  // node reports it exactly as the eager verb does.
+  assert_eq(LazyFrame::LazyFrame(df).slice(-1).collect(), df.slice(-1))
   assert_eq(
-    Ok(LazyFrame::LazyFrame(df).slice(0, -1).collect()) catch {
-      e => Err(e)
-    },
-    Err(@types.DataError::IndexOutOfBounds(-1)),
-  )
-  // Inverted slice window and a missing sort column: equal to the eager
-  // errors, message for message.
-  assert_eq(
-    Ok(LazyFrame::LazyFrame(df).slice(3, 1).collect()) catch {
-      e => Err(e)
-    },
-    Ok(df.slice(3, 1)) catch {
-      e => Err(e)
-    },
+    LazyFrame::LazyFrame(df).slice(0, length=-1).collect(),
+    df.slice(0, length=-1),
   )
   let bad_keys = [(@expr.col("zzz"), false, false)]
   assert_eq(

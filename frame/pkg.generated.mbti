@@ -63,7 +63,7 @@ pub fn DataFrame::rows(Self) -> Array[Array[@types.Scalar]]
 pub fn DataFrame::schema(Self) -> @types.Schema
 pub fn DataFrame::select(Self, Array[@expr.Expr]) -> Self raise @types.DataError
 pub fn DataFrame::shape(Self) -> (Int, Int)
-pub fn DataFrame::slice(Self, Int, Int) -> Self raise @types.DataError
+pub fn DataFrame::slice(Self, Int, length? : Int) -> Self
 pub fn DataFrame::sort(Self, Array[(@expr.Expr, Bool, Bool)]) -> Self raise @types.DataError
 pub fn DataFrame::sum(Self) -> Self raise @types.DataError
 pub fn DataFrame::tail(Self, Int) -> Self

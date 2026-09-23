@@ -110,7 +110,9 @@ fn write_frame_op_label(op : FrameOp, buf : StringBuilder) -> Unit {
     Sort(by) => buf <+ "SORT \{sort_label(by)}"
     Head(n) => buf <+ "HEAD \{n}"
     Tail(n) => buf <+ "TAIL \{n}"
-    Slice(start, end) => buf <+ "SLICE [\{start}, \{end})"
+    Slice(offset, length) =>
+      buf <+
+        "SLICE [\{offset}: \{match length { Some(l) => "\{l}"; None => "" }}]"
     Drop(exprs) => buf <+ "DROP \{exprs_label(exprs)}"
     Rename(pairs) => buf <+ "RENAME \{rename_label(pairs)}"
     RenameWith(_) => buf <+ "RENAME_WITH"

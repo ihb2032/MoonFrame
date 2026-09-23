@@ -146,7 +146,7 @@ test "get covers every dtype" {
 ///|
 test "slice produces an independent sub-column" {
   let col = BuiltinColumn::from_ints([10, 20, 30, 40])
-  let part = col.slice(1, 3)
+  let part = col.slice_unchecked(1, 3)
   assert_eq(part.len(), 2)
   assert_eq(part.get(0), @types.Scalar::Int(20))
   assert_eq(part.get(1), @types.Scalar::Int(30))
@@ -155,42 +155,27 @@ test "slice produces an independent sub-column" {
 ///|
 test "slice with start == end is empty" {
   let col = BuiltinColumn::from_strings(["a", "b", "c"])
-  let part = col.slice(2, 2)
+  let part = col.slice_unchecked(2, 2)
   assert_true(part.is_empty())
 }
 
 ///|
 test "slice full range equals self length" {
   let col = BuiltinColumn::from_bools([true, false])
-  let part = col.slice(0, 2)
+  let part = col.slice_unchecked(0, 2)
   assert_eq(part.len(), 2)
 }
 
 ///|
-test "slice invalid bounds report the actual offender" {
+test "slice_unchecked trusts its caller's bounds; the total entry clamps" {
   let col = BuiltinColumn::from_ints([1, 2, 3])
-  assert_eq(
-    Ok(col.slice(-1, 2)) catch {
-      e => Err(e)
-    },
-    Err(@types.DataError::IndexOutOfBounds(-1)),
-  )
-  assert_eq(
-    Ok(col.slice(0, 5)) catch {
-      e => Err(e)
-    },
-    Err(@types.DataError::IndexOutOfBounds(5)),
-  )
-  assert_true(
-    (Ok(col.slice(2, 1)) catch { e => Err(e) }) is Err(InvalidOperation(_)),
-  )
-  // A negative `end` is out of range, not a misordered pair.
-  assert_eq(
-    Ok(col.slice(0, -1)) catch {
-      e => Err(e)
-    },
-    Err(@types.DataError::IndexOutOfBounds(-1)),
-  )
+  // The raw core trusts the window the caller guaranteed; the saturating
+  // window verbs are what guarantee it.
+  assert_eq(col.slice_unchecked(1, 3).len(), 2)
+  // The total entry clamps an out-of-range window into the column instead.
+  assert_eq(ColumnStorage::Builtin(col).slice_total(0, 9).len(), 3)
+  assert_eq(ColumnStorage::Builtin(col).slice_total(2, 1).len(), 0)
+  assert_eq(ColumnStorage::Builtin(col).slice_total(-1, 9).len(), 3)
 }
 
 // ── take ─────────────────────────────────────────────────────────────
@@ -275,16 +260,18 @@ test "get null branch fires on every dtype" {
 
 ///|
 test "slice produces a sub-column for every dtype" {
-  let i = BuiltinColumn::from_ints([1, 2, 3, 4]).slice(1, 3)
+  let i = BuiltinColumn::from_ints([1, 2, 3, 4]).slice_unchecked(1, 3)
   assert_eq(i.get(0), @types.Scalar::Int(2))
   assert_eq(i.get(1), @types.Scalar::Int(3))
-  let f = BuiltinColumn::from_floats([1.0, 2.0, 3.0]).slice(0, 2)
+  let f = BuiltinColumn::from_floats([1.0, 2.0, 3.0]).slice_unchecked(0, 2)
   assert_eq(f.len(), 2)
   assert_eq(f.get(1), @types.Scalar::Float(2.0))
-  let b = BuiltinColumn::from_bools([true, false, true]).slice(1, 3)
+  let b = BuiltinColumn::from_bools([true, false, true]).slice_unchecked(1, 3)
   assert_eq(b.get(0), @types.Scalar::Bool(false))
   assert_eq(b.get(1), @types.Scalar::Bool(true))
-  let s = BuiltinColumn::from_strings(["a", "b", "c", "d"]).slice(1, 4)
+  let s = BuiltinColumn::from_strings(["a", "b", "c", "d"]).slice_unchecked(
+    1, 4,
+  )
   assert_eq(s.len(), 3)
   assert_eq(s.get(0), @types.Scalar::String("b"))
   assert_eq(s.get(2), @types.Scalar::String("d"))
@@ -426,7 +413,7 @@ test "slice preserves nulls in the sub-window" {
     None,
     Some(5),
   ])
-  let part = col.slice(1, 4)
+  let part = col.slice_unchecked(1, 4)
   assert_eq(part.len(), 3)
   assert_eq(part.null_count(), 2)
   assert_eq(part.get(0), @types.Scalar::Null)
@@ -476,6 +463,6 @@ test "placeholders_normalized holds across constructors, casts, and row transfor
   assert_true(placeholders_normalized(opt_f.cast(@types.DataType::Int)))
   assert_true(placeholders_normalized(opt_b.cast(@types.DataType::String)))
   // Row transforms copy / gather the placeholder, keeping it normalized.
-  assert_true(placeholders_normalized(opt_i.slice(0, 2)))
+  assert_true(placeholders_normalized(opt_i.slice_unchecked(0, 2)))
   assert_true(placeholders_normalized(opt_s.take([1, 0, 0])))
 }

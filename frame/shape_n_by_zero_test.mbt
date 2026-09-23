@@ -69,12 +69,12 @@ test "head / tail / slice / gather / reverse do their arithmetic on an N×0 fram
   let df = nby0(5)
   assert_eq(df.head(2).shape(), (2, 0))
   assert_eq(df.tail(3).shape(), (3, 0))
-  assert_eq(df.slice(1, 4).shape(), (3, 0))
+  assert_eq(df.slice(1, length=3).shape(), (3, 0))
   assert_eq(df.gather([0, 0, 4]).shape(), (3, 0))
   assert_eq(df.reverse().shape(), (5, 0))
   // Clamping still applies: asking for more rows than there are yields all.
   assert_eq(df.head(99).shape(), (5, 0))
-  for out in [df.head(2), df.tail(3), df.slice(1, 4), df.reverse()] {
+  for out in [df.head(2), df.tail(3), df.slice(1, length=3), df.reverse()] {
     assert_eq(out.check_invariants(), Ok(()))
   }
 }

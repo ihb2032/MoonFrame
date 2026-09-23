@@ -301,20 +301,16 @@ fn assert_backend_parity(bt : Series, nu : Series) -> Unit raise {
       ),
     )
   }
-  // Slice with a valid window, a zero-length window, and an out-of-range one.
+  // Slice with a valid window, a zero-length one, and a saturating
+  // out-of-range one — total now, so no error channel to align on.
   for window in [(0, n), (0, 0), (1, n + 5)] {
-    let (start, len) = window
+    let (offset, len) = window
     assert_true(
-      same_series_result(
-        Ok(bt.slice(start, len)) catch {
-          e => Err(e)
-        },
-        Ok(nu.slice(start, len)) catch {
-          e => Err(e)
-        },
-      ),
+      same_series(bt.slice(offset, length=len), nu.slice(offset, length=len)),
     )
   }
+  // An omitted length runs to the end on both backends.
+  assert_true(same_series(bt.slice(-2), nu.slice(-2)))
   // A multi-index gather mixing valid and invalid indices.
   assert_true(
     same_series_result(

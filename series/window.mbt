@@ -6,15 +6,14 @@
 // result onto the unboxed fast path.
 
 ///|
-/// Half-open `[start, end)` slice. Bounds checks mirror
-/// `BuiltinColumn::slice`; errors surface unchanged so callers receive
-/// the same `IndexOutOfBounds` / `InvalidOperation` diagnostics.
-pub fn Series::slice(
-  self : Series,
-  start : Int,
-  end : Int,
-) -> Series raise @types.DataError {
-  { name: self.name, storage: self.storage.slice(start, end), }
+/// A length-first cell window — the `Series` twin of `DataFrame::slice`,
+/// Polars' `Series.slice(offset, length)`. A negative `offset` counts from
+/// the end, saturating at the first cell; an omitted `length` runs to the
+/// end; a given one saturates at what remains, a negative one is empty.
+/// Total — never fails.
+pub fn Series::slice(self : Series, offset : Int, length? : Int) -> Series {
+  let start = @order.slice_start(offset, self.len())
+  slice_series(self, start, @order.slice_len(start, self.len(), length))
 }
 
 ///|

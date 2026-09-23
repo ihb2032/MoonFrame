@@ -318,7 +318,7 @@ test "rename returns a new series with the new name, sharing storage" {
 ///|
 test "slice mid-range produces a sub-series preserving name + nulls" {
   let s = Series::from_int_options("x", [Some(10), None, Some(30), Some(40)])
-  let part = s.slice(1, 3)
+  let part = s.slice(1, length=2)
   assert_eq(part.name(), "x")
   assert_eq(part.len(), 2)
   assert_eq(part.get(0), @types.Scalar::Null)
@@ -326,30 +326,21 @@ test "slice mid-range produces a sub-series preserving name + nulls" {
 }
 
 ///|
-test "slice bubbles column-level errors" {
-  let s = Series::from_ints("x", [1, 2, 3])
-  assert_eq(
-    Ok(s.slice(-1, 2)) catch {
-      e => Err(e)
-    },
-    Err(@types.DataError::IndexOutOfBounds(-1)),
-  )
-  assert_eq(
-    Ok(s.slice(0, 5)) catch {
-      e => Err(e)
-    },
-    Err(@types.DataError::IndexOutOfBounds(5)),
-  )
-  assert_true(
-    (Ok(s.slice(2, 1)) catch { e => Err(e) }) is Err(InvalidOperation(_)),
-  )
-  // A negative `end` is out of range, not a misordered pair.
-  assert_eq(
-    Ok(s.slice(0, -1)) catch {
-      e => Err(e)
-    },
-    Err(@types.DataError::IndexOutOfBounds(-1)),
-  )
+test "slice saturates like the frame verb: negative offset from the end, omitted length to the end" {
+  let s = Series::from_ints("x", [1, 2, 3, 4, 5])
+  assert_eq(s.slice(2).to_scalars(), [
+    @types.Scalar::Int(3),
+    @types.Scalar::Int(4),
+    @types.Scalar::Int(5),
+  ])
+  assert_eq(s.slice(-2).to_scalars(), [
+    @types.Scalar::Int(4),
+    @types.Scalar::Int(5),
+  ])
+  // Saturation on both ends, and a negative length is an empty window.
+  assert_eq(s.slice(-99).len(), 5)
+  assert_eq(s.slice(1, length=99).len(), 4)
+  assert_eq(s.slice(2, length=-5).len(), 0)
 }
 
 // ── gather ───────────────────────────────────────────────────────────

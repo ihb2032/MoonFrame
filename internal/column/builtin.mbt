@@ -349,32 +349,11 @@ pub fn scalar_of(
 // ── Sub-views ─────────────────────────────────────────────────────────
 
 ///|
-/// Half-open `[start, end)` slice. Requires `0 <= start <= end <= len`.
-///
-/// Errors (checked in this order):
-/// - `IndexOutOfBounds(start)` when `start < 0`.
-/// - `IndexOutOfBounds(end)` when `end` is outside `[0, len]`.
-/// - `InvalidOperation("slice start > end: .")` when `start > end`.
-///
-/// `start > len` is not a separate case: it can only occur together with
-/// `end > len` (→ `IndexOutOfBounds(end)`) or `start > end`
-/// (→ `InvalidOperation`), both already rejected above.
-fn BuiltinColumn::slice(
-  self : BuiltinColumn,
-  start : Int,
-  end : Int,
-) -> BuiltinColumn raise @types.DataError {
-  validate_slice_bounds(start, end, self.len())
-  self.slice_unchecked(start, end)
-}
-
-///|
-/// Total `[start, end)` slice — the shared core behind `slice` (which
-/// validates the bounds then calls this). Copies the row data and takes a
-/// zero-copy validity view (`Bitmap::slice_view`). The caller must guarantee
-/// `0 <= start <= end <= len`; `slice` enforces that, and `ColumnStorage`'s
-/// total `slice_total` clamps before delegating, so this never reads out of
-/// bounds.
+/// Total `[start, end)` slice — the raw sub-range core. Copies the row data
+/// and takes a zero-copy validity view (`Bitmap::slice_view`). The caller
+/// must guarantee `0 <= start <= end <= len`;
+/// `ColumnStorage::slice_total` clamps before delegating, so this never
+/// reads out of bounds.
 fn BuiltinColumn::slice_unchecked(
   self : BuiltinColumn,
   start : Int,

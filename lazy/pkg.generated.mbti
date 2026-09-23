@@ -39,7 +39,7 @@ pub fn LazyFrame::rename(Self, Array[(String, String)]) -> Self
 pub fn LazyFrame::rename_with(Self, (String) -> String) -> Self
 pub fn LazyFrame::reverse(Self) -> Self
 pub fn LazyFrame::select(Self, Array[@expr.Expr]) -> Self
-pub fn LazyFrame::slice(Self, Int, Int) -> Self
+pub fn LazyFrame::slice(Self, Int, length? : Int) -> Self
 pub fn LazyFrame::sort(Self, Array[(@expr.Expr, Bool, Bool)]) -> Self
 pub fn LazyFrame::sum(Self) -> Self
 pub fn LazyFrame::tail(Self, Int) -> Self

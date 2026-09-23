@@ -44,7 +44,9 @@ test "explain: the row-window nodes" {
   let base = LazyFrame::LazyFrame(sales_df())
   assert_eq(base.head(2).explain(), "HEAD 2\n  SCAN [4×3]")
   assert_eq(base.tail(1).explain(), "TAIL 1\n  SCAN [4×3]")
-  assert_eq(base.slice(1, 3).explain(), "SLICE [1, 3)\n  SCAN [4×3]")
+  assert_eq(base.slice(1, length=2).explain(), "SLICE [1: 2]\n  SCAN [4×3]")
+  // An omitted length renders without one, exactly as the node stores it.
+  assert_eq(base.slice(-2).explain(), "SLICE [-2: ]\n  SCAN [4×3]")
   // limit defers the same node as head, so it explains as HEAD.
   assert_eq(base.limit(2).explain(), base.head(2).explain())
 }

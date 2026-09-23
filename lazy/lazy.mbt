@@ -94,12 +94,15 @@ pub fn LazyFrame::tail(self : LazyFrame, n : Int) -> LazyFrame {
 }
 
 ///|
-/// Defer `DataFrame::slice`: the half-open row window `[start, end)`.
-/// Unlike `head` / `tail` this mirrors eager `slice`'s bounds checks —
-/// out-of-range bounds (`IndexOutOfBounds`) or `start > end`
-/// (`InvalidOperation`) surface when the plan is collected.
-pub fn LazyFrame::slice(self : LazyFrame, start : Int, end : Int) -> LazyFrame {
-  { plan: Unary(self.plan, Slice(start, end)), }
+/// Defer `DataFrame::slice`: a saturating length-first row window, an
+/// omitted `length` running to the end. Like eager `slice` this never
+/// fails — saturation resolves against the collected frame's height.
+pub fn LazyFrame::slice(
+  self : LazyFrame,
+  offset : Int,
+  length? : Int,
+) -> LazyFrame {
+  { plan: Unary(self.plan, Slice(offset, length)), }
 }
 
 ///|

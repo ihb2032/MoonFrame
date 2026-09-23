@@ -85,7 +85,11 @@ fn apply_frame_op(
     Sort(by) => df.sort(by)
     Head(n) => df.head(n)
     Tail(n) => df.tail(n)
-    Slice(start, end) => df.slice(start, end)
+    Slice(offset, length) =>
+      match length {
+        Some(l) => df.slice(offset, length=l)
+        None => df.slice(offset)
+      }
     Drop(exprs) => df.drop(exprs)
     Rename(pairs) => df.rename(pairs)
     RenameWith(f) => df.rename_with(f)

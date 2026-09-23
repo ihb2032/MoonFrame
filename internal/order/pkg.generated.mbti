@@ -4,6 +4,10 @@ package "ihb2032/MoonFrame/internal/order"
 // Values
 pub fn clamp_take(Int, Int) -> Int
 
+pub fn slice_len(Int, Int, Int?) -> Int
+
+pub fn slice_start(Int, Int) -> Int
+
 pub fn stable_mergesort_indices(Int, (Int, Int) -> Int) -> Array[Int]
 
 // Errors

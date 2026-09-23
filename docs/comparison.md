@@ -21,6 +21,13 @@ libraries — not a derivative work of either codebase.
 
 ## Aligned with Polars
 
+- **Bracket access** — `df["qty"]` reads a column, `s[0]` a cell, and
+  `df[1:3]` / `df[2:]` / `df[:-1]` is the bracket-slice sugar: half-open,
+  negatives from the end, omitted bounds to the ends. As in Polars, the sugar
+  is a translation layer — the bounds normalize into the one
+  `slice(offset, length)` kernel — and as in MoonBit, an index bracket does
+  not wrap negatives (`s[-1]` raises; the slice spelling is where they count
+  from the end).
 - **The four verbs take expressions** — `select` / `filter` / `with_columns`
   take `Expr`s on both `DataFrame` and `LazyFrame`, and so does `agg`, reached
   as `group_by(keys).agg(aggregations)` through the grouped intermediate each

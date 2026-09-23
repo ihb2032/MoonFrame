@@ -416,16 +416,22 @@ test "median is the middle, averaging the two middles for an even count" {
 }
 
 ///|
-test "median skips NaN, and raises on empty / all-NaN / non-numeric" {
+test "median propagates NaN, and raises on empty / non-numeric" {
   let nan : Double = @double.not_a_number
-  // A NaN is treated as missing (order statistic), unlike sum / mean.
-  assert_eq(Series::from_floats("x", [1.0, nan, 3.0]).median(), (2.0 : Double))
+  // A NaN propagates, as in sum / mean: the median of a column holding one
+  // is that NaN, not the statistic of the rest.
   assert_true(
-    (Ok(Series::from_ints("x", []).median()) catch { e => Err(e) })
-    is Err(InvalidOperation(_)),
+    match Series::from_floats("x", [1.0, nan, 3.0]).median() {
+      v => v.is_nan()
+    },
   )
   assert_true(
-    (Ok(Series::from_floats("x", [nan]).median()) catch { e => Err(e) })
+    match Series::from_floats("x", [nan]).median() {
+      v => v.is_nan()
+    },
+  )
+  assert_true(
+    (Ok(Series::from_ints("x", []).median()) catch { e => Err(e) })
     is Err(InvalidOperation(_)),
   )
   assert_true(

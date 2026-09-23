@@ -35,12 +35,11 @@
 /// behave the same as "sort by dept, then within each dept sort by
 /// salary descending".
 ///
-/// Null and `NaN` placement is governed by each key's `nulls_last`.
-/// `NaN` in a `Float` key is treated identically to `Null` for
-/// ordering — IEEE 754 makes `<` / `>` against NaN return `false`, so a
-/// naive comparator would scatter NaNs unpredictably. (This is the one
-/// deliberate departure from Polars, which orders `NaN` as the largest
-/// value and treats only `Null` as missing.)
+/// Null placement is governed by each key's `nulls_last`; a `Float` `NaN` is
+/// a value, not a placement decision: it orders by the IEEE total order —
+/// larger than every other value — so it trails an ascending sort and leads
+/// a descending one, independent of where the nulls sit (plain `<` / `>`
+/// against `NaN` are `false`, so the total order is what places it at all).
 ///
 /// The returned frame routes through `DataFrame::gather`, so the schema
 /// (column names, dtypes, order) is preserved verbatim and only the row

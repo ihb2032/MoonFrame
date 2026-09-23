@@ -396,7 +396,7 @@ test "sort on an all-null Int column is a stable identity" {
 // ── NaN handling: Float NaN is treated as null ───────────────────────
 
 ///|
-test "sort Float treats NaN identically to Null (NullsLast)" {
+test "sort Float orders NaN by the total order, nulls placed by their flag" {
   let nan = (0.0 : Double) / (0.0 : Double)
   let df = DataFrame::DataFrame([
     Series::from_float_options("v", [
@@ -409,15 +409,13 @@ test "sort Float treats NaN identically to Null (NullsLast)" {
   ])
   let out = df.sort([(@expr.col("v"), false, true)])
   assert_eq(out.check_invariants(), Ok(()))
-  // Reals first (1.0, 2.0) then NaN-and-Null bucket in original order
-  // (nan came before null in the source).
+  // Reals first (1.0, 2.0), then the NaN — the total order's largest value —
+  // then the null, which `nulls_last` places after every value.
   assert_eq(out.item(0, "v"), @types.Scalar::Float(1.0))
   assert_eq(out.item(0, "s"), @types.Scalar::String("one"))
   assert_eq(out.item(1, "v"), @types.Scalar::Float(2.0))
   assert_eq(out.item(1, "s"), @types.Scalar::String("two"))
-  // Position 2: the NaN. Reading it back as Scalar yields a non-null
-  // Float because the validity bit is still 1 — NaN is *valid* in
-  // Arrow terms, the sort treats it as missing only for ordering.
+  // Position 2: the NaN, a valid cell reading back as a non-null Float.
   assert_eq(out.item(2, "s"), @types.Scalar::String("nan"))
   let v2 = out.item(2, "v")
   match v2 {
@@ -430,7 +428,7 @@ test "sort Float treats NaN identically to Null (NullsLast)" {
 }
 
 ///|
-test "sort Float NullsFirst groups NaN with Null at the top" {
+test "sort Float NullsFirst places the null first and NaN by value last" {
   let nan = (0.0 : Double) / (0.0 : Double)
   let df = DataFrame::DataFrame([
     Series::from_float_options("v", [Some((1.0 : Double)), Some(nan), None]),
@@ -438,20 +436,21 @@ test "sort Float NullsFirst groups NaN with Null at the top" {
   ])
   let out = df.sort([(@expr.col("v"), false, false)])
   assert_eq(out.check_invariants(), Ok(()))
-  // NullsFirst groups NaN + Null at the start (stable: nan first,
-  // then null).
-  assert_eq(out.item(0, "s"), @types.Scalar::String("nan"))
-  assert_eq(out.item(1, "s"), @types.Scalar::String("null"))
-  assert_eq(out.item(2, "v"), @types.Scalar::Float(1.0))
+  // The null leads (NullsFirst governs missing cells only); the values
+  // follow ascending, with the NaN — the total order's largest — at the
+  // end.
+  assert_eq(out.item(0, "s"), @types.Scalar::String("null"))
+  assert_eq(out.item(1, "v"), @types.Scalar::Float(1.0))
+  assert_eq(out.item(2, "s"), @types.Scalar::String("nan"))
 }
 
 ///|
-test "sort multi-key: NaN in a secondary Float key orders like null within a tied group" {
+test "sort multi-key: NaN as a secondary Float key orders by value within a tied group" {
   let nan = (0.0 : Double) / (0.0 : Double)
   // A single tied primary group (`g` all "A") so the secondary Float key `v`
-  // decides every position: reals sort ascending, then the NaN/null bucket
-  // (NullsLast) in source order — NaN must order exactly like null, even as a
-  // tiebreaker key.
+  // decides every position: reals sort ascending, then the NaN — the largest
+  // value, even as a tiebreaker — then the null, which `nulls_last` places
+  // after every value.
   let df = DataFrame::DataFrame([
     Series::from_strings("g", ["A", "A", "A", "A"]),
     Series::from_float_options("v", [
@@ -469,8 +468,8 @@ test "sort multi-key: NaN in a secondary Float key orders like null within a tie
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.item(0, "tag"), @types.Scalar::String("one")) // 1.0
   assert_eq(out.item(1, "tag"), @types.Scalar::String("two")) // 2.0
-  assert_eq(out.item(2, "tag"), @types.Scalar::String("nan")) // NaN, source order
-  assert_eq(out.item(3, "tag"), @types.Scalar::String("null")) // null, after NaN
+  assert_eq(out.item(2, "tag"), @types.Scalar::String("nan")) // NaN, largest value
+  assert_eq(out.item(3, "tag"), @types.Scalar::String("null")) // null, placed last
 }
 
 // ── Computed keys: sort by a value that never lands in the output ─────

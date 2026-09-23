@@ -7,14 +7,14 @@
 /// The simple uppercase mapping of one code point, or the code point itself
 /// when it has none — the Unicode Standard's default single-character
 /// casing, one binary search over the sorted generated table.
-pub fn simple_upper(cp : UInt) -> UInt {
+fn simple_upper(cp : UInt) -> UInt {
   case_lookup(unicode_simple_upper, cp)
 }
 
 ///|
 /// The simple lowercase mapping of one code point, or the code point itself
 /// when it has none.
-pub fn simple_lower(cp : UInt) -> UInt {
+fn simple_lower(cp : UInt) -> UInt {
   case_lookup(unicode_simple_lower, cp)
 }
 

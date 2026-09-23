@@ -17,7 +17,9 @@ error-detail enums became `#non_exhaustive`. Nine value-type members were
 removed — predicates and comparisons that spelled out what a pattern match,
 a column expression, or the comparison kernel already says — and two enums
 are deleted outright: the sort vocabulary became Polars' two flags. The
-nullable series constructors likewise converged into one.
+nullable series constructors likewise converged into one, and the window
+verbs took Polars' saturating semantics — `slice` never raises, and a
+negative `head` / `tail` count drops from the opposite end.
 
 ### `DataType` / `Scalar` gained a `Date` variant
 
@@ -127,6 +129,23 @@ df.slice(1)             // row 1 to the end (new: omitted length)
 
 An `explain` node renders the new shape: `SLICE [1: 2]`, and `SLICE [-2: ]`
 when the length is omitted.
+
+### `head` / `tail` with a negative `n` drop from the opposite end
+
+`DataFrame::head` / `tail` (and the `Series` twins, and `limit`) follow
+Polars' convention where they used to clamp a negative `n` to an empty
+frame: `head(-2)` keeps every row but the last two, `tail(-2)` every row
+but the first two, and a `|n|` past the frame's height leaves nothing.
+`df.head(-1)` was `0×N`; it is now `(N-1)×N`.
+
+### `Series::sort` places nulls first by default
+
+The default for `nulls_last` moves from `true` to `false` — Polars' own
+default, which places missing cells at the head of an ascending sort. An
+omitted flag used to read `sort(nulls_last=true)`; it now reads
+`sort(nulls_last=false)`. `DataFrame::sort` / `LazyFrame::sort` keys spell
+both flags explicitly and are unchanged, as is the rule that missing
+placement does not flip with `descending`.
 
 ### Nullable series construction is one constructor
 

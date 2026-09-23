@@ -192,7 +192,8 @@ fn missing_offset(nulls_last : Bool) -> Int {
 ///|
 /// Sort the series' own values, returning a new series with the same name —
 /// Polars' `Series.sort`. `descending` defaults to ascending and
-/// `nulls_last` to `true`, and both mean exactly what they mean for the
+/// `nulls_last` to `false` — Polars' own default, which places missing cells
+/// first in an ascending sort — and both mean exactly what they mean for the
 /// corresponding `DataFrame::sort` key flags: the same kernel resolves the
 /// column, so a `Float` `NaN` counts as missing alongside `Null` (the
 /// repository's deliberate ordering convention) and ties keep their input
@@ -203,7 +204,7 @@ fn missing_offset(nulls_last : Bool) -> Int {
 pub fn Series::sort(
   self : Series,
   descending? : Bool = false,
-  nulls_last? : Bool = true,
+  nulls_last? : Bool = false,
 ) -> Series {
   let key = build_sort_key(self, descending, nulls_last)
   let perm = @order.stable_mergesort_indices(self.len(), (i, j) => {

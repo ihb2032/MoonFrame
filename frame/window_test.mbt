@@ -29,11 +29,14 @@ test "head clamps n > nrows to nrows" {
 }
 
 ///|
-test "head clamps n < 0 to 0" {
+test "head with a negative n keeps every row but the last |n|, as Polars" {
   let df = DataFrame::DataFrame([Series::from_ints("a", [1, 2, 3])])
-  let empty = df.head(-5)
-  assert_eq(empty.shape(), (0, 1))
-  assert_true(empty.is_empty())
+  // head(-1) drops the final row.
+  let but_last = df.head(-1)
+  assert_eq(but_last.shape(), (2, 1))
+  assert_eq(but_last.item(1, "a"), @types.Scalar::Int(2))
+  // |n| reaching past the frame leaves nothing.
+  assert_eq(df.head(-5).shape(), (0, 1))
 }
 
 ///|
@@ -49,12 +52,15 @@ test "tail returns the last n rows with the same schema" {
 }
 
 ///|
-test "tail clamps n > nrows and n < 0" {
+test "tail clamps n > nrows; a negative n keeps every row but the first |n|" {
   let df = DataFrame::DataFrame([Series::from_ints("a", [1, 2, 3])])
   let all = df.tail(99)
   assert_eq(all.shape(), (3, 1))
-  let empty = df.tail(-1)
-  assert_true(empty.is_empty())
+  // tail(-1) drops the leading row.
+  let but_first = df.tail(-1)
+  assert_eq(but_first.shape(), (2, 1))
+  assert_eq(but_first.item(0, "a"), @types.Scalar::Int(2))
+  assert_eq(df.tail(-5).shape(), (0, 1))
 }
 
 // ── slice ────────────────────────────────────────────────────────────

@@ -1,18 +1,20 @@
 // The row-window verbs: `head` / `tail` / `slice` / `gather` — the transforms
 // that keep a frame's schema verbatim and move or trim *rows*, one verb family
 // per file like the other verbs (`reverse` for row order,
-// `unique` for row identity, `sort` for row arrangement). The row cap
-// they share is `clamp_take`, the same saturating limit behind the
-// table renderer's visible window.
+// `unique` for row identity, `sort` for row arrangement). The row counts
+// they share come from `@order`: `window_take` for the Polars head/tail
+// convention, `slice_start` / `slice_len` for the saturating window.
 
 ///|
-/// First `n` rows (or all rows if `n >= nrows`). Negative `n` clamps to
-/// `0`. Total — never fails. Also exposed under its Polars / SQL name
+/// First `n` rows (or all rows if `n >= nrows`) — Polars' `head`. A negative
+/// `n` keeps every row but the last `|n|` (`head(-2)` drops the final two
+/// rows), saturating to the whole frame when `|n|` reaches past it. Total —
+/// never fails. Also exposed under its Polars / SQL name
 /// `limit` (via `#alias`) — the eager twin of `LazyFrame::limit`, keeping
 /// the two surfaces verb-for-verb aligned.
 #alias(limit)
 pub fn DataFrame::head(self : DataFrame, n : Int) -> DataFrame {
-  let m = @order.clamp_take(n, self.nrows)
+  let m = @order.window_take(n, self.nrows)
   // `0 <= m <= nrows == c.len()`, so the contiguous row slice is in-bounds
   // and needs no bounds-checking `Result`.
   let new_cols : Array[Series] = self.columns.map(c => slice_series(c, 0, m))
@@ -21,10 +23,12 @@ pub fn DataFrame::head(self : DataFrame, n : Int) -> DataFrame {
 }
 
 ///|
-/// Last `n` rows (or all rows if `n >= nrows`). Negative `n` clamps to
-/// `0`. Total — never fails.
+/// Last `n` rows (or all rows if `n >= nrows`) — Polars' `tail`. A negative
+/// `n` keeps every row but the first `|n|` (`tail(-2)` drops the leading two
+/// rows), saturating to the whole frame when `|n|` reaches past it. Total —
+/// never fails.
 pub fn DataFrame::tail(self : DataFrame, n : Int) -> DataFrame {
-  let m = @order.clamp_take(n, self.nrows)
+  let m = @order.window_take(n, self.nrows)
   let start = self.nrows - m
   // Same in-bounds argument as `head`: `start + m == nrows == c.len()`.
   let new_cols : Array[Series] = self.columns.map(c => slice_series(c, start, m))

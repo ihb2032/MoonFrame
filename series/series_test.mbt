@@ -587,7 +587,7 @@ test "cast to String renders value-style across dtypes" {
 // ── ordering verbs ────────────────────────────────────────────────────
 
 ///|
-test "Series::sort orders values, defaulting to ascending with nulls last" {
+test "Series::sort orders values, defaulting to ascending with nulls first, as Polars" {
   let s = @series.Series::from_int_options("v", [
     Some(3),
     None,
@@ -595,22 +595,26 @@ test "Series::sort orders values, defaulting to ascending with nulls last" {
     Some(2),
   ])
   assert_eq(s.sort().to_scalars(), [
+    @types.Scalar::Null,
     @types.Scalar::Int(1),
     @types.Scalar::Int(2),
     @types.Scalar::Int(3),
-    @types.Scalar::Null,
   ])
+  // Missing placement is direction-independent (the deliberate model this
+  // repository documents): `nulls_last = false` keeps nulls leading even
+  // under `descending`, where Polars — nulls as the smallest *value* —
+  // would drop them to the tail.
   assert_eq(s.sort(descending=true).to_scalars(), [
+    @types.Scalar::Null,
     @types.Scalar::Int(3),
     @types.Scalar::Int(2),
     @types.Scalar::Int(1),
-    @types.Scalar::Null,
   ])
-  assert_eq(s.sort(nulls_last=false).to_scalars(), [
-    @types.Scalar::Null,
+  assert_eq(s.sort(nulls_last=true).to_scalars(), [
     @types.Scalar::Int(1),
     @types.Scalar::Int(2),
     @types.Scalar::Int(3),
+    @types.Scalar::Null,
   ])
   // The name rides along; sorting an empty series is the empty series.
   assert_eq(s.sort().name(), "v")
@@ -622,15 +626,24 @@ test "Series::sort treats NaN as missing, exactly like DataFrame::sort" {
   let nan = 0.0 / 0.0
   let s = @series.Series::from_floats("f", [2.5, nan, 1.5])
   let sorted = s.sort().to_scalars()
-  assert_eq(sorted[0], @types.Scalar::Float(1.5))
-  assert_eq(sorted[1], @types.Scalar::Float(2.5))
-  // The NaN sorts with the missing cells, at the end under the default.
-  assert_true(sorted[2] is @types.Scalar::Float(_))
-  let last = match sorted[2] {
+  // The NaN sorts with the missing cells, which lead under the default.
+  assert_true(sorted[0] is @types.Scalar::Float(_))
+  let first = match sorted[0] {
     @types.Scalar::Float(v) => v.is_nan()
     _ => false
   }
-  assert_true(last)
+  assert_true(first)
+  assert_eq(sorted[1], @types.Scalar::Float(1.5))
+  assert_eq(sorted[2], @types.Scalar::Float(2.5))
+  // With nulls last, the same NaN follows the missing cells to the end.
+  let tail_sorted = s.sort(nulls_last=true).to_scalars()
+  assert_eq(tail_sorted[0], @types.Scalar::Float(1.5))
+  assert_true(
+    match tail_sorted[2] {
+      @types.Scalar::Float(v) => v.is_nan()
+      _ => false
+    },
+  )
 }
 
 ///|
@@ -650,9 +663,12 @@ test "Series::head / tail / reverse mirror the DataFrame verbs" {
     @types.Scalar::Int(2),
     @types.Scalar::Int(1),
   ])
-  // Clamping: a negative count is empty, an oversized one is everything.
-  assert_eq(s.head(-1).len(), 0)
-  assert_eq(s.tail(-1).len(), 0)
+  // Clamping: an oversized count is everything; a negative one drops from
+  // the opposite end, as Polars' head / tail do.
+  assert_eq(s.head(-1).len(), 3)
+  assert_eq(s.head(-1).get(2), @types.Scalar::Int(3))
+  assert_eq(s.tail(-1).len(), 3)
+  assert_eq(s.tail(-1).get(0), @types.Scalar::Int(2))
   assert_eq(s.head(99), s)
   assert_eq(s.tail(99), s)
   // Names ride along, and reversing twice is the identity.

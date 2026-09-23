@@ -75,7 +75,17 @@ configured.
 - **`sort` treats `NaN` as missing.** When sorting, a `Float` `NaN` is ordered
   by the key's `nulls_last` flag (like a null), whereas Polars treats `NaN` as a
   value that sorts last independently of `nulls_last`. This is a deliberate
-  divergence, not an oversight.
+  divergence, not an oversight. Missing placement is also
+  **direction-independent**: `nulls_last = false` keeps nulls (and the `NaN`s
+  folded into them) leading even under `descending`, where Polars — nulls as
+  the smallest *value* — would drop them to the tail. The default is
+  `nulls_last = false`, Polars' own default.
+- **`describe` summarises differently.** MoonFrame's rows are `count` /
+  `null_count` / `n_unique` / `mean` / `min` / `max`, with `min` / `max`
+  rendered as `String` so one table carries every dtype; Polars' are `count` /
+  `null_count` / `mean` / `std` / `min` / the three quartiles / `max`, all
+  numeric. The quartiles are not implemented (the deferral list), and the
+  `String` rendering is a table-shape choice.
 - **`median` skips `NaN`.** As an order statistic it follows the `min` / `max`
   rule and ignores `NaN`, whereas Polars propagates `NaN` through `median`.
 - **Mixed `Int` / `Float` comparison is exact.** An `Int64` compared against a

@@ -715,3 +715,29 @@ test "scalars_to_series rejects Null, the dtype with no column backend" {
     Err(@types.DataError::Unsupported("cannot build a column of dtype Null: n")),
   )
 }
+
+///|
+test "s[i] reads a cell (no negative wrap); s[a:b] is the bracket-slice sugar" {
+  let s = Series::from_int_options("v", [Some(1), None, Some(3), Some(4)])
+  assert_eq(s[0], @types.Scalar::Int(1))
+  assert_eq(s[1], @types.Scalar::Null)
+  assert_true(
+    (Ok(s[9]) catch { e => Err(e) })
+    is Err(@types.DataError::IndexOutOfBounds(9)),
+  )
+  // MoonBit indexing convention: a negative index raises rather than
+  // wrapping — negatives count from the end in the slice spelling only.
+  assert_true(
+    (Ok(s[-1]) catch { e => Err(e) })
+    is Err(@types.DataError::IndexOutOfBounds(-1)),
+  )
+  assert_eq(s[1:3].len(), 2)
+  assert_eq(s[1:3].get(0), @types.Scalar::Null)
+  assert_eq(s[2:].len(), 2)
+  assert_eq(s[:2].len(), 2)
+  assert_eq(s[:].len(), 4)
+  assert_eq(s[:-1].len(), 3)
+  assert_eq(s[-2:].get(0), @types.Scalar::Int(3))
+  assert_eq(s[3:1].len(), 0)
+  assert_eq(s[1:3], s.slice(1, length=2))
+}

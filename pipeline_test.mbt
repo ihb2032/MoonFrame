@@ -427,3 +427,17 @@ test "pipeline: the column selectors are reachable unqualified" {
   assert_eq(cols_of_dtype(df, DataType::String).length(), 1)
   assert_eq(df.select(cols_matching(df, "^p")).columns(), ["price"])
 }
+
+///|
+test "pipeline: bracket access rides the facade" {
+  // The bracket spellings must resolve through the facade's re-exports —
+  // the alias is a method on the re-exported type, so syntax written the
+  // way a downstream caller writes it has to compile here.
+  let df = DataFrame::DataFrame([
+    Series::from_ints("x", [10, 20, 30, 40]),
+    Series::from_strings("tag", ["a", "b", "c", "d"]),
+  ])
+  assert_eq(df["x"].sum(), @types.Scalar::Int(100))
+  assert_eq(df[1:3].nrows(), 2)
+  assert_eq(df[2:]["x"][0], @types.Scalar::Int(30))
+}

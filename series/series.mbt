@@ -376,8 +376,12 @@ pub fn Series::is_null(self : Series, i : Int) -> Bool raise @types.DataError {
 }
 
 ///|
-/// Read cell `i` as a `Scalar` (`Null` for null cells). Out-of-bounds
-/// indices bubble the underlying `IndexOutOfBounds` error.
+/// Read cell `i` as a `Scalar` (`Null` for null cells) — the bracket
+/// spelling `s[0]` (Polars' `s[0]`). Out-of-bounds indices bubble the
+/// underlying `IndexOutOfBounds` error; a negative index does **not** wrap
+/// from the end (MoonBit indexing convention — the slice spelling `s[-1:]`
+/// is where negatives count from the end).
+#alias("_[_]")
 pub fn Series::get(
   self : Series,
   i : Int,

@@ -2,6 +2,8 @@
 package "ihb2032/MoonFrame/internal/order"
 
 // Values
+pub fn between_bounds(Int?, Int?, Int) -> (Int, Int)
+
 pub fn clamp_take(Int, Int) -> Int
 
 pub fn slice_len(Int, Int, Int?) -> Int

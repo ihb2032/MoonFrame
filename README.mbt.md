@@ -141,6 +141,8 @@ same way.
   and formula neutralisation for spreadsheet-facing exports.
 - **Reshape** — `filter`, `select`, `drop`, `rename`, `with_columns`, multi-key
   `sort`, row dedup (`unique`), and null handling (`drop_nulls`, `fill_null`).
+  Brackets read Polars-style: `df["qty"]` a column, `df[1:3]` / `df[:-1]` a
+  row window, `s[0]` a cell.
 - **Group & aggregate** — `group_by(keys).agg([...])` with `sum` / `mean` /
   `min` / `max` / `count` / `std` / `variance` / `median` / `n_unique` /
   `first` / `last`.

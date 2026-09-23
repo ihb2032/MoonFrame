@@ -574,5 +574,6 @@ test "limit is head: first n rows, clamped the same way" {
   assert_eq(df.limit(2), df.head(2))
   assert_eq(df.limit(0).nrows(), 0)
   assert_eq(df.limit(99), df)
-  assert_eq(df.limit(-1).nrows(), 0)
+  // limit is head, so a negative n drops from the tail, as Polars' head.
+  assert_eq(df.limit(-1).nrows(), 2)
 }

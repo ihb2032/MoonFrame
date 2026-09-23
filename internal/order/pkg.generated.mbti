@@ -10,6 +10,8 @@ pub fn slice_start(Int, Int) -> Int
 
 pub fn stable_mergesort_indices(Int, (Int, Int) -> Int) -> Array[Int]
 
+pub fn window_take(Int, Int) -> Int
+
 // Errors
 
 // Types and methods

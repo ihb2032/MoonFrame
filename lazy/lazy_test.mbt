@@ -574,9 +574,10 @@ test "head, tail, and limit inherit the eager total clamp" {
   // Beyond the frame: every row survives, nothing raises.
   assert_eq(LazyFrame::LazyFrame(df).head(100).collect(), df)
   assert_eq(LazyFrame::LazyFrame(df).tail(100).collect(), df)
-  // Negative n clamps to zero rows, mirroring eager head.
+  // Beyond the frame: every row survives, nothing raises. A negative n
+  // drops from the opposite end, mirroring the eager verbs.
   assert_eq(LazyFrame::LazyFrame(df).head(-1).collect(), df.head(-1))
-  assert_eq(LazyFrame::LazyFrame(df).head(-1).collect().nrows(), 0)
+  assert_eq(LazyFrame::LazyFrame(df).head(-1).collect().nrows(), df.nrows() - 1)
   // limit is head under its SQL name.
   assert_eq(LazyFrame::LazyFrame(df).limit(2).collect(), df.head(2))
 }

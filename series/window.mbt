@@ -34,19 +34,19 @@ pub fn Series::gather(
 
 ///|
 /// The first `n` cells, or every cell when `n` exceeds the length — the
-/// `Series` twin of `DataFrame::head`. A negative `n` clamps to an empty
-/// series. Total.
+/// `Series` twin of `DataFrame::head`. A negative `n` keeps every cell but
+/// the last `|n|`, as Polars' `head` does. Total.
 pub fn Series::head(self : Series, n : Int) -> Series {
-  slice_series(self, 0, @order.clamp_take(n, self.len()))
+  slice_series(self, 0, @order.window_take(n, self.len()))
 }
 
 ///|
 /// The last `n` cells, or every cell when `n` exceeds the length — the
-/// `Series` twin of `DataFrame::tail`. A negative `n` clamps to an empty
-/// series. Total.
+/// `Series` twin of `DataFrame::tail`. A negative `n` keeps every cell but
+/// the first `|n|`, as Polars' `tail` does. Total.
 pub fn Series::tail(self : Series, n : Int) -> Series {
   let len = self.len()
-  let take = @order.clamp_take(n, len)
+  let take = @order.window_take(n, len)
   // `slice_series`' third argument is the window *length*, not the end index —
   // pass `take` (as `DataFrame::tail` does), so `start + take == len` stays in
   // bounds. Passing `len` here relied on the slice clamping an over-large end

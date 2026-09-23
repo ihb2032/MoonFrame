@@ -621,3 +621,56 @@ test "str: a non-String operand is a TypeMismatch" {
     ),
   )
 }
+
+///|
+test "str case maps Unicode letters, not just ASCII" {
+  // The default case conversion: é/É, Greek α/Α, Cyrillic е/Е, and ß —
+  // whose uppercase is the SpecialCasing SS expansion — plus the ﬁ
+  // ligature and İ (which lowercases to i + combining dot above). CJK and
+  // emoji carry no case mapping and pass through.
+  let df = @frame.DataFrame::DataFrame([
+    @series.Series::from_strings("s", [
+      "café", "αβγ", "привет", "straße", "日本語", "\u{1F600}", "ﬁ",
+      "İ",
+    ]),
+  ])
+  let up = df.with_columns([@expr.col("s").str_to_uppercase().with_alias("u")])
+  assert_eq(up.get_column("u").to_scalars(), [
+    @types.Scalar::String("CAFÉ"),
+    @types.Scalar::String("ΑΒΓ"),
+    @types.Scalar::String("ПРИВЕТ"),
+    @types.Scalar::String("STRASSE"),
+    @types.Scalar::String("日本語"),
+    @types.Scalar::String("\u{1F600}"),
+    @types.Scalar::String("FI"),
+    @types.Scalar::String("İ"),
+  ])
+  let lo = df.with_columns([@expr.col("s").str_to_lowercase().with_alias("l")])
+  assert_eq(lo.get_column("l").to_scalars(), [
+    @types.Scalar::String("café"),
+    @types.Scalar::String("αβγ"),
+    @types.Scalar::String("привет"),
+    @types.Scalar::String("straße"),
+    @types.Scalar::String("日本語"),
+    @types.Scalar::String("\u{1F600}"),
+    @types.Scalar::String("ﬁ"),
+    @types.Scalar::String("i\u{307}"),
+  ])
+}
+
+///|
+test "str_strip_chars default trims Unicode whitespace, not just ASCII" {
+  // The White_Space property: NBSP, the narrow no-break space, and the
+  // ideographic space all surround the text here.
+  let df = @frame.DataFrame::DataFrame([
+    @series.Series::from_strings("s", [
+      "\u{A0}nbsp\u{A0}", "\u{202F}narrow\u{3000}", "plain",
+    ]),
+  ])
+  let out = df.with_columns([@expr.col("s").str_strip_chars().with_alias("t")])
+  assert_eq(out.get_column("t").to_scalars(), [
+    @types.Scalar::String("nbsp"),
+    @types.Scalar::String("narrow"),
+    @types.Scalar::String("plain"),
+  ])
+}

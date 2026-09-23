@@ -21,7 +21,10 @@ nullable series constructors likewise converged into one, the window
 verbs took Polars' saturating semantics — `slice` never raises, and a
 negative `head` / `tail` count drops from the opposite end — and floats
 now order by IEEE-754: `NaN` is a value in `sort` and propagates through
-`median`.
+`median`. String case mapping and the default trim set went Unicode, and
+the standards review closed two smaller gaps: `Date` renders ISO-8601
+years zero-padded, and the CSV writer gained Polars' `line_terminator`
+knob.
 
 ### `DataType` / `Scalar` gained a `Date` variant
 
@@ -119,6 +122,16 @@ back without a knob. The one signature change: the constructor now
 row into one), so a `CsvWriteOptions::CsvWriteOptions(...)` call in a
 non-raising context needs the usual `catch` / propagation.
 
+### `Date` renders ISO-8601 years zero-padded to four digits
+
+A `Scalar::Date` whose year is under 1000 used to render without its ISO
+padding — year 800 as `800-…`, year 0 as `0-…` — where ISO 8601's `YYYY`
+basic range is `0000`–`9999`. It now renders `0800-…` and `0000-01-01`,
+a negative year carries its sign over a padded magnitude (`-0002-09-16`),
+and a year beyond 9999 keeps its expanded spelling (`-194022-09-24`).
+Dates in 1000–9999 — every date a reader or the epoch neighbourhood
+produces — render exactly as before.
+
 ### Floats order by IEEE-754: `NaN` is a value in `sort` and `median`
 
 The two bespoke "`NaN` behaves like missing" rules are gone, replaced by the
@@ -131,6 +144,20 @@ of the window — it propagates, as `sum` / `mean` always have; the median of
 column is `NaN` (was an empty-window `InvalidOperation` on the whole-column
 path). `min` / `max` keep skipping it, null placement keeps its
 direction-independent model, and only `null` is missing.
+
+### String case mapping and the default trim set go Unicode
+
+`str_to_uppercase` / `str_to_lowercase` map every cased letter through the
+Unicode **default case conversion** — the simple one-to-one mappings (`é`
+→ `É`, Greek and Cyrillic across their alphabets) plus the SpecialCasing
+expansions — where they were ASCII-only before. A cell's length can grow:
+`straße` uppercases to `STRASSE` (`ß` → `SS`), the `ﬁ` ligature to `FI`,
+and `İ` lowercases to `i` + combining dot above. The locale-conditional
+rules (Turkish dotless `i`, final sigma) are not applied — the default
+conversion carries no locale. The default `str_strip_chars` set widens from
+ASCII whitespace to the Unicode `White_Space` property — NBSP, the narrow
+no-break space, and the ideographic space now trim alongside tab, newline,
+carriage-return, and space. A custom `chars` set is unchanged.
 
 ### `slice` is Polars' saturating window, never an error
 

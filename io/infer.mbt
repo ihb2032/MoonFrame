@@ -12,7 +12,7 @@
 // inference path and the JSON readers' `repr`-digit recovery both route
 // through them (the CSV-only `bool` probe stays with the CSV reader).
 // The frame-level orchestration around these cores — survivor compaction
-// and the two-phase pruned assembly — lives in `assembly.mbt`.
+// and the two-phase pruned assembly — belongs to the pruned-read assembly.
 //
 // One-file-one-test exemption: this shared inference skeleton has no
 // dedicated test file of its own. (doc-guard: unresolved) It is covered

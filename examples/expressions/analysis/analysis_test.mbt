@@ -1,6 +1,6 @@
 // Blackbox tests for the expression / lazy helpers. The CSV input is
 // driven through `@io.parse_csv_str` so the tests are deterministic and
-// file-free; `main.mbt` is the only piece that touches `read_csv` / the
+// file-free; the `main` entry is the only piece that touches `read_csv` / the
 // filesystem. Revenue / cost / quantity are chosen so every derived value
 // (profit, unit_price, the scaled revenue, the per-region means) is exact
 // on every backend.

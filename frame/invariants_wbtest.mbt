@@ -2,7 +2,7 @@
 // ill-formed `DataFrame` literals by reaching past the public
 // constructors so each error branch in the spec is exercised. Public
 // API alone can never reach these branches — that's the whole point
-// of the spec — so this file is the only home for them.
+// of the spec — so this whitebox module is the only home for them.
 
 // ── INV1: schema-columns arity mismatch ─────────────────────────────
 

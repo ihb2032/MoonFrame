@@ -1,6 +1,6 @@
 // Blackbox tests for the reporting helpers. The CSV input is driven
 // through `@io.parse_csv_str` so the tests are deterministic and file-free;
-// `main.mbt` is the only piece that touches `read_csv` / the filesystem.
+// the `main` entry is the only piece that touches `read_csv` / the filesystem.
 // Revenue / quantity are integers so the sums (and the rendered HTML /
 // Vega-Lite output) are byte-identical on every backend.
 

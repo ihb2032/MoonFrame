@@ -38,7 +38,7 @@
 ///
 /// Evaluation reuses the shared expression engine with `scope =` each
 /// group's row indices, inheriting the evaluator's documented aggregation
-/// semantics (the Aggregations enumeration in `expr_eval.mbt`, whose
+/// semantics (the Aggregations enumeration, whose
 /// canonical home is the series reducer's header) verbatim, including the
 /// grouped reading of them: an all-null group sums to the additive
 /// identity and means to a null cell. Dtype errors (`ColumnNotFound`,

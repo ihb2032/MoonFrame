@@ -146,8 +146,8 @@ fn signed_zero_safe(expr : @ir.ExprNode) -> Bool {
 /// independent of *which other groups exist*: never null, and never raising on
 /// values (so a dropped group cannot take its error with it). The null half is
 /// **conservative** — why it is kept, and what loosening it would take, is
-/// stated once in the crossing-rules header of `push_predicates`
-/// (`optimize_predicates.mbt`), the pass driver this rule serves.
+/// stated once in the crossing-rules header of `push_predicates`,
+/// the pass driver this rule serves.
 /// `sum` / `count` / `n_unique` always produce a non-null value, but only
 /// over a `row_stable` operand — a `sum(col.cast(Int))` or `sum(col.map(…))`
 /// still raises on the cells its operand meets, so a value-raising operand

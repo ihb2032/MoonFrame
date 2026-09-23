@@ -1,7 +1,7 @@
 // Pure pipeline logic for the sales-analysis example. Living in its
 // own library package keeps `main` thin (so it can be marked
 // `#coverage.skip` without losing real coverage) and lets the
-// blackbox tests next to this file exercise every branch through
+// blackbox tests beside it exercise every branch through
 // the facade — exactly the way a downstream user would call them.
 
 ///|

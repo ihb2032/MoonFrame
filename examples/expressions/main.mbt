@@ -7,7 +7,7 @@
 //            → LazyFrame::LazyFrame(...).explain() + .collect()
 //
 // All the logic lives in the sibling `analysis/` package so it is covered
-// by `analysis_test.mbt`. `main` is a thin orchestrator around `read_csv`
+// by that package's blackbox tests. `main` is a thin orchestrator around `read_csv`
 // / `println` and is therefore marked `#coverage.skip` — every meaningful
 // branch is in the helpers.
 //

@@ -1,6 +1,6 @@
 // Blackbox tests for the sales-analysis pipeline helpers. The CSV
 // inputs are driven through `@io.parse_csv_str` so the tests are
-// deterministic and file-free; `main.mbt` is the only piece that
+// deterministic and file-free; the `main` entry is the only piece that
 // touches `read_csv`.
 
 ///|

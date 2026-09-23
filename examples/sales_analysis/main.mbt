@@ -6,7 +6,7 @@
 //            → to_markdown (printable report)
 //
 // Pipeline logic lives in the sibling `pipeline/` package so it is
-// covered by `pipeline_test.mbt`. `main` is a thin orchestrator
+// covered by that package's blackbox tests. `main` is a thin orchestrator
 // around `read_csv` + `println` and is therefore marked
 // `#coverage.skip` — every meaningful branch is in the helper.
 //

@@ -154,7 +154,7 @@ test "pipeline: format_json → parse_json_str round-trip" {
 test "pipeline: format_ndjson → parse_ndjson_str round-trip" {
   // Exercises the re-exported NDJSON surface (`format_ndjson` /
   // `parse_ndjson_str` / `JsonReadOptions`); a missing facade
-  // re-export would surface as a type error in this file.
+  // re-export would surface as a type error here.
   let df = DataFrame::DataFrame([
     Series::from_ints("id", [1, 2, 3]),
     Series::from_strings("name", ["alice", "bob", "carol"]),
@@ -295,7 +295,7 @@ test "pipeline: group_by → agg → sort produces a grouped summary via the fac
 test "pipeline: join enriches a frame then sorts via the facade" {
   // Orders (left) reference a customer by id; customers (right) carry the
   // region. `JoinType` / `JoinOptions` are named explicitly so a missing
-  // facade re-export surfaces as a type error in this file.
+  // facade re-export surfaces as a type error here.
   let _ : JoinType = JoinType::Inner
   let orders = DataFrame::DataFrame([
     Series::from_ints("order_id", [1, 2, 3, 4]),

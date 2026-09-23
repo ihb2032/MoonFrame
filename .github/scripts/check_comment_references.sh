@@ -31,6 +31,12 @@
 #     `performance.md` or `check_layering.sh` resolves from anywhere, while a
 #     source file has to say which package.
 #
+# A fourth rule sits after the resolution passes: a comment line in a tracked
+# `*.mbt` (examples included) may not carry an internal `.mbt` path or a
+# "this file" pointer at all — comments describe behaviour, not layout, and
+# navigation is the prose that rots first. Prose keeps the linking convention;
+# the two markers exempt a line here as everywhere.
+#
 # Evidence comes from code, never from other comments: a symbol two comments
 # agree on and no declaration carries is exactly the drift being looked for.
 #
@@ -224,6 +230,32 @@ bad=$(printf '%s\n' "$result" | grep -v '^%counts%' | grep . || true)
 checked=$(printf '%s' "$counts" | cut -f2)
 external=$(printf '%s' "$counts" | cut -f3)
 
+# Pass 4 — comments describe behaviour, not layout. An internal `.mbt` path
+# or a "this file" pointer navigates instead of explains, and navigational
+# prose is the kind that rots first: the code moves, the sentence stays, and
+# the next reader is told where something *used* to be. The behaviour-only
+# sweep removed these by hand once; this pass is the fence. Unlike the
+# resolution passes it covers `examples/` too — a pairing note there
+# navigates just the same — but only comment lines in `*.mbt`: prose keeps
+# the repository's linking convention (a guide may point at a file; a
+# comment explains code). The two markers skip a line here as everywhere:
+# `doc-guard: unresolved` for the convention notes that must name a
+# test-file shape ("no dedicated `foo_test.mbt`"), `doc-guard: historical`
+# for the past.
+layout=$(git ls-files '*.mbt' | grep . |
+  xargs awk '
+    /^[[:space:]]*\/\// {
+      if ($0 ~ /doc-guard: (historical|unresolved)/) next
+      line = $0
+      while (match(line, /[A-Za-z0-9_.\/-]+\.mbt/)) {
+        print FILENAME ":" FNR ": `" substr(line, RSTART, RLENGTH) "` — a comment navigates to a file; describe the behaviour instead"
+        line = substr(line, RSTART + RLENGTH)
+      }
+      if ($0 ~ /this file/)
+        print FILENAME ":" FNR ": a comment points at its own file; describe the behaviour instead"
+    }
+  ' || true)
+
 if [ -n "$bad" ]; then
   printf 'comment references: a comment names something that is not there:\n'
   printf '%s\n' "$bad" | sed 's/^/  /'
@@ -232,6 +264,15 @@ if [ -n "$bad" ]; then
   printf '  not just the name — what a comment gets wrong about *where* code\n'
   printf '  lives, it usually also gets wrong about what the code does. A line\n'
   printf '  that must name something removed carries `doc-guard: historical`.\n'
+  exit 1
+fi
+
+if [ -n "$layout" ]; then
+  printf 'comment references: a comment navigates instead of explaining:\n'
+  printf '%s\n' "$layout" | sed 's/^/  /'
+  printf '  Name the behaviour or the symbol that carries it, not the file it\n'
+  printf '  sits in. A line that must name a file shape carries\n'
+  printf '  `doc-guard: unresolved`.\n'
   exit 1
 fi
 

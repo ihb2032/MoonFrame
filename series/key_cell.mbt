@@ -1,6 +1,5 @@
-// Composite group / join key encoding. `Series::n_unique` (this package)
-// and `group_by` / `join` (the `frame` package, whose row-key builder
-// constructs
+// Composite group / join key encoding. `Series::n_unique` and
+// `group_by` / `join` (whose row-key builder constructs
 // per-row keys from `key_cell`) all partition cells by one or more key values;
 // this module turns a single key cell into a value that hashes and compares
 // correctly as a `Map` key. It replaces the earlier per-row `Scalar::to_string`

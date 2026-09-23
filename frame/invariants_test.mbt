@@ -3,7 +3,7 @@
 // and every structural transform (`head`, `tail`, `slice`, `gather`)
 // yields a DataFrame that satisfies the invariants. If any of these
 // regress, every downstream op test that relies on `check_invariants`
-// would too — so this file is the canary.
+// would too — so these tests are the canary.
 
 // ── Constructors preserve invariants ─────────────────────────────────
 

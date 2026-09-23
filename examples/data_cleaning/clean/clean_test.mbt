@@ -1,6 +1,6 @@
 // Blackbox tests for the data-cleaning helper. CSV inputs are driven
 // through `@io.parse_csv_str` so the tests are deterministic and
-// file-free; `main.mbt` is the only piece that touches `read_csv` /
+// file-free; the `main` entry is the only piece that touches `read_csv` /
 // `write_csv`.
 
 ///|

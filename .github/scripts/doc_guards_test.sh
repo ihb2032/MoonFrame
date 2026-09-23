@@ -1568,13 +1568,32 @@ mkrefs() {
 }
 
 mkrefs "$work/cr_ok" '///|
-/// Calls `@series.gather_series` and `Series::len`, described in
-/// `series/series.mbt`.
+/// Calls `@series.gather_series` and `Series::len`.
 pub fn use_it() -> Int {
   0
 }'
 expect_out 0 'resolve' 'comment references: every reference resolves' \
   sh "$scripts/check_comment_references.sh" "$work/cr_ok"
+
+# The layout rule: a comment may not navigate to a file even one that exists
+# — resolvable is not the bar, absent is.
+mkrefs "$work/cr_layout" '///|
+/// Calls `@series.gather_series`, described in `series/series.mbt`.
+pub fn use_it() -> Int {
+  0
+}'
+expect_out 1 'navigates instead of explaining' \
+  'comment references: a comment navigates to a file that is there' \
+  sh "$scripts/check_comment_references.sh" "$work/cr_layout"
+
+mkrefs "$work/cr_layout_self" '///|
+/// This is the only place this file builds it.
+pub fn use_it() -> Int {
+  0
+}'
+expect_out 1 'points at its own file' \
+  'comment references: a self-pointing comment' \
+  sh "$scripts/check_comment_references.sh" "$work/cr_layout_self"
 
 mkrefs "$work/cr_pkg" '///|
 /// Calls `@series.vanished_fn`.

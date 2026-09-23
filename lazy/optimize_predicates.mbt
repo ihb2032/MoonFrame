@@ -49,7 +49,7 @@
 ///   same first-appearance order — and a bare key's output column holds its
 ///   input column verbatim, so the predicate reads identical values below).
 ///   The predicate must also be `signed_zero_safe` — the signed-zero rule
-///   stated in full on that analysis in `optimize_predicate_rules.mbt`; its
+///   stated in full on that analysis; its
 ///   `Aggregate` hook is the `Float` key fold, so an unsafe predicate could
 ///   drop only part of a folded group below the aggregate and change its
 ///   surviving reduction.

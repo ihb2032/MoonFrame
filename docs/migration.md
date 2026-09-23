@@ -17,9 +17,11 @@ error-detail enums became `#non_exhaustive`. Nine value-type members were
 removed — predicates and comparisons that spelled out what a pattern match,
 a column expression, or the comparison kernel already says — and two enums
 are deleted outright: the sort vocabulary became Polars' two flags. The
-nullable series constructors likewise converged into one, and the window
+nullable series constructors likewise converged into one, the window
 verbs took Polars' saturating semantics — `slice` never raises, and a
-negative `head` / `tail` count drops from the opposite end.
+negative `head` / `tail` count drops from the opposite end — and floats
+now order by IEEE-754: `NaN` is a value in `sort` and propagates through
+`median`.
 
 ### `DataType` / `Scalar` gained a `Date` variant
 
@@ -107,6 +109,19 @@ s.sort(descending=true, nulls_last=false)
 
 An `explain` rendering does not change: a plan still reads
 `SORT [col(qty) Desc NullsLast]`.
+
+### Floats order by IEEE-754: `NaN` is a value in `sort` and `median`
+
+The two bespoke "`NaN` behaves like missing" rules are gone, replaced by the
+IEEE-754 total order and Polars' own behaviour. In `sort`, a `Float` `NaN` no
+longer follows the key's `nulls_last` flag like a null — it orders as the
+largest value, trailing an ascending sort and leading a descending one,
+independent of where the nulls sit. In `median`, a `NaN` no longer drops out
+of the window — it propagates, as `sum` / `mean` always have; the median of
+`[1, 2, NaN]` is now `NaN` (was `1.5`), and the median of an all-`NaN`
+column is `NaN` (was an empty-window `InvalidOperation` on the whole-column
+path). `min` / `max` keep skipping it, null placement keeps its
+direction-independent model, and only `null` is missing.
 
 ### `slice` is Polars' saturating window, never an error
 

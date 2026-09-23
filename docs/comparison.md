@@ -46,10 +46,12 @@ libraries — not a derivative work of either codebase.
   docstring (the generated reference collects them).
 - **`null` is missing** — a null propagates through arithmetic and
   comparison (Arrow / Polars); `&` / `|` are three-valued (Kleene).
-- **`NaN` is a value, not missing** — `sum` / `mean` propagate `NaN`;
-  `min` / `max` skip it (as in Polars); `n_unique` buckets every `NaN` as one
-  value; comparisons treat `NaN` as a value. Only `null` is missing.
-  (`median` also skips `NaN`, a deliberate deviation — see below.)
+- **`NaN` is a value, not missing** — `sum` / `mean` / `median` propagate
+  `NaN`; `min` / `max` skip it (as in Polars); `n_unique` buckets every `NaN`
+  as one value; comparisons treat `NaN` as a value. `sort` orders it by the
+  IEEE-754 total order — larger than every other value, so it trails an
+  ascending sort and leads a descending one, independently of where the nulls
+  sit. Only `null` is missing.
 - **`group_by`** — a **null key forms its own group** (the Polars default;
   pandas drops null keys), `NaN` keys compare equal, and group order is
   first appearance (`maintain_order=True`).
@@ -75,17 +77,13 @@ libraries — not a derivative work of either codebase.
 
 ## Deliberate differences
 
-Where MoonFrame knowingly does something else than Polars. Two are about
-`NaN`, one about mixed-dtype comparison, and one about how a call is
-configured.
+Where MoonFrame knowingly does something else than Polars. One is about
+null placement, one about mixed-dtype comparison, and one about how a call
+is configured.
 
-- **`sort` treats `NaN` as missing.** When sorting, a `Float` `NaN` is ordered
-  by the key's `nulls_last` flag (like a null), whereas Polars treats `NaN` as a
-  value that sorts last independently of `nulls_last`. This is a deliberate
-  divergence, not an oversight. Missing placement is also
-  **direction-independent**: `nulls_last = false` keeps nulls (and the `NaN`s
-  folded into them) leading even under `descending`, where Polars — nulls as
-  the smallest *value* — would drop them to the tail. The default is
+- **Missing placement is direction-independent.** `nulls_last = false` keeps
+  nulls leading even under `descending`, where Polars — nulls as the
+  smallest *value* — would drop them to the tail. The default is
   `nulls_last = false`, Polars' own default.
 - **`describe` summarises differently.** MoonFrame's rows are `count` /
   `null_count` / `n_unique` / `mean` / `min` / `max`, with `min` / `max`
@@ -93,8 +91,6 @@ configured.
   `null_count` / `mean` / `std` / `min` / the three quartiles / `max`, all
   numeric. The quartiles are not implemented (the deferral list), and the
   `String` rendering is a table-shape choice.
-- **`median` skips `NaN`.** As an order statistic it follows the `min` / `max`
-  rule and ignores `NaN`, whereas Polars propagates `NaN` through `median`.
 - **Mixed `Int` / `Float` comparison is exact.** An `Int64` compared against a
   `Float` is *not* promoted to `Double` first, so two distinct values never
   collide above 2^53: `Int64::MAX` is not equal to the `2^63` `Double` a
@@ -113,8 +109,8 @@ configured.
   nothing about its fields, and gain a field on without any signature changing.
   The same struct then serves the eager reader and its `scan_*` counterpart.
 
-For `NaN` everywhere else — `sum` / `mean` / `group_by` / `join` /
-comparisons — it is a value, as in Polars.
+For `NaN` everywhere — `sum` / `mean` / `median` / `sort` / `group_by` /
+`join` / comparisons — it is a value, as in Polars.
 
 ## Forced by MoonBit (not behavioral)
 

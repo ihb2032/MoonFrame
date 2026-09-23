@@ -279,8 +279,9 @@ newcomers:
   it silently stringifies — so reach for `as_*` when a wrong dtype is a bug
   you want reported, and `to_*` only for display text whatever the cell holds.
 - **`null` and `NaN` are different.** `null` is missing and propagates; `NaN`
-  is a value (`sum` / `mean` propagate it, `min` / `max` skip it) — except in
-  `sort`, which orders `NaN` as missing.
+  is a value (`sum` / `mean` / `median` propagate it, `min` / `max` skip it),
+  and `sort` orders it by the IEEE total order — larger than every other
+  value, so it trails an ascending sort and leads a descending one.
 - **Comparisons are methods** (`col("a").gt(lit_int(0))`), not `>`, and
   `&` / `|` are Kleene-logical, not bitwise — both are MoonBit constraints.
 

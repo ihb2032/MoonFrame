@@ -136,11 +136,13 @@ direction-independent model, and only `null` is missing.
 ### String case mapping and the default trim set go Unicode
 
 `str_to_uppercase` / `str_to_lowercase` map every cased letter through the
-Unicode **simple** case mappings — `é` maps to `É`, Greek and Cyrillic map
-across their alphabets — where they were ASCII-only before. A character
-whose uppercase would expand in length (`ß`, full uppercase `SS`) has no
-simple mapping and passes through unchanged: the per-character map never
-changes a cell's length. The default `str_strip_chars` set widens from
+Unicode **default case conversion** — the simple one-to-one mappings (`é`
+→ `É`, Greek and Cyrillic across their alphabets) plus the SpecialCasing
+expansions — where they were ASCII-only before. A cell's length can grow:
+`straße` uppercases to `STRASSE` (`ß` → `SS`), the `ﬁ` ligature to `FI`,
+and `İ` lowercases to `i` + combining dot above. The locale-conditional
+rules (Turkish dotless `i`, final sigma) are not applied — the default
+conversion carries no locale. The default `str_strip_chars` set widens from
 ASCII whitespace to the Unicode `White_Space` property — NBSP, the narrow
 no-break space, and the ideographic space now trim alongside tab, newline,
 carriage-return, and space. A custom `chars` set is unchanged.

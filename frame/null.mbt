@@ -1,3 +1,56 @@
+// The null-handling verbs on a frame: `fill_null` fills every null cell of
+// the dtype-compatible columns with a scalar, and `drop_nulls` drops every
+// row in which a gating column holds a null — the two ways to deal with a
+// missing cell at frame scope.
+
+///|
+/// Fill every null cell of the **dtype-compatible** columns with `value`,
+/// leaving the rest of the frame verbatim — Polars' frame-wide
+/// `DataFrame.fill_null(value)`. A column is compatible when its dtype
+/// matches `value`'s variant: an `Int` value fills `Int` columns, a `Float`
+/// value fills `Float` columns, and so on. Columns of any other dtype are
+/// left untouched (not an error), and so are **all** columns when `value` is
+/// `Scalar::Null` — filling nulls with null is a no-op, so it skips
+/// everything and returns the frame unchanged.
+///
+/// Per-column control, cross-dtype fills (an `Int` value into a `Float`
+/// column, say), or filling with a computed value go through the expression
+/// form instead: `df.with_columns([col("c").fill_null(lit(value))])`.
+///
+/// Filling rewrites cells in place — each filled column keeps its name and
+/// dtype (a compatible fill is dtype-preserving) and every other column is
+/// untouched — so names, dtypes, and the row count are unchanged. The
+/// returned frame therefore reuses `self`'s schema and `O(1)` name→index
+/// cache verbatim (the same same-schema rebuild `head` / `tail` / `reverse`
+/// use) rather than re-deriving them through `DataFrame::DataFrame`.
+///
+/// `raise`-typed because `Series::fill_null` is, but the compatibility gate
+/// means it is only ever called on a column it cannot fail on (a matching
+/// non-null value), so no error is actually produced here.
+pub fn DataFrame::fill_null(
+  self : DataFrame,
+  value : @types.Scalar,
+) -> DataFrame raise @types.DataError {
+  let new_cols = self.columns.map(s => {
+    // The frame-wide value fills a column only when it is a concrete value
+    // of the column's own dtype (so the fill is always dtype-preserving; the
+    // null value fills nothing). And skip a dtype-compatible column that has
+    // no nulls: filling it would rebuild the whole column into an identical
+    // copy. `null_count` is O(1) for a `Numeric` column, mirroring
+    // `drop_nulls`' short-circuit.
+    let fills = match value {
+      @types.Scalar::Null => false
+      v => v.dtype() == s.dtype()
+    }
+    if fills && s.null_count() != 0 {
+      s.fill_null(value)
+    } else {
+      s
+    }
+  })
+  self.with_same_schema(new_cols, self.nrows)
+}
+
 ///|
 /// Drop every row in which a gating column has a null cell. The schema
 /// (column names, dtypes, order) is preserved verbatim; only the row

@@ -37,6 +37,12 @@ pub struct CsvWriteOptions {
 /// delimiter, null cells emitted as the empty string, no formula
 /// sanitisation, and LF line endings. `CsvWriteOptions::CsvWriteOptions()` is the all-defaults writer; name only
 /// what differs, as in `CsvWriteOptions::CsvWriteOptions(delimiter=';')`.
+/// The `line_terminator` must be composed of `\n` and `\r` alone (an empty
+/// one, or one holding any other character, `raise`s `InvalidOperation`):
+/// the reader breaks lines on those two characters only, so any other
+/// terminator would write a file whose rows fuse or whose last cell glues
+/// the terminator on — every CR/LF combination (`"\n"`, `"\r\n"`, `"\r"`,
+/// `"\n\n"`, …) round-trips cleanly.
 pub fn CsvWriteOptions::CsvWriteOptions(
   header? : Bool = true,
   delimiter? : Char = ',',
@@ -48,6 +54,13 @@ pub fn CsvWriteOptions::CsvWriteOptions(
     raise @types.DataError::InvalidOperation(
       "line_terminator must not be empty: it would fuse every row into one",
     )
+  }
+  for ch in line_terminator {
+    if ch != '\n' && ch != '\r' {
+      raise @types.DataError::InvalidOperation(
+        "line_terminator must be composed of '\\n' and '\\r' only, got '\{ch}': the reader breaks lines on those characters alone, so any other terminator would corrupt the file",
+      )
+    }
   }
   { header, delimiter, null_value, sanitize_formulas, line_terminator, }
 }

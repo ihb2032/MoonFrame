@@ -116,11 +116,14 @@ An `explain` rendering does not change: a plan still reads
 ### `CsvWriteOptions` gains `line_terminator`, and its constructor `raise`s
 
 Polars' `line_terminator` knob arrives additively — default `"\n"`
-unchanged, `"\r\n"` for RFC 4180's letter — and the reader takes either
-back without a knob. The one signature change: the constructor now
-`raise`s `InvalidOperation` on an empty terminator (it would fuse every
-row into one), so a `CsvWriteOptions::CsvWriteOptions(...)` call in a
-non-raising context needs the usual `catch` / propagation.
+unchanged, `"\r\n"` for RFC 4180's letter — and the reader takes every
+CR/LF combination (`"\r"`, `"\n\n"`, …) back without a knob. The one
+signature change: the constructor now `raise`s `InvalidOperation` on a
+terminator it cannot round-trip — an empty one (it would fuse every row
+into one) or one holding any character other than `\n` / `\r` (the reader
+breaks lines on those alone, so anything else fuses rows or glues itself
+onto the last cell). So a `CsvWriteOptions::CsvWriteOptions(...)` call in
+a non-raising context needs the usual `catch` / propagation.
 
 ### A file that is not UTF-8 now raises
 

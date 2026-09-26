@@ -481,6 +481,7 @@ test "CsvWriteOptions defaults every field" {
   assert_eq(opts.delimiter, ',')
   assert_eq(opts.null_value, "")
   assert_eq(opts.sanitize_formulas, false)
+  assert_eq(opts.line_terminator, "\n")
 }
 
 ///|
@@ -509,4 +510,37 @@ test "line_terminator controls the row separator; CRLF round-trips" {
     })
     is Err(@types.DataError::InvalidOperation(_)),
   )
+  // Any character other than CR / LF is refused too: the reader breaks
+  // lines on those alone, so a ";" (or a quote, or U+2028) would fuse
+  // every row into one field, or glue itself onto the last cell.
+  for bad in [";", "\"", "\u{2028}", ";\n"] {
+    assert_true(
+      (Ok(CsvWriteOptions::CsvWriteOptions(line_terminator=bad)) catch {
+        e => Err(e)
+      })
+      is Err(@types.DataError::InvalidOperation(_)),
+    )
+  }
+  // Every CR/LF combination round-trips: a lone CR is a line break to the
+  // reader, and a doubled LF leaves only skip-empty lines behind.
+  let cr = format_csv(
+    df,
+    options=CsvWriteOptions::CsvWriteOptions(line_terminator="\r"),
+  )
+  let back_cr = parse_csv_str(cr)
+  assert_eq(back_cr.nrows(), 2)
+  assert_eq(back_cr.get_column("a").to_scalars(), [
+    @types.Scalar::Int(1),
+    @types.Scalar::Int(2),
+  ])
+  let blank_line = format_csv(
+    df,
+    options=CsvWriteOptions::CsvWriteOptions(line_terminator="\n\n"),
+  )
+  let back_blank = parse_csv_str(blank_line)
+  assert_eq(back_blank.nrows(), 2)
+  assert_eq(back_blank.get_column("a").to_scalars(), [
+    @types.Scalar::Int(1),
+    @types.Scalar::Int(2),
+  ])
 }

@@ -52,10 +52,13 @@ fn fuzz_cases(base : Int) -> Int {
 // ── Generators over the rich five-column domain ──────────────────────
 
 ///|
-/// One rich row — `(g, fk, a, b, s)` — with every cell independently nullable
-/// (~1/4 null). A plain tuple (rather than a struct) so `@shrink` can shrink a
-/// frame row-by-row and cell-by-cell out of the box.
-type RichRow = (Int64?, Double?, Int64?, Int64?, String?)
+/// One rich row — `(g, fk, a, b, s, dt)` — with every cell independently
+/// nullable (~1/4 null). A plain tuple (rather than a struct) so `@shrink` can
+/// shrink a frame row-by-row and cell-by-cell out of the box. `dt` carries a
+/// `Date` day count, so the rider dtype rides every row-selection path the
+/// differential exercises (an I64 rebuild that dropped its dtype identity
+/// shows up as a frame-equality divergence).
+type RichRow = (Int64?, Double?, Int64?, Int64?, String?, Int64?)
 
 ///|
 /// A `Bool` that is `true` with probability `1/n` — the generator counterpart
@@ -126,14 +129,31 @@ fn gen_string_cell() -> @gen.Gen[String?] {
 }
 
 ///|
+/// A `Date` day-count pool: the epoch, its neighbours, the 2024 cluster the
+/// acceptance suite renders, and one negative day (pre-epoch dates order and
+/// group below everything), ~1/4 null. The generated expressions never
+/// reference `dt` — it is payload, so the differential asserts the rider's
+/// dtype survives every carried path rather than exercising date semantics.
+fn gen_date_cell() -> @gen.Gen[Int64?] {
+  @gen.frequency([
+    (1, @gen.pure(None)),
+    (
+      3,
+      @gen.one_of_array([0L, 1L, -1L, 19723L, 19753L, 19754L]).fmap(x => Some(x)),
+    ),
+  ])
+}
+
+///|
 fn gen_rich_row() -> @gen.Gen[RichRow] {
-  @gen.liftA5(
-    (g, fk, a, b, s) => (g, fk, a, b, s),
+  @gen.liftA6(
+    (g, fk, a, b, s, dt) => (g, fk, a, b, s, dt),
     gen_g_cell(),
     gen_float_cell(),
     gen_int_cell(),
     gen_int_cell(),
     gen_string_cell(),
+    gen_date_cell(),
   )
 }
 
@@ -156,6 +176,7 @@ fn rows_to_frame(
     @series.Series::from_int_options("a", rows.map(r => r.2)),
     @series.Series::from_int_options("b", rows.map(r => r.3)),
     @series.Series::from_string_options("s", rows.map(r => r.4)),
+    @series.Series::from_date_options("dt", rows.map(r => r.5)),
   ])
 }
 
@@ -835,10 +856,24 @@ fn write_projection_fuzz_fixtures(
   ndjson_path : String,
 ) -> Unit raise @types.DataError {
   let df = rows_to_frame([
-    (Some(0L), Some(0.0), Some(1L), Some(2L), Some("west")),
-    (Some(1L), Some(-0.0), Some(3L), None, Some("east")),
-    (None, Some(@double.infinity), Some(9007199254740993L), Some(4L), None),
-    (Some(2L), None, Some(9223372036854775807L), Some(-1L), Some("north")),
+    (Some(0L), Some(0.0), Some(1L), Some(2L), Some("west"), Some(19723L)),
+    (Some(1L), Some(-0.0), Some(3L), None, Some("east"), None),
+    (
+      None,
+      Some(@double.infinity),
+      Some(9007199254740993L),
+      Some(4L),
+      None,
+      Some(-1L),
+    ),
+    (
+      Some(2L),
+      None,
+      Some(9223372036854775807L),
+      Some(-1L),
+      Some("north"),
+      Some(19753L),
+    ),
   ])
   @io.write_csv(csv_path, df)
   @io.write_ndjson(ndjson_path, df)
@@ -993,4 +1028,120 @@ test "fuzz: predicate push-down into a CSV source stays eager-equivalent" {
     @qc.forall_shrink(gen_pruned_file_case(), shrink_pruned_file_case, prop),
     max_success=fuzz_cases(150),
   )
+}
+
+///|
+/// One dirty-cell row — `(g_dirty, b_dirty)`: whether each of the two
+/// non-predicate columns holds an unparseable cell. The predicate's own
+/// column `a` is always clean (rendered as `1`), so the errors this domain
+/// generates are real parse failures in columns the plan keeps.
+type DirtyRow = (Bool, Bool)
+
+///|
+fn gen_dirty_case() -> @gen.Gen[Array[DirtyRow]] {
+  let gen_cell = @gen.frequency([(1, @gen.pure(true)), (4, @gen.pure(false))])
+  @gen.int_range(0, 7).bind(n => {
+    @gen.liftA2((g, b) => (g, b), gen_cell, gen_cell).array_with_size(n)
+  })
+}
+
+///|
+/// Write the fixture by hand: `@io.write_csv` can only render well-formed
+/// cells, so the corrupting spelling has to reach the file as literal text.
+/// The first data row stays clean whatever the generator said — with
+/// `infer_schema_rows = 1` that row locks every column to `Int`, and each
+/// later `bad` cell is then a real parse error rather than a String
+/// inference.
+fn write_dirty_csv(
+  path : String,
+  rows : Array[DirtyRow],
+) -> Unit raise @types.DataError {
+  let buf = StringBuilder()
+  buf.write_string("g,a,b\n")
+  for i, row in rows {
+    let (g_dirty, b_dirty) = row
+    let g = if g_dirty && i > 0 { "bad" } else { "3" }
+    let b = if b_dirty && i > 0 { "bad" } else { "7" }
+    buf.write_string("\{g},1,\{b}\n")
+  }
+  @fs.write_string_to_file(path, buf.to_string()) catch {
+    @fs.IOError(msg) => raise @types.DataError::IoError(msg)
+  }
+}
+
+///|
+/// The pruned reader over a file that may hold real parse errors. The
+/// predicate is tautological (`a > 0` over an always-`1` column), so the
+/// pruning path has no row to drop and both reads parse every cell of `g`
+/// and `b` — the differential stays symmetric even though the file is dirty
+/// (a row the predicate dropped would legitimately vanish from the pruned
+/// read's error set, the documented trade, and break the comparison).
+/// `strict_errors` stays off deliberately: with both `g` and `b` dirty the
+/// absorbed predicate builds `a` ahead of the header's order, so the two
+/// reads may name different columns' errors — the several-broken-stages
+/// carve-out, inside one scan. What must never happen is asymmetry: one
+/// read failing where the other succeeds is a soundness fault.
+test "fuzz: a dirty CSV stays eager-equivalent under predicate absorption" {
+  let path = "_build/lazy_optimize_fuzz_dirty.csv"
+  let prop = (rows : Array[DirtyRow]) => {
+    // The write is total in practice (a local `_build` path); a raise here
+    // would be a real fault, so it lands as a counterexample rather than a
+    // raise out of the property.
+    let setup = Ok(write_dirty_csv(path, rows)) catch { e => Err(e) }
+    match setup {
+      Err(_) => @qc.property(false).counterexample("fixture write raised")
+      Ok(_) => {
+        let opts = @io.CsvReadOptions::CsvReadOptions(infer_schema_rows=1)
+        let lazy_chain : () -> LazyFrame raise @types.DataError = () => {
+          scan_csv(path, options=opts).filter(
+            @expr.col("a").gt(@expr.lit_int(0)),
+          )
+        }
+        let eager_chain : () -> @frame.DataFrame raise @types.DataError = () => {
+          @io.read_csv(path, options=opts).filter(
+            @expr.col("a").gt(@expr.lit_int(0)),
+          )
+        }
+        match check_equiv("dirty-csv", lazy_chain, eager_chain) {
+          Some(msg) => @qc.property(false).counterexample(msg)
+          None => @qc.property(true)
+        }
+      }
+    }
+  }
+  @qc.quick_check(
+    @qc.forall_shrink(gen_dirty_case(), @shrink.Shrink::shrink, prop),
+    max_success=fuzz_cases(150),
+  )
+}
+
+///|
+/// Both non-predicate columns dirty at once: the eager read names the first
+/// column in header order, the absorbed-predicate read names the key column
+/// it built first — different `ParseError`s, the carve-out above in the
+/// flesh. Both are real errors of the same file; that each side raises is
+/// the contract, and which column it names is not.
+test "a doubly-dirty CSV: both reads raise ParseError, whichever column each names" {
+  // The first data row is clean — with `infer_schema_rows = 1` it locks
+  // `g` / `b` to `Int`, so the dirty second row is a parse error, not a
+  // String inference.
+  let path = "_build/lazy_dirty_two_columns.csv"
+  @fs.write_string_to_file(path, "g,a,b\n3,1,7\nbad,1,bad\n") catch {
+    @fs.IOError(msg) => raise @types.DataError::IoError(msg)
+  }
+  let opts = @io.CsvReadOptions::CsvReadOptions(infer_schema_rows=1)
+  let lazy_err = Ok(
+    scan_csv(path, options=opts)
+    .filter(@expr.col("a").gt(@expr.lit_int(0)))
+    .collect(),
+  ) catch {
+    e => Err(e)
+  }
+  let eager_err = Ok(
+    @io.read_csv(path, options=opts).filter(@expr.col("a").gt(@expr.lit_int(0))),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(lazy_err is Err(@types.DataError::ParseError(_)))
+  assert_true(eager_err is Err(@types.DataError::ParseError(_)))
 }

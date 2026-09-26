@@ -53,29 +53,22 @@ pub fn[T] Bitmap::from_options(values : Array[T?]) -> Bitmap {
 // ── Inspection ────────────────────────────────────────────────────────
 
 ///|
-/// `true` when slot `index` is valid (bit is 1). Out-of-bounds
-/// `raise IndexOutOfBounds`.
-fn Bitmap::is_valid(self : Bitmap, index : Int) -> Bool raise @types.DataError {
-  if index < 0 || index >= self.len {
-    raise @types.DataError::IndexOutOfBounds(index)
-  }
-  bit_at(self.bits, self.offset + index)
-}
-
-///|
 /// `true` when slot `index` is null (bit is 0). Out-of-bounds
 /// `raise IndexOutOfBounds`.
 pub fn Bitmap::is_null(
   self : Bitmap,
   index : Int,
 ) -> Bool raise @types.DataError {
-  !self.is_valid(index)
+  if index < 0 || index >= self.len {
+    raise @types.DataError::IndexOutOfBounds(index)
+  }
+  !bit_at(self.bits, self.offset + index)
 }
 
 ///|
 /// `true` when slot `index` is valid (bit 1), **total**: an out-of-range
 /// `index` yields `false` instead of raising. The single-slot counterpart of
-/// `is_valid`, for the in-bounds-guaranteed row gathers that read one slot at a
+/// `is_null`, for the in-bounds-guaranteed row gathers that read one slot at a
 /// time off the source mask rather than materialising the whole `Array[Bool]`
 /// — so a per-group gather costs `O(gathered)`, not `O(source)`.
 pub fn Bitmap::is_valid_total(self : Bitmap, index : Int) -> Bool {
@@ -106,6 +99,17 @@ pub fn Bitmap::is_valid_total(self : Bitmap, index : Int) -> Bool {
 /// constructor-built bitmap is tight and offset-0, so its head is empty and the
 /// bits past `len` are zero — there the split and the mask are both no-ops.)
 pub fn Bitmap::null_count(self : Bitmap) -> Int {
+  // Population count of one byte (number of 1 bits) via the classic SWAR
+  // bit-folding — no lookup table and no backend-specific intrinsic, so it is
+  // identical across wasm / wasm-gc / js / native. `b.to_int()` is already in
+  // 0..=255, so no masking is needed.
+  fn popcount_byte(b : Byte) -> Int {
+    let mut x = b.to_int()
+    x = x - ((x >> 1) & 0x55)
+    x = (x & 0x33) + ((x >> 2) & 0x33)
+    (x + (x >> 4)) & 0x0f
+  }
+
   let mut valid = 0
   // The head: bits from `offset` up to the next byte boundary — none when the
   // window already starts on one, and never past the window's own end.
@@ -138,7 +142,7 @@ pub fn Bitmap::null_count(self : Bitmap) -> Int {
 /// Materialise the validity mask as a dense `Array[Bool]` (`true = valid`),
 /// one entry per logical slot in `[0, len)`.
 ///
-/// This is the total counterpart to `is_valid` for the common case of
+/// This is the total counterpart to `is_null` for the common case of
 /// scanning every slot in order. A loop that has already bounded its index
 /// to `[0, len)` reads the returned array directly (`mask[i]`, the same
 /// trust level as the parallel `data[i]` access) instead of threading a
@@ -189,7 +193,11 @@ fn pack(len : Int, valid : (Int) -> Bool) -> Bitmap {
   let buf = FixedArray::make(bytes_needed(len), Byte::default())
   for i in 0..<len {
     if valid(i) {
-      set_bit_unchecked(buf, i)
+      // `i < len` keeps both indices inside the `bytes_needed(len)`-sized
+      // buffer, the same contract `bit_at` relies on for its reads.
+      let byte_idx = i / 8
+      let bit_idx = i % 8
+      buf[byte_idx] = (buf[byte_idx].to_int() | (1 << bit_idx)).to_byte()
     }
   }
   { bits: buffer_to_bytes(buf), offset: 0, len, }
@@ -214,32 +222,11 @@ fn buffer_to_bytes(buf : FixedArray[Byte]) -> Bytes {
 }
 
 ///|
-/// Set bit `i` to 1 in `buf`. Assumes `0 <= i < buf.length() * 8`.
-fn set_bit_unchecked(buf : FixedArray[Byte], i : Int) -> Unit {
-  let byte_idx = i / 8
-  let bit_idx = i % 8
-  buf[byte_idx] = (buf[byte_idx].to_int() | (1 << bit_idx)).to_byte()
-}
-
-///|
 /// Read bit `i` from `bytes`. Assumes `0 <= i < bytes.length() * 8`.
 fn bit_at(bytes : Bytes, i : Int) -> Bool {
   let byte_idx = i / 8
   let bit_idx = i % 8
   ((bytes[byte_idx].to_int() >> bit_idx) & 1) == 1
-}
-
-///|
-/// Population count of one byte (number of 1 bits) via the classic SWAR
-/// bit-folding — no lookup table and no backend-specific intrinsic, so it is
-/// identical across wasm / wasm-gc / js / native. Backs `null_count`'s
-/// byte-at-a-time valid-bit count.
-fn popcount_byte(b : Byte) -> Int {
-  // `b` is a Byte, so `to_int()` is already in 0..=255 — masking is a no-op.
-  let mut x = b.to_int()
-  x = x - ((x >> 1) & 0x55)
-  x = (x & 0x33) + ((x >> 2) & 0x33)
-  (x + (x >> 4)) & 0x0f
 }
 
 ///|

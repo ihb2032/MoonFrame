@@ -23,24 +23,37 @@
 ///   `Raise` (default) fails with `ParseError(Cell(...))`; `Null`
 ///   downgrades the offending cell to a null and continues (Polars'
 ///   `ignore_errors=True`).
+/// - `reject_duplicate_keys` — whether an object repeating a key is an
+///   error. The default `false` keeps the serde / pandas / Polars
+///   behaviour: a repeated key survives only as its **last** value, the
+///   earlier ones silently dropped. `true` rejects the read instead —
+///   `ParseError(Message(...))` naming the key and the 1-based object it
+///   repeated in — so a payload that would silently lose cells fails
+///   loudly. Nested objects are scanned too, and key spellings are
+///   compared decoded (`"a"` and `"\u0061"` are the same key). The scan
+///   runs before the parse and only when the option is on, so the default
+///   read pays nothing.
 ///
 /// The NDJSON reader shares this type: the two formats differ in framing,
 /// not in what there is to configure.
 pub struct JsonReadOptions {
   infer_schema_rows : Int
   on_parse_error : OnParseError
+  reject_duplicate_keys : Bool
 }
 
 ///|
-/// Build read options. Both fields have defaults: scan the first 100 records
-/// for inference and fail the read on a cell that doesn't fit its inferred
-/// dtype. `JsonReadOptions::JsonReadOptions()` is the all-defaults reader; name only what
+/// Build read options. Every field has a default: scan the first 100 records
+/// for inference, fail the read on a cell that doesn't fit its inferred
+/// dtype, and let a repeated object key keep its last value (the serde /
+/// pandas / Polars reading). `JsonReadOptions::JsonReadOptions()` is the all-defaults reader; name only what
 /// differs, as in `JsonReadOptions::JsonReadOptions(on_parse_error=Null)`.
 pub fn JsonReadOptions::JsonReadOptions(
   infer_schema_rows? : Int = DEFAULT_INFER_SCHEMA_ROWS,
   on_parse_error? : OnParseError = Raise,
+  reject_duplicate_keys? : Bool = false,
 ) -> JsonReadOptions {
-  { infer_schema_rows, on_parse_error, }
+  { infer_schema_rows, on_parse_error, reject_duplicate_keys, }
 }
 
 ///|
@@ -77,6 +90,21 @@ pub fn parse_json_str(
   // top-level value.
   if content.is_blank() {
     return @frame.DataFrame::DataFrame([])
+  }
+  // The strict duplicate-key reading, when asked for: a repeat is visible
+  // only in the raw text (the parse folds keys into a `Map`, keeping the
+  // last), so the scan sits here, ahead of `@json.parse`. Off by default —
+  // the serde / pandas / Polars last-wins reading costs nothing.
+  if options.reject_duplicate_keys {
+    match first_duplicate_json_key(content.view()) {
+      Some((n, key)) =>
+        raise @types.DataError::ParseError(
+          @types.ParseErrorDetail::Message(
+            "duplicate key \"\{key}\" in JSON object \{n}",
+          ),
+        )
+      None => ()
+    }
   }
   // Re-raise `@json.parse`'s failure as this module's `ParseError`, so the
   // parser's main pipeline sees one error type and stays in straight-line

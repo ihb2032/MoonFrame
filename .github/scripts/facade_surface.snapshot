@@ -9,7 +9,7 @@ ctor CsvWriteOptions::CsvWriteOptions(header? : Bool, delimiter? : Char, null_va
 ctor DataFrame::DataFrame(Array[@series.Series]) -> Self raise @types.DataError <- frame
 ctor Field::Field(String, DataType, nullable? : Bool) -> Self <- types
 ctor HtmlOptions::HtmlOptions(max_rows? : Int, table_class? : String, caption? : String, escape? : Bool) -> Self <- frame
-ctor JsonReadOptions::JsonReadOptions(infer_schema_rows? : Int, on_parse_error? : OnParseError) -> Self <- io
+ctor JsonReadOptions::JsonReadOptions(infer_schema_rows? : Int, on_parse_error? : OnParseError, reject_duplicate_keys? : Bool) -> Self <- io
 ctor LazyFrame::LazyFrame(@frame.DataFrame) -> Self <- lazy
 ctor Schema::Schema(Array[Field]) -> Self raise DataError <- types
 field ChartSpec.color : String? <- chart
@@ -39,6 +39,7 @@ field JoinOptions.how : JoinType <- frame
 field JoinOptions.suffix : String <- frame
 field JsonReadOptions.infer_schema_rows : Int <- io
 field JsonReadOptions.on_parse_error : OnParseError <- io
+field JsonReadOptions.reject_duplicate_keys : Bool <- io
 fn col(String) -> @expr.Expr <- root
 fn col(String) -> Expr <- expr
 fn cols(Array[String]) -> Array[@expr.Expr] <- root

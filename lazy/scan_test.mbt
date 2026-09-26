@@ -531,3 +531,23 @@ test "a column-less predicate on an NDJSON scan keeps every row, matching eager"
   assert_eq(none, @io.read_ndjson(path).filter(keep_none))
   assert_eq(none.shape(), (0, 3))
 }
+
+///|
+test "scan_ndjson fails on a repeated key when the reader option asks" {
+  // The scan driver reads through the same `JsonReadOptions`, so the strict
+  // duplicate-key reading reaches a collected lazy pipeline unchanged —
+  // failing at collect, like every read error the deferred leaf surfaces.
+  let path = "_build/lazy_scan_ndjson_dupkey.ndjson"
+  @io.write_text(path, "{\"k\": 1, \"k\": 2}\n")
+  let opts = @io.JsonReadOptions::JsonReadOptions(reject_duplicate_keys=true)
+  let result : Result[@frame.DataFrame, @types.DataError] = Ok(
+    scan_ndjson(path, options=opts).collect(),
+  ) catch {
+    e => Err(e)
+  }
+  match result {
+    Err(@types.DataError::ParseError(@types.ParseErrorDetail::Message(m))) =>
+      assert_eq(m, "line 1: duplicate key \"k\" in JSON object 1")
+    _ => fail("expected a duplicate-key ParseError")
+  }
+}

@@ -591,3 +591,26 @@ test "parse_ndjson_str projection builds only the named columns" {
   }
   assert_true(result is Err(@types.DataError::ParseError(_)))
 }
+
+// ── duplicate object keys: last-wins default, optional strict ───────────
+
+///|
+test "a repeated key on an NDJSON line keeps its last value by default" {
+  let df = @io.parse_ndjson_str("{\"a\": 1, \"a\": 2}\n")
+  assert_eq(df.item(0, "a"), @types.Scalar::Int(2))
+}
+
+///|
+test "reject_duplicate_keys fails the read naming the line" {
+  let opts = @io.JsonReadOptions::JsonReadOptions(reject_duplicate_keys=true)
+  let result : Result[@frame.DataFrame, @types.DataError] = Ok(
+    @io.parse_ndjson_str("{\"a\": 1}\n{\"b\": 1, \"b\": 2}\n", options=opts),
+  ) catch {
+    e => Err(e)
+  }
+  match result {
+    Err(@types.DataError::ParseError(@types.ParseErrorDetail::Message(m))) =>
+      assert_eq(m, "line 2: duplicate key \"b\" in JSON object 1")
+    _ => fail("expected a duplicate-key ParseError")
+  }
+}

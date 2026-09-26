@@ -160,21 +160,6 @@ priv enum FillKind {
 }
 
 ///|
-/// The null probes are plain validity reads, built once for their two
-/// consumers: `IsNull` (and anything guarding on where a null sits) keeps the
-/// cells a null occupies, `IsNotNull` (and `FillKind::Nulls`' guard) keeps the
-/// rest. Both land on the non-nullable `Builtin` backend.
-fn is_null_mask(operand : Series) -> Series {
-  Series::from_bools(operand.name(), validity_bools(operand).map(v => !v))
-}
-
-///|
-/// The complement of `is_null_mask`, cell for cell.
-fn is_not_null_mask(operand : Series) -> Series {
-  Series::from_bools(operand.name(), validity_bools(operand))
-}
-
-///|
 /// Evaluate `expr` to a `Series` under `scope`. Callers guarantee every
 /// scope index is in `[0, nrows)` (the public consumers build it from
 /// `nrows` themselves). Errors — unknown column, dtype mismatch, the
@@ -192,6 +177,19 @@ fn eval_expr(
   df : DataFrame,
   scope : Array[Int],
 ) -> Series raise @types.DataError {
+  // Pop `arity` already-evaluated operands off the value stack and return
+  // them in **input order**. The stack yields them last-first, so the result
+  // reverses the pop order (`arity - 1 - i`) — cell `k` then feeds the
+  // closure its k-th input. Shared by the `ApplyMap` / `ApplyMapBatches`
+  // combiners, whose reversals must otherwise be kept in lockstep.
+  fn pop_inputs(stack : Array[Series], arity : Int) -> Array[Series] {
+    let popped : Array[Series] = []
+    for _ in 0..<arity {
+      popped.push(pop_value(stack))
+    }
+    Array::makei(arity, i => popped[arity - 1 - i])
+  }
+
   let work : Array[EvalStep] = [Eval(root.node())]
   let values : Array[Series] = []
   // `scope` and `df.nrows()` are constant across the whole walk, so whether the
@@ -346,8 +344,16 @@ fn eval_expr(
               match op {
                 @ir.UnOp::Neg => @kernel.eval_neg(operand)
                 @ir.UnOp::Not => @kernel.eval_not(operand)
-                @ir.UnOp::IsNull => is_null_mask(operand)
-                @ir.UnOp::IsNotNull => is_not_null_mask(operand)
+                // The null probes are plain validity reads on the
+                // non-nullable `Builtin` backend: `IsNull` keeps the cells a
+                // null occupies, `IsNotNull` the rest.
+                @ir.UnOp::IsNull =>
+                  Series::from_bools(
+                    operand.name(),
+                    validity_bools(operand).map(v => !v),
+                  )
+                @ir.UnOp::IsNotNull =>
+                  Series::from_bools(operand.name(), validity_bools(operand))
                 @ir.UnOp::IsNan => @kernel.eval_is_nan(operand)
                 @ir.UnOp::IsNotNan => @kernel.eval_is_not_nan(operand)
                 @ir.UnOp::Abs => @kernel.eval_abs(operand)
@@ -361,7 +367,25 @@ fn eval_expr(
           }
           ApplyAgg(op) => {
             let operand = pop_value(values)
-            values.push(eval_agg(op, operand))
+            // The aggregation kernel: reduce the operand over its scope to a
+            // length-1 column through the shared `reducer_for` machinery —
+            // the same `ReduceOp` vocabulary the AST's `Agg` node carries,
+            // shared with the grouped-`agg` fast path so both route each op
+            // the same way. Dtype / null / `NaN` rules: `Sum` `Int → Int`,
+            // `Float → Float`, nulls skipped, `NaN` propagates, empty /
+            // all-null sums to the additive identity; `Mean` always `Float`
+            // with an empty / all-null window yielding a **null cell**
+            // (Polars `mean` semantics — deliberately not `Series::mean`'s
+            // `InvalidOperation`, a per-group reduction must produce a value
+            // slot); `Min` / `Max` total over every dtype in the operand's
+            // own dtype, `NaN` skipped, empty / all-null / all-`NaN` reduces
+            // to a null cell; `Count` the non-null cell count, never null.
+            // Numeric outputs converge onto the `Numeric` backend (the
+            // expression-engine convention for computed columns), and
+            // consumers broadcast the length-1 result back over the scope.
+            let (reducer, probe) = reducer_for(operand, op)
+            let cell = reducer(operand.len(), k => k)
+            values.push(scalars_to_series(probe, operand.name(), [cell]))
           }
           ApplyStr(op) => {
             let operand = pop_value(values)
@@ -392,7 +416,8 @@ fn eval_expr(
             // `fill_nan` passes it through as null), naming, and backend
             // convergence stay byte-for-byte identical.
             let cond = match kind {
-              FillKind::Nulls => is_not_null_mask(operand)
+              FillKind::Nulls =>
+                Series::from_bools(operand.name(), validity_bools(operand))
               FillKind::Nans => @kernel.eval_is_not_nan(operand)
             }
             values.push(@kernel.eval_ternary(cond, operand, value_v))
@@ -429,18 +454,4 @@ fn pop_value(stack : Array[Series]) -> Series {
   let top = stack[stack.length() - 1]
   let _ = stack.pop()
   top
-}
-
-///|
-/// Pop `arity` already-evaluated operands off the value stack and return them in
-/// **input order**. The stack yields them last-first, so the result reverses the
-/// pop order (`arity - 1 - i`) — cell `k` then feeds the closure its k-th input.
-/// Shared by the `ApplyMap` / `ApplyMapBatches` combiners, whose reversals must
-/// otherwise be kept in lockstep.
-fn pop_inputs(stack : Array[Series], arity : Int) -> Array[Series] {
-  let popped : Array[Series] = []
-  for _ in 0..<arity {
-    popped.push(pop_value(stack))
-  }
-  Array::makei(arity, i => popped[arity - 1 - i])
 }

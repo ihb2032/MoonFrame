@@ -150,11 +150,27 @@ pub fn CsvReadOptions::CsvReadOptions(
 /// RFC-4180 reader rejects all three; `CsvReadOptions::CsvReadOptions(strict_quotes=true)`
 /// runs a linear validation pass before tokenisation and rejects them as
 /// `ParseError`.
+///
+/// `projection` narrows the read to the named columns — the same knob the
+/// lazy `scan_csv` source's projection pushdown rides. `None` (the default)
+/// builds every column; `Some(names)` builds only the columns whose header
+/// name appears in `names`, in the file's own header order, leaving the rest
+/// uninferred, unparsed, and unmaterialised. A requested name that matches
+/// no header is silently ignored (lenient projection, as in Polars), and a
+/// projection matching **no** header builds no column at all and yields the
+/// `N×0` frame — the file's rows are still counted, so a downstream `head` /
+/// `slice` bounds-checks against the real height. Whole-input checks (strict
+/// quote validation, the empty-input short-circuit, duplicate-header
+/// rejection, the ragged-row guard) run before the projection filter and so
+/// are unaffected by it; the one behavioural difference is the point of the
+/// knob — a parse error confined to a *dropped* column is not raised, that
+/// column is never parsed.
 pub fn parse_csv_str(
   content : String,
   options? : CsvReadOptions = CsvReadOptions::CsvReadOptions(),
+  projection? : Array[String],
 ) -> @frame.DataFrame raise @types.DataError {
-  parse_csv_str_projected(content, options, None, None)
+  parse_csv_str_projected(content, options, projection, None)
 }
 
 ///|

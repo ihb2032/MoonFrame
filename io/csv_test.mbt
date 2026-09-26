@@ -810,3 +810,38 @@ test "CsvReadOptions defaults every field" {
   assert_eq(opts.allow_nonfinite_floats, true)
   assert_eq(opts.strict_quotes, false)
 }
+
+///|
+test "parse_csv_str projection builds only the named columns in header order" {
+  let content =
+    #|n,r,b,s
+    #|1,1.5,true,alpha
+    #|2,2.5,false,beta
+    #|
+  // The file's own header order wins over the request order; a name that
+  // matches no header is silently ignored; the row count is the file's.
+  let df = @io.parse_csv_str(content, projection=["b", "missing", "n"])
+  assert_eq(df.columns(), ["n", "b"])
+  assert_eq(df.shape(), (2, 2))
+  assert_eq(df.item(1, "n"), @types.Scalar::Int(2))
+  assert_eq(df.item(1, "b"), @types.Scalar::Bool(false))
+  // A projection matching no header keeps the rows: the N×0 frame.
+  let none = @io.parse_csv_str(content, projection=["missing"])
+  assert_eq(none.shape(), (2, 0))
+}
+
+///|
+test "parse_csv_str projection still fails whole-input checks" {
+  // A duplicate header is a whole-input check: it fires before the
+  // projection filter, projected read or not.
+  let content =
+    #|a,a,b
+    #|1,2,3
+    #|
+  let result : Result[@frame.DataFrame, @types.DataError] = Ok(
+    @io.parse_csv_str(content, projection=["b"]),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(result is Err(@types.DataError::DuplicateColumn(_)))
+}

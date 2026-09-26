@@ -159,8 +159,11 @@ fn compare_with_missing(
 ) -> Int {
   match (mi, mj) {
     (true, true) => 0
-    (true, false) => missing_offset(nulls_last)
-    (false, true) => -missing_offset(nulls_last)
+    // A missing-vs-present pair: the sign is the left-hand side's
+    // perspective — missing sorts before non-missing when `nulls_last` is
+    // false, after it when true.
+    (true, false) => if nulls_last { 1 } else { -1 }
+    (false, true) => if nulls_last { -1 } else { 1 }
     (false, false) => {
       let raw = cmp_valid()
       if descending {
@@ -169,18 +172,6 @@ fn compare_with_missing(
         raw
       }
     }
-  }
-}
-
-///|
-/// `-1` when missing sorts before non-missing (`nulls_last = false`), `1`
-/// when missing sorts after non-missing (`nulls_last = true`). The sign is
-/// applied from the left-hand side's perspective in `compare_with_missing`.
-fn missing_offset(nulls_last : Bool) -> Int {
-  if nulls_last {
-    1
-  } else {
-    -1
   }
 }
 

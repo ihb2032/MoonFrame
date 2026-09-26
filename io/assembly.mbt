@@ -11,19 +11,6 @@
 // through the CSV / JSON / NDJSON reader blackbox tests that drive it.
 
 ///|
-/// A membership set over a name list — a `Map[String, Unit]` for O(1)
-/// `contains`, built once so the projection / pruned-column / key-column
-/// checks in the readers don't rescan (or reallocate) a name array per
-/// header.
-fn name_set(names : Array[String]) -> Map[String, Unit] {
-  let set : Map[String, Unit] = Map([])
-  for name in names {
-    set[name] = ()
-  }
-  set
-}
-
-///|
 /// Compact one record-parallel structure by a prune's survivor list:
 /// identity when no pruner ran (`None` = every record), else each kept
 /// record's entry. The "survivor → original position" compaction both
@@ -78,6 +65,17 @@ fn assemble_pruned_frame(
   pruner : RowPruner?,
   build_over : (String, Int, Array[Int]?) -> @series.Series raise @types.DataError,
 ) -> @frame.DataFrame raise @types.DataError {
+  // A membership set over a name list — a `Map[String, Unit]` for O(1)
+  // `contains`, built once so the projection / pruned-column / key-column
+  // checks below don't rescan (or reallocate) a name array per header.
+  fn name_set(names : Array[String]) -> Map[String, Unit] {
+    let set : Map[String, Unit] = Map([])
+    for name in names {
+      set[name] = ()
+    }
+    set
+  }
+
   // Phase 1: build only the key columns over every record, gather the survivors.
   let pruned : (@frame.DataFrame, Array[Int])? = match pruner {
     None => None

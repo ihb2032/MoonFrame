@@ -60,17 +60,6 @@ pub extend VegaType with Eq::{equal, not_equal}
 pub extend VegaType with Debug::{to_repr}
 
 ///|
-/// The Vega-Lite `type` string for a `VegaType`.
-fn vega_type_string(t : VegaType) -> String {
-  match t {
-    Quantitative => "quantitative"
-    Nominal => "nominal"
-    Ordinal => "ordinal"
-    Temporal => "temporal"
-  }
-}
-
-///|
 /// A chart specification: the `mark` kind, the `x` / `y` encoding columns,
 /// an optional `color` grouping column, and an optional `title`. Fields are
 /// read-only outside the package — build a spec through one of the
@@ -205,7 +194,15 @@ pub fn format_vega_lite(
   if spec.title is Some(title) {
     obj["title"] = Json::string(title)
   }
-  obj["mark"] = Json::string(chart_mark(spec.kind))
+  // The Vega-Lite `mark` string for the chart kind.
+  obj["mark"] = Json::string(
+    match spec.kind {
+      Bar => "bar"
+      Line => "line"
+      Point => "point"
+      Area => "area"
+    },
+  )
   let encoding : Map[String, Json] = Map([])
   encoding["x"] = encoding_channel(spec.x, x_dtype, None)
   encoding["y"] = encoding_channel(spec.y, y_dtype, None)
@@ -241,17 +238,6 @@ pub fn write_vega_lite(
 // ── internals ──────────────────────────────────────────────────────────
 
 ///|
-/// Map a `ChartKind` to its Vega-Lite `mark` string.
-fn chart_mark(kind : ChartKind) -> String {
-  match kind {
-    Bar => "bar"
-    Line => "line"
-    Point => "point"
-    Area => "area"
-  }
-}
-
-///|
 /// Build one Vega-Lite encoding-channel object `{"field": <name>, "type":
 /// <vega-type>}`. An explicit `type_override` wins; otherwise the field `type`
 /// follows the column dtype: a numeric column (`Int` / `Float`) is
@@ -265,7 +251,14 @@ fn encoding_channel(
   let channel : Map[String, Json] = Map([])
   channel["field"] = Json::string(escape_vega_field(field))
   let vtype = match type_override {
-    Some(t) => vega_type_string(t)
+    // The Vega-Lite `type` string for a `VegaType`.
+    Some(t) =>
+      match t {
+        Quantitative => "quantitative"
+        Nominal => "nominal"
+        Ordinal => "ordinal"
+        Temporal => "temporal"
+      }
     None =>
       if dtype.is_numeric() {
         "quantitative"

@@ -4,20 +4,6 @@
 // the UCD by the tracked generator script.
 
 ///|
-/// The simple uppercase mapping of one code point, or the code point itself
-/// when it has none — one binary search over the sorted generated table.
-fn simple_upper(cp : UInt) -> UInt {
-  case_lookup(unicode_simple_upper, cp)
-}
-
-///|
-/// The simple lowercase mapping of one code point, or the code point itself
-/// when it has none.
-fn simple_lower(cp : UInt) -> UInt {
-  case_lookup(unicode_simple_lower, cp)
-}
-
-///|
 /// Binary search over a sorted `(from, to)` table: the mapped code point,
 /// or `cp` itself when the table has no entry — the common case, since most
 /// code points carry no case mapping at all.
@@ -91,7 +77,11 @@ pub fn map_case(s : String, upper~ : Bool) -> String {
           buf.write_char(t.reinterpret_as_int().unsafe_to_char())
         }
       None => {
-        let mapped = if upper { simple_upper(cp) } else { simple_lower(cp) }
+        let mapped = if upper {
+          case_lookup(unicode_simple_upper, cp)
+        } else {
+          case_lookup(unicode_simple_lower, cp)
+        }
         // Safe by construction: a mapped code point is a Unicode scalar
         // value (the table only maps scalars to scalars), and an unmapped
         // one came from a `Char` in the first place.

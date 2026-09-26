@@ -27,7 +27,6 @@ internal/kernel -> types
 internal/scan -> expr
 internal/scan -> series
 internal/scan -> types
-io -> expr
 io -> frame
 io -> internal/numeric
 io -> internal/scan

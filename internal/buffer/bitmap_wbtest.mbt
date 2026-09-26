@@ -14,7 +14,7 @@ test "all_valid marks every slot valid for non-byte-aligned lengths" {
     assert_eq(bm.len, n)
     assert_eq(bm.null_count(), 0)
     for i in 0..<n {
-      assert_eq(bm.is_valid(i), true)
+      assert_eq(bm.is_valid_total(i), true)
       assert_eq(bm.is_null(i), false)
     }
   }
@@ -42,7 +42,7 @@ test "mask mirrors the input vector exactly" {
     true, false, true, true, false, false, true, true, false,
   ]
   for i in 0..<expected.length() {
-    assert_eq(bm.is_valid(i), expected[i])
+    assert_eq(bm.is_valid_total(i), expected[i])
   }
 }
 
@@ -58,17 +58,17 @@ test "from_options on Int? round-trips Some/None as 1/0" {
   let bm = Bitmap::from_options([Some(1), None, Some(3), None, None])
   assert_eq(bm.len, 5)
   assert_eq(bm.null_count(), 3)
-  assert_eq(bm.is_valid(0), true)
-  assert_eq(bm.is_valid(1), false)
-  assert_eq(bm.is_valid(2), true)
-  assert_eq(bm.is_valid(3), false)
-  assert_eq(bm.is_valid(4), false)
+  assert_eq(bm.is_valid_total(0), true)
+  assert_eq(bm.is_valid_total(1), false)
+  assert_eq(bm.is_valid_total(2), true)
+  assert_eq(bm.is_valid_total(3), false)
+  assert_eq(bm.is_valid_total(4), false)
 }
 
 ///|
 test "is_valid_total reads one slot totally, clamping out-of-range to false" {
   let bm = mask([true, false, true])
-  // In-bounds: agrees with the raising `is_valid`.
+  // In-bounds: agrees with the raising `is_null` read.
   assert_eq(bm.is_valid_total(0), true)
   assert_eq(bm.is_valid_total(1), false)
   assert_eq(bm.is_valid_total(2), true)
@@ -83,7 +83,7 @@ test "from_options is generic in the element type" {
   let bm = Bitmap::from_options([Some("a"), None, Some("c")])
   assert_eq(bm.len, 3)
   assert_eq(bm.null_count(), 1)
-  assert_eq(bm.is_valid(1), false)
+  assert_eq(bm.is_valid_total(1), false)
 }
 
 // ── Cross-constructor equivalence ─────────────────────────────────────
@@ -99,24 +99,7 @@ test "all_valid and mask agree on a uniform-true vector" {
 // ── Inspection ────────────────────────────────────────────────────────
 
 ///|
-test "is_valid out-of-bounds raises IndexOutOfBounds with the offender" {
-  let bm = Bitmap::all_valid(4)
-  assert_eq(
-    Ok(bm.is_valid(-1)) catch {
-      e => Err(e)
-    },
-    Err(@types.DataError::IndexOutOfBounds(-1)),
-  )
-  assert_eq(
-    Ok(bm.is_valid(4)) catch {
-      e => Err(e)
-    },
-    Err(@types.DataError::IndexOutOfBounds(4)),
-  )
-}
-
-///|
-test "is_null out-of-bounds bubbles the same error as is_valid" {
+test "is_null out-of-bounds raises IndexOutOfBounds with the offender" {
   let bm = Bitmap::all_valid(2)
   assert_eq(
     Ok(bm.is_null(-5)) catch {
@@ -172,7 +155,7 @@ test "slice_view mid-range across a byte boundary preserves bits" {
     true, true, false, false, true, false, true, true,
   ]
   for i in 0..<expected.length() {
-    assert_eq(part.is_valid(i), expected[i])
+    assert_eq(part.is_valid_total(i), expected[i])
   }
 }
 
@@ -198,10 +181,10 @@ test "take_view gathers in arbitrary order with duplicates" {
   let bm = mask([true, false, true, false, true])
   let out = bm.take_view([4, 1, 1, 0])
   assert_eq(out.len, 4)
-  assert_eq(out.is_valid(0), true) // src[4] = true
-  assert_eq(out.is_valid(1), false) // src[1] = false
-  assert_eq(out.is_valid(2), false) // src[1] = false (duplicate)
-  assert_eq(out.is_valid(3), true) // src[0] = true
+  assert_eq(out.is_valid_total(0), true) // src[4] = true
+  assert_eq(out.is_valid_total(1), false) // src[1] = false
+  assert_eq(out.is_valid_total(2), false) // src[1] = false (duplicate)
+  assert_eq(out.is_valid_total(3), true) // src[0] = true
 }
 
 ///|

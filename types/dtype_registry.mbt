@@ -73,13 +73,6 @@ fn DataType::dtype_profile(self : DataType) -> DTypeProfile {
 }
 
 ///|
-/// The `Show` spelling of the dtype — the single home of the display name
-/// (`DataType::output` renders through this).
-fn DataType::display_name(self : DataType) -> String {
-  self.dtype_profile().display
-}
-
-///|
 /// The physical buffer a logical `DataType` needs, or `None` for `Null`. `Null`
 /// deliberately has **no** `PhysicalType`: it is a value-level concept (a
 /// missing cell, `Scalar::Null`), not a storable column kind, which is why a

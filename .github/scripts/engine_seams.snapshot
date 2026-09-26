@@ -1,7 +1,7 @@
 expr | doc_hidden internal_engine | pub fn Expr::children(self : Expr) -> Array[Expr] | used by: lazy
 expr | doc_hidden internal_engine | pub fn Expr::node(self : Expr) -> @ir.ExprNode | used by: frame,lazy
 expr | doc_hidden internal_engine | pub fn Expr::output_name(self : Expr) -> String | used by: frame,lazy
-expr | doc_hidden internal_engine | pub fn Expr::referenced_columns(self : Expr) -> @set.Set[String] | used by: io,lazy
+expr | doc_hidden internal_engine | pub fn Expr::referenced_columns(self : Expr) -> @set.Set[String] | used by: lazy
 expr | doc_hidden internal_engine | pub fn format_scalar(value : @types.Scalar) -> String | used by: lazy
 frame | doc_hidden internal_engine | pub fn DataFrame::check_invariants(self : DataFrame) -> Result[Unit, String] | used by: (no production caller outside frame)
 frame | doc_hidden internal_engine | pub fn DataFrame::from_parts( columns : Array[Series], nrows : Int, ) -> DataFrame raise @types.DataError | used by: io,lazy

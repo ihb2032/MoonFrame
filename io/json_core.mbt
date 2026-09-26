@@ -125,14 +125,20 @@ fn frame_from_json_records(
         }
         objs.push(obj)
       }
-      _ =>
+      _ => {
         // Carry the locator, like every other error in these readers: in a
-        // large file "which record" is the whole diagnostic.
+        // large file "which record" is the whole diagnostic. A 1-based
+        // **file line** when the caller supplies a per-record line map (the
+        // NDJSON reader, whose blank-line skipping makes the record index
+        // diverge from the physical line), or a 1-based **record** number for
+        // the JSON-array reader (where records have no line of their own).
+        let (loc, n) = json_cell_parse_location(source_lines, i)
         raise @types.DataError::ParseError(
           @types.ParseErrorDetail::Message(
-            "\{json_record_locator(source_lines, i)}: expected each record to be a JSON object",
+            "\{locator_text(loc, n)}: expected each record to be a JSON object",
           ),
         )
+      }
     }
   }
   // Build one typed column per header, skipping any the projection drops; the
@@ -365,19 +371,6 @@ fn json_value_to_string_fallback(j : Json) -> String {
     String(s) => s
     _ => (j : Json).stringify()
   }
-}
-
-///|
-/// Locate a record in a build-stage error message: a 1-based **file line**
-/// when the caller supplies a per-record line map (the NDJSON reader, whose
-/// blank-line skipping makes the record index diverge from the physical line),
-/// or a 1-based **record** number for the JSON-array reader (where records have
-/// no line of their own). `source_lines` is parallel to the record array, so
-/// the index is always in range. Derived from `json_cell_parse_location` —
-/// the typed coordinate is the single fact; this is its message rendering.
-fn json_record_locator(source_lines : Array[Int]?, i : Int) -> String {
-  let (loc, n) = json_cell_parse_location(source_lines, i)
-  locator_text(loc, n)
 }
 
 ///|

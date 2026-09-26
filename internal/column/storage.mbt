@@ -144,9 +144,22 @@ fn storage_cells_equal(
   sb : ColumnStorage,
   eq : (Int) -> Bool,
 ) -> Bool {
+  // Single-slot validity read, **total** (an out-of-range index reads as null
+  // rather than raising, like `Bitmap::is_valid_total`): the `Numeric` arm
+  // has no bitmap and every slot present by construction; the `Builtin` arm
+  // reads one bit out of the buffer it already owns. Neither allocates — the
+  // dense `validity()` materialisation is for callers that walk every slot
+  // anyway.
+  fn valid_at(s : ColumnStorage, index : Int) -> Bool {
+    match s {
+      Builtin(c) => c.validity().is_valid_total(index)
+      Numeric(_) => true
+    }
+  }
+
   for i in 0..<n {
-    let valid = sa.valid_at(i)
-    if valid != sb.valid_at(i) {
+    let valid = valid_at(sa, i)
+    if valid != valid_at(sb, i) {
       return false
     }
     if valid && !eq(i) {
@@ -154,21 +167,6 @@ fn storage_cells_equal(
     }
   }
   true
-}
-
-///|
-/// Whether slot `index` holds a value — the single-slot validity read behind
-/// `storage_cells_equal`, **total** (an out-of-range index reads as null rather
-/// than raising, like `Bitmap::is_valid_total`). The `Numeric` arm answers
-/// without a bitmap at all, since it has none and every slot is present by
-/// construction; the `Builtin` arm reads one bit out of the buffer it already
-/// owns. Neither allocates, which is the point — the dense `validity()`
-/// materialisation is for the callers that walk every slot anyway.
-fn ColumnStorage::valid_at(self : ColumnStorage, index : Int) -> Bool {
-  match self {
-    Builtin(c) => c.validity().is_valid_total(index)
-    Numeric(_) => true
-  }
 }
 
 // ── Inspection (transparent forwarding, both arms) ────────────────────
@@ -308,7 +306,20 @@ pub fn ColumnStorage::slice_total(
   let e = if e0 < s { s } else { e0 }
   match self {
     Builtin(c) => Builtin(c.slice_unchecked(s, e))
-    Numeric(c) => Numeric(c.slice_unchecked(s, e))
+    Numeric(c) => {
+      // The raw sub-range copy — no bitmap to repack, the construction win
+      // of a Numeric slice (an all-valid column stays all-valid). `s` / `e`
+      // are already clamped to `[0, len]` with `s <= e`.
+      let n = e - s
+      Numeric({
+        data: match c.data {
+          NumericData::Int(a) =>
+            NumericData::Int(Array::makei(n, i => a[s + i]))
+          NumericData::Float(a) =>
+            NumericData::Float(Array::makei(n, i => a[s + i]))
+        },
+      })
+    }
   }
 }
 
@@ -339,26 +350,14 @@ pub fn ColumnStorage::take(
   }
 }
 
-// ── Materialise ───────────────────────────────────────────────────────
-
-///|
-/// The column as a `BuiltinColumn` (the general-purpose Arrow backend).
-/// Total: a `Builtin` is already one; a `Numeric` widens losslessly via
-/// `NumericColumn::to_builtin` (an all-valid bitmap is synthesised). The
-/// escape hatch the cross-dtype transforms route through.
-fn ColumnStorage::to_builtin(self : ColumnStorage) -> BuiltinColumn {
-  match self {
-    Builtin(c) => c
-    Numeric(c) => c.to_builtin()
-  }
-}
-
 // ── Cross-dtype transforms (borrow the Builtin road) ──────────────────
 
 ///|
 /// Cast to `target` — the single cross-dtype conversion — routing through
-/// `to_builtin()` so `BuiltinColumn`'s cast machine is reused rather than
-/// duplicated on the `Numeric` arm. The result is `Builtin`-backed;
+/// the `Builtin` backend so `BuiltinColumn`'s cast machine is reused rather
+/// than duplicated on the `Numeric` arm: a `Builtin` column is already one,
+/// and a `Numeric` widens losslessly via `NumericColumn::to_builtin` (an
+/// all-valid bitmap is synthesised). The result is `Builtin`-backed;
 /// `@series.try_column_to_numeric` re-converges it if a numeric target should
 /// land back on the fast path. Supported targets and failure modes match
 /// `BuiltinColumn::cast`.
@@ -366,5 +365,9 @@ pub fn ColumnStorage::cast(
   self : ColumnStorage,
   target : @types.DataType,
 ) -> ColumnStorage raise @types.DataError {
-  ColumnStorage::Builtin(self.to_builtin().cast(target))
+  let widened : BuiltinColumn = match self {
+    Builtin(c) => c
+    Numeric(c) => c.to_builtin()
+  }
+  ColumnStorage::Builtin(widened.cast(target))
 }

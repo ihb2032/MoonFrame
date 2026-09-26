@@ -27,25 +27,21 @@ pub fn DataFrame::fill_null(
   value : @types.Scalar,
 ) -> DataFrame raise @types.DataError {
   let new_cols = self.columns.map(s => {
-    // Skip a dtype-compatible column that has no nulls: filling it would rebuild
-    // the whole column into an identical copy. `null_count` is O(1) for a
-    // `Numeric` column, mirroring `drop_nulls`' short-circuit.
-    if fills_dtype(value, s.dtype()) && s.null_count() != 0 {
+    // The frame-wide value fills a column only when it is a concrete value
+    // of the column's own dtype (so the fill is always dtype-preserving; the
+    // null value fills nothing). And skip a dtype-compatible column that has
+    // no nulls: filling it would rebuild the whole column into an identical
+    // copy. `null_count` is O(1) for a `Numeric` column, mirroring
+    // `drop_nulls`' short-circuit.
+    let fills = match value {
+      @types.Scalar::Null => false
+      v => v.dtype() == s.dtype()
+    }
+    if fills && s.null_count() != 0 {
       s.fill_null(value)
     } else {
       s
     }
   })
   self.with_same_schema(new_cols, self.nrows)
-}
-
-///|
-/// Whether the frame-wide `fill_null` value fills a column of `dtype`: a
-/// concrete value fills its own dtype only (so the fill is always
-/// dtype-preserving), and the null value fills nothing.
-fn fills_dtype(value : @types.Scalar, dtype : @types.DataType) -> Bool {
-  match value {
-    @types.Scalar::Null => false
-    _ => value.dtype() == dtype
-  }
 }

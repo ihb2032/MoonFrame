@@ -49,11 +49,22 @@
 ///   dtype, unless `options.on_parse_error` is `Null`, which downgrades that
 ///   cell to a null instead.
 /// - Whatever `DataFrame::from_parts` propagates.
+///
+/// `projection` narrows the read to the named columns — the same knob the
+/// lazy `scan_ndjson` source's projection pushdown rides. `None` (the
+/// default) builds every column; `Some(names)` builds only the columns whose
+/// header name appears in `names`, in first-seen header order. Every line is
+/// still parsed and record validation runs before the column filter, so a
+/// projected read fails on a malformed or non-object line exactly as a full
+/// read does; the one behavioural difference is the point of the knob — a
+/// parse error confined to a *dropped* column is not raised, that column is
+/// never built.
 pub fn parse_ndjson_str(
   content : String,
   options? : JsonReadOptions = JsonReadOptions::JsonReadOptions(),
+  projection? : Array[String],
 ) -> @frame.DataFrame raise @types.DataError {
-  parse_ndjson_str_projected(content, options, None, None)
+  parse_ndjson_str_projected(content, options, projection, None)
 }
 
 ///|

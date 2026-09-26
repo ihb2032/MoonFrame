@@ -35,7 +35,14 @@ pub extend Utf8Array with Debug::{to_repr}
 /// into one UTF-8 buffer. `values` is copied, so the buffer is unaffected by
 /// later mutation of the array.
 pub fn Utf8Array::from_strings(values : Array[String]) -> Utf8Array {
-  let bytes = FixedArray::make(total_encoded_len(values), (0 : Byte))
+  // Sum of the UTF-8 encodings' byte lengths — the exact value-buffer size,
+  // allocated once instead of grown per cell. Same walk as `encode_into`, so
+  // the two always agree.
+  let mut total = 0
+  for v in values {
+    total = total + encoded_len(v)
+  }
+  let bytes = FixedArray::make(total, (0 : Byte))
   let n = values.length()
   let offsets : FixedArray[Int] = FixedArray::make(n + 1, 0)
   let mut at = 0
@@ -56,18 +63,6 @@ pub fn Utf8Array::from_strings(values : Array[String]) -> Utf8Array {
 /// placeholder paired with the column's validity bitmap).
 pub fn Utf8Array::from_string_options(values : Array[String?]) -> Utf8Array {
   Utf8Array::from_strings(values.map(v => v.unwrap_or("")))
-}
-
-///|
-/// Sum of the UTF-8 encodings' byte lengths — the exact value-buffer size,
-/// allocated once instead of grown per cell. Same walk as `encode_into`, so
-/// the two always agree.
-fn total_encoded_len(values : Array[String]) -> Int {
-  let mut total = 0
-  for v in values {
-    total = total + encoded_len(v)
-  }
-  total
 }
 
 ///|
@@ -112,6 +107,15 @@ fn encoded_len(s : String) -> Int {
 /// round-trips through `decode_cell` byte-exact, and the write paths keep
 /// their own refuse-rather-than-corrupt surrogate check.
 fn encode_into(s : String, buf : FixedArray[Byte], at : Int) -> Int {
+  // The 3-byte encoding of one UTF-16 unit outside the ASCII / 2-byte ranges.
+  // For a surrogate unit this is the WTF-8 spelling of the half itself.
+  fn encode_wtf8_unit(u : Int, at : Int) -> Int {
+    buf[at] = (0xE0 | (u >> 12)).to_byte()
+    buf[at + 1] = (0x80 | ((u >> 6) & 0x3F)).to_byte()
+    buf[at + 2] = (0x80 | (u & 0x3F)).to_byte()
+    3
+  }
+
   let n = s.length()
   let mut p = at
   let mut i = 0
@@ -137,27 +141,17 @@ fn encode_into(s : String, buf : FixedArray[Byte], at : Int) -> Int {
         p = p + 4
         i = i + 2
       } else {
-        p = p + encode_wtf8_unit(u, buf, p)
+        p = p + encode_wtf8_unit(u, p)
         i = i + 1
       }
     } else {
       // A lone surrogate half (or any other 3-byte unit) — the surrogate
       // spelling keeps it recoverable.
-      p = p + encode_wtf8_unit(u, buf, p)
+      p = p + encode_wtf8_unit(u, p)
       i = i + 1
     }
   }
   p - at
-}
-
-///|
-/// The 3-byte encoding of one UTF-16 unit outside the ASCII / 2-byte ranges.
-/// For a surrogate unit this is the WTF-8 spelling of the half itself.
-fn encode_wtf8_unit(u : Int, buf : FixedArray[Byte], at : Int) -> Int {
-  buf[at] = (0xE0 | (u >> 12)).to_byte()
-  buf[at + 1] = (0x80 | ((u >> 6) & 0x3F)).to_byte()
-  buf[at + 2] = (0x80 | (u & 0x3F)).to_byte()
-  3
 }
 
 // ── Inspection ────────────────────────────────────────────────────────

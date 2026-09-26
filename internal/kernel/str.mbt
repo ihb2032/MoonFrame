@@ -105,7 +105,18 @@ pub fn eval_str(
     @ir.StrOp::PadEnd(width, fill) =>
       Series::from_string_options(
         name,
-        map_present(n, valid, i => pad_end_chars(data[i], width, fill)),
+        // The right-pad mirror of `pad_start_chars`: append the fill until
+        // `width` **characters** (codepoint-based, consistent with
+        // `str_len_chars` and Polars).
+        map_present(n, valid, i => {
+          let s = data[i]
+          let len = s.char_length()
+          if len >= width {
+            s
+          } else {
+            "\{s}\{String::make(width - len, fill)}"
+          }
+        }),
       )
     // The `*Regex` ops compile the pattern once here — outside `map_present`, so
     // an invalid pattern raises once per evaluation, never per cell — then run
@@ -177,8 +188,14 @@ pub fn eval_str(
       Series::from_string_options(
         name,
         Array::makei(n, i => {
+          // The `index`-th field of the split, `None` for a negative `index`
+          // or one past the last field (`str_split_get`).
           if valid[i] {
-            split_get(data[i], sep, index)
+            if index < 0 {
+              None
+            } else {
+              data[i].split(sep).nth(index).map(v => v.to_owned())
+            }
           } else {
             None
           }
@@ -191,17 +208,6 @@ pub fn eval_str(
       )
   }
   try_column_to_numeric(out)
-}
-
-///|
-/// The `index`-th field of `s` split on the literal `sep`, as a `String?`:
-/// `None` for a negative `index` or one past the last field (`str_split_get`).
-fn split_get(s : String, sep : String, index : Int) -> String? {
-  if index < 0 {
-    None
-  } else {
-    s.split(sep).nth(index).map(v => v.to_owned())
-  }
 }
 
 ///|
@@ -318,18 +324,6 @@ fn pad_start_chars(s : String, width : Int, fill : Char) -> String {
     s
   } else {
     "\{String::make(width - len, fill)}\{s}"
-  }
-}
-
-///|
-/// Right-pad `s` with `fill` until it is `width` characters long — the mirror
-/// of `pad_start_chars`.
-fn pad_end_chars(s : String, width : Int, fill : Char) -> String {
-  let len = s.char_length()
-  if len >= width {
-    s
-  } else {
-    "\{s}\{String::make(width - len, fill)}"
   }
 }
 

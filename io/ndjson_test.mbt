@@ -569,3 +569,25 @@ test "format_ndjson / parse_ndjson_str round-trip preserves data" {
   // original `r` took the `Numeric` fast path does not enter into it.
   assert_eq(df2, df)
 }
+
+///|
+test "parse_ndjson_str projection builds only the named columns" {
+  let content =
+    #|{"n": 1, "s": "alpha", "b": true}
+    #|{"n": 2, "s": "beta", "b": false}
+    #|
+  let df = @io.parse_ndjson_str(content, projection=["b", "n"])
+  assert_eq(df.columns(), ["n", "b"])
+  assert_eq(df.shape(), (2, 2))
+  assert_eq(df.item(1, "n"), @types.Scalar::Int(2))
+  assert_eq(df.item(1, "b"), @types.Scalar::Bool(false))
+  // A malformed line still fails a projected read — record validation runs
+  // before the column filter.
+  let bad = "{\"n\": }"
+  let result : Result[@frame.DataFrame, @types.DataError] = Ok(
+    @io.parse_ndjson_str(bad, projection=["n"]),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(result is Err(@types.DataError::ParseError(_)))
+}

@@ -14,11 +14,11 @@ pub fn format_json(@frame.DataFrame) -> String
 
 pub fn format_ndjson(@frame.DataFrame) -> String
 
-pub fn parse_csv_str(String, options? : CsvReadOptions) -> @frame.DataFrame raise @types.DataError
+pub fn parse_csv_str(String, options? : CsvReadOptions, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
 
 pub fn parse_json_str(String, options? : JsonReadOptions) -> @frame.DataFrame raise @types.DataError
 
-pub fn parse_ndjson_str(String, options? : JsonReadOptions) -> @frame.DataFrame raise @types.DataError
+pub fn parse_ndjson_str(String, options? : JsonReadOptions, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
 
 pub fn read_csv(String, options? : CsvReadOptions) -> @frame.DataFrame raise @types.DataError
 

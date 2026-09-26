@@ -74,9 +74,9 @@ fn map_many(label~ : String, Array[@expr.Expr], (Array[@types.Scalar]) -> @types
 fn map_many(label~ : String, Array[Expr], (Array[@types.Scalar]) -> @types.Scalar raise @types.DataError) -> Expr <- expr
 fn numeric_cols(@frame.DataFrame) -> Array[@expr.Expr] <- root
 fn numeric_cols(DataFrame) -> Array[@expr.Expr] <- frame
-fn parse_csv_str(String, options? : CsvReadOptions) -> @frame.DataFrame raise @types.DataError <- io
+fn parse_csv_str(String, options? : CsvReadOptions, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- io
 fn parse_json_str(String, options? : JsonReadOptions) -> @frame.DataFrame raise @types.DataError <- io
-fn parse_ndjson_str(String, options? : JsonReadOptions) -> @frame.DataFrame raise @types.DataError <- io
+fn parse_ndjson_str(String, options? : JsonReadOptions, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- io
 fn read_csv(String, options? : @io.CsvReadOptions) -> @frame.DataFrame raise @types.DataError <- root
 fn read_csv(String, options? : CsvReadOptions) -> @frame.DataFrame raise @types.DataError <- io
 fn read_json(String, options? : @io.JsonReadOptions) -> @frame.DataFrame raise @types.DataError <- root

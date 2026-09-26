@@ -60,8 +60,9 @@ pub fn CsvWriteOptions::CsvWriteOptions(header? : Bool, delimiter? : Char, null_
 pub struct JsonReadOptions {
   infer_schema_rows : Int
   on_parse_error : OnParseError
+  reject_duplicate_keys : Bool
 }
-pub fn JsonReadOptions::JsonReadOptions(infer_schema_rows? : Int, on_parse_error? : OnParseError) -> Self
+pub fn JsonReadOptions::JsonReadOptions(infer_schema_rows? : Int, on_parse_error? : OnParseError, reject_duplicate_keys? : Bool) -> Self
 
 pub(all) enum OnParseError {
   Raise

@@ -605,3 +605,204 @@ test "round-trip narrows an all-integral Float column to Int (documented caveat)
   assert_eq(df2.item(0, "r"), @types.Scalar::Int(2))
   assert_eq(df2.item(1, "r"), @types.Scalar::Int(3))
 }
+
+// ── duplicate object keys: last-wins default, optional strict ───────────
+
+///|
+test "a repeated object key keeps its last value by default (serde / Polars reading)" {
+  // `@json.parse` folds an object into a `Map`, so the second spelling of a
+  // key replaces the first — the behaviour serde_json, pandas, and Polars
+  // all ship. Pinned here so the strict option below has a default to
+  // differ from.
+  let df = @io.parse_json_str("[{\"a\": 1, \"a\": 2}]")
+  assert_eq(df.item(0, "a"), @types.Scalar::Int(2))
+}
+
+///|
+test "reject_duplicate_keys fails the read naming the key and object" {
+  let opts = @io.JsonReadOptions::JsonReadOptions(reject_duplicate_keys=true)
+  let result : Result[@frame.DataFrame, @types.DataError] = Ok(
+    @io.parse_json_str("[{\"a\": 1}, {\"b\": 1, \"b\": 2}]", options=opts),
+  ) catch {
+    e => Err(e)
+  }
+  match result {
+    Err(@types.DataError::ParseError(@types.ParseErrorDetail::Message(m))) =>
+      assert_eq(m, "duplicate key \"b\" in JSON object 2")
+    _ => fail("expected a duplicate-key ParseError")
+  }
+}
+
+///|
+test "reject_duplicate_keys scans nested objects too" {
+  let opts = @io.JsonReadOptions::JsonReadOptions(reject_duplicate_keys=true)
+  // The nested value object is the payload's 2nd object; its key repeats.
+  let result : Result[@frame.DataFrame, @types.DataError] = Ok(
+    @io.parse_json_str("[{\"outer\": {\"x\": 1, \"x\": 2}}]", options=opts),
+  ) catch {
+    e => Err(e)
+  }
+  match result {
+    Err(@types.DataError::ParseError(@types.ParseErrorDetail::Message(m))) =>
+      assert_eq(m, "duplicate key \"x\" in JSON object 2")
+    _ => fail("expected a duplicate-key ParseError")
+  }
+}
+
+///|
+test "reject_duplicate_keys compares keys decoded, so unicode escapes collide" {
+  let opts = @io.JsonReadOptions::JsonReadOptions(reject_duplicate_keys=true)
+  // The JSON text spells one key as "a" and again as "\u0061" (the MoonBit
+  // literal doubles the backslash); both decode to `a`, exactly as they fold
+  // to the same `Map` entry after `@json.parse`.
+  let result : Result[@frame.DataFrame, @types.DataError] = Ok(
+    @io.parse_json_str("[{\"a\": 1, \"\\u0061\": 2}]", options=opts),
+  ) catch {
+    e => Err(e)
+  }
+  match result {
+    Err(@types.DataError::ParseError(@types.ParseErrorDetail::Message(m))) =>
+      assert_eq(m, "duplicate key \"a\" in JSON object 1")
+    _ => fail("expected a duplicate-key ParseError")
+  }
+}
+
+///|
+test "reject_duplicate_keys passes a payload without repeats" {
+  let opts = @io.JsonReadOptions::JsonReadOptions(reject_duplicate_keys=true)
+  let df = @io.parse_json_str(
+    "[{\"a\": 1}, {\"a\": 3, \"b\": 4}]",
+    options=opts,
+  )
+  assert_eq(df.nrows(), 2)
+  assert_eq(df.item(1, "b"), @types.Scalar::Int(4))
+}
+
+///|
+test "reject_duplicate_keys decodes every escape spelling before comparing" {
+  // One key spelled twice with the same escape sequence (`\t` here), so the
+  // duplicate is found after decoding; the reported key carries the decoded
+  // character. The `\u00ff` pair exercises the hex letters arm of the
+  // `\uXXXX` decoder the same way.
+  let opts = @io.JsonReadOptions::JsonReadOptions(reject_duplicate_keys=true)
+  let result : Result[@frame.DataFrame, @types.DataError] = Ok(
+    @io.parse_json_str("[{\"a\tb\": 1, \"a\tb\": 2}]", options=opts),
+  ) catch {
+    e => Err(e)
+  }
+  match result {
+    Err(@types.DataError::ParseError(@types.ParseErrorDetail::Message(m))) =>
+      assert_eq(m, "duplicate key \"a\tb\" in JSON object 1")
+    _ => fail("expected a duplicate-key ParseError")
+  }
+  let result2 : Result[@frame.DataFrame, @types.DataError] = Ok(
+    @io.parse_json_str("[{\"\\u00ff\": 1, \"\\u00ff\": 2}]", options=opts),
+  ) catch {
+    e => Err(e)
+  }
+  match result2 {
+    Err(@types.DataError::ParseError(@types.ParseErrorDetail::Message(m))) =>
+      assert_eq(m, "duplicate key \"\u{ff}\" in JSON object 1")
+    _ => fail("expected a duplicate-key ParseError")
+  }
+  // Uppercase hex digits take the decoder's other arm and land on the same
+  // key.
+  let result3 : Result[@frame.DataFrame, @types.DataError] = Ok(
+    @io.parse_json_str("[{\"\\u00AB\": 1, \"\\u00ab\": 2}]", options=opts),
+  ) catch {
+    e => Err(e)
+  }
+  match result3 {
+    Err(@types.DataError::ParseError(@types.ParseErrorDetail::Message(m))) =>
+      assert_eq(m, "duplicate key \"\u{ab}\" in JSON object 1")
+    _ => fail("expected a duplicate-key ParseError")
+  }
+}
+
+///|
+test "reject_duplicate_keys decodes each simple escape spelling" {
+  // Every two-character escape JSON defines, as a key spelled the same way
+  // twice so the duplicate is found after decoding. The expected key is the
+  // decoded character the escape names.
+  let opts = @io.JsonReadOptions::JsonReadOptions(reject_duplicate_keys=true)
+  let cases : Array[(String, String)] = [
+    ("\\\"", "\""), // \" → "
+    ("\\\\", "\\"), // \\ → backslash
+    ("\\/", "/"), // \/ → /
+    ("\\b", "\b"), // \b → backspace
+    ("\\f", "\u{000C}"), // \f → form feed
+    ("\\n", "\n"), // \n → newline
+    ("\\r", "\r"), // \r → carriage return
+    ("\\t", "\t"), // \t → tab
+  ]
+  for case in cases {
+    let esc = case.0
+    let decoded = case.1
+    let payload = "[{\"" + esc + "\": 1, \"" + esc + "\": 2}]"
+    let result : Result[@frame.DataFrame, @types.DataError] = Ok(
+      @io.parse_json_str(payload, options=opts),
+    ) catch {
+      e => Err(e)
+    }
+    match result {
+      Err(@types.DataError::ParseError(@types.ParseErrorDetail::Message(m))) =>
+        assert_eq(m, "duplicate key \"" + decoded + "\" in JSON object 1")
+      _ => fail("expected a duplicate-key ParseError")
+    }
+  }
+}
+
+///|
+test "string values and array items are not keys" {
+  // The scanner records a string literal only in key position; values and
+  // array elements pass through, so a repeated *value* is not a duplicate
+  // key and the read succeeds.
+  let opts = @io.JsonReadOptions::JsonReadOptions(reject_duplicate_keys=true)
+  let df = @io.parse_json_str(
+    "[{\"k\": \"same\", \"l\": [\"same\", \"same\"]}, {\"k\": \"same\"}]",
+    options=opts,
+  )
+  assert_eq(df.nrows(), 2)
+  assert_eq(df.item(0, "k"), @types.Scalar::String("same"))
+}
+
+///|
+test "reject_duplicate_keys leaves malformed payloads to the parser" {
+  // The scanner tolerates out-of-shape input — a trailing lone backslash,
+  // an unknown escape, a short `\u`, a stray closer, a top-level comma, a
+  // bare top-level string — and reports nothing, so the diagnostic the
+  // caller sees is `@json.parse`'s own, not a half-scanned guess.
+  let opts = @io.JsonReadOptions::JsonReadOptions(reject_duplicate_keys=true)
+  let malformed = [
+    "[{\"a\\", // string ends at the lone trailing backslash
+     "[{\"a\\q\": 1}]", // unknown escape
+     "[{\"a\\u00\": 1}]", // short \u escape (non-hex terminator)
+     "[{\"a\\u", // \u at end of input: not even four characters remain
+     "}", // stray closer before any object
+     ",", // top-level comma outside any container
+  ]
+  for payload in malformed {
+    let result : Result[@frame.DataFrame, @types.DataError] = Ok(
+      @io.parse_json_str(payload, options=opts),
+    ) catch {
+      e => Err(e)
+    }
+    match result {
+      Err(@types.DataError::ParseError(@types.ParseErrorDetail::Message(m))) =>
+        assert_true(m.contains("invalid JSON"))
+      _ => fail("expected the parser's own invalid-JSON diagnostic")
+    }
+  }
+  // A bare top-level string scans (no object, no keys) and is rejected by
+  // the array check, not by the scan.
+  let result : Result[@frame.DataFrame, @types.DataError] = Ok(
+    @io.parse_json_str("\"just a string\"", options=opts),
+  ) catch {
+    e => Err(e)
+  }
+  match result {
+    Err(@types.DataError::ParseError(@types.ParseErrorDetail::Message(m))) =>
+      assert_eq(m, "expected a JSON array of objects at the top level")
+    _ => fail("expected the top-level shape diagnostic")
+  }
+}

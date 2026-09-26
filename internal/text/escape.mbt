@@ -55,21 +55,20 @@ pub fn escape_debug(s : String) -> String {
         buf.write_char('\\')
         buf.write_char('t')
       }
-      c if is_control_char(c) => write_unicode_escape(buf, c)
-      _ => buf.write_char(ch)
+      _ => {
+        // The remaining control characters — the rest of the C0 range, `DEL`,
+        // and the Unicode line/paragraph separators — take the `\uXXXX` form;
+        // `\n` / `\r` / `\t` were matched by their own short escapes above.
+        let cp = ch.to_int()
+        if cp < 0x20 || cp == 0x7f || cp == 0x85 || cp == 0x2028 || cp == 0x2029 {
+          write_unicode_escape(buf, ch)
+        } else {
+          buf.write_char(ch)
+        }
+      }
     }
   }
   buf.to_string()
-}
-
-///|
-/// Whether `ch` is a control character that must be `\uXXXX`-escaped in a
-/// debug rendering (the C0 range, `DEL`, and the Unicode line/paragraph
-/// separators). `\n` / `\r` / `\t` are handled by their own short escapes
-/// before this is consulted.
-fn is_control_char(ch : Char) -> Bool {
-  let cp = ch.to_int()
-  cp < 0x20 || cp == 0x7f || cp == 0x85 || cp == 0x2028 || cp == 0x2029
 }
 
 ///|

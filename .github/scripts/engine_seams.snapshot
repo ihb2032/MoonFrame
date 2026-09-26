@@ -18,6 +18,7 @@ series | doc_hidden internal_engine | pub fn Series::empty_of( name : String, dt
 series | doc_hidden internal_engine | pub fn Series::from_bool_options( name : String, values : Array[Bool?], ) -> Series | used by: frame,internal/kernel
 series | doc_hidden internal_engine | pub fn Series::from_date_options( name : String, values : Array[Int64?], ) -> Series | used by: frame,internal/kernel
 series | doc_hidden internal_engine | pub fn Series::from_float_options( name : String, values : Array[Double?], ) -> Series | used by: frame,internal/kernel
+series | doc_hidden internal_engine | pub fn Series::from_i64_options( name : String, dtype : @types.DataType, values : Array[Int64?], ) -> Series | used by: internal/kernel
 series | doc_hidden internal_engine | pub fn Series::from_int_options( name : String, values : Array[Int64?], ) -> Series | used by: frame,internal/kernel
 series | doc_hidden internal_engine | pub fn Series::from_string_options( name : String, values : Array[String?], ) -> Series | used by: frame,internal/kernel,io
 series | doc_hidden internal_engine | pub fn Series::is_canonical(self : Series) -> Bool | used by: (no production caller outside series)

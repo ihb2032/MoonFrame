@@ -222,3 +222,88 @@ test "a null date key groups on its own and stays null in reductions" {
   let null_group = grouped.filter(@expr.col("d").is_null())
   assert_true(null_group.item(0, "first_d") is @types.Scalar::Null)
 }
+
+///|
+/// The Date-rider fence for the rebuild paths that retype by buffer variant:
+/// a kernel arm rebuilding an I64 column must carry the dtype, not assume
+/// `Int`. Three paths, one shape of bug — a `Date` column silently becoming
+/// an `Int` column of day counts.
+test "a Date branch through when/then/otherwise keeps its dtype" {
+  let out = date_frame().select([
+    @expr.when(@expr.col("v").gt(@expr.lit(@types.Scalar::Int(2))))
+    .then(@expr.col("d"))
+    .otherwise(@expr.lit(@types.Scalar::Date(19000L)))
+    .with_alias("dd"),
+  ])
+  assert_eq(out.get_column("dd").dtype(), @types.DataType::Date)
+  // v = 1, 2 take the literal (19000 = 2022-01-08); v = 3 reads the null
+  // date cell (the then-branch nulls it); v = 4 keeps 2024-02-01.
+  assert_eq(iso_cells(out, "dd"), [
+    "2022-01-08", "2022-01-08", "null", "2024-02-01",
+  ])
+  // Both branches columns, no literal: same arm, same identity.
+  let both = date_frame().select([
+    @expr.when(@expr.col("v").gt(@expr.lit(@types.Scalar::Int(3))))
+    .then(@expr.col("d"))
+    .otherwise(@expr.col("d"))
+    .with_alias("dd"),
+  ])
+  assert_eq(both.get_column("dd").dtype(), @types.DataType::Date)
+  assert_eq(iso_cells(both, "dd"), [
+    "2024-01-01", "2024-01-31", "null", "2024-02-01",
+  ])
+}
+
+///|
+test "an expression fill_null keeps a Date column a Date" {
+  let out = date_frame().with_columns([
+    @expr.col("d").fill_null(@expr.lit(@types.Scalar::Date(19723L))),
+  ])
+  assert_eq(out.get_column("d").dtype(), @types.DataType::Date)
+  assert_eq(iso_cells(out, "d"), [
+    "2024-01-01", "2024-01-31", "2024-01-01", "2024-02-01",
+  ])
+}
+
+///|
+test "fill_null with an Int scalar refuses a Date column" {
+  // The Int fill is gated on the column's dtype, not its I64 buffer: a
+  // Date column filled with a day count would silently retype.
+  let d = date_frame().get_column("d")
+  assert_true(
+    (Ok(ignore(d.fill_null(@types.Scalar::Int(0)))) catch { e => Err(e) })
+    is Err(@types.DataError::TypeMismatch(_)),
+  )
+}
+
+///|
+test "an outer join coalesces a Date key to the present side's date" {
+  // Right-only rows take the right key's date, not a null: the fill reads
+  // the Date spelling of the I64 rider.
+  let left = DataFrame::from_rows(
+    @types.Schema::Schema([
+      @types.Field::Field("d", @types.DataType::Date),
+      @types.Field::Field("lv", @types.DataType::Int),
+    ]),
+    [
+      [@types.Scalar::Date(19723L), @types.Scalar::Int(1)],
+      [@types.Scalar::Date(19753L), @types.Scalar::Int(2)],
+    ],
+  )
+  let right = DataFrame::from_rows(
+    @types.Schema::Schema([
+      @types.Field::Field("d", @types.DataType::Date),
+      @types.Field::Field("rv", @types.DataType::Int),
+    ]),
+    [
+      [@types.Scalar::Date(19723L), @types.Scalar::Int(1)],
+      [@types.Scalar::Date(19774L), @types.Scalar::Int(2)],
+    ],
+  )
+  let out = left.join(
+    right,
+    JoinOptions::on([@expr.col("d")], how=JoinType::Outer, coalesce=true),
+  )
+  assert_eq(out.get_column("d").dtype(), @types.DataType::Date)
+  assert_eq(iso_cells(out, "d"), ["2024-01-01", "2024-01-31", "2024-02-21"])
+}

@@ -126,6 +126,27 @@ pub fn Series::from_int_options(
 }
 
 ///|
+/// Build a nullable series whose `dtype` fixes the identity of an `I64`
+/// rider — `Int`, or a date-like dtype such as `Date` — from optional raw
+/// cells. Nullable, so it lands on the general-purpose `Builtin` backend.
+/// The dtype-carrying rebuild keeps a `Date` column a `Date` (an `Int`
+/// rebuild would silently retype every cell), so a kernel arm that rebuilds
+/// same-physical columns without knowing which rider it holds goes through
+/// here, not `from_int_options`.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
+pub fn Series::from_i64_options(
+  name : String,
+  dtype : @types.DataType,
+  values : Array[Int64?],
+) -> Series {
+  Series::from_builtin(
+    name,
+    @column.BuiltinColumn::from_i64_options(dtype, values),
+  )
+}
+
+///|
 /// Build a `Float` series from raw values (no nulls). Lands on the
 /// `Numeric` fast-path backend. Like `from_ints`, `values` is defensively
 /// copied, so the series is independent of the caller's array.

@@ -66,8 +66,12 @@ pub fn eval_ternary(
   let out = match (t2.storage().data(), e2.storage().data()) {
     (@column.ColumnData::I64(a), @column.ColumnData::I64(b)) if t2.dtype() ==
       e2.dtype() =>
-      Series::from_int_options(
+      // Rebuilt through the dtype, not the variant: the branches may hold
+      // the same dtype on an I64 rider other than Int (a Date), and an Int
+      // rebuild would silently retype every selected cell.
+      Series::from_i64_options(
         t2.name(),
+        t2.dtype(),
         select_cells(
           cond_cells,
           cv,

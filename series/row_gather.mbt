@@ -79,6 +79,9 @@ pub fn coalesce_columns(base : Series, fill : Series, name : String) -> Series {
       } else {
         match fills[i] {
           @types.Scalar::Int(v) => Some(v)
+          // A Date key rides the same I64 buffer, and its cells read back
+          // as Date scalars — the fill accepts both spellings.
+          @types.Scalar::Date(v) => Some(v)
           _ => None
         }
       }

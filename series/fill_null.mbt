@@ -28,8 +28,11 @@ pub fn Series::fill_null(
         @types.TypeMismatchDetail::Message("cannot fill nulls with Null"),
       )
     @types.Scalar::Int(v) =>
+      // Gated on the column's *dtype*, not the buffer variant: a Date
+      // column is also I64-typed, and an Int rebuild would silently retype
+      // it to day counts.
       match self.storage.data() {
-        @column.ColumnData::I64(data) => {
+        @column.ColumnData::I64(data) if self.dtype() is @types.DataType::Int => {
           let buf = fill_buffer(data, valid, v)
           Series::from_builtin(self.name, @column.BuiltinColumn::from_ints(buf))
         }

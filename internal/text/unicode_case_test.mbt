@@ -1,10 +1,10 @@
 // Direct tests for `map_case` — the Unicode default case conversion table.
 // The BMP entries and the expanding SpecialCasing mappings are pinned by the
-// consumer-side suite (frame/str_ops_test.mbt); these pick the
-// supplementary-plane scripts whose 1:1 mappings exercise the table beyond
-// the BMP — code points a generator regression could silently drop with no
-// other test failing — and pin the conditional-lines claim of the
-// docstring.
+// string-operator suite that consumes this kernel (the `str_to_uppercase` /
+// `str_to_lowercase` verbs); these pick the supplementary-plane scripts
+// whose 1:1 mappings exercise the table beyond the BMP — code points a
+// generator regression could silently drop with no other test failing —
+// and pin the conditional-lines claim of the docstring.
 
 ///|
 test "map_case: supplementary-plane scripts case-map through the table" {

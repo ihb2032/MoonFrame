@@ -121,6 +121,7 @@ MoonBit v               # the language, in prose
 uses:                   # a pinned action, versioned in a trailing comment
 /[A-Za-z0-9_.-]+@[0-9]  # a dependency, `owner/pkg@X.Y.Z`
 :version = "            # the manifest key itself, on its own line
+UCD version             # the Unicode Character Database edition, in the generated case table
 doc-guard: historical    # a deliberate reference to a past release'
 exclude=$(printf '%s\n' "$third_party" | sed 's/[[:space:]]*#.*$//' | grep . |
   tr '\n' '|' | sed 's/|$//')

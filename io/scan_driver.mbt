@@ -64,7 +64,7 @@ fn file_scan_driver(
       for name in pred.referenced_columns() {
         names.push(name)
       }
-      (names, df => @frame.filter_row_indices(df, pred))
+      (names, df => df.filter_row_indices(pred))
     })
     let frame = read(read_text(path), projection, pruner)
     // The batch wraps the frame's columns plus its height — the height rides

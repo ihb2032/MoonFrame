@@ -17,7 +17,7 @@ pub fn DataFrame::head(self : DataFrame, n : Int) -> DataFrame {
   let m = @order.window_take(n, self.nrows)
   // `0 <= m <= nrows == c.len()`, so the contiguous row slice is in-bounds
   // and needs no bounds-checking `Result`.
-  let new_cols : Array[Series] = self.columns.map(c => slice_series(c, 0, m))
+  let new_cols : Array[Series] = self.columns.map(c => c.slice_series(0, m))
   // Names and schema are unchanged — reuse the cache verbatim.
   self.with_same_schema(new_cols, m)
 }
@@ -31,7 +31,7 @@ pub fn DataFrame::tail(self : DataFrame, n : Int) -> DataFrame {
   let m = @order.window_take(n, self.nrows)
   let start = self.nrows - m
   // Same in-bounds argument as `head`: `start + m == nrows == c.len()`.
-  let new_cols : Array[Series] = self.columns.map(c => slice_series(c, start, m))
+  let new_cols : Array[Series] = self.columns.map(c => c.slice_series(start, m))
   self.with_same_schema(new_cols, m)
 }
 
@@ -54,7 +54,7 @@ pub fn DataFrame::slice(
   // `0 <= start` and `start + len <= nrows == c.len()` by construction, so
   // the contiguous slice is in-bounds and needs no bounds-checking `Result`.
   let new_cols : Array[Series] = self.columns.map(c => {
-    slice_series(c, start, len)
+    c.slice_series(start, len)
   })
   self.with_same_schema(new_cols, len)
 }
@@ -100,6 +100,6 @@ pub fn DataFrame::gather(
   }
   // Indices were just validated against `self.nrows`, so the per-column
   // gather is in-bounds.
-  let new_cols = self.columns.map(c => gather_series(c, indices))
+  let new_cols = self.columns.map(c => c.gather_series(indices))
   self.with_same_schema(new_cols, indices.length())
 }

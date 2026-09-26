@@ -1,26 +1,20 @@
 // Four blocks, all serving the kernels that operate on `Series` operands:
-// the `using` seams that bind the `series` primitives the kernels read by
-// bare name; the two cell gates (`zip_present` / `map_present`) that add the
-// null layer to every elementwise kernel; the shared binary type-mismatch
-// error builder; and the broadcast / singleton alignment helpers the frame
-// verbs share with the evaluator. A kernel reads a validity mask and builds
-// an `Option`-cell array, and raises the binary type-mismatch error, all
-// without the caller (`frame`'s evaluator) seeing a storage backend.
+// the `using` seam that binds the `series` pieces the kernels read by bare
+// name (the type, and the scalar-projection free function); the two cell
+// gates (`zip_present` / `map_present`) that add the null layer to every
+// elementwise kernel; the shared binary type-mismatch error builder; and the
+// broadcast / singleton alignment helpers the frame verbs share with the
+// evaluator. A kernel reads a validity mask and builds an `Option`-cell
+// array, and raises the binary type-mismatch error, all without the caller
+// (`frame`'s evaluator) seeing a storage backend.
 //
-// The kernels build on `series`: `Series` is the operand and result unit, and
-// the seams bound below let a kernel read a column's validity mask, converge an
-// all-valid numeric result back onto the fast path, and build a result column from
-// scalars. This `using` import binds them unqualified so the kernels read them by
-// bare name.
+// The kernels build on `series`: `Series` is the operand and result unit.
+// Its column verbs — the validity-mask read, the row gathers, backend
+// convergence — are methods, reached by dot syntax; the scalar projection
+// (`scalars_to_series`) is a free function, bound unqualified here.
 
 ///|
-using @series {
-  type Series,
-  gather_series,
-  validity_bools,
-  try_column_to_numeric,
-  scalars_to_series,
-}
+using @series {type Series, scalars_to_series}
 
 ///|
 /// Build the cells of a binary elementwise op: index `i` is `Some(f(i))` when
@@ -103,9 +97,9 @@ pub fn broadcast_pair(
   if m == n {
     (left, right)
   } else if m == 1 {
-    (gather_series(left, Array::make(n, 0)), right)
+    (left.gather_series(Array::make(n, 0)), right)
   } else if n == 1 {
-    (left, gather_series(right, Array::make(m, 0)))
+    (left, right.gather_series(Array::make(m, 0)))
   } else {
     raise @types.DataError::LengthMismatch
   }
@@ -124,7 +118,7 @@ pub fn broadcast_series(
   if s.len() == target {
     s
   } else if s.len() == 1 {
-    gather_series(s, Array::make(target, 0))
+    s.gather_series(Array::make(target, 0))
   } else {
     raise @types.DataError::LengthMismatch
   }

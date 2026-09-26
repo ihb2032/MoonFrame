@@ -20,7 +20,7 @@ pub fn DataFrame::reverse(self : DataFrame) -> DataFrame {
   }
   // Every index comes from `[0, n)`, so the gather cannot fail.
   let perm = Array::makei(n, i => n - 1 - i)
-  let columns = self.column_series().map(c => gather_series(c, perm))
+  let columns = self.column_series().map(c => c.gather_series(perm))
   self.with_same_schema(columns, n)
 }
 

@@ -33,14 +33,14 @@
 /// with the caller — hence `None` rather than a raise.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
-pub fn mask_true_indices(mask : Series) -> Array[Int]? {
-  let cells = match mask.storage.data() {
+pub fn Series::mask_true_indices(self : Series) -> Array[Int]? {
+  let cells = match self.storage.data() {
     @column.ColumnData::Bool(cells) => cells
     @column.ColumnData::I64(_)
     | @column.ColumnData::F64(_)
     | @column.ColumnData::Utf8(_) => return None
   }
-  let valid = validity_bools(mask)
+  let valid = self.validity_bools()
   let kept : Array[Int] = []
   for i in 0..<cells.length() {
     if valid[i] && cells[i] {
@@ -65,14 +65,18 @@ pub fn mask_true_indices(mask : Series) -> Array[Int]? {
 /// `_` arm catches only the both-null case.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
-pub fn coalesce_columns(base : Series, fill : Series, name : String) -> Series {
-  let base_valid = validity_bools(base)
+pub fn Series::coalesce_columns(
+  self : Series,
+  fill : Series,
+  name : String,
+) -> Series {
+  let base_valid = self.validity_bools()
   let fills = fill.to_scalars()
   // The four closures differ only in the `Scalar` variant they read `fill` as.
   rebuild_options(
-    base,
+    self,
     name,
-    base.len(),
+    self.len(),
     (a, i) => {
       if base_valid[i] {
         Some(a[i])
@@ -129,8 +133,8 @@ pub fn coalesce_columns(base : Series, fill : Series, name : String) -> Series {
 /// so a stray bound can never abort.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
-pub fn slice_series(s : Series, start : Int, len : Int) -> Series {
-  { name: s.name, storage: s.storage.slice_total(start, start + len), }
+pub fn Series::slice_series(self : Series, start : Int, len : Int) -> Series {
+  { name: self.name, storage: self.storage.slice_total(start, start + len), }
 }
 
 ///|
@@ -193,7 +197,7 @@ fn rebuild_options(
     @column.ColumnData::Utf8(a) =>
       Series::from_string_options(name, Array::makei(n, k => string_cell(a, k)))
   }
-  try_column_to_numeric(rebuilt)
+  rebuilt.try_column_to_numeric()
 }
 
 ///|
@@ -212,7 +216,7 @@ fn rebuild_options(
 /// out-of-range index rather than yielding a null cell).
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
-pub fn gather_series(s : Series, idx : Array[Int]) -> Series {
+pub fn Series::gather_series(self : Series, idx : Array[Int]) -> Series {
   // A `Numeric` source is all-valid, so when every index is in-bounds its
   // gather is itself all-valid: rebuild directly onto the `Numeric` backend,
   // materialising no validity mask and allocating no transient bitmap. A
@@ -232,17 +236,17 @@ pub fn gather_series(s : Series, idx : Array[Int]) -> Series {
   // materialising the whole `O(source)` mask — a per-group gather in the
   // grouped-aggregation engine touches only its group's rows, keeping a
   // derived reduction linear instead of quadratic on a high-cardinality key.
-  let n = s.len()
-  let fast = s.storage.kind() is @column.StorageKind::Numeric &&
+  let n = self.len()
+  let fast = self.storage.kind() is @column.StorageKind::Numeric &&
     idx.iter().all(k => k >= 0 && k < n)
-  match s.storage.data() {
+  match self.storage.data() {
     @column.ColumnData::I64(a) if fast =>
-      Series::from_ints(s.name, idx.map(k => a[k]))
+      Series::from_ints(self.name, idx.map(k => a[k]))
     @column.ColumnData::F64(a) if fast =>
-      Series::from_floats(s.name, idx.map(k => a[k]))
+      Series::from_floats(self.name, idx.map(k => a[k]))
     _ => {
-      let validity = s.storage.validity()
-      rebuild_by_row(s, s.name, idx.length(), k => {
+      let validity = self.storage.validity()
+      rebuild_by_row(self, self.name, idx.length(), k => {
         let j = idx[k]
         if validity.is_valid_total(j) {
           Some(j)
@@ -310,8 +314,8 @@ fn collect_matched(idx : Array[Int?], len : Int) -> Array[Int]? {
 /// which `join` re-converges via `preserve_backend`).
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
-pub fn gather_series_opt(
-  s : Series,
+pub fn Series::gather_series_opt(
+  self : Series,
   idx : Array[Int?],
   out_name : String,
 ) -> Series {
@@ -324,25 +328,25 @@ pub fn gather_series_opt(
   // single statement of it; this entry point's gate differs (matched `Some`
   // rows, not a bounds scan), so the pair of arms is a mirror that must move
   // with that one, held in step by the backend parity harness.
-  let matched = if s.storage.kind() is @column.StorageKind::Numeric {
-    collect_matched(idx, s.len())
+  let matched = if self.storage.kind() is @column.StorageKind::Numeric {
+    collect_matched(idx, self.len())
   } else {
     None
   }
-  match (s.storage.data(), matched) {
+  match (self.storage.data(), matched) {
     (@column.ColumnData::I64(a), Some(rows)) =>
       Series::from_ints(out_name, rows.map(j => a[j]))
     (@column.ColumnData::F64(a), Some(rows)) =>
       Series::from_floats(out_name, rows.map(j => a[j]))
     (@column.ColumnData::I64(_) | @column.ColumnData::F64(_), None)
     | (@column.ColumnData::Bool(_) | @column.ColumnData::Utf8(_), _) => {
-      let validity = s.storage.validity()
+      let validity = self.storage.validity()
       // Output cell `k` reads source row `idx[k]` when it is `Some` (and the
       // cell there is valid), else a null. Read each matched row's validity by
       // O(1) bit lookup (`is_valid_total`) rather than materialising the whole
       // O(source) mask — a high-selectivity join emits far fewer rows than the
       // source has, so the gather stays O(output) (mirrors `gather_series`).
-      rebuild_by_row(s, out_name, idx.length(), k => {
+      rebuild_by_row(self, out_name, idx.length(), k => {
         idx[k].bind(j => if validity.is_valid_total(j) { Some(j) } else { None })
       })
     }

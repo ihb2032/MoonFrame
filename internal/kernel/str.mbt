@@ -41,7 +41,7 @@ pub fn eval_str(
         ),
       )
   }
-  let valid = validity_bools(operand)
+  let valid = operand.validity_bools()
   let name = operand.name()
   let n = data.length()
   let out = match op {
@@ -207,7 +207,7 @@ pub fn eval_str(
         map_present(n, valid, i => zfill_chars(data[i], width)),
       )
   }
-  try_column_to_numeric(out)
+  out.try_column_to_numeric()
 }
 
 ///|

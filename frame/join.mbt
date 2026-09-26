@@ -338,12 +338,10 @@ fn DataFrame::assemble_join_output(
     if coalesce && on_set.contains(col.name()) {
       // `other` has this key (validated above), so `get_column`'s
       // `ColumnNotFound` is forwarded but never taken.
-      let left_key = gather_series_opt(col, left_rows, col.name())
-      let right_key = gather_series_opt(
-        other.get_column(col.name()),
-        right_rows,
-        col.name(),
-      )
+      let left_key = col.gather_series_opt(left_rows, col.name())
+      let right_key = other
+        .get_column(col.name())
+        .gather_series_opt(right_rows, col.name())
       // Surface the documented side's value: the left on `Inner` / `Left`, and
       // the present side on `Outer` (the left key is the base — taken where the
       // row has a left match, else the right fills the gap), but the **right**
@@ -352,14 +350,14 @@ fn DataFrame::assemble_join_output(
       // `-0.0` and `+0.0` share a group, so a `Right` join must surface the
       // right's signed zero, not the left's.
       let merged = match options.how {
-        Right => coalesce_columns(right_key, left_key, col.name())
+        Right => right_key.coalesce_columns(left_key, col.name())
         Inner | Left | Outer | Cross =>
-          coalesce_columns(left_key, right_key, col.name())
+          left_key.coalesce_columns(right_key, col.name())
       }
-      out_cols.push(preserve_backend(col, merged))
+      out_cols.push(col.preserve_backend(merged))
     } else {
       out_cols.push(
-        preserve_backend(col, gather_series_opt(col, left_rows, col.name())),
+        col.preserve_backend(col.gather_series_opt(left_rows, col.name())),
       )
     }
   }
@@ -376,7 +374,7 @@ fn DataFrame::assemble_join_output(
         col.name()
       }
       out_cols.push(
-        preserve_backend(col, gather_series_opt(col, right_rows, out_name)),
+        col.preserve_backend(col.gather_series_opt(right_rows, out_name)),
       )
     }
   }

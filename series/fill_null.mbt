@@ -21,7 +21,7 @@ pub fn Series::fill_null(
   self : Series,
   value : @types.Scalar,
 ) -> Series raise @types.DataError {
-  let valid = validity_bools(self)
+  let valid = self.validity_bools()
   let filled = match value {
     @types.Scalar::Null =>
       raise @types.DataError::TypeMismatch(
@@ -110,5 +110,5 @@ pub fn Series::fill_null(
           )
       }
   }
-  preserve_backend(self, filled)
+  self.preserve_backend(filled)
 }

@@ -418,7 +418,7 @@ pub fn Series::get(
 /// (`scalar_of`), so an `I64`-riding dtype like `Date` surfaces its own
 /// `Scalar` variant, not the buffer's.
 pub fn Series::to_scalars(self : Series) -> Array[@types.Scalar] {
-  let valid = validity_bools(self)
+  let valid = self.validity_bools()
   let data = self.storage.data()
   let dtype = self.dtype()
   Array::makei(valid.length(), i => {

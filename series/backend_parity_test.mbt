@@ -358,9 +358,9 @@ test "every Series op agrees across the Builtin and Numeric backends" {
     Series::from_floats("a", []),
   ]
   for s in int_cols {
-    assert_backend_parity(builtin_twin(s), try_column_to_numeric(s))
+    assert_backend_parity(builtin_twin(s), s.try_column_to_numeric())
   }
   for s in float_cols {
-    assert_backend_parity(builtin_twin(s), try_column_to_numeric(s))
+    assert_backend_parity(builtin_twin(s), s.try_column_to_numeric())
   }
 }

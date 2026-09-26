@@ -30,7 +30,7 @@ fn visible_rows(nrows : Int, max_rows : Int?) -> Int {
 fn table_cell_matrix(df : DataFrame, shown : Int) -> Array[Array[String]] {
   let col_scalars = df
     .column_series()
-    .map(s => slice_series(s, 0, shown).to_scalars())
+    .map(s => s.slice_series(0, shown).to_scalars())
   let ncols = df.ncols()
   Array::makei(shown, r => {
     Array::makei(ncols, c => col_scalars[c][r].to_string())

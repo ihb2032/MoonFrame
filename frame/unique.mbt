@@ -129,6 +129,6 @@ pub fn DataFrame::unique(
   // gather is in-bounds with no bounds check (unlike the public `gather`), and
   // the frame is rebuilt directly — no raise from here on. (The verb itself is
   // still fallible: resolving `subset` above can raise `ColumnNotFound`.)
-  let new_cols = self.columns.map(c => gather_series(c, kept))
+  let new_cols = self.columns.map(c => c.gather_series(kept))
   self.with_same_schema(new_cols, kept.length())
 }

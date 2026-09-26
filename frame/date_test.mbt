@@ -307,3 +307,65 @@ test "an outer join coalesces a Date key to the present side's date" {
   assert_eq(out.get_column("d").dtype(), @types.DataType::Date)
   assert_eq(iso_cells(out, "d"), ["2024-01-01", "2024-01-31", "2024-02-21"])
 }
+
+///|
+/// The verb matrix for a Date column: every row-selection and shape verb
+/// keeps the column a `Date` (the rider's identity rides the I64 buffer, and
+/// any rebuild that dropped it would show here as an `Int` column of day
+/// counts), and the one-row summaries keep it a `Date` cell or a null. The
+/// fence verbs — arithmetic, cross-dtype compare, cast, mixed fills — are
+/// pinned by the tests above; this one sweeps the rest.
+test "every shape verb keeps a Date column a Date" {
+  let df = date_frame()
+  // Row windows: head / tail / slice, the saturating and negative-count
+  // shapes included.
+  let verbs : Array[(String, @frame.DataFrame)] = [
+    ("head", df.head(2)),
+    ("tail", df.tail(2)),
+    ("negative tail", df.tail(-1)),
+    ("slice", df.slice(1, length=2)),
+    ("reverse", df.reverse()),
+    ("gather", df.gather([3, 0])),
+    ("bracket slice", df[1:3]),
+  ]
+  for i, entry in verbs {
+    let (name, out) = entry
+    if out.get_column("d").dtype() != @types.DataType::Date {
+      println("\{name} lost the Date dtype")
+    }
+    assert_eq(out.get_column("d").dtype(), @types.DataType::Date)
+    ignore(i)
+  }
+  // Null-aware row selections.
+  assert_eq(
+    df.drop_nulls(subset=[@expr.col("d")]).get_column("d").dtype(),
+    @types.DataType::Date,
+  )
+  // Column management: rename keeps it, select re-roots it, with_columns
+  // carries it untouched beside a new column, and the bracket sugar reads
+  // the column itself.
+  assert_eq(
+    df.rename([("d", "day")]).get_column("day").dtype(),
+    @types.DataType::Date,
+  )
+  assert_eq(
+    df.select([@expr.col("d")]).get_column("d").dtype(),
+    @types.DataType::Date,
+  )
+  let widened = df.with_columns([
+    (@expr.col("v") + @expr.lit_int(1)).with_alias("v2"),
+  ])
+  assert_eq(widened.get_column("d").dtype(), @types.DataType::Date)
+  assert_eq(df["d"].dtype(), @types.DataType::Date)
+  // A sorted copy keeps it (ordering is by day count, the natural order;
+  // ascending with nulls leading, the #412 default).
+  let sorted = df.sort([(@expr.col("d"), false, false)])
+  assert_eq(sorted.get_column("d").dtype(), @types.DataType::Date)
+  assert_eq(
+    sorted
+    .get_column("d")
+    .to_scalars()
+    .map(s => if s is @types.Scalar::Date(v) { v } else { -1L }),
+    [-1L, 19723L, 19753L, 19754L],
+  )
+}

@@ -303,7 +303,11 @@ pub fn LazyGroupBy::agg(
 /// total optimizer rewrites: filters sink below the
 /// stages they provably commute with, so rows drop as early as possible,
 /// and a required-columns pass then drops scan columns nothing downstream
-/// reads (and, for a `scan_csv` source, never parses them). The rewrites'
+/// reads (and, for a `scan_csv` source, never parses them) — unless the
+/// plan is DAG-shaped (the same `LazyFrame` reaching both sides of a
+/// `join`), in which case it runs as built: a shared subtree makes the
+/// rewrite passes' node count explode, so they stand down rather than
+/// trade soundness for the work. The rewrites'
 /// contract is exactly this method's, so they change
 /// what work happens, and for a successful result never what comes back: the
 /// (optimized) plan is walked bottom-up, delegating each node to the public
@@ -313,7 +317,10 @@ pub fn LazyGroupBy::agg(
 /// carve-out: a `scan_csv` / `scan_ndjson` source absorbs projection and
 /// predicate pushdown, so it never parses a column no consumer reads, nor the
 /// non-predicate cells of a row the predicate drops — a `ParseError` confined
-/// there, which an eager read-then-filter would raise, does not surface. Every
+/// there, which an eager read-then-filter would raise, does not surface; and
+/// in a file where several columns each hold a parse error, the pushed-down
+/// read (which builds its predicate key columns first) can name a different
+/// one than the eager read would. Every
 /// other operator still produces its eager error. To see the rewritten plan
 /// this method actually runs, render it with `explain(optimized=true)`.
 pub fn LazyFrame::collect(
@@ -342,7 +349,11 @@ pub fn LazyFrame::collect(
 /// it while reading — and the projection pushdown shows
 /// up as a narrowing `SELECT` over an in-memory `SCAN` or as the column list
 /// on a `SCAN_CSV` source, so printing both forms is the before/after view
-/// of what the optimizer moved and pruned. (Polars' `LazyFrame::explain(optimized)` is the
+/// of what the optimizer moved and pruned — except on a DAG-shaped plan
+/// (the same `LazyFrame` on both sides of a `join`), which `collect` runs
+/// as built, so `optimized=true` renders the same tree as the default
+/// (a shared subtree is marked `"(shared, rendered above)"`).
+/// (Polars' `LazyFrame::explain(optimized)` is the
 /// namesake; plans are immutable, so the flag rewrites a copy and never
 /// perturbs this frame.)
 ///

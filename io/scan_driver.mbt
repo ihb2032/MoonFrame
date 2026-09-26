@@ -25,10 +25,15 @@
 //   - Dtype inference always walks the whole file, so a pruned read locks
 //     in the dtypes an eager `read_csv(..).filter(..)` would — the typed
 //     build, not the inference, is what the push-down skips.
-//   - The one observable trade is that same skipping: a `ParseError`
+//   - One observable trade is that same skipping: a `ParseError`
 //     confined to a dropped column (projection) or to a row the predicate
 //     drops in a column it does not read (pruning) never surfaces,
 //     because those cells are never parsed.
+//   - A second, narrower one: the pruned read builds its predicate key
+//     columns ahead of the header's order, so a file where several columns
+//     each hold a parse error can fail naming a different column than an
+//     eager read would — both errors are real, which one wins was an
+//     artifact of column order to begin with.
 //   - Row identity survives pruning: each kept record's original file
 //     row / line threads through to the error locator, so a parse error
 //     in a kept row still reports its true position.

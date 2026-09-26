@@ -449,20 +449,6 @@ fn count_distinct(
 }
 
 ///|
-/// `n_unique` reducer over an index window: the number of distinct non-null
-/// values, as a `Scalar::Int`. Total over every dtype (it raises nothing) and
-/// never null — an empty / all-null window counts zero. Wraps the shared
-/// `count_distinct` core that `Series::n_unique` also uses.
-fn reduce_nunique(
-  storage : @column.ColumnStorage,
-) -> (Int, (Int) -> Int) -> @types.Scalar {
-  let counter = count_distinct(storage)
-  fn(n : Int, at : (Int) -> Int) {
-    @types.Scalar::Int(counter(n, at).to_int64())
-  }
-}
-
-///|
 /// `first` / `last` reducer over an index window (`want_first` picks which):
 /// the cell at the window's first / last position, in the window's row order,
 /// keeping the source dtype. Total over every dtype, and — unlike the other
@@ -553,7 +539,19 @@ pub fn reducer_for(
     Std => (reduce_variance(storage, want_std=true), @types.DataType::Float)
     Var => (reduce_variance(storage, want_std=false), @types.DataType::Float)
     Median => (reduce_median(storage), @types.DataType::Float)
-    NUnique => (reduce_nunique(storage), @types.DataType::Int)
+    NUnique => {
+      // The `n_unique` reducer over an index window: distinct non-null count
+      // as `Scalar::Int`, total over every dtype and never null (an empty /
+      // all-null window counts zero), over the shared `count_distinct` core
+      // `Series::n_unique` also uses.
+      let counter = count_distinct(storage)
+      (
+        fn(n : Int, at : (Int) -> Int) {
+          @types.Scalar::Int(counter(n, at).to_int64())
+        },
+        @types.DataType::Int,
+      )
+    }
     First => (reduce_first_last(storage, want_first=true), storage.dtype())
     Last => (reduce_first_last(storage, want_first=false), storage.dtype())
   }

@@ -136,19 +136,22 @@ fn signed_zero_safe(expr : @ir.ExprNode) -> Bool {
 
 ///|
 /// Whether an aggregation expression's per-group cell is provably
-/// independent of *which other groups exist*: never null, and never raising on
-/// values (so a dropped group cannot take its error with it). The null half is
-/// **conservative** — why it is kept, and what loosening it would take, is
-/// stated once in the crossing-rules header of `push_predicates`,
-/// the pass driver this rule serves.
-/// `sum` / `count` / `n_unique` always produce a non-null value, but only
-/// over a `row_stable` operand — a `sum(col.cast(Int))` or `sum(col.map(…))`
-/// still raises on the cells its operand meets, so a value-raising operand
-/// (a nested `Cast` / `Map`, or an `Agg` / `LitSeries`) fences the filter
-/// above exactly as a top-level cast does; `mean` / `min` /
-/// `max` / `std` / `var` / `median` go null on an all-null (or, for the
-/// sample statistics, single-value) group, and `first` / `last` go null on a
-/// null leading / trailing cell; a `cast`'s rejection is value-dependent, as is a
+/// independent of *which other groups exist*: never changing value,
+/// null-ness, or raised error when groups appear or disappear around it.
+/// The gate is the group-invariance argument stated once in the
+/// crossing-rules header of `push_predicates`, the pass driver this rule
+/// serves; per op it says:
+/// `sum` / `count` / `n_unique` always produce a non-null value, and
+/// `mean` / `min` / `max` are pure functions of their group's cells
+/// (null exactly when an all-null group makes them so) — all four cross
+/// **only over a `row_stable` operand**, because a `sum(col.cast(Int))` or
+/// `sum(col.map(…))` still raises on the cells its operand meets, so a
+/// value-raising operand (a nested `Cast` / `Map`, or an `Agg` /
+/// `LitSeries`) fences the filter above exactly as a top-level cast does.
+/// The sample statistics (`std` / `var` / `median`) and `first` / `last`
+/// stay fenced as a conservative bound — loosening them wants the same
+/// argument per op and no consumer has asked for it.
+/// A `cast`'s rejection is value-dependent, as is a
 /// `map`'s opaque closure (null- or raise-valued on the cells it meets);
 /// the null literal is a null cell by definition; a bare column — or a
 /// `lit_series`, equally row-wise — is not reduction-shaped at all (the
@@ -160,8 +163,8 @@ fn signed_zero_safe(expr : @ir.ExprNode) -> Bool {
 /// a non-null condition.
 fn group_cell_stable(expr : @ir.ExprNode) -> Bool {
   // Iterative walk like `row_stable`: total at any predicate depth. An `Agg`
-  // node is terminal here — its verdict is its op's (the reducing ops fence,
-  // `Sum`/`Count`/`NUnique` defer to `row_stable` of the operand) — so its
+  // node is terminal here — its verdict is its op's (the reducing ops defer
+  // to `row_stable` of the operand) — so its
   // operand is never pushed for further `group_cell_stable` descent.
   let stack : Array[@ir.ExprNode] = [expr]
   for ;; {
@@ -183,14 +186,14 @@ fn group_cell_stable(expr : @ir.ExprNode) -> Bool {
             match op {
               @series.ReduceOp::Sum
               | @series.ReduceOp::Count
-              | @series.ReduceOp::NUnique =>
+              | @series.ReduceOp::NUnique
+              | @series.ReduceOp::Mean
+              | @series.ReduceOp::Min
+              | @series.ReduceOp::Max =>
                 if !row_stable(operand) {
                   return false
                 }
-              @series.ReduceOp::Mean
-              | @series.ReduceOp::Min
-              | @series.ReduceOp::Max
-              | @series.ReduceOp::Std
+              @series.ReduceOp::Std
               | @series.ReduceOp::Var
               | @series.ReduceOp::Median
               | @series.ReduceOp::First

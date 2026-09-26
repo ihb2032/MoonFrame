@@ -456,14 +456,14 @@ test "fence: a predicate reading an aggregation output stays above" {
 }
 
 ///|
-test "fence: a mean aggregation pins the filter above the group stage" {
+test "a key predicate sinks below a mean aggregation, null group included" {
   let df = sales_df()
-  // `mean` is fenced, so the filter stays above the aggregate whatever the
-  // data does — here the east group's bonus cells are all null, the case the
-  // fence was originally argued from. What is pinned is the plan shape and
-  // parity with the eager chain, not a claim that sinking would change the
-  // result; the fence is conservative because the pass fences every
-  // aggregation whose per-group cell can go null.
+  // `mean` / `min` / `max` cross by the group-invariance argument: a key
+  // predicate gives every row of a group the same verdict, so the group set
+  // and every group's cells are fixed, and these ops are pure functions of
+  // their group's cells. Here the east group's bonus cells are all null —
+  // the shape the old conservative fence was argued from — and the sunk
+  // read still reports the same null cell the eager chain does.
   let aggs = [@expr.col("bonus").mean().with_alias("avg")]
   let predicate = @expr.col("region").eq(@expr.lit_str("west"))
   let plan = LazyFrame::LazyFrame(df)
@@ -472,15 +472,102 @@ test "fence: a mean aggregation pins the filter above the group stage" {
     .filter(predicate)
   assert_eq(
     plan.explain(optimized=true),
-    "FILTER (col(region) == \"west\")\n" +
-    "  AGGREGATE [col(bonus).mean() as avg] BY [col(region)]\n" +
+    "AGGREGATE [col(bonus).mean() as avg] BY [col(region)]\n" +
+    "  FILTER (col(region) == \"west\")\n" +
     "    SELECT [col(bonus), col(region)]\n" +
+    "      SCAN [4×3]",
+  )
+  let out = plan.collect()
+  assert_eq(out, df.group_by([@expr.col("region")]).agg(aggs).filter(predicate))
+  assert_eq(out.check_invariants(), Ok(()))
+}
+
+///|
+test "a key predicate sinks below min and max aggregations" {
+  let df = sales_df()
+  let aggs = [
+    @expr.col("qty").min().with_alias("lo"),
+    @expr.col("qty").max().with_alias("hi"),
+  ]
+  let predicate = @expr.col("region").eq(@expr.lit_str("west"))
+  let plan = LazyFrame::LazyFrame(df)
+    .group_by([@expr.col("region")])
+    .agg(aggs)
+    .filter(predicate)
+  assert_eq(
+    plan.explain(optimized=true),
+    "AGGREGATE [col(qty).min() as lo, col(qty).max() as hi] BY [col(region)]\n" +
+    "  FILTER (col(region) == \"west\")\n" +
+    "    SELECT [col(qty), col(region)]\n" +
     "      SCAN [4×3]",
   )
   assert_eq(
     plan.collect(),
     df.group_by([@expr.col("region")]).agg(aggs).filter(predicate),
   )
+}
+
+///|
+test "fence: a mean over a value-raising operand stays above the group stage" {
+  let df = sales_df()
+  // The loosened crossing still demands a `row_stable` operand: a `cast`'s
+  // rejection is value-dependent, so a dropped row could be the one whose
+  // cell fails to convert — exactly the `sum(col.cast(…))` fence. The cast
+  // here (Int → Float) succeeds on every cell; what is pinned is the shape.
+  let aggs = [
+    @expr.col("qty").cast(@types.DataType::Float).mean().with_alias("avg"),
+  ]
+  let predicate = @expr.col("region").eq(@expr.lit_str("west"))
+  let plan = LazyFrame::LazyFrame(df)
+    .group_by([@expr.col("region")])
+    .agg(aggs)
+    .filter(predicate)
+  assert_eq(
+    plan.explain(optimized=true),
+    "FILTER (col(region) == \"west\")\n" +
+    "  AGGREGATE [col(qty).cast(Float).mean() as avg] BY [col(region)]\n" +
+    "    SELECT [col(qty), col(region)]\n" +
+    "      SCAN [4×3]",
+  )
+  assert_eq(
+    plan.collect(),
+    df.group_by([@expr.col("region")]).agg(aggs).filter(predicate),
+  )
+}
+
+///|
+test "fence: the sample statistics and first / last pin the filter above" {
+  let df = sales_df()
+  // `std` / `var` / `median` / `first` / `last` stay fenced — a
+  // conservative bound; no consumer has asked to loosen them, and pinning
+  // the fence keeps it deliberate.
+  for
+    agg in [
+      @expr.col("qty").std().with_alias("s"),
+      @expr.col("qty").variance().with_alias("v"),
+      @expr.col("qty").median().with_alias("m"),
+      @expr.col("region").first().with_alias("f"),
+      @expr.col("region").last().with_alias("l"),
+    ] {
+    let aggs = [agg]
+    let predicate = @expr.col("region").eq(@expr.lit_str("west"))
+    let plan = LazyFrame::LazyFrame(df)
+      .group_by([@expr.col("region")])
+      .agg(aggs)
+      .filter(predicate)
+    // The fence is what matters: the filter stays *above* the aggregate
+    // (the projected SELECT under it narrows to whatever the aggregation
+    // reads, which differs per op).
+    let explained = plan.explain(optimized=true)
+    assert_true(
+      explained.has_prefix("FILTER (col(region) == \"west\")\n  AGGREGATE "),
+    )
+    assert_true(explained.contains("BY [col(region)]"))
+    assert_eq(
+      plan.collect(),
+      df.group_by([@expr.col("region")]).agg(aggs).filter(predicate),
+    )
+  }
 }
 
 ///|

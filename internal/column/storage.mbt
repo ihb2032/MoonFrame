@@ -371,3 +371,18 @@ pub fn ColumnStorage::cast(
   }
   ColumnStorage::Builtin(widened.cast(target))
 }
+
+///|
+/// Validate gather `indices` against a column of length `len`: the first
+/// out-of-range index `raise IndexOutOfBounds(idx)`. Shared by both backends'
+/// `take` so the diagnostic is identical.
+fn validate_gather_indices(
+  indices : Array[Int],
+  len : Int,
+) -> Unit raise @types.DataError {
+  for i in indices {
+    if i < 0 || i >= len {
+      raise @types.DataError::IndexOutOfBounds(i)
+    }
+  }
+}

@@ -198,3 +198,154 @@ test "a single column's scalar reduction goes through its Series" {
     Err(@types.DataError::ColumnNotFound("missing")),
   )
 }
+// Blackbox tests for `DataFrame::null_count`.
+//
+// Invariants asserted on every successful summary:
+//   (1) check_invariants() == Ok(()) — the formal structural spec
+//   (2) result.columns() == df.columns() — names + order preserved
+//   (3) every column in the result is dtype Int (the count itself)
+//   (4) result.shape() == (1, df.ncols()) — including the 0-column edge
+//       case, which is the 1×0 summary
+//   (5) the cell in result column `c` equals df.get_column(c).null_count()
+
+// ── Happy paths ──────────────────────────────────────────────────────
+
+///|
+test "null_count summarises each column into a single-cell Int" {
+  let df = DataFrame::DataFrame([
+    Series::from_int_options("a", [Some(1), None, Some(3), None]),
+    Series::from_float_options("b", [
+      Some((1.5 : Double)),
+      Some((2.5 : Double)),
+      None,
+      Some((4.5 : Double)),
+    ]),
+    Series::from_strings("s", ["w", "x", "y", "z"]),
+  ])
+  let out = df.null_count()
+  assert_eq(out.check_invariants(), Ok(()))
+  // Shape: exactly one row, one column per input column.
+  assert_eq(out.shape(), (1, 3))
+  // Column names + order match the input verbatim.
+  assert_eq(out.columns(), df.columns())
+  // Each column in the summary is dtype Int (the count is always an Int).
+  for name in out.columns() {
+    assert_eq(out.get_column(name).dtype(), @types.DataType::Int)
+  }
+  // Per-cell values: 2 nulls in "a", 1 null in "b", 0 nulls in "s".
+  assert_eq(out.item(0, "a"), @types.Scalar::Int(2))
+  assert_eq(out.item(0, "b"), @types.Scalar::Int(1))
+  assert_eq(out.item(0, "s"), @types.Scalar::Int(0))
+}
+
+///|
+test "null_count on a fully-valid frame returns all-zero counts" {
+  let df = DataFrame::DataFrame([
+    Series::from_ints("a", [1, 2, 3]),
+    Series::from_strings("s", ["x", "y", "z"]),
+  ])
+  let out = df.null_count()
+  assert_eq(out.check_invariants(), Ok(()))
+  assert_eq(out.shape(), (1, 2))
+  assert_eq(out.item(0, "a"), @types.Scalar::Int(0))
+  assert_eq(out.item(0, "s"), @types.Scalar::Int(0))
+}
+
+///|
+test "null_count on an all-null column reports the full row count" {
+  let df = DataFrame::DataFrame([
+    Series::from_int_options("a", [None, None, None, None, None]),
+    Series::from_string_options("s", [
+      Some("x"),
+      None,
+      Some("y"),
+      None,
+      Some("z"),
+    ]),
+  ])
+  let out = df.null_count()
+  assert_eq(out.check_invariants(), Ok(()))
+  assert_eq(out.item(0, "a"), @types.Scalar::Int(5))
+  assert_eq(out.item(0, "s"), @types.Scalar::Int(2))
+}
+
+///|
+test "null_count on a 0-row frame reports zero for every column" {
+  let schema = @types.Schema::Schema([
+    @types.Field::Field("a", @types.DataType::Int),
+    @types.Field::Field("b", @types.DataType::Float),
+  ])
+  let df = DataFrame::empty(schema)
+  let out = df.null_count()
+  assert_eq(out.check_invariants(), Ok(()))
+  // Shape is (1, 2): the summary always has one row per source column,
+  // independent of the source row count.
+  assert_eq(out.shape(), (1, 2))
+  assert_eq(out.item(0, "a"), @types.Scalar::Int(0))
+  assert_eq(out.item(0, "b"), @types.Scalar::Int(0))
+}
+
+///|
+test "null_count on a 0-column frame is a 1x0 summary" {
+  // The summary row exists for every source frame; a source with no columns
+  // just leaves it with no cells. Its own height is irrelevant — a 0×0 and an
+  // N×0 frame summarise alike.
+  for df in [DataFrame::DataFrame([]), nby0(3)] {
+    let out = df.null_count()
+    assert_eq(out.check_invariants(), Ok(()))
+    assert_eq(out.shape(), (1, 0))
+    assert_eq(out.columns(), df.columns())
+  }
+}
+
+///|
+test "null_count preserves column order even when names sort differently" {
+  // The output column order is the input order, not lexicographic.
+  let df = DataFrame::DataFrame([
+    Series::from_int_options("z", [Some(1), None]),
+    Series::from_int_options("a", [None, None]),
+    Series::from_int_options("m", [Some(1), Some(2)]),
+  ])
+  let out = df.null_count()
+  assert_eq(out.check_invariants(), Ok(()))
+  assert_eq(out.columns(), ["z", "a", "m"])
+  assert_eq(out.item(0, "z"), @types.Scalar::Int(1))
+  assert_eq(out.item(0, "a"), @types.Scalar::Int(2))
+  assert_eq(out.item(0, "m"), @types.Scalar::Int(0))
+}
+
+///|
+test "null_count covers every dtype branch" {
+  // Int / Float / Bool / String — make sure each dtype contributes a
+  // correct null count (the implementation goes through Series, which
+  // delegates to BuiltinColumn::null_count which is dtype-agnostic, but
+  // a regression here would silently miss one branch).
+  let df = DataFrame::DataFrame([
+    Series::from_int_options("i", [Some(1), None]),
+    Series::from_float_options("f", [None, Some((2.0 : Double))]),
+    Series::from_bool_options("b", [None, Some(true)]),
+    Series::from_string_options("s", [Some("x"), None]),
+  ])
+  let out = df.null_count()
+  assert_eq(out.check_invariants(), Ok(()))
+  assert_eq(out.item(0, "i"), @types.Scalar::Int(1))
+  assert_eq(out.item(0, "f"), @types.Scalar::Int(1))
+  assert_eq(out.item(0, "b"), @types.Scalar::Int(1))
+  assert_eq(out.item(0, "s"), @types.Scalar::Int(1))
+}
+
+// ── Per-cell consistency with Series::null_count ─────────────────────
+
+///|
+test "null_count cell value equals the source series' null_count" {
+  let df = DataFrame::DataFrame([
+    Series::from_int_options("a", [Some(1), None, Some(3)]),
+    Series::from_float_options("b", [None, None, Some((1.0 : Double))]),
+  ])
+  let out = df.null_count()
+  assert_eq(out.check_invariants(), Ok(()))
+  for name in df.columns() {
+    let expected = df.get_column(name).null_count()
+    assert_eq(out.item(0, name), @types.Scalar::Int(expected.to_int64()))
+  }
+}

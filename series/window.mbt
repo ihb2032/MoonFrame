@@ -1,6 +1,7 @@
-// The row-window verbs: `head` / `tail` / `slice` / `gather` — the
-// transforms that keep a series' name and dtype verbatim and move or trim
-// *cells*, the `Series` twin of the frame row-window family. The saturating
+// The row-window and row-order verbs: `head` / `tail` / `slice` /
+// `gather` / `reverse` — the transforms that keep a series' name and dtype verbatim and
+// move, trim, or reorder *cells*, the `Series` twin of the frame row-window
+// family. The saturating
 // cap `head` / `tail` share is `clamp_take`, the same limit behind
 // `DataFrame::head` / `tail`; `gather` re-converges an all-valid numeric
 // result onto the unboxed fast path.
@@ -64,4 +65,14 @@ pub fn Series::tail(self : Series, n : Int) -> Series {
   // back down, and `start + len` overflows `Int` for a column past ~2^30 rows,
   // wrapping negative and yielding an empty result.
   self.slice_series(len - take, take)
+}
+
+///|
+/// The cells in reverse order, name unchanged — Polars' `Series.reverse`.
+/// Total. Reads the series back to front through the same gather machine
+/// the window verbs above trim with — one spelling over the shared
+/// row-gather path, the `Series` twin of `DataFrame::reverse`.
+pub fn Series::reverse(self : Series) -> Series {
+  let len = self.len()
+  self.gather_series(Array::makei(len, i => len - 1 - i))
 }

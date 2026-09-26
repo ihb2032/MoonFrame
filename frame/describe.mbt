@@ -65,11 +65,13 @@ pub fn DataFrame::describe(
     // distinction), so it reads the total accessor and skips the error
     // catch, like the `min` / `max` reads just below.
     means.push(s.mean_opt())
-    // `min` / `max` are total; they return `Scalar::Null` to
-    // signal "no value", which `render_extremum` maps to a null cell and
-    // otherwise renders via `Scalar::to_string`.
-    mins.push(render_extremum(s.min()))
-    maxs.push(render_extremum(s.max()))
+    // `min` / `max` are total; they return `Scalar::Null` to signal "no
+    // value" — a null cell here — and otherwise render via
+    // `Scalar::to_string`.
+    let lo = s.min()
+    mins.push(if lo.is_null() { None } else { Some(lo.to_string()) })
+    let hi = s.max()
+    maxs.push(if hi.is_null() { None } else { Some(hi.to_string()) })
   }
   // The output columns share a length (`self.ncols()`) and the names are
   // hardcoded-unique, so `DataFrame::DataFrame` always succeeds; the raise is
@@ -84,16 +86,4 @@ pub fn DataFrame::describe(
     Series::from_string_options("min", mins),
     Series::from_string_options("max", maxs),
   ])
-}
-
-///|
-/// Map a `Series::min` / `Series::max` result into a nullable
-/// `String` cell. `Scalar::Null` becomes a null cell; every concrete
-/// variant renders via `Scalar::to_string`.
-fn render_extremum(scalar : @types.Scalar) -> String? {
-  if scalar.is_null() {
-    None
-  } else {
-    Some(scalar.to_string())
-  }
 }

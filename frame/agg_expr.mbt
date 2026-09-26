@@ -129,10 +129,10 @@ pub fn GroupedDataFrame::agg(
     // `(probe, cells)`: a *deferred* fallback dtype that types (and gates) the
     // column only when the cells carry no dtype of their own (zero groups, or
     // an all-null result), plus one reduced `Scalar` per group in group order.
-    // Both branches feed `agg_cells_to_series`, which types the column from
-    // the cells themselves and converges an all-valid numeric result onto
-    // `Numeric`, so the fast path is cell-for-cell *and backend* identical to
-    // the general one — it only changes how the cells are computed.
+    // Both branches are typed from the cells themselves below, and an
+    // all-valid numeric result converges onto `Numeric`, so the fast path is
+    // cell-for-cell *and backend* identical to the general one — it only
+    // changes how the cells are computed.
     let (probe, cells) : (
       () -> @types.DataType raise @types.DataError,
       Array[@types.Scalar],
@@ -168,32 +168,48 @@ pub fn GroupedDataFrame::agg(
         }
         (
           () => eval_expr(expr, self.source, []).dtype(),
-          self.groups.map(g => group_cell(eval_expr(expr, self.source, g))),
+          self.groups.map(g => {
+            // The one cell a group's reduction produced. Everything reaching
+            // here passed the structural `reduces_per_group` gate, and the
+            // built-in reductions and literals it admits are length-1 by
+            // construction — but one admitted node computes its own length: a
+            // `map_batches(returns_scalar=true)` closure *declared* to reduce
+            // and handing back a longer series anyway. That is the length
+            // contract `broadcast_series` enforces for every other consumer,
+            // so raise the same `LengthMismatch` here rather than reading
+            // cell 0 — which would silently keep the first of several cells,
+            // and index an empty array on none at all.
+            let reduced = eval_expr(expr, self.source, g)
+            guard reduced.len() == 1 else {
+              raise @types.DataError::LengthMismatch
+            }
+            reduced.to_scalars()[0]
+          }),
         )
       }
     }
-    out_cols.push(agg_cells_to_series(cells, probe, out_name))
+    // Build the output column, typed from the cells themselves: a mixed
+    // `Int`/`Float` result promotes to `Float` (the arithmetic engine's
+    // rule), the first non-null cell then fixes the variant, and an all-valid
+    // numeric result converges onto `Numeric`. So a `map(...)`-wrapped
+    // reduction whose closure returns a dtype other than its input column's
+    // is typed by what it actually produced — not by the empty-scope
+    // `probe`, which never ran the closure; the probe types only zero groups
+    // and all-null results, where the reduction's own declared dtype is the
+    // right witness (an all-null `Map` result is typed by its leftmost
+    // input's dtype — the closure never ran, so no other witness exists).
+    let cells = @kernel.promote_mixed_int_float(cells)
+    let witness = match @kernel.infer_cells_dtype(cells) {
+      Some(p) => p
+      None => probe()
+    }
+    out_cols.push(scalars_to_series(witness, out_name, cells))
   }
   // One row per group is the shape of an aggregation, so the group count is
   // the height — not `out_cols[0].len()`, which is the same number wherever a
   // column exists but has nothing to read when this frame has neither a key
   // column nor an aggregated one (`group_by([]).agg([])`).
   DataFrame::from_parts(out_cols, self.groups.length())
-}
-
-///|
-/// The one cell a group's reduction produced. Every expression that reaches
-/// here passed the structural `reduces_per_group` gate, and the built-in
-/// reductions and literals it admits are length-1 by construction — but one
-/// admitted node computes its own length: a `map_batches(returns_scalar=true)`
-/// whose closure is *declared* to reduce and hands back a series of some other
-/// length anyway. That is the length contract `broadcast_series` enforces for
-/// every other consumer, so it raises the same `LengthMismatch` here rather than
-/// reading cell 0 — which would silently keep the first of several cells, and
-/// index an empty array on none at all.
-fn group_cell(reduced : Series) -> @types.Scalar raise @types.DataError {
-  guard reduced.len() == 1 else { raise @types.DataError::LengthMismatch }
-  reduced.to_scalars()[0]
 }
 
 ///|
@@ -279,38 +295,4 @@ fn bare_col_agg(expr : @ir.ExprNode) -> (String, ReduceOp)? {
       }
     _ => None
   }
-}
-
-///|
-/// Build one aggregated output column from the reduced cells — one `Scalar`
-/// per group, in group order. The dtype comes from the cells themselves: a
-/// mixed `Int`/`Float` result promotes to `Float` (the arithmetic engine's
-/// rule), the first non-null cell then fixes the variant, and an all-valid
-/// numeric result converges onto `Numeric`. So a `map(...)`-wrapped reduction
-/// whose closure returns a dtype other than its input column's is typed by
-/// what it actually produced — not by the empty-scope `fallback` probe, which
-/// never ran the closure. The `fallback` types only the cases the cells
-/// cannot: zero groups, or an all-null result (e.g. `mean` over all-null
-/// groups), where the reduction's own declared dtype is the right witness.
-/// It is a deferred computation, first forced here — its own
-/// `ColumnNotFound` / `TypeMismatch` only surfaces when it is actually
-/// consumed as the witness.
-/// One narrow corner: when the reduction wraps a `map(...)` whose closure
-/// output dtype differs from its leftmost input's, an all-null result is typed
-/// by that input's dtype — a `Map`'s empty-scope probe takes the leftmost
-/// input column and never runs the closure — so the empty column's declared
-/// dtype / backend can differ from the closure's intended output. Every cell is
-/// `Null`, so no value is wrong; only the dtype witness of an all-null column
-/// differs (reachable via `first` / `last` / `min` / `max`).
-fn agg_cells_to_series(
-  cells : Array[@types.Scalar],
-  fallback : () -> @types.DataType raise @types.DataError,
-  name : String,
-) -> Series raise @types.DataError {
-  let cells = @kernel.promote_mixed_int_float(cells)
-  let probe = match @kernel.infer_cells_dtype(cells) {
-    Some(p) => p
-    None => fallback()
-  }
-  scalars_to_series(probe, name, cells)
 }

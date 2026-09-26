@@ -13,7 +13,7 @@
 //   - Both arms of `s.mean_opt()`, the total accessor `describe` reads: a
 //     value (numeric column with at least one non-null cell) AND `None`
 //     (non-numeric column, or an empty / all-null numeric one).
-//   - `render_extremum` is_null=true (empty / all-null column) AND
+//   - the min/max null branch (empty / all-null column) AND
 //     is_null=false (column with at least one non-null cell).
 //   - Every concrete dtype (Int / Float / Bool / String) reaches the
 //     min / max rendering path at least once.
@@ -31,7 +31,7 @@ fn describe_schema() -> Array[String] {
 /// and String. Picked so:
 ///   - `mean_opt` yields a value for "i" and "f"
 ///   - `mean_opt` yields `None` for "b" and "s" (non-numeric)
-///   - render_extremum's is_null=false branch fires for every column
+///   - the min/max non-null branch fires for every column
 fn describe_df() -> DataFrame raise @types.DataError {
   DataFrame::DataFrame([
     Series::from_int_options("i", [Some(1), None, Some(3), Some(5)]),
@@ -149,7 +149,7 @@ test "describe row 3 summarises the String column (mean is Null)" {
 test "describe on a 0-row numeric frame routes mean / min / max to Null" {
   // Empty Int column → Series::mean raises InvalidOperation,
   // Series::min / max return Scalar::Null. Both map to the
-  // `render_extremum` is_null=true branch.
+  // The min/max null branch.
   let schema = @types.Schema::Schema([
     @types.Field::Field("a", @types.DataType::Int),
     @types.Field::Field("b", @types.DataType::Float),
@@ -189,7 +189,7 @@ test "describe on an all-null numeric column routes mean / min / max to Null" {
 
 ///|
 test "describe on an all-null String column produces typed-null extrema" {
-  // String column with no non-null cells: render_extremum's
+  // String column with no non-null cells: the min/max
   // is_null=true branch still applies to a non-numeric column.
   let df = DataFrame::DataFrame([Series::from_string_options("s", [None, None])])
   let out = df.describe()

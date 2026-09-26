@@ -137,7 +137,7 @@ fn DataFrame::reduce_to_row(
 /// column yields a `Null` cell kept in its source dtype (`probe = dtype`),
 /// while a numeric column reduces (`mean` retyped to `Float`). `count` is
 /// dtype-independent — always the non-null count as `Int`. This is distinct
-/// from the expression engine's `eval_agg` (which reduces every dtype and
+/// from the expression engine's aggregation kernel (which reduces every dtype and
 /// raises on a non-numeric `sum` / `mean`): the whole-frame reductions
 /// tolerate non-reducible columns by nulling them, matching `df.sum()`.
 fn reduce_column(

@@ -309,28 +309,18 @@ pub fn eval_mod(left : Series, right : Series) -> Series raise @types.DataError 
     left,
     right,
     "take the remainder of",
-    (a, b) => rem_i64(a, b),
+    (
+      a,
+      b,
+      // `-1` is special-cased for the same reason `floor_div_i64` special-cases
+      // it: `Int64::MIN % -1` is part of a division whose quotient (`2^63`)
+      // does not fit, and wasm's `i64.rem_s` defines the result as `0` while a
+      // native `%` faults like a divide by zero. The remainder of a division
+      // by `-1` is `0` for every dividend, and the caller has already
+      // excluded a zero divisor.
+    ) => if b == -1L { 0L } else { a % b },
     (a, b) => a % b,
   )
-}
-
-///|
-/// `a % b` for two `Int64`s. The caller has already excluded a zero divisor.
-///
-/// `-1` is special-cased for the same reason `floor_div_i64` special-cases it:
-/// the pair `Int64::MIN % -1` is evaluated as part of a division whose quotient
-/// (`2^63`) does not fit, and the backends disagree about what that means.
-/// Wasm's `i64.rem_s` defines the result as `0`, but a native build lowers `%`
-/// to a hardware divide, where `INT64_MIN % -1` raises the same fault as a
-/// divide by zero — aborting the whole evaluation. The remainder of a division
-/// by `-1` (or by `1`) is `0` for every dividend, so returning it directly is
-/// the value every backend that defines the operation already produces, and it
-/// never reaches the instruction that faults.
-fn rem_i64(a : Int64, b : Int64) -> Int64 {
-  if b == -1L {
-    return 0L
-  }
-  a % b
 }
 
 ///|

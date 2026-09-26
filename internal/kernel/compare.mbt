@@ -81,12 +81,6 @@ fn cmp_int_double(verb : CmpVerb, a : Int64, b : Double) -> Bool {
 }
 
 ///|
-/// The `Float`-vs-`Int` verdict, as the transposed `Int`-vs-`Float` one.
-fn cmp_double_int(verb : CmpVerb, a : Double, b : Int64) -> Bool {
-  cmp_int_double(transpose_verb(verb), b, a)
-}
-
-///|
 /// Build the `Bool?` cells of one comparison over two equal-length
 /// operands, given a cell reader per side and the dtype's two primitive
 /// predicates. The verdict itself is `apply_cmp` (NaN semantics live
@@ -146,7 +140,9 @@ pub fn eval_compare(
         (@column.NumericData::Float(a), @column.NumericData::Int(b)) =>
           Series::from_bools(
             left.name(),
-            Array::makei(a.length(), i => cmp_double_int(verb, a[i], b[i])),
+            Array::makei(a.length(), i => {
+              cmp_int_double(transpose_verb(verb), b[i], a[i])
+            }),
           )
         (@column.NumericData::Float(a), @column.NumericData::Float(b)) =>
           Series::from_bools(
@@ -188,7 +184,9 @@ pub fn eval_compare(
     (@column.ColumnData::F64(a), @column.ColumnData::I64(b)) if left
       .dtype()
       .comparable_with(right.dtype()) =>
-      zip_present(a.length(), lv, rv, i => cmp_double_int(verb, a[i], b[i]))
+      zip_present(a.length(), lv, rv, i => {
+        cmp_int_double(transpose_verb(verb), b[i], a[i])
+      })
     (@column.ColumnData::F64(a), @column.ColumnData::F64(b)) =>
       compare_cells(
         a.length(),

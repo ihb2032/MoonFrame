@@ -129,6 +129,12 @@ test "round: ties go to even (banker's rounding)" {
     @types.Scalar::Float(-2.0),
     @types.Scalar::Float(-4.0),
   ])
+  // `-0.5`'s even neighbour is `-0.0`: IEEE equality calls both zeros
+  // equal above, so the sign is asserted where IEEE makes it observable —
+  // under division, where +0.0 and -0.0 go to opposite infinities.
+  let cells = out.get_column("r").to_scalars()
+  assert_true(cells[0] is @types.Scalar::Float(v) && v == 0.0 && 1.0 / v > 0.0)
+  assert_true(cells[4] is @types.Scalar::Float(v) && v == 0.0 && 1.0 / v < 0.0)
 }
 
 ///|

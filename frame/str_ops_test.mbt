@@ -239,6 +239,37 @@ test "str_zfill: the width counts characters, not UTF-16 units" {
 }
 
 ///|
+test "str_zfill: a negative width is a no-op, at Int::min_value too" {
+  // A cell already at least `width` characters is unchanged — a negative
+  // width says no padding. The signed branch narrows the field by one for
+  // the sign, and at `Int::min_value` that subtraction must not wrap into
+  // a huge pad.
+  let df = DataFrame::DataFrame([Series::from_strings("s", ["-5", "7"])])
+  let narrow = df.select([@expr.col("s").str_zfill(-3)])
+  assert_eq(narrow.get_column("s").to_scalars(), [
+    @types.Scalar::String("-5"),
+    @types.Scalar::String("7"),
+  ])
+  let extreme = df.select([@expr.col("s").str_zfill(-2147483648)])
+  assert_eq(extreme.get_column("s").to_scalars(), [
+    @types.Scalar::String("-5"),
+    @types.Scalar::String("7"),
+  ])
+}
+
+///|
+test "str_len_bytes counts an unpaired surrogate half at its WTF-8 spelling" {
+  // Assembled from a raw code unit (string literals reject one since
+  // moonc 0.10.9): the half is 3 UTF-8 bytes under the WTF-8 spelling, on
+  // every backend — core's encoder aborts on it outside JS.
+  let b = StringBuilder()
+  b.write_char(Int::unsafe_to_char(0xD800))
+  let df = DataFrame::DataFrame([Series::from_strings("s", [b.to_string()])])
+  let out = df.with_columns([@expr.col("s").str_len_bytes().with_alias("n")])
+  assert_eq(out.get_column("n").to_scalars(), [@types.Scalar::Int(3)])
+}
+
+///|
 test "str_zfill: a non-String operand raises TypeMismatch" {
   let df = DataFrame::DataFrame([Series::from_ints("n", [1])])
   assert_true(
@@ -474,13 +505,16 @@ test "str_slice: a non-String operand raises TypeMismatch" {
 ///|
 test "str_len_bytes counts UTF-8 bytes, all-valid rides Numeric" {
   let df = DataFrame::DataFrame([
-    Series::from_strings("s", ["a", "ab", "😀", "a😀"]),
+    Series::from_strings("s", ["a", "ab", "ü", "北", "😀", "a😀"]),
   ])
   let out = df.with_columns([@expr.col("s").str_len_bytes().with_alias("n")])
-  // ASCII byte each; the emoji is 4 UTF-8 bytes (vs one character).
+  // ASCII byte each; the two-byte Latin letter; the three-byte CJK
+  // character; the emoji is 4 UTF-8 bytes (vs one character).
   assert_eq(out.get_column("n").to_scalars(), [
     @types.Scalar::Int(1),
     @types.Scalar::Int(2),
+    @types.Scalar::Int(2),
+    @types.Scalar::Int(3),
     @types.Scalar::Int(4),
     @types.Scalar::Int(5),
   ])

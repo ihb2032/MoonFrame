@@ -177,23 +177,6 @@ fn NumericColumn::get(
 // ── Sub-views (no bitmap to repack — the construction win) ─────────────
 
 ///|
-/// Total `[start, end)` slice — the raw sub-range core. Copies the
-/// sub-range; an all-valid column stays all-valid, so there is no bitmap.
-/// The caller must guarantee `0 <= start <= end <= len` (clamped by
-/// `ColumnStorage::slice_total`).
-fn NumericColumn::slice_unchecked(
-  self : NumericColumn,
-  start : Int,
-  end : Int,
-) -> NumericColumn {
-  let n = end - start
-  match self.data {
-    Int(a) => { data: Int(Array::makei(n, i => a[start + i])), }
-    Float(a) => { data: Float(Array::makei(n, i => a[start + i])), }
-  }
-}
-
-///|
 /// Gather: produce a new column whose i-th entry is `self[indices[i]]`. Any
 /// out-of-bounds index `raise IndexOutOfBounds(idx)`, matching
 /// `BuiltinColumn::take`. Stays a `NumericColumn` (no bitmap to gather).

@@ -242,20 +242,24 @@ test "take keeps the backend on both arms" {
   )
 }
 
-// ── Materialise: to_builtin on both arms ──────────────────────────────
+// ── Cross-dtype transforms borrow the Builtin road ────────────────────
 
 ///|
-test "to_builtin widens Numeric losslessly and is identity on Builtin" {
+test "the Builtin road passes Builtin through and widens Numeric losslessly" {
   let raw = BuiltinColumn::from_int_options([Some(1), None, Some(3)])
   let builtin = ColumnStorage::Builtin(raw)
   let numeric = ColumnStorage::Numeric(NumericColumn::from_ints([1, 2, 3]))
-  // Builtin arm is identity.
-  assert_eq(builtin.to_builtin(), raw)
-  // Numeric arm widens to an all-valid BuiltinColumn equal to from_ints.
-  assert_eq(numeric.to_builtin(), BuiltinColumn::from_ints([1, 2, 3]))
+  // A same-dtype cast rides the same road: the Builtin arm hands the column
+  // through unchanged, and the Numeric arm widens to the all-valid
+  // BuiltinColumn equal to from_ints before the (here identity) cast.
+  assert_eq(builtin.cast(@types.DataType::Int), ColumnStorage::Builtin(raw))
+  assert_eq(
+    numeric.cast(@types.DataType::Int),
+    ColumnStorage::Builtin(BuiltinColumn::from_ints([1, 2, 3])),
+  )
 }
 
-// ── Cross-dtype transforms borrow the Builtin road ────────────────────
+///|
 
 ///|
 test "cast routes through Builtin (result is Builtin-backed)" {

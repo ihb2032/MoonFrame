@@ -114,24 +114,33 @@ test "get: reads value per dtype, OOB raises (no null branch)" {
 
 ///|
 test "slice: sub-range per dtype stays all-valid" {
-  let i = NumericColumn::from_ints([10, 20, 30, 40]).slice_unchecked(1, 3)
+  // The sub-range core lives in `ColumnStorage::slice_total`'s `Numeric` arm;
+  // a numeric column in comes back numeric, read here through the storage's
+  // own inspection surface.
+  let i = ColumnStorage::Numeric(NumericColumn::from_ints([10, 20, 30, 40])).slice_total(
+    1, 3,
+  )
   assert_eq(i.len(), 2)
   assert_eq(i.null_count(), 0)
   assert_eq(i.get(0), @types.Scalar::Int(20))
   assert_eq(i.get(1), @types.Scalar::Int(30))
-  let f = NumericColumn::from_floats([1.0, 2.0, 3.0]).slice_unchecked(0, 2)
+  let f = ColumnStorage::Numeric(NumericColumn::from_floats([1.0, 2.0, 3.0])).slice_total(
+    0, 2,
+  )
   assert_eq(f.len(), 2)
   assert_eq(f.get(1), @types.Scalar::Float(2.0))
   // start == end → empty.
   assert_true(
-    NumericColumn::from_ints([1, 2, 3]).slice_unchecked(2, 2).is_empty(),
+    ColumnStorage::Numeric(NumericColumn::from_ints([1, 2, 3]))
+    .slice_total(2, 2)
+    .is_empty(),
   )
 }
 
 ///|
-test "slice_unchecked trusts its caller's bounds; the total entry clamps" {
+test "slice_total takes a numeric sub-range and clamps out-of-range bounds" {
   let col = NumericColumn::from_ints([1, 2, 3])
-  assert_eq(col.slice_unchecked(1, 3).len(), 2)
+  assert_eq(ColumnStorage::Numeric(col).slice_total(1, 3).len(), 2)
   // The clamping lives in the storage layer's total entry, reached with a
   // numeric column.
   assert_eq(ColumnStorage::Numeric(col).slice_total(0, 9).len(), 3)

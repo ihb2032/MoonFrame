@@ -600,10 +600,10 @@ test "Series::sort orders values, defaulting to ascending with nulls first, as P
     @types.Scalar::Int(2),
     @types.Scalar::Int(3),
   ])
-  // Missing placement is direction-independent (the deliberate model this
-  // repository documents): `nulls_last = false` keeps nulls leading even
-  // under `descending`, where Polars — nulls as the smallest *value* —
-  // would drop them to the tail.
+  // Missing placement is direction-independent, as in Polars:
+  // `nulls_last = false` keeps nulls leading even under `descending` —
+  // the flag says where nulls sit, and only the value comparison turns
+  // around.
   assert_eq(s.sort(descending=true).to_scalars(), [
     @types.Scalar::Null,
     @types.Scalar::Int(3),

@@ -51,7 +51,9 @@ libraries — not a derivative work of either codebase.
   as one value; comparisons treat `NaN` as a value. `sort` orders it by the
   IEEE-754 total order — larger than every other value, so it trails an
   ascending sort and leads a descending one, independently of where the nulls
-  sit. Only `null` is missing.
+  sit, and with `-0.0` and `+0.0` ordered equal (the total order relaxed
+  exactly where `==` already says they are; a stable sort keeps their input
+  order). Only `null` is missing.
 - **`group_by`** — a **null key forms its own group** (the Polars default;
   pandas drops null keys), `NaN` keys compare equal, and group order is
   first appearance (`maintain_order=True`).
@@ -77,14 +79,8 @@ libraries — not a derivative work of either codebase.
 
 ## Deliberate differences
 
-Where MoonFrame knowingly does something else than Polars. One is about
-null placement, one about mixed-dtype comparison, and one about how a call
-is configured.
+Where MoonFrame knowingly does something else than Polars.
 
-- **Missing placement is direction-independent.** `nulls_last = false` keeps
-  nulls leading even under `descending`, where Polars — nulls as the
-  smallest *value* — would drop them to the tail. The default is
-  `nulls_last = false`, Polars' own default.
 - **`describe` summarises differently.** MoonFrame's rows are `count` /
   `null_count` / `n_unique` / `mean` / `min` / `max`, with `min` / `max`
   rendered as `String` so one table carries every dtype; Polars' are `count` /
@@ -108,6 +104,24 @@ is configured.
   caller can name once and reuse across reads, pass through a helper that knows
   nothing about its fields, and gain a field on without any signature changing.
   The same struct then serves the eager reader and its `scan_*` counterpart.
+- **`is_in` inherits `==`, so a `NaN` member matches nothing.** Every member
+  is compared exactly as `a.eq(lit(member))` would, and IEEE `NaN != NaN`;
+  Polars' `is_in` compares by total equality and matches it. The split is
+  deliberate: `is_in` stays the OR of `eq` and cannot drift from it — the
+  key-based verbs (`n_unique` / `group_by` / `join`) are where `NaN` buckets
+  as one value, on the other side of that line.
+- **`when` treats a null condition as unknown, Polars' as false.** A null
+  condition cell yields a null output (the Kleene reading, consistent with
+  `&` / `|`); Polars' `when` takes null as false and reads the `otherwise`
+  branch. Add an explicit `is_null()` branch when the Polars reading is the
+  one wanted.
+- **`n_unique` counts distinct non-null values.** Polars counts a null as
+  one more distinct value; MoonFrame's `n_unique` skips null slots, the
+  same cell set `count` sees.
+- **Whole-frame `min` / `max` / `sum` / `mean` leave a non-numeric column a
+  `Null` cell.** A `Date` column reduces to `Null` in the one-row summary
+  frame (Polars reduces dates); the column's own `Series::min` / `max`
+  still order every dtype and read the date.
 
 For `NaN` everywhere — `sum` / `mean` / `median` / `sort` / `group_by` /
 `join` / comparisons — it is a value, as in Polars.

@@ -78,7 +78,16 @@ pub fn parse_json_str(
   if content.is_blank() {
     return @frame.DataFrame::DataFrame([])
   }
-  let json = parse_json_payload(content)
+  // Re-raise `@json.parse`'s failure as this module's `ParseError`, so the
+  // parser's main pipeline sees one error type and stays in straight-line
+  // `match` form; the concrete `ParseError` is rendered through its `Show`
+  // impl so the caller sees the same diagnostic the standard library would.
+  let json = @json.parse(content.view()) catch {
+    err =>
+      raise @types.DataError::ParseError(
+        @types.ParseErrorDetail::Message("invalid JSON: \{err}"),
+      )
+  }
   let records = match json {
     Array(arr) => arr
     _ =>
@@ -147,18 +156,3 @@ pub fn write_json(
 }
 
 // ── internals ──────────────────────────────────────────────────────────
-
-///|
-/// Re-raise `@json.parse`'s failure as this module's `ParseError`, so the
-/// parser's main pipeline sees one error type and stays in straight-line
-/// `match` form. The
-/// concrete `ParseError` is rendered through its `Show` impl so the
-/// caller sees the same diagnostic the standard library would.
-fn parse_json_payload(content : String) -> Json raise @types.DataError {
-  @json.parse(content.view()) catch {
-    err =>
-      raise @types.DataError::ParseError(
-        @types.ParseErrorDetail::Message("invalid JSON: \{err}"),
-      )
-  }
-}

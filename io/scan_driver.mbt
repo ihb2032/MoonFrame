@@ -57,9 +57,20 @@ fn file_scan_driver(
 ) -> @scan.ScanDriver {
   @scan.ScanDriver::driver(() => label, (projection, predicate) => {
     let pruner : RowPruner? = predicate.map(pred => {
-      (predicate_columns(pred), df => @frame.filter_row_indices(df, pred))
+      // The column names an absorbed predicate reads — all the reader core
+      // needs to build its key columns and prune. Order is irrelevant: the
+      // reader filters its own header order by membership.
+      let names : Array[String] = []
+      for name in pred.referenced_columns() {
+        names.push(name)
+      }
+      (names, df => @frame.filter_row_indices(df, pred))
     })
-    batch_of(read(read_text(path), projection, pruner))
+    let frame = read(read_text(path), projection, pruner)
+    // The batch wraps the frame's columns plus its height — the height rides
+    // separately so a projection matching no column keeps the file's rows
+    // (the `N×0` shape) rather than collapsing to zero.
+    @scan.ScanBatch::batch(frame.column_series(), frame.nrows())
   })
 }
 
@@ -94,24 +105,4 @@ pub fn ndjson_scan_driver(
     projection,
     pruner,
   ) => parse_ndjson_str_projected(content, options, projection, pruner))
-}
-
-///|
-/// A frame's columns plus its row count — the batch the driver returns. The
-/// height rides separately so a projection matching no column keeps the
-/// file's rows (the `N×0` shape) rather than collapsing to zero.
-fn batch_of(df : @frame.DataFrame) -> @scan.ScanBatch {
-  @scan.ScanBatch::batch(df.column_series(), df.nrows())
-}
-
-///|
-/// The column names an absorbed predicate reads — all the reader core needs
-/// to build its key columns and prune. Order is irrelevant: the reader
-/// filters its own header order by membership.
-fn predicate_columns(predicate : @expr.Expr) -> Array[String] {
-  let names : Array[String] = []
-  for name in predicate.referenced_columns() {
-    names.push(name)
-  }
-  names
 }

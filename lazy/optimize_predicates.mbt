@@ -119,6 +119,60 @@ fn push_predicates(plan : LogicalPlan) -> LogicalPlan {
 /// stage as a rebuild closure, not the call stack), so a deep crossable spine
 /// sinks without overflowing and aborting — total at any depth.
 fn place_filter(input : LogicalPlan, predicate : @expr.Expr) -> LogicalPlan {
+  // The crossing gates, each local to the only walk that asks them:
+  //
+  // `row_stable` over a stage's whole expression list — one scope-bound or
+  // value-raising expression fences the stage (`group_cell_stable` over an
+  // aggregation's list the same way: one unstable cell fences it, and an
+  // empty list is vacuously stable — a keys-only aggregation has no stitched
+  // columns to flip).
+  fn all_row_stable(exprs : Array[@expr.Expr]) -> Bool {
+    exprs.all(e => row_stable(e.node()))
+  }
+
+  fn all_group_cells_stable(exprs : Array[@expr.Expr]) -> Bool {
+    exprs.all(e => group_cell_stable(e.node()))
+  }
+
+  // Whether every column the predicate reads appears in `exprs` as a *bare*
+  // `col(name)` — the pass-through test shared by the `Select` (projection
+  // list) and `Aggregate` (key list) crossing rules. A bare `col(name)`
+  // re-emits its input column verbatim, so the predicate sees identical
+  // values below the stage; a computed or renamed occurrence does not count,
+  // even under the same output name, and a *derived* key (any non-`Col`
+  // expression) likewise fails — its output name need not exist in the
+  // input at all. Vacuously true for a column-less (all-literal) predicate.
+  fn reads_only_bare_columns(
+    predicate : @expr.Expr,
+    exprs : Array[@expr.Expr],
+  ) -> Bool {
+    for name in predicate.referenced_columns() {
+      if !has_bare_column(exprs, name) {
+        return false
+      }
+    }
+    true
+  }
+
+  // Whether the selection's output height tracks its input's — i.e. it is
+  // *not* an all-constant projection. `select` collapses any input, even
+  // zero rows, to a single row when every expression is column-free, because
+  // each such column is length 1 and nothing fixes the height at the
+  // frame's. A filter may only sink past a selection that keeps rows
+  // one-for-one: pushing a *dropping* predicate below a collapsing selection
+  // would let it act on the pre-collapse rows, then re-materialise the one
+  // literal row the as-built collapse-then-filter had dropped. Reached only
+  // after `all_row_stable` has excluded aggregations and casts, so an
+  // expression is frame-tall exactly when it reads a column.
+  fn preserves_row_count(exprs : Array[@expr.Expr]) -> Bool {
+    for expr in exprs {
+      if !expr.referenced_columns().is_empty() {
+        return true
+      }
+    }
+    false
+  }
+
   // Descend while the current stage is crossable, recording how to rebuild each
   // crossed stage over a new input; stop at the first floor.
   let crossed : Array[(LogicalPlan) -> LogicalPlan] = []

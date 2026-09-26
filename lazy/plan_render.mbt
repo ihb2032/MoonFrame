@@ -107,14 +107,40 @@ fn write_frame_op_label(op : FrameOp, buf : StringBuilder) -> Unit {
     Select(exprs) => buf <+ "SELECT \{exprs_label(exprs)}"
     WithColumns(exprs) => buf <+ "WITH_COLUMNS \{exprs_label(exprs)}"
     Filter(predicate) => buf <+ "FILTER \{predicate.to_string()}"
-    Sort(by) => buf <+ "SORT \{sort_label(by)}"
+    Sort(by) => {
+      // One `key order nulls` triple per key, in sort precedence order,
+      // the key rendered through `@expr.Expr`'s `Show` (the documented
+      // operator form, like the `SELECT` / `WITH_COLUMNS` lists). The
+      // direction / null-placement spellings are the ones the enums used
+      // to carry, so an `explain` snapshot written before them reads the
+      // same after.
+      let keys = list_label(
+        by.map(key => {
+          let (expr, descending, nulls_last) = key
+          let order = if descending { "Desc" } else { "Asc" }
+          let nulls = if nulls_last { "NullsLast" } else { "NullsFirst" }
+          "\{expr.to_string()} \{order} \{nulls}"
+        }),
+      )
+      buf <+ "SORT \{keys}"
+    }
     Head(n) => buf <+ "HEAD \{n}"
     Tail(n) => buf <+ "TAIL \{n}"
     Slice(offset, length) =>
       buf <+
         "SLICE [\{offset}: \{match length { Some(l) => "\{l}"; None => "" }}]"
     Drop(exprs) => buf <+ "DROP \{exprs_label(exprs)}"
-    Rename(pairs) => buf <+ "RENAME \{rename_label(pairs)}"
+    Rename(pairs) => {
+      // One `from -> to` per rename, reusing the bracketed-list shape of
+      // the other plan labels.
+      let items = list_label(
+        pairs.map(p => {
+          let (from, to) = p
+          "\{from} -> \{to}"
+        }),
+      )
+      buf <+ "RENAME \{items}"
+    }
     RenameWith(_) => buf <+ "RENAME_WITH"
     // The keep strategy shows only when it is not the default, so the
     // common plan line stays `UNIQUE`.
@@ -158,18 +184,6 @@ fn write_frame_op_label(op : FrameOp, buf : StringBuilder) -> Unit {
 }
 
 ///|
-/// `RENAME` pair list, e.g. `[old -> new, a -> b]` — one `from -> to` per
-/// rename, reusing the bracketed-list shape of the other plan labels.
-fn rename_label(pairs : Array[(String, String)]) -> String {
-  list_label(
-    pairs.map(p => {
-      let (from, to) = p
-      "\{from} -> \{to}"
-    }),
-  )
-}
-
-///|
 /// Bracketed, comma-separated display list — the shared shape of the
 /// `SELECT` / `WITH_COLUMNS` expression lists, the `SORT` key list, and
 /// the join key list. Items arrive pre-rendered: explain output is
@@ -183,22 +197,6 @@ fn list_label(items : Array[String]) -> String {
 /// `[col(region), (col(revenue) * 1.1) as adj]`.
 fn exprs_label(exprs : Array[@expr.Expr]) -> String {
   list_label(exprs.map(e => e.to_string()))
-}
-
-///|
-/// `SORT` key list, e.g. `[col(qty) Asc NullsFirst, col(region) Desc NullsLast]`
-/// — one `key order nulls` triple per key, in sort precedence order, the
-/// key rendered through `@expr.Expr`'s `Show` (the documented operator
-/// form, like the `SELECT` / `WITH_COLUMNS` expression lists). The two
-/// flags keep the rendered spellings the enums used to carry, so an
-/// `explain` snapshot written before them reads the same after.
-fn sort_label(by : Array[(@expr.Expr, Bool, Bool)]) -> String {
-  list_label(
-    by.map(key => {
-      let (expr, descending, nulls_last) = key
-      "\{expr.to_string()} \{order_label(descending)} \{nulls_label(nulls_last)}"
-    }),
-  )
 }
 
 ///|
@@ -227,26 +225,6 @@ fn join_label(options : @frame.JoinOptions) -> String {
     "JOIN \{how} left_on \{exprs_label(left_on)} right_on \{exprs_label(right_on)}"
   } else {
     "JOIN \{how}"
-  }
-}
-
-///|
-/// Display name of a sort direction.
-fn order_label(descending : Bool) -> String {
-  if descending {
-    "Desc"
-  } else {
-    "Asc"
-  }
-}
-
-///|
-/// Display name of a null placement.
-fn nulls_label(nulls_last : Bool) -> String {
-  if nulls_last {
-    "NullsLast"
-  } else {
-    "NullsFirst"
   }
 }
 

@@ -5,8 +5,8 @@
 /// predicate's own verdicts. `row_stable` (row-local, non-value-raising),
 /// `signed_zero_safe` (signed-zero safety on a `Float` group key),
 /// `group_cell_stable` (an aggregation's per-group cell is neither null nor
-/// value-raising), and the pass-through tests (`reads_only_bare_columns`,
-/// `preserves_row_count`, `defines_none_of`).
+/// value-raising), and the pass-through tests (bare-column coverage,
+/// row-count preservation, `defines_none_of`).
 
 ///|
 /// Whether evaluating `expr` is invariant under dropping *other* rows of
@@ -69,13 +69,6 @@ fn row_stable(expr : @ir.ExprNode) -> Bool {
     }
   }
   true
-}
-
-///|
-/// `row_stable` over a stage's whole expression list — one scope-bound or
-/// value-raising expression fences the stage.
-fn all_row_stable(exprs : Array[@expr.Expr]) -> Bool {
-  exprs.all(e => row_stable(e.node()))
 }
 
 ///|
@@ -226,65 +219,12 @@ fn group_cell_stable(expr : @ir.ExprNode) -> Bool {
 }
 
 ///|
-/// `group_cell_stable` over an aggregation's whole expression list — one
-/// unstable cell fences the aggregation (an empty list is vacuously
-/// stable: a keys-only aggregation has no stitched columns to flip).
-fn all_group_cells_stable(exprs : Array[@expr.Expr]) -> Bool {
-  exprs.all(e => group_cell_stable(e.node()))
-}
-
-///|
-/// Whether every column the predicate reads appears in `exprs` as a
-/// *bare* `col(name)` — the pass-through test shared by the `Select`
-/// (projection list) and `Aggregate` (key list) crossing rules. A bare
-/// `col(name)` re-emits its input column verbatim, so the predicate sees
-/// identical values below the stage, and a column the stage does not
-/// output stays missing on both sides of the swap. A computed or renamed
-/// occurrence does not count, even under the same output name: its values
-/// are the stage's, not the input's. A *derived* key (any non-`Col`
-/// expression) likewise fails the test — its output name need not exist in
-/// the input at all. Vacuously true for a column-less (all-literal)
-/// predicate.
-fn reads_only_bare_columns(
-  predicate : @expr.Expr,
-  exprs : Array[@expr.Expr],
-) -> Bool {
-  for name in predicate.referenced_columns() {
-    if !has_bare_column(exprs, name) {
-      return false
-    }
-  }
-  true
-}
-
-///|
 /// Whether the selection list contains `name` as a bare `col(name)` item.
 fn has_bare_column(exprs : Array[@expr.Expr], name : String) -> Bool {
   for expr in exprs {
     match expr.node() {
       @ir.ExprNode::Col(n) => if n == name { return true }
       _ => ()
-    }
-  }
-  false
-}
-
-///|
-/// Whether the selection's output height tracks its input's — i.e. it is
-/// *not* an all-constant projection. `select` collapses any input,
-/// even zero rows, to a single row when every expression is column-free (a
-/// literal or an arithmetic of literals), because each such column is
-/// length 1 and nothing fixes the height at the frame's. A filter may only
-/// sink past a selection that keeps rows one-for-one: pushing a *dropping*
-/// predicate below a collapsing selection would let it act on the
-/// pre-collapse rows, then re-materialise the one literal row the as-built
-/// collapse-then-filter had dropped (0 rows built, 1 row optimized).
-/// Reached only after `all_row_stable` has excluded aggregations and
-/// casts, so an expression is frame-tall exactly when it reads a column.
-fn preserves_row_count(exprs : Array[@expr.Expr]) -> Bool {
-  for expr in exprs {
-    if !expr.referenced_columns().is_empty() {
-      return true
     }
   }
   false

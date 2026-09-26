@@ -1,7 +1,7 @@
 ///|
 /// The projection pass's file map: `push_projection` is the iterative walk
 /// over `ProjStep`, and the small requirement helpers (`columns_read`,
-/// `widened`, `narrow_scan_source`, `sorted_names`, `add_all`) sit beside
+/// `widened`, `narrow_scan_source`, `add_all`) sit beside
 /// it. The pass itself and its per-node requirement rules are documented on
 /// `push_projection`.
 
@@ -267,7 +267,16 @@ fn narrow_scan_source(
       match req {
         None => node
         Some(needed) => {
-          let columns = sorted_names(needed)
+          // The name set as a sorted array — the deterministic column list
+          // written into the file source's projection. Core `Set` iteration
+          // is unordered, so without the sort `explain(optimized=true)`
+          // would vary run to run; ordering is dictionary order, like every
+          // other user-facing ordering in MoonFrame. It is presentation
+          // only — the reader re-derives the read order from the file's own
+          // header.
+          let columns : Array[String] = []
+          needed.each(name => columns.push(name))
+          columns.sort_by((a, b) => @text.compare_string_lex(a, b))
           if columns.is_empty() {
             node
           } else {
@@ -276,22 +285,6 @@ fn narrow_scan_source(
         }
       }
   }
-}
-
-///|
-/// A name set as a sorted array — the deterministic column list the
-/// projection pass writes into a file source's projection. Core `Set`
-/// iteration is
-/// unordered, so without this `explain(optimized=true)` would vary run to
-/// run. Ordering is dictionary order, like every other user-facing ordering
-/// in MoonFrame, rather than
-/// the built-in shortlex `Compare` on `String`; it is presentation only,
-/// since the reader re-derives the read order from the file's own header.
-fn sorted_names(names : @set.Set[String]) -> Array[String] {
-  let arr : Array[String] = []
-  names.each(name => arr.push(name))
-  arr.sort_by((a, b) => @text.compare_string_lex(a, b))
-  arr
 }
 
 ///|

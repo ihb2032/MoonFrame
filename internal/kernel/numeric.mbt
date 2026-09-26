@@ -589,7 +589,11 @@ fn round_half_even(a : Double) -> Double {
   } else if lo % 2.0 == 0.0 {
     lo
   } else {
-    lo + 1.0
+    // The ceil, spelled as the operation itself: `lo + 1.0` is the same
+    // value everywhere except the one tie that lands on zero — `-0.5`,
+    // whose even neighbour is `-0.0`, and IEEE addition `-1.0 + 1.0`
+    // would return `+0.0`, losing the sign a division can observe.
+    a.ceil()
   }
 }
 

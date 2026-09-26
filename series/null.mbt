@@ -5,6 +5,7 @@
 // valid cells in order — a null-free source is returned unchanged, so an
 // all-valid `Numeric` column stays on the fast path, and a trimmed numeric
 // result — now necessarily all-valid — canonicalises onto it.
+
 ///|
 /// Build the fill buffer for `fill_null`: keep each valid cell, replace
 /// every null slot (`valid[i] == false`) with `v`. The four per-dtype

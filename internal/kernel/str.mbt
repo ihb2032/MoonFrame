@@ -164,7 +164,7 @@ pub fn eval_str(
     @ir.StrOp::LenBytes =>
       Series::from_int_options(
         name,
-        map_present(n, valid, i => @utf8.encode(data[i]).length().to_int64()),
+        map_present(n, valid, i => utf8_len_wtf8(data[i]).to_int64()),
       )
     @ir.StrOp::StripCharsCustom(chars) =>
       Series::from_string_options(
@@ -270,6 +270,41 @@ pub fn compile_regex(pattern : String) -> @string.Regex raise @types.DataError {
         "invalid regex pattern \"\{pattern}\": \{e}",
       )
   }
+}
+
+///|
+/// The UTF-8 length of `s` counting an unpaired surrogate half at its
+/// 3-byte WTF-8 spelling, so every backend answers the same number for
+/// every value: core's encoder aborts on an unpaired half outside JS and
+/// replaces it with U+FFFD on JS — a replacement that happens to be 3
+/// bytes too, but only by accident.
+fn utf8_len_wtf8(s : String) -> Int {
+  let units = s.code_units()
+  let n = units.length()
+  let mut len = 0
+  let mut i = 0
+  while i < n {
+    let cu = units[i]
+    if cu.is_leading_surrogate() &&
+      i + 1 < n &&
+      units[i + 1].is_trailing_surrogate() {
+      len += 4
+      i += 2
+    } else if cu.is_leading_surrogate() || cu.is_trailing_surrogate() {
+      len += 3
+      i += 1
+    } else if cu < 0x80 {
+      len += 1
+      i += 1
+    } else if cu < 0x800 {
+      len += 2
+      i += 1
+    } else {
+      len += 3
+      i += 1
+    }
+  }
+  len
 }
 
 ///|

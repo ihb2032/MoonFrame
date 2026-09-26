@@ -1,7 +1,8 @@
 // Whitebox tests for `NumericColumn`'s reduction fast path (the folds in the
 // fold file). Reductions inherit the library's Polars-aligned NaN
 // semantics: `NaN` propagates through `sum` / `mean` (it is a value, not
-// missing) but is skipped by `min` / `max` (treated as missing, like `sort`).
+// missing) but is skipped by `min` / `max` (treated as missing; `sort`
+// instead orders `NaN` as the largest value).
 
 // ── Reductions: sum (all-valid fast path) ─────────────────────────────
 

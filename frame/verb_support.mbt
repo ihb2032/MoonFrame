@@ -33,7 +33,7 @@ fn DataFrame::from_parts_with_fields(
   nrows : Int,
 ) -> DataFrame raise @types.DataError {
   let columns = columns.copy()
-  // INV7, closed here rather than asked of the caller. For a frame with
+  // INV5, closed here rather than asked of the caller. For a frame with
   // columns the length check below already forces a non-negative height (no
   // `Series` is shorter than empty), but it is vacuous at zero columns —
   // exactly the shape this constructor exists to build — so `N×0` is the one

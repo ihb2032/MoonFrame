@@ -70,7 +70,10 @@ pub fn Expr::str_len_bytes(self : Expr) -> Expr {
 /// nullable `String` (a scalar slice of Polars' `str.split`, which returns a
 /// list this repo has no dtype for). `index` is 0-based; a cell with fewer than
 /// `index + 1` fields (or a negative `index`) yields **null**. `"a,b,c"` split
-/// on `","` at index 1 is `"b"`. Null cells stay null.
+/// on `","` at index 1 is `"b"`. Null cells stay null. An empty separator
+/// splits into single characters (index 0 of `"abc"` is `"a"`) — a deliberate
+/// spelling of the underlying split, where Polars' would offer a leading empty
+/// field.
 pub fn Expr::str_split_get(self : Expr, sep : String, index : Int) -> Expr {
   Expr::of(@ir.ExprNode::Str(@ir.StrOp::SplitGet(sep, index), self.node))
 }

@@ -63,8 +63,8 @@
 ///   total, the output is never null.
 /// - **String namespace** (`str_to_uppercase` / `str_contains` / …): apply a
 ///   `StrOp` to each cell of a String operand — case (`to_uppercase` /
-///   `to_lowercase`), `strip_chars` (ASCII whitespace by default, or a given
-///   charset), the length probes `len_chars` / `len_bytes` (Int), the shape
+///   `to_lowercase`), `strip_chars` (the Unicode `White_Space` set by
+///   default, or a given charset), the length probes `len_chars` / `len_bytes` (Int), the shape
 ///   transforms `reverse` / `pad_start` / `pad_end` / `zfill` / `slice` /
 ///   `split_get`, the literal predicates `contains` /
 ///   `starts_with` / `ends_with` (Bool), and the literal substitutions
@@ -78,8 +78,9 @@
 /// - **Aggregations** (`sum/mean/min/max/count/std/var/median/n_unique/
 ///   first/last`): reduce the operand over
 ///   the scope to a length-1 column through the shared reduce kernel —
-///   `sum` / `mean` / `std` / `var` propagate NaN and reject non-numeric
-///   dtypes, `min` / `max` / `median` skip NaN (`median` numeric-only),
+///   `sum` / `mean` / `std` / `var` / `median` propagate NaN and reject
+///   non-numeric dtypes (`median` numeric-only; `min` / `max` are the ones
+///   that skip it),
 ///   `count` counts non-null cells, `n_unique` the distinct non-null values,
 ///   and `first` / `last` are positional. This enumeration is the
 ///   evaluator-side view of rules the series reducer's header states

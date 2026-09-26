@@ -73,8 +73,9 @@ pub fn NumericColumn::mean(
 /// `Series::min`:
 /// - Empty column → `Scalar::Null`.
 /// - `Float` `NaN` is skipped (treated as missing for the extremum, as in
-///   `sort` and Polars' regular `min` — distinct from `sum` / `mean`,
-///   where it propagates). An all-`NaN` `Float` column → `Scalar::Null`.
+///   Polars' regular `min` — distinct from `sum` / `mean`, where it
+///   propagates, and from `sort`, which orders `NaN` as the largest value).
+///   An all-`NaN` `Float` column → `Scalar::Null`.
 pub fn NumericColumn::min(self : NumericColumn) -> @types.Scalar {
   self.extremum(want_min=true)
 }
@@ -89,7 +90,8 @@ pub fn NumericColumn::max(self : NumericColumn) -> @types.Scalar {
 ///|
 /// Shared min/max kernel: the natural-order extremum over the cells, `want_min`
 /// choosing `<` over `>`. `Float` `NaN` is skipped (missing for the extremum,
-/// as in `sort` / Polars' regular min/max); an empty or all-`NaN` column yields
+/// as in Polars' regular min/max; `sort` instead orders `NaN` as the largest
+/// value); an empty or all-`NaN` column yields
 /// `Scalar::Null`. `min` / `max` are this with `want_min` true / false — the
 /// comparison is the only difference, so it is the only thing parameterised
 /// (the `fold_extremum` operand type differs per dtype arm, so the closure

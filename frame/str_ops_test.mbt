@@ -548,7 +548,8 @@ test "str_strip_chars: a custom charset strips those chars; the default stays wh
     @types.Scalar::String(" hi "),
     @types.Scalar::Null,
   ])
-  // The default (no charset) still strips ASCII whitespace only.
+  // The default (no charset) strips the Unicode White_Space set — the
+  // surrounding blanks here are ASCII, which that set includes.
   let default = df.select([@expr.col("s").str_strip_chars().with_alias("d")])
   assert_eq(default.get_column("d").to_scalars(), [
     @types.Scalar::String("xxhixx"),

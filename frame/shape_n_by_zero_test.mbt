@@ -193,7 +193,7 @@ test "the table renderers draw nothing for an N×0 frame" {
 ///|
 /// The one shape where a stray height reaches the frame: with columns, the
 /// length check forces `nrows >= 0`, but at zero columns it has nothing to
-/// range over — so `from_parts` closes INV7 itself rather than trusting the
+/// range over — so `from_parts` closes INV5 itself rather than trusting the
 /// caller, and a legitimate `N×0` still builds.
 test "from_parts refuses a negative height, and keeps building N×0" {
   assert_eq(

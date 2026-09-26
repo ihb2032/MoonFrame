@@ -72,5 +72,5 @@ test "check_invariants holds after head / tail / slice / gather" {
 // Inducing an invariant violation requires building a malformed
 // `DataFrame` directly, which only same-package code can do — the
 // white-box tests construct illegal
-// frames via struct literals and assert each INV1–INV7 error branch.
+// frames via struct literals and assert each INV1–INV5 error branch.
 // The black-box tests here instead confirm the happy path stays `Ok(())`.

@@ -747,6 +747,40 @@ test "read_csv: missing file surfaces as IoError, not panic" {
 }
 
 ///|
+test "read_csv: a file that is not UTF-8 surfaces as ParseError" {
+  // A Latin-1 byte (0xEF) is a 3-byte UTF-8 sequence lead whose followers
+  // are not continuation bytes: a lenient decoder merges it with the bytes
+  // after it — swallowing the delimiter and shifting every cell boundary.
+  // The read refuses instead of returning confidently wrong data.
+  let path = "_build/io_csv_not_utf8.csv"
+  @fs.write_bytes_to_file(path, b"na\xEFve,field\n1,2\n")
+  let latin1 = Ok(@io.read_csv(path)) catch { e => Err(e) }
+  assert_true(latin1 is Err(@types.DataError::ParseError(_)))
+  // A truncated trailing sequence (the first half of 'é') refuses too,
+  // rather than silently dropping the rest of the file.
+  @fs.write_bytes_to_file(path, b"a,b\n1,\xC3")
+  let truncated = Ok(@io.read_csv(path)) catch { e => Err(e) }
+  assert_true(truncated is Err(@types.DataError::ParseError(_)))
+  // The scan driver reads through the same gate: the refusal happens before
+  // any projection or pruning, so the lazy path cannot bypass it.
+  let scanned = Ok(
+    @io.csv_scan_driver(path, @io.CsvReadOptions::CsvReadOptions()).scan(
+      projection=Some(["a"]),
+    ),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(scanned is Err(@types.DataError::ParseError(_)))
+  // Well-formed multi-byte content still reads back unchanged.
+  @fs.write_string_to_file(path, "city,kg\n北京,42\nZürich,7\n")
+  let cities = @io.read_csv(path)
+    .get_column("city")
+    .to_scalars()
+    .map(s => if s is @types.Scalar::String(v) { v } else { "?" })
+  assert_eq(cities, ["北京", "Zürich"])
+}
+
+///|
 test "read_csv with options: missing file surfaces as IoError" {
   // The open failure precedes any option, so passing a non-default one must
   // not change which error surfaces.

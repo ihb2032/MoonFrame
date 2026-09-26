@@ -239,6 +239,25 @@ test "str_zfill: the width counts characters, not UTF-16 units" {
 }
 
 ///|
+test "str_zfill: a negative width is a no-op, at Int::min_value too" {
+  // A cell already at least `width` characters is unchanged — a negative
+  // width says no padding. The signed branch narrows the field by one for
+  // the sign, and at `Int::min_value` that subtraction must not wrap into
+  // a huge pad.
+  let df = DataFrame::DataFrame([Series::from_strings("s", ["-5", "7"])])
+  let narrow = df.select([@expr.col("s").str_zfill(-3)])
+  assert_eq(narrow.get_column("s").to_scalars(), [
+    @types.Scalar::String("-5"),
+    @types.Scalar::String("7"),
+  ])
+  let extreme = df.select([@expr.col("s").str_zfill(-2147483648)])
+  assert_eq(extreme.get_column("s").to_scalars(), [
+    @types.Scalar::String("-5"),
+    @types.Scalar::String("7"),
+  ])
+}
+
+///|
 test "str_len_bytes counts an unpaired surrogate half at its WTF-8 spelling" {
   // Assembled from a raw code unit (string literals reject one since
   // moonc 0.10.9): the half is 3 UTF-8 bytes under the WTF-8 spelling, on

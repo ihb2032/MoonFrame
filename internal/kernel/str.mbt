@@ -341,6 +341,10 @@ fn pad_end_chars(s : String, width : Int, fill : Char) -> String {
 /// leading sign, the digits after it pad to a one-narrower field (the sign is a
 /// single ASCII character, so `s[1:]` drops exactly it).
 fn zfill_chars(s : String, width : Int) -> String {
+  // A negative width is the no-op the `len >= width` shortcut already
+  // gives every other negative; normalising it here keeps `width - 1`
+  // from wrapping at `Int::min_value()` into a huge pad.
+  let width = if width < 0 { 0 } else { width }
   if s.has_prefix("-") {
     "-\{pad_start_chars(s[1:].to_owned(), width - 1, '0')}"
   } else if s.has_prefix("+") {

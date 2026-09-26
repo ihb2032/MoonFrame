@@ -64,17 +64,23 @@
 ///   stays above; predicates over aggregation *outputs* read non-key names
 ///   and stay above the same way. Every aggregation must also be
 ///   `group_cell_stable` — its per-group cell can neither be null nor raise
-///   on values: `sum` / `count` over a `row_stable` operand and non-null
-///   literals qualify (a `sum(col.cast(…))` does not — its operand can raise
-///   on the cells it meets), `mean` / `min` / `max` do not, and `cast` does
-///   not (a dropped group could be the one whose value fails to convert).
-///   The `mean` / `min` / `max` fence is **conservative**: it was argued from
-///   an all-null group's null cell flipping the stitched column's backend,
-///   which column equality has since stopped observing (it compares dtype,
-///   length, null-ness and values, never the backend). Loosening it therefore
-///   needs its own argument — that per-group values, null-ness and raised
-///   errors are all unchanged when other groups disappear — not the removal of
-///   the old one.
+///   on values: `sum` / `count` / `mean` / `min` / `max` over a
+///   `row_stable` operand and non-null literals qualify (a
+///   `sum(col.cast(…))` does not — its operand can raise on the cells it
+///   meets), and `cast` does not (a dropped group could be the one whose
+///   value fails to convert). `mean` / `min` / `max` cross by the
+///   group-invariance argument: the crossing conditions above already
+///   hold the group set and every group's cells fixed (a predicate that
+///   reads only bare keys gives every row of a group the same verdict, so
+///   a group survives whole or drops whole), and these ops are pure
+///   functions of their group's cells — null exactly when an all-null
+///   group makes them so — so per-group values, null-ness, and raised
+///   errors are all unchanged. (The fence they replace was argued from an
+///   all-null group's null cell flipping the stitched column's backend,
+///   which column equality has since stopped observing; this argument, not
+///   that removal, is what licenses the crossing.) The sample statistics
+///   (`std` / `var` / `median`) and `first` / `last` stay fenced — a
+///   conservative bound no consumer has asked to loosen.
 /// - Everything else stops the descent. `Head` / `Tail` / `Slice` pick
 ///   rows by *position*, and filtering re-numbers positions. `Sort` and
 ///   another `Filter` are value-safe to cross for row-stable predicates

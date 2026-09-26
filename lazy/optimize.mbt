@@ -69,7 +69,7 @@
 /// as-built plan exactly once. The white-box tests pin every
 /// pass's own idempotence and the whole-pipeline property on the shapes
 /// that hold.
-fn optimize(plan : LogicalPlan) -> LogicalPlan {
+fn LogicalPlan::optimize(self : LogicalPlan) -> LogicalPlan {
   // A DAG-shaped plan — nested self-joins share node objects by reference —
   // is left as-built: both passes rebuild tree-wise, so rewriting would
   // materialise every shared subplan once per occurrence (2^depth new nodes
@@ -78,10 +78,10 @@ fn optimize(plan : LogicalPlan) -> LogicalPlan {
   // help. Tree plans — every chain the builders produce without sharing a
   // `LazyFrame` value across both sides of a join — rewrite exactly as
   // before.
-  if has_shared_subplan(plan) {
-    return plan
+  if self.has_shared_subplan() {
+    return self
   }
-  let mut optimized = plan
+  let mut optimized = self
   for rewrite in optimizer_passes {
     optimized = rewrite(optimized)
   }
@@ -97,6 +97,6 @@ fn optimize(plan : LogicalPlan) -> LogicalPlan {
 /// requirement `None`: only a by-name reader under the root re-establishes a
 /// requirement of its own.
 let optimizer_passes : Array[(LogicalPlan) -> LogicalPlan] = [
-  push_predicates,
-  plan => push_projection(plan, None),
+  plan => plan.push_predicates(),
+  plan => plan.push_projection(None),
 ]

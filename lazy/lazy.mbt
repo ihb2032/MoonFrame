@@ -326,7 +326,7 @@ pub fn LazyGroupBy::agg(
 pub fn LazyFrame::collect(
   self : LazyFrame,
 ) -> @frame.DataFrame raise @types.DataError {
-  execute(optimize(self.plan))
+  self.plan.optimize().execute()
 }
 
 ///|
@@ -364,8 +364,8 @@ pub fn LazyFrame::explain(
   self : LazyFrame,
   optimized? : Bool = false,
 ) -> String {
-  let plan = if optimized { optimize(self.plan) } else { self.plan }
+  let plan = if optimized { self.plan.optimize() } else { self.plan }
   let buf = StringBuilder()
-  render(plan, buf, 0)
+  plan.render(buf, 0)
   buf.to_string()
 }

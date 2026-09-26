@@ -16,7 +16,11 @@
 /// predicate — `SCAN_CSV "sales.csv" [region, revenue] WHERE (col(qty) > 50)`
 /// — but never reads the file. Total:
 /// rendering walks plain data, including plans that would fail to `collect`.
-fn render(plan : LogicalPlan, buf : StringBuilder, depth : Int) -> Unit {
+fn LogicalPlan::render(
+  self : LogicalPlan,
+  buf : StringBuilder,
+  depth : Int,
+) -> Unit {
   // Explicit-stack pre-order walk (not the call stack), so a deeply nested plan
   // renders without overflowing and aborting — `explain` is documented total at
   // any depth. Each node writes its own label; `render_input`'s old job (a fresh
@@ -27,8 +31,8 @@ fn render(plan : LogicalPlan, buf : StringBuilder, depth : Int) -> Unit {
   // DAG-shaped half needs is pure overhead on it (the same `contains_join`
   // fast path `has_shared_subplan` / `post_order_unique` take), and the walk
   // below skips the scan outright instead of paying it per node.
-  let dedup = contains_join(plan)
-  let stack : Array[(LogicalPlan, Int)] = [(plan, depth)]
+  let dedup = self.contains_join()
+  let stack : Array[(LogicalPlan, Int)] = [(self, depth)]
   let seen : Array[LogicalPlan] = []
   let mut first = true
   while stack.length() > 0 {
@@ -41,7 +45,7 @@ fn render(plan : LogicalPlan, buf : StringBuilder, depth : Int) -> Unit {
     for _ in 0..<d {
       buf.write_string("  ")
     }
-    write_plan_label(node, buf)
+    node.write_plan_label(buf)
     // A node object reaching the printer twice (a DAG-shaped plan: nested
     // self-joins share subplans by reference) prints its label plus a
     // marker instead of re-expanding — re-expansion is 2^depth lines, which
@@ -57,7 +61,7 @@ fn render(plan : LogicalPlan, buf : StringBuilder, depth : Int) -> Unit {
     // Push children deepest-last so the leftmost child is visited next and a
     // `Join`'s left subtree fully precedes its right (the old left-then-right
     // `render_input` order).
-    let kids = plan_children(node)
+    let kids = node.plan_children()
     for i in 0..<kids.length() {
       stack.push((kids[kids.length() - 1 - i], d + 1))
     }
@@ -71,10 +75,13 @@ fn render(plan : LogicalPlan, buf : StringBuilder, depth : Int) -> Unit {
 /// `@expr.Expr`'s `Show`; `Scan` prints only its frame's shape and a file source
 /// its label, path, and (once the optimizer fills them) projection and absorbed
 /// predicate — never data.
-fn write_plan_label(plan : LogicalPlan, buf : StringBuilder) -> Unit {
-  match plan {
-    Scan(source) => write_scan_label(source, buf)
-    Unary(_, op) => write_frame_op_label(op, buf)
+fn LogicalPlan::write_plan_label(
+  self : LogicalPlan,
+  buf : StringBuilder,
+) -> Unit {
+  match self {
+    Scan(source) => source.write_scan_label(buf)
+    Unary(_, op) => op.write_frame_op_label(buf)
     Join(_, _, options) => buf <+ "\{join_label(options)}"
     Aggregate(_, keys, exprs) =>
       buf <+ "AGGREGATE \{exprs_label(exprs)} BY \{exprs_label(keys)}"
@@ -85,8 +92,8 @@ fn write_plan_label(plan : LogicalPlan, buf : StringBuilder) -> Unit {
 /// The one-line label for a `ScanSource` — the `Scan` leaf's half of
 /// `write_plan_label`, so a new scannable format adds its render here alone. The
 /// strings are unchanged from the former per-variant arms.
-fn write_scan_label(source : ScanSource, buf : StringBuilder) -> Unit {
-  match source {
+fn ScanSource::write_scan_label(self : ScanSource, buf : StringBuilder) -> Unit {
+  match self {
     InMemory(df) => buf <+ "SCAN [\{df.nrows()}×\{df.ncols()}]"
     File(fs) =>
       render_scan_source(
@@ -102,8 +109,8 @@ fn write_scan_label(source : ScanSource, buf : StringBuilder) -> Unit {
 /// The one-line label for a unary `FrameOp` — the `Unary` node's half of
 /// `write_plan_label`, so a new unary verb adds its render here alone. The
 /// strings are unchanged from the former per-variant arms.
-fn write_frame_op_label(op : FrameOp, buf : StringBuilder) -> Unit {
-  match op {
+fn FrameOp::write_frame_op_label(self : FrameOp, buf : StringBuilder) -> Unit {
+  match self {
     Select(exprs) => buf <+ "SELECT \{exprs_label(exprs)}"
     WithColumns(exprs) => buf <+ "WITH_COLUMNS \{exprs_label(exprs)}"
     Filter(predicate) => buf <+ "FILTER \{predicate.to_string()}"

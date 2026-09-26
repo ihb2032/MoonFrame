@@ -62,11 +62,11 @@ priv enum ProjStep {
 /// through `Join`, sinking filters below `Sort`, and streaming a file source
 /// (the reader still tokenises the whole file; push-down skips the *typed*
 /// build of dropped rows, not the read).
-fn push_projection(
-  plan : LogicalPlan,
+fn LogicalPlan::push_projection(
+  self : LogicalPlan,
   required : @set.Set[String]?,
 ) -> LogicalPlan {
-  let work : Array[ProjStep] = [Visit(plan, required)]
+  let work : Array[ProjStep] = [Visit(self, required)]
   let values : Array[LogicalPlan] = []
   while work.length() > 0 {
     match pop_top(work) {
@@ -75,7 +75,7 @@ fn push_projection(
           // Each scan source narrows its own way (`narrow_scan_source`): the
           // in-memory frame gets a `Select` inserted, a file source writes the
           // requirement into its projection field.
-          Scan(source) => values.push(narrow_scan_source(node, source, req))
+          Scan(source) => values.push(node.narrow_scan_source(source, req))
           // A bare-column `Select` sitting directly on an in-memory scan is
           // *already* the narrowing that `narrow_scan_source` would insert
           // below it, so letting the scan narrow too would stack a second,
@@ -85,7 +85,7 @@ fn push_projection(
           // an in-memory frame is never doubled. Only in-memory: a file
           // source narrows by writing its projection field (no inserted node),
           // which already recomputes to the same set.
-          Unary(input, op) if already_narrows_inmemory(input, op) => {
+          Unary(input, op) if input.already_narrows_inmemory(op) => {
             work.push(Rebuild1(c => Unary(c, op)))
             work.push(Visit(input, None))
           }
@@ -93,7 +93,7 @@ fn push_projection(
           // the requirement it hands its input differs (`frame_op_required`).
           Unary(input, op) => {
             work.push(Rebuild1(c => Unary(c, op)))
-            work.push(Visit(input, frame_op_required(op, req)))
+            work.push(Visit(input, op.frame_op_required(req)))
           }
           // Barrier: both sides keep their full output; each restarts its pass.
           Join(left, right, options) => {
@@ -125,11 +125,11 @@ fn push_projection(
 /// it defines and adds the ones it reads; a pure row window (`Head` / `Tail` /
 /// `Slice`) passes the requirement through unchanged; every other op is a
 /// barrier whose input keeps its whole output (`None`).
-fn frame_op_required(
-  op : FrameOp,
+fn FrameOp::frame_op_required(
+  self : FrameOp,
   req : @set.Set[String]?,
 ) -> @set.Set[String]? {
-  match op {
+  match self {
     Select(exprs) => Some(columns_read(exprs))
     WithColumns(exprs) =>
       match req {
@@ -206,8 +206,11 @@ fn inmemory_narrows_to(kept : Int, total : Int) -> Bool {
 /// so the `Select` is that narrowing and no second one is needed. A `Select`
 /// that reads every column (nothing to narrow) or computes (not a pure
 /// projection) is not this shape and narrows — or not — through the normal path.
-fn already_narrows_inmemory(input : LogicalPlan, op : FrameOp) -> Bool {
-  guard input is Scan(InMemory(df)) && op is Select(exprs) else { return false }
+fn LogicalPlan::already_narrows_inmemory(
+  self : LogicalPlan,
+  op : FrameOp,
+) -> Bool {
+  guard self is Scan(InMemory(df)) && op is Select(exprs) else { return false }
   let cols = df.columns()
   // The scan's names as a membership set, built once. Scanning the name array
   // per expression instead would cost `O(exprs · columns)` on every `Select`
@@ -244,28 +247,28 @@ fn already_narrows_inmemory(input : LogicalPlan, op : FrameOp) -> Bool {
 /// and a row count rather than collapsing to nothing. A required name absent
 /// from the file is simply never built; whichever expression references it
 /// raises the same `ColumnNotFound` it would in the unoptimized plan.
-fn narrow_scan_source(
-  node : LogicalPlan,
+fn LogicalPlan::narrow_scan_source(
+  self : LogicalPlan,
   source : ScanSource,
   req : @set.Set[String]?,
 ) -> LogicalPlan {
   match source {
     InMemory(df) =>
       match req {
-        None => node
+        None => self
         Some(needed) => {
           let cols = df.columns()
           let survivors = cols.filter(name => needed.contains(name))
           if inmemory_narrows_to(survivors.length(), cols.length()) {
-            Unary(node, Select(survivors.map(name => @expr.col(name))))
+            Unary(self, Select(survivors.map(name => @expr.col(name))))
           } else {
-            node
+            self
           }
         }
       }
     File(fs) =>
       match req {
-        None => node
+        None => self
         Some(needed) => {
           // The name set as a sorted array — the deterministic column list
           // written into the file source's projection. Core `Set` iteration
@@ -278,7 +281,7 @@ fn narrow_scan_source(
           needed.each(name => columns.push(name))
           columns.sort_by((a, b) => @text.compare_string_lex(a, b))
           if columns.is_empty() {
-            node
+            self
           } else {
             Scan(File({ ..fs, projection: Some(columns), }))
           }

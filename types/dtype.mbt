@@ -63,5 +63,5 @@ pub fn DataType::comparable_with(self : DataType, other : DataType) -> Bool {
 /// The `Show` spelling renders the registry's display name — the name is
 /// registered per dtype, not matched here.
 pub impl Show for DataType with fn output(self, logger) {
-  logger.write_string(self.display_name())
+  logger.write_string(self.dtype_profile().display)
 }

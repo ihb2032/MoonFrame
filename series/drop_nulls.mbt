@@ -24,5 +24,5 @@ pub fn Series::drop_nulls(self : Series) -> Series {
   // `gather_series` rebuilds the series with a fully-valid bitmap.
   let valid = self.storage.validity().to_bools()
   let kept = Array::makei(valid.length(), i => i).filter(i => valid[i])
-  gather_series(self, kept)
+  self.gather_series(kept)
 }

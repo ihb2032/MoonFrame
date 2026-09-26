@@ -122,7 +122,7 @@ pub fn GroupedDataFrame::agg(
   // canonicalised from the gathered rows, as after any row gather.
   let reps = self.groups.map(g => g[0])
   for key_column in self.key_columns {
-    out_cols.push(gather_series(key_column, reps))
+    out_cols.push(key_column.gather_series(reps))
   }
   for expr in exprs {
     let out_name = expr.output_name()
@@ -144,7 +144,7 @@ pub fn GroupedDataFrame::agg(
       // work), then fold each group's row indices straight off the source
       // column — no per-group sub-column is gathered.
       Some((name, rop)) => {
-        let (reducer, probe) = reducer_for(self.source.get_column(name), rop)
+        let (reducer, probe) = self.source.get_column(name).reducer_for(rop)
         (() => probe, self.groups.map(g => reducer(g.length(), k => g[k])))
       }
       // General path: a derived or compound reduction such as

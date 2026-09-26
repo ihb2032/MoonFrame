@@ -182,8 +182,8 @@ fn DataFrame::plan_join_rows(
       // matches (in ascending left-row order), else the right row alone with
       // null left columns. Output column order is unchanged (left then
       // right); only the surviving rows differ.
-      let (left_key_scalars, right_key_scalars) = resolve_join_keys(
-        self, other, options,
+      let (left_key_scalars, right_key_scalars) = self.resolve_join_keys(
+        other, options,
       )
       // Hash the left frame: composite key -> ascending matching left rows
       // (null-key rows unmatchable, so never indexed).
@@ -209,8 +209,8 @@ fn DataFrame::plan_join_rows(
       }
     }
     Inner | Left | Outer => {
-      let (left_key_scalars, right_key_scalars) = resolve_join_keys(
-        self, other, options,
+      let (left_key_scalars, right_key_scalars) = self.resolve_join_keys(
+        other, options,
       )
       // Hash the right frame: composite key -> ascending matching right rows
       // (null-key rows unmatchable, so never indexed).
@@ -297,7 +297,7 @@ fn DataFrame::assemble_join_output(
   // matching Polars' `coalesce = None`. `on_set` is the set of names to
   // coalesce — empty whenever coalescing is off, so the assembly below
   // keeps every column.
-  let coalesce_names = coalesce_key_names(options)
+  let coalesce_names = options.coalesce_key_names()
   let coalesce = if coalesce_names is Some(_) {
     options.coalesce.unwrap_or(
       match options.how {
@@ -338,12 +338,10 @@ fn DataFrame::assemble_join_output(
     if coalesce && on_set.contains(col.name()) {
       // `other` has this key (validated above), so `get_column`'s
       // `ColumnNotFound` is forwarded but never taken.
-      let left_key = gather_series_opt(col, left_rows, col.name())
-      let right_key = gather_series_opt(
-        other.get_column(col.name()),
-        right_rows,
-        col.name(),
-      )
+      let left_key = col.gather_series_opt(left_rows, col.name())
+      let right_key = other
+        .get_column(col.name())
+        .gather_series_opt(right_rows, col.name())
       // Surface the documented side's value: the left on `Inner` / `Left`, and
       // the present side on `Outer` (the left key is the base — taken where the
       // row has a left match, else the right fills the gap), but the **right**
@@ -352,14 +350,14 @@ fn DataFrame::assemble_join_output(
       // `-0.0` and `+0.0` share a group, so a `Right` join must surface the
       // right's signed zero, not the left's.
       let merged = match options.how {
-        Right => coalesce_columns(right_key, left_key, col.name())
+        Right => right_key.coalesce_columns(left_key, col.name())
         Inner | Left | Outer | Cross =>
-          coalesce_columns(left_key, right_key, col.name())
+          left_key.coalesce_columns(right_key, col.name())
       }
-      out_cols.push(preserve_backend(col, merged))
+      out_cols.push(col.preserve_backend(merged))
     } else {
       out_cols.push(
-        preserve_backend(col, gather_series_opt(col, left_rows, col.name())),
+        col.preserve_backend(col.gather_series_opt(left_rows, col.name())),
       )
     }
   }
@@ -376,7 +374,7 @@ fn DataFrame::assemble_join_output(
         col.name()
       }
       out_cols.push(
-        preserve_backend(col, gather_series_opt(col, right_rows, out_name)),
+        col.preserve_backend(col.gather_series_opt(right_rows, out_name)),
       )
     }
   }
@@ -419,18 +417,18 @@ fn DataFrame::assemble_join_output(
 /// - `LengthMismatch` — a `lit_series(s)` key whose embedded series is
 ///   neither length 1 nor the frame's height (the evaluator's broadcast
 ///   rule).
-fn resolve_join_keys(
-  left : DataFrame,
+fn DataFrame::resolve_join_keys(
+  self : DataFrame,
   right : DataFrame,
   options : JoinOptions,
 ) -> (Array[Array[@types.Scalar]], Array[Array[@types.Scalar]]) raise @types.DataError {
-  let (left_exprs, right_exprs) = join_key_exprs(options)
+  let (left_exprs, right_exprs) = options.join_key_exprs()
   if left_exprs.is_empty() {
     raise @types.DataError::InvalidOperation(
       "a non-cross join requires at least one key column; use how = Cross for a Cartesian product",
     )
   }
-  let ln = left.nrows()
+  let ln = self.nrows()
   let rn = right.nrows()
   let lscope = Array::makei(ln, i => i)
   let rscope = Array::makei(rn, i => i)
@@ -463,7 +461,7 @@ fn resolve_join_keys(
       seen[name] = ()
     }
     let lcol = @kernel.broadcast_series(
-      eval_expr(left_exprs[i], left, lscope),
+      eval_expr(left_exprs[i], self, lscope),
       ln,
     )
     let rcol = @kernel.broadcast_series(
@@ -500,25 +498,25 @@ fn resolve_join_keys(
 ///
 /// Raises `InvalidOperation` when both `on` and `left_on` / `right_on` are
 /// given, or when `left_on` and `right_on` differ in length.
-fn join_key_exprs(
-  options : JoinOptions,
+fn JoinOptions::join_key_exprs(
+  self : JoinOptions,
 ) -> (Array[@expr.Expr], Array[@expr.Expr]) raise @types.DataError {
-  let has_on = !options.on.is_empty()
-  let has_sided = !options.left_on.is_empty() || !options.right_on.is_empty()
+  let has_on = !self.on.is_empty()
+  let has_sided = !self.left_on.is_empty() || !self.right_on.is_empty()
   if has_on && has_sided {
     raise @types.DataError::InvalidOperation(
       "join takes either `on` or `left_on` / `right_on`, not both",
     )
   }
   if has_on {
-    (options.on, options.on)
+    (self.on, self.on)
   } else {
-    if options.left_on.length() != options.right_on.length() {
+    if self.left_on.length() != self.right_on.length() {
       raise @types.DataError::InvalidOperation(
-        "left_on and right_on must name the same number of keys; got \{options.left_on.length()} and \{options.right_on.length()}",
+        "left_on and right_on must name the same number of keys; got \{self.left_on.length()} and \{self.right_on.length()}",
       )
     }
-    (options.left_on, options.right_on)
+    (self.left_on, self.right_on)
   }
 }
 
@@ -530,12 +528,12 @@ fn join_key_exprs(
 /// `right_on` (paired, possibly differently-named keys) and any derived
 /// `on` key turn coalescing off (matching Polars: "join on a non-column
 /// expression turns off coalescing"), so both key columns are kept.
-fn coalesce_key_names(options : JoinOptions) -> Array[String]? {
-  if !options.left_on.is_empty() || !options.right_on.is_empty() {
+fn JoinOptions::coalesce_key_names(self : JoinOptions) -> Array[String]? {
+  if !self.left_on.is_empty() || !self.right_on.is_empty() {
     return None
   }
   let names = []
-  for k in options.on {
+  for k in self.on {
     match k.node() {
       @ir.ExprNode::Col(name) => names.push(name)
       _ => return None

@@ -525,11 +525,11 @@ pub extend ReduceOp with Eq::{equal, not_equal}
 /// representation on this side of the seam.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
-pub fn reducer_for(
-  column : Series,
+pub fn Series::reducer_for(
+  self : Series,
   op : ReduceOp,
 ) -> ((Int, (Int) -> Int) -> @types.Scalar, @types.DataType) raise @types.DataError {
-  let storage = column.storage
+  let storage = self.storage
   match op {
     Count => (reduce_count(storage), @types.DataType::Int)
     Sum => (reduce_arith(storage, want_mean=false), storage.dtype())
@@ -584,10 +584,8 @@ pub fn scalars_to_series(
   name : String,
   cells : Array[@types.Scalar],
 ) -> Series raise @types.DataError {
-  try_column_to_numeric(
-    Series::from_builtin(
-      name,
-      @column.BuiltinColumn::from_scalars(probe, cells, name~),
-    ),
-  )
+  Series::from_builtin(
+    name,
+    @column.BuiltinColumn::from_scalars(probe, cells, name~),
+  ).try_column_to_numeric()
 }

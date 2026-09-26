@@ -7,5 +7,5 @@
 /// Total.
 pub fn Series::reverse(self : Series) -> Series {
   let len = self.len()
-  gather_series(self, Array::makei(len, i => len - 1 - i))
+  self.gather_series(Array::makei(len, i => len - 1 - i))
 }

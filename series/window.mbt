@@ -13,7 +13,7 @@
 /// Total — never fails.
 pub fn Series::slice(self : Series, offset : Int, length? : Int) -> Series {
   let start = @order.slice_start(offset, self.len())
-  slice_series(self, start, @order.slice_len(start, self.len(), length))
+  self.slice_series(start, @order.slice_len(start, self.len(), length))
 }
 
 ///|
@@ -27,7 +27,7 @@ pub fn Series::slice(self : Series, offset : Int, length? : Int) -> Series {
 #alias("_[_:_]")
 pub fn Series::slice_between(self : Series, start? : Int, end? : Int) -> Series {
   let (s, l) = @order.between_bounds(start, end, self.len())
-  slice_series(self, s, l)
+  self.slice_series(s, l)
 }
 
 ///|
@@ -40,10 +40,7 @@ pub fn Series::gather(
   self : Series,
   indices : Array[Int],
 ) -> Series raise @types.DataError {
-  try_column_to_numeric({
-    name: self.name,
-    storage: self.storage.take(indices),
-  })
+  { name: self.name, storage: self.storage.take(indices), }.try_column_to_numeric()
 }
 
 ///|
@@ -51,7 +48,7 @@ pub fn Series::gather(
 /// `Series` twin of `DataFrame::head`. A negative `n` keeps every cell but
 /// the last `|n|`, as Polars' `head` does. Total.
 pub fn Series::head(self : Series, n : Int) -> Series {
-  slice_series(self, 0, @order.window_take(n, self.len()))
+  self.slice_series(0, @order.window_take(n, self.len()))
 }
 
 ///|
@@ -66,5 +63,5 @@ pub fn Series::tail(self : Series, n : Int) -> Series {
   // bounds. Passing `len` here relied on the slice clamping an over-large end
   // back down, and `start + len` overflows `Int` for a column past ~2^30 rows,
   // wrapping negative and yielding an empty result.
-  slice_series(self, len - take, take)
+  self.slice_series(len - take, take)
 }

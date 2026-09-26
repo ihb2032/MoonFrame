@@ -69,8 +69,8 @@ test "series windowing: gather / slice" (b : @bench.T) {
   let n = 100000
   let s = Series::from_ints("x", scrambled_ints(n))
   let reverse = Array::makei(n, i => n - 1 - i)
-  b.bench(name="gather/reverse/\{n}", () => b.keep(gather_series(s, reverse)))
-  b.bench(name="slice/first-half/\{n}", () => b.keep(slice_series(s, 0, n / 2)))
+  b.bench(name="gather/reverse/\{n}", () => b.keep(s.gather_series(reverse)))
+  b.bench(name="slice/first-half/\{n}", () => b.keep(s.slice_series(0, n / 2)))
   // A nullable `Builtin` column slid off byte alignment: its validity is a
   // zero-copy view whose `offset` is not a multiple of 8, which is the input the
   // byte-at-a-time `null_count` path has to handle without falling back to a
@@ -81,8 +81,8 @@ test "series windowing: gather / slice" (b : @bench.T) {
     Array::makei(n, i => if i % 7 == 0 { None } else { Some(i.to_int64()) }),
   )
   b.bench(name="slice/unaligned-offset/\{n}", () => {
-    b.keep(slice_series(nullable, 3, n))
+    b.keep(nullable.slice_series(3, n))
   })
-  let unaligned = slice_series(nullable, 3, n)
+  let unaligned = nullable.slice_series(3, n)
   b.bench(name="count/builtin-unaligned/\{n}", () => b.keep(unaligned.count()))
 }

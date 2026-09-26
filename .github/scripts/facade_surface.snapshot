@@ -43,16 +43,6 @@ fn col(String) -> @expr.Expr <- root
 fn col(String) -> Expr <- expr
 fn cols(Array[String]) -> Array[@expr.Expr] <- root
 fn cols(Array[String]) -> Array[Expr] <- expr
-fn cols_contains(@frame.DataFrame, String) -> Array[@expr.Expr] <- root
-fn cols_contains(DataFrame, String) -> Array[@expr.Expr] <- frame
-fn cols_ends_with(@frame.DataFrame, String) -> Array[@expr.Expr] <- root
-fn cols_ends_with(DataFrame, String) -> Array[@expr.Expr] <- frame
-fn cols_matching(@frame.DataFrame, String) -> Array[@expr.Expr] raise @types.DataError <- root
-fn cols_matching(DataFrame, String) -> Array[@expr.Expr] raise @types.DataError <- frame
-fn cols_of_dtype(@frame.DataFrame, @types.DataType) -> Array[@expr.Expr] <- root
-fn cols_of_dtype(DataFrame, @types.DataType) -> Array[@expr.Expr] <- frame
-fn cols_starts_with(@frame.DataFrame, String) -> Array[@expr.Expr] <- root
-fn cols_starts_with(DataFrame, String) -> Array[@expr.Expr] <- frame
 fn format_csv(@frame.DataFrame, options? : CsvWriteOptions) -> String raise @types.DataError <- io
 fn format_json(@frame.DataFrame) -> String <- io
 fn format_ndjson(@frame.DataFrame) -> String <- io
@@ -72,8 +62,6 @@ fn lit_str(String) -> @expr.Expr <- root
 fn lit_str(String) -> Expr <- expr
 fn map_many(label~ : String, Array[@expr.Expr], (Array[@types.Scalar]) -> @types.Scalar raise @types.DataError) -> @expr.Expr <- root
 fn map_many(label~ : String, Array[Expr], (Array[@types.Scalar]) -> @types.Scalar raise @types.DataError) -> Expr <- expr
-fn numeric_cols(@frame.DataFrame) -> Array[@expr.Expr] <- root
-fn numeric_cols(DataFrame) -> Array[@expr.Expr] <- frame
 fn parse_csv_str(String, options? : CsvReadOptions, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- io
 fn parse_json_str(String, options? : JsonReadOptions) -> @frame.DataFrame raise @types.DataError <- io
 fn parse_ndjson_str(String, options? : JsonReadOptions, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- io
@@ -138,6 +126,11 @@ method DataError::not_equal(Self, Self) -> Bool <- types
 method DataError::output(Self, &Logger) -> Unit <- types
 method DataError::to_repr(Self) -> @debug.Repr <- types
 method DataError::to_string(Self) -> String <- types
+method DataFrame::cols_contains(Self, String) -> Array[@expr.Expr] <- frame
+method DataFrame::cols_ends_with(Self, String) -> Array[@expr.Expr] <- frame
+method DataFrame::cols_matching(Self, String) -> Array[@expr.Expr] raise @types.DataError <- frame
+method DataFrame::cols_of_dtype(Self, @types.DataType) -> Array[@expr.Expr] <- frame
+method DataFrame::cols_starts_with(Self, String) -> Array[@expr.Expr] <- frame
 method DataFrame::column_series(Self) -> Array[@series.Series] <- frame
 method DataFrame::columns(Self) -> Array[String] <- frame
 method DataFrame::count(Self) -> Self raise @types.DataError <- frame
@@ -164,6 +157,7 @@ method DataFrame::ncols(Self) -> Int <- frame
 method DataFrame::not_equal(Self, Self) -> Bool <- frame
 method DataFrame::nrows(Self) -> Int <- frame
 method DataFrame::null_count(Self) -> Self raise @types.DataError <- frame
+method DataFrame::numeric_cols(Self) -> Array[@expr.Expr] <- frame
 method DataFrame::rename(Self, Array[(String, String)]) -> Self raise @types.DataError <- frame
 method DataFrame::rename_with(Self, (String) -> String) -> Self raise @types.DataError <- frame
 method DataFrame::reverse(Self) -> Self <- frame

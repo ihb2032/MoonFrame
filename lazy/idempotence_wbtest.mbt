@@ -28,7 +28,7 @@ fn idem_other() -> @frame.DataFrame raise @types.DataError {
 ///|
 fn plan_render(plan : LogicalPlan) -> String {
   let buf = StringBuilder()
-  render(plan, buf, 0)
+  plan.render(buf, 0)
   buf.to_string()
 }
 
@@ -38,8 +38,8 @@ fn plan_render(plan : LogicalPlan) -> String {
 /// `render` already prints every field that distinguishes two plans). Returns
 /// the fixed point so a caller can also pin what it converged to.
 fn assert_projection_idempotent(plan : LogicalPlan) -> String raise {
-  let once = push_projection(plan, None)
-  let twice = push_projection(once, None)
+  let once = plan.push_projection(None)
+  let twice = once.push_projection(None)
   assert_eq(plan_render(once), plan_render(twice))
   plan_render(once)
 }
@@ -48,8 +48,8 @@ fn assert_projection_idempotent(plan : LogicalPlan) -> String raise {
 /// `optimize(optimize(plan)) == optimize(plan)` — the whole pipeline. Only
 /// sound on plans without the filter-sinks-past-an-inserted-select interaction.
 fn assert_optimize_idempotent(plan : LogicalPlan) -> String raise {
-  let once = optimize(plan)
-  assert_eq(plan_render(once), plan_render(optimize(once)))
+  let once = plan.optimize()
+  assert_eq(plan_render(once), plan_render(once.optimize()))
   plan_render(once)
 }
 

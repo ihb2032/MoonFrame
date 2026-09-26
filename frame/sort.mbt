@@ -77,7 +77,7 @@ pub fn DataFrame::sort(
   let sort_keys = keys.map(key => {
     let (expr, descending, nulls_last) = key
     let column = @kernel.broadcast_series(eval_expr(expr, self, scope), n)
-    @series.build_sort_key(column, descending, nulls_last)
+    column.build_sort_key(descending, nulls_last)
   })
   // Stable mergesort produces the permutation; `gather` applies it to the
   // original frame. Every index in the permutation is in `[0, nrows)` by
@@ -93,7 +93,7 @@ pub fn DataFrame::sort(
 /// disagrees decides. Returns -1 / 0 / 1 in the usual sense.
 fn compare_rows(keys : Array[@series.SortKey], i : Int, j : Int) -> Int {
   for k in 0..<keys.length() {
-    let c = @series.compare_one_key(keys[k], i, j)
+    let c = keys[k].compare_one_key(i, j)
     if c != 0 {
       return c
     }

@@ -76,8 +76,8 @@ fn numeric_general_pair(
   int_int : (ArrayView[Int64], ArrayView[Int64], Array[Bool], Array[Bool]) -> Series,
   float_op : (Double, Double) -> Double,
 ) -> Series raise @types.DataError {
-  let lv = validity_bools(left)
-  let rv = validity_bools(right)
+  let lv = left.validity_bools()
+  let rv = right.validity_bools()
   match (left.storage().data(), right.storage().data()) {
     (@column.ColumnData::I64(a), @column.ColumnData::I64(b)) if left
       .dtype()
@@ -145,20 +145,18 @@ fn eval_arith(
     ) {
     Some(fast) => fast
     None =>
-      try_column_to_numeric(
-        numeric_general_pair(
-          left,
-          right,
-          verb,
-          (a, b, lv, rv) => {
-            Series::from_int_options(
-              left.name(),
-              zip_present(a.length(), lv, rv, i => int_op(a[i], b[i])),
-            )
-          },
-          float_op,
-        ),
-      )
+      numeric_general_pair(
+        left,
+        right,
+        verb,
+        (a, b, lv, rv) => {
+          Series::from_int_options(
+            left.name(),
+            zip_present(a.length(), lv, rv, i => int_op(a[i], b[i])),
+          )
+        },
+        float_op,
+      ).try_column_to_numeric()
   }
 }
 
@@ -208,22 +206,20 @@ fn eval_binary_float(
     ) {
     Some(fast) => fast
     None =>
-      try_column_to_numeric(
-        numeric_general_pair(
-          left,
-          right,
-          verb,
-          (a, b, lv, rv) => {
-            Series::from_float_options(
-              left.name(),
-              zip_present(a.length(), lv, rv, i => {
-                float_op(a[i].to_double(), b[i].to_double())
-              }),
-            )
-          },
-          float_op,
-        ),
-      )
+      numeric_general_pair(
+        left,
+        right,
+        verb,
+        (a, b, lv, rv) => {
+          Series::from_float_options(
+            left.name(),
+            zip_present(a.length(), lv, rv, i => {
+              float_op(a[i].to_double(), b[i].to_double())
+            }),
+          )
+        },
+        float_op,
+      ).try_column_to_numeric()
   }
 }
 
@@ -248,43 +244,39 @@ fn eval_binary_nullzero(
       (a, b) => {
         // A zero divisor nulls its cell, so an all-valid pair can still leave
         // the `Numeric` fast path — re-converge afterwards.
-        try_column_to_numeric(
-          Series::from_int_options(
-            left.name(),
-            Array::makei(a.length(), i => {
-              if b[i] == 0L {
-                None
-              } else {
-                Some(int_op(a[i], b[i]))
-              }
-            }),
-          ),
-        )
+        Series::from_int_options(
+          left.name(),
+          Array::makei(a.length(), i => {
+            if b[i] == 0L {
+              None
+            } else {
+              Some(int_op(a[i], b[i]))
+            }
+          }),
+        ).try_column_to_numeric()
       },
       float_op,
     ) {
     Some(fast) => fast
     None =>
-      try_column_to_numeric(
-        numeric_general_pair(
-          left,
-          right,
-          verb,
-          (a, b, lv, rv) => {
-            Series::from_int_options(
-              left.name(),
-              Array::makei(a.length(), i => {
-                if lv[i] && rv[i] && b[i] != 0L {
-                  Some(int_op(a[i], b[i]))
-                } else {
-                  None
-                }
-              }),
-            )
-          },
-          float_op,
-        ),
-      )
+      numeric_general_pair(
+        left,
+        right,
+        verb,
+        (a, b, lv, rv) => {
+          Series::from_int_options(
+            left.name(),
+            Array::makei(a.length(), i => {
+              if lv[i] && rv[i] && b[i] != 0L {
+                Some(int_op(a[i], b[i]))
+              } else {
+                None
+              }
+            }),
+          )
+        },
+        float_op,
+      ).try_column_to_numeric()
   }
 }
 
@@ -454,7 +446,7 @@ fn eval_unary_num(
       }
     @column.ColumnStorage::Builtin(_) => ()
   }
-  let valid = validity_bools(operand)
+  let valid = operand.validity_bools()
   let out = match operand.storage().data() {
     // Dtype-gated: a Date column is I64-typed but is not a number.
     @column.ColumnData::I64(a) if operand.dtype().is_numeric() =>
@@ -474,7 +466,7 @@ fn eval_unary_num(
         @types.TypeMismatchDetail::Message("cannot \{verb} \{operand.dtype()}"),
       )
   }
-  try_column_to_numeric(out)
+  out.try_column_to_numeric()
 }
 
 ///|
@@ -632,7 +624,7 @@ fn nan_probe(
       }
     @column.ColumnStorage::Builtin(_) => ()
   }
-  let valid = validity_bools(operand)
+  let valid = operand.validity_bools()
   match operand.storage().data() {
     @column.ColumnData::F64(a) =>
       Series::from_bool_options(

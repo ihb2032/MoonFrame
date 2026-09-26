@@ -86,14 +86,14 @@ pub fn DataFrame::to_html(
 ) -> String {
   let nrows = self.nrows()
   let shown = visible_rows(nrows, options.max_rows)
-  format_html(self, shown, options)
+  self.format_html(shown, options)
 }
 
 // ── internals ──────────────────────────────────────────────────────────
 
 ///|
-/// Render the first `shown` rows of `df` as an HTML table under
-/// `options`. When `shown < df.nrows()` a `<tfoot>` banner reports the
+/// Render the first `shown` rows of `self` as an HTML table under
+/// `options`. When `shown < self.nrows()` a `<tfoot>` banner reports the
 /// hidden remainder. Unlike `to_markdown`'s banner (appended *after* the
 /// table text), the HTML banner is a `<tfoot>` *inside* `<table>`, so the
 /// truncation decision is made here rather than in the public wrappers.
@@ -101,8 +101,12 @@ pub fn DataFrame::to_html(
 /// A 0-column frame renders as the empty string (there is no table to
 /// draw); otherwise the header / `<tbody>` are always emitted, so a
 /// 0-row frame is still a useful header + empty `<tbody>`.
-fn format_html(df : DataFrame, shown : Int, options : HtmlOptions) -> String {
-  let names = df.columns()
+fn DataFrame::format_html(
+  self : DataFrame,
+  shown : Int,
+  options : HtmlOptions,
+) -> String {
+  let names = self.columns()
   let ncols = names.length()
   if ncols == 0 {
     return ""
@@ -110,7 +114,7 @@ fn format_html(df : DataFrame, shown : Int, options : HtmlOptions) -> String {
   let escape = options.escape
   // Pre-render the visible cells once (raw strings, the column-major frame read
   // transposed into per-row cells); each is HTML-escaped on write below.
-  let cells = table_cell_matrix(df, shown)
+  let cells = self.table_cell_matrix(shown)
   let buf = StringBuilder()
   buf <+ "<table"
   if options.table_class is Some(cls) {
@@ -139,7 +143,7 @@ fn format_html(df : DataFrame, shown : Int, options : HtmlOptions) -> String {
   buf <+ "</tbody>\n"
   // Truncation banner, spanning every column. The banner text is fixed
   // (digits + ASCII), so it needs no escaping.
-  let nrows = df.nrows()
+  let nrows = self.nrows()
   if shown < nrows {
     buf <+
       "<tfoot>\n<tr><td colspan=\"\{ncols}\">\{more_rows_banner(nrows - shown)}</td></tr>\n</tfoot>\n"

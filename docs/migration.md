@@ -24,7 +24,8 @@ now order by IEEE-754: `NaN` is a value in `sort` and propagates through
 `median`. String case mapping and the default trim set went Unicode, and
 the standards review closed two smaller gaps: `Date` renders ISO-8601
 years zero-padded, and the CSV writer gained Polars' `line_terminator`
-knob.
+knob. The column selectors became `DataFrame` methods — the frame appears
+once at the call site instead of twice.
 
 ### `DataType` / `Scalar` gained a `Date` variant
 
@@ -82,6 +83,22 @@ assert_eq(Scalar::Int(2).gte(Scalar::Int(2)), true)
 if field.dtype() is Int { ... }
 // compare cells through the column: an expression over the frame
 let flagged = df.filter(col("q").gte(lit_int(2)))
+```
+
+### Column selectors are `DataFrame` methods
+
+The six column-selector free functions — `numeric_cols`, `cols_of_dtype`,
+`cols_matching`, `cols_starts_with`, `cols_ends_with`, `cols_contains` —
+are methods of `DataFrame` now, so the free-function spellings (and their
+root-facade re-exports) are gone. Each reads the frame it is called on;
+the `df` argument the free function took at the front is the receiver:
+
+```moonbit
+// before
+df.select(numeric_cols(df))
+
+// after
+df.select(df.numeric_cols())
 ```
 
 ### `SortOrder` / `NullOrder` are gone; sort keys are two flags

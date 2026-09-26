@@ -37,25 +37,25 @@
 /// column, so the entry point went with it.)
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
-pub fn try_column_to_numeric(s : Series) -> Series {
-  match s.storage.kind() {
-    @column.StorageKind::Numeric => s
+pub fn Series::try_column_to_numeric(self : Series) -> Series {
+  match self.storage.kind() {
+    @column.StorageKind::Numeric => self
     @column.StorageKind::Builtin =>
-      match s.storage.data() {
+      match self.storage.data() {
         // The `Numeric` backend is dtype-less: only a *numeric* dtype (the
         // registry's `numeric` flag) with no nulls may converge onto it, so
         // an all-valid `Date` column — also I64-typed, also null-free —
         // keeps its `Builtin` buffer instead of losing its identity on the
         // fast path.
-        @column.ColumnData::I64(a) if s.dtype().is_numeric() &&
-          s.storage.null_count() == 0 =>
+        @column.ColumnData::I64(a) if self.dtype().is_numeric() &&
+          self.storage.null_count() == 0 =>
           Series::new(
-            s.name,
+            self.name,
             @column.ColumnStorage::Numeric(@column.NumericColumn::from_ints(a)),
           )
-        @column.ColumnData::F64(a) if s.storage.null_count() == 0 =>
+        @column.ColumnData::F64(a) if self.storage.null_count() == 0 =>
           Series::new(
-            s.name,
+            self.name,
             @column.ColumnStorage::Numeric(
               @column.NumericColumn::from_floats(a),
             ),
@@ -67,7 +67,7 @@ pub fn try_column_to_numeric(s : Series) -> Series {
         @column.ColumnData::I64(_)
         | @column.ColumnData::F64(_)
         | @column.ColumnData::Bool(_)
-        | @column.ColumnData::Utf8(_) => s
+        | @column.ColumnData::Utf8(_) => self
       }
   }
 }
@@ -85,9 +85,9 @@ pub fn try_column_to_numeric(s : Series) -> Series {
 /// and never reach here.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
-pub fn preserve_backend(source : Series, rebuilt : Series) -> Series {
-  match source.storage.kind() {
-    @column.StorageKind::Numeric => try_column_to_numeric(rebuilt)
+pub fn Series::preserve_backend(self : Series, rebuilt : Series) -> Series {
+  match self.storage.kind() {
+    @column.StorageKind::Numeric => rebuilt.try_column_to_numeric()
     @column.StorageKind::Builtin => rebuilt
   }
 }
@@ -108,8 +108,8 @@ pub fn preserve_backend(source : Series, rebuilt : Series) -> Series {
 /// column's validity without naming the storage layer.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
-pub fn validity_bools(column : Series) -> Array[Bool] {
-  let storage = column.storage
+pub fn Series::validity_bools(self : Series) -> Array[Bool] {
+  let storage = self.storage
   match storage.kind() {
     @column.StorageKind::Numeric => Array::make(storage.len(), true)
     @column.StorageKind::Builtin => storage.validity().to_bools()

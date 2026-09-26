@@ -47,7 +47,7 @@ pub fn eval_ternary(
   let t2 = if t1.len() == c2.len() {
     t1
   } else {
-    gather_series(t1, Array::make(c2.len(), 0))
+    t1.gather_series(Array::make(c2.len(), 0))
   }
   let cond_cells = match c2.storage().data() {
     @column.ColumnData::Bool(a) => a
@@ -60,9 +60,9 @@ pub fn eval_ternary(
         ),
       )
   }
-  let cv = validity_bools(c2)
-  let tv = validity_bools(t2)
-  let ev = validity_bools(e2)
+  let cv = c2.validity_bools()
+  let tv = t2.validity_bools()
+  let ev = e2.validity_bools()
   let out = match (t2.storage().data(), e2.storage().data()) {
     (@column.ColumnData::I64(a), @column.ColumnData::I64(b)) if t2.dtype() ==
       e2.dtype() =>
@@ -148,5 +148,5 @@ pub fn eval_ternary(
         ),
       )
   }
-  try_column_to_numeric(out)
+  out.try_column_to_numeric()
 }

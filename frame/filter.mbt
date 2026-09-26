@@ -34,7 +34,7 @@ pub fn DataFrame::filter(
   predicate : @expr.Expr,
 ) -> DataFrame raise @types.DataError {
   // Every kept index came from `[0, nrows)`, so `gather` cannot fail.
-  self.gather(filter_row_indices(self, predicate))
+  self.gather(self.filter_row_indices(predicate))
 }
 
 ///|
@@ -44,11 +44,10 @@ pub fn DataFrame::filter(
 /// columns for those rows alone — so the dropped rows are never parsed.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
-pub fn filter_row_indices(
-  df : DataFrame,
+pub fn DataFrame::filter_row_indices(
+  self : DataFrame,
   predicate : @expr.Expr,
 ) -> Array[Int] raise @types.DataError {
-  let self = df
   let n = self.nrows()
   let scope = Array::makei(n, i => i)
   // Stretch a length-1 mask (literal / aggregation) over the frame, down to
@@ -59,7 +58,7 @@ pub fn filter_row_indices(
   // null cell is not a keep, alongside `false`. `None` means the predicate
   // evaluated to another dtype, and what *that* means is this verb's call, so
   // the message is raised here rather than at the column seam.
-  match mask_true_indices(mask) {
+  match mask.mask_true_indices() {
     Some(kept) => kept
     None =>
       raise @types.DataError::TypeMismatch(

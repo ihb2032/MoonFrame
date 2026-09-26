@@ -18,7 +18,9 @@
 /// `read_*_projected` once the optimizer has filled its projection — so a
 /// missing file (`IoError`) or a parse failure (`ParseError`) surfaces here
 /// too.
-fn execute(plan : LogicalPlan) -> @frame.DataFrame raise @types.DataError {
+fn LogicalPlan::execute(
+  self : LogicalPlan,
+) -> @frame.DataFrame raise @types.DataError {
   // Memoised post-order fold (not the call stack), so a deep plan collects
   // without overflowing and aborting — the never-abort contract the
   // expression evaluator (`eval_expr`) also keeps. Each node applies the
@@ -30,9 +32,9 @@ fn execute(plan : LogicalPlan) -> @frame.DataFrame raise @types.DataError {
   // subplan runs ONCE — including a file source's read — where the
   // per-occurrence fold re-ran it 2^depth times.
   let memo : Array[(LogicalPlan, @frame.DataFrame)] = []
-  for node in post_order_unique(plan) {
+  for node in self.post_order_unique() {
     let result : @frame.DataFrame = match node {
-      Scan(source) => execute_scan(source)
+      Scan(source) => source.execute_scan()
       // Every unary verb defers through `apply_frame_op` on its collected input.
       Unary(input, op) => apply_frame_op(memo_result(memo, input), op)
       Join(left, right, options) =>
@@ -42,7 +44,7 @@ fn execute(plan : LogicalPlan) -> @frame.DataFrame raise @types.DataError {
     }
     memo.push((node, result))
   }
-  memo_result(memo, plan)
+  memo_result(memo, self)
 }
 
 ///|
@@ -55,8 +57,10 @@ fn execute(plan : LogicalPlan) -> @frame.DataFrame raise @types.DataError {
 /// the driver, owns assembly. A missing file (`IoError`) or a parse failure
 /// (`ParseError`) surfaces here too. One place to add a new scannable
 /// format's read.
-fn execute_scan(source : ScanSource) -> @frame.DataFrame raise @types.DataError {
-  match source {
+fn ScanSource::execute_scan(
+  self : ScanSource,
+) -> @frame.DataFrame raise @types.DataError {
+  match self {
     InMemory(df) => df
     File(fs) => {
       let batch = fs.driver.scan(

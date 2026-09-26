@@ -9,17 +9,6 @@ import {
 }
 
 // Values
-pub fn cols_contains(DataFrame, String) -> Array[@expr.Expr]
-
-pub fn cols_ends_with(DataFrame, String) -> Array[@expr.Expr]
-
-pub fn cols_matching(DataFrame, String) -> Array[@expr.Expr] raise @types.DataError
-
-pub fn cols_of_dtype(DataFrame, @types.DataType) -> Array[@expr.Expr]
-
-pub fn cols_starts_with(DataFrame, String) -> Array[@expr.Expr]
-
-pub fn numeric_cols(DataFrame) -> Array[@expr.Expr]
 
 // Errors
 
@@ -28,6 +17,11 @@ pub struct DataFrame {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn DataFrame::DataFrame(Array[@series.Series]) -> Self raise @types.DataError
+pub fn DataFrame::cols_contains(Self, String) -> Array[@expr.Expr]
+pub fn DataFrame::cols_ends_with(Self, String) -> Array[@expr.Expr]
+pub fn DataFrame::cols_matching(Self, String) -> Array[@expr.Expr] raise @types.DataError
+pub fn DataFrame::cols_of_dtype(Self, @types.DataType) -> Array[@expr.Expr]
+pub fn DataFrame::cols_starts_with(Self, String) -> Array[@expr.Expr]
 pub fn DataFrame::column_series(Self) -> Array[@series.Series]
 pub fn DataFrame::columns(Self) -> Array[String]
 pub fn DataFrame::count(Self) -> Self raise @types.DataError
@@ -56,6 +50,7 @@ pub fn DataFrame::ncols(Self) -> Int
 pub fn DataFrame::not_equal(Self, Self) -> Bool
 pub fn DataFrame::nrows(Self) -> Int
 pub fn DataFrame::null_count(Self) -> Self raise @types.DataError
+pub fn DataFrame::numeric_cols(Self) -> Array[@expr.Expr]
 pub fn DataFrame::rename(Self, Array[(String, String)]) -> Self raise @types.DataError
 pub fn DataFrame::rename_with(Self, (String) -> String) -> Self raise @types.DataError
 pub fn DataFrame::reverse(Self) -> Self

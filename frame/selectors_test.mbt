@@ -20,42 +20,40 @@ fn mixed_df() -> DataFrame raise @types.DataError {
 ///|
 test "numeric_cols selects the Int and Float columns in schema order" {
   let df = mixed_df()
-  assert_same_exprs(numeric_cols(df), [@expr.col("id"), @expr.col("price")])
+  assert_same_exprs(df.numeric_cols(), [@expr.col("id"), @expr.col("price")])
   // Filling a `select`: only the numeric columns survive.
-  assert_eq(df.select(numeric_cols(df)).columns(), ["id", "price"])
+  assert_eq(df.select(df.numeric_cols()).columns(), ["id", "price"])
 }
 
 ///|
 test "cols_of_dtype selects an exact dtype; empty when none match" {
   let df = mixed_df()
-  assert_same_exprs(cols_of_dtype(df, @types.DataType::String), [
+  assert_same_exprs(df.cols_of_dtype(@types.DataType::String), [
     @expr.col("name_a"),
     @expr.col("name_b"),
   ])
-  assert_same_exprs(cols_of_dtype(df, @types.DataType::Bool), [
-    @expr.col("flag"),
-  ])
+  assert_same_exprs(df.cols_of_dtype(@types.DataType::Bool), [@expr.col("flag")])
   // No Null-dtype column exists, so the selector is empty.
-  assert_same_exprs(cols_of_dtype(df, @types.DataType::Null), [])
+  assert_same_exprs(df.cols_of_dtype(@types.DataType::Null), [])
 }
 
 ///|
 test "cols_matching selects by a POSIX name regex, in schema order" {
   let df = mixed_df()
   // `^name_` matches both name columns.
-  assert_eq(df.select(cols_matching(df, "^name_")).columns(), [
+  assert_eq(df.select(df.cols_matching("^name_")).columns(), [
     "name_a", "name_b",
   ])
   // Anchored suffix, and a no-match pattern.
-  assert_same_exprs(cols_matching(df, "_b$"), [@expr.col("name_b")])
-  assert_same_exprs(cols_matching(df, "zzz"), [])
+  assert_same_exprs(df.cols_matching("_b$"), [@expr.col("name_b")])
+  assert_same_exprs(df.cols_matching("zzz"), [])
 }
 
 ///|
 test "cols_matching raises InvalidOperation on an invalid pattern" {
   let df = mixed_df()
   assert_true(
-    (Ok(cols_matching(df, "[")) catch { e => Err(e) })
+    (Ok(df.cols_matching("[")) catch { e => Err(e) })
     is Err(@types.DataError::InvalidOperation(_)),
   )
 }
@@ -63,46 +61,46 @@ test "cols_matching raises InvalidOperation on an invalid pattern" {
 ///|
 test "cols_starts_with selects by a literal name prefix, in schema order" {
   let df = mixed_df()
-  assert_same_exprs(cols_starts_with(df, "name_"), [
+  assert_same_exprs(df.cols_starts_with("name_"), [
     @expr.col("name_a"),
     @expr.col("name_b"),
   ])
   // Filling a `select` keeps just those columns.
-  assert_eq(df.select(cols_starts_with(df, "name_")).columns(), [
+  assert_eq(df.select(df.cols_starts_with("name_")).columns(), [
     "name_a", "name_b",
   ])
   // No match → empty; an empty prefix matches every column.
-  assert_same_exprs(cols_starts_with(df, "z"), [])
-  assert_eq(cols_starts_with(df, "").length(), 5)
+  assert_same_exprs(df.cols_starts_with("z"), [])
+  assert_eq(df.cols_starts_with("").length(), 5)
 }
 
 ///|
 test "cols_ends_with selects by a literal name suffix, in schema order" {
   let df = mixed_df()
-  assert_same_exprs(cols_ends_with(df, "_a"), [@expr.col("name_a")])
+  assert_same_exprs(df.cols_ends_with("_a"), [@expr.col("name_a")])
   // A non-name column anchors too: only `price` ends in "e".
-  assert_same_exprs(cols_ends_with(df, "e"), [@expr.col("price")])
-  assert_same_exprs(cols_ends_with(df, "zzz"), [])
+  assert_same_exprs(df.cols_ends_with("e"), [@expr.col("price")])
+  assert_same_exprs(df.cols_ends_with("zzz"), [])
 }
 
 ///|
 test "cols_contains selects by a literal name substring, in schema order" {
   let df = mixed_df()
-  assert_same_exprs(cols_contains(df, "ame"), [
+  assert_same_exprs(df.cols_contains("ame"), [
     @expr.col("name_a"),
     @expr.col("name_b"),
   ])
   // Composes as a `drop` argument: drop both name columns.
-  assert_eq(df.drop(cols_contains(df, "ame")).columns(), ["id", "price", "flag"])
-  assert_same_exprs(cols_contains(df, "zzz"), [])
+  assert_eq(df.drop(df.cols_contains("ame")).columns(), ["id", "price", "flag"])
+  assert_same_exprs(df.cols_contains("zzz"), [])
 }
 
 ///|
 test "selectors compose with hand-written col entries, preserving order" {
   let df = mixed_df()
   // A bare column first, then the numeric selector spread after it.
-  let sel = [@expr.col("name_a"), ..numeric_cols(df)]
+  let sel = [@expr.col("name_a"), ..df.numeric_cols()]
   assert_eq(df.select(sel).columns(), ["name_a", "id", "price"])
   // As a `drop` argument too: drop the numeric columns.
-  assert_eq(df.drop(numeric_cols(df)).columns(), ["name_a", "flag", "name_b"])
+  assert_eq(df.drop(df.numeric_cols()).columns(), ["name_a", "flag", "name_b"])
 }

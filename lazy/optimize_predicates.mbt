@@ -91,15 +91,15 @@
 ///   Only the first predicate is absorbed — combining two would reorder
 ///   which operand's evaluation error surfaces first — so a second filter
 ///   stays a node above the scan.
-fn push_predicates(plan : LogicalPlan) -> LogicalPlan {
+fn LogicalPlan::push_predicates(self : LogicalPlan) -> LogicalPlan {
   let values : Array[LogicalPlan] = []
-  for node in post_order(plan) {
+  for node in self.post_order() {
     match node {
       Scan(_) => values.push(node)
       // A `Filter` sinks into its rewritten input via `place_filter`; every
       // other unary op is an identity rebuild over its already-rewritten child.
       Unary(_, Filter(predicate)) =>
-        values.push(place_filter(pop_top(values), predicate))
+        values.push(pop_top(values).place_filter(predicate))
       Unary(_, op) => values.push(Unary(pop_top(values), op))
       Join(_, _, options) => rejoin(values, options)
       Aggregate(_, keys, exprs) =>
@@ -113,12 +113,15 @@ fn push_predicates(plan : LogicalPlan) -> LogicalPlan {
 /// Sink one predicate into `input` as deep as the crossing rules allow
 /// (see the header), wrapping the floor it reaches in the `Filter` node.
 /// Each hop reproduces the crossed stage verbatim above the descending
-/// filter, so `place_filter(input, p)` is always plan-equivalent to
-/// `Filter(input, p)` — the hops are exactly the swaps proven safe.
+/// filter, so `place_filter` is always plan-equivalent to
+/// `Filter`-over-input — the hops are exactly the swaps proven safe.
 /// Walked iteratively (descend the single-child spine recording each crossed
 /// stage as a rebuild closure, not the call stack), so a deep crossable spine
 /// sinks without overflowing and aborting — total at any depth.
-fn place_filter(input : LogicalPlan, predicate : @expr.Expr) -> LogicalPlan {
+fn LogicalPlan::place_filter(
+  self : LogicalPlan,
+  predicate : @expr.Expr,
+) -> LogicalPlan {
   // The crossing gates, each local to the only walk that asks them:
   //
   // `row_stable` over a stage's whole expression list — one scope-bound or
@@ -176,7 +179,7 @@ fn place_filter(input : LogicalPlan, predicate : @expr.Expr) -> LogicalPlan {
   // Descend while the current stage is crossable, recording how to rebuild each
   // crossed stage over a new input; stop at the first floor.
   let crossed : Array[(LogicalPlan) -> LogicalPlan] = []
-  let mut cur = input
+  let mut cur = self
   let mut descending = true
   while descending {
     match cur {

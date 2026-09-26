@@ -17,16 +17,16 @@
 /// sort hands over a column rather than a storage representation.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
-pub fn build_sort_key(
-  column : Series,
+pub fn Series::build_sort_key(
+  self : Series,
   descending : Bool,
   nulls_last : Bool,
 ) -> SortKey {
   // `validity_bools` is total over both backends: a `Numeric` column carries
   // only `Int` / `Float` and is all-valid (mask all-`true`), while `Bool` /
   // `String` are always `Builtin`.
-  let valid = validity_bools(column)
-  let storage = column.storage
+  let valid = self.validity_bools()
+  let storage = self.storage
   match storage.data() {
     @column.ColumnData::I64(a) =>
       SortKey::Int(
@@ -90,8 +90,8 @@ pub enum SortKey {
 /// places it past every other value.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
-pub fn compare_one_key(key : SortKey, i : Int, j : Int) -> Int {
-  match key {
+pub fn SortKey::compare_one_key(self : SortKey, i : Int, j : Int) -> Int {
+  match self {
     Int(data, missing, descending, nulls_last) => {
       // `missing` was materialised over `[0, n)`; `i`, `j` come from the
       // `[0, n)` permutation, so the index is in-bounds (like `data[i]`).
@@ -193,9 +193,9 @@ pub fn Series::sort(
   descending? : Bool = false,
   nulls_last? : Bool = false,
 ) -> Series {
-  let key = build_sort_key(self, descending, nulls_last)
+  let key = self.build_sort_key(descending, nulls_last)
   let perm = @order.stable_mergesort_indices(self.len(), (i, j) => {
-    compare_one_key(key, i, j)
+    key.compare_one_key(i, j)
   })
-  gather_series(self, perm)
+  self.gather_series(perm)
 }

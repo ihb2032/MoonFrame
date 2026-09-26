@@ -50,7 +50,7 @@ pub fn ExprNode::referenced_columns(self : ExprNode) -> @set.Set[String] {
 /// renames through this one), which is why the rule's single statement lives
 /// here rather than in the kernels.
 pub fn ExprNode::output_name(self : ExprNode) -> String {
-  leftmost_name(self).unwrap_or("literal")
+  self.leftmost_name().unwrap_or("literal")
 }
 
 ///|
@@ -69,8 +69,8 @@ pub fn ExprNode::output_name(self : ExprNode) -> String {
 /// with no wildcard: a new variant that should name itself (the `LitSeries`
 /// situation) fails compilation here instead of silently falling through to
 /// `"literal"`.
-fn leftmost_name(node : ExprNode) -> String? {
-  let stack : Array[ExprNode] = [node]
+fn ExprNode::leftmost_name(self : ExprNode) -> String? {
+  let stack : Array[ExprNode] = [self]
   for ;; {
     match stack.pop() {
       None => break

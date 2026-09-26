@@ -217,9 +217,9 @@ fn eval_expr(
                 // aggregation engine) still gathers.
                 values.push(
                   if identity_scope {
-                    try_column_to_numeric(df.get_column(name))
+                    df.get_column(name).try_column_to_numeric()
                   } else {
-                    gather_series(df.get_column(name), scope)
+                    df.get_column(name).gather_series(scope)
                   },
                 )
               @ir.ExprNode::Lit(value) =>
@@ -350,10 +350,10 @@ fn eval_expr(
                 @ir.UnOp::IsNull =>
                   Series::from_bools(
                     operand.name(),
-                    validity_bools(operand).map(v => !v),
+                    operand.validity_bools().map(v => !v),
                   )
                 @ir.UnOp::IsNotNull =>
-                  Series::from_bools(operand.name(), validity_bools(operand))
+                  Series::from_bools(operand.name(), operand.validity_bools())
                 @ir.UnOp::IsNan => @kernel.eval_is_nan(operand)
                 @ir.UnOp::IsNotNan => @kernel.eval_is_not_nan(operand)
                 @ir.UnOp::Abs => @kernel.eval_abs(operand)
@@ -383,7 +383,7 @@ fn eval_expr(
             // Numeric outputs converge onto the `Numeric` backend (the
             // expression-engine convention for computed columns), and
             // consumers broadcast the length-1 result back over the scope.
-            let (reducer, probe) = reducer_for(operand, op)
+            let (reducer, probe) = operand.reducer_for(op)
             let cell = reducer(operand.len(), k => k)
             values.push(scalars_to_series(probe, operand.name(), [cell]))
           }
@@ -393,7 +393,7 @@ fn eval_expr(
           }
           ApplyCast(target) => {
             let operand = pop_value(values)
-            values.push(try_column_to_numeric(operand.cast(target)))
+            values.push(operand.cast(target).try_column_to_numeric())
           }
           ApplyAlias(name) => {
             let operand = pop_value(values)
@@ -417,7 +417,7 @@ fn eval_expr(
             // convergence stay byte-for-byte identical.
             let cond = match kind {
               FillKind::Nulls =>
-                Series::from_bools(operand.name(), validity_bools(operand))
+                Series::from_bools(operand.name(), operand.validity_bools())
               FillKind::Nans => @kernel.eval_is_not_nan(operand)
             }
             values.push(@kernel.eval_ternary(cond, operand, value_v))
@@ -438,7 +438,7 @@ fn eval_expr(
           // backend of its result — an all-valid numeric column returned on
           // `Builtin` lands on `Numeric`, keeping `collect ≡ execute`.
           ApplyMapBatches(f, arity) =>
-            values.push(try_column_to_numeric(f(pop_inputs(values, arity))))
+            values.push(f(pop_inputs(values, arity)).try_column_to_numeric())
         }
     }
   }

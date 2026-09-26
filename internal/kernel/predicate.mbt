@@ -33,7 +33,7 @@ pub fn eval_is_in(
   }
   let mut acc = Series::from_bool_options(
     operand.name(),
-    map_present(operand.len(), validity_bools(operand), _ => false),
+    map_present(operand.len(), operand.validity_bools(), _ => false),
   )
   for m in members {
     if m.is_null() {
@@ -64,7 +64,7 @@ fn try_fast_is_in(
   operand : Series,
   members : ArrayView[@types.Scalar],
 ) -> Series? {
-  let valid = validity_bools(operand)
+  let valid = operand.validity_bools()
   let name = operand.name()
   match operand.storage().data() {
     // Decoded once per side: cell membership reads materialised Strings.

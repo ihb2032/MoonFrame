@@ -28,14 +28,14 @@ pub(all) enum CmpVerb {
 /// arguments in both orders — `Gt` is `lt(y, x)`, not `!(lt ∨ eq)` — so
 /// IEEE NaN falls out right: `eq` / `lt` against NaN are `false`, hence
 /// `Ne` is `true` and every ordering comparison is `false`.
-fn[T] apply_cmp(
-  verb : CmpVerb,
+fn[T] CmpVerb::apply_cmp(
+  self : CmpVerb,
   lt : (T, T) -> Bool,
   eq : (T, T) -> Bool,
   x : T,
   y : T,
 ) -> Bool {
-  match verb {
+  match self {
     CmpVerb::Eq => eq(x, y)
     CmpVerb::Ne => !eq(x, y)
     CmpVerb::Lt => lt(x, y)
@@ -50,8 +50,8 @@ fn[T] apply_cmp(
 /// (`Lt`↔`Gt`, `Le`↔`Ge`; `Eq` / `Ne` are symmetric). Lets the
 /// `Float`-vs-`Int` arm reuse the `Int`-vs-`Float` verdict with the operands
 /// swapped.
-fn transpose_verb(verb : CmpVerb) -> CmpVerb {
-  match verb {
+fn CmpVerb::transpose_verb(self : CmpVerb) -> CmpVerb {
+  match self {
     CmpVerb::Eq => CmpVerb::Eq
     CmpVerb::Ne => CmpVerb::Ne
     CmpVerb::Lt => CmpVerb::Gt
@@ -67,8 +67,8 @@ fn transpose_verb(verb : CmpVerb) -> CmpVerb {
 /// mixed-numeric arms and avoids the `2^53` collisions the Float64-supertype
 /// widening would produce. NaN falls out right through the `@numeric`
 /// primitives (every comparison with it is `false`).
-fn cmp_int_double(verb : CmpVerb, a : Int64, b : Double) -> Bool {
-  match verb {
+fn CmpVerb::cmp_int_double(self : CmpVerb, a : Int64, b : Double) -> Bool {
+  match self {
     CmpVerb::Eq => @numeric.int64_eq_double(a, b)
     CmpVerb::Ne => !@numeric.int64_eq_double(a, b)
     CmpVerb::Lt => @numeric.int64_lt_double(a, b)
@@ -98,7 +98,7 @@ fn[T] compare_cells(
   verb~ : CmpVerb,
 ) -> Array[Bool?] {
   zip_present(n, left_valid, right_valid, i => {
-    apply_cmp(verb, less_than, equal, get_left(i), get_right(i))
+    verb.apply_cmp(less_than, equal, get_left(i), get_right(i))
   })
 }
 
@@ -129,34 +129,34 @@ pub fn eval_compare(
           Series::from_bools(
             left.name(),
             Array::makei(a.length(), i => {
-              apply_cmp(verb, (x, y) => x < y, (x, y) => x == y, a[i], b[i])
+              verb.apply_cmp((x, y) => x < y, (x, y) => x == y, a[i], b[i])
             }),
           )
         (@column.NumericData::Int(a), @column.NumericData::Float(b)) =>
           Series::from_bools(
             left.name(),
-            Array::makei(a.length(), i => cmp_int_double(verb, a[i], b[i])),
+            Array::makei(a.length(), i => verb.cmp_int_double(a[i], b[i])),
           )
         (@column.NumericData::Float(a), @column.NumericData::Int(b)) =>
           Series::from_bools(
             left.name(),
             Array::makei(a.length(), i => {
-              cmp_int_double(transpose_verb(verb), b[i], a[i])
+              verb.transpose_verb().cmp_int_double(b[i], a[i])
             }),
           )
         (@column.NumericData::Float(a), @column.NumericData::Float(b)) =>
           Series::from_bools(
             left.name(),
             Array::makei(a.length(), i => {
-              apply_cmp(verb, (x, y) => x < y, (x, y) => x == y, a[i], b[i])
+              verb.apply_cmp((x, y) => x < y, (x, y) => x == y, a[i], b[i])
             }),
           )
       }
     (@column.ColumnStorage::Builtin(_), _)
     | (_, @column.ColumnStorage::Builtin(_)) => ()
   }
-  let lv = validity_bools(left)
-  let rv = validity_bools(right)
+  let lv = left.validity_bools()
+  let rv = right.validity_bools()
   let cells = match (left.storage().data(), right.storage().data()) {
     // The dtype gates read `DataType::comparable_with`: the same dtype
     // compares, two numerics compare, and an I64 rider (Date) never compares
@@ -180,12 +180,12 @@ pub fn eval_compare(
       // The mixed pair's two sides have different cell types, so a
       // single-`T` reader / predicate does not fit; the per-row verdict is
       // taken directly over the same shared null gate.
-      zip_present(a.length(), lv, rv, i => cmp_int_double(verb, a[i], b[i]))
+      zip_present(a.length(), lv, rv, i => verb.cmp_int_double(a[i], b[i]))
     (@column.ColumnData::F64(a), @column.ColumnData::I64(b)) if left
       .dtype()
       .comparable_with(right.dtype()) =>
       zip_present(a.length(), lv, rv, i => {
-        cmp_int_double(transpose_verb(verb), b[i], a[i])
+        verb.transpose_verb().cmp_int_double(b[i], a[i])
       })
     (@column.ColumnData::F64(a), @column.ColumnData::F64(b)) =>
       compare_cells(

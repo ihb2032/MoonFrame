@@ -16,8 +16,8 @@
 /// other node has exactly one. Drives the explicit-stack walks (`render`,
 /// `post_order`) so a new node joins them the moment it declares its children
 /// here.
-fn plan_children(plan : LogicalPlan) -> Array[LogicalPlan] {
-  match plan {
+fn LogicalPlan::plan_children(self : LogicalPlan) -> Array[LogicalPlan] {
+  match self {
     Scan(_) => []
     Unary(input, _) | Aggregate(input, _, _) => [input]
     Join(left, right, _) => [left, right]
@@ -31,15 +31,15 @@ fn plan_children(plan : LogicalPlan) -> Array[LogicalPlan] {
 /// aborting. The post-order/value-stack walks (`execute`, `push_predicates`)
 /// fold children before parents by stepping this list front-to-back: when a
 /// node is reached, its children's results are the top of the value stack.
-fn post_order(plan : LogicalPlan) -> Array[LogicalPlan] {
+fn LogicalPlan::post_order(self : LogicalPlan) -> Array[LogicalPlan] {
   // Root-first pre-order via a LIFO stack (children pushed left-to-right, so
   // the right subtree pops first), then reversed into post-order.
   let pre : Array[LogicalPlan] = []
-  let stack : Array[LogicalPlan] = [plan]
+  let stack : Array[LogicalPlan] = [self]
   while stack.length() > 0 {
     let node = pop_top(stack)
     pre.push(node)
-    for child in plan_children(node) {
+    for child in node.plan_children() {
       stack.push(child)
     }
   }
@@ -96,14 +96,14 @@ fn seen_plan(seen : Array[LogicalPlan], node : LogicalPlan) -> Bool {
 /// this is `false`. Short-circuits on the first `Join`, and every node visited
 /// before then is itself non-`Join` — hence part of that unary chain — so this
 /// never re-expands a shared subplan and is itself O(nodes).
-fn contains_join(plan : LogicalPlan) -> Bool {
-  let stack : Array[LogicalPlan] = [plan]
+fn LogicalPlan::contains_join(self : LogicalPlan) -> Bool {
+  let stack : Array[LogicalPlan] = [self]
   while stack.length() > 0 {
     let node = pop_top(stack)
     if node is Join(_, _, _) {
       return true
     }
-    for child in plan_children(node) {
+    for child in node.plan_children() {
       stack.push(child)
     }
   }
@@ -118,19 +118,19 @@ fn contains_join(plan : LogicalPlan) -> Bool {
 /// the first repeat, so it never re-expands a shared subplan — it avoids the
 /// 2^depth blow-up of a naive walk, at a cost quadratic in the (small)
 /// distinct-node count from the identity `seen` scan.
-fn has_shared_subplan(plan : LogicalPlan) -> Bool {
-  if !contains_join(plan) {
+fn LogicalPlan::has_shared_subplan(self : LogicalPlan) -> Bool {
+  if !self.contains_join() {
     return false
   }
   let seen : Array[LogicalPlan] = []
-  let stack : Array[LogicalPlan] = [plan]
+  let stack : Array[LogicalPlan] = [self]
   while stack.length() > 0 {
     let node = pop_top(stack)
     if seen_plan(seen, node) {
       return true
     }
     seen.push(node)
-    for child in plan_children(node) {
+    for child in node.plan_children() {
       stack.push(child)
     }
   }
@@ -149,16 +149,16 @@ fn has_shared_subplan(plan : LogicalPlan) -> Bool {
 /// consumer (children always precede parents), so a fold that reads child
 /// results out of a memo does each subplan's work once instead of once per
 /// occurrence — which is 2^depth for nested self-joins.
-fn post_order_unique(plan : LogicalPlan) -> Array[LogicalPlan] {
-  if !contains_join(plan) {
-    return post_order(plan)
+fn LogicalPlan::post_order_unique(self : LogicalPlan) -> Array[LogicalPlan] {
+  if !self.contains_join() {
+    return self.post_order()
   }
   let out : Array[LogicalPlan] = []
   let seen : Array[LogicalPlan] = []
   // (node, expanded): expanded=false schedules the node (skipping it if a
   // previous path already claimed it), expanded=true emits it — by then all
   // its children have been emitted.
-  let stack : Array[(LogicalPlan, Bool)] = [(plan, false)]
+  let stack : Array[(LogicalPlan, Bool)] = [(self, false)]
   while stack.length() > 0 {
     let (node, expanded) = pop_top(stack)
     if expanded {
@@ -170,7 +170,7 @@ fn post_order_unique(plan : LogicalPlan) -> Array[LogicalPlan] {
     }
     seen.push(node)
     stack.push((node, true))
-    let kids = plan_children(node)
+    let kids = node.plan_children()
     for i in 0..<kids.length() {
       stack.push((kids[kids.length() - 1 - i], false))
     }

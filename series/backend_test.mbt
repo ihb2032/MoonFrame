@@ -93,10 +93,10 @@ test "the two backends of one column are interchangeable, both ways round" {
   let b = Series::from_int_options("x", [Some(1), Some(2), Some(3)])
   assert_eq(b.storage_kind(), @column.StorageKind::Builtin)
   assert_eq(b.to_scalars(), n.to_scalars())
-  assert_eq(try_column_to_numeric(b), n)
+  assert_eq(b.try_column_to_numeric(), n)
   // A column carrying a null has no fast-path form: it stays as it is.
   let nullable = Series::from_int_options("x", [Some(1), None])
-  assert_eq(try_column_to_numeric(nullable), nullable)
+  assert_eq(nullable.try_column_to_numeric(), nullable)
 }
 
 ///|
@@ -107,7 +107,10 @@ test "is_canonical is exactly try_column_to_numeric's backend fixed point" {
   // moved off its backend). Asserting both together stops the two drifting.
   fn check(s : Series, want : Bool) -> Unit raise {
     assert_eq(s.is_canonical(), want)
-    assert_eq(s.storage_kind() == try_column_to_numeric(s).storage_kind(), want)
+    assert_eq(
+      s.storage_kind() == s.try_column_to_numeric().storage_kind(),
+      want,
+    )
   }
 
   // Numeric backend: always canonical.
@@ -138,7 +141,7 @@ test "gather_series: a stray out-of-range index is a null cell on both backends"
   // backend the engine happened to choose.
   let numeric = Series::from_ints("x", [1, 2, 3])
   assert_eq(numeric.storage_kind(), @column.StorageKind::Numeric)
-  let g_num = gather_series(numeric, [2, 3, -1, 0])
+  let g_num = numeric.gather_series([2, 3, -1, 0])
   assert_eq(g_num.to_scalars(), [
     @types.Scalar::Int(3),
     @types.Scalar::Null,
@@ -147,15 +150,15 @@ test "gather_series: a stray out-of-range index is a null cell on both backends"
   ])
   let builtin = Series::from_int_options("x", [Some(1), Some(2), Some(3)])
   assert_eq(builtin.storage_kind(), @column.StorageKind::Builtin)
-  assert_eq(gather_series(builtin, [2, 3, -1, 0]), g_num)
+  assert_eq(builtin.gather_series([2, 3, -1, 0]), g_num)
   // An all-in-bounds gather still takes the allocation-free Numeric path.
   assert_eq(
-    gather_series(numeric, [0, 2]).storage_kind(),
+    numeric.gather_series([0, 2]).storage_kind(),
     @column.StorageKind::Numeric,
   )
   // Float arm of the same gate.
   let floats = Series::from_floats("x", [1.5, 2.5])
-  assert_eq(gather_series(floats, [1, 9]).to_scalars(), [
+  assert_eq(floats.gather_series([1, 9]).to_scalars(), [
     @types.Scalar::Float(2.5),
     @types.Scalar::Null,
   ])
@@ -177,12 +180,12 @@ test "content-determined transforms return a canonical column for every source b
   ]
   for src in sources {
     assert_true(src.gather([0, 2, 1]).is_canonical())
-    assert_true(gather_series(src, [3, 1, 0]).is_canonical())
+    assert_true(src.gather_series([3, 1, 0]).is_canonical())
     assert_true(
-      gather_series_opt(src, [Some(0), None, Some(2)], "x").is_canonical(),
+      src.gather_series_opt([Some(0), None, Some(2)], "x").is_canonical(),
     )
-    assert_true(gather_series_opt(src, [Some(3), Some(1)], "x").is_canonical())
-    assert_true(try_column_to_numeric(src).is_canonical())
+    assert_true(src.gather_series_opt([Some(3), Some(1)], "x").is_canonical())
+    assert_true(src.try_column_to_numeric().is_canonical())
   }
   // drop_nulls canonicalises only when it actually drops a null; on a null-free
   // source it is a backend-preserving no-op — the boundary of the invariant. A

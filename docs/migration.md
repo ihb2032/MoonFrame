@@ -122,6 +122,17 @@ back without a knob. The one signature change: the constructor now
 row into one), so a `CsvWriteOptions::CsvWriteOptions(...)` call in a
 non-raising context needs the usual `catch` / propagation.
 
+### A file that is not UTF-8 now raises
+
+Every `read_*` entry point decodes strictly: a file whose bytes are not
+well-formed UTF-8 used to reach the parsers through a lenient decoder,
+which merged a stray byte with the ones after it — swallowing a delimiter
+or a quote and shifting every cell boundary that followed — or silently
+dropped the rest of the file, so a Latin-1 or otherwise non-UTF-8 file
+produced confidently wrong data with no error. It now raises
+`DataError::ParseError` naming the first malformed byte's offset. Files
+that are valid UTF-8 (a leading BOM included) read exactly as before.
+
 ### `Date` renders ISO-8601 years zero-padded to four digits
 
 A `Scalar::Date` whose year is under 1000 used to render without its ISO

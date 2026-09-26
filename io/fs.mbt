@@ -9,10 +9,27 @@
 
 ///|
 /// Read a whole file as a string, mapping a file-system `IOError` to
-/// `DataError::IoError`. Shared by every `read_*` entry point.
+/// `DataError::IoError` and a byte sequence that is not UTF-8 to
+/// `DataError::ParseError`. Shared by every `read_*` entry point. The
+/// decode is strict on purpose: a lenient decoder merges a stray byte with
+/// the ones after it — swallowing a delimiter or a quote and shifting
+/// every cell boundary that follows — or silently drops the rest of the
+/// file, so a non-UTF-8 file would read as confidently wrong data.
+/// Refusing up front matches `validate_csv_delimiter`'s philosophy: reject
+/// a read that cannot round-trip rather than corrupt the data silently.
 fn read_text(path : String) -> String raise @types.DataError {
-  @fs.read_file_to_string(path) catch {
+  let bytes = @fs.read_file_to_bytes(path) catch {
     @fs.IOError(msg) => raise @types.DataError::IoError(msg)
+  }
+  @utf8.decode(bytes) catch {
+    // The error carries the bytes from the first malformed one, so that
+    // byte's offset is the difference in length.
+    @utf8.Malformed(tail) =>
+      raise @types.DataError::ParseError(
+        @types.ParseErrorDetail::Message(
+          "file \{path} is not valid UTF-8: first malformed byte at offset \{bytes.length() - tail.length()}",
+        ),
+      )
   }
 }
 

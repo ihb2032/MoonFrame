@@ -508,6 +508,12 @@ pub(all) enum ReduceOp {
 } derive(Eq)
 
 ///|
+/// Equality for the engine packages: the expression AST carries a `ReduceOp`
+/// inside its `Agg` node, and the AST's own `Eq` derive reaches this method
+/// from another package. The attributes keep the promoted methods out of the
+/// public interface, like the enum they belong to.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
 pub extend ReduceOp with Eq::{equal, not_equal}
 
 ///|

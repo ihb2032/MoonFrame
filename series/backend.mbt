@@ -177,6 +177,12 @@ pub fn Series::is_canonical(self : Series) -> Bool {
         true
       } else {
         match self.storage.data() {
+          // An I64 buffer is non-canonical only when its dtype is numeric:
+          // a null-free Date column also rides I64, but the registry's
+          // numeric flag keeps `try_column_to_numeric` off it, so `Builtin`
+          // is its canonical backend — exactly the arm-for-arm mirror the
+          // docstring above promises.
+          @column.ColumnData::I64(_) if !self.dtype().is_numeric() => true
           @column.ColumnData::I64(_) | @column.ColumnData::F64(_) => false
           @column.ColumnData::Bool(_) | @column.ColumnData::Utf8(_) => true
         }

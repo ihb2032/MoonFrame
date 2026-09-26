@@ -124,6 +124,9 @@ test "is_canonical is exactly try_column_to_numeric's backend fixed point" {
   check(Series::from_bool_options("x", [Some(true), None]), true)
   check(Series::from_strings("x", ["a", "b"]), true)
   check(Series::from_string_options("x", [None, Some("z")]), true)
+  // Builtin, all-valid, Date: canonical — it rides I64 but the registry's
+  // numeric flag keeps the fast path away, so Builtin is its only backend.
+  check(Series::from_date_options("x", [Some(19723L), Some(19753L)]), true)
 }
 
 ///|

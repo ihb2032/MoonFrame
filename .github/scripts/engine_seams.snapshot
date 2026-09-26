@@ -14,6 +14,7 @@ io | doc_hidden internal_engine | pub fn write_text( path : String, content : St
 series | doc_hidden internal_engine | pub enum SortKey
 series | doc_hidden internal_engine | pub extend KeyCell with Eq::{equal, not_equal}
 series | doc_hidden internal_engine | pub extend KeyCell with Hash::{hash, hash_combine}
+series | doc_hidden internal_engine | pub extend ReduceOp with Eq::{equal, not_equal}
 series | doc_hidden internal_engine | pub fn Series::build_sort_key( self : Series, descending : Bool, nulls_last : Bool, ) -> SortKey | used by: frame
 series | doc_hidden internal_engine | pub fn Series::coalesce_columns( self : Series, fill : Series, name : String, ) -> Series | used by: frame
 series | doc_hidden internal_engine | pub fn Series::empty_of( name : String, dtype : @types.DataType, ) -> Series raise @types.DataError | used by: frame

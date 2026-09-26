@@ -423,9 +423,9 @@ test "pipeline: the column selectors are reachable unqualified" {
     Series::from_floats("price", [2.0]),
     Series::from_strings("label", ["x"]),
   ])
-  assert_eq(df.select(numeric_cols(df)).columns(), ["id", "price"])
-  assert_eq(cols_of_dtype(df, DataType::String).length(), 1)
-  assert_eq(df.select(cols_matching(df, "^p")).columns(), ["price"])
+  assert_eq(df.select(df.numeric_cols()).columns(), ["id", "price"])
+  assert_eq(df.cols_of_dtype(DataType::String).length(), 1)
+  assert_eq(df.select(df.cols_matching("^p")).columns(), ["price"])
 }
 
 ///|

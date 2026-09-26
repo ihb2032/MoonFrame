@@ -279,16 +279,30 @@ fn agg_suffix(op : @series.ReduceOp) -> String {
 /// `lit_str` — `.str_contains("foo")`, `.str_replace("a", "b")` — so a plan
 /// line stays unambiguous and on one line.
 fn write_str_suffix(logger : &Logger, op : @ir.StrOp) -> Unit {
+  // Render one parameterised string-op call `.name("arg", …)`, each argument
+  // quoted and `escape_debug`-escaped exactly like a rendered `lit_str`
+  // (`format_scalar`), so a pattern containing a `"` or a
+  // control character stays on one unambiguous line.
+  fn write_str_call(name : String, args : Array[String]) -> Unit {
+    logger.write_string(".")
+    logger.write_string(name)
+    logger.write_string("(")
+    logger.write_string(
+      args.map(a => "\"\{@text.escape_debug(a)}\"").join(", "),
+    )
+    logger.write_string(")")
+  }
+
   match op {
     ToUppercase => logger.write_string(".str_to_uppercase()")
     ToLowercase => logger.write_string(".str_to_lowercase()")
     StripChars => logger.write_string(".str_strip_chars()")
     LenChars => logger.write_string(".str_len_chars()")
-    Contains(p) => write_str_call(logger, "str_contains", [p])
-    StartsWith(p) => write_str_call(logger, "str_starts_with", [p])
-    EndsWith(p) => write_str_call(logger, "str_ends_with", [p])
-    Replace(a, b) => write_str_call(logger, "str_replace", [a, b])
-    ReplaceAll(a, b) => write_str_call(logger, "str_replace_all", [a, b])
+    Contains(p) => write_str_call("str_contains", [p])
+    StartsWith(p) => write_str_call("str_starts_with", [p])
+    EndsWith(p) => write_str_call("str_ends_with", [p])
+    Replace(a, b) => write_str_call("str_replace", [a, b])
+    ReplaceAll(a, b) => write_str_call("str_replace_all", [a, b])
     Reverse => logger.write_string(".str_reverse()")
     // The width renders bare, the fill as a `'x'` char literal (escaped like a
     // string so a control or quote character stays on one line).
@@ -311,7 +325,7 @@ fn write_str_suffix(logger : &Logger, op : @ir.StrOp) -> Unit {
     // The pattern renders quoted, the group index bare.
     Extract(pattern, group) =>
       logger <+ ".str_extract(\"\{@text.escape_debug(pattern)}\", \{group})"
-    CountMatches(p) => write_str_call(logger, "str_count_matches", [p])
+    CountMatches(p) => write_str_call("str_count_matches", [p])
     // The offset renders bare; the length only when present.
     Slice(offset, length) =>
       match length {
@@ -321,28 +335,10 @@ fn write_str_suffix(logger : &Logger, op : @ir.StrOp) -> Unit {
     LenBytes => logger.write_string(".str_len_bytes()")
     // The custom strip renders its charset as a quoted argument, so it stays
     // distinct from the default `.str_strip_chars()`.
-    StripCharsCustom(chars) =>
-      write_str_call(logger, "str_strip_chars", [chars])
+    StripCharsCustom(chars) => write_str_call("str_strip_chars", [chars])
     // The separator renders quoted, the index bare.
     SplitGet(sep, index) =>
       logger <+ ".str_split_get(\"\{@text.escape_debug(sep)}\", \{index})"
     ZFill(width) => logger <+ ".str_zfill(\{width})"
   }
-}
-
-///|
-/// Render one parameterised string-op call `.name("arg", …)`, each argument
-/// quoted and `escape_debug`-escaped exactly like a rendered `lit_str`
-/// (`format_scalar`), so a pattern containing a `"` or a
-/// control character stays on one unambiguous line.
-fn write_str_call(
-  logger : &Logger,
-  name : String,
-  args : Array[String],
-) -> Unit {
-  logger.write_string(".")
-  logger.write_string(name)
-  logger.write_string("(")
-  logger.write_string(args.map(a => "\"\{@text.escape_debug(a)}\"").join(", "))
-  logger.write_string(")")
 }

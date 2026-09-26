@@ -27,11 +27,14 @@ fn visible_rows(nrows : Int, max_rows : Int?) -> Int {
 /// **unescaped**: each renderer applies its own escaping (HTML entities vs GFM
 /// pipe-escaping) on top. `shown <= df.nrows()` and every column has
 /// `df.nrows()` cells, so each slice is in-bounds. Total.
-fn table_cell_matrix(df : DataFrame, shown : Int) -> Array[Array[String]] {
-  let col_scalars = df
+fn DataFrame::table_cell_matrix(
+  self : DataFrame,
+  shown : Int,
+) -> Array[Array[String]] {
+  let col_scalars = self
     .column_series()
     .map(s => s.slice_series(0, shown).to_scalars())
-  let ncols = df.ncols()
+  let ncols = self.ncols()
   Array::makei(shown, r => {
     Array::makei(ncols, c => col_scalars[c][r].to_string())
   })

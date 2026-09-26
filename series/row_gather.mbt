@@ -73,8 +73,7 @@ pub fn Series::coalesce_columns(
   let base_valid = self.validity_bools()
   let fills = fill.to_scalars()
   // The four closures differ only in the `Scalar` variant they read `fill` as.
-  rebuild_options(
-    self,
+  self.rebuild_options(
     name,
     self.len(),
     (a, i) => {
@@ -168,8 +167,8 @@ pub fn Series::slice_series(self : Series, start : Int, len : Int) -> Series {
 /// so anything holding this could at most read the column it came from.
 /// Every caller is in this package — the row gathers and `coalesce_columns` —
 /// and the seam other packages get is the finished `Series`.
-fn rebuild_options(
-  source : Series,
+fn Series::rebuild_options(
+  self : Series,
   name : String,
   n : Int,
   int_cell : (ArrayView[Int64], Int) -> Int64?,
@@ -177,7 +176,7 @@ fn rebuild_options(
   bool_cell : (ArrayView[Bool], Int) -> Bool?,
   string_cell : (@buffer.Utf8Array, Int) -> String?,
 ) -> Series {
-  let rebuilt = match source.storage.data() {
+  let rebuilt = match self.storage.data() {
     // The I64 arm rebuilds through the *dtype*, not the variant: the
     // dtype-carrying constructor keeps a Date column a Date (an `Int`
     // rebuild would silently retype every gathered row), and no per-dtype
@@ -186,7 +185,7 @@ fn rebuild_options(
       Series::from_builtin(
         name,
         @column.BuiltinColumn::from_i64_options(
-          source.dtype(),
+          self.dtype(),
           Array::makei(n, k => int_cell(a, k)),
         ),
       )
@@ -246,7 +245,7 @@ pub fn Series::gather_series(self : Series, idx : Array[Int]) -> Series {
       Series::from_floats(self.name, idx.map(k => a[k]))
     _ => {
       let validity = self.storage.validity()
-      rebuild_by_row(self, self.name, idx.length(), k => {
+      self.rebuild_by_row(self.name, idx.length(), k => {
         let j = idx[k]
         if validity.is_valid_total(j) {
           Some(j)
@@ -265,14 +264,13 @@ pub fn Series::gather_series(self : Series, idx : Array[Int]) -> Series {
 /// cell. The four per-dtype closures are identical bar their element type —
 /// monomorphisation keeps them syntactically separate — so they are spelled
 /// once here instead of once per gather call site.
-fn rebuild_by_row(
-  source : Series,
+fn Series::rebuild_by_row(
+  self : Series,
   name : String,
   n : Int,
   row_at : (Int) -> Int?,
 ) -> Series {
-  rebuild_options(
-    source,
+  self.rebuild_options(
     name,
     n,
     (a, k) => row_at(k).map(j => a[j]),
@@ -346,7 +344,7 @@ pub fn Series::gather_series_opt(
       // O(1) bit lookup (`is_valid_total`) rather than materialising the whole
       // O(source) mask — a high-selectivity join emits far fewer rows than the
       // source has, so the gather stays O(output) (mirrors `gather_series`).
-      rebuild_by_row(self, out_name, idx.length(), k => {
+      self.rebuild_by_row(out_name, idx.length(), k => {
         idx[k].bind(j => if validity.is_valid_total(j) { Some(j) } else { None })
       })
     }

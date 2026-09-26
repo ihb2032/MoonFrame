@@ -68,10 +68,12 @@ fn special_lookup(
 /// conversion** — simple mappings one character to one character, plus the
 /// SpecialCasing expansions where the default conversion is one-to-many
 /// (`ß` uppercases to `SS`, the `ﬁ` ligature to `FI`). Characters without a
-/// mapping pass through unchanged. The locale-conditional lines of
-/// SpecialCasing are not in the table: this is the default conversion,
-/// which carries no locale, so `İ` lowercases to `i` + combining dot above
-/// everywhere, and the Turkish dotless rules stay a caller's rewrite.
+/// mapping pass through unchanged. The conditional lines of SpecialCasing —
+/// locale (the Turkish dotless rules) and context (`Final_Sigma`, which
+/// would lowercase a word-final `Σ` to `ς` only next to letters) — are not
+/// in the table: this is the default conversion, which carries neither a
+/// locale nor a surrounding, so `Σ` lowercases to `σ` even at a word's end,
+/// and `İ` lowercases to `i` + combining dot above everywhere.
 pub fn map_case(s : String, upper~ : Bool) -> String {
   let specials = if upper {
     unicode_special_upper

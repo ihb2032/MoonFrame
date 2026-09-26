@@ -74,7 +74,7 @@ pub fn DataFrame::DataFrame(
 /// vector, and it ranges over the columns that exist, so for a column-less
 /// frame this field carries the height alone.
 ///
-/// Engine-internal, and it establishes INV7 rather than assuming it: a
+/// Engine-internal, and it establishes INV5 rather than assuming it: a
 /// negative `nrows` raises `InvalidOperation`. The length check that forces a
 /// non-negative height for a frame with columns is vacuous at zero columns —
 /// the very shape this constructor exists to build — so this is where that

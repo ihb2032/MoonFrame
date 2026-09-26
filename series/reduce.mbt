@@ -145,9 +145,10 @@ fn reduce_arith(
 /// keeping the source dtype. Total over every dtype — `Bool` orders
 /// `false < true`, `String` by `compare_string_lex` — returning the dtype's
 /// `Scalar` variant or `Scalar::Null` for an empty / all-null / all-`NaN`
-/// (`Float`) window. `NaN` is treated as missing (skipped), matching
-/// `Series::min` / `max` and `sort`; only a null slot is
-/// otherwise skipped. Shares the single `fold_extremum` accumulation.
+/// (`Float`) window. `NaN` is treated as missing (skipped), as in Polars'
+/// regular `min` / `max` (`sort` instead orders `NaN` as the largest value);
+/// only a null slot is otherwise skipped. Shares the single `fold_extremum`
+/// accumulation.
 fn reduce_extremum(
   storage : @column.ColumnStorage,
   want_min~ : Bool,

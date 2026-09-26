@@ -12,18 +12,17 @@
 //     so the rest of the responsibility sits with `series` and the kernel layer.
 
 ///|
-/// The exact read shape of `build_sort_key` in `series`: mask first, then a
-/// four-arm match on the buffer, with `Float` folding `NaN` into missing.
-/// Running it here on both backends is point 2 — the accessors answer that
-/// pattern identically whichever arm they land on. Returns the dtype tag and
-/// the per-row missing mask (`Null`, plus `NaN` for `Float`) that site
-/// computes.
+/// The read shape the sort key builder in `series` uses: mask first, then a
+/// four-arm match on the buffer. `Float` folds only null-flagged cells into
+/// missing — a present `NaN` is a value the total order places above every
+/// finite one. Running it here on both backends is point 2 — the accessors
+/// answer that pattern identically whichever arm they land on. Returns the
+/// dtype tag and the per-row missing mask that site computes.
 fn read_like_ops(storage : ColumnStorage) -> (String, Array[Bool]) {
   let valid = storage.validity().to_bools()
   match storage.data() {
     ColumnData::I64(a) => ("Int", Array::makei(a.length(), i => !valid[i]))
-    ColumnData::F64(a) =>
-      ("Float", Array::makei(a.length(), i => !valid[i] || a[i].is_nan()))
+    ColumnData::F64(a) => ("Float", Array::makei(a.length(), i => !valid[i]))
     ColumnData::Bool(a) => ("Bool", Array::makei(a.length(), i => !valid[i]))
     ColumnData::Utf8(a) => ("String", Array::makei(a.len(), i => !valid[i]))
   }
@@ -104,8 +103,9 @@ test "from_builtin null cell surfaces through get" {
 
 ///|
 test "read_like_ops: every ColumnData arm via a Builtin backend" {
-  // All four ColumnData arms of `build_sort_key`'s body, reached through a
-  // ColumnStorage. Null (and NaN for Float) map to a `true` missing slot.
+  // All four ColumnData arms of the sort key builder's body, reached
+  // through a ColumnStorage. Null maps to a `true` missing slot; a present
+  // `NaN` does not — it is a value the total order places.
   let (tag_i, miss_i) = read_like_ops(
     ColumnStorage::Builtin(BuiltinColumn::from_int_options([Some(1), None])),
   )
@@ -118,8 +118,8 @@ test "read_like_ops: every ColumnData arm via a Builtin backend" {
     ),
   )
   assert_eq(tag_f, "Float")
-  // index 0 present; index 1 NaN → missing; index 2 null → missing.
-  assert_eq(miss_f, [false, true, true])
+  // index 0 present; index 1 NaN → present (a value); index 2 null → missing.
+  assert_eq(miss_f, [false, false, true])
   let (tag_b, miss_b) = read_like_ops(
     ColumnStorage::Builtin(BuiltinColumn::from_bool_options([Some(true), None])),
   )

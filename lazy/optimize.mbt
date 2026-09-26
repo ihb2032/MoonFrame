@@ -43,8 +43,12 @@
 /// `scan_ndjson`): every plan that *collects* still collects equal,
 /// every whole-input failure (a malformed header or line, a ragged row, a
 /// missing file) still fails identically, and a parse error in a *kept* column
-/// still surfaces unchanged — only an error isolated to a pruned-away column
-/// goes unraised.
+/// still surfaces — only an error isolated to a pruned-away column goes
+/// unraised. One refinement of that last clause: an absorbed predicate reads
+/// its key columns ahead of the header's order, so in a file where *several*
+/// columns each hold a parse error, the one the pushed-down read names can
+/// differ from the one an eager read names — the same several-broken-stages
+/// rule as above, inside a single scan rather than across stages.
 ///
 /// # The pipeline
 ///

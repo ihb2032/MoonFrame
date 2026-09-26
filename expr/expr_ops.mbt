@@ -460,7 +460,9 @@ pub fn Expr::fill_nan(self : Expr, value : Expr) -> Expr {
 /// (`col("a").fill_null(col("b")).fill_null(lit_int(0))`) stays linear in
 /// tree size and work — the lowering embedded `self` twice and grew
 /// exponentially with chain length. Building the node is total; errors
-/// surface when a consuming verb evaluates it.
+/// surface when a consuming verb evaluates it — and the `value` branch is
+/// evaluated even where nothing needs filling, so `fill_null(lit(Scalar::Null))`
+/// is an `Unsupported` from the null literal, not a no-op.
 pub fn Expr::fill_null(self : Expr, value : Expr) -> Expr {
   Expr::of(@ir.ExprNode::FillNull(self.node, value.node))
 }
@@ -520,10 +522,12 @@ pub fn Expr::variance(self : Expr) -> Expr {
 }
 
 ///|
-/// Median of the operand over the evaluation scope. NaN and nulls are skipped
-/// (the order-statistic counterpart of `min` / `max`), an all-missing scope
-/// reduces to null, and a non-numeric operand is `TypeMismatch`. Always a
-/// `Float` (`Int` widens), so an even count averages its two middles.
+/// Median of the operand over the evaluation scope. Nulls are skipped, and a
+/// `NaN` propagates (like `sum` / `mean`; `min` / `max` are the order
+/// statistics that skip it, and `sort` orders `NaN` as the largest value). An
+/// all-missing scope reduces to null, and a non-numeric operand is
+/// `TypeMismatch`. Always a `Float` (`Int` widens), so an even count averages
+/// its two middles.
 pub fn Expr::median(self : Expr) -> Expr {
   Expr::of(@ir.ExprNode::Agg(@series.ReduceOp::Median, self.node))
 }

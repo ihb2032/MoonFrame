@@ -106,10 +106,10 @@ pub fn Series::mean_opt(self : Series) -> Double? {
 /// replaces).
 ///
 /// - Empty / all-null → `Scalar::Null`.
-/// - `Float` NaN is skipped (treated as missing), matching `sort` and
-///   Polars' regular `min` / `max`, which ignore `NaN` — distinct from the
-///   propagating `nan_min` / `nan_max`. (This differs from `sum` / `mean`,
-///   where `NaN` propagates — exactly as in Polars.) A series of only NaN
+/// - `Float` NaN is skipped (treated as missing), as Polars' regular
+///   `min` / `max` ignore it — distinct from `sum` / `mean`, where `NaN`
+///   propagates (also as in Polars), and from `sort`, which orders `NaN`
+///   as the largest value. A series of only NaN
 ///   (and/or nulls) → `Scalar::Null`.
 /// - `Bool` order: `false < true`.
 pub fn Series::min(self : Series) -> @types.Scalar {
@@ -205,10 +205,12 @@ pub fn Series::variance(self : Series) -> Double raise @types.DataError {
 ///|
 /// Median of the non-null cells, as `Double` — the middle of the sorted values,
 /// or the mean of the two middles for an even count (Polars). Numeric only
-/// (`Int` widens to `Double`). Unlike `sum` / `mean`, a `NaN` is **skipped**
-/// (treated as missing, the order-statistic rule `sort` / `min` / `max` follow).
+/// (`Int` widens to `Double`). Like `sum` / `mean`, a `NaN` **propagates**: one
+/// `NaN` cell makes the median `NaN` (the order statistics split — `sort`
+/// orders `NaN` as the largest value, `min` / `max` skip it).
 ///
-/// - Empty / all-null / all-`NaN` series → `raise InvalidOperation(...)`.
+/// - Empty / all-null series → `raise InvalidOperation(...)`; an all-`NaN`
+///   series yields `NaN`.
 /// - Non-numeric series → `raise TypeMismatch(...)`.
 pub fn Series::median(self : Series) -> Double raise @types.DataError {
   match reduce_median(self.storage)(self.len(), k => k) {

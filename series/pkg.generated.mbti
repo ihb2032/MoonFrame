@@ -55,9 +55,6 @@ pub fn Series::to_repr(Self) -> @debug.Repr
 pub fn Series::to_scalars(Self) -> Array[@types.Scalar]
 pub fn Series::variance(Self) -> Double raise @types.DataError
 
-pub fn ReduceOp::equal(Self, Self) -> Bool
-pub fn ReduceOp::not_equal(Self, Self) -> Bool
-
 // Type aliases
 
 // Traits

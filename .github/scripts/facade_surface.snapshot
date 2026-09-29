@@ -308,8 +308,6 @@ method OnParseError::to_repr(Self) -> @debug.Repr <- io
 method ParseErrorDetail::equal(Self, Self) -> Bool <- types
 method ParseErrorDetail::not_equal(Self, Self) -> Bool <- types
 method ParseErrorDetail::to_repr(Self) -> @debug.Repr <- types
-method ReduceOp::equal(Self, Self) -> Bool <- series
-method ReduceOp::not_equal(Self, Self) -> Bool <- series
 method Scalar::as_bool(Self) -> Bool raise DataError <- types
 method Scalar::as_float(Self) -> Double raise DataError <- types
 method Scalar::as_int(Self) -> Int64 raise DataError <- types

@@ -66,8 +66,10 @@ pub fn Expr::ge(Self, Self) -> Self
 pub fn Expr::gt(Self, Self) -> Self
 pub fn Expr::is_between(Self, Self, Self, closed? : @types.ClosedInterval) -> Self
 pub fn Expr::is_finite(Self) -> Self
+pub fn Expr::is_first_distinct(Self) -> Self
 pub fn Expr::is_in(Self, Array[@types.Scalar]) -> Self
 pub fn Expr::is_infinite(Self) -> Self
+pub fn Expr::is_last_distinct(Self) -> Self
 pub fn Expr::is_nan(Self) -> Self
 pub fn Expr::is_not_nan(Self) -> Self
 pub fn Expr::is_not_null(Self) -> Self
@@ -83,6 +85,7 @@ pub fn Expr::max(Self) -> Self
 pub fn Expr::mean(Self) -> Self
 pub fn Expr::median(Self) -> Self
 pub fn Expr::min(Self) -> Self
+pub fn Expr::mode(Self) -> Self
 pub fn Expr::modulo(Self, Self) -> Self
 pub fn Expr::mul(Self, Self) -> Self
 pub fn Expr::n_unique(Self) -> Self
@@ -126,6 +129,7 @@ pub fn Expr::sub(Self, Self) -> Self
 pub fn Expr::sum(Self) -> Self
 pub fn Expr::to_repr(Self) -> @debug.Repr
 pub fn Expr::to_string(Self) -> String
+pub fn Expr::unique_counts(Self) -> Self
 pub fn Expr::variance(Self) -> Self
 pub fn Expr::with_alias(Self, String) -> Self
 pub impl Add for Expr

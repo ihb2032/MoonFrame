@@ -206,8 +206,11 @@ fn group_cell_stable(expr : @ir.ExprNode) -> Bool {
               | @series.ReduceOp::Quantile(_, _)
               // `arg_min` / `arg_max` name a *position* — the row a sinking
               // filter removes is exactly the one the arg could point at.
+              // `mode` names the multiset's most frequent value — a
+              // sinking filter changes frequencies.
               | @series.ReduceOp::ArgMin
               | @series.ReduceOp::ArgMax
+              | @series.ReduceOp::Mode
               | @series.ReduceOp::First
               | @series.ReduceOp::Last => return false
             }

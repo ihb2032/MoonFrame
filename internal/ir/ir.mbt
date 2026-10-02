@@ -237,6 +237,9 @@ pub(all) enum PositionalOp {
   Rolling(RollStat, Int, Int?, Bool)
   ForwardFill(Int?)
   BackwardFill(Int?)
+  UniqueCounts
+  IsFirstDistinct
+  IsLastDistinct
 } derive(Eq, Debug)
 
 ///|

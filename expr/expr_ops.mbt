@@ -946,3 +946,45 @@ pub fn Expr::dt_day(self : Expr) -> Expr {
 pub fn Expr::dt_day_of_week(self : Expr) -> Expr {
   self.dt_component(@ir.UnOp::DtWeekday)
 }
+
+///|
+/// How many times each cell's own value occurs in the column (Polars'
+/// `unique_counts`) — an `Int` per cell, keyed by the shared distinct
+/// normalisation (`NaN` one bucket, `-0.0` folded, a null its own bucket:
+/// a null cell reports the null count). Total over every dtype.
+pub fn Expr::unique_counts(self : Expr) -> Expr {
+  Expr::of(@ir.ExprNode::Positional(@ir.PositionalOp::UniqueCounts, self.node))
+}
+
+///|
+/// Whether each cell is its value's **first** occurrence (Polars'
+/// `is_first_distinct`) — a `Bool` per cell, the shared distinct keying, so
+/// the first null is first-distinct. The complement filter to
+/// `unique(keep=First)`: `filter(col(x).is_first_distinct())` keeps one
+/// row per distinct value in first-appearance order.
+pub fn Expr::is_first_distinct(self : Expr) -> Expr {
+  Expr::of(
+    @ir.ExprNode::Positional(@ir.PositionalOp::IsFirstDistinct, self.node),
+  )
+}
+
+///|
+/// Whether each cell is its value's **last** occurrence — the trailing
+/// mirror of `is_first_distinct` (Polars' `is_last_distinct`).
+pub fn Expr::is_last_distinct(self : Expr) -> Expr {
+  Expr::of(
+    @ir.ExprNode::Positional(@ir.PositionalOp::IsLastDistinct, self.node),
+  )
+}
+
+///|
+/// The most frequent non-null value over the evaluation scope (Polars'
+/// `mode`, the single-value spelling) — total over every dtype, nulls
+/// skipped, keeping the operand's dtype. A tie keeps the
+/// **first-appearing** value among the tied — one deterministic answer
+/// where Polars' `mode` returns every tied value as a list, a shape
+/// MoonFrame has no list dtype for. An empty / all-null scope reduces to
+/// null.
+pub fn Expr::mode(self : Expr) -> Expr {
+  Expr::of(@ir.ExprNode::Agg(@series.ReduceOp::Mode, self.node))
+}

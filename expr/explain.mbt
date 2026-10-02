@@ -288,6 +288,7 @@ fn agg_suffix(op : @series.ReduceOp) -> String {
       ".quantile(\{q}\{tag})"
     }
     NUnique => ".n_unique()"
+    Mode => ".mode()"
     ArgMin => ".arg_min()"
     ArgMax => ".arg_max()"
     First => ".first()"
@@ -344,6 +345,9 @@ fn positional_suffix(op : @ir.PositionalOp) -> String {
       let c = if center { "center" } else { "" }
       ".\{verb}(\{[ "\{window}", ms, c ].filter(x => x != "").join(", ")})"
     }
+    UniqueCounts => ".unique_counts()"
+    IsFirstDistinct => ".is_first_distinct()"
+    IsLastDistinct => ".is_last_distinct()"
     ForwardFill(limit) =>
       ".forward_fill(\{match limit { Some(k) => "\{k}"; None => "" }})"
     BackwardFill(limit) =>

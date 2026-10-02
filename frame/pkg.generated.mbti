@@ -67,6 +67,7 @@ pub fn DataFrame::rename_with(Self, (String) -> String) -> Self raise @types.Dat
 pub fn DataFrame::reverse(Self) -> Self
 pub fn DataFrame::row(Self, Int) -> Array[@types.Scalar] raise @types.DataError
 pub fn DataFrame::rows(Self) -> Array[Array[@types.Scalar]]
+pub fn DataFrame::sample(Self, Int, with_replacement? : Bool, seed? : Int) -> Self raise @types.DataError
 pub fn DataFrame::schema(Self) -> @types.Schema
 pub fn DataFrame::select(Self, Array[@expr.Expr]) -> Self raise @types.DataError
 pub fn DataFrame::shape(Self) -> (Int, Int)

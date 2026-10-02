@@ -559,3 +559,11 @@ test "show: the dt family renders its postfix calls" {
   // The builder is `dt_day_of_week`; the rendering spells the ISO term.
   inspect(col("d").dt_day_of_week(), content="col(d).dt_day_of_week()")
 }
+
+///|
+test "show: the misc family renders its postfix calls" {
+  inspect(col("v").unique_counts(), content="col(v).unique_counts()")
+  inspect(col("v").is_first_distinct(), content="col(v).is_first_distinct()")
+  inspect(col("v").is_last_distinct(), content="col(v).is_last_distinct()")
+  inspect(col("v").mode(), content="col(v).mode()")
+}

@@ -293,7 +293,15 @@ pub fn LazyFrame::pivot(
   aggregate_function? : @frame.PivotAgg,
 ) -> LazyFrame {
   {
-    plan: Unary(self.plan, Pivot(on.copy(), index, values, aggregate_function)),
+    plan: Unary(
+      self.plan,
+      Pivot(
+        on.copy(),
+        index.map(keys => keys.copy()),
+        values.map(vs => vs.copy()),
+        aggregate_function,
+      ),
+    ),
   }
 }
 

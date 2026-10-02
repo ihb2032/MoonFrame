@@ -51,6 +51,10 @@ pub fn Expr::cum_prod(Self, reverse? : Bool) -> Self
 pub fn Expr::cum_sum(Self, reverse? : Bool) -> Self
 pub fn Expr::diff(Self, n? : Int) -> Self
 pub fn Expr::div(Self, Self) -> Self
+pub fn Expr::dt_day(Self) -> Self
+pub fn Expr::dt_day_of_week(Self) -> Self
+pub fn Expr::dt_month(Self) -> Self
+pub fn Expr::dt_year(Self) -> Self
 pub fn Expr::eq(Self, Self) -> Self
 pub fn Expr::fill_nan(Self, Self) -> Self
 pub fn Expr::fill_null(Self, Self) -> Self

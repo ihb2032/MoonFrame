@@ -117,7 +117,9 @@ pub extend BinOp with Debug::{to_repr}
 /// Kleene logical negation, the null probes `IsNull` / `IsNotNull` read validity
 /// only, the NaN probes `IsNan` / `IsNotNan` test for the IEEE `NaN` value,
 /// the finiteness probes `IsFinite` / `IsInfinite` the IEEE `NaN` /
-/// infinity split (an `Int` cell is always finite, never either), and
+/// infinity split (an `Int` cell is always finite, never either), the
+/// `Dt*` quartet reads a `Date` cell's calendar components (ISO weekday,
+/// Monday 1 through Sunday 7), and
 /// `Round` carries its decimal-place count.
 pub(all) enum UnOp {
   Neg
@@ -128,6 +130,10 @@ pub(all) enum UnOp {
   IsNotNan
   IsFinite
   IsInfinite
+  DtYear
+  DtMonth
+  DtDay
+  DtWeekday
   Abs
   Floor
   Ceil

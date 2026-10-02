@@ -124,6 +124,10 @@ pub(all) enum UnOp {
   IsNotNan
   IsFinite
   IsInfinite
+  DtYear
+  DtMonth
+  DtDay
+  DtWeekday
   Abs
   Floor
   Ceil

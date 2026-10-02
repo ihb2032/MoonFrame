@@ -266,6 +266,19 @@ method Field::rename(Self, String) -> Self <- types
 method Field::to_repr(Self) -> @debug.Repr <- types
 method Field::to_string(Self) -> String <- types
 method GroupedDataFrame::agg(Self, Array[@expr.Expr]) -> DataFrame raise @types.DataError <- frame
+method GroupedDataFrame::count(Self) -> DataFrame raise @types.DataError <- frame
+method GroupedDataFrame::first(Self) -> DataFrame raise @types.DataError <- frame
+method GroupedDataFrame::last(Self) -> DataFrame raise @types.DataError <- frame
+method GroupedDataFrame::len(Self) -> DataFrame raise @types.DataError <- frame
+method GroupedDataFrame::max(Self) -> DataFrame raise @types.DataError <- frame
+method GroupedDataFrame::mean(Self) -> DataFrame raise @types.DataError <- frame
+method GroupedDataFrame::median(Self) -> DataFrame raise @types.DataError <- frame
+method GroupedDataFrame::min(Self) -> DataFrame raise @types.DataError <- frame
+method GroupedDataFrame::n_unique(Self) -> DataFrame raise @types.DataError <- frame
+method GroupedDataFrame::quantile(Self, Double, interpolation? : @series.QuantileInterpolation) -> DataFrame raise @types.DataError <- frame
+method GroupedDataFrame::std(Self) -> DataFrame raise @types.DataError <- frame
+method GroupedDataFrame::sum(Self) -> DataFrame raise @types.DataError <- frame
+method GroupedDataFrame::variance(Self) -> DataFrame raise @types.DataError <- frame
 method HtmlOptions::equal(Self, Self) -> Bool <- frame
 method HtmlOptions::not_equal(Self, Self) -> Bool <- frame
 method HtmlOptions::to_repr(Self) -> @debug.Repr <- frame
@@ -313,6 +326,19 @@ method LazyFrame::variance(Self) -> Self <- lazy
 method LazyFrame::with_columns(Self, Array[@expr.Expr]) -> Self <- lazy
 method LazyFrame::with_row_index(Self, name? : String, offset? : Int64) -> Self <- lazy
 method LazyGroupBy::agg(Self, Array[@expr.Expr]) -> LazyFrame <- lazy
+method LazyGroupBy::count(Self) -> LazyFrame <- lazy
+method LazyGroupBy::first(Self) -> LazyFrame <- lazy
+method LazyGroupBy::last(Self) -> LazyFrame <- lazy
+method LazyGroupBy::len(Self) -> LazyFrame <- lazy
+method LazyGroupBy::max(Self) -> LazyFrame <- lazy
+method LazyGroupBy::mean(Self) -> LazyFrame <- lazy
+method LazyGroupBy::median(Self) -> LazyFrame <- lazy
+method LazyGroupBy::min(Self) -> LazyFrame <- lazy
+method LazyGroupBy::n_unique(Self) -> LazyFrame <- lazy
+method LazyGroupBy::quantile(Self, Double, interpolation? : @series.QuantileInterpolation) -> LazyFrame <- lazy
+method LazyGroupBy::std(Self) -> LazyFrame <- lazy
+method LazyGroupBy::sum(Self) -> LazyFrame <- lazy
+method LazyGroupBy::variance(Self) -> LazyFrame <- lazy
 method OnParseError::equal(Self, Self) -> Bool <- io
 method OnParseError::not_equal(Self, Self) -> Bool <- io
 method OnParseError::to_repr(Self) -> @debug.Repr <- io

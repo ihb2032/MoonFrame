@@ -108,6 +108,14 @@ fn LogicalPlan::push_projection(
             work.push(Rebuild1(c => Aggregate(c, keys, exprs)))
             work.push(Visit(input, Some(needed)))
           }
+          // Barrier: the node aggregates every non-key column of whatever its
+          // input produces, and the column list exists only at collect — so
+          // nothing below it is provably droppable, and the input keeps its
+          // whole output (`None`, the `Join` sides' treatment).
+          AggregateAll(input, keys, op) => {
+            work.push(Rebuild1(c => AggregateAll(c, keys, op)))
+            work.push(Visit(input, None))
+          }
         }
       Rebuild1(f) => values.push(f(pop_top(values)))
       RebuildJoin(options) => rejoin(values, options)

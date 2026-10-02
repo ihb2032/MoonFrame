@@ -343,6 +343,119 @@ pub fn LazyGroupBy::agg(
 }
 
 ///|
+/// The convenience verbs — `LazyGroupBy::sum()` and its siblings, Polars'
+/// `GroupBy.sum()` / `.count()` / `.len()` / … — one aggregation applied to
+/// every **non-key column** of the grouped plan. A plan cannot name those
+/// columns (only the collected frame has them), so each method defers the
+/// operation *tag* in an `AggregateAll` node and `collect` resolves it
+/// against the eager `GroupedDataFrame` verb — bit-for-bit the eager
+/// `group_by(keys).<verb>()`, including its error surface (`TypeMismatch`
+/// for a non-numeric column under the numeric-only ops). The column-blind
+/// node is an optimizer barrier: nothing below it is droppable, and a
+/// filter above stays above.
+fn LazyGroupBy::agg_all(self : LazyGroupBy, op : LazyAggAll) -> LazyFrame {
+  { plan: AggregateAll(self.plan, self.keys, op), }
+}
+
+///|
+/// Defer the eager `group_by(keys).sum()`: the sum of every non-key column
+/// per group (numeric columns keep their dtype, an all-null group the
+/// additive identity).
+pub fn LazyGroupBy::sum(self : LazyGroupBy) -> LazyFrame {
+  self.agg_all(Sum)
+}
+
+///|
+/// Defer the eager `group_by(keys).mean()`: each non-key column's mean as
+/// `Float` per group.
+pub fn LazyGroupBy::mean(self : LazyGroupBy) -> LazyFrame {
+  self.agg_all(Mean)
+}
+
+///|
+/// Defer the eager `group_by(keys).median()`: each non-key column's median
+/// per group.
+pub fn LazyGroupBy::median(self : LazyGroupBy) -> LazyFrame {
+  self.agg_all(Median)
+}
+
+///|
+/// Defer the eager `group_by(keys).quantile(q, interpolation?)`: each
+/// non-key column's `q`-th quantile under `interpolation` (default
+/// `Nearest`) per group.
+pub fn LazyGroupBy::quantile(
+  self : LazyGroupBy,
+  q : Double,
+  interpolation? : @series.QuantileInterpolation = @series.QuantileInterpolation::Nearest,
+) -> LazyFrame {
+  self.agg_all(Quantile(q, interpolation))
+}
+
+///|
+/// Defer the eager `group_by(keys).std()`: each non-key column's sample
+/// standard deviation (`ddof = 1`) per group.
+pub fn LazyGroupBy::std(self : LazyGroupBy) -> LazyFrame {
+  self.agg_all(Std)
+}
+
+///|
+/// Defer the eager `group_by(keys).variance()`: the `ddof = 1` variance,
+/// `std` squared (`var` is a reserved MoonBit word).
+pub fn LazyGroupBy::variance(self : LazyGroupBy) -> LazyFrame {
+  self.agg_all(Var)
+}
+
+///|
+/// Defer the eager `group_by(keys).min()`: each non-key column's minimum
+/// per group, total over every dtype (`NaN` skipped).
+pub fn LazyGroupBy::min(self : LazyGroupBy) -> LazyFrame {
+  self.agg_all(Min)
+}
+
+///|
+/// Defer the eager `group_by(keys).max()`: the maximum counterpart of
+/// `min`.
+pub fn LazyGroupBy::max(self : LazyGroupBy) -> LazyFrame {
+  self.agg_all(Max)
+}
+
+///|
+/// Defer the eager `group_by(keys).count()`: each non-key column's non-null
+/// cell count per group (the row count regardless of nulls is `len`).
+pub fn LazyGroupBy::count(self : LazyGroupBy) -> LazyFrame {
+  self.agg_all(Count)
+}
+
+///|
+/// Defer the eager `group_by(keys).first()`: each non-key column's first
+/// cell per group, in group row order.
+pub fn LazyGroupBy::first(self : LazyGroupBy) -> LazyFrame {
+  self.agg_all(First)
+}
+
+///|
+/// Defer the eager `group_by(keys).last()`: each non-key column's last cell
+/// per group, in group row order.
+pub fn LazyGroupBy::last(self : LazyGroupBy) -> LazyFrame {
+  self.agg_all(Last)
+}
+
+///|
+/// Defer the eager `group_by(keys).n_unique()`: each non-key column's
+/// distinct non-null count per group (nulls skipped, every `NaN` one
+/// bucket).
+pub fn LazyGroupBy::n_unique(self : LazyGroupBy) -> LazyFrame {
+  self.agg_all(NUnique)
+}
+
+///|
+/// Defer the eager `group_by(keys).len()`: the single `Int` column `"len"`
+/// holding each group's row count — nulls included, dtype-blind.
+pub fn LazyGroupBy::len(self : LazyGroupBy) -> LazyFrame {
+  self.agg_all(Len)
+}
+
+///|
 /// Run the plan and materialize the result — the only point in the lazy
 /// layer that computes (or fails). The plan first passes through the
 /// total optimizer rewrites: filters sink below the

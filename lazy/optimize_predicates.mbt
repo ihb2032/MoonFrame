@@ -110,6 +110,8 @@ fn LogicalPlan::push_predicates(self : LogicalPlan) -> LogicalPlan {
       Join(_, _, options) => rejoin(values, options)
       Aggregate(_, keys, exprs) =>
         values.push(Aggregate(pop_top(values), keys, exprs))
+      AggregateAll(_, keys, op) =>
+        values.push(AggregateAll(pop_top(values), keys, op))
     }
   }
   pop_top(values)
@@ -216,10 +218,14 @@ fn LogicalPlan::place_filter(
         } else {
           descending = false
         }
-      // Every other node is a floor: the in-memory / file scans, a `Join`, and
-      // any other unary op (`Sort` / `Head` / a second `Filter` / …) a dropping
-      // filter must not cross.
-      Scan(_) | Unary(_, _) | Join(_, _, _) => descending = false
+      // Every other node is a floor: the in-memory / file scans, a `Join`,
+      // and any other unary op (`Sort` / `Head` / a second `Filter` / …) a dropping
+      // filter must not cross. An `AggregateAll` floors here too: the
+      // crossing test reads the aggregated expressions to prove a predicate's
+      // cells stable, and this node's aggregations exist only at collect —
+      // conservatively fencing is the sound reading (the node's own comment).
+      Scan(_) | Unary(_, _) | Join(_, _, _) | AggregateAll(_, _, _) =>
+        descending = false
     }
   }
   // The floor is `cur`. A file source takes the predicate *into* the read

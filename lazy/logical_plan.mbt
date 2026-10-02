@@ -24,6 +24,17 @@
 /// `LazyGroupBy` (plain builder state, no node) until `agg` completes
 /// them into a plan stage that does.
 ///
+/// `AggregateAll` is the convenience half of the same stage —
+/// `group_by(keys).sum()` and its siblings, one aggregation over **every
+/// non-key column**. A plan cannot name those columns (only the collected
+/// input frame has them), so the node carries the operation *tag*
+/// (`LazyAggAll`) and the executor resolves it against the eager
+/// `GroupedDataFrame` verb at collect — `collect ≡ eager` by construction.
+/// The price of the unresolvable column list is optimizer conservatism:
+/// the node reads everything its input produces (a projection barrier,
+/// handing its input `None`) and fences descending predicates (the crossing
+/// rules cannot see the aggregation cells a predicate would read).
+///
 /// A file source of a `Scan` leaf *reads* at collect time rather than
 /// capturing an already-built frame: it holds the format's driver — which
 /// knows the path and the options to read under — plus the push-down state
@@ -44,6 +55,7 @@ priv enum LogicalPlan {
   Unary(LogicalPlan, FrameOp)
   Join(LogicalPlan, LogicalPlan, @frame.JoinOptions)
   Aggregate(LogicalPlan, Array[@expr.Expr], Array[@expr.Expr])
+  AggregateAll(LogicalPlan, Array[@expr.Expr], LazyAggAll)
 }
 
 ///|
@@ -124,4 +136,27 @@ priv enum LazyReduceOp {
   Std
   Var
   NUnique
+}
+
+///|
+/// Which convenience aggregation an `AggregateAll` node applies to every
+/// non-key column — one per `LazyGroupBy` convenience method, each executing
+/// as the matching eager `GroupedDataFrame` verb so `collect` is bit-for-bit
+/// the eager result. Kept lazy-local for the same reason the node is: the
+/// column list it expands over exists only on the collected input frame, so
+/// the *name* of the operation is all a plan can carry.
+priv enum LazyAggAll {
+  Sum
+  Mean
+  Median
+  Quantile(Double, @series.QuantileInterpolation)
+  Std
+  Var
+  Min
+  Max
+  Count
+  First
+  Last
+  NUnique
+  Len
 }

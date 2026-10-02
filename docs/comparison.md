@@ -32,7 +32,10 @@ libraries — not a derivative work of either codebase.
   take `Expr`s on both `DataFrame` and `LazyFrame`, and so does `agg`, reached
   as `group_by(keys).agg(aggregations)` through the grouped intermediate each
   layer returns; the `sort` / `group_by` / `join` / `drop` keys are expressions
-  too.
+  too. The grouped intermediates also carry Polars' per-op conveniences —
+  `group_by(k).sum()` / `.mean()` / `.count()` / `.len()` / `.quantile(q)` /
+  … — one aggregation over every non-key column, `agg` sugar on the eager
+  side and a collect-time tag on the lazy side.
 - **Expression engine** — `col` / `lit_*`, arithmetic `+ - * /` plus
   `floor_div` / `modulo` / `pow` and the unary `abs` / `floor` / `ceil` /
   `sign` / `round`, Kleene `& |`, comparisons and the `is_in` / `is_between` /

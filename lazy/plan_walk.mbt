@@ -19,7 +19,8 @@
 fn LogicalPlan::plan_children(self : LogicalPlan) -> Array[LogicalPlan] {
   match self {
     Scan(_) => []
-    Unary(input, _) | Aggregate(input, _, _) => [input]
+    Unary(input, _) | Aggregate(input, _, _) | AggregateAll(input, _, _) =>
+      [input]
     Join(left, right, _) => [left, right]
   }
 }

@@ -41,6 +41,27 @@ fn LogicalPlan::execute(
         memo_result(memo, left).join(memo_result(memo, right), options)
       Aggregate(input, keys, exprs) =>
         memo_result(memo, input).group_by(keys).agg(exprs)
+      // The convenience half: the tag resolves against the eager verb on the
+      // collected input, so `collect` is the eager `group_by(keys).<verb>()`
+      // bit-for-bit.
+      AggregateAll(input, keys, op) => {
+        let grouped = memo_result(memo, input).group_by(keys)
+        match op {
+          Sum => grouped.sum()
+          Mean => grouped.mean()
+          Median => grouped.median()
+          Quantile(q, interpolation) => grouped.quantile(q, interpolation~)
+          Std => grouped.std()
+          Var => grouped.variance()
+          Min => grouped.min()
+          Max => grouped.max()
+          Count => grouped.count()
+          First => grouped.first()
+          Last => grouped.last()
+          NUnique => grouped.n_unique()
+          Len => grouped.len()
+        }
+      }
     }
     memo.push((node, result))
   }

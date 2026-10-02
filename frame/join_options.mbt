@@ -22,6 +22,8 @@ pub(all) enum JoinType {
   Right
   Outer
   Cross
+  Semi
+  Anti
 } derive(Eq, Debug)
 
 ///|
@@ -55,7 +57,12 @@ pub extend JoinType with Debug::{to_repr}
 ///     lists must name the same number of keys; key `i` on the left is
 ///     matched against key `i` on the right.
 ///   * `how` — `Inner` (the `on` / `left_on` default), `Left`, `Right`,
-///     `Outer`, or `Cross`.
+///     `Outer`, `Cross`, `Semi`, or `Anti`. `Semi` keeps the left rows
+///     whose key matches some right row — the left frame filtered, each
+///     surviving row once, no right columns; `Anti` the mirror, the left
+///     rows with **no** match. Both keep the left schema and left row
+///     order, and a null key cell matches nothing, so a null-keyed left
+///     row survives `Anti` and never survives `Semi`.
 ///   * `suffix` — appended to a **right** column whose name also occurs in
 ///     the left frame (default `"_right"`); the left column keeps its name.
 ///   * `coalesce` — whether each key column is merged into a single output

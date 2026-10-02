@@ -25,11 +25,13 @@ DataType | enum | Float
 DataType | enum | Int
 DataType | enum | Null
 DataType | enum | String
+JoinType | enum | Anti
 JoinType | enum | Cross
 JoinType | enum | Inner
 JoinType | enum | Left
 JoinType | enum | Outer
 JoinType | enum | Right
+JoinType | enum | Semi
 KeepStrategy | enum | First
 KeepStrategy | enum | Last
 KeepStrategy | enum | None

@@ -139,7 +139,22 @@ pub fn DataFrame::join(
   options : JoinOptions,
 ) -> DataFrame raise @types.DataError {
   let (left_rows, right_rows) = self.plan_join_rows(other, options)
-  self.assemble_join_output(other, options, left_rows, right_rows)
+  // The existence filters (`Semi` / `Anti`) plan their surviving rows in
+  // the same left-row vector and assemble the left frame alone — no right
+  // columns to gather, no coalescing, no suffix. Every planned row is
+  // `Some` (the plan pushed only matches / survivors), so the optional
+  // gather never sees a `None` — it is used purely as the left-column
+  // gather `assemble_join_output` itself runs.
+  match options.how {
+    Semi | Anti => {
+      let new_cols = self.columns.map(c => {
+        c.gather_series_opt(left_rows, c.name())
+      })
+      self.with_same_schema(new_cols, left_rows.length())
+    }
+    Inner | Left | Right | Outer | Cross =>
+      self.assemble_join_output(other, options, left_rows, right_rows)
+  }
 }
 
 ///|
@@ -159,6 +174,27 @@ fn DataFrame::plan_join_rows(
   let left_rows : Array[Int?] = []
   let right_rows : Array[Int?] = []
   match options.how {
+    Semi | Anti => {
+      // The existence filters: probe each left row's key against the right
+      // frame's index and plan the row into `left_rows` alone — kept under
+      // `Semi`, absent under `Anti` (a null left key matches nothing, so it
+      // lands in `Anti`). `right_rows` stays empty: the assembly above
+      // gathers the left frame by itself.
+      let want_match = options.how is Semi
+      let (left_key_scalars, right_key_scalars) = self.resolve_join_keys(
+        other, options,
+      )
+      let right_index = index_by_join_key(right_key_scalars, other.nrows())
+      for i in 0..<self.nrows() {
+        let matched = join_row_key(left_key_scalars, i).bind(k => {
+            right_index.get(k)
+          })
+          is Some(_)
+        if matched == want_match {
+          left_rows.push(Some(i))
+        }
+      }
+    }
     Cross => {
       // A cross join takes no keys (Polars rejects keys with `how="cross"`).
       if !options.on.is_empty() ||
@@ -219,11 +255,11 @@ fn DataFrame::plan_join_rows(
       // drops it. `Outer` additionally appends the unmatched right rows.
       let keep_unmatched_left = match options.how {
         Left | Outer => true
-        Inner | Right | Cross => false
+        Inner | Right | Cross | Semi | Anti => false
       }
       let emit_unmatched_right = match options.how {
         Outer => true
-        Inner | Left | Right | Cross => false
+        Inner | Left | Right | Cross | Semi | Anti => false
       }
       // Track which right rows were paired, so `Outer` can emit the rest.
       // Only `Outer` reads this, so `Inner` / `Left` skip both the buffer and
@@ -302,7 +338,7 @@ fn DataFrame::assemble_join_output(
     options.coalesce.unwrap_or(
       match options.how {
         Inner | Left | Right => true
-        Outer | Cross => false
+        Outer | Cross | Semi | Anti => false
       },
     )
   } else {
@@ -351,7 +387,7 @@ fn DataFrame::assemble_join_output(
       // right's signed zero, not the left's.
       let merged = match options.how {
         Right => right_key.coalesce_columns(left_key, col.name())
-        Inner | Left | Outer | Cross =>
+        Inner | Left | Outer | Cross | Semi | Anti =>
           left_key.coalesce_columns(right_key, col.name())
       }
       out_cols.push(col.preserve_backend(merged))

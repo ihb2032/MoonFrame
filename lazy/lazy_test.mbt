@@ -938,3 +938,36 @@ test "a zero-row source flows through the whole pipeline" {
   assert_eq(lazy_out.shape(), (0, 3))
   assert_eq(lazy_out.check_invariants(), Ok(()))
 }
+
+///|
+test "the directional fills and fill_nan collect to their eager equivalents" {
+  let df = sales_df()
+  assert_eq(
+    LazyFrame::LazyFrame(df).fill_null_forward().collect(),
+    df.fill_null_forward(),
+  )
+  assert_eq(
+    LazyFrame::LazyFrame(df).fill_null_forward(limit=1).collect(),
+    df.fill_null_forward(limit=1),
+  )
+  assert_eq(
+    LazyFrame::LazyFrame(df).fill_null_backward(limit=1).collect(),
+    df.fill_null_backward(limit=1),
+  )
+  assert_eq(
+    LazyFrame::LazyFrame(df).fill_null_backward().collect(),
+    df.fill_null_backward(),
+  )
+  assert_eq(LazyFrame::LazyFrame(df).fill_nan(0.0).collect(), df.fill_nan(0.0))
+  // The plan renders its own verb lines, the limit shown when set.
+  let base = LazyFrame::LazyFrame(df)
+  assert_eq(
+    base.fill_null_forward().explain(),
+    "FILL_NULL_FORWARD\n  SCAN [4×3]",
+  )
+  assert_eq(
+    base.fill_null_backward(limit=2).explain(),
+    "FILL_NULL_BACKWARD limit=2\n  SCAN [4×3]",
+  )
+  assert_eq(base.fill_nan(1.5).explain(), "FILL_NAN 1.5\n  SCAN [4×3]")
+}

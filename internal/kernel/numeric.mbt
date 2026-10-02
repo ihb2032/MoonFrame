@@ -648,3 +648,78 @@ fn nan_probe(
     }
   }
 }
+
+///|
+/// Build the nullable `Bool` cells of `is_finite` — a present `Float` cell
+/// is finite unless it is `NaN` or an infinity; a present `Int` cell always
+/// is; null cells stay null; a non-numeric operand `raise`s
+/// `TypeMismatch`. Lands on the nullable `Builtin` backend (the
+/// `eval_is_nan` shape).
+pub fn eval_is_finite(operand : Series) -> Series raise @types.DataError {
+  finite_probe(operand, true)
+}
+
+///|
+/// Build the nullable `Bool` cells of `is_infinite` — `eval_is_finite`'s
+/// polarity flipped on the infinity test alone (`NaN` is a value, neither
+/// infinite nor not-infinite-by-sign: it lands `false` here and `false`
+/// there, null stays null).
+pub fn eval_is_infinite(operand : Series) -> Series raise @types.DataError {
+  finite_probe(operand, false)
+}
+
+///|
+/// The shared finiteness-probe core behind `eval_is_finite` /
+/// `eval_is_infinite`, `nan_probe`'s mirror: `want_finite` picks the
+/// polarity, the two public entries name it.
+fn finite_probe(
+  operand : Series,
+  want_finite : Bool,
+) -> Series raise @types.DataError {
+  let cell : (Double) -> Bool = if want_finite {
+    v => !v.is_nan() && !v.is_inf()
+  } else {
+    v => v.is_inf()
+  }
+  // `Numeric` fast arm: all cells present — an `Int` cell is always
+  // finite, never infinite.
+  match operand.storage() {
+    @column.ColumnStorage::Numeric(x) =>
+      return match x.numeric_data() {
+        @column.NumericData::Int(a) =>
+          Series::from_bools(
+            operand.name(),
+            Array::makei(a.length(), _ => want_finite),
+          )
+        @column.NumericData::Float(a) =>
+          Series::from_bools(
+            operand.name(),
+            Array::makei(a.length(), i => cell(a[i])),
+          )
+      }
+    @column.ColumnStorage::Builtin(_) => ()
+  }
+  let valid = operand.validity_bools()
+  match operand.storage().data() {
+    @column.ColumnData::F64(a) =>
+      Series::from_bool_options(
+        operand.name(),
+        map_present(a.length(), valid, i => cell(a[i])),
+      )
+    @column.ColumnData::I64(a) if operand.dtype().is_numeric() =>
+      Series::from_bool_options(
+        operand.name(),
+        map_present(a.length(), valid, _ => want_finite),
+      )
+    @column.ColumnData::I64(_)
+    | @column.ColumnData::Bool(_)
+    | @column.ColumnData::Utf8(_) => {
+      let probe = if want_finite { "is_finite" } else { "is_infinite" }
+      raise @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Message(
+          "\{probe} requires a numeric operand, got \{operand.dtype()}",
+        ),
+      )
+    }
+  }
+}

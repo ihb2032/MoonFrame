@@ -227,6 +227,14 @@ fn FrameOp::write_frame_op_label(self : FrameOp, buf : StringBuilder) -> Unit {
       }
     }
     FillNull(value) => buf <+ "FILL_NULL \{@expr.format_scalar(value)}"
+    FillNullDir(backward, limit) => {
+      let dir = if backward { "BACKWARD" } else { "FORWARD" }
+      match limit {
+        Some(k) => buf <+ "FILL_NULL_\{dir} limit=\{k}"
+        None => buf <+ "FILL_NULL_\{dir}"
+      }
+    }
+    FillNan(value) => buf <+ "FILL_NAN \{value}"
     Reduce(op) =>
       match op {
         Sum => buf <+ "SUM"

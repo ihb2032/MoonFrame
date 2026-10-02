@@ -27,7 +27,10 @@ pub fn LazyFrame::count(Self) -> Self
 pub fn LazyFrame::drop(Self, Array[@expr.Expr]) -> Self
 pub fn LazyFrame::drop_nulls(Self, subset? : Array[@expr.Expr]) -> Self
 pub fn LazyFrame::explain(Self, optimized? : Bool) -> String
+pub fn LazyFrame::fill_nan(Self, Double) -> Self
 pub fn LazyFrame::fill_null(Self, @types.Scalar) -> Self
+pub fn LazyFrame::fill_null_backward(Self, limit? : Int) -> Self
+pub fn LazyFrame::fill_null_forward(Self, limit? : Int) -> Self
 pub fn LazyFrame::filter(Self, @expr.Expr) -> Self
 pub fn LazyFrame::first(Self) -> Self
 pub fn LazyFrame::gather_every(Self, Int, offset? : Int) -> Self

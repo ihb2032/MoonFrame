@@ -106,3 +106,90 @@ pub fn DataFrame::drop_nulls(
   let kept = Array::makei(self.nrows(), i => i).filter(i => masks.all(m => m[i]))
   self.gather(kept)
 }
+
+///|
+/// The shared directional-fill driver: every column of the frame filled
+/// through the positional kernel, nulls taking the nearest present value in
+/// the fill's direction (Polars' `df.fill_null(strategy='forward' /
+/// 'backward')`). Dtype-generic — each column keeps its own dtype and
+/// copies its own cells; `limit?` caps the consecutive null slots one
+/// present value may fill (`None` = unlimited), a cap below 1 raising
+/// `InvalidOperation`. Names, dtypes, and the row count are unchanged, so
+/// the same-schema rebuild applies.
+fn DataFrame::fill_null_directional(
+  self : DataFrame,
+  backward : Bool,
+  limit? : Int,
+) -> DataFrame raise @types.DataError {
+  let op : @ir.PositionalOp = if backward {
+    @ir.PositionalOp::BackwardFill(limit)
+  } else {
+    @ir.PositionalOp::ForwardFill(limit)
+  }
+  let new_cols = self.columns.map(s => {
+    // Skip a column with no nulls: filling it would rebuild an identical
+    // copy (the `fill_null` short-circuit's rule).
+    if s.null_count() == 0 {
+      s
+    } else {
+      @kernel.eval_positional(op, s)
+    }
+  })
+  self.with_same_schema(new_cols, self.nrows)
+}
+
+///|
+/// Fill every column's nulls from above — each null cell takes the nearest
+/// present value above it, a leading null run staying null; `limit?` caps
+/// the consecutive slots one value may fill (Polars'
+/// `fill_null(strategy='forward', limit)`).
+pub fn DataFrame::fill_null_forward(
+  self : DataFrame,
+  limit? : Int,
+) -> DataFrame raise @types.DataError {
+  self.fill_null_directional(false, limit?)
+}
+
+///|
+/// Fill every column's nulls from below — `fill_null_forward`'s mirror
+/// (Polars' `fill_null(strategy='backward', limit)`).
+pub fn DataFrame::fill_null_backward(
+  self : DataFrame,
+  limit? : Int,
+) -> DataFrame raise @types.DataError {
+  self.fill_null_directional(true, limit?)
+}
+
+///|
+/// Replace every `NaN` cell of the **`Float`** columns with `value`,
+/// leaving every other column verbatim (Polars' frame-wide
+/// `df.fill_nan(value)`: `NaN` is a value, not a missing cell, so only the
+/// float domain can hold one). Null cells are untouched — they are missing,
+/// not `NaN`. Names, dtypes, and the row count are unchanged.
+pub fn DataFrame::fill_nan(
+  self : DataFrame,
+  value : Double,
+) -> DataFrame raise @types.DataError {
+  let new_cols = self.columns.map(s => {
+    // Only a `Float` column can hold a `NaN`; skip one that has none.
+    if s.dtype() != @types.DataType::Float || s.null_count() == s.len() {
+      s
+    } else {
+      let cells = s
+        .to_scalars()
+        .map(c => {
+          match c {
+            @types.Scalar::Float(v) =>
+              if v.is_nan() {
+                @types.Scalar::Float(value)
+              } else {
+                c
+              }
+            other => other
+          }
+        })
+      @series.scalars_to_series(@types.DataType::Float, s.name(), cells)
+    }
+  })
+  self.with_same_schema(new_cols, self.nrows)
+}

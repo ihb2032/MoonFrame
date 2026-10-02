@@ -141,7 +141,10 @@ method DataFrame::drop(Self, Array[@expr.Expr]) -> Self raise @types.DataError <
 method DataFrame::drop_nulls(Self, subset? : Array[@expr.Expr]) -> Self raise @types.DataError <- frame
 method DataFrame::empty(@types.Schema) -> Self raise @types.DataError <- frame
 method DataFrame::equal(Self, Self) -> Bool <- frame
+method DataFrame::fill_nan(Self, Double) -> Self raise @types.DataError <- frame
 method DataFrame::fill_null(Self, @types.Scalar) -> Self raise @types.DataError <- frame
+method DataFrame::fill_null_backward(Self, limit? : Int) -> Self raise @types.DataError <- frame
+method DataFrame::fill_null_forward(Self, limit? : Int) -> Self raise @types.DataError <- frame
 method DataFrame::filter(Self, @expr.Expr) -> Self raise @types.DataError <- frame
 method DataFrame::from_rows(@types.Schema, Array[Array[@types.Scalar]]) -> Self raise @types.DataError <- frame
 method DataFrame::gather(Self, Array[Int]) -> Self raise @types.DataError <- frame
@@ -200,8 +203,10 @@ method Expr::add(Self, Self) -> Self <- expr
 method Expr::arg_max(Self) -> Self <- expr
 method Expr::arg_min(Self) -> Self <- expr
 method Expr::arg_sort(Self, descending? : Bool, nulls_last? : Bool) -> Self <- expr
+method Expr::backward_fill(Self, limit? : Int) -> Self <- expr
 method Expr::cast(Self, @types.DataType) -> Self <- expr
 method Expr::ceil(Self) -> Self <- expr
+method Expr::clip(Self, lower? : Self, upper? : Self) -> Self <- expr
 method Expr::count(Self) -> Self <- expr
 method Expr::cum_count(Self, reverse? : Bool) -> Self <- expr
 method Expr::cum_max(Self, reverse? : Bool) -> Self <- expr
@@ -216,10 +221,13 @@ method Expr::fill_null(Self, Self) -> Self <- expr
 method Expr::first(Self) -> Self <- expr
 method Expr::floor(Self) -> Self <- expr
 method Expr::floor_div(Self, Self) -> Self <- expr
+method Expr::forward_fill(Self, limit? : Int) -> Self <- expr
 method Expr::ge(Self, Self) -> Self <- expr
 method Expr::gt(Self, Self) -> Self <- expr
 method Expr::is_between(Self, Self, Self, closed? : @types.ClosedInterval) -> Self <- expr
+method Expr::is_finite(Self) -> Self <- expr
 method Expr::is_in(Self, Array[@types.Scalar]) -> Self <- expr
+method Expr::is_infinite(Self) -> Self <- expr
 method Expr::is_nan(Self) -> Self <- expr
 method Expr::is_not_nan(Self) -> Self <- expr
 method Expr::is_not_null(Self) -> Self <- expr
@@ -325,7 +333,10 @@ method LazyFrame::count(Self) -> Self <- lazy
 method LazyFrame::drop(Self, Array[@expr.Expr]) -> Self <- lazy
 method LazyFrame::drop_nulls(Self, subset? : Array[@expr.Expr]) -> Self <- lazy
 method LazyFrame::explain(Self, optimized? : Bool) -> String <- lazy
+method LazyFrame::fill_nan(Self, Double) -> Self <- lazy
 method LazyFrame::fill_null(Self, @types.Scalar) -> Self <- lazy
+method LazyFrame::fill_null_backward(Self, limit? : Int) -> Self <- lazy
+method LazyFrame::fill_null_forward(Self, limit? : Int) -> Self <- lazy
 method LazyFrame::filter(Self, @expr.Expr) -> Self <- lazy
 method LazyFrame::first(Self) -> Self <- lazy
 method LazyFrame::gather_every(Self, Int, offset? : Int) -> Self <- lazy

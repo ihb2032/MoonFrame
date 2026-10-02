@@ -39,8 +39,10 @@ pub fn Expr::add(Self, Self) -> Self
 pub fn Expr::arg_max(Self) -> Self
 pub fn Expr::arg_min(Self) -> Self
 pub fn Expr::arg_sort(Self, descending? : Bool, nulls_last? : Bool) -> Self
+pub fn Expr::backward_fill(Self, limit? : Int) -> Self
 pub fn Expr::cast(Self, @types.DataType) -> Self
 pub fn Expr::ceil(Self) -> Self
+pub fn Expr::clip(Self, lower? : Self, upper? : Self) -> Self
 pub fn Expr::count(Self) -> Self
 pub fn Expr::cum_count(Self, reverse? : Bool) -> Self
 pub fn Expr::cum_max(Self, reverse? : Bool) -> Self
@@ -55,10 +57,13 @@ pub fn Expr::fill_null(Self, Self) -> Self
 pub fn Expr::first(Self) -> Self
 pub fn Expr::floor(Self) -> Self
 pub fn Expr::floor_div(Self, Self) -> Self
+pub fn Expr::forward_fill(Self, limit? : Int) -> Self
 pub fn Expr::ge(Self, Self) -> Self
 pub fn Expr::gt(Self, Self) -> Self
 pub fn Expr::is_between(Self, Self, Self, closed? : @types.ClosedInterval) -> Self
+pub fn Expr::is_finite(Self) -> Self
 pub fn Expr::is_in(Self, Array[@types.Scalar]) -> Self
+pub fn Expr::is_infinite(Self) -> Self
 pub fn Expr::is_nan(Self) -> Self
 pub fn Expr::is_not_nan(Self) -> Self
 pub fn Expr::is_not_null(Self) -> Self

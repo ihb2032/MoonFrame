@@ -39,7 +39,9 @@ libraries — not a derivative work of either codebase.
 - **Expression engine** — `col` / `lit_*`, arithmetic `+ - * /` plus
   `floor_div` / `modulo` / `pow` and the unary `abs` / `floor` / `ceil` /
   `sign` / `round`, Kleene `& |`, comparisons and the `is_in` / `is_between` /
-  `is_null` / `is_nan` predicates, `when / then / otherwise`, the aggregations
+  `is_null` / `is_nan` / `is_finite` / `is_infinite` predicates, `when / then /
+  otherwise`, `clip`, the `forward_fill` / `backward_fill` directional
+  fills, the aggregations
   (`sum` / `mean` / `min` / `max` / `count` / `std` / `variance` /
   `median` / `quantile` / `n_unique` / `first` / `last`), a `str_*` namespace with both
   literal and regex matching (`str_contains` / `str_replace` / `str_replace_all`

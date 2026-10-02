@@ -31,7 +31,11 @@ pub fn eval_floor_div(@series.Series, @series.Series) -> @series.Series raise @t
 
 pub fn eval_is_between(@series.Series, @series.Series, @series.Series, @types.ClosedInterval) -> @series.Series raise @types.DataError
 
+pub fn eval_is_finite(@series.Series) -> @series.Series raise @types.DataError
+
 pub fn eval_is_in(@series.Series, ArrayView[@types.Scalar]) -> @series.Series raise @types.DataError
+
+pub fn eval_is_infinite(@series.Series) -> @series.Series raise @types.DataError
 
 pub fn eval_is_nan(@series.Series) -> @series.Series raise @types.DataError
 

@@ -116,6 +116,8 @@ priv enum FrameOp {
   WithRowIndex(String, Int64)
   DropNulls(Array[@expr.Expr]?)
   FillNull(@types.Scalar)
+  FillNullDir(Bool, Int?)
+  FillNan(Double)
   Reduce(LazyReduceOp)
 }
 

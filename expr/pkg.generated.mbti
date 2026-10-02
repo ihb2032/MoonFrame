@@ -36,9 +36,18 @@ pub struct Expr {
 }
 pub fn Expr::abs(Self) -> Self
 pub fn Expr::add(Self, Self) -> Self
+pub fn Expr::arg_max(Self) -> Self
+pub fn Expr::arg_min(Self) -> Self
+pub fn Expr::arg_sort(Self, descending? : Bool, nulls_last? : Bool) -> Self
 pub fn Expr::cast(Self, @types.DataType) -> Self
 pub fn Expr::ceil(Self) -> Self
 pub fn Expr::count(Self) -> Self
+pub fn Expr::cum_count(Self, reverse? : Bool) -> Self
+pub fn Expr::cum_max(Self, reverse? : Bool) -> Self
+pub fn Expr::cum_min(Self, reverse? : Bool) -> Self
+pub fn Expr::cum_prod(Self, reverse? : Bool) -> Self
+pub fn Expr::cum_sum(Self, reverse? : Bool) -> Self
+pub fn Expr::diff(Self, n? : Int) -> Self
 pub fn Expr::div(Self, Self) -> Self
 pub fn Expr::eq(Self, Self) -> Self
 pub fn Expr::fill_nan(Self, Self) -> Self
@@ -74,7 +83,9 @@ pub fn Expr::not(Self) -> Self
 pub fn Expr::output(Self, &Logger) -> Unit
 pub fn Expr::pow(Self, Self) -> Self
 pub fn Expr::quantile(Self, Double, interpolation? : @series.QuantileInterpolation) -> Self
+pub fn Expr::rank(Self, how? : @types.RankMethod, descending? : Bool) -> Self
 pub fn Expr::round(Self, decimals? : Int) -> Self
+pub fn Expr::shift(Self, Int, fill_value? : @types.Scalar) -> Self
 pub fn Expr::sign(Self) -> Self
 pub fn Expr::std(Self) -> Self
 pub fn Expr::str_contains(Self, String, literal? : Bool) -> Self

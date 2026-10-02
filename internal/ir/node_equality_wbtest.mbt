@@ -18,7 +18,7 @@
 /// this count is what the one-rep-per-variant list is measured against. A new
 /// variant's `variant_tag` arm compiles only in this whitebox module, so the pinned count
 /// is the second thing its addition trips.
-const VARIANT_COUNT : Int = 16
+const VARIANT_COUNT : Int = 17
 
 ///|
 /// A distinct tag per `ExprNode` variant, in declaration order — exhaustive and
@@ -34,6 +34,7 @@ fn variant_tag(node : ExprNode) -> Int {
     Unary(_, _) => 4
     Agg(_, _) => 5
     Str(_, _) => 6
+    Positional(_, _) => 16
     Cast(_, _) => 7
     Alias(_, _) => 8
     Ternary(_, _, _) => 9
@@ -73,6 +74,7 @@ test "equality: each variant is unequal to every other variant" {
     ),
     Map("m", [a], vs => vs[0]),
     MapBatches("mb", [a], false, s => s[0]),
+    Positional(PositionalOp::CumSum(false), a),
   ]
   // The reps carry one of every variant, in tag order with no gap — a
   // duplicated, misordered, or interior-omitted rep is caught by the sequence

@@ -112,6 +112,7 @@ fn projection_source(expr : @ir.ExprNode) -> String? {
     | @ir.ExprNode::Unary(_, _)
     | @ir.ExprNode::Agg(_, _)
     | @ir.ExprNode::Str(_, _)
+    | @ir.ExprNode::Positional(_, _)
     | @ir.ExprNode::Cast(_, _)
     | @ir.ExprNode::Ternary(_, _, _)
     | @ir.ExprNode::FillNull(_, _)

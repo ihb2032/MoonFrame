@@ -197,9 +197,18 @@ method DataType::to_repr(Self) -> @debug.Repr <- types
 method DataType::to_string(Self) -> String <- types
 method Expr::abs(Self) -> Self <- expr
 method Expr::add(Self, Self) -> Self <- expr
+method Expr::arg_max(Self) -> Self <- expr
+method Expr::arg_min(Self) -> Self <- expr
+method Expr::arg_sort(Self, descending? : Bool, nulls_last? : Bool) -> Self <- expr
 method Expr::cast(Self, @types.DataType) -> Self <- expr
 method Expr::ceil(Self) -> Self <- expr
 method Expr::count(Self) -> Self <- expr
+method Expr::cum_count(Self, reverse? : Bool) -> Self <- expr
+method Expr::cum_max(Self, reverse? : Bool) -> Self <- expr
+method Expr::cum_min(Self, reverse? : Bool) -> Self <- expr
+method Expr::cum_prod(Self, reverse? : Bool) -> Self <- expr
+method Expr::cum_sum(Self, reverse? : Bool) -> Self <- expr
+method Expr::diff(Self, n? : Int) -> Self <- expr
 method Expr::div(Self, Self) -> Self <- expr
 method Expr::eq(Self, Self) -> Self <- expr
 method Expr::fill_nan(Self, Self) -> Self <- expr
@@ -235,7 +244,9 @@ method Expr::not(Self) -> Self <- expr
 method Expr::output(Self, &Logger) -> Unit <- expr
 method Expr::pow(Self, Self) -> Self <- expr
 method Expr::quantile(Self, Double, interpolation? : @series.QuantileInterpolation) -> Self <- expr
+method Expr::rank(Self, how? : @types.RankMethod, descending? : Bool) -> Self <- expr
 method Expr::round(Self, decimals? : Int) -> Self <- expr
+method Expr::shift(Self, Int, fill_value? : @types.Scalar) -> Self <- expr
 method Expr::sign(Self) -> Self <- expr
 method Expr::std(Self) -> Self <- expr
 method Expr::str_contains(Self, String, literal? : Bool) -> Self <- expr
@@ -359,6 +370,9 @@ method ParseErrorDetail::to_repr(Self) -> @debug.Repr <- types
 method QuantileInterpolation::equal(Self, Self) -> Bool <- series
 method QuantileInterpolation::not_equal(Self, Self) -> Bool <- series
 method QuantileInterpolation::to_repr(Self) -> @debug.Repr <- series
+method RankMethod::equal(Self, Self) -> Bool <- types
+method RankMethod::not_equal(Self, Self) -> Bool <- types
+method RankMethod::to_repr(Self) -> @debug.Repr <- types
 method Scalar::as_bool(Self) -> Bool raise DataError <- types
 method Scalar::as_float(Self) -> Double raise DataError <- types
 method Scalar::as_int(Self) -> Int64 raise DataError <- types
@@ -451,6 +465,7 @@ type LazyFrame <- lazy
 type OnParseError <- io
 type ParseErrorDetail <- types
 type QuantileInterpolation <- series
+type RankMethod <- types
 type Scalar <- types
 type Schema <- types
 type Series <- series

@@ -42,6 +42,7 @@ pub(all) enum ExprNode {
   Unary(UnOp, ExprNode)
   Agg(@series.ReduceOp, ExprNode)
   Str(StrOp, ExprNode)
+  Positional(PositionalOp, ExprNode)
   Cast(ExprNode, @types.DataType)
   Alias(ExprNode, String)
   Ternary(ExprNode, ExprNode, ExprNode)
@@ -55,6 +56,20 @@ pub(all) enum ExprNode {
 pub fn ExprNode::children(Self) -> Array[Self]
 pub fn ExprNode::output_name(Self) -> String
 pub fn ExprNode::referenced_columns(Self) -> @set.Set[String]
+
+pub(all) enum PositionalOp {
+  Shift(Int, @types.Scalar)
+  CumSum(Bool)
+  CumMin(Bool)
+  CumMax(Bool)
+  CumProd(Bool)
+  CumCount(Bool)
+  Rank(@types.RankMethod, Bool)
+  ArgSort(Bool, Bool)
+} derive(Eq, @debug.Debug)
+pub fn PositionalOp::equal(Self, Self) -> Bool
+pub fn PositionalOp::not_equal(Self, Self) -> Bool
+pub fn PositionalOp::to_repr(Self) -> @debug.Repr
 
 pub(all) enum StrOp {
   ToUppercase

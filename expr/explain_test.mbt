@@ -136,8 +136,60 @@ test "show: every aggregation suffix" {
     content="col(v).quantile(0.9, higher)",
   )
   inspect(col("v").n_unique(), content="col(v).n_unique()")
+  inspect(col("v").arg_min(), content="col(v).arg_min()")
+  inspect(col("v").arg_max(), content="col(v).arg_max()")
   inspect(col("v").first(), content="col(v).first()")
   inspect(col("v").last(), content="col(v).last()")
+}
+
+///|
+/// The positional suffixes: every verb's default spelling plus each
+/// non-default argument, so the suffix table is pinned arm by arm.
+test "show: the positional family renders its postfix calls" {
+  // shift — the n always, the fill only when it is not the null gap.
+  inspect(col("v").shift(1), content="col(v).shift(1)")
+  inspect(
+    col("v").shift(2, fill_value=@types.Scalar::Int(0)),
+    content="col(v).shift(2, fill=0)",
+  )
+  // The five cumulative verbs; `reverse` shown only when set.
+  inspect(col("v").cum_sum(), content="col(v).cum_sum()")
+  inspect(col("v").cum_min(), content="col(v).cum_min()")
+  inspect(col("v").cum_max(), content="col(v).cum_max()")
+  inspect(col("v").cum_prod(), content="col(v).cum_prod()")
+  inspect(col("v").cum_count(), content="col(v).cum_count()")
+  inspect(col("v").cum_sum(reverse=true), content="col(v).cum_sum(reverse)")
+  // rank — `Average` / ascending defaults omitted, every other method and
+  // the direction shown.
+  inspect(col("v").rank(), content="col(v).rank()")
+  inspect(col("v").rank(how=@types.RankMethod::Min), content="col(v).rank(min)")
+  inspect(col("v").rank(how=@types.RankMethod::Max), content="col(v).rank(max)")
+  inspect(
+    col("v").rank(how=@types.RankMethod::Dense),
+    content="col(v).rank(dense)",
+  )
+  inspect(
+    col("v").rank(how=@types.RankMethod::Ordinal),
+    content="col(v).rank(ordinal)",
+  )
+  inspect(
+    col("v").rank(how=@types.RankMethod::Min, descending=true),
+    content="col(v).rank(min, descending)",
+  )
+  // arg_sort — both flags default-omitted.
+  inspect(col("v").arg_sort(), content="col(v).arg_sort()")
+  inspect(
+    col("v").arg_sort(descending=true),
+    content="col(v).arg_sort(descending)",
+  )
+  inspect(
+    col("v").arg_sort(nulls_last=true),
+    content="col(v).arg_sort(nulls_last)",
+  )
+  inspect(
+    col("v").arg_sort(descending=true, nulls_last=true),
+    content="col(v).arg_sort(descending, nulls_last)",
+  )
 }
 
 ///|

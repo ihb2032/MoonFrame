@@ -88,6 +88,17 @@ pub fn ParseErrorDetail::equal(Self, Self) -> Bool
 pub fn ParseErrorDetail::not_equal(Self, Self) -> Bool
 pub fn ParseErrorDetail::to_repr(Self) -> @debug.Repr
 
+pub(all) enum RankMethod {
+  Average
+  Min
+  Max
+  Dense
+  Ordinal
+} derive(Eq, @debug.Debug)
+pub fn RankMethod::equal(Self, Self) -> Bool
+pub fn RankMethod::not_equal(Self, Self) -> Bool
+pub fn RankMethod::to_repr(Self) -> @debug.Repr
+
 pub(all) enum Scalar {
   Int(Int64)
   Float(Double)

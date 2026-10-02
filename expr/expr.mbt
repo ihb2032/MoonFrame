@@ -41,6 +41,9 @@
 ///   / `.ceil()` / `.sign()` / `.round()`;
 /// - `Agg` — `.sum()` / `.mean()` / … reductions;
 /// - `Str` — the `.str_*` namespace;
+/// - `Positional` — the history-dependent transforms (`.shift(n)` /
+///   `.diff(n)`, the `.cum_*` running aggregates, `.rank(how~)`,
+///   `.arg_sort()`), whose cell reads its neighbours;
 /// - `Cast` — `.cast(dtype)`; `Alias` — `.with_alias(name)`;
 /// - `Ternary` — `when(c).then(a).otherwise(b)`;
 /// - `FillNull` / `FillNan` — `.fill_null(v)` / `.fill_nan(v)`, dedicated nodes

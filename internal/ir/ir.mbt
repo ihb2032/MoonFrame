@@ -27,6 +27,7 @@ pub(all) enum ExprNode {
   Unary(UnOp, ExprNode)
   Agg(@series.ReduceOp, ExprNode)
   Str(StrOp, ExprNode)
+  Positional(PositionalOp, ExprNode)
   Cast(ExprNode, @types.DataType)
   Alias(ExprNode, String)
   Ternary(ExprNode, ExprNode, ExprNode)
@@ -69,7 +70,12 @@ pub fn ExprNode::children(self : ExprNode) -> Array[ExprNode] {
   match self {
     Col(_) | Lit(_) | LitSeries(_) => []
     Binary(_, l, r) => [l, r]
-    Unary(_, e) | Agg(_, e) | Str(_, e) | Cast(e, _) | Alias(e, _) => [e]
+    Unary(_, e)
+    | Agg(_, e)
+    | Str(_, e)
+    | Positional(_, e)
+    | Cast(e, _)
+    | Alias(e, _) => [e]
     Ternary(c, t, f) => [c, t, f]
     FillNull(o, v) | FillNan(o, v) => [o, v]
     IsIn(e, _) => [e]
@@ -168,6 +174,35 @@ pub(all) enum StrOp {
 
 ///|
 pub extend StrOp with Eq::{equal, not_equal}
+
+///|
+/// Positional operator tag carried by `Positional` — the history-dependent
+/// transforms whose cell at row `i` reads the operand's cells at other rows:
+/// `Shift(n, fill)` moves values by `n` (positive `n` = SQL `LAG` — a value
+/// lands `n` rows below — vacated slots taking `fill`, `Null` for a plain
+/// gap); the `Cum*` family accumulates with the `Bool` flag naming
+/// `reverse` (a null slot keeps its null, the running aggregate skips it);
+/// `Rank(method, descending)` numbers the non-null cells per
+/// `@types.RankMethod`; `ArgSort(descending, nulls_last)` emits the stable
+/// permutation that would sort the operand. Every member keeps the
+/// operand's dtype except `CumCount` / `Rank` non-`Average` / `ArgSort`
+/// (`Int`) and `Rank(Average)` (`Float`).
+pub(all) enum PositionalOp {
+  Shift(Int, @types.Scalar)
+  CumSum(Bool)
+  CumMin(Bool)
+  CumMax(Bool)
+  CumProd(Bool)
+  CumCount(Bool)
+  Rank(@types.RankMethod, Bool)
+  ArgSort(Bool, Bool)
+} derive(Eq, Debug)
+
+///|
+pub extend PositionalOp with Eq::{equal, not_equal}
+
+///|
+pub extend PositionalOp with Debug::{to_repr}
 
 ///|
 pub extend StrOp with Debug::{to_repr}

@@ -115,6 +115,13 @@ fn apply_frame_op(
         Some(l) => df.slice(offset, length=l)
         None => df.slice(offset)
       }
+    GatherEvery(n, offset) => df.gather_every(n, offset~)
+    // The ranking selections are single nodes rather than sort+head
+    // compositions so the eager verb's argument validation (`k >= 0`, a
+    // non-empty `by`) surfaces at collect with the eager error, not a
+    // silently-clamped window.
+    TopK(k, by, reverse) => df.top_k(k, by~, reverse~)
+    BottomK(k, by, reverse) => df.bottom_k(k, by~, reverse~)
     Drop(exprs) => df.drop(exprs)
     Rename(pairs) => df.rename(pairs)
     RenameWith(f) => df.rename_with(f)

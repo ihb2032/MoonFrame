@@ -123,14 +123,48 @@ pub fn DataFrame::slice(
   offset : Int,
   length? : Int,
 ) -> DataFrame {
-  let start = @order.slice_start(offset, self.nrows)
-  let len = @order.slice_len(start, self.nrows, length)
+  let start = @order.slice_start(offset, self.nrows())
+  let len = @order.slice_len(start, self.nrows(), length)
   // `0 <= start` and `start + len <= nrows == c.len()` by construction, so
-  // the contiguous slice is in-bounds and needs no bounds-checking `Result`.
+  // the contiguous slice is in-bounds and needs no bounds-checked `Result`.
   let new_cols : Array[Series] = self.columns.map(c => {
     c.slice_series(start, len)
   })
   self.with_same_schema(new_cols, len)
+}
+
+///|
+/// Every `n`-th row starting at `offset` (Polars' `gather_every(n, offset)`):
+/// rows `offset`, `offset + n`, `offset + 2n`, … — a strided gather that
+/// keeps the schema and the stride order. `offset` past the row count is the
+/// empty frame. Unlike the neighbouring window verbs this is **not** total:
+/// `n < 1` has no reading (a stride of zero would loop forever, a negative
+/// one walks backwards), so it `raise`s `InvalidOperation`, and so does a
+/// negative `offset` (the slice verbs own the count-from-the-end reading;
+/// a stride start does not take one).
+pub fn DataFrame::gather_every(
+  self : DataFrame,
+  n : Int,
+  offset? : Int = 0,
+) -> DataFrame raise @types.DataError {
+  if n < 1 {
+    raise @types.DataError::InvalidOperation("gather_every needs n >= 1")
+  }
+  if offset < 0 {
+    raise @types.DataError::InvalidOperation(
+      "gather_every offset must be non-negative",
+    )
+  }
+  let total = self.nrows()
+  // Clamp the start to the frame: an offset at or past the end gathers
+  // nothing, and the empty-index `gather` below already carries that shape.
+  let mut i = if offset > total { total } else { offset }
+  let indices : Array[Int] = []
+  while i < total {
+    indices.push(i)
+    i += n
+  }
+  self.gather(indices)
 }
 
 ///|

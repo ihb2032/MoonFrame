@@ -106,6 +106,61 @@ pub fn LazyFrame::slice(
 }
 
 ///|
+/// Defer `DataFrame::gather_every`: every `n`-th row from `offset`. The
+/// stride validation (`n >= 1`, a non-negative `offset`) surfaces as the
+/// eager error at collect, keeping the two layers' failures identical.
+pub fn LazyFrame::gather_every(
+  self : LazyFrame,
+  n : Int,
+  offset? : Int = 0,
+) -> LazyFrame {
+  { plan: Unary(self.plan, GatherEvery(n, offset)), }
+}
+
+///|
+/// Defer the first row as a 1-row frame (Polars' lazy-only `lf.first()` —
+/// the eager face reaches the same rows through `head(1)`). A 0-row input
+/// collects to the 0-row frame: the `slice` window simply closes.
+pub fn LazyFrame::first(self : LazyFrame) -> LazyFrame {
+  { plan: Unary(self.plan, Slice(0, Some(1))), }
+}
+
+///|
+/// Defer the last row as a 1-row frame (Polars' lazy-only `lf.last()`):
+/// the window from one past-the-end — a negative offset counts from the end
+/// — so a 0-row input collects to the 0-row frame.
+pub fn LazyFrame::last(self : LazyFrame) -> LazyFrame {
+  { plan: Unary(self.plan, Slice(-1, None)), }
+}
+
+///|
+/// Defer `DataFrame::top_k`: the `k` rows largest under `by`, `reverse~`
+/// flipping the end. One node, not a sort+head composition, so the eager
+/// verb's argument validation (`k >= 0`, a non-empty `by`) surfaces at
+/// collect with the eager error.
+pub fn LazyFrame::top_k(
+  self : LazyFrame,
+  k : Int,
+  by~ : Array[@expr.Expr],
+  reverse? : Bool = false,
+) -> LazyFrame {
+  { plan: Unary(self.plan, TopK(k, by.copy(), reverse)), }
+}
+
+///|
+/// Defer `DataFrame::bottom_k`: the `k` rows smallest under `by`, `reverse~`
+/// flipping the end — `top_k`'s mirror with its own node for the same
+/// collect-time-validation reason.
+pub fn LazyFrame::bottom_k(
+  self : LazyFrame,
+  k : Int,
+  by~ : Array[@expr.Expr],
+  reverse? : Bool = false,
+) -> LazyFrame {
+  { plan: Unary(self.plan, BottomK(k, by.copy(), reverse)), }
+}
+
+///|
 /// Defer `DataFrame::drop`: remove the columns named by `exprs` (bare `col`
 /// references), keeping every other column. A name absent from the frame, or a
 /// non-`col` expression, surfaces as the eager `drop`'s error at collect time.

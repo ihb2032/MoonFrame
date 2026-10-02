@@ -127,6 +127,7 @@ method DataError::not_equal(Self, Self) -> Bool <- types
 method DataError::output(Self, &Logger) -> Unit <- types
 method DataError::to_repr(Self) -> @debug.Repr <- types
 method DataError::to_string(Self) -> String <- types
+method DataFrame::bottom_k(Self, Int, by~ : Array[@expr.Expr], reverse? : Bool) -> Self raise @types.DataError <- frame
 method DataFrame::cols_contains(Self, String) -> Array[@expr.Expr] <- frame
 method DataFrame::cols_ends_with(Self, String) -> Array[@expr.Expr] <- frame
 method DataFrame::cols_matching(Self, String) -> Array[@expr.Expr] raise @types.DataError <- frame
@@ -144,11 +145,14 @@ method DataFrame::fill_null(Self, @types.Scalar) -> Self raise @types.DataError 
 method DataFrame::filter(Self, @expr.Expr) -> Self raise @types.DataError <- frame
 method DataFrame::from_rows(@types.Schema, Array[Array[@types.Scalar]]) -> Self raise @types.DataError <- frame
 method DataFrame::gather(Self, Array[Int]) -> Self raise @types.DataError <- frame
+method DataFrame::gather_every(Self, Int, offset? : Int) -> Self raise @types.DataError <- frame
 method DataFrame::get_column(Self, String) -> @series.Series raise @types.DataError <- frame
 method DataFrame::get_column_at(Self, Int) -> @series.Series raise @types.DataError <- frame
 method DataFrame::group_by(Self, Array[@expr.Expr]) -> GroupedDataFrame raise @types.DataError <- frame
 method DataFrame::head(Self, Int) -> Self <- frame
+method DataFrame::is_duplicated(Self) -> @series.Series <- frame
 method DataFrame::is_empty(Self) -> Bool <- frame
+method DataFrame::is_unique(Self) -> @series.Series <- frame
 method DataFrame::item(Self, Int, String) -> @types.Scalar raise @types.DataError <- frame
 method DataFrame::join(Self, Self, JoinOptions) -> Self raise @types.DataError <- frame
 method DataFrame::max(Self) -> Self raise @types.DataError <- frame
@@ -179,8 +183,10 @@ method DataFrame::tail(Self, Int) -> Self <- frame
 method DataFrame::to_html(Self, options? : HtmlOptions) -> String <- frame
 method DataFrame::to_markdown(Self, max_rows? : Int) -> String <- frame
 method DataFrame::to_repr(Self) -> @debug.Repr <- frame
+method DataFrame::top_k(Self, Int, by~ : Array[@expr.Expr], reverse? : Bool) -> Self raise @types.DataError <- frame
 method DataFrame::unique(Self, subset? : Array[@expr.Expr], keep? : KeepStrategy) -> Self raise @types.DataError <- frame
 method DataFrame::variance(Self) -> Self raise @types.DataError <- frame
+method DataFrame::vstack(Self, Self) -> Self raise @types.DataError <- frame
 method DataFrame::with_columns(Self, Array[@expr.Expr]) -> Self raise @types.DataError <- frame
 method DataFrame::with_row_index(Self, name? : String, offset? : Int64) -> Self raise @types.DataError <- frame
 method DataType::equal(Self, Self) -> Bool <- types
@@ -295,6 +301,7 @@ method JoinType::to_repr(Self) -> @debug.Repr <- frame
 method KeepStrategy::equal(Self, Self) -> Bool <- frame
 method KeepStrategy::not_equal(Self, Self) -> Bool <- frame
 method KeepStrategy::to_repr(Self) -> @debug.Repr <- frame
+method LazyFrame::bottom_k(Self, Int, by~ : Array[@expr.Expr], reverse? : Bool) -> Self <- lazy
 method LazyFrame::collect(Self) -> @frame.DataFrame raise @types.DataError <- lazy
 method LazyFrame::count(Self) -> Self <- lazy
 method LazyFrame::drop(Self, Array[@expr.Expr]) -> Self <- lazy
@@ -302,9 +309,12 @@ method LazyFrame::drop_nulls(Self, subset? : Array[@expr.Expr]) -> Self <- lazy
 method LazyFrame::explain(Self, optimized? : Bool) -> String <- lazy
 method LazyFrame::fill_null(Self, @types.Scalar) -> Self <- lazy
 method LazyFrame::filter(Self, @expr.Expr) -> Self <- lazy
+method LazyFrame::first(Self) -> Self <- lazy
+method LazyFrame::gather_every(Self, Int, offset? : Int) -> Self <- lazy
 method LazyFrame::group_by(Self, Array[@expr.Expr]) -> LazyGroupBy <- lazy
 method LazyFrame::head(Self, Int) -> Self <- lazy
 method LazyFrame::join(Self, Self, @frame.JoinOptions) -> Self <- lazy
+method LazyFrame::last(Self) -> Self <- lazy
 method LazyFrame::max(Self) -> Self <- lazy
 method LazyFrame::mean(Self) -> Self <- lazy
 method LazyFrame::median(Self) -> Self <- lazy
@@ -321,6 +331,7 @@ method LazyFrame::sort(Self, Array[(@expr.Expr, Bool, Bool)]) -> Self <- lazy
 method LazyFrame::std(Self) -> Self <- lazy
 method LazyFrame::sum(Self) -> Self <- lazy
 method LazyFrame::tail(Self, Int) -> Self <- lazy
+method LazyFrame::top_k(Self, Int, by~ : Array[@expr.Expr], reverse? : Bool) -> Self <- lazy
 method LazyFrame::unique(Self, subset? : Array[@expr.Expr], keep? : @frame.KeepStrategy) -> Self <- lazy
 method LazyFrame::variance(Self) -> Self <- lazy
 method LazyFrame::with_columns(Self, Array[@expr.Expr]) -> Self <- lazy

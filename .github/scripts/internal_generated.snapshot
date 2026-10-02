@@ -17,6 +17,9 @@ internal/ir/BinOp::to_repr
 internal/ir/PositionalOp::equal
 internal/ir/PositionalOp::not_equal
 internal/ir/PositionalOp::to_repr
+internal/ir/RollStat::equal
+internal/ir/RollStat::not_equal
+internal/ir/RollStat::to_repr
 internal/ir/StrOp::equal
 internal/ir/StrOp::not_equal
 internal/ir/StrOp::to_repr

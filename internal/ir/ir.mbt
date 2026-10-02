@@ -176,6 +176,27 @@ pub(all) enum StrOp {
 pub extend StrOp with Eq::{equal, not_equal}
 
 ///|
+/// Which statistic a `Rolling` window computes — the seven core members of
+/// Polars' rolling family (`rolling_sum` / `mean` / `min` / `max` / `std` /
+/// `var` / `median`). Named by no public signature — the builders spell the
+/// verb, the tag carries it — so it stays inside the AST package.
+pub(all) enum RollStat {
+  Sum
+  Mean
+  Min
+  Max
+  Std
+  Var
+  Median
+} derive(Eq, Debug)
+
+///|
+pub extend RollStat with Eq::{equal, not_equal}
+
+///|
+pub extend RollStat with Debug::{to_repr}
+
+///|
 /// Positional operator tag carried by `Positional` — the history-dependent
 /// transforms whose cell at row `i` reads the operand's cells at other rows:
 /// `Shift(n, fill)` moves values by `n` (positive `n` = SQL `LAG` — a value
@@ -187,6 +208,13 @@ pub extend StrOp with Eq::{equal, not_equal}
 /// permutation that would sort the operand. Every member keeps the
 /// operand's dtype except `CumCount` / `Rank` non-`Average` / `ArgSort`
 /// (`Int`) and `Rank(Average)` (`Float`).
+///
+/// `Rolling(stat, window, min_samples, center)` is the windowed half: the
+/// `stat` over a `window`-wide trailing window (centred under `center`,
+/// the label at the middle with `floor(window/2)` elements before it),
+/// computed only where the window holds at least `min_samples` non-null
+/// cells (`None` = every cell, Polars' default). Numeric only; `Sum` /
+/// `Min` / `Max` keep the operand dtype, the rest are `Float`.
 pub(all) enum PositionalOp {
   Shift(Int, @types.Scalar)
   CumSum(Bool)
@@ -196,6 +224,7 @@ pub(all) enum PositionalOp {
   CumCount(Bool)
   Rank(@types.RankMethod, Bool)
   ArgSort(Bool, Bool)
+  Rolling(RollStat, Int, Int?, Bool)
 } derive(Eq, Debug)
 
 ///|

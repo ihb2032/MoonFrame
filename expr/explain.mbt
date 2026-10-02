@@ -321,6 +321,23 @@ fn positional_suffix(op : @ir.PositionalOp) -> String {
       let nl = if nulls_last { "nulls_last" } else { "" }
       ".arg_sort(\{[d, nl].filter(x => x != "").join(", ")})"
     }
+    Rolling(stat, window, min_samples, center) => {
+      let verb = match stat {
+        Sum => "rolling_sum"
+        Mean => "rolling_mean"
+        Min => "rolling_min"
+        Max => "rolling_max"
+        Std => "rolling_std"
+        Var => "rolling_variance"
+        Median => "rolling_median"
+      }
+      let ms = match min_samples {
+        Some(k) => "min_samples=\{k}"
+        None => ""
+      }
+      let c = if center { "center" } else { "" }
+      ".\{verb}(\{[ "\{window}", ms, c ].filter(x => x != "").join(", ")})"
+    }
   }
 }
 

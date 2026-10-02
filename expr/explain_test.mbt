@@ -193,6 +193,31 @@ test "show: the positional family renders its postfix calls" {
 }
 
 ///|
+/// The rolling suffixes: every verb's default spelling plus the
+/// non-default `min_samples` / `center` arguments.
+test "show: the rolling family renders its postfix calls" {
+  inspect(col("v").rolling_sum(3), content="col(v).rolling_sum(3)")
+  inspect(col("v").rolling_mean(3), content="col(v).rolling_mean(3)")
+  inspect(col("v").rolling_min(3), content="col(v).rolling_min(3)")
+  inspect(col("v").rolling_max(3), content="col(v).rolling_max(3)")
+  inspect(col("v").rolling_std(3), content="col(v).rolling_std(3)")
+  inspect(col("v").rolling_variance(3), content="col(v).rolling_variance(3)")
+  inspect(col("v").rolling_median(3), content="col(v).rolling_median(3)")
+  inspect(
+    col("v").rolling_sum(3, min_samples=2),
+    content="col(v).rolling_sum(3, min_samples=2)",
+  )
+  inspect(
+    col("v").rolling_sum(3, center=true),
+    content="col(v).rolling_sum(3, center)",
+  )
+  inspect(
+    col("v").rolling_sum(3, min_samples=2, center=true),
+    content="col(v).rolling_sum(3, min_samples=2, center)",
+  )
+}
+
+///|
 test "show: cast renders the target dtype" {
   inspect(col("x").cast(@types.DataType::Float), content="col(x).cast(Float)")
 }

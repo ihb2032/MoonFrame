@@ -155,13 +155,14 @@ will not find here today:
   ones are the deferral the others hang off: the list-returning `str.split`,
   the datetime expression family, and a reader that takes a declared schema
   all need a dtype before they can exist.
-- **Expressions** — no window / `over` functions, and no
-  `pivot` / `melt` reshaping. The history-dependent family — `shift` /
-  `diff`, the `cum_*` running aggregates, `rank`, `arg_sort` — is present,
-  as are the positional reductions `arg_min` / `arg_max` and the rolling
-  core (`rolling_sum` / `mean` / `min` / `max` / `std` / `variance` /
-  `median`, with `min_samples` and `center`; Polars' `weights` is not
-  carried).
+- **Expressions** — no window / `over` functions. The history-dependent
+  family — `shift` / `diff`, the `cum_*` running aggregates, `rank`,
+  `arg_sort` — is present, as are the positional reductions `arg_min` /
+  `arg_max` and the rolling core (`rolling_sum` / `mean` / `min` / `max` /
+  `std` / `variance` / `median`, with `min_samples` and `center`; Polars'
+  `weights` is not carried). The reshapes are present too — `pivot` /
+  `unpivot` on both layers — with unpivot's value column requiring a
+  unifying dtype (`Int` / `Float` widen; no stringly supertype).
 - **Lazy** — no streaming execution: a scan pushes projections and predicates
   down into the reader, but still tokenises the whole file. No columnar sources
   (`scan_parquet` / `scan_ipc`) either — those wait on eager readers for the

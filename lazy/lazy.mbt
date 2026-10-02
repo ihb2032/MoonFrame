@@ -279,6 +279,58 @@ pub fn LazyFrame::fill_nan(self : LazyFrame, value : Double) -> LazyFrame {
 }
 
 ///|
+/// Defer `DataFrame::pivot`: the long → wide reshape, one output row per
+/// distinct `index?` combination and one output column per distinct `on~`
+/// value, slots collapsed by `aggregate_function?` (omitted: a multi-cell
+/// slot's `InvalidOperation`, at collect). The omission defaults resolve
+/// against the collected frame, so `collect` is the eager result verbatim;
+/// a derived key evaluates there too, exactly as the eager verb's.
+pub fn LazyFrame::pivot(
+  self : LazyFrame,
+  on~ : Array[@expr.Expr],
+  index? : Array[@expr.Expr],
+  values? : Array[@expr.Expr],
+  aggregate_function? : @frame.PivotAgg,
+) -> LazyFrame {
+  {
+    plan: Unary(
+      self.plan,
+      Pivot(
+        on.copy(),
+        index.map(keys => keys.copy()),
+        values.map(vs => vs.copy()),
+        aggregate_function,
+      ),
+    ),
+  }
+}
+
+///|
+/// Defer `DataFrame::unpivot`: the wide → long reshape, the `on?` columns
+/// folding into a `variable_name?` / `value_name?` pair under the `index?`
+/// columns. Building stays total; the name-only column resolution and the
+/// dtype unification surface as the eager verb's errors at collect.
+pub fn LazyFrame::unpivot(
+  self : LazyFrame,
+  on? : Array[@expr.Expr],
+  index? : Array[@expr.Expr],
+  variable_name? : String = "variable",
+  value_name? : String = "value",
+) -> LazyFrame {
+  {
+    plan: Unary(
+      self.plan,
+      Unpivot(
+        on.map(keys => keys.copy()),
+        index.map(keys => keys.copy()),
+        variable_name,
+        value_name,
+      ),
+    ),
+  }
+}
+
+///|
 /// Defer `DataFrame::sum`: collapse the plan to a 1-row frame of each column's
 /// sum (numeric columns their sum in the source dtype, non-numeric columns a
 /// `Null` cell). `collect` equals the eager `df.sum()`.

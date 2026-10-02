@@ -60,6 +60,7 @@ pub fn DataFrame::not_equal(Self, Self) -> Bool
 pub fn DataFrame::nrows(Self) -> Int
 pub fn DataFrame::null_count(Self) -> Self raise @types.DataError
 pub fn DataFrame::numeric_cols(Self) -> Array[@expr.Expr]
+pub fn DataFrame::pivot(Self, on~ : Array[@expr.Expr], index? : Array[@expr.Expr], values? : Array[@expr.Expr], aggregate_function? : PivotAgg) -> Self raise @types.DataError
 pub fn DataFrame::quantile(Self, Double, interpolation? : @series.QuantileInterpolation) -> Self raise @types.DataError
 pub fn DataFrame::rename(Self, Array[(String, String)]) -> Self raise @types.DataError
 pub fn DataFrame::rename_with(Self, (String) -> String) -> Self raise @types.DataError
@@ -81,6 +82,7 @@ pub fn DataFrame::to_markdown(Self, max_rows? : Int) -> String
 pub fn DataFrame::to_repr(Self) -> @debug.Repr
 pub fn DataFrame::top_k(Self, Int, by~ : Array[@expr.Expr], reverse? : Bool) -> Self raise @types.DataError
 pub fn DataFrame::unique(Self, subset? : Array[@expr.Expr], keep? : KeepStrategy) -> Self raise @types.DataError
+pub fn DataFrame::unpivot(Self, on? : Array[@expr.Expr], index? : Array[@expr.Expr], variable_name? : String, value_name? : String) -> Self raise @types.DataError
 pub fn DataFrame::variance(Self) -> Self raise @types.DataError
 pub fn DataFrame::vstack(Self, Self) -> Self raise @types.DataError
 pub fn DataFrame::with_columns(Self, Array[@expr.Expr]) -> Self raise @types.DataError
@@ -148,6 +150,20 @@ pub(all) enum KeepStrategy {
 pub fn KeepStrategy::equal(Self, Self) -> Bool
 pub fn KeepStrategy::not_equal(Self, Self) -> Bool
 pub fn KeepStrategy::to_repr(Self) -> @debug.Repr
+
+pub(all) enum PivotAgg {
+  First
+  Last
+  Sum
+  Min
+  Max
+  Mean
+  Median
+  Len
+} derive(Eq, @debug.Debug)
+pub fn PivotAgg::equal(Self, Self) -> Bool
+pub fn PivotAgg::not_equal(Self, Self) -> Bool
+pub fn PivotAgg::to_repr(Self) -> @debug.Repr
 
 // Type aliases
 

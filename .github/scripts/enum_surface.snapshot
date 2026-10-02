@@ -37,6 +37,14 @@ OnParseError | enum | Null
 OnParseError | enum | Raise
 ParseErrorDetail | enum | Cell(CellParseLocation, String, Int, DataType, String)
 ParseErrorDetail | enum | Message(String)
+PivotAgg | enum | First
+PivotAgg | enum | Last
+PivotAgg | enum | Len
+PivotAgg | enum | Max
+PivotAgg | enum | Mean
+PivotAgg | enum | Median
+PivotAgg | enum | Min
+PivotAgg | enum | Sum
 QuantileInterpolation | enum | Higher
 QuantileInterpolation | enum | Linear
 QuantileInterpolation | enum | Lower

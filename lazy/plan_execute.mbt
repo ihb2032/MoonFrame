@@ -133,6 +133,48 @@ fn apply_frame_op(
     Reverse => df.reverse()
     WithRowIndex(name, offset) => df.with_row_index(name~, offset~)
     DropNulls(subset) => df.drop_nulls(subset?)
+    Pivot(on, index, values, aggregate_function) => {
+      // Each optional payload arm forwards the eager verb's own default
+      // shape — `pivot`'s omission rules resolve against the collected
+      // frame either way, so `collect` keeps the eager result verbatim.
+      let p = match index {
+        Some(keys) =>
+          match values {
+            Some(vs) =>
+              df.pivot(on~, index=keys, values=vs, aggregate_function?)
+            None => df.pivot(on~, index=keys, aggregate_function?)
+          }
+        None =>
+          match values {
+            Some(vs) => df.pivot(on~, values=vs, aggregate_function?)
+            None => df.pivot(on~, aggregate_function?)
+          }
+      }
+      p
+    }
+    Unpivot(on, index, variable, value) => {
+      let u = match on {
+        Some(keys) =>
+          match index {
+            Some(ix) =>
+              df.unpivot(
+                on=keys,
+                index=ix,
+                variable_name=variable,
+                value_name=value,
+              )
+            None =>
+              df.unpivot(on=keys, variable_name=variable, value_name=value)
+          }
+        None =>
+          match index {
+            Some(ix) =>
+              df.unpivot(index=ix, variable_name=variable, value_name=value)
+            None => df.unpivot(variable_name=variable, value_name=value)
+          }
+      }
+      u
+    }
     FillNullDir(backward, limit) =>
       match limit {
         Some(k) =>

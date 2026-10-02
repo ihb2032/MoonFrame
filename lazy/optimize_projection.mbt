@@ -181,6 +181,11 @@ fn FrameOp::frame_op_required(
     // depends on row order), but they read no columns beyond what the frame
     // already carries — barriers either way, like `FillNull`.
     | FillNullDir(_, _)
+    // The reshapes read whichever columns their lists name — a caller-less
+    // narrowing would drop a column the reshape re-emits, so they keep
+    // their input whole (the `FillNull` treatment).
+    | Pivot(_, _, _, _)
+    | Unpivot(_, _, _, _)
     | FillNan(_)
     | Reduce(_) => None
   }

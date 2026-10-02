@@ -168,6 +168,7 @@ method DataFrame::not_equal(Self, Self) -> Bool <- frame
 method DataFrame::nrows(Self) -> Int <- frame
 method DataFrame::null_count(Self) -> Self raise @types.DataError <- frame
 method DataFrame::numeric_cols(Self) -> Array[@expr.Expr] <- frame
+method DataFrame::pivot(Self, on~ : Array[@expr.Expr], index? : Array[@expr.Expr], values? : Array[@expr.Expr], aggregate_function? : PivotAgg) -> Self raise @types.DataError <- frame
 method DataFrame::quantile(Self, Double, interpolation? : @series.QuantileInterpolation) -> Self raise @types.DataError <- frame
 method DataFrame::rename(Self, Array[(String, String)]) -> Self raise @types.DataError <- frame
 method DataFrame::rename_with(Self, (String) -> String) -> Self raise @types.DataError <- frame
@@ -188,6 +189,7 @@ method DataFrame::to_markdown(Self, max_rows? : Int) -> String <- frame
 method DataFrame::to_repr(Self) -> @debug.Repr <- frame
 method DataFrame::top_k(Self, Int, by~ : Array[@expr.Expr], reverse? : Bool) -> Self raise @types.DataError <- frame
 method DataFrame::unique(Self, subset? : Array[@expr.Expr], keep? : KeepStrategy) -> Self raise @types.DataError <- frame
+method DataFrame::unpivot(Self, on? : Array[@expr.Expr], index? : Array[@expr.Expr], variable_name? : String, value_name? : String) -> Self raise @types.DataError <- frame
 method DataFrame::variance(Self) -> Self raise @types.DataError <- frame
 method DataFrame::vstack(Self, Self) -> Self raise @types.DataError <- frame
 method DataFrame::with_columns(Self, Array[@expr.Expr]) -> Self raise @types.DataError <- frame
@@ -350,6 +352,7 @@ method LazyFrame::median(Self) -> Self <- lazy
 method LazyFrame::min(Self) -> Self <- lazy
 method LazyFrame::n_unique(Self) -> Self <- lazy
 method LazyFrame::null_count(Self) -> Self <- lazy
+method LazyFrame::pivot(Self, on~ : Array[@expr.Expr], index? : Array[@expr.Expr], values? : Array[@expr.Expr], aggregate_function? : @frame.PivotAgg) -> Self <- lazy
 method LazyFrame::quantile(Self, Double, interpolation? : @series.QuantileInterpolation) -> Self <- lazy
 method LazyFrame::rename(Self, Array[(String, String)]) -> Self <- lazy
 method LazyFrame::rename_with(Self, (String) -> String) -> Self <- lazy
@@ -362,6 +365,7 @@ method LazyFrame::sum(Self) -> Self <- lazy
 method LazyFrame::tail(Self, Int) -> Self <- lazy
 method LazyFrame::top_k(Self, Int, by~ : Array[@expr.Expr], reverse? : Bool) -> Self <- lazy
 method LazyFrame::unique(Self, subset? : Array[@expr.Expr], keep? : @frame.KeepStrategy) -> Self <- lazy
+method LazyFrame::unpivot(Self, on? : Array[@expr.Expr], index? : Array[@expr.Expr], variable_name? : String, value_name? : String) -> Self <- lazy
 method LazyFrame::variance(Self) -> Self <- lazy
 method LazyFrame::with_columns(Self, Array[@expr.Expr]) -> Self <- lazy
 method LazyFrame::with_row_index(Self, name? : String, offset? : Int64) -> Self <- lazy
@@ -385,6 +389,9 @@ method OnParseError::to_repr(Self) -> @debug.Repr <- io
 method ParseErrorDetail::equal(Self, Self) -> Bool <- types
 method ParseErrorDetail::not_equal(Self, Self) -> Bool <- types
 method ParseErrorDetail::to_repr(Self) -> @debug.Repr <- types
+method PivotAgg::equal(Self, Self) -> Bool <- frame
+method PivotAgg::not_equal(Self, Self) -> Bool <- frame
+method PivotAgg::to_repr(Self) -> @debug.Repr <- frame
 method QuantileInterpolation::equal(Self, Self) -> Bool <- series
 method QuantileInterpolation::not_equal(Self, Self) -> Bool <- series
 method QuantileInterpolation::to_repr(Self) -> @debug.Repr <- series
@@ -482,6 +489,7 @@ type KeepStrategy <- frame
 type LazyFrame <- lazy
 type OnParseError <- io
 type ParseErrorDetail <- types
+type PivotAgg <- frame
 type QuantileInterpolation <- series
 type RankMethod <- types
 type Scalar <- types

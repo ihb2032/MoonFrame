@@ -117,6 +117,13 @@ priv enum FrameOp {
   DropNulls(Array[@expr.Expr]?)
   FillNull(@types.Scalar)
   FillNullDir(Bool, Int?)
+  Pivot(
+    Array[@expr.Expr],
+    Array[@expr.Expr]?,
+    Array[@expr.Expr]?,
+    @frame.PivotAgg?
+  )
+  Unpivot(Array[@expr.Expr]?, Array[@expr.Expr]?, String, String)
   FillNan(Double)
   Reduce(LazyReduceOp)
 }

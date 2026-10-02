@@ -1,6 +1,6 @@
 name = "ihb2032/MoonFrame"
 
-version = "0.6.0"
+version = "0.7.0"
 
 supported_targets = [ "wasm", "wasm-gc", "js", "native" ]
 

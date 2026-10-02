@@ -25,6 +25,14 @@ pub fn eval_compare(@series.Series, @series.Series, CmpVerb) -> @series.Series r
 
 pub fn eval_div(@series.Series, @series.Series) -> @series.Series raise @types.DataError
 
+pub fn eval_dt_day(@series.Series) -> @series.Series raise @types.DataError
+
+pub fn eval_dt_month(@series.Series) -> @series.Series raise @types.DataError
+
+pub fn eval_dt_weekday(@series.Series) -> @series.Series raise @types.DataError
+
+pub fn eval_dt_year(@series.Series) -> @series.Series raise @types.DataError
+
 pub fn eval_floor(@series.Series) -> @series.Series raise @types.DataError
 
 pub fn eval_floor_div(@series.Series, @series.Series) -> @series.Series raise @types.DataError

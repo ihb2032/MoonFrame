@@ -58,6 +58,7 @@ types | doc_hidden internal_engine | pub fn DataType::comparable_with(self : Dat
 types | doc_hidden internal_engine | pub fn DataType::i64_rider_scalar(self : DataType, v : Int64) -> Scalar? | used by: internal/column,series
 types | doc_hidden internal_engine | pub fn DataType::physical(self : DataType) -> PhysicalType? | used by: series
 types | doc_hidden internal_engine | pub fn Schema::index_maybe(self : Schema, name : String) -> Int? | used by: frame
+types | doc_hidden internal_engine | pub fn date_days_to_civil(days : Int64) -> (Int64, Int64, Int64) | used by: internal/kernel
 types | doc_hidden internal_engine | pub(all) enum PhysicalType
 types | doc_hidden internal_engine | variant PhysicalType::Bool
 types | doc_hidden internal_engine | variant PhysicalType::F64

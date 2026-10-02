@@ -217,6 +217,10 @@ method Expr::cum_prod(Self, reverse? : Bool) -> Self <- expr
 method Expr::cum_sum(Self, reverse? : Bool) -> Self <- expr
 method Expr::diff(Self, n? : Int) -> Self <- expr
 method Expr::div(Self, Self) -> Self <- expr
+method Expr::dt_day(Self) -> Self <- expr
+method Expr::dt_day_of_week(Self) -> Self <- expr
+method Expr::dt_month(Self) -> Self <- expr
+method Expr::dt_year(Self) -> Self <- expr
 method Expr::eq(Self, Self) -> Self <- expr
 method Expr::fill_nan(Self, Self) -> Self <- expr
 method Expr::fill_null(Self, Self) -> Self <- expr

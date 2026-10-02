@@ -138,18 +138,7 @@ pub impl Show for Scalar with fn output(self, logger) {
 /// `0800-…` and year 0 `0000-…`; a year outside the basic range carries
 /// its sign (the expanded-representation form).
 fn date_days_to_iso(days : Int64) -> String {
-  let z = days + 719468L
-  // Floor division, so dates before the era anchor land in the previous
-  // 400-year era instead of truncating toward zero.
-  let era = if z >= 0 { z / 146097L } else { (z - 146096L) / 146097L }
-  let doe = z - era * 146097L
-  let yoe = (doe - doe / 1460L + doe / 36524L - doe / 146096L) / 365L
-  let y = yoe + era * 400L
-  let doy = doe - (365L * yoe + yoe / 4L - yoe / 100L)
-  let mp = (5L * doy + 2L) / 153L
-  let d = doy - (153L * mp + 2L) / 5L + 1L
-  let m = if mp < 10L { mp + 3L } else { mp - 9L }
-  let year = if m <= 2L { y + 1L } else { y }
+  let (year, m, d) = date_days_to_civil(days)
   fn pad2(n : Int64) -> String {
     if n < 10 {
       "0\{n}"
@@ -174,4 +163,28 @@ fn date_days_to_iso(days : Int64) -> String {
   }
   let year_text = if year < 0 { "-" + pad4(-year) } else { pad4(year) }
   "\{year_text}-\{pad2(m)}-\{pad2(d)}"
+}
+
+///|
+/// The Gregorian calendar `(year, month, day)` a day count since the epoch
+/// names, via the days-to-civil algorithm — negative counts (dates before
+/// 1970) included. The one home of the calendar math: the ISO rendering
+/// above composes it, and the engine's `dt_*` expression verbs read their
+/// components from it, so the string and the verbs cannot disagree.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
+pub fn date_days_to_civil(days : Int64) -> (Int64, Int64, Int64) {
+  let z = days + 719468L
+  // Floor division, so dates before the era anchor land in the previous
+  // 400-year era instead of truncating toward zero.
+  let era = if z >= 0 { z / 146097L } else { (z - 146096L) / 146097L }
+  let doe = z - era * 146097L
+  let yoe = (doe - doe / 1460L + doe / 36524L - doe / 146096L) / 365L
+  let y = yoe + era * 400L
+  let doy = doe - (365L * yoe + yoe / 4L - yoe / 100L)
+  let mp = (5L * doy + 2L) / 153L
+  let d = doy - (153L * mp + 2L) / 5L + 1L
+  let m = if mp < 10L { mp + 3L } else { mp - 9L }
+  let year = if m <= 2L { y + 1L } else { y }
+  (year, m, d)
 }

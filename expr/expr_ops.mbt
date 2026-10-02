@@ -908,3 +908,41 @@ pub fn Expr::clip(self : Expr, lower? : Expr, upper? : Expr) -> Expr {
     (None, None) => self
   }
 }
+
+///|
+/// The `dt_*` quartet's shared doc — a `Date` operand's calendar
+/// components, each an `Int` column with null cells kept null, any other
+/// dtype a `TypeMismatch` at evaluation (building stays total). The
+/// components come from the same calendar math the ISO date rendering
+/// composes, so `dt_year` / `dt_month` / `dt_day` read back exactly what a
+/// `Date` cell displays.
+fn Expr::dt_component(self : Expr, op : @ir.UnOp) -> Expr {
+  Expr::of(@ir.ExprNode::Unary(op, self.node))
+}
+
+///|
+/// The calendar year of each `Date` cell (Polars' `dt.year`) — the shared
+/// `dt_*` contract, the component being the four-digit year.
+pub fn Expr::dt_year(self : Expr) -> Expr {
+  self.dt_component(@ir.UnOp::DtYear)
+}
+
+///|
+/// The calendar month of each `Date` cell, `1`–`12` (Polars' `dt.month`).
+pub fn Expr::dt_month(self : Expr) -> Expr {
+  self.dt_component(@ir.UnOp::DtMonth)
+}
+
+///|
+/// The day of the month of each `Date` cell, `1`–`31` (Polars' `dt.day`).
+pub fn Expr::dt_day(self : Expr) -> Expr {
+  self.dt_component(@ir.UnOp::DtDay)
+}
+
+///|
+/// The ISO weekday of each `Date` cell — Monday `1` through Sunday `7`
+/// (Polars' `dt.weekday`; the epoch is a Thursday, and dates before 1970
+/// land on the right day too).
+pub fn Expr::dt_day_of_week(self : Expr) -> Expr {
+  self.dt_component(@ir.UnOp::DtWeekday)
+}

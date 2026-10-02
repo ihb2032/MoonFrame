@@ -46,7 +46,9 @@ libraries — not a derivative work of either codebase.
   `median` / `quantile` / `n_unique` / `first` / `last`), a `str_*` namespace with both
   literal and regex matching (`str_contains` / `str_replace` / `str_replace_all`
   take `literal?`; `str_extract` / `str_count_matches` are regex-only), and the
-  `map_elements` / `map_batches` / `map_many` UDF escape hatch. Per-operator
+  `map_elements` / `map_batches` / `map_many` UDF escape hatch, and the
+  `dt_*` Date components (`dt_year` / `dt_month` / `dt_day` /
+  `dt_day_of_week`, the ISO weekday). Per-operator
   rules — dtype, null, and `NaN` — are each stated on the operator's own
   docstring (the generated reference collects them).
 - **`null` is missing** — a null propagates through arithmetic and

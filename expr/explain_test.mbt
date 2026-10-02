@@ -550,3 +550,12 @@ test "show: the fill probes and clip render" {
     content="when((col(v) < 2)).then(2).otherwise(when((col(v) > 7)).then(7).otherwise(col(v)))",
   )
 }
+
+///|
+test "show: the dt family renders its postfix calls" {
+  inspect(col("d").dt_year(), content="col(d).dt_year()")
+  inspect(col("d").dt_month(), content="col(d).dt_month()")
+  inspect(col("d").dt_day(), content="col(d).dt_day()")
+  // The builder is `dt_day_of_week`; the rendering spells the ISO term.
+  inspect(col("d").dt_day_of_week(), content="col(d).dt_day_of_week()")
+}

@@ -1115,7 +1115,7 @@ test "right / outer join raise TypeMismatch when a key dtype differs" {
 test "join raises DuplicateColumn for a key repeated in `on`" {
   // `["dept_id", "dept_id"]` would otherwise resolve the same column twice
   // and silently behave as the single key `["dept_id"]`. Like
-  // `group_by([col("id"), col("id")])`, the repeat is rejected. Both resolver call
+  // `group_by([@expr.col("id"), @expr.col("id")])`, the repeat is rejected. Both resolver call
   // sites are covered: inner (the Inner / Left / Outer planner) and right.
   assert_eq(
     Ok(
@@ -1492,4 +1492,64 @@ test "join rejects unequal-length left_on / right_on" {
     })
     is Err(@types.DataError::InvalidOperation(_)),
   )
+}
+
+// ── Semi / Anti: the existence filters ───────────────────────────────
+
+///|
+test "semi keeps matched left rows once, the left schema and order" {
+  let r = employees().join(
+    departments(),
+    JoinOptions::on([@expr.col("dept_id")], how=Semi),
+  )
+  // Dave (dept 99) matches nothing and drops; every other row survives
+  // exactly once despite dept 10 matching one right row and the key
+  // occurring twice on the left. No right column, no suffix.
+  assert_eq(r.columns(), ["emp_id", "name", "dept_id"])
+  assert_eq(r.shape(), (3, 3))
+  assert_eq(r.get_column("name").to_scalars(), [
+    @types.Scalar::String("Alice"),
+    @types.Scalar::String("Bob"),
+    @types.Scalar::String("Carol"),
+  ])
+  assert_eq(r.check_invariants(), Ok(()))
+}
+
+///|
+test "anti is the mirror, a null key counting as unmatched" {
+  let r = employees().join(
+    departments(),
+    JoinOptions::on([@expr.col("dept_id")], how=Anti),
+  )
+  assert_eq(r.shape(), (1, 3))
+  assert_eq(r.get_column("name").to_scalars(), [@types.Scalar::String("Dave")])
+  // A null left key matches nothing (null != null), so it survives Anti
+  // and never survives Semi.
+  let with_null = DataFrame::DataFrame([
+    Series::from_int_options("k", [Some(1), None, Some(9)]),
+  ])
+  let right = DataFrame::DataFrame([Series::from_ints("k", [1])])
+  let anti = with_null.join(right, JoinOptions::on([@expr.col("k")], how=Anti))
+  assert_eq(anti.get_column("k").to_scalars(), [
+    @types.Scalar::Null,
+    @types.Scalar::Int(9),
+  ])
+  let semi = with_null.join(right, JoinOptions::on([@expr.col("k")], how=Semi))
+  assert_eq(semi.get_column("k").to_scalars(), [@types.Scalar::Int(1)])
+}
+
+///|
+test "semi / anti work through the sided keys and the lazy mirror" {
+  // Sided keys: the same probe through left_on / right_on.
+  let left = DataFrame::DataFrame([Series::from_ints("a", [1, 2, 3])])
+  let right = DataFrame::DataFrame([Series::from_ints("b", [2, 3, 4])])
+  let options = JoinOptions::left_on(
+    [@expr.col("a")],
+    right_on=[@expr.col("b")],
+    how=Semi,
+  )
+  assert_eq(left.join(right, options).get_column("a").to_scalars(), [
+    @types.Scalar::Int(2),
+    @types.Scalar::Int(3),
+  ])
 }

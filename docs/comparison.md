@@ -64,7 +64,10 @@ libraries — not a derivative work of either codebase.
   first appearance (`maintain_order=True`).
 - **`join`** — a **null key matches nothing** (`null != null`, the
   SQL / Polars rule), `NaN` keys match each other, the collision suffix
-  defaults to `_right`, and coalesce follows Polars' per-`how` rule.
+  defaults to `_right`, and coalesce follows Polars' per-`how` rule. The
+  full `how` set is carried — `Inner` / `Left` / `Right` / `Outer` /
+  `Cross` / `Semi` / `Anti`, the last two the left-schema existence
+  filters.
 - **`/` is always `Float`** — integer operands promote; division by zero is
   IEEE `±inf` / `NaN`, never a trap.
 - **Whole-frame vs single-column reductions** — `df.sum()` returns a

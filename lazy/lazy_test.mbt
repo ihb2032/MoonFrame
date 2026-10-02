@@ -1137,3 +1137,28 @@ test "a pivot deferring neither side collects the eager omission error" {
     is Err(@types.DataError::InvalidOperation(_)),
   )
 }
+
+///|
+test "semi / anti joins defer and collect to their eager equivalents" {
+  let left = @frame.DataFrame::DataFrame([
+    @series.Series::from_ints("a", [1, 2, 3]),
+  ])
+  let right = @frame.DataFrame::DataFrame([
+    @series.Series::from_ints("b", [2, 3, 4]),
+  ])
+  for how in [@frame.JoinType::Semi, @frame.JoinType::Anti] {
+    let options = @frame.JoinOptions::left_on(
+      [@expr.col("a")],
+      right_on=[@expr.col("b")],
+      how~,
+    )
+    let plan = LazyFrame::LazyFrame(left).join(
+      LazyFrame::LazyFrame(right),
+      options,
+    )
+    assert_eq(plan.collect(), left.join(right, options))
+    // The how rides the join label.
+    let label = if how is @frame.JoinType::Semi { "Semi" } else { "Anti" }
+    assert_true(plan.explain().contains(label))
+  }
+}

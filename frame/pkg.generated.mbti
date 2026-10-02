@@ -137,6 +137,8 @@ pub(all) enum JoinType {
   Right
   Outer
   Cross
+  Semi
+  Anti
 } derive(Eq, @debug.Debug)
 pub fn JoinType::equal(Self, Self) -> Bool
 pub fn JoinType::not_equal(Self, Self) -> Bool

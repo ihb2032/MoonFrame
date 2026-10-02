@@ -321,6 +321,8 @@ fn join_label(options : @frame.JoinOptions) -> String {
     @frame.JoinType::Right => "Right"
     @frame.JoinType::Outer => "Outer"
     @frame.JoinType::Cross => "Cross"
+    @frame.JoinType::Semi => "Semi"
+    @frame.JoinType::Anti => "Anti"
   }
   let on = options.on_keys()
   let left_on = options.left_keys()

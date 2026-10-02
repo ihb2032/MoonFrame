@@ -223,3 +223,56 @@ test "unique with an empty subset gives every row the same key" {
   let one = DataFrame::DataFrame([Series::from_ints("a", [7])])
   assert_eq(one.unique(subset=[], keep=KeepStrategy::None).nrows(), 1)
 }
+
+///|
+test "is_duplicated marks every occurrence; is_unique is its complement" {
+  let df = DataFrame::DataFrame([
+    Series::from_strings("k", ["a", "b", "a", "c", "b"]),
+    Series::from_ints("v", [1, 2, 1, 3, 2]),
+  ])
+  // Rows 0/2 and 1/4 share a full composite key — every occurrence is
+  // duplicated; row 3 is the only unique one.
+  assert_eq(df.is_duplicated().to_scalars(), [
+    @types.Scalar::Bool(true),
+    @types.Scalar::Bool(true),
+    @types.Scalar::Bool(true),
+    @types.Scalar::Bool(false),
+    @types.Scalar::Bool(true),
+  ])
+  assert_eq(df.is_unique().to_scalars(), [
+    @types.Scalar::Bool(false),
+    @types.Scalar::Bool(false),
+    @types.Scalar::Bool(false),
+    @types.Scalar::Bool(true),
+    @types.Scalar::Bool(false),
+  ])
+  assert_eq(df.is_duplicated().name(), "is_duplicated")
+  assert_eq(df.is_unique().name(), "is_unique")
+}
+
+///|
+test "the mask keys fold NaN and treat nulls as ordinary values" {
+  let nan : Double = @double.not_a_number
+  // Two NaN keys share a group (the group_by rule); a null cell is an
+  // ordinary key value, so two rows null in the same place are duplicates.
+  let df = DataFrame::DataFrame([
+    Series::from_floats("f", [1.0, nan, nan, 2.0]),
+    Series::from_int_options("n", [None, Some(1), Some(1), None]),
+  ])
+  assert_eq(df.is_duplicated().to_scalars(), [
+    @types.Scalar::Bool(false),
+    @types.Scalar::Bool(true),
+    @types.Scalar::Bool(true),
+    @types.Scalar::Bool(false),
+  ])
+}
+
+///|
+test "the masks are total: single-row and 0-row frames" {
+  let one = DataFrame::DataFrame([Series::from_ints("v", [7])])
+  assert_eq(one.is_duplicated().to_scalars(), [@types.Scalar::Bool(false)])
+  assert_eq(one.is_unique().to_scalars(), [@types.Scalar::Bool(true)])
+  let zero = DataFrame::DataFrame([Series::from_ints("v", [])])
+  assert_eq(zero.is_duplicated().to_scalars(), [])
+  assert_eq(zero.is_unique().to_scalars(), [])
+}

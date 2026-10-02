@@ -132,3 +132,56 @@ pub fn DataFrame::unique(
   let new_cols = self.columns.map(c => c.gather_series(kept))
   self.with_same_schema(new_cols, kept.length())
 }
+
+///|
+/// The shared row-mask driver: one `Bool` cell per row, `true` where the
+/// row's composite key — the same `KeyCell` tuple `unique` / `group_by` key
+/// on — occurs more than once (`duplicated`) or exactly once (`unique`).
+/// Total over every frame: no column resolution, no dtype rules, so neither
+/// mask can fail. The series is named after the predicate that produced it,
+/// so a caller collecting both masks into one frame gets distinct columns.
+fn DataFrame::duplication_mask(
+  self : DataFrame,
+  name : String,
+  want_duplicated : Bool,
+) -> Series {
+  let n = self.nrows()
+  let cells = self.to_scalar_matrix()
+  let keys = Array::makei(n, i => row_group_key(cells, i))
+  let count : Map[Array[KeyCell], Int] = Map([])
+  for i in 0..<n {
+    count[keys[i]] = count.get(keys[i]).unwrap_or(0) + 1
+  }
+  Series::from_bools(
+    name,
+    // A key's count is always recorded — the loop above visited this very
+    // row — so the `unwrap_or` fallback never runs.
+    Array::makei(n, i => {
+      let occurrences = count.get(keys[i]).unwrap_or(1)
+      if want_duplicated {
+        occurrences > 1
+      } else {
+        occurrences == 1
+      }
+    }),
+  )
+}
+
+///|
+/// A `Bool` cell per row marking rows that duplicate some other row —
+/// **every** occurrence of a repeated composite key is `true` (Polars'
+/// `df.is_duplicated()`, the row-level mask over all columns; Polars also
+/// exposes a per-column spelling on its expressions, which MoonFrame does
+/// not carry). Two rows are duplicates under the same composite
+/// `KeyCell` encoding `unique` / `group_by` use. Total — never fails.
+pub fn DataFrame::is_duplicated(self : DataFrame) -> Series {
+  self.duplication_mask("is_duplicated", true)
+}
+
+///|
+/// A `Bool` cell per row marking rows with no duplicate — the pointwise
+/// complement of `is_duplicated`, sharing its key encoding and total
+/// contract (Polars' `df.is_unique()`).
+pub fn DataFrame::is_unique(self : DataFrame) -> Series {
+  self.duplication_mask("is_unique", false)
+}

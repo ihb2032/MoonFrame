@@ -162,6 +162,12 @@ fn FrameOp::frame_op_required(
       }
       widened(req, keys)
     }
+    // The stride window passes the requirement through, and the ranking
+    // selections widen it by their key reads — the `Sort` / `Filter` rule:
+    // the reordering reads its keys, so they stay alive regardless of what
+    // the parent needs.
+    GatherEvery(_, _) => req
+    TopK(_, by, _) | BottomK(_, by, _) => widened(req, columns_read(by))
     Head(_) | Tail(_) | Slice(_, _) => req
     Drop(_)
     | Rename(_)

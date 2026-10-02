@@ -21,6 +21,7 @@ pub struct LazyFrame {
   // private fields
 }
 pub fn LazyFrame::LazyFrame(@frame.DataFrame) -> Self
+pub fn LazyFrame::bottom_k(Self, Int, by~ : Array[@expr.Expr], reverse? : Bool) -> Self
 pub fn LazyFrame::collect(Self) -> @frame.DataFrame raise @types.DataError
 pub fn LazyFrame::count(Self) -> Self
 pub fn LazyFrame::drop(Self, Array[@expr.Expr]) -> Self
@@ -28,10 +29,13 @@ pub fn LazyFrame::drop_nulls(Self, subset? : Array[@expr.Expr]) -> Self
 pub fn LazyFrame::explain(Self, optimized? : Bool) -> String
 pub fn LazyFrame::fill_null(Self, @types.Scalar) -> Self
 pub fn LazyFrame::filter(Self, @expr.Expr) -> Self
+pub fn LazyFrame::first(Self) -> Self
+pub fn LazyFrame::gather_every(Self, Int, offset? : Int) -> Self
 pub fn LazyFrame::group_by(Self, Array[@expr.Expr]) -> LazyGroupBy
 #alias(limit)
 pub fn LazyFrame::head(Self, Int) -> Self
 pub fn LazyFrame::join(Self, Self, @frame.JoinOptions) -> Self
+pub fn LazyFrame::last(Self) -> Self
 pub fn LazyFrame::max(Self) -> Self
 pub fn LazyFrame::mean(Self) -> Self
 pub fn LazyFrame::median(Self) -> Self
@@ -48,6 +52,7 @@ pub fn LazyFrame::sort(Self, Array[(@expr.Expr, Bool, Bool)]) -> Self
 pub fn LazyFrame::std(Self) -> Self
 pub fn LazyFrame::sum(Self) -> Self
 pub fn LazyFrame::tail(Self, Int) -> Self
+pub fn LazyFrame::top_k(Self, Int, by~ : Array[@expr.Expr], reverse? : Bool) -> Self
 pub fn LazyFrame::unique(Self, subset? : Array[@expr.Expr], keep? : @frame.KeepStrategy) -> Self
 pub fn LazyFrame::variance(Self) -> Self
 pub fn LazyFrame::with_columns(Self, Array[@expr.Expr]) -> Self

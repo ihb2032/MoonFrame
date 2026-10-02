@@ -17,6 +17,7 @@ pub struct DataFrame {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn DataFrame::DataFrame(Array[@series.Series]) -> Self raise @types.DataError
+pub fn DataFrame::bottom_k(Self, Int, by~ : Array[@expr.Expr], reverse? : Bool) -> Self raise @types.DataError
 pub fn DataFrame::cols_contains(Self, String) -> Array[@expr.Expr]
 pub fn DataFrame::cols_ends_with(Self, String) -> Array[@expr.Expr]
 pub fn DataFrame::cols_matching(Self, String) -> Array[@expr.Expr] raise @types.DataError
@@ -34,13 +35,16 @@ pub fn DataFrame::fill_null(Self, @types.Scalar) -> Self raise @types.DataError
 pub fn DataFrame::filter(Self, @expr.Expr) -> Self raise @types.DataError
 pub fn DataFrame::from_rows(@types.Schema, Array[Array[@types.Scalar]]) -> Self raise @types.DataError
 pub fn DataFrame::gather(Self, Array[Int]) -> Self raise @types.DataError
+pub fn DataFrame::gather_every(Self, Int, offset? : Int) -> Self raise @types.DataError
 #alias("_[_]")
 pub fn DataFrame::get_column(Self, String) -> @series.Series raise @types.DataError
 pub fn DataFrame::get_column_at(Self, Int) -> @series.Series raise @types.DataError
 pub fn DataFrame::group_by(Self, Array[@expr.Expr]) -> GroupedDataFrame raise @types.DataError
 #alias(limit)
 pub fn DataFrame::head(Self, Int) -> Self
+pub fn DataFrame::is_duplicated(Self) -> @series.Series
 pub fn DataFrame::is_empty(Self) -> Bool
+pub fn DataFrame::is_unique(Self) -> @series.Series
 pub fn DataFrame::item(Self, Int, String) -> @types.Scalar raise @types.DataError
 pub fn DataFrame::join(Self, Self, JoinOptions) -> Self raise @types.DataError
 pub fn DataFrame::max(Self) -> Self raise @types.DataError
@@ -72,8 +76,10 @@ pub fn DataFrame::tail(Self, Int) -> Self
 pub fn DataFrame::to_html(Self, options? : HtmlOptions) -> String
 pub fn DataFrame::to_markdown(Self, max_rows? : Int) -> String
 pub fn DataFrame::to_repr(Self) -> @debug.Repr
+pub fn DataFrame::top_k(Self, Int, by~ : Array[@expr.Expr], reverse? : Bool) -> Self raise @types.DataError
 pub fn DataFrame::unique(Self, subset? : Array[@expr.Expr], keep? : KeepStrategy) -> Self raise @types.DataError
 pub fn DataFrame::variance(Self) -> Self raise @types.DataError
+pub fn DataFrame::vstack(Self, Self) -> Self raise @types.DataError
 pub fn DataFrame::with_columns(Self, Array[@expr.Expr]) -> Self raise @types.DataError
 pub fn DataFrame::with_row_index(Self, name? : String, offset? : Int64) -> Self raise @types.DataError
 

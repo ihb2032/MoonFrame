@@ -454,3 +454,35 @@ test "df[name] reads a column; df[a:b] is the bracket-slice sugar" {
   // Same kernel, so the two spellings agree on a shared window.
   assert_eq(df[1:3], df.slice(1, length=2))
 }
+
+///|
+test "gather_every takes every n-th row from the offset" {
+  let df = DataFrame::DataFrame([Series::from_ints("v", [0, 1, 2, 3, 4, 5])])
+  assert_eq(df.gather_every(3).get_column("v").to_scalars(), [
+    @types.Scalar::Int(0),
+    @types.Scalar::Int(3),
+  ])
+  assert_eq(df.gather_every(2, offset=1).get_column("v").to_scalars(), [
+    @types.Scalar::Int(1),
+    @types.Scalar::Int(3),
+    @types.Scalar::Int(5),
+  ])
+  // A stride of one is the identity; an offset at or past the end gathers
+  // nothing, keeping the schema.
+  assert_eq(df.gather_every(1).nrows(), 6)
+  assert_eq(df.gather_every(2, offset=6).shape(), (0, 1))
+  assert_eq(df.gather_every(2, offset=99).shape(), (0, 1))
+}
+
+///|
+test "gather_every raises on n < 1 and a negative offset" {
+  let df = DataFrame::DataFrame([Series::from_ints("v", [1])])
+  assert_true(
+    (Ok(df.gather_every(0)) catch { e => Err(e) })
+    is Err(@types.DataError::InvalidOperation(_)),
+  )
+  assert_true(
+    (Ok(df.gather_every(2, offset=-1)) catch { e => Err(e) })
+    is Err(@types.DataError::InvalidOperation(_)),
+  )
+}

@@ -170,6 +170,21 @@ fn FrameOp::write_frame_op_label(self : FrameOp, buf : StringBuilder) -> Unit {
     Slice(offset, length) =>
       buf <+
         "SLICE [\{offset}: \{match length { Some(l) => "\{l}"; None => "" }}]"
+    GatherEvery(n, offset) => buf <+ "GATHER_EVERY \{n} OFFSET \{offset}"
+    // The ranking selections render with their k and key list; `reverse`
+    // shows only when set, the `UNIQUE` keep-strategy convention.
+    TopK(k, by, reverse) => {
+      buf <+ "TOP_K \{k} \{exprs_label(by)}"
+      if reverse {
+        buf <+ " reverse"
+      }
+    }
+    BottomK(k, by, reverse) => {
+      buf <+ "BOTTOM_K \{k} \{exprs_label(by)}"
+      if reverse {
+        buf <+ " reverse"
+      }
+    }
     Drop(exprs) => buf <+ "DROP \{exprs_label(exprs)}"
     Rename(pairs) => {
       // One `from -> to` per rename, reusing the bracketed-list shape of

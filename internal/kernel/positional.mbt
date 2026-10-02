@@ -252,6 +252,56 @@ pub fn eval_positional(
       }
       @series.Series::from_ints(name, out)
     }
+    @ir.PositionalOp::ForwardFill(limit)
+    | @ir.PositionalOp::BackwardFill(limit) => {
+      // Directional fill, Polars' `fill_null(strategy='forward' /
+      // 'backward')` core: a null slot takes the nearest present value in
+      // the fill's direction, at most `limit` consecutive slots past it
+      // (`None` = unlimited — a gap longer than the limit keeps its tail
+      // null). Dtype-generic — the values copied are the operand's own
+      // cells, whatever they are.
+      let backward = op is @ir.PositionalOp::BackwardFill(_)
+      match limit {
+        Some(k) =>
+          if k < 1 {
+            raise @types.DataError::InvalidOperation(
+              "fill limit must be at least 1",
+            )
+          }
+        None => ()
+      }
+      let cells = operand.to_scalars()
+      let out : Array[@types.Scalar] = Array::makei(n, _ => @types.Scalar::Null)
+      for i in 0..<n {
+        if valid[i] {
+          out[i] = cells[i]
+        } else {
+          // Walk toward the fill's source until a present cell or the
+          // limit: `steps` counts consecutive null slots crossed.
+          let step = if backward { 1 } else { -1 }
+          let mut j = i + step
+          let mut steps = 0
+          let mut filled : @types.Scalar? = None
+          while j >= 0 && j < n {
+            if valid[j] {
+              filled = Some(cells[j])
+              break
+            }
+            steps = steps + 1
+            match limit {
+              Some(k) => if steps >= k { break }
+              None => ()
+            }
+            j = j + step
+          }
+          match filled {
+            Some(v) => out[i] = v
+            None => ()
+          }
+        }
+      }
+      @series.scalars_to_series(dtype, name, out)
+    }
     @ir.PositionalOp::Rolling(stat, window, min_samples, center) => {
       // Validate once, before any window work: the trailing / centred
       // window itself is total over the remaining arguments.

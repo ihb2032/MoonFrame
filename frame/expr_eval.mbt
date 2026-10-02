@@ -361,6 +361,8 @@ fn eval_expr(
                   Series::from_bools(operand.name(), operand.validity_bools())
                 @ir.UnOp::IsNan => @kernel.eval_is_nan(operand)
                 @ir.UnOp::IsNotNan => @kernel.eval_is_not_nan(operand)
+                @ir.UnOp::IsFinite => @kernel.eval_is_finite(operand)
+                @ir.UnOp::IsInfinite => @kernel.eval_is_infinite(operand)
                 @ir.UnOp::Abs => @kernel.eval_abs(operand)
                 @ir.UnOp::Floor => @kernel.eval_floor(operand)
                 @ir.UnOp::Ceil => @kernel.eval_ceil(operand)

@@ -86,6 +86,7 @@ pub using @types {
   type Field,
   type Schema,
   type ClosedInterval,
+  type RankMethod,
 }
 
 ///|

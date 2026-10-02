@@ -110,6 +110,16 @@ fn nodes_structurally_equal(first : ExprNode, second : ExprNode) -> Bool {
               }
               _ => return false
             }
+          Positional(o1, e1) =>
+            match b {
+              Positional(o2, e2) => {
+                if o1 != o2 {
+                  return false
+                }
+                stack.push((e1, e2))
+              }
+              _ => return false
+            }
           Cast(e1, t1) =>
             match b {
               Cast(e2, t2) => {

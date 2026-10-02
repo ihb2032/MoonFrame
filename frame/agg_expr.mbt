@@ -233,6 +233,7 @@ fn reduces_per_group(expr : @expr.Expr) -> Bool {
           }
           @ir.ExprNode::Unary(_, e2)
           | @ir.ExprNode::Str(_, e2)
+          | @ir.ExprNode::Positional(_, e2)
           | @ir.ExprNode::Cast(e2, _)
           | @ir.ExprNode::Alias(e2, _)
           | @ir.ExprNode::IsIn(e2, _) => stack.push(e2)

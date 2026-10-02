@@ -468,6 +468,124 @@ pub fn Expr::fill_null(self : Expr, value : Expr) -> Expr {
 }
 
 ///|
+/// Shift the operand's cells by `n` positions (Polars' `shift`): a positive
+/// `n` moves values down — each row reads the cell `n` rows above, SQL's
+/// `LAG` — a negative one moves them up (`LEAD`), and `n = 0` is the
+/// identity. The `n` vacated edge slots take `fill_value~` (a `Scalar` that
+/// must type like the operand, `Null` by default for a plain gap). Nulls
+/// are values: they shift with everything else, and a shifted-in gap is
+/// `fill_value`, not the shifted-out neighbour's null. Building is total;
+/// a mistyped fill surfaces as `TypeMismatch` at evaluation.
+pub fn Expr::shift(
+  self : Expr,
+  n : Int,
+  fill_value? : @types.Scalar = @types.Scalar::Null,
+) -> Expr {
+  Expr::of(
+    @ir.ExprNode::Positional(@ir.PositionalOp::Shift(n, fill_value), self.node),
+  )
+}
+
+///|
+/// Cell-wise difference against the cell `n` rows above (Polars' `diff`,
+/// default `n = 1`, the `ignore` null behaviour): exactly
+/// `self - self.shift(n)` — the leading `n` slots null, a null in either
+/// operand null, and the subtraction under the arithmetic kernel's dtype
+/// rules (`Int` stays `Int`, a `Float` operand promotes). Built as that
+/// composition, so it renders and evaluates as it is; Polars' `drop`
+/// behaviour (removing the nulled rows, changing the length) has no
+/// length-changing spelling here.
+pub fn Expr::diff(self : Expr, n? : Int = 1) -> Expr {
+  self.sub(self.shift(n))
+}
+
+///|
+/// Running sum of the operand's non-null cells (Polars' `cum_sum`): a null
+/// slot keeps its null while the running total skips it, a `NaN` enters the
+/// total and stays. Numeric only. `reverse~` accumulates from the end.
+pub fn Expr::cum_sum(self : Expr, reverse? : Bool = false) -> Expr {
+  Expr::of(
+    @ir.ExprNode::Positional(@ir.PositionalOp::CumSum(reverse), self.node),
+  )
+}
+
+///|
+/// Running minimum of the operand's non-null cells (Polars' `cum_min`),
+/// with `cum_sum`'s null / `reverse~` rules; a `NaN` is skipped (the
+/// extrema rule, not the sum's). Numeric only.
+pub fn Expr::cum_min(self : Expr, reverse? : Bool = false) -> Expr {
+  Expr::of(
+    @ir.ExprNode::Positional(@ir.PositionalOp::CumMin(reverse), self.node),
+  )
+}
+
+///|
+/// Running maximum of the operand's non-null cells — `cum_min` with the
+/// order reversed, sharing every rule (Polars' `cum_max`).
+pub fn Expr::cum_max(self : Expr, reverse? : Bool = false) -> Expr {
+  Expr::of(
+    @ir.ExprNode::Positional(@ir.PositionalOp::CumMax(reverse), self.node),
+  )
+}
+
+///|
+/// Running product of the operand's non-null cells (Polars' `cum_prod`),
+/// with `cum_sum`'s null / `NaN` / `reverse~` rules. Numeric only.
+pub fn Expr::cum_prod(self : Expr, reverse? : Bool = false) -> Expr {
+  Expr::of(
+    @ir.ExprNode::Positional(@ir.PositionalOp::CumProd(reverse), self.node),
+  )
+}
+
+///|
+/// Running count of the operand's non-null cells (Polars' `cum_count`),
+/// total over every dtype: a null slot repeats the count the prior cell
+/// reached (`[x, k, null, d]` counts `1, 2, 2, 3`). Always an `Int` column.
+/// `reverse~` counts from the end.
+pub fn Expr::cum_count(self : Expr, reverse? : Bool = false) -> Expr {
+  Expr::of(
+    @ir.ExprNode::Positional(@ir.PositionalOp::CumCount(reverse), self.node),
+  )
+}
+
+///|
+/// Rank the operand's cells among its non-null cells (Polars' `rank`):
+/// `how~` picks the tie rule (`Average` default — the mean of the tied
+/// ranks, a `Float` column; `Min` / `Max` / `Dense` / `Ordinal` an `Int`
+/// column), `descending~` flips the order, ties keep input order, null
+/// cells stay null, and a `NaN` ranks past every other value (the total
+/// order `sort` uses). Polars' sixth method `random` is not carried.
+pub fn Expr::rank(
+  self : Expr,
+  how? : @types.RankMethod = @types.RankMethod::Average,
+  descending? : Bool = false,
+) -> Expr {
+  Expr::of(
+    @ir.ExprNode::Positional(@ir.PositionalOp::Rank(how, descending), self.node),
+  )
+}
+
+///|
+/// The stable permutation that would sort the operand (Polars'
+/// `arg_sort`): an `Int` column holding, for each output row, the operand
+/// position that lands there — non-null positions ordered by value (ties in
+/// input order), the null positions' own indices placed per `nulls_last~`
+/// (`false` mirrors the sort kernel's nulls-first default). `descending~`
+/// flips the value order. Feed it to `gather` to reorder a frame.
+pub fn Expr::arg_sort(
+  self : Expr,
+  descending? : Bool = false,
+  nulls_last? : Bool = false,
+) -> Expr {
+  Expr::of(
+    @ir.ExprNode::Positional(
+      @ir.PositionalOp::ArgSort(descending, nulls_last),
+      self.node,
+    ),
+  )
+}
+
+///|
 /// Sum of the operand over the evaluation scope (whole frame, or one group
 /// under `agg`). Inherits `Series::sum` semantics: NaN propagates,
 /// nulls are skipped, non-numeric operands are `TypeMismatch`.
@@ -565,6 +683,24 @@ pub fn Expr::n_unique(self : Expr) -> Expr {
 /// is null, and a present `NaN` passes through verbatim.
 pub fn Expr::first(self : Expr) -> Expr {
   Expr::of(@ir.ExprNode::Agg(@series.ReduceOp::First, self.node))
+}
+
+///|
+/// Window-local position of the minimum over the evaluation scope, as an
+/// `Int` — `min`'s positional twin (Polars' `arg_min`). Total over every
+/// dtype (`NaN` skipped like `min`), a tie keeps the **earliest** position
+/// (deterministic where Polars documents the tie as arbitrary), and an
+/// empty / all-null scope reduces to null.
+pub fn Expr::arg_min(self : Expr) -> Expr {
+  Expr::of(@ir.ExprNode::Agg(@series.ReduceOp::ArgMin, self.node))
+}
+
+///|
+/// Window-local position of the maximum over the evaluation scope — `arg_min`
+/// with the order reversed, sharing its dtype-total, `NaN`-skipping, and
+/// earliest-tie rules (Polars' `arg_max`).
+pub fn Expr::arg_max(self : Expr) -> Expr {
+  Expr::of(@ir.ExprNode::Agg(@series.ReduceOp::ArgMax, self.node))
 }
 
 ///|

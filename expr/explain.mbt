@@ -136,6 +136,7 @@ fn push_write_tasks(stack : Array[WriteTask], expr : Expr) -> Unit {
       }
     Agg(op, e) => [Node(Expr::of(e)), Frag(agg_suffix(op))]
     Str(op, e) => [Node(Expr::of(e)), StrSuffix(op)]
+    Positional(op, e) => [Node(Expr::of(e)), Frag(positional_suffix(op))]
     Cast(e, target) =>
       [Node(Expr::of(e)), Frag(".cast("), CastTarget(target), Frag(")")]
     Alias(e, name) =>
@@ -281,8 +282,55 @@ fn agg_suffix(op : @series.ReduceOp) -> String {
       ".quantile(\{q}\{tag})"
     }
     NUnique => ".n_unique()"
+    ArgMin => ".arg_min()"
+    ArgMax => ".arg_max()"
     First => ".first()"
     Last => ".last()"
+  }
+}
+
+///|
+/// Postfix method spelling for a positional transform, display-syntax like
+/// `agg_suffix`'s parameterised `quantile`: the non-default arguments ride
+/// the call (a `shift` fill, a `reverse`d cumulative, `rank`'s method and
+/// direction, `arg_sort`'s two flags), each default omitted.
+fn positional_suffix(op : @ir.PositionalOp) -> String {
+  match op {
+    Shift(n, fill) => {
+      let f = if fill.is_null() { "" } else { ", fill=\{format_scalar(fill)}" }
+      ".shift(\{n}\{f})"
+    }
+    CumSum(reverse) => cum_suffix("cum_sum", reverse)
+    CumMin(reverse) => cum_suffix("cum_min", reverse)
+    CumMax(reverse) => cum_suffix("cum_max", reverse)
+    CumProd(reverse) => cum_suffix("cum_prod", reverse)
+    CumCount(reverse) => cum_suffix("cum_count", reverse)
+    Rank(how, descending) => {
+      let m = match how {
+        Average => ""
+        Min => "min"
+        Max => "max"
+        Dense => "dense"
+        Ordinal => "ordinal"
+      }
+      let d = if descending { "descending" } else { "" }
+      ".rank(\{[m, d].filter(x => x != "").join(", ")})"
+    }
+    ArgSort(descending, nulls_last) => {
+      let d = if descending { "descending" } else { "" }
+      let nl = if nulls_last { "nulls_last" } else { "" }
+      ".arg_sort(\{[d, nl].filter(x => x != "").join(", ")})"
+    }
+  }
+}
+
+///|
+/// The `cum_*` family's shared suffix — the verb, plus `reverse` when set.
+fn cum_suffix(verb : String, reverse : Bool) -> String {
+  if reverse {
+    ".\{verb}(reverse)"
+  } else {
+    ".\{verb}()"
   }
 }
 

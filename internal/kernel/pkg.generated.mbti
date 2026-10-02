@@ -49,6 +49,8 @@ pub fn eval_neg(@series.Series) -> @series.Series raise @types.DataError
 
 pub fn eval_not(@series.Series) -> @series.Series raise @types.DataError
 
+pub fn eval_positional(@ir.PositionalOp, @series.Series) -> @series.Series raise @types.DataError
+
 pub fn eval_pow(@series.Series, @series.Series) -> @series.Series raise @types.DataError
 
 pub fn eval_round(@series.Series, Int) -> @series.Series raise @types.DataError

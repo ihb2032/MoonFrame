@@ -509,6 +509,101 @@ fn reduce_quantile(
 }
 
 ///|
+/// `arg_min` / `arg_max` reducer over an index window: the **window-local
+/// position** (`k`, not the source row `at(k)`) of the first extremum cell,
+/// as a `Scalar::Int` — so a group's arg is the offset within the group,
+/// Polars' reading, and the whole-frame arg the row index. The order, the
+/// null skip, and the `NaN` skip are `reduce_extremum`'s exactly (total over
+/// every dtype; `Bool` `false < true`; `String` lexicographic), and a tie
+/// keeps the **earliest** position — deterministic where Polars documents
+/// the tie as arbitrary. An empty / all-null / all-`NaN` window reduces to
+/// `Scalar::Null`.
+fn reduce_arg_extremum(
+  storage : @column.ColumnStorage,
+  want_min~ : Bool,
+) -> (Int, (Int) -> Int) -> @types.Scalar {
+  let present = reduce_present(storage)
+  match storage.data() {
+    @column.ColumnData::I64(a) =>
+      fn(n : Int, at : (Int) -> Int) {
+        arg_extremum_of(n, k => a[at(k)], k => !present(at(k)), (x, y) => {
+          if want_min {
+            x < y
+          } else {
+            x > y
+          }
+        })
+      }
+    @column.ColumnData::F64(a) =>
+      fn(n : Int, at : (Int) -> Int) {
+        arg_extremum_of(
+          n,
+          k => a[at(k)],
+          // `NaN` is treated as missing (skipped), as in `reduce_extremum`.
+          k => !present(at(k)) || a[at(k)].is_nan(),
+          (x, y) => if want_min { x < y } else { x > y },
+        )
+      }
+    @column.ColumnData::Bool(a) =>
+      fn(n : Int, at : (Int) -> Int) {
+        arg_extremum_of(
+          n,
+          k => a[at(k)],
+          k => !present(at(k)),
+          // `false < true`: under min `false` beats `true`, under max
+          // reverse — `reduce_extremum`'s Bool order.
+          (x, y) => if want_min { !x && y } else { x && !y },
+        )
+      }
+    @column.ColumnData::Utf8(a) =>
+      fn(n : Int, at : (Int) -> Int) {
+        arg_extremum_of(n, k => a.get(at(k)), k => !present(at(k)), (x, y) => {
+          if want_min {
+            x < y
+          } else {
+            x > y
+          }
+        })
+      }
+  }
+}
+
+///|
+/// The fold behind `reduce_arg_extremum`'s four backend arms: the local
+/// position of the first cell the strict `better` prefers, `Scalar::Int(k)`
+/// — or `Scalar::Null` when every position is skipped. `better` strict means
+/// a tie never displaces the earlier position.
+fn[T] arg_extremum_of(
+  n : Int,
+  read : (Int) -> T,
+  skip : (Int) -> Bool,
+  better : (T, T) -> Bool,
+) -> @types.Scalar {
+  let mut best : T? = None
+  let mut best_k = 0
+  for k in 0..<n {
+    if !skip(k) {
+      let v = read(k)
+      match best {
+        Some(b) =>
+          if better(v, b) {
+            best = Some(v)
+            best_k = k
+          }
+        None => {
+          best = Some(v)
+          best_k = k
+        }
+      }
+    }
+  }
+  match best {
+    Some(_) => @types.Scalar::Int(best_k.to_int64())
+    None => @types.Scalar::Null
+  }
+}
+
+///|
 /// Count the distinct non-null values in an index window — the total core
 /// behind both the `n_unique` reduction and `Series::n_unique`, so the two
 /// agree on what "distinct" means cell-for-cell. Cells are keyed by the same
@@ -610,7 +705,7 @@ pub extend QuantileInterpolation with Eq::{equal, not_equal}
 pub extend QuantileInterpolation with Debug::{to_repr}
 
 ///|
-/// The twelve reductions the shared kernel resolves — the single aggregation
+/// The fourteen reductions the shared kernel resolves — the single aggregation
 /// vocabulary, one fact with one home. The expression AST's `Agg` node carries
 /// a `ReduceOp` directly (the AST package imports `series`), `frame`'s evaluator
 /// and grouped-`agg` fast path dispatch on it, and `reducer_for` right below
@@ -631,6 +726,8 @@ pub(all) enum ReduceOp {
   Median
   Quantile(Double, QuantileInterpolation)
   NUnique
+  ArgMin
+  ArgMax
   First
   Last
 } derive(Eq)
@@ -646,7 +743,7 @@ pub extend ReduceOp with Eq::{equal, not_equal}
 
 ///|
 /// Resolve a `ReduceOp` to its window reducer plus the dtype probe that fixes
-/// the output column's type: `Count` / `NUnique` are always `Int`, `Mean` /
+/// the output column's type: `Count` / `NUnique` / `ArgMin` / `ArgMax` are always `Int`, `Mean` /
 /// `Std` / `Var` / `Median` / `Quantile` always `Float`, and `Sum` / `Min` /
 /// `Max` / `First` / `Last` keep the source dtype. Shared by the grouped (`agg`)
 /// and scoped (`eval_agg`) reductions so the op → reducer mapping lives in one
@@ -676,6 +773,14 @@ pub fn Series::reducer_for(
     Median => (reduce_median(storage), @types.DataType::Float)
     Quantile(q, interpolation) =>
       (reduce_quantile(storage, q, interpolation), @types.DataType::Float)
+    // `ArgMin` / `ArgMax` are the extremum reducers' positional twins: an
+    // `Int` cell holding the **window-local position** of the extremum (its
+    // `k`, so a group's arg is the offset within the group, Polars'
+    // reading), total over every dtype like `Min` / `Max`.
+    ArgMin =>
+      (reduce_arg_extremum(storage, want_min=true), @types.DataType::Int)
+    ArgMax =>
+      (reduce_arg_extremum(storage, want_min=false), @types.DataType::Int)
     NUnique => {
       // The `n_unique` reducer over an index window: distinct non-null count
       // as `Scalar::Int`, total over every dtype and never null (an empty /

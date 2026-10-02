@@ -42,6 +42,11 @@ QuantileInterpolation | enum | Linear
 QuantileInterpolation | enum | Lower
 QuantileInterpolation | enum | Midpoint
 QuantileInterpolation | enum | Nearest
+RankMethod | enum | Average
+RankMethod | enum | Dense
+RankMethod | enum | Max
+RankMethod | enum | Min
+RankMethod | enum | Ordinal
 Scalar | enum | Bool(Bool)
 Scalar | enum | Date(Int64)
 Scalar | enum | Float(Double)

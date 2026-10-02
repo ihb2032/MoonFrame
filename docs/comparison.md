@@ -153,8 +153,10 @@ will not find here today:
   ones are the deferral the others hang off: the list-returning `str.split`,
   the datetime expression family, and a reader that takes a declared schema
   all need a dtype before they can exist.
-- **Expressions** — no window / rolling / `over` functions, no cumulative or
-  `shift` / `diff` family, and no `pivot` / `melt` reshaping.
+- **Expressions** — no window / rolling / `over` functions, and no
+  `pivot` / `melt` reshaping. The history-dependent family — `shift` /
+  `diff`, the `cum_*` running aggregates, `rank`, `arg_sort` — is present,
+  as are the positional reductions `arg_min` / `arg_max`.
 - **Lazy** — no streaming execution: a scan pushes projections and predicates
   down into the reader, but still tokenises the whole file. No columnar sources
   (`scan_parquet` / `scan_ipc`) either — those wait on eager readers for the

@@ -139,6 +139,7 @@ priv enum EvalStep {
   ApplyUnary(@ir.UnOp)
   ApplyAgg(ReduceOp)
   ApplyStr(@ir.StrOp)
+  ApplyPositional(@ir.PositionalOp)
   ApplyCast(@types.DataType)
   ApplyAlias(String)
   ApplyTernary
@@ -245,6 +246,10 @@ fn eval_expr(
               }
               @ir.ExprNode::Str(op, e) => {
                 work.push(ApplyStr(op))
+                work.push(Eval(e))
+              }
+              @ir.ExprNode::Positional(op, e) => {
+                work.push(ApplyPositional(op))
                 work.push(Eval(e))
               }
               @ir.ExprNode::Cast(e, target) => {
@@ -390,6 +395,10 @@ fn eval_expr(
           ApplyStr(op) => {
             let operand = pop_value(values)
             values.push(@kernel.eval_str(op, operand))
+          }
+          ApplyPositional(op) => {
+            let operand = pop_value(values)
+            values.push(@kernel.eval_positional(op, operand))
           }
           ApplyCast(target) => {
             let operand = pop_value(values)

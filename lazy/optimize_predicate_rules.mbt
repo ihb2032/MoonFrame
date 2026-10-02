@@ -48,6 +48,10 @@ fn row_stable(expr : @ir.ExprNode) -> Bool {
         match e {
           @ir.ExprNode::Agg(_, _)
           | @ir.ExprNode::Cast(_, _)
+          // A positional transform reads its neighbors — `shift` / the
+          // running aggregates / the ranking family — so a row's cell moves
+          // with any row permutation, exactly the verdict `Cast` gets.
+          | @ir.ExprNode::Positional(_, _)
           | @ir.ExprNode::Map(_, _, _)
           | @ir.ExprNode::MapBatches(_, _, _, _)
           | @ir.ExprNode::LitSeries(_) => return false
@@ -200,10 +204,17 @@ fn group_cell_stable(expr : @ir.ExprNode) -> Bool {
               // cell depends on the whole value multiset, so a group whose
               // cell a predicate reads changes when rows sink in or out of it.
               | @series.ReduceOp::Quantile(_, _)
+              // `arg_min` / `arg_max` name a *position* — the row a sinking
+              // filter removes is exactly the one the arg could point at.
+              | @series.ReduceOp::ArgMin
+              | @series.ReduceOp::ArgMax
               | @series.ReduceOp::First
               | @series.ReduceOp::Last => return false
             }
           @ir.ExprNode::Cast(_, _)
+          // A positional transform is order- and neighbor-dependent, so a
+          // group cell it feeds can never be proven stable.
+          | @ir.ExprNode::Positional(_, _)
           | @ir.ExprNode::Map(_, _, _)
           | @ir.ExprNode::MapBatches(_, _, _, _)
           | @ir.ExprNode::LitSeries(_) => return false

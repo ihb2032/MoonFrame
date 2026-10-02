@@ -89,6 +89,7 @@ fn ExprNode::leftmost_name(self : ExprNode) -> String? {
           | Unary(_, _)
           | Agg(_, _)
           | Str(_, _)
+          | Positional(_, _)
           | Cast(_, _)
           | FillNull(_, _)
           | FillNan(_, _)

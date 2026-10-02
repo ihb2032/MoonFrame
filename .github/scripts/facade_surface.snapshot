@@ -153,12 +153,15 @@ method DataFrame::item(Self, Int, String) -> @types.Scalar raise @types.DataErro
 method DataFrame::join(Self, Self, JoinOptions) -> Self raise @types.DataError <- frame
 method DataFrame::max(Self) -> Self raise @types.DataError <- frame
 method DataFrame::mean(Self) -> Self raise @types.DataError <- frame
+method DataFrame::median(Self) -> Self raise @types.DataError <- frame
 method DataFrame::min(Self) -> Self raise @types.DataError <- frame
+method DataFrame::n_unique(Self) -> Self raise @types.DataError <- frame
 method DataFrame::ncols(Self) -> Int <- frame
 method DataFrame::not_equal(Self, Self) -> Bool <- frame
 method DataFrame::nrows(Self) -> Int <- frame
 method DataFrame::null_count(Self) -> Self raise @types.DataError <- frame
 method DataFrame::numeric_cols(Self) -> Array[@expr.Expr] <- frame
+method DataFrame::quantile(Self, Double, interpolation? : @series.QuantileInterpolation) -> Self raise @types.DataError <- frame
 method DataFrame::rename(Self, Array[(String, String)]) -> Self raise @types.DataError <- frame
 method DataFrame::rename_with(Self, (String) -> String) -> Self raise @types.DataError <- frame
 method DataFrame::reverse(Self) -> Self <- frame
@@ -170,12 +173,14 @@ method DataFrame::shape(Self) -> (Int, Int) <- frame
 method DataFrame::slice(Self, Int, length? : Int) -> Self <- frame
 method DataFrame::slice_between(Self, start? : Int, end? : Int) -> Self <- frame
 method DataFrame::sort(Self, Array[(@expr.Expr, Bool, Bool)]) -> Self raise @types.DataError <- frame
+method DataFrame::std(Self) -> Self raise @types.DataError <- frame
 method DataFrame::sum(Self) -> Self raise @types.DataError <- frame
 method DataFrame::tail(Self, Int) -> Self <- frame
 method DataFrame::to_html(Self, options? : HtmlOptions) -> String <- frame
 method DataFrame::to_markdown(Self, max_rows? : Int) -> String <- frame
 method DataFrame::to_repr(Self) -> @debug.Repr <- frame
 method DataFrame::unique(Self, subset? : Array[@expr.Expr], keep? : KeepStrategy) -> Self raise @types.DataError <- frame
+method DataFrame::variance(Self) -> Self raise @types.DataError <- frame
 method DataFrame::with_columns(Self, Array[@expr.Expr]) -> Self raise @types.DataError <- frame
 method DataFrame::with_row_index(Self, name? : String, offset? : Int64) -> Self raise @types.DataError <- frame
 method DataType::equal(Self, Self) -> Bool <- types
@@ -223,6 +228,7 @@ method Expr::neg(Self) -> Self <- expr
 method Expr::not(Self) -> Self <- expr
 method Expr::output(Self, &Logger) -> Unit <- expr
 method Expr::pow(Self, Self) -> Self <- expr
+method Expr::quantile(Self, Double, interpolation? : @series.QuantileInterpolation) -> Self <- expr
 method Expr::round(Self, decimals? : Int) -> Self <- expr
 method Expr::sign(Self) -> Self <- expr
 method Expr::std(Self) -> Self <- expr
@@ -288,17 +294,22 @@ method LazyFrame::head(Self, Int) -> Self <- lazy
 method LazyFrame::join(Self, Self, @frame.JoinOptions) -> Self <- lazy
 method LazyFrame::max(Self) -> Self <- lazy
 method LazyFrame::mean(Self) -> Self <- lazy
+method LazyFrame::median(Self) -> Self <- lazy
 method LazyFrame::min(Self) -> Self <- lazy
+method LazyFrame::n_unique(Self) -> Self <- lazy
 method LazyFrame::null_count(Self) -> Self <- lazy
+method LazyFrame::quantile(Self, Double, interpolation? : @series.QuantileInterpolation) -> Self <- lazy
 method LazyFrame::rename(Self, Array[(String, String)]) -> Self <- lazy
 method LazyFrame::rename_with(Self, (String) -> String) -> Self <- lazy
 method LazyFrame::reverse(Self) -> Self <- lazy
 method LazyFrame::select(Self, Array[@expr.Expr]) -> Self <- lazy
 method LazyFrame::slice(Self, Int, length? : Int) -> Self <- lazy
 method LazyFrame::sort(Self, Array[(@expr.Expr, Bool, Bool)]) -> Self <- lazy
+method LazyFrame::std(Self) -> Self <- lazy
 method LazyFrame::sum(Self) -> Self <- lazy
 method LazyFrame::tail(Self, Int) -> Self <- lazy
 method LazyFrame::unique(Self, subset? : Array[@expr.Expr], keep? : @frame.KeepStrategy) -> Self <- lazy
+method LazyFrame::variance(Self) -> Self <- lazy
 method LazyFrame::with_columns(Self, Array[@expr.Expr]) -> Self <- lazy
 method LazyFrame::with_row_index(Self, name? : String, offset? : Int64) -> Self <- lazy
 method LazyGroupBy::agg(Self, Array[@expr.Expr]) -> LazyFrame <- lazy
@@ -308,6 +319,9 @@ method OnParseError::to_repr(Self) -> @debug.Repr <- io
 method ParseErrorDetail::equal(Self, Self) -> Bool <- types
 method ParseErrorDetail::not_equal(Self, Self) -> Bool <- types
 method ParseErrorDetail::to_repr(Self) -> @debug.Repr <- types
+method QuantileInterpolation::equal(Self, Self) -> Bool <- series
+method QuantileInterpolation::not_equal(Self, Self) -> Bool <- series
+method QuantileInterpolation::to_repr(Self) -> @debug.Repr <- series
 method Scalar::as_bool(Self) -> Bool raise DataError <- types
 method Scalar::as_float(Self) -> Double raise DataError <- types
 method Scalar::as_int(Self) -> Int64 raise DataError <- types
@@ -360,6 +374,7 @@ method Series::n_unique(Self) -> Int <- series
 method Series::name(Self) -> String <- series
 method Series::not_equal(Self, Self) -> Bool <- series
 method Series::null_count(Self) -> Int <- series
+method Series::quantile(Self, Double, interpolation? : QuantileInterpolation) -> Double raise @types.DataError <- series
 method Series::rename(Self, String) -> Self <- series
 method Series::reverse(Self) -> Self <- series
 method Series::slice(Self, Int, length? : Int) -> Self <- series
@@ -398,6 +413,7 @@ type KeepStrategy <- frame
 type LazyFrame <- lazy
 type OnParseError <- io
 type ParseErrorDetail <- types
+type QuantileInterpolation <- series
 type Scalar <- types
 type Schema <- types
 type Series <- series

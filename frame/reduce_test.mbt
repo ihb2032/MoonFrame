@@ -88,6 +88,21 @@ fn check_numeric_surfaces(x : Series) -> Unit raise Error {
   assert_true(
     reductions_agree(whole_median, group_cell(df, @expr.col("x").median())),
   )
+  // `quantile` agrees the same way under both interpolations that can
+  // disagree: `Nearest` (the default) and `Linear`.
+  let whole_q = @types.Scalar::Float(x.quantile(0.25))
+  assert_true(
+    reductions_agree(whole_q, group_cell(df, @expr.col("x").quantile(0.25))),
+  )
+  let whole_q_linear = @types.Scalar::Float(
+    x.quantile(0.25, interpolation=Linear),
+  )
+  assert_true(
+    reductions_agree(
+      whole_q_linear,
+      group_cell(df, @expr.col("x").quantile(0.25, interpolation=Linear)),
+    ),
+  )
   check_total_reductions(x, df)
 }
 

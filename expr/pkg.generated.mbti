@@ -73,6 +73,7 @@ pub fn Expr::neg(Self) -> Self
 pub fn Expr::not(Self) -> Self
 pub fn Expr::output(Self, &Logger) -> Unit
 pub fn Expr::pow(Self, Self) -> Self
+pub fn Expr::quantile(Self, Double, interpolation? : @series.QuantileInterpolation) -> Self
 pub fn Expr::round(Self, decimals? : Int) -> Self
 pub fn Expr::sign(Self) -> Self
 pub fn Expr::std(Self) -> Self

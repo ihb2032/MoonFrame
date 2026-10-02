@@ -95,6 +95,8 @@ pub using @io {type OnParseError}
 
 pub using @types {type ParseErrorDetail}
 
+pub using @series {type QuantileInterpolation}
+
 pub using @types {type Scalar}
 
 pub using @types {type Schema}

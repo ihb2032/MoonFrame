@@ -193,6 +193,33 @@ test "all-null group: sum is the additive identity, mean and extrema are null" {
 }
 
 ///|
+test "grouped quantile: interpolation per group, an all-null group a null cell" {
+  let df = DataFrame::DataFrame([
+    Series::from_strings("k", ["a", "a", "a", "a", "b"]),
+    // Group "a" sorts to [1, 2, 3, 4] (input order scrambled on purpose);
+    // group "b" has no present value.
+    Series::from_int_options("v", [Some(3), Some(1), Some(2), Some(4), None]),
+  ])
+  let out = df
+    .group_by([@expr.col("k")])
+    .agg([
+      @expr.col("v").quantile(0.5).with_alias("near"),
+      @expr.col("v")
+      .quantile(0.5, interpolation=@series.QuantileInterpolation::Linear)
+      .with_alias("lin"),
+    ])
+  assert_eq(out.get_column("near").to_scalars(), [
+    @types.Scalar::Float(3.0),
+    @types.Scalar::Null,
+  ])
+  assert_eq(out.get_column("lin").to_scalars(), [
+    @types.Scalar::Float(2.5),
+    @types.Scalar::Null,
+  ])
+  assert_eq(out.check_invariants(), Ok(()))
+}
+
+///|
 test "NaN propagates through sum/mean and is skipped by max" {
   let nan : Double = @double.not_a_number
   let df = DataFrame::DataFrame([

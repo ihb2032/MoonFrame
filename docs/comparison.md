@@ -38,7 +38,7 @@ libraries — not a derivative work of either codebase.
   `sign` / `round`, Kleene `& |`, comparisons and the `is_in` / `is_between` /
   `is_null` / `is_nan` predicates, `when / then / otherwise`, the aggregations
   (`sum` / `mean` / `min` / `max` / `count` / `std` / `variance` /
-  `median` / `n_unique` / `first` / `last`), a `str_*` namespace with both
+  `median` / `quantile` / `n_unique` / `first` / `last`), a `str_*` namespace with both
   literal and regex matching (`str_contains` / `str_replace` / `str_replace_all`
   take `literal?`; `str_extract` / `str_count_matches` are regex-only), and the
   `map_elements` / `map_batches` / `map_many` UDF escape hatch. Per-operator
@@ -46,8 +46,8 @@ libraries — not a derivative work of either codebase.
   docstring (the generated reference collects them).
 - **`null` is missing** — a null propagates through arithmetic and
   comparison (Arrow / Polars); `&` / `|` are three-valued (Kleene).
-- **`NaN` is a value, not missing** — `sum` / `mean` / `median` propagate
-  `NaN`; `min` / `max` skip it (as in Polars); `n_unique` buckets every `NaN`
+- **`NaN` is a value, not missing** — `sum` / `mean` / `median` / `quantile`
+  propagate `NaN`; `min` / `max` skip it (as in Polars); `n_unique` buckets every `NaN`
   as one value; comparisons treat `NaN` as a value. `sort` orders it by the
   IEEE-754 total order — larger than every other value, so it trails an
   ascending sort and leads a descending one, independently of where the nulls
@@ -123,7 +123,7 @@ Where MoonFrame knowingly does something else than Polars.
   frame (Polars reduces dates); the column's own `Series::min` / `max`
   still order every dtype and read the date.
 
-For `NaN` everywhere — `sum` / `mean` / `median` / `sort` / `group_by` /
+For `NaN` everywhere — `sum` / `mean` / `median` / `quantile` / `sort` / `group_by` /
 `join` / comparisons — it is a value, as in Polars.
 
 ## Forced by MoonBit (not behavioral)

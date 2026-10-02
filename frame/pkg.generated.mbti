@@ -45,12 +45,15 @@ pub fn DataFrame::item(Self, Int, String) -> @types.Scalar raise @types.DataErro
 pub fn DataFrame::join(Self, Self, JoinOptions) -> Self raise @types.DataError
 pub fn DataFrame::max(Self) -> Self raise @types.DataError
 pub fn DataFrame::mean(Self) -> Self raise @types.DataError
+pub fn DataFrame::median(Self) -> Self raise @types.DataError
 pub fn DataFrame::min(Self) -> Self raise @types.DataError
+pub fn DataFrame::n_unique(Self) -> Self raise @types.DataError
 pub fn DataFrame::ncols(Self) -> Int
 pub fn DataFrame::not_equal(Self, Self) -> Bool
 pub fn DataFrame::nrows(Self) -> Int
 pub fn DataFrame::null_count(Self) -> Self raise @types.DataError
 pub fn DataFrame::numeric_cols(Self) -> Array[@expr.Expr]
+pub fn DataFrame::quantile(Self, Double, interpolation? : @series.QuantileInterpolation) -> Self raise @types.DataError
 pub fn DataFrame::rename(Self, Array[(String, String)]) -> Self raise @types.DataError
 pub fn DataFrame::rename_with(Self, (String) -> String) -> Self raise @types.DataError
 pub fn DataFrame::reverse(Self) -> Self
@@ -63,12 +66,14 @@ pub fn DataFrame::slice(Self, Int, length? : Int) -> Self
 #alias("_[_:_]")
 pub fn DataFrame::slice_between(Self, start? : Int, end? : Int) -> Self
 pub fn DataFrame::sort(Self, Array[(@expr.Expr, Bool, Bool)]) -> Self raise @types.DataError
+pub fn DataFrame::std(Self) -> Self raise @types.DataError
 pub fn DataFrame::sum(Self) -> Self raise @types.DataError
 pub fn DataFrame::tail(Self, Int) -> Self
 pub fn DataFrame::to_html(Self, options? : HtmlOptions) -> String
 pub fn DataFrame::to_markdown(Self, max_rows? : Int) -> String
 pub fn DataFrame::to_repr(Self) -> @debug.Repr
 pub fn DataFrame::unique(Self, subset? : Array[@expr.Expr], keep? : KeepStrategy) -> Self raise @types.DataError
+pub fn DataFrame::variance(Self) -> Self raise @types.DataError
 pub fn DataFrame::with_columns(Self, Array[@expr.Expr]) -> Self raise @types.DataError
 pub fn DataFrame::with_row_index(Self, name? : String, offset? : Int64) -> Self raise @types.DataError
 

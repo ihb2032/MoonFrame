@@ -5,6 +5,7 @@ import {
   "ihb2032/MoonFrame/expr",
   "ihb2032/MoonFrame/frame",
   "ihb2032/MoonFrame/io",
+  "ihb2032/MoonFrame/series",
   "ihb2032/MoonFrame/types",
 }
 
@@ -33,17 +34,22 @@ pub fn LazyFrame::head(Self, Int) -> Self
 pub fn LazyFrame::join(Self, Self, @frame.JoinOptions) -> Self
 pub fn LazyFrame::max(Self) -> Self
 pub fn LazyFrame::mean(Self) -> Self
+pub fn LazyFrame::median(Self) -> Self
 pub fn LazyFrame::min(Self) -> Self
+pub fn LazyFrame::n_unique(Self) -> Self
 pub fn LazyFrame::null_count(Self) -> Self
+pub fn LazyFrame::quantile(Self, Double, interpolation? : @series.QuantileInterpolation) -> Self
 pub fn LazyFrame::rename(Self, Array[(String, String)]) -> Self
 pub fn LazyFrame::rename_with(Self, (String) -> String) -> Self
 pub fn LazyFrame::reverse(Self) -> Self
 pub fn LazyFrame::select(Self, Array[@expr.Expr]) -> Self
 pub fn LazyFrame::slice(Self, Int, length? : Int) -> Self
 pub fn LazyFrame::sort(Self, Array[(@expr.Expr, Bool, Bool)]) -> Self
+pub fn LazyFrame::std(Self) -> Self
 pub fn LazyFrame::sum(Self) -> Self
 pub fn LazyFrame::tail(Self, Int) -> Self
 pub fn LazyFrame::unique(Self, subset? : Array[@expr.Expr], keep? : @frame.KeepStrategy) -> Self
+pub fn LazyFrame::variance(Self) -> Self
 pub fn LazyFrame::with_columns(Self, Array[@expr.Expr]) -> Self
 pub fn LazyFrame::with_row_index(Self, name? : String, offset? : Int64) -> Self
 

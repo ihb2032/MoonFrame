@@ -107,8 +107,10 @@ pub using @expr {
 /// `Series` has its own package (extracted so the
 /// expression layer can build on the per-column unit); re-exporting the type
 /// carries its constructors (`from_ints` / …) and methods along, so the
-/// facade name for `Series` is unchanged for callers.
-pub using @series {type Series}
+/// facade name for `Series` is unchanged for callers. `QuantileInterpolation`
+/// is named by callers to pick a non-default interpolation — the only
+/// enum-argument vocabulary on the reduction family.
+pub using @series {type Series, type QuantileInterpolation}
 
 ///|
 pub using @frame {

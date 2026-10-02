@@ -37,6 +37,11 @@ OnParseError | enum | Null
 OnParseError | enum | Raise
 ParseErrorDetail | enum | Cell(CellParseLocation, String, Int, DataType, String)
 ParseErrorDetail | enum | Message(String)
+QuantileInterpolation | enum | Higher
+QuantileInterpolation | enum | Linear
+QuantileInterpolation | enum | Lower
+QuantileInterpolation | enum | Midpoint
+QuantileInterpolation | enum | Nearest
 Scalar | enum | Bool(Bool)
 Scalar | enum | Date(Int64)
 Scalar | enum | Float(Double)

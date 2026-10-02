@@ -138,6 +138,104 @@ test "count is the non-null cell count for every column, as a 1-row Int frame" {
   }
 }
 
+// ── median / quantile ─────────────────────────────────────────────────
+
+///|
+test "median reduces numeric columns to Float, nulls non-numeric" {
+  let r = stats_df().median()
+  assert_eq(r.shape(), (1, 4))
+  // i: sorted [1, 2, 3] → the middle; f: sorted [1.0, 2.0, 4.0] → the middle.
+  assert_eq(r.item(0, "i"), @types.Scalar::Float(2.0))
+  assert_eq(r.item(0, "f"), @types.Scalar::Float(2.0))
+  assert_eq(r.item(0, "b"), @types.Scalar::Null)
+  assert_eq(r.item(0, "s"), @types.Scalar::Null)
+  assert_eq(r.get_column("i").dtype(), @types.DataType::Float)
+  assert_eq(r.get_column("b").dtype(), @types.DataType::Bool)
+}
+
+///|
+test "quantile reads the q-th cell, Nearest by default, per interpolation" {
+  // The default: q = 0.25 over i's sorted [1, 2, 3] names position 0.5,
+  // which Nearest rounds up (halves up) → 2.
+  let r = stats_df().quantile(0.25)
+  assert_eq(r.item(0, "i"), @types.Scalar::Float(2.0))
+  assert_eq(r.item(0, "f"), @types.Scalar::Float(2.0))
+  assert_eq(r.item(0, "b"), @types.Scalar::Null)
+  // Linear over the same position averages the 1 / 2 neighbours.
+  let lin = stats_df().quantile(0.25, interpolation=Linear)
+  assert_eq(lin.item(0, "i"), @types.Scalar::Float(1.5))
+  assert_eq(lin.get_column("s").dtype(), @types.DataType::String)
+  // A q outside [0, 1] surfaces the kernel's InvalidOperation.
+  assert_true(
+    (Ok(stats_df().quantile(1.5)) catch { e => Err(e) })
+    is Err(@types.DataError::InvalidOperation(_)),
+  )
+}
+
+// ── std / variance ────────────────────────────────────────────────────
+
+///|
+test "std and variance reduce numeric columns to Float, nulls non-numeric" {
+  let sd = stats_df().std()
+  let vr = stats_df().variance()
+  // i: [1, 2, 3] has variance 1 (mean 2, squared deviations 1 / 0 / 1 over
+  // ddof = 1) — std its square root. The f column's [1.0, 2.0, 4.0] variance
+  // is 7/3 in closed form, but the kernel accumulates by Welford, whose
+  // incremental means land one last-bit away from the closed form — so the
+  // cell is pinned against the column's own accessor (the wiring under
+  // test), with the exact math pinned on the 2 / 4 / 6 column below.
+  assert_eq(sd.item(0, "i"), @types.Scalar::Float(1.0))
+  assert_eq(vr.item(0, "i"), @types.Scalar::Float(1.0))
+  let f = stats_df().get_column("f")
+  assert_eq(vr.item(0, "f"), @types.Scalar::Float(f.variance()))
+  assert_eq(sd.item(0, "f"), @types.Scalar::Float(f.std()))
+  assert_eq(sd.item(0, "b"), @types.Scalar::Null)
+  assert_eq(vr.item(0, "s"), @types.Scalar::Null)
+  assert_eq(sd.get_column("f").dtype(), @types.DataType::Float)
+  assert_eq(sd.get_column("s").dtype(), @types.DataType::String)
+  // [2, 4, 6] is exact under Welford (every incremental mean is whole):
+  // variance 4, std 2.
+  let even = DataFrame::from_rows(
+    @types.Schema::Schema([@types.Field::Field("x", @types.DataType::Float)]),
+    [
+      [@types.Scalar::Float(2.0)],
+      [@types.Scalar::Float(4.0)],
+      [@types.Scalar::Float(6.0)],
+    ],
+  )
+  assert_eq(even.variance().item(0, "x"), @types.Scalar::Float(4.0))
+  assert_eq(even.std().item(0, "x"), @types.Scalar::Float(2.0))
+  // A single non-null cell has no sample denominator → Null cell, not a raise.
+  let single = DataFrame::from_rows(
+    @types.Schema::Schema([@types.Field::Field("x", @types.DataType::Int)]),
+    [[@types.Scalar::Int(5)]],
+  )
+  assert_eq(single.std().item(0, "x"), @types.Scalar::Null)
+  assert_eq(single.variance().item(0, "x"), @types.Scalar::Null)
+  // It still has a median and is its own every-quantile.
+  assert_eq(single.median().item(0, "x"), @types.Scalar::Float(5.0))
+  assert_eq(single.quantile(0.9).item(0, "x"), @types.Scalar::Float(5.0))
+  assert_eq(single.n_unique().item(0, "x"), @types.Scalar::Int(1))
+}
+
+// ── n_unique ──────────────────────────────────────────────────────────
+
+///|
+test "n_unique counts distinct non-null cells for every column, as Int" {
+  let r = stats_df().n_unique()
+  assert_eq(r.shape(), (1, 4))
+  // i: {1, 2, 3}; f: {1.0, 2.0, 4.0}; b: {true, false}; s: {banana, apple,
+  // cherry} — banana repeats once.
+  assert_eq(r.item(0, "i"), @types.Scalar::Int(3))
+  assert_eq(r.item(0, "f"), @types.Scalar::Int(3))
+  assert_eq(r.item(0, "b"), @types.Scalar::Int(2))
+  assert_eq(r.item(0, "s"), @types.Scalar::Int(3))
+  // Dtype-independent like count: every output column is Int.
+  for name in ["i", "f", "b", "s"] {
+    assert_eq(r.get_column(name).dtype(), @types.DataType::Int)
+  }
+}
+
 // ── edges: 0-row, 0-column ───────────────────────────────────────────
 
 ///|
@@ -163,6 +261,14 @@ test "reductions on a 0-row frame: sum is the identity, count is zero" {
   // min / max on an empty numeric column → Null cell.
   assert_eq(df.min().item(0, "i"), @types.Scalar::Null)
   assert_eq(df.max().item(0, "f"), @types.Scalar::Null)
+  // The no-value statistics (median / quantile / std / variance) are Null
+  // cells too, and n_unique counts zero — the whole-frame rule that a
+  // reduction always produces a value slot.
+  assert_eq(df.median().item(0, "i"), @types.Scalar::Null)
+  assert_eq(df.quantile(0.5).item(0, "f"), @types.Scalar::Null)
+  assert_eq(df.std().item(0, "i"), @types.Scalar::Null)
+  assert_eq(df.variance().item(0, "f"), @types.Scalar::Null)
+  assert_eq(df.n_unique().item(0, "s"), @types.Scalar::Int(0))
 }
 
 ///|
@@ -176,6 +282,11 @@ test "reductions on a 0-column frame are the 1x0 summary row" {
     assert_eq(df.min().shape(), (1, 0))
     assert_eq(df.max().shape(), (1, 0))
     assert_eq(df.count().shape(), (1, 0))
+    assert_eq(df.median().shape(), (1, 0))
+    assert_eq(df.quantile(0.5).shape(), (1, 0))
+    assert_eq(df.std().shape(), (1, 0))
+    assert_eq(df.variance().shape(), (1, 0))
+    assert_eq(df.n_unique().shape(), (1, 0))
     assert_eq(df.sum().check_invariants(), Ok(()))
   }
 }

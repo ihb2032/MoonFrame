@@ -11,6 +11,17 @@ import {
 // Errors
 
 // Types and methods
+pub(all) enum QuantileInterpolation {
+  Nearest
+  Linear
+  Lower
+  Higher
+  Midpoint
+} derive(Eq, @debug.Debug)
+pub fn QuantileInterpolation::equal(Self, Self) -> Bool
+pub fn QuantileInterpolation::not_equal(Self, Self) -> Bool
+pub fn QuantileInterpolation::to_repr(Self) -> @debug.Repr
+
 pub struct Series {
   // private fields
 } derive(Eq, @debug.Debug)
@@ -42,6 +53,7 @@ pub fn Series::n_unique(Self) -> Int
 pub fn Series::name(Self) -> String
 pub fn Series::not_equal(Self, Self) -> Bool
 pub fn Series::null_count(Self) -> Int
+pub fn Series::quantile(Self, Double, interpolation? : QuantileInterpolation) -> Double raise @types.DataError
 pub fn Series::rename(Self, String) -> Self
 pub fn Series::reverse(Self) -> Self
 pub fn Series::slice(Self, Int, length? : Int) -> Self

@@ -60,6 +60,33 @@ test "explain: the whole-frame reductions each print their verb" {
   assert_eq(base.max().explain(), "MAX\n  SCAN [4×3]")
   assert_eq(base.count().explain(), "COUNT\n  SCAN [4×3]")
   assert_eq(base.null_count().explain(), "NULL_COUNT\n  SCAN [4×3]")
+  assert_eq(base.median().explain(), "MEDIAN\n  SCAN [4×3]")
+  // The q rides the verb tag; the `Nearest` default stays implicit and every
+  // other interpolation is spelled out lowercase.
+  assert_eq(base.quantile(0.5).explain(), "QUANTILE 0.5\n  SCAN [4×3]")
+  for
+    interp in [
+      @series.QuantileInterpolation::Nearest,
+      @series.QuantileInterpolation::Linear,
+      @series.QuantileInterpolation::Lower,
+      @series.QuantileInterpolation::Higher,
+      @series.QuantileInterpolation::Midpoint,
+    ] {
+    let tag = match interp {
+      Linear => " linear"
+      Lower => " lower"
+      Higher => " higher"
+      Midpoint => " midpoint"
+      Nearest => ""
+    }
+    assert_eq(
+      base.quantile(0.25, interpolation=interp).explain(),
+      "QUANTILE 0.25\{tag}\n  SCAN [4×3]",
+    )
+  }
+  assert_eq(base.std().explain(), "STD\n  SCAN [4×3]")
+  assert_eq(base.variance().explain(), "VARIANCE\n  SCAN [4×3]")
+  assert_eq(base.n_unique().explain(), "N_UNIQUE\n  SCAN [4×3]")
 }
 
 ///|

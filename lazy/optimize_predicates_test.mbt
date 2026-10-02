@@ -538,14 +538,16 @@ test "fence: a mean over a value-raising operand stays above the group stage" {
 ///|
 test "fence: the sample statistics and first / last pin the filter above" {
   let df = sales_df()
-  // `std` / `var` / `median` / `first` / `last` stay fenced — a
+  // `std` / `var` / `median` / `quantile` / `first` / `last` stay fenced — a
   // conservative bound; no consumer has asked to loosen them, and pinning
-  // the fence keeps it deliberate.
+  // the fence keeps it deliberate. `quantile` is fenced for `median`'s
+  // reason: its cell is an order statistic of the whole value multiset.
   for
     agg in [
       @expr.col("qty").std().with_alias("s"),
       @expr.col("qty").variance().with_alias("v"),
       @expr.col("qty").median().with_alias("m"),
+      @expr.col("qty").quantile(0.75).with_alias("q"),
       @expr.col("region").first().with_alias("f"),
       @expr.col("region").last().with_alias("l"),
     ] {

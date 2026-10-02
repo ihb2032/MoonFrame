@@ -586,6 +586,125 @@ pub fn Expr::arg_sort(
 }
 
 ///|
+/// The rolling family's shared doc — the seven verbs below differ only in
+/// the statistic, so their contract is stated once: each output cell is the
+/// statistic over a `window_size`-wide window ending at that row (the
+/// trailing window), computed only where the window holds at least
+/// `min_samples` non-null cells (omitted: every cell — any null makes the
+/// window null, Polars' default). `center~` moves the label to the window's
+/// middle (`floor(window_size / 2)` cells before it), so both edges turn
+/// null under the default `min_samples`. Nulls are skipped by the counting
+/// and the statistic alike; a `NaN` is a value (it counts toward
+/// `min_samples`, propagates through sum / mean / std / variance / median,
+/// and is skipped by min / max). `sum` / `min` / `max` keep the operand's
+/// dtype, the statistics are `Float`; a single-value window has no sample
+/// standard deviation / variance and reduces that window to null. Numeric
+/// only — a non-numeric operand is `TypeMismatch`, and `window_size < 1` or
+/// a `min_samples` outside `[1, window_size]` raises `InvalidOperation` at
+/// evaluation (building stays total). Polars' `weights` is not carried.
+fn Expr::rolling_of(
+  self : Expr,
+  stat : @ir.RollStat,
+  window_size : Int,
+  min_samples? : Int,
+  center~ : Bool,
+) -> Expr {
+  Expr::of(
+    @ir.ExprNode::Positional(
+      @ir.PositionalOp::Rolling(stat, window_size, min_samples, center),
+      self.node,
+    ),
+  )
+}
+
+///|
+/// Rolling sum over a `window_size`-wide trailing window (Polars'
+/// `rolling_sum`) — the shared rolling contract, the statistic keeping the
+/// operand's dtype.
+pub fn Expr::rolling_sum(
+  self : Expr,
+  window_size : Int,
+  min_samples? : Int,
+  center? : Bool = false,
+) -> Expr {
+  self.rolling_of(Sum, window_size, min_samples?, center~)
+}
+
+///|
+/// Rolling arithmetic mean over a `window_size`-wide trailing window
+/// (Polars' `rolling_mean`) — always `Float`.
+pub fn Expr::rolling_mean(
+  self : Expr,
+  window_size : Int,
+  min_samples? : Int,
+  center? : Bool = false,
+) -> Expr {
+  self.rolling_of(Mean, window_size, min_samples?, center~)
+}
+
+///|
+/// Rolling minimum over a `window_size`-wide trailing window (Polars'
+/// `rolling_min`) — `NaN` skipped, the operand's dtype kept.
+pub fn Expr::rolling_min(
+  self : Expr,
+  window_size : Int,
+  min_samples? : Int,
+  center? : Bool = false,
+) -> Expr {
+  self.rolling_of(Min, window_size, min_samples?, center~)
+}
+
+///|
+/// Rolling maximum over a `window_size`-wide trailing window (Polars'
+/// `rolling_max`) — `rolling_min` with the order reversed.
+pub fn Expr::rolling_max(
+  self : Expr,
+  window_size : Int,
+  min_samples? : Int,
+  center? : Bool = false,
+) -> Expr {
+  self.rolling_of(Max, window_size, min_samples?, center~)
+}
+
+///|
+/// Rolling sample standard deviation (`ddof = 1`) over a `window_size`-wide
+/// trailing window (Polars' `rolling_std`) — `Float`; a single-value window
+/// has no sample denominator and is null.
+pub fn Expr::rolling_std(
+  self : Expr,
+  window_size : Int,
+  min_samples? : Int,
+  center? : Bool = false,
+) -> Expr {
+  self.rolling_of(Std, window_size, min_samples?, center~)
+}
+
+///|
+/// Rolling sample variance (`ddof = 1`) over a `window_size`-wide trailing
+/// window (Polars' `rolling_var`, spelled out — `var` is a reserved word).
+pub fn Expr::rolling_variance(
+  self : Expr,
+  window_size : Int,
+  min_samples? : Int,
+  center? : Bool = false,
+) -> Expr {
+  self.rolling_of(Var, window_size, min_samples?, center~)
+}
+
+///|
+/// Rolling median over a `window_size`-wide trailing window (Polars'
+/// `rolling_median`) — always `Float` (`Int` widens), the two middles
+/// averaged on an even count.
+pub fn Expr::rolling_median(
+  self : Expr,
+  window_size : Int,
+  min_samples? : Int,
+  center? : Bool = false,
+) -> Expr {
+  self.rolling_of(Median, window_size, min_samples?, center~)
+}
+
+///|
 /// Sum of the operand over the evaluation scope (whole frame, or one group
 /// under `agg`). Inherits `Series::sum` semantics: NaN propagates,
 /// nulls are skipped, non-numeric operands are `TypeMismatch`.

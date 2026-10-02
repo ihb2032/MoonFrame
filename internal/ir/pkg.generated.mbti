@@ -66,10 +66,24 @@ pub(all) enum PositionalOp {
   CumCount(Bool)
   Rank(@types.RankMethod, Bool)
   ArgSort(Bool, Bool)
+  Rolling(RollStat, Int, Int?, Bool)
 } derive(Eq, @debug.Debug)
 pub fn PositionalOp::equal(Self, Self) -> Bool
 pub fn PositionalOp::not_equal(Self, Self) -> Bool
 pub fn PositionalOp::to_repr(Self) -> @debug.Repr
+
+pub(all) enum RollStat {
+  Sum
+  Mean
+  Min
+  Max
+  Std
+  Var
+  Median
+} derive(Eq, @debug.Debug)
+pub fn RollStat::equal(Self, Self) -> Bool
+pub fn RollStat::not_equal(Self, Self) -> Bool
+pub fn RollStat::to_repr(Self) -> @debug.Repr
 
 pub(all) enum StrOp {
   ToUppercase

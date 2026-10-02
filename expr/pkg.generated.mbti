@@ -84,6 +84,13 @@ pub fn Expr::output(Self, &Logger) -> Unit
 pub fn Expr::pow(Self, Self) -> Self
 pub fn Expr::quantile(Self, Double, interpolation? : @series.QuantileInterpolation) -> Self
 pub fn Expr::rank(Self, how? : @types.RankMethod, descending? : Bool) -> Self
+pub fn Expr::rolling_max(Self, Int, min_samples? : Int, center? : Bool) -> Self
+pub fn Expr::rolling_mean(Self, Int, min_samples? : Int, center? : Bool) -> Self
+pub fn Expr::rolling_median(Self, Int, min_samples? : Int, center? : Bool) -> Self
+pub fn Expr::rolling_min(Self, Int, min_samples? : Int, center? : Bool) -> Self
+pub fn Expr::rolling_std(Self, Int, min_samples? : Int, center? : Bool) -> Self
+pub fn Expr::rolling_sum(Self, Int, min_samples? : Int, center? : Bool) -> Self
+pub fn Expr::rolling_variance(Self, Int, min_samples? : Int, center? : Bool) -> Self
 pub fn Expr::round(Self, decimals? : Int) -> Self
 pub fn Expr::shift(Self, Int, fill_value? : @types.Scalar) -> Self
 pub fn Expr::sign(Self) -> Self

@@ -57,6 +57,19 @@ pub struct LazyGroupBy {
   // private fields
 }
 pub fn LazyGroupBy::agg(Self, Array[@expr.Expr]) -> LazyFrame
+pub fn LazyGroupBy::count(Self) -> LazyFrame
+pub fn LazyGroupBy::first(Self) -> LazyFrame
+pub fn LazyGroupBy::last(Self) -> LazyFrame
+pub fn LazyGroupBy::len(Self) -> LazyFrame
+pub fn LazyGroupBy::max(Self) -> LazyFrame
+pub fn LazyGroupBy::mean(Self) -> LazyFrame
+pub fn LazyGroupBy::median(Self) -> LazyFrame
+pub fn LazyGroupBy::min(Self) -> LazyFrame
+pub fn LazyGroupBy::n_unique(Self) -> LazyFrame
+pub fn LazyGroupBy::quantile(Self, Double, interpolation? : @series.QuantileInterpolation) -> LazyFrame
+pub fn LazyGroupBy::std(Self) -> LazyFrame
+pub fn LazyGroupBy::sum(Self) -> LazyFrame
+pub fn LazyGroupBy::variance(Self) -> LazyFrame
 
 // Type aliases
 

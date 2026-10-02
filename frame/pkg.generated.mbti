@@ -81,6 +81,19 @@ pub struct GroupedDataFrame {
   // private fields
 }
 pub fn GroupedDataFrame::agg(Self, Array[@expr.Expr]) -> DataFrame raise @types.DataError
+pub fn GroupedDataFrame::count(Self) -> DataFrame raise @types.DataError
+pub fn GroupedDataFrame::first(Self) -> DataFrame raise @types.DataError
+pub fn GroupedDataFrame::last(Self) -> DataFrame raise @types.DataError
+pub fn GroupedDataFrame::len(Self) -> DataFrame raise @types.DataError
+pub fn GroupedDataFrame::max(Self) -> DataFrame raise @types.DataError
+pub fn GroupedDataFrame::mean(Self) -> DataFrame raise @types.DataError
+pub fn GroupedDataFrame::median(Self) -> DataFrame raise @types.DataError
+pub fn GroupedDataFrame::min(Self) -> DataFrame raise @types.DataError
+pub fn GroupedDataFrame::n_unique(Self) -> DataFrame raise @types.DataError
+pub fn GroupedDataFrame::quantile(Self, Double, interpolation? : @series.QuantileInterpolation) -> DataFrame raise @types.DataError
+pub fn GroupedDataFrame::std(Self) -> DataFrame raise @types.DataError
+pub fn GroupedDataFrame::sum(Self) -> DataFrame raise @types.DataError
+pub fn GroupedDataFrame::variance(Self) -> DataFrame raise @types.DataError
 
 pub struct HtmlOptions {
   max_rows : Int?

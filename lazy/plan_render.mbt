@@ -85,6 +85,40 @@ fn LogicalPlan::write_plan_label(
     Join(_, _, options) => buf <+ "\{join_label(options)}"
     Aggregate(_, keys, exprs) =>
       buf <+ "AGGREGATE \{exprs_label(exprs)} BY \{exprs_label(keys)}"
+    AggregateAll(_, keys, op) =>
+      buf <+ "AGGREGATE ALL \{agg_all_label(op)} BY \{exprs_label(keys)}"
+  }
+}
+
+///|
+/// The verb tag an `AggregateAll` node prints — the whole-frame `Reduce`
+/// renderings (`SUM` / `QUANTILE 0.5 linear` / …) with `ALL` naming the
+/// expansion over every non-key column, so an explained convenience plan
+/// reads the same as its eager call site.
+fn agg_all_label(op : LazyAggAll) -> String {
+  match op {
+    Sum => "SUM"
+    Mean => "MEAN"
+    Median => "MEDIAN"
+    Quantile(q, interpolation) => {
+      let tag = match interpolation {
+        Nearest => ""
+        Linear => " linear"
+        Lower => " lower"
+        Higher => " higher"
+        Midpoint => " midpoint"
+      }
+      "QUANTILE \{q}\{tag}"
+    }
+    Std => "STD"
+    Var => "VARIANCE"
+    Min => "MIN"
+    Max => "MAX"
+    Count => "COUNT"
+    First => "FIRST"
+    Last => "LAST"
+    NUnique => "N_UNIQUE"
+    Len => "LEN"
   }
 }
 

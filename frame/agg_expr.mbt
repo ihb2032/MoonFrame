@@ -90,29 +90,7 @@ pub fn GroupedDataFrame::agg(
   self : GroupedDataFrame,
   exprs : Array[@expr.Expr],
 ) -> DataFrame raise @types.DataError {
-  // Re-validate the `group_by` invariants before any fold: the fields are
-  // `priv`, so no cross-package caller can reach the `groups` arrays — but
-  // in-package code (a future refactor, or the whitebox corruption test)
-  // could still empty a group or plant a stray row index after construction.
-  // The folds below index the source unguarded on the strength of these
-  // invariants (`g[0]`, the bare-column reducer's per-row read), so a corrupted
-  // handle must raise here — one O(total indices) pass, the same order as
-  // `agg` itself — instead of aborting downstream (the never-abort gate).
-  let nrows = self.source.nrows()
-  for g in self.groups {
-    if g.is_empty() {
-      raise @types.DataError::InvalidOperation(
-        "corrupted GroupedDataFrame: a group is empty (groups were mutated after group_by)",
-      )
-    }
-    for i in g {
-      if i < 0 || i >= nrows {
-        raise @types.DataError::InvalidOperation(
-          "corrupted GroupedDataFrame: group row index \{i} outside [0, \{nrows}) (groups were mutated after group_by)",
-        )
-      }
-    }
-  }
+  self.check_handle_invariants()
   let out_cols : Array[Series] = []
   // Key columns: gather one representative cell per group from the
   // materialised key columns `group_by` already built (each named by its
@@ -294,5 +272,36 @@ fn bare_col_agg(expr : @ir.ExprNode) -> (String, ReduceOp)? {
         _ => None
       }
     _ => None
+  }
+}
+
+///|
+/// Re-validate the `group_by` invariants before any fold: the fields are
+/// `priv`, so no cross-package caller can reach the `groups` arrays — but
+/// in-package code (a future refactor, or the whitebox corruption test)
+/// could still empty a group or plant a stray row index after construction.
+/// The folds below index the source unguarded on the strength of these
+/// invariants (`g[0]`, the bare-column reducer's per-row read), so a corrupted
+/// handle must raise here — one O(total indices) pass, the same order as
+/// `agg` itself — instead of aborting downstream (the never-abort gate).
+/// Shared by `agg` and the whole `group_by_convenience` family, which read
+/// the groups just as directly.
+fn GroupedDataFrame::check_handle_invariants(
+  self : GroupedDataFrame,
+) -> Unit raise @types.DataError {
+  let nrows = self.source.nrows()
+  for g in self.groups {
+    if g.is_empty() {
+      raise @types.DataError::InvalidOperation(
+        "corrupted GroupedDataFrame: a group is empty (groups were mutated after group_by)",
+      )
+    }
+    for i in g {
+      if i < 0 || i >= nrows {
+        raise @types.DataError::InvalidOperation(
+          "corrupted GroupedDataFrame: group row index \{i} outside [0, \{nrows}) (groups were mutated after group_by)",
+        )
+      }
+    }
   }
 }

@@ -378,14 +378,21 @@ test "arg_min / arg_max return the window-local position, first on ties" {
     ties.select([@expr.col("f").arg_min()]).get_column("f").to_scalars(),
     [@types.Scalar::Int(1)],
   )
-  // Total over every dtype: Bool `false < true`, String lexicographic.
+  // Total over every dtype: Bool `false < true`, String lexicographic —
+  // both directions, so each backend's both comparator arms run.
   let b = DataFrame::DataFrame([Series::from_bools("b", [true, false])])
   assert_eq(b.select([@expr.col("b").arg_min()]).get_column("b").to_scalars(), [
     @types.Scalar::Int(1),
   ])
-  let s = DataFrame::DataFrame([Series::from_strings("s", ["b", "a"])])
+  assert_eq(b.select([@expr.col("b").arg_max()]).get_column("b").to_scalars(), [
+    @types.Scalar::Int(0),
+  ])
+  let s = DataFrame::DataFrame([Series::from_strings("s", ["b", "a", "c"])])
   assert_eq(s.select([@expr.col("s").arg_min()]).get_column("s").to_scalars(), [
     @types.Scalar::Int(1),
+  ])
+  assert_eq(s.select([@expr.col("s").arg_max()]).get_column("s").to_scalars(), [
+    @types.Scalar::Int(2),
   ])
   // An all-null scope reduces to null.
   let nulls = DataFrame::DataFrame([int_col("v", [None, None])])

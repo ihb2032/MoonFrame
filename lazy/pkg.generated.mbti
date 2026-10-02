@@ -45,6 +45,7 @@ pub fn LazyFrame::median(Self) -> Self
 pub fn LazyFrame::min(Self) -> Self
 pub fn LazyFrame::n_unique(Self) -> Self
 pub fn LazyFrame::null_count(Self) -> Self
+pub fn LazyFrame::pivot(Self, on~ : Array[@expr.Expr], index? : Array[@expr.Expr], values? : Array[@expr.Expr], aggregate_function? : @frame.PivotAgg) -> Self
 pub fn LazyFrame::quantile(Self, Double, interpolation? : @series.QuantileInterpolation) -> Self
 pub fn LazyFrame::rename(Self, Array[(String, String)]) -> Self
 pub fn LazyFrame::rename_with(Self, (String) -> String) -> Self
@@ -57,6 +58,7 @@ pub fn LazyFrame::sum(Self) -> Self
 pub fn LazyFrame::tail(Self, Int) -> Self
 pub fn LazyFrame::top_k(Self, Int, by~ : Array[@expr.Expr], reverse? : Bool) -> Self
 pub fn LazyFrame::unique(Self, subset? : Array[@expr.Expr], keep? : @frame.KeepStrategy) -> Self
+pub fn LazyFrame::unpivot(Self, on? : Array[@expr.Expr], index? : Array[@expr.Expr], variable_name? : String, value_name? : String) -> Self
 pub fn LazyFrame::variance(Self) -> Self
 pub fn LazyFrame::with_columns(Self, Array[@expr.Expr]) -> Self
 pub fn LazyFrame::with_row_index(Self, name? : String, offset? : Int64) -> Self

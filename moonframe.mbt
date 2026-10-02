@@ -120,6 +120,7 @@ pub using @frame {
   type JoinType,
   type JoinOptions,
   type HtmlOptions,
+  type PivotAgg,
 }
 
 ///|

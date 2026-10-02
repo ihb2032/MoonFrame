@@ -227,6 +227,30 @@ fn FrameOp::write_frame_op_label(self : FrameOp, buf : StringBuilder) -> Unit {
       }
     }
     FillNull(value) => buf <+ "FILL_NULL \{@expr.format_scalar(value)}"
+    // The reshapes print their full shape: the on keys always, the index
+    // / values lists and the aggregation only when the caller named them.
+    Pivot(on, index, values, agg) => {
+      buf <+ "PIVOT ON \{exprs_label(on)}"
+      if index is Some(keys) {
+        buf <+ " INDEX \{exprs_label(keys)}"
+      }
+      if values is Some(vs) {
+        buf <+ " VALUES \{exprs_label(vs)}"
+      }
+      if agg is Some(a) {
+        buf <+ " AGG \{pivot_agg_label(a)}"
+      }
+    }
+    Unpivot(on, index, variable, value) => {
+      buf <+ "UNPIVOT"
+      if on is Some(keys) {
+        buf <+ " ON \{exprs_label(keys)}"
+      }
+      if index is Some(keys) {
+        buf <+ " INDEX \{exprs_label(keys)}"
+      }
+      buf <+ " AS \{variable}/\{value}"
+    }
     FillNullDir(backward, limit) => {
       let dir = if backward { "BACKWARD" } else { "FORWARD" }
       match limit {
@@ -335,5 +359,21 @@ fn render_scan_source(
   match predicate {
     None => ()
     Some(pred) => buf <+ " WHERE \{pred}"
+  }
+}
+
+///|
+/// The lowercase aggregation name a `Pivot` plan prints — `PivotAgg`'s
+/// spelling at the eager call site.
+fn pivot_agg_label(agg : @frame.PivotAgg) -> String {
+  match agg {
+    First => "first"
+    Last => "last"
+    Sum => "sum"
+    Min => "min"
+    Max => "max"
+    Mean => "mean"
+    Median => "median"
+    Len => "len"
   }
 }

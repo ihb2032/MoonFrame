@@ -971,3 +971,169 @@ test "the directional fills and fill_nan collect to their eager equivalents" {
   )
   assert_eq(base.fill_nan(1.5).explain(), "FILL_NAN 1.5\n  SCAN [4×3]")
 }
+
+///|
+test "pivot and unpivot collect to their eager equivalents" {
+  let df = sales_df()
+  let keyed = @frame.DataFrame::DataFrame([
+    @series.Series::from_strings("region", ["west", "west", "east"]),
+    @series.Series::from_strings("quarter", ["q1", "q2", "q1"]),
+    @series.Series::from_ints("sales", [10, 20, 30]),
+  ])
+  assert_eq(
+    LazyFrame::LazyFrame(keyed)
+    .pivot(on=[@expr.col("quarter")], index=[@expr.col("region")])
+    .collect(),
+    keyed.pivot(on=[@expr.col("quarter")], index=[@expr.col("region")]),
+  )
+  assert_eq(
+    LazyFrame::LazyFrame(keyed)
+    .pivot(
+      on=[@expr.col("quarter")],
+      index=[@expr.col("region")],
+      aggregate_function=@frame.PivotAgg::Sum,
+    )
+    .collect(),
+    keyed.pivot(
+      on=[@expr.col("quarter")],
+      index=[@expr.col("region")],
+      aggregate_function=@frame.PivotAgg::Sum,
+    ),
+  )
+  assert_eq(
+    LazyFrame::LazyFrame(df).unpivot(index=[@expr.col("region")]).collect(),
+    df.unpivot(index=[@expr.col("region")]),
+  )
+  // The reshapes print their full shape: on always, the optional lists and
+  // the aggregation when named.
+  let scans = "\n  SCAN [3×3]"
+  assert_eq(
+    LazyFrame::LazyFrame(keyed)
+    .pivot(on=[@expr.col("quarter")], index=[@expr.col("region")])
+    .explain(),
+    "PIVOT ON [col(quarter)] INDEX [col(region)]\{scans}",
+  )
+  assert_eq(
+    LazyFrame::LazyFrame(keyed)
+    .pivot(
+      on=[@expr.col("quarter")],
+      index=[@expr.col("region")],
+      aggregate_function=@frame.PivotAgg::Sum,
+    )
+    .explain(),
+    "PIVOT ON [col(quarter)] INDEX [col(region)] AGG sum\{scans}",
+  )
+  assert_eq(
+    LazyFrame::LazyFrame(df)
+    .unpivot(index=[@expr.col("region")], variable_name="col", value_name="amt")
+    .explain(),
+    "UNPIVOT INDEX [col(region)] AS col/amt\n  SCAN [4×3]",
+  )
+  assert_eq(
+    LazyFrame::LazyFrame(df).unpivot().explain(),
+    "UNPIVOT AS variable/value\n  SCAN [4×3]",
+  )
+}
+
+///|
+test "the reshape payload arms and labels all render and collect" {
+  let keyed = @frame.DataFrame::DataFrame([
+    @series.Series::from_strings("region", ["west", "west", "east"]),
+    @series.Series::from_strings("quarter", ["q1", "q2", "q1"]),
+    @series.Series::from_ints("sales", [10, 20, 30]),
+    @series.Series::from_ints("cost", [1, 2, 3]),
+  ])
+  let base = LazyFrame::LazyFrame(keyed)
+  // The full payload — on, index, values, and each aggregation's label —
+  // both collects and renders.
+  let aggs : Array[@frame.PivotAgg] = [
+    @frame.PivotAgg::First,
+    @frame.PivotAgg::Last,
+    @frame.PivotAgg::Sum,
+    @frame.PivotAgg::Min,
+    @frame.PivotAgg::Max,
+    @frame.PivotAgg::Mean,
+    @frame.PivotAgg::Median,
+    @frame.PivotAgg::Len,
+  ]
+  let labels : Array[String] = [
+    "first", "last", "sum", "min", "max", "mean", "median", "len",
+  ]
+  for (agg, label) in aggs.zip(labels) {
+    let plan = base.pivot(
+      on=[@expr.col("quarter")],
+      index=[@expr.col("region")],
+      values=[@expr.col("sales"), @expr.col("cost")],
+      aggregate_function=agg,
+    )
+    assert_eq(
+      plan.collect(),
+      keyed.pivot(
+        on=[@expr.col("quarter")],
+        index=[@expr.col("region")],
+        values=[@expr.col("sales"), @expr.col("cost")],
+        aggregate_function=agg,
+      ),
+    )
+    assert_eq(
+      plan.explain(),
+      "PIVOT ON [col(quarter)] INDEX [col(region)] VALUES [col(sales), col(cost)] AGG \{label}\n  SCAN [3×4]",
+    )
+  }
+  // on without an index: the omission resolves at collect.
+  let no_index = base.pivot(on=[@expr.col("quarter")], values=[
+    @expr.col("sales"),
+  ])
+  assert_eq(
+    no_index.collect(),
+    keyed.pivot(on=[@expr.col("quarter")], values=[@expr.col("sales")]),
+  )
+  assert_eq(
+    no_index.explain(),
+    "PIVOT ON [col(quarter)] VALUES [col(sales)]\n  SCAN [3×4]",
+  )
+  // unpivot's four payload arms, each collecting to its eager twin.
+  let wide = @frame.DataFrame::DataFrame([
+    @series.Series::from_strings("k", ["a", "b"]),
+    @series.Series::from_ints("x", [1, 2]),
+    @series.Series::from_ints("y", [3, 4]),
+  ])
+  let w = LazyFrame::LazyFrame(wide)
+  assert_eq(
+    w.unpivot(on=[@expr.col("x"), @expr.col("y")]).collect(),
+    wide.unpivot(on=[@expr.col("x"), @expr.col("y")]),
+  )
+  assert_eq(
+    w.unpivot(on=[@expr.col("x")], index=[@expr.col("k")]).collect(),
+    wide.unpivot(on=[@expr.col("x")], index=[@expr.col("k")]),
+  )
+  assert_eq(
+    w.unpivot(index=[@expr.col("k")]).collect(),
+    wide.unpivot(index=[@expr.col("k")]),
+  )
+  // The bare unpivot folds every column, k included — the String / Int
+  // mix has no unifying dtype, so both layers raise the same TypeMismatch.
+  assert_true(
+    (Ok(w.unpivot().collect()) catch { e => Err(e) })
+    is Err(@types.DataError::TypeMismatch(_)),
+  )
+  assert_eq(
+    w.unpivot(on=[@expr.col("x")]).explain(),
+    "UNPIVOT ON [col(x)] AS variable/value\n  SCAN [2×3]",
+  )
+}
+
+///|
+test "a pivot deferring neither side collects the eager omission error" {
+  // The arm exists for plan completeness; the eager verb rejects both
+  // sides omitted, so collect surfaces that error — parity even here.
+  let keyed = @frame.DataFrame::DataFrame([
+    @series.Series::from_strings("q", ["x", "y"]),
+  ])
+  assert_true(
+    (Ok(LazyFrame::LazyFrame(keyed).pivot(on=[@expr.col("q")]).collect()) catch {
+      e => Err(e)
+    })
+    is Err(@types.DataError::InvalidOperation(_)),
+  )
+}

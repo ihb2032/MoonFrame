@@ -7,7 +7,7 @@ written when the release is cut; the per-symbol reference — generated from the
 docstrings — is on [mooncakes.io](https://mooncakes.io/docs/ihb2032/MoonFrame)
 and [GitHub Pages](https://ihb2032.github.io/MoonFrame/).
 
-## v0.6.0 → v0.7.0 (unreleased)
+## v0.6.0 → v0.7.0
 
 v0.7 is a pre-1.0 breaking release — the surface-focus one: `io` returns to
 tabular interchange and the root facade narrows its first-contact face. Those

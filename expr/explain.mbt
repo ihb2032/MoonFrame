@@ -126,6 +126,8 @@ fn push_write_tasks(stack : Array[WriteTask], expr : Expr) -> Unit {
         IsNull => [Node(Expr::of(e)), Frag(".is_null()")]
         IsNotNull => [Node(Expr::of(e)), Frag(".is_not_null()")]
         IsNan => [Node(Expr::of(e)), Frag(".is_nan()")]
+        IsFinite => [Node(Expr::of(e)), Frag(".is_finite()")]
+        IsInfinite => [Node(Expr::of(e)), Frag(".is_infinite()")]
         IsNotNan => [Node(Expr::of(e)), Frag(".is_not_nan()")]
         Abs => [Node(Expr::of(e)), Frag(".abs()")]
         Floor => [Node(Expr::of(e)), Frag(".floor()")]
@@ -338,6 +340,10 @@ fn positional_suffix(op : @ir.PositionalOp) -> String {
       let c = if center { "center" } else { "" }
       ".\{verb}(\{[ "\{window}", ms, c ].filter(x => x != "").join(", ")})"
     }
+    ForwardFill(limit) =>
+      ".forward_fill(\{match limit { Some(k) => "\{k}"; None => "" }})"
+    BackwardFill(limit) =>
+      ".backward_fill(\{match limit { Some(k) => "\{k}"; None => "" }})"
   }
 }
 

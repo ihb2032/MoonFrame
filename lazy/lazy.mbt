@@ -251,6 +251,34 @@ pub fn LazyFrame::fill_null(
 }
 
 ///|
+/// Defer `DataFrame::fill_null_forward`: every column's nulls filled from
+/// above, `limit?` capping the consecutive slots one value may fill. The
+/// `limit` validation surfaces as the eager error at collect.
+pub fn LazyFrame::fill_null_forward(
+  self : LazyFrame,
+  limit? : Int,
+) -> LazyFrame {
+  { plan: Unary(self.plan, FillNullDir(false, limit)), }
+}
+
+///|
+/// Defer `DataFrame::fill_null_backward`: the from-below mirror of
+/// `fill_null_forward`.
+pub fn LazyFrame::fill_null_backward(
+  self : LazyFrame,
+  limit? : Int,
+) -> LazyFrame {
+  { plan: Unary(self.plan, FillNullDir(true, limit)), }
+}
+
+///|
+/// Defer `DataFrame::fill_nan`: every `Float` column's `NaN` cells replaced
+/// with `value`, every other column verbatim.
+pub fn LazyFrame::fill_nan(self : LazyFrame, value : Double) -> LazyFrame {
+  { plan: Unary(self.plan, FillNan(value)), }
+}
+
+///|
 /// Defer `DataFrame::sum`: collapse the plan to a 1-row frame of each column's
 /// sum (numeric columns their sum in the source dtype, non-numeric columns a
 /// `Null` cell). `collect` equals the eager `df.sum()`.

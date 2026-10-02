@@ -845,3 +845,66 @@ pub fn Expr::cast(self : Expr, target : @types.DataType) -> Expr {
 pub fn Expr::with_alias(self : Expr, name : String) -> Expr {
   Expr::of(@ir.ExprNode::Alias(self.node, name))
 }
+
+///|
+/// Replace each null cell with the nearest present value **above** it —
+/// Polars' `forward_fill` (its `fill_null(strategy='forward')` core): a
+/// leading null run before any present cell stays null. `limit?` caps how
+/// many consecutive null slots a single present value may fill (`None` =
+/// unlimited — a run longer than the limit keeps its tail null); `limit`
+/// below 1 is `InvalidOperation` at evaluation. Dtype-generic — the values
+/// copied are the operand's own cells. Positional, so a row permutation is
+/// observable (the optimizer fences it).
+pub fn Expr::forward_fill(self : Expr, limit? : Int) -> Expr {
+  Expr::of(
+    @ir.ExprNode::Positional(@ir.PositionalOp::ForwardFill(limit), self.node),
+  )
+}
+
+///|
+/// Replace each null cell with the nearest present value **below** it —
+/// `forward_fill`'s mirror (Polars' `backward_fill`), trailing null runs
+/// staying null, with the same `limit?` cap and dtype-generic copying.
+pub fn Expr::backward_fill(self : Expr, limit? : Int) -> Expr {
+  Expr::of(
+    @ir.ExprNode::Positional(@ir.PositionalOp::BackwardFill(limit), self.node),
+  )
+}
+
+///|
+/// Whether each cell is a finite number — a present `Float` cell unless it
+/// is `NaN` or an infinity; a present `Int` cell always; a null cell null
+/// (Kleene). Numeric only — a non-numeric operand is `TypeMismatch`.
+pub fn Expr::is_finite(self : Expr) -> Expr {
+  Expr::of(@ir.ExprNode::Unary(@ir.UnOp::IsFinite, self.node))
+}
+
+///|
+/// Whether each cell is an infinity — the `Float` infinities alone (`NaN`
+/// is a value, not an infinity: `false` here and under `is_finite` both);
+/// a present `Int` cell never; a null cell null. Numeric only.
+pub fn Expr::is_infinite(self : Expr) -> Expr {
+  Expr::of(@ir.ExprNode::Unary(@ir.UnOp::IsInfinite, self.node))
+}
+
+///|
+/// Clamp each cell into `[lower?, upper?]` (Polars' `clip`): a cell below
+/// `lower?` becomes it, one above `upper?` becomes it, one inside passes
+/// through, and a null cell stays null (the Kleene `when` reading — the
+/// bounds are not applied to it). Either bound may be omitted — one-sided
+/// clamps — and both omitted is the identity. Built as the nested
+/// `when(self < lower).then(lower).otherwise(when(self > upper)…)` tree,
+/// so it renders and evaluates as that composition: dtype unification and
+/// the `NaN`-stays-put reading (no comparison holds against `NaN`) are the
+/// comparison kernel's own.
+pub fn Expr::clip(self : Expr, lower? : Expr, upper? : Expr) -> Expr {
+  match (lower, upper) {
+    (Some(lo), Some(hi)) =>
+      when(self.lt(lo))
+      .then(lo)
+      .otherwise(when(self.gt(hi)).then(hi).otherwise(self))
+    (Some(lo), None) => when(self.lt(lo)).then(lo).otherwise(self)
+    (None, Some(hi)) => when(self.gt(hi)).then(hi).otherwise(self)
+    (None, None) => self
+  }
+}

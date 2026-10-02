@@ -31,7 +31,10 @@ pub fn DataFrame::drop(Self, Array[@expr.Expr]) -> Self raise @types.DataError
 pub fn DataFrame::drop_nulls(Self, subset? : Array[@expr.Expr]) -> Self raise @types.DataError
 pub fn DataFrame::empty(@types.Schema) -> Self raise @types.DataError
 pub fn DataFrame::equal(Self, Self) -> Bool
+pub fn DataFrame::fill_nan(Self, Double) -> Self raise @types.DataError
 pub fn DataFrame::fill_null(Self, @types.Scalar) -> Self raise @types.DataError
+pub fn DataFrame::fill_null_backward(Self, limit? : Int) -> Self raise @types.DataError
+pub fn DataFrame::fill_null_forward(Self, limit? : Int) -> Self raise @types.DataError
 pub fn DataFrame::filter(Self, @expr.Expr) -> Self raise @types.DataError
 pub fn DataFrame::from_rows(@types.Schema, Array[Array[@types.Scalar]]) -> Self raise @types.DataError
 pub fn DataFrame::gather(Self, Array[Int]) -> Self raise @types.DataError

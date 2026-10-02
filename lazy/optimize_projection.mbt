@@ -177,6 +177,11 @@ fn FrameOp::frame_op_required(
     | Unique(_, _)
     | DropNulls(_)
     | FillNull(_)
+    // The directional fills are order-dependent (which value a null takes
+    // depends on row order), but they read no columns beyond what the frame
+    // already carries — barriers either way, like `FillNull`.
+    | FillNullDir(_, _)
+    | FillNan(_)
     | Reduce(_) => None
   }
 }

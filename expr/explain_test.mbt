@@ -532,3 +532,21 @@ test "lit_series: output_name is the series name, an alias overrides it" {
   // On a binary's leftmost path it names the whole tree, like a `Col`.
   assert_eq((lit_series(s) + col("b")).output_name(), "vals")
 }
+
+///|
+/// The null-toolbox suffixes: the directional fills (the limit shown when
+/// set), the finiteness probes, and `clip`'s when-composition rendering.
+test "show: the fill probes and clip render" {
+  inspect(col("v").forward_fill(), content="col(v).forward_fill()")
+  inspect(col("v").forward_fill(limit=2), content="col(v).forward_fill(2)")
+  inspect(col("v").backward_fill(), content="col(v).backward_fill()")
+  inspect(col("v").backward_fill(limit=3), content="col(v).backward_fill(3)")
+  inspect(col("v").is_finite(), content="col(v).is_finite()")
+  inspect(col("v").is_infinite(), content="col(v).is_infinite()")
+  // `clip` is the nested when-composition, so it renders as one — the
+  // lower bound's guard outermost.
+  inspect(
+    col("v").clip(lower=lit_int(2), upper=lit_int(7)),
+    content="when((col(v) < 2)).then(2).otherwise(when((col(v) > 7)).then(7).otherwise(col(v)))",
+  )
+}

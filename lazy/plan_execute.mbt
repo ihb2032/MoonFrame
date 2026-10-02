@@ -133,6 +133,22 @@ fn apply_frame_op(
     Reverse => df.reverse()
     WithRowIndex(name, offset) => df.with_row_index(name~, offset~)
     DropNulls(subset) => df.drop_nulls(subset?)
+    FillNullDir(backward, limit) =>
+      match limit {
+        Some(k) =>
+          if backward {
+            df.fill_null_backward(limit=k)
+          } else {
+            df.fill_null_forward(limit=k)
+          }
+        None =>
+          if backward {
+            df.fill_null_backward()
+          } else {
+            df.fill_null_forward()
+          }
+      }
+    FillNan(value) => df.fill_nan(value)
     FillNull(value) => df.fill_null(value)
     // Each reduction executes as its eager `DataFrame` verb on the collected
     // input, so `collect` is bit-for-bit the eager 1-row result.

@@ -67,6 +67,8 @@ pub(all) enum PositionalOp {
   Rank(@types.RankMethod, Bool)
   ArgSort(Bool, Bool)
   Rolling(RollStat, Int, Int?, Bool)
+  ForwardFill(Int?)
+  BackwardFill(Int?)
 } derive(Eq, @debug.Debug)
 pub fn PositionalOp::equal(Self, Self) -> Bool
 pub fn PositionalOp::not_equal(Self, Self) -> Bool
@@ -120,6 +122,8 @@ pub(all) enum UnOp {
   IsNotNull
   IsNan
   IsNotNan
+  IsFinite
+  IsInfinite
   Abs
   Floor
   Ceil

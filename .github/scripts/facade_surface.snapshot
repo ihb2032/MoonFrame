@@ -175,6 +175,7 @@ method DataFrame::rename_with(Self, (String) -> String) -> Self raise @types.Dat
 method DataFrame::reverse(Self) -> Self <- frame
 method DataFrame::row(Self, Int) -> Array[@types.Scalar] raise @types.DataError <- frame
 method DataFrame::rows(Self) -> Array[Array[@types.Scalar]] <- frame
+method DataFrame::sample(Self, Int, with_replacement? : Bool, seed? : Int) -> Self raise @types.DataError <- frame
 method DataFrame::schema(Self) -> @types.Schema <- frame
 method DataFrame::select(Self, Array[@expr.Expr]) -> Self raise @types.DataError <- frame
 method DataFrame::shape(Self) -> (Int, Int) <- frame
@@ -232,8 +233,10 @@ method Expr::ge(Self, Self) -> Self <- expr
 method Expr::gt(Self, Self) -> Self <- expr
 method Expr::is_between(Self, Self, Self, closed? : @types.ClosedInterval) -> Self <- expr
 method Expr::is_finite(Self) -> Self <- expr
+method Expr::is_first_distinct(Self) -> Self <- expr
 method Expr::is_in(Self, Array[@types.Scalar]) -> Self <- expr
 method Expr::is_infinite(Self) -> Self <- expr
+method Expr::is_last_distinct(Self) -> Self <- expr
 method Expr::is_nan(Self) -> Self <- expr
 method Expr::is_not_nan(Self) -> Self <- expr
 method Expr::is_not_null(Self) -> Self <- expr
@@ -249,6 +252,7 @@ method Expr::max(Self) -> Self <- expr
 method Expr::mean(Self) -> Self <- expr
 method Expr::median(Self) -> Self <- expr
 method Expr::min(Self) -> Self <- expr
+method Expr::mode(Self) -> Self <- expr
 method Expr::modulo(Self, Self) -> Self <- expr
 method Expr::mul(Self, Self) -> Self <- expr
 method Expr::n_unique(Self) -> Self <- expr
@@ -292,6 +296,7 @@ method Expr::sub(Self, Self) -> Self <- expr
 method Expr::sum(Self) -> Self <- expr
 method Expr::to_repr(Self) -> @debug.Repr <- expr
 method Expr::to_string(Self) -> String <- expr
+method Expr::unique_counts(Self) -> Self <- expr
 method Expr::variance(Self) -> Self <- expr
 method Expr::with_alias(Self, String) -> Self <- expr
 method Field::dtype(Self) -> DataType <- types

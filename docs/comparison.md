@@ -46,9 +46,12 @@ libraries — not a derivative work of either codebase.
   `median` / `quantile` / `n_unique` / `first` / `last`), a `str_*` namespace with both
   literal and regex matching (`str_contains` / `str_replace` / `str_replace_all`
   take `literal?`; `str_extract` / `str_count_matches` are regex-only), and the
-  `map_elements` / `map_batches` / `map_many` UDF escape hatch, and the
+  `map_elements` / `map_batches` / `map_many` UDF escape hatch, the
   `dt_*` Date components (`dt_year` / `dt_month` / `dt_day` /
-  `dt_day_of_week`, the ISO weekday). Per-operator
+  `dt_day_of_week`, the ISO weekday), and the distinct family
+  (`unique_counts` / `is_first_distinct` / `is_last_distinct` / `mode`,
+  the last tie-broken first-appearance where Polars lists every tied
+  value). Per-operator
   rules — dtype, null, and `NaN` — are each stated on the operator's own
   docstring (the generated reference collects them).
 - **`null` is missing** — a null propagates through arithmetic and
@@ -75,6 +78,10 @@ libraries — not a derivative work of either codebase.
 - **Whole-frame vs single-column reductions** — `df.sum()` returns a
   one-row frame (Polars' `df.sum()`); a scalar comes from
   `df.get_column(c).sum()` (Polars' `df[c].sum()`).
+- **`sample(n, with_replacement?, seed?)`** is a deterministic function
+  of its seed — same seed, same rows, on every platform (a private
+  splitmix64); `n` saturates without replacement. Polars' `fraction` /
+  `shuffle` parameters are not carried.
 - **`unique(subset?, keep?)`** keeps first-appearance order
   (`maintain_order=True`), dedups on a column subset when given one, and takes
   Polars' `keep` strategies (`First` / `Last` / `None`).

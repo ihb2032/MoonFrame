@@ -728,6 +728,7 @@ pub(all) enum ReduceOp {
   NUnique
   ArgMin
   ArgMax
+  Mode
   First
   Last
 } derive(Eq)
@@ -781,6 +782,9 @@ pub fn Series::reducer_for(
       (reduce_arg_extremum(storage, want_min=true), @types.DataType::Int)
     ArgMax =>
       (reduce_arg_extremum(storage, want_min=false), @types.DataType::Int)
+    // `mode` keeps the source dtype (the winning cell itself, whatever it
+    // is).
+    Mode => (reduce_mode(storage), storage.dtype())
     NUnique => {
       // The `n_unique` reducer over an index window: distinct non-null count
       // as `Scalar::Int`, total over every dtype and never null (an empty /
@@ -830,4 +834,58 @@ pub fn scalars_to_series(
     name,
     @column.BuiltinColumn::from_scalars(probe, cells, name~),
   ).try_column_to_numeric()
+}
+
+///|
+/// `mode` reducer over an index window: the most frequent non-null cell,
+/// as that cell's own `Scalar` — total over every dtype, keyed by the
+/// shared `KeyCell` normalisation (`NaN` one bucket, `-0.0` folded). A tie
+/// keeps the **first-appearing** value among the tied — one deterministic
+/// answer where Polars' `mode` returns every tied value as a list, a shape
+/// MoonFrame has no list dtype for. Nulls are skipped (the `n_unique`
+/// rule); an empty / all-null window reduces to `Scalar::Null`.
+fn reduce_mode(
+  storage : @column.ColumnStorage,
+) -> (Int, (Int) -> Int) -> @types.Scalar {
+  let present = reduce_present(storage)
+  let data = storage.data()
+  let dtype = storage.dtype()
+  // The every-dtype cell read: the column layer's `scalar_of` rider-aware
+  // accessor, so a `Date` cell keys as its day count and reduces to a
+  // `Date`.
+  let cell_at = i => @column.scalar_of(dtype, data, i)
+  fn(n : Int, at : (Int) -> Int) {
+    let count : Map[KeyCell, Int64] = Map([])
+    let first_key : Map[KeyCell, Int] = Map([])
+    let mut best : KeyCell? = None
+    let mut best_count : Int64 = 0
+    let mut best_pos = 0
+    for k in 0..<n {
+      let i = at(k)
+      if present(i) {
+        let key = key_cell(cell_at(i))
+        let c = count.get(key).unwrap_or(0L) + 1L
+        count[key] = c
+        if !first_key.contains(key) {
+          first_key[key] = k
+        }
+        // Strictly-greater, or equal-count with an earlier first
+        // appearance — so a tie resolves to the first-appearing value.
+        if c > best_count ||
+          (
+            c == best_count &&
+            first_key.get(key).unwrap_or(0) <
+            first_key.get(best.unwrap()).unwrap_or(0)
+          ) {
+          best = Some(key)
+          best_count = c
+          best_pos = k
+        }
+      }
+    }
+    match best {
+      Some(_) => cell_at(at(best_pos))
+      None => @types.Scalar::Null
+    }
+  }
 }

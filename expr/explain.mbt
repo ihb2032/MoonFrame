@@ -255,7 +255,11 @@ fn binop_symbol(op : @ir.BinOp) -> String {
 }
 
 ///|
-/// Postfix method spelling for an aggregation tag.
+/// Postfix method spelling for an aggregation tag. The parameterised
+/// `Quantile` renders its arguments display-syntax like a `Str` suffix's
+/// literal arguments (`.str_contains("foo")`): a `Double::to_string` `q` and
+/// the lowercase interpolation tag, omitted when it is the `Nearest` default
+/// so the common spelling stays `.quantile(0.5)`.
 fn agg_suffix(op : @series.ReduceOp) -> String {
   match op {
     Sum => ".sum()"
@@ -266,6 +270,16 @@ fn agg_suffix(op : @series.ReduceOp) -> String {
     Std => ".std()"
     Var => ".variance()"
     Median => ".median()"
+    Quantile(q, interpolation) => {
+      let tag = match interpolation {
+        Nearest => ""
+        Linear => ", linear"
+        Lower => ", lower"
+        Higher => ", higher"
+        Midpoint => ", midpoint"
+      }
+      ".quantile(\{q}\{tag})"
+    }
     NUnique => ".n_unique()"
     First => ".first()"
     Last => ".last()"

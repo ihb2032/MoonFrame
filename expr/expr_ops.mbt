@@ -533,6 +533,25 @@ pub fn Expr::median(self : Expr) -> Expr {
 }
 
 ///|
+/// `q`-th quantile of the operand over the evaluation scope (Polars'
+/// `quantile`, default `interpolation=Nearest`): the sorted non-null cells
+/// read at `q * (m - 1)`, so an even count picks a middle cell rather than
+/// averaging (`Linear` gives the median's average). Nulls are skipped, a
+/// `NaN` propagates (the `median` rule), an all-missing scope reduces to
+/// null, a non-numeric operand is `TypeMismatch`, and a `q` outside `[0, 1]`
+/// is `InvalidOperation` at evaluation — tree building stays total. Always a
+/// `Float` (`Int` widens).
+pub fn Expr::quantile(
+  self : Expr,
+  q : Double,
+  interpolation? : @series.QuantileInterpolation = @series.QuantileInterpolation::Nearest,
+) -> Expr {
+  Expr::of(
+    @ir.ExprNode::Agg(@series.ReduceOp::Quantile(q, interpolation), self.node),
+  )
+}
+
+///|
 /// Number of distinct non-null values of the operand over the evaluation scope
 /// (`Series::n_unique` semantics: every NaN is one bucket, `-0.0` folds into
 /// `+0.0`). Total over every dtype, never null — an `Int`.

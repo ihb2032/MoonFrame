@@ -116,6 +116,11 @@ fn apply_frame_op(
         Max => df.max()
         Count => df.count()
         NullCount => df.null_count()
+        Median => df.median()
+        Quantile(q, interpolation) => df.quantile(q, interpolation~)
+        Std => df.std()
+        Var => df.variance()
+        NUnique => df.n_unique()
       }
   }
 }

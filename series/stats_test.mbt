@@ -440,6 +440,93 @@ test "median propagates NaN, and raises on empty / non-numeric" {
   )
 }
 
+// ── quantile ─────────────────────────────────────────────────────────
+
+///|
+/// Shared fixture for the interpolation table: sorted `[1, 2, 3, 4]`, where
+/// `q = 0.5` names position `1.5` — between `2` and `3`, the middle of every
+/// interpolation disagreement — and `q = 0.25` names `0.75`.
+fn quartet() -> Series {
+  Series::from_ints("x", [1, 2, 3, 4])
+}
+
+///|
+test "quantile reads the sorted cells per interpolation, Nearest by default" {
+  // pos = 0.5 * 3 = 1.5: below 2, above 3, midpoint / linear between them.
+  assert_eq(quartet().quantile(0.5), (3.0 : Double))
+  assert_eq(quartet().quantile(0.5, interpolation=Linear), (2.5 : Double))
+  assert_eq(quartet().quantile(0.5, interpolation=Lower), (2.0 : Double))
+  assert_eq(quartet().quantile(0.5, interpolation=Higher), (3.0 : Double))
+  assert_eq(quartet().quantile(0.5, interpolation=Midpoint), (2.5 : Double))
+  // pos = 0.75: between 1 and 2.
+  assert_eq(quartet().quantile(0.25), (2.0 : Double))
+  assert_eq(quartet().quantile(0.25, interpolation=Linear), (1.75 : Double))
+  assert_eq(quartet().quantile(0.25, interpolation=Lower), (1.0 : Double))
+  assert_eq(quartet().quantile(0.25, interpolation=Midpoint), (1.5 : Double))
+}
+
+///|
+test "quantile endpoints, odd counts, single values, and null skipping" {
+  // q = 0 / 1 name the sorted extremes; every interpolation agrees there.
+  assert_eq(quartet().quantile(0.0), (1.0 : Double))
+  assert_eq(quartet().quantile(1.0), (4.0 : Double))
+  assert_eq(quartet().quantile(1.0, interpolation=Linear), (4.0 : Double))
+  // An odd count lands pos on a whole index — Linear's frac is 0 and
+  // Midpoint's neighbours coincide, so all five agree.
+  let odd = Series::from_ints("x", [3, 1, 2])
+  assert_eq(odd.quantile(0.5), (2.0 : Double))
+  assert_eq(odd.quantile(0.5, interpolation=Midpoint), (2.0 : Double))
+  // A single present value is every quantile of itself.
+  assert_eq(Series::from_ints("x", [42]).quantile(0.3), (42.0 : Double))
+  // Nulls are skipped before the order statistic: over [10, 20], q = 0.5
+  // names position 0.5 — Nearest rounds it up (halves up), Linear averages.
+  let nullable = Series::from_int_options("x", [Some(10), None, Some(20)])
+  assert_eq(nullable.quantile(0.5), (20.0 : Double))
+  assert_eq(nullable.quantile(0.5, interpolation=Linear), (15.0 : Double))
+}
+
+///|
+test "quantile midpoint halves first when the neighbour sum overflows" {
+  // Two neighbours above half of `Double::MAX` overflow their sum before the
+  // halving; halving first keeps the midpoint finite.
+  let huge = 1.7e308
+  let s = Series::from_floats("x", [1.0, huge, huge, huge])
+  assert_eq(s.quantile(0.5, interpolation=Midpoint), huge)
+}
+
+///|
+test "quantile propagates NaN, and raises on empty / non-numeric / bad q" {
+  let nan : Double = @double.not_a_number
+  // The median rule: one NaN is the whole answer, at any q.
+  assert_true(
+    match Series::from_floats("x", [1.0, nan, 3.0]).quantile(0.9) {
+      v => v.is_nan()
+    },
+  )
+  assert_true(
+    (Ok(Series::from_ints("x", []).quantile(0.5)) catch { e => Err(e) })
+    is Err(InvalidOperation(_)),
+  )
+  assert_true(
+    (Ok(Series::from_float_options("x", [None, None]).quantile(0.5)) catch {
+      e => Err(e)
+    })
+    is Err(InvalidOperation(_)),
+  )
+  assert_true(
+    (Ok(Series::from_strings("x", ["a"]).quantile(0.5)) catch { e => Err(e) })
+    is Err(TypeMismatch(@types.TypeMismatchDetail::Message(_))),
+  )
+  // A q outside [0, 1] — or NaN, which fails both bounds — raises rather
+  // than indexing out of bounds.
+  for q in [1.5, -0.1, nan] {
+    assert_true(
+      (Ok(quartet().quantile(q)) catch { e => Err(e) })
+      is Err(InvalidOperation(_)),
+    )
+  }
+}
+
 // ── first / last ─────────────────────────────────────────────────────
 
 ///|

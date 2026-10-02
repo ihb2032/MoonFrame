@@ -1,8 +1,11 @@
 // Whole-frame statistical reductions on a `DataFrame`. Each of `sum`,
-// `mean`, `min`, `max`, and `count` collapses the frame to a **single row**
+// `mean`, `min`, `max`, `count`, `median`, `quantile`, `std`, `variance`,
+// and `n_unique` collapses the frame to a **single row**
 // — one cell per source column, names and order preserved — mirroring
-// Polars' `df.sum()` / `df.mean()` / `df.min()` / `df.max()` / `df.count()`,
-// which return a 1-row frame rather than a scalar. `null_count` is the
+// Polars' per-column reduction verbs (`df.sum()` / `df.mean()` / `df.min()`
+// / `df.max()` / `df.count()` / `df.median()` / `df.quantile(q)` /
+// `df.std()` / `df.var()` / `df.n_unique()`), which return a 1-row frame
+// rather than a scalar. `null_count` is the
 // same-shaped census: one `Int` cell per column counting its nulls, and
 // `describe` is the per-column summary report — one row per source column
 // instead of one column per source column.
@@ -47,19 +50,26 @@
 ///|
 /// The fixed set of whole-frame reductions, one per public method below. Kept
 /// separate from the kernel's open-ended `ReduceOp` (which the expression
-/// aggregations also feed) on purpose: `df.sum()` and its four siblings are a
-/// closed Polars-aligned set, and they dispatch to the total `Series`
-/// accessors here rather than routing through `reducer_for`, so a new kernel
-/// reduction (`std` / `median` / `first` / …) must *not* silently become a
-/// frame-wide method — several would misalign Polars (its `df.first()` and
-/// `df.n_unique()` are row operations, not per-column reductions). Decoupling
-/// the tag keeps this match closed at five without a dead arm.
+/// aggregations also feed) on purpose: the whole-frame verbs are the closed
+/// Polars per-column set — `sum` / `mean` / `min` / `max` / `count` /
+/// `median` / `std` / `variance` / `n_unique` / `quantile` — and they dispatch
+/// to the `Series` accessors here rather than routing through `reducer_for`,
+/// so a kernel reduction that is *not* a Polars frame verb (`first` / `last`)
+/// does not silently become a frame-wide method. Decoupling the tag keeps that
+/// decision explicit. `Quantile` is the one payload-carrying member: the frame
+/// method forwards its `q` / `interpolation` through the tag to the per-column
+/// call.
 priv enum FrameReduceOp {
   Sum
   Mean
   Min
   Max
   Count
+  Median
+  Std
+  Var
+  NUnique
+  Quantile(Double, @series.QuantileInterpolation)
 }
 
 ///|
@@ -106,9 +116,64 @@ pub fn DataFrame::count(self : DataFrame) -> DataFrame raise @types.DataError {
 }
 
 ///|
+/// Median of every column as a 1-row `DataFrame` (Polars' `df.median()`):
+/// numeric columns hold the median of their non-null cells as `Float` —
+/// `NaN` propagating, the two middles averaged on an even count — and every
+/// other column (non-numeric, empty, all-null) a `Null` cell.
+pub fn DataFrame::median(self : DataFrame) -> DataFrame raise @types.DataError {
+  self.reduce_to_row(FrameReduceOp::Median)
+}
+
+///|
+/// `q`-th quantile of every column as a 1-row `DataFrame` (Polars'
+/// `df.quantile(q)`, default `interpolation=Nearest`): numeric columns hold
+/// the order statistic of their non-null cells as `Float`, and every other
+/// column (non-numeric, empty, all-null) a `Null` cell. A `q` outside
+/// `[0, 1]` `raise`s `InvalidOperation`.
+pub fn DataFrame::quantile(
+  self : DataFrame,
+  q : Double,
+  interpolation? : @series.QuantileInterpolation = @series.QuantileInterpolation::Nearest,
+) -> DataFrame raise @types.DataError {
+  self.reduce_to_row(FrameReduceOp::Quantile(q, interpolation))
+}
+
+///|
+/// Sample standard deviation of every column as a 1-row `DataFrame` (Polars'
+/// `df.std()`, `ddof = 1`): numeric columns with at least two non-null cells
+/// hold their `std` as `Float`, and every other column (non-numeric, empty,
+/// single-valued, all-null) a `Null` cell — no sample denominator, no value
+/// slot value.
+pub fn DataFrame::std(self : DataFrame) -> DataFrame raise @types.DataError {
+  self.reduce_to_row(FrameReduceOp::Std)
+}
+
+///|
+/// Sample variance of every column as a 1-row `DataFrame` (Polars'
+/// `df.variance()`-shaped; spelled out because `var` is a reserved MoonBit
+/// word): the `ddof = 1` variance, with `std`'s `Float`-or-`Null` cell rules.
+pub fn DataFrame::variance(
+  self : DataFrame,
+) -> DataFrame raise @types.DataError {
+  self.reduce_to_row(FrameReduceOp::Var)
+}
+
+///|
+/// Distinct non-null value count of every column as a 1-row `Int`
+/// `DataFrame` (Polars' `df.n_unique()`): dtype-independent like `count`,
+/// with MoonFrame's documented `n_unique` rule — nulls are skipped (Polars
+/// counts a null as one more distinct value; see `docs/comparison.md`) and
+/// every `Float` `NaN` is one bucket.
+pub fn DataFrame::n_unique(
+  self : DataFrame,
+) -> DataFrame raise @types.DataError {
+  self.reduce_to_row(FrameReduceOp::NUnique)
+}
+
+///|
 /// Reduce every column under `op` into a single output cell, assembling the
 /// length-1 result columns into a 1-row `DataFrame`. The shared driver behind
-/// the five public reductions above.
+/// the ten public reductions above.
 ///
 /// The result is one row for every source frame, its own height included: a
 /// 0-row frame reduces to a 1-row summary, and a 0-column one to `1×0` — the
@@ -179,6 +244,55 @@ fn reduce_column(
       }
       (cell, if numeric { @types.DataType::Float } else { dtype })
     }
+    // `median` / `quantile` share `mean`'s shape: a numeric column with at
+    // least one non-null cell holds the statistic as `Float`, everything else
+    // (non-numeric, empty, all-null) a `Null` cell. The `count() > 0` guard is
+    // what makes the raising `Series` call total here — `mean_opt` folded that
+    // guard in for `mean`, and these read the plain accessor under the same
+    // guard `mean_opt` itself would apply.
+    FrameReduceOp::Median => {
+      let cell = if numeric && s.count() > 0 {
+        @types.Scalar::Float(s.median())
+      } else {
+        @types.Scalar::Null
+      }
+      (cell, if numeric { @types.DataType::Float } else { dtype })
+    }
+    FrameReduceOp::Quantile(q, interpolation) => {
+      let cell = if numeric && s.count() > 0 {
+        @types.Scalar::Float(s.quantile(q, interpolation~))
+      } else {
+        @types.Scalar::Null
+      }
+      (cell, if numeric { @types.DataType::Float } else { dtype })
+    }
+    // `std` / `variance` additionally need a sample denominator: a numeric
+    // column with fewer than two non-null cells has no sample statistic, so it
+    // takes the `Null` cell rather than the raising accessor's
+    // `InvalidOperation` — the whole-frame rule that a reduction always
+    // produces a value slot.
+    FrameReduceOp::Std => {
+      let cell = if numeric && s.count() >= 2 {
+        @types.Scalar::Float(s.std())
+      } else {
+        @types.Scalar::Null
+      }
+      (cell, if numeric { @types.DataType::Float } else { dtype })
+    }
+    FrameReduceOp::Var => {
+      let cell = if numeric && s.count() >= 2 {
+        @types.Scalar::Float(s.variance())
+      } else {
+        @types.Scalar::Null
+      }
+      (cell, if numeric { @types.DataType::Float } else { dtype })
+    }
+    // `n_unique` is dtype-independent like `count`: the distinct non-null
+    // count of every column, MoonFrame's `n_unique` rule (nulls skipped, every
+    // `NaN` one bucket — Polars counts a null as one more distinct value; see
+    // `docs/comparison.md`).
+    FrameReduceOp::NUnique =>
+      (@types.Scalar::Int(s.n_unique().to_int64()), @types.DataType::Int)
   }
   scalars_to_series(probe, name, [cell])
 }

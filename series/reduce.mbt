@@ -413,6 +413,102 @@ fn reduce_median(
 }
 
 ///|
+/// `quantile` reducer over an index window: the `q`-th order statistic of the
+/// sorted non-null cells under `QuantileInterpolation`, as a `Scalar::Float` —
+/// `Int` widens to `Double`, so a quantile always types `Float` (Polars).
+/// Numeric only: a non-numeric column `raise`s `TypeMismatch` at factory time,
+/// as `reduce_arith` does. A `NaN` is **propagated** — the `sum` / `mean` /
+/// `median` rule, not the `min` / `max` skip: a window that contains one has
+/// that value as every order statistic. An empty / all-null window reduces to
+/// `Scalar::Null`. A `q` outside `[0, 1]` (or `NaN`) `raise`s
+/// `InvalidOperation` here rather than indexing out of bounds — this closure
+/// is total over every `q` a caller can build an `Expr` tree with, the tree
+/// builder being total by design.
+fn reduce_quantile(
+  storage : @column.ColumnStorage,
+  q : Double,
+  interpolation : QuantileInterpolation,
+) -> ((Int, (Int) -> Int) -> @types.Scalar) raise @types.DataError {
+  // `NaN` fails both comparisons, so one conjunction rejects it with the
+  // out-of-range values rather than needing its own test.
+  if !(q >= 0.0 && q <= 1.0) {
+    raise @types.DataError::InvalidOperation("quantile q must lie in [0, 1]")
+  }
+  let present = reduce_present(storage)
+  let read = numeric_double_reader(storage, "quantile")
+  fn(n : Int, at : (Int) -> Int) {
+    // Collect the present values, then sort: the quantile reads the sorted
+    // order at pos = q * (m - 1). A `NaN` anywhere in the window is the whole
+    // answer, so it is detected before positions are read — the median rule.
+    let vals : Array[Double] = []
+    let mut saw_nan = false
+    for k in 0..<n {
+      let i = at(k)
+      if present(i) {
+        let v = read(i)
+        if v.is_nan() {
+          saw_nan = true
+        } else {
+          vals.push(v)
+        }
+      }
+    }
+    if saw_nan {
+      @types.Scalar::Float(@double.not_a_number)
+    } else {
+      let m = vals.length()
+      if m == 0 {
+        @types.Scalar::Null
+      } else {
+        vals.sort()
+        if m == 1 {
+          @types.Scalar::Float(vals[0])
+        } else {
+          let pos = q * (m - 1).to_double()
+          let lo_idx = pos.floor().to_int()
+          let hi_idx = pos.ceil().to_int()
+          let lower = vals[lo_idx]
+          let higher = vals[hi_idx]
+          @types.Scalar::Float(
+            match interpolation {
+              Nearest => vals[(pos + 0.5).floor().to_int()]
+              Linear => {
+                let frac = pos - lo_idx.to_double()
+                if frac == 0.0 {
+                  lower
+                } else {
+                  // `lower + frac * (higher - lower)` cannot overflow past the
+                  // two neighbours when they share a sign; opposite-sign
+                  // neighbours only bring the difference closer to zero.
+                  lower + frac * (higher - lower)
+                }
+              }
+              Lower => lower
+              Higher => higher
+              Midpoint =>
+                if lo_idx == hi_idx {
+                  lower
+                } else {
+                  // The median's overflow rule: two near-`Double`-max
+                  // neighbours overflow their sum before the halving, so halve
+                  // first when it has — the true midpoint lies between them
+                  // and is finite.
+                  let sum = lower + higher
+                  if sum.is_inf() {
+                    lower / 2.0 + higher / 2.0
+                  } else {
+                    sum / 2.0
+                  }
+                }
+            },
+          )
+        }
+      }
+    }
+  }
+}
+
+///|
 /// Count the distinct non-null values in an index window — the total core
 /// behind both the `n_unique` reduction and `Series::n_unique`, so the two
 /// agree on what "distinct" means cell-for-cell. Cells are keyed by the same
@@ -483,7 +579,38 @@ fn reduce_first_last(
 }
 
 ///|
-/// The eleven reductions the shared kernel resolves — the single aggregation
+/// How `quantile` reads an answer that falls between two cells — Polars'
+/// `interpolation` parameter. Over the `m` sorted non-null values, position
+/// `pos = q * (m - 1)` names the answer; these say what to return when `pos`
+/// is not itself an index:
+///
+/// - `Nearest` (Polars' default) — the value at `round(pos)`, halves rounding
+///   up;
+/// - `Linear` — the two neighbours weighted by `frac = pos - floor(pos)`
+///   (numpy's default);
+/// - `Lower` — the value at `floor(pos)`;
+/// - `Higher` — the value at `ceil(pos)`;
+/// - `Midpoint` — the mean of the `Lower` and `Higher` neighbours.
+///
+/// `quantile(0.5, Linear)` over an even count is the median's two-middle
+/// average; `Nearest` / `Lower` / `Higher` always return a cell that is in
+/// the column, `Linear` / `Midpoint` can manufacture a value between two.
+pub(all) enum QuantileInterpolation {
+  Nearest
+  Linear
+  Lower
+  Higher
+  Midpoint
+} derive(Eq, Debug)
+
+///|
+pub extend QuantileInterpolation with Eq::{equal, not_equal}
+
+///|
+pub extend QuantileInterpolation with Debug::{to_repr}
+
+///|
+/// The twelve reductions the shared kernel resolves — the single aggregation
 /// vocabulary, one fact with one home. The expression AST's `Agg` node carries
 /// a `ReduceOp` directly (the AST package imports `series`), `frame`'s evaluator
 /// and grouped-`agg` fast path dispatch on it, and `reducer_for` right below
@@ -502,6 +629,7 @@ pub(all) enum ReduceOp {
   Std
   Var
   Median
+  Quantile(Double, QuantileInterpolation)
   NUnique
   First
   Last
@@ -519,11 +647,12 @@ pub extend ReduceOp with Eq::{equal, not_equal}
 ///|
 /// Resolve a `ReduceOp` to its window reducer plus the dtype probe that fixes
 /// the output column's type: `Count` / `NUnique` are always `Int`, `Mean` /
-/// `Std` / `Var` / `Median` always `Float`, and `Sum` / `Min` / `Max` /
-/// `First` / `Last` keep the source dtype. Shared by the grouped (`agg`) and
-/// scoped (`eval_agg`) reductions so the op → reducer mapping lives in one
-/// place. `Sum` / `Mean` / `Std` / `Var` / `Median` `raise` `TypeMismatch`
-/// here for a non-numeric column, before any window work.
+/// `Std` / `Var` / `Median` / `Quantile` always `Float`, and `Sum` / `Min` /
+/// `Max` / `First` / `Last` keep the source dtype. Shared by the grouped (`agg`)
+/// and scoped (`eval_agg`) reductions so the op → reducer mapping lives in one
+/// place. `Sum` / `Mean` / `Std` / `Var` / `Median` / `Quantile` `raise`
+/// `TypeMismatch` here for a non-numeric column, before any window work
+/// (`Quantile` also raising `InvalidOperation` for a `q` outside `[0, 1]`).
 ///
 /// The probe is a logical `DataType`, not a physical witness column: the
 /// caller (`frame`'s aggregation layer) only forwards it back into
@@ -545,6 +674,8 @@ pub fn Series::reducer_for(
     Std => (reduce_variance(storage, want_std=true), @types.DataType::Float)
     Var => (reduce_variance(storage, want_std=false), @types.DataType::Float)
     Median => (reduce_median(storage), @types.DataType::Float)
+    Quantile(q, interpolation) =>
+      (reduce_quantile(storage, q, interpolation), @types.DataType::Float)
     NUnique => {
       // The `n_unique` reducer over an index window: distinct non-null count
       // as `Scalar::Int`, total over every dtype and never null (an empty /

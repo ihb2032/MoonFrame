@@ -2,7 +2,8 @@
 /// Blackbox snapshots for the handwritten `Show` / `explain` rendering and
 /// behaviour tests for the introspection primitive `children` and the pair
 /// `referenced_columns` / `output_name` built on it. Every rendering arm — the twelve binary symbols, six
-/// unary forms, eleven aggregation suffixes, cast / alias / ternary, and
+/// unary forms, the aggregation suffixes (the parameterised `quantile`
+/// included), cast / alias / ternary, and
 /// each literal kind — is pinned here (the numeric `//` / `%` / `**` and `abs`…`round` arms render-test in `frame`), since `explain` output is demo-
 /// and (from L1 on) plan-printer-facing; the naming rule's clauses are
 /// pinned clause by clause, since the eager materialisers in `frame` and
@@ -112,6 +113,28 @@ test "show: every aggregation suffix" {
   inspect(col("v").std(), content="col(v).std()")
   inspect(col("v").variance(), content="col(v).variance()")
   inspect(col("v").median(), content="col(v).median()")
+  // The parameterised suffix: the `Nearest` default is omitted, every other
+  // interpolation spelled lowercase after the q.
+  inspect(col("v").quantile(0.5), content="col(v).quantile(0.5)")
+  inspect(
+    col("v").quantile(0.25, interpolation=@series.QuantileInterpolation::Linear),
+    content="col(v).quantile(0.25, linear)",
+  )
+  inspect(
+    col("v").quantile(
+      0.75,
+      interpolation=@series.QuantileInterpolation::Midpoint,
+    ),
+    content="col(v).quantile(0.75, midpoint)",
+  )
+  inspect(
+    col("v").quantile(0.1, interpolation=@series.QuantileInterpolation::Lower),
+    content="col(v).quantile(0.1, lower)",
+  )
+  inspect(
+    col("v").quantile(0.9, interpolation=@series.QuantileInterpolation::Higher),
+    content="col(v).quantile(0.9, higher)",
+  )
   inspect(col("v").n_unique(), content="col(v).n_unique()")
   inspect(col("v").first(), content="col(v).first()")
   inspect(col("v").last(), content="col(v).last()")

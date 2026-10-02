@@ -96,6 +96,20 @@ test "each whole-frame reduction collects to its eager equivalent" {
   assert_eq(LazyFrame::LazyFrame(df).max().collect(), df.max())
   assert_eq(LazyFrame::LazyFrame(df).count().collect(), df.count())
   assert_eq(LazyFrame::LazyFrame(df).null_count().collect(), df.null_count())
+  assert_eq(LazyFrame::LazyFrame(df).median().collect(), df.median())
+  assert_eq(
+    LazyFrame::LazyFrame(df).quantile(0.25).collect(),
+    df.quantile(0.25),
+  )
+  assert_eq(
+    LazyFrame::LazyFrame(df)
+    .quantile(0.75, interpolation=@series.QuantileInterpolation::Linear)
+    .collect(),
+    df.quantile(0.75, interpolation=@series.QuantileInterpolation::Linear),
+  )
+  assert_eq(LazyFrame::LazyFrame(df).std().collect(), df.std())
+  assert_eq(LazyFrame::LazyFrame(df).variance().collect(), df.variance())
+  assert_eq(LazyFrame::LazyFrame(df).n_unique().collect(), df.n_unique())
 }
 
 ///|

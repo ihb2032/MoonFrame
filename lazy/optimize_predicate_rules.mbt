@@ -196,6 +196,10 @@ fn group_cell_stable(expr : @ir.ExprNode) -> Bool {
               @series.ReduceOp::Std
               | @series.ReduceOp::Var
               | @series.ReduceOp::Median
+              // An order statistic read at `q * (m - 1)`: like `median`, its
+              // cell depends on the whole value multiset, so a group whose
+              // cell a predicate reads changes when rows sink in or out of it.
+              | @series.ReduceOp::Quantile(_, _)
               | @series.ReduceOp::First
               | @series.ReduceOp::Last => return false
             }

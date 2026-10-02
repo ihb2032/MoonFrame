@@ -186,6 +186,24 @@ fn FrameOp::write_frame_op_label(self : FrameOp, buf : StringBuilder) -> Unit {
         Max => buf <+ "MAX"
         Count => buf <+ "COUNT"
         NullCount => buf <+ "NULL_COUNT"
+        Median => buf <+ "MEDIAN"
+        // The `q` rides the verb tag like the expression render's
+        // `.quantile(0.5)` argument, so an explained plan names which
+        // quantile it computes; the interpolation stays implicit at the
+        // `Nearest` default and is spelled out otherwise.
+        Quantile(q, interpolation) => {
+          let tag = match interpolation {
+            Nearest => ""
+            Linear => " linear"
+            Lower => " lower"
+            Higher => " higher"
+            Midpoint => " midpoint"
+          }
+          buf <+ "QUANTILE \{q}\{tag}"
+        }
+        Std => buf <+ "STD"
+        Var => buf <+ "VARIANCE"
+        NUnique => buf <+ "N_UNIQUE"
       }
   }
 }

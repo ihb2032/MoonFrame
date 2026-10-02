@@ -223,6 +223,32 @@ pub fn Series::median(self : Series) -> Double raise @types.DataError {
 }
 
 ///|
+/// `q`-th quantile of the non-null cells, as `Double` — the sorted cells read
+/// at position `q * (m - 1)` under `interpolation` (Polars'
+/// `Series.quantile`, default `Nearest`), so `quantile(0.5)` over an even
+/// count picks one middle cell rather than averaging the two (`Linear` gives
+/// the median's average, `Midpoint` the two-neighbour mean). Numeric only
+/// (`Int` widens to `Double`). Like `median`, a `NaN` **propagates**; an
+/// empty / all-null series yields no order statistic.
+///
+/// - Empty / all-null series → `raise InvalidOperation(...)`.
+/// - Non-numeric series → `raise TypeMismatch(...)`.
+/// - `q` outside `[0, 1]` (or `NaN`) → `raise InvalidOperation(...)`.
+pub fn Series::quantile(
+  self : Series,
+  q : Double,
+  interpolation? : QuantileInterpolation = Nearest,
+) -> Double raise @types.DataError {
+  match reduce_quantile(self.storage, q, interpolation)(self.len(), k => k) {
+    @types.Scalar::Float(v) => v
+    _ =>
+      raise @types.DataError::InvalidOperation(
+        "quantile of an empty/all-null series",
+      )
+  }
+}
+
+///|
 /// First cell as a `Scalar`, in row order — positional, so it skips nothing (a
 /// present `NaN` is returned verbatim). Total (Polars' `Series.first`): an empty
 /// series, or a leading **null** cell, yields `Scalar::Null`.

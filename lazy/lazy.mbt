@@ -238,6 +238,51 @@ pub fn LazyFrame::null_count(self : LazyFrame) -> LazyFrame {
 }
 
 ///|
+/// Defer `DataFrame::median`: a 1-row frame of each numeric column's median
+/// as `Float` (`NaN` propagating, the two middles averaged on an even
+/// count), non-numeric / empty / all-null columns a `Null` cell.
+pub fn LazyFrame::median(self : LazyFrame) -> LazyFrame {
+  { plan: Unary(self.plan, Reduce(LazyReduceOp::Median)), }
+}
+
+///|
+/// Defer `DataFrame::quantile`: a 1-row frame of each numeric column's
+/// `q`-th quantile under `interpolation` (default `Nearest`), with `median`'s
+/// `Float`-or-`Null` cell rules. A `q` outside `[0, 1]` surfaces as
+/// `InvalidOperation` at collect.
+pub fn LazyFrame::quantile(
+  self : LazyFrame,
+  q : Double,
+  interpolation? : @series.QuantileInterpolation = @series.QuantileInterpolation::Nearest,
+) -> LazyFrame {
+  { plan: Unary(self.plan, Reduce(LazyReduceOp::Quantile(q, interpolation))), }
+}
+
+///|
+/// Defer `DataFrame::std`: a 1-row frame of each numeric column's sample
+/// standard deviation (`ddof = 1`) as `Float`; a column with fewer than two
+/// non-null cells — like a non-numeric one — takes a `Null` cell.
+pub fn LazyFrame::std(self : LazyFrame) -> LazyFrame {
+  { plan: Unary(self.plan, Reduce(LazyReduceOp::Std)), }
+}
+
+///|
+/// Defer `DataFrame::variance`: the `ddof = 1` variance, `std`'s
+/// `Float`-or-`Null` cell rules. Spelled `variance` because `var` is a
+/// reserved MoonBit word.
+pub fn LazyFrame::variance(self : LazyFrame) -> LazyFrame {
+  { plan: Unary(self.plan, Reduce(LazyReduceOp::Var)), }
+}
+
+///|
+/// Defer `DataFrame::n_unique`: a 1-row `Int` frame of each column's
+/// distinct non-null count (every dtype; nulls skipped, every `NaN` one
+/// bucket — the documented `n_unique` rule).
+pub fn LazyFrame::n_unique(self : LazyFrame) -> LazyFrame {
+  { plan: Unary(self.plan, Reduce(LazyReduceOp::NUnique)), }
+}
+
+///|
 /// Defer `DataFrame::join`: combine this plan's output (the left side)
 /// with another plan's output (the right side) under `options` — each
 /// side carries its own deferred pipeline. Key resolution, type checks,

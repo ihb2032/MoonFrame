@@ -17,7 +17,17 @@
 //   - `rank` / `arg_sort` order over every dtype's natural order (`Bool`
 //     `false < true`, `String` lexicographic); the `cum_*` family is
 //     numeric-only (arithmetic and the numeric running extrema), one
-//     contract to document rather than four;
+//     contract to document rather than four — and numericity comes from
+//     the dtype registry, never the buffer variant: a `Date` rides `I64`
+//     and `raise`s here exactly as `reduce_arith` `raise`s, because an
+//     arm that folds by variant alone swallows the rider;
+//   - `Int` arithmetic wraps — a running `cum_sum` / `cum_prod` crossing
+//     `Int64::MAX` goes negative silently, `fold_int64_sum`'s documented
+//     price, carried by this family too;
+//   - the `rolling_*` statistics are the reduction family's rules verbatim
+//     — the NaN split, the fewer-than-two precedence, Welford's algorithm
+//     and its saturation rescue — so a rule change there is a rule change
+//     here, not a second implementation to keep in step;
 //   - `reverse` runs a `cum_*` from the end, and ties under `rank` /
 //     `arg_sort` keep input order (stability, the sort kernel's rule).
 
@@ -78,7 +88,10 @@ pub fn eval_positional(
         "max"
       }
       match operand.storage().data() {
-        @column.ColumnData::I64(a) => {
+        // The dtype registry decides numericity, not the buffer: an `I64`
+        // column without this guard is a non-numeric rider (`Date`), whose
+        // day counts must not fold.
+        @column.ColumnData::I64(a) if dtype.is_numeric() => {
           let out : Array[Int64?] = Array::makei(n, _ => None)
           let mut acc : Int64? = None
           visit(n, reverse, i => {
@@ -119,39 +132,43 @@ pub fn eval_positional(
             if valid[i] {
               let v = a[i]
               // `NaN` enters a running sum / product and stays (the `sum`
-              // rule); the running extrema skip it (`min` / `max` — and a
-              // skipped `NaN` never reaches the accumulator, so the
-              // accumulator is never one).
-              acc = Some(
-                match acc {
-                  Some(b) =>
-                    if want_sum {
-                      b + v
-                    } else if want_prod {
-                      b * v
-                    } else if v.is_nan() {
-                      b
-                    } else if want_min {
-                      if v < b {
+              // rule); the running extrema skip it — as the accumulator's
+              // seed too, not only as a later candidate, so a leading `NaN`
+              // leaves the running value null (an empty prefix, the extrema
+              // over nothing) instead of poisoning every later comparison
+              // against a `NaN` accumulator.
+              if !(!want_sum && !want_prod && v.is_nan()) {
+                acc = Some(
+                  match acc {
+                    Some(b) =>
+                      if want_sum {
+                        b + v
+                      } else if want_prod {
+                        b * v
+                      } else if want_min {
+                        if v < b {
+                          v
+                        } else {
+                          b
+                        }
+                      } else if v > b {
                         v
                       } else {
                         b
                       }
-                    } else if v > b {
-                      v
-                    } else {
-                      b
-                    }
-                  None => v
-                },
-              )
+                    None => v
+                  },
+                )
+              }
             }
             // The Int arm's rule: a null slot keeps its null.
             out[i] = if valid[i] { acc } else { None }
           })
           @series.Series::from_float_options(name, out)
         }
-        @column.ColumnData::Bool(_) | @column.ColumnData::Utf8(_) =>
+        @column.ColumnData::I64(_)
+        | @column.ColumnData::Bool(_)
+        | @column.ColumnData::Utf8(_) =>
           raise @types.DataError::TypeMismatch(
             @types.TypeMismatchDetail::Message(
               "cumulative \{label} requires a numeric operand, got \{dtype}",
@@ -275,31 +292,43 @@ pub fn eval_positional(
       }
       let cells = operand.to_scalars()
       let out : Array[@types.Scalar] = Array::makei(n, _ => @types.Scalar::Null)
-      for i in 0..<n {
-        if valid[i] {
-          out[i] = cells[i]
-        } else {
-          // Walk toward the fill's source until a present cell or the
-          // limit: `steps` counts consecutive null slots crossed.
-          let step = if backward { 1 } else { -1 }
-          let mut j = i + step
-          let mut steps = 0
-          let mut filled : @types.Scalar? = None
-          while j >= 0 && j < n {
-            if valid[j] {
-              filled = Some(cells[j])
-              break
+      // One pass per direction, carrying the nearest present value and the
+      // consecutive-null count since it — the walk a per-cell scan would
+      // redo, done once. A gap of `g` null slots fills when `g <= limit`
+      // (the nulls between the source and the target are `g`), always when
+      // there is no limit.
+      if backward {
+        let mut next : @types.Scalar? = None
+        let mut gap = 0
+        for i = n - 1; i >= 0; i = i - 1 {
+          if valid[i] {
+            out[i] = cells[i]
+            next = Some(cells[i])
+            gap = 0
+          } else {
+            gap = gap + 1
+            match (next, limit) {
+              (Some(v), None) => out[i] = v
+              (Some(v), Some(k)) => if gap <= k { out[i] = v }
+              (None, _) => ()
             }
-            steps = steps + 1
-            match limit {
-              Some(k) => if steps >= k { break }
-              None => ()
-            }
-            j = j + step
           }
-          match filled {
-            Some(v) => out[i] = v
-            None => ()
+        }
+      } else {
+        let mut last : @types.Scalar? = None
+        let mut gap = 0
+        for i in 0..<n {
+          if valid[i] {
+            out[i] = cells[i]
+            last = Some(cells[i])
+            gap = 0
+          } else {
+            gap = gap + 1
+            match (last, limit) {
+              (Some(v), None) => out[i] = v
+              (Some(v), Some(k)) => if gap <= k { out[i] = v }
+              (None, _) => ()
+            }
           }
         }
       }
@@ -331,7 +360,10 @@ pub fn eval_positional(
       let back = if center { window / 2 } else { window - 1 }
       let forward = window - 1 - back
       match operand.storage().data() {
-        @column.ColumnData::I64(a) => {
+        // The dtype registry decides numericity, not the buffer — a
+        // non-numeric `I64` rider (`Date`) raises, like every numeric
+        // kernel.
+        @column.ColumnData::I64(a) if dtype.is_numeric() => {
           // Sum / Min / Max keep the Int dtype (the reduction family's
           // rule); the statistics widen to Double, folding the widened
           // values the Float arm shares with — an `Int` window has no `NaN`,
@@ -351,7 +383,6 @@ pub fn eval_positional(
               if valid[j] {
                 present_count = present_count + 1
                 let v = a[j]
-                widened.push(v.to_double())
                 if keep_int {
                   acc = Some(
                     match acc {
@@ -364,6 +395,10 @@ pub fn eval_positional(
                       None => v
                     },
                   )
+                } else {
+                  // Only the widening statistics read the widened cells —
+                  // Sum / Min / Max fold the Ints directly.
+                  widened.push(v.to_double())
                 }
               }
             }
@@ -393,8 +428,13 @@ pub fn eval_positional(
             let hi = if i + forward >= n { n - 1 } else { i + forward }
             let vals : Array[Double] = []
             let mut saw_nan = false
+            let mut present_count = 0
             for j in lo..<=hi {
               if valid[j] {
+                // Each present cell counts once, `NaN` included — the
+                // count is over every present cell, the median kernel's
+                // discipline.
+                present_count = present_count + 1
                 let v = a[j]
                 if v.is_nan() {
                   saw_nan = true
@@ -403,22 +443,15 @@ pub fn eval_positional(
                 }
               }
             }
-            // NaN counts toward `min_samples` (it is present), so the count
-            // is over every present cell — the median kernel's discipline.
-            let present_count = {
-              let mut c = vals.length()
-              if saw_nan {
-                c = c + 1
-              }
-              c
-            }
             if present_count >= need {
               out[i] = float_rolling_stat(stat, vals, saw_nan, present_count)
             }
           }
           @series.Series::from_float_options(name, out)
         }
-        @column.ColumnData::Bool(_) | @column.ColumnData::Utf8(_) =>
+        @column.ColumnData::I64(_)
+        | @column.ColumnData::Bool(_)
+        | @column.ColumnData::Utf8(_) =>
           raise @types.DataError::TypeMismatch(
             @types.TypeMismatchDetail::Message(
               "rolling \{roll_stat_label(stat)} requires a numeric operand, got \{dtype}",
@@ -434,11 +467,12 @@ pub fn eval_positional(
 /// non-`NaN` cells, `saw_nan` whether a `NaN` was among the present, the
 /// count every present cell (`NaN` included, the median kernel's
 /// discipline). Returns `None` where the statistic has no value at all
-/// (an all-`NaN` window under the extrema — nothing to skip to; a
-/// single-value window under `std` / `variance` — no sample denominator,
-/// the reduction family's Null rule), `Some(NaN)` where a present `NaN`
-/// propagates (sum / mean / std / variance / median), and the computed
-/// value otherwise.
+/// (an all-`NaN` window under the extrema — nothing to skip to; a window
+/// with fewer than two present cells under `std` / `variance` — no sample
+/// denominator, so a lone `NaN` cell is `Null`, the reduction family's
+/// precedence), `Some(NaN)` where a present `NaN` propagates (sum / mean /
+/// std / variance / median — after the fewer-than-two rule), and the
+/// computed value otherwise.
 fn float_rolling_stat(
   stat : @ir.RollStat,
   vals : Array[Double],
@@ -486,23 +520,35 @@ fn float_rolling_stat(
       best
     }
     Std | Var =>
-      if saw_nan {
-        Some(@double.not_a_number)
-      } else if vals.length() < 2 {
+      // The fewer-than-two rule takes precedence over `NaN` propagation —
+      // a lone present `NaN` cell is `Null`, not `NaN` (the reduction
+      // family's order). Over two-plus cells the statistic is Welford's —
+      // `reduce_variance`'s algorithm and saturation rescue, so a window of
+      // near-`Double`-max values whose two-pass mean would overflow still
+      // yields its finite variance, and finite cells a `Double`'s range
+      // apart saturate to `+inf`, never a negative variance.
+      if present_count < 2 {
         None
+      } else if saw_nan {
+        Some(@double.not_a_number)
       } else {
-        let m = {
-          let mut s = 0.0
-          for v in vals {
-            s = s + v
-          }
-          s / vals.length().to_double()
-        }
+        let mut cnt = 0
+        let mut mean = 0.0
         let mut m2 = 0.0
+        let mut saw_nonfinite = false
         for v in vals {
-          m2 = m2 + (v - m) * (v - m)
+          cnt = cnt + 1
+          saw_nonfinite = saw_nonfinite || v.is_inf()
+          let delta = v - mean
+          mean = mean + delta / cnt.to_double()
+          m2 = m2 + delta * (v - mean)
         }
-        let variance = m2 / (vals.length() - 1).to_double()
+        let m2 = if !saw_nonfinite && !(m2 >= 0.0) {
+          @double.infinity
+        } else {
+          m2
+        }
+        let variance = m2 / (cnt - 1).to_double()
         Some(if stat is Std { variance.sqrt() } else { variance })
       }
     Median =>

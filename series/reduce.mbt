@@ -471,7 +471,16 @@ fn reduce_quantile(
           let higher = vals[hi_idx]
           @types.Scalar::Float(
             match interpolation {
-              Nearest => vals[(pos + 0.5).floor().to_int()]
+              // The `x + 0.5` idiom rounds a `pos` one ulp below a half up
+              // as well — the addition's own rounding carries it onto the
+              // integer — so compare the exact fraction instead: halves
+              // round up, everything below them stays.
+              Nearest =>
+                if pos - lo_idx.to_double() >= 0.5 {
+                  higher
+                } else {
+                  lower
+                }
               Linear => {
                 let frac = pos - lo_idx.to_double()
                 if frac == 0.0 {

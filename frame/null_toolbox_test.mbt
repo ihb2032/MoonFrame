@@ -216,3 +216,20 @@ test "clip clamps into the bounds, nulls and NaN passing through" {
   assert_true(clamped[1] is @types.Scalar::Float(v) && v.is_nan())
   assert_eq(clamped[2], @types.Scalar::Float(3.0))
 }
+
+///|
+test "backward_fill honors the limit like the forward mirror" {
+  let df = DataFrame::DataFrame([
+    Series::from_string_options("s", [Some("a"), None, None, Some("d"), None]),
+  ])
+  // limit = 1: only the slot adjacent to its source fills; the two-slot
+  // gap past the "a" keeps its far end null, and the trailing run has no
+  // source below it at all.
+  assert_eq(df.fill_null_backward(limit=1).get_column("s").to_scalars(), [
+    @types.Scalar::String("a"),
+    @types.Scalar::Null,
+    @types.Scalar::String("d"),
+    @types.Scalar::String("d"),
+    @types.Scalar::Null,
+  ])
+}

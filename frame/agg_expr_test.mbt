@@ -1060,3 +1060,13 @@ test "grouped agg reduces a derived operand through the general path" {
   assert_eq(out.item(0, "m"), @types.Scalar::Float(6.0))
   assert_eq(out.item(1, "m"), @types.Scalar::Float(4.5))
 }
+
+///|
+test "a computed positional result converges onto the Numeric backend" {
+  // The engine's backend convention: a computed all-valid numeric column
+  // lands on the fast path, so the positional family's outputs do too —
+  // the combiner used to push them out as `Builtin` unconditionally.
+  let df = DataFrame::DataFrame([Series::from_ints("v", [1, 2, 3])])
+  let out = df.select([@expr.col("v").cum_sum()])
+  assert_eq(out.get_column("v").storage_kind(), @column.StorageKind::Numeric)
+}

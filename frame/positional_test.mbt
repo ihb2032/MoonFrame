@@ -425,3 +425,130 @@ test "grouped arg_min is the position within the group" {
     @types.Scalar::Int(0),
   ])
 }
+
+///|
+test "a leading NaN does not seed the cum extrema" {
+  let nan : Double = @double.not_a_number
+  let f = DataFrame::DataFrame([Series::from_floats("f", [nan, 1.0, 2.0])])
+  // The extrema skip NaN wherever it sits: a leading one leaves the
+  // running value null (an empty prefix — the extrema over nothing) and
+  // never reaches the accumulator, instead of poisoning every later
+  // comparison against a NaN it seeded.
+  assert_eq(f.select([@expr.col("f").cum_min()]).get_column("f").to_scalars(), [
+    @types.Scalar::Null,
+    @types.Scalar::Float(1.0),
+    @types.Scalar::Float(1.0),
+  ])
+  assert_eq(f.select([@expr.col("f").cum_max()]).get_column("f").to_scalars(), [
+    @types.Scalar::Null,
+    @types.Scalar::Float(1.0),
+    @types.Scalar::Float(2.0),
+  ])
+  // Reversed, the trailing NaN is the leading one: its own slot repeats
+  // the running value the walk has already seeded (the mid-column rule).
+  assert_eq(
+    f
+    .select([@expr.col("f").cum_min(reverse=true)])
+    .get_column("f")
+    .to_scalars(),
+    [
+      @types.Scalar::Float(1.0),
+      @types.Scalar::Float(1.0),
+      @types.Scalar::Float(2.0),
+    ],
+  )
+  // The first present value after a null gap obeys the same rule.
+  let g = DataFrame::DataFrame([
+    Series::from_float_options("g", [None, Some(nan), Some(1.0)]),
+  ])
+  assert_eq(g.select([@expr.col("g").cum_min()]).get_column("g").to_scalars(), [
+    @types.Scalar::Null,
+    @types.Scalar::Null,
+    @types.Scalar::Float(1.0),
+  ])
+}
+
+///|
+test "the cum_* members raise on a Date column, not fold its days" {
+  // A Date rides the I64 buffer; numericity is the dtype registry's word,
+  // so every arithmetic and extremum member refuses the day counts.
+  let d = DataFrame::DataFrame([
+    Series::from_scalars(
+      "d",
+      [
+        @types.Scalar::Date(0L),
+        @types.Scalar::Date(11016L),
+        @types.Scalar::Null,
+      ],
+      dtype=@types.DataType::Date,
+    ),
+  ])
+  for
+    e in [
+      @expr.col("d").cum_sum(),
+      @expr.col("d").cum_prod(),
+      @expr.col("d").cum_min(),
+      @expr.col("d").cum_max(),
+    ] {
+    assert_true(
+      (Ok(d.select([e.with_alias("x")])) catch { e2 => Err(e2) })
+      is Err(TypeMismatch(@types.TypeMismatchDetail::Message(_))),
+    )
+  }
+}
+
+///|
+test "Int cum_sum wraps past Int64::MAX — the documented price" {
+  let df = DataFrame::DataFrame([
+    Series::from_ints("v", [9223372036854775807L, 1L]),
+  ])
+  assert_eq(
+    df.select([@expr.col("v").cum_sum()]).get_column("v").to_scalars(),
+    [
+      @types.Scalar::Int(9223372036854775807L),
+      @types.Scalar::Int(-9223372036854775808L),
+    ],
+  )
+}
+
+///|
+test "the positional family over an empty frame stays empty" {
+  let df = DataFrame::DataFrame([int_col("v", [])])
+  assert_eq(df.select([@expr.col("v").shift(1)]).get_column("v").to_scalars(), [])
+  assert_eq(
+    df.select([@expr.col("v").cum_sum()]).get_column("v").to_scalars(),
+    [],
+  )
+  assert_eq(
+    df
+    .select([@expr.col("v").rank(how=@types.RankMethod::Min)])
+    .get_column("v")
+    .to_scalars(),
+    [],
+  )
+  assert_eq(
+    df.select([@expr.col("v").arg_sort()]).get_column("v").to_scalars(),
+    [],
+  )
+  assert_eq(
+    df.select([@expr.col("v").cum_count()]).get_column("v").to_scalars(),
+    [],
+  )
+}
+
+///|
+test "a positional expression inside agg stays behind the reduction gate" {
+  // `shift` reads other rows, so it does not reduce a group to one value —
+  // the structural gate refuses it up front, deterministically, whatever
+  // the group heights happen to be.
+  let df = DataFrame::DataFrame([
+    Series::from_strings("k", ["a", "a", "b"]),
+    int_col("v", [Some(1), Some(2), Some(3)]),
+  ])
+  assert_true(
+    (Ok(df.group_by([@expr.col("k")]).agg([@expr.col("v").shift(1)])) catch {
+      e => Err(e)
+    })
+    is Err(@types.DataError::InvalidOperation(_)),
+  )
+}

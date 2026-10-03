@@ -404,7 +404,12 @@ fn eval_expr(
           }
           ApplyPositional(op) => {
             let operand = pop_value(values)
-            values.push(@kernel.eval_positional(op, operand))
+            // A computed result converges onto the `Numeric` fast path —
+            // the engine-wide convention, which this combiner now keeps
+            // with the binary / unary / cast arms.
+            values.push(
+              @kernel.eval_positional(op, operand).try_column_to_numeric(),
+            )
           }
           ApplyCast(target) => {
             let operand = pop_value(values)

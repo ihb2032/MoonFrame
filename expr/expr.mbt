@@ -37,13 +37,17 @@
 /// - `Col` / `Lit` / `LitSeries` — leaves (`col`, `lit` / `lit_*`,
 ///   `lit_series`); a `LitSeries` embeds a pre-materialised `Series`;
 /// - `Binary` — arithmetic `+ - * /`, comparisons, Kleene `&` / `|`;
-/// - `Unary` — `-e`, `.not()`, the null / NaN probes, and `.abs()` / `.floor()`
-///   / `.ceil()` / `.sign()` / `.round()`;
+/// - `Unary` — `-e`, `.not()`, the null / NaN / finiteness probes, the `dt_*`
+///   calendar quartet, and `.abs()` / `.floor()` / `.ceil()` / `.sign()` /
+///   `.round()`;
 /// - `Agg` — `.sum()` / `.mean()` / … reductions;
 /// - `Str` — the `.str_*` namespace;
 /// - `Positional` — the history-dependent transforms (`.shift(n)` /
 ///   `.diff(n)`, the `.cum_*` running aggregates, `.rank(how~)`,
-///   `.arg_sort()`), whose cell reads its neighbours;
+///   `.arg_sort()`, the `.rolling_*` windowed statistics,
+///   `.forward_fill()` / `.backward_fill()`, `.unique_counts()`,
+///   `.is_first_distinct()` / `.is_last_distinct()`), whose cell reads its
+///   neighbours or the column's occurrence structure;
 /// - `Cast` — `.cast(dtype)`; `Alias` — `.with_alias(name)`;
 /// - `Ternary` — `when(c).then(a).otherwise(b)`;
 /// - `FillNull` / `FillNan` — `.fill_null(v)` / `.fill_nan(v)`, dedicated nodes

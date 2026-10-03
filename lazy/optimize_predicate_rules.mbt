@@ -17,7 +17,9 @@
 /// range rejection raises on the *values* it meets, so dropping a row
 /// can drop the very cell that would have raised. `Map` and `MapBatches` fail
 /// it the same way — an opaque closure can `raise` on the values it meets — so
-/// both are value barriers, exactly like `Cast`. A `LitSeries` is a *shape*
+/// both are value barriers, exactly like `Cast`. The `Dt*` quartet joins them:
+/// it raises on a *value* (a day count outside the calendar domain), so a
+/// dropped row can drop the very cell that would have raised. A `LitSeries` is a *shape*
 /// barrier: a frame-tall literal column is positional (cell `i` is row `i`),
 /// so dropping rows before the stage would leave it mismatched against the
 /// now-shorter frame — pushing a filter past it could turn a working plan
@@ -37,9 +39,12 @@ fn row_stable(expr : @ir.ExprNode) -> Bool {
   // Iterative tree walk (explicit stack, not the call stack) so a deeply nested
   // predicate cannot overflow and abort during optimization — total at any
   // depth, as this function's doc promises. `children()` drives the *descent*,
-  // but the classification below is per variant and the `match` is exhaustive by
-  // design (no wildcard): a new `ExprNode` variant does not inherit a verdict
-  // here, it fails to compile until someone decides whether it is row-local.
+  // but the classification below is per variant — and, for the tag-carrying
+  // variants, per tag member — and every `match` is exhaustive by design (no
+  // wildcard): a new `ExprNode` variant or `UnOp` / `StrOp` member does not
+  // inherit a verdict here, it fails to compile until someone decides whether
+  // it is row-local, because the silent default — descent — would be the
+  // unsound one.
   let stack : Array[@ir.ExprNode] = [expr]
   for ;; {
     match stack.pop() {
@@ -55,11 +60,68 @@ fn row_stable(expr : @ir.ExprNode) -> Bool {
           | @ir.ExprNode::Map(_, _, _)
           | @ir.ExprNode::MapBatches(_, _, _, _)
           | @ir.ExprNode::LitSeries(_) => return false
+          // The `Dt*` quartet raises on a *value* — a day count outside the
+          // calendar domain — so a dropped row can drop the very cell that
+          // would have raised: the `Cast` verdict again.
+          @ir.ExprNode::Unary(
+            @ir.UnOp::DtYear
+            | @ir.UnOp::DtMonth
+            | @ir.UnOp::DtDay
+            | @ir.UnOp::DtWeekday,
+            _
+          ) => return false
+          // Every other unary member is row-local and raises only on the
+          // dtype (the probes on a non-numeric operand, a scope-independent
+          // fact); `Round` reads only its place count.
+          @ir.ExprNode::Unary(
+            @ir.UnOp::Neg
+            | @ir.UnOp::Not
+            | @ir.UnOp::IsNull
+            | @ir.UnOp::IsNotNull
+            | @ir.UnOp::IsNan
+            | @ir.UnOp::IsNotNan
+            | @ir.UnOp::IsFinite
+            | @ir.UnOp::IsInfinite
+            | @ir.UnOp::Abs
+            | @ir.UnOp::Floor
+            | @ir.UnOp::Ceil
+            | @ir.UnOp::Sign
+            | @ir.UnOp::Round(_),
+            operand
+          ) => stack.push(operand)
+          // The string namespace is row-local throughout — every member
+          // enumerated so a new one fails compilation here rather than
+          // silently inheriting the descent — and the regex family raises
+          // only on its pattern's compile, hoisted out of the per-cell map:
+          // a fact of the pattern, not of the rows present.
+          @ir.ExprNode::Str(str_op, operand) =>
+            match str_op {
+              @ir.StrOp::ToUppercase
+              | @ir.StrOp::ToLowercase
+              | @ir.StrOp::StripChars
+              | @ir.StrOp::LenChars
+              | @ir.StrOp::Contains(_)
+              | @ir.StrOp::StartsWith(_)
+              | @ir.StrOp::EndsWith(_)
+              | @ir.StrOp::Replace(_, _)
+              | @ir.StrOp::ReplaceAll(_, _)
+              | @ir.StrOp::Reverse
+              | @ir.StrOp::PadStart(_, _)
+              | @ir.StrOp::PadEnd(_, _)
+              | @ir.StrOp::ContainsRegex(_)
+              | @ir.StrOp::ReplaceRegex(_, _)
+              | @ir.StrOp::ReplaceAllRegex(_, _)
+              | @ir.StrOp::Extract(_, _)
+              | @ir.StrOp::CountMatches(_)
+              | @ir.StrOp::Slice(_, _)
+              | @ir.StrOp::LenBytes
+              | @ir.StrOp::StripCharsCustom(_)
+              | @ir.StrOp::SplitGet(_, _)
+              | @ir.StrOp::ZFill(_) => stack.push(operand)
+            }
           @ir.ExprNode::Col(_)
           | @ir.ExprNode::Lit(_)
           | @ir.ExprNode::Binary(_, _, _)
-          | @ir.ExprNode::Unary(_, _)
-          | @ir.ExprNode::Str(_, _)
           | @ir.ExprNode::Alias(_, _)
           | @ir.ExprNode::Ternary(_, _, _)
           | @ir.ExprNode::FillNull(_, _)

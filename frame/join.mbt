@@ -108,8 +108,11 @@ fn index_by_join_key(
 /// assembled columns, so a join between two column-less frames keeps its
 /// rows: `2×0` cross `3×0` is the `6×0` frame, not `0×0`.
 ///
-/// The result routes through `DataFrame::from_parts`, so it satisfies
-/// `check_invariants()`.
+/// The five merging joins route through `DataFrame::from_parts`, so they
+/// satisfy `check_invariants()`; the `Semi` / `Anti` filters keep the left
+/// schema and rebuild through the same-schema row gather, which satisfies
+/// the invariants by construction (the names were already unique, the
+/// gather preserves dtypes, and the height is the row plan's own length).
 ///
 /// Raises:
 /// - `ColumnNotFound(name)` — a key expression references an absent column.

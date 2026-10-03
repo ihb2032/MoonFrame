@@ -60,7 +60,12 @@ pub(all) enum ExprNode {
 /// `Alias` / `LitSeries` / `Ternary` mean something particular) and pushdown
 /// soundness (row-local vs value barrier vs shape barrier) are decisions, so a
 /// variant added here fails to compile against their exhaustive `match`es until
-/// each one is made. That is the intended sequence, not an inconvenience.
+/// each one is made. The demand reaches one level further for the operator
+/// tags: a variant that only *carries* a tag would hand a new member the
+/// container's verdict silently, so the soundness matches enumerate the tag
+/// members too (`UnOp` / `StrOp` in `row_stable`, `BinOp` in
+/// `signed_zero_safe`, `ReduceOp` in `group_cell_stable`). That is the
+/// intended sequence, not an inconvenience.
 ///
 /// A `Ternary` lists all three arms, condition
 /// first; a `Map` a fresh copy of its inputs, so a caller cannot alias — and

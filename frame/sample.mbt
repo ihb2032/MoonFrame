@@ -43,15 +43,21 @@ fn SplitMix64::below(self : SplitMix64, bound : Int) -> Int {
 /// replacement a seeded partial Fisher–Yates — the first `n` slots of a
 /// full shuffle, so every row appears at most once and the output order is
 /// the draw order; with replacement `n` independent draws, repeats
-/// allowed. `seed~` fixes the sequence (same seed, same rows); `n`
-/// saturates at the row count without replacement and raises
+/// allowed. `seed~` fixes the sequence (same seed, same rows — and an
+/// omitted seed is `seed = 0`, so independent calls share one sequence);
+/// `n` saturates at the row count without replacement and raises
 /// `InvalidOperation` when negative; a 0-row frame samples zero rows
-/// without replacement (there is nothing to draw — the with-replacement
-/// draw would divide by zero, so it raises there instead).
+/// (there is nothing to draw — the with-replacement draw would divide by
+/// zero, so it raises exactly when there is a row to draw).
 ///
 /// The schema is unchanged (a row gather), so the same-schema rebuild
 /// applies and the backend follows the gathered content, as after any
 /// gather.
+///
+/// Eager-only, matching Polars' `LazyFrame` (which has no `sample`
+/// either): a seeded draw sees a specific row set, and filter /
+/// projection pushdown would reorder which one that is — so there is no
+/// lazy entry; collect first.
 pub fn DataFrame::sample(
   self : DataFrame,
   n : Int,
@@ -70,7 +76,7 @@ pub fn DataFrame::sample(
   let rng = SplitMix64::{ state: seed.to_uint64(), }
   let picked : Array[Int] = []
   if with_replacement {
-    if total == 0 {
+    if n > 0 && total == 0 {
       raise @types.DataError::InvalidOperation(
         "sampling with replacement needs at least one row",
       )

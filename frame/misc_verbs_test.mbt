@@ -107,11 +107,26 @@ test "sample is a deterministic function of its seed" {
   assert_eq(a, b)
   assert_eq(a.shape(), (3, 1))
   assert_eq(a.check_invariants(), Ok(()))
-  // Different seeds differ somewhere over a few draws (a heuristic pin,
-  // not a proof — five slots, two seeds).
-  let c = df.sample(5, seed=8)
+  // Different seeds give different sequences — pinned directly: the draw
+  // is a deterministic function of the seed, so two fixed seeds have two
+  // fixed answers, and asserting both fixes what "different" means here.
+  assert_eq(df.sample(5, seed=7).get_column("v").to_scalars(), [
+    Int(2),
+    Int(1),
+    Int(0),
+    Int(4),
+    Int(3),
+  ])
+  assert_eq(df.sample(5, seed=8).get_column("v").to_scalars(), [
+    Int(2),
+    Int(0),
+    Int(3),
+    Int(1),
+    Int(4),
+  ])
   assert_true(
-    c.get_column("v").to_scalars() != a.get_column("v").to_scalars() || true,
+    df.sample(5, seed=8).get_column("v").to_scalars() !=
+    df.sample(5, seed=7).get_column("v").to_scalars(),
   )
   // Without replacement: no repeats — the O(n²) check over five cells
   // needs no hashing.
@@ -151,6 +166,9 @@ test "sample with replacement allows repeats and needs a row" {
     (Ok(empty.sample(1, with_replacement=true)) catch { e => Err(e) })
     is Err(@types.DataError::InvalidOperation(_)),
   )
+  // n = 0 on an empty frame draws nothing — there is no draw to divide by
+  // zero on, so no raise.
+  assert_eq(empty.sample(0, with_replacement=true).shape(), (0, 1))
   // Without replacement an empty frame samples zero rows (saturation).
   assert_eq(empty.sample(3).shape(), (0, 1))
 }

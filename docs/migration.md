@@ -7,6 +7,26 @@ written when the release is cut; the per-symbol reference — generated from the
 docstrings — is on [mooncakes.io](https://mooncakes.io/docs/ihb2032/MoonFrame)
 and [GitHub Pages](https://ihb2032.github.io/MoonFrame/).
 
+## v0.7.0 → v0.8.0 (unreleased)
+
+The operator-alignment sprint widens the join vocabulary: one public enum
+gains a variant, under the repo's standing exception that an enum may add
+variants within a breaking release. Everything else the sprint adds is
+additive — new verbs (`pivot` / `unpivot`, the positional / rolling
+families, the `dt_*` quartet, the null toolbox, `mode` / `sample` / the
+`top_k` family), new enums (`PivotAgg`, `RankMethod`,
+`QuantileInterpolation`), and error-facing tightenings that turn silent
+output into a `raise` on inputs no caller could have relied on.
+
+### `JoinType` gained `Semi` / `Anti`
+
+`JoinType::Semi` and `JoinType::Anti` — the existence filters, Polars'
+`how="semi"` / `how="anti"` — join the enum, which makes an exhaustive
+`match` over it fail to compile until the two variants are handled. Add the
+arms (a `Semi` / `Anti` join keeps the left schema and filters rows by
+whether a key match exists in the right frame); a `match` that ends in a
+`_` arm needs no change.
+
 ## v0.6.0 → v0.7.0
 
 v0.7 is a pre-1.0 breaking release — the surface-focus one: `io` returns to

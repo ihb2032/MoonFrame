@@ -378,3 +378,98 @@ test "window and min_samples are validated at evaluation" {
     is Err(@types.DataError::InvalidOperation(_)),
   )
 }
+
+///|
+test "rolling raises on a Date column, not folds its days" {
+  let d = DataFrame::DataFrame([
+    Series::from_scalars(
+      "d",
+      [@types.Scalar::Date(0L), @types.Scalar::Date(11016L)],
+      dtype=@types.DataType::Date,
+    ),
+  ])
+  for
+    e in [
+      @expr.col("d").rolling_sum(2),
+      @expr.col("d").rolling_mean(2),
+      @expr.col("d").rolling_min(2),
+      @expr.col("d").rolling_max(2),
+      @expr.col("d").rolling_std(2),
+      @expr.col("d").rolling_variance(2),
+      @expr.col("d").rolling_median(2),
+    ] {
+    assert_true(
+      (Ok(d.select([e.with_alias("x")])) catch { e2 => Err(e2) })
+      is Err(TypeMismatch(@types.TypeMismatchDetail::Message(_))),
+    )
+  }
+}
+
+///|
+test "NaN counts once per cell toward min_samples" {
+  let nan : Double = @double.not_a_number
+  let f = DataFrame::DataFrame([Series::from_floats("f", [1.0, nan, nan])])
+  // window = 3 with the default min_samples = window: three present
+  // cells, so the mean propagates NaN rather than the window going null —
+  // the count is over every present cell, each counted once.
+  let out = f.select([@expr.col("f").rolling_mean(3)]).get_column("f")
+  assert_true(out.get(0) is @types.Scalar::Null)
+  assert_true(out.get(1) is @types.Scalar::Null)
+  assert_true(
+    match out.get(2) {
+      @types.Scalar::Float(v) => v.is_nan()
+      _ => false
+    },
+  )
+}
+
+///|
+test "a lone NaN std window is null; two cells propagate" {
+  // The fewer-than-two rule precedes NaN propagation — the reduction
+  // family's order — so a single present NaN has no sample variance.
+  let nan : Double = @double.not_a_number
+  let g = DataFrame::DataFrame([Series::from_floats("g", [nan])])
+  assert_eq(
+    g.select([@expr.col("g").rolling_std(1)]).get_column("g").to_scalars(),
+    [@types.Scalar::Null],
+  )
+  let h = DataFrame::DataFrame([Series::from_floats("h", [5.0, nan])])
+  let out = h.select([@expr.col("h").rolling_std(2)]).get_column("h")
+  assert_true(out.get(0) is @types.Scalar::Null)
+  assert_true(
+    match out.get(1) {
+      @types.Scalar::Float(v) => v.is_nan()
+      _ => false
+    },
+  )
+}
+
+///|
+test "std / variance are Welford's, near-max and range-apart windows" {
+  // Equal near-Double-max values: a two-pass mean overflows to +inf and
+  // would report an infinite variance of a true zero; Welford does not.
+  let big = DataFrame::DataFrame([Series::from_floats("b", [1.7e308, 1.7e308])])
+  assert_eq(
+    big.select([@expr.col("b").rolling_std(2)]).get_column("b").to_scalars(),
+    [@types.Scalar::Null, @types.Scalar::Float(0.0)],
+  )
+  assert_eq(
+    big
+    .select([@expr.col("b").rolling_variance(2)])
+    .get_column("b")
+    .to_scalars(),
+    [@types.Scalar::Null, @types.Scalar::Float(0.0)],
+  )
+  // Finite cells a Double's range apart: the internal overflow saturates
+  // to +inf, never a negative variance (the reduce family's rescue).
+  let apart = DataFrame::DataFrame([
+    Series::from_floats("a", [1.0e308, -1.0e308]),
+  ])
+  let out = apart.select([@expr.col("a").rolling_variance(2)]).get_column("a")
+  assert_true(
+    match out.get(1) {
+      @types.Scalar::Float(v) => v.is_inf() && v > 0.0
+      _ => false
+    },
+  )
+}

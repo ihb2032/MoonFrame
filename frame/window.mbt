@@ -162,6 +162,13 @@ pub fn DataFrame::gather_every(
   let indices : Array[Int] = []
   while i < total {
     indices.push(i)
+    // Step inside `Int`: a signed `i + n` past `Int::MAX` wraps negative
+    // and satisfies `i < total` again, so the loop decides on a comparison
+    // that cannot overflow — `total - n` lies in `Int` for every `n >= 1`
+    // against a non-negative `total`.
+    if i > total - n {
+      break
+    }
     i += n
   }
   self.gather(indices)

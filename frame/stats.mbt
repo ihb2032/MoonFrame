@@ -135,6 +135,14 @@ pub fn DataFrame::quantile(
   q : Double,
   interpolation? : @series.QuantileInterpolation = @series.QuantileInterpolation::Nearest,
 ) -> DataFrame raise @types.DataError {
+  // The `q` check is a parameter check, not a data one: it runs before the
+  // per-column walk, so a frame no column of which reduces (all-string,
+  // empty, all-null) rejects an out-of-range `q` the same way the Series /
+  // expression / grouped surfaces do. `NaN` fails both comparisons and
+  // rejects with the out-of-range values.
+  if !(q >= 0.0 && q <= 1.0) {
+    raise @types.DataError::InvalidOperation("quantile q must lie in [0, 1]")
+  }
   self.reduce_to_row(FrameReduceOp::Quantile(q, interpolation))
 }
 

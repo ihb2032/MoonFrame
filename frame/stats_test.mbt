@@ -721,3 +721,20 @@ fn not(b : Bool) -> Bool {
     true
   }
 }
+
+///|
+test "a whole-frame quantile validates q before the columns" {
+  // A frame no column of which reduces still rejects an out-of-range q —
+  // the parameter check is not the data's to make (the Series, expression,
+  // and grouped surfaces all raise unconditionally).
+  let strings = DataFrame::DataFrame([Series::from_strings("s", ["x"])])
+  assert_true(
+    (Ok(strings.quantile(7.0)) catch { e => Err(e) })
+    is Err(@types.DataError::InvalidOperation(_)),
+  )
+  let empty = DataFrame::DataFrame([Series::from_ints("i", [])])
+  assert_true(
+    (Ok(empty.quantile(-3.0)) catch { e => Err(e) })
+    is Err(@types.DataError::InvalidOperation(_)),
+  )
+}

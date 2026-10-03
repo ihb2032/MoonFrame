@@ -121,6 +121,19 @@ fn DataFrame::fill_null_directional(
   backward : Bool,
   limit? : Int,
 ) -> DataFrame raise @types.DataError {
+  // The limit check runs at the entry, not in the kernel a column with
+  // nulls reaches: a frame whose columns happen to carry no null would
+  // otherwise skip the validation and pass silently where the expression
+  // form (`col(n).forward_fill(limit=0)`) raises.
+  match limit {
+    Some(k) =>
+      if k < 1 {
+        raise @types.DataError::InvalidOperation(
+          "fill limit must be at least 1",
+        )
+      }
+    None => ()
+  }
   let op : @ir.PositionalOp = if backward {
     @ir.PositionalOp::BackwardFill(limit)
   } else {

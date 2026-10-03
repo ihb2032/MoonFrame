@@ -218,6 +218,8 @@ test "clip clamps into the bounds, nulls and NaN passing through" {
 }
 
 ///|
+
+///|
 test "backward_fill honors the limit like the forward mirror" {
   let df = DataFrame::DataFrame([
     Series::from_string_options("s", [Some("a"), None, None, Some("d"), None]),
@@ -232,4 +234,33 @@ test "backward_fill honors the limit like the forward mirror" {
     @types.Scalar::String("d"),
     @types.Scalar::Null,
   ])
+}
+
+///|
+test "the frame fills validate the limit whatever the data" {
+  // A frame whose columns carry no nulls still rejects a cap below 1 —
+  // the expression form raises unconditionally, and the two surfaces agree.
+  let full = DataFrame::DataFrame([Series::from_ints("i", [1, 2])])
+  assert_true(
+    (Ok(full.fill_null_forward(limit=0)) catch { e => Err(e) })
+    is Err(@types.DataError::InvalidOperation(_)),
+  )
+  assert_true(
+    (Ok(full.fill_null_backward(limit=0)) catch { e => Err(e) })
+    is Err(@types.DataError::InvalidOperation(_)),
+  )
+}
+
+///|
+test "the expression fill raises from the kernel, surfaces agreeing" {
+  // The expression path goes straight to the kernel (no frame-level
+  // short-circuit), so this pins that both surfaces reject a cap below 1 —
+  // and keeps the kernel's own check exercised.
+  let df = DataFrame::DataFrame([Series::from_ints("i", [1, 2])])
+  assert_true(
+    (Ok(df.select([@expr.col("i").forward_fill(limit=0)])) catch {
+      e => Err(e)
+    })
+    is Err(@types.DataError::InvalidOperation(_)),
+  )
 }

@@ -28,7 +28,9 @@
 /// - `Sum` / `Min` / `Max` — the reduction family's rules (an all-null
 ///   slot sums to the additive identity; `min` / `max` skip `NaN`), the
 ///   value column's dtype kept;
-/// - `Mean` / `Median` — always `Float`, an all-null slot a `Null` cell;
+/// - `Mean` / `Median` — numeric values columns only (`TypeMismatch`
+///   otherwise, the reduction family's gate), the answer always `Float`,
+///   an all-null slot a `Null` cell;
 /// - `Len` — the **row count** that landed in the slot (nulls included),
 ///   as `Int`.
 ///
@@ -71,7 +73,11 @@ pub extend PivotAgg with Debug::{to_repr}
 /// each reshaped column is named by its `on` value alone when `values~`
 /// holds one column, and `{value column}_{on value}` otherwise (a
 /// multiple-`on` value joins its cells the same way). A name colliding
-/// with another, or with an `index` column's, `raise`s `DuplicateColumn`.
+/// with another, or with an `index` column's, `raise`s `DuplicateColumn`
+/// — caught at the card that renders it, before any slot is filled. A
+/// `values~` resolution that comes up empty (an explicit empty list, or
+/// defaults that name every column) `raise`s `InvalidOperation`: there
+/// is nothing to reshape.
 pub fn DataFrame::pivot(
   self : DataFrame,
   on~ : Array[@expr.Expr],
@@ -109,6 +115,34 @@ pub fn DataFrame::pivot(
   let values_cols = match values {
     Some(vs) => materialize_pivot_keys(vs, self, n, scope)
     None => columns_except(self, skip_names(index.unwrap()))
+  }
+  if values_cols.is_empty() {
+    raise @types.DataError::InvalidOperation(
+      "pivot resolved no values column to reshape",
+    )
+  }
+  // Mean / Median reduce through a Float probe, so the values columns must
+  // be numeric to begin with — the reduction family's gate. The projection
+  // behind the probe would instead null every non-fitting cell silently,
+  // which is how a String values column would lose its data whole.
+  match aggregate_function {
+    Some(Mean) | Some(Median) => {
+      let label = if aggregate_function is Some(Mean) {
+        "mean"
+      } else {
+        "median"
+      }
+      for c in values_cols {
+        if !c.dtype().is_numeric() {
+          raise @types.DataError::TypeMismatch(
+            @types.TypeMismatchDetail::Message(
+              "pivot \{label} requires a numeric values column, got \{c.dtype()} (column \{c.name()})",
+            ),
+          )
+        }
+      }
+    }
+    _ => ()
   }
   reshape_pivot(on_cols, index_cols, values_cols, aggregate_function)
 }
@@ -167,6 +201,17 @@ fn reshape_pivot(
   let n = on_cols[0].len()
   let on_scalars = on_cols.map(c => c.to_scalars())
   let index_scalars = index_cols.map(c => c.to_scalars())
+  // The names a card's column will finally carry — the single-value shape
+  // names it by itself, the multi-value shape prefixes each value column —
+  // and the index names they must not collide with. Both checked as the
+  // card renders, not at the schema the whole reshape would have to run
+  // to reach.
+  let index_names : Map[String, Unit] = Map([])
+  for c in index_cols {
+    index_names[c.name()] = ()
+  }
+  let seen_names : Map[String, Unit] = Map([])
+  let multi_values = values_cols.length() > 1
   // Row → (group id, on-value id), both ids first-appearance; the group's
   // representative row and the card's rendered name record alongside.
   let gid_of : Map[Array[KeyCell], Int] = Map([])
@@ -187,16 +232,29 @@ fn reshape_pivot(
       cid_of[ckey] = on_names.length()
       // The card's name renders this row's on cells — unquoted for
       // strings, the dtype's own display, multiple keys joined by `_`.
-      on_names.push(
-        on_scalars
+      let card = on_scalars
         .map(col => {
           match col[i] {
             @types.Scalar::Null => "null"
             cell => cell.to_string()
           }
         })
-        .join("_"),
-      )
+        .join("_")
+      if multi_values {
+        for v in values_cols {
+          let name = "\{v.name()}_\{card}"
+          if index_names.contains(name) || seen_names.contains(name) {
+            raise @types.DataError::DuplicateColumn(name)
+          }
+          seen_names[name] = ()
+        }
+      } else {
+        if index_names.contains(card) || seen_names.contains(card) {
+          raise @types.DataError::DuplicateColumn(card)
+        }
+        seen_names[card] = ()
+      }
+      on_names.push(card)
     }
     cids[i] = cid_of[ckey]
   }
@@ -218,7 +276,6 @@ fn reshape_pivot(
   // group's first row, `agg`'s key-column rule).
   let out_cols = index_cols.map(c => c.gather_series(rep_rows))
   // One column per (card × value column), named per the naming rule.
-  let multi_values = values_cols.length() > 1
   // Value-major: each value column's cards together (Polars' order).
   for v in 0..<values_cols.length() {
     for card in 0..<cards {
@@ -245,9 +302,10 @@ fn reshape_pivot(
 ///|
 /// Collapse one pivot slot's cells under the aggregation: `None` raises on
 /// a multi-cell slot (Polars' default strictness), `Len` counts rows, and
-/// the reductions go through a same-dtype series so every rule the
-/// reduction family documents applies verbatim. An empty slot is a `Null`
-/// cell under every aggregation.
+/// the reductions go through a same-dtype series — the caller gates the
+/// dtypes `Mean` / `Median` need, since the probe here projects rather
+/// than coerces — so every rule the reduction family documents applies
+/// verbatim. An empty slot is a `Null` cell under every aggregation.
 fn reduce_pivot_slot(
   cells : Array[@types.Scalar],
   agg : PivotAgg?,
@@ -310,6 +368,12 @@ fn reduce_pivot_slot(
 /// they agree, `Float` when they are `Int` / `Float` in any mix (`Int`
 /// cells widen), and any other mix `raise`s `TypeMismatch` — MoonFrame has
 /// no stringly supertype to fall back on.
+///
+/// The two lists play disjoint roles — a named column cannot be both an
+/// `on` and an `index` column (`InvalidOperation`) — and the generated
+/// `variable_name` / `value_name` must differ from each other and from
+/// every index name (`DuplicateColumn`); all three are entry facts,
+/// checked before any row is reshaped.
 pub fn DataFrame::unpivot(
   self : DataFrame,
   on? : Array[@expr.Expr],
@@ -334,6 +398,24 @@ pub fn DataFrame::unpivot(
     raise @types.DataError::InvalidOperation(
       "unpivot needs at least one on column",
     )
+  }
+  // A column folding into `value` while also standing beside it as an
+  // index would appear twice over; the generated names land in the same
+  // namespace as the index names.
+  for c in on_cols {
+    if index_names.contains(c.name()) {
+      raise @types.DataError::InvalidOperation(
+        "unpivot column \{c.name()} cannot be both an on and an index column",
+      )
+    }
+  }
+  if variable_name == value_name {
+    raise @types.DataError::DuplicateColumn(variable_name)
+  }
+  for name in [variable_name, value_name] {
+    if index_names.contains(name) {
+      raise @types.DataError::DuplicateColumn(name)
+    }
   }
   // The value dtype: agreement, or the Int / Float widening.
   let mut value_dtype = on_cols[0].dtype()

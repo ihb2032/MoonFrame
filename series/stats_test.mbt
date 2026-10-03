@@ -551,3 +551,12 @@ test "first / last are Null for an empty series or a null endpoint cell" {
   assert_eq(s.first(), @types.Scalar::Null)
   assert_eq(s.last(), @types.Scalar::Null)
 }
+
+///|
+test "Nearest keeps a q one ulp below the half down" {
+  // q = nextafter(0.5, 0) puts pos one ulp under the half, where the
+  // (pos + 0.5) idiom's own rounding carries it onto the integer — the
+  // exact fraction compare keeps it with the lower neighbour.
+  let s = Series::from_floats("x", [1.0, 2.0])
+  assert_eq(s.quantile(0.49999999999999994), (1.0 : Double))
+}

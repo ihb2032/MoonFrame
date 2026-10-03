@@ -486,3 +486,15 @@ test "gather_every raises on n < 1 and a negative offset" {
     is Err(@types.DataError::InvalidOperation(_)),
   )
 }
+
+///|
+test "gather_every steps inside Int, an extreme stride included" {
+  // n = Int::MAX with offset 1: the naive i + n wraps negative and passes
+  // `i < total` again, pushing a bogus index; the re-ordered step breaks
+  // first, so the answer is the one row at the offset.
+  let df = DataFrame::DataFrame([Series::from_ints("v", [10, 20])])
+  assert_eq(
+    df.gather_every(2147483647, offset=1).get_column("v").to_scalars(),
+    [@types.Scalar::Int(20)],
+  )
+}

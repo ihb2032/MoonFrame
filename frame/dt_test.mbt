@@ -80,3 +80,36 @@ test "the dt verbs are Date-only" {
     is Err(TypeMismatch(@types.TypeMismatchDetail::Message(_))),
   )
 }
+
+///|
+test "the calendar verbs raise outside the calendar domain" {
+  // A day count whose magnitude leaves date_days_to_civil's 719468 shift
+  // no headroom would wrap silently — the year / month / day verbs raise
+  // instead; weekday's pure modular arithmetic answers for any count
+  // (Int64::MAX mod 7 is 0 — a Thursday, like the epoch).
+  let hostile = DataFrame::DataFrame([
+    Series::from_scalars(
+      "d",
+      [@types.Scalar::Date(9223372036854775807L)],
+      dtype=@types.DataType::Date,
+    ),
+  ])
+  for
+    e in [
+      @expr.col("d").dt_year(),
+      @expr.col("d").dt_month(),
+      @expr.col("d").dt_day(),
+    ] {
+    assert_true(
+      (Ok(hostile.select([e.with_alias("x")])) catch { e2 => Err(e2) })
+      is Err(@types.DataError::InvalidOperation(_)),
+    )
+  }
+  assert_eq(
+    hostile
+    .select([@expr.col("d").dt_day_of_week()])
+    .get_column("d")
+    .to_scalars(),
+    [@types.Scalar::Int(4)],
+  )
+}

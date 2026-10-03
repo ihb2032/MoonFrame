@@ -81,6 +81,12 @@ pub fn GroupedDataFrame::quantile(
   q : Double,
   interpolation? : @series.QuantileInterpolation = @series.QuantileInterpolation::Nearest,
 ) -> DataFrame raise @types.DataError {
+  // The entry check, not the per-expression one: an all-keys frame builds
+  // no expression (`agg([])`), so the `q` would otherwise never be seen —
+  // and a parameter check must not depend on the frame's column shape.
+  if !(q >= 0.0 && q <= 1.0) {
+    raise @types.DataError::InvalidOperation("quantile q must lie in [0, 1]")
+  }
   self.agg_op_all(e => e.quantile(q, interpolation~))
 }
 

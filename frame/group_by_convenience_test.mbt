@@ -218,3 +218,14 @@ test "an empty-keys group_by aggregates every column as one grand total" {
   assert_eq(r.shape(), (1, 1))
   assert_eq(r.get_column("len").to_scalars(), [@types.Scalar::Int(4)])
 }
+
+///|
+test "an all-keys group_by still validates the quantile q" {
+  // Every column is a key, so no expression is built — the entry check is
+  // the only place the q is seen, and a bad one must not pass silently.
+  let df = DataFrame::DataFrame([Series::from_strings("k", ["a", "b"])])
+  assert_true(
+    (Ok(df.group_by([@expr.col("k")]).quantile(7.0)) catch { e => Err(e) })
+    is Err(@types.DataError::InvalidOperation(_)),
+  )
+}

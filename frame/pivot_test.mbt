@@ -302,3 +302,205 @@ test "an all-null slot is a Null cell under mean and median" {
   )
   assert_eq(min.get_column("x").to_scalars(), [@types.Scalar::Null])
 }
+
+///|
+test "pivot's Mean / Median refuse a non-numeric values column" {
+  // The default values~ resolution collects every unnamed column — the
+  // note column included — and Mean / Median reduce through a Float probe
+  // that would silently null every String cell; the gate raises instead,
+  // the reduction family's rule.
+  let df = DataFrame::DataFrame([
+    Series::from_strings("region", ["west", "west", "east"]),
+    Series::from_strings("quarter", ["q1", "q2", "q1"]),
+    Series::from_ints("sales", [10, 20, 30]),
+    Series::from_strings("note", ["a", "b", "c"]),
+  ])
+  assert_true(
+    (Ok(
+      df.pivot(
+        on=[@expr.col("quarter")],
+        index=[@expr.col("region")],
+        aggregate_function=Mean,
+      ),
+    ) catch {
+      e => Err(e)
+    })
+    is Err(TypeMismatch(@types.TypeMismatchDetail::Message(_))),
+  )
+  assert_true(
+    (Ok(
+      df.pivot(
+        on=[@expr.col("quarter")],
+        index=[@expr.col("region")],
+        aggregate_function=Median,
+      ),
+    ) catch {
+      e => Err(e)
+    })
+    is Err(TypeMismatch(@types.TypeMismatchDetail::Message(_))),
+  )
+  // An explicit String values column raises the same way; an explicit
+  // numeric one is untouched by the gate.
+  assert_true(
+    (Ok(
+      df.pivot(
+        on=[@expr.col("quarter")],
+        index=[@expr.col("region")],
+        values=[@expr.col("note")],
+        aggregate_function=Mean,
+      ),
+    ) catch {
+      e => Err(e)
+    })
+    is Err(TypeMismatch(@types.TypeMismatchDetail::Message(_))),
+  )
+  let ok = df.pivot(
+    on=[@expr.col("quarter")],
+    index=[@expr.col("region")],
+    values=[@expr.col("sales")],
+    aggregate_function=Mean,
+  )
+  assert_eq(ok.get_column("q1").to_scalars(), [
+    @types.Scalar::Float(10.0),
+    @types.Scalar::Float(30.0),
+  ])
+}
+
+///|
+test "a pivot with no values column to reshape raises" {
+  // on and index name every column between them, so the default values
+  // resolution is empty — nothing to reshape, and the twin verb's guard is
+  // the family's rule.
+  let df = DataFrame::DataFrame([
+    Series::from_strings("region", ["west", "east"]),
+    Series::from_strings("quarter", ["q1", "q2"]),
+  ])
+  assert_true(
+    (Ok(df.pivot(on=[@expr.col("quarter")], index=[@expr.col("region")])) catch {
+      e => Err(e)
+    })
+    is Err(@types.DataError::InvalidOperation(_)),
+  )
+  // An explicit empty list is the same nothing.
+  assert_true(
+    (Ok(
+      df.pivot(on=[@expr.col("quarter")], index=[@expr.col("region")], values=[]),
+    ) catch {
+      e => Err(e)
+    })
+    is Err(@types.DataError::InvalidOperation(_)),
+  )
+}
+
+///|
+test "a card's rendered name collides at the card, not after the reshape" {
+  // The String "null" and a real null are different keys (two cards) that
+  // render the same column name.
+  let dup = DataFrame::DataFrame([
+    Series::from_strings("region", ["west", "east"]),
+    Series::from_string_options("q", [Some("null"), None]),
+    Series::from_ints("sales", [10, 30]),
+  ])
+  assert_true(
+    (Ok(dup.pivot(on=[@expr.col("q")], index=[@expr.col("region")])) catch {
+      e => Err(e)
+    })
+    is Err(@types.DataError::DuplicateColumn("null")),
+  )
+  // A card colliding with an index column's name — the final-name check,
+  // so the multi-value prefix shape stays honest: "sales" prefixed by the
+  // "sales" card does not collide with the bare index name.
+  let clash = DataFrame::DataFrame([
+    Series::from_strings("region", ["west", "east"]),
+    Series::from_strings("q", ["region", "x"]),
+    Series::from_ints("sales", [10, 30]),
+  ])
+  assert_true(
+    (Ok(clash.pivot(on=[@expr.col("q")], index=[@expr.col("region")])) catch {
+      e => Err(e)
+    })
+    is Err(@types.DataError::DuplicateColumn("region")),
+  )
+  // With two values columns the names carry the value-column prefix, so
+  // the card "region" names "sales_region" instead — no collision with the
+  // bare index name, and the reshape goes through.
+  let two = DataFrame::DataFrame([
+    Series::from_strings("region", ["west", "east"]),
+    Series::from_strings("q", ["region", "x"]),
+    Series::from_ints("sales", [10, 30]),
+    Series::from_ints("stock", [1, 2]),
+  ])
+  let r = two.pivot(
+    on=[@expr.col("q")],
+    index=[@expr.col("region")],
+    aggregate_function=Sum,
+  )
+  assert_eq(r.columns(), [
+    "region", "sales_region", "sales_x", "stock_region", "stock_x",
+  ])
+  // A prefixed collision, the other way round: value column "sales" with
+  // card "b_c" against value column "sales_b" with card "c".
+  let cross = DataFrame::DataFrame([
+    Series::from_strings("region", ["west", "east", "north"]),
+    Series::from_strings("q", ["b_c", "c", "other"]),
+    Series::from_ints("sales", [10, 30, 50]),
+    Series::from_ints("sales_b", [1, 2, 3]),
+  ])
+  assert_true(
+    (Ok(
+      cross.pivot(
+        on=[@expr.col("q")],
+        index=[@expr.col("region")],
+        aggregate_function=Sum,
+      ),
+    ) catch {
+      e => Err(e)
+    })
+    is Err(@types.DataError::DuplicateColumn("sales_b_c")),
+  )
+}
+
+///|
+test "unpivot's roles stay disjoint and its names stay fresh" {
+  let df = DataFrame::DataFrame([
+    Series::from_strings("k", ["a", "b"]),
+    Series::from_ints("x", [1, 2]),
+    Series::from_ints("y", [3, 4]),
+  ])
+  // A column both folding into value and standing as index appears twice.
+  assert_true(
+    (Ok(df.unpivot(on=[@expr.col("x")], index=[@expr.col("x")])) catch {
+      e => Err(e)
+    })
+    is Err(@types.DataError::InvalidOperation(_)),
+  )
+  // The generated value name landing on an index column.
+  let with_value = DataFrame::DataFrame([
+    Series::from_ints("value", [9, 8]),
+    Series::from_ints("x", [1, 2]),
+    Series::from_ints("y", [3, 4]),
+  ])
+  assert_true(
+    (Ok(
+      with_value.unpivot(on=[@expr.col("x"), @expr.col("y")], index=[
+        @expr.col("value"),
+      ]),
+    ) catch {
+      e => Err(e)
+    })
+    is Err(@types.DataError::DuplicateColumn("value")),
+  )
+  // The two generated names colliding with each other.
+  assert_true(
+    (Ok(
+      df.unpivot(
+        on=[@expr.col("x"), @expr.col("y")],
+        variable_name="same",
+        value_name="same",
+      ),
+    ) catch {
+      e => Err(e)
+    })
+    is Err(@types.DataError::DuplicateColumn("same")),
+  )
+}

@@ -1230,3 +1230,73 @@ test "a Date literal crosses an aggregate like any other literal" {
     )
   assert_eq(plan.collect().nrows(), eager.nrows())
 }
+
+///|
+test "fill / fill_nan / pivot / unpivot / semi-anti are predicate barriers" {
+  // The frame-wide fills and the reshapes rewrite whole rows or the whole
+  // grid; a filter above them reads their output, so it stays above —
+  // pinned by optimized == as-built, like the fences in the battery's
+  // first test. The existence filters keep the join barrier the merging
+  // joins have.
+  let df = sales_df()
+  let qty_gt = @expr.col("qty").gt(@expr.lit_int(50))
+  let fwd = LazyFrame::LazyFrame(df).fill_null_forward().filter(qty_gt)
+  assert_eq(fwd.explain(optimized=true), fwd.explain())
+  let bwd = LazyFrame::LazyFrame(df).fill_null_backward(limit=1).filter(qty_gt)
+  assert_eq(bwd.explain(optimized=true), bwd.explain())
+  let nan = LazyFrame::LazyFrame(df).fill_nan(0.0).filter(qty_gt)
+  assert_eq(nan.explain(optimized=true), nan.explain())
+  let pivoted = LazyFrame::LazyFrame(df)
+    .pivot(on=[@expr.col("region")], index=[@expr.col("qty")])
+    .filter(@expr.col("west").gt(@expr.lit_int(0)))
+  assert_eq(pivoted.explain(optimized=true), pivoted.explain())
+  let melted = LazyFrame::LazyFrame(df)
+    .unpivot(on=[@expr.col("bonus")], index=[@expr.col("qty")])
+    .filter(@expr.col("value").is_not_null())
+  assert_eq(melted.explain(optimized=true), melted.explain())
+  let l = orders_df()
+  let r = cities_df()
+  for how in [@frame.JoinType::Semi, @frame.JoinType::Anti] {
+    let plan = LazyFrame::LazyFrame(l)
+      .join(
+        LazyFrame::LazyFrame(r),
+        @frame.JoinOptions::on([@expr.col("id")], how~),
+      )
+      .filter(@expr.col("amount").gt(@expr.lit_int(15)))
+    assert_eq(plan.explain(optimized=true), plan.explain())
+  }
+}
+
+///|
+test "a WithColumns stage defining a positional column fences filters" {
+  // The stage defines `lag` through a history-dependent transform, and the
+  // derived column survives into the output: sinking any filter below the
+  // stage would recompute the shift over the survivors — different `lag`
+  // values than the as-built plan's — so the crossing rule checks the
+  // stage's own expressions for row-stability, not only the predicate's.
+  // Both predicates stay above, whatever column they read; flipping the
+  // positional verdict in row_stable breaks both, and the collect
+  // equivalences with them.
+  let df = sales_df()
+  let lag = @expr.col("bonus").shift(1).with_alias("lag")
+  let plan = LazyFrame::LazyFrame(df)
+    .with_columns([lag])
+    .filter(@expr.col("lag").is_not_null())
+  assert_eq(plan.explain(optimized=true), plan.explain())
+  assert_eq(
+    plan.collect(),
+    df
+    .with_columns([@expr.col("bonus").shift(1).with_alias("lag")])
+    .filter(@expr.col("lag").is_not_null()),
+  )
+  let bare = LazyFrame::LazyFrame(df)
+    .with_columns([@expr.col("bonus").shift(1).with_alias("lag")])
+    .filter(@expr.col("qty").gt(@expr.lit_int(50)))
+  assert_eq(bare.explain(optimized=true), bare.explain())
+  assert_eq(
+    bare.collect(),
+    df
+    .with_columns([@expr.col("bonus").shift(1).with_alias("lag")])
+    .filter(@expr.col("qty").gt(@expr.lit_int(50))),
+  )
+}

@@ -621,13 +621,33 @@ enum VerbSpec {
   // aggregate dropped raises the SAME `ColumnNotFound` on both chains, which
   // `check_equiv` verifies as error parity).
   VAggregate(Array[@expr.Expr], Array[@expr.Expr])
+  // A history-dependent derived column (shift / cum / rank / rolling / the
+  // directional fill / unique counts), aliased to one fixed name `pos` the
+  // terminal predicate vocabulary can also read — exercising both sides of
+  // the positional fence: a filter over the bare columns may sink below the
+  // stage defining `pos`, a filter reading `pos` itself must not.
+  VPositional(Array[@expr.Expr])
+  // The frame-wide directional fill, forward or backward, `limit` drawn from
+  // unlimited / 1 / 2.
+  VFillDir(Bool, Int?)
+  VUnique
+  VTopK(Int, Bool)
+  VGatherEvery(Int)
+  // Semi / anti join against a second frame built from the same rows —
+  // the right side is supplied by the caller (one frame per chain), so
+  // both carriers run the same join.
+  VSemiAnti(Bool)
 } derive(Debug)
 
 ///|
 pub extend VerbSpec with Debug::{to_repr}
 
 ///|
-fn apply_lazy(lf : LazyFrame, v : VerbSpec) -> LazyFrame {
+fn apply_lazy(
+  lf : LazyFrame,
+  v : VerbSpec,
+  right : @frame.DataFrame,
+) -> LazyFrame {
   match v {
     VFilter(p) => lf.filter(p)
     VWithColumns(es) => lf.with_columns(es)
@@ -635,6 +655,24 @@ fn apply_lazy(lf : LazyFrame, v : VerbSpec) -> LazyFrame {
     VSort(by) => lf.sort(by)
     VHead(n) => lf.head(n)
     VAggregate(keys, exprs) => lf.group_by(keys).agg(exprs)
+    VPositional(es) => lf.with_columns(es)
+    VFillDir(backward, limit) =>
+      if backward {
+        lf.fill_null_backward(limit?)
+      } else {
+        lf.fill_null_forward(limit?)
+      }
+    VUnique => lf.unique()
+    VTopK(k, reverse) => lf.top_k(k, by=[@expr.col("a")], reverse~)
+    VGatherEvery(n) => lf.gather_every(n)
+    VSemiAnti(anti) =>
+      lf.join(
+        LazyFrame::LazyFrame(right),
+        @frame.JoinOptions::on(
+          [@expr.col("g")],
+          how=if anti { @frame.JoinType::Anti } else { @frame.JoinType::Semi },
+        ),
+      )
   }
 }
 
@@ -642,6 +680,7 @@ fn apply_lazy(lf : LazyFrame, v : VerbSpec) -> LazyFrame {
 fn apply_eager(
   d : @frame.DataFrame,
   v : VerbSpec,
+  right : @frame.DataFrame,
 ) -> @frame.DataFrame raise @types.DataError {
   match v {
     VFilter(p) => d.filter(p)
@@ -650,6 +689,24 @@ fn apply_eager(
     VSort(by) => d.sort(by)
     VHead(n) => d.head(n)
     VAggregate(keys, exprs) => d.group_by(keys).agg(exprs)
+    VPositional(es) => d.with_columns(es)
+    VFillDir(backward, limit) =>
+      if backward {
+        d.fill_null_backward(limit?)
+      } else {
+        d.fill_null_forward(limit?)
+      }
+    VUnique => d.unique()
+    VTopK(k, reverse) => d.top_k(k, by=[@expr.col("a")], reverse~)
+    VGatherEvery(n) => d.gather_every(n)
+    VSemiAnti(anti) =>
+      d.join(
+        right,
+        @frame.JoinOptions::on(
+          [@expr.col("g")],
+          how=if anti { @frame.JoinType::Anti } else { @frame.JoinType::Semi },
+        ),
+      )
   }
 }
 
@@ -663,6 +720,8 @@ fn gen_verb() -> @gen.Gen[VerbSpec] {
       @gen.one_of_array([
         @expr.col("g").is_not_null(),
         @expr.col("a").gt(@expr.lit_int(0)),
+        @expr.col("dt").dt_year().gt(@expr.lit_int(2020)),
+        @expr.col("fk").is_nan(),
       ]).fmap(p => VFilter(p)),
     ),
     (
@@ -673,6 +732,23 @@ fn gen_verb() -> @gen.Gen[VerbSpec] {
           @expr.col("a").is_null().with_alias("a_null"),
         ]),
       ),
+    ),
+    (
+      1,
+      @gen.one_of_array([
+        [@expr.col("a").shift(1).with_alias("pos")],
+        [@expr.col("a").cum_sum().with_alias("pos")],
+        [@expr.col("b").rank(how=@types.RankMethod::Min).with_alias("pos")],
+        [@expr.col("fk").rolling_mean(2).with_alias("pos")],
+        [@expr.col("a").forward_fill().with_alias("pos")],
+        [@expr.col("fk").unique_counts().with_alias("pos")],
+      ]).fmap(es => VPositional(es)),
+    ),
+    (
+      1,
+      @gen.one_of_array([None, Some(1), Some(2)]).bind(limit => {
+        gen_one_in(2).fmap(backward => VFillDir(backward, limit))
+      }),
     ),
     (
       1,
@@ -687,6 +763,15 @@ fn gen_verb() -> @gen.Gen[VerbSpec] {
       ),
     ),
     (1, @gen.pure(VSort([(@expr.col("a"), false, true)]))),
+    (1, @gen.pure(VUnique)),
+    (
+      1,
+      gen_one_in(2).bind(reverse => {
+        @gen.int_range(0, 2).fmap(k => VTopK(k, reverse))
+      }),
+    ),
+    (1, @gen.int_range(1, 2).fmap(n => VGatherEvery(n))),
+    (1, gen_one_in(2).fmap(anti => VSemiAnti(anti))),
     (
       1,
       // Group by `g` (and, with prob 1/2, the bare string key `s`), re-emitting
@@ -724,7 +809,10 @@ pub extend StackedCase with Debug::{to_repr}
 
 ///|
 /// The terminal predicate on a bare pass-through column: `a.is_not_null()`,
-/// `g.is_not_null()`, or `s == <grab-bag string>`, uniformly.
+/// `g.is_not_null()`, `s == <grab-bag string>`, the `pos` column a positional
+/// verb may or may not have defined (absent → the same `ColumnNotFound` on
+/// both chains), a `dt` calendar predicate, or a `NaN` probe on the float
+/// column — uniformly.
 fn gen_stacked_pred() -> @gen.Gen[@expr.Expr] {
   @gen.frequency([
     (1, @gen.pure(@expr.col("a").is_not_null())),
@@ -735,6 +823,9 @@ fn gen_stacked_pred() -> @gen.Gen[@expr.Expr] {
         @expr.col("s").eq(@expr.lit_str(str))
       }),
     ),
+    (1, @gen.pure(@expr.col("pos").is_not_null())),
+    (1, @gen.pure(@expr.col("dt").dt_year().gt(@expr.lit_int(2020)))),
+    (1, @gen.pure(@expr.col("fk").is_nan())),
   ])
 }
 
@@ -778,16 +869,20 @@ test "fuzz: randomly stacked pipelines stay optimizer/eager equivalent" {
   let mut rewrites = 0
   let prop = (c : StackedCase) => {
     let lazy_chain = () => {
+      // The join verb's right side: a second frame over the same rows, one
+      // per chain, so both carriers run the same semi / anti join.
+      let right = rows_to_frame(c.rows)
       let mut lf = LazyFrame::LazyFrame(rows_to_frame(c.rows))
       for v in c.verbs {
-        lf = apply_lazy(lf, v)
+        lf = apply_lazy(lf, v, right)
       }
       lf.filter(c.pred)
     }
     let eager_chain = () => {
+      let right = rows_to_frame(c.rows)
       let mut d = rows_to_frame(c.rows)
       for v in c.verbs {
-        d = apply_eager(d, v)
+        d = apply_eager(d, v, right)
       }
       d.filter(c.pred)
     }

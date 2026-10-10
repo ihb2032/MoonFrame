@@ -1,3 +1,6 @@
-// The exact Int64/Double comparison primitives and the extremum fold are
-// self-contained: no module-internal imports, and the numeric types they
-// speak are builtins.
+// Self-contained: no module-internal imports, and the numeric types they
+// speak are builtins — `moonbitlang/core/double` only for the `±inf`
+// constant of the Welford saturation rescue.
+import {
+  "moonbitlang/core/double",
+}

@@ -609,6 +609,23 @@ test "fuzz: select/with_columns then filter is optimizer/eager equivalent" {
 ///|
 /// A verb specification shared by the lazy and eager appliers, so a stacked
 /// pipeline is literally the same sequence of operations on both carriers.
+///
+/// Domain inventory — a new `LazyFrame` builder updates one of the two
+/// columns in the change that adds it, so the domain cannot silently
+/// freeze again (it did once: ten verbs landed before the next widening):
+/// in the domain — filter (bare-column, `NaN`-probe, and `dt` predicates),
+/// with_columns (arithmetic and the positional derived column: shift /
+/// cum_sum / rank / rolling_mean / forward_fill / unique_counts), select,
+/// sort, head, the directional fills, unique, top_k, gather_every,
+/// group_by+agg, and the semi / anti join against a same-rows frame;
+/// deliberately out — the reshape pair (pivot / unpivot name their output
+/// columns off cell values, which the fixed-name stages around them cannot
+/// reference), the metadata verbs (drop / rename — their barrier is pinned
+/// by plan-shape snapshots instead), the row-window verbs (slice / tail /
+/// first / last — floor by construction), the merging joins (a distinct
+/// right schema per case), and the verbs with no lazy entry at all
+/// (sample and friends: a seeded draw sees a specific row set pushdown
+/// would reorder).
 enum VerbSpec {
   VFilter(@expr.Expr)
   VWithColumns(Array[@expr.Expr])

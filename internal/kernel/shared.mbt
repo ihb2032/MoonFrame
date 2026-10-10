@@ -12,6 +12,15 @@
 // Its column verbs — the validity-mask read, the row gathers, backend
 // convergence — are methods, reached by dot syntax; the scalar projection
 // (`scalars_to_series`) is a free function, bound unqualified here.
+//
+// Backend convergence is a contract every kernel result keeps: a computed
+// all-valid numeric column lands on the `Numeric` fast path, either by
+// leaving through `scalars_to_series` (which converges) or by an explicit
+// convergence pass before the result crosses the package line. A new
+// kernel entry point that forgets the pass still computes correct values —
+// the backend tag is invisible to equality — and loses only the fast path
+// for the rest of the plan, which is why each kernel family's tests assert
+// the storage kind its outputs land on.
 
 ///|
 using @series {type Series, scalars_to_series}

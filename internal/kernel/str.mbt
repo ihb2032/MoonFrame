@@ -268,7 +268,10 @@ fn extract_match(re : @string.Regex, cell : String, group : Int) -> String? {
 /// `frame`'s `cols_matching` selector compiles through here too, matching
 /// column names rather than cells. The engine's dialect is POSIX, so a PCRE
 /// class like `\d` is itself a parse error, surfaced here with the engine's own
-/// message.
+/// message. The `DataError` translation is also why this compiles here and
+/// not in `internal/text` beside the other string machinery: text sits below
+/// `types` — `types` imports it for its rendering — so a raising helper there
+/// would cycle the two packages.
 pub fn compile_regex(pattern : String) -> @string.Regex raise @types.DataError {
   @string.Regex::Regex(pattern) catch {
     e =>

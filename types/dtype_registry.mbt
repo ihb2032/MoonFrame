@@ -91,13 +91,18 @@ pub fn DataType::physical(self : DataType) -> PhysicalType? {
 /// layer's `scalar_of`, the extremum reducers lifting their best value) goes
 /// through this lift instead of branching per dtype at its own site. `None`
 /// for every dtype that is its own `I64` meaning (`Int`) or does not ride the
-/// buffer at all — the caller's plain-`Int` path. The next I64 rider adds one
-/// arm here and every lift follows.
+/// buffer at all — the caller's plain-`Int` path. Wildcard-free, like the
+/// registry row: the next I64 rider fails compilation here until its lift is
+/// written, so its cells can never silently read back as `Int`.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
 pub fn DataType::i64_rider_scalar(self : DataType, v : Int64) -> Scalar? {
   match self {
     Date => Some(Scalar::Date(v))
-    _ => None
+    Int => None
+    Float => None
+    Bool => None
+    String => None
+    Null => None
   }
 }

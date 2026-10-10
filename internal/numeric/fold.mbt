@@ -1,11 +1,12 @@
 // The shared accumulations behind the column layer's `NumericColumn`
 // fast-path reductions and the series layer's window reductions — the
-// extremum fold, the exact `Int64` sum, and the `Double` sum with its
-// present-count — so each loop lives in one place rather than once per
-// package, and each caller supplies only its reader and skip test.
+// extremum fold, the exact `Int64` sum, the `Double` sum with its
+// present-count, and Welford's sample-variance fold — so each loop lives
+// in one place rather than once per package, and each caller supplies
+// only its reader and skip test.
 //
 // One-file-one-test exemption: these generic helpers have no dedicated
-// test file of their own. (doc-guard: unresolved) They are covered through the column / series reduction
+// test file of their own. (doc-guard: unresolved) They are covered through the column / series / kernel reduction
 // tests that exercise the empty, all-skipped, and accumulation paths.
 
 ///|
@@ -86,4 +87,50 @@ pub fn fold_double_sum(
     }
   }
   (acc, cnt)
+}
+
+///|
+/// Welford's online sample-variance fold of the cells `0 ..< n` a
+/// `present(i)` marks kept: one pass that never forms the raw sum, so a
+/// finite-variance window of near-`Double`-max values — whose sum would
+/// overflow to `±inf` and poison a two-pass mean, reporting `+inf` for a
+/// true variance of 0 — still yields its finite variance. Returns the sum
+/// of squared deviations `m2`, the kept count, and whether any kept cell
+/// was non-finite. When the true variance itself exceeds `Double`'s range
+/// (finite cells more than `Double::MAX` apart, e.g. opposite signs near
+/// `±1.8e308`), the internal overflow saturates `m2` to `+inf` — never a
+/// negative variance or a `NaN` result from the artefact — matching numpy /
+/// Polars; genuine `NaN` / `±inf` inputs keep IEEE propagation (a `NaN`
+/// cell makes the running mean, hence `m2` and the caller's result, `NaN`;
+/// the rescue only fires when every input was finite). The caller owns the
+/// fewer-than-two rule (`cnt < 2` has no sample denominator) and the
+/// division by `cnt - 1`. Total.
+pub fn fold_welford_m2(
+  n : Int,
+  get : (Int) -> Double,
+  present : (Int) -> Bool,
+) -> (Double, Int, Bool) {
+  let mut cnt = 0
+  let mut mean = 0.0
+  let mut m2 = 0.0
+  let mut saw_nonfinite = false
+  for i in 0..<n {
+    if present(i) {
+      let x = get(i)
+      cnt = cnt + 1
+      saw_nonfinite = saw_nonfinite || x.is_nan() || x.is_inf()
+      let delta = x - mean
+      mean = mean + delta / cnt.to_double()
+      m2 = m2 + delta * (x - mean)
+    }
+  }
+  // Welford keeps `m2 >= 0` under finite in-range arithmetic, but `delta`
+  // itself overflows to `±inf` when two finite cells sit more than
+  // `Double::MAX` apart, and the artefact poisons `m2` to `-inf` or `NaN` —
+  // reporting a mathematically impossible negative variance. With every
+  // *input* finite, a negative / `NaN` `m2` can only be that artefact, so
+  // saturate to `+inf`: the true variance exceeds `Double`'s range, and
+  // `sqrt(+inf) = +inf` keeps a caller's std consistent.
+  let m2 = if !saw_nonfinite && !(m2 >= 0.0) { @double.infinity } else { m2 }
+  (m2, cnt, saw_nonfinite)
 }

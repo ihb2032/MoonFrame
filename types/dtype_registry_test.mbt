@@ -36,3 +36,19 @@ test "numericity: Int and Float only, however the buffers align" {
   assert_false(DataType::Date.is_numeric())
   assert_false(DataType::Null.is_numeric())
 }
+
+///|
+test "the I64 rider lift: Date lifts, every other dtype reads plain Int" {
+  // The lift is wildcard-free: a new I64 rider fails compilation of this
+  // registration until its arm is written, so its cells can never
+  // silently read back as Int. Each non-rider dtype lifts nothing — the
+  // caller's plain-Int path.
+  assert_true(
+    DataType::Date.i64_rider_scalar(11016L) is Some(Scalar::Date(11016L)),
+  )
+  assert_true(DataType::Int.i64_rider_scalar(1L) is None)
+  assert_true(DataType::Float.i64_rider_scalar(1L) is None)
+  assert_true(DataType::Bool.i64_rider_scalar(1L) is None)
+  assert_true(DataType::String.i64_rider_scalar(1L) is None)
+  assert_true(DataType::Null.i64_rider_scalar(1L) is None)
+}

@@ -152,9 +152,9 @@ fn row_stable(expr : @ir.ExprNode) -> Bool {
 /// back out) — so a signed-zero-safe predicate gives every row of a folded group
 /// the same verdict and may sink below the aggregate, while one that divides or
 /// exponentiates could drop only part of the group and must stay above. Walks
-/// `children()` like `row_stable`, so a wrapper node kind added later is walked
-/// without this rule naming it — but the `BinOp` match below is exhaustive:
-/// a new operator fails compilation here until it is classified, because the
+/// `children()` like `row_stable`, and the match below is exhaustive at both
+/// levels — operator and variant: a new `BinOp` member or `ExprNode` variant
+/// fails compilation here until it is classified, because the
 /// silent default would be the unsound one (a sign-reading operator passing as
 /// safe could drop half a folded group).
 fn signed_zero_safe(expr : @ir.ExprNode) -> Bool {
@@ -190,7 +190,29 @@ fn signed_zero_safe(expr : @ir.ExprNode) -> Bool {
                   stack.push(child)
                 }
             }
-          _ =>
+          // Every other variant enumerated, like `row_stable`'s descent:
+          // none of them reads a zero's sign (each is a column read, a
+          // literal, or a combinator whose zero-handling treats `-0.0` and
+          // `+0.0` alike), and a variant added later fails compilation here
+          // until someone vouches the same — the silent default, descent,
+          // would be the unsound one for anything that can tell the zeros
+          // apart.
+          @ir.ExprNode::Col(_)
+          | @ir.ExprNode::Lit(_)
+          | @ir.ExprNode::LitSeries(_)
+          | @ir.ExprNode::Agg(_, _)
+          | @ir.ExprNode::Str(_, _)
+          | @ir.ExprNode::Unary(_, _)
+          | @ir.ExprNode::Positional(_, _)
+          | @ir.ExprNode::Map(_, _, _)
+          | @ir.ExprNode::MapBatches(_, _, _, _)
+          | @ir.ExprNode::Cast(_, _)
+          | @ir.ExprNode::Alias(_, _)
+          | @ir.ExprNode::Ternary(_, _, _)
+          | @ir.ExprNode::FillNull(_, _)
+          | @ir.ExprNode::FillNan(_, _)
+          | @ir.ExprNode::IsIn(_, _)
+          | @ir.ExprNode::IsBetween(_, _, _, _) =>
             for child in e.children() {
               stack.push(child)
             }
@@ -303,6 +325,15 @@ fn group_cell_stable(expr : @ir.ExprNode) -> Bool {
 
 ///|
 /// Whether the selection list contains `name` as a bare `col(name)` item.
+/// "Bare" is a read concept with several readers, and each chooses its
+/// alias stance deliberately rather than by one shared definition: this
+/// predicate and the aggregate crossing's key test take the strict
+/// spelling (`col(name)` alone — an aliased column is a different node);
+/// frame's projection bookkeeping peels the alias layers first (a rename
+/// still reads the column beneath); join's key coalescing does not (an
+/// aliased key keeps its own output name). A new reader of the concept
+/// must pick a stance on purpose and say so beside its match, the
+/// `leftmost_name` precedent.
 fn has_bare_column(exprs : Array[@expr.Expr], name : String) -> Bool {
   for expr in exprs {
     match expr.node() {

@@ -164,6 +164,7 @@ jobs:
           sh .github/scripts/check_version_identity.sh
           sh .github/scripts/check_stale_names.sh
           sh .github/scripts/check_enum_surface.sh
+          sh .github/scripts/check_reduction_mirror.sh
           sh .github/scripts/check_facade_surface.sh
           sh .github/scripts/check_internal_packages.sh
           sh .github/scripts/check_layering.sh

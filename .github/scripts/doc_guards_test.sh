@@ -7,7 +7,7 @@
 # What it costs, because the answer differs by platform enough to look like a
 # hang: a single guard over this repository is seconds, but this runs ~150 cases,
 # most of them a whole guard over a fixture tree, so it is thousands of
-# processes. On Linux that is cheap — CI runs this and all nine guards in one
+# processes. On Linux that is cheap — CI runs this and all ten guards in one
 # step, under a minute on `ubuntu-latest`. Under Windows Git Bash / MSYS, where
 # `fork` is emulated, a measured run of the 145 cases this had at the time took
 # 24m30s wall (17m of it system time) and passed every one: slow, not stuck.
@@ -1689,10 +1689,57 @@ pub fn use_it() -> String {
 expect 0 'comment references: code and strings are not comments' \
   sh "$scripts/check_comment_references.sh" "$work/cr_code"
 
+# ── reduction mirror ──────────────────────────────────────────────────────
+mkmirror() {
+  # mkmirror <dir> <frame-body> <lazy-body>
+  mkdir -p "$1/frame" "$1/lazy"
+  printf '%s\n' "$2" >"$1/frame/stats.mbt"
+  printf '%s\n' "$3" >"$1/lazy/logical_plan.mbt"
+}
+
+mkmirror "$work/m_ok" \
+'priv enum FrameReduceOp {
+  Sum
+  Mean
+  Quantile(Double, X)
+}' \
+'// mirrors the frame set — order-free here, payloads stripped
+priv enum LazyReduceOp {
+  Mean
+  NullCount
+  Quantile(Double, X)
+  Sum
+}'
+expect 0 'mirror: the lazy set re-spells the frame set plus NullCount' \
+  sh "$scripts/check_reduction_mirror.sh" "$work/m_ok"
+
+mkmirror "$work/m_missing" \
+'priv enum FrameReduceOp {
+  Sum
+}' \
+'priv enum LazyReduceOp {
+  NullCount
+}'
+expect 1 'mirror: a member missing on the lazy side' \
+  sh "$scripts/check_reduction_mirror.sh" "$work/m_missing"
+
+mkmirror "$work/m_extra" \
+'priv enum FrameReduceOp {
+  Sum
+}' \
+'priv enum LazyReduceOp {
+  Sum
+  Mode
+  NullCount
+}'
+expect 1 'mirror: a member beyond NullCount on the lazy side' \
+  sh "$scripts/check_reduction_mirror.sh" "$work/m_extra"
+
 # ── the repository itself ─────────────────────────────────────────────────
 expect 0 'repo: version identity' sh "$scripts/check_version_identity.sh" "$root"
 expect 0 'repo: stale names' sh "$scripts/check_stale_names.sh" "$root"
 expect 0 'repo: enum surface' sh "$scripts/check_enum_surface.sh" "$root"
+expect 0 'repo: reduction mirror' sh "$scripts/check_reduction_mirror.sh" "$root"
 expect 0 'repo: facade surface' sh "$scripts/check_facade_surface.sh" "$root"
 expect 0 'repo: internal packages' \
   sh "$scripts/check_internal_packages.sh" "$root"

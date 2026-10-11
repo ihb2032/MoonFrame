@@ -124,58 +124,191 @@ fn numeric_general_pair(
 /// aborts); `Float` follows IEEE 754, so NaN propagates as a value. An
 /// all-valid numeric result converges onto the `Numeric` backend
 /// (`try_column_to_numeric`); a nullable one stays `Builtin`.
+/// Which decimal rule an `eval_arith` call applies over its operands'
+/// scales: `Add` / `Sub` align both sides to the larger scale (the
+/// unscaled op then runs over like-scaled cells, exactly), `Mul` keeps
+/// both sides unscaled and adds the scales for the result's. The checked
+/// primitives make every step refuse on overflow rather than wrap — a
+/// wrapped magnitude would be a confidently wrong decimal, the thing the
+/// dtype exists to prevent (the plain `Int` dtype wraps by contrast, and
+/// says so).
+priv enum DecimalArith {
+  Add
+  Sub
+  Mul
+}
+
+///|
+/// The decimal half of `+` / `-` / `*`: both operands ride the `I64`
+/// buffer with an arithmetic-eligible dtype (`Int` lifts exactly, as
+/// scale 0), at least one side a `Decimal` (two `Int` sides take the plain
+/// numeric path). `Add` / `Sub` rescale both sides up to the larger scale
+/// first; `Mul` multiplies the unscaled cells directly and carries
+/// `s1 + s2` out. Nulls propagate cell-wise like every arithmetic; an
+/// overflow or an inexact rescale anywhere refuses the whole evaluation
+/// with `InvalidOperation` — the first offending cell is the one named.
+fn decimal_arith(
+  left : Series,
+  right : Series,
+  dec : DecimalArith,
+) -> Series? raise @types.DataError {
+  guard left.storage().data() is @column.ColumnData::I64(a) &&
+    right.storage().data() is @column.ColumnData::I64(b) else {
+    return None
+  }
+  let ls = decimal_arith_scale(left.dtype())
+  let rs = decimal_arith_scale(right.dtype())
+  guard (ls, rs) is (Some(ls2), Some(rs2)) &&
+    (
+      left.dtype() is @types.DataType::Decimal(_) ||
+      right.dtype() is @types.DataType::Decimal(_)
+    ) else {
+    return None
+  }
+  let ls = ls2
+  let rs = rs2
+  let lv = left.validity_bools()
+  let rv = right.validity_bools()
+  // The output scale and the per-cell op: Add / Sub align both sides to
+  // the larger scale first (the exact widening rescale), Mul multiplies
+  // the unscaled cells directly and carries ls + rs out. A null on either
+  // side nulls the cell; an overflow or an inexact rescale anywhere
+  // refuses the evaluation.
+  let out_scale = if dec is Mul { ls + rs } else if ls > rs { ls } else { rs }
+  let cells : Array[Int64?] = []
+  for i in 0..<a.length() {
+    if lv[i] && rv[i] {
+      let (x, y) = if dec is Mul {
+        (a[i], b[i])
+      } else {
+        (lift_unscaled(ls, out_scale, a[i]), lift_unscaled(rs, out_scale, b[i]))
+      }
+      let op = match dec {
+        Add => @numeric.add_checked(x, y)
+        Sub => @numeric.add_checked(x, -y)
+        Mul => @numeric.mul_checked(x, y)
+      }
+      match op {
+        Some(v) => cells.push(Some(v))
+        None =>
+          raise decimal_arith_overflow(
+            match dec {
+              Add => "add"
+              Sub => "subtract"
+              Mul => "multiply"
+            },
+          )
+      }
+    } else {
+      cells.push(None)
+    }
+  }
+  Some(Series::from_decimal_options(out_scale, left.name(), cells))
+}
+
+///|
+/// The arithmetic scale a dtype carries on the `I64` buffer: `Int` lifts
+/// exactly as scale 0, a `Decimal` is its own scale, everything else is
+/// not arithmetic here — the riders `Date` / `Timestamp` (their cells are
+/// not magnitudes), and `Float` above all: mixing the exact dtype with
+/// the approximate one is a promotion decision, not a default, so it
+/// stays fenced. Enumerated so a dtype added later decides its arithmetic
+/// eligibility here at compile time.
+fn decimal_arith_scale(d : @types.DataType) -> Int? {
+  match d {
+    @types.DataType::Int => Some(0)
+    @types.DataType::Decimal(s) => Some(s)
+    @types.DataType::Float
+    | @types.DataType::Bool
+    | @types.DataType::String
+    | @types.DataType::Date
+    | @types.DataType::Timestamp
+    | @types.DataType::Null => None
+  }
+}
+
+///|
+/// One side's cells lifted to the operation's scale — the exact widening
+/// rescale, refusing what does not fit.
+fn lift_unscaled(
+  from : Int,
+  to : Int,
+  v : Int64,
+) -> Int64 raise @types.DataError {
+  if from == to {
+    return v
+  }
+  match @numeric.rescale_unscaled(from, to, v) {
+    Some(lifted) => lifted
+    None => raise decimal_arith_overflow("rescale \{from} -> \{to}")
+  }
+}
+
+///|
+fn decimal_arith_overflow(op : String) -> @types.DataError {
+  @types.DataError::InvalidOperation(
+    "decimal \{op} overflows the 18-digit magnitude",
+  )
+}
+
+///|
 fn eval_arith(
   left : Series,
   right : Series,
   verb : String,
   int_op : (Int64, Int64) -> Int64,
   float_op : (Double, Double) -> Double,
+  dec : DecimalArith,
 ) -> Series raise @types.DataError {
-  match
-    numeric_fast_pair(
-      left,
-      right,
-      (a, b) => {
-        Series::from_ints(
-          left.name(),
-          Array::makei(a.length(), i => int_op(a[i], b[i])),
-        )
-      },
-      float_op,
-    ) {
-    Some(fast) => fast
+  match decimal_arith(left, right, dec) {
+    Some(s) => s
     None =>
-      numeric_general_pair(
-        left,
-        right,
-        verb,
-        (a, b, lv, rv) => {
-          Series::from_int_options(
-            left.name(),
-            zip_present(a.length(), lv, rv, i => int_op(a[i], b[i])),
-          )
-        },
-        float_op,
-      ).try_column_to_numeric()
+      match
+        numeric_fast_pair(
+          left,
+          right,
+          (a, b) => {
+            Series::from_ints(
+              left.name(),
+              Array::makei(a.length(), i => int_op(a[i], b[i])),
+            )
+          },
+          float_op,
+        ) {
+        Some(fast) => fast
+        None =>
+          numeric_general_pair(
+            left,
+            right,
+            verb,
+            (a, b, lv, rv) => {
+              Series::from_int_options(
+                left.name(),
+                zip_present(a.length(), lv, rv, i => int_op(a[i], b[i])),
+              )
+            },
+            float_op,
+          ).try_column_to_numeric()
+      }
   }
 }
 
 ///|
 /// `+` — the `eval_arith` instance behind `Expr` addition.
 fn eval_add(left : Series, right : Series) -> Series raise @types.DataError {
-  eval_arith(left, right, "add", (a, b) => a + b, (a, b) => a + b)
+  eval_arith(left, right, "add", (a, b) => a + b, (a, b) => a + b, Add)
 }
 
 ///|
 /// `-` — the `eval_arith` instance behind `Expr` subtraction.
 fn eval_sub(left : Series, right : Series) -> Series raise @types.DataError {
-  eval_arith(left, right, "subtract", (a, b) => a - b, (a, b) => a - b)
+  eval_arith(left, right, "subtract", (a, b) => a - b, (a, b) => a - b, Sub)
 }
 
 ///|
 /// `*` — the `eval_arith` instance behind `Expr` multiplication.
 fn eval_mul(left : Series, right : Series) -> Series raise @types.DataError {
-  eval_arith(left, right, "multiply", (a, b) => a * b, (a, b) => a * b)
+  eval_arith(left, right, "multiply", (a, b) => a * b, (a, b) => a * b, Mul)
 }
 
 ///|

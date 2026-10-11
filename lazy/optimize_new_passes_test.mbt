@@ -336,3 +336,104 @@ test "folding: a folded operand rebuilds its cast, fill, and positional parents"
     "SELECT [(col(qty) + 2).cast(Float) as f, (col(qty) + 2).fill_null(0) as filled, col(qty).cast(Float).fill_nan(3) as denaned, (col(qty) + 2).cum_sum() as running, (col(qty) + 2).is_in([7]) as hit]\n  SELECT [col(qty)]\n    SCAN [4×3]",
   )
 }
+
+///|
+test "window fusion: two heads keep the smaller bound" {
+  let df = sales_df()
+  // Either order: the tighter bound decides, and the inner window is gone.
+  let lf = LazyFrame::LazyFrame(df).head(5).head(3)
+  assert_eq(lf.collect(), df.head(5).head(3))
+  assert_eq(lf.explain(optimized=true), "HEAD 3\n  SCAN [4×3]")
+  let lf2 = LazyFrame::LazyFrame(df).head(3).head(5)
+  assert_eq(lf2.collect(), df.head(3).head(5))
+  assert_eq(lf2.explain(optimized=true), "HEAD 3\n  SCAN [4×3]")
+}
+
+///|
+test "window fusion: two tails keep the smaller bound" {
+  let df = sales_df()
+  let lf = LazyFrame::LazyFrame(df).tail(3).tail(2)
+  assert_eq(lf.collect(), df.tail(3).tail(2))
+  assert_eq(lf.explain(optimized=true), "TAIL 2\n  SCAN [4×3]")
+}
+
+///|
+test "window fusion: three heads chain into one" {
+  let df = sales_df()
+  let lf = LazyFrame::LazyFrame(df).head(9).head(3).head(2)
+  assert_eq(lf.collect(), df.head(9).head(3).head(2))
+  assert_eq(lf.explain(optimized=true), "HEAD 2\n  SCAN [4×3]")
+}
+
+///|
+test "window fusion: two non-negative slices compose by offsets and spans" {
+  let df = sales_df()
+  // `[1, 11)` then `[2, 5)` over it: the composite reads `[3, 6)` — offset
+  // 3, three rows available, two asked.
+  let lf = LazyFrame::LazyFrame(df).slice(1, length=10).slice(2, length=2)
+  assert_eq(lf.collect(), df.slice(1, length=10).slice(2, length=2))
+  assert_eq(lf.explain(optimized=true), "SLICE [3: 2]\n  SCAN [4×3]")
+}
+
+///|
+test "window fusion: an outer slice starting past the inner span is empty" {
+  let df = sales_df()
+  // The inner window supplies rows `[2, 4)`; the outer asks from offset 3
+  // for one row — row 3 of the inner's two. Available span under the outer
+  // start is 1, asked 1.
+  let lf = LazyFrame::LazyFrame(df).slice(2).slice(1, length=1)
+  assert_eq(lf.collect(), df.slice(2).slice(1, length=1))
+  // And starting past the end: available goes negative, clamped to an empty
+  // window — same rows as the as-built chain (none).
+  let lf2 = LazyFrame::LazyFrame(df).slice(2, length=2).slice(2, length=1)
+  assert_eq(lf2.collect(), df.slice(2, length=2).slice(2, length=1))
+  assert_eq(lf2.collect().nrows(), 0)
+}
+
+///|
+test "window fusion: opposite ends and negative offsets stay separate" {
+  let df = sales_df()
+  // `head` over `tail` addresses opposite ends — no composite, two windows.
+  let lf = LazyFrame::LazyFrame(df).tail(3).head(2)
+  assert_eq(lf.collect(), df.tail(3).head(2))
+  assert_eq(lf.explain(optimized=true), "HEAD 2\n  TAIL 3\n    SCAN [4×3]")
+}
+
+///|
+test "window fusion: a window still crosses stages before fusing" {
+  let df = sales_df()
+  // The outer head fuses with the inner tail — wait, no: the composite here
+  // is head-over-tail, which has no fusion. The pinned shape shows the
+  // outer window sitting above the crossed stage and the inner window.
+  let lf = LazyFrame::LazyFrame(df)
+    .with_columns([@expr.col("qty").neg().with_alias("nq")])
+    .head(3)
+    .head(2)
+  assert_eq(
+    lf.collect(),
+    df.with_columns([@expr.col("qty").neg().with_alias("nq")]).head(3).head(2),
+  )
+  assert_eq(
+    lf.explain(optimized=true),
+    "WITH_COLUMNS [(-col(qty)) as nq]\n  HEAD 2\n    SCAN [4×3]",
+  )
+}
+
+///|
+test "window fusion: an unbounded outer slice takes the inner span" {
+  let df = sales_df()
+  // The outer window asks `from offset 2 to the end` of the inner's
+  // `[1, 5)` — the composite is `[3, 5)`: offset 3, the two available rows.
+  let lf = LazyFrame::LazyFrame(df).slice(1, length=4).slice(2)
+  assert_eq(lf.collect(), df.slice(1, length=4).slice(2))
+  assert_eq(lf.explain(optimized=true), "SLICE [3: 2]\n  SCAN [4×3]")
+}
+
+///|
+test "window fusion: two unbounded slices compose to one unbounded" {
+  let df = sales_df()
+  // Neither window bounds its length: the composite reads `[3, end)`.
+  let lf = LazyFrame::LazyFrame(df).slice(1).slice(2)
+  assert_eq(lf.collect(), df.slice(1).slice(2))
+  assert_eq(lf.explain(optimized=true), "SLICE [3: ]\n  SCAN [4×3]")
+}

@@ -42,17 +42,19 @@ fn LogicalPlan::push_slices(self : LogicalPlan) -> LogicalPlan {
 /// collapse), a `WithColumns` row-stable. Everything else is a floor: a
 /// `Filter` re-numbers positions by dropping rows, a `Sort` re-orders which
 /// rows the window's offsets address, an `Aggregate` / `Join` reshapes rows
-/// outright, another window is the deferred fusion case (min / offset
-/// arithmetic across two windows, no consumer has asked), and the scans are
-/// the floor — absorbing into a source's own row limit is future work with
-/// the streaming reader. Iterative spine descent like `place_filter` —
-/// total at any depth.
+/// outright — except a window sitting in the way, which is a *fusion*
+/// candidate rather than a floor: the two windows compose into one
+/// (`fuse_windows` states the arithmetic) and the descent continues with
+/// the composite. The scans are the floor — absorbing into a source's own
+/// row limit is future work with the streaming reader. Iterative spine
+/// descent like `place_filter` — total at any depth.
 fn LogicalPlan::place_slice(
   self : LogicalPlan,
   window : FrameOp,
 ) -> LogicalPlan {
   let crossed : Array[(LogicalPlan) -> LogicalPlan] = []
   let mut cur = self
+  let mut window = window
   let mut descending = true
   while descending {
     match cur {
@@ -70,13 +72,20 @@ fn LogicalPlan::place_slice(
         } else {
           descending = false
         }
-      // The floors: scans, filters, sorts, aggregations, joins, and any
-      // other window sitting in the way.
-      Scan(_)
-      | Unary(_, _)
-      | Join(_, _, _)
-      | Aggregate(_, _, _)
-      | AggregateAll(_, _, _) => descending = false
+      // Anything else blocks the descent — unless it is itself a window the
+      // descending one composes with, in which case the inner window is
+      // absorbed and the descent carries the composite downward.
+      Unary(inner, blocking) =>
+        match fuse_windows(window, blocking) {
+          Some(fused) => {
+            window = fused
+            cur = inner
+          }
+          None => descending = false
+        }
+      // The floors: scans, filters, sorts, aggregations, joins.
+      Scan(_) | Join(_, _, _) | Aggregate(_, _, _) | AggregateAll(_, _, _) =>
+        descending = false
     }
   }
   let mut result = Unary(cur, window)
@@ -85,4 +94,40 @@ fn LogicalPlan::place_slice(
     result = rewrap(result)
   }
   result
+}
+
+///|
+/// Compose an outer window over an inner one, when the composite is itself
+/// a window of the same vocabulary: `head` over `head` (and `tail` over
+/// `tail`) keeps the smaller bound either way — the outer addresses rows
+/// the inner already kept or would have kept, so whichever bound is tighter
+/// decides; two `slice` windows with non-negative offsets compose by adding
+/// the offsets and intersecting the spans, the available span under the
+/// outer's start clamped to an empty window at zero. Every other pairing —
+/// `head` over `tail` (opposite ends), a negative-offset `slice` (its
+/// arithmetic reads the tail through a height the plan does not know), a
+/// window over a non-window — has no composite here and stays a floor.
+/// The composition is error-faithful by construction: windows carry no
+/// expressions, so absorbing one never drops a stage's evaluation duty.
+fn fuse_windows(outer : FrameOp, inner : FrameOp) -> FrameOp? {
+  match (outer, inner) {
+    (Head(a), Head(b)) => Some(Head(if a < b { a } else { b }))
+    (Tail(a), Tail(b)) => Some(Tail(if a < b { a } else { b }))
+    (Slice(ao, alen), Slice(bo, blen)) if ao >= 0 && bo >= 0 => {
+      // The outer window reads the inner's rows `[ao, ao + alen)`; the inner
+      // supplies `[bo, bo + blen)`. Their composition reads the original's
+      // `[bo + ao, bo + ao + len)` with `len` the intersection of the two
+      // spans — `blen - ao` available, `alen` asked, an empty window when
+      // the outer starts past the inner's end.
+      let reach = blen.map(m => m - ao)
+      let len : Int? = match (alen, reach) {
+        (Some(l), Some(r)) => Some(if l < r { l } else { r })
+        (Some(l), None) => Some(l)
+        (None, Some(r)) => Some(r)
+        (None, None) => None
+      }
+      Some(Slice(bo + ao, len.map(l => if l > 0 { l } else { 0 })))
+    }
+    _ => None
+  }
 }

@@ -132,9 +132,11 @@ pub using @io {
   read_csv,
   read_json,
   read_ndjson,
+  read_parquet,
   write_csv,
   write_json,
   write_ndjson,
+  write_parquet,
 }
 
 ///|
@@ -147,4 +149,4 @@ pub using @chart {
 }
 
 ///|
-pub using @lazy {type LazyFrame, scan_csv, scan_ndjson}
+pub using @lazy {type LazyFrame, scan_csv, scan_ndjson, scan_parquet}

@@ -113,6 +113,22 @@ pub fn Series::fill_null(
             ),
           )
       }
+    // A Timestamp value fills its own dtype only — the Date rule over the
+    // same buffer, with microseconds in place of day-counts.
+    @types.Scalar::Timestamp(v) =>
+      match self.storage.data() {
+        @column.ColumnData::I64(data) if self.dtype()
+          is @types.DataType::Timestamp => {
+          let buf = fill_buffer(data, valid, v)
+          Series::from_timestamp_options(self.name, buf.map(x => Some(x)))
+        }
+        _ =>
+          raise @types.DataError::TypeMismatch(
+            @types.TypeMismatchDetail::Message(
+              "fill_null type Timestamp does not match column type \{self.dtype()}",
+            ),
+          )
+      }
   }
   self.preserve_backend(filled)
 }

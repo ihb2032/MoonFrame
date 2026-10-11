@@ -73,7 +73,7 @@ fn binary_type_mismatch_error(
 ///|
 /// A length-1 `Series` holding one scalar, named `"literal"`. Each scalar lands
 /// on whatever backend its `Series::from_*` constructor picks — `Numeric` for
-/// `Int` / `Float`, `Builtin` for `Bool` / `String` / `Date`. `Scalar::Null` has no
+/// `Int` / `Float`, `Builtin` for `Bool` / `String` / `Date` / `Timestamp`. `Scalar::Null` has no
 /// column representation (no Null-dtype backend), so it raises `Unsupported`.
 pub fn singleton_series(value : @types.Scalar) -> Series raise @types.DataError {
   match value {
@@ -82,6 +82,8 @@ pub fn singleton_series(value : @types.Scalar) -> Series raise @types.DataError 
     @types.Scalar::Bool(v) => Series::from_bools("literal", [v])
     @types.Scalar::String(v) => Series::from_strings("literal", [v])
     @types.Scalar::Date(v) => Series::from_date_options("literal", [Some(v)])
+    @types.Scalar::Timestamp(v) =>
+      Series::from_timestamp_options("literal", [Some(v)])
     @types.Scalar::Null =>
       raise @types.DataError::Unsupported(
         "cannot evaluate a Null literal: no Null-dtype column backend",

@@ -146,3 +146,30 @@ test "Scalar::Date pads every sub-thousand year width" {
   assert_eq(Scalar::Date(-701200L).to_string(), "0050-03-07")
   assert_eq(Scalar::Date(-536700L).to_string(), "0500-07-26")
 }
+
+///|
+test "Timestamp renders ISO 8601 with a six-digit microsecond fraction" {
+  // The epoch itself, a whole-day instant, a sub-second fraction, and an
+  // instant before the epoch (whose time-of-day stays positive while its
+  // date lands the day before).
+  assert_eq(
+    @types.Scalar::Timestamp(0L).to_string(),
+    "1970-01-01T00:00:00.000000",
+  )
+  assert_eq(
+    @types.Scalar::Timestamp(1704067200000000L).to_string(),
+    "2024-01-01T00:00:00.000000",
+  )
+  assert_eq(
+    @types.Scalar::Timestamp(45015123456L).to_string(),
+    "1970-01-01T12:30:15.123456",
+  )
+  assert_eq(
+    @types.Scalar::Timestamp(-1L).to_string(),
+    "1969-12-31T23:59:59.999999",
+  )
+  // The dtype follows the variant.
+  assert_true(
+    @types.Scalar::Timestamp(1L).dtype() is @types.DataType::Timestamp,
+  )
+}

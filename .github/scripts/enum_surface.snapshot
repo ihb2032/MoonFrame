@@ -25,6 +25,7 @@ DataType | enum | Float
 DataType | enum | Int
 DataType | enum | Null
 DataType | enum | String
+DataType | enum | Timestamp
 JoinType | enum | Anti
 JoinType | enum | Cross
 JoinType | enum | Inner
@@ -63,6 +64,7 @@ Scalar | enum | Float(Double)
 Scalar | enum | Int(Int64)
 Scalar | enum | Null
 Scalar | enum | String(String)
+Scalar | enum | Timestamp(Int64)
 TypeMismatchDetail | enum | Expected(DataType, DataType, String)
 TypeMismatchDetail | enum | Message(String)
 TypeMismatchDetail | enum | Operation(String, DataType, DataType)

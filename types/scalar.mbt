@@ -18,6 +18,7 @@ pub(all) enum Scalar {
   Bool(Bool)
   String(String)
   Date(Int64)
+  Timestamp(Int64)
   Null
 } derive(Eq, Debug)
 
@@ -39,6 +40,7 @@ pub fn Scalar::dtype(self : Scalar) -> DataType {
     Bool(_) => DataType::Bool
     String(_) => DataType::String
     Date(_) => DataType::Date
+    Timestamp(_) => DataType::Timestamp
     Null => DataType::Null
   }
 }
@@ -60,6 +62,7 @@ pub fn Scalar::to_string(self : Scalar) -> String {
     Bool(v) => v.to_string()
     String(v) => v
     Date(v) => date_days_to_iso(v)
+    Timestamp(v) => timestamp_micros_to_iso(v)
     Null => ""
   }
 }
@@ -124,6 +127,7 @@ pub impl Show for Scalar with fn output(self, logger) {
     Bool(v) => logger <+ "Bool(\{v})"
     String(v) => logger <+ "String(\"\{@text.escape_debug(v)}\")"
     Date(v) => logger <+ "Date(\{date_days_to_iso(v)})"
+    Timestamp(v) => logger <+ "Timestamp(\{timestamp_micros_to_iso(v)})"
     Null => logger.write_string("Null")
   }
 }
@@ -163,6 +167,54 @@ fn date_days_to_iso(days : Int64) -> String {
   }
   let year_text = if year < 0 { "-" + pad4(-year) } else { pad4(year) }
   "\{year_text}-\{pad2(m)}-\{pad2(d)}"
+}
+
+///|
+/// The ISO 8601 rendering of a microsecond count since the epoch — the one
+/// rendering a `Scalar::Timestamp` has (value form, `Show` form, CSV / JSON
+/// cell form all share it), composed from the date rendering above plus the
+/// time-of-day the remainder names. The microsecond fraction is always six
+/// digits, so the rendering round-trips (a parser can read back exactly the
+/// count it came from); instants before the epoch carry the date's negative
+/// year sign, the time-of-day stays in `[00:00:00, 24:00:00)`.
+fn timestamp_micros_to_iso(micros : Int64) -> String {
+  // Floor division both ways, so a negative count's time-of-day stays in
+  // `[0, 86400e6)` and its date lands the day before the epoch, not on it.
+  let day : Int64 = if micros >= 0 {
+    micros / 86_400_000_000L
+  } else {
+    (micros - 86_399_999_999L) / 86_400_000_000L
+  }
+  let rem = micros - day * 86_400_000_000L
+  fn pad2(n : Int64) -> String {
+    if n < 10 {
+      "0\{n}"
+    } else {
+      n.to_string()
+    }
+  }
+
+  fn pad6(n : Int64) -> String {
+    if n < 10 {
+      "00000\{n}"
+    } else if n < 100 {
+      "0000\{n}"
+    } else if n < 1000 {
+      "000\{n}"
+    } else if n < 10000 {
+      "00\{n}"
+    } else if n < 100000 {
+      "0\{n}"
+    } else {
+      n.to_string()
+    }
+  }
+
+  let hour = rem / 3_600_000_000L
+  let minute = rem % 3_600_000_000L / 60_000_000L
+  let second = rem % 60_000_000L / 1_000_000L
+  let frac = rem % 1_000_000L
+  "\{date_days_to_iso(day)}T\{pad2(hour)}:\{pad2(minute)}:\{pad2(second)}.\{pad6(frac)}"
 }
 
 ///|

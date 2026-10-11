@@ -83,9 +83,11 @@ pub fn Series::coalesce_columns(
       } else {
         match fills[i] {
           @types.Scalar::Int(v) => Some(v)
-          // A Date key rides the same I64 buffer, and its cells read back
-          // as Date scalars — the fill accepts both spellings.
+          // A Date / Timestamp key rides the same I64 buffer, and its cells
+          // read back as their own scalars — the fill accepts all three
+          // spellings.
           @types.Scalar::Date(v) => Some(v)
+          @types.Scalar::Timestamp(v) => Some(v)
           @types.Scalar::Float(_)
           | @types.Scalar::Bool(_)
           | @types.Scalar::String(_)
@@ -103,6 +105,7 @@ pub fn Series::coalesce_columns(
           | @types.Scalar::Bool(_)
           | @types.Scalar::String(_)
           | @types.Scalar::Date(_)
+          | @types.Scalar::Timestamp(_)
           | @types.Scalar::Null => None
         }
       }
@@ -117,6 +120,7 @@ pub fn Series::coalesce_columns(
           | @types.Scalar::Float(_)
           | @types.Scalar::String(_)
           | @types.Scalar::Date(_)
+          | @types.Scalar::Timestamp(_)
           | @types.Scalar::Null => None
         }
       }
@@ -131,6 +135,7 @@ pub fn Series::coalesce_columns(
           | @types.Scalar::Float(_)
           | @types.Scalar::Bool(_)
           | @types.Scalar::Date(_)
+          | @types.Scalar::Timestamp(_)
           | @types.Scalar::Null => None
         }
       }

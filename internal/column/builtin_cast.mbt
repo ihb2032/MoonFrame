@@ -24,12 +24,16 @@ fn BuiltinColumn::cast(
   if self.dtype() is @types.DataType::Date {
     raise @types.DataError::Unsupported("cast from Date")
   }
+  if self.dtype() is @types.DataType::Timestamp {
+    raise @types.DataError::Unsupported("cast from Timestamp")
+  }
   match target {
     Int => self.to_int()
     Float => self.to_float()
     String => self.to_string_column()
     Bool => raise @types.DataError::Unsupported("cast to Bool")
     Date => raise @types.DataError::Unsupported("cast to Date")
+    Timestamp => raise @types.DataError::Unsupported("cast to Timestamp")
     Null => raise @types.DataError::Unsupported("cast to Null")
   }
 }

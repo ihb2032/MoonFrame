@@ -258,6 +258,17 @@ pub fn DataFrame::from_rows(
             }
           }),
         )
+      @types.DataType::Timestamp =>
+        Series::from_timestamp_options(
+          field.name(),
+          typed_column_cells(rows, i, field, cell => {
+            if cell is @types.Scalar::Timestamp(v) {
+              Some(v)
+            } else {
+              None
+            }
+          }),
+        )
       @types.DataType::Null =>
         raise @types.DataError::Unsupported(
           "cannot build DataFrame column of dtype Null: \{field.name()}",

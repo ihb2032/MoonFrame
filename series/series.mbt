@@ -304,6 +304,17 @@ pub fn Series::from_scalars(
           }
         }),
       )
+    @types.DataType::Timestamp =>
+      Series::from_timestamp_options(
+        name,
+        typed_cells(cells, target, name, cell => {
+          if cell is @types.Scalar::Timestamp(v) {
+            Some(v)
+          } else {
+            None
+          }
+        }),
+      )
     @types.DataType::Null =>
       raise @types.DataError::Unsupported(
         "cannot build a column of dtype Null: \{name}",
@@ -353,6 +364,25 @@ pub fn Series::from_date_options(
   Series::from_builtin(
     name,
     @column.BuiltinColumn::from_i64_options(@types.DataType::Date, values),
+  )
+}
+
+///|
+/// Build a `Timestamp` series from optional raw microsecond-counts (whole
+/// microseconds since the Unix epoch, `1970-01-01T00:00:00` = microsecond
+/// `0`), `None` entries nulls. The timestamp face of the shared `I64` buffer
+/// constructor: the cells are the same `Int64` buffer an int column carries,
+/// with timestamp semantics on read — the registry's per-dtype lift turns a
+/// cell back into a `Scalar::Timestamp`.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
+pub fn Series::from_timestamp_options(
+  name : String,
+  values : Array[Int64?],
+) -> Series {
+  Series::from_builtin(
+    name,
+    @column.BuiltinColumn::from_i64_options(@types.DataType::Timestamp, values),
   )
 }
 

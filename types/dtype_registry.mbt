@@ -46,7 +46,8 @@ pub(all) enum PhysicalType {
 /// the accessors below, so the row layout can grow (an FFI tag column, cast
 /// targets) without touching a reader.
 priv struct DTypeProfile {
-  /// The `Show` spelling of the dtype (the `display` rendering, e.g. `Date`).
+  /// The `Show` spelling of the dtype (the `display` rendering, e.g. `Date`;
+  /// a parameterised dtype interpolates its parameter, `Decimal(2)`).
   display : String
   /// The buffer kind the dtype's columns materialise into; `None` for the
   /// value-level `Null`, which has no storable representation.
@@ -55,6 +56,12 @@ priv struct DTypeProfile {
   /// accept the dtype. `Date` is `false`: its `I64` cells are days, and
   /// summing them is a bug, not a reduction.
   numeric : Bool
+  /// Whether the *exact* reduction `sum` accepts the dtype — the one numeric
+  /// verb that stays correct over an `I64` rider whose arithmetic is fenced:
+  /// adding unscaled decimal cells of one scale is exact, so `Decimal` sums
+  /// while its arithmetic (and the approximate statistics, which go through
+  /// the `numeric` gate) stay fenced.
+  summable : Bool
 }
 
 ///|
@@ -63,13 +70,42 @@ priv struct DTypeProfile {
 /// intended sequence: the row is the dtype's registration.
 fn DataType::dtype_profile(self : DataType) -> DTypeProfile {
   match self {
-    Int => { display: "Int", physical: Some(I64), numeric: true, }
-    Float => { display: "Float", physical: Some(F64), numeric: true, }
-    Bool => { display: "Bool", physical: Some(Bool), numeric: false, }
-    String => { display: "String", physical: Some(Utf8), numeric: false, }
-    Date => { display: "Date", physical: Some(I64), numeric: false, }
-    Timestamp => { display: "Timestamp", physical: Some(I64), numeric: false, }
-    Null => { display: "Null", physical: None, numeric: false, }
+    Int =>
+      { display: "Int", physical: Some(I64), numeric: true, summable: true, }
+    Float =>
+      { display: "Float", physical: Some(F64), numeric: true, summable: true, }
+    Bool =>
+      {
+        display: "Bool",
+        physical: Some(Bool),
+        numeric: false,
+        summable: false,
+      }
+    String =>
+      {
+        display: "String",
+        physical: Some(Utf8),
+        numeric: false,
+        summable: false,
+      }
+    Date =>
+      { display: "Date", physical: Some(I64), numeric: false, summable: false, }
+    Timestamp =>
+      {
+        display: "Timestamp",
+        physical: Some(I64),
+        numeric: false,
+        summable: false,
+      }
+    Decimal(scale) =>
+      {
+        display: "Decimal(\{scale})",
+        physical: Some(I64),
+        numeric: false,
+        summable: true,
+      }
+    Null =>
+      { display: "Null", physical: None, numeric: false, summable: false, }
   }
 }
 
@@ -101,6 +137,7 @@ pub fn DataType::i64_rider_scalar(self : DataType, v : Int64) -> Scalar? {
   match self {
     Date => Some(Scalar::Date(v))
     Timestamp => Some(Scalar::Timestamp(v))
+    Decimal(scale) => Some(Scalar::Decimal(scale, v))
     Int => None
     Float => None
     Bool => None

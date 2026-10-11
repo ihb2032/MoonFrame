@@ -246,6 +246,16 @@ pub fn BuiltinColumn::from_scalars(
           }
         }),
       )
+    @types.DataType::Decimal(_) =>
+      BuiltinColumn::from_i64_options(
+        probe,
+        cells.map(c => {
+          match c {
+            @types.Scalar::Decimal(_, v) => Some(v)
+            _ => None
+          }
+        }),
+      )
     @types.DataType::Null =>
       raise @types.DataError::Unsupported(
         "cannot build a column of dtype Null: \{name}",

@@ -129,6 +129,24 @@ pub fn Series::fill_null(
             ),
           )
       }
+    // A Decimal value fills its own dtype only — the Date rule over the same
+    // buffer, with the scale carried by the dtype (the scalar's own scale
+    // must agree, or the fill would silently re-scale the column).
+    @types.Scalar::Decimal(scale, v) =>
+      match self.storage.data() {
+        @column.ColumnData::I64(data) if self.dtype()
+          is @types.DataType::Decimal(s) &&
+          s == scale => {
+          let buf = fill_buffer(data, valid, v)
+          Series::from_decimal_options(scale, self.name, buf.map(x => Some(x)))
+        }
+        _ =>
+          raise @types.DataError::TypeMismatch(
+            @types.TypeMismatchDetail::Message(
+              "fill_null type Decimal(' + BS + '{scale}) does not match column type ' + BS + '{self.dtype()}",
+            ),
+          )
+      }
   }
   self.preserve_backend(filled)
 }

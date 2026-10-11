@@ -269,6 +269,18 @@ pub fn DataFrame::from_rows(
             }
           }),
         )
+      @types.DataType::Decimal(scale) =>
+        Series::from_decimal_options(
+          scale,
+          field.name(),
+          typed_column_cells(rows, i, field, cell => {
+            if cell is @types.Scalar::Decimal(s, v) && s == scale {
+              Some(v)
+            } else {
+              None
+            }
+          }),
+        )
       @types.DataType::Null =>
         raise @types.DataError::Unsupported(
           "cannot build DataFrame column of dtype Null: \{field.name()}",

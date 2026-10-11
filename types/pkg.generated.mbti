@@ -55,10 +55,12 @@ pub(all) enum DataType {
   String
   Date
   Timestamp
+  Decimal(Int)
   Null
 } derive(Eq, @debug.Debug)
 pub fn DataType::equal(Self, Self) -> Bool
 pub fn DataType::is_numeric(Self) -> Bool
+pub fn DataType::is_summable(Self) -> Bool
 pub fn DataType::not_equal(Self, Self) -> Bool
 pub fn DataType::output(Self, &Logger) -> Unit
 pub fn DataType::to_repr(Self) -> @debug.Repr
@@ -107,6 +109,7 @@ pub(all) enum Scalar {
   String(String)
   Date(Int64)
   Timestamp(Int64)
+  Decimal(Int, Int64)
   Null
 } derive(Eq, @debug.Debug)
 pub fn Scalar::as_bool(Self) -> Bool raise DataError

@@ -84,6 +84,8 @@ pub fn singleton_series(value : @types.Scalar) -> Series raise @types.DataError 
     @types.Scalar::Date(v) => Series::from_date_options("literal", [Some(v)])
     @types.Scalar::Timestamp(v) =>
       Series::from_timestamp_options("literal", [Some(v)])
+    @types.Scalar::Decimal(scale, v) =>
+      Series::from_decimal_options(scale, "literal", [Some(v)])
     @types.Scalar::Null =>
       raise @types.DataError::Unsupported(
         "cannot evaluate a Null literal: no Null-dtype column backend",

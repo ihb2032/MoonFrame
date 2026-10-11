@@ -41,6 +41,7 @@ pub fn format_scalar(value : @types.Scalar) -> String {
     String(v) => "\"\{@text.escape_debug(v)}\""
     Date(_) => value.to_string()
     Timestamp(_) => value.to_string()
+    Decimal(_, _) => value.to_string()
     Null => "null"
   }
 }

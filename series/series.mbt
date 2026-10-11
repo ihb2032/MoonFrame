@@ -315,6 +315,18 @@ pub fn Series::from_scalars(
           }
         }),
       )
+    @types.DataType::Decimal(scale) =>
+      Series::from_decimal_options(
+        scale,
+        name,
+        typed_cells(cells, target, name, cell => {
+          if cell is @types.Scalar::Decimal(s, v) && s == scale {
+            Some(v)
+          } else {
+            None
+          }
+        }),
+      )
     @types.DataType::Null =>
       raise @types.DataError::Unsupported(
         "cannot build a column of dtype Null: \{name}",
@@ -383,6 +395,29 @@ pub fn Series::from_timestamp_options(
   Series::from_builtin(
     name,
     @column.BuiltinColumn::from_i64_options(@types.DataType::Timestamp, values),
+  )
+}
+
+///|
+/// Build a `Decimal(scale)` series from optional raw unscaled magnitudes
+/// (the value is `unscaled x 10^-scale`), `None` entries nulls. The decimal
+/// face of the shared `I64` buffer constructor: the cells are the same
+/// `Int64` buffer an int column carries, with decimal semantics on read —
+/// the registry's per-dtype lift turns a cell back into a
+/// `Scalar::Decimal(scale, v)`.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
+pub fn Series::from_decimal_options(
+  scale : Int,
+  name : String,
+  values : Array[Int64?],
+) -> Series {
+  Series::from_builtin(
+    name,
+    @column.BuiltinColumn::from_i64_options(
+      @types.DataType::Decimal(scale),
+      values,
+    ),
   )
 }
 

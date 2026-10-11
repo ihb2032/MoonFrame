@@ -40,9 +40,12 @@ pub(all) enum DataType {
   /// precision is `18 - scale` integer digits: `Decimal(2)` over `12345` is
   /// `123.45`. An `I64` physical buffer with decimal semantics, like `Date` /
   /// `Timestamp` riders. Comparison, ordering, grouping, `sum` / `min` /
-  /// `max` / `count` are exact over the unscaled cells **within one scale**;
-  /// arithmetic is fenced (a `TypeMismatch`) and so is everything crossing
-  /// two scales, pending the rescale rules; readers never infer it.
+  /// `max` / `count` are exact over the unscaled cells; `+` / `-` / `*` are
+  /// exact across scales (both sides lift to the larger scale, `Int` lifts
+  /// as scale 0, `*` adds the scales) and refuse — `InvalidOperation`,
+  /// never a wrap — when a magnitude leaves the range; division stays
+  /// fenced pending a result-scale rule, and so does mixing with `Float`;
+  /// readers never infer it.
   Decimal(Int)
   Null
 } derive(Eq, Debug)

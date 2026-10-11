@@ -77,25 +77,24 @@ test "Decimal compares within its scale; never across dtypes or scales" {
     })
     is Err(@types.DataError::TypeMismatch(_)),
   )
-  // A different scale is a different dtype: no cross-scale compare yet.
+  // A different scale compares exactly: 10.000 (s3) < 10.00 (s2) is false,
+  // 10.000 < 12.34 is true — both sides lift to the larger scale first.
   let other_scale = DataFrame::from_rows(
     @types.Schema::Schema([
       @types.Field::Field("d", @types.DataType::Decimal(3)),
     ]),
     [[@types.Scalar::Decimal(3, 10000L)]],
   )
-  assert_true(
-    (Ok(
-      ignore(
-        other_scale.filter(
-          @expr.col("d").lt(@expr.lit(@types.Scalar::Decimal(2, 1000L))),
-        ),
-      ),
-    ) catch {
-      e => Err(e)
-    })
-    is Err(@types.DataError::TypeMismatch(_)),
-  )
+  let cross = other_scale.select([
+    @expr.col("d")
+    .lt(@expr.lit(@types.Scalar::Decimal(2, 1000L)))
+    .with_alias("lt"),
+    @expr.col("d")
+    .gt(@expr.lit(@types.Scalar::Decimal(2, 800L)))
+    .with_alias("gt"),
+  ])
+  assert_eq(cross.item(0, "lt"), @types.Scalar::Bool(false))
+  assert_eq(cross.item(0, "gt"), @types.Scalar::Bool(true))
 }
 
 ///|
@@ -148,9 +147,11 @@ test "sum is exact over one scale; the approximate statistics stay fenced" {
     (Ok(ignore(df.get_column("d").std())) catch { e => Err(e) })
     is Err(@types.DataError::TypeMismatch(_)),
   )
-  // Arithmetic on the cells is fenced pending the rescale rules.
+  // Division stays fenced: an exact quotient needs a result-scale rule
+  // (how far to extend), which is a decision the arithmetic batch leaves
+  // open. `+` / `-` / `*` landed — the arithmetic test below pins them.
   assert_true(
-    (Ok(ignore(df.select([@expr.col("d").add(@expr.lit_int(1L))]))) catch {
+    (Ok(ignore(df.select([@expr.col("d").div(@expr.lit_int(2L))]))) catch {
       e => Err(e)
     })
     is Err(@types.DataError::TypeMismatch(_)),
@@ -282,4 +283,215 @@ test "Decimal rides the remaining engine paths" {
   assert_true(mapped.item(1, "tenths") is @types.Scalar::Null)
   // The `Show` rendering (what `println` prints) carries scale and value.
   println(@types.Scalar::Decimal(2, -12345L))
+}
+
+///|
+test "decimal arithmetic is exact across scales, with Int lifting" {
+  let df = dec_frame().drop_nulls(subset=[@expr.col("d")])
+  // Same scale: 123.45 - 123.45 + 9.99 = 9.99, unscaled directly.
+  let same = df.select([(@expr.col("d") - @expr.col("d")).with_alias("z")])
+  assert_true(same.item(0, "z") is @types.Scalar::Decimal(2, 0L))
+  assert_eq(same.get_column("z").dtype(), @types.DataType::Decimal(2))
+  // Cross scale: Decimal(2) + Decimal(1) aligns to scale 2 — 9.99 + 1.5
+  // = 11.49, the exact widening rescale then the unscaled add.
+  let wide = DataFrame::from_rows(
+    @types.Schema::Schema([
+      @types.Field::Field("a", @types.DataType::Decimal(2)),
+      @types.Field::Field("b", @types.DataType::Decimal(1)),
+    ]),
+    [
+      [@types.Scalar::Decimal(2, 999L), @types.Scalar::Decimal(1, 15L)],
+      [@types.Scalar::Decimal(2, 12345L), @types.Scalar::Decimal(1, -5L)],
+    ],
+  )
+  let summed = wide.select([(@expr.col("a") + @expr.col("b")).with_alias("s")])
+  assert_eq(summed.get_column("s").dtype(), @types.DataType::Decimal(2))
+  assert_eq(summed.item(0, "s").to_string(), "11.49")
+  assert_eq(summed.item(1, "s").to_string(), "122.95")
+  // Int lifts exactly as scale 0: 123.45 + 1 = 124.45.
+  let lifted = df.select([(@expr.col("d") + @expr.lit_int(1L)).with_alias("up")])
+  assert_eq(lifted.item(0, "up").to_string(), "124.45")
+  // Multiply adds the scales: 1.23 (s2) * 1.5 (s1) = 1.845 (s3).
+  let muled = wide.select([(@expr.col("a") * @expr.col("b")).with_alias("p")])
+  assert_eq(muled.get_column("p").dtype(), @types.DataType::Decimal(3))
+  assert_eq(muled.item(0, "p").to_string(), "14.985")
+  assert_eq(muled.item(1, "p").to_string(), "-61.725")
+  // Nulls propagate cell-wise through the decimal path.
+  let nully = dec_frame().select([
+    (@expr.col("d") + @expr.col("d")).with_alias("d2"),
+  ])
+  assert_true(nully.item(2, "d2") is @types.Scalar::Null)
+  // A Float operand stays fenced — the exact dtype does not mix with the
+  // approximate one; that promotion is a decision, not a default.
+  assert_true(
+    (Ok(ignore(df.select([@expr.col("d").add(@expr.lit_float(0.5))]))) catch {
+      e => Err(e)
+    })
+    is Err(@types.DataError::TypeMismatch(_)),
+  )
+}
+
+///|
+test "decimal arithmetic refuses what would not stay exact" {
+  // A magnitude at the top of the range, rescaled up one digit: the shift
+  // overflows and the evaluation refuses rather than wrapping.
+  let huge = DataFrame::from_rows(
+    @types.Schema::Schema([
+      @types.Field::Field("h", @types.DataType::Decimal(0)),
+      @types.Field::Field("t", @types.DataType::Decimal(1)),
+    ]),
+    [
+      [
+        @types.Scalar::Decimal(0, 9_000_000_000_000_000_000L),
+        @types.Scalar::Decimal(1, 1L),
+      ],
+    ],
+  )
+  assert_true(
+    (Ok(
+      ignore(huge.select([(@expr.col("h") + @expr.col("t")).with_alias("s")])),
+    ) catch {
+      e => Err(e)
+    })
+    is Err(@types.DataError::InvalidOperation(_)),
+  )
+  // Multiply overflowing the 18-digit magnitude refuses the same way.
+  let big = DataFrame::from_rows(
+    @types.Schema::Schema([
+      @types.Field::Field("b", @types.DataType::Decimal(0)),
+    ]),
+    [[@types.Scalar::Decimal(0, 4_000_000_000_000_000_000L)]],
+  )
+  assert_true(
+    (Ok(ignore(big.select([(@expr.col("b") * @expr.col("b")).with_alias("p")]))) catch {
+      e => Err(e)
+    })
+    is Err(@types.DataError::InvalidOperation(_)),
+  )
+}
+
+///|
+test "cross-scale decimal compare aligns exactly" {
+  // 9.99 at scale 2 vs 15.0 at scale 1: lift to scale 2, 999 < 1500.
+  let wide = DataFrame::from_rows(
+    @types.Schema::Schema([
+      @types.Field::Field("a", @types.DataType::Decimal(2)),
+      @types.Field::Field("b", @types.DataType::Decimal(1)),
+    ]),
+    [
+      [@types.Scalar::Decimal(2, 999L), @types.Scalar::Decimal(1, 150L)],
+      [@types.Scalar::Decimal(2, 12345L), @types.Scalar::Decimal(1, 150L)],
+    ],
+  )
+  let lt = wide.select([@expr.col("a").lt(@expr.col("b")).with_alias("ab")])
+  assert_eq(lt.item(0, "ab"), @types.Scalar::Bool(true))
+  assert_eq(lt.item(1, "ab"), @types.Scalar::Bool(false))
+  // Equality across scales sees through the alignment: 1.5 (s1) == 1.50 (s2).
+  let eq = wide.select([@expr.col("b").eq(@expr.col("b")).with_alias("bb")])
+  assert_eq(eq.item(0, "bb"), @types.Scalar::Bool(true))
+}
+
+///|
+test "decimal arithmetic corners: add overflow, multiply by zero, riders" {
+  // Two near-max magnitudes on the same scale: the exact add leaves the
+  // range and the evaluation names the operation.
+  let big = DataFrame::from_rows(
+    @types.Schema::Schema([
+      @types.Field::Field("b", @types.DataType::Decimal(0)),
+      @types.Field::Field("z", @types.DataType::Decimal(0)),
+    ]),
+    [
+      [
+        @types.Scalar::Decimal(0, 9_000_000_000_000_000_000L),
+        @types.Scalar::Decimal(0, 0L),
+      ],
+    ],
+  )
+  assert_true(
+    (Ok(ignore(big.select([(@expr.col("b") + @expr.col("b")).with_alias("s")]))) catch {
+      e => Err(e)
+    })
+    is Err(@types.DataError::InvalidOperation(_)),
+  )
+  // A zero magnitude short-circuits the checked multiply: 0 * huge is 0.
+  let zeroed = big.select([(@expr.col("z") * @expr.col("b")).with_alias("p")])
+  assert_true(zeroed.item(0, "p") is @types.Scalar::Decimal(0, 0L))
+  // An I64 rider (Date) is not arithmetic material even though its buffer
+  // matches — the dtype, not the buffer, decides.
+  let dated = DataFrame::from_rows(
+    @types.Schema::Schema([@types.Field::Field("d", @types.DataType::Date)]),
+    [[@types.Scalar::Date(0L)]],
+  )
+  let with_dec = dated.with_columns([
+    @expr.lit(@types.Scalar::Decimal(2, 1L)).with_alias("cent"),
+  ])
+  assert_true(
+    (Ok(
+      ignore(
+        with_dec.select([(@expr.col("d") + @expr.col("cent")).with_alias("s")]),
+      ),
+    ) catch {
+      e => Err(e)
+    })
+    is Err(@types.DataError::TypeMismatch(_)),
+  )
+}
+
+///|
+test "cross-scale equality sees through the alignment; compare overflow refuses" {
+  // 1.5 (s1) == 1.50 (s2): the lift makes the magnitudes equal.
+  let pair = DataFrame::from_rows(
+    @types.Schema::Schema([
+      @types.Field::Field("a", @types.DataType::Decimal(1)),
+      @types.Field::Field("b", @types.DataType::Decimal(2)),
+    ]),
+    [[@types.Scalar::Decimal(1, 15L), @types.Scalar::Decimal(2, 150L)]],
+  )
+  let eq = pair.select([@expr.col("a").eq(@expr.col("b")).with_alias("e")])
+  assert_eq(eq.item(0, "e"), @types.Scalar::Bool(true))
+  // A magnitude at the top of the range, compared across a wider scale:
+  // the comparison's lift overflows and refuses.
+  let huge = DataFrame::from_rows(
+    @types.Schema::Schema([
+      @types.Field::Field("h", @types.DataType::Decimal(0)),
+      @types.Field::Field("t", @types.DataType::Decimal(1)),
+    ]),
+    [
+      [
+        @types.Scalar::Decimal(0, 9_000_000_000_000_000_000L),
+        @types.Scalar::Decimal(1, 1L),
+      ],
+    ],
+  )
+  assert_true(
+    (Ok(
+      ignore(huge.select([@expr.col("h").lt(@expr.col("t")).with_alias("c")])),
+    ) catch {
+      e => Err(e)
+    })
+    is Err(@types.DataError::InvalidOperation(_)),
+  )
+}
+
+///|
+test "decimal subtraction overflow refuses too" {
+  // 9e18 - (-9e18): the exact sum of magnitudes leaves the range.
+  let big = DataFrame::from_rows(
+    @types.Schema::Schema([
+      @types.Field::Field("p", @types.DataType::Decimal(0)),
+      @types.Field::Field("n", @types.DataType::Decimal(0)),
+    ]),
+    [
+      [
+        @types.Scalar::Decimal(0, 9_000_000_000_000_000_000L),
+        @types.Scalar::Decimal(0, -9_000_000_000_000_000_000L),
+      ],
+    ],
+  )
+  assert_true(
+    (Ok(ignore(big.select([(@expr.col("p") - @expr.col("n")).with_alias("s")]))) catch {
+      e => Err(e)
+    })
+    is Err(@types.DataError::InvalidOperation(_)),
+  )
 }

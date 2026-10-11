@@ -225,6 +225,33 @@ fn eval_compare(
         verb~,
       )
     }
+    // Two decimals of different scales compare exactly: both sides lift
+    // to the larger scale first (the same widening rescale the arithmetic
+    // aligns with), then the raw magnitudes order. This arm is compare's
+    // own — the generic `comparable_with` gate stays closed for the pair,
+    // because equality consumers (join keys, group cells) key on the raw
+    // magnitudes, where `1.0` at scale 1 and at scale 2 are different
+    // cells by design.
+    (@column.ColumnData::I64(a), @column.ColumnData::I64(b)) if decimal_cross_scale(
+        left.dtype(),
+        right.dtype(),
+      )
+      is Some(target) &&
+      left.dtype() is @types.DataType::Decimal(lsc) &&
+      right.dtype() is @types.DataType::Decimal(rsc) => {
+      let ra = rescale_all(a, lsc, target)
+      let rb = rescale_all(b, rsc, target)
+      compare_cells(
+        a.length(),
+        left_valid=lv,
+        right_valid=rv,
+        get_left=i => ra[i],
+        get_right=i => rb[i],
+        less_than=(x, y) => x < y,
+        equal=(x, y) => x == y,
+        verb~,
+      )
+    }
     (@column.ColumnData::I64(_), @column.ColumnData::I64(_))
     | (@column.ColumnData::I64(_), @column.ColumnData::F64(_))
     | (@column.ColumnData::F64(_), @column.ColumnData::I64(_))
@@ -233,4 +260,41 @@ fn eval_compare(
       raise binary_type_mismatch_error("compare", left, right)
   }
   Series::from_bool_options(left.name(), cells)
+}
+
+///|
+/// The alignment scale when both dtypes are decimals of different scales —
+/// `None` for any other pairing (same-scale decimals included: they
+/// compare through the generic same-dtype arm).
+fn decimal_cross_scale(l : @types.DataType, r : @types.DataType) -> Int? {
+  if l is @types.DataType::Decimal(ls) &&
+    r is @types.DataType::Decimal(rs) &&
+    ls != rs {
+    Some(if ls > rs { ls } else { rs })
+  } else {
+    None
+  }
+}
+
+///|
+/// Lift a whole buffer to `target` — the widening rescale per cell, with
+/// the first overflow refusing the comparison exactly as arithmetic does.
+fn rescale_all(
+  buf : ArrayView[Int64],
+  scale : Int,
+  target : Int,
+) -> Array[Int64] raise @types.DataError {
+  Array::makei(buf.length(), i => {
+    let mut r = buf[i]
+    for _ in scale..<target {
+      match @numeric.mul_checked(r, 10L) {
+        Some(shifted) => r = shifted
+        None =>
+          raise @types.DataError::InvalidOperation(
+            "decimal compare rescale overflows the 18-digit magnitude",
+          )
+      }
+    }
+    r
+  })
 }

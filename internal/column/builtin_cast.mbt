@@ -27,6 +27,9 @@ fn BuiltinColumn::cast(
   if self.dtype() is @types.DataType::Timestamp {
     raise @types.DataError::Unsupported("cast from Timestamp")
   }
+  if self.dtype() is @types.DataType::Decimal(_) {
+    raise @types.DataError::Unsupported("cast from Decimal")
+  }
   match target {
     Int => self.to_int()
     Float => self.to_float()
@@ -34,6 +37,7 @@ fn BuiltinColumn::cast(
     Bool => raise @types.DataError::Unsupported("cast to Bool")
     Date => raise @types.DataError::Unsupported("cast to Date")
     Timestamp => raise @types.DataError::Unsupported("cast to Timestamp")
+    Decimal(_) => raise @types.DataError::Unsupported("cast to Decimal")
     Null => raise @types.DataError::Unsupported("cast to Null")
   }
 }

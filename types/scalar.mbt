@@ -19,6 +19,7 @@ pub(all) enum Scalar {
   String(String)
   Date(Int64)
   Timestamp(Int64)
+  Decimal(Int, Int64)
   Null
 } derive(Eq, Debug)
 
@@ -41,6 +42,7 @@ pub fn Scalar::dtype(self : Scalar) -> DataType {
     String(_) => DataType::String
     Date(_) => DataType::Date
     Timestamp(_) => DataType::Timestamp
+    Decimal(scale, _) => DataType::Decimal(scale)
     Null => DataType::Null
   }
 }
@@ -63,6 +65,7 @@ pub fn Scalar::to_string(self : Scalar) -> String {
     String(v) => v
     Date(v) => date_days_to_iso(v)
     Timestamp(v) => timestamp_micros_to_iso(v)
+    Decimal(scale, v) => decimal_unscaled_to_string(scale, v)
     Null => ""
   }
 }
@@ -128,6 +131,8 @@ pub impl Show for Scalar with fn output(self, logger) {
     String(v) => logger <+ "String(\"\{@text.escape_debug(v)}\")"
     Date(v) => logger <+ "Date(\{date_days_to_iso(v)})"
     Timestamp(v) => logger <+ "Timestamp(\{timestamp_micros_to_iso(v)})"
+    Decimal(scale, v) =>
+      logger <+ "Decimal(\{scale}, \{decimal_unscaled_to_string(scale, v)})"
     Null => logger.write_string("Null")
   }
 }
@@ -215,6 +220,41 @@ fn timestamp_micros_to_iso(micros : Int64) -> String {
   let second = rem % 60_000_000L / 1_000_000L
   let frac = rem % 1_000_000L
   "\{date_days_to_iso(day)}T\{pad2(hour)}:\{pad2(minute)}:\{pad2(second)}.\{pad6(frac)}"
+}
+
+///|
+/// The plain decimal rendering of an unscaled magnitude under a scale — the
+/// one rendering a `Scalar::Decimal` has (value form, `Show` form, CSV /
+/// JSON cell form all share it): the integer part, a point, and the fraction
+/// zero-padded to exactly `scale` digits, so the rendering round-trips. A
+/// zero scale renders with no point (`Decimal(0)` is an integer spelling);
+/// a negative magnitude keeps one sign, its fraction digits from the
+/// magnitude (`-5` under scale 2 renders `-0.05`).
+fn decimal_unscaled_to_string(scale : Int, unscaled : Int64) -> String {
+  if scale == 0 {
+    return unscaled.to_string()
+  }
+  let neg = unscaled < 0
+  let mag = if neg { -unscaled } else { unscaled }
+  let pow = {
+    let mut p = 1L
+    for _ in 0..<scale {
+      p = p * 10L
+    }
+    p
+  }
+  let whole = mag / pow
+  let frac = mag % pow
+  fn pad(n : Int64, width : Int) -> String {
+    let mut t = n.to_string()
+    while t.length() < width {
+      t = "0" + t
+    }
+    t
+  }
+
+  let sign = if neg { "-" } else { "" }
+  "\{sign}\{whole}.\{pad(frac, scale)}"
 }
 
 ///|

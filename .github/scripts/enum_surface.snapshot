@@ -21,6 +21,7 @@ DataError | suberror | TypeMismatch(TypeMismatchDetail)
 DataError | suberror | Unsupported(String)
 DataType | enum | Bool
 DataType | enum | Date
+DataType | enum | Decimal(Int)
 DataType | enum | Float
 DataType | enum | Int
 DataType | enum | Null
@@ -60,6 +61,7 @@ RankMethod | enum | Min
 RankMethod | enum | Ordinal
 Scalar | enum | Bool(Bool)
 Scalar | enum | Date(Int64)
+Scalar | enum | Decimal(Int, Int64)
 Scalar | enum | Float(Double)
 Scalar | enum | Int(Int64)
 Scalar | enum | Null

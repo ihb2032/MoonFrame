@@ -82,7 +82,19 @@ fn reduce_arith(
     // column is I64-typed but is not a number, and summing day-counts is a
     // bug, not a reduction. Non-numeric columns raise at factory time, before
     // any window is folded.
-    @column.ColumnData::I64(a) if storage.dtype().is_numeric() =>
+    // The summable gate: `sum` also takes the exact I64 riders (a Decimal
+    // column of one scale adds exactly), while `mean` — an approximate,
+    // `Double`-valued statistic — keeps the numeric gate, so a summable but
+    // non-numeric dtype raises here at factory time exactly as a
+    // non-summable one does below.
+    @column.ColumnData::I64(a) if storage.dtype().is_summable() => {
+      if want_mean && !storage.dtype().is_numeric() {
+        raise @types.DataError::TypeMismatch(
+          @types.TypeMismatchDetail::Message(
+            "mean undefined for \{storage.dtype()}: the mean is approximate (a Double), so it stays fenced to numeric dtypes — sum is the exact form",
+          ),
+        )
+      }
       if want_mean {
         // The mean's output is `Double`, so the accumulator widens each cell
         // before adding (`fold_double_sum`) — the mean-safe form the shared
@@ -99,16 +111,27 @@ fn reduce_arith(
             @types.Scalar::Float(acc / cnt.to_double())
           }
         }
-      } else {
         // `sum` keeps the `Int` dtype, so it stays the exact `Int64` fold
         // (`fold_int64_sum`) — sums past 2^63 overflow, the documented price
         // of an integer sum.
+      } else if storage.dtype() is @types.DataType::Decimal(scale) {
+        // The decimal sum is the same exact `Int64` fold over the
+        // unscaled cells, re-wrapped at the column's scale — the one
+        // reduction that stays exact for a non-numeric rider.
+        fn(n : Int, at : (Int) -> Int) {
+          @types.Scalar::Decimal(
+            scale,
+            @numeric.fold_int64_sum(n, k => a[at(k)], k => present(at(k))),
+          )
+        }
+      } else {
         fn(n : Int, at : (Int) -> Int) {
           @types.Scalar::Int(
             @numeric.fold_int64_sum(n, k => a[at(k)], k => present(at(k))),
           )
         }
       }
+    }
     @column.ColumnData::F64(a) =>
       fn(n : Int, at : (Int) -> Int) {
         // `NaN` is a value, not missing: it participates and propagates to a

@@ -88,6 +88,7 @@ pub fn Series::coalesce_columns(
           // spellings.
           @types.Scalar::Date(v) => Some(v)
           @types.Scalar::Timestamp(v) => Some(v)
+          @types.Scalar::Decimal(_, v) => Some(v)
           @types.Scalar::Float(_)
           | @types.Scalar::Bool(_)
           | @types.Scalar::String(_)
@@ -106,6 +107,7 @@ pub fn Series::coalesce_columns(
           | @types.Scalar::String(_)
           | @types.Scalar::Date(_)
           | @types.Scalar::Timestamp(_)
+          | @types.Scalar::Decimal(_, _)
           | @types.Scalar::Null => None
         }
       }
@@ -121,6 +123,7 @@ pub fn Series::coalesce_columns(
           | @types.Scalar::String(_)
           | @types.Scalar::Date(_)
           | @types.Scalar::Timestamp(_)
+          | @types.Scalar::Decimal(_, _)
           | @types.Scalar::Null => None
         }
       }
@@ -136,6 +139,7 @@ pub fn Series::coalesce_columns(
           | @types.Scalar::Bool(_)
           | @types.Scalar::Date(_)
           | @types.Scalar::Timestamp(_)
+          | @types.Scalar::Decimal(_, _)
           | @types.Scalar::Null => None
         }
       }

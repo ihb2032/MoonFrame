@@ -34,6 +34,16 @@ pub(all) enum DataType {
   /// fraction always six digits so the rendering round-trips); readers never
   /// infer it.
   Timestamp
+  /// A fixed-point decimal, parameterised by its `scale` — the number of
+  /// decimal digits after the point. A cell carries its *unscaled* magnitude
+  /// as an `Int64` (the value is `unscaled × 10⁻ˢᶜᶜᵃˡᵉ`), so the usable
+  /// precision is `18 - scale` integer digits: `Decimal(2)` over `12345` is
+  /// `123.45`. An `I64` physical buffer with decimal semantics, like `Date` /
+  /// `Timestamp` riders. Comparison, ordering, grouping, `sum` / `min` /
+  /// `max` / `count` are exact over the unscaled cells **within one scale**;
+  /// arithmetic is fenced (a `TypeMismatch`) and so is everything crossing
+  /// two scales, pending the rescale rules; readers never infer it.
+  Decimal(Int)
   Null
 } derive(Eq, Debug)
 
@@ -52,6 +62,14 @@ pub extend DataType with Debug::{to_repr}
 /// is correctly *not* numeric.
 pub fn DataType::is_numeric(self : DataType) -> Bool {
   self.dtype_profile().numeric
+}
+
+///|
+/// Whether the exact reduction 00000     0 accepts the dtype — the registry row it
+/// reads states why this is wider than `is_numeric` for exactly one rider:
+/// unscaled decimal cells of a single scale add exactly.
+pub fn DataType::is_summable(self : DataType) -> Bool {
+  self.dtype_profile().summable
 }
 
 ///|

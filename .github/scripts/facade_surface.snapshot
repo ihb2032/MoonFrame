@@ -197,6 +197,7 @@ method DataFrame::with_columns(Self, Array[@expr.Expr]) -> Self raise @types.Dat
 method DataFrame::with_row_index(Self, name? : String, offset? : Int64) -> Self raise @types.DataError <- frame
 method DataType::equal(Self, Self) -> Bool <- types
 method DataType::is_numeric(Self) -> Bool <- types
+method DataType::is_summable(Self) -> Bool <- types
 method DataType::not_equal(Self, Self) -> Bool <- types
 method DataType::output(Self, &Logger) -> Unit <- types
 method DataType::to_repr(Self) -> @debug.Repr <- types

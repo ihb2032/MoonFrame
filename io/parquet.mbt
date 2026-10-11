@@ -1,8 +1,8 @@
 // The Parquet interchange: eager reads, eager writes, and the scan driver
 // the lazy `scan_parquet` rides. The wire format is `mizchi/parquet`'s
-// (reader vetted against the apache-parquet-testing fixtures); this file is
-// the type mapping both directions — a Parquet `ColumnType` to a
-// MoonFrame `DataType`, a column chunk to a `Series`, a frame back to
+// (reader vetted against the apache-parquet-testing fixtures); what sits
+// over it is the type mapping both directions — a Parquet `ColumnType` to
+// a MoonFrame `DataType`, a column chunk to a `Series`, a frame back to
 // column-major `Value` rows — plus the fences where the two vocabularies
 // disagree (a MoonFrame `Date` / `Decimal` column has no Parquet
 // `ColumnType` here yet, and the upstream writer takes only Int / String).

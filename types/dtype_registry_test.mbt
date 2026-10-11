@@ -13,6 +13,8 @@ test "physical: the concrete dtypes map to their buffers; Null has none" {
   // ...and Date rides the existing I64 buffer — the whole point of the
   // registry's identity/representation split.
   assert_true(DataType::Date.physical() is Some(PhysicalType::I64))
+  // ...and Timestamp rides it too, the second I64 rider.
+  assert_true(DataType::Timestamp.physical() is Some(PhysicalType::I64))
 }
 
 ///|
@@ -23,6 +25,7 @@ test "display names are the registered spellings" {
   assert_eq(DataType::Bool.to_string(), "Bool")
   assert_eq(DataType::String.to_string(), "String")
   assert_eq(DataType::Date.to_string(), "Date")
+  assert_eq(DataType::Timestamp.to_string(), "Timestamp")
   assert_eq(DataType::Null.to_string(), "Null")
 }
 
@@ -34,6 +37,8 @@ test "numericity: Int and Float only, however the buffers align" {
   assert_false(DataType::String.is_numeric())
   // Date is I64-typed but is not a number: summing day-counts is a bug.
   assert_false(DataType::Date.is_numeric())
+  // Timestamp is microseconds on I64 — not a number either.
+  assert_false(DataType::Timestamp.is_numeric())
   assert_false(DataType::Null.is_numeric())
 }
 
@@ -45,6 +50,10 @@ test "the I64 rider lift: Date lifts, every other dtype reads plain Int" {
   // caller's plain-Int path.
   assert_true(
     DataType::Date.i64_rider_scalar(11016L) is Some(Scalar::Date(11016L)),
+  )
+  assert_true(
+    DataType::Timestamp.i64_rider_scalar(1704067200000000L)
+    is Some(Scalar::Timestamp(1704067200000000L)),
   )
   assert_true(DataType::Int.i64_rider_scalar(1L) is None)
   assert_true(DataType::Float.i64_rider_scalar(1L) is None)

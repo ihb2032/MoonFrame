@@ -68,6 +68,7 @@ fn DataType::dtype_profile(self : DataType) -> DTypeProfile {
     Bool => { display: "Bool", physical: Some(Bool), numeric: false, }
     String => { display: "String", physical: Some(Utf8), numeric: false, }
     Date => { display: "Date", physical: Some(I64), numeric: false, }
+    Timestamp => { display: "Timestamp", physical: Some(I64), numeric: false, }
     Null => { display: "Null", physical: None, numeric: false, }
   }
 }
@@ -99,6 +100,7 @@ pub fn DataType::physical(self : DataType) -> PhysicalType? {
 pub fn DataType::i64_rider_scalar(self : DataType, v : Int64) -> Scalar? {
   match self {
     Date => Some(Scalar::Date(v))
+    Timestamp => Some(Scalar::Timestamp(v))
     Int => None
     Float => None
     Bool => None

@@ -25,6 +25,15 @@ pub(all) enum DataType {
   /// `TypeMismatch`, comparisons / ordering / grouping are date-wise. Readers
   /// never infer it (an ISO-shaped CSV column arrives as `String`).
   Date
+  /// A point in time, stored as microseconds since the Unix epoch
+  /// (`1970-01-01T00:00:00` = microsecond 0, negative for earlier instants) —
+  /// an `I64` physical buffer with timestamp semantics, the precision the
+  /// Parquet `TIMESTAMP(MICROS)` logical type carries. Not numeric, for the
+  /// same reason `Date` is not: arithmetic on raw microseconds is a bug.
+  /// Renders as ISO 8601 (`YYYY-MM-DDTHH:MM:SS.ffffff`, the microsecond
+  /// fraction always six digits so the rendering round-trips); readers never
+  /// infer it.
+  Timestamp
   Null
 } derive(Eq, Debug)
 

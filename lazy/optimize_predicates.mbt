@@ -132,15 +132,11 @@ fn LogicalPlan::place_filter(
 ) -> LogicalPlan {
   // The crossing gates, each local to the only walk that asks them:
   //
-  // `row_stable` over a stage's whole expression list — one scope-bound or
-  // value-raising expression fences the stage (`group_cell_stable` over an
-  // aggregation's list the same way: one unstable cell fences it, and an
-  // empty list is vacuously stable — a keys-only aggregation has no stitched
-  // columns to flip).
-  fn all_row_stable(exprs : Array[@expr.Expr]) -> Bool {
-    exprs.all(e => row_stable(e.node()))
-  }
-
+  // `group_cell_stable` over an aggregation's expression list: one unstable
+  // cell fences it, and an empty list is vacuously stable — a keys-only
+  // aggregation has no stitched columns to flip. (`all_row_stable` and
+  // `preserves_row_count` are package-level beside the slice pass, which
+  // consults the same two verdicts.)
   fn all_group_cells_stable(exprs : Array[@expr.Expr]) -> Bool {
     exprs.all(e => group_cell_stable(e.node()))
   }
@@ -163,25 +159,6 @@ fn LogicalPlan::place_filter(
       }
     }
     true
-  }
-
-  // Whether the selection's output height tracks its input's — i.e. it is
-  // *not* an all-constant projection. `select` collapses any input, even
-  // zero rows, to a single row when every expression is column-free, because
-  // each such column is length 1 and nothing fixes the height at the
-  // frame's. A filter may only sink past a selection that keeps rows
-  // one-for-one: pushing a *dropping* predicate below a collapsing selection
-  // would let it act on the pre-collapse rows, then re-materialise the one
-  // literal row the as-built collapse-then-filter had dropped. Reached only
-  // after `all_row_stable` has excluded aggregations and casts, so an
-  // expression is frame-tall exactly when it reads a column.
-  fn preserves_row_count(exprs : Array[@expr.Expr]) -> Bool {
-    for expr in exprs {
-      if !expr.referenced_columns().is_empty() {
-        return true
-      }
-    }
-    false
   }
 
   // Descend while the current stage is crossable, recording how to rebuild each

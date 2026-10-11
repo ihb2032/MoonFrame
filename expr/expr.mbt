@@ -75,6 +75,18 @@ pub fn Expr::node(self : Expr) -> @ir.ExprNode {
 }
 
 ///|
+/// Wrap an `ExprNode` back into the opaque handle — the inverse of `node`,
+/// for the engine's expression-*rewriting* passes: they disassemble a tree
+/// through `node`, rebuild some of it, and need this to reassemble. Total.
+/// The optimizer is the only rewriter; everything else constructs through
+/// the public builders.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
+pub fn Expr::of_node(node : @ir.ExprNode) -> Expr {
+  { node, }
+}
+
+///|
 /// The immediate sub-expressions of a node, left to right, as opaque `Expr`
 /// handles — the wrapper-level face of `ExprNode::children`, which is the
 /// single place that encodes the tree's recursive shape. A new variant declares

@@ -287,7 +287,10 @@ fn reshape_pivot(
       let probe = match agg {
         Some(Mean) | Some(Median) => @types.DataType::Float
         Some(Len) => @types.DataType::Int
-        _ => values_cols[v].dtype()
+        // The keepers: `First` / `Last` / `Sum` / `Min` / `Max` output the
+        // source column's own dtype, and so does no aggregation at all.
+        None | Some(First) | Some(Last) | Some(Sum) | Some(Min) | Some(Max) =>
+          values_cols[v].dtype()
       }
       let cells : Array[@types.Scalar] = []
       for g in 0..<groups {

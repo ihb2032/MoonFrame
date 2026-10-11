@@ -228,7 +228,10 @@ fn render_csv_scalar(
       } else {
         value
       }
-    _ => scalar.to_string()
+    @types.Scalar::Int(_)
+    | @types.Scalar::Float(_)
+    | @types.Scalar::Bool(_)
+    | @types.Scalar::Date(_) => scalar.to_string()
   }
 }
 

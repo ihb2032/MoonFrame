@@ -61,8 +61,9 @@ pub fn Series::mask_true_indices(self : Series) -> Array[Int]? {
 /// that wants it: the cells come out of `base`'s own buffer, and reading that
 /// buffer is this package's business. `fill` is read through the total
 /// `to_scalars`, so no unreachable error arm is introduced — the caller's
-/// equal-dtype precondition guarantees the matching `Scalar` variant, and the
-/// `_` arm catches only the both-null case.
+/// equal-dtype precondition guarantees the matching `Scalar` variant, and
+/// the off-type arms are exhaustive so a future dtype decides its fill
+/// spelling here at compile time.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
 pub fn Series::coalesce_columns(
@@ -85,7 +86,10 @@ pub fn Series::coalesce_columns(
           // A Date key rides the same I64 buffer, and its cells read back
           // as Date scalars — the fill accepts both spellings.
           @types.Scalar::Date(v) => Some(v)
-          _ => None
+          @types.Scalar::Float(_)
+          | @types.Scalar::Bool(_)
+          | @types.Scalar::String(_)
+          | @types.Scalar::Null => None
         }
       }
     },
@@ -95,7 +99,11 @@ pub fn Series::coalesce_columns(
       } else {
         match fills[i] {
           @types.Scalar::Float(v) => Some(v)
-          _ => None
+          @types.Scalar::Int(_)
+          | @types.Scalar::Bool(_)
+          | @types.Scalar::String(_)
+          | @types.Scalar::Date(_)
+          | @types.Scalar::Null => None
         }
       }
     },
@@ -105,7 +113,11 @@ pub fn Series::coalesce_columns(
       } else {
         match fills[i] {
           @types.Scalar::Bool(v) => Some(v)
-          _ => None
+          @types.Scalar::Int(_)
+          | @types.Scalar::Float(_)
+          | @types.Scalar::String(_)
+          | @types.Scalar::Date(_)
+          | @types.Scalar::Null => None
         }
       }
     },
@@ -115,7 +127,11 @@ pub fn Series::coalesce_columns(
       } else {
         match fills[i] {
           @types.Scalar::String(v) => Some(v)
-          _ => None
+          @types.Scalar::Int(_)
+          | @types.Scalar::Float(_)
+          | @types.Scalar::Bool(_)
+          | @types.Scalar::Date(_)
+          | @types.Scalar::Null => None
         }
       }
     },

@@ -71,7 +71,7 @@
 /// that hold.
 fn LogicalPlan::optimize(self : LogicalPlan) -> LogicalPlan {
   // A DAG-shaped plan — nested self-joins share node objects by reference —
-  // is left as-built: both passes rebuild tree-wise, so rewriting would
+  // is left as-built: the passes rebuild tree-wise, so rewriting would
   // materialise every shared subplan once per occurrence (2^depth new nodes
   // for nested self-joins, an OOM abort long before execution), and the
   // memoised executor already runs each shared subplan exactly once without
@@ -85,6 +85,18 @@ fn LogicalPlan::optimize(self : LogicalPlan) -> LogicalPlan {
   for rewrite in optimizer_passes {
     optimized = rewrite(optimized)
   }
+  // The local rewrite rules then iterate to a fixed point: each application
+  // strictly shrinks the plan (one merged stage, one folded subtree), so the
+  // loop terminates without a round cap.
+  let mut changed = true
+  while changed {
+    changed = false
+    for rule in optimizer_rules {
+      let (next, moved) = rule(optimized)
+      optimized = next
+      changed = changed || moved
+    }
+  }
   optimized
 }
 
@@ -92,11 +104,32 @@ fn LogicalPlan::optimize(self : LogicalPlan) -> LogicalPlan {
 /// The pass table, in run order — the single statement of what the optimizer
 /// does and in what sequence: each entry is one total plan→plan rewrite, run
 /// once, left to right. A new pass is a rewrite function (its own file, with
-/// its soundness rules documented beside it) plus one row here. The
-/// projection pass runs at the plan root, so its entry hands the root
-/// requirement `None`: only a by-name reader under the root re-establishes a
-/// requirement of its own.
+/// its soundness rules documented beside it) plus one row here. The slice
+/// pass runs first (the window it sinks is one more layout-preserving node
+/// by the time the later passes see it); the predicate pass next, keeping
+/// the projection analysis honest — a sunk filter's predicate columns stay
+/// alive at the scan, so the narrowing `Select` lands *under* the sunk
+/// filter; the projection pass then runs the required-columns analysis and
+/// narrows each scan — the in-memory `Scan` and the `Csv` / `Ndjson` file
+/// sources alike — to the columns its consumers provably read, so dead
+/// columns never ride through row-level work (and, for a file source, are
+/// never even parsed). The projection pass runs at the plan root, so its
+/// entry hands the root requirement `None`: only a by-name reader under the
+/// root re-establishes a requirement of its own.
 let optimizer_passes : Array[(LogicalPlan) -> LogicalPlan] = [
+  plan => plan.push_slices(),
   plan => plan.push_predicates(),
   plan => plan.push_projection(None),
+]
+
+///|
+/// The local rewrite rules — node- and expression-shaped rewrites the
+/// passes have placed (clustering adjacent `with_columns` stages, folding
+/// column-free subtrees to literals) — iterated to a fixed point after the
+/// passes, mirroring Polars' rule set under its stack optimizer. Each entry
+/// returns its plan and whether it moved anything; a new rule is a rewrite
+/// function plus one row here.
+let optimizer_rules : Array[(LogicalPlan) -> (LogicalPlan, Bool)] = [
+  plan => plan.cluster_with_columns(),
+  plan => plan.simplify_expressions(),
 ]

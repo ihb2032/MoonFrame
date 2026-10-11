@@ -409,6 +409,25 @@ fn eval_expr(
 }
 
 ///|
+/// Evaluate a column-free expression to its one cell — the fold engine the
+/// lazy optimizer's constant folding consults. A column-free tree evaluates
+/// to a length-1 result at any scope height (the all-constant projection
+/// rule), so this evaluates it once against an empty frame and hands back
+/// the cell; `None` means the evaluation raised, which is exactly the
+/// caller's keep-the-subtree signal — a fold that would raise is no fold.
+/// The evaluator is the one home of evaluation semantics, so the folded
+/// value and the collected value come from the same code path by
+/// construction. Total.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
+pub fn evaluate_column_free(expr : @expr.Expr) -> @types.Scalar? {
+  let empty = DataFrame::DataFrame([]) catch { _ => return None }
+  Some(eval_expr(expr, empty, []).to_scalars()[0]) catch {
+    _ => None
+  }
+}
+
+///|
 /// Pop the evaluator's value stack. `eval_expr`'s post-order walk pushes a
 /// value for every operand before its combiner runs, so the stack is never
 /// empty here; the top slot is read by that stack-invariant index — total, like

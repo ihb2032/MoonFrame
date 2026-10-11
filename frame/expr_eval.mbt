@@ -314,68 +314,10 @@ fn eval_expr(
           ApplyBinary(op) => {
             let rhs = pop_value(values)
             let lhs = pop_value(values)
-            let (left, right) = @kernel.broadcast_pair(lhs, rhs)
-            values.push(
-              match op {
-                @ir.BinOp::Add => @kernel.eval_add(left, right)
-                @ir.BinOp::Sub => @kernel.eval_sub(left, right)
-                @ir.BinOp::Mul => @kernel.eval_mul(left, right)
-                @ir.BinOp::Div => @kernel.eval_div(left, right)
-                @ir.BinOp::FloorDiv => @kernel.eval_floor_div(left, right)
-                @ir.BinOp::Mod => @kernel.eval_mod(left, right)
-                @ir.BinOp::Pow => @kernel.eval_pow(left, right)
-                @ir.BinOp::Eq =>
-                  @kernel.eval_compare(left, right, @kernel.CmpVerb::Eq)
-                @ir.BinOp::Ne =>
-                  @kernel.eval_compare(left, right, @kernel.CmpVerb::Ne)
-                @ir.BinOp::Lt =>
-                  @kernel.eval_compare(left, right, @kernel.CmpVerb::Lt)
-                @ir.BinOp::Le =>
-                  @kernel.eval_compare(left, right, @kernel.CmpVerb::Le)
-                @ir.BinOp::Gt =>
-                  @kernel.eval_compare(left, right, @kernel.CmpVerb::Gt)
-                @ir.BinOp::Ge =>
-                  @kernel.eval_compare(left, right, @kernel.CmpVerb::Ge)
-                @ir.BinOp::And =>
-                  @kernel.eval_logic(left, right, @kernel.LogicOp::And)
-                @ir.BinOp::Or =>
-                  @kernel.eval_logic(left, right, @kernel.LogicOp::Or)
-              },
-            )
+            values.push(@kernel.eval_binary(op, lhs, rhs))
           }
-          ApplyUnary(op) => {
-            let operand = pop_value(values)
-            values.push(
-              match op {
-                @ir.UnOp::Neg => @kernel.eval_neg(operand)
-                @ir.UnOp::Not => @kernel.eval_not(operand)
-                // The null probes are plain validity reads on the
-                // non-nullable `Builtin` backend: `IsNull` keeps the cells a
-                // null occupies, `IsNotNull` the rest.
-                @ir.UnOp::IsNull =>
-                  Series::from_bools(
-                    operand.name(),
-                    operand.validity_bools().map(v => !v),
-                  )
-                @ir.UnOp::IsNotNull =>
-                  Series::from_bools(operand.name(), operand.validity_bools())
-                @ir.UnOp::IsNan => @kernel.eval_is_nan(operand)
-                @ir.UnOp::IsNotNan => @kernel.eval_is_not_nan(operand)
-                @ir.UnOp::IsFinite => @kernel.eval_is_finite(operand)
-                @ir.UnOp::IsInfinite => @kernel.eval_is_infinite(operand)
-                @ir.UnOp::DtYear => @kernel.eval_dt_year(operand)
-                @ir.UnOp::DtMonth => @kernel.eval_dt_month(operand)
-                @ir.UnOp::DtDay => @kernel.eval_dt_day(operand)
-                @ir.UnOp::DtWeekday => @kernel.eval_dt_weekday(operand)
-                @ir.UnOp::Abs => @kernel.eval_abs(operand)
-                @ir.UnOp::Floor => @kernel.eval_floor(operand)
-                @ir.UnOp::Ceil => @kernel.eval_ceil(operand)
-                @ir.UnOp::Sign => @kernel.eval_sign(operand)
-                @ir.UnOp::Round(decimals) =>
-                  @kernel.eval_round(operand, decimals)
-              },
-            )
-          }
+          ApplyUnary(op) =>
+            values.push(@kernel.eval_unary(op, pop_value(values)))
           ApplyAgg(op) => {
             let operand = pop_value(values)
             // The aggregation kernel: reduce the operand over its scope to a
@@ -430,16 +372,17 @@ fn eval_expr(
             let operand = pop_value(values)
             // Synthesize the guard the old lowering spelled out —
             // `is_not_null(operand)` (resp. `is_not_nan`) — from the
-            // already-evaluated operand, then combine through the same
-            // ternary kernel, so dtype unification, Kleene null-condition
-            // handling (a null cell is neither NaN nor not-NaN, so
-            // `fill_nan` passes it through as null), naming, and backend
-            // convergence stay byte-for-byte identical.
-            let cond = match kind {
-              FillKind::Nulls =>
-                Series::from_bools(operand.name(), operand.validity_bools())
-              FillKind::Nans => @kernel.eval_is_not_nan(operand)
+            // already-evaluated operand through the same unary tag entry,
+            // then combine through the same ternary kernel, so dtype
+            // unification, Kleene null-condition handling (a null cell is
+            // neither NaN nor not-NaN, so `fill_nan` passes it through as
+            // null), naming, and backend convergence stay byte-for-byte
+            // identical.
+            let guard_op = match kind {
+              FillKind::Nulls => @ir.UnOp::IsNotNull
+              FillKind::Nans => @ir.UnOp::IsNotNan
             }
+            let cond = @kernel.eval_unary(guard_op, operand)
             values.push(@kernel.eval_ternary(cond, operand, value_v))
           }
           ApplyIsIn(members) => {

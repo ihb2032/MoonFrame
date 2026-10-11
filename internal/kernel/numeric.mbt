@@ -162,19 +162,19 @@ fn eval_arith(
 
 ///|
 /// `+` — the `eval_arith` instance behind `Expr` addition.
-pub fn eval_add(left : Series, right : Series) -> Series raise @types.DataError {
+fn eval_add(left : Series, right : Series) -> Series raise @types.DataError {
   eval_arith(left, right, "add", (a, b) => a + b, (a, b) => a + b)
 }
 
 ///|
 /// `-` — the `eval_arith` instance behind `Expr` subtraction.
-pub fn eval_sub(left : Series, right : Series) -> Series raise @types.DataError {
+fn eval_sub(left : Series, right : Series) -> Series raise @types.DataError {
   eval_arith(left, right, "subtract", (a, b) => a - b, (a, b) => a - b)
 }
 
 ///|
 /// `*` — the `eval_arith` instance behind `Expr` multiplication.
-pub fn eval_mul(left : Series, right : Series) -> Series raise @types.DataError {
+fn eval_mul(left : Series, right : Series) -> Series raise @types.DataError {
   eval_arith(left, right, "multiply", (a, b) => a * b, (a, b) => a * b)
 }
 
@@ -285,7 +285,7 @@ fn eval_binary_nullzero(
 /// divides in `Double` and division by zero follows IEEE 754 — `x/0 → ±inf`,
 /// `0/0 → NaN` — on every backend rather than trapping (`Int` division by zero
 /// is backend-divergent, so it is never emitted).
-pub fn eval_div(left : Series, right : Series) -> Series raise @types.DataError {
+fn eval_div(left : Series, right : Series) -> Series raise @types.DataError {
   eval_binary_float(left, right, "divide", (a, b) => a / b)
 }
 
@@ -296,7 +296,7 @@ pub fn eval_div(left : Series, right : Series) -> Series raise @types.DataError 
 /// remainder). `Int` modulo by zero produces a **null** cell (as for
 /// `floor_div`), so an all-valid `Int / Int` pair can still yield nulls;
 /// `Float` modulo by zero is `NaN`.
-pub fn eval_mod(left : Series, right : Series) -> Series raise @types.DataError {
+fn eval_mod(left : Series, right : Series) -> Series raise @types.DataError {
   eval_binary_nullzero(
     left,
     right,
@@ -319,7 +319,7 @@ pub fn eval_mod(left : Series, right : Series) -> Series raise @types.DataError 
 /// `Pow` — exponentiation, **always `Float`**, the kernel behind `Expr::pow`.
 /// Every numeric pair raises in `Double` (the `pow` primitive), total under
 /// IEEE 754.
-pub fn eval_pow(left : Series, right : Series) -> Series raise @types.DataError {
+fn eval_pow(left : Series, right : Series) -> Series raise @types.DataError {
   eval_binary_float(left, right, "exponentiate", (a, b) => @math.pow(a, b))
 }
 
@@ -358,7 +358,7 @@ fn floor_div_i64(a : Int64, b : Int64) -> Int64 {
 /// produces a **null** cell (no integer infinity, and a backend integer divide
 /// by zero traps), so even an all-valid `Int / Int` pair can yield nulls;
 /// `Float` division by zero follows IEEE 754 (`±inf` / `nan`) and stays a value.
-pub fn eval_floor_div(
+fn eval_floor_div(
   left : Series,
   right : Series,
 ) -> Series raise @types.DataError {
@@ -377,13 +377,13 @@ pub fn eval_floor_div(
 /// so `-NaN` is still NaN and `-0.0` is the negative zero. A null cell
 /// stays null; non-numeric operands raise. An all-valid result converges
 /// onto the `Numeric` backend, as for binary arithmetic.
-pub fn eval_neg(operand : Series) -> Series raise @types.DataError {
+fn eval_neg(operand : Series) -> Series raise @types.DataError {
   eval_unary_num(operand, "negate", a => -a, a => -a)
 }
 
 ///|
 /// `abs` — the `eval_unary_num` instance behind `Expr::abs`.
-pub fn eval_abs(operand : Series) -> Series raise @types.DataError {
+fn eval_abs(operand : Series) -> Series raise @types.DataError {
   eval_unary_num(operand, "take the absolute value of", a => a.abs(), a => {
     a.abs()
   })
@@ -391,19 +391,19 @@ pub fn eval_abs(operand : Series) -> Series raise @types.DataError {
 
 ///|
 /// `floor` — the `eval_unary_num` instance behind `Expr::floor`.
-pub fn eval_floor(operand : Series) -> Series raise @types.DataError {
+fn eval_floor(operand : Series) -> Series raise @types.DataError {
   eval_unary_num(operand, "take the floor of", a => a, a => a.floor())
 }
 
 ///|
 /// `ceil` — the `eval_unary_num` instance behind `Expr::ceil`.
-pub fn eval_ceil(operand : Series) -> Series raise @types.DataError {
+fn eval_ceil(operand : Series) -> Series raise @types.DataError {
   eval_unary_num(operand, "take the ceiling of", a => a, a => a.ceil())
 }
 
 ///|
 /// `sign` — the `eval_unary_num` instance behind `Expr::sign`.
-pub fn eval_sign(operand : Series) -> Series raise @types.DataError {
+fn eval_sign(operand : Series) -> Series raise @types.DataError {
   eval_unary_num(operand, "take the sign of", sign_i64, sign_f64)
 }
 
@@ -411,7 +411,7 @@ pub fn eval_sign(operand : Series) -> Series raise @types.DataError {
 /// `round` — the `eval_unary_num` instance behind `Expr::round`, rounding
 /// each `Float` cell to `decimals` places (`round_places`); `Int` cells pass
 /// through.
-pub fn eval_round(
+fn eval_round(
   operand : Series,
   decimals : Int,
 ) -> Series raise @types.DataError {
@@ -585,7 +585,7 @@ fn round_half_even(a : Double) -> Double {
 /// unlike `is_null`. A present `Float` cell is tested by IEEE `is_nan`; a
 /// present `Int` cell is never `NaN` (so the constant `false`); a non-numeric
 /// operand raises `TypeMismatch`. Lands on the nullable `Builtin` backend.
-pub fn eval_is_nan(operand : Series) -> Series raise @types.DataError {
+fn eval_is_nan(operand : Series) -> Series raise @types.DataError {
   nan_probe(operand, true)
 }
 
@@ -594,7 +594,7 @@ pub fn eval_is_nan(operand : Series) -> Series raise @types.DataError {
 /// `eval_is_nan` cell by cell, so a null cell stays null rather than counting
 /// as "not NaN". A present `Int` cell is always not-NaN; a non-numeric operand
 /// raises `TypeMismatch`. Lands on the nullable `Builtin` backend.
-pub fn eval_is_not_nan(operand : Series) -> Series raise @types.DataError {
+fn eval_is_not_nan(operand : Series) -> Series raise @types.DataError {
   nan_probe(operand, false)
 }
 
@@ -655,7 +655,7 @@ fn nan_probe(
 /// is; null cells stay null; a non-numeric operand `raise`s
 /// `TypeMismatch`. Lands on the nullable `Builtin` backend (the
 /// `eval_is_nan` shape).
-pub fn eval_is_finite(operand : Series) -> Series raise @types.DataError {
+fn eval_is_finite(operand : Series) -> Series raise @types.DataError {
   finite_probe(operand, true)
 }
 
@@ -664,7 +664,7 @@ pub fn eval_is_finite(operand : Series) -> Series raise @types.DataError {
 /// polarity flipped on the infinity test alone (`NaN` is a value, neither
 /// infinite nor not-infinite-by-sign: it lands `false` here and `false`
 /// there, null stays null).
-pub fn eval_is_infinite(operand : Series) -> Series raise @types.DataError {
+fn eval_is_infinite(operand : Series) -> Series raise @types.DataError {
   finite_probe(operand, false)
 }
 

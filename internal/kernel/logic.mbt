@@ -10,7 +10,7 @@
 /// and the cell combiner at the call site left the two halves free to drift
 /// (`"and"` with `kleene_or` compiled fine), so the connective is one value
 /// here and `eval_logic` derives both halves from it.
-pub(all) enum LogicOp {
+priv enum LogicOp {
   And
   Or
 }
@@ -22,7 +22,7 @@ pub(all) enum LogicOp {
 /// message names — both derived from the one `LogicOp` value. Non-`Bool`
 /// operands raise. The output is nullable by nature and lands on the
 /// `Builtin` backend.
-pub fn eval_logic(
+fn eval_logic(
   left : Series,
   right : Series,
   op : LogicOp,
@@ -101,7 +101,7 @@ fn kleene_or(a : Bool?, b : Bool?) -> Bool? {
 ///|
 /// Kleene logical negation kernel: `not(true) = false`, `not(false) =
 /// true`, `not(null) = null`. Non-`Bool` operands raise.
-pub fn eval_not(operand : Series) -> Series raise @types.DataError {
+fn eval_not(operand : Series) -> Series raise @types.DataError {
   let valid = operand.validity_bools()
   match operand.storage().data() {
     @column.ColumnData::Bool(a) =>

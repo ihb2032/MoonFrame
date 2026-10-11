@@ -96,8 +96,8 @@ pub fn singleton_series(value : @types.Scalar) -> Series raise @types.DataError 
 /// the value. Two `lit_series` of differing length reach the mismatch arm and
 /// raise `LengthMismatch` (keeping the helper total). Covered by
 /// the frame layer's literal-series tests (public path) and its evaluator
-/// whitebox tests (directly).
-pub fn broadcast_pair(
+/// whitebox tests (through the binary tag entry).
+fn broadcast_pair(
   left : Series,
   right : Series,
 ) -> (Series, Series) raise @types.DataError {

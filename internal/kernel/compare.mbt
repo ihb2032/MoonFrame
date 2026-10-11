@@ -10,9 +10,9 @@
 /// Which comparison a `Binary` comparison tag asked for, carried into the
 /// shared cell loop. A re-tag of the six `BinOp` comparison constructors
 /// so `compare_cells` can match exhaustively without dead arms for the
-/// non-comparison tags (`Add` / `And` / … never reach it); `frame`'s evaluator
-/// picks the verb when it dispatches a comparison node.
-pub(all) enum CmpVerb {
+/// non-comparison tags (`Add` / `And` / … never reach it); the binary tag
+/// dispatch picks the verb when it routes a comparison member.
+priv enum CmpVerb {
   Eq
   Ne
   Lt
@@ -112,7 +112,7 @@ fn[T] compare_cells(
 /// built-in `String` order is shortlex), `Bool` orders `false < true`,
 /// and any other pairing — including `Bool` / `String` against numbers —
 /// raises `TypeMismatch`. Null and NaN behavior live in `compare_cells`.
-pub fn eval_compare(
+fn eval_compare(
   left : Series,
   right : Series,
   verb : CmpVerb,

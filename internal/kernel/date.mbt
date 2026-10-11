@@ -53,7 +53,7 @@ fn check_calendar_domain(days : Int64) -> Int64 raise @types.DataError {
 
 ///|
 /// The calendar year of each `Date` cell (Polars' `dt.year`).
-pub fn eval_dt_year(operand : Series) -> Series raise @types.DataError {
+fn eval_dt_year(operand : Series) -> Series raise @types.DataError {
   eval_dt_component(operand, days => {
     let (year, _, _) = @types.date_days_to_civil(check_calendar_domain(days))
     year
@@ -62,7 +62,7 @@ pub fn eval_dt_year(operand : Series) -> Series raise @types.DataError {
 
 ///|
 /// The calendar month, `1`–`12` (Polars' `dt.month`).
-pub fn eval_dt_month(operand : Series) -> Series raise @types.DataError {
+fn eval_dt_month(operand : Series) -> Series raise @types.DataError {
   eval_dt_component(operand, days => {
     let (_, month, _) = @types.date_days_to_civil(check_calendar_domain(days))
     month
@@ -71,7 +71,7 @@ pub fn eval_dt_month(operand : Series) -> Series raise @types.DataError {
 
 ///|
 /// The day of the month, `1`–`31` (Polars' `dt.day`).
-pub fn eval_dt_day(operand : Series) -> Series raise @types.DataError {
+fn eval_dt_day(operand : Series) -> Series raise @types.DataError {
   eval_dt_component(operand, days => {
     let (_, _, day) = @types.date_days_to_civil(check_calendar_domain(days))
     day
@@ -82,6 +82,6 @@ pub fn eval_dt_day(operand : Series) -> Series raise @types.DataError {
 /// The ISO weekday — Monday `1` through Sunday `7` (Polars' `dt.weekday`).
 /// The epoch itself is a Thursday (`4`), and the modular arithmetic floors,
 /// so dates before 1970 land on the right day too.
-pub fn eval_dt_weekday(operand : Series) -> Series raise @types.DataError {
+fn eval_dt_weekday(operand : Series) -> Series raise @types.DataError {
   eval_dt_component(operand, days => (days % 7L + 10L) % 7L + 1L)
 }

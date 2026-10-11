@@ -117,7 +117,10 @@ fn map_mixes_int_and_float(cells : Array[@types.Scalar]) -> Bool {
     match c {
       @types.Scalar::Int(_) => has_int = true
       @types.Scalar::Float(_) => has_float = true
-      _ => ()
+      @types.Scalar::Bool(_)
+      | @types.Scalar::String(_)
+      | @types.Scalar::Date(_)
+      | @types.Scalar::Null => ()
     }
   }
   has_int && has_float
@@ -140,7 +143,11 @@ pub fn promote_mixed_int_float(
   cells.map(c => {
     match c {
       @types.Scalar::Int(v) => @types.Scalar::Float(v.to_double())
-      _ => c
+      @types.Scalar::Float(_)
+      | @types.Scalar::Bool(_)
+      | @types.Scalar::String(_)
+      | @types.Scalar::Date(_)
+      | @types.Scalar::Null => c
     }
   })
 }

@@ -1,0 +1,20 @@
+# The registered wildcard arms over dtype-carrying enums, one line per
+# enclosing function: `path function-name reason`. A wildcard not listed here
+# fails check_dtype_wildcards.py — register it with its reason, or make the
+# match exhaustive. Adding a dtype makes this file the review list: every line
+# below is a place a new variant falls into silently, and its reason says why
+# that was safe for the variants that existed when it was written. Re-read the
+# reason, not just the line, when the variant set grows.
+frame/pivot.mbt widen_unpivot_cell documented invariant — the unify raised unless the cells pass through unchanged
+internal/column/builtin.mbt BuiltinColumn::from_scalars off-type cell projects to null; the outer DataType match is the compile-forced gate
+internal/kernel/date.mbt eval_dt_component the dtype gate above leaves only Date and Null cells; the wildcard is the null
+internal/kernel/predicate.mbt try_fast_is_in fast path declines to the general Scalar-comparing path for buffers it does not accelerate
+internal/kernel/predicate.mbt hash_set_is_in non-Null members go through key_of, which declines the fast path for an off-type member
+internal/kernel/rolling.mbt eval_rolling closure-parameter underscores (fold comparators), not match arms — the scanner is deliberately lexical
+series/null.mbt Series::fill_null the inner gate raises TypeMismatch (loud); the outer Scalar match is exhaustive
+series/row_gather.mbt Series::gather_series fast path declines to rebuild_by_row for buffers it does not accelerate
+series/series_stats.mbt Series::mean the reducer's result contract is Float|Null; the wildcard arm is the raise
+series/series_stats.mbt Series::std the reducer's result contract is Float|Null; the wildcard arm is the raise
+series/series_stats.mbt Series::variance the reducer's result contract is Float|Null; the wildcard arm is the raise
+series/series_stats.mbt Series::median the reducer's result contract is Float|Null; the wildcard arm is the raise
+series/series_stats.mbt Series::quantile the reducer's result contract is Float|Null; the wildcard arm is the raise

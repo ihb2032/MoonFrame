@@ -324,6 +324,34 @@ then assert the built value did not move. The same rule covers the reading side:
 **no public field may hold an `Array` / `Map`**, since reading one hands over the
 container itself (the facade-surface guard enforces that half).
 
+## Dtype wildcard guard
+
+```sh
+python -B .github/scripts/check_dtype_wildcards.py
+```
+
+Adding a variant to a dtype-carrying enum (`Scalar` / `DataType` / `ColumnData`
+/ their kin) fails every exhaustive match at compile time — that half needs no
+guard. The **wildcard arms** are the half nothing forces anyone to re-read: a
+new variant falls in silently, and the wildcard's verdict for the old variants
+becomes an unreviewed default for the new one. The guard is a lexical scan over
+the brace-balanced match blocks in production sources (tests excluded — a
+wildcard there fails loud at assert time), attributing every `_` / `..` arm
+inside a block that names a dtype enum to its enclosing function. Every hit
+must be registered in `.github/scripts/dtype_wildcards.allowlist` as
+`path function-name reason`; an unregistered wildcard fails, and so does a
+stale entry, so the list cannot rot. The allowlist is the fixed inventory of
+the silent swallow-points — when the variant set grows, it is the review list,
+and each line's reason is the claim to re-check, not just the line. The
+registered reasons fall into recognisable families: a fast path declining to a
+general path that handles any variant, an inner gate that raises (loud), a
+result-shape contract (`Float|Null`) whose wildcard is the raise arm, and a
+few documented invariants. A wildcard that is none of these is a prompt to
+make the match exhaustive, not to write a new reason. Being lexical, it also
+flags closure-parameter underscores inside a match block's span (`fold(_, _ =>
+false)`); those are registered with that stated reason, the same
+conservative-by-design trade the array-boundary guard makes.
+
 ## Completion Requirements
 
 - Keep test coverage at 100%. Before finishing a change, run

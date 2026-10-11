@@ -145,6 +145,15 @@ jobs:
           python -B .github/scripts/check_array_copy_boundaries_test.py
           python -B .github/scripts/check_array_copy_boundaries.py
 
+      # The wildcard half of dtype dispatch — see AGENTS.md for what the
+      # allowlist is and why it is a guard rather than a convention. Python
+      # like the Array-boundary guard: the brace-balanced block scan is the
+      # substance, and it needs git-tracked sources, which it reads through
+      # `git ls-files`.
+      - name: Guard dtype wildcard arms
+        if: runner.os == 'Linux'
+        run: python -B .github/scripts/check_dtype_wildcards.py
+
       # Documentation guards. Everything else in this workflow protects
       # executable content — sources, interfaces, tests, snapshots — which is
       # why prose is where this repository's drift collects instead. These check

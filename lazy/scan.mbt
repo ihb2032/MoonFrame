@@ -86,3 +86,15 @@ pub fn scan_ndjson(
 ) -> LazyFrame {
   { plan: fresh_file_scan(@io.ndjson_scan_driver(path, options)), }
 }
+
+///|
+/// The lazy Parquet source: `scan_parquet(path)` builds a `LazyFrame`
+/// whose leaf is a deferred read of `path` — the push-down-aware
+/// counterpart of eager `read_parquet`. The projection narrows the columns
+/// built (Parquet's columnar layout serves that natively); an absorbed
+/// predicate is applied to the assembled frame, byte-identical to the
+/// eager `read_parquet(path).filter(..)`. Like every scan source, the
+/// builder is total — building it reads nothing.
+pub fn scan_parquet(path : String) -> LazyFrame {
+  { plan: fresh_file_scan(@io.parquet_scan_driver(path)), }
+}

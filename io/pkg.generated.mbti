@@ -14,11 +14,15 @@ pub fn format_json(@frame.DataFrame) -> String
 
 pub fn format_ndjson(@frame.DataFrame) -> String
 
+pub fn format_parquet(@frame.DataFrame) -> Bytes raise @types.DataError
+
 pub fn parse_csv_str(String, options? : CsvReadOptions, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
 
 pub fn parse_json_str(String, options? : JsonReadOptions) -> @frame.DataFrame raise @types.DataError
 
 pub fn parse_ndjson_str(String, options? : JsonReadOptions, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
+
+pub fn parse_parquet(Bytes) -> @frame.DataFrame raise @types.DataError
 
 pub fn read_csv(String, options? : CsvReadOptions) -> @frame.DataFrame raise @types.DataError
 
@@ -26,11 +30,15 @@ pub fn read_json(String, options? : JsonReadOptions) -> @frame.DataFrame raise @
 
 pub fn read_ndjson(String, options? : JsonReadOptions) -> @frame.DataFrame raise @types.DataError
 
+pub fn read_parquet(String) -> @frame.DataFrame raise @types.DataError
+
 pub fn write_csv(String, @frame.DataFrame, options? : CsvWriteOptions) -> Unit raise @types.DataError
 
 pub fn write_json(String, @frame.DataFrame) -> Unit raise @types.DataError
 
 pub fn write_ndjson(String, @frame.DataFrame) -> Unit raise @types.DataError
+
+pub fn write_parquet(@frame.DataFrame, String) -> Unit raise @types.DataError
 
 // Errors
 

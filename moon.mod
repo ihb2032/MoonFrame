@@ -10,6 +10,7 @@ import {
   "moonbitlang/x@0.5.5",
   "moonbit-community/NyaCSV@0.3.3",
   "moonbitlang/quickcheck@0.14.0",
+  "mizchi/parquet@0.2.2",
 }
 
 readme = "README.mbt.md"

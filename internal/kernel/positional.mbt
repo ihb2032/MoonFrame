@@ -245,7 +245,7 @@ pub fn eval_positional(
       // `nulls_last` — `false` mirroring the sort kernel's nulls-first
       // default.
       let sorted = sorted_positions(operand, descending)
-      let nulls : Array[Int] = []
+      let nulls : Array[Int32] = []
       for i in 0..<n {
         if !valid[i] {
           nulls.push(i)
@@ -341,7 +341,7 @@ pub fn eval_positional(
 /// Visit the `n` positions in running order — ascending, or from the end
 /// under `reverse` — applying `step` at each. The `cum_*` kernels' one
 /// shared traversal.
-fn visit(n : Int, reverse : Bool, step : (Int) -> Unit) -> Unit {
+fn visit(n : Int32, reverse : Bool, step : (Int32) -> Unit) -> Unit {
   if reverse {
     for i = n - 1; i >= 0; i = i - 1 {
       step(i)
@@ -359,9 +359,9 @@ fn visit(n : Int, reverse : Bool, step : (Int) -> Unit) -> Unit {
 /// every value — `Bool` `false < true`, `String` lexicographic),
 /// `descending` flipping it, ties broken by input index so equals keep
 /// input order and the permutation is deterministic.
-fn sorted_positions(operand : Series, descending : Bool) -> Array[Int] {
+fn sorted_positions(operand : Series, descending : Bool) -> Array[Int32] {
   let valid = operand.validity_bools()
-  let positions : Array[Int] = []
+  let positions : Array[Int32] = []
   for i in 0..<operand.len() {
     if valid[i] {
       positions.push(i)
@@ -385,7 +385,7 @@ fn sorted_positions(operand : Series, descending : Bool) -> Array[Int] {
 /// `-1 / 0 / 1` over the values at two positions, under the operand's
 /// backend order, `descending` flipping the sign. Total — every backend
 /// carries an order.
-fn value_comparator(operand : Series) -> (Int, Int) -> Int {
+fn value_comparator(operand : Series) -> (Int32, Int32) -> Int32 {
   match operand.storage().data() {
     @column.ColumnData::I64(a) =>
       (i, j) => if a[i] < a[j] { -1 } else if a[i] > a[j] { 1 } else { 0 }
@@ -401,7 +401,7 @@ fn value_comparator(operand : Series) -> (Int, Int) -> Int {
 ///|
 /// Whether the values at two positions are equal under the backend order —
 /// the tie test `rank`'s group walk runs.
-fn value_equality(operand : Series) -> (Int, Int) -> Bool {
+fn value_equality(operand : Series) -> (Int32, Int32) -> Bool {
   let cmp = value_comparator(operand)
   (i, j) => cmp(i, j) == 0
 }

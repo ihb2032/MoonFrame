@@ -133,7 +133,7 @@ pub fn DataFrame::median(self : DataFrame) -> DataFrame raise @types.DataError {
 pub fn DataFrame::quantile(
   self : DataFrame,
   q : Double,
-  interpolation? : @series.QuantileInterpolation = @series.QuantileInterpolation::Nearest,
+  interpolation~ : @series.QuantileInterpolation = @series.QuantileInterpolation::Nearest,
 ) -> DataFrame raise @types.DataError {
   // The `q` check is a parameter check, not a data one: it runs before the
   // per-column walk, so a frame no column of which reduces (all-string,

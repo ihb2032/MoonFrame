@@ -74,7 +74,7 @@ pub fn Expr::str_len_bytes(self : Expr) -> Expr {
 /// splits into single characters (index 0 of `"abc"` is `"a"`) — a deliberate
 /// spelling of the underlying split, where Polars' would offer a leading empty
 /// field.
-pub fn Expr::str_split_get(self : Expr, sep : String, index : Int) -> Expr {
+pub fn Expr::str_split_get(self : Expr, sep : String, index : Int32) -> Expr {
   Expr::of(@ir.ExprNode::Str(@ir.StrOp::SplitGet(sep, index), self.node))
 }
 
@@ -90,7 +90,7 @@ pub fn Expr::str_split_get(self : Expr, sep : String, index : Int) -> Expr {
 pub fn Expr::str_contains(
   self : Expr,
   pattern : String,
-  literal? : Bool = true,
+  literal~ : Bool = true,
 ) -> Expr {
   if literal {
     Expr::of(@ir.ExprNode::Str(@ir.StrOp::Contains(pattern), self.node))
@@ -124,7 +124,7 @@ pub fn Expr::str_replace(
   self : Expr,
   pattern : String,
   value : String,
-  literal? : Bool = true,
+  literal~ : Bool = true,
 ) -> Expr {
   if literal {
     Expr::of(@ir.ExprNode::Str(@ir.StrOp::Replace(pattern, value), self.node))
@@ -143,7 +143,7 @@ pub fn Expr::str_replace_all(
   self : Expr,
   pattern : String,
   value : String,
-  literal? : Bool = true,
+  literal~ : Bool = true,
 ) -> Expr {
   if literal {
     Expr::of(
@@ -171,8 +171,8 @@ pub fn Expr::str_reverse(self : Expr) -> Expr {
 /// The width counts characters, consistent with `str_len_chars`.
 pub fn Expr::str_pad_start(
   self : Expr,
-  width : Int,
-  fill? : Char = ' ',
+  width : Int32,
+  fill~ : Char = ' ',
 ) -> Expr {
   Expr::of(@ir.ExprNode::Str(@ir.StrOp::PadStart(width, fill), self.node))
 }
@@ -180,7 +180,11 @@ pub fn Expr::str_pad_start(
 ///|
 /// Right-pad each cell of a String column with `fill` until it is `width`
 /// **characters** long — Polars' `str.pad_end`, the mirror of `str_pad_start`.
-pub fn Expr::str_pad_end(self : Expr, width : Int, fill? : Char = ' ') -> Expr {
+pub fn Expr::str_pad_end(
+  self : Expr,
+  width : Int32,
+  fill~ : Char = ' ',
+) -> Expr {
   Expr::of(@ir.ExprNode::Str(@ir.StrOp::PadEnd(width, fill), self.node))
 }
 
@@ -192,7 +196,7 @@ pub fn Expr::str_pad_end(self : Expr, width : Int, fill? : Char = ' ') -> Expr {
 /// already at least `width` characters is unchanged (never truncated); null
 /// cells stay null. The width counts characters, consistent with
 /// `str_len_chars`.
-pub fn Expr::str_zfill(self : Expr, width : Int) -> Expr {
+pub fn Expr::str_zfill(self : Expr, width : Int32) -> Expr {
   Expr::of(@ir.ExprNode::Str(@ir.StrOp::ZFill(width), self.node))
 }
 
@@ -207,7 +211,7 @@ pub fn Expr::str_zfill(self : Expr, width : Int) -> Expr {
 pub fn Expr::str_extract(
   self : Expr,
   pattern : String,
-  group? : Int = 0,
+  group~ : Int32 = 0,
 ) -> Expr {
   Expr::of(@ir.ExprNode::Str(@ir.StrOp::Extract(pattern, group), self.node))
 }
@@ -233,6 +237,6 @@ pub fn Expr::str_count_matches(self : Expr, pattern : String) -> Expr {
 /// value. Character-based (surrogate pairs are never split), consistent with
 /// `str_len_chars`; a null cell stays null and a non-String operand raises
 /// `TypeMismatch`.
-pub fn Expr::str_slice(self : Expr, offset : Int, length? : Int) -> Expr {
+pub fn Expr::str_slice(self : Expr, offset : Int32, length? : Int32) -> Expr {
   Expr::of(@ir.ExprNode::Str(@ir.StrOp::Slice(offset, length), self.node))
 }

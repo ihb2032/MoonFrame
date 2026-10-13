@@ -96,7 +96,7 @@ fn NumericColumn::dtype(self : NumericColumn) -> @types.DataType {
 
 ///|
 /// Number of cells.
-fn NumericColumn::len(self : NumericColumn) -> Int {
+fn NumericColumn::len(self : NumericColumn) -> Int32 {
   match self.data {
     Int(a) => a.length()
     Float(a) => a.length()
@@ -112,7 +112,7 @@ fn NumericColumn::is_empty(self : NumericColumn) -> Bool {
 ///|
 /// Always `0`: an all-valid column has no nulls by construction. Total — no
 /// bitmap to popcount, the answer is structural.
-fn NumericColumn::null_count(_self : NumericColumn) -> Int {
+fn NumericColumn::null_count(_self : NumericColumn) -> Int32 {
   0
 }
 
@@ -148,7 +148,7 @@ fn NumericColumn::data(self : NumericColumn) -> ColumnData {
 /// through `ColumnStorage`.
 fn NumericColumn::is_null(
   self : NumericColumn,
-  index : Int,
+  index : Int32,
 ) -> Bool raise @types.DataError {
   if index < 0 || index >= self.len() {
     raise @types.DataError::IndexOutOfBounds(index)
@@ -163,7 +163,7 @@ fn NumericColumn::is_null(
 /// must perform.
 fn NumericColumn::get(
   self : NumericColumn,
-  index : Int,
+  index : Int32,
 ) -> @types.Scalar raise @types.DataError {
   if index < 0 || index >= self.len() {
     raise @types.DataError::IndexOutOfBounds(index)
@@ -182,7 +182,7 @@ fn NumericColumn::get(
 /// `BuiltinColumn::take`. Stays a `NumericColumn` (no bitmap to gather).
 fn NumericColumn::take(
   self : NumericColumn,
-  indices : Array[Int],
+  indices : Array[Int32],
 ) -> NumericColumn raise @types.DataError {
   validate_gather_indices(indices, self.len())
   match self.data {

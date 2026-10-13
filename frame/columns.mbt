@@ -123,7 +123,7 @@ pub fn DataFrame::rename(
   // `new_name` and retires `old_name` — so the two stay equivalent (frame
   // names are unique, so each name maps to a single slot).
   let fields : Array[@types.Field] = self.schema().fields()
-  let index : Map[String, Int] = Map([])
+  let index : Map[String, Int32] = Map([])
   for i in 0..<fields.length() {
     index[fields[i].name()] = i
   }

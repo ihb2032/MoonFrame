@@ -298,7 +298,7 @@ pub fn Expr::sign(self : Expr) -> Expr {
 /// resolution: `round(decimals=20)` returns `123456.789` unchanged rather than
 /// perturbing it by an ulp. (The other rounding modes remain a deferred
 /// additive refinement; this is the ties-to-even form.)
-pub fn Expr::round(self : Expr, decimals? : Int = 0) -> Expr {
+pub fn Expr::round(self : Expr, decimals~ : Int32 = 0) -> Expr {
   Expr::of(
     @ir.ExprNode::Unary(
       @ir.UnOp::Round(if decimals < 0 { 0 } else { decimals }),
@@ -375,7 +375,7 @@ pub fn Expr::is_between(
   self : Expr,
   lo : Expr,
   hi : Expr,
-  closed? : @types.ClosedInterval = Both,
+  closed~ : @types.ClosedInterval = Both,
 ) -> Expr {
   Expr::of(@ir.ExprNode::IsBetween(self.node, lo.node, hi.node, closed))
 }
@@ -478,8 +478,8 @@ pub fn Expr::fill_null(self : Expr, value : Expr) -> Expr {
 /// a mistyped fill surfaces as `TypeMismatch` at evaluation.
 pub fn Expr::shift(
   self : Expr,
-  n : Int,
-  fill_value? : @types.Scalar = @types.Scalar::Null,
+  n : Int32,
+  fill_value~ : @types.Scalar = @types.Scalar::Null,
 ) -> Expr {
   Expr::of(
     @ir.ExprNode::Positional(@ir.PositionalOp::Shift(n, fill_value), self.node),
@@ -495,7 +495,7 @@ pub fn Expr::shift(
 /// composition, so it renders and evaluates as it is; Polars' `drop`
 /// behaviour (removing the nulled rows, changing the length) has no
 /// length-changing spelling here.
-pub fn Expr::diff(self : Expr, n? : Int = 1) -> Expr {
+pub fn Expr::diff(self : Expr, n~ : Int32 = 1) -> Expr {
   self.sub(self.shift(n))
 }
 
@@ -503,7 +503,7 @@ pub fn Expr::diff(self : Expr, n? : Int = 1) -> Expr {
 /// Running sum of the operand's non-null cells (Polars' `cum_sum`): a null
 /// slot keeps its null while the running total skips it, a `NaN` enters the
 /// total and stays. Numeric only. `reverse~` accumulates from the end.
-pub fn Expr::cum_sum(self : Expr, reverse? : Bool = false) -> Expr {
+pub fn Expr::cum_sum(self : Expr, reverse~ : Bool = false) -> Expr {
   Expr::of(
     @ir.ExprNode::Positional(@ir.PositionalOp::CumSum(reverse), self.node),
   )
@@ -513,7 +513,7 @@ pub fn Expr::cum_sum(self : Expr, reverse? : Bool = false) -> Expr {
 /// Running minimum of the operand's non-null cells (Polars' `cum_min`),
 /// with `cum_sum`'s null / `reverse~` rules; a `NaN` is skipped (the
 /// extrema rule, not the sum's). Numeric only.
-pub fn Expr::cum_min(self : Expr, reverse? : Bool = false) -> Expr {
+pub fn Expr::cum_min(self : Expr, reverse~ : Bool = false) -> Expr {
   Expr::of(
     @ir.ExprNode::Positional(@ir.PositionalOp::CumMin(reverse), self.node),
   )
@@ -522,7 +522,7 @@ pub fn Expr::cum_min(self : Expr, reverse? : Bool = false) -> Expr {
 ///|
 /// Running maximum of the operand's non-null cells — `cum_min` with the
 /// order reversed, sharing every rule (Polars' `cum_max`).
-pub fn Expr::cum_max(self : Expr, reverse? : Bool = false) -> Expr {
+pub fn Expr::cum_max(self : Expr, reverse~ : Bool = false) -> Expr {
   Expr::of(
     @ir.ExprNode::Positional(@ir.PositionalOp::CumMax(reverse), self.node),
   )
@@ -531,7 +531,7 @@ pub fn Expr::cum_max(self : Expr, reverse? : Bool = false) -> Expr {
 ///|
 /// Running product of the operand's non-null cells (Polars' `cum_prod`),
 /// with `cum_sum`'s null / `NaN` / `reverse~` rules. Numeric only.
-pub fn Expr::cum_prod(self : Expr, reverse? : Bool = false) -> Expr {
+pub fn Expr::cum_prod(self : Expr, reverse~ : Bool = false) -> Expr {
   Expr::of(
     @ir.ExprNode::Positional(@ir.PositionalOp::CumProd(reverse), self.node),
   )
@@ -542,7 +542,7 @@ pub fn Expr::cum_prod(self : Expr, reverse? : Bool = false) -> Expr {
 /// total over every dtype: a null slot repeats the count the prior cell
 /// reached (`[x, k, null, d]` counts `1, 2, 2, 3`). Always an `Int` column.
 /// `reverse~` counts from the end.
-pub fn Expr::cum_count(self : Expr, reverse? : Bool = false) -> Expr {
+pub fn Expr::cum_count(self : Expr, reverse~ : Bool = false) -> Expr {
   Expr::of(
     @ir.ExprNode::Positional(@ir.PositionalOp::CumCount(reverse), self.node),
   )
@@ -557,8 +557,8 @@ pub fn Expr::cum_count(self : Expr, reverse? : Bool = false) -> Expr {
 /// order `sort` uses). Polars' sixth method `random` is not carried.
 pub fn Expr::rank(
   self : Expr,
-  how? : @types.RankMethod = @types.RankMethod::Average,
-  descending? : Bool = false,
+  how~ : @types.RankMethod = @types.RankMethod::Average,
+  descending~ : Bool = false,
 ) -> Expr {
   Expr::of(
     @ir.ExprNode::Positional(@ir.PositionalOp::Rank(how, descending), self.node),
@@ -574,8 +574,8 @@ pub fn Expr::rank(
 /// flips the value order. Feed it to `gather` to reorder a frame.
 pub fn Expr::arg_sort(
   self : Expr,
-  descending? : Bool = false,
-  nulls_last? : Bool = false,
+  descending~ : Bool = false,
+  nulls_last~ : Bool = false,
 ) -> Expr {
   Expr::of(
     @ir.ExprNode::Positional(
@@ -605,8 +605,8 @@ pub fn Expr::arg_sort(
 fn Expr::rolling_of(
   self : Expr,
   stat : @ir.RollStat,
-  window_size : Int,
-  min_samples? : Int,
+  window_size : Int32,
+  min_samples? : Int32,
   center~ : Bool,
 ) -> Expr {
   Expr::of(
@@ -623,9 +623,9 @@ fn Expr::rolling_of(
 /// operand's dtype.
 pub fn Expr::rolling_sum(
   self : Expr,
-  window_size : Int,
-  min_samples? : Int,
-  center? : Bool = false,
+  window_size : Int32,
+  min_samples? : Int32,
+  center~ : Bool = false,
 ) -> Expr {
   self.rolling_of(Sum, window_size, min_samples?, center~)
 }
@@ -635,9 +635,9 @@ pub fn Expr::rolling_sum(
 /// (Polars' `rolling_mean`) — always `Float`.
 pub fn Expr::rolling_mean(
   self : Expr,
-  window_size : Int,
-  min_samples? : Int,
-  center? : Bool = false,
+  window_size : Int32,
+  min_samples? : Int32,
+  center~ : Bool = false,
 ) -> Expr {
   self.rolling_of(Mean, window_size, min_samples?, center~)
 }
@@ -647,9 +647,9 @@ pub fn Expr::rolling_mean(
 /// `rolling_min`) — `NaN` skipped, the operand's dtype kept.
 pub fn Expr::rolling_min(
   self : Expr,
-  window_size : Int,
-  min_samples? : Int,
-  center? : Bool = false,
+  window_size : Int32,
+  min_samples? : Int32,
+  center~ : Bool = false,
 ) -> Expr {
   self.rolling_of(Min, window_size, min_samples?, center~)
 }
@@ -659,9 +659,9 @@ pub fn Expr::rolling_min(
 /// `rolling_max`) — `rolling_min` with the order reversed.
 pub fn Expr::rolling_max(
   self : Expr,
-  window_size : Int,
-  min_samples? : Int,
-  center? : Bool = false,
+  window_size : Int32,
+  min_samples? : Int32,
+  center~ : Bool = false,
 ) -> Expr {
   self.rolling_of(Max, window_size, min_samples?, center~)
 }
@@ -672,9 +672,9 @@ pub fn Expr::rolling_max(
 /// has no sample denominator and is null.
 pub fn Expr::rolling_std(
   self : Expr,
-  window_size : Int,
-  min_samples? : Int,
-  center? : Bool = false,
+  window_size : Int32,
+  min_samples? : Int32,
+  center~ : Bool = false,
 ) -> Expr {
   self.rolling_of(Std, window_size, min_samples?, center~)
 }
@@ -684,9 +684,9 @@ pub fn Expr::rolling_std(
 /// window (Polars' `rolling_var`, spelled out — `var` is a reserved word).
 pub fn Expr::rolling_variance(
   self : Expr,
-  window_size : Int,
-  min_samples? : Int,
-  center? : Bool = false,
+  window_size : Int32,
+  min_samples? : Int32,
+  center~ : Bool = false,
 ) -> Expr {
   self.rolling_of(Var, window_size, min_samples?, center~)
 }
@@ -697,9 +697,9 @@ pub fn Expr::rolling_variance(
 /// averaged on an even count.
 pub fn Expr::rolling_median(
   self : Expr,
-  window_size : Int,
-  min_samples? : Int,
-  center? : Bool = false,
+  window_size : Int32,
+  min_samples? : Int32,
+  center~ : Bool = false,
 ) -> Expr {
   self.rolling_of(Median, window_size, min_samples?, center~)
 }
@@ -781,7 +781,7 @@ pub fn Expr::median(self : Expr) -> Expr {
 pub fn Expr::quantile(
   self : Expr,
   q : Double,
-  interpolation? : @series.QuantileInterpolation = @series.QuantileInterpolation::Nearest,
+  interpolation~ : @series.QuantileInterpolation = @series.QuantileInterpolation::Nearest,
 ) -> Expr {
   Expr::of(
     @ir.ExprNode::Agg(@series.ReduceOp::Quantile(q, interpolation), self.node),
@@ -855,7 +855,7 @@ pub fn Expr::with_alias(self : Expr, name : String) -> Expr {
 /// below 1 is `InvalidOperation` at evaluation. Dtype-generic — the values
 /// copied are the operand's own cells. Positional, so a row permutation is
 /// observable (the optimizer fences it).
-pub fn Expr::forward_fill(self : Expr, limit? : Int) -> Expr {
+pub fn Expr::forward_fill(self : Expr, limit? : Int32) -> Expr {
   Expr::of(
     @ir.ExprNode::Positional(@ir.PositionalOp::ForwardFill(limit), self.node),
   )
@@ -865,7 +865,7 @@ pub fn Expr::forward_fill(self : Expr, limit? : Int) -> Expr {
 /// Replace each null cell with the nearest present value **below** it —
 /// `forward_fill`'s mirror (Polars' `backward_fill`), trailing null runs
 /// staying null, with the same `limit?` cap and dtype-generic copying.
-pub fn Expr::backward_fill(self : Expr, limit? : Int) -> Expr {
+pub fn Expr::backward_fill(self : Expr, limit? : Int32) -> Expr {
   Expr::of(
     @ir.ExprNode::Positional(@ir.PositionalOp::BackwardFill(limit), self.node),
   )

@@ -40,7 +40,7 @@
 /// column) — only the optimizer fills it.
 pub fn scan_csv(
   path : String,
-  options? : @io.CsvReadOptions = @io.CsvReadOptions::CsvReadOptions(),
+  options~ : @io.CsvReadOptions = @io.CsvReadOptions::CsvReadOptions(),
 ) -> LazyFrame {
   // The one mutable container in the options — the null-token list — is
   // already copied by `CsvReadOptions::CsvReadOptions(...)`, the only way to build one, so
@@ -82,19 +82,7 @@ fn fresh_file_scan(driver : @scan.ScanDriver) -> LogicalPlan {
 /// starts `None` (read every column) — only the optimizer fills it.
 pub fn scan_ndjson(
   path : String,
-  options? : @io.JsonReadOptions = @io.JsonReadOptions::JsonReadOptions(),
+  options~ : @io.JsonReadOptions = @io.JsonReadOptions::JsonReadOptions(),
 ) -> LazyFrame {
   { plan: fresh_file_scan(@io.ndjson_scan_driver(path, options)), }
-}
-
-///|
-/// The lazy Parquet source: `scan_parquet(path)` builds a `LazyFrame`
-/// whose leaf is a deferred read of `path` — the push-down-aware
-/// counterpart of eager `read_parquet`. The projection narrows the columns
-/// built (Parquet's columnar layout serves that natively); an absorbed
-/// predicate is applied to the assembled frame, byte-identical to the
-/// eager `read_parquet(path).filter(..)`. Like every scan source, the
-/// builder is total — building it reads nothing.
-pub fn scan_parquet(path : String) -> LazyFrame {
-  { plan: fresh_file_scan(@io.parquet_scan_driver(path)), }
 }

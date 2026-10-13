@@ -263,7 +263,7 @@ test "str_len_bytes counts an unpaired surrogate half at its WTF-8 spelling" {
   // moonc 0.10.9): the half is 3 UTF-8 bytes under the WTF-8 spelling, on
   // every backend — core's encoder aborts on it outside JS.
   let b = StringBuilder()
-  b.write_char(Int::unsafe_to_char(0xD800))
+  b.write_char(Int32::unsafe_to_char(0xD800))
   let df = DataFrame::DataFrame([Series::from_strings("s", [b.to_string()])])
   let out = df.with_columns([@expr.col("s").str_len_bytes().with_alias("n")])
   assert_eq(out.get_column("n").to_scalars(), [@types.Scalar::Int(3)])

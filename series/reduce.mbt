@@ -46,7 +46,7 @@
 /// (every slot is present), so the predicate is constant `true` and no bitmap
 /// is allocated. Read at a *source* row index, which the reducers reach through
 /// their `at` mapping.
-fn reduce_present(storage : @column.ColumnStorage) -> (Int) -> Bool {
+fn reduce_present(storage : @column.ColumnStorage) -> (Int32) -> Bool {
   match storage.kind() {
     @column.StorageKind::Numeric => _ => true
     @column.StorageKind::Builtin => {
@@ -75,7 +75,7 @@ fn reduce_present(storage : @column.ColumnStorage) -> (Int) -> Bool {
 fn reduce_arith(
   storage : @column.ColumnStorage,
   want_mean~ : Bool,
-) -> ((Int, (Int) -> Int) -> @types.Scalar) raise @types.DataError {
+) -> ((Int32, (Int32) -> Int32) -> @types.Scalar) raise @types.DataError {
   let present = reduce_present(storage)
   match storage.data() {
     // The dtype gate, not the buffer variant, decides numericity: a Date
@@ -99,7 +99,7 @@ fn reduce_arith(
         // The mean's output is `Double`, so the accumulator widens each cell
         // before adding (`fold_double_sum`) — the mean-safe form the shared
         // fold documents; a count of 0 is the empty / all-null window.
-        fn(n : Int, at : (Int) -> Int) {
+        fn(n : Int32, at : (Int32) -> Int32) {
           let (acc, cnt) = @numeric.fold_double_sum(
             n,
             k => a[at(k)].to_double(),
@@ -118,14 +118,14 @@ fn reduce_arith(
         // The decimal sum is the same exact `Int64` fold over the
         // unscaled cells, re-wrapped at the column's scale — the one
         // reduction that stays exact for a non-numeric rider.
-        fn(n : Int, at : (Int) -> Int) {
+        fn(n : Int32, at : (Int32) -> Int32) {
           @types.Scalar::Decimal(
             scale,
             @numeric.fold_int64_sum(n, k => a[at(k)], k => present(at(k))),
           )
         }
       } else {
-        fn(n : Int, at : (Int) -> Int) {
+        fn(n : Int32, at : (Int32) -> Int32) {
           @types.Scalar::Int(
             @numeric.fold_int64_sum(n, k => a[at(k)], k => present(at(k))),
           )
@@ -133,7 +133,7 @@ fn reduce_arith(
       }
     }
     @column.ColumnData::F64(a) =>
-      fn(n : Int, at : (Int) -> Int) {
+      fn(n : Int32, at : (Int32) -> Int32) {
         // `NaN` is a value, not missing: it participates and propagates to a
         // `NaN` total; only a null cell (`!present`) is skipped — the shared
         // `fold_double_sum` rule.
@@ -175,11 +175,11 @@ fn reduce_arith(
 fn reduce_extremum(
   storage : @column.ColumnStorage,
   want_min~ : Bool,
-) -> (Int, (Int) -> Int) -> @types.Scalar {
+) -> (Int32, (Int32) -> Int32) -> @types.Scalar {
   let present = reduce_present(storage)
   match storage.data() {
     @column.ColumnData::I64(a) =>
-      fn(n : Int, at : (Int) -> Int) {
+      fn(n : Int32, at : (Int32) -> Int32) {
         let get = k => a[at(k)]
         let skip = k => !present(at(k))
         let better = (x, y) => if want_min { x < y } else { x > y }
@@ -196,7 +196,7 @@ fn reduce_extremum(
         }
       }
     @column.ColumnData::F64(a) =>
-      fn(n : Int, at : (Int) -> Int) {
+      fn(n : Int32, at : (Int32) -> Int32) {
         let get = k => a[at(k)]
         // `NaN` is treated as missing (skipped), as in `Series::min`.
         let skip = k => !present(at(k)) || a[at(k)].is_nan()
@@ -207,7 +207,7 @@ fn reduce_extremum(
         }
       }
     @column.ColumnData::Bool(a) =>
-      fn(n : Int, at : (Int) -> Int) {
+      fn(n : Int32, at : (Int32) -> Int32) {
         let get = k => a[at(k)]
         let skip = k => !present(at(k))
         // `false < true`: under min `false` beats `true`, under max reverse.
@@ -218,7 +218,7 @@ fn reduce_extremum(
         }
       }
     @column.ColumnData::Utf8(a) =>
-      fn(n : Int, at : (Int) -> Int) {
+      fn(n : Int32, at : (Int32) -> Int32) {
         let get = k => a.get(at(k))
         let skip = k => !present(at(k))
         let better = (x, y) => {
@@ -242,9 +242,9 @@ fn reduce_extremum(
 /// it needs no per-dtype dispatch and is total over every column.
 fn reduce_count(
   storage : @column.ColumnStorage,
-) -> (Int, (Int) -> Int) -> @types.Scalar {
+) -> (Int32, (Int32) -> Int32) -> @types.Scalar {
   let present = reduce_present(storage)
-  fn(n : Int, at : (Int) -> Int) {
+  fn(n : Int32, at : (Int32) -> Int32) {
     let mut c : Int64 = 0
     for k in 0..<n {
       if present(at(k)) {
@@ -267,7 +267,7 @@ fn reduce_count(
 fn numeric_double_reader(
   storage : @column.ColumnStorage,
   op : String,
-) -> ((Int) -> Double) raise @types.DataError {
+) -> ((Int32) -> Double) raise @types.DataError {
   match storage.data() {
     @column.ColumnData::I64(a) if storage.dtype().is_numeric() =>
       i => a[i].to_double()
@@ -311,7 +311,7 @@ fn numeric_double_reader(
 fn reduce_variance(
   storage : @column.ColumnStorage,
   want_std~ : Bool,
-) -> ((Int, (Int) -> Int) -> @types.Scalar) raise @types.DataError {
+) -> ((Int32, (Int32) -> Int32) -> @types.Scalar) raise @types.DataError {
   let present = reduce_present(storage)
   let read = numeric_double_reader(
     storage,
@@ -321,7 +321,7 @@ fn reduce_variance(
       "variance"
     },
   )
-  fn(n : Int, at : (Int) -> Int) {
+  fn(n : Int32, at : (Int32) -> Int32) {
     // Welford's fold over the window's present cells — the shared
     // `@numeric` primitive, saturation rescue included (its docstring owns
     // the algorithm's overflow semantics).
@@ -352,10 +352,10 @@ fn reduce_variance(
 /// all-null window reduces to `Scalar::Null`.
 fn reduce_median(
   storage : @column.ColumnStorage,
-) -> ((Int, (Int) -> Int) -> @types.Scalar) raise @types.DataError {
+) -> ((Int32, (Int32) -> Int32) -> @types.Scalar) raise @types.DataError {
   let present = reduce_present(storage)
   let read = numeric_double_reader(storage, "median")
-  fn(n : Int, at : (Int) -> Int) {
+  fn(n : Int32, at : (Int32) -> Int32) {
     // Collect the present values, then sort: the median is the middle by
     // order. A `NaN` anywhere in the window is the whole answer, so it is
     // detected before the middles are read.
@@ -420,7 +420,7 @@ fn reduce_quantile(
   storage : @column.ColumnStorage,
   q : Double,
   interpolation : QuantileInterpolation,
-) -> ((Int, (Int) -> Int) -> @types.Scalar) raise @types.DataError {
+) -> ((Int32, (Int32) -> Int32) -> @types.Scalar) raise @types.DataError {
   // `NaN` fails both comparisons, so one conjunction rejects it with the
   // out-of-range values rather than needing its own test.
   if !(q >= 0.0 && q <= 1.0) {
@@ -428,7 +428,7 @@ fn reduce_quantile(
   }
   let present = reduce_present(storage)
   let read = numeric_double_reader(storage, "quantile")
-  fn(n : Int, at : (Int) -> Int) {
+  fn(n : Int32, at : (Int32) -> Int32) {
     // Collect the present values, then sort: the quantile reads the sorted
     // order at pos = q * (m - 1). A `NaN` anywhere in the window is the whole
     // answer, so it is detected before positions are read — the median rule.
@@ -522,11 +522,11 @@ fn reduce_quantile(
 fn reduce_arg_extremum(
   storage : @column.ColumnStorage,
   want_min~ : Bool,
-) -> (Int, (Int) -> Int) -> @types.Scalar {
+) -> (Int32, (Int32) -> Int32) -> @types.Scalar {
   let present = reduce_present(storage)
   match storage.data() {
     @column.ColumnData::I64(a) =>
-      fn(n : Int, at : (Int) -> Int) {
+      fn(n : Int32, at : (Int32) -> Int32) {
         arg_extremum_of(n, k => a[at(k)], k => !present(at(k)), (x, y) => {
           if want_min {
             x < y
@@ -536,7 +536,7 @@ fn reduce_arg_extremum(
         })
       }
     @column.ColumnData::F64(a) =>
-      fn(n : Int, at : (Int) -> Int) {
+      fn(n : Int32, at : (Int32) -> Int32) {
         arg_extremum_of(
           n,
           k => a[at(k)],
@@ -546,7 +546,7 @@ fn reduce_arg_extremum(
         )
       }
     @column.ColumnData::Bool(a) =>
-      fn(n : Int, at : (Int) -> Int) {
+      fn(n : Int32, at : (Int32) -> Int32) {
         arg_extremum_of(
           n,
           k => a[at(k)],
@@ -557,7 +557,7 @@ fn reduce_arg_extremum(
         )
       }
     @column.ColumnData::Utf8(a) =>
-      fn(n : Int, at : (Int) -> Int) {
+      fn(n : Int32, at : (Int32) -> Int32) {
         arg_extremum_of(n, k => a.get(at(k)), k => !present(at(k)), (x, y) => {
           if want_min {
             x < y
@@ -575,9 +575,9 @@ fn reduce_arg_extremum(
 /// — or `Scalar::Null` when every position is skipped. `better` strict means
 /// a tie never displaces the earlier position.
 fn[T] arg_extremum_of(
-  n : Int,
-  read : (Int) -> T,
-  skip : (Int) -> Bool,
+  n : Int32,
+  read : (Int32) -> T,
+  skip : (Int32) -> Bool,
   better : (T, T) -> Bool,
 ) -> @types.Scalar {
   let mut best : T? = None
@@ -616,9 +616,9 @@ fn[T] arg_extremum_of(
 /// native value directly.
 fn count_distinct(
   storage : @column.ColumnStorage,
-) -> (Int, (Int) -> Int) -> Int {
+) -> (Int32, (Int32) -> Int32) -> Int32 {
   let present = reduce_present(storage)
-  let key_of : (Int) -> KeyCell = match storage.data() {
+  let key_of : (Int32) -> KeyCell = match storage.data() {
     @column.ColumnData::I64(a) => i => KInt(a[i])
     // The `Float` arm shares `float_key_cell` with `key_cell` (NaN → KNaN,
     // -0.0 → +0.0) so it keys on the native `Double` without boxing a `Scalar`
@@ -628,7 +628,7 @@ fn count_distinct(
     @column.ColumnData::Bool(a) => i => KBool(a[i])
     @column.ColumnData::Utf8(a) => i => KStr(a.get(i))
   }
-  fn(n : Int, at : (Int) -> Int) {
+  fn(n : Int32, at : (Int32) -> Int32) {
     let seen : Map[KeyCell, Unit] = Map([])
     for k in 0..<n {
       let i = at(k)
@@ -650,7 +650,7 @@ fn count_distinct(
 fn reduce_first_last(
   storage : @column.ColumnStorage,
   want_first~ : Bool,
-) -> (Int, (Int) -> Int) -> @types.Scalar {
+) -> (Int32, (Int32) -> Int32) -> @types.Scalar {
   let present = reduce_present(storage)
   // Resolve the dtype dispatch once: a reader that builds the source-dtype
   // `Scalar` at a source row. Only ever called on a present row (the null /
@@ -659,8 +659,8 @@ fn reduce_first_last(
   // (Date) surfaces its own Scalar rather than the buffer's Int.
   let dt = storage.dtype()
   let data = storage.data()
-  let read : (Int) -> @types.Scalar = i => @column.scalar_of(dt, data, i)
-  fn(n : Int, at : (Int) -> Int) {
+  let read : (Int32) -> @types.Scalar = i => @column.scalar_of(dt, data, i)
+  fn(n : Int32, at : (Int32) -> Int32) {
     if n == 0 {
       @types.Scalar::Null
     } else {
@@ -762,7 +762,7 @@ pub extend ReduceOp with Eq::{equal, not_equal}
 pub fn Series::reducer_for(
   self : Series,
   op : ReduceOp,
-) -> ((Int, (Int) -> Int) -> @types.Scalar, @types.DataType) raise @types.DataError {
+) -> ((Int32, (Int32) -> Int32) -> @types.Scalar, @types.DataType) raise @types.DataError {
   let storage = self.storage
   match op {
     Count => (reduce_count(storage), @types.DataType::Int)
@@ -793,7 +793,7 @@ pub fn Series::reducer_for(
       // `Series::n_unique` also uses.
       let counter = count_distinct(storage)
       (
-        fn(n : Int, at : (Int) -> Int) {
+        fn(n : Int32, at : (Int32) -> Int32) {
           @types.Scalar::Int(counter(n, at).to_int64())
         },
         @types.DataType::Int,
@@ -847,7 +847,7 @@ pub fn scalars_to_series(
 /// rule); an empty / all-null window reduces to `Scalar::Null`.
 fn reduce_mode(
   storage : @column.ColumnStorage,
-) -> (Int, (Int) -> Int) -> @types.Scalar {
+) -> (Int32, (Int32) -> Int32) -> @types.Scalar {
   let present = reduce_present(storage)
   let data = storage.data()
   let dtype = storage.dtype()
@@ -855,9 +855,9 @@ fn reduce_mode(
   // accessor, so a `Date` cell keys as its day count and reduces to a
   // `Date`.
   let cell_at = i => @column.scalar_of(dtype, data, i)
-  fn(n : Int, at : (Int) -> Int) {
+  fn(n : Int32, at : (Int32) -> Int32) {
     let count : Map[KeyCell, Int64] = Map([])
-    let first_key : Map[KeyCell, Int] = Map([])
+    let first_key : Map[KeyCell, Int32] = Map([])
     let mut best : KeyCell? = None
     let mut best_count : Int64 = 0
     let mut best_pos = 0

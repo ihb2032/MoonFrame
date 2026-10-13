@@ -45,7 +45,7 @@ pub fn mul_checked(a : Int64, b : Int64) -> Int64? {
 /// smaller (precision-losing) or equal target is refused the same way:
 /// this lift exists to align two scales, and only the widening direction
 /// is exact.
-pub fn rescale_unscaled(from : Int, to : Int, v : Int64) -> Int64? {
+pub fn rescale_unscaled(from : Int32, to : Int32, v : Int64) -> Int64? {
   if to <= from {
     return None
   }

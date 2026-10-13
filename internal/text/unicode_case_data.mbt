@@ -9,7 +9,7 @@
 // (locale and context) lines skipped. 1525/1508 simple, 103/28 special entries.
 
 ///|
-let unicode_simple_upper : Array[(UInt, UInt)] = [
+let unicode_simple_upper : Array[(UInt32, UInt32)] = [
   (0x0061, 0x0041),
   (0x0062, 0x0042),
   (0x0063, 0x0043),
@@ -1538,7 +1538,7 @@ let unicode_simple_upper : Array[(UInt, UInt)] = [
 ]
 
 ///|
-let unicode_simple_lower : Array[(UInt, UInt)] = [
+let unicode_simple_lower : Array[(UInt32, UInt32)] = [
   (0x0041, 0x0061),
   (0x0042, 0x0062),
   (0x0043, 0x0063),
@@ -3050,7 +3050,7 @@ let unicode_simple_lower : Array[(UInt, UInt)] = [
 ]
 
 ///|
-let unicode_special_upper : Array[(UInt, Array[UInt])] = [
+let unicode_special_upper : Array[(UInt32, Array[UInt32])] = [
   (0x00DF, [0x0053, 0x0053]),
   (0x0149, [0x02BC, 0x004E]),
   (0x01F0, [0x004A, 0x030C]),
@@ -3157,7 +3157,7 @@ let unicode_special_upper : Array[(UInt, Array[UInt])] = [
 ]
 
 ///|
-let unicode_special_lower : Array[(UInt, Array[UInt])] = [
+let unicode_special_lower : Array[(UInt32, Array[UInt32])] = [
   (0x0130, [0x0069, 0x0307]),
   (0x1F88, [0x1F80]),
   (0x1F89, [0x1F81]),

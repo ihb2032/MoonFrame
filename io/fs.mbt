@@ -38,7 +38,7 @@ fn read_text(path : String) -> String raise @types.DataError {
 /// `content`, or `None` when the string is well-formed. A high surrogate
 /// (`0xD800`–`0xDBFF`) must be immediately followed by a low surrogate
 /// (`0xDC00`–`0xDFFF`); a low surrogate anywhere else is unpaired.
-fn find_unpaired_surrogate(content : String) -> Int? {
+fn find_unpaired_surrogate(content : String) -> Int32? {
   let units = content.code_units()
   let n = units.length()
   let mut i = 0

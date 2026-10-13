@@ -20,9 +20,9 @@ pub struct Utf8Array {
   // Byte offset of cell 0 within `bytes` — non-zero only for a zero-copy
   // `slice_view`, whose offsets are re-based to 0 while the shared buffer
   // keeps its parent's cell 0 at the front.
-  priv base : Int
-  priv offsets : FixedArray[Int]
-  priv len : Int
+  priv base : Int32
+  priv offsets : FixedArray[Int32]
+  priv len : Int32
 } derive(Debug)
 
 ///|
@@ -44,7 +44,7 @@ pub fn Utf8Array::from_strings(values : Array[String]) -> Utf8Array {
   }
   let bytes = FixedArray::make(total, (0 : Byte))
   let n = values.length()
-  let offsets : FixedArray[Int] = FixedArray::make(n + 1, 0)
+  let offsets : FixedArray[Int32] = FixedArray::make(n + 1, 0)
   let mut at = 0
   for i, v in values {
     at = at + encode_into(v, bytes, at)
@@ -68,7 +68,7 @@ pub fn Utf8Array::from_string_options(values : Array[String?]) -> Utf8Array {
 ///|
 /// UTF-8 byte length of one string's encoding. Walks UTF-16 code units with
 /// `encode_into`'s exact rules, so the two never disagree on a length.
-fn encoded_len(s : String) -> Int {
+fn encoded_len(s : String) -> Int32 {
   let n = s.length()
   let mut len = 0
   let mut i = 0
@@ -106,10 +106,10 @@ fn encoded_len(s : String) -> Int {
 /// this encoder writes the WTF-8 3-byte spelling for it instead: the cell
 /// round-trips through `decode_cell` byte-exact, and the write paths keep
 /// their own refuse-rather-than-corrupt surrogate check.
-fn encode_into(s : String, buf : FixedArray[Byte], at : Int) -> Int {
+fn encode_into(s : String, buf : FixedArray[Byte], at : Int32) -> Int32 {
   // The 3-byte encoding of one UTF-16 unit outside the ASCII / 2-byte ranges.
   // For a surrogate unit this is the WTF-8 spelling of the half itself.
-  fn encode_wtf8_unit(u : Int, at : Int) -> Int {
+  fn encode_wtf8_unit(u : Int32, at : Int32) -> Int32 {
     buf[at] = (0xE0 | (u >> 12)).to_byte()
     buf[at + 1] = (0x80 | ((u >> 6) & 0x3F)).to_byte()
     buf[at + 2] = (0x80 | (u & 0x3F)).to_byte()
@@ -158,7 +158,7 @@ fn encode_into(s : String, buf : FixedArray[Byte], at : Int) -> Int {
 
 ///|
 /// Number of cells.
-pub fn Utf8Array::len(self : Utf8Array) -> Int {
+pub fn Utf8Array::len(self : Utf8Array) -> Int32 {
   self.len
 }
 
@@ -167,7 +167,7 @@ pub fn Utf8Array::len(self : Utf8Array) -> Int {
 /// `[0, len)`. The decode is the inverse of `encode_into`: well-formed UTF-8
 /// decodes normally and a WTF-8-encoded surrogate half comes back as the
 /// half itself, so a cell round-trips byte-exact.
-pub fn Utf8Array::get(self : Utf8Array, i : Int) -> String {
+pub fn Utf8Array::get(self : Utf8Array, i : Int32) -> String {
   let start = self.base + self.offsets[i]
   let end = self.base + self.offsets[i + 1]
   let buf = StringBuilder()
@@ -214,9 +214,9 @@ pub fn Utf8Array::to_strings(self : Utf8Array) -> Array[String] {
 /// so this is exactly `String` equality without decoding either cell.
 pub fn Utf8Array::cell_eq(
   self : Utf8Array,
-  i : Int,
+  i : Int32,
   other : Utf8Array,
-  j : Int,
+  j : Int32,
 ) -> Bool {
   let a0 = self.base + self.offsets[i]
   let a1 = self.base + self.offsets[i + 1]
@@ -244,11 +244,11 @@ pub fn Utf8Array::cell_eq(
 /// `0 <= start` and `start + length <= len`, as `slice` guarantees.
 pub fn Utf8Array::slice_view(
   self : Utf8Array,
-  start : Int,
-  length : Int,
+  start : Int32,
+  length : Int32,
 ) -> Utf8Array {
   let start_off = self.offsets[start]
-  let offsets : FixedArray[Int] = FixedArray::make(length + 1, 0)
+  let offsets : FixedArray[Int32] = FixedArray::make(length + 1, 0)
   for i in 0..<=length {
     offsets[i] = self.offsets[start + i] - start_off
   }
@@ -263,10 +263,10 @@ pub fn Utf8Array::slice_view(
 /// re-encode round-trip.
 pub fn Utf8Array::take_view(
   self : Utf8Array,
-  indices : Array[Int],
+  indices : Array[Int32],
 ) -> Utf8Array {
   let n = indices.length()
-  let lens : FixedArray[Int] = FixedArray::make(n, 0)
+  let lens : FixedArray[Int32] = FixedArray::make(n, 0)
   let mut total = 0
   for k in 0..<n {
     let i = indices[k]
@@ -275,7 +275,7 @@ pub fn Utf8Array::take_view(
     total = total + l
   }
   let bytes = FixedArray::make(total, (0 : Byte))
-  let offsets : FixedArray[Int] = FixedArray::make(n + 1, 0)
+  let offsets : FixedArray[Int32] = FixedArray::make(n + 1, 0)
   let mut at = 0
   for k in 0..<n {
     let src = self.base + self.offsets[indices[k]]

@@ -88,11 +88,11 @@ fn CmpVerb::cmp_int_double(self : CmpVerb, a : Int64, b : Double) -> Bool {
 /// kernel uses — NaN is a *value* (the cell stays non-null), while a null
 /// on either side nulls the cell before the predicates run.
 fn[T] compare_cells(
-  n : Int,
+  n : Int32,
   left_valid~ : Array[Bool],
   right_valid~ : Array[Bool],
-  get_left~ : (Int) -> T,
-  get_right~ : (Int) -> T,
+  get_left~ : (Int32) -> T,
+  get_right~ : (Int32) -> T,
   less_than~ : (T, T) -> Bool,
   equal~ : (T, T) -> Bool,
   verb~ : CmpVerb,
@@ -266,7 +266,7 @@ fn eval_compare(
 /// The alignment scale when both dtypes are decimals of different scales —
 /// `None` for any other pairing (same-scale decimals included: they
 /// compare through the generic same-dtype arm).
-fn decimal_cross_scale(l : @types.DataType, r : @types.DataType) -> Int? {
+fn decimal_cross_scale(l : @types.DataType, r : @types.DataType) -> Int32? {
   if l is @types.DataType::Decimal(ls) &&
     r is @types.DataType::Decimal(rs) &&
     ls != rs {
@@ -281,8 +281,8 @@ fn decimal_cross_scale(l : @types.DataType, r : @types.DataType) -> Int? {
 /// the first overflow refusing the comparison exactly as arithmetic does.
 fn rescale_all(
   buf : ArrayView[Int64],
-  scale : Int,
-  target : Int,
+  scale : Int32,
+  target : Int32,
 ) -> Array[Int64] raise @types.DataError {
   Array::makei(buf.length(), i => {
     let mut r = buf[i]

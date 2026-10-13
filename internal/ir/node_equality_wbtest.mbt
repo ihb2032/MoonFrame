@@ -18,14 +18,14 @@
 /// this count is what the one-rep-per-variant list is measured against. A new
 /// variant's `variant_tag` arm compiles only in this whitebox module, so the pinned count
 /// is the second thing its addition trips.
-const VARIANT_COUNT : Int = 17
+const VARIANT_COUNT : Int32 = 17
 
 ///|
 /// A distinct tag per `ExprNode` variant, in declaration order — exhaustive and
 /// wildcard-free on purpose, so adding a variant forces an arm here (a compile
 /// error at this test file) rather than silently dropping its equality
 /// coverage.
-fn variant_tag(node : ExprNode) -> Int {
+fn variant_tag(node : ExprNode) -> Int32 {
   match node {
     Col(_) => 0
     Lit(_) => 1

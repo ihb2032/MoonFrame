@@ -330,7 +330,7 @@ test "arg_sort emits the stable permutation, nulls placed per the flag" {
   // Feeding the permutation to `gather` sorts the frame — the round trip
   // the verb exists for.
   let perm = df.select([@expr.col("v").arg_sort()]).get_column("v").to_scalars()
-  let idx : Array[Int] = perm.map(c => {
+  let idx : Array[Int32] = perm.map(c => {
     match c {
       @types.Scalar::Int(i) => i.to_int()
       _ => 0

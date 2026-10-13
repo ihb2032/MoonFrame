@@ -21,8 +21,8 @@ fn eval_rolling(
   operand : Series,
   valid : Array[Bool],
   stat : @ir.RollStat,
-  window : Int,
-  min_samples : Int?,
+  window : Int32,
+  min_samples : Int32?,
   center : Bool,
 ) -> Series raise @types.DataError {
   let name = operand.name()
@@ -169,7 +169,7 @@ fn float_rolling_stat(
   stat : @ir.RollStat,
   vals : Array[Double],
   saw_nan : Bool,
-  present_count : Int,
+  present_count : Int32,
 ) -> Double? {
   match stat {
     Sum | Mean => {

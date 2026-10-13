@@ -13,8 +13,8 @@
 fn[T] select_cells(
   cond : ArrayView[Bool],
   cond_valid : Array[Bool],
-  get_then : (Int) -> T?,
-  get_else : (Int) -> T?,
+  get_then : (Int32) -> T?,
+  get_else : (Int32) -> T?,
 ) -> Array[T?] {
   Array::makei(cond.length(), i => {
     if !cond_valid[i] {

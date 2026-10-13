@@ -4,7 +4,7 @@
 /// through here — `Series::head` / `tail`, `DataFrame::head` / `tail`, and the
 /// `to_html` / `to_markdown` row caps — so an out-of-range ask means the same
 /// thing wherever it is made.
-pub fn clamp_take(n : Int, len : Int) -> Int {
+pub fn clamp_take(n : Int32, len : Int32) -> Int32 {
   if n < 0 {
     0
   } else if n > len {
@@ -21,7 +21,11 @@ pub fn clamp_take(n : Int, len : Int) -> Int {
 /// empty window. Returns `(start, length)` in `slice(offset, length)` form:
 /// the sugar is a translation layer over the one window kernel, never a
 /// second model.
-pub fn between_bounds(start : Int?, end : Int?, len : Int) -> (Int, Int) {
+pub fn between_bounds(
+  start : Int32?,
+  end : Int32?,
+  len : Int32,
+) -> (Int32, Int32) {
   let s = match start {
     None => 0
     Some(v) => slice_start(v, len)
@@ -45,7 +49,7 @@ pub fn between_bounds(start : Int?, end : Int?, len : Int) -> (Int, Int) {
 /// window at row 0, `tail` at `len - take`, so the same count serves both).
 /// The table-renderer caps keep `clamp_take`: a preview cap meaning "all but
 /// the last `k` rows" is not a thing anyone asks of a table.
-pub fn window_take(n : Int, len : Int) -> Int {
+pub fn window_take(n : Int32, len : Int32) -> Int32 {
   if n < 0 {
     clamp_take(len + n, len)
   } else {
@@ -60,7 +64,7 @@ pub fn window_take(n : Int, len : Int) -> Int {
 /// first; a non-negative one saturates at `len`. Together with `slice_len`
 /// this is the whole of `DataFrame::slice` / `Series::slice`'s window
 /// arithmetic: pure integer saturation, the provable core under both verbs.
-pub fn slice_start(offset : Int, len : Int) -> Int {
+pub fn slice_start(offset : Int32, len : Int32) -> Int32 {
   if offset < 0 {
     clamp_take(len + offset, len)
   } else if offset > len {
@@ -74,7 +78,7 @@ pub fn slice_start(offset : Int, len : Int) -> Int {
 /// The row count of a saturating `slice(offset, length)` window starting at
 /// `start` over `len` rows: an omitted `length` runs to the end; a given one
 /// saturates at what remains, and a negative one is an empty window.
-pub fn slice_len(start : Int, len : Int, length : Int?) -> Int {
+pub fn slice_len(start : Int32, len : Int32, length : Int32?) -> Int32 {
   match length {
     None => len - start
     Some(l) => clamp_take(l, len - start)

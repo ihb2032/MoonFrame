@@ -146,8 +146,11 @@ priv enum EvalStep {
   ApplyFill(FillKind)
   ApplyIsIn(ArrayView[@types.Scalar])
   ApplyIsBetween(@types.ClosedInterval)
-  ApplyMap((Array[@types.Scalar]) -> @types.Scalar raise @types.DataError, Int)
-  ApplyMapBatches((Array[Series]) -> Series raise @types.DataError, Int)
+  ApplyMap(
+    (Array[@types.Scalar]) -> @types.Scalar raise @types.DataError,
+    Int32
+  )
+  ApplyMapBatches((Array[Series]) -> Series raise @types.DataError, Int32)
 }
 
 ///|
@@ -176,14 +179,14 @@ priv enum FillKind {
 fn eval_expr(
   root : @expr.Expr,
   df : DataFrame,
-  scope : Array[Int],
+  scope : Array[Int32],
 ) -> Series raise @types.DataError {
   // Pop `arity` already-evaluated operands off the value stack and return
   // them in **input order**. The stack yields them last-first, so the result
   // reverses the pop order (`arity - 1 - i`) — cell `k` then feeds the
   // closure its k-th input. Shared by the `ApplyMap` / `ApplyMapBatches`
   // combiners, whose reversals must otherwise be kept in lockstep.
-  fn pop_inputs(stack : Array[Series], arity : Int) -> Array[Series] {
+  fn pop_inputs(stack : Array[Series], arity : Int32) -> Array[Series] {
     let popped : Array[Series] = []
     for _ in 0..<arity {
       popped.push(pop_value(stack))

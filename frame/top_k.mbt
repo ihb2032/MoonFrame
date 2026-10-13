@@ -19,7 +19,7 @@
 /// under `descending`, nulls pinned last.
 fn DataFrame::rank_window(
   self : DataFrame,
-  k : Int,
+  k : Int32,
   by : Array[@expr.Expr],
   descending : Bool,
 ) -> DataFrame raise @types.DataError {
@@ -45,9 +45,9 @@ fn DataFrame::rank_window(
 /// and only surface when `k` reaches past the non-null rows.
 pub fn DataFrame::top_k(
   self : DataFrame,
-  k : Int,
+  k : Int32,
   by~ : Array[@expr.Expr],
-  reverse? : Bool = false,
+  reverse~ : Bool = false,
 ) -> DataFrame raise @types.DataError {
   self.rank_window(k, by, !reverse)
 }
@@ -58,9 +58,9 @@ pub fn DataFrame::top_k(
 /// largest first. The null and saturation rules mirror `top_k`.
 pub fn DataFrame::bottom_k(
   self : DataFrame,
-  k : Int,
+  k : Int32,
   by~ : Array[@expr.Expr],
-  reverse? : Bool = false,
+  reverse~ : Bool = false,
 ) -> DataFrame raise @types.DataError {
   self.rank_window(k, by, reverse)
 }

@@ -7,7 +7,7 @@
 /// Binary search over a sorted `(from, to)` table: the mapped code point,
 /// or `cp` itself when the table has no entry — the common case, since most
 /// code points carry no case mapping at all.
-fn case_lookup(table : Array[(UInt, UInt)], cp : UInt) -> UInt {
+fn case_lookup(table : Array[(UInt32, UInt32)], cp : UInt32) -> UInt32 {
   let mut lo = 0
   let mut hi = table.length() - 1
   while lo <= hi {
@@ -30,9 +30,9 @@ fn case_lookup(table : Array[(UInt, UInt)], cp : UInt) -> UInt {
 /// one (or identity) — the table only carries where the default conversion
 /// differs from the simple mapping.
 fn special_lookup(
-  table : Array[(UInt, Array[UInt])],
-  cp : UInt,
-) -> Array[UInt]? {
+  table : Array[(UInt32, Array[UInt32])],
+  cp : UInt32,
+) -> Array[UInt32]? {
   let mut lo = 0
   let mut hi = table.length() - 1
   while lo <= hi {

@@ -1,6 +1,0 @@
-{
-  "import": [
-    { "path": "ihb2032/MoonFrame", "alias": "moonframe" },
-    { "path": "ihb2032/MoonFrame/io", "alias": "io" }
-  ]
-}

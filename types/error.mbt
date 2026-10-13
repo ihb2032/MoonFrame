@@ -25,7 +25,7 @@ pub(all) enum ParseErrorDetail {
   /// A non-null cell did not fit the dtype locked in during inference. Fields
   /// are `(location, column, position, expected, value)`; `position` is
   /// 1-based and its meaning is carried by `location`.
-  Cell(CellParseLocation, String, Int, DataType, String)
+  Cell(CellParseLocation, String, Int32, DataType, String)
 } derive(Eq, Debug)
 
 ///|
@@ -72,7 +72,7 @@ pub(all) suberror DataError {
   DuplicateColumn(String)
   TypeMismatch(TypeMismatchDetail)
   LengthMismatch
-  IndexOutOfBounds(Int)
+  IndexOutOfBounds(Int32)
   ParseError(ParseErrorDetail)
   InvalidOperation(String)
   IoError(String)

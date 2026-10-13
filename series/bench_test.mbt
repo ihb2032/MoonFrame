@@ -7,7 +7,7 @@
 /// Deterministic scrambled `Int64` data of length `n`. A cheap wrap-on-
 /// overflow hash stands in for an RNG (unavailable in this toolchain), so keys
 /// are unsorted and spread across ~100k distinct values.
-fn scrambled_ints(n : Int) -> Array[Int64] {
+fn scrambled_ints(n : Int32) -> Array[Int64] {
   Array::makei(n, i => {
     let x = i.to_int64()
     (x * 2654435761L + 1013904223L) % 100000L
@@ -16,7 +16,7 @@ fn scrambled_ints(n : Int) -> Array[Int64] {
 
 ///|
 /// Deterministic `Double` data of length `n`.
-fn scrambled_floats(n : Int) -> Array[Double] {
+fn scrambled_floats(n : Int32) -> Array[Double] {
   Array::makei(n, i => (i % 100000).to_double() * 1.5)
 }
 

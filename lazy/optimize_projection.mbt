@@ -217,7 +217,7 @@ fn add_all(acc : @set.Set[String], names : @set.Set[String]) -> Unit {
 /// `Select` under it, and `already_narrows_inmemory` recognises that
 /// `Select` by it — so the guard and the narrowing it guards cannot drift
 /// apart (a drift would stack a second `Select` on re-optimization).
-fn inmemory_narrows_to(kept : Int, total : Int) -> Bool {
+fn inmemory_narrows_to(kept : Int32, total : Int32) -> Bool {
   kept > 0 && kept < total
 }
 

@@ -19,7 +19,7 @@ pub(all) enum Scalar {
   String(String)
   Date(Int64)
   Timestamp(Int64)
-  Decimal(Int, Int64)
+  Decimal(Int32, Int64)
   Null
 } derive(Eq, Debug)
 
@@ -230,7 +230,7 @@ fn timestamp_micros_to_iso(micros : Int64) -> String {
 /// zero scale renders with no point (`Decimal(0)` is an integer spelling);
 /// a negative magnitude keeps one sign, its fraction digits from the
 /// magnitude (`-5` under scale 2 renders `-0.05`).
-fn decimal_unscaled_to_string(scale : Int, unscaled : Int64) -> String {
+fn decimal_unscaled_to_string(scale : Int32, unscaled : Int64) -> String {
   if scale == 0 {
     return unscaled.to_string()
   }
@@ -245,7 +245,7 @@ fn decimal_unscaled_to_string(scale : Int, unscaled : Int64) -> String {
   }
   let whole = mag / pow
   let frac = mag % pow
-  fn pad(n : Int64, width : Int) -> String {
+  fn pad(n : Int64, width : Int32) -> String {
     let mut t = n.to_string()
     while t.length() < width {
       t = "0" + t

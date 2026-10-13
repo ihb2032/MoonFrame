@@ -30,7 +30,7 @@
 fn DataFrame::from_parts_with_fields(
   columns : Array[Series],
   fields : Array[@types.Field],
-  nrows : Int,
+  nrows : Int32,
 ) -> DataFrame raise @types.DataError {
   let columns = columns.copy()
   // INV5, closed here rather than asked of the caller. For a frame with
@@ -66,7 +66,7 @@ fn DataFrame::from_parts_with_fields(
 fn DataFrame::with_same_schema(
   self : DataFrame,
   new_cols : Array[Series],
-  nrows : Int,
+  nrows : Int32,
 ) -> DataFrame {
   { ..self, columns: new_cols, nrows, }
 }
@@ -201,7 +201,7 @@ fn DataFrame::resolve_subset_columns(
 /// that keeps every row). Fails fast: a length mismatch or the first
 /// out-of-place index returns `false` before the rest is scanned. The
 /// expression evaluator reuses it to detect a whole-frame scope.
-fn is_identity_perm(indices : Array[Int], nrows : Int) -> Bool {
+fn is_identity_perm(indices : Array[Int32], nrows : Int32) -> Bool {
   if indices.length() != nrows {
     return false
   }

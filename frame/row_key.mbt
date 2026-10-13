@@ -21,7 +21,7 @@
 /// each `col[i]` read is in-bounds.
 fn row_group_key(
   key_scalars : Array[Array[@types.Scalar]],
-  i : Int,
+  i : Int32,
 ) -> Array[KeyCell] {
   key_scalars.map(col => key_cell(col[i]))
 }
@@ -35,7 +35,7 @@ fn row_group_key(
 /// `Int` `5` and a `Float` `5.0` are never compared in the first place).
 fn join_row_key(
   key_scalars : Array[Array[@types.Scalar]],
-  i : Int,
+  i : Int32,
 ) -> Array[KeyCell]? {
   let cells : Array[KeyCell] = []
   for col in key_scalars {

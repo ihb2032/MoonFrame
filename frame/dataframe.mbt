@@ -20,7 +20,7 @@
 pub struct DataFrame {
   priv schema : @types.Schema
   priv columns : Array[Series]
-  priv nrows : Int
+  priv nrows : Int32
 } derive(Eq, Debug)
 
 ///|
@@ -83,7 +83,7 @@ pub fn DataFrame::DataFrame(
 #internal(engine, "MoonFrame execution engine API")
 pub fn DataFrame::from_parts(
   columns : Array[Series],
-  nrows : Int,
+  nrows : Int32,
 ) -> DataFrame raise @types.DataError {
   DataFrame::from_parts_with_fields(
     columns,
@@ -134,7 +134,7 @@ pub fn DataFrame::empty(
 /// is in-bounds.
 fn[T] typed_column_cells(
   rows : Array[Array[@types.Scalar]],
-  column : Int,
+  column : Int32,
   field : @types.Field,
   decode : (@types.Scalar) -> T?,
 ) -> Array[T?] raise @types.DataError {
@@ -302,7 +302,7 @@ pub fn DataFrame::from_rows(
 
 ///|
 /// `(nrows, ncols)`.
-pub fn DataFrame::shape(self : DataFrame) -> (Int, Int) {
+pub fn DataFrame::shape(self : DataFrame) -> (Int32, Int32) {
   (self.nrows, self.columns.length())
 }
 
@@ -360,13 +360,13 @@ pub fn DataFrame::to_scalar_matrix(
 /// Number of rows. With at least one column it equals every column's `len()`
 /// (INV2); a column-less `N×0` frame has none to agree with, and carries its
 /// height in the explicit `nrows` field alone.
-pub fn DataFrame::nrows(self : DataFrame) -> Int {
+pub fn DataFrame::nrows(self : DataFrame) -> Int32 {
   self.nrows
 }
 
 ///|
 /// Number of columns.
-pub fn DataFrame::ncols(self : DataFrame) -> Int {
+pub fn DataFrame::ncols(self : DataFrame) -> Int32 {
   self.columns.length()
 }
 
@@ -399,7 +399,7 @@ pub fn DataFrame::get_column(
 /// Column at position `i`. Out-of-bounds `raise IndexOutOfBounds(i)`.
 pub fn DataFrame::get_column_at(
   self : DataFrame,
-  i : Int,
+  i : Int32,
 ) -> Series raise @types.DataError {
   if i < 0 || i >= self.columns.length() {
     raise @types.DataError::IndexOutOfBounds(i)
@@ -413,7 +413,7 @@ pub fn DataFrame::get_column_at(
 /// names and `IndexOutOfBounds` for row indices outside `[0, nrows)`.
 pub fn DataFrame::item(
   self : DataFrame,
-  row : Int,
+  row : Int32,
   name : String,
 ) -> @types.Scalar raise @types.DataError {
   self.get_column(name).get(row)
@@ -426,7 +426,7 @@ pub fn DataFrame::item(
 /// the whole frame in one pass instead.
 pub fn DataFrame::row(
   self : DataFrame,
-  i : Int,
+  i : Int32,
 ) -> Array[@types.Scalar] raise @types.DataError {
   if i < 0 || i >= self.nrows {
     raise @types.DataError::IndexOutOfBounds(i)

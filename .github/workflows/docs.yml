@@ -29,7 +29,7 @@ concurrency:
 # The same toolchain pin as ci.yml — the two move together (the pinning
 # rationale lives there, beside the version it explains).
 env:
-  MOONBIT_INSTALL_VERSION: "0.10.14+7d59c7ec9"
+  MOONBIT_INSTALL_VERSION: "0.10.15+943464bfa"
 
 jobs:
   deploy:

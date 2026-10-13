@@ -34,10 +34,10 @@ using @series {type Series, scalars_to_series}
 /// comparison kernel's nullable cell loop — so each dtype arm supplies only
 /// its per-cell op. Total — `f` only reads two present cells.
 fn[T] zip_present(
-  n : Int,
+  n : Int32,
   lv : Array[Bool],
   rv : Array[Bool],
-  f : (Int) -> T,
+  f : (Int32) -> T,
 ) -> Array[T?] {
   Array::makei(n, i => if lv[i] && rv[i] { Some(f(i)) } else { None })
 }
@@ -50,7 +50,11 @@ fn[T] zip_present(
 /// probes, `is_in`, and the string namespace — so each arm supplies
 /// only its per-cell map. The single-operand sibling of `zip_present`. Total —
 /// `f` only reads a present cell.
-fn[T] map_present(n : Int, valid : Array[Bool], f : (Int) -> T) -> Array[T?] {
+fn[T] map_present(
+  n : Int32,
+  valid : Array[Bool],
+  f : (Int32) -> T,
+) -> Array[T?] {
   Array::makei(n, i => if valid[i] { Some(f(i)) } else { None })
 }
 
@@ -126,7 +130,7 @@ fn broadcast_pair(
 /// tests (public path) and its evaluator whitebox tests (directly).
 pub fn broadcast_series(
   s : Series,
-  target : Int,
+  target : Int32,
 ) -> Series raise @types.DataError {
   if s.len() == target {
     s

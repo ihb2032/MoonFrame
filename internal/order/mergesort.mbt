@@ -5,7 +5,7 @@
 /// when `width < n - width`, which proves `2 * width < n <= Int::MAX`.
 /// Keeping this arithmetic separate lets tests exercise the `2^30` boundary
 /// without allocating multi-gigabyte sort buffers.
-fn next_merge_width(width : Int, n : Int) -> Int? {
+fn next_merge_width(width : Int32, n : Int32) -> Int32? {
   if width <= 0 || n <= 1 || width >= n {
     return None
   }
@@ -28,7 +28,10 @@ fn next_merge_width(width : Int, n : Int) -> Int? {
 ///
 /// Complexity: `O(n log n)` comparisons, `O(n)` auxiliary memory
 /// (two buffers of length `n`).
-pub fn stable_mergesort_indices(n : Int, cmp : (Int, Int) -> Int) -> Array[Int] {
+pub fn stable_mergesort_indices(
+  n : Int32,
+  cmp : (Int32, Int32) -> Int32,
+) -> Array[Int32] {
   let buf = Array::makei(n, i => i)
   if n <= 1 {
     return buf
@@ -69,12 +72,12 @@ pub fn stable_mergesort_indices(n : Int, cmp : (Int, Int) -> Int) -> Array[Int] 
 /// `dst[left..right_end)`. Stable: on `cmp(left, right) <= 0`, the
 /// left element wins the slot.
 fn merge_run(
-  src : Array[Int],
-  dst : Array[Int],
-  left : Int,
-  mid : Int,
-  right_end : Int,
-  cmp : (Int, Int) -> Int,
+  src : Array[Int32],
+  dst : Array[Int32],
+  left : Int32,
+  mid : Int32,
+  right_end : Int32,
+  cmp : (Int32, Int32) -> Int32,
 ) -> Unit {
   let mut p = left
   let mut q = mid

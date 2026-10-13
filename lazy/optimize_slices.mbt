@@ -120,7 +120,7 @@ fn fuse_windows(outer : FrameOp, inner : FrameOp) -> FrameOp? {
       // spans — `blen - ao` available, `alen` asked, an empty window when
       // the outer starts past the inner's end.
       let reach = blen.map(m => m - ao)
-      let len : Int? = match (alen, reach) {
+      let len : Int32? = match (alen, reach) {
         (Some(l), Some(r)) => Some(if l < r { l } else { r })
         (Some(l), None) => Some(l)
         (None, Some(r)) => Some(r)

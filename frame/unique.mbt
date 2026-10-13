@@ -62,7 +62,7 @@ pub extend KeepStrategy with Debug::{to_repr}
 pub fn DataFrame::unique(
   self : DataFrame,
   subset? : Array[@expr.Expr],
-  keep? : KeepStrategy = KeepStrategy::First,
+  keep~ : KeepStrategy = KeepStrategy::First,
 ) -> DataFrame raise @types.DataError {
   let n = self.nrows()
   // Column-major cells, so a row's composite key is assembled by plain index
@@ -77,7 +77,7 @@ pub fn DataFrame::unique(
     Some(keys) => self.resolve_subset_columns(keys).map(s => s.to_scalars())
   }
   let keys = Array::makei(n, i => row_group_key(cells, i))
-  let kept : Array[Int] = []
+  let kept : Array[Int32] = []
   match keep {
     // First-appearance dedup: keep the first row index of each distinct
     // composite key. Pushing `i` only on first sight keeps the surviving
@@ -96,7 +96,7 @@ pub fn DataFrame::unique(
     // order and keep `i` where it *is* that latest index — so survivors stay
     // ascending by original position.
     KeepStrategy::Last => {
-      let last : Map[Array[KeyCell], Int] = Map([])
+      let last : Map[Array[KeyCell], Int32] = Map([])
       for i in 0..<n {
         last[keys[i]] = i
       }
@@ -109,7 +109,7 @@ pub fn DataFrame::unique(
     // Keep only rows whose key occurs exactly once: count occurrences, then keep
     // the rows in a singleton bucket.
     KeepStrategy::None => {
-      let count : Map[Array[KeyCell], Int] = Map([])
+      let count : Map[Array[KeyCell], Int32] = Map([])
       for i in 0..<n {
         count[keys[i]] = count.get(keys[i]).unwrap_or(0) + 1
       }
@@ -148,7 +148,7 @@ fn DataFrame::duplication_mask(
   let n = self.nrows()
   let cells = self.to_scalar_matrix()
   let keys = Array::makei(n, i => row_group_key(cells, i))
-  let count : Map[Array[KeyCell], Int] = Map([])
+  let count : Map[Array[KeyCell], Int32] = Map([])
   for i in 0..<n {
     count[keys[i]] = count.get(keys[i]).unwrap_or(0) + 1
   }

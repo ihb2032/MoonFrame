@@ -19,7 +19,7 @@
 // through the CSV / JSON / NDJSON reader blackbox tests that drive it.
 
 ///|
-const DEFAULT_INFER_SCHEMA_ROWS : Int = 100
+const DEFAULT_INFER_SCHEMA_ROWS : Int32 = 100
 
 ///|
 /// The four dtypes inference can pick. `Null` is intentionally absent —
@@ -75,9 +75,9 @@ pub extend OnParseError with Debug::{to_repr}
 /// `String` whether it is pure-string or mixed, so once all three are out
 /// we stop probing early — the remaining cells cannot change the outcome.
 fn[Cell] infer_dtype(
-  n : Int,
-  limit~ : Int,
-  cell~ : (Int) -> Cell,
+  n : Int32,
+  limit~ : Int32,
+  cell~ : (Int32) -> Cell,
   is_null~ : (Cell) -> Bool,
   is_int~ : (Cell) -> Bool,
   is_float~ : (Cell) -> Bool,
@@ -182,11 +182,11 @@ fn parse_float_opt(s : String, allow_nonfinite : Bool) -> Double? {
 /// column's inferred dtype intact (Polars' `ignore_errors`).
 fn[Cell, T] build_typed_column(
   name : String,
-  n : Int,
-  cell~ : (Int) -> Cell,
+  n : Int32,
+  cell~ : (Int32) -> Cell,
   is_null~ : (Cell) -> Bool,
   parse~ : (Cell) -> T?,
-  err~ : (Int, Cell) -> @types.DataError,
+  err~ : (Int32, Cell) -> @types.DataError,
   on_parse_error~ : OnParseError,
   build~ : (String, Array[T?]) -> @series.Series,
 ) -> @series.Series raise @types.DataError {
@@ -217,8 +217,8 @@ fn[Cell, T] build_typed_column(
 /// identity; the JSON reader with its value-to-string fallback.
 fn[Cell] build_string_column(
   name : String,
-  n : Int,
-  cell : (Int) -> Cell,
+  n : Int32,
+  cell : (Int32) -> Cell,
   is_null : (Cell) -> Bool,
   render : (Cell) -> String,
 ) -> @series.Series {
@@ -249,14 +249,14 @@ fn[Cell] build_string_column(
 fn[Cell] build_inferred_column(
   name : String,
   dtype : InferredDtype,
-  n : Int,
-  cell~ : (Int) -> Cell,
+  n : Int32,
+  cell~ : (Int32) -> Cell,
   is_null~ : (Cell) -> Bool,
   parse_int~ : (Cell) -> Int64?,
   parse_float~ : (Cell) -> Double?,
   parse_bool~ : (Cell) -> Bool?,
   render~ : (Cell) -> String,
-  locate~ : (@types.DataType, Int, Cell) -> @types.DataError,
+  locate~ : (@types.DataType, Int32, Cell) -> @types.DataError,
   on_parse_error~ : OnParseError,
 ) -> @series.Series raise @types.DataError {
   match dtype {

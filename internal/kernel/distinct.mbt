@@ -16,14 +16,14 @@ fn distinct_pass(
   operand : Series,
 ) -> (
   Map[@series.KeyCell, Int64],
-  Map[@series.KeyCell, Int],
-  Map[@series.KeyCell, Int],
+  Map[@series.KeyCell, Int32],
+  Map[@series.KeyCell, Int32],
 ) {
   let n = operand.len()
   let cells = operand.to_scalars()
   let count : Map[@series.KeyCell, Int64] = Map([])
-  let first_at : Map[@series.KeyCell, Int] = Map([])
-  let last_at : Map[@series.KeyCell, Int] = Map([])
+  let first_at : Map[@series.KeyCell, Int32] = Map([])
+  let last_at : Map[@series.KeyCell, Int32] = Map([])
   for i in 0..<n {
     let k = @series.key_cell(cells[i])
     count[k] = count.get(k).unwrap_or(0L) + 1L

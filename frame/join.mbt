@@ -17,9 +17,9 @@
 /// because the row index only grows. Total.
 fn index_by_join_key(
   key_scalars : Array[Array[@types.Scalar]],
-  n : Int,
-) -> Map[Array[KeyCell], Array[Int]] {
-  let index : Map[Array[KeyCell], Array[Int]] = Map([])
+  n : Int32,
+) -> Map[Array[KeyCell], Array[Int32]] {
+  let index : Map[Array[KeyCell], Array[Int32]] = Map([])
   for i in 0..<n {
     match join_row_key(key_scalars, i) {
       Some(k) =>
@@ -173,9 +173,9 @@ fn DataFrame::plan_join_rows(
   self : DataFrame,
   other : DataFrame,
   options : JoinOptions,
-) -> (Array[Int?], Array[Int?]) raise @types.DataError {
-  let left_rows : Array[Int?] = []
-  let right_rows : Array[Int?] = []
+) -> (Array[Int32?], Array[Int32?]) raise @types.DataError {
+  let left_rows : Array[Int32?] = []
+  let right_rows : Array[Int32?] = []
   match options.how {
     Semi | Anti => {
       // The existence filters: probe each left row's key against the right
@@ -324,8 +324,8 @@ fn DataFrame::assemble_join_output(
   self : DataFrame,
   other : DataFrame,
   options : JoinOptions,
-  left_rows : Array[Int?],
-  right_rows : Array[Int?],
+  left_rows : Array[Int32?],
+  right_rows : Array[Int32?],
 ) -> DataFrame raise @types.DataError {
   // Resolve key coalescing. Only an `on` join whose every key is a bare
   // `col(...)` can coalesce — that is the one shape where a key names the

@@ -19,7 +19,7 @@
 /// or `rename` hits.
 pub struct Schema {
   priv fields : Array[Field]
-  priv index : Map[String, Int]
+  priv index : Map[String, Int32]
 } derive(Eq, Debug)
 
 ///|
@@ -51,8 +51,8 @@ pub fn Schema::Schema(fields : Array[Field]) -> Schema raise DataError {
 /// the duplicate), and building them separately is how the two could disagree.
 /// Every `Schema` built from a field vector comes through here; `select`, which
 /// walks names rather than fields, runs the same one-pass rule inline.
-fn name_index(fields : Array[Field]) -> Map[String, Int] raise DataError {
-  let index : Map[String, Int] = Map([])
+fn name_index(fields : Array[Field]) -> Map[String, Int32] raise DataError {
+  let index : Map[String, Int32] = Map([])
   for i, f in fields {
     if index.contains(f.name) {
       raise DuplicateColumn(f.name)
@@ -73,7 +73,7 @@ pub fn Schema::fields(self : Schema) -> Array[Field] {
 
 ///|
 /// Number of columns in the schema.
-pub fn Schema::len(self : Schema) -> Int {
+pub fn Schema::len(self : Schema) -> Int32 {
   self.fields.length()
 }
 
@@ -92,7 +92,7 @@ pub fn Schema::field_names(self : Schema) -> Array[String] {
 ///|
 /// The index of the column named `name`, or `raise ColumnNotFound(name)`.
 /// `O(1)` — the name index is built once, when the schema is.
-pub fn Schema::index_of(self : Schema, name : String) -> Int raise DataError {
+pub fn Schema::index_of(self : Schema, name : String) -> Int32 raise DataError {
   match self.index.get(name) {
     Some(i) => i
     None => raise ColumnNotFound(name)
@@ -108,7 +108,7 @@ pub fn Schema::index_of(self : Schema, name : String) -> Int raise DataError {
 /// `ColumnNotFound` first) needs an option, not an unreachable error branch.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
-pub fn Schema::index_maybe(self : Schema, name : String) -> Int? {
+pub fn Schema::index_maybe(self : Schema, name : String) -> Int32? {
   self.index.get(name)
 }
 
@@ -120,7 +120,7 @@ pub fn Schema::field(self : Schema, name : String) -> Field raise DataError {
 
 ///|
 /// Return the `Field` at position `i`, or `raise IndexOutOfBounds(i)`.
-pub fn Schema::field_at(self : Schema, i : Int) -> Field raise DataError {
+pub fn Schema::field_at(self : Schema, i : Int32) -> Field raise DataError {
   if i < 0 || i >= self.fields.length() {
     raise IndexOutOfBounds(i)
   }
@@ -139,7 +139,7 @@ pub fn Schema::select(
   // The result's own name index doubles as the duplicate check, so the
   // projection needs no second membership structure — and the checks stay in
   // `names` order, which is what decides *which* error a bad selection reports.
-  let index : Map[String, Int] = Map([])
+  let index : Map[String, Int32] = Map([])
   for n in names {
     if index.contains(n) {
       raise DuplicateColumn(n)

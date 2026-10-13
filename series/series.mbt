@@ -408,7 +408,7 @@ pub fn Series::from_timestamp_options(
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
 pub fn Series::from_decimal_options(
-  scale : Int,
+  scale : Int32,
   name : String,
   values : Array[Int64?],
 ) -> Series {
@@ -438,7 +438,7 @@ pub fn Series::dtype(self : Series) -> @types.DataType {
 
 ///|
 /// Number of cells (valid plus null).
-pub fn Series::len(self : Series) -> Int {
+pub fn Series::len(self : Series) -> Int32 {
   self.storage.len()
 }
 
@@ -450,14 +450,14 @@ pub fn Series::is_empty(self : Series) -> Bool {
 
 ///|
 /// Number of null cells.
-pub fn Series::null_count(self : Series) -> Int {
+pub fn Series::null_count(self : Series) -> Int32 {
   self.storage.null_count()
 }
 
 ///|
 /// Whether cell `i` is null. Out-of-bounds indices bubble the
 /// underlying `IndexOutOfBounds` error.
-pub fn Series::is_null(self : Series, i : Int) -> Bool raise @types.DataError {
+pub fn Series::is_null(self : Series, i : Int32) -> Bool raise @types.DataError {
   self.storage.is_null(i)
 }
 
@@ -470,7 +470,7 @@ pub fn Series::is_null(self : Series, i : Int) -> Bool raise @types.DataError {
 #alias("_[_]")
 pub fn Series::get(
   self : Series,
-  i : Int,
+  i : Int32,
 ) -> @types.Scalar raise @types.DataError {
   self.storage.get(i)
 }

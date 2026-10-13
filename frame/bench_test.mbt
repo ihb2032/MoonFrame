@@ -10,7 +10,7 @@
 /// Byte-identical twin: the lazy bench builds the same rows so its
 /// eager-vs-lazy contrast stays comparable to these operator benches —
 /// change one, change both.
-fn fact_frame(n : Int) -> DataFrame raise @types.DataError {
+fn fact_frame(n : Int32) -> DataFrame raise @types.DataError {
   let keys = Array::makei(n, i => (i % 1000).to_int64())
   let values = Array::makei(n, i => {
     let x = i.to_int64()
@@ -26,7 +26,7 @@ fn fact_frame(n : Int) -> DataFrame raise @types.DataError {
 
 ///|
 /// A `groups`-row dimension frame keyed by `key`, for the join benchmark.
-fn dim_frame(groups : Int) -> DataFrame raise @types.DataError {
+fn dim_frame(groups : Int32) -> DataFrame raise @types.DataError {
   DataFrame::DataFrame([
     Series::from_ints("key", Array::makei(groups, i => i.to_int64())),
     Series::from_strings("kname", Array::makei(groups, i => "g\{i}")),

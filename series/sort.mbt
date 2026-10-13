@@ -90,7 +90,7 @@ pub enum SortKey {
 /// places it past every other value.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
-pub fn SortKey::compare_one_key(self : SortKey, i : Int, j : Int) -> Int {
+pub fn SortKey::compare_one_key(self : SortKey, i : Int32, j : Int32) -> Int32 {
   match self {
     Int(data, missing, descending, nulls_last) => {
       // `missing` was materialised over `[0, n)`; `i`, `j` come from the
@@ -155,8 +155,8 @@ fn compare_with_missing(
   mj : Bool,
   nulls_last : Bool,
   descending : Bool,
-  cmp_valid : () -> Int,
-) -> Int {
+  cmp_valid : () -> Int32,
+) -> Int32 {
   match (mi, mj) {
     (true, true) => 0
     // A missing-vs-present pair: the sign is the left-hand side's
@@ -190,8 +190,8 @@ fn compare_with_missing(
 /// itself, so nothing can fail.
 pub fn Series::sort(
   self : Series,
-  descending? : Bool = false,
-  nulls_last? : Bool = false,
+  descending~ : Bool = false,
+  nulls_last~ : Bool = false,
 ) -> Series {
   let key = self.build_sort_key(descending, nulls_last)
   let perm = @order.stable_mergesort_indices(self.len(), (i, j) => {

@@ -6,9 +6,13 @@
 ///|
 /// A non-empty `Array[Int64]` of length `1..=max_len`, each element drawn from
 /// `[lo, hi]`. Drives the single-column numeric-frame properties below.
-fn gen_i64_array(max_len : Int, lo : Int, hi : Int) -> @gen.Gen[Array[Int64]] {
-  @gen.int_range(1, max_len).bind(n => {
-    @gen.int_range(lo, hi).fmap(x => x.to_int64()).array_with_size(n)
+fn gen_i64_array(
+  max_len : Int32,
+  lo : Int32,
+  hi : Int32,
+) -> @gen.Generator[Array[Int64]] {
+  @gen.int_range(1, max_len).flat_map(n => {
+    @gen.int_range(lo, hi).map(x => x.to_int64()).array_with_size(n)
   })
 }
 
@@ -27,9 +31,11 @@ fn prop_sort_idempotent(xs : Array[Int64]) -> Bool {
 
 ///|
 test "property: sort is idempotent" {
-  @qc.quick_check(
-    @qc.forall(gen_i64_array(30, -1000, 1000), prop_sort_idempotent),
-  )
+  // A fixed seed keeps the generated cases — and hence coverage —
+  // reproducible run to run; `count` matches the driver's default sweep.
+  for xs in gen_i64_array(30, -1000, 1000).samples(count=100, seed=37UL) {
+    assert_true(prop_sort_idempotent(xs))
+  }
 }
 
 ///|
@@ -89,7 +95,9 @@ fn prop_sort_stable(keys : Array[Int64]) -> Bool {
 
 ///|
 test "property: sort preserves equal-key input order" {
-  @qc.quick_check(@qc.forall(gen_i64_array(50, 0, 5), prop_sort_stable))
+  for xs in gen_i64_array(50, 0, 5).samples(count=100, seed=37UL) {
+    assert_true(prop_sort_stable(xs))
+  }
 }
 
 ///|
@@ -116,7 +124,7 @@ fn prop_group_by_no_row_loss(keys : Array[Int64]) -> Bool {
 ///|
 test "property: group_by loses no rows" {
   // Small key range (0..5) so groups actually collide.
-  @qc.quick_check(
-    @qc.forall(gen_i64_array(30, 0, 5), prop_group_by_no_row_loss),
-  )
+  for xs in gen_i64_array(30, 0, 5).samples(count=100, seed=37UL) {
+    assert_true(prop_group_by_no_row_loss(xs))
+  }
 }

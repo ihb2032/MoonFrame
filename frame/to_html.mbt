@@ -34,7 +34,7 @@
 ///     untrusted data can't inject markup. Pass `escape=false` for
 ///     trusted input that intentionally carries HTML.
 pub struct HtmlOptions {
-  max_rows : Int?
+  max_rows : Int32?
   table_class : String?
   caption : String?
   escape : Bool
@@ -52,10 +52,10 @@ pub extend HtmlOptions with Debug::{to_repr}
 /// is the default rendering; name only what differs, as in
 /// `HtmlOptions::HtmlOptions(max_rows=20, caption="Summary")`.
 pub fn HtmlOptions::HtmlOptions(
-  max_rows? : Int,
+  max_rows? : Int32,
   table_class? : String,
   caption? : String,
-  escape? : Bool = true,
+  escape~ : Bool = true,
 ) -> HtmlOptions {
   { max_rows, table_class, caption, escape, }
 }
@@ -82,7 +82,7 @@ pub fn HtmlOptions::HtmlOptions(
 /// `options.max_rows` is clamped into `[0, nrows]`, so no input can fail.
 pub fn DataFrame::to_html(
   self : DataFrame,
-  options? : HtmlOptions = HtmlOptions::HtmlOptions(),
+  options~ : HtmlOptions = HtmlOptions::HtmlOptions(),
 ) -> String {
   let nrows = self.nrows()
   let shown = visible_rows(nrows, options.max_rows)
@@ -103,7 +103,7 @@ pub fn DataFrame::to_html(
 /// 0-row frame is still a useful header + empty `<tbody>`.
 fn DataFrame::format_html(
   self : DataFrame,
-  shown : Int,
+  shown : Int32,
   options : HtmlOptions,
 ) -> String {
   let names = self.columns()

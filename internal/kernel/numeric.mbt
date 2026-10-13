@@ -214,7 +214,7 @@ fn decimal_arith(
 /// the approximate one is a promotion decision, not a default, so it
 /// stays fenced. Enumerated so a dtype added later decides its arithmetic
 /// eligibility here at compile time.
-fn decimal_arith_scale(d : @types.DataType) -> Int? {
+fn decimal_arith_scale(d : @types.DataType) -> Int32? {
   match d {
     @types.DataType::Int => Some(0)
     @types.DataType::Decimal(s) => Some(s)
@@ -231,8 +231,8 @@ fn decimal_arith_scale(d : @types.DataType) -> Int? {
 /// One side's cells lifted to the operation's scale — the exact widening
 /// rescale, refusing what does not fit.
 fn lift_unscaled(
-  from : Int,
-  to : Int,
+  from : Int32,
+  to : Int32,
   v : Int64,
 ) -> Int64 raise @types.DataError {
   if from == to {
@@ -546,7 +546,7 @@ fn eval_sign(operand : Series) -> Series raise @types.DataError {
 /// through.
 fn eval_round(
   operand : Series,
-  decimals : Int,
+  decimals : Int32,
 ) -> Series raise @types.DataError {
   eval_unary_num(operand, "round", a => a, v => round_places(v, decimals))
 }
@@ -650,7 +650,7 @@ fn sign_f64(a : Double) -> Double {
 /// clamp gives, established where it cannot be bypassed instead of argued from a
 /// caller's behaviour. Past that arm the scale is therefore at least `10`: it can
 /// still overflow upward (handled below), but it cannot underflow to `0`.
-fn round_places(a : Double, decimals : Int) -> Double {
+fn round_places(a : Double, decimals : Int32) -> Double {
   if decimals <= 0 {
     return round_half_even(a)
   }

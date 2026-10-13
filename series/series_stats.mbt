@@ -4,7 +4,7 @@
 
 ///|
 /// Count of non-null cells.
-pub fn Series::count(self : Series) -> Int {
+pub fn Series::count(self : Series) -> Int32 {
   self.len() - self.null_count()
 }
 
@@ -148,7 +148,7 @@ pub fn Series::max(self : Series) -> @types.Scalar {
 /// folds into `+0.0` (they are IEEE-equal and share a group, hence one
 /// distinct value). Keying by `Scalar::to_string` would instead let the
 /// `-0.0` rendering split them, diverging from `group_by`.
-pub fn Series::n_unique(self : Series) -> Int {
+pub fn Series::n_unique(self : Series) -> Int32 {
   // Folds through the same `count_distinct` core the `n_unique` reduction uses
   // keying cells by `key_cell` — the `KeyCell` encoding
   // `group_by` / `join` hash on — so the distinct count agrees with grouping
@@ -237,7 +237,7 @@ pub fn Series::median(self : Series) -> Double raise @types.DataError {
 pub fn Series::quantile(
   self : Series,
   q : Double,
-  interpolation? : QuantileInterpolation = Nearest,
+  interpolation~ : QuantileInterpolation = Nearest,
 ) -> Double raise @types.DataError {
   match reduce_quantile(self.storage, q, interpolation)(self.len(), k => k) {
     @types.Scalar::Float(v) => v

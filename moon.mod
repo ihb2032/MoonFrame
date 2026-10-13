@@ -8,9 +8,7 @@ warnings = "+a-unnecessary_annotation-test_unqualified_package-unqualified_local
 
 import {
   "moonbitlang/x@0.5.5",
-  "moonbit-community/NyaCSV@0.3.3",
-  "moonbitlang/quickcheck@0.14.0",
-  "mizchi/parquet@0.2.2",
+  "moonbit-community/NyaCSV@0.3.4",
 }
 
 readme = "README.mbt.md"

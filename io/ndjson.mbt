@@ -61,7 +61,7 @@
 /// never built.
 pub fn parse_ndjson_str(
   content : String,
-  options? : JsonReadOptions = JsonReadOptions::JsonReadOptions(),
+  options~ : JsonReadOptions = JsonReadOptions::JsonReadOptions(),
   projection? : Array[String],
 ) -> @frame.DataFrame raise @types.DataError {
   parse_ndjson_str_projected(content, options, projection, None)
@@ -96,7 +96,7 @@ fn parse_ndjson_str_projected(
   // Parallel to `records`: the 1-based physical file line each kept record came
   // from, so a build-stage type error reports the true line despite the blank
   // lines skipped between records (which shift the record index off the line).
-  let record_lines : Array[Int] = []
+  let record_lines : Array[Int32] = []
   for i, line in lines {
     // Skip blank / whitespace-only lines: the trailing `\n` the writer
     // emits leaves an empty final segment, and hand-written NDJSON may
@@ -148,7 +148,7 @@ fn parse_ndjson_str_projected(
 /// as `raise IoError(message)`.
 pub fn read_ndjson(
   path : String,
-  options? : JsonReadOptions = JsonReadOptions::JsonReadOptions(),
+  options~ : JsonReadOptions = JsonReadOptions::JsonReadOptions(),
 ) -> @frame.DataFrame raise @types.DataError {
   let content = read_text(path)
   parse_ndjson_str(content, options~)

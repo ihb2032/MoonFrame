@@ -44,11 +44,11 @@ pub struct CsvWriteOptions {
 /// the terminator on — every CR/LF combination (`"\n"`, `"\r\n"`, `"\r"`,
 /// `"\n\n"`, …) round-trips cleanly.
 pub fn CsvWriteOptions::CsvWriteOptions(
-  header? : Bool = true,
-  delimiter? : Char = ',',
-  null_value? : String = "",
-  sanitize_formulas? : Bool = false,
-  line_terminator? : String = "\n",
+  header~ : Bool = true,
+  delimiter~ : Char = ',',
+  null_value~ : String = "",
+  sanitize_formulas~ : Bool = false,
+  line_terminator~ : String = "\n",
 ) -> CsvWriteOptions raise @types.DataError {
   if line_terminator.is_empty() {
     raise @types.DataError::InvalidOperation(
@@ -124,7 +124,7 @@ pub fn CsvWriteOptions::CsvWriteOptions(
 ///   empty string, or the lone `\n` of its (field-less) header row.
 pub fn format_csv(
   df : @frame.DataFrame,
-  options? : CsvWriteOptions = CsvWriteOptions::CsvWriteOptions(),
+  options~ : CsvWriteOptions = CsvWriteOptions::CsvWriteOptions(),
 ) -> String raise @types.DataError {
   validate_csv_delimiter(options.delimiter)
   let buf = StringBuilder()
@@ -203,7 +203,7 @@ pub fn format_csv(
 pub fn write_csv(
   path : String,
   df : @frame.DataFrame,
-  options? : CsvWriteOptions = CsvWriteOptions::CsvWriteOptions(),
+  options~ : CsvWriteOptions = CsvWriteOptions::CsvWriteOptions(),
 ) -> Unit raise @types.DataError {
   let content = format_csv(df, options~)
   write_text(path, content)

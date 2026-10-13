@@ -39,7 +39,7 @@ priv struct Folded {
 fn fold_expr(expr : @expr.Expr) -> (@expr.Expr, Bool) {
   let discover : Array[@ir.ExprNode] = [expr.node()]
   let order : Array[@ir.ExprNode] = []
-  let arities : Array[Int] = []
+  let arities : Array[Int32] = []
   for ;; {
     match discover.pop() {
       None => break

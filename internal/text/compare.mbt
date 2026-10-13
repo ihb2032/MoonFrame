@@ -28,7 +28,7 @@
 /// code-unit comparison ranked the emoji's leading surrogate (`0xD83D`) below
 /// it. The walk allocates nothing and stops at the first differing code point,
 /// or when the shorter string (a prefix of the longer) runs out.
-pub fn compare_string_lex(a : String, b : String) -> Int {
+pub fn compare_string_lex(a : String, b : String) -> Int32 {
   let na = a.length()
   let nb = b.length()
   let mut ia = 0
@@ -65,7 +65,7 @@ pub fn compare_string_lex(a : String, b : String) -> Int {
 /// (`≥ U+10000`); a lone surrogate or an ordinary BMP unit is returned as-is,
 /// advancing a single unit. Lets `compare_string_lex` order by code point
 /// without materialising a `Char` array per comparison.
-fn code_point_at(s : String, i : Int) -> (Int, Int) {
+fn code_point_at(s : String, i : Int32) -> (Int32, Int32) {
   let hi = s[i].to_int()
   if hi >= 0xD800 && hi <= 0xDBFF && i + 1 < s.length() {
     let lo = s[i + 1].to_int()

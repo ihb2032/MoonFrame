@@ -295,7 +295,7 @@ fn BuiltinColumn::validity(self : BuiltinColumn) -> @buffer.Bitmap {
 
 ///|
 /// Number of cells.
-fn BuiltinColumn::len(self : BuiltinColumn) -> Int {
+fn BuiltinColumn::len(self : BuiltinColumn) -> Int32 {
   match self.data {
     I64(a) => a.length()
     F64(a) => a.length()
@@ -312,7 +312,7 @@ fn BuiltinColumn::is_empty(self : BuiltinColumn) -> Bool {
 
 ///|
 /// Number of null cells (the count of zero bits in `validity`).
-fn BuiltinColumn::null_count(self : BuiltinColumn) -> Int {
+fn BuiltinColumn::null_count(self : BuiltinColumn) -> Int32 {
   self.validity.null_count()
 }
 
@@ -320,7 +320,7 @@ fn BuiltinColumn::null_count(self : BuiltinColumn) -> Int {
 /// `raise IndexOutOfBounds` if `index` is outside `[0, len)`.
 fn BuiltinColumn::is_null(
   self : BuiltinColumn,
-  index : Int,
+  index : Int32,
 ) -> Bool raise @types.DataError {
   self.validity.is_null(index)
 }
@@ -330,7 +330,7 @@ fn BuiltinColumn::is_null(
 /// `raise IndexOutOfBounds`.
 fn BuiltinColumn::get(
   self : BuiltinColumn,
-  index : Int,
+  index : Int32,
 ) -> @types.Scalar raise @types.DataError {
   if self.validity.is_null(index) {
     @types.Scalar::Null
@@ -350,7 +350,7 @@ fn BuiltinColumn::get(
 pub fn scalar_of(
   dtype : @types.DataType,
   data : ColumnData,
-  index : Int,
+  index : Int32,
 ) -> @types.Scalar {
   match data {
     // The rider lift is the registry's (`i64_rider_scalar`); `Int` is its own
@@ -376,8 +376,8 @@ pub fn scalar_of(
 /// reads out of bounds.
 fn BuiltinColumn::slice_unchecked(
   self : BuiltinColumn,
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
 ) -> BuiltinColumn {
   let n = end - start
   let data_out : ColumnData = match self.data {
@@ -398,7 +398,7 @@ fn BuiltinColumn::slice_unchecked(
 /// Any out-of-bounds index `raise IndexOutOfBounds(idx)`.
 fn BuiltinColumn::take(
   self : BuiltinColumn,
-  indices : Array[Int],
+  indices : Array[Int32],
 ) -> BuiltinColumn raise @types.DataError {
   validate_gather_indices(indices, self.len())
   let data_out : ColumnData = match self.data {

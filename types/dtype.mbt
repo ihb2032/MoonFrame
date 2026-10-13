@@ -46,7 +46,7 @@ pub(all) enum DataType {
   /// never a wrap — when a magnitude leaves the range; division stays
   /// fenced pending a result-scale rule, and so does mixing with `Float`;
   /// readers never infer it.
-  Decimal(Int)
+  Decimal(Int32)
   Null
 } derive(Eq, Debug)
 

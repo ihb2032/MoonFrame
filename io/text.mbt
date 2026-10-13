@@ -33,7 +33,7 @@ fn strip_utf8_bom(content : String) -> String {
 /// every reader renders a `Row` / `Line` / `Record` location with, single
 /// home for the row / line / record vocabulary, so a hand-spelled prefix
 /// cannot drift from the typed one.
-fn locator_text(loc : @types.CellParseLocation, n : Int) -> String {
+fn locator_text(loc : @types.CellParseLocation, n : Int32) -> String {
   match loc {
     Row => "row \{n}"
     Line => "line \{n}"
@@ -74,7 +74,7 @@ priv enum JsonScanFrame {
 /// same key are therefore caught, never the reverse. Malformed input is
 /// tolerated — the parser behind it reports it, and nothing here should
 /// pre-empt a different diagnostic.
-fn first_duplicate_json_key(content : StringView) -> (Int, String)? {
+fn first_duplicate_json_key(content : StringView) -> (Int32, String)? {
   // Collect once: the `\uXXXX` look-ahead needs index arithmetic an
   // iterator will not give. Code units, exactly as `write_char` re-emits
   // them, so a literal surrogate pair and its `\uD83D\uDE00` spelling
@@ -143,7 +143,10 @@ fn first_duplicate_json_key(content : StringView) -> (Int, String)? {
 /// same key compare equal. An unterminated literal or malformed escape
 /// yields what was read so far and stops the scan: `@json.parse` owns that
 /// diagnostic.
-fn read_json_string_token(chars : Array[Char], start : Int) -> (String, Int) {
+fn read_json_string_token(
+  chars : Array[Char],
+  start : Int32,
+) -> (String, Int32) {
   let buf = StringBuilder()
   let n = chars.length()
   let mut i = start + 1
@@ -219,7 +222,7 @@ fn read_json_string_token(chars : Array[Char], start : Int) -> (String, Int) {
 ///|
 /// The 4-hex-digit value at `chars[at..at+4]`, or `None` when fewer than four
 /// characters remain or any of them is not a hex digit.
-fn hex4(chars : Array[Char], at : Int) -> Int? {
+fn hex4(chars : Array[Char], at : Int32) -> Int32? {
   if at + 4 > chars.length() {
     return None
   }

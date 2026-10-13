@@ -5,7 +5,7 @@
 ///|
 /// An `n`-row, 0-column frame, built the way the public API reaches one: an
 /// empty schema over `n` width-0 rows.
-fn nby0(n : Int) -> DataFrame raise @types.DataError {
+fn nby0(n : Int32) -> DataFrame raise @types.DataError {
   DataFrame::from_rows(@types.Schema::Schema([]), Array::makei(n, _ => []))
 }
 

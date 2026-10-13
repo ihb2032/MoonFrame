@@ -139,10 +139,10 @@ pub impl Eq for ColumnStorage with fn equal(self, other) {
 /// `DataFrame` equality — which reaches here once per column — paid for them on
 /// every column, and a mismatched pair paid before answering `false`.
 fn storage_cells_equal(
-  n : Int,
+  n : Int32,
   sa : ColumnStorage,
   sb : ColumnStorage,
-  eq : (Int) -> Bool,
+  eq : (Int32) -> Bool,
 ) -> Bool {
   // Single-slot validity read, **total** (an out-of-range index reads as null
   // rather than raising, like `Bitmap::is_valid_total`): the `Numeric` arm
@@ -150,7 +150,7 @@ fn storage_cells_equal(
   // reads one bit out of the buffer it already owns. Neither allocates — the
   // dense `validity()` materialisation is for callers that walk every slot
   // anyway.
-  fn valid_at(s : ColumnStorage, index : Int) -> Bool {
+  fn valid_at(s : ColumnStorage, index : Int32) -> Bool {
     match s {
       Builtin(c) => c.validity().is_valid_total(index)
       Numeric(_) => true
@@ -192,7 +192,7 @@ pub fn ColumnStorage::dtype(self : ColumnStorage) -> @types.DataType {
 
 ///|
 /// Number of cells, forwarded to the active backend.
-pub fn ColumnStorage::len(self : ColumnStorage) -> Int {
+pub fn ColumnStorage::len(self : ColumnStorage) -> Int32 {
   match self {
     Builtin(c) => c.len()
     Numeric(c) => c.len()
@@ -211,7 +211,7 @@ pub fn ColumnStorage::is_empty(self : ColumnStorage) -> Bool {
 ///|
 /// Number of null cells — always `0` on the `Numeric` arm — forwarded to the
 /// active backend.
-pub fn ColumnStorage::null_count(self : ColumnStorage) -> Int {
+pub fn ColumnStorage::null_count(self : ColumnStorage) -> Int32 {
   match self {
     Builtin(c) => c.null_count()
     Numeric(c) => c.null_count()
@@ -263,7 +263,7 @@ pub fn ColumnStorage::validity(self : ColumnStorage) -> @buffer.Bitmap {
 /// diagnostic.
 pub fn ColumnStorage::is_null(
   self : ColumnStorage,
-  index : Int,
+  index : Int32,
 ) -> Bool raise @types.DataError {
   match self {
     Builtin(c) => c.is_null(index)
@@ -276,7 +276,7 @@ pub fn ColumnStorage::is_null(
 /// `raise IndexOutOfBounds`.
 pub fn ColumnStorage::get(
   self : ColumnStorage,
-  index : Int,
+  index : Int32,
 ) -> @types.Scalar raise @types.DataError {
   match self {
     Builtin(c) => c.get(index)
@@ -297,8 +297,8 @@ pub fn ColumnStorage::get(
 /// any other caller (`feedback_lib_no_abort`).
 pub fn ColumnStorage::slice_total(
   self : ColumnStorage,
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
 ) -> ColumnStorage {
   let len = self.len()
   let s = clamp_bound(start, len)
@@ -326,7 +326,7 @@ pub fn ColumnStorage::slice_total(
 ///|
 /// Clamp an index into `[0, len]` — the valid range for a half-open slice
 /// bound. Backs `slice_total`'s total guarantee.
-fn clamp_bound(i : Int, len : Int) -> Int {
+fn clamp_bound(i : Int32, len : Int32) -> Int32 {
   if i < 0 {
     0
   } else if i > len {
@@ -342,7 +342,7 @@ fn clamp_bound(i : Int, len : Int) -> Int {
 /// out-of-bounds index `raise IndexOutOfBounds(idx)`.
 pub fn ColumnStorage::take(
   self : ColumnStorage,
-  indices : Array[Int],
+  indices : Array[Int32],
 ) -> ColumnStorage raise @types.DataError {
   match self {
     Builtin(c) => Builtin(c.take(indices))
@@ -377,8 +377,8 @@ pub fn ColumnStorage::cast(
 /// out-of-range index `raise IndexOutOfBounds(idx)`. Shared by both backends'
 /// `take` so the diagnostic is identical.
 fn validate_gather_indices(
-  indices : Array[Int],
-  len : Int,
+  indices : Array[Int32],
+  len : Int32,
 ) -> Unit raise @types.DataError {
   for i in indices {
     if i < 0 || i >= len {

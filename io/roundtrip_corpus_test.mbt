@@ -18,9 +18,9 @@
 /// the JSON parser refuses `\uD800` escapes, so the write-side surrogate
 /// guards are exercised by assembling the raw code unit directly. Shared by
 /// the surrogate rejection tests in this package.
-fn lone_surrogate_str(code_unit : Int) -> String {
+fn lone_surrogate_str(code_unit : Int32) -> String {
   let b = StringBuilder()
-  b.write_char(Int::unsafe_to_char(code_unit))
+  b.write_char(Int32::unsafe_to_char(code_unit))
   b.to_string()
 }
 
@@ -172,7 +172,7 @@ fn assert_same_cells(
 /// Null. The reader scans the complete fixture and rejects ragged records.
 fn csv_roundtrip(
   df : @frame.DataFrame,
-  delimiter? : Char = ',',
+  delimiter~ : Char = ',',
 ) -> @frame.DataFrame raise {
   let null_token = "\u{E000}MOONFRAME_NULL"
   @io.parse_csv_str(

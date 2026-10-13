@@ -20,9 +20,9 @@
 /// comparator. Generic over the cell type `T`, so the element kind lives
 /// entirely in the caller's closures. Total — pure folding, no failure path.
 pub fn[T] fold_extremum(
-  n : Int,
-  get : (Int) -> T,
-  skip : (Int) -> Bool,
+  n : Int32,
+  get : (Int32) -> T,
+  skip : (Int32) -> Bool,
   better : (T, T) -> Bool,
 ) -> T? {
   let mut best : T? = None
@@ -50,9 +50,9 @@ pub fn[T] fold_extremum(
 /// sign of a value `Double` still represents; `fold_double_sum` widening
 /// each cell before adding is the mean-safe form. Total.
 pub fn fold_int64_sum(
-  n : Int,
-  get : (Int) -> Int64,
-  present : (Int) -> Bool,
+  n : Int32,
+  get : (Int32) -> Int64,
+  present : (Int32) -> Bool,
 ) -> Int64 {
   let mut acc : Int64 = 0
   for i in 0..<n {
@@ -74,10 +74,10 @@ pub fn fold_int64_sum(
 /// propagates to a `NaN` total. A returned count of `0` (an empty range or
 /// an all-null window) is the caller's empty-window signal. Total.
 pub fn fold_double_sum(
-  n : Int,
-  get : (Int) -> Double,
-  present : (Int) -> Bool,
-) -> (Double, Int) {
+  n : Int32,
+  get : (Int32) -> Double,
+  present : (Int32) -> Bool,
+) -> (Double, Int32) {
   let mut acc : Double = 0.0
   let mut cnt = 0
   for i in 0..<n {
@@ -106,10 +106,10 @@ pub fn fold_double_sum(
 /// fewer-than-two rule (`cnt < 2` has no sample denominator) and the
 /// division by `cnt - 1`. Total.
 pub fn fold_welford_m2(
-  n : Int,
-  get : (Int) -> Double,
-  present : (Int) -> Bool,
-) -> (Double, Int, Bool) {
+  n : Int32,
+  get : (Int32) -> Double,
+  present : (Int32) -> Bool,
+) -> (Double, Int32, Bool) {
   let mut cnt = 0
   let mut mean = 0.0
   let mut m2 = 0.0

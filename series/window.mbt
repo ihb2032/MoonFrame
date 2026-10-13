@@ -12,7 +12,7 @@
 /// the end, saturating at the first cell; an omitted `length` runs to the
 /// end; a given one saturates at what remains, a negative one is empty.
 /// Total — never fails.
-pub fn Series::slice(self : Series, offset : Int, length? : Int) -> Series {
+pub fn Series::slice(self : Series, offset : Int32, length? : Int32) -> Series {
   let start = @order.slice_start(offset, self.len())
   self.slice_series(start, @order.slice_len(start, self.len(), length))
 }
@@ -26,7 +26,11 @@ pub fn Series::slice(self : Series, offset : Int, length? : Int) -> Series {
 /// runs, so the two spellings cannot disagree. Total — never fails. Reached
 /// as `s[a:b]`.
 #alias("_[_:_]")
-pub fn Series::slice_between(self : Series, start? : Int, end? : Int) -> Series {
+pub fn Series::slice_between(
+  self : Series,
+  start? : Int32,
+  end? : Int32,
+) -> Series {
   let (s, l) = @order.between_bounds(start, end, self.len())
   self.slice_series(s, l)
 }
@@ -39,7 +43,7 @@ pub fn Series::slice_between(self : Series, start? : Int, end? : Int) -> Series 
 /// the backend is a function of the gathered content, not the source.
 pub fn Series::gather(
   self : Series,
-  indices : Array[Int],
+  indices : Array[Int32],
 ) -> Series raise @types.DataError {
   { name: self.name, storage: self.storage.take(indices), }.try_column_to_numeric()
 }
@@ -48,7 +52,7 @@ pub fn Series::gather(
 /// The first `n` cells, or every cell when `n` exceeds the length — the
 /// `Series` twin of `DataFrame::head`. A negative `n` keeps every cell but
 /// the last `|n|`, as Polars' `head` does. Total.
-pub fn Series::head(self : Series, n : Int) -> Series {
+pub fn Series::head(self : Series, n : Int32) -> Series {
   self.slice_series(0, @order.window_take(n, self.len()))
 }
 
@@ -56,7 +60,7 @@ pub fn Series::head(self : Series, n : Int) -> Series {
 /// The last `n` cells, or every cell when `n` exceeds the length — the
 /// `Series` twin of `DataFrame::tail`. A negative `n` keeps every cell but
 /// the first `|n|`, as Polars' `tail` does. Total.
-pub fn Series::tail(self : Series, n : Int) -> Series {
+pub fn Series::tail(self : Series, n : Int32) -> Series {
   let len = self.len()
   let take = @order.window_take(n, len)
   // `slice_series`' third argument is the window *length*, not the end index —

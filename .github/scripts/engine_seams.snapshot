@@ -5,14 +5,13 @@ expr | doc_hidden internal_engine | pub fn Expr::output_name(self : Expr) -> Str
 expr | doc_hidden internal_engine | pub fn Expr::referenced_columns(self : Expr) -> @set.Set[String] | used by: lazy
 expr | doc_hidden internal_engine | pub fn format_scalar(value : @types.Scalar) -> String | used by: lazy
 frame | doc_hidden internal_engine | pub fn DataFrame::check_invariants(self : DataFrame) -> Result[Unit, String] | used by: (no production caller outside frame)
-frame | doc_hidden internal_engine | pub fn DataFrame::filter_row_indices( self : DataFrame, predicate : @expr.Expr, ) -> Array[Int] raise @types.DataError | used by: io
-frame | doc_hidden internal_engine | pub fn DataFrame::from_parts( columns : Array[Series], nrows : Int, ) -> DataFrame raise @types.DataError | used by: io,lazy
+frame | doc_hidden internal_engine | pub fn DataFrame::filter_row_indices( self : DataFrame, predicate : @expr.Expr, ) -> Array[Int32] raise @types.DataError | used by: io
+frame | doc_hidden internal_engine | pub fn DataFrame::from_parts( columns : Array[Series], nrows : Int32, ) -> DataFrame raise @types.DataError | used by: io,lazy
 frame | doc_hidden internal_engine | pub fn DataFrame::to_scalar_matrix( self : DataFrame, ) -> Array[Array[@types.Scalar]] | used by: io
 frame | doc_hidden internal_engine | pub fn evaluate_column_free(expr : @expr.Expr) -> @types.Scalar? | used by: lazy
 io | doc_hidden internal_engine | pub fn csv_scan_driver( path : String, options : CsvReadOptions, ) -> @scan.ScanDriver | used by: lazy
 io | doc_hidden internal_engine | pub fn df_to_json_records(df : @frame.DataFrame) -> Array[Json] | used by: chart
 io | doc_hidden internal_engine | pub fn ndjson_scan_driver( path : String, options : JsonReadOptions, ) -> @scan.ScanDriver | used by: lazy
-io | doc_hidden internal_engine | pub fn parquet_scan_driver(path : String) -> @scan.ScanDriver | used by: lazy
 io | doc_hidden internal_engine | pub fn write_text( path : String, content : String, ) -> Unit raise @types.DataError | used by: chart
 series | doc_hidden internal_engine | pub enum SortKey
 series | doc_hidden internal_engine | pub extend KeyCell with Eq::{equal, not_equal}
@@ -23,25 +22,25 @@ series | doc_hidden internal_engine | pub fn Series::coalesce_columns( self : Se
 series | doc_hidden internal_engine | pub fn Series::empty_of( name : String, dtype : @types.DataType, ) -> Series raise @types.DataError | used by: frame
 series | doc_hidden internal_engine | pub fn Series::from_bool_options( name : String, values : Array[Bool?], ) -> Series | used by: frame,internal/kernel
 series | doc_hidden internal_engine | pub fn Series::from_date_options( name : String, values : Array[Int64?], ) -> Series | used by: frame,internal/kernel
-series | doc_hidden internal_engine | pub fn Series::from_decimal_options( scale : Int, name : String, values : Array[Int64?], ) -> Series | used by: frame,internal/kernel
-series | doc_hidden internal_engine | pub fn Series::from_float_options( name : String, values : Array[Double?], ) -> Series | used by: frame,internal/kernel,io
+series | doc_hidden internal_engine | pub fn Series::from_decimal_options( scale : Int32, name : String, values : Array[Int64?], ) -> Series | used by: frame,internal/kernel
+series | doc_hidden internal_engine | pub fn Series::from_float_options( name : String, values : Array[Double?], ) -> Series | used by: frame,internal/kernel
 series | doc_hidden internal_engine | pub fn Series::from_i64_options( name : String, dtype : @types.DataType, values : Array[Int64?], ) -> Series | used by: internal/kernel
-series | doc_hidden internal_engine | pub fn Series::from_int_options( name : String, values : Array[Int64?], ) -> Series | used by: frame,internal/kernel,io
+series | doc_hidden internal_engine | pub fn Series::from_int_options( name : String, values : Array[Int64?], ) -> Series | used by: frame,internal/kernel
 series | doc_hidden internal_engine | pub fn Series::from_string_options( name : String, values : Array[String?], ) -> Series | used by: frame,internal/kernel,io
-series | doc_hidden internal_engine | pub fn Series::from_timestamp_options( name : String, values : Array[Int64?], ) -> Series | used by: frame,internal/kernel,io
-series | doc_hidden internal_engine | pub fn Series::gather_series(self : Series, idx : Array[Int]) -> Series | used by: frame,internal/kernel
-series | doc_hidden internal_engine | pub fn Series::gather_series_opt( self : Series, idx : Array[Int?], out_name : String, ) -> Series | used by: frame
+series | doc_hidden internal_engine | pub fn Series::from_timestamp_options( name : String, values : Array[Int64?], ) -> Series | used by: frame,internal/kernel
+series | doc_hidden internal_engine | pub fn Series::gather_series(self : Series, idx : Array[Int32]) -> Series | used by: frame,internal/kernel
+series | doc_hidden internal_engine | pub fn Series::gather_series_opt( self : Series, idx : Array[Int32?], out_name : String, ) -> Series | used by: frame
 series | doc_hidden internal_engine | pub fn Series::is_canonical(self : Series) -> Bool | used by: (no production caller outside series)
-series | doc_hidden internal_engine | pub fn Series::mask_true_indices(self : Series) -> Array[Int]? | used by: frame
+series | doc_hidden internal_engine | pub fn Series::mask_true_indices(self : Series) -> Array[Int32]? | used by: frame
 series | doc_hidden internal_engine | pub fn Series::mean_opt(self : Series) -> Double? | used by: frame
 series | doc_hidden internal_engine | pub fn Series::preserve_backend(self : Series, rebuilt : Series) -> Series | used by: frame
-series | doc_hidden internal_engine | pub fn Series::reducer_for( self : Series, op : ReduceOp, ) -> ((Int, (Int) -> Int) -> @types.Scalar, @types.DataType) raise @types.DataError | used by: frame
-series | doc_hidden internal_engine | pub fn Series::slice_series(self : Series, start : Int, len : Int) -> Series | used by: frame
+series | doc_hidden internal_engine | pub fn Series::reducer_for( self : Series, op : ReduceOp, ) -> ((Int32, (Int32) -> Int32) -> @types.Scalar, @types.DataType) raise @types.DataError | used by: frame
+series | doc_hidden internal_engine | pub fn Series::slice_series( self : Series, start : Int32, len : Int32, ) -> Series | used by: frame
 series | doc_hidden internal_engine | pub fn Series::storage(self : Series) -> @column.ColumnStorage | used by: internal/kernel
 series | doc_hidden internal_engine | pub fn Series::storage_kind(self : Series) -> @column.StorageKind | used by: (no production caller outside series)
 series | doc_hidden internal_engine | pub fn Series::try_column_to_numeric(self : Series) -> Series | used by: frame,internal/kernel
 series | doc_hidden internal_engine | pub fn Series::validity_bools(self : Series) -> Array[Bool] | used by: frame,internal/kernel
-series | doc_hidden internal_engine | pub fn SortKey::compare_one_key(self : SortKey, i : Int, j : Int) -> Int | used by: frame
+series | doc_hidden internal_engine | pub fn SortKey::compare_one_key(self : SortKey, i : Int32, j : Int32) -> Int32 | used by: frame
 series | doc_hidden internal_engine | pub fn key_cell(sc : @types.Scalar) -> KeyCell | used by: frame,internal/kernel
 series | doc_hidden internal_engine | pub fn scalars_to_series( probe : @types.DataType, name : String, cells : Array[@types.Scalar], ) -> Series raise @types.DataError | used by: frame,internal/kernel
 series | doc_hidden internal_engine | pub(all) enum ReduceOp
@@ -63,7 +62,7 @@ series | doc_hidden internal_engine | variant ReduceOp::Var
 types | doc_hidden internal_engine | pub fn DataType::comparable_with(self : DataType, other : DataType) -> Bool | used by: internal/kernel
 types | doc_hidden internal_engine | pub fn DataType::i64_rider_scalar(self : DataType, v : Int64) -> Scalar? | used by: internal/column,series
 types | doc_hidden internal_engine | pub fn DataType::physical(self : DataType) -> PhysicalType? | used by: series
-types | doc_hidden internal_engine | pub fn Schema::index_maybe(self : Schema, name : String) -> Int? | used by: frame
+types | doc_hidden internal_engine | pub fn Schema::index_maybe(self : Schema, name : String) -> Int32? | used by: frame
 types | doc_hidden internal_engine | pub fn date_days_to_civil(days : Int64) -> (Int64, Int64, Int64) | used by: internal/kernel
 types | doc_hidden internal_engine | pub(all) enum PhysicalType
 types | doc_hidden internal_engine | variant PhysicalType::Bool

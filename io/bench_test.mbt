@@ -4,7 +4,7 @@
 
 ///|
 /// A CSV document: an `id,key,value,label` header followed by `n` data rows.
-fn csv_doc(n : Int) -> String {
+fn csv_doc(n : Int32) -> String {
   let sb = StringBuilder()
   sb.write_string("id,key,value,label\n")
   for i in 0..<n {
@@ -15,7 +15,7 @@ fn csv_doc(n : Int) -> String {
 
 ///|
 /// An NDJSON document of the same shape — one JSON object per line.
-fn ndjson_doc(n : Int) -> String {
+fn ndjson_doc(n : Int32) -> String {
   let sb = StringBuilder()
   for i in 0..<n {
     sb.write_string(

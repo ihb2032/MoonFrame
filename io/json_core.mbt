@@ -98,10 +98,10 @@
 /// whose records have no line of their own).
 fn frame_from_json_records(
   records : Array[Json],
-  infer_schema_rows : Int,
+  infer_schema_rows : Int32,
   on_parse_error : OnParseError,
   projection : Array[String]?,
-  source_lines : Array[Int]?,
+  source_lines : Array[Int32]?,
   pruner? : RowPruner,
 ) -> @frame.DataFrame raise @types.DataError {
   if records.is_empty() {
@@ -151,7 +151,7 @@ fn frame_from_json_records(
   let build = fn(
     name : String,
     from : Array[Map[String, Json]],
-    lines : Array[Int]?,
+    lines : Array[Int32]?,
   ) -> @series.Series raise @types.DataError {
     let dt = infer_json_column_dtype(objs, name, infer_schema_rows)
     build_json_column(name, dt, from, on_parse_error, lines)
@@ -164,8 +164,8 @@ fn frame_from_json_records(
   // `ColumnNotFound` exactly as the eager filter would.
   let build_over = fn(
     name : String,
-    _col : Int,
-    keep : Array[Int]?,
+    _col : Int32,
+    keep : Array[Int32]?,
   ) -> @series.Series raise @types.DataError {
     let records = kept_records(keep, objs)
     let lines = source_lines.map(l => kept_records(keep, l))
@@ -274,7 +274,7 @@ fn lookup_field(obj : Map[String, Json], name : String) -> Json {
 fn infer_json_column_dtype(
   objs : Array[Map[String, Json]],
   name : String,
-  limit : Int,
+  limit : Int32,
 ) -> InferredDtype {
   infer_dtype(
     objs.length(),
@@ -378,9 +378,9 @@ fn json_value_to_string_fallback(j : Json) -> String {
 ///|
 /// Preserve the source coordinate as data for a typed-cell parse error.
 fn json_cell_parse_location(
-  source_lines : Array[Int]?,
-  i : Int,
-) -> (@types.CellParseLocation, Int) {
+  source_lines : Array[Int32]?,
+  i : Int32,
+) -> (@types.CellParseLocation, Int32) {
   match source_lines {
     Some(lines) => (@types.CellParseLocation::Line, lines[i])
     None => (@types.CellParseLocation::Record, i + 1)
@@ -399,10 +399,10 @@ fn build_json_column(
   dtype : InferredDtype,
   objs : Array[Map[String, Json]],
   on_parse_error : OnParseError,
-  source_lines : Array[Int]?,
+  source_lines : Array[Int32]?,
 ) -> @series.Series raise @types.DataError {
   let n = objs.length()
-  let cell = fn(i : Int) -> Json { lookup_field(objs[i], name) }
+  let cell = fn(i : Int32) -> Json { lookup_field(objs[i], name) }
   let isnull = fn(c : Json) -> Bool { c is Null }
   build_inferred_column(
     name,

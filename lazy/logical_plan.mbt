@@ -102,12 +102,12 @@ priv enum FrameOp {
   WithColumns(Array[@expr.Expr])
   Filter(@expr.Expr)
   Sort(Array[(@expr.Expr, Bool, Bool)])
-  Head(Int)
-  Tail(Int)
-  Slice(Int, Int?)
-  GatherEvery(Int, Int)
-  TopK(Int, Array[@expr.Expr], Bool)
-  BottomK(Int, Array[@expr.Expr], Bool)
+  Head(Int32)
+  Tail(Int32)
+  Slice(Int32, Int32?)
+  GatherEvery(Int32, Int32)
+  TopK(Int32, Array[@expr.Expr], Bool)
+  BottomK(Int32, Array[@expr.Expr], Bool)
   Drop(Array[@expr.Expr])
   Rename(Array[(String, String)])
   RenameWith((String) -> String)
@@ -116,7 +116,7 @@ priv enum FrameOp {
   WithRowIndex(String, Int64)
   DropNulls(Array[@expr.Expr]?)
   FillNull(@types.Scalar)
-  FillNullDir(Bool, Int?)
+  FillNullDir(Bool, Int32?)
   Pivot(
     Array[@expr.Expr],
     Array[@expr.Expr]?,

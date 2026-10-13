@@ -82,14 +82,14 @@ pub fn LazyFrame::sort(
 /// Polars / SQL name `limit` (via `#alias`): the same deferred node, so
 /// `lf.limit(n)` collects to the same rows and `explain`s as `HEAD n`.
 #alias(limit)
-pub fn LazyFrame::head(self : LazyFrame, n : Int) -> LazyFrame {
+pub fn LazyFrame::head(self : LazyFrame, n : Int32) -> LazyFrame {
   { plan: Unary(self.plan, Head(n)), }
 }
 
 ///|
 /// Defer `DataFrame::tail`: the last `n` rows, with the same total clamp
 /// as `head`.
-pub fn LazyFrame::tail(self : LazyFrame, n : Int) -> LazyFrame {
+pub fn LazyFrame::tail(self : LazyFrame, n : Int32) -> LazyFrame {
   { plan: Unary(self.plan, Tail(n)), }
 }
 
@@ -99,8 +99,8 @@ pub fn LazyFrame::tail(self : LazyFrame, n : Int) -> LazyFrame {
 /// fails — saturation resolves against the collected frame's height.
 pub fn LazyFrame::slice(
   self : LazyFrame,
-  offset : Int,
-  length? : Int,
+  offset : Int32,
+  length? : Int32,
 ) -> LazyFrame {
   { plan: Unary(self.plan, Slice(offset, length)), }
 }
@@ -111,8 +111,8 @@ pub fn LazyFrame::slice(
 /// eager error at collect, keeping the two layers' failures identical.
 pub fn LazyFrame::gather_every(
   self : LazyFrame,
-  n : Int,
-  offset? : Int = 0,
+  n : Int32,
+  offset~ : Int32 = 0,
 ) -> LazyFrame {
   { plan: Unary(self.plan, GatherEvery(n, offset)), }
 }
@@ -140,9 +140,9 @@ pub fn LazyFrame::last(self : LazyFrame) -> LazyFrame {
 /// collect with the eager error.
 pub fn LazyFrame::top_k(
   self : LazyFrame,
-  k : Int,
+  k : Int32,
   by~ : Array[@expr.Expr],
-  reverse? : Bool = false,
+  reverse~ : Bool = false,
 ) -> LazyFrame {
   { plan: Unary(self.plan, TopK(k, by.copy(), reverse)), }
 }
@@ -153,9 +153,9 @@ pub fn LazyFrame::top_k(
 /// collect-time-validation reason.
 pub fn LazyFrame::bottom_k(
   self : LazyFrame,
-  k : Int,
+  k : Int32,
   by~ : Array[@expr.Expr],
-  reverse? : Bool = false,
+  reverse~ : Bool = false,
 ) -> LazyFrame {
   { plan: Unary(self.plan, BottomK(k, by.copy(), reverse)), }
 }
@@ -206,8 +206,8 @@ pub fn LazyFrame::reverse(self : LazyFrame) -> LazyFrame {
 /// as `InvalidOperation` there.
 pub fn LazyFrame::with_row_index(
   self : LazyFrame,
-  name? : String = "index",
-  offset? : Int64 = 0,
+  name~ : String = "index",
+  offset~ : Int64 = 0,
 ) -> LazyFrame {
   { plan: Unary(self.plan, WithRowIndex(name, offset)), }
 }
@@ -223,7 +223,7 @@ pub fn LazyFrame::with_row_index(
 pub fn LazyFrame::unique(
   self : LazyFrame,
   subset? : Array[@expr.Expr],
-  keep? : @frame.KeepStrategy = First,
+  keep~ : @frame.KeepStrategy = First,
 ) -> LazyFrame {
   { plan: Unary(self.plan, Unique(keep, subset.map(keys => keys.copy()))), }
 }
@@ -256,7 +256,7 @@ pub fn LazyFrame::fill_null(
 /// `limit` validation surfaces as the eager error at collect.
 pub fn LazyFrame::fill_null_forward(
   self : LazyFrame,
-  limit? : Int,
+  limit? : Int32,
 ) -> LazyFrame {
   { plan: Unary(self.plan, FillNullDir(false, limit)), }
 }
@@ -266,7 +266,7 @@ pub fn LazyFrame::fill_null_forward(
 /// `fill_null_forward`.
 pub fn LazyFrame::fill_null_backward(
   self : LazyFrame,
-  limit? : Int,
+  limit? : Int32,
 ) -> LazyFrame {
   { plan: Unary(self.plan, FillNullDir(true, limit)), }
 }
@@ -314,8 +314,8 @@ pub fn LazyFrame::unpivot(
   self : LazyFrame,
   on? : Array[@expr.Expr],
   index? : Array[@expr.Expr],
-  variable_name? : String = "variable",
-  value_name? : String = "value",
+  variable_name~ : String = "variable",
+  value_name~ : String = "value",
 ) -> LazyFrame {
   {
     plan: Unary(
@@ -388,7 +388,7 @@ pub fn LazyFrame::median(self : LazyFrame) -> LazyFrame {
 pub fn LazyFrame::quantile(
   self : LazyFrame,
   q : Double,
-  interpolation? : @series.QuantileInterpolation = @series.QuantileInterpolation::Nearest,
+  interpolation~ : @series.QuantileInterpolation = @series.QuantileInterpolation::Nearest,
 ) -> LazyFrame {
   { plan: Unary(self.plan, Reduce(LazyReduceOp::Quantile(q, interpolation))), }
 }
@@ -521,7 +521,7 @@ pub fn LazyGroupBy::median(self : LazyGroupBy) -> LazyFrame {
 pub fn LazyGroupBy::quantile(
   self : LazyGroupBy,
   q : Double,
-  interpolation? : @series.QuantileInterpolation = @series.QuantileInterpolation::Nearest,
+  interpolation~ : @series.QuantileInterpolation = @series.QuantileInterpolation::Nearest,
 ) -> LazyFrame {
   self.agg_all(Quantile(q, interpolation))
 }
@@ -655,7 +655,7 @@ pub fn LazyFrame::collect(
 /// first, compute later.
 pub fn LazyFrame::explain(
   self : LazyFrame,
-  optimized? : Bool = false,
+  optimized~ : Bool = false,
 ) -> String {
   let plan = if optimized { self.plan.optimize() } else { self.plan }
   let buf = StringBuilder()

@@ -22,7 +22,7 @@
 pub struct GroupedDataFrame {
   priv source : DataFrame
   priv key_columns : Array[Series]
-  priv groups : Array[Array[Int]]
+  priv groups : Array[Array[Int32]]
 }
 
 ///|
@@ -106,7 +106,7 @@ pub fn DataFrame::group_by(
   // slot-tracking array; within a group the indices stay ascending because
   // `i` only grows.
   let key_scalars = key_columns.map(column => column.to_scalars())
-  let by_key : Map[Array[KeyCell], Array[Int]] = Map([])
+  let by_key : Map[Array[KeyCell], Array[Int32]] = Map([])
   for i in 0..<n {
     let id = row_group_key(key_scalars, i)
     match by_key.get(id) {

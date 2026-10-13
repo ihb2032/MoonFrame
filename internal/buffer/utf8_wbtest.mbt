@@ -26,9 +26,9 @@ test "an unpaired surrogate round-trips instead of aborting or corrupting" {
   // MoonBit strings can legally hold a lone surrogate half; core's encoder
   // aborts on one. The buffer's WTF-8 spelling keeps it recoverable byte
   // for byte, which is what the io writers' refusal check reads.
-  fn lone(code_unit : Int) -> String {
+  fn lone(code_unit : Int32) -> String {
     let b = StringBuilder()
-    b.write_char(Int::unsafe_to_char(code_unit))
+    b.write_char(Int32::unsafe_to_char(code_unit))
     b.to_string()
   }
 

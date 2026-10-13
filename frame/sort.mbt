@@ -91,7 +91,7 @@ pub fn DataFrame::sort(
 ///|
 /// Lexicographic comparison across the resolved keys: first key that
 /// disagrees decides. Returns -1 / 0 / 1 in the usual sense.
-fn compare_rows(keys : Array[@series.SortKey], i : Int, j : Int) -> Int {
+fn compare_rows(keys : Array[@series.SortKey], i : Int32, j : Int32) -> Int32 {
   for k in 0..<keys.length() {
     let c = keys[k].compare_one_key(i, j)
     if c != 0 {

@@ -16,7 +16,7 @@
 /// record's entry. The "survivor → original position" compaction both
 /// readers thread, so a parse error in a kept row reports its true source
 /// row / line rather than its compacted index.
-fn[T] kept_records(keep : Array[Int]?, all : Array[T]) -> Array[T] {
+fn[T] kept_records(keep : Array[Int32]?, all : Array[T]) -> Array[T] {
   match keep {
     None => all
     Some(k) => Array::makei(k.length(), i => all[k[i]])
@@ -31,7 +31,7 @@ fn[T] kept_records(keep : Array[Int]?, all : Array[T]) -> Array[T] {
 /// JSON records core, and the frame assembler — spells the same contract.
 type RowPruner = (
   Array[String],
-  (@frame.DataFrame) -> Array[Int] raise @types.DataError,
+  (@frame.DataFrame) -> Array[Int32] raise @types.DataError,
 )
 
 ///|
@@ -60,10 +60,10 @@ type RowPruner = (
 /// sees the file's real height.
 fn assemble_pruned_frame(
   headers : Array[String],
-  nrows : Int,
+  nrows : Int32,
   projection : Array[String]?,
   pruner : RowPruner?,
-  build_over : (String, Int, Array[Int]?) -> @series.Series raise @types.DataError,
+  build_over : (String, Int32, Array[Int32]?) -> @series.Series raise @types.DataError,
 ) -> @frame.DataFrame raise @types.DataError {
   // A membership set over a name list — a `Map[String, Unit]` for O(1)
   // `contains`, built once so the projection / pruned-column / key-column
@@ -77,7 +77,7 @@ fn assemble_pruned_frame(
   }
 
   // Phase 1: build only the key columns over every record, gather the survivors.
-  let pruned : (@frame.DataFrame, Array[Int])? = match pruner {
+  let pruned : (@frame.DataFrame, Array[Int32])? = match pruner {
     None => None
     Some((key_columns, keep)) => {
       let key_set = name_set(key_columns)
@@ -92,7 +92,7 @@ fn assemble_pruned_frame(
       Some((key_frame.gather(kept), kept))
     }
   }
-  let kept : Array[Int]? = match pruned {
+  let kept : Array[Int32]? = match pruned {
     None => None
     Some((_, k)) => Some(k)
   }

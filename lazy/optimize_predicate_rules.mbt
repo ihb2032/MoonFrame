@@ -34,7 +34,7 @@ priv struct ExprProps {
 fn expr_props(expr : @ir.ExprNode) -> ExprProps {
   let discover : Array[@ir.ExprNode] = [expr]
   let order : Array[@ir.ExprNode] = []
-  let arities : Array[Int] = []
+  let arities : Array[Int32] = []
   for ;; {
     match discover.pop() {
       None => break

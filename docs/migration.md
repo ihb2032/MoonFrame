@@ -16,7 +16,21 @@ additive — new verbs (`pivot` / `unpivot`, the positional / rolling
 families, the `dt_*` quartet, the null toolbox, `mode` / `sample` / the
 `top_k` family), new enums (`PivotAgg`, `RankMethod`,
 `QuantileInterpolation`), and error-facing tightenings that turn silent
-output into a `raise` on inputs no caller could have relied on.
+output into a `raise` on inputs no caller could have relied on. One
+withdrawal rides along, forced by the toolchain rather than the sprint —
+the Parquet interchange below.
+
+### The Parquet interchange is withdrawn
+
+`read_parquet` / `write_parquet` (with the string-level `format_parquet` /
+`parse_parquet` and the lazy `scan_parquet`) are gone. The interchange rode
+the `mizchi/parquet` reader/writer, whose dependency chain
+(`mizchi/duckdb`) still ships the module-manifest format the current
+MoonBit toolchain no longer parses — the package cannot be installed at
+all, so the feature cannot ship with it. The wire format returns when the
+upstream package publishes a toolchain-compatible release; until then,
+move Parquet data through CSV, or read it in a downstream module that
+pairs an older toolchain with MoonFrame 0.7.0.
 
 ### `JoinType` gained `Semi` / `Anti`
 

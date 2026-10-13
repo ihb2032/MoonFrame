@@ -57,7 +57,7 @@
 pub struct CsvReadOptions {
   has_header : Bool
   delimiter : Char
-  infer_schema_rows : Int
+  infer_schema_rows : Int32
   priv null_values : Array[String]
   strict_column_count : Bool
   on_parse_error : OnParseError
@@ -84,14 +84,14 @@ pub fn CsvReadOptions::null_values(self : CsvReadOptions) -> Array[String] {
 /// `null_values` is copied, so mutating the array afterwards cannot alter
 /// the options.
 pub fn CsvReadOptions::CsvReadOptions(
-  has_header? : Bool = true,
-  delimiter? : Char = ',',
-  infer_schema_rows? : Int = DEFAULT_INFER_SCHEMA_ROWS,
-  null_values? : Array[String] = [""],
-  strict_column_count? : Bool = false,
-  on_parse_error? : OnParseError = Raise,
-  allow_nonfinite_floats? : Bool = true,
-  strict_quotes? : Bool = false,
+  has_header~ : Bool = true,
+  delimiter~ : Char = ',',
+  infer_schema_rows~ : Int32 = DEFAULT_INFER_SCHEMA_ROWS,
+  null_values~ : Array[String] = [""],
+  strict_column_count~ : Bool = false,
+  on_parse_error~ : OnParseError = Raise,
+  allow_nonfinite_floats~ : Bool = true,
+  strict_quotes~ : Bool = false,
 ) -> CsvReadOptions {
   {
     has_header,
@@ -167,7 +167,7 @@ pub fn CsvReadOptions::CsvReadOptions(
 /// column is never parsed.
 pub fn parse_csv_str(
   content : String,
-  options? : CsvReadOptions = CsvReadOptions::CsvReadOptions(),
+  options~ : CsvReadOptions = CsvReadOptions::CsvReadOptions(),
   projection? : Array[String],
 ) -> @frame.DataFrame raise @types.DataError {
   parse_csv_str_projected(content, options, projection, None)
@@ -254,7 +254,7 @@ fn parse_csv_str_projected(
     null_set[v] = ()
   }
   let is_null = fn(v : String) -> Bool { null_set.contains(v) }
-  let dtype_of = fn(col : Int) -> InferredDtype {
+  let dtype_of = fn(col : Int32) -> InferredDtype {
     // Inference always walks the *whole* file, even when a predicate will drop
     // rows, so a pruned read locks in the same dtypes an eager
     // `read_csv(..).filter(..)` would.
@@ -270,8 +270,8 @@ fn parse_csv_str_projected(
     name : String,
     dt : InferredDtype,
     from : Array[Array[String]],
-    col : Int,
-    row_numbers : Array[Int]?,
+    col : Int32,
+    row_numbers : Array[Int32]?,
   ) -> @series.Series raise @types.DataError {
     build_column(
       name,
@@ -293,8 +293,8 @@ fn parse_csv_str_projected(
   // over the whole file either way, so a pruned read locks in the same dtypes.
   let build_over = fn(
     name : String,
-    col : Int,
-    keep : Array[Int]?,
+    col : Int32,
+    keep : Array[Int32]?,
   ) -> @series.Series raise @types.DataError {
     let records = kept_records(keep, rows)
     build(name, dtype_of(col), records, col, keep)
@@ -373,7 +373,7 @@ fn validate_csv_shape(
 /// NyaCSV tokenisation, exactly as `parse_csv_str` does.
 pub fn read_csv(
   path : String,
-  options? : CsvReadOptions = CsvReadOptions::CsvReadOptions(),
+  options~ : CsvReadOptions = CsvReadOptions::CsvReadOptions(),
 ) -> @frame.DataFrame raise @types.DataError {
   let content = read_text(path)
   parse_csv_str(content, options~)
@@ -488,7 +488,11 @@ fn validate_csv_delimiter(delimiter : Char) -> Unit raise @types.DataError {
 /// matrix. Short rows (fewer cells than the header declares) fall
 /// through to the empty string, which the null-mapping then turns
 /// into `None` when the empty string is in `null_values`.
-fn cell_value(rows : Array[Array[String]], row_idx : Int, col : Int) -> String {
+fn cell_value(
+  rows : Array[Array[String]],
+  row_idx : Int32,
+  col : Int32,
+) -> String {
   let row = rows[row_idx]
   if col < row.length() {
     row[col]
@@ -506,8 +510,8 @@ fn cell_value(rows : Array[Array[String]], row_idx : Int, col : Int) -> String {
 /// `infer_dtype` core.
 fn infer_column_dtype(
   rows : Array[Array[String]],
-  col : Int,
-  limit : Int,
+  col : Int32,
+  limit : Int32,
   is_null : (String) -> Bool,
   allow_nonfinite_floats : Bool,
 ) -> InferredDtype {
@@ -549,20 +553,20 @@ fn build_column(
   name : String,
   dtype : InferredDtype,
   rows : Array[Array[String]],
-  col : Int,
+  col : Int32,
   isnull : (String) -> Bool,
   on_parse_error : OnParseError,
   allow_nonfinite_floats : Bool,
-  row_numbers : Array[Int]?,
+  row_numbers : Array[Int32]?,
 ) -> @series.Series raise @types.DataError {
   let n = rows.length()
-  let cell = fn(i : Int) -> String { cell_value(rows, i, col) }
+  let cell = fn(i : Int32) -> String { cell_value(rows, i, col) }
   // A parse error must name the cell's original file row. `rows` may be the
   // compacted survivor list of a predicate-pruned read, so map the build index
   // back through `row_numbers` (identity when `None`, i.e. a full read); the
   // `+ 1` makes it the 1-based data row the eager reader reports. The NDJSON
   // reader threads the same original-position mapping (`kept_lines`).
-  let file_row = fn(i : Int) -> Int {
+  let file_row = fn(i : Int32) -> Int32 {
     match row_numbers {
       None => i + 1
       Some(m) => m[i] + 1

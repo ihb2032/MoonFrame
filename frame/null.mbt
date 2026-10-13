@@ -119,7 +119,7 @@ pub fn DataFrame::drop_nulls(
 fn DataFrame::fill_null_directional(
   self : DataFrame,
   backward : Bool,
-  limit? : Int,
+  limit? : Int32,
 ) -> DataFrame raise @types.DataError {
   // The limit check runs at the entry, not in the kernel a column with
   // nulls reaches: a frame whose columns happen to carry no null would
@@ -158,7 +158,7 @@ fn DataFrame::fill_null_directional(
 /// `fill_null(strategy='forward', limit)`).
 pub fn DataFrame::fill_null_forward(
   self : DataFrame,
-  limit? : Int,
+  limit? : Int32,
 ) -> DataFrame raise @types.DataError {
   self.fill_null_directional(false, limit?)
 }
@@ -168,7 +168,7 @@ pub fn DataFrame::fill_null_forward(
 /// (Polars' `fill_null(strategy='backward', limit)`).
 pub fn DataFrame::fill_null_backward(
   self : DataFrame,
-  limit? : Int,
+  limit? : Int32,
 ) -> DataFrame raise @types.DataError {
   self.fill_null_directional(true, limit?)
 }

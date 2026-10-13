@@ -105,7 +105,7 @@ intermediates="expr/WhenThen expr/WhenThenElse frame/GroupedDataFrame lazy/LazyG
 # facade — never to make a guard pass.
 #
 # Package-qualified for the same reason as the intermediates list.
-qualified_reach="io/format_csv io/format_json io/format_ndjson io/format_parquet io/parse_csv_str io/parse_json_str io/parse_ndjson_str io/parse_parquet"
+qualified_reach="io/format_csv io/format_json io/format_ndjson io/parse_csv_str io/parse_json_str io/parse_ndjson_str"
 
 # Tracked public interfaces only: `git ls-files` never lists a `_build` copy,
 # `internal/` (at any depth) carries no compatibility promise, and `examples/`

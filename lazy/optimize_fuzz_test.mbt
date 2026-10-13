@@ -12,13 +12,14 @@
 /// backend flip that changes a value surfaces in the cells, while the backend
 /// tag itself is an implementation detail the oracle intentionally ignores.
 ///
-/// Driven by quickcheck: each case draws a rich frame and a pipeline shape
-/// from `@gen` combinators, and `forall_shrink` collapses a failing case to a
-/// MINIMAL counterexample — row-by-row for the data (and verb-by-verb for the
+/// Driven by core quickcheck: each case draws a rich frame and a pipeline
+/// shape from `@gen` combinators, `check` runs the property over a fixed
+/// sweep, and its `Shrink` pass collapses a failing case to a MINIMAL
+/// counterexample — row-by-row for the data (and verb-by-verb for the
 /// stacked pipelines). Modelling a row as a plain tuple of `Option`s lets
-/// `@shrink`'s built-in Array / tuple / Option instances do that row shrinking
-/// for free, so a failure reports the smallest frame that still diverges
-/// rather than an opaque seed number. Quickcheck's default seed is fixed, so
+/// core `@shrink`'s built-in Array / tuple / Option instances do that row
+/// shrinking for free, so a failure reports the smallest frame that still
+/// diverges rather than an opaque seed number. The seed is pinned (37), so
 /// the generated cases — and hence coverage — are reproducible run to run. The
 /// generators bias hard toward the documented hazards — all-null groups,
 /// signed-zero float keys, NaN/non-finite/extreme cells, dtype-changing maps
@@ -33,7 +34,7 @@
 /// plain `moon test` stays at the baseline size.
 
 ///|
-fn fuzz_scale() -> Int {
+fn fuzz_scale() -> Int32 {
   match @env.get_env_var("MOONFRAME_FUZZ_SCALE") {
     Some(raw) =>
       match @text.parse_decimal_int_opt(raw) {
@@ -45,7 +46,58 @@ fn fuzz_scale() -> Int {
 }
 
 ///|
-fn fuzz_cases(base : Int) -> Int {
+/// The applicative lifts this fuzzer was written against (`liftA2` …
+/// `liftA6`, once spelled `@gen.liftA*`) — rebuilt over the core
+/// `Generator`'s zips, which is the combinators' canonical form; the
+/// arities in use are kept so the generators below read as one lift each.
+fn[A, B, C] liftA2(
+  f : (A, B) -> C,
+  ga : @gen.Generator[A],
+  gb : @gen.Generator[B],
+) -> @gen.Generator[C] {
+  ga.zip_with(gb, f)
+}
+
+///|
+fn[A, B, C, D] liftA3(
+  f : (A, B, C) -> D,
+  ga : @gen.Generator[A],
+  gb : @gen.Generator[B],
+  gc : @gen.Generator[C],
+) -> @gen.Generator[D] {
+  ga.zip_with3(gb, gc, f)
+}
+
+///|
+fn[A, B, C, D, E] liftA4(
+  f : (A, B, C, D) -> E,
+  ga : @gen.Generator[A],
+  gb : @gen.Generator[B],
+  gc : @gen.Generator[C],
+  gd : @gen.Generator[D],
+) -> @gen.Generator[E] {
+  ga
+  .zip_with3(gb, gc, (a, b, c) => (a, b, c))
+  .zip_with(gd, (t, d) => f(t.0, t.1, t.2, d))
+}
+
+///|
+fn[A, B, C, D, E, F, G] liftA6(
+  f : (A, B, C, D, E, F) -> G,
+  ga : @gen.Generator[A],
+  gb : @gen.Generator[B],
+  gc : @gen.Generator[C],
+  gd : @gen.Generator[D],
+  ge : @gen.Generator[E],
+  gf : @gen.Generator[F],
+) -> @gen.Generator[G] {
+  let abc = ga.zip_with3(gb, gc, (a, b, c) => (a, b, c))
+  let def = gd.zip_with3(ge, gf, (d, e, x) => (d, e, x))
+  abc.zip_with(def, (l, r) => f(l.0, l.1, l.2, r.0, r.1, r.2))
+}
+
+///|
+fn fuzz_cases(base : Int32) -> Int32 {
   base * fuzz_scale()
 }
 
@@ -64,17 +116,17 @@ type RichRow = (Int64?, Double?, Int64?, Int64?, String?, Int64?)
 /// A `Bool` that is `true` with probability `1/n` — the generator counterpart
 /// of the old `Rng::one_in`, kept so the pipeline-shape probabilities (and thus
 /// the covered branches) match the previous hand-rolled fuzzer exactly.
-fn gen_one_in(n : Int) -> @gen.Gen[Bool] {
-  @gen.int_range(0, n - 1).fmap(x => x == 0)
+fn gen_one_in(n : Int32) -> @gen.Generator[Bool] {
+  @gen.int_range(0, n - 1).map(x => x == 0)
 }
 
 ///|
 /// A low-cardinality grouping key `g` (values 0..2, ~1/4 null) so groups
 /// actually collide and all-null groups are reachable.
-fn gen_g_cell() -> @gen.Gen[Int64?] {
+fn gen_g_cell() -> @gen.Generator[Int64?] {
   @gen.frequency([
     (1, @gen.pure(None)),
-    (3, @gen.int_range(0, 2).fmap(x => Some(x.to_int64()))),
+    (3, @gen.int_range(0, 2).map(x => Some(x.to_int64()))),
   ])
 }
 
@@ -82,15 +134,15 @@ fn gen_g_cell() -> @gen.Gen[Int64?] {
 /// An `Int64` payload pool including the additive identity, negatives (so sums
 /// cancel and min/max straddle zero), the exact 2^53 boundary and its first
 /// inexact successor, and `Int64::MAX`, ~1/4 null.
-fn gen_int_cell() -> @gen.Gen[Int64?] {
+fn gen_int_cell() -> @gen.Generator[Int64?] {
   @gen.frequency([
     (1, @gen.pure(None)),
     (
       3,
-      @gen.one_of_array([
+      @gen.elements([
         0L, 1L, -1L, 2L, 5L, 50L, 100L, -50L, 9007199254740992L, 9007199254740993L,
         9223372036854775807L,
-      ]).fmap(x => Some(x)),
+      ]).map(x => Some(x)),
     ),
   ])
 }
@@ -100,16 +152,16 @@ fn gen_int_cell() -> @gen.Gen[Int64?] {
 /// infinities, and both signs of the largest finite value and a nearby value —
 /// the values the signed-zero fence, grouping rules, and Welford overflow
 /// guards turn on — ~1/4 null.
-fn gen_float_cell() -> @gen.Gen[Double?] {
+fn gen_float_cell() -> @gen.Generator[Double?] {
   @gen.frequency([
     (1, @gen.pure(None)),
     (
       3,
-      @gen.one_of_array([
+      @gen.elements([
         0.0, -0.0, 1.0, -1.0, 2.5, @double.not_a_number, 100.0, -100.0, 1.7976931348623157e308,
         1.7976931348623155e308, -1.7976931348623157e308, -1.7976931348623155e308,
         @double.infinity, @double.neg_infinity,
-      ]).fmap(x => Some(x)),
+      ]).map(x => Some(x)),
     ),
   ])
 }
@@ -121,10 +173,10 @@ let string_choices : Array[String] = ["", "a", "b", "west", "east", "north"]
 
 ///|
 /// A string cell drawn from `string_choices`, ~1/4 null.
-fn gen_string_cell() -> @gen.Gen[String?] {
+fn gen_string_cell() -> @gen.Generator[String?] {
   @gen.frequency([
     (1, @gen.pure(None)),
-    (3, @gen.one_of_array(string_choices).fmap(x => Some(x))),
+    (3, @gen.elements(string_choices).map(x => Some(x))),
   ])
 }
 
@@ -134,19 +186,16 @@ fn gen_string_cell() -> @gen.Gen[String?] {
 /// group below everything), ~1/4 null. The generated expressions never
 /// reference `dt` — it is payload, so the differential asserts the rider's
 /// dtype survives every carried path rather than exercising date semantics.
-fn gen_date_cell() -> @gen.Gen[Int64?] {
+fn gen_date_cell() -> @gen.Generator[Int64?] {
   @gen.frequency([
     (1, @gen.pure(None)),
-    (
-      3,
-      @gen.one_of_array([0L, 1L, -1L, 19723L, 19753L, 19754L]).fmap(x => Some(x)),
-    ),
+    (3, @gen.elements([0L, 1L, -1L, 19723L, 19753L, 19754L]).map(x => Some(x))),
   ])
 }
 
 ///|
-fn gen_rich_row() -> @gen.Gen[RichRow] {
-  @gen.liftA6(
+fn gen_rich_row() -> @gen.Generator[RichRow] {
+  liftA6(
     (g, fk, a, b, s, dt) => (g, fk, a, b, s, dt),
     gen_g_cell(),
     gen_float_cell(),
@@ -159,8 +208,8 @@ fn gen_rich_row() -> @gen.Gen[RichRow] {
 
 ///|
 /// A frame of `0..=max_rows` rich rows (the empty frame is in range).
-fn gen_rows(max_rows : Int) -> @gen.Gen[Array[RichRow]] {
-  @gen.int_range(0, max_rows).bind(n => gen_rich_row().array_with_size(n))
+fn gen_rows(max_rows : Int32) -> @gen.Generator[Array[RichRow]] {
+  @gen.int_range(0, max_rows).flat_map(n => gen_rich_row().array_with_size(n))
 }
 
 ///|
@@ -263,7 +312,7 @@ fn check_equiv(
   label : String,
   lazy_chain : () -> LazyFrame raise @types.DataError,
   eager_chain : () -> @frame.DataFrame raise @types.DataError,
-  strict_errors? : Bool = false,
+  strict_errors~ : Bool = false,
 ) -> String? {
   // `.collect()` (the optimizer entry point) lives here, in one fixed place, so
   // each call site only has to build the LazyFrame. Frame construction happens
@@ -344,8 +393,8 @@ pub extend AggFilterCase with Debug::{to_repr}
 /// Keys: always `g`; the ±0.0 / NaN float key `fk` with prob 1/2 and the string
 /// key `s` with prob 1/3 (the mix the old fuzzer used, so key cardinality and
 /// the signed-zero / NaN folding paths stay covered).
-fn gen_agg_keys() -> @gen.Gen[Array[@expr.Expr]] {
-  @gen.liftA2(
+fn gen_agg_keys() -> @gen.Generator[Array[@expr.Expr]] {
+  liftA2(
     (with_fk, with_s) => {
       let keys = [@expr.col("g")]
       if with_fk {
@@ -369,8 +418,8 @@ fn gen_agg_keys() -> @gen.Gen[Array[@expr.Expr]] {
 /// case also runs two dtype-changing maps under reductions: String to Int via
 /// `map_elements`, and String+Int to Float via `map_many`. This exercises real
 /// group scopes and the empty-scope dtype probe used for error parity.
-fn gen_agg_aggs() -> @gen.Gen[Array[@expr.Expr]] {
-  @gen.liftA2(
+fn gen_agg_aggs() -> @gen.Generator[Array[@expr.Expr]] {
+  liftA2(
     (int_choice, float_choice) => {
       let aggs = [
         @expr.col("a").sum().with_alias("sa"),
@@ -427,11 +476,11 @@ fn gen_agg_aggs() -> @gen.Gen[Array[@expr.Expr]] {
 /// A key predicate on the bare Int key `g` (eligible to sink past the
 /// aggregate): `g == v` for `v` in 0..2, or `g.is_not_null()` (which exercises
 /// the null-key group), each with probability 1/2.
-fn gen_agg_pred() -> @gen.Gen[@expr.Expr] {
+fn gen_agg_pred() -> @gen.Generator[@expr.Expr] {
   @gen.frequency([
     (
       1,
-      @gen.int_range(0, 2).fmap(v => {
+      @gen.int_range(0, 2).map(v => {
         @expr.col("g").eq(@expr.lit_int(v.to_int64()))
       }),
     ),
@@ -440,8 +489,8 @@ fn gen_agg_pred() -> @gen.Gen[@expr.Expr] {
 }
 
 ///|
-fn gen_agg_filter_case() -> @gen.Gen[AggFilterCase] {
-  @gen.liftA4(
+fn gen_agg_filter_case() -> @gen.Generator[AggFilterCase] {
+  liftA4(
     (rows, keys, aggs, pred) => AggFilterCase::{ rows, keys, aggs, pred, },
     gen_rows(6),
     gen_agg_keys(),
@@ -454,6 +503,20 @@ fn gen_agg_filter_case() -> @gen.Gen[AggFilterCase] {
 /// Shrink only the frame rows; the pipeline stays fixed.
 fn shrink_agg_filter_case(c : AggFilterCase) -> Iter[AggFilterCase] {
   @shrink.Shrink::shrink(c.rows).map(rows => AggFilterCase::{ ..c, rows, })
+}
+
+///|
+/// Core's `check` draws each case through `Arbitrary` — the generator above
+/// run at the driver's size and state — and shrinks a falsified one through
+/// `Shrink`, the case shrinker above. The other case types below carry the
+/// same instance pair for the same reason.
+impl @gen.Arbitrary for AggFilterCase with fn arbitrary(size, state) {
+  gen_agg_filter_case().run(size, state)
+}
+
+///|
+impl @shrink.Shrink for AggFilterCase with fn shrink(self) {
+  shrink_agg_filter_case(self)
 }
 
 ///|
@@ -488,14 +551,11 @@ test "fuzz: group-by then key-filter is optimizer/eager equivalent on rich frame
     }
     match
       check_equiv("agg-filter", lazy_chain, eager_chain, strict_errors=true) {
-      None => @qc.property(true)
-      Some(msg) => @qc.property(false).counterexample(msg)
+      None => true
+      Some(msg) => fail(msg)
     }
   }
-  @qc.quick_check(
-    @qc.forall_shrink(gen_agg_filter_case(), shrink_agg_filter_case, prop),
-    max_success=fuzz_cases(800),
-  )
+  @gen.check(prop, count=fuzz_cases(800).reinterpret_as_uint(), seed=37UL)
   // The fuzzer must actually exercise the pushdown in a meaningful fraction of
   // cases, or it is silently testing nothing.
   if rewrites < fuzz_cases(50) {
@@ -520,18 +580,18 @@ pub extend SelectFilterCase with Debug::{to_repr}
 ///|
 /// The trailing predicate on a bare pass-through column (eligible to sink):
 /// `a.is_not_null()`, `g == v`, or `s == <grab-bag string>`, uniformly.
-fn gen_select_pred() -> @gen.Gen[@expr.Expr] {
+fn gen_select_pred() -> @gen.Generator[@expr.Expr] {
   @gen.frequency([
     (1, @gen.pure(@expr.col("a").is_not_null())),
     (
       1,
-      @gen.int_range(0, 2).fmap(v => {
+      @gen.int_range(0, 2).map(v => {
         @expr.col("g").eq(@expr.lit_int(v.to_int64()))
       }),
     ),
     (
       1,
-      @gen.one_of_array(string_choices).fmap(str => {
+      @gen.elements(string_choices).map(str => {
         @expr.col("s").eq(@expr.lit_str(str))
       }),
     ),
@@ -539,8 +599,8 @@ fn gen_select_pred() -> @gen.Gen[@expr.Expr] {
 }
 
 ///|
-fn gen_select_filter_case() -> @gen.Gen[SelectFilterCase] {
-  @gen.liftA3(
+fn gen_select_filter_case() -> @gen.Generator[SelectFilterCase] {
+  liftA3(
     (rows, use_select, pred) => SelectFilterCase::{ rows, use_select, pred, },
     gen_rows(6),
     gen_one_in(2),
@@ -551,6 +611,16 @@ fn gen_select_filter_case() -> @gen.Gen[SelectFilterCase] {
 ///|
 fn shrink_select_filter_case(c : SelectFilterCase) -> Iter[SelectFilterCase] {
   @shrink.Shrink::shrink(c.rows).map(rows => SelectFilterCase::{ ..c, rows, })
+}
+
+///|
+impl @gen.Arbitrary for SelectFilterCase with fn arbitrary(size, state) {
+  gen_select_filter_case().run(size, state)
+}
+
+///|
+impl @shrink.Shrink for SelectFilterCase with fn shrink(self) {
+  shrink_select_filter_case(self)
 }
 
 ///|
@@ -594,14 +664,11 @@ test "fuzz: select/with_columns then filter is optimizer/eager equivalent" {
     }
     match
       check_equiv("select-filter", lazy_chain, eager_chain, strict_errors=true) {
-      None => @qc.property(true)
-      Some(msg) => @qc.property(false).counterexample(msg)
+      None => true
+      Some(msg) => fail(msg)
     }
   }
-  @qc.quick_check(
-    @qc.forall_shrink(gen_select_filter_case(), shrink_select_filter_case, prop),
-    max_success=fuzz_cases(500),
-  )
+  @gen.check(prop, count=fuzz_cases(500).reinterpret_as_uint(), seed=37UL)
 }
 
 // ── Test 3: randomly stacked pipelines ───────────────────────────────
@@ -631,7 +698,7 @@ enum VerbSpec {
   VWithColumns(Array[@expr.Expr])
   VSelect(Array[@expr.Expr])
   VSort(Array[(@expr.Expr, Bool, Bool)])
-  VHead(Int)
+  VHead(Int32)
   // Group by the bare keys, re-emitting `a` as its per-group sum (so the
   // post-aggregate frame still carries the names `g` / `s` / `a` the terminal
   // filter and the other verbs reference; a verb that reads a column the
@@ -646,10 +713,10 @@ enum VerbSpec {
   VPositional(Array[@expr.Expr])
   // The frame-wide directional fill, forward or backward, `limit` drawn from
   // unlimited / 1 / 2.
-  VFillDir(Bool, Int?)
+  VFillDir(Bool, Int32?)
   VUnique
-  VTopK(Int, Bool)
-  VGatherEvery(Int)
+  VTopK(Int32, Bool)
+  VGatherEvery(Int32)
   // Semi / anti join against a second frame built from the same rows —
   // the right side is supplied by the caller (one frame per chain), so
   // both carriers run the same join.
@@ -730,16 +797,16 @@ fn apply_eager(
 ///|
 /// One verb drawn uniformly from the pushdown-relevant set. Most variants carry
 /// a fixed payload; the ones with a choice draw it from a nested generator.
-fn gen_verb() -> @gen.Gen[VerbSpec] {
+fn gen_verb() -> @gen.Generator[VerbSpec] {
   @gen.frequency([
     (
       1,
-      @gen.one_of_array([
+      @gen.elements([
         @expr.col("g").is_not_null(),
         @expr.col("a").gt(@expr.lit_int(0)),
         @expr.col("dt").dt_year().gt(@expr.lit_int(2020)),
         @expr.col("fk").is_nan(),
-      ]).fmap(p => VFilter(p)),
+      ]).map(p => VFilter(p)),
     ),
     (
       1,
@@ -752,19 +819,19 @@ fn gen_verb() -> @gen.Gen[VerbSpec] {
     ),
     (
       1,
-      @gen.one_of_array([
+      @gen.elements([
         [@expr.col("a").shift(1).with_alias("pos")],
         [@expr.col("a").cum_sum().with_alias("pos")],
         [@expr.col("b").rank(how=@types.RankMethod::Min).with_alias("pos")],
         [@expr.col("fk").rolling_mean(2).with_alias("pos")],
         [@expr.col("a").forward_fill().with_alias("pos")],
         [@expr.col("fk").unique_counts().with_alias("pos")],
-      ]).fmap(es => VPositional(es)),
+      ]).map(es => VPositional(es)),
     ),
     (
       1,
-      @gen.one_of_array([None, Some(1), Some(2)]).bind(limit => {
-        gen_one_in(2).fmap(backward => VFillDir(backward, limit))
+      @gen.elements([None, Some(1), Some(2)]).flat_map(limit => {
+        gen_one_in(2).map(backward => VFillDir(backward, limit))
       }),
     ),
     (
@@ -783,18 +850,18 @@ fn gen_verb() -> @gen.Gen[VerbSpec] {
     (1, @gen.pure(VUnique)),
     (
       1,
-      gen_one_in(2).bind(reverse => {
-        @gen.int_range(0, 2).fmap(k => VTopK(k, reverse))
+      gen_one_in(2).flat_map(reverse => {
+        @gen.int_range(0, 2).map(k => VTopK(k, reverse))
       }),
     ),
-    (1, @gen.int_range(1, 2).fmap(n => VGatherEvery(n))),
-    (1, gen_one_in(2).fmap(anti => VSemiAnti(anti))),
+    (1, @gen.int_range(1, 2).map(n => VGatherEvery(n))),
+    (1, gen_one_in(2).map(anti => VSemiAnti(anti))),
     (
       1,
       // Group by `g` (and, with prob 1/2, the bare string key `s`), re-emitting
       // `a` as its per-group sum under the same name so downstream `col("g")` /
       // `col("s")` / `col("a")` still resolve.
-      gen_one_in(2).fmap(add_s => {
+      gen_one_in(2).map(add_s => {
         let keys = [@expr.col("g")]
         if add_s {
           keys.push(@expr.col("s"))
@@ -802,14 +869,14 @@ fn gen_verb() -> @gen.Gen[VerbSpec] {
         VAggregate(keys, [@expr.col("a").sum().with_alias("a")])
       }),
     ),
-    (1, @gen.int_range(0, 3).fmap(n => VHead(n))),
+    (1, @gen.int_range(0, 3).map(n => VHead(n))),
   ])
 }
 
 ///|
 /// A chain of 2..4 verbs.
-fn gen_verbs() -> @gen.Gen[Array[VerbSpec]] {
-  @gen.int_range(2, 4).bind(n => gen_verb().array_with_size(n))
+fn gen_verbs() -> @gen.Generator[Array[VerbSpec]] {
+  @gen.int_range(2, 4).flat_map(n => gen_verb().array_with_size(n))
 }
 
 ///|
@@ -830,13 +897,13 @@ pub extend StackedCase with Debug::{to_repr}
 /// verb may or may not have defined (absent → the same `ColumnNotFound` on
 /// both chains), a `dt` calendar predicate, or a `NaN` probe on the float
 /// column — uniformly.
-fn gen_stacked_pred() -> @gen.Gen[@expr.Expr] {
+fn gen_stacked_pred() -> @gen.Generator[@expr.Expr] {
   @gen.frequency([
     (1, @gen.pure(@expr.col("a").is_not_null())),
     (1, @gen.pure(@expr.col("g").is_not_null())),
     (
       1,
-      @gen.one_of_array(string_choices).fmap(str => {
+      @gen.elements(string_choices).map(str => {
         @expr.col("s").eq(@expr.lit_str(str))
       }),
     ),
@@ -847,8 +914,8 @@ fn gen_stacked_pred() -> @gen.Gen[@expr.Expr] {
 }
 
 ///|
-fn gen_stacked_case() -> @gen.Gen[StackedCase] {
-  @gen.liftA3(
+fn gen_stacked_case() -> @gen.Generator[StackedCase] {
+  liftA3(
     (rows, verbs, pred) => StackedCase::{ rows, verbs, pred, },
     gen_rows(7),
     gen_verbs(),
@@ -874,6 +941,16 @@ fn shrink_stacked_case(c : StackedCase) -> Iter[StackedCase] {
     out.push(StackedCase::{ ..c, verbs, })
   }
   out.iter()
+}
+
+///|
+impl @gen.Arbitrary for StackedCase with fn arbitrary(size, state) {
+  gen_stacked_case().run(size, state)
+}
+
+///|
+impl @shrink.Shrink for StackedCase with fn shrink(self) {
+  shrink_stacked_case(self)
 }
 
 ///|
@@ -913,14 +990,11 @@ test "fuzz: randomly stacked pipelines stay optimizer/eager equivalent" {
       rewrites += 1
     }
     match check_equiv("stacked", lazy_chain, eager_chain) {
-      None => @qc.property(true)
-      Some(msg) => @qc.property(false).counterexample(msg)
+      None => true
+      Some(msg) => fail(msg)
     }
   }
-  @qc.quick_check(
-    @qc.forall_shrink(gen_stacked_case(), shrink_stacked_case, prop),
-    max_success=fuzz_cases(1000),
-  )
+  @gen.check(prop, count=fuzz_cases(1000).reinterpret_as_uint(), seed=37UL)
   if rewrites < fuzz_cases(50) {
     fail("fuzzer never exercised the pushdown (rewrites=\{rewrites})")
   }
@@ -935,17 +1009,17 @@ test "fuzz: randomly stacked pipelines stay optimizer/eager equivalent" {
 /// file sources rather than relying on random source selection.
 struct FileProjectionCase {
   missing : String
-  head : Int
+  head : Int32
 } derive(Debug)
 
 ///|
 pub extend FileProjectionCase with Debug::{to_repr}
 
 ///|
-fn gen_file_projection_case() -> @gen.Gen[FileProjectionCase] {
-  @gen.liftA2(
+fn gen_file_projection_case() -> @gen.Generator[FileProjectionCase] {
+  liftA2(
     (missing, head) => FileProjectionCase::{ missing, head, },
-    @gen.one_of_array(["missing", "ghost", "G", "a ", ""]),
+    @gen.elements(["missing", "ghost", "G", "a ", ""]),
     @gen.int_range(0, 7),
   )
 }
@@ -957,6 +1031,16 @@ fn shrink_file_projection_case(
   c : FileProjectionCase,
 ) -> Iter[FileProjectionCase] {
   @shrink.Shrink::shrink(c.head).map(head => FileProjectionCase::{ ..c, head, })
+}
+
+///|
+impl @gen.Arbitrary for FileProjectionCase with fn arbitrary(size, state) {
+  gen_file_projection_case().run(size, state)
+}
+
+///|
+impl @shrink.Shrink for FileProjectionCase with fn shrink(self) {
+  shrink_file_projection_case(self)
 }
 
 ///|
@@ -1028,22 +1112,15 @@ test "fuzz: zero-match file projections preserve exact eager errors" {
       )
     }
     match check_source(false) {
-      Some(msg) => @qc.property(false).counterexample("CSV: \{msg}")
+      Some(msg) => fail("CSV: \{msg}")
       None =>
         match check_source(true) {
-          Some(msg) => @qc.property(false).counterexample("NDJSON: \{msg}")
-          None => @qc.property(true)
+          Some(msg) => fail("NDJSON: \{msg}")
+          None => true
         }
     }
   }
-  @qc.quick_check(
-    @qc.forall_shrink(
-      gen_file_projection_case(),
-      shrink_file_projection_case,
-      prop,
-    ),
-    max_success=fuzz_cases(200),
-  )
+  @gen.check(prop, count=fuzz_cases(200).reinterpret_as_uint(), seed=37UL)
 }
 
 // ── Test 5: predicate push-down into file sources ──────────────────────
@@ -1063,8 +1140,8 @@ struct PrunedFileCase {
 pub extend PrunedFileCase with Debug::{to_repr}
 
 ///|
-fn gen_pruned_file_case() -> @gen.Gen[PrunedFileCase] {
-  @gen.liftA2(
+fn gen_pruned_file_case() -> @gen.Generator[PrunedFileCase] {
+  liftA2(
     (rows, pred) => PrunedFileCase::{ rows, pred, },
     gen_rows(7),
     gen_stacked_pred(),
@@ -1074,6 +1151,16 @@ fn gen_pruned_file_case() -> @gen.Gen[PrunedFileCase] {
 ///|
 fn shrink_pruned_file_case(c : PrunedFileCase) -> Iter[PrunedFileCase] {
   @shrink.Shrink::shrink(c.rows).map(rows => PrunedFileCase::{ ..c, rows, })
+}
+
+///|
+impl @gen.Arbitrary for PrunedFileCase with fn arbitrary(size, state) {
+  gen_pruned_file_case().run(size, state)
+}
+
+///|
+impl @shrink.Shrink for PrunedFileCase with fn shrink(self) {
+  shrink_pruned_file_case(self)
 }
 
 ///|
@@ -1115,7 +1202,7 @@ test "fuzz: predicate push-down into a CSV source stays eager-equivalent" {
       e => Err(e)
     }
     match setup {
-      Err(_) => @qc.property(false).counterexample("fixture write raised")
+      Err(_) => fail("fixture write raised")
       Ok(_) => {
         // The absorbed filter drives the CSV driver's row-pruning read; the
         // eager read+filter of the same file is the reference. A CSV header
@@ -1130,16 +1217,13 @@ test "fuzz: predicate push-down into a CSV source stays eager-equivalent" {
         // must match exactly.
         match
           check_equiv("pruned-csv", lazy_chain, eager_chain, strict_errors=true) {
-          Some(msg) => @qc.property(false).counterexample(msg)
-          None => @qc.property(true)
+          Some(msg) => fail(msg)
+          None => true
         }
       }
     }
   }
-  @qc.quick_check(
-    @qc.forall_shrink(gen_pruned_file_case(), shrink_pruned_file_case, prop),
-    max_success=fuzz_cases(150),
-  )
+  @gen.check(prop, count=fuzz_cases(150).reinterpret_as_uint(), seed=37UL)
 }
 
 ///|
@@ -1150,11 +1234,29 @@ test "fuzz: predicate push-down into a CSV source stays eager-equivalent" {
 type DirtyRow = (Bool, Bool)
 
 ///|
-fn gen_dirty_case() -> @gen.Gen[Array[DirtyRow]] {
+fn gen_dirty_case() -> @gen.Generator[Array[DirtyRow]] {
   let gen_cell = @gen.frequency([(1, @gen.pure(true)), (4, @gen.pure(false))])
-  @gen.int_range(0, 7).bind(n => {
-    @gen.liftA2((g, b) => (g, b), gen_cell, gen_cell).array_with_size(n)
+  @gen.int_range(0, 7).flat_map(n => {
+    liftA2((g, b) => (g, b), gen_cell, gen_cell).array_with_size(n)
   })
+}
+
+///|
+/// The dirty fixture as its own case type: core's `check` draws through
+/// `Arbitrary`, which bare `Array` has no instance for, while the built-in
+/// `Shrink` for Array / tuple / `Bool` still shrinks the rows underneath.
+struct DirtyCase {
+  rows : Array[DirtyRow]
+} derive(Debug)
+
+///|
+impl @gen.Arbitrary for DirtyCase with fn arbitrary(size, state) {
+  { rows: gen_dirty_case().run(size, state), }
+}
+
+///|
+impl @shrink.Shrink for DirtyCase with fn shrink(self) {
+  @shrink.Shrink::shrink(self.rows).map(rows => { rows, })
 }
 
 ///|
@@ -1195,13 +1297,14 @@ fn write_dirty_csv(
 /// read failing where the other succeeds is a soundness fault.
 test "fuzz: a dirty CSV stays eager-equivalent under predicate absorption" {
   let path = "_build/lazy_optimize_fuzz_dirty.csv"
-  let prop = (rows : Array[DirtyRow]) => {
+  let prop = (c : DirtyCase) => {
+    let rows = c.rows
     // The write is total in practice (a local `_build` path); a raise here
     // would be a real fault, so it lands as a counterexample rather than a
     // raise out of the property.
     let setup = Ok(write_dirty_csv(path, rows)) catch { e => Err(e) }
     match setup {
-      Err(_) => @qc.property(false).counterexample("fixture write raised")
+      Err(_) => fail("fixture write raised")
       Ok(_) => {
         let opts = @io.CsvReadOptions::CsvReadOptions(infer_schema_rows=1)
         let lazy_chain : () -> LazyFrame raise @types.DataError = () => {
@@ -1215,16 +1318,13 @@ test "fuzz: a dirty CSV stays eager-equivalent under predicate absorption" {
           )
         }
         match check_equiv("dirty-csv", lazy_chain, eager_chain) {
-          Some(msg) => @qc.property(false).counterexample(msg)
-          None => @qc.property(true)
+          Some(msg) => fail(msg)
+          None => true
         }
       }
     }
   }
-  @qc.quick_check(
-    @qc.forall_shrink(gen_dirty_case(), @shrink.Shrink::shrink, prop),
-    max_success=fuzz_cases(150),
-  )
+  @gen.check(prop, count=fuzz_cases(150).reinterpret_as_uint(), seed=37UL)
 }
 
 ///|

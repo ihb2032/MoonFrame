@@ -9,7 +9,7 @@
 /// a cap saturates into `[0, nrows]` (`clamp_take`, the same limit behind
 /// `head` / `tail`). The row-cap rule stated once, so a renderer cannot
 /// decide its own truncation semantics.
-fn visible_rows(nrows : Int, max_rows : Int?) -> Int {
+fn visible_rows(nrows : Int32, max_rows : Int32?) -> Int32 {
   match max_rows {
     None => nrows
     Some(limit) => @order.clamp_take(limit, nrows)
@@ -29,7 +29,7 @@ fn visible_rows(nrows : Int, max_rows : Int?) -> Int {
 /// `df.nrows()` cells, so each slice is in-bounds. Total.
 fn DataFrame::table_cell_matrix(
   self : DataFrame,
-  shown : Int,
+  shown : Int32,
 ) -> Array[Array[String]] {
   let col_scalars = self
     .column_series()
@@ -45,7 +45,7 @@ fn DataFrame::table_cell_matrix(
 /// rows: `... (N more rows)`. `to_markdown` appends it as a trailing line and
 /// `to_html` wraps it in a `<tfoot>` cell, but the wording lives here so the two
 /// never drift.
-fn more_rows_banner(hidden : Int) -> String {
+fn more_rows_banner(hidden : Int32) -> String {
   if hidden == 1 {
     "... (1 more row)"
   } else {

@@ -47,7 +47,7 @@
 /// frame is header + separator alone. Omitting `max_rows` renders every row.
 ///
 /// Total — pure string assembly over already-validated frame data.
-pub fn DataFrame::to_markdown(self : DataFrame, max_rows? : Int) -> String {
+pub fn DataFrame::to_markdown(self : DataFrame, max_rows? : Int32) -> String {
   let nrows = self.nrows()
   let shown = visible_rows(nrows, max_rows)
   let body = self.format_markdown(shown)
@@ -65,7 +65,7 @@ pub fn DataFrame::to_markdown(self : DataFrame, max_rows? : Int) -> String {
 /// header / separator are emitted whenever `self` has at least one
 /// column, regardless of `shown` — a header-only table is still
 /// useful shape information for callers limiting output.
-fn DataFrame::format_markdown(self : DataFrame, shown : Int) -> String {
+fn DataFrame::format_markdown(self : DataFrame, shown : Int32) -> String {
   // `raw_names` supplies the column count and the unescaped header text;
   // `names` is the GFM-escaped form used for both width computation and
   // rendering, so a column name containing `|` / newline can't corrupt the
@@ -83,7 +83,7 @@ fn DataFrame::format_markdown(self : DataFrame, shown : Int) -> String {
   let cells : Array[Array[String]] = self
     .table_cell_matrix(shown)
     .map(row => row.map(escape_md_cell))
-  let widths : Array[Int] = names.mapi((c, name) => {
+  let widths : Array[Int32] = names.mapi((c, name) => {
     let mut w = char_count(name)
     for r in 0..<shown {
       let cw = char_count(cells[r][c])
@@ -126,7 +126,7 @@ fn DataFrame::format_markdown(self : DataFrame, shown : Int) -> String {
 fn write_row(
   buf : StringBuilder,
   row : Array[String],
-  widths : Array[Int],
+  widths : Array[Int32],
 ) -> Unit {
   buf.write_char('|')
   for c, cell in row {
@@ -149,7 +149,7 @@ fn write_row(
 /// double-width East-Asian glyph or a zero-width / combining mark will not
 /// align perfectly in a fixed-width terminal — the GFM table stays valid
 /// either way (extra or missing padding spaces don't break a pipe table).
-fn char_count(s : String) -> Int {
+fn char_count(s : String) -> Int32 {
   s.iter().count()
 }
 

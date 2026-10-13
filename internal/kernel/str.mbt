@@ -216,7 +216,7 @@ pub fn eval_str(
 /// count (`None` = to the end, `<= 0` = empty). Both are clamped to `s`, so it
 /// is total. Character-based — `iter` walks codepoints, so a surrogate pair is
 /// never split — consistent with `char_length`.
-fn slice_chars(s : String, offset : Int, length : Int?) -> String {
+fn slice_chars(s : String, offset : Int32, length : Int32?) -> String {
   let len = s.char_length()
   let start = if offset < 0 {
     let from_end = len + offset
@@ -249,7 +249,7 @@ fn slice_chars(s : String, offset : Int, length : Int?) -> String {
 /// `re` in `cell`, as a `String?`: `None` when the cell does not match or the
 /// chosen group did not participate. Behind `Extract`; `re` is compiled once by
 /// the caller.
-fn extract_match(re : @string.Regex, cell : String, group : Int) -> String? {
+fn extract_match(re : @string.Regex, cell : String, group : Int32) -> String? {
   match re.execute(cell) {
     None => None
     Some(m) =>
@@ -287,7 +287,7 @@ pub fn compile_regex(pattern : String) -> @string.Regex raise @types.DataError {
 /// every value: core's encoder aborts on an unpaired half outside JS and
 /// replaces it with U+FFFD on JS — a replacement that happens to be 3
 /// bytes too, but only by accident.
-fn utf8_len_wtf8(s : String) -> Int {
+fn utf8_len_wtf8(s : String) -> Int32 {
   let units = s.code_units()
   let n = units.length()
   let mut len = 0
@@ -321,7 +321,7 @@ fn utf8_len_wtf8(s : String) -> Int {
 /// return it unchanged. Codepoint-based (`char_length` + `String::make`, both
 /// counting characters), so the width is consistent with `str_len_chars` and
 /// with Polars — unlike `String::pad_start`, whose width counts UTF-16 units.
-fn pad_start_chars(s : String, width : Int, fill : Char) -> String {
+fn pad_start_chars(s : String, width : Int32, fill : Char) -> String {
   let len = s.char_length()
   if len >= width {
     s
@@ -337,7 +337,7 @@ fn pad_start_chars(s : String, width : Int, fill : Char) -> String {
 /// returned unchanged. Delegates the zero-padding to `pad_start_chars`: with a
 /// leading sign, the digits after it pad to a one-narrower field (the sign is a
 /// single ASCII character, so `s[1:]` drops exactly it).
-fn zfill_chars(s : String, width : Int) -> String {
+fn zfill_chars(s : String, width : Int32) -> String {
   // A negative width is the no-op the `len >= width` shortcut already
   // gives every other negative; normalising it here keeps `width - 1`
   // from wrapping at `Int::min_value()` into a huge pad.

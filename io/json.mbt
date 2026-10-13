@@ -37,7 +37,7 @@
 /// The NDJSON reader shares this type: the two formats differ in framing,
 /// not in what there is to configure.
 pub struct JsonReadOptions {
-  infer_schema_rows : Int
+  infer_schema_rows : Int32
   on_parse_error : OnParseError
   reject_duplicate_keys : Bool
 }
@@ -49,9 +49,9 @@ pub struct JsonReadOptions {
 /// pandas / Polars reading). `JsonReadOptions::JsonReadOptions()` is the all-defaults reader; name only what
 /// differs, as in `JsonReadOptions::JsonReadOptions(on_parse_error=Null)`.
 pub fn JsonReadOptions::JsonReadOptions(
-  infer_schema_rows? : Int = DEFAULT_INFER_SCHEMA_ROWS,
-  on_parse_error? : OnParseError = Raise,
-  reject_duplicate_keys? : Bool = false,
+  infer_schema_rows~ : Int32 = DEFAULT_INFER_SCHEMA_ROWS,
+  on_parse_error~ : OnParseError = Raise,
+  reject_duplicate_keys~ : Bool = false,
 ) -> JsonReadOptions {
   { infer_schema_rows, on_parse_error, reject_duplicate_keys, }
 }
@@ -77,7 +77,7 @@ pub fn JsonReadOptions::JsonReadOptions(
 ///   column is built off `records.length()`).
 pub fn parse_json_str(
   content : String,
-  options? : JsonReadOptions = JsonReadOptions::JsonReadOptions(),
+  options~ : JsonReadOptions = JsonReadOptions::JsonReadOptions(),
 ) -> @frame.DataFrame raise @types.DataError {
   // Strip a leading UTF-8 BOM (shared with the CSV / NDJSON readers); `@json.parse`
   // rejects a stray `U+FEFF` at column 0, so a file saved by Excel would otherwise
@@ -142,7 +142,7 @@ pub fn parse_json_str(
 /// as `raise IoError(message)`.
 pub fn read_json(
   path : String,
-  options? : JsonReadOptions = JsonReadOptions::JsonReadOptions(),
+  options~ : JsonReadOptions = JsonReadOptions::JsonReadOptions(),
 ) -> @frame.DataFrame raise @types.DataError {
   let content = read_text(path)
   parse_json_str(content, options~)

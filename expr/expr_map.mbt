@@ -70,7 +70,7 @@ pub fn Expr::map_elements(
 pub fn Expr::map_batches(
   self : Expr,
   label~ : String,
-  returns_scalar? : Bool = false,
+  returns_scalar~ : Bool = false,
   f : (@series.Series) -> @series.Series raise @types.DataError,
 ) -> Expr {
   Expr::of(

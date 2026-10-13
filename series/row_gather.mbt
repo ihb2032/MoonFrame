@@ -33,7 +33,7 @@
 /// with the caller — hence `None` rather than a raise.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
-pub fn Series::mask_true_indices(self : Series) -> Array[Int]? {
+pub fn Series::mask_true_indices(self : Series) -> Array[Int32]? {
   let cells = match self.storage.data() {
     @column.ColumnData::Bool(cells) => cells
     @column.ColumnData::I64(_)
@@ -41,7 +41,7 @@ pub fn Series::mask_true_indices(self : Series) -> Array[Int]? {
     | @column.ColumnData::Utf8(_) => return None
   }
   let valid = self.validity_bools()
-  let kept : Array[Int] = []
+  let kept : Array[Int32] = []
   for i in 0..<cells.length() {
     if valid[i] && cells[i] {
       kept.push(i)
@@ -157,7 +157,11 @@ pub fn Series::coalesce_columns(
 /// so a stray bound can never abort.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
-pub fn Series::slice_series(self : Series, start : Int, len : Int) -> Series {
+pub fn Series::slice_series(
+  self : Series,
+  start : Int32,
+  len : Int32,
+) -> Series {
   { name: self.name, storage: self.storage.slice_total(start, start + len), }
 }
 
@@ -195,11 +199,11 @@ pub fn Series::slice_series(self : Series, start : Int, len : Int) -> Series {
 fn Series::rebuild_options(
   self : Series,
   name : String,
-  n : Int,
-  int_cell : (ArrayView[Int64], Int) -> Int64?,
-  float_cell : (ArrayView[Double], Int) -> Double?,
-  bool_cell : (ArrayView[Bool], Int) -> Bool?,
-  string_cell : (@buffer.Utf8Array, Int) -> String?,
+  n : Int32,
+  int_cell : (ArrayView[Int64], Int32) -> Int64?,
+  float_cell : (ArrayView[Double], Int32) -> Double?,
+  bool_cell : (ArrayView[Bool], Int32) -> Bool?,
+  string_cell : (@buffer.Utf8Array, Int32) -> String?,
 ) -> Series {
   let rebuilt = match self.storage.data() {
     // The I64 arm rebuilds through the *dtype*, not the variant: the
@@ -240,7 +244,7 @@ fn Series::rebuild_options(
 /// out-of-range index rather than yielding a null cell).
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
-pub fn Series::gather_series(self : Series, idx : Array[Int]) -> Series {
+pub fn Series::gather_series(self : Series, idx : Array[Int32]) -> Series {
   // A `Numeric` source is all-valid, so when every index is in-bounds its
   // gather is itself all-valid: rebuild directly onto the `Numeric` backend,
   // materialising no validity mask and allocating no transient bitmap. A
@@ -292,8 +296,8 @@ pub fn Series::gather_series(self : Series, idx : Array[Int]) -> Series {
 fn Series::rebuild_by_row(
   self : Series,
   name : String,
-  n : Int,
-  row_at : (Int) -> Int?,
+  n : Int32,
+  row_at : (Int32) -> Int32?,
 ) -> Series {
   self.rebuild_options(
     name,
@@ -313,8 +317,8 @@ fn Series::rebuild_by_row(
 /// real source row. A stray out-of-range index demotes the whole gather to
 /// the guarded arm (a null cell there), mirroring `gather_series`'
 /// abort-free handling of the same misuse.
-fn collect_matched(idx : Array[Int?], len : Int) -> Array[Int]? {
-  let rows : Array[Int] = []
+fn collect_matched(idx : Array[Int32?], len : Int32) -> Array[Int32]? {
+  let rows : Array[Int32] = []
   for j in idx {
     match j {
       Some(v) => if v >= 0 && v < len { rows.push(v) } else { return None }
@@ -339,7 +343,7 @@ fn collect_matched(idx : Array[Int?], len : Int) -> Array[Int]? {
 #internal(engine, "MoonFrame execution engine API")
 pub fn Series::gather_series_opt(
   self : Series,
-  idx : Array[Int?],
+  idx : Array[Int32?],
   out_name : String,
 ) -> Series {
   // `Numeric` fast path: a `Numeric` source is all-valid, so a gather with no

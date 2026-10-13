@@ -143,7 +143,7 @@ pub(all) enum UnOp {
   Floor
   Ceil
   Sign
-  Round(Int)
+  Round(Int32)
 } derive(Eq, Debug)
 
 ///|
@@ -173,18 +173,18 @@ pub(all) enum StrOp {
   Replace(String, String)
   ReplaceAll(String, String)
   Reverse
-  PadStart(Int, Char)
-  PadEnd(Int, Char)
+  PadStart(Int32, Char)
+  PadEnd(Int32, Char)
   ContainsRegex(String)
   ReplaceRegex(String, String)
   ReplaceAllRegex(String, String)
-  Extract(String, Int)
+  Extract(String, Int32)
   CountMatches(String)
-  Slice(Int, Int?)
+  Slice(Int32, Int32?)
   LenBytes
   StripCharsCustom(String)
-  SplitGet(String, Int)
-  ZFill(Int)
+  SplitGet(String, Int32)
+  ZFill(Int32)
 } derive(Eq, Debug)
 
 ///|
@@ -231,7 +231,7 @@ pub extend RollStat with Debug::{to_repr}
 /// cells (`None` = every cell, Polars' default). Numeric only; `Sum` /
 /// `Min` / `Max` keep the operand dtype, the rest are `Float`.
 pub(all) enum PositionalOp {
-  Shift(Int, @types.Scalar)
+  Shift(Int32, @types.Scalar)
   CumSum(Bool)
   CumMin(Bool)
   CumMax(Bool)
@@ -239,9 +239,9 @@ pub(all) enum PositionalOp {
   CumCount(Bool)
   Rank(@types.RankMethod, Bool)
   ArgSort(Bool, Bool)
-  Rolling(RollStat, Int, Int?, Bool)
-  ForwardFill(Int?)
-  BackwardFill(Int?)
+  Rolling(RollStat, Int32, Int32?, Bool)
+  ForwardFill(Int32?)
+  BackwardFill(Int32?)
   UniqueCounts
   IsFirstDistinct
   IsLastDistinct

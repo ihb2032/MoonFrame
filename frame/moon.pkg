@@ -18,7 +18,6 @@ import {
   "moonbitlang/core/bench",
   "moonbitlang/core/double",
   "moonbitlang/core/test",
-  "moonbitlang/quickcheck" @qc,
-  "moonbitlang/quickcheck/gen",
+  "moonbitlang/core/quickcheck" @gen,
   "ihb2032/MoonFrame/io",
 } for "test"

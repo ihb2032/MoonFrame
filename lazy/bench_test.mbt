@@ -10,7 +10,7 @@
 /// matches the operator benches over there — change one, change both. (Each
 /// blackbox test package has its own namespace, so the twin is a copy, not an
 /// import.)
-fn fact_frame(n : Int) -> @frame.DataFrame raise @types.DataError {
+fn fact_frame(n : Int32) -> @frame.DataFrame raise @types.DataError {
   let keys = Array::makei(n, i => (i % 1000).to_int64())
   let values = Array::makei(n, i => {
     let x = i.to_int64()

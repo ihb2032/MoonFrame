@@ -133,8 +133,8 @@ pub extend JoinOptions with Debug::{to_repr}
 /// construction cannot alter the join specification.
 pub fn JoinOptions::on(
   keys : Array[@expr.Expr],
-  how? : JoinType = Inner,
-  suffix? : String = "_right",
+  how~ : JoinType = Inner,
+  suffix~ : String = "_right",
   coalesce? : Bool,
 ) -> JoinOptions {
   { on: keys.copy(), left_on: [], right_on: [], how, suffix, coalesce, }
@@ -154,8 +154,8 @@ pub fn JoinOptions::on(
 pub fn JoinOptions::left_on(
   keys : Array[@expr.Expr],
   right_on~ : Array[@expr.Expr],
-  how? : JoinType = Inner,
-  suffix? : String = "_right",
+  how~ : JoinType = Inner,
+  suffix~ : String = "_right",
   coalesce? : Bool,
 ) -> JoinOptions {
   {
@@ -173,6 +173,6 @@ pub fn JoinOptions::left_on(
 /// frames, with no key columns (`how = Cross`, all key lists empty).
 /// `suffix` still applies to a right column whose name clashes with a left
 /// one; `coalesce` is irrelevant (there are no keys to merge).
-pub fn JoinOptions::cross(suffix? : String = "_right") -> JoinOptions {
+pub fn JoinOptions::cross(suffix~ : String = "_right") -> JoinOptions {
   { on: [], left_on: [], right_on: [], how: Cross, suffix, coalesce: None, }
 }

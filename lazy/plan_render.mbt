@@ -19,7 +19,7 @@
 fn LogicalPlan::render(
   self : LogicalPlan,
   buf : StringBuilder,
-  depth : Int,
+  depth : Int32,
 ) -> Unit {
   // Explicit-stack pre-order walk (not the call stack), so a deeply nested plan
   // renders without overflowing and aborting — `explain` is documented total at
@@ -32,7 +32,7 @@ fn LogicalPlan::render(
   // fast path `has_shared_subplan` / `post_order_unique` take), and the walk
   // below skips the scan outright instead of paying it per node.
   let dedup = self.contains_join()
-  let stack : Array[(LogicalPlan, Int)] = [(self, depth)]
+  let stack : Array[(LogicalPlan, Int32)] = [(self, depth)]
   let seen : Array[LogicalPlan] = []
   let mut first = true
   while stack.length() > 0 {

@@ -7,7 +7,7 @@
 /// plain IEEE semantics (`NaN == NaN` is `false`, `<` / `>` against `NaN` is
 /// `false`). `-0.0` and `+0.0` compare equal here: they are IEEE-equal, and
 /// the sort's stability keeps their input order. Total.
-pub fn cmp_double_total(a : Double, b : Double) -> Int {
+pub fn cmp_double_total(a : Double, b : Double) -> Int32 {
   if a.is_nan() {
     if b.is_nan() {
       0

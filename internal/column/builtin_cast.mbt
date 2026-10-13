@@ -58,7 +58,7 @@ fn BuiltinColumn::cast(
 fn[U] BuiltinColumn::cast_cells(
   self : BuiltinColumn,
   result_dtype : @types.DataType,
-  conv : (Int) -> U raise?,
+  conv : (Int32) -> U raise?,
   fill : U,
   wrap : (Array[U]) -> ColumnData,
 ) -> BuiltinColumn raise? {

@@ -63,7 +63,7 @@ pub extend Field with Debug::{to_repr}
 pub fn Field::Field(
   name : String,
   dtype : DataType,
-  nullable? : Bool = true,
+  nullable~ : Bool = true,
 ) -> Field {
   { name, dtype, nullable, }
 }

@@ -9,9 +9,9 @@
 /// A non-empty `Array[Int64]` of length `1..=max_len`. We avoid the 0-row
 /// frame, whose emitted header alone carries no values for schema inference to
 /// recover the Int dtype from.
-fn gen_i64_array(max_len : Int) -> @gen.Gen[Array[Int64]] {
-  @gen.int_range(1, max_len).bind(n => {
-    @gen.int_range(-1000, 1000).fmap(x => x.to_int64()).array_with_size(n)
+fn gen_i64_array(max_len : Int32) -> @gen.Generator[Array[Int64]] {
+  @gen.int_range(1, max_len).flat_map(n => {
+    @gen.int_range(-1000, 1000).map(x => x.to_int64()).array_with_size(n)
   })
 }
 
@@ -31,21 +31,23 @@ fn prop_roundtrip(fmt : WireFormat, xs : Array[Int64]) -> Bool {
 
 ///|
 test "property: CSV round-trips a single Int column" {
-  @qc.quick_check(
-    @qc.forall(gen_i64_array(30), xs => prop_roundtrip(wire_formats[0], xs)),
-  )
+  // A fixed seed keeps the generated cases — and hence coverage —
+  // reproducible run to run; `count` matches the driver's default sweep.
+  for xs in gen_i64_array(30).samples(count=100, seed=37UL) {
+    assert_true(prop_roundtrip(wire_formats[0], xs))
+  }
 }
 
 ///|
 test "property: JSON round-trips a single Int column" {
-  @qc.quick_check(
-    @qc.forall(gen_i64_array(30), xs => prop_roundtrip(wire_formats[1], xs)),
-  )
+  for xs in gen_i64_array(30).samples(count=100, seed=37UL) {
+    assert_true(prop_roundtrip(wire_formats[1], xs))
+  }
 }
 
 ///|
 test "property: NDJSON round-trips a single Int column" {
-  @qc.quick_check(
-    @qc.forall(gen_i64_array(30), xs => prop_roundtrip(wire_formats[2], xs)),
-  )
+  for xs in gen_i64_array(30).samples(count=100, seed=37UL) {
+    assert_true(prop_roundtrip(wire_formats[2], xs))
+  }
 }

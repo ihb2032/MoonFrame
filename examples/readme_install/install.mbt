@@ -4,7 +4,7 @@
 // internal package.
 
 ///|
-fn readme_import_probe() -> (@moonframe.Series, Int) {
+fn readme_import_probe() -> (@moonframe.Series, Int32) {
   let series : @moonframe.Series = @moonframe.Series::from_ints("value", [1, 2])
   (series, series.len())
 }

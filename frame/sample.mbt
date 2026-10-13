@@ -32,7 +32,7 @@ fn SplitMix64::next(self : SplitMix64) -> UInt64 {
 /// A draw mapped into `[0, bound)` — rejection-free modulo bias is
 // acceptable for row sampling (bias is ~`n / 2^64`, unobservable), kept
 // simple on purpose.
-fn SplitMix64::below(self : SplitMix64, bound : Int) -> Int {
+fn SplitMix64::below(self : SplitMix64, bound : Int32) -> Int32 {
   // The modulo lands in [0, 2^63) for any realistic bound, so the value
   // reinterprets safely into `Int`.
   (self.next() % bound.to_uint64()).to_int()
@@ -60,9 +60,9 @@ fn SplitMix64::below(self : SplitMix64, bound : Int) -> Int {
 /// lazy entry; collect first.
 pub fn DataFrame::sample(
   self : DataFrame,
-  n : Int,
-  with_replacement? : Bool = false,
-  seed? : Int = 0,
+  n : Int32,
+  with_replacement~ : Bool = false,
+  seed~ : Int32 = 0,
 ) -> DataFrame raise @types.DataError {
   if n < 0 {
     raise @types.DataError::InvalidOperation("sample needs n >= 0")
@@ -74,7 +74,7 @@ pub fn DataFrame::sample(
     return self
   }
   let rng = SplitMix64::{ state: seed.to_uint64(), }
-  let picked : Array[Int] = []
+  let picked : Array[Int32] = []
   if with_replacement {
     if n > 0 && total == 0 {
       raise @types.DataError::InvalidOperation(

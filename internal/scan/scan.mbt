@@ -22,7 +22,7 @@
 /// (the `N×0` shape) instead of collapsing to zero rows.
 pub struct ScanBatch {
   priv columns : Array[@series.Series]
-  priv height : Int
+  priv height : Int32
 }
 
 ///|
@@ -30,7 +30,7 @@ pub struct ScanBatch {
 /// so the batch owns its list and the caller's array stays theirs.
 pub fn ScanBatch::batch(
   columns : Array[@series.Series],
-  height : Int,
+  height : Int32,
 ) -> ScanBatch {
   { columns: columns.copy(), height, }
 }
@@ -45,7 +45,7 @@ pub fn ScanBatch::columns(self : ScanBatch) -> Array[@series.Series] {
 ///|
 /// The source's row count, even when zero columns were built (the `N×0`
 /// shape).
-pub fn ScanBatch::height(self : ScanBatch) -> Int {
+pub fn ScanBatch::height(self : ScanBatch) -> Int32 {
   self.height
 }
 

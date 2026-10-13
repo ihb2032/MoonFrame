@@ -55,7 +55,7 @@ pub fn DataFrame::filter(
 pub fn DataFrame::filter_row_indices(
   self : DataFrame,
   predicate : @expr.Expr,
-) -> Array[Int] raise @types.DataError {
+) -> Array[Int32] raise @types.DataError {
   let n = self.nrows()
   let scope = Array::makei(n, i => i)
   // Stretch a length-1 mask (literal / aggregation) over the frame, down to
@@ -87,7 +87,7 @@ pub fn DataFrame::filter_row_indices(
 /// `limit` (via `#alias`) — the eager twin of `LazyFrame::limit`, keeping
 /// the two surfaces verb-for-verb aligned.
 #alias(limit)
-pub fn DataFrame::head(self : DataFrame, n : Int) -> DataFrame {
+pub fn DataFrame::head(self : DataFrame, n : Int32) -> DataFrame {
   let m = @order.window_take(n, self.nrows)
   // `0 <= m <= nrows == c.len()`, so the contiguous row slice is in-bounds
   // and needs no bounds-checking `Result`.
@@ -101,7 +101,7 @@ pub fn DataFrame::head(self : DataFrame, n : Int) -> DataFrame {
 /// `n` keeps every row but the first `|n|` (`tail(-2)` drops the leading two
 /// rows), saturating to the whole frame when `|n|` reaches past it. Total —
 /// never fails.
-pub fn DataFrame::tail(self : DataFrame, n : Int) -> DataFrame {
+pub fn DataFrame::tail(self : DataFrame, n : Int32) -> DataFrame {
   let m = @order.window_take(n, self.nrows)
   let start = self.nrows - m
   // Same in-bounds argument as `head`: `start + m == nrows == c.len()`.
@@ -120,8 +120,8 @@ pub fn DataFrame::tail(self : DataFrame, n : Int) -> DataFrame {
 /// follow.
 pub fn DataFrame::slice(
   self : DataFrame,
-  offset : Int,
-  length? : Int,
+  offset : Int32,
+  length? : Int32,
 ) -> DataFrame {
   let start = @order.slice_start(offset, self.nrows())
   let len = @order.slice_len(start, self.nrows(), length)
@@ -144,8 +144,8 @@ pub fn DataFrame::slice(
 /// a stride start does not take one).
 pub fn DataFrame::gather_every(
   self : DataFrame,
-  n : Int,
-  offset? : Int = 0,
+  n : Int32,
+  offset~ : Int32 = 0,
 ) -> DataFrame raise @types.DataError {
   if n < 1 {
     raise @types.DataError::InvalidOperation("gather_every needs n >= 1")
@@ -159,7 +159,7 @@ pub fn DataFrame::gather_every(
   // Clamp the start to the frame: an offset at or past the end gathers
   // nothing, and the empty-index `gather` below already carries that shape.
   let mut i = if offset > total { total } else { offset }
-  let indices : Array[Int] = []
+  let indices : Array[Int32] = []
   while i < total {
     indices.push(i)
     // Step inside `Int`: a signed `i + n` past `Int::MAX` wraps negative
@@ -185,8 +185,8 @@ pub fn DataFrame::gather_every(
 #alias("_[_:_]")
 pub fn DataFrame::slice_between(
   self : DataFrame,
-  start? : Int,
-  end? : Int,
+  start? : Int32,
+  end? : Int32,
 ) -> DataFrame {
   let (s, l) = @order.between_bounds(start, end, self.nrows)
   self.slice(s, length=l)
@@ -198,7 +198,7 @@ pub fn DataFrame::slice_between(
 /// `IndexOutOfBounds(idx)`.
 pub fn DataFrame::gather(
   self : DataFrame,
-  indices : Array[Int],
+  indices : Array[Int32],
 ) -> DataFrame raise @types.DataError {
   for i in indices {
     if i < 0 || i >= self.nrows {
@@ -259,8 +259,8 @@ pub fn DataFrame::reverse(self : DataFrame) -> DataFrame {
 /// against its own index type.
 pub fn DataFrame::with_row_index(
   self : DataFrame,
-  name? : String = "index",
-  offset? : Int64 = 0,
+  name~ : String = "index",
+  offset~ : Int64 = 0,
 ) -> DataFrame raise @types.DataError {
   let n = self.nrows()
   // Rearranged to `offset > MAX - (n - 1)` so the check itself cannot overflow:

@@ -155,8 +155,8 @@ pub fn DataFrame::pivot(
 fn materialize_pivot_keys(
   keys : Array[@expr.Expr],
   df : DataFrame,
-  n : Int,
-  scope : Array[Int],
+  n : Int32,
+  scope : Array[Int32],
 ) -> Array[Series] raise @types.DataError {
   let seen : Map[String, Unit] = Map([])
   keys.map(key => {
@@ -214,11 +214,11 @@ fn reshape_pivot(
   let multi_values = values_cols.length() > 1
   // Row → (group id, on-value id), both ids first-appearance; the group's
   // representative row and the card's rendered name record alongside.
-  let gid_of : Map[Array[KeyCell], Int] = Map([])
-  let cid_of : Map[Array[KeyCell], Int] = Map([])
-  let gids : Array[Int] = Array::makei(n, _ => 0)
-  let cids : Array[Int] = Array::makei(n, _ => 0)
-  let rep_rows : Array[Int] = []
+  let gid_of : Map[Array[KeyCell], Int32] = Map([])
+  let cid_of : Map[Array[KeyCell], Int32] = Map([])
+  let gids : Array[Int32] = Array::makei(n, _ => 0)
+  let cids : Array[Int32] = Array::makei(n, _ => 0)
+  let rep_rows : Array[Int32] = []
   let on_names : Array[String] = []
   for i in 0..<n {
     let gkey = row_group_key(index_scalars, i)
@@ -381,8 +381,8 @@ pub fn DataFrame::unpivot(
   self : DataFrame,
   on? : Array[@expr.Expr],
   index? : Array[@expr.Expr],
-  variable_name? : String = "variable",
-  value_name? : String = "value",
+  variable_name~ : String = "variable",
+  value_name~ : String = "value",
 ) -> DataFrame raise @types.DataError {
   // Name-only resolution: the reshape selects columns, it does not compute.
   let index_cols = match index {

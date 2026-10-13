@@ -16,8 +16,7 @@ import {
   "moonbitlang/core/double",
   "moonbitlang/core/env",
   "moonbitlang/core/test",
-  "moonbitlang/quickcheck" @qc,
-  "moonbitlang/quickcheck/gen",
-  "moonbitlang/quickcheck/shrink",
+  "moonbitlang/core/quickcheck" @gen,
+  "moonbitlang/core/quickcheck/shrink",
   "moonbitlang/x/fs",
 } for "test"

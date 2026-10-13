@@ -19,8 +19,8 @@
 /// `smallbearrr/pandas`) use the opposite convention.
 pub struct Bitmap {
   priv bits : Bytes
-  priv offset : Int
-  priv len : Int
+  priv offset : Int32
+  priv len : Int32
 } derive(Debug)
 
 ///|
@@ -35,10 +35,10 @@ pub extend Bitmap with Debug::{to_repr}
 /// would desynchronise `len` from the (empty) buffer — `null_count`'s
 /// tail-byte read would then index past it and abort, the one failure mode
 /// the never-abort rule forbids.
-pub fn Bitmap::all_valid(len : Int) -> Bitmap {
+pub fn Bitmap::all_valid(len : Int32) -> Bitmap {
   let len = if len < 0 { 0 } else { len }
   let n = bytes_needed(len)
-  let buf = FixedArray::make(n, (0xff : Int).to_byte())
+  let buf = FixedArray::make(n, (0xff : Int32).to_byte())
   mask_tail(buf, len)
   { bits: buffer_to_bytes(buf), offset: 0, len, }
 }
@@ -57,7 +57,7 @@ pub fn[T] Bitmap::from_options(values : Array[T?]) -> Bitmap {
 /// `raise IndexOutOfBounds`.
 pub fn Bitmap::is_null(
   self : Bitmap,
-  index : Int,
+  index : Int32,
 ) -> Bool raise @types.DataError {
   if index < 0 || index >= self.len {
     raise @types.DataError::IndexOutOfBounds(index)
@@ -71,7 +71,7 @@ pub fn Bitmap::is_null(
 /// `is_null`, for the in-bounds-guaranteed row gathers that read one slot at a
 /// time off the source mask rather than materialising the whole `Array[Bool]`
 /// — so a per-group gather costs `O(gathered)`, not `O(source)`.
-pub fn Bitmap::is_valid_total(self : Bitmap, index : Int) -> Bool {
+pub fn Bitmap::is_valid_total(self : Bitmap, index : Int32) -> Bool {
   if index < 0 || index >= self.len {
     false
   } else {
@@ -98,12 +98,12 @@ pub fn Bitmap::is_valid_total(self : Bitmap, index : Int) -> Bool {
 /// that straddles the window edge would count them as valids. (A
 /// constructor-built bitmap is tight and offset-0, so its head is empty and the
 /// bits past `len` are zero — there the split and the mask are both no-ops.)
-pub fn Bitmap::null_count(self : Bitmap) -> Int {
+pub fn Bitmap::null_count(self : Bitmap) -> Int32 {
   // Population count of one byte (number of 1 bits) via the classic SWAR
   // bit-folding — no lookup table and no backend-specific intrinsic, so it is
   // identical across wasm / wasm-gc / js / native. `b.to_int()` is already in
   // 0..=255, so no masking is needed.
-  fn popcount_byte(b : Byte) -> Int {
+  fn popcount_byte(b : Byte) -> Int32 {
     let mut x = b.to_int()
     x = x - ((x >> 1) & 0x55)
     x = (x & 0x33) + ((x >> 2) & 0x33)
@@ -160,7 +160,11 @@ pub fn Bitmap::to_bools(self : Bitmap) -> Array[Bool] {
 /// before reaching it. It just shares the buffer and advances `offset`, so
 /// the caller must keep `0 <= start` and `start + length <= len`; that one
 /// caller guarantees it.
-pub fn Bitmap::slice_view(self : Bitmap, start : Int, length : Int) -> Bitmap {
+pub fn Bitmap::slice_view(
+  self : Bitmap,
+  start : Int32,
+  length : Int32,
+) -> Bitmap {
   { bits: self.bits, offset: self.offset + start, len: length, }
 }
 
@@ -173,7 +177,7 @@ pub fn Bitmap::slice_view(self : Bitmap, start : Int, length : Int) -> Bitmap {
 /// exactly once. An out-of-range index reads as `false` via `is_valid_total`
 /// rather than aborting, so a caller that breaks the in-bounds contract still
 /// cannot panic.
-pub fn Bitmap::take_view(self : Bitmap, indices : Array[Int]) -> Bitmap {
+pub fn Bitmap::take_view(self : Bitmap, indices : Array[Int32]) -> Bitmap {
   pack(indices.length(), i => self.is_valid_total(indices[i]))
 }
 
@@ -189,7 +193,7 @@ pub fn Bitmap::take_view(self : Bitmap, indices : Array[Int]) -> Bitmap {
 /// 0`, buffer exactly `⌈len / 8⌉` bytes). `valid` runs once per slot in
 /// `[0, len)`, so the caller must keep every index it reads (e.g.
 /// `offset + indices[i]`, `offset + i`) within bounds.
-fn pack(len : Int, valid : (Int) -> Bool) -> Bitmap {
+fn pack(len : Int32, valid : (Int32) -> Bool) -> Bitmap {
   let buf = FixedArray::make(bytes_needed(len), Byte::default())
   for i in 0..<len {
     if valid(i) {
@@ -208,7 +212,7 @@ fn pack(len : Int, valid : (Int) -> Bool) -> Bitmap {
 /// `len + 7` term so it never overflows `Int`, even for a `len` near
 /// `Int::MAX` (the result stays total — `all_valid` and `pack` pass it to
 /// `FixedArray::make`, which aborts on a negative size).
-fn bytes_needed(len : Int) -> Int {
+fn bytes_needed(len : Int32) -> Int32 {
   if len <= 0 {
     0
   } else {
@@ -223,7 +227,7 @@ fn buffer_to_bytes(buf : FixedArray[Byte]) -> Bytes {
 
 ///|
 /// Read bit `i` from `bytes`. Assumes `0 <= i < bytes.length() * 8`.
-fn bit_at(bytes : Bytes, i : Int) -> Bool {
+fn bit_at(bytes : Bytes, i : Int32) -> Bool {
   let byte_idx = i / 8
   let bit_idx = i % 8
   ((bytes[byte_idx].to_int() >> bit_idx) & 1) == 1
@@ -233,7 +237,7 @@ fn bit_at(bytes : Bytes, i : Int) -> Bool {
 /// Clear trailing bits past `len` in the final byte. No-op when `len` is
 /// a multiple of 8 or zero. Used by `all_valid` so the popcount/null_count
 /// remains correct over the full byte buffer.
-fn mask_tail(buf : FixedArray[Byte], len : Int) -> Unit {
+fn mask_tail(buf : FixedArray[Byte], len : Int32) -> Unit {
   if len <= 0 {
     return
   }

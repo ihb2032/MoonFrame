@@ -173,3 +173,42 @@ test "Timestamp renders ISO 8601 with a six-digit microsecond fraction" {
     @types.Scalar::Timestamp(1L).dtype() is @types.DataType::Timestamp,
   )
 }
+
+///|
+/// The calendar renderings stay correct at the `Int64` extremes, where the
+/// direct floor-division spellings would wrap: the timestamp count near
+/// `MIN` (whose `micros - 86_399_999_999` underflows into a sign-flipped
+/// far-future date) and the day count near `MAX` (whose `days + 719468`
+/// overflows into a negative year). The time-of-day stays a legal clock
+/// reading and the dates land where the counts truly point.
+test "calendar renderings survive the Int64 extremes" {
+  let min = -9_223_372_036_854_775_808L
+  let max = 9_223_372_036_854_775_807L
+  // The whole-range endpoints, and the exact seam where the old
+  // underflow stopped (one day-bound above MIN renders the last
+  // pre-epoch microsecond of the MIN day).
+  inspect(
+    @types.Scalar::Timestamp(min).to_string(),
+    content=(
+      #|-290308-12-21T19:59:05.224192
+    ),
+  )
+  inspect(
+    @types.Scalar::Timestamp(min + 86_399_999_999L).to_string(),
+    content=(
+      #|-290308-12-22T19:59:05.224191
+    ),
+  )
+  inspect(
+    @types.Scalar::Date(max).to_string(),
+    content=(
+      #|25252734927768524-07-27
+    ),
+  )
+  inspect(
+    @types.Scalar::Date(max - 719_468L).to_string(),
+    content=(
+      #|25252734927766554-09-25
+    ),
+  )
+}

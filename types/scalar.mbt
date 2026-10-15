@@ -183,14 +183,15 @@ fn date_days_to_iso(days : Int64) -> String {
 /// count it came from); instants before the epoch carry the date's negative
 /// year sign, the time-of-day stays in `[00:00:00, 24:00:00)`.
 fn timestamp_micros_to_iso(micros : Int64) -> String {
-  // Floor division both ways, so a negative count's time-of-day stays in
-  // `[0, 86400e6)` and its date lands the day before the epoch, not on it.
-  let day : Int64 = if micros >= 0 {
-    micros / 86_400_000_000L
-  } else {
-    (micros - 86_399_999_999L) / 86_400_000_000L
-  }
-  let rem = micros - day * 86_400_000_000L
+  // Floor division by remainder first: the C-remainder `r` carries the
+  // dividend's sign and never wraps, `micros - r` is a multiple of the
+  // day bound no larger than the dividend, and the corrections keep both
+  // the day quotient and the time-of-day small — so the trick stays
+  // equivalent to floor division at every `Int64`, where subtracting the
+  // bound before dividing (the direct spelling) would underflow near MIN.
+  let r = micros % 86_400_000_000L
+  let day = (micros - r) / 86_400_000_000L - (if r < 0L { 1L } else { 0L })
+  let rem = r + (if r < 0L { 86_400_000_000L } else { 0L })
   fn pad2(n : Int64) -> String {
     if n < 10 {
       "0\{n}"
@@ -267,14 +268,26 @@ fn decimal_unscaled_to_string(scale : Int32, unscaled : Int64) -> String {
 /// 1970) included. The one home of the calendar math: the ISO rendering
 /// above composes it, and the engine's `dt_*` expression verbs read their
 /// components from it, so the string and the verbs cannot disagree.
+/// Total and correct over every `Int64`: the era arithmetic never forms
+/// `days + 719468` (which wraps within 719468 of `Int64::MAX`), but splits
+/// the count into an era quotient and a non-negative remainder first —
+/// the same remainder-first floor division the timestamp rendering uses.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
 pub fn date_days_to_civil(days : Int64) -> (Int64, Int64, Int64) {
-  let z = days + 719468L
-  // Floor division, so dates before the era anchor land in the previous
-  // 400-year era instead of truncating toward zero.
-  let era = if z >= 0 { z / 146097L } else { (z - 146096L) / 146097L }
-  let doe = z - era * 146097L
+  // `days = q * 146097 + s` with `s` in `[0, 146097)`: the C-remainder
+  // never wraps, the quotient's correction shifts it to the floor, and
+  // `s + 719468` is the original algorithm's `z` reduced into the current
+  // era — always a small non-negative number.
+  let s0 = days % 146097L
+  let q0 = (days - s0) / 146097L
+  let q = if s0 < 0L { q0 - 1L } else { q0 }
+  let s = if s0 < 0L { s0 + 146097L } else { s0 }
+  let z = s + 719468L
+  // Floor division of `z` by the era length, both now non-negative and
+  // small — the composite era is the split quotient plus z's own.
+  let era = q + z / 146097L
+  let doe = z % 146097L
   let yoe = (doe - doe / 1460L + doe / 36524L - doe / 146096L) / 365L
   let y = yoe + era * 400L
   let doy = doe - (365L * yoe + yoe / 4L - yoe / 100L)

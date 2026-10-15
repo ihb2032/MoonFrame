@@ -175,6 +175,15 @@ fn decimal_arith(
   // side nulls the cell; an overflow or an inexact rescale anywhere
   // refuses the evaluation.
   let out_scale = if dec is Mul { ls + rs } else if ls > rs { ls } else { rs }
+  // `Mul`'s output scale is the one scale the arithmetic itself authors —
+  // two operands inside the envelope can still sum past it — so the
+  // envelope check rides the composed scale, not the operands.
+  let verb = match dec {
+    Add => "add"
+    Sub => "subtract"
+    Mul => "multiply"
+  }
+  @types.check_decimal_scale(out_scale, "\{verb} result")
   let cells : Array[Int64?] = []
   for i in 0..<a.length() {
     if lv[i] && rv[i] {

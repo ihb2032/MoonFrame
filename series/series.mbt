@@ -82,6 +82,12 @@ pub fn Series::empty_of(
   name : String,
   dtype : @types.DataType,
 ) -> Series raise @types.DataError {
+  // The envelope check rides the empty column too: a zero-row frame is
+  // still a column the library authored, and its dtype would otherwise
+  // be the one decimal a later verb could lift a scalar out of.
+  if dtype is @types.DataType::Decimal(scale) {
+    @types.check_decimal_scale(scale, "column \{name}")
+  }
   let storage = match dtype.physical() {
     // The I64 riders share one buffer, so the dtype-carrying constructor
     // serves both `Int` and its riders (`Date`) — no per-dtype branch.
@@ -411,7 +417,8 @@ pub fn Series::from_decimal_options(
   scale : Int32,
   name : String,
   values : Array[Int64?],
-) -> Series {
+) -> Series raise @types.DataError {
+  @types.check_decimal_scale(scale, "column \{name}")
   Series::from_builtin(
     name,
     @column.BuiltinColumn::from_i64_options(

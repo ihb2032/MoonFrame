@@ -58,9 +58,10 @@ priv struct DTypeProfile {
   numeric : Bool
   /// Whether the *exact* reduction `sum` accepts the dtype — the one numeric
   /// verb that stays correct over an `I64` rider whose arithmetic is fenced:
-  /// adding unscaled decimal cells of one scale is exact, so `Decimal` sums
-  /// while its arithmetic (and the approximate statistics, which go through
-  /// the `numeric` gate) stay fenced.
+  /// adding unscaled decimal cells of one scale is exact within the `Int64`
+  /// range and refuses past it, so `Decimal` sums while its arithmetic (and
+  /// the approximate statistics, which go through the `numeric` gate) stay
+  /// fenced.
   summable : Bool
 }
 

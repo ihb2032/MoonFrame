@@ -329,7 +329,9 @@ fn eval_expr(
             // shared with the grouped-`agg` fast path so both route each op
             // the same way. Dtype / null / `NaN` rules: `Sum` `Int → Int`,
             // `Float → Float`, nulls skipped, `NaN` propagates, empty /
-            // all-null sums to the additive identity; `Mean` always `Float`
+            // all-null sums to the additive identity, and a `Decimal` sum
+            // whose total leaves the `Int64` range refuses (the exact
+            // dtype's contract); `Mean` always `Float`
             // with an empty / all-null window yielding a **null cell**
             // (Polars `mean` semantics — deliberately not `Series::mean`'s
             // `InvalidOperation`, a per-group reduction must produce a value

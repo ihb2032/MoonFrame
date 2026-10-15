@@ -420,7 +420,10 @@ pub fn DataFrame::unpivot(
       raise @types.DataError::DuplicateColumn(name)
     }
   }
-  // The value dtype: agreement, or the Int / Float widening.
+  // The value dtype: agreement, or the Int / Float widening. The first
+  // on-column's name rides along, so a mismatch on a wide frame names the
+  // two columns that disagree instead of only their dtypes.
+  let first_on = on_cols[0].name()
   let mut value_dtype = on_cols[0].dtype()
   for c in on_cols {
     let d = c.dtype()
@@ -430,7 +433,7 @@ pub fn DataFrame::unpivot(
       } else {
         raise @types.DataError::TypeMismatch(
           @types.TypeMismatchDetail::Message(
-            "unpivot on-columns must share a dtype, got \{value_dtype} and \{d}",
+            "unpivot on-columns must share a dtype, got \{value_dtype} (column \{first_on}) and \{d} (column \{c.name()})",
           ),
         )
       }

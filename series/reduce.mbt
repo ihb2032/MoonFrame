@@ -917,12 +917,17 @@ fn reduce_mode(
         }
         // Strictly-greater, or equal-count with an earlier first
         // appearance — so a tie resolves to the first-appearing value.
-        if c > best_count ||
-          (
-            c == best_count &&
-            first_key.get(key).unwrap_or(0) <
-            first_key.get(best.unwrap()).unwrap_or(0)
-          ) {
+        // The tie arm spells out that its `best` is already set (a count
+        // of at least 1 has passed the strictly-greater arm first)
+        // instead of unwrapping: a `None` here is the one branch a
+        // future edit could leave reachable, and this keeps it a typed
+        // `false` rather than an abort.
+        let earlier_tie = match best {
+          Some(b) =>
+            first_key.get(key).unwrap_or(0) < first_key.get(b).unwrap_or(0)
+          None => false
+        }
+        if c > best_count || (c == best_count && earlier_tie) {
           best = Some(key)
           best_count = c
           best_pos = k

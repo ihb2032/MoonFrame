@@ -25,6 +25,9 @@ test "pivot reshapes long to wide, first-appearance on both axes" {
     Series::from_ints("sales", [10, 20, 30]),
   ])
   let r = df.pivot(on=[@expr.col("quarter")], index=[@expr.col("region")])
+  // The reshape pair builds its output through the shared from_parts, so
+  // the shape invariants are pinned on its representative outputs.
+  assert_eq(r.check_invariants(), Ok(()))
   // Rows: west first (first appearance); columns: q1 then q2.
   assert_eq(r.columns(), ["region", "q1", "q2"])
   assert_eq(r.get_column("region").to_scalars(), [
@@ -128,6 +131,7 @@ test "multiple values columns name value_on; an empty index is the grand total" 
     @expr.col("v1"),
     @expr.col("v2"),
   ])
+  assert_eq(r.check_invariants(), Ok(()))
   assert_eq(r.columns(), ["k", "v1_x", "v1_y", "v2_x", "v2_y"])
   assert_eq(r.get_column("v1_x").to_scalars(), [
     @types.Scalar::Int(1),
@@ -142,6 +146,7 @@ test "multiple values columns name value_on; an empty index is the grand total" 
     aggregate_function=First,
   )
   assert_eq(total.shape(), (1, 4))
+  assert_eq(total.check_invariants(), Ok(()))
   assert_eq(total.columns(), ["v1_x", "v1_y", "v2_x", "v2_y"])
   assert_eq(total.get_column("v1_x").to_scalars(), [@types.Scalar::Int(1)])
   // values omitted with an explicit index takes the remaining columns.

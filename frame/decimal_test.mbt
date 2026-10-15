@@ -548,6 +548,9 @@ test "decimal arithmetic decides the MIN magnitude exactly" {
   let exact = frame.select([
     (@expr.col("n") - @expr.lit_int(min)).with_alias("e"),
   ])
+  // The rider's arithmetic rebuilds a frame; the shape invariants ride
+  // the representative outputs.
+  assert_eq(exact.check_invariants(), Ok(()))
   assert_eq(exact.get_column("e").to_scalars(), [
     @types.Scalar::Decimal(0, 9_223_372_036_854_775_807L),
     @types.Scalar::Decimal(0, 9_223_372_036_854_775_807L),

@@ -74,6 +74,9 @@ test "Timestamp compares instant-wise; an Int never reaches the cells" {
 test "Timestamp sorts chronologically and reduces positionally" {
   let df = ts_frame()
   let sorted = df.sort([(@expr.col("t"), false, true)])
+  // The rider rebuilds frames through the shared verbs; the shape
+  // invariants ride the representative outputs.
+  assert_eq(sorted.check_invariants(), Ok(()))
   assert_eq(ts_cells(sorted, "t"), [
     "2024-01-01T00:00:00.000000", "2024-01-02T00:00:00.000000", "2024-01-02T02:04:20.000000",
     "null",

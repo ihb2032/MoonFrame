@@ -437,3 +437,41 @@ test "window fusion: two unbounded slices compose to one unbounded" {
   assert_eq(lf.collect(), df.slice(1).slice(2))
   assert_eq(lf.explain(optimized=true), "SLICE [3: ]\n  SCAN [4×3]")
 }
+
+///|
+/// A negative `n` is the Polars "drop from the far end" window, not a
+/// tight bound: `min` would pick it as the tighter head while eager reads
+/// it as the *wider* one, so the pair stays a floor and collects exactly
+/// the eager chain.
+test "window fusion: negative bounds stay separate" {
+  let df = sales_df()
+  // Eager: head(3) keeps 3 rows, head(-2) drops the last 2 of those — 1 row.
+  // A fused Head(min(3, -2) = -2) would keep all but 2 of the 4 — 2 rows.
+  let lf = LazyFrame::LazyFrame(df).head(3).head(-2)
+  assert_eq(lf.collect(), df.head(3).head(-2))
+  assert_eq(lf.collect().nrows(), 1)
+  // Both orders, and the tail twin.
+  let lf2 = LazyFrame::LazyFrame(df).head(-2).head(3)
+  assert_eq(lf2.collect(), df.head(-2).head(3))
+  let lf3 = LazyFrame::LazyFrame(df).tail(3).tail(-1)
+  assert_eq(lf3.collect(), df.tail(3).tail(-1))
+  assert_eq(lf3.collect().nrows(), 2)
+}
+
+///|
+/// Two saturating offsets whose sum leaves `Int32` compose to a start no
+/// row count can reach — the eager chain answers "empty", so the fused
+/// form must not wrap the sum into a from-the-tail offset. The pair stays
+/// a floor.
+test "window fusion: offsets whose sum wraps stay separate" {
+  let df = sales_df()
+  let lf = LazyFrame::LazyFrame(df).slice(1_500_000_000).slice(1_500_000_000)
+  assert_eq(lf.collect(), df.slice(1_500_000_000).slice(1_500_000_000))
+  assert_eq(lf.collect().nrows(), 0)
+  // Just inside the representable range still fuses — and saturates to the
+  // same empty window the eager chain gives.
+  let lf2 = LazyFrame::LazyFrame(df).slice(1_000_000_000).slice(1_000_000_000)
+  assert_eq(lf2.collect(), df.slice(1_000_000_000).slice(1_000_000_000))
+  assert_eq(lf2.collect().nrows(), 0)
+  assert_eq(lf2.explain(optimized=true), "SLICE [2000000000: ]\n  SCAN [4×3]")
+}

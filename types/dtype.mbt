@@ -51,6 +51,29 @@ pub(all) enum DataType {
 } derive(Eq, Debug)
 
 ///|
+/// The decimal envelope's one enforcement point: a `Decimal` dtype's scale
+/// stays in `[0, 18]` — eighteen fraction digits is the most an `Int64`
+/// unscaled magnitude leaves room for, the bound the `Decimal` variant's
+/// docstring states. Every constructor that authors a decimal dtype (the
+/// series builder, the scalar projection, the arithmetic's output scale)
+/// raises here, so no column the library builds carries a scale the
+/// rendering and the rescale would only meet downstream. A hand-built
+/// `Scalar::Decimal` can still name any scale — `Scalar` is `pub(all)` —
+/// which is why the rendering stays total over every input it is handed.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
+pub fn check_decimal_scale(
+  scale : Int32,
+  origin : String,
+) -> Unit raise DataError {
+  if scale < 0 || scale > 18 {
+    raise DataError::InvalidOperation(
+      "decimal \{origin} carries scale \{scale}, outside the envelope [0, 18]",
+    )
+  }
+}
+
+///|
 pub extend DataType with Eq::{equal, not_equal}
 
 ///|

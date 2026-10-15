@@ -18,11 +18,17 @@ fn rank_df() -> DataFrame raise @types.DataError {
 ///|
 test "top_k / bottom_k select their end, in sorted order" {
   let df = rank_df()
-  assert_eq(df.top_k(2, by=[@expr.col("v")]).get_column("v").to_scalars(), [
+  let top = df.top_k(2, by=[@expr.col("v")])
+  let bottom = df.bottom_k(2, by=[@expr.col("v")])
+  // The ranking selections rebuild a frame; the shape invariants ride the
+  // representative outputs.
+  assert_eq(top.check_invariants(), Ok(()))
+  assert_eq(bottom.check_invariants(), Ok(()))
+  assert_eq(top.get_column("v").to_scalars(), [
     @types.Scalar::Int(40),
     @types.Scalar::Int(30),
   ])
-  assert_eq(df.bottom_k(2, by=[@expr.col("v")]).get_column("v").to_scalars(), [
+  assert_eq(bottom.get_column("v").to_scalars(), [
     @types.Scalar::Int(10),
     @types.Scalar::Int(20),
   ])

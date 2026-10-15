@@ -77,8 +77,9 @@ pub fn LazyFrame::sort(
 
 ///|
 /// Defer `DataFrame::head`: the first `n` rows. Inherits eager `head`'s
-/// total clamp — `n` beyond the frame keeps every row, negative `n` keeps
-/// none — so collecting can't fail on this node. Also exposed under its
+/// total clamp — `n` beyond the frame keeps every row, a negative `n`
+/// keeps every row but the last `|n|` (the Polars convention) — so
+/// collecting can't fail on this node. Also exposed under its
 /// Polars / SQL name `limit` (via `#alias`): the same deferred node, so
 /// `lf.limit(n)` collects to the same rows and `explain`s as `HEAD n`.
 #alias(limit)

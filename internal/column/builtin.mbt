@@ -246,7 +246,13 @@ pub fn BuiltinColumn::from_scalars(
           }
         }),
       )
-    @types.DataType::Decimal(_) =>
+    @types.DataType::Decimal(_) => {
+      // The projection authors the dtype from `probe`, so the envelope
+      // check rides here — the cells' own scales are ignored by the
+      // projection (any `Decimal` matches), the column's is what sticks.
+      if probe is @types.DataType::Decimal(scale) {
+        @types.check_decimal_scale(scale, "column \{name}")
+      }
       BuiltinColumn::from_i64_options(
         probe,
         cells.map(c => {
@@ -256,6 +262,7 @@ pub fn BuiltinColumn::from_scalars(
           }
         }),
       )
+    }
     @types.DataType::Null =>
       raise @types.DataError::Unsupported(
         "cannot build a column of dtype Null: \{name}",

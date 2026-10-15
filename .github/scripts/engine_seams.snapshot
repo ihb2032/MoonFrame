@@ -22,7 +22,7 @@ series | doc_hidden internal_engine | pub fn Series::coalesce_columns( self : Se
 series | doc_hidden internal_engine | pub fn Series::empty_of( name : String, dtype : @types.DataType, ) -> Series raise @types.DataError | used by: frame
 series | doc_hidden internal_engine | pub fn Series::from_bool_options( name : String, values : Array[Bool?], ) -> Series | used by: frame,internal/kernel
 series | doc_hidden internal_engine | pub fn Series::from_date_options( name : String, values : Array[Int64?], ) -> Series | used by: frame,internal/kernel
-series | doc_hidden internal_engine | pub fn Series::from_decimal_options( scale : Int32, name : String, values : Array[Int64?], ) -> Series | used by: frame,internal/kernel
+series | doc_hidden internal_engine | pub fn Series::from_decimal_options( scale : Int32, name : String, values : Array[Int64?], ) -> Series raise @types.DataError | used by: frame,internal/kernel
 series | doc_hidden internal_engine | pub fn Series::from_float_options( name : String, values : Array[Double?], ) -> Series | used by: frame,internal/kernel
 series | doc_hidden internal_engine | pub fn Series::from_i64_options( name : String, dtype : @types.DataType, values : Array[Int64?], ) -> Series | used by: internal/kernel
 series | doc_hidden internal_engine | pub fn Series::from_int_options( name : String, values : Array[Int64?], ) -> Series | used by: frame,internal/kernel
@@ -63,6 +63,7 @@ types | doc_hidden internal_engine | pub fn DataType::comparable_with(self : Dat
 types | doc_hidden internal_engine | pub fn DataType::i64_rider_scalar(self : DataType, v : Int64) -> Scalar? | used by: internal/column,series
 types | doc_hidden internal_engine | pub fn DataType::physical(self : DataType) -> PhysicalType? | used by: series
 types | doc_hidden internal_engine | pub fn Schema::index_maybe(self : Schema, name : String) -> Int32? | used by: frame
+types | doc_hidden internal_engine | pub fn check_decimal_scale( scale : Int32, origin : String, ) -> Unit raise DataError | used by: internal/column,internal/kernel,series
 types | doc_hidden internal_engine | pub fn date_days_to_civil(days : Int64) -> (Int64, Int64, Int64) | used by: internal/kernel
 types | doc_hidden internal_engine | pub(all) enum PhysicalType
 types | doc_hidden internal_engine | variant PhysicalType::Bool

@@ -229,32 +229,36 @@ fn timestamp_micros_to_iso(micros : Int64) -> String {
 /// zero-padded to exactly `scale` digits, so the rendering round-trips. A
 /// zero scale renders with no point (`Decimal(0)` is an integer spelling);
 /// a negative magnitude keeps one sign, its fraction digits from the
-/// magnitude (`-5` under scale 2 renders `-0.05`).
+/// magnitude (`-5` under scale 2 renders `-0.05`). The magnitude's digits
+/// come straight from `Int64::to_string` — `MIN` included, its digits after
+/// the sign are the true magnitude — and the point is placed by counting
+/// digits, never by arithmetic on the magnitude: no negation to wrap, no
+/// power of ten to overflow, no division to trap. A scale outside the
+/// enforced envelope `[0, 18]` can only arrive in a hand-built `pub(all)`
+/// scalar; it renders as a named non-value rather than a number.
 fn decimal_unscaled_to_string(scale : Int32, unscaled : Int64) -> String {
+  if scale < 0 || scale > 18 {
+    return "<decimal scale \{scale} outside the envelope [0, 18], unscaled \{unscaled}>"
+  }
   if scale == 0 {
     return unscaled.to_string()
   }
-  let neg = unscaled < 0
-  let mag = if neg { -unscaled } else { unscaled }
-  let pow = {
-    let mut p = 1L
-    for _ in 0..<scale {
-      p = p * 10L
-    }
-    p
+  let raw = unscaled.to_string()
+  let (sign, digits) = if unscaled < 0 {
+    ("-", raw[1:].to_owned())
+  } else {
+    ("", raw)
   }
-  let whole = mag / pow
-  let frac = mag % pow
-  fn pad(n : Int64, width : Int32) -> String {
-    let mut t = n.to_string()
-    while t.length() < width {
-      t = "0" + t
+  if digits.length() <= scale {
+    let mut frac = ""
+    for _ in 0..<(scale - digits.length()) {
+      frac = frac + "0"
     }
-    t
+    "\{sign}0.\{frac}\{digits}"
+  } else {
+    let split = digits.length() - scale
+    "\{sign}\{digits[:split].to_owned()}.\{digits[split:].to_owned()}"
   }
-
-  let sign = if neg { "-" } else { "" }
-  "\{sign}\{whole}.\{pad(frac, scale)}"
 }
 
 ///|

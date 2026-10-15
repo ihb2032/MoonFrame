@@ -2,15 +2,25 @@
 /// The query optimizer: a fixed pipeline of **total** plan→plan rewrites —
 /// pure tree walking, no raise, no abort — that `collect` runs in front of
 /// the executor and `explain(optimized=true)` renders for inspection. The
-/// passes and their run order are the table `optimizer_passes`; a new pass
-/// is a rewrite function documented beside its own soundness rules plus one
-/// row in that table. Today there are two: the predicate pass runs first and
-/// sinks `Filter` nodes toward the scan so rows drop as early as possible;
-/// the projection pass then runs a required-columns analysis and narrows
+/// passes and their run order are the table `optimizer_passes` right below;
+/// the whole-plan rules that run after them are the table
+/// `optimizer_rules`. A new pass is a rewrite function documented beside
+/// its own soundness rules plus one row in its table — the prose here says
+/// what the pipeline *is*, and points at the tables for what it *contains*,
+/// so the two cannot drift apart. The slice pass runs first and sinks
+/// row-window nodes (`head` / `tail` / `slice` / `first` / `last`) toward
+/// the scan, fusing neighbouring windows into their composite where the
+/// composite provably keeps the eager rows (and refusing the fusion —
+/// leaving the floor — where it does not: a negative bound, offsets whose
+/// sum leaves `Int32`); the predicate pass then sinks `Filter` nodes so
+/// rows drop as early as possible; the projection pass last runs a
+/// required-columns analysis and narrows
 /// each scan — the in-memory `Scan` and the `Csv` / `Ndjson` file sources
 /// alike — to the columns its consumers provably read, so dead columns never
 /// ride through row-level work (and, for a file source, are never even
-/// parsed). The inviolable contract is the executor's own:
+/// parsed). The rules then fold column-free expression subtrees to their
+/// literal values and merge adjacent `with_columns` stages that commute.
+/// The inviolable contract is the executor's own:
 /// `execute(optimize(p))` is equal to `execute(p)` for every plan that
 /// collects. No pass ever alters a user-written node's *content* (predicates,
 /// expression lists, keys stay verbatim); the predicate pass re-orders whole

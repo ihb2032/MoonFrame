@@ -594,10 +594,16 @@ pub fn LazyGroupBy::len(self : LazyGroupBy) -> LazyFrame {
 ///|
 /// Run the plan and materialize the result — the only point in the lazy
 /// layer that computes (or fails). The plan first passes through the
-/// total optimizer rewrites: filters sink below the
+/// total optimizer rewrites (the optimizer's pass and rule tables are
+/// the pipeline's inventory):
+/// row-window nodes sink toward the scan — neighbouring windows fusing
+/// into their composite where the composite provably keeps the eager
+/// rows — filters sink below the
 /// stages they provably commute with, so rows drop as early as possible,
 /// and a required-columns pass then drops scan columns nothing downstream
-/// reads (and, for a `scan_csv` source, never parses them) — unless the
+/// reads (and, for a `scan_csv` source, never parses them); the rules
+/// then fold column-free expression subtrees to literals and merge
+/// adjacent `with_columns` stages that commute — unless the
 /// plan is DAG-shaped (the same `LazyFrame` reaching both sides of a
 /// `join`), in which case it runs as built: a shared subtree makes the
 /// rewrite passes' node count explode, so they stand down rather than

@@ -165,7 +165,9 @@ pub fn read_ndjson(
 /// exact across the full `Int64` range via the preserved `repr`); finite
 /// `Float` → JSON number, non-finite (`NaN` /
 /// `±Infinity`) → `null` so each line stays valid JSON; `Bool` →
-/// `true` / `false`; `String` → escaped JSON string. Keys appear in
+/// `true` / `false`; `String` → escaped JSON string; `Date` /
+/// `Timestamp` / `Decimal` → JSON string holding the value-form rendering.
+/// Keys appear in
 /// `df.columns()` order, preserved by the linked-hash-map `Map` backing
 /// each record object.
 pub fn format_ndjson(df : @frame.DataFrame) -> String {

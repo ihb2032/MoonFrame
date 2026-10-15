@@ -16,6 +16,8 @@ pub fn[T] fold_extremum(Int, (Int) -> T, (Int) -> Bool, (T, T) -> Bool) -> T?
 
 pub fn fold_int64_sum(Int, (Int) -> Int64, (Int) -> Bool) -> Int64
 
+pub fn fold_int64_sum_checked(Int, (Int) -> Int64, (Int) -> Bool) -> Int64?
+
 pub fn fold_welford_m2(Int, (Int) -> Double, (Int) -> Bool) -> (Double, Int, Bool)
 
 pub fn int64_eq_double(Int64, Double) -> Bool
@@ -25,6 +27,8 @@ pub fn int64_lt_double(Int64, Double) -> Bool
 pub fn mul_checked(Int64, Int64) -> Int64?
 
 pub fn rescale_unscaled(Int, Int, Int64) -> Int64?
+
+pub fn sub_checked(Int64, Int64) -> Int64?
 
 // Errors
 

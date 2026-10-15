@@ -23,13 +23,38 @@ pub fn add_checked(a : Int64, b : Int64) -> Int64? {
 }
 
 ///|
+/// The exact difference of two `Int64` magnitudes, or `None` when it
+/// leaves the range. Subtraction cannot be spelled `add_checked(a, -b)`:
+/// negating a `MIN` subtrahend wraps before the check ever sees a true
+/// value, so the `MIN` case is decided directly — a non-negative minuend
+/// leaves the range, a negative one lands in `[0, MAX]` exactly.
+pub fn sub_checked(a : Int64, b : Int64) -> Int64? {
+  if b == -9_223_372_036_854_775_808L {
+    if a >= 0L {
+      None
+    } else {
+      Some(a - b)
+    }
+  } else {
+    add_checked(a, -b)
+  }
+}
+
+///|
 /// The exact product of two `Int64` magnitudes, or `None` when it leaves
 /// the range. The divide-back verification catches every wraparound (a
 /// zero operand short-circuits; the `MIN * -1 = MIN` wraparound fails the
-/// check, since `MIN / MIN` is `1`, not `-1`).
+/// check, since `MIN / MIN` is `1`, not `-1`). The one quotient `Int64`
+/// division cannot represent — `MIN / -1`, a trap on every backend, not a
+/// `None` — is refused before the verification divides: a wrapped product
+/// of `MIN` beside a `-1` operand is an overflow by definition.
 pub fn mul_checked(a : Int64, b : Int64) -> Int64? {
   if a == 0L || b == 0L {
     return Some(0L)
+  }
+  if (a == -1L && b == -9_223_372_036_854_775_808L) ||
+    (a == -9_223_372_036_854_775_808L && b == -1L) {
+    return None
   }
   let r = a * b
   if r / a != b || r / b != a {

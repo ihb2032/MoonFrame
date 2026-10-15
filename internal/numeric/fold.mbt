@@ -64,6 +64,28 @@ pub fn fold_int64_sum(
 }
 
 ///|
+/// Checked twin of `fold_int64_sum` — `Some` for the exact total, `None`
+/// when an accumulated add leaves the `Int64` range. The decimal `sum`
+/// refuses rather than wrap (the exact dtype's contract); the `Int` dtype
+/// keeps the wrapping fold above, its documented price. Total.
+pub fn fold_int64_sum_checked(
+  n : Int32,
+  get : (Int32) -> Int64,
+  present : (Int32) -> Bool,
+) -> Int64? {
+  let mut acc : Int64 = 0
+  for i in 0..<n {
+    if present(i) {
+      match add_checked(acc, get(i)) {
+        Some(sum) => acc = sum
+        None => return None
+      }
+    }
+  }
+  Some(acc)
+}
+
+///|
 /// `Double`-accumulator sum of the cells `0 ..< n` a `present(i)` marks kept,
 /// with the kept count for the dividing caller: the accumulation behind
 /// `mean` on both layers (an `Int` column widens each cell through `get`

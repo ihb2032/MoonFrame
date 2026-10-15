@@ -98,6 +98,14 @@ physical_type
 read_csv_pruned
 read_csv_projected
 read_ndjson_pruned
+# Removed with the Parquet withdrawal (unreleased): the mizchi/parquet
+# dependency chain cannot install under the current toolchain, so the
+# interchange landed and was withdrawn before ever shipping.
+read_parquet
+write_parquet
+parse_parquet
+format_parquet
+scan_parquet
 read_ndjson_projected
 # Removed with the AggOp-to-ReduceOp convergence (unreleased): the AST Agg
 # node carries @series.ReduceOp directly, so the mirror enum and the frame

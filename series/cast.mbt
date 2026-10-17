@@ -11,15 +11,17 @@
 ///   String parses plain base-10 integers (other forms `raise ParseError`).
 /// - `Float` — Int promoted; identity on Float; Bool → `1.0` / `0.0`;
 ///   String parses decimals / scientific notation.
-/// - `String` — every dtype except `Date` renders to its value form; never
-///   rejects a value, so the only failure is an unsupported side below.
+/// - `String` — `Int` / `Float` / `Bool` render to their value form;
+///   never rejects a value, so the only failure is an unsupported side
+///   below.
 ///
 /// Null slots are preserved verbatim. A numeric result lands on the
 /// `Builtin` backend; the engine re-converges it onto the unboxed fast path
 /// where a later step benefits. `Bool`, `Null`, and `Date` targets `raise`
-/// `Unsupported(_)`, and so does a `Date` source (a day count read as an
-/// integer is not a conversion this library offers — `item` / `to_string`
-/// render dates instead).
+/// `Unsupported(_)`, and so do a `Date`, `Timestamp`, or `Decimal` source —
+/// the riders' readings (an instant, a scaled magnitude) are not
+/// conversions this library offers; `item` / `to_string` render them
+/// instead.
 pub fn Series::cast(
   self : Series,
   target : @types.DataType,

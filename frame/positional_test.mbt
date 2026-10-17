@@ -16,6 +16,9 @@ fn int_col(name : String, vals : Array[Int64?]) -> Series {
 test "shift is LAG / LEAD with a fillable edge" {
   let df = DataFrame::DataFrame([int_col("v", [Some(10), Some(20), Some(30)])])
   let s = df.select([@expr.col("v").shift(1).with_alias("s")])
+  // The positional family rebuilds a frame; the shape invariants ride the
+  // representative outputs.
+  assert_eq(s.check_invariants(), Ok(()))
   assert_eq(s.get_column("s").to_scalars(), [
     @types.Scalar::Null,
     @types.Scalar::Int(10),

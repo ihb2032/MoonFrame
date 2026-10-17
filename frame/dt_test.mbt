@@ -82,11 +82,13 @@ test "the dt verbs are Date-only" {
 }
 
 ///|
-test "the calendar verbs raise outside the calendar domain" {
-  // A day count whose magnitude leaves date_days_to_civil's 719468 shift
-  // no headroom would wrap silently — the year / month / day verbs raise
-  // instead; weekday's pure modular arithmetic answers for any count
-  // (Int64::MAX mod 7 is 0 — a Thursday, like the epoch).
+test "the calendar verbs answer at the Int64 day-count extremes" {
+  // The civil conversion is total over every `Int64` (the era arithmetic
+  // takes its remainder first and never forms `days + 719468`), so the
+  // component verbs read back exactly what the cell's own ISO rendering
+  // shows — here the far end of the range, where an earlier domain gate
+  // used to refuse; weekday's pure modular arithmetic answers for any
+  // count (Int64::MAX mod 7 is 0 — a Thursday, like the epoch).
   let hostile = DataFrame::DataFrame([
     Series::from_scalars(
       "d",
@@ -94,17 +96,27 @@ test "the calendar verbs raise outside the calendar domain" {
       dtype=@types.DataType::Date,
     ),
   ])
-  for
-    e in [
-      @expr.col("d").dt_year(),
-      @expr.col("d").dt_month(),
-      @expr.col("d").dt_day(),
-    ] {
-    assert_true(
-      (Ok(hostile.select([e.with_alias("x")])) catch { e2 => Err(e2) })
-      is Err(@types.DataError::InvalidOperation(_)),
-    )
-  }
+  assert_eq(
+    hostile
+    .select([@expr.col("d").dt_year().with_alias("y")])
+    .get_column("y")
+    .to_scalars(),
+    [@types.Scalar::Int(25252734927768524L)],
+  )
+  assert_eq(
+    hostile
+    .select([@expr.col("d").dt_month().with_alias("m")])
+    .get_column("m")
+    .to_scalars(),
+    [@types.Scalar::Int(7)],
+  )
+  assert_eq(
+    hostile
+    .select([@expr.col("d").dt_day().with_alias("dd")])
+    .get_column("dd")
+    .to_scalars(),
+    [@types.Scalar::Int(27)],
+  )
   assert_eq(
     hostile
     .select([@expr.col("d").dt_day_of_week()])

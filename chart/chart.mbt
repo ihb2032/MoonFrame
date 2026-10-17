@@ -240,9 +240,10 @@ pub fn write_vega_lite(
 ///|
 /// Build one Vega-Lite encoding-channel object `{"field": <name>, "type":
 /// <vega-type>}`. An explicit `type_override` wins; otherwise the field `type`
-/// follows the column dtype: a numeric column (`Int` / `Float`) is
-/// `"quantitative"`, a `Date` column is `"temporal"` (its ISO cells sort
-/// chronologically), and every other dtype is `"nominal"`.
+/// follows the column dtype: a numeric column (`Int` / `Float` / `Decimal`)
+/// is `"quantitative"`, a `Date` / `Timestamp` column is `"temporal"` (its
+/// ISO cells sort chronologically, and a temporal axis orders by time rather
+/// than by first appearance), and every other dtype is `"nominal"`.
 fn encoding_channel(
   field : String,
   dtype : @types.DataType,
@@ -260,9 +261,10 @@ fn encoding_channel(
         Temporal => "temporal"
       }
     None =>
-      if dtype.is_numeric() {
+      if dtype.is_numeric() || dtype is @types.DataType::Decimal(_) {
         "quantitative"
-      } else if dtype is @types.DataType::Date {
+      } else if dtype is @types.DataType::Date ||
+        dtype is @types.DataType::Timestamp {
         "temporal"
       } else {
         "nominal"

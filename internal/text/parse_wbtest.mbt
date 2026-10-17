@@ -45,8 +45,10 @@ test "parse_plain_double_opt: an out-of-range finite literal overflows to signed
 ///|
 test "parse_decimal_int_opt pins the Int64 ceiling: max parses, past it is None" {
   // The int overflow boundary is asymmetric to the float one (which saturates to
-  // Infinity): an Int64-overflowing literal drops to None so CSV inference keeps
-  // it a String. Pinned at the exact ceiling, mirroring the double test above.
+  // Infinity): an Int64-overflowing literal drops to None so the int probe
+  // fails — CSV inference then falls through to the double probe and the
+  // column infers Float (rounded past `Int64`'s exact range). Pinned at the
+  // exact ceiling, mirroring the double test above.
   assert_eq(
     parse_decimal_int_opt("9223372036854775807"),
     Some(9223372036854775807L),

@@ -342,3 +342,52 @@ test "Utf8 columns with the same cells but different validity are unequal" {
   let again = ColumnStorage::Builtin(BuiltinColumn::from_strings(["x", "y"]))
   assert_true(full == again)
 }
+
+///|
+test "ColumnStorage equality settles the dtype before the buffer" {
+  // The `I64` buffer is shared by four dtypes; equal bits under different
+  // dtypes are different columns — a `Date` is not the `Int` count of its
+  // days, a `Timestamp` is not the `Date` of the same number, and the same
+  // unscaled bits are different decimals at different scales (0.05 vs
+  // 0.0005).
+  let date = ColumnStorage::Builtin(
+    BuiltinColumn::from_i64_options(@types.DataType::Date, [Some(5L)]),
+  )
+  assert_not_eq(date, ColumnStorage::Builtin(BuiltinColumn::from_ints([5L])))
+  let ts = ColumnStorage::Builtin(
+    BuiltinColumn::from_i64_options(@types.DataType::Timestamp, [Some(5L)]),
+  )
+  assert_not_eq(ts, date)
+  let dec2 = ColumnStorage::Builtin(
+    BuiltinColumn::from_i64_options(@types.DataType::Decimal(2), [Some(5L)]),
+  )
+  let dec4 = ColumnStorage::Builtin(
+    BuiltinColumn::from_i64_options(@types.DataType::Decimal(4), [Some(5L)]),
+  )
+  assert_not_eq(dec2, dec4)
+  // The same dtype still compares by content — the identity gate changed
+  // nothing about the value comparison behind it.
+  assert_eq(
+    dec2,
+    ColumnStorage::Builtin(
+      BuiltinColumn::from_i64_options(@types.DataType::Decimal(2), [Some(5L)]),
+    ),
+  )
+  // A Numeric Int column and a Builtin Date column share neither dtype nor
+  // verdict.
+  assert_not_eq(ColumnStorage::Numeric(NumericColumn::from_ints([5L])), date)
+}
+
+///|
+test "ColumnStorage equality answers false on a representation mismatch" {
+  // The identity gate settles same-dtype pairs, so a mixed pair reaches
+  // the value comparison only when a representation disagrees with its own
+  // dtype — constructible in-package through the dtype-taking builder
+  // alone. The verdict is a defensive `false`, never a read across
+  // mismatched buffers.
+  let mislabelled = ColumnStorage::Builtin(
+    BuiltinColumn::from_i64_options(@types.DataType::Float, [Some(1L)]),
+  )
+  let genuine = ColumnStorage::Builtin(BuiltinColumn::from_floats([1.0]))
+  assert_not_eq(mislabelled, genuine)
+}

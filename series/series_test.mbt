@@ -792,3 +792,23 @@ test "sort places equal-NaN and signed-zero cells stably" {
     },
   )
 }
+
+///|
+test "fill_null's Decimal mismatch message carries the scale and the dtype" {
+  let s = Series::from_decimal_options(2, "m", [Some(5L)])
+  let filled : Result[Series, @types.DataError] = Ok(
+    s.fill_null(@types.Scalar::Decimal(3, 0L)),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(
+    filled
+    is Err(
+      @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Message(
+          "fill_null type Decimal(3) does not match column type Decimal(2)"
+        )
+      )
+    ),
+  )
+}

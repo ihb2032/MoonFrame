@@ -246,18 +246,25 @@ pub fn BuiltinColumn::from_scalars(
           }
         }),
       )
-    @types.DataType::Decimal(_) => {
+    @types.DataType::Decimal(scale) => {
       // The projection authors the dtype from `probe`, so the envelope
-      // check rides here — the cells' own scales are ignored by the
-      // projection (any `Decimal` matches), the column's is what sticks.
-      if probe is @types.DataType::Decimal(scale) {
-        @types.check_decimal_scale(scale, "column \{name}")
-      }
+      // check rides here. A cell whose own scale differs from the column's
+      // lands as null — the same tolerance a mixed-variant projection gives
+      // its off-type minority — rather than its unscaled bits being re-read
+      // through a scale they were never written for: the probe route is the
+      // one place arbitrary scalars arrive (`map_elements` closures), and
+      // `Series::from_scalars` rejects the same input outright.
+      @types.check_decimal_scale(scale, "column \{name}")
       BuiltinColumn::from_i64_options(
         probe,
         cells.map(c => {
           match c {
-            @types.Scalar::Decimal(_, v) => Some(v)
+            @types.Scalar::Decimal(s, v) =>
+              if s == scale {
+                Some(v)
+              } else {
+                None
+              }
             _ => None
           }
         }),

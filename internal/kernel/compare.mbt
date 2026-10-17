@@ -239,8 +239,9 @@ fn eval_compare(
       is Some(target) &&
       left.dtype() is @types.DataType::Decimal(lsc) &&
       right.dtype() is @types.DataType::Decimal(rsc) => {
-      let ra = rescale_all(a, lsc, target)
-      let rb = rescale_all(b, rsc, target)
+      let both_present = (i : Int32) => lv[i] && rv[i]
+      let ra = rescale_all(a, lsc, target, both_present)
+      let rb = rescale_all(b, rsc, target, both_present)
       compare_cells(
         a.length(),
         left_valid=lv,
@@ -279,12 +280,21 @@ fn decimal_cross_scale(l : @types.DataType, r : @types.DataType) -> Int32? {
 ///|
 /// Lift a whole buffer to `target` — the widening rescale per cell, with
 /// the first overflow refusing the comparison exactly as arithmetic does.
+/// `present` is the joint validity (`lv[i] && rv[i]`, the same per-cell gate
+/// `decimal_arith` applies): a row either side nulls compares to null
+/// without its cells ever lifting, so a large present value beside a null
+/// cannot refuse the comparison that arithmetic tolerates — an absent slot
+/// keeps the all-zeros placeholder the null normalisation writes.
 fn rescale_all(
   buf : ArrayView[Int64],
   scale : Int32,
   target : Int32,
+  present : (Int32) -> Bool,
 ) -> Array[Int64] raise @types.DataError {
   Array::makei(buf.length(), i => {
+    if !present(i) {
+      return 0L
+    }
     let mut r = buf[i]
     for _ in scale..<target {
       match @numeric.mul_checked(r, 10L) {

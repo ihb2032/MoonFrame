@@ -209,35 +209,56 @@ fn DataFrame::reduce_to_row(
 /// `Scalar::Null`), `probe` fixes the output dtype — projected onto a typed
 /// column by the shared `scalars_to_series`.
 ///
-/// Numeric-only for `sum` / `mean` / `min` / `max`: a `Bool` / `String`
-/// column yields a `Null` cell kept in its source dtype (`probe = dtype`),
-/// while a numeric column reduces (`mean` retyped to `Float`). `count` is
-/// dtype-independent — always the non-null count as `Int`. This is distinct
-/// from the expression engine's aggregation kernel (which reduces every dtype and
-/// raises on a non-numeric `sum` / `mean`): the whole-frame reductions
-/// tolerate non-reducible columns by nulling them, matching `df.sum()`.
+/// `sum` reads the registry's `summable` bit (the numeric pair plus
+/// `Decimal`, whose exact unscaled addition the kernel performs), `min` /
+/// `max` reduce every dtype the extremum kernel orders — all but `Bool` /
+/// `String` — and `mean` (with `median` / `quantile` / `std` / `var` below)
+/// stays numeric: the approximate statistics are fenced for the `I64`
+/// riders. A column a gate excludes yields a `Null` cell kept in its source
+/// dtype (`probe = dtype`); `count` is dtype-independent — always the
+/// non-null count as `Int`. This is distinct from the expression engine's
+/// aggregation kernel (which reduces every dtype and raises on a non-numeric
+/// `sum` / `mean`): the whole-frame reductions tolerate non-reducible
+/// columns by nulling them, matching `df.sum()`.
 fn reduce_column(
   s : Series,
   op : FrameReduceOp,
 ) -> Series raise @types.DataError {
   let name = s.name()
-  // The column's own dtype doubles as the numeric test and, for the
+  // The column's own dtype doubles as the reduction gates and, for the
   // dtype-preserving reductions, the output `probe`. A column dtype is never
-  // `Null` (that is a value-level concept), so `is_numeric` decides the test
-  // without a dead arm and `scalars_to_series` never sees the dtype it rejects.
+  // `Null` (that is a value-level concept), so `is_summable` and the
+  // orderable `match` decide the tests without a dead arm, and
+  // `scalars_to_series` never sees the dtype it rejects.
   let dtype = s.dtype()
   let numeric = dtype.is_numeric()
+  let summable = dtype.is_summable()
+  // `min` / `max` ride the total extremum kernel, which orders every dtype;
+  // only `Bool` / `String` stay nulled — the documented whole-frame shape —
+  // so a `Decimal` / `Date` / `Timestamp` column agrees with `Series::min` /
+  // `Series::max` (what `describe` reports) instead of silently nulling.
+  // Spelled variant-by-variant so a dtype added later fails compilation
+  // here until its verdict is written.
+  let orderable = match dtype {
+    @types.DataType::Int
+    | @types.DataType::Float
+    | @types.DataType::Date
+    | @types.DataType::Timestamp
+    | @types.DataType::Decimal(_) => true
+    @types.DataType::Bool | @types.DataType::String | @types.DataType::Null =>
+      false
+  }
   let (cell, probe) = match op {
     FrameReduceOp::Count =>
       (@types.Scalar::Int(s.count().to_int64()), @types.DataType::Int)
-    // `Series::sum` only raises for a non-numeric dtype, which the `numeric`
-    // guard excludes — so the call never actually raises here.
+    // `Series::sum` only raises for a dtype outside the `summable` gate, so
+    // the call never actually raises here.
     FrameReduceOp::Sum =>
-      (if numeric { s.sum() } else { @types.Scalar::Null }, dtype)
+      (if summable { s.sum() } else { @types.Scalar::Null }, dtype)
     FrameReduceOp::Min =>
-      (if numeric { s.min() } else { @types.Scalar::Null }, dtype)
+      (if orderable { s.min() } else { @types.Scalar::Null }, dtype)
     FrameReduceOp::Max =>
-      (if numeric { s.max() } else { @types.Scalar::Null }, dtype)
+      (if orderable { s.max() } else { @types.Scalar::Null }, dtype)
     FrameReduceOp::Mean => {
       // `mean_opt` is the total form of `Series::mean`: `Some` for a numeric
       // column with a non-null cell, `None` for an empty / all-null one (where

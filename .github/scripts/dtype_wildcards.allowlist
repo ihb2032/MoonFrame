@@ -18,3 +18,4 @@ series/series_stats.mbt Series::std the reducer's result contract is Float|Null;
 series/series_stats.mbt Series::variance the reducer's result contract is Float|Null; the wildcard arm is the raise
 series/series_stats.mbt Series::median the reducer's result contract is Float|Null; the wildcard arm is the raise
 series/series_stats.mbt Series::quantile the reducer's result contract is Float|Null; the wildcard arm is the raise
+internal/column/storage.mbt <top> the wildcard is exhaustiveness only — the dtype identity check above already answered every mixed pair (same dtype implies same variant), so no cell comparison runs here

@@ -143,7 +143,7 @@ pub fn Series::fill_null(
         _ =>
           raise @types.DataError::TypeMismatch(
             @types.TypeMismatchDetail::Message(
-              "fill_null type Decimal(' + BS + '{scale}) does not match column type ' + BS + '{self.dtype()}",
+              "fill_null type Decimal(\{scale}) does not match column type \{self.dtype()}",
             ),
           )
       }

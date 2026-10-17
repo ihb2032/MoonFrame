@@ -130,11 +130,11 @@ fn classify(node : @ir.ExprNode, kids : Array[ExprProps]) -> ExprProps {
         group_cell: combined.group_cell,
       }
     }
-    // The `Dt*` quartet raises on a *value* — a day count outside the
-    // calendar domain — so a dropped row can drop the very cell that would
-    // have raised: a row-locality fence, like `Cast`. Every other member is
-    // row-local (raises only on the dtype, a scope-independent fact); `Round`
-    // reads only its place count.
+    // Every unary member is row-local: raises only on the dtype, a
+    // scope-independent fact — the `Dt*` quartet included, whose calendar
+    // math is total over every `Int64` day count (the same remainder-first
+    // conversion the ISO rendering composes); `Round` reads only its place
+    // count.
     @ir.ExprNode::Unary(op, _) => {
       let combined = kids_and(kids)
       {
@@ -142,8 +142,8 @@ fn classify(node : @ir.ExprNode, kids : Array[ExprProps]) -> ExprProps {
           @ir.UnOp::DtYear
           | @ir.UnOp::DtMonth
           | @ir.UnOp::DtDay
-          | @ir.UnOp::DtWeekday => false
-          @ir.UnOp::Neg
+          | @ir.UnOp::DtWeekday
+          | @ir.UnOp::Neg
           | @ir.UnOp::Not
           | @ir.UnOp::IsNull
           | @ir.UnOp::IsNotNull

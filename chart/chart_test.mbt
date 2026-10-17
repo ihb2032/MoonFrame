@@ -395,3 +395,55 @@ test "a Date channel encodes as temporal" {
   assert_true(json.contains("\"d\":\"2024-01-01\""))
   assert_true(json.contains("\"d\":\"2024-01-02\""))
 }
+
+///|
+/// The `type` string of one channel, parsed out of the emitted spec the
+/// way the colour-override test above reads it.
+fn channel_type(spec : String, channel : String) -> String {
+  let parsed = @json.parse(spec) catch { _ => return "<missing>" }
+  match parsed {
+    Object(obj) =>
+      match obj.get("encoding") {
+        Some(Object(enc)) =>
+          match enc.get(channel) {
+            Some(Object(c)) =>
+              match c.get("type") {
+                Some(String(t)) => t
+                _ => "<missing>"
+              }
+            _ => "<missing>"
+          }
+        _ => "<missing>"
+      }
+    _ => "<missing>"
+  }
+}
+
+///|
+test "format_vega_lite: a Timestamp axis is temporal, a Decimal measure quantitative" {
+  // The rider dtype rule: a `Timestamp` column serialises to its ISO
+  // string, and Vega-Lite orders a temporal axis by time rather than by
+  // first appearance; a `Decimal` measure is a quantity, not a category.
+  let ts_df = @frame.DataFrame::DataFrame([
+    @series.Series::from_timestamp_options("ts", [
+      Some(1_704_067_200_000_000L),
+      Some(1_704_075_840_000_000L),
+    ]),
+    @series.Series::from_ints("val", [1, 2]),
+  ])
+  let ts_spec = @chart.format_vega_lite(
+    ts_df,
+    @chart.ChartSpec::line("ts", "val"),
+  )
+  assert_eq(channel_type(ts_spec, "x"), "temporal")
+  assert_eq(channel_type(ts_spec, "y"), "quantitative")
+  let dec_df = @frame.DataFrame::DataFrame([
+    @series.Series::from_strings("cat", ["x"]),
+    @series.Series::from_decimal_options(2, "val", [Some(150L)]),
+  ])
+  let dec_spec = @chart.format_vega_lite(
+    dec_df,
+    @chart.ChartSpec::bar("cat", "val"),
+  )
+  assert_eq(channel_type(dec_spec, "y"), "quantitative")
+}

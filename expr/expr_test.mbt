@@ -80,7 +80,7 @@ test "unary: negation, not, and the null probes are distinct wrappers" {
 }
 
 ///|
-test "agg: the eleven reductions are distinct wrappers" {
+test "agg: the fifteen reductions are distinct wrappers" {
   let e = col("x")
   let trees : ReadOnlyArray[Expr] = [
     e.sum(),
@@ -94,9 +94,13 @@ test "agg: the eleven reductions are distinct wrappers" {
     e.n_unique(),
     e.first(),
     e.last(),
+    e.quantile(0.5),
+    e.arg_min(),
+    e.arg_max(),
+    e.mode(),
   ]
   for i in 0..<trees.length() {
-    for j in (i + 1)..<trees.length() {
+    for j = i + 1; j < trees.length(); j = j + 1 {
       assert_diff_expr(trees[i], trees[j])
     }
   }

@@ -495,6 +495,27 @@ test "quantile midpoint halves first when the neighbour sum overflows" {
 }
 
 ///|
+test "quantile linear stays finite on opposite-sign near-max neighbours" {
+  // The two extremes of the double range: their difference rounds to +inf
+  // before any fraction shrinks it, so the interpolation is the convex
+  // combination — finite, and agreeing with the median / midpoint answers
+  // over the same column.
+  let max : Double = 1.7976931348623157e308
+  let s = Series::from_floats("x", [-max, max])
+  let lin = s.quantile(0.5, interpolation=Linear)
+  assert_true(!lin.is_inf())
+  assert_eq(lin, s.median())
+  assert_eq(lin, s.quantile(0.5, interpolation=Midpoint))
+  // A quarter of the way up from the low extreme, still finite: the
+  // weighted terms stay within the larger magnitude (the last-ulp of the
+  // convex combination's rounding order is not the point).
+  let quarter = s.quantile(0.25, interpolation=Linear)
+  assert_true(!quarter.is_inf())
+  let expected = -0.5 * max
+  assert_true((quarter - expected).abs() <= expected.abs() / 1.0e15)
+}
+
+///|
 test "quantile propagates NaN, and raises on empty / non-numeric / bad q" {
   let nan : Double = @double.not_a_number
   // The median rule: one NaN is the whole answer, at any q.

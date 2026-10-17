@@ -491,10 +491,15 @@ fn reduce_quantile(
                 if frac == 0.0 {
                   lower
                 } else {
-                  // `lower + frac * (higher - lower)` cannot overflow past the
-                  // two neighbours when they share a sign; opposite-sign
-                  // neighbours only bring the difference closer to zero.
-                  lower + frac * (higher - lower)
+                  // The convex combination, not `lower + frac * (higher -
+                  // lower)`: the difference of opposite-sign neighbours
+                  // adds their magnitudes and can round to `+inf` before
+                  // the fraction shrinks it, while each weighted term here
+                  // stays within the larger magnitude and the sum of the
+                  // two is the finite value between the neighbours — the
+                  // median's overflow rule, spelled for the general
+                  // fraction.
+                  (1.0 - frac) * lower + frac * higher
                 }
               }
               Lower => lower

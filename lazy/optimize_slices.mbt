@@ -53,20 +53,26 @@ fn LogicalPlan::place_slice(
   window : FrameOp,
 ) -> LogicalPlan {
   let crossed : Array[(LogicalPlan) -> LogicalPlan] = []
+  // The decimal value-fence: a stage whose expressions combine decimal
+  // cells refuses on values, and a sunk window prunes the rows the refusal
+  // lives on — the same error-faithfulness the row-local gates keep.
+  let decimal_names = decimal_names_in_plan(self)
   let mut cur = self
   let mut window = window
   let mut descending = true
   while descending {
     match cur {
       Unary(inner, Select(exprs)) =>
-        if all_row_stable(exprs) && preserves_row_count(exprs) {
+        if all_row_stable(exprs) &&
+          preserves_row_count(exprs) &&
+          !stage_value_raises(exprs, decimal_names) {
           crossed.push(ni => Unary(ni, Select(exprs)))
           cur = inner
         } else {
           descending = false
         }
       Unary(inner, WithColumns(exprs)) =>
-        if all_row_stable(exprs) {
+        if all_row_stable(exprs) && !stage_value_raises(exprs, decimal_names) {
           crossed.push(ni => Unary(ni, WithColumns(exprs)))
           cur = inner
         } else {
@@ -122,7 +128,9 @@ fn fuse_windows(outer : FrameOp, inner : FrameOp) -> FrameOp? {
       Some(Tail(if a < b { a } else { b }))
     (Slice(ao, alen), Slice(bo, blen)) if ao >= 0 &&
       bo >= 0 &&
-      bo <= 2_147_483_647 - ao => {
+      bo <= 2_147_483_647 - ao &&
+      nonnegative_len(alen) &&
+      nonnegative_len(blen) => {
       // The outer window reads the inner's rows `[ao, ao + alen)`; the inner
       // supplies `[bo, bo + blen)`. Their composition reads the original's
       // `[bo + ao, bo + ao + len)` with `len` the intersection of the two
@@ -130,7 +138,11 @@ fn fuse_windows(outer : FrameOp, inner : FrameOp) -> FrameOp? {
       // the outer starts past the inner's end. The guard's sum check keeps
       // `bo + ao` a true start: past `Int32::MAX` no row count can reach it
       // and the eager chain's saturation already answers "empty", which a
-      // wrapped negative start would read as "from the tail".
+      // wrapped negative start would read as "from the tail". The
+      // non-negative length guards keep `blen - ao` a true span: a
+      // negative length is an empty window to the eager chain, but the
+      // subtraction it feeds can wrap past `Int32::MIN` into a large
+      // positive "available span" that reads real rows.
       let reach = blen.map(m => m - ao)
       let len : Int32? = match (alen, reach) {
         (Some(l), Some(r)) => Some(if l < r { l } else { r })
@@ -141,5 +153,16 @@ fn fuse_windows(outer : FrameOp, inner : FrameOp) -> FrameOp? {
       Some(Slice(bo + ao, len.map(l => if l > 0 { l } else { 0 })))
     }
     _ => None
+  }
+}
+
+///|
+/// Whether an optional window length reads as a span (`None` runs to the
+/// end); a negative one reads as an empty window to the eager verbs, and
+/// the fusion leaves it on the floor rather than feeding its arithmetic.
+fn nonnegative_len(len : Int32?) -> Bool {
+  match len {
+    Some(v) => v >= 0
+    None => true
   }
 }

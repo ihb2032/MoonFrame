@@ -475,3 +475,22 @@ test "window fusion: offsets whose sum wraps stay separate" {
   assert_eq(lf2.collect().nrows(), 0)
   assert_eq(lf2.explain(optimized=true), "SLICE [2000000000: ]\n  SCAN [4×3]")
 }
+
+///|
+test "a negative-length slice never fuses: the wrapped reach reads no rows" {
+  // `slice(0, length = INT32_MIN)` is an empty window to the eager chain
+  // (a negative length reads as zero rows), and the outer window over
+  // nothing is nothing. The fused composite's `blen - ao` would wrap past
+  // `Int32::MIN` into a large positive span reading real rows, so the
+  // fusion refuses and the chain collects exactly what the eager verbs
+  // give: zero rows.
+  let df = @frame.DataFrame::DataFrame([
+    @series.Series::from_ints("v", [1L, 2L, 3L, 4L, 5L, 6L]),
+  ])
+  let plan = LazyFrame::LazyFrame(df)
+    .slice(0, length=-2147483648)
+    .slice(1, length=5)
+  let out = plan.collect()
+  assert_eq(out.nrows(), 0)
+  assert_eq(out, df.slice(0, length=-2147483648).slice(1, length=5))
+}

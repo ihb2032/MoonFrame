@@ -9,16 +9,17 @@
 ///|
 test "the trailing window computes only where it is full" {
   let df = DataFrame::DataFrame([Series::from_ints("v", [1, 2, 3, 4, 5])])
-  assert_eq(
-    df.select([@expr.col("v").rolling_sum(3)]).get_column("v").to_scalars(),
-    [
-      @types.Scalar::Null,
-      @types.Scalar::Null,
-      @types.Scalar::Int(6),
-      @types.Scalar::Int(9),
-      @types.Scalar::Int(12),
-    ],
-  )
+  let rolled = df.select([@expr.col("v").rolling_sum(3)])
+  // The rolling core rebuilds a frame; the shape invariants ride the
+  // representative outputs.
+  assert_eq(rolled.check_invariants(), Ok(()))
+  assert_eq(rolled.get_column("v").to_scalars(), [
+    @types.Scalar::Null,
+    @types.Scalar::Null,
+    @types.Scalar::Int(6),
+    @types.Scalar::Int(9),
+    @types.Scalar::Int(12),
+  ])
   assert_eq(
     df.select([@expr.col("v").rolling_mean(3)]).get_column("v").to_scalars(),
     [

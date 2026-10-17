@@ -19,7 +19,11 @@ test "forward_fill takes the value above, honoring the limit" {
       None,
     ]),
   ])
-  assert_eq(df.fill_null_forward().get_column("v").to_scalars(), [
+  let filled = df.fill_null_forward()
+  // The fill verbs rebuild a frame; the shape invariants ride the
+  // representative outputs.
+  assert_eq(filled.check_invariants(), Ok(()))
+  assert_eq(filled.get_column("v").to_scalars(), [
     @types.Scalar::Null,
     @types.Scalar::Int(1),
     @types.Scalar::Int(1),

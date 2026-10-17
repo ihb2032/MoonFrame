@@ -104,13 +104,23 @@ fn fuzz_cases(base : Int32) -> Int32 {
 // ── Generators over the rich five-column domain ──────────────────────
 
 ///|
-/// One rich row — `(g, fk, a, b, s, dt)` — with every cell independently
-/// nullable (~1/4 null). A plain tuple (rather than a struct) so `@shrink` can
-/// shrink a frame row-by-row and cell-by-cell out of the box. `dt` carries a
-/// `Date` day count, so the rider dtype rides every row-selection path the
-/// differential exercises (an I64 rebuild that dropped its dtype identity
-/// shows up as a frame-equality divergence).
-type RichRow = (Int64?, Double?, Int64?, Int64?, String?, Int64?)
+/// One rich row — `(g, fk, a, b, s, dt, ts, dec)` — with every cell
+/// independently nullable (~1/4 null). A plain tuple (rather than a struct)
+/// so `@shrink` can shrink a frame row-by-row and cell-by-cell out of the
+/// box. `dt` / `ts` / `dec` carry a `Date` day count, a `Timestamp` microsecond
+/// count, and a `Decimal(2)` unscaled magnitude, so every I64 rider rides
+/// every row-selection path the differential exercises (an I64 rebuild that
+/// dropped its dtype identity shows up as a frame-equality divergence).
+type RichRow = (
+  Int64?,
+  Double?,
+  Int64?,
+  Int64?,
+  String?,
+  Int64?,
+  Int64?,
+  Int64?,
+)
 
 ///|
 /// A `Bool` that is `true` with probability `1/n` — the generator counterpart
@@ -194,6 +204,34 @@ fn gen_date_cell() -> @gen.Generator[Int64?] {
 }
 
 ///|
+/// A `Timestamp` microsecond count: the epoch, ±1 µs around it (the
+/// pre-epoch sign seam), the ±day bound, and a 2024 instant, ~1/4 null.
+/// Payload like `dt` — the generated expressions never reference `ts`.
+fn gen_ts_cell() -> @gen.Generator[Int64?] {
+  @gen.frequency([
+    (1, @gen.pure(None)),
+    (
+      3,
+      @gen.elements([
+        0L, 1L, -1L, 86_400_000_000L, -86_400_000_000L, 1_704_067_200_000_000L,
+      ]).map(x => Some(x)),
+    ),
+  ])
+}
+
+///|
+/// A `Decimal(2)` unscaled magnitude: small values either side of zero,
+/// ~1/4 null. Payload like `dt` — the generated expressions never
+/// reference `dec` (the one deliberate decimal expression, a column-free
+/// literal fold, lives in the with_columns choices).
+fn gen_dec_cell() -> @gen.Generator[Int64?] {
+  @gen.frequency([
+    (1, @gen.pure(None)),
+    (3, @gen.elements([-456L, -1L, 0L, 1L, 123L]).map(x => Some(x))),
+  ])
+}
+
+///|
 fn gen_rich_row() -> @gen.Generator[RichRow] {
   liftA6(
     (g, fk, a, b, s, dt) => (g, fk, a, b, s, dt),
@@ -204,6 +242,8 @@ fn gen_rich_row() -> @gen.Generator[RichRow] {
     gen_string_cell(),
     gen_date_cell(),
   )
+  .zip_with(gen_ts_cell(), (r, ts) => (r.0, r.1, r.2, r.3, r.4, r.5, ts))
+  .zip_with(gen_dec_cell(), (r, dec) => (r.0, r.1, r.2, r.3, r.4, r.5, r.6, dec))
 }
 
 ///|
@@ -213,7 +253,7 @@ fn gen_rows(max_rows : Int32) -> @gen.Generator[Array[RichRow]] {
 }
 
 ///|
-/// Build the five-column rich frame from generated rows. The fixed schema
+/// Build the eight-column rich frame from generated rows. The fixed schema
 /// spans every dtype; by construction all columns share `rows.length()`, so
 /// `DataFrame::DataFrame` never actually raises here.
 fn rows_to_frame(
@@ -226,6 +266,8 @@ fn rows_to_frame(
     @series.Series::from_int_options("b", rows.map(r => r.3)),
     @series.Series::from_string_options("s", rows.map(r => r.4)),
     @series.Series::from_date_options("dt", rows.map(r => r.5)),
+    @series.Series::from_timestamp_options("ts", rows.map(r => r.6)),
+    @series.Series::from_decimal_options(2, "dec", rows.map(r => r.7)),
   ])
 }
 
@@ -678,21 +720,29 @@ test "fuzz: select/with_columns then filter is optimizer/eager equivalent" {
 /// pipeline is literally the same sequence of operations on both carriers.
 ///
 /// Domain inventory — a new `LazyFrame` builder updates one of the two
-/// columns in the change that adds it, so the domain cannot silently
-/// freeze again (it did once: ten verbs landed before the next widening):
-/// in the domain — filter (bare-column, `NaN`-probe, and `dt` predicates),
-/// with_columns (arithmetic and the positional derived column: shift /
-/// cum_sum / rank / rolling_mean / forward_fill / unique_counts), select,
-/// sort, head, the directional fills, unique, top_k, gather_every,
-/// group_by+agg, and the semi / anti join against a same-rows frame;
-/// deliberately out — the reshape pair (pivot / unpivot name their output
-/// columns off cell values, which the fixed-name stages around them cannot
-/// reference), the metadata verbs (drop / rename — their barrier is pinned
-/// by plan-shape snapshots instead), the row-window verbs (slice / tail /
-/// first / last — floor by construction), the merging joins (a distinct
-/// right schema per case), and the verbs with no lazy entry at all
-/// (sample and friends: a seeded draw sees a specific row set pushdown
-/// would reorder).
+/// columns in the change that adds it, and a new optimizer rewrite widens
+/// the verb or expression shapes that rewrite touches, so the domain
+/// cannot silently freeze again (it did once: ten verbs landed before the
+/// next widening, and the second-generation slice pass once arrived
+/// without the row-window verbs its fusion composes): in the domain —
+/// filter (bare-column, `NaN`-probe, `dt` predicate, and column-free
+/// literal predicates), with_columns (arithmetic, the positional derived
+/// column, and column-free literal arithmetic that the folding rule
+/// collapses — integer and the decimal lift alike), select, sort, head
+/// (negative bounds included), tail (likewise), first / last, slice
+/// (small, negative, and saturating-huge offsets, bounded and unbounded
+/// spans — the fusion's refused pairs as much as its composed ones), the
+/// directional fills, unique, top_k, gather_every, group_by+agg, and the
+/// semi / anti join against a same-rows frame; deliberately out — the
+/// reshape pair (pivot / unpivot name their output columns off cell
+/// values, which the fixed-name stages around them cannot reference), the
+/// metadata verbs (drop / rename — their barrier is pinned by plan-shape
+/// snapshots instead), the merging joins (a distinct right schema per
+/// case), and the verbs with no lazy entry at all (sample and friends: a
+/// seeded draw sees a specific row set pushdown would reorder). The rich
+/// frame's `dt` / `ts` / `dec` columns are payload — every I64 rider
+/// rides each row-selection path, so a rebuild that drops a dtype tag
+/// shows up as a divergence.
 enum VerbSpec {
   VFilter(@expr.Expr)
   VWithColumns(Array[@expr.Expr])
@@ -721,6 +771,16 @@ enum VerbSpec {
   // the right side is supplied by the caller (one frame per chain), so
   // both carriers run the same join.
   VSemiAnti(Bool)
+  // The row-window family the slice pass sinks and fuses: `head` (negative
+  // `n` included — the eager "drop from the far end" reading), `tail`
+  // (likewise), `first` / `last` (the lazy-only spellings; eager reaches
+  // the same rows through `head(1)` / `tail(1)`), and `slice` with an
+  // offset pool that spans the fuseable (small, non-negative), the
+  // refused (negative), and the saturating-huge (whose two-window sum
+  // leaves `Int32`, the fusion's overflow guard).
+  VSlice(Int32, Int32?)
+  VTail(Int32)
+  VFirstLast(Bool)
 } derive(Debug)
 
 ///|
@@ -757,6 +817,13 @@ fn apply_lazy(
           how=if anti { @frame.JoinType::Anti } else { @frame.JoinType::Semi },
         ),
       )
+    VSlice(offset, length) =>
+      match length {
+        Some(len) => lf.slice(offset, length=len)
+        None => lf.slice(offset)
+      }
+    VTail(n) => lf.tail(n)
+    VFirstLast(first) => if first { lf.first() } else { lf.last() }
   }
 }
 
@@ -791,6 +858,13 @@ fn apply_eager(
           how=if anti { @frame.JoinType::Anti } else { @frame.JoinType::Semi },
         ),
       )
+    VSlice(offset, length) =>
+      match length {
+        Some(len) => d.slice(offset, length=len)
+        None => d.slice(offset)
+      }
+    VTail(n) => d.tail(n)
+    VFirstLast(first) => if first { d.head(1) } else { d.tail(1) }
   }
 }
 
@@ -806,6 +880,10 @@ fn gen_verb() -> @gen.Generator[VerbSpec] {
         @expr.col("a").gt(@expr.lit_int(0)),
         @expr.col("dt").dt_year().gt(@expr.lit_int(2020)),
         @expr.col("fk").is_nan(),
+        // A column-free comparison folds to a literal under the optimizer
+        // while eager evaluates it per row — both must land on the same
+        // keep-set.
+        (@expr.lit_int(7) * @expr.lit_int(6)).gt(@expr.lit_int(41)),
       ]).map(p => VFilter(p)),
     ),
     (
@@ -814,6 +892,15 @@ fn gen_verb() -> @gen.Generator[VerbSpec] {
         VWithColumns([
           (@expr.col("a") + @expr.col("b")).with_alias("sum_ab"),
           @expr.col("a").is_null().with_alias("a_null"),
+          // Column-free arithmetic (integer and the decimal lift) folds
+          // under the optimizer; eager computes it as a broadcast literal
+          // column — the cells must agree either way.
+          (@expr.lit_int(2) * @expr.lit_int(21) + @expr.lit_int(1)).with_alias(
+            "folded_int",
+          ),
+          (@expr.lit(@types.Scalar::Decimal(2, 105L)) + @expr.lit_int(1L)).with_alias(
+            "folded_dec",
+          ),
         ]),
       ),
     ),
@@ -869,7 +956,21 @@ fn gen_verb() -> @gen.Generator[VerbSpec] {
         VAggregate(keys, [@expr.col("a").sum().with_alias("a")])
       }),
     ),
-    (1, @gen.int_range(0, 3).map(n => VHead(n))),
+    (
+      1,
+      // Negative bounds included: the eager reading drops rows from the
+      // far end, the one window shape a naive smaller-of-two fusion gets
+      // wrong.
+      @gen.int_range(-2, 3).map(n => VHead(n)),
+    ),
+    (1, @gen.elements([-2, -1, 0, 1, 2]).map(n => VTail(n))),
+    (
+      1,
+      @gen.elements([0, 2, 1_500_000_000]).flat_map(offset => {
+        @gen.elements([None, Some(0), Some(2)]).map(len => VSlice(offset, len))
+      }),
+    ),
+    (1, gen_one_in(2).map(first => VFirstLast(first))),
   ])
 }
 
@@ -910,6 +1011,10 @@ fn gen_stacked_pred() -> @gen.Generator[@expr.Expr] {
     (1, @gen.pure(@expr.col("pos").is_not_null())),
     (1, @gen.pure(@expr.col("dt").dt_year().gt(@expr.lit_int(2020)))),
     (1, @gen.pure(@expr.col("fk").is_nan())),
+    // A column-free predicate: the folding rule collapses it to a literal
+    // before the slice pass sees the plan; eager keeps every row (42 > 41),
+    // and the optimizer must land on the same keep-set after folding.
+    (1, @gen.pure((@expr.lit_int(7) * @expr.lit_int(6)).gt(@expr.lit_int(41)))),
   ])
 }
 
@@ -1052,8 +1157,26 @@ fn write_projection_fuzz_fixtures(
   ndjson_path : String,
 ) -> Unit raise @types.DataError {
   let df = rows_to_frame([
-    (Some(0L), Some(0.0), Some(1L), Some(2L), Some("west"), Some(19723L)),
-    (Some(1L), Some(-0.0), Some(3L), None, Some("east"), None),
+    (
+      Some(0L),
+      Some(0.0),
+      Some(1L),
+      Some(2L),
+      Some("west"),
+      Some(19723L),
+      Some(0L),
+      Some(1L),
+    ),
+    (
+      Some(1L),
+      Some(-0.0),
+      Some(3L),
+      None,
+      Some("east"),
+      None,
+      Some(-1L),
+      Some(-456L),
+    ),
     (
       None,
       Some(@double.infinity),
@@ -1061,6 +1184,8 @@ fn write_projection_fuzz_fixtures(
       Some(4L),
       None,
       Some(-1L),
+      None,
+      None,
     ),
     (
       Some(2L),
@@ -1069,6 +1194,8 @@ fn write_projection_fuzz_fixtures(
       Some(-1L),
       Some("north"),
       Some(19753L),
+      Some(86_400_000_000L),
+      Some(0L),
     ),
   ])
   @io.write_csv(csv_path, df)

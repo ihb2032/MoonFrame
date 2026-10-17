@@ -776,3 +776,30 @@ test "cross-scale compare tolerates a large present cell beside a null" {
   assert_true(out.item(0, "s") is @types.Scalar::Null)
   assert_true(out.item(1, "s") is @types.Scalar::Bool(true))
 }
+
+///|
+test "decimal negation and absolute value are exact over the unscaled cells" {
+  // The unary face of the dtype's exact arithmetic — `0 - col` was already
+  // exact, and now so is the unary spelling; the approximate unary verbs
+  // (floor / round / …) stay fenced with the `numeric` gate.
+  let df = dec_frame().drop_nulls(subset=[@expr.col("d")])
+  let negated = df.select([-@expr.col("d").with_alias("n")])
+  assert_true(negated.item(0, "n") is @types.Scalar::Decimal(2, -12345L))
+  assert_true(negated.item(2, "n") is @types.Scalar::Decimal(2, -999L))
+  let absd = df.select([@expr.col("d").abs().with_alias("a")])
+  assert_true(absd.item(0, "a") is @types.Scalar::Decimal(2, 12345L))
+  assert_true(absd.item(1, "a") is @types.Scalar::Decimal(2, 12345L))
+  // The minimum magnitude's own flip leaves the envelope — the same
+  // refusal the binary checked ops give theirs.
+  let edge = DataFrame::DataFrame([
+    Series::from_decimal_options(0, "d", [Some(-9223372036854775808L)]),
+  ])
+  assert_true(
+    (Ok(ignore(edge.select([-@expr.col("d")]))) catch { e => Err(e) })
+    is Err(@types.DataError::InvalidOperation(_)),
+  )
+  assert_true(
+    (Ok(ignore(edge.select([@expr.col("d").abs()]))) catch { e => Err(e) })
+    is Err(@types.DataError::InvalidOperation(_)),
+  )
+}

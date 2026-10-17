@@ -896,16 +896,23 @@ pub fn Expr::is_infinite(self : Expr) -> Expr {
 /// `when(self < lower).then(lower).otherwise(when(self > upper)…)` tree,
 /// so it renders and evaluates as that composition: dtype unification and
 /// the `NaN`-stays-put reading (no comparison holds against `NaN`) are the
-/// comparison kernel's own.
+/// comparison kernel's own. The result keeps the operand's own name
+/// (Polars' reading): the composition alone would name itself after the
+/// *bound* — it sits in the `then` branch, and `leftmost_name` reads that
+/// branch first — so a column bound would hand `with_columns` the bound's
+/// name and replace the bound column with the clipped operand.
 pub fn Expr::clip(self : Expr, lower? : Expr, upper? : Expr) -> Expr {
   match (lower, upper) {
+    (None, None) => self
     (Some(lo), Some(hi)) =>
       when(self.lt(lo))
       .then(lo)
       .otherwise(when(self.gt(hi)).then(hi).otherwise(self))
-    (Some(lo), None) => when(self.lt(lo)).then(lo).otherwise(self)
-    (None, Some(hi)) => when(self.gt(hi)).then(hi).otherwise(self)
-    (None, None) => self
+      .with_alias(self.output_name())
+    (Some(lo), None) =>
+      when(self.lt(lo)).then(lo).otherwise(self).with_alias(self.output_name())
+    (None, Some(hi)) =>
+      when(self.gt(hi)).then(hi).otherwise(self).with_alias(self.output_name())
   }
 }
 

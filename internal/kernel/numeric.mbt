@@ -518,17 +518,72 @@ fn eval_floor_div(
 /// (MoonBit semantics — total, never aborts); `Float` follows IEEE 754,
 /// so `-NaN` is still NaN and `-0.0` is the negative zero. A null cell
 /// stays null; non-numeric operands raise. An all-valid result converges
-/// onto the `Numeric` backend, as for binary arithmetic.
+/// onto the `Numeric` backend, as for binary arithmetic. A `Decimal`
+/// operand takes the exact unary face of its arithmetic instead — see
+/// `decimal_unary`.
 fn eval_neg(operand : Series) -> Series raise @types.DataError {
-  eval_unary_num(operand, "negate", a => -a, a => -a)
+  // Spelled variant-by-variant so a dtype added later fails compilation
+  // here until its unary verdict is written.
+  match operand.dtype() {
+    @types.DataType::Decimal(scale) => decimal_unary(operand, scale, v => -v)
+    @types.DataType::Int
+    | @types.DataType::Float
+    | @types.DataType::Bool
+    | @types.DataType::String
+    | @types.DataType::Date
+    | @types.DataType::Timestamp
+    | @types.DataType::Null =>
+      eval_unary_num(operand, "negate", a => -a, a => -a)
+  }
 }
 
 ///|
-/// `abs` — the `eval_unary_num` instance behind `Expr::abs`.
+/// `abs` — the `eval_unary_num` instance behind `Expr::abs`, with the
+/// `Decimal` operand on the exact unary face (see `decimal_unary`).
 fn eval_abs(operand : Series) -> Series raise @types.DataError {
-  eval_unary_num(operand, "take the absolute value of", a => a.abs(), a => {
-    a.abs()
-  })
+  // The same variant-by-variant spelling as `eval_neg`.
+  match operand.dtype() {
+    @types.DataType::Decimal(scale) =>
+      decimal_unary(operand, scale, v => v.abs())
+    @types.DataType::Int
+    | @types.DataType::Float
+    | @types.DataType::Bool
+    | @types.DataType::String
+    | @types.DataType::Date
+    | @types.DataType::Timestamp
+    | @types.DataType::Null =>
+      eval_unary_num(operand, "take the absolute value of", a => a.abs(), a => {
+        a.abs()
+      })
+  }
+}
+
+///|
+/// The decimal unary arithmetic — negation and absolute value over the
+/// unscaled cells, the two unary verbs the dtype's exact `+` / `-` / `*`
+/// promise covers (the approximate statistics stay behind the registry's
+/// `numeric` gate, and the other unary verbs with them). A null cell
+/// stays null. The one refusal is the minimum magnitude's own flip:
+/// `Int64::MIN` negated or taken absolutely leaves the 18-digit envelope,
+/// exactly the refusal the binary arithmetic's checked ops give theirs.
+fn decimal_unary(
+  operand : Series,
+  scale : Int32,
+  op : (Int64) -> Int64,
+) -> Series raise @types.DataError {
+  let cells = operand.to_scalars()
+  let out : Array[Int64?] = Array::makei(cells.length(), _ => None)
+  for i in 0..<cells.length() {
+    if cells[i] is @types.Scalar::Decimal(_, v) {
+      if v == -9223372036854775808L {
+        raise @types.DataError::InvalidOperation(
+          "decimal negation / absolute value overflows the 18-digit magnitude",
+        )
+      }
+      out[i] = Some(op(v))
+    }
+  }
+  Series::from_decimal_options(scale, operand.name(), out)
 }
 
 ///|

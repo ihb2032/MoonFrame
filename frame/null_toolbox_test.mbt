@@ -268,3 +268,26 @@ test "the expression fill raises from the kernel, surfaces agreeing" {
     is Err(@types.DataError::InvalidOperation(_)),
   )
 }
+
+///|
+test "clip with a column bound keeps the operand's name and clamps it" {
+  // The composition alone would name itself after the bound (it sits in
+  // the `then` branch), handing `with_columns` the bound's name — the
+  // bound column replaced by the clipped operand, the operand left
+  // unclamped. The operand keeps its own name instead, Polars' reading.
+  let df = DataFrame::from_rows(
+    @types.Schema::Schema([
+      @types.Field::Field("x", @types.DataType::Int),
+      @types.Field::Field("z", @types.DataType::Int),
+    ]),
+    [
+      [@types.Scalar::Int(5L), @types.Scalar::Int(7L)],
+      [@types.Scalar::Int(9L), @types.Scalar::Int(7L)],
+    ],
+  )
+  let out = df.with_columns([@expr.col("x").clip(upper=@expr.col("z"))])
+  assert_true(out.columns().contains("x"))
+  assert_true(out.columns().contains("z"))
+  assert_eq(out.item(1, "x"), @types.Scalar::Int(7L))
+  assert_eq(out.item(1, "z"), @types.Scalar::Int(7L))
+}

@@ -547,7 +547,9 @@ test "show: the fill probes and clip render" {
   // lower bound's guard outermost.
   inspect(
     col("v").clip(lower=lit_int(2), upper=lit_int(7)),
-    content="when((col(v) < 2)).then(2).otherwise(when((col(v) > 7)).then(7).otherwise(col(v)))",
+    content=(
+      #|when((col(v) < 2)).then(2).otherwise(when((col(v) > 7)).then(7).otherwise(col(v))) as v
+    ),
   )
 }
 

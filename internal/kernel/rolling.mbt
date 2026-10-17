@@ -68,7 +68,10 @@ fn eval_rolling(
         stat is @ir.RollStat::Max
       for i in 0..<n {
         let lo = if i - back < 0 { 0 } else { i - back }
-        let hi = if i + forward >= n { n - 1 } else { i + forward }
+        // Decide on a comparison that cannot overflow (`forward` near
+        // `Int::MAX` and a large `i` would wrap `i + forward` negative) —
+        // the `gather_every` idiom.
+        let hi = if forward >= n - i { n - 1 } else { i + forward }
         let mut acc : Int64? = None
         let widened : Array[Double] = []
         let mut present_count = 0
@@ -118,7 +121,10 @@ fn eval_rolling(
       let out : Array[Double?] = Array::makei(n, _ => None)
       for i in 0..<n {
         let lo = if i - back < 0 { 0 } else { i - back }
-        let hi = if i + forward >= n { n - 1 } else { i + forward }
+        // Decide on a comparison that cannot overflow (`forward` near
+        // `Int::MAX` and a large `i` would wrap `i + forward` negative) —
+        // the `gather_every` idiom.
+        let hi = if forward >= n - i { n - 1 } else { i + forward }
         let vals : Array[Double] = []
         let mut saw_nan = false
         let mut present_count = 0

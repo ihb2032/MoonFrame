@@ -724,3 +724,55 @@ test "decimal rendering stays total at the magnitude edge" {
     "<decimal scale 64 outside the envelope [0, 18], unscaled 1>",
   )
 }
+
+///|
+test "a map closure returning mixed scales nulls the off-scale minority" {
+  let df = DataFrame::from_rows(
+    @types.Schema::Schema([@types.Field::Field("v", @types.DataType::Int)]),
+    [[@types.Scalar::Int(1L)], [@types.Scalar::Int(2L)]],
+  )
+  let mapped = df.with_columns([
+    @expr.col("v")
+    .map_elements(label="m", (c : @types.Scalar) => {
+      if c.as_int() == 1L {
+        @types.Scalar::Decimal(2, 5L)
+      } else {
+        @types.Scalar::Decimal(3, 5000L)
+      }
+    })
+    .with_alias("m"),
+  ])
+  assert_eq(mapped.get_column("m").dtype(), @types.DataType::Decimal(2))
+  assert_true(mapped.item(0, "m") is @types.Scalar::Decimal(2, 5L))
+  // The scale-3 cell lands as null: its unscaled bits re-read through the
+  // column's scale 2 would report 50.00 for a closure that returned 5.000.
+  assert_true(mapped.item(1, "m") is @types.Scalar::Null)
+}
+
+///|
+test "whole-frame sum / min / max reduce a Decimal column exactly" {
+  // The three surfaces agree: the whole-frame verb, the Series accessor,
+  // and (what `describe` reports) `Series::min` / `Series::max`.
+  let df = dec_frame()
+  assert_true(df.sum().item(0, "d") is @types.Scalar::Decimal(2, 999L))
+  assert_true(df.min().item(0, "d") is @types.Scalar::Decimal(2, -12345L))
+  assert_true(df.max().item(0, "d") is @types.Scalar::Decimal(2, 12345L))
+  assert_true(df.sum().item(0, "d") == df.get_column("d").sum())
+}
+
+///|
+test "cross-scale compare tolerates a large present cell beside a null" {
+  // Arithmetic nulls the row either side nulls; the comparison agrees
+  // instead of refusing the whole column over the rescale of a present
+  // value on a row that compares to null.
+  let df = DataFrame::DataFrame([
+    @series.Series::from_decimal_options(0, "a", [
+      Some(9223372036854775807L),
+      Some(1L),
+    ]),
+    @series.Series::from_decimal_options(1, "b", [None, Some(2L)]),
+  ])
+  let out = df.select([@expr.col("a").gt(@expr.col("b")).with_alias("s")])
+  assert_true(out.item(0, "s") is @types.Scalar::Null)
+  assert_true(out.item(1, "s") is @types.Scalar::Bool(true))
+}

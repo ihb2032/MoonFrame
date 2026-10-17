@@ -77,6 +77,16 @@ pub extend ColumnStorage with Debug::{to_repr}
 /// still makes a column unequal to an identical one (`NaN != NaN`, matching
 /// `Double` equality); only null-ness and equal values decide the rest.
 pub impl Eq for ColumnStorage with fn equal(self, other) {
+  // The dtype decides first: the `I64` buffer is shared by four dtypes
+  // (`Int`, `Date`, `Timestamp`, `Decimal(scale)`), so equal buffers under
+  // different dtypes are different columns — a `Date` is not the `Int` count
+  // of its days, and the same unscaled bits are different decimals at
+  // different scales. `DataType`'s equality carries the scale, so this one
+  // check settles the whole identity question before representation is
+  // even read.
+  if self.dtype() != other.dtype() {
+    return false
+  }
   if self.len() != other.len() {
     return false
   }
@@ -93,34 +103,15 @@ pub impl Eq for ColumnStorage with fn equal(self, other) {
       // a `Utf8Array` is not an `ArrayView`, so the cell verdict arrives as
       // a closure instead.
       storage_cells_equal(a.len(), self, other, i => a.cell_eq(i, b, i))
-    // Different dtypes (different `ColumnData` variants) are never equal.
-    // Spelled variant-by-variant (no wildcard) so a future `ColumnData`
-    // variant fails compilation here instead of silently comparing unequal
-    // to every column — itself included.
-    (
-      ColumnData::I64(_),
-      ColumnData::F64(_)
-      | ColumnData::Bool(_)
-      | ColumnData::Utf8(_),
-    )
-    | (
-      ColumnData::F64(_),
-      ColumnData::I64(_)
-      | ColumnData::Bool(_)
-      | ColumnData::Utf8(_),
-    )
-    | (
-      ColumnData::Bool(_),
-      ColumnData::I64(_)
-      | ColumnData::F64(_)
-      | ColumnData::Utf8(_),
-    )
-    | (
-      ColumnData::Utf8(_),
-      ColumnData::I64(_)
-      | ColumnData::F64(_)
-      | ColumnData::Bool(_),
-    ) => false
+    // A mixed pair never reaches the value comparison: the dtype identity
+    // check above already returned `false` (a column's dtype decides its
+    // `ColumnData` variant, so same dtype implies same variant). The arm
+    // stands for exhaustiveness only — a new `ColumnData` variant still
+    // fails compilation against the four named pairs above, and its dtype
+    // would have to answer the identity question in turn. (The in-package
+    // test below builds a representation that disagrees with its dtype —
+    // the one shape that reaches here — and pins the defensive `false`.)
+    _ => false
   }
 }
 

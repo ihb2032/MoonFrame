@@ -221,13 +221,22 @@ fn gen_ts_cell() -> @gen.Generator[Int64?] {
 
 ///|
 /// A `Decimal(2)` unscaled magnitude: small values either side of zero,
-/// ~1/4 null. Payload like `dt` — the generated expressions never
-/// reference `dec` (the one deliberate decimal expression, a column-free
-/// literal fold, lives in the with_columns choices).
+/// ~1/4 null, and one envelope-straining magnitude — two of those sum past
+/// the 18-digit checked add, so the value-raising refusals (the sum, the
+/// arithmetic, the cross-scale compare) ride the differential for real:
+/// the decimal value-fence keeps the optimized chain raising exactly where
+/// the eager one does. The generated expressions reference `dec` directly
+/// (the predicate pool, the with_columns arithmetic, and the group
+/// aggregation below), so its dtype and its refusals are both exercised.
 fn gen_dec_cell() -> @gen.Generator[Int64?] {
   @gen.frequency([
     (1, @gen.pure(None)),
-    (3, @gen.elements([-456L, -1L, 0L, 1L, 123L]).map(x => Some(x))),
+    (
+      3,
+      @gen.elements([-456L, -1L, 0L, 1L, 123L, 5000000000000000000L]).map(x => {
+        Some(x)
+      }),
+    ),
   ])
 }
 
@@ -725,9 +734,11 @@ test "fuzz: select/with_columns then filter is optimizer/eager equivalent" {
 /// cannot silently freeze again (it did once: ten verbs landed before the
 /// next widening, and the second-generation slice pass once arrived
 /// without the row-window verbs its fusion composes): in the domain —
-/// filter (bare-column, `NaN`-probe, `dt` predicate, and column-free
+/// filter (bare-column, `NaN`-probe, `dt` predicate, the decimal
+/// value-checked predicate, and column-free
 /// literal predicates), with_columns (arithmetic, the positional derived
-/// column, and column-free literal arithmetic that the folding rule
+/// column, decimal arithmetic over the envelope-straining pool, and
+/// column-free literal arithmetic that the folding rule
 /// collapses — integer and the decimal lift alike), select, sort, head
 /// (negative bounds included), tail (likewise), first / last, slice
 /// (small, negative, and saturating-huge offsets, bounded and unbounded
@@ -740,9 +751,11 @@ test "fuzz: select/with_columns then filter is optimizer/eager equivalent" {
 /// snapshots instead), the merging joins (a distinct right schema per
 /// case), and the verbs with no lazy entry at all (sample and friends: a
 /// seeded draw sees a specific row set pushdown would reorder). The rich
-/// frame's `dt` / `ts` / `dec` columns are payload — every I64 rider
-/// rides each row-selection path, so a rebuild that drops a dtype tag
-/// shows up as a divergence.
+/// frame's `dt` / `ts` columns are payload — those riders ride each
+/// row-selection path, so a rebuild that drops a dtype tag shows up as a
+/// divergence — while `dec` is referenced directly (predicate, arithmetic,
+/// aggregation): its checked refusals ride the differential, and the
+/// decimal value-fence owes the oracle its optimized-side fidelity.
 enum VerbSpec {
   VFilter(@expr.Expr)
   VWithColumns(Array[@expr.Expr])
@@ -880,6 +893,10 @@ fn gen_verb() -> @gen.Generator[VerbSpec] {
         @expr.col("a").gt(@expr.lit_int(0)),
         @expr.col("dt").dt_year().gt(@expr.lit_int(2020)),
         @expr.col("fk").is_nan(),
+        // A decimal predicate: its evaluation is value-checked, so the
+        // decimal fence keeps it above every stage — the same keep-set
+        // either way, refusal included.
+        @expr.col("dec").gt(@expr.lit(@types.Scalar::Decimal(2, 0L))),
         // A column-free comparison folds to a literal under the optimizer
         // while eager evaluates it per row — both must land on the same
         // keep-set.
@@ -892,6 +909,10 @@ fn gen_verb() -> @gen.Generator[VerbSpec] {
         VWithColumns([
           (@expr.col("a") + @expr.col("b")).with_alias("sum_ab"),
           @expr.col("a").is_null().with_alias("a_null"),
+          // Decimal arithmetic over the envelope-straining pool: the fence
+          // keeps the window / predicate passes from pruning the row the
+          // refusal lives on.
+          (@expr.col("dec") + @expr.col("dec")).with_alias("dec_dbl"),
           // Column-free arithmetic (integer and the decimal lift) folds
           // under the optimizer; eager computes it as a broadcast literal
           // column — the cells must agree either way.
@@ -953,7 +974,13 @@ fn gen_verb() -> @gen.Generator[VerbSpec] {
         if add_s {
           keys.push(@expr.col("s"))
         }
-        VAggregate(keys, [@expr.col("a").sum().with_alias("a")])
+        // The decimal sum rides beside the integer one: over the
+        // envelope-straining pool its checked fold refuses, and the fence
+        // keeps the refusal on both sides of the differential.
+        VAggregate(keys, [
+          @expr.col("a").sum().with_alias("a"),
+          @expr.col("dec").sum().with_alias("dec_sum"),
+        ])
       }),
     ),
     (
@@ -967,7 +994,10 @@ fn gen_verb() -> @gen.Generator[VerbSpec] {
     (
       1,
       @gen.elements([0, 2, 1_500_000_000]).flat_map(offset => {
-        @gen.elements([None, Some(0), Some(2)]).map(len => VSlice(offset, len))
+        @gen.elements([None, Some(0), Some(2), Some(-1), Some(-2147483648)]).map(len => {
+            VSlice(offset, len)
+          },
+        )
       }),
     ),
     (1, gen_one_in(2).map(first => VFirstLast(first))),

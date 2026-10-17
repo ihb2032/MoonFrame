@@ -130,6 +130,14 @@ fn LogicalPlan::place_filter(
   self : LogicalPlan,
   predicate : @expr.Expr,
 ) -> LogicalPlan {
+  // The decimal value-fence, predicate half: a predicate whose own
+  // evaluation refuses on values keeps its row set — sinking it would
+  // prune the very rows the refusal lives on, and the crossing gates
+  // below are structural and cannot see it.
+  let decimal_names = decimal_names_in_plan(self)
+  if value_raises_on_decimal(predicate.node(), decimal_names) {
+    return Unary(self, Filter(predicate))
+  }
   // The crossing gates, each local to the only walk that asks them:
   //
   // `group_cell_stable` over an aggregation's expression list: one unstable
@@ -171,14 +179,17 @@ fn LogicalPlan::place_filter(
       Unary(inner, Select(exprs)) =>
         if all_row_stable(exprs) &&
           preserves_row_count(exprs) &&
-          reads_only_bare_columns(predicate, exprs) {
+          reads_only_bare_columns(predicate, exprs) &&
+          !stage_value_raises(exprs, decimal_names) {
           crossed.push(ni => Unary(ni, Select(exprs)))
           cur = inner
         } else {
           descending = false
         }
       Unary(inner, WithColumns(exprs)) =>
-        if all_row_stable(exprs) && defines_none_of(exprs, predicate) {
+        if all_row_stable(exprs) &&
+          defines_none_of(exprs, predicate) &&
+          !stage_value_raises(exprs, decimal_names) {
           crossed.push(ni => Unary(ni, WithColumns(exprs)))
           cur = inner
         } else {
@@ -189,7 +200,13 @@ fn LogicalPlan::place_filter(
           all_row_stable(keys) &&
           reads_only_bare_columns(predicate, keys) &&
           signed_zero_safe(predicate.node()) &&
-          all_group_cells_stable(exprs) {
+          all_group_cells_stable(exprs) &&
+          // The decimal value-fence, stage half: the keys and the stitched
+          // cells evaluate over the child's rows, and a decimal sum or
+          // arithmetic refuses on the cells of exactly the groups a
+          // sunken predicate would drop.
+          !stage_value_raises(keys, decimal_names) &&
+          !stage_value_raises(exprs, decimal_names) {
           crossed.push(ni => Aggregate(ni, keys, exprs))
           cur = inner
         } else {

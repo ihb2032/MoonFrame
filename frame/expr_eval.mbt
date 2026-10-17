@@ -420,14 +420,17 @@ fn eval_expr(
 /// rule), so this evaluates it once against an empty frame and hands back
 /// the cell; `None` means the evaluation raised, which is exactly the
 /// caller's keep-the-subtree signal — a fold that would raise is no fold.
-/// The evaluator is the one home of evaluation semantics, so the folded
-/// value and the collected value come from the same code path by
-/// construction. Total.
+/// A shorter-than-one result (no reachable producer today, but a
+/// column-free `map_batches` closure can build one from public API) folds
+/// to nothing rather than indexing past the end — the same keep-the-subtree
+/// verdict, never an out-of-bounds read. The evaluator is the one home of
+/// evaluation semantics, so the folded value and the collected value come
+/// from the same code path by construction. Total.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
 pub fn evaluate_column_free(expr : @expr.Expr) -> @types.Scalar? {
   let empty = DataFrame::DataFrame([]) catch { _ => return None }
-  Some(eval_expr(expr, empty, []).to_scalars()[0]) catch {
+  eval_expr(expr, empty, []).to_scalars().get(0) catch {
     _ => None
   }
 }

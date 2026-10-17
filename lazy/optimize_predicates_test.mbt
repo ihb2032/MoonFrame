@@ -1300,3 +1300,130 @@ test "a WithColumns stage defining a positional column fences filters" {
     .filter(@expr.col("qty").gt(@expr.lit_int(50))),
   )
 }
+
+///|
+fn dec_overflow_df() -> @frame.DataFrame raise @types.DataError {
+  // The "drop" group's unscaled sum (1e19) leaves the 18-digit envelope;
+  // the "keep" group's (5) is ordinary. Which groups a pushdown drops
+  // decides whether the refusal ever happens.
+  @frame.DataFrame::DataFrame([
+    @series.Series::from_strings("k", ["drop", "drop", "keep"]),
+    @series.Series::from_decimal_options(0, "d", [
+      Some(5000000000000000000L),
+      Some(5000000000000000000L),
+      Some(5L),
+    ]),
+  ])
+}
+
+///|
+test "fence: a decimal sum inside the aggregate pins the filter above" {
+  // The `sum` of a decimal column folds with a checked add — a refusal on
+  // values, not on a scope-independent fact — so a predicate that would
+  // drop the overflowing group cannot sink below the aggregation: the
+  // eager chain raises, and so must the collected one.
+  let plan = LazyFrame::LazyFrame(dec_overflow_df())
+    .group_by([@expr.col("k")])
+    .agg([@expr.col("d").sum().with_alias("t")])
+    .filter(@expr.col("k").eq(@expr.lit_str("keep")))
+  assert_eq(plan.explain(optimized=true), plan.explain())
+  let eager : Result[@frame.DataFrame, @types.DataError] = Ok(
+    dec_overflow_df()
+    .group_by([@expr.col("k")])
+    .agg([@expr.col("d").sum().with_alias("t")])
+    .filter(@expr.col("k").eq(@expr.lit_str("keep"))),
+  ) catch {
+    e => Err(e)
+  }
+  let lazy_ : Result[@frame.DataFrame, @types.DataError] = Ok(plan.collect()) catch {
+    e => Err(e)
+  }
+  // The eager chain raises on the overflowing group; the fence keeps the
+  // collected one raising the same refusal instead of succeeding.
+  assert_true(eager is Err(@types.DataError::InvalidOperation(_)))
+  assert_true(lazy_ is Err(@types.DataError::InvalidOperation(_)))
+}
+
+///|
+test "fence: decimal arithmetic inside a stage pins the filter above" {
+  // The same refusal through a with_columns expression: the checked add
+  // refuses on the second row, and a filter that never reads the defined
+  // column must not prune that row out from under the stage.
+  let df = @frame.DataFrame::DataFrame([
+    @series.Series::from_strings("k", ["keep", "drop"]),
+    @series.Series::from_decimal_options(0, "d", [
+      Some(1L),
+      Some(9000000000000000000L),
+    ]),
+  ])
+  let derived = [(@expr.col("d") + @expr.col("d")).with_alias("s")]
+  let predicate = @expr.col("k").eq(@expr.lit_str("keep"))
+  let plan = LazyFrame::LazyFrame(df).with_columns(derived).filter(predicate)
+  assert_eq(plan.explain(optimized=true), plan.explain())
+  let eager : Result[@frame.DataFrame, @types.DataError] = Ok(
+    df.with_columns(derived).filter(predicate),
+  ) catch {
+    e => Err(e)
+  }
+  let lazy_ : Result[@frame.DataFrame, @types.DataError] = Ok(plan.collect()) catch {
+    e => Err(e)
+  }
+  assert_true(eager is Err(@types.DataError::InvalidOperation(_)))
+  assert_true(lazy_ is Err(@types.DataError::InvalidOperation(_)))
+}
+
+///|
+test "fence: a decimal predicate of its own never sinks" {
+  // The predicate itself combines decimal cells: its refusal also lives on
+  // rows a deeper placement would evaluate differently, so it stays above
+  // every stage — a bare selection included.
+  let df = dec_overflow_df()
+  let predicate = @expr.col("d").gt(@expr.lit(@types.Scalar::Decimal(0, 1L)))
+  let plan = LazyFrame::LazyFrame(df)
+    .select([@expr.col("k"), @expr.col("d")])
+    .filter(predicate)
+  assert_eq(plan.explain(optimized=true), plan.explain())
+  assert_eq(
+    plan.collect(),
+    df.select([@expr.col("k"), @expr.col("d")]).filter(predicate),
+  )
+}
+
+///|
+test "a decimal group key rides the plan's decimal names" {
+  // The key list of an aggregation reads the decimal column too: grouping
+  // by it is ordinary (bare keys, no value-checked arithmetic on them),
+  // and the collected frame matches the eager one — the fence only holds
+  // back the value-refusing shapes.
+  let df = dec_overflow_df()
+  let plan = LazyFrame::LazyFrame(df)
+    .group_by([@expr.col("d")])
+    .agg([@expr.col("k").count().with_alias("n")])
+    .filter(@expr.col("n").gt(@expr.lit_int(0)))
+  assert_eq(
+    plan.collect(),
+    df
+    .group_by([@expr.col("d")])
+    .agg([@expr.col("k").count().with_alias("n")])
+    .filter(@expr.col("n").gt(@expr.lit_int(0))),
+  )
+}
+
+///|
+test "fence: a decimal predicate joined with land still never sinks" {
+  // The logical join does not dilute the decimal touch: the predicate
+  // combines decimal cells, so it keeps its row set like the bare
+  // comparison does.
+  let df = dec_overflow_df()
+  let predicate = @expr.col("d")
+    .gt(@expr.lit(@types.Scalar::Decimal(0, 1L)))
+    .land(@expr.col("k").eq(@expr.lit_str("keep")))
+  let plan = LazyFrame::LazyFrame(df)
+    .select([@expr.col("k"), @expr.col("d")])
+    .filter(predicate)
+  assert_eq(plan.explain(optimized=true), plan.explain())
+  assert_eq(
+    plan.collect(),
+    df.select([@expr.col("k"), @expr.col("d")]).filter(predicate),
+  )
+}

@@ -123,7 +123,14 @@ pub fn GroupedDataFrame::agg(
       // column — no per-group sub-column is gathered.
       Some((name, rop)) => {
         let (reducer, probe) = self.source.get_column(name).reducer_for(rop)
-        (() => probe, self.groups.map(g => reducer(g.length(), k => g[k])))
+        // A per-group loop, not `map`: the reducer may refuse mid-fold (a
+        // decimal sum past the 18-digit magnitude), so the group walk has
+        // to carry the error out.
+        let cells : Array[@types.Scalar] = []
+        for g in self.groups {
+          cells.push(reducer(g.length(), k => g[k]))
+        }
+        (() => probe, cells)
       }
       // General path: a derived or compound reduction such as
       // `(col("a") - col("b")).sum()` or `col("x").max() - col("x").min()`.

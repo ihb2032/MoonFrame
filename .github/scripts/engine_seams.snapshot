@@ -34,7 +34,7 @@ series | doc_hidden internal_engine | pub fn Series::is_canonical(self : Series)
 series | doc_hidden internal_engine | pub fn Series::mask_true_indices(self : Series) -> Array[Int32]? | used by: frame
 series | doc_hidden internal_engine | pub fn Series::mean_opt(self : Series) -> Double? | used by: frame
 series | doc_hidden internal_engine | pub fn Series::preserve_backend(self : Series, rebuilt : Series) -> Series | used by: frame
-series | doc_hidden internal_engine | pub fn Series::reducer_for( self : Series, op : ReduceOp, ) -> ((Int32, (Int32) -> Int32) -> @types.Scalar, @types.DataType) raise @types.DataError | used by: frame
+series | doc_hidden internal_engine | pub fn Series::reducer_for( self : Series, op : ReduceOp, ) -> ( (Int32, (Int32) -> Int32) -> @types.Scalar raise @types.DataError, @types.DataType, ) raise @types.DataError | used by: frame
 series | doc_hidden internal_engine | pub fn Series::slice_series( self : Series, start : Int32, len : Int32, ) -> Series | used by: frame
 series | doc_hidden internal_engine | pub fn Series::storage(self : Series) -> @column.ColumnStorage | used by: internal/kernel
 series | doc_hidden internal_engine | pub fn Series::storage_kind(self : Series) -> @column.StorageKind | used by: (no production caller outside series)

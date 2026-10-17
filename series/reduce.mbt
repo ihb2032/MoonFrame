@@ -63,19 +63,21 @@ fn reduce_present(storage : @column.ColumnStorage) -> (Int32) -> Bool {
 /// that widens an `Int` cell before adding, so a mean cannot wrap, and that
 /// sums a present `NaN` in, so it propagates) — whose docstrings state those
 /// rules once; this reducer adds the window mapping and the empty-window
-/// translation. With `want_mean` the running total divides by the non-null
-/// count and is `Scalar::Null` for an empty / all-null window (the surfaces
-/// translate that: `Series::mean` to `InvalidOperation`, the grouped / scoped
-/// reducers to a null cell); otherwise the result is the dtype-preserving sum,
-/// the additive identity for an empty / all-null window. A non-numeric
-/// column (the registry numericity flag: `Bool` / `String`, and an I64-riding
-/// dtype like `Date`) `raise`s `TypeMismatch` here — at factory time,
-/// before any window is folded — matching the previous per-surface reducers,
-/// which rejected the dtype up front (and so reject it even for zero groups).
+/// translation. The decimal arm of `sum` carries the checked twin and
+/// refuses on overflow, so the reducer's type raises. With `want_mean` the
+/// running total divides by the non-null count and is `Scalar::Null` for an
+/// empty / all-null window (the surfaces translate that: `Series::mean` to
+/// `InvalidOperation`, the grouped / scoped reducers to a null cell);
+/// otherwise the result is the dtype-preserving sum, the additive identity
+/// for an empty / all-null window. A non-numeric column (the registry
+/// numericity flag: `Bool` / `String`, and an I64-riding dtype like `Date`)
+/// `raise`s `TypeMismatch` here — at factory time, before any window is
+/// folded — matching the previous per-surface reducers, which rejected the
+/// dtype up front (and so reject it even for zero groups).
 fn reduce_arith(
   storage : @column.ColumnStorage,
   want_mean~ : Bool,
-) -> ((Int32, (Int32) -> Int32) -> @types.Scalar) raise @types.DataError {
+) -> ((Int32, (Int32) -> Int32) -> @types.Scalar raise @types.DataError) raise @types.DataError {
   let present = reduce_present(storage)
   match storage.data() {
     // The dtype gate, not the buffer variant, decides numericity: a Date
@@ -115,14 +117,25 @@ fn reduce_arith(
         // (`fold_int64_sum`) — sums past 2^63 overflow, the documented price
         // of an integer sum.
       } else if storage.dtype() is @types.DataType::Decimal(scale) {
-        // The decimal sum is the same exact `Int64` fold over the
-        // unscaled cells, re-wrapped at the column's scale — the one
-        // reduction that stays exact for a non-numeric rider.
-        fn(n : Int32, at : (Int32) -> Int32) {
-          @types.Scalar::Decimal(
-            scale,
-            @numeric.fold_int64_sum(n, k => a[at(k)], k => present(at(k))),
-          )
+        // The decimal sum is the checked twin of the exact `Int64` fold
+        // over the unscaled cells, re-wrapped at the column's scale: a
+        // total past the `Int64` range refuses with `InvalidOperation` —
+        // the exact dtype's contract, where the `Int` arm's wraparound is
+        // a price only the wrapping dtype agreed to.
+        fn(
+          n : Int32,
+          at : (Int32) -> Int32,
+        ) -> @types.Scalar raise @types.DataError {
+          match
+            @numeric.fold_int64_sum_checked(n, k => a[at(k)], k => {
+              present(at(k))
+            }) {
+            Some(total) => @types.Scalar::Decimal(scale, total)
+            None =>
+              raise @types.DataError::InvalidOperation(
+                "decimal sum overflows the 18-digit magnitude",
+              )
+          }
         }
       } else {
         fn(n : Int32, at : (Int32) -> Int32) {
@@ -311,7 +324,7 @@ fn numeric_double_reader(
 fn reduce_variance(
   storage : @column.ColumnStorage,
   want_std~ : Bool,
-) -> ((Int32, (Int32) -> Int32) -> @types.Scalar) raise @types.DataError {
+) -> ((Int32, (Int32) -> Int32) -> @types.Scalar raise @types.DataError) raise @types.DataError {
   let present = reduce_present(storage)
   let read = numeric_double_reader(
     storage,
@@ -352,7 +365,7 @@ fn reduce_variance(
 /// all-null window reduces to `Scalar::Null`.
 fn reduce_median(
   storage : @column.ColumnStorage,
-) -> ((Int32, (Int32) -> Int32) -> @types.Scalar) raise @types.DataError {
+) -> ((Int32, (Int32) -> Int32) -> @types.Scalar raise @types.DataError) raise @types.DataError {
   let present = reduce_present(storage)
   let read = numeric_double_reader(storage, "median")
   fn(n : Int32, at : (Int32) -> Int32) {
@@ -420,7 +433,7 @@ fn reduce_quantile(
   storage : @column.ColumnStorage,
   q : Double,
   interpolation : QuantileInterpolation,
-) -> ((Int32, (Int32) -> Int32) -> @types.Scalar) raise @types.DataError {
+) -> ((Int32, (Int32) -> Int32) -> @types.Scalar raise @types.DataError) raise @types.DataError {
   // `NaN` fails both comparisons, so one conjunction rejects it with the
   // out-of-range values rather than needing its own test.
   if !(q >= 0.0 && q <= 1.0) {
@@ -752,6 +765,10 @@ pub extend ReduceOp with Eq::{equal, not_equal}
 /// place. `Sum` / `Mean` / `Std` / `Var` / `Median` / `Quantile` `raise`
 /// `TypeMismatch` here for a non-numeric column, before any window work
 /// (`Quantile` also raising `InvalidOperation` for a `q` outside `[0, 1]`).
+/// The reducer itself may refuse mid-fold: a decimal `sum` whose total
+/// leaves the `Int64` range raises `InvalidOperation` from whichever
+/// window crosses it (the exact dtype refuses instead of wrapping), so a
+/// caller walks its windows in a `raise` context.
 ///
 /// The probe is a logical `DataType`, not a physical witness column: the
 /// caller (`frame`'s aggregation layer) only forwards it back into
@@ -762,14 +779,19 @@ pub extend ReduceOp with Eq::{equal, not_equal}
 pub fn Series::reducer_for(
   self : Series,
   op : ReduceOp,
-) -> ((Int32, (Int32) -> Int32) -> @types.Scalar, @types.DataType) raise @types.DataError {
+) -> (
+  (Int32, (Int32) -> Int32) -> @types.Scalar raise @types.DataError,
+  @types.DataType,
+) raise @types.DataError {
   let storage = self.storage
   match op {
-    Count => (reduce_count(storage), @types.DataType::Int)
+    Count => (lift_total(reduce_count(storage)), @types.DataType::Int)
     Sum => (reduce_arith(storage, want_mean=false), storage.dtype())
     Mean => (reduce_arith(storage, want_mean=true), @types.DataType::Float)
-    Min => (reduce_extremum(storage, want_min=true), storage.dtype())
-    Max => (reduce_extremum(storage, want_min=false), storage.dtype())
+    Min =>
+      (lift_total(reduce_extremum(storage, want_min=true)), storage.dtype())
+    Max =>
+      (lift_total(reduce_extremum(storage, want_min=false)), storage.dtype())
     Std => (reduce_variance(storage, want_std=true), @types.DataType::Float)
     Var => (reduce_variance(storage, want_std=false), @types.DataType::Float)
     Median => (reduce_median(storage), @types.DataType::Float)
@@ -780,12 +802,18 @@ pub fn Series::reducer_for(
     // `k`, so a group's arg is the offset within the group, Polars'
     // reading), total over every dtype like `Min` / `Max`.
     ArgMin =>
-      (reduce_arg_extremum(storage, want_min=true), @types.DataType::Int)
+      (
+        lift_total(reduce_arg_extremum(storage, want_min=true)),
+        @types.DataType::Int,
+      )
     ArgMax =>
-      (reduce_arg_extremum(storage, want_min=false), @types.DataType::Int)
+      (
+        lift_total(reduce_arg_extremum(storage, want_min=false)),
+        @types.DataType::Int,
+      )
     // `mode` keeps the source dtype (the winning cell itself, whatever it
     // is).
-    Mode => (reduce_mode(storage), storage.dtype())
+    Mode => (lift_total(reduce_mode(storage)), storage.dtype())
     NUnique => {
       // The `n_unique` reducer over an index window: distinct non-null count
       // as `Scalar::Int`, total over every dtype and never null (an empty /
@@ -799,9 +827,26 @@ pub fn Series::reducer_for(
         @types.DataType::Int,
       )
     }
-    First => (reduce_first_last(storage, want_first=true), storage.dtype())
-    Last => (reduce_first_last(storage, want_first=false), storage.dtype())
+    First =>
+      (lift_total(reduce_first_last(storage, want_first=true)), storage.dtype())
+    Last =>
+      (
+        lift_total(reduce_first_last(storage, want_first=false)),
+        storage.dtype(),
+      )
   }
+}
+
+///|
+/// Adapt a total reducer to the raising reducer type `reducer_for` hands
+/// out. The raising half exists for one refusal — the decimal `sum` past
+/// the 18-digit magnitude — and the reducers that cannot refuse (a count,
+/// an extremum, a first / last, a mode) keep their total signatures for
+/// their direct callers, passing through here at the seam.
+fn lift_total(
+  reducer : (Int32, (Int32) -> Int32) -> @types.Scalar,
+) -> (Int32, (Int32) -> Int32) -> @types.Scalar raise @types.DataError {
+  fn(n, at) { reducer(n, at) }
 }
 
 ///|

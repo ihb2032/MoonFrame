@@ -68,9 +68,10 @@ pub fn DataType::is_numeric(self : DataType) -> Bool {
 }
 
 ///|
-/// Whether the exact reduction 00000     0 accepts the dtype — the registry row it
+/// Whether the exact reduction `sum` accepts the dtype — the registry row it
 /// reads states why this is wider than `is_numeric` for exactly one rider:
-/// unscaled decimal cells of a single scale add exactly.
+/// unscaled decimal cells of a single scale add exactly, refusing the total
+/// that leaves the `Int64` range.
 pub fn DataType::is_summable(self : DataType) -> Bool {
   self.dtype_profile().summable
 }

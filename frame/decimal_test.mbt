@@ -495,3 +495,109 @@ test "decimal subtraction overflow refuses too" {
     is Err(@types.DataError::InvalidOperation(_)),
   )
 }
+
+///|
+/// `Int64::MIN` is a value a `pub(all)` scalar and an `Int` literal can
+/// both carry, so the checked arithmetic has to hold at that edge: a
+/// subtraction against it refuses (negating it to add would wrap), a
+/// multiplication by it refuses without dividing `MIN / -1` (the trap
+/// quotient), and a negative minuend subtracting it lands exactly on MAX.
+test "decimal arithmetic decides the MIN magnitude exactly" {
+  let min = -9_223_372_036_854_775_808L
+  let frame = DataFrame::from_rows(
+    @types.Schema::Schema([
+      @types.Field::Field("p", @types.DataType::Decimal(0)),
+      @types.Field::Field("n", @types.DataType::Decimal(0)),
+    ]),
+    [
+      [@types.Scalar::Decimal(0, 5L), @types.Scalar::Decimal(0, -1L)],
+      [@types.Scalar::Decimal(0, -1L), @types.Scalar::Decimal(0, -1L)],
+    ],
+  )
+  // 5 - MIN: the true value leaves the range, and the negation first would
+  // wrap into a confidently wrong cell — the refusal is the contract.
+  try
+    ignore(
+      frame.select([(@expr.col("p") - @expr.lit_int(min)).with_alias("s")]),
+    )
+  catch {
+    e =>
+      inspect(
+        e,
+        content="InvalidOperation(\"decimal subtract overflows the 18-digit magnitude\")",
+      )
+  } noraise {
+    _ => fail("5 - MIN must refuse, not wrap")
+  }
+  // -1 * MIN: the wrapped product is MIN, whose divide-back check would be
+  // MIN / -1 — the pair is refused before any division runs.
+  try
+    ignore(
+      frame.select([(@expr.col("n") * @expr.lit_int(min)).with_alias("m")]),
+    )
+  catch {
+    e =>
+      inspect(
+        e,
+        content="InvalidOperation(\"decimal multiply overflows the 18-digit magnitude\")",
+      )
+  } noraise {
+    _ => fail("-1 * MIN must refuse, not trap")
+  }
+  // -1 - MIN is exactly MAX: the one in-range result at the edge.
+  let exact = frame.select([
+    (@expr.col("n") - @expr.lit_int(min)).with_alias("e"),
+  ])
+  assert_eq(exact.get_column("e").to_scalars(), [
+    @types.Scalar::Decimal(0, 9_223_372_036_854_775_807L),
+    @types.Scalar::Decimal(0, 9_223_372_036_854_775_807L),
+  ])
+}
+
+///|
+/// The decimal `sum` refuses a total past the `Int64` range instead of
+/// wrapping — the exact dtype's contract, where the `Int` sum's wraparound
+/// is the documented price only the wrapping dtype agreed to.
+test "decimal sum refuses a total past the magnitude" {
+  let rich = DataFrame::from_rows(
+    @types.Schema::Schema([
+      @types.Field::Field("d", @types.DataType::Decimal(0)),
+    ]),
+    [
+      [@types.Scalar::Decimal(0, 5_000_000_000_000_000_000L)],
+      [@types.Scalar::Decimal(0, 5_000_000_000_000_000_000L)],
+      [@types.Scalar::Decimal(0, 5_000_000_000_000_000_000L)],
+    ],
+  )
+  try ignore(rich.get_column("d").sum()) catch {
+    e =>
+      inspect(
+        e,
+        content="InvalidOperation(\"decimal sum overflows the 18-digit magnitude\")",
+      )
+  } noraise {
+    _ => fail("1.5e19 must refuse, not wrap negative")
+  }
+  // The grouped path walks the same refusing reducer.
+  try ignore(rich.group_by([]).sum()) catch {
+    e =>
+      inspect(
+        e,
+        content="InvalidOperation(\"decimal sum overflows the 18-digit magnitude\")",
+      )
+  } noraise {
+    _ => fail("the grouped sum must refuse on the same overflow")
+  }
+  // An in-range total still sums exactly.
+  let small = DataFrame::from_rows(
+    @types.Schema::Schema([
+      @types.Field::Field("d", @types.DataType::Decimal(2)),
+    ]),
+    [
+      [@types.Scalar::Decimal(2, 123L)],
+      [@types.Scalar::Decimal(2, -23L)],
+      [@types.Scalar::Null],
+    ],
+  )
+  assert_eq(small.get_column("d").sum(), @types.Scalar::Decimal(2, 100L))
+}

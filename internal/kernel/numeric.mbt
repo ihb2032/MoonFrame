@@ -185,7 +185,7 @@ fn decimal_arith(
       }
       let op = match dec {
         Add => @numeric.add_checked(x, y)
-        Sub => @numeric.add_checked(x, -y)
+        Sub => @numeric.sub_checked(x, y)
         Mul => @numeric.mul_checked(x, y)
       }
       match op {

@@ -86,7 +86,10 @@ pub fn CsvWriteOptions::CsvWriteOptions(
 /// - Round-trip caveat: cells render via `Scalar::to_string`, so a `Float`
 ///   whose value is a whole number is written without a fractional part
 ///   (`2.0` → `2`) and is re-inferred as `Int` on read — the same dtype
-///   narrowing the JSON writer documents. Negative zero is one such whole
+///   narrowing the JSON writer documents. The `I64` riders narrow the
+///   same way: a written `Date` / `Timestamp` column (ISO text) reads
+///   back as `String`, and a `Decimal` column (fixed-point text) as
+///   `Float` — the readers never infer the rider dtypes. Negative zero is one such whole
 ///   value: `-0.0` writes as `0`, so its sign (observable under division)
 ///   does not survive the round-trip. A `String` cell with significant
 ///   leading / trailing whitespace is written bare (only the delimiter, a

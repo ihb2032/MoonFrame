@@ -95,9 +95,11 @@ Each row reuses the symbols in its own line — `k` is the surviving rows of a
 
 ## Lazy execution
 
-`collect()` runs two rewrites before executing — unless the plan is a DAG (one
-`LazyFrame` value shared across both sides of a `join`), which skips both and
-executes as built; `LazyFrame::collect`'s docstring states that carve-out. A
+`collect()` runs the optimizer's rewrite pipeline before executing — unless
+the plan is a DAG (one
+`LazyFrame` value shared across both sides of a `join`), which skips it and
+executes as built; `LazyFrame::collect`'s docstring states that carve-out,
+and `lazy/optimize.mbt`'s pass tables are the pipeline's inventory. A
 plan that succeeds
 produces what the eager pipeline produces — same schema, same
 cells, which is what `DataFrame`'s `Eq` compares and what the differential
@@ -112,6 +114,11 @@ may surface a different one of its own errors once a filter sinks past a broken
 stage (which one surfaced was an artifact of stage order to begin with), and a
 file source's push-down can prune the data an error was hiding in — see below.
 
+- **Slice pushdown** sinks each row-window node (`head` / `tail` / `slice` /
+  `first` / `last`) toward the scan, fusing neighbouring windows into their
+  composite — the fused window keeps exactly the eager chain's rows, and
+  pairs whose composite is not provably that (a negative bound, offsets
+  whose sum leaves `Int32`) are left un-fused.
 - **Predicate pushdown** sinks each `filter` toward the scan, so rows drop
   as early as the operator provably commutes with the predicate.
 - **Projection pushdown** narrows each scan to the columns its consumers
@@ -120,6 +127,9 @@ file source's push-down can prune the data an error was hiding in — see below.
   parsed** —
   `scan_csv("sales.csv").select([col("region"), col("revenue")]).collect()`
   parses only those two columns.
+- **The rewrite rules** fold column-free expression subtrees to their
+  literal values and merge adjacent `with_columns` stages that commute —
+  plan shape only, never a cell's value.
 
 Because a pruned column is never parsed, a parse error confined to it — or to a
 row a pushed-down predicate drops, in a column the predicate does not read — is

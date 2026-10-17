@@ -9,8 +9,10 @@ and [GitHub Pages](https://ihb2032.github.io/MoonFrame/).
 
 ## v0.7.0 → v0.8.0 (unreleased)
 
-The operator-alignment sprint widens the join vocabulary: one public enum
-gains a variant, under the repo's standing exception that an enum may add
+The operator-alignment sprint widens the join vocabulary and the dtype
+set: three public enums each gain variants — `JoinType` the two joins,
+`DataType` / `Scalar` the two `I64`-rider dtypes — under the repo's standing
+exception that an enum may add
 variants within a breaking release. Everything else the sprint adds is
 additive — new verbs (`pivot` / `unpivot`, the positional / rolling
 families, the `dt_*` quartet, the null toolbox, `mode` / `sample` / the
@@ -28,9 +30,10 @@ the `mizchi/parquet` reader/writer, whose dependency chain
 (`mizchi/duckdb`) still ships the module-manifest format the current
 MoonBit toolchain no longer parses — the package cannot be installed at
 all, so the feature cannot ship with it. The wire format returns when the
-upstream package publishes a toolchain-compatible release; until then,
-move Parquet data through CSV, or read it in a downstream module that
-pairs an older toolchain with MoonFrame 0.7.0.
+upstream package publishes a toolchain-compatible release. Until then,
+move Parquet data through CSV — the interchange landed and was withdrawn
+on unreleased `main` only, so no released MoonFrame carries it and there
+is no older version to pair an older toolchain with.
 
 ### `JoinType` gained `Semi` / `Anti`
 
@@ -40,6 +43,23 @@ pairs an older toolchain with MoonFrame 0.7.0.
 arms (a `Semi` / `Anti` join keeps the left schema and filters rows by
 whether a key match exists in the right frame); a `match` that ends in a
 `_` arm needs no change.
+
+### `DataType` / `Scalar` gained `Timestamp` / `Decimal` variants
+
+`DataType::Timestamp` and `Scalar::Timestamp(micros)` — microseconds since
+the Unix epoch, UTC — and `DataType::Decimal(scale)` /
+`Scalar::Decimal(scale, unscaled)` — a fixed-point decimal whose value is
+`unscaled × 10⁻ˢᶜᵃˡᵉ` over an `Int64` — are new, which makes an exhaustive
+`match` over either enum fail to compile until the variants are handled.
+Both ride the same 64-bit buffer an `Int` column always held, so nothing
+about column storage changes; what each means is documented on the enum.
+The decimal envelope — `scale` in `[0, 18]` — is enforced where a decimal
+dtype is built (`InvalidOperation` outside it), `+` / `-` / `*` are exact
+across scales and refuse (never wrap) when a magnitude or a product's
+scale leaves the range, and `sum` keeps the dtype under the same refusal.
+The readers never infer either dtype: a written-back `Timestamp` /
+`Decimal` column reads as `String` / `Float` respectively. A `match` that
+handles every variant *except* by a catch-all `_` arm needs no change.
 
 ## v0.6.0 → v0.7.0
 

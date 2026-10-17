@@ -27,9 +27,10 @@ pub(all) enum DataType {
   Date
   /// A point in time, stored as microseconds since the Unix epoch
   /// (`1970-01-01T00:00:00` = microsecond 0, negative for earlier instants) —
-  /// an `I64` physical buffer with timestamp semantics, the precision the
-  /// Parquet `TIMESTAMP(MICROS)` logical type carries. Not numeric, for the
-  /// same reason `Date` is not: arithmetic on raw microseconds is a bug.
+  /// an `I64` physical buffer with timestamp semantics at microsecond
+  /// resolution, the finest of the common interchange timestamps. Not
+  /// numeric, for the same reason `Date` is not: arithmetic on raw
+  /// microseconds is a bug.
   /// Renders as ISO 8601 (`YYYY-MM-DDTHH:MM:SS.ffffff`, the microsecond
   /// fraction always six digits so the rendering round-trips); readers never
   /// infer it.
@@ -49,6 +50,29 @@ pub(all) enum DataType {
   Decimal(Int32)
   Null
 } derive(Eq, Debug)
+
+///|
+/// The decimal envelope's one enforcement point: a `Decimal` dtype's scale
+/// stays in `[0, 18]` — eighteen fraction digits is the most an `Int64`
+/// unscaled magnitude leaves room for, the bound the `Decimal` variant's
+/// docstring states. Every constructor that authors a decimal dtype (the
+/// series builder, the scalar projection, the arithmetic's output scale)
+/// raises here, so no column the library builds carries a scale the
+/// rendering and the rescale would only meet downstream. A hand-built
+/// `Scalar::Decimal` can still name any scale — `Scalar` is `pub(all)` —
+/// which is why the rendering stays total over every input it is handed.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
+pub fn check_decimal_scale(
+  scale : Int32,
+  origin : String,
+) -> Unit raise DataError {
+  if scale < 0 || scale > 18 {
+    raise DataError::InvalidOperation(
+      "decimal \{origin} carries scale \{scale}, outside the envelope [0, 18]",
+    )
+  }
+}
 
 ///|
 pub extend DataType with Eq::{equal, not_equal}

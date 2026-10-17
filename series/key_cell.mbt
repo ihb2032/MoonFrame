@@ -70,9 +70,10 @@ fn float_key_cell(v : Double) -> KeyCell {
 ///|
 /// Normalise one key cell to its `KeyCell`. The `Float` arm delegates to
 /// `float_key_cell` (folding `NaN` / `-0.0` so the key hashes / compares
-/// exactly as the previous `Scalar::to_string` key did); the five `Scalar`
-/// variants — plus the `Date` / `Timestamp` / `Decimal` riders of the `I64` buffer, keyed as
-/// count their raw counts — are exhaustive.
+/// exactly as the previous `Scalar::to_string` key did); the five base
+/// `Scalar` variants plus the three `I64` riders — `Date` /
+/// `Timestamp` / `Decimal`, each keyed as `KInt` on its raw count — are
+/// exhaustive.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
 pub fn key_cell(sc : @types.Scalar) -> KeyCell {

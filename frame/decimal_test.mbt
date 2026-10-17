@@ -548,6 +548,9 @@ test "decimal arithmetic decides the MIN magnitude exactly" {
   let exact = frame.select([
     (@expr.col("n") - @expr.lit_int(min)).with_alias("e"),
   ])
+  // The rider's arithmetic rebuilds a frame; the shape invariants ride
+  // the representative outputs.
+  assert_eq(exact.check_invariants(), Ok(()))
   assert_eq(exact.get_column("e").to_scalars(), [
     @types.Scalar::Decimal(0, 9_223_372_036_854_775_807L),
     @types.Scalar::Decimal(0, 9_223_372_036_854_775_807L),
@@ -600,4 +603,124 @@ test "decimal sum refuses a total past the magnitude" {
     ],
   )
   assert_eq(small.get_column("d").sum(), @types.Scalar::Decimal(2, 100L))
+}
+
+///|
+/// The scale envelope `[0, 18]` is enforced where a decimal dtype is
+/// authored: the schema's column constructor, the empty-column path, and
+/// the literal singleton all refuse a scale outside it, so no column the
+/// library builds can carry a scale the rendering and the rescale would
+/// only meet downstream.
+test "the scale envelope is enforced at every constructor" {
+  // A schema naming a past-the-envelope scale refuses at from_rows —
+  // with rows to project and without (the empty-column path).
+  try
+    ignore(
+      DataFrame::from_rows(
+        @types.Schema::Schema([
+          @types.Field::Field("d", @types.DataType::Decimal(19)),
+        ]),
+        [[@types.Scalar::Decimal(19, 1L)]],
+      ),
+    )
+  catch {
+    e =>
+      inspect(
+        e,
+        content="InvalidOperation(\"decimal column d carries scale 19, outside the envelope [0, 18]\")",
+      )
+  } noraise {
+    _ => fail("a scale-19 schema column must refuse")
+  }
+  try
+    ignore(
+      DataFrame::from_rows(
+        @types.Schema::Schema([
+          @types.Field::Field("d", @types.DataType::Decimal(-2)),
+        ]),
+        [],
+      ),
+    )
+  catch {
+    e =>
+      inspect(
+        e,
+        content="InvalidOperation(\"decimal column d carries scale -2, outside the envelope [0, 18]\")",
+      )
+  } noraise {
+    _ => fail("an empty scale -2 column must refuse")
+  }
+  // A hand-built out-of-envelope literal refuses at the singleton.
+  try
+    ignore(
+      DataFrame::from_rows(
+        @types.Schema::Schema([
+          @types.Field::Field("d", @types.DataType::Decimal(2)),
+        ]),
+        [[@types.Scalar::Decimal(2, 1L)]],
+      ).select([@expr.lit(@types.Scalar::Decimal(19, 1L)).with_alias("x")]),
+    )
+  catch {
+    e =>
+      inspect(
+        e,
+        content="InvalidOperation(\"decimal column literal carries scale 19, outside the envelope [0, 18]\")",
+      )
+  } noraise {
+    _ => fail("a scale-19 literal must refuse")
+  }
+}
+
+///|
+/// `Mul` composes the output scale `ls + rs`, the one scale the arithmetic
+/// authors itself: two operands inside the envelope can still sum past it,
+/// and the product refuses rather than build a column nothing can render.
+test "decimal multiply refuses a product scale past the envelope" {
+  let wide = DataFrame::from_rows(
+    @types.Schema::Schema([
+      @types.Field::Field("a", @types.DataType::Decimal(10)),
+      @types.Field::Field("b", @types.DataType::Decimal(9)),
+    ]),
+    [[@types.Scalar::Decimal(10, 1L), @types.Scalar::Decimal(9, 1L)]],
+  )
+  try
+    ignore(wide.select([(@expr.col("a") * @expr.col("b")).with_alias("p")]))
+  catch {
+    e =>
+      inspect(
+        e,
+        content="InvalidOperation(\"decimal multiply result carries scale 19, outside the envelope [0, 18]\")",
+      )
+  } noraise {
+    _ => fail("a scale-19 product must refuse")
+  }
+  // Just inside: a Decimal(10) x Decimal(8) product carries scale 18 fine.
+  let inner = DataFrame::from_rows(
+    @types.Schema::Schema([
+      @types.Field::Field("a", @types.DataType::Decimal(10)),
+      @types.Field::Field("b", @types.DataType::Decimal(8)),
+    ]),
+    [[@types.Scalar::Decimal(10, 2L), @types.Scalar::Decimal(8, 5L)]],
+  )
+  assert_eq(
+    inner
+    .select([(@expr.col("a") * @expr.col("b")).with_alias("p")])
+    .get_column("p")
+    .to_scalars(),
+    [@types.Scalar::Decimal(18, 10L)],
+  )
+}
+
+///|
+/// The rendering is total over every magnitude — `MIN` included, whose
+/// negation would wrap — and names a hand-built out-of-envelope scale as a
+/// non-value instead of rendering garbage.
+test "decimal rendering stays total at the magnitude edge" {
+  let min = -9_223_372_036_854_775_808L
+  assert_eq(@types.Scalar::Decimal(2, min).to_string(), "-92233720368547758.08")
+  assert_eq(@types.Scalar::Decimal(0, min).to_string(), "-9223372036854775808")
+  assert_eq(
+    @types.Scalar::Decimal(64, 1L).to_string(),
+    "<decimal scale 64 outside the envelope [0, 18], unscaled 1>",
+  )
 }

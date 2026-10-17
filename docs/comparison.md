@@ -161,12 +161,15 @@ Not implemented. The tracked deferrals — the ones with a place in a later
 release — are listed as such below; this is what a Polars user
 will not find here today:
 
-- **Dtypes** — `Int` / `Float` / `Bool` / `String` / `Null` / `Date`; no
-  `Datetime` / `Duration` / `List` / `Struct` / `Categorical`. The dtypes a
-  column can carry are the ones registered in the dtype registry; the missing
-  ones are the deferral the others hang off: the list-returning `str.split`,
-  the datetime expression family, and a reader that takes a declared schema
-  all need a dtype before they can exist.
+- **Dtypes** — `Int` / `Float` / `Bool` / `String` / `Null` plus the three
+  `I64`-rider dtypes `Date` (days), `Timestamp` (microseconds, UTC — the
+  granularity of Polars' `Datetime("us")`, without time zones or calendar
+  arithmetic), and `Decimal(scale)` (a fixed-point decimal exact across
+  `+` / `-` / `*` and `sum`, with division and `Float` mixing fenced).
+  Still missing: `Duration` / `List` / `Struct` / `Categorical` — the
+  deferral the others hang off: the list-returning `str.split`, the
+  timestamp / duration expression family, and a reader that takes a
+  declared schema all need a dtype before they can exist.
 - **Expressions** — no window / `over` functions. The history-dependent
   family — `shift` / `diff`, the `cum_*` running aggregates, `rank`,
   `arg_sort` — is present, as are the positional reductions `arg_min` /
@@ -176,14 +179,19 @@ will not find here today:
   `unpivot` on both layers — with unpivot's value column requiring a
   unifying dtype (`Int` / `Float` widen; no stringly supertype).
 - **Lazy** — no streaming execution: a scan pushes projections and predicates
-  down into the reader, but still tokenises the whole file. No columnar sources
-  (`scan_parquet` / `scan_ipc`) either — those wait on eager readers for the
-  formats.
-- **Optimizer** — the two passes are projection and predicate pushdown.
-  Dead-expression elimination, predicate splitting through joins, and sinking
+  down into the reader, but still tokenises the whole file. No columnar
+  file sources either — the Parquet scan is withdrawn pending an upstream
+  toolchain-compatible release (see
+  [`migration.md`](migration.md)), and IPC has no reader.
+- **Optimizer** — the passes are slice, predicate, and projection pushdown
+  plus the folding / clustering rules; `LazyFrame::collect`'s docstring is
+  the contract's home. Dead-expression elimination, predicate splitting
+  through joins, and sinking
   filters below sorts are not implemented.
 - **Reader schema override** — CSV / JSON dtypes come from content inference
-  only; there is no `dtypes=` / `schema=` parameter. Build the frame yourself
+  only; there is no `dtypes=` / `schema=` parameter (the readers never
+  infer `Date` / `Timestamp` / `Decimal` either — a written-back column of
+  those reads as `String` / `Float`). Build the frame yourself
   (`Series::from_*`, or `from_rows` with a `Schema`) when a column's type must
   be pinned. See [`type-inference.md`](type-inference.md).
 

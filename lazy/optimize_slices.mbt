@@ -99,26 +99,38 @@ fn LogicalPlan::place_slice(
 ///|
 /// Compose an outer window over an inner one, when the composite is itself
 /// a window of the same vocabulary: `head` over `head` (and `tail` over
-/// `tail`) keeps the smaller bound either way — the outer addresses rows
-/// the inner already kept or would have kept, so whichever bound is tighter
-/// decides; two `slice` windows with non-negative offsets compose by adding
+/// `tail`) with non-negative bounds keeps the smaller bound either way —
+/// the outer addresses rows the inner already kept or would have kept, so
+/// whichever bound is tighter decides; two `slice` windows with
+/// non-negative offsets whose sum stays representable compose by adding
 /// the offsets and intersecting the spans, the available span under the
-/// outer's start clamped to an empty window at zero. Every other pairing —
-/// `head` over `tail` (opposite ends), a negative-offset `slice` (its
-/// arithmetic reads the tail through a height the plan does not know), a
-/// window over a non-window — has no composite here and stays a floor.
-/// The composition is error-faithful by construction: windows carry no
-/// expressions, so absorbing one never drops a stage's evaluation duty.
+/// outer's start clamped to an empty window at zero. Every other pairing
+/// — `head` over `tail` (opposite ends), a negative bound (eager windows
+/// read it as *dropping rows from the far end*, so the smaller-of-two the
+/// composite would pick is not the tighter window but the wider one), a
+/// negative-offset `slice` (its arithmetic reads the tail through a height
+/// the plan does not know), offsets whose sum leaves `Int32` (the wrapped
+/// composite start would read as a from-the-tail offset), a window over a
+/// non-window — has no composite here and stays a floor. The composition
+/// is error-faithful by construction: windows carry no expressions, so
+/// absorbing one never drops a stage's evaluation duty.
 fn fuse_windows(outer : FrameOp, inner : FrameOp) -> FrameOp? {
   match (outer, inner) {
-    (Head(a), Head(b)) => Some(Head(if a < b { a } else { b }))
-    (Tail(a), Tail(b)) => Some(Tail(if a < b { a } else { b }))
-    (Slice(ao, alen), Slice(bo, blen)) if ao >= 0 && bo >= 0 => {
+    (Head(a), Head(b)) if a >= 0 && b >= 0 =>
+      Some(Head(if a < b { a } else { b }))
+    (Tail(a), Tail(b)) if a >= 0 && b >= 0 =>
+      Some(Tail(if a < b { a } else { b }))
+    (Slice(ao, alen), Slice(bo, blen)) if ao >= 0 &&
+      bo >= 0 &&
+      bo <= 2_147_483_647 - ao => {
       // The outer window reads the inner's rows `[ao, ao + alen)`; the inner
       // supplies `[bo, bo + blen)`. Their composition reads the original's
       // `[bo + ao, bo + ao + len)` with `len` the intersection of the two
       // spans — `blen - ao` available, `alen` asked, an empty window when
-      // the outer starts past the inner's end.
+      // the outer starts past the inner's end. The guard's sum check keeps
+      // `bo + ao` a true start: past `Int32::MAX` no row count can reach it
+      // and the eager chain's saturation already answers "empty", which a
+      // wrapped negative start would read as "from the tail".
       let reach = blen.map(m => m - ao)
       let len : Int32? = match (alen, reach) {
         (Some(l), Some(r)) => Some(if l < r { l } else { r })

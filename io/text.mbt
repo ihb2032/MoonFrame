@@ -90,7 +90,14 @@ fn first_duplicate_json_key(content : StringView) -> (Int32, String)? {
   while i < n {
     let c = chars[i]
     if c == '"' {
-      let (token, next) = read_json_string_token(chars, i)
+      let (token, next, terminated) = read_json_string_token(chars, i)
+      // An unterminated literal is a truncation, not a key: its fragment
+      // must not reach the comparison (it could alias a real earlier key
+      // and pre-empt the parser's own diagnostic) — the whole scan gives
+      // up and the parser reports the payload.
+      if !terminated {
+        return None
+      }
       // Only a string in key position is recorded; elsewhere it is a value.
       if stack.length() > 0 {
         match stack[stack.length() - 1] {
@@ -141,19 +148,20 @@ fn first_duplicate_json_key(content : StringView) -> (Int32, String)? {
 /// (`\uXXXX` to its code unit — a surrogate pair spelled out stays two code
 /// units, matching how a literal one reads back), so two spellings of the
 /// same key compare equal. An unterminated literal or malformed escape
-/// yields what was read so far and stops the scan: `@json.parse` owns that
-/// diagnostic.
+/// yields what was read so far, marked unterminated, and the caller
+/// abandons its scan: `@json.parse` owns that diagnostic, and a truncated
+/// fragment must not reach the key comparison looking like a real key.
 fn read_json_string_token(
   chars : Array[Char],
   start : Int32,
-) -> (String, Int32) {
+) -> (String, Int32, Bool) {
   let buf = StringBuilder()
   let n = chars.length()
   let mut i = start + 1
   while i < n {
     let c = chars[i]
     if c == '"' {
-      return (buf.to_string(), i + 1)
+      return (buf.to_string(), i + 1, true)
     }
     if c != '\\' {
       buf.write_char(c)
@@ -216,7 +224,9 @@ fn read_json_string_token(
       }
     }
   }
-  (buf.to_string(), n)
+  // The loop left without a closing quote: a truncated fragment, marked so
+  // the caller abandons its scan instead of comparing the fragment as a key.
+  (buf.to_string(), n, false)
 }
 
 ///|

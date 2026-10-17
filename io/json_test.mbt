@@ -778,6 +778,7 @@ test "reject_duplicate_keys leaves malformed payloads to the parser" {
      "[{\"a\\q\": 1}]", // unknown escape
      "[{\"a\\u00\": 1}]", // short \u escape (non-hex terminator)
      "[{\"a\\u", // \u at end of input: not even four characters remain
+     "[{\"a\":1,\"a", // truncated second key aliases the first: not a repeat
      "}", // stray closer before any object
      ",", // top-level comma outside any container
   ]

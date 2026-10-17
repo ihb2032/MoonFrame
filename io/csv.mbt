@@ -400,7 +400,14 @@ fn validate_csv_quotes(
   delimiter : Char,
 ) -> Unit raise @types.DataError {
   let mut state = CsvFieldStart
+  // Row tracking for the diagnostics: a record separator outside quotes
+  // ends a row, with a CRLF pair counted once (a bare CR is a separator
+  // to the CSV reader, so it ends a row on its own). Content inside
+  // quotes is content, not a separator.
+  let mut row = 1
+  let mut prev_cr = false
   for ch in content {
+    let quoted = state is CsvQuoted
     state = match state {
       CsvFieldStart =>
         if ch == '"' {
@@ -414,7 +421,7 @@ fn validate_csv_quotes(
         if ch == '"' {
           raise @types.DataError::ParseError(
             @types.ParseErrorDetail::Message(
-              "malformed CSV quote: quote inside an unquoted field",
+              "\{locator_text(@types.CellParseLocation::Row, row)}: quote inside an unquoted field",
             ),
           )
         } else if ch == delimiter || ch == '\r' || ch == '\n' {
@@ -431,16 +438,29 @@ fn validate_csv_quotes(
         } else {
           raise @types.DataError::ParseError(
             @types.ParseErrorDetail::Message(
-              "malformed CSV quote: unexpected character after a closing quote",
+              "\{locator_text(@types.CellParseLocation::Row, row)}: unexpected character after a closing quote",
             ),
           )
         }
+    }
+    if !quoted {
+      if ch == '\r' {
+        row = row + 1
+        prev_cr = true
+      } else if ch == '\n' {
+        if !prev_cr {
+          row = row + 1
+        }
+        prev_cr = false
+      } else {
+        prev_cr = false
+      }
     }
   }
   if state is CsvQuoted {
     raise @types.DataError::ParseError(
       @types.ParseErrorDetail::Message(
-        "malformed CSV quote: unterminated quoted field",
+        "\{locator_text(@types.CellParseLocation::Row, row)}: unterminated quoted field",
       ),
     )
   }

@@ -366,12 +366,20 @@ test "parse_csv_str: malformed quotes remain lenient by default" {
 
 ///|
 test "parse_csv_str: strict_quotes rejects all malformed quote shapes" {
+  // The diagnostics carry the row, matching the ragged-row and
+  // cell-parse errors the same reader gives.
   let cases : Array[(String, String)] = [
-    ("a,b\n1,\"unclosed", "malformed CSV quote: unterminated quoted field"),
+    ("a,b\n1,\"unclosed", "row 2: unterminated quoted field"),
+    ("a\n\"ab\"cd", "row 2: unexpected character after a closing quote"),
+    ("a\nab\"cd", "row 2: quote inside an unquoted field"),
     (
-      "a\n\"ab\"cd", "malformed CSV quote: unexpected character after a closing quote",
+      "a,b\n1,2\n3,\"x\n4,y\n5,\"z",
+      // The quoted field starting on row 3 spans the newlines inside it
+      // (content, not separators — the row counter stays at the field's
+      // opening row), and the stray text after its closing quote raises
+      // there.
+       "row 3: unexpected character after a closing quote",
     ),
-    ("a\nab\"cd", "malformed CSV quote: quote inside an unquoted field"),
   ]
   for case in cases {
     let (content, expected) = case

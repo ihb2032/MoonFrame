@@ -1427,3 +1427,281 @@ test "fence: a decimal predicate joined with land still never sinks" {
     df.select([@expr.col("k"), @expr.col("d")]).filter(predicate),
   )
 }
+
+///|
+test "fence: a decimal name derived below a join stays fenced" {
+  // The Join arm used to discard both sides' stage sets, so a decimal name
+  // defined below the join escaped the risk set and a predicate sank past
+  // the value-refusing stage above it. The union of both sides (plus every
+  // right name's suffixed form) keeps the fence.
+  let left = @frame.DataFrame::DataFrame([
+    @series.Series::from_strings("k", ["keep", "drop"]),
+    @series.Series::from_decimal_options(0, "dm", [
+      Some(1000000000000000000L),
+      Some(3000000000000000000L),
+    ]),
+  ])
+  let right = @frame.DataFrame::DataFrame([
+    @series.Series::from_strings("k", ["keep", "drop"]),
+    @series.Series::from_ints("x", [10, 20]),
+  ])
+  let opts = @frame.JoinOptions::on([@expr.col("k")])
+  let s = (@expr.col("dm") * @expr.lit_int(2)).with_alias("s")
+  let t = (@expr.col("s") + @expr.col("s")).with_alias("t")
+  let predicate = @expr.col("k").eq(@expr.lit_str("keep"))
+  let eager : Result[@frame.DataFrame, @types.DataError] = Ok(
+    left.with_columns([s]).join(right, opts).with_columns([t]).filter(predicate),
+  ) catch {
+    e => Err(e)
+  }
+  let lazy_ : Result[@frame.DataFrame, @types.DataError] = Ok(
+    LazyFrame::LazyFrame(left)
+    .with_columns([s])
+    .join(LazyFrame::LazyFrame(right), opts)
+    .with_columns([t])
+    .filter(predicate)
+    .collect(),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(eager is Err(@types.DataError::InvalidOperation(_)))
+  assert_true(lazy_ is Err(@types.DataError::InvalidOperation(_)))
+}
+
+///|
+test "fence: a renamed decimal column keeps its fence" {
+  // The set used to ride Rename unchanged, still holding the old name while
+  // the stages above read the new one. The pairs now rename the set.
+  let df = dec_overflow_df()
+  let dx = (@expr.col("x") + @expr.col("x")).with_alias("dx")
+  let predicate = @expr.col("k").eq(@expr.lit_str("keep"))
+  let eager : Result[@frame.DataFrame, @types.DataError] = Ok(
+    df.rename([("d", "x")]).with_columns([dx]).filter(predicate),
+  ) catch {
+    e => Err(e)
+  }
+  let lazy_ : Result[@frame.DataFrame, @types.DataError] = Ok(
+    LazyFrame::LazyFrame(df)
+    .rename([("d", "x")])
+    .with_columns([dx])
+    .filter(predicate)
+    .collect(),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(eager is Err(@types.DataError::InvalidOperation(_)))
+  assert_true(lazy_ is Err(@types.DataError::InvalidOperation(_)))
+}
+
+///|
+test "fence: a rename_with closure keeps the fence" {
+  // The closure cannot be inspected, but it is total and collect runs it on
+  // exactly the column names carried here — so running it on the set's own
+  // names reads the mapping instead of losing it.
+  let df = dec_overflow_df()
+  let dx = (@expr.col("x") + @expr.col("x")).with_alias("dx")
+  let predicate = @expr.col("k").eq(@expr.lit_str("keep"))
+  let mapping = (name : String) => if name == "d" { "x" } else { name }
+  let eager : Result[@frame.DataFrame, @types.DataError] = Ok(
+    df.rename_with(mapping).with_columns([dx]).filter(predicate),
+  ) catch {
+    e => Err(e)
+  }
+  let lazy_ : Result[@frame.DataFrame, @types.DataError] = Ok(
+    LazyFrame::LazyFrame(df)
+    .rename_with(mapping)
+    .with_columns([dx])
+    .filter(predicate)
+    .collect(),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(eager is Err(@types.DataError::InvalidOperation(_)))
+  assert_true(lazy_ is Err(@types.DataError::InvalidOperation(_)))
+}
+
+///|
+test "fence: is_between's cross-scale refusal stays fenced" {
+  // The sugar node descends into the same eval_compare rescale a Ge takes;
+  // it belongs on the checked-op list with the binaries it sugars.
+  let df = dec_overflow_df()
+  let b = @expr.col("d")
+    .is_between(
+      @expr.lit(@types.Scalar::Decimal(2, 0L)),
+      @expr.lit(@types.Scalar::Decimal(2, 1000000000000000000L)),
+    )
+    .with_alias("b")
+  let predicate = @expr.col("k").eq(@expr.lit_str("keep"))
+  let eager : Result[@frame.DataFrame, @types.DataError] = Ok(
+    df.with_columns([b]).filter(predicate),
+  ) catch {
+    e => Err(e)
+  }
+  let lazy_ : Result[@frame.DataFrame, @types.DataError] = Ok(
+    LazyFrame::LazyFrame(df).with_columns([b]).filter(predicate).collect(),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(eager is Err(@types.DataError::InvalidOperation(_)))
+  assert_true(lazy_ is Err(@types.DataError::InvalidOperation(_)))
+}
+
+///|
+test "fence: is_in's cross-scale refusal stays fenced" {
+  // The same rescale refusal through the membership probe's per-member
+  // comparison.
+  let df = dec_overflow_df()
+  let b = @expr.col("d")
+    .is_in([
+      @types.Scalar::Decimal(2, 0L),
+      @types.Scalar::Decimal(2, 1000000000000000000L),
+    ])
+    .with_alias("b")
+  let predicate = @expr.col("k").eq(@expr.lit_str("keep"))
+  let eager : Result[@frame.DataFrame, @types.DataError] = Ok(
+    df.with_columns([b]).filter(predicate),
+  ) catch {
+    e => Err(e)
+  }
+  let lazy_ : Result[@frame.DataFrame, @types.DataError] = Ok(
+    LazyFrame::LazyFrame(df).with_columns([b]).filter(predicate).collect(),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(eager is Err(@types.DataError::InvalidOperation(_)))
+  assert_true(lazy_ is Err(@types.DataError::InvalidOperation(_)))
+}
+
+///|
+test "fence: an unpivoted decimal column keeps its fence" {
+  // The folded value columns land in one named column; the set rides the
+  // reshape and picks that name up.
+  let df = dec_overflow_df()
+  let vv = (@expr.col("v") + @expr.col("v")).with_alias("vv")
+  let predicate = @expr.col("k").eq(@expr.lit_str("keep"))
+  let eager : Result[@frame.DataFrame, @types.DataError] = Ok(
+    df
+    .unpivot(on=[@expr.col("d")], index=[@expr.col("k")], value_name="v")
+    .with_columns([vv])
+    .filter(predicate),
+  ) catch {
+    e => Err(e)
+  }
+  let lazy_ : Result[@frame.DataFrame, @types.DataError] = Ok(
+    LazyFrame::LazyFrame(df)
+    .unpivot(on=[@expr.col("d")], index=[@expr.col("k")], value_name="v")
+    .with_columns([vv])
+    .filter(predicate)
+    .collect(),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(eager is Err(@types.DataError::InvalidOperation(_)))
+  assert_true(lazy_ is Err(@types.DataError::InvalidOperation(_)))
+}
+
+///|
+test "fence: a pivot fences every decimal-checked stage above it" {
+  // A pivot's output column names come from the data it reshapes, so no
+  // name above it is provably non-decimal — the any flag fences every
+  // decimal-checked stage there.
+  let df = @frame.DataFrame::DataFrame([
+    @series.Series::from_ints("p", [1, 1, 2, 2]),
+    @series.Series::from_strings("k", ["keep", "drop", "keep", "drop"]),
+    @series.Series::from_decimal_options(0, "d", [
+      Some(1L),
+      Some(9000000000000000000L),
+      Some(2L),
+      Some(2L),
+    ]),
+  ])
+  let t = (@expr.col("drop") + @expr.col("drop")).with_alias("t")
+  let predicate = @expr.col("p").eq(@expr.lit_int(2))
+  let eager : Result[@frame.DataFrame, @types.DataError] = Ok(
+    df
+    .pivot(
+      on=[@expr.col("k")],
+      index=[@expr.col("p")],
+      values=[@expr.col("d")],
+      aggregate_function=@frame.PivotAgg::First,
+    )
+    .with_columns([t])
+    .filter(predicate),
+  ) catch {
+    e => Err(e)
+  }
+  let lazy_ : Result[@frame.DataFrame, @types.DataError] = Ok(
+    LazyFrame::LazyFrame(df)
+    .pivot(
+      on=[@expr.col("k")],
+      index=[@expr.col("p")],
+      values=[@expr.col("d")],
+      aggregate_function=@frame.PivotAgg::First,
+    )
+    .with_columns([t])
+    .filter(predicate)
+    .collect(),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(eager is Err(@types.DataError::InvalidOperation(_)))
+  assert_true(lazy_ is Err(@types.DataError::InvalidOperation(_)))
+}
+
+///|
+test "fence: a slice under a join-derived decimal stage stays fenced" {
+  // The slice pass reads the same risk set: a head that would prune the
+  // refusing row out from under a join-derived decimal stage stays above it.
+  let left = @frame.DataFrame::DataFrame([
+    @series.Series::from_strings("k", ["keep", "drop"]),
+    @series.Series::from_decimal_options(0, "dm", [
+      Some(1000000000000000000L),
+      Some(3000000000000000000L),
+    ]),
+  ])
+  let right = @frame.DataFrame::DataFrame([
+    @series.Series::from_strings("k", ["keep", "drop"]),
+    @series.Series::from_ints("x", [10, 20]),
+  ])
+  let opts = @frame.JoinOptions::on([@expr.col("k")])
+  let s = (@expr.col("dm") * @expr.lit_int(2)).with_alias("s")
+  let t = (@expr.col("s") + @expr.col("s")).with_alias("t")
+  let eager : Result[@frame.DataFrame, @types.DataError] = Ok(
+    left.with_columns([s]).join(right, opts).with_columns([t]).head(1),
+  ) catch {
+    e => Err(e)
+  }
+  let lazy_ : Result[@frame.DataFrame, @types.DataError] = Ok(
+    LazyFrame::LazyFrame(left)
+    .with_columns([s])
+    .join(LazyFrame::LazyFrame(right), opts)
+    .with_columns([t])
+    .head(1)
+    .collect(),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(eager is Err(@types.DataError::InvalidOperation(_)))
+  assert_true(lazy_ is Err(@types.DataError::InvalidOperation(_)))
+}
+
+///|
+test "a rename of non-decimal columns still lets the predicate sink" {
+  // The fence must not overreach: with no decimal anywhere, the predicate
+  // still crosses the with_columns stage above the rename.
+  let df = @frame.DataFrame::DataFrame([
+    @series.Series::from_strings("k", ["keep", "drop"]),
+    @series.Series::from_ints("qty", [60, 40]),
+  ])
+  let q2 = (@expr.col("q") * @expr.lit_int(2)).with_alias("q2")
+  let predicate = @expr.col("k").eq(@expr.lit_str("keep"))
+  let plan = LazyFrame::LazyFrame(df)
+    .rename([("qty", "q")])
+    .with_columns([q2])
+    .filter(predicate)
+  assert_eq(
+    plan.collect(),
+    df.rename([("qty", "q")]).with_columns([q2]).filter(predicate),
+  )
+  assert_true(plan.explain(optimized=true) != plan.explain())
+}

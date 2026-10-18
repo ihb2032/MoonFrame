@@ -892,23 +892,30 @@ pub fn Expr::is_infinite(self : Expr) -> Expr {
 /// `lower?` becomes it, one above `upper?` becomes it, one inside passes
 /// through, and a null cell stays null (the Kleene `when` reading — the
 /// bounds are not applied to it). Either bound may be omitted — one-sided
-/// clamps — and both omitted is the identity. Built as the nested
-/// `when(self < lower).then(lower).otherwise(when(self > upper)…)` tree,
-/// so it renders and evaluates as that composition: dtype unification and
-/// the `NaN`-stays-put reading (no comparison holds against `NaN`) are the
-/// comparison kernel's own. The result keeps the operand's own name
-/// (Polars' reading): the composition alone would name itself after the
-/// *bound* — it sits in the `then` branch, and `leftmost_name` reads that
-/// branch first — so a column bound would hand `with_columns` the bound's
-/// name and replace the bound column with the clipped operand.
+/// clamps — and both omitted is the identity. With both bounds given the
+/// clamp is `clip_min` then `clip_max` — the inner `when` lifts a
+/// below-lower cell to `lower?`, and the outer one presses everything
+/// above `upper?` (the lifted cells included) back down — so a degenerate
+/// pair (`lower?` above `upper?`) clamps every cell to `upper?`, the
+/// reading Polars and numpy's `minimum(maximum(x, lo), hi)` both give.
+/// Built as that nested `when` composition, it renders and evaluates as
+/// one: dtype unification and the `NaN`-stays-put reading (no comparison
+/// holds against `NaN`) are the comparison kernel's own. The result keeps
+/// the operand's own name (Polars' reading): the composition alone would
+/// name itself after the *bound* — it sits in the `then` branch, and
+/// `leftmost_name` reads that branch first — so a column bound would hand
+/// `with_columns` the bound's name and replace the bound column with the
+/// clipped operand.
 pub fn Expr::clip(self : Expr, lower? : Expr, upper? : Expr) -> Expr {
   match (lower, upper) {
     (None, None) => self
-    (Some(lo), Some(hi)) =>
-      when(self.lt(lo))
-      .then(lo)
-      .otherwise(when(self.gt(hi)).then(hi).otherwise(self))
+    (Some(lo), Some(hi)) => {
+      let lifted = when(self.lt(lo)).then(lo).otherwise(self)
+      when(lifted.gt(hi))
+      .then(hi)
+      .otherwise(lifted)
       .with_alias(self.output_name())
+    }
     (Some(lo), None) =>
       when(self.lt(lo)).then(lo).otherwise(self).with_alias(self.output_name())
     (None, Some(hi)) =>

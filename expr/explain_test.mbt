@@ -543,12 +543,13 @@ test "show: the fill probes and clip render" {
   inspect(col("v").backward_fill(limit=3), content="col(v).backward_fill(3)")
   inspect(col("v").is_finite(), content="col(v).is_finite()")
   inspect(col("v").is_infinite(), content="col(v).is_infinite()")
-  // `clip` is the nested when-composition, so it renders as one — the
-  // lower bound's guard outermost.
+  // `clip` is the clip_min-then-clip_max composition, so it renders as
+  // one — the inner when lifts below-lower cells, the outer one presses
+  // everything above upper (the lifted included) back down.
   inspect(
     col("v").clip(lower=lit_int(2), upper=lit_int(7)),
     content=(
-      #|when((col(v) < 2)).then(2).otherwise(when((col(v) > 7)).then(7).otherwise(col(v))) as v
+      #|when((when((col(v) < 2)).then(2).otherwise(col(v)) > 7)).then(7).otherwise(when((col(v) < 2)).then(2).otherwise(col(v))) as v
     ),
   )
 }

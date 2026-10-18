@@ -222,6 +222,46 @@ test "clip clamps into the bounds, nulls and NaN passing through" {
 }
 
 ///|
+test "clip with a degenerate pair clamps everything to the upper bound" {
+  // `lower` above `upper`: every cell is lifted then pressed back down,
+  // so the whole column lands on `upper` — the reading Polars and numpy
+  // give. A null cell still passes through untouched.
+  let df = DataFrame::DataFrame([
+    Series::from_int_options("v", [Some(1), Some(5), Some(9), None]),
+  ])
+  assert_eq(
+    df
+    .select([
+      @expr.col("v").clip(lower=@expr.lit_int(7), upper=@expr.lit_int(3)),
+    ])
+    .get_column("v")
+    .to_scalars(),
+    [
+      @types.Scalar::Int(3),
+      @types.Scalar::Int(3),
+      @types.Scalar::Int(3),
+      @types.Scalar::Null,
+    ],
+  )
+  // The degenerate Float pair keeps a NaN cell in place: no comparison
+  // holds against it on either pass.
+  let nan : Double = @double.not_a_number
+  let f = DataFrame::DataFrame([Series::from_floats("f", [0.5, nan, 4.0])])
+  let clamped = f
+    .select([
+      @expr.col("f").clip(
+        lower=@expr.lit_float(3.0),
+        upper=@expr.lit_float(1.0),
+      ),
+    ])
+    .get_column("f")
+    .to_scalars()
+  assert_eq(clamped[0], @types.Scalar::Float(1.0))
+  assert_true(clamped[1] is @types.Scalar::Float(v) && v.is_nan())
+  assert_eq(clamped[2], @types.Scalar::Float(1.0))
+}
+
+///|
 
 ///|
 test "backward_fill honors the limit like the forward mirror" {

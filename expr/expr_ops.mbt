@@ -197,7 +197,9 @@ pub fn Expr::floor_div(self : Expr, other : Expr) -> Expr {
 ///|
 /// `a.modulo(b)` — remainder (Polars `%`; a named method, `%` maps to no
 /// `Expr` operator). Same-dtype `Int / Int → Int` carrying the dividend's sign
-/// (`-7 % 2 = -1`); any `Float` operand promotes to `Float` (IEEE remainder).
+/// (`-7 % 2 = -1`); any `Float` operand promotes to `Float`, the remainder
+/// keeping the dividend's sign there too (`fmod`, as Polars' `%` does — not
+/// the IEEE 754 remainder, whose quotient rounds to nearest).
 /// `Int` modulo by zero yields a **null** cell (as for `floor_div`); `Float`
 /// modulo by zero is `NaN`. A null on either side nulls the output cell; a
 /// non-numeric operand raises `TypeMismatch`.

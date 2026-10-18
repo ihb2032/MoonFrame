@@ -185,6 +185,27 @@ test "folding: a raising evaluation keeps the subtree verbatim" {
 }
 
 ///|
+test "folding: a null result stays a subtree, not a Null literal" {
+  // `5 // 0` evaluates to null; folding it to `Lit(Null)` would make the
+  // collected plan refuse (`no Null-dtype column backend`) what the
+  // as-built one returns. The subtree stays and collect agrees with eager.
+  let df = sales_df()
+  let z = @expr.lit_int(5).floor_div(@expr.lit_int(0)).with_alias("z")
+  let lf = LazyFrame::LazyFrame(df).with_columns([z])
+  assert_eq(lf.collect(), df.with_columns([z]))
+}
+
+///|
+test "folding: a null from a string probe stays a subtree too" {
+  // The same shape through `str_extract` missing its pattern: the null
+  // cell collects exactly as the eager verb produces it.
+  let df = sales_df()
+  let z = @expr.lit_str("abc").str_extract("[0-9]+").with_alias("z")
+  let lf = LazyFrame::LazyFrame(df).with_columns([z])
+  assert_eq(lf.collect(), df.with_columns([z]))
+}
+
+///|
 test "folding: aggregations and map closures are left untouched" {
   let df = sales_df()
   // An `Agg` reduces a whole scope, a map closure runs per row — neither may

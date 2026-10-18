@@ -46,7 +46,9 @@ pub(all) enum DataType {
   /// as scale 0, `*` adds the scales) and refuse — `InvalidOperation`,
   /// never a wrap — when a magnitude leaves the range; division stays
   /// fenced pending a result-scale rule, and so does mixing with `Float`;
-  /// readers never infer it.
+  /// the `Int` lift is arithmetic-only — a `Decimal` compared against an
+  /// `Int` is a `TypeMismatch`, so a compared bound is written as a
+  /// decimal literal; readers never infer it.
   Decimal(Int32)
   Null
 } derive(Eq, Debug)

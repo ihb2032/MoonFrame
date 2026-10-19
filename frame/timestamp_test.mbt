@@ -23,18 +23,6 @@ fn ts_frame() -> DataFrame raise @types.DataError {
 }
 
 ///|
-/// The column's timestamp cells as ISO strings (nulls as `"null"`).
-fn ts_cells(
-  df : DataFrame,
-  name : String,
-) -> Array[String] raise @types.DataError {
-  df
-  .get_column(name)
-  .to_scalars()
-  .map(s => if s is @types.Scalar::Null { "null" } else { s.to_string() })
-}
-
-///|
 test "a Timestamp column keeps its identity through build and read" {
   let df = ts_frame()
   assert_eq(df.get_column("t").dtype(), @types.DataType::Timestamp)
@@ -42,7 +30,7 @@ test "a Timestamp column keeps its identity through build and read" {
   assert_true(df.item(2, "t") is @types.Scalar::Null)
   assert_eq(df.item(0, "t").to_string(), "2024-01-01T00:00:00.000000")
   assert_eq(df.item(1, "t").to_string(), "2024-01-02T02:04:20.000000")
-  assert_eq(ts_cells(df, "t"), [
+  assert_eq(cells_to_strings(df, "t"), [
     "2024-01-01T00:00:00.000000", "2024-01-02T02:04:20.000000", "null", "2024-01-02T00:00:00.000000",
   ])
 }
@@ -51,7 +39,7 @@ test "a Timestamp column keeps its identity through build and read" {
 test "Timestamp compares instant-wise; an Int never reaches the cells" {
   let df = ts_frame()
   assert_eq(
-    ts_cells(
+    cells_to_strings(
       df.filter(
         @expr.col("t").lt(
           @expr.lit(@types.Scalar::Timestamp(1704153600000000L)),
@@ -77,7 +65,7 @@ test "Timestamp sorts chronologically and reduces positionally" {
   // The rider rebuilds frames through the shared verbs; the shape
   // invariants ride the representative outputs.
   assert_eq(sorted.check_invariants(), Ok(()))
-  assert_eq(ts_cells(sorted, "t"), [
+  assert_eq(cells_to_strings(sorted, "t"), [
     "2024-01-01T00:00:00.000000", "2024-01-02T00:00:00.000000", "2024-01-02T02:04:20.000000",
     "null",
   ])
@@ -185,7 +173,7 @@ test "an outer join coalesces a Timestamp key to the present side's instant" {
   // carries its timestamp, the left side's cells are null.
   assert_true(joined.nrows() == 4)
   assert_eq(joined.get_column("t").dtype(), @types.DataType::Timestamp)
-  assert_eq(ts_cells(joined, "t"), [
+  assert_eq(cells_to_strings(joined, "t"), [
     "2024-01-01T00:00:00.000000", "2024-01-02T02:04:20.000000", "2024-01-02T00:00:00.000000",
     "2024-01-03T00:00:00.000000",
   ])

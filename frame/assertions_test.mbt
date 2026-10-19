@@ -63,3 +63,28 @@ fn assert_same_join(a : JoinOptions, b : JoinOptions) -> Unit raise {
 fn assert_diff_join(a : JoinOptions, b : JoinOptions) -> Unit raise {
   assert_not_eq(join_shape(a), join_shape(b))
 }
+
+///|
+/// The named column's cells as strings (nulls as `"null"`) — the readable
+/// rendering the dtype suites (Date / Decimal / Timestamp) compare their
+/// assertions through.
+fn cells_to_strings(
+  df : DataFrame,
+  name : String,
+) -> Array[String] raise @types.DataError {
+  df
+  .get_column(name)
+  .to_scalars()
+  .map(s => if s is @types.Scalar::Null { "null" } else { s.to_string() })
+}
+
+///|
+/// Three-row Int + String pair — the small fixture the rename and
+/// literal-series suites share; neither observes nulls, so the plain pair
+/// keeps the diff small.
+fn int_str_df() -> DataFrame raise @types.DataError {
+  DataFrame::DataFrame([
+    Series::from_ints("a", [1, 2, 3]),
+    Series::from_strings("b", ["x", "y", "z"]),
+  ])
+}

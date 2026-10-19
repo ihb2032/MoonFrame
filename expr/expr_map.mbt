@@ -40,7 +40,7 @@ pub fn Expr::map_elements(
   label~ : String,
   f : (@types.Scalar) -> @types.Scalar raise @types.DataError,
 ) -> Expr {
-  Expr::of(@ir.ExprNode::Map(label, [self.node], vs => f(vs[0])))
+  Expr::of_node(@ir.ExprNode::Map(label, [self.node], vs => f(vs[0])))
 }
 
 ///|
@@ -73,7 +73,7 @@ pub fn Expr::map_batches(
   returns_scalar~ : Bool = false,
   f : (@series.Series) -> @series.Series raise @types.DataError,
 ) -> Expr {
-  Expr::of(
+  Expr::of_node(
     @ir.ExprNode::MapBatches(label, [self.node], returns_scalar, vs => f(vs[0])),
   )
 }
@@ -107,5 +107,5 @@ pub fn map_many(
   inputs : Array[Expr],
   f : (Array[@types.Scalar]) -> @types.Scalar raise @types.DataError,
 ) -> Expr {
-  Expr::of(@ir.ExprNode::Map(label, inputs.map(e => e.node), f))
+  Expr::of_node(@ir.ExprNode::Map(label, inputs.map(e => e.node), f))
 }

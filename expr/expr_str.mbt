@@ -19,7 +19,7 @@
 /// operand is a `TypeMismatch` at evaluation. The leading method
 /// of the string namespace.
 pub fn Expr::str_to_uppercase(self : Expr) -> Expr {
-  Expr::of(@ir.ExprNode::Str(@ir.StrOp::ToUppercase, self.node))
+  Expr::of_node(@ir.ExprNode::Str(@ir.StrOp::ToUppercase, self.node))
 }
 
 ///|
@@ -28,7 +28,7 @@ pub fn Expr::str_to_uppercase(self : Expr) -> Expr {
 /// conversion, expansions and all (`İ` lowercases to `i` + combining dot
 /// above).
 pub fn Expr::str_to_lowercase(self : Expr) -> Expr {
-  Expr::of(@ir.ExprNode::Str(@ir.StrOp::ToLowercase, self.node))
+  Expr::of_node(@ir.ExprNode::Str(@ir.StrOp::ToLowercase, self.node))
 }
 
 ///|
@@ -40,9 +40,11 @@ pub fn Expr::str_to_lowercase(self : Expr) -> Expr {
 /// matter). Null cells stay null.
 pub fn Expr::str_strip_chars(self : Expr, chars? : String) -> Expr {
   match chars {
-    None => Expr::of(@ir.ExprNode::Str(@ir.StrOp::StripChars, self.node))
+    None => Expr::of_node(@ir.ExprNode::Str(@ir.StrOp::StripChars, self.node))
     Some(set) =>
-      Expr::of(@ir.ExprNode::Str(@ir.StrOp::StripCharsCustom(set), self.node))
+      Expr::of_node(
+        @ir.ExprNode::Str(@ir.StrOp::StripCharsCustom(set), self.node),
+      )
   }
 }
 
@@ -52,7 +54,7 @@ pub fn Expr::str_strip_chars(self : Expr, chars? : String) -> Expr {
 /// once, not as its two UTF-16 code units. Null cells stay null; an all-valid
 /// result rides the `Numeric` fast path like every computed numeric column.
 pub fn Expr::str_len_chars(self : Expr) -> Expr {
-  Expr::of(@ir.ExprNode::Str(@ir.StrOp::LenChars, self.node))
+  Expr::of_node(@ir.ExprNode::Str(@ir.StrOp::LenChars, self.node))
 }
 
 ///|
@@ -62,7 +64,7 @@ pub fn Expr::str_len_chars(self : Expr) -> Expr {
 /// which counts every character as 1). Null cells stay null; an all-valid
 /// result rides the `Numeric` fast path.
 pub fn Expr::str_len_bytes(self : Expr) -> Expr {
-  Expr::of(@ir.ExprNode::Str(@ir.StrOp::LenBytes, self.node))
+  Expr::of_node(@ir.ExprNode::Str(@ir.StrOp::LenBytes, self.node))
 }
 
 ///|
@@ -75,7 +77,7 @@ pub fn Expr::str_len_bytes(self : Expr) -> Expr {
 /// spelling of the underlying split, where Polars' would offer a leading empty
 /// field.
 pub fn Expr::str_split_get(self : Expr, sep : String, index : Int32) -> Expr {
-  Expr::of(@ir.ExprNode::Str(@ir.StrOp::SplitGet(sep, index), self.node))
+  Expr::of_node(@ir.ExprNode::Str(@ir.StrOp::SplitGet(sep, index), self.node))
 }
 
 ///|
@@ -93,9 +95,11 @@ pub fn Expr::str_contains(
   literal~ : Bool = true,
 ) -> Expr {
   if literal {
-    Expr::of(@ir.ExprNode::Str(@ir.StrOp::Contains(pattern), self.node))
+    Expr::of_node(@ir.ExprNode::Str(@ir.StrOp::Contains(pattern), self.node))
   } else {
-    Expr::of(@ir.ExprNode::Str(@ir.StrOp::ContainsRegex(pattern), self.node))
+    Expr::of_node(
+      @ir.ExprNode::Str(@ir.StrOp::ContainsRegex(pattern), self.node),
+    )
   }
 }
 
@@ -103,14 +107,14 @@ pub fn Expr::str_contains(
 /// A `Bool` column that is `true` where the cell starts with `prefix`
 /// (Polars `str.starts_with`). Null cells stay null.
 pub fn Expr::str_starts_with(self : Expr, prefix : String) -> Expr {
-  Expr::of(@ir.ExprNode::Str(@ir.StrOp::StartsWith(prefix), self.node))
+  Expr::of_node(@ir.ExprNode::Str(@ir.StrOp::StartsWith(prefix), self.node))
 }
 
 ///|
 /// A `Bool` column that is `true` where the cell ends with `suffix`
 /// (Polars `str.ends_with`). Null cells stay null.
 pub fn Expr::str_ends_with(self : Expr, suffix : String) -> Expr {
-  Expr::of(@ir.ExprNode::Str(@ir.StrOp::EndsWith(suffix), self.node))
+  Expr::of_node(@ir.ExprNode::Str(@ir.StrOp::EndsWith(suffix), self.node))
 }
 
 ///|
@@ -127,9 +131,11 @@ pub fn Expr::str_replace(
   literal~ : Bool = true,
 ) -> Expr {
   if literal {
-    Expr::of(@ir.ExprNode::Str(@ir.StrOp::Replace(pattern, value), self.node))
+    Expr::of_node(
+      @ir.ExprNode::Str(@ir.StrOp::Replace(pattern, value), self.node),
+    )
   } else {
-    Expr::of(
+    Expr::of_node(
       @ir.ExprNode::Str(@ir.StrOp::ReplaceRegex(pattern, value), self.node),
     )
   }
@@ -146,11 +152,11 @@ pub fn Expr::str_replace_all(
   literal~ : Bool = true,
 ) -> Expr {
   if literal {
-    Expr::of(
+    Expr::of_node(
       @ir.ExprNode::Str(@ir.StrOp::ReplaceAll(pattern, value), self.node),
     )
   } else {
-    Expr::of(
+    Expr::of_node(
       @ir.ExprNode::Str(@ir.StrOp::ReplaceAllRegex(pattern, value), self.node),
     )
   }
@@ -161,7 +167,7 @@ pub fn Expr::str_replace_all(
 /// `str.reverse()`. Surrogate pairs are respected (reversal is by codepoint,
 /// not UTF-16 unit); null cells stay null.
 pub fn Expr::str_reverse(self : Expr) -> Expr {
-  Expr::of(@ir.ExprNode::Str(@ir.StrOp::Reverse, self.node))
+  Expr::of_node(@ir.ExprNode::Str(@ir.StrOp::Reverse, self.node))
 }
 
 ///|
@@ -174,7 +180,7 @@ pub fn Expr::str_pad_start(
   width : Int32,
   fill~ : Char = ' ',
 ) -> Expr {
-  Expr::of(@ir.ExprNode::Str(@ir.StrOp::PadStart(width, fill), self.node))
+  Expr::of_node(@ir.ExprNode::Str(@ir.StrOp::PadStart(width, fill), self.node))
 }
 
 ///|
@@ -185,7 +191,7 @@ pub fn Expr::str_pad_end(
   width : Int32,
   fill~ : Char = ' ',
 ) -> Expr {
-  Expr::of(@ir.ExprNode::Str(@ir.StrOp::PadEnd(width, fill), self.node))
+  Expr::of_node(@ir.ExprNode::Str(@ir.StrOp::PadEnd(width, fill), self.node))
 }
 
 ///|
@@ -197,7 +203,7 @@ pub fn Expr::str_pad_end(
 /// cells stay null. The width counts characters, consistent with
 /// `str_len_chars`.
 pub fn Expr::str_zfill(self : Expr, width : Int32) -> Expr {
-  Expr::of(@ir.ExprNode::Str(@ir.StrOp::ZFill(width), self.node))
+  Expr::of_node(@ir.ExprNode::Str(@ir.StrOp::ZFill(width), self.node))
 }
 
 ///|
@@ -213,7 +219,9 @@ pub fn Expr::str_extract(
   pattern : String,
   group~ : Int32 = 0,
 ) -> Expr {
-  Expr::of(@ir.ExprNode::Str(@ir.StrOp::Extract(pattern, group), self.node))
+  Expr::of_node(
+    @ir.ExprNode::Str(@ir.StrOp::Extract(pattern, group), self.node),
+  )
 }
 
 ///|
@@ -224,7 +232,7 @@ pub fn Expr::str_extract(
 /// `str_contains`'s; a null cell stays null and a non-String operand
 /// raises `TypeMismatch`.
 pub fn Expr::str_count_matches(self : Expr, pattern : String) -> Expr {
-  Expr::of(@ir.ExprNode::Str(@ir.StrOp::CountMatches(pattern), self.node))
+  Expr::of_node(@ir.ExprNode::Str(@ir.StrOp::CountMatches(pattern), self.node))
 }
 
 ///|
@@ -238,5 +246,5 @@ pub fn Expr::str_count_matches(self : Expr, pattern : String) -> Expr {
 /// `str_len_chars`; a null cell stays null and a non-String operand raises
 /// `TypeMismatch`.
 pub fn Expr::str_slice(self : Expr, offset : Int32, length? : Int32) -> Expr {
-  Expr::of(@ir.ExprNode::Str(@ir.StrOp::Slice(offset, length), self.node))
+  Expr::of_node(@ir.ExprNode::Str(@ir.StrOp::Slice(offset, length), self.node))
 }

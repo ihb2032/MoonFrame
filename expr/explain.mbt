@@ -110,63 +110,76 @@ fn push_write_tasks(stack : Array[WriteTask], expr : Expr) -> Unit {
     LitSeries(s) =>
       [Frag("lit_series(\"\{@text.escape_debug(s.name())}\", \{s.len()})")]
     // A `Node` holds the opaque `Expr`, so every AST child is wrapped with
-    // `Expr::of` before it is pushed for expansion.
+    // `Expr::of_node` before it is pushed for expansion.
     Binary(op, l, r) =>
       [
         Frag("("),
-        Node(Expr::of(l)),
+        Node(Expr::of_node(l)),
         Frag(" \{binop_symbol(op)} "),
-        Node(Expr::of(r)),
+        Node(Expr::of_node(r)),
         Frag(")"),
       ]
     Unary(op, e) =>
       match op {
-        Neg => [Frag("(-"), Node(Expr::of(e)), Frag(")")]
-        Not => [Frag("(not "), Node(Expr::of(e)), Frag(")")]
-        IsNull => [Node(Expr::of(e)), Frag(".is_null()")]
-        IsNotNull => [Node(Expr::of(e)), Frag(".is_not_null()")]
-        IsNan => [Node(Expr::of(e)), Frag(".is_nan()")]
-        IsFinite => [Node(Expr::of(e)), Frag(".is_finite()")]
-        IsInfinite => [Node(Expr::of(e)), Frag(".is_infinite()")]
-        DtYear => [Node(Expr::of(e)), Frag(".dt_year()")]
-        DtMonth => [Node(Expr::of(e)), Frag(".dt_month()")]
-        DtDay => [Node(Expr::of(e)), Frag(".dt_day()")]
-        DtWeekday => [Node(Expr::of(e)), Frag(".dt_day_of_week()")]
-        IsNotNan => [Node(Expr::of(e)), Frag(".is_not_nan()")]
-        Abs => [Node(Expr::of(e)), Frag(".abs()")]
-        Floor => [Node(Expr::of(e)), Frag(".floor()")]
-        Ceil => [Node(Expr::of(e)), Frag(".ceil()")]
-        Sign => [Node(Expr::of(e)), Frag(".sign()")]
-        Round(0) => [Node(Expr::of(e)), Frag(".round()")]
-        Round(d) => [Node(Expr::of(e)), Frag(".round(decimals=\{d})")]
+        Neg => [Frag("(-"), Node(Expr::of_node(e)), Frag(")")]
+        Not => [Frag("(not "), Node(Expr::of_node(e)), Frag(")")]
+        IsNull => [Node(Expr::of_node(e)), Frag(".is_null()")]
+        IsNotNull => [Node(Expr::of_node(e)), Frag(".is_not_null()")]
+        IsNan => [Node(Expr::of_node(e)), Frag(".is_nan()")]
+        IsFinite => [Node(Expr::of_node(e)), Frag(".is_finite()")]
+        IsInfinite => [Node(Expr::of_node(e)), Frag(".is_infinite()")]
+        DtYear => [Node(Expr::of_node(e)), Frag(".dt_year()")]
+        DtMonth => [Node(Expr::of_node(e)), Frag(".dt_month()")]
+        DtDay => [Node(Expr::of_node(e)), Frag(".dt_day()")]
+        DtWeekday => [Node(Expr::of_node(e)), Frag(".dt_day_of_week()")]
+        IsNotNan => [Node(Expr::of_node(e)), Frag(".is_not_nan()")]
+        Abs => [Node(Expr::of_node(e)), Frag(".abs()")]
+        Floor => [Node(Expr::of_node(e)), Frag(".floor()")]
+        Ceil => [Node(Expr::of_node(e)), Frag(".ceil()")]
+        Sign => [Node(Expr::of_node(e)), Frag(".sign()")]
+        Round(0) => [Node(Expr::of_node(e)), Frag(".round()")]
+        Round(d) => [Node(Expr::of_node(e)), Frag(".round(decimals=\{d})")]
       }
-    Agg(op, e) => [Node(Expr::of(e)), Frag(agg_suffix(op))]
-    Str(op, e) => [Node(Expr::of(e)), StrSuffix(op)]
-    Positional(op, e) => [Node(Expr::of(e)), Frag(positional_suffix(op))]
+    Agg(op, e) => [Node(Expr::of_node(e)), Frag(agg_suffix(op))]
+    Str(op, e) => [Node(Expr::of_node(e)), StrSuffix(op)]
+    Positional(op, e) => [Node(Expr::of_node(e)), Frag(positional_suffix(op))]
     Cast(e, target) =>
-      [Node(Expr::of(e)), Frag(".cast("), CastTarget(target), Frag(")")]
+      [Node(Expr::of_node(e)), Frag(".cast("), CastTarget(target), Frag(")")]
     Alias(e, name) =>
-      [Node(Expr::of(e)), Frag(" as \{@text.escape_debug(name)}")]
+      [Node(Expr::of_node(e)), Frag(" as \{@text.escape_debug(name)}")]
     Ternary(c, t, f) =>
       [
         Frag("when("),
-        Node(Expr::of(c)),
+        Node(Expr::of_node(c)),
         Frag(").then("),
-        Node(Expr::of(t)),
+        Node(Expr::of_node(t)),
         Frag(").otherwise("),
-        Node(Expr::of(f)),
+        Node(Expr::of_node(f)),
         Frag(")"),
       ]
     // Postfix method-call form, mirroring the construction route — the
     // operand appears once, so a chained coalesce renders linearly.
     FillNull(o, v) =>
-      [Node(Expr::of(o)), Frag(".fill_null("), Node(Expr::of(v)), Frag(")")]
+      [
+        Node(Expr::of_node(o)),
+        Frag(".fill_null("),
+        Node(Expr::of_node(v)),
+        Frag(")"),
+      ]
     FillNan(o, v) =>
-      [Node(Expr::of(o)), Frag(".fill_nan("), Node(Expr::of(v)), Frag(")")]
+      [
+        Node(Expr::of_node(o)),
+        Frag(".fill_nan("),
+        Node(Expr::of_node(v)),
+        Frag(")"),
+      ]
     // `col(a).is_in([1, 2])`: the operand, then each set member rendered as a
     // literal (`format_scalar`, like a `Lit`) inside `[...]`.
     IsIn(operand, members) => {
-      let ts : Array[WriteTask] = [Node(Expr::of(operand)), Frag(".is_in([")]
+      let ts : Array[WriteTask] = [
+        Node(Expr::of_node(operand)),
+        Frag(".is_in(["),
+      ]
       for i in 0..<members.length() {
         if i > 0 {
           ts.push(Frag(", "))
@@ -180,11 +193,11 @@ fn push_write_tasks(stack : Array[WriteTask], expr : Expr) -> Unit {
     // A non-default `closed` renders as the named argument that builds it.
     IsBetween(x, lo, hi, closed) => {
       let ts : Array[WriteTask] = [
-        Node(Expr::of(x)),
+        Node(Expr::of_node(x)),
         Frag(".is_between("),
-        Node(Expr::of(lo)),
+        Node(Expr::of_node(lo)),
         Frag(", "),
-        Node(Expr::of(hi)),
+        Node(Expr::of_node(hi)),
       ]
       match closed {
         @types.ClosedInterval::Both => ()
@@ -206,7 +219,7 @@ fn push_write_tasks(stack : Array[WriteTask], expr : Expr) -> Unit {
         if i > 0 {
           ts.push(Frag(", "))
         }
-        ts.push(Node(Expr::of(inputs[i])))
+        ts.push(Node(Expr::of_node(inputs[i])))
       }
       ts.push(Frag("])"))
       ts
@@ -222,7 +235,7 @@ fn push_write_tasks(stack : Array[WriteTask], expr : Expr) -> Unit {
         if i > 0 {
           ts.push(Frag(", "))
         }
-        ts.push(Node(Expr::of(inputs[i])))
+        ts.push(Node(Expr::of_node(inputs[i])))
       }
       ts.push(
         Frag(if returns_scalar { "], returns_scalar=true)" } else { "])" }),

@@ -25,19 +25,6 @@ fn date_frame() -> DataFrame raise @types.DataError {
 }
 
 ///|
-/// The column's date cells as ISO strings (nulls as `"null"`), the readable
-/// form every assertion below compares through.
-fn iso_cells(
-  df : DataFrame,
-  name : String,
-) -> Array[String] raise @types.DataError {
-  df
-  .get_column(name)
-  .to_scalars()
-  .map(s => if s is @types.Scalar::Null { "null" } else { s.to_string() })
-}
-
-///|
 test "a Date column keeps its identity through build and read" {
   let df = date_frame()
   assert_eq(df.get_column("d").dtype(), @types.DataType::Date)
@@ -47,7 +34,7 @@ test "a Date column keeps its identity through build and read" {
   assert_eq(df.item(0, "d").to_string(), "2024-01-01")
   assert_eq(df.item(1, "d").to_string(), "2024-01-31")
   assert_eq(df.item(3, "d").to_string(), "2024-02-01")
-  assert_eq(iso_cells(df, "d"), [
+  assert_eq(cells_to_strings(df, "d"), [
     "2024-01-01", "2024-01-31", "null", "2024-02-01",
   ])
 }
@@ -56,7 +43,7 @@ test "a Date column keeps its identity through build and read" {
 test "Date compares date-wise; a Date never compares against an Int" {
   let df = date_frame()
   assert_eq(
-    iso_cells(
+    cells_to_strings(
       df.filter(@expr.col("d").lt(@expr.lit(@types.Scalar::Date(19754L)))),
       "d",
     ),
@@ -77,7 +64,7 @@ test "Date compares date-wise; a Date never compares against an Int" {
 test "Date sorts chronologically and reduces positionally" {
   let df = date_frame()
   let sorted = df.sort([(@expr.col("d"), false, true)])
-  assert_eq(iso_cells(sorted, "d"), [
+  assert_eq(cells_to_strings(sorted, "d"), [
     "2024-01-01", "2024-01-31", "2024-02-01", "null",
   ])
   // min / max are order statistics — allowed; their cells stay Dates and
@@ -238,7 +225,7 @@ test "a Date branch through when/then/otherwise keeps its dtype" {
   assert_eq(out.get_column("dd").dtype(), @types.DataType::Date)
   // v = 1, 2 take the literal (19000 = 2022-01-08); v = 3 reads the null
   // date cell (the then-branch nulls it); v = 4 keeps 2024-02-01.
-  assert_eq(iso_cells(out, "dd"), [
+  assert_eq(cells_to_strings(out, "dd"), [
     "2022-01-08", "2022-01-08", "null", "2024-02-01",
   ])
   // Both branches columns, no literal: same arm, same identity.
@@ -249,7 +236,7 @@ test "a Date branch through when/then/otherwise keeps its dtype" {
     .with_alias("dd"),
   ])
   assert_eq(both.get_column("dd").dtype(), @types.DataType::Date)
-  assert_eq(iso_cells(both, "dd"), [
+  assert_eq(cells_to_strings(both, "dd"), [
     "2024-01-01", "2024-01-31", "null", "2024-02-01",
   ])
 }
@@ -260,7 +247,7 @@ test "an expression fill_null keeps a Date column a Date" {
     @expr.col("d").fill_null(@expr.lit(@types.Scalar::Date(19723L))),
   ])
   assert_eq(out.get_column("d").dtype(), @types.DataType::Date)
-  assert_eq(iso_cells(out, "d"), [
+  assert_eq(cells_to_strings(out, "d"), [
     "2024-01-01", "2024-01-31", "2024-01-01", "2024-02-01",
   ])
 }
@@ -305,7 +292,9 @@ test "an outer join coalesces a Date key to the present side's date" {
     JoinOptions::on([@expr.col("d")], how=JoinType::Outer, coalesce=true),
   )
   assert_eq(out.get_column("d").dtype(), @types.DataType::Date)
-  assert_eq(iso_cells(out, "d"), ["2024-01-01", "2024-01-31", "2024-02-21"])
+  assert_eq(cells_to_strings(out, "d"), [
+    "2024-01-01", "2024-01-31", "2024-02-21",
+  ])
 }
 
 ///|

@@ -24,18 +24,6 @@ fn dec_frame() -> DataFrame raise @types.DataError {
 }
 
 ///|
-/// The column's decimal cells as plain strings (nulls as `"null"`).
-fn dec_cells(
-  df : DataFrame,
-  name : String,
-) -> Array[String] raise @types.DataError {
-  df
-  .get_column(name)
-  .to_scalars()
-  .map(s => if s is @types.Scalar::Null { "null" } else { s.to_string() })
-}
-
-///|
 test "Decimal renders with the fraction padded to its scale" {
   assert_eq(@types.Scalar::Decimal(2, 12345L).to_string(), "123.45")
   assert_eq(@types.Scalar::Decimal(2, -12345L).to_string(), "-123.45")
@@ -57,14 +45,14 @@ test "a Decimal column keeps its identity through build and read" {
   assert_eq(df.get_column("d").dtype(), @types.DataType::Decimal(2))
   assert_true(df.item(0, "d") is @types.Scalar::Decimal(2, 12345L))
   assert_true(df.item(2, "d") is @types.Scalar::Null)
-  assert_eq(dec_cells(df, "d"), ["123.45", "-123.45", "null", "9.99"])
+  assert_eq(cells_to_strings(df, "d"), ["123.45", "-123.45", "null", "9.99"])
 }
 
 ///|
 test "Decimal compares within its scale; never across dtypes or scales" {
   let df = dec_frame()
   assert_eq(
-    dec_cells(
+    cells_to_strings(
       df.filter(@expr.col("d").lt(@expr.lit(@types.Scalar::Decimal(2, 1000L)))),
       "d",
     ),
@@ -101,7 +89,7 @@ test "Decimal compares within its scale; never across dtypes or scales" {
 test "Decimal sorts, groups, and joins on its unscaled order" {
   let df = dec_frame()
   let sorted = df.sort([(@expr.col("d"), false, true)])
-  assert_eq(dec_cells(sorted, "d"), ["-123.45", "9.99", "123.45", "null"])
+  assert_eq(cells_to_strings(sorted, "d"), ["-123.45", "9.99", "123.45", "null"])
   let grouped = df
     .drop_nulls(subset=[@expr.col("d")])
     .group_by([@expr.col("d")])
@@ -127,7 +115,7 @@ test "Decimal sorts, groups, and joins on its unscaled order" {
     ),
   )
   assert_true(joined.nrows() == 4)
-  assert_eq(dec_cells(joined, "d"), ["123.45", "-123.45", "9.99", "7.00"])
+  assert_eq(cells_to_strings(joined, "d"), ["123.45", "-123.45", "9.99", "7.00"])
 }
 
 ///|

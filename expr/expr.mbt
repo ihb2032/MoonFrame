@@ -75,11 +75,11 @@ pub fn Expr::node(self : Expr) -> @ir.ExprNode {
 }
 
 ///|
-/// Wrap an `ExprNode` back into the opaque handle — the inverse of `node`,
-/// for the engine's expression-*rewriting* passes: they disassemble a tree
-/// through `node`, rebuild some of it, and need this to reassemble. Total.
-/// The optimizer is the only rewriter; everything else constructs through
-/// the public builders.
+/// Wrap an `ExprNode` back into the opaque handle — the inverse of `node`
+/// and the only wrap point onto `Expr`. Callers are this package's
+/// constructors and introspection walks, and the engine's
+/// expression-*rewriting* passes, which disassemble a tree through `node`,
+/// rebuild parts of it, and reassemble here. Total.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
 pub fn Expr::of_node(node : @ir.ExprNode) -> Expr {
@@ -103,7 +103,7 @@ pub fn Expr::of_node(node : @ir.ExprNode) -> Expr {
 pub fn Expr::children(self : Expr) -> Array[Expr] {
   // The AST's shape lives on `ExprNode::children`; wrap each raw child back
   // into the opaque `Expr` this returns, so a caller walks the handle.
-  self.node.children().map(Expr::of)
+  self.node.children().map(Expr::of_node)
 }
 
 ///|
@@ -124,13 +124,6 @@ pub fn Expr::referenced_columns(self : Expr) -> @set.Set[String] {
 #internal(engine, "MoonFrame execution engine API")
 pub fn Expr::output_name(self : Expr) -> String {
   self.node.output_name()
-}
-
-///|
-/// Wrap an `ExprNode` into the opaque handle — the inverse of `node`, used
-/// inside this package by the constructors and the introspection walks.
-fn Expr::of(node : @ir.ExprNode) -> Expr {
-  { node, }
 }
 
 ///|
@@ -185,7 +178,7 @@ pub fn WhenThen::then(self : WhenThen, value : Expr) -> WhenThenElse {
 /// Supply the branch taken where the condition is `false`, completing the
 /// conditional as a `Ternary` expression node.
 pub fn WhenThenElse::otherwise(self : WhenThenElse, value : Expr) -> Expr {
-  Expr::of(
+  Expr::of_node(
     @ir.ExprNode::Ternary(self.cond.node, self.then_value.node, value.node),
   )
 }

@@ -6,7 +6,7 @@
 /// (possible only in-package) so the `", "` input separator in the `explain`
 /// render is exercised, matching how the public `map_many` covers `Map`'s.
 test "map_batches renders multiple inputs comma-separated" {
-  let node : Expr = Expr::of(
+  let node : Expr = Expr::of_node(
     @ir.MapBatches("combine", [col("a").node(), col("b").node()], false, vs => {
       vs[0]
     }),
@@ -16,7 +16,7 @@ test "map_batches renders multiple inputs comma-separated" {
     content="map_batches(\"combine\", [col(a), col(b)])",
   )
   // The reducing flag still appends its marker with several inputs.
-  let reducing : Expr = Expr::of(
+  let reducing : Expr = Expr::of_node(
     @ir.MapBatches("combine", [col("a").node(), col("b").node()], true, vs => {
       vs[0]
     }),

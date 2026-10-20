@@ -26,7 +26,7 @@ pub struct Series {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn Series::cast(Self, @types.DataType) -> Self raise @types.DataError
-pub fn Series::count(Self) -> Int
+pub fn Series::count(Self) -> Int32
 pub fn Series::drop_nulls(Self) -> Self
 pub fn Series::dtype(Self) -> @types.DataType
 pub fn Series::equal(Self, Self) -> Bool
@@ -37,32 +37,32 @@ pub fn Series::from_floats(String, Array[Double]) -> Self
 pub fn Series::from_ints(String, Array[Int64]) -> Self
 pub fn Series::from_scalars(String, Array[@types.Scalar], dtype? : @types.DataType) -> Self raise @types.DataError
 pub fn Series::from_strings(String, Array[String]) -> Self
-pub fn Series::gather(Self, Array[Int]) -> Self raise @types.DataError
+pub fn Series::gather(Self, Array[Int32]) -> Self raise @types.DataError
 #alias("_[_]")
-pub fn Series::get(Self, Int) -> @types.Scalar raise @types.DataError
-pub fn Series::head(Self, Int) -> Self
+pub fn Series::get(Self, Int32) -> @types.Scalar raise @types.DataError
+pub fn Series::head(Self, Int32) -> Self
 pub fn Series::is_empty(Self) -> Bool
-pub fn Series::is_null(Self, Int) -> Bool raise @types.DataError
+pub fn Series::is_null(Self, Int32) -> Bool raise @types.DataError
 pub fn Series::last(Self) -> @types.Scalar
-pub fn Series::len(Self) -> Int
+pub fn Series::len(Self) -> Int32
 pub fn Series::max(Self) -> @types.Scalar
 pub fn Series::mean(Self) -> Double raise @types.DataError
 pub fn Series::median(Self) -> Double raise @types.DataError
 pub fn Series::min(Self) -> @types.Scalar
-pub fn Series::n_unique(Self) -> Int
+pub fn Series::n_unique(Self) -> Int32
 pub fn Series::name(Self) -> String
 pub fn Series::not_equal(Self, Self) -> Bool
-pub fn Series::null_count(Self) -> Int
+pub fn Series::null_count(Self) -> Int32
 pub fn Series::quantile(Self, Double, interpolation? : QuantileInterpolation) -> Double raise @types.DataError
 pub fn Series::rename(Self, String) -> Self
 pub fn Series::reverse(Self) -> Self
-pub fn Series::slice(Self, Int, length? : Int) -> Self
+pub fn Series::slice(Self, Int32, length? : Int32) -> Self
 #alias("_[_:_]")
-pub fn Series::slice_between(Self, start? : Int, end? : Int) -> Self
+pub fn Series::slice_between(Self, start? : Int32, end? : Int32) -> Self
 pub fn Series::sort(Self, descending? : Bool, nulls_last? : Bool) -> Self
 pub fn Series::std(Self) -> Double raise @types.DataError
 pub fn Series::sum(Self) -> @types.Scalar raise @types.DataError
-pub fn Series::tail(Self, Int) -> Self
+pub fn Series::tail(Self, Int32) -> Self
 pub fn Series::to_repr(Self) -> @debug.Repr
 pub fn Series::to_scalars(Self) -> Array[@types.Scalar]
 pub fn Series::variance(Self) -> Double raise @types.DataError

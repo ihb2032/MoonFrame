@@ -39,7 +39,7 @@ pub fn Expr::add(Self, Self) -> Self
 pub fn Expr::arg_max(Self) -> Self
 pub fn Expr::arg_min(Self) -> Self
 pub fn Expr::arg_sort(Self, descending? : Bool, nulls_last? : Bool) -> Self
-pub fn Expr::backward_fill(Self, limit? : Int) -> Self
+pub fn Expr::backward_fill(Self, limit? : Int32) -> Self
 pub fn Expr::cast(Self, @types.DataType) -> Self
 pub fn Expr::ceil(Self) -> Self
 pub fn Expr::clip(Self, lower? : Self, upper? : Self) -> Self
@@ -49,7 +49,7 @@ pub fn Expr::cum_max(Self, reverse? : Bool) -> Self
 pub fn Expr::cum_min(Self, reverse? : Bool) -> Self
 pub fn Expr::cum_prod(Self, reverse? : Bool) -> Self
 pub fn Expr::cum_sum(Self, reverse? : Bool) -> Self
-pub fn Expr::diff(Self, n? : Int) -> Self
+pub fn Expr::diff(Self, n? : Int32) -> Self
 pub fn Expr::div(Self, Self) -> Self
 pub fn Expr::dt_day(Self) -> Self
 pub fn Expr::dt_day_of_week(Self) -> Self
@@ -61,7 +61,7 @@ pub fn Expr::fill_null(Self, Self) -> Self
 pub fn Expr::first(Self) -> Self
 pub fn Expr::floor(Self) -> Self
 pub fn Expr::floor_div(Self, Self) -> Self
-pub fn Expr::forward_fill(Self, limit? : Int) -> Self
+pub fn Expr::forward_fill(Self, limit? : Int32) -> Self
 pub fn Expr::ge(Self, Self) -> Self
 pub fn Expr::gt(Self, Self) -> Self
 pub fn Expr::is_between(Self, Self, Self, closed? : @types.ClosedInterval) -> Self
@@ -96,35 +96,35 @@ pub fn Expr::output(Self, &Logger) -> Unit
 pub fn Expr::pow(Self, Self) -> Self
 pub fn Expr::quantile(Self, Double, interpolation? : @series.QuantileInterpolation) -> Self
 pub fn Expr::rank(Self, how? : @types.RankMethod, descending? : Bool) -> Self
-pub fn Expr::rolling_max(Self, Int, min_samples? : Int, center? : Bool) -> Self
-pub fn Expr::rolling_mean(Self, Int, min_samples? : Int, center? : Bool) -> Self
-pub fn Expr::rolling_median(Self, Int, min_samples? : Int, center? : Bool) -> Self
-pub fn Expr::rolling_min(Self, Int, min_samples? : Int, center? : Bool) -> Self
-pub fn Expr::rolling_std(Self, Int, min_samples? : Int, center? : Bool) -> Self
-pub fn Expr::rolling_sum(Self, Int, min_samples? : Int, center? : Bool) -> Self
-pub fn Expr::rolling_variance(Self, Int, min_samples? : Int, center? : Bool) -> Self
-pub fn Expr::round(Self, decimals? : Int) -> Self
-pub fn Expr::shift(Self, Int, fill_value? : @types.Scalar) -> Self
+pub fn Expr::rolling_max(Self, Int32, min_samples? : Int32, center? : Bool) -> Self
+pub fn Expr::rolling_mean(Self, Int32, min_samples? : Int32, center? : Bool) -> Self
+pub fn Expr::rolling_median(Self, Int32, min_samples? : Int32, center? : Bool) -> Self
+pub fn Expr::rolling_min(Self, Int32, min_samples? : Int32, center? : Bool) -> Self
+pub fn Expr::rolling_std(Self, Int32, min_samples? : Int32, center? : Bool) -> Self
+pub fn Expr::rolling_sum(Self, Int32, min_samples? : Int32, center? : Bool) -> Self
+pub fn Expr::rolling_variance(Self, Int32, min_samples? : Int32, center? : Bool) -> Self
+pub fn Expr::round(Self, decimals? : Int32) -> Self
+pub fn Expr::shift(Self, Int32, fill_value? : @types.Scalar) -> Self
 pub fn Expr::sign(Self) -> Self
 pub fn Expr::std(Self) -> Self
 pub fn Expr::str_contains(Self, String, literal? : Bool) -> Self
 pub fn Expr::str_count_matches(Self, String) -> Self
 pub fn Expr::str_ends_with(Self, String) -> Self
-pub fn Expr::str_extract(Self, String, group? : Int) -> Self
+pub fn Expr::str_extract(Self, String, group? : Int32) -> Self
 pub fn Expr::str_len_bytes(Self) -> Self
 pub fn Expr::str_len_chars(Self) -> Self
-pub fn Expr::str_pad_end(Self, Int, fill? : Char) -> Self
-pub fn Expr::str_pad_start(Self, Int, fill? : Char) -> Self
+pub fn Expr::str_pad_end(Self, Int32, fill? : Char) -> Self
+pub fn Expr::str_pad_start(Self, Int32, fill? : Char) -> Self
 pub fn Expr::str_replace(Self, String, String, literal? : Bool) -> Self
 pub fn Expr::str_replace_all(Self, String, String, literal? : Bool) -> Self
 pub fn Expr::str_reverse(Self) -> Self
-pub fn Expr::str_slice(Self, Int, length? : Int) -> Self
-pub fn Expr::str_split_get(Self, String, Int) -> Self
+pub fn Expr::str_slice(Self, Int32, length? : Int32) -> Self
+pub fn Expr::str_split_get(Self, String, Int32) -> Self
 pub fn Expr::str_starts_with(Self, String) -> Self
 pub fn Expr::str_strip_chars(Self, chars? : String) -> Self
 pub fn Expr::str_to_lowercase(Self) -> Self
 pub fn Expr::str_to_uppercase(Self) -> Self
-pub fn Expr::str_zfill(Self, Int) -> Self
+pub fn Expr::str_zfill(Self, Int32) -> Self
 pub fn Expr::sub(Self, Self) -> Self
 pub fn Expr::sum(Self) -> Self
 pub fn Expr::to_repr(Self) -> @debug.Repr

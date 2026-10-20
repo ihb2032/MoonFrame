@@ -13,7 +13,7 @@ pub(all) suberror DataError {
   DuplicateColumn(String)
   TypeMismatch(TypeMismatchDetail)
   LengthMismatch
-  IndexOutOfBounds(Int)
+  IndexOutOfBounds(Int32)
   ParseError(ParseErrorDetail)
   InvalidOperation(String)
   IoError(String)
@@ -55,7 +55,7 @@ pub(all) enum DataType {
   String
   Date
   Timestamp
-  Decimal(Int)
+  Decimal(Int32)
   Null
 } derive(Eq, @debug.Debug)
 pub fn DataType::equal(Self, Self) -> Bool
@@ -85,7 +85,7 @@ pub impl Show for Field
 #non_exhaustive
 pub(all) enum ParseErrorDetail {
   Message(String)
-  Cell(CellParseLocation, String, Int, DataType, String)
+  Cell(CellParseLocation, String, Int32, DataType, String)
 } derive(Eq, @debug.Debug)
 pub fn ParseErrorDetail::equal(Self, Self) -> Bool
 pub fn ParseErrorDetail::not_equal(Self, Self) -> Bool
@@ -109,7 +109,7 @@ pub(all) enum Scalar {
   String(String)
   Date(Int64)
   Timestamp(Int64)
-  Decimal(Int, Int64)
+  Decimal(Int32, Int64)
   Null
 } derive(Eq, @debug.Debug)
 pub fn Scalar::as_bool(Self) -> Bool raise DataError
@@ -131,12 +131,12 @@ pub struct Schema {
 pub fn Schema::Schema(Array[Field]) -> Self raise DataError
 pub fn Schema::equal(Self, Self) -> Bool
 pub fn Schema::field(Self, String) -> Field raise DataError
-pub fn Schema::field_at(Self, Int) -> Field raise DataError
+pub fn Schema::field_at(Self, Int32) -> Field raise DataError
 pub fn Schema::field_names(Self) -> Array[String]
 pub fn Schema::fields(Self) -> Array[Field]
-pub fn Schema::index_of(Self, String) -> Int raise DataError
+pub fn Schema::index_of(Self, String) -> Int32 raise DataError
 pub fn Schema::is_empty(Self) -> Bool
-pub fn Schema::len(Self) -> Int
+pub fn Schema::len(Self) -> Int32
 pub fn Schema::not_equal(Self, Self) -> Bool
 pub fn Schema::output(Self, &Logger) -> Unit
 pub fn Schema::rename(Self, String, String) -> Self raise DataError

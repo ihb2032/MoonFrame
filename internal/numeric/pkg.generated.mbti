@@ -4,21 +4,21 @@ package "ihb2032/MoonFrame/internal/numeric"
 // Values
 pub fn add_checked(Int64, Int64) -> Int64?
 
-pub fn cmp_double_total(Double, Double) -> Int
+pub fn cmp_double_total(Double, Double) -> Int32
 
 pub fn double_fits_int64(Double) -> Bool
 
 pub fn double_lt_int64(Double, Int64) -> Bool
 
-pub fn fold_double_sum(Int, (Int) -> Double, (Int) -> Bool) -> (Double, Int)
+pub fn fold_double_sum(Int32, (Int32) -> Double, (Int32) -> Bool) -> (Double, Int32)
 
-pub fn[T] fold_extremum(Int, (Int) -> T, (Int) -> Bool, (T, T) -> Bool) -> T?
+pub fn[T] fold_extremum(Int32, (Int32) -> T, (Int32) -> Bool, (T, T) -> Bool) -> T?
 
-pub fn fold_int64_sum(Int, (Int) -> Int64, (Int) -> Bool) -> Int64
+pub fn fold_int64_sum(Int32, (Int32) -> Int64, (Int32) -> Bool) -> Int64
 
-pub fn fold_int64_sum_checked(Int, (Int) -> Int64, (Int) -> Bool) -> Int64?
+pub fn fold_int64_sum_checked(Int32, (Int32) -> Int64, (Int32) -> Bool) -> Int64?
 
-pub fn fold_welford_m2(Int, (Int) -> Double, (Int) -> Bool) -> (Double, Int, Bool)
+pub fn fold_welford_m2(Int32, (Int32) -> Double, (Int32) -> Bool) -> (Double, Int32, Bool)
 
 pub fn int64_eq_double(Int64, Double) -> Bool
 
@@ -26,7 +26,7 @@ pub fn int64_lt_double(Int64, Double) -> Bool
 
 pub fn mul_checked(Int64, Int64) -> Int64?
 
-pub fn rescale_unscaled(Int, Int, Int64) -> Int64?
+pub fn rescale_unscaled(Int32, Int32, Int64) -> Int64?
 
 pub fn sub_checked(Int64, Int64) -> Int64?
 

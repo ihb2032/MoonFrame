@@ -38,14 +38,14 @@ pub fn write_ndjson(String, @frame.DataFrame) -> Unit raise @types.DataError
 pub struct CsvReadOptions {
   has_header : Bool
   delimiter : Char
-  infer_schema_rows : Int
+  infer_schema_rows : Int32
   strict_column_count : Bool
   on_parse_error : OnParseError
   allow_nonfinite_floats : Bool
   strict_quotes : Bool
   // private fields
 }
-pub fn CsvReadOptions::CsvReadOptions(has_header? : Bool, delimiter? : Char, infer_schema_rows? : Int, null_values? : Array[String], strict_column_count? : Bool, on_parse_error? : OnParseError, allow_nonfinite_floats? : Bool, strict_quotes? : Bool) -> Self
+pub fn CsvReadOptions::CsvReadOptions(has_header? : Bool, delimiter? : Char, infer_schema_rows? : Int32, null_values? : Array[String], strict_column_count? : Bool, on_parse_error? : OnParseError, allow_nonfinite_floats? : Bool, strict_quotes? : Bool) -> Self
 pub fn CsvReadOptions::null_values(Self) -> Array[String]
 
 pub struct CsvWriteOptions {
@@ -58,11 +58,11 @@ pub struct CsvWriteOptions {
 pub fn CsvWriteOptions::CsvWriteOptions(header? : Bool, delimiter? : Char, null_value? : String, sanitize_formulas? : Bool, line_terminator? : String) -> Self raise @types.DataError
 
 pub struct JsonReadOptions {
-  infer_schema_rows : Int
+  infer_schema_rows : Int32
   on_parse_error : OnParseError
   reject_duplicate_keys : Bool
 }
-pub fn JsonReadOptions::JsonReadOptions(infer_schema_rows? : Int, on_parse_error? : OnParseError, reject_duplicate_keys? : Bool) -> Self
+pub fn JsonReadOptions::JsonReadOptions(infer_schema_rows? : Int32, on_parse_error? : OnParseError, reject_duplicate_keys? : Bool) -> Self
 
 pub(all) enum OnParseError {
   Raise

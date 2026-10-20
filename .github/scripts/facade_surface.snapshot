@@ -4,12 +4,12 @@ alias DataFrame::limit <- frame
 alias LazyFrame::limit <- lazy
 alias Series::"_[_:_]" <- series
 alias Series::"_[_]" <- series
-ctor CsvReadOptions::CsvReadOptions(has_header? : Bool, delimiter? : Char, infer_schema_rows? : Int, null_values? : Array[String], strict_column_count? : Bool, on_parse_error? : OnParseError, allow_nonfinite_floats? : Bool, strict_quotes? : Bool) -> Self <- io
+ctor CsvReadOptions::CsvReadOptions(has_header? : Bool, delimiter? : Char, infer_schema_rows? : Int32, null_values? : Array[String], strict_column_count? : Bool, on_parse_error? : OnParseError, allow_nonfinite_floats? : Bool, strict_quotes? : Bool) -> Self <- io
 ctor CsvWriteOptions::CsvWriteOptions(header? : Bool, delimiter? : Char, null_value? : String, sanitize_formulas? : Bool, line_terminator? : String) -> Self raise @types.DataError <- io
 ctor DataFrame::DataFrame(Array[@series.Series]) -> Self raise @types.DataError <- frame
 ctor Field::Field(String, DataType, nullable? : Bool) -> Self <- types
-ctor HtmlOptions::HtmlOptions(max_rows? : Int, table_class? : String, caption? : String, escape? : Bool) -> Self <- frame
-ctor JsonReadOptions::JsonReadOptions(infer_schema_rows? : Int, on_parse_error? : OnParseError, reject_duplicate_keys? : Bool) -> Self <- io
+ctor HtmlOptions::HtmlOptions(max_rows? : Int32, table_class? : String, caption? : String, escape? : Bool) -> Self <- frame
+ctor JsonReadOptions::JsonReadOptions(infer_schema_rows? : Int32, on_parse_error? : OnParseError, reject_duplicate_keys? : Bool) -> Self <- io
 ctor LazyFrame::LazyFrame(@frame.DataFrame) -> Self <- lazy
 ctor Schema::Schema(Array[Field]) -> Self raise DataError <- types
 field ChartSpec.color : String? <- chart
@@ -21,7 +21,7 @@ field ChartSpec.y : String <- chart
 field CsvReadOptions.allow_nonfinite_floats : Bool <- io
 field CsvReadOptions.delimiter : Char <- io
 field CsvReadOptions.has_header : Bool <- io
-field CsvReadOptions.infer_schema_rows : Int <- io
+field CsvReadOptions.infer_schema_rows : Int32 <- io
 field CsvReadOptions.on_parse_error : OnParseError <- io
 field CsvReadOptions.strict_column_count : Bool <- io
 field CsvReadOptions.strict_quotes : Bool <- io
@@ -32,12 +32,12 @@ field CsvWriteOptions.null_value : String <- io
 field CsvWriteOptions.sanitize_formulas : Bool <- io
 field HtmlOptions.caption : String? <- frame
 field HtmlOptions.escape : Bool <- frame
-field HtmlOptions.max_rows : Int? <- frame
+field HtmlOptions.max_rows : Int32? <- frame
 field HtmlOptions.table_class : String? <- frame
 field JoinOptions.coalesce : Bool? <- frame
 field JoinOptions.how : JoinType <- frame
 field JoinOptions.suffix : String <- frame
-field JsonReadOptions.infer_schema_rows : Int <- io
+field JsonReadOptions.infer_schema_rows : Int32 <- io
 field JsonReadOptions.on_parse_error : OnParseError <- io
 field JsonReadOptions.reject_duplicate_keys : Bool <- io
 fn col(String) -> @expr.Expr <- root
@@ -127,7 +127,7 @@ method DataError::not_equal(Self, Self) -> Bool <- types
 method DataError::output(Self, &Logger) -> Unit <- types
 method DataError::to_repr(Self) -> @debug.Repr <- types
 method DataError::to_string(Self) -> String <- types
-method DataFrame::bottom_k(Self, Int, by~ : Array[@expr.Expr], reverse? : Bool) -> Self raise @types.DataError <- frame
+method DataFrame::bottom_k(Self, Int32, by~ : Array[@expr.Expr], reverse? : Bool) -> Self raise @types.DataError <- frame
 method DataFrame::cols_contains(Self, String) -> Array[@expr.Expr] <- frame
 method DataFrame::cols_ends_with(Self, String) -> Array[@expr.Expr] <- frame
 method DataFrame::cols_matching(Self, String) -> Array[@expr.Expr] raise @types.DataError <- frame
@@ -143,29 +143,29 @@ method DataFrame::empty(@types.Schema) -> Self raise @types.DataError <- frame
 method DataFrame::equal(Self, Self) -> Bool <- frame
 method DataFrame::fill_nan(Self, Double) -> Self raise @types.DataError <- frame
 method DataFrame::fill_null(Self, @types.Scalar) -> Self raise @types.DataError <- frame
-method DataFrame::fill_null_backward(Self, limit? : Int) -> Self raise @types.DataError <- frame
-method DataFrame::fill_null_forward(Self, limit? : Int) -> Self raise @types.DataError <- frame
+method DataFrame::fill_null_backward(Self, limit? : Int32) -> Self raise @types.DataError <- frame
+method DataFrame::fill_null_forward(Self, limit? : Int32) -> Self raise @types.DataError <- frame
 method DataFrame::filter(Self, @expr.Expr) -> Self raise @types.DataError <- frame
 method DataFrame::from_rows(@types.Schema, Array[Array[@types.Scalar]]) -> Self raise @types.DataError <- frame
-method DataFrame::gather(Self, Array[Int]) -> Self raise @types.DataError <- frame
-method DataFrame::gather_every(Self, Int, offset? : Int) -> Self raise @types.DataError <- frame
+method DataFrame::gather(Self, Array[Int32]) -> Self raise @types.DataError <- frame
+method DataFrame::gather_every(Self, Int32, offset? : Int32) -> Self raise @types.DataError <- frame
 method DataFrame::get_column(Self, String) -> @series.Series raise @types.DataError <- frame
-method DataFrame::get_column_at(Self, Int) -> @series.Series raise @types.DataError <- frame
+method DataFrame::get_column_at(Self, Int32) -> @series.Series raise @types.DataError <- frame
 method DataFrame::group_by(Self, Array[@expr.Expr]) -> GroupedDataFrame raise @types.DataError <- frame
-method DataFrame::head(Self, Int) -> Self <- frame
+method DataFrame::head(Self, Int32) -> Self <- frame
 method DataFrame::is_duplicated(Self) -> @series.Series <- frame
 method DataFrame::is_empty(Self) -> Bool <- frame
 method DataFrame::is_unique(Self) -> @series.Series <- frame
-method DataFrame::item(Self, Int, String) -> @types.Scalar raise @types.DataError <- frame
+method DataFrame::item(Self, Int32, String) -> @types.Scalar raise @types.DataError <- frame
 method DataFrame::join(Self, Self, JoinOptions) -> Self raise @types.DataError <- frame
 method DataFrame::max(Self) -> Self raise @types.DataError <- frame
 method DataFrame::mean(Self) -> Self raise @types.DataError <- frame
 method DataFrame::median(Self) -> Self raise @types.DataError <- frame
 method DataFrame::min(Self) -> Self raise @types.DataError <- frame
 method DataFrame::n_unique(Self) -> Self raise @types.DataError <- frame
-method DataFrame::ncols(Self) -> Int <- frame
+method DataFrame::ncols(Self) -> Int32 <- frame
 method DataFrame::not_equal(Self, Self) -> Bool <- frame
-method DataFrame::nrows(Self) -> Int <- frame
+method DataFrame::nrows(Self) -> Int32 <- frame
 method DataFrame::null_count(Self) -> Self raise @types.DataError <- frame
 method DataFrame::numeric_cols(Self) -> Array[@expr.Expr] <- frame
 method DataFrame::pivot(Self, on~ : Array[@expr.Expr], index? : Array[@expr.Expr], values? : Array[@expr.Expr], aggregate_function? : PivotAgg) -> Self raise @types.DataError <- frame
@@ -173,22 +173,22 @@ method DataFrame::quantile(Self, Double, interpolation? : @series.QuantileInterp
 method DataFrame::rename(Self, Array[(String, String)]) -> Self raise @types.DataError <- frame
 method DataFrame::rename_with(Self, (String) -> String) -> Self raise @types.DataError <- frame
 method DataFrame::reverse(Self) -> Self <- frame
-method DataFrame::row(Self, Int) -> Array[@types.Scalar] raise @types.DataError <- frame
+method DataFrame::row(Self, Int32) -> Array[@types.Scalar] raise @types.DataError <- frame
 method DataFrame::rows(Self) -> Array[Array[@types.Scalar]] <- frame
-method DataFrame::sample(Self, Int, with_replacement? : Bool, seed? : Int) -> Self raise @types.DataError <- frame
+method DataFrame::sample(Self, Int32, with_replacement? : Bool, seed? : Int32) -> Self raise @types.DataError <- frame
 method DataFrame::schema(Self) -> @types.Schema <- frame
 method DataFrame::select(Self, Array[@expr.Expr]) -> Self raise @types.DataError <- frame
-method DataFrame::shape(Self) -> (Int, Int) <- frame
-method DataFrame::slice(Self, Int, length? : Int) -> Self <- frame
-method DataFrame::slice_between(Self, start? : Int, end? : Int) -> Self <- frame
+method DataFrame::shape(Self) -> (Int32, Int32) <- frame
+method DataFrame::slice(Self, Int32, length? : Int32) -> Self <- frame
+method DataFrame::slice_between(Self, start? : Int32, end? : Int32) -> Self <- frame
 method DataFrame::sort(Self, Array[(@expr.Expr, Bool, Bool)]) -> Self raise @types.DataError <- frame
 method DataFrame::std(Self) -> Self raise @types.DataError <- frame
 method DataFrame::sum(Self) -> Self raise @types.DataError <- frame
-method DataFrame::tail(Self, Int) -> Self <- frame
+method DataFrame::tail(Self, Int32) -> Self <- frame
 method DataFrame::to_html(Self, options? : HtmlOptions) -> String <- frame
-method DataFrame::to_markdown(Self, max_rows? : Int) -> String <- frame
+method DataFrame::to_markdown(Self, max_rows? : Int32) -> String <- frame
 method DataFrame::to_repr(Self) -> @debug.Repr <- frame
-method DataFrame::top_k(Self, Int, by~ : Array[@expr.Expr], reverse? : Bool) -> Self raise @types.DataError <- frame
+method DataFrame::top_k(Self, Int32, by~ : Array[@expr.Expr], reverse? : Bool) -> Self raise @types.DataError <- frame
 method DataFrame::unique(Self, subset? : Array[@expr.Expr], keep? : KeepStrategy) -> Self raise @types.DataError <- frame
 method DataFrame::unpivot(Self, on? : Array[@expr.Expr], index? : Array[@expr.Expr], variable_name? : String, value_name? : String) -> Self raise @types.DataError <- frame
 method DataFrame::variance(Self) -> Self raise @types.DataError <- frame
@@ -207,7 +207,7 @@ method Expr::add(Self, Self) -> Self <- expr
 method Expr::arg_max(Self) -> Self <- expr
 method Expr::arg_min(Self) -> Self <- expr
 method Expr::arg_sort(Self, descending? : Bool, nulls_last? : Bool) -> Self <- expr
-method Expr::backward_fill(Self, limit? : Int) -> Self <- expr
+method Expr::backward_fill(Self, limit? : Int32) -> Self <- expr
 method Expr::cast(Self, @types.DataType) -> Self <- expr
 method Expr::ceil(Self) -> Self <- expr
 method Expr::clip(Self, lower? : Self, upper? : Self) -> Self <- expr
@@ -217,7 +217,7 @@ method Expr::cum_max(Self, reverse? : Bool) -> Self <- expr
 method Expr::cum_min(Self, reverse? : Bool) -> Self <- expr
 method Expr::cum_prod(Self, reverse? : Bool) -> Self <- expr
 method Expr::cum_sum(Self, reverse? : Bool) -> Self <- expr
-method Expr::diff(Self, n? : Int) -> Self <- expr
+method Expr::diff(Self, n? : Int32) -> Self <- expr
 method Expr::div(Self, Self) -> Self <- expr
 method Expr::dt_day(Self) -> Self <- expr
 method Expr::dt_day_of_week(Self) -> Self <- expr
@@ -229,7 +229,7 @@ method Expr::fill_null(Self, Self) -> Self <- expr
 method Expr::first(Self) -> Self <- expr
 method Expr::floor(Self) -> Self <- expr
 method Expr::floor_div(Self, Self) -> Self <- expr
-method Expr::forward_fill(Self, limit? : Int) -> Self <- expr
+method Expr::forward_fill(Self, limit? : Int32) -> Self <- expr
 method Expr::ge(Self, Self) -> Self <- expr
 method Expr::gt(Self, Self) -> Self <- expr
 method Expr::is_between(Self, Self, Self, closed? : @types.ClosedInterval) -> Self <- expr
@@ -264,35 +264,35 @@ method Expr::output(Self, &Logger) -> Unit <- expr
 method Expr::pow(Self, Self) -> Self <- expr
 method Expr::quantile(Self, Double, interpolation? : @series.QuantileInterpolation) -> Self <- expr
 method Expr::rank(Self, how? : @types.RankMethod, descending? : Bool) -> Self <- expr
-method Expr::rolling_max(Self, Int, min_samples? : Int, center? : Bool) -> Self <- expr
-method Expr::rolling_mean(Self, Int, min_samples? : Int, center? : Bool) -> Self <- expr
-method Expr::rolling_median(Self, Int, min_samples? : Int, center? : Bool) -> Self <- expr
-method Expr::rolling_min(Self, Int, min_samples? : Int, center? : Bool) -> Self <- expr
-method Expr::rolling_std(Self, Int, min_samples? : Int, center? : Bool) -> Self <- expr
-method Expr::rolling_sum(Self, Int, min_samples? : Int, center? : Bool) -> Self <- expr
-method Expr::rolling_variance(Self, Int, min_samples? : Int, center? : Bool) -> Self <- expr
-method Expr::round(Self, decimals? : Int) -> Self <- expr
-method Expr::shift(Self, Int, fill_value? : @types.Scalar) -> Self <- expr
+method Expr::rolling_max(Self, Int32, min_samples? : Int32, center? : Bool) -> Self <- expr
+method Expr::rolling_mean(Self, Int32, min_samples? : Int32, center? : Bool) -> Self <- expr
+method Expr::rolling_median(Self, Int32, min_samples? : Int32, center? : Bool) -> Self <- expr
+method Expr::rolling_min(Self, Int32, min_samples? : Int32, center? : Bool) -> Self <- expr
+method Expr::rolling_std(Self, Int32, min_samples? : Int32, center? : Bool) -> Self <- expr
+method Expr::rolling_sum(Self, Int32, min_samples? : Int32, center? : Bool) -> Self <- expr
+method Expr::rolling_variance(Self, Int32, min_samples? : Int32, center? : Bool) -> Self <- expr
+method Expr::round(Self, decimals? : Int32) -> Self <- expr
+method Expr::shift(Self, Int32, fill_value? : @types.Scalar) -> Self <- expr
 method Expr::sign(Self) -> Self <- expr
 method Expr::std(Self) -> Self <- expr
 method Expr::str_contains(Self, String, literal? : Bool) -> Self <- expr
 method Expr::str_count_matches(Self, String) -> Self <- expr
 method Expr::str_ends_with(Self, String) -> Self <- expr
-method Expr::str_extract(Self, String, group? : Int) -> Self <- expr
+method Expr::str_extract(Self, String, group? : Int32) -> Self <- expr
 method Expr::str_len_bytes(Self) -> Self <- expr
 method Expr::str_len_chars(Self) -> Self <- expr
-method Expr::str_pad_end(Self, Int, fill? : Char) -> Self <- expr
-method Expr::str_pad_start(Self, Int, fill? : Char) -> Self <- expr
+method Expr::str_pad_end(Self, Int32, fill? : Char) -> Self <- expr
+method Expr::str_pad_start(Self, Int32, fill? : Char) -> Self <- expr
 method Expr::str_replace(Self, String, String, literal? : Bool) -> Self <- expr
 method Expr::str_replace_all(Self, String, String, literal? : Bool) -> Self <- expr
 method Expr::str_reverse(Self) -> Self <- expr
-method Expr::str_slice(Self, Int, length? : Int) -> Self <- expr
-method Expr::str_split_get(Self, String, Int) -> Self <- expr
+method Expr::str_slice(Self, Int32, length? : Int32) -> Self <- expr
+method Expr::str_split_get(Self, String, Int32) -> Self <- expr
 method Expr::str_starts_with(Self, String) -> Self <- expr
 method Expr::str_strip_chars(Self, chars? : String) -> Self <- expr
 method Expr::str_to_lowercase(Self) -> Self <- expr
 method Expr::str_to_uppercase(Self) -> Self <- expr
-method Expr::str_zfill(Self, Int) -> Self <- expr
+method Expr::str_zfill(Self, Int32) -> Self <- expr
 method Expr::sub(Self, Self) -> Self <- expr
 method Expr::sum(Self) -> Self <- expr
 method Expr::to_repr(Self) -> @debug.Repr <- expr
@@ -339,7 +339,7 @@ method JoinType::to_repr(Self) -> @debug.Repr <- frame
 method KeepStrategy::equal(Self, Self) -> Bool <- frame
 method KeepStrategy::not_equal(Self, Self) -> Bool <- frame
 method KeepStrategy::to_repr(Self) -> @debug.Repr <- frame
-method LazyFrame::bottom_k(Self, Int, by~ : Array[@expr.Expr], reverse? : Bool) -> Self <- lazy
+method LazyFrame::bottom_k(Self, Int32, by~ : Array[@expr.Expr], reverse? : Bool) -> Self <- lazy
 method LazyFrame::collect(Self) -> @frame.DataFrame raise @types.DataError <- lazy
 method LazyFrame::count(Self) -> Self <- lazy
 method LazyFrame::drop(Self, Array[@expr.Expr]) -> Self <- lazy
@@ -347,13 +347,13 @@ method LazyFrame::drop_nulls(Self, subset? : Array[@expr.Expr]) -> Self <- lazy
 method LazyFrame::explain(Self, optimized? : Bool) -> String <- lazy
 method LazyFrame::fill_nan(Self, Double) -> Self <- lazy
 method LazyFrame::fill_null(Self, @types.Scalar) -> Self <- lazy
-method LazyFrame::fill_null_backward(Self, limit? : Int) -> Self <- lazy
-method LazyFrame::fill_null_forward(Self, limit? : Int) -> Self <- lazy
+method LazyFrame::fill_null_backward(Self, limit? : Int32) -> Self <- lazy
+method LazyFrame::fill_null_forward(Self, limit? : Int32) -> Self <- lazy
 method LazyFrame::filter(Self, @expr.Expr) -> Self <- lazy
 method LazyFrame::first(Self) -> Self <- lazy
-method LazyFrame::gather_every(Self, Int, offset? : Int) -> Self <- lazy
+method LazyFrame::gather_every(Self, Int32, offset? : Int32) -> Self <- lazy
 method LazyFrame::group_by(Self, Array[@expr.Expr]) -> LazyGroupBy <- lazy
-method LazyFrame::head(Self, Int) -> Self <- lazy
+method LazyFrame::head(Self, Int32) -> Self <- lazy
 method LazyFrame::join(Self, Self, @frame.JoinOptions) -> Self <- lazy
 method LazyFrame::last(Self) -> Self <- lazy
 method LazyFrame::max(Self) -> Self <- lazy
@@ -368,12 +368,12 @@ method LazyFrame::rename(Self, Array[(String, String)]) -> Self <- lazy
 method LazyFrame::rename_with(Self, (String) -> String) -> Self <- lazy
 method LazyFrame::reverse(Self) -> Self <- lazy
 method LazyFrame::select(Self, Array[@expr.Expr]) -> Self <- lazy
-method LazyFrame::slice(Self, Int, length? : Int) -> Self <- lazy
+method LazyFrame::slice(Self, Int32, length? : Int32) -> Self <- lazy
 method LazyFrame::sort(Self, Array[(@expr.Expr, Bool, Bool)]) -> Self <- lazy
 method LazyFrame::std(Self) -> Self <- lazy
 method LazyFrame::sum(Self) -> Self <- lazy
-method LazyFrame::tail(Self, Int) -> Self <- lazy
-method LazyFrame::top_k(Self, Int, by~ : Array[@expr.Expr], reverse? : Bool) -> Self <- lazy
+method LazyFrame::tail(Self, Int32) -> Self <- lazy
+method LazyFrame::top_k(Self, Int32, by~ : Array[@expr.Expr], reverse? : Bool) -> Self <- lazy
 method LazyFrame::unique(Self, subset? : Array[@expr.Expr], keep? : @frame.KeepStrategy) -> Self <- lazy
 method LazyFrame::unpivot(Self, on? : Array[@expr.Expr], index? : Array[@expr.Expr], variable_name? : String, value_name? : String) -> Self <- lazy
 method LazyFrame::variance(Self) -> Self <- lazy
@@ -421,12 +421,12 @@ method Scalar::to_repr(Self) -> @debug.Repr <- types
 method Scalar::to_string(Self) -> String <- types
 method Schema::equal(Self, Self) -> Bool <- types
 method Schema::field(Self, String) -> Field raise DataError <- types
-method Schema::field_at(Self, Int) -> Field raise DataError <- types
+method Schema::field_at(Self, Int32) -> Field raise DataError <- types
 method Schema::field_names(Self) -> Array[String] <- types
 method Schema::fields(Self) -> Array[Field] <- types
-method Schema::index_of(Self, String) -> Int raise DataError <- types
+method Schema::index_of(Self, String) -> Int32 raise DataError <- types
 method Schema::is_empty(Self) -> Bool <- types
-method Schema::len(Self) -> Int <- types
+method Schema::len(Self) -> Int32 <- types
 method Schema::not_equal(Self, Self) -> Bool <- types
 method Schema::output(Self, &Logger) -> Unit <- types
 method Schema::rename(Self, String, String) -> Self raise DataError <- types
@@ -434,7 +434,7 @@ method Schema::select(Self, Array[String]) -> Self raise DataError <- types
 method Schema::to_repr(Self) -> @debug.Repr <- types
 method Schema::to_string(Self) -> String <- types
 method Series::cast(Self, @types.DataType) -> Self raise @types.DataError <- series
-method Series::count(Self) -> Int <- series
+method Series::count(Self) -> Int32 <- series
 method Series::drop_nulls(Self) -> Self <- series
 method Series::dtype(Self) -> @types.DataType <- series
 method Series::equal(Self, Self) -> Bool <- series
@@ -445,30 +445,30 @@ method Series::from_floats(String, Array[Double]) -> Self <- series
 method Series::from_ints(String, Array[Int64]) -> Self <- series
 method Series::from_scalars(String, Array[@types.Scalar], dtype? : @types.DataType) -> Self raise @types.DataError <- series
 method Series::from_strings(String, Array[String]) -> Self <- series
-method Series::gather(Self, Array[Int]) -> Self raise @types.DataError <- series
-method Series::get(Self, Int) -> @types.Scalar raise @types.DataError <- series
-method Series::head(Self, Int) -> Self <- series
+method Series::gather(Self, Array[Int32]) -> Self raise @types.DataError <- series
+method Series::get(Self, Int32) -> @types.Scalar raise @types.DataError <- series
+method Series::head(Self, Int32) -> Self <- series
 method Series::is_empty(Self) -> Bool <- series
-method Series::is_null(Self, Int) -> Bool raise @types.DataError <- series
+method Series::is_null(Self, Int32) -> Bool raise @types.DataError <- series
 method Series::last(Self) -> @types.Scalar <- series
-method Series::len(Self) -> Int <- series
+method Series::len(Self) -> Int32 <- series
 method Series::max(Self) -> @types.Scalar <- series
 method Series::mean(Self) -> Double raise @types.DataError <- series
 method Series::median(Self) -> Double raise @types.DataError <- series
 method Series::min(Self) -> @types.Scalar <- series
-method Series::n_unique(Self) -> Int <- series
+method Series::n_unique(Self) -> Int32 <- series
 method Series::name(Self) -> String <- series
 method Series::not_equal(Self, Self) -> Bool <- series
-method Series::null_count(Self) -> Int <- series
+method Series::null_count(Self) -> Int32 <- series
 method Series::quantile(Self, Double, interpolation? : QuantileInterpolation) -> Double raise @types.DataError <- series
 method Series::rename(Self, String) -> Self <- series
 method Series::reverse(Self) -> Self <- series
-method Series::slice(Self, Int, length? : Int) -> Self <- series
-method Series::slice_between(Self, start? : Int, end? : Int) -> Self <- series
+method Series::slice(Self, Int32, length? : Int32) -> Self <- series
+method Series::slice_between(Self, start? : Int32, end? : Int32) -> Self <- series
 method Series::sort(Self, descending? : Bool, nulls_last? : Bool) -> Self <- series
 method Series::std(Self) -> Double raise @types.DataError <- series
 method Series::sum(Self) -> @types.Scalar raise @types.DataError <- series
-method Series::tail(Self, Int) -> Self <- series
+method Series::tail(Self, Int32) -> Self <- series
 method Series::to_repr(Self) -> @debug.Repr <- series
 method Series::to_scalars(Self) -> Array[@types.Scalar] <- series
 method Series::variance(Self) -> Double raise @types.DataError <- series

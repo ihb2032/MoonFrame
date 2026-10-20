@@ -17,7 +17,7 @@ pub struct DataFrame {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn DataFrame::DataFrame(Array[@series.Series]) -> Self raise @types.DataError
-pub fn DataFrame::bottom_k(Self, Int, by~ : Array[@expr.Expr], reverse? : Bool) -> Self raise @types.DataError
+pub fn DataFrame::bottom_k(Self, Int32, by~ : Array[@expr.Expr], reverse? : Bool) -> Self raise @types.DataError
 pub fn DataFrame::cols_contains(Self, String) -> Array[@expr.Expr]
 pub fn DataFrame::cols_ends_with(Self, String) -> Array[@expr.Expr]
 pub fn DataFrame::cols_matching(Self, String) -> Array[@expr.Expr] raise @types.DataError
@@ -33,31 +33,31 @@ pub fn DataFrame::empty(@types.Schema) -> Self raise @types.DataError
 pub fn DataFrame::equal(Self, Self) -> Bool
 pub fn DataFrame::fill_nan(Self, Double) -> Self raise @types.DataError
 pub fn DataFrame::fill_null(Self, @types.Scalar) -> Self raise @types.DataError
-pub fn DataFrame::fill_null_backward(Self, limit? : Int) -> Self raise @types.DataError
-pub fn DataFrame::fill_null_forward(Self, limit? : Int) -> Self raise @types.DataError
+pub fn DataFrame::fill_null_backward(Self, limit? : Int32) -> Self raise @types.DataError
+pub fn DataFrame::fill_null_forward(Self, limit? : Int32) -> Self raise @types.DataError
 pub fn DataFrame::filter(Self, @expr.Expr) -> Self raise @types.DataError
 pub fn DataFrame::from_rows(@types.Schema, Array[Array[@types.Scalar]]) -> Self raise @types.DataError
-pub fn DataFrame::gather(Self, Array[Int]) -> Self raise @types.DataError
-pub fn DataFrame::gather_every(Self, Int, offset? : Int) -> Self raise @types.DataError
+pub fn DataFrame::gather(Self, Array[Int32]) -> Self raise @types.DataError
+pub fn DataFrame::gather_every(Self, Int32, offset? : Int32) -> Self raise @types.DataError
 #alias("_[_]")
 pub fn DataFrame::get_column(Self, String) -> @series.Series raise @types.DataError
-pub fn DataFrame::get_column_at(Self, Int) -> @series.Series raise @types.DataError
+pub fn DataFrame::get_column_at(Self, Int32) -> @series.Series raise @types.DataError
 pub fn DataFrame::group_by(Self, Array[@expr.Expr]) -> GroupedDataFrame raise @types.DataError
 #alias(limit)
-pub fn DataFrame::head(Self, Int) -> Self
+pub fn DataFrame::head(Self, Int32) -> Self
 pub fn DataFrame::is_duplicated(Self) -> @series.Series
 pub fn DataFrame::is_empty(Self) -> Bool
 pub fn DataFrame::is_unique(Self) -> @series.Series
-pub fn DataFrame::item(Self, Int, String) -> @types.Scalar raise @types.DataError
+pub fn DataFrame::item(Self, Int32, String) -> @types.Scalar raise @types.DataError
 pub fn DataFrame::join(Self, Self, JoinOptions) -> Self raise @types.DataError
 pub fn DataFrame::max(Self) -> Self raise @types.DataError
 pub fn DataFrame::mean(Self) -> Self raise @types.DataError
 pub fn DataFrame::median(Self) -> Self raise @types.DataError
 pub fn DataFrame::min(Self) -> Self raise @types.DataError
 pub fn DataFrame::n_unique(Self) -> Self raise @types.DataError
-pub fn DataFrame::ncols(Self) -> Int
+pub fn DataFrame::ncols(Self) -> Int32
 pub fn DataFrame::not_equal(Self, Self) -> Bool
-pub fn DataFrame::nrows(Self) -> Int
+pub fn DataFrame::nrows(Self) -> Int32
 pub fn DataFrame::null_count(Self) -> Self raise @types.DataError
 pub fn DataFrame::numeric_cols(Self) -> Array[@expr.Expr]
 pub fn DataFrame::pivot(Self, on~ : Array[@expr.Expr], index? : Array[@expr.Expr], values? : Array[@expr.Expr], aggregate_function? : PivotAgg) -> Self raise @types.DataError
@@ -65,23 +65,23 @@ pub fn DataFrame::quantile(Self, Double, interpolation? : @series.QuantileInterp
 pub fn DataFrame::rename(Self, Array[(String, String)]) -> Self raise @types.DataError
 pub fn DataFrame::rename_with(Self, (String) -> String) -> Self raise @types.DataError
 pub fn DataFrame::reverse(Self) -> Self
-pub fn DataFrame::row(Self, Int) -> Array[@types.Scalar] raise @types.DataError
+pub fn DataFrame::row(Self, Int32) -> Array[@types.Scalar] raise @types.DataError
 pub fn DataFrame::rows(Self) -> Array[Array[@types.Scalar]]
-pub fn DataFrame::sample(Self, Int, with_replacement? : Bool, seed? : Int) -> Self raise @types.DataError
+pub fn DataFrame::sample(Self, Int32, with_replacement? : Bool, seed? : Int32) -> Self raise @types.DataError
 pub fn DataFrame::schema(Self) -> @types.Schema
 pub fn DataFrame::select(Self, Array[@expr.Expr]) -> Self raise @types.DataError
-pub fn DataFrame::shape(Self) -> (Int, Int)
-pub fn DataFrame::slice(Self, Int, length? : Int) -> Self
+pub fn DataFrame::shape(Self) -> (Int32, Int32)
+pub fn DataFrame::slice(Self, Int32, length? : Int32) -> Self
 #alias("_[_:_]")
-pub fn DataFrame::slice_between(Self, start? : Int, end? : Int) -> Self
+pub fn DataFrame::slice_between(Self, start? : Int32, end? : Int32) -> Self
 pub fn DataFrame::sort(Self, Array[(@expr.Expr, Bool, Bool)]) -> Self raise @types.DataError
 pub fn DataFrame::std(Self) -> Self raise @types.DataError
 pub fn DataFrame::sum(Self) -> Self raise @types.DataError
-pub fn DataFrame::tail(Self, Int) -> Self
+pub fn DataFrame::tail(Self, Int32) -> Self
 pub fn DataFrame::to_html(Self, options? : HtmlOptions) -> String
-pub fn DataFrame::to_markdown(Self, max_rows? : Int) -> String
+pub fn DataFrame::to_markdown(Self, max_rows? : Int32) -> String
 pub fn DataFrame::to_repr(Self) -> @debug.Repr
-pub fn DataFrame::top_k(Self, Int, by~ : Array[@expr.Expr], reverse? : Bool) -> Self raise @types.DataError
+pub fn DataFrame::top_k(Self, Int32, by~ : Array[@expr.Expr], reverse? : Bool) -> Self raise @types.DataError
 pub fn DataFrame::unique(Self, subset? : Array[@expr.Expr], keep? : KeepStrategy) -> Self raise @types.DataError
 pub fn DataFrame::unpivot(Self, on? : Array[@expr.Expr], index? : Array[@expr.Expr], variable_name? : String, value_name? : String) -> Self raise @types.DataError
 pub fn DataFrame::variance(Self) -> Self raise @types.DataError
@@ -108,12 +108,12 @@ pub fn GroupedDataFrame::sum(Self) -> DataFrame raise @types.DataError
 pub fn GroupedDataFrame::variance(Self) -> DataFrame raise @types.DataError
 
 pub struct HtmlOptions {
-  max_rows : Int?
+  max_rows : Int32?
   table_class : String?
   caption : String?
   escape : Bool
 } derive(Eq, @debug.Debug)
-pub fn HtmlOptions::HtmlOptions(max_rows? : Int, table_class? : String, caption? : String, escape? : Bool) -> Self
+pub fn HtmlOptions::HtmlOptions(max_rows? : Int32, table_class? : String, caption? : String, escape? : Bool) -> Self
 pub fn HtmlOptions::equal(Self, Self) -> Bool
 pub fn HtmlOptions::not_equal(Self, Self) -> Bool
 pub fn HtmlOptions::to_repr(Self) -> @debug.Repr

@@ -15,9 +15,9 @@ import {
 pub struct ScanBatch {
   // private fields
 }
-pub fn ScanBatch::batch(Array[@series.Series], Int) -> Self
+pub fn ScanBatch::batch(Array[@series.Series], Int32) -> Self
 pub fn ScanBatch::columns(Self) -> Array[@series.Series]
-pub fn ScanBatch::height(Self) -> Int
+pub fn ScanBatch::height(Self) -> Int32
 
 pub struct ScanDriver {
   // private fields

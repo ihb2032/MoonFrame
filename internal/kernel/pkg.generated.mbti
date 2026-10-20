@@ -9,7 +9,7 @@ import {
 }
 
 // Values
-pub fn broadcast_series(@series.Series, Int) -> @series.Series raise @types.DataError
+pub fn broadcast_series(@series.Series, Int32) -> @series.Series raise @types.DataError
 
 pub fn compile_regex(String) -> @string.Regex raise @types.DataError
 

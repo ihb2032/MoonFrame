@@ -21,7 +21,7 @@ pub struct LazyFrame {
   // private fields
 }
 pub fn LazyFrame::LazyFrame(@frame.DataFrame) -> Self
-pub fn LazyFrame::bottom_k(Self, Int, by~ : Array[@expr.Expr], reverse? : Bool) -> Self
+pub fn LazyFrame::bottom_k(Self, Int32, by~ : Array[@expr.Expr], reverse? : Bool) -> Self
 pub fn LazyFrame::collect(Self) -> @frame.DataFrame raise @types.DataError
 pub fn LazyFrame::count(Self) -> Self
 pub fn LazyFrame::drop(Self, Array[@expr.Expr]) -> Self
@@ -29,14 +29,14 @@ pub fn LazyFrame::drop_nulls(Self, subset? : Array[@expr.Expr]) -> Self
 pub fn LazyFrame::explain(Self, optimized? : Bool) -> String
 pub fn LazyFrame::fill_nan(Self, Double) -> Self
 pub fn LazyFrame::fill_null(Self, @types.Scalar) -> Self
-pub fn LazyFrame::fill_null_backward(Self, limit? : Int) -> Self
-pub fn LazyFrame::fill_null_forward(Self, limit? : Int) -> Self
+pub fn LazyFrame::fill_null_backward(Self, limit? : Int32) -> Self
+pub fn LazyFrame::fill_null_forward(Self, limit? : Int32) -> Self
 pub fn LazyFrame::filter(Self, @expr.Expr) -> Self
 pub fn LazyFrame::first(Self) -> Self
-pub fn LazyFrame::gather_every(Self, Int, offset? : Int) -> Self
+pub fn LazyFrame::gather_every(Self, Int32, offset? : Int32) -> Self
 pub fn LazyFrame::group_by(Self, Array[@expr.Expr]) -> LazyGroupBy
 #alias(limit)
-pub fn LazyFrame::head(Self, Int) -> Self
+pub fn LazyFrame::head(Self, Int32) -> Self
 pub fn LazyFrame::join(Self, Self, @frame.JoinOptions) -> Self
 pub fn LazyFrame::last(Self) -> Self
 pub fn LazyFrame::max(Self) -> Self
@@ -51,12 +51,12 @@ pub fn LazyFrame::rename(Self, Array[(String, String)]) -> Self
 pub fn LazyFrame::rename_with(Self, (String) -> String) -> Self
 pub fn LazyFrame::reverse(Self) -> Self
 pub fn LazyFrame::select(Self, Array[@expr.Expr]) -> Self
-pub fn LazyFrame::slice(Self, Int, length? : Int) -> Self
+pub fn LazyFrame::slice(Self, Int32, length? : Int32) -> Self
 pub fn LazyFrame::sort(Self, Array[(@expr.Expr, Bool, Bool)]) -> Self
 pub fn LazyFrame::std(Self) -> Self
 pub fn LazyFrame::sum(Self) -> Self
-pub fn LazyFrame::tail(Self, Int) -> Self
-pub fn LazyFrame::top_k(Self, Int, by~ : Array[@expr.Expr], reverse? : Bool) -> Self
+pub fn LazyFrame::tail(Self, Int32) -> Self
+pub fn LazyFrame::top_k(Self, Int32, by~ : Array[@expr.Expr], reverse? : Bool) -> Self
 pub fn LazyFrame::unique(Self, subset? : Array[@expr.Expr], keep? : @frame.KeepStrategy) -> Self
 pub fn LazyFrame::unpivot(Self, on? : Array[@expr.Expr], index? : Array[@expr.Expr], variable_name? : String, value_name? : String) -> Self
 pub fn LazyFrame::variance(Self) -> Self

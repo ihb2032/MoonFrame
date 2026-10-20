@@ -90,9 +90,13 @@ fn decimal_names_in_plan(plan : LogicalPlan) -> DecimalRisk {
         let renamed = @set.Set([])
         below.names.each(name => {
           let mut target = name
-          for (from, to) in pairs {
-            if from == name {
-              target = to
+          // Indexed access rather than a tuple pattern: the coverage
+          // reporter's parser cannot parse a tuple pattern in a `for`
+          // header, and a source it cannot parse fails the coverage
+          // gate.
+          for pair in pairs {
+            if pair.0 == name {
+              target = pair.1
               break
             }
           }
@@ -181,7 +185,7 @@ priv struct DecimalRisk {
 ///|
 /// Whether any node of the expression reads a column from `risk` or is a
 /// decimal literal. Iterative over an explicit stack, so expression depths
-// the engine pins walk without recursing.
+/// the engine pins walk without recursing.
 fn expr_touches_decimal(expr : @ir.ExprNode, risk : @set.Set[String]) -> Bool {
   let stack : Array[@ir.ExprNode] = [expr]
   while stack.length() > 0 {

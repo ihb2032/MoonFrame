@@ -140,8 +140,13 @@ test "sample is a deterministic function of its seed" {
     }
   }
   assert_true(unique)
-  // n past the row count saturates; n = 0 is empty; negative raises.
-  assert_eq(df.sample(99).shape(), (5, 1))
+  // n past the row count raises (Polars' reading — no silent saturation,
+  // and an unshuffled whole frame would disagree with sample(n = nrows));
+  // n = 0 is empty; negative raises.
+  assert_true(
+    (Ok(df.sample(99)) catch { e => Err(e) })
+    is Err(@types.DataError::InvalidOperation(_)),
+  )
   assert_eq(df.sample(0).shape(), (0, 1))
   assert_true(
     (Ok(df.sample(-1)) catch { e => Err(e) })
@@ -169,6 +174,10 @@ test "sample with replacement allows repeats and needs a row" {
   // n = 0 on an empty frame draws nothing — there is no draw to divide by
   // zero on, so no raise.
   assert_eq(empty.sample(0, with_replacement=true).shape(), (0, 1))
-  // Without replacement an empty frame samples zero rows (saturation).
-  assert_eq(empty.sample(3).shape(), (0, 1))
+  // Without replacement an empty frame cannot supply rows either: n past
+  // the (zero) row count raises, exactly as on a populated frame.
+  assert_true(
+    (Ok(empty.sample(3)) catch { e => Err(e) })
+    is Err(@types.DataError::InvalidOperation(_)),
+  )
 }

@@ -45,10 +45,12 @@ fn SplitMix64::below(self : SplitMix64, bound : Int32) -> Int32 {
 /// the draw order; with replacement `n` independent draws, repeats
 /// allowed. `seed~` fixes the sequence (same seed, same rows — and an
 /// omitted seed is `seed = 0`, so independent calls share one sequence);
-/// `n` saturates at the row count without replacement and raises
-/// `InvalidOperation` when negative; a 0-row frame samples zero rows
-/// (there is nothing to draw — the with-replacement draw would divide by
-/// zero, so it raises exactly when there is a row to draw).
+/// `n` raises `InvalidOperation` when negative, and — without replacement —
+/// when it exceeds the row count (Polars' reading: that many distinct rows
+/// do not exist, and silently returning the whole frame unshuffled would
+/// also disagree with `sample(n = nrows)`, which shuffles); a 0-row frame
+/// samples zero rows (there is nothing to draw — the with-replacement draw
+/// would divide by zero, so it raises exactly when there is a row to draw).
 ///
 /// The schema is unchanged (a row gather), so the same-schema rebuild
 /// applies and the backend follows the gathered content, as after any
@@ -69,9 +71,9 @@ pub fn DataFrame::sample(
   }
   let total = self.nrows()
   if !with_replacement && n > total {
-    // Saturating, like `head`: asking for more rows than exist takes them
-    // all.
-    return self
+    raise @types.DataError::InvalidOperation(
+      "sampling \{n} rows without replacement exceeds the row count (\{total})",
+    )
   }
   let rng = SplitMix64::{ state: seed.to_uint64(), }
   let picked : Array[Int32] = []

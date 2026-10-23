@@ -225,7 +225,11 @@ fn parse_csv_str_projected(
     return @frame.DataFrame::DataFrame([])
   }
   if options.strict_quotes {
-    validate_csv_quotes(content, options.delimiter)
+    validate_csv_quotes(
+      content,
+      options.delimiter,
+      has_header=options.has_header,
+    )
   }
   let csv_options = @nyacsv.CSVOptions::{
     delimiter: options.delimiter,
@@ -395,17 +399,40 @@ priv enum CsvQuoteState {
 /// an opening quote without a close, non-separator text after a close, and a
 /// quote inside an unquoted field. A doubled quote while quoted is an escape;
 /// CR / LF are record separators outside quotes and ordinary content inside.
+///
+/// The row in a diagnostic is the 1-based **data row** — the header and
+/// blank lines are not counted, the same basis this reader's ragged-row and
+/// cell-parse errors use (`validate_csv_shape` counts `i + 1` over the
+/// records NyaCSV kept, whose `skip_empty_lines` has already dropped the
+/// blanks; `build_column` reports `file_row` on that basis too). A malformed
+/// quote in the header record itself reports row 1: no data row exists to
+/// name, and the header is the first record the reader would have tokenised.
 fn validate_csv_quotes(
   content : String,
   delimiter : Char,
+  has_header~ : Bool,
 ) -> Unit raise @types.DataError {
   let mut state = CsvFieldStart
-  // Row tracking for the diagnostics: a record separator outside quotes
-  // ends a row, with a CRLF pair counted once (a bare CR is a separator
-  // to the CSV reader, so it ends a row on its own). Content inside
-  // quotes is content, not a separator.
-  let mut row = 1
+  // Record tracking for the diagnostics, on the data-row basis: the count
+  // of completed non-blank data records, whether the header record has
+  // been crossed yet, and whether the record under way holds anything at
+  // all (a blank record — no cell, not even a lone delimiter — is dropped
+  // by NyaCSV's `skip_empty_lines`, so it must not consume a row number
+  // here either).
+  let mut data_row = 0
+  let mut header_pending = has_header
+  let mut record_started = false
   let mut prev_cr = false
+  // The row an error names: the data row in progress (`data_row` counts
+  // only completed records), or row 1 while the record under way is the
+  // header.
+  fn err_row() -> Int32 {
+    if header_pending {
+      1
+    } else {
+      data_row + 1
+    }
+  }
   for ch in content {
     let quoted = state is CsvQuoted
     state = match state {
@@ -421,7 +448,7 @@ fn validate_csv_quotes(
         if ch == '"' {
           raise @types.DataError::ParseError(
             @types.ParseErrorDetail::Message(
-              "\{locator_text(@types.CellParseLocation::Row, row)}: quote inside an unquoted field",
+              "\{locator_text(@types.CellParseLocation::Row, err_row())}: quote inside an unquoted field",
             ),
           )
         } else if ch == delimiter || ch == '\r' || ch == '\n' {
@@ -438,29 +465,42 @@ fn validate_csv_quotes(
         } else {
           raise @types.DataError::ParseError(
             @types.ParseErrorDetail::Message(
-              "\{locator_text(@types.CellParseLocation::Row, row)}: unexpected character after a closing quote",
+              "\{locator_text(@types.CellParseLocation::Row, err_row())}: unexpected character after a closing quote",
             ),
           )
         }
     }
     if !quoted {
-      if ch == '\r' {
-        row = row + 1
-        prev_cr = true
+      // The LF half of a CRLF is not a second separator; everything else
+      // outside quotes either ends the record under way (CR / LF) or is
+      // content of it (a delimiter included — `,,` is a three-cell record,
+      // not a blank).
+      let ends_record = if ch == '\r' {
+        true
       } else if ch == '\n' {
-        if !prev_cr {
-          row = row + 1
-        }
-        prev_cr = false
+        !prev_cr
       } else {
-        prev_cr = false
+        false
       }
+      if ends_record {
+        if record_started {
+          if header_pending {
+            header_pending = false
+          } else {
+            data_row = data_row + 1
+          }
+        }
+        record_started = false
+      } else if !(ch == '\n' && prev_cr) {
+        record_started = true
+      }
+      prev_cr = ch == '\r'
     }
   }
   if state is CsvQuoted {
     raise @types.DataError::ParseError(
       @types.ParseErrorDetail::Message(
-        "\{locator_text(@types.CellParseLocation::Row, row)}: unterminated quoted field",
+        "\{locator_text(@types.CellParseLocation::Row, err_row())}: unterminated quoted field",
       ),
     )
   }

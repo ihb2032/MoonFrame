@@ -51,7 +51,10 @@ pub fn DataFrame::to_markdown(self : DataFrame, max_rows? : Int32) -> String {
   let nrows = self.nrows()
   let shown = visible_rows(nrows, max_rows)
   let body = self.format_markdown(shown)
-  if shown < nrows {
+  // The banner belongs to a table: a column-less frame renders none at any
+  // height (the documented rule above), so it takes no banner either —
+  // `to_html`'s twin already returns before its footer for the same reason.
+  if shown < nrows && self.ncols() > 0 {
     "\{body}\n\{more_rows_banner(nrows - shown)}\n"
   } else {
     body

@@ -577,10 +577,14 @@ fn reduce_arg_extremum(
     @column.ColumnData::Utf8(a) =>
       fn(n : Int32, at : (Int32) -> Int32) {
         arg_extremum_of(n, k => a.get(at(k)), k => !present(at(k)), (x, y) => {
+          // `reduce_extremum`'s comparator (`compare_string_lex`), not the
+          // native `String` order — the two disagree on length-mixed input
+          // (the native order is shortlex), which would hand `arg_min` the
+          // row of `max` and vice versa.
           if want_min {
-            x < y
+            @text.compare_string_lex(x, y) < 0
           } else {
-            x > y
+            @text.compare_string_lex(x, y) > 0
           }
         })
       }

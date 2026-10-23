@@ -397,6 +397,18 @@ test "arg_min / arg_max return the window-local position, first on ties" {
   assert_eq(s.select([@expr.col("s").arg_max()]).get_column("s").to_scalars(), [
     @types.Scalar::Int(2),
   ])
+  // Length-mixed input is where the native `String` order (shortlex, by
+  // length first) and `min` / `max`'s `compare_string_lex` disagree: the
+  // arg family must point at the row the extremum reduction itself would.
+  let mixed = DataFrame::DataFrame([Series::from_strings("s", ["fig", "apple"])])
+  assert_eq(
+    mixed.select([@expr.col("s").arg_min()]).get_column("s").to_scalars(),
+    [@types.Scalar::Int(1)],
+  )
+  assert_eq(
+    mixed.select([@expr.col("s").arg_max()]).get_column("s").to_scalars(),
+    [@types.Scalar::Int(0)],
+  )
   // An all-null scope reduces to null.
   let nulls = DataFrame::DataFrame([int_col("v", [None, None])])
   assert_eq(

@@ -366,20 +366,29 @@ test "parse_csv_str: malformed quotes remain lenient by default" {
 
 ///|
 test "parse_csv_str: strict_quotes rejects all malformed quote shapes" {
-  // The diagnostics carry the row, matching the ragged-row and
-  // cell-parse errors the same reader gives.
+  // The diagnostics carry the data row (header and blank lines not
+  // counted), matching the ragged-row and cell-parse errors the same
+  // reader gives — the same basis `validate_csv_shape` and `file_row`
+  // report on.
   let cases : Array[(String, String)] = [
-    ("a,b\n1,\"unclosed", "row 2: unterminated quoted field"),
-    ("a\n\"ab\"cd", "row 2: unexpected character after a closing quote"),
-    ("a\nab\"cd", "row 2: quote inside an unquoted field"),
+    ("a,b\n1,\"unclosed", "row 1: unterminated quoted field"),
+    ("a\n\"ab\"cd", "row 1: unexpected character after a closing quote"),
+    ("a\nab\"cd", "row 1: quote inside an unquoted field"),
     (
       "a,b\n1,2\n3,\"x\n4,y\n5,\"z",
-      // The quoted field starting on row 3 spans the newlines inside it
-      // (content, not separators — the row counter stays at the field's
+      // The quoted field starting on data row 2 spans the newlines inside
+      // it (content, not separators — the row counter stays at the field's
       // opening row), and the stray text after its closing quote raises
       // there.
-       "row 3: unexpected character after a closing quote",
+       "row 2: unexpected character after a closing quote",
     ),
+    // Blank lines are dropped by NyaCSV before a data row is numbered, so
+    // the error after the blank still names data row 1.
+    ("a,b\n\n1,\"x\"y", "row 1: unexpected character after a closing quote"),
+    // A malformed quote in the header record itself reports row 1 — no
+    // data row exists to name, and the header is the first record the
+    // reader would have tokenised.
+    ("\"ab\"cd\n1", "row 1: unexpected character after a closing quote"),
   ]
   for case in cases {
     let (content, expected) = case
@@ -398,6 +407,64 @@ test "parse_csv_str: strict_quotes rejects all malformed quote shapes" {
       _ => fail("expected strict quote ParseError")
     }
   }
+  // Without a header the first record is itself data row 1, so the second
+  // record's malformed quote names row 2 (with a header — the table above —
+  // the same payload names row 1).
+  let no_header = Ok(
+    @io.parse_csv_str(
+      "a\n\"ab\"cd",
+      options=@io.CsvReadOptions::CsvReadOptions(
+        strict_quotes=true,
+        has_header=false,
+      ),
+    ),
+  ) catch {
+    e => Err(e)
+  }
+  match no_header {
+    Err(@types.DataError::ParseError(@types.ParseErrorDetail::Message(message))) =>
+      assert_eq(message, "row 2: unexpected character after a closing quote")
+    _ => fail("expected strict quote ParseError")
+  }
+}
+
+///|
+test "parse_csv_str: strict_quotes and cell errors name the same data row" {
+  // The same malformed data row (the second one) is reported as row 2 by
+  // the cell parser and by the strict quote validator — one basis, one
+  // number, whichever gate fires first.
+  let cell_err = Ok(
+    @io.parse_csv_str(
+      "a\n1\nz",
+      options=@io.CsvReadOptions::CsvReadOptions(infer_schema_rows=1),
+    ),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(
+    cell_err
+    is Err(
+      @types.DataError::ParseError(@types.ParseErrorDetail::Cell(_, _, 2, _, _))
+    ),
+  )
+  let quote_err = Ok(
+    @io.parse_csv_str(
+      "a\n1\n\"q\"r",
+      options=@io.CsvReadOptions::CsvReadOptions(strict_quotes=true),
+    ),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(
+    quote_err
+    is Err(
+      @types.DataError::ParseError(
+        @types.ParseErrorDetail::Message(
+          "row 2: unexpected character after a closing quote"
+        )
+      )
+    ),
+  )
 }
 
 ///|

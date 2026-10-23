@@ -98,6 +98,14 @@ fn first_duplicate_json_key(content : StringView) -> (Int32, String)? {
       if !terminated {
         return None
       }
+      // An unpaired surrogate in the token (a `\uD800`-style escape the
+      // core parser refuses) is the parser's to report too: the payload is
+      // not valid JSON, and a duplicate-key message here would both pre-empt
+      // that diagnostic and embed the lone surrogate itself — a string no
+      // well-formed text can carry.
+      if find_unpaired_surrogate(token) is Some(_) {
+        return None
+      }
       // Only a string in key position is recorded; elsewhere it is a value.
       if stack.length() > 0 {
         match stack[stack.length() - 1] {

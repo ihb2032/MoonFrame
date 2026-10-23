@@ -650,6 +650,30 @@ test "reject_duplicate_keys scans nested objects too" {
 }
 
 ///|
+test "reject_duplicate_keys defers a lone-surrogate key to the parser" {
+  // A `\uD800`-style escape is not valid JSON — the core parser refuses it,
+  // so the strict scan must not pre-empt that diagnostic with a
+  // duplicate-key message: the repeat is only visible in such a payload
+  // through a token carrying the lone surrogate itself, and no message
+  // should embed that string. Both readings report the parser's own
+  // diagnostic.
+  let payload = "{\"\\uD800\": 1, \"\\uD800\": 2}"
+  let strict = @io.JsonReadOptions::JsonReadOptions(reject_duplicate_keys=true)
+  for opts in [@io.JsonReadOptions::JsonReadOptions(), strict] {
+    let result : Result[@frame.DataFrame, @types.DataError] = Ok(
+      @io.parse_json_str(payload, options=opts),
+    ) catch {
+      e => Err(e)
+    }
+    match result {
+      Err(@types.DataError::ParseError(@types.ParseErrorDetail::Message(m))) =>
+        assert_true(m.has_prefix("invalid JSON: "))
+      _ => fail("expected the parser's invalid-JSON diagnostic")
+    }
+  }
+}
+
+///|
 test "reject_duplicate_keys compares keys decoded, so unicode escapes collide" {
   let opts = @io.JsonReadOptions::JsonReadOptions(reject_duplicate_keys=true)
   // The JSON text spells one key as "a" and again as "\u0061" (the MoonBit

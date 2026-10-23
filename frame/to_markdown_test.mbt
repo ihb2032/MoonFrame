@@ -15,6 +15,18 @@ test "to_markdown: empty frame returns the empty string" {
 }
 
 ///|
+test "to_markdown: a column-less capped frame takes no banner" {
+  // `select([])` keeps the height, so this is a 3×0 frame with rows to
+  // truncate — but there is no table to attach the banner to: the 0-column
+  // rule (the empty string, at any height) wins over the truncation note,
+  // matching `to_html`, whose 0-column early return skips its footer too.
+  let df = DataFrame::DataFrame([Series::from_ints("a", [1, 2, 3])]).select([])
+  assert_eq(df.to_markdown(), "")
+  assert_eq(df.to_markdown(max_rows=1), "")
+  assert_eq(df.to_html(options=HtmlOptions::HtmlOptions(max_rows=1)), "")
+}
+
+///|
 test "to_markdown: zero rows still emits header + separator" {
   // `DataFrame::empty` produces a schema-only frame with 0 records.
   // The renderer must still surface the column layout — that's the

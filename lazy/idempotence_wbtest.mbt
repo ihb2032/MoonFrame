@@ -87,6 +87,16 @@ test "every pass in the pipeline is idempotent across plan shapes" {
       LazyFrame::LazyFrame(idem_other()),
       @frame.JoinOptions::on([@expr.col("a")]),
     ).plan,
+    // A split shape: a filter on the join (sunk into the left side) plus a
+    // selection above it (splitting the requirement) — the two joins'
+    // rewrites landing in one plan.
+    LazyFrame::LazyFrame(df)
+    .join(
+      LazyFrame::LazyFrame(idem_other()),
+      @frame.JoinOptions::on([@expr.col("a")]),
+    )
+    .filter(@expr.col("b").gt(@expr.lit_int(4)))
+    .select([@expr.col("a"), @expr.col("d")]).plan,
   ]
   for plan in plans {
     assert_passes_idempotent(plan) |> ignore

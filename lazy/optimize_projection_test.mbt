@@ -365,7 +365,7 @@ test "with_columns at the root is a no-op (its full layout is the result)" {
 }
 
 ///|
-test "join is a barrier, but each side restarts its own pass" {
+test "join splits its requirement: each side narrows to its own readers" {
   let opts = @frame.JoinOptions::on([@expr.col("id")])
   // A selection *below* the left side narrows that side's scan — the bare
   // `select` is itself that narrowing, so nothing is inserted beneath it.
@@ -379,12 +379,25 @@ test "join is a barrier, but each side restarts its own pass" {
     "    SCAN [3×2]\n" +
     "  SCAN [3×2]",
   )
-  // A selection *above* the join narrows neither side: splitting a
-  // requirement across suffix-renamed sides is O2-grade provenance.
+  // A selection *above* the join splits its requirement across the sides:
+  // the left keeps only its key column (`amount` is dead), while the right
+  // needs its key and the selected `city` — its whole output, so its scan
+  // narrows to nothing.
   let above = LazyFrame::LazyFrame(orders_df())
     .join(LazyFrame::LazyFrame(cities_df()), opts)
     .select([@expr.col("city")])
-  assert_eq(above.explain(optimized=true), above.explain())
+  assert_eq(
+    above.explain(optimized=true),
+    "SELECT [col(city)]\n" +
+    "  JOIN Inner on [col(id)]\n" +
+    "    SELECT [col(id)]\n" +
+    "      SCAN [3×2]\n" +
+    "    SCAN [3×2]",
+  )
+  assert_eq(
+    above.collect(),
+    orders_df().join(cities_df(), opts).select([@expr.col("city")]),
+  )
 }
 
 ///|
@@ -511,5 +524,147 @@ test "scan_ndjson narrows in place like scan_csv, only the label differs" {
   assert_eq(
     scan_ndjson("events.ndjson").explain(optimized=true),
     "SCAN_NDJSON \"events.ndjson\"",
+  )
+}
+
+///|
+test "a semi join narrows its right side to the key columns" {
+  // The existence filters probe the right side and never emit its columns,
+  // so a selection above the join leaves the right scan with nothing but
+  // the join key — the one place a side narrows below its own readers.
+  let l = orders_df()
+  let r = cities_df()
+  let plan = LazyFrame::LazyFrame(l)
+    .join(
+      LazyFrame::LazyFrame(r),
+      @frame.JoinOptions::on([@expr.col("id")], how=Semi),
+    )
+    .select([@expr.col("amount")])
+  assert_eq(
+    plan.explain(optimized=true),
+    "SELECT [col(amount)]\n" +
+    "  JOIN Semi on [col(id)]\n" +
+    "    SCAN [3×2]\n" +
+    "    SELECT [col(id)]\n" +
+    "      SCAN [3×2]",
+  )
+  assert_eq(
+    plan.collect(),
+    l
+    .join(r, @frame.JoinOptions::on([@expr.col("id")], how=Semi))
+    .select([@expr.col("amount")]),
+  )
+}
+
+///|
+test "a required suffixed right name narrows the right side to its source" {
+  // A clash renames the right `amount` to `amount_right` in the join
+  // output; the selection reading the suffixed spelling maps back to the
+  // right source column, so the right side keeps key and `amount` while
+  // its unrelated `extra` is dead. The left keeps its clashing `amount`
+  // too — the clash only stands while both columns exist, so the left
+  // column is load-bearing (dead itself, but narrowing it would rename the
+  // right one back to bare `amount` and break the selection).
+  let l = orders_df()
+  let r = @frame.DataFrame::DataFrame([
+    @series.Series::from_ints("id", [2, 3, 4]),
+    @series.Series::from_ints("amount", [1, 2, 3]),
+    @series.Series::from_strings("extra", ["x", "y", "z"]),
+  ])
+  let opts = @frame.JoinOptions::on([@expr.col("id")])
+  let plan = LazyFrame::LazyFrame(l)
+    .join(LazyFrame::LazyFrame(r), opts)
+    .select([@expr.col("amount_right")])
+  assert_eq(
+    plan.explain(optimized=true),
+    "SELECT [col(amount_right)]\n" +
+    "  JOIN Inner on [col(id)]\n" +
+    "    SCAN [3×2]\n" +
+    "    SELECT [col(id), col(amount)]\n" +
+    "      SCAN [3×3]",
+  )
+  assert_eq(plan.collect(), l.join(r, opts).select([@expr.col("amount_right")]))
+}
+
+///|
+test "a file source side keeps its whole read (its names are unknowable)" {
+  // A file source's header exists only at collect, so a requirement cannot
+  // be attributed to that side — it reads every column (no projection is
+  // written), the barrier treatment, while the left side narrows to key
+  // and selection.
+  let l = @frame.DataFrame::DataFrame([
+    @series.Series::from_ints("id", [1, 2, 3]),
+    @series.Series::from_ints("amount", [10, 20, 30]),
+    @series.Series::from_strings("note", ["a", "b", "c"]),
+  ])
+  let plan = l
+    |> LazyFrame::LazyFrame
+    |> lf => {
+      lf.join(scan_csv("cities.csv"), @frame.JoinOptions::on([@expr.col("id")]))
+    }
+    |> lf => { lf.select([@expr.col("amount")]) }
+  assert_eq(
+    plan.explain(optimized=true),
+    "SELECT [col(amount)]\n" +
+    "  JOIN Inner on [col(id)]\n" +
+    "    SELECT [col(id), col(amount)]\n" +
+    "      SCAN [3×3]\n" +
+    "    SCAN_CSV \"cities.csv\"",
+  )
+}
+
+///|
+test "a sided-key join splits its requirement through the paired keys" {
+  // `left_on` / `right_on` read different columns on the two sides — the
+  // key reads are per-side here, unlike an `on` join's shared list. Each
+  // side keeps its key plus the selection's column; the unrelated
+  // (`id` on the left, `extra` on the right) narrows away.
+  let l = orders_df()
+  let r = @frame.DataFrame::DataFrame([
+    @series.Series::from_ints("n", [20, 30, 40]),
+    @series.Series::from_strings("tag", ["p", "q", "r"]),
+    @series.Series::from_strings("extra", ["x", "y", "z"]),
+  ])
+  let opts = @frame.JoinOptions::left_on([@expr.col("amount")], right_on=[
+    @expr.col("n"),
+  ])
+  let plan = LazyFrame::LazyFrame(l)
+    .join(LazyFrame::LazyFrame(r), opts)
+    .select([@expr.col("tag")])
+  assert_eq(
+    plan.explain(optimized=true),
+    "SELECT [col(tag)]\n" +
+    "  JOIN Inner left_on [col(amount)] right_on [col(n)]\n" +
+    "    SELECT [col(amount)]\n" +
+    "      SCAN [3×2]\n" +
+    "    SELECT [col(n), col(tag)]\n" +
+    "      SCAN [3×3]",
+  )
+  assert_eq(plan.collect(), l.join(r, opts).select([@expr.col("tag")]))
+}
+
+///|
+test "a derived on-key and an unknowable left side keep their sides whole" {
+  // A derived key (`on` over a computed expression) names no column of
+  // its own, and a file source on the *left* has no knowable names — the
+  // left side keeps everything it has, while the right side still narrows
+  // to its key reads (a derived key's referenced columns) plus the
+  // selection, dropping its unrelated `note`.
+  let r = @frame.DataFrame::DataFrame([
+    @series.Series::from_ints("id", [1, 2, 3]),
+    @series.Series::from_ints("amount", [10, 20, 30]),
+    @series.Series::from_strings("note", ["a", "b", "c"]),
+  ])
+  let opts = @frame.JoinOptions::on([@expr.col("id") + @expr.lit_int(0)])
+  let plan = scan_csv("orders.csv")
+    .join(LazyFrame::LazyFrame(r), opts)
+    .select([@expr.col("amount")])
+  assert_eq(
+    plan.explain(optimized=true),
+    "SELECT [col(amount)]\n" +
+    "  JOIN Inner on [(col(id) + 0)]\n" +
+    "    SCAN_CSV \"orders.csv\"\n" +
+    "    SELECT [col(id), col(amount)]\n" +
+    "      SCAN [3×3]",
   )
 }

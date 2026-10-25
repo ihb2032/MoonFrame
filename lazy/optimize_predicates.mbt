@@ -86,14 +86,15 @@
 ///   another `Filter` are value-safe to cross for row-stable predicates
 ///   but are deliberately left in place: crossing a filter re-orders
 ///   which predicate evaluates first, and crossing a sort buys nothing
-///   until the executor can exploit sortedness. `Join` needs column
-///   provenance through suffix renaming to split a predicate across its
-///   sides, deferred with the projection pass's join narrowing — but
-///   both sides restart their own descent, so filters inside either
-///   side still sink. The in-memory `Scan` is the floor. A **file source**
-///   goes one step further: the predicate is absorbed into the file scan
-///   source itself, so the driver prunes rows while reading and no `Filter`
-///   node remains above the leaf.
+///   until the executor can exploit sortedness. `Join` is a floor for the
+///   *descent* — a predicate that cannot split into one side wraps it —
+///   but the one shape that can, does: a filter sitting directly on a
+///   join splits into the side its columns name (`split_filter_into_join`
+///   below, with the per-join-kind soundness argument). The in-memory
+///   `Scan` is the floor. A **file source** goes one step further: the
+///   predicate is absorbed into the file scan source itself, so the
+///   driver prunes rows while reading and no `Filter` node remains above
+///   the leaf.
 ///   Only the first predicate is absorbed — combining two would reorder
 ///   which operand's evaluation error surfaces first — so a second filter
 ///   stays a node above the scan.
@@ -240,6 +241,14 @@ fn LogicalPlan::place_filter(
     // struct-update keeps the driver and the pushed projection verbatim.
     Scan(File(fs)) if fs.predicate is None =>
       Scan(File({ ..fs, predicate: Some(predicate), }))
+    // A filter sitting directly on a join may split into one side — the
+    // crossing rules for that hop are `split_filter_into_join`'s; failing
+    // them, the join floors the filter like any other node.
+    Join(left, right, options) =>
+      match split_filter_into_join(left, right, options, predicate) {
+        Some(joined) => joined
+        None => Unary(cur, Filter(predicate))
+      }
     _ => Unary(cur, Filter(predicate))
   }
   for i = crossed.length() - 1; i >= 0; i = i - 1 {
@@ -247,4 +256,99 @@ fn LogicalPlan::place_filter(
     result = rewrap(result)
   }
   result
+}
+
+///|
+/// Split one filter into the join it sits on — the `Join` floor's half of
+/// `place_filter`, and the one crossing whose soundness is argued per join
+/// kind rather than per stage shape. A predicate may move *into one side*
+/// when every row of that side provably survives to some output row that
+/// carries its cells verbatim, so filtering the side before the join and
+/// filtering the join's output drop exactly the same rows:
+///
+/// - `Inner` / `Cross` — every output row is a matched (or paired) pair of
+///   real rows, so a predicate reading only one side's columns has the same
+///   verdict on the output row as on that side's row. Both sides qualify.
+/// - `Left` — a left row always produces an output row (matched, or
+///   null-extended on the right), and the left columns ride it verbatim, so
+///   a left-side predicate's verdicts agree everywhere; a *right*-side
+///   predicate does not qualify (a null-extended row reads null where the
+///   sunk version would have read the dropped match's cells). Left only.
+/// - `Right` — the mirror: right only.
+/// - `Outer` — either side can be null-extended on the other's unmatched
+///   rows, so neither side qualifies.
+/// - `Semi` / `Anti` — the output is a subset of the left schema in left
+///   order, so a left-side predicate commutes with the existence test;
+///   there are no right output columns to read. Left only.
+///
+/// Column attribution comes from the static name walk (`output_names`): the
+/// predicate's every referenced name must be a *left* output name (left
+/// columns keep their names through the join), or — for the right sink — a
+/// right name that no left name clashes with (so the join outputs it under
+/// its own name; a clashed right column is renamed `<name><suffix>` and a
+/// predicate reading the suffixed spelling would need its expression
+/// rewritten, which this pass does not do). A side whose names are not
+/// statically knowable cannot be attributed and does not sink.
+///
+/// The error face is covered by the two gates every sinking already
+/// carries: `row_stable` excludes the expressions whose *raises* depend on
+/// which rows exist (a cast's values, a map's closure, a literal series'
+/// height — a sunk predicate would evaluate at the side's height, not the
+/// join's output height), and the decimal value-fence at the top of
+/// `place_filter` has already checked the predicate against the *whole*
+/// subtree's decimal names — a superset of either side's — so a split can
+/// only sink into a side whose decimal refusals the predicate has already
+/// been cleared against. What remains raises, if at all, on
+/// scope-independent facts (a dtype, a regex pattern's compile) that hold
+/// identically on the side and on the join output — the left columns ride
+/// verbatim, so their dtypes are the same cells' dtypes — and the
+/// evaluation itself runs column-wise whether the frame is empty or not
+/// (`filter_row_indices` evaluates the predicate before looking at rows),
+/// so even an empty-output join has already raised the same error the sunk
+/// version raises on the non-empty side.
+fn split_filter_into_join(
+  left : LogicalPlan,
+  right : LogicalPlan,
+  options : @frame.JoinOptions,
+  predicate : @expr.Expr,
+) -> LogicalPlan? {
+  if !row_stable(predicate.node()) {
+    return None
+  }
+  let reads = predicate.referenced_columns()
+  let left_names = left.output_names()
+  let right_names = right.output_names()
+  let can_left = match (options.how, left_names) {
+    (Inner | Left | Cross | Semi | Anti, Some(names)) =>
+      reads_within(reads, names)
+    (Right | Outer, _) | (_, None) => false
+  }
+  let can_right = match (options.how, left_names, right_names) {
+    (Inner | Right | Cross, Some(l), Some(r)) => {
+      // Only the right names the left does not clash with keep their
+      // spelling in the output; a clashed one is renamed and cannot be
+      // attributed without rewriting the predicate's expression.
+      let bare = @set.Set([])
+      r.each(name => if !l.contains(name) { bare.add(name) })
+      reads_within(reads, bare)
+    }
+    (Left | Outer | Semi | Anti, _, _) | (_, None, _) | (_, _, None) => false
+  }
+  if can_left {
+    Some(Join(left.place_filter(predicate), right, options))
+  } else if can_right {
+    Some(Join(left, right.place_filter(predicate), options))
+  } else {
+    None
+  }
+}
+
+///|
+/// Whether every name in `reads` is in `names` — the attribution test both
+/// join sinks consult. An empty `reads` (a literal predicate) is vacuously
+/// within every set, including the left one it then sinks into.
+fn reads_within(reads : @set.Set[String], names : @set.Set[String]) -> Bool {
+  let mut within = true
+  reads.each(name => if !names.contains(name) { within = false })
+  within
 }

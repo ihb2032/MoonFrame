@@ -911,19 +911,46 @@ test "stacked filters sink together and keep their order" {
 }
 
 ///|
-test "a filter above a join stays; one inside a side still sinks" {
+test "a filter above a join splits into the side its columns name" {
   let l = orders_df()
   let r = cities_df()
   let opts = @frame.JoinOptions::on([@expr.col("id")])
-  // Above: splitting a predicate across suffix-renamed sides is column
-  // provenance, deferred — the join is a barrier.
+  // Above: an inner join and a left-only, row-stable predicate — the
+  // filter sinks into the left input (every output row is a real left row,
+  // so the verdicts agree row for row).
   let above = LazyFrame::LazyFrame(l)
     .join(LazyFrame::LazyFrame(r), opts)
     .filter(@expr.col("amount").gt(@expr.lit_int(15)))
-  assert_eq(above.explain(optimized=true), above.explain())
+  assert_eq(
+    above.explain(optimized=true),
+    "JOIN Inner on [col(id)]\n" +
+    "  FILTER (col(amount) > 15)\n" +
+    "    SCAN [3×2]\n" +
+    "  SCAN [3×2]",
+  )
   assert_eq(
     above.collect(),
     l.join(r, opts).filter(@expr.col("amount").gt(@expr.lit_int(15))),
+  )
+  // A predicate whose columns span both sides cannot split and stays
+  // above the join.
+  let spanning = LazyFrame::LazyFrame(l)
+    .join(LazyFrame::LazyFrame(r), opts)
+    .filter(
+      @expr.col("amount")
+      .gt(@expr.lit_int(15))
+      .land(@expr.col("city").eq(@expr.lit_str("Berlin"))),
+    )
+  assert_eq(spanning.explain(optimized=true), spanning.explain())
+  assert_eq(
+    spanning.collect(),
+    l
+    .join(r, opts)
+    .filter(
+      @expr.col("amount")
+      .gt(@expr.lit_int(15))
+      .land(@expr.col("city").eq(@expr.lit_str("Berlin"))),
+    ),
   )
   // Inside: each side restarts its own descent, so a filter built into
   // the left pipeline sinks below that side's selection.
@@ -1232,12 +1259,13 @@ test "a Date literal crosses an aggregate like any other literal" {
 }
 
 ///|
-test "fill / fill_nan / pivot / unpivot / semi-anti are predicate barriers" {
+test "fill / fill_nan / pivot / unpivot fence filters; semi-anti split like the merging joins" {
   // The frame-wide fills and the reshapes rewrite whole rows or the whole
   // grid; a filter above them reads their output, so it stays above —
   // pinned by optimized == as-built, like the fences in the battery's
-  // first test. The existence filters keep the join barrier the merging
-  // joins have.
+  // first test. The existence filters are pinned further below: their
+  // left-schema output lets a left predicate split, like the merging
+  // joins' own left side.
   let df = sales_df()
   let qty_gt = @expr.col("qty").gt(@expr.lit_int(50))
   let fwd = LazyFrame::LazyFrame(df).fill_null_forward().filter(qty_gt)
@@ -1256,14 +1284,25 @@ test "fill / fill_nan / pivot / unpivot / semi-anti are predicate barriers" {
   assert_eq(melted.explain(optimized=true), melted.explain())
   let l = orders_df()
   let r = cities_df()
-  for how in [@frame.JoinType::Semi, @frame.JoinType::Anti] {
+  // The existence filters' output is the left schema alone, so a left
+  // predicate splits into the left side like the merging joins' — but a
+  // *right* predicate cannot (there are no right output columns to read).
+  // Indexed access rather than a tuple pattern in the `for` header: the
+  // coverage reporter cannot parse one.
+  for pair in [(@frame.JoinType::Semi, "Semi"), (@frame.JoinType::Anti, "Anti")] {
     let plan = LazyFrame::LazyFrame(l)
       .join(
         LazyFrame::LazyFrame(r),
-        @frame.JoinOptions::on([@expr.col("id")], how~),
+        @frame.JoinOptions::on([@expr.col("id")], how=pair.0),
       )
       .filter(@expr.col("amount").gt(@expr.lit_int(15)))
-    assert_eq(plan.explain(optimized=true), plan.explain())
+    assert_eq(
+      plan.explain(optimized=true),
+      "JOIN \{pair.1} on [col(id)]\n" +
+      "  FILTER (col(amount) > 15)\n" +
+      "    SCAN [3×2]\n" +
+      "  SCAN [3×2]",
+    )
   }
 }
 
@@ -1704,4 +1743,282 @@ test "a rename of non-decimal columns still lets the predicate sink" {
     df.rename([("qty", "q")]).with_columns([q2]).filter(predicate),
   )
   assert_true(plan.explain(optimized=true) != plan.explain())
+}
+
+///|
+/// The join split's soundness matrix, pinned shape by shape: which join
+/// kinds take a one-sided predicate into which side, and which fence it
+/// above. Every case pairs the plan-shape pin with the eager comparison,
+/// and the fences are pinned with the row that would survive wrongly if the
+/// split were unsound — the unmatched row a null-extended join keeps.
+test "split: a left join sinks a left predicate (matched and unmatched alike)" {
+  let l = orders_df()
+  let r = cities_df()
+  let opts = @frame.JoinOptions::on([@expr.col("id")], how=Left)
+  // Every left row has an output row — matched or null-extended — so the
+  // predicate's verdicts agree wherever it runs.
+  let sunk = LazyFrame::LazyFrame(l)
+    .join(LazyFrame::LazyFrame(r), opts)
+    .filter(@expr.col("amount").gt(@expr.lit_int(5)))
+  assert_eq(
+    sunk.explain(optimized=true),
+    "JOIN Left on [col(id)]\n" +
+    "  FILTER (col(amount) > 5)\n" +
+    "    SCAN [3×2]\n" +
+    "  SCAN [3×2]",
+  )
+  // id 1 has no right match and survives as a null-extended row — the
+  // eager comparison holds it on both chains.
+  assert_eq(
+    sunk.collect(),
+    l.join(r, opts).filter(@expr.col("amount").gt(@expr.lit_int(5))),
+  )
+}
+
+///|
+test "split: a left join fences a right predicate (null-extended cells)" {
+  let l = orders_df()
+  let r = cities_df()
+  let opts = @frame.JoinOptions::on([@expr.col("id")], how=Left)
+  let predicate = @expr.col("city").eq(@expr.lit_str("bern"))
+  let plan = LazyFrame::LazyFrame(l)
+    .join(LazyFrame::LazyFrame(r), opts)
+    .filter(predicate)
+  assert_eq(plan.explain(optimized=true), plan.explain())
+  // id 1 matches nothing: its null-extended `city` fails the predicate and
+  // the row drops. A wrongly-split plan would filter the right side first,
+  // keep id 1 as an unmatched row (its `city` is null either way, but the
+  // row itself survives the join), and disagree with the eager result.
+  assert_eq(plan.collect(), l.join(r, opts).filter(predicate))
+}
+
+///|
+test "split: a right join sinks its right predicate and fences its left one" {
+  let l = orders_df()
+  let r = cities_df()
+  let opts = @frame.JoinOptions::on([@expr.col("id")], how=Right)
+  // The right side's rows all survive to output rows (the mirror argument
+  // of the left-join case), so a right predicate sinks.
+  let sunk = LazyFrame::LazyFrame(l)
+    .join(LazyFrame::LazyFrame(r), opts)
+    .filter(@expr.col("city").eq(@expr.lit_str("bern")))
+  assert_eq(
+    sunk.explain(optimized=true),
+    "JOIN Right on [col(id)]\n" +
+    "  SCAN [3×2]\n" +
+    "  FILTER (col(city) == \"bern\")\n" +
+    "    SCAN [3×2]",
+  )
+  assert_eq(
+    sunk.collect(),
+    l.join(r, opts).filter(@expr.col("city").eq(@expr.lit_str("bern"))),
+  )
+  // A left predicate stays above: id 4 has no left match, its null
+  // `amount` fails the predicate and drops the row — a sunk version would
+  // drop left rows first and keep id 4 as an unmatched survivor.
+  let held = @expr.col("amount").gt(@expr.lit_int(15))
+  let fenced = LazyFrame::LazyFrame(l)
+    .join(LazyFrame::LazyFrame(r), opts)
+    .filter(held)
+  assert_eq(fenced.explain(optimized=true), fenced.explain())
+  assert_eq(fenced.collect(), l.join(r, opts).filter(held))
+}
+
+///|
+test "split: an outer join fences predicates on both sides" {
+  let l = orders_df()
+  let r = cities_df()
+  let opts = @frame.JoinOptions::on([@expr.col("id")], how=Outer)
+  // Either side can be null-extended on the other's unmatched rows, so
+  // neither side's predicate may sink.
+  for
+    predicate in [
+      @expr.col("amount").gt(@expr.lit_int(15)),
+      @expr.col("city").eq(@expr.lit_str("bern")),
+    ] {
+    let plan = LazyFrame::LazyFrame(l)
+      .join(LazyFrame::LazyFrame(r), opts)
+      .filter(predicate)
+    assert_eq(plan.explain(optimized=true), plan.explain())
+    assert_eq(plan.collect(), l.join(r, opts).filter(predicate))
+  }
+}
+
+///|
+test "split: a cross join sinks either side's predicate" {
+  let l = orders_df()
+  let r = cities_df()
+  let opts = @frame.JoinOptions::cross()
+  // Every output row is a real pair, like the inner join's, so both sides
+  // qualify — the right side's `city` has no left clash, so it keeps its
+  // spelling and needs no expression rewrite.
+  let left_pred = @expr.col("amount").gt(@expr.lit_int(15))
+  let right_pred = @expr.col("city").eq(@expr.lit_str("bern"))
+  let sunk_left = LazyFrame::LazyFrame(l)
+    .join(LazyFrame::LazyFrame(r), opts)
+    .filter(left_pred)
+  assert_eq(
+    sunk_left.explain(optimized=true),
+    "JOIN Cross\n" +
+    "  FILTER (col(amount) > 15)\n" +
+    "    SCAN [3×2]\n" +
+    "  SCAN [3×2]",
+  )
+  assert_eq(sunk_left.collect(), l.join(r, opts).filter(left_pred))
+  let sunk_right = LazyFrame::LazyFrame(l)
+    .join(LazyFrame::LazyFrame(r), opts)
+    .filter(right_pred)
+  assert_eq(
+    sunk_right.explain(optimized=true),
+    "JOIN Cross\n" +
+    "  SCAN [3×2]\n" +
+    "  FILTER (col(city) == \"bern\")\n" +
+    "    SCAN [3×2]",
+  )
+  assert_eq(sunk_right.collect(), l.join(r, opts).filter(right_pred))
+}
+
+///|
+test "split: an inner join sinks an unclashed right predicate" {
+  let l = orders_df()
+  let r = cities_df()
+  let opts = @frame.JoinOptions::on([@expr.col("id")])
+  let predicate = @expr.col("city").eq(@expr.lit_str("bern"))
+  let plan = LazyFrame::LazyFrame(l)
+    .join(LazyFrame::LazyFrame(r), opts)
+    .filter(predicate)
+  assert_eq(
+    plan.explain(optimized=true),
+    "JOIN Inner on [col(id)]\n" +
+    "  SCAN [3×2]\n" +
+    "  FILTER (col(city) == \"bern\")\n" +
+    "    SCAN [3×2]",
+  )
+  assert_eq(plan.collect(), l.join(r, opts).filter(predicate))
+}
+
+///|
+test "split: a predicate naming a suffixed right column stays above" {
+  let l = orders_df()
+  let r = cities_df()
+  // Paired keys never coalesce, so the right key column survives the join
+  // as `id_right` — a predicate reading that spelling would need its
+  // expression rewritten to sink, which the pass does not do.
+  let opts = @frame.JoinOptions::left_on([@expr.col("id")], right_on=[
+    @expr.col("id"),
+  ])
+  let predicate = @expr.col("id_right").gt(@expr.lit_int(2))
+  let plan = LazyFrame::LazyFrame(l)
+    .join(LazyFrame::LazyFrame(r), opts)
+    .filter(predicate)
+  assert_eq(plan.explain(optimized=true), plan.explain())
+  assert_eq(plan.collect(), l.join(r, opts).filter(predicate))
+}
+
+///|
+test "split: a row-unstable predicate stays above the join" {
+  // A cast's rejection is value-dependent, so it is not row-stable and
+  // never sinks — the join floors it like every other node.
+  let l = orders_df()
+  let r = cities_df()
+  let opts = @frame.JoinOptions::on([@expr.col("id")])
+  let predicate = @expr.col("amount")
+    .cast(@types.DataType::Float)
+    .gt(@expr.lit_float(15.0))
+  let plan = LazyFrame::LazyFrame(l)
+    .join(LazyFrame::LazyFrame(r), opts)
+    .filter(predicate)
+  assert_eq(plan.explain(optimized=true), plan.explain())
+  assert_eq(plan.collect(), l.join(r, opts).filter(predicate))
+}
+
+///|
+test "split: the decimal value-fence holds above a join" {
+  // A decimal comparison's refusal lives on values, and a join split would
+  // evaluate it on the side's rows rather than the join's output — the
+  // same refusal risk the stage crossings fence, read against the whole
+  // subtree's decimal names.
+  let l = @frame.DataFrame::DataFrame([
+    @series.Series::from_ints("id", [1, 2]),
+    @series.Series::from_decimal_options(0, "amount", [
+      Some(1L),
+      Some(9000000000000000000L),
+    ]),
+  ])
+  let r = cities_df()
+  let opts = @frame.JoinOptions::on([@expr.col("id")])
+  // The checked add refuses on the row where the unscaled sum leaves the
+  // 18-digit envelope — the existing fence fixtures' values, joined here.
+  let predicate = (@expr.col("amount") + @expr.col("amount")).gt(
+    @expr.lit(@types.Scalar::Decimal(0, 1L)),
+  )
+  let plan = LazyFrame::LazyFrame(l)
+    .join(LazyFrame::LazyFrame(r), opts)
+    .filter(predicate)
+  assert_eq(plan.explain(optimized=true), plan.explain())
+  let eager : Result[@frame.DataFrame, @types.DataError] = Ok(
+    l.join(r, opts).filter(predicate),
+  ) catch {
+    e => Err(e)
+  }
+  let lazy_ : Result[@frame.DataFrame, @types.DataError] = Ok(plan.collect()) catch {
+    e => Err(e)
+  }
+  assert_true(eager is Err(@types.DataError::InvalidOperation(_)))
+  assert_true(lazy_ is Err(@types.DataError::InvalidOperation(_)))
+}
+
+///|
+test "split: a predicate naming an absent column keeps its error" {
+  // A broken predicate (no side carries the column) errors identically
+  // before and after the optimizer: the attribution test cannot place it,
+  // so the filter stays above the join and raises at execution, either way.
+  let l = orders_df()
+  let r = cities_df()
+  let opts = @frame.JoinOptions::on([@expr.col("id")])
+  let predicate = @expr.col("ghost").gt(@expr.lit_int(1))
+  let plan = LazyFrame::LazyFrame(l)
+    .join(LazyFrame::LazyFrame(r), opts)
+    .filter(predicate)
+  let eager : Result[@frame.DataFrame, @types.DataError] = Ok(
+    l.join(r, opts).filter(predicate),
+  ) catch {
+    e => Err(e)
+  }
+  let lazy_ : Result[@frame.DataFrame, @types.DataError] = Ok(plan.collect()) catch {
+    e => Err(e)
+  }
+  assert_true(eager is Err(@types.DataError::ColumnNotFound(_)))
+  assert_true(lazy_ is Err(@types.DataError::ColumnNotFound(_)))
+}
+
+///|
+test "split: a suffixed name of an outer join is not the inner join's" {
+  // The regression shape behind the exact name-union: the inner join
+  // outputs a clash-free `d` (its own spelling), and the *outer* join's
+  // right side clashes with it, so `d_right` names the outer right column.
+  // Over-offering `d_right` for the inner join's set would attribute the
+  // predicate to the inner left side — which has no such column — and
+  // break a perfectly good plan; the exact union declines the sink and the
+  // filter stays above the outer join.
+  let inner = orders_df().join(
+    @frame.DataFrame::DataFrame([
+      @series.Series::from_ints("id", [1, 2, 3]),
+      @series.Series::from_strings("d", ["p", "q", "r"]),
+    ]),
+    @frame.JoinOptions::on([@expr.col("id")]),
+  )
+  let outer_right = @frame.DataFrame::DataFrame([
+    @series.Series::from_strings("d", ["x", "y"]),
+    @series.Series::from_ints("n", [7, 8]),
+  ])
+  let opts = @frame.JoinOptions::left_on([@expr.col("amount")], right_on=[
+    @expr.col("n"),
+  ])
+  let predicate = @expr.col("d_right").eq(@expr.lit_str("x"))
+  let plan = LazyFrame::LazyFrame(inner)
+    .join(LazyFrame::LazyFrame(outer_right), opts)
+    .filter(predicate)
+  assert_eq(plan.explain(optimized=true), plan.explain())
+  assert_eq(plan.collect(), inner.join(outer_right, opts).filter(predicate))
 }

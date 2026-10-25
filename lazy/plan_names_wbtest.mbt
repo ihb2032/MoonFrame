@@ -101,6 +101,33 @@ test "output_names: rename applies its pairs" {
 }
 
 ///|
+test "output_names: rename replays its pairs sequentially, as the verb does" {
+  // The three-step swap `DataFrame::rename` documents: each pair sees the
+  // names the earlier pairs produced, so the frame's columns end up swapped
+  // — and the walk, replaying the same steps, answers the same set. A
+  // first-match mapping would answer {a, _t} here and misattribute every
+  // join split above it.
+  let swap : Array[(String, String)] = [("a", "_t"), ("b", "a"), ("_t", "b")]
+  assert_output_names(LazyFrame::LazyFrame(names_frame()).rename(swap).plan, [
+    "a", "b", "c",
+  ])
+  // A rename that would make the verb raise is a plan that fails at
+  // collect: the walk gives up rather than guess at a failing plan.
+  let missing : Array[(String, String)] = [("zz", "x")]
+  assert_true(
+    LazyFrame::LazyFrame(names_frame()).rename(missing).plan.output_names()
+    is None,
+  )
+  // The collision must be with a name still live at that step — the swap
+  // above renames through `a` twice without one.
+  let collide : Array[(String, String)] = [("a", "b")]
+  assert_true(
+    LazyFrame::LazyFrame(names_frame()).rename(collide).plan.output_names()
+    is None,
+  )
+}
+
+///|
 test "output_names: rename_with runs its closure on the real names" {
   let plan = LazyFrame::LazyFrame(names_frame()).rename_with(name => name + "_c").plan
   assert_output_names(plan, ["a_c", "b_c", "c_c"])

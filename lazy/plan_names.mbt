@@ -11,9 +11,12 @@
 // over-approximation (a file source reads as no decimal columns), while
 // this one computes
 // names exactly (a file source's header is known only at collect, so its
-// set is `None`); the two share the rename / suffix shapes they spell but
-// answer different questions at different precisions, and neither could
-// serve the other's callers.
+// set is `None`); the two answer different questions at different
+// precisions and neither could serve the other's callers. They do agree
+// on one fact — a `rename`'s pairs apply in order, so a name can ride
+// several steps to its final one — which this walk spells over the full
+// name set (`sequential_rename` below) and the risk walk spells over its
+// decimal subset.
 //
 // The `Join` arm is the *exact* union — left names, a clash-free right
 // name under its own name, a clashing one under `name + suffix` only. The
@@ -161,23 +164,7 @@ fn frame_op_names(op : FrameOp, below : @set.Set[String]?) -> @set.Set[String]? 
     Rename(pairs) =>
       match below {
         None => None
-        Some(names) => {
-          let renamed = @set.Set([])
-          // Indexed access rather than a tuple pattern: the coverage
-          // reporter's parser cannot parse a tuple pattern in a `for`
-          // header, and a source it cannot parse fails the coverage gate.
-          names.each(name => {
-            let mut target = name
-            for pair in pairs {
-              if pair.0 == name {
-                target = pair.1
-                break
-              }
-            }
-            renamed.add(target)
-          })
-          Some(renamed)
-        }
+        Some(names) => sequential_rename(names, pairs)
       }
     // The closure is total and collect runs it on exactly these column
     // names, so running it here reads the mapping rather than guessing it
@@ -223,4 +210,38 @@ fn bare_on_key_names(options : @frame.JoinOptions) -> @set.Set[String] {
     }
   }
   names
+}
+
+///|
+/// Replay `DataFrame::rename`'s sequential semantics over a name set: each
+/// pair sees the names the earlier pairs produced, so the three-step swap
+/// `[(a, _t), (b, a), (_t, b)]` ends at `{a, b}` — while answering each
+/// original name independently (first matching pair wins) yields `{_t, a}`
+/// for the same input, and every consumer of the set would misattribute
+/// with it. A pair whose source name is missing, or whose target collides
+/// with another still-live name, is the eager verb's `ColumnNotFound` /
+/// `DuplicateColumn`: the plan fails at collect either way, so the walk
+/// answers `None` (names unknowable) rather than guess at a failing plan.
+fn sequential_rename(
+  names : @set.Set[String],
+  pairs : Array[(String, String)],
+) -> @set.Set[String]? {
+  let out = @set.Set([])
+  names.each(name => out.add(name))
+  // Indexed access rather than a tuple pattern: the coverage reporter's
+  // parser cannot parse a tuple pattern in a `for` header, and a source it
+  // cannot parse fails the coverage gate.
+  for pair in pairs {
+    let old_name = pair.0
+    let new_name = pair.1
+    if !out.contains(old_name) {
+      return None
+    }
+    if old_name != new_name && out.contains(new_name) {
+      return None
+    }
+    out.remove(old_name)
+    out.add(new_name)
+  }
+  Some(out)
 }

@@ -87,21 +87,29 @@ fn decimal_names_in_plan(plan : LogicalPlan) -> DecimalRisk {
       Unary(_, Rename(pairs)) => {
         let below = pop_top(values)
         below.names.each(name => out.add(name))
+        // `DataFrame::rename` applies its pairs sequentially, so a decimal
+        // name can ride several steps to its final one — a first-match
+        // mapping loses exactly that. The replay here runs over the
+        // *decimal subset*, not the frame's full name set: a pair whose
+        // source is absent is a no-op (its source is merely non-decimal —
+        // or the verb raises and the plan fails at collect, where fencing
+        // is moot), and the subset never infers the verb's collisions,
+        // which live against non-decimal names it cannot see. Both
+        // liberties are the over-approximating direction: a decimal name
+        // stays in the risk set unless a pair provably moved it.
         let renamed = @set.Set([])
-        below.names.each(name => {
-          let mut target = name
-          // Indexed access rather than a tuple pattern: the coverage
-          // reporter's parser cannot parse a tuple pattern in a `for`
-          // header, and a source it cannot parse fails the coverage
-          // gate.
-          for pair in pairs {
-            if pair.0 == name {
-              target = pair.1
-              break
-            }
+        below.names.each(name => renamed.add(name))
+        // Indexed access rather than a tuple pattern: the coverage
+        // reporter's parser cannot parse a tuple pattern in a `for`
+        // header, and a source it cannot parse fails the coverage gate.
+        for pair in pairs {
+          let old_name = pair.0
+          let new_name = pair.1
+          if renamed.contains(old_name) {
+            renamed.remove(old_name)
+            renamed.add(new_name)
           }
-          renamed.add(target)
-        })
+        }
         values.push({ names: renamed, any: below.any, })
       }
       // The closure is total and collect runs it on exactly these column

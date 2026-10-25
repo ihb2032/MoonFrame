@@ -207,7 +207,10 @@ pub fn eval_positional(
         dense = dense + 1
         match how {
           Average => {
-            let avg = (a + 1 + b).to_double() / 2.0
+            // The mean of the tie-group's first and last ranks in `Int64`:
+            // the last group of a 2^30-cell column reaches 2^31 in `Int32`
+            // and would wrap to a negative rank.
+            let avg = (a.to_int64() + 1L + b.to_int64()).to_double() / 2.0
             for k in a..<b {
               float_out[sorted[k]] = Some(avg)
             }

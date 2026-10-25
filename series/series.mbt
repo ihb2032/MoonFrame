@@ -138,14 +138,21 @@ pub fn Series::from_int_options(
 /// The dtype-carrying rebuild keeps a `Date` column a `Date` (an `Int`
 /// rebuild would silently retype every cell), so a kernel arm that rebuilds
 /// same-physical columns without knowing which rider it holds goes through
-/// here, not `from_int_options`.
+/// here, not `from_int_options`. A decimal dtype meets the envelope check
+/// here too, so the "every constructor that authors a decimal dtype raises"
+/// claim (`check_decimal_scale`) needs no seam exception.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
 pub fn Series::from_i64_options(
   name : String,
   dtype : @types.DataType,
   values : Array[Int64?],
-) -> Series {
+) -> Series raise @types.DataError {
+  match dtype {
+    @types.DataType::Decimal(scale) =>
+      @types.check_decimal_scale(scale, "column \{name}")
+    _ => ()
+  }
   Series::from_builtin(
     name,
     @column.BuiltinColumn::from_i64_options(dtype, values),

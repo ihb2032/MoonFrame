@@ -82,7 +82,8 @@ pub fn DataFrame::filter_row_indices(
 ///|
 /// First `n` rows (or all rows if `n >= nrows`) — Polars' `head`. A negative
 /// `n` keeps every row but the last `|n|` (`head(-2)` drops the final two
-/// rows), saturating to the whole frame when `|n|` reaches past it. Total —
+/// rows), saturating to the empty frame when `|n|` reaches past it — no
+/// rows are left to keep. Total —
 /// never fails. Also exposed under its Polars / SQL name
 /// `limit` (via `#alias`) — the eager twin of `LazyFrame::limit`, keeping
 /// the two surfaces verb-for-verb aligned.
@@ -99,7 +100,8 @@ pub fn DataFrame::head(self : DataFrame, n : Int32) -> DataFrame {
 ///|
 /// Last `n` rows (or all rows if `n >= nrows`) — Polars' `tail`. A negative
 /// `n` keeps every row but the first `|n|` (`tail(-2)` drops the leading two
-/// rows), saturating to the whole frame when `|n|` reaches past it. Total —
+/// rows), saturating to the empty frame when `|n|` reaches past it — no
+/// rows are left to keep. Total —
 /// never fails.
 pub fn DataFrame::tail(self : DataFrame, n : Int32) -> DataFrame {
   let m = @order.window_take(n, self.nrows)

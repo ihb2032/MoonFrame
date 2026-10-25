@@ -1533,6 +1533,36 @@ test "fence: a renamed decimal column keeps its fence" {
 }
 
 ///|
+test "fence: a sequential rename swap keeps the decimal fence" {
+  // The pairs of a swap rename apply in order, so the decimal column's
+  // final name is the one the later steps produce — a first-match mapping
+  // would lose it from the risk set and let the slice pass prune the very
+  // row whose checked subtraction refuses.
+  let df = @frame.DataFrame::DataFrame([
+    @series.Series::from_ints("k", [1, 2]),
+    @series.Series::from_decimal_options(0, "a", [
+      Some(1L),
+      Some(-9223372036854775808L),
+    ]),
+    @series.Series::from_ints("b", [10, 20]),
+  ])
+  let swap : Array[(String, String)] = [("a", "_t"), ("b", "a"), ("_t", "b")]
+  let cells = (@expr.col("b") - @expr.lit_int(1)).with_alias("n")
+  let eager : Result[@frame.DataFrame, @types.DataError] = Ok(
+    df.rename(swap).select([cells]).head(1),
+  ) catch {
+    e => Err(e)
+  }
+  let lazy_ : Result[@frame.DataFrame, @types.DataError] = Ok(
+    LazyFrame::LazyFrame(df).rename(swap).select([cells]).head(1).collect(),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(eager is Err(@types.DataError::InvalidOperation(_)))
+  assert_true(lazy_ is Err(@types.DataError::InvalidOperation(_)))
+}
+
+///|
 test "fence: a rename_with closure keeps the fence" {
   // The closure cannot be inspected, but it is total and collect runs it on
   // exactly the column names carried here — so running it on the set's own
@@ -1895,6 +1925,43 @@ test "split: an inner join sinks an unclashed right predicate" {
     "    SCAN [3×2]",
   )
   assert_eq(plan.collect(), l.join(r, opts).filter(predicate))
+}
+
+///|
+test "split: a sequential rename swap keeps the join's attribution honest" {
+  // A swap rename's final names are the ones its later steps produce: after
+  // [(b, _t), (c, b), (_t, c)] the left column reading `c` carries the old
+  // `b`'s values. A first-match name walk would hand the split the wrong
+  // set and sink the predicate into the *right* side, where `c` holds other
+  // values — silently dropping rows.
+  let l = @frame.DataFrame::DataFrame([
+    @series.Series::from_ints("k", [1]),
+    @series.Series::from_ints("b", [5]),
+    @series.Series::from_ints("c", [10]),
+  ])
+  let r = @frame.DataFrame::DataFrame([
+    @series.Series::from_ints("k", [1]),
+    @series.Series::from_ints("c", [0]),
+    @series.Series::from_ints("y", [7]),
+  ])
+  let swap : Array[(String, String)] = [("b", "_t"), ("c", "b"), ("_t", "c")]
+  let opts = @frame.JoinOptions::on([@expr.col("k")])
+  let predicate = @expr.col("c").gt(@expr.lit_int(1))
+  let plan = LazyFrame::LazyFrame(l)
+    .rename(swap)
+    .join(LazyFrame::LazyFrame(r), opts)
+    .filter(predicate)
+  // The predicate belongs to the left side (its `c` is the old `b`), so it
+  // sinks there — under the join, above the rename.
+  assert_eq(
+    plan.explain(optimized=true),
+    "JOIN Inner on [col(k)]\n" +
+    "  FILTER (col(c) > 1)\n" +
+    "    RENAME [b -> _t, c -> b, _t -> c]\n" +
+    "      SCAN [1×3]\n" +
+    "  SCAN [1×3]",
+  )
+  assert_eq(plan.collect(), l.rename(swap).join(r, opts).filter(predicate))
 }
 
 ///|

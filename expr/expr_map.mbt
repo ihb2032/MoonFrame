@@ -53,7 +53,15 @@ pub fn Expr::map_elements(
 /// closure is opaque to introspection, to rendering, and to the optimizer,
 /// which treats the node as a barrier because it cannot see through it.
 ///
-/// Building the node is total; `f` runs at evaluation and may `raise`. The
+/// Building the node is total; `f` runs at evaluation and may `raise`.
+/// Unlike `map_elements`, whose per-row closure simply never runs on an
+/// empty frame, `f` receives its operand's **whole** column — an empty one
+/// included: selecting over a zero-row frame hands `f` a 0-row `Series`,
+/// and so does the grouped aggregation's dtype probe when there are zero
+/// groups or every reduced cell is null. That empty-input call is the
+/// contract (Polars' `map_batches` carries the same one): a closure must
+/// be total over an empty series — answer an empty series of its output
+/// dtype — and not assume its input has rows. The
 /// returned series rides the same length contract as `lit_series`: a
 /// frame-tall result passes through, a length-1 result broadcasts, any other
 /// length raises `LengthMismatch` in the consuming verb. The result is named

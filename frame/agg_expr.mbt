@@ -144,7 +144,11 @@ pub fn GroupedDataFrame::agg(
       // numeric reduction: under the empty scope the closure never runs, so
       // the probe types the `Map` by its leftmost *input* column (e.g.
       // `String`) and `sum` / `mean` raise `TypeMismatch` even though every
-      // real group evaluates to a numeric cell.
+      // real group evaluates to a numeric cell. A `map_batches` closure is
+      // the one escape hatch that *does* run under the probe — the
+      // evaluator hands it the 0-row operand, the empty-input call its own
+      // contract (see `Expr::map_batches`) already licenses, and its answer
+      // is the dtype witness zero groups would otherwise lack.
       None => {
         if !reduces_per_group(expr) {
           raise @types.DataError::InvalidOperation(

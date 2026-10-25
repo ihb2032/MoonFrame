@@ -315,7 +315,10 @@ python -B .github/scripts/check_array_copy_boundaries.py        # the guard
 The guard is a deliberately small lexical pass over one `///|` block at a time —
 it reads public `Array` parameters (positional, `subset?`, `keys~`) and rejects
 retaining one in a field or a constructor payload without a copy, treating
-`Some` / `Ok` / `Err` as transparent. Being lexical, it is conservative: it can
+`Some` / `Ok` / `Err` as transparent (nested transparently too), and reading
+the same retention through a same-block alias (`let v2 = values`) or a plain
+`=` assignment (`self.field = values`, `stash = values`) like the record
+literal it abbreviates. Being lexical, it is conservative: it can
 reject a shape that is actually safe, which is a prompt to make the copy visible
 rather than to weaken the rule. What it cannot see is behaviour, so the runtime
 side is the root `array_ownership_test.mbt` (and `expr/expr_test.mbt` for
@@ -335,10 +338,12 @@ Adding a variant to a dtype-carrying enum (`Scalar` / `DataType` / `ColumnData`
 guard. The **wildcard arms** are the half nothing forces anyone to re-read: a
 new variant falls in silently, and the wildcard's verdict for the old variants
 becomes an unreviewed default for the new one. The guard is a lexical scan over
-the brace-balanced match blocks in production sources (tests excluded — a
-wildcard there fails loud at assert time), attributing every `_` / `..` arm
-inside a block that names a dtype enum to its enclosing function. Every hit
-must be registered in `.github/scripts/dtype_wildcards.allowlist` as
+the match blocks in production sources (tests excluded — a wildcard there
+fails loud at assert time), attributing every catch-all arm — `_` / `..`, a
+bare lowercase binding (`other =>`, semantically the same catch-all), or the
+`|`-continuation of either, including the `;`-separated arms of a single-line
+match — inside a block that names a dtype enum to its enclosing function. Every
+hit must be registered in `.github/scripts/dtype_wildcards.allowlist` as
 `path function-name reason`; an unregistered wildcard fails, and so does a
 stale entry, so the list cannot rot. The allowlist is the fixed inventory of
 the silent swallow-points — when the variant set grows, it is the review list,
@@ -348,8 +353,9 @@ general path that handles any variant, an inner gate that raises (loud), a
 result-shape contract (`Float|Null`) whose wildcard is the raise arm, and a
 few documented invariants. A wildcard that is none of these is a prompt to
 make the match exhaustive, not to write a new reason. Being lexical, it also
-flags closure-parameter underscores inside a match block's span (`fold(_, _ =>
-false)`); those are registered with that stated reason, the same
+flags closure-parameter lines inside a match block's span (`fold(_, _ =>
+false)` and the `k => …` readers that lead an arm body's line); those are
+registered with that stated reason, the same
 conservative-by-design trade the array-boundary guard makes.
 
 ## Completion Requirements

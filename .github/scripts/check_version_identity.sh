@@ -113,18 +113,32 @@ if ! git rev-parse --git-dir >/dev/null 2>&1; then
 fi
 
 release_shape='v?[0-9]+\.[0-9]+\.[0-9]+'
-# One per line: `regex # why`. The reason is stripped at the `#`, which no
-# pattern contains — a whitespace split would eat the `v` of `MoonBit v` and the
-# `historical` of the marker, quietly widening both.
-third_party='MOONBIT_INSTALL_VERSION|moonc  # the pinned toolchain
-MoonBit v               # the language, in prose
-uses:                   # a pinned action, versioned in a trailing comment
-/[A-Za-z0-9_.-]+@[0-9]  # a dependency, `owner/pkg@X.Y.Z`
-:version = "            # the manifest key itself, on its own line
-UCD version             # the Unicode Character Database edition, in the generated case table
-doc-guard: historical    # a deliberate reference to a past release'
-exclude=$(printf '%s\n' "$third_party" | sed 's/[[:space:]]*#.*$//' | grep . |
-  tr '\n' '|' | sed 's/|$//')
+# A third-party version is not a release of this project, and each kind is
+# masked by a `sed` expression binding the token to the version shape it
+# introduces — the mask removes exactly the dependency's version, never the
+# rest of the line: a sentence may carry both the language's version and
+# this project's on one line, and only the former is exempt. Add a line
+# here when a new dependency's version arrives, so the exclusion is a
+# decision someone wrote down. One expression per kind:
+#   - MOONBIT_INSTALL_VERSION / moonc — the pinned toolchain
+#   - MoonBit v — the language, in prose
+#   - uses: — a pinned action line, deleted whole: an action pin carries
+#     its version in a SHA and a trailing comment, and nothing of this
+#     project's rides one
+#   - owner/pkg@ — a dependency
+#   - :version = " — the manifest key itself, on its own line
+#   - UCD version — the Unicode Character Database edition
+# The expressions are ERE (`sed -E`): a bare `+` is a quantifier here, not
+# the literal it would be under BRE.
+third_party_masks='
+s/MOONBIT_INSTALL_VERSION[[:space:]:=]*"*[0-9][0-9a-zA-Z.+]*"*//g
+s/moonc[[:space:]]+[0-9][0-9a-zA-Z.+]*//g
+s/MoonBit[[:space:]]v[0-9.]+//g
+/uses:[[:space:]]/d
+s/[A-Za-z0-9_.-]+@[0-9.]+//g
+s/:version[[:space:]]*=[[:space:]]*"[0-9.]+"//g
+s/UCD[[:space:]]version[[:space:]]*[0-9.]+//g
+'
 
 prose=$(git ls-files '*.md' |
   grep -v '^docs/migration\.md$' |
@@ -146,7 +160,8 @@ stray=$(
     scan "$prose" "$release_shape"
     scan "$config" "$release_shape"
     scan "$sources" "^[[:space:]]*(///|//).*$release_shape"
-  } | grep . | grep -vE "$exclude" || true
+  } | grep . | grep -v 'doc-guard: historical' |
+    sed -E -e "$third_party_masks" | grep -E "$release_shape" || true
 )
 scanned=$(printf '%s\n%s\n%s\n' "$prose" "$config" "$sources" | grep -c . || true)
 

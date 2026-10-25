@@ -8,16 +8,23 @@ to re-read: a new variant falls in silently. The allowlist is the fixed
 inventory of exactly those places, so adding a dtype (or a new wildcard) makes
 CI name every silent swallow-point that a human must review.
 
-A wildcard arm is a line whose first token is `_ =>` / `.. =>` or a
-continuation `| _ =>` / `| ..`, inside a match block that mentions one of the
-dtype enums anywhere in the block (the scrutinee is usually a bare variable).
-Closure parameter underscores (`makei(n, _ => None)`) share the shape; the
-guard attributes the line to its enclosing function and lets the allowlist
-carry those with their reason, keeping the scanner deliberately lexical, like
-the array-copy boundary guard.
+A wildcard arm is a catch-all arm: a line whose first token is `_ =>` / `.. =>
+` / a bare lowercase binding (`other =>` — semantically the same catch-all,
+which is why it registers like one), or the `|`-continuation of either, inside
+a match block that mentions one of the dtype enums anywhere in the block (the
+scrutinee is usually a bare variable). A single-line match (`match dt { A =>
+1; _ => 0 }`) is scanned on its own line — its `;`-separated segments never
+enter the multi-line walk. Closure parameter underscores (`makei(n, _ =>
+None)`) share the shape; the guard attributes the line to its enclosing
+function and lets the allowlist carry those with their reason, keeping the
+scanner deliberately lexical, like the array-copy boundary guard. String and
+character literals are masked first, so a `'{'` inside one cannot open or
+close a block span; `.github/` fixtures are outside the production set, like
+the array-copy guard's own exclusion.
 
 Usage: python -B .github/scripts/check_dtype_wildcards.py
-  add --write to regenerate .github/scripts/dtype_wildcards.allowlist headers
+  add --write to append the unregistered arms to
+  .github/scripts/dtype_wildcards.allowlist with a TODO reason to fill in
 """
 
 import re
@@ -31,32 +38,51 @@ ENUMS = [
 ALLOWLIST = '.github/scripts/dtype_wildcards.allowlist'
 
 STR_RE = re.compile(r'"(?:[^"\\]|\\.)*"')
+CHAR_RE = re.compile(r"'(?:[^'\\]|\\.)'")
 MATCH_RE = re.compile(r'\bmatch\s+(.+?)\s*\{')
-WILD_RE = re.compile(r'^\s*(_|\.\.)\s*(=>|\|)|\|\s*(_|\.\.)\s*(=>|\|)')
+# A catch-all arm pattern: the whole pattern is `_`, `..`, or a bare
+# lowercase binding — an enum variant is capitalized, so a lowercase
+# identifier alone can only bind. The second alternative is the
+# `|`-continuation of a multi-pattern arm.
+WILD_RE = re.compile(
+    r'^\s*(_|\.\.|[a-z][a-z0-9_\']*)\s*(=>|\|)'
+    r'|\|\s*(_|\.\.|[a-z][a-z0-9_\']*)\s*(=>|\|)'
+)
+# The same test for one `;`-separated segment of a single-line match.
+SEGMENT_RE = re.compile(r'^\s*(?:\|)?\s*(_|\.\.|[a-z][a-z0-9_\']*)\s*=>')
 FN_RE = re.compile(r'^\s*(?:pub\s+)?(?:fn(?:\[[^\]]*\])?\s+)?([A-Za-z_][A-Za-z0-9_:]*)')
 
 
 def strip_line(line):
     line = STR_RE.sub('""', line)
+    line = CHAR_RE.sub("''", line)
     return re.sub(r'//.*$', '', line)
 
 
-def production_files():
+def production_files(root='.'):
     out = subprocess.run(
-        ['git', 'ls-files', '*.mbt'], capture_output=True, text=True
+        ['git', '-C', root, 'ls-files', '*.mbt'],
+        capture_output=True, text=True,
     ).stdout.split()
     return [
         f for f in out
-        if not f.endswith('_test.mbt') and not f.endswith('_wbtest.mbt')
+        if not f.endswith('_test.mbt')
+        and not f.endswith('_wbtest.mbt')
+        and not f.startswith('.github/')
     ]
 
 
-def find_wildcards():
+def find_wildcards(root='.'):
     """Yield (file, line, fn_name) for every wildcard arm in a dtype match."""
     hits = []
-    for f in production_files():
+    for f in production_files(root):
         try:
-            lines = open(f, encoding='utf-8').read().split('\n')
+            lines = open(
+                # Paths come back relative to `root`; the caller passing a
+                # foreign root is a test fixture, whose cwd differs.
+                f if root == '.' else f'{root}/{f}',
+                encoding='utf-8',
+            ).read().split('\n')
         except OSError:
             continue
         fn_name = '<top>'
@@ -75,6 +101,13 @@ def find_wildcards():
                 j = i
                 block = [l]
                 found = []
+                if depth == 0:
+                    # A single-line match: its arms ride the match line
+                    # itself, `;`-separated, and the walk below never runs
+                    # (depth starts at 0) — scan the line's own segments.
+                    for seg in l.split(';'):
+                        if SEGMENT_RE.match(seg):
+                            found.append(i + 1)
                 while j < len(lines) and depth > 0:
                     j += 1
                     if j >= len(lines):
@@ -95,11 +128,13 @@ def find_wildcards():
     return hits
 
 
-def main():
-    hits = find_wildcards()
+def main(allowlist=ALLOWLIST, argv=None, root='.'):
+    if argv is None:
+        argv = sys.argv[1:]
+    hits = find_wildcards(root)
     registered = {}
     try:
-        for raw in open(ALLOWLIST, encoding='utf-8'):
+        for raw in open(allowlist, encoding='utf-8'):
             line = raw.split('#')[0].strip()
             if not line:
                 continue
@@ -112,9 +147,20 @@ def main():
     unknown = [h for h in hits if (h[0], h[2]) not in registered]
     stale = [k for k in registered if k not in {(h[0], h[2]) for h in hits}]
 
+    if '--write' in argv:
+        if unknown:
+            with open(allowlist, 'a', encoding='utf-8') as out:
+                for f, ln, fn in unknown:
+                    out.write(f'{f} {fn} TODO(reason)\n')
+            print(f'dtype wildcards: appended {len(unknown)} arms to '
+                  + allowlist + ' — fill in the TODO reasons')
+        else:
+            print('dtype wildcards: nothing to append')
+        return
+
     if unknown:
         print('dtype wildcards: UNREGISTERED wildcard arms (register in '
-              + ALLOWLIST + ' with a reason, or make the match exhaustive):')
+              + allowlist + ' with a reason, or make the match exhaustive):')
         for f, ln, fn in unknown:
             print(f'  {f}:{ln}  in {fn}')
     if stale:

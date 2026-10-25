@@ -20,3 +20,25 @@ series/series_stats.mbt Series::median the reducer's result contract is Float|Nu
 series/series_stats.mbt Series::quantile the reducer's result contract is Float|Null; the wildcard arm is the raise
 internal/column/storage.mbt <top> the wildcard is exhaustiveness only — the dtype identity check above already answered every mixed pair (same dtype implies same variant), so no cell comparison runs here
 lazy/optimize_value_fence.mbt expr_touches_decimal the wildcard descends the ExprNode walk — the dtype's two named arms above (the Decimal literal, the risk-set column) decide, the underscore pushes every other node's children
+# Binding-name catch-all arms (`other =>`) and closure-parameter lines that
+# lead a line inside a dtype match block (`i => ...`) register here exactly
+# like `_` arms — the guard treats every spelling of "catches the rest" the
+# same.
+examples/sales_analysis/pipeline/pipeline.mbt is_widget_row the catch-all reads a present cell's as_string; the null arm above it is the example's point
+frame/dataframe.mbt typed_column_cells the catch-all decodes the cell or raises TypeMismatch — a new variant is refused, never silently coerced
+frame/null.mbt DataFrame::fill_null the catch-all compares dtypes (fills only when the scalar's dtype matches the column's) — a new variant simply does not fill
+frame/null.mbt DataFrame::fill_nan the catch-all is the identity pass-through: only Float cells carry NaN, every other variant rides unchanged
+frame/pivot.mbt reshape_pivot the catch-all renders the cell for the pivot card — a new variant renders by its own to_string, as today's do
+internal/column/builtin_cast.mbt BuiltinColumn::to_int closure-parameter lines inside the cast's cell loops (i =>), not match arms — the scanner is deliberately lexical
+internal/column/builtin_cast.mbt BuiltinColumn::to_float closure-parameter lines inside the cast's cell loops (i =>), not match arms — the scanner is deliberately lexical
+internal/column/builtin_cast.mbt BuiltinColumn::to_string_column closure-parameter lines inside the cast's cell loops (i =>), not match arms — the scanner is deliberately lexical
+internal/kernel/ternary.mbt eval_ternary closure-parameter lines inside the cell selectors (i =>), not match arms — the scanner is deliberately lexical
+series/reduce.mbt reduce_present closure-parameter lines inside the fold drivers (k => / i =>), not match arms — the scanner is deliberately lexical
+series/reduce.mbt reduce_arith closure-parameter lines inside the fold drivers (k =>), not match arms — the scanner is deliberately lexical
+series/reduce.mbt numeric_double_reader closure-parameter lines in the reader arms' bodies (i =>), not match arms — the scanner is deliberately lexical
+series/reduce.mbt reduce_arg_extremum closure-parameter lines inside the extremum drivers (k => / (x, y) =>), not match arms — the scanner is deliberately lexical
+series/series.mbt typed_cells the catch-all decodes the cell or raises TypeMismatch — a new variant is refused, never silently coerced
+types/scalar.mbt Scalar::as_int the catch-all routes every other variant to expected_type's loud TypeMismatch raise — a new variant is refused, never silently coerced
+types/scalar.mbt Scalar::as_float the catch-all routes every other variant to expected_type's loud TypeMismatch raise — a new variant is refused, never silently coerced
+types/scalar.mbt Scalar::as_bool the catch-all routes every other variant to expected_type's loud TypeMismatch raise — a new variant is refused, never silently coerced
+types/scalar.mbt Scalar::as_string the catch-all routes every other variant to expected_type's loud TypeMismatch raise — a new variant is refused, never silently coerced

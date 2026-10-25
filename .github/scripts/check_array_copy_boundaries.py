@@ -6,8 +6,12 @@ one top-level `///|` block at a time, finds public functions with `Array[...]`
 parameters — positional, optional (`subset? : Array[...]`), or labelled
 (`keys~ : Array[...]`) — and rejects direct retention in record fields or
 enum/constructor payloads unless the retained value is an explicit `.copy()`.
-`Some` / `Ok` / `Err` are transparent: a payload holding `Some(values)` retains
-`values` exactly as a bare `values` would.
+`Some` / `Ok` / `Err` are transparent — nested transparently too, so
+`Ok(Some(values))` is one hand-off — and two more shapes count as retention
+like the record literal does: a plain `=` assignment whose whole right-hand
+side is the parameter (a `mut` field or a global stash), and retention through
+a same-block alias (`let v2 = values` followed by `Frame(cols = v2)`), where
+the alias binding is the hand-off point a shadow copy must precede.
 
 A `let values = values.copy()` shadow binding also clears the parameter, but
 only when it is at the body's top level *and* precedes every retention. Both
@@ -42,14 +46,20 @@ TRANSPARENT_WRAPPERS = ("Some", "Ok", "Err")
 
 
 def wrapped_forms(parameter: str) -> str:
-    """Regex source matching `parameter` bare or inside a transparent wrapper.
+    """Regex source matching `parameter` bare or inside transparent wrappers.
 
-    `Some` / `Ok` / `Err` do not own the array they carry, so a field or payload
-    holding `Some(values)` aliases the caller's array just as `values` does.
+    `Some` / `Ok` / `Err` do not own the array they carry, so a field or
+    payload holding `Some(values)` aliases the caller's array just as
+    `values` does — and the wrappers nest (`Ok(Some(values))` is one
+    hand-off, not two), so the form is expanded three levels deep, past
+    any nesting a real boundary writes.
     """
     escaped = re.escape(parameter)
-    wrappers = "|".join(TRANSPARENT_WRAPPERS)
-    return rf"(?:{escaped}|(?:{wrappers})\s*\(\s*{escaped}\s*\))"
+    wrappers = "(?:Some|Ok|Err)\\s*\\(\\s*{inner}\\s*\\)"
+    form = escaped
+    for _ in TRANSPARENT_WRAPPERS:
+        form = rf"(?:{escaped}|{wrappers.format(inner=form)})"
+    return form
 
 
 def mask_strings_and_comments(text: str) -> str:
@@ -228,27 +238,65 @@ def retained_parameters(block: str) -> list[str]:
     code = masked[closing + 1 :]
     retained: list[str] = []
     for parameter in parameters:
-        field_assignment = re.search(
-            rf"\b[A-Za-z_][A-Za-z0-9_]*\s*:\s*{wrapped_forms(parameter)}"
-            rf"(?![A-Za-z0-9_]|\s*\.copy\s*\()",
+        # An alias hands the same array on under a second name, and the
+        # binding itself is the hand-off: a shadow copy that runs later
+        # rebinds the parameter, never the alias, so anything the alias
+        # feeds afterwards still reaches the caller's array. An alias
+        # bound *after* the copy names the copy instead and is safe.
+        copied_at = top_level_copy(code, parameter)
+        aliases: list[tuple[str, int]] = []
+        for alias in re.finditer(
+            rf"(?m)^\s*let\s+([a-z][A-Za-z0-9_]*)\s*=\s*"
+            rf"{re.escape(parameter)}\s*$",
             code,
-        )
-        # Where the caller's array is first handed to something that keeps it.
-        # Every detector reads the same masked body — masking is idempotent, so
-        # the helpers' own pass is a no-op — and their offsets index one string.
-        sites = [
-            None if field_assignment is None else field_assignment.start(),
-            constructor_retains(code, parameter),
-            record_shorthand_retains(code, parameter),
-        ]
-        found = [site for site in sites if site is not None]
-        if not found:
+        ):
+            if copied_at is not None and copied_at < alias.start():
+                continue
+            aliases.append((alias.group(1), alias.start()))
+        # Where the caller's array is first handed to something that keeps
+        # it. Every detector reads the same masked body — masking is
+        # idempotent, so the helpers' own pass is a no-op — and their
+        # offsets index one string. An alias binding counts as a hand-off
+        # only once a retention fires *through that alias* — a borrow that
+        # never reaches a field is a read.
+        sites: list[int] = []
+        for name, offset in [(parameter, 0)] + aliases:
+            retained_via_name: list[int] = []
+            field_assignment = re.search(
+                rf"\b[A-Za-z_][A-Za-z0-9_]*\s*:\s*{wrapped_forms(name)}"
+                rf"(?![A-Za-z0-9_]|\s*\.copy\s*\()",
+                code,
+            )
+            if field_assignment is not None:
+                retained_via_name.append(field_assignment.start())
+            # A plain `=` write whose whole right-hand side is the parameter
+            # (or a transparent wrapper of it): a `mut` field or a global
+            # stash — assignment syntax, not the record literal the field
+            # detector reads.
+            assignment = re.search(
+                rf"(?m)^[ \t]*(?!let\b)"
+                rf"[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*"
+                rf"\s*=\s*{wrapped_forms(name)}\s*$",
+                code,
+            )
+            if assignment is not None:
+                retained_via_name.append(assignment.start())
+            via_constructor = constructor_retains(code, name)
+            if via_constructor is not None:
+                retained_via_name.append(via_constructor)
+            via_shorthand = record_shorthand_retains(code, name)
+            if via_shorthand is not None:
+                retained_via_name.append(via_shorthand)
+            if retained_via_name:
+                sites.extend(retained_via_name)
+                if offset:
+                    sites.append(offset)
+        if not sites:
             continue
         # A shadow copy protects a retention only if it already ran: rebinding
         # *after* the array was handed on leaves the original aliased, and a
         # copy nested in one branch says nothing about the others.
-        copied_at = top_level_copy(code, parameter)
-        if copied_at is not None and copied_at < min(found):
+        if copied_at is not None and copied_at < min(sites):
             continue
         retained.append(parameter)
     return retained

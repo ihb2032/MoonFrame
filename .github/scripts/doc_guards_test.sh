@@ -175,6 +175,16 @@ Also v0.3.0. <!-- doc-guard: unresolved -->'
 expect_out 1 'names a release' 'version: the third-party exclusions stay narrow' \
   sh "$scripts/check_version_identity.sh" "$work/v_narrow"
 
+# The exemption masks the third-party version, not the line it rides on: a
+# sentence carrying both the language's version and this project's must
+# still answer for its own. The whole-line drop used to wave both through.
+mkfixture "$work/v_mixed_line" 0.5.8 '## v0.5.8 → v0.6.0 (unreleased)'
+addfile "$work/v_mixed_line" docs/performance.md \
+  'Measured on MoonBit v0.10.17 against the v0.5.2 baseline.'
+expect_out 1 'names a release' \
+  'version: a third-party token exempts its own version, not the line' \
+  sh "$scripts/check_version_identity.sh" "$work/v_mixed_line"
+
 # A guard that cannot read the file list must not report success.
 mkdir -p "$work/v_no_git/docs"
 printf 'name = "x"\n\nversion = "0.6.0"\n' >"$work/v_no_git/moon.mod"
@@ -646,6 +656,17 @@ mklayering "$work/ly_ok" "$ly_frame" "$ly_kernel" "$ly_root"
 expect 0 'layering: production graph obeys the rules (test imports reach further)' \
   sh "$scripts/check_layering.sh" "$work/ly_ok"
 
+# A comment must not be able to disguise a production import block as a
+# test-only one: the `for "test"` marker is read off the comment-stripped
+# closer, so `} // for "test"` is a production block wearing a comment.
+ly_disguised='import {
+  "ihb2032/MoonFrame/internal/column",
+} // for "test" — legacy spelling'
+mklayering "$work/ly_disguised" "$ly_disguised" "$ly_kernel" "$ly_root"
+expect_out 1 'imports internal/column' \
+  'layering: a comment cannot disguise a production block as test-only' \
+  sh "$scripts/check_layering.sh" "$work/ly_disguised"
+
 mklayering "$work/ly_column" 'import {
   "ihb2032/MoonFrame/series",
   "ihb2032/MoonFrame/internal/column",
@@ -1032,6 +1053,18 @@ printf '///|\npub fn consume(c : Series) -> Int {\n  match c.storage().data() {\
 expect_out 1 'writes into a live column buffer' \
   'engine seams: a one-hop alias of a column buffer' \
   sh "$scripts/check_engine_seams.sh" "$work/es_alias"
+
+# The in-place method family is wider than push: the real core spellings
+# (`rev_in_place`, the method-form setter) are mutations too, and a list that
+# named dead spellings instead (`reverse`, `map_inplace`) never saw any of
+# them.
+mkseams "$work/es_in_place_family" "$es_source" "$es_snap"
+printf '///|\npub fn consume(c : Series) -> Int {\n  match c.storage().data() {\n    ColumnData::Int(a) => {\n      a.set(0, 1L)\n      a.rev_in_place()\n      a.map_in_place(x => x)\n      a.truncate(1)\n      a.dedup()\n      a.drain(0, 1)\n      a.blit_to(a, 0, 0, 0)\n    }\n    _ => ()\n  }\n  ignore(validity_bools(c))\n  ignore(reducer_for(c, ReduceOp::Sum))\n  ignore(after_the_value(c))\n  ignore(bool_cells(c))\n  0\n}\n' \
+  >"$work/es_in_place_family/io/io.mbt"
+(cd "$work/es_in_place_family" && git add -A && git commit -qm inplacefamily)
+expect_out 1 'rev_in_place(` mutates a buffer the column owns' \
+  'engine seams: the in-place method family beyond push' \
+  sh "$scripts/check_engine_seams.sh" "$work/es_in_place_family"
 
 # A second alias is not a second buffer either. Names are collected in source
 # order, and MoonBit will not let one be used before it is bound, so a chain is
@@ -1595,6 +1628,49 @@ expect_out 1 'points at its own file' \
   'comment references: a self-pointing comment' \
   sh "$scripts/check_comment_references.sh" "$work/cr_layout_self"
 
+# A trailing comment is a comment: a reference riding after code on the same
+# line is read exactly like one that leads the line, and a `//` inside a
+# string literal opens nothing.
+mkrefs "$work/cr_trailing_ref" 'pub fn use_it() -> Int {
+  // see `@series.vanished_fn` — formerly here
+  let url = "http://example.com/x"
+  0
+}'
+expect_out 1 'does not declare' \
+  'comment references: a trailing comment names a dead symbol' \
+  sh "$scripts/check_comment_references.sh" "$work/cr_trailing_ref"
+
+mkrefs "$work/cr_trailing_code_ref" 'pub fn use_it() -> Int {
+  let n = 1 // `@series.gather_series` is fine; `@series.vanished_fn` is not
+  n
+}'
+expect_out 1 'does not declare' \
+  'comment references: a reference after code on the same line' \
+  sh "$scripts/check_comment_references.sh" "$work/cr_trailing_code_ref"
+
+mkrefs "$work/cr_trailing_layout" 'pub fn use_it() -> Int {
+  let n = 1 // the shape lives in `series/series.mbt`
+  n
+}'
+expect_out 1 'navigates instead of explaining' \
+  'comment references: a trailing comment navigates to a file' \
+  sh "$scripts/check_comment_references.sh" "$work/cr_trailing_layout"
+
+# Two packages sharing a basename would make `@name` ambiguous; the guard
+# refuses to run over an ambiguous module rather than resolve to whichever
+# it saw last.
+mkrefs "$work/cr_ambig" '///|
+/// Calls `@series.gather_series`.
+pub fn use_it() -> Int {
+  0
+}'
+mkdir -p "$work/cr_ambig/internal/series"
+printf 'import {\n}\n' >"$work/cr_ambig/internal/series/moon.pkg"
+(cd "$work/cr_ambig" && git add -A && git commit -qm ambig)
+expect_out 1 'ambiguous package qualifier' \
+  'comment references: two packages sharing a basename' \
+  sh "$scripts/check_comment_references.sh" "$work/cr_ambig"
+
 mkrefs "$work/cr_pkg" '///|
 /// Calls `@series.vanished_fn`.
 pub fn use_it() -> Int {
@@ -1734,6 +1810,36 @@ mkmirror "$work/m_extra" \
 }'
 expect 1 'mirror: a member beyond NullCount on the lazy side' \
   sh "$scripts/check_reduction_mirror.sh" "$work/m_extra"
+
+# A renamed or split source must fail the read: two empty sets compare
+# equal, so a missing file would otherwise pass the mirror vacuously.
+mkmirror "$work/m_no_source" \
+'priv enum FrameReduceOp {
+  Sum
+}' \
+'priv enum LazyReduceOp {
+  Sum
+  NullCount
+}'
+mv "$work/m_no_source/lazy/logical_plan.mbt" "$work/m_no_source/lazy/renamed.mbt"
+expect_out 1 'source missing' \
+  'mirror: a missing source fails rather than vacuously passing' \
+  sh "$scripts/check_reduction_mirror.sh" "$work/m_no_source"
+
+# The opening brace may sit on its own line — `fmt` moves it without
+# warning, and the member read must not depend on where it lands.
+mkmirror "$work/m_brace_next_line" \
+'priv enum FrameReduceOp
+{
+  Sum
+}' \
+'priv enum LazyReduceOp
+{
+  Sum
+  NullCount
+}'
+expect 0 'mirror: the opening brace on its own line' \
+  sh "$scripts/check_reduction_mirror.sh" "$work/m_brace_next_line"
 
 # ── the repository itself ─────────────────────────────────────────────────
 expect 0 'repo: version identity' sh "$scripts/check_version_identity.sh" "$root"

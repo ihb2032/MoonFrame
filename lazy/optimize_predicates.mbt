@@ -245,7 +245,8 @@ fn LogicalPlan::place_filter(
     // crossing rules for that hop are `split_filter_into_join`'s; failing
     // them, the join floors the filter like any other node.
     Join(left, right, options) =>
-      match split_filter_into_join(left, right, options, predicate) {
+      match
+        split_filter_into_join(left, right, options, predicate, decimal_names) {
         Some(joined) => joined
         None => Unary(cur, Filter(predicate))
       }
@@ -290,15 +291,24 @@ fn LogicalPlan::place_filter(
 /// rewritten, which this pass does not do). A side whose names are not
 /// statically knowable cannot be attributed and does not sink.
 ///
-/// The error face is covered by the two gates every sinking already
-/// carries: `row_stable` excludes the expressions whose *raises* depend on
-/// which rows exist (a cast's values, a map's closure, a literal series'
-/// height — a sunk predicate would evaluate at the side's height, not the
-/// join's output height), and the decimal value-fence at the top of
-/// `place_filter` has already checked the predicate against the *whole*
-/// subtree's decimal names — a superset of either side's — so a split can
-/// only sink into a side whose decimal refusals the predicate has already
-/// been cleared against. What remains raises, if at all, on
+/// The error face is covered by the gates every sinking already carries:
+/// `row_stable` excludes the expressions whose *raises* depend on which
+/// rows exist (a cast's values, a map's closure, a literal series' height —
+/// a sunk predicate would evaluate at the side's height, not the join's
+/// output height), and the decimal value-fence at the top of `place_filter`
+/// has already checked the predicate against the *whole* subtree's decimal
+/// names — a superset of either side's — so a split can only sink into a
+/// side whose decimal refusals the predicate has already been cleared
+/// against. The join's *keys* carry the same two gates, and for a stronger
+/// reason than error faithfulness: after a sink, the keys re-evaluate on
+/// the filtered side, so an aggregation key broadcasts over a different
+/// frame (`sum(v)` of the surviving rows), a positional key reads different
+/// neighbours, and a literal-series key meets a different height — the
+/// *matching itself* changes, not just the errors. `all_row_stable` over
+/// every key (`on` keys evaluate on both sides, so they gate the split as
+/// a whole), plus the decimal fence read against the same whole-subtree
+/// risk set, keep those keys' evaluations — values and refusals alike —
+/// identical below the sink. What remains raises, if at all, on
 /// scope-independent facts (a dtype, a regex pattern's compile) that hold
 /// identically on the side and on the join output — the left columns ride
 /// verbatim, so their dtypes are the same cells' dtypes — and the
@@ -311,8 +321,28 @@ fn split_filter_into_join(
   right : LogicalPlan,
   options : @frame.JoinOptions,
   predicate : @expr.Expr,
+  decimal_names : DecimalRisk,
 ) -> LogicalPlan? {
   if !row_stable(predicate.node()) {
+    return None
+  }
+  // The keys re-evaluate on each side once the predicate sinks into one,
+  // so they carry the aggregate crossing's own key gate (`all_row_stable`)
+  // and the decimal fence — see the header.
+  let keys : Array[@expr.Expr] = []
+  for key in options.on_keys() {
+    keys.push(key)
+  }
+  for key in options.left_keys() {
+    keys.push(key)
+  }
+  for key in options.right_keys() {
+    keys.push(key)
+  }
+  if !all_row_stable(keys) {
+    return None
+  }
+  if keys.any(k => value_raises_on_decimal(k.node(), decimal_names)) {
     return None
   }
   let reads = predicate.referenced_columns()

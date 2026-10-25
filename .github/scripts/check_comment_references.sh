@@ -82,6 +82,17 @@ pkg_dirs=$(git ls-files '*moon.pkg' | grep -v '^examples/' |
     printf '%s\t%s\n' "${d##*/}" "$d"
   done | LC_ALL=C sort -u)
 
+# The qualifier is the last path segment, so two packages sharing a basename
+# would make `@name` resolve to whichever the lookup saw last — wrong in
+# either direction. Refuse to run over an ambiguous module rather than pick.
+pkg_dupes=$(printf '%s\n' "$pkg_dirs" | grep . | cut -f1 |
+  LC_ALL=C sort | LC_ALL=C uniq -d)
+if [ -n "$pkg_dupes" ]; then
+  printf 'comment references: ambiguous package qualifier(s) — two packages share the basename:\n'
+  printf '%s\n' "$pkg_dupes" | sed 's/^/  @/'
+  exit 1
+fi
+
 # Everything below runs as three `awk` passes over file *lists*, not as a
 # pipeline per file or per line. Written the obvious way — a `grep` and a `sed`
 # for each of two hundred files, then one lookup per reference — this took long
@@ -152,7 +163,11 @@ printf '%s\n%s\n' "$sources" "$interfaces" | grep . |
   ' | LC_ALL=C sort -u >"$pairs"
 
 # Pass 3 — every backticked reference a comment carries. In source only comment
-# lines can hold one; in prose every line can.
+# lines can hold one; in prose every line can. A trailing comment — code,
+# then `// …` — is read too: the comment part starts at the first `//`
+# outside a string literal (a `"http://…"` inside one is not a comment),
+# so a reference hiding after code on the same line cannot escape by
+# spelling.
 printf '%s\n' "$prose" | grep . >"$refs.prose" || true
 printf '%s\n%s\n' "$sources" "$prose" | grep . |
   xargs awk -v proselist="$refs.prose" '
@@ -160,10 +175,36 @@ printf '%s\n%s\n' "$sources" "$prose" | grep . |
       while ((getline p < proselist) > 0) isprose[p] = 1
     }
     FNR == 1 { prose = (FILENAME in isprose) }
-    !prose && $0 !~ /^[[:space:]]*(\/\/\/|\/\/)/ { next }
-    /doc-guard: (historical|unresolved)/ { next }
+    function comment_part(line,    i, j, n, c, d) {
+      n = length(line)
+      i = 1
+      while (i <= n) {
+        c = substr(line, i, 1)
+        if (c == "\"") {
+          j = i + 1
+          while (j <= n) {
+            d = substr(line, j, 1)
+            if (d == "\\") { j += 2; continue }
+            if (d == "\"") break
+            j++
+          }
+          i = j + 1
+        } else if (c == "/" && substr(line, i + 1, 1) == "/") {
+          return substr(line, i)
+        } else {
+          i++
+        }
+      }
+      return ""
+    }
     {
-      line = $0
+      if (prose) {
+        line = $0
+      } else {
+        line = comment_part($0)
+        if (line == "") next
+      }
+      if (line ~ /doc-guard: (historical|unresolved)/) next
       while (match(line, /`[^`]+`/)) {
         ref = substr(line, RSTART + 1, RLENGTH - 2)
         print FILENAME "\t" FNR "\t" ref
@@ -244,14 +285,37 @@ external=$(printf '%s' "$counts" | cut -f3)
 # for the past.
 layout=$(git ls-files '*.mbt' | grep . |
   xargs awk '
-    /^[[:space:]]*\/\// {
-      if ($0 ~ /doc-guard: (historical|unresolved)/) next
-      line = $0
+    function comment_part(line,    i, j, n, c, d) {
+      n = length(line)
+      i = 1
+      while (i <= n) {
+        c = substr(line, i, 1)
+        if (c == "\"") {
+          j = i + 1
+          while (j <= n) {
+            d = substr(line, j, 1)
+            if (d == "\\") { j += 2; continue }
+            if (d == "\"") break
+            j++
+          }
+          i = j + 1
+        } else if (c == "/" && substr(line, i + 1, 1) == "/") {
+          return substr(line, i)
+        } else {
+          i++
+        }
+      }
+      return ""
+    }
+    {
+      line = comment_part($0)
+      if (line == "") next
+      if (line ~ /doc-guard: (historical|unresolved)/) next
       while (match(line, /[A-Za-z0-9_.\/-]+\.mbt/)) {
         print FILENAME ":" FNR ": `" substr(line, RSTART, RLENGTH) "` — a comment navigates to a file; describe the behaviour instead"
         line = substr(line, RSTART + RLENGTH)
       }
-      if ($0 ~ /this file/)
+      if (line ~ /this file/)
         print FILENAME ":" FNR ": a comment points at its own file; describe the behaviour instead"
     }
   ' || true)

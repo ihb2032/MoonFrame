@@ -55,6 +55,65 @@ class ArrayCopyBoundaryTests(unittest.TestCase):
 }"""
         self.assertEqual(self.retained(source), [])
 
+    def test_nested_transparent_wrappers(self) -> None:
+        source = """pub fn Plan::new(values : Array[Int]) -> Res {
+  Res(Ok(Some(values)))
+}"""
+        self.assertEqual(self.retained(source), ["values"])
+
+    def test_assignment_whose_rhs_is_the_parameter(self) -> None:
+        # `=` is not `:` — a mut field or a global stash written through
+        # plain assignment retains the array just like a record literal.
+        source = """pub fn stash(values : Array[Int]) -> Unit {
+  sink = values
+}"""
+        self.assertEqual(self.retained(source), ["values"])
+
+    def test_field_path_assignment_is_retention_too(self) -> None:
+        source = """pub fn load(self : Box, values : Array[Int]) -> Unit {
+  self.held = values
+}"""
+        self.assertEqual(self.retained(source), ["values"])
+
+    def test_assignment_of_a_copy_is_safe(self) -> None:
+        source = """pub fn stash(values : Array[Int]) -> Unit {
+  sink = values.copy()
+}"""
+        self.assertEqual(self.retained(source), [])
+
+    def test_assignment_with_other_rhs_is_untouched(self) -> None:
+        source = """pub fn stash(values : Array[Int]) -> Unit {
+  sink = values.len()
+  other = 1 + 2
+}"""
+        self.assertEqual(self.retained(source), [])
+
+    def test_retention_through_a_single_hop_alias(self) -> None:
+        # The alias detector reads `let v2 = values` as the hand-off point:
+        # a later shadow copy rebinds the parameter, never the alias.
+        source = """pub fn Plan::new(values : Array[Int]) -> Plan {
+  let v2 = values
+  let values = values.copy()
+  Plan(cols = v2)
+}"""
+        self.assertEqual(self.retained(source), ["values"])
+
+    def test_alias_bound_after_the_copy_is_safe(self) -> None:
+        # The other order names the copy, not the caller's array.
+        source = """pub fn Plan::new(values : Array[Int]) -> Plan {
+  let values = values.copy()
+  let v2 = values
+  Plan(cols = v2)
+}"""
+        self.assertEqual(self.retained(source), [])
+
+    def test_a_borrowed_alias_is_a_read_not_a_retention(self) -> None:
+        source = """pub fn total(values : Array[Int]) -> Int {
+  let v2 = values
+  v2.fold(0, (a, b) => a + b)
+}"""
+        self.assertEqual(self.retained(source), [])
+
     def test_shadow_binding_to_copy_is_safe(self) -> None:
         source = """pub fn Box::new(values : Array[Int]) -> Box {
   let values = values.copy()

@@ -129,9 +129,13 @@ edges=$(git ls-files '*moon.pkg' |
       /^import \{/ { inblock = 1; n = 0; next }
       # A block closed by a `for "test"` / `for "wbtest"` marker is a test
       # configuration: buffered and dropped, so only production edges are
-      # emitted.
+      # emitted. The marker is read off a comment-stripped copy of the
+      # closing line: `} // for "test"` is a test block wearing a comment,
+      # and a comment must not be able to disguise — or forge — the marker.
       inblock && /^\}/ {
-        if ($0 !~ /for "(wb)?test"/) {
+        closer = $0
+        sub(/\/\/.*/, "", closer)
+        if (closer !~ /for "(wb)?test"/) {
           for (i = 1; i <= n; i++) print pkg " -> " dep[i]
         }
         inblock = 0

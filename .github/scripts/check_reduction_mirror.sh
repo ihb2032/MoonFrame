@@ -21,12 +21,24 @@ root=$(cd "${1:-.}" && pwd)
 
 # members <file> <enum-name>: the variant identifiers of a private enum,
 # payloads and comments stripped (`Quantile(Double, …)` reads as
-# `Quantile`), declaration order irrelevant to the comparison.
+# `Quantile`), declaration order irrelevant to the comparison. The opening
+# brace may sit on the declaration line or the next one (`fmt` moves it
+# without warning); a missing file is an error in its own right — two
+# empty sets compare equal, so a renamed or split source would otherwise
+# pass the mirror check vacuously.
 members() {
   file=$1
   name=$2
-  awk -v n="$name" '
-    $0 ~ "^priv enum " n "[[:space:]]*\\{" { inside = 1; next }
+  if [ ! -f "$root/$file" ]; then
+    echo "reduction mirror: source missing: $file — the mirror cannot be read" >&2
+    exit 1
+  fi
+  out=$(awk -v n="$name" '
+    $0 ~ "^priv enum " n "([[:space:]]|$)" { pending = 1 }
+    pending && !inside {
+      if ($0 ~ /\{/) { inside = 1; next }
+      next
+    }
     inside && /^}/ { exit }
     inside {
       sub(/\/\/.*/, "")
@@ -35,7 +47,12 @@ members() {
       sub(/\(.*/, "")
       print
     }
-  ' "$root/$file"
+  ' "$root/$file")
+  if [ -z "$out" ]; then
+    echo "reduction mirror: enum $name not found in $file — the mirror cannot be read" >&2
+    exit 1
+  fi
+  printf '%s\n' "$out"
 }
 
 work=$(mktemp -d)

@@ -369,8 +369,13 @@ mutations=$(printf '%s\n' "$production_files" | while IFS= read -r f; do
     }
     END {
       # The shapes that write through a name: an indexed assignment, and the
-      # `Array` methods that mutate in place.
-      mutators = "push pop unsafe_pop clear resize retain remove insert swap sort sort_by reverse fill shuffle append push_iter map_inplace"
+      # `Array` methods that mutate in place. The list matches what core
+      # actually defines, verified against it — `rev_in_place` /
+      # `map_in_place` (not `reverse` / `map_inplace`, spellings nothing
+      # defines), the setter pair `set` / `unsafe_set`, and the rest of the
+      # in-place family (blit / drain / truncate / dedup / retain_map /
+      # extract_if / shuffle_in_place / mapi_in_place / unsafe_pop_back).
+      mutators = "push pop unsafe_pop unsafe_pop_back clear resize retain retain_map remove insert swap sort sort_by sort_by_key rev_in_place shuffle shuffle_in_place fill truncate dedup drain extract_if map_in_place mapi_in_place push_iter append set unsafe_set blit_to unsafe_blit unsafe_blit_fixed"
       nm = split(mutators, mut, " ")
       for (n = 1; n <= NR; n++) {
         l = line[n]

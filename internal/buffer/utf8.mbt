@@ -34,6 +34,12 @@ pub extend Utf8Array with Debug::{to_repr}
 /// Encode `values` (already placeholder-filled: a null slot arrives as `""`)
 /// into one UTF-8 buffer. `values` is copied, so the buffer is unaffected by
 /// later mutation of the array.
+///
+/// The layout's representable bound: offsets are `Int32`, so one column
+/// carries at most `2^31 - 1` payload bytes and `2^31 - 1` cells. The size
+/// arithmetic is exact everywhere under that bound; a larger request is
+/// outside this layout's contract — no `Int32`-indexed buffer can hold it
+/// — and meets the platform's allocation boundary.
 pub fn Utf8Array::from_strings(values : Array[String]) -> Utf8Array {
   // Sum of the UTF-8 encodings' byte lengths — the exact value-buffer size,
   // allocated once instead of grown per cell. Same walk as `encode_into`, so
@@ -261,6 +267,11 @@ pub fn Utf8Array::slice_view(
 /// indices are already bounds-checked; a gather re-orders, so the bytes
 /// cannot simply be shared). Cell bytes are copied verbatim — no decode /
 /// re-encode round-trip.
+///
+/// `from_strings`'s representable bound applies here with force: a gather
+/// with repeated indices can amplify a column past `2^31 - 1` payload
+/// bytes even when its input sat under the bound, and the amplified
+/// request then meets the same platform allocation wall.
 pub fn Utf8Array::take_view(
   self : Utf8Array,
   indices : Array[Int32],

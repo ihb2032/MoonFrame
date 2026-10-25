@@ -88,6 +88,15 @@ fn parse_ndjson_str_projected(
   // reject it at column 0 while later lines parse — an asymmetric failure on
   // Excel-saved files.
   let content = strip_utf8_bom(content)
+  // Normalise CR-family line endings to `\n` before the split: a lone
+  // `\r` is a record terminator for classic-Mac exports, and without
+  // this the whole file reads as one line and fails at its first `{`.
+  // CRLF needs no help of its own (`@json.parse` takes the trailing
+  // `\r` as whitespace), but folding it here keeps the physical line
+  // count the diagnostics carry identical across the three endings.
+  let content = content
+    .replace_all(old="\r\n", new="\n")
+    .replace_all(old="\r", new="\n")
   // Materialise the line views so the loop can carry a 1-based index
   // for diagnostics (the same `for i, x in ...` idiom the other readers
   // use). The views borrow `content`, so this is cheap.

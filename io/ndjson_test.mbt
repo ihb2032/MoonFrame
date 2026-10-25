@@ -270,10 +270,22 @@ test "parse_ndjson_str: blank lines between and around records are skipped" {
 
 ///|
 test "parse_ndjson_str: CRLF line endings are handled" {
-  // Splitting on `\n` leaves a trailing `\r`, which `@json.parse`
-  // tolerates as JSON whitespace; the final empty segment after the
-  // last CRLF is a blank line and is skipped.
+  // The reader folds CR-family endings to `\n` before the split (and
+  // `@json.parse` takes any survivor `\r` as JSON whitespace); the final
+  // empty segment after the last CRLF is a blank line and is skipped.
   let content = "{\"a\":1}\r\n{\"a\":2}\r\n"
+  let df = @io.parse_ndjson_str(content)
+  assert_eq(df.shape(), (2, 1))
+  assert_eq(df.item(0, "a"), @types.Scalar::Int(1))
+  assert_eq(df.item(1, "a"), @types.Scalar::Int(2))
+}
+
+///|
+test "parse_ndjson_str: CR-only line endings split like LF and CRLF" {
+  // A lone `\r` terminates records in classic-Mac exports; folded to
+  // `\n` with the rest, the file reads as its records rather than one
+  // failing line.
+  let content = "{\"a\":1}\r{\"a\":2}\r"
   let df = @io.parse_ndjson_str(content)
   assert_eq(df.shape(), (2, 1))
   assert_eq(df.item(0, "a"), @types.Scalar::Int(1))

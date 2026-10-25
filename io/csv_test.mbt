@@ -202,6 +202,53 @@ test "parse_csv_str: custom null_values let NA / N/A become null" {
 }
 
 ///|
+test "parse_csv_str: a short row's missing cells are null regardless of null_values" {
+  // The null mapping decides what a *read* value means; a cell a short
+  // row never held was never read, so it is null even when "" is not a
+  // null token — inside the inference window (the column keeps its
+  // dtype) and past it (the locked dtype meets no ghost "" to reject).
+  let content =
+    #|a,b
+    #|1.5,2.5
+    #|1.0
+    #|
+  let opts = @io.CsvReadOptions::CsvReadOptions(null_values=["NA"])
+  let df = @io.parse_csv_str(content, options=opts)
+  assert_eq(df.shape(), (2, 2))
+  assert_eq(df.get_column("a").dtype(), @types.DataType::Float)
+  assert_eq(df.get_column("b").dtype(), @types.DataType::Float)
+  assert_eq(df.item(1, "b"), @types.Scalar::Null)
+  let locked = @io.CsvReadOptions::CsvReadOptions(infer_schema_rows=1, null_values=[
+    "NA",
+  ])
+  let df2 = @io.parse_csv_str(content, options=locked)
+  assert_eq(df2.get_column("b").dtype(), @types.DataType::Float)
+  assert_eq(df2.item(1, "b"), @types.Scalar::Null)
+}
+
+///|
+test "parse_csv_str: a present empty cell stays a value when the list says so" {
+  // The mirror of the missing-cell rule: an empty cell the row *does*
+  // hold goes through the mapping — with "" off the null list it is a
+  // real String value, killing the numeric inference for its column —
+  // while the same row's missing cell (column b, the row's one cell is
+  // the quoted "") stays null and Float.
+  let content =
+    #|a,b
+    #|1,2.5
+    #|""
+    #|
+  let df = @io.parse_csv_str(
+    content,
+    options=@io.CsvReadOptions::CsvReadOptions(null_values=["NA"]),
+  )
+  assert_eq(df.get_column("a").dtype(), @types.DataType::String)
+  assert_eq(df.item(1, "a"), @types.Scalar::String(""))
+  assert_eq(df.get_column("b").dtype(), @types.DataType::Float)
+  assert_eq(df.item(1, "b"), @types.Scalar::Null)
+}
+
+///|
 test "parse_csv_str: Int promotes to Float when later rows mix in 1.5" {
   // The inference pass walks rows in order — once the second row
   // forces Float, the third "2" rendering still parses fine.

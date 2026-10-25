@@ -27,10 +27,12 @@
 ///   (both for type inference, which skips them, and for the final
 ///   typed column, where they become `None`). The default `[""]`
 ///   matches the empty string only, which is how an absent CSV cell is
-///   typically represented. Read it back through the `null_values()`
-///   accessor: the field itself is private, and both it and the
-///   constructor copy, so the token list a reader uses cannot be changed
-///   after the options are built.
+///   typically represented. A cell a ragged short row never held is null
+///   regardless of this list — the mapping decides what a *read* value
+///   means, and no value was read. Read it back through the
+///   `null_values()` accessor: the field itself is private, and both it
+///   and the constructor copy, so the token list a reader uses cannot be
+///   changed after the options are built.
 /// - `strict_column_count` — when `true`, every data row must have
 ///   exactly as many cells as the header declares; a ragged row (too
 ///   few or too many cells) `raise ParseError` instead of being
@@ -544,20 +546,60 @@ fn validate_csv_delimiter(delimiter : Char) -> Unit raise @types.DataError {
 }
 
 ///|
-/// Read the cell at `(row_idx, col)` from a NyaCSV-produced data
-/// matrix. Short rows (fewer cells than the header declares) fall
-/// through to the empty string, which the null-mapping then turns
-/// into `None` when the empty string is in `null_values`.
+/// Read the cell at `(row_idx, col)` from a NyaCSV-produced data matrix,
+/// as an option. `None` is a missing cell — the row is short and never
+/// held it — and a missing cell is a null cell regardless of
+/// `null_values`: the mapping decides what a *read* value means, and no
+/// value was read. `Some(v)` is a present cell, whose value then goes
+/// through the null mapping.
 fn cell_value(
   rows : Array[Array[String]],
   row_idx : Int32,
   col : Int32,
-) -> String {
+) -> String? {
   let row = rows[row_idx]
   if col < row.length() {
-    row[col]
+    Some(row[col])
   } else {
-    ""
+    None
+  }
+}
+
+///|
+/// The option-cell adapters this reader's cell source (`String?`, `None` =
+/// a short row's missing cell) hands the inference / build cores. The
+/// cores' own contracts guarantee a present, non-null cell to the probes
+/// and parsers — `is_null` filters first — so each adapter's `None` arm is
+/// the missing cell's verdict on a question the cores never ask of it;
+/// the whitebox battery pins those arms directly.
+fn cell_is_null(is_null : (String) -> Bool, c : String?) -> Bool {
+  match c {
+    None => true
+    Some(v) => is_null(v)
+  }
+}
+
+///|
+fn cell_probe(probe : (String) -> Bool, c : String?) -> Bool {
+  match c {
+    None => false
+    Some(v) => probe(v)
+  }
+}
+
+///|
+fn[T] cell_parse(parse : (String) -> T?, c : String?) -> T? {
+  match c {
+    None => None
+    Some(v) => parse(v)
+  }
+}
+
+///|
+fn cell_text(c : String?) -> String {
+  match c {
+    None => ""
+    Some(v) => v
   }
 }
 
@@ -579,10 +621,12 @@ fn infer_column_dtype(
     rows.length(),
     limit~,
     cell=i => cell_value(rows, i, col),
-    is_null~,
-    is_int=v => parse_int_opt(v) is Some(_),
-    is_float=v => parse_float_opt(v, allow_nonfinite_floats) is Some(_),
-    is_bool=v => parse_bool_opt(v) is Some(_),
+    is_null=c => cell_is_null(is_null, c),
+    is_int=c => cell_probe(v => parse_int_opt(v) is Some(_), c),
+    is_float=c => {
+      cell_probe(v => parse_float_opt(v, allow_nonfinite_floats) is Some(_), c)
+    },
+    is_bool=c => cell_probe(v => parse_bool_opt(v) is Some(_), c),
   )
 }
 
@@ -620,7 +664,7 @@ fn build_column(
   row_numbers : Array[Int32]?,
 ) -> @series.Series raise @types.DataError {
   let n = rows.length()
-  let cell = fn(i : Int32) -> String { cell_value(rows, i, col) }
+  let cell = fn(i : Int32) -> String? { cell_value(rows, i, col) }
   // A parse error must name the cell's original file row. `rows` may be the
   // compacted survivor list of a predicate-pruned read, so map the build index
   // back through `row_numbers` (identity when `None`, i.e. a full read); the
@@ -637,19 +681,21 @@ fn build_column(
     dtype,
     n,
     cell~,
-    is_null=isnull,
-    parse_int=parse_int_opt,
-    parse_float=v => parse_float_opt(v, allow_nonfinite_floats),
-    parse_bool=parse_bool_opt,
-    render=v => v,
-    locate=(dt, i, v) => {
+    is_null=c => cell_is_null(isnull, c),
+    parse_int=c => cell_parse(parse_int_opt, c),
+    parse_float=c => {
+      cell_parse(v => parse_float_opt(v, allow_nonfinite_floats), c)
+    },
+    parse_bool=c => cell_parse(parse_bool_opt, c),
+    render=cell_text,
+    locate=(dt, i, c) => {
       @types.DataError::ParseError(
         @types.ParseErrorDetail::Cell(
           @types.CellParseLocation::Row,
           name,
           file_row(i),
           dt,
-          v,
+          cell_text(c),
         ),
       )
     },

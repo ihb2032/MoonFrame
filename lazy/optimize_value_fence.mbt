@@ -212,10 +212,10 @@ fn expr_touches_decimal(expr : @ir.ExprNode, risk : @set.Set[String]) -> Bool {
 
 ///|
 /// Whether any node of the expression is an arithmetic / comparison
-/// binary, one of the comparison sugar nodes, or a `Sum` aggregation —
-/// the shapes whose decimal operands carry the checked refusals. The shape
-/// test alone fences nothing: an `Int` sum wraps and a `Float` one absorbs,
-/// which is why the risk set decides alongside it.
+/// binary, one of the comparison sugar nodes, the checked unary pair, or a
+/// `Sum` aggregation — the shapes whose decimal operands carry the checked
+/// refusals. The shape test alone fences nothing: an `Int` sum wraps and a
+/// `Float` one absorbs, which is why the risk set decides alongside it.
 fn expr_has_decimal_checked_op(expr : @ir.ExprNode) -> Bool {
   let stack : Array[@ir.ExprNode] = [expr]
   while stack.length() > 0 {
@@ -250,6 +250,11 @@ fn expr_has_decimal_checked_op(expr : @ir.ExprNode) -> Bool {
       // binary spellings.
       @ir.ExprNode::IsBetween(_, _, _, _) => return true
       @ir.ExprNode::IsIn(_, _) => return true
+      // The checked unary pair: `neg` / `abs` refuse on an 18-digit
+      // magnitude the way the arithmetics refuse on their overflow, and
+      // the descent must not read through them as value-safe.
+      @ir.ExprNode::Unary(@ir.UnOp::Neg, _) => return true
+      @ir.ExprNode::Unary(@ir.UnOp::Abs, _) => return true
       @ir.ExprNode::Agg(@series.ReduceOp::Sum, _) => return true
       _ =>
         for kid in node.children() {

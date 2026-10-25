@@ -1412,6 +1412,37 @@ test "fence: decimal arithmetic inside a stage pins the filter above" {
 }
 
 ///|
+test "fence: decimal neg and abs carry the checked refusal" {
+  // The unary pair refuses on the 18-digit magnitude — a value refusal on
+  // the same footing as the binaries' overflows, so the checked-op list
+  // carries them too: without it, the slice pass prunes the refusing row
+  // before the unary ever reads it and swallows the error.
+  let df = @frame.DataFrame::DataFrame([
+    @series.Series::from_decimal_options(0, "d", [
+      Some(1L),
+      Some(-9223372036854775808L),
+    ]),
+  ])
+  let cells : Array[@expr.Expr] = [
+    @expr.col("d").neg().with_alias("n"),
+    @expr.col("d").abs().with_alias("a"),
+  ]
+  for expr in cells {
+    let plan = LazyFrame::LazyFrame(df).select([expr]).head(1)
+    let eager : Result[@frame.DataFrame, @types.DataError] = Ok(
+      df.select([expr]).head(1),
+    ) catch {
+      e => Err(e)
+    }
+    let lazy_ : Result[@frame.DataFrame, @types.DataError] = Ok(plan.collect()) catch {
+      e => Err(e)
+    }
+    assert_true(eager is Err(@types.DataError::InvalidOperation(_)))
+    assert_true(lazy_ is Err(@types.DataError::InvalidOperation(_)))
+  }
+}
+
+///|
 test "fence: a decimal predicate of its own never sinks" {
   // The predicate itself combines decimal cells: its refusal also lives on
   // rows a deeper placement would evaluate differently, so it stays above

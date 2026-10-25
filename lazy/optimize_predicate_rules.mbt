@@ -130,11 +130,14 @@ fn classify(node : @ir.ExprNode, kids : Array[ExprProps]) -> ExprProps {
         group_cell: combined.group_cell,
       }
     }
-    // Every unary member is row-local: raises only on the dtype, a
-    // scope-independent fact — the `Dt*` quartet included, whose calendar
+    // Every unary member is row-local; almost all raise only on the dtype,
+    // a scope-independent fact — the `Dt*` quartet included, whose calendar
     // math is total over every `Int64` day count (the same remainder-first
     // conversion the ISO rendering composes); `Round` reads only its place
-    // count.
+    // count. The family's one value-dependent refusal is decimal
+    // `Neg` / `Abs` on an 18-digit magnitude, and that one is the decimal
+    // value-fence's to carry (`expr_has_decimal_checked_op` lists the
+    // pair), not this structural walk's.
     @ir.ExprNode::Unary(op, _) => {
       let combined = kids_and(kids)
       {

@@ -42,3 +42,4 @@ types/scalar.mbt Scalar::as_int the catch-all routes every other variant to expe
 types/scalar.mbt Scalar::as_float the catch-all routes every other variant to expected_type's loud TypeMismatch raise — a new variant is refused, never silently coerced
 types/scalar.mbt Scalar::as_bool the catch-all routes every other variant to expected_type's loud TypeMismatch raise — a new variant is refused, never silently coerced
 types/scalar.mbt Scalar::as_string the catch-all routes every other variant to expected_type's loud TypeMismatch raise — a new variant is refused, never silently coerced
+series/series.mbt Series::from_i64_options the wildcard passes the non-decimal riders through — Int and the date-likes carry no envelope to check, and a new rider decides its own spelling here at compile time

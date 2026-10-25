@@ -19,3 +19,22 @@ test "new / from_builtin wrap an existing column" {
   assert_eq(a.storage_kind(), @column.StorageKind::Builtin)
   assert_eq(a, b)
 }
+
+///|
+test "from_i64_options checks the decimal envelope on the seam" {
+  // The seam carries dtypes the engine authored; a decimal one still meets
+  // the envelope, so `check_decimal_scale`'s every-constructor claim needs
+  // no seam exception. In-scale riders build as before.
+  let ok = Ok(
+    Series::from_i64_options("m", @types.DataType::Decimal(2), [Some(5L)]),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(ok is Ok(_))
+  let over = Ok(
+    Series::from_i64_options("m", @types.DataType::Decimal(19), [Some(5L)]),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(over is Err(@types.DataError::InvalidOperation(_)))
+}

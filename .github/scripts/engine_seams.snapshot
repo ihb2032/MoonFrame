@@ -18,13 +18,13 @@ series | doc_hidden internal_engine | pub extend KeyCell with Eq::{equal, not_eq
 series | doc_hidden internal_engine | pub extend KeyCell with Hash::{hash, hash_combine}
 series | doc_hidden internal_engine | pub extend ReduceOp with Eq::{equal, not_equal}
 series | doc_hidden internal_engine | pub fn Series::build_sort_key( self : Series, descending : Bool, nulls_last : Bool, ) -> SortKey | used by: frame
-series | doc_hidden internal_engine | pub fn Series::coalesce_columns( self : Series, fill : Series, name : String, ) -> Series | used by: frame
+series | doc_hidden internal_engine | pub fn Series::coalesce_columns( self : Series, fill : Series, name : String, ) -> Series raise @types.DataError | used by: frame
 series | doc_hidden internal_engine | pub fn Series::empty_of( name : String, dtype : @types.DataType, ) -> Series raise @types.DataError | used by: frame
 series | doc_hidden internal_engine | pub fn Series::from_bool_options( name : String, values : Array[Bool?], ) -> Series | used by: frame,internal/kernel
 series | doc_hidden internal_engine | pub fn Series::from_date_options( name : String, values : Array[Int64?], ) -> Series | used by: frame,internal/kernel
 series | doc_hidden internal_engine | pub fn Series::from_decimal_options( scale : Int32, name : String, values : Array[Int64?], ) -> Series raise @types.DataError | used by: frame,internal/kernel
 series | doc_hidden internal_engine | pub fn Series::from_float_options( name : String, values : Array[Double?], ) -> Series | used by: frame,internal/kernel
-series | doc_hidden internal_engine | pub fn Series::from_i64_options( name : String, dtype : @types.DataType, values : Array[Int64?], ) -> Series | used by: internal/kernel
+series | doc_hidden internal_engine | pub fn Series::from_i64_options( name : String, dtype : @types.DataType, values : Array[Int64?], ) -> Series raise @types.DataError | used by: internal/kernel
 series | doc_hidden internal_engine | pub fn Series::from_int_options( name : String, values : Array[Int64?], ) -> Series | used by: frame,internal/kernel
 series | doc_hidden internal_engine | pub fn Series::from_string_options( name : String, values : Array[String?], ) -> Series | used by: frame,internal/kernel,io
 series | doc_hidden internal_engine | pub fn Series::from_timestamp_options( name : String, values : Array[Int64?], ) -> Series | used by: frame,internal/kernel

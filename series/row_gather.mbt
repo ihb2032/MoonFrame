@@ -60,17 +60,24 @@ pub fn Series::mask_true_indices(self : Series) -> Array[Int32]? {
 /// A column-level merge, so it lives beside the column rather than in the join
 /// that wants it: the cells come out of `base`'s own buffer, and reading that
 /// buffer is this package's business. `fill` is read through the total
-/// `to_scalars`, so no unreachable error arm is introduced — the caller's
-/// equal-dtype precondition guarantees the matching `Scalar` variant, and
-/// the off-type arms are exhaustive so a future dtype decides its fill
-/// spelling here at compile time.
+/// `to_scalars`, and the caller's equal-dtype precondition is checked rather
+/// than assumed — a mismatched fill would land its raw I64 cells through a
+/// buffer that reads them back as a different dtype (a decimal fill even
+/// discards its scale), silently.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
 pub fn Series::coalesce_columns(
   self : Series,
   fill : Series,
   name : String,
-) -> Series {
+) -> Series raise @types.DataError {
+  if fill.dtype() != self.dtype() {
+    raise @types.DataError::TypeMismatch(
+      @types.TypeMismatchDetail::Message(
+        "coalesce fill carries \{fill.dtype()}, not the column's own \{self.dtype()}",
+      ),
+    )
+  }
   let base_valid = self.validity_bools()
   let fills = fill.to_scalars()
   // The four closures differ only in the `Scalar` variant they read `fill` as.

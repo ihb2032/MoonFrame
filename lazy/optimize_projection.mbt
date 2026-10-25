@@ -42,11 +42,9 @@ priv enum ProjStep {
 ///   `Head` / `Tail` / `Slice`) pass the requirement through, widened by
 ///   the columns they read themselves; `WithColumns` subtracts the names
 ///   its expressions *define* (those need not exist in its input) and
-///   adds the names they *read*. `Join` stays a barrier — splitting a
-///   requirement across two sides whose outputs interleave under suffix
-///   renaming is column provenance, deferred — but both sides restart
-///   their own pass, so a `Select` deep under a join still narrows its
-///   own scan.
+///   adds the names they *read*. `Join` splits the requirement across
+///   its sides by output-name provenance (`join_requirements`, which also
+///   states why an unattributable side keeps its whole output).
 ///
 /// Why the order insensitivity matters: narrowing a `with_columns` input
 /// can turn an in-place column *replacement* into an *append* (the
@@ -58,10 +56,9 @@ priv enum ProjStep {
 ///
 /// Deliberately deferred: pruning dead expressions from `Select` /
 /// `WithColumns` lists (changes which expressions evaluate, hence which
-/// *errors* a failing plan reports), narrowing or predicate-splitting
-/// through `Join`, sinking filters below `Sort`, and streaming a file source
-/// (the reader still tokenises the whole file; push-down skips the *typed*
-/// build of dropped rows, not the read).
+/// *errors* a failing plan reports), sinking filters below `Sort`, and
+/// streaming a file source (the reader still tokenises the whole file;
+/// push-down skips the *typed* build of dropped rows, not the read).
 fn LogicalPlan::push_projection(
   self : LogicalPlan,
   required : @set.Set[String]?,
@@ -95,11 +92,16 @@ fn LogicalPlan::push_projection(
             work.push(Rebuild1(c => Unary(c, op)))
             work.push(Visit(input, op.frame_op_required(req)))
           }
-          // Barrier: both sides keep their full output; each restarts its pass.
+          // A requirement splits across the sides by output-name
+          // provenance (see `join_requirements`); an unbounded one leaves
+          // both sides whole, the barrier treatment.
           Join(left, right, options) => {
+            let (left_req, right_req) = join_requirements(
+              left, right, options, req,
+            )
             work.push(RebuildJoin(options))
-            work.push(Visit(right, None))
-            work.push(Visit(left, None))
+            work.push(Visit(right, right_req))
+            work.push(Visit(left, left_req))
           }
           // By-name originator, like a `Select`: keys + aggregated expressions.
           Aggregate(input, keys, exprs) => {
@@ -188,6 +190,122 @@ fn FrameOp::frame_op_required(
     | Unpivot(_, _, _, _)
     | FillNan(_)
     | Reduce(_) => None
+  }
+}
+
+///|
+/// Split a `Join` consumer's requirement into one per side — the `Join`
+/// node's half of `push_projection`. An unbounded requirement (`None`, the
+/// plan root or a barrier above) leaves both sides whole. A bounded one is
+/// divided by output-name provenance, read off each side's static name set
+/// (`output_names`): a left column keeps its name in the join output, so
+/// every required name in the left set is a left requirement; a right
+/// column is output under its own name when no left column clashes and
+/// under `name + suffix` when one does, so a required name reaches the
+/// right side either as itself or stripped of the suffix.
+///
+/// Both mappings may over-keep, and deliberately so — a requirement is a
+/// whitelist, so a side that keeps a column no consumer reads merely skips
+/// a narrowing it could have made, while a side that drops a live column
+/// would change the join's output. The name a left *and* right column
+/// share is the one case in point: the join outputs the left one under the
+/// bare name and the right one suffixed, so the bare name is really a left
+/// requirement — it is still also offered to the right side's set, where it
+/// can only keep a column alive, never misroute one.
+///
+/// Each side's join keys are added to that side's requirement whatever the
+/// consumer wants — the join reads its keys from both sides before any
+/// output column exists. The existence filters (`Semi` / `Anti`) are the
+/// pure case: their output is the left schema alone, so the whole
+/// requirement goes left and the right side narrows to its key columns
+/// (its rows are probed, never emitted). A side whose names are not
+/// statically knowable (a file source somewhere below it) cannot have a
+/// requirement attributed — it keeps everything (`None`), except that its
+/// key columns are still statically required, so a semi join's right file
+/// source still narrows to its keys.
+fn join_requirements(
+  left : LogicalPlan,
+  right : LogicalPlan,
+  options : @frame.JoinOptions,
+  req : @set.Set[String]?,
+) -> (@set.Set[String]?, @set.Set[String]?) {
+  match req {
+    None => (None, None)
+    Some(needed) => {
+      // The key columns each side provably reads: an `on` join reads the
+      // same expressions on both sides, a sided join its own list, a cross
+      // join nothing.
+      let on = options.on_keys()
+      let (left_key_reads, right_key_reads) : (
+        @set.Set[String],
+        @set.Set[String],
+      ) = if on.is_empty() {
+        (columns_read(options.left_keys()), columns_read(options.right_keys()))
+      } else {
+        let shared = columns_read(on)
+        let for_left = @set.Set([])
+        add_all(for_left, shared)
+        let for_right = @set.Set([])
+        add_all(for_right, shared)
+        (for_left, for_right)
+      }
+      match options.how {
+        Semi | Anti => {
+          let left_req = @set.Set([])
+          add_all(left_req, needed)
+          add_all(left_req, left_key_reads)
+          let right_req = @set.Set([])
+          add_all(right_req, right_key_reads)
+          (Some(left_req), Some(right_req))
+        }
+        Inner | Left | Right | Outer | Cross => {
+          // The right names a required suffixed spelling maps back to —
+          // collected first, because a clash is a *pair*: the right column
+          // is only renamed (and only reachable under its suffixed name)
+          // while the left column of the same name still stands. Narrowing
+          // the left side past it would dissolve the clash at collect time
+          // — the join would then output the right column bare, under the
+          // left column's name — so each mapped-back name that clashes is
+          // added to the left requirement too, as a dead-but-load-bearing
+          // column (the over-keep direction: a requirement is a whitelist).
+          let mapped_back = @set.Set([])
+          let right_req = match right.output_names() {
+            None => None
+            Some(names) => {
+              let acc = @set.Set([])
+              needed.each(name => {
+                if names.contains(name) {
+                  acc.add(name)
+                }
+                // A suffixed output name maps back to the right column it
+                // renamed; an empty suffix strips nothing, so the
+                // `contains` test above already made the same offer.
+                if options.suffix != "" && name.has_suffix(options.suffix) {
+                  let bare = name[0:name.length() - options.suffix.length()].to_owned()
+                  if names.contains(bare) {
+                    acc.add(bare)
+                    mapped_back.add(bare)
+                  }
+                }
+              })
+              add_all(acc, right_key_reads)
+              Some(acc)
+            }
+          }
+          let left_req = match left.output_names() {
+            None => None
+            Some(names) => {
+              let acc = @set.Set([])
+              needed.each(name => if names.contains(name) { acc.add(name) })
+              mapped_back.each(name => if names.contains(name) { acc.add(name) })
+              add_all(acc, left_key_reads)
+              Some(acc)
+            }
+          }
+          (left_req, right_req)
+        }
+      }
+    }
   }
 }
 

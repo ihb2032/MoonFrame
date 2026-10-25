@@ -702,6 +702,34 @@ test "grouped agg over zero groups consumes the deferred probe" {
 }
 
 ///|
+/// A `map_batches` closure is the one escape hatch that runs under the
+/// deferred probe — the evaluator hands it the 0-row operand, an
+/// empty-input call `Expr::map_batches`'s contract already licenses (the
+/// row-level `map`'s closure, by contrast, never runs). A closure total
+/// over an empty series answers the witness zero groups would lack.
+test "grouped agg over zero groups probes a map_batches closure on 0 rows" {
+  let empty = DataFrame::DataFrame([
+    Series::from_strings("g", []),
+    Series::from_ints("q", []),
+  ])
+  let out = empty
+    .group_by([@expr.col("g")])
+    .agg([
+      @expr.col("q")
+      .map_batches(label="count", returns_scalar=true, s => {
+        if s.len() == 0 {
+          Series::from_ints("count", [])
+        } else {
+          Series::from_ints("count", [s.len().to_int64()])
+        }
+      })
+      .with_alias("n"),
+    ])
+  assert_eq(out.nrows(), 0)
+  assert_eq(out.get_column("n").dtype(), @types.DataType::Int)
+}
+
+///|
 test "a deeply aliased aggregation takes the bare-column fast path without overflow" {
   // `bare_col_agg` peels top-level aliases to recognise `col(n).<agg>()` — the
   // fast path a plain aggregation takes — and `with_alias` stacks without bound.

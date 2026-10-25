@@ -424,6 +424,30 @@ test "map_batches: a closure raise propagates from the consuming verb" {
 }
 
 ///|
+test "map_batches: the closure meets an empty series over a zero-row frame" {
+  // The batched contract: `f` receives the whole column, an empty one
+  // included — selecting over a zero-row frame hands it 0 rows, where the
+  // row-level map's closure would simply never run. A closure total over
+  // an empty series answers an empty series of its own dtype, and that is
+  // the witness the 0-row output carries.
+  let empty = DataFrame::DataFrame([Series::from_ints("q", [])])
+  let mut saw_zero_rows = false
+  let out = empty.select([
+    @expr.col("q")
+    .map_batches(label="double", s => {
+      if s.len() == 0 {
+        saw_zero_rows = true
+      }
+      Series::from_strings("double", [])
+    })
+    .with_alias("d"),
+  ])
+  assert_true(saw_zero_rows)
+  assert_eq(out.nrows(), 0)
+  assert_eq(out.get_column("d").dtype(), @types.DataType::String)
+}
+
+///|
 test "map_batches: a length-1 result broadcasts over the frame in with_columns" {
   // A reducing closure used outside `agg`: its length-1 result broadcasts to
   // every row, exactly like a scalar literal.

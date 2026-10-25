@@ -2036,6 +2036,95 @@ test "split: the decimal value-fence holds above a join" {
 }
 
 ///|
+test "split: an aggregating join key fences the predicate above" {
+  // The key re-evaluates on its side once the predicate sinks into one:
+  // sum(v) over the surviving rows is a different broadcast, and with it a
+  // different match set — 2 rows eager, 0 with the sink. The split's key
+  // gate is the aggregate crossing's own key rule, applied to the join hop.
+  let l = @frame.DataFrame::DataFrame([
+    @series.Series::from_ints("k", [1, 2, 3]),
+    @series.Series::from_ints("v", [100, 0, 50]),
+  ])
+  let r = @frame.DataFrame::DataFrame([@series.Series::from_ints("m", [150])])
+  let opts = @frame.JoinOptions::left_on([@expr.col("v").sum()], right_on=[
+    @expr.col("m"),
+  ])
+  let predicate = @expr.col("k").gt(@expr.lit_int(1))
+  let plan = LazyFrame::LazyFrame(l)
+    .join(LazyFrame::LazyFrame(r), opts)
+    .filter(predicate)
+  assert_eq(plan.explain(optimized=true), plan.explain())
+  assert_eq(plan.collect(), l.join(r, opts).filter(predicate))
+}
+
+///|
+test "split: a value-raising join key keeps its refusal" {
+  // A cast key's refusal lives on cells, and a sunk predicate would prune
+  // the refusing cell before the key ever reads it — the same row-set
+  // dependence `row_stable` refuses the *predicate* for, read on the keys.
+  let l = @frame.DataFrame::DataFrame([
+    @series.Series::from_strings("s", ["1", "abc", "2"]),
+    @series.Series::from_ints("v", [5, 1, 3]),
+  ])
+  let r = @frame.DataFrame::DataFrame([@series.Series::from_ints("id", [1, 2])])
+  let opts = @frame.JoinOptions::left_on(
+    [@expr.col("s").cast(@types.DataType::Int)],
+    right_on=[@expr.col("id")],
+  )
+  let predicate = @expr.col("v").gt(@expr.lit_int(2))
+  let plan = LazyFrame::LazyFrame(l)
+    .join(LazyFrame::LazyFrame(r), opts)
+    .filter(predicate)
+  assert_eq(plan.explain(optimized=true), plan.explain())
+  let eager : Result[@frame.DataFrame, @types.DataError] = Ok(
+    l.join(r, opts).filter(predicate),
+  ) catch {
+    e => Err(e)
+  }
+  let lazy_ : Result[@frame.DataFrame, @types.DataError] = Ok(plan.collect()) catch {
+    e => Err(e)
+  }
+  assert_true(eager is Err(@types.DataError::ParseError(_)))
+  assert_true(lazy_ is Err(@types.DataError::ParseError(_)))
+}
+
+///|
+test "split: a decimal-checked join key keeps its refusal" {
+  // A checked decimal add is row-stable — it raises on values, not on
+  // scope-independent facts — so the structural gate alone would sink the
+  // predicate and prune the refusing row. The decimal fence, read against
+  // the keys, declines the split.
+  let l = @frame.DataFrame::DataFrame([
+    @series.Series::from_strings("k", ["keep", "drop"]),
+    @series.Series::from_decimal_options(0, "d", [
+      Some(5L),
+      Some(5000000000000000000L),
+    ]),
+  ])
+  let r = @frame.DataFrame::DataFrame([
+    @series.Series::from_decimal_options(0, "m", [Some(10L)]),
+  ])
+  let opts = @frame.JoinOptions::left_on([@expr.col("d") + @expr.col("d")], right_on=[
+    @expr.col("m"),
+  ])
+  let predicate = @expr.col("k").eq(@expr.lit_str("keep"))
+  let plan = LazyFrame::LazyFrame(l)
+    .join(LazyFrame::LazyFrame(r), opts)
+    .filter(predicate)
+  assert_eq(plan.explain(optimized=true), plan.explain())
+  let eager : Result[@frame.DataFrame, @types.DataError] = Ok(
+    l.join(r, opts).filter(predicate),
+  ) catch {
+    e => Err(e)
+  }
+  let lazy_ : Result[@frame.DataFrame, @types.DataError] = Ok(plan.collect()) catch {
+    e => Err(e)
+  }
+  assert_true(eager is Err(@types.DataError::InvalidOperation(_)))
+  assert_true(lazy_ is Err(@types.DataError::InvalidOperation(_)))
+}
+
+///|
 test "split: a predicate naming an absent column keeps its error" {
   // A broken predicate (no side carries the column) errors identically
   // before and after the optimizer: the attribution test cannot place it,

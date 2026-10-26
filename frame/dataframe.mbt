@@ -489,3 +489,19 @@ pub fn DataFrame::rows(self : DataFrame) -> Array[Array[@types.Scalar]] {
   let cols = self.to_scalar_matrix()
   Array::makei(self.nrows, r => cols.map(c => c[r]))
 }
+
+///|
+/// Iterate the rows — the `for row in df` spelling. Each step yields one
+/// row as a fresh `Array[Scalar]`, cells in column order, `Null` for a
+/// null slot, exactly the rows `rows()` materialises as a matrix, handed
+/// over one at a time.
+///
+/// Row iteration is the acknowledged slow path over a columnar frame —
+/// Polars carries the same warning — and matches its implementation
+/// strategy: the frame is materialised once up front (as `rows()` does)
+/// and delivered row by row, rather than read a cell at a time. The
+/// column-wise walks stay the fast ones: `iter` / `iter2` over the
+/// columns, `Series::iter` within one.
+pub fn DataFrame::iter_rows(self : DataFrame) -> Iter[Array[@types.Scalar]] {
+  self.rows().iter()
+}

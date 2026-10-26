@@ -41,15 +41,20 @@ STR_RE = re.compile(r'"(?:[^"\\]|\\.)*"')
 CHAR_RE = re.compile(r"'(?:[^'\\]|\\.)'")
 MATCH_RE = re.compile(r'\bmatch\s+(.+?)\s*\{')
 # A catch-all arm pattern: the whole pattern is `_`, `..`, or a bare
-# lowercase binding — an enum variant is capitalized, so a lowercase
-# identifier alone can only bind. The second alternative is the
-# `|`-continuation of a multi-pattern arm.
+# lowercase / underscore-led binding — an enum variant is capitalized, so a
+# lowercase identifier alone can only bind, and `_v` is MoonBit's own
+# spelling of one. A guard (`_ if cond =>`) is the same catch-all with a
+# condition on it: `.*?` runs to the first `=>` or `|`, and either match
+# marks the line (a `|` inside the guard continues the same arm). The second
+# alternative is the `|`-continuation of a multi-pattern arm.
 WILD_RE = re.compile(
-    r'^\s*(_|\.\.|[a-z][a-z0-9_\']*)\s*(=>|\|)'
-    r'|\|\s*(_|\.\.|[a-z][a-z0-9_\']*)\s*(=>|\|)'
+    r'^\s*(_|\.\.|[_a-z][_a-z0-9_\']*)\s*(?:if\b.*?)?\s*(=>|\|)'
+    r'|\|\s*(_|\.\.|[_a-z][_a-z0-9_\']*)\s*(?:if\b.*?)?\s*(=>|\|)'
 )
 # The same test for one `;`-separated segment of a single-line match.
-SEGMENT_RE = re.compile(r'^\s*(?:\|)?\s*(_|\.\.|[a-z][a-z0-9_\']*)\s*=>')
+SEGMENT_RE = re.compile(
+    r'^\s*(?:\|)?\s*(_|\.\.|[_a-z][_a-z0-9_\']*)\s*(?:if\b.*?)?\s*=>'
+)
 FN_RE = re.compile(r'^\s*(?:pub\s+)?(?:fn(?:\[[^\]]*\])?\s+)?([A-Za-z_][A-Za-z0-9_:]*)')
 
 
@@ -96,6 +101,26 @@ def find_wildcards(root='.'):
                 if name:
                     fn_name = name.group(1)
             mm = MATCH_RE.search(l)
+            if mm is None:
+                mbegin = re.search(r'\bmatch\b', l)
+                if mbegin and '{' not in l[mbegin.end():]:
+                    # A wrapped scrutinee: `moon fmt` folds a long one onto
+                    # its own lines, the `{` landing further down — a shape
+                    # the same-line `MATCH_RE` never sees, leaving the whole
+                    # block outside the scan. Join the lines through the one
+                    # that opens the block, so the block scan and the enum
+                    # detection both see the whole scrutinee.
+                    j2 = i
+                    joined = l
+                    while (j2 + 1 < len(lines) and
+                           '{' not in joined[mbegin.end():]):
+                        j2 += 1
+                        joined = joined + ' ' + strip_line(lines[j2])
+                    if '{' in joined[mbegin.end():]:
+                        mm = MATCH_RE.search(joined)
+                        if mm:
+                            i = j2
+                            l = joined
             if mm:
                 depth = l.count('{') - l.count('}')
                 j = i

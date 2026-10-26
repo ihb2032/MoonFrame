@@ -159,6 +159,7 @@ method DataFrame::is_unique(Self) -> @series.Series <- frame
 method DataFrame::item(Self, Int32, String) -> @types.Scalar raise @types.DataError <- frame
 method DataFrame::iter(Self) -> Iter[@series.Series] <- frame
 method DataFrame::iter2(Self) -> Iter2[String, @series.Series] <- frame
+method DataFrame::iter_rows(Self) -> Iter[Array[@types.Scalar]] <- frame
 method DataFrame::join(Self, Self, JoinOptions) -> Self raise @types.DataError <- frame
 method DataFrame::max(Self) -> Self raise @types.DataError <- frame
 method DataFrame::mean(Self) -> Self raise @types.DataError <- frame

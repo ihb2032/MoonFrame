@@ -105,3 +105,29 @@ test "rows of a frame with no rows is empty" {
   ])
   assert_eq(df.rows(), [])
 }
+
+///|
+test "iter_rows hands over the same rows, one at a time" {
+  let df = DataFrame::DataFrame([
+    Series::from_ints("a", [1, 2]),
+    Series::from_string_options("s", [Some("x"), None]),
+  ])
+  let seen : Array[Array[@types.Scalar]] = []
+  for row in df.iter_rows() {
+    seen.push(row)
+  }
+  assert_eq(seen, df.rows())
+  assert_eq(df.iter_rows().size_hint(), Some(2))
+}
+
+///|
+test "iter_rows on a row-less frame" {
+  let df = DataFrame::DataFrame([Series::from_ints("a", [])])
+  assert_true(df.iter_rows().next() is None)
+  let mut steps = 0
+  for row in df.iter_rows() {
+    ignore(row)
+    steps += 1
+  }
+  assert_eq(steps, 0)
+}

@@ -763,7 +763,7 @@ test "a deeply aliased aggregation takes the bare-column fast path without overf
 /// (the per-scope evaluator) and a grouped `agg` (the single-pass fast path).
 /// Covers each op's value, output dtype, and null / NaN rule: `std` / `var`
 /// propagate NaN and reduce a `< 2`-cell scope to null, `median` skips NaN,
-/// `n_unique` buckets NaN as one and excludes nulls, and `first` / `last` are
+/// `n_unique` buckets NaN as one and counts the null bucket, and `first` / `last` are
 /// positional (a null leading / trailing cell, or an empty scope, is null).
 /// Non-numeric `std` / `var` / `median` raise `TypeMismatch`. Construction and
 /// rendering have their own coverage; this pins evaluation.
@@ -918,10 +918,10 @@ test "median of two near-Double-max middles stays finite (no overflow to Inf)" {
   )
 }
 
-// ── n_unique: distinct non-null across every dtype ─────────────────────
+// ── n_unique: distinct values across every dtype ─────────────────────
 
 ///|
-test "n_unique counts distinct non-null values, an Int over any dtype" {
+test "n_unique counts distinct values, an Int over any dtype" {
   let ints = DataFrame::DataFrame([Series::from_ints("x", [1, 1, 2, 3, 3, 3])])
   assert_eq(whole(ints, @expr.col("x").n_unique()), @types.Scalar::Int(3))
   let bools = DataFrame::DataFrame([
@@ -936,7 +936,7 @@ test "n_unique counts distinct non-null values, an Int over any dtype" {
 }
 
 ///|
-test "n_unique buckets every NaN as one value and excludes nulls" {
+test "n_unique buckets every NaN as one value and counts the null" {
   let nan = @double.not_a_number
   // Two distinct values — the finite 1.0 and the single NaN bucket — even
   // though two NaN cells appear (NaN is one value, the n_unique / group rule).
@@ -944,11 +944,12 @@ test "n_unique buckets every NaN as one value and excludes nulls" {
     Series::from_floats("x", [1.0, nan, 1.0, nan]),
   ])
   assert_eq(whole(floats, @expr.col("x").n_unique()), @types.Scalar::Int(2))
-  // Nulls are not a value here: [1, null, 1, 2] has two distinct values.
+  // [1, null, 1, 2] has three distinct values — two Ints and the null
+  // bucket, as in Polars.
   let sparse = DataFrame::DataFrame([
     Series::from_int_options("x", [Some(1), None, Some(1), Some(2)]),
   ])
-  assert_eq(whole(sparse, @expr.col("x").n_unique()), @types.Scalar::Int(2))
+  assert_eq(whole(sparse, @expr.col("x").n_unique()), @types.Scalar::Int(3))
 }
 
 ///|

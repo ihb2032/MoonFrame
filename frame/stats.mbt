@@ -167,11 +167,9 @@ pub fn DataFrame::variance(
 }
 
 ///|
-/// Distinct non-null value count of every column as a 1-row `Int`
-/// `DataFrame` (Polars' `df.n_unique()`): dtype-independent like `count`,
-/// with MoonFrame's documented `n_unique` rule — nulls are skipped (Polars
-/// counts a null as one more distinct value; see `docs/comparison.md`) and
-/// every `Float` `NaN` is one bucket.
+/// Distinct value count of every column as a 1-row `Int` `DataFrame`
+/// (Polars' `df.n_unique()`): dtype-independent like `count`, a null cell
+/// counting as one distinct value and every `Float` `NaN` as one bucket.
 pub fn DataFrame::n_unique(
   self : DataFrame,
 ) -> DataFrame raise @types.DataError {
@@ -316,10 +314,9 @@ fn reduce_column(
       }
       (cell, if numeric { @types.DataType::Float } else { dtype })
     }
-    // `n_unique` is dtype-independent like `count`: the distinct non-null
-    // count of every column, MoonFrame's `n_unique` rule (nulls skipped, every
-    // `NaN` one bucket — Polars counts a null as one more distinct value; see
-    // `docs/comparison.md`).
+    // `n_unique` is dtype-independent like `count`: the distinct value
+    // count of every column — a null counts as one distinct value, every
+    // `NaN` as one bucket, both as in Polars.
     FrameReduceOp::NUnique =>
       (@types.Scalar::Int(s.n_unique().to_int64()), @types.DataType::Int)
   }
@@ -361,7 +358,8 @@ pub fn DataFrame::null_count(
 /// - `dtype` (`String`): source column dtype rendered via `DataType::to_string`
 /// - `count` (`Int`): non-null cell count
 /// - `null_count` (`Int`): null cell count
-/// - `n_unique` (`Int`): distinct non-null value count
+/// - `n_unique` (`Int`): distinct value count, a null counting as one
+///   distinct value
 /// - `mean` (`Float`, nullable): arithmetic mean for numeric columns;
 ///   `Null` for non-numeric or empty / all-null numeric columns
 /// - `min` (`String`, nullable): minimum cell rendered via

@@ -412,8 +412,8 @@ pub fn LazyFrame::variance(self : LazyFrame) -> LazyFrame {
 
 ///|
 /// Defer `DataFrame::n_unique`: a 1-row `Int` frame of each column's
-/// distinct non-null count (every dtype; nulls skipped, every `NaN` one
-/// bucket — the documented `n_unique` rule).
+/// distinct value count (every dtype; a null counts as one distinct value,
+/// every `NaN` one bucket — the documented `n_unique` rule).
 pub fn LazyFrame::n_unique(self : LazyFrame) -> LazyFrame {
   { plan: Unary(self.plan, Reduce(LazyReduceOp::NUnique)), }
 }
@@ -578,8 +578,8 @@ pub fn LazyGroupBy::last(self : LazyGroupBy) -> LazyFrame {
 
 ///|
 /// Defer the eager `group_by(keys).n_unique()`: each non-key column's
-/// distinct non-null count per group (nulls skipped, every `NaN` one
-/// bucket).
+/// distinct value count per group (a null counts as one distinct value,
+/// every `NaN` one bucket).
 pub fn LazyGroupBy::n_unique(self : LazyGroupBy) -> LazyFrame {
   self.agg_all(NUnique)
 }

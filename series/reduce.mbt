@@ -627,15 +627,16 @@ fn[T] arg_extremum_of(
 }
 
 ///|
-/// Count the distinct non-null values in an index window — the total core
+/// Count the distinct values in an index window — the total core
 /// behind both the `n_unique` reduction and `Series::n_unique`, so the two
 /// agree on what "distinct" means cell-for-cell. Cells are keyed by the same
 /// `key_cell` normalisation `group_by` / `join` use, so "distinct value" means
 /// exactly "distinct group": every `NaN` collapses into one bucket and `-0.0`
-/// folds into `+0.0`. Nulls are excluded, the presence predicate skipping them.
-/// The dtype dispatch resolves once into a per-row key reader; only `Float`
-/// needs normalisation (which `key_cell` centralises), the others key on the
-/// native value directly.
+/// folds into `+0.0`. A null cell counts as one distinct value, as Polars'
+/// `n_unique` does — the null bucket, when the window has one, adds one to
+/// the keyed buckets. The dtype dispatch resolves once into a per-row key
+/// reader; only `Float` needs normalisation (which `key_cell` centralises),
+/// the others key on the native value directly.
 fn count_distinct(
   storage : @column.ColumnStorage,
 ) -> (Int32, (Int32) -> Int32) -> Int32 {
@@ -650,15 +651,18 @@ fn count_distinct(
     @column.ColumnData::Bool(a) => i => KBool(a[i])
     @column.ColumnData::Utf8(a) => i => KStr(a.get(i))
   }
-  fn(n : Int32, at : (Int32) -> Int32) {
+  fn(n : Int32, at : (Int32) -> Int32) -> Int32 {
     let seen : Map[KeyCell, Unit] = Map([])
+    let mut has_null = false
     for k in 0..<n {
       let i = at(k)
       if present(i) {
         seen[key_of(i)] = ()
+      } else {
+        has_null = true
       }
     }
-    seen.length()
+    seen.length() + (if has_null { 1 } else { 0 })
   }
 }
 
@@ -824,9 +828,9 @@ pub fn Series::reducer_for(
     // is).
     Mode => (lift_total(reduce_mode(storage)), storage.dtype())
     NUnique => {
-      // The `n_unique` reducer over an index window: distinct non-null count
-      // as `Scalar::Int`, total over every dtype and never null (an empty /
-      // all-null window counts zero), over the shared `count_distinct` core
+      // The `n_unique` reducer over an index window: distinct value count
+      // as `Scalar::Int`, total over every dtype and never null (an empty
+      // window counts zero), over the shared `count_distinct` core
       // `Series::n_unique` also uses.
       let counter = count_distinct(storage)
       (
@@ -897,8 +901,9 @@ pub fn scalars_to_series(
 /// shared `KeyCell` normalisation (`NaN` one bucket, `-0.0` folded). A tie
 /// keeps the **first-appearing** value among the tied — one deterministic
 /// answer where Polars' `mode` returns every tied value as a list, a shape
-/// MoonFrame has no list dtype for. Nulls are skipped (the `n_unique`
-/// rule); an empty / all-null window reduces to `Scalar::Null`.
+/// MoonFrame has no list dtype for. Nulls are skipped — the winning cell is
+/// a value, as Polars' `mode` also skips them; an empty / all-null window
+/// reduces to `Scalar::Null`.
 fn reduce_mode(
   storage : @column.ColumnStorage,
 ) -> (Int32, (Int32) -> Int32) -> @types.Scalar {

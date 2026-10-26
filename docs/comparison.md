@@ -132,9 +132,6 @@ Where MoonFrame knowingly does something else than Polars.
   `&` / `|`); Polars' `when` takes null as false and reads the `otherwise`
   branch. Add an explicit `is_null()` branch when the Polars reading is the
   one wanted.
-- **`n_unique` counts distinct non-null values.** Polars counts a null as
-  one more distinct value; MoonFrame's `n_unique` skips null slots, the
-  same cell set `count` sees.
 - **Whole-frame `min` / `max` / `sum` / `mean` leave a non-numeric column a
   `Null` cell.** A `Date` column reduces to `Null` in the one-row summary
   frame (Polars reduces dates); the column's own `Series::min` / `max`

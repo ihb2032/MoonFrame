@@ -81,7 +81,8 @@
 ///   `sum` / `mean` / `std` / `var` / `median` propagate NaN and reject
 ///   non-numeric dtypes (`median` numeric-only; `min` / `max` are the ones
 ///   that skip it),
-///   `count` counts non-null cells, `n_unique` the distinct non-null values,
+///   `count` counts non-null cells, `n_unique` the distinct values (a null
+///   cell among them),
 ///   and `first` / `last` are positional. This enumeration is the
 ///   evaluator-side view of rules the series reducer's header states
 ///   canonically — change them there first. One deliberate divergence: an

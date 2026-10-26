@@ -138,7 +138,8 @@ pub fn Series::max(self : Series) -> @types.Scalar {
 }
 
 ///|
-/// Number of distinct non-null values. Cells are keyed by the same
+/// Number of distinct values, a null cell counting as one distinct value
+/// (as Polars' `n_unique` does). Cells are keyed by the same
 /// composite-key normalisation `group_by` / `join` use (`key_cell`), so the
 /// distinct count agrees with grouping cell-for-cell: two cells collide
 /// exactly when they would share a `group_by` group. Two `Float`

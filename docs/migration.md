@@ -44,6 +44,16 @@ arms (a `Semi` / `Anti` join keeps the left schema and filters rows by
 whether a key match exists in the right frame); a `match` that ends in a
 `_` arm needs no change.
 
+### `n_unique` counts a null as one distinct value
+
+`n_unique` aligns with Polars: a null cell is one distinct value, so a
+column with nulls counts one more than it used to, and an all-null column
+now returns `1` (was `0`); an empty column is still `0`. Every spelling
+moves together — `Series::n_unique`, `Expr::n_unique`, the whole-frame and
+grouped verbs, and `describe`'s `n_unique` row. `count` still counts
+non-null cells, so the old reading's inputs remain reachable through
+`count` and `null_count`.
+
 ### `DataType` / `Scalar` gained `Timestamp` / `Decimal` variants
 
 `DataType::Timestamp` and `Scalar::Timestamp(micros)` — microseconds since

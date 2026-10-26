@@ -221,13 +221,13 @@ test "std and variance reduce numeric columns to Float, nulls non-numeric" {
 // ── n_unique ──────────────────────────────────────────────────────────
 
 ///|
-test "n_unique counts distinct non-null cells for every column, as Int" {
+test "n_unique counts distinct cells for every column, a null among them, as Int" {
   let r = stats_df().n_unique()
   assert_eq(r.shape(), (1, 4))
-  // i: {1, 2, 3}; f: {1.0, 2.0, 4.0}; b: {true, false}; s: {banana, apple,
-  // cherry} — banana repeats once.
-  assert_eq(r.item(0, "i"), @types.Scalar::Int(3))
-  assert_eq(r.item(0, "f"), @types.Scalar::Int(3))
+  // i: {1, 2, 3} + the null; f: {1.0, 2.0, 4.0} + the null; b: {true,
+  // false}; s: {banana, apple, cherry} — banana repeats once.
+  assert_eq(r.item(0, "i"), @types.Scalar::Int(4))
+  assert_eq(r.item(0, "f"), @types.Scalar::Int(4))
   assert_eq(r.item(0, "b"), @types.Scalar::Int(2))
   assert_eq(r.item(0, "s"), @types.Scalar::Int(3))
   // Dtype-independent like count: every output column is Int.
@@ -540,13 +540,13 @@ test "describe column dtypes are pinned" {
 test "describe row 0 summarises the Int column" {
   let df = describe_df()
   let out = df.describe()
-  // Column "i": values [1, None, 3, 5] → count=3, null=1, unique=3,
-  // mean=3.0, min=1, max=5.
+  // Column "i": values [1, None, 3, 5] → count=3, null=1, unique=4 (the
+  // null is one distinct value), mean=3.0, min=1, max=5.
   assert_eq(out.item(0, "column"), @types.Scalar::String("i"))
   assert_eq(out.item(0, "dtype"), @types.Scalar::String("Int"))
   assert_eq(out.item(0, "count"), @types.Scalar::Int(3))
   assert_eq(out.item(0, "null_count"), @types.Scalar::Int(1))
-  assert_eq(out.item(0, "n_unique"), @types.Scalar::Int(3))
+  assert_eq(out.item(0, "n_unique"), @types.Scalar::Int(4))
   assert_eq(out.item(0, "mean"), @types.Scalar::Float(3.0))
   assert_eq(out.item(0, "min"), @types.Scalar::String("1"))
   assert_eq(out.item(0, "max"), @types.Scalar::String("5"))
@@ -557,12 +557,12 @@ test "describe row 1 summarises the Float column" {
   let df = describe_df()
   let out = df.describe()
   // Column "f": values [1.0, 2.0, None, 3.0] → count=3, null=1,
-  // unique=3, mean=2.0, min=1.0, max=3.0.
+  // unique=4 (the null is one distinct value), mean=2.0, min=1.0, max=3.0.
   assert_eq(out.item(1, "column"), @types.Scalar::String("f"))
   assert_eq(out.item(1, "dtype"), @types.Scalar::String("Float"))
   assert_eq(out.item(1, "count"), @types.Scalar::Int(3))
   assert_eq(out.item(1, "null_count"), @types.Scalar::Int(1))
-  assert_eq(out.item(1, "n_unique"), @types.Scalar::Int(3))
+  assert_eq(out.item(1, "n_unique"), @types.Scalar::Int(4))
   assert_eq(out.item(1, "mean"), @types.Scalar::Float(2.0))
   // Double::to_string emits "1" / "3" — confirm the cells are non-null.
   let min_cell = out.item(1, "min")
@@ -643,7 +643,7 @@ test "describe on an all-null numeric column routes mean / min / max to Null" {
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.item(0, "count"), @types.Scalar::Int(0))
   assert_eq(out.item(0, "null_count"), @types.Scalar::Int(3))
-  assert_eq(out.item(0, "n_unique"), @types.Scalar::Int(0))
+  assert_eq(out.item(0, "n_unique"), @types.Scalar::Int(1))
   assert_eq(out.item(0, "mean"), @types.Scalar::Null)
   assert_eq(out.item(0, "min"), @types.Scalar::Null)
   assert_eq(out.item(0, "max"), @types.Scalar::Null)

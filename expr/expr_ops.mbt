@@ -793,9 +793,10 @@ pub fn Expr::quantile(
 }
 
 ///|
-/// Number of distinct non-null values of the operand over the evaluation scope
-/// (`Series::n_unique` semantics: every NaN is one bucket, `-0.0` folds into
-/// `+0.0`). Total over every dtype, never null — an `Int`.
+/// Number of distinct values of the operand over the evaluation scope
+/// (`Series::n_unique` semantics: a null cell counts as one distinct value,
+/// every NaN is one bucket, `-0.0` folds into `+0.0`). Total over every
+/// dtype, never null — an `Int`.
 pub fn Expr::n_unique(self : Expr) -> Expr {
   Expr::of_node(@ir.ExprNode::Agg(@series.ReduceOp::NUnique, self.node))
 }

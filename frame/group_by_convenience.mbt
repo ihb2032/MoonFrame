@@ -158,9 +158,10 @@ pub fn GroupedDataFrame::last(
 }
 
 ///|
-/// Distinct non-null value count of every non-key column, per group — an
+/// Distinct value count of every non-key column, per group — an
 /// `Int` cell per column over every dtype, with the documented `n_unique`
-/// rule (nulls skipped, every `NaN` one bucket; Polars' `gb.n_unique()`).
+/// rule (a null counts as one distinct value, every `NaN` one bucket;
+/// Polars' `gb.n_unique()`).
 pub fn GroupedDataFrame::n_unique(
   self : GroupedDataFrame,
 ) -> DataFrame raise @types.DataError {

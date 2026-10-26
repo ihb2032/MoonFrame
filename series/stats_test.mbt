@@ -290,7 +290,7 @@ test "reductions agree on the Numeric fast path and the Builtin path" {
 // ── n_unique ─────────────────────────────────────────────────────────
 
 ///|
-test "n_unique counts distinct non-null values" {
+test "n_unique counts distinct values, a null among them" {
   let s = Series::from_int_options("x", [
     Some(1),
     None,
@@ -299,13 +299,15 @@ test "n_unique counts distinct non-null values" {
     Some(3),
     None,
   ])
-  assert_eq(s.n_unique(), 3)
+  // Three distinct Ints plus the null bucket.
+  assert_eq(s.n_unique(), 4)
 }
 
 ///|
-test "n_unique is 0 for empty / all-null series" {
+test "n_unique is 0 empty, 1 for an all-null series" {
   assert_eq(Series::from_ints("x", []).n_unique(), 0)
-  assert_eq(Series::from_int_options("x", [None, None, None]).n_unique(), 0)
+  // The null bucket is the one distinct value, as in Polars.
+  assert_eq(Series::from_int_options("x", [None, None, None]).n_unique(), 1)
 }
 
 ///|

@@ -944,7 +944,12 @@ fn reduce_mode(
         if c > best_count || (c == best_count && earlier_tie) {
           best = Some(key)
           best_count = c
-          best_pos = k
+          // The winner reads at its key's **first** appearance, not at
+          // the occurrence that tipped the count: the `KeyCell`
+          // normalisation folds spellings (`-0.0` into `+0.0`), so a
+          // later occurrence of the same key would surface its spelling
+          // — `-0.0` where the first-appearing value was `+0.0`.
+          best_pos = first_key.get(key).unwrap_or(k)
         }
       }
     }

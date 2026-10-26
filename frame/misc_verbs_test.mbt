@@ -181,3 +181,13 @@ test "sample with replacement allows repeats and needs a row" {
     is Err(@types.DataError::InvalidOperation(_)),
   )
 }
+
+///|
+test "mode keeps the first-appearing spelling of a folded key" {
+  // `-0.0` and `+0.0` fold to one key cell; the winner reads at the
+  // key's first appearance, not at the occurrence that tipped the count
+  // — the first-appearing-value promise in the reducer's docstring.
+  let df = DataFrame::DataFrame([Series::from_floats("s", [0.0, -0.0, 5.0])])
+  let out = df.select([@expr.col("s").mode()]).get_column("s")
+  assert_true(out.to_scalars() is [@types.Scalar::Float(v)] && 1.0 / v > 0.0)
+}

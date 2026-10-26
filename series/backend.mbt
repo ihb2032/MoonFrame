@@ -157,9 +157,14 @@ pub fn Series::storage_kind(self : Series) -> @column.StorageKind {
 /// mirrors `try_column_to_numeric` arm for arm: `is_canonical` is `true`
 /// exactly when that total move is a backend no-op. The `ColumnData` match is
 /// wildcard-free, so a future dtype must decide here whether it converges onto
-/// `Numeric`. A backend-preserving transform (`slice` / `head` / `fill_null`)
-/// can still return a non-canonical column when its source was one — the
-/// invariant governs the content-determined path, not every column.
+/// `Numeric`. A backend-preserving transform (`slice` / `head`) can still
+/// return a non-canonical column when its source was one — the invariant
+/// governs the content-determined path, not every column. The converse
+/// direction exists too: `fill_null` preserves its source's backend by
+/// design, so filling the nulls out of a canonical (`Builtin`, nullable)
+/// `Int` column returns an all-valid `Builtin` column — non-canonical
+/// from a canonical source, because that transform's contract is
+/// preservation, not convergence.
 ///
 /// Like every invariant predicate in this repository it has no production
 /// caller: what it is *for* is being asserted, once per transform that claims

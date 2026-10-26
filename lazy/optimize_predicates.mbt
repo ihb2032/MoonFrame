@@ -284,12 +284,19 @@ fn LogicalPlan::place_filter(
 ///
 /// Column attribution comes from the static name walk (`output_names`): the
 /// predicate's every referenced name must be a *left* output name (left
-/// columns keep their names through the join), or — for the right sink — a
-/// right name that no left name clashes with (so the join outputs it under
-/// its own name; a clashed right column is renamed `<name><suffix>` and a
-/// predicate reading the suffixed spelling would need its expression
-/// rewritten, which this pass does not do). A side whose names are not
-/// statically knowable cannot be attributed and does not sink.
+/// columns keep their names through the join), or a right output spelling —
+/// a clash-free right column under its own name, or a clashing one under
+/// its renamed `<name><suffix>` spelling, which is rewritten back to the
+/// bare name the right side itself bears before the predicate sinks (the
+/// spellings come from the one home of the clash-renaming rule,
+/// `right_output_spelling`; a bare clashing `on` key offers no spelling, so
+/// a predicate naming either of its spellings does not sink). A side whose
+/// names are not statically knowable cannot be attributed and does not sink.
+/// The rewrite needs no re-read against the decimal value-fence: the risk
+/// walk collects every right decimal name under *both* spellings
+/// unconditionally, so a suffixed reference that renames to a decimal
+/// column was already fenced at the top of `place_filter`, before the
+/// split ever ran.
 ///
 /// The error face is covered by the gates every sinking already carries:
 /// `row_stable` excludes the expressions whose *raises* depend on which
@@ -353,21 +360,47 @@ fn split_filter_into_join(
       reads_within(reads, names)
     (Right | Outer, _) | (_, None) => false
   }
-  let can_right = match (options.how, left_names, right_names) {
+  // A right column rides the join's output under its `right_output_spelling`
+  // — its own name when the left does not clash, the suffixed one when it
+  // does — so a predicate naming either spelling attributes to the right.
+  // The suffixed spellings name columns the *join* renamed: the side itself
+  // still bears the bare name, so those references are rewritten back
+  // before the sink. The decimal fence above needs no replay for the
+  // rewritten spellings — see the header.
+  let can_right : Map[String, String]? = match
+    (options.how, left_names, right_names) {
     (Inner | Right | Cross, Some(l), Some(r)) => {
-      // Only the right names the left does not clash with keep their
-      // spelling in the output; a clashed one is renamed and cannot be
-      // attributed without rewriting the predicate's expression.
-      let bare = @set.Set([])
-      r.each(name => if !l.contains(name) { bare.add(name) })
-      reads_within(reads, bare)
+      let attributable = @set.Set([])
+      let rewrites : Map[String, String] = Map([])
+      let on_keys = bare_on_key_names(options)
+      r.each(name => {
+        match right_output_spelling(name, l, on_keys, options.suffix) {
+          Some(spelling) => {
+            attributable.add(spelling)
+            if spelling != name {
+              rewrites[spelling] = name
+            }
+          }
+          None => ()
+        }
+      })
+      if reads_within(reads, attributable) {
+        Some(rewrites)
+      } else {
+        None
+      }
     }
-    (Left | Outer | Semi | Anti, _, _) | (_, None, _) | (_, _, None) => false
+    (Left | Outer | Semi | Anti, _, _) | (_, None, _) | (_, _, None) => None
   }
   if can_left {
     Some(Join(left.place_filter(predicate), right, options))
-  } else if can_right {
-    Some(Join(left, right.place_filter(predicate), options))
+  } else if can_right is Some(rewrites) {
+    let sunk = if rewrites.length() > 0 {
+      @expr.Expr::of_node(predicate.node().rename_columns(rewrites))
+    } else {
+      predicate
+    }
+    Some(Join(left, right.place_filter(sunk), options))
   } else {
     None
   }

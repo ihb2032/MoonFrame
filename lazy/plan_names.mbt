@@ -77,12 +77,9 @@ fn LogicalPlan::output_names(self : LogicalPlan) -> @set.Set[String]? {
               // vocabulary, since the joins read this set for positive
               // attribution.
               r.each(name => {
-                if l.contains(name) {
-                  if !on_keys.contains(name) {
-                    merged.add(name + options.suffix)
-                  }
-                } else {
-                  merged.add(name)
+                match right_output_spelling(name, l, on_keys, options.suffix) {
+                  Some(spelling) => merged.add(spelling)
+                  None => ()
                 }
               })
               Some(merged)
@@ -210,6 +207,29 @@ fn bare_on_key_names(options : @frame.JoinOptions) -> @set.Set[String] {
     }
   }
   names
+}
+
+///|
+/// The output spelling one right column takes through a join: its own name
+/// when the left does not clash, the suffixed spelling when it does — and
+/// no spelling at all for a bare clashing `on` key, whose right column key
+/// coalescing may drop at collect. This is the one home of the
+/// clash-renaming rule: the name walk offers the spellings a join outputs,
+/// and the predicate split builds its suffixed→bare rewrite map from the
+/// same spellings, so the two can only agree.
+fn right_output_spelling(
+  name : String,
+  left_names : @set.Set[String],
+  on_keys : @set.Set[String],
+  suffix : String,
+) -> String? {
+  if !left_names.contains(name) {
+    Some(name)
+  } else if !on_keys.contains(name) {
+    Some(name + suffix)
+  } else {
+    None
+  }
 }
 
 ///|

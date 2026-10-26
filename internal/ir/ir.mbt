@@ -91,6 +91,65 @@ pub fn ExprNode::children(self : ExprNode) -> Array[ExprNode] {
 }
 
 ///|
+/// Rewrite every `Col` reference through `mapping`, keeping any name the
+/// mapping does not carry. The tree-shaped twin of `children`: the same
+/// shape-only walk, rebuilding each node over its rewritten children with
+/// every other payload — operator tags, literals, aliases, the `Map` /
+/// `MapBatches` closures — carried verbatim, so the result evaluates the
+/// same expression against a frame that bears the new spellings. Total.
+/// Exhaustive on purpose, like `children`: a variant added to `ExprNode`
+/// fails this match until its sub-nodes are carried through, so a column
+/// reference can never hide under an unrewritten payload.
+pub fn ExprNode::rename_columns(
+  self : ExprNode,
+  mapping : Map[String, String],
+) -> ExprNode {
+  match self {
+    Col(name) =>
+      match mapping.get(name) {
+        Some(renamed) => Col(renamed)
+        None => self
+      }
+    Lit(_) | LitSeries(_) => self
+    Binary(op, l, r) =>
+      Binary(op, l.rename_columns(mapping), r.rename_columns(mapping))
+    Unary(op, e) => Unary(op, e.rename_columns(mapping))
+    Agg(op, e) => Agg(op, e.rename_columns(mapping))
+    Str(op, e) => Str(op, e.rename_columns(mapping))
+    Positional(op, e) => Positional(op, e.rename_columns(mapping))
+    Cast(e, target) => Cast(e.rename_columns(mapping), target)
+    Alias(e, name) => Alias(e.rename_columns(mapping), name)
+    Ternary(c, t, f) =>
+      Ternary(
+        c.rename_columns(mapping),
+        t.rename_columns(mapping),
+        f.rename_columns(mapping),
+      )
+    FillNull(o, v) =>
+      FillNull(o.rename_columns(mapping), v.rename_columns(mapping))
+    FillNan(o, v) =>
+      FillNan(o.rename_columns(mapping), v.rename_columns(mapping))
+    IsIn(e, members) => IsIn(e.rename_columns(mapping), members)
+    IsBetween(x, lo, hi, closed) =>
+      IsBetween(
+        x.rename_columns(mapping),
+        lo.rename_columns(mapping),
+        hi.rename_columns(mapping),
+        closed,
+      )
+    Map(label, inputs, f) =>
+      Map(label, inputs.map(e => e.rename_columns(mapping)), f)
+    MapBatches(label, inputs, returns_bool, f) =>
+      MapBatches(
+        label,
+        inputs.map(e => e.rename_columns(mapping)),
+        returns_bool,
+        f,
+      )
+  }
+}
+
+///|
 /// Binary operator tag carried by `Binary`. `And` / `Or` are the Kleene
 /// three-valued logical connectives (`&` / `|` at the call site).
 pub(all) enum BinOp {

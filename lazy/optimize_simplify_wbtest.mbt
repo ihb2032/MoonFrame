@@ -31,20 +31,31 @@ test "rebuild_over: diff and clip rebuild over their children" {
   let a : @ir.ExprNode = @ir.ExprNode::Col("a")
   let lit0 : @ir.ExprNode = @ir.ExprNode::Lit(@types.Scalar::Int(0))
   let lit1 : @ir.ExprNode = @ir.ExprNode::Lit(@types.Scalar::Int(1))
+  // The pattern binds fresh names and compares them against the originals:
+  // a bare `is Diff(lit0, 3)` would re-bind `lit0` and test only the shape.
+  // The comparison is physical identity — `rebuild_over` places the kids
+  // array's own nodes, and `ExprNode` carries no `Eq`.
   assert_true(
-    rebuild_over(@ir.ExprNode::Diff(a, 3), [lit0])
-    is @ir.ExprNode::Diff(lit0, 3),
+    rebuild_over(@ir.ExprNode::Diff(a, 3), [lit0]) is @ir.ExprNode::Diff(k, 3) &&
+    physical_equal(k, lit0),
   )
   assert_true(
     rebuild_over(@ir.ExprNode::Clip(a, Some(a), None), [lit0, lit1])
-    is @ir.ExprNode::Clip(lit0, Some(lit1), None),
+    is @ir.ExprNode::Clip(k0, Some(k1), None) &&
+    physical_equal(k0, lit0) &&
+    physical_equal(k1, lit1),
   )
   assert_true(
     rebuild_over(@ir.ExprNode::Clip(a, None, Some(a)), [lit0, lit1])
-    is @ir.ExprNode::Clip(lit0, None, Some(lit1)),
+    is @ir.ExprNode::Clip(k0, None, Some(k1)) &&
+    physical_equal(k0, lit0) &&
+    physical_equal(k1, lit1),
   )
   assert_true(
     rebuild_over(@ir.ExprNode::Clip(a, Some(a), Some(a)), [lit0, lit1, a])
-    is @ir.ExprNode::Clip(lit0, Some(lit1), Some(a)),
+    is @ir.ExprNode::Clip(k0, Some(k1), Some(k2)) &&
+    physical_equal(k0, lit0) &&
+    physical_equal(k1, lit1) &&
+    physical_equal(k2, a),
   )
 }

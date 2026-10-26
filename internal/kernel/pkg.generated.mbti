@@ -15,6 +15,10 @@ pub fn compile_regex(String) -> @string.Regex raise @types.DataError
 
 pub fn eval_binary(@ir.BinOp, @series.Series, @series.Series) -> @series.Series raise @types.DataError
 
+pub fn eval_clip(@series.Series, lower? : @series.Series, upper? : @series.Series) -> @series.Series raise @types.DataError
+
+pub fn eval_diff(@series.Series, Int32) -> @series.Series raise @types.DataError
+
 pub fn eval_is_between(@series.Series, @series.Series, @series.Series, @types.ClosedInterval) -> @series.Series raise @types.DataError
 
 pub fn eval_is_in(@series.Series, ArrayView[@types.Scalar]) -> @series.Series raise @types.DataError

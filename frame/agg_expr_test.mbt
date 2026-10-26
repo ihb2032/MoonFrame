@@ -1099,3 +1099,31 @@ test "a computed positional result converges onto the Numeric backend" {
   let out = df.select([@expr.col("v").cum_sum()])
   assert_eq(out.get_column("v").storage_kind(), @column.StorageKind::Numeric)
 }
+
+///|
+test "diff and clip classify through the per-group reduction walk" {
+  // A `diff` over a reduction and a `clip` over one are reduction-shaped
+  // per group (their operands reduce), so both walk the general evaluator;
+  // the classification arms are what these pin.
+  let out = agg_expr_df()
+    .group_by([@expr.col("region")])
+    .agg([
+      @expr.col("revenue").sum().diff().with_alias("d"),
+      @expr.col("revenue").sum().clip(lower=@expr.lit_int(0)).with_alias("c"),
+      @expr.col("revenue")
+      .sum()
+      .clip(lower=@expr.lit_int(0), upper=@expr.lit_int(1_000_000))
+      .with_alias("cu"),
+    ])
+  // A one-cell group diffs against nothing: the leading slot is null, and
+  // the clamp at zero keeps the (positive) sums it already had.
+  assert_true(
+    out.get_column("d").to_scalars().all(c => c is @types.Scalar::Null),
+  )
+  let sums = agg_expr_df()
+    .group_by([@expr.col("region")])
+    .agg([@expr.col("revenue").sum()])
+  for i in 0..<out.nrows() {
+    assert_eq(out.item(i, "c"), sums.item(i, "revenue"))
+  }
+}

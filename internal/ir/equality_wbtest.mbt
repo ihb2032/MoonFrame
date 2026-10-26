@@ -165,6 +165,36 @@ fn nodes_structurally_equal(first : ExprNode, second : ExprNode) -> Bool {
               }
               _ => return false
             }
+          Diff(e1, n1) =>
+            match b {
+              Diff(e2, n2) => {
+                if n1 != n2 {
+                  return false
+                }
+                stack.push((e1, e2))
+              }
+              _ => return false
+            }
+          // Both `Option` structures must agree first — a present bound on
+          // one side and an absent one on the other are different clamps —
+          // then each bound that exists on both is compared as a child.
+          Clip(x1, lo1, hi1) =>
+            match b {
+              Clip(x2, lo2, hi2) => {
+                match (lo1, lo2) {
+                  (Some(l1), Some(l2)) => stack.push((l1, l2))
+                  (None, None) => ()
+                  _ => return false
+                }
+                match (hi1, hi2) {
+                  (Some(h1), Some(h2)) => stack.push((h1, h2))
+                  (None, None) => ()
+                  _ => return false
+                }
+                stack.push((x1, x2))
+              }
+              _ => return false
+            }
           IsIn(e1, m1) =>
             match b {
               IsIn(e2, m2) => {

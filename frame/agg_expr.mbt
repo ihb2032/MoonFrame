@@ -245,6 +245,7 @@ fn reduces_per_group(expr : @expr.Expr) -> Bool {
           @ir.ExprNode::Unary(_, e2)
           | @ir.ExprNode::Str(_, e2)
           | @ir.ExprNode::Positional(_, e2)
+          | @ir.ExprNode::Diff(e2, _)
           | @ir.ExprNode::Cast(e2, _)
           | @ir.ExprNode::Alias(e2, _)
           | @ir.ExprNode::IsIn(e2, _) => stack.push(e2)
@@ -252,6 +253,17 @@ fn reduces_per_group(expr : @expr.Expr) -> Bool {
             stack.push(c)
             stack.push(t)
             stack.push(f)
+          }
+          // A clamp is row-wise over its operand and whichever bounds exist
+          // (`children` order: operand, then lower, then upper).
+          @ir.ExprNode::Clip(x, lo, hi) => {
+            stack.push(x)
+            if lo is Some(l) {
+              stack.push(l)
+            }
+            if hi is Some(h) {
+              stack.push(h)
+            }
           }
           @ir.ExprNode::IsBetween(x, lo, hi, _) => {
             stack.push(x)

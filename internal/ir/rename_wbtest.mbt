@@ -104,3 +104,21 @@ test "rename_columns rewrites the closure nodes' inputs, not their closures" {
     inputs[0] is Col("b"),
   )
 }
+
+///|
+test "rename_columns descends through diff and clip" {
+  let m = rename_map()
+  assert_true(Diff(Col("a"), 2).rename_columns(m) is Diff(Col("b"), 2))
+  assert_true(
+    Clip(Col("a"), Some(Col("z")), None).rename_columns(m)
+    is Clip(Col("b"), Some(Col("z")), None),
+  )
+  assert_true(
+    Clip(Col("z"), None, Some(Col("a"))).rename_columns(m)
+    is Clip(Col("z"), None, Some(Col("b"))),
+  )
+  // The omitted halves stay omitted — a rename never invents a bound.
+  assert_true(
+    Clip(Col("a"), None, None).rename_columns(m) is Clip(Col("b"), None, None),
+  )
+}

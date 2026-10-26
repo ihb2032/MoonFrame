@@ -53,6 +53,9 @@
 /// - `FillNull` / `FillNan` — `.fill_null(v)` / `.fill_nan(v)`, dedicated nodes
 ///   (not lowered to a `Ternary`) so the operand appears once and a chained
 ///   coalesce stays linear;
+/// - `Diff` / `Clip` — `.diff(n)` / `.clip(lower?, upper?)`, likewise dedicated
+///   (not lowered to `- shift(n)` / a nested `when`) so the operand appears
+///   once and a chained difference or clamp stays linear;
 /// - `IsIn` / `IsBetween` — the membership / range predicates, likewise
 ///   dedicated so the operand is evaluated once;
 /// - `Map` / `MapBatches` — the row-wise / batched closure escape hatches

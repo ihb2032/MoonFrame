@@ -492,15 +492,16 @@ pub fn Expr::shift(
 
 ///|
 /// Cell-wise difference against the cell `n` rows above (Polars' `diff`,
-/// default `n = 1`, the `ignore` null behaviour): exactly
+/// default `n = 1`, the `ignore` null behaviour): exactly the semantics of
 /// `self - self.shift(n)` — the leading `n` slots null, a null in either
 /// operand null, and the subtraction under the arithmetic kernel's dtype
-/// rules (`Int` stays `Int`, a `Float` operand promotes). Built as that
-/// composition, so it renders and evaluates as it is; Polars' `drop`
-/// behaviour (removing the nulled rows, changing the length) has no
-/// length-changing spelling here.
+/// rules (`Int` stays `Int`, a `Float` operand promotes) — but carried by a
+/// dedicated node that embeds the operand once, so a chained difference
+/// stays linear where the composition embedded it twice and grew
+/// exponentially with chain length. Polars' `drop` behaviour (removing the
+/// nulled rows, changing the length) has no length-changing spelling here.
 pub fn Expr::diff(self : Expr, n~ : Int32 = 1) -> Expr {
-  self.sub(self.shift(n))
+  Expr::of_node(@ir.ExprNode::Diff(self.node, n))
 }
 
 ///|
@@ -895,36 +896,29 @@ pub fn Expr::is_infinite(self : Expr) -> Expr {
 ///|
 /// Clamp each cell into `[lower?, upper?]` (Polars' `clip`): a cell below
 /// `lower?` becomes it, one above `upper?` becomes it, one inside passes
-/// through, and a null cell stays null (the Kleene `when` reading — the
-/// bounds are not applied to it). Either bound may be omitted — one-sided
-/// clamps — and both omitted is the identity. With both bounds given the
-/// clamp is `clip_min` then `clip_max` — the inner `when` lifts a
-/// below-lower cell to `lower?`, and the outer one presses everything
-/// above `upper?` (the lifted cells included) back down — so a degenerate
-/// pair (`lower?` above `upper?`) clamps every cell to `upper?`, the
-/// reading Polars and numpy's `minimum(maximum(x, lo), hi)` both give.
-/// Built as that nested `when` composition, it renders and evaluates as
-/// one: dtype unification and the `NaN`-stays-put reading (no comparison
+/// through, and a null cell stays null (the bounds are not applied to it).
+/// A **null bound cell leaves the operand cell untouched** — a null bound is
+/// no bound on that side, not a null answer (Polars' post-1.0 reading, where
+/// clip bounds no longer propagate their nulls into the clipped value).
+/// Either bound may be omitted — one-sided clamps — and both omitted is the
+/// identity. With both bounds given the lower clamp runs first, so a
+/// degenerate pair (`lower?` above `upper?`) clamps every cell to `upper?`,
+/// the reading Polars and numpy's `minimum(maximum(x, lo), hi)` both give.
+/// Carried by a dedicated node that embeds the operand once — the nested
+/// `when` composition embedded it four times — so a chained clamp stays
+/// linear. Dtype unification and the `NaN`-stays-put reading (no comparison
 /// holds against `NaN`) are the comparison kernel's own. The result keeps
-/// the operand's own name (Polars' reading): the composition alone would
-/// name itself after the *bound* — it sits in the `then` branch, and
-/// `leftmost_name` reads that branch first — so a column bound would hand
-/// `with_columns` the bound's name and replace the bound column with the
-/// clipped operand.
+/// the operand's own name (Polars' reading), so a column bound does not
+/// hand `with_columns` the bound's name.
 pub fn Expr::clip(self : Expr, lower? : Expr, upper? : Expr) -> Expr {
   match (lower, upper) {
     (None, None) => self
-    (Some(lo), Some(hi)) => {
-      let lifted = when(self.lt(lo)).then(lo).otherwise(self)
-      when(lifted.gt(hi))
-      .then(hi)
-      .otherwise(lifted)
-      .with_alias(self.output_name())
-    }
+    (Some(lo), Some(hi)) =>
+      Expr::of_node(@ir.ExprNode::Clip(self.node, Some(lo.node), Some(hi.node)))
     (Some(lo), None) =>
-      when(self.lt(lo)).then(lo).otherwise(self).with_alias(self.output_name())
+      Expr::of_node(@ir.ExprNode::Clip(self.node, Some(lo.node), None))
     (None, Some(hi)) =>
-      when(self.gt(hi)).then(hi).otherwise(self).with_alias(self.output_name())
+      Expr::of_node(@ir.ExprNode::Clip(self.node, None, Some(hi.node)))
   }
 }
 

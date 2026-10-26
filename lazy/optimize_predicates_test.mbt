@@ -2294,3 +2294,45 @@ test "split: a suffixed name the top join produced sinks, not the inner's" {
   )
   assert_eq(plan.collect(), inner.join(outer_right, opts).filter(predicate))
 }
+
+///|
+test "a diff in the predicate fences it above every stage" {
+  // `diff` reads its neighbour rows, so a predicate carrying one is not
+  // row-local: the pass classifies it through the dedicated node (not the
+  // old `- shift` composition) and fences the filter where it was built.
+  // qty = [5, 120, 80, 200] -> diff = [null, 115, -40, 120] -> 2 rows > 0.
+  let df = sales_df()
+  let plan = LazyFrame::LazyFrame(df).filter(
+    @expr.col("qty").diff().gt(@expr.lit_int(0)),
+  )
+  assert_eq(plan.explain(optimized=true), plan.explain())
+  assert_eq(
+    plan.collect().get_column("qty").to_scalars(),
+    df
+    .filter(@expr.col("qty").diff().gt(@expr.lit_int(0)))
+    .get_column("qty")
+    .to_scalars(),
+  )
+  // A `clip` inside an aggregation and a `diff` in the predicate above it
+  // both classify through the fused analysis (the aggregate crossing calls
+  // `row_stable` on the predicate and `group_cell_stable` on the aggregate's
+  // expression) — the diff fences the filter above the aggregate, and the
+  // collect parity pins the classification against the eager reading.
+  // qty = [5, 120, 80, 200], one row per group in first-appearance order;
+  // the diff over that four-row output is [null, 115, -40, 120], so
+  // `is_null` keeps exactly the first group.
+  let grouped = LazyFrame::LazyFrame(df)
+    .group_by([@expr.col("qty")])
+    .agg([@expr.col("bonus").clip(lower=@expr.lit_int(0)).sum()])
+    .filter(@expr.col("qty").diff().is_null())
+  assert_eq(grouped.collect().nrows(), 1)
+  assert_eq(
+    grouped.collect().get_column("bonus").to_scalars(),
+    df
+    .group_by([@expr.col("qty")])
+    .agg([@expr.col("bonus").clip(lower=@expr.lit_int(0)).sum()])
+    .filter(@expr.col("qty").diff().is_null())
+    .get_column("bonus")
+    .to_scalars(),
+  )
+}

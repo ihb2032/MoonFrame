@@ -408,3 +408,20 @@ fn value_equality(operand : Series) -> (Int32, Int32) -> Bool {
   let cmp = value_comparator(operand)
   (i, j) => cmp(i, j) == 0
 }
+
+///|
+/// Cell-wise difference against the cell `n` rows above (Polars' `diff`,
+/// default `n = 1`, the `ignore` null behaviour): exactly the composition
+/// `self - self.shift(n)` — the leading `n` slots null, a null in either
+/// operand null, the subtraction under the arithmetic kernel's dtype rules
+/// (`Int` stays `Int`, a `Float` operand promotes). The shift's `Numeric`
+/// convergence (the evaluator's convention for a positional result feeding
+/// a binary op) is kept, so the dedicated node evaluates cell-for-cell what
+/// the composition always did.
+pub fn eval_diff(operand : Series, n : Int32) -> Series raise @types.DataError {
+  let shifted = eval_positional(
+    @ir.PositionalOp::Shift(n, @types.Scalar::Null),
+    operand,
+  ).try_column_to_numeric()
+  eval_binary(@ir.BinOp::Sub, operand, shifted)
+}

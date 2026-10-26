@@ -173,6 +173,28 @@ fn push_write_tasks(stack : Array[WriteTask], expr : Expr) -> Unit {
         Node(Expr::of_node(v)),
         Frag(")"),
       ]
+    // `col(a).diff(1)` — the step count renders as a plain integer, the
+    // default reading `diff()` itself spells.
+    Diff(e, n) => [Node(Expr::of_node(e)), Frag(".diff(\{n})")]
+    // `col(a).clip(lower, upper)` — each side renders only when it exists,
+    // the omitted sides leaving the argument list shorter (and both omitted
+    // never reaching a node at all: the builder returns the operand).
+    Clip(x, lo, hi) => {
+      let ts : Array[WriteTask] = [Node(Expr::of_node(x)), Frag(".clip(")]
+      let mut wrote = false
+      if lo is Some(l) {
+        ts.push(Node(Expr::of_node(l)))
+        wrote = true
+      }
+      if hi is Some(h) {
+        if wrote {
+          ts.push(Frag(", "))
+        }
+        ts.push(Node(Expr::of_node(h)))
+      }
+      ts.push(Frag(")"))
+      ts
+    }
     // `col(a).is_in([1, 2])`: the operand, then each set member rendered as a
     // literal (`format_scalar`, like a `Lit`) inside `[...]`.
     IsIn(operand, members) => {

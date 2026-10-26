@@ -145,6 +145,10 @@ priv enum EvalStep {
   ApplyAlias(String)
   ApplyTernary
   ApplyFill(FillKind)
+  ApplyDiff(Int32)
+  // Which bounds exist, so the combiner pops exactly the values the descent
+  // pushed — an omitted side never reaches the value stack.
+  ApplyClip(Bool, Bool)
   ApplyIsIn(ArrayView[@types.Scalar])
   ApplyIsBetween(@types.ClosedInterval)
   ApplyMap(
@@ -284,6 +288,26 @@ fn eval_expr(
                 work.push(Eval(v))
                 work.push(Eval(o))
               }
+              // The dedicated diff node: the operand is evaluated ONCE here
+              // (the `- shift(n)` composition evaluated it twice), so a
+              // chained difference is linear work instead of exponential.
+              @ir.ExprNode::Diff(e, n) => {
+                work.push(ApplyDiff(n))
+                work.push(Eval(e))
+              }
+              // Operand first (popped last), then each bound that exists —
+              // evaluated once; the dedicated node is what lets the operand
+              // be shared instead of embedded once per bound comparison.
+              @ir.ExprNode::Clip(x, lo, hi) => {
+                work.push(ApplyClip(lo is Some(_), hi is Some(_)))
+                if hi is Some(h) {
+                  work.push(Eval(h))
+                }
+                if lo is Some(l) {
+                  work.push(Eval(l))
+                }
+                work.push(Eval(x))
+              }
               // The set rides along on the `ApplyIsIn` step; only the operand
               // is evaluated.
               @ir.ExprNode::IsIn(e, members) => {
@@ -394,6 +418,28 @@ fn eval_expr(
           ApplyIsIn(members) => {
             let operand = pop_value(values)
             values.push(@kernel.eval_is_in(operand, members))
+          }
+          // The kernel composes the shift and the subtraction itself, keeping
+          // the shift's `Numeric` convergence (the evaluator's convention for
+          // a positional result) exactly where the composition had it.
+          ApplyDiff(n) => {
+            let operand = pop_value(values)
+            values.push(@kernel.eval_diff(operand, n))
+          }
+          // Pop only the bounds that exist, in the order the descent pushed
+          // them (upper above lower), then the operand.
+          ApplyClip(has_lo, has_hi) => {
+            fn take(present : Bool) -> Series? {
+              if present {
+                Some(pop_value(values))
+              } else {
+                None
+              }
+            }
+            let hi_v = take(has_hi)
+            let lo_v = take(has_lo)
+            let x_v = pop_value(values)
+            values.push(@kernel.eval_clip(x_v, lower?=lo_v, upper?=hi_v))
           }
           ApplyIsBetween(closed) => {
             let hi_v = pop_value(values)

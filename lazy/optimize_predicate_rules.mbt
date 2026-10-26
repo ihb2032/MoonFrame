@@ -248,6 +248,17 @@ fn classify(node : @ir.ExprNode, kids : Array[ExprProps]) -> ExprProps {
         group_cell: false,
       }
     }
+    // A diff reads the cell `n` rows above — the positional rule verbatim
+    // (its cells are the subtraction over a shifted operand, so which rows
+    // exist is observable through the shifted-in fill).
+    @ir.ExprNode::Diff(_, _) => {
+      let combined = kids_and(kids)
+      {
+        row_local: false,
+        zero_sign_safe: combined.zero_sign_safe,
+        group_cell: false,
+      }
+    }
     // A cast's rejection is value-dependent (both directions of the
     // conversion); a map's closure is opaque to row locality and group cells
     // (null- or raise-valued on the cells it meets). Both still descend for
@@ -269,12 +280,14 @@ fn classify(node : @ir.ExprNode, kids : Array[ExprProps]) -> ExprProps {
         group_cell: false,
       }
     }
-    // The combinators: the alias wrapper, selections, and fills conjoin all
-    // three properties cell-wise.
+    // The combinators: the alias wrapper, selections, fills, and the clamp
+    // (a compare-and-select per cell) conjoin all three properties
+    // cell-wise.
     @ir.ExprNode::Alias(_, _)
     | @ir.ExprNode::Ternary(_, _, _)
     | @ir.ExprNode::FillNull(_, _)
     | @ir.ExprNode::FillNan(_, _)
+    | @ir.ExprNode::Clip(_, _, _)
     | @ir.ExprNode::IsIn(_, _)
     | @ir.ExprNode::IsBetween(_, _, _, _) => kids_and(kids)
   }

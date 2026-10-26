@@ -150,3 +150,49 @@ pub fn eval_ternary(
   }
   out.try_column_to_numeric()
 }
+
+///|
+/// Clamp each cell into `[lower?, upper?]` (Polars' `clip`): a null bound
+/// cell means "no bound on that side" — the operand cell passes through
+/// untouched, present or not (Polars' post-1.0 reading, where a null bound
+/// stops propagating into the clipped value) — while a present operand cell
+/// below `lower?` lifts to it and one above `upper?` presses down to it, a
+/// null operand cell stays null, and a `NaN` stays put (no comparison holds
+/// against it). Both bounds may be omitted (the identity) or given, in which
+/// case the lower clamp runs first — a degenerate pair clamps every cell to
+/// `upper?`. A bound is evaluated once, as a whole column or a length-1
+/// literal, and the length contract is each composed kernel's own. Built by
+/// composing the probe / compare / logic / selection kernels cell-for-cell:
+/// `not_null(bound) & (x < bound)` selects the bound, and the Kleene reading
+/// of that chain is the null rule above.
+pub fn eval_clip(
+  operand : Series,
+  lower? : Series,
+  upper? : Series,
+) -> Series raise @types.DataError {
+  fn bound_select(
+    x : Series,
+    bound : Series,
+    crossed : @ir.BinOp,
+  ) -> Series raise @types.DataError {
+    // `false & null = false`: a null bound cell makes the whole condition
+    // false (not null), so the selection keeps `x` — the null-bound rule.
+    // Each step rides the dispatch entry (not the raw kernels) so a
+    // length-1 literal bound broadcasts exactly as a hand-written
+    // comparison tree's would.
+    let present = eval_unary(@ir.UnOp::IsNotNull, bound)
+    eval_ternary(
+      eval_binary(@ir.BinOp::And, present, eval_binary(crossed, x, bound)),
+      bound,
+      x,
+    )
+  }
+  let mut out = operand
+  if lower is Some(lo) {
+    out = bound_select(out, lo, @ir.BinOp::Lt)
+  }
+  if upper is Some(hi) {
+    out = bound_select(out, hi, @ir.BinOp::Gt)
+  }
+  out
+}

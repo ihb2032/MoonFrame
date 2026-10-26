@@ -7,5 +7,6 @@ import {
   "ihb2032/MoonFrame/types",
   "moonbitlang/core/double",
   "moonbitlang/core/math",
+  "moonbitlang/core/set",
   "moonbitlang/core/string",
 }

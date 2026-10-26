@@ -80,8 +80,11 @@ libraries — not a derivative work of either codebase.
   `df.get_column(c).sum()` (Polars' `df[c].sum()`).
 - **`sample(n, with_replacement?, seed?)`** is a deterministic function
   of its seed — same seed, same rows, on every platform (a private
-  splitmix64); `n` saturates without replacement. Polars' `fraction` /
-  `shuffle` parameters are not carried.
+  splitmix64); `n` saturates without replacement. An omitted seed is
+  `seed = 0`, so two independent calls that both leave it out draw the
+  same rows (Polars draws a fresh seed per call); name a seed when the
+  draws must differ. Polars' `fraction` / `shuffle` parameters are not
+  carried.
 - **`unique(subset?, keep?)`** keeps first-appearance order
   (`maintain_order=True`), dedups on a column subset when given one, and takes
   Polars' `keep` strategies (`First` / `Last` / `None`).
@@ -98,6 +101,11 @@ libraries — not a derivative work of either codebase.
 
 Where MoonFrame knowingly does something else than Polars.
 
+- **A CSV header of all-empty names raises.** `",,"` as a header row is
+  `DuplicateColumn("")` — the empty name repeats. Polars instead
+  disambiguates repeated header names (`_duplicated_0` suffixes) and
+  reads on; rename the columns after a `read_csv` on mangled source data,
+  or fix the header.
 - **`describe` summarises differently.** MoonFrame's rows are `count` /
   `null_count` / `n_unique` / `mean` / `min` / `max`, with `min` / `max`
   rendered as `String` so one table carries every dtype; Polars' are `count` /

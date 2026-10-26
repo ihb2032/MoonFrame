@@ -61,11 +61,23 @@ fn eval_rolling(
       // rule); the statistics widen to Double, folding the widened
       // values the Float arm shares with — an `Int` window has no `NaN`,
       // so its `saw_nan` is always false.
-      let int_out : Array[Int64?] = Array::makei(n, _ => None)
-      let float_out : Array[Double?] = Array::makei(n, _ => None)
+      // The two output buffers are allocated per the stat's own dtype —
+      // `Sum` / `Min` / `Max` keep `Int` and never touch a `Double` slot,
+      // the statistics widen and never touch an `Int` one, so each pass
+      // allocates exactly the buffer it will fill.
       let keep_int = stat is @ir.RollStat::Sum ||
         stat is @ir.RollStat::Min ||
         stat is @ir.RollStat::Max
+      let int_out : Array[Int64?] = if keep_int {
+        Array::makei(n, _ => None)
+      } else {
+        []
+      }
+      let float_out : Array[Double?] = if keep_int {
+        []
+      } else {
+        Array::makei(n, _ => None)
+      }
       for i in 0..<n {
         let lo = if i - back < 0 { 0 } else { i - back }
         // Decide on a comparison that cannot overflow (`forward` near

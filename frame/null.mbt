@@ -184,8 +184,11 @@ pub fn DataFrame::fill_nan(
   value : Double,
 ) -> DataFrame raise @types.DataError {
   let new_cols = self.columns.map(s => {
-    // Only a `Float` column can hold a `NaN`; skip one that has none.
-    if s.dtype() != @types.DataType::Float || s.null_count() == s.len() {
+    // Only a `Float` column can hold a `NaN`, and only a present cell can
+    // hold one — `has_nan` scans the buffer directly (no boxing), so a
+    // NaN-free column returns verbatim instead of paying the full
+    // re-materialisation below.
+    if !s.has_nan() {
       s
     } else {
       let cells = s

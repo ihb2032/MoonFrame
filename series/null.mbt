@@ -25,6 +25,15 @@ pub fn Series::fill_null(
   self : Series,
   value : @types.Scalar,
 ) -> Series raise @types.DataError {
+  // A column with no nulls is its own fill: the rebuild below would pay a
+  // full re-materialisation (the String arm decodes every cell) to produce
+  // an equal series. `drop_nulls` carries the same short-circuit. The
+  // dtype equality keeps a mismatched fill value falling through to the
+  // branches' own refusals — a typed fill on the wrong dtype raises with
+  // its full message even when there is nothing to fill.
+  if self.storage.null_count() == 0 && value.dtype() == self.dtype() {
+    return self
+  }
   let valid = self.validity_bools()
   let filled = match value {
     @types.Scalar::Null =>

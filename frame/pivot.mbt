@@ -260,14 +260,26 @@ fn reshape_pivot(
   }
   let groups = rep_rows.length()
   let cards = on_names.length()
-  // Buckets: cells[group][card][value column], filled in row order.
-  let buckets : Array[Array[Array[Array[@types.Scalar]]]] = Array::makei(
-    groups,
-    _ => Array::makei(cards, _ => Array::makei(values_cols.length(), _ => [])),
-  )
+  // Buckets: cells[group][card][value column], keyed sparsely — a
+  // `(group, card)` pair that no row hits owns no array at all, so a
+  // sparse long-table pivot (10⁴ groups × 10⁴ cards with 10⁵ rows) pays
+  // for the pairs that exist, not the full grid. The slot reader below
+  // answers an absent pair with the empty bucket.
+  let buckets : Map[Int64, Array[Array[@types.Scalar]]] = Map([])
+  fn bucket_at(g : Int32, c : Int32) -> Array[Array[@types.Scalar]] {
+    let key = g.to_int64() * cards.to_int64() + c.to_int64()
+    match buckets.get(key) {
+      Some(bucket) => bucket
+      None => {
+        let fresh = Array::makei(values_cols.length(), _ => [])
+        buckets[key] = fresh
+        fresh
+      }
+    }
+  }
   let value_scalars = values_cols.map(c => c.to_scalars())
   for i in 0..<n {
-    let bucket = buckets[gids[i]][cids[i]]
+    let bucket = bucket_at(gids[i], cids[i])
     for v in 0..<values_cols.length() {
       bucket[v].push(value_scalars[v][i])
     }
@@ -294,7 +306,14 @@ fn reshape_pivot(
       }
       let cells : Array[@types.Scalar] = []
       for g in 0..<groups {
-        cells.push(reduce_pivot_slot(buckets[g][card][v], agg, probe))
+        // An absent pair is the empty bucket — the reader hardens the miss
+        // rather than the writer pre-materialising the grid.
+        let slot = match
+          buckets.get(g.to_int64() * cards.to_int64() + card.to_int64()) {
+          Some(bucket) => bucket[v]
+          None => []
+        }
+        cells.push(reduce_pivot_slot(slot, agg, probe))
       }
       out_cols.push(@series.scalars_to_series(probe, name, cells))
     }

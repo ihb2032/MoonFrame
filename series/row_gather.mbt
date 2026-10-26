@@ -78,6 +78,15 @@ pub fn Series::coalesce_columns(
       ),
     )
   }
+  // The equal-length half of the contract, checked rather than assumed: a
+  // shorter fill would index past its own cells below (an abort, not a
+  // raise) — the `dtype` half's twin, closed the same way. `gather_series`
+  // hardens its out-of-range indices into null cells instead; a coalesce
+  // has no null answer to give (the fill *is* the null answer), so it
+  // refuses.
+  if fill.len() != self.len() {
+    raise @types.DataError::LengthMismatch
+  }
   let base_valid = self.validity_bools()
   let fills = fill.to_scalars()
   // The four closures differ only in the `Scalar` variant they read `fill` as.

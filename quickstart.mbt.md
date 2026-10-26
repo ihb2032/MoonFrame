@@ -313,8 +313,8 @@ test "quickstart: render to HTML" {
 JSON string you can paste into the [Vega editor](https://vega.github.io/editor/)
 or hand to any Vega-Lite runtime. `ChartSpec::bar` / `line` / `point` / `area`
 choose the mark; each channel's field `type` is inferred from the column dtype
-(numeric → `quantitative`, else `nominal`). A spec that names a missing column
-raises `ColumnNotFound`.
+(numeric → `quantitative`, `Date` / `Timestamp` → `temporal`, else `nominal`).
+A spec that names a missing column raises `ColumnNotFound`.
 
 ```moonbit check
 ///|

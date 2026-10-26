@@ -71,8 +71,9 @@ pub extend VegaType with Debug::{to_repr}
 /// `x` / `y` / `color` are column names resolved against the frame at
 /// `format_vega_lite` time (a missing name raises `ColumnNotFound`); each
 /// column's dtype decides its Vega-Lite field `type` — the rule
-/// `format_vega_lite`'s doc states (numeric → `quantitative`, `Date` →
-/// `temporal`, otherwise → `nominal`) — unless `color_type` overrides the
+/// `format_vega_lite`'s doc states (numeric → `quantitative`, `Date` /
+/// `Timestamp` → `temporal`, otherwise → `nominal`) — unless `color_type`
+/// overrides the
 /// `color` channel: e.g. a numeric grouping column (a cluster id) rendered as
 /// `Nominal` distinct colors rather than a continuous gradient (only
 /// `color` honours an override; `x` / `y` keep dtype inference).
@@ -166,10 +167,12 @@ pub fn ChartSpec::area(
 ///
 /// Each encoding channel's field `type` follows its column's dtype — the
 /// single statement of the dtype→type rule: a numeric column (`Int` /
-/// `Float`) is `"quantitative"`, a `Date` column is `"temporal"` (its ISO
-/// cells — `data.values`' date units, via the JSON records' ISO mapping —
-/// sort chronologically), and every other dtype is `"nominal"` — unless
-/// the channel carries an explicit `color_type` override.
+/// `Float` / `Decimal`) is `"quantitative"`, a `Date` / `Timestamp` column
+/// is `"temporal"` (its ISO cells — `data.values`' date units, via the JSON
+/// records' ISO mapping — sort chronologically, and a temporal axis orders
+/// by time rather than by first appearance), and every other dtype is
+/// `"nominal"` — unless the channel carries an explicit `color_type`
+/// override.
 ///
 /// The spec's `x` / `y` / `color` columns are resolved left-to-right; the
 /// first name absent from `df` raises `ColumnNotFound(name)` — this is the

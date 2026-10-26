@@ -668,3 +668,114 @@ test "a derived on-key and an unknowable left side keep their sides whole" {
     "      SCAN [3×3]",
   )
 }
+
+///|
+test "a deep unary chain under a join collects without overflowing: output_names is iterative" {
+  // The name walk rides collect through the joins' requirement splits; its
+  // `Unary` arm formerly recursed, so a 20 000-deep select chain under a
+  // join with a by-name reader above overflowed the native stack and
+  // aborted. The post-order value-stack fold keeps every walk on the heap.
+  let df = @frame.DataFrame::DataFrame([
+    @series.Series::from_ints("a", [1, 2, 3]),
+    @series.Series::from_ints("b", [10, 20, 30]),
+  ])
+  let right = @frame.DataFrame::DataFrame([
+    @series.Series::from_ints("a", [1, 2, 3]),
+    @series.Series::from_strings("junk", ["x", "y", "z"]),
+  ])
+  let mut lf = LazyFrame::LazyFrame(df)
+  for _ in 0..<20000 {
+    lf = lf.select([@expr.col("a"), @expr.col("b")])
+  }
+  let joined = lf
+    .join(LazyFrame::LazyFrame(right), @frame.JoinOptions::on([@expr.col("a")]))
+    .select([@expr.col("b")])
+  assert_eq(joined.collect().shape(), (3, 1))
+}
+
+///|
+test "a narrowed join keeps the suffix clash that fails the full join" {
+  // left natively carries `value_right`; right's `value` renames to exactly
+  // that spelling through the clash, so the full join raises
+  // `DuplicateColumn` at collect. The requirement split must not dissolve
+  // the clash by dropping both participants when no consumer reads them —
+  // a plan that fails to collect still fails after optimization.
+  let left = @frame.DataFrame::DataFrame([
+    @series.Series::from_ints("id", [1, 2]),
+    @series.Series::from_ints("value", [10, 20]),
+    @series.Series::from_ints("value_right", [100, 200]),
+  ])
+  let right = @frame.DataFrame::DataFrame([
+    @series.Series::from_ints("id", [1, 2]),
+    @series.Series::from_ints("value", [7, 8]),
+    @series.Series::from_strings("junk", ["x", "y"]),
+  ])
+  let opts = @frame.JoinOptions::on([@expr.col("id")])
+  // The eager join fails on the double `value_right`.
+  assert_true(
+    (Ok(left.join(right, opts)) catch { e => Err(e) })
+    is Err(@types.DataError::DuplicateColumn(_)),
+  )
+  // The lazy plan with no by-name reader keeps that failure.
+  let unread = LazyFrame::LazyFrame(left).join(
+    LazyFrame::LazyFrame(right),
+    opts,
+  )
+  assert_true(
+    (Ok(unread.collect()) catch { e => Err(e) })
+    is Err(@types.DataError::DuplicateColumn(_)),
+  )
+  // And a reader of an unrelated column cannot dissolve it either: the
+  // clash's participants are pinned into both sides' requirements.
+  let narrowed = LazyFrame::LazyFrame(left)
+    .join(LazyFrame::LazyFrame(right), opts)
+    .select([@expr.col("junk")])
+  assert_true(
+    (Ok(narrowed.collect()) catch { e => Err(e) })
+    is Err(@types.DataError::DuplicateColumn(_)),
+  )
+  // The same clash spelling arising inside the right frame alone — its
+  // `value` renames onto its own native `value_right` — is pinned too.
+  let right_native = @frame.DataFrame::DataFrame([
+    @series.Series::from_ints("id", [1, 2]),
+    @series.Series::from_ints("value", [7, 8]),
+    @series.Series::from_ints("value_right", [70, 80]),
+  ])
+  let inner_clash = LazyFrame::LazyFrame(left)
+    .join(LazyFrame::LazyFrame(right_native), opts)
+    .select([@expr.col("junk")])
+  assert_true(
+    (Ok(inner_clash.collect()) catch { e => Err(e) })
+    is Err(@types.DataError::DuplicateColumn(_)),
+  )
+}
+
+///|
+test "a right join's projection narrows both sides with the rename swapped" {
+  // The swapped-left-join reading moves the suffix onto the left side, so
+  // the requirement split runs with the sides exchanged: the right side's
+  // requirement is the plain by-name one, the left's may map a suffixed
+  // spelling back. Collect parity pins the narrowing against the eager
+  // reading.
+  let l = orders_df()
+  let r = cities_df()
+  let opts = @frame.JoinOptions::on([@expr.col("id")], how=Right)
+  let narrowed = LazyFrame::LazyFrame(l)
+    .join(LazyFrame::LazyFrame(r), opts)
+    .select([@expr.col("city")])
+  assert_eq(narrowed.collect(), l.join(r, opts).select([@expr.col("city")]))
+  // The clash side: a left `city` would ride suffixed, and a select of
+  // that suffixed spelling maps back onto the left column.
+  let l_city = @frame.DataFrame::DataFrame([
+    @series.Series::from_ints("id", [1, 2]),
+    @series.Series::from_strings("city", ["oslo", "lima"]),
+  ])
+  let clash_opts = @frame.JoinOptions::on([@expr.col("id")], how=Right)
+  let suffixed = LazyFrame::LazyFrame(l_city)
+    .join(LazyFrame::LazyFrame(r), clash_opts)
+    .select([@expr.col("city_right")])
+  assert_eq(
+    suffixed.collect(),
+    l_city.join(r, clash_opts).select([@expr.col("city_right")]),
+  )
+}

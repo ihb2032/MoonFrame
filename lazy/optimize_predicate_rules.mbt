@@ -299,29 +299,11 @@ fn classify(node : @ir.ExprNode, kids : Array[ExprProps]) -> ExprProps {
 /// all, only on scope-independent facts (a dtype, a pattern's compile), so
 /// dropping rows before it evaluates provably changes nothing about the
 /// surviving cells or the raised errors. Computed as the `row_local` field
-/// of the fused analysis.
+/// of the fused analysis. The aggregate crossing reads the walk's other
+/// two fields (`zero_sign_safe`, `group_cell`) straight off the same
+/// analysis rather than through per-field readers.
 fn row_stable(expr : @ir.ExprNode) -> Bool {
   expr_props(expr).row_local
-}
-
-///|
-/// Whether `expr` cannot observe the sign of a zero — the extra gate the
-/// `Aggregate` predicate pushdown needs to stay sound on a `Float` group key.
-/// `KeyCell` folds `-0.0` and `+0.0` into one group, but the group's output row
-/// keeps its *representative* row's signed key, so a predicate that can tell
-/// the two apart disagrees between a group's individual rows (filtered below
-/// the aggregate) and that representative (filtered above it). Division and a
-/// negative exponent are the operators in the vocabulary that make a zero's
-/// sign observable — `1.0 / +0.0 = +inf` but `1.0 / -0.0 = -inf`, and
-/// `(+0.0) ** -1.0 = +inf` but `(-0.0) ** -1.0 = -inf`, while `+` / `-` / `*`
-/// / `%` and every comparison treat `-0.0` and `+0.0` as equal (remainder can
-/// carry a zero's sign into its result but no comparison downstream can read it
-/// back out) — so a signed-zero-safe predicate gives every row of a folded
-/// group the same verdict and may sink below the aggregate, while one that
-/// divides or exponentiates could drop only part of the group and must stay
-/// above. Computed as the `zero_sign_safe` field of the fused analysis.
-fn signed_zero_safe(expr : @ir.ExprNode) -> Bool {
-  expr_props(expr).zero_sign_safe
 }
 
 ///|
@@ -415,4 +397,33 @@ fn preserves_row_count(exprs : Array[@expr.Expr]) -> Bool {
     }
   }
   false
+}
+
+///|
+/// The `Select` crossing gate the two descending passes share — a selection
+/// a sinking predicate or window may cross is row-stable, row-preserving,
+/// and value-safe over the decimal fence. Stated once here because the
+/// predicate pass adds its own `reads_only_bare_columns` test on top and the
+/// slice pass takes the gate as is; two hand-spelled copies of the shared
+/// three would be the shape where one pass gains a gate the other misses.
+fn select_stage_crossable(
+  exprs : Array[@expr.Expr],
+  decimal_names : DecimalRisk,
+) -> Bool {
+  all_row_stable(exprs) &&
+  preserves_row_count(exprs) &&
+  !stage_value_raises(exprs, decimal_names)
+}
+
+///|
+/// The `WithColumns` crossing gate the two descending passes share — the
+/// stage appends or replaces columns and never renumbers rows, so row
+/// stability and the decimal fence are the whole test (each pass adds its
+/// own column-ownership test on top: the predicate pass that the stage
+/// defines none of the predicate's columns, the slice pass nothing).
+fn withcolumns_stage_rowwise(
+  exprs : Array[@expr.Expr],
+  decimal_names : DecimalRisk,
+) -> Bool {
+  all_row_stable(exprs) && !stage_value_raises(exprs, decimal_names)
 }

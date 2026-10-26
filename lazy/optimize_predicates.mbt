@@ -178,29 +178,38 @@ fn LogicalPlan::place_filter(
   while descending {
     match cur {
       Unary(inner, Select(exprs)) =>
-        if all_row_stable(exprs) &&
-          preserves_row_count(exprs) &&
-          reads_only_bare_columns(predicate, exprs) &&
-          !stage_value_raises(exprs, decimal_names) {
+        if select_stage_crossable(exprs, decimal_names) &&
+          reads_only_bare_columns(predicate, exprs) {
           crossed.push(ni => Unary(ni, Select(exprs)))
           cur = inner
         } else {
           descending = false
         }
       Unary(inner, WithColumns(exprs)) =>
-        if all_row_stable(exprs) &&
-          defines_none_of(exprs, predicate) &&
-          !stage_value_raises(exprs, decimal_names) {
+        if withcolumns_stage_rowwise(exprs, decimal_names) &&
+          defines_none_of(exprs, predicate) {
           crossed.push(ni => Unary(ni, WithColumns(exprs)))
           cur = inner
         } else {
           descending = false
         }
-      Aggregate(inner, keys, exprs) =>
-        if row_stable(predicate.node()) &&
+      Aggregate(inner, keys, exprs) => {
+        // The predicate's own verdicts come from one fused analysis — the
+        // row-locality and signed-zero gates are two fields of the same
+        // walk, and taking them separately would walk the tree twice. The
+        // signed-zero gate is the `Aggregate` crossing's own: `KeyCell`
+        // folds `-0.0` and `+0.0` into one group while the group's output
+        // row keeps its representative's signed key, so a predicate that
+        // can tell the two apart (division, a negative exponent —
+        // `1.0 / +0.0 = +inf` but `1.0 / -0.0 = -inf`) could drop only part
+        // of a group below the aggregate and disagree with the
+        // representative above it; a safe one gives every row of a folded
+        // group the same verdict and may sink.
+        let props = expr_props(predicate.node())
+        if props.row_local &&
+          props.zero_sign_safe &&
           all_row_stable(keys) &&
           reads_only_bare_columns(predicate, keys) &&
-          signed_zero_safe(predicate.node()) &&
           all_group_cells_stable(exprs) &&
           // The decimal value-fence, stage half: the keys and the stitched
           // cells evaluate over the child's rows, and a decimal sum or
@@ -213,6 +222,7 @@ fn LogicalPlan::place_filter(
         } else {
           descending = false
         }
+      }
       // Every other node is a floor: the in-memory / file scans, a `Join`,
       // and any other unary op (`Sort` / `Head` / a second `Filter` / …) a dropping
       // filter must not cross. An `AggregateAll` floors here too: the
@@ -355,6 +365,11 @@ fn split_filter_into_join(
   let reads = predicate.referenced_columns()
   let left_names = left.output_names()
   let right_names = right.output_names()
+  // A left predicate stays above every join that can null-extend its left
+  // columns (`Outer`) or drop its matched rows' left side (`Right`, where a
+  // right row whose only left matches the predicate removed would surface
+  // unmatched instead of disappearing) — the plain containment test covers
+  // it only where left columns ride verbatim.
   let can_left = match (options.how, left_names) {
     (Inner | Left | Cross | Semi | Anti, Some(names)) =>
       reads_within(reads, names)
@@ -366,10 +381,18 @@ fn split_filter_into_join(
   // The suffixed spellings name columns the *join* renamed: the side itself
   // still bears the bare name, so those references are rewritten back
   // before the sink. The decimal fence above needs no replay for the
-  // rewritten spellings — see the header.
+  // rewritten spellings — see the header. A right join's right columns keep
+  // their names outright (the rename moved to the left side), so the plain
+  // containment test covers them there.
   let can_right : Map[String, String]? = match
     (options.how, left_names, right_names) {
-    (Inner | Right | Cross, Some(l), Some(r)) => {
+    (Right, _, Some(names)) =>
+      if reads_within(reads, names) {
+        Some(Map([]))
+      } else {
+        None
+      }
+    (Inner | Cross, Some(l), Some(r)) => {
       let attributable = @set.Set([])
       let rewrites : Map[String, String] = Map([])
       let on_keys = bare_on_key_names(options)

@@ -219,8 +219,9 @@ fn DataFrame::plan_join_rows(
       // Mirror of `Left`: hash the LEFT frame by key, then probe it with
       // each right row in order. The row set is every right row — its left
       // matches (in ascending left-row order), else the right row alone with
-      // null left columns. Output column order is unchanged (left then
-      // right); only the surviving rows differ.
+      // null left columns. The output leads with the right columns and the
+      // left non-key columns follow, a clashing left one suffixed — Polars'
+      // swapped-left-join reading (see `assemble_join_output`).
       let (left_key_scalars, right_key_scalars) = self.resolve_join_keys(
         other, options,
       )
@@ -357,6 +358,48 @@ fn DataFrame::assemble_join_output(
   for n in self.columns() {
     left_names[n] = ()
   }
+  let out_cols : Array[Series] = []
+  // A right join leads with the right frame's columns — Polars implements
+  // it as a swapped left join, so the right schema (key included, values
+  // from the right) comes first in right order and the left frame's
+  // non-key columns follow in left order, a clashing left column taking
+  // the suffix (the rename the swap moved onto the left side).
+  if options.how is Right {
+    let right_names : Map[String, Unit] = Map([])
+    for n in other.columns() {
+      right_names[n] = ()
+    }
+    for col in other.column_series() {
+      if coalesce && on_set.contains(col.name()) {
+        // The merged key sits at the right frame's key position, drawing
+        // each cell from whichever side is present — every output row has
+        // the right key, so the right leads and the left fills.
+        let right_key = col.gather_series_opt(right_rows, col.name())
+        let left_key = self
+          .get_column(col.name())
+          .gather_series_opt(left_rows, col.name())
+        let merged = right_key.coalesce_columns(left_key, col.name())
+        out_cols.push(col.preserve_backend(merged))
+      } else {
+        out_cols.push(
+          col.preserve_backend(col.gather_series_opt(right_rows, col.name())),
+        )
+      }
+    }
+    for col in self.column_series() {
+      if !(coalesce && on_set.contains(col.name())) {
+        let out_name = if right_names.contains(col.name()) {
+          col.name() + options.suffix
+        } else {
+          col.name()
+        }
+        out_cols.push(
+          col.preserve_backend(col.gather_series_opt(left_rows, out_name)),
+        )
+      }
+    }
+    return DataFrame::from_parts(out_cols, left_rows.length())
+  }
   // Assemble the output columns. Left columns are gathered with `None ->
   // null` (a kept unmatched-right row has no left cell). A coalesced key
   // sits in its left position but draws each cell from whichever side is
@@ -372,27 +415,18 @@ fn DataFrame::assemble_join_output(
   // so a future gather that stops canonicalising cannot silently demote a
   // `Numeric` source here. The coalesced key follows the **left** key column's
   // backend (its values share the pre-checked-equal key dtype).
-  let out_cols : Array[Series] = []
   for col in self.column_series() {
     if coalesce && on_set.contains(col.name()) {
       // `other` has this key (validated above), so `get_column`'s
-      // `ColumnNotFound` is forwarded but never taken.
+      // `ColumnNotFound` is forwarded but never taken. The left key is the
+      // base — taken where the row has a left match, else the right fills
+      // the gap (the present side on `Outer`); a `Right` join never reaches
+      // here, its early-return block above merging from the right instead.
       let left_key = col.gather_series_opt(left_rows, col.name())
       let right_key = other
         .get_column(col.name())
         .gather_series_opt(right_rows, col.name())
-      // Surface the documented side's value: the left on `Inner` / `Left`, and
-      // the present side on `Outer` (the left key is the base — taken where the
-      // row has a left match, else the right fills the gap), but the **right**
-      // on `Right`, where every output row has the right key present and the
-      // left only on matched rows. Folded float keys make the side observable:
-      // `-0.0` and `+0.0` share a group, so a `Right` join must surface the
-      // right's signed zero, not the left's.
-      let merged = match options.how {
-        Right => right_key.coalesce_columns(left_key, col.name())
-        Inner | Left | Outer | Cross | Semi | Anti =>
-          left_key.coalesce_columns(right_key, col.name())
-      }
+      let merged = left_key.coalesce_columns(right_key, col.name())
       out_cols.push(col.preserve_backend(merged))
     } else {
       out_cols.push(

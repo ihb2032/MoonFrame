@@ -655,10 +655,10 @@ test "right join keeps every right row, nulling unmatched left columns" {
     JoinOptions::on([@expr.col("dept_id")], how=JoinType::Right),
   )
   assert_eq(out.check_invariants(), Ok(()))
-  // Mirror of left: column order is still left then right, and a right join
-  // coalesces the key by default — the single `dept_id` takes the right value
-  // on an unmatched-left (right-only) row.
-  assert_eq(out.columns(), ["emp_id", "name", "dept_id", "dept_name"])
+  // Polars' swapped-left-join reading: the right frame's columns lead (key
+  // coalesced from the right by default) and the left non-key columns
+  // follow.
+  assert_eq(out.columns(), ["dept_id", "dept_name", "emp_id", "name"])
   // Row set = every right department, in right order. Eng (dept 10) fans out
   // to its two employees in ascending left-row order (Alice then Carol),
   // then Sales (dept 20), then HR (dept 30) with no employee.
@@ -689,7 +689,7 @@ test "right join with coalesce=true takes the key from the right side" {
     JoinOptions::on([@expr.col("dept_id")], how=JoinType::Right, coalesce=true),
   )
   assert_eq(out.check_invariants(), Ok(()))
-  assert_eq(out.columns(), ["emp_id", "name", "dept_id", "dept_name"])
+  assert_eq(out.columns(), ["dept_id", "dept_name", "emp_id", "name"])
   assert_eq(out.shape(), (4, 4))
   assert_eq(out.item(0, "dept_id"), @types.Scalar::Int(10))
   // HR: no employee, but the coalesced key still shows dept 30 (right side).
@@ -900,9 +900,9 @@ test "right join on a key tuple keeps every right row" {
     JoinOptions::on([@expr.col("a"), @expr.col("b")], how=JoinType::Right),
   )
   assert_eq(out.check_invariants(), Ok(()))
-  assert_eq(out.columns(), ["a", "b", "lv", "rv"])
+  assert_eq(out.columns(), ["a", "b", "rv", "lv"])
   // (x,1) matches l0; (z,2) has no left row — its coalesced keys come from
-  // the right.
+  // the right. The right frame's columns lead.
   assert_eq(out.shape(), (2, 4))
   assert_eq(out.item(0, "lv"), @types.Scalar::String("p"))
   assert_eq(out.item(0, "rv"), @types.Scalar::Int(100))
@@ -921,7 +921,7 @@ test "right join: a null right key matches nothing, kept with null left" {
     JoinOptions::on([@expr.col("k")], how=JoinType::Right),
   )
   assert_eq(out.check_invariants(), Ok(()))
-  assert_eq(out.columns(), ["k", "lv", "rv"])
+  assert_eq(out.columns(), ["k", "rv", "lv"])
   // Every right row survives, in right order. The null-keyed right row (1)
   // matches nothing — not even the left's null-keyed row (null != null) — so
   // its coalesced key stays null.
@@ -958,7 +958,9 @@ test "outer join: null keys on both sides each stay unmatched" {
 // ── Right / Outer suffix + empty frames ──────────────────────────────
 
 ///|
-test "right join suffixes a right non-key column clashing with a left name" {
+test "right join suffixes a left non-key column clashing with a right name" {
+  // The swap moved the rename onto the left side: the right frame's
+  // `value` keeps its name, the left one takes the suffix.
   let left = DataFrame::DataFrame([
     Series::from_ints("id", [1, 2]),
     Series::from_ints("value", [100, 200]),
@@ -975,11 +977,11 @@ test "right join suffixes a right non-key column clashing with a left name" {
   assert_eq(out.columns(), ["id", "value", "value_right"])
   // id=1 matches l0; id=3 has no left row.
   assert_eq(out.shape(), (2, 3))
-  assert_eq(out.item(0, "value"), @types.Scalar::Int(100))
-  assert_eq(out.item(0, "value_right"), @types.Scalar::Int(9))
+  assert_eq(out.item(0, "value"), @types.Scalar::Int(9))
+  assert_eq(out.item(0, "value_right"), @types.Scalar::Int(100))
   assert_eq(out.item(1, "id"), @types.Scalar::Int(3)) // coalesced from right
-  assert_eq(out.item(1, "value"), @types.Scalar::Null) // left absent
-  assert_eq(out.item(1, "value_right"), @types.Scalar::Int(8))
+  assert_eq(out.item(1, "value"), @types.Scalar::Int(8))
+  assert_eq(out.item(1, "value_right"), @types.Scalar::Null) // left absent
 }
 
 ///|
@@ -997,7 +999,7 @@ test "right join with a 0-row left frame keeps all right rows, null left" {
     JoinOptions::on([@expr.col("k")], how=JoinType::Right),
   )
   assert_eq(out.check_invariants(), Ok(()))
-  assert_eq(out.columns(), ["k", "lv", "rv"])
+  assert_eq(out.columns(), ["k", "rv", "lv"])
   // No left rows, so every right row is unmatched: lv is null and the
   // coalesced key takes the right value.
   assert_eq(out.shape(), (2, 3))
@@ -1552,4 +1554,22 @@ test "semi / anti work through the sided keys and the lazy mirror" {
     @types.Scalar::Int(2),
     @types.Scalar::Int(3),
   ])
+}
+
+///|
+test "right join with coalesce=false keeps both keys, left one suffixed" {
+  let out = employees().join(
+    departments(),
+    JoinOptions::on([@expr.col("dept_id")], how=JoinType::Right, coalesce=false),
+  )
+  assert_eq(out.check_invariants(), Ok(()))
+  // Both keys survive: the right's `dept_id` in the right frame's position,
+  // the left's clashing one suffixed among the trailing left columns.
+  assert_eq(out.columns(), [
+    "dept_id", "dept_name", "emp_id", "name", "dept_id_right",
+  ])
+  assert_eq(out.item(3, "dept_id"), @types.Scalar::Int(30)) // right key, unmatched
+  assert_eq(out.item(3, "dept_id_right"), @types.Scalar::Null) // left key absent
+  assert_eq(out.item(0, "dept_id"), @types.Scalar::Int(10)) // matched: both keys
+  assert_eq(out.item(0, "dept_id_right"), @types.Scalar::Int(10))
 }

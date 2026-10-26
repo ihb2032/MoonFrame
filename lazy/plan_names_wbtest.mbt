@@ -260,3 +260,42 @@ test "bare_on_key_names: bare keys only, derived and sided contribute none" {
   sided.each(_ => sided_count = sided_count + 1)
   assert_eq(sided_count, 0)
 }
+
+///|
+test "output_names: a right join leads with the right side's names" {
+  // The swapped-left-join reading: the right frame's columns keep their
+  // names, a clashing left one is offered under its suffixed spelling only,
+  // and a bare clashing on-key (coalescible) offers no spelling — the
+  // mirror of the merging-join rule with the sides exchanged.
+  let plan = LazyFrame::LazyFrame(names_frame()).join(
+      LazyFrame::LazyFrame(names_other()),
+      @frame.JoinOptions::on([@expr.col("a")], how=Right),
+    ).plan
+  assert_output_names(plan, ["a", "b", "c", "d"])
+  // Paired keys never coalesce, so the left `a` survives suffixed.
+  let paired = LazyFrame::LazyFrame(names_frame()).join(
+      LazyFrame::LazyFrame(names_other()),
+      @frame.JoinOptions::left_on(
+        [@expr.col("a")],
+        right_on=[@expr.col("a")],
+        how=Right,
+      ),
+    ).plan
+  assert_output_names(paired, ["a", "a_right", "b", "c", "d"])
+}
+
+///|
+test "output_names: a right join over an unknowable side gives up" {
+  // Either side unknowable, in either slot — the swapped merge propagates
+  // the give-up just as the unswapped one does.
+  let left_unknowable = scan_csv("names.csv").join(
+      LazyFrame::LazyFrame(names_other()),
+      @frame.JoinOptions::on([@expr.col("a")], how=Right),
+    ).plan
+  assert_true(left_unknowable.output_names() is None)
+  let right_unknowable = LazyFrame::LazyFrame(names_frame()).join(
+      scan_csv("names.csv"),
+      @frame.JoinOptions::on([@expr.col("a")], how=Right),
+    ).plan
+  assert_true(right_unknowable.output_names() is None)
+}

@@ -4,42 +4,18 @@
 // the UCD by the tracked generator script.
 
 ///|
-/// Binary search over a sorted `(from, to)` table: the mapped code point,
-/// or `cp` itself when the table has no entry — the common case, since most
-/// code points carry no case mapping at all.
-fn case_lookup(table : Array[(UInt32, UInt32)], cp : UInt32) -> UInt32 {
+/// Index of the entry whose source code point is `cp`, in a table sorted
+/// ascending by it — the shared search of the simple and special lookups,
+/// stated once so the two cannot drift apart (a fix to one loop is a fix
+/// to both).
+fn[T] entry_index(table : Array[(UInt32, T)], cp : UInt32) -> Int32? {
   let mut lo = 0
   let mut hi = table.length() - 1
   while lo <= hi {
     let mid = (lo + hi) / 2
-    let (from, to) = table[mid]
+    let (from, _) = table[mid]
     if cp == from {
-      return to
-    } else if cp < from {
-      hi = mid - 1
-    } else {
-      lo = mid + 1
-    }
-  }
-  cp
-}
-
-///|
-/// Binary search over the sorted special table: the expanding mapping's
-/// targets, or `None` when this code point's case conversion is the simple
-/// one (or identity) — the table only carries where the default conversion
-/// differs from the simple mapping.
-fn special_lookup(
-  table : Array[(UInt32, Array[UInt32])],
-  cp : UInt32,
-) -> Array[UInt32]? {
-  let mut lo = 0
-  let mut hi = table.length() - 1
-  while lo <= hi {
-    let mid = (lo + hi) / 2
-    let (from, to) = table[mid]
-    if cp == from {
-      return Some(to)
+      return Some(mid)
     } else if cp < from {
       hi = mid - 1
     } else {
@@ -50,16 +26,96 @@ fn special_lookup(
 }
 
 ///|
+/// Binary search over a sorted `(from, to)` table: the mapped code point,
+/// or `cp` itself when the table has no entry — the common case, since most
+/// code points carry no case mapping at all.
+fn case_lookup(table : Array[(UInt32, UInt32)], cp : UInt32) -> UInt32 {
+  match entry_index(table, cp) {
+    Some(i) => {
+      let (_, to) = table[i]
+      to
+    }
+    None => cp
+  }
+}
+
+///|
+/// Binary search over the sorted special table: the expanding mapping's
+/// targets, or `None` when this code point has no special entry. A
+/// one-to-one entry here repeats the simple mapping (the generator's
+/// condition is not-identity, not differs-from-simple) — harmless: the
+/// answer equals the simple one's exactly there.
+fn special_lookup(
+  table : Array[(UInt32, Array[UInt32])],
+  cp : UInt32,
+) -> Array[UInt32]? {
+  match entry_index(table, cp) {
+    Some(i) => {
+      let (_, to) = table[i]
+      Some(to)
+    }
+    None => None
+  }
+}
+
+///|
+/// Whether a code point falls inside one of the ascending, disjoint ranges
+/// of a derived property — the membership test `Final_Sigma` reads off the
+/// `Cased` and `Case_Ignorable` tables.
+fn in_ranges(ranges : Array[(UInt32, UInt32)], cp : UInt32) -> Bool {
+  let mut lo = 0
+  let mut hi = ranges.length() - 1
+  while lo <= hi {
+    let mid = (lo + hi) / 2
+    let (first, last) = ranges[mid]
+    if cp < first {
+      hi = mid - 1
+    } else if cp > last {
+      lo = mid + 1
+    } else {
+      return true
+    }
+  }
+  false
+}
+
+///|
+/// `Final_Sigma` (SpecialCasing.txt): `Σ` maps to `ς` iff it is preceded by
+/// a cased letter and not followed by one, skipping `Case_Ignorable`
+/// characters on both sides — the one contextual rule the *default* case
+/// conversion carries (Polars and Rust's `str::to_lowercase` apply it too).
+fn final_sigma(chars : Array[Char], i : Int32) -> Bool {
+  // Backward from the sigma: the first non-ignorable character must be a
+  // cased one ("ΟΔΟΣ" — Δ before the final sigma).
+  let mut j = i - 1
+  while j >= 0 && in_ranges(unicode_case_ignorable, chars[j].to_uint()) {
+    j = j - 1
+  }
+  let cased_before = j >= 0 && in_ranges(unicode_cased, chars[j].to_uint())
+  // Forward: a cased character behind any run of ignorables makes the
+  // sigma medial.
+  let mut k = i + 1
+  while k < chars.length() &&
+        in_ranges(unicode_case_ignorable, chars[k].to_uint()) {
+    k = k + 1
+  }
+  let cased_after = k < chars.length() &&
+    in_ranges(unicode_cased, chars[k].to_uint())
+  cased_before && !cased_after
+}
+
+///|
 /// Map every character of a string through the Unicode **default case
 /// conversion** — simple mappings one character to one character, plus the
 /// SpecialCasing expansions where the default conversion is one-to-many
-/// (`ß` uppercases to `SS`, the `ﬁ` ligature to `FI`). Characters without a
-/// mapping pass through unchanged. The conditional lines of SpecialCasing —
-/// locale (the Turkish dotless rules) and context (`Final_Sigma`, which
-/// would lowercase a word-final `Σ` to `ς` only next to letters) — are not
-/// in the table: this is the default conversion, which carries neither a
-/// locale nor a surrounding, so `Σ` lowercases to `σ` even at a word's end,
-/// and `İ` lowercases to `i` + combining dot above everywhere.
+/// (`ß` uppercases to `SS`, the `ﬁ` ligature to `FI`), plus the one
+/// contextual rule the default conversion carries, `Final_Sigma`: a
+/// word-final `Σ` lowercases to `ς`, a medial one to `σ`, by the cased /
+/// case-ignorable characters around it. Characters without a mapping pass
+/// through unchanged. The conditional *locale* lines of SpecialCasing —
+/// the Turkish dotless rules — are not in the table: the default conversion
+/// carries no locale, so `İ` lowercases to `i` + combining dot above
+/// everywhere.
 pub fn map_case(s : String, upper~ : Bool) -> String {
   let specials = if upper {
     unicode_special_upper
@@ -67,8 +123,21 @@ pub fn map_case(s : String, upper~ : Bool) -> String {
     unicode_special_lower
   }
   let buf = StringBuilder()
+  // `Final_Sigma` reads both neighbours of a sigma, so the string is
+  // collected once and walked by index rather than by iterator.
+  let chars : Array[Char] = []
   for ch in s.iter() {
-    let cp = ch.to_uint()
+    chars.push(ch)
+  }
+  for i in 0..<chars.length() {
+    let cp = chars[i].to_uint()
+    if !upper && cp == 0x03A3 {
+      // Final_Sigma answers ς vs σ; the simple table would say σ either way.
+      let sigma : UInt32 = if final_sigma(chars, i) { 0x03C2 } else { 0x03C3 }
+      // Safe by construction: both are Unicode scalar values.
+      buf.write_char(sigma.reinterpret_as_int().unsafe_to_char())
+      continue
+    }
     match special_lookup(specials, cp) {
       Some(targets) =>
         for t in targets {

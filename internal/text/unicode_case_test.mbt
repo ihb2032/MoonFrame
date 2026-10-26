@@ -20,10 +20,17 @@ test "map_case: supplementary-plane scripts case-map through the table" {
 }
 
 ///|
-test "map_case: the default conversion carries no context — a word-final Σ stays σ" {
-  // A word-final Σ lowercases to ς only under SpecialCasing's
-  // Final_Sigma condition, which the table skips: the default conversion
-  // maps Σ → σ in every position, the reading Polars and Rust's
-  // `char::to_lowercase` give.
-  assert_eq(map_case("ΟΔΟΣ", upper=false), "οδοσ")
+test "map_case: Final_Sigma lowercases a word-final Σ to ς" {
+  // The one contextual rule the default conversion carries, matching
+  // Polars and Rust's `str::to_lowercase`: Σ maps to ς when preceded by a
+  // cased letter and not followed by one (skipping Case_Ignorable
+  // characters on both sides), to σ when medial or word-initial.
+  assert_eq(map_case("ΟΔΟΣ", upper=false), "οδος") // final after Δ
+  assert_eq(map_case("ΟΣΑ", upper=false), "οσα") // word-initial: no cased before
+  assert_eq(map_case("ΑΣ,Σ", upper=false), "ας,σ") // the second starts a word
+  assert_eq(map_case("ΑΣ\u{345}Α", upper=false), "ασ\u{345}α") // ignorable then cased: medial
+  assert_eq(map_case("ΑΣ\u{345}.", upper=false), "ας\u{345}.") // ignorable then nothing: final
+  assert_eq(map_case("Α\u{345}Σ", upper=false), "α\u{345}ς") // ignorable before: still final
+  // Upper-casing never reads the context.
+  assert_eq(map_case("οδος", upper=true), "ΟΔΟΣ")
 }

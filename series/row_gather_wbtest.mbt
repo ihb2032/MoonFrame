@@ -26,3 +26,16 @@ test "coalesce_columns refuses a fill of another dtype" {
     @types.Scalar::Decimal(2, 7L),
   ])
 }
+
+///|
+test "coalesce_columns refuses a fill shorter than the column" {
+  // The equal-length half of the contract, checked like the dtype half: a
+  // shorter fill would index past its own cells. Public API (the join
+  // assembly) builds equal-length sides, so the branch lives here.
+  let base = Series::from_int_options("k", [Some(1), None, Some(3)])
+  let short = Series::from_ints("k", [9])
+  assert_true(
+    (Ok(base.coalesce_columns(short, "k")) catch { e => Err(e) })
+    is Err(@types.DataError::LengthMismatch),
+  )
+}

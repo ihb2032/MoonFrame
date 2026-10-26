@@ -60,12 +60,15 @@ pub fn DataFrame::with_columns(
   let source_fields = self.schema.fields()
   let seen : Map[String, Unit] = Map([])
   for expr in exprs {
-    let column = @kernel.broadcast_series(eval_expr(expr, self, scope), n)
+    // The duplicate is reported before the length contract is consulted —
+    // `select`'s order for the same input — so a second expression that is
+    // both renamed and mis-sized answers as the duplicate it is.
     let name = expr.output_name()
     if seen.contains(name) {
       raise @types.DataError::DuplicateColumn(name)
     }
     seen[name] = ()
+    let column = @kernel.broadcast_series(eval_expr(expr, self, scope), n)
     let field = self.carried_field(source_fields, expr, column, name)
     let renamed = column.rename(name)
     // The schema's index decides overwrite-or-append: a name the frame

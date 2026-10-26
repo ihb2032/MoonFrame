@@ -88,3 +88,22 @@ test "check_invariants accepts a column-less frame that carries rows" {
   assert_true(empty_rows.check_invariants() is Ok(_))
   assert_eq(empty_rows.shape(), (3, 0))
 }
+
+///|
+test "from_parts_with_fields refuses a schema/columns arity mismatch" {
+  // The constructor's own INV1 gate, whitebox-driven: public callers keep
+  // the two vectors in step, so only this module can hand it a mismatch —
+  // and the gate answers with the frame's error vocabulary instead of the
+  // out-of-bounds read a bare index would take.
+  let cols = [Series::from_ints("a", [1, 2, 3])]
+  let two_fields = [
+    @types.Field::Field("a", @types.DataType::Int),
+    @types.Field::Field("b", @types.DataType::Int),
+  ]
+  assert_true(
+    (Ok(DataFrame::from_parts_with_fields(cols, two_fields, 3)) catch {
+      e => Err(e)
+    })
+    is Err(@types.DataError::LengthMismatch),
+  )
+}

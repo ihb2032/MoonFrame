@@ -46,6 +46,14 @@ fn DataFrame::from_parts_with_fields(
   if !columns.all(c => c.len() == nrows) {
     raise @types.DataError::LengthMismatch
   }
+  // INV1, closed here too: the schema's index maps a name onto a position
+  // in the column vector, so an arity mismatch would leave `get_column`'s
+  // index either past the vector (an abort, not a raise) or naming the
+  // wrong column. The docstring holds the caller to the contract; a caller
+  // that slips is answered with the frame's own error vocabulary.
+  if fields.length() != columns.length() {
+    raise @types.DataError::LengthMismatch
+  }
   let schema = @types.Schema::Schema(fields)
   { schema, columns, nrows, }
 }

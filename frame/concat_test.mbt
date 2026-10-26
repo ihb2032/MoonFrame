@@ -1,20 +1,18 @@
 // Blackbox tests for `DataFrame::vstack` — vertical concatenation. Pinned:
-// the row concatenation with `self`'s names and order, exact per-position
+// the row concatenation with the agreed schema, exact per-position name and
 // dtype checking, the 0-row edges, and that the assembled columns satisfy
 // the frame invariants (including the gather-style backend
 // canonicalisation).
 
 ///|
-test "vstack appends the rows under self's names, keeping the schema" {
+test "vstack appends the rows under the agreed schema" {
   let top = DataFrame::DataFrame([
     Series::from_ints("a", [1, 2]),
     Series::from_strings("b", ["x", "y"]),
   ])
-  // The bottom frame's names differ — position matches, names do not
-  // travel (Polars' rule).
   let bottom = DataFrame::DataFrame([
-    Series::from_ints("z", [3]),
-    Series::from_strings("w", ["xy"]),
+    Series::from_ints("a", [3]),
+    Series::from_strings("b", ["xy"]),
   ])
   let r = top.vstack(bottom)
   assert_eq(r.shape(), (3, 2))
@@ -33,11 +31,52 @@ test "vstack appends the rows under self's names, keeping the schema" {
 }
 
 ///|
+test "vstack refuses a slot whose names differ" {
+  // Polars stacks frames whose schemas already agree; stacking a renamed —
+  // or reordered — column silently under another name is the bug the name
+  // check exists to prevent.
+  let top = DataFrame::DataFrame([
+    Series::from_ints("a", [1, 2]),
+    Series::from_strings("b", ["x", "y"]),
+  ])
+  let renamed = DataFrame::DataFrame([
+    Series::from_ints("z", [3]),
+    Series::from_strings("w", ["xy"]),
+  ])
+  assert_true(
+    (Ok(top.vstack(renamed)) catch { e => Err(e) })
+    is Err(
+      @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Message(
+          "vstack column 0 is a but the stacked column is z"
+        )
+      )
+    ),
+  )
+  // Same dtype, names swapped between slots — a reorder, not a rename — is
+  // the silent-data-misalignment shape the check catches.
+  let swapped = DataFrame::DataFrame([
+    Series::from_strings("b", ["xy"]),
+    Series::from_ints("a", [3]),
+  ])
+  assert_true(
+    (Ok(top.vstack(swapped)) catch { e => Err(e) })
+    is Err(
+      @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Message(
+          "vstack column 0 is a but the stacked column is b"
+        )
+      )
+    ),
+  )
+}
+
+///|
 test "vstack carries nulls from either side, keeping the dtype" {
   let top = DataFrame::DataFrame([
     Series::from_int_options("a", [Some(1), None]),
   ])
-  let bottom = DataFrame::DataFrame([Series::from_ints("b", [3])])
+  let bottom = DataFrame::DataFrame([Series::from_ints("a", [3])])
   let r = top.vstack(bottom)
   assert_eq(r.get_column("a").dtype(), @types.DataType::Int)
   assert_eq(r.get_column("a").to_scalars(), [

@@ -54,6 +54,25 @@ grouped verbs, and `describe`'s `n_unique` row. `count` still counts
 non-null cells, so the old reading's inputs remain reachable through
 `count` and `null_count`.
 
+### `vstack` refuses a slot whose column name differs
+
+`vstack` aligns with Polars: the stacked frame's schema must agree with
+`self`'s column-for-column — same count, same name in each slot, same
+dtype — where it used to check only count and dtype, silently stacking a
+renamed or reordered column's values under another name. Rename or reorder
+`other`'s columns (`select`) before stacking when the sources genuinely
+differ.
+
+### A null `clip` bound leaves the operand cell untouched
+
+`clip` aligns with Polars' post-1.0 reading: a null bound cell is no bound
+on that side, so a present operand cell passes through where the old
+nested-`when` lowering nulled it. A null operand cell still stays null,
+and both bounds null keep the column unchanged. `clip` and `diff` also
+moved onto dedicated AST nodes — a chained clamp or difference now renders
+and evaluates linearly where the lowering embedded the operand 4 (resp. 2)
+times per link — with no spelling change at the call site.
+
 ### `DataType` / `Scalar` gained `Timestamp` / `Decimal` variants
 
 `DataType::Timestamp` and `Scalar::Timestamp(micros)` — microseconds since

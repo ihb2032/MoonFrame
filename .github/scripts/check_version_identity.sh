@@ -126,8 +126,13 @@ release_shape='v?[0-9]+\.[0-9]+\.[0-9]+'
 #     its version in a SHA and a trailing comment, and nothing of this
 #     project's rides one
 #   - owner/pkg@ — a dependency
-#   - :version = " — the manifest key itself, on its own line
 #   - UCD version — the Unicode Character Database edition
+# `moon.mod`'s own `version = "…"` key needs no mask: the manifest is one of
+# the two homes and is excluded from the scan set below, so a `version =`
+# line anywhere else is exactly the stray this guard exists to catch — an
+# earlier mask keyed on a leading colon silently exempted such a line
+# wherever it appeared, because the colon came from the `grep -n` line
+# number, not the line's content.
 # The expressions are ERE (`sed -E`): a bare `+` is a quantifier here, not
 # the literal it would be under BRE.
 third_party_masks='
@@ -136,14 +141,17 @@ s/moonc[[:space:]]+[0-9][0-9a-zA-Z.+]*//g
 s/MoonBit[[:space:]]v[0-9.]+//g
 /uses:[[:space:]]/d
 s/[A-Za-z0-9_.-]+@[0-9.]+//g
-s/:version[[:space:]]*=[[:space:]]*"[0-9.]+"//g
 s/UCD[[:space:]]version[[:space:]]*[0-9.]+//g
 '
 
 prose=$(git ls-files '*.md' |
   grep -v '^docs/migration\.md$' |
   grep -v '^\.github/scripts/' || true)
+# `moon.mod` itself is excluded from `config`: it is one of the two homes,
+# compared against the migration guide by this guard's first half — its own
+# `version =` line is the fact being checked, not a stray to scan for.
 config=$(git ls-files '*.yml' '*.yaml' 'moon.mod' '*moon.pkg' |
+  grep -v '^moon\.mod$' |
   grep -v '^\.github/scripts/' || true)
 sources=$(git ls-files '*.mbt' | grep -v '^\.github/scripts/' || true)
 

@@ -186,7 +186,13 @@ production_edges=$(git ls-files '*moon.pkg' | grep -v '^examples/' |
     awk -v pkg="$pkg" '
       /^import \{/ { inblock = 1; n = 0; next }
       inblock && /^\}/ {
-        if ($0 !~ /for "(wb)?test"/) for (i = 1; i <= n; i++) print pkg " " dep[i]
+        # The marker is read off a comment-stripped copy of the closing line
+        # (the check_layering rule): `} // for "test"` is a test block
+        # wearing a comment, and a comment must not be able to disguise — or
+        # forge — the marker.
+        closer = $0
+        sub(/\/\/.*/, "", closer)
+        if (closer !~ /for "(wb)?test"/) for (i = 1; i <= n; i++) print pkg " " dep[i]
         inblock = 0
         next
       }

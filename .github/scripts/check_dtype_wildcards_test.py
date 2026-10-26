@@ -175,6 +175,60 @@ class DtypeWildcardScannerTests(unittest.TestCase):
             'a/a.mbt label TODO(reason)\n',
         )
 
+    def test_guard_arm_is_flagged_like_a_plain_catch_all(self) -> None:
+        # `_ if cond =>` swallows every variant the condition accepts; the
+        # guard spelling hid from the original pattern, which demanded `=>`
+        # right after the binding.
+        arms = self.arms({
+            'a/moon.pkg': '{}',
+            'a/a.mbt': (
+                'fn label(dt : DataType) -> String {\n'
+                '  match dt {\n'
+                '    @types.DataType::Int => "i"\n'
+                '    _ if reachable => "?"\n'
+                '  }\n'
+                '}\n'
+            ),
+        })
+        self.assertEqual(arms, [('a/a.mbt', 'label')])
+
+    def test_underscore_led_binding_is_flagged(self) -> None:
+        # `_v =>` is a binding, not the discard `_`; the original identifier
+        # character class did not accept a leading underscore.
+        arms = self.arms({
+            'a/moon.pkg': '{}',
+            'a/a.mbt': (
+                'fn as_int(self : Scalar) -> Int64 {\n'
+                '  match self {\n'
+                '    @types.Scalar::Int(v) => v\n'
+                '    _rest => refuse(_rest)\n'
+                '  }\n'
+                '}\n'
+            ),
+        })
+        self.assertEqual(arms, [('a/a.mbt', 'as_int')])
+
+    def test_wrapped_scrutinee_block_is_scanned(self) -> None:
+        # moon fmt folds a long scrutinee onto its own lines, the `{`
+        # landing below — the whole block sat outside the original
+        # same-line match detection.
+        arms = self.arms({
+            'a/moon.pkg': '{}',
+            'a/a.mbt': (
+                'fn label(\n'
+                '  self : ColumnStorage,\n'
+                ') -> String {\n'
+                '  match\n'
+                '    self.storage_kind()\n'
+                '  {\n'
+                '    @column.StorageKind::Builtin => "b"\n'
+                '    _ => "?"\n'
+                '  }\n'
+                '}\n'
+            ),
+        })
+        self.assertEqual(arms, [('a/a.mbt', 'label')])
+
 
 if __name__ == '__main__':
     unittest.main()

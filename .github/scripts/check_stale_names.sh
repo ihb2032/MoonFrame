@@ -160,6 +160,13 @@ fi
 fail=0
 printf '%s\n' "$patterns" | while IFS= read -r pattern; do
   [ -n "$pattern" ] || continue
+  # The list's own comments (`# Removed with …`) explain a group of names;
+  # scanned as patterns they would one day match a docstring that quotes
+  # the explanation verbatim, pointing the guard at a sentence instead of
+  # an identifier.
+  case "$pattern" in
+    '#'*) continue ;;
+  esac
   # A pattern written `path/to/file.mbt:name` is checked in that file alone.
   # This is what makes a *bare* name pinnable: `from_bools` was deleted from
   # `Bitmap` while `Series::from_bools` and `BuiltinColumn::from_bools` are

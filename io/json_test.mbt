@@ -628,7 +628,7 @@ test "reject_duplicate_keys fails the read naming the key and object" {
   }
   match result {
     Err(@types.DataError::ParseError(@types.ParseErrorDetail::Message(m))) =>
-      assert_eq(m, "duplicate key \"b\" in JSON object 2")
+      assert_eq(m, "duplicate key \"b\" at line 1, column 20")
     _ => fail("expected a duplicate-key ParseError")
   }
 }
@@ -644,7 +644,7 @@ test "reject_duplicate_keys scans nested objects too" {
   }
   match result {
     Err(@types.DataError::ParseError(@types.ParseErrorDetail::Message(m))) =>
-      assert_eq(m, "duplicate key \"x\" in JSON object 2")
+      assert_eq(m, "duplicate key \"x\" at line 1, column 20")
     _ => fail("expected a duplicate-key ParseError")
   }
 }
@@ -686,7 +686,7 @@ test "reject_duplicate_keys compares keys decoded, so unicode escapes collide" {
   }
   match result {
     Err(@types.DataError::ParseError(@types.ParseErrorDetail::Message(m))) =>
-      assert_eq(m, "duplicate key \"a\" in JSON object 1")
+      assert_eq(m, "duplicate key \"a\" at line 1, column 10")
     _ => fail("expected a duplicate-key ParseError")
   }
 }
@@ -710,13 +710,13 @@ test "reject_duplicate_keys decodes every escape spelling before comparing" {
   // `\uXXXX` decoder the same way.
   let opts = @io.JsonReadOptions::JsonReadOptions(reject_duplicate_keys=true)
   let result : Result[@frame.DataFrame, @types.DataError] = Ok(
-    @io.parse_json_str("[{\"a\tb\": 1, \"a\tb\": 2}]", options=opts),
+    @io.parse_json_str("[{\"a\\tb\": 1, \"a\\tb\": 2}]", options=opts),
   ) catch {
     e => Err(e)
   }
   match result {
     Err(@types.DataError::ParseError(@types.ParseErrorDetail::Message(m))) =>
-      assert_eq(m, "duplicate key \"a\tb\" in JSON object 1")
+      assert_true(m.has_prefix("duplicate key \"a\tb\" at line 1,"))
     _ => fail("expected a duplicate-key ParseError")
   }
   let result2 : Result[@frame.DataFrame, @types.DataError] = Ok(
@@ -726,7 +726,7 @@ test "reject_duplicate_keys decodes every escape spelling before comparing" {
   }
   match result2 {
     Err(@types.DataError::ParseError(@types.ParseErrorDetail::Message(m))) =>
-      assert_eq(m, "duplicate key \"\u{ff}\" in JSON object 1")
+      assert_true(m.has_prefix("duplicate key \"\u{ff}\" at line 1,"))
     _ => fail("expected a duplicate-key ParseError")
   }
   // Uppercase hex digits take the decoder's other arm and land on the same
@@ -738,7 +738,7 @@ test "reject_duplicate_keys decodes every escape spelling before comparing" {
   }
   match result3 {
     Err(@types.DataError::ParseError(@types.ParseErrorDetail::Message(m))) =>
-      assert_eq(m, "duplicate key \"\u{ab}\" in JSON object 1")
+      assert_true(m.has_prefix("duplicate key \"\u{ab}\" at line 1,"))
     _ => fail("expected a duplicate-key ParseError")
   }
 }
@@ -770,7 +770,9 @@ test "reject_duplicate_keys decodes each simple escape spelling" {
     }
     match result {
       Err(@types.DataError::ParseError(@types.ParseErrorDetail::Message(m))) =>
-        assert_eq(m, "duplicate key \"" + decoded + "\" in JSON object 1")
+        assert_true(
+          m.has_prefix("duplicate key \"" + decoded + "\" at line 1,"),
+        )
       _ => fail("expected a duplicate-key ParseError")
     }
   }
@@ -830,4 +832,25 @@ test "reject_duplicate_keys leaves malformed payloads to the parser" {
       assert_eq(m, "expected a JSON array of objects at the top level")
     _ => fail("expected the top-level shape diagnostic")
   }
+}
+
+///|
+test "allow_nonfinite_floats=false keeps an overflowing number column String" {
+  // The JSON counterpart of the CSV gate: `1e999` overflows Double, and the
+  // default read infers the column Float with Infinity cells; with the gate
+  // on, the number is not Float evidence, so the column stays String.
+  let open = @io.parse_json_str("[{\"a\": 1e999}, {\"a\": 1.5}]")
+  assert_eq(open.get_column("a").dtype(), @types.DataType::Float)
+  assert_true(open.item(0, "a") is @types.Scalar::Float(v) && v.is_inf())
+  let gated = @io.parse_json_str(
+    "[{\"a\": 1e999}, {\"a\": 1.5}]",
+    options=@io.JsonReadOptions::JsonReadOptions(allow_nonfinite_floats=false),
+  )
+  assert_eq(gated.get_column("a").dtype(), @types.DataType::String)
+  // NDJSON shares the gate through the same options type.
+  let gated_ndjson = @io.parse_ndjson_str(
+    "{\"a\": 1e999}\n{\"a\": 1.5}",
+    options=@io.JsonReadOptions::JsonReadOptions(allow_nonfinite_floats=false),
+  )
+  assert_eq(gated_ndjson.get_column("a").dtype(), @types.DataType::String)
 }

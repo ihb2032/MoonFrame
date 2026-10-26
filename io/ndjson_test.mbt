@@ -622,7 +622,7 @@ test "reject_duplicate_keys fails the read naming the line" {
   }
   match result {
     Err(@types.DataError::ParseError(@types.ParseErrorDetail::Message(m))) =>
-      assert_eq(m, "line 2: duplicate key \"b\" in JSON object 1")
+      assert_eq(m, "line 2: duplicate key \"b\" at line 1, column 9")
     _ => fail("expected a duplicate-key ParseError")
   }
 }

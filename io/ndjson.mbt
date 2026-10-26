@@ -115,22 +115,18 @@ fn parse_ndjson_str_projected(
     if line.is_blank() {
       continue
     }
-    // The strict duplicate-key reading, one line at a time so the diagnostic
-    // can name the physical line (see `parse_json_str` for the why-ahead-of-
-    // parse). NDJSON objects are top-level per line, so the object number in
-    // the message is that line's own 1-based object count.
-    if options.reject_duplicate_keys {
-      match first_duplicate_json_key(line) {
-        Some((n, key)) =>
-          raise @types.DataError::ParseError(
-            @types.ParseErrorDetail::Message(
-              "\{locator_text(@types.CellParseLocation::Line, i + 1)}: duplicate key \"\{key}\" in JSON object \{n}",
-            ),
-          )
-        None => ()
-      }
-    }
-    let json = @json.parse(line) catch {
+    // The strict duplicate-key reading rides the parser itself; off by
+    // default it costs nothing (see `parse_json_str`).
+    let json = @json.parse(
+      line,
+      reject_duplicate_keys=options.reject_duplicate_keys,
+    ) catch {
+      DuplicateKey(pos, key) =>
+        raise @types.DataError::ParseError(
+          @types.ParseErrorDetail::Message(
+            "\{locator_text(@types.CellParseLocation::Line, i + 1)}: duplicate key \"\{key}\" at line \{pos.line}, column \{pos.column}",
+          ),
+        )
       err =>
         raise @types.DataError::ParseError(
           @types.ParseErrorDetail::Message(
@@ -148,6 +144,7 @@ fn parse_ndjson_str_projected(
     projection,
     Some(record_lines),
     pruner?,
+    allow_nonfinite=options.allow_nonfinite_floats,
   )
 }
 

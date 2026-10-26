@@ -27,12 +27,17 @@
 ///   error. The default `false` keeps the serde / pandas / Polars
 ///   behaviour: a repeated key survives only as its **last** value, the
 ///   earlier ones silently dropped. `true` rejects the read instead —
-///   `ParseError(Message(...))` naming the key and the 1-based object it
-///   repeated in — so a payload that would silently lose cells fails
-///   loudly. Nested objects are scanned too, and key spellings are
-///   compared decoded (`"a"` and `"\u0061"` are the same key). The scan
-///   runs before the parse and only when the option is on, so the default
-///   read pays nothing.
+///   `ParseError(Message(...))` naming the key and the line / column it
+///   repeated at — so a payload that would silently lose cells fails
+///   loudly. The check rides the parser itself (which reports whichever
+///   trouble it meets first: a repeat ahead of a syntax error surfaces as
+///   the repeat, and vice versa).
+/// - `allow_nonfinite_floats` — when `true` (default), a number whose
+///   magnitude overflows `Double` (e.g. `1e999`) infers the column as
+///   `Float` holding `±Infinity`. When `false`, such a number is not
+///   `Float` evidence — the column stays `String`, the CSV reader's
+///   `allow_nonfinite_floats` rule, so a silent retype to `Float(∞)`
+///   cannot happen either way a file is read.
 ///
 /// The NDJSON reader shares this type: the two formats differ in framing,
 /// not in what there is to configure.
@@ -40,20 +45,28 @@ pub struct JsonReadOptions {
   infer_schema_rows : Int32
   on_parse_error : OnParseError
   reject_duplicate_keys : Bool
+  allow_nonfinite_floats : Bool
 }
 
 ///|
 /// Build read options. Every field has a default: scan the first 100 records
 /// for inference, fail the read on a cell that doesn't fit its inferred
-/// dtype, and let a repeated object key keep its last value (the serde /
-/// pandas / Polars reading). `JsonReadOptions::JsonReadOptions()` is the all-defaults reader; name only what
+/// dtype, let a repeated object key keep its last value (the serde /
+/// pandas / Polars reading), and accept overflow-to-`Infinity` numbers as
+/// `Float` cells. `JsonReadOptions::JsonReadOptions()` is the all-defaults reader; name only what
 /// differs, as in `JsonReadOptions::JsonReadOptions(on_parse_error=Null)`.
 pub fn JsonReadOptions::JsonReadOptions(
   infer_schema_rows~ : Int32 = DEFAULT_INFER_SCHEMA_ROWS,
   on_parse_error~ : OnParseError = Raise,
   reject_duplicate_keys~ : Bool = false,
+  allow_nonfinite_floats~ : Bool = true,
 ) -> JsonReadOptions {
-  { infer_schema_rows, on_parse_error, reject_duplicate_keys, }
+  {
+    infer_schema_rows,
+    on_parse_error,
+    reject_duplicate_keys,
+    allow_nonfinite_floats,
+  }
 }
 
 ///|
@@ -91,26 +104,26 @@ pub fn parse_json_str(
   if content.is_blank() {
     return @frame.DataFrame::DataFrame([])
   }
-  // The strict duplicate-key reading, when asked for: a repeat is visible
-  // only in the raw text (the parse folds keys into a `Map`, keeping the
-  // last), so the scan sits here, ahead of `@json.parse`. Off by default —
-  // the serde / pandas / Polars last-wins reading costs nothing.
-  if options.reject_duplicate_keys {
-    match first_duplicate_json_key(content.view()) {
-      Some((n, key)) =>
-        raise @types.DataError::ParseError(
-          @types.ParseErrorDetail::Message(
-            "duplicate key \"\{key}\" in JSON object \{n}",
-          ),
-        )
-      None => ()
-    }
-  }
-  // Re-raise `@json.parse`'s failure as this module's `ParseError`, so the
-  // parser's main pipeline sees one error type and stays in straight-line
-  // `match` form; the concrete `ParseError` is rendered through its `Show`
-  // impl so the caller sees the same diagnostic the standard library would.
-  let json = @json.parse(content.view()) catch {
+  // The strict duplicate-key reading rides the parser itself — it reports
+  // the repeat with a line / column, and off by default (the serde / pandas
+  // / Polars last-wins reading) it costs nothing.
+  let json = @json.parse(
+    content.view(),
+    reject_duplicate_keys=options.reject_duplicate_keys,
+  ) catch {
+    // The parser's repeat diagnostic, re-homed in this module's error type
+    // with the key named and the position it repeated at.
+    DuplicateKey(pos, key) =>
+      raise @types.DataError::ParseError(
+        @types.ParseErrorDetail::Message(
+          "duplicate key \"\{key}\" at line \{pos.line}, column \{pos.column}",
+        ),
+      )
+    // Re-raise every other parse failure as this module's `ParseError`, so
+    // the parser's main pipeline sees one error type and stays in
+    // straight-line `match` form; the concrete `ParseError` is rendered
+    // through its `Show` impl so the caller sees the same diagnostic the
+    // standard library would.
     err =>
       raise @types.DataError::ParseError(
         @types.ParseErrorDetail::Message("invalid JSON: \{err}"),
@@ -133,6 +146,7 @@ pub fn parse_json_str(
     // JSON-array records have no source line of their own; build-stage errors
     // are numbered by record (1-based array index).
     None,
+    allow_nonfinite=options.allow_nonfinite_floats,
   )
 }
 

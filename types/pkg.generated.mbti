@@ -136,6 +136,7 @@ pub fn Schema::field_names(Self) -> Array[String]
 pub fn Schema::fields(Self) -> Array[Field]
 pub fn Schema::index_of(Self, String) -> Int32 raise DataError
 pub fn Schema::is_empty(Self) -> Bool
+pub fn Schema::iter2(Self) -> Iter2[String, DataType]
 pub fn Schema::len(Self) -> Int32
 pub fn Schema::not_equal(Self, Self) -> Bool
 pub fn Schema::output(Self, &Logger) -> Unit

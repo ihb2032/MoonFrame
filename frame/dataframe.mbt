@@ -336,6 +336,49 @@ pub fn DataFrame::column_series(self : DataFrame) -> Array[Series] {
 }
 
 ///|
+/// Iterate the columns lazily, in declaration order — the `for col in df`
+/// spelling. This is the *column* walk, matching how a frame stores its
+/// data and how the other read verbs read it (`column_series()` is the
+/// materialising counterpart); the row-oriented walk is `rows()`. Each
+/// step yields the `Series` handle itself — immutable, sharing storage
+/// with the frame, no data copied — and the `Iter` combinator family
+/// applies as usual (`df.iter().map(col => col.len())`).
+pub fn DataFrame::iter(self : DataFrame) -> Iter[Series] {
+  let cols = self.columns
+  let len = cols.length()
+  let mut i = 0
+  Iter::new(
+    fn() {
+      guard i < len else { None }
+      let col = cols[i]
+      i += 1
+      Some(col)
+    },
+    size_hint=len,
+  )
+}
+
+///|
+/// Iterate the columns with their names — the `for name, col in df`
+/// spelling. The same lazy column walk `iter` performs, each step yielding
+/// a `(name, Series)` pair, so a name-keyed loop doesn't zip `columns()`
+/// against a second walk.
+pub fn DataFrame::iter2(self : DataFrame) -> Iter2[String, Series] {
+  let cols = self.columns
+  let len = cols.length()
+  let mut i = 0
+  Iter2::new(
+    fn() {
+      guard i < len else { None }
+      let col = cols[i]
+      i += 1
+      Some((col.name(), col))
+    },
+    size_hint=len,
+  )
+}
+
+///|
 /// Materialise every column's cells as a column-major matrix of `Scalar`s:
 /// `result[c][r]` is the cell at column `c`, row `r`, with `Scalar::Null`
 /// for a null slot (one inner array per column, each `nrows` long).

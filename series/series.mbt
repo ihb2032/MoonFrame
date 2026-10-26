@@ -510,6 +510,38 @@ pub fn Series::to_scalars(self : Series) -> Array[@types.Scalar] {
 }
 
 ///|
+/// Iterate the cells lazily, in row order — the `for cell in s` spelling.
+/// Each step yields one `Scalar`, `Null` for a null cell, lifted through
+/// the same dtype-registry read `to_scalars` performs per batch: an
+/// I64-riding dtype like `Date` surfaces its own variant, not the
+/// buffer's. The one-pass materialising read stays `to_scalars`' job (the
+/// renderers use it); this is the streaming counterpart — a cell at a
+/// time, with the `Iter` combinator family (`map`, `filter`, `fold`, …)
+/// reachable without paying for the intermediate array. Yielding a boxed
+/// cell is the standard shape for this surface: Polars' series iteration
+/// yields `AnyValue`, nulls included as a variant.
+pub fn Series::iter(self : Series) -> Iter[@types.Scalar] {
+  let len = self.len()
+  let valid = self.validity_bools()
+  let data = self.storage.data()
+  let dtype = self.dtype()
+  let mut i = 0
+  Iter::new(
+    fn() {
+      guard i < len else { None }
+      let cell = if valid[i] {
+        @column.scalar_of(dtype, data, i)
+      } else {
+        @types.Scalar::Null
+      }
+      i += 1
+      Some(cell)
+    },
+    size_hint=len,
+  )
+}
+
+///|
 /// Expose the underlying `ColumnStorage`. The one caller outside this package
 /// is the kernel layer, which walks `data()` — alongside the mask
 /// `validity_bools` hands it — to run a

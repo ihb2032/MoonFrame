@@ -157,6 +157,8 @@ method DataFrame::is_duplicated(Self) -> @series.Series <- frame
 method DataFrame::is_empty(Self) -> Bool <- frame
 method DataFrame::is_unique(Self) -> @series.Series <- frame
 method DataFrame::item(Self, Int32, String) -> @types.Scalar raise @types.DataError <- frame
+method DataFrame::iter(Self) -> Iter[@series.Series] <- frame
+method DataFrame::iter2(Self) -> Iter2[String, @series.Series] <- frame
 method DataFrame::join(Self, Self, JoinOptions) -> Self raise @types.DataError <- frame
 method DataFrame::max(Self) -> Self raise @types.DataError <- frame
 method DataFrame::mean(Self) -> Self raise @types.DataError <- frame
@@ -426,6 +428,7 @@ method Schema::field_names(Self) -> Array[String] <- types
 method Schema::fields(Self) -> Array[Field] <- types
 method Schema::index_of(Self, String) -> Int32 raise DataError <- types
 method Schema::is_empty(Self) -> Bool <- types
+method Schema::iter2(Self) -> Iter2[String, DataType] <- types
 method Schema::len(Self) -> Int32 <- types
 method Schema::not_equal(Self, Self) -> Bool <- types
 method Schema::output(Self, &Logger) -> Unit <- types
@@ -450,6 +453,7 @@ method Series::get(Self, Int32) -> @types.Scalar raise @types.DataError <- serie
 method Series::head(Self, Int32) -> Self <- series
 method Series::is_empty(Self) -> Bool <- series
 method Series::is_null(Self, Int32) -> Bool raise @types.DataError <- series
+method Series::iter(Self) -> Iter[@types.Scalar] <- series
 method Series::last(Self) -> @types.Scalar <- series
 method Series::len(Self) -> Int32 <- series
 method Series::max(Self) -> @types.Scalar <- series

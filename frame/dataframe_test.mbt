@@ -577,3 +577,47 @@ test "limit is head: first n rows, clamped the same way" {
   // limit is head, so a negative n drops from the tail, as Polars' head.
   assert_eq(df.limit(-1).nrows(), 2)
 }
+
+// ── Iteration (for-in protocol) ─────────────────────────────────────
+
+///|
+test "DataFrame::iter walks the columns lazily, in declaration order" {
+  let df = DataFrame::DataFrame([
+    Series::from_ints("a", [1, 2, 3]),
+    Series::from_strings("b", ["x", "y", "z"]),
+  ])
+  assert_eq(df.iter().to_array(), df.column_series())
+  assert_eq(df.iter().map(col => col.name()).to_array(), ["a", "b"])
+  assert_eq(df.iter().size_hint(), Some(2))
+  let mut seen = 0
+  for col in df {
+    assert_eq(col.len(), 3)
+    seen += 1
+  }
+  assert_eq(seen, 2)
+}
+
+///|
+test "DataFrame::iter on a column-less frame" {
+  let df = DataFrame::DataFrame([])
+  assert_true(df.iter().next() is None)
+  let mut steps = 0
+  for col in df {
+    ignore(col)
+    steps += 1
+  }
+  assert_eq(steps, 0)
+}
+
+///|
+test "DataFrame::iter2 pairs each column with its name" {
+  let df = DataFrame::DataFrame([
+    Series::from_ints("a", [1, 4]),
+    Series::from_strings("b", ["x", "y"]),
+  ])
+  let pairs : Array[(String, Int32)] = []
+  for name, col in df {
+    pairs.push((name, col.len()))
+  }
+  assert_eq(pairs, [("a", 2), ("b", 2)])
+}

@@ -43,6 +43,7 @@ pub fn Series::get(Self, Int32) -> @types.Scalar raise @types.DataError
 pub fn Series::head(Self, Int32) -> Self
 pub fn Series::is_empty(Self) -> Bool
 pub fn Series::is_null(Self, Int32) -> Bool raise @types.DataError
+pub fn Series::iter(Self) -> Iter[@types.Scalar]
 pub fn Series::last(Self) -> @types.Scalar
 pub fn Series::len(Self) -> Int32
 pub fn Series::max(Self) -> @types.Scalar

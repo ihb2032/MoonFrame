@@ -49,6 +49,8 @@ pub fn DataFrame::is_duplicated(Self) -> @series.Series
 pub fn DataFrame::is_empty(Self) -> Bool
 pub fn DataFrame::is_unique(Self) -> @series.Series
 pub fn DataFrame::item(Self, Int32, String) -> @types.Scalar raise @types.DataError
+pub fn DataFrame::iter(Self) -> Iter[@series.Series]
+pub fn DataFrame::iter2(Self) -> Iter2[String, @series.Series]
 pub fn DataFrame::join(Self, Self, JoinOptions) -> Self raise @types.DataError
 pub fn DataFrame::max(Self) -> Self raise @types.DataError
 pub fn DataFrame::mean(Self) -> Self raise @types.DataError

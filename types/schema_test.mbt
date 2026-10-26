@@ -195,3 +195,30 @@ test "Schema::fields returns a snapshot, mutating it does not break the schema" 
   assert_eq(s.len(), 3)
   assert_eq(s.field_names(), ["a", "b", "c"])
 }
+
+///|
+test "Schema::iter2 pairs each field name with its dtype" {
+  let s = sample_schema()
+  let pairs : Array[(String, DataType)] = []
+  for name, dtype in s {
+    pairs.push((name, dtype))
+  }
+  assert_eq(pairs, [
+    ("a", DataType::Int),
+    ("b", DataType::Float),
+    ("c", DataType::String),
+  ])
+}
+
+///|
+test "Schema::iter2 on an empty schema" {
+  let s = Schema::Schema([])
+  assert_true(s.iter2().next() is None)
+  let mut steps = 0
+  for name, dtype in s {
+    ignore(name)
+    ignore(dtype)
+    steps += 1
+  }
+  assert_eq(steps, 0)
+}

@@ -812,3 +812,62 @@ test "fill_null's Decimal mismatch message carries the scale and the dtype" {
     ),
   )
 }
+
+// ── Iteration (for-in protocol) ─────────────────────────────────────
+
+///|
+test "Series::iter walks the cells in order, null included" {
+  let s = Series::from_int_options("x", [Some(1), None, Some(3)])
+  let cells : Array[@types.Scalar] = []
+  for cell in s {
+    cells.push(cell)
+  }
+  assert_eq(cells, [
+    @types.Scalar::Int(1),
+    @types.Scalar::Null,
+    @types.Scalar::Int(3),
+  ])
+  assert_eq(s.iter().size_hint(), Some(3))
+}
+
+///|
+test "Series::iter agrees with to_scalars on both backends" {
+  let opt = Series::from_int_options("x", [Some(1), None, Some(3)])
+  let raw = Series::from_ints("n", [7, 8])
+  assert_eq(opt.iter().to_array(), opt.to_scalars())
+  assert_eq(raw.iter().to_array(), raw.to_scalars())
+}
+
+///|
+test "Series::iter lifts a riding dtype to its own Scalar variant" {
+  let s = Series::from_scalars("d", [
+    @types.Scalar::Date(19723L),
+    @types.Scalar::Null,
+  ])
+  assert_eq(s.iter().to_array(), [
+    @types.Scalar::Date(19723L),
+    @types.Scalar::Null,
+  ])
+}
+
+///|
+test "Series::iter on an empty series" {
+  let s = Series::from_ints("x", [])
+  assert_true(s.iter().next() is None)
+  assert_eq(s.iter().size_hint(), Some(0))
+  let mut steps = 0
+  for cell in s {
+    ignore(cell)
+    steps += 1
+  }
+  assert_eq(steps, 0)
+}
+
+///|
+test "Series::iter reaches the Iter combinator family" {
+  let s = Series::from_ints("x", [1, 2, 3, 4])
+  assert_true(s.iter().contains(@types.Scalar::Int(3)))
+  assert_eq(s.iter().filter(cell => cell is @types.Scalar::Int(3)).to_array(), [
+    @types.Scalar::Int(3),
+  ])
+}

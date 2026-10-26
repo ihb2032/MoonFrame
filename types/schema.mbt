@@ -90,6 +90,29 @@ pub fn Schema::field_names(self : Schema) -> Array[String] {
 }
 
 ///|
+/// Iterate the fields as `(name, dtype)` pairs, in declaration order — the
+/// `for name, dtype in schema` spelling. The pairing a field-by-field walk
+/// needs without indexing `fields()` twice per field; the declared
+/// `nullable` flag is a `Field`-level detail and stays off this face
+/// (`fields()` carries it). The iterator is lazy and yields fresh pairs as
+/// the loop advances — a name walked this way is a copy, not the field
+/// vector handed out.
+pub fn Schema::iter2(self : Schema) -> Iter2[String, DataType] {
+  let fields = self.fields
+  let len = fields.length()
+  let mut i = 0
+  Iter2::new(
+    fn() {
+      guard i < len else { None }
+      let field = fields[i]
+      i += 1
+      Some((field.name, field.dtype))
+    },
+    size_hint=len,
+  )
+}
+
+///|
 /// The index of the column named `name`, or `raise ColumnNotFound(name)`.
 /// `O(1)` — the name index is built once, when the schema is.
 pub fn Schema::index_of(self : Schema, name : String) -> Int32 raise DataError {

@@ -490,3 +490,53 @@ test "is_between honours each closed setting" {
   // The default renders bare, so existing plan snapshots are unchanged.
   inspect(@expr.col("n").is_between(lo, hi), content="col(n).is_between(2, 3)")
 }
+
+///|
+test "is_in over a Float column keeps the IEEE reading on the fast path" {
+  // The hash-set fast path folds ±0.0 and drops NaN members; these pin
+  // that its answers stay cell-for-cell what the exact kernel gives:
+  // a NaN cell is false against anything, ±0.0 match each other, and a
+  // plain value matches itself.
+  let nan = 0.0 / 0.0
+  let df = DataFrame::DataFrame([
+    Series::from_floats("f", [0.0, -0.0, 1.5, nan]),
+    // A null cell answers null on either path.
+    Series::from_float_options("g", [Some(1.5), None, Some(2.5), Some(2.5)]),
+  ])
+  let out = df.select([
+    // A null member is skipped on the same fast-path builder.
+    @expr.col("f").is_in([
+      @types.Scalar::Float(-0.0),
+      @types.Scalar::Float(1.5),
+      @types.Scalar::Float(nan),
+      @types.Scalar::Null,
+    ]),
+    @expr.col("g").is_in([@types.Scalar::Float(1.5)]).with_alias("gn"),
+  ])
+  assert_eq(out.get_column("f").to_scalars(), [
+    @types.Scalar::Bool(true), // +0.0 matches -0.0
+    @types.Scalar::Bool(true), // -0.0 matches -0.0
+    @types.Scalar::Bool(true), // 1.5 matches itself
+    @types.Scalar::Bool(false), // NaN matches nothing, not even NaN
+  ])
+  assert_eq(out.get_column("gn").to_scalars(), [
+    @types.Scalar::Bool(true),
+    @types.Scalar::Null,
+    @types.Scalar::Bool(false),
+    @types.Scalar::Bool(false),
+  ])
+  // A cross-type member abandons the fast path for the exact kernel,
+  // whose answers are the same cells' (the Int member compares exactly
+  // and matches nothing here).
+  let cross = df.select([
+    @expr.col("f")
+    .is_in([@types.Scalar::Float(1.5), @types.Scalar::Int(1)])
+    .with_alias("c"),
+  ])
+  assert_eq(cross.get_column("c").to_scalars(), [
+    @types.Scalar::Bool(false),
+    @types.Scalar::Bool(false),
+    @types.Scalar::Bool(true),
+    @types.Scalar::Bool(false),
+  ])
+}

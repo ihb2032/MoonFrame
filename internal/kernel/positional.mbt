@@ -193,9 +193,20 @@ pub fn eval_positional(
       // spanning sorted slots `[a, b)` carries each method's answer.
       let sorted = sorted_positions(operand, descending)
       let m = sorted.length()
-      // One output slot per original position; nulls stay null.
-      let int_out : Array[Int64?] = Array::makei(n, _ => None)
-      let float_out : Array[Double?] = Array::makei(n, _ => None)
+      // One output slot per original position; nulls stay null. Only
+      // `Average` ranks as `Float` — every other method is `Int`, so each
+      // pass allocates exactly the buffer it will fill.
+      let average = how is Average
+      let int_out : Array[Int64?] = if average {
+        []
+      } else {
+        Array::makei(n, _ => None)
+      }
+      let float_out : Array[Double?] = if average {
+        Array::makei(n, _ => None)
+      } else {
+        []
+      }
       let same = value_equality(operand)
       let mut dense : Int64 = 0
       let mut a = 0

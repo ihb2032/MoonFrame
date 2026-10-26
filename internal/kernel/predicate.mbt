@@ -115,7 +115,43 @@ fn try_fast_is_in(
         ),
       )
     }
-    @column.ColumnData::F64(_) | @column.ColumnData::I64(_) => None
+    // A `Float` column with all-`Float` members: the same hash-set reading
+    // under the exact kernel's IEEE semantics — `-0.0` folds into `+0.0`
+    // (they compare equal; the folded key makes the set agree), a `NaN`
+    // member is dropped (nothing equals a `NaN`), and a `NaN` cell answers
+    // `false` outright rather than probing the set. A cross-type member
+    // (an `Int`, exact across 2^53) abandons the fast path as everywhere
+    // else.
+    @column.ColumnData::F64(data) => {
+      let set : @set.Set[Double] = @set.Set([])
+      for m in members {
+        match m {
+          @types.Scalar::Float(v) =>
+            if !v.is_nan() {
+              set.add(if v == 0.0 { 0.0 } else { v })
+            }
+          @types.Scalar::Null => ()
+          _ => return None
+        }
+      }
+      Some(
+        Series::from_bool_options(
+          name,
+          Array::makei(operand.len(), i => {
+            if !valid[i] {
+              None
+            } else if data[i].is_nan() {
+              Some(false)
+            } else {
+              Some(set.contains(if data[i] == 0.0 { 0.0 } else { data[i] }))
+            }
+          }),
+        ),
+      )
+    }
+    // A `Date` / `Timestamp` / `Decimal` column (the I64 riders): the
+    // general path compares Scalars, which keep the dtypes distinct.
+    @column.ColumnData::I64(_) => None
   }
 }
 

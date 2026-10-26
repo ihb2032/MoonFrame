@@ -27,7 +27,10 @@ fn next_merge_width(width : Int32, n : Int32) -> Int32? {
 /// input).
 ///
 /// Complexity: `O(n log n)` comparisons, `O(n)` auxiliary memory
-/// (two buffers of length `n`).
+/// (two buffers of length `n`, alternating source / destination — each
+/// pass fully writes the buffer it merges into, merged pairs and
+/// unpaired tail runs alike, so the next pass can read it and no
+/// per-pass copy-back is paid).
 pub fn stable_mergesort_indices(
   n : Int32,
   cmp : (Int32, Int32) -> Int32,
@@ -37,6 +40,8 @@ pub fn stable_mergesort_indices(
     return buf
   }
   let aux = Array::make(n, 0)
+  let mut src = buf
+  let mut dst = aux
   let mut width = 1
   while width < n {
     let mut start = 0
@@ -51,20 +56,23 @@ pub fn stable_mergesort_indices(
       // pass once they reach `n`.
       let mid = if width < n - start { start + width } else { n }
       let right_end = if width < n - mid { mid + width } else { n }
-      merge_run(buf, aux, left, mid, right_end, cmp)
+      // A lone left run (mid == n) is carried into `dst` by `merge_run`'s
+      // tail loop — every slot of `dst` is written every pass, which is
+      // what makes the alternating buffers safe to read next pass.
+      merge_run(src, dst, left, mid, right_end, cmp)
       start = right_end
     }
-    // Copy the merged pass back into `buf` so the next pass reads
-    // from a contiguous source.
-    for k in 0..<n {
-      buf[k] = aux[k]
-    }
+    // Swap the buffers' roles: this pass's destination is the next one's
+    // source, so the merged data never rides a copy back.
+    let swapped = src
+    src = dst
+    dst = swapped
     match next_merge_width(width, n) {
       Some(next) => width = next
       None => break
     }
   }
-  buf
+  src
 }
 
 ///|

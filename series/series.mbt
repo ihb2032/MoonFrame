@@ -469,6 +469,32 @@ pub fn Series::null_count(self : Series) -> Int32 {
 }
 
 ///|
+/// Whether any **present** cell holds the IEEE `NaN` — only a `Float`
+/// column can (a null cell is missing, not NaN, and every other dtype's
+/// cells are finite by construction). A direct buffer scan with no boxing:
+/// the fill that consults it either returns the series verbatim or pays
+/// the full re-materialisation, and a NaN-free column deserves the
+/// former. Total.
+pub fn Series::has_nan(self : Series) -> Bool {
+  // Only a `Float` column can hold a `NaN` (a null cell is missing, not
+  // NaN, and every other dtype's cells are finite by construction), so
+  // the dtype and the buffer test are one fact — stated once, as one
+  // tuple pattern whose fallback is every non-Float series.
+  let valid = self.validity_bools()
+  match (self.dtype(), self.storage.data()) {
+    (@types.DataType::Float, @column.ColumnData::F64(buf)) => {
+      for i in 0..<buf.length() {
+        if valid[i] && buf[i].is_nan() {
+          return true
+        }
+      }
+      false
+    }
+    (_, _) => false
+  }
+}
+
+///|
 /// Whether cell `i` is null. Out-of-bounds indices bubble the
 /// underlying `IndexOutOfBounds` error.
 pub fn Series::is_null(self : Series, i : Int32) -> Bool raise @types.DataError {

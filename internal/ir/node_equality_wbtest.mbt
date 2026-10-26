@@ -18,7 +18,7 @@
 /// this count is what the one-rep-per-variant list is measured against. A new
 /// variant's `variant_tag` arm compiles only in this whitebox module, so the pinned count
 /// is the second thing its addition trips.
-const VARIANT_COUNT : Int32 = 17
+const VARIANT_COUNT : Int32 = 19
 
 ///|
 /// A distinct tag per `ExprNode` variant, in declaration order — exhaustive and
@@ -44,6 +44,8 @@ fn variant_tag(node : ExprNode) -> Int32 {
     IsBetween(_, _, _, _) => 13
     Map(_, _, _) => 14
     MapBatches(_, _, _, _) => 15
+    Diff(_, _) => 17
+    Clip(_, _, _) => 18
   }
 }
 
@@ -75,6 +77,8 @@ test "equality: each variant is unequal to every other variant" {
     Map("m", [a], vs => vs[0]),
     MapBatches("mb", [a], false, s => s[0]),
     Positional(PositionalOp::CumSum(false), a),
+    Diff(a, 1),
+    Clip(a, Some(Lit(@types.Scalar::Int(0))), None),
   ]
   // The reps carry one of every variant, in tag order with no gap — a
   // duplicated, misordered, or interior-omitted rep is caught by the sequence
@@ -145,5 +149,16 @@ test "equality: within a variant, a differing payload is unequal" {
   assert_false(
     (MapBatches("mb", [a], false, s => s[0]) : ExprNode) ==
     MapBatches("mb", [a], true, s => s[0]),
+  )
+  assert_false((Diff(a, 1) : ExprNode) == Diff(a, 2))
+  // A present bound on one side and an absent one on the other are
+  // different clamps, as are two clamps with different bounds.
+  let zero : ExprNode = Lit(@types.Scalar::Int(0))
+  assert_false(
+    (Clip(a, Some(zero), None) : ExprNode) == Clip(a, None, Some(zero)),
+  )
+  assert_false(
+    (Clip(a, Some(zero), None) : ExprNode) ==
+    Clip(a, Some(Lit(@types.Scalar::Int(1))), None),
   )
 }

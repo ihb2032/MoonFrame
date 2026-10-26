@@ -33,6 +33,8 @@ pub(all) enum ExprNode {
   Ternary(ExprNode, ExprNode, ExprNode)
   FillNull(ExprNode, ExprNode)
   FillNan(ExprNode, ExprNode)
+  Diff(ExprNode, Int32)
+  Clip(ExprNode, ExprNode?, ExprNode?)
   IsIn(ExprNode, ArrayView[@types.Scalar])
   IsBetween(ExprNode, ExprNode, ExprNode, @types.ClosedInterval)
   Map(
@@ -83,6 +85,19 @@ pub fn ExprNode::children(self : ExprNode) -> Array[ExprNode] {
     | Alias(e, _) => [e]
     Ternary(c, t, f) => [c, t, f]
     FillNull(o, v) | FillNan(o, v) => [o, v]
+    Diff(e, _) => [e]
+    // Only the bounds that exist are children; an omitted side is no node at
+    // all, so the walk never sees a `None` as a child.
+    Clip(x, lo, hi) => {
+      let kids : Array[ExprNode] = [x]
+      if lo is Some(l) {
+        kids.push(l)
+      }
+      if hi is Some(h) {
+        kids.push(h)
+      }
+      kids
+    }
     IsIn(e, _) => [e]
     IsBetween(x, lo, hi, _) => [x, lo, hi]
     Map(_, inputs, _) => inputs.to_owned()
@@ -129,6 +144,13 @@ pub fn ExprNode::rename_columns(
       FillNull(o.rename_columns(mapping), v.rename_columns(mapping))
     FillNan(o, v) =>
       FillNan(o.rename_columns(mapping), v.rename_columns(mapping))
+    Diff(e, n) => Diff(e.rename_columns(mapping), n)
+    Clip(x, lo, hi) =>
+      Clip(
+        x.rename_columns(mapping),
+        lo.map(l => l.rename_columns(mapping)),
+        hi.map(h => h.rename_columns(mapping)),
+      )
     IsIn(e, members) => IsIn(e.rename_columns(mapping), members)
     IsBetween(x, lo, hi, closed) =>
       IsBetween(

@@ -48,6 +48,8 @@ pub(all) enum ExprNode {
   Ternary(ExprNode, ExprNode, ExprNode)
   FillNull(ExprNode, ExprNode)
   FillNan(ExprNode, ExprNode)
+  Diff(ExprNode, Int32)
+  Clip(ExprNode, ExprNode?, ExprNode?)
   IsIn(ExprNode, ArrayView[@types.Scalar])
   IsBetween(ExprNode, ExprNode, ExprNode, @types.ClosedInterval)
   Map(String, ArrayView[ExprNode], (Array[@types.Scalar]) -> @types.Scalar raise @types.DataError)

@@ -331,3 +331,51 @@ test "clip with a column bound keeps the operand's name and clamps it" {
   assert_eq(out.item(1, "x"), @types.Scalar::Int(7L))
   assert_eq(out.item(1, "z"), @types.Scalar::Int(7L))
 }
+
+///|
+test "a null bound cell leaves the operand cell untouched" {
+  // Polars' post-1.0 clip reading: a null bound is no bound on that side,
+  // not a null answer — the old nested-`when` lowering propagated the
+  // comparison's null into the selection and nulled a present operand cell.
+  let df = DataFrame::from_rows(
+    @types.Schema::Schema([
+      @types.Field::Field("x", @types.DataType::Int),
+      @types.Field::Field("lo", @types.DataType::Int),
+      @types.Field::Field("hi", @types.DataType::Int),
+    ]),
+    [
+      // x below a present lo -> lifted; x inside against a null lo -> kept;
+      // x above a present hi -> pressed; both bounds null -> kept.
+      [@types.Scalar::Int(1L), @types.Scalar::Int(2L), @types.Scalar::Int(9L)],
+      [@types.Scalar::Int(5L), @types.Scalar::Null, @types.Scalar::Int(9L)],
+      [@types.Scalar::Int(9L), @types.Scalar::Int(2L), @types.Scalar::Int(7L)],
+      [@types.Scalar::Int(4L), @types.Scalar::Null, @types.Scalar::Null],
+    ],
+  )
+  let out = df.select([
+    @expr.col("x").clip(lower=@expr.col("lo"), upper=@expr.col("hi")),
+  ])
+  assert_eq(out.item(0, "x"), @types.Scalar::Int(2L))
+  assert_eq(out.item(1, "x"), @types.Scalar::Int(5L))
+  assert_eq(out.item(2, "x"), @types.Scalar::Int(7L))
+  assert_eq(out.item(3, "x"), @types.Scalar::Int(4L))
+}
+
+///|
+test "a null operand cell stays null under either bound" {
+  // The other half of the reading: the bounds are not applied to a null
+  // operand cell — the Kleene chain keeps it null.
+  let df = DataFrame::from_rows(
+    @types.Schema::Schema([
+      @types.Field::Field("x", @types.DataType::Float),
+      @types.Field::Field("lo", @types.DataType::Float),
+    ]),
+    [
+      [@types.Scalar::Null, @types.Scalar::Float(1.0)],
+      [@types.Scalar::Float(0.5), @types.Scalar::Float(1.0)],
+    ],
+  )
+  let out = df.select([@expr.col("x").clip(lower=@expr.col("lo"))])
+  assert_eq(out.item(0, "x"), @types.Scalar::Null)
+  assert_eq(out.item(1, "x"), @types.Scalar::Float(1.0))
+}

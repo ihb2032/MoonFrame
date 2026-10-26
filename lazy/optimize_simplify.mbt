@@ -110,6 +110,8 @@ fn fold_descends(node : @ir.ExprNode) -> Bool {
     | @ir.ExprNode::Ternary(_, _, _)
     | @ir.ExprNode::FillNull(_, _)
     | @ir.ExprNode::FillNan(_, _)
+    | @ir.ExprNode::Diff(_, _)
+    | @ir.ExprNode::Clip(_, _, _)
     | @ir.ExprNode::IsIn(_, _)
     | @ir.ExprNode::IsBetween(_, _, _, _)
     | @ir.ExprNode::Agg(_, _)
@@ -137,14 +139,15 @@ fn fold_node(node : @ir.ExprNode, kids : Array[Folded]) -> Folded {
   // `Alias` is a naming boundary: the alias is the column's output name, so
   // folding the node away would rename it (a `1 as one` that folds to a bare
   // literal changes the collected schema). Its children fold; the node
-  // itself stays. An `Agg` reduces a whole scope and a `Positional` reads
-  // the broadcast height — neither may consult the empty frame the fold
-  // uses — and a bare `Lit` is already a literal (folding it again would
-  // report a change that moved nothing).
+  // itself stays. An `Agg` reduces a whole scope, a `Positional` reads the
+  // broadcast height, and a `Diff` reads its neighbour rows — none may
+  // consult the empty frame the fold uses — and a bare `Lit` is already a
+  // literal (folding it again would report a change that moved nothing).
   if all_lit &&
     !(node is @ir.ExprNode::Alias(_, _) ||
     node is @ir.ExprNode::Agg(_, _) ||
     node is @ir.ExprNode::Positional(_, _) ||
+    node is @ir.ExprNode::Diff(_, _) ||
     node is @ir.ExprNode::Lit(_)) {
     match @frame.evaluate_column_free(@expr.Expr::of_node(rebuilt)) {
       // A null result stays a subtree: `Lit(Null)` is the one literal the
@@ -185,6 +188,24 @@ fn rebuild_over(
     @ir.ExprNode::Ternary(_, _, _) => Ternary(kids[0], kids[1], kids[2])
     @ir.ExprNode::FillNull(_, _) => FillNull(kids[0], kids[1])
     @ir.ExprNode::FillNan(_, _) => FillNan(kids[0], kids[1])
+    @ir.ExprNode::Diff(_, n) => Diff(kids[0], n)
+    // The kids array carries only the bounds that exist (the `children`
+    // order: operand, then lower, then upper), so the original node's
+    // `Option` structure decides which slot each folded kid returns to.
+    @ir.ExprNode::Clip(_, lo, hi) => {
+      fn take(present : Bool, idx : Int32) -> @ir.ExprNode? {
+        if present {
+          Some(kids[idx])
+        } else {
+          None
+        }
+      }
+      Clip(
+        kids[0],
+        take(lo is Some(_), 1),
+        take(hi is Some(_), if lo is Some(_) { 2 } else { 1 }),
+      )
+    }
     @ir.ExprNode::IsIn(_, members) => IsIn(kids[0], members)
     @ir.ExprNode::IsBetween(_, _, _, closed) =>
       IsBetween(kids[0], kids[1], kids[2], closed)

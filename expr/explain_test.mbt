@@ -549,7 +549,7 @@ test "show: the fill probes and clip render" {
   inspect(
     col("v").clip(lower=lit_int(2), upper=lit_int(7)),
     content=(
-      #|when((when((col(v) < 2)).then(2).otherwise(col(v)) > 7)).then(7).otherwise(when((col(v) < 2)).then(2).otherwise(col(v))) as v
+      #|col(v).clip(2, 7)
     ),
   )
 }

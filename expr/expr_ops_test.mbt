@@ -177,3 +177,37 @@ test "when/then/otherwise: the conditional is an ordinary expression" {
   assert_same_expr(aliased, grade.with_alias("g"))
   assert_diff_expr(grade + col("bonus"), col("bonus") + grade)
 }
+
+///|
+test "a chained diff builds a linear tree" {
+  // 16 chained diffs: the `- shift(n)` composition held 2^16 copies of the
+  // base subtree; the dedicated node holds the operand once per link, so
+  // the rendering grows by a constant per link.
+  let mut e = col("x")
+  for _ in 1..<=16 {
+    e = e.diff()
+  }
+  let rendered = e.to_string()
+  assert_true(rendered.length() < 400)
+  assert_same_expr(e, e)
+  let mut e2 = col("x")
+  for _ in 1..<=16 {
+    e2 = e2.diff()
+  }
+  assert_diff_expr(e, e2.diff(n=2))
+}
+
+///|
+test "a chained clip builds a linear tree" {
+  // The nested-`when` lowering embedded the operand four times per two-sided
+  // clip (2^32 copies over 16 links); the dedicated node embeds it once, so
+  // the rendering grows linearly.
+  let mut e = col("x")
+  for i in 1..<=16 {
+    e = e.clip(lower=lit_int(i.to_int64()), upper=lit_int((i + 100).to_int64()))
+  }
+  let rendered = e.to_string()
+  assert_true(rendered.length() < 500)
+  assert_eq(col("x").diff(n=3).output_name(), "x")
+  assert_eq(col("x").clip(lower=lit_int(0)).output_name(), "x")
+}

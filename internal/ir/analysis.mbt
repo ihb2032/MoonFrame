@@ -93,6 +93,8 @@ fn ExprNode::leftmost_name(self : ExprNode) -> String? {
           | Cast(_, _)
           | FillNull(_, _)
           | FillNan(_, _)
+          | Diff(_, _)
+          | Clip(_, _, _)
           | IsIn(_, _)
           | IsBetween(_, _, _, _)
           | Map(_, _, _)

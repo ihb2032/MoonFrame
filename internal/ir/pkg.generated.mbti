@@ -56,6 +56,7 @@ pub(all) enum ExprNode {
 pub fn ExprNode::children(Self) -> Array[Self]
 pub fn ExprNode::output_name(Self) -> String
 pub fn ExprNode::referenced_columns(Self) -> @set.Set[String]
+pub fn ExprNode::rename_columns(Self, Map[String, String]) -> Self
 
 pub(all) enum PositionalOp {
   Shift(Int32, @types.Scalar)

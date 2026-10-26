@@ -1996,16 +1996,95 @@ test "split: a sequential rename swap keeps the join's attribution honest" {
 }
 
 ///|
-test "split: a predicate naming a suffixed right column stays above" {
+test "split: a predicate naming a suffixed right column sinks with a rewrite" {
   let l = orders_df()
   let r = cities_df()
   // Paired keys never coalesce, so the right key column survives the join
-  // as `id_right` — a predicate reading that spelling would need its
-  // expression rewritten to sink, which the pass does not do.
+  // as `id_right`. The predicate names that output spelling; the side
+  // itself bears the bare `id`, so the sunk predicate is rewritten back.
   let opts = @frame.JoinOptions::left_on([@expr.col("id")], right_on=[
     @expr.col("id"),
   ])
   let predicate = @expr.col("id_right").gt(@expr.lit_int(2))
+  let plan = LazyFrame::LazyFrame(l)
+    .join(LazyFrame::LazyFrame(r), opts)
+    .filter(predicate)
+  assert_eq(
+    plan.explain(optimized=true),
+    "JOIN Inner left_on [col(id)] right_on [col(id)]\n" +
+    "  SCAN [3×2]\n" +
+    "  FILTER (col(id) > 2)\n" +
+    "    SCAN [3×2]",
+  )
+  assert_eq(plan.collect(), l.join(r, opts).filter(predicate))
+}
+
+///|
+test "split: a suffixed sink mixes bare and renamed right spellings" {
+  // One predicate reads both a clash-free right column (`city`, keeps its
+  // spelling) and a clashing one (`amount`, output as `amount_right`): the
+  // bare reference rides along untouched, the suffixed one is rewritten.
+  let l = orders_df()
+  let r = @frame.DataFrame::DataFrame([
+    @series.Series::from_ints("id", [2, 3, 4]),
+    @series.Series::from_ints("amount", [20, 25, 30]),
+    @series.Series::from_strings("city", ["bern", "cork", "delft"]),
+  ])
+  let opts = @frame.JoinOptions::on([@expr.col("id")])
+  let predicate = @expr.col("amount_right")
+    .gt(@expr.lit_int(22))
+    .land(@expr.col("city").eq(@expr.lit_str("cork")))
+  let plan = LazyFrame::LazyFrame(l)
+    .join(LazyFrame::LazyFrame(r), opts)
+    .filter(predicate)
+  assert_eq(
+    plan.explain(optimized=true),
+    "JOIN Inner on [col(id)]\n" +
+    "  SCAN [3×2]\n" +
+    "  FILTER ((col(amount) > 22) & (col(city) == \"cork\"))\n" +
+    "    SCAN [3×3]",
+  )
+  assert_eq(plan.collect(), l.join(r, opts).filter(predicate))
+}
+
+///|
+test "split: a bare clashing on-key offers no spelling and stays above" {
+  // A bare `on` key that clashes is the column key coalescing may drop
+  // from the right at collect, so neither spelling is offered for it — a
+  // predicate naming `id_right` cannot attribute to the right side. With
+  // `coalesce=false` the join *does* output that column, so the plan runs
+  // and the declined sink is observable as the filter staying above.
+  let l = orders_df()
+  let r = cities_df()
+  let opts = @frame.JoinOptions::on([@expr.col("id")], coalesce=false)
+  let predicate = @expr.col("id_right").gt(@expr.lit_int(2))
+  let plan = LazyFrame::LazyFrame(l)
+    .join(LazyFrame::LazyFrame(r), opts)
+    .filter(predicate)
+  assert_eq(plan.explain(optimized=true), plan.explain())
+  assert_eq(plan.collect(), l.join(r, opts).filter(predicate))
+}
+
+///|
+test "split: a suffixed decimal predicate meets the value fence" {
+  // The risk walk collects every right decimal name under both spellings
+  // unconditionally, so the suffixed reference is fenced at the top of
+  // `place_filter` — the predicate never reaches the split, and a rewrite
+  // that would rename it onto the side's bare decimal column cannot open a
+  // hole the bare spelling's own fence did not already close.
+  let l = orders_df()
+  let r = @frame.DataFrame::DataFrame([
+    @series.Series::from_ints("id", [2, 3, 4]),
+    @series.Series::from_scalars("amount", [
+      @types.Scalar::Decimal(2, 123L),
+      @types.Scalar::Decimal(2, 456L),
+      @types.Scalar::Null,
+    ]),
+  ])
+  let opts = @frame.JoinOptions::on([@expr.col("id")])
+  let predicate = @expr.col("amount_right").gt(
+    @expr.lit(@types.Scalar::Decimal(2, 200L)),
+  )
   let plan = LazyFrame::LazyFrame(l)
     .join(LazyFrame::LazyFrame(r), opts)
     .filter(predicate)
@@ -2180,14 +2259,14 @@ test "split: a predicate naming an absent column keeps its error" {
 }
 
 ///|
-test "split: a suffixed name of an outer join is not the inner join's" {
-  // The regression shape behind the exact name-union: the inner join
-  // outputs a clash-free `d` (its own spelling), and the *outer* join's
-  // right side clashes with it, so `d_right` names the outer right column.
-  // Over-offering `d_right` for the inner join's set would attribute the
-  // predicate to the inner left side — which has no such column — and
-  // break a perfectly good plan; the exact union declines the sink and the
-  // filter stays above the outer join.
+test "split: a suffixed name the top join produced sinks, not the inner's" {
+  // The inner join outputs a clash-free `d` (its own spelling), and the
+  // *outer* join's right side clashes with it, so `d_right` names the
+  // outer right column — the top join's own suffixed spelling. A sink
+  // attributes it there and rewrites back to the bare `d` the right side
+  // bears. What would break the plan is offering `d_right` as the *inner*
+  // join's output (the exact name-union's regression, pinned by the
+  // name-walk tests): attributing to a side that lacks the column.
   let inner = orders_df().join(
     @frame.DataFrame::DataFrame([
       @series.Series::from_ints("id", [1, 2, 3]),
@@ -2206,6 +2285,12 @@ test "split: a suffixed name of an outer join is not the inner join's" {
   let plan = LazyFrame::LazyFrame(inner)
     .join(LazyFrame::LazyFrame(outer_right), opts)
     .filter(predicate)
-  assert_eq(plan.explain(optimized=true), plan.explain())
+  assert_eq(
+    plan.explain(optimized=true),
+    "JOIN Inner left_on [col(amount)] right_on [col(n)]\n" +
+    "  SCAN [3×3]\n" +
+    "  FILTER (col(d) == \"x\")\n" +
+    "    SCAN [2×2]",
+  )
   assert_eq(plan.collect(), inner.join(outer_right, opts).filter(predicate))
 }

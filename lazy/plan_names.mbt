@@ -39,70 +39,117 @@
 /// whole-frame reduction (its one output column is the eager verb's to
 /// name), a whole-scope aggregation (its non-key column list exists only on
 /// the collected frame), or anything built above one of those. Total, like
-/// every plan walk: plain data work in every arm.
+/// every plan walk: plain data work in every arm, over an explicit
+/// post-order value stack (not the call stack) — this walk rides `collect`
+/// through the joins' requirement splits, and a deep unary chain under a
+/// join is exactly the plan shape that would otherwise overflow the native
+/// stack and abort.
 fn LogicalPlan::output_names(self : LogicalPlan) -> @set.Set[String]? {
-  match self {
-    Scan(InMemory(df)) => {
-      let names = @set.Set([])
-      for name in df.columns() {
-        names.add(name)
+  let values : Array[@set.Set[String]?] = []
+  for node in self.post_order() {
+    match node {
+      Scan(InMemory(df)) => {
+        let names = @set.Set([])
+        for name in df.columns() {
+          names.add(name)
+        }
+        values.push(Some(names))
       }
-      Some(names)
-    }
-    Scan(File(_)) => None
-    Unary(input, op) => frame_op_names(op, input.output_names())
-    Join(left, right, options) =>
-      match options.how {
-        // The existence filters keep the left schema alone; the right side
-        // is read for its keys only, and no right name survives to an
-        // output column.
-        Semi | Anti => left.output_names()
-        Inner | Left | Right | Outer | Cross => {
-          let left_names = left.output_names()
-          let right_names = right.output_names()
-          match (left_names, right_names) {
-            (Some(l), Some(r)) => {
-              // The bare `on` keys: a clashing one is exactly the column
-              // key coalescing may drop from the right (frame's rule,
-              // resolved at collect), so neither spelling is offered for
-              // it — the left spelling is already in the set, and offering
-              // the suffixed one could attribute a predicate to a name the
-              // join never outputs. Under-offering is the safe direction:
-              // it only declines a sink.
-              let on_keys = bare_on_key_names(options)
-              let merged = @set.Set([])
-              l.each(name => merged.add(name))
-              // A clash-free right column keeps its name; a clashing one is
-              // output under the suffixed spelling only — the exact output
-              // vocabulary, since the joins read this set for positive
-              // attribution.
-              r.each(name => {
-                match right_output_spelling(name, l, on_keys, options.suffix) {
-                  Some(spelling) => merged.add(spelling)
-                  None => ()
+      Scan(File(_)) => values.push(None)
+      Unary(_, op) => {
+        let below = pop_top(values)
+        values.push(frame_op_names(op, below))
+      }
+      Join(_, _, options) =>
+        match options.how {
+          // The existence filters keep the left schema alone; the right side
+          // is read for its keys only, and no right name survives to an
+          // output column. The walk already folded the right subtree — its
+          // set is popped and dropped.
+          Semi | Anti => {
+            let _right = pop_top(values)
+            let left_names = pop_top(values)
+            values.push(left_names)
+          }
+          Inner | Left | Right | Outer | Cross => {
+            let right_names = pop_top(values)
+            let left_names = pop_top(values)
+            // A right join leads with the right frame's columns and
+            // suffixes a clashing *left* one — the swapped-left-join
+            // reading, the mirror of the spelling rule below — so its
+            // merge runs with the sides exchanged.
+            if options.how is Right {
+              match (right_names, left_names) {
+                (Some(r), Some(l)) => {
+                  let on_keys = bare_on_key_names(options)
+                  let merged = @set.Set([])
+                  r.each(name => merged.add(name))
+                  l.each(name => {
+                    match
+                      left_output_spelling(name, r, on_keys, options.suffix) {
+                      Some(spelling) => merged.add(spelling)
+                      None => ()
+                    }
+                  })
+                  values.push(Some(merged))
                 }
-              })
-              Some(merged)
+                _ => values.push(None)
+              }
+            } else {
+              match (left_names, right_names) {
+                (Some(l), Some(r)) => {
+                  // The bare `on` keys: a clashing one is exactly the column
+                  // key coalescing may drop from the right (frame's rule,
+                  // resolved at collect), so neither spelling is offered for
+                  // it — the left spelling is already in the set, and offering
+                  // the suffixed one could attribute a predicate to a name the
+                  // join never outputs. Under-offering is the safe direction:
+                  // it only declines a sink.
+                  let on_keys = bare_on_key_names(options)
+                  let merged = @set.Set([])
+                  l.each(name => merged.add(name))
+                  // A clash-free right column keeps its name; a clashing one is
+                  // output under the suffixed spelling only — the exact output
+                  // vocabulary, since the joins read this set for positive
+                  // attribution.
+                  r.each(name => {
+                    match
+                      right_output_spelling(name, l, on_keys, options.suffix) {
+                      Some(spelling) => merged.add(spelling)
+                      None => ()
+                    }
+                  })
+                  values.push(Some(merged))
+                }
+                _ => values.push(None)
+              }
             }
-            _ => None
           }
         }
+      Aggregate(_, keys, exprs) => {
+        // The aggregate's own key and expression names are its output
+        // vocabulary regardless of what its input offered — the input's set
+        // (already folded by the walk) is popped and dropped.
+        let _below = pop_top(values)
+        let names = @set.Set([])
+        for expr in keys {
+          names.add(expr.output_name())
+        }
+        for expr in exprs {
+          names.add(expr.output_name())
+        }
+        values.push(Some(names))
       }
-    Aggregate(_, keys, exprs) => {
-      let names = @set.Set([])
-      for expr in keys {
-        names.add(expr.output_name())
+      // The aggregated column list exists only on the collected input frame
+      // (every non-key column, whichever those are), so nothing above this
+      // node can attribute a name to a side of it.
+      AggregateAll(_, _, _) => {
+        let _below = pop_top(values)
+        values.push(None)
       }
-      for expr in exprs {
-        names.add(expr.output_name())
-      }
-      Some(names)
     }
-    // The aggregated column list exists only on the collected input frame
-    // (every non-key column, whichever those are), so nothing above this
-    // node can attribute a name to a side of it.
-    AggregateAll(_, _, _) => None
   }
+  pop_top(values)
 }
 
 ///|
@@ -224,6 +271,28 @@ fn right_output_spelling(
   suffix : String,
 ) -> String? {
   if !left_names.contains(name) {
+    Some(name)
+  } else if !on_keys.contains(name) {
+    Some(name + suffix)
+  } else {
+    None
+  }
+}
+
+///|
+/// The mirror spelling a *left* column takes through a right join: its own
+/// name when the right does not clash, the suffixed spelling when it does —
+/// and no spelling at all for a bare clashing `on` key, whose left column
+/// key coalescing may drop at collect. The right join's swapped-left-join
+/// reading moved the rename onto the left side, so this is
+/// `right_output_spelling` with the sides exchanged.
+fn left_output_spelling(
+  name : String,
+  right_names : @set.Set[String],
+  on_keys : @set.Set[String],
+  suffix : String,
+) -> String? {
+  if !right_names.contains(name) {
     Some(name)
   } else if !on_keys.contains(name) {
     Some(name + suffix)

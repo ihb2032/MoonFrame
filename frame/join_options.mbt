@@ -8,8 +8,9 @@
 ///     right-hand columns are filled with nulls.
 ///   * `Right` — the mirror of `Left`: keep every right row; where it has
 ///     no left match, the left-hand columns are filled with nulls. The
-///     output still leads with the left columns (only the row set changes
-///     to "all right rows").
+///     output leads with the right frame's columns (key included, values
+///     from the right) and the left non-key columns follow, a clashing left
+///     one suffixed — Polars' swapped-left-join reading.
 ///   * `Outer` — the full outer join: keep matched pairs plus every
 ///     unmatched row from **both** sides (the missing side's columns null).
 ///     Left rows (matched and unmatched) come first in left order, then the

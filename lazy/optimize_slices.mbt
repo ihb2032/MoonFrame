@@ -63,16 +63,14 @@ fn LogicalPlan::place_slice(
   while descending {
     match cur {
       Unary(inner, Select(exprs)) =>
-        if all_row_stable(exprs) &&
-          preserves_row_count(exprs) &&
-          !stage_value_raises(exprs, decimal_names) {
+        if select_stage_crossable(exprs, decimal_names) {
           crossed.push(ni => Unary(ni, Select(exprs)))
           cur = inner
         } else {
           descending = false
         }
       Unary(inner, WithColumns(exprs)) =>
-        if all_row_stable(exprs) && !stage_value_raises(exprs, decimal_names) {
+        if withcolumns_stage_rowwise(exprs, decimal_names) {
           crossed.push(ni => Unary(ni, WithColumns(exprs)))
           cur = inner
         } else {

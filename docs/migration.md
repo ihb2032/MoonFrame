@@ -73,6 +73,17 @@ moved onto dedicated AST nodes — a chained clamp or difference now renders
 and evaluates linearly where the lowering embedded the operand 4 (resp. 2)
 times per link — with no spelling change at the call site.
 
+### A right join leads with the right frame's columns
+
+`how=Right` aligns with Polars' swapped-left-join reading: the right
+frame's columns lead in right order (the coalesced key among them, its
+values from the right), the left frame's non-key columns follow in left
+order, and a left column clashing with a right name takes the suffix
+(where it used to be the right one suffixed, the left columns leading).
+Downstream code that indexed a right join's output by position, or that
+read the suffixed spelling, moves with it.
+
+
 ### `DataType` / `Scalar` gained `Timestamp` / `Decimal` variants
 
 `DataType::Timestamp` and `Scalar::Timestamp(micros)` — microseconds since

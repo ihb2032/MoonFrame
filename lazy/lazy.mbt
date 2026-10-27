@@ -78,10 +78,10 @@ pub fn LazyFrame::sort(
 ///|
 /// Defer `DataFrame::head`: the first `n` rows. Inherits eager `head`'s
 /// total clamp — `n` beyond the frame keeps every row, a negative `n`
-/// keeps every row but the last `|n|` (the Polars convention) — so
-/// collecting can't fail on this node. Also exposed under its
-/// Polars / SQL name `limit` (via `#alias`): the same deferred node, so
-/// `lf.limit(n)` collects to the same rows and `explain`s as `HEAD n`.
+/// keeps every row but the last `|n|` — so collecting can't fail on this
+/// node. Also exposed under its SQL name `limit` (via `#alias`): the same
+/// deferred node, so `lf.limit(n)` collects to the same rows and
+/// `explain`s as `HEAD n`.
 #alias(limit)
 pub fn LazyFrame::head(self : LazyFrame, n : Int32) -> LazyFrame {
   { plan: Unary(self.plan, Head(n)), }
@@ -119,17 +119,17 @@ pub fn LazyFrame::gather_every(
 }
 
 ///|
-/// Defer the first row as a 1-row frame (Polars' lazy-only `lf.first()` —
-/// the eager face reaches the same rows through `head(1)`). A 0-row input
+/// Defer the first row as a 1-row frame (an exclusively lazy verb — the
+/// eager face reaches the same rows through `head(1)`). A 0-row input
 /// collects to the 0-row frame: the `slice` window simply closes.
 pub fn LazyFrame::first(self : LazyFrame) -> LazyFrame {
   { plan: Unary(self.plan, Slice(0, Some(1))), }
 }
 
 ///|
-/// Defer the last row as a 1-row frame (Polars' lazy-only `lf.last()`):
-/// the window from one past-the-end — a negative offset counts from the end
-/// — so a 0-row input collects to the 0-row frame.
+/// Defer the last row as a 1-row frame (an exclusively lazy verb, the twin
+/// of `first`): the window from one past-the-end — a negative offset
+/// counts from the end — so a 0-row input collects to the 0-row frame.
 pub fn LazyFrame::last(self : LazyFrame) -> LazyFrame {
   { plan: Unary(self.plan, Slice(-1, None)), }
 }
@@ -479,8 +479,8 @@ pub fn LazyGroupBy::agg(
 }
 
 ///|
-/// The convenience verbs — `LazyGroupBy::sum()` and its siblings, Polars'
-/// `GroupBy.sum()` / `.count()` / `.len()` / … — one aggregation applied to
+/// The convenience verbs — `LazyGroupBy::sum()` and its siblings (`mean`,
+/// `count`, `len`, …) — one aggregation applied to
 /// every **non-key column** of the grouped plan. A plan cannot name those
 /// columns (only the collected frame has them), so each method defers the
 /// operation *tag* in an `AggregateAll` node and `collect` resolves it
@@ -653,9 +653,8 @@ pub fn LazyFrame::collect(
 /// (the same `LazyFrame` on both sides of a `join`), which `collect` runs
 /// as built, so `optimized=true` renders the same tree as the default
 /// (a shared subtree is marked `"(shared, rendered above)"`).
-/// (Polars' `LazyFrame::explain(optimized)` is the
-/// namesake; plans are immutable, so the flag rewrites a copy and never
-/// perturbs this frame.)
+/// (Plans are immutable, so the flag rewrites a copy and never perturbs
+/// this frame.)
 ///
 /// Total either way — the rewrite is a pure tree walk, so a plan that
 /// would fail to `collect` still explains, which is the point: inspect

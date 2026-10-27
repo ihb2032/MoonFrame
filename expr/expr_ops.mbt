@@ -7,7 +7,7 @@
 // this one.
 
 ///|
-/// Reference a column by name, for the Polars-style call shape
+/// Reference a column by name, for the operator call shape
 /// `col("a") + col("b")`. The name resolves at *evaluation* time —
 /// `ColumnNotFound` then if the frame has no such column; building the
 /// reference itself is total. A free function, like the `lit*` family — the
@@ -168,11 +168,10 @@ pub impl Mul for Expr with fn mul(self, other) {
 pub extend Expr with Mul::{mul}
 
 ///|
-/// `a / b` — division, always `Float` (Polars `/` semantics): `Int`
-/// operands promote, and division by zero follows IEEE 754 (`±inf` /
-/// `nan`) on every backend rather than trapping — `Int` division-by-zero
-/// behaviour differs across backends, so it is never emitted. A null on
-/// either side nulls the output cell.
+/// `a / b` — division, always `Float`: `Int` operands promote, and division
+/// by zero follows IEEE 754 (`±inf` / `nan`) on every backend rather than
+/// trapping — `Int` division-by-zero behaviour differs across backends, so
+/// it is never emitted. A null on either side nulls the output cell.
 pub impl Div for Expr with fn div(self, other) {
   Expr::of_node(@ir.ExprNode::Binary(@ir.BinOp::Div, self.node, other.node))
 }
@@ -182,8 +181,8 @@ pub extend Expr with Div::{div}
 
 ///|
 /// `a.floor_div(b)` — floor (integer) division, rounding the quotient toward
-/// negative infinity (Polars `//`). Named, not an operator: MoonBit's `//` is
-/// a line comment. Same-dtype `Int / Int → Int` (`-7 // 2 = -4`, not the `-3`
+/// negative infinity. Named, not an operator: MoonBit's `//` is a line
+/// comment. Same-dtype `Int / Int → Int` (`-7 // 2 = -4`, not the `-3`
 /// truncation gives); any `Float` operand promotes the result to `Float`
 /// (`floor(a / b)`). `Int` division by zero yields a **null** cell (integers
 /// have no infinity, and a backend integer divide would trap); `Float`
@@ -197,11 +196,11 @@ pub fn Expr::floor_div(self : Expr, other : Expr) -> Expr {
 }
 
 ///|
-/// `a.modulo(b)` — remainder (Polars `%`; a named method, `%` maps to no
-/// `Expr` operator). Same-dtype `Int / Int → Int` carrying the dividend's sign
+/// `a.modulo(b)` — remainder (a named method — `%` maps to no `Expr`
+/// operator). Same-dtype `Int / Int → Int` carrying the dividend's sign
 /// (`-7 % 2 = -1`); any `Float` operand promotes to `Float`, the remainder
-/// keeping the dividend's sign there too (`fmod`, as Polars' `%` does — not
-/// the IEEE 754 remainder, whose quotient rounds to nearest).
+/// keeping the dividend's sign there too (`fmod` — not the IEEE 754
+/// remainder, whose quotient rounds to nearest).
 /// `Int` modulo by zero yields a **null** cell (as for `floor_div`); `Float`
 /// modulo by zero is `NaN`. A null on either side nulls the output cell; a
 /// non-numeric operand raises `TypeMismatch`.
@@ -224,10 +223,9 @@ pub fn Expr::pow(self : Expr, other : Expr) -> Expr {
 /// `a & b` — logical AND over `Bool` expressions, with Kleene three-valued
 /// null semantics (`false & null = false`, `true & null = null`). `&` is
 /// MoonBit's only overloadable conjunction (`&&` is built-in short-circuit
-/// syntax), mirroring the Polars choice of `&` for expression logic. For
-/// chains that read better without operators, the impl method itself is
-/// the alias: `a.land(b)` — `and` is a MoonBit reserved word (mutual
-/// recursion), so the core trait's own spelling serves instead.
+/// syntax). For chains that read better without operators, the impl method
+/// itself is the alias: `a.land(b)` — `and` is a MoonBit reserved word
+/// (mutual recursion), so the core trait's own spelling serves instead.
 pub impl BitAnd for Expr with fn land(self, other) {
   Expr::of_node(@ir.ExprNode::Binary(@ir.BinOp::And, self.node, other.node))
 }
@@ -291,17 +289,17 @@ pub fn Expr::sign(self : Expr) -> Expr {
 
 ///|
 /// `a.round()` — round to the nearest integer value, ties to even (banker's
-/// rounding: `2.5` and `3.5` both round to `2` and `4`, `0.5 → 0`), matching
-/// Polars' default. `Float → Float`; `Int → Int` unchanged (an integer is its
-/// own rounding). `±inf` / `NaN` pass through and `±0.0` keeps its sign. A null
-/// stays null; a non-numeric operand raises `TypeMismatch`. `decimals` (default
-/// `0`) rounds to that many decimal places — `decimals=2` sends `1.005` to
-/// `1.0` or `1.01` as binary floating point dictates, the same caveat Polars
-/// carries. A negative `decimals` clamps to `0`, and an `Int` column is the
-/// identity at any setting. So is a place finer than the value's own
-/// resolution: `round(decimals=20)` returns `123456.789` unchanged rather than
-/// perturbing it by an ulp. (The other rounding modes remain a deferred
-/// additive refinement; this is the ties-to-even form.)
+/// rounding: `2.5` and `3.5` both round to `2` and `4`, `0.5 → 0`).
+/// `Float → Float`; `Int → Int` unchanged (an integer is its own rounding).
+/// `±inf` / `NaN` pass through and `±0.0` keeps its sign. A null stays null;
+/// a non-numeric operand raises `TypeMismatch`. `decimals` (default `0`)
+/// rounds to that many decimal places — `decimals=2` sends `1.005` to `1.0`
+/// or `1.01` as binary floating point dictates. A negative `decimals` clamps
+/// to `0`, and an `Int` column is the identity at any setting. So is a place
+/// finer than the value's own resolution: `round(decimals=20)` returns
+/// `123456.789` unchanged rather than perturbing it by an ulp. (The other
+/// rounding modes remain a deferred additive refinement; this is the
+/// ties-to-even form.)
 pub fn Expr::round(self : Expr, decimals~ : Int32 = 0) -> Expr {
   Expr::of_node(
     @ir.ExprNode::Unary(
@@ -316,8 +314,8 @@ pub fn Expr::round(self : Expr, decimals~ : Int32 = 0) -> Expr {
 /// comparison family is methods, not operators: MoonBit pins the `Eq` /
 /// `Compare` traits to `Bool` / `Int` returns, so they cannot build an
 /// `Expr` — and the postfix method binds tighter than `&` / `|` anyway, so
-/// `a.gt(x) & b.lt(y)` needs none of the parentheses Polars' operator
-/// comparisons force. A null on either side nulls the output cell.
+/// `a.gt(x) & b.lt(y)` needs no parentheses. A null on either side nulls
+/// the output cell.
 pub fn Expr::eq(self : Expr, other : Expr) -> Expr {
   Expr::of_node(@ir.ExprNode::Binary(@ir.BinOp::Eq, self.node, other.node))
 }
@@ -368,8 +366,8 @@ pub fn Expr::is_in(self : Expr, members : Array[@types.Scalar]) -> Expr {
 
 ///|
 /// `a.is_between(lo, hi)` — a `Bool` column, `true` where `a` falls in the
-/// range. `closed` picks which endpoints count (Polars' `closed`): `Both` (the
-/// default) is `lo <= a <= hi`, `Left` / `Right` open the other end, and `None`
+/// range. `closed` picks which endpoints count: `Both` (the default) is
+/// `lo <= a <= hi`, `Left` / `Right` open the other end, and `None`
 /// excludes both. Equivalent to the matching `ge` / `gt` and `le` / `lt` pair
 /// joined by `land` — it inherits their exact `Int`/`Float` ordering, `String`
 /// / `Bool` ordering, Kleene null propagation, and `TypeMismatch` on an
@@ -406,13 +404,13 @@ pub fn Expr::is_not_null(self : Expr) -> Expr {
 }
 
 ///|
-/// `Bool` column that is `true` where the operand holds the IEEE `NaN` value
-/// (Polars' `is_nan`). The operand must be numeric: an `Int` cell is never
-/// `NaN` (`false`), a `Float` cell is tested by `Double::is_nan`, and a
-/// non-numeric operand is a `TypeMismatch` at evaluation. Unlike `is_null`,
-/// this *propagates* nulls — a missing cell is neither NaN nor not, so the
-/// result cell is null — since `NaN` is a real value distinct from a missing
-/// one. Building the node is total.
+/// `Bool` column that is `true` where the operand holds the IEEE `NaN` value.
+/// The operand must be numeric: an `Int` cell is never `NaN` (`false`), a
+/// `Float` cell is tested by `Double::is_nan`, and a non-numeric operand
+/// is a `TypeMismatch` at evaluation. Unlike `is_null`, this *propagates*
+/// nulls — a missing cell is neither NaN nor not, so the result cell is
+/// null — since `NaN` is a real value distinct from a missing one. Building
+/// the node is total.
 pub fn Expr::is_nan(self : Expr) -> Expr {
   Expr::of_node(@ir.ExprNode::Unary(@ir.UnOp::IsNan, self.node))
 }
@@ -427,9 +425,9 @@ pub fn Expr::is_not_nan(self : Expr) -> Expr {
 
 ///|
 /// Replace every `NaN` cell of `self` with `value`, keeping the non-`NaN`
-/// cells (including true nulls) verbatim — Polars' `fill_nan`. The dual of
-/// `fill_null`: where `fill_null` replaces missing cells and leaves `NaN`
-/// (a value) alone, `fill_nan` replaces `NaN` and leaves nulls alone.
+/// cells (including true nulls) verbatim. The dual of `fill_null`: where
+/// `fill_null` replaces missing cells and leaves `NaN` (a value) alone,
+/// `fill_nan` replaces `NaN` and leaves nulls alone.
 ///
 /// It evaluates exactly like
 /// `when(self.is_not_nan()).then(self).otherwise(value)` — **named after
@@ -446,10 +444,9 @@ pub fn Expr::fill_nan(self : Expr, value : Expr) -> Expr {
 
 ///|
 /// Replace every null cell of `self` with `value`, keeping the non-null
-/// cells verbatim — Polars' `fill_null` (the value form), and a coalesce of
-/// `self` over `value` when `value` is itself a column. `value` is any
-/// expression: a literal (`lit_int(0)`), another column
-/// (`col("fallback")`), or a computed tree.
+/// cells verbatim — a coalesce of `self` over `value` when `value` is
+/// itself a column. `value` is any expression: a literal (`lit_int(0)`),
+/// another column (`col("fallback")`), or a computed tree.
 ///
 /// It evaluates exactly like
 /// `when(self.is_not_null()).then(self).otherwise(value)` — the result is
@@ -472,9 +469,9 @@ pub fn Expr::fill_null(self : Expr, value : Expr) -> Expr {
 }
 
 ///|
-/// Shift the operand's cells by `n` positions (Polars' `shift`): a positive
-/// `n` moves values down — each row reads the cell `n` rows above, SQL's
-/// `LAG` — a negative one moves them up (`LEAD`), and `n = 0` is the
+/// Shift the operand's cells by `n` positions: a positive `n` moves values
+/// down — each row reads the cell `n` rows above, SQL's `LAG` — a negative
+/// one moves them up (`LEAD`), and `n = 0` is the
 /// identity. The `n` vacated edge slots take `fill_value~` (a `Scalar` that
 /// must type like the operand, `Null` by default for a plain gap). Nulls
 /// are values: they shift with everything else, and a shifted-in gap is
@@ -491,21 +488,20 @@ pub fn Expr::shift(
 }
 
 ///|
-/// Cell-wise difference against the cell `n` rows above (Polars' `diff`,
-/// default `n = 1`, the `ignore` null behaviour): exactly the semantics of
-/// `self - self.shift(n)` — the leading `n` slots null, a null in either
-/// operand null, and the subtraction under the arithmetic kernel's dtype
-/// rules (`Int` stays `Int`, a `Float` operand promotes) — but carried by a
-/// dedicated node that embeds the operand once, so a chained difference
-/// stays linear where the composition embedded it twice and grew
-/// exponentially with chain length. Polars' `drop` behaviour (removing the
-/// nulled rows, changing the length) has no length-changing spelling here.
+/// Cell-wise difference against the cell `n` rows above (default `n = 1`):
+/// exactly the semantics of `self - self.shift(n)` — the leading `n` slots
+/// null, a null in either operand null, and the subtraction under the
+/// arithmetic kernel's dtype rules (`Int` stays `Int`, a `Float` operand
+/// promotes) — but carried by a dedicated node that embeds the operand
+/// once, so a chained difference stays linear where the composition
+/// embedded it twice and grew exponentially with chain length. There is no
+/// length-changing spelling here — no variant drops the nulled rows.
 pub fn Expr::diff(self : Expr, n~ : Int32 = 1) -> Expr {
   Expr::of_node(@ir.ExprNode::Diff(self.node, n))
 }
 
 ///|
-/// Running sum of the operand's non-null cells (Polars' `cum_sum`): a null
+/// Running sum of the operand's non-null cells: a null
 /// slot keeps its null while the running total skips it, a `NaN` enters the
 /// total and stays. Numeric only. `reverse~` accumulates from the end.
 pub fn Expr::cum_sum(self : Expr, reverse~ : Bool = false) -> Expr {
@@ -515,7 +511,7 @@ pub fn Expr::cum_sum(self : Expr, reverse~ : Bool = false) -> Expr {
 }
 
 ///|
-/// Running minimum of the operand's non-null cells (Polars' `cum_min`),
+/// Running minimum of the operand's non-null cells,
 /// with `cum_sum`'s null / `reverse~` rules; a `NaN` is skipped (the
 /// extrema rule, not the sum's). Numeric only.
 pub fn Expr::cum_min(self : Expr, reverse~ : Bool = false) -> Expr {
@@ -526,7 +522,7 @@ pub fn Expr::cum_min(self : Expr, reverse~ : Bool = false) -> Expr {
 
 ///|
 /// Running maximum of the operand's non-null cells — `cum_min` with the
-/// order reversed, sharing every rule (Polars' `cum_max`).
+/// order reversed, sharing every rule.
 pub fn Expr::cum_max(self : Expr, reverse~ : Bool = false) -> Expr {
   Expr::of_node(
     @ir.ExprNode::Positional(@ir.PositionalOp::CumMax(reverse), self.node),
@@ -534,7 +530,7 @@ pub fn Expr::cum_max(self : Expr, reverse~ : Bool = false) -> Expr {
 }
 
 ///|
-/// Running product of the operand's non-null cells (Polars' `cum_prod`),
+/// Running product of the operand's non-null cells,
 /// with `cum_sum`'s null / `NaN` / `reverse~` rules. Numeric only.
 pub fn Expr::cum_prod(self : Expr, reverse~ : Bool = false) -> Expr {
   Expr::of_node(
@@ -543,7 +539,7 @@ pub fn Expr::cum_prod(self : Expr, reverse~ : Bool = false) -> Expr {
 }
 
 ///|
-/// Running count of the operand's non-null cells (Polars' `cum_count`),
+/// Running count of the operand's non-null cells,
 /// total over every dtype: a null slot repeats the count the prior cell
 /// reached (`[x, k, null, d]` counts `1, 2, 2, 3`). Always an `Int` column.
 /// `reverse~` counts from the end.
@@ -554,12 +550,11 @@ pub fn Expr::cum_count(self : Expr, reverse~ : Bool = false) -> Expr {
 }
 
 ///|
-/// Rank the operand's cells among its non-null cells (Polars' `rank`):
-/// `how~` picks the tie rule (`Average` default — the mean of the tied
-/// ranks, a `Float` column; `Min` / `Max` / `Dense` / `Ordinal` an `Int`
-/// column), `descending~` flips the order, ties keep input order, null
-/// cells stay null, and a `NaN` ranks past every other value (the total
-/// order `sort` uses). Polars' sixth method `random` is not carried.
+/// Rank the operand's cells among its non-null cells: `how~` picks the tie
+/// rule (`Average` default — the mean of the tied ranks, a `Float` column;
+/// `Min` / `Max` / `Dense` / `Ordinal` an `Int` column), `descending~`
+/// flips the order, ties keep input order, null cells stay null, and a
+/// `NaN` ranks past every other value (the total order `sort` uses).
 pub fn Expr::rank(
   self : Expr,
   how~ : @types.RankMethod = @types.RankMethod::Average,
@@ -571,12 +566,12 @@ pub fn Expr::rank(
 }
 
 ///|
-/// The stable permutation that would sort the operand (Polars'
-/// `arg_sort`): an `Int` column holding, for each output row, the operand
-/// position that lands there — non-null positions ordered by value (ties in
-/// input order), the null positions' own indices placed per `nulls_last~`
-/// (`false` mirrors the sort kernel's nulls-first default). `descending~`
-/// flips the value order. Feed it to `gather` to reorder a frame.
+/// The stable permutation that would sort the operand: an `Int` column
+/// holding, for each output row, the operand position that lands there —
+/// non-null positions ordered by value (ties in input order), the null
+/// positions' own indices placed per `nulls_last~` (`false` mirrors the
+/// sort kernel's nulls-first default). `descending~` flips the value
+/// order. Feed it to `gather` to reorder a frame.
 pub fn Expr::arg_sort(
   self : Expr,
   descending~ : Bool = false,
@@ -596,8 +591,8 @@ pub fn Expr::arg_sort(
 /// statistic over a `window_size`-wide window ending at that row (the
 /// trailing window), computed only where the window holds at least
 /// `min_samples` non-null cells (omitted: every cell — any null makes the
-/// window null, Polars' default). `center~` moves the label to the window's
-/// middle (`floor(window_size / 2)` cells before it), so both edges turn
+/// window null). `center~` moves the label to the window's middle
+/// (`floor(window_size / 2)` cells before it), so both edges turn
 /// null under the default `min_samples`. Nulls are skipped by the counting
 /// and the statistic alike; a `NaN` is a value (it counts toward
 /// `min_samples`, propagates through sum / mean / std / variance / median,
@@ -606,7 +601,7 @@ pub fn Expr::arg_sort(
 /// standard deviation / variance and reduces that window to null. Numeric
 /// only — a non-numeric operand is `TypeMismatch`, and `window_size < 1` or
 /// a `min_samples` outside `[1, window_size]` raises `InvalidOperation` at
-/// evaluation (building stays total). Polars' `weights` is not carried.
+/// evaluation (building stays total).
 fn Expr::rolling_of(
   self : Expr,
   stat : @ir.RollStat,
@@ -623,9 +618,8 @@ fn Expr::rolling_of(
 }
 
 ///|
-/// Rolling sum over a `window_size`-wide trailing window (Polars'
-/// `rolling_sum`) — the shared rolling contract, the statistic keeping the
-/// operand's dtype.
+/// Rolling sum over a `window_size`-wide trailing window — the shared
+/// rolling contract, the statistic keeping the operand's dtype.
 pub fn Expr::rolling_sum(
   self : Expr,
   window_size : Int32,
@@ -636,8 +630,8 @@ pub fn Expr::rolling_sum(
 }
 
 ///|
-/// Rolling arithmetic mean over a `window_size`-wide trailing window
-/// (Polars' `rolling_mean`) — always `Float`.
+/// Rolling arithmetic mean over a `window_size`-wide trailing window —
+/// always `Float`.
 pub fn Expr::rolling_mean(
   self : Expr,
   window_size : Int32,
@@ -648,8 +642,8 @@ pub fn Expr::rolling_mean(
 }
 
 ///|
-/// Rolling minimum over a `window_size`-wide trailing window (Polars'
-/// `rolling_min`) — `NaN` skipped, the operand's dtype kept.
+/// Rolling minimum over a `window_size`-wide trailing window — `NaN`
+/// skipped, the operand's dtype kept.
 pub fn Expr::rolling_min(
   self : Expr,
   window_size : Int32,
@@ -660,8 +654,8 @@ pub fn Expr::rolling_min(
 }
 
 ///|
-/// Rolling maximum over a `window_size`-wide trailing window (Polars'
-/// `rolling_max`) — `rolling_min` with the order reversed.
+/// Rolling maximum over a `window_size`-wide trailing window —
+/// `rolling_min` with the order reversed.
 pub fn Expr::rolling_max(
   self : Expr,
   window_size : Int32,
@@ -673,8 +667,8 @@ pub fn Expr::rolling_max(
 
 ///|
 /// Rolling sample standard deviation (`ddof = 1`) over a `window_size`-wide
-/// trailing window (Polars' `rolling_std`) — `Float`; a single-value window
-/// has no sample denominator and is null.
+/// trailing window — `Float`; a single-value window has no sample
+/// denominator and is null.
 pub fn Expr::rolling_std(
   self : Expr,
   window_size : Int32,
@@ -686,7 +680,7 @@ pub fn Expr::rolling_std(
 
 ///|
 /// Rolling sample variance (`ddof = 1`) over a `window_size`-wide trailing
-/// window (Polars' `rolling_var`, spelled out — `var` is a reserved word).
+/// window (spelled out — `var` is a reserved word).
 pub fn Expr::rolling_variance(
   self : Expr,
   window_size : Int32,
@@ -697,9 +691,8 @@ pub fn Expr::rolling_variance(
 }
 
 ///|
-/// Rolling median over a `window_size`-wide trailing window (Polars'
-/// `rolling_median`) — always `Float` (`Int` widens), the two middles
-/// averaged on an even count.
+/// Rolling median over a `window_size`-wide trailing window — always
+/// `Float` (`Int` widens), the two middles averaged on an even count.
 pub fn Expr::rolling_median(
   self : Expr,
   window_size : Int32,
@@ -747,9 +740,9 @@ pub fn Expr::count(self : Expr) -> Expr {
 
 ///|
 /// Sample standard deviation of the operand over the evaluation scope
-/// (`ddof = 1`, Polars' default): NaN propagates through the mean, nulls are
-/// skipped, fewer than two non-null cells reduce to null, and a non-numeric
-/// operand is `TypeMismatch`. Always a `Float`.
+/// (`ddof = 1`): NaN propagates through the mean, nulls are skipped, fewer
+/// than two non-null cells reduce to null, and a non-numeric operand is
+/// `TypeMismatch`. Always a `Float`.
 pub fn Expr::std(self : Expr) -> Expr {
   Expr::of_node(@ir.ExprNode::Agg(@series.ReduceOp::Std, self.node))
 }
@@ -758,7 +751,7 @@ pub fn Expr::std(self : Expr) -> Expr {
 /// Sample variance of the operand over the evaluation scope (`ddof = 1`); the
 /// square of `std`, with the identical null / NaN / dtype rules. Always a
 /// `Float`. Spelled `variance` because `var` is a reserved MoonBit word (the
-/// `with_alias` / `.land()` situation), so Polars' `var` becomes `variance`.
+/// `with_alias` / `.land()` situation).
 pub fn Expr::variance(self : Expr) -> Expr {
   Expr::of_node(@ir.ExprNode::Agg(@series.ReduceOp::Var, self.node))
 }
@@ -775,13 +768,13 @@ pub fn Expr::median(self : Expr) -> Expr {
 }
 
 ///|
-/// `q`-th quantile of the operand over the evaluation scope (Polars'
-/// `quantile`, default `interpolation=Nearest`): the sorted non-null cells
-/// read at `q * (m - 1)`, so an even count picks a middle cell rather than
-/// averaging (`Linear` gives the median's average). Nulls are skipped, a
-/// `NaN` propagates (the `median` rule), an all-missing scope reduces to
-/// null, a non-numeric operand is `TypeMismatch`, and a `q` outside `[0, 1]`
-/// is `InvalidOperation` at evaluation — tree building stays total. Always a
+/// `q`-th quantile of the operand over the evaluation scope (default
+/// `interpolation=Nearest`): the sorted non-null cells read at `q * (m - 1)`,
+/// so an even count picks a middle cell rather than averaging (`Linear`
+/// gives the median's average). Nulls are skipped, a `NaN` propagates (the
+/// `median` rule), an all-missing scope reduces to null, a non-numeric
+/// operand is `TypeMismatch`, and a `q` outside `[0, 1]` is
+/// `InvalidOperation` at evaluation — tree building stays total. Always a
 /// `Float` (`Int` widens).
 pub fn Expr::quantile(
   self : Expr,
@@ -812,10 +805,9 @@ pub fn Expr::first(self : Expr) -> Expr {
 
 ///|
 /// Window-local position of the minimum over the evaluation scope, as an
-/// `Int` — `min`'s positional twin (Polars' `arg_min`). Total over every
-/// dtype (`NaN` skipped like `min`), a tie keeps the **earliest** position
-/// (deterministic where Polars documents the tie as arbitrary), and an
-/// empty / all-null scope reduces to null.
+/// `Int` — `min`'s positional twin. Total over every dtype (`NaN` skipped
+/// like `min`), a tie keeps the **earliest** position (deterministic), and
+/// an empty / all-null scope reduces to null.
 pub fn Expr::arg_min(self : Expr) -> Expr {
   Expr::of_node(@ir.ExprNode::Agg(@series.ReduceOp::ArgMin, self.node))
 }
@@ -823,7 +815,7 @@ pub fn Expr::arg_min(self : Expr) -> Expr {
 ///|
 /// Window-local position of the maximum over the evaluation scope — `arg_min`
 /// with the order reversed, sharing its dtype-total, `NaN`-skipping, and
-/// earliest-tie rules (Polars' `arg_max`).
+/// earliest-tie rules.
 pub fn Expr::arg_max(self : Expr) -> Expr {
   Expr::of_node(@ir.ExprNode::Agg(@series.ReduceOp::ArgMax, self.node))
 }
@@ -853,8 +845,7 @@ pub fn Expr::with_alias(self : Expr, name : String) -> Expr {
 }
 
 ///|
-/// Replace each null cell with the nearest present value **above** it —
-/// Polars' `forward_fill` (its `fill_null(strategy='forward')` core): a
+/// Replace each null cell with the nearest present value **above** it — a
 /// leading null run before any present cell stays null. `limit?` caps how
 /// many consecutive null slots a single present value may fill (`None` =
 /// unlimited — a run longer than the limit keeps its tail null); `limit`
@@ -869,8 +860,8 @@ pub fn Expr::forward_fill(self : Expr, limit? : Int32) -> Expr {
 
 ///|
 /// Replace each null cell with the nearest present value **below** it —
-/// `forward_fill`'s mirror (Polars' `backward_fill`), trailing null runs
-/// staying null, with the same `limit?` cap and dtype-generic copying.
+/// `forward_fill`'s mirror, trailing null runs staying null, with the same
+/// `limit?` cap and dtype-generic copying.
 pub fn Expr::backward_fill(self : Expr, limit? : Int32) -> Expr {
   Expr::of_node(
     @ir.ExprNode::Positional(@ir.PositionalOp::BackwardFill(limit), self.node),
@@ -894,22 +885,19 @@ pub fn Expr::is_infinite(self : Expr) -> Expr {
 }
 
 ///|
-/// Clamp each cell into `[lower?, upper?]` (Polars' `clip`): a cell below
-/// `lower?` becomes it, one above `upper?` becomes it, one inside passes
-/// through, and a null cell stays null (the bounds are not applied to it).
-/// A **null bound cell leaves the operand cell untouched** — a null bound is
-/// no bound on that side, not a null answer (Polars' post-1.0 reading, where
-/// clip bounds no longer propagate their nulls into the clipped value).
-/// Either bound may be omitted — one-sided clamps — and both omitted is the
-/// identity. With both bounds given the lower clamp runs first, so a
-/// degenerate pair (`lower?` above `upper?`) clamps every cell to `upper?`,
-/// the reading Polars and numpy's `minimum(maximum(x, lo), hi)` both give.
-/// Carried by a dedicated node that embeds the operand once — the nested
-/// `when` composition embedded it four times — so a chained clamp stays
-/// linear. Dtype unification and the `NaN`-stays-put reading (no comparison
-/// holds against `NaN`) are the comparison kernel's own. The result keeps
-/// the operand's own name (Polars' reading), so a column bound does not
-/// hand `with_columns` the bound's name.
+/// Clamp each cell into `[lower?, upper?]`: a cell below `lower?` becomes
+/// it, one above `upper?` becomes it, one inside passes through, and a null
+/// cell stays null (the bounds are not applied to it). A **null bound cell
+/// leaves the operand cell untouched** — a null bound is no bound on that
+/// side, not a null answer. Either bound may be omitted — one-sided clamps —
+/// and both omitted is the identity. With both bounds given the lower clamp
+/// runs first, so a degenerate pair (`lower?` above `upper?`) clamps every
+/// cell to `upper?`. Carried by a dedicated node that embeds the operand
+/// once — the nested `when` composition embedded it four times — so a
+/// chained clamp stays linear. Dtype unification and the `NaN`-stays-put
+/// reading (no comparison holds against `NaN`) are the comparison kernel's
+/// own. The result keeps the operand's own name, so a column bound does
+/// not hand `with_columns` the bound's name.
 pub fn Expr::clip(self : Expr, lower? : Expr, upper? : Expr) -> Expr {
   match (lower, upper) {
     (None, None) => self
@@ -934,37 +922,36 @@ fn Expr::dt_component(self : Expr, op : @ir.UnOp) -> Expr {
 }
 
 ///|
-/// The calendar year of each `Date` cell (Polars' `dt.year`) — the shared
-/// `dt_*` contract, the component being the four-digit year.
+/// The calendar year of each `Date` cell — the shared `dt_*` contract, the
+/// component being the four-digit year.
 pub fn Expr::dt_year(self : Expr) -> Expr {
   self.dt_component(@ir.UnOp::DtYear)
 }
 
 ///|
-/// The calendar month of each `Date` cell, `1`–`12` (Polars' `dt.month`).
+/// The calendar month of each `Date` cell, `1`–`12`.
 pub fn Expr::dt_month(self : Expr) -> Expr {
   self.dt_component(@ir.UnOp::DtMonth)
 }
 
 ///|
-/// The day of the month of each `Date` cell, `1`–`31` (Polars' `dt.day`).
+/// The day of the month of each `Date` cell, `1`–`31`.
 pub fn Expr::dt_day(self : Expr) -> Expr {
   self.dt_component(@ir.UnOp::DtDay)
 }
 
 ///|
-/// The ISO weekday of each `Date` cell — Monday `1` through Sunday `7`
-/// (Polars' `dt.weekday`; the epoch is a Thursday, and dates before 1970
-/// land on the right day too).
+/// The ISO weekday of each `Date` cell — Monday `1` through Sunday `7` (the
+/// epoch is a Thursday, and dates before 1970 land on the right day too).
 pub fn Expr::dt_day_of_week(self : Expr) -> Expr {
   self.dt_component(@ir.UnOp::DtWeekday)
 }
 
 ///|
-/// How many times each cell's own value occurs in the column (Polars'
-/// `unique_counts`) — an `Int` per cell, keyed by the shared distinct
-/// normalisation (`NaN` one bucket, `-0.0` folded, a null its own bucket:
-/// a null cell reports the null count). Total over every dtype.
+/// How many times each cell's own value occurs in the column — an `Int`
+/// per cell, keyed by the shared distinct normalisation (`NaN` one bucket,
+/// `-0.0` folded, a null its own bucket: a null cell reports the null
+/// count). Total over every dtype.
 pub fn Expr::unique_counts(self : Expr) -> Expr {
   Expr::of_node(
     @ir.ExprNode::Positional(@ir.PositionalOp::UniqueCounts, self.node),
@@ -972,11 +959,11 @@ pub fn Expr::unique_counts(self : Expr) -> Expr {
 }
 
 ///|
-/// Whether each cell is its value's **first** occurrence (Polars'
-/// `is_first_distinct`) — a `Bool` per cell, the shared distinct keying, so
-/// the first null is first-distinct. The complement filter to
-/// `unique(keep=First)`: `filter(col(x).is_first_distinct())` keeps one
-/// row per distinct value in first-appearance order.
+/// Whether each cell is its value's **first** occurrence — a `Bool` per
+/// cell, the shared distinct keying, so the first null is first-distinct.
+/// The complement filter to `unique(keep=First)`:
+/// `filter(col(x).is_first_distinct())` keeps one row per distinct value
+/// in first-appearance order.
 pub fn Expr::is_first_distinct(self : Expr) -> Expr {
   Expr::of_node(
     @ir.ExprNode::Positional(@ir.PositionalOp::IsFirstDistinct, self.node),
@@ -985,7 +972,7 @@ pub fn Expr::is_first_distinct(self : Expr) -> Expr {
 
 ///|
 /// Whether each cell is its value's **last** occurrence — the trailing
-/// mirror of `is_first_distinct` (Polars' `is_last_distinct`).
+/// mirror of `is_first_distinct`.
 pub fn Expr::is_last_distinct(self : Expr) -> Expr {
   Expr::of_node(
     @ir.ExprNode::Positional(@ir.PositionalOp::IsLastDistinct, self.node),
@@ -993,13 +980,10 @@ pub fn Expr::is_last_distinct(self : Expr) -> Expr {
 }
 
 ///|
-/// The most frequent non-null value over the evaluation scope (Polars'
-/// `mode`, the single-value spelling) — total over every dtype, nulls
-/// skipped, keeping the operand's dtype. A tie keeps the
-/// **first-appearing** value among the tied — one deterministic answer
-/// where Polars' `mode` returns every tied value as a list, a shape
-/// MoonFrame has no list dtype for. An empty / all-null scope reduces to
-/// null.
+/// The most frequent non-null value over the evaluation scope — total over
+/// every dtype, nulls skipped, keeping the operand's dtype. A tie keeps the
+/// **first-appearing** value among the tied — one deterministic answer. An
+/// empty / all-null scope reduces to null.
 pub fn Expr::mode(self : Expr) -> Expr {
   Expr::of_node(@ir.ExprNode::Agg(@series.ReduceOp::Mode, self.node))
 }

@@ -27,10 +27,9 @@ pub struct GroupedDataFrame {
 
 ///|
 /// Partition `self` into groups by the `keys` expressions — MoonFrame's
-/// single `group_by` verb (Polars' `df.group_by(...)`). Rows sharing the
-/// same key tuple land in the same group; group order is **first
-/// appearance** (equivalent to Polars' `maintain_order=True`), so the
-/// result is deterministic and snapshot-stable without a sort.
+/// single `group_by` verb. Rows sharing the same key tuple land in the
+/// same group; group order is **first appearance**, so the result is
+/// deterministic and snapshot-stable without a sort.
 ///
 /// Each key is an arbitrary expression, evaluated over the whole frame
 /// under the evaluator's shared rules, exactly like a `sort` key: a bare
@@ -45,13 +44,12 @@ pub struct GroupedDataFrame {
 ///
 /// Group identity is the composite `KeyCell` tuple of the row's key cells,
 /// hashed on the native cell values, so:
-///   * a `Float` `NaN` collapses into one group — matching Polars, where
-///     `NaN` compares equal for grouping (the same rule `join` keys on);
+///   * a `Float` `NaN` collapses into one group — `NaN` compares equal
+///     for grouping (the same rule `join` keys on);
 ///     `-0.0` and `+0.0` likewise share a group;
 ///   * a **null** key cell forms its **own** group rather than being
-///     dropped — the Polars default (pandas drops null keys), and the
-///     deliberate semantic difference from `join`, where a null key
-///     matches nothing (`null != null`).
+///     dropped — the deliberate semantic difference from `join`, where a
+///     null key matches nothing (`null != null`).
 ///
 /// `keys` may hold one expression (`group_by([col("region")])`) or several
 /// (`group_by([col("region"), col("product")])`). An empty `keys` list
@@ -102,7 +100,7 @@ pub fn DataFrame::group_by(
   // `get` is the stored one). `to_scalars` is total, so per-row key assembly
   // reads by plain index with no bounds-checked `get`. MoonBit's `Map`
   // iterates in first-insertion order, so `.values()` reproduces
-  // first-appearance group order (pandas `sort=False`) with no separate
+  // first-appearance group order with no separate
   // slot-tracking array; within a group the indices stay ascending because
   // `i` only grows.
   let key_scalars = key_columns.map(column => column.to_scalars())

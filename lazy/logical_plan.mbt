@@ -48,8 +48,7 @@
 /// in-memory `Scan`, whose narrowing *inserts* a `Select`, a file source
 /// narrows in place by carrying its own projection. (There is no JSON-array
 /// scan for the single-array shape `[{...}]`: a JSON array must be parsed
-/// whole to find its records, so there is nothing to prune at read time — the
-/// same reason Polars has `scan_ndjson` but no `scan_json`.)
+/// whole to find its records, so there is nothing to prune at read time.)
 priv enum LogicalPlan {
   Scan(ScanSource)
   Unary(LogicalPlan, FrameOp)

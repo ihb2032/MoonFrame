@@ -224,8 +224,8 @@ test "clip clamps into the bounds, nulls and NaN passing through" {
 ///|
 test "clip with a degenerate pair clamps everything to the upper bound" {
   // `lower` above `upper`: every cell is lifted then pressed back down,
-  // so the whole column lands on `upper` — the reading Polars and numpy
-  // give. A null cell still passes through untouched.
+  // so the whole column lands on `upper`. A null cell still passes through
+  // untouched.
   let df = DataFrame::DataFrame([
     Series::from_int_options("v", [Some(1), Some(5), Some(9), None]),
   ])
@@ -314,7 +314,7 @@ test "clip with a column bound keeps the operand's name and clamps it" {
   // The composition alone would name itself after the bound (it sits in
   // the `then` branch), handing `with_columns` the bound's name — the
   // bound column replaced by the clipped operand, the operand left
-  // unclamped. The operand keeps its own name instead, Polars' reading.
+  // unclamped. The operand keeps its own name instead.
   let df = DataFrame::from_rows(
     @types.Schema::Schema([
       @types.Field::Field("x", @types.DataType::Int),
@@ -334,7 +334,7 @@ test "clip with a column bound keeps the operand's name and clamps it" {
 
 ///|
 test "a null bound cell leaves the operand cell untouched" {
-  // Polars' post-1.0 clip reading: a null bound is no bound on that side,
+  // Clip's null-bound reading: a null bound is no bound on that side,
   // not a null answer — the old nested-`when` lowering propagated the
   // comparison's null into the selection and nulled a present operand cell.
   let df = DataFrame::from_rows(

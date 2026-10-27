@@ -1,7 +1,7 @@
 // JSON record-style serialisation for `DataFrame`: the "records" /
 // "row-orientation" wire shape — one top-level array of flat objects
-// (`[{...}, ...]`), the canonical layout that pandas, polars, and most
-// JSON tooling produce by default. This file is the format's own face:
+// (`[{...}, ...]`), the canonical layout most JSON tooling produces by
+// default. This file is the format's own face:
 // the read options, the string / file entry points, and the `@json`
 // payload adapter. Everything the JSON family shares — the
 // records → frame core (also driven by NDJSON), the cell mapping (also
@@ -15,18 +15,17 @@
 ///
 /// - `infer_schema_rows` — number of leading records inspected when
 ///   guessing each column's dtype. `0` (or any value `<= 0`) lifts the
-///   cap and scans every record (Polars' `infer_schema_length=None`).
-///   Records past a finite window are still parsed under the chosen
+///   cap and scans every record. Records past a finite window are still
+///   parsed under the chosen
 ///   dtype; one that doesn't fit is handled per `on_parse_error`.
 /// - `on_parse_error` — what to do when a non-null cell past the
 ///   inference window fails to parse under its column's locked-in dtype:
 ///   `Raise` (default) fails with `ParseError(Cell(...))`; `Null`
-///   downgrades the offending cell to a null and continues (Polars'
-///   `ignore_errors=True`).
+///   downgrades the offending cell to a null and continues.
 /// - `reject_duplicate_keys` — whether an object repeating a key is an
-///   error. The default `false` keeps the serde / pandas / Polars
-///   behaviour: a repeated key survives only as its **last** value, the
-///   earlier ones silently dropped. `true` rejects the read instead —
+///   error. The default `false` keeps the common JSON reading: a
+///   repeated key survives only as its **last** value, the earlier
+///   ones silently dropped. `true` rejects the read instead —
 ///   `ParseError(Message(...))` naming the key and the line / column it
 ///   repeated at — so a payload that would silently lose cells fails
 ///   loudly. The check rides the parser itself (which reports whichever
@@ -51,9 +50,8 @@ pub struct JsonReadOptions {
 ///|
 /// Build read options. Every field has a default: scan the first 100 records
 /// for inference, fail the read on a cell that doesn't fit its inferred
-/// dtype, let a repeated object key keep its last value (the serde /
-/// pandas / Polars reading), and accept overflow-to-`Infinity` numbers as
-/// `Float` cells. `JsonReadOptions::JsonReadOptions()` is the all-defaults reader; name only what
+/// dtype, let a repeated object key keep its last value (the common JSON
+/// reading), and accept overflow-to-`Infinity` numbers as `Float` cells. `JsonReadOptions::JsonReadOptions()` is the all-defaults reader; name only what
 /// differs, as in `JsonReadOptions::JsonReadOptions(on_parse_error=Null)`.
 pub fn JsonReadOptions::JsonReadOptions(
   infer_schema_rows~ : Int32 = DEFAULT_INFER_SCHEMA_ROWS,
@@ -105,8 +103,8 @@ pub fn parse_json_str(
     return @frame.DataFrame::DataFrame([])
   }
   // The strict duplicate-key reading rides the parser itself — it reports
-  // the repeat with a line / column, and off by default (the serde / pandas
-  // / Polars last-wins reading) it costs nothing.
+  // the repeat with a line / column, and off by default (the common JSON
+  // last-wins reading) it costs nothing.
   let json = @json.parse(
     content.view(),
     reject_duplicate_keys=options.reject_duplicate_keys,
@@ -169,9 +167,8 @@ pub fn read_json(
 /// - `Null` → JSON `null`
 /// - `Int`  → JSON number (no fractional part)
 /// - `Float`→ JSON number for finite values. `NaN` / `±Infinity` have
-///   no JSON literal, so they are emitted as `null` (matching pandas'
-///   `to_json`) to keep the output valid JSON — a round-trip reads a
-///   non-finite cell back as a null.
+///   no JSON literal, so they are emitted as `null` to keep the output
+///   valid JSON — a round-trip reads a non-finite cell back as a null.
 /// - `Bool` → JSON `true` / `false`
 /// - `String` → JSON string (escaping `"`, `\`, control chars via the
 ///   builtin stringifier — we deliberately do **not** roll our own

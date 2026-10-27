@@ -1,14 +1,14 @@
-// The ranking selections — Polars' `top_k` / `bottom_k`: the `k` rows at one
+// The ranking selections — `top_k` / `bottom_k`: the `k` rows at one
 // end of a `by` ordering, taken through the sort kernel rather than a
 // partial-selection algorithm. Each is literally `sort` under the ranking
-// direction with nulls pinned last, then `head(k)` — so the result order is
-// deterministic (the sorted order, ties stable in input order) where Polars
-// leaves `top_k`'s output order unspecified, and every rule the sort kernel
+// direction with nulls pinned last, then `head(k)` — so the result order
+// is deterministic by construction (the sorted order, ties stable in
+// input order), and every rule the sort kernel
 // documents (expression keys evaluated over the frame, dtype unification,
 // `NaN` by the total order) applies verbatim.
 //
-// Nulls always rank last, at both ends and under `reverse` — Polars' rule
-// that non-null elements are always preferred. A `k` past the row count
+// Nulls always rank last, at both ends and under `reverse` — non-null
+// elements are always preferred. A `k` past the row count
 // saturates (the whole frame in sorted order, `head`'s clamp); `k = 0` is
 // the empty frame; a negative `k` or an empty `by` `raise`s
 // `InvalidOperation`, the one place the composition would otherwise be
@@ -39,7 +39,7 @@ fn DataFrame::rank_window(
 }
 
 ///|
-/// The `k` rows largest under `by` (Polars' `df.top_k(k, by)`), in sorted
+/// The `k` rows largest under `by`, in sorted
 /// order — largest first. `reverse~` flips which end "top" names: the `k`
 /// smallest, smallest first. Null-containing rows rank last at either end
 /// and only surface when `k` reaches past the non-null rows.
@@ -53,7 +53,7 @@ pub fn DataFrame::top_k(
 }
 
 ///|
-/// The `k` rows smallest under `by` (Polars' `df.bottom_k(k, by)`), in
+/// The `k` rows smallest under `by`, in
 /// sorted order — smallest first. `reverse~` flips the end: the `k` largest,
 /// largest first. The null and saturation rules mirror `top_k`.
 pub fn DataFrame::bottom_k(

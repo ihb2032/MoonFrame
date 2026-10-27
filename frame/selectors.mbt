@@ -32,7 +32,7 @@ fn DataFrame::cols_where(
 
 ///|
 /// The `col(...)` references of every **numeric** (`Int` / `Float`) column of
-/// this frame, in schema order — Polars' `cs.numeric()`.
+/// this frame, in schema order.
 /// `df.select(df.numeric_cols())` keeps only the numeric columns. The
 /// registry's numericity flag is the whole test (an `I64`-riding dtype like
 /// `Date` is correctly not numeric).
@@ -42,7 +42,7 @@ pub fn DataFrame::numeric_cols(self : DataFrame) -> Array[@expr.Expr] {
 
 ///|
 /// The `col(...)` references of every column of this frame whose dtype is
-/// exactly `dtype`, in schema order — Polars' `cs.by_dtype(dtype)`. An empty
+/// exactly `dtype`, in schema order. An empty
 /// array when no column has that dtype.
 pub fn DataFrame::cols_of_dtype(
   self : DataFrame,
@@ -54,8 +54,8 @@ pub fn DataFrame::cols_of_dtype(
 ///|
 /// The `col(...)` references of every column of this frame whose **name**
 /// matches the POSIX regular expression `pattern` (a partial match, like
-/// `str_contains(pattern, literal=false)` over cells)
-/// — Polars' `cs.matches(pattern)`. The dialect is POSIX (`[[:alpha:]]`, not the
+/// `str_contains(pattern, literal=false)` over cells).
+/// The dialect is POSIX (`[[:alpha:]]`, not the
 /// PCRE `\w`), and an invalid pattern raises `InvalidOperation`. Schema order;
 /// empty when nothing matches.
 pub fn DataFrame::cols_matching(
@@ -68,8 +68,8 @@ pub fn DataFrame::cols_matching(
 
 ///|
 /// The `col(...)` references of every column of this frame whose **name**
-/// starts with the literal `prefix`, in schema order — Polars'
-/// `cs.starts_with(prefix)`. A literal (not regex) test, so — unlike
+/// starts with the literal `prefix`, in schema order. A literal (not regex)
+/// test, so — unlike
 /// `cols_matching` — it is **total**. Empty when nothing matches; an empty
 /// `prefix` matches every column.
 pub fn DataFrame::cols_starts_with(
@@ -81,7 +81,7 @@ pub fn DataFrame::cols_starts_with(
 
 ///|
 /// The `col(...)` references of every column of this frame whose **name** ends
-/// with the literal `suffix`, in schema order — Polars' `cs.ends_with(suffix)`.
+/// with the literal `suffix`, in schema order.
 /// A literal test, so **total**. Empty when nothing matches; an empty `suffix`
 /// matches every column.
 pub fn DataFrame::cols_ends_with(
@@ -93,7 +93,7 @@ pub fn DataFrame::cols_ends_with(
 
 ///|
 /// The `col(...)` references of every column of this frame whose **name**
-/// contains the literal `substr`, in schema order — Polars' `cs.contains(substr)`.
+/// contains the literal `substr`, in schema order.
 /// A literal substring test, so **total**. Empty when nothing matches; an
 /// empty `substr` matches every column.
 pub fn DataFrame::cols_contains(

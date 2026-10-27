@@ -20,10 +20,10 @@
 // The rules, canonically: `NaN` is a value, only `Null` is missing.
 // `sum` / `mean` add `NaN` in so it propagates — and `var` / `std`, built on
 // the mean, propagate it too; `median`, an order statistic, propagates it the
-// same way. The extremum fold skips it (matching Polars' regular
-// `min` / `max`, the one value-following fold that does), and `sort` orders
-// it by the IEEE total order — larger than every other value, so it trails an
-// ascending sort and leads a descending one. `n_unique` keys a `NaN` into one
+// same way. The extremum fold skips it (the one value-following fold that
+// does), and `sort` orders it by the IEEE total order — larger than
+// every other value, so it trails an ascending sort and leads a
+// descending one. `n_unique` keys a `NaN` into one
 // bucket (it is one value), and `first` / `last` are positional, so they skip
 // nothing — a present `NaN` is returned verbatim.
 //
@@ -181,10 +181,9 @@ fn reduce_arith(
 /// keeping the source dtype. Total over every dtype — `Bool` orders
 /// `false < true`, `String` by `compare_string_lex` — returning the dtype's
 /// `Scalar` variant or `Scalar::Null` for an empty / all-null / all-`NaN`
-/// (`Float`) window. `NaN` is treated as missing (skipped), as in Polars'
-/// regular `min` / `max` (`sort` instead orders `NaN` as the largest value);
-/// only a null slot is otherwise skipped. Shares the single `fold_extremum`
-/// accumulation.
+/// (`Float`) window. `NaN` is treated as missing (skipped; `sort` instead
+/// orders `NaN` as the largest value); only a null slot is otherwise
+/// skipped. Shares the single `fold_extremum` accumulation.
 fn reduce_extremum(
   storage : @column.ColumnStorage,
   want_min~ : Bool,
@@ -298,7 +297,7 @@ fn numeric_double_reader(
 
 ///|
 /// `var` / `std` reducer over an index window (`want_std` square-roots the
-/// result): the **sample** statistics with `ddof = 1` (Polars' default). The
+/// result): the **sample** statistics with `ddof = 1`. The
 /// variance is `Σ(xᵢ − mean)² / (cnt − 1)` over the `cnt` non-null cells and
 /// the standard deviation its square root, both `Scalar::Float` — `Int` widens
 /// to `Double`, so the output always types `Float`. Computed by Welford's
@@ -308,9 +307,8 @@ fn numeric_double_reader(
 /// overflow to `±inf` and poison a two-pass mean, reporting `+inf` for a true
 /// variance of 0 — still yields its finite variance; when the true variance
 /// itself exceeds `Double`'s range, the fold saturates to `+inf` — never a
-/// negative variance or a `NaN` std from the internal overflow — matching
-/// numpy / Polars. Numeric only: a
-/// non-numeric column (registry numericity: `Bool` / `String`, and an
+/// negative variance or a `NaN` std from the internal overflow. Numeric
+/// only: a non-numeric column (registry numericity: `Bool` / `String`, and an
 /// I64-riding dtype like `Date`) `raise`s `TypeMismatch` here at
 /// factory time, before any window is folded, exactly as `reduce_arith` does.
 /// A `NaN` is a present value: when at least two non-null cells are present it
@@ -358,7 +356,7 @@ fn reduce_variance(
 /// `median` reducer over an index window: the middle of the sorted non-null
 /// cells, or the mean of the two middles for an even count, as a
 /// `Scalar::Float` — `Int` widens to `Double`, so a median always types
-/// `Float` (Polars). Numeric only: a non-numeric column `raise`s
+/// `Float`. Numeric only: a non-numeric column `raise`s
 /// `TypeMismatch` at factory time, as `reduce_arith` does. A `NaN` is
 /// **propagated** — the `sum` / `mean` rule, not the `min` / `max` skip: a
 /// window that contains one has that value's order statistic. An empty /
@@ -420,7 +418,7 @@ fn reduce_median(
 ///|
 /// `quantile` reducer over an index window: the `q`-th order statistic of the
 /// sorted non-null cells under `QuantileInterpolation`, as a `Scalar::Float` —
-/// `Int` widens to `Double`, so a quantile always types `Float` (Polars).
+/// `Int` widens to `Double`, so a quantile always types `Float`.
 /// Numeric only: a non-numeric column `raise`s `TypeMismatch` at factory time,
 /// as `reduce_arith` does. A `NaN` is **propagated** — the `sum` / `mean` /
 /// `median` rule, not the `min` / `max` skip: a window that contains one has
@@ -530,13 +528,12 @@ fn reduce_quantile(
 ///|
 /// `arg_min` / `arg_max` reducer over an index window: the **window-local
 /// position** (`k`, not the source row `at(k)`) of the first extremum cell,
-/// as a `Scalar::Int` — so a group's arg is the offset within the group,
-/// Polars' reading, and the whole-frame arg the row index. The order, the
+/// as a `Scalar::Int` — so a group's arg is the offset within the group
+/// and the whole-frame arg the row index. The order, the
 /// null skip, and the `NaN` skip are `reduce_extremum`'s exactly (total over
 /// every dtype; `Bool` `false < true`; `String` lexicographic), and a tie
-/// keeps the **earliest** position — deterministic where Polars documents
-/// the tie as arbitrary. An empty / all-null / all-`NaN` window reduces to
-/// `Scalar::Null`.
+/// keeps the **earliest** position — a deterministic choice. An empty /
+/// all-null / all-`NaN` window reduces to `Scalar::Null`.
 fn reduce_arg_extremum(
   storage : @column.ColumnStorage,
   want_min~ : Bool,
@@ -632,9 +629,9 @@ fn[T] arg_extremum_of(
 /// agree on what "distinct" means cell-for-cell. Cells are keyed by the same
 /// `key_cell` normalisation `group_by` / `join` use, so "distinct value" means
 /// exactly "distinct group": every `NaN` collapses into one bucket and `-0.0`
-/// folds into `+0.0`. A null cell counts as one distinct value, as Polars'
-/// `n_unique` does — the null bucket, when the window has one, adds one to
-/// the keyed buckets. The dtype dispatch resolves once into a per-row key
+/// folds into `+0.0`. A null cell counts as one distinct value — the null
+/// bucket, when the window has one, adds one to the keyed buckets. The
+/// dtype dispatch resolves once into a per-row key
 /// reader; only `Float` needs normalisation (which `key_cell` centralises),
 /// the others key on the native value directly.
 fn count_distinct(
@@ -672,7 +669,7 @@ fn count_distinct(
 /// keeping the source dtype. Total over every dtype, and — unlike the other
 /// reductions — it skips nothing: a present cell yields its value verbatim
 /// (`NaN` included), and a *null* first / last cell yields `Scalar::Null`, as
-/// does an empty window. (Polars' `first` / `last` are likewise positional.)
+/// does an empty window.
 fn reduce_first_last(
   storage : @column.ColumnStorage,
   want_first~ : Bool,
@@ -701,12 +698,11 @@ fn reduce_first_last(
 }
 
 ///|
-/// How `quantile` reads an answer that falls between two cells — Polars'
-/// `interpolation` parameter. Over the `m` sorted non-null values, position
-/// `pos = q * (m - 1)` names the answer; these say what to return when `pos`
-/// is not itself an index:
+/// How `quantile` reads an answer that falls between two cells. Over the `m`
+/// sorted non-null values, position `pos = q * (m - 1)` names the answer;
+/// these say what to return when `pos` is not itself an index:
 ///
-/// - `Nearest` (Polars' default) — the value at `round(pos)`, halves rounding
+/// - `Nearest` (the default) — the value at `round(pos)`, halves rounding
 ///   up;
 /// - `Linear` — the two neighbours weighted by `frac = pos - floor(pos)`
 ///   (numpy's default);
@@ -812,8 +808,8 @@ pub fn Series::reducer_for(
       (reduce_quantile(storage, q, interpolation), @types.DataType::Float)
     // `ArgMin` / `ArgMax` are the extremum reducers' positional twins: an
     // `Int` cell holding the **window-local position** of the extremum (its
-    // `k`, so a group's arg is the offset within the group, Polars'
-    // reading), total over every dtype like `Min` / `Max`.
+    // `k`, so a group's arg is the offset within the group), total over
+    // every dtype like `Min` / `Max`.
     ArgMin =>
       (
         lift_total(reduce_arg_extremum(storage, want_min=true)),
@@ -900,10 +896,9 @@ pub fn scalars_to_series(
 /// as that cell's own `Scalar` — total over every dtype, keyed by the
 /// shared `KeyCell` normalisation (`NaN` one bucket, `-0.0` folded). A tie
 /// keeps the **first-appearing** value among the tied — one deterministic
-/// answer where Polars' `mode` returns every tied value as a list, a shape
-/// MoonFrame has no list dtype for. Nulls are skipped — the winning cell is
-/// a value, as Polars' `mode` also skips them; an empty / all-null window
-/// reduces to `Scalar::Null`.
+/// single value per window, there being no list dtype to return every tied
+/// value in. Nulls are skipped — the winning cell is a value; an empty /
+/// all-null window reduces to `Scalar::Null`.
 fn reduce_mode(
   storage : @column.ColumnStorage,
 ) -> (Int32, (Int32) -> Int32) -> @types.Scalar {

@@ -11,10 +11,10 @@
 
 ///|
 /// Apply a host closure to each row of `self` — the single-input escape
-/// hatch (Polars' `map_elements`). Where the operators and methods above
-/// cover the documented algebra, `map_elements` reaches past it: `f`
-/// receives the operand's cell as a `Scalar` (a null cell as
-/// `Scalar::Null`) and returns the output cell. `label` names the step in
+/// hatch. Where the operators and methods above cover the documented
+/// algebra, `map_elements` reaches past it: `f` receives the operand's
+/// cell as a `Scalar` (a null cell as `Scalar::Null`) and returns the
+/// output cell. `label` names the step in
 /// `explain` / `Show` output — the function itself is opaque to
 /// introspection, to rendering, and to the optimizer, which treats the node as
 /// a barrier because it cannot see through the closure.
@@ -28,10 +28,9 @@
 /// no such cell, so its dtype
 /// falls back to `self`'s own dtype, yielding an all-null (or empty)
 /// column of that dtype rather than the `Unsupported` a bare `Null` literal
-/// raises (Polars' tolerance of a null-returning map). Only the dtype is
-/// borrowed; the result's backend follows its own content, as every computed
-/// column's does. The result is
-/// named after `self` (its leftmost column), so `with_alias` renames it.
+/// raises. Only the dtype is borrowed; the result's backend follows its own
+/// content, as every computed column's does. The result is named after
+/// `self` (its leftmost column), so `with_alias` renames it.
 /// Use it inside `with_columns` / `select` / `filter` like any other
 /// expression; the optimizer treats it as a value barrier (it can raise on
 /// values), so no filter sinks across it.
@@ -45,13 +44,13 @@ pub fn Expr::map_elements(
 
 ///|
 /// Apply a host closure to `self`'s whole evaluated column at once — the
-/// batched escape hatch (Polars' `map_batches`). Where `map_elements` hands
-/// `f` one `Scalar` per row, `map_batches` hands it the entire
-/// `Series` and takes back a `Series`, so a vectorised kernel (a
-/// cumulative sum, a rank, a rolling window) runs once over the column rather
-/// than cell by cell. `label` names the step in `explain` / `Show`; the
-/// closure is opaque to introspection, to rendering, and to the optimizer,
-/// which treats the node as a barrier because it cannot see through it.
+/// batched escape hatch. Where `map_elements` hands `f` one `Scalar` per
+/// row, `map_batches` hands it the entire `Series` and takes back a
+/// `Series`, so a vectorised kernel (a cumulative sum, a rank, a rolling
+/// window) runs once over the column rather than cell by cell. `label`
+/// names the step in `explain` / `Show`; the closure is opaque to
+/// introspection, rendering, and to the optimizer, which treats the node
+/// as a barrier because it cannot see through it.
 ///
 /// Building the node is total; `f` runs at evaluation and may `raise`.
 /// Unlike `map_elements`, whose per-row closure simply never runs on an
@@ -59,10 +58,9 @@ pub fn Expr::map_elements(
 /// included: selecting over a zero-row frame hands `f` a 0-row `Series`,
 /// and so does the grouped aggregation's dtype probe when there are zero
 /// groups or every reduced cell is null. That empty-input call is the
-/// contract (Polars' `map_batches` carries the same one): a closure must
-/// be total over an empty series — answer an empty series of its output
-/// dtype — and not assume its input has rows. The
-/// returned series rides the same length contract as `lit_series`: a
+/// contract: a closure must be total over an empty series — answer an
+/// empty series of its output dtype — and not assume its input has rows.
+/// The returned series rides the same length contract as `lit_series`: a
 /// frame-tall result passes through, a length-1 result broadcasts, any other
 /// length raises `LengthMismatch` in the consuming verb. The result is named
 /// after `self`, so `with_alias` renames it, and its backend is canonicalised

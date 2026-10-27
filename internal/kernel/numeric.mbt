@@ -119,7 +119,7 @@ fn numeric_general_pair(
 /// `Double` cell ops plus the verb its `TypeMismatch(Operation(...))` field uses.
 /// Dtype rules: `Int op Int → Int`, any `Float` operand promotes the
 /// result to `Float`, anything non-numeric raises. A null on either side
-/// nulls the output cell (Arrow / Polars arithmetic propagation). `Int`
+/// nulls the output cell (Arrow arithmetic propagation). `Int`
 /// arithmetic wraps on overflow (MoonBit `Int64` semantics — total, never
 /// aborts); `Float` follows IEEE 754, so NaN propagates as a value. An
 /// all-valid numeric result converges onto the `Numeric` backend
@@ -423,7 +423,7 @@ fn eval_binary_nullzero(
 }
 
 ///|
-/// `Div` — division is **always** `Float` (Polars `/`), so every numeric pair
+/// `Div` — division is **always** `Float`, so every numeric pair
 /// divides in `Double` and division by zero follows IEEE 754 — `x/0 → ±inf`,
 /// `0/0 → NaN` — on every backend rather than trapping (`Int` division by zero
 /// is backend-divergent, so it is never emitted).
@@ -698,7 +698,7 @@ fn sign_f64(a : Double) -> Double {
 /// `Expr::round`. `decimals <= 0` is `round_half_even` itself; otherwise the
 /// value is scaled by `10^decimals`, rounded, and unscaled, so the result
 /// carries the usual binary-floating-point caveat (`1.005` at two places is
-/// whatever the nearest `Double` says it is, exactly as in Polars).
+/// whatever the nearest `Double` says it is).
 ///
 /// Total at every input, including every `Int` a caller can pass: a non-finite
 /// value passes through, and a place finer than the value's own resolution
@@ -748,7 +748,7 @@ const DOUBLE_INTEGRAL_FLOOR : Double = 4503599627370496.0
 
 ///|
 /// Round a `Double` to the nearest integer value, ties to even (banker's
-/// rounding — Polars' default). MoonBit's `Double::round` rounds ties toward
+/// rounding). MoonBit's `Double::round` rounds ties toward
 /// +inf instead, so the even rule is spelled out here. `±inf` / `NaN` pass
 /// through unchanged and `±0.0` keeps its sign; the tie is resolved only on the
 /// exactly-half case — the floor when it is already even, else the ceil.

@@ -54,8 +54,8 @@ test "parse_csv_str: signed integers (+ / -) infer as Int" {
 test "parse_csv_str: non-decimal numeric forms stay String (no 0x / underscore)" {
   // `@string.parse_int` / `parse_double` accept 0x / 0o / 0b prefixes and
   // underscore grouping under their default rules; CSV inference must
-  // not, so columns of hex codes or grouped numbers stay String
-  // (matching pandas / polars) instead of being silently retyped.
+  // not, so columns of hex codes or grouped numbers stay String instead
+  // of being silently retyped.
   let content =
     #|hex,grouped
     #|0xFF,1_000
@@ -695,7 +695,7 @@ test "parse_csv_str: non-int outside the inference window is structured" {
 test "parse_csv_str: infer_schema_rows=0 scans every row to fix late dtype shifts" {
   // Row 1 looks Int; row 2 is a Float. A 1-row window locks Int and then
   // rejects the Float (the `infer_schema_rows=1` test above). Scanning every
-  // row (`0`, Polars' `infer_schema_length=None`) sees the Float during
+  // row (`0`) sees the Float during
   // inference and types the column Float — no ParseError, no prefix
   // mis-guess. (Under the old `0 → all-null window → String` rule this
   // column would have come back String, so the Float dtype also pins the
@@ -720,7 +720,7 @@ test "parse_csv_str: on_parse_error=Null downgrades an out-of-window misfit to n
   // Inference locks Int on the first two rows; row 3 ("x") can't parse as
   // Int. With `Raise` (the default, exercised above) this is a ParseError;
   // with `Null` the offending cell becomes null and the column keeps its
-  // inferred Int dtype — Polars' `ignore_errors=True`.
+  // inferred Int dtype.
   let content =
     #|n
     #|1

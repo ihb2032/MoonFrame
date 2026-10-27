@@ -1,10 +1,10 @@
-// The row sampler — Polars' `df.sample(n, with_replacement, seed)`: `n`
+// The row sampler: `n`
 // rows drawn from the frame under a seeded generator, so a sample is a
 // deterministic function of its seed (the library's every-other-verb
 // property, kept here: same seed, same rows, on every platform). The
 // generator is the fuzzer-proven splitmix64, private to this package —
-// nothing else samples, so nothing else needs it. Polars' `fraction`
-// parameter and `shuffle` are not carried: `n` composes with the caller's
+// nothing else samples, so nothing else needs it. There is no fraction
+// parameter and no shuffle verb: `n` composes with the caller's
 // own row count, and shuffling is `sample(n=nrows)` away when wanted.
 
 ///|
@@ -39,14 +39,14 @@ fn SplitMix64::below(self : SplitMix64, bound : Int32) -> Int32 {
 }
 
 ///|
-/// `n` rows sampled from the frame (Polars' `df.sample`): without
+/// `n` rows sampled from the frame: without
 /// replacement a seeded partial Fisher–Yates — the first `n` slots of a
 /// full shuffle, so every row appears at most once and the output order is
 /// the draw order; with replacement `n` independent draws, repeats
 /// allowed. `seed~` fixes the sequence (same seed, same rows — and an
 /// omitted seed is `seed = 0`, so independent calls share one sequence);
 /// `n` raises `InvalidOperation` when negative, and — without replacement —
-/// when it exceeds the row count (Polars' reading: that many distinct rows
+/// when it exceeds the row count (that many distinct rows
 /// do not exist, and silently returning the whole frame unshuffled would
 /// also disagree with `sample(n = nrows)`, which shuffles); a 0-row frame
 /// samples zero rows (there is nothing to draw — the with-replacement draw
@@ -56,8 +56,7 @@ fn SplitMix64::below(self : SplitMix64, bound : Int32) -> Int32 {
 /// applies and the backend follows the gathered content, as after any
 /// gather.
 ///
-/// Eager-only, matching Polars' `LazyFrame` (which has no `sample`
-/// either): a seeded draw sees a specific row set, and filter /
+/// Eager-only: a seeded draw sees a specific row set, and filter /
 /// projection pushdown would reorder which one that is — so there is no
 /// lazy entry; collect first.
 pub fn DataFrame::sample(

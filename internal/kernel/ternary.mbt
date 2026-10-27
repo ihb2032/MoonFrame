@@ -152,10 +152,10 @@ pub fn eval_ternary(
 }
 
 ///|
-/// Clamp each cell into `[lower?, upper?]` (Polars' `clip`): a null bound
-/// cell means "no bound on that side" — the operand cell passes through
-/// untouched, present or not (Polars' post-1.0 reading, where a null bound
-/// stops propagating into the clipped value) — while a present operand cell
+/// Clamp each cell into `[lower?, upper?]`: a null bound cell means "no
+/// bound on that side" — the operand cell passes through untouched, present
+/// or not, the bound's null never propagating into the clipped value —
+/// while a present operand cell
 /// below `lower?` lifts to it and one above `upper?` presses down to it, a
 /// null operand cell stays null, and a `NaN` stays put (no comparison holds
 /// against it). Both bounds may be omitted (the identity) or given, in which

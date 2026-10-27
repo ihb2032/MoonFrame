@@ -5,8 +5,8 @@
 
 ///|
 /// Fill every null cell of the **dtype-compatible** columns with `value`,
-/// leaving the rest of the frame verbatim — Polars' frame-wide
-/// `DataFrame.fill_null(value)`. A column is compatible when its dtype
+/// leaving the rest of the frame verbatim. A column is compatible when its
+/// dtype
 /// matches `value`'s variant: an `Int` value fills `Int` columns, a `Float`
 /// value fills `Float` columns, and so on. Columns of any other dtype are
 /// left untouched (not an error), and so are **all** columns when `value` is
@@ -57,7 +57,7 @@ pub fn DataFrame::fill_null(
 /// count shrinks.
 ///
 /// `subset` selects the gating columns — MoonFrame's single null-dropping
-/// verb (Polars' `df.drop_nulls(subset)`):
+/// verb:
 /// - **omitted** → every column gates (drop a row null in **any** column).
 ///   An `N×0` frame is the degenerate case: no column's validity can fail, so
 ///   all `N` rows pass and the output is structurally identical to the input.
@@ -110,8 +110,7 @@ pub fn DataFrame::drop_nulls(
 ///|
 /// The shared directional-fill driver: every column of the frame filled
 /// through the positional kernel, nulls taking the nearest present value in
-/// the fill's direction (Polars' `df.fill_null(strategy='forward' /
-/// 'backward')`). Dtype-generic — each column keeps its own dtype and
+/// the fill's direction. Dtype-generic — each column keeps its own dtype and
 /// copies its own cells; `limit?` caps the consecutive null slots one
 /// present value may fill (`None` = unlimited), a cap below 1 raising
 /// `InvalidOperation`. Names, dtypes, and the row count are unchanged, so
@@ -154,8 +153,7 @@ fn DataFrame::fill_null_directional(
 ///|
 /// Fill every column's nulls from above — each null cell takes the nearest
 /// present value above it, a leading null run staying null; `limit?` caps
-/// the consecutive slots one value may fill (Polars'
-/// `fill_null(strategy='forward', limit)`).
+/// the consecutive slots one value may fill.
 pub fn DataFrame::fill_null_forward(
   self : DataFrame,
   limit? : Int32,
@@ -164,8 +162,7 @@ pub fn DataFrame::fill_null_forward(
 }
 
 ///|
-/// Fill every column's nulls from below — `fill_null_forward`'s mirror
-/// (Polars' `fill_null(strategy='backward', limit)`).
+/// Fill every column's nulls from below — `fill_null_forward`'s mirror.
 pub fn DataFrame::fill_null_backward(
   self : DataFrame,
   limit? : Int32,
@@ -175,10 +172,10 @@ pub fn DataFrame::fill_null_backward(
 
 ///|
 /// Replace every `NaN` cell of the **`Float`** columns with `value`,
-/// leaving every other column verbatim (Polars' frame-wide
-/// `df.fill_nan(value)`: `NaN` is a value, not a missing cell, so only the
-/// float domain can hold one). Null cells are untouched — they are missing,
-/// not `NaN`. Names, dtypes, and the row count are unchanged.
+/// leaving every other column verbatim — `NaN` is a value, not a missing
+/// cell, so only the float domain can hold one. Null cells are untouched —
+/// they are missing, not `NaN`. Names, dtypes, and the row count are
+/// unchanged.
 pub fn DataFrame::fill_nan(
   self : DataFrame,
   value : Double,

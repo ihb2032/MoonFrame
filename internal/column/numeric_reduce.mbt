@@ -20,7 +20,7 @@
 /// - `Int` → `Scalar::Int`, accumulated in 64-bit `Int64` (sums past the
 ///   32-bit ceiling do not overflow).
 /// - `Float` → `Scalar::Float`, accumulated in `Double`; a `NaN` cell
-///   propagates (Polars semantics — `NaN` is a value, not missing).
+///   propagates — `NaN` is a value, not missing.
 /// - Empty → the additive identity (`Scalar::Int(0)` / `Scalar::Float(0.0)`).
 ///
 /// Total. There is no missing value to skip and no non-numeric dtype to
@@ -46,7 +46,7 @@ pub fn NumericColumn::sum(self : NumericColumn) -> @types.Scalar {
 ///
 /// The denominator is the cell count `len` — every slot is present, so there
 /// is no non-null count to compute. A `Float` `NaN` propagates through the
-/// sum to a `NaN` mean (Polars semantics); an `Int` column accumulates in
+/// sum to a `NaN` mean; an `Int` column accumulates in
 /// `Double` (`fold_double_sum` widening each cell), the mean-safe form.
 ///
 /// `raise InvalidOperation` on an empty column: the mean of zero values is
@@ -72,8 +72,8 @@ pub fn NumericColumn::mean(
 /// Minimum cell as a `Scalar`, by the dtype's natural order. Total, matching
 /// `Series::min`:
 /// - Empty column → `Scalar::Null`.
-/// - `Float` `NaN` is skipped (treated as missing for the extremum, as in
-///   Polars' regular `min` — distinct from `sum` / `mean`, where it
+/// - `Float` `NaN` is skipped (treated as missing for the extremum —
+///   distinct from `sum` / `mean`, where it
 ///   propagates, and from `sort`, which orders `NaN` as the largest value).
 ///   An all-`NaN` `Float` column → `Scalar::Null`.
 pub fn NumericColumn::min(self : NumericColumn) -> @types.Scalar {
@@ -89,8 +89,8 @@ pub fn NumericColumn::max(self : NumericColumn) -> @types.Scalar {
 
 ///|
 /// Shared min/max kernel: the natural-order extremum over the cells, `want_min`
-/// choosing `<` over `>`. `Float` `NaN` is skipped (missing for the extremum,
-/// as in Polars' regular min/max; `sort` instead orders `NaN` as the largest
+/// choosing `<` over `>`. `Float` `NaN` is skipped (missing for the extremum;
+/// `sort` instead orders `NaN` as the largest
 /// value); an empty or all-`NaN` column yields
 /// `Scalar::Null`. `min` / `max` are this with `want_min` true / false — the
 /// comparison is the only difference, so it is the only thing parameterised

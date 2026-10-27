@@ -587,7 +587,7 @@ test "cast to String renders value-style across dtypes" {
 // ── ordering verbs ────────────────────────────────────────────────────
 
 ///|
-test "Series::sort orders values, defaulting to ascending with nulls first, as Polars" {
+test "Series::sort orders values, defaulting to ascending with nulls first" {
   let s = @series.Series::from_int_options("v", [
     Some(3),
     None,
@@ -600,7 +600,7 @@ test "Series::sort orders values, defaulting to ascending with nulls first, as P
     @types.Scalar::Int(2),
     @types.Scalar::Int(3),
   ])
-  // Missing placement is direction-independent, as in Polars:
+  // Missing placement is direction-independent:
   // `nulls_last = false` keeps nulls leading even under `descending` —
   // the flag says where nulls sit, and only the value comparison turns
   // around.
@@ -679,7 +679,7 @@ test "Series::head / tail / reverse mirror the DataFrame verbs" {
     @types.Scalar::Int(1),
   ])
   // Clamping: an oversized count is everything; a negative one drops from
-  // the opposite end, as Polars' head / tail do.
+  // the opposite end.
   assert_eq(s.head(-1).len(), 3)
   assert_eq(s.head(-1).get(2), @types.Scalar::Int(3))
   assert_eq(s.tail(-1).len(), 3)

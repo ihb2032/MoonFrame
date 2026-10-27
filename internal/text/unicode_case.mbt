@@ -83,7 +83,7 @@ fn in_ranges(ranges : Array[(UInt32, UInt32)], cp : UInt32) -> Bool {
 /// `Final_Sigma` (SpecialCasing.txt): `Σ` maps to `ς` iff it is preceded by
 /// a cased letter and not followed by one, skipping `Case_Ignorable`
 /// characters on both sides — the one contextual rule the *default* case
-/// conversion carries (Polars and Rust's `str::to_lowercase` apply it too).
+/// conversion carries (Rust's `str::to_lowercase` applies it too).
 fn final_sigma(chars : Array[Char], i : Int32) -> Bool {
   // Backward from the sigma: the first non-ignorable character must be a
   // cased one ("ΟΔΟΣ" — Δ before the final sigma).

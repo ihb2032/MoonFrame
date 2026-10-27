@@ -10,7 +10,7 @@
 ///     no left match, the left-hand columns are filled with nulls. The
 ///     output leads with the right frame's columns (key included, values
 ///     from the right) and the left non-key columns follow, a clashing left
-///     one suffixed — Polars' swapped-left-join reading.
+///     one suffixed — the left join's own layout with the sides exchanged.
 ///   * `Outer` — the full outer join: keep matched pairs plus every
 ///     unmatched row from **both** sides (the missing side's columns null).
 ///     Left rows (matched and unmatched) come first in left order, then the
@@ -43,8 +43,8 @@ pub extend JoinType with Debug::{to_repr}
 /// `on` join, a paired `left_on` / `right_on` join, and a keyless cross join —
 /// no combination of them can be spelled.
 ///
-///   * `on` — the key **expressions**, evaluated over **both** frames
-///     (Polars' `IntoExpr`). A bare `col("id")` matches on an existing
+///   * `on` — the key **expressions**, evaluated over **both** frames.
+///     A bare `col("id")` matches on an existing
 ///     column; a derived key such as `col("ts") / lit_int(86400)` matches
 ///     on the computed value. `["region", "product"]`-style multi-key joins
 ///     become `[col("region"), col("product")]`, matched on the tuple. An
@@ -67,7 +67,7 @@ pub extend JoinType with Debug::{to_repr}
 ///   * `suffix` — appended to a **right** column whose name also occurs in
 ///     the left frame (default `"_right"`); the left column keeps its name.
 ///   * `coalesce` — whether each key column is merged into a single output
-///     column. `None` (the default) auto-selects by `how`, matching Polars:
+///     column. `None` (the default) auto-selects by `how`:
 ///     an inner / left / right join **coalesces** (the key appears once),
 ///     while `Outer` does **not** (the right key is kept as
 ///     `<key><suffix>`, null wherever its row had no match, so matched and
@@ -75,8 +75,7 @@ pub extend JoinType with Debug::{to_repr}
 ///     `Some(false)` never does. Coalescing only applies when keying by
 ///     `on` whose every key is a bare `col(...)` (the precondition for the
 ///     key to name a single column on both sides); `left_on` / `right_on`
-///     and any derived key turn it off, keeping both key columns (Polars'
-///     "join on a non-column expression turns off coalescing"). When
+///     and any derived key turn it off, keeping both key columns. When
 ///     coalesced the single key takes its value from whichever side is
 ///     present on that row (the two are equal on a matched pair) — the left
 ///     on `Inner` / `Left`, the right on `Right`, and the present side per
@@ -127,7 +126,7 @@ pub extend JoinOptions with Debug::{to_repr}
 /// **both** frames (`JoinOptions::on([col("id")])`). `how` defaults to an
 /// inner join, `suffix` to `"_right"` for a right column whose name collides
 /// with a left one, and an omitted `coalesce` leaves key coalescing on
-/// automatic (by `how`, matching Polars); pass `coalesce=true` / `false` to
+/// automatic (by `how`); pass `coalesce=true` / `false` to
 /// force it.
 ///
 /// The `keys` array is copied (as in `left_on`), so mutating it after
@@ -148,7 +147,7 @@ pub fn JoinOptions::on(
 /// (`JoinOptions::left_on([col("a")], right_on=[col("b")])`). Taking both
 /// sides at once makes an unpaired specification unspellable. Defaults match
 /// `on`, except that `left_on` / `right_on` keys never coalesce — both key
-/// columns are kept (Polars' rule).
+/// columns are kept.
 ///
 /// Both arrays are copied, so mutating them after construction cannot alter
 /// the join specification.

@@ -1,13 +1,13 @@
 ///|
-/// Which row of a set of duplicates `DataFrame::unique` keeps — Polars'
-/// `keep` parameter. Two rows are duplicates under the same composite
+/// Which row of a set of duplicates `DataFrame::unique` keeps. Two rows are
+/// duplicates under the same composite
 /// `KeyCell` encoding `group_by` / `join` use (a `Float` `NaN` equals `NaN`,
 /// `-0.0` folds into `+0.0`, and a **null** cell is an ordinary value).
 ///
 /// - `First` keeps the earliest occurrence of each distinct row;
 /// - `Last` keeps the latest;
 /// - `None` keeps only rows that have **no** duplicate at all — every row of a
-///   duplicated set is dropped (Polars' `keep='none'`).
+///   duplicated set is dropped.
 ///
 /// The kept rows always come out in ascending original-row order, so the result
 /// is deterministic without a sort regardless of strategy.
@@ -24,7 +24,7 @@ pub extend KeepStrategy with Eq::{equal, not_equal}
 pub extend KeepStrategy with Debug::{to_repr}
 
 ///|
-/// Drop duplicate rows — Polars' `df.unique(maintain_order=True)`. Two rows are
+/// Drop duplicate rows. Two rows are
 /// duplicates when every cell is equal under the same composite `KeyCell`
 /// encoding `group_by` and `join` use: a `Float`
 /// `NaN` equals `NaN`, `-0.0` folds into `+0.0`, and — like a `group_by` key — a
@@ -42,8 +42,8 @@ pub extend KeepStrategy with Debug::{to_repr}
 /// gathered content, not the source; the schema, values, and frame invariants
 /// are unchanged.
 ///
-/// `subset` picks the columns whose values form the duplicate key (Polars'
-/// `subset`); omitted, every column takes part. The output always carries **all**
+/// `subset` picks the columns whose values form the duplicate key;
+/// omitted, every column takes part. The output always carries **all**
 /// columns either way — a subset narrows what counts as a duplicate, not what
 /// is returned. Like `drop` / `drop_nulls`, each `subset` entry is consulted by
 /// its **output name** only and never evaluated: pass bare `col(name)`
@@ -169,10 +169,9 @@ fn DataFrame::duplication_mask(
 
 ///|
 /// A `Bool` cell per row marking rows that duplicate some other row —
-/// **every** occurrence of a repeated composite key is `true` (Polars'
-/// `df.is_duplicated()`, the row-level mask over all columns; Polars also
-/// exposes a per-column spelling on its expressions, which MoonFrame does
-/// not carry). Two rows are duplicates under the same composite
+/// **every** occurrence of a repeated composite key is `true` (the
+/// row-level mask over all columns; there is no per-column spelling).
+/// Two rows are duplicates under the same composite
 /// `KeyCell` encoding `unique` / `group_by` use. Total — never fails.
 pub fn DataFrame::is_duplicated(self : DataFrame) -> Series {
   self.duplication_mask("is_duplicated", true)
@@ -181,7 +180,7 @@ pub fn DataFrame::is_duplicated(self : DataFrame) -> Series {
 ///|
 /// A `Bool` cell per row marking rows with no duplicate — the pointwise
 /// complement of `is_duplicated`, sharing its key encoding and total
-/// contract (Polars' `df.is_unique()`).
+/// contract.
 pub fn DataFrame::is_unique(self : DataFrame) -> Series {
   self.duplication_mask("is_unique", false)
 }

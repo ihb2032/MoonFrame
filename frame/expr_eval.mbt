@@ -41,7 +41,7 @@
 ///   non-numeric operands are `TypeMismatch`. `Int` arithmetic wraps
 ///   (MoonBit `Int64` — total, never aborts); `Float` follows IEEE 754,
 ///   so NaN propagates as a value.
-/// - **Division** (`/`): always `Float` (Polars `/`), `Int` operands
+/// - **Division** (`/`): always `Float`, `Int` operands
 ///   promote; division by zero follows IEEE 754 (`±inf` / `nan`) on every
 ///   backend — `Int` division by zero is backend-divergent, so it is
 ///   never emitted.
@@ -49,8 +49,7 @@
 ///   compare **exactly** — the `Int64` is never promoted to `Double`, so two
 ///   distinct values cannot collide above `2^53` (`cmp_int_double`,
 ///   over the numeric primitives `int64_eq_double` /
-///   `int64_lt_double` / `double_lt_int64`; a deliberate departure from
-///   Polars' Float64-supertype rule), `String` compares by `compare_string_lex`
+///   `int64_lt_double` / `double_lt_int64`), `String` compares by `compare_string_lex`
 ///   (dictionary order, not MoonBit's shortlex), `Bool` orders
 ///   `false < true`; mixed non-numeric pairs are `TypeMismatch`. A null
 ///   on either side nulls the cell; NaN is a *value* under IEEE 754
@@ -88,7 +87,7 @@
 ///   canonically — change them there first. One deliberate divergence: an
 ///   empty / all-null `mean` is a **null cell**, not
 ///   `InvalidOperation` — per-group reductions (E4) must be able to
-///   produce a null for an all-null group, mirroring Polars.
+///   produce a null for an all-null group.
 /// - **Map** (`map_elements` / `map_many`, the closure escape hatch): apply
 ///   an opaque host closure row by row across the input columns (each cell a
 ///   `Scalar`, a null as `Scalar::Null`, the closure called for every row
@@ -97,7 +96,7 @@
 ///   engine's `Int ↔ Float` rule) rather than nulling the minority. An
 ///   all-null result has no non-null cell to fix the dtype, so it borrows the
 ///   leftmost input's *logical dtype* and yields an all-null column of
-///   that dtype (Polars' tolerance of a null-returning map) — the dtype only,
+///   that dtype (a null-returning map is tolerated) — the dtype only,
 ///   never that input's storage backend, which the result decides from its own
 ///   content like any computed column. Any input can be that witness, a literal
 ///   included; only a *zero-input* map (nothing to borrow a dtype from, e.g.
@@ -358,7 +357,7 @@ fn eval_expr(
             // whose total leaves the `Int64` range refuses (the exact
             // dtype's contract); `Mean` always `Float`
             // with an empty / all-null window yielding a **null cell**
-            // (Polars `mean` semantics — deliberately not `Series::mean`'s
+            // (deliberately not `Series::mean`'s
             // `InvalidOperation`, a per-group reduction must produce a value
             // slot); `Min` / `Max` total over every dtype in the operand's
             // own dtype, `NaN` skipped, empty / all-null / all-`NaN` reduces

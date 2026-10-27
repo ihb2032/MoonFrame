@@ -221,10 +221,10 @@ pub fn Series::from_string_options(
 }
 
 ///|
-/// The one public nullable constructor — Polars' `pl.Series(name, [1, None])`
-/// translated to a statically-typed language: the cells carry their own
-/// nullness as `Scalar`, and the column's dtype is `dtype~` when given, or
-/// the dtype of the first non-null cell when not. The null-free `from_ints` /
+/// The one public nullable constructor, spelled for a statically-typed
+/// language: the cells carry their own nullness as `Scalar`, and the
+/// column's dtype is `dtype~` when given, or the dtype of the first
+/// non-null cell when not. The null-free `from_ints` /
 /// `from_floats` / `from_bools` / `from_strings` constructors stay the typed
 /// fast path; this is the door for cells that may be null — including
 /// `Scalar::Date`, which has no other public constructor.
@@ -503,8 +503,8 @@ pub fn Series::is_null(self : Series, i : Int32) -> Bool raise @types.DataError 
 
 ///|
 /// Read cell `i` as a `Scalar` (`Null` for null cells) — the bracket
-/// spelling `s[0]` (Polars' `s[0]`). Out-of-bounds indices bubble the
-/// underlying `IndexOutOfBounds` error; a negative index does **not** wrap
+/// spelling `s[0]`. Out-of-bounds indices bubble the underlying
+/// `IndexOutOfBounds` error; a negative index does **not** wrap
 /// from the end (MoonBit indexing convention — the slice spelling `s[-1:]`
 /// is where negatives count from the end).
 #alias("_[_]")
@@ -544,8 +544,8 @@ pub fn Series::to_scalars(self : Series) -> Array[@types.Scalar] {
 /// renderers use it); this is the streaming counterpart — a cell at a
 /// time, with the `Iter` combinator family (`map`, `filter`, `fold`, …)
 /// reachable without paying for the intermediate array. Yielding a boxed
-/// cell is the standard shape for this surface: Polars' series iteration
-/// yields `AnyValue`, nulls included as a variant.
+/// cell is the standard shape for this surface — one variant carries every
+/// cell, nulls included.
 pub fn Series::iter(self : Series) -> Iter[@types.Scalar] {
   let len = self.len()
   let valid = self.validity_bools()

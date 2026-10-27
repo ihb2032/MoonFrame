@@ -155,8 +155,8 @@ pub fn DataFrame::rename(
 
 ///|
 /// Return a copy of `self` with **every** column renamed through `f`: each
-/// column's new name is `f(old_name)`. The callable form of `rename` — Polars'
-/// `df.rename(function)` — for a uniform transform (a prefix, a case fold) over
+/// column's new name is `f(old_name)`. The callable form of `rename`, for
+/// a uniform transform (a prefix, a case fold) over
 /// the whole schema rather than an explicit `old -> new` list.
 ///
 /// `f` is total, so the only failure is a collision: if `f` maps two distinct

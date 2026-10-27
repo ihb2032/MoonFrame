@@ -4,7 +4,7 @@
 // the transforms that keep a frame's schema verbatim and act on *rows*
 // only (`sort` for row arrangement and `unique` for row identity stay in
 // their own files). The row counts they share come from `@order`:
-// `window_take` for the Polars head/tail convention, `slice_start` /
+// `window_take` for the head/tail convention, `slice_start` /
 
 ///|
 /// Keep only the rows where `predicate` evaluates to `true` — MoonFrame's
@@ -21,8 +21,8 @@
 ///
 /// The predicate must evaluate to a `Bool` column (`TypeMismatch`
 /// otherwise). A row is kept where its cell is `true`; `false` **and
-/// null** cells drop the row (the Polars rule — an unknown is not a
-/// keep). The mask rides the shared length contract: a length-1
+/// null** cells drop the row — an unknown is not a
+/// keep. The mask rides the shared length contract: a length-1
 /// result — a literal, or an aggregation comparison like
 /// `col("qty").sum().gt(lit_int(0))` — broadcasts over the frame, keeping every
 /// row or none, while a mask that is neither frame-tall nor length-1 raises
@@ -80,13 +80,12 @@ pub fn DataFrame::filter_row_indices(
 // `slice_len` for the saturating window.
 
 ///|
-/// First `n` rows (or all rows if `n >= nrows`) — Polars' `head`. A negative
+/// First `n` rows (or all rows if `n >= nrows`). A negative
 /// `n` keeps every row but the last `|n|` (`head(-2)` drops the final two
 /// rows), saturating to the empty frame when `|n|` reaches past it — no
-/// rows are left to keep. Total —
-/// never fails. Also exposed under its Polars / SQL name
-/// `limit` (via `#alias`) — the eager twin of `LazyFrame::limit`, keeping
-/// the two surfaces verb-for-verb aligned.
+/// rows are left to keep. Total — never fails. Also exposed under its SQL
+/// name `limit` (via `#alias`) — the eager twin of `LazyFrame::limit`,
+/// keeping the two surfaces verb-for-verb aligned.
 #alias(limit)
 pub fn DataFrame::head(self : DataFrame, n : Int32) -> DataFrame {
   let m = @order.window_take(n, self.nrows)
@@ -98,11 +97,10 @@ pub fn DataFrame::head(self : DataFrame, n : Int32) -> DataFrame {
 }
 
 ///|
-/// Last `n` rows (or all rows if `n >= nrows`) — Polars' `tail`. A negative
+/// Last `n` rows (or all rows if `n >= nrows`). A negative
 /// `n` keeps every row but the first `|n|` (`tail(-2)` drops the leading two
 /// rows), saturating to the empty frame when `|n|` reaches past it — no
-/// rows are left to keep. Total —
-/// never fails.
+/// rows are left to keep. Total — never fails.
 pub fn DataFrame::tail(self : DataFrame, n : Int32) -> DataFrame {
   let m = @order.window_take(n, self.nrows)
   let start = self.nrows - m
@@ -112,7 +110,7 @@ pub fn DataFrame::tail(self : DataFrame, n : Int32) -> DataFrame {
 }
 
 ///|
-/// A length-first row window — Polars' `slice(offset, length)`. The window
+/// A length-first row window. The window
 /// starts `offset` rows in: a negative `offset` counts from the end
 /// (`slice(-1)` is the last row), saturating to the frame's first row when
 /// it reaches past it. `length` omitted runs to the frame's end; a given
@@ -136,7 +134,7 @@ pub fn DataFrame::slice(
 }
 
 ///|
-/// Every `n`-th row starting at `offset` (Polars' `gather_every(n, offset)`):
+/// Every `n`-th row starting at `offset`:
 /// rows `offset`, `offset + n`, `offset + 2n`, … — a strided gather that
 /// keeps the schema and the stride order. `offset` past the row count is the
 /// empty frame. Unlike the neighbouring window verbs this is **not** total:
@@ -177,10 +175,10 @@ pub fn DataFrame::gather_every(
 }
 
 ///|
-/// The bracket-slice sugar — Polars' `df[1:3]` / `df[2:]` / `df[:-1]`: a
+/// The bracket-slice sugar — `df[1:3]` / `df[2:]` / `df[:-1]`: a
 /// half-open `[start, end)` row window where an omitted bound runs to that
 /// end and a negative one counts from it, saturating like every window verb,
-/// with crossed bounds an empty frame. Sugar in Polars' own sense: the
+/// with crossed bounds an empty frame. Sugar in the strict sense: the
 /// bounds normalize (`between_bounds`) into the one `(offset, length)`
 /// window kernel `slice` runs, so the two spellings cannot disagree. Total —
 /// never fails. Reached as `df[a:b]`.
@@ -224,8 +222,8 @@ pub fn DataFrame::gather(
 // frame already carries, and a counter that would run past `Int64::MAX`.
 
 ///|
-/// Reverse the row order, keeping every column and its dtype — Polars'
-/// `df.reverse()`. The schema is untouched, so a reversed frame is a frame
+/// Reverse the row order, keeping every column and its dtype. The schema
+/// is untouched, so a reversed frame is a frame
 /// with the same columns in the same order, read bottom-up.
 ///
 /// Total: the permutation is `[n-1, …, 0]`, in bounds by construction. A
@@ -243,10 +241,10 @@ pub fn DataFrame::reverse(self : DataFrame) -> DataFrame {
 }
 
 ///|
-/// Prepend a row-number column — Polars' `df.with_row_index(name, offset)`.
+/// Prepend a row-number column.
 /// The counter is an `Int` column named `name` (default `"index"`) holding
 /// `offset`, `offset + 1`, … in row order, and it lands **first**, ahead of
-/// the frame's own columns, as in Polars.
+/// the frame's own columns.
 ///
 /// Raises `DuplicateColumn(name)` when the frame already has a column of that
 /// name — the frame's own invariant, surfaced by the `Schema` the rebuild
@@ -257,8 +255,7 @@ pub fn DataFrame::reverse(self : DataFrame) -> DataFrame {
 /// Raises `InvalidOperation` when the last number would not fit: the counter
 /// runs `offset ..= offset + nrows - 1`, and past `Int64::MAX` MoonBit's
 /// wrapping addition would carry it round to `Int64::MIN`, leaving a column
-/// that is neither increasing nor dense. Polars refuses the same overflow
-/// against its own index type.
+/// that is neither increasing nor dense.
 pub fn DataFrame::with_row_index(
   self : DataFrame,
   name~ : String = "index",

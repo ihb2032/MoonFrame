@@ -621,7 +621,7 @@ test "grouped agg of a map-wrapped reduction keeps a non-numeric result dtype" {
 /// The general agg path used to raise `Unsupported` mid-iteration on such a
 /// group; now the map falls back to the input (`revenue`, `Int`) backend, so
 /// the per-group sum reduces to the additive identity `Int(0)` and the
-/// aggregation completes (matching Polars' tolerance of a null-returning map).
+/// aggregation completes (a null-returning map is tolerated).
 test "grouped agg of an all-null map reduction is the additive identity, not an error" {
   let nullify = @expr.col("revenue").map_elements(label="nullify", _s => {
     @types.Scalar::Null
@@ -818,8 +818,7 @@ test "variance and std of opposite-sign extremes saturate to +inf, never negativ
   // Finite cells more than Double-max apart: Welford's running `delta`
   // overflows and used to poison `m2` to -inf — a mathematically impossible
   // NEGATIVE variance, and sqrt(-inf) = NaN for std. The true variance
-  // (~2e616) exceeds Double's range, so the statistic saturates to +inf,
-  // as numpy (ddof=1) and Polars report.
+  // (~2e616) exceeds Double's range, so the statistic saturates to +inf.
   let two = DataFrame::DataFrame([Series::from_floats("x", [-1.0e308, 1.0e308])])
   assert_eq(
     whole(two, @expr.col("x").variance()),
@@ -945,7 +944,7 @@ test "n_unique buckets every NaN as one value and counts the null" {
   ])
   assert_eq(whole(floats, @expr.col("x").n_unique()), @types.Scalar::Int(2))
   // [1, null, 1, 2] has three distinct values — two Ints and the null
-  // bucket, as in Polars.
+  // bucket.
   let sparse = DataFrame::DataFrame([
     Series::from_int_options("x", [Some(1), None, Some(1), Some(2)]),
   ])

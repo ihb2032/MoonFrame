@@ -32,9 +32,8 @@
 /// not a reduction. The check is structural, hence deterministic:
 /// `agg([col("a")])` raises `InvalidOperation` even when every group
 /// happens to hold a single row, where a dynamic length test would
-/// data-dependently pass. (Polars would implicitly collect the group into
-/// a list value; MoonFrame has no list dtype, so implicit list-aggregation
-/// stays out of scope.)
+/// data-dependently pass. (MoonFrame has no list dtype, so a
+/// collect-the-group-into-a-list reading stays out of scope.)
 ///
 /// Evaluation reuses the shared expression engine with `scope =` each
 /// group's row indices, inheriting the evaluator's documented aggregation

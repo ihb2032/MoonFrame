@@ -54,11 +54,11 @@ fn index_by_join_key(
 /// composite-`KeyCell`-tuple encoding `group_by` uses; the tuple is
 /// structurally injective across key columns. The one deliberate difference
 /// from `group_by`: a **null** key
-/// cell matches **nothing** (`null != null`, the SQL / Polars default) —
+/// cell matches **nothing** (`null != null`) —
 /// such an unmatched row is dropped by `Inner` and kept (with the other
 /// side's columns null) by `Left` / `Right` / `Outer`. A `Float` `NaN` key
-/// is *not* null, so — as in `group_by`, and matching Polars' "NaN compares
-/// equal" rule — all `NaN` keys match each other.
+/// is *not* null, so — as in `group_by`, where `NaN` compares equal — all
+/// `NaN` keys match each other.
 ///
 /// `how` selects which unmatched rows survive:
 ///   * `Inner` — only matched pairs.
@@ -76,7 +76,7 @@ fn index_by_join_key(
 ///     shape where a key names the same column on both sides); `left_on` /
 ///     `right_on` and any derived key never coalesce. Whether an eligible
 ///     right key column is kept is then governed by `options.coalesce`
-///     (`None` = auto by `how`, matching Polars: an inner / left / right join
+///     (`None` = auto by `how`: an inner / left / right join
 ///     coalesces, an outer join does not). When coalesced, the key appears
 ///     once at the left key's position, taking each row's value from
 ///     whichever side is present (the left on `Inner` / `Left`, the right
@@ -199,7 +199,7 @@ fn DataFrame::plan_join_rows(
       }
     }
     Cross => {
-      // A cross join takes no keys (Polars rejects keys with `how="cross"`).
+      // A cross join takes no keys.
       if !options.on.is_empty() ||
         !options.left_on.is_empty() ||
         !options.right_on.is_empty() {
@@ -220,8 +220,9 @@ fn DataFrame::plan_join_rows(
       // each right row in order. The row set is every right row — its left
       // matches (in ascending left-row order), else the right row alone with
       // null left columns. The output leads with the right columns and the
-      // left non-key columns follow, a clashing left one suffixed — Polars'
-      // swapped-left-join reading (see `assemble_join_output`).
+      // left non-key columns follow, a clashing left one suffixed — the
+      // column layout the left join's own mirror gives (see
+      // `assemble_join_output`).
       let (left_key_scalars, right_key_scalars) = self.resolve_join_keys(
         other, options,
       )
@@ -333,8 +334,8 @@ fn DataFrame::assemble_join_output(
   // same column on both sides (`coalesce_key_names` returns those names);
   // `left_on` / `right_on` and derived keys turn coalescing off. When
   // eligible, an explicit `coalesce` argument wins, else it is auto by `how`
-  // (inner / left / right coalesce → key once; outer / cross do not),
-  // matching Polars' `coalesce = None`. `on_set` is the set of names to
+  // (inner / left / right coalesce → key once; outer / cross do not).
+  // `on_set` is the set of names to
   // coalesce — empty whenever coalescing is off, so the assembly below
   // keeps every column.
   let coalesce_names = options.coalesce_key_names()
@@ -359,11 +360,11 @@ fn DataFrame::assemble_join_output(
     left_names[n] = ()
   }
   let out_cols : Array[Series] = []
-  // A right join leads with the right frame's columns — Polars implements
-  // it as a swapped left join, so the right schema (key included, values
-  // from the right) comes first in right order and the left frame's
-  // non-key columns follow in left order, a clashing left column taking
-  // the suffix (the rename the swap moved onto the left side).
+  // A right join leads with the right frame's columns: the right schema
+  // (key included, values from the right) comes first in right order and
+  // the left frame's non-key columns follow in left order, a clashing left
+  // column taking the suffix — the left join's own layout with the two
+  // sides exchanged.
   if options.how is Right {
     let right_names : Map[String, Unit] = Map([])
     for n in other.columns() {
@@ -513,7 +514,7 @@ fn DataFrame::resolve_join_keys(
   // treating two equal keys as one. This applies to `on` only (`dedup`): with
   // `left_on` / `right_on`, a repeated *left* key is a legitimate
   // multi-condition join (`left_on([a, a]).right_on([b, c])` means `a == b AND
-  // a == c`, which Polars allows) — the left and right key columns carry their
+  // a == c`) — the left and right key columns carry their
   // own names, so there is no output-column collision to pre-empt. Only a bare
   // `col(name)` participates even on the `on` path: a *derived* key (any
   // non-`Col` expression) contributes no output column — the output is the two
@@ -599,8 +600,7 @@ fn JoinOptions::join_key_exprs(
 /// `col(...)` reads the same-named column from both frames — the
 /// precondition for merging a key into one output column. `left_on` /
 /// `right_on` (paired, possibly differently-named keys) and any derived
-/// `on` key turn coalescing off (matching Polars: "join on a non-column
-/// expression turns off coalescing"), so both key columns are kept.
+/// `on` key turn coalescing off, so both key columns are kept.
 fn JoinOptions::coalesce_key_names(self : JoinOptions) -> Array[String]? {
   if !self.left_on.is_empty() || !self.right_on.is_empty() {
     return None

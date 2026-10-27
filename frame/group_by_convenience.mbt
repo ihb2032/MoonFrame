@@ -1,6 +1,6 @@
-// The `group_by` convenience verbs — Polars' `GroupBy.sum()` / `.mean()` /
-// `.count()` / `.len()` / … — one aggregation applied to **every non-key
-// column** of the grouped frame. Each is sugar: `sum()` is exactly
+// The `group_by` convenience verbs — `sum()` / `mean()` / `count()` / `len()`
+// / … — one aggregation applied to **every non-key column** of the grouped
+// frame. Each is sugar: `sum()` is exactly
 // `agg([col(n).sum() for every non-key column n])`, in source column order,
 // so every rule the general `agg` documents — key columns heading the output
 // in key order, one row per group in first-appearance order, the shared
@@ -16,8 +16,8 @@
 // leftmost column it reads). A frame whose every column is a key reduces to
 // the distinct key tuples, `agg([])`'s shape.
 //
-// `count` / `len` are different verbs, Polars' split: `count()` holds each
-// non-key column's **non-null cell count** (an `Int` cell per column, the
+// `count` / `len` are different verbs: `count()` holds each non-key
+// column's **non-null cell count** (an `Int` cell per column, the
 // `Expr::count` reduction), while `len()` is the single `Int` column
 // `"len"` holding each group's **row count** — nulls included, dtype-blind,
 // the one convenience that ignores the columns entirely.
@@ -46,7 +46,7 @@ fn GroupedDataFrame::agg_op_all(
 /// Sum of every non-key column, per group — `agg` with `col(n).sum()` for
 /// each non-key column `n`: numeric columns keep their dtype, an all-null
 /// group sums to the additive identity, and a non-numeric non-key column
-/// `raise`s `TypeMismatch` (Polars' `gb.sum()`).
+/// `raise`s `TypeMismatch`.
 pub fn GroupedDataFrame::sum(
   self : GroupedDataFrame,
 ) -> DataFrame raise @types.DataError {
@@ -56,7 +56,7 @@ pub fn GroupedDataFrame::sum(
 ///|
 /// Mean of every non-key column, per group — `agg` with `col(n).mean()`
 /// for each non-key column `n`: `Float` cells, an all-null group a `Null`
-/// cell (Polars' `gb.mean()`).
+/// cell.
 pub fn GroupedDataFrame::mean(
   self : GroupedDataFrame,
 ) -> DataFrame raise @types.DataError {
@@ -65,7 +65,7 @@ pub fn GroupedDataFrame::mean(
 
 ///|
 /// Median of every non-key column, per group — `agg` with `col(n).median()`
-/// for each non-key column `n` (Polars' `gb.median()`).
+/// for each non-key column `n`.
 pub fn GroupedDataFrame::median(
   self : GroupedDataFrame,
 ) -> DataFrame raise @types.DataError {
@@ -75,7 +75,7 @@ pub fn GroupedDataFrame::median(
 ///|
 /// `q`-th quantile of every non-key column, per group, under
 /// `interpolation` (default `Nearest`) — `agg` with `col(n).quantile(q)`
-/// for each non-key column `n` (Polars' `gb.quantile(q)`).
+/// for each non-key column `n`.
 pub fn GroupedDataFrame::quantile(
   self : GroupedDataFrame,
   q : Double,
@@ -92,8 +92,8 @@ pub fn GroupedDataFrame::quantile(
 
 ///|
 /// Sample standard deviation (`ddof = 1`) of every non-key column, per
-/// group (Polars reaches the same statistic through `agg`; MoonFrame spells
-/// the convenience for symmetry with `DataFrame::std`).
+/// group — `agg` with `col(n).std()` for each non-key column `n`, spelled
+/// as a convenience for symmetry with `DataFrame::std`.
 pub fn GroupedDataFrame::std(
   self : GroupedDataFrame,
 ) -> DataFrame raise @types.DataError {
@@ -112,7 +112,7 @@ pub fn GroupedDataFrame::variance(
 ///|
 /// Minimum of every non-key column, per group — total over every dtype, so
 /// `Bool` / `String` columns reduce too (a `NaN` is skipped), an all-null
-/// group a `Null` cell (Polars' `gb.min()`).
+/// group a `Null` cell.
 pub fn GroupedDataFrame::min(
   self : GroupedDataFrame,
 ) -> DataFrame raise @types.DataError {
@@ -121,8 +121,7 @@ pub fn GroupedDataFrame::min(
 
 ///|
 /// Maximum of every non-key column, per group — `min` with the order
-/// reversed, sharing its dtype-total and `NaN`-skipping rules (Polars'
-/// `gb.max()`).
+/// reversed, sharing its dtype-total and `NaN`-skipping rules.
 pub fn GroupedDataFrame::max(
   self : GroupedDataFrame,
 ) -> DataFrame raise @types.DataError {
@@ -131,8 +130,8 @@ pub fn GroupedDataFrame::max(
 
 ///|
 /// Non-null cell count of every non-key column, per group — an `Int` cell
-/// per column, total over every dtype (Polars' `gb.count()`; the row count
-/// regardless of nulls is `len`).
+/// per column, total over every dtype (the row count regardless of nulls
+/// is `len`).
 pub fn GroupedDataFrame::count(
   self : GroupedDataFrame,
 ) -> DataFrame raise @types.DataError {
@@ -141,7 +140,7 @@ pub fn GroupedDataFrame::count(
 
 ///|
 /// First cell of every non-key column, per group, in group row order —
-/// positional, so a null first cell is a `Null` cell (Polars' `gb.first()`).
+/// positional, so a null first cell is a `Null` cell.
 pub fn GroupedDataFrame::first(
   self : GroupedDataFrame,
 ) -> DataFrame raise @types.DataError {
@@ -150,7 +149,7 @@ pub fn GroupedDataFrame::first(
 
 ///|
 /// Last cell of every non-key column, per group, in group row order — the
-/// trailing mirror of `first` (Polars' `gb.last()`).
+/// trailing mirror of `first`.
 pub fn GroupedDataFrame::last(
   self : GroupedDataFrame,
 ) -> DataFrame raise @types.DataError {
@@ -160,8 +159,7 @@ pub fn GroupedDataFrame::last(
 ///|
 /// Distinct value count of every non-key column, per group — an
 /// `Int` cell per column over every dtype, with the documented `n_unique`
-/// rule (a null counts as one distinct value, every `NaN` one bucket;
-/// Polars' `gb.n_unique()`).
+/// rule (a null counts as one distinct value, every `NaN` one bucket).
 pub fn GroupedDataFrame::n_unique(
   self : GroupedDataFrame,
 ) -> DataFrame raise @types.DataError {
@@ -171,8 +169,8 @@ pub fn GroupedDataFrame::n_unique(
 ///|
 /// Row count per group as a single `Int` column named `"len"` — nulls
 /// included, dtype-blind: the one convenience that aggregates no column,
-/// reading the groups directly (Polars' `gb.len()`; per-column non-null
-/// counts are `count`). Raises only through the frame assembly below, whose
+/// reading the groups directly (per-column non-null counts are `count`).
+/// Raises only through the frame assembly below, whose
 /// failure paths cannot fire here except a key named `"len"` colliding
 /// (`DuplicateColumn`).
 pub fn GroupedDataFrame::len(

@@ -183,7 +183,7 @@ test "two surfaces agree: all-null numeric, with the documented mean divergence"
   // `mean` is the one deliberate divergence: the whole-column form raises
   // `InvalidOperation` (an all-null mean is undefined), while a per-group
   // reduction must yield a value slot — a **null cell** — for an all-null
-  // group (Polars semantics).
+  // group.
   assert_true(
     (Ok(x.mean()) catch { e => Err(e) })
     is Err(@types.DataError::InvalidOperation(_)),

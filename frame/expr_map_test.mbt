@@ -142,7 +142,7 @@ test "map: a closure raise propagates from the consuming verb" {
 test "map: an all-null result falls back to the input dtype as an all-null column" {
   // Every cell maps to null, so no non-null cell fixes the dtype. Rather than
   // fail, the map borrows the leftmost input's dtype (q is Int) and yields an
-  // all-null Int column — Polars tolerates a null-returning map. The dtype is
+  // all-null Int column — a null-returning map is tolerated. The dtype is
   // all that is borrowed: an all-null column carries a validity bitmap, so the
   // result is `Builtin` whatever backend `q` was stored on.
   let out = map_df().with_columns([

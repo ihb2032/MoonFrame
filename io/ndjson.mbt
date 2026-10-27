@@ -1,9 +1,7 @@
 // NDJSON (Newline-Delimited JSON, a.k.a. JSON Lines / `.ndjson` /
 // `.jsonl`) serialisation for `DataFrame`. The wire shape is one flat
 // JSON object per line (`{...}\n{...}\n...`) — the streaming-friendly
-// sibling of the single-array "records" layout. Polars'
-// `read_ndjson` / `write_ndjson` and pandas' `read_json(lines=True)` /
-// `to_json(lines=True)` speak the same format.
+// sibling of the single-array "records" layout.
 //
 // Everything *after* the framing is shared with the JSON-records reader:
 // per-line objects are collected into the same `Array[Json]` and handed
@@ -163,7 +161,7 @@ pub fn read_ndjson(
 ///|
 /// Render a `DataFrame` as an NDJSON string: one flat JSON object per
 /// row, each terminated by `\n` (including the last, matching the CSV
-/// writer's per-row LF and Polars' `write_ndjson`). A 0-row frame
+/// writer's per-row LF). A 0-row frame
 /// renders the empty string.
 ///
 /// Per-cell conventions are shared with `format_json` via

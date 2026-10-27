@@ -37,7 +37,7 @@ pub fn ExprNode::referenced_columns(self : ExprNode) -> @set.Set[String] {
 }
 
 ///|
-/// The output-column name this expression produces — Polars' naming rule: an
+/// The output-column name this expression produces — the naming rule: an
 /// alias wins, otherwise the leftmost column reference's name, otherwise
 /// `"literal"` for a column-less tree. One rule, two consumers that must never
 /// drift apart: the eager materialisers in `frame` (`with_columns` / `select` /
@@ -59,9 +59,9 @@ pub fn ExprNode::output_name(self : ExprNode) -> String {
 /// the leftmost path wins over the `Col` beneath it; the wrappers
 /// (`Unary` / `Agg` / `Cast`) and the binary / map operands are name-transparent,
 /// so the search rides `children` for them, taking the first child to yield a
-/// name (a `Map` is thus named after its leftmost input, like Polars'
-/// `map_elements`). A `LitSeries` names itself after the series it carries — like
-/// a `Col`. A `Ternary` draws its name from the value branches — `then` first,
+/// name (a `Map` is thus named after its leftmost input). A `LitSeries`
+/// names itself after the series it carries — like a `Col`. A `Ternary`
+/// draws its name from the value branches — `then` first,
 /// `otherwise` as fallback — never from the condition (the condition gates rows,
 /// it does not produce output values), so it is matched explicitly rather than
 /// walking all of its children. (`referenced_columns`, by contrast, includes

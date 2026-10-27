@@ -230,7 +230,7 @@ test "the cum_* arithmetic and extremum members are numeric-only" {
 }
 
 ///|
-test "rank numbers ties per method — Polars' own example" {
+test "rank numbers ties per method" {
   // [3, 6, 1, 1, 6]: the tie groups are the two 1s (sorted slots [0, 2))
   // and the two 6s ([3, 5)).
   let df = DataFrame::DataFrame([

@@ -347,7 +347,7 @@ test "Float NaN propagates through sum / mean but is skipped by min / max within
     ])
   assert_eq(out.check_invariants(), Ok(()))
   // Group a: NaN is a value that propagates → sum and mean are NaN; min /
-  // max skip NaN (Polars' regular min / max) → 1.0.
+  // max skip NaN → 1.0.
   assert_true(out.item(0, "v_sum").as_float().is_nan())
   assert_true(out.item(0, "v_mean").as_float().is_nan())
   assert_eq(out.item(0, "v_min"), @types.Scalar::Float(1.0))

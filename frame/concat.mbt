@@ -1,11 +1,10 @@
-// Vertical concatenation — Polars' `vstack`: the rows of `other` appended
+// Vertical concatenation: the rows of `other` appended
 // under `self`'s, one frame on top of the other. The two frames must agree
 // column-for-column **by position** — same column count, same name in each
-// slot, same dtype in each slot. The name check is Polars' own: it stacks
-// frames whose schemas already agree and refuses a slot whose names differ
-// (silently stacking the wrong column under a name is the bug that check
-// exists to prevent), so reordering `other`'s columns — or renaming them —
-// is the caller's job before `vstack`. The dtype check is exact, not
+// slot, same dtype in each slot. Silently stacking one column's values
+// under another column's name is the bug the name check exists to prevent,
+// so reordering `other`'s columns — or renaming them — is the caller's job
+// before `vstack`. The dtype check is exact, not
 // unifying: an `Int` column does not stack under a `Float` one; cast first
 // when the sources differ. Row counts are unconstrained — stacking onto a
 // 0-row frame is the schema-preserving way to "concat" — and the rebuilt
@@ -13,8 +12,8 @@
 // gather's do, since the backend follows the assembled content.
 
 ///|
-/// The rows of `other` appended under `self`'s, as one frame (Polars'
-/// `df.vstack(other)`). Raises `TypeMismatch` when the column counts
+/// The rows of `other` appended under `self`'s, as one frame.
+/// Raises `TypeMismatch` when the column counts
 /// differ, when any same-position pair of columns carries different names,
 /// or when any same-position pair carries different dtypes; the message
 /// names the count or the first offending column.

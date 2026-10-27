@@ -27,7 +27,7 @@ using @series {type Series, scalars_to_series}
 
 ///|
 /// Build the cells of a binary elementwise op: index `i` is `Some(f(i))` when
-/// both operands are present there, else `None` — the Arrow / Polars rule that
+/// both operands are present there, else `None` — the Arrow rule that
 /// a null on either side nulls the output cell. The shared null-gate behind
 /// every binary kernel in this package — arithmetic, division, the
 /// `Double`-result forms (`pow`), the null-on-zero forms (`%`, `//`), and the

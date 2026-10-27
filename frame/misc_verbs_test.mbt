@@ -140,7 +140,7 @@ test "sample is a deterministic function of its seed" {
     }
   }
   assert_true(unique)
-  // n past the row count raises (Polars' reading — no silent saturation,
+  // n past the row count raises (no silent saturation,
   // and an unshuffled whole frame would disagree with sample(n = nrows));
   // n = 0 is empty; negative raises.
   assert_true(

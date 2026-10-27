@@ -4,7 +4,7 @@
 
 ///|
 /// Project the frame to exactly the evaluated expressions — MoonFrame's
-/// single `select` verb (Polars' `df.select(...)`). Each expression is
+/// single `select` verb. Each expression is
 /// evaluated over the whole frame under the evaluator's shared dtype / null /
 /// NaN rules, so a projection can pick an existing column
 /// (`col("a")`), compute a new one (`col("a") + col("b")`), aggregate
@@ -13,7 +13,7 @@
 /// `select(cols(["a", "b"]))` — and behaves identically: a list of bare
 /// `col` references projects those columns in that order.
 ///
-/// Output height (the Polars `select` rule), under the shared length
+/// Output height (the `select` rule), under the shared length
 /// contract:
 /// - any frame-tall result fixes the height at `self.nrows()`, and every
 ///   length-1 result broadcasts up to it — down to zero rows on an empty
@@ -87,7 +87,7 @@ pub fn DataFrame::select(
 ///|
 /// Return a copy of `self` with the columns named by `columns` removed.
 /// Remaining columns keep their relative order — MoonFrame's single drop
-/// verb (Polars' `df.drop(...)`).
+/// verb.
 ///
 /// Each entry is an `Expr` resolved to a column name through
 /// `Expr::output_name`: a bare `col("x")` names `"x"`, an alias names
@@ -100,9 +100,9 @@ pub fn DataFrame::select(
 /// against a frame before the call.
 ///
 /// Duplicate keys are tolerated and act idempotently — dropping
-/// `[col("a"), col("a")]` is the same as dropping `[col("a")]`. This matches
-/// pandas / polars behavior and avoids forcing callers to deduplicate
-/// upstream when assembling a drop list from multiple sources.
+/// `[col("a"), col("a")]` is the same as dropping `[col("a")]`. This
+/// avoids forcing callers to deduplicate upstream when assembling a drop
+/// list from multiple sources.
 ///
 /// Dropping nothing (`drop([])`) returns the frame itself — a literal
 /// identity, declared schema included. A drop that does remove a column

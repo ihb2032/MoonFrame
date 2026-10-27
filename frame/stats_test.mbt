@@ -296,8 +296,8 @@ test "reductions on a 0-column frame are the 1x0 summary row" {
 ///|
 test "a single column's scalar reduction goes through its Series" {
   let df = stats_df()
-  // The retired `df.sum("i")` is now `df.get_column("i").sum()`
-  // (= Polars `df["i"].sum()`); `min` / `count` are likewise total.
+  // The retired `df.sum("i")` is now `df.get_column("i").sum()`;
+  // `min` / `count` are likewise total.
   assert_eq(df.get_column("i").sum(), @types.Scalar::Int(6))
   assert_eq(df.get_column("i").min(), @types.Scalar::Int(1))
   assert_eq(df.get_column("b").count(), 4)

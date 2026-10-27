@@ -15,8 +15,8 @@
 /// counts only that window.
 ///
 /// The convention `1 = valid` matches the Apache Arrow specification (and
-/// `arrow-rs`, `pyarrow`); note that some MoonBit ecosystem libraries (e.g.
-/// `smallbearrr/pandas`) use the opposite convention.
+/// `arrow-rs`, `pyarrow`); note that some libraries use the opposite
+/// convention (`0 = valid`).
 pub struct Bitmap {
   priv bits : Bytes
   priv offset : Int32

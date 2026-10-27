@@ -73,8 +73,8 @@ fn eval_logic(
 }
 
 ///|
-/// Kleene three-valued AND over nullable booleans (the Polars / Arrow
-/// `and_kleene` table): a known `false` dominates — the result is `false`
+/// Kleene three-valued AND over nullable booleans: a known `false`
+/// dominates — the result is `false`
 /// no matter what the other side holds, null included; two known `true`s
 /// are `true`; everything else (a null meeting `true` or another null) is
 /// unknown, `None`.

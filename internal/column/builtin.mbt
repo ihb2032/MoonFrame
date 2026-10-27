@@ -21,9 +21,8 @@
 /// behind it, and reaches this one through `ColumnStorage`.
 ///
 /// Numeric columns are 64-bit: the `I64` variant stores `Int64` and the
-/// `F64` variant stores `Double`, matching `Scalar`'s payloads and the
-/// pandas / polars `int64` / `float64` defaults so reductions neither
-/// silently overflow nor lose precision.
+/// `F64` variant stores `Double`, matching `Scalar`'s payloads, so
+/// reductions neither silently overflow nor lose precision.
 pub struct BuiltinColumn {
   /// The logical dtype the column carries — the *identity* half of the
   /// column, independent of the `data` variant (the *representation* half):

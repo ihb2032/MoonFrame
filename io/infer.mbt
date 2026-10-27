@@ -4,7 +4,7 @@
 // pick the narrowest dtype that accepts every non-null probe, in the same
 // priority order Int → Float → Bool → String. Factoring the skeleton here
 // keeps that order — the windowed-inference rule (with `infer_schema_rows
-// <= 0` meaning "scan every row", Polars' `infer_schema_length=None`) and
+// <= 0` meaning "scan every row") and
 // the build-time parse-failure policy (`OnParseError`: raise vs. null the
 // offending cell) — defined in exactly one place; each reader supplies only
 // its own cell accessor, null test, and error wording. The numeric-text
@@ -42,9 +42,8 @@ priv enum InferredDtype {
 ///   failing the whole read. The strict, lossless behaviour: a malformed
 ///   cell is never silently dropped.
 /// - `Null` — downgrade the offending cell to a null cell and keep going,
-///   the resilient behaviour Polars exposes as `ignore_errors=True` (pandas
-///   tolerates the same). The column keeps its inferred dtype; only the
-///   unparseable cells become null.
+///   the resilient behaviour. The column keeps its inferred dtype; only
+///   the unparseable cells become null.
 ///
 /// Shared by `CsvReadOptions` and `JsonReadOptions` and
 /// consumed in `build_typed_column`'s parse-failure branch, so the three
@@ -63,9 +62,9 @@ pub extend OnParseError with Debug::{to_repr}
 ///|
 /// Pick the narrowest dtype that accepts every non-null cell in the first
 /// `limit` rows, in priority order `Int → Float → Bool → String`. A
-/// `limit <= 0` lifts the cap and scans every row (Polars'
-/// `infer_schema_length=None`), so a dtype that only becomes clear deep in
-/// the data is inferred rather than guessed from a prefix.
+/// `limit <= 0` lifts the cap and scans every row, so a dtype that only
+/// becomes clear deep in the data is inferred rather than guessed from a
+/// prefix.
 ///
 /// `cell(i)` reads the raw cell at row `i`; `is_null(c)` reports whether it
 /// is a null cell (skipped by inference); `is_int` / `is_float` / `is_bool`
@@ -127,11 +126,10 @@ fn[Cell] infer_dtype(
 /// `parse_decimal_int_opt` pre-screens for a plain decimal literal
 /// because `@string.parse_int64` defaults to `base=0`, which would otherwise
 /// accept `0x` / `0o` / `0b` prefixes (`0xFF` → 255) and underscore grouping
-/// (`1_000` → 1000). Those forms are kept as strings by pandas / polars,
-/// so accepting them during inference would silently retype columns of
-/// hex codes, IDs, or formatted numbers. Restricting to decimal keeps
-/// inference predictable. The same routine backs the column layer's
-/// String→`Int` cast, so inference and an explicit cast agree.
+/// (`1_000` → 1000). Accepting those forms during inference would silently
+/// retype columns of hex codes, IDs, or formatted numbers; restricting to
+/// decimal keeps inference predictable. The same routine backs the column
+/// layer's String→`Int` cast, so inference and an explicit cast agree.
 fn parse_int_opt(s : String) -> Int64? {
   @text.parse_decimal_int_opt(s)
 }
@@ -143,8 +141,7 @@ fn parse_int_opt(s : String) -> Int64? {
 /// Strings containing `_` are rejected up front: `@string.parse_double`
 /// accepts underscore grouping (`1_000` → `1000.0`), but — like the
 /// `0x` / `0o` / `0b` forms screened out of `parse_int_opt` — that is not
-/// how the text formats write numbers, and pandas / polars keep such cells
-/// as strings.
+/// how the text formats write numbers.
 ///
 /// `allow_nonfinite` gates every non-finite result: the `nan` / `inf` /
 /// `infinity` literals, and equally a finite literal whose magnitude overflows
@@ -179,7 +176,7 @@ fn parse_float_opt(s : String, allow_nonfinite : Bool) -> Double? {
 /// A non-null cell that `parse` rejects is handled per `on_parse_error`:
 /// `Raise` surfaces `err(i, c)` (the strict default, failing the read),
 /// `Null` downgrades it to a null cell so the read continues with the
-/// column's inferred dtype intact (Polars' `ignore_errors`).
+/// column's inferred dtype intact.
 fn[Cell, T] build_typed_column(
   name : String,
   n : Int32,

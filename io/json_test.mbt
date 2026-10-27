@@ -68,7 +68,7 @@ fn id_double(x : Double) -> Double {
 
 ///|
 /// JSON has no `NaN` / `Infinity` literal, so a non-finite `Float` cell is
-/// emitted as `null` (matching pandas' `to_json`). Regression guard: the
+/// emitted as `null`. Regression guard: the
 /// renderer used to emit the bare tokens `Infinity` / `NaN`, producing
 /// invalid JSON that the reader below could not round-trip.
 test "format_json: non-finite floats emit JSON null" {
@@ -292,8 +292,8 @@ test "parse_json_str: array of empty objects keeps the record count" {
 
 ///|
 test "parse_json_str: strips a leading UTF-8 BOM (Excel / utf-8-sig)" {
-  // A file saved with a UTF-8 BOM must read like a clean one — matching the CSV
-  // reader and Polars / pandas. Left in place the BOM makes `@json.parse` reject
+  // A file saved with a UTF-8 BOM must read like a clean one — matching the
+  // CSV reader. Left in place the BOM makes `@json.parse` reject
   // the payload at column 0.
   let df = @io.parse_json_str("\u{FEFF}[{\"a\":1,\"b\":2}]")
   assert_eq(df.columns(), ["a", "b"])
@@ -419,8 +419,8 @@ test "parse_json_str: Bool column with non-bool past inference errors" {
 ///|
 test "parse_json_str: infer_schema_rows=0 scans every record" {
   // Record 1 is an integral number, record 2 fractional. A 1-record window
-  // would lock Int and reject 2.5; scanning every record (`0`, Polars'
-  // `infer_schema_length=None`) types the column Float up front.
+  // would lock Int and reject 2.5; scanning every record (`0`) types the
+  // column Float up front.
   let content = "[{\"x\":1},{\"x\":2.5}]"
   let df = @io.parse_json_str(
     content,
@@ -435,7 +435,7 @@ test "parse_json_str: infer_schema_rows=0 scans every record" {
 test "parse_json_str: on_parse_error=Null nulls an out-of-window misfit" {
   // First two records lock Int; the third is a string. `Raise` (the
   // default, exercised above) errors; `Null` keeps the Int column and
-  // downgrades the bad cell to null (Polars' `ignore_errors=True`).
+  // downgrades the bad cell to null.
   let content = "[{\"x\":1},{\"x\":2},{\"x\":\"three\"}]"
   let df = @io.parse_json_str(
     content,
@@ -609,11 +609,10 @@ test "round-trip narrows an all-integral Float column to Int (documented caveat)
 // ── duplicate object keys: last-wins default, optional strict ───────────
 
 ///|
-test "a repeated object key keeps its last value by default (serde / Polars reading)" {
+test "a repeated object key keeps its last value by default" {
   // `@json.parse` folds an object into a `Map`, so the second spelling of a
-  // key replaces the first — the behaviour serde_json, pandas, and Polars
-  // all ship. Pinned here so the strict option below has a default to
-  // differ from.
+  // key replaces the first — the common JSON last-wins reading. Pinned
+  // here so the strict option below has a default to differ from.
   let df = @io.parse_json_str("[{\"a\": 1, \"a\": 2}]")
   assert_eq(df.item(0, "a"), @types.Scalar::Int(2))
 }

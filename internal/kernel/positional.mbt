@@ -176,7 +176,7 @@ pub fn eval_positional(
     }
     @ir.PositionalOp::CumCount(reverse) => {
       // Dtype-blind: the running non-null count, a null slot repeating the
-      // count the prior cell reached (Polars: `[x, k, None, d]` → 1, 2, 2, 3).
+      // count the prior cell reached (`[x, k, None, d]` → 1, 2, 2, 3).
       let out : Array[Int64?] = Array::makei(n, _ => None)
       let mut seen : Int64 = 0
       visit(n, reverse, i => {
@@ -286,8 +286,7 @@ pub fn eval_positional(
     @ir.PositionalOp::IsLastDistinct => eval_is_last_distinct(operand)
     @ir.PositionalOp::ForwardFill(limit)
     | @ir.PositionalOp::BackwardFill(limit) => {
-      // Directional fill, Polars' `fill_null(strategy='forward' /
-      // 'backward')` core: a null slot takes the nearest present value in
+      // Directional fill: a null slot takes the nearest present value in
       // the fill's direction, at most `limit` consecutive slots past it
       // (`None` = unlimited — a gap longer than the limit keeps its tail
       // null). Dtype-generic — the values copied are the operand's own
@@ -421,9 +420,9 @@ fn value_equality(operand : Series) -> (Int32, Int32) -> Bool {
 }
 
 ///|
-/// Cell-wise difference against the cell `n` rows above (Polars' `diff`,
-/// default `n = 1`, the `ignore` null behaviour): exactly the composition
-/// `self - self.shift(n)` — the leading `n` slots null, a null in either
+/// Cell-wise difference against the cell `n` rows above (`Expr::diff`
+/// defaults `n` to 1): exactly the composition `self - self.shift(n)` —
+/// the leading `n` slots null, a null in either
 /// operand null, the subtraction under the arithmetic kernel's dtype rules
 /// (`Int` stays `Int`, a `Float` operand promotes). The shift's `Numeric`
 /// convergence (the evaluator's convention for a positional result feeding

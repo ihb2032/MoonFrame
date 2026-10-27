@@ -1,19 +1,18 @@
 ///|
-/// The `.str_*` string namespace (Polars' `str` accessors), one method per
+/// The `.str_*` string namespace, one method per
 /// `StrOp` tag. Every `str_*` method builds a `Str` node over its tag,
 /// evaluated cell by cell by the string kernel and rendered by the
 /// `Str` arm of the explainer; the per-cell evaluation semantics are pinned
 /// in the frame layer's string tests.
 
 ///|
-/// Uppercase every cased letter of a String column — Polars'
-/// `str.to_uppercase` — through the Unicode **default case conversion**:
-/// the simple one-to-one mappings (`é` → `É`, Greek and Cyrillic across
-/// their alphabets) plus the SpecialCasing expansions, so `ß` uppercases
-/// to `SS` and the `ﬁ` ligature to `FI` — a cell's length can grow. The
-/// locale-conditional rules are deliberately absent: this is the default
-/// conversion, which carries no locale (the Turkish dotless-`i` rules stay
-/// a caller's rewrite). Characters with no
+/// Uppercase every cased letter of a String column through the Unicode
+/// **default case conversion**: the simple one-to-one mappings (`é` → `É`,
+/// Greek and Cyrillic across their alphabets) plus the SpecialCasing
+/// expansions, so `ß` uppercases to `SS` and the `ﬁ` ligature to `FI` — a
+/// cell's length can grow. The locale-conditional rules are deliberately
+/// absent: this is the default conversion, which carries no locale (the
+/// Turkish dotless-`i` rules stay a caller's rewrite). Characters with no
 /// case mapping (CJK, emoji, digits, …) pass through. Null cells stay
 /// null, the result keeps the operand's column name, and a non-String
 /// operand is a `TypeMismatch` at evaluation. The leading method
@@ -23,21 +22,20 @@ pub fn Expr::str_to_uppercase(self : Expr) -> Expr {
 }
 
 ///|
-/// Lowercase every cased letter of a String column — Polars'
-/// `str.to_lowercase`, the case mirror of `str_to_uppercase`: default
-/// conversion, expansions and all (`İ` lowercases to `i` + combining dot
-/// above).
+/// Lowercase every cased letter of a String column — the case mirror of
+/// `str_to_uppercase`: default conversion, expansions and all (`İ`
+/// lowercases to `i` + combining dot above).
 pub fn Expr::str_to_lowercase(self : Expr) -> Expr {
   Expr::of_node(@ir.ExprNode::Str(@ir.StrOp::ToLowercase, self.node))
 }
 
 ///|
-/// Strip leading and trailing characters from every cell of a String column —
-/// Polars' `str.strip_chars`. With `chars` omitted, the default set is the
-/// Unicode `White_Space` property (ASCII whitespace plus NBSP, the narrow
-/// no-break space, the ideographic space, …); with `chars` given, every
-/// character in that string is a strip target (order and repeats do not
-/// matter). Null cells stay null.
+/// Strip leading and trailing characters from every cell of a String column.
+/// With `chars` omitted, the default set is the Unicode `White_Space`
+/// property (ASCII whitespace plus NBSP, the narrow no-break space, the
+/// ideographic space, …); with `chars` given, every character in that
+/// string is a strip target (order and repeats do not matter). Null cells
+/// stay null.
 pub fn Expr::str_strip_chars(self : Expr, chars? : String) -> Expr {
   match chars {
     None => Expr::of_node(@ir.ExprNode::Str(@ir.StrOp::StripChars, self.node))
@@ -50,45 +48,42 @@ pub fn Expr::str_strip_chars(self : Expr, chars? : String) -> Expr {
 
 ///|
 /// The number of Unicode characters in each cell of a String column, as an
-/// `Int` (Polars `str.len_chars`): a supplementary-plane character counts
-/// once, not as its two UTF-16 code units. Null cells stay null; an all-valid
-/// result rides the `Numeric` fast path like every computed numeric column.
+/// `Int`: a supplementary-plane character counts once, not as its two
+/// UTF-16 code units. Null cells stay null; an all-valid result rides the
+/// `Numeric` fast path like every computed numeric column.
 pub fn Expr::str_len_chars(self : Expr) -> Expr {
   Expr::of_node(@ir.ExprNode::Str(@ir.StrOp::LenChars, self.node))
 }
 
 ///|
 /// The number of **UTF-8 bytes** in each cell of a String column, as an `Int`
-/// (Polars `str.len_bytes`) — the encoded byte length, so an ASCII character is
-/// 1, a `é` is 2, and a supplementary-plane emoji is 4 (vs `str_len_chars`,
-/// which counts every character as 1). Null cells stay null; an all-valid
-/// result rides the `Numeric` fast path.
+/// (the encoded byte length): an ASCII character is 1, a `é` is 2, and a
+/// supplementary-plane emoji is 4 (vs `str_len_chars`, which counts every
+/// character as 1). Null cells stay null; an all-valid result rides the
+/// `Numeric` fast path.
 pub fn Expr::str_len_bytes(self : Expr) -> Expr {
   Expr::of_node(@ir.ExprNode::Str(@ir.StrOp::LenBytes, self.node))
 }
 
 ///|
 /// The `index`-th field of each cell split on the literal separator `sep`, as a
-/// nullable `String` (a scalar slice of Polars' `str.split`, which returns a
-/// list this repo has no dtype for). `index` is 0-based; a cell with fewer than
+/// nullable `String`. `index` is 0-based; a cell with fewer than
 /// `index + 1` fields (or a negative `index`) yields **null**. `"a,b,c"` split
 /// on `","` at index 1 is `"b"`. Null cells stay null. An empty separator
 /// splits into single characters (index 0 of `"abc"` is `"a"`) — a deliberate
-/// spelling of the underlying split, where Polars' would offer a leading empty
-/// field.
+/// spelling of the underlying split (no leading empty field).
 pub fn Expr::str_split_get(self : Expr, sep : String, index : Int32) -> Expr {
   Expr::of_node(@ir.ExprNode::Str(@ir.StrOp::SplitGet(sep, index), self.node))
 }
 
 ///|
-/// A `Bool` column that is `true` where the cell contains `pattern` — Polars'
-/// `str.contains`. `literal` defaults to `true`, matching `pattern` as a plain
-/// substring; `literal=false` reads it as a **POSIX** regular expression (the
-/// core engine's dialect, so character classes are `[[:digit:]]` /
-/// `[[:alpha:]]`, not the PCRE `\d` / `\w`, which raise). The default is the
-/// opposite of Polars', which is regex-first. A regex is compiled once per
-/// evaluation, so an invalid pattern raises `InvalidOperation` then. Null cells
-/// stay null.
+/// A `Bool` column that is `true` where the cell contains `pattern`.
+/// `literal` defaults to `true`, matching `pattern` as a plain substring;
+/// `literal=false` reads it as a **POSIX** regular expression (the core
+/// engine's dialect, so character classes are `[[:digit:]]` / `[[:alpha:]]`,
+/// not the PCRE `\d` / `\w`, which raise). A regex is compiled once per
+/// evaluation, so an invalid pattern raises `InvalidOperation` then. Null
+/// cells stay null.
 pub fn Expr::str_contains(
   self : Expr,
   pattern : String,
@@ -104,25 +99,25 @@ pub fn Expr::str_contains(
 }
 
 ///|
-/// A `Bool` column that is `true` where the cell starts with `prefix`
-/// (Polars `str.starts_with`). Null cells stay null.
+/// A `Bool` column that is `true` where the cell starts with `prefix`.
+/// Null cells stay null.
 pub fn Expr::str_starts_with(self : Expr, prefix : String) -> Expr {
   Expr::of_node(@ir.ExprNode::Str(@ir.StrOp::StartsWith(prefix), self.node))
 }
 
 ///|
-/// A `Bool` column that is `true` where the cell ends with `suffix`
-/// (Polars `str.ends_with`). Null cells stay null.
+/// A `Bool` column that is `true` where the cell ends with `suffix`.
+/// Null cells stay null.
 pub fn Expr::str_ends_with(self : Expr, suffix : String) -> Expr {
   Expr::of_node(@ir.ExprNode::Str(@ir.StrOp::EndsWith(suffix), self.node))
 }
 
 ///|
 /// Replace the first occurrence of `pattern` with `value` in each cell of a
-/// String column — Polars' `str.replace`. `literal` defaults to `true` (plain
-/// substring); `literal=false` reads `pattern` as a POSIX regular expression
-/// (same dialect and invalid-pattern error as `str_contains`), with
-/// `value` inserted literally — no capture-group references yet. A cell without
+/// String column. `literal` defaults to `true` (plain substring);
+/// `literal=false` reads `pattern` as a POSIX regular expression (same
+/// dialect and invalid-pattern error as `str_contains`), with `value`
+/// inserted literally — no capture-group references yet. A cell without
 /// a match is unchanged; null cells stay null.
 pub fn Expr::str_replace(
   self : Expr,
@@ -142,9 +137,9 @@ pub fn Expr::str_replace(
 }
 
 ///|
-/// Replace every occurrence of `pattern` with `value` in each cell (Polars
-/// `str.replace_all`), the all-occurrences mirror of `str_replace` — including
-/// its `literal` parameter and default.
+/// Replace every occurrence of `pattern` with `value` in each cell, the
+/// all-occurrences mirror of `str_replace` — including its `literal`
+/// parameter and default.
 pub fn Expr::str_replace_all(
   self : Expr,
   pattern : String,
@@ -163,18 +158,18 @@ pub fn Expr::str_replace_all(
 }
 
 ///|
-/// Reverse the Unicode characters of each cell of a String column — Polars'
-/// `str.reverse()`. Surrogate pairs are respected (reversal is by codepoint,
-/// not UTF-16 unit); null cells stay null.
+/// Reverse the Unicode characters of each cell of a String column. Surrogate
+/// pairs are respected (reversal is by codepoint, not UTF-16 unit); null
+/// cells stay null.
 pub fn Expr::str_reverse(self : Expr) -> Expr {
   Expr::of_node(@ir.ExprNode::Str(@ir.StrOp::Reverse, self.node))
 }
 
 ///|
 /// Left-pad each cell of a String column with `fill` until it is `width`
-/// **characters** long — Polars' `str.pad_start`. A cell already at least
-/// `width` characters is unchanged (never truncated); null cells stay null.
-/// The width counts characters, consistent with `str_len_chars`.
+/// **characters** long. A cell already at least `width` characters is
+/// unchanged (never truncated); null cells stay null. The width counts
+/// characters, consistent with `str_len_chars`.
 pub fn Expr::str_pad_start(
   self : Expr,
   width : Int32,
@@ -185,7 +180,7 @@ pub fn Expr::str_pad_start(
 
 ///|
 /// Right-pad each cell of a String column with `fill` until it is `width`
-/// **characters** long — Polars' `str.pad_end`, the mirror of `str_pad_start`.
+/// **characters** long — the mirror of `str_pad_start`.
 pub fn Expr::str_pad_end(
   self : Expr,
   width : Int32,
@@ -196,11 +191,11 @@ pub fn Expr::str_pad_end(
 
 ///|
 /// Left-pad each cell of a String column with `'0'` until it is `width`
-/// **characters** long — Polars' `str.zfill`. Like `str_pad_start('0')` but
-/// **sign-aware**: a leading `'+'` / `'-'` keeps its place and the zeros are
-/// inserted *after* it (`"-5"` to width 4 is `"-005"`, not `"00-5"`). A cell
-/// already at least `width` characters is unchanged (never truncated); null
-/// cells stay null. The width counts characters, consistent with
+/// **characters** long — like `str_pad_start('0')` but **sign-aware**: a
+/// leading `'+'` / `'-'` keeps its place and the zeros are inserted *after*
+/// it (`"-5"` to width 4 is `"-005"`, not `"00-5"`). A cell already at
+/// least `width` characters is unchanged (never truncated); null cells
+/// stay null. The width counts characters, consistent with
 /// `str_len_chars`.
 pub fn Expr::str_zfill(self : Expr, width : Int32) -> Expr {
   Expr::of_node(@ir.ExprNode::Str(@ir.StrOp::ZFill(width), self.node))
@@ -208,8 +203,7 @@ pub fn Expr::str_zfill(self : Expr, width : Int32) -> Expr {
 
 ///|
 /// Extract a substring matched by the POSIX regular expression `pattern` — a
-/// nullable `String` column (Polars' `str.extract`). `group` (default `0`, the
-/// **whole match** — Polars defaults to the first capture group `1` instead)
+/// nullable `String` column. `group` (default `0`, the **whole match**)
 /// selects a capture group; a cell that does not match, or whose chosen group
 /// did not participate, yields **null**. The regex dialect and the
 /// invalid-pattern error are `str_contains`'s; a null cell stays null and a
@@ -226,17 +220,16 @@ pub fn Expr::str_extract(
 
 ///|
 /// Count the non-overlapping matches of the POSIX regular expression `pattern`
-/// in each cell — an `Int` column (Polars' `str.count_matches`), `0` where the
-/// pattern does not match. An all-valid result rides the `Numeric` fast path,
-/// like `str_len_chars`. The regex dialect and the invalid-pattern error are
-/// `str_contains`'s; a null cell stays null and a non-String operand
-/// raises `TypeMismatch`.
+/// in each cell — an `Int` column, `0` where the pattern does not match. An
+/// all-valid result rides the `Numeric` fast path, like `str_len_chars`. The
+/// regex dialect and the invalid-pattern error are `str_contains`'s; a null
+/// cell stays null and a non-String operand raises `TypeMismatch`.
 pub fn Expr::str_count_matches(self : Expr, pattern : String) -> Expr {
   Expr::of_node(@ir.ExprNode::Str(@ir.StrOp::CountMatches(pattern), self.node))
 }
 
 ///|
-/// Substring of each cell by **character** position — Polars' `str.slice`.
+/// Substring of each cell by **character** position.
 /// `offset` is a 0-based character index; a negative `offset` counts from the
 /// end (`-2` starts two characters before the end). `length` is the number of
 /// characters (omitted → to the end); a `length` of zero or less yields the

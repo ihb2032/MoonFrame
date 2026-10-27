@@ -28,7 +28,7 @@ fn row_group_key(
 
 ///|
 /// Build row `i`'s composite join key, or `None` if **any** key cell is
-/// null (a null key matches nothing — the SQL / Polars default, and join's
+/// null (a null key matches nothing — join's
 /// deliberate difference from `group_by`). Non-null cells use the same
 /// `KeyCell` encoding as `row_group_key`, so a left and a right key match
 /// iff they encode identically (dtypes are pre-checked equal per key, so an

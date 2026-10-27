@@ -223,8 +223,8 @@ pub fn df_to_json_records(df : @frame.DataFrame) -> Array[Json] {
 /// `@json.stringify` would emit the bare tokens `NaN` / `Infinity` /
 /// `-Infinity`, which is invalid JSON that neither
 /// `parse_json_str` nor a standards-compliant parser can read
-/// back — so it is mapped to `null` (matching pandas' `to_json`),
-/// keeping the emitted text valid JSON. `Bool` lands on the `true` /
+/// back — so it is mapped to `null`, keeping the emitted text valid
+/// JSON. `Bool` lands on the `true` /
 /// `false` variants; `String` passes through and is escaped by the
 /// stringifier; `Null` lands on JSON `null`.
 fn scalar_to_json(s : @types.Scalar) -> Json {
@@ -299,13 +299,13 @@ fn infer_json_column_dtype(
 /// value-based: accept it when it is exactly integer-valued
 /// (`n == n.trunc()`) and within `Int64` range (checked by
 /// `double_fits_int64`, since `Int64::MAX` isn't exactly representable
-/// as a `Double`), so a token like `1.0e2` lands as `Int(100)`, matching
-/// pandas / polars on equivalent CSV. A `Number` whose magnitude overflowed
+/// as a `Double`), so a token like `1.0e2` lands as `Int(100)`. A `Number`
+/// whose magnitude overflowed
 /// the `Double` is recovered from its preserved `repr` digits — the
 /// large-`Int64` round-trip rule, stated in full once as the file header's
 /// Caveat 2. Booleans, strings, and null are intentionally rejected — JSON
-/// has strong types and silently promoting `true → 1` would surprise
-/// callers used to pandas / polars semantics.
+/// has strong types and no `true → 1` coercion, so promoting one silently
+/// would surprise a caller reading plain JSON.
 fn json_value_as_int(j : Json) -> Int64? {
   match j {
     // The `repr`-digit recovery is the file header's Caveat 2; a present

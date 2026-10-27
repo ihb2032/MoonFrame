@@ -107,7 +107,7 @@ pub fn eval_str(
         name,
         // The right-pad mirror of `pad_start_chars`: append the fill until
         // `width` **characters** (codepoint-based, consistent with
-        // `str_len_chars` and Polars).
+        // `str_len_chars`).
         map_present(n, valid, i => {
           let s = data[i]
           let len = s.char_length()
@@ -319,8 +319,8 @@ fn utf8_len_wtf8(s : String) -> Int32 {
 ///|
 /// Left-pad `s` with `fill` until it is `width` **characters** long, else
 /// return it unchanged. Codepoint-based (`char_length` + `String::make`, both
-/// counting characters), so the width is consistent with `str_len_chars` and
-/// with Polars — unlike `String::pad_start`, whose width counts UTF-16 units.
+/// counting characters), so the width is consistent with `str_len_chars` —
+/// unlike `String::pad_start`, whose width counts UTF-16 units.
 fn pad_start_chars(s : String, width : Int32, fill : Char) -> String {
   let len = s.char_length()
   if len >= width {
@@ -332,7 +332,7 @@ fn pad_start_chars(s : String, width : Int32, fill : Char) -> String {
 
 ///|
 /// Left-pad `s` with `'0'` to `width` **characters**, keeping a leading sign
-/// ahead of the zeros — Polars' `str.zfill`. `"-5"` to width 4 is `"-005"`.
+/// ahead of the zeros. `"-5"` to width 4 is `"-005"`.
 /// The width counts characters (sign included) and a cell already that wide is
 /// returned unchanged. Delegates the zero-padding to `pad_start_chars`: with a
 /// leading sign, the digits after it pad to a one-narrower field (the sign is a

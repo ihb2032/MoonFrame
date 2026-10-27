@@ -10,10 +10,9 @@
 /// one predicate before handing the text to `parse_int64`. That
 /// parser defaults to `base = 0` and would otherwise silently accept hex
 /// / octal / binary prefixes (`0xFF` → 255) and underscores (`1_000` →
-/// 1000) — forms pandas / polars keep as strings. Sharing the screen (the
-/// way every ordering routes through `compare_string_lex`) keeps an
-/// explicit cast consistent with what the reader inferred for the same
-/// text.
+/// 1000). Sharing the screen (the way every ordering routes through
+/// `compare_string_lex`) keeps an explicit cast consistent with what the
+/// reader inferred for the same text.
 fn is_decimal_int_literal(s : String) -> Bool {
   let mut seen_digit = false
   let mut first = true
@@ -33,13 +32,13 @@ fn is_decimal_int_literal(s : String) -> Bool {
 
 ///|
 /// Parse a plain base-10 integer, or `None`. Screens out `0x` / `0o` / `0b`
-/// prefixes and `1_000` underscore grouping via `is_decimal_int_literal` (the
-/// forms pandas / polars keep as strings), then hands the text to
-/// `parse_int64`, mapping its failure (a value beyond `Int64`'s range,
-/// say) to `None`. The shared routine behind the CSV reader's `Int` inference,
-/// the JSON reader's recovery of an over-large integer from its preserved text,
-/// and the column-level String→`Int` cast, so an inferred column and an
-/// explicit cast agree on what text is an integer.
+/// prefixes and `1_000` underscore grouping via `is_decimal_int_literal`,
+/// then hands the text to `parse_int64`, mapping its failure (a value beyond
+/// `Int64`'s range, say) to `None`. The shared routine behind the CSV
+/// reader's `Int` inference, the JSON reader's recovery of an over-large
+/// integer from its preserved text, and the column-level String→`Int` cast,
+/// so an inferred column and an explicit cast agree on what text is an
+/// integer.
 pub fn parse_decimal_int_opt(s : String) -> Int64? {
   if !is_decimal_int_literal(s) {
     return None
@@ -53,9 +52,8 @@ pub fn parse_decimal_int_opt(s : String) -> Int64? {
 
 ///|
 /// Parse a "plain" `Double`, or `None`. Rejects `1_000`-style underscore
-/// grouping up front (`parse_double` would accept it, but pandas /
-/// polars keep such cells as strings), then hands the text to
-/// `parse_double`. The `nan` / `inf` / `infinity` literals it
+/// grouping up front (`parse_double` would accept it), then hands the text
+/// to `parse_double`. The `nan` / `inf` / `infinity` literals it
 /// recognises are returned as-is — the caller decides whether to keep them (the
 /// CSV reader gates them behind `allow_nonfinite`; the column-level
 /// String→`Float` cast accepts them). A finite literal beyond the `Double`
@@ -73,7 +71,7 @@ pub fn parse_plain_double_opt(s : String) -> Double? {
     // non-number, or a finite literal whose magnitude overflows `Double`. Per
     // IEEE 754 (and the documented String→Float contract) the overflow case
     // rounds to a signed `Infinity` rather than failing — matching the explicit
-    // `inf` literal and pandas / polars — while a genuine non-number stays
+    // `inf` literal — while a genuine non-number stays
     // `None`. We tell them apart *structurally*: if `s` is valid finite-decimal
     // syntax yet parsing failed, an overflow past `Double::MAX` is the only
     // possible cause. This deliberately avoids matching the stdlib's

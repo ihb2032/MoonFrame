@@ -72,8 +72,7 @@ fn fresh_file_scan(driver : @scan.ScanDriver) -> LogicalPlan {
 /// to a dropped column, or to a dropped row, does not surface; the surviving
 /// cells and the inferred dtypes match an eager read exactly. (There is no
 /// `scan_json` for the single-array shape `[{...}]`, which must be parsed whole
-/// to find its records — so nothing can be pruned at read time, the same reason
-/// Polars has `scan_ndjson` but no `scan_json`.)
+/// to find its records — so nothing can be pruned at read time.)
 ///
 /// `options` (inference window, parse-error policy) defaults to
 /// `JsonReadOptions::JsonReadOptions()`, mirroring eager `read_ndjson`. It is captured into the

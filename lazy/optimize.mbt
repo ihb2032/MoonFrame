@@ -49,10 +49,9 @@
 /// dropped column is never parsed, so a parse error confined to one — a
 /// malformed cell no stage reads — is not raised by the optimized plan, where
 /// the unoptimized full read would surface it. This is the defining property
-/// of projection push-down into a source (and matches Polars' `scan_csv` /
-/// `scan_ndjson`): every plan that *collects* still collects equal,
-/// every whole-input failure (a malformed header or line, a ragged row, a
-/// missing file) still fails identically, and a parse error in a *kept* column
+/// of projection push-down into a source: every plan that *collects* still
+/// collects equal, every whole-input failure (a malformed header or line, a
+/// ragged row, a missing file) still fails identically, and a parse error in a *kept* column
 /// still surfaces — only an error isolated to a pruned-away column goes
 /// unraised. One refinement of that last clause: an absorbed predicate reads
 /// its key columns ahead of the header's order, so in a file where *several*
@@ -136,9 +135,8 @@ let optimizer_passes : Array[(LogicalPlan) -> LogicalPlan] = [
 /// The local rewrite rules — node- and expression-shaped rewrites the
 /// passes have placed (clustering adjacent `with_columns` stages, folding
 /// column-free subtrees to literals) — iterated to a fixed point after the
-/// passes, mirroring Polars' rule set under its stack optimizer. Each entry
-/// returns its plan and whether it moved anything; a new rule is a rewrite
-/// function plus one row here.
+/// passes. Each entry returns its plan and whether it moved anything; a new
+/// rule is a rewrite function plus one row here.
 let optimizer_rules : Array[(LogicalPlan) -> (LogicalPlan, Bool)] = [
   plan => plan.cluster_with_columns(),
   plan => plan.simplify_expressions(),

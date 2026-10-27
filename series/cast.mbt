@@ -2,9 +2,8 @@
 // delegating to the storage layer's cast machine.
 
 ///|
-/// Cast to the target dtype, the single cross-dtype conversion entry
-/// (Polars' `Series.cast`). Delegates to `BuiltinColumn::cast`; the
-/// supported targets are:
+/// Cast to the target dtype, the single cross-dtype conversion entry.
+/// Delegates to `BuiltinColumn::cast`; the supported targets are:
 ///
 /// - `Int` — identity on Int; Float truncates toward zero (`NaN`, `±Inf`,
 ///   and out-of-`Int64`-range values `raise ParseError`); Bool → `1` / `0`;

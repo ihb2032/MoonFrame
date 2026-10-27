@@ -95,6 +95,17 @@ editions' worth of newer mappings ago); the regenerated header names the
 edition the tables came from, and now also carries the `Cased` /
 `Case_Ignorable` ranges Final_Sigma reads.
 
+### `JsonReadOptions` gains `allow_nonfinite_floats`; duplicate-key errors name a position
+
+The JSON family grows the CSV reader's non-finite gate: with
+`allow_nonfinite_floats=false` a number that overflows `Double` (e.g.
+`1e999`) is not `Float` evidence, so the column stays `String` instead of
+being silently retyped to `Float(∞)`. The default is unchanged. And
+`reject_duplicate_keys` now rides the parser itself instead of a
+pre-parse scan: the error names the key's line and column (the scan named
+the 1-based object number), and whichever trouble the parser meets first
+— a repeat or a syntax error — is the one reported.
+
 ### `DataType` / `Scalar` gained `Timestamp` / `Decimal` variants
 
 `DataType::Timestamp` and `Scalar::Timestamp(micros)` — microseconds since

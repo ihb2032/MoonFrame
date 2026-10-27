@@ -158,7 +158,9 @@ pub fn CsvReadOptions::CsvReadOptions(
 /// builds every column; `Some(names)` builds only the columns whose header
 /// name appears in `names`, in the file's own header order, leaving the rest
 /// uninferred, unparsed, and unmaterialised. A requested name that matches
-/// no header is silently ignored (lenient projection, as in Polars), and a
+/// no header is silently ignored (lenient projection — the lazy scan driver
+/// relies on it when it hands down its pruned column list; Polars instead
+/// raises on an unknown name), and a
 /// projection matching **no** header builds no column at all and yields the
 /// `N×0` frame — the file's rows are still counted, so a downstream `head` /
 /// `slice` bounds-checks against the real height. Whole-input checks (strict
@@ -187,7 +189,8 @@ pub fn parse_csv_str(
 ///   unparsed, and unmaterialised. This is the projection-pushdown path the
 ///   lazy `scan_csv` source uses: the optimizer narrows the read to exactly
 ///   the columns a pipeline consumes. A requested name that matches no header
-///   is silently ignored (lenient projection, as in Polars): the
+///   is silently ignored (lenient projection — see `parse_csv_str` for the
+///   lazy-scan reason; Polars instead raises on an unknown name): the
 ///   scan driver does not raise `ColumnNotFound` for an unknown
 ///   column, it just yields the ones that match. The lazy path only ever
 ///   requests real columns, and a stray `col("missing")` is still caught

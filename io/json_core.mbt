@@ -103,6 +103,7 @@ fn frame_from_json_records(
   projection : Array[String]?,
   source_lines : Array[Int32]?,
   pruner? : RowPruner,
+  allow_nonfinite~ : Bool,
 ) -> @frame.DataFrame raise @types.DataError {
   if records.is_empty() {
     return @frame.DataFrame::DataFrame([])
@@ -153,8 +154,13 @@ fn frame_from_json_records(
     from : Array[Map[String, Json]],
     lines : Array[Int32]?,
   ) -> @series.Series raise @types.DataError {
-    let dt = infer_json_column_dtype(objs, name, infer_schema_rows)
-    build_json_column(name, dt, from, on_parse_error, lines)
+    let dt = infer_json_column_dtype(
+      objs,
+      name,
+      infer_schema_rows,
+      allow_nonfinite~,
+    )
+    build_json_column(name, dt, from, on_parse_error, lines, allow_nonfinite~)
   }
   // Build one column over the records `keep` selects (`None` = every record),
   // mapping each surviving record's original line through `keep` so a parse
@@ -275,6 +281,7 @@ fn infer_json_column_dtype(
   objs : Array[Map[String, Json]],
   name : String,
   limit : Int32,
+  allow_nonfinite~ : Bool,
 ) -> InferredDtype {
   infer_dtype(
     objs.length(),
@@ -282,7 +289,7 @@ fn infer_json_column_dtype(
     cell=i => lookup_field(objs[i], name),
     is_null=j => j is Null,
     is_int=j => json_value_as_int(j) is Some(_),
-    is_float=j => json_value_as_float(j) is Some(_),
+    is_float=j => json_value_as_float(j, allow_nonfinite~) is Some(_),
     is_bool=j => json_value_as_bool(j) is Some(_),
   )
 }
@@ -319,8 +326,11 @@ fn json_value_as_int(j : Json) -> Int64? {
 ///|
 /// Try to read `j` as a `Double`. Accepts any `Number`. Booleans,
 /// strings, and null are rejected for the same reason as
-/// `json_value_as_int`.
-fn json_value_as_float(j : Json) -> Double? {
+/// `json_value_as_int`. With `allow_nonfinite=false` a non-finite number
+/// is rejected too — the JSON counterpart of the CSV reader's
+/// `allow_nonfinite_floats` gate, so a column of such tokens stays
+/// `String` rather than being silently retyped to `Float`.
+fn json_value_as_float(j : Json, allow_nonfinite~ : Bool) -> Double? {
   match j {
     // `@json.parse` parks a `Double`-overflowing integer as `±Infinity` but
     // keeps its exact digits in `repr`; re-parsing those digits recovers the
@@ -329,7 +339,16 @@ fn json_value_as_float(j : Json) -> Double? {
     // `@string.parse_double` (and accepts the non-finite forms), so a magnitude
     // that overflows `Double` itself folds back to the original Infinity `n`. A
     // finite `Number` (`repr=None`) takes its value directly.
-    Number(n, repr=Some(text)) => Some(parse_float_opt(text, true).unwrap_or(n))
+    Number(n, repr=Some(text)) =>
+      match parse_float_opt(text, allow_nonfinite) {
+        Some(v) => Some(v)
+        // Under the gate the overflow itself is the refusal — falling back
+        // to `n` would pass the Infinity the gate exists to stop. (A
+        // non-finite `Number` with no `repr` cannot arrive: the parser
+        // produces one only by reading a number *text* that overflows,
+        // and the digits of that text are the `repr`.)
+        None => if allow_nonfinite { Some(n) } else { None }
+      }
     Number(n, repr=None) => Some(n)
     _ => None
   }
@@ -400,6 +419,7 @@ fn build_json_column(
   objs : Array[Map[String, Json]],
   on_parse_error : OnParseError,
   source_lines : Array[Int32]?,
+  allow_nonfinite~ : Bool,
 ) -> @series.Series raise @types.DataError {
   let n = objs.length()
   let cell = fn(i : Int32) -> Json { lookup_field(objs[i], name) }
@@ -411,7 +431,7 @@ fn build_json_column(
     cell~,
     is_null=isnull,
     parse_int=json_value_as_int,
-    parse_float=json_value_as_float,
+    parse_float=j => json_value_as_float(j, allow_nonfinite~),
     parse_bool=json_value_as_bool,
     render=json_value_to_string_fallback,
     locate=(dt, i, c) => {

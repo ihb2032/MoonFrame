@@ -547,7 +547,7 @@ test "scan_ndjson fails on a repeated key when the reader option asks" {
   }
   match result {
     Err(@types.DataError::ParseError(@types.ParseErrorDetail::Message(m))) =>
-      assert_eq(m, "line 1: duplicate key \"k\" in JSON object 1")
+      assert_eq(m, "line 1: duplicate key \"k\" at line 1, column 9")
     _ => fail("expected a duplicate-key ParseError")
   }
 }

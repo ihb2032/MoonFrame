@@ -1,6 +1,6 @@
-// The reshape pair — Polars' `pivot` (long → wide: one output column per
+// The reshape pair — `pivot` (long → wide: one output column per
 // value of the `on` keys, one output row per distinct `index` combination)
-// and `unpivot` (wide → long, pandas' `melt`: the `on` columns fold into a
+// and `unpivot` (wide → long: the `on` columns fold into a
 // `variable` / `value` pair repeated under the `index` columns).
 //
 // Both reshape whole frames, and both key on **columns** rather than
@@ -11,18 +11,15 @@
 // consulted by output name only (the `drop` / `drop_nulls` convention — a
 // reshape selects columns, it does not compute them).
 //
-// Order is deterministic everywhere Polars leaves it unspecified:
-// `pivot`'s rows are the `index` combinations in first-appearance order
-// and its columns the `on` values in first-appearance order (Polars'
-// `maintain_order=True` / `sort_columns=False` defaults, made the only
-// behaviour), and `unpivot`'s rows walk the source rows outermost, then
-// the `on` columns in declaration order.
+// Order is deterministic everywhere: `pivot`'s rows are the `index`
+// combinations in first-appearance order and its columns the `on` values
+// in first-appearance order, and `unpivot`'s rows walk the source rows
+// outermost, then the `on` columns in declaration order.
 
 ///|
-/// How `pivot` collapses the cells that land in one output column — Polars'
-/// `aggregate_function`, its `None` case (the default) spelled by omitting
-/// the parameter: more than one cell in a slot then `raise`s
-/// `InvalidOperation` rather than picking silently.
+/// How `pivot` collapses the cells that land in one output column. The
+/// omitted-parameter case is the strict one: more than one cell in a slot
+/// then `raise`s `InvalidOperation` rather than picking silently.
 ///
 /// - `First` / `Last` — the first / last cell in row order, any dtype;
 /// - `Sum` / `Min` / `Max` — the reduction family's rules (an all-null
@@ -53,7 +50,7 @@ pub extend PivotAgg with Eq::{equal, not_equal}
 pub extend PivotAgg with Debug::{to_repr}
 
 ///|
-/// Reshape long → wide (Polars' `df.pivot(on=…)`): one output row per
+/// Reshape long → wide: one output row per
 /// distinct `index~` combination, one output column per distinct `on~`
 /// value, each slot holding the `values~` cells of the rows that share
 /// both — collapsed by `aggregate_function?` when more than one lands
@@ -62,14 +59,13 @@ pub extend PivotAgg with Debug::{to_repr}
 ///
 /// `on~` / `index~` / `values~` are evaluated expressions (the `group_by`
 /// convention): a bare `col(name)` keys by the column, a derived key by
-/// the computed value, each named by its output name. The defaults follow
-/// Polars, and one of `index?` / `values?` must be given: `index?`
+/// the computed value, each named by its output name. One of
+/// `index?` / `values?` must be given: `index?`
 /// omitted takes every column neither `on~` nor `values~` names;
 /// `values?` omitted takes every column neither `on~` nor `index~` names.
 ///
-/// Output order is first-appearance on both axes (Polars'
-/// `maintain_order=True`, `sort_columns=False` — the deterministic
-/// reading). The `index` columns keep their dtypes and head the frame;
+/// Output order is first-appearance on both axes. The `index` columns keep
+/// their dtypes and head the frame;
 /// each reshaped column is named by its `on` value alone when `values~`
 /// holds one column, and `{value column}_{on value}` otherwise (a
 /// multiple-`on` value joins its cells the same way). A name colliding
@@ -288,7 +284,7 @@ fn reshape_pivot(
   // group's first row, `agg`'s key-column rule).
   let out_cols = index_cols.map(c => c.gather_series(rep_rows))
   // One column per (card × value column), named per the naming rule.
-  // Value-major: each value column's cards together (Polars' order).
+  // Value-major: each value column's cards together.
   for v in 0..<values_cols.length() {
     for card in 0..<cards {
       let name = if multi_values {
@@ -323,7 +319,7 @@ fn reshape_pivot(
 
 ///|
 /// Collapse one pivot slot's cells under the aggregation: `None` raises on
-/// a multi-cell slot (Polars' default strictness), `Len` counts rows, and
+/// a multi-cell slot (the default strictness), `Len` counts rows, and
 /// the reductions go through a same-dtype series — the caller gates the
 /// dtypes `Mean` / `Median` need, since the probe here projects rather
 /// than coerces — so every rule the reduction family documents applies
@@ -375,7 +371,7 @@ fn reduce_pivot_slot(
 }
 
 ///|
-/// Reshape wide → long (Polars' `df.unpivot`, pandas' `melt`): each `on?`
+/// Reshape wide → long: each `on?`
 /// column folds into a `variable_name?` / `value_name?` pair — one output
 /// row per (source row, on column), the `index?` columns repeated beside.
 /// `on?` and `index?` are consulted by output name only (the `drop`
@@ -383,8 +379,7 @@ fn reduce_pivot_slot(
 /// `index?` omitted keeps nothing, and an empty `on` resolution `raise`s
 /// `InvalidOperation`. The output rows walk the `on` columns outermost —
 /// one block per column, each holding its source rows in order — so the
-/// index columns repeat within a block, deterministic where Polars leaves
-/// the order unspecified.
+/// index columns repeat within a block.
 ///
 /// The value column carries one dtype: the `on` columns' own dtype when
 /// they agree, `Float` when they are `Int` / `Float` in any mix (`Int`

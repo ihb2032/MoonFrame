@@ -514,7 +514,7 @@ test "mod / pow: Expr::to_string renders % and **" {
   )
 }
 
-// Blackbox tests for `Expr::floor_div` (Polars `//`): floor toward −∞, the
+// Blackbox tests for `Expr::floor_div`: floor toward −∞, the
 // Int-zero → null guard, Float IEEE zero division, mixed promotion, null
 // propagation, and the non-numeric type error — on both backends.
 

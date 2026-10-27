@@ -302,7 +302,7 @@ test "head clamps n > nrows to nrows" {
 }
 
 ///|
-test "head with a negative n keeps every row but the last |n|, as Polars" {
+test "head with a negative n keeps every row but the last |n|" {
   let df = DataFrame::DataFrame([Series::from_ints("a", [1, 2, 3])])
   // head(-1) drops the final row.
   let but_last = df.head(-1)
@@ -359,7 +359,7 @@ test "slice [start, start) returns an empty frame" {
 }
 
 ///|
-test "slice saturates like Polars: negative offset from the end, omitted length to the end" {
+test "slice saturates: negative offset from the end, omitted length to the end" {
   let df = DataFrame::DataFrame([Series::from_ints("x", [1, 2, 3, 4, 5])])
   // Omitted length runs to the end.
   assert_eq(df.slice(2).shape(), (3, 1))

@@ -7,9 +7,9 @@
 
 ///|
 /// Sort `self` by one or more `Expr` keys, applied in order — MoonFrame's
-/// single sort verb (Polars' `df.sort(...)`). `keys` is an array of
-/// `(key, descending, nulls_last)` tuples — two plain flags, Polars'
-/// `descending` / `nulls_last`: a single-key sort passes a
+/// single sort verb. `keys` is an array of
+/// `(key, descending, nulls_last)` tuples — two plain flags, `descending`
+/// and `nulls_last`: a single-key sort passes a
 /// one-element array (`df.sort([(col("q"), true, true)])` — descending,
 /// nulls last), a
 /// multi-key sort lists several

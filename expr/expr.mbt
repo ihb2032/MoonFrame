@@ -120,8 +120,8 @@ pub fn Expr::referenced_columns(self : Expr) -> @set.Set[String] {
 }
 
 ///|
-/// The output-column name this expression produces (Polars' naming rule: an
-/// alias wins, else the leftmost column reference, else `"literal"`) — the
+/// The output-column name this expression produces (an alias wins, else the
+/// leftmost column reference, else `"literal"`) — the
 /// handle-level face of `ExprNode::output_name`. Total.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")

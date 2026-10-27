@@ -425,7 +425,7 @@ pub fn DataFrame::is_empty(self : DataFrame) -> Bool {
 
 ///|
 /// `O(1)` lookup of the column named `name` — the bracket spelling
-/// `df["qty"]` (Polars' `df["qty"]`). `raise ColumnNotFound(name)`
+/// `df["qty"]`. `raise ColumnNotFound(name)`
 /// if the column is missing.
 #alias("_[_]")
 pub fn DataFrame::get_column(
@@ -451,9 +451,9 @@ pub fn DataFrame::get_column_at(
 }
 
 ///|
-/// Read the cell at `(row, name)` as a `Scalar`, mirroring Polars'
-/// `DataFrame.item(row, column)`. Surfaces `ColumnNotFound` for unknown
-/// names and `IndexOutOfBounds` for row indices outside `[0, nrows)`.
+/// Read the cell at `(row, name)` as a `Scalar`. Surfaces `ColumnNotFound`
+/// for unknown names and `IndexOutOfBounds` for row indices outside
+/// `[0, nrows)`.
 pub fn DataFrame::item(
   self : DataFrame,
   row : Int32,
@@ -464,7 +464,7 @@ pub fn DataFrame::item(
 
 ///|
 /// Row `i`'s cells as a `Scalar` tuple in column order (a null cell as
-/// `Scalar::Null`), mirroring Polars' `DataFrame.row`. Row indices outside
+/// `Scalar::Null`). Row indices outside
 /// `[0, nrows)` `raise IndexOutOfBounds(i)`; for many rows, `rows()` reads
 /// the whole frame in one pass instead.
 pub fn DataFrame::row(
@@ -483,8 +483,8 @@ pub fn DataFrame::row(
 
 ///|
 /// Every row as a `Scalar` tuple in column order (`result[r][c]`), the
-/// row-major transpose of `to_scalar_matrix`, mirroring Polars'
-/// `DataFrame.rows`. Total — materialises the frame once.
+/// row-major transpose of `to_scalar_matrix`. Total — materialises the
+/// frame once.
 pub fn DataFrame::rows(self : DataFrame) -> Array[Array[@types.Scalar]] {
   let cols = self.to_scalar_matrix()
   Array::makei(self.nrows, r => cols.map(c => c[r]))
@@ -496,9 +496,9 @@ pub fn DataFrame::rows(self : DataFrame) -> Array[Array[@types.Scalar]] {
 /// null slot, exactly the rows `rows()` materialises as a matrix, handed
 /// over one at a time.
 ///
-/// Row iteration is the acknowledged slow path over a columnar frame —
-/// Polars carries the same warning — and matches its implementation
-/// strategy: the frame is materialised once up front (as `rows()` does)
+/// Row iteration is the acknowledged slow path over a columnar frame, and
+/// it matches that reading's implementation strategy: the frame is
+/// materialised once up front (as `rows()` does)
 /// and delivered row by row, rather than read a cell at a time. The
 /// column-wise walks stay the fast ones: `iter` / `iter2` over the
 /// columns, `Series::iter` within one.

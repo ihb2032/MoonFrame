@@ -1,10 +1,7 @@
 // Whole-frame statistical reductions on a `DataFrame`. Each of `sum`,
 // `mean`, `min`, `max`, `count`, `median`, `quantile`, `std`, `variance`,
 // and `n_unique` collapses the frame to a **single row**
-// — one cell per source column, names and order preserved — mirroring
-// Polars' per-column reduction verbs (`df.sum()` / `df.mean()` / `df.min()`
-// / `df.max()` / `df.count()` / `df.median()` / `df.quantile(q)` /
-// `df.std()` / `df.var()` / `df.n_unique()`), which return a 1-row frame
+// — one cell per source column, names and order preserved — a 1-row frame
 // rather than a scalar. `null_count` is the
 // same-shaped census: one `Int` cell per column counting its nulls, and
 // `describe` is the per-column summary report — one row per source column
@@ -25,9 +22,9 @@
 // column regardless of dtype — the 1-row transpose of `null_count`.
 //
 // Two deliberate choices flow from the uniform numeric-only rule:
-//   - `min` / `max` null out `Bool` / `String` columns, where Polars would
-//     instead order them. The numeric-only rule is kept uniform across the
-//     four reductions for one predictable frame shape; a caller who wants a
+//   - `min` / `max` null out `Bool` / `String` columns instead of ordering
+//     them. The numeric-only rule is kept uniform across the four
+//     reductions for one predictable frame shape; a caller who wants a
 //     `Bool` / `String` extremum reads the column's total `Series::min`
 //     / `max`, which order every dtype.
 //   - an empty / all-null numeric column follows the per-group / per-scope
@@ -45,16 +42,16 @@
 //
 // The per-column scalar reductions (`df.sum("col")` → `Scalar`) are
 // retired: read one column's scalar through its `Series`, e.g.
-// `df.get_column("col").sum()` (= Polars `df["col"].sum()`).
+// `df.get_column("col").sum()`.
 
 ///|
 /// The fixed set of whole-frame reductions, one per public method below. Kept
 /// separate from the kernel's open-ended `ReduceOp` (which the expression
-/// aggregations also feed) on purpose: the whole-frame verbs are the closed
-/// Polars per-column set — `sum` / `mean` / `min` / `max` / `count` /
+/// aggregations also feed) on purpose: the whole-frame verbs are a closed
+/// set — `sum` / `mean` / `min` / `max` / `count` /
 /// `median` / `std` / `variance` / `n_unique` / `quantile` — and they dispatch
 /// to the `Series` accessors here rather than routing through `reducer_for`,
-/// so a kernel reduction that is *not* a Polars frame verb (`first` / `last`)
+/// so a kernel reduction with no frame-level reading (`first` / `last`)
 /// does not silently become a frame-wide method. Decoupling the tag keeps that
 /// decision explicit. `Quantile` is the one payload-carrying member: the frame
 /// method forwards its `q` / `interpolation` through the tag to the per-column
@@ -116,7 +113,7 @@ pub fn DataFrame::count(self : DataFrame) -> DataFrame raise @types.DataError {
 }
 
 ///|
-/// Median of every column as a 1-row `DataFrame` (Polars' `df.median()`):
+/// Median of every column as a 1-row `DataFrame`:
 /// numeric columns hold the median of their non-null cells as `Float` —
 /// `NaN` propagating, the two middles averaged on an even count — and every
 /// other column (non-numeric, empty, all-null) a `Null` cell.
@@ -125,8 +122,8 @@ pub fn DataFrame::median(self : DataFrame) -> DataFrame raise @types.DataError {
 }
 
 ///|
-/// `q`-th quantile of every column as a 1-row `DataFrame` (Polars'
-/// `df.quantile(q)`, default `interpolation=Nearest`): numeric columns hold
+/// `q`-th quantile of every column as a 1-row `DataFrame`
+/// (default `interpolation=Nearest`): numeric columns hold
 /// the order statistic of their non-null cells as `Float`, and every other
 /// column (non-numeric, empty, all-null) a `Null` cell. A `q` outside
 /// `[0, 1]` `raise`s `InvalidOperation`.
@@ -147,8 +144,8 @@ pub fn DataFrame::quantile(
 }
 
 ///|
-/// Sample standard deviation of every column as a 1-row `DataFrame` (Polars'
-/// `df.std()`, `ddof = 1`): numeric columns with at least two non-null cells
+/// Sample standard deviation of every column as a 1-row `DataFrame`
+/// (`ddof = 1`): numeric columns with at least two non-null cells
 /// hold their `std` as `Float`, and every other column (non-numeric, empty,
 /// single-valued, all-null) a `Null` cell — no sample denominator, no value
 /// slot value.
@@ -157,9 +154,9 @@ pub fn DataFrame::std(self : DataFrame) -> DataFrame raise @types.DataError {
 }
 
 ///|
-/// Sample variance of every column as a 1-row `DataFrame` (Polars'
-/// `df.variance()`-shaped; spelled out because `var` is a reserved MoonBit
-/// word): the `ddof = 1` variance, with `std`'s `Float`-or-`Null` cell rules.
+/// Sample variance of every column as a 1-row `DataFrame` (spelled out
+/// because `var` is a reserved MoonBit word): the `ddof = 1` variance, with
+/// `std`'s `Float`-or-`Null` cell rules.
 pub fn DataFrame::variance(
   self : DataFrame,
 ) -> DataFrame raise @types.DataError {
@@ -167,8 +164,8 @@ pub fn DataFrame::variance(
 }
 
 ///|
-/// Distinct value count of every column as a 1-row `Int` `DataFrame`
-/// (Polars' `df.n_unique()`): dtype-independent like `count`, a null cell
+/// Distinct value count of every column as a 1-row `Int` `DataFrame`:
+/// dtype-independent like `count`, a null cell
 /// counting as one distinct value and every `Float` `NaN` as one bucket.
 pub fn DataFrame::n_unique(
   self : DataFrame,
@@ -316,7 +313,7 @@ fn reduce_column(
     }
     // `n_unique` is dtype-independent like `count`: the distinct value
     // count of every column — a null counts as one distinct value, every
-    // `NaN` as one bucket, both as in Polars.
+    // `NaN` as one bucket.
     FrameReduceOp::NUnique =>
       (@types.Scalar::Int(s.n_unique().to_int64()), @types.DataType::Int)
   }
@@ -376,15 +373,15 @@ pub fn DataFrame::null_count(
 /// original dtype if a caller needs it typed.
 ///
 /// This is a deliberately reduced summary: it omits the standard deviation,
-/// variance, and quantiles (`25%` / `50%` / `75%`) that Polars' `describe`
-/// reports. The per-column kernels expose those directly (`Series` std /
-/// variance / median) for callers who need them.
+/// variance, and quantiles (`25%` / `50%` / `75%`). The per-column kernels
+/// expose those directly (`Series` std / variance / median) for callers who
+/// need them.
 ///
-/// Because `min` / `max` skip `NaN` (Polars' regular extrema) while `count`
-/// and `n_unique` treat `NaN` as a present value, an all-`NaN` `Float` column
-/// reports a non-zero `count` and an `n_unique` of `1` (every `NaN` folds into
-/// one distinct bucket) but `Null` `min` / `max` — these can legitimately
-/// disagree, in addition to the empty / all-null case noted above.
+/// Because `min` / `max` skip `NaN` while `count` and `n_unique` treat `NaN`
+/// as a present value, an all-`NaN` `Float` column reports a non-zero
+/// `count` and an `n_unique` of `1` (every `NaN` folds into one distinct
+/// bucket) but `Null` `min` / `max` — these can legitimately disagree, in
+/// addition to the empty / all-null case noted above.
 ///
 /// Raises only because the summary frame is built through the fallible
 /// `DataFrame::DataFrame`; the output columns are hardcoded-unique and equal

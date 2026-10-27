@@ -162,7 +162,7 @@ test "count counts non-null cells per column; len counts rows, one column" {
 test "n_unique counts distinct cells per column, a null among them" {
   let r = conv_mixed_df().group_by([@expr.col("k")]).n_unique()
   // The second group's v is all null — the null bucket is its one
-  // distinct value, as in Polars.
+  // distinct value.
   assert_eq(r.get_column("v").to_scalars(), [
     @types.Scalar::Int(3),
     @types.Scalar::Int(1),

@@ -13,7 +13,7 @@ test "is_decimal_int_literal: accepts plain and signed decimals" {
 ///|
 test "is_decimal_int_literal: rejects base prefixes and underscores" {
   // `parse_int` (base=0) would accept all of these; the screen
-  // keeps them as strings, matching pandas / polars.
+  // keeps them as strings.
   assert_eq(is_decimal_int_literal("0xFF"), false)
   assert_eq(is_decimal_int_literal("0o17"), false)
   assert_eq(is_decimal_int_literal("0b101"), false)
@@ -31,7 +31,7 @@ test "is_decimal_int_literal: rejects empty, sign-only, and non-numeric" {
 ///|
 test "parse_plain_double_opt: an out-of-range finite literal overflows to signed Infinity" {
   // IEEE 754 overflow — the documented String→Float contract, matching the
-  // explicit `inf` literal and pandas / polars rather than rejecting the cell.
+  // explicit `inf` literal rather than rejecting the cell.
   assert_eq(parse_plain_double_opt("1e999"), Some(@double.infinity))
   assert_eq(parse_plain_double_opt("1.8e308"), Some(@double.infinity))
   assert_eq(parse_plain_double_opt("-1e999"), Some(@double.neg_infinity))

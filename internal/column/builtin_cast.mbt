@@ -87,9 +87,9 @@ fn[U] BuiltinColumn::cast_cells(
 ///   `+` / `-` sign followed by ASCII digits. Any other form on a valid
 ///   (non-null) slot returns `ParseError`, mirroring the CSV reader's
 ///   inference: `0x` / `0o` / `0b` base prefixes and `1_000` underscore
-///   grouping are rejected (pandas / polars keep them as strings), as are
-///   leading/trailing whitespace, non-numeric suffixes, empty strings,
-///   and decimal integers that overflow 64-bit `Int64`.
+///   grouping are rejected, as are leading/trailing whitespace, non-numeric
+///   suffixes, empty strings, and decimal integers that overflow 64-bit
+///   `Int64`.
 fn BuiltinColumn::to_int(
   self : BuiltinColumn,
 ) -> BuiltinColumn raise @types.DataError {
@@ -162,9 +162,9 @@ fn BuiltinColumn::to_int(
 ///   is inherent to the target type and not flagged as an error).
 /// - `Bool`: `true` → 1.0, `false` → 0.0.
 /// - `String`: parsed via `@string.parse_double`. `1_000`-style underscore
-///   grouping is rejected to match the CSV reader (pandas / polars keep
-///   such cells as strings); the `inf` / `-inf` / `nan` literals are still
-///   accepted. Other malformed strings on valid slots return `ParseError`;
+///   grouping is rejected to match the CSV reader; the `inf` / `-inf` /
+///   `nan` literals are still accepted. Other malformed strings on valid
+///   slots return `ParseError`;
 ///   finite values beyond the `Double` range collapse to `±Infinity` per
 ///   IEEE 754.
 fn BuiltinColumn::to_float(
@@ -189,8 +189,8 @@ fn BuiltinColumn::to_float(
         i => {
           let s = a.get(i)
           // Via the shared `@text.parse_plain_double_opt` (the CSV reader uses
-          // the same routine): `1_000`-style underscores are rejected to match
-          // pandas / polars, while the `inf` / `-inf` / `nan` literals — and a
+          // the same routine): `1_000`-style underscores are rejected, while
+          // the `inf` / `-inf` / `nan` literals — and a
           // finite literal beyond the `Double` range, which collapses to a
           // signed Infinity (IEEE 754) — stay accepted; a genuine non-number on
           // a valid slot is a `ParseError`.

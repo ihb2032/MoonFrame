@@ -490,7 +490,7 @@ test "line_terminator controls the row separator; CRLF round-trips" {
   // Default stays LF, byte for byte.
   let lf = format_csv(df, options=CsvWriteOptions::CsvWriteOptions())
   assert_true(lf.contains("\n") && !lf.contains("\r\n"))
-  // RFC 4180's CRLF, via Polars' knob name.
+  // RFC 4180's CRLF, through the `line_terminator` knob.
   let crlf = format_csv(
     df,
     options=CsvWriteOptions::CsvWriteOptions(line_terminator="\r\n"),

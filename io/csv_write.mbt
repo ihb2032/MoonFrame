@@ -18,9 +18,9 @@
 ///   `=`, `+`, `-`, `@`, a tab, or a carriage return is prefixed with a
 ///   single quote so a spreadsheet reads it as text. Deliberately lossy:
 ///   such a cell reads back with the leading quote. Defaults to `false`.
-/// - `line_terminator` — the string written after every row, Polars'
-///   knob of the same name. The default `"\n"` (LF) matches every
-///   mainstream writer; RFC 4180's letter calls for `"\r\n"` (CRLF),
+/// - `line_terminator` — the string written after every row. The
+///   default `"\n"` (LF) matches every mainstream writer; RFC 4180's
+///   letter calls for `"\r\n"` (CRLF),
 ///   and the reader accepts LF, CRLF, and CR alike, so either choice
 ///   round-trips. Must not be empty — an empty terminator would fuse
 ///   the rows into one.
@@ -103,8 +103,8 @@ pub fn CsvWriteOptions::CsvWriteOptions(
 ///   inference is content-based with no header type hints, so a column of
 ///   numeric-looking strings (`"01"`, `"2"`) returns as `Int` / `Float` —
 ///   dropping any leading zeros — and `"true"` / `"false"` as `Bool`, the
-///   dtype-from-content narrowing inherent to typeless CSV (matching Polars'
-///   `read_csv`). Quote / escape handling is otherwise round-trip safe.
+///   dtype-from-content narrowing inherent to typeless CSV. Quote /
+///   escape handling is otherwise round-trip safe.
 /// - When `sanitize_formulas` is `true`, a `String` cell beginning with
 ///   `=`, `+`, `-`, `@`, tab, or carriage return is prefixed with an
 ///   apostrophe before CSV quoting. This opt-in, intentionally lossy

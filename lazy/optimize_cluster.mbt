@@ -4,9 +4,9 @@
 // nodes and run once each in a fixed sequence, these reshape a node or its
 // expressions in place, so the optimizer iterates them to a fixed point
 // (every application strictly shrinks the plan — one stage fewer, one literal
-// subtree fewer — so the loop terminates). Polars runs its counterpart late
-// in the pipeline for the same reason: the push-downs have already placed the
-// nodes where clustering can see adjacency, and folding after projection
+// subtree fewer — so the loop terminates). They run after the push-down
+// passes by design: the passes have already placed the nodes where
+// clustering can see adjacency, and folding after projection
 // pushdown means a folded-away column reference never widens a scan.
 
 ///|

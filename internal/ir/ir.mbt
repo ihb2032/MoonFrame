@@ -272,10 +272,10 @@ pub(all) enum StrOp {
 pub extend StrOp with Eq::{equal, not_equal}
 
 ///|
-/// Which statistic a `Rolling` window computes — the seven core members of
-/// Polars' rolling family (`rolling_sum` / `mean` / `min` / `max` / `std` /
-/// `var` / `median`). Named by no public signature — the builders spell the
-/// verb, the tag carries it — so it stays inside the AST package.
+/// Which statistic a `Rolling` window computes: `sum` / `mean` / `min` /
+/// `max` / `std` / `var` / `median`. Named by no public signature — the
+/// builders spell the verb, the tag carries it — so it stays inside the
+/// AST package.
 pub(all) enum RollStat {
   Sum
   Mean
@@ -309,7 +309,7 @@ pub extend RollStat with Debug::{to_repr}
 /// `stat` over a `window`-wide trailing window (centred under `center`,
 /// the label at the middle with `floor(window/2)` elements before it),
 /// computed only where the window holds at least `min_samples` non-null
-/// cells (`None` = every cell, Polars' default). Numeric only; `Sum` /
+/// cells (`None` = every cell). Numeric only; `Sum` /
 /// `Min` / `Max` keep the operand dtype, the rest are `Float`.
 pub(all) enum PositionalOp {
   Shift(Int32, @types.Scalar)

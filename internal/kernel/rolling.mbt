@@ -48,8 +48,7 @@ fn eval_rolling(
   }
   // The label sits at the window's end (`center = false`, the trailing
   // window) or at its middle — `floor(window / 2)` cells before the
-  // label, the rest after (the pandas / Polars centring: a 4-wide
-  // window spans [i-2, i+1]).
+  // label, the rest after (a 4-wide centred window spans [i-2, i+1]).
   let back = if center { window / 2 } else { window - 1 }
   let forward = window - 1 - back
   match operand.storage().data() {

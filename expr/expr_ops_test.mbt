@@ -44,8 +44,8 @@ test "logical operators and their method aliases build identical nodes" {
 ///|
 test "postfix comparisons bind tighter than logical operators" {
   // The design claim behind comparisons-as-methods: the chain needs no
-  // parentheses, unlike Polars' operator comparisons — `&` receives the
-  // two completed comparisons as its operands.
+  // parentheses — `&` receives the two completed comparisons as its
+  // operands.
   let left = col("a").gt(lit_int(0))
   let right = col("b").lt(lit_int(5))
   assert_same_expr(

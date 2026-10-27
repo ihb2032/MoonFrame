@@ -176,15 +176,14 @@ fn compare_with_missing(
 }
 
 ///|
-/// Sort the series' own values, returning a new series with the same name —
-/// Polars' `Series.sort`. `descending` defaults to ascending and
-/// `nulls_last` to `false` — Polars' own default, which places missing cells
-/// first in an ascending sort — and both mean exactly what they mean for the
-/// corresponding `DataFrame::sort` key flags: the same kernel resolves the
-/// column, so a `Float` `NaN` orders by the IEEE total order — larger than
-/// every other value, trailing an ascending sort and leading a descending
-/// one, never re-routed through the null placement — and ties keep their
-/// input order — the sort is stable.
+/// Sort the series' own values, returning a new series with the same name.
+/// `descending` defaults to ascending and `nulls_last` to `false` — which
+/// places missing cells first in an ascending sort — and both mean exactly
+/// what they mean for the corresponding `DataFrame::sort` key flags: the
+/// same kernel resolves the column, so a `Float` `NaN` orders by the IEEE
+/// total order — larger than every other value, trailing an ascending sort
+/// and leading a descending one, never re-routed through the null
+/// placement — and ties keep their input order — the sort is stable.
 ///
 /// Total: every dtype has an order, and the permutation indexes the series
 /// itself, so nothing can fail.

@@ -59,8 +59,8 @@ fn distinct_pass(
 }
 
 ///|
-/// How many times each cell's own value occurs in the column (Polars'
-/// `unique_counts`) — an `Int` per cell, in order.
+/// How many times each cell's own value occurs in the column — an `Int`
+/// per cell, in order.
 fn eval_unique_counts(operand : Series) -> Series {
   let (cells, count, _, _) = distinct_pass(operand, Counts)
   let out : Array[Int64?] = cells.map(c => {
@@ -70,8 +70,8 @@ fn eval_unique_counts(operand : Series) -> Series {
 }
 
 ///|
-/// Whether each cell is its value's **first** occurrence (Polars'
-/// `is_first_distinct`) — a `Bool` per cell.
+/// Whether each cell is its value's **first** occurrence — a `Bool` per
+/// cell.
 fn eval_is_first_distinct(operand : Series) -> Series {
   let (cells, _, first_at, _) = distinct_pass(operand, FirstAt)
   let out : Array[Bool?] = Array::makei(cells.length(), i => {
@@ -81,8 +81,8 @@ fn eval_is_first_distinct(operand : Series) -> Series {
 }
 
 ///|
-/// Whether each cell is its value's **last** occurrence (Polars'
-/// `is_last_distinct`) — the trailing mirror of `eval_is_first_distinct`.
+/// Whether each cell is its value's **last** occurrence — the trailing
+/// mirror of `eval_is_first_distinct`.
 fn eval_is_last_distinct(operand : Series) -> Series {
   let (cells, _, _, last_at) = distinct_pass(operand, LastAt)
   let out : Array[Bool?] = Array::makei(cells.length(), i => {

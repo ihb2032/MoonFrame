@@ -7,21 +7,20 @@
 // result onto the unboxed fast path.
 
 ///|
-/// A length-first cell window — the `Series` twin of `DataFrame::slice`,
-/// Polars' `Series.slice(offset, length)`. A negative `offset` counts from
-/// the end, saturating at the first cell; an omitted `length` runs to the
-/// end; a given one saturates at what remains, a negative one is empty.
-/// Total — never fails.
+/// A length-first cell window — the `Series` twin of `DataFrame::slice`.
+/// A negative `offset` counts from the end, saturating at the first cell;
+/// an omitted `length` runs to the end; a given one saturates at what
+/// remains, a negative one is empty. Total — never fails.
 pub fn Series::slice(self : Series, offset : Int32, length? : Int32) -> Series {
   let start = @order.slice_start(offset, self.len())
   self.slice_series(start, @order.slice_len(start, self.len(), length))
 }
 
 ///|
-/// The bracket-slice sugar — the `Series` twin of `DataFrame::slice_between`,
-/// Polars' `s[1:3]` / `s[2:]` / `s[:-1]`: a half-open `[start, end)` cell
-/// window where an omitted bound runs to that end and a negative one counts
-/// from it, with crossed bounds an empty series. The bounds normalize
+/// The bracket-slice sugar — the `Series` twin of `DataFrame::slice_between`:
+/// a half-open `[start, end)` cell window where an omitted bound runs to
+/// that end and a negative one counts from it, with crossed bounds an empty
+/// series. The bounds normalize
 /// (`between_bounds`) into the one `(offset, length)` window kernel `slice`
 /// runs, so the two spellings cannot disagree. Total — never fails. Reached
 /// as `s[a:b]`.
@@ -51,7 +50,7 @@ pub fn Series::gather(
 ///|
 /// The first `n` cells, or every cell when `n` exceeds the length — the
 /// `Series` twin of `DataFrame::head`. A negative `n` keeps every cell but
-/// the last `|n|`, as Polars' `head` does. Total.
+/// the last `|n|`. Total.
 pub fn Series::head(self : Series, n : Int32) -> Series {
   self.slice_series(0, @order.window_take(n, self.len()))
 }
@@ -59,7 +58,7 @@ pub fn Series::head(self : Series, n : Int32) -> Series {
 ///|
 /// The last `n` cells, or every cell when `n` exceeds the length — the
 /// `Series` twin of `DataFrame::tail`. A negative `n` keeps every cell but
-/// the first `|n|`, as Polars' `tail` does. Total.
+/// the first `|n|`. Total.
 pub fn Series::tail(self : Series, n : Int32) -> Series {
   let len = self.len()
   let take = @order.window_take(n, len)
@@ -72,7 +71,7 @@ pub fn Series::tail(self : Series, n : Int32) -> Series {
 }
 
 ///|
-/// The cells in reverse order, name unchanged — Polars' `Series.reverse`.
+/// The cells in reverse order, name unchanged.
 /// Total. Reads the series back to front through the same gather machine
 /// the window verbs above trim with — one spelling over the shared
 /// row-gather path, the `Series` twin of `DataFrame::reverse`.

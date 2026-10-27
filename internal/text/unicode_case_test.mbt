@@ -22,7 +22,7 @@ test "map_case: supplementary-plane scripts case-map through the table" {
 ///|
 test "map_case: Final_Sigma lowercases a word-final Σ to ς" {
   // The one contextual rule the default conversion carries, matching
-  // Polars and Rust's `str::to_lowercase`: Σ maps to ς when preceded by a
+  // Rust's `str::to_lowercase`: Σ maps to ς when preceded by a
   // cased letter and not followed by one (skipping Case_Ignorable
   // characters on both sides), to σ when medial or word-initial.
   assert_eq(map_case("ΟΔΟΣ", upper=false), "οδος") // final after Δ

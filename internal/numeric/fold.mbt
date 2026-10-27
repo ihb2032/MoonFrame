@@ -90,9 +90,8 @@ pub fn fold_int64_sum_checked(
 /// with the kept count for the dividing caller: the accumulation behind
 /// `mean` on both layers (an `Int` column widens each cell through `get`
 /// before adding, so the accumulator cannot wrap past 2^63 the way
-/// `fold_int64_sum`'s does — matching Polars, which computes an `Int`-column
-/// mean in f64) and behind `Float` `sum`, where a present `NaN` participates
-/// — it is a value, only `Null` is missing — so a single `NaN` cell
+/// `fold_int64_sum`'s does) and behind `Float` `sum`, where a present `NaN`
+/// participates — it is a value, only `Null` is missing — so a single `NaN` cell
 /// propagates to a `NaN` total. A returned count of `0` (an empty range or
 /// an all-null window) is the caller's empty-window signal. Total.
 pub fn fold_double_sum(
@@ -121,8 +120,8 @@ pub fn fold_double_sum(
 /// was non-finite. When the true variance itself exceeds `Double`'s range
 /// (finite cells more than `Double::MAX` apart, e.g. opposite signs near
 /// `±1.8e308`), the internal overflow saturates `m2` to `+inf` — never a
-/// negative variance or a `NaN` result from the artefact — matching numpy /
-/// Polars; genuine `NaN` / `±inf` inputs keep IEEE propagation (a `NaN`
+/// negative variance or a `NaN` result from the artefact; genuine `NaN` /
+/// `±inf` inputs keep IEEE propagation (a `NaN`
 /// cell makes the running mean, hence `m2` and the caller's result, `NaN`;
 /// the rescue only fires when every input was finite). The caller owns the
 /// fewer-than-two rule (`cnt < 2` has no sample denominator) and the

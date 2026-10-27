@@ -399,8 +399,8 @@ test "parse_ndjson_str: a build-stage type error reports the physical file line"
 ///|
 test "parse_ndjson_str: infer_schema_rows=0 scans every line" {
   // Line 1 is integral, line 2 fractional. A 1-line window would lock Int
-  // and reject 2.5; scanning every line (`0`, Polars'
-  // `infer_schema_length=None`) types the column Float up front. Shares the
+  // and reject 2.5; scanning every line (`0`) types the column Float up
+  // front. Shares the
   // `frame_from_json_records` core with the JSON-array reader, so the two
   // formats agree.
   let content =

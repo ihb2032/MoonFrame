@@ -115,8 +115,8 @@ test "center moves the label to the window's middle" {
       @types.Scalar::Null,
     ],
   )
-  // An even 4-wide centred window spans [i-2, i+1] (the pandas / Polars
-  // centring): under the default min_samples both truncated edges hold
+  // An even 4-wide centred window spans [i-2, i+1]:
+  // under the default min_samples both truncated edges hold
   // three cells and stay null — only the two full windows compute.
   assert_eq(
     df

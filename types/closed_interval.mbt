@@ -5,7 +5,7 @@
 // (unlike the AST tags), so it stays a public, facade-re-exported type.
 
 ///|
-/// Which endpoints an `is_between` range includes — Polars' `closed`.
+/// Which endpoints an `is_between` range includes.
 /// `Both` (the default) is `lo <= x <= hi`; `Left` / `Right` open the other
 /// end; `None` excludes both (`lo < x < hi`).
 pub(all) enum ClosedInterval {

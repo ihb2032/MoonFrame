@@ -460,7 +460,7 @@ test "window fusion: two unbounded slices compose to one unbounded" {
 }
 
 ///|
-/// A negative `n` is the Polars "drop from the far end" window, not a
+/// A negative `n` is a "drop from the far end" window, not a
 /// tight bound: `min` would pick it as the tighter head while eager reads
 /// it as the *wider* one, so the pair stays a floor and collects exactly
 /// the eager chain.

@@ -19,8 +19,8 @@
 /// - `delimiter` — field separator passed through to NyaCSV.
 /// - `infer_schema_rows` — number of leading rows scanned when guessing
 ///   each column's dtype. `0` (or any value `<= 0`) lifts the cap and
-///   scans every row (Polars' `infer_schema_length=None`), trading a
-///   slower inference pass for never mis-guessing a column from a prefix.
+///   scans every row, trading a slower inference pass for never
+///   mis-guessing a column from a prefix.
 ///   Cells past a finite window are still parsed under the chosen dtype;
 ///   one that doesn't fit is handled per `on_parse_error`.
 /// - `null_values` — raw strings that should be treated as null cells
@@ -43,7 +43,7 @@
 ///   inference window fails to parse under its column's locked-in dtype.
 ///   `Raise` (default) fails with `ParseError(Cell(...))`; `Null`
 ///   downgrades the offending cell to a null cell and keeps the column's
-///   inferred dtype (Polars' `ignore_errors=True`).
+///   inferred dtype.
 /// - `allow_nonfinite_floats` — when `true` (default), the float probe
 ///   accepts every non-finite result: the `nan` / `inf` / `infinity` literals,
 ///   and a finite literal that overflows `Double` to a signed `Infinity`
@@ -159,8 +159,7 @@ pub fn CsvReadOptions::CsvReadOptions(
 /// name appears in `names`, in the file's own header order, leaving the rest
 /// uninferred, unparsed, and unmaterialised. A requested name that matches
 /// no header is silently ignored (lenient projection — the lazy scan driver
-/// relies on it when it hands down its pruned column list; Polars instead
-/// raises on an unknown name), and a
+/// relies on it when it hands down its pruned column list), and a
 /// projection matching **no** header builds no column at all and yields the
 /// `N×0` frame — the file's rows are still counted, so a downstream `head` /
 /// `slice` bounds-checks against the real height. Whole-input checks (strict
@@ -190,9 +189,8 @@ pub fn parse_csv_str(
 ///   lazy `scan_csv` source uses: the optimizer narrows the read to exactly
 ///   the columns a pipeline consumes. A requested name that matches no header
 ///   is silently ignored (lenient projection — see `parse_csv_str` for the
-///   lazy-scan reason; Polars instead raises on an unknown name): the
-///   scan driver does not raise `ColumnNotFound` for an unknown
-///   column, it just yields the ones that match. The lazy path only ever
+///   lazy-scan reason): the scan driver does not raise `ColumnNotFound`
+///   for an unknown column, it just yields the ones that match. The lazy path only ever
 ///   requests real columns, and a stray `col("missing")` is still caught
 ///   downstream by `select`. A projection matching **no** header builds no
 ///   column at all and yields the `N×0` frame — the file's rows are still
@@ -520,8 +518,8 @@ fn validate_csv_quotes(
 /// too: the tokenizer matches one UTF-16 code unit at a time, so a delimiter
 /// stored as a surrogate pair is never recognised and every cell would merge
 /// into one column on a round-trip. Shared by `format_csv` and the reader so
-/// both refuse the same configurations up front. (pandas / polars leave this as
-/// GIGO; MoonFrame rejects it rather than corrupt a round-trip silently.)
+/// both refuse the same configurations up front, rejecting them rather
+/// than corrupt a round-trip silently.
 fn validate_csv_delimiter(delimiter : Char) -> Unit raise @types.DataError {
   if delimiter == '"' || delimiter == '\n' || delimiter == '\r' {
     raise @types.DataError::InvalidOperation(

@@ -67,9 +67,9 @@ test "sum on Float accumulates in 64-bit to limit drift" {
 ///|
 test "sum / mean propagate Float NaN as a value (only Null is missing)" {
   let nan : Double = @double.not_a_number
-  // Polars semantics: NaN is a valid float value, so it is summed in and
-  // propagates — any non-null NaN makes the whole sum / mean NaN. (Null,
-  // by contrast, is still skipped.)
+  // NaN is a valid float value, so it is summed in and propagates — any
+  // non-null NaN makes the whole sum / mean NaN. (Null, by contrast, is
+  // still skipped.)
   let s = Series::from_floats("x", [1.0, nan, 3.0])
   assert_true(s.sum().as_float().is_nan())
   assert_true(s.mean().is_nan())
@@ -306,7 +306,7 @@ test "n_unique counts distinct values, a null among them" {
 ///|
 test "n_unique is 0 empty, 1 for an all-null series" {
   assert_eq(Series::from_ints("x", []).n_unique(), 0)
-  // The null bucket is the one distinct value, as in Polars.
+  // The null bucket is the one distinct value.
   assert_eq(Series::from_int_options("x", [None, None, None]).n_unique(), 1)
 }
 

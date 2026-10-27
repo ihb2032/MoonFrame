@@ -70,7 +70,7 @@ test "left join keeps every left row, nulling unmatched right columns" {
     JoinOptions::on([@expr.col("dept_id")], how=JoinType::Left),
   )
   assert_eq(out.check_invariants(), Ok(()))
-  // A left join coalesces the key by default (Polars): `dept_id` appears once,
+  // A left join coalesces the key by default: `dept_id` appears once,
   // carrying the left value (always present on a left row).
   assert_eq(out.columns(), ["emp_id", "name", "dept_id", "dept_name"])
   // All four employees survive; Dave (dept 99) has no match.
@@ -315,7 +315,7 @@ test "left join keeps a null-keyed left row with null right columns" {
 // ── Float NaN keys match (consistency with group_by) ─────────────────
 
 ///|
-test "Float NaN keys match each other (group_by-consistent, not pandas)" {
+test "Float NaN keys match each other, group_by-consistently" {
   let nan : Double = @double.not_a_number
   let left = DataFrame::DataFrame([
     Series::from_floats("k", [nan, 1.0]),
@@ -413,7 +413,7 @@ test "cross join with an empty operand is empty" {
 test "cross join rejects key columns" {
   let left = DataFrame::DataFrame([Series::from_ints("k", [1])])
   let right = DataFrame::DataFrame([Series::from_ints("k", [2])])
-  // Passing keys to a cross join is a usage error (Polars rejects it too).
+  // Passing keys to a cross join is a usage error.
   assert_true(
     (Ok(
       left.join(right, JoinOptions::on([@expr.col("k")], how=JoinType::Cross)),
@@ -655,9 +655,9 @@ test "right join keeps every right row, nulling unmatched left columns" {
     JoinOptions::on([@expr.col("dept_id")], how=JoinType::Right),
   )
   assert_eq(out.check_invariants(), Ok(()))
-  // Polars' swapped-left-join reading: the right frame's columns lead (key
-  // coalesced from the right by default) and the left non-key columns
-  // follow.
+  // The left join's own layout with the sides exchanged: the right frame's
+  // columns lead (key coalesced from the right by default) and the left
+  // non-key columns follow.
   assert_eq(out.columns(), ["dept_id", "dept_name", "emp_id", "name"])
   // Row set = every right department, in right order. Eng (dept 10) fans out
   // to its two employees in ascending left-row order (Alice then Carol),
@@ -1322,7 +1322,7 @@ test "left_on / right_on join on differently-named columns, keeping both" {
 ///|
 test "left_on may repeat a column for a multi-condition join" {
   // `left_on([a, a]).right_on([b, c])` means `a == b AND a == c` — a valid
-  // multi-condition join (Polars allows it). The repeated left key must not be
+  // multi-condition join. The repeated left key must not be
   // rejected as DuplicateColumn: the left and right key columns carry their own
   // names, so there is no output-column collision (the dedup is `on`-only).
   let left = DataFrame::DataFrame([

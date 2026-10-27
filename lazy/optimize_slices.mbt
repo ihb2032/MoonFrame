@@ -1,7 +1,7 @@
 // The slice pass: sink a `Head` / `Tail` / `Slice` window toward the scan so
 // rows leave the pipeline as early as possible — the positional analogue of
-// the predicate pass, and like Polars' `slice_pushdown`, it runs first so the
-// later passes see the pruned plan. A window may cross a stage only when the
+// the predicate pass, and the first pass to run, so the later ones see the
+// pruned plan. A window may cross a stage only when the
 // stage is row-*preserving* (one output row per input row — otherwise which
 // rows the window picks is different above and below) and its expressions
 // are row-local (a value-raising expression on a pruned-away row would lose

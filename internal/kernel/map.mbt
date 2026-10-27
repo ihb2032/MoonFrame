@@ -23,8 +23,8 @@
 /// cell becomes null; an all-valid numeric result converges onto `Numeric`).
 /// An all-null or empty result has no non-null cell to fix the dtype, so it
 /// borrows the leftmost input's *logical dtype* as the type witness and yields
-/// an all-null (or empty) column of that dtype — matching Polars' tolerance of
-/// a null-returning map. Any input serves as that witness, a literal included:
+/// an all-null (or empty) column of that dtype — a null-returning map is
+/// tolerated. Any input serves as that witness, a literal included:
 /// it is the leftmost *evaluated input*, not the leftmost column read. Only the
 /// dtype is borrowed, never the input's storage
 /// backend: `scalars_to_series` lands the result on the backend its own content
@@ -63,8 +63,8 @@ pub fn eval_map_apply(
   // frame with a column input calls the closure zero times) or every result
   // cell is null. In both cases fall back to the leftmost input's own dtype as
   // the witness, yielding an empty or all-null column of that dtype rather
-  // than raising — so `map` survives an empty frame, and an all-null map
-  // matches Polars' tolerance of a null-returning closure, mirroring that
+  // than raising — so `map` survives an empty frame, and an all-null map is
+  // tolerated the same way, mirroring that
   // input's dtype as `name` already mirrors its name. `evaluated.get(0)` is any
   // input, literal included — what a witness needs is a dtype, not a frame
   // column. Only a zero-input map (nothing to borrow a dtype from, e.g.

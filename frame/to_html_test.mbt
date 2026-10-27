@@ -17,8 +17,7 @@ test "to_html: empty frame (0x0) returns the empty string" {
 ///|
 test "to_html: zero rows still emits header + empty tbody" {
   // A schema-only frame must still surface the column layout; the
-  // `<tbody>` is present but carries no `<tr>` (as pandas' `to_html`
-  // renders a 0-row frame).
+  // `<tbody>` is present but carries no `<tr>`, the 0-row rendering.
   let schema = @types.Schema::Schema([
     @types.Field::Field("a", @types.DataType::Int),
     @types.Field::Field("b", @types.DataType::String),

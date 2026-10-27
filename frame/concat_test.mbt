@@ -32,7 +32,7 @@ test "vstack appends the rows under the agreed schema" {
 
 ///|
 test "vstack refuses a slot whose names differ" {
-  // Polars stacks frames whose schemas already agree; stacking a renamed —
+  // `vstack` stacks frames whose schemas already agree; stacking a renamed —
   // or reordered — column silently under another name is the bug the name
   // check exists to prevent.
   let top = DataFrame::DataFrame([

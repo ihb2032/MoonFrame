@@ -15,7 +15,7 @@ pub fn clamp_take(n : Int32, len : Int32) -> Int32 {
 }
 
 ///|
-/// Normalize the Python/Polars bracket-slice bounds — the `s[a:b]` sugar —
+/// Normalize bracket-slice bounds — the `s[a:b]` sugar —
 /// against a known length: an omitted bound runs to that end, a negative one
 /// counts from the end, an oversized one saturates, and crossed bounds are an
 /// empty window. Returns `(start, length)` in `slice(offset, length)` form:
@@ -42,7 +42,7 @@ pub fn between_bounds(
 }
 
 ///|
-/// The row count a `head` / `tail` window takes under the Polars convention:
+/// The row count a `head` / `tail` window takes:
 /// a positive `n` is a saturating count (as `clamp_take`), while a negative
 /// one drops rows from the opposite end instead — `head(-k)` keeps every row
 /// but the last `k`, `tail(-k)` every row but the first (`head` starts its
@@ -58,8 +58,8 @@ pub fn window_take(n : Int32, len : Int32) -> Int32 {
 }
 
 ///|
-/// The start row of a saturating `slice(offset, …)` window over `len` rows —
-/// Polars' offset rule. A negative `offset` counts from the end
+/// The start row of a saturating `slice(offset, …)` window over `len` rows.
+/// A negative `offset` counts from the end
 /// (`-1` names the last row), saturating at row `0` when it reaches past the
 /// first; a non-negative one saturates at `len`. Together with `slice_len`
 /// this is the whole of `DataFrame::slice` / `Series::slice`'s window

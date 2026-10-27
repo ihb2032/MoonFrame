@@ -16,7 +16,7 @@ pub fn Series::count(self : Series) -> Int32 {
 /// - `Float` series → `Scalar::Float(sum)`, accumulated in 64-bit
 ///   `Double`. A `NaN` cell is a valid value, not missing, so it
 ///   participates and **propagates**: any non-null `NaN` makes the sum
-///   `NaN` (Polars semantics; only `Null` is skipped).
+///   `NaN` (only `Null` is skipped).
 /// - `Decimal` series → `Scalar::Decimal(scale, total)`, exact over the
 ///   unscaled 64-bit cells; a total that leaves the `Int64` range
 ///   `raise`s `InvalidOperation` rather than wrapping. An empty /
@@ -55,8 +55,8 @@ pub fn Series::sum(self : Series) -> @types.Scalar raise @types.DataError {
 ///
 /// The denominator is the **non-null** count (`Series::count`), so a
 /// `Float` `NaN` is a present value that both counts toward the divisor
-/// and **propagates**: any non-null `NaN` makes the mean `NaN` (Polars
-/// semantics; only `Null` is skipped).
+/// and **propagates**: any non-null `NaN` makes the mean `NaN` (only
+/// `Null` is skipped).
 ///
 /// - Empty / all-null numeric series → `raise InvalidOperation(...)`.
 /// - Non-numeric series → `raise TypeMismatch(...)`.
@@ -94,8 +94,8 @@ pub fn Series::mean(self : Series) -> Double raise @types.DataError {
 /// summarises with, mirroring the total `min` / `max`;
 /// `Series::mean` remains the raising public form that distinguishes the two
 /// failure causes, and this folds both of them into `None`. A `Float` `NaN` is
-/// summed in and propagates to `Some(NaN)`, matching `mean` (Polars — only
-/// `Null` is missing). Exercised directly by this package's tests and, across
+/// summed in and propagates to `Some(NaN)`, matching `mean` — only
+/// `Null` is missing. Exercised directly by this package's tests and, across
 /// the package boundary, by `DataFrame::describe` (which summarises numeric,
 /// non-numeric, and all-null columns, so both arms below are reached).
 #doc(hidden)
@@ -108,15 +108,13 @@ pub fn Series::mean_opt(self : Series) -> Double? {
 
 ///|
 /// Minimum non-null cell as a `Scalar`, by the natural order of the
-/// series' dtype (Polars' `Series.min`). Total — every dtype has an
-/// order, so it never fails (unlike the `Result`-wrapped form this
-/// replaces).
+/// series' dtype. Total — every dtype has an order, so it never fails
+/// (unlike the `Result`-wrapped form this replaces).
 ///
 /// - Empty / all-null → `Scalar::Null`.
-/// - `Float` NaN is skipped (treated as missing), as Polars' regular
-///   `min` / `max` ignore it — distinct from `sum` / `mean`, where `NaN`
-///   propagates (also as in Polars), and from `sort`, which orders `NaN`
-///   as the largest value. A series of only NaN
+/// - `Float` NaN is skipped (treated as missing) — distinct from
+///   `sum` / `mean`, where `NaN` propagates, and from `sort`, which
+///   orders `NaN` as the largest value. A series of only NaN
 ///   (and/or nulls) → `Scalar::Null`.
 /// - `Bool` order: `false < true`.
 pub fn Series::min(self : Series) -> @types.Scalar {
@@ -133,10 +131,9 @@ pub fn Series::min(self : Series) -> @types.Scalar {
 }
 
 ///|
-/// Maximum non-null cell as a `Scalar` (Polars' `Series.max`). Mirrors
-/// `min` with the order reversed; the `Float` NaN and empty-series rules
-/// are identical. Total — unlike the `Result`-wrapped form this
-/// replaces.
+/// Maximum non-null cell as a `Scalar`. Mirrors `min` with the order
+/// reversed; the `Float` NaN and empty-series rules are identical.
+/// Total — unlike the `Result`-wrapped form this replaces.
 pub fn Series::max(self : Series) -> @types.Scalar {
   if self.storage is @column.ColumnStorage::Numeric(nc) {
     return nc.max()
@@ -145,11 +142,11 @@ pub fn Series::max(self : Series) -> @types.Scalar {
 }
 
 ///|
-/// Number of distinct values, a null cell counting as one distinct value
-/// (as Polars' `n_unique` does). Cells are keyed by the same
-/// composite-key normalisation `group_by` / `join` use (`key_cell`), so the
-/// distinct count agrees with grouping cell-for-cell: two cells collide
-/// exactly when they would share a `group_by` group. Two `Float`
+/// Number of distinct values, a null cell counting as one distinct value.
+/// Cells are keyed by the same composite-key normalisation `group_by` /
+/// `join` use (`key_cell`), so the distinct count agrees with grouping
+/// cell-for-cell: two cells collide exactly when they would share a
+/// `group_by` group. Two `Float`
 /// normalisations follow from that shared key — every `NaN` collapses into
 /// one bucket (it is a value, not missing, so it is one distinct value, the
 /// rule that also puts every `NaN` key in one `group_by` group), and `-0.0`
@@ -177,8 +174,8 @@ pub fn Series::n_unique(self : Series) -> Int32 {
 // `Numeric` column (`reduce_present`), and these are the colder reductions.
 
 ///|
-/// Sample standard deviation (`ddof = 1`, Polars' default) of the non-null
-/// cells, as `Double` — the square root of `variance`. Numeric only (`Int`
+/// Sample standard deviation (`ddof = 1`) of the non-null cells, as
+/// `Double` — the square root of `variance`. Numeric only (`Int`
 /// widens to `Double`). Computed by Welford's algorithm, so a finite-variance
 /// window of near-`Double`-max values still yields a finite result; a `NaN` is
 /// a present value that **propagates** (only `Null` is skipped).
@@ -212,7 +209,7 @@ pub fn Series::variance(self : Series) -> Double raise @types.DataError {
 
 ///|
 /// Median of the non-null cells, as `Double` — the middle of the sorted values,
-/// or the mean of the two middles for an even count (Polars). Numeric only
+/// or the mean of the two middles for an even count. Numeric only
 /// (`Int` widens to `Double`). Like `sum` / `mean`, a `NaN` **propagates**: one
 /// `NaN` cell makes the median `NaN` (the order statistics split — `sort`
 /// orders `NaN` as the largest value, `min` / `max` skip it).
@@ -232,10 +229,10 @@ pub fn Series::median(self : Series) -> Double raise @types.DataError {
 
 ///|
 /// `q`-th quantile of the non-null cells, as `Double` — the sorted cells read
-/// at position `q * (m - 1)` under `interpolation` (Polars'
-/// `Series.quantile`, default `Nearest`), so `quantile(0.5)` over an even
-/// count picks one middle cell rather than averaging the two (`Linear` gives
-/// the median's average, `Midpoint` the two-neighbour mean). Numeric only
+/// at position `q * (m - 1)` under `interpolation` (default `Nearest`), so
+/// `quantile(0.5)` over an even count picks one middle cell rather than
+/// averaging the two (`Linear` gives the median's average, `Midpoint` the
+/// two-neighbour mean). Numeric only
 /// (`Int` widens to `Double`). Like `median`, a `NaN` **propagates**; an
 /// empty / all-null series yields no order statistic.
 ///
@@ -258,8 +255,8 @@ pub fn Series::quantile(
 
 ///|
 /// First cell as a `Scalar`, in row order — positional, so it skips nothing (a
-/// present `NaN` is returned verbatim). Total (Polars' `Series.first`): an empty
-/// series, or a leading **null** cell, yields `Scalar::Null`.
+/// present `NaN` is returned verbatim). Total: an empty series, or a leading
+/// **null** cell, yields `Scalar::Null`.
 pub fn Series::first(self : Series) -> @types.Scalar {
   reduce_first_last(self.storage, want_first=true)(self.len(), k => k)
 }

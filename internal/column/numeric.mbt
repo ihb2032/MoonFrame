@@ -5,9 +5,8 @@
 /// `Bitmap`), `NumericColumn` carries no bitmap at all: every slot is a
 /// present value by construction, so there is nothing to mask. The moment a
 /// `null` enters the picture the column is materialised back into a
-/// `BuiltinColumn` (`to_builtin`, total + lossless). This mirrors Arrow /
-/// Polars, where a buffer with `null_count == 0` skips the validity check on
-/// the hot path.
+/// `BuiltinColumn` (`to_builtin`, total + lossless) — with `null_count == 0`
+/// by construction, the validity check has nothing to do on the hot path.
 ///
 /// The win is twofold and measurable, white-box-tested end to end:
 ///
@@ -75,9 +74,9 @@ pub fn NumericColumn::from_ints(values : ArrayView[Int64]) -> NumericColumn {
 /// Build a `Float` column from raw values. As with `from_ints` there is no
 /// null path and no validity `Bitmap`. `NaN` is a perfectly valid stored
 /// value here — it is *not* a missing marker (only an absent slot is, and
-/// this column has none) — and it participates in reductions exactly as
-/// Polars treats it: propagating through `sum` / `mean`, skipped by
-/// `min` / `max`. `values` is copied, so the column owns its data.
+/// this column has none) — and it participates in reductions by the
+/// library's own `NaN` rule: propagating through `sum` / `mean`, skipped
+/// by `min` / `max`. `values` is copied, so the column owns its data.
 pub fn NumericColumn::from_floats(values : ArrayView[Double]) -> NumericColumn {
   { data: Float(values.to_owned()), }
 }

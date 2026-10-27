@@ -136,8 +136,7 @@ test "projection push-down does not parse — or fail on — a dropped column" {
     ),
   )
   // The lazy scan, narrowed to `a`, never parses `b`, so it collects cleanly —
-  // the one place a narrowed CSV scan diverges from a full eager read
-  // (matching Polars' projection push-down).
+  // the one place a narrowed CSV scan diverges from a full eager read.
   let out = scan_csv(path, options=opts).select([@expr.col("a")]).collect()
   assert_eq(out.columns(), ["a"])
   assert_eq(out.item(1, "a"), @types.Scalar::Int(2))
@@ -459,7 +458,7 @@ test "projection push-down does not parse — or fail on — a dropped NDJSON co
     ),
   )
   // The lazy scan, narrowed to `a`, never builds `b`, so it collects cleanly —
-  // the same divergence as scan_csv (Polars' projection push-down).
+  // the same divergence as scan_csv.
   let out = scan_ndjson(path, options=opts).select([@expr.col("a")]).collect()
   assert_eq(out.columns(), ["a"])
   assert_eq(out.item(1, "a"), @types.Scalar::Int(2))

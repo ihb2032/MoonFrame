@@ -1,6 +1,6 @@
 // Whitebox tests for `NumericColumn`'s reduction fast path (the folds in the
-// fold file). Reductions inherit the library's Polars-aligned NaN
-// semantics: `NaN` propagates through `sum` / `mean` (it is a value, not
+// fold file). Reductions inherit the library's NaN semantics: `NaN`
+// propagates through `sum` / `mean` (it is a value, not
 // missing) but is skipped by `min` / `max` (treated as missing; `sort`
 // instead orders `NaN` as the largest value).
 
@@ -112,7 +112,7 @@ test "min / max: Float skips NaN, all-NaN / empty → Null" {
   let nan : Double = @double.not_a_number
   let col = NumericColumn::from_floats([3.0, nan, 1.0, 2.0])
   // NaN is skipped (treated as missing), unlike sum / mean where it
-  // propagates — exactly Polars' regular min / max.
+  // propagates.
   assert_eq(col.min(), @types.Scalar::Float(1.0))
   assert_eq(col.max(), @types.Scalar::Float(3.0))
   // Every cell skipped → Null (all-NaN, and empty).

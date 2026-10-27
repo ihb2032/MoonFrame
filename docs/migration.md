@@ -83,6 +83,17 @@ order, and a left column clashing with a right name takes the suffix
 Downstream code that indexed a right join's output by position, or that
 read the suffixed spelling, moves with it.
 
+### `str_to_lowercase` applies Final_Sigma, and the case tables name UCD 18.0.0
+
+A word-final `Σ` lowercases to `ς` (a medial one to `σ`), by the cased /
+case-ignorable characters around it — the one contextual rule the default
+conversion carries, matching Polars and Rust's `str::to_lowercase`; the
+locale rules (Turkish dotless `i`) stay unapplied. The mapping tables
+themselves were always generated from UCD 18.0.0 data, but the file
+header claimed 16.0.0 (a hand-edit at the original commit, three
+editions' worth of newer mappings ago); the regenerated header names the
+edition the tables came from, and now also carries the `Cased` /
+`Case_Ignorable` ranges Final_Sigma reads.
 
 ### `DataType` / `Scalar` gained `Timestamp` / `Decimal` variants
 

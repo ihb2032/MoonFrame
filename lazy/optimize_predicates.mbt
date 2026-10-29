@@ -243,7 +243,16 @@ fn LogicalPlan::place_filter(
         // `1.0 / +0.0 = +inf` but `1.0 / -0.0 = -inf`) could drop only part
         // of a group below the aggregate and disagree with the
         // representative above it; a safe one gives every row of a folded
-        // group the same verdict and may sink.
+        // group the same verdict and may sink. Two further folding premises
+        // live in the key fold itself and are stated here so the argument
+        // is complete where it is made: `key_cell` folds every `NaN` into one
+        // group and no row-local operator can distinguish NaN payloads, so
+        // every row of a NaN group carries the same verdict; and it folds a
+        // `Decimal` key to its unscaled magnitude, injective only because a
+        // column's scale is uniform (the dtype carries it). An operator
+        // that could surface a NaN payload or mix decimal scales per cell
+        // must fence this crossing the way division does — add it to
+        // `signed_zero_safe`'s precedent, not silently to the descend set.
         let props = expr_props(predicate.node())
         if props.row_local &&
           props.zero_sign_safe &&

@@ -74,6 +74,18 @@ fn float_key_cell(v : Double) -> KeyCell {
 /// `Scalar` variants plus the three `I64` riders — `Date` /
 /// `Timestamp` / `Decimal`, each keyed as `KInt` on its raw count — are
 /// exhaustive.
+///
+/// Two folds here carry premises other code argues from, stated where the
+/// fold happens: `NaN` folds to one cell *without* its payload, which is
+/// only sound for consumers because no operator can observe a NaN's
+/// payload bits (the predicate pass's aggregate crossing leans on this
+/// when it argues that a folded group shares one verdict); and `Decimal`
+/// keys on
+/// the unscaled magnitude *dropping its scale*, injective only because a
+/// column's scale is uniform — the dtype carries it, so two cells of one
+/// column that differ differ in magnitude. A consumer that could mix
+/// scales in one column or read a NaN's payload must not key through here
+/// unchanged.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
 pub fn key_cell(sc : @types.Scalar) -> KeyCell {

@@ -2390,3 +2390,31 @@ test "fence: a stack of filters each keeps its own decimal verdict" {
   assert_true(eager is Err(@types.DataError::InvalidOperation(_)))
   assert_true(lazy_ is Err(@types.DataError::InvalidOperation(_)))
 }
+
+///|
+test "deep join-split predicates don't overflow: rename_columns is iterative" {
+  // A predicate this deep naming a suffixed right column formerly overflowed
+  // the stack inside rename_columns during the join split — the one engine
+  // walk that had stayed recursive after every other walk went iterative, so
+  // the optimizer aborted where the eager chain evaluated fine. The
+  // explicit-stack rebuild renames any depth, and collect still matches the
+  // eager chain.
+  let l = @frame.DataFrame::DataFrame([
+    @series.Series::from_ints("k", [1, 2]),
+    @series.Series::from_ints("v", [10, 20]),
+  ])
+  let r = @frame.DataFrame::DataFrame([
+    @series.Series::from_ints("k", [1, 2]),
+    @series.Series::from_ints("v", [100, 200]),
+  ])
+  let opts = @frame.JoinOptions::on([@expr.col("k")])
+  let depth = 100000
+  let mut predicate = @expr.col("v_right").gt(@expr.lit_int(50))
+  for _ in 0..<depth {
+    predicate = predicate.land(@expr.col("v_right").gt(@expr.lit_int(50)))
+  }
+  let plan = LazyFrame::LazyFrame(l)
+    .join(LazyFrame::LazyFrame(r), opts)
+    .filter(predicate)
+  assert_eq(plan.collect(), l.join(r, opts).filter(predicate))
+}

@@ -115,60 +115,94 @@ pub fn ExprNode::children(self : ExprNode) -> Array[ExprNode] {
 /// Exhaustive on purpose, like `children`: a variant added to `ExprNode`
 /// fails this match until its sub-nodes are carried through, so a column
 /// reference can never hide under an unrewritten payload.
+///
+/// Iterative, like every engine walk: the tree is discovered with an
+/// explicit stack (`children` per node) into a post-order, then rebuilt in
+/// reverse discovery order so each node's children are renamed before the
+/// node itself. No recursion — a machine-built predicate of any depth
+/// renames without overflowing the stack. The rebuild `match` stays
+/// exhaustive for the same reason the recursive form was: a new variant
+/// fails compilation here until its rebuild arm exists.
 pub fn ExprNode::rename_columns(
   self : ExprNode,
   mapping : Map[String, String],
 ) -> ExprNode {
-  match self {
-    Col(name) =>
-      match mapping.get(name) {
-        Some(renamed) => Col(renamed)
-        None => self
+  let discover : Array[ExprNode] = [self]
+  let order : Array[ExprNode] = []
+  let arities : Array[Int32] = []
+  for ;; {
+    match discover.pop() {
+      None => break
+      Some(node) => {
+        let kids = node.children()
+        order.push(node)
+        arities.push(kids.length())
+        for k in kids {
+          discover.push(k)
+        }
       }
-    Lit(_) | LitSeries(_) => self
-    Binary(op, l, r) =>
-      Binary(op, l.rename_columns(mapping), r.rename_columns(mapping))
-    Unary(op, e) => Unary(op, e.rename_columns(mapping))
-    Agg(op, e) => Agg(op, e.rename_columns(mapping))
-    Str(op, e) => Str(op, e.rename_columns(mapping))
-    Positional(op, e) => Positional(op, e.rename_columns(mapping))
-    Cast(e, target) => Cast(e.rename_columns(mapping), target)
-    Alias(e, name) => Alias(e.rename_columns(mapping), name)
-    Ternary(c, t, f) =>
-      Ternary(
-        c.rename_columns(mapping),
-        t.rename_columns(mapping),
-        f.rename_columns(mapping),
-      )
-    FillNull(o, v) =>
-      FillNull(o.rename_columns(mapping), v.rename_columns(mapping))
-    FillNan(o, v) =>
-      FillNan(o.rename_columns(mapping), v.rename_columns(mapping))
-    Diff(e, n) => Diff(e.rename_columns(mapping), n)
-    Clip(x, lo, hi) =>
-      Clip(
-        x.rename_columns(mapping),
-        lo.map(l => l.rename_columns(mapping)),
-        hi.map(h => h.rename_columns(mapping)),
-      )
-    IsIn(e, members) => IsIn(e.rename_columns(mapping), members)
-    IsBetween(x, lo, hi, closed) =>
-      IsBetween(
-        x.rename_columns(mapping),
-        lo.rename_columns(mapping),
-        hi.rename_columns(mapping),
-        closed,
-      )
-    Map(label, inputs, f) =>
-      Map(label, inputs.map(e => e.rename_columns(mapping)), f)
-    MapBatches(label, inputs, returns_bool, f) =>
-      MapBatches(
-        label,
-        inputs.map(e => e.rename_columns(mapping)),
-        returns_bool,
-        f,
-      )
+    }
   }
+  let values : Array[ExprNode] = []
+  for i = order.length() - 1; i >= 0; i = i - 1 {
+    let node = order[i]
+    // Pop the rewritten children and restore input order — the value stack
+    // yields them last-first, and the rebuild below slots children
+    // positionally (an operand and its bounds are not interchangeable).
+    let popped : Array[ExprNode] = []
+    for _ in 0..<arities[i] {
+      popped.push(values[values.length() - 1])
+      let _ = values.pop()
+    }
+    let kids : Array[ExprNode] = Array::makei(popped.length(), k => {
+      popped[popped.length() - 1 - k]
+    })
+    values.push(
+      match node {
+        Col(name) =>
+          match mapping.get(name) {
+            Some(renamed) => Col(renamed)
+            None => node
+          }
+        Lit(_) | LitSeries(_) => node
+        Binary(op, _, _) => Binary(op, kids[0], kids[1])
+        Unary(op, _) => Unary(op, kids[0])
+        Agg(op, _) => Agg(op, kids[0])
+        Str(op, _) => Str(op, kids[0])
+        Positional(op, _) => Positional(op, kids[0])
+        Cast(_, target) => Cast(kids[0], target)
+        Alias(_, name) => Alias(kids[0], name)
+        Ternary(_, _, _) => Ternary(kids[0], kids[1], kids[2])
+        FillNull(_, _) => FillNull(kids[0], kids[1])
+        FillNan(_, _) => FillNan(kids[0], kids[1])
+        Diff(_, n) => Diff(kids[0], n)
+        // The kids array carries only the bounds that exist (the `children`
+        // order: operand, then lower, then upper), so the original node's
+        // `Option` structure decides which slot each renamed kid returns to.
+        Clip(_, lo, hi) => {
+          fn take(present : Bool, idx : Int32) -> ExprNode? {
+            if present {
+              Some(kids[idx])
+            } else {
+              None
+            }
+          }
+          Clip(
+            kids[0],
+            take(lo is Some(_), 1),
+            take(hi is Some(_), if lo is Some(_) { 2 } else { 1 }),
+          )
+        }
+        IsIn(_, members) => IsIn(kids[0], members)
+        IsBetween(_, _, _, closed) =>
+          IsBetween(kids[0], kids[1], kids[2], closed)
+        Map(label, _, f) => Map(label, kids, f)
+        MapBatches(label, _, returns_bool, f) =>
+          MapBatches(label, kids, returns_bool, f)
+      },
+    )
+  }
+  values[values.length() - 1]
 }
 
 ///|

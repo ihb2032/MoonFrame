@@ -91,6 +91,7 @@ def find_wildcards(root='.'):
         except OSError:
             continue
         fn_name = '<top>'
+        fn_start = None
         i = 0
         while i < len(lines):
             raw = lines[i]
@@ -100,6 +101,7 @@ def find_wildcards(root='.'):
                 name = FN_RE.match(raw)
                 if name:
                     fn_name = name.group(1)
+                fn_start = i
             mm = MATCH_RE.search(l)
             if mm is None:
                 mbegin = re.search(r'\bmatch\b', l)
@@ -143,8 +145,24 @@ def find_wildcards(root='.'):
                     if WILD_RE.match(ll):
                         found.append(j + 1)
                 text = '\n'.join(block)
+                # Attribution names a dtype enum through the block's own
+                # text *or* through the enclosing function's signature —
+                # `fn cell(... : DataType)` — because a match whose arms
+                # are bare variant names (`Int =>`, or a bare catch-all
+                # binding) carries no enum spelling into the block, and
+                # the signature is the other place the scrutinee's type is
+                # written. The signature half runs from the `fn` line to
+                # the match, the span a reader scans to learn what is
+                # matched; over-attributing is the safe direction (it can
+                # only ask for an allowlist entry, never hide one).
+                sig_text = (
+                    '\n'.join(
+                        strip_line(x) for x in lines[fn_start:i + 1]
+                    ) if fn_start is not None else ''
+                )
                 if found and any(
-                    re.search(r'\b' + e + r'\b', text) for e in ENUMS
+                    re.search(r'\b' + e + r'\b', text + '\n' + sig_text)
+                    for e in ENUMS
                 ):
                     for ln in found:
                         hits.append((f, ln, fn_name))

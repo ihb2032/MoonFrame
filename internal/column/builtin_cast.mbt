@@ -11,24 +11,28 @@
 /// Cast by target dtype — the single public cross-dtype conversion. `Int`
 /// truncates / parses, `Float` promotes / parses (per the file-private
 /// `to_int` / `to_float` helpers this dispatches to), and `String` renders
-/// every dtype through the total `to_string_column`. `Bool`, `Null`, and
-/// `Date` targets are unsupported and `raise Unsupported`; a `Date` *source*
-/// is rejected the same way — rendering its cells as day-counts or reusing
-/// the buffer under another dtype would be a silent misinterpretation, and a
-/// real `Date` cast (ISO parse, days extraction) is a semantic decision that
-/// lands with the first consumer that needs one.
+/// every dtype through the total `to_string_column`. A target outside that
+/// three — `Bool`, `Null`, `Date`, `Timestamp`, `Decimal` — `raise`s
+/// `Unsupported`; the `Bool` refusal is because the true / false spelling
+/// belongs to the read-side probes (`parse_bool_opt` and friends), and
+/// silently guessing an acceptance set for `1` / `0` / text is a semantic
+/// decision no consumer has asked for yet.
+///
+/// A *source* is refused by the registry's own identity/representation
+/// split, not by a hand-kept list: a dtype that rides the `I64` buffer
+/// without being numeric (`Date`, `Timestamp`, `Decimal` today) is refused
+/// outright — reusing the buffer under another dtype or rendering its raw
+/// counts would be a silent misinterpretation, and a real conversion (ISO
+/// parse, days extraction, rescale) is a semantic decision that lands with
+/// the first consumer that needs one. The registry promise holds: a new
+/// I64 rider is refused here without a new arm to forget.
 fn BuiltinColumn::cast(
   self : BuiltinColumn,
   target : @types.DataType,
 ) -> BuiltinColumn raise @types.DataError {
-  if self.dtype() is @types.DataType::Date {
-    raise @types.DataError::Unsupported("cast from Date")
-  }
-  if self.dtype() is @types.DataType::Timestamp {
-    raise @types.DataError::Unsupported("cast from Timestamp")
-  }
-  if self.dtype() is @types.DataType::Decimal(_) {
-    raise @types.DataError::Unsupported("cast from Decimal")
+  let source = self.dtype()
+  if source.physical() is Some(@types.PhysicalType::I64) && !source.is_numeric() {
+    raise @types.DataError::Unsupported("cast from \{source}")
   }
   match target {
     Int => self.to_int()

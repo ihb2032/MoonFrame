@@ -391,3 +391,21 @@ test "ColumnStorage equality answers false on a representation mismatch" {
   let genuine = ColumnStorage::Builtin(BuiltinColumn::from_floats([1.0]))
   assert_not_eq(mislabelled, genuine)
 }
+
+///|
+test "the wbtest BuiltinColumn equality is dtype-led, like production" {
+  // A Date column and an Int column over the same day-count cells are
+  // different columns — production `ColumnStorage::equal` says so with its
+  // dtype-first gate, and the whitebox `Eq for BuiltinColumn` every
+  // assert_eq in the whitebox tests rides must agree, or an assertion
+  // could pass a cross-dtype pair production calls unequal.
+  let date = BuiltinColumn::from_i64_options(@types.DataType::Date, [
+    Some(11016L),
+  ])
+  let int = BuiltinColumn::from_i64_options(@types.DataType::Int, [Some(11016L)])
+  assert_true(!(date == int))
+  assert_true(
+    date ==
+    BuiltinColumn::from_i64_options(@types.DataType::Date, [Some(11016L)]),
+  )
+}

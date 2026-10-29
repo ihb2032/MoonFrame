@@ -927,3 +927,16 @@ test "parse_json_str: dtypes overrides are refused like the CSV reader's" {
   }
   assert_true(result2 is Err(@types.DataError::InvalidOperation(_)))
 }
+
+///|
+test "an empty JSON array still checks its dtype pins" {
+  let opts = @io.JsonReadOptions::JsonReadOptions(
+    dtypes=Map([("emp_id", @types.DataType::Int)]),
+  )
+  let result : Result[@frame.DataFrame, @types.DataError] = Ok(
+    @io.parse_json_str("[]", options=opts),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(result is Err(@types.DataError::InvalidOperation(_)))
+}

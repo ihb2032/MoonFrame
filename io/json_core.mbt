@@ -113,6 +113,11 @@ fn frame_from_json_records(
   dtypes~ : Map[String, @types.DataType],
 ) -> @frame.DataFrame raise @types.DataError {
   if records.is_empty() {
+    // No records means no columns, so every pinned name is a false
+    // assertion — checked even here, or an empty input would turn a
+    // misspelt pin into a silent 0×0 success (the check below runs on
+    // the collected headers, which no records never produce).
+    check_override_columns(dtypes, [])
     return @frame.DataFrame::DataFrame([])
   }
   let objs : Array[Map[String, Json]] = Array(capacity=records.length())
@@ -189,6 +194,28 @@ fn frame_from_json_records(
     build(name, records, lines)
   }
   assemble_pruned_frame(headers, objs.length(), projection, pruner, build_over)
+}
+
+///|
+/// The duplicate-key diagnostic the strict `reject_duplicate_keys` option
+/// produces, spelled once for both readers: the whole-file reader parses
+/// the entire document, where the parser's line is the file's own line
+/// numbering and is reported; the per-line NDJSON reader parses each record
+/// alone, where that line is always 1 and reporting it would contradict
+/// the physical line the caller's locator has already given — there only
+/// the column survives.
+fn duplicate_key_detail(
+  key : String,
+  line : Int32,
+  column : Int32,
+  single_line~ : Bool,
+) -> String {
+  let position = if single_line {
+    "column \{column}"
+  } else {
+    "line \{line}, column \{column}"
+  }
+  "duplicate key \"\{key}\" at \{position}"
 }
 
 ///|

@@ -69,6 +69,10 @@ fn numeric_fast_pair(
 /// `Int, Int` to the kernel's `int_int` callback, and raise the shared
 /// `TypeMismatch` for every non-numeric pairing. The caller converges an
 /// all-valid result back onto the `Numeric` backend.
+///
+/// The arithmetic half of the three dtype-pair gates — see
+/// `DataType::comparable_with` for the comparison gate and the review rule
+/// that ties the three together.
 fn numeric_general_pair(
   left : Series,
   right : Series,
@@ -783,7 +787,7 @@ fn round_half_even(a : Double) -> Double {
 /// present `Int` cell is never `NaN` (so the constant `false`); a non-numeric
 /// operand raises `TypeMismatch`. Lands on the nullable `Builtin` backend.
 fn eval_is_nan(operand : Series) -> Series raise @types.DataError {
-  nan_probe(operand, true)
+  num_probe(operand, "is_nan", v => v.is_nan(), false)
 }
 
 ///|
@@ -792,101 +796,31 @@ fn eval_is_nan(operand : Series) -> Series raise @types.DataError {
 /// as "not NaN". A present `Int` cell is always not-NaN; a non-numeric operand
 /// raises `TypeMismatch`. Lands on the nullable `Builtin` backend.
 fn eval_is_not_nan(operand : Series) -> Series raise @types.DataError {
-  nan_probe(operand, false)
+  num_probe(operand, "is_not_nan", v => !v.is_nan(), true)
 }
 
 ///|
-/// The shared NaN-probe core behind `eval_is_nan` / `eval_is_not_nan`:
-/// `want_nan` picks the polarity, the two public entries name it.
-fn nan_probe(
+/// The shared probe core behind all four value probes — `eval_is_nan` /
+/// `eval_is_not_nan` / `eval_is_finite` / `eval_is_infinite`: `cell` names
+/// what a present `Float` cell must satisfy, `int_const` the verdict for a
+/// present `Int` cell (never NaN, always finite — each probe's polarity
+/// fixes it), `probe` the name the non-numeric raise carries. The two
+/// polarities of each probe are two argument pairs over this one body.
+fn num_probe(
   operand : Series,
-  want_nan : Bool,
+  probe : String,
+  cell : (Double) -> Bool,
+  int_const : Bool,
 ) -> Series raise @types.DataError {
   // `Numeric` fast arm, as in `eval_arith`: all cells present, so the probe
-  // is a raw-array pass — an `Int` cell is never NaN, so its arm is the
-  // constant `!want_nan` per cell.
+  // is a raw-array pass.
   match operand.storage() {
     @column.ColumnStorage::Numeric(x) =>
       return match x.numeric_data() {
         @column.NumericData::Int(a) =>
           Series::from_bools(
             operand.name(),
-            Array::makei(a.length(), _ => !want_nan),
-          )
-        @column.NumericData::Float(a) =>
-          Series::from_bools(
-            operand.name(),
-            Array::makei(a.length(), i => a[i].is_nan() == want_nan),
-          )
-      }
-    @column.ColumnStorage::Builtin(_) => ()
-  }
-  let valid = operand.validity_bools()
-  match operand.storage().data() {
-    @column.ColumnData::F64(a) =>
-      Series::from_bool_options(
-        operand.name(),
-        map_present(a.length(), valid, i => a[i].is_nan() == want_nan),
-      )
-    @column.ColumnData::I64(a) if operand.dtype().is_numeric() =>
-      Series::from_bool_options(
-        operand.name(),
-        map_present(a.length(), valid, _ => !want_nan),
-      )
-    @column.ColumnData::I64(_)
-    | @column.ColumnData::Bool(_)
-    | @column.ColumnData::Utf8(_) => {
-      let probe = if want_nan { "is_nan" } else { "is_not_nan" }
-      raise @types.DataError::TypeMismatch(
-        @types.TypeMismatchDetail::Message(
-          "\{probe} requires a numeric operand, got \{operand.dtype()}",
-        ),
-      )
-    }
-  }
-}
-
-///|
-/// Build the nullable `Bool` cells of `is_finite` — a present `Float` cell
-/// is finite unless it is `NaN` or an infinity; a present `Int` cell always
-/// is; null cells stay null; a non-numeric operand `raise`s
-/// `TypeMismatch`. Lands on the nullable `Builtin` backend (the
-/// `eval_is_nan` shape).
-fn eval_is_finite(operand : Series) -> Series raise @types.DataError {
-  finite_probe(operand, true)
-}
-
-///|
-/// Build the nullable `Bool` cells of `is_infinite` — `eval_is_finite`'s
-/// polarity flipped on the infinity test alone (`NaN` is a value, neither
-/// infinite nor not-infinite-by-sign: it lands `false` here and `false`
-/// there, null stays null).
-fn eval_is_infinite(operand : Series) -> Series raise @types.DataError {
-  finite_probe(operand, false)
-}
-
-///|
-/// The shared finiteness-probe core behind `eval_is_finite` /
-/// `eval_is_infinite`, `nan_probe`'s mirror: `want_finite` picks the
-/// polarity, the two public entries name it.
-fn finite_probe(
-  operand : Series,
-  want_finite : Bool,
-) -> Series raise @types.DataError {
-  let cell : (Double) -> Bool = if want_finite {
-    v => !v.is_nan() && !v.is_inf()
-  } else {
-    v => v.is_inf()
-  }
-  // `Numeric` fast arm: all cells present — an `Int` cell is always
-  // finite, never infinite.
-  match operand.storage() {
-    @column.ColumnStorage::Numeric(x) =>
-      return match x.numeric_data() {
-        @column.NumericData::Int(a) =>
-          Series::from_bools(
-            operand.name(),
-            Array::makei(a.length(), _ => want_finite),
+            Array::makei(a.length(), _ => int_const),
           )
         @column.NumericData::Float(a) =>
           Series::from_bools(
@@ -906,17 +840,34 @@ fn finite_probe(
     @column.ColumnData::I64(a) if operand.dtype().is_numeric() =>
       Series::from_bool_options(
         operand.name(),
-        map_present(a.length(), valid, _ => want_finite),
+        map_present(a.length(), valid, _ => int_const),
       )
     @column.ColumnData::I64(_)
     | @column.ColumnData::Bool(_)
-    | @column.ColumnData::Utf8(_) => {
-      let probe = if want_finite { "is_finite" } else { "is_infinite" }
+    | @column.ColumnData::Utf8(_) =>
       raise @types.DataError::TypeMismatch(
         @types.TypeMismatchDetail::Message(
           "\{probe} requires a numeric operand, got \{operand.dtype()}",
         ),
       )
-    }
   }
+}
+
+///|
+/// Build the nullable `Bool` cells of `is_finite` — a present `Float` cell
+/// is finite unless it is `NaN` or an infinity; a present `Int` cell always
+/// is; null cells stay null; a non-numeric operand `raise`s
+/// `TypeMismatch`. Lands on the nullable `Builtin` backend (the
+/// `eval_is_nan` shape).
+fn eval_is_finite(operand : Series) -> Series raise @types.DataError {
+  num_probe(operand, "is_finite", v => !v.is_nan() && !v.is_inf(), true)
+}
+
+///|
+/// Build the nullable `Bool` cells of `is_infinite` — `eval_is_finite`'s
+/// polarity flipped on the infinity test alone (`NaN` is a value, neither
+/// infinite nor not-infinite-by-sign: it lands `false` here and `false`
+/// there, null stays null).
+fn eval_is_infinite(operand : Series) -> Series raise @types.DataError {
+  num_probe(operand, "is_infinite", v => v.is_inf(), false)
 }

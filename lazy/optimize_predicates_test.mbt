@@ -2389,6 +2389,7 @@ test "fence: a stack of filters each keeps its own decimal verdict" {
   }
   assert_true(eager is Err(@types.DataError::InvalidOperation(_)))
   assert_true(lazy_ is Err(@types.DataError::InvalidOperation(_)))
+}
 
 ///|
 test "deep join-split predicates don't overflow: rename_columns is iterative" {

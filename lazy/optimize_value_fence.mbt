@@ -10,6 +10,16 @@
 // fails to collect still fails after optimization) is what this fence
 // keeps true for those refusals: a stage whose expressions combine decimal
 // cells stays a floor, and so does a predicate that does.
+//
+// This walk is one of three spellings of "how a verb reshapes column
+// names": `frame`'s verbs are the semantics, the exact-vocabulary walk
+// `frame_op_names` (the one the joins read for positive attribution) is
+// exact where it must be, and this walk over-approximates the same
+// propagation (both its liberties are the fence-more direction). The
+// Rename step runs the pairs sequentially over the decimal subset, the
+// over-approximating mirror of the exact walk's `sequential_rename` — a
+// change to how `rename` spells its output reaches both walks, so the
+// two are edited together.
 
 ///|
 /// The decimal risk a plan carries: the union of each stage's decimal

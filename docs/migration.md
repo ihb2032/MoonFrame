@@ -7,7 +7,7 @@ written when the release is cut; the per-symbol reference — generated from the
 docstrings — is on [mooncakes.io](https://mooncakes.io/docs/ihb2032/MoonFrame)
 and [GitHub Pages](https://ihb2032.github.io/MoonFrame/).
 
-## v0.7.0 → v0.8.0 (unreleased)
+## v0.7.0 → v0.8.0
 
 The operator-alignment sprint widens the join vocabulary and the dtype
 set: three public enums each gain variants — `JoinType` the two joins,

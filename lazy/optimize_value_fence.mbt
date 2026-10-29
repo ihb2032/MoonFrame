@@ -155,10 +155,11 @@ fn plan_risk_step(node : LogicalPlan, risks : Array[PlanRisk]) -> PlanRisk {
     // the verbs that do drop or replace columns (`Drop`, `WithRowIndex`,
     // `Reduce`) keeping the old names is the over-approximating direction
     // — a decimal name that no longer exists can only fence more, never
-    // less. Exhaustive on purpose, like its exact twin `frame_op_names`
-    // in plan_names.mbt: a verb added to `FrameOp` fails this match until
-    // it declares here whether decimal names ride through it, instead of
-    // falling into a silent default.
+    // less. Exhaustive on purpose, mirroring `frame_op_names` — the exact
+    // vocabulary walk, which lists the same verbs as its own pass-through
+    // set: a verb added to `FrameOp` fails this match until it declares
+    // here whether decimal names ride through it, instead of falling into
+    // a silent default.
     Unary(_, Filter(_))
     | Unary(_, Sort(_))
     | Unary(_, Head(_))

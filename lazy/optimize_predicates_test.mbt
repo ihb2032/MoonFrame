@@ -2336,3 +2336,57 @@ test "a diff in the predicate fences it above every stage" {
     .to_scalars(),
   )
 }
+
+///|
+test "fence: a stack of filters each keeps its own decimal verdict" {
+  // The pass now steps the decimal risk alongside its rebuild instead of
+  // re-walking each filter's input subtree — this pins that every filter
+  // in a stack still sees the risk of the subtree it sinks into: the
+  // value-raising predicate stays above the decimal stage no matter how
+  // many plain predicates stack above or below it.
+  let df = dec_overflow_df()
+  let plan = LazyFrame::LazyFrame(df)
+    .filter(@expr.col("k").eq(@expr.lit_str("keep")))
+    .filter(@expr.col("d").is_not_null())
+    .filter(@expr.col("k").is_not_null())
+  // Three plain predicates stacked over a decimal frame: each sinks on
+  // its own verdict (they read no decimal values), and the collected
+  // result equals the eager chain row for row.
+  assert_eq(
+    plan.collect(),
+    df
+    .filter(@expr.col("k").eq(@expr.lit_str("keep")))
+    .filter(@expr.col("d").is_not_null())
+    .filter(@expr.col("k").is_not_null()),
+  )
+  // The fence half: with a checked decimal expression staged below a
+  // stack of plain predicates, none of them may prune the refusing row
+  // out from under it — the eager chain raises on the magnitude edge, and
+  // so must collect, whatever the stacked filters would drop.
+  let edge = @frame.DataFrame::DataFrame([
+    @series.Series::from_strings("k", ["drop", "keep"]),
+    @series.Series::from_decimal_options(0, "d", [
+      Some(-9223372036854775808L),
+      Some(1L),
+    ]),
+  ])
+  let staged = LazyFrame::LazyFrame(edge)
+    .with_columns([@expr.col("d").neg().with_alias("n")])
+    .filter(@expr.col("k").eq(@expr.lit_str("keep")))
+    .filter(@expr.col("k").is_not_null())
+    .filter(@expr.col("d").is_not_null())
+  let eager : Result[@frame.DataFrame, @types.DataError] = Ok(
+    edge
+    .with_columns([@expr.col("d").neg().with_alias("n")])
+    .filter(@expr.col("k").eq(@expr.lit_str("keep")))
+    .filter(@expr.col("k").is_not_null())
+    .filter(@expr.col("d").is_not_null()),
+  ) catch {
+    e => Err(e)
+  }
+  let lazy_ : Result[@frame.DataFrame, @types.DataError] = Ok(staged.collect()) catch {
+    e => Err(e)
+  }
+  assert_true(eager is Err(@types.DataError::InvalidOperation(_)))
+  assert_true(lazy_ is Err(@types.DataError::InvalidOperation(_)))
+}

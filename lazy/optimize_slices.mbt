@@ -15,20 +15,43 @@
 /// shared post-order — iterative, total, like every engine walk.
 fn LogicalPlan::push_slices(self : LogicalPlan) -> LogicalPlan {
   let values : Array[LogicalPlan] = []
+  // The decimal risk of each rebuilt subtree, stepped alongside the
+  // rebuild exactly as `push_predicates` does — a sunk window moves rows,
+  // never names, so a window node's accumulator is its input's.
+  let risks : Array[PlanRisk] = []
   for node in self.post_order() {
     match node {
-      Scan(_) => values.push(node)
+      Scan(_) => {
+        values.push(node)
+        risks.push(plan_risk_step(node, risks))
+      }
       Unary(_, op) =>
         if op is Head(_) || op is Tail(_) || op is Slice(_, _) {
-          values.push(pop_top(values).place_slice(op))
+          let input = pop_top(values)
+          let risk = pop_top(risks)
+          values.push(
+            input.place_slice(op, decimal_names={
+              names: risk.union,
+              any: risk.any,
+            }),
+          )
+          risks.push(risk)
         } else {
           values.push(Unary(pop_top(values), op))
+          risks.push(plan_risk_step(node, risks))
         }
-      Join(_, _, options) => rejoin(values, options)
-      Aggregate(_, keys, exprs) =>
+      Join(_, _, options) => {
+        rejoin(values, options)
+        risks.push(plan_risk_step(node, risks))
+      }
+      Aggregate(_, keys, exprs) => {
         values.push(Aggregate(pop_top(values), keys, exprs))
-      AggregateAll(_, keys, op2) =>
+        risks.push(plan_risk_step(node, risks))
+      }
+      AggregateAll(_, keys, op2) => {
         values.push(AggregateAll(pop_top(values), keys, op2))
+        risks.push(plan_risk_step(node, risks))
+      }
     }
   }
   pop_top(values)
@@ -51,12 +74,16 @@ fn LogicalPlan::push_slices(self : LogicalPlan) -> LogicalPlan {
 fn LogicalPlan::place_slice(
   self : LogicalPlan,
   window : FrameOp,
+  decimal_names~ : DecimalRisk,
 ) -> LogicalPlan {
   let crossed : Array[(LogicalPlan) -> LogicalPlan] = []
   // The decimal value-fence: a stage whose expressions combine decimal
   // cells refuses on values, and a sunk window prunes the rows the refusal
-  // lives on — the same error-faithfulness the row-local gates keep.
-  let decimal_names = decimal_names_in_plan(self)
+  // lives on — the same error-faithfulness the row-local gates keep. The
+  // pass hands in the risk it already maintains for this subtree — this
+  // entry has a single caller, so the risk is a required label, not an
+  // optional with a re-walk fallback.
+  let decimal_names = decimal_names
   let mut cur = self
   let mut window = window
   let mut descending = true

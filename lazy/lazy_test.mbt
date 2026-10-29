@@ -280,8 +280,13 @@ test "a shared subplan renders once, with a marker on re-encounter" {
   )
   // A DAG-shaped plan skips the rewrite passes (the tree-wise rebuild
   // would duplicate every shared subplan), so the optimized view is the
-  // as-built plan.
-  assert_eq(joined.explain(optimized=true), joined.explain())
+  // as-built plan under a leading note that says so — without it the
+  // identical tree would read as optimized.
+  assert_eq(
+    joined.explain(optimized=true),
+    "NOTE: shared subplan — optimization skipped; the tree below is the as-built plan\n" +
+    joined.explain(),
+  )
   // Two equal-but-separate builds share nothing, so both sides expand.
   let left = LazyFrame::LazyFrame(df).filter(
     @expr.col("a").gt(@expr.lit_int(0)),

@@ -652,7 +652,8 @@ pub fn LazyFrame::collect(
 /// of what the optimizer moved and pruned — except on a DAG-shaped plan
 /// (the same `LazyFrame` on both sides of a `join`), which `collect` runs
 /// as built, so `optimized=true` renders the same tree as the default
-/// (a shared subtree is marked `"(shared, rendered above)"`).
+/// under a leading `NOTE: shared subplan` line saying the rewrites were
+/// skipped (a shared subtree is also marked `"(shared, rendered above)"`).
 /// (Plans are immutable, so the flag rewrites a copy and never perturbs
 /// this frame.)
 ///
@@ -663,8 +664,16 @@ pub fn LazyFrame::explain(
   self : LazyFrame,
   optimized~ : Bool = false,
 ) -> String {
-  let plan = if optimized { self.plan.optimize() } else { self.plan }
   let buf = StringBuilder()
+  if optimized && self.plan.has_shared_subplan() {
+    // A DAG-shaped plan runs as built — the passes rebuild tree-wise, so a
+    // shared subplan is left unoptimized (see `optimize`). Say so up front;
+    // without this line the tree below would look optimized when it is the
+    // as-built plan verbatim.
+    buf <+
+      "NOTE: shared subplan — optimization skipped; the tree below is the as-built plan\n"
+  }
+  let plan = if optimized { self.plan.optimize() } else { self.plan }
   plan.render(buf, 0)
   buf.to_string()
 }

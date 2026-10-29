@@ -64,8 +64,13 @@ pub extend JoinType with Debug::{to_repr}
 ///     rows with **no** match. Both keep the left schema and left row
 ///     order, and a null key cell matches nothing, so a null-keyed left
 ///     row survives `Anti` and never survives `Semi`.
-///   * `suffix` — appended to a **right** column whose name also occurs in
-///     the left frame (default `"_right"`); the left column keeps its name.
+///   * `suffix` — appended to the side that would otherwise be squeezed
+///     out of its own name: a **right** column whose name also occurs in
+///     the left frame (default `"_right"`), except under `Right`, where
+///     the right frame leads and a clashing **left** column takes the
+///     suffix instead (the left join's rule with the sides exchanged —
+///     see `Right` above). The un-suffixed spelling always belongs to the
+///     side the join leads with.
 ///   * `coalesce` — whether each key column is merged into a single output
 ///     column. `None` (the default) auto-selects by `how`:
 ///     an inner / left / right join **coalesces** (the key appears once),

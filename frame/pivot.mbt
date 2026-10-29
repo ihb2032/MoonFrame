@@ -13,8 +13,9 @@
 //
 // Order is deterministic everywhere: `pivot`'s rows are the `index`
 // combinations in first-appearance order and its columns the `on` values
-// in first-appearance order, and `unpivot`'s rows walk the source rows
-// outermost, then the `on` columns in declaration order.
+// in first-appearance order, and `unpivot`'s rows walk the `on` columns
+// outermost, one block per column holding its source rows in order —
+// the verb's own docstring is the authority on the row order.
 
 ///|
 /// How `pivot` collapses the cells that land in one output column. The
@@ -455,6 +456,11 @@ pub fn DataFrame::unpivot(
   }
   let n = self.nrows()
   let k = on_cols.length()
+  // The output height is `n * k`. A product past 2^31 would wrap, but the
+  // wrap is unreachable before it: every output column below materialises
+  // `n * k` cells first, and allocation fails long before the count
+  // wraps — so there is deliberately no guard here, only the comment (a
+  // guard would be an untestable dead arm).
   // Index columns repeat once per on-column block, in step with the value
   // blocks below: the row at output position `j * n + i` carries source
   // row `i`'s index cells, so the index and value columns stay aligned.

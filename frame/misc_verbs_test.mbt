@@ -191,3 +191,13 @@ test "mode keeps the first-appearing spelling of a folded key" {
   let out = df.select([@expr.col("s").mode()]).get_column("s")
   assert_true(out.to_scalars() is [@types.Scalar::Float(v)] && 1.0 / v > 0.0)
 }
+
+///|
+test "an omitted seed is seed = 0" {
+  // The docstring promises it and bootstrap-style callers depend on
+  // knowing it: leaving the seed out shares one sequence with an explicit
+  // zero, so two independent seedless draws are two identical draws.
+  let df = DataFrame::DataFrame([Series::from_ints("v", [0, 1, 2, 3, 4])])
+  assert_eq(df.sample(3), df.sample(3, seed=0))
+  assert_eq(df.sample(5), df.sample(5, seed=0))
+}

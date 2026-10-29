@@ -47,7 +47,13 @@ pub fn NumericColumn::sum(self : NumericColumn) -> @types.Scalar {
 /// The denominator is the cell count `len` — every slot is present, so there
 /// is no non-null count to compute. A `Float` `NaN` propagates through the
 /// sum to a `NaN` mean; an `Int` column accumulates in
-/// `Double` (`fold_double_sum` widening each cell), the mean-safe form.
+/// `Double` (`fold_double_sum` widening each cell), the wrap-safe form: a
+/// `Double` accumulator cannot overflow the way an `Int64` sum of large
+/// cells would. What widening trades for that safety is precision at the
+/// 2^53 edge — a cell beyond `2^53` rounds as it widens, so the mean of
+/// `[2^53+1, 1]` lands one ulp from the exact value; an exact-then-widen
+/// sum would reintroduce the overflow this form exists to avoid. The
+/// matching `Series::mean` carries the same note.
 ///
 /// `raise InvalidOperation` on an empty column: the mean of zero values is
 /// undefined (`0 / 0`), a genuine failure mode (unlike `sum`'s identity), so

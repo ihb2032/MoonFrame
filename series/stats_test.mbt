@@ -583,3 +583,17 @@ test "Nearest keeps a q one ulp below the half down" {
   let s = Series::from_floats("x", [1.0, 2.0])
   assert_eq(s.quantile(0.49999999999999994), (1.0 : Double))
 }
+
+///|
+test "an Int mean past 2^53 keeps the wrap-safe widened form" {
+  // The numerator widens each cell into Double — wrap-safe, but a cell
+  // past 2^53 rounds as it widens: 2^53+1 widens to 2^53, the +1 is
+  // absorbed, and the mean lands one ulp under the exact 4503599627370497.
+  // Pinned as the documented trade (Series::mean's note); the alternative
+  // exact-then-widen sum would reintroduce the Int64 overflow the
+  // widening exists to avoid.
+  let s = @series.Series::from_ints("x", [9007199254740993L, 1L])
+  let mean = s.mean()
+  assert_eq(mean, 4503599627370496.0)
+  assert_true(mean != 4503599627370497.0)
+}

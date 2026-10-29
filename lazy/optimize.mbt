@@ -94,17 +94,20 @@ fn LogicalPlan::optimize(self : LogicalPlan) -> LogicalPlan {
   for rewrite in optimizer_passes {
     optimized = rewrite(optimized)
   }
-  // The local rewrite rules then iterate to a fixed point: each application
-  // strictly shrinks the plan (one merged stage, one folded subtree), so the
-  // loop terminates without a round cap.
-  let mut changed = true
-  while changed {
-    changed = false
-    for rule in optimizer_rules {
-      let (next, moved) = rule(optimized)
-      optimized = next
-      changed = changed || moved
-    }
+  // The local rewrite rules then run in one sweep, no fixed-point loop:
+  // each rule is a fixed point of itself after a single application
+  // (clustering merges greedily bottom-up, and blocked pairs stay blocked —
+  // reads and definitions only grow under the list union; folding cascades
+  // children-first within its one walk, and its fold domain provably holds
+  // no column reference, so no name it could unblock survives a fold), and
+  // neither rule can enable the other — clustering concatenates stage lists
+  // leaving every expression untouched, and folding replaces column-free
+  // subtrees leaving every name (the only input clustering reads) at its
+  // previous value. A future rule that *can* enable another must restore
+  // the fixed-point loop this replaced.
+  for rule in optimizer_rules {
+    let (next, _moved) = rule(optimized)
+    optimized = next
   }
   optimized
 }
@@ -134,9 +137,11 @@ let optimizer_passes : Array[(LogicalPlan) -> LogicalPlan] = [
 ///|
 /// The local rewrite rules — node- and expression-shaped rewrites the
 /// passes have placed (clustering adjacent `with_columns` stages, folding
-/// column-free subtrees to literals) — iterated to a fixed point after the
-/// passes. Each entry returns its plan and whether it moved anything; a new
-/// rule is a rewrite function plus one row here.
+/// column-free subtrees to literals) — run in one sweep after the passes.
+/// Each entry returns its plan and whether it moved anything (the flag is
+/// for the caller's information; the sweep does not loop — see the
+/// argument in `optimize` for why one sweep reaches the joint fixed
+/// point); a new rule is a rewrite function plus one row here.
 let optimizer_rules : Array[(LogicalPlan) -> (LogicalPlan, Bool)] = [
   plan => plan.cluster_with_columns(),
   plan => plan.simplify_expressions(),

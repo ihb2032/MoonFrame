@@ -75,6 +75,8 @@ fn read_ndjson(String, options? : @io.JsonReadOptions) -> @frame.DataFrame raise
 fn read_ndjson(String, options? : JsonReadOptions) -> @frame.DataFrame raise @types.DataError <- io
 fn scan_csv(String, options? : @io.CsvReadOptions) -> @lazy.LazyFrame <- root
 fn scan_csv(String, options? : @io.CsvReadOptions) -> LazyFrame <- lazy
+fn scan_json(String, options? : @io.JsonReadOptions) -> @lazy.LazyFrame <- root
+fn scan_json(String, options? : @io.JsonReadOptions) -> LazyFrame <- lazy
 fn scan_ndjson(String, options? : @io.JsonReadOptions) -> @lazy.LazyFrame <- root
 fn scan_ndjson(String, options? : @io.JsonReadOptions) -> LazyFrame <- lazy
 fn when(@expr.Expr) -> @expr.WhenThen <- root

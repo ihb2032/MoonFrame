@@ -1,10 +1,10 @@
 // The file-format scan drivers behind the lazy scan sources: a driver is the
-// `ScanDriver` face one readable format puts on its read, and these two
-// are the whole of what `lazy` knows about CSV and NDJSON. A new scannable
-// format adds a driver here (beside its options type) plus its `scan_*`
-// builder in `lazy` — execution, projection / predicate push-down and plan
-// rendering come from the driver interface, not from per-format branches in
-// the engine.
+// `ScanDriver` face one readable format puts on its read, and these three
+// are the whole of what `lazy` knows about CSV, NDJSON, and JSON. A new
+// scannable format adds a driver here (beside its options type) plus its
+// `scan_*` builder in `lazy` — execution, projection / predicate push-down
+// and plan rendering come from the driver interface, not from per-format
+// branches in the engine.
 //
 // Taking the predicate as an `Expr` looks like a layering exception, but
 // only its column names and a row-selection callback reach the reader core:
@@ -41,8 +41,8 @@
 //     parsing them a second time (the core's phase 2).
 //
 // The string-level cores themselves (`parse_csv_str_projected` /
-// `parse_ndjson_str_projected`) live with their format files, package-private
-// to `io`.
+// `parse_ndjson_str_projected` / `parse_json_str_projected`) live with their
+// format files, package-private to `io`.
 
 ///|
 /// The one driver skeleton both format drivers ride: read the file, turn an
@@ -105,4 +105,25 @@ pub fn ndjson_scan_driver(
     projection,
     pruner,
   ) => parse_ndjson_str_projected(content, options, projection, pruner))
+}
+
+///|
+/// The JSON scan driver — the single-array twin of `csv_scan_driver`,
+/// reading through the JSON projected / pruned core. The top-level array is
+/// parsed whole to find its records, so what the absorbed push-downs prune
+/// is the assembly (only the consumed columns are built, only the surviving
+/// rows' cells are parsed past the predicate's own columns), never the
+/// parse itself — the same assembly-level pruning the NDJSON driver's
+/// line-by-line read ends up doing once its records are collected.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
+pub fn json_scan_driver(
+  path : String,
+  options : JsonReadOptions,
+) -> @scan.ScanDriver {
+  file_scan_driver(path, "JSON \"\{@text.escape_debug(path)}\"", (
+    content,
+    projection,
+    pruner,
+  ) => parse_json_str_projected(content, options, projection, pruner))
 }

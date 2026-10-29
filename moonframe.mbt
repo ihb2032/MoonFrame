@@ -71,9 +71,9 @@
 // expression AST itself — `ExprNode` and its `BinOp` / `UnOp` / `StrOp` tags —
 // is module-internal, unreachable downstream and named by no public API, so
 // there is nothing to re-export for it. The lazy layer needs
-// the `scan_csv` / `scan_ndjson` file sources, whose optional options
-// parameters ride along with the io layer; its own entry point rides along with
-// `type LazyFrame` as that type's constructor.
+// the `scan_csv` / `scan_ndjson` / `scan_json` file sources, whose optional
+// options parameters ride along with the io layer; its own entry point rides
+// along with `type LazyFrame` as that type's constructor.
 
 ///|
 pub using @types {
@@ -147,4 +147,4 @@ pub using @chart {
 }
 
 ///|
-pub using @lazy {type LazyFrame, scan_csv, scan_ndjson}
+pub using @lazy {type LazyFrame, scan_csv, scan_ndjson, scan_json}

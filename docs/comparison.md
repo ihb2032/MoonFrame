@@ -189,9 +189,9 @@ will not find here today:
   toolchain-compatible release (see
   [`migration.md`](migration.md)), and IPC has no reader.
 - **Optimizer** — the passes are slice, predicate, and projection pushdown
-  plus the folding / clustering rules; `LazyFrame::collect`'s docstring is
-  the contract's home. Dead-expression elimination, predicate splitting
-  through joins, and sinking
+  (the predicate pass also splits a filter into the sides of a join) plus
+  the folding / clustering rules; `LazyFrame::collect`'s docstring is
+  the contract's home. Dead-expression elimination and sinking
   filters below sorts are not implemented.
 - **Reader schema override** — CSV / JSON dtypes come from content inference
   only; there is no `dtypes=` / `schema=` parameter (the readers never

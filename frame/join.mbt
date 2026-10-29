@@ -550,9 +550,21 @@ fn DataFrame::resolve_join_keys(
       } else {
         "join key \"\{name}\" (left) / \"\{right_exprs[i].output_name()}\" (right)"
       }
+      // Cross-scale decimals get the remedy spelled out: the comparison
+      // engine equates them exactly (both sides rescale to the larger
+      // scale), but a join key must hash, and the key cell folds to the
+      // unscaled magnitude — injective only within one scale — so the cast
+      // to a common scale has to happen before the join.
+      let cross_scale = lcol.dtype() is @types.DataType::Decimal(_) &&
+        rcol.dtype() is @types.DataType::Decimal(_)
+      let remedy = if cross_scale {
+        "; decimals of different scales compare equal but join keys hash on the unscaled magnitude — cast both sides to one scale first"
+      } else {
+        ""
+      }
       raise @types.DataError::TypeMismatch(
         @types.TypeMismatchDetail::Message(
-          "\{where_} has dtype \{lcol.dtype()} on the left but \{rcol.dtype()} on the right",
+          "\{where_} has dtype \{lcol.dtype()} on the left but \{rcol.dtype()} on the right\{remedy}",
         ),
       )
     }

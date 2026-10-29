@@ -228,10 +228,12 @@ fn eval_compare(
     // Two decimals of different scales compare exactly: both sides lift
     // to the larger scale first (the same widening rescale the arithmetic
     // aligns with), then the raw magnitudes order. This arm is compare's
-    // own — the generic `comparable_with` gate stays closed for the pair,
-    // because equality consumers (join keys, group cells) key on the raw
-    // magnitudes, where `1.0` at scale 1 and at scale 2 are different
-    // cells by design.
+    // own — the generic `comparable_with` gate stays closed for the pair.
+    // The equality *consumers* do not follow this arm's exactness: join
+    // keys and group cells key on the raw unscaled magnitudes, so a
+    // cross-scale key pair never reaches a comparison at all — join's dtype
+    // gate refuses the pair outright (its message says to cast first),
+    // which is why this arm costs them nothing.
     (@column.ColumnData::I64(a), @column.ColumnData::I64(b)) if decimal_cross_scale(
         left.dtype(),
         right.dtype(),

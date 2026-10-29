@@ -100,19 +100,50 @@
 ///   stays a node above the scan.
 fn LogicalPlan::push_predicates(self : LogicalPlan) -> LogicalPlan {
   let values : Array[LogicalPlan] = []
+  // The decimal risk of each rebuilt subtree, stepped alongside the
+  // rebuild: a `Filter` consumes the risk of its already-rewritten input
+  // directly instead of re-walking the whole subtree for it (a stack of F
+  // filters paid one full walk each), and every rebuild step runs the same
+  // single-source `plan_risk_step` the standalone walk runs, so the
+  // incremental value and a fresh walk agree node for node.
+  let risks : Array[PlanRisk] = []
   for node in self.post_order() {
     match node {
-      Scan(_) => values.push(node)
+      Scan(_) => {
+        values.push(node)
+        risks.push(plan_risk_step(node, risks))
+      }
       // A `Filter` sinks into its rewritten input via `place_filter`; every
-      // other unary op is an identity rebuild over its already-rewritten child.
-      Unary(_, Filter(predicate)) =>
-        values.push(pop_top(values).place_filter(predicate))
-      Unary(_, op) => values.push(Unary(pop_top(values), op))
-      Join(_, _, options) => rejoin(values, options)
-      Aggregate(_, keys, exprs) =>
+      // other unary op is an identity rebuild over its already-rewritten
+      // child. A sunk predicate moves rows, never names: the output's risk
+      // is the input's, so the accumulator rides across unchanged.
+      Unary(_, Filter(predicate)) => {
+        let input = pop_top(values)
+        let risk = pop_top(risks)
+        values.push(
+          input.place_filter(predicate, decimal_names={
+            names: risk.union,
+            any: risk.any,
+          }),
+        )
+        risks.push(risk)
+      }
+      Unary(_, op) => {
+        values.push(Unary(pop_top(values), op))
+        risks.push(plan_risk_step(node, risks))
+      }
+      Join(_, _, options) => {
+        rejoin(values, options)
+        risks.push(plan_risk_step(node, risks))
+      }
+      Aggregate(_, keys, exprs) => {
         values.push(Aggregate(pop_top(values), keys, exprs))
-      AggregateAll(_, keys, op) =>
+        risks.push(plan_risk_step(node, risks))
+      }
+      AggregateAll(_, keys, op) => {
         values.push(AggregateAll(pop_top(values), keys, op))
+        risks.push(plan_risk_step(node, risks))
+      }
     }
   }
   pop_top(values)
@@ -130,12 +161,20 @@ fn LogicalPlan::push_predicates(self : LogicalPlan) -> LogicalPlan {
 fn LogicalPlan::place_filter(
   self : LogicalPlan,
   predicate : @expr.Expr,
+  decimal_names? : DecimalRisk,
 ) -> LogicalPlan {
   // The decimal value-fence, predicate half: a predicate whose own
   // evaluation refuses on values keeps its row set — sinking it would
   // prune the very rows the refusal lives on, and the crossing gates
-  // below are structural and cannot see it.
-  let decimal_names = decimal_names_in_plan(self)
+  // below are structural and cannot see it. The pass hands in the risk it
+  // already maintains for this subtree (`push_predicates`'s incremental
+  // stack — the hops reproduce stages verbatim, so the input's risk is the
+  // output's); the join split's recursive calls below walk their own
+  // sides, the rare path paying for itself.
+  let decimal_names = match decimal_names {
+    Some(risk) => risk
+    None => decimal_names_in_plan(self)
+  }
   if value_raises_on_decimal(predicate.node(), decimal_names) {
     return Unary(self, Filter(predicate))
   }

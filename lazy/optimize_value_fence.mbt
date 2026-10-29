@@ -40,146 +40,211 @@
 /// over the shared post-order with an explicit value stack, total at any
 /// depth like the passes it serves.
 fn decimal_names_in_plan(plan : LogicalPlan) -> DecimalRisk {
-  let out : @set.Set[String] = @set.Set([])
-  let mut any = false
-  let values : Array[DecimalRisk] = []
+  let risks : Array[PlanRisk] = []
   for node in plan.post_order() {
-    match node {
-      Scan(InMemory(df)) => {
-        let cols = @set.Set([])
-        for f in df.schema().fields() {
-          if f.dtype() is @types.DataType::Decimal(_) {
-            cols.add(f.name())
-          }
+    risks.push(plan_risk_step(node, risks))
+  }
+  let acc = pop_top(risks)
+  { names: acc.union, any: acc.any, }
+}
+
+///|
+/// The per-subtree accumulator the incremental risk walk carries: `stage`
+/// is the decimal output names of the subtree's own top stage (the value
+/// the walk's arms propagate, unchanged by the row verbs that rename
+/// nothing), `union` is every stage name the whole subtree contributes to
+/// the plan-wide set, and `any` is whether a `Pivot` sits anywhere in it.
+/// The pair (`stage`, `union`) is what the flat `DecimalRisk` folds: a
+/// subtree reports `union` at its own root, and propagates `stage` to its
+/// parent's arm.
+priv struct PlanRisk {
+  stage : @set.Set[String]
+  union : @set.Set[String]
+  any : Bool
+}
+
+///|
+/// One node's step of the bottom-up risk walk: pops the (already
+/// processed) children's accumulators off `risks` and pushes this
+/// subtree's — the same per-arm propagation the walk used to spell inside
+/// its own loop, factored out so the pushdown passes can run it alongside
+/// their rebuild stacks and know each rebuilt subtree's risk without
+/// re-walking it (a stack of F filters paid one full walk each, Θ(F·N);
+/// the shared step keeps every pass Θ(N)). The row verbs and
+/// `AggregateAll` are pass-throughs: the child's accumulator pops and
+/// returns as the node's own, exactly as the child's value stayed on the
+/// walk's stack unread.
+fn plan_risk_step(node : LogicalPlan, risks : Array[PlanRisk]) -> PlanRisk {
+  match node {
+    Scan(InMemory(df)) => {
+      let cols = @set.Set([])
+      for f in df.schema().fields() {
+        if f.dtype() is @types.DataType::Decimal(_) {
+          cols.add(f.name())
         }
-        cols.each(name => out.add(name))
-        values.push({ names: cols, any: false, })
       }
-      Scan(File(_)) => values.push({ names: @set.Set([]), any: false, })
-      Unary(_, Select(exprs)) => {
-        let below = pop_top(values)
-        below.names.each(name => out.add(name))
-        let cols = @set.Set([])
-        let defined = @set.Set([])
-        for e in exprs {
-          defined.add(e.output_name())
-          if below.any || expr_touches_decimal(e.node(), below.names) {
-            cols.add(e.output_name())
-          }
+      { stage: cols, union: cols, any: false, }
+    }
+    Scan(File(_)) => {
+      let empty = @set.Set([])
+      { stage: empty, union: empty, any: false, }
+    }
+    Unary(_, Select(exprs)) => {
+      let below = pop_top(risks)
+      let stage = stage_of_exprs(exprs, below)
+      { stage, union: union_with(below, stage), any: below.any, }
+    }
+    Unary(_, WithColumns(exprs)) => {
+      let below = pop_top(risks)
+      let stage = stage_of_exprs(exprs, below)
+      { stage, union: union_with(below, stage), any: below.any, }
+    }
+    Unary(_, Rename(pairs)) => {
+      let below = pop_top(risks)
+      // `DataFrame::rename` applies its pairs sequentially, so a decimal
+      // name can ride several steps to its final one — a first-match
+      // mapping loses exactly that. The replay here runs over the
+      // *decimal subset*, not the frame's full name set: a pair whose
+      // source is absent is a no-op (its source is merely non-decimal —
+      // or the verb raises and the plan fails at collect, where fencing
+      // is moot), and the subset never infers the verb's collisions,
+      // which live against non-decimal names it cannot see. Both
+      // liberties are the over-approximating direction: a decimal name
+      // stays in the risk set unless a pair provably moved it.
+      let renamed = @set.Set([])
+      below.stage.each(name => renamed.add(name))
+      // Indexed access rather than a tuple pattern: the coverage
+      // reporter's parser cannot parse a tuple pattern in a `for`
+      // header, and a source it cannot parse fails the coverage gate.
+      for pair in pairs {
+        let old_name = pair.0
+        let new_name = pair.1
+        if renamed.contains(old_name) {
+          renamed.remove(old_name)
+          renamed.add(new_name)
         }
-        below.names.each(name => if !defined.contains(name) { cols.add(name) })
-        values.push({ names: cols, any: below.any, })
       }
-      Unary(_, WithColumns(exprs)) => {
-        let below = pop_top(values)
-        below.names.each(name => out.add(name))
-        let cols = @set.Set([])
-        let defined = @set.Set([])
-        for e in exprs {
-          defined.add(e.output_name())
-          if below.any || expr_touches_decimal(e.node(), below.names) {
-            cols.add(e.output_name())
-          }
+      { stage: renamed, union: union_with(below, renamed), any: below.any, }
+    }
+    // The closure is total and collect runs it on exactly these column
+    // names, so running it here reads the mapping rather than guessing it.
+    Unary(_, RenameWith(f)) => {
+      let below = pop_top(risks)
+      let renamed = @set.Set([])
+      below.stage.each(name => renamed.add(f(name)))
+      { stage: renamed, union: union_with(below, renamed), any: below.any, }
+    }
+    // The folded value columns land in one `value_name` column; the index
+    // side keeps its names, so the child's stage rides along beside it.
+    Unary(_, Unpivot(_, _, _, value_name)) => {
+      let below = pop_top(risks)
+      let cols = @set.Set([])
+      below.stage.each(name => cols.add(name))
+      cols.add(value_name)
+      { stage: cols, union: union_with(below, cols), any: below.any, }
+    }
+    // A pivot's output column names come from the data it reshapes, so no
+    // name above it is provably non-decimal: the flag fences every
+    // decimal-checked stage there.
+    Unary(_, Pivot(_, _, _, _)) => {
+      let below = pop_top(risks)
+      { stage: below.stage, union: union_with(below, below.stage), any: true, }
+    }
+    // The row verbs (filter / sort / window / gather / drop / fill / …)
+    // rename nothing, so the child's accumulator is the node's own. For
+    // the verbs that do drop or replace columns (`Drop`, `WithRowIndex`,
+    // `Reduce`) keeping the old names is the over-approximating direction
+    // — a decimal name that no longer exists can only fence more, never
+    // less. Exhaustive on purpose, mirroring `frame_op_names` — the exact
+    // vocabulary walk, which lists the same verbs as its own pass-through
+    // set: a verb added to `FrameOp` fails this match until it declares
+    // here whether decimal names ride through it, instead of falling into
+    // a silent default.
+    Unary(_, Filter(_))
+    | Unary(_, Sort(_))
+    | Unary(_, Head(_))
+    | Unary(_, Tail(_))
+    | Unary(_, Slice(_, _))
+    | Unary(_, GatherEvery(_, _))
+    | Unary(_, TopK(_, _, _))
+    | Unary(_, BottomK(_, _, _))
+    | Unary(_, Drop(_))
+    | Unary(_, Unique(_, _))
+    | Unary(_, Reverse)
+    | Unary(_, WithRowIndex(_, _))
+    | Unary(_, DropNulls(_))
+    | Unary(_, FillNull(_))
+    | Unary(_, FillNullDir(_, _))
+    | Unary(_, FillNan(_))
+    | Unary(_, Reduce(_)) => pop_top(risks)
+    Aggregate(_, keys, exprs) => {
+      let below = pop_top(risks)
+      let cols = @set.Set([])
+      for e in keys {
+        if below.any || expr_touches_decimal(e.node(), below.stage) {
+          cols.add(e.output_name())
         }
-        below.names.each(name => if !defined.contains(name) { cols.add(name) })
-        values.push({ names: cols, any: below.any, })
       }
-      Unary(_, Rename(pairs)) => {
-        let below = pop_top(values)
-        below.names.each(name => out.add(name))
-        // `DataFrame::rename` applies its pairs sequentially, so a decimal
-        // name can ride several steps to its final one — a first-match
-        // mapping loses exactly that. The replay here runs over the
-        // *decimal subset*, not the frame's full name set: a pair whose
-        // source is absent is a no-op (its source is merely non-decimal —
-        // or the verb raises and the plan fails at collect, where fencing
-        // is moot), and the subset never infers the verb's collisions,
-        // which live against non-decimal names it cannot see. Both
-        // liberties are the over-approximating direction: a decimal name
-        // stays in the risk set unless a pair provably moved it.
-        let renamed = @set.Set([])
-        below.names.each(name => renamed.add(name))
-        // Indexed access rather than a tuple pattern: the coverage
-        // reporter's parser cannot parse a tuple pattern in a `for`
-        // header, and a source it cannot parse fails the coverage gate.
-        for pair in pairs {
-          let old_name = pair.0
-          let new_name = pair.1
-          if renamed.contains(old_name) {
-            renamed.remove(old_name)
-            renamed.add(new_name)
-          }
+      for e in exprs {
+        if below.any || expr_touches_decimal(e.node(), below.stage) {
+          cols.add(e.output_name())
         }
-        values.push({ names: renamed, any: below.any, })
       }
-      // The closure is total and collect runs it on exactly these column
-      // names, so running it here reads the mapping rather than guessing it.
-      Unary(_, RenameWith(f)) => {
-        let below = pop_top(values)
-        below.names.each(name => out.add(name))
-        let renamed = @set.Set([])
-        below.names.each(name => renamed.add(f(name)))
-        values.push({ names: renamed, any: below.any, })
-      }
-      // The folded value columns land in one `value_name` column; the index
-      // side keeps its names, so the child's set rides along beside it.
-      Unary(_, Unpivot(_, _, _, value_name)) => {
-        let below = pop_top(values)
-        below.names.each(name => out.add(name))
-        let cols = @set.Set([])
-        below.names.each(name => cols.add(name))
-        cols.add(value_name)
-        values.push({ names: cols, any: below.any, })
-      }
-      // A pivot's output column names come from the data it reshapes, so no
-      // name above it is provably non-decimal: the flag fences every
-      // decimal-checked stage there.
-      Unary(_, Pivot(_, _, _, _)) => {
-        let below = pop_top(values)
-        below.names.each(name => out.add(name))
-        any = true
-        values.push({ names: below.names, any: true, })
-      }
-      // The row verbs (filter / sort / window / gather / drop / …) rename
-      // nothing, so the child's risk stays the top of the stack unread.
-      Unary(_, _) => ()
-      Aggregate(_, keys, exprs) => {
-        let below = pop_top(values)
-        below.names.each(name => out.add(name))
-        let cols = @set.Set([])
-        for e in keys {
-          if below.any || expr_touches_decimal(e.node(), below.names) {
-            cols.add(e.output_name())
-          }
-        }
-        for e in exprs {
-          if below.any || expr_touches_decimal(e.node(), below.names) {
-            cols.add(e.output_name())
-          }
-        }
-        values.push({ names: cols, any: below.any, })
-      }
-      // A whole-frame aggregation reuses its input column names (each
-      // non-key column aggregates under its own name), so the child's set
-      // passing through is exact, not merely conservative — and the pushdown
-      // passes never cross one anyway.
-      AggregateAll(_, _, _) => ()
-      Join(_, _, options) => {
-        let right = pop_top(values)
-        let left = pop_top(values)
-        left.names.each(name => out.add(name))
-        right.names.each(name => out.add(name))
-        let merged = @set.Set([])
-        left.names.each(name => merged.add(name))
-        right.names.each(name => merged.add(name))
-        right.names.each(name => merged.add(name + options.suffix))
-        values.push({ names: merged, any: left.any || right.any, })
-      }
+      { stage: cols, union: union_with(below, cols), any: below.any, }
+    }
+    // A whole-frame aggregation reuses its input column names (each
+    // non-key column aggregates under its own name), so the child's set
+    // passing through is exact, not merely conservative — and the pushdown
+    // passes never cross one anyway.
+    AggregateAll(_, _, _) => pop_top(risks)
+    Join(_, _, options) => {
+      let right = pop_top(risks)
+      let left = pop_top(risks)
+      let merged = @set.Set([])
+      left.stage.each(name => merged.add(name))
+      right.stage.each(name => merged.add(name))
+      right.stage.each(name => merged.add(name + options.suffix))
+      let union = @set.Set([])
+      left.union.each(name => union.add(name))
+      right.union.each(name => union.add(name))
+      merged.each(name => union.add(name))
+      { stage: merged, union, any: left.any || right.any, }
     }
   }
-  let root = pop_top(values)
-  root.names.each(name => out.add(name))
-  { names: out, any: any || root.any, }
+}
+
+///|
+/// The decimal output names of a projection-style stage (`Select` /
+/// `WithColumns`): an expression's output counts when it so much as reads
+/// a decimal name the stage below carries (or the below stages raised
+/// `any`), and a carried name that no expression redefines survives
+/// verbatim.
+fn stage_of_exprs(
+  exprs : Array[@expr.Expr],
+  below : PlanRisk,
+) -> @set.Set[String] {
+  let cols = @set.Set([])
+  let defined = @set.Set([])
+  for e in exprs {
+    defined.add(e.output_name())
+    if below.any || expr_touches_decimal(e.node(), below.stage) {
+      cols.add(e.output_name())
+    }
+  }
+  below.stage.each(name => if !defined.contains(name) { cols.add(name) })
+  cols
+}
+
+///|
+/// Fold one stage's contribution into a subtree's union: the child's union
+/// plus this stage's own names (a fresh set — the child's accumulators are
+/// consumed, never shared, so a caller cannot mutate them through the
+/// result).
+fn union_with(below : PlanRisk, stage : @set.Set[String]) -> @set.Set[String] {
+  let union = @set.Set([])
+  below.union.each(name => union.add(name))
+  stage.each(name => union.add(name))
+  union
 }
 
 ///|

@@ -37,9 +37,11 @@ pub fn ScanBatch::batch(
 
 ///|
 /// The columns the read built, in the source's own order (a pushed projection
-/// re-orders only via the optimizer, never here).
+/// re-orders only via the optimizer, never here). A copy, like the
+/// constructor's: handing out the batch's own array would let a caller
+/// mutate the batch through the reader.
 pub fn ScanBatch::columns(self : ScanBatch) -> Array[@series.Series] {
-  self.columns
+  self.columns.copy()
 }
 
 ///|

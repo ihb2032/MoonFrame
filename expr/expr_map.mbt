@@ -24,7 +24,13 @@
 /// column's dtype is that of the first non-null `Scalar` the closure
 /// returns, except that a closure returning both `Int` and `Float` cells
 /// promotes the column to `Float` — the engine's `Int → Float` rule — rather
-/// than nulling whichever type came second. An all-null (or empty) result has
+/// than nulling whichever type came second. **A closure whose branches
+/// return other mixed dtypes — `Int` with `Decimal`, or `Decimal` at two
+/// scales — does not error: every cell the first-returned dtype cannot
+/// hold lands as a null**, the layer's deliberate tolerance (the strict
+/// `Series::from_scalars` raises where the map path nulls; a mis-typed
+/// branch shows up as nulls in the result, so check the dtype when a
+/// closure has more than one return type). An all-null (or empty) result has
 /// no such cell, so its dtype
 /// falls back to `self`'s own dtype, yielding an all-null (or empty)
 /// column of that dtype rather than the `Unsupported` a bare `Null` literal

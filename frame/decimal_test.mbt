@@ -791,3 +791,32 @@ test "decimal negation and absolute value are exact over the unscaled cells" {
     is Err(@types.DataError::InvalidOperation(_)),
   )
 }
+
+///|
+test "a cross-scale decimal join names the cast remedy" {
+  // The comparison engine equates cross-scale decimals exactly, but a join
+  // key folds to the unscaled magnitude — injective only within one scale
+  // — so the pair is refused before any comparison, with the cast named
+  // as the fix rather than a bare dtype mismatch.
+  let l2 = DataFrame::DataFrame([
+    @series.Series::from_decimal_options(1, "d1", [Some(15L)]),
+    @series.Series::from_ints("v", [1]),
+  ])
+  let r2 = DataFrame::DataFrame([
+    @series.Series::from_decimal_options(2, "d2", [Some(150L)]),
+    @series.Series::from_ints("v", [2]),
+  ])
+  let result : Result[DataFrame, @types.DataError] = Ok(
+    l2.join(
+      r2,
+      @frame.JoinOptions::left_on([@expr.col("d1")], right_on=[@expr.col("d2")]),
+    ),
+  ) catch {
+    e => Err(e)
+  }
+  match result {
+    Err(@types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(m))) =>
+      assert_true(m.contains("cast both sides to one scale first"))
+    _ => fail("expected a cross-scale decimal TypeMismatch")
+  }
+}

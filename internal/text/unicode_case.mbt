@@ -123,42 +123,83 @@ pub fn map_case(s : String, upper~ : Bool) -> String {
     unicode_special_lower
   }
   let buf = StringBuilder()
-  // `Final_Sigma` reads both neighbours of a sigma, so the string is
-  // collected once and walked by index rather than by iterator.
-  let chars : Array[Char] = []
-  for ch in s.iter() {
-    chars.push(ch)
-  }
-  for i in 0..<chars.length() {
-    let cp = chars[i].to_uint()
-    if !upper && cp == 0x03A3 {
-      // Final_Sigma answers ς vs σ; the simple table would say σ either way.
-      let sigma : UInt32 = if final_sigma(chars, i) { 0x03C2 } else { 0x03C3 }
-      // Safe by construction: both are Unicode scalar values.
-      buf.write_char(sigma.reinterpret_as_int().unsafe_to_char())
-      continue
+  // `Final_Sigma` — the one contextual rule, lower direction only — reads
+  // both neighbours of a capital sigma, so only a string that actually
+  // carries one pays for the collected array its neighbour reads need;
+  // everything else walks the iterator directly, allocating nothing per
+  // character.
+  let has_sigma = !upper && s.iter().any(ch => ch.to_uint() == 0x03A3)
+  if has_sigma {
+    let chars : Array[Char] = []
+    for ch in s.iter() {
+      chars.push(ch)
     }
-    match special_lookup(specials, cp) {
-      Some(targets) =>
-        for t in targets {
-          // Safe by construction: the generated table maps Unicode
-          // scalar values to Unicode scalar values.
-          buf.write_char(t.reinterpret_as_int().unsafe_to_char())
-        }
-      None => {
-        let mapped = if upper {
-          case_lookup(unicode_simple_upper, cp)
-        } else {
-          case_lookup(unicode_simple_lower, cp)
-        }
-        // Safe by construction: a mapped code point is a Unicode scalar
-        // value (the table only maps scalars to scalars), and an unmapped
-        // one came from a `Char` in the first place.
-        buf.write_char(mapped.reinterpret_as_int().unsafe_to_char())
+    for i in 0..<chars.length() {
+      let cp = chars[i].to_uint()
+      if cp == 0x03A3 {
+        // Final_Sigma answers \u{3C2} vs \u{3C3}; the simple table would
+        // say \u{3C3} either way.
+        let sigma : UInt32 = if final_sigma(chars, i) { 0x03C2 } else { 0x03C3 }
+        // Safe by construction: both are Unicode scalar values.
+        buf.write_char(sigma.reinterpret_as_int().unsafe_to_char())
+        continue
       }
+      append_case_char(buf, specials, cp, upper~)
+    }
+  } else {
+    for ch in s.iter() {
+      append_case_char(buf, specials, ch.to_uint(), upper~)
     }
   }
   buf.to_string()
+}
+
+///|
+/// One character's case mapping appended to `buf`: ASCII takes the
+/// arithmetic arm — the two lookup tables hold no ASCII *source* rows
+/// (ASCII case is one-to-one and unconditional, `a`-`z` and `A`-`Z` are
+// 32 apart, every other ASCII code point is its own mapping) — and the
+// rest of the range consults the special expansions, then the simple
+
+///|
+/// table.
+fn append_case_char(
+  buf : StringBuilder,
+  specials : Array[(UInt32, Array[UInt32])],
+  cp : UInt32,
+  upper~ : Bool,
+) -> Unit {
+  if cp < 0x80 {
+    let letter : UInt32 = if upper && cp >= 0x61 && cp <= 0x7A {
+      cp - 32
+    } else if !upper && cp >= 0x41 && cp <= 0x5A {
+      cp + 32
+    } else {
+      cp
+    }
+    // Safe by construction: an ASCII code point is a Unicode scalar value.
+    buf.write_char(letter.reinterpret_as_int().unsafe_to_char())
+    return
+  }
+  match special_lookup(specials, cp) {
+    Some(targets) =>
+      for t in targets {
+        // Safe by construction: the generated table maps Unicode
+        // scalar values to Unicode scalar values.
+        buf.write_char(t.reinterpret_as_int().unsafe_to_char())
+      }
+    None => {
+      let mapped = if upper {
+        case_lookup(unicode_simple_upper, cp)
+      } else {
+        case_lookup(unicode_simple_lower, cp)
+      }
+      // Safe by construction: a mapped code point is a Unicode scalar
+      // value (the table only maps scalars to scalars), and an unmapped
+      // one came from a `Char` in the first place.
+      buf.write_char(mapped.reinterpret_as_int().unsafe_to_char())
+    }
+  }
 }
 
 ///|

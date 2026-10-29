@@ -14,9 +14,14 @@ set: three public enums each gain variants — `JoinType` the two joins,
 `DataType` / `Scalar` the two `I64`-rider dtypes — under the repo's standing
 exception that an enum may add
 variants within a breaking release. Everything else the sprint adds is
-additive — new verbs (`pivot` / `unpivot`, the positional / rolling
-families, the `dt_*` quartet, the null toolbox, `mode` / `sample` / the
-`top_k` family), new enums (`PivotAgg`, `RankMethod`,
+additive — new verbs (`pivot` / `unpivot`, the positional / rolling /
+cumulative families, the `dt_*` quartet, the null toolbox, the
+distinctness predicates `is_duplicated` / `is_unique` / `unique_counts`,
+`mode` / `sample` / the `top_k` family, `rank` / `quantile` on every
+spelling, the dispersion reductions `median` / `std` / `variance`, the
+named-aggregation verbs on `GroupedDataFrame` / `LazyGroupBy`, the
+`iter` / `iter2` / `iter_rows` iteration family, and
+`DataType::is_summable`), new enums (`PivotAgg`, `RankMethod`,
 `QuantileInterpolation`), and error-facing tightenings that turn silent
 output into a `raise` on inputs no caller could have relied on. One
 withdrawal rides along, forced by the toolchain rather than the sprint —

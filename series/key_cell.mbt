@@ -78,8 +78,9 @@ fn float_key_cell(v : Double) -> KeyCell {
 /// Two folds here carry premises other code argues from, stated where the
 /// fold happens: `NaN` folds to one cell *without* its payload, which is
 /// only sound for consumers because no operator can observe a NaN's
-/// payload bits (the predicate-pass crossing in
-/// `lazy/optimize_predicates.mbt` leans on this); and `Decimal` keys on
+/// payload bits (the predicate pass's aggregate crossing leans on this
+/// when it argues that a folded group shares one verdict); and `Decimal`
+/// keys on
 /// the unscaled magnitude *dropping its scale*, injective only because a
 /// column's scale is uniform — the dtype carries it, so two cells of one
 /// column that differ differ in magnitude. A consumer that could mix

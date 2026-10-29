@@ -244,8 +244,8 @@ fn LogicalPlan::place_filter(
         // of a group below the aggregate and disagree with the
         // representative above it; a safe one gives every row of a folded
         // group the same verdict and may sink. Two further folding premises
-        // live outside this file and are stated here so the argument is
-        // complete where it is made: `key_cell` folds every `NaN` into one
+        // live in the key fold itself and are stated here so the argument
+        // is complete where it is made: `key_cell` folds every `NaN` into one
         // group and no row-local operator can distinguish NaN payloads, so
         // every row of a NaN group carries the same verdict; and it folds a
         // `Decimal` key to its unscaled magnitude, injective only because a

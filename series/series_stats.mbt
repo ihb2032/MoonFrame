@@ -51,7 +51,12 @@ pub fn Series::sum(self : Series) -> @types.Scalar raise @types.DataError {
 /// type), so a large-magnitude column cannot wrap past 2^63 and flip the
 /// mean's sign; `Float` columns accumulate in `Double`. The division is
 /// performed in `Double`. (`Series::sum`, by contrast, keeps the `Int` dtype
-/// and so accumulates in `Int64`, overflowing past 2^63.)
+/// and so accumulates in `Int64`, overflowing past 2^63.) The widening
+/// trades precision for that wrap safety at the 2^53 edge: a cell beyond
+/// `2^53` rounds as it widens, so the mean of `[2^53+1, 1]` lands one ulp
+/// from the exact value — an exact-then-widen sum would reintroduce the
+/// overflow this form exists to avoid (the shared fold's note in
+/// `internal/column/numeric_reduce.mbt` says the same).
 ///
 /// The denominator is the **non-null** count (`Series::count`), so a
 /// `Float` `NaN` is a present value that both counts toward the divisor

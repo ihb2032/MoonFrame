@@ -151,14 +151,22 @@ fn[Cell] infer_dtype(
       continue
     }
     saw_any = true
-    if all_int && !is_int(c) {
+    // An int cell is always also a float cell — every integer literal
+    // parses as a plain double, and a JSON integer is a JSON number — so
+    // while the int probe is alive and this cell passes it, the float
+    // probe skips the cell: a homogeneous Int column (the common
+    // wide-table case) pays one full parse per cell instead of two. The
+    // premise sits on the probes' contract: an `is_int` that accepts a
+    // cell `is_float` refuses breaks this equivalence.
+    let int_cell = all_int && is_int(c)
+    if all_int && !int_cell {
       all_int = false
-    }
-    if all_float && !is_float(c) {
-      all_float = false
     }
     if all_bool && !is_bool(c) {
       all_bool = false
+    }
+    if all_float && !int_cell && !is_float(c) {
+      all_float = false
     }
     if !all_int && !all_float && !all_bool {
       break

@@ -1094,3 +1094,57 @@ test "parse_csv_str: a cell that fails a pinned dtype follows on_parse_error" {
   assert_eq(df.item(0, "x"), @types.Scalar::Int(1))
   assert_eq(df.item(1, "x"), @types.Scalar::Null)
 }
+
+///|
+test "an empty input still checks its dtype pins" {
+  // A pin is the caller's assertion about the input's columns; an empty
+  // input carries no column at all, so every pinned name is false. The
+  // read fails rather than silently returning a 0×0 frame the pins never
+  // touched — the same failure a misspelt pin on a non-empty input gets.
+  let opts = @io.CsvReadOptions::CsvReadOptions(
+    dtypes=Map([("emp_id", @types.DataType::Int)]),
+  )
+  let empty : Result[@frame.DataFrame, @types.DataError] = Ok(
+    @io.parse_csv_str("", options=opts),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(empty is Err(@types.DataError::InvalidOperation(_)))
+  // Whitespace-only input parses to no headers — same refusal.
+  let blank : Result[@frame.DataFrame, @types.DataError] = Ok(
+    @io.parse_csv_str("\n\n", options=opts),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(blank is Err(@types.DataError::InvalidOperation(_)))
+}
+
+///|
+test "bare-fraction and bare-dot float literals infer Float" {
+  // `".5"`, `"1."`, and `"1.e5"` are all accepted by the plain-double
+  // grammar; pinning them here keeps a future grammar narrowing honest.
+  let content =
+    #|a,b,c
+    #|.5,1.,1.e5
+    #|2.5,2.,2e5
+  let df = @io.parse_csv_str(content)
+  assert_eq(df.get_column("a").dtype(), @types.DataType::Float)
+  assert_eq(df.get_column("b").dtype(), @types.DataType::Float)
+  assert_eq(df.get_column("c").dtype(), @types.DataType::Float)
+  assert_eq(df.item(0, "a"), @types.Scalar::Float(0.5))
+  assert_eq(df.item(0, "b"), @types.Scalar::Float(1.0))
+  assert_eq(df.item(0, "c"), @types.Scalar::Float(100000.0))
+}
+
+///|
+test "an Int-then-Bool mixed column still infers String" {
+  // The int probe skipping the float probe for int cells must not touch
+  // the other probes' bookkeeping: an int cell is never a bool cell, and
+  // this column (one int cell, one bool cell) has no surviving dtype.
+  let content =
+    #|x
+    #|1
+    #|true
+  let df = @io.parse_csv_str(content)
+  assert_eq(df.get_column("x").dtype(), @types.DataType::String)
+}

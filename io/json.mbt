@@ -162,11 +162,13 @@ fn parse_json_str_projected(
     reject_duplicate_keys=options.reject_duplicate_keys,
   ) catch {
     // The parser's repeat diagnostic, re-homed in this module's error type
-    // with the key named and the position it repeated at.
+    // with the key named and the position it repeated at — the whole
+    // document parses in one call, so the parser's line is the file's own
+    // (see `duplicate_key_detail` for the per-line reader's spelling).
     DuplicateKey(pos, key) =>
       raise @types.DataError::ParseError(
         @types.ParseErrorDetail::Message(
-          "duplicate key \"\{key}\" at line \{pos.line}, column \{pos.column}",
+          duplicate_key_detail(key, pos.line, pos.column, single_line=false),
         ),
       )
     // Re-raise every other parse failure as this module's `ParseError`, so

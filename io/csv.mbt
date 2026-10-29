@@ -254,7 +254,13 @@ fn parse_csv_str_projected(
   // Short-circuit empty input. NyaCSV would otherwise produce a CSV
   // with no headers and no rows, which would collapse to an empty
   // 0×0 frame — handled the same way here, just without the parse.
+  // A pin is still checked: an empty input carries no column at all, so
+  // every pinned name is a false assertion, and a false assertion fails
+  // the read rather than silently doing nothing — the same check the
+  // parsed-header path runs below, over the header set an empty input
+  // never produces.
   if content.is_empty() {
+    check_override_columns(options.dtypes, [])
     return @frame.DataFrame::DataFrame([])
   }
   if options.strict_quotes {
@@ -275,6 +281,9 @@ fn parse_csv_str_projected(
   let (headers, rows) = split_csv_records(csv, options)
   let ncols = headers.length()
   if ncols == 0 {
+    // Whitespace-only input parses to no headers — same pin check as the
+    // empty-input short-circuit above: no column exists to pin.
+    check_override_columns(options.dtypes, headers)
     return @frame.DataFrame::DataFrame([])
   }
   validate_csv_shape(headers, rows, options)

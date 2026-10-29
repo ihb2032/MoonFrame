@@ -622,7 +622,7 @@ test "reject_duplicate_keys fails the read naming the line" {
   }
   match result {
     Err(@types.DataError::ParseError(@types.ParseErrorDetail::Message(m))) =>
-      assert_eq(m, "line 2: duplicate key \"b\" at line 1, column 9")
+      assert_eq(m, "line 2: duplicate key \"b\" at column 9")
     _ => fail("expected a duplicate-key ParseError")
   }
 }
@@ -661,4 +661,17 @@ test "parse_ndjson_str: dtypes override reaches the shared records core" {
   assert_eq(df.get_column("a").dtype(), @types.DataType::String)
   assert_eq(df.item(0, "a"), @types.Scalar::String("1"))
   assert_eq(df.item(1, "a"), @types.Scalar::String("x"))
+}
+
+///|
+test "empty NDJSON still checks its dtype pins" {
+  let opts = @io.JsonReadOptions::JsonReadOptions(
+    dtypes=Map([("emp_id", @types.DataType::Int)]),
+  )
+  let result : Result[@frame.DataFrame, @types.DataError] = Ok(
+    @io.parse_ndjson_str("\n\n", options=opts),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(result is Err(@types.DataError::InvalidOperation(_)))
 }

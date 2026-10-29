@@ -16,7 +16,8 @@
 ///
 /// Null slots are preserved verbatim. A numeric result lands on the
 /// `Builtin` backend; the engine re-converges it onto the unboxed fast path
-/// where a later step benefits. `Bool`, `Null`, and `Date` targets `raise`
+/// where a later step benefits. Every target outside the three above —
+/// `Bool`, `Null`, `Date`, `Timestamp`, `Decimal` — `raise`s
 /// `Unsupported(_)`, and so do a `Date`, `Timestamp`, or `Decimal` source —
 /// the riders' readings (an instant, a scaled magnitude) are not
 /// conversions this library offers; `item` / `to_string` render them

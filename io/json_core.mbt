@@ -96,6 +96,12 @@
 /// `line N` (the NDJSON reader, whose skipped blank lines shift the record
 /// index off the line), `None` reports `record N` (the JSON-array reader,
 /// whose records have no line of their own).
+///
+/// `dtypes` pins named columns' dtypes ahead of inference, shared by both
+/// readers so a JSON-array and an NDJSON spelling of the same records agree.
+/// A name the input does not carry is refused (`InvalidOperation`) — a pin is
+/// the caller's assertion, and a false one fails rather than silently does
+/// nothing — as is a dtype with no read parser (`inferred_from_override`).
 fn frame_from_json_records(
   records : Array[Json],
   infer_schema_rows : Int32,
@@ -104,6 +110,7 @@ fn frame_from_json_records(
   source_lines : Array[Int32]?,
   pruner? : RowPruner,
   allow_nonfinite~ : Bool,
+  dtypes~ : Map[String, @types.DataType],
 ) -> @frame.DataFrame raise @types.DataError {
   if records.is_empty() {
     return @frame.DataFrame::DataFrame([])
@@ -142,24 +149,28 @@ fn frame_from_json_records(
       }
     }
   }
+  // A pin must name a real column, whatever the projection later drops —
+  // checked once over the full header set before any column is built.
+  check_override_columns(dtypes, headers)
   // Build one typed column per header, skipping any the projection drops; the
   // surviving columns keep first-seen header order, so a projected read is
   // column-for-column a sub-frame of the full read. Records that carry no
   // fields at all (`[{}, {}]`) leave no header to build from and read as the
   // `N×0` frame — the records are still records.
   // Inference always walks every record, even when a predicate will drop some,
-  // so a pruned read locks in the dtypes an eager read-then-filter would.
+  // so a pruned read locks in the dtypes an eager read-then-filter would —
+  // except for a pinned column, where the pin replaces the question inference
+  // would ask.
   let build = fn(
     name : String,
     from : Array[Map[String, Json]],
     lines : Array[Int32]?,
   ) -> @series.Series raise @types.DataError {
-    let dt = infer_json_column_dtype(
-      objs,
-      name,
-      infer_schema_rows,
-      allow_nonfinite~,
-    )
+    let dt = match dtypes.get(name) {
+      Some(pinned) => inferred_from_override(name, pinned)
+      None =>
+        infer_json_column_dtype(objs, name, infer_schema_rows, allow_nonfinite~)
+    }
     build_json_column(name, dt, from, on_parse_error, lines, allow_nonfinite~)
   }
   // Build one column over the records `keep` selects (`None` = every record),

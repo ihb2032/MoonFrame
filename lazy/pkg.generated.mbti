@@ -12,6 +12,8 @@ import {
 // Values
 pub fn scan_csv(String, options? : @io.CsvReadOptions) -> LazyFrame
 
+pub fn scan_json(String, options? : @io.JsonReadOptions) -> LazyFrame
+
 pub fn scan_ndjson(String, options? : @io.JsonReadOptions) -> LazyFrame
 
 // Errors

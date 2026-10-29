@@ -44,6 +44,19 @@
 ///   `Raise` (default) fails with `ParseError(Cell(...))`; `Null`
 ///   downgrades the offending cell to a null cell and keeps the column's
 ///   inferred dtype.
+/// - `dtypes` — per-column dtype overrides that pin a column's type
+///   instead of inferring it, as a name → `DataType` map. Only the four
+///   dtypes a reader can parse (`Int` / `Float` / `Bool` / `String`) can
+///   be pinned — anything else is refused with `InvalidOperation` at read
+///   time, as is a name the input does not carry (a pin is an assertion
+///   about the input; a misspelt one fails rather than silently does
+///   nothing). Columns not named keep their inferred dtype. A pinned
+///   column skips inference entirely, so it locks in even when its cells
+///   would have inferred differently — and a cell that does not parse
+///   under the pin is handled per `on_parse_error`, exactly as a
+///   post-window mismatch is. The map is copied, so mutating it
+///   afterwards cannot alter the options; read it back through the
+///   `dtypes()` accessor.
 /// - `allow_nonfinite_floats` — when `true` (default), the float probe
 ///   accepts every non-finite result: the `nan` / `inf` / `infinity` literals,
 ///   and a finite literal that overflows `Double` to a signed `Infinity`
@@ -65,6 +78,7 @@ pub struct CsvReadOptions {
   on_parse_error : OnParseError
   allow_nonfinite_floats : Bool
   strict_quotes : Bool
+  priv dtypes : Map[String, @types.DataType]
 }
 
 ///|
@@ -76,6 +90,16 @@ pub fn CsvReadOptions::null_values(self : CsvReadOptions) -> Array[String] {
 }
 
 ///|
+/// The per-column dtype overrides. A fresh `Map` is returned, so a caller
+/// cannot reach into the options and change what the reader pins — the
+/// same reason the constructor copies its input.
+pub fn CsvReadOptions::dtypes(
+  self : CsvReadOptions,
+) -> Map[String, @types.DataType] {
+  copy_dtypes(self.dtypes)
+}
+
+///|
 /// Build read options. Every field has a default: header on, comma
 /// delimiter, scan the first 100 rows for inference, treat the empty string
 /// as null, tolerate ragged rows, fail the read on a cell that doesn't fit
@@ -83,8 +107,8 @@ pub fn CsvReadOptions::null_values(self : CsvReadOptions) -> Array[String] {
 /// leniently. `CsvReadOptions::CsvReadOptions()` is the all-defaults reader; name only what
 /// differs, as in `CsvReadOptions::CsvReadOptions(delimiter=';', strict_quotes=true)`.
 ///
-/// `null_values` is copied, so mutating the array afterwards cannot alter
-/// the options.
+/// `null_values` and `dtypes` are copied, so mutating them afterwards
+/// cannot alter the options.
 pub fn CsvReadOptions::CsvReadOptions(
   has_header~ : Bool = true,
   delimiter~ : Char = ',',
@@ -94,6 +118,7 @@ pub fn CsvReadOptions::CsvReadOptions(
   on_parse_error~ : OnParseError = Raise,
   allow_nonfinite_floats~ : Bool = true,
   strict_quotes~ : Bool = false,
+  dtypes~ : Map[String, @types.DataType] = Map([]),
 ) -> CsvReadOptions {
   {
     has_header,
@@ -104,6 +129,7 @@ pub fn CsvReadOptions::CsvReadOptions(
     on_parse_error,
     allow_nonfinite_floats,
     strict_quotes,
+    dtypes: copy_dtypes(dtypes),
   }
 }
 
@@ -118,7 +144,8 @@ pub fn CsvReadOptions::CsvReadOptions(
 ///      them is skipped but still counts toward the window). The
 ///      first option that accepts every probed cell wins; a column
 ///      with no non-null probes lands on `String` (no information to
-///      disambiguate).
+///      disambiguate). A column named in `options.dtypes` skips this
+///      pass and locks in its pinned dtype instead.
 ///   3. Null mapping replaces any raw cell whose verbatim string sits
 ///      in `null_values` with `None`. The mapping runs after
 ///      tokenisation, so quoted empty cells (`""`) and bare empty
@@ -129,6 +156,9 @@ pub fn CsvReadOptions::CsvReadOptions(
 ///
 /// Raises:
 /// - `DuplicateColumn(name)` — two headers share a name.
+/// - `InvalidOperation` — `options.dtypes` names a column the input does
+///   not carry, or pins a dtype that has no read parser (anything but
+///   `Int` / `Float` / `Bool` / `String`).
 /// - `ParseError(Message(...))` — when `strict_quotes` is `true`, the input contains
 ///   an unterminated quoted field, text after a closing quote, or a quote
 ///   inside an unquoted field; or — when `options.strict_column_count` is
@@ -261,17 +291,33 @@ fn parse_csv_str_projected(
     null_set[v] = ()
   }
   let is_null = fn(v : String) -> Bool { null_set.contains(v) }
-  let dtype_of = fn(col : Int32) -> InferredDtype {
-    // Inference always walks the *whole* file, even when a predicate will drop
-    // rows, so a pruned read locks in the same dtypes an eager
-    // `read_csv(..).filter(..)` would.
-    infer_column_dtype(
-      rows,
-      col,
-      options.infer_schema_rows,
-      is_null,
-      options.allow_nonfinite_floats,
-    )
+  // A pin must name a real column, whatever the projection later drops —
+  // checked once over the full header set so a misspelt name fails the read
+  // (an *unpinned* unknown name is not an error anywhere in this reader;
+  // a pinned one is the caller's assertion, and a false assertion should
+  // not pass silently).
+  check_override_columns(options.dtypes, headers)
+  let dtype_of = fn(col : Int32) -> InferredDtype raise @types.DataError {
+    let name = headers[col]
+    // A pinned column skips inference entirely — the pin is the caller's
+    // answer to the question inference would ask, so it locks in even when
+    // the cells would have inferred differently, and a cell that does not
+    // parse under it is handled per `on_parse_error` like any other
+    // locked-in mismatch.
+    match options.dtypes.get(name) {
+      Some(dt) => inferred_from_override(name, dt)
+      None =>
+        // Inference always walks the *whole* file, even when a predicate will
+        // drop rows, so a pruned read locks in the same dtypes an eager
+        // `read_csv(..).filter(..)` would.
+        infer_column_dtype(
+          rows,
+          col,
+          options.infer_schema_rows,
+          is_null,
+          options.allow_nonfinite_floats,
+        )
+    }
   }
   let build = fn(
     name : String,

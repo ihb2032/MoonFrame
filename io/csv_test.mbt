@@ -967,3 +967,130 @@ test "parse_csv_str projection still fails whole-input checks" {
   }
   assert_true(result is Err(@types.DataError::DuplicateColumn(_)))
 }
+
+///|
+test "parse_csv_str: dtypes override pins a column ahead of inference" {
+  // `n` would infer Int, `flag` Bool (pinned to the same answer — the pin
+  // simply replaces the question), and `txt` (mixed digits and words)
+  // String; each pin takes the place of inference, and the unpinned
+  // `plain` keeps its inferred dtype.
+  let content =
+    #|n,flag,txt,plain
+    #|1,true,007,alpha
+    #|2,false,42,beta
+    #|
+  let opts = @io.CsvReadOptions::CsvReadOptions(
+    dtypes=Map([
+      ("n", @types.DataType::String),
+      ("flag", @types.DataType::Bool),
+      ("txt", @types.DataType::Int),
+    ]),
+  )
+  let df = @io.parse_csv_str(content, options=opts)
+  assert_eq(df.get_column("n").dtype(), @types.DataType::String)
+  assert_eq(df.get_column("flag").dtype(), @types.DataType::Bool)
+  assert_eq(df.get_column("txt").dtype(), @types.DataType::Int)
+  assert_eq(df.get_column("plain").dtype(), @types.DataType::String)
+  // The pinned cells parse under the pin: `txt` holds Ints, the pinned
+  // String column keeps its verbatim text.
+  assert_eq(df.item(0, "txt"), @types.Scalar::Int(7))
+  assert_eq(df.item(1, "txt"), @types.Scalar::Int(42))
+  assert_eq(df.item(0, "n"), @types.Scalar::String("1"))
+  assert_eq(df.item(1, "flag"), @types.Scalar::Bool(false))
+}
+
+///|
+test "parse_csv_str: a dtypes override without a read parser is refused" {
+  let content =
+    #|d,t,x,n
+    #|2024-01-02,1970-01-01T00:00:00Z,1.5,2
+    #|
+  // Each of the unpinnable dtypes — the riders and Null — fails the read,
+  // naming the column and the dtype.
+  for
+    pair in [
+      (@types.DataType::Date, "d"),
+      (@types.DataType::Timestamp, "t"),
+      (@types.DataType::Decimal(2), "x"),
+      (@types.DataType::Null, "n"),
+    ] {
+    let (dt, name) = pair
+    let opts = @io.CsvReadOptions::CsvReadOptions(dtypes=Map([(name, dt)]))
+    let result = Ok(@io.parse_csv_str(content, options=opts)) catch {
+      e => Err(e)
+    }
+    match result {
+      Err(@types.DataError::InvalidOperation(m)) =>
+        assert_eq(
+          m,
+          "dtypes override: column \"\{name}\" cannot be pinned to \{dt}; only Int / Float / Bool / String have a read parser",
+        )
+      _ => fail("expected InvalidOperation for \{dt}")
+    }
+  }
+}
+
+///|
+test "parse_csv_str: a dtypes override naming a missing column is refused" {
+  let content =
+    #|a
+    #|1
+    #|
+  let opts = @io.CsvReadOptions::CsvReadOptions(
+    dtypes=Map([
+      ("a", @types.DataType::String),
+      ("missing", @types.DataType::Int),
+    ]),
+  )
+  let result = Ok(@io.parse_csv_str(content, options=opts)) catch {
+    e => Err(e)
+  }
+  match result {
+    Err(@types.DataError::InvalidOperation(m)) =>
+      assert_eq(
+        m, "dtypes override names column \"missing\", which the input does not carry",
+      )
+    _ => fail("expected InvalidOperation for the missing column")
+  }
+}
+
+///|
+test "parse_csv_str: a cell that fails a pinned dtype follows on_parse_error" {
+  let content =
+    #|x
+    #|1
+    #|oops
+    #|
+  let pinned = @io.CsvReadOptions::CsvReadOptions(
+    dtypes=Map([("x", @types.DataType::Int)]),
+  )
+  // The pin applies to every cell — there is no inference window to be past
+  // — so `oops` fails exactly as a post-window mismatch does: a structured
+  // cell error under the default policy,
+  let result = Ok(@io.parse_csv_str(content, options=pinned)) catch {
+    e => Err(e)
+  }
+  assert_eq(
+    result,
+    Err(
+      @types.DataError::ParseError(
+        @types.ParseErrorDetail::Cell(
+          @types.CellParseLocation::Row,
+          "x",
+          2,
+          @types.DataType::Int,
+          "oops",
+        ),
+      ),
+    ),
+  )
+  // and a null cell under `Null`.
+  let lenient = @io.CsvReadOptions::CsvReadOptions(
+    dtypes=Map([("x", @types.DataType::Int)]),
+    on_parse_error=Null,
+  )
+  let df = @io.parse_csv_str(content, options=lenient)
+  assert_eq(df.get_column("x").dtype(), @types.DataType::Int)
+  assert_eq(df.item(0, "x"), @types.Scalar::Int(1))
+  assert_eq(df.item(1, "x"), @types.Scalar::Null)
+}

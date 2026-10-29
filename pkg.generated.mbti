@@ -40,6 +40,8 @@ pub fn read_ndjson(String, options? : @io.JsonReadOptions) -> @frame.DataFrame r
 
 pub fn scan_csv(String, options? : @io.CsvReadOptions) -> @lazy.LazyFrame
 
+pub fn scan_json(String, options? : @io.JsonReadOptions) -> @lazy.LazyFrame
+
 pub fn scan_ndjson(String, options? : @io.JsonReadOptions) -> @lazy.LazyFrame
 
 pub fn when(@expr.Expr) -> @expr.WhenThen

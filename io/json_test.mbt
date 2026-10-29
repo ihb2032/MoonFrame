@@ -853,3 +853,77 @@ test "allow_nonfinite_floats=false keeps an overflowing number column String" {
   )
   assert_eq(gated_ndjson.get_column("a").dtype(), @types.DataType::String)
 }
+
+///|
+test "parse_json_str: dtypes override pins a column ahead of inference" {
+  // `a` holds integral numbers, which inference narrows to Int (the
+  // integral-Float caveat); the pin holds it at Float. `b` holds numbers,
+  // which no inference would read as String; the pin renders their text
+  // form, the String-fallback rule.
+  let content = "[{\"a\": 1, \"b\": 2}, {\"a\": 2, \"b\": 3.5}]"
+  let opts = @io.JsonReadOptions::JsonReadOptions(
+    dtypes=Map([("a", @types.DataType::Float), ("b", @types.DataType::String)]),
+  )
+  let df = @io.parse_json_str(content, options=opts)
+  assert_eq(df.get_column("a").dtype(), @types.DataType::Float)
+  assert_eq(df.get_column("b").dtype(), @types.DataType::String)
+  assert_eq(df.item(0, "a"), @types.Scalar::Float(1.0))
+  assert_eq(df.item(0, "b"), @types.Scalar::String("2"))
+  assert_eq(df.item(1, "b"), @types.Scalar::String("3.5"))
+}
+
+///|
+test "parse_json_str: a JSON string never coerces into a pinned Int" {
+  // JSON has strong types — a String cell in a column pinned Int is a
+  // locked-in mismatch, not a text coercion: it follows `on_parse_error`
+  // exactly as a post-window mismatch does.
+  let content = "[{\"a\": 1}, {\"a\": \"2\"}]"
+  let strict = @io.JsonReadOptions::JsonReadOptions(
+    dtypes=Map([("a", @types.DataType::Int)]),
+  )
+  let result = Ok(@io.parse_json_str(content, options=strict)) catch {
+    e => Err(e)
+  }
+  assert_eq(
+    result,
+    Err(
+      @types.DataError::ParseError(
+        @types.ParseErrorDetail::Cell(
+          @types.CellParseLocation::Record,
+          "a",
+          2,
+          @types.DataType::Int,
+          "2",
+        ),
+      ),
+    ),
+  )
+  let lenient = @io.JsonReadOptions::JsonReadOptions(
+    dtypes=Map([("a", @types.DataType::Int)]),
+    on_parse_error=Null,
+  )
+  let df = @io.parse_json_str(content, options=lenient)
+  assert_eq(df.get_column("a").dtype(), @types.DataType::Int)
+  assert_eq(df.item(0, "a"), @types.Scalar::Int(1))
+  assert_eq(df.item(1, "a"), @types.Scalar::Null)
+}
+
+///|
+test "parse_json_str: dtypes overrides are refused like the CSV reader's" {
+  let content = "[{\"a\": 1}]"
+  // An unpinnable dtype, and a name the input does not carry.
+  let unsupported = @io.JsonReadOptions::JsonReadOptions(
+    dtypes=Map([("a", @types.DataType::Date)]),
+  )
+  let result = Ok(@io.parse_json_str(content, options=unsupported)) catch {
+    e => Err(e)
+  }
+  assert_true(result is Err(@types.DataError::InvalidOperation(_)))
+  let missing = @io.JsonReadOptions::JsonReadOptions(
+    dtypes=Map([("nope", @types.DataType::Int)]),
+  )
+  let result2 = Ok(@io.parse_json_str(content, options=missing)) catch {
+    e => Err(e)
+  }
+  assert_true(result2 is Err(@types.DataError::InvalidOperation(_)))
+}

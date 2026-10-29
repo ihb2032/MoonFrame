@@ -4,12 +4,12 @@ alias DataFrame::limit <- frame
 alias LazyFrame::limit <- lazy
 alias Series::"_[_:_]" <- series
 alias Series::"_[_]" <- series
-ctor CsvReadOptions::CsvReadOptions(has_header? : Bool, delimiter? : Char, infer_schema_rows? : Int32, null_values? : Array[String], strict_column_count? : Bool, on_parse_error? : OnParseError, allow_nonfinite_floats? : Bool, strict_quotes? : Bool) -> Self <- io
+ctor CsvReadOptions::CsvReadOptions(has_header? : Bool, delimiter? : Char, infer_schema_rows? : Int32, null_values? : Array[String], strict_column_count? : Bool, on_parse_error? : OnParseError, allow_nonfinite_floats? : Bool, strict_quotes? : Bool, dtypes? : Map[String, @types.DataType]) -> Self <- io
 ctor CsvWriteOptions::CsvWriteOptions(header? : Bool, delimiter? : Char, null_value? : String, sanitize_formulas? : Bool, line_terminator? : String) -> Self raise @types.DataError <- io
 ctor DataFrame::DataFrame(Array[@series.Series]) -> Self raise @types.DataError <- frame
 ctor Field::Field(String, DataType, nullable? : Bool) -> Self <- types
 ctor HtmlOptions::HtmlOptions(max_rows? : Int32, table_class? : String, caption? : String, escape? : Bool) -> Self <- frame
-ctor JsonReadOptions::JsonReadOptions(infer_schema_rows? : Int32, on_parse_error? : OnParseError, reject_duplicate_keys? : Bool, allow_nonfinite_floats? : Bool) -> Self <- io
+ctor JsonReadOptions::JsonReadOptions(infer_schema_rows? : Int32, on_parse_error? : OnParseError, reject_duplicate_keys? : Bool, allow_nonfinite_floats? : Bool, dtypes? : Map[String, @types.DataType]) -> Self <- io
 ctor LazyFrame::LazyFrame(@frame.DataFrame) -> Self <- lazy
 ctor Schema::Schema(Array[Field]) -> Self raise DataError <- types
 field ChartSpec.color : String? <- chart
@@ -75,6 +75,8 @@ fn read_ndjson(String, options? : @io.JsonReadOptions) -> @frame.DataFrame raise
 fn read_ndjson(String, options? : JsonReadOptions) -> @frame.DataFrame raise @types.DataError <- io
 fn scan_csv(String, options? : @io.CsvReadOptions) -> @lazy.LazyFrame <- root
 fn scan_csv(String, options? : @io.CsvReadOptions) -> LazyFrame <- lazy
+fn scan_json(String, options? : @io.JsonReadOptions) -> @lazy.LazyFrame <- root
+fn scan_json(String, options? : @io.JsonReadOptions) -> LazyFrame <- lazy
 fn scan_ndjson(String, options? : @io.JsonReadOptions) -> @lazy.LazyFrame <- root
 fn scan_ndjson(String, options? : @io.JsonReadOptions) -> LazyFrame <- lazy
 fn when(@expr.Expr) -> @expr.WhenThen <- root
@@ -121,6 +123,7 @@ method ChartSpec::to_repr(Self) -> @debug.Repr <- chart
 method ClosedInterval::equal(Self, Self) -> Bool <- types
 method ClosedInterval::not_equal(Self, Self) -> Bool <- types
 method ClosedInterval::to_repr(Self) -> @debug.Repr <- types
+method CsvReadOptions::dtypes(Self) -> Map[String, @types.DataType] <- io
 method CsvReadOptions::null_values(Self) -> Array[String] <- io
 method DataError::equal(Self, Self) -> Bool <- types
 method DataError::message(Self) -> String <- types
@@ -340,6 +343,7 @@ method JoinOptions::to_repr(Self) -> @debug.Repr <- frame
 method JoinType::equal(Self, Self) -> Bool <- frame
 method JoinType::not_equal(Self, Self) -> Bool <- frame
 method JoinType::to_repr(Self) -> @debug.Repr <- frame
+method JsonReadOptions::dtypes(Self) -> Map[String, @types.DataType] <- io
 method KeepStrategy::equal(Self, Self) -> Bool <- frame
 method KeepStrategy::not_equal(Self, Self) -> Bool <- frame
 method KeepStrategy::to_repr(Self) -> @debug.Repr <- frame

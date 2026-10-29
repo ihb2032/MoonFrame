@@ -37,6 +37,19 @@
 ///   `Float` evidence — the column stays `String`, the CSV reader's
 ///   `allow_nonfinite_floats` rule, so a silent retype to `Float(∞)`
 ///   cannot happen either way a file is read.
+/// - `dtypes` — per-column dtype overrides that pin a column's type
+///   instead of inferring it, as a name → `DataType` map. Only the four
+///   dtypes a reader can parse (`Int` / `Float` / `Bool` / `String`) can
+///   be pinned — anything else is refused with `InvalidOperation` at read
+///   time, as is a name the input does not carry (a pin is an assertion
+///   about the input; a misspelt one fails rather than silently does
+///   nothing). Columns not named keep their inferred dtype. A pinned
+///   column skips inference entirely, and a cell that does not parse
+///   under the pin — a JSON `String` in a column pinned `Int`, say, since
+///   JSON has strong types and no `"1" → 1` coercion — is handled per
+///   `on_parse_error`. The map is copied, so mutating it afterwards
+///   cannot alter the options; read it back through the `dtypes()`
+///   accessor.
 ///
 /// The NDJSON reader shares this type: the two formats differ in framing,
 /// not in what there is to configure.
@@ -45,6 +58,17 @@ pub struct JsonReadOptions {
   on_parse_error : OnParseError
   reject_duplicate_keys : Bool
   allow_nonfinite_floats : Bool
+  priv dtypes : Map[String, @types.DataType]
+}
+
+///|
+/// The per-column dtype overrides. A fresh `Map` is returned, so a caller
+/// cannot reach into the options and change what the reader pins — the
+/// same reason the constructor copies its input.
+pub fn JsonReadOptions::dtypes(
+  self : JsonReadOptions,
+) -> Map[String, @types.DataType] {
+  copy_dtypes(self.dtypes)
 }
 
 ///|
@@ -53,17 +77,21 @@ pub struct JsonReadOptions {
 /// dtype, let a repeated object key keep its last value (the common JSON
 /// reading), and accept overflow-to-`Infinity` numbers as `Float` cells. `JsonReadOptions::JsonReadOptions()` is the all-defaults reader; name only what
 /// differs, as in `JsonReadOptions::JsonReadOptions(on_parse_error=Null)`.
+/// `dtypes` is copied, so mutating the map afterwards cannot alter the
+/// options.
 pub fn JsonReadOptions::JsonReadOptions(
   infer_schema_rows~ : Int32 = DEFAULT_INFER_SCHEMA_ROWS,
   on_parse_error~ : OnParseError = Raise,
   reject_duplicate_keys~ : Bool = false,
   allow_nonfinite_floats~ : Bool = true,
+  dtypes~ : Map[String, @types.DataType] = Map([]),
 ) -> JsonReadOptions {
   {
     infer_schema_rows,
     on_parse_error,
     reject_duplicate_keys,
     allow_nonfinite_floats,
+    dtypes: copy_dtypes(dtypes),
   }
 }
 
@@ -80,6 +108,9 @@ pub fn JsonReadOptions::JsonReadOptions(
 /// Raises:
 /// - `ParseError(Message(...))` — malformed JSON, a top-level value that is
 ///   not an array, or a record that is not an object.
+/// - `InvalidOperation` — `options.dtypes` names a column the input does
+///   not carry, or pins a dtype that has no read parser (anything but
+///   `Int` / `Float` / `Bool` / `String`).
 /// - `ParseError(Cell(...))` — a non-null cell does not fit the column's
 ///   inferred dtype, unless `options.on_parse_error` is `Null`, which
 ///   downgrades that cell to a null instead.
@@ -89,6 +120,27 @@ pub fn JsonReadOptions::JsonReadOptions(
 pub fn parse_json_str(
   content : String,
   options~ : JsonReadOptions = JsonReadOptions::JsonReadOptions(),
+) -> @frame.DataFrame raise @types.DataError {
+  parse_json_str_projected(content, options, None, None)
+}
+
+///|
+/// Shared core behind `parse_json_str` and the JSON scan driver's read: the
+/// full array-parse / records pipeline `parse_json_str` runs, with the two
+/// knobs the lazy `scan_json` source pushes in — `projection` builds only
+/// the named columns (in first-seen header order), and `pruner` keeps only
+/// the rows its callback selects, the same pair the CSV / NDJSON projected
+/// cores honour. The top-level array must still be parsed whole to find its
+/// records, so what the knobs prune is the *assembly* — record validation
+/// and header collection run before the filter, and a projected / pruned
+/// read fails on malformed input exactly as a full one does; only a parse
+/// error confined to a dropped column or row goes unraised, because those
+/// cells are never built.
+fn parse_json_str_projected(
+  content : String,
+  options : JsonReadOptions,
+  projection : Array[String]?,
+  pruner : RowPruner?,
 ) -> @frame.DataFrame raise @types.DataError {
   // Strip a leading UTF-8 BOM (shared with the CSV / NDJSON readers); `@json.parse`
   // rejects a stray `U+FEFF` at column 0, so a file saved by Excel would otherwise
@@ -140,11 +192,13 @@ pub fn parse_json_str(
     records,
     options.infer_schema_rows,
     options.on_parse_error,
-    None,
+    projection,
     // JSON-array records have no source line of their own; build-stage errors
     // are numbered by record (1-based array index).
     None,
+    pruner?,
     allow_nonfinite=options.allow_nonfinite_floats,
+    dtypes=options.dtypes,
   )
 }
 

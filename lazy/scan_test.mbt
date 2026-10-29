@@ -550,3 +550,127 @@ test "scan_ndjson fails on a repeated key when the reader option asks" {
     _ => fail("expected a duplicate-key ParseError")
   }
 }
+
+///|
+/// File-backed behaviour of the lazy JSON source, mirroring the NDJSON
+/// source: `collect` reads through `@io`, projection push-down narrows the
+/// assembly to the columns a pipeline consumes, and the builder stays total.
+/// Fixtures are written with `@io.write_json`; the adversarial ones as raw
+/// text through `@fs`.
+
+///|
+/// Write a small clean fixture frame to `path` as a single JSON array.
+fn write_json_fixture(path : String) -> Unit raise @types.DataError {
+  @io.write_json(
+    path,
+    @frame.DataFrame::DataFrame([
+      @series.Series::from_ints("qty", [5, 120, 80, 200]),
+      @series.Series::from_int_options("bonus", [Some(1), None, Some(3), None]),
+      @series.Series::from_strings("region", ["west", "east", "west", "east"]),
+    ]),
+  )
+}
+
+///|
+test "scan_json collects equal to the eager read of the same file" {
+  let path = "_build/lazy_scan_json_roundtrip.json"
+  write_json_fixture(path)
+  let out = scan_json(path).collect()
+  assert_eq(out, @io.read_json(path))
+  assert_eq(out.check_invariants(), Ok(()))
+}
+
+///|
+test "scan_json with projection push-down collects equal to the eager read then select" {
+  let path = "_build/lazy_scan_json_projection.json"
+  write_json_fixture(path)
+  let projection = [@expr.col("region")]
+  assert_eq(
+    scan_json(path).select(projection).collect(),
+    @io.read_json(path).select(projection),
+  )
+  let predicate = @expr.col("qty").gt(@expr.lit_int(50))
+  let derived = [(@expr.col("qty") * @expr.lit_int(2)).with_alias("dbl")]
+  let outputs = [@expr.col("dbl"), @expr.col("region")]
+  let out = scan_json(path)
+    .filter(predicate)
+    .with_columns(derived)
+    .select(outputs)
+    .collect()
+  assert_eq(
+    out,
+    @io.read_json(path).filter(predicate).with_columns(derived).select(outputs),
+  )
+  assert_eq(out.check_invariants(), Ok(()))
+}
+
+///|
+test "projection push-down does not assemble — or fail on — a dropped JSON column" {
+  let path = "_build/lazy_scan_json_dropped_error.json"
+  // `b` turns from an Int into a string — a column a typed frame cannot
+  // model, written as raw JSON-array text. The full eager read builds `b`
+  // under the pinned window and fails; the lazy scan narrowed to `a` never
+  // builds it, so the dropped column's error cannot surface.
+  write_raw(path, "[{\"a\": 1, \"b\": 10}, {\"a\": 2, \"b\": \"oops\"}]")
+  let opts : @io.JsonReadOptions = @io.JsonReadOptions::JsonReadOptions(
+    infer_schema_rows=1,
+  )
+  assert_true(
+    (Ok(@io.read_json(path, options=opts)) catch { e => Err(e) })
+    is Err(@types.DataError::ParseError(_)),
+  )
+  let out = scan_json(path, options=opts).select([@expr.col("a")]).collect()
+  assert_eq(out.columns(), ["a"])
+  assert_eq(out.item(1, "a"), @types.Scalar::Int(2))
+}
+
+///|
+test "scan_json absorbs a predicate the same way, matching eager" {
+  let path = "_build/lazy_scan_json_predicate.json"
+  write_json_fixture(path)
+  let predicate = @expr.col("qty").gt(@expr.lit_int(50))
+  assert_eq(
+    scan_json(path).filter(predicate).collect(),
+    @io.read_json(path).filter(predicate),
+  )
+  assert_eq(
+    scan_json(path).filter(predicate).select([@expr.col("region")]).collect(),
+    @io.read_json(path).filter(predicate).select([@expr.col("region")]),
+  )
+}
+
+///|
+test "scan_json builders are total; a missing file fails only at collect" {
+  let absent = "_build/lazy_scan_json_absent.json"
+  // Building and explaining never touch the file — the rendered plan names
+  // the JSON source and the columns the projection narrowed to.
+  assert_eq(
+    scan_json(absent).select([@expr.col("a")]).explain(optimized=true),
+    "SELECT [col(a)]\n  SCAN_JSON \"_build/lazy_scan_json_absent.json\" [a]",
+  )
+  assert_true(
+    (Ok(scan_json(absent).select([@expr.col("a")]).collect()) catch {
+      e => Err(e)
+    })
+    is Err(@types.DataError::IoError(_)),
+  )
+  assert_true(
+    (Ok(scan_json(absent).collect()) catch { e => Err(e) })
+    is Err(@types.DataError::IoError(_)),
+  )
+}
+
+///|
+test "scan_json honours a dtype pin at collect time" {
+  // `JsonReadOptions` carries the dtype pins into the deferred read, so the
+  // lazy source and the eager reader agree on a pinned column.
+  let path = "_build/lazy_scan_json_dtypes.json"
+  write_json_fixture(path)
+  let opts : @io.JsonReadOptions = @io.JsonReadOptions::JsonReadOptions(
+    dtypes=Map([("qty", @types.DataType::String)]),
+  )
+  assert_eq(
+    scan_json(path, options=opts).collect(),
+    @io.read_json(path, options=opts),
+  )
+}

@@ -11,6 +11,7 @@ frame | doc_hidden internal_engine | pub fn DataFrame::to_scalar_matrix( self : 
 frame | doc_hidden internal_engine | pub fn evaluate_column_free(expr : @expr.Expr) -> @types.Scalar? | used by: lazy
 io | doc_hidden internal_engine | pub fn csv_scan_driver( path : String, options : CsvReadOptions, ) -> @scan.ScanDriver | used by: lazy
 io | doc_hidden internal_engine | pub fn df_to_json_records(df : @frame.DataFrame) -> Array[Json] | used by: chart
+io | doc_hidden internal_engine | pub fn json_scan_driver( path : String, options : JsonReadOptions, ) -> @scan.ScanDriver | used by: lazy
 io | doc_hidden internal_engine | pub fn ndjson_scan_driver( path : String, options : JsonReadOptions, ) -> @scan.ScanDriver | used by: lazy
 io | doc_hidden internal_engine | pub fn write_text( path : String, content : String, ) -> Unit raise @types.DataError | used by: chart
 series | doc_hidden internal_engine | pub enum SortKey

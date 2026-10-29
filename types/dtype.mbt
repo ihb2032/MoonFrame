@@ -110,6 +110,15 @@ pub fn DataType::is_summable(self : DataType) -> Bool {
 /// the physical level but unrelated logically. A derived rule, not a
 /// registered one: same dtype or two `is_numeric` dtypes, with no per-dtype
 /// arm of its own.
+///
+/// This is one of three dtype-pair gates in the engine, each with its own
+/// semantics: this one (comparison), the arithmetic gate
+/// (`is_numeric` on both sides, `numeric_general_pair` in the kernel — no
+/// same-dtype clause, so `Date` does not subtract from `Date`), and the
+/// ternary gate (same dtype, or one side numeric — `eval_ternary`). They
+/// agree on every registry row today because the non-numeric rows are all
+/// riders; changing a row's `numeric` flag is a review of all three, which
+/// is why each spells a pointer back here.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
 pub fn DataType::comparable_with(self : DataType, other : DataType) -> Bool {

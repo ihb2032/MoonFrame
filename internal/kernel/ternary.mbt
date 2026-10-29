@@ -37,6 +37,10 @@ fn[T] select_cells(
 /// must share a dtype, except that `Int` meets `Float` by promoting to
 /// `Float` — the arithmetic promotion rule applied to selection. An
 /// all-valid numeric result converges onto the `Numeric` backend.
+///
+/// The selection half of the three dtype-pair gates — see
+/// `DataType::comparable_with` for the comparison gate and the review rule
+/// that ties the three together.
 pub fn eval_ternary(
   cond : Series,
   then_v : Series,

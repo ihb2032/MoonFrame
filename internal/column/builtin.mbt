@@ -156,9 +156,14 @@ pub fn BuiltinColumn::from_string_options(
 /// fixes the column's *identity* — the cells are the same `Int64` buffer for
 /// every `I64` rider; what differs is the per-dtype lift in `scalar_of`, which turns a
 /// raw cell back into the dtype own `Scalar` on read. The caller must pass a
-/// dtype whose physical is `I64` (every caller arrives through the
-/// `physical()` dispatch or is a constructor of one specific dtype, so the
-/// agreement is by construction).
+/// dtype whose physical is `I64`; the constructor does not check (a raise
+/// here would have to be swallowed at the total rebuild paths, an untestable
+/// dead arm). The agreement holds by construction because every caller
+/// arrives one of two ways — through the `physical()` dispatch, which only
+/// routes I64 buffers here, or as a constructor of one specific dtype — and
+/// the read side is defensive regardless: a mismatched pair compares false
+/// and its cells read back as the dtype's own (see `scalar_of`), never as a
+/// silently reinterpreted buffer.
 pub fn BuiltinColumn::from_i64_options(
   dtype : @types.DataType,
   values : Array[Int64?],

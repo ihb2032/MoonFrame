@@ -28,6 +28,11 @@ pub fn DataFrame::vstack(
       ),
     )
   }
+  // The stacked height is the plain sum. A sum past 2^31 would wrap, but
+  // every column below materialises `self.nrows() + other.nrows()` cells
+  // first and allocation fails long before the count wraps — so there is
+  // deliberately no guard here, only the comment (a guard would be an
+  // untestable dead arm).
   let height = self.nrows() + other.nrows()
   let cols : Array[Series] = []
   for i in 0..<self.ncols() {

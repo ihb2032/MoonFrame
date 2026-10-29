@@ -447,3 +447,57 @@ test "format_vega_lite: a Timestamp axis is temporal, a Decimal measure quantita
   )
   assert_eq(channel_type(dec_spec, "y"), "quantitative")
 }
+
+///|
+test "format_vega_lite: brackets and a trailing backslash in a column name are escaped" {
+  // Bracket access is Vega's array indexing, so an unescaped `[` changes
+  // the field from a name to an index expression; and a name ending in a
+  // backslash is the boundary case of escaping the escape character
+  // itself. Six characters are escaped in total (`\ . [ ] ' "`) — these
+  // pin the two the dot / quote tests leave unnamed.
+  let bracket = "a[0].b"
+  let df = @frame.DataFrame::DataFrame([
+    @series.Series::from_strings("cat", ["x"]),
+    @series.Series::from_ints(bracket, [1]),
+    @series.Series::from_ints("trail\\", [2]),
+  ])
+  let spec = @chart.format_vega_lite(df, @chart.ChartSpec::bar("cat", bracket))
+  let field = match @json.parse(spec) {
+    Object(obj) =>
+      match obj.get("encoding") {
+        Some(Object(enc)) =>
+          match enc.get("y") {
+            Some(Object(y)) =>
+              match y.get("field") {
+                Some(String(f)) => f
+                _ => "<missing>"
+              }
+            _ => "<missing>"
+          }
+        _ => "<missing>"
+      }
+    _ => "<missing>"
+  }
+  assert_eq(field, "a\\[0\\]\\.b")
+  let spec2 = @chart.format_vega_lite(
+    df,
+    @chart.ChartSpec::bar("cat", "trail\\"),
+  )
+  let field2 = match @json.parse(spec2) {
+    Object(obj) =>
+      match obj.get("encoding") {
+        Some(Object(enc)) =>
+          match enc.get("y") {
+            Some(Object(y)) =>
+              match y.get("field") {
+                Some(String(f)) => f
+                _ => "<missing>"
+              }
+            _ => "<missing>"
+          }
+        _ => "<missing>"
+      }
+    _ => "<missing>"
+  }
+  assert_eq(field2, "trail\\\\")
+}

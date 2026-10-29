@@ -88,10 +88,13 @@ libraries — not a derivative work of either codebase.
 - **`unique(subset?, keep?)`** keeps first-appearance order
   (`maintain_order=True`), dedups on a column subset when given one, and takes
   Polars' `keep` strategies (`First` / `Last` / `None`).
-- **Lazy file sources** — `scan_csv` / `scan_ndjson` with both projection and
-  predicate pushdown into the reader; there is no `scan_json` for the
-  single-array shape (it must be parsed whole, the same reason Polars has
-  `scan_ndjson` but not `scan_json`).
+- **Lazy file sources** — `scan_csv` / `scan_ndjson` / `scan_json` with
+  both projection and predicate pushdown into the reader. The pushdowns
+  prune the *assembly* — only the consumed columns are built, and only the
+  surviving rows' cells are parsed past the predicate's own columns — never
+  the parse itself: the file is still tokenised / parsed whole. (Polars has
+  `scan_ndjson` but no `scan_json`; MoonFrame carries the source, with the
+  assembly-level pruning above.)
 - **I/O inference** — `infer_schema_rows = 0` scans every row (Polars'
   `infer_schema_length=None`); `on_parse_error = Null` downgrades a bad cell
   to null (Polars' `ignore_errors=True`); a non-finite `Float` writes as
@@ -193,12 +196,14 @@ will not find here today:
   the folding / clustering rules; `LazyFrame::collect`'s docstring is
   the contract's home. Dead-expression elimination and sinking
   filters below sorts are not implemented.
-- **Reader schema override** — CSV / JSON dtypes come from content inference
-  only; there is no `dtypes=` / `schema=` parameter (the readers never
-  infer `Date` / `Timestamp` / `Decimal` either — a written-back column of
-  those reads as `String` / `Float`). Build the frame yourself
-  (`Series::from_*`, or `from_rows` with a `Schema`) when a column's type must
-  be pinned. See [`type-inference.md`](type-inference.md).
+- **Reader dtype override** — `CsvReadOptions` / `JsonReadOptions` take a
+  `dtypes=` map pinning named columns to `Int` / `Float` / `Bool` /
+  `String` ahead of inference (Polars' `schema_overrides`); columns not
+  named keep their inferred dtype, a name the input does not carry is
+  refused, and the rider dtypes cannot be pinned — the readers have no
+  parser for their text (a written-back `Date` / `Timestamp` / `Decimal`
+  column still reads as `String` / `Float`). See
+  [`type-inference.md`](type-inference.md).
 
 See [`migration.md`](migration.md) for the upgrade history, the per-symbol
 reference — generated from the docstrings — on

@@ -51,6 +51,42 @@ must be built to a declared schema instead, construct it directly —
 `Series::from_*` per column, or `DataFrame::from_rows(schema, rows)`, which
 validates the cells against the schema you pass.
 
+## Pinning a dtype with `dtypes`
+
+When inference would guess wrong — or guess at all — the reader options take
+a `dtypes=` map that pins named columns ahead of inference:
+
+```
+@io.read_csv(
+  "codes.csv",
+  options=@io.CsvReadOptions::CsvReadOptions(
+    dtypes=Map([("zip", @types.DataType::String)]),
+  ),
+)
+```
+
+The rules mirror what inference would have enforced, with the pin in
+inference's place:
+
+- A pinned column **skips inference** — the pin is the caller's answer, so
+  it locks in even when the cells would have inferred differently (a
+  `0`-padded `zip` column stays `String`, never `Int`).
+- Only `Int` / `Float` / `Bool` / `String` can be pinned: those are the
+  dtypes a reader can parse from cell text. Pinning anything else — `Null`,
+  or the rider dtypes `Date` / `Timestamp` / `Decimal` — fails the read
+  with `InvalidOperation` at read time, loudly rather than as a silent
+  no-op.
+- A pin naming a column the input does not carry is refused with
+  `InvalidOperation`, too: a pin is an assertion about the input, and a
+  misspelt one should fail rather than silently do nothing.
+- A cell that does not parse under the pin follows `on_parse_error`
+  exactly as a post-window mismatch does — including JSON's strong types:
+  a JSON `String` in a column pinned `Int` is a mismatch, never a `"1" → 1`
+  coercion.
+- The map is copied when the options are built, so mutating it afterwards
+  cannot change what a deferred `scan_csv` / `scan_ndjson` / `scan_json`
+  pins at collect time.
+
 ## Numeric forms
 
 The three readers agree on the priority order and the window, but not on what a
@@ -77,11 +113,14 @@ Token parsing follows pandas / polars conventions:
 Standard JSON has a single number type and no `nan` / `inf` / `infinity`
 literals, so those rules do not carry over:
 
-- a bare `NaN` / `Infinity` token is a *parse* failure, not a `Float` cell.
-  There is no `allow_nonfinite_floats` on `JsonReadOptions` because there is
-  nothing for it to accept, and `write_json` / `write_ndjson` write a non-finite
-  cell as JSON `null` (pandas' `to_json` convention) — so it reads back as a
-  null, not as `±Inf`.
+- a bare `NaN` / `Infinity` token is a *parse* failure, not a `Float` cell —
+  JSON has no literal for them, and `write_json` / `write_ndjson` write a
+  non-finite cell as JSON `null` (pandas' `to_json` convention) — so it reads
+  back as a null, not as `±Inf`. The one non-finite shape JSON can spell is a
+  *finite* literal whose magnitude overflows `Double` (`1e999`, collapsed to
+  `±Inf` per IEEE 754), and `allow_nonfinite_floats` on `JsonReadOptions`
+  gates exactly that — the CSV gate's rule, so under `false` a column of such
+  numbers stays `String` instead of being silently retyped to `Float(∞)`.
 - an integer within `Int64`'s range round-trips exactly even past 2^53: the
   writer records its verbatim digits alongside the number and the reader recovers
   them. Only a JSON integer beyond `Int64`'s own range infers `Float`.

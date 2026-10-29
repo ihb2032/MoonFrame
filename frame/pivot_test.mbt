@@ -194,7 +194,8 @@ test "unpivot folds columns into variable/value under the index" {
     Series::from_ints("y", [3, 4]),
   ])
   let r = df.unpivot(index=[@expr.col("k")])
-  // Rows walk source rows outermost, then the on columns in order.
+  // Rows walk the on columns outermost, one block per column holding its
+  // source rows in order.
   assert_eq(r.shape(), (4, 3))
   assert_eq(r.columns(), ["k", "variable", "value"])
   assert_eq(r.get_column("k").to_scalars(), [

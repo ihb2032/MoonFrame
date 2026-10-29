@@ -55,8 +55,8 @@ pub fn Series::sum(self : Series) -> @types.Scalar raise @types.DataError {
 /// trades precision for that wrap safety at the 2^53 edge: a cell beyond
 /// `2^53` rounds as it widens, so the mean of `[2^53+1, 1]` lands one ulp
 /// from the exact value — an exact-then-widen sum would reintroduce the
-/// overflow this form exists to avoid (the shared fold's note in
-/// `internal/column/numeric_reduce.mbt` says the same).
+/// overflow this form exists to avoid (the shared fold behind both
+/// backends' mean, `fold_double_sum`, says the same where it lives).
 ///
 /// The denominator is the **non-null** count (`Series::count`), so a
 /// `Float` `NaN` is a present value that both counts toward the divisor

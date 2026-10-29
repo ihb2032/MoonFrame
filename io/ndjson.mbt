@@ -119,10 +119,13 @@ fn parse_ndjson_str_projected(
       line,
       reject_duplicate_keys=options.reject_duplicate_keys,
     ) catch {
+      // Each record parses alone, so the parser's line is always 1 — the
+      // locator's physical line is the only line worth naming (see
+      // `duplicate_key_detail`).
       DuplicateKey(pos, key) =>
         raise @types.DataError::ParseError(
           @types.ParseErrorDetail::Message(
-            "\{locator_text(@types.CellParseLocation::Line, i + 1)}: duplicate key \"\{key}\" at line \{pos.line}, column \{pos.column}",
+            "\{locator_text(@types.CellParseLocation::Line, i + 1)}: \{duplicate_key_detail(key, pos.line, pos.column, single_line=true)}",
           ),
         )
       err =>

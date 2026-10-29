@@ -39,6 +39,10 @@ impl Eq for NumericData with fn equal(self, other) {
 
 ///|
 impl Eq for BuiltinColumn with fn equal(self, other) {
+  // The dtype leads, mirroring `ColumnStorage::equal` in production: an
+  // I64 buffer is shared by four dtypes, and a Date column is not the Int
+  // count of its days even when every cell matches.
+  self.dtype == other.dtype &&
   self.data == other.data &&
   self.validity.to_bools() == other.validity.to_bools()
 }

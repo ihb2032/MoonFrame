@@ -30,6 +30,39 @@
 //     `arg_sort` keep input order (stability, the sort kernel's rule).
 
 ///|
+/// One `cum_*` fold step over the accumulator — the arithmetic / extremum
+/// member the three flags name, written once for the `I64` and `F64` arms
+/// so the folding rule has one home (the `F64` arm's `NaN` gate stays at
+/// its call site: it guards the seed too, before any fold runs).
+fn[T : Add + Mul + Compare] cum_step(
+  want_sum : Bool,
+  want_prod : Bool,
+  want_min : Bool,
+  acc : T?,
+  v : T,
+) -> T {
+  match acc {
+    Some(b) =>
+      if want_sum {
+        b + v
+      } else if want_prod {
+        b * v
+      } else if want_min {
+        if v < b {
+          v
+        } else {
+          b
+        }
+      } else if v > b {
+        v
+      } else {
+        b
+      }
+    None => v
+  }
+}
+
+///|
 /// Evaluate one positional transform over an operand column, keeping the
 /// operand's name (the naming verb renames through `output_name`). Raises
 /// `TypeMismatch` for the numeric-only members on a non-numeric operand,
@@ -94,28 +127,7 @@ pub fn eval_positional(
           let mut acc : Int64? = None
           visit(n, reverse, i => {
             if valid[i] {
-              let v = a[i]
-              acc = Some(
-                match acc {
-                  Some(b) =>
-                    if want_sum {
-                      b + v
-                    } else if want_prod {
-                      b * v
-                    } else if want_min {
-                      if v < b {
-                        v
-                      } else {
-                        b
-                      }
-                    } else if v > b {
-                      v
-                    } else {
-                      b
-                    }
-                  None => v
-                },
-              )
+              acc = Some(cum_step(want_sum, want_prod, want_min, acc, a[i]))
             }
             // A null slot keeps its null — only `cum_count` repeats the
             // running value across a gap.
@@ -136,27 +148,7 @@ pub fn eval_positional(
               // over nothing) instead of poisoning every later comparison
               // against a `NaN` accumulator.
               if !(!want_sum && !want_prod && v.is_nan()) {
-                acc = Some(
-                  match acc {
-                    Some(b) =>
-                      if want_sum {
-                        b + v
-                      } else if want_prod {
-                        b * v
-                      } else if want_min {
-                        if v < b {
-                          v
-                        } else {
-                          b
-                        }
-                      } else if v > b {
-                        v
-                      } else {
-                        b
-                      }
-                    None => v
-                  },
-                )
+                acc = Some(cum_step(want_sum, want_prod, want_min, acc, v))
               }
             }
             // The Int arm's rule: a null slot keeps its null.

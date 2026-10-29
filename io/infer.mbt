@@ -33,6 +33,64 @@ priv enum InferredDtype {
 }
 
 ///|
+/// A fresh copy of a caller's `dtypes` override map, so options built from
+/// it cannot observe a later mutation of the caller's `Map` — the same
+/// boundary the `null_values` copy draws.
+fn copy_dtypes(
+  source : Map[String, @types.DataType],
+) -> Map[String, @types.DataType] {
+  let out : Map[String, @types.DataType] = Map([])
+  for name, dt in source {
+    out[name] = dt
+  }
+  out
+}
+
+///|
+/// Decode a `dtypes` override into the dtype the column build locks in.
+/// The four dtypes inference can pick are exactly the four a reader can
+/// parse from cell text; everything else a `DataType` can name — `Null`,
+/// and the rider dtypes `Date` / `Timestamp` / `Decimal` — has no read
+/// parser, so pinning one is refused loudly rather than silently ignored.
+/// (Inference never produces these either: a written-back `Date` /
+/// `Timestamp` / `Decimal` column reads back as `String` / `Float`.)
+fn inferred_from_override(
+  column : String,
+  dt : @types.DataType,
+) -> InferredDtype raise @types.DataError {
+  match dt {
+    Int => InferInt
+    Float => InferFloat
+    Bool => InferBool
+    String => InferString
+    Null | Date | Timestamp | Decimal(_) =>
+      raise @types.DataError::InvalidOperation(
+        "dtypes override: column \"\{column}\" cannot be pinned to \{dt}; only Int / Float / Bool / String have a read parser",
+      )
+  }
+}
+
+///|
+/// Refuse a `dtypes` override naming a column the input does not carry —
+/// a pinned name is the caller's assertion about the input, so a misspelt
+/// one fails the read instead of being silently ignored (the opposite of
+/// a projection's lenient unknown-name rule, which the optimizer's own
+/// column list rides). Runs once per read, over the full header set, so
+/// it holds for a projected read too.
+fn check_override_columns(
+  dtypes : Map[String, @types.DataType],
+  headers : Array[String],
+) -> Unit raise @types.DataError {
+  for name, _ in dtypes {
+    if !headers.contains(name) {
+      raise @types.DataError::InvalidOperation(
+        "dtypes override names column \"\{name}\", which the input does not carry",
+      )
+    }
+  }
+}
+
+///|
 /// What a reader does when a non-null cell fails to parse under the dtype
 /// that inference locked in for its column — in practice a value past the
 /// inference window that doesn't fit (e.g. a `String` in a column inferred

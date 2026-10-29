@@ -45,7 +45,8 @@ pub struct CsvReadOptions {
   strict_quotes : Bool
   // private fields
 }
-pub fn CsvReadOptions::CsvReadOptions(has_header? : Bool, delimiter? : Char, infer_schema_rows? : Int32, null_values? : Array[String], strict_column_count? : Bool, on_parse_error? : OnParseError, allow_nonfinite_floats? : Bool, strict_quotes? : Bool) -> Self
+pub fn CsvReadOptions::CsvReadOptions(has_header? : Bool, delimiter? : Char, infer_schema_rows? : Int32, null_values? : Array[String], strict_column_count? : Bool, on_parse_error? : OnParseError, allow_nonfinite_floats? : Bool, strict_quotes? : Bool, dtypes? : Map[String, @types.DataType]) -> Self
+pub fn CsvReadOptions::dtypes(Self) -> Map[String, @types.DataType]
 pub fn CsvReadOptions::null_values(Self) -> Array[String]
 
 pub struct CsvWriteOptions {
@@ -62,8 +63,10 @@ pub struct JsonReadOptions {
   on_parse_error : OnParseError
   reject_duplicate_keys : Bool
   allow_nonfinite_floats : Bool
+  // private fields
 }
-pub fn JsonReadOptions::JsonReadOptions(infer_schema_rows? : Int32, on_parse_error? : OnParseError, reject_duplicate_keys? : Bool, allow_nonfinite_floats? : Bool) -> Self
+pub fn JsonReadOptions::JsonReadOptions(infer_schema_rows? : Int32, on_parse_error? : OnParseError, reject_duplicate_keys? : Bool, allow_nonfinite_floats? : Bool, dtypes? : Map[String, @types.DataType]) -> Self
+pub fn JsonReadOptions::dtypes(Self) -> Map[String, @types.DataType]
 
 pub(all) enum OnParseError {
   Raise

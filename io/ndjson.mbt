@@ -143,6 +143,7 @@ fn parse_ndjson_str_projected(
     Some(record_lines),
     pruner?,
     allow_nonfinite=options.allow_nonfinite_floats,
+    dtypes=options.dtypes,
   )
 }
 

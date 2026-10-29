@@ -626,3 +626,39 @@ test "reject_duplicate_keys fails the read naming the line" {
     _ => fail("expected a duplicate-key ParseError")
   }
 }
+
+///|
+test "parse_ndjson_str: dtypes override reaches the shared records core" {
+  // The NDJSON reader shares `JsonReadOptions` and the records core, so a
+  // pin holds here exactly as it does for the single-array reader: an
+  // integral-number column stays Float, and a mismatch follows the
+  // parse-error policy.
+  let content = "{\"a\": 1}\n{\"a\": \"x\"}\n"
+  let opts = @io.JsonReadOptions::JsonReadOptions(
+    dtypes=Map([("a", @types.DataType::Int)]),
+  )
+  let result = Ok(@io.parse_ndjson_str(content, options=opts)) catch {
+    e => Err(e)
+  }
+  assert_eq(
+    result,
+    Err(
+      @types.DataError::ParseError(
+        @types.ParseErrorDetail::Cell(
+          @types.CellParseLocation::Line,
+          "a",
+          2,
+          @types.DataType::Int,
+          "x",
+        ),
+      ),
+    ),
+  )
+  let pinned = @io.JsonReadOptions::JsonReadOptions(
+    dtypes=Map([("a", @types.DataType::String)]),
+  )
+  let df = @io.parse_ndjson_str(content, options=pinned)
+  assert_eq(df.get_column("a").dtype(), @types.DataType::String)
+  assert_eq(df.item(0, "a"), @types.Scalar::String("1"))
+  assert_eq(df.item(1, "a"), @types.Scalar::String("x"))
+}

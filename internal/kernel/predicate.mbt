@@ -7,8 +7,9 @@
 /// they cannot drift from `eq` / `ge` / `le` and the connectives. `is_in` has
 /// one exception, `try_fast_is_in`: a hash-set pass for the dtypes where
 /// membership is plain equality, kept deliberately narrow — only `String`,
-/// `Bool`, and `Int` columns whose members share that dtype — so nothing with a
-/// floating-point subtlety leaves the shared path.
+/// `Bool`, `Int`, and the same-dtype I64 riders (`Date` / `Timestamp` /
+/// same-scale `Decimal`) whose members share the column's dtype — so nothing
+/// with a floating-point or cross-scale subtlety leaves the shared path.
 
 ///|
 /// `is_in`: `true` where the cell equals one of `members`. The general path
@@ -20,9 +21,11 @@
 /// whose dtype cannot compare with the column raises `TypeMismatch` from
 /// `eval_compare`, exactly as `col.eq(lit(member))` would.
 ///
-/// A `String` / `Bool` / `Int` column whose members are all of that same dtype
-/// takes the O(n + m) `try_fast_is_in` fast path instead; everything with a
-/// floating-point comparison subtlety stays on the exact general path.
+/// A `String` / `Bool` / `Int` column — or an I64-rider column (`Date` /
+/// `Timestamp` / `Decimal`) whose members all carry the column's own rider
+/// dtype and scale — takes the O(n + m) `try_fast_is_in` fast path instead;
+/// everything with a floating-point or cross-scale comparison subtlety stays
+/// on the exact general path.
 pub fn eval_is_in(
   operand : Series,
   members : ArrayView[@types.Scalar],
@@ -49,9 +52,9 @@ pub fn eval_is_in(
 }
 
 ///|
-/// Fast `is_in` for the dtypes with no floating-point comparison subtleties: a
-/// `String`, `Bool`, or `Int` column whose members are **all** of that same
-/// dtype. Builds an exact membership structure over the (non-null) members once,
+/// Fast `is_in` for the dtypes with no floating-point comparison subtleties:
+/// a `String`, `Bool`, or `Int` column whose members are **all** of that same
+/// dtype, or an I64-rider column whose members all carry its rider dtype. Builds an exact membership structure over the (non-null) members once,
 /// then tests every cell in a single pass — O(n + m) instead of the general
 /// kernel's O(n·m) time and per-member column allocation. `Some(result)` on that
 /// fast path; `None` — deferring to the exact `eval_compare` kernel — for a
@@ -149,9 +152,30 @@ fn try_fast_is_in(
         ),
       )
     }
-    // A `Date` / `Timestamp` / `Decimal` column (the I64 riders): the
-    // general path compares Scalars, which keep the dtypes distinct.
-    @column.ColumnData::I64(_) => None
+    // A `Date` / `Timestamp` / `Decimal` column (the I64 riders): the cells
+    // hash on their raw counts when every member carries the column's own
+    // rider dtype — for `Decimal`, at the column's own scale, whose
+    // cross-scale equality only the general path's exact rescaling arm
+    // serves. A member of any other dtype (an `Int` against a `Date`
+    // column, a cross-scale decimal) abandons the fast path, which keeps
+    // the dtypes distinct exactly as the general path's Scalar comparison
+    // does.
+    @column.ColumnData::I64(data) => {
+      let dtype = operand.dtype()
+      hash_set_is_in(name, data, valid, members, m => {
+        match (dtype, m) {
+          (@types.DataType::Date, @types.Scalar::Date(v)) => Some(v)
+          (@types.DataType::Timestamp, @types.Scalar::Timestamp(v)) => Some(v)
+          (@types.DataType::Decimal(scale), @types.Scalar::Decimal(s, v)) =>
+            if s == scale {
+              Some(v)
+            } else {
+              None
+            }
+          (_, _) => None
+        }
+      })
+    }
   }
 }
 

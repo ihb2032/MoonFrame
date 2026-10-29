@@ -540,3 +540,80 @@ test "is_in over a Float column keeps the IEEE reading on the fast path" {
     @types.Scalar::Bool(false),
   ])
 }
+
+///|
+test "is_in: rider columns take the hash fast path, cross-dtype members defer" {
+  // A Date column whose members are all Dates is plain raw-count equality —
+  // the hash-set fast path answers it; an Int member against the same
+  // column abandons the fast path and the general path's Scalar comparison
+  // keeps the dtypes distinct (no Int matches a Date cell).
+  let df = DataFrame::from_rows(
+    @types.Schema::Schema([@types.Field::Field("d", @types.DataType::Date)]),
+    [[@types.Scalar::Date(11016L)], [@types.Scalar::Date(11017L)]],
+  )
+  let out = df.select([
+    @expr.col("d").is_in([@types.Scalar::Date(11016L)]).with_alias("r"),
+  ])
+  assert_eq(out.get_column("r").to_scalars(), [
+    @types.Scalar::Bool(true),
+    @types.Scalar::Bool(false),
+  ])
+  // The Int member defers to the general path, whose Scalar comparison
+  // raises on the incomparable (Date, Int) pair exactly as it did before
+  // the fast path existed — deferring must not change the error surface.
+  let mixed : Result[DataFrame, @types.DataError] = Ok(
+    df.select([
+      @expr.col("d").is_in([@types.Scalar::Int(11016L)]).with_alias("r"),
+    ]),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(
+    mixed
+    is Err(
+      @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Operation("compare", _, _)
+      )
+    ),
+  )
+}
+
+///|
+test "is_in: Timestamp and same-scale Decimal members take the fast path" {
+  // The rider fast path hashes raw counts; the same-scale decimal pair
+  // answers by magnitude, and a cross-scale member defers to the exact
+  // rescaling comparison (1.5 at scale 1 equals 1.50 at scale 2).
+  let ts = DataFrame::from_rows(
+    @types.Schema::Schema([@types.Field::Field("t", @types.DataType::Timestamp)]),
+    [
+      [@types.Scalar::Timestamp(1704067200000000L)],
+      [@types.Scalar::Timestamp(1L)],
+    ],
+  )
+  let out = ts.select([
+    @expr.col("t")
+    .is_in([@types.Scalar::Timestamp(1704067200000000L)])
+    .with_alias("r"),
+  ])
+  assert_eq(out.get_column("r").to_scalars(), [
+    @types.Scalar::Bool(true),
+    @types.Scalar::Bool(false),
+  ])
+  let dec = DataFrame::DataFrame([
+    Series::from_decimal_options(1, "d", [Some(15L), Some(25L)]),
+  ])
+  let same = dec.select([
+    @expr.col("d").is_in([@types.Scalar::Decimal(1, 15L)]).with_alias("r"),
+  ])
+  assert_eq(same.get_column("r").to_scalars(), [
+    @types.Scalar::Bool(true),
+    @types.Scalar::Bool(false),
+  ])
+  let cross = dec.select([
+    @expr.col("d").is_in([@types.Scalar::Decimal(2, 150L)]).with_alias("r"),
+  ])
+  assert_eq(cross.get_column("r").to_scalars(), [
+    @types.Scalar::Bool(true),
+    @types.Scalar::Bool(false),
+  ])
+}

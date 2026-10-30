@@ -52,6 +52,8 @@ test "binary: every operator tag builds a pairwise distinct node" {
     a.floor_div(b),
     a.modulo(b),
     a.pow(b),
+    a.atan2(b),
+    a.hypot(b),
     a.eq(b),
     a.ne(b),
     a.lt(b),

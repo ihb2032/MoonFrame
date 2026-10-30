@@ -16,12 +16,12 @@
 /// bucket-append convention live in one place; bucket order is ascending
 /// because the row index only grows. Total.
 fn index_by_join_key(
-  key_scalars : Array[Array[@types.Scalar]],
+  key_cells : Array[Array[KeyCell]],
   n : Int32,
 ) -> Map[Array[KeyCell], Array[Int32]] {
   let index : Map[Array[KeyCell], Array[Int32]] = Map([])
   for i in 0..<n {
-    match join_row_key(key_scalars, i) {
+    match join_row_key(key_cells, i) {
       Some(k) =>
         match index.get(k) {
           Some(rows) => rows.push(i)
@@ -495,7 +495,7 @@ fn DataFrame::resolve_join_keys(
   self : DataFrame,
   right : DataFrame,
   options : JoinOptions,
-) -> (Array[Array[@types.Scalar]], Array[Array[@types.Scalar]]) raise @types.DataError {
+) -> (Array[Array[KeyCell]], Array[Array[KeyCell]]) raise @types.DataError {
   let (left_exprs, right_exprs) = options.join_key_exprs()
   if left_exprs.is_empty() {
     raise @types.DataError::InvalidOperation(
@@ -506,8 +506,8 @@ fn DataFrame::resolve_join_keys(
   let rn = right.nrows()
   let lscope = Array::makei(ln, i => i)
   let rscope = Array::makei(rn, i => i)
-  let left_key_scalars : Array[Array[@types.Scalar]] = []
-  let right_key_scalars : Array[Array[@types.Scalar]] = []
+  let left_key_scalars : Array[Array[KeyCell]] = []
+  let right_key_scalars : Array[Array[KeyCell]] = []
   // The running `seen` set raises `DuplicateColumn` at a bare-`col` key
   // repeated by name — before that key is evaluated a second time — so an `on`
   // join matches `group_by`'s "no duplicate keys" contract instead of silently
@@ -568,8 +568,8 @@ fn DataFrame::resolve_join_keys(
         ),
       )
     }
-    left_key_scalars.push(lcol.to_scalars())
-    right_key_scalars.push(rcol.to_scalars())
+    left_key_scalars.push(lcol.key_cells())
+    right_key_scalars.push(rcol.key_cells())
   }
   (left_key_scalars, right_key_scalars)
 }

@@ -23,10 +23,4 @@
 // `mask_true_indices`.
 
 ///|
-using @series {
-  type Series,
-  type KeyCell,
-  type ReduceOp,
-  scalars_to_series,
-  key_cell,
-}
+using @series {type Series, type KeyCell, type ReduceOp, scalars_to_series}

@@ -18,6 +18,7 @@ series | doc_hidden internal_engine | pub enum SortKey
 series | doc_hidden internal_engine | pub extend KeyCell with Eq::{equal, not_equal}
 series | doc_hidden internal_engine | pub extend KeyCell with Hash::{hash, hash_combine}
 series | doc_hidden internal_engine | pub extend ReduceOp with Eq::{equal, not_equal}
+series | doc_hidden internal_engine | pub fn KeyCell::is_null(self : KeyCell) -> Bool | used by: expr,frame,internal/kernel
 series | doc_hidden internal_engine | pub fn Series::build_sort_key( self : Series, descending : Bool, nulls_last : Bool, ) -> SortKey | used by: frame
 series | doc_hidden internal_engine | pub fn Series::coalesce_columns( self : Series, fill : Series, name : String, ) -> Series raise @types.DataError | used by: frame
 series | doc_hidden internal_engine | pub fn Series::empty_of( name : String, dtype : @types.DataType, ) -> Series raise @types.DataError | used by: frame
@@ -32,6 +33,7 @@ series | doc_hidden internal_engine | pub fn Series::from_timestamp_options( nam
 series | doc_hidden internal_engine | pub fn Series::gather_series(self : Series, idx : Array[Int32]) -> Series | used by: frame,internal/kernel
 series | doc_hidden internal_engine | pub fn Series::gather_series_opt( self : Series, idx : Array[Int32?], out_name : String, ) -> Series | used by: frame
 series | doc_hidden internal_engine | pub fn Series::is_canonical(self : Series) -> Bool | used by: (no production caller outside series)
+series | doc_hidden internal_engine | pub fn Series::key_cells(self : Series) -> Array[KeyCell] | used by: frame,internal/kernel
 series | doc_hidden internal_engine | pub fn Series::mask_true_indices(self : Series) -> Array[Int32]? | used by: frame
 series | doc_hidden internal_engine | pub fn Series::mean_opt(self : Series) -> Double? | used by: frame
 series | doc_hidden internal_engine | pub fn Series::preserve_backend(self : Series, rebuilt : Series) -> Series | used by: frame
@@ -42,7 +44,6 @@ series | doc_hidden internal_engine | pub fn Series::storage_kind(self : Series)
 series | doc_hidden internal_engine | pub fn Series::try_column_to_numeric(self : Series) -> Series | used by: frame,internal/kernel
 series | doc_hidden internal_engine | pub fn Series::validity_bools(self : Series) -> Array[Bool] | used by: frame,internal/kernel
 series | doc_hidden internal_engine | pub fn SortKey::compare_one_key(self : SortKey, i : Int32, j : Int32) -> Int32 | used by: frame
-series | doc_hidden internal_engine | pub fn key_cell(sc : @types.Scalar) -> KeyCell | used by: frame,internal/kernel
 series | doc_hidden internal_engine | pub fn scalars_to_series( probe : @types.DataType, name : String, cells : Array[@types.Scalar], ) -> Series raise @types.DataError | used by: frame,internal/kernel
 series | doc_hidden internal_engine | pub(all) enum ReduceOp
 series | doc_hidden internal_engine | variant ReduceOp::ArgMax

@@ -20,10 +20,10 @@
 /// `join`. `col` has `nrows` cells and `i` ranges over `[0, nrows)`, so
 /// each `col[i]` read is in-bounds.
 fn row_group_key(
-  key_scalars : Array[Array[@types.Scalar]],
+  key_cells : Array[Array[KeyCell]],
   i : Int32,
 ) -> Array[KeyCell] {
-  key_scalars.map(col => key_cell(col[i]))
+  key_cells.map(col => col[i])
 }
 
 ///|
@@ -34,16 +34,16 @@ fn row_group_key(
 /// iff they encode identically (dtypes are pre-checked equal per key, so an
 /// `Int` `5` and a `Float` `5.0` are never compared in the first place).
 fn join_row_key(
-  key_scalars : Array[Array[@types.Scalar]],
+  key_cells : Array[Array[KeyCell]],
   i : Int32,
 ) -> Array[KeyCell]? {
   let cells : Array[KeyCell] = []
-  for col in key_scalars {
-    let sc = col[i]
-    if sc.is_null() {
+  for col in key_cells {
+    let cell = col[i]
+    if cell.is_null() {
       return None
     }
-    cells.push(key_cell(sc))
+    cells.push(cell)
   }
   Some(cells)
 }

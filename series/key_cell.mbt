@@ -68,27 +68,47 @@ fn float_key_cell(v : Double) -> KeyCell {
 }
 
 ///|
-/// Normalise one key cell to its `KeyCell`. The `Float` arm delegates to
-/// `float_key_cell` (folding `NaN` / `-0.0` so the key hashes / compares
-/// exactly as the previous `Scalar::to_string` key did); the five base
-/// `Scalar` variants plus the three `I64` riders — `Date` /
-/// `Timestamp` / `Decimal`, each keyed as `KInt` on its raw count — are
-/// exhaustive.
+/// The whole column's key cells, read off the typed buffer directly — the
+/// same per-cell encoding a `Scalar` normalises to (the `float_key_cell`
+/// fold on the `F64` arm, raw `KInt` / `KBool` / `KStr` on the others),
+/// without materialising the boxed `Scalar` layer in between. The key
+/// builder of the group / join / unique paths: what was
+/// `column.to_scalars()` then per-cell normalisation becomes one pass
+/// here, sharing `count_distinct`'s reader arms so "one key cell" has one
+/// spelling per buffer across every consumer.
 ///
-/// Two folds here carry premises other code argues from, stated where the
-/// fold happens: `NaN` folds to one cell *without* its payload, which is
-/// only sound for consumers because no operator can observe a NaN's
-/// payload bits (the predicate pass's aggregate crossing leans on this
-/// when it argues that a folded group shares one verdict); and `Decimal`
-/// keys on
-/// the unscaled magnitude *dropping its scale*, injective only because a
-/// column's scale is uniform — the dtype carries it, so two cells of one
-/// column that differ differ in magnitude. A consumer that could mix
-/// scales in one column or read a NaN's payload must not key through here
-/// unchanged.
+/// Two folds carry premises other code argues from, stated where the fold
+/// happens: `NaN` folds to one cell *without* its payload, sound for
+/// consumers only because no operator can observe a NaN's payload bits
+/// (the predicate pass's aggregate crossing leans on this when it argues
+/// a folded group shares one verdict); and a `Decimal` cell keys on the
+/// unscaled magnitude *dropping its scale*, injective only because a
+/// column's scale is uniform — the dtype carries it. A consumer that
+/// could mix scales in one column or read a NaN's payload must not key
+/// through here unchanged.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
-pub fn key_cell(sc : @types.Scalar) -> KeyCell {
+pub fn Series::key_cells(self : Series) -> Array[KeyCell] {
+  let storage = self.storage()
+  let present = reduce_present(storage)
+  let n = self.len()
+  let key_of : (Int32) -> KeyCell = match storage.data() {
+    @column.ColumnData::I64(a) => i => KInt(a[i])
+    @column.ColumnData::F64(a) => i => float_key_cell(a[i])
+    @column.ColumnData::Bool(a) => i => KBool(a[i])
+    @column.ColumnData::Utf8(a) => i => KStr(a.get(i))
+  }
+  Array::makei(n, i => if present(i) { key_of(i) } else { KNull })
+}
+
+///|
+/// Normalise one key cell to its `KeyCell`. The per-column path reads the
+/// buffer directly (`Series::key_cells`); this single-cell spelling serves
+/// the one consumer that already holds a boxed cell of its own — `mode`'s
+/// windowed reduction, whose cell read is window-indexed rather than
+/// column-whole — so the one caller lives in this package and the
+/// spelling stays private. The folds' premises are stated on `key_cells`.
+fn key_cell(sc : @types.Scalar) -> KeyCell {
   match sc {
     @types.Scalar::Int(v) => KInt(v)
     @types.Scalar::Float(v) => float_key_cell(v)
@@ -99,4 +119,13 @@ pub fn key_cell(sc : @types.Scalar) -> KeyCell {
     @types.Scalar::Decimal(_, v) => KInt(v)
     @types.Scalar::Null => KNull
   }
+}
+
+///|
+/// Whether this key cell is the null bucket's — the join key builder's
+/// unmatchable-cell test.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
+pub fn KeyCell::is_null(self : KeyCell) -> Bool {
+  self == KNull
 }

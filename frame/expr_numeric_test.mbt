@@ -999,16 +999,20 @@ test "math family: every verb routes through core/math" {
   ])
   // NaN-aware pairwise compare: the domain-violating cells (asin past 1,
   // acosh below 1, atanh outside (-1, 1)) are NaN on both sides, and IEEE
-  // NaN never equals itself.
-  fn matches(got : Array[@types.Scalar], f : (Double) -> Double) -> Bool {
-    let xs = [0.3, 1.7, 2.5]
-    if got.length() != xs.length() {
+  // NaN never equals itself. The inputs arrive as a parameter — a named
+  // read-only array literal would trip `prefer_readonly_array`.
+  fn matches(
+    inputs : Array[Double],
+    got : Array[@types.Scalar],
+    f : (Double) -> Double,
+  ) -> Bool {
+    if got.length() != inputs.length() {
       return false
     }
     for i, cell in got {
       match cell {
         @types.Scalar::Float(v) => {
-          let e = f(xs[i])
+          let e = f(inputs[i])
           if !(v == e || (v.is_nan() && e.is_nan())) {
             return false
           }
@@ -1018,32 +1022,92 @@ test "math family: every verb routes through core/math" {
     }
     true
   }
-  assert_true(matches(out.get_column("sin").to_scalars(), a => @math.sin(a)))
-  assert_true(matches(out.get_column("cos").to_scalars(), a => @math.cos(a)))
-  assert_true(matches(out.get_column("tan").to_scalars(), a => @math.tan(a)))
-  assert_true(matches(out.get_column("asin").to_scalars(), a => @math.asin(a)))
-  assert_true(matches(out.get_column("acos").to_scalars(), a => @math.acos(a)))
-  assert_true(matches(out.get_column("atan").to_scalars(), a => @math.atan(a)))
-  assert_true(matches(out.get_column("sinh").to_scalars(), a => @math.sinh(a)))
-  assert_true(matches(out.get_column("cosh").to_scalars(), a => @math.cosh(a)))
-  assert_true(matches(out.get_column("tanh").to_scalars(), a => @math.tanh(a)))
   assert_true(
-    matches(out.get_column("asinh").to_scalars(), a => @math.asinh(a)),
+    matches([0.3, 1.7, 2.5], out.get_column("sin").to_scalars(), a => {
+      @math.sin(a)
+    }),
   )
   assert_true(
-    matches(out.get_column("acosh").to_scalars(), a => @math.acosh(a)),
+    matches([0.3, 1.7, 2.5], out.get_column("cos").to_scalars(), a => {
+      @math.cos(a)
+    }),
   )
   assert_true(
-    matches(out.get_column("atanh").to_scalars(), a => @math.atanh(a)),
+    matches([0.3, 1.7, 2.5], out.get_column("tan").to_scalars(), a => {
+      @math.tan(a)
+    }),
   )
-  assert_true(matches(out.get_column("ln").to_scalars(), a => @math.ln(a)))
-  assert_true(matches(out.get_column("log2").to_scalars(), a => @math.log2(a)))
   assert_true(
-    matches(out.get_column("log10").to_scalars(), a => @math.log10(a)),
+    matches([0.3, 1.7, 2.5], out.get_column("asin").to_scalars(), a => {
+      @math.asin(a)
+    }),
   )
-  assert_true(matches(out.get_column("exp").to_scalars(), a => @math.exp(a)))
-  assert_true(matches(out.get_column("cbrt").to_scalars(), a => @math.cbrt(a)))
-  assert_true(matches(out.get_column("sqrt").to_scalars(), a => a.sqrt()))
+  assert_true(
+    matches([0.3, 1.7, 2.5], out.get_column("acos").to_scalars(), a => {
+      @math.acos(a)
+    }),
+  )
+  assert_true(
+    matches([0.3, 1.7, 2.5], out.get_column("atan").to_scalars(), a => {
+      @math.atan(a)
+    }),
+  )
+  assert_true(
+    matches([0.3, 1.7, 2.5], out.get_column("sinh").to_scalars(), a => {
+      @math.sinh(a)
+    }),
+  )
+  assert_true(
+    matches([0.3, 1.7, 2.5], out.get_column("cosh").to_scalars(), a => {
+      @math.cosh(a)
+    }),
+  )
+  assert_true(
+    matches([0.3, 1.7, 2.5], out.get_column("tanh").to_scalars(), a => {
+      @math.tanh(a)
+    }),
+  )
+  assert_true(
+    matches([0.3, 1.7, 2.5], out.get_column("asinh").to_scalars(), a => {
+      @math.asinh(a)
+    }),
+  )
+  assert_true(
+    matches([0.3, 1.7, 2.5], out.get_column("acosh").to_scalars(), a => {
+      @math.acosh(a)
+    }),
+  )
+  assert_true(
+    matches([0.3, 1.7, 2.5], out.get_column("atanh").to_scalars(), a => {
+      @math.atanh(a)
+    }),
+  )
+  assert_true(
+    matches([0.3, 1.7, 2.5], out.get_column("ln").to_scalars(), a => @math.ln(a)),
+  )
+  assert_true(
+    matches([0.3, 1.7, 2.5], out.get_column("log2").to_scalars(), a => {
+      @math.log2(a)
+    }),
+  )
+  assert_true(
+    matches([0.3, 1.7, 2.5], out.get_column("log10").to_scalars(), a => {
+      @math.log10(a)
+    }),
+  )
+  assert_true(
+    matches([0.3, 1.7, 2.5], out.get_column("exp").to_scalars(), a => {
+      @math.exp(a)
+    }),
+  )
+  assert_true(
+    matches([0.3, 1.7, 2.5], out.get_column("cbrt").to_scalars(), a => {
+      @math.cbrt(a)
+    }),
+  )
+  assert_true(
+    matches([0.3, 1.7, 2.5], out.get_column("sqrt").to_scalars(), a => a.sqrt()),
+  )
 }
 
 ///|

@@ -92,7 +92,11 @@ libraries — not a derivative work of either codebase.
   both projection and predicate pushdown into the reader. The pushdowns
   prune the *assembly* — only the consumed columns are built, and only the
   surviving rows' cells are parsed past the predicate's own columns — never
-  the parse itself: the file is still tokenised / parsed whole. (Polars has
+  the parse itself: the file is still tokenised / parsed whole. Every file
+  source, eager and lazy alike, is transparently gzip-aware: a file whose
+  bytes open with the gzip magic is decompressed before parsing, and the
+  `write_*` entry points compress when the target path ends in `.gz`.
+  (Polars has
   `scan_ndjson` but no `scan_json`; MoonFrame carries the source, with the
   assembly-level pruning above.)
 - **I/O inference** — `infer_schema_rows = 0` scans every row (Polars'

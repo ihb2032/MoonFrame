@@ -197,7 +197,8 @@ fn reshape_pivot(
 ) -> DataFrame raise @types.DataError {
   let n = on_cols[0].len()
   let on_scalars = on_cols.map(c => c.to_scalars())
-  let index_scalars = index_cols.map(c => c.to_scalars())
+  let on_key_cells = on_cols.map(c => c.key_cells())
+  let index_key_cells = index_cols.map(c => c.key_cells())
   // The names a card's column will finally carry — the single-value shape
   // names it by itself, the multi-value shape prefixes each value column —
   // and the index names they must not collide with. Both checked as the
@@ -218,13 +219,13 @@ fn reshape_pivot(
   let rep_rows : Array[Int32] = []
   let on_names : Array[String] = []
   for i in 0..<n {
-    let gkey = row_group_key(index_scalars, i)
+    let gkey = row_group_key(index_key_cells, i)
     if !gid_of.contains(gkey) {
       gid_of[gkey] = rep_rows.length()
       rep_rows.push(i)
     }
     gids[i] = gid_of[gkey]
-    let ckey = row_group_key(on_scalars, i)
+    let ckey = row_group_key(on_key_cells, i)
     if !cid_of.contains(ckey) {
       cid_of[ckey] = on_names.length()
       // The card's name renders this row's on cells — unquoted for

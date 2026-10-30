@@ -103,7 +103,7 @@ pub fn DataFrame::group_by(
   // first-appearance group order with no separate
   // slot-tracking array; within a group the indices stay ascending because
   // `i` only grows.
-  let key_scalars = key_columns.map(column => column.to_scalars())
+  let key_scalars = key_columns.map(column => column.key_cells())
   let by_key : Map[Array[KeyCell], Array[Int32]] = Map([])
   for i in 0..<n {
     let id = row_group_key(key_scalars, i)

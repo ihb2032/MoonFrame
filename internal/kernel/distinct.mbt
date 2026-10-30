@@ -30,13 +30,16 @@ fn distinct_pass(
   operand : Series,
   read : DistinctRead,
 ) -> (
-  Array[@types.Scalar],
+  Array[@series.KeyCell],
   Map[@series.KeyCell, Int64],
   Map[@series.KeyCell, Int32],
   Map[@series.KeyCell, Int32],
 ) {
   let n = operand.len()
-  let cells = operand.to_scalars()
+  // Read the key-normalised cells straight off the buffer — no boxed
+  // `Scalar` layer between the column and its keys, the same single
+  // spelling of "one key cell" `group_by` / `join` / `unique` read.
+  let keys = operand.key_cells()
   let count : Map[@series.KeyCell, Int64] = Map([])
   let first_at : Map[@series.KeyCell, Int32] = Map([])
   let last_at : Map[@series.KeyCell, Int32] = Map([])
@@ -44,7 +47,7 @@ fn distinct_pass(
   let want_first = read is FirstAt
   let want_last = read is LastAt
   for i in 0..<n {
-    let k = @series.key_cell(cells[i])
+    let k = keys[i]
     if want_counts {
       count[k] = count.get(k).unwrap_or(0L) + 1L
     }
@@ -55,17 +58,15 @@ fn distinct_pass(
       last_at[k] = i
     }
   }
-  (cells, count, first_at, last_at)
+  (keys, count, first_at, last_at)
 }
 
 ///|
 /// How many times each cell's own value occurs in the column — an `Int`
 /// per cell, in order.
 fn eval_unique_counts(operand : Series) -> Series {
-  let (cells, count, _, _) = distinct_pass(operand, Counts)
-  let out : Array[Int64?] = cells.map(c => {
-    Some(count.get(@series.key_cell(c)).unwrap_or(0L))
-  })
+  let (keys, count, _, _) = distinct_pass(operand, Counts)
+  let out : Array[Int64?] = keys.map(k => Some(count.get(k).unwrap_or(0L)))
   @series.Series::from_int_options(operand.name(), out)
 }
 
@@ -73,9 +74,9 @@ fn eval_unique_counts(operand : Series) -> Series {
 /// Whether each cell is its value's **first** occurrence — a `Bool` per
 /// cell.
 fn eval_is_first_distinct(operand : Series) -> Series {
-  let (cells, _, first_at, _) = distinct_pass(operand, FirstAt)
-  let out : Array[Bool?] = Array::makei(cells.length(), i => {
-    Some(first_at.get(@series.key_cell(cells[i])).unwrap_or(-1) == i)
+  let (keys, _, first_at, _) = distinct_pass(operand, FirstAt)
+  let out : Array[Bool?] = Array::makei(keys.length(), i => {
+    Some(first_at.get(keys[i]).unwrap_or(-1) == i)
   })
   @series.Series::from_bool_options(operand.name(), out)
 }
@@ -84,9 +85,9 @@ fn eval_is_first_distinct(operand : Series) -> Series {
 /// Whether each cell is its value's **last** occurrence — the trailing
 /// mirror of `eval_is_first_distinct`.
 fn eval_is_last_distinct(operand : Series) -> Series {
-  let (cells, _, _, last_at) = distinct_pass(operand, LastAt)
-  let out : Array[Bool?] = Array::makei(cells.length(), i => {
-    Some(last_at.get(@series.key_cell(cells[i])).unwrap_or(-1) == i)
+  let (keys, _, _, last_at) = distinct_pass(operand, LastAt)
+  let out : Array[Bool?] = Array::makei(keys.length(), i => {
+    Some(last_at.get(keys[i]).unwrap_or(-1) == i)
   })
   @series.Series::from_bool_options(operand.name(), out)
 }

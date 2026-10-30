@@ -70,11 +70,11 @@ pub fn DataFrame::unique(
   // row's key once up front; the strategies below index this rather than
   // recompute it.
   let cells = match subset {
-    None => self.to_scalar_matrix()
+    None => self.columns.map(c => c.key_cells())
     // Resolve the key columns first, in `subset` order, so an unknown name
     // surfaces as `ColumnNotFound` before any per-row work runs — the shared
     // name-only resolution `drop` / `drop_nulls` also use.
-    Some(keys) => self.resolve_subset_columns(keys).map(s => s.to_scalars())
+    Some(keys) => self.resolve_subset_columns(keys).map(s => s.key_cells())
   }
   let keys = Array::makei(n, i => row_group_key(cells, i))
   let kept : Array[Int32] = []
@@ -146,7 +146,7 @@ fn DataFrame::duplication_mask(
   want_duplicated : Bool,
 ) -> Series {
   let n = self.nrows()
-  let cells = self.to_scalar_matrix()
+  let cells = self.columns.map(c => c.key_cells())
   let keys = Array::makei(n, i => row_group_key(cells, i))
   let count : Map[Array[KeyCell], Int32] = Map([])
   for i in 0..<n {

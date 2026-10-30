@@ -7,6 +7,26 @@ written when the release is cut; the per-symbol reference — generated from the
 docstrings — is on [mooncakes.io](https://mooncakes.io/docs/ihb2032/MoonFrame)
 and [GitHub Pages](https://ihb2032.github.io/MoonFrame/).
 
+## v0.8.0 → v0.8.1
+
+No source-level migration steps. v0.8.1 is an additive patch: every v0.8.0
+symbol and signature is unchanged, and nothing is renamed, removed,
+re-signed, or given a new required `match` arm. What the patch adds: the
+always-`Float` math family on `Expr` (`sqrt` / `cbrt` / `exp` / `ln` /
+`log2` / `log10`, the trigonometric and hyperbolic pairs, and the binary
+`atan2` / `hypot`, each taking any numeric operand and producing a
+`Float` column); `DataFrame::shuffle` plus `sample` re-seeded on the
+chacha8 generator — both remain deterministic in their seed, but the
+concrete rows a given seed selects differ from v0.8.0's; the readers'
+dtype override (`dtypes~` on `CsvReadOptions` / `JsonReadOptions`, with a
+`dtypes()` accessor) and the lazy `scan_json`, the JSON counterpart of
+`scan_csv` / `scan_ndjson`; and transparent gzip on the io paths — a
+`.gz`-suffixed write compresses, and a read whose leading bytes carry the
+gzip magic decompresses on the fly. Riding along: the decimal value fence
+covers a right join's clashing left column and `clip`, blank JSON input
+asserts its dtype pins the way the empty array does, and the kernel /
+optimizer hot paths dropped their per-walk allocations.
+
 ## v0.7.0 → v0.8.0
 
 The operator-alignment sprint widens the join vocabulary and the dtype

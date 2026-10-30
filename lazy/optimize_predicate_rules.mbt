@@ -39,12 +39,13 @@ fn expr_props(expr : @ir.ExprNode) -> ExprProps {
     match discover.pop() {
       None => break
       Some(node) => {
-        let kids = node.children()
+        let mut count = 0
         order.push(node)
-        arities.push(kids.length())
-        for k in kids {
+        node.each_child(k => {
           discover.push(k)
-        }
+          count += 1
+        })
+        arities.push(count)
       }
     }
   }

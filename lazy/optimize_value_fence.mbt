@@ -276,10 +276,7 @@ fn expr_touches_decimal(expr : @ir.ExprNode, risk : @set.Set[String]) -> Bool {
     match node {
       @ir.ExprNode::Col(name) => if risk.contains(name) { return true }
       @ir.ExprNode::Lit(@types.Scalar::Decimal(_, _)) => return true
-      _ =>
-        for kid in node.children() {
-          stack.push(kid)
-        }
+      _ => node.each_child(kid => stack.push(kid))
     }
   }
   false
@@ -331,10 +328,7 @@ fn expr_has_decimal_checked_op(expr : @ir.ExprNode) -> Bool {
       @ir.ExprNode::Unary(@ir.UnOp::Neg, _) => return true
       @ir.ExprNode::Unary(@ir.UnOp::Abs, _) => return true
       @ir.ExprNode::Agg(@series.ReduceOp::Sum, _) => return true
-      _ =>
-        for kid in node.children() {
-          stack.push(kid)
-        }
+      _ => node.each_child(kid => stack.push(kid))
     }
   }
   false

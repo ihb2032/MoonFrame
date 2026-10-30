@@ -379,3 +379,130 @@ test "a null operand cell stays null under either bound" {
   assert_eq(out.item(0, "x"), @types.Scalar::Null)
   assert_eq(out.item(1, "x"), @types.Scalar::Float(1.0))
 }
+
+///|
+test "clip's fast pass: Float columns, column bounds, and the mixed fall-through" {
+  // A Float column with Float bounds rides the single-buffer pass —
+  // including a per-row column bound (not a literal) and a null bound
+  // cell, which means "no bound on that side" for that row alone.
+  let df = DataFrame::DataFrame([
+    Series::from_float_options("v", [Some(0.5), None, Some(9.5), Some(5.0)]),
+    Series::from_float_options("lo", [Some(1.0), Some(1.0), None, Some(1.0)]),
+  ])
+  let out = df.select([
+    @expr.col("v")
+    .clip(lower=@expr.col("lo"), upper=@expr.lit_float(8.0))
+    .with_alias("c"),
+  ])
+  // Row 0 lifts to 1.0; row 1's null operand stays null; row 2's null
+  // lower bound passes 9.5 through and the upper presses it to 8.0; row 3
+  // sits inside.
+  assert_eq(out.get_column("c").to_scalars(), [
+    @types.Scalar::Float(1.0),
+    @types.Scalar::Null,
+    @types.Scalar::Float(8.0),
+    @types.Scalar::Float(5.0),
+  ])
+  // A NaN operand fails both comparisons and keeps its cell — the fast
+  // pass and the composed kernels agree cell for cell.
+  let nan : Double = @double.not_a_number
+  let ndf = DataFrame::DataFrame([Series::from_floats("v", [nan, 0.0])])
+  let nout = ndf.select([
+    @expr.col("v")
+    .clip(lower=@expr.lit_float(1.0), upper=@expr.lit_float(7.0))
+    .with_alias("c"),
+  ])
+  let ncells = nout.get_column("c").to_scalars()
+  assert_true(ncells[0] is @types.Scalar::Float(v) && v.is_nan())
+  assert_eq(ncells[1], @types.Scalar::Float(1.0))
+  // An Int column against a Float bound is the mixed shape the fast pass
+  // declines: the composed comparison kernels serve it with their exact
+  // cross-type reading (2 < 1.5 is false, 2 > 8.5 is false — unchanged).
+  let idf = DataFrame::DataFrame([Series::from_ints("i", [2])])
+  let iout = idf.select([
+    @expr.col("i")
+    .clip(lower=@expr.lit_float(1.5), upper=@expr.lit_float(8.5))
+    .with_alias("c"),
+  ])
+  // The composed mixed comparison promotes: the value is untouched but
+  // the column reads Float.
+  assert_eq(iout.get_column("c").to_scalars(), [@types.Scalar::Float(2.0)])
+  // And the mixed lower bound that bites: 1 < 1.5 lifts to 1.5 exactly —
+  // the composed path's cross-type semantics, precise across the type
+  // boundary. (2 does not lift: it is not below the bound.)
+  let small = DataFrame::DataFrame([Series::from_ints("i", [1])])
+  let lift = small.select([
+    @expr.col("i").clip(lower=@expr.lit_float(1.5)).with_alias("c"),
+  ])
+  assert_eq(lift.get_column("c").to_scalars(), [@types.Scalar::Float(1.5)])
+}
+
+///|
+test "clip declines the fast pass for mixed, rider, and non-numeric shapes" {
+  // Each shape the fast pass refuses lands on the composed kernels, whose
+  // verdicts are the contract: a Float column against an Int bound mixes
+  // types exactly (0.5 < 1 lifts to 1), and every non-numeric or rider
+  // pair raises the same `TypeMismatch` an eager comparison would.
+  let fdf = DataFrame::DataFrame([Series::from_floats("v", [0.5])])
+  let mixed = fdf.select([
+    @expr.col("v").clip(lower=@expr.lit_int(1)).with_alias("c"),
+  ])
+  assert_eq(mixed.get_column("c").to_scalars(), [@types.Scalar::Float(1.0)])
+  // A Date operand and a Date bound both refuse: raw day-counts must not
+  // clamp, and the composed comparison raises on the pair.
+  let ddf = DataFrame::DataFrame([
+    Series::from_date_options("d", [Some(11016L)]),
+    Series::from_ints("i", [1]),
+  ])
+  let as_operand : Result[DataFrame, @types.DataError] = Ok(
+    ddf.select([
+      @expr.col("d").clip(lower=@expr.lit_int(0)).with_alias("c"),
+    ]),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(
+    as_operand
+    is Err(@types.DataError::TypeMismatch(_)),
+  )
+  let as_bound : Result[DataFrame, @types.DataError] = Ok(
+    ddf.select([
+      @expr.col("i").clip(lower=@expr.col("d")).with_alias("c"),
+    ]),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(as_bound is Err(@types.DataError::TypeMismatch(_)))
+  // A string bound on an Int column: same refusal.
+  let sdf = DataFrame::DataFrame([
+    Series::from_ints("i", [1]),
+    Series::from_strings("s", ["lo"]),
+  ])
+  let str_bound : Result[DataFrame, @types.DataError] = Ok(
+    sdf.select([
+      @expr.col("i").clip(lower=@expr.col("s")).with_alias("c"),
+    ]),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(str_bound is Err(@types.DataError::TypeMismatch(_)))
+}
+
+///|
+test "clip's mixed upper bound also rides the composed kernels" {
+  // The fast pass refuses either side independently: a Float column with
+  // an Int upper bound declines just as its lower-bound mirror does.
+  let fdf = DataFrame::DataFrame([Series::from_floats("v", [9.5])])
+  let mixed = fdf.select([
+    @expr.col("v").clip(upper=@expr.lit_int(8)).with_alias("c"),
+  ])
+  assert_eq(mixed.get_column("c").to_scalars(), [@types.Scalar::Float(8.0)])
+  // The integer mirror: an Int column against a Float upper bound declines
+  // the fast pass on its upper side alone and presses through the composed
+  // comparison (2 > 1.5, so 2 presses down to exactly 1.5).
+  let idf = DataFrame::DataFrame([Series::from_ints("i", [2])])
+  let imixed = idf.select([
+    @expr.col("i").clip(upper=@expr.lit_float(1.5)).with_alias("c"),
+  ])
+  assert_eq(imixed.get_column("c").to_scalars(), [@types.Scalar::Float(1.5)])
+}

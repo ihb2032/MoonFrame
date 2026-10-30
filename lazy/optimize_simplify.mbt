@@ -48,12 +48,13 @@ fn fold_expr(expr : @expr.Expr) -> (@expr.Expr, Bool) {
         // opaque units to this rule (see the header for each reason), so
         // their children never enter the walk.
         if fold_descends(node) {
-          let kids = node.children()
+          let mut count = 0
           order.push(node)
-          arities.push(kids.length())
-          for k in kids {
+          node.each_child(k => {
             discover.push(k)
-          }
+            count += 1
+          })
+          arities.push(count)
         } else {
           order.push(node)
           arities.push(-1)

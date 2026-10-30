@@ -1502,8 +1502,8 @@ test "fence: a decimal predicate joined with land still never sinks" {
 test "fence: a decimal name derived below a join stays fenced" {
   // The Join arm used to discard both sides' stage sets, so a decimal name
   // defined below the join escaped the risk set and a predicate sank past
-  // the value-refusing stage above it. The union of both sides (plus every
-  // right name's suffixed form) keeps the fence.
+  // the value-refusing stage above it. The union of both sides (plus the
+  // clashing side's suffixed form) keeps the fence.
   let left = @frame.DataFrame::DataFrame([
     @series.Series::from_strings("k", ["keep", "drop"]),
     @series.Series::from_decimal_options(0, "dm", [
@@ -1536,6 +1536,63 @@ test "fence: a decimal name derived below a join stays fenced" {
   }
   assert_true(eager is Err(@types.DataError::InvalidOperation(_)))
   assert_true(lazy_ is Err(@types.DataError::InvalidOperation(_)))
+}
+
+///|
+test "fence: a right join carries the left clash's suffixed decimal name" {
+  // A right join leads with the right frame's columns and suffixes the
+  // clashing *left* one, so the decimal column rides the output as
+  // `d_right`: the suffixed risk offering switches sides with `how`, or
+  // the name escapes the set and a sinking filter or slice swallows the
+  // checked refusal the eager chain raises.
+  let left = @frame.DataFrame::DataFrame([
+    @series.Series::from_strings("k", ["keep", "drop"]),
+    @series.Series::from_decimal_options(0, "d", [
+      Some(1L),
+      Some(5000000000000000000L),
+    ]),
+  ])
+  let right = @frame.DataFrame::DataFrame([
+    @series.Series::from_strings("k", ["keep", "drop"]),
+    @series.Series::from_ints("d", [10, 20]),
+  ])
+  let opts = @frame.JoinOptions::on([@expr.col("k")], how=Right)
+  let t = (@expr.col("d_right") + @expr.col("d_right")).with_alias("t")
+  let predicate = @expr.col("k").eq(@expr.lit_str("keep"))
+  let eager : Result[@frame.DataFrame, @types.DataError] = Ok(
+    left.join(right, opts).with_columns([t]).filter(predicate),
+  ) catch {
+    e => Err(e)
+  }
+  let lazy_ : Result[@frame.DataFrame, @types.DataError] = Ok(
+    LazyFrame::LazyFrame(left)
+    .join(LazyFrame::LazyFrame(right), opts)
+    .with_columns([t])
+    .filter(predicate)
+    .collect(),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(eager is Err(@types.DataError::InvalidOperation(_)))
+  assert_true(lazy_ is Err(@types.DataError::InvalidOperation(_)))
+  // The slice pass takes the same gate: `head` must not prune the
+  // refusing row out from under the stage either.
+  let eager_head : Result[@frame.DataFrame, @types.DataError] = Ok(
+    left.join(right, opts).with_columns([t]).head(1),
+  ) catch {
+    e => Err(e)
+  }
+  let lazy_head : Result[@frame.DataFrame, @types.DataError] = Ok(
+    LazyFrame::LazyFrame(left)
+    .join(LazyFrame::LazyFrame(right), opts)
+    .with_columns([t])
+    .head(1)
+    .collect(),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(eager_head is Err(@types.DataError::InvalidOperation(_)))
+  assert_true(lazy_head is Err(@types.DataError::InvalidOperation(_)))
 }
 
 ///|

@@ -1,41 +1,27 @@
-// The row sampler: `n`
-// rows drawn from the frame under a seeded generator, so a sample is a
-// deterministic function of its seed (the library's every-other-verb
-// property, kept here: same seed, same rows, on every platform). The
-// generator is the fuzzer-proven splitmix64, private to this package —
-// nothing else samples, so nothing else needs it. There is no fraction
-// parameter and no shuffle verb: `n` composes with the caller's
-// own row count, and shuffling is `sample(n=nrows)` away when wanted.
+// The row sampler and shuffler: `n` rows drawn from the frame, or the whole
+// frame permuted, under a seeded generator, so both are deterministic
+// functions of their seed (the library's every-other-verb property, kept
+// here: same seed, same rows, on every platform). The generator is
+// `core/random`'s chacha8 — pure MoonBit, so the sequence is reproducible
+// across platforms and nothing here maintains a PRNG of its own. There is
+// no fraction parameter: `n` composes with the caller's own row count.
 
 ///|
-/// splitmix64 — the deterministic generator behind the sampler (and the
-/// same family the fuzzers use). Steady-state mixing per
-/// <https://en.wikipedia.org/wiki/Permuted_congruential_generator#splitmix>
-/// : a wrapped increment, a two-multiply mix, a rotate; the 64-bit state
-/// makes the sequence reproducible across platforms.
-priv struct SplitMix64 {
-  mut state : UInt64
-}
-
-///|
-/// The next draw, as an unsigned 64-bit value.
-fn SplitMix64::next(self : SplitMix64) -> UInt64 {
-  // Wrapped arithmetic: the whole point of a PRNG state is to wrap.
-  self.state = self.state + 0x9E3779B97F4A7C15UL
-  let mut z = self.state
-  z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9UL
-  z = (z ^ (z >> 27)) * 0x94D049BB133111EBUL
-  z ^ (z >> 31)
-}
-
-///|
-/// A draw mapped into `[0, bound)` — rejection-free modulo bias is
-// acceptable for row sampling (bias is ~`n / 2^64`, unobservable), kept
-// simple on purpose.
-fn SplitMix64::below(self : SplitMix64, bound : Int32) -> Int32 {
-  // The modulo lands in [0, 2^63) for any realistic bound, so the value
-  // reinterprets safely into `Int`.
-  (self.next() % bound.to_uint64()).to_int()
+/// The chacha8 generator a `seed~` names: the `Int32` seed spreads across
+/// the first four little-endian bytes of chacha8's 32-byte key, zero-filled
+/// after, so every seed value — including negative ones, which wrap —
+/// names one sequence.
+fn chacha8_seeded(seed : Int32) -> @random.Rand {
+  @random.Rand::chacha8(
+    seed=Bytes::makei(32, i => {
+      if i < 4 {
+        let byte = (seed.to_uint64() >> (i * 8)) & 0xFFUL
+        byte.to_int().to_byte()
+      } else {
+        b'\x00'
+      }
+    }),
+  )
 }
 
 ///|
@@ -48,7 +34,7 @@ fn SplitMix64::below(self : SplitMix64, bound : Int32) -> Int32 {
 /// `n` raises `InvalidOperation` when negative, and — without replacement —
 /// when it exceeds the row count (that many distinct rows
 /// do not exist, and silently returning the whole frame unshuffled would
-/// also disagree with `sample(n = nrows)`, which shuffles); a 0-row frame
+/// also disagree with `shuffle`, which permutes); a 0-row frame
 /// samples zero rows (there is nothing to draw — the with-replacement draw
 /// would divide by zero, so it raises exactly when there is a row to draw).
 ///
@@ -74,7 +60,7 @@ pub fn DataFrame::sample(
       "sampling \{n} rows without replacement exceeds the row count (\{total})",
     )
   }
-  let rng = SplitMix64::{ state: seed.to_uint64(), }
+  let rng = chacha8_seeded(seed)
   let picked : Array[Int32] = []
   if with_replacement {
     if n > 0 && total == 0 {
@@ -83,13 +69,13 @@ pub fn DataFrame::sample(
       )
     }
     for _ in 0..<n {
-      picked.push(rng.below(total))
+      picked.push(rng.int(limit=total))
     }
   } else {
     // Partial Fisher–Yates over a row permutation: swap-and-take n slots.
     let perm = Array::makei(total, i => i)
     for i in 0..<n {
-      let j = i + rng.below(total - i)
+      let j = i + rng.int(limit=total - i)
       let t = perm[i]
       perm[i] = perm[j]
       perm[j] = t
@@ -98,4 +84,29 @@ pub fn DataFrame::sample(
   }
   let new_cols = self.columns.map(c => c.gather_series(picked))
   self.with_same_schema(new_cols, picked.length())
+}
+
+///|
+/// The whole frame under a seeded full permutation (a Fisher–Yates
+/// shuffle): `shuffle(seed=7)` twice returns the same frame, and the row
+/// *multiset* is preserved — every input row appears exactly once. An
+/// omitted seed is `seed = 0`, exactly as `sample`. The schema is
+/// unchanged (a row gather), so the same-schema rebuild applies and the
+/// backend follows the gathered content, as after any gather. `sample`
+/// without replacement is the first `n` slots of this same permutation
+/// family under its own seed.
+///
+/// Eager-only, for the same reason `sample` is: a seeded permutation sees
+/// a specific row order, and pushdown would change which one; collect
+/// first. Total — there is no invalid argument to refuse.
+pub fn DataFrame::shuffle(self : DataFrame, seed~ : Int32 = 0) -> DataFrame {
+  let total = self.nrows()
+  let perm = Array::makei(total, i => i)
+  chacha8_seeded(seed).shuffle(total, (i, j) => {
+    let t = perm[i]
+    perm[i] = perm[j]
+    perm[j] = t
+  })
+  let new_cols = self.columns.map(c => c.gather_series(perm))
+  self.with_same_schema(new_cols, total)
 }

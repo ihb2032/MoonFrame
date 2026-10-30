@@ -186,6 +186,7 @@ method DataFrame::sample(Self, Int32, with_replacement? : Bool, seed? : Int32) -
 method DataFrame::schema(Self) -> @types.Schema <- frame
 method DataFrame::select(Self, Array[@expr.Expr]) -> Self raise @types.DataError <- frame
 method DataFrame::shape(Self) -> (Int32, Int32) <- frame
+method DataFrame::shuffle(Self, seed? : Int32) -> Self <- frame
 method DataFrame::slice(Self, Int32, length? : Int32) -> Self <- frame
 method DataFrame::slice_between(Self, start? : Int32, end? : Int32) -> Self <- frame
 method DataFrame::sort(Self, Array[(@expr.Expr, Bool, Bool)]) -> Self raise @types.DataError <- frame

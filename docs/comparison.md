@@ -78,13 +78,13 @@ libraries — not a derivative work of either codebase.
 - **Whole-frame vs single-column reductions** — `df.sum()` returns a
   one-row frame (Polars' `df.sum()`); a scalar comes from
   `df.get_column(c).sum()` (Polars' `df[c].sum()`).
-- **`sample(n, with_replacement?, seed?)`** is a deterministic function
-  of its seed — same seed, same rows, on every platform (a private
-  splitmix64); `n` saturates without replacement. An omitted seed is
+- **`sample(n, with_replacement?, seed?)`** and **`shuffle(seed?)`** are
+  deterministic functions of their seed — same seed, same rows, on every
+  platform (chacha8, from `core/random`); without replacement, `n` past the
+  row count raises rather than saturating. An omitted seed is
   `seed = 0`, so two independent calls that both leave it out draw the
   same rows (Polars draws a fresh seed per call); name a seed when the
-  draws must differ. Polars' `fraction` / `shuffle` parameters are not
-  carried.
+  draws must differ. Polars' `fraction` parameter is not carried.
 - **`unique(subset?, keep?)`** keeps first-appearance order
   (`maintain_order=True`), dedups on a column subset when given one, and takes
   Polars' `keep` strategies (`First` / `Last` / `None`).

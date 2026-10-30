@@ -74,6 +74,7 @@ pub fn DataFrame::sample(Self, Int32, with_replacement? : Bool, seed? : Int32) -
 pub fn DataFrame::schema(Self) -> @types.Schema
 pub fn DataFrame::select(Self, Array[@expr.Expr]) -> Self raise @types.DataError
 pub fn DataFrame::shape(Self) -> (Int32, Int32)
+pub fn DataFrame::shuffle(Self, seed? : Int32) -> Self
 pub fn DataFrame::slice(Self, Int32, length? : Int32) -> Self
 #alias("_[_:_]")
 pub fn DataFrame::slice_between(Self, start? : Int32, end? : Int32) -> Self

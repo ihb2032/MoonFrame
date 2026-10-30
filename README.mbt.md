@@ -140,7 +140,8 @@ same way.
   [type inference](docs/type-inference.md), opt-in strict CSV quote validation,
   and formula neutralisation for spreadsheet-facing exports.
 - **Reshape** — `filter`, `select`, `drop`, `rename`, `with_columns`, multi-key
-  `sort`, row dedup (`unique`), and null handling (`drop_nulls`, `fill_null`).
+  `sort`, row dedup (`unique`), seeded row draws (`sample`, `shuffle`), and
+  null handling (`drop_nulls`, `fill_null`).
   Brackets read Polars-style: `df["qty"]` a column, `df[1:3]` / `df[:-1]` a
   row window, `s[0]` a cell.
 - **Group & aggregate** — `group_by(keys).agg([...])` with `sum` / `mean` /

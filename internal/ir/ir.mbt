@@ -240,7 +240,8 @@ pub fn ExprNode::rename_columns(
 
 ///|
 /// Binary operator tag carried by `Binary`. `And` / `Or` are the Kleene
-/// three-valued logical connectives (`&` / `|` at the call site).
+/// three-valued logical connectives (`&` / `|` at the call site), and `Atan2`
+/// / `Hypot` are the two-argument math functions spelled as methods.
 pub(all) enum BinOp {
   Add
   Sub
@@ -249,6 +250,8 @@ pub(all) enum BinOp {
   FloorDiv
   Mod
   Pow
+  Atan2
+  Hypot
   Eq
   Ne
   Lt
@@ -272,8 +275,10 @@ pub extend BinOp with Debug::{to_repr}
 /// the finiteness probes `IsFinite` / `IsInfinite` the IEEE `NaN` /
 /// infinity split (an `Int` cell is always finite, never either), the
 /// `Dt*` quartet reads a `Date` cell's calendar components (ISO weekday,
-/// Monday 1 through Sunday 7), and
-/// `Round` carries its decimal-place count.
+/// Monday 1 through Sunday 7), `Round` carries its decimal-place count, and
+/// the `Sin` .. `Sqrt` members are the always-`Float` elementwise math
+/// functions (trigonometric, hyperbolic and inverse-hyperbolic, logarithmic,
+/// exponential, and root), routed through `core/math` / the `Double` builtin.
 pub(all) enum UnOp {
   Neg
   Not
@@ -292,6 +297,24 @@ pub(all) enum UnOp {
   Ceil
   Sign
   Round(Int32)
+  Sin
+  Cos
+  Tan
+  Asin
+  Acos
+  Atan
+  Sinh
+  Cosh
+  Tanh
+  Asinh
+  Acosh
+  Atanh
+  Ln
+  Log2
+  Log10
+  Exp
+  Cbrt
+  Sqrt
 } derive(Eq, Debug)
 
 ///|

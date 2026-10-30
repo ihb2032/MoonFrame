@@ -470,6 +470,23 @@ fn eval_pow(left : Series, right : Series) -> Series raise @types.DataError {
 }
 
 ///|
+/// `Atan2` — the two-argument arctangent, **always `Float`**, the kernel
+/// behind `Expr::atan2`; total under IEEE 754.
+fn eval_atan2(left : Series, right : Series) -> Series raise @types.DataError {
+  eval_binary_float(left, right, "take atan2 of", (a, b) => @math.atan2(a, b))
+}
+
+///|
+/// `Hypot` — the Euclidean norm, **always `Float`**, the kernel behind
+/// `Expr::hypot`; computed without intermediate overflow, total under
+/// IEEE 754.
+fn eval_hypot(left : Series, right : Series) -> Series raise @types.DataError {
+  eval_binary_float(left, right, "take the hypotenuse with", (a, b) => {
+    @math.hypot(a, b)
+  })
+}
+
+///|
 /// `a // b` for two `Int64`s, rounding toward −∞ rather than the truncation
 /// `Int64::/` gives. The caller has already excluded a zero divisor.
 ///
@@ -620,6 +637,121 @@ fn eval_round(
 }
 
 ///|
+/// `Sin` — the `eval_unary_float` instance behind `Expr::sin`.
+fn eval_sin(operand : Series) -> Series raise @types.DataError {
+  eval_unary_float(operand, "take the sine of", a => @math.sin(a))
+}
+
+///|
+/// `Cos` — the `eval_unary_float` instance behind `Expr::cos`.
+fn eval_cos(operand : Series) -> Series raise @types.DataError {
+  eval_unary_float(operand, "take the cosine of", a => @math.cos(a))
+}
+
+///|
+/// `Tan` — the `eval_unary_float` instance behind `Expr::tan`.
+fn eval_tan(operand : Series) -> Series raise @types.DataError {
+  eval_unary_float(operand, "take the tangent of", a => @math.tan(a))
+}
+
+///|
+/// `Asin` — the `eval_unary_float` instance behind `Expr::asin`.
+fn eval_asin(operand : Series) -> Series raise @types.DataError {
+  eval_unary_float(operand, "take the arcsine of", a => @math.asin(a))
+}
+
+///|
+/// `Acos` — the `eval_unary_float` instance behind `Expr::acos`.
+fn eval_acos(operand : Series) -> Series raise @types.DataError {
+  eval_unary_float(operand, "take the arccosine of", a => @math.acos(a))
+}
+
+///|
+/// `Atan` — the `eval_unary_float` instance behind `Expr::atan`.
+fn eval_atan(operand : Series) -> Series raise @types.DataError {
+  eval_unary_float(operand, "take the arctangent of", a => @math.atan(a))
+}
+
+///|
+/// `Sinh` — the `eval_unary_float` instance behind `Expr::sinh`.
+fn eval_sinh(operand : Series) -> Series raise @types.DataError {
+  eval_unary_float(operand, "take the hyperbolic sine of", a => @math.sinh(a))
+}
+
+///|
+/// `Cosh` — the `eval_unary_float` instance behind `Expr::cosh`.
+fn eval_cosh(operand : Series) -> Series raise @types.DataError {
+  eval_unary_float(operand, "take the hyperbolic cosine of", a => @math.cosh(a))
+}
+
+///|
+/// `Tanh` — the `eval_unary_float` instance behind `Expr::tanh`.
+fn eval_tanh(operand : Series) -> Series raise @types.DataError {
+  eval_unary_float(operand, "take the hyperbolic tangent of", a => @math.tanh(a))
+}
+
+///|
+/// `Asinh` — the `eval_unary_float` instance behind `Expr::asinh`.
+fn eval_asinh(operand : Series) -> Series raise @types.DataError {
+  eval_unary_float(operand, "take the inverse hyperbolic sine of", a => {
+    @math.asinh(a)
+  })
+}
+
+///|
+/// `Acosh` — the `eval_unary_float` instance behind `Expr::acosh`.
+fn eval_acosh(operand : Series) -> Series raise @types.DataError {
+  eval_unary_float(operand, "take the inverse hyperbolic cosine of", a => {
+    @math.acosh(a)
+  })
+}
+
+///|
+/// `Atanh` — the `eval_unary_float` instance behind `Expr::atanh`.
+fn eval_atanh(operand : Series) -> Series raise @types.DataError {
+  eval_unary_float(operand, "take the inverse hyperbolic tangent of", a => {
+    @math.atanh(a)
+  })
+}
+
+///|
+/// `Ln` — the `eval_unary_float` instance behind `Expr::ln`.
+fn eval_ln(operand : Series) -> Series raise @types.DataError {
+  eval_unary_float(operand, "take the natural logarithm of", a => @math.ln(a))
+}
+
+///|
+/// `Log2` — the `eval_unary_float` instance behind `Expr::log2`.
+fn eval_log2(operand : Series) -> Series raise @types.DataError {
+  eval_unary_float(operand, "take the base-2 logarithm of", a => @math.log2(a))
+}
+
+///|
+/// `Log10` — the `eval_unary_float` instance behind `Expr::log10`.
+fn eval_log10(operand : Series) -> Series raise @types.DataError {
+  eval_unary_float(operand, "take the base-10 logarithm of", a => @math.log10(a))
+}
+
+///|
+/// `Exp` — the `eval_unary_float` instance behind `Expr::exp`.
+fn eval_exp(operand : Series) -> Series raise @types.DataError {
+  eval_unary_float(operand, "exponentiate", a => @math.exp(a))
+}
+
+///|
+/// `Cbrt` — the `eval_unary_float` instance behind `Expr::cbrt`.
+fn eval_cbrt(operand : Series) -> Series raise @types.DataError {
+  eval_unary_float(operand, "take the cube root of", a => @math.cbrt(a))
+}
+
+///|
+/// `Sqrt` — the `eval_unary_float` instance behind `Expr::sqrt`
+/// (`Double::sqrt`, the builtin).
+fn eval_sqrt(operand : Series) -> Series raise @types.DataError {
+  eval_unary_float(operand, "take the square root of", a => a.sqrt())
+}
+
+///|
 /// Shared kernel for a numeric unary op (`neg` / `abs` / `floor` / `ceil` /
 /// `sign` / `round`): each supplies its `Int64` and `Double` cell op plus the verb its
 /// `TypeMismatch` message uses. `Int op → Int`, `Float op → Float`; a null cell
@@ -654,6 +786,58 @@ fn eval_unary_num(
       Series::from_int_options(
         operand.name(),
         map_present(a.length(), valid, i => int_op(a[i])),
+      )
+    @column.ColumnData::F64(a) =>
+      Series::from_float_options(
+        operand.name(),
+        map_present(a.length(), valid, i => float_op(a[i])),
+      )
+    @column.ColumnData::I64(_)
+    | @column.ColumnData::Bool(_)
+    | @column.ColumnData::Utf8(_) =>
+      raise @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Message("cannot \{verb} \{operand.dtype()}"),
+      )
+  }
+  out.try_column_to_numeric()
+}
+
+///|
+/// Shared kernel for the **always-`Float`** unary math functions (`sin` …
+/// `sqrt`, the `Sin` .. `Sqrt` tags): each supplies its `Double` cell op plus
+/// the verb its `TypeMismatch` message uses. `Int` cells promote to `Double`
+/// and `Float` cells stay, so every arm lands on `from_floats` /
+/// `from_float_options`; a null cell stays null; a non-numeric operand raises.
+/// The `Numeric` fast arm and the re-convergence mirror `eval_unary_num`, of
+/// which this is the promoting twin.
+fn eval_unary_float(
+  operand : Series,
+  verb : String,
+  float_op : (Double) -> Double,
+) -> Series raise @types.DataError {
+  match operand.storage() {
+    @column.ColumnStorage::Numeric(x) =>
+      return match x.numeric_data() {
+        @column.NumericData::Int(a) =>
+          Series::from_floats(
+            operand.name(),
+            Array::makei(a.length(), i => float_op(a[i].to_double())),
+          )
+        @column.NumericData::Float(a) =>
+          Series::from_floats(
+            operand.name(),
+            Array::makei(a.length(), i => float_op(a[i])),
+          )
+      }
+    @column.ColumnStorage::Builtin(_) => ()
+  }
+  let valid = operand.validity_bools()
+  let out = match operand.storage().data() {
+    // Dtype-gated: a Date column is I64-typed but is not a number.
+    @column.ColumnData::I64(a) if operand.dtype().is_numeric() =>
+      Series::from_float_options(
+        operand.name(),
+        map_present(a.length(), valid, i => float_op(a[i].to_double())),
       )
     @column.ColumnData::F64(a) =>
       Series::from_float_options(

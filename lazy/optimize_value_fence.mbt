@@ -310,8 +310,14 @@ fn expr_has_decimal_checked_op(expr : @ir.ExprNode) -> Bool {
           | @ir.BinOp::Ge => return true
           // The logical pair carries no values of its own: the descent must
           // keep walking through it or a decimal comparison joined by
-          // `and` / `or` reads as value-safe.
-          @ir.BinOp::And | @ir.BinOp::Or =>
+          // `and` / `or` reads as value-safe. The math pair `atan2` / `hypot`
+          // refuses a decimal operand on the dtype alone (decimal is not
+          // numeric), a scope-independent fact — value-safe for the same
+          // reason, so it walks too.
+          @ir.BinOp::And
+          | @ir.BinOp::Or
+          | @ir.BinOp::Atan2
+          | @ir.BinOp::Hypot =>
             for kid in node.children() {
               stack.push(kid)
             }

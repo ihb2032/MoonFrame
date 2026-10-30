@@ -220,6 +220,27 @@ pub fn Expr::pow(self : Expr, other : Expr) -> Expr {
 }
 
 ///|
+/// `a.atan2(b)` — the two-argument arctangent `atan2(a, b)` (angle of the
+/// point `(b, a)`), **always `Float`** (`Int` operands promote to `Double`,
+/// like `/`), total under IEEE 754 — the sign of a zero operand is
+/// observable (`atan2(±0.0, -1.0) = ±π`), and a `NaN` on either side gives
+/// `NaN`. A null on either side nulls the output cell; a non-numeric
+/// operand raises `TypeMismatch`.
+pub fn Expr::atan2(self : Expr, other : Expr) -> Expr {
+  Expr::of_node(@ir.ExprNode::Binary(@ir.BinOp::Atan2, self.node, other.node))
+}
+
+///|
+/// `a.hypot(b)` — the Euclidean norm `sqrt(a² + b²)` computed without
+/// intermediate overflow, **always `Float`** (`Int` operands promote to
+/// `Double`, like `/`), total under IEEE 754; `hypot(±0.0, x)` treats the
+/// zero's sign as unobservable, matching `abs`. A null on either side nulls
+/// the output cell; a non-numeric operand raises `TypeMismatch`.
+pub fn Expr::hypot(self : Expr, other : Expr) -> Expr {
+  Expr::of_node(@ir.ExprNode::Binary(@ir.BinOp::Hypot, self.node, other.node))
+}
+
+///|
 /// `a & b` — logical AND over `Bool` expressions, with Kleene three-valued
 /// null semantics (`false & null = false`, `true & null = null`). `&` is
 /// MoonBit's only overloadable conjunction (`&&` is built-in short-circuit
@@ -307,6 +328,159 @@ pub fn Expr::round(self : Expr, decimals~ : Int32 = 0) -> Expr {
       self.node,
     ),
   )
+}
+
+///|
+/// `a.sin()` — the sine, **always `Float`** (`Int` promotes to `Double`, like
+/// `/`): `sin(±inf)` / `sin(NaN)` are `NaN` under IEEE 754. A null stays
+/// null; a non-numeric operand raises `TypeMismatch`.
+pub fn Expr::sin(self : Expr) -> Expr {
+  Expr::of_node(@ir.ExprNode::Unary(@ir.UnOp::Sin, self.node))
+}
+
+///|
+/// `a.cos()` — the cosine, **always `Float`** (`Int` promotes to `Double`,
+/// like `/`): `cos(±inf)` / `cos(NaN)` are `NaN` under IEEE 754. A null stays
+/// null; a non-numeric operand raises `TypeMismatch`.
+pub fn Expr::cos(self : Expr) -> Expr {
+  Expr::of_node(@ir.ExprNode::Unary(@ir.UnOp::Cos, self.node))
+}
+
+///|
+/// `a.tan()` — the tangent, **always `Float`** (`Int` promotes to `Double`,
+/// like `/`); `tan(±π/2)` is finite only as rounded input dictates and
+/// `tan(±inf)` / `tan(NaN)` are `NaN` under IEEE 754. A null stays null; a
+/// non-numeric operand raises `TypeMismatch`.
+pub fn Expr::tan(self : Expr) -> Expr {
+  Expr::of_node(@ir.ExprNode::Unary(@ir.UnOp::Tan, self.node))
+}
+
+///|
+/// `a.asin()` — the arcsine, **always `Float`** (`Int` promotes to `Double`,
+/// like `/`); a cell outside the `[-1, 1]` domain (including `±inf`) is
+/// `NaN` under IEEE 754. A null stays null; a non-numeric operand raises
+/// `TypeMismatch`.
+pub fn Expr::asin(self : Expr) -> Expr {
+  Expr::of_node(@ir.ExprNode::Unary(@ir.UnOp::Asin, self.node))
+}
+
+///|
+/// `a.acos()` — the arccosine, **always `Float`** (`Int` promotes to
+/// `Double`, like `/`); a cell outside the `[-1, 1]` domain (including
+/// `±inf`) is `NaN` under IEEE 754. A null stays null; a non-numeric operand
+/// raises `TypeMismatch`.
+pub fn Expr::acos(self : Expr) -> Expr {
+  Expr::of_node(@ir.ExprNode::Unary(@ir.UnOp::Acos, self.node))
+}
+
+///|
+/// `a.atan()` — the arctangent, **always `Float`** (`Int` promotes to
+/// `Double`, like `/`), total under IEEE 754. A null stays null; a
+/// non-numeric operand raises `TypeMismatch`.
+pub fn Expr::atan(self : Expr) -> Expr {
+  Expr::of_node(@ir.ExprNode::Unary(@ir.UnOp::Atan, self.node))
+}
+
+///|
+/// `a.sinh()` — the hyperbolic sine, **always `Float`** (`Int` promotes to
+/// `Double`, like `/`); an out-of-range result is `±inf` under IEEE 754. A
+/// null stays null; a non-numeric operand raises `TypeMismatch`.
+pub fn Expr::sinh(self : Expr) -> Expr {
+  Expr::of_node(@ir.ExprNode::Unary(@ir.UnOp::Sinh, self.node))
+}
+
+///|
+/// `a.cosh()` — the hyperbolic cosine, **always `Float`** (`Int` promotes to
+/// `Double`, like `/`); an out-of-range result is `±inf` under IEEE 754. A
+/// null stays null; a non-numeric operand raises `TypeMismatch`.
+pub fn Expr::cosh(self : Expr) -> Expr {
+  Expr::of_node(@ir.ExprNode::Unary(@ir.UnOp::Cosh, self.node))
+}
+
+///|
+/// `a.tanh()` — the hyperbolic tangent, **always `Float`** (`Int` promotes
+/// to `Double`, like `/`), total under IEEE 754 (`tanh(±inf) = ±1`). A null
+/// stays null; a non-numeric operand raises `TypeMismatch`.
+pub fn Expr::tanh(self : Expr) -> Expr {
+  Expr::of_node(@ir.ExprNode::Unary(@ir.UnOp::Tanh, self.node))
+}
+
+///|
+/// `a.asinh()` — the inverse hyperbolic sine, **always `Float`** (`Int`
+/// promotes to `Double`, like `/`), total under IEEE 754. A null stays null;
+/// a non-numeric operand raises `TypeMismatch`.
+pub fn Expr::asinh(self : Expr) -> Expr {
+  Expr::of_node(@ir.ExprNode::Unary(@ir.UnOp::Asinh, self.node))
+}
+
+///|
+/// `a.acosh()` — the inverse hyperbolic cosine, **always `Float`** (`Int`
+/// promotes to `Double`, like `/`); a cell below `1` (including `±inf`'s
+/// domain miss and negatives) is `NaN` under IEEE 754. A null stays null; a
+/// non-numeric operand raises `TypeMismatch`.
+pub fn Expr::acosh(self : Expr) -> Expr {
+  Expr::of_node(@ir.ExprNode::Unary(@ir.UnOp::Acosh, self.node))
+}
+
+///|
+/// `a.atanh()` — the inverse hyperbolic tangent, **always `Float`** (`Int`
+/// promotes to `Double`, like `/`); a cell outside `(-1, 1)` is `NaN` except
+/// `±1` itself, which gives `±inf` under IEEE 754. A null stays null; a
+/// non-numeric operand raises `TypeMismatch`.
+pub fn Expr::atanh(self : Expr) -> Expr {
+  Expr::of_node(@ir.ExprNode::Unary(@ir.UnOp::Atanh, self.node))
+}
+
+///|
+/// `a.ln()` — the natural logarithm, **always `Float`** (`Int` promotes to
+/// `Double`, like `/`); `ln(0)` is `-inf`, a negative cell is `NaN`, under
+/// IEEE 754. A null stays null; a non-numeric operand raises `TypeMismatch`.
+pub fn Expr::ln(self : Expr) -> Expr {
+  Expr::of_node(@ir.ExprNode::Unary(@ir.UnOp::Ln, self.node))
+}
+
+///|
+/// `a.log2()` — the base-2 logarithm, **always `Float`** (`Int` promotes to
+/// `Double`, like `/`); `log2(0)` is `-inf`, a negative cell is `NaN`, under
+/// IEEE 754. A null stays null; a non-numeric operand raises `TypeMismatch`.
+pub fn Expr::log2(self : Expr) -> Expr {
+  Expr::of_node(@ir.ExprNode::Unary(@ir.UnOp::Log2, self.node))
+}
+
+///|
+/// `a.log10()` — the base-10 logarithm, **always `Float`** (`Int` promotes
+/// to `Double`, like `/`); `log10(0)` is `-inf`, a negative cell is `NaN`,
+/// under IEEE 754. A null stays null; a non-numeric operand raises
+/// `TypeMismatch`.
+pub fn Expr::log10(self : Expr) -> Expr {
+  Expr::of_node(@ir.ExprNode::Unary(@ir.UnOp::Log10, self.node))
+}
+
+///|
+/// `a.exp()` — the exponential, **always `Float`** (`Int` promotes to
+/// `Double`, like `/`); an out-of-range result is `+inf` under IEEE 754
+/// (`exp(-inf) = 0`). A null stays null; a non-numeric operand raises
+/// `TypeMismatch`.
+pub fn Expr::exp(self : Expr) -> Expr {
+  Expr::of_node(@ir.ExprNode::Unary(@ir.UnOp::Exp, self.node))
+}
+
+///|
+/// `a.cbrt()` — the cube root, **always `Float`** (`Int` promotes to
+/// `Double`, like `/`), exact on every `Double` including negatives and
+/// `±inf` (`cbrt(-8) = -2`); only `NaN` maps to `NaN`. A null stays null; a
+/// non-numeric operand raises `TypeMismatch`.
+pub fn Expr::cbrt(self : Expr) -> Expr {
+  Expr::of_node(@ir.ExprNode::Unary(@ir.UnOp::Cbrt, self.node))
+}
+
+///|
+/// `a.sqrt()` — the square root, **always `Float`** (`Int` promotes to
+/// `Double`, like `/`); a negative cell is `NaN` and `sqrt(±0.0) = ±0.0`
+/// under IEEE 754. A null stays null; a non-numeric operand raises
+/// `TypeMismatch`.
+pub fn Expr::sqrt(self : Expr) -> Expr {
+  Expr::of_node(@ir.ExprNode::Unary(@ir.UnOp::Sqrt, self.node))
 }
 
 ///|

@@ -37,8 +37,11 @@ libraries — not a derivative work of either codebase.
   … — one aggregation over every non-key column, `agg` sugar on the eager
   side and a collect-time tag on the lazy side.
 - **Expression engine** — `col` / `lit_*`, arithmetic `+ - * /` plus
-  `floor_div` / `modulo` / `pow` and the unary `abs` / `floor` / `ceil` /
-  `sign` / `round`, Kleene `& |`, comparisons and the `is_in` / `is_between` /
+  `floor_div` / `modulo` / `pow` / `atan2` / `hypot` and the unary `abs` /
+  `floor` / `ceil` / `sign` / `round` alongside the always-`Float` math
+  family (`sin` / `cos` / `tan` / `asin` / `acos` / `atan` / `sinh` / `cosh`
+  / `tanh` / `asinh` / `acosh` / `atanh` / `ln` / `log2` / `log10` / `exp` /
+  `cbrt` / `sqrt`), Kleene `& |`, comparisons and the `is_in` / `is_between` /
   `is_null` / `is_nan` / `is_finite` / `is_infinite` predicates, `when / then /
   otherwise`, `clip`, the `forward_fill` / `backward_fill` directional
   fills, the aggregations

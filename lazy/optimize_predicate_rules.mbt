@@ -106,19 +106,24 @@ fn classify(node : @ir.ExprNode, kids : Array[ExprProps]) -> ExprProps {
     @ir.ExprNode::LitSeries(_) =>
       { row_local: false, zero_sign_safe: true, group_cell: false, }
     // Division and a negative exponent are the operators that make a zero's
-    // sign observable (`1.0 / +0.0 = +inf` but `1.0 / -0.0 = -inf`); every
-    // other member treats `-0.0` and `+0.0` as equal and descends. All
-    // members are row-local and group-cell combinators.
+    // sign observable (`1.0 / +0.0 = +inf` but `1.0 / -0.0 = -inf`); so does
+    // `atan2` (`atan2(±0.0, -1.0) = ±π`). Every other member treats `-0.0`
+    // and `+0.0` as equal and descends (`hypot` matches `abs` on a zero's
+    // sign). All members are row-local and group-cell combinators.
     @ir.ExprNode::Binary(op, _, _) => {
       let combined = kids_and(kids)
       {
         row_local: combined.row_local,
         zero_sign_safe: match op {
-          @ir.BinOp::Div | @ir.BinOp::FloorDiv | @ir.BinOp::Pow => false
+          @ir.BinOp::Div
+          | @ir.BinOp::FloorDiv
+          | @ir.BinOp::Pow
+          | @ir.BinOp::Atan2 => false
           @ir.BinOp::Add
           | @ir.BinOp::Sub
           | @ir.BinOp::Mul
           | @ir.BinOp::Mod
+          | @ir.BinOp::Hypot
           | @ir.BinOp::Eq
           | @ir.BinOp::Ne
           | @ir.BinOp::Lt
@@ -159,7 +164,25 @@ fn classify(node : @ir.ExprNode, kids : Array[ExprProps]) -> ExprProps {
           | @ir.UnOp::Floor
           | @ir.UnOp::Ceil
           | @ir.UnOp::Sign
-          | @ir.UnOp::Round(_) => combined.row_local
+          | @ir.UnOp::Round(_)
+          | @ir.UnOp::Sin
+          | @ir.UnOp::Cos
+          | @ir.UnOp::Tan
+          | @ir.UnOp::Asin
+          | @ir.UnOp::Acos
+          | @ir.UnOp::Atan
+          | @ir.UnOp::Sinh
+          | @ir.UnOp::Cosh
+          | @ir.UnOp::Tanh
+          | @ir.UnOp::Asinh
+          | @ir.UnOp::Acosh
+          | @ir.UnOp::Atanh
+          | @ir.UnOp::Ln
+          | @ir.UnOp::Log2
+          | @ir.UnOp::Log10
+          | @ir.UnOp::Exp
+          | @ir.UnOp::Cbrt
+          | @ir.UnOp::Sqrt => combined.row_local
         },
         zero_sign_safe: combined.zero_sign_safe,
         group_cell: combined.group_cell,

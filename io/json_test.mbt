@@ -940,3 +940,33 @@ test "an empty JSON array still checks its dtype pins" {
   }
   assert_true(result is Err(@types.DataError::InvalidOperation(_)))
 }
+
+///|
+test "blank JSON still checks its dtype pins" {
+  // The blank short-circuit predates the pin check and skipped it: a
+  // misspelt pin rode an empty / whitespace-only / BOM-only file as a
+  // silent 0×0 success where the empty array and the NDJSON / CSV
+  // readers refuse. The short-circuit now asserts the pins too.
+  let opts = @io.JsonReadOptions::JsonReadOptions(
+    dtypes=Map([("emp_id", @types.DataType::Int)]),
+  )
+  for payload in ["", "  \n\t ", "\u{FEFF}"] {
+    let result : Result[@frame.DataFrame, @types.DataError] = Ok(
+      @io.parse_json_str(payload, options=opts),
+    ) catch {
+      e => Err(e)
+    }
+    assert_true(result is Err(@types.DataError::InvalidOperation(_)))
+  }
+  // With no pins, the blank read keeps its 0×0 shape.
+  let blank : Result[@frame.DataFrame, @types.DataError] = Ok(
+    @io.parse_json_str("  \n\t "),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(blank is Ok(_))
+  if blank is Ok(df) {
+    assert_eq(df.nrows(), 0)
+    assert_eq(df.ncols(), 0)
+  }
+}

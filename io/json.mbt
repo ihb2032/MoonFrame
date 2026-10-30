@@ -150,8 +150,12 @@ fn parse_json_str_projected(
   // short-circuit to a 0×0 frame, so callers can stream JSON without
   // special-casing it — and so a whitespace-only file matches the NDJSON
   // reader (which skips blank lines) rather than raising on an absent
-  // top-level value.
+  // top-level value. The dtype pins are still asserted: no payload means
+  // no columns, so every pinned name is a false assertion — the same
+  // check an empty array takes below, or a misspelt pin rides the blank
+  // file as a silent 0×0 success.
   if content.is_blank() {
+    check_override_columns(options.dtypes, [])
     return @frame.DataFrame::DataFrame([])
   }
   // The strict duplicate-key reading rides the parser itself — it reports

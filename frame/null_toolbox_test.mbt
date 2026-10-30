@@ -455,20 +455,13 @@ test "clip declines the fast pass for mixed, rider, and non-numeric shapes" {
     Series::from_ints("i", [1]),
   ])
   let as_operand : Result[DataFrame, @types.DataError] = Ok(
-    ddf.select([
-      @expr.col("d").clip(lower=@expr.lit_int(0)).with_alias("c"),
-    ]),
+    ddf.select([@expr.col("d").clip(lower=@expr.lit_int(0)).with_alias("c")]),
   ) catch {
     e => Err(e)
   }
-  assert_true(
-    as_operand
-    is Err(@types.DataError::TypeMismatch(_)),
-  )
+  assert_true(as_operand is Err(@types.DataError::TypeMismatch(_)))
   let as_bound : Result[DataFrame, @types.DataError] = Ok(
-    ddf.select([
-      @expr.col("i").clip(lower=@expr.col("d")).with_alias("c"),
-    ]),
+    ddf.select([@expr.col("i").clip(lower=@expr.col("d")).with_alias("c")]),
   ) catch {
     e => Err(e)
   }
@@ -479,9 +472,7 @@ test "clip declines the fast pass for mixed, rider, and non-numeric shapes" {
     Series::from_strings("s", ["lo"]),
   ])
   let str_bound : Result[DataFrame, @types.DataError] = Ok(
-    sdf.select([
-      @expr.col("i").clip(lower=@expr.col("s")).with_alias("c"),
-    ]),
+    sdf.select([@expr.col("i").clip(lower=@expr.col("s")).with_alias("c")]),
   ) catch {
     e => Err(e)
   }

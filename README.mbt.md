@@ -138,7 +138,9 @@ same way.
 - **Read & write** CSV, JSON, and NDJSON — `read_csv` / `read_json` /
   `read_ndjson` and their `write_*` counterparts, with tunable
   [type inference](docs/type-inference.md), opt-in strict CSV quote validation,
-  and formula neutralisation for spreadsheet-facing exports.
+  formula neutralisation for spreadsheet-facing exports, and transparent
+  gzip (`.gz` sources decompress on read; `write_*` compresses a `.gz`
+  path).
 - **Reshape** — `filter`, `select`, `drop`, `rename`, `with_columns`, multi-key
   `sort`, row dedup (`unique`), seeded row draws (`sample`, `shuffle`), and
   null handling (`drop_nulls`, `fill_null`).

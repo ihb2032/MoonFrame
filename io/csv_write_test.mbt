@@ -544,3 +544,79 @@ test "line_terminator controls the row separator; CRLF round-trips" {
     @types.Scalar::Int(2),
   ])
 }
+
+///|
+test "write_csv to a .gz path round-trips through read_csv" {
+  let path = "_build/io_csv_test_gz_roundtrip.csv.gz"
+  let df = @frame.DataFrame::DataFrame([
+    @series.Series::from_ints("n", [1, 2, 3]),
+    @series.Series::from_strings("s", ["x", "y", "z"]),
+  ])
+  @io.write_csv(path, df)
+  // The file on disk is actually compressed: it opens with the gzip magic.
+  let raw = @fs.read_file_to_bytes(path)
+  assert_eq(raw[0], b'\x1f')
+  assert_eq(raw[1], b'\x8b')
+  let parsed = @io.read_csv(path)
+  assert_eq(parsed.check_invariants(), Ok(()))
+  assert_eq(parsed.shape(), (3, 2))
+  assert_eq(parsed.item(2, "n"), @types.Scalar::Int(3))
+  assert_eq(parsed.item(0, "s"), @types.Scalar::String("x"))
+}
+
+///|
+test "write_json and write_ndjson to .gz paths round-trip" {
+  let df = @frame.DataFrame::DataFrame([
+    @series.Series::from_ints("n", [1, 2]),
+    @series.Series::from_strings("s", ["x", "y"]),
+  ])
+  let jpath = "_build/io_json_test_gz_roundtrip.json.gz"
+  @io.write_json(jpath, df)
+  let jparsed = @io.read_json(jpath)
+  assert_eq(jparsed.shape(), (2, 2))
+  assert_eq(jparsed.item(1, "n"), @types.Scalar::Int(2))
+  let npath = "_build/io_ndjson_test_gz_roundtrip.ndjson.gz"
+  @io.write_ndjson(npath, df)
+  let nparsed = @io.read_ndjson(npath)
+  assert_eq(nparsed.shape(), (2, 2))
+  assert_eq(nparsed.item(0, "s"), @types.Scalar::String("x"))
+}
+
+///|
+test "a corrupt gzip stream surfaces as ParseError" {
+  let path = "_build/io_csv_gz_corrupt.csv.gz"
+  @fs.write_bytes_to_file(path, b"\x1f\x8b\x08not-a-real-deflate-stream")
+  let result = Ok(@io.read_csv(path)) catch { e => Err(e) }
+  assert_true(result is Err(@types.DataError::ParseError(_)))
+}
+
+///|
+test "a gzip header with nothing after it surfaces as ParseError" {
+  // The magic alone claims gzip but carries no stream, so the decompressor
+  // reports truncation rather than the reader guessing at empty content.
+  let path = "_build/io_csv_gz_truncated.csv.gz"
+  @fs.write_bytes_to_file(path, b"\x1f\x8b")
+  let result = Ok(@io.read_csv(path)) catch { e => Err(e) }
+  assert_true(result is Err(@types.DataError::ParseError(_)))
+}
+
+///|
+test "a zero-byte file reads as empty rather than as a gzip error" {
+  let path = "_build/io_csv_gz_empty.csv"
+  @fs.write_bytes_to_file(path, b"")
+  let parsed = @io.read_csv(path)
+  assert_eq(parsed.shape(), (0, 0))
+}
+
+///|
+test "write to a .gz path under a missing directory surfaces as IoError" {
+  // Same shape as the plain writers' invalid-path tests: the gz branch of
+  // `write_text` maps the underlying `@fs` failure the same way.
+  let df = @frame.DataFrame::DataFrame([@series.Series::from_ints("a", [1])])
+  let result = Ok(
+    @io.write_csv("_build/no_such_dir_io_gz_test/file.csv.gz", df),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(result is Err(@types.DataError::IoError(_)))
+}

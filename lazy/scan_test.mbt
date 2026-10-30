@@ -674,3 +674,14 @@ test "scan_json honours a dtype pin at collect time" {
     @io.read_json(path, options=opts),
   )
 }
+
+///|
+test "scan_csv reads a gzip source equal to its plain twin" {
+  let plain = "_build/lazy_scan_csv_gz.csv"
+  let zipped = "_build/lazy_scan_csv_gz.csv.gz"
+  write_fixture(plain)
+  // Compress through the production writer so the compressed fixture is
+  // exactly what `write_csv` itself would emit.
+  @io.write_text(zipped, @fs.read_file_to_string(plain))
+  assert_eq(scan_csv(zipped).collect(), scan_csv(plain).collect())
+}

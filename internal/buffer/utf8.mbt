@@ -40,9 +40,15 @@ pub extend Utf8Array with Debug::{to_repr}
 /// arithmetic is exact everywhere under that bound. A larger request is
 /// outside this layout's contract — no `Int32`-indexed buffer can hold it —
 /// and its failure mode is stated plainly: the `Int32` total wraps, and the
-/// wrapped (negative) size aborts inside `FixedArray::make` rather than
-/// returning an error. Reaching it needs multi-gigabyte resident strings,
-/// which the platform's memory ceiling stops first in practice.
+/// process aborts rather than returning an error. Where depends on the
+/// wrapped total: negative (the usual wrap past `2^31 - 1`) aborts inside
+/// `FixedArray::make`; a total wrapped past `2^32` back into the
+/// non-negative range allocates an undersized buffer and aborts at
+/// `encode_into`'s first out-of-range write — a bounds-checked trap either
+/// way, never silent corruption. Reaching it from this constructor needs
+/// multi-gigabyte resident strings, which the platform's memory ceiling
+/// stops first in practice (`take_view`'s amplification is the cheaper
+/// road).
 pub fn Utf8Array::from_strings(values : Array[String]) -> Utf8Array {
   // Sum of the UTF-8 encodings' byte lengths — the exact value-buffer size,
   // allocated once instead of grown per cell. Same walk as `encode_into`, so
@@ -274,8 +280,14 @@ pub fn Utf8Array::slice_view(
 /// `from_strings`'s representable bound applies here with force: a gather
 /// with repeated indices can amplify a column past `2^31 - 1` payload
 /// bytes even when its input sat under the bound, and the amplified
-/// request fails the same way — the wrapped `Int32` total aborts inside
-/// `FixedArray::make`, not an error return.
+/// request fails the same way — the process aborts on the wrapped `Int32`
+/// total, not an error return. A total wrapped past `2^31 - 1` goes
+/// negative and aborts inside `FixedArray::make`; one wrapped past `2^32`
+/// into the non-negative range allocates an undersized buffer and aborts
+/// at the copy loop's first out-of-range write. Amplification is also the
+/// cheap road there: a single ~1GiB cell gathered four times crosses
+/// `2^32` while its input sat comfortably under the bound, so the memory
+/// ceiling that guards the constructors does not guard this path.
 pub fn Utf8Array::take_view(
   self : Utf8Array,
   indices : Array[Int32],

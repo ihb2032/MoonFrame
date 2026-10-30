@@ -743,14 +743,19 @@ test "fuzz: select/with_columns then filter is optimizer/eager equivalent" {
 /// (negative bounds included), tail (likewise), first / last, slice
 /// (small, negative, and saturating-huge offsets, bounded and unbounded
 /// spans — the fusion's refused pairs as much as its composed ones), the
-/// directional fills, unique, top_k, gather_every, group_by+agg, and the
-/// semi / anti join against a same-rows frame; deliberately out — the
+/// directional fills, unique, top_k, gather_every, group_by+agg, the
+/// semi / anti join against a same-rows frame, and — as its own test below
+/// — the merging joins, whose right side is a distinct per-case schema with
+/// a clashing column and whose predicate vocabulary spans the three naming
+/// domains the split attributes (left column, right bare name, right
+/// suffixed spelling); deliberately out — the
 /// reshape pair (pivot / unpivot name their output columns off cell
 /// values, which the fixed-name stages around them cannot reference), the
 /// metadata verbs (drop / rename — their barrier is pinned by plan-shape
-/// snapshots instead), the merging joins (a distinct right schema per
-/// case), and the verbs with no lazy entry at all (sample and friends: a
-/// seeded draw sees a specific row set pushdown would reorder). The rich
+/// snapshots instead), derived join keys (their per-shape attribution is
+/// the fixed matrix's to pin), and the verbs with no lazy entry at all
+/// (sample and friends: a seeded draw sees a specific row set pushdown
+/// would reorder). The rich
 /// frame's `dt` / `ts` columns are payload — those riders ride each
 /// row-selection path, so a rebuild that drops a dtype tag shows up as a
 /// divergence — while `dec` is referenced directly (predicate, arithmetic,
@@ -1513,4 +1518,224 @@ test "a doubly-dirty CSV: both reads raise ParseError, whichever column each nam
   }
   assert_true(lazy_err is Err(@types.DataError::ParseError(_)))
   assert_true(eager_err is Err(@types.DataError::ParseError(_)))
+}
+
+// ── Test 6: merging joins — the split's name-attribution half ──────
+
+///|
+/// Which right-frame column rides into the join under a name the left frame
+/// also carries — the clash that makes the join's output vocabulary depend on
+/// `how` and `coalesce`, and the predicate's spellings depend on the
+/// attribution rules. `A` clashes the integer payload column, `S` the string
+/// one, so the suffixed spellings (`a_right` / `s_right`) span both dtypes.
+enum JoinClash {
+  A
+  S
+} derive(Debug)
+
+///|
+pub extend JoinClash with Debug::{to_repr}
+
+///|
+/// Which naming domain the terminal predicate reads — the three spellings the
+/// join split has to attribute (and mis-attribution is exactly what this
+/// differential is for):
+/// - `LeftColumn` — a plain left frame column;
+/// - `RightBare` — the right frame's uniquely-named column, bare on both
+///   sides of the join under every `how`;
+/// - `RightSuffixed` — the clashing right column under its suffixed output
+///   spelling (`a_right` / `s_right`), the spelling only Inner / Left /
+///   Outer / Cross ever produce (a `Right` join keeps the right column bare
+///   and suffixes the LEFT one — so under `Right` this predicate raises
+///   `ColumnNotFound` on both chains, an error-parity case in its own right);
+/// - `Ghost` — a name neither side carries (both chains raise identically);
+/// - `KeySuffix` — `g_right`, the right key's spelling when `coalesce=false`
+///   keeps both key columns (bare on a coalescing join, a `ColumnNotFound`
+///   pair there).
+enum JoinPredDomain {
+  LeftColumn
+  RightBare
+  RightSuffixed
+  Ghost
+  KeySuffix
+} derive(Debug)
+
+///|
+pub extend JoinPredDomain with Debug::{to_repr}
+
+///|
+/// One merging-join case: two independently generated frames, a join flavour,
+/// a clashing right column, a coalesce setting, and the predicate's naming
+/// domain. The right frame reuses the left rows' generator but its own draw,
+/// its schema folded to three columns — the shared bare key `g`, the clashing
+/// payload, and the uniquely-named `rx` — so every clash and attribution rule
+/// the split encodes has a name to land on.
+struct JoinSplitCase {
+  left : Array[RichRow]
+  right : Array[RichRow]
+  how : @frame.JoinType
+  clash : JoinClash
+  coalesce_false : Bool
+  domain : JoinPredDomain
+} derive(Debug)
+
+///|
+pub extend JoinSplitCase with Debug::{to_repr}
+
+///|
+/// The right frame for one case: the key column `g` and the clashing payload
+/// from the case's own right-side row draw, plus `rx` carrying the drawn `b`
+/// cells under a name only the right side owns.
+fn join_right_frame(
+  rows : Array[RichRow],
+  clash : JoinClash,
+) -> @frame.DataFrame raise @types.DataError {
+  let (clash_name, clash_col) = match clash {
+    A => ("a", @series.Series::from_int_options("a", rows.map(r => r.2)))
+    S => ("s", @series.Series::from_string_options("s", rows.map(r => r.4)))
+  }
+  let _ = clash_name
+  @frame.DataFrame::DataFrame([
+    @series.Series::from_int_options("g", rows.map(r => r.0)),
+    clash_col,
+    @series.Series::from_int_options("rx", rows.map(r => r.3)),
+  ])
+}
+
+///|
+/// The terminal predicate for one case's naming domain.
+fn join_split_pred(clash : JoinClash, domain : JoinPredDomain) -> @expr.Expr {
+  match domain {
+    LeftColumn => @expr.col("a").gt(@expr.lit_int(0))
+    RightBare => @expr.col("rx").is_not_null()
+    RightSuffixed =>
+      match clash {
+        A => @expr.col("a_right").gt(@expr.lit_int(0))
+        S => @expr.col("s_right").eq(@expr.lit_str("west"))
+      }
+    Ghost => @expr.col("ghost").is_not_null()
+    KeySuffix => @expr.col("g_right").is_not_null()
+  }
+}
+
+///|
+/// The join options for one case. `Cross` takes no keys; the keyed flavours
+/// join on the shared bare `g`, with `coalesce=false` keeping both key
+/// spellings when drawn.
+fn join_split_options(c : JoinSplitCase) -> @frame.JoinOptions {
+  match c.how {
+    Cross => @frame.JoinOptions::cross()
+    _ => {
+      let coalesce = if c.coalesce_false { Some(false) } else { None }
+      @frame.JoinOptions::on([@expr.col("g")], how=c.how, coalesce?)
+    }
+  }
+}
+
+///|
+fn gen_join_split_case() -> @gen.Generator[JoinSplitCase] {
+  liftA6(
+    (left, right, how, clash, coalesce_false, domain) => JoinSplitCase::{
+      left,
+      right,
+      how,
+      clash,
+      coalesce_false,
+      domain,
+    },
+    gen_rows(6),
+    gen_rows(6),
+    @gen.elements([
+      @frame.JoinType::Inner,
+      @frame.JoinType::Left,
+      @frame.JoinType::Right,
+      @frame.JoinType::Outer,
+      @frame.JoinType::Cross,
+    ]),
+    @gen.elements([JoinClash::A, JoinClash::S]),
+    gen_one_in(2),
+    @gen.elements([
+      JoinPredDomain::LeftColumn,
+      JoinPredDomain::RightBare,
+      JoinPredDomain::RightSuffixed,
+      JoinPredDomain::Ghost,
+      JoinPredDomain::KeySuffix,
+    ]),
+  )
+}
+
+///|
+/// Shrink only the two row sets — the shape fields (flavour, clash, coalesce,
+/// domain) stay fixed so a counterexample keeps exercising the same
+/// attribution branch.
+fn shrink_join_split_case(c : JoinSplitCase) -> Iter[JoinSplitCase] {
+  let out : Array[JoinSplitCase] = []
+  for rows in @shrink.Shrink::shrink(c.left) {
+    out.push(JoinSplitCase::{ ..c, left: rows, })
+  }
+  for rows in @shrink.Shrink::shrink(c.right) {
+    out.push(JoinSplitCase::{ ..c, right: rows, })
+  }
+  out.iter()
+}
+
+///|
+impl @gen.Arbitrary for JoinSplitCase with fn arbitrary(size, state) {
+  gen_join_split_case().run(size, state)
+}
+
+///|
+impl @shrink.Shrink for JoinSplitCase with fn shrink(self) {
+  shrink_join_split_case(self)
+}
+
+///|
+/// The merging joins — the half of `split_filter_into_join` the semi / anti
+/// verb above never reaches: a filter above an Inner / Left / Right / Outer /
+/// Cross join splits into the side its columns NAME, and the names themselves
+/// depend on the join (`a_right` exists only where the clash actually
+/// suffixes, `g_right` only under `coalesce=false`, a `Right` join swaps which
+/// side wears the suffix). A mis-attributed spelling sinks the predicate into
+/// the wrong side or rewires it to the wrong column — this differential holds
+/// the split to the eager join on both the value and the error sides (a
+/// spelling the join never outputs raises `ColumnNotFound` on both chains, an
+/// error-parity case in its own right). Deliberately out, as before: derived
+/// join keys (a `left_on` / `right_on` pair over computed expressions) stay
+/// with the fixed-shape matrix, where their per-shape attribution is pinned
+/// case by case.
+test "fuzz: merging joins keep the filter split's name attribution honest" {
+  let mut rewrites = 0
+  let prop = (c : JoinSplitCase) => {
+    let opts = join_split_options(c)
+    let pred = join_split_pred(c.clash, c.domain)
+    let lazy_chain = () => {
+      let right = join_right_frame(c.right, c.clash)
+      LazyFrame::LazyFrame(rows_to_frame(c.left))
+      .join(LazyFrame::LazyFrame(right), opts)
+      .filter(pred)
+    }
+    let eager_chain = () => {
+      let right = join_right_frame(c.right, c.clash)
+      rows_to_frame(c.left).join(right, opts).filter(pred)
+    }
+    let rewritten = try {
+      let plan = lazy_chain()
+      plan.explain(optimized=true) != plan.explain()
+    } catch {
+      _ => false
+    }
+    if rewritten {
+      rewrites += 1
+    }
+    // Multi-fault is possible here (a ghost predicate over a clash-raising
+    // join), so error parity stays non-strict like the stacked test.
+    match check_equiv("join-split", lazy_chain, eager_chain) {
+      None => true
+      Some(msg) => fail(msg)
+    }
+  }
+  @gen.check(prop, count=fuzz_cases(500).reinterpret_as_uint(), seed=37UL)
+  if rewrites < fuzz_cases(25) {
+    fail("fuzzer never split a join filter (rewrites=\{rewrites})")
+  }
 }

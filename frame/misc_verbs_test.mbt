@@ -111,17 +111,17 @@ test "sample is a deterministic function of its seed" {
   // is a deterministic function of the seed, so two fixed seeds have two
   // fixed answers, and asserting both fixes what "different" means here.
   assert_eq(df.sample(5, seed=7).get_column("v").to_scalars(), [
-    Int(2),
-    Int(1),
     Int(0),
-    Int(4),
+    Int(1),
     Int(3),
+    Int(2),
+    Int(4),
   ])
   assert_eq(df.sample(5, seed=8).get_column("v").to_scalars(), [
-    Int(2),
-    Int(0),
-    Int(3),
     Int(1),
+    Int(2),
+    Int(3),
+    Int(0),
     Int(4),
   ])
   assert_true(
@@ -200,4 +200,57 @@ test "an omitted seed is seed = 0" {
   let df = DataFrame::DataFrame([Series::from_ints("v", [0, 1, 2, 3, 4])])
   assert_eq(df.sample(3), df.sample(3, seed=0))
   assert_eq(df.sample(5), df.sample(5, seed=0))
+}
+
+///|
+test "shuffle is a deterministic seeded permutation of the whole frame" {
+  let df = DataFrame::DataFrame([
+    Series::from_ints("v", [0, 1, 2, 3, 4]),
+    Series::from_strings("s", ["a", "b", "c", "d", "e"]),
+  ])
+  let a = df.shuffle(seed=7)
+  assert_eq(a, df.shuffle(seed=7))
+  assert_eq(a.shape(), (5, 2))
+  assert_eq(a.check_invariants(), Ok(()))
+  // Pinned: what seed 7 actually permutes to — the draw is a deterministic
+  // function of the seed, exactly as `sample`'s.
+  assert_eq(a.get_column("v").to_scalars(), [
+    Int(2),
+    Int(3),
+    Int(1),
+    Int(4),
+    Int(0),
+  ])
+  assert_true(
+    a.get_column("v").to_scalars() !=
+    df.shuffle(seed=8).get_column("v").to_scalars(),
+  )
+  // The multiset survives: sorted, a shuffled column is the input column.
+  assert_eq(
+    a.sort([(@expr.col("v"), false, false)]).get_column("v").to_scalars(),
+    [Int(0), Int(1), Int(2), Int(3), Int(4)],
+  )
+  // Rows move together: every (v, s) pair of the shuffle is one of the
+  // input's own pairs.
+  for i in 0..<5 {
+    let pair = (
+      a.get_column("v").to_scalars()[i],
+      a.get_column("s").to_scalars()[i],
+    )
+    let pair : (@types.Scalar, @types.Scalar) = pair
+    assert_true(
+      pair is (@types.Scalar::Int(v), @types.Scalar::String(s)) &&
+      ["a", "b", "c", "d", "e"][v.to_int()] == s,
+    )
+  }
+  // The omitted seed is seed = 0, exactly as `sample`.
+  assert_eq(df.shuffle(), df.shuffle(seed=0))
+}
+
+///|
+test "shuffle edges: empty and one-row frames are their own permutation" {
+  let empty = DataFrame::DataFrame([Series::from_ints("v", [])])
+  assert_eq(empty.shuffle(seed=1).shape(), (0, 1))
+  let one = DataFrame::DataFrame([Series::from_ints("v", [9])])
+  assert_eq(one.shuffle(seed=1).get_column("v").to_scalars(), [Int(9)])
 }

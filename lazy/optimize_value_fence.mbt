@@ -41,10 +41,12 @@
 /// pairs, a `rename_with` runs its closure on the real column names (the
 /// same calls collect makes — the closure is total, so this is evaluation,
 /// not inspection), an `unpivot` folds its value columns into one named
-/// column, and a `join` unions both sides and adds every right name's
-/// suffixed form, mirroring `frame`'s clash rule conservatively (only a
-/// clashing right column gains the suffix at collect; adding it for all of
-/// them fences more, never less). A `pivot` is the one reshaper whose output
+/// column, and a `join` unions both sides and adds the clashing side's
+/// suffixed form — every right name for every `how` but `Right`, the left
+/// ones for `Right` (a right join leads with the right frame's columns
+/// and suffixes a clashing *left* one), mirroring `frame`'s clash rule
+/// conservatively (only a clashing column gains the suffix at collect;
+/// adding it for all of them fences more, never less). A `pivot` is the one reshaper whose output
 /// names come from data, so it raises `any` — above a pivot no name is
 /// provably non-decimal, and every decimal-checked stage fences. Walked
 /// over the shared post-order with an explicit value stack, total at any
@@ -213,7 +215,12 @@ fn plan_risk_step(node : LogicalPlan, risks : Array[PlanRisk]) -> PlanRisk {
       let merged = @set.Set([])
       left.stage.each(name => merged.add(name))
       right.stage.each(name => merged.add(name))
-      right.stage.each(name => merged.add(name + options.suffix))
+      // A right join leads with the right frame's columns and suffixes a
+      // clashing *left* one — the swapped-left-join spelling — so the
+      // suffixed offering switches sides with `how`; the unsuffixed pair
+      // carries every non-clashing name either way.
+      let suffixed = if options.how is Right { left } else { right }
+      suffixed.stage.each(name => merged.add(name + options.suffix))
       let union = @set.Set([])
       left.union.each(name => union.add(name))
       right.union.each(name => union.add(name))
@@ -328,6 +335,10 @@ fn expr_has_decimal_checked_op(expr : @ir.ExprNode) -> Bool {
       // binary spellings.
       @ir.ExprNode::IsBetween(_, _, _, _) => return true
       @ir.ExprNode::IsIn(_, _) => return true
+      // `clip` runs the same rescale on its bounds selection that a
+      // `Lt` / `Gt` takes, so a cross-scale decimal operand can refuse on
+      // values through it exactly as through the binary spellings.
+      @ir.ExprNode::Clip(_, _, _) => return true
       // The checked unary pair: `neg` / `abs` refuse on an 18-digit
       // magnitude the way the arithmetics refuse on their overflow, and
       // the descent must not read through them as value-safe.

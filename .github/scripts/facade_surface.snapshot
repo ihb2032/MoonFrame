@@ -211,14 +211,24 @@ method DataType::output(Self, &Logger) -> Unit <- types
 method DataType::to_repr(Self) -> @debug.Repr <- types
 method DataType::to_string(Self) -> String <- types
 method Expr::abs(Self) -> Self <- expr
+method Expr::acos(Self) -> Self <- expr
+method Expr::acosh(Self) -> Self <- expr
 method Expr::add(Self, Self) -> Self <- expr
 method Expr::arg_max(Self) -> Self <- expr
 method Expr::arg_min(Self) -> Self <- expr
 method Expr::arg_sort(Self, descending? : Bool, nulls_last? : Bool) -> Self <- expr
+method Expr::asin(Self) -> Self <- expr
+method Expr::asinh(Self) -> Self <- expr
+method Expr::atan(Self) -> Self <- expr
+method Expr::atan2(Self, Self) -> Self <- expr
+method Expr::atanh(Self) -> Self <- expr
 method Expr::backward_fill(Self, limit? : Int32) -> Self <- expr
 method Expr::cast(Self, @types.DataType) -> Self <- expr
+method Expr::cbrt(Self) -> Self <- expr
 method Expr::ceil(Self) -> Self <- expr
 method Expr::clip(Self, lower? : Self, upper? : Self) -> Self <- expr
+method Expr::cos(Self) -> Self <- expr
+method Expr::cosh(Self) -> Self <- expr
 method Expr::count(Self) -> Self <- expr
 method Expr::cum_count(Self, reverse? : Bool) -> Self <- expr
 method Expr::cum_max(Self, reverse? : Bool) -> Self <- expr
@@ -232,6 +242,7 @@ method Expr::dt_day_of_week(Self) -> Self <- expr
 method Expr::dt_month(Self) -> Self <- expr
 method Expr::dt_year(Self) -> Self <- expr
 method Expr::eq(Self, Self) -> Self <- expr
+method Expr::exp(Self) -> Self <- expr
 method Expr::fill_nan(Self, Self) -> Self <- expr
 method Expr::fill_null(Self, Self) -> Self <- expr
 method Expr::first(Self) -> Self <- expr
@@ -240,6 +251,7 @@ method Expr::floor_div(Self, Self) -> Self <- expr
 method Expr::forward_fill(Self, limit? : Int32) -> Self <- expr
 method Expr::ge(Self, Self) -> Self <- expr
 method Expr::gt(Self, Self) -> Self <- expr
+method Expr::hypot(Self, Self) -> Self <- expr
 method Expr::is_between(Self, Self, Self, closed? : @types.ClosedInterval) -> Self <- expr
 method Expr::is_finite(Self) -> Self <- expr
 method Expr::is_first_distinct(Self) -> Self <- expr
@@ -253,6 +265,9 @@ method Expr::is_null(Self) -> Self <- expr
 method Expr::land(Self, Self) -> Self <- expr
 method Expr::last(Self) -> Self <- expr
 method Expr::le(Self, Self) -> Self <- expr
+method Expr::ln(Self) -> Self <- expr
+method Expr::log10(Self) -> Self <- expr
+method Expr::log2(Self) -> Self <- expr
 method Expr::lor(Self, Self) -> Self <- expr
 method Expr::lt(Self, Self) -> Self <- expr
 method Expr::map_batches(Self, label~ : String, returns_scalar? : Bool, (@series.Series) -> @series.Series raise @types.DataError) -> Self <- expr
@@ -282,6 +297,9 @@ method Expr::rolling_variance(Self, Int32, min_samples? : Int32, center? : Bool)
 method Expr::round(Self, decimals? : Int32) -> Self <- expr
 method Expr::shift(Self, Int32, fill_value? : @types.Scalar) -> Self <- expr
 method Expr::sign(Self) -> Self <- expr
+method Expr::sin(Self) -> Self <- expr
+method Expr::sinh(Self) -> Self <- expr
+method Expr::sqrt(Self) -> Self <- expr
 method Expr::std(Self) -> Self <- expr
 method Expr::str_contains(Self, String, literal? : Bool) -> Self <- expr
 method Expr::str_count_matches(Self, String) -> Self <- expr
@@ -303,6 +321,8 @@ method Expr::str_to_uppercase(Self) -> Self <- expr
 method Expr::str_zfill(Self, Int32) -> Self <- expr
 method Expr::sub(Self, Self) -> Self <- expr
 method Expr::sum(Self) -> Self <- expr
+method Expr::tan(Self) -> Self <- expr
+method Expr::tanh(Self) -> Self <- expr
 method Expr::to_repr(Self) -> @debug.Repr <- expr
 method Expr::to_string(Self) -> String <- expr
 method Expr::unique_counts(Self) -> Self <- expr

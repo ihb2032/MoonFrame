@@ -139,6 +139,24 @@ fn push_write_tasks(stack : Array[WriteTask], expr : Expr) -> Unit {
         Sign => [Node(Expr::of_node(e)), Frag(".sign()")]
         Round(0) => [Node(Expr::of_node(e)), Frag(".round()")]
         Round(d) => [Node(Expr::of_node(e)), Frag(".round(decimals=\{d})")]
+        Sin => [Node(Expr::of_node(e)), Frag(".sin()")]
+        Cos => [Node(Expr::of_node(e)), Frag(".cos()")]
+        Tan => [Node(Expr::of_node(e)), Frag(".tan()")]
+        Asin => [Node(Expr::of_node(e)), Frag(".asin()")]
+        Acos => [Node(Expr::of_node(e)), Frag(".acos()")]
+        Atan => [Node(Expr::of_node(e)), Frag(".atan()")]
+        Sinh => [Node(Expr::of_node(e)), Frag(".sinh()")]
+        Cosh => [Node(Expr::of_node(e)), Frag(".cosh()")]
+        Tanh => [Node(Expr::of_node(e)), Frag(".tanh()")]
+        Asinh => [Node(Expr::of_node(e)), Frag(".asinh()")]
+        Acosh => [Node(Expr::of_node(e)), Frag(".acosh()")]
+        Atanh => [Node(Expr::of_node(e)), Frag(".atanh()")]
+        Ln => [Node(Expr::of_node(e)), Frag(".ln()")]
+        Log2 => [Node(Expr::of_node(e)), Frag(".log2()")]
+        Log10 => [Node(Expr::of_node(e)), Frag(".log10()")]
+        Exp => [Node(Expr::of_node(e)), Frag(".exp()")]
+        Cbrt => [Node(Expr::of_node(e)), Frag(".cbrt()")]
+        Sqrt => [Node(Expr::of_node(e)), Frag(".sqrt()")]
       }
     Agg(op, e) => [Node(Expr::of_node(e)), Frag(agg_suffix(op))]
     Str(op, e) => [Node(Expr::of_node(e)), StrSuffix(op)]
@@ -272,10 +290,11 @@ fn push_write_tasks(stack : Array[WriteTask], expr : Expr) -> Unit {
 
 ///|
 /// Infix symbol for a binary tag — the operator where one exists (`&` / `|`
-/// for the Kleene connectives), and the conventional mathematical glyph where
-/// the builder is a method: `<` for `.lt()`, and `//` / `%` / `**` for
-/// `.floor_div()` / `.modulo()` / `.pow()`, none of which MoonBit spells as an
-/// operator. Display syntax, not a call site to copy.
+/// for the Kleene connectives), the conventional mathematical glyph where the
+/// builder is a method: `<` for `.lt()`, `//` / `%` / `**` for
+/// `.floor_div()` / `.modulo()` / `.pow()`, and the function name as a word
+/// for the two-argument math pair `.atan2()` / `.hypot()` — none of which
+/// MoonBit spells as an operator. Display syntax, not a call site to copy.
 fn binop_symbol(op : @ir.BinOp) -> String {
   match op {
     Add => "+"
@@ -285,6 +304,8 @@ fn binop_symbol(op : @ir.BinOp) -> String {
     FloorDiv => "//"
     Mod => "%"
     Pow => "**"
+    Atan2 => "atan2"
+    Hypot => "hypot"
     Eq => "=="
     Ne => "!="
     Lt => "<"

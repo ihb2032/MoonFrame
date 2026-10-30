@@ -18,6 +18,7 @@ import {
   "ihb2032/MoonFrame/internal/column",
   "moonbitlang/core/bench",
   "moonbitlang/core/double",
+  "moonbitlang/core/math",
   "moonbitlang/core/test",
   "moonbitlang/core/quickcheck" @gen,
   "ihb2032/MoonFrame/io",

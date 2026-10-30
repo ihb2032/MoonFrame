@@ -38,8 +38,9 @@
 ///   `lit_series`); a `LitSeries` embeds a pre-materialised `Series`;
 /// - `Binary` — arithmetic `+ - * /`, comparisons, Kleene `&` / `|`;
 /// - `Unary` — `-e`, `.not()`, the null / NaN / finiteness probes, the `dt_*`
-///   calendar quartet, and `.abs()` / `.floor()` / `.ceil()` / `.sign()` /
-///   `.round()`;
+///   calendar quartet, `.abs()` / `.floor()` / `.ceil()` / `.sign()` /
+///   `.round()`, and the always-`Float` math family `.sin()` … `.sqrt()`
+///   (`.atan2()` / `.hypot()` ride `Binary`);
 /// - `Agg` — `.sum()` / `.mean()` / … reductions;
 /// - `Str` — the `.str_*` namespace;
 /// - `Positional` — the history-dependent transforms (`.shift(n)` /

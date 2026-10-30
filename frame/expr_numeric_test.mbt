@@ -903,3 +903,312 @@ test "expr comparison: Int vs Float at the Int64 boundaries, ±Inf and NaN" {
   assert_eq(out.get_column("lt").to_scalars(), [t, f, f, t])
   assert_eq(out.get_column("gt").to_scalars(), [f, t, f, f])
 }
+
+///|
+test "math family: exact constants at the identity points" {
+  // Zero and one are every verb's identity point, and the powers are exact
+  // under correctly-rounded logs / roots — the sweep test below pins the
+  // non-trivial cells against `core/math` itself.
+  let zero = DataFrame::DataFrame([Series::from_floats("x", [0.0])])
+  let z = zero.select([
+    @expr.col("x").sin().with_alias("sin"),
+    @expr.col("x").cos().with_alias("cos"),
+    @expr.col("x").tan().with_alias("tan"),
+    @expr.col("x").asin().with_alias("asin"),
+    @expr.col("x").atan().with_alias("atan"),
+    @expr.col("x").sinh().with_alias("sinh"),
+    @expr.col("x").cosh().with_alias("cosh"),
+    @expr.col("x").tanh().with_alias("tanh"),
+    @expr.col("x").asinh().with_alias("asinh"),
+    @expr.col("x").atanh().with_alias("atanh"),
+    @expr.col("x").exp().with_alias("exp"),
+    @expr.col("x").sqrt().with_alias("sqrt"),
+    @expr.col("x").cbrt().with_alias("cbrt"),
+  ])
+  let one = @types.Scalar::Float(1.0)
+  let nul = @types.Scalar::Float(0.0)
+  assert_eq(z.get_column("sin").to_scalars(), [nul])
+  assert_eq(z.get_column("cos").to_scalars(), [one])
+  assert_eq(z.get_column("tan").to_scalars(), [nul])
+  assert_eq(z.get_column("asin").to_scalars(), [nul])
+  assert_eq(z.get_column("atan").to_scalars(), [nul])
+  assert_eq(z.get_column("sinh").to_scalars(), [nul])
+  assert_eq(z.get_column("cosh").to_scalars(), [one])
+  assert_eq(z.get_column("tanh").to_scalars(), [nul])
+  assert_eq(z.get_column("asinh").to_scalars(), [nul])
+  assert_eq(z.get_column("atanh").to_scalars(), [nul])
+  assert_eq(z.get_column("exp").to_scalars(), [one])
+  assert_eq(z.get_column("sqrt").to_scalars(), [nul])
+  assert_eq(z.get_column("cbrt").to_scalars(), [nul])
+  let unit = DataFrame::DataFrame([Series::from_floats("x", [1.0])])
+  let u = unit.select([
+    @expr.col("x").ln().with_alias("ln"),
+    @expr.col("x").log2().with_alias("log2"),
+    @expr.col("x").log10().with_alias("log10"),
+    @expr.col("x").acos().with_alias("acos"),
+    @expr.col("x").acosh().with_alias("acosh"),
+    @expr.col("x").sqrt().with_alias("sqrt"),
+  ])
+  assert_eq(u.get_column("ln").to_scalars(), [nul])
+  assert_eq(u.get_column("log2").to_scalars(), [nul])
+  assert_eq(u.get_column("log10").to_scalars(), [nul])
+  assert_eq(u.get_column("acos").to_scalars(), [nul])
+  assert_eq(u.get_column("acosh").to_scalars(), [nul])
+  assert_eq(u.get_column("sqrt").to_scalars(), [one])
+  let powers = DataFrame::DataFrame([
+    Series::from_floats("x", [8.0, -8.0, 100.0, 4.0]),
+  ])
+  let p = powers.select([
+    @expr.col("x").log2().with_alias("log2"),
+    @expr.col("x").log10().with_alias("log10"),
+    @expr.col("x").cbrt().with_alias("cbrt"),
+    @expr.col("x").sqrt().with_alias("sqrt"),
+  ])
+  assert_eq(p.get_column("log2").to_scalars()[0], @types.Scalar::Float(3.0))
+  assert_eq(p.get_column("log10").to_scalars()[2], @types.Scalar::Float(2.0))
+  assert_eq(p.get_column("cbrt").to_scalars()[0], @types.Scalar::Float(2.0))
+  assert_eq(p.get_column("cbrt").to_scalars()[1], @types.Scalar::Float(-2.0))
+  assert_eq(p.get_column("sqrt").to_scalars()[3], @types.Scalar::Float(2.0))
+}
+
+///|
+test "math family: every verb routes through core/math" {
+  // The wiring pin: each `Expr` verb must land on the `core/math` /
+  // `Double::sqrt` primitive of the same name, so the expected cells are
+  // computed with the library itself over arbitrary inputs.
+  let df = DataFrame::DataFrame([Series::from_floats("x", [0.3, 1.7, 2.5])])
+  let out = df.select([
+    @expr.col("x").sin().with_alias("sin"),
+    @expr.col("x").cos().with_alias("cos"),
+    @expr.col("x").tan().with_alias("tan"),
+    @expr.col("x").asin().with_alias("asin"),
+    @expr.col("x").acos().with_alias("acos"),
+    @expr.col("x").atan().with_alias("atan"),
+    @expr.col("x").sinh().with_alias("sinh"),
+    @expr.col("x").cosh().with_alias("cosh"),
+    @expr.col("x").tanh().with_alias("tanh"),
+    @expr.col("x").asinh().with_alias("asinh"),
+    @expr.col("x").acosh().with_alias("acosh"),
+    @expr.col("x").atanh().with_alias("atanh"),
+    @expr.col("x").ln().with_alias("ln"),
+    @expr.col("x").log2().with_alias("log2"),
+    @expr.col("x").log10().with_alias("log10"),
+    @expr.col("x").exp().with_alias("exp"),
+    @expr.col("x").cbrt().with_alias("cbrt"),
+    @expr.col("x").sqrt().with_alias("sqrt"),
+  ])
+  // NaN-aware pairwise compare: the domain-violating cells (asin past 1,
+  // acosh below 1, atanh outside (-1, 1)) are NaN on both sides, and IEEE
+  // NaN never equals itself.
+  fn matches(got : Array[@types.Scalar], f : (Double) -> Double) -> Bool {
+    let xs = [0.3, 1.7, 2.5]
+    if got.length() != xs.length() {
+      return false
+    }
+    for i, cell in got {
+      match cell {
+        @types.Scalar::Float(v) => {
+          let e = f(xs[i])
+          if !(v == e || (v.is_nan() && e.is_nan())) {
+            return false
+          }
+        }
+        _ => return false
+      }
+    }
+    true
+  }
+  assert_true(matches(out.get_column("sin").to_scalars(), a => @math.sin(a)))
+  assert_true(matches(out.get_column("cos").to_scalars(), a => @math.cos(a)))
+  assert_true(matches(out.get_column("tan").to_scalars(), a => @math.tan(a)))
+  assert_true(matches(out.get_column("asin").to_scalars(), a => @math.asin(a)))
+  assert_true(matches(out.get_column("acos").to_scalars(), a => @math.acos(a)))
+  assert_true(matches(out.get_column("atan").to_scalars(), a => @math.atan(a)))
+  assert_true(matches(out.get_column("sinh").to_scalars(), a => @math.sinh(a)))
+  assert_true(matches(out.get_column("cosh").to_scalars(), a => @math.cosh(a)))
+  assert_true(matches(out.get_column("tanh").to_scalars(), a => @math.tanh(a)))
+  assert_true(
+    matches(out.get_column("asinh").to_scalars(), a => @math.asinh(a)),
+  )
+  assert_true(
+    matches(out.get_column("acosh").to_scalars(), a => @math.acosh(a)),
+  )
+  assert_true(
+    matches(out.get_column("atanh").to_scalars(), a => @math.atanh(a)),
+  )
+  assert_true(matches(out.get_column("ln").to_scalars(), a => @math.ln(a)))
+  assert_true(matches(out.get_column("log2").to_scalars(), a => @math.log2(a)))
+  assert_true(
+    matches(out.get_column("log10").to_scalars(), a => @math.log10(a)),
+  )
+  assert_true(matches(out.get_column("exp").to_scalars(), a => @math.exp(a)))
+  assert_true(matches(out.get_column("cbrt").to_scalars(), a => @math.cbrt(a)))
+  assert_true(matches(out.get_column("sqrt").to_scalars(), a => a.sqrt()))
+}
+
+///|
+test "math family: Int promotes to Float on both backends" {
+  let df = DataFrame::DataFrame([
+    Series::from_ints("i", [9, 4]),
+    Series::from_int_options("n", [Some(9), None]),
+  ])
+  let out = df.select([
+    @expr.col("i").sqrt().with_alias("fast"),
+    @expr.col("n").sqrt().with_alias("nullable"),
+  ])
+  // The fast (all-valid `Numeric`) arm and the nullable `Builtin` arm both
+  // land on `Float`.
+  assert_eq(out.get_column("fast").dtype(), @types.DataType::Float)
+  assert_eq(out.get_column("fast").to_scalars(), [
+    @types.Scalar::Float(3.0),
+    @types.Scalar::Float(2.0),
+  ])
+  assert_eq(out.get_column("nullable").to_scalars(), [
+    @types.Scalar::Float(3.0),
+    @types.Scalar::Null,
+  ])
+}
+
+///|
+test "math family: nulls stay null on the Float Builtin arm" {
+  let df = DataFrame::DataFrame([
+    Series::from_float_options("f", [Some(4.0), None]),
+  ])
+  let out = df.select([
+    @expr.col("f").sqrt().with_alias("s"),
+    @expr.col("f").ln().with_alias("l"),
+  ])
+  assert_eq(out.get_column("s").to_scalars(), [
+    @types.Scalar::Float(2.0),
+    @types.Scalar::Null,
+  ])
+  assert_eq(out.get_column("l").to_scalars(), [
+    @types.Scalar::Float(1.3862943611198906),
+    @types.Scalar::Null,
+  ])
+}
+
+///|
+test "math family: domain edges resolve under IEEE 754" {
+  let df = DataFrame::DataFrame([
+    Series::from_floats("x", [2.0, -1.0, 0.0, @double.infinity, -0.0]),
+  ])
+  let out = df.select([
+    @expr.col("x").asin().with_alias("asin"),
+    @expr.col("x").ln().with_alias("ln"),
+    @expr.col("x").sqrt().with_alias("sqrt"),
+    @expr.col("x").sin().with_alias("sin"),
+  ])
+  fn is_nan_cell(col : String, i : Int32) -> Bool raise {
+    match out.get_column(col).to_scalars()[i] {
+      @types.Scalar::Float(v) => v.is_nan()
+      _ => false
+    }
+  }
+  fn is_neg_inf_cell(col : String, i : Int32) -> Bool raise {
+    match out.get_column(col).to_scalars()[i] {
+      @types.Scalar::Float(v) => v == @double.neg_infinity
+      _ => false
+    }
+  }
+  // asin(2.0) is NaN (domain), ln(0.0) is -inf, ln(-1.0) is NaN,
+  // sqrt(-1.0) is NaN, sin(+inf) is NaN — all values, not errors.
+  assert_true(is_nan_cell("asin", 0))
+  assert_true(is_neg_inf_cell("ln", 2))
+  assert_true(is_nan_cell("ln", 1))
+  assert_true(is_nan_cell("sqrt", 1))
+  assert_true(is_nan_cell("sin", 3))
+}
+
+///|
+test "math family: non-numeric operands raise TypeMismatch" {
+  // A `String` column (the `Utf8` arm) and a `Date` column (an `I64` rider
+  // the numeric gate must exclude) both refuse.
+  let df = DataFrame::DataFrame([
+    Series::from_strings("s", ["x"]),
+    Series::from_date_options("d", [Some(0L)]),
+  ])
+  assert_true(
+    (Ok(df.select([@expr.col("s").sin()])) catch { e => Err(e) })
+    is Err(
+      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_))
+    ),
+  )
+  assert_true(
+    (Ok(df.select([@expr.col("d").ln()])) catch { e => Err(e) })
+    is Err(
+      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_))
+    ),
+  )
+}
+
+///|
+test "atan2 / hypot: always-Float, IEEE total, nulls and refusals" {
+  let df = DataFrame::DataFrame([
+    Series::from_floats("y", [1.0, 3.0]),
+    Series::from_floats("x", [1.0, 4.0]),
+    Series::from_ints("iy", [1, 3]),
+    Series::from_ints("ix", [1, 4]),
+    Series::from_float_options("ny", [Some(3.0), None]),
+  ])
+  let out = df.select([
+    @expr.col("y").atan2(@expr.col("x")).with_alias("atan2"),
+    @expr.col("y").hypot(@expr.col("x")).with_alias("hypot"),
+    @expr.col("iy").atan2(@expr.col("ix")).with_alias("atan2_int"),
+    @expr.col("y").hypot(@expr.col("ny")).with_alias("hypot_null"),
+  ])
+  assert_eq(out.get_column("atan2").to_scalars(), [
+    @types.Scalar::Float(0.7853981633974483),
+    @types.Scalar::Float(0.6435011087932844),
+  ])
+  assert_eq(out.get_column("hypot").to_scalars(), [
+    @types.Scalar::Float(1.4142135623730951),
+    @types.Scalar::Float(5.0),
+  ])
+  assert_eq(out.get_column("atan2_int").dtype(), @types.DataType::Float)
+  assert_eq(out.get_column("atan2_int").to_scalars(), [
+    @types.Scalar::Float(0.7853981633974483),
+    @types.Scalar::Float(0.6435011087932844),
+  ])
+  assert_eq(out.get_column("hypot_null").to_scalars(), [
+    @types.Scalar::Float(3.1622776601683795),
+    @types.Scalar::Null,
+  ])
+  let strs = DataFrame::DataFrame([Series::from_strings("s", ["x"])])
+  assert_true(
+    (Ok(strs.select([@expr.col("s").hypot(@expr.col("s"))])) catch {
+      e => Err(e)
+    })
+    is Err(@types.DataError::TypeMismatch(_)),
+  )
+}
+
+///|
+test "math family: to_string rendering" {
+  assert_eq(@expr.col("x").sin().to_string(), "col(x).sin()")
+  assert_eq(@expr.col("x").cos().to_string(), "col(x).cos()")
+  assert_eq(@expr.col("x").tan().to_string(), "col(x).tan()")
+  assert_eq(@expr.col("x").asin().to_string(), "col(x).asin()")
+  assert_eq(@expr.col("x").acos().to_string(), "col(x).acos()")
+  assert_eq(@expr.col("x").atan().to_string(), "col(x).atan()")
+  assert_eq(@expr.col("x").sinh().to_string(), "col(x).sinh()")
+  assert_eq(@expr.col("x").cosh().to_string(), "col(x).cosh()")
+  assert_eq(@expr.col("x").tanh().to_string(), "col(x).tanh()")
+  assert_eq(@expr.col("x").asinh().to_string(), "col(x).asinh()")
+  assert_eq(@expr.col("x").acosh().to_string(), "col(x).acosh()")
+  assert_eq(@expr.col("x").atanh().to_string(), "col(x).atanh()")
+  assert_eq(@expr.col("x").ln().to_string(), "col(x).ln()")
+  assert_eq(@expr.col("x").log2().to_string(), "col(x).log2()")
+  assert_eq(@expr.col("x").log10().to_string(), "col(x).log10()")
+  assert_eq(@expr.col("x").exp().to_string(), "col(x).exp()")
+  assert_eq(@expr.col("x").cbrt().to_string(), "col(x).cbrt()")
+  assert_eq(@expr.col("x").sqrt().to_string(), "col(x).sqrt()")
+  assert_eq(
+    @expr.col("x").atan2(@expr.col("y")).to_string(),
+    "(col(x) atan2 col(y))",
+  )
+  assert_eq(
+    @expr.col("x").hypot(@expr.col("y")).to_string(),
+    "(col(x) hypot col(y))",
+  )
+}

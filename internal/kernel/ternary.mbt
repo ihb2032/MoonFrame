@@ -174,6 +174,16 @@ pub fn eval_clip(
   lower? : Series,
   upper? : Series,
 ) -> Series raise @types.DataError {
+  // The same-dtype numeric shapes take one pass over the buffers — no
+  // per-bound chain of probe / compare / logic / selection columns, each
+  // of which allocates a full intermediate. Every other shape (an `Int`
+  // column against a `Float` bound, a rider, a string, a length that is
+  // neither the operand's own nor 1) falls through to the composed
+  // kernels below, where the general comparison semantics live.
+  match try_clip_buffers(operand, lower, upper) {
+    Some(out) => return out
+    None => ()
+  }
   fn bound_select(
     x : Series,
     bound : Series,
@@ -199,4 +209,155 @@ pub fn eval_clip(
     out = bound_select(out, hi, @ir.BinOp::Gt)
   }
   out
+}
+
+///|
+/// One clip bound's extracted reading: the typed buffer, the validity the
+/// null-bound rule reads, and whether the bound is a length-1 literal
+/// (every row reads cell 0) or a column of the operand's own height.
+priv struct ClipBound[T] {
+  buf : ArrayView[T]
+  valid : Array[Bool]
+  literal : Bool
+}
+
+///|
+/// The single-pass clip over same-dtype numeric buffers, `None` for every
+/// shape it does not own. One cell decision per row: a null operand stays
+/// null, a null bound cell means no bound on that side (the operand passes
+/// through), a `NaN` operand fails both comparisons and keeps its cell,
+/// and a bound that holds lifts / presses the cell to it — the same
+/// cell-for-cell semantics the composed kernels spell, one buffer read
+/// instead of eight intermediate columns.
+fn try_clip_buffers(
+  operand : Series,
+  lower : Series?,
+  upper : Series?,
+) -> Series? {
+  let n = operand.len()
+  let op_valid = operand.validity_bools()
+  // Guard-arm style, like `try_fast_is_in`: the dtype the buffer must
+  // carry rides the arm guard, and every other shape — a rider on the I64
+  // buffer, a mixed pair, a non-numeric bound — falls to an explicit
+  // `None` arm the composed kernels then serve, so no reachable shape is
+  // silently clamped on raw day-counts or magnitudes.
+  fn i64_bound(b : Series) -> ClipBound[Int64]? {
+    match b.storage().data() {
+      @column.ColumnData::I64(buf) if b.dtype() == @types.DataType::Int &&
+        (b.len() == n || b.len() == 1) =>
+        Some({ buf, valid: b.validity_bools(), literal: b.len() == 1, })
+      @column.ColumnData::I64(_)
+      | @column.ColumnData::F64(_)
+      | @column.ColumnData::Bool(_)
+      | @column.ColumnData::Utf8(_) => None
+    }
+  }
+  fn f64_bound(b : Series) -> ClipBound[Double]? {
+    match b.storage().data() {
+      @column.ColumnData::F64(buf) if b.dtype() == @types.DataType::Float &&
+        (b.len() == n || b.len() == 1) =>
+        Some({ buf, valid: b.validity_bools(), literal: b.len() == 1, })
+      @column.ColumnData::I64(_)
+      | @column.ColumnData::F64(_)
+      | @column.ColumnData::Bool(_)
+      | @column.ColumnData::Utf8(_) => None
+    }
+  }
+  match operand.storage().data() {
+    @column.ColumnData::I64(a) if operand.dtype() == @types.DataType::Int => {
+      let lo : ClipBound[Int64]? = match lower.map(b => i64_bound(b)) {
+        Some(Some(b)) => Some(b)
+        Some(None) => return None
+        None => None
+      }
+      let hi : ClipBound[Int64]? = match upper.map(b => i64_bound(b)) {
+        Some(Some(b)) => Some(b)
+        Some(None) => return None
+        None => None
+      }
+      fn at(bound : ClipBound[Int64]?, i : Int32) -> Int64? {
+        match bound {
+          None => None
+          Some(b) => {
+            let idx = if b.literal { 0 } else { i }
+            if b.valid[idx] {
+              Some(b.buf[idx])
+            } else {
+              None
+            }
+          }
+        }
+      }
+      let out : Array[Int64?] = Array::makei(n, i => {
+        if !op_valid[i] {
+          None
+        } else {
+          let mut v = a[i]
+          match at(lo, i) {
+            Some(lo_v) => if v < lo_v { v = lo_v }
+            None => ()
+          }
+          match at(hi, i) {
+            Some(hi_v) => if v > hi_v { v = hi_v }
+            None => ()
+          }
+          Some(v)
+        }
+      })
+      Some(
+        Series::from_int_options(operand.name(), out).try_column_to_numeric(),
+      )
+    }
+    @column.ColumnData::F64(a) => {
+      let lo : ClipBound[Double]? = match lower.map(b => f64_bound(b)) {
+        Some(Some(b)) => Some(b)
+        Some(None) => return None
+        None => None
+      }
+      let hi : ClipBound[Double]? = match upper.map(b => f64_bound(b)) {
+        Some(Some(b)) => Some(b)
+        Some(None) => return None
+        None => None
+      }
+      fn at(bound : ClipBound[Double]?, i : Int32) -> Double? {
+        match bound {
+          None => None
+          Some(b) => {
+            let idx = if b.literal { 0 } else { i }
+            if b.valid[idx] {
+              Some(b.buf[idx])
+            } else {
+              None
+            }
+          }
+        }
+      }
+      let out : Array[Double?] = Array::makei(n, i => {
+        if !op_valid[i] {
+          None
+        } else {
+          let mut v = a[i]
+          match at(lo, i) {
+            Some(lo_v) => if v < lo_v { v = lo_v }
+            None => ()
+          }
+          match at(hi, i) {
+            Some(hi_v) => if v > hi_v { v = hi_v }
+            None => ()
+          }
+          Some(v)
+        }
+      })
+      Some(
+        Series::from_float_options(operand.name(), out).try_column_to_numeric(),
+      )
+    }
+    // A rider on the I64 buffer (a `Date` clipping against an `Int` bound
+    // would clamp raw day-counts) and every non-numeric operand decline
+    // the fast pass; the composed kernels raise on those pairs exactly as
+    // they did before this pass existed.
+    @column.ColumnData::I64(_)
+    | @column.ColumnData::Bool(_)
+    | @column.ColumnData::Utf8(_) => None
+  }
 }

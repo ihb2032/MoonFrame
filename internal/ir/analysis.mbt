@@ -26,6 +26,8 @@ pub fn ExprNode::referenced_columns(self : ExprNode) -> @set.Set[String] {
           Col(name) => acc.add(name)
           _ => ()
         }
+        // Reversed push, so the left-most child pops first — the set's
+        // insertion order (its output contract) reads left to right.
         let children = e.children()
         for i = children.length() - 1; i >= 0; i = i - 1 {
           stack.push(children[i])

@@ -69,40 +69,72 @@ pub(all) enum ExprNode {
 /// `signed_zero_safe`, `ReduceOp` in `group_cell_stable`). That is the
 /// intended sequence, not an inconvenience.
 ///
-/// A `Ternary` lists all three arms, condition
-/// first; a `Map` a fresh copy of its inputs, so a caller cannot alias — and
-/// mutate — the node's own array. Leaves (`Col` / `Lit` / `LitSeries`) have
-/// none. Total.
-pub fn ExprNode::children(self : ExprNode) -> Array[ExprNode] {
+/// A `Ternary` lists all three arms, condition first; a `Map` walks its
+/// inputs' view (no copy — the callback only reads); leaves (`Col` / `Lit`
+/// / `LitSeries`) call nothing. Total, and allocation-free: every engine
+/// walk rides this for its descent without materialising a per-node array.
+pub fn ExprNode::each_child(self : ExprNode, f : (ExprNode) -> Unit) -> Unit {
   match self {
-    Col(_) | Lit(_) | LitSeries(_) => []
-    Binary(_, l, r) => [l, r]
+    Col(_) | Lit(_) | LitSeries(_) => ()
+    Binary(_, l, r) => {
+      f(l)
+      f(r)
+    }
     Unary(_, e)
     | Agg(_, e)
     | Str(_, e)
     | Positional(_, e)
     | Cast(e, _)
-    | Alias(e, _) => [e]
-    Ternary(c, t, f) => [c, t, f]
-    FillNull(o, v) | FillNan(o, v) => [o, v]
-    Diff(e, _) => [e]
+    | Alias(e, _) => f(e)
+    Ternary(c, t, fl) => {
+      f(c)
+      f(t)
+      f(fl)
+    }
+    FillNull(o, v) | FillNan(o, v) => {
+      f(o)
+      f(v)
+    }
+    Diff(e, _) => f(e)
     // Only the bounds that exist are children; an omitted side is no node at
     // all, so the walk never sees a `None` as a child.
     Clip(x, lo, hi) => {
-      let kids : Array[ExprNode] = [x]
+      f(x)
       if lo is Some(l) {
-        kids.push(l)
+        f(l)
       }
       if hi is Some(h) {
-        kids.push(h)
+        f(h)
       }
-      kids
     }
-    IsIn(e, _) => [e]
-    IsBetween(x, lo, hi, _) => [x, lo, hi]
-    Map(_, inputs, _) => inputs.to_owned()
-    MapBatches(_, inputs, _, _) => inputs.to_owned()
+    IsIn(e, _) => f(e)
+    IsBetween(x, lo, hi, _) => {
+      f(x)
+      f(lo)
+      f(hi)
+    }
+    Map(_, inputs, _) =>
+      for e in inputs {
+        f(e)
+      }
+    MapBatches(_, inputs, _, _) =>
+      for e in inputs {
+        f(e)
+      }
   }
+}
+
+///|
+/// The immediate sub-nodes as an array, left to right — the convenience
+/// form of `each_child` for the walks that need the children together (the
+/// leftmost-name rule reads them in order; the public `Expr::children`
+/// wraps them). A fresh array every call, built over the same single shape
+/// encoding, so a caller cannot alias — and mutate — a `Map` node's own
+/// inputs.
+pub fn ExprNode::children(self : ExprNode) -> Array[ExprNode] {
+  let kids : Array[ExprNode] = []
+  self.each_child(k => kids.push(k))
+  kids
 }
 
 ///|
@@ -134,12 +166,13 @@ pub fn ExprNode::rename_columns(
     match discover.pop() {
       None => break
       Some(node) => {
-        let kids = node.children()
+        let mut count = 0
         order.push(node)
-        arities.push(kids.length())
-        for k in kids {
+        node.each_child(k => {
           discover.push(k)
-        }
+          count += 1
+        })
+        arities.push(count)
       }
     }
   }

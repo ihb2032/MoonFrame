@@ -1596,6 +1596,50 @@ test "fence: a right join carries the left clash's suffixed decimal name" {
 }
 
 ///|
+test "fence: a cross-scale decimal clip carries the checked refusal" {
+  // `clip` selects its bounds through the same compare rescale a `Gt`
+  // takes, so a cross-scale decimal operand refuses on values: without
+  // the checked-op entry a sinking filter or slice prunes the refusing
+  // row first and the error changes identity (a ternary dtype refusal)
+  // instead of matching the eager one.
+  let df = @frame.DataFrame::DataFrame([
+    @series.Series::from_strings("k", ["keep", "drop"]),
+    @series.Series::from_decimal_options(0, "d", [
+      Some(1L),
+      Some(5000000000000000000L),
+    ]),
+  ])
+  let c = @expr.col("d")
+    .clip(lower=@expr.lit(@types.Scalar::Decimal(1, 6L)))
+    .with_alias("c")
+  let predicate = @expr.col("k").eq(@expr.lit_str("keep"))
+  let eager : Result[@frame.DataFrame, @types.DataError] = Ok(
+    df.with_columns([c]).filter(predicate),
+  ) catch {
+    e => Err(e)
+  }
+  let lazy_ : Result[@frame.DataFrame, @types.DataError] = Ok(
+    LazyFrame::LazyFrame(df).with_columns([c]).filter(predicate).collect(),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(eager is Err(@types.DataError::InvalidOperation(_)))
+  assert_true(lazy_ is Err(@types.DataError::InvalidOperation(_)))
+  let eager_head : Result[@frame.DataFrame, @types.DataError] = Ok(
+    df.with_columns([c]).head(1),
+  ) catch {
+    e => Err(e)
+  }
+  let lazy_head : Result[@frame.DataFrame, @types.DataError] = Ok(
+    LazyFrame::LazyFrame(df).with_columns([c]).head(1).collect(),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(eager_head is Err(@types.DataError::InvalidOperation(_)))
+  assert_true(lazy_head is Err(@types.DataError::InvalidOperation(_)))
+}
+
+///|
 test "fence: a renamed decimal column keeps its fence" {
   // The set used to ride Rename unchanged, still holding the old name while
   // the stages above read the new one. The pairs now rename the set.

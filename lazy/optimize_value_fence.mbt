@@ -335,6 +335,10 @@ fn expr_has_decimal_checked_op(expr : @ir.ExprNode) -> Bool {
       // binary spellings.
       @ir.ExprNode::IsBetween(_, _, _, _) => return true
       @ir.ExprNode::IsIn(_, _) => return true
+      // `clip` runs the same rescale on its bounds selection that a
+      // `Lt` / `Gt` takes, so a cross-scale decimal operand can refuse on
+      // values through it exactly as through the binary spellings.
+      @ir.ExprNode::Clip(_, _, _) => return true
       // The checked unary pair: `neg` / `abs` refuse on an 18-digit
       // magnitude the way the arithmetics refuse on their overflow, and
       // the descent must not read through them as value-safe.

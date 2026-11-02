@@ -303,3 +303,90 @@ test "cast Float rejects underscore grouping but keeps scientific notation" {
   let out = BuiltinColumn::from_strings(["1e3"]).cast(@types.DataType::Float)
   assert_eq(out.get(0), @types.Scalar::Float(1000.0))
 }
+
+// ── Date ↔ Timestamp casts ──────────────────────────────────────────
+
+///|
+test "cast Timestamp from Date scales day counts to microseconds" {
+  let col = BuiltinColumn::from_i64_options(@types.DataType::Date, [
+    Some(0L),
+    None,
+    Some(1L),
+    Some(-1L),
+  ])
+  let out = col.cast(@types.DataType::Timestamp)
+  assert_eq(out.dtype(), @types.DataType::Timestamp)
+  assert_eq(out.get(0), @types.Scalar::Timestamp(0L))
+  assert_eq(out.get(1), @types.Scalar::Null)
+  assert_eq(out.get(2), @types.Scalar::Timestamp(86_400_000_000L))
+  assert_eq(out.get(3), @types.Scalar::Timestamp(-86_400_000_000L))
+}
+
+///|
+test "cast Timestamp from Date refuses a day count whose instant overflows" {
+  let hostile = BuiltinColumn::from_i64_options(@types.DataType::Date, [
+    Some(9_223_372_036_854_775_807L),
+  ])
+  assert_true(
+    (Ok(hostile.cast(@types.DataType::Timestamp)) catch { e => Err(e) })
+    is Err(ParseError(_)),
+  )
+}
+
+///|
+test "cast Date from Timestamp floors microsecond counts to whole days" {
+  let col = BuiltinColumn::from_i64_options(@types.DataType::Timestamp, [
+    Some(0L),
+    None,
+    Some(86_399_999_999L), // one microsecond before a full day: still day 0
+    Some(86_400_000_000L),
+    Some(-1L), // one microsecond before the epoch: 1969-12-31
+  ])
+  let out = col.cast(@types.DataType::Date)
+  assert_eq(out.dtype(), @types.DataType::Date)
+  assert_eq(out.get(0), @types.Scalar::Date(0L))
+  assert_eq(out.get(1), @types.Scalar::Null)
+  assert_eq(out.get(2), @types.Scalar::Date(0L))
+  assert_eq(out.get(3), @types.Scalar::Date(1L))
+  assert_eq(out.get(4), @types.Scalar::Date(-1L))
+}
+
+///|
+test "the Date ↔ Timestamp casts round-trip a calendar date" {
+  let days = BuiltinColumn::from_i64_options(@types.DataType::Date, [
+    Some(11016L),
+    Some(-719_162L), // 0001-01-01
+    Some(2_932_896L), // 9999-12-31
+  ])
+  let back = days.cast(@types.DataType::Timestamp).cast(@types.DataType::Date)
+  assert_eq(back.get(0), @types.Scalar::Date(11016L))
+  assert_eq(back.get(1), @types.Scalar::Date(-719_162L))
+  assert_eq(back.get(2), @types.Scalar::Date(2_932_896L))
+}
+
+///|
+test "the temporal casts refuse a construction the invariants rule out" {
+  // A `Date` / `Timestamp` dtype welded to a `Bool` buffer cannot occur
+  // through any constructor (the dtype/buffer agreement is
+  // constructor-guaranteed); the casts' unreachable arms still answer a
+  // refusal rather than misreading the buffer.
+  let bool_col = BuiltinColumn::from_bools([true])
+  let bogus_date : BuiltinColumn = BuiltinColumn::{
+    dtype: @types.DataType::Date,
+    data: bool_col.data,
+    validity: bool_col.validity,
+  }
+  assert_true(
+    (Ok(bogus_date.cast(@types.DataType::Timestamp)) catch { e => Err(e) })
+    is Err(Unsupported(_)),
+  )
+  let bogus_ts : BuiltinColumn = BuiltinColumn::{
+    dtype: @types.DataType::Timestamp,
+    data: bool_col.data,
+    validity: bool_col.validity,
+  }
+  assert_true(
+    (Ok(bogus_ts.cast(@types.DataType::Date)) catch { e => Err(e) })
+    is Err(Unsupported(_)),
+  )
+}

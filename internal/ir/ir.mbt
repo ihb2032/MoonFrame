@@ -274,11 +274,13 @@ pub extend BinOp with Debug::{to_repr}
 /// only, the NaN probes `IsNan` / `IsNotNan` test for the IEEE `NaN` value,
 /// the finiteness probes `IsFinite` / `IsInfinite` the IEEE `NaN` /
 /// infinity split (an `Int` cell is always finite, never either), the
-/// `Dt*` quartet reads a `Date` cell's calendar components (ISO weekday,
-/// Monday 1 through Sunday 7), `Round` carries its decimal-place count, and
-/// the `Sin` .. `Sqrt` members are the always-`Float` elementwise math
-/// functions (trigonometric, hyperbolic and inverse-hyperbolic, logarithmic,
-/// exponential, and root), routed through `core/math` / the `Double` builtin.
+/// calendar `Dt*` members read a `Date` or `Timestamp` cell's calendar
+/// components (ISO weekday, Monday 1 through Sunday 7) while the clock
+/// `Dt*` members read a `Timestamp` cell's time-of-day, `Round` carries its
+/// decimal-place count, and the `Sin` .. `Sqrt` members are the
+/// always-`Float` elementwise math functions (trigonometric, hyperbolic and
+/// inverse-hyperbolic, logarithmic, exponential, and root), routed through
+/// `core/math` / the `Double` builtin.
 pub(all) enum UnOp {
   Neg
   Not
@@ -292,6 +294,10 @@ pub(all) enum UnOp {
   DtMonth
   DtDay
   DtWeekday
+  DtHour
+  DtMinute
+  DtSecond
+  DtMicrosecond
   Abs
   Floor
   Ceil

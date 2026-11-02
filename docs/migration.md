@@ -7,6 +7,21 @@ written when the release is cut; the per-symbol reference — generated from the
 docstrings — is on [mooncakes.io](https://mooncakes.io/docs/ihb2032/MoonFrame)
 and [GitHub Pages](https://ihb2032.github.io/MoonFrame/).
 
+## v0.8.1 → v0.9.0 (unreleased)
+
+No source-level migration steps so far. What has landed on `main`:
+
+- The `dt_*` family reads a `Timestamp` operand: the calendar verbs
+  (`dt_year` / `dt_month` / `dt_day` / `dt_day_of_week`, previously
+  `Date`-only) take a `Date` or `Timestamp` operand — a `Timestamp` reads
+  its date half — and the new clock verbs `dt_hour` / `dt_minute` /
+  `dt_second` / `dt_microsecond` are `Timestamp`-only (a `Date` names no
+  time of day).
+- The cast surface offers the temporal pair: `Date` → `Timestamp` (each
+  day count scaled to microseconds, exact or `ParseError` on the far end
+  of the `Date` range) and `Timestamp` → `Date` (the microsecond count
+  floored to whole days). Every other rider cast keeps its refusal.
+
 ## v0.8.0 → v0.8.1
 
 No source-level migration steps. v0.8.1 is an additive patch: every v0.8.0

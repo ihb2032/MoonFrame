@@ -1,8 +1,9 @@
 // The `Timestamp` dtype acceptance suite, the `Date` suite's shape over the
 // second I64 rider: microseconds since the epoch, riding the registry, ISO
 // rendering with a six-digit fraction, comparison / sort / group / join over
-// the raw counts, and the same fences (no arithmetic, no cross-dtype compare,
-// no cast, no inference, `dt_*` stays Date-only).
+// the raw counts, the `dt_*` family reading its date half and clock half,
+// and the fences that stay (no arithmetic, no cross-dtype compare, no
+// inference, the cast surface offering only the Date pair).
 
 ///|
 /// A small frame with a `Timestamp` column: the epoch-midnight of 2024, a
@@ -97,7 +98,7 @@ test "Timestamp renders ISO and interchanges as text" {
 }
 
 ///|
-test "Timestamp is never inferred, never cast; dt_* stays Date-only" {
+test "Timestamp is never inferred; the cast surface offers only the Date pair" {
   let from_csv = @io.parse_csv_str("t\n2024-01-01T00:00:00.000000")
   assert_eq(from_csv.get_column("t").dtype(), @types.DataType::String)
   let df = ts_frame().drop_nulls(subset=[@expr.col("t")])
@@ -107,17 +108,19 @@ test "Timestamp is never inferred, never cast; dt_* stays Date-only" {
     })
     is Err(@types.DataError::Unsupported(_)),
   )
-  assert_true(
-    (Ok(ignore(df.get_column("t").cast(@types.DataType::Timestamp))) catch {
-      e => Err(e)
-    })
-    is Err(@types.DataError::Unsupported(_)),
-  )
-  // The calendar verbs are Date's: a Timestamp column does not quietly read
-  // its cells as day counts.
-  assert_true(
-    (Ok(ignore(df.select([@expr.col("t").dt_year()]))) catch { e => Err(e) })
-    is Err(@types.DataError::TypeMismatch(_)),
+  // The offered pair: a Timestamp floors to its calendar date, and the
+  // calendar verbs read that same date half — the cast and the verbs
+  // cannot disagree.
+  let as_date = df.get_column("t").cast(@types.DataType::Date)
+  assert_eq(as_date.dtype(), @types.DataType::Date)
+  assert_eq(as_date.get(0).to_string(), "2024-01-01")
+  assert_eq(
+    df.select([@expr.col("t").dt_year()]).get_column("t").to_scalars(),
+    [
+      @types.Scalar::Int(2024),
+      @types.Scalar::Int(2024),
+      @types.Scalar::Int(2024),
+    ],
   )
 }
 

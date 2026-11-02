@@ -137,13 +137,13 @@ fn classify(node : @ir.ExprNode, kids : Array[ExprProps]) -> ExprProps {
       }
     }
     // Every unary member is row-local; almost all raise only on the dtype,
-    // a scope-independent fact — the `Dt*` quartet included, whose calendar
-    // math is total over every `Int64` day count (the same remainder-first
-    // conversion the ISO rendering composes); `Round` reads only its place
-    // count. The family's one value-dependent refusal is decimal
-    // `Neg` / `Abs` on an 18-digit magnitude, and that one is the decimal
-    // value-fence's to carry (`expr_has_decimal_checked_op` lists the
-    // pair), not this structural walk's.
+    // a scope-independent fact — the `Dt*` members included, whose calendar
+    // and clock math is total over every `Int64` count (the same
+    // remainder-first conversion the ISO rendering composes); `Round` reads
+    // only its place count. The family's one value-dependent refusal is
+    // decimal `Neg` / `Abs` on an 18-digit magnitude, and that one is the
+    // decimal value-fence's to carry (`expr_has_decimal_checked_op` lists
+    // the pair), not this structural walk's.
     @ir.ExprNode::Unary(op, _) => {
       let combined = kids_and(kids)
       {
@@ -152,6 +152,10 @@ fn classify(node : @ir.ExprNode, kids : Array[ExprProps]) -> ExprProps {
           | @ir.UnOp::DtMonth
           | @ir.UnOp::DtDay
           | @ir.UnOp::DtWeekday
+          | @ir.UnOp::DtHour
+          | @ir.UnOp::DtMinute
+          | @ir.UnOp::DtSecond
+          | @ir.UnOp::DtMicrosecond
           | @ir.UnOp::Neg
           | @ir.UnOp::Not
           | @ir.UnOp::IsNull

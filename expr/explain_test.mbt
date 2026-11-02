@@ -561,6 +561,10 @@ test "show: the dt family renders its postfix calls" {
   inspect(col("d").dt_day(), content="col(d).dt_day()")
   // The builder is `dt_day_of_week`; the rendering spells the ISO term.
   inspect(col("d").dt_day_of_week(), content="col(d).dt_day_of_week()")
+  inspect(col("t").dt_hour(), content="col(t).dt_hour()")
+  inspect(col("t").dt_minute(), content="col(t).dt_minute()")
+  inspect(col("t").dt_second(), content="col(t).dt_second()")
+  inspect(col("t").dt_microsecond(), content="col(t).dt_microsecond()")
 }
 
 ///|

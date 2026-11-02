@@ -7,7 +7,8 @@
 # reason, not just the line, when the variant set grows.
 frame/pivot.mbt widen_unpivot_cell documented invariant — the unify raised unless the cells pass through unchanged
 internal/column/builtin.mbt BuiltinColumn::from_scalars off-type cell projects to null; the outer DataType match is the compile-forced gate
-internal/kernel/date.mbt eval_dt_component the dtype gate above leaves only Date and Null cells; the wildcard is the null
+internal/kernel/date.mbt eval_dt_date_component the dtype gate above leaves only Date, Timestamp and Null cells; the wildcard is the null
+internal/kernel/date.mbt eval_dt_clock_component the dtype gate above leaves only Timestamp and Null cells; the wildcard is the null
 internal/kernel/predicate.mbt try_fast_is_in fast path declines to the general Scalar-comparing path for buffers it does not accelerate
 internal/kernel/predicate.mbt hash_set_is_in non-Null members go through key_of, which declines the fast path for an off-type member
 internal/kernel/rolling.mbt eval_rolling closure-parameter underscores (fold comparators), not match arms — the scanner is deliberately lexical
@@ -30,6 +31,8 @@ frame/null.mbt DataFrame::fill_null the catch-all compares dtypes (fills only wh
 frame/null.mbt DataFrame::fill_nan the catch-all is the identity pass-through: only Float cells carry NaN, every other variant rides unchanged
 frame/pivot.mbt reshape_pivot the catch-all renders the cell for the pivot card — a new variant renders by its own to_string, as today's do
 internal/column/builtin_cast.mbt BuiltinColumn::to_int closure-parameter lines inside the cast's cell loops (i =>), not match arms — the scanner is deliberately lexical
+internal/column/builtin_cast.mbt BuiltinColumn::cast_date_to_timestamp closure-parameter lines inside the cast's cell loops (i => / b =>), not match arms — the scanner is deliberately lexical
+internal/column/builtin_cast.mbt BuiltinColumn::cast_timestamp_to_date closure-parameter lines inside the cast's cell loops (i => / b =>), not match arms — the scanner is deliberately lexical
 internal/column/builtin_cast.mbt BuiltinColumn::to_float closure-parameter lines inside the cast's cell loops (i =>), not match arms — the scanner is deliberately lexical
 internal/column/builtin_cast.mbt BuiltinColumn::to_string_column closure-parameter lines inside the cast's cell loops (i =>), not match arms — the scanner is deliberately lexical
 internal/kernel/ternary.mbt eval_ternary closure-parameter lines inside the cell selectors (i =>), not match arms — the scanner is deliberately lexical

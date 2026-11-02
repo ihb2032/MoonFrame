@@ -63,7 +63,11 @@ pub fn Expr::diff(Self, n? : Int32) -> Self
 pub fn Expr::div(Self, Self) -> Self
 pub fn Expr::dt_day(Self) -> Self
 pub fn Expr::dt_day_of_week(Self) -> Self
+pub fn Expr::dt_hour(Self) -> Self
+pub fn Expr::dt_microsecond(Self) -> Self
+pub fn Expr::dt_minute(Self) -> Self
 pub fn Expr::dt_month(Self) -> Self
+pub fn Expr::dt_second(Self) -> Self
 pub fn Expr::dt_year(Self) -> Self
 pub fn Expr::eq(Self, Self) -> Self
 pub fn Expr::exp(Self) -> Self

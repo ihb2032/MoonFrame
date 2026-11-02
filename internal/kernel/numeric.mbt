@@ -463,7 +463,8 @@ fn decimal_div_float(left : Series, right : Series) -> Series? {
     match d {
       Decimal(s) => Some(s)
       Int => Some(0)
-      _ => None
+      // Every other dtype is the plain division path's own question.
+      Float | Bool | String | Date | Timestamp | Duration | Null => None
     }
   }
   match (scale_of(left.dtype()), scale_of(right.dtype())) {
@@ -697,7 +698,7 @@ fn eval_round(
 ) -> Series raise @types.DataError {
   match operand.dtype() {
     Decimal(scale) => decimal_round(operand, scale, decimals)
-    Int | Float | Bool | String | Date | Timestamp | Null =>
+    Int | Float | Bool | String | Date | Timestamp | Duration | Null =>
       eval_unary_num(operand, "round", a => a, v => round_places(v, decimals))
   }
 }

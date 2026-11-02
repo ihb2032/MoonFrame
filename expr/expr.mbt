@@ -62,7 +62,12 @@
 /// - `Map` / `MapBatches` — the row-wise / batched closure escape hatches
 ///   (`.map_elements()` / `map_many()` / `.map_batches()`), the function opaque
 ///   so each is identified by its `(label, inputs)` (`MapBatches` also by its
-///   `returns_scalar` flag).
+///   `returns_scalar` flag);
+/// - `Over` — `.over(keys)`, the window wrapper: its inner expression is
+///   evaluated once per key group and stitched back to the frame's rows
+///   (an aggregation broadcasts over its group, a group-length transform
+///   lands cell-for-cell), so the output is frame-tall like any other
+///   expression but its cells read their group's rows.
 pub struct Expr {
   priv node : @ir.ExprNode
 }

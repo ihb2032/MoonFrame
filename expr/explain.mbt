@@ -286,6 +286,19 @@ fn push_write_tasks(stack : Array[WriteTask], expr : Expr) -> Unit {
       )
       ts
     }
+    // The window wrapper renders as its postfix builder: the inner
+    // expression, then `.over(key1, key2)`.
+    Over(inner, keys) => {
+      let ts : Array[WriteTask] = [Node(Expr::of_node(inner)), Frag(".over(")]
+      for i in 0..<keys.length() {
+        if i > 0 {
+          ts.push(Frag(", "))
+        }
+        ts.push(Node(Expr::of_node(keys[i])))
+      }
+      ts.push(Frag(")"))
+      ts
+    }
   }
   for i = tasks.length() - 1; i >= 0; i = i - 1 {
     stack.push(tasks[i])
@@ -412,6 +425,18 @@ fn positional_suffix(op : @ir.PositionalOp) -> String {
       ".forward_fill(\{match limit { Some(k) => "\{k}"; None => "" }})"
     BackwardFill(limit) =>
       ".backward_fill(\{match limit { Some(k) => "\{k}"; None => "" }})"
+    Ewm(stat, alpha, adjust, min_samples, ignore_nulls) => {
+      let verb = match stat {
+        EwmMean => "ewm_mean"
+        EwmStd => "ewm_std"
+        EwmVariance => "ewm_variance"
+      }
+      let a = "alpha=\{alpha}"
+      let adj = if adjust { "" } else { "adjust=false" }
+      let ms = if min_samples == 1 { "" } else { "min_samples=\{min_samples}" }
+      let ig = if ignore_nulls { "ignore_nulls" } else { "" }
+      ".\{verb}(\{[a, adj, ms, ig].filter(x => x != "").join(", ")})"
+    }
   }
 }
 

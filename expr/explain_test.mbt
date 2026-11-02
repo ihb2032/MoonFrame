@@ -574,3 +574,23 @@ test "show: the misc family renders its postfix calls" {
   inspect(col("v").is_last_distinct(), content="col(v).is_last_distinct()")
   inspect(col("v").mode(), content="col(v).mode()")
 }
+
+///|
+test "show: the window and ewm families render their postfix calls" {
+  inspect(col("x").sum().over([col("g")]), content="col(x).sum().over(col(g))")
+  inspect(
+    col("x").mean().over([col("g"), col("h")]),
+    content="col(x).mean().over(col(g), col(h))",
+  )
+  inspect(col("v").ewm_mean(alpha=0.5), content="col(v).ewm_mean(alpha=0.5)")
+  inspect(
+    col("v").ewm_std(span=3.0, adjust=false),
+    content="col(v).ewm_std(alpha=0.5, adjust=false)",
+  )
+  inspect(
+    col("v").ewm_variance(alpha=0.5, min_samples=2, ignore_nulls=true),
+    content=(
+      #|col(v).ewm_variance(alpha=0.5, min_samples=2, ignore_nulls)
+    ),
+  )
+}

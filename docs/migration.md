@@ -32,6 +32,18 @@ No source-level migration steps so far. What has landed on `main`:
   NDJSON side a rider pin reads `String` values only — the riders' one
   carrier in a format with no native type for them; a JSON `Number` under
   a `Decimal` pin is a mismatch, never a coercion.
+- `Expr::over(keys)` — the window wrapper: an aggregating inner
+  (`.sum()`, `.mean()`, …) broadcasts its group's single cell over the
+  group's rows, a group-length inner (`.rank()`, `.shift(n)`,
+  `.cum_sum()`, …) lands cell-for-cell, and any other length raises.
+  Key semantics mirror `group_by` (expression keys, a null key its own
+  group). Nesting a window in a window or using one inside an `agg`
+  expression refuses, and the optimizer fences windows whole: no
+  predicate or projection crosses a stage that defines one.
+- The `ewm_mean` / `ewm_std` / `ewm_variance` family — the
+  exponentially-weighted recurrence (`span~` or `alpha~`, `adjust~`,
+  `min_samples~`, `ignore_nulls~`; the deviation / variance are the
+  biased estimator). Always `Float`.
 
 ## v0.8.0 → v0.8.1
 

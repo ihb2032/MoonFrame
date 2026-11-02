@@ -337,6 +337,13 @@ fn eval_expr(
                   work.push(Eval(inputs[i]))
                 }
               }
+              // A window is self-contained — it evaluates its own keys and
+              // inner against the whole frame, not against the ambient
+              // scope — so it answers in one recursive call rather than
+              // decomposing onto the work stack. The recursion depth is the
+              // nesting of windows, which the evaluator refuses beyond one.
+              @ir.ExprNode::Over(inner, keys) =>
+                values.push(eval_over(df, inner, keys))
             }
           ApplyBinary(op) => {
             let rhs = pop_value(values)

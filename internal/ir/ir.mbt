@@ -48,6 +48,7 @@ pub(all) enum ExprNode {
     Bool,
     (Array[@series.Series]) -> @series.Series raise @types.DataError
   )
+  Over(ExprNode, Array[ExprNode])
 }
 
 ///|
@@ -121,6 +122,15 @@ pub fn ExprNode::each_child(self : ExprNode, f : (ExprNode) -> Unit) -> Unit {
       for e in inputs {
         f(e)
       }
+    // The windowed expression first, then its key expressions left to
+    // right — both are read columns for the walks that keep inputs alive,
+    // and both are rewritten by the rename walk below.
+    Over(inner, keys) => {
+      f(inner)
+      for k in keys {
+        f(k)
+      }
+    }
   }
 }
 
@@ -232,6 +242,14 @@ pub fn ExprNode::rename_columns(
         Map(label, _, f) => Map(label, kids, f)
         MapBatches(label, _, returns_bool, f) =>
           MapBatches(label, kids, returns_bool, f)
+        // `kids` carries the inner first, then one key each (the
+        // `children` order), so the rebuilt keys are the tail of the array.
+        Over(_, keys) => {
+          let rebuilt : Array[ExprNode] = Array::makei(keys.length(), k => {
+            kids[k + 1]
+          })
+          Over(kids[0], rebuilt)
+        }
       },
     )
   }
@@ -407,6 +425,13 @@ pub extend RollStat with Debug::{to_repr}
 /// computed only where the window holds at least `min_samples` non-null
 /// cells (`None` = every cell). Numeric only; `Sum` /
 /// `Min` / `Max` keep the operand dtype, the rest are `Float`.
+///
+/// `Ewm(stat, alpha, adjust, min_samples, ignore_nulls)` is the
+/// exponentially-weighted half: each cell the recursive blend
+/// `y = (1 - alpha) * y_prev + alpha * x` (or its normalised-ratio form
+/// under `adjust=false`), carried across nulls per `ignore_nulls` and
+/// gated to null until `min_samples` non-null cells have been seen.
+/// Always `Float`, numeric operand only.
 pub(all) enum PositionalOp {
   Shift(Int32, @types.Scalar)
   CumSum(Bool)
@@ -422,7 +447,24 @@ pub(all) enum PositionalOp {
   UniqueCounts
   IsFirstDistinct
   IsLastDistinct
+  Ewm(EwmStat, Double, Bool, Int32, Bool)
 } derive(Eq, Debug)
+
+///|
+/// The exponentially-weighted statistic — mean, or the standard deviation /
+/// variance derived from the running second moment (the biased estimator;
+/// the unbiased correction is not carried).
+pub(all) enum EwmStat {
+  EwmMean
+  EwmStd
+  EwmVariance
+} derive(Eq, Debug)
+
+///|
+pub extend EwmStat with Eq::{equal, not_equal}
+
+///|
+pub extend EwmStat with Debug::{to_repr}
 
 ///|
 pub extend PositionalOp with Eq::{equal, not_equal}

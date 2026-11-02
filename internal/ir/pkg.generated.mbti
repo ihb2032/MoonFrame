@@ -36,6 +36,15 @@ pub fn BinOp::equal(Self, Self) -> Bool
 pub fn BinOp::not_equal(Self, Self) -> Bool
 pub fn BinOp::to_repr(Self) -> @debug.Repr
 
+pub(all) enum EwmStat {
+  EwmMean
+  EwmStd
+  EwmVariance
+} derive(Eq, @debug.Debug)
+pub fn EwmStat::equal(Self, Self) -> Bool
+pub fn EwmStat::not_equal(Self, Self) -> Bool
+pub fn EwmStat::to_repr(Self) -> @debug.Repr
+
 pub(all) enum ExprNode {
   Col(String)
   Lit(@types.Scalar)
@@ -56,6 +65,7 @@ pub(all) enum ExprNode {
   IsBetween(ExprNode, ExprNode, ExprNode, @types.ClosedInterval)
   Map(String, ArrayView[ExprNode], (Array[@types.Scalar]) -> @types.Scalar raise @types.DataError)
   MapBatches(String, ArrayView[ExprNode], Bool, (Array[@series.Series]) -> @series.Series raise @types.DataError)
+  Over(ExprNode, Array[ExprNode])
 }
 pub fn ExprNode::children(Self) -> Array[Self]
 pub fn ExprNode::each_child(Self, (Self) -> Unit) -> Unit
@@ -78,6 +88,7 @@ pub(all) enum PositionalOp {
   UniqueCounts
   IsFirstDistinct
   IsLastDistinct
+  Ewm(EwmStat, Double, Bool, Int32, Bool)
 } derive(Eq, @debug.Debug)
 pub fn PositionalOp::equal(Self, Self) -> Bool
 pub fn PositionalOp::not_equal(Self, Self) -> Bool

@@ -117,6 +117,10 @@ fn fold_descends(node : @ir.ExprNode) -> Bool {
     | @ir.ExprNode::IsBetween(_, _, _, _)
     | @ir.ExprNode::Agg(_, _)
     | @ir.ExprNode::Positional(_, _) => true
+    // A window is a closed unit like a closure carrier: folding inside it
+    // would rewrite a per-group subtree against the whole frame's
+    // literals, a different question than the one its cells answer.
+    @ir.ExprNode::Over(_, _) => false
   }
 }
 

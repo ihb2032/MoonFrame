@@ -67,7 +67,10 @@ pub fn ExprNode::output_name(self : ExprNode) -> String {
 /// `otherwise` as fallback — never from the condition (the condition gates rows,
 /// it does not produce output values), so it is matched explicitly rather than
 /// walking all of its children. (`referenced_columns`, by contrast, includes
-/// condition columns — pushdown must keep them alive.) The match is exhaustive
+/// condition columns — pushdown must keep them alive.) A `Ternary`'s
+/// condition and an `Over`'s keys are the two non-producing readers: an
+/// `Over` names itself after its windowed expression, never after a key
+/// column, so it is matched explicitly too. The match is exhaustive
 /// with no wildcard: a new variant that should name itself (the `LitSeries`
 /// situation) fails compilation here instead of silently falling through to
 /// `"literal"`.
@@ -85,6 +88,9 @@ fn ExprNode::leftmost_name(self : ExprNode) -> String? {
             stack.push(f)
             stack.push(t)
           }
+          // A window names itself after what it computes, not after a key
+          // it groups by — only the inner expression is a naming child.
+          Over(inner, _) => stack.push(inner)
           // Name-transparent — the search rides `children` for these.
           Lit(_)
           | Binary(_, _, _)

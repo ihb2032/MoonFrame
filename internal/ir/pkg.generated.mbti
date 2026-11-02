@@ -137,6 +137,10 @@ pub(all) enum UnOp {
   DtMonth
   DtDay
   DtWeekday
+  DtHour
+  DtMinute
+  DtSecond
+  DtMicrosecond
   Abs
   Floor
   Ceil

@@ -1085,40 +1085,71 @@ pub fn Expr::clip(self : Expr, lower? : Expr, upper? : Expr) -> Expr {
 }
 
 ///|
-/// The `dt_*` quartet's shared doc — a `Date` operand's calendar
-/// components, each an `Int` column with null cells kept null, any other
-/// dtype a `TypeMismatch` at evaluation (building stays total). The
-/// components come from the same calendar math the ISO date rendering
-/// composes, so `dt_year` / `dt_month` / `dt_day` read back exactly what a
-/// `Date` cell displays.
+/// The `dt_*` family's shared doc — a `Date` or `Timestamp` operand's
+/// calendar components and a `Timestamp` operand's clock components, each
+/// an `Int` column with null cells kept null, any other dtype a
+/// `TypeMismatch` at evaluation (building stays total). The components
+/// come from the same calendar math the ISO renderings compose, so
+/// `dt_year` / `dt_month` / `dt_day` read back exactly what the cell's own
+/// date half displays and `dt_hour` .. `dt_microsecond` the six fraction
+/// digits beside it.
 fn Expr::dt_component(self : Expr, op : @ir.UnOp) -> Expr {
   Expr::of_node(@ir.ExprNode::Unary(op, self.node))
 }
 
 ///|
-/// The calendar year of each `Date` cell — the shared `dt_*` contract, the
-/// component being the four-digit year.
+/// The calendar year of each `Date` or `Timestamp` cell — the shared
+/// `dt_*` contract, the component being the four-digit year.
 pub fn Expr::dt_year(self : Expr) -> Expr {
   self.dt_component(@ir.UnOp::DtYear)
 }
 
 ///|
-/// The calendar month of each `Date` cell, `1`–`12`.
+/// The calendar month of each `Date` or `Timestamp` cell, `1`–`12`.
 pub fn Expr::dt_month(self : Expr) -> Expr {
   self.dt_component(@ir.UnOp::DtMonth)
 }
 
 ///|
-/// The day of the month of each `Date` cell, `1`–`31`.
+/// The day of the month of each `Date` or `Timestamp` cell, `1`–`31`.
 pub fn Expr::dt_day(self : Expr) -> Expr {
   self.dt_component(@ir.UnOp::DtDay)
 }
 
 ///|
-/// The ISO weekday of each `Date` cell — Monday `1` through Sunday `7` (the
-/// epoch is a Thursday, and dates before 1970 land on the right day too).
+/// The ISO weekday of each `Date` or `Timestamp` cell — Monday `1` through
+/// Sunday `7` (the epoch is a Thursday, and dates before 1970 land on the
+/// right day too; a `Timestamp` reads its date half).
 pub fn Expr::dt_day_of_week(self : Expr) -> Expr {
   self.dt_component(@ir.UnOp::DtWeekday)
+}
+
+///|
+/// The hour of the day of each `Timestamp` cell, `0`–`23` — the shared
+/// `dt_*` contract over the clock half; a `Date` operand is a
+/// `TypeMismatch` (it names no time of day).
+pub fn Expr::dt_hour(self : Expr) -> Expr {
+  self.dt_component(@ir.UnOp::DtHour)
+}
+
+///|
+/// The minute of the hour of each `Timestamp` cell, `0`–`59`.
+pub fn Expr::dt_minute(self : Expr) -> Expr {
+  self.dt_component(@ir.UnOp::DtMinute)
+}
+
+///|
+/// The second of the minute of each `Timestamp` cell, `0`–`59`.
+pub fn Expr::dt_second(self : Expr) -> Expr {
+  self.dt_component(@ir.UnOp::DtSecond)
+}
+
+///|
+/// The microsecond of the second of each `Timestamp` cell, `0`–`999999` —
+/// together with the other clock verbs it reads back exactly the six
+/// fraction digits the cell's own rendering shows.
+pub fn Expr::dt_microsecond(self : Expr) -> Expr {
+  self.dt_component(@ir.UnOp::DtMicrosecond)
 }
 
 ///|

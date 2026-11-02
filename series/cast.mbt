@@ -13,15 +13,19 @@
 /// - `String` — `Int` / `Float` / `Bool` render to their value form;
 ///   never rejects a value, so the only failure is an unsupported side
 ///   below.
+/// - `Timestamp` from `Date` — each day count scaled by the microseconds a
+///   day holds, exact (a day count whose instant leaves `Int64` `raise`s
+///   `ParseError`).
+/// - `Date` from `Timestamp` — the microsecond count floored to whole
+///   days, total at every value.
 ///
 /// Null slots are preserved verbatim. A numeric result lands on the
 /// `Builtin` backend; the engine re-converges it onto the unboxed fast path
-/// where a later step benefits. Every target outside the three above —
-/// `Bool`, `Null`, `Date`, `Timestamp`, `Decimal` — `raise`s
-/// `Unsupported(_)`, and so do a `Date`, `Timestamp`, or `Decimal` source —
-/// the riders' readings (an instant, a scaled magnitude) are not
-/// conversions this library offers; `item` / `to_string` render them
-/// instead.
+/// where a later step benefits. Every other pairing — `Bool`, `Null`,
+/// `Decimal` targets, a temporal target from a non-temporal source, or a
+/// `Decimal` source — `raise`s `Unsupported(_)`: the decimal rider's
+/// scaled magnitude is not a conversion this library offers; `item` /
+/// `to_string` render it instead.
 pub fn Series::cast(
   self : Series,
   target : @types.DataType,

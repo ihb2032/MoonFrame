@@ -11,26 +11,38 @@
 /// Cast by target dtype — the single public cross-dtype conversion. `Int`
 /// truncates / parses, `Float` promotes / parses (per the file-private
 /// `to_int` / `to_float` helpers this dispatches to), and `String` renders
-/// every dtype through the total `to_string_column`. A target outside that
-/// three — `Bool`, `Null`, `Date`, `Timestamp`, `Decimal` — `raise`s
-/// `Unsupported`; the `Bool` refusal is because the true / false spelling
-/// belongs to the read-side probes (`parse_bool_opt` and friends), and
-/// silently guessing an acceptance set for `1` / `0` / text is a semantic
-/// decision no consumer has asked for yet.
+/// every dtype through the total `to_string_column`. The temporal pair is
+/// the one rider conversion offered: `Date` → `Timestamp` (each day count
+/// times the microseconds a day holds, checked — a day count whose product
+/// leaves `Int64` raises `ParseError`), and `Timestamp` → `Date` (the
+/// microsecond count floored to whole days, total at every `Int64`). Every
+/// other target — `Bool`, `Null`, `Decimal`, a temporal target from a
+/// non-temporal source — `raise`s `Unsupported`; the `Bool` refusal is
+/// because the true / false spelling belongs to the read-side probes
+/// (`parse_bool_opt` and friends), and silently guessing an acceptance set
+/// for `1` / `0` / text is a semantic decision no consumer has asked for
+/// yet.
 ///
-/// A *source* is refused by the registry's own identity/representation
-/// split, not by a hand-kept list: a dtype that rides the `I64` buffer
-/// without being numeric (`Date`, `Timestamp`, `Decimal` today) is refused
-/// outright — reusing the buffer under another dtype or rendering its raw
-/// counts would be a silent misinterpretation, and a real conversion (ISO
-/// parse, days extraction, rescale) is a semantic decision that lands with
-/// the first consumer that needs one. The registry promise holds: a new
-/// I64 rider is refused here without a new arm to forget.
+/// Every other *source* is refused by the registry's own
+/// identity/representation split, not by a hand-kept list: a dtype that
+/// rides the `I64` buffer without being numeric (`Decimal` today, and the
+/// temporal pair outside their own conversion above) is refused outright —
+/// reusing the buffer under another dtype or rendering its raw counts
+/// would be a silent misinterpretation, and a real conversion (ISO parse,
+/// rescale) is a semantic decision that lands with the first consumer
+/// that needs one. The registry promise holds: a new I64 rider is refused
+/// here without a new arm to forget.
 fn BuiltinColumn::cast(
   self : BuiltinColumn,
   target : @types.DataType,
 ) -> BuiltinColumn raise @types.DataError {
   let source = self.dtype()
+  if source is @types.DataType::Date && target is @types.DataType::Timestamp {
+    return self.cast_date_to_timestamp()
+  }
+  if source is @types.DataType::Timestamp && target is @types.DataType::Date {
+    return self.cast_timestamp_to_date()
+  }
   if source.physical() is Some(@types.PhysicalType::I64) && !source.is_numeric() {
     raise @types.DataError::Unsupported("cast from \{source}")
   }
@@ -43,6 +55,65 @@ fn BuiltinColumn::cast(
     Timestamp => raise @types.DataError::Unsupported("cast to Timestamp")
     Decimal(_) => raise @types.DataError::Unsupported("cast to Decimal")
     Null => raise @types.DataError::Unsupported("cast to Null")
+  }
+}
+
+///|
+/// `Date` → `Timestamp` — each valid cell's day count scaled by the
+/// microseconds a day holds, exact or refused: the checked product raises
+/// `ParseError` on a day count whose instant leaves `Int64` (the far end
+/// of the `Date` range, not any calendar date a rendering shows). Validity
+/// is preserved verbatim.
+fn BuiltinColumn::cast_date_to_timestamp(
+  self : BuiltinColumn,
+) -> BuiltinColumn raise @types.DataError {
+  match self.data {
+    I64(a) =>
+      self.cast_cells(
+        @types.DataType::Timestamp,
+        i => {
+          let days = a[i]
+          match @numeric.mul_checked(days, 86_400_000_000L) {
+            Some(micros) => micros
+            None =>
+              raise @types.DataError::ParseError(
+                @types.ParseErrorDetail::Message(
+                  "Date out of Timestamp range: \{days} days",
+                ),
+              )
+          }
+        },
+        0L,
+        b => I64(b),
+      )
+    // The cast dispatcher reaches here only for a `Date` source, whose
+    // buffer is always `I64` — the other buffers are unreachable arms the
+    // storage invariants rule out; they answer the same refusal the caller
+    // of `cast` on a mismatched construction would see.
+    F64(_) | Bool(_) | Utf8(_) =>
+      raise @types.DataError::Unsupported("cast from Date")
+  }
+}
+
+///|
+/// `Timestamp` → `Date` — each valid cell's microsecond count floored to
+/// whole days through the shared remainder-first conversion (total at
+/// every `Int64`, so the cast never refuses a value). Validity is
+/// preserved verbatim.
+fn BuiltinColumn::cast_timestamp_to_date(
+  self : BuiltinColumn,
+) -> BuiltinColumn raise @types.DataError {
+  match self.data {
+    I64(a) =>
+      self.cast_cells(
+        @types.DataType::Date,
+        i => @types.timestamp_micros_to_day(a[i]).0,
+        0L,
+        b => I64(b),
+      )
+    // The unreachable-buffer arm, as above.
+    F64(_) | Bool(_) | Utf8(_) =>
+      raise @types.DataError::Unsupported("cast from Timestamp")
   }
 }
 

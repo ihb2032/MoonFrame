@@ -239,7 +239,11 @@ method Expr::diff(Self, n? : Int32) -> Self <- expr
 method Expr::div(Self, Self) -> Self <- expr
 method Expr::dt_day(Self) -> Self <- expr
 method Expr::dt_day_of_week(Self) -> Self <- expr
+method Expr::dt_hour(Self) -> Self <- expr
+method Expr::dt_microsecond(Self) -> Self <- expr
+method Expr::dt_minute(Self) -> Self <- expr
 method Expr::dt_month(Self) -> Self <- expr
+method Expr::dt_second(Self) -> Self <- expr
 method Expr::dt_year(Self) -> Self <- expr
 method Expr::eq(Self, Self) -> Self <- expr
 method Expr::exp(Self) -> Self <- expr

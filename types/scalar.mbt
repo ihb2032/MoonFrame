@@ -175,6 +175,43 @@ fn date_days_to_iso(days : Int64) -> String {
 }
 
 ///|
+/// Split a microsecond count since the epoch into its whole-day floor and
+/// the within-day remainder in `[0, 86_400_000_000)` — the decomposition
+/// both the ISO rendering and the `dt_*` verbs read, so an instant's date
+/// half and its clock half cannot disagree. Floor semantics by remainder
+/// first: the C-remainder `r` carries the dividend's sign and never wraps,
+/// `micros - r` is a multiple of the day bound no larger than the dividend,
+/// and the corrections keep both the day quotient and the remainder small —
+/// so the trick stays equivalent to floor division at every `Int64`, where
+/// subtracting the bound before dividing (the direct spelling) would
+/// underflow near MIN.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
+pub fn timestamp_micros_to_day(micros : Int64) -> (Int64, Int64) {
+  let r = micros % 86_400_000_000L
+  let day = (micros - r) / 86_400_000_000L - (if r < 0L { 1L } else { 0L })
+  let rem = r + (if r < 0L { 86_400_000_000L } else { 0L })
+  (day, rem)
+}
+
+///|
+/// The `(hour, minute, second, microsecond)` a within-day microsecond count
+/// in `[0, 86_400_000_000)` names — plain divisions over a non-negative
+/// remainder, the clock half of `timestamp_micros_to_day`'s split. A count
+/// outside the day range answers whatever its own divisions name; the
+/// callers that reach it pass the split's remainder.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
+pub fn day_micros_to_clock(within_day : Int64) -> (Int64, Int64, Int64, Int64) {
+  (
+    within_day / 3_600_000_000L,
+    within_day % 3_600_000_000L / 60_000_000L,
+    within_day % 60_000_000L / 1_000_000L,
+    within_day % 1_000_000L,
+  )
+}
+
+///|
 /// The ISO 8601 rendering of a microsecond count since the epoch — the one
 /// rendering a `Scalar::Timestamp` has (value form, `Show` form, CSV / JSON
 /// cell form all share it), composed from the date rendering above plus the
@@ -183,15 +220,7 @@ fn date_days_to_iso(days : Int64) -> String {
 /// count it came from); instants before the epoch carry the date's negative
 /// year sign, the time-of-day stays in `[00:00:00, 24:00:00)`.
 fn timestamp_micros_to_iso(micros : Int64) -> String {
-  // Floor division by remainder first: the C-remainder `r` carries the
-  // dividend's sign and never wraps, `micros - r` is a multiple of the
-  // day bound no larger than the dividend, and the corrections keep both
-  // the day quotient and the time-of-day small — so the trick stays
-  // equivalent to floor division at every `Int64`, where subtracting the
-  // bound before dividing (the direct spelling) would underflow near MIN.
-  let r = micros % 86_400_000_000L
-  let day = (micros - r) / 86_400_000_000L - (if r < 0L { 1L } else { 0L })
-  let rem = r + (if r < 0L { 86_400_000_000L } else { 0L })
+  let (day, rem) = timestamp_micros_to_day(micros)
   fn pad2(n : Int64) -> String {
     if n < 10 {
       "0\{n}"
@@ -216,10 +245,7 @@ fn timestamp_micros_to_iso(micros : Int64) -> String {
     }
   }
 
-  let hour = rem / 3_600_000_000L
-  let minute = rem % 3_600_000_000L / 60_000_000L
-  let second = rem % 60_000_000L / 1_000_000L
-  let frac = rem % 1_000_000L
+  let (hour, minute, second, frac) = day_micros_to_clock(rem)
   "\{date_days_to_iso(day)}T\{pad2(hour)}:\{pad2(minute)}:\{pad2(second)}.\{pad6(frac)}"
 }
 

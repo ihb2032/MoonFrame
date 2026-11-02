@@ -50,6 +50,17 @@ pub(all) enum DataType {
   /// `Int` is a `TypeMismatch`, so a compared bound is written as a
   /// decimal literal; readers never infer it.
   Decimal(Int32)
+  /// A span of time, stored as whole microseconds (negative for a span
+  /// running backwards) — an `I64` physical buffer with duration
+  /// semantics, `Timestamp`'s unit without its epoch. The temporal
+  /// arithmetic reads it: `Timestamp − Timestamp` and `Date − Date`
+  /// produce one, `Timestamp ± Duration` stays `Timestamp` (a `Date`
+  /// promoted to `Timestamp` first). Not numeric; ordering / grouping
+  /// compare the raw microsecond spans. Renders as an ISO 8601 duration
+  /// (days-and-time form, the second's fraction always six digits); the
+  /// readers have no parser for it — a written-back column reads as
+  /// `String`, and a `dtypes` pin refuses it.
+  Duration
   Null
 } derive(Eq, Debug)
 

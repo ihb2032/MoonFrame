@@ -20,6 +20,7 @@ pub(all) enum Scalar {
   Date(Int64)
   Timestamp(Int64)
   Decimal(Int32, Int64)
+  Duration(Int64)
   Null
 } derive(Eq, Debug)
 
@@ -43,6 +44,7 @@ pub fn Scalar::dtype(self : Scalar) -> DataType {
     Date(_) => DataType::Date
     Timestamp(_) => DataType::Timestamp
     Decimal(scale, _) => DataType::Decimal(scale)
+    Duration(_) => DataType::Duration
     Null => DataType::Null
   }
 }
@@ -66,6 +68,7 @@ pub fn Scalar::to_string(self : Scalar) -> String {
     Date(v) => date_days_to_iso(v)
     Timestamp(v) => timestamp_micros_to_iso(v)
     Decimal(scale, v) => decimal_unscaled_to_string(scale, v)
+    Duration(v) => duration_micros_to_iso(v)
     Null => ""
   }
 }
@@ -133,6 +136,7 @@ pub impl Show for Scalar with fn output(self, logger) {
     Timestamp(v) => logger <+ "Timestamp(\{timestamp_micros_to_iso(v)})"
     Decimal(scale, v) =>
       logger <+ "Decimal(\{scale}, \{decimal_unscaled_to_string(scale, v)})"
+    Duration(v) => logger <+ "Duration(\{duration_micros_to_iso(v)})"
     Null => logger.write_string("Null")
   }
 }
@@ -247,6 +251,52 @@ fn timestamp_micros_to_iso(micros : Int64) -> String {
 
   let (hour, minute, second, frac) = day_micros_to_clock(rem)
   "\{date_days_to_iso(day)}T\{pad2(hour)}:\{pad2(minute)}:\{pad2(second)}.\{pad6(frac)}"
+}
+
+///|
+/// The ISO 8601 duration rendering of a microsecond span — the one
+/// rendering a `Scalar::Duration` has (value form, `Show` form, CSV / JSON
+/// cell form all share it): days-and-time form, the seconds field always
+/// present with a six-digit fraction (the `Timestamp` rendering's rule, so
+/// the two temporal riders spell time alike), a day / hour / minute field
+/// omitted when it is zero, and a leading `-` for a backwards span. The
+/// magnitude is taken as an unsigned count (`Int64::MIN`'s own magnitude
+/// is not representable as a positive `Int64`), so every span renders.
+fn duration_micros_to_iso(micros : Int64) -> String {
+  let sign = if micros < 0L { "-" } else { "" }
+  // The magnitude is negated in the unsigned domain — a two's-complement
+  // reinterpretation of a negative span would read as a huge count — so
+  // every span decomposes, `Int64::MIN`'s own magnitude included, and
+  // each decomposed field fits an `Int64` with room.
+  let bits = micros.reinterpret_as_uint64()
+  let u = if micros < 0L { 0UL - bits } else { bits }
+  let day_us : UInt64 = 86_400_000_000UL
+  let days = (u / day_us).reinterpret_as_int64()
+  let rem = u % day_us
+  let hour = (rem / 3_600_000_000UL).reinterpret_as_int64()
+  let minute = (rem % 3_600_000_000UL / 60_000_000UL).reinterpret_as_int64()
+  let second = (rem % 60_000_000UL / 1_000_000UL).reinterpret_as_int64()
+  let frac = (rem % 1_000_000UL).reinterpret_as_int64()
+  fn pad6(n : Int64) -> String {
+    if n < 10 {
+      "00000\{n}"
+    } else if n < 100 {
+      "0000\{n}"
+    } else if n < 1000 {
+      "000\{n}"
+    } else if n < 10000 {
+      "00\{n}"
+    } else if n < 100000 {
+      "0\{n}"
+    } else {
+      n.to_string()
+    }
+  }
+
+  let days_text = if days == 0L { "" } else { "\{days}D" }
+  let hour_text = if hour == 0L { "" } else { "\{hour}H" }
+  let minute_text = if minute == 0L { "" } else { "\{minute}M" }
+  "\{sign}P\{days_text}T\{hour_text}\{minute_text}\{second}.\{pad6(frac)}S"
 }
 
 ///|

@@ -232,17 +232,10 @@ fn reduce_column(
   // only `Bool` / `String` stay nulled — the documented whole-frame shape —
   // so a `Decimal` / `Date` / `Timestamp` column agrees with `Series::min` /
   // `Series::max` (what `describe` reports) instead of silently nulling.
-  // Spelled variant-by-variant so a dtype added later fails compilation
-  // here until its verdict is written.
-  let orderable = match dtype {
-    @types.DataType::Int
-    | @types.DataType::Float
-    | @types.DataType::Date
-    | @types.DataType::Timestamp
-    | @types.DataType::Decimal(_) => true
-    @types.DataType::Bool | @types.DataType::String | @types.DataType::Null =>
-      false
-  }
+  // The verdict is the registry's own `orderable` row — the
+  // variant-by-variant match this replaced was a second copy of it, and a
+  // dtype added later registers its verdict where its row is written.
+  let orderable = dtype.orderable()
   let (cell, probe) = match op {
     FrameReduceOp::Count =>
       (@types.Scalar::Int(s.count().to_int64()), @types.DataType::Int)

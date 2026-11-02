@@ -340,6 +340,17 @@ pub fn Series::from_scalars(
           }
         }),
       )
+    @types.DataType::Duration =>
+      Series::from_duration_options(
+        name,
+        typed_cells(cells, target, name, cell => {
+          if cell is @types.Scalar::Duration(v) {
+            Some(v)
+          } else {
+            None
+          }
+        }),
+      )
     @types.DataType::Null =>
       raise @types.DataError::Unsupported(
         "cannot build a column of dtype Null: \{name}",
@@ -408,6 +419,25 @@ pub fn Series::from_timestamp_options(
   Series::from_builtin(
     name,
     @column.BuiltinColumn::from_i64_options(@types.DataType::Timestamp, values),
+  )
+}
+
+///|
+/// Build a `Duration` series from optional raw microsecond spans (whole
+/// microseconds, negative for a backwards span), `None` entries nulls.
+/// The duration face of the shared `I64` buffer constructor: the cells
+/// are the same `Int64` buffer an int column carries, with span
+/// semantics on read — the registry's per-dtype lift turns a cell back
+/// into a `Scalar::Duration`.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
+pub fn Series::from_duration_options(
+  name : String,
+  values : Array[Int64?],
+) -> Series {
+  Series::from_builtin(
+    name,
+    @column.BuiltinColumn::from_i64_options(@types.DataType::Duration, values),
   )
 }
 

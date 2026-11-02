@@ -267,7 +267,8 @@ fn encoding_channel(
       if dtype.is_numeric() || dtype is @types.DataType::Decimal(_) {
         "quantitative"
       } else if dtype is @types.DataType::Date ||
-        dtype is @types.DataType::Timestamp {
+        dtype is @types.DataType::Timestamp ||
+        dtype is @types.DataType::Duration {
         "temporal"
       } else {
         "nominal"

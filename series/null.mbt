@@ -138,6 +138,22 @@ pub fn Series::fill_null(
             ),
           )
       }
+    // A Duration value fills its own dtype only — the Timestamp rule over
+    // the same buffer, a span in place of an instant.
+    @types.Scalar::Duration(v) =>
+      match self.storage.data() {
+        @column.ColumnData::I64(data) if self.dtype()
+          is @types.DataType::Duration => {
+          let buf = fill_buffer(data, valid, v)
+          Series::from_duration_options(self.name, buf.map(x => Some(x)))
+        }
+        _ =>
+          raise @types.DataError::TypeMismatch(
+            @types.TypeMismatchDetail::Message(
+              "fill_null type Duration does not match column type \{self.dtype()}",
+            ),
+          )
+      }
     // A Decimal value fills its own dtype only — the Date rule over the same
     // buffer, with the scale carried by the dtype (the scalar's own scale
     // must agree, or the fill would silently re-scale the column).

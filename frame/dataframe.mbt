@@ -281,6 +281,17 @@ pub fn DataFrame::from_rows(
             }
           }),
         )
+      @types.DataType::Duration =>
+        Series::from_duration_options(
+          field.name(),
+          typed_column_cells(rows, i, field, cell => {
+            if cell is @types.Scalar::Duration(v) {
+              Some(v)
+            } else {
+              None
+            }
+          }),
+        )
       @types.DataType::Null =>
         raise @types.DataError::Unsupported(
           "cannot build DataFrame column of dtype Null: \{field.name()}",

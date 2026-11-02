@@ -288,6 +288,9 @@ fn scalar_to_json(s : @types.Scalar) -> Json {
     // and `Scalar::to_string` use), so the two interchange formats agree.
     @types.Scalar::Date(_) => Json::string(s.to_string())
     @types.Scalar::Timestamp(_) => Json::string(s.to_string())
+    // A duration leaves the same way — its ISO spelling, text the readers
+    // have no parser for (a written-back column reads as `String`).
+    @types.Scalar::Duration(_) => Json::string(s.to_string())
     @types.Scalar::Decimal(_, _) => Json::string(s.to_string())
   }
 }

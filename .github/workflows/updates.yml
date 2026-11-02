@@ -11,8 +11,11 @@
 # conventions (one conventional commit, a one-paragraph body).
 #
 # Everything the job needs write access to is named here and nowhere else:
-# contents + pull-requests, for pushing branches and opening PRs. It never
-# touches releases, issues, or secrets.
+# contents + pull-requests, for pushing branches and opening PRs, and
+# workflows — the toolchain pin lives in the ci and docs workflow files,
+# so a bump commit carries a workflow edit and GitHub refuses that push
+# without the permission (the first drift after the bot landed caught
+# exactly this). It never touches releases, issues, or secrets.
 #
 # Cadence: Monday 03:00 UTC, and on demand via workflow_dispatch.
 
@@ -20,12 +23,13 @@ name: updates
 
 on:
   schedule:
-    - cron: "0 3 * * 1"
+    - cron: "0 3 * * * 1"
   workflow_dispatch:
 
 permissions:
   contents: write
   pull-requests: write
+  workflows: write
 
 concurrency:
   group: updates

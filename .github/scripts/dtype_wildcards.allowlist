@@ -11,7 +11,6 @@ internal/kernel/date.mbt eval_dt_date_component the dtype gate above leaves only
 internal/kernel/date.mbt eval_dt_clock_component the dtype gate above leaves only Timestamp and Null cells; the wildcard is the null
 internal/kernel/predicate.mbt try_fast_is_in fast path declines to the general Scalar-comparing path for buffers it does not accelerate
 internal/kernel/predicate.mbt hash_set_is_in non-Null members go through key_of, which declines the fast path for an off-type member
-internal/kernel/rolling.mbt eval_rolling closure-parameter underscores (fold comparators), not match arms — the scanner is deliberately lexical
 series/null.mbt Series::fill_null the inner gate raises TypeMismatch (loud); the outer Scalar match is exhaustive
 series/row_gather.mbt Series::gather_series fast path declines to rebuild_by_row for buffers it does not accelerate
 series/series_stats.mbt Series::mean the reducer's result contract is Float|Null; the wildcard arm is the raise

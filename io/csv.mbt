@@ -744,6 +744,8 @@ fn build_column(
     },
     parse_bool=c => cell_parse(parse_bool_opt, c),
     render=cell_text,
+    // The CSV cell already *is* the riders' text form.
+    rider_text=c => c,
     locate=(dt, i, c) => {
       @types.DataError::ParseError(
         @types.ParseErrorDetail::Cell(

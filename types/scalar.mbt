@@ -323,3 +323,28 @@ pub fn date_days_to_civil(days : Int64) -> (Int64, Int64, Int64) {
   let year = if m <= 2L { y + 1L } else { y }
   (year, m, d)
 }
+
+///|
+/// The day count since the epoch a Gregorian `(year, month, day)` names —
+/// the inverse of `date_days_to_civil` above and its partner in the one
+/// home of the calendar math: the ISO date parsing composes the pair as its
+/// own validation (a scanned date is accepted exactly when the round trip
+/// returns it unchanged, which threads month lengths and leap years with
+/// no second copy of the rules). Exact over every year the inverse can
+/// name — `|year|` below ~2.5e16, the image of every `Int64` day count —
+/// via the same remainder-first floor the forward conversion uses; beyond
+/// that the era product wraps (no `Int64` day count corresponds anyway).
+fn days_from_civil(year : Int64, month : Int64, day : Int64) -> Int64 {
+  // March-based months, so the leap day lands at a year's end where the
+  // era arithmetic ignores it.
+  let y = if month <= 2L { year - 1L } else { year }
+  // Floor `y / 400` remainder-first: the C-remainder never wraps and the
+  // correction keeps `yoe` a small non-negative remainder.
+  let r = y % 400L
+  let era = (y - r) / 400L - (if r < 0L { 1L } else { 0L })
+  let yoe = r + (if r < 0L { 400L } else { 0L })
+  let mp = if month > 2L { month - 3L } else { month + 9L }
+  let doy = (153L * mp + 2L) / 5L + day - 1L
+  let doe = yoe * 365L + yoe / 4L - yoe / 100L + doy
+  era * 146097L + doe - 719468L
+}

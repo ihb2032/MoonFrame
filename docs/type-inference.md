@@ -40,16 +40,15 @@ down, choose one of:
   *every* row before locking the dtype (Polars' `infer_schema_length=None`);
 - set `on_parse_error = OnParseError::Null` to downgrade the offending cell to a
   null while keeping the column's inferred dtype (Polars' `ignore_errors=True`);
-  or
+- pin the dtype ahead of inference with `dtypes=` (the next section) — the one
+  way a rider dtype enters a frame on the way in; or
 - convert after the read — `df.with_columns([col("x").cast(DataType::Float)])`
   turns whatever was inferred into the dtype you want (a cell that cannot
   convert raises).
 
-There is no schema-override parameter on the readers: no `dtypes=` / `schema=`,
-so inference is the only thing that assigns a dtype on the way in. When a frame
-must be built to a declared schema instead, construct it directly —
-`Series::from_*` per column, or `DataFrame::from_rows(schema, rows)`, which
-validates the cells against the schema you pass.
+When a frame must instead be built to a declared schema wholesale, construct it
+directly — `Series::from_*` per column, or `DataFrame::from_rows(schema, rows)`,
+which validates the cells against the schema you pass.
 
 ## Pinning a dtype with `dtypes`
 
@@ -71,18 +70,26 @@ inference's place:
 - A pinned column **skips inference** — the pin is the caller's answer, so
   it locks in even when the cells would have inferred differently (a
   `0`-padded `zip` column stays `String`, never `Int`).
-- Only `Int` / `Float` / `Bool` / `String` can be pinned: those are the
-  dtypes a reader can parse from cell text. Pinning anything else — `Null`,
-  or the rider dtypes `Date` / `Timestamp` / `Decimal` — fails the read
-  with `InvalidOperation` at read time, loudly rather than as a silent
-  no-op.
+- Every dtype with a read parser can be pinned: `Int` / `Float` / `Bool` /
+  `String` parse from cell text, and the rider dtypes `Date` / `Timestamp` /
+  `Decimal(scale)` parse the writers' own text forms (ISO `YYYY-MM-DD`, ISO
+  `YYYY-MM-DDTHH:MM:SS.ffffff` with an optional trailing `Z` and an
+  optional shorter fraction, and plain fixed-point digits). A `Decimal` pin
+  carries its scale — `"1.5"` under `Decimal(2)` reads `1.50`, and a cell
+  with more fraction digits than the scale names is a mismatch, not a
+  truncation. Pinning `Null` — the one dtype with no read parser — fails
+  the read with `InvalidOperation` at read time, loudly rather than as a
+  silent no-op.
 - A pin naming a column the input does not carry is refused with
   `InvalidOperation`, too: a pin is an assertion about the input, and a
   misspelt one should fail rather than silently do nothing.
 - A cell that does not parse under the pin follows `on_parse_error`
   exactly as a post-window mismatch does — including JSON's strong types:
   a JSON `String` in a column pinned `Int` is a mismatch, never a `"1" → 1`
-  coercion.
+  coercion. The riders are the deliberate exception on the JSON side —
+  they have no JSON-native type, so their pins read `String` values (the
+  writer's own carrier) and nothing else: a JSON `Number` under a
+  `Decimal` pin is a mismatch, never a coercion.
 - The map is copied when the options are built, so mutating it afterwards
   cannot change what a deferred `scan_csv` / `scan_ndjson` / `scan_json`
   pins at collect time.

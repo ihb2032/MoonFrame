@@ -21,6 +21,17 @@ No source-level migration steps so far. What has landed on `main`:
   day count scaled to microseconds, exact or `ParseError` on the far end
   of the `Date` range) and `Timestamp` → `Date` (the microsecond count
   floored to whole days). Every other rider cast keeps its refusal.
+- The readers' `dtypes` override pins the rider dtypes: `Date` /
+  `Timestamp` / `Decimal(scale)` join `Int` / `Float` / `Bool` / `String`
+  as pinnable, parsing the writers' own text forms (ISO date, ISO
+  timestamp with an optional trailing `Z` and an optional one-to-six-digit
+  fraction, plain fixed-point decimal under the pin's scale — a cell with
+  more fraction digits than the scale names is a mismatch, never a
+  truncation). Inference still never produces a rider: a written-back
+  rider column reads as `String` / `Float` unless pinned. On the JSON /
+  NDJSON side a rider pin reads `String` values only — the riders' one
+  carrier in a format with no native type for them; a JSON `Number` under
+  a `Decimal` pin is a mismatch, never a coercion.
 
 ## v0.8.0 → v0.8.1
 

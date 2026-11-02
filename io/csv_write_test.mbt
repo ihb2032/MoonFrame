@@ -620,3 +620,30 @@ test "write to a .gz path under a missing directory surfaces as IoError" {
   }
   assert_true(result is Err(@types.DataError::IoError(_)))
 }
+
+///|
+test "parse_csv_str ∘ format_csv: a pinned rider column round-trips losslessly" {
+  // The riders' read parsers accept exactly the writer's text forms, so a
+  // `dtypes` pin restores what inference cannot: the written-back column
+  // keeps its dtype and every cell's value, nulls included.
+  let df = @frame.DataFrame::DataFrame([
+    @series.Series::from_date_options("d", [Some(19724L), None, Some(11016L)]),
+    @series.Series::from_timestamp_options("t", [
+      Some(1_704_121_460_123_456L),
+      Some(-1L),
+      None,
+    ]),
+  ])
+  let text = @io.format_csv(df)
+  let opts = @io.CsvReadOptions::CsvReadOptions(
+    dtypes=Map([("d", @types.DataType::Date), ("t", @types.DataType::Timestamp)]),
+  )
+  let parsed = @io.parse_csv_str(text, options=opts)
+  assert_eq(parsed.get_column("d").dtype(), @types.DataType::Date)
+  assert_eq(parsed.get_column("t").dtype(), @types.DataType::Timestamp)
+  for name in df.columns() {
+    for i in 0..<df.nrows() {
+      assert_eq(parsed.item(i, name), df.item(i, name))
+    }
+  }
+}

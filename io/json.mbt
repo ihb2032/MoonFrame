@@ -235,8 +235,10 @@ pub fn read_json(
 ///   escape so any future Unicode spec tweaks land transparently)
 /// - `Date` / `Timestamp` / `Decimal` → JSON string holding the cell's
 ///   value-form rendering (ISO calendar text / ISO instant / fixed-point
-///   decimal); the readers never infer these dtypes, so a round-trip
-///   reads the column back as `String` / `Float` respectively.
+///   decimal); the readers never infer these dtypes, so an unpinned
+///   round-trip reads the column back as `String` / `Float` — a `dtypes`
+///   pin reads the string back into its rider dtype, text being the
+///   riders' one carrier in a format with no native type for them.
 ///
 /// Keys appear in the column declaration order, preserved by the
 /// builtin `Map` (linked-hash-map) used for each record object.

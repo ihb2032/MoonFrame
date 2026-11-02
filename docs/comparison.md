@@ -204,12 +204,13 @@ will not find here today:
   the contract's home. Dead-expression elimination and sinking
   filters below sorts are not implemented.
 - **Reader dtype override** — `CsvReadOptions` / `JsonReadOptions` take a
-  `dtypes=` map pinning named columns to `Int` / `Float` / `Bool` /
-  `String` ahead of inference (Polars' `schema_overrides`); columns not
-  named keep their inferred dtype, a name the input does not carry is
-  refused, and the rider dtypes cannot be pinned — the readers have no
-  parser for their text (a written-back `Date` / `Timestamp` / `Decimal`
-  column still reads as `String` / `Float`). See
+  `dtypes=` map pinning named columns ahead of inference (Polars'
+  `schema_overrides`); columns not named keep their inferred dtype, and a
+  name the input does not carry is refused. The pinnable dtypes are `Int` /
+  `Float` / `Bool` / `String` plus the riders `Date` / `Timestamp` /
+  `Decimal(scale)`, whose pins parse the writers' own text forms (so a
+  written-back rider column round-trips losslessly); inference itself
+  never picks a rider up. See
   [`type-inference.md`](type-inference.md).
 
 See [`migration.md`](migration.md) for the upgrade history, the per-symbol

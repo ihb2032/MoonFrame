@@ -225,7 +225,7 @@ fn float_rolling_stat(
     }
     // The extrema never reach this fold — the deque pass intercepts them
     // in both buffer arms above. The arm keeps the rescan's own semantics
-    // and stays live: the whitebox test beside this file pins it, so a
+    // and stays live: the rescan-extrema reference test pins it, so a
     // future dispatch that routes here again has a reference verdict to
     // hold it to.
     Min | Max => {

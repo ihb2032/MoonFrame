@@ -135,14 +135,15 @@ test "sum is exact over one scale; the approximate statistics stay fenced" {
     (Ok(ignore(df.get_column("d").std())) catch { e => Err(e) })
     is Err(@types.DataError::TypeMismatch(_)),
   )
-  // Division stays fenced: an exact quotient needs a result-scale rule
-  // (how far to extend), which is a decision the arithmetic batch leaves
-  // open. `+` / `-` / `*` landed — the arithmetic test below pins them.
-  assert_true(
-    (Ok(ignore(df.select([@expr.col("d").div(@expr.lit_int(2L))]))) catch {
-      e => Err(e)
-    })
-    is Err(@types.DataError::TypeMismatch(_)),
+  // Division goes through Float (the always-Float rule's own spelling,
+  // scale-aware on each side); the arithmetic test below pins the exact
+  // verbs that landed — `+` / `-` / `*` and this quotient.
+  assert_eq(
+    df
+    .select([@expr.col("d").div(@expr.lit_int(2L)).with_alias("q")])
+    .item(0, "q")
+    .to_string(),
+    "61.725",
   )
 }
 
@@ -819,4 +820,94 @@ test "a cross-scale decimal join names the cast remedy" {
       assert_true(m.contains("cast both sides to one scale first"))
     _ => fail("expected a cross-scale decimal TypeMismatch")
   }
+}
+
+///|
+test "decimal division goes through Float, scale-aware" {
+  let df = DataFrame::DataFrame([
+    Series::from_decimal_options(2, "a", [Some(150L)]),
+    Series::from_decimal_options(2, "b", [Some(75L)]),
+  ])
+  let out = df.select([(@expr.col("a") / @expr.col("b")).with_alias("q")])
+  assert_eq(out.get_column("q").dtype(), @types.DataType::Float)
+  // 1.50 / 0.75 = 2.0 within one scale.
+  assert_eq(out.item(0, "q"), @types.Scalar::Float(2.0))
+  let mixed = DataFrame::DataFrame([
+    Series::from_decimal_options(1, "a", [Some(5L)]),
+    Series::from_decimal_options(2, "b", [Some(25L)]),
+  ])
+  let q = mixed.select([(@expr.col("a") / @expr.col("b")).with_alias("q")])
+  // 0.5 / 0.25 = 2.0 across scales.
+  assert_eq(q.item(0, "q"), @types.Scalar::Float(2.0))
+  // The Int lift divides like the exact arithmetic's own lift.
+  let lifted = DataFrame::DataFrame([
+    Series::from_ints("i", [3]),
+    Series::from_decimal_options(2, "d", [Some(75L)]),
+  ])
+  assert_eq(
+    lifted
+    .select([(@expr.col("i") / @expr.col("d")).with_alias("q")])
+    .item(0, "q"),
+    @types.Scalar::Float(4.0),
+  )
+  assert_eq(
+    lifted
+    .select([(@expr.col("d") / @expr.col("i")).with_alias("q")])
+    .item(0, "q"),
+    @types.Scalar::Float(0.25),
+  )
+  // A decimal zero divides per IEEE; a null nulls.
+  let ieee = DataFrame::DataFrame([
+    Series::from_decimal_options(2, "a", [Some(150L), None]),
+    Series::from_decimal_options(2, "b", [Some(0L), Some(75L)]),
+  ])
+  let cells = ieee.select([(@expr.col("a") / @expr.col("b")).with_alias("q")])
+  assert_eq(cells.item(0, "q").to_string(), "Infinity")
+  assert_true(cells.item(1, "q") is @types.Scalar::Null)
+}
+
+///|
+test "decimal round rescales exactly, half-even on the dropped run" {
+  // Narrow: 2.55 → 2.6 (the tie bumps the odd quotient), 2.45 → 2.4 (the
+  // tie keeps the even one), 2.44 → 2.4 (below the half).
+  fn rounded(
+    unscaled : Int64,
+    from : Int32,
+    to : Int32,
+  ) -> String raise @types.DataError {
+    DataFrame::DataFrame([
+      Series::from_decimal_options(from, "d", [Some(unscaled)]),
+    ])
+    .select([@expr.col("d").round(decimals=to).with_alias("r")])
+    .item(0, "r")
+    .to_string()
+  }
+  assert_eq(rounded(255L, 2, 1), "2.6")
+  assert_eq(rounded(245L, 2, 1), "2.4")
+  assert_eq(rounded(244L, 2, 1), "2.4")
+  assert_eq(rounded(-245L, 2, 1), "-2.4")
+  assert_eq(rounded(-255L, 2, 1), "-2.6")
+  // To zero places: 1.5 → 2 (odd up), 2.5 → 2 (even stays).
+  assert_eq(rounded(15L, 1, 0), "2")
+  assert_eq(rounded(25L, 1, 0), "2")
+  // Widen: exact zeros, the dtype carries the wider scale.
+  assert_eq(rounded(125L, 2, 4), "1.2500")
+  // A widening past the envelope refuses.
+  assert_true(
+    (Ok(ignore(rounded(125L, 2, 19))) catch { e => Err(e) })
+    is Err(@types.DataError::InvalidOperation(_)),
+  )
+  // A negative target clamps to zero places (the builder's own rule, the
+  // `Float` rounding's spelling): 1.25 → 1.
+  assert_eq(rounded(125L, 2, -1), "1")
+}
+
+///|
+test "a null cell stays null through the decimal round" {
+  let df = DataFrame::DataFrame([
+    Series::from_decimal_options(2, "d", [None, Some(245L)]),
+  ])
+  let out = df.select([@expr.col("d").round(decimals=1).with_alias("r")])
+  assert_true(out.item(0, "r") is @types.Scalar::Null)
+  assert_eq(out.item(1, "r").to_string(), "2.4")
 }

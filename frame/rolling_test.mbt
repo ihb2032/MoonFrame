@@ -488,7 +488,7 @@ test "the rolling extrema equal the naive window rescan" {
     min_samples : Int32?,
     center : Bool,
     want_min : Bool,
-  ) -> Array[Double?] raise @types.DataError {
+  ) -> Array[Double?] {
     let n = vals.length()
     let need = match min_samples {
       Some(k) => k

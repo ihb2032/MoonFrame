@@ -365,10 +365,11 @@ pub fn DataFrame::null_count(
 /// disambiguates. The per-column reductions (`min`, `max`) keep the
 /// original dtype if a caller needs it typed.
 ///
-/// This is a deliberately reduced summary: it omits the standard deviation,
-/// variance, and quantiles (`25%` / `50%` / `75%`). The per-column kernels
-/// expose those directly (`Series` std / variance / median) for callers who
-/// need them.
+/// This is a deliberately reduced summary: it omits the standard deviation
+/// and variance (the per-column kernels expose those directly — `Series`
+/// std / variance — for callers who need them); the quartiles
+/// (`25%` / `50%` / `75%`, linear-interpolated) are carried, nulled for a
+/// non-numeric / empty / all-null column like the mean is.
 ///
 /// Because `min` / `max` skip `NaN` while `count` and `n_unique` treat `NaN`
 /// as a present value, an all-`NaN` `Float` column reports a non-zero
@@ -379,8 +380,8 @@ pub fn DataFrame::null_count(
 /// Raises only because the summary frame is built through the fallible
 /// `DataFrame::DataFrame`; the output columns are hardcoded-unique and equal
 /// length, so the raise is forwarded, never actually taken. The 0-column
-/// case collapses to a `0×8` frame: zero source columns ⇒ zero output
-/// rows, but the eight schema columns are still present so downstream
+/// case collapses to a `0×11` frame: zero source columns ⇒ zero output
+/// rows, but the eleven schema columns are still present so downstream
 /// code can rely on the result's column layout.
 pub fn DataFrame::describe(
   self : DataFrame,
@@ -391,6 +392,9 @@ pub fn DataFrame::describe(
   let null_counts : Array[Int64] = []
   let n_uniques : Array[Int64] = []
   let means : Array[Double?] = []
+  let q25s : Array[Double?] = []
+  let q50s : Array[Double?] = []
+  let q75s : Array[Double?] = []
   let mins : Array[String?] = []
   let maxs : Array[String?] = []
   for s in self.column_series() {
@@ -404,8 +408,13 @@ pub fn DataFrame::describe(
     // numeric one), `Some(mean)` otherwise. The aggregate view wants that
     // single null cell either way (the per-column API keeps the
     // distinction), so it reads the total accessor and skips the error
-    // catch, like the `min` / `max` reads just below.
+    // catch, like the `min` / `max` reads just below — and the quartiles
+    // read `quantile_opt`, the same contract over the linear-interpolated
+    // quantile.
     means.push(s.mean_opt())
+    q25s.push(s.quantile_opt(0.25))
+    q50s.push(s.quantile_opt(0.5))
+    q75s.push(s.quantile_opt(0.75))
     // `min` / `max` are total; they return `Scalar::Null` to signal "no
     // value" — a null cell here — and otherwise render via
     // `Scalar::to_string`.
@@ -424,6 +433,9 @@ pub fn DataFrame::describe(
     Series::from_ints("null_count", null_counts),
     Series::from_ints("n_unique", n_uniques),
     Series::from_float_options("mean", means),
+    Series::from_float_options("25%", q25s),
+    Series::from_float_options("50%", q50s),
+    Series::from_float_options("75%", q75s),
     Series::from_string_options("min", mins),
     Series::from_string_options("max", maxs),
   ])

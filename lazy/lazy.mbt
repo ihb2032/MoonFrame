@@ -625,8 +625,9 @@ pub fn LazyGroupBy::len(self : LazyGroupBy) -> LazyFrame {
 /// this method actually runs, render it with `explain(optimized=true)`.
 pub fn LazyFrame::collect(
   self : LazyFrame,
+  optimizations~ : Optimizations = Optimizations::Optimizations(),
 ) -> @frame.DataFrame raise @types.DataError {
-  self.plan.optimize().execute()
+  self.plan.optimize_with(optimizations).execute()
 }
 
 ///|

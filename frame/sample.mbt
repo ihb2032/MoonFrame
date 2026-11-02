@@ -1,10 +1,10 @@
-// The row sampler and shuffler: `n` rows drawn from the frame, or the whole
-// frame permuted, under a seeded generator, so both are deterministic
-// functions of their seed (the library's every-other-verb property, kept
-// here: same seed, same rows, on every platform). The generator is
-// `core/random`'s chacha8 — pure MoonBit, so the sequence is reproducible
-// across platforms and nothing here maintains a PRNG of its own. There is
-// no fraction parameter: `n` composes with the caller's own row count.
+// The row sampler and shuffler: `n` rows drawn from the frame (or a
+// fraction of them), or the whole frame permuted, under a seeded
+// generator, so both are deterministic functions of their seed (the
+// library's every-other-verb property, kept here: same seed, same rows,
+// on every platform). The generator is `core/random`'s chacha8 — pure
+// MoonBit, so the sequence is reproducible across platforms and nothing
+// here maintains a PRNG of its own.
 
 ///|
 /// The chacha8 generator a `seed~` names: the `Int32` seed spreads across
@@ -25,7 +25,10 @@ fn chacha8_seeded(seed : Int32) -> @random.Rand {
 }
 
 ///|
-/// `n` rows sampled from the frame: without
+/// `n` rows sampled from the frame — or, when `fraction~` is given
+/// instead, `max(1, round(fraction × nrows))` of them (Polars' own
+/// floor-with-a-heartbeat: a fraction of a fraction of a row still draws
+/// one row, and `fraction` must sit in `(0, 1]`): without
 /// replacement a seeded partial Fisher–Yates — the first `n` slots of a
 /// full shuffle, so every row appears at most once and the output order is
 /// the draw order; with replacement `n` independent draws, repeats
@@ -47,10 +50,37 @@ fn chacha8_seeded(seed : Int32) -> @random.Rand {
 /// lazy entry; collect first.
 pub fn DataFrame::sample(
   self : DataFrame,
-  n : Int32,
+  n? : Int32,
   with_replacement~ : Bool = false,
   seed~ : Int32 = 0,
+  fraction? : Double,
 ) -> DataFrame raise @types.DataError {
+  // Exactly one of `n` / `fraction` names the draw size; a fraction
+  // converts through the rounding-with-a-floor rule above.
+  let n = match (n, fraction) {
+    (Some(k), None) => k
+    (None, Some(f)) => {
+      if !(f > 0.0 && f <= 1.0) {
+        raise @types.DataError::InvalidOperation(
+          "sample fraction must sit in (0, 1], got \{f}",
+        )
+      }
+      // The floor-at-one applies only where a row exists to draw: a
+      // 0-row frame samples zero rows, like an explicit `n = 0` does.
+      let drawn = (f * self.nrows().to_double()).round()
+      if self.nrows() == 0 {
+        0
+      } else if drawn < 1.0 {
+        1
+      } else {
+        drawn.to_int()
+      }
+    }
+    _ =>
+      raise @types.DataError::InvalidOperation(
+        "sample takes exactly one of n or fraction",
+      )
+  }
   if n < 0 {
     raise @types.DataError::InvalidOperation("sample needs n >= 0")
   }

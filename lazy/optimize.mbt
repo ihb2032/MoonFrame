@@ -78,7 +78,10 @@
 /// as-built plan exactly once. The white-box tests pin every
 /// pass's own idempotence and the whole-pipeline property on the shapes
 /// that hold.
-fn LogicalPlan::optimize(self : LogicalPlan) -> LogicalPlan {
+fn LogicalPlan::optimize_with(
+  self : LogicalPlan,
+  flags : Optimizations,
+) -> LogicalPlan {
   // A DAG-shaped plan — nested self-joins share node objects by reference —
   // is left as-built: the passes rebuild tree-wise, so rewriting would
   // materialise every shared subplan once per occurrence (2^depth new nodes
@@ -92,7 +95,9 @@ fn LogicalPlan::optimize(self : LogicalPlan) -> LogicalPlan {
   }
   let mut optimized = self
   for rewrite in optimizer_passes {
-    optimized = rewrite(optimized)
+    if (rewrite.enabled)(flags) {
+      optimized = (rewrite.pass)(optimized)
+    }
   }
   // The local rewrite rules then run in one sweep, no fixed-point loop:
   // each rule is a fixed point of itself after a single application
@@ -106,17 +111,29 @@ fn LogicalPlan::optimize(self : LogicalPlan) -> LogicalPlan {
   // previous value. A future rule that *can* enable another must restore
   // the fixed-point loop this replaced.
   for rule in optimizer_rules {
-    let (next, _moved) = rule(optimized)
-    optimized = next
+    if (rule.enabled)(flags) {
+      let (next, _moved) = (rule.rule)(optimized)
+      optimized = next
+    }
   }
   optimized
 }
 
 ///|
+/// The default pipeline — every pass and rule on — behind
+/// `collect(optimizations=Optimizations::Optimizations())` and
+/// `explain(optimized=true)`.
+fn LogicalPlan::optimize(self : LogicalPlan) -> LogicalPlan {
+  self.optimize_with(Optimizations::Optimizations())
+}
+
+///|
 /// The pass table, in run order — the single statement of what the optimizer
-/// does and in what sequence: each entry is one total plan→plan rewrite, run
-/// once, left to right. A new pass is a rewrite function (its own file, with
-/// its soundness rules documented beside it) plus one row here. The slice
+/// does and in what sequence: each entry carries its total plan→plan
+/// rewrite and the `Optimizations` flag that gates it, run once, left to
+/// right. A new pass is a rewrite function (its own file, with its
+/// soundness rules documented beside it), a flag field on `Optimizations`,
+/// and one row here. The slice
 /// pass runs first (the window it sinks is one more layout-preserving node
 /// by the time the later passes see it); the predicate pass next, keeping
 /// the projection analysis honest — a sunk filter's predicate columns stay
@@ -128,10 +145,19 @@ fn LogicalPlan::optimize(self : LogicalPlan) -> LogicalPlan {
 /// never even parsed). The projection pass runs at the plan root, so its
 /// entry hands the root requirement `None`: only a by-name reader under the
 /// root re-establishes a requirement of its own.
-let optimizer_passes : Array[(LogicalPlan) -> LogicalPlan] = [
-  plan => plan.push_slices(),
-  plan => plan.push_predicates(),
-  plan => plan.push_projection(None),
+priv struct OptimizerPass {
+  pass : (LogicalPlan) -> LogicalPlan
+  enabled : (Optimizations) -> Bool
+}
+
+///|
+let optimizer_passes : Array[OptimizerPass] = [
+  { pass: plan => plan.push_slices(), enabled: f => f.slice_pushdown, },
+  { pass: plan => plan.push_predicates(), enabled: f => f.predicate_pushdown, },
+  {
+    pass: plan => plan.push_projection(None),
+    enabled: f => f.projection_pushdown,
+  },
 ]
 
 ///|
@@ -141,8 +167,21 @@ let optimizer_passes : Array[(LogicalPlan) -> LogicalPlan] = [
 /// Each entry returns its plan and whether it moved anything (the flag is
 /// for the caller's information; the sweep does not loop — see the
 /// argument in `optimize` for why one sweep reaches the joint fixed
-/// point); a new rule is a rewrite function plus one row here.
-let optimizer_rules : Array[(LogicalPlan) -> (LogicalPlan, Bool)] = [
-  plan => plan.cluster_with_columns(),
-  plan => plan.simplify_expressions(),
+/// point); a new rule is a rewrite function, a flag field on
+/// `Optimizations`, and one row here.
+priv struct OptimizerRule {
+  rule : (LogicalPlan) -> (LogicalPlan, Bool)
+  enabled : (Optimizations) -> Bool
+}
+
+///|
+let optimizer_rules : Array[OptimizerRule] = [
+  {
+    rule: plan => plan.cluster_with_columns(),
+    enabled: f => f.cluster_with_columns,
+  },
+  {
+    rule: plan => plan.simplify_expressions(),
+    enabled: f => f.simplify_expressions,
+  },
 ]

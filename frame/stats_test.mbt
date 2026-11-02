@@ -485,7 +485,10 @@ test "null_count cell value equals the source series' null_count" {
 /// place so a schema change announces itself in exactly one test name
 /// rather than rippling through every assertion.
 fn describe_schema() -> Array[String] {
-  ["column", "dtype", "count", "null_count", "n_unique", "mean", "min", "max"]
+  [
+    "column", "dtype", "count", "null_count", "n_unique", "mean", "25%", "50%", "75%",
+    "min", "max",
+  ]
 }
 
 ///|
@@ -517,7 +520,7 @@ test "describe schema is fixed regardless of source shape" {
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.columns(), describe_schema())
   // One row per source column, eight schema columns.
-  assert_eq(out.shape(), (4, 8))
+  assert_eq(out.shape(), (4, 11))
 }
 
 ///|
@@ -619,7 +622,7 @@ test "describe on a 0-row numeric frame routes mean / min / max to Null" {
   let df = DataFrame::empty(schema)
   let out = df.describe()
   assert_eq(out.check_invariants(), Ok(()))
-  assert_eq(out.shape(), (2, 8))
+  assert_eq(out.shape(), (2, 11))
   // Both rows: count=0, null=0, unique=0, mean=Null, min=Null, max=Null.
   for i in 0..<2 {
     assert_eq(out.item(i, "count"), @types.Scalar::Int(0))
@@ -665,13 +668,13 @@ test "describe on an all-null String column produces typed-null extrema" {
 // ── Edge: zero columns ───────────────────────────────────────────────
 
 ///|
-test "describe on a 0-column frame collapses to a 0x8 result" {
+test "describe on a 0-column frame collapses to a 0x11 result" {
   let df = DataFrame::DataFrame([])
   let out = df.describe()
   assert_eq(out.check_invariants(), Ok(()))
   // No source columns → no output rows, but the eight schema columns
   // are still present so downstream code can rely on the result shape.
-  assert_eq(out.shape(), (0, 8))
+  assert_eq(out.shape(), (0, 11))
   assert_eq(out.columns(), describe_schema())
 }
 
@@ -687,7 +690,7 @@ test "describe on an all-String frame leaves mean Null for every row" {
   ])
   let out = df.describe()
   assert_eq(out.check_invariants(), Ok(()))
-  assert_eq(out.shape(), (2, 8))
+  assert_eq(out.shape(), (2, 11))
   for i in 0..<2 {
     assert_eq(out.item(i, "mean"), @types.Scalar::Null)
   }
@@ -737,4 +740,25 @@ test "a whole-frame quantile validates q before the columns" {
     (Ok(empty.quantile(-3.0)) catch { e => Err(e) })
     is Err(@types.DataError::InvalidOperation(_)),
   )
+}
+
+///|
+test "describe carries the linear-interpolated quartiles" {
+  let df = DataFrame::DataFrame([
+    Series::from_ints("v", [1, 2, 3, 4]),
+    Series::from_strings("s", ["a", "b", "c", "d"]),
+  ])
+  let out = df.describe()
+  // [1, 2, 3, 4] linear: 25% → 1.75, 50% → 2.5, 75% → 3.25.
+  assert_eq(out.item(0, "25%"), @types.Scalar::Float(1.75))
+  assert_eq(out.item(0, "50%"), @types.Scalar::Float(2.5))
+  assert_eq(out.item(0, "75%"), @types.Scalar::Float(3.25))
+  // A non-numeric column nulls its quartiles, exactly like its mean.
+  assert_true(out.item(1, "25%") is @types.Scalar::Null)
+  assert_true(out.item(1, "75%") is @types.Scalar::Null)
+  // And an all-null numeric column nulls them too.
+  let nulled = DataFrame::DataFrame([
+    Series::from_int_options("v", [None, None]),
+  ]).describe()
+  assert_true(nulled.item(0, "50%") is @types.Scalar::Null)
 }

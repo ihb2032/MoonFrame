@@ -27,7 +27,7 @@ test "widget_report: keeps widget rows, projects 4 cols, sorts by quantity desc"
 
   // `describe` returns the fixed 8-column summary, one row per
   // projected source column.
-  assert_eq(summary.shape(), (4, 8))
+  assert_eq(summary.shape(), (4, 11))
   assert_eq(summary.item(0, "column"), @moonframe.Scalar::String("region"))
   assert_eq(summary.check_invariants(), Ok(()))
 }
@@ -46,7 +46,7 @@ test "widget_report: empty product set collapses to a 0-row widget frame" {
   assert_eq(sorted.shape(), (0, 4))
   assert_eq(sorted.columns(), ["region", "price", "quantity", "revenue"])
   // `describe` still produces an N×8 row-per-column summary.
-  assert_eq(summary.shape(), (4, 8))
+  assert_eq(summary.shape(), (4, 11))
 }
 
 ///|

@@ -24,7 +24,7 @@ pub struct LazyFrame {
 }
 pub fn LazyFrame::LazyFrame(@frame.DataFrame) -> Self
 pub fn LazyFrame::bottom_k(Self, Int32, by~ : Array[@expr.Expr], reverse? : Bool) -> Self
-pub fn LazyFrame::collect(Self) -> @frame.DataFrame raise @types.DataError
+pub fn LazyFrame::collect(Self, optimizations? : Optimizations) -> @frame.DataFrame raise @types.DataError
 pub fn LazyFrame::count(Self) -> Self
 pub fn LazyFrame::drop(Self, Array[@expr.Expr]) -> Self
 pub fn LazyFrame::drop_nulls(Self, subset? : Array[@expr.Expr]) -> Self
@@ -82,6 +82,15 @@ pub fn LazyGroupBy::quantile(Self, Double, interpolation? : @series.QuantileInte
 pub fn LazyGroupBy::std(Self) -> LazyFrame
 pub fn LazyGroupBy::sum(Self) -> LazyFrame
 pub fn LazyGroupBy::variance(Self) -> LazyFrame
+
+pub struct Optimizations {
+  slice_pushdown : Bool
+  predicate_pushdown : Bool
+  projection_pushdown : Bool
+  cluster_with_columns : Bool
+  simplify_expressions : Bool
+}
+pub fn Optimizations::Optimizations() -> Self
 
 // Type aliases
 

@@ -112,6 +112,21 @@ pub fn Series::mean_opt(self : Series) -> Double? {
 }
 
 ///|
+/// The total form of `quantile` with linear interpolation — `None`
+/// exactly where the raising form raises (a non-numeric column, an empty
+/// / all-null one, or a `q` outside `[0, 1]`), `Some(v)` otherwise. The
+/// summary view (`DataFrame::describe`) reads this for its quartiles the
+/// way it reads `mean_opt` for its mean: one null cell for every failure
+/// cause, the per-column API keeping the distinctions.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
+pub fn Series::quantile_opt(self : Series, q : Double) -> Double? {
+  Some(self.quantile(q, interpolation=Linear)) catch {
+    _ => None
+  }
+}
+
+///|
 /// Minimum non-null cell as a `Scalar`, by the natural order of the
 /// series' dtype. Total — every dtype has an order, so it never fails
 /// (unlike the `Result`-wrapped form this replaces).

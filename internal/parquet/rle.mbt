@@ -41,9 +41,13 @@ fn rle_decode(
       None => return None
     }
     if (header & 1UL) == 0UL {
-      // An RLE run: `header >> 1` repetitions of one value.
+      // An RLE run: `header >> 1` repetitions of one value. The bound is
+      // spelled `repetitions > count - written`, never `written +
+      // repetitions > count`: `written` never passes `count` (the loop
+      // guard), so the subtraction cannot overflow, while the addition
+      // wraps on a hostile half-gigabyte run count and slips past.
       let repetitions = (header >> 1).to_int()
-      if repetitions < 0 || written + repetitions > count {
+      if repetitions < 0 || repetitions > count - written {
         return None
       }
       let value = match read_bit_width(r, bit_width) {
@@ -60,18 +64,20 @@ fn rle_decode(
       if groups < 0 || groups > 0x1000_0000 {
         return None
       }
-      let total = groups * 8
       // A bit-packed run's tail group pads to eight with zeros, so the
       // FINAL run may exceed the remaining count by up to seven — the
       // writer relies on exactly this; mid-stream runs may claim any
-      // part of it. Anything past the padded bound is malformed, and a
-      // stream that ends before the count is covered refuses below (its
-      // next header read hits the end).
+      // part of it. The bound is the division form of `groups * 8 >
+      // remaining + 7`: the multiplication wraps at 0x1000_0000 groups,
+      // and `remaining + 7` itself wraps with count near the Int32
+      // ceiling, while `remaining >> 3` plus one can do neither.
       let remaining = count - written
-      if total > remaining + 7 {
+      if groups > (remaining >> 3) + 1 {
         return None
       }
       for g in 0..<groups {
+        // `g` stays below `groups`, so `g * 8` never passes `remaining`
+        // and `base` never passes `count` — both stay inside Int32.
         let base = written + g * 8
         // The group's bytes first, then the values extracted out of
         // them — the reader is sequential, the scatter is not.
@@ -84,9 +90,9 @@ fn rle_decode(
         }
         // Only the values the count still needs land; a padded tail's
         // extra slots are read past (the bytes consumed, the values
-        // dropped). The run-size bounds above keep `base` below
-        // `count` in the last group, so `emit` is always positive.
-        let emit = if base + 8 > count { count - base } else { 8 }
+        // dropped). The subtraction forms cannot wrap (`base` never
+        // passes `count`), so `emit` is always 0..8.
+        let emit = if count - base < 8 { count - base } else { 8 }
         for k in 0..<emit {
           let mut value = 0
           for bit in 0..<bit_width {
@@ -99,8 +105,15 @@ fn rle_decode(
         }
       }
       // The whole run's slots are consumed — a padded tail's extras
-      // past `count` write nothing and merely end the walk.
-      written = written + total
+      // past `count` write nothing and merely end the walk. The sum
+      // rides an Int64 because a padded final run pushes `written`
+      // past `count`, which near the Int32 ceiling would wrap.
+      let advanced = written.to_int64() + groups.to_int64() * 8
+      written = if advanced >= count.to_int64() {
+        count
+      } else {
+        advanced.to_int()
+      }
     }
   }
   Some((out, r.pos))

@@ -118,7 +118,10 @@ fn ThriftReader::binary(self : ThriftReader) -> Bytes? {
         return None
       }
       let n = len.to_int()
-      if n < 0 || self.pos + n > self.bytes.length() {
+      // The subtraction form: `pos` never passes the buffer's length,
+      // so it cannot wrap, while `pos + n` folds back inside on a
+      // hostile length near the Int32 ceiling.
+      if n < 0 || n > self.bytes.length() - self.pos {
         return None
       }
       let start = self.pos

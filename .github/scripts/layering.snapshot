@@ -24,6 +24,7 @@ internal/kernel -> internal/numeric
 internal/kernel -> internal/text
 internal/kernel -> series
 internal/kernel -> types
+internal/parquet -> internal/text
 internal/parquet -> series
 internal/parquet -> types
 internal/scan -> expr

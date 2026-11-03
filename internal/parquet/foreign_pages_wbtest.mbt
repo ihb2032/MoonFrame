@@ -24,6 +24,7 @@ priv struct ForeignPage {
 priv struct ForeignSpec {
   physical : Int32
   converted : Int32?
+  codec : Int32
   pages : Array[ForeignPage]
 }
 
@@ -102,7 +103,7 @@ fn foreign_file(spec : ForeignSpec) -> Bytes {
   w.field_header(3, 9)
   w.list_header(1, 8)
   w.text_list_elem("v")
-  w.i32_field(4, 0)
+  w.i32_field(4, spec.codec)
   w.i64_field(5, total_values)
   w.i64_field(6, total_size)
   w.i64_field(7, total_size)
@@ -171,6 +172,7 @@ test "a foreign RLE_DICTIONARY file reads through the value set" {
   let file = foreign_file({
     physical: 2,
     converted: None,
+    codec: 0,
     pages: [
       {
         body: dict_body,
@@ -205,6 +207,7 @@ test "a foreign RLE_DICTIONARY file reads through the value set" {
   let orphan_file = foreign_file({
     physical: 2,
     converted: None,
+    codec: 0,
     pages: [
       {
         body: orphan,
@@ -234,6 +237,7 @@ test "a foreign V2 data page reads its bit-packed levels" {
   let file = foreign_file({
     physical: 2,
     converted: None,
+    codec: 0,
     pages: [
       {
         body,
@@ -262,6 +266,7 @@ test "page-body refusals name their column" {
   let short_file = foreign_file({
     physical: 2,
     converted: None,
+    codec: 0,
     pages: [
       {
         body: short,
@@ -284,6 +289,7 @@ test "page-body refusals name their column" {
   let bad_file = foreign_file({
     physical: 2,
     converted: None,
+    codec: 0,
     pages: [
       {
         body: bad_defs,
@@ -307,6 +313,7 @@ test "page-body refusals name their column" {
   let raw_file = foreign_file({
     physical: 6,
     converted: Some(0),
+    codec: 0,
     pages: [
       {
         body: raw,

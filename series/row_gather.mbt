@@ -85,7 +85,7 @@ pub fn Series::coalesce_columns(
   // has no null answer to give (the fill *is* the null answer), so it
   // refuses.
   if fill.len() != self.len() {
-    raise @types.DataError::LengthMismatch
+    raise @types.DataError::LengthMismatch(self.len(), fill.len())
   }
   let base_valid = self.validity_bools()
   let fills = fill.to_scalars()

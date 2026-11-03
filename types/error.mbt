@@ -75,7 +75,10 @@ pub(all) suberror DataError {
   ColumnNotFound(String)
   DuplicateColumn(String)
   TypeMismatch(TypeMismatchDetail)
-  LengthMismatch
+  /// A shape whose lengths disagree: the length the verb needs (a frame's
+  /// height, a schema's width, the one cell a group reduction owes) and
+  /// the length it actually met.
+  LengthMismatch(Int32, Int32)
   IndexOutOfBounds(Int32)
   ParseError(ParseErrorDetail)
   InvalidOperation(String)
@@ -126,7 +129,8 @@ pub fn DataError::message(self : DataError) -> String {
         Operation(operation, left, right) =>
           "Type mismatch: cannot \{operation} \{left} and \{right}"
       }
-    LengthMismatch => "Length mismatch between columns"
+    LengthMismatch(expected, got) =>
+      "Length mismatch: expected \{expected}, got \{got}"
     IndexOutOfBounds(i) => "Index out of bounds: \{i}"
     ParseError(detail) =>
       match detail {
@@ -172,7 +176,8 @@ pub impl Show for DataError with fn output(self, logger) {
           logger <+
             "TypeMismatch(Operation(\"\{@text.escape_debug(operation)}\", \{left}, \{right}))"
       }
-    LengthMismatch => logger.write_string("LengthMismatch")
+    LengthMismatch(expected, got) =>
+      logger <+ "LengthMismatch(\{expected}, \{got})"
     IndexOutOfBounds(i) => logger <+ "IndexOutOfBounds(\{i})"
     ParseError(detail) =>
       match detail {

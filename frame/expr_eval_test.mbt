@@ -1614,7 +1614,7 @@ test "lit_series: a length neither 1 nor the frame height raises LengthMismatch"
     Ok(int_str_df().with_columns([@expr.lit_series(two)])) catch {
       e => Err(e)
     },
-    Err(@types.DataError::LengthMismatch),
+    Err(@types.DataError::LengthMismatch(3, 2)),
   )
 }
 
@@ -1629,7 +1629,7 @@ test "lit_series: select rejects an off-length series instead of resizing the fr
     Ok(int_str_df().select([@expr.lit_series(two)])) catch {
       e => Err(e)
     },
-    Err(@types.DataError::LengthMismatch),
+    Err(@types.DataError::LengthMismatch(1, 2)),
   )
 }
 

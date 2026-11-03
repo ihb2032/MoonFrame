@@ -11,6 +11,14 @@ and [GitHub Pages](https://ihb2032.github.io/MoonFrame/).
 
 Source-level note:
 
+- `DataError::LengthMismatch` carries the disagreeing lengths:
+  `LengthMismatch(expected, got)` — the length the verb needed (a
+  frame's height, a schema's width, the one cell a group reduction
+  owes) and the length it met. A `match` arm spelling the bare variant
+  must add the pair (`LengthMismatch(expected, got)` or
+  `LengthMismatch(_, _)`), and the message renders both
+  (`"Length mismatch: expected 3, got 4"` where it used to say only
+  "between columns").
 - `DataFrame::sample`'s first parameter is now optional: `sample(n?, …)` —
   a call that passed `n` positionally (`sample(3, seed=7)`) must spell it
   (`sample(n=3, seed=7)`), because the parameter now shares the slot with

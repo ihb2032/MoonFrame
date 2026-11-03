@@ -104,6 +104,6 @@ test "from_parts_with_fields refuses a schema/columns arity mismatch" {
     (Ok(DataFrame::from_parts_with_fields(cols, two_fields, 3)) catch {
       e => Err(e)
     })
-    is Err(@types.DataError::LengthMismatch),
+    is Err(@types.DataError::LengthMismatch(_, _)),
   )
 }

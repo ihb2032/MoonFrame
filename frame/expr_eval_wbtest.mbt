@@ -18,7 +18,7 @@ test "eval_binary: two incompatible non-unit lengths raise LengthMismatch" {
   let b = Series::from_ints("b", [1, 2, 3])
   assert_true(
     (Ok(@kernel.eval_binary(@ir.BinOp::Add, a, b)) catch { e => Err(e) })
-    is Err(@types.DataError::LengthMismatch),
+    is Err(@types.DataError::LengthMismatch(_, _)),
   )
 }
 
@@ -30,7 +30,7 @@ test "broadcast_series: a length neither 1 nor target raises LengthMismatch" {
   let s = Series::from_ints("s", [1, 2])
   assert_true(
     (Ok(@kernel.broadcast_series(s, 3)) catch { e => Err(e) })
-    is Err(@types.DataError::LengthMismatch),
+    is Err(@types.DataError::LengthMismatch(_, _)),
   )
 }
 

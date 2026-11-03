@@ -525,7 +525,7 @@ test "map_batches: a returns_scalar closure that does not reduce raises LengthMi
       ) catch {
         e => Err(e)
       },
-      Err(@types.DataError::LengthMismatch),
+      Err(@types.DataError::LengthMismatch(1, cells.length())),
     )
   }
 }

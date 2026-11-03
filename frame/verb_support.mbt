@@ -43,8 +43,13 @@ fn DataFrame::from_parts_with_fields(
       "a frame's row count cannot be negative: \{nrows}",
     )
   }
-  if !columns.all(c => c.len() == nrows) {
-    raise @types.DataError::LengthMismatch
+  // The first column that disagrees answers with the pair of lengths —
+  // which column it was rides the caller's own iteration order, but how
+  // far off it sat is the half an `all` would have thrown away.
+  for c in columns {
+    if c.len() != nrows {
+      raise @types.DataError::LengthMismatch(nrows, c.len())
+    }
   }
   // INV1, closed here too: the schema's index maps a name onto a position
   // in the column vector, so an arity mismatch would leave `get_column`'s
@@ -52,7 +57,7 @@ fn DataFrame::from_parts_with_fields(
   // wrong column. The docstring holds the caller to the contract; a caller
   // that slips is answered with the frame's own error vocabulary.
   if fields.length() != columns.length() {
-    raise @types.DataError::LengthMismatch
+    raise @types.DataError::LengthMismatch(fields.length(), columns.length())
   }
   let schema = @types.Schema::Schema(fields)
   { schema, columns, nrows, }

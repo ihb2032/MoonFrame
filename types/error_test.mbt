@@ -39,8 +39,8 @@ test "DataError::message covers every variant" {
     content="Type mismatch: cannot take the remainder of String and Int",
   )
   inspect(
-    DataError::LengthMismatch.message(),
-    content="Length mismatch between columns",
+    DataError::LengthMismatch(3, 4).message(),
+    content="Length mismatch: expected 3, got 4",
   )
   inspect(
     DataError::IndexOutOfBounds(10).message(),
@@ -123,14 +123,14 @@ test "DataError equality is structural" {
     DataError::ColumnNotFound("age"),
     DataError::ColumnNotFound("name"),
   )
-  assert_not_eq(DataError::LengthMismatch, DataError::IndexOutOfBounds(0))
+  assert_not_eq(DataError::LengthMismatch(3, 4), DataError::IndexOutOfBounds(0))
   assert_eq(DataError::IndexOutOfBounds(5), DataError::IndexOutOfBounds(5))
 }
 
 ///|
 test "DataError Show uses variant form" {
   inspect(DataError::ColumnNotFound("age"), content="ColumnNotFound(\"age\")")
-  inspect(DataError::LengthMismatch, content="LengthMismatch")
+  inspect(DataError::LengthMismatch(3, 4), content="LengthMismatch(3, 4)")
   inspect(DataError::IndexOutOfBounds(3), content="IndexOutOfBounds(3)")
 }
 

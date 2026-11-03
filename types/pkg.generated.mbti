@@ -13,7 +13,7 @@ pub(all) suberror DataError {
   ColumnNotFound(String)
   DuplicateColumn(String)
   TypeMismatch(TypeMismatchDetail)
-  LengthMismatch
+  LengthMismatch(Int32, Int32)
   IndexOutOfBounds(Int32)
   ParseError(ParseErrorDetail)
   InvalidOperation(String)

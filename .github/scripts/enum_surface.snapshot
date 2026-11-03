@@ -14,7 +14,7 @@ DataError | suberror | DuplicateColumn(String)
 DataError | suberror | IndexOutOfBounds(Int32)
 DataError | suberror | InvalidOperation(String)
 DataError | suberror | IoError(String)
-DataError | suberror | LengthMismatch
+DataError | suberror | LengthMismatch(Int32, Int32)
 DataError | suberror | NullInNonNullable(String)
 DataError | suberror | ParseError(ParseErrorDetail)
 DataError | suberror | TypeMismatch(TypeMismatchDetail)

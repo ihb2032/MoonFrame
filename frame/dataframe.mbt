@@ -186,8 +186,12 @@ pub fn DataFrame::from_rows(
 ) -> DataFrame raise @types.DataError {
   let schema = @types.Schema::Schema(schema.fields())
   let ncols = schema.len()
-  if !rows.all(row => row.length() == ncols) {
-    raise @types.DataError::LengthMismatch
+  // The first row that disagrees answers with the pair of widths; an
+  // `all` would have thrown away how far off it sat.
+  for row in rows {
+    if row.length() != ncols {
+      raise @types.DataError::LengthMismatch(ncols, row.length())
+    }
   }
   // The row count comes from `rows`, never from the columns: under an empty
   // schema every row had to be width-0 to pass the check above, and those

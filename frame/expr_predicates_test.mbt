@@ -168,7 +168,8 @@ test "is_in: mixed Int and Float members take the exact path" {
 
 ///|
 test "is_in: a Float column matches -0.0 against a 0.0 member (IEEE)" {
-  // Float membership stays on the exact path, where -0.0 == 0.0 (IEEE), so a
+  // Same-dtype Float membership rides the hash-set fast path, which
+  // hashes to IEEE `==` semantics — the two zeros fold — so a
   // negative-zero cell matches a positive-zero member.
   let df = DataFrame::DataFrame([Series::from_floats("a", [-0.0, 1.0])])
   let out = df.select([

@@ -29,6 +29,7 @@
 /// key never needs `Scalar`'s numeric-promotion comparisons. `KNull` lets
 /// `group_by` give a null cell its own group; `join` rejects a null key
 /// before building the tuple.
+#derive(Eq, Hash)
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
 enum KeyCell {
@@ -38,7 +39,7 @@ enum KeyCell {
   KNaN
   KBool(Bool)
   KStr(String)
-} derive(Eq, Hash)
+}
 
 ///|
 #doc(hidden)

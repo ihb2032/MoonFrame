@@ -19,3 +19,10 @@ import {
   "moonbitlang/core/test",
   "moonbitlang/core/quickcheck" @gen,
 } for "test"
+
+// `core/compress/gzip` is still marked experimental upstream; the reader's
+// gzip path rides it, so the dependency is acknowledged here.
+
+options(
+  "allow-experimental-packages": [ "moonbitlang/core/compress/gzip" ],
+)

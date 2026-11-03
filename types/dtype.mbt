@@ -14,6 +14,7 @@
 /// buffer its columns ride, and its numericity are registered in
 /// the dtype registry, whose per-dtype rows are the compile-forced
 /// registration point for a dtype added here.
+#derive(Eq, Debug)
 pub(all) enum DataType {
   Int
   Float
@@ -62,7 +63,7 @@ pub(all) enum DataType {
   /// `String`, and a `dtypes` pin refuses it.
   Duration
   Null
-} derive(Eq, Debug)
+}
 
 ///|
 /// The decimal envelope's one enforcement point: a `Decimal` dtype's scale

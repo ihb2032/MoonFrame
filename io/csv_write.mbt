@@ -246,7 +246,7 @@ fn render_csv_scalar(
 
 ///|
 fn starts_spreadsheet_formula(value : String) -> Bool {
-  match value.view().get_char(0) {
+  match value.get_char(0) {
     Some(ch) =>
       ch == '=' ||
       ch == '+' ||
@@ -283,7 +283,7 @@ fn write_quoted(
   let needs_quote = cell
     .iter()
     .any(ch => ch == delimiter || ch == '"' || ch == '\n' || ch == '\r') ||
-    (file_start && cell.view().get_char(0) == Some('\u{FEFF}'))
+    (file_start && cell.get_char(0) == Some('\u{FEFF}'))
   if !needs_quote {
     buf.write_string(cell)
     return

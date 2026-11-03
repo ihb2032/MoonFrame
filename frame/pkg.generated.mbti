@@ -13,9 +13,10 @@ import {
 // Errors
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub struct DataFrame {
   // private fields
-} derive(Eq, @debug.Debug)
+}
 pub fn DataFrame::DataFrame(Array[@series.Series]) -> Self raise @types.DataError
 pub fn DataFrame::bottom_k(Self, Int32, by~ : Array[@expr.Expr], reverse? : Bool) -> Self raise @types.DataError
 pub fn DataFrame::cols_contains(Self, String) -> Array[@expr.Expr]
@@ -111,23 +112,25 @@ pub fn GroupedDataFrame::std(Self) -> DataFrame raise @types.DataError
 pub fn GroupedDataFrame::sum(Self) -> DataFrame raise @types.DataError
 pub fn GroupedDataFrame::variance(Self) -> DataFrame raise @types.DataError
 
+#derive(Eq, @debug.Debug)
 pub struct HtmlOptions {
   max_rows : Int32?
   table_class : String?
   caption : String?
   escape : Bool
-} derive(Eq, @debug.Debug)
+}
 pub fn HtmlOptions::HtmlOptions(max_rows? : Int32, table_class? : String, caption? : String, escape? : Bool) -> Self
 pub fn HtmlOptions::equal(Self, Self) -> Bool
 pub fn HtmlOptions::not_equal(Self, Self) -> Bool
 pub fn HtmlOptions::to_repr(Self) -> @debug.Repr
 
+#derive(@debug.Debug)
 pub struct JoinOptions {
   how : JoinType
   suffix : String
   coalesce : Bool?
   // private fields
-} derive(@debug.Debug)
+}
 pub fn JoinOptions::cross(suffix? : String) -> Self
 pub fn JoinOptions::left_keys(Self) -> Array[@expr.Expr]
 pub fn JoinOptions::left_on(Array[@expr.Expr], right_on~ : Array[@expr.Expr], how? : JoinType, suffix? : String, coalesce? : Bool) -> Self
@@ -136,6 +139,7 @@ pub fn JoinOptions::on_keys(Self) -> Array[@expr.Expr]
 pub fn JoinOptions::right_keys(Self) -> Array[@expr.Expr]
 pub fn JoinOptions::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum JoinType {
   Inner
   Left
@@ -144,20 +148,22 @@ pub(all) enum JoinType {
   Cross
   Semi
   Anti
-} derive(Eq, @debug.Debug)
+}
 pub fn JoinType::equal(Self, Self) -> Bool
 pub fn JoinType::not_equal(Self, Self) -> Bool
 pub fn JoinType::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum KeepStrategy {
   First
   Last
   None
-} derive(Eq, @debug.Debug)
+}
 pub fn KeepStrategy::equal(Self, Self) -> Bool
 pub fn KeepStrategy::not_equal(Self, Self) -> Bool
 pub fn KeepStrategy::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum PivotAgg {
   First
   Last
@@ -167,7 +173,7 @@ pub(all) enum PivotAgg {
   Mean
   Median
   Len
-} derive(Eq, @debug.Debug)
+}
 pub fn PivotAgg::equal(Self, Self) -> Bool
 pub fn PivotAgg::not_equal(Self, Self) -> Bool
 pub fn PivotAgg::to_repr(Self) -> @debug.Repr

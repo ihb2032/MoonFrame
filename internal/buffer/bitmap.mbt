@@ -17,11 +17,12 @@
 /// The convention `1 = valid` matches the Apache Arrow specification (and
 /// `arrow-rs`, `pyarrow`); note that some libraries use the opposite
 /// convention (`0 = valid`).
+#derive(Debug)
 pub struct Bitmap {
   priv bits : Bytes
   priv offset : Int32
   priv len : Int32
-} derive(Debug)
+}
 
 ///|
 pub extend Bitmap with Debug::{to_repr}

@@ -17,6 +17,7 @@
 ///     unmatched right rows in right order.
 ///   * `Cross` — the Cartesian product (every left row paired with every
 ///     right row); takes **no** key columns.
+#derive(Eq, Debug)
 pub(all) enum JoinType {
   Inner
   Left
@@ -25,7 +26,7 @@ pub(all) enum JoinType {
   Cross
   Semi
   Anti
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend JoinType with Eq::{equal, not_equal}
@@ -92,6 +93,7 @@ pub extend JoinType with Debug::{to_repr}
 /// built plan collects. The constructors copy on the way in for the same
 /// reason; these accessors close the way out. The remaining fields are
 /// immutable values, so they stay public.
+#derive(Debug)
 pub struct JoinOptions {
   priv on : Array[@expr.Expr]
   priv left_on : Array[@expr.Expr]
@@ -99,7 +101,7 @@ pub struct JoinOptions {
   how : JoinType
   suffix : String
   coalesce : Bool?
-} derive(Debug)
+}
 
 ///|
 /// The shared key expressions (`JoinOptions::on`), or an empty array for a

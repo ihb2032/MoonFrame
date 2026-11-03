@@ -35,9 +35,10 @@
 /// intentionally absent: `ColumnStorage::cast` widens to the `Builtin` backend
 /// and lets `BuiltinColumn` do the work, keeping this type to the fast-path
 /// operations that actually benefit from the missing bitmap.
+#derive(Debug)
 pub struct NumericColumn {
   priv data : NumericData
-} derive(Debug)
+}
 
 ///|
 
@@ -49,10 +50,11 @@ pub extend NumericColumn with Debug::{to_repr}
 /// type is the raw value; there is no nullability to track (every slot is
 /// valid). Numeric only — `Bool` / `String` columns are always backed by a
 /// `BuiltinColumn`, so `NumericData` has just the two numeric arms.
+#derive(Debug)
 pub(all) enum NumericData {
   Int(ArrayView[Int64])
   Float(ArrayView[Double])
-} derive(Debug)
+}
 
 ///|
 

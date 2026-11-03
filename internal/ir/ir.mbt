@@ -260,6 +260,7 @@ pub fn ExprNode::rename_columns(
 /// Binary operator tag carried by `Binary`. `And` / `Or` are the Kleene
 /// three-valued logical connectives (`&` / `|` at the call site), and `Atan2`
 /// / `Hypot` are the two-argument math functions spelled as methods.
+#derive(Eq, Debug)
 pub(all) enum BinOp {
   Add
   Sub
@@ -278,7 +279,7 @@ pub(all) enum BinOp {
   Ge
   And
   Or
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend BinOp with Eq::{equal, not_equal}
@@ -299,6 +300,7 @@ pub extend BinOp with Debug::{to_repr}
 /// always-`Float` elementwise math functions (trigonometric, hyperbolic and
 /// inverse-hyperbolic, logarithmic, exponential, and root), routed through
 /// `core/math` / the `Double` builtin.
+#derive(Eq, Debug)
 pub(all) enum UnOp {
   Neg
   Not
@@ -339,7 +341,7 @@ pub(all) enum UnOp {
   Exp
   Cbrt
   Sqrt
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend UnOp with Eq::{equal, not_equal}
@@ -357,6 +359,7 @@ pub extend UnOp with Debug::{to_repr}
 /// `CountMatches`, each carrying a POSIX pattern) outnumber the `literal?`-taking
 /// methods that reach them, and why `StripChars` and `StripCharsCustom` are two
 /// tags for one method.
+#derive(Eq, Debug)
 pub(all) enum StrOp {
   ToUppercase
   ToLowercase
@@ -380,7 +383,7 @@ pub(all) enum StrOp {
   StripCharsCustom(String)
   SplitGet(String, Int32)
   ZFill(Int32)
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend StrOp with Eq::{equal, not_equal}
@@ -390,6 +393,7 @@ pub extend StrOp with Eq::{equal, not_equal}
 /// `max` / `std` / `var` / `median`. Named by no public signature — the
 /// builders spell the verb, the tag carries it — so it stays inside the
 /// AST package.
+#derive(Eq, Debug)
 pub(all) enum RollStat {
   Sum
   Mean
@@ -398,7 +402,7 @@ pub(all) enum RollStat {
   Std
   Var
   Median
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend RollStat with Eq::{equal, not_equal}
@@ -432,6 +436,7 @@ pub extend RollStat with Debug::{to_repr}
 /// under `adjust=false`), carried across nulls per `ignore_nulls` and
 /// gated to null until `min_samples` non-null cells have been seen.
 /// Always `Float`, numeric operand only.
+#derive(Eq, Debug)
 pub(all) enum PositionalOp {
   Shift(Int32, @types.Scalar)
   CumSum(Bool)
@@ -448,17 +453,18 @@ pub(all) enum PositionalOp {
   IsFirstDistinct
   IsLastDistinct
   Ewm(EwmStat, Double, Bool, Int32, Bool)
-} derive(Eq, Debug)
+}
 
 ///|
 /// The exponentially-weighted statistic — mean, or the standard deviation /
 /// variance derived from the running second moment (the biased estimator;
 /// the unbiased correction is not carried).
+#derive(Eq, Debug)
 pub(all) enum EwmStat {
   EwmMean
   EwmStd
   EwmVariance
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend EwmStat with Eq::{equal, not_equal}

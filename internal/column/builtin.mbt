@@ -23,6 +23,7 @@
 /// Numeric columns are 64-bit: the `I64` variant stores `Int64` and the
 /// `F64` variant stores `Double`, matching `Scalar`'s payloads, so
 /// reductions neither silently overflow nor lose precision.
+#derive(Debug)
 pub struct BuiltinColumn {
   /// The logical dtype the column carries — the *identity* half of the
   /// column, independent of the `data` variant (the *representation* half):
@@ -32,7 +33,7 @@ pub struct BuiltinColumn {
   priv dtype : @types.DataType
   priv data : ColumnData
   priv validity : @buffer.Bitmap
-} derive(Debug)
+}
 
 ///|
 
@@ -43,12 +44,13 @@ pub extend BuiltinColumn with Debug::{to_repr}
 /// Backing storage discriminated by dtype. The element type is the raw
 /// value; nullability is tracked in the enclosing column's `validity`
 /// bitmap.
+#derive(Debug)
 pub(all) enum ColumnData {
   I64(ArrayView[Int64])
   F64(ArrayView[Double])
   Bool(ArrayView[Bool])
   Utf8(@buffer.Utf8Array)
-} derive(Debug)
+}
 
 ///|
 

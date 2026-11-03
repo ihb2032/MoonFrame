@@ -27,12 +27,13 @@
 /// `pub(all)` so callers can name the variants when building a `ChartSpec`
 /// (though the `ChartSpec::bar` / `line` / `point` / `area` constructors
 /// set the kind for you).
+#derive(Eq, Debug)
 pub(all) enum ChartKind {
   Bar
   Line
   Point
   Area
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend ChartKind with Eq::{equal, not_equal}
@@ -46,12 +47,13 @@ pub extend ChartKind with Debug::{to_repr}
 /// constructor's `color_type`. `Quantitative` is a continuous measure (a color
 /// gradient), `Nominal` an unordered category (distinct colors per value),
 /// `Ordinal` an ordered category, and `Temporal` a time field.
+#derive(Eq, Debug)
 pub(all) enum VegaType {
   Quantitative
   Nominal
   Ordinal
   Temporal
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend VegaType with Eq::{equal, not_equal}
@@ -77,6 +79,7 @@ pub extend VegaType with Debug::{to_repr}
 /// `color` channel: e.g. a numeric grouping column (a cluster id) rendered as
 /// `Nominal` distinct colors rather than a continuous gradient (only
 /// `color` honours an override; `x` / `y` keep dtype inference).
+#derive(Eq, Debug)
 pub struct ChartSpec {
   kind : ChartKind
   x : String
@@ -84,7 +87,7 @@ pub struct ChartSpec {
   color : String?
   title : String?
   color_type : VegaType?
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend ChartSpec with Eq::{equal, not_equal}

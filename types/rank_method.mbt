@@ -20,13 +20,14 @@
 /// No seeded-random tie-break method exists: its output would be seeded
 /// randomness, out of place in a library whose every other verb is
 /// deterministic.
+#derive(Eq, Debug)
 pub(all) enum RankMethod {
   Average
   Min
   Max
   Dense
   Ordinal
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend RankMethod with Eq::{equal, not_equal}

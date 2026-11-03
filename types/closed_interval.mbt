@@ -8,12 +8,13 @@
 /// Which endpoints an `is_between` range includes.
 /// `Both` (the default) is `lo <= x <= hi`; `Left` / `Right` open the other
 /// end; `None` excludes both (`lo < x < hi`).
+#derive(Eq, Debug)
 pub(all) enum ClosedInterval {
   Both
   Left
   Right
   None
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend ClosedInterval with Eq::{equal, not_equal}

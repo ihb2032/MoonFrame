@@ -11,20 +11,22 @@ import {
 // Errors
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) enum QuantileInterpolation {
   Nearest
   Linear
   Lower
   Higher
   Midpoint
-} derive(Eq, @debug.Debug)
+}
 pub fn QuantileInterpolation::equal(Self, Self) -> Bool
 pub fn QuantileInterpolation::not_equal(Self, Self) -> Bool
 pub fn QuantileInterpolation::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub struct Series {
   // private fields
-} derive(Eq, @debug.Debug)
+}
 pub fn Series::cast(Self, @types.DataType) -> Self raise @types.DataError
 pub fn Series::count(Self) -> Int32
 pub fn Series::drop_nulls(Self) -> Self

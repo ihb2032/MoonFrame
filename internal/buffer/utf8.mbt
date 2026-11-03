@@ -15,6 +15,7 @@
 /// slots are the caller's convention — MoonFrame writes the empty byte
 /// range there, paired with the column's validity bitmap. Immutable, so
 /// `slice_view` can share the byte buffer across views.
+#derive(Debug)
 pub struct Utf8Array {
   priv bytes : Bytes
   // Byte offset of cell 0 within `bytes` — non-zero only for a zero-copy
@@ -23,7 +24,7 @@ pub struct Utf8Array {
   priv base : Int32
   priv offsets : FixedArray[Int32]
   priv len : Int32
-} derive(Debug)
+}
 
 ///|
 pub extend Utf8Array with Debug::{to_repr}

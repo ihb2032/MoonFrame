@@ -162,7 +162,7 @@ fn parse_json_str_projected(
   // the repeat with a line / column, and off by default (the common JSON
   // last-wins reading) it costs nothing.
   let json = @json.parse(
-    content.view(),
+    content.clamped_view(),
     reject_duplicate_keys=options.reject_duplicate_keys,
   ) catch {
     // The parser's repeat diagnostic, re-homed in this module's error type

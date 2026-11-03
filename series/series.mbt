@@ -30,10 +30,11 @@
 /// column through the value-level accessors (`name()` / `dtype()` / `len()` /
 /// `get()` / `to_scalars()` / …) and build one through the named constructors,
 /// so the underlying column always keeps its data-and-validity invariants.
+#derive(Eq, Debug)
 pub struct Series {
   priv name : String
   priv storage : @column.ColumnStorage
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend Series with Eq::{equal, not_equal}

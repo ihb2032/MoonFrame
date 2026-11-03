@@ -15,16 +15,18 @@ pub fn write_vega_lite(String, @frame.DataFrame, ChartSpec) -> Unit raise @types
 // Errors
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) enum ChartKind {
   Bar
   Line
   Point
   Area
-} derive(Eq, @debug.Debug)
+}
 pub fn ChartKind::equal(Self, Self) -> Bool
 pub fn ChartKind::not_equal(Self, Self) -> Bool
 pub fn ChartKind::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub struct ChartSpec {
   kind : ChartKind
   x : String
@@ -32,7 +34,7 @@ pub struct ChartSpec {
   color : String?
   title : String?
   color_type : VegaType?
-} derive(Eq, @debug.Debug)
+}
 pub fn ChartSpec::area(String, String, color? : String, color_type? : VegaType, title? : String) -> Self
 pub fn ChartSpec::bar(String, String, color? : String, color_type? : VegaType, title? : String) -> Self
 pub fn ChartSpec::equal(Self, Self) -> Bool
@@ -41,12 +43,13 @@ pub fn ChartSpec::not_equal(Self, Self) -> Bool
 pub fn ChartSpec::point(String, String, color? : String, color_type? : VegaType, title? : String) -> Self
 pub fn ChartSpec::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum VegaType {
   Quantitative
   Nominal
   Ordinal
   Temporal
-} derive(Eq, @debug.Debug)
+}
 pub fn VegaType::equal(Self, Self) -> Bool
 pub fn VegaType::not_equal(Self, Self) -> Bool
 pub fn VegaType::to_repr(Self) -> @debug.Repr

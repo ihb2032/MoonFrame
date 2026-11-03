@@ -122,3 +122,15 @@ test "rename_columns descends through diff and clip" {
     Clip(Col("a"), None, None).rename_columns(m) is Clip(Col("b"), None, None),
   )
 }
+
+///|
+test "rename_columns rewrites a window's inner and its keys" {
+  let m : Map[String, String] = { "a": "b", "g": "k" }
+  let w : ExprNode = Over(Col("a"), [Col("g"), Lit(@types.Scalar::Int(1))])
+  assert_true(
+    w.rename_columns(m)
+    is Over(Col("b"), [Col("k"), Lit(@types.Scalar::Int(1))]),
+  )
+  // A name the mapping does not carry keeps its spelling, like anywhere.
+  assert_true(w.rename_columns(Map([])) is Over(Col("a"), [Col("g"), _]))
+}

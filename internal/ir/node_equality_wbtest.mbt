@@ -18,7 +18,7 @@
 /// this count is what the one-rep-per-variant list is measured against. A new
 /// variant's `variant_tag` arm compiles only in this whitebox module, so the pinned count
 /// is the second thing its addition trips.
-const VARIANT_COUNT : Int32 = 19
+const VARIANT_COUNT : Int32 = 20
 
 ///|
 /// A distinct tag per `ExprNode` variant, in declaration order — exhaustive and
@@ -46,6 +46,7 @@ fn variant_tag(node : ExprNode) -> Int32 {
     MapBatches(_, _, _, _) => 15
     Diff(_, _) => 17
     Clip(_, _, _) => 18
+    Over(_, _) => 19
   }
 }
 
@@ -79,6 +80,7 @@ test "equality: each variant is unequal to every other variant" {
     Positional(PositionalOp::CumSum(false), a),
     Diff(a, 1),
     Clip(a, Some(Lit(@types.Scalar::Int(0))), None),
+    Over(a, [Col("g")]),
   ]
   // The reps carry one of every variant, in tag order with no gap — a
   // duplicated, misordered, or interior-omitted rep is caught by the sequence
@@ -160,5 +162,10 @@ test "equality: within a variant, a differing payload is unequal" {
   assert_false(
     (Clip(a, Some(zero), None) : ExprNode) ==
     Clip(a, Some(Lit(@types.Scalar::Int(1))), None),
+  )
+  // A window differs by its key set — same inner, another key.
+  assert_false((Over(a, [Col("g")]) : ExprNode) == Over(a, [Col("h")]))
+  assert_false(
+    (Over(a, [Col("g")]) : ExprNode) == Over(a, [Col("g"), Col("h")]),
   )
 }

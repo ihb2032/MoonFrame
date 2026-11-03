@@ -246,6 +246,9 @@ method Expr::dt_month(Self) -> Self <- expr
 method Expr::dt_second(Self) -> Self <- expr
 method Expr::dt_year(Self) -> Self <- expr
 method Expr::eq(Self, Self) -> Self <- expr
+method Expr::ewm_mean(Self, span? : Double, alpha? : Double, adjust? : Bool, min_samples? : Int32, ignore_nulls? : Bool) -> Self <- expr
+method Expr::ewm_std(Self, span? : Double, alpha? : Double, adjust? : Bool, min_samples? : Int32, ignore_nulls? : Bool) -> Self <- expr
+method Expr::ewm_variance(Self, span? : Double, alpha? : Double, adjust? : Bool, min_samples? : Int32, ignore_nulls? : Bool) -> Self <- expr
 method Expr::exp(Self) -> Self <- expr
 method Expr::fill_nan(Self, Self) -> Self <- expr
 method Expr::fill_null(Self, Self) -> Self <- expr
@@ -288,6 +291,7 @@ method Expr::ne(Self, Self) -> Self <- expr
 method Expr::neg(Self) -> Self <- expr
 method Expr::not(Self) -> Self <- expr
 method Expr::output(Self, &Logger) -> Unit <- expr
+method Expr::over(Self, Array[Self]) -> Self <- expr
 method Expr::pow(Self, Self) -> Self <- expr
 method Expr::quantile(Self, Double, interpolation? : @series.QuantileInterpolation) -> Self <- expr
 method Expr::rank(Self, how? : @types.RankMethod, descending? : Bool) -> Self <- expr

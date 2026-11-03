@@ -276,6 +276,8 @@ pub fn eval_positional(
     @ir.PositionalOp::UniqueCounts => eval_unique_counts(operand)
     @ir.PositionalOp::IsFirstDistinct => eval_is_first_distinct(operand)
     @ir.PositionalOp::IsLastDistinct => eval_is_last_distinct(operand)
+    @ir.PositionalOp::Ewm(stat, alpha, adjust, min_samples, ignore_nulls) =>
+      eval_ewm(stat, alpha, adjust, min_samples, ignore_nulls, operand)
     @ir.PositionalOp::ForwardFill(limit)
     | @ir.PositionalOp::BackwardFill(limit) => {
       // Directional fill: a null slot takes the nearest present value in

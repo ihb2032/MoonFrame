@@ -877,6 +877,110 @@ pub fn Expr::rolling_median(
 }
 
 ///|
+/// The `ewm_*` family's shared doc — the three verbs differ only in the
+/// statistic, so their contract is stated once: each output cell is the
+/// exponentially-weighted statistic of every value up to that row, blended
+/// by `alpha ∈ (0, 1]` — exactly one of `span~` (`alpha = 2 / (span + 1)`,
+/// `span > 1`) or `alpha~` must be given, and `adjust~` (default `true`)
+/// keeps the earlier samples' full weight (the recursive blend is the
+/// `adjust=false` form). A null cell nulls the output but the recurrence
+/// carries per `ignore_nulls~`: `true` (not the default) skips the cell
+/// entirely, `false` lets its weight decay as if a value had been seen.
+/// Cells stay null until `min_samples~` non-null values have occurred.
+/// The deviation / variance are the biased estimator (the unbiased
+/// correction is not carried). Always `Float`; numeric operand only — a
+/// non-numeric operand is `TypeMismatch` and a bad `alpha` / `span` /
+/// `min_samples` raises `InvalidOperation` at evaluation (building stays
+/// total).
+fn Expr::ewm_of(
+  self : Expr,
+  stat : @ir.EwmStat,
+  span? : Double,
+  alpha? : Double,
+  adjust~ : Bool,
+  min_samples~ : Int32,
+  ignore_nulls~ : Bool,
+) -> Expr {
+  let a = match (span, alpha) {
+    (Some(s), None) => Some(2.0 / (s + 1.0))
+    (None, Some(a)) => Some(a)
+    _ => None
+  }
+  Expr::of_node(
+    @ir.ExprNode::Positional(
+      @ir.PositionalOp::Ewm(
+        stat,
+        a.unwrap_or(0.0),
+        adjust,
+        min_samples,
+        ignore_nulls,
+      ),
+      self.node,
+    ),
+  )
+}
+
+///|
+/// Exponentially-weighted mean — the shared `ewm_*` contract.
+pub fn Expr::ewm_mean(
+  self : Expr,
+  span? : Double,
+  alpha? : Double,
+  adjust~ : Bool = true,
+  min_samples~ : Int32 = 1,
+  ignore_nulls~ : Bool = false,
+) -> Expr {
+  self.ewm_of(EwmMean, span?, alpha?, adjust~, min_samples~, ignore_nulls~)
+}
+
+///|
+/// Exponentially-weighted standard deviation — the shared `ewm_*`
+/// contract, the biased estimator (always `Float`, the square root of
+/// `ewm_variance`).
+pub fn Expr::ewm_std(
+  self : Expr,
+  span? : Double,
+  alpha? : Double,
+  adjust~ : Bool = true,
+  min_samples~ : Int32 = 1,
+  ignore_nulls~ : Bool = false,
+) -> Expr {
+  self.ewm_of(EwmStd, span?, alpha?, adjust~, min_samples~, ignore_nulls~)
+}
+
+///|
+/// Exponentially-weighted variance — the shared `ewm_*` contract, the
+/// biased estimator (always `Float`).
+pub fn Expr::ewm_variance(
+  self : Expr,
+  span? : Double,
+  alpha? : Double,
+  adjust~ : Bool = true,
+  min_samples~ : Int32 = 1,
+  ignore_nulls~ : Bool = false,
+) -> Expr {
+  self.ewm_of(EwmVariance, span?, alpha?, adjust~, min_samples~, ignore_nulls~)
+}
+
+///|
+/// Evaluate this expression once per `keys` group, stitched back to the
+/// frame's rows — the window wrapper. Inside a group, an aggregating
+/// inner (`.sum()`, `.mean()`, …) broadcasts its single cell over the
+/// group's rows; a group-length inner (`.rank()`, `.shift(n)`,
+/// `.cum_sum()`, …) lands cell-for-cell; any other length raises
+/// `InvalidOperation` at evaluation. The output column is named after the
+/// inner expression (alias it to rename). Key semantics mirror
+/// `group_by`: each key is an expression, a null key forms its own group,
+/// and groups hold first-appearance order (invisible in the output, which
+/// is row-aligned). An `over` inside an `over` — in the inner or in a key
+/// — and an `over` inside an `agg` expression are both refused at
+/// evaluation; building stays total. The optimizer fences the whole
+/// wrapper: no predicate or projection crosses a stage that defines one.
+pub fn Expr::over(self : Expr, keys : Array[Expr]) -> Expr {
+  Expr::of_node(@ir.ExprNode::Over(self.node, keys.map(k => k.node())))
+}
+
+///|
 /// Sum of the operand over the evaluation scope (whole frame, or one group
 /// under `agg`). Inherits `Series::sum` semantics: NaN propagates,
 /// nulls are skipped, non-numeric operands are `TypeMismatch`.

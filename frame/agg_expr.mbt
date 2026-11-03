@@ -227,6 +227,9 @@ fn reduces_per_group(expr : @expr.Expr) -> Bool {
           @ir.ExprNode::Col(_)
           | @ir.ExprNode::Map(_, _, _)
           | @ir.ExprNode::LitSeries(_) => return false
+          // A window is frame-tall by construction — it stitches back to
+          // every row — so it does not reduce inside a group aggregation.
+          @ir.ExprNode::Over(_, _) => return false
           // A batch map reduces per group only when flagged `returns_scalar`:
           // then it is terminal like `Agg` (its result is the group's single
           // cell); otherwise it is row-wise like `Map` and does not reduce.

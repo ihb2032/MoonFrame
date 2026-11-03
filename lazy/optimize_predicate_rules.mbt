@@ -318,6 +318,13 @@ fn classify(node : @ir.ExprNode, kids : Array[ExprProps]) -> ExprProps {
     | @ir.ExprNode::Clip(_, _, _)
     | @ir.ExprNode::IsIn(_, _)
     | @ir.ExprNode::IsBetween(_, _, _, _) => kids_and(kids)
+    // A window's cell reads its group's rows — every property a fence. It
+    // is not row-local (which rows a group kept is observable through the
+    // stitched cells); it can expose a zero's sign through the carried
+    // expression's cells; and a group cell feeding it reads the group's
+    // membership, not a stable value.
+    @ir.ExprNode::Over(_, _) =>
+      { row_local: false, zero_sign_safe: false, group_cell: false, }
   }
 }
 

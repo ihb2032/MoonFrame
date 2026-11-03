@@ -1,6 +1,6 @@
 expr | doc_hidden internal_engine | pub fn Expr::children(self : Expr) -> Array[Expr] | used by: lazy
 expr | doc_hidden internal_engine | pub fn Expr::node(self : Expr) -> @ir.ExprNode | used by: frame,lazy
-expr | doc_hidden internal_engine | pub fn Expr::of_node(node : @ir.ExprNode) -> Expr | used by: lazy
+expr | doc_hidden internal_engine | pub fn Expr::of_node(node : @ir.ExprNode) -> Expr | used by: frame,lazy
 expr | doc_hidden internal_engine | pub fn Expr::output_name(self : Expr) -> String | used by: frame,lazy
 expr | doc_hidden internal_engine | pub fn Expr::referenced_columns(self : Expr) -> @set.Set[String] | used by: lazy
 expr | doc_hidden internal_engine | pub fn format_scalar(value : @types.Scalar) -> String | used by: lazy

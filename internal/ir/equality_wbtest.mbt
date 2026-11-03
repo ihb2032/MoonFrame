@@ -241,6 +241,19 @@ fn nodes_structurally_equal(first : ExprNode, second : ExprNode) -> Bool {
               }
               _ => return false
             }
+          Over(i1, k1) =>
+            match b {
+              Over(i2, k2) => {
+                if k1.length() != k2.length() {
+                  return false
+                }
+                stack.push((i1, i2))
+                for k in 0..<k1.length() {
+                  stack.push((k1[k], k2[k]))
+                }
+              }
+              _ => return false
+            }
         }
     }
   }

@@ -130,7 +130,8 @@ fn projection_source(expr : @ir.ExprNode) -> String? {
     | @ir.ExprNode::IsIn(_, _)
     | @ir.ExprNode::IsBetween(_, _, _, _)
     | @ir.ExprNode::Map(_, _, _)
-    | @ir.ExprNode::MapBatches(_, _, _, _) => None
+    | @ir.ExprNode::MapBatches(_, _, _, _)
+    | @ir.ExprNode::Over(_, _) => None
   }
 }
 

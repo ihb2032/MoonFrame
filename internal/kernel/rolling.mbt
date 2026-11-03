@@ -56,17 +56,27 @@ fn eval_rolling(
     // non-numeric `I64` rider (`Date`) raises, like every numeric
     // kernel.
     @column.ColumnData::I64(a) if dtype.is_numeric() => {
-      // Sum / Min / Max keep the Int dtype (the reduction family's
-      // rule); the statistics widen to Double, folding the widened
-      // values the Float arm shares with — an `Int` window has no `NaN`,
-      // so its `saw_nan` is always false.
+      // The extrema take the monotonic-deque pass below — O(n), the
+      // per-cell rescan the statistics keep. `Int` has no `NaN`, so
+      // every present cell is a candidate.
+      if stat is @ir.RollStat::Min || stat is @ir.RollStat::Max {
+        return @series.Series::from_int_options(
+          name,
+          rolling_extrema(n, valid, back, forward, need, stat is Min, j => {
+            let v : Int64? = Some(a[j])
+            v
+          }),
+        )
+      }
+      // Sum keeps the Int dtype (the reduction family's rule); the
+      // statistics widen to Double, folding the widened values the Float
+      // arm shares with — an `Int` window has no `NaN`, so its
+      // `saw_nan` is always false.
       // The two output buffers are allocated per the stat's own dtype —
-      // `Sum` / `Min` / `Max` keep `Int` and never touch a `Double` slot,
-      // the statistics widen and never touch an `Int` one, so each pass
+      // `Sum` keeps `Int` and never touches a `Double` slot, the
+      // statistics widen and never touch an `Int` one, so each pass
       // allocates exactly the buffer it will fill.
-      let keep_int = stat is @ir.RollStat::Sum ||
-        stat is @ir.RollStat::Min ||
-        stat is @ir.RollStat::Max
+      let keep_int = stat is @ir.RollStat::Sum
       let int_out : Array[Int64?] = if keep_int {
         Array::makei(n, _ => None)
       } else {
@@ -93,18 +103,13 @@ fn eval_rolling(
             if keep_int {
               acc = Some(
                 match acc {
-                  Some(b) =>
-                    match stat {
-                      Sum => b + v
-                      Min => if v < b { v } else { b }
-                      _ => if v > b { v } else { b }
-                    }
+                  Some(b) => b + v
                   None => v
                 },
               )
             } else {
               // Only the widening statistics read the widened cells —
-              // Sum / Min / Max fold the Ints directly.
+              // `Sum` folds the Ints directly.
               widened.push(v.to_double())
             }
           }
@@ -126,6 +131,23 @@ fn eval_rolling(
       }
     }
     @column.ColumnData::F64(a) => {
+      // The extrema take the monotonic-deque pass below — a NaN satisfies
+      // `min_samples` but is no candidate (skipped, exactly as the rescan
+      // folds it), so the cell read hands back `None` for one and the
+      // present count tracks it separately.
+      if stat is @ir.RollStat::Min || stat is @ir.RollStat::Max {
+        return @series.Series::from_float_options(
+          name,
+          rolling_extrema(n, valid, back, forward, need, stat is Min, j => {
+            let v = a[j]
+            if v.is_nan() {
+              None
+            } else {
+              Some(v)
+            }
+          }),
+        )
+      }
       // A NaN is a value: it satisfies `min_samples` and propagates
       // through Sum / Mean / Std / Var / Median (the reduction family's
       // rules), while Min / Max skip it.
@@ -201,8 +223,11 @@ fn float_rolling_stat(
         Some(s)
       }
     }
-    // The extrema skip `NaN`, so `vals` alone is the candidate set; an
-    // empty one is the no-value window.
+    // The extrema never reach this fold — the deque pass intercepts them
+    // in both buffer arms above. The arm keeps the rescan's own semantics
+    // and stays live: the rescan-extrema reference test pins it, so a
+    // future dispatch that routes here again has a reference verdict to
+    // hold it to.
     Min | Max => {
       let want_min = stat is Min
       @numeric.fold_extremum(vals.length(), k => vals[k], _ => false, (v, b) => {
@@ -271,4 +296,87 @@ fn roll_stat_label(stat : @ir.RollStat) -> String {
     Var => "variance"
     Median => "median"
   }
+}
+
+///|
+/// The windowed extrema over one pass — a monotonic deque, O(n) where the
+/// per-cell rescan the statistics keep is O(n·window): each cell enters
+/// the deque at most once and leaves at most once (popped from the back
+/// by a better latecomer, or from the front by the window sliding past
+/// its index). `cell(j)` answers a present cell's candidate value —
+/// `None` for a present-but-skipped one (a `Float` `NaN`; it still counts
+/// toward `min_samples`, so the present count tracks validity itself,
+/// separately from the candidates). The verdicts match the rescan's cell
+/// for cell: the candidate that wins a window is the same value the fold
+/// `v < b` / `v > b` would pick (a tie keeps either spelling — the values
+/// are equal), and an all-skipped window with enough present cells is the
+/// null the empty-candidate fold answers.
+fn[T : Compare] rolling_extrema(
+  n : Int32,
+  valid : Array[Bool],
+  back : Int32,
+  forward : Int32,
+  need : Int32,
+  want_min : Bool,
+  cell : (Int32) -> T?,
+) -> Array[T?] {
+  let out : Array[T?] = Array::makei(n, _ => None)
+  // The deque of (value, index) candidates, monotone from front (best) to
+  // back; `head` is the front's offset into the array (the array only
+  // ever grows — leaving the front is a `head` bump, leaving the back is
+  // a pop).
+  let deque : Array[(T, Int32)] = []
+  let mut head = 0
+  // The window's present-cell count and the leaving pointer that keeps
+  // it; cells enter at `pushed`, one per label step, in index order.
+  let mut present = 0
+  let mut pushed = 0
+  let mut leaving = 0
+  for i in 0..<n {
+    // Fill the window's new right edge: cells up to `min(n-1, i+forward)`
+    // — the same bounds decision the rescan makes, spelled once.
+    let hi = if forward >= n - i { n - 1 } else { i + forward }
+    while pushed <= hi {
+      if valid[pushed] {
+        present = present + 1
+        match cell(pushed) {
+          Some(v) => {
+            // A better-or-equal latecomer retires every worse candidate
+            // behind it — they can never win a window it belongs to.
+            while deque.length() > head {
+              let (old, _) = deque[deque.length() - 1]
+              let better = if want_min { !(old < v) } else { !(old > v) }
+              // `better` spelled as "old does not beat v": a strictly
+              // better incumbent stays, an equal or worse one retires.
+              if better {
+                let _ = deque.pop()
+              } else {
+                break
+              }
+            }
+            deque.push((v, pushed))
+          }
+          None => ()
+        }
+      }
+      pushed = pushed + 1
+    }
+    // Retire the window's left edge: cells before `i - back` leave the
+    // count and, if they still front the deque, the candidacy.
+    while leaving < i - back {
+      if leaving >= 0 && leaving < n && valid[leaving] {
+        present = present - 1
+      }
+      leaving = leaving + 1
+    }
+    while deque.length() > head && deque[head].1 < i - back {
+      head = head + 1
+    }
+    // The verdict: enough present cells first (the skipped ones count),
+    // then the front candidate — or the null of an all-skipped window.
+    if present >= need && deque.length() > head {
+      out[i] = Some(deque[head].0)
+    }
+  }
+  out
 }

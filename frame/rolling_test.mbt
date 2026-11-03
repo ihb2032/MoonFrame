@@ -474,3 +474,125 @@ test "std / variance are Welford's, near-max and range-apart windows" {
     },
   )
 }
+
+///|
+test "the rolling extrema equal the naive window rescan" {
+  // The deque pass is O(n); this battery pins its verdicts against a
+  // naive per-cell rescan spelled here — nulls skip, NaN counts toward
+  // min_samples but is no candidate, ties keep either spelling (equal
+  // values), the centred bounds match, and an all-NaN window with enough
+  // present cells is null.
+  fn oracle_min(
+    vals : Array[Double?],
+    window : Int32,
+    min_samples : Int32?,
+    center : Bool,
+    want_min : Bool,
+  ) -> Array[Double?] {
+    let n = vals.length()
+    let need = match min_samples {
+      Some(k) => k
+      None => window
+    }
+    let back = if center { window / 2 } else { window - 1 }
+    let forward = window - 1 - back
+    let out : Array[Double?] = Array::makei(n, _ => None)
+    for i in 0..<n {
+      let lo = if i - back < 0 { 0 } else { i - back }
+      let hi = if forward >= n - i { n - 1 } else { i + forward }
+      let mut best : Double? = None
+      let mut present = 0
+      for j in lo..<=hi {
+        match vals[j] {
+          Some(v) => {
+            present = present + 1
+            if !v.is_nan() {
+              best = match best {
+                Some(b) =>
+                  Some(
+                    if want_min {
+                      if v < b {
+                        v
+                      } else {
+                        b
+                      }
+                    } else if v > b {
+                      v
+                    } else {
+                      b
+                    },
+                  )
+                None => Some(v)
+              }
+            }
+          }
+          None => ()
+        }
+      }
+      if present >= need {
+        out[i] = best
+      }
+    }
+    out
+  }
+  let batteries : Array[Array[Double?]] = [
+    [Some(1.0), Some(5.0), Some(2.0), Some(3.0), Some(4.0)],
+    [Some(5.0), Some(1.0), Some(2.0), Some(3.0), Some(4.0)],
+    [Some(2.0), Some(2.0), Some(2.0), Some(2.0)],
+    [Some(1.0), None, Some(3.0), None, Some(2.0)],
+    [
+      Some(@double.not_a_number),
+      Some(1.0),
+      Some(@double.not_a_number),
+      Some(3.0),
+    ],
+    [Some(@double.not_a_number), Some(@double.not_a_number)],
+    [Some(-0.0), Some(0.0), Some(-1.0)],
+    [Some(9.0)],
+    Array::makei(30, k => {
+      if k % 7 == 0 {
+        None
+      } else {
+        Some((k * 37 % 11 - 5).to_double())
+      }
+    }),
+  ]
+  for vals in batteries {
+    let df = DataFrame::DataFrame([Series::from_float_options("v", vals.copy())])
+    for window in [1, 2, 3, 5] {
+      for min_samples in [None, Some(1), Some(2)] {
+        // The envelope the kernel enforces: a min_samples above the
+        // window is an argument error, not a verdict to compare.
+        if min_samples is Some(k) && k > window {
+          continue
+        }
+        for center in [false, true] {
+          for want_min in [true, false] {
+            let verb = if want_min {
+              @expr.col("v").rolling_min(window, min_samples?, center~)
+            } else {
+              @expr.col("v").rolling_max(window, min_samples?, center~)
+            }
+            let got = df
+              .select([verb.with_alias("r")])
+              .get_column("r")
+              .to_scalars()
+            let want = oracle_min(vals, window, min_samples, center, want_min)
+            for i in 0..<vals.length() {
+              assert_eq(
+                got[i],
+                want[i]
+                |> w => {
+                  match w {
+                    Some(v) => @types.Scalar::Float(v)
+                    None => @types.Scalar::Null
+                  }
+                },
+              )
+            }
+          }
+        }
+      }
+    }
+  }
+}

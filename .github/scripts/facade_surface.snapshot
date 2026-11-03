@@ -73,18 +73,24 @@ fn map_many(label~ : String, Array[Expr], (Array[@types.Scalar]) -> @types.Scala
 fn parse_csv_str(String, options? : CsvReadOptions, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- io
 fn parse_json_str(String, options? : JsonReadOptions) -> @frame.DataFrame raise @types.DataError <- io
 fn parse_ndjson_str(String, options? : JsonReadOptions, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- io
+fn parse_parquet(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- io
+fn parse_parquet(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- root
 fn read_csv(String, options? : @io.CsvReadOptions) -> @frame.DataFrame raise @types.DataError <- root
 fn read_csv(String, options? : CsvReadOptions) -> @frame.DataFrame raise @types.DataError <- io
 fn read_json(String, options? : @io.JsonReadOptions) -> @frame.DataFrame raise @types.DataError <- root
 fn read_json(String, options? : JsonReadOptions) -> @frame.DataFrame raise @types.DataError <- io
 fn read_ndjson(String, options? : @io.JsonReadOptions) -> @frame.DataFrame raise @types.DataError <- root
 fn read_ndjson(String, options? : JsonReadOptions) -> @frame.DataFrame raise @types.DataError <- io
+fn read_parquet(String, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- io
+fn read_parquet(String, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- root
 fn scan_csv(String, options? : @io.CsvReadOptions) -> @lazy.LazyFrame <- root
 fn scan_csv(String, options? : @io.CsvReadOptions) -> LazyFrame <- lazy
 fn scan_json(String, options? : @io.JsonReadOptions) -> @lazy.LazyFrame <- root
 fn scan_json(String, options? : @io.JsonReadOptions) -> LazyFrame <- lazy
 fn scan_ndjson(String, options? : @io.JsonReadOptions) -> @lazy.LazyFrame <- root
 fn scan_ndjson(String, options? : @io.JsonReadOptions) -> LazyFrame <- lazy
+fn scan_parquet(String) -> @lazy.LazyFrame <- root
+fn scan_parquet(String) -> LazyFrame <- lazy
 fn when(@expr.Expr) -> @expr.WhenThen <- root
 fn when(Expr) -> WhenThen <- expr
 fn write_csv(String, @frame.DataFrame, options? : @io.CsvWriteOptions) -> Unit raise @types.DataError <- root
@@ -93,6 +99,8 @@ fn write_json(String, @frame.DataFrame) -> Unit raise @types.DataError <- io
 fn write_json(String, @frame.DataFrame) -> Unit raise @types.DataError <- root
 fn write_ndjson(String, @frame.DataFrame) -> Unit raise @types.DataError <- io
 fn write_ndjson(String, @frame.DataFrame) -> Unit raise @types.DataError <- root
+fn write_parquet(@frame.DataFrame, String, codec? : @io.ParquetCodec) -> Unit raise @types.DataError <- root
+fn write_parquet(@frame.DataFrame, String, codec? : ParquetCodec) -> Unit raise @types.DataError <- io
 fn write_vega_lite(String, @frame.DataFrame, @chart.ChartSpec) -> Unit raise @types.DataError <- root
 fn write_vega_lite(String, @frame.DataFrame, ChartSpec) -> Unit raise @types.DataError <- chart
 impl @debug.Debug for Expr <- expr
@@ -439,6 +447,9 @@ method LazyGroupBy::variance(Self) -> LazyFrame <- lazy
 method OnParseError::equal(Self, Self) -> Bool <- io
 method OnParseError::not_equal(Self, Self) -> Bool <- io
 method OnParseError::to_repr(Self) -> @debug.Repr <- io
+method ParquetCodec::equal(Self, Self) -> Bool <- io
+method ParquetCodec::not_equal(Self, Self) -> Bool <- io
+method ParquetCodec::to_repr(Self) -> @debug.Repr <- io
 method ParseErrorDetail::equal(Self, Self) -> Bool <- types
 method ParseErrorDetail::not_equal(Self, Self) -> Bool <- types
 method ParseErrorDetail::to_repr(Self) -> @debug.Repr <- types
@@ -545,6 +556,7 @@ type KeepStrategy <- frame
 type LazyFrame <- lazy
 type OnParseError <- io
 type Optimizations <- lazy
+type ParquetCodec <- io
 type ParseErrorDetail <- types
 type PivotAgg <- frame
 type QuantileInterpolation <- series

@@ -115,3 +115,22 @@ pub fn scan_json(
 ) -> LazyFrame {
   { plan: fresh_file_scan(@io.json_scan_driver(path, options)), }
 }
+
+///|
+/// The lazy parquet source: `scan_parquet(path)` builds a `LazyFrame`
+/// whose leaf is a deferred read of `path` — the push-down-aware
+/// counterpart of eager `read_parquet`, and the columnar twin of the
+/// text scans. Nothing is read until `collect` (the builder is total).
+/// The **projection** push-down is where a columnar source pays: the
+/// optimizer narrows the leaf to the columns the pipeline consumes, and
+/// only those chunks decode — a `select` of two columns of a wide file
+/// never touches the other chunks' bytes at all. The **predicate**
+/// push-down moves the filter into the read as a post-decode filter
+/// over the projected frame (the row pruning a columnar file without
+/// row-group statistics can offer); a `ParseError` in an unprojected
+/// column does not surface, exactly like the text scans' dropped
+/// columns. The dtypes come from the footer's schema, so a narrowed
+/// scan matches the eager read exactly.
+pub fn scan_parquet(path : String) -> LazyFrame {
+  { plan: fresh_file_scan(@io.parquet_scan_driver(path)), }
+}

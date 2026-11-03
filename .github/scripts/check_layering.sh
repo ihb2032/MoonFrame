@@ -82,7 +82,7 @@ allowed_series="types internal/buffer internal/column internal/text internal/num
 allowed_expr="types series internal/ir internal/literal internal/text"
 allowed_frame="types series expr internal/ir internal/kernel internal/order"
 allowed_chart="types frame io"
-allowed_io="types series frame internal/scan internal/text internal/numeric"
+allowed_io="types series frame internal/parquet internal/scan internal/text internal/numeric"
 allowed_lazy="types series expr frame io internal/ir internal/literal internal/scan internal/text"
 allowed_internal_column="types internal/buffer internal/text internal/numeric"
 allowed_internal_kernel="types series internal/column internal/ir internal/text internal/numeric"
@@ -93,6 +93,7 @@ allowed_internal_numeric=""
 allowed_internal_order=""
 allowed_internal_buffer="types"
 allowed_internal_scan="types series expr"
+allowed_internal_parquet="types series"
 verb_packages="frame io lazy"
 
 fail=0

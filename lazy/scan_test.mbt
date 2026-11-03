@@ -703,3 +703,39 @@ test "scan_csv honours a rider dtype pin, matching the eager reader" {
     @types.DataType::Timestamp,
   )
 }
+
+///|
+test "scan_parquet collects to the eager read and narrows its chunks" {
+  let df = @frame.DataFrame::DataFrame([
+    @series.Series::from_int_options("i", [Some(1), None, Some(3)]),
+    @series.Series::from_string_options("s", [Some("a"), Some(""), None]),
+  ])
+  let path = "_build/lazy_scan_parquet.parquet"
+  @io.write_parquet(df, path)
+  // The lazy pipeline equals the eager read.
+  assert_eq(scan_parquet(path).collect(), @io.read_parquet(path))
+  // A projection narrows the decoded chunks; the collected frame is the
+  // one column.
+  let two = scan_parquet(path).select([@expr.col("s")]).collect()
+  assert_eq(two.columns(), ["s"])
+  // A filter rides into the scan; the collected frame is the eager
+  // filter's.
+  let predicate = @expr.col("i").gt(@expr.lit_int(2))
+  assert_eq(
+    scan_parquet(path).filter(predicate).collect(),
+    @io.read_parquet(path).filter(predicate),
+  )
+  // The plan renders the PARQUET leaf and the projection above it.
+  let explained = scan_parquet(path)
+    .select([@expr.col("s")])
+    .explain(optimized=true)
+  assert_true(explained.contains("PARQUET"))
+  assert_true(explained.contains("SELECT [col(s)]"))
+  // A missing file fails only at collect.
+  let absent = Ok(
+    ignore(scan_parquet("_build/io_parquet_gone.parquet").collect()),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(absent is Err(@types.DataError::IoError(_)))
+}

@@ -305,13 +305,14 @@ what exercises every kernel a caller can reach):
 ```
 types/      value types, errors (DataError), schemas
 internal/buffer/   the raw buffer primitives — the Arrow validity bitmap and the UTF-8 (bytes + offsets) string buffer every columnar layout flattens from
-internal/scan/     the scan-driver seam — what one readable source (CSV, NDJSON, a future Parquet) implements so the lazy engine executes, narrows, and renders it format-agnostically
+internal/scan/     the scan-driver seam — what one readable source (CSV, NDJSON, Parquet) implements so the lazy engine executes, narrows, and renders it format-agnostically
 internal/column/   Arrow-style storage — validity bitmap + Builtin/Numeric backends; wrapped by Series and read by internal/kernel (which packages may name it is enforced by check_layering.sh)
 internal/kernel/   the vectorized expression kernels — Series broadcasting, arithmetic / logic / comparison / string ops, ternary, map, and the dtype inference behind a computed column; called by frame's evaluator
 internal/text/     shared text primitives — lexicographic compare, debug escaping, decimal literal parsing
 internal/numeric/  shared numeric primitives — exact Int64/Double comparison and the extremum fold, used from types up through the kernels
 internal/order/    shared position primitives — the stable index sort behind every sort, and the row-count clamp behind every head / tail / limit
 internal/ir/       module-internal expression AST — ExprNode + the operator tags, walked by the engine
+internal/parquet/  the native parquet codec — thrift compact metadata, RLE definition levels, PLAIN and dictionary values, snappy / gzip page bodies; wrapped by io's read / write / scan_parquet
 series/     Series + column-level stats + the shared reduction / rebuild / key-cell kernels
 expr/       opaque Expr handle — constructors, operators, when/then/otherwise builders, to_string rendering
 frame/      DataFrame + the operators (usually one per file) + group_by + join + the expression evaluator (with_columns / select / filter / agg) + to_markdown / to_html

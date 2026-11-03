@@ -20,17 +20,23 @@ pub fn parse_json_str(String, options? : JsonReadOptions) -> @frame.DataFrame ra
 
 pub fn parse_ndjson_str(String, options? : JsonReadOptions, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
 
+pub fn parse_parquet(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
+
 pub fn read_csv(String, options? : CsvReadOptions) -> @frame.DataFrame raise @types.DataError
 
 pub fn read_json(String, options? : JsonReadOptions) -> @frame.DataFrame raise @types.DataError
 
 pub fn read_ndjson(String, options? : JsonReadOptions) -> @frame.DataFrame raise @types.DataError
 
+pub fn read_parquet(String, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
+
 pub fn write_csv(String, @frame.DataFrame, options? : CsvWriteOptions) -> Unit raise @types.DataError
 
 pub fn write_json(String, @frame.DataFrame) -> Unit raise @types.DataError
 
 pub fn write_ndjson(String, @frame.DataFrame) -> Unit raise @types.DataError
+
+pub fn write_parquet(@frame.DataFrame, String, codec? : ParquetCodec) -> Unit raise @types.DataError
 
 // Errors
 
@@ -75,6 +81,15 @@ pub(all) enum OnParseError {
 pub fn OnParseError::equal(Self, Self) -> Bool
 pub fn OnParseError::not_equal(Self, Self) -> Bool
 pub fn OnParseError::to_repr(Self) -> @debug.Repr
+
+pub(all) enum ParquetCodec {
+  Uncompressed
+  Snappy
+  Gzip
+} derive(Eq, @debug.Debug)
+pub fn ParquetCodec::equal(Self, Self) -> Bool
+pub fn ParquetCodec::not_equal(Self, Self) -> Bool
+pub fn ParquetCodec::to_repr(Self) -> @debug.Repr
 
 // Type aliases
 

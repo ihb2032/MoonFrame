@@ -129,12 +129,16 @@ pub using @io {
   type CsvWriteOptions,
   type JsonReadOptions,
   type OnParseError,
+  type ParquetCodec,
+  parse_parquet,
   read_csv,
   read_json,
   read_ndjson,
+  read_parquet,
   write_csv,
   write_json,
   write_ndjson,
+  write_parquet,
 }
 
 ///|
@@ -153,4 +157,5 @@ pub using @lazy {
   scan_csv,
   scan_ndjson,
   scan_json,
+  scan_parquet,
 }

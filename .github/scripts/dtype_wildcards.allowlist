@@ -47,5 +47,9 @@ types/scalar.mbt Scalar::as_string the catch-all routes every other variant to e
 series/series.mbt Series::from_i64_options the wildcard passes the non-decimal riders through — Int and the date-likes carry no envelope to check, and a new rider decides its own spelling here at compile time
 types/error.mbt json_cell_expectation the catch-all derives the diagnostic wording from the variant itself ("a Duration"), so a new variant renders correctly with no behaviour to swallow — the signature half of the attribution rule caught this arm, whose bare-variant arms carry no enum spelling
 io/json_core.mbt frame_from_json_records the wildcard rejects a non-object JSON record with a located ParseError — the scrutinee is a Json value, not a dtype enum; the signature's dtypes parameter triggered the signature-half attribution
-internal/kernel/temporal.mbt temporal_arith the dtype gate above leaves only each pair's own rider cells and Null; the wildcard is the null (or mixed) source pair
+internal/parquet/build.mbt build_series the page walk fixes one Scalar variant per column's map; the wildcard is the null cell (and any off-type cell the walk nulls)
+internal/parquet/write.mbt encode_plain_value the map fixes the (physical, scalar) pair; the wildcard raises loudly — a cell the map cannot carry refuses the write
+internal/parquet/read.mbt decode_column the arms route by page type and encoding; the wildcards are the null cells and the off-type cells the def levels null
+internal/parquet/read.mbt decode_plain_values the catch's wildcard is the malformed-UTF-8 raise — the loud refusal, not a silent swallow
 internal/kernel/numeric.mbt scale_of the cell match carries the lifting pair spelled arms; the wildcard is the null cell (the dtype gate above admits only lifting pairs and nulls)
+internal/kernel/temporal.mbt temporal_arith the cell match is over the temporal pairs; the wildcard is the null (or mixed) source pair — one per the date and the shift half

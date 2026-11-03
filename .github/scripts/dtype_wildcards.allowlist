@@ -49,3 +49,4 @@ series/series.mbt Series::from_i64_options the wildcard passes the non-decimal r
 types/error.mbt json_cell_expectation the catch-all derives the diagnostic wording from the variant itself ("a Duration"), so a new variant renders correctly with no behaviour to swallow — the signature half of the attribution rule caught this arm, whose bare-variant arms carry no enum spelling
 io/json_core.mbt frame_from_json_records the wildcard rejects a non-object JSON record with a located ParseError — the scrutinee is a Json value, not a dtype enum; the signature's dtypes parameter triggered the signature-half attribution
 internal/kernel/temporal.mbt temporal_arith the dtype gate above leaves only each pair's own rider cells and Null; the wildcard is the null (or mixed) source pair
+internal/kernel/numeric.mbt scale_of the cell match carries the lifting pair spelled arms; the wildcard is the null cell (the dtype gate above admits only lifting pairs and nulls)

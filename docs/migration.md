@@ -54,6 +54,16 @@ No source-level migration steps so far. What has landed on `main`:
   reads instead of its own variant list). It renders as an ISO 8601
   days-and-time duration; the writers emit that text and no reader parses
   it (a `dtypes` pin refuses it).
+- Decimal `round` is exact: a rescale to the target places — widening
+  pads zeros (checked), narrowing drops digits with a half-even decision
+  on the dropped run, and the output carries `Decimal(target)`. The
+  approximate unary verbs (`floor` / `ceil`) stay fenced. A negative
+  target clamps to zero places, the `Float` rounding's own rule.
+- Decimal division goes through `Float`: `Decimal / Decimal` (an `Int`
+  lifting as scale 0, like the exact arithmetic's own lift) converts
+  each side at its own scale and divides in `Double` — the always-`Float`
+  rule's spelling for a quotient that cannot stay decimal, exact while
+  both magnitudes sit below `2^53`.
 
 ## v0.8.0 → v0.8.1
 

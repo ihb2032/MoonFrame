@@ -435,9 +435,64 @@ fn eval_binary_nullzero(
 /// `Div` — division is **always** `Float`, so every numeric pair
 /// divides in `Double` and division by zero follows IEEE 754 — `x/0 → ±inf`,
 /// `0/0 → NaN` — on every backend rather than trapping (`Int` division by zero
-/// is backend-divergent, so it is never emitted).
+/// is backend-divergent, so it is never emitted). A decimal pair (an `Int`
+/// lifting as scale 0, like the exact arithmetic's own lift) divides the
+/// same way through its own pre-gate: the quotient cannot stay decimal (a
+/// repeating quotient has no finite scale), so the operands convert at
+/// their scales and divide in `Double` — exact when both magnitudes sit
+/// below `2^53` (the `Int64 → Double` conversion's exact range) and every
+/// power of ten up to `10^18` is exactly representable, with the residual
+/// rounding documented on the decimal dtype itself.
 fn eval_div(left : Series, right : Series) -> Series raise @types.DataError {
-  eval_binary_float(left, right, "divide", (a, b) => a / b)
+  match decimal_div_float(left, right) {
+    Some(s) => s
+    None => eval_binary_float(left, right, "divide", (a, b) => a / b)
+  }
+}
+
+///|
+/// The decimal pair's own division path: both sides carrying a decimal
+/// scale (`Int` as scale 0, the exact arithmetic's lift), each cell
+/// converted at its own scale and divided in `Double` —
+/// `(ua / 10^sa) / (ub / 10^sb)`, spelled as `Double(ua) / Double(ub)`
+/// scaled by `10^(sb − sa)` so the magnitudes convert before the
+/// quotient's own rounding joins. A null on either side nulls the cell; a
+/// decimal zero divides per IEEE like every other operand.
+fn decimal_div_float(left : Series, right : Series) -> Series? {
+  fn scale_of(d : @types.DataType) -> Int32? {
+    match d {
+      Decimal(s) => Some(s)
+      Int => Some(0)
+      // Every other dtype is the plain division path's own question.
+      Float | Bool | String | Date | Timestamp | Duration | Null => None
+    }
+  }
+  match (scale_of(left.dtype()), scale_of(right.dtype())) {
+    // A pure numeric pair is the plain path's own question.
+    (Some(0), Some(0)) | (None, _) | (_, None) => None
+    (Some(sa), Some(sb)) => {
+      let cells : Array[Double?] = []
+      let ls = left.to_scalars()
+      let rs = right.to_scalars()
+      // The scale factor is a whole power of ten within ±18, exactly
+      // representable in `Double`.
+      let factor = @math.pow(10.0, (sb - sa).to_double())
+      for i in 0..<ls.length() {
+        match (ls[i], rs[i]) {
+          (Decimal(_, ua), Decimal(_, ub)) =>
+            cells.push(Some(ua.to_double() / ub.to_double() * factor))
+          (Int(ua), Decimal(_, ub)) =>
+            cells.push(Some(ua.to_double() / ub.to_double() * factor))
+          (Decimal(_, ua), Int(ub)) =>
+            cells.push(Some(ua.to_double() / ub.to_double() * factor))
+          // A null on either side — including the pure-`Int` lift cells a
+          // decimal side lifts against — nulls the cell.
+          _ => cells.push(None)
+        }
+      }
+      Some(Series::from_float_options(left.name(), cells))
+    }
+  }
 }
 
 ///|
@@ -635,12 +690,81 @@ fn eval_sign(operand : Series) -> Series raise @types.DataError {
 ///|
 /// `round` — the `eval_unary_num` instance behind `Expr::round`, rounding
 /// each `Float` cell to `decimals` places (`round_places`); `Int` cells pass
-/// through.
+/// through. A `Decimal` operand takes the exact face below: a rescale,
+/// not an approximation.
 fn eval_round(
   operand : Series,
   decimals : Int32,
 ) -> Series raise @types.DataError {
-  eval_unary_num(operand, "round", a => a, v => round_places(v, decimals))
+  match operand.dtype() {
+    Decimal(scale) => decimal_round(operand, scale, decimals)
+    Int | Float | Bool | String | Date | Timestamp | Duration | Null =>
+      eval_unary_num(operand, "round", a => a, v => round_places(v, decimals))
+  }
+}
+
+///|
+/// The decimal `round` — an exact rescale to `decimals` places: widening
+/// pads zeros (checked, an overflow refuses like the arithmetic's own);
+/// narrowing drops `scale − decimals` digits with a half-even decision on
+/// the dropped run (the same ties-to-even the `Float` rounding applies),
+/// and the dropped-run quotient can never overflow — it only shrinks. A
+/// target outside the dtype's `[0, 18]` envelope refuses at the column
+/// build, the same refusal every decimal constructor applies.
+fn decimal_round(
+  operand : Series,
+  scale : Int32,
+  decimals : Int32,
+) -> Series raise @types.DataError {
+  let cells : Array[Int64?] = []
+  for cell in operand.to_scalars() {
+    match cell {
+      Decimal(_, unscaled) =>
+        if decimals >= scale {
+          // Widen: exact zeros, checked.
+          let mut v = unscaled
+          let mut ok = true
+          for _ in scale..<decimals {
+            match @numeric.mul_checked(v, 10L) {
+              Some(w) => v = w
+              None => ok = false
+            }
+            if !ok {
+              break
+            }
+          }
+          if ok {
+            cells.push(Some(v))
+          } else {
+            raise @types.DataError::InvalidOperation(
+              "decimal round to \{decimals} places overflows the 18-digit magnitude",
+            )
+          }
+        } else {
+          // Narrow: divide by 10^d with half-even on the dropped run.
+          let d = scale - decimals
+          let mut div = 1L
+          for _ in 0..<d {
+            div = div * 10L
+          }
+          let q = unscaled / div
+          let r = unscaled % div
+          let half = div / 2
+          // The tie (`r == half`) keeps the even quotient, each sign its
+          // own side; `r` sits inside ±10^18, comfortably in range.
+          let bumped = if r > half || (r == half && q % 2L != 0L) {
+            q + 1L
+          } else if r < -half || (r == -half && q % 2L != 0L) {
+            q - 1L
+          } else {
+            q
+          }
+          cells.push(Some(bumped))
+        }
+      _ => cells.push(None)
+    }
+  }
+  Series::from_decimal_options(decimals, operand.name(), cells)
 }
 
 ///|

@@ -1,0 +1,25 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ihb2032/MoonFrame/internal/parquet"
+
+import {
+  "ihb2032/MoonFrame/series",
+  "ihb2032/MoonFrame/types",
+}
+
+// Values
+pub fn read_parquet_columns(Bytes, Array[String]?) -> Array[(String, @series.Series)] raise @types.DataError
+
+pub fn write_parquet_bytes(Array[@series.Series], Array[String], Codec) -> Bytes raise @types.DataError
+
+// Errors
+
+// Types and methods
+pub(all) enum Codec {
+  Uncompressed
+  Snappy
+  Gzip
+}
+
+// Type aliases
+
+// Traits

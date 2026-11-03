@@ -80,6 +80,16 @@ What has landed on `main`:
   (re-exported on the facade, every field defaulting to on) gates each
   optimizer stage: the three pushdown passes and the two rewrite rules.
   Any subset collects the same frame; a stage off only removes rewrites.
+- The parquet columnar interchange returns — a native reader and
+  writer (`read_parquet` / `write_parquet` / `parse_parquet`, the lazy
+  `scan_parquet`) over a module-internal codec: thrift compact
+  metadata, RLE definition levels, PLAIN and dictionary-decoded values,
+  UNCOMPRESSED / SNAPPY / GZIP page bodies. The riders interchange
+  exactly (`DATE`, `TIMESTAMP_MICROS`, `DECIMAL` over `INT64` with its
+  scale); the one narrowing is a written `Duration`, which rides a bare
+  `INT64` and reads back `Int` (no standard converted type names a
+  microsecond span). A `FLOAT` column refuses on read rather than
+  silently narrowing a `Double`.
 
 ## v0.8.0 → v0.8.1
 

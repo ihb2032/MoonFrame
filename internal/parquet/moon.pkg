@@ -1,0 +1,9 @@
+// The codec's dependencies: the value types it maps to, the series
+// constructors it builds columns through, and the byte / gzip cores its
+// page work rides.
+import {
+  "ihb2032/MoonFrame/types",
+  "ihb2032/MoonFrame/series",
+  "moonbitlang/core/compress/gzip",
+  "moonbitlang/core/encoding/utf8",
+}

@@ -40,6 +40,9 @@ KeepStrategy | enum | Last
 KeepStrategy | enum | None
 OnParseError | enum | Null
 OnParseError | enum | Raise
+ParquetCodec | enum | Gzip
+ParquetCodec | enum | Snappy
+ParquetCodec | enum | Uncompressed
 ParseErrorDetail | enum | Cell(CellParseLocation, String, Int32, DataType, String)
 ParseErrorDetail | enum | Message(String)
 PivotAgg | enum | First

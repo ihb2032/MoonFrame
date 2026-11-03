@@ -16,6 +16,8 @@ pub fn scan_json(String, options? : @io.JsonReadOptions) -> LazyFrame
 
 pub fn scan_ndjson(String, options? : @io.JsonReadOptions) -> LazyFrame
 
+pub fn scan_parquet(String) -> LazyFrame
+
 // Errors
 
 // Types and methods

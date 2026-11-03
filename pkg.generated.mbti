@@ -32,17 +32,23 @@ pub fn lit_str(String) -> @expr.Expr
 
 pub fn map_many(label~ : String, Array[@expr.Expr], (Array[@types.Scalar]) -> @types.Scalar raise @types.DataError) -> @expr.Expr
 
+pub fn parse_parquet(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
+
 pub fn read_csv(String, options? : @io.CsvReadOptions) -> @frame.DataFrame raise @types.DataError
 
 pub fn read_json(String, options? : @io.JsonReadOptions) -> @frame.DataFrame raise @types.DataError
 
 pub fn read_ndjson(String, options? : @io.JsonReadOptions) -> @frame.DataFrame raise @types.DataError
 
+pub fn read_parquet(String, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
+
 pub fn scan_csv(String, options? : @io.CsvReadOptions) -> @lazy.LazyFrame
 
 pub fn scan_json(String, options? : @io.JsonReadOptions) -> @lazy.LazyFrame
 
 pub fn scan_ndjson(String, options? : @io.JsonReadOptions) -> @lazy.LazyFrame
+
+pub fn scan_parquet(String) -> @lazy.LazyFrame
 
 pub fn when(@expr.Expr) -> @expr.WhenThen
 
@@ -51,6 +57,8 @@ pub fn write_csv(String, @frame.DataFrame, options? : @io.CsvWriteOptions) -> Un
 pub fn write_json(String, @frame.DataFrame) -> Unit raise @types.DataError
 
 pub fn write_ndjson(String, @frame.DataFrame) -> Unit raise @types.DataError
+
+pub fn write_parquet(@frame.DataFrame, String, codec? : @io.ParquetCodec) -> Unit raise @types.DataError
 
 pub fn write_vega_lite(String, @frame.DataFrame, @chart.ChartSpec) -> Unit raise @types.DataError
 
@@ -96,6 +104,8 @@ pub using @lazy {type LazyFrame}
 pub using @io {type OnParseError}
 
 pub using @lazy {type Optimizations}
+
+pub using @io {type ParquetCodec}
 
 pub using @types {type ParseErrorDetail}
 

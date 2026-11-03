@@ -331,6 +331,27 @@ pub fn Box::Box(values : Array[Int]) -> Box {
         )
         self.assertEqual(audit(root), [])
 
+    def test_a_pub_extend_method_boundary_is_scanned(self) -> None:
+        # An `extend` block publishes its methods without repeating `pub`
+        # on each `fn` - the boundary shape the original `pub fn` pattern
+        # never matched, and the module boundary is what makes one public.
+        root = self.repo(
+            {
+                "brand_new_package/thing.mbt": """///|
+pub extend Box with fn feed(self : Box, values : Array[Int]) -> Box {
+  { values: values }
+}
+""",
+            }
+        )
+        self.assertEqual(
+            audit(root),
+            [
+                "brand_new_package/thing.mbt: feed directly retains Array "
+                "parameter 'values'; copy it at the public boundary"
+            ],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

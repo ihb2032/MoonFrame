@@ -18,6 +18,20 @@ test "DataFrame::DataFrame copies the caller's column vector" {
 }
 
 ///|
+test "DataFrame::from_parts copies the caller's column vector" {
+  // The copy lives inside the helper chain the lexical guard cannot see
+  // (a lowercase constructor call, not a boundary it parses), so the
+  // behaviour is pinned here: the frame never observes a later mutation
+  // of the array it was handed.
+  let columns = [Series::from_ints("a", [1, 2]), Series::from_ints("b", [3, 4])]
+  let df = DataFrame::from_parts(columns, 2)
+  columns.push(Series::from_ints("c", [5, 6]))
+  columns[0] = Series::from_ints("z", [9, 9])
+  assert_eq(df.columns(), ["a", "b"])
+  assert_eq(df.item(0, "a"), Scalar::Int(1))
+}
+
+///|
 test "Schema::Schema copies the caller's field array" {
   let fields : Array[Field] = [Field::Field("a", DataType::Int)]
   let schema = Schema::Schema(fields)

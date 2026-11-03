@@ -38,7 +38,15 @@ ROOT = Path(__file__).resolve().parents[2]
 # The fixture module under `.github/` is a *downstream* consumer built against
 # the published surface; its boundaries are its own, not this module's.
 EXCLUDED_PREFIX = ".github/"
-PUBLIC_FN = re.compile(r"\bpub\s+fn(?:\[[^\]]+\])?\s+([A-Za-z0-9_:]+)\s*\(")
+# A public boundary is spelled `pub fn name(` or — the shape an `extend` /
+# `impl` block publishes — `with fn name(` (the block's own `pub` qualifier
+# sits pages of methods away from the individual `fn`). Matching a non-`pub`
+# `with fn` too is over-matching in the safe direction: it can only ask a
+# copy to be visible where the module boundary already forbids the caller.
+PUBLIC_FN = re.compile(
+    r"\bpub\s+fn(?:\[[^\]]+\])?\s+([A-Za-z0-9_:]+)\s*\("
+    r"|\bwith\s+fn(?:\[[^\]]*\])?\s+([A-Za-z0-9_:]+)\s*\("
+)
 # `?` marks an optional parameter and `~` a labelled one; both still hand the
 # callee a caller-owned array.
 ARRAY_PARAM = re.compile(r"\b([a-z][A-Za-z0-9_]*)\s*[?~]?\s*:\s*Array\s*\[")
@@ -339,8 +347,11 @@ def audit(root: Path = ROOT) -> list[str]:
                 continue
             for parameter in retained_parameters(block):
                 relative = path.relative_to(root).as_posix()
+                # Either alternative of PUBLIC_FN may have matched; the
+                # name sits in whichever group it filled.
+                name = fn_match.group(1) or fn_match.group(2)
                 failures.append(
-                    f"{relative}: {fn_match.group(1)} directly retains Array parameter "
+                    f"{relative}: {name} directly retains Array parameter "
                     f"'{parameter}'; copy it at the public boundary"
                 )
     return failures

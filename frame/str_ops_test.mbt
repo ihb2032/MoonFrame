@@ -709,3 +709,28 @@ test "str_strip_chars default trims Unicode whitespace, not just ASCII" {
     @types.Scalar::String("plain"),
   ])
 }
+
+///|
+test "the pad verbs refuse a width past the envelope" {
+  // A pad width names an output size per cell, not an input position —
+  // a hostile width would ask `String::make` for gigabytes, so the
+  // envelope refuses it the way the ewm family refuses a bad alpha.
+  let df = DataFrame::DataFrame([Series::from_strings("s", ["a"])])
+  for
+    expr in [
+      @expr.col("s").str_pad_start(16_777_217),
+      @expr.col("s").str_pad_end(16_777_217),
+      @expr.col("s").str_zfill(16_777_217),
+    ] {
+    let result = Ok(ignore(df.select([expr]))) catch { e => Err(e) }
+    assert_true(result is Err(@types.DataError::InvalidOperation(_)))
+  }
+  // The bound itself still answers.
+  let padded = df
+    .select([@expr.col("s").str_pad_start(16_777_216, fill='.').with_alias("p")])
+    .get_column("p")
+    .to_scalars()
+  assert_true(
+    padded[0] is @types.Scalar::String(cell) && cell.char_length() == 16_777_216,
+  )
+}

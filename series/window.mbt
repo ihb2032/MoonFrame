@@ -36,10 +36,15 @@ pub fn Series::slice_between(
 
 ///|
 /// Gather: produce a new series whose i-th entry is `self[indices[i]]`.
-/// Out-of-bounds indices surface as `IndexOutOfBounds(idx)`. The result is
-/// canonicalised onto the `Numeric` fast path when the gathered rows leave an
-/// Int / Float column all-valid (the same invariant `gather_series` keeps), so
-/// the backend is a function of the gathered content, not the source.
+/// Out-of-bounds indices surface as `IndexOutOfBounds(idx)`. A gather with
+/// repeated indices amplifies: for a String column the gathered payload
+/// rides an `Int32` byte-offset buffer, so a total past `2^31 - 1` bytes
+/// (a one-megabyte cell gathered a couple thousand times) refuses with
+/// `InvalidOperation` naming the bound rather than wrapping the offsets.
+/// The result is canonicalised onto the `Numeric` fast path when the
+/// gathered rows leave an Int / Float column all-valid (the same invariant
+/// `gather_series` keeps), so the backend is a function of the gathered
+/// content, not the source.
 pub fn Series::gather(
   self : Series,
   indices : Array[Int32],

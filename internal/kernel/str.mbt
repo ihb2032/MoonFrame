@@ -28,6 +28,24 @@ pub fn eval_str(
   op : @ir.StrOp,
   operand : Series,
 ) -> Series raise @types.DataError {
+  // The pad verbs' width is the one parameter here that names an output
+  // size rather than an input position: a hostile width asks
+  // `String::make` for gigabytes per cell, an allocation with no correct
+  // answer to return instead. The envelope check lives with the branch
+  // it guards (the ewm family's own placement); the bound sits far past
+  // any readable cell (16M characters) and far inside what one string
+  // can allocate on any supported target.
+  match op {
+    @ir.StrOp::PadStart(width, _)
+    | @ir.StrOp::PadEnd(width, _)
+    | @ir.StrOp::ZFill(width) =>
+      if width > 0x0100_0000 {
+        raise @types.DataError::InvalidOperation(
+          "string pad width must be at most 16777216 characters, got \{width}",
+        )
+      }
+    _ => ()
+  }
   // Decoded once up front: the string ops read materialised Strings (the
   // regex engine and the String methods speak UTF-16), one decode per cell.
   let data = match operand.storage().data() {

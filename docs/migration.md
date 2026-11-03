@@ -52,7 +52,15 @@ What has landed on `main`:
 - The `ewm_mean` / `ewm_std` / `ewm_variance` family — the
   exponentially-weighted recurrence (`span~` or `alpha~`, `adjust~`,
   `min_samples~`, `ignore_nulls~`; the deviation / variance are the
-  biased estimator). Always `Float`.
+  biased estimator, and a raw-moment cancellation that would land below
+  zero saturates at zero — a true variance is never negative). Always
+  `Float`.
+- Two parameter envelopes and one buffer bound that used to abort now
+  refuse: the string pad verbs (`str_pad_start` / `str_pad_end` /
+  `str_zfill`) refuse a width past 16,777,216 characters per cell with
+  `InvalidOperation`, and a `Series::gather` whose repeated indices
+  would amplify a String column past `2^31 - 1` payload bytes refuses
+  the same way instead of wrapping the buffer's `Int32` offsets.
 - `DataType::Duration` / `Scalar::Duration` — the fourth I64 rider: a
   span of whole microseconds. The temporal arithmetic reads it:
   `Timestamp − Timestamp` and `Date − Date` produce one, `Timestamp ±

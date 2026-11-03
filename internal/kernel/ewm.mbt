@@ -92,10 +92,25 @@ fn eval_ewm(
           decay * y_prev + alpha * v
         }
         if seen >= min_samples {
+          // The variance is the difference of two raw moments, a
+          // cancellation whose rounding error grows with the square of
+          // the magnitude — a constant column past ~1e5 lands a hair
+          // below zero, a value no true variance takes. Saturate to
+          // zero the way the Welford core saturates its own `m2` (a
+          // NaN passes the comparison untouched, keeping the
+          // NaN-as-a-value family rule).
+          let variance = {
+            let v = m2 / w - mean * mean
+            if v < 0.0 {
+              0.0
+            } else {
+              v
+            }
+          }
           match stat {
             EwmMean => out.push(Some(y_prev))
-            EwmVariance => out.push(Some(m2 / w - mean * mean))
-            EwmStd => out.push(Some((m2 / w - mean * mean).sqrt()))
+            EwmVariance => out.push(Some(variance))
+            EwmStd => out.push(Some(variance.sqrt()))
           }
         } else {
           out.push(None)

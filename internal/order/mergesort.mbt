@@ -35,10 +35,13 @@ pub fn stable_mergesort_indices(
   n : Int32,
   cmp : (Int32, Int32) -> Int32,
 ) -> Array[Int32] {
-  let buf = Array::makei(n, i => i)
+  // The guard precedes the allocation it guards: a negative `n` is a
+  // caller's bug the loop below would spin on, and `Array::makei` should
+  // not run first only to hand back an empty array the guard then hides.
   if n <= 1 {
-    return buf
+    return Array::makei(if n < 0 { 0 } else { n }, i => i)
   }
+  let buf = Array::makei(n, i => i)
   let aux = Array::make(n, 0)
   let mut src = buf
   let mut dst = aux

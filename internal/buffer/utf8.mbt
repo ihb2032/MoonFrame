@@ -48,8 +48,8 @@ pub extend Utf8Array with Debug::{to_repr}
 /// `encode_into`'s first out-of-range write — a bounds-checked trap either
 /// way, never silent corruption. Reaching it from this constructor needs
 /// multi-gigabyte resident strings, which the platform's memory ceiling
-/// stops first in practice (`take_view`'s amplification is the cheaper
-/// road).
+/// stops first in practice (a gather's amplification — the cheap road —
+/// carries its own explicit refusal instead, in `take_view`).
 pub fn Utf8Array::from_strings(values : Array[String]) -> Utf8Array {
   // Sum of the UTF-8 encodings' byte lengths — the exact value-buffer size,
   // allocated once instead of grown per cell. Same walk as `encode_into`, so
@@ -280,29 +280,32 @@ pub fn Utf8Array::slice_view(
 ///
 /// `from_strings`'s representable bound applies here with force: a gather
 /// with repeated indices can amplify a column past `2^31 - 1` payload
-/// bytes even when its input sat under the bound, and the amplified
-/// request fails the same way — the process aborts on the wrapped `Int32`
-/// total, not an error return. A total wrapped past `2^31 - 1` goes
-/// negative and aborts inside `FixedArray::make`; one wrapped past `2^32`
-/// into the non-negative range allocates an undersized buffer and aborts
-/// at the copy loop's first out-of-range write. Amplification is also the
-/// cheap road there: a single ~1GiB cell gathered four times crosses
-/// `2^32` while its input sat comfortably under the bound, so the memory
-/// ceiling that guards the constructors does not guard this path.
+/// bytes even when its input sat far under the bound — a one-megabyte cell
+/// gathered a couple thousand times crosses it while the process holds a
+/// few megabytes, so no memory ceiling guards this path. The amplified
+/// total therefore rides an `Int64` and refuses with `InvalidOperation`
+/// naming the bound: a wrapped `Int32` total is a negative size inside
+/// `FixedArray::make`, a bounds-checked abort, and this constructor is the
+/// one place a gather could reach it.
 pub fn Utf8Array::take_view(
   self : Utf8Array,
   indices : Array[Int32],
-) -> Utf8Array {
+) -> Utf8Array raise @types.DataError {
   let n = indices.length()
   let lens : FixedArray[Int32] = FixedArray::make(n, 0)
-  let mut total = 0
+  let mut total : Int64 = 0L
   for k in 0..<n {
     let i = indices[k]
     let l = self.offsets[i + 1] - self.offsets[i]
     lens[k] = l
-    total = total + l
+    total = total + l.to_int64()
   }
-  let bytes = FixedArray::make(total, (0 : Byte))
+  if total > 2147483647L {
+    raise @types.DataError::InvalidOperation(
+      "gather would build a string column of \{total} payload bytes, past the \{2147483647} an Int32-offset column can index",
+    )
+  }
+  let bytes = FixedArray::make(total.to_int(), (0 : Byte))
   let offsets : FixedArray[Int32] = FixedArray::make(n + 1, 0)
   let mut at = 0
   for k in 0..<n {

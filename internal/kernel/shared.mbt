@@ -120,7 +120,9 @@ fn broadcast_pair(
   } else if n == 1 {
     (left, right.gather_series(Array::make(m, 0)))
   } else {
-    raise @types.DataError::LengthMismatch
+    // No side is a natural baseline, so the pair answers in declaration
+    // order — the lengths themselves are the diagnosis.
+    raise @types.DataError::LengthMismatch(m, n)
   }
 }
 
@@ -139,6 +141,6 @@ pub fn broadcast_series(
   } else if s.len() == 1 {
     s.gather_series(Array::make(target, 0))
   } else {
-    raise @types.DataError::LengthMismatch
+    raise @types.DataError::LengthMismatch(target, s.len())
   }
 }

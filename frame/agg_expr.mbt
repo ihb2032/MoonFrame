@@ -169,7 +169,7 @@ pub fn GroupedDataFrame::agg(
             // and index an empty array on none at all.
             let reduced = eval_expr(expr, self.source, g)
             guard reduced.len() == 1 else {
-              raise @types.DataError::LengthMismatch
+              raise @types.DataError::LengthMismatch(1, reduced.len())
             }
             reduced.to_scalars()[0]
           }),

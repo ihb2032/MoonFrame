@@ -48,7 +48,7 @@ test "the constructor rejects columns of unequal length" {
   ) catch {
     e => Err(e)
   }
-  assert_eq(r, Err(@types.DataError::LengthMismatch))
+  assert_eq(r, Err(@types.DataError::LengthMismatch(2, 3)))
 }
 
 ///|
@@ -192,7 +192,7 @@ test "from_rows rejects rows of the wrong width" {
   let r = Ok(DataFrame::from_rows(schema, [[@types.Scalar::Int(1)]])) catch {
     e => Err(e)
   }
-  assert_eq(r, Err(@types.DataError::LengthMismatch))
+  assert_eq(r, Err(@types.DataError::LengthMismatch(2, 1)))
 }
 
 ///|

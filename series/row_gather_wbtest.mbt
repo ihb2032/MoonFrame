@@ -36,6 +36,6 @@ test "coalesce_columns refuses a fill shorter than the column" {
   let short = Series::from_ints("k", [9])
   assert_true(
     (Ok(base.coalesce_columns(short, "k")) catch { e => Err(e) })
-    is Err(@types.DataError::LengthMismatch),
+    is Err(@types.DataError::LengthMismatch(_, _)),
   )
 }

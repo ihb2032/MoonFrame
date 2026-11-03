@@ -685,3 +685,21 @@ test "scan_csv reads a gzip source equal to its plain twin" {
   @io.write_text(zipped, @fs.read_file_to_string(plain))
   assert_eq(scan_csv(zipped).collect(), scan_csv(plain).collect())
 }
+
+///|
+test "scan_csv honours a rider dtype pin, matching the eager reader" {
+  let path = "_build/lazy_scan_csv_rider_pin.csv"
+  let content = "d,t\n2024-01-02,1970-01-01T00:00:00Z\n2000-02-29,1969-12-31T23:59:59.999999\n"
+  @io.write_text(path, content)
+  let opts : @io.CsvReadOptions = @io.CsvReadOptions::CsvReadOptions(
+    dtypes=Map([("d", @types.DataType::Date), ("t", @types.DataType::Timestamp)]),
+  )
+  assert_eq(
+    scan_csv(path, options=opts).collect(),
+    @io.read_csv(path, options=opts),
+  )
+  assert_eq(
+    scan_csv(path, options=opts).collect().get_column("t").dtype(),
+    @types.DataType::Timestamp,
+  )
+}

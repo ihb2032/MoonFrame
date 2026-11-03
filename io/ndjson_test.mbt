@@ -675,3 +675,42 @@ test "empty NDJSON still checks its dtype pins" {
   }
   assert_true(result is Err(@types.DataError::InvalidOperation(_)))
 }
+
+///|
+test "parse_ndjson_str: a rider pin reads its text form per line" {
+  let content = "{\"d\": \"2024-01-02\"}\n{\"d\": \"2000-02-29\"}\n"
+  let opts = @io.JsonReadOptions::JsonReadOptions(
+    dtypes=Map([("d", @types.DataType::Date)]),
+  )
+  let df = @io.parse_ndjson_str(content, options=opts)
+  assert_eq(df.get_column("d").dtype(), @types.DataType::Date)
+  assert_eq(df.item(0, "d"), @types.Scalar::Date(19724L))
+  assert_eq(df.item(1, "d"), @types.Scalar::Date(11016L))
+  // A bad line keeps its physical line coordinate, like every other
+  // located error in this reader.
+  let bad = @io.JsonReadOptions::JsonReadOptions(
+    dtypes=Map([("d", @types.DataType::Date)]),
+  )
+  let result = Ok(
+    @io.parse_ndjson_str(
+      "{\"d\": \"2024-01-02\"}\n{\"d\": \"nope\"}\n",
+      options=bad,
+    ),
+  ) catch {
+    e => Err(e)
+  }
+  assert_eq(
+    result,
+    Err(
+      @types.DataError::ParseError(
+        @types.ParseErrorDetail::Cell(
+          @types.CellParseLocation::Line,
+          "d",
+          2,
+          @types.DataType::Date,
+          "nope",
+        ),
+      ),
+    ),
+  )
+}

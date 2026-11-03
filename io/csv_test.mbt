@@ -1000,33 +1000,110 @@ test "parse_csv_str: dtypes override pins a column ahead of inference" {
 }
 
 ///|
-test "parse_csv_str: a dtypes override without a read parser is refused" {
+test "parse_csv_str: the rider dtypes pin through their read parsers" {
   let content =
-    #|d,t,x,n
-    #|2024-01-02,1970-01-01T00:00:00Z,1.5,2
+    #|d,t,x
+    #|2024-01-02,1970-01-01T00:00:00Z,1.5
+    #|2000-02-29,1969-12-31T23:59:59.999999,-0.05
     #|
-  // Each of the unpinnable dtypes — the riders and Null — fails the read,
-  // naming the column and the dtype.
+  let opts = @io.CsvReadOptions::CsvReadOptions(
+    dtypes=Map([
+      ("d", @types.DataType::Date),
+      ("t", @types.DataType::Timestamp),
+      ("x", @types.DataType::Decimal(2)),
+    ]),
+  )
+  let df = @io.parse_csv_str(content, options=opts)
+  assert_eq(df.get_column("d").dtype(), @types.DataType::Date)
+  assert_eq(df.get_column("t").dtype(), @types.DataType::Timestamp)
+  assert_eq(df.get_column("x").dtype(), @types.DataType::Decimal(2))
+  assert_eq(df.item(0, "d"), @types.Scalar::Date(19724L))
+  assert_eq(df.item(1, "d"), @types.Scalar::Date(11016L))
+  // The trailing `Z` is the one admitted variant of the writer's form.
+  assert_eq(df.item(0, "t"), @types.Scalar::Timestamp(0L))
+  assert_eq(df.item(1, "t"), @types.Scalar::Timestamp(-1L))
+  // `"1.5"` pads to the pin's scale; `-0.05` reads its exact magnitude.
+  assert_eq(df.item(0, "x"), @types.Scalar::Decimal(2, 150L))
+  assert_eq(df.item(1, "x"), @types.Scalar::Decimal(2, -5L))
+}
+
+///|
+test "parse_csv_str: a rider pin's bad cell follows on_parse_error" {
+  let content =
+    #|d,t,x
+    #|2024-13-01,2024-01-01 00:00:00.000000,1.555
+    #|
   for
     pair in [
       (@types.DataType::Date, "d"),
       (@types.DataType::Timestamp, "t"),
       (@types.DataType::Decimal(2), "x"),
-      (@types.DataType::Null, "n"),
     ] {
     let (dt, name) = pair
     let opts = @io.CsvReadOptions::CsvReadOptions(dtypes=Map([(name, dt)]))
+    // The strict default fails the read with the located cell error,
+    // naming the pinned dtype.
     let result = Ok(@io.parse_csv_str(content, options=opts)) catch {
       e => Err(e)
     }
     match result {
-      Err(@types.DataError::InvalidOperation(m)) =>
-        assert_eq(
-          m,
-          "dtypes override: column \"\{name}\" cannot be pinned to \{dt}; only Int / Float / Bool / String have a read parser",
+      Err(
+        @types.DataError::ParseError(
+          @types.ParseErrorDetail::Cell(
+            @types.CellParseLocation::Row,
+            _,
+            1,
+            expected,
+            _
+          )
         )
-      _ => fail("expected InvalidOperation for \{dt}")
+      ) => assert_eq(expected, dt)
+      _ => fail("expected a located ParseError for \{dt}")
     }
+    // The resilient policy nulls the cell and keeps the pin.
+    let lenient = @io.CsvReadOptions::CsvReadOptions(
+      dtypes=Map([(name, dt)]),
+      on_parse_error=@io.OnParseError::Null,
+    )
+    let df = @io.parse_csv_str(content, options=lenient)
+    assert_eq(df.get_column(name).dtype(), dt)
+    assert_true(df.item(0, name) is @types.Scalar::Null)
+  }
+}
+
+///|
+test "parse_csv_str: a Null pin and an off-envelope scale are refused" {
+  let content =
+    #|n,x
+    #|2,1.5
+    #|
+  // `Null` still has no read parser; a `Decimal` pin outside the envelope
+  // refuses at the pin, naming the column.
+  let null_pin = @io.CsvReadOptions::CsvReadOptions(
+    dtypes=Map([("n", @types.DataType::Null)]),
+  )
+  let result = Ok(@io.parse_csv_str(content, options=null_pin)) catch {
+    e => Err(e)
+  }
+  match result {
+    Err(@types.DataError::InvalidOperation(m)) =>
+      assert_eq(
+        m, "dtypes override: column \"n\" cannot be pinned to Null; only Int / Float / Bool / String / Date / Timestamp / Decimal(scale) have a read parser",
+      )
+    _ => fail("expected InvalidOperation for the Null pin")
+  }
+  let bad_scale = @io.CsvReadOptions::CsvReadOptions(
+    dtypes=Map([("x", @types.DataType::Decimal(25))]),
+  )
+  let scale_result = Ok(@io.parse_csv_str(content, options=bad_scale)) catch {
+    e => Err(e)
+  }
+  match scale_result {
+    Err(@types.DataError::InvalidOperation(m)) =>
+      assert_eq(
+        m, "decimal column \"x\" carries scale 25, outside the envelope [0, 18]",
+      )
+    _ => fail("expected InvalidOperation for the off-envelope scale")
   }
 }
 

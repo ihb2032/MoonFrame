@@ -909,11 +909,93 @@ test "parse_json_str: a JSON string never coerces into a pinned Int" {
 }
 
 ///|
-test "parse_json_str: dtypes overrides are refused like the CSV reader's" {
+test "parse_json_str: the rider pins read JSON strings, and only strings" {
+  // The riders have no JSON-native type, so a pin reads the writer's text
+  // form out of a `String` value — the one carrier. A `Number` under a
+  // `Decimal` pin refuses rather than coercing.
+  let content = "[{\"d\": \"2024-01-02\", \"t\": \"1970-01-01T00:00:00.000000Z\", \"x\": \"1.5\"}]"
+  let opts = @io.JsonReadOptions::JsonReadOptions(
+    dtypes=Map([
+      ("d", @types.DataType::Date),
+      ("t", @types.DataType::Timestamp),
+      ("x", @types.DataType::Decimal(2)),
+    ]),
+  )
+  let df = @io.parse_json_str(content, options=opts)
+  assert_eq(df.get_column("d").dtype(), @types.DataType::Date)
+  assert_eq(df.get_column("t").dtype(), @types.DataType::Timestamp)
+  assert_eq(df.get_column("x").dtype(), @types.DataType::Decimal(2))
+  assert_eq(df.item(0, "d"), @types.Scalar::Date(19724L))
+  assert_eq(df.item(0, "t"), @types.Scalar::Timestamp(0L))
+  assert_eq(df.item(0, "x"), @types.Scalar::Decimal(2, 150L))
+  // A JSON number under a rider pin is the located refusal, the riders'
+  // counterpart of "a JSON string never coerces into a pinned Int".
+  let number = @io.JsonReadOptions::JsonReadOptions(
+    dtypes=Map([("x", @types.DataType::Decimal(2))]),
+  )
+  let result = Ok(@io.parse_json_str("[{\"x\": 1.5}]", options=number)) catch {
+    e => Err(e)
+  }
+  assert_true(
+    result
+    is Err(
+      @types.DataError::ParseError(
+        @types.ParseErrorDetail::Cell(
+          @types.CellParseLocation::Record,
+          _,
+          _,
+          _,
+          _
+        )
+      )
+    ),
+  )
+  // The resilient policy nulls the off-form cell and keeps the pin.
+  let lenient = @io.JsonReadOptions::JsonReadOptions(
+    dtypes=Map([("x", @types.DataType::Decimal(2))]),
+    on_parse_error=Null,
+  )
+  let nulled = @io.parse_json_str("[{\"x\": 1.5}]", options=lenient)
+  assert_eq(nulled.get_column("x").dtype(), @types.DataType::Decimal(2))
+  assert_true(nulled.item(0, "x") is @types.Scalar::Null)
+  // Every rider refuses a non-string the same way — a Number under the
+  // temporal pins too, with the pin's own dtype in the located error.
+  for pair in [("d", @types.DataType::Date), ("t", @types.DataType::Timestamp)] {
+    let (name, dt) = pair
+    let opts = @io.JsonReadOptions::JsonReadOptions(dtypes=Map([(name, dt)]))
+    let bad : Result[@frame.DataFrame, @types.DataError] = Ok(
+      @io.parse_json_str("[{\"d\": 12, \"t\": 1.5}]", options=opts),
+    ) catch {
+      e => Err(e)
+    }
+    match bad {
+      Err(
+        @types.DataError::ParseError(
+          @types.ParseErrorDetail::Cell(_, _, _, expected, _)
+        )
+      ) => assert_eq(expected, dt)
+      _ => fail("expected a located ParseError for \{dt}")
+    }
+  }
+  // A null cell stays null under a decimal pin.
+  let with_null = @io.JsonReadOptions::JsonReadOptions(
+    dtypes=Map([("x", @types.DataType::Decimal(2))]),
+  )
+  let nulled_row = @io.parse_json_str(
+    "[{\"x\": null}, {\"x\": \"1.5\"}]",
+    options=with_null,
+  )
+  assert_true(nulled_row.item(0, "x") is @types.Scalar::Null)
+  assert_eq(nulled_row.item(1, "x"), @types.Scalar::Decimal(2, 150L))
+}
+
+///|
+test "parse_json_str: a Null pin and a misspelt name are refused like the CSV reader's" {
   let content = "[{\"a\": 1}]"
-  // An unpinnable dtype, and a name the input does not carry.
+  // `Null` has no read parser; a name the input does not carry stays the
+  // caller's false assertion.
   let unsupported = @io.JsonReadOptions::JsonReadOptions(
-    dtypes=Map([("a", @types.DataType::Date)]),
+    dtypes=Map([("a", @types.DataType::Null)]),
   )
   let result = Ok(@io.parse_json_str(content, options=unsupported)) catch {
     e => Err(e)

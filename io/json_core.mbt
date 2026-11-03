@@ -433,6 +433,22 @@ fn json_value_to_string_fallback(j : Json) -> String {
 }
 
 ///|
+/// Try to read `j` as the text a rider pin parses — only a JSON `String`
+/// qualifies. The riders have no JSON-native type, so text is the one
+/// carrier their pins read: a written-back `Date` / `Timestamp` /
+/// `Decimal` column is a column of strings, and the pin parses exactly
+/// what the writer rendered. Every other value — a `Number` included —
+/// refuses, the located `ParseError` the riders' counterpart of the
+/// strong-type refusals above (no `Number → Decimal` coercion: JSON
+/// number text is not the writer's decimal form).
+fn json_value_as_rider_text(j : Json) -> String? {
+  match j {
+    String(s) => Some(s)
+    Null | True | False | Number(_) | Array(_) | Object(_) => None
+  }
+}
+
+///|
 /// Preserve the source coordinate as data for a typed-cell parse error.
 fn json_cell_parse_location(
   source_lines : Array[Int32]?,
@@ -472,6 +488,7 @@ fn build_json_column(
     parse_float=j => json_value_as_float(j, allow_nonfinite~),
     parse_bool=json_value_as_bool,
     render=json_value_to_string_fallback,
+    rider_text=json_value_as_rider_text,
     locate=(dt, i, c) => {
       let (location, position) = json_cell_parse_location(source_lines, i)
       @types.DataError::ParseError(

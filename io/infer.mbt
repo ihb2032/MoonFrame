@@ -22,14 +22,19 @@
 const DEFAULT_INFER_SCHEMA_ROWS : Int32 = 100
 
 ///|
-/// The four dtypes inference can pick. `Null` is intentionally absent —
-/// inference never produces it, so the builder match stays exhaustive
-/// without an unreachable arm.
+/// The dtypes a column build can lock in: the four inference can pick
+/// (`Null` is intentionally absent — inference never produces it), plus
+/// the three rider dtypes a `dtypes` pin can carry. A rider arm is never
+/// inferred — it names the pin the caller asserted, and its cells parse
+/// through the value-type layer's rider parsers, not the inference probes.
 priv enum InferredDtype {
   InferInt
   InferFloat
   InferBool
   InferString
+  RiderDate
+  RiderTimestamp
+  RiderDecimal(Int32)
 }
 
 ///|
@@ -49,11 +54,13 @@ fn copy_dtypes(
 ///|
 /// Decode a `dtypes` override into the dtype the column build locks in.
 /// The four dtypes inference can pick are exactly the four a reader can
-/// parse from cell text; everything else a `DataType` can name — `Null`,
-/// and the rider dtypes `Date` / `Timestamp` / `Decimal` — has no read
-/// parser, so pinning one is refused loudly rather than silently ignored.
-/// (Inference never produces these either: a written-back `Date` /
-/// `Timestamp` / `Decimal` column reads back as `String` / `Float`.)
+/// parse from cell text, and the three rider dtypes a pin can additionally
+/// carry parse through the value-type layer's rider parsers — the text
+/// forms the writers render, read back exactly. Everything else a
+/// `DataType` can name — `Null` — has no read parser, so pinning it is
+/// refused loudly rather than silently ignored. A `Decimal(scale)` pin
+/// carrying a scale outside the dtype's envelope refuses here, at the
+/// caller's assertion, rather than at the first cell.
 fn inferred_from_override(
   column : String,
   dt : @types.DataType,
@@ -63,9 +70,15 @@ fn inferred_from_override(
     Float => InferFloat
     Bool => InferBool
     String => InferString
-    Null | Date | Timestamp | Decimal(_) =>
+    Date => RiderDate
+    Timestamp => RiderTimestamp
+    Decimal(scale) => {
+      @types.check_decimal_scale(scale, "column \"\{column}\"")
+      RiderDecimal(scale)
+    }
+    Null =>
       raise @types.DataError::InvalidOperation(
-        "dtypes override: column \"\{column}\" cannot be pinned to \{dt}; only Int / Float / Bool / String have a read parser",
+        "dtypes override: column \"\{column}\" cannot be pinned to \{dt}; only Int / Float / Bool / String / Date / Timestamp / Decimal(scale) have a read parser",
       )
   }
 }
@@ -235,9 +248,12 @@ fn parse_float_opt(s : String, allow_nonfinite : Bool) -> Double? {
 /// reads the raw cell, `is_null(c)` maps a null cell to `None`, `parse(c)`
 /// converts a non-null cell to `Some(value)` (or `None` when it doesn't fit
 /// the locked-in dtype), and `build` wraps the option array into a
-/// `Series`. Used for the parseable dtypes (`Int` / `Float` / `Bool`); the
-/// `String` fallback goes through the total `build_string_column` below (its
-/// `render` never fails, so it needs no `parse` / `err` / `on_parse_error`).
+/// `Series`. Used for the parseable dtypes (`Int` / `Float` / `Bool`) and
+/// the total-constructor rider pins (`Date` / `Timestamp`); the `Decimal`
+/// pin's constructor validates its scale and so takes the dedicated shell
+/// below, and the `String` fallback goes through the total
+/// `build_string_column` below (its `render` never fails, so it needs no
+/// `parse` / `err` / `on_parse_error`).
 ///
 /// A non-null cell that `parse` rejects is handled per `on_parse_error`:
 /// `Raise` surfaces `err(i, c)` (the strict default, failing the read),
@@ -299,16 +315,23 @@ fn[Cell] build_string_column(
 }
 
 ///|
-/// The four-arm `InferredDtype` dispatch shared by the CSV and JSON readers:
-/// route the three parseable dtypes through `build_typed_column` (each with its
-/// own parser and a `locate`d error) and the `String` fallback through the
-/// total `build_string_column`. Each reader supplies only its cell accessor,
-/// null test, per-dtype parsers, string render, and error locator —
-/// `locate(dt, i, c)` builds the `ParseError` for the cell at index `i` that
-/// failed to fit dtype `dt`, letting each format place the coordinate (a CSV
-/// data row, an NDJSON line, a JSON record) and stringify the offending value
-/// its own way. The match, and the `Int → Float → Bool → String` order it
-/// mirrors from `infer_dtype`, live here once.
+/// The `InferredDtype` dispatch shared by the CSV and JSON readers: route
+/// the three parseable dtypes through `build_typed_column` (each with its
+/// own parser and a `locate`d error), the `String` fallback through the
+/// total `build_string_column`, and the rider pins through `build_typed_column`
+/// over the value-type layer's rider parsers — the riders' cell text comes
+/// from `rider_text`, the one reader difference between them: the CSV
+/// reader's cell *is* text, while a JSON pin reads a `String` value and
+/// nothing else (the riders have no JSON-native type, so text is the only
+/// carrier; a JSON number pinning `Decimal` refuses with the located
+/// `ParseError` rather than coercing). Each reader supplies only its cell
+/// accessor, null test, per-dtype parsers, string render, and error
+/// locator — `locate(dt, i, c)` builds the `ParseError` for the cell at
+/// index `i` that failed to fit dtype `dt`, letting each format place the
+/// coordinate (a CSV data row, an NDJSON line, a JSON record) and
+/// stringify the offending value its own way. The match, and the
+/// `Int → Float → Bool → String` order it mirrors from `infer_dtype`,
+/// live here once.
 fn[Cell] build_inferred_column(
   name : String,
   dtype : InferredDtype,
@@ -319,6 +342,7 @@ fn[Cell] build_inferred_column(
   parse_float~ : (Cell) -> Double?,
   parse_bool~ : (Cell) -> Bool?,
   render~ : (Cell) -> String,
+  rider_text~ : (Cell) -> String?,
   locate~ : (@types.DataType, Int32, Cell) -> @types.DataError,
   on_parse_error~ : OnParseError,
 ) -> @series.Series raise @types.DataError {
@@ -357,5 +381,95 @@ fn[Cell] build_inferred_column(
         build=@series.Series::from_bool_options,
       )
     InferString => build_string_column(name, n, cell, is_null, render)
+    RiderDate =>
+      build_typed_column(
+        name,
+        n,
+        cell~,
+        is_null~,
+        parse=c => {
+          match rider_text(c) {
+            Some(text) => @types.parse_date_days_opt(text)
+            None => None
+          }
+        },
+        err=(i, c) => locate(@types.DataType::Date, i, c),
+        on_parse_error~,
+        build=@series.Series::from_date_options,
+      )
+    RiderTimestamp =>
+      build_typed_column(
+        name,
+        n,
+        cell~,
+        is_null~,
+        parse=c => {
+          match rider_text(c) {
+            Some(text) => @types.parse_timestamp_micros_opt(text)
+            None => None
+          }
+        },
+        err=(i, c) => locate(@types.DataType::Timestamp, i, c),
+        on_parse_error~,
+        build=@series.Series::from_timestamp_options,
+      )
+    RiderDecimal(scale) =>
+      build_decimal_pin_column(
+        name,
+        scale,
+        n,
+        cell~,
+        is_null~,
+        rider_text~,
+        locate~,
+        on_parse_error~,
+      )
   }
+}
+
+///|
+/// The `Decimal` pin's own shell — `build_typed_column`'s shape with the
+/// scale-carrying constructor inlined, because that constructor validates
+/// the envelope and is fallible where the shell's builders are total (the
+/// pin decoded only after the same validation accepted the scale, so the
+/// constructor's refusal cannot fire here; the shell exists so the fallible
+/// call sits in a concretely fallible function rather than behind a
+/// swallowed error). A non-null cell whose text the pin cannot express at
+/// the scale — or a JSON value that is not a string — follows
+/// `on_parse_error` like every other locked-in mismatch.
+fn[Cell] build_decimal_pin_column(
+  name : String,
+  scale : Int32,
+  n : Int32,
+  cell~ : (Int32) -> Cell,
+  is_null~ : (Cell) -> Bool,
+  rider_text~ : (Cell) -> String?,
+  locate~ : (@types.DataType, Int32, Cell) -> @types.DataError,
+  on_parse_error~ : OnParseError,
+) -> @series.Series raise @types.DataError {
+  let expected = @types.DataType::Decimal(scale)
+  let values : Array[Int64?] = Array::makei(n, i => {
+    let c = cell(i)
+    if is_null(c) {
+      None
+    } else {
+      match rider_text(c) {
+        Some(text) =>
+          match @types.parse_decimal_unscaled_opt(text, scale) {
+            Some(v) => Some(v)
+            None =>
+              match on_parse_error {
+                Raise => raise locate(expected, i, c)
+                Null => None
+              }
+          }
+        None =>
+          match on_parse_error {
+            Raise => raise locate(expected, i, c)
+            Null => None
+          }
+      }
+    }
+  })
+  @series.Series::from_decimal_options(scale, name, values)
 }

@@ -89,7 +89,16 @@ What has landed on `main`:
   scale); the one narrowing is a written `Duration`, which rides a bare
   `INT64` and reads back `Int` (no standard converted type names a
   microsecond span). A `FLOAT` column refuses on read rather than
-  silently narrowing a `Double`.
+  silently narrowing a `Double`. A `Bool` column rides the spec's own
+  PLAIN packing (bit-packed LSB first, eight cells to a byte), so files
+  written by other tools read back correctly; a V2 data page reads its
+  level bytes raw and only its values through the codec, the spec's
+  compression boundary. A string cell holding an unpaired UTF-16
+  surrogate refuses the write (`InvalidOperation`), the same guard the
+  text writers carry. Hostile counts refuse with a located `ParseError`
+  instead of sizing an allocation: a chunk naming more values than its
+  bytes could carry, a page naming more than its chunk, an RLE run
+  count or a SNAPPY declared length past their bounds.
 
 ## v0.8.0 → v0.8.1
 

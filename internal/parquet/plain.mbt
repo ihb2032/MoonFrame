@@ -73,11 +73,14 @@ fn le_f64(bytes : Bytes, offset : Int32) -> Double {
 /// `(start, length)` of its payload — a view, not a copy, the caller
 /// copies what it keeps.
 fn le_bytes_prefix(bytes : Bytes, offset : Int32) -> (Int32, Int32)? {
-  if offset + 4 > bytes.length() {
+  // Subtraction forms throughout: `offset` never passes the buffer's
+  // length, so every difference below stays inside Int32, while the
+  // additions could fold a hostile length back inside the bound.
+  if offset < 0 || bytes.length() - offset < 4 {
     return None
   }
   let len = le_i32(bytes, offset)
-  if len < 0 || offset + 4 + len > bytes.length() {
+  if len < 0 || len > bytes.length() - offset - 4 {
     return None
   }
   Some((offset + 4, len))

@@ -10,7 +10,10 @@
 /// tag-driven elements — literals (`00`), and copies with 1-, 2-, or
 /// 4-byte offsets (`01` / `10` / `11`). A malformed stream (a length
 /// past its bytes, an offset behind the output's start or ahead of its
-/// end) refuses; the caller surfaces it as a located error.
+/// end) refuses; the caller surfaces it as a located error. The output
+/// grows with what the stream actually produces — the declared length
+/// is checked against, never pre-allocated, so a five-byte stream
+/// claiming a gigabyte costs five bytes, not a gigabyte.
 fn snappy_decompress(input : Bytes) -> Bytes? {
   let r = thrift_reader(input)
   let declared = match r.varint() {
@@ -20,13 +23,13 @@ fn snappy_decompress(input : Bytes) -> Bytes? {
   if declared > 0x4000_0000UL {
     return None
   }
-  let out : Array[Byte] = Array::make(declared.to_int(), b'\x00')
-  let mut written = 0
+  let declared = declared.reinterpret_as_int64()
+  let out : Array[Byte] = []
+  let mut written : Int64 = 0
   // The declared length is authoritative: elements are consumed until
   // it is reached, a stream that ends before then fails the final
-  // length check below (the loop guard and `byte`'s own bound agree,
-  // so no separate at-EOF arm exists here).
-  while written < out.length() {
+  // length check below.
+  while written < declared {
     let tag = match r.byte() {
       Some(t) => t
       None => break
@@ -47,13 +50,13 @@ fn snappy_decompress(input : Bytes) -> Bytes? {
           }
           len = len + 1
         }
-        if written + len > out.length() {
+        if written + len.to_int64() > declared {
           return None
         }
         for _ in 0..<len {
           match r.byte() {
             Some(b) => {
-              out[written] = b.to_byte()
+              out.push(b.to_byte())
               written = written + 1
             }
             None => return None
@@ -68,10 +71,10 @@ fn snappy_decompress(input : Bytes) -> Bytes? {
         }
         let len = ((tag >> 2) & 0x07) + 4
         let offset = ((tag & 0xE0) << 3) | next
-        if !snappy_copy(out, written, offset, len) {
+        if !snappy_copy(out, written, offset, len, declared) {
           return None
         }
-        written = written + len
+        written = written + len.to_int64()
       }
       2 => {
         // Copy with a 16-bit offset.
@@ -85,10 +88,10 @@ fn snappy_decompress(input : Bytes) -> Bytes? {
         }
         let len = (tag >> 2) + 1
         let offset = lo | (hi << 8)
-        if !snappy_copy(out, written, offset, len) {
+        if !snappy_copy(out, written, offset, len, declared) {
           return None
         }
-        written = written + len
+        written = written + len.to_int64()
       }
       _ => {
         // Copy with a 32-bit offset — MoonFrame columns fit memory, but
@@ -101,14 +104,14 @@ fn snappy_decompress(input : Bytes) -> Bytes? {
           }
         }
         let len = (tag >> 2) + 1
-        if !snappy_copy(out, written, offset, len) {
+        if !snappy_copy(out, written, offset, len, declared) {
           return None
         }
-        written = written + len
+        written = written + len.to_int64()
       }
     }
   }
-  if written != out.length() {
+  if written != declared || out.length().to_int64() != declared {
     return None
   }
   Some(Bytes::from_array(out))
@@ -118,19 +121,26 @@ fn snappy_decompress(input : Bytes) -> Bytes? {
 /// One back reference: `len` bytes from `offset` behind `written`,
 /// byte-at-a-time so an overlapping reference (a run the matcher
 /// stretched past its source) replicates forward, exactly what the
-/// format's repeat idiom means.
+/// format's repeat idiom means. The source always sits inside what the
+/// stream has already produced (`written` is the output's own length
+/// here), so each byte pushes — a push at a time keeps an overlapping
+/// reference reading bytes it itself just wrote. `written` and the
+/// declared bound ride Int64 so the comparisons cannot wrap.
 fn snappy_copy(
   out : Array[Byte],
-  written : Int32,
+  written : Int64,
   offset : Int32,
   len : Int32,
+  declared : Int64,
 ) -> Bool {
-  if offset <= 0 || written - offset < 0 || written + len > out.length() {
+  if offset <= 0 ||
+    written - offset.to_int64() < 0 ||
+    written + len.to_int64() > declared {
     return false
   }
-  let src = written - offset
+  let src = (written - offset.to_int64()).to_int()
   for i in 0..<len {
-    out[written + i] = out[src + i]
+    out.push(out[src + i])
   }
   true
 }

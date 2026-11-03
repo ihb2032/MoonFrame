@@ -372,13 +372,34 @@ fn decode_column(
   let chunk = column.chunk
   let map = column.map
   let total = chunk.num_values
+  // A chunk cannot carry more values than its bytes could spell —
+  // eight one-bit cells to a byte is the densest parquet encoding — so
+  // the value count rides an Int64 against the file's own length: a
+  // hundred-byte file claiming two billion values refuses here, before
+  // any allocation the count would name.
+  if total < 0L || total > bytes.length().to_int64() * 8L {
+    raise bad(
+      "column \"\{chunk.name}\" claims \{total} values, beyond what its bytes could carry",
+    )
+  }
   let defs : Array[Int32] = []
   // The present values, decoded per physical type; the dictionary
   // (when a dictionary page precedes) holds the value set.
   let mut dictionary : Array[@types.Scalar] = []
   let values : Array[@types.Scalar?] = []
-  let mut at = chunk.pages_at.to_int()
-  let end = at + chunk.compressed.to_int()
+  // The chunk's own byte region is validated in Int64 before it rides
+  // Int32 indices — a footer naming an offset or size past the file (or
+  // past the Int32 range, where the truncating conversion would fold
+  // it back inside) refuses at the boundary.
+  let chunk_start = chunk.pages_at
+  let chunk_end = chunk_start + chunk.compressed
+  if chunk_start < 0L ||
+    chunk_end < chunk_start ||
+    chunk_end > bytes.length().to_int64() {
+    raise bad("column \"\{chunk.name}\" leaves the file")
+  }
+  let mut at = chunk_start.to_int()
+  let end = chunk_end.to_int()
   let mut produced = 0L
   while produced < total {
     if at >= end || at >= bytes.length() {
@@ -545,25 +566,50 @@ fn decode_column(
     }
     // `r.pos` is an offset into the chunk's own region; the page body
     // is the chunk bytes after the header, and the walk's file offset
-    // advances by the same amount.
+    // advances by the same amount. The bound is spelled as a
+    // subtraction — `body_in_chunk` never passes the chunk's own
+    // length, so it cannot wrap, while the addition of a hostile
+    // `compressed_size` could.
     let body_in_chunk = r.pos
-    let body_end_in_chunk = body_in_chunk + compressed_size
-    if body_end_in_chunk > chunk_bytes.length() {
+    if compressed_size < 0 ||
+      compressed_size > chunk_bytes.length() - body_in_chunk {
       raise bad("a page body leaves the chunk")
     }
-    at = at + body_end_in_chunk
-    // The body: decompress first (V2's levels are outside the
-    // compression; V1 compresses the whole body).
-    let raw = slice(chunk_bytes, body_in_chunk, compressed_size)
+    at = at + body_in_chunk + compressed_size
+    // A page cannot name more values than the chunk still owes: the
+    // count sizes every per-value allocation below, so it is checked
+    // against the chunk's own total before anything is built by it —
+    // a page header claiming two billion values in a three-row chunk
+    // refuses here instead of allocating the array it names.
+    if num_values < 0 || produced + num_values.to_int64() > total {
+      raise bad(
+        "a page of column \"\{chunk.name}\" claims \{num_values} values past its chunk",
+      )
+    }
+    // The body's values ride the codec. V1 compresses levels and
+    // values together; V2 keeps the level bytes raw at the page head
+    // and compresses only the values after them (the flat schema's
+    // repetition levels are zero-width, so the head is `def_len` bytes
+    // long) — the codec's input is the values alone, and what it yields
+    // is values from byte zero. Sending a V2 page's head through the
+    // decompressor would reject every foreign V2 file.
+    let values_input = if v2 {
+      if def_len < 0 || def_len > compressed_size {
+        raise bad("a V2 page's levels leave its body")
+      }
+      slice(chunk_bytes, body_in_chunk + def_len, compressed_size - def_len)
+    } else {
+      slice(chunk_bytes, body_in_chunk, compressed_size)
+    }
     let body = match chunk.codec {
-      0 => raw
+      0 => values_input
       1 =>
-        match snappy_decompress(raw) {
+        match snappy_decompress(values_input) {
           Some(b) => b
           None => raise bad("a SNAPPY page body does not decompress")
         }
       2 =>
-        @gzip.decompress(raw) catch {
+        @gzip.decompress(values_input) catch {
           _ => raise bad("a GZIP page body does not decompress")
         }
       c =>
@@ -584,30 +630,27 @@ fn decode_column(
       produced = produced + num_values.to_int64()
       continue
     }
-    // V1: the body is levels-then-values, RLE-coded levels at width 1.
-    // V2: the levels are raw bytes in the page (uncompressed), the
-    // values after them compressed — under a flat schema the repetition
-    // levels are zero-width (absent) and the definition levels are
-    // bit-packed 1-bit each, one byte per eight cells.
-    let page_defs : Array[Int32] = Array::makei(num_values, _ => 1)
-    let mut values_at = 0
-    if !v2 {
+    // V1: the body is levels-then-values, RLE-coded levels at width 1
+    // — the decoder's own output array is the level array, no second
+    // allocation. V2: the levels are raw bit-packed bytes at the page
+    // head (one bit per cell, outside the compression); the slice above
+    // already lifted the head off the codec input, so the body is
+    // values from byte zero under every codec.
+    let (page_defs, values_at) = if !v2 {
       let (decoded, consumed) = match rle_decode(body, num_values, 1) {
         Some(d) => d
         None => raise bad("definition levels do not decode")
       }
-      for i in 0..<num_values {
-        page_defs[i] = decoded[i]
-      }
-      values_at = consumed
+      (decoded, consumed)
     } else {
       let level_bytes = slice(chunk_bytes, body_in_chunk, def_len)
+      let defs : Array[Int32] = Array::makei(num_values, _ => 1)
       for i in 0..<num_values {
         if i / 8 < level_bytes.length() {
-          page_defs[i] = (level_bytes[i / 8].to_int() >> (i % 8)) & 1
+          defs[i] = (level_bytes[i / 8].to_int() >> (i % 8)) & 1
         }
       }
-      values_at = def_len
+      (defs, 0)
     }
     let value_bytes = slice(body, values_at, body.length() - values_at)
     if page_type != 0 {
@@ -698,10 +741,28 @@ fn count_present(defs : Array[Int32]) -> Int32 {
 }
 
 ///|
+/// The BOOLEAN dictionary capacity: eight cells to a byte, clamped at
+/// the Int32 ceiling so the product cannot wrap negative (a wrapped
+/// capacity is an empty dictionary, and empty means every index
+/// refuses). The clamp arm needs a dictionary body past 2^28 bytes —
+/// more memory than a test may spend — so the function rides
+/// `#coverage.skip`; the in-range product is exercised by every
+/// dictionary round-trip.
+#coverage.skip
+fn boolean_dictionary_cap(bytes : Bytes) -> Int32 {
+  let cap = bytes.length().to_int64() * 8L
+  if cap > 2147483647L {
+    2147483647
+  } else {
+    cap.to_int()
+  }
+}
+
+///|
 /// The dictionary capacity a dictionary page's bytes name.
 fn dictionary_capacity(bytes : Bytes, map : DtypeMap) -> Int32 {
   match map.physical {
-    Boolean => bytes.length() * 8
+    Boolean => boolean_dictionary_cap(bytes)
     Int32P => bytes.length() / 4
     Int64P | DoubleP => bytes.length() / 8
     ByteArrayP => {
@@ -759,7 +820,11 @@ fn decode_plain_values(
         out.push(scalar_of_physical(map, v.to_int64(), 0.0))
       }
       Boolean => {
-        if at >= bytes.length() {
+        // PLAIN BOOLEAN is bit-packed, eight cells to a byte: `at` is a
+        // bit index, so the bound is the byte it lands in. Comparing
+        // the bit index against the byte count itself rejects every
+        // legal page from its ninth cell on.
+        if at / 8 >= bytes.length() {
           raise bad("column \"\{name}\" PLAIN values end early")
         }
         let bit = bool_bit(bytes, at)

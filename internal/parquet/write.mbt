@@ -87,12 +87,36 @@ fn encode_data_page(
   let valid = column.validity_bools()
   let levels : Array[Int32] = Array::makei(n, i => if valid[i] { 1 } else { 0 })
   let level_bytes = rle_encode(levels, 1)
-  // The PLAIN payload over the present cells.
+  // The PLAIN payload over the present cells. BOOLEAN rides its own
+  // bit-packing — eight cells to a byte, LSB first, the tail padded
+  // with zeros — because a byte accumulates bits from up to eight
+  // cells, so the encoding carries state across the per-cell walk.
   let payload : Array[Byte] = []
   let scalars = column.to_scalars()
-  for i in 0..<n {
-    if valid[i] {
-      encode_plain_value(payload, scalars[i], map)
+  if map.physical is Boolean {
+    let mut cur = 0
+    let mut filled = 0
+    for i in 0..<n {
+      if valid[i] {
+        if scalars[i] is @types.Scalar::Bool(true) {
+          cur = cur | (1 << filled)
+        }
+        filled = filled + 1
+        if filled == 8 {
+          payload.push(cur.to_byte())
+          cur = 0
+          filled = 0
+        }
+      }
+    }
+    if filled > 0 {
+      payload.push(cur.to_byte())
+    }
+  } else {
+    for i in 0..<n {
+      if valid[i] {
+        encode_plain_value(payload, scalars[i], map)
+      }
     }
   }
   let page_body : Array[Byte] = []
@@ -146,8 +170,17 @@ fn encode_plain_value(
   match (map.physical, scalar) {
     (Int64P, Int(v)) => push_le_i64(buf, v)
     (DoubleP, Float(v)) => push_le_f64(buf, v)
-    (Boolean, Bool(v)) => buf.push(if v { b'\x01' } else { b'\x00' })
     (ByteArrayP, String(s)) => {
+      // The core UTF-8 encoder aborts on an unpaired surrogate, so the
+      // guard runs first and refuses with the `DataError` the write
+      // signature promises instead of the abort escaping it.
+      match @text.find_unpaired_surrogate(s) {
+        Some(_) =>
+          raise @types.DataError::InvalidOperation(
+            "cannot write a parquet string cell containing an unpaired UTF-16 surrogate: the UTF-8 encoding would not round-trip",
+          )
+        None => ()
+      }
       let bytes = @utf8.encode(s)
       push_le_i32(buf, bytes.length())
       for b in bytes {

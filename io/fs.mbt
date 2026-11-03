@@ -64,32 +64,6 @@ fn gunzip_bytes(path : String, bytes : Bytes) -> Bytes raise @types.DataError {
 }
 
 ///|
-/// Return the code-unit index of the first unpaired UTF-16 surrogate in
-/// `content`, or `None` when the string is well-formed. A high surrogate
-/// (`0xD800`–`0xDBFF`) must be immediately followed by a low surrogate
-/// (`0xDC00`–`0xDFFF`); a low surrogate anywhere else is unpaired.
-fn find_unpaired_surrogate(content : String) -> Int32? {
-  let units = content.code_units()
-  let n = units.length()
-  let mut i = 0
-  while i < n {
-    let cu = units[i]
-    if cu.is_leading_surrogate() {
-      if i + 1 < n && units[i + 1].is_trailing_surrogate() {
-        i += 2
-        continue
-      }
-      return Some(i)
-    }
-    if cu.is_trailing_surrogate() {
-      return Some(i)
-    }
-    i += 1
-  }
-  None
-}
-
-///|
 /// Write a string to a file, mapping a file-system `IOError` to
 /// `DataError::IoError`. Shared by every `write_*` entry point — io's own
 /// and the chart package's `write_vega_lite`, whose cross-package reach is
@@ -119,7 +93,7 @@ pub fn write_text(
   path : String,
   content : String,
 ) -> Unit raise @types.DataError {
-  match find_unpaired_surrogate(content) {
+  match @text.find_unpaired_surrogate(content) {
     Some(i) =>
       raise @types.DataError::InvalidOperation(
         "cannot write a string containing an unpaired UTF-16 surrogate " +

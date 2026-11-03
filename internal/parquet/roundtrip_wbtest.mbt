@@ -104,11 +104,9 @@ test "parquet projection reads the named columns only" {
   assert_eq(read.length(), 2)
   assert_eq(read[0].0, "i")
   assert_eq(read[1].0, "t")
-  // A misspelt name refuses.
-  let result = Ok(ignore(read_parquet_columns(bytes, Some(["nope"])))) catch {
-    e => Err(e)
-  }
-  assert_true(result is Err(@types.DataError::InvalidOperation(_)))
+  // A misspelt name builds no column — lenient like the text readers'
+  // projection.
+  assert_eq(read_parquet_columns(bytes, Some(["nope"])), [])
 }
 
 ///|

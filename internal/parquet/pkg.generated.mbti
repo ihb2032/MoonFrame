@@ -7,6 +7,8 @@ import {
 }
 
 // Values
+pub fn parquet_num_rows(Bytes) -> Int32 raise @types.DataError
+
 pub fn read_parquet_columns(Bytes, Array[String]?) -> Array[(String, @series.Series)] raise @types.DataError
 
 pub fn write_parquet_bytes(Array[@series.Series], Array[String], Codec) -> Bytes raise @types.DataError

@@ -739,3 +739,71 @@ test "scan_parquet collects to the eager read and narrows its chunks" {
   }
   assert_true(absent is Err(@types.DataError::IoError(_)))
 }
+
+///|
+test "scan_parquet keeps a filtered select and a filtered group equal to eager" {
+  // The optimizer absorbs the filter into the scan and then narrows the
+  // scan's projection to its consumers — the two pushdowns combined.
+  // The predicate's own column must ride the decode even though the
+  // projection above drops it, exactly the key-column contract the text
+  // drivers' pruner honours; before that contract reached the parquet
+  // driver this shape raised ColumnNotFound on the predicate's column.
+  let df = @frame.DataFrame::DataFrame([
+    @series.Series::from_int_options("i", [Some(1), Some(2), Some(3)]),
+    @series.Series::from_int_options("v", [Some(10), None, Some(30)]),
+    @series.Series::from_string_options("s", [Some("a"), Some("b"), Some("c")]),
+  ])
+  let path = "_build/lazy_scan_parquet_filter_select.parquet"
+  @io.write_parquet(df, path)
+  let predicate = @expr.col("v").gt(@expr.lit_int(5))
+  let lazy_filtered = scan_parquet(path).filter(predicate)
+  assert_eq(
+    lazy_filtered.select([@expr.col("i")]).collect(),
+    @io.read_parquet(path).filter(predicate).select([@expr.col("i")]),
+  )
+  assert_eq(
+    lazy_filtered
+    .group_by([@expr.col("s")])
+    .agg([@expr.col("i").sum()])
+    .collect(),
+    @io.read_parquet(path)
+    .filter(predicate)
+    .group_by([@expr.col("s")])
+    .agg([@expr.col("i").sum()]),
+  )
+  // The filtered select over one column, spelled once more with a
+  // second consumer of the predicate's own column — the driver hands
+  // back only the projected columns, so a plan that does keep the
+  // predicate column reads it after the filter either way.
+  assert_eq(
+    lazy_filtered.select([@expr.col("i"), @expr.col("v")]).collect().columns(),
+    ["i", "v"],
+  )
+}
+
+///|
+test "scan_parquet keeps the eager error for a name the file lacks" {
+  // A select naming a column the file does not carry raises the eager
+  // chain's ColumnNotFound — the parquet projection is lenient like the
+  // text readers' (a missing name builds no column), so the error comes
+  // from the expression's own evaluation, not the scan.
+  let df = @frame.DataFrame::DataFrame([
+    @series.Series::from_int_options("i", [Some(1)]),
+  ])
+  let path = "_build/lazy_scan_parquet_missing_name.parquet"
+  @io.write_parquet(df, path)
+  let result = Ok(
+    ignore(
+      scan_parquet(path).select([@expr.col("i"), @expr.col("zzz")]).collect(),
+    ),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(result is Err(@types.DataError::ColumnNotFound("zzz")))
+  let eager = Ok(
+    ignore(@io.read_parquet(path).select([@expr.col("i"), @expr.col("zzz")])),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(eager is Err(@types.DataError::ColumnNotFound("zzz")))
+}

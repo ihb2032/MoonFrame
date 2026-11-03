@@ -6,12 +6,13 @@
 ///|
 /// Fill every null cell of the **dtype-compatible** columns with `value`,
 /// leaving the rest of the frame verbatim. A column is compatible when its
-/// dtype
-/// matches `value`'s variant: an `Int` value fills `Int` columns, a `Float`
-/// value fills `Float` columns, and so on. Columns of any other dtype are
-/// left untouched (not an error), and so are **all** columns when `value` is
-/// `Scalar::Null` — filling nulls with null is a no-op, so it skips
-/// everything and returns the frame unchanged.
+/// dtype equals `value`'s dtype exactly: an `Int` value fills `Int` columns,
+/// a `Float` value fills `Float` columns, and so on — the equality is full,
+/// not per-variant, so a `Decimal(2)` value fills only `Decimal(2)` columns
+/// (a `Decimal(3)` column is left untouched rather than rescaled). Columns
+/// of any other dtype are left untouched (not an error), and so are **all**
+/// columns when `value` is `Scalar::Null` — filling nulls with null is a
+/// no-op, so it skips everything and returns the frame unchanged.
 ///
 /// Per-column control, cross-dtype fills (an `Int` value into a `Float`
 /// column, say), or filling with a computed value go through the expression

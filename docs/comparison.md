@@ -118,14 +118,15 @@ Where MoonFrame knowingly does something else than Polars.
   disambiguates repeated header names (`_duplicated_0` suffixes) and
   reads on; rename the columns after a `read_csv` on mangled source data,
   or fix the header.
-- **`describe` summarises differently.** MoonFrame's rows are `count` /
-  `null_count` / `n_unique` / `mean` / the three quartiles (linear) /
-  `min` / `max`, with `min` / `max`
-  rendered as `String` so one table carries every dtype; Polars' are `count` /
-  `null_count` / `mean` / `std` / `min` / the three quartiles / `max`, all
-  numeric — MoonFrame omits `std` (the per-column `Series::std` carries
-  it), and the
-  `String` rendering is a table-shape choice.
+- **`describe` summarises differently.** MoonFrame's summary carries the
+  statistics as columns — one row per source column, eleven columns:
+  `count` / `null_count` / `n_unique` / `mean` / the three quartiles
+  (linear) / `min` / `max`, with `min` / `max` rendered as `String` so
+  one table carries every dtype; Polars puts the statistics on the
+  rows instead (`count` / `null_count` / `mean` / `std` / `min` / the
+  three quartiles / `max`, all numeric) — MoonFrame omits `std` (the
+  per-column `Series::std` carries it), and the `String` rendering is a
+  table-shape choice.
 - **Mixed `Int` / `Float` comparison is exact.** An `Int64` compared against a
   `Float` is *not* promoted to `Double` first, so two distinct values never
   collide above 2^53: `Int64::MAX` is not equal to the `2^63` `Double` a
@@ -154,10 +155,12 @@ Where MoonFrame knowingly does something else than Polars.
   `&` / `|`); Polars' `when` takes null as false and reads the `otherwise`
   branch. Add an explicit `is_null()` branch when the Polars reading is the
   one wanted.
-- **Whole-frame `min` / `max` / `sum` / `mean` leave a non-numeric column a
-  `Null` cell.** A `Date` column reduces to `Null` in the one-row summary
-  frame (Polars reduces dates); the column's own `Series::min` / `max`
-  still order every dtype and read the date.
+- **Whole-frame `sum` / `mean` leave a non-numeric column a `Null` cell,
+  but `min` / `max` answer for every orderable dtype.** A `Date` /
+  `Timestamp` / `Duration` / `Decimal` column reduces to `Null` under
+  `sum` / `mean` and to its own value under `min` / `max` — the same
+  order those columns' own `Series::min` / `max` read; `Bool` / `String`
+  columns null under all four.
 
 For `NaN` everywhere — `sum` / `mean` / `median` / `quantile` / `sort` / `group_by` /
 `join` / comparisons — it is a value, as in Polars.

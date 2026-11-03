@@ -17,6 +17,12 @@
 ///     unmatched right rows in right order.
 ///   * `Cross` — the Cartesian product (every left row paired with every
 ///     right row); takes **no** key columns.
+///   * `Semi` — an existence filter: keep each **left** row whose key has
+///     at least one right match, once (no right-side columns in the
+///     output, no row multiplication). A null key never matches.
+///   * `Anti` — the `Semi` mirror: keep each **left** row whose key has
+///     no right match at all. A null key never matches, so a null-keyed
+///     left row always lands here.
 #derive(Eq, Debug)
 pub(all) enum JoinType {
   Inner

@@ -6,10 +6,13 @@
 /// from the comparison (`eval_compare`) and Kleene (`eval_logic`) kernels, so
 /// they cannot drift from `eq` / `ge` / `le` and the connectives. `is_in` has
 /// one exception, `try_fast_is_in`: a hash-set pass for the dtypes where
-/// membership is plain equality, kept deliberately narrow — only `String`,
-/// `Bool`, `Int`, and the same-dtype I64 riders (`Date` / `Timestamp` /
-/// same-scale `Decimal`) whose members share the column's dtype — so nothing
-/// with a floating-point or cross-scale subtlety leaves the shared path.
+/// membership is plain equality — `String`, `Bool`, `Int`, `Float`, and the
+/// same-dtype I64 riders (`Date` / `Timestamp` / same-scale `Decimal`) whose
+/// members share the column's dtype. On `Float` the set spells IEEE `==`
+/// exactly (a NaN member matches nothing, a NaN cell answers false, the two
+/// zeros fold), so nothing with a cross-type or cross-scale subtlety leaves
+/// the shared path — the mixed `Int` vs `Float` exactness and the
+/// `TypeMismatch` on an incomparable member stay on the general kernel.
 
 ///|
 /// `is_in`: `true` where the cell equals one of `members`. The general path
@@ -21,11 +24,11 @@
 /// whose dtype cannot compare with the column raises `TypeMismatch` from
 /// `eval_compare`, exactly as `col.eq(lit(member))` would.
 ///
-/// A `String` / `Bool` / `Int` column — or an I64-rider column (`Date` /
-/// `Timestamp` / `Decimal`) whose members all carry the column's own rider
-/// dtype and scale — takes the O(n + m) `try_fast_is_in` fast path instead;
-/// everything with a floating-point or cross-scale comparison subtlety stays
-/// on the exact general path.
+/// A `String` / `Bool` / `Int` / `Float` column — or an I64-rider column
+/// (`Date` / `Timestamp` / `Decimal`) whose members all carry the column's
+/// own rider dtype and scale — takes the O(n + m) `try_fast_is_in` fast
+/// path instead; a cross-type comparison (`Int` vs `Float` members) and any
+/// cross-scale rider mismatch stay on the exact general path.
 pub fn eval_is_in(
   operand : Series,
   members : ArrayView[@types.Scalar],
@@ -52,17 +55,21 @@ pub fn eval_is_in(
 }
 
 ///|
-/// Fast `is_in` for the dtypes with no floating-point comparison subtleties:
-/// a `String`, `Bool`, or `Int` column whose members are **all** of that same
-/// dtype, or an I64-rider column whose members all carry its rider dtype. Builds an exact membership structure over the (non-null) members once,
-/// then tests every cell in a single pass — O(n + m) instead of the general
-/// kernel's O(n·m) time and per-member column allocation. `Some(result)` on that
-/// fast path; `None` — deferring to the exact `eval_compare` kernel — for a
-/// `Float` column or any member of a different dtype, so cross-type numeric
-/// equality (`Int` vs `Float`, exact across 2^53), signed-zero / NaN semantics,
-/// and the `TypeMismatch` on an incomparable member all stay on that one path.
-/// A null cell yields null and a null member is skipped, matching the general
-/// path.
+/// Fast `is_in` for the dtypes where membership is plain equality:
+/// a `String`, `Bool`, `Int`, or `Float` column whose members are **all**
+/// of that same dtype, or an I64-rider column whose members all carry its
+/// rider dtype. Builds an exact membership structure over the (non-null)
+/// members once, then tests every cell in a single pass — O(n + m) instead
+/// of the general kernel's O(n·m) time and per-member column allocation.
+/// `Some(result)` on that fast path; `None` — deferring to the exact
+/// `eval_compare` kernel — for any member of a different dtype, so
+/// cross-type numeric equality (`Int` vs `Float`, exact across 2^53) and
+/// the `TypeMismatch` on an incomparable member stay on that one path. The
+/// `Float` set hashes to IEEE `==` semantics: a NaN member is dropped
+/// (it could equal nothing), a NaN cell answers false, and `-0.0` folds
+/// onto `0.0` — each the same verdict the general path's `eq` gives. A
+/// null cell yields null and a null member is skipped, matching the
+/// general path.
 fn try_fast_is_in(
   operand : Series,
   members : ArrayView[@types.Scalar],

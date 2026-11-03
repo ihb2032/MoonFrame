@@ -70,35 +70,38 @@ priv enum FrameReduceOp {
 }
 
 ///|
-/// Sum every column as a 1-row `DataFrame`: numeric columns hold their sum
-/// (source dtype preserved), non-numeric columns a `Null` cell — the same
-/// uniform cell semantics every whole-frame reduction here follows. For one
-/// column's scalar use `df.get_column(name).sum()`.
+/// Sum every column as a 1-row `DataFrame`: summable columns hold their
+/// sum (the numerics plus `Decimal`, source dtype preserved), every other
+/// column a `Null` cell — the same uniform cell semantics every
+/// whole-frame reduction here follows. For one column's scalar use
+/// `df.get_column(name).sum()`.
 pub fn DataFrame::sum(self : DataFrame) -> DataFrame raise @types.DataError {
   self.reduce_to_row(FrameReduceOp::Sum)
 }
 
 ///|
 /// Arithmetic mean of every column as a 1-row `DataFrame`: numeric columns
-/// hold their mean as `Float` (an empty / all-null numeric column → `Null`),
+/// (alone — a `Decimal` column means to `Null`, unlike its `sum`) hold
+/// their mean as `Float` (an empty / all-null numeric column → `Null`),
 /// non-numeric columns a `Null` cell in their own dtype.
 pub fn DataFrame::mean(self : DataFrame) -> DataFrame raise @types.DataError {
   self.reduce_to_row(FrameReduceOp::Mean)
 }
 
 ///|
-/// Minimum of every column as a 1-row `DataFrame`: numeric columns hold their
-/// minimum non-null cell (`Float` `NaN` skipped, source dtype preserved),
-/// non-numeric columns a `Null` cell. Note this nulls `Bool` / `String`
-/// columns rather than ordering them — use `Series::min` for a typed
-/// extremum over any dtype.
+/// Minimum of every column as a 1-row `DataFrame`: orderable columns (the
+/// numerics plus `Date` / `Timestamp` / `Duration` / `Decimal`) hold their
+/// minimum non-null cell (`Float` `NaN` skipped, source dtype preserved —
+/// the same order `Series::min` reads), every other column a `Null` cell.
+/// Note this nulls `Bool` / `String` columns rather than ordering them —
+/// use `Series::min` for a typed extremum over any dtype.
 pub fn DataFrame::min(self : DataFrame) -> DataFrame raise @types.DataError {
   self.reduce_to_row(FrameReduceOp::Min)
 }
 
 ///|
 /// Maximum of every column as a 1-row `DataFrame`. Mirrors `min` with the
-/// order reversed; the `NaN`-skipping and non-numeric-`Null` rules are
+/// order reversed; the `NaN`-skipping and which-columns-null rules are
 /// identical.
 pub fn DataFrame::max(self : DataFrame) -> DataFrame raise @types.DataError {
   self.reduce_to_row(FrameReduceOp::Max)

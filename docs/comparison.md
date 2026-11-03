@@ -87,7 +87,9 @@ libraries — not a derivative work of either codebase.
   row count raises rather than saturating. An omitted seed is
   `seed = 0`, so two independent calls that both leave it out draw the
   same rows (Polars draws a fresh seed per call); name a seed when the
-  draws must differ. Polars' `fraction` parameter is not carried.
+  draws must differ. Polars' `fraction` parameter is carried —
+  `fraction?` beside `n?`, drawing `max(1, round(fraction × nrows))` rows
+  of a non-empty frame.
 - **`unique(subset?, keep?)`** keeps first-appearance order
   (`maintain_order=True`), dedups on a column subset when given one, and takes
   Polars' `keep` strategies (`First` / `Last` / `None`).
@@ -117,10 +119,12 @@ Where MoonFrame knowingly does something else than Polars.
   reads on; rename the columns after a `read_csv` on mangled source data,
   or fix the header.
 - **`describe` summarises differently.** MoonFrame's rows are `count` /
-  `null_count` / `n_unique` / `mean` / `min` / `max`, with `min` / `max`
+  `null_count` / `n_unique` / `mean` / the three quartiles (linear) /
+  `min` / `max`, with `min` / `max`
   rendered as `String` so one table carries every dtype; Polars' are `count` /
   `null_count` / `mean` / `std` / `min` / the three quartiles / `max`, all
-  numeric. The quartiles are not implemented (the deferral list), and the
+  numeric — MoonFrame omits `std` (the per-column `Series::std` carries
+  it), and the
   `String` rendering is a table-shape choice.
 - **Mixed `Int` / `Float` comparison is exact.** An `Int64` compared against a
   `Float` is *not* promoted to `Double` first, so two distinct values never
@@ -179,38 +183,49 @@ will not find here today:
 - **Dtypes** — `Int` / `Float` / `Bool` / `String` / `Null` plus the three
   `I64`-rider dtypes `Date` (days), `Timestamp` (microseconds, UTC — the
   granularity of Polars' `Datetime("us")`, without time zones or calendar
-  arithmetic), and `Decimal(scale)` (a fixed-point decimal exact across
-  `+` / `-` / `*` and `sum`, with division and `Float` mixing fenced).
-  Still missing: `Duration` / `List` / `Struct` / `Categorical` — the
-  deferral the others hang off: the list-returning `str.split`, the
-  timestamp / duration expression family, and a reader that takes a
-  declared schema all need a dtype before they can exist.
-- **Expressions** — no window / `over` functions. The history-dependent
+  arithmetic), `Duration` (a microsecond span, produced and consumed by
+  the temporal arithmetic: `Timestamp − Timestamp`, `instant ± Duration`),
+  and `Decimal(scale)` (a fixed-point decimal exact across
+  `+` / `-` / `*` and `sum`, with `round` an exact rescale, division
+  through `Float`, and `Float` mixing fenced). Still missing:
+  `List` / `Struct` / `Categorical` — the deferral the others hang off:
+  the list-returning `str.split` and the nested-typed expressions all
+  need a dtype before they can exist.
+- **Expressions** — the window wrapper `over` is present: an aggregating
+  inner broadcasts over its group, a group-length inner lands
+  cell-for-cell (Polars' `over` semantics; nesting windows in windows or
+  in `agg` refuses). The history-dependent
   family — `shift` / `diff`, the `cum_*` running aggregates, `rank`,
   `arg_sort` — is present, as are the positional reductions `arg_min` /
-  `arg_max` and the rolling core (`rolling_sum` / `mean` / `min` / `max` /
+  `arg_max`, the rolling core (`rolling_sum` / `mean` / `min` / `max` /
   `std` / `variance` / `median`, with `min_samples` and `center`; Polars'
-  `weights` is not carried). The reshapes are present too — `pivot` /
-  `unpivot` on both layers — with unpivot's value column requiring a
+  `weights` is not carried) and the exponentially-weighted
+  `ewm_mean` / `ewm_std` / `ewm_variance` (the biased estimator; Polars'
+  unbiased `bias=false` correction is not carried). The reshapes are
+  present too — `pivot` / `unpivot` on both layers — with unpivot's value
+  column requiring a
   unifying dtype (`Int` / `Float` widen; no stringly supertype).
 - **Lazy** — no streaming execution: a scan pushes projections and predicates
-  down into the reader, but still tokenises the whole file. No columnar
-  file sources either — the Parquet scan is withdrawn pending an upstream
-  toolchain-compatible release (see
-  [`migration.md`](migration.md)), and IPC has no reader.
+  down into the reader, but still tokenises the whole file. The columnar
+  side is native: `scan_parquet` skips unpicked chunks' bytes entirely,
+  over a module-internal reader / writer
+  (`read_parquet` / `write_parquet`) — a `FLOAT` column refuses on read
+  rather than silently narrowing, and IPC has no reader.
 - **Optimizer** — the passes are slice, predicate, and projection pushdown
   (the predicate pass also splits a filter into the sides of a join) plus
-  the folding / clustering rules; `LazyFrame::collect`'s docstring is
+  the folding / clustering rules, each gated by a flag on
+  `collect(optimizations~)`; `LazyFrame::collect`'s docstring is
   the contract's home. Dead-expression elimination and sinking
   filters below sorts are not implemented.
 - **Reader dtype override** — `CsvReadOptions` / `JsonReadOptions` take a
   `dtypes=` map pinning named columns ahead of inference (Polars'
-  `schema_overrides`); columns not named keep their inferred dtype, and a
-  name the input does not carry is refused. The pinnable dtypes are `Int` /
-  `Float` / `Bool` / `String` plus the riders `Date` / `Timestamp` /
-  `Decimal(scale)`, whose pins parse the writers' own text forms (so a
-  written-back rider column round-trips losslessly); inference itself
-  never picks a rider up. See
+  `schema_overrides`): `Int` / `Float` / `Bool` / `String` parse from
+  cell text, and the rider dtypes `Date` / `Timestamp` / `Decimal(scale)`
+  parse the writers' own text forms (so a written-back rider column
+  round-trips losslessly when pinned; `Duration` has no parser and
+  refuses). Inference itself never produces a rider. Columns not
+  named keep their inferred dtype, and a name the input does not carry is
+  refused. See
   [`type-inference.md`](type-inference.md).
 
 See [`migration.md`](migration.md) for the upgrade history, the per-symbol

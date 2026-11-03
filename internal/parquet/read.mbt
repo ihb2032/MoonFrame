@@ -27,11 +27,13 @@ priv struct ColumnRead {
 }
 
 ///|
-/// The footer walk's result: the paired columns, in chunk order (the
-/// row count walks field 3 but rides nothing — the decoded column
-/// lengths are the count a reader can check).
+/// The footer walk's result: the paired columns in chunk order, and
+/// the row count field 3 names — the height a lenient projection that
+/// matches no column still reports (the decoded column lengths are the
+/// count a reader can check against it).
 priv struct ParquetFooter {
   columns : Array[ColumnRead]
+  num_rows : Int64
 }
 
 ///|
@@ -120,8 +122,7 @@ fn read_footer(bytes : Bytes) -> ParquetFooter raise @types.DataError {
         )
     }
   }
-  ignore(num_rows)
-  { columns, }
+  { columns, num_rows, }
 }
 
 ///|

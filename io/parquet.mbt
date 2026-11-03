@@ -54,11 +54,15 @@ pub fn write_parquet(
 /// Read a parquet file into a frame: the footer's schema names the
 /// dtypes, each column chunk decodes its pages, and the projection
 /// (every column when `projection?` is omitted) rides into the chunk
-/// walk — unprojected columns are never parsed. Raises `Unsupported`
-/// for a dtype or encoding the mapping does not carry (a `FLOAT`
-/// column would narrow; a nested or dictionary-only page shape decodes
-/// or names itself), `ParseError` for a malformed file, and
-/// `InvalidOperation` for a projected name the file does not carry.
+/// walk — unprojected columns are never parsed. The projection is
+/// lenient like the text readers': a name the file does not carry
+/// builds no column (a projection matching no column yields the file's
+/// rows over zero columns), and whichever expression references the
+/// missing name raises `ColumnNotFound`, the same error a full read
+/// plus a select would. Also raises `Unsupported` for a dtype or
+/// encoding the mapping does not carry (a `FLOAT` column would narrow;
+/// a nested or dictionary-only page shape decodes or names itself) and
+/// `ParseError` for a malformed file.
 pub fn read_parquet(
   path : String,
   projection? : Array[String],
@@ -82,16 +86,29 @@ pub fn parse_parquet(
   for pair in picked {
     columns.push(pair.1)
   }
-  @frame.DataFrame::DataFrame(columns)
+  // A lenient projection that matches no column still reports the
+  // file's rows — the `N×0` shape the text readers' projections yield,
+  // not a collapse to zero.
+  if columns.length() == 0 {
+    @frame.DataFrame::from_parts(columns, @parquet.parquet_num_rows(bytes))
+  } else {
+    @frame.DataFrame::DataFrame(columns)
+  }
 }
 
 ///|
-/// The parquet scan driver: read the bytes, decode the projected columns
-/// (never the unprojected ones), then apply the absorbed predicate to the
-/// decoded frame — the row pruning happens after the decode, the column
-/// pruning inside it, which is exactly where a columnar source can prune.
-/// Built for `lazy`'s `scan_parquet`, hidden from the interface like its
-/// format siblings.
+/// The parquet scan driver: read the bytes, decode the projected
+/// columns plus the predicate's own (never anything else), then apply
+/// the absorbed predicate and hand back only the projected columns —
+/// the row pruning happens after the decode, the column pruning inside
+/// it, which is exactly where a columnar source can prune. The
+/// predicate's columns ride the decode even when the projection omits
+/// them, the same key-column contract the text drivers' pruner
+/// honours: the optimizer's projection pass narrows a scan to what its
+/// consumers reference, so a pushed predicate reading a pruned column
+/// would otherwise filter a frame that no longer carries it. Built for
+/// `lazy`'s `scan_parquet`, hidden from the interface like its format
+/// siblings.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
 pub fn parquet_scan_driver(path : String) -> @scan.ScanDriver {
@@ -102,11 +119,37 @@ pub fn parquet_scan_driver(path : String) -> @scan.ScanDriver {
     let bytes = @fs.read_file_to_bytes(path) catch {
       @fs.IOError(msg) => raise @types.DataError::IoError(msg)
     }
-    let frame = parse_parquet(bytes, projection?)
+    let decoded : Array[String]? = match (projection, predicate) {
+      (Some(cols), Some(pred)) => {
+        let union : Array[String] = []
+        for c in cols {
+          union.push(c)
+        }
+        for c in pred.referenced_columns() {
+          if !union.contains(c) {
+            union.push(c)
+          }
+        }
+        Some(union)
+      }
+      (Some(cols), None) => Some(cols)
+      (None, _) => None
+    }
+    let frame = match decoded {
+      Some(names) => parse_parquet(bytes, projection=names)
+      None => parse_parquet(bytes)
+    }
     let kept = match predicate {
       Some(pred) => frame.filter(pred)
       None => frame
     }
-    @scan.ScanBatch::batch(kept.column_series(), kept.nrows())
+    // The projected columns in the file's own schema order (a name the
+    // file does not carry builds no column, and the batch's separately
+    // carried height keeps the rows — the `N×0` shape).
+    let columns : Array[@series.Series] = match projection {
+      Some(cols) => kept.column_series().filter(s => cols.contains(s.name()))
+      None => kept.column_series()
+    }
+    @scan.ScanBatch::batch(columns, kept.nrows())
   })
 }

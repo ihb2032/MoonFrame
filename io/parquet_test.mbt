@@ -46,11 +46,11 @@ test "read_parquet projection names the columns it keeps" {
   let back = @io.read_parquet(path, projection=["s", "i"])
   assert_eq(back.columns(), ["i", "s"])
   assert_eq(back.nrows(), 3)
-  // A name the file does not carry refuses.
-  let result = Ok(ignore(@io.read_parquet(path, projection=["nope"]))) catch {
-    e => Err(e)
-  }
-  assert_true(result is Err(@types.DataError::InvalidOperation(_)))
+  // A name the file does not carry builds no column — lenient like the
+  // text readers' projection, the rows over zero columns.
+  let miss = @io.read_parquet(path, projection=["nope"])
+  assert_eq(miss.columns(), [])
+  assert_eq(miss.nrows(), 3)
   // The whole frame without a projection.
   assert_eq(@io.read_parquet(path).shape(), df.shape())
 }

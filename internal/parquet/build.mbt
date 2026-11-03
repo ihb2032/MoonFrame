@@ -92,8 +92,10 @@ fn build_series(
 ///|
 /// The whole-file entry the io layer rides: parse the footer, decode
 /// the named columns (every column when the projection is `None`), and
-/// hand back the pairs in schema order. A projected name the file does
-/// not carry refuses, exactly like a `dtypes` override's.
+/// hand back the pairs in schema order. The projection is lenient like
+/// the text readers': a name the file does not carry simply builds no
+/// column, and whichever expression references it raises the same
+/// `ColumnNotFound` it would against a full read.
 pub fn read_parquet_columns(
   bytes : Bytes,
   projection : Array[String]?,
@@ -109,17 +111,22 @@ pub fn read_parquet_columns(
       picked.push((column.chunk.name, decode_column(bytes, column)))
     }
   }
-  match projection {
-    Some(names) =>
-      for name in names {
-        let found = picked.iter().any(pair => pair.0 == name)
-        if !found {
-          raise @types.DataError::InvalidOperation(
-            "parquet projection names column \"\{name}\", which the file does not carry",
-          )
-        }
-      }
-    None => ()
-  }
   picked
+}
+
+///|
+/// The file's declared row count, for a lenient projection that matches
+/// no column — the height the `N×0` shape carries (the text readers'
+/// projections yield the same). A count outside the Int32 a frame's
+/// height rides refuses rather than truncating.
+pub fn parquet_num_rows(bytes : Bytes) -> Int32 raise @types.DataError {
+  let n = read_footer(bytes).num_rows
+  if n < 0L || n > 2147483647L {
+    raise @types.DataError::ParseError(
+      @types.ParseErrorDetail::Message(
+        "parquet: the file declares \{n} rows, past a frame's own height",
+      ),
+    )
+  }
+  n.to_int()
 }

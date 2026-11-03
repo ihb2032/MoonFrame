@@ -320,3 +320,48 @@ fn rebuild_footer_with_page_size(
   w.struct_end()
   w.finish()
 }
+
+///|
+test "the declared row count answers and its far end refuses" {
+  let columns : Array[@series.Series] = [
+    @series.Series::from_ints("i", [1, 2, 3]),
+  ]
+  let whole = write_parquet_bytes(columns, ["i"], Uncompressed)
+  // The in-range answer: what the writer declared.
+  assert_eq(parquet_num_rows(whole), 3)
+  // A count past a frame's own Int32 height: a second field-3 spelling
+  // 2^31 rows lands just before the footer's closing Stop — the walk
+  // reads fields in arrival order, so the last one wins — and the file
+  // keeps a self-consistent footer length.
+  let n = whole.length()
+  let footer_len = le_i32(whole, n - 8)
+  let footer_start = n - 8 - footer_len
+  // A field id below the last one written (created_by is field 6) needs
+  // the explicit spelling: a zero-delta header (wire 1 = i64), the
+  // zigzag field id 3, then the zigzag count 2^31.
+  let extra : Array[Byte] = [
+    (0x01).to_byte(),
+    (0x06).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x10).to_byte(),
+  ]
+  let out : Array[Byte] = []
+  for k in 0..<(footer_start + footer_len - 1) {
+    out.push(whole[k])
+  }
+  for b in extra {
+    out.push(b)
+  }
+  out.push(whole[footer_start + footer_len - 1])
+  push_le_i32(out, footer_len + extra.length())
+  for b in b"PAR1" {
+    out.push(b)
+  }
+  let result = Ok(ignore(parquet_num_rows(Bytes::from_array(out)))) catch {
+    e => Err(e)
+  }
+  assert_true(result is Err(@types.DataError::ParseError(_)))
+}

@@ -114,7 +114,16 @@ What has landed on `main`:
   text writers carry. Hostile counts refuse with a located `ParseError`
   instead of sizing an allocation: a chunk naming more values than its
   bytes could carry, a page naming more than its chunk, an RLE run
-  count or a SNAPPY declared length past their bounds.
+  count or a SNAPPY declared length past their bounds. The projection
+  is lenient like the text readers': a name the file does not carry
+  builds no column (the file's rows over zero columns), and the
+  expression that references the name raises the `ColumnNotFound` a
+  full read plus a select would — which is also what keeps the lazy
+  `scan_parquet` honest when the optimizer absorbs a filter and narrows
+  the projection in one pipeline: the predicate's own columns ride the
+  decode even when the projection above drops them, the same key-column
+  contract the text scans' pruner honours, so a filtered select or a
+  filtered group-by collects to exactly its eager spelling.
 
 ## v0.8.0 → v0.8.1
 

@@ -229,6 +229,67 @@ class DtypeWildcardScannerTests(unittest.TestCase):
         })
         self.assertEqual(arms, [('a/a.mbt', 'label')])
 
+    def test_all_catch_all_tuple_arm_is_flagged(self) -> None:
+        # `(_, _) =>` over a two-enum scrutinee is a catch-all in every
+        # slot; the original pattern set opened with an identifier or `_`
+        # and never matched the paren, which left the shape invisible to
+        # the inventory.
+        arms = self.arms({
+            'a/moon.pkg': '{}',
+            'a/a.mbt': (
+                'fn has_nan(self : Series) -> Bool {\n'
+                '  match (self.dtype(), self.storage.data()) {\n'
+                '    (@types.DataType::Float, @column.ColumnData::F64(buf)) => {\n'
+                '      has(buf)\n'
+                '    }\n'
+                '    (_, _) => false\n'
+                '  }\n'
+                '}\n'
+            ),
+        })
+        self.assertEqual(arms, [('a/a.mbt', 'has_nan')])
+
+    def test_tuple_arm_with_a_concrete_slot_is_not_flagged(self) -> None:
+        # A tuple naming a concrete variant in any slot pins that slot —
+        # it is a specific pair, not a swallow point.
+        arms = self.arms({
+            'a/moon.pkg': '{}',
+            'a/a.mbt': (
+                'fn has_nan(self : Series) -> Bool {\n'
+                '  match (self.dtype(), self.storage.data()) {\n'
+                '    (@types.DataType::Float, _) => true\n'
+                '  }\n'
+                '}\n'
+            ),
+        })
+        self.assertEqual(arms, [])
+
+    def test_second_arm_of_a_registered_function_is_unknown(self) -> None:
+        # The inventory counts arms, not functions: a second catch-all in
+        # an already-registered function is the shape a one-line-per-key
+        # allowlist silently swallowed.
+        root = self.repo({
+            '.github/scripts/dtype_wildcards.allowlist': (
+                'a/a.mbt label first arm reason\n'
+            ),
+            'a/moon.pkg': '{}',
+            'a/a.mbt': (
+                'fn label(dt : DataType) -> String {\n'
+                '  match dt {\n'
+                '    @types.DataType::Int => "i"\n'
+                '    _ => "?"\n'
+                '    other => other.to_string()\n'
+                '  }\n'
+                '}\n'
+            ),
+        })
+        with self.assertRaises(SystemExit) as caught:
+            with contextlib.redirect_stdout(io.StringIO()) as out:
+                main(allowlist=str(root / '.github/scripts/dtype_wildcards.allowlist'),
+                     argv=[], root=str(root))
+        self.assertTrue(caught.exception.code != 0)
+        self.assertIn('UNREGISTERED', out.getvalue())
+
 
 if __name__ == '__main__':
     unittest.main()

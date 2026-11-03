@@ -46,14 +46,23 @@ MATCH_RE = re.compile(r'\bmatch\s+(.+?)\s*\{')
 # spelling of one. A guard (`_ if cond =>`) is the same catch-all with a
 # condition on it: `.*?` runs to the first `=>` or `|`, and either match
 # marks the line (a `|` inside the guard continues the same arm). The second
-# alternative is the `|`-continuation of a multi-pattern arm.
+# alternative is the `|`-continuation of a multi-pattern arm. The third
+# covers a tuple whose every element is a catch-all (`(_, _) =>`, the shape
+# a two-enum scrutinee reaches for): each element repeats the single-element
+# set, and a tuple naming a concrete variant in any slot is *not* a
+# catch-all — it pins that slot — so it stays outside the guard.
 WILD_RE = re.compile(
     r'^\s*(_|\.\.|[_a-z][_a-z0-9_\']*)\s*(?:if\b.*?)?\s*(=>|\|)'
     r'|\|\s*(_|\.\.|[_a-z][_a-z0-9_\']*)\s*(?:if\b.*?)?\s*(=>|\|)'
+    r'|^\s*(?:\|\s*)?\(\s*(_|\.\.|[_a-z][_a-z0-9_\']*)\s*'
+    r'(?:,\s*(_|\.\.|[_a-z][_a-z0-9_\']*)\s*)+\)\s*(?:if\b.*?)?\s*(=>|\|)'
 )
-# The same test for one `;`-separated segment of a single-line match.
+# The same tests for one `;`-separated segment of a single-line match.
 SEGMENT_RE = re.compile(
-    r'^\s*(?:\|)?\s*(_|\.\.|[_a-z][_a-z0-9_\']*)\s*(?:if\b.*?)?\s*=>'
+    r'^\s*(?:\|)?\s*(?:(_|\.\.|[_a-z][_a-z0-9_\']*)'
+    r'|\(\s*(_|\.\.|[_a-z][_a-z0-9_\']*)\s*'
+    r'(?:,\s*(_|\.\.|[_a-z][_a-z0-9_\']*)\s*)+\))'
+    r'\s*(?:if\b.*?)?\s*=>'
 )
 FN_RE = re.compile(r'^\s*(?:pub\s+)?(?:fn(?:\[[^\]]*\])?\s+)?([A-Za-z_][A-Za-z0-9_:]*)')
 
@@ -175,6 +184,10 @@ def main(allowlist=ALLOWLIST, argv=None, root='.'):
     if argv is None:
         argv = sys.argv[1:]
     hits = find_wildcards(root)
+    # The key is (file, function) but every arm is its own entry: a
+    # function with several catch-all arms carries one line each, so the
+    # arm set cannot silently grow inside an already-registered function —
+    # the counts, not just the key, have to agree.
     registered = {}
     try:
         for raw in open(allowlist, encoding='utf-8'):
@@ -183,12 +196,29 @@ def main(allowlist=ALLOWLIST, argv=None, root='.'):
                 continue
             parts = line.split(None, 2)
             if len(parts) >= 2:
-                registered[(parts[0], parts[1])] = parts[2] if len(parts) > 2 else ''
+                registered.setdefault((parts[0], parts[1]), []).append(
+                    parts[2] if len(parts) > 2 else ''
+                )
     except OSError:
         pass
 
-    unknown = [h for h in hits if (h[0], h[2]) not in registered]
-    stale = [k for k in registered if k not in {(h[0], h[2]) for h in hits}]
+    hit_counts = {}
+    for h in hits:
+        hit_counts[(h[0], h[2])] = hit_counts.get((h[0], h[2]), 0) + 1
+    unknown = []
+    for key, count in sorted(hit_counts.items()):
+        regs = registered.get(key, [])
+        if count > len(regs):
+            # The arms past the registered count are unregistered — in
+            # line order, so an old entry keeps covering the arm it was
+            # written for and the new arm is the one asked about.
+            fn_hits = sorted(h for h in hits if (h[0], h[2]) == key)
+            unknown.extend(fn_hits[len(regs):])
+    stale = [
+        (k, len(v) - hit_counts.get(k, 0))
+        for k, v in sorted(registered.items())
+        if len(v) > hit_counts.get(k, 0)
+    ]
 
     if '--write' in argv:
         if unknown:
@@ -209,8 +239,8 @@ def main(allowlist=ALLOWLIST, argv=None, root='.'):
     if stale:
         print('dtype wildcards: allowlist entries with no remaining wildcard '
               '(remove them):')
-        for f, fn in stale:
-            print(f'  {f}  in {fn}')
+        for (f, fn), extra in stale:
+            print(f'  {f}  in {fn}  ({extra} extra)')
     if unknown or stale:
         sys.exit(1)
     print(f'dtype wildcards: {len(hits)} wildcard arms in production, all '

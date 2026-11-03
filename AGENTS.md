@@ -340,14 +340,22 @@ new variant falls in silently, and the wildcard's verdict for the old variants
 becomes an unreviewed default for the new one. The guard is a lexical scan over
 the match blocks in production sources (tests excluded — a wildcard there
 fails loud at assert time), attributing every catch-all arm — `_` / `..`, a
-bare lowercase binding (`other =>`, semantically the same catch-all), or the
-`|`-continuation of either, including the `;`-separated arms of a single-line
-match — inside a block that names a dtype enum to its enclosing function. Every
-hit must be registered in `.github/scripts/dtype_wildcards.allowlist` as
-`path function-name reason`; an unregistered wildcard fails, and so does a
-stale entry, so the list cannot rot. The allowlist is the fixed inventory of
-the silent swallow-points — when the variant set grows, it is the review list,
-and each line's reason is the claim to re-check, not just the line. The
+bare lowercase binding (`other =>`, semantically the same catch-all), the
+`|`-continuation of either, a tuple whose every slot is a catch-all (`(_, _)`,
+the shape a two-enum scrutinee reaches for; a tuple naming a concrete variant
+in any slot pins that slot and is not one), including the `;`-separated arms
+of a single-line match — inside a block that names a dtype enum to its
+enclosing function. Every hit must be registered in
+`.github/scripts/dtype_wildcards.allowlist` as `path function-name reason`,
+**one line per arm** — a function with several catch-alls carries several
+lines, so the arm set cannot silently grow inside an already-registered
+function. An unregistered wildcard fails, and so does a stale or surplus
+entry, so the list cannot rot. The guard's own cases run first in CI
+(`check_dtype_wildcards_test.py`), so a scanner that has stopped catching a
+shape fails there instead of passing vacuously. The allowlist is the fixed
+inventory of the silent swallow-points — when the variant set grows, it is the
+review list, and each line's reason is the claim to re-check, not just the
+line. The
 registered reasons fall into recognisable families: a fast path declining to a
 general path that handles any variant, an inner gate that raises (loud), a
 result-shape contract (`Float|Null`) whose wildcard is the raise arm, and a

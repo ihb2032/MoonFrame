@@ -148,11 +148,15 @@ jobs:
       # The wildcard half of dtype dispatch — see AGENTS.md for what the
       # allowlist is and why it is a guard rather than a convention. Python
       # like the Array-boundary guard: the brace-balanced block scan is the
-      # substance, and it needs git-tracked sources, which it reads through
-      # `git ls-files`.
+      # substance, it needs git-tracked sources, which it reads through
+      # `git ls-files`, and its own cases run first so a scanner that has
+      # stopped catching a shape (the tuple arm sat invisible for a whole
+      # release) fails here instead of passing vacuously.
       - name: Guard dtype wildcard arms
         if: runner.os == 'Linux'
-        run: python -B .github/scripts/check_dtype_wildcards.py
+        run: |
+          python -B .github/scripts/check_dtype_wildcards_test.py
+          python -B .github/scripts/check_dtype_wildcards.py
 
       # Documentation guards. Everything else in this workflow protects
       # executable content — sources, interfaces, tests, snapshots — which is

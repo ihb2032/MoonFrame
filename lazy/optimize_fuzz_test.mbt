@@ -686,6 +686,7 @@ impl @shrink.Shrink for SelectFilterCase with fn shrink(self) {
 /// either way. Also exercises the
 /// row-count-preservation and bare-column pass-through fences with strings.
 test "fuzz: select/with_columns then filter is optimizer/eager equivalent" {
+  let mut rewrites = 0
   let prop = (c : SelectFilterCase) => {
     // select: the predicate's bare column plus a nullable derived one.
     let proj = [
@@ -715,6 +716,17 @@ test "fuzz: select/with_columns then filter is optimizer/eager equivalent" {
         df.with_columns(derived).filter(c.pred)
       }
     }
+    // Did the optimizer actually rewrite this plan? A regression that
+    // stops the filter sink would leave every case green but vacuous.
+    let rewritten = try {
+      let plan = lazy_chain()
+      plan.explain(optimized=true) != plan.explain()
+    } catch {
+      _ => false
+    }
+    if rewritten {
+      rewrites += 1
+    }
     match
       check_equiv("select-filter", lazy_chain, eager_chain, strict_errors=true) {
       None => true
@@ -722,6 +734,11 @@ test "fuzz: select/with_columns then filter is optimizer/eager equivalent" {
     }
   }
   @gen.check(prop, count=fuzz_cases(500).reinterpret_as_uint(), seed=37UL)
+  // The fuzzer must actually exercise the sink in a meaningful fraction
+  // of cases, or it is silently testing nothing.
+  if rewrites < fuzz_cases(50) {
+    fail("fuzzer never exercised the rewrite (rewrites=\{rewrites})")
+  }
 }
 
 // ── Test 3: randomly stacked pipelines ───────────────────────────────
@@ -1253,6 +1270,7 @@ test "fuzz: zero-match file projections preserve exact eager errors" {
   let csv_path = "_build/lazy_optimize_fuzz_zero_match.csv"
   let ndjson_path = "_build/lazy_optimize_fuzz_zero_match.ndjson"
   write_projection_fuzz_fixtures(csv_path, ndjson_path)
+  let mut rewrites = 0
   let prop = (c : FileProjectionCase) => {
     let check_source = (use_ndjson : Bool) => {
       let lazy_chain : () -> LazyFrame raise @types.DataError = () => {
@@ -1271,6 +1289,17 @@ test "fuzz: zero-match file projections preserve exact eager errors" {
         }
         source.head(c.head).select([@expr.col(c.missing)])
       }
+      // The projection pass must still have narrowed the scan — the
+      // error being preserved is the narrowed plan's own.
+      let rewritten = try {
+        let plan = lazy_chain()
+        plan.explain(optimized=true) != plan.explain()
+      } catch {
+        _ => false
+      }
+      if rewritten {
+        rewrites += 1
+      }
       check_equiv(
         "zero-match-file-projection",
         lazy_chain,
@@ -1288,6 +1317,9 @@ test "fuzz: zero-match file projections preserve exact eager errors" {
     }
   }
   @gen.check(prop, count=fuzz_cases(200).reinterpret_as_uint(), seed=37UL)
+  if rewrites < fuzz_cases(50) {
+    fail("fuzzer never exercised the projection (rewrites=\{rewrites})")
+  }
 }
 
 // ── Test 5: predicate push-down into file sources ──────────────────────
@@ -1362,6 +1394,7 @@ fn rows_to_clean_frame(
 /// data and any divergence is the pruned reader's own.
 test "fuzz: predicate push-down into a CSV source stays eager-equivalent" {
   let csv_path = "_build/lazy_optimize_fuzz_pruned.csv"
+  let mut rewrites = 0
   let prop = (c : PrunedFileCase) => {
     // Write the fixture up front (the property itself must not raise; the chains
     // defer their reads to `check_equiv`). Clean Int/String data never actually
@@ -1381,6 +1414,17 @@ test "fuzz: predicate push-down into a CSV source stays eager-equivalent" {
           scan_csv(csv_path).filter(c.pred)
         }
         let eager_chain = () => @io.read_csv(csv_path).filter(c.pred)
+        // The absorption is the rewrite under test — the plan's own
+        // rendering says whether it happened.
+        let rewritten = try {
+          let plan = lazy_chain()
+          plan.explain(optimized=true) != plan.explain()
+        } catch {
+          _ => false
+        }
+        if rewritten {
+          rewrites += 1
+        }
         // A single filter over clean data is a single-fault plan, so any error
         // must match exactly.
         match
@@ -1392,6 +1436,9 @@ test "fuzz: predicate push-down into a CSV source stays eager-equivalent" {
     }
   }
   @gen.check(prop, count=fuzz_cases(150).reinterpret_as_uint(), seed=37UL)
+  if rewrites < fuzz_cases(50) {
+    fail("fuzzer never exercised the absorption (rewrites=\{rewrites})")
+  }
 }
 
 ///|
@@ -1466,6 +1513,7 @@ fn write_dirty_csv(
 /// read failing where the other succeeds is a soundness fault.
 test "fuzz: a dirty CSV stays eager-equivalent under predicate absorption" {
   let path = "_build/lazy_optimize_fuzz_dirty.csv"
+  let mut rewrites = 0
   let prop = (c : DirtyCase) => {
     let rows = c.rows
     // The write is total in practice (a local `_build` path); a raise here
@@ -1486,6 +1534,15 @@ test "fuzz: a dirty CSV stays eager-equivalent under predicate absorption" {
             @expr.col("a").gt(@expr.lit_int(0)),
           )
         }
+        let rewritten = try {
+          let plan = lazy_chain()
+          plan.explain(optimized=true) != plan.explain()
+        } catch {
+          _ => false
+        }
+        if rewritten {
+          rewrites += 1
+        }
         match check_equiv("dirty-csv", lazy_chain, eager_chain) {
           Some(msg) => fail(msg)
           None => true
@@ -1494,6 +1551,9 @@ test "fuzz: a dirty CSV stays eager-equivalent under predicate absorption" {
     }
   }
   @gen.check(prop, count=fuzz_cases(150).reinterpret_as_uint(), seed=37UL)
+  if rewrites < fuzz_cases(50) {
+    fail("fuzzer never exercised the absorption (rewrites=\{rewrites})")
+  }
 }
 
 ///|

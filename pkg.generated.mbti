@@ -95,6 +95,8 @@ pub using @lazy {type LazyFrame}
 
 pub using @io {type OnParseError}
 
+pub using @lazy {type Optimizations}
+
 pub using @types {type ParseErrorDetail}
 
 pub using @frame {type PivotAgg}

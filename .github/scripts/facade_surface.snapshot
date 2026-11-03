@@ -11,6 +11,7 @@ ctor Field::Field(String, DataType, nullable? : Bool) -> Self <- types
 ctor HtmlOptions::HtmlOptions(max_rows? : Int32, table_class? : String, caption? : String, escape? : Bool) -> Self <- frame
 ctor JsonReadOptions::JsonReadOptions(infer_schema_rows? : Int32, on_parse_error? : OnParseError, reject_duplicate_keys? : Bool, allow_nonfinite_floats? : Bool, dtypes? : Map[String, @types.DataType]) -> Self <- io
 ctor LazyFrame::LazyFrame(@frame.DataFrame) -> Self <- lazy
+ctor Optimizations::Optimizations() -> Self <- lazy
 ctor Schema::Schema(Array[Field]) -> Self raise DataError <- types
 field ChartSpec.color : String? <- chart
 field ChartSpec.color_type : VegaType? <- chart
@@ -41,6 +42,11 @@ field JsonReadOptions.allow_nonfinite_floats : Bool <- io
 field JsonReadOptions.infer_schema_rows : Int32 <- io
 field JsonReadOptions.on_parse_error : OnParseError <- io
 field JsonReadOptions.reject_duplicate_keys : Bool <- io
+field Optimizations.cluster_with_columns : Bool <- lazy
+field Optimizations.predicate_pushdown : Bool <- lazy
+field Optimizations.projection_pushdown : Bool <- lazy
+field Optimizations.simplify_expressions : Bool <- lazy
+field Optimizations.slice_pushdown : Bool <- lazy
 fn col(String) -> @expr.Expr <- root
 fn col(String) -> Expr <- expr
 fn cols(Array[String]) -> Array[@expr.Expr] <- root
@@ -182,7 +188,7 @@ method DataFrame::rename_with(Self, (String) -> String) -> Self raise @types.Dat
 method DataFrame::reverse(Self) -> Self <- frame
 method DataFrame::row(Self, Int32) -> Array[@types.Scalar] raise @types.DataError <- frame
 method DataFrame::rows(Self) -> Array[Array[@types.Scalar]] <- frame
-method DataFrame::sample(Self, Int32, with_replacement? : Bool, seed? : Int32) -> Self raise @types.DataError <- frame
+method DataFrame::sample(Self, n? : Int32, with_replacement? : Bool, seed? : Int32, fraction? : Double) -> Self raise @types.DataError <- frame
 method DataFrame::schema(Self) -> @types.Schema <- frame
 method DataFrame::select(Self, Array[@expr.Expr]) -> Self raise @types.DataError <- frame
 method DataFrame::shape(Self) -> (Int32, Int32) <- frame
@@ -377,7 +383,7 @@ method KeepStrategy::equal(Self, Self) -> Bool <- frame
 method KeepStrategy::not_equal(Self, Self) -> Bool <- frame
 method KeepStrategy::to_repr(Self) -> @debug.Repr <- frame
 method LazyFrame::bottom_k(Self, Int32, by~ : Array[@expr.Expr], reverse? : Bool) -> Self <- lazy
-method LazyFrame::collect(Self) -> @frame.DataFrame raise @types.DataError <- lazy
+method LazyFrame::collect(Self, optimizations? : Optimizations) -> @frame.DataFrame raise @types.DataError <- lazy
 method LazyFrame::count(Self) -> Self <- lazy
 method LazyFrame::drop(Self, Array[@expr.Expr]) -> Self <- lazy
 method LazyFrame::drop_nulls(Self, subset? : Array[@expr.Expr]) -> Self <- lazy
@@ -538,6 +544,7 @@ type JsonReadOptions <- io
 type KeepStrategy <- frame
 type LazyFrame <- lazy
 type OnParseError <- io
+type Optimizations <- lazy
 type ParseErrorDetail <- types
 type PivotAgg <- frame
 type QuantileInterpolation <- series

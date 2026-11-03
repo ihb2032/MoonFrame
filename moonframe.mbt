@@ -147,4 +147,10 @@ pub using @chart {
 }
 
 ///|
-pub using @lazy {type LazyFrame, scan_csv, scan_ndjson, scan_json}
+pub using @lazy {
+  type LazyFrame,
+  type Optimizations,
+  scan_csv,
+  scan_ndjson,
+  scan_json,
+}

@@ -9,7 +9,16 @@ and [GitHub Pages](https://ihb2032.github.io/MoonFrame/).
 
 ## v0.8.1 → v0.9.0 (unreleased)
 
-No source-level migration steps so far. What has landed on `main`:
+Source-level note:
+
+- `DataFrame::sample`'s first parameter is now optional: `sample(n?, …)` —
+  a call that passed `n` positionally (`sample(3, seed=7)`) must spell it
+  (`sample(n=3, seed=7)`), because the parameter now shares the slot with
+  the new `fraction?` (exactly one of the two names the draw size, a
+  fraction drawing `max(1, round(fraction × nrows))` rows of a non-empty
+  frame, `(0, 1]` enforced).
+
+What has landed on `main`:
 
 - The `dt_*` family reads a `Timestamp` operand: the calendar verbs
   (`dt_year` / `dt_month` / `dt_day` / `dt_day_of_week`, previously
@@ -64,6 +73,13 @@ No source-level migration steps so far. What has landed on `main`:
   each side at its own scale and divides in `Double` — the always-`Float`
   rule's spelling for a quotient that cannot stay decimal, exact while
   both magnitudes sit below `2^53`.
+- `describe` carries the linear-interpolated quartiles (`25%` / `50%` /
+  `75%`, nulled for a non-numeric / empty / all-null column like the
+  mean) — the summary's shape widens from 8 to 11 columns.
+- `LazyFrame::collect(optimizations~)` — an `Optimizations` record
+  (re-exported on the facade, every field defaulting to on) gates each
+  optimizer stage: the three pushdown passes and the two rewrite rules.
+  Any subset collects the same frame; a stage off only removes rewrites.
 
 ## v0.8.0 → v0.8.1
 

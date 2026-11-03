@@ -102,22 +102,22 @@ test "mode is the most frequent value, ties first-appearing, nulls skipped" {
 ///|
 test "sample is a deterministic function of its seed" {
   let df = DataFrame::DataFrame([Series::from_ints("v", [0, 1, 2, 3, 4])])
-  let a = df.sample(3, seed=7)
-  let b = df.sample(3, seed=7)
+  let a = df.sample(n=3, seed=7)
+  let b = df.sample(n=3, seed=7)
   assert_eq(a, b)
   assert_eq(a.shape(), (3, 1))
   assert_eq(a.check_invariants(), Ok(()))
   // Different seeds give different sequences — pinned directly: the draw
   // is a deterministic function of the seed, so two fixed seeds have two
   // fixed answers, and asserting both fixes what "different" means here.
-  assert_eq(df.sample(5, seed=7).get_column("v").to_scalars(), [
+  assert_eq(df.sample(n=5, seed=7).get_column("v").to_scalars(), [
     Int(0),
     Int(1),
     Int(3),
     Int(2),
     Int(4),
   ])
-  assert_eq(df.sample(5, seed=8).get_column("v").to_scalars(), [
+  assert_eq(df.sample(n=5, seed=8).get_column("v").to_scalars(), [
     Int(1),
     Int(2),
     Int(3),
@@ -125,8 +125,8 @@ test "sample is a deterministic function of its seed" {
     Int(4),
   ])
   assert_true(
-    df.sample(5, seed=8).get_column("v").to_scalars() !=
-    df.sample(5, seed=7).get_column("v").to_scalars(),
+    df.sample(n=5, seed=8).get_column("v").to_scalars() !=
+    df.sample(n=5, seed=7).get_column("v").to_scalars(),
   )
   // Without replacement: no repeats — the O(n²) check over five cells
   // needs no hashing.
@@ -144,12 +144,12 @@ test "sample is a deterministic function of its seed" {
   // and an unshuffled whole frame would disagree with sample(n = nrows));
   // n = 0 is empty; negative raises.
   assert_true(
-    (Ok(df.sample(99)) catch { e => Err(e) })
+    (Ok(df.sample(n=99)) catch { e => Err(e) })
     is Err(@types.DataError::InvalidOperation(_)),
   )
-  assert_eq(df.sample(0).shape(), (0, 1))
+  assert_eq(df.sample(n=0).shape(), (0, 1))
   assert_true(
-    (Ok(df.sample(-1)) catch { e => Err(e) })
+    (Ok(df.sample(n=-1)) catch { e => Err(e) })
     is Err(@types.DataError::InvalidOperation(_)),
   )
 }
@@ -157,9 +157,9 @@ test "sample is a deterministic function of its seed" {
 ///|
 test "sample with replacement allows repeats and needs a row" {
   let df = DataFrame::DataFrame([Series::from_ints("v", [10, 20])])
-  let r = df.sample(6, with_replacement=true, seed=3)
+  let r = df.sample(n=6, with_replacement=true, seed=3)
   assert_eq(r.shape(), (6, 1))
-  assert_eq(r, df.sample(6, with_replacement=true, seed=3))
+  assert_eq(r, df.sample(n=6, with_replacement=true, seed=3))
   // Every drawn row is one of the frame's own.
   for cell in r.get_column("v").to_scalars() {
     assert_true(
@@ -168,16 +168,16 @@ test "sample with replacement allows repeats and needs a row" {
   }
   let empty = DataFrame::DataFrame([Series::from_ints("v", [])])
   assert_true(
-    (Ok(empty.sample(1, with_replacement=true)) catch { e => Err(e) })
+    (Ok(empty.sample(n=1, with_replacement=true)) catch { e => Err(e) })
     is Err(@types.DataError::InvalidOperation(_)),
   )
   // n = 0 on an empty frame draws nothing — there is no draw to divide by
   // zero on, so no raise.
-  assert_eq(empty.sample(0, with_replacement=true).shape(), (0, 1))
+  assert_eq(empty.sample(n=0, with_replacement=true).shape(), (0, 1))
   // Without replacement an empty frame cannot supply rows either: n past
   // the (zero) row count raises, exactly as on a populated frame.
   assert_true(
-    (Ok(empty.sample(3)) catch { e => Err(e) })
+    (Ok(empty.sample(n=3)) catch { e => Err(e) })
     is Err(@types.DataError::InvalidOperation(_)),
   )
 }
@@ -198,8 +198,8 @@ test "an omitted seed is seed = 0" {
   // knowing it: leaving the seed out shares one sequence with an explicit
   // zero, so two independent seedless draws are two identical draws.
   let df = DataFrame::DataFrame([Series::from_ints("v", [0, 1, 2, 3, 4])])
-  assert_eq(df.sample(3), df.sample(3, seed=0))
-  assert_eq(df.sample(5), df.sample(5, seed=0))
+  assert_eq(df.sample(n=3), df.sample(n=3, seed=0))
+  assert_eq(df.sample(n=5), df.sample(n=5, seed=0))
 }
 
 ///|
@@ -253,4 +253,33 @@ test "shuffle edges: empty and one-row frames are their own permutation" {
   assert_eq(empty.shuffle(seed=1).shape(), (0, 1))
   let one = DataFrame::DataFrame([Series::from_ints("v", [9])])
   assert_eq(one.shuffle(seed=1).get_column("v").to_scalars(), [Int(9)])
+}
+
+///|
+test "sample fraction draws its share, floored at one row" {
+  let df = DataFrame::DataFrame([
+    Series::from_ints("v", [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]),
+  ])
+  // Half of ten rows, deterministically under the seed.
+  let half = df.sample(fraction=0.5, seed=7)
+  assert_eq(half.nrows(), 5)
+  // A fraction of a fraction of a row still draws one.
+  let one = df.sample(fraction=0.01, seed=7)
+  assert_eq(one.nrows(), 1)
+  // A 0-row frame samples zero rows even at a fraction.
+  let empty = DataFrame::empty(df.schema())
+  assert_eq(empty.sample(fraction=0.5, seed=7).nrows(), 0)
+  // The envelope: zero, above one, and naming both sizes, all refuse.
+  for f in [0.0, 1.5] {
+    let result = Ok(ignore(df.sample(fraction=f, seed=7))) catch { e => Err(e) }
+    assert_true(result is Err(@types.DataError::InvalidOperation(_)))
+  }
+  let both = Ok(ignore(df.sample(n=3, fraction=0.5, seed=7))) catch {
+    e => Err(e)
+  }
+  assert_true(both is Err(@types.DataError::InvalidOperation(_)))
+  let neither = Ok(ignore(df.sample(seed=7))) catch { e => Err(e) }
+  assert_true(neither is Err(@types.DataError::InvalidOperation(_)))
+  // A fraction of the whole frame is the frame's own row count, drawn.
+  assert_eq(df.sample(fraction=1.0, seed=7).nrows(), 10)
 }

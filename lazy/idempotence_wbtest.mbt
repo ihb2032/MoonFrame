@@ -59,7 +59,8 @@ fn assert_optimize_idempotent(plan : LogicalPlan) -> String raise {
 /// Compared through the rendered form, like the helpers above.
 fn assert_passes_idempotent(plan : LogicalPlan) -> String raise {
   let mut current = plan
-  for rewrite in optimizer_passes {
+  for entry in optimizer_passes {
+    let rewrite = entry.pass
     let once = rewrite(current)
     let twice = rewrite(once)
     assert_eq(plan_render(once), plan_render(twice))

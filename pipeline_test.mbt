@@ -51,11 +51,11 @@ test "pipeline: read_csv → filter → select → sort → describe → to_mark
   // the column-width logic. String min/max use lexicographic order, so
   // the region `max` is "west" (not shortlex's longest, "north").
   let expected =
-    #|| column   | dtype  | count | null_count | n_unique | mean | min  | max  |
-    #|| -------- | ------ | ----- | ---------- | -------- | ---- | ---- | ---- |
-    #|| region   | String | 3     | 0          | 3        |      | east | west |
-    #|| quantity | Int    | 3     | 0          | 3        | 8    | 5    | 12   |
-    #|| revenue  | Float  | 3     | 0          | 3        | 76   | 47.5 | 114  |
+    #|| column   | dtype  | count | null_count | n_unique | mean | 25% | 50%  | 75%   | min  | max  |
+    #|| -------- | ------ | ----- | ---------- | -------- | ---- | --- | ---- | ----- | ---- | ---- |
+    #|| region   | String | 3     | 0          | 3        |      |     |      |       | east | west |
+    #|| quantity | Int    | 3     | 0          | 3        | 8    | 6   | 7    | 9.5   | 5    | 12   |
+    #|| revenue  | Float  | 3     | 0          | 3        | 76   | 57  | 66.5 | 90.25 | 47.5 | 114  |
     #|
   assert_eq(summary.to_markdown(), expected)
 }
@@ -101,11 +101,12 @@ test "pipeline: parse_csv_str → filter → select → sort → describe → to
   assert_eq(sorted.item(0, "quantity"), Scalar::Int(12))
   assert_eq(sorted.item(2, "quantity"), Scalar::Int(5))
 
-  // Per-column summary — fixed N×8 schema, one row per source column.
+  // Per-column summary — fixed N×11 schema, one row per source column.
   let summary = sorted.describe()
-  assert_eq(summary.shape(), (4, 8))
+  assert_eq(summary.shape(), (4, 11))
   assert_eq(summary.columns(), [
-    "column", "dtype", "count", "null_count", "n_unique", "mean", "min", "max",
+    "column", "dtype", "count", "null_count", "n_unique", "mean", "25%", "50%", "75%",
+    "min", "max",
   ])
   assert_eq(summary.item(0, "column"), Scalar::String("region"))
   assert_eq(summary.item(1, "dtype"), Scalar::String("Float"))
@@ -116,12 +117,12 @@ test "pipeline: parse_csv_str → filter → select → sort → describe → to
   // Snapshot the full markdown table — pins schema + width logic. String
   // min/max are lexicographic, so the region `max` is "west", not "north".
   let expected =
-    #|| column   | dtype  | count | null_count | n_unique | mean | min  | max  |
-    #|| -------- | ------ | ----- | ---------- | -------- | ---- | ---- | ---- |
-    #|| region   | String | 3     | 0          | 3        |      | east | west |
-    #|| price    | Float  | 3     | 0          | 1        | 9.5  | 9.5  | 9.5  |
-    #|| quantity | Int    | 3     | 0          | 3        | 8    | 5    | 12   |
-    #|| revenue  | Float  | 3     | 0          | 3        | 76   | 47.5 | 114  |
+    #|| column   | dtype  | count | null_count | n_unique | mean | 25% | 50%  | 75%   | min  | max  |
+    #|| -------- | ------ | ----- | ---------- | -------- | ---- | --- | ---- | ----- | ---- | ---- |
+    #|| region   | String | 3     | 0          | 3        |      |     |      |       | east | west |
+    #|| price    | Float  | 3     | 0          | 1        | 9.5  | 9.5 | 9.5  | 9.5   | 9.5  | 9.5  |
+    #|| quantity | Int    | 3     | 0          | 3        | 8    | 6   | 7    | 9.5   | 5    | 12   |
+    #|| revenue  | Float  | 3     | 0          | 3        | 76   | 57  | 66.5 | 90.25 | 47.5 | 114  |
     #|
   assert_eq(summary.to_markdown(), expected)
 }

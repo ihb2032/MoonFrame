@@ -158,3 +158,26 @@ test "a Float operand blends through its own cells" {
   assert_eq(out.item(0, "m"), @types.Scalar::Float(1.5))
   assert_eq(out.item(2, "m"), @types.Scalar::Float((0.75 + 3.0) / 1.5))
 }
+
+///|
+test "a constant column's variance saturates at zero, never below" {
+  // The variance is a difference of two raw moments, whose cancellation
+  // error grows with the square of the magnitude: a constant column at
+  // 1e9 lands each cell a hair below zero unsaturated (the adversarial
+  // review measured -128 at alpha 0.3), and the std a NaN. A true
+  // variance is never negative, so every cell saturates at zero.
+  let df = DataFrame::DataFrame([
+    Series::from_ints("v", Array::makei(16, _ => 1_000_000_000)),
+  ])
+  for
+    expr in [
+      @expr.col("v").ewm_variance(alpha=0.3),
+      @expr.col("v").ewm_std(alpha=0.3),
+      @expr.col("v").ewm_variance(alpha=0.9, adjust=false),
+    ] {
+    let out = df.select([expr.with_alias("s")]).get_column("s")
+    for cell in out.to_scalars() {
+      assert_true(cell is @types.Scalar::Float(v) && v >= 0.0 && !v.is_nan())
+    }
+  }
+}

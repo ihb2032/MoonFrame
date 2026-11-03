@@ -94,3 +94,15 @@ test "from_string_options maps None to the empty placeholder" {
   assert_eq(a.get(1), "")
   assert_eq(a.get(2), "yz")
 }
+
+///|
+test "a gather that amplifies past the Int32 bound refuses" {
+  // A one-megabyte cell gathered a couple thousand times names 2.25GiB
+  // of payload while the process holds a few megabytes — the paper
+  // total is the whole attack, so no memory ceiling guards this path.
+  // The refusal is the constructor's own, before any allocation.
+  let a = Utf8Array::from_strings([String::make(1_048_576, 'a')])
+  let indices = Array::make(2148, 0)
+  let result = Ok(ignore(a.take_view(indices))) catch { e => Err(e) }
+  assert_true(result is Err(@types.DataError::InvalidOperation(_)))
+}

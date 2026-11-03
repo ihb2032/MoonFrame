@@ -25,3 +25,11 @@ test "next_merge_width is total outside scheduler invariants" {
   assert_eq(next_merge_width(1, -0x7fffffff - 1), None)
   assert_eq(next_merge_width(max_int, max_int), None)
 }
+
+///|
+test "a negative length answers the empty ordering" {
+  // The guard precedes its allocation: a negative `n` is a caller's
+  // bug, and the answer is the same empty ordering a zero-length one
+  // gives, never a spin or a wrapped allocation.
+  assert_eq(stable_mergesort_indices(-1, (a, b) => a - b), [])
+}

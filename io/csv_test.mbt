@@ -1088,7 +1088,7 @@ test "parse_csv_str: a Null pin and an off-envelope scale are refused" {
   match result {
     Err(@types.DataError::InvalidOperation(m)) =>
       assert_eq(
-        m, "dtypes override: column \"n\" cannot be pinned to Null; only Int / Float / Bool / String / Date / Timestamp / Decimal(scale) have a read parser",
+        m, "dtypes override: column \"n\" cannot be pinned to Null; only Int / Float / Bool / String / Date / Timestamp / Decimal(scale) have a read parser (Duration writes text no reader parses)",
       )
     _ => fail("expected InvalidOperation for the Null pin")
   }

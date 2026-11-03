@@ -63,6 +63,12 @@ priv struct DTypeProfile {
   /// the approximate statistics, which go through the `numeric` gate) stay
   /// fenced.
   summable : Bool
+  /// Whether the whole-frame `min` / `max` reductions order the dtype —
+  /// the orderable columns are the numerics and the temporal riders
+  /// (whose raw `I64` counts order chronologically); a span or a scaled
+  /// magnitude orders like its count. `Bool` / `String` / `Null` have no
+  /// whole-frame extremum (the `Series`-level min / max still order them).
+  orderable : Bool
 }
 
 ///|
@@ -72,15 +78,28 @@ priv struct DTypeProfile {
 fn DataType::dtype_profile(self : DataType) -> DTypeProfile {
   match self {
     Int =>
-      { display: "Int", physical: Some(I64), numeric: true, summable: true, }
+      {
+        display: "Int",
+        physical: Some(I64),
+        numeric: true,
+        summable: true,
+        orderable: true,
+      }
     Float =>
-      { display: "Float", physical: Some(F64), numeric: true, summable: true, }
+      {
+        display: "Float",
+        physical: Some(F64),
+        numeric: true,
+        summable: true,
+        orderable: true,
+      }
     Bool =>
       {
         display: "Bool",
         physical: Some(Bool),
         numeric: false,
         summable: false,
+        orderable: false,
       }
     String =>
       {
@@ -88,15 +107,23 @@ fn DataType::dtype_profile(self : DataType) -> DTypeProfile {
         physical: Some(Utf8),
         numeric: false,
         summable: false,
+        orderable: false,
       }
     Date =>
-      { display: "Date", physical: Some(I64), numeric: false, summable: false, }
+      {
+        display: "Date",
+        physical: Some(I64),
+        numeric: false,
+        summable: false,
+        orderable: true,
+      }
     Timestamp =>
       {
         display: "Timestamp",
         physical: Some(I64),
         numeric: false,
         summable: false,
+        orderable: true,
       }
     Decimal(scale) =>
       {
@@ -104,9 +131,24 @@ fn DataType::dtype_profile(self : DataType) -> DTypeProfile {
         physical: Some(I64),
         numeric: false,
         summable: true,
+        orderable: true,
+      }
+    Duration =>
+      {
+        display: "Duration",
+        physical: Some(I64),
+        numeric: false,
+        summable: false,
+        orderable: true,
       }
     Null =>
-      { display: "Null", physical: None, numeric: false, summable: false, }
+      {
+        display: "Null",
+        physical: None,
+        numeric: false,
+        summable: false,
+        orderable: false,
+      }
   }
 }
 
@@ -120,6 +162,17 @@ fn DataType::dtype_profile(self : DataType) -> DTypeProfile {
 #internal(engine, "MoonFrame execution engine API")
 pub fn DataType::physical(self : DataType) -> PhysicalType? {
   self.dtype_profile().physical
+}
+
+///|
+/// Whether the whole-frame `min` / `max` reductions order the dtype —
+/// the registry row's `orderable` column, read by the frame-level
+/// extremum gate (the `Series`-level min / max order every dtype; this is
+/// the *reduction* question, which dtypes a summary row can carry).
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
+pub fn DataType::orderable(self : DataType) -> Bool {
+  self.dtype_profile().orderable
 }
 
 ///|
@@ -139,6 +192,7 @@ pub fn DataType::i64_rider_scalar(self : DataType, v : Int64) -> Scalar? {
     Date => Some(Scalar::Date(v))
     Timestamp => Some(Scalar::Timestamp(v))
     Decimal(scale) => Some(Scalar::Decimal(scale, v))
+    Duration => Some(Scalar::Duration(v))
     Int => None
     Float => None
     Bool => None

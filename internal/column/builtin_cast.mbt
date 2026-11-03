@@ -54,6 +54,7 @@ fn BuiltinColumn::cast(
     Date => raise @types.DataError::Unsupported("cast to Date")
     Timestamp => raise @types.DataError::Unsupported("cast to Timestamp")
     Decimal(_) => raise @types.DataError::Unsupported("cast to Decimal")
+    Duration => raise @types.DataError::Unsupported("cast to Duration")
     Null => raise @types.DataError::Unsupported("cast to Null")
   }
 }

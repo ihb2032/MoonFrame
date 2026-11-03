@@ -13,3 +13,8 @@ test "key_cell normalises each Scalar variant" {
   assert_true(key_cell(@types.Scalar::Decimal(2, 25L)) == KInt(25L))
   assert_true(key_cell(@types.Scalar::Null) == KNull)
 }
+
+///|
+test "a Duration cell keys by its raw microsecond span" {
+  assert_true(key_cell(@types.Scalar::Duration(61L)) == KInt(61L))
+}

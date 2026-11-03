@@ -274,6 +274,16 @@ pub fn BuiltinColumn::from_scalars(
         }),
       )
     }
+    @types.DataType::Duration =>
+      BuiltinColumn::from_i64_options(
+        probe,
+        cells.map(c => {
+          match c {
+            @types.Scalar::Duration(v) => Some(v)
+            _ => None
+          }
+        }),
+      )
     @types.DataType::Null =>
       raise @types.DataError::Unsupported(
         "cannot build a column of dtype Null: \{name}",

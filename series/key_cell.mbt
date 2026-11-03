@@ -117,6 +117,7 @@ fn key_cell(sc : @types.Scalar) -> KeyCell {
     @types.Scalar::Date(v) => KInt(v)
     @types.Scalar::Timestamp(v) => KInt(v)
     @types.Scalar::Decimal(_, v) => KInt(v)
+    @types.Scalar::Duration(v) => KInt(v)
     @types.Scalar::Null => KNull
   }
 }

@@ -239,6 +239,7 @@ fn render_csv_scalar(
     | @types.Scalar::Bool(_)
     | @types.Scalar::Date(_)
     | @types.Scalar::Timestamp(_)
+    | @types.Scalar::Duration(_)
     | @types.Scalar::Decimal(_, _) => scalar.to_string()
   }
 }

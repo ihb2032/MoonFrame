@@ -44,6 +44,16 @@ No source-level migration steps so far. What has landed on `main`:
   exponentially-weighted recurrence (`span~` or `alpha~`, `adjust~`,
   `min_samples~`, `ignore_nulls~`; the deviation / variance are the
   biased estimator). Always `Float`.
+- `DataType::Duration` / `Scalar::Duration` — the fourth I64 rider: a
+  span of whole microseconds. The temporal arithmetic reads it:
+  `Timestamp − Timestamp` and `Date − Date` produce one, `Timestamp ±
+  Duration` stays `Timestamp` (checked — a shift off the `Int64` range
+  refuses), and `Date ± Duration` promotes to `Timestamp`. Ordering /
+  grouping / joins compare the raw spans; whole-frame `min` / `max` answer
+  (the registry's new `orderable` row, which the frame-level gate now
+  reads instead of its own variant list). It renders as an ISO 8601
+  days-and-time duration; the writers emit that text and no reader parses
+  it (a `dtypes` pin refuses it).
 
 ## v0.8.0 → v0.8.1
 

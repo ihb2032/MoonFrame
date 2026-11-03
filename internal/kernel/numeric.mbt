@@ -236,6 +236,7 @@ fn decimal_arith_scale(d : @types.DataType) -> Int32? {
     | @types.DataType::String
     | @types.DataType::Date
     | @types.DataType::Timestamp
+    | @types.DataType::Duration
     | @types.DataType::Null => None
   }
 }
@@ -273,35 +274,39 @@ fn eval_arith(
   float_op : (Double, Double) -> Double,
   dec : DecimalArith,
 ) -> Series raise @types.DataError {
-  match decimal_arith(left, right, dec) {
+  match temporal_arith(left, right, verb) {
     Some(s) => s
     None =>
-      match
-        numeric_fast_pair(
-          left,
-          right,
-          (a, b) => {
-            Series::from_ints(
-              left.name(),
-              Array::makei(a.length(), i => int_op(a[i], b[i])),
-            )
-          },
-          float_op,
-        ) {
-        Some(fast) => fast
+      match decimal_arith(left, right, dec) {
+        Some(s) => s
         None =>
-          numeric_general_pair(
-            left,
-            right,
-            verb,
-            (a, b, lv, rv) => {
-              Series::from_int_options(
-                left.name(),
-                zip_present(a.length(), lv, rv, i => int_op(a[i], b[i])),
-              )
-            },
-            float_op,
-          ).try_column_to_numeric()
+          match
+            numeric_fast_pair(
+              left,
+              right,
+              (a, b) => {
+                Series::from_ints(
+                  left.name(),
+                  Array::makei(a.length(), i => int_op(a[i], b[i])),
+                )
+              },
+              float_op,
+            ) {
+            Some(fast) => fast
+            None =>
+              numeric_general_pair(
+                left,
+                right,
+                verb,
+                (a, b, lv, rv) => {
+                  Series::from_int_options(
+                    left.name(),
+                    zip_present(a.length(), lv, rv, i => int_op(a[i], b[i])),
+                  )
+                },
+                float_op,
+              ).try_column_to_numeric()
+          }
       }
   }
 }
@@ -553,6 +558,7 @@ fn eval_neg(operand : Series) -> Series raise @types.DataError {
     | @types.DataType::String
     | @types.DataType::Date
     | @types.DataType::Timestamp
+    | @types.DataType::Duration
     | @types.DataType::Null =>
       eval_unary_num(operand, "negate", a => -a, a => -a)
   }
@@ -572,6 +578,7 @@ fn eval_abs(operand : Series) -> Series raise @types.DataError {
     | @types.DataType::String
     | @types.DataType::Date
     | @types.DataType::Timestamp
+    | @types.DataType::Duration
     | @types.DataType::Null =>
       eval_unary_num(operand, "take the absolute value of", a => a.abs(), a => {
         a.abs()

@@ -76,9 +76,9 @@ fn inferred_from_override(
       @types.check_decimal_scale(scale, "column \"\{column}\"")
       RiderDecimal(scale)
     }
-    Null =>
+    Null | Duration =>
       raise @types.DataError::InvalidOperation(
-        "dtypes override: column \"\{column}\" cannot be pinned to \{dt}; only Int / Float / Bool / String / Date / Timestamp / Decimal(scale) have a read parser",
+        "dtypes override: column \"\{column}\" cannot be pinned to \{dt}; only Int / Float / Bool / String / Date / Timestamp / Decimal(scale) have a read parser (Duration writes text no reader parses)",
       )
   }
 }

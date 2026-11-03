@@ -20,8 +20,8 @@
 /// to the empty string, so callers that short-circuit empty input still see
 /// "no payload".
 fn strip_utf8_bom(content : String) -> String {
-  if content.view().get_char(0) == Some('\u{FEFF}') {
-    content.view().view(start_offset=1).to_owned()
+  if content.get_char(0) == Some('\u{FEFF}') {
+    content[1:].to_owned()
   } else {
     content
   }

@@ -41,11 +41,12 @@
 /// to name every field or carry `..`, so a public field's arrival would break
 /// a caller's pattern exactly as a new `pub(all)` enum variant breaks a
 /// `match`.
+#derive(Eq, Debug)
 pub struct Field {
   priv name : String
   priv dtype : DataType
   priv nullable : Bool
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend Field with Eq::{equal, not_equal}

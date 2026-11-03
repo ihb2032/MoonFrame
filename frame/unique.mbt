@@ -11,11 +11,12 @@
 ///
 /// The kept rows always come out in ascending original-row order, so the result
 /// is deterministic without a sort regardless of strategy.
+#derive(Eq, Debug)
 pub(all) enum KeepStrategy {
   First
   Last
   None
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend KeepStrategy with Eq::{equal, not_equal}

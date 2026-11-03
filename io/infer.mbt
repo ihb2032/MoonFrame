@@ -119,10 +119,11 @@ fn check_override_columns(
 /// Shared by `CsvReadOptions` and `JsonReadOptions` and
 /// consumed in `build_typed_column`'s parse-failure branch, so the three
 /// readers agree on the policy.
+#derive(Eq, Debug)
 pub(all) enum OnParseError {
   Raise
   Null
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend OnParseError with Eq::{equal, not_equal}

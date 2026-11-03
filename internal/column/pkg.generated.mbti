@@ -13,9 +13,10 @@ pub fn scalar_of(@types.DataType, ColumnData, Int32) -> @types.Scalar
 // Errors
 
 // Types and methods
+#derive(@debug.Debug)
 pub struct BuiltinColumn {
   // private fields
-} derive(@debug.Debug)
+}
 pub fn BuiltinColumn::from_bool_options(Array[Bool?]) -> Self
 pub fn BuiltinColumn::from_bools(Array[Bool]) -> Self
 pub fn BuiltinColumn::from_float_options(Array[Double?]) -> Self
@@ -28,18 +29,20 @@ pub fn BuiltinColumn::from_string_options(Array[String?]) -> Self
 pub fn BuiltinColumn::from_strings(Array[String]) -> Self
 pub fn BuiltinColumn::to_repr(Self) -> @debug.Repr
 
+#derive(@debug.Debug)
 pub(all) enum ColumnData {
   I64(ArrayView[Int64])
   F64(ArrayView[Double])
   Bool(ArrayView[Bool])
   Utf8(@buffer.Utf8Array)
-} derive(@debug.Debug)
+}
 pub fn ColumnData::to_repr(Self) -> @debug.Repr
 
+#derive(@debug.Debug)
 pub(all) enum ColumnStorage {
   Builtin(BuiltinColumn)
   Numeric(NumericColumn)
-} derive(@debug.Debug)
+}
 pub fn ColumnStorage::cast(Self, @types.DataType) -> Self raise @types.DataError
 pub fn ColumnStorage::data(Self) -> ColumnData
 pub fn ColumnStorage::dtype(Self) -> @types.DataType
@@ -57,9 +60,10 @@ pub fn ColumnStorage::to_repr(Self) -> @debug.Repr
 pub fn ColumnStorage::validity(Self) -> @buffer.Bitmap
 pub impl Eq for ColumnStorage
 
+#derive(@debug.Debug)
 pub struct NumericColumn {
   // private fields
-} derive(@debug.Debug)
+}
 pub fn NumericColumn::from_floats(ArrayView[Double]) -> Self
 pub fn NumericColumn::from_ints(ArrayView[Int64]) -> Self
 pub fn NumericColumn::max(Self) -> @types.Scalar
@@ -69,16 +73,18 @@ pub fn NumericColumn::numeric_data(Self) -> NumericData
 pub fn NumericColumn::sum(Self) -> @types.Scalar
 pub fn NumericColumn::to_repr(Self) -> @debug.Repr
 
+#derive(@debug.Debug)
 pub(all) enum NumericData {
   Int(ArrayView[Int64])
   Float(ArrayView[Double])
-} derive(@debug.Debug)
+}
 pub fn NumericData::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum StorageKind {
   Builtin
   Numeric
-} derive(Eq, @debug.Debug)
+}
 pub fn StorageKind::equal(Self, Self) -> Bool
 pub fn StorageKind::not_equal(Self, Self) -> Bool
 pub fn StorageKind::to_repr(Self) -> @debug.Repr

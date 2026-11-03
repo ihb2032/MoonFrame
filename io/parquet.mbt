@@ -13,11 +13,12 @@
 ///|
 /// The compression a written parquet file carries (the reader takes
 /// every codec it can decode; this names the writer's).
+#derive(Eq, Debug)
 pub(all) enum ParquetCodec {
   Uncompressed
   Snappy
   Gzip
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend ParquetCodec with Eq::{equal, not_equal}

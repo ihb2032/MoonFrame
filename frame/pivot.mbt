@@ -33,6 +33,7 @@
 ///   as `Int`.
 ///
 /// A slot no row landed in is a `Null` cell under every aggregation.
+#derive(Eq, Debug)
 pub(all) enum PivotAgg {
   First
   Last
@@ -42,7 +43,7 @@ pub(all) enum PivotAgg {
   Mean
   Median
   Len
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend PivotAgg with Eq::{equal, not_equal}

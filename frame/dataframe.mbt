@@ -17,11 +17,12 @@
 /// that those parts agree. That agreement is written once — as INV1–INV5,
 /// checked by `check_invariants` — and deliberately not
 /// restated here, since a second copy is how the two would drift.
+#derive(Eq, Debug)
 pub struct DataFrame {
   priv schema : @types.Schema
   priv columns : Array[Series]
   priv nrows : Int32
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend DataFrame with Eq::{equal, not_equal}

@@ -43,7 +43,7 @@ pub fn parse_decimal_int_opt(s : String) -> Int64? {
   if !is_decimal_int_literal(s) {
     return None
   }
-  try @string.parse_int64(s.view()) catch {
+  try @string.parse_int64(s.clamped_view()) catch {
     _ => None
   } noraise {
     n => Some(n)
@@ -66,7 +66,7 @@ pub fn parse_plain_double_opt(s : String) -> Double? {
   if s.iter().any(c => c == '_') {
     return None
   }
-  try @string.parse_double(s.view()) catch {
+  try @string.parse_double(s.clamped_view()) catch {
     // `parse_double` fails for two disjoint reasons: a genuine
     // non-number, or a finite literal whose magnitude overflows `Double`. Per
     // IEEE 754 (and the documented String→Float contract) the overflow case
@@ -82,7 +82,7 @@ pub fn parse_plain_double_opt(s : String) -> Double? {
     _ =>
       if is_finite_decimal_literal(s) {
         Some(
-          if s.view().get_char(0) == Some('-') {
+          if s.get_char(0) == Some('-') {
             @double.neg_infinity
           } else {
             @double.infinity

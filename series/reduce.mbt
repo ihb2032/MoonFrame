@@ -713,13 +713,14 @@ fn reduce_first_last(
 /// `quantile(0.5, Linear)` over an even count is the median's two-middle
 /// average; `Nearest` / `Lower` / `Higher` always return a cell that is in
 /// the column, `Linear` / `Midpoint` can manufacture a value between two.
+#derive(Eq, Debug)
 pub(all) enum QuantileInterpolation {
   Nearest
   Linear
   Lower
   Higher
   Midpoint
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend QuantileInterpolation with Eq::{equal, not_equal}
@@ -736,6 +737,7 @@ pub extend QuantileInterpolation with Debug::{to_repr}
 /// `reducer_for` arm and the public `Expr` builder, with no mirror enum and no
 /// translation layer to keep in lockstep. `pub(all)` so the engine packages
 /// can construct it.
+#derive(Eq)
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
 pub(all) enum ReduceOp {
@@ -754,7 +756,7 @@ pub(all) enum ReduceOp {
   Mode
   First
   Last
-} derive(Eq)
+}
 
 ///|
 /// Equality for the engine packages: the expression AST carries a `ReduceOp`

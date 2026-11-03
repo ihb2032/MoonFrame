@@ -74,19 +74,21 @@ pub struct JsonReadOptions {
 pub fn JsonReadOptions::JsonReadOptions(infer_schema_rows? : Int32, on_parse_error? : OnParseError, reject_duplicate_keys? : Bool, allow_nonfinite_floats? : Bool, dtypes? : Map[String, @types.DataType]) -> Self
 pub fn JsonReadOptions::dtypes(Self) -> Map[String, @types.DataType]
 
+#derive(Eq, @debug.Debug)
 pub(all) enum OnParseError {
   Raise
   Null
-} derive(Eq, @debug.Debug)
+}
 pub fn OnParseError::equal(Self, Self) -> Bool
 pub fn OnParseError::not_equal(Self, Self) -> Bool
 pub fn OnParseError::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum ParquetCodec {
   Uncompressed
   Snappy
   Gzip
-} derive(Eq, @debug.Debug)
+}
 pub fn ParquetCodec::equal(Self, Self) -> Bool
 pub fn ParquetCodec::not_equal(Self, Self) -> Bool
 pub fn ParquetCodec::to_repr(Self) -> @debug.Repr

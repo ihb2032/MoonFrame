@@ -430,12 +430,13 @@ fn check_equiv(
 /// case prints them verbatim) and only `rows` shrinks — the pipeline shape is
 /// held fixed, since shrinking it would change which optimizer path the case
 /// exercises.
+#derive(Debug)
 struct AggFilterCase {
   rows : Array[RichRow]
   keys : Array[@expr.Expr]
   aggs : Array[@expr.Expr]
   pred : @expr.Expr
-} derive(Debug)
+}
 
 ///|
 pub extend AggFilterCase with Debug::{to_repr}
@@ -619,11 +620,12 @@ test "fuzz: group-by then key-filter is optimizer/eager equivalent on rich frame
 ///|
 /// A `select`-or-`with_columns` stage carrying a nullable derived column,
 /// terminated by a filter on a bare pass-through column.
+#derive(Debug)
 struct SelectFilterCase {
   rows : Array[RichRow]
   use_select : Bool // select (with a bare pass-through) vs with_columns
   pred : @expr.Expr
-} derive(Debug)
+}
 
 ///|
 pub extend SelectFilterCase with Debug::{to_repr}
@@ -761,6 +763,7 @@ test "fuzz: select/with_columns then filter is optimizer/eager equivalent" {
 /// divergence — while `dec` is referenced directly (predicate, arithmetic,
 /// aggregation): its checked refusals ride the differential, and the
 /// decimal value-fence owes the oracle its optimized-side fidelity.
+#derive(Debug)
 enum VerbSpec {
   VFilter(@expr.Expr)
   VWithColumns(Array[@expr.Expr])
@@ -799,7 +802,7 @@ enum VerbSpec {
   VSlice(Int32, Int32?)
   VTail(Int32)
   VFirstLast(Bool)
-} derive(Debug)
+}
 
 ///|
 pub extend VerbSpec with Debug::{to_repr}
@@ -1018,11 +1021,12 @@ fn gen_verbs() -> @gen.Generator[Array[VerbSpec]] {
 ///|
 /// A deeper, randomly-stacked pipeline: a chain of 2..4 verbs terminated by a
 /// filter on a bare pass-through column.
+#derive(Debug)
 struct StackedCase {
   rows : Array[RichRow]
   verbs : Array[VerbSpec]
   pred : @expr.Expr
-} derive(Debug)
+}
 
 ///|
 pub extend StackedCase with Debug::{to_repr}
@@ -1147,10 +1151,11 @@ test "fuzz: randomly stacked pipelines stay optimizer/eager equivalent" {
 /// occur in either fixture's schema, and `head` varies the row-count-sensitive
 /// stage between scan and select. Every generated case runs against both lazy
 /// file sources rather than relying on random source selection.
+#derive(Debug)
 struct FileProjectionCase {
   missing : String
   head : Int32
-} derive(Debug)
+}
 
 ///|
 pub extend FileProjectionCase with Debug::{to_repr}
@@ -1293,10 +1298,11 @@ test "fuzz: zero-match file projections preserve exact eager errors" {
 /// drives the CSV driver's row-pruning read, which Test 4's projection-only
 /// pipeline never reaches; the NDJSON twin shares the pruning path and is
 /// covered by its own tests).
+#derive(Debug)
 struct PrunedFileCase {
   rows : Array[RichRow]
   pred : @expr.Expr
-} derive(Debug)
+}
 
 ///|
 pub extend PrunedFileCase with Debug::{to_repr}
@@ -1407,9 +1413,10 @@ fn gen_dirty_case() -> @gen.Generator[Array[DirtyRow]] {
 /// The dirty fixture as its own case type: core's `check` draws through
 /// `Arbitrary`, which bare `Array` has no instance for, while the built-in
 /// `Shrink` for Array / tuple / `Bool` still shrinks the rows underneath.
+#derive(Debug)
 struct DirtyCase {
   rows : Array[DirtyRow]
-} derive(Debug)
+}
 
 ///|
 impl @gen.Arbitrary for DirtyCase with fn arbitrary(size, state) {
@@ -1528,10 +1535,11 @@ test "a doubly-dirty CSV: both reads raise ParseError, whichever column each nam
 /// `how` and `coalesce`, and the predicate's spellings depend on the
 /// attribution rules. `A` clashes the integer payload column, `S` the string
 /// one, so the suffixed spellings (`a_right` / `s_right`) span both dtypes.
+#derive(Debug)
 enum JoinClash {
   A
   S
-} derive(Debug)
+}
 
 ///|
 pub extend JoinClash with Debug::{to_repr}
@@ -1552,13 +1560,14 @@ pub extend JoinClash with Debug::{to_repr}
 /// - `KeySuffix` — `g_right`, the right key's spelling when `coalesce=false`
 ///   keeps both key columns (bare on a coalescing join, a `ColumnNotFound`
 ///   pair there).
+#derive(Debug)
 enum JoinPredDomain {
   LeftColumn
   RightBare
   RightSuffixed
   Ghost
   KeySuffix
-} derive(Debug)
+}
 
 ///|
 pub extend JoinPredDomain with Debug::{to_repr}
@@ -1570,6 +1579,7 @@ pub extend JoinPredDomain with Debug::{to_repr}
 /// its schema folded to three columns — the shared bare key `g`, the clashing
 /// payload, and the uniquely-named `rx` — so every clash and attribution rule
 /// the split encodes has a name to land on.
+#derive(Debug)
 struct JoinSplitCase {
   left : Array[RichRow]
   right : Array[RichRow]
@@ -1577,7 +1587,7 @@ struct JoinSplitCase {
   clash : JoinClash
   coalesce_false : Bool
   domain : JoinPredDomain
-} derive(Debug)
+}
 
 ///|
 pub extend JoinSplitCase with Debug::{to_repr}

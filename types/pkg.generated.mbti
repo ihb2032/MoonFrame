@@ -8,6 +8,7 @@ import {
 // Values
 
 // Errors
+#derive(Eq, @debug.Debug)
 pub(all) suberror DataError {
   ColumnNotFound(String)
   DuplicateColumn(String)
@@ -19,7 +20,7 @@ pub(all) suberror DataError {
   IoError(String)
   Unsupported(String)
   NullInNonNullable(String)
-} derive(Eq, @debug.Debug)
+}
 pub fn DataError::equal(Self, Self) -> Bool
 pub fn DataError::message(Self) -> String
 pub fn DataError::not_equal(Self, Self) -> Bool
@@ -29,25 +30,28 @@ pub fn DataError::to_string(Self) -> String
 pub impl Show for DataError
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) enum CellParseLocation {
   Row
   Record
   Line
-} derive(Eq, @debug.Debug)
+}
 pub fn CellParseLocation::equal(Self, Self) -> Bool
 pub fn CellParseLocation::not_equal(Self, Self) -> Bool
 pub fn CellParseLocation::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum ClosedInterval {
   Both
   Left
   Right
   None
-} derive(Eq, @debug.Debug)
+}
 pub fn ClosedInterval::equal(Self, Self) -> Bool
 pub fn ClosedInterval::not_equal(Self, Self) -> Bool
 pub fn ClosedInterval::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum DataType {
   Int
   Float
@@ -58,7 +62,7 @@ pub(all) enum DataType {
   Decimal(Int32)
   Duration
   Null
-} derive(Eq, @debug.Debug)
+}
 pub fn DataType::equal(Self, Self) -> Bool
 pub fn DataType::is_numeric(Self) -> Bool
 pub fn DataType::is_summable(Self) -> Bool
@@ -68,9 +72,10 @@ pub fn DataType::to_repr(Self) -> @debug.Repr
 pub fn DataType::to_string(Self) -> String
 pub impl Show for DataType
 
+#derive(Eq, @debug.Debug)
 pub struct Field {
   // private fields
-} derive(Eq, @debug.Debug)
+}
 pub fn Field::Field(String, DataType, nullable? : Bool) -> Self
 pub fn Field::dtype(Self) -> DataType
 pub fn Field::equal(Self, Self) -> Bool
@@ -84,25 +89,28 @@ pub fn Field::to_string(Self) -> String
 pub impl Show for Field
 
 #non_exhaustive
+#derive(Eq, @debug.Debug)
 pub(all) enum ParseErrorDetail {
   Message(String)
   Cell(CellParseLocation, String, Int32, DataType, String)
-} derive(Eq, @debug.Debug)
+}
 pub fn ParseErrorDetail::equal(Self, Self) -> Bool
 pub fn ParseErrorDetail::not_equal(Self, Self) -> Bool
 pub fn ParseErrorDetail::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum RankMethod {
   Average
   Min
   Max
   Dense
   Ordinal
-} derive(Eq, @debug.Debug)
+}
 pub fn RankMethod::equal(Self, Self) -> Bool
 pub fn RankMethod::not_equal(Self, Self) -> Bool
 pub fn RankMethod::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum Scalar {
   Int(Int64)
   Float(Double)
@@ -113,7 +121,7 @@ pub(all) enum Scalar {
   Decimal(Int32, Int64)
   Duration(Int64)
   Null
-} derive(Eq, @debug.Debug)
+}
 pub fn Scalar::as_bool(Self) -> Bool raise DataError
 pub fn Scalar::as_float(Self) -> Double raise DataError
 pub fn Scalar::as_int(Self) -> Int64 raise DataError
@@ -127,9 +135,10 @@ pub fn Scalar::to_repr(Self) -> @debug.Repr
 pub fn Scalar::to_string(Self) -> String
 pub impl Show for Scalar
 
+#derive(Eq, @debug.Debug)
 pub struct Schema {
   // private fields
-} derive(Eq, @debug.Debug)
+}
 pub fn Schema::Schema(Array[Field]) -> Self raise DataError
 pub fn Schema::equal(Self, Self) -> Bool
 pub fn Schema::field(Self, String) -> Field raise DataError
@@ -149,11 +158,12 @@ pub fn Schema::to_string(Self) -> String
 pub impl Show for Schema
 
 #non_exhaustive
+#derive(Eq, @debug.Debug)
 pub(all) enum TypeMismatchDetail {
   Message(String)
   Expected(DataType, DataType, String)
   Operation(String, DataType, DataType)
-} derive(Eq, @debug.Debug)
+}
 pub fn TypeMismatchDetail::equal(Self, Self) -> Bool
 pub fn TypeMismatchDetail::not_equal(Self, Self) -> Bool
 pub fn TypeMismatchDetail::to_repr(Self) -> @debug.Repr

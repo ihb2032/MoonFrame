@@ -37,10 +37,11 @@
 /// `ArrowLike` variant is intentionally absent: `Builtin` *is* the Arrow layout
 /// (data buffer + validity bitmap, `1 = valid`), so a separate variant would be
 /// an empty shell.
+#derive(Eq, Debug)
 pub(all) enum StorageKind {
   Builtin
   Numeric
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend StorageKind with Eq::{equal, not_equal}
@@ -52,10 +53,11 @@ pub extend StorageKind with Debug::{to_repr}
 /// A column behind one of the pluggable backends. `Builtin` is the
 /// general-purpose Arrow column (any dtype, nullable); `Numeric` is the
 /// all-valid unboxed numeric fast path.
+#derive(Debug)
 pub(all) enum ColumnStorage {
   Builtin(BuiltinColumn)
   Numeric(NumericColumn)
-} derive(Debug)
+}
 
 ///|
 pub extend ColumnStorage with Eq::{equal, not_equal}

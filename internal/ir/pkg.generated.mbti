@@ -13,6 +13,7 @@ import {
 // Errors
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) enum BinOp {
   Add
   Sub
@@ -31,16 +32,17 @@ pub(all) enum BinOp {
   Ge
   And
   Or
-} derive(Eq, @debug.Debug)
+}
 pub fn BinOp::equal(Self, Self) -> Bool
 pub fn BinOp::not_equal(Self, Self) -> Bool
 pub fn BinOp::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum EwmStat {
   EwmMean
   EwmStd
   EwmVariance
-} derive(Eq, @debug.Debug)
+}
 pub fn EwmStat::equal(Self, Self) -> Bool
 pub fn EwmStat::not_equal(Self, Self) -> Bool
 pub fn EwmStat::to_repr(Self) -> @debug.Repr
@@ -73,6 +75,7 @@ pub fn ExprNode::output_name(Self) -> String
 pub fn ExprNode::referenced_columns(Self) -> @set.Set[String]
 pub fn ExprNode::rename_columns(Self, Map[String, String]) -> Self
 
+#derive(Eq, @debug.Debug)
 pub(all) enum PositionalOp {
   Shift(Int32, @types.Scalar)
   CumSum(Bool)
@@ -89,11 +92,12 @@ pub(all) enum PositionalOp {
   IsFirstDistinct
   IsLastDistinct
   Ewm(EwmStat, Double, Bool, Int32, Bool)
-} derive(Eq, @debug.Debug)
+}
 pub fn PositionalOp::equal(Self, Self) -> Bool
 pub fn PositionalOp::not_equal(Self, Self) -> Bool
 pub fn PositionalOp::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum RollStat {
   Sum
   Mean
@@ -102,11 +106,12 @@ pub(all) enum RollStat {
   Std
   Var
   Median
-} derive(Eq, @debug.Debug)
+}
 pub fn RollStat::equal(Self, Self) -> Bool
 pub fn RollStat::not_equal(Self, Self) -> Bool
 pub fn RollStat::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum StrOp {
   ToUppercase
   ToLowercase
@@ -130,11 +135,12 @@ pub(all) enum StrOp {
   StripCharsCustom(String)
   SplitGet(String, Int32)
   ZFill(Int32)
-} derive(Eq, @debug.Debug)
+}
 pub fn StrOp::equal(Self, Self) -> Bool
 pub fn StrOp::not_equal(Self, Self) -> Bool
 pub fn StrOp::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum UnOp {
   Neg
   Not
@@ -175,7 +181,7 @@ pub(all) enum UnOp {
   Exp
   Cbrt
   Sqrt
-} derive(Eq, @debug.Debug)
+}
 pub fn UnOp::equal(Self, Self) -> Bool
 pub fn UnOp::not_equal(Self, Self) -> Bool
 pub fn UnOp::to_repr(Self) -> @debug.Repr

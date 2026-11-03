@@ -1,11 +1,12 @@
 ///|
 /// Identifies how a typed cell's 1-based source position is reported.
 /// `Row` is used by CSV, `Record` by JSON arrays, and `Line` by NDJSON.
+#derive(Eq, Debug)
 pub(all) enum CellParseLocation {
   Row
   Record
   Line
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend CellParseLocation with Eq::{equal, not_equal}
@@ -18,6 +19,7 @@ pub extend CellParseLocation with Debug::{to_repr}
 /// a new diagnostic shape here is not a breaking change — a caller matching
 /// these details carries a `..` arm for the shapes it does not know (the
 /// contract the `DataError` variants naming them inherit).
+#derive(Eq, Debug)
 #non_exhaustive
 pub(all) enum ParseErrorDetail {
   /// A parser or shape diagnostic that does not have a shared typed shape.
@@ -26,7 +28,7 @@ pub(all) enum ParseErrorDetail {
   /// are `(location, column, position, expected, value)`; `position` is
   /// 1-based and its meaning is carried by `location`.
   Cell(CellParseLocation, String, Int32, DataType, String)
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend ParseErrorDetail with Eq::{equal, not_equal}
@@ -39,6 +41,7 @@ pub extend ParseErrorDetail with Debug::{to_repr}
 /// a new diagnostic shape here is not a breaking change — a caller matching
 /// these details carries a `..` arm for the shapes it does not know (the
 /// contract the `DataError` variants naming them inherit).
+#derive(Eq, Debug)
 #non_exhaustive
 pub(all) enum TypeMismatchDetail {
   /// A dtype diagnostic that does not have a shared typed shape.
@@ -49,7 +52,7 @@ pub(all) enum TypeMismatchDetail {
   /// A binary operation rejected its operands. Fields are
   /// `(operation, left, right)`.
   Operation(String, DataType, DataType)
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend TypeMismatchDetail with Eq::{equal, not_equal}
@@ -67,6 +70,7 @@ pub extend TypeMismatchDetail with Debug::{to_repr}
 /// `#non_exhaustive` is not supported on a `suberror` (MoonBit v0.10.14),
 /// so a new error *kind* remains a deliberate, breaking change under the
 /// enum-surface lock.
+#derive(Eq, Debug)
 pub(all) suberror DataError {
   ColumnNotFound(String)
   DuplicateColumn(String)
@@ -78,7 +82,7 @@ pub(all) suberror DataError {
   IoError(String)
   Unsupported(String)
   NullInNonNullable(String)
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend DataError with Eq::{equal, not_equal}

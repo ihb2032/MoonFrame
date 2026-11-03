@@ -17,10 +17,11 @@
 /// a scan per lookup: resolving `c` names against a `c`-column schema was `O(c²)`
 /// while every resolution walked the array, which is the shape a wide `select`
 /// or `rename` hits.
+#derive(Eq, Debug)
 pub struct Schema {
   priv fields : Array[Field]
   priv index : Map[String, Int32]
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend Schema with Eq::{equal, not_equal}

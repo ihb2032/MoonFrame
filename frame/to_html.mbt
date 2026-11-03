@@ -33,12 +33,13 @@
 ///     `&` / `<` / `>` / `"` / `'` rewritten to their HTML entities, so
 ///     untrusted data can't inject markup. Pass `escape=false` for
 ///     trusted input that intentionally carries HTML.
+#derive(Eq, Debug)
 pub struct HtmlOptions {
   max_rows : Int32?
   table_class : String?
   caption : String?
   escape : Bool
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend HtmlOptions with Eq::{equal, not_equal}

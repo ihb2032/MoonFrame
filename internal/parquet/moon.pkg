@@ -7,3 +7,10 @@ import {
   "moonbitlang/core/compress/gzip",
   "moonbitlang/core/encoding/utf8",
 }
+
+// `core/compress/gzip` is still marked experimental upstream; the parquet
+// footer's compressed pages ride it, so the dependency is acknowledged here.
+
+options(
+  "allow-experimental-packages": [ "moonbitlang/core/compress/gzip" ],
+)

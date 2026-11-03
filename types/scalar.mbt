@@ -12,6 +12,7 @@
 /// accepted via numeric promotion to `Double`. The `Date` variant carries
 /// whole days since the Unix epoch (`1970-01-01` = day `0`), rendering as an
 /// ISO `YYYY-MM-DD` string.
+#derive(Eq, Debug)
 pub(all) enum Scalar {
   Int(Int64)
   Float(Double)
@@ -22,7 +23,7 @@ pub(all) enum Scalar {
   Decimal(Int32, Int64)
   Duration(Int64)
   Null
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend Scalar with Eq::{equal, not_equal}

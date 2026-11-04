@@ -14,12 +14,25 @@ ctor LazyFrame::LazyFrame(@frame.DataFrame) -> Self <- lazy
 ctor Optimizations::Optimizations() -> Self <- lazy
 ctor Schema::Schema(Array[Field]) -> Self raise DataError <- types
 ctor VegaAxis::VegaAxis(aria? : Bool, band_position? : Double, description? : String, domain? : Bool, domain_cap? : VegaCap, domain_color? : String, domain_dash? : Array[Double], domain_dash_offset? : Double, domain_opacity? : Double, domain_width? : Double, format? : String, format_type? : String, grid? : Bool, grid_cap? : VegaCap, grid_color? : String, grid_dash? : Array[Double], grid_dash_offset? : Double, grid_opacity? : Double, grid_width? : Double, label_align? : VegaAlign, label_angle? : Double, label_baseline? : VegaBaseline, label_bound? : VegaLabelBound, label_color? : String, label_expr? : String, label_flush? : VegaLabelFlush, label_flush_offset? : Double, label_font? : String, label_font_size? : Double, label_font_style? : String, label_font_weight? : VegaFontWeight, label_limit? : Double, label_line_height? : Double, label_offset? : Double, label_opacity? : Double, label_overlap? : VegaLabelOverlap, label_padding? : Double, label_separation? : Double, labels? : Bool, max_extent? : Double, min_extent? : Double, offset? : Double, orient? : VegaAxisOrient, position? : Double, style? : String, tick_band? : VegaTickBand, tick_cap? : VegaCap, tick_color? : String, tick_count? : VegaTickInterval, tick_dash? : Array[Double], tick_dash_offset? : Double, tick_extra? : Bool, tick_min_step? : Double, tick_offset? : Double, tick_opacity? : Double, tick_round? : Bool, tick_size? : Double, tick_width? : Double, ticks? : Bool, title? : String, title_align? : VegaAlign, title_anchor? : VegaAnchor, title_angle? : Double, title_baseline? : VegaBaseline, title_color? : String, title_font? : String, title_font_size? : Double, title_font_style? : String, title_font_weight? : VegaFontWeight, title_limit? : Double, title_line_height? : Double, title_opacity? : Double, title_padding? : Double, title_x? : Double, title_y? : Double, translate? : Double, values? : Array[@json.Json], zindex? : Double) -> Self <- chart
+ctor VegaAxisResolve::VegaAxisResolve(x? : VegaResolveMode, y? : VegaResolveMode) -> Self <- chart
 ctor VegaBinParams::VegaBinParams(maxbins? : Int32, anchor? : Double, base? : Double, nice? : Bool, step? : Double, minstep? : Double, binned? : Bool, extent? : (Double, Double), divide? : Array[Double], steps? : Array[Double]) -> Self <- chart
 ctor VegaBinsParams::VegaBinsParams(step? : Double, start? : Double, stop? : Double) -> Self <- chart
+ctor VegaConcat::VegaConcat(Array[Chart], align? : VegaAlignMode, bounds? : VegaBounds, center? : VegaCenter, spacing? : VegaSpacing, columns? : Double, title? : VegaTitle, name? : String, description? : String, resolve? : VegaResolve) -> Self <- chart
+ctor VegaFacet::VegaFacet(Chart, row? : VegaFacetChannel, column? : VegaFacetChannel, align? : VegaAlignMode, bounds? : VegaBounds, center? : VegaCenter, spacing? : VegaSpacing, columns? : Double, title? : VegaTitle, name? : String, description? : String, resolve? : VegaResolve) -> Self <- chart
+ctor VegaFacetChannel::VegaFacetChannel(field? : String, aggregate? : VegaAggregate, bin? : VegaBin, time_unit? : VegaTimeUnit, sort? : VegaChannelSort, type_override? : VegaType, title? : String, band_position? : Double, header? : VegaHeader, align? : VegaAlignMode, center? : VegaCenter, spacing? : VegaSpacing) -> Self <- chart
+ctor VegaHeader::VegaHeader(format? : String, format_type? : String, label_align? : VegaAlign, label_anchor? : VegaAnchor, label_angle? : Double, label_baseline? : VegaBaseline, label_color? : String, label_expr? : String, label_font? : String, label_font_size? : Double, label_font_style? : String, label_font_weight? : VegaFontWeight, label_limit? : Double, label_line_height? : Double, label_orient? : VegaOrient, label_padding? : Double, labels? : Bool, orient? : VegaOrient, title? : String, title_align? : VegaAlign, title_anchor? : VegaAnchor, title_angle? : Double, title_baseline? : VegaBaseline, title_color? : String, title_font? : String, title_font_size? : Double, title_font_style? : String, title_font_weight? : VegaFontWeight, title_limit? : Double, title_line_height? : Double, title_orient? : VegaOrient, title_padding? : Double) -> Self <- chart
 ctor VegaInterpolateParams::VegaInterpolateParams(type_? : VegaInterpolateKind, gamma? : Double) -> Self <- chart
+ctor VegaLayer::VegaLayer(Array[Chart], title? : VegaTitle, name? : String, description? : String, width? : VegaExtent, height? : VegaExtent, view? : VegaViewBackground, projection? : VegaProjection, resolve? : VegaResolve) -> Self <- chart
 ctor VegaLegend::VegaLegend(aria? : Bool, clip_height? : Double, column_padding? : Double, columns? : Double, corner_radius? : Double, description? : String, direction? : VegaDirection, fill_color? : String, format? : String, format_type? : String, gradient_length? : Double, gradient_opacity? : Double, gradient_stroke_color? : String, gradient_stroke_width? : Double, gradient_thickness? : Double, grid_align? : VegaLayoutAlign, label_align? : VegaAlign, label_baseline? : VegaBaseline, label_color? : String, label_expr? : String, label_font? : String, label_font_size? : Double, label_font_style? : String, label_font_weight? : VegaFontWeight, label_limit? : Double, label_offset? : Double, label_opacity? : Double, label_overlap? : VegaLabelOverlap, label_padding? : Double, label_separation? : Double, legend_x? : Double, legend_y? : Double, offset? : Double, orient? : VegaLegendOrient, padding? : Double, row_padding? : Double, stroke_color? : String, symbol_dash? : Array[Double], symbol_dash_offset? : Double, symbol_fill_color? : String, symbol_limit? : Double, symbol_offset? : Double, symbol_opacity? : Double, symbol_size? : Double, symbol_stroke_color? : String, symbol_stroke_width? : Double, symbol_type? : String, tick_count? : VegaTickInterval, tick_min_step? : Double, title? : String, title_align? : VegaAlign, title_anchor? : VegaAnchor, title_baseline? : VegaBaseline, title_color? : String, title_font? : String, title_font_size? : Double, title_font_style? : String, title_font_weight? : VegaFontWeight, title_limit? : Double, title_line_height? : Double, title_opacity? : Double, title_orient? : VegaTitleOrient, title_padding? : Double, type_? : VegaLegendType, values? : Array[@json.Json], zindex? : Double) -> Self <- chart
+ctor VegaLegendResolve::VegaLegendResolve(color? : VegaResolveMode, fill? : VegaResolveMode, stroke? : VegaResolveMode, opacity? : VegaResolveMode, fill_opacity? : VegaResolveMode, stroke_opacity? : VegaResolveMode, stroke_width? : VegaResolveMode, stroke_dash? : VegaResolveMode, size? : VegaResolveMode, shape? : VegaResolveMode, angle? : VegaResolveMode) -> Self <- chart
 ctor VegaProjection::VegaProjection(type_? : VegaProjectionType, center? : (Double, Double), clip_angle? : Double, clip_extent? : ((Double, Double), (Double, Double)), coefficient? : Double, distance? : Double, extent? : ((Double, Double), (Double, Double)), fraction? : Double, lobes? : Double, parallel? : Double, parallels? : Array[Double], point_radius? : Double, precision? : Double, radius? : Double, ratio? : Double, reflect_x? : Bool, reflect_y? : Bool, rotate? : VegaRotate, scale? : Double, size? : (Double, Double), spacing? : Double, tilt? : Double, translate? : (Double, Double)) -> Self <- chart
+ctor VegaRepeat::VegaRepeat(Chart, row? : Array[String], column? : Array[String], align? : VegaAlignMode, bounds? : VegaBounds, center? : VegaCenter, spacing? : VegaSpacing, columns? : Double, title? : VegaTitle, name? : String, description? : String, resolve? : VegaResolve) -> Self <- chart
+ctor VegaResolve::VegaResolve(scale? : VegaScaleResolve, axis? : VegaAxisResolve, legend? : VegaLegendResolve) -> Self <- chart
+ctor VegaRowColAlign::VegaRowColAlign(row? : VegaLayoutAlign, column? : VegaLayoutAlign) -> Self <- chart
+ctor VegaRowColBool::VegaRowColBool(row? : Bool, column? : Bool) -> Self <- chart
+ctor VegaRowColDouble::VegaRowColDouble(row? : Double, column? : Double) -> Self <- chart
 ctor VegaScale::VegaScale(type_? : VegaScaleType, domain? : VegaDomain, domain_min? : Double, domain_max? : Double, domain_mid? : Double, range? : VegaRange, range_min? : VegaRangeBound, range_max? : VegaRangeBound, scheme? : VegaScheme, reverse? : Bool, round? : Bool, clamp? : Bool, zero? : Bool, exponent? : Double, base? : Double, constant? : Double, interpolate? : VegaInterpolate, nice? : VegaNice, align? : Double, padding? : Double, padding_inner? : Double, padding_outer? : Double, bins? : VegaBins) -> Self <- chart
+ctor VegaScaleResolve::VegaScaleResolve(x? : VegaResolveMode, y? : VegaResolveMode, color? : VegaResolveMode, fill? : VegaResolveMode, stroke? : VegaResolveMode, opacity? : VegaResolveMode, fill_opacity? : VegaResolveMode, stroke_opacity? : VegaResolveMode, stroke_width? : VegaResolveMode, stroke_dash? : VegaResolveMode, size? : VegaResolveMode, shape? : VegaResolveMode, angle? : VegaResolveMode, theta? : VegaResolveMode, radius? : VegaResolveMode, x_offset? : VegaResolveMode, y_offset? : VegaResolveMode) -> Self <- chart
 ctor VegaSchemeParams::VegaSchemeParams(name? : String, extent? : Array[Double], count? : Double) -> Self <- chart
 ctor VegaSides::VegaSides(top? : Int32, right? : Int32, bottom? : Int32, left? : Int32) -> Self <- chart
 ctor VegaTitleParams::VegaTitleParams(text? : String, align? : VegaAlign, anchor? : VegaAnchor, angle? : Double, aria? : Bool, baseline? : VegaBaseline, color? : String, dx? : Double, dy? : Double, font? : String, font_size? : Double, font_style? : String, font_weight? : VegaFontWeight, frame? : VegaTitleFrame, limit? : Double, line_height? : Double, offset? : Double, orient? : VegaTitleOrient, style? : String, subtitle? : String, subtitle_color? : String, subtitle_font? : String, subtitle_font_size? : Double, subtitle_font_style? : String, subtitle_font_weight? : VegaFontWeight, subtitle_line_height? : Double, subtitle_padding? : Double, zindex? : Double) -> Self <- chart
@@ -175,6 +188,8 @@ field VegaAxis.title_x : Double? <- chart
 field VegaAxis.title_y : Double? <- chart
 field VegaAxis.translate : Double? <- chart
 field VegaAxis.zindex : Double? <- chart
+field VegaAxisResolve.x : VegaResolveMode? <- chart
+field VegaAxisResolve.y : VegaResolveMode? <- chart
 field VegaBinParams.anchor : Double? <- chart
 field VegaBinParams.base : Double? <- chart
 field VegaBinParams.binned : Bool? <- chart
@@ -201,8 +216,81 @@ field VegaChannel.time_unit : VegaTimeUnit? <- chart
 field VegaChannel.title : String? <- chart
 field VegaChannel.type_override : VegaType? <- chart
 field VegaChannel.value : @json.Json? <- chart
+field VegaConcat.align : VegaAlignMode? <- chart
+field VegaConcat.bounds : VegaBounds? <- chart
+field VegaConcat.center : VegaCenter? <- chart
+field VegaConcat.columns : Double? <- chart
+field VegaConcat.description : String? <- chart
+field VegaConcat.name : String? <- chart
+field VegaConcat.resolve : VegaResolve? <- chart
+field VegaConcat.spacing : VegaSpacing? <- chart
+field VegaConcat.title : VegaTitle? <- chart
+field VegaFacet.align : VegaAlignMode? <- chart
+field VegaFacet.bounds : VegaBounds? <- chart
+field VegaFacet.center : VegaCenter? <- chart
+field VegaFacet.column : VegaFacetChannel? <- chart
+field VegaFacet.columns : Double? <- chart
+field VegaFacet.description : String? <- chart
+field VegaFacet.name : String? <- chart
+field VegaFacet.resolve : VegaResolve? <- chart
+field VegaFacet.row : VegaFacetChannel? <- chart
+field VegaFacet.spacing : VegaSpacing? <- chart
+field VegaFacet.spec : Chart <- chart
+field VegaFacet.title : VegaTitle? <- chart
+field VegaFacetChannel.aggregate : VegaAggregate? <- chart
+field VegaFacetChannel.align : VegaAlignMode? <- chart
+field VegaFacetChannel.band_position : Double? <- chart
+field VegaFacetChannel.bin : VegaBin? <- chart
+field VegaFacetChannel.center : VegaCenter? <- chart
+field VegaFacetChannel.field : String? <- chart
+field VegaFacetChannel.header : VegaHeader? <- chart
+field VegaFacetChannel.sort : VegaChannelSort? <- chart
+field VegaFacetChannel.spacing : VegaSpacing? <- chart
+field VegaFacetChannel.time_unit : VegaTimeUnit? <- chart
+field VegaFacetChannel.title : String? <- chart
+field VegaFacetChannel.type_override : VegaType? <- chart
+field VegaHeader.format : String? <- chart
+field VegaHeader.format_type : String? <- chart
+field VegaHeader.label_align : VegaAlign? <- chart
+field VegaHeader.label_anchor : VegaAnchor? <- chart
+field VegaHeader.label_angle : Double? <- chart
+field VegaHeader.label_baseline : VegaBaseline? <- chart
+field VegaHeader.label_color : String? <- chart
+field VegaHeader.label_expr : String? <- chart
+field VegaHeader.label_font : String? <- chart
+field VegaHeader.label_font_size : Double? <- chart
+field VegaHeader.label_font_style : String? <- chart
+field VegaHeader.label_font_weight : VegaFontWeight? <- chart
+field VegaHeader.label_limit : Double? <- chart
+field VegaHeader.label_line_height : Double? <- chart
+field VegaHeader.label_orient : VegaOrient? <- chart
+field VegaHeader.label_padding : Double? <- chart
+field VegaHeader.labels : Bool? <- chart
+field VegaHeader.orient : VegaOrient? <- chart
+field VegaHeader.title : String? <- chart
+field VegaHeader.title_align : VegaAlign? <- chart
+field VegaHeader.title_anchor : VegaAnchor? <- chart
+field VegaHeader.title_angle : Double? <- chart
+field VegaHeader.title_baseline : VegaBaseline? <- chart
+field VegaHeader.title_color : String? <- chart
+field VegaHeader.title_font : String? <- chart
+field VegaHeader.title_font_size : Double? <- chart
+field VegaHeader.title_font_style : String? <- chart
+field VegaHeader.title_font_weight : VegaFontWeight? <- chart
+field VegaHeader.title_limit : Double? <- chart
+field VegaHeader.title_line_height : Double? <- chart
+field VegaHeader.title_orient : VegaOrient? <- chart
+field VegaHeader.title_padding : Double? <- chart
 field VegaInterpolateParams.gamma : Double? <- chart
 field VegaInterpolateParams.type_ : VegaInterpolateKind? <- chart
+field VegaLayer.description : String? <- chart
+field VegaLayer.height : VegaExtent? <- chart
+field VegaLayer.name : String? <- chart
+field VegaLayer.projection : VegaProjection? <- chart
+field VegaLayer.resolve : VegaResolve? <- chart
+field VegaLayer.title : VegaTitle? <- chart
+field VegaLayer.view : VegaViewBackground? <- chart
+field VegaLayer.width : VegaExtent? <- chart
 field VegaLegend.aria : Bool? <- chart
 field VegaLegend.clip_height : Double? <- chart
 field VegaLegend.column_padding : Double? <- chart
@@ -267,6 +355,17 @@ field VegaLegend.title_orient : VegaTitleOrient? <- chart
 field VegaLegend.title_padding : Double? <- chart
 field VegaLegend.type_ : VegaLegendType? <- chart
 field VegaLegend.zindex : Double? <- chart
+field VegaLegendResolve.angle : VegaResolveMode? <- chart
+field VegaLegendResolve.color : VegaResolveMode? <- chart
+field VegaLegendResolve.fill : VegaResolveMode? <- chart
+field VegaLegendResolve.fill_opacity : VegaResolveMode? <- chart
+field VegaLegendResolve.opacity : VegaResolveMode? <- chart
+field VegaLegendResolve.shape : VegaResolveMode? <- chart
+field VegaLegendResolve.size : VegaResolveMode? <- chart
+field VegaLegendResolve.stroke : VegaResolveMode? <- chart
+field VegaLegendResolve.stroke_dash : VegaResolveMode? <- chart
+field VegaLegendResolve.stroke_opacity : VegaResolveMode? <- chart
+field VegaLegendResolve.stroke_width : VegaResolveMode? <- chart
 field VegaProjection.center : (Double, Double)? <- chart
 field VegaProjection.clip_angle : Double? <- chart
 field VegaProjection.clip_extent : ((Double, Double), (Double, Double))? <- chart
@@ -289,6 +388,25 @@ field VegaProjection.spacing : Double? <- chart
 field VegaProjection.tilt : Double? <- chart
 field VegaProjection.translate : (Double, Double)? <- chart
 field VegaProjection.type_ : VegaProjectionType? <- chart
+field VegaRepeat.align : VegaAlignMode? <- chart
+field VegaRepeat.bounds : VegaBounds? <- chart
+field VegaRepeat.center : VegaCenter? <- chart
+field VegaRepeat.columns : Double? <- chart
+field VegaRepeat.description : String? <- chart
+field VegaRepeat.name : String? <- chart
+field VegaRepeat.resolve : VegaResolve? <- chart
+field VegaRepeat.spacing : VegaSpacing? <- chart
+field VegaRepeat.spec : Chart <- chart
+field VegaRepeat.title : VegaTitle? <- chart
+field VegaResolve.axis : VegaAxisResolve? <- chart
+field VegaResolve.legend : VegaLegendResolve? <- chart
+field VegaResolve.scale : VegaScaleResolve? <- chart
+field VegaRowColAlign.column : VegaLayoutAlign? <- chart
+field VegaRowColAlign.row : VegaLayoutAlign? <- chart
+field VegaRowColBool.column : Bool? <- chart
+field VegaRowColBool.row : Bool? <- chart
+field VegaRowColDouble.column : Double? <- chart
+field VegaRowColDouble.row : Double? <- chart
 field VegaScale.align : Double? <- chart
 field VegaScale.base : Double? <- chart
 field VegaScale.bins : VegaBins? <- chart
@@ -312,6 +430,23 @@ field VegaScale.round : Bool? <- chart
 field VegaScale.scheme : VegaScheme? <- chart
 field VegaScale.type_ : VegaScaleType? <- chart
 field VegaScale.zero : Bool? <- chart
+field VegaScaleResolve.angle : VegaResolveMode? <- chart
+field VegaScaleResolve.color : VegaResolveMode? <- chart
+field VegaScaleResolve.fill : VegaResolveMode? <- chart
+field VegaScaleResolve.fill_opacity : VegaResolveMode? <- chart
+field VegaScaleResolve.opacity : VegaResolveMode? <- chart
+field VegaScaleResolve.radius : VegaResolveMode? <- chart
+field VegaScaleResolve.shape : VegaResolveMode? <- chart
+field VegaScaleResolve.size : VegaResolveMode? <- chart
+field VegaScaleResolve.stroke : VegaResolveMode? <- chart
+field VegaScaleResolve.stroke_dash : VegaResolveMode? <- chart
+field VegaScaleResolve.stroke_opacity : VegaResolveMode? <- chart
+field VegaScaleResolve.stroke_width : VegaResolveMode? <- chart
+field VegaScaleResolve.theta : VegaResolveMode? <- chart
+field VegaScaleResolve.x : VegaResolveMode? <- chart
+field VegaScaleResolve.x_offset : VegaResolveMode? <- chart
+field VegaScaleResolve.y : VegaResolveMode? <- chart
+field VegaScaleResolve.y_offset : VegaResolveMode? <- chart
 field VegaSchemeParams.count : Double? <- chart
 field VegaSchemeParams.name : String? <- chart
 field VegaSides.bottom : Int32? <- chart
@@ -372,8 +507,8 @@ fn field(String, aggregate? : VegaAggregate, bin? : VegaBin, time_unit? : VegaTi
 fn format_csv(@frame.DataFrame, options? : CsvWriteOptions) -> String raise @types.DataError <- io
 fn format_json(@frame.DataFrame) -> String <- io
 fn format_ndjson(@frame.DataFrame) -> String <- io
-fn format_vega_lite(@frame.DataFrame, @chart.ChartSpec) -> String raise @types.DataError <- root
-fn format_vega_lite(@frame.DataFrame, ChartSpec) -> String raise @types.DataError <- chart
+fn format_vega_lite(@frame.DataFrame, @chart.Chart) -> String raise @types.DataError <- root
+fn format_vega_lite(@frame.DataFrame, Chart) -> String raise @types.DataError <- chart
 fn lit(@types.Scalar) -> @expr.Expr <- root
 fn lit(@types.Scalar) -> Expr <- expr
 fn lit_bool(Bool) -> @expr.Expr <- root
@@ -419,8 +554,8 @@ fn write_ndjson(String, @frame.DataFrame) -> Unit raise @types.DataError <- io
 fn write_ndjson(String, @frame.DataFrame) -> Unit raise @types.DataError <- root
 fn write_parquet(@frame.DataFrame, String, codec? : @io.ParquetCodec) -> Unit raise @types.DataError <- root
 fn write_parquet(@frame.DataFrame, String, codec? : ParquetCodec) -> Unit raise @types.DataError <- io
-fn write_vega_lite(String, @frame.DataFrame, @chart.ChartSpec) -> Unit raise @types.DataError <- root
-fn write_vega_lite(String, @frame.DataFrame, ChartSpec) -> Unit raise @types.DataError <- chart
+fn write_vega_lite(String, @frame.DataFrame, @chart.Chart) -> Unit raise @types.DataError <- root
+fn write_vega_lite(String, @frame.DataFrame, Chart) -> Unit raise @types.DataError <- chart
 impl @debug.Debug for Expr <- expr
 impl Add for Expr <- expr
 impl BitAnd for Expr <- expr
@@ -442,6 +577,10 @@ intermediate WhenThenElse <- expr
 method CellParseLocation::equal(Self, Self) -> Bool <- types
 method CellParseLocation::not_equal(Self, Self) -> Bool <- types
 method CellParseLocation::to_repr(Self) -> @debug.Repr <- types
+method Chart::equal(Self, Self) -> Bool <- chart
+method Chart::not_equal(Self, Self) -> Bool <- chart
+method Chart::of(ChartSpec) -> Self <- chart
+method Chart::to_repr(Self) -> @debug.Repr <- chart
 method ChartKind::equal(Self, Self) -> Bool <- chart
 method ChartKind::not_equal(Self, Self) -> Bool <- chart
 method ChartKind::to_repr(Self) -> @debug.Repr <- chart
@@ -870,6 +1009,9 @@ method VegaAggregate::to_repr(Self) -> @debug.Repr <- chart
 method VegaAlign::equal(Self, Self) -> Bool <- chart
 method VegaAlign::not_equal(Self, Self) -> Bool <- chart
 method VegaAlign::to_repr(Self) -> @debug.Repr <- chart
+method VegaAlignMode::equal(Self, Self) -> Bool <- chart
+method VegaAlignMode::not_equal(Self, Self) -> Bool <- chart
+method VegaAlignMode::to_repr(Self) -> @debug.Repr <- chart
 method VegaAnchor::equal(Self, Self) -> Bool <- chart
 method VegaAnchor::not_equal(Self, Self) -> Bool <- chart
 method VegaAnchor::to_repr(Self) -> @debug.Repr <- chart
@@ -889,6 +1031,9 @@ method VegaAxisOrient::to_repr(Self) -> @debug.Repr <- chart
 method VegaAxisRef::equal(Self, Self) -> Bool <- chart
 method VegaAxisRef::not_equal(Self, Self) -> Bool <- chart
 method VegaAxisRef::to_repr(Self) -> @debug.Repr <- chart
+method VegaAxisResolve::equal(Self, Self) -> Bool <- chart
+method VegaAxisResolve::not_equal(Self, Self) -> Bool <- chart
+method VegaAxisResolve::to_repr(Self) -> @debug.Repr <- chart
 method VegaBaseline::equal(Self, Self) -> Bool <- chart
 method VegaBaseline::not_equal(Self, Self) -> Bool <- chart
 method VegaBaseline::to_repr(Self) -> @debug.Repr <- chart
@@ -906,9 +1051,15 @@ method VegaBins::to_repr(Self) -> @debug.Repr <- chart
 method VegaBinsParams::equal(Self, Self) -> Bool <- chart
 method VegaBinsParams::not_equal(Self, Self) -> Bool <- chart
 method VegaBinsParams::to_repr(Self) -> @debug.Repr <- chart
+method VegaBounds::equal(Self, Self) -> Bool <- chart
+method VegaBounds::not_equal(Self, Self) -> Bool <- chart
+method VegaBounds::to_repr(Self) -> @debug.Repr <- chart
 method VegaCap::equal(Self, Self) -> Bool <- chart
 method VegaCap::not_equal(Self, Self) -> Bool <- chart
 method VegaCap::to_repr(Self) -> @debug.Repr <- chart
+method VegaCenter::equal(Self, Self) -> Bool <- chart
+method VegaCenter::not_equal(Self, Self) -> Bool <- chart
+method VegaCenter::to_repr(Self) -> @debug.Repr <- chart
 method VegaChannel::count() -> Self <- chart
 method VegaChannel::equal(Self, Self) -> Bool <- chart
 method VegaChannel::not_equal(Self, Self) -> Bool <- chart
@@ -917,6 +1068,10 @@ method VegaChannelSort::equal(Self, Self) -> Bool <- chart
 method VegaChannelSort::not_equal(Self, Self) -> Bool <- chart
 method VegaChannelSort::to_repr(Self) -> @debug.Repr <- chart
 method VegaChannelSort::values(Array[@json.Json]) -> Self <- chart
+method VegaConcat::concat(Self) -> Array[Chart] <- chart
+method VegaConcat::equal(Self, Self) -> Bool <- chart
+method VegaConcat::not_equal(Self, Self) -> Bool <- chart
+method VegaConcat::to_repr(Self) -> @debug.Repr <- chart
 method VegaCursor::equal(Self, Self) -> Bool <- chart
 method VegaCursor::not_equal(Self, Self) -> Bool <- chart
 method VegaCursor::to_repr(Self) -> @debug.Repr <- chart
@@ -929,9 +1084,18 @@ method VegaDomain::to_repr(Self) -> @debug.Repr <- chart
 method VegaExtent::equal(Self, Self) -> Bool <- chart
 method VegaExtent::not_equal(Self, Self) -> Bool <- chart
 method VegaExtent::to_repr(Self) -> @debug.Repr <- chart
+method VegaFacet::equal(Self, Self) -> Bool <- chart
+method VegaFacet::not_equal(Self, Self) -> Bool <- chart
+method VegaFacet::to_repr(Self) -> @debug.Repr <- chart
+method VegaFacetChannel::equal(Self, Self) -> Bool <- chart
+method VegaFacetChannel::not_equal(Self, Self) -> Bool <- chart
+method VegaFacetChannel::to_repr(Self) -> @debug.Repr <- chart
 method VegaFontWeight::equal(Self, Self) -> Bool <- chart
 method VegaFontWeight::not_equal(Self, Self) -> Bool <- chart
 method VegaFontWeight::to_repr(Self) -> @debug.Repr <- chart
+method VegaHeader::equal(Self, Self) -> Bool <- chart
+method VegaHeader::not_equal(Self, Self) -> Bool <- chart
+method VegaHeader::to_repr(Self) -> @debug.Repr <- chart
 method VegaInterpolate::equal(Self, Self) -> Bool <- chart
 method VegaInterpolate::not_equal(Self, Self) -> Bool <- chart
 method VegaInterpolate::to_repr(Self) -> @debug.Repr <- chart
@@ -953,6 +1117,10 @@ method VegaLabelFlush::to_repr(Self) -> @debug.Repr <- chart
 method VegaLabelOverlap::equal(Self, Self) -> Bool <- chart
 method VegaLabelOverlap::not_equal(Self, Self) -> Bool <- chart
 method VegaLabelOverlap::to_repr(Self) -> @debug.Repr <- chart
+method VegaLayer::equal(Self, Self) -> Bool <- chart
+method VegaLayer::layer(Self) -> Array[Chart] <- chart
+method VegaLayer::not_equal(Self, Self) -> Bool <- chart
+method VegaLayer::to_repr(Self) -> @debug.Repr <- chart
 method VegaLayoutAlign::equal(Self, Self) -> Bool <- chart
 method VegaLayoutAlign::not_equal(Self, Self) -> Bool <- chart
 method VegaLayoutAlign::to_repr(Self) -> @debug.Repr <- chart
@@ -967,12 +1135,18 @@ method VegaLegendOrient::to_repr(Self) -> @debug.Repr <- chart
 method VegaLegendRef::equal(Self, Self) -> Bool <- chart
 method VegaLegendRef::not_equal(Self, Self) -> Bool <- chart
 method VegaLegendRef::to_repr(Self) -> @debug.Repr <- chart
+method VegaLegendResolve::equal(Self, Self) -> Bool <- chart
+method VegaLegendResolve::not_equal(Self, Self) -> Bool <- chart
+method VegaLegendResolve::to_repr(Self) -> @debug.Repr <- chart
 method VegaLegendType::equal(Self, Self) -> Bool <- chart
 method VegaLegendType::not_equal(Self, Self) -> Bool <- chart
 method VegaLegendType::to_repr(Self) -> @debug.Repr <- chart
 method VegaNice::equal(Self, Self) -> Bool <- chart
 method VegaNice::not_equal(Self, Self) -> Bool <- chart
 method VegaNice::to_repr(Self) -> @debug.Repr <- chart
+method VegaOrient::equal(Self, Self) -> Bool <- chart
+method VegaOrient::not_equal(Self, Self) -> Bool <- chart
+method VegaOrient::to_repr(Self) -> @debug.Repr <- chart
 method VegaPadding::equal(Self, Self) -> Bool <- chart
 method VegaPadding::not_equal(Self, Self) -> Bool <- chart
 method VegaPadding::to_repr(Self) -> @debug.Repr <- chart
@@ -992,15 +1166,38 @@ method VegaRangeBound::to_repr(Self) -> @debug.Repr <- chart
 method VegaRangeName::equal(Self, Self) -> Bool <- chart
 method VegaRangeName::not_equal(Self, Self) -> Bool <- chart
 method VegaRangeName::to_repr(Self) -> @debug.Repr <- chart
+method VegaRepeat::column(Self) -> Array[String]? <- chart
+method VegaRepeat::equal(Self, Self) -> Bool <- chart
+method VegaRepeat::not_equal(Self, Self) -> Bool <- chart
+method VegaRepeat::row(Self) -> Array[String]? <- chart
+method VegaRepeat::to_repr(Self) -> @debug.Repr <- chart
+method VegaResolve::equal(Self, Self) -> Bool <- chart
+method VegaResolve::not_equal(Self, Self) -> Bool <- chart
+method VegaResolve::to_repr(Self) -> @debug.Repr <- chart
+method VegaResolveMode::equal(Self, Self) -> Bool <- chart
+method VegaResolveMode::not_equal(Self, Self) -> Bool <- chart
+method VegaResolveMode::to_repr(Self) -> @debug.Repr <- chart
 method VegaRotate::equal(Self, Self) -> Bool <- chart
 method VegaRotate::not_equal(Self, Self) -> Bool <- chart
 method VegaRotate::to_repr(Self) -> @debug.Repr <- chart
+method VegaRowColAlign::equal(Self, Self) -> Bool <- chart
+method VegaRowColAlign::not_equal(Self, Self) -> Bool <- chart
+method VegaRowColAlign::to_repr(Self) -> @debug.Repr <- chart
+method VegaRowColBool::equal(Self, Self) -> Bool <- chart
+method VegaRowColBool::not_equal(Self, Self) -> Bool <- chart
+method VegaRowColBool::to_repr(Self) -> @debug.Repr <- chart
+method VegaRowColDouble::equal(Self, Self) -> Bool <- chart
+method VegaRowColDouble::not_equal(Self, Self) -> Bool <- chart
+method VegaRowColDouble::to_repr(Self) -> @debug.Repr <- chart
 method VegaScale::equal(Self, Self) -> Bool <- chart
 method VegaScale::not_equal(Self, Self) -> Bool <- chart
 method VegaScale::to_repr(Self) -> @debug.Repr <- chart
 method VegaScaleRef::equal(Self, Self) -> Bool <- chart
 method VegaScaleRef::not_equal(Self, Self) -> Bool <- chart
 method VegaScaleRef::to_repr(Self) -> @debug.Repr <- chart
+method VegaScaleResolve::equal(Self, Self) -> Bool <- chart
+method VegaScaleResolve::not_equal(Self, Self) -> Bool <- chart
+method VegaScaleResolve::to_repr(Self) -> @debug.Repr <- chart
 method VegaScaleType::equal(Self, Self) -> Bool <- chart
 method VegaScaleType::not_equal(Self, Self) -> Bool <- chart
 method VegaScaleType::to_repr(Self) -> @debug.Repr <- chart
@@ -1020,6 +1217,9 @@ method VegaSort::to_repr(Self) -> @debug.Repr <- chart
 method VegaSortChannel::equal(Self, Self) -> Bool <- chart
 method VegaSortChannel::not_equal(Self, Self) -> Bool <- chart
 method VegaSortChannel::to_repr(Self) -> @debug.Repr <- chart
+method VegaSpacing::equal(Self, Self) -> Bool <- chart
+method VegaSpacing::not_equal(Self, Self) -> Bool <- chart
+method VegaSpacing::to_repr(Self) -> @debug.Repr <- chart
 method VegaStack::equal(Self, Self) -> Bool <- chart
 method VegaStack::not_equal(Self, Self) -> Bool <- chart
 method VegaStack::to_repr(Self) -> @debug.Repr <- chart
@@ -1057,18 +1257,26 @@ method VegaViewBackground::to_repr(Self) -> @debug.Repr <- chart
 method WhenThen::then(Self, Expr) -> WhenThenElse <- expr
 method WhenThenElse::otherwise(Self, Expr) -> Expr <- expr
 qualified VegaAlign <- chart
+qualified VegaAlignMode <- chart
 qualified VegaAnchor <- chart
 qualified VegaAxis <- chart
 qualified VegaAxisOrient <- chart
 qualified VegaAxisRef <- chart
+qualified VegaAxisResolve <- chart
 qualified VegaBaseline <- chart
 qualified VegaBins <- chart
 qualified VegaBinsParams <- chart
+qualified VegaBounds <- chart
 qualified VegaCap <- chart
+qualified VegaCenter <- chart
+qualified VegaConcat <- chart
 qualified VegaCursor <- chart
 qualified VegaDirection <- chart
 qualified VegaDomain <- chart
+qualified VegaFacet <- chart
+qualified VegaFacetChannel <- chart
 qualified VegaFontWeight <- chart
+qualified VegaHeader <- chart
 qualified VegaInterpolate <- chart
 qualified VegaInterpolateKind <- chart
 qualified VegaInterpolateParams <- chart
@@ -1076,24 +1284,35 @@ qualified VegaJoin <- chart
 qualified VegaLabelBound <- chart
 qualified VegaLabelFlush <- chart
 qualified VegaLabelOverlap <- chart
+qualified VegaLayer <- chart
 qualified VegaLayoutAlign <- chart
 qualified VegaLegend <- chart
 qualified VegaLegendOrient <- chart
 qualified VegaLegendRef <- chart
+qualified VegaLegendResolve <- chart
 qualified VegaLegendType <- chart
 qualified VegaNice <- chart
+qualified VegaOrient <- chart
 qualified VegaProjection <- chart
 qualified VegaProjectionType <- chart
 qualified VegaRange <- chart
 qualified VegaRangeBound <- chart
 qualified VegaRangeName <- chart
+qualified VegaRepeat <- chart
+qualified VegaResolve <- chart
+qualified VegaResolveMode <- chart
 qualified VegaRotate <- chart
+qualified VegaRowColAlign <- chart
+qualified VegaRowColBool <- chart
+qualified VegaRowColDouble <- chart
 qualified VegaScale <- chart
 qualified VegaScaleRef <- chart
+qualified VegaScaleResolve <- chart
 qualified VegaScaleType <- chart
 qualified VegaScheme <- chart
 qualified VegaSchemeParams <- chart
 qualified VegaSides <- chart
+qualified VegaSpacing <- chart
 qualified VegaTickBand <- chart
 qualified VegaTickInterval <- chart
 qualified VegaTimeInterval <- chart
@@ -1103,6 +1322,7 @@ qualified VegaTitleOrient <- chart
 qualified VegaTitleParams <- chart
 qualified VegaViewBackground <- chart
 type CellParseLocation <- types
+type Chart <- chart
 type ChartKind <- chart
 type ChartSpec <- chart
 type ClosedInterval <- types

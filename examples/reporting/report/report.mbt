@@ -49,10 +49,12 @@ pub fn revenue_chart(
 ) -> String raise @moonframe.DataError {
   @moonframe.format_vega_lite(
     summary,
-    @moonframe.ChartSpec::bar(
-      @moonframe.field("region"),
-      @moonframe.field("revenue"),
-      title="Revenue by region",
+    @moonframe.Chart::of(
+      @moonframe.ChartSpec::bar(
+        @moonframe.field("region"),
+        @moonframe.field("revenue"),
+        title="Revenue by region",
+      ),
     ),
   )
 }

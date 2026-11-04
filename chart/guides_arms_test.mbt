@@ -9,14 +9,19 @@ test "a scale carries every union form its properties accept" {
   let df = corpus_df()
   let domain_values = @chart.format_vega_lite(
     df,
-    @chart.ChartSpec::of(
-      @chart.ChartKind::Bar,
-      x=@chart.field("cat"),
-      y=@chart.field(
-        "val",
-        scale=@chart.VegaScaleRef::Config(
-          @chart.VegaScale::VegaScale(
-            domain=@chart.VegaDomain::Values([Json::number(1), Json::number(2)]),
+    @chart.Chart::of(
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Bar,
+        x=@chart.field("cat"),
+        y=@chart.field(
+          "val",
+          scale=@chart.VegaScaleRef::Config(
+            @chart.VegaScale::VegaScale(
+              domain=@chart.VegaDomain::Values([
+                Json::number(1),
+                Json::number(2),
+              ]),
+            ),
           ),
         ),
       ),
@@ -25,13 +30,15 @@ test "a scale carries every union form its properties accept" {
   assert_true(domain_values.contains("\"domain\":[1,2]"))
   let domain_unaggregated = @chart.format_vega_lite(
     df,
-    @chart.ChartSpec::of(
-      @chart.ChartKind::Bar,
-      x=@chart.field("cat"),
-      y=@chart.field(
-        "val",
-        scale=@chart.VegaScaleRef::Config(
-          @chart.VegaScale::VegaScale(domain=@chart.VegaDomain::Unaggregated),
+    @chart.Chart::of(
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Bar,
+        x=@chart.field("cat"),
+        y=@chart.field(
+          "val",
+          scale=@chart.VegaScaleRef::Config(
+            @chart.VegaScale::VegaScale(domain=@chart.VegaDomain::Unaggregated),
+          ),
         ),
       ),
     ),
@@ -39,14 +46,19 @@ test "a scale carries every union form its properties accept" {
   assert_true(domain_unaggregated.contains("\"domain\":\"unaggregated\""))
   let range_values = @chart.format_vega_lite(
     df,
-    @chart.ChartSpec::of(
-      @chart.ChartKind::Bar,
-      x=@chart.field("cat"),
-      y=@chart.field(
-        "val",
-        scale=@chart.VegaScaleRef::Config(
-          @chart.VegaScale::VegaScale(
-            range=@chart.VegaRange::Values([Json::number(0), Json::number(100)]),
+    @chart.Chart::of(
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Bar,
+        x=@chart.field("cat"),
+        y=@chart.field(
+          "val",
+          scale=@chart.VegaScaleRef::Config(
+            @chart.VegaScale::VegaScale(
+              range=@chart.VegaRange::Values([
+                Json::number(0),
+                Json::number(100),
+              ]),
+            ),
           ),
         ),
       ),
@@ -55,15 +67,17 @@ test "a scale carries every union form its properties accept" {
   assert_true(range_values.contains("\"range\":[0,100]"))
   let range_named = @chart.format_vega_lite(
     df,
-    @chart.ChartSpec::of(
-      @chart.ChartKind::Bar,
-      x=@chart.field("cat"),
-      y=@chart.field(
-        "val",
-        scale=@chart.VegaScaleRef::Config(
-          @chart.VegaScale::VegaScale(
-            range_min=@chart.VegaRangeBound::Named("category"),
-            range_max=@chart.VegaRangeBound::Number(100),
+    @chart.Chart::of(
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Bar,
+        x=@chart.field("cat"),
+        y=@chart.field(
+          "val",
+          scale=@chart.VegaScaleRef::Config(
+            @chart.VegaScale::VegaScale(
+              range_min=@chart.VegaRangeBound::Named("category"),
+              range_max=@chart.VegaRangeBound::Number(100),
+            ),
           ),
         ),
       ),
@@ -74,18 +88,20 @@ test "a scale carries every union form its properties accept" {
   // scheme: the parameter form with extent and count
   let scheme = @chart.format_vega_lite(
     df,
-    @chart.ChartSpec::of(
-      @chart.ChartKind::Bar,
-      x=@chart.field("cat"),
-      y=@chart.field(
-        "val",
-        scale=@chart.VegaScaleRef::Config(
-          @chart.VegaScale::VegaScale(
-            scheme=@chart.VegaScheme::Params(
-              @chart.VegaSchemeParams::VegaSchemeParams(
-                name="blues",
-                extent=[0.0, 1.0],
-                count=5.0,
+    @chart.Chart::of(
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Bar,
+        x=@chart.field("cat"),
+        y=@chart.field(
+          "val",
+          scale=@chart.VegaScaleRef::Config(
+            @chart.VegaScale::VegaScale(
+              scheme=@chart.VegaScheme::Params(
+                @chart.VegaSchemeParams::VegaSchemeParams(
+                  name="blues",
+                  extent=[0.0, 1.0],
+                  count=5.0,
+                ),
               ),
             ),
           ),
@@ -101,13 +117,15 @@ test "a scale carries every union form its properties accept" {
   // nice: a tick count, a bare interval, and an interval with a step
   let nice = @chart.format_vega_lite(
     df,
-    @chart.ChartSpec::of(
-      @chart.ChartKind::Bar,
-      x=@chart.field("cat"),
-      y=@chart.field(
-        "val",
-        scale=@chart.VegaScaleRef::Config(
-          @chart.VegaScale::VegaScale(nice=@chart.VegaNice::Ticks(7)),
+    @chart.Chart::of(
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Bar,
+        x=@chart.field("cat"),
+        y=@chart.field(
+          "val",
+          scale=@chart.VegaScaleRef::Config(
+            @chart.VegaScale::VegaScale(nice=@chart.VegaNice::Ticks(7)),
+          ),
         ),
       ),
     ),
@@ -115,14 +133,16 @@ test "a scale carries every union form its properties accept" {
   assert_true(nice.contains("\"nice\":7"))
   let nice_interval = @chart.format_vega_lite(
     df,
-    @chart.ChartSpec::of(
-      @chart.ChartKind::Bar,
-      x=@chart.field("cat"),
-      y=@chart.field(
-        "val",
-        scale=@chart.VegaScaleRef::Config(
-          @chart.VegaScale::VegaScale(
-            nice=@chart.VegaNice::Interval(@chart.VegaTimeInterval::Year),
+    @chart.Chart::of(
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Bar,
+        x=@chart.field("cat"),
+        y=@chart.field(
+          "val",
+          scale=@chart.VegaScaleRef::Config(
+            @chart.VegaScale::VegaScale(
+              nice=@chart.VegaNice::Interval(@chart.VegaTimeInterval::Year),
+            ),
           ),
         ),
       ),
@@ -131,14 +151,16 @@ test "a scale carries every union form its properties accept" {
   assert_true(nice_interval.contains("\"nice\":\"year\""))
   let nice_step = @chart.format_vega_lite(
     df,
-    @chart.ChartSpec::of(
-      @chart.ChartKind::Bar,
-      x=@chart.field("cat"),
-      y=@chart.field(
-        "val",
-        scale=@chart.VegaScaleRef::Config(
-          @chart.VegaScale::VegaScale(
-            nice=@chart.VegaNice::Step(@chart.VegaTimeInterval::Month, 2),
+    @chart.Chart::of(
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Bar,
+        x=@chart.field("cat"),
+        y=@chart.field(
+          "val",
+          scale=@chart.VegaScaleRef::Config(
+            @chart.VegaScale::VegaScale(
+              nice=@chart.VegaNice::Step(@chart.VegaTimeInterval::Month, 2),
+            ),
           ),
         ),
       ),
@@ -150,17 +172,19 @@ test "a scale carries every union form its properties accept" {
   // interpolate: cubehelix with a gamma; bins: the parameter form
   let interpolate = @chart.format_vega_lite(
     df,
-    @chart.ChartSpec::of(
-      @chart.ChartKind::Bar,
-      x=@chart.field("cat"),
-      y=@chart.field(
-        "val",
-        scale=@chart.VegaScaleRef::Config(
-          @chart.VegaScale::VegaScale(
-            interpolate=@chart.VegaInterpolate::Params(
-              @chart.VegaInterpolateParams::VegaInterpolateParams(
-                type_=@chart.VegaInterpolateKind::Cubehelix,
-                gamma=0.5,
+    @chart.Chart::of(
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Bar,
+        x=@chart.field("cat"),
+        y=@chart.field(
+          "val",
+          scale=@chart.VegaScaleRef::Config(
+            @chart.VegaScale::VegaScale(
+              interpolate=@chart.VegaInterpolate::Params(
+                @chart.VegaInterpolateParams::VegaInterpolateParams(
+                  type_=@chart.VegaInterpolateKind::Cubehelix,
+                  gamma=0.5,
+                ),
               ),
             ),
           ),
@@ -175,15 +199,17 @@ test "a scale carries every union form its properties accept" {
   )
   let bins = @chart.format_vega_lite(
     df,
-    @chart.ChartSpec::of(
-      @chart.ChartKind::Bar,
-      x=@chart.field("cat"),
-      y=@chart.field(
-        "val",
-        scale=@chart.VegaScaleRef::Config(
-          @chart.VegaScale::VegaScale(
-            bins=@chart.VegaBins::Params(
-              @chart.VegaBinsParams::VegaBinsParams(step=1, start=0, stop=10),
+    @chart.Chart::of(
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Bar,
+        x=@chart.field("cat"),
+        y=@chart.field(
+          "val",
+          scale=@chart.VegaScaleRef::Config(
+            @chart.VegaScale::VegaScale(
+              bins=@chart.VegaBins::Params(
+                @chart.VegaBinsParams::VegaBinsParams(step=1, start=0, stop=10),
+              ),
             ),
           ),
         ),
@@ -198,22 +224,24 @@ test "an axis carries the label and tick forms the sink leaves" {
   let df = corpus_df()
   let spec = @chart.format_vega_lite(
     df,
-    @chart.ChartSpec::of(
-      @chart.ChartKind::Bar,
-      x=@chart.field(
-        "cat",
-        axis=@chart.VegaAxisRef::Config(
-          @chart.VegaAxis::VegaAxis(
-            label_bound=@chart.VegaLabelBound::Amount(3),
-            label_flush=@chart.VegaLabelFlush::Amount(4),
-            label_overlap=@chart.VegaLabelOverlap::Bool(false),
-            tick_count=@chart.VegaTickInterval::Interval(
-              @chart.VegaTimeInterval::Month,
+    @chart.Chart::of(
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Bar,
+        x=@chart.field(
+          "cat",
+          axis=@chart.VegaAxisRef::Config(
+            @chart.VegaAxis::VegaAxis(
+              label_bound=@chart.VegaLabelBound::Amount(3),
+              label_flush=@chart.VegaLabelFlush::Amount(4),
+              label_overlap=@chart.VegaLabelOverlap::Bool(false),
+              tick_count=@chart.VegaTickInterval::Interval(
+                @chart.VegaTimeInterval::Month,
+              ),
             ),
           ),
         ),
+        y=@chart.field("val"),
       ),
-      y=@chart.field("val"),
     ),
   )
   assert_true(spec.contains("\"labelBound\":3"))
@@ -222,20 +250,22 @@ test "an axis carries the label and tick forms the sink leaves" {
   assert_true(spec.contains("\"tickCount\":\"month\""))
   let step = @chart.format_vega_lite(
     df,
-    @chart.ChartSpec::of(
-      @chart.ChartKind::Bar,
-      x=@chart.field(
-        "cat",
-        axis=@chart.VegaAxisRef::Config(
-          @chart.VegaAxis::VegaAxis(
-            tick_count=@chart.VegaTickInterval::Step(
-              @chart.VegaTimeInterval::Month,
-              2,
+    @chart.Chart::of(
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Bar,
+        x=@chart.field(
+          "cat",
+          axis=@chart.VegaAxisRef::Config(
+            @chart.VegaAxis::VegaAxis(
+              tick_count=@chart.VegaTickInterval::Step(
+                @chart.VegaTimeInterval::Month,
+                2,
+              ),
             ),
           ),
         ),
+        y=@chart.field("val"),
       ),
-      y=@chart.field("val"),
     ),
   )
   assert_true(
@@ -243,19 +273,21 @@ test "an axis carries the label and tick forms the sink leaves" {
   )
   let booleans = @chart.format_vega_lite(
     df,
-    @chart.ChartSpec::of(
-      @chart.ChartKind::Bar,
-      x=@chart.field(
-        "cat",
-        axis=@chart.VegaAxisRef::Config(
-          @chart.VegaAxis::VegaAxis(
-            label_bound=@chart.VegaLabelBound::Bool(true),
-            label_flush=@chart.VegaLabelFlush::Bool(true),
-            label_overlap=@chart.VegaLabelOverlap::Greedy,
+    @chart.Chart::of(
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Bar,
+        x=@chart.field(
+          "cat",
+          axis=@chart.VegaAxisRef::Config(
+            @chart.VegaAxis::VegaAxis(
+              label_bound=@chart.VegaLabelBound::Bool(true),
+              label_flush=@chart.VegaLabelFlush::Bool(true),
+              label_overlap=@chart.VegaLabelOverlap::Greedy,
+            ),
           ),
         ),
+        y=@chart.field("val"),
       ),
-      y=@chart.field("val"),
     ),
   )
   assert_true(booleans.contains("\"labelBound\":true"))
@@ -275,12 +307,17 @@ test "every font weight and the roll rotation emit their own shapes" {
     let (weight, expected) = w
     let spec = @chart.format_vega_lite(
       df,
-      @chart.ChartSpec::of(
-        @chart.ChartKind::Bar,
-        x=@chart.field("cat"),
-        y=@chart.field("val"),
-        title=@chart.VegaTitle::Params(
-          @chart.VegaTitleParams::VegaTitleParams(text="T", font_weight=weight),
+      @chart.Chart::of(
+        @chart.ChartSpec::of(
+          @chart.ChartKind::Bar,
+          x=@chart.field("cat"),
+          y=@chart.field("val"),
+          title=@chart.VegaTitle::Params(
+            @chart.VegaTitleParams::VegaTitleParams(
+              text="T",
+              font_weight=weight,
+            ),
+          ),
         ),
       ),
     )
@@ -288,14 +325,16 @@ test "every font weight and the roll rotation emit their own shapes" {
   }
   let lighter = @chart.format_vega_lite(
     df,
-    @chart.ChartSpec::of(
-      @chart.ChartKind::Bar,
-      x=@chart.field("cat"),
-      y=@chart.field("val"),
-      title=@chart.VegaTitle::Params(
-        @chart.VegaTitleParams::VegaTitleParams(
-          text="T",
-          subtitle_font_weight=@chart.VegaFontWeight::Lighter,
+    @chart.Chart::of(
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Bar,
+        x=@chart.field("cat"),
+        y=@chart.field("val"),
+        title=@chart.VegaTitle::Params(
+          @chart.VegaTitleParams::VegaTitleParams(
+            text="T",
+            subtitle_font_weight=@chart.VegaFontWeight::Lighter,
+          ),
         ),
       ),
     ),
@@ -303,11 +342,13 @@ test "every font weight and the roll rotation emit their own shapes" {
   assert_true(lighter.contains("\"subtitleFontWeight\":\"lighter\""))
   let roll = @chart.format_vega_lite(
     df,
-    @chart.ChartSpec::of(
-      @chart.ChartKind::Geoshape,
-      shape=@chart.field("grp"),
-      projection=@chart.VegaProjection::VegaProjection(
-        rotate=@chart.VegaRotate::LonLatRoll(1.0, 2.0, 3.0),
+    @chart.Chart::of(
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Geoshape,
+        shape=@chart.field("grp"),
+        projection=@chart.VegaProjection::VegaProjection(
+          rotate=@chart.VegaRotate::LonLatRoll(1.0, 2.0, 3.0),
+        ),
       ),
     ),
   )
@@ -319,15 +360,17 @@ test "the guide refs carry Off, and a bare family emits an empty object" {
   let df = corpus_df()
   let off = @chart.format_vega_lite(
     df,
-    @chart.ChartSpec::of(
-      @chart.ChartKind::Bar,
-      x=@chart.field(
-        "cat",
-        scale=@chart.VegaScaleRef::Off,
-        axis=@chart.VegaAxisRef::Off,
+    @chart.Chart::of(
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Bar,
+        x=@chart.field(
+          "cat",
+          scale=@chart.VegaScaleRef::Off,
+          axis=@chart.VegaAxisRef::Off,
+        ),
+        y=@chart.field("val"),
+        color=@chart.field("grp", legend=@chart.VegaLegendRef::Off),
       ),
-      y=@chart.field("val"),
-      color=@chart.field("grp", legend=@chart.VegaLegendRef::Off),
     ),
   )
   assert_true(off.contains("\"scale\":null"))
@@ -337,23 +380,27 @@ test "the guide refs carry Off, and a bare family emits an empty object" {
   // unset is every property at the runtime's default.
   let bare = @chart.format_vega_lite(
     df,
-    @chart.ChartSpec::of(
-      @chart.ChartKind::Bar,
-      x=@chart.field(
-        "cat",
-        scale=@chart.VegaScaleRef::Config(@chart.VegaScale::VegaScale()),
+    @chart.Chart::of(
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Bar,
+        x=@chart.field(
+          "cat",
+          scale=@chart.VegaScaleRef::Config(@chart.VegaScale::VegaScale()),
+        ),
+        y=@chart.field(
+          "val",
+          axis=@chart.VegaAxisRef::Config(@chart.VegaAxis::VegaAxis()),
+        ),
+        color=@chart.field(
+          "grp",
+          legend=@chart.VegaLegendRef::Config(@chart.VegaLegend::VegaLegend()),
+        ),
+        projection=@chart.VegaProjection::VegaProjection(),
+        view=@chart.VegaViewBackground::VegaViewBackground(),
+        title=@chart.VegaTitle::Params(
+          @chart.VegaTitleParams::VegaTitleParams(),
+        ),
       ),
-      y=@chart.field(
-        "val",
-        axis=@chart.VegaAxisRef::Config(@chart.VegaAxis::VegaAxis()),
-      ),
-      color=@chart.field(
-        "grp",
-        legend=@chart.VegaLegendRef::Config(@chart.VegaLegend::VegaLegend()),
-      ),
-      projection=@chart.VegaProjection::VegaProjection(),
-      view=@chart.VegaViewBackground::VegaViewBackground(),
-      title=@chart.VegaTitle::Params(@chart.VegaTitleParams::VegaTitleParams()),
     ),
   )
   assert_true(bare.contains("\"scale\":{}"))
@@ -476,6 +523,10 @@ test "every mark-named constructor wraps its plain title" {
     ),
   ]
   for spec in specs {
-    assert_true(@chart.format_vega_lite(df, spec).contains("\"title\":\"T\""))
+    assert_true(
+      @chart.format_vega_lite(df, @chart.Chart::of(spec)).contains(
+        "\"title\":\"T\"",
+      ),
+    )
   }
 }

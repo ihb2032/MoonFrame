@@ -78,9 +78,11 @@ test "each VegaAggregate variant emits the schema's own aggregate string" {
     let (op, expected) = case
     let spec = @chart.format_vega_lite(
       df,
-      @chart.ChartSpec::bar(
-        @chart.field("cat"),
-        @chart.field("val", aggregate=op),
+      @chart.Chart::of(
+        @chart.ChartSpec::bar(
+          @chart.field("cat"),
+          @chart.field("val", aggregate=op),
+        ),
       ),
     )
     assert_eq(y_key(spec, "aggregate"), expected)
@@ -221,9 +223,11 @@ test "each VegaTimeUnit variant emits the schema's own timeUnit string" {
     let (unit, expected) = case
     let spec = @chart.format_vega_lite(
       df,
-      @chart.ChartSpec::line(
-        @chart.field("ts", time_unit=unit),
-        @chart.field("val"),
+      @chart.Chart::of(
+        @chart.ChartSpec::line(
+          @chart.field("ts", time_unit=unit),
+          @chart.field("val"),
+        ),
       ),
     )
     assert_eq(channel_key(spec, "x", "timeUnit"), expected)
@@ -235,7 +239,9 @@ test "a count channel emits aggregate count with no field" {
   inspect(
     @chart.format_vega_lite(
       channel_df(),
-      @chart.ChartSpec::bar(@chart.field("cat"), @chart.VegaChannel::count()),
+      @chart.Chart::of(
+        @chart.ChartSpec::bar(@chart.field("cat"), @chart.VegaChannel::count()),
+      ),
     ),
     content=(
       #|{"$schema":"https://vega.github.io/schema/vega-lite/v6.json","mark":"bar","encoding":{"x":{"field":"cat","type":"nominal"},"y":{"aggregate":"count","type":"quantitative"}},"data":{"values":[{"cat":"x","val":1,"ts":"2024-01-01T00:00:00.000000"},{"cat":"y","val":2,"ts":"2024-01-01T02:24:00.000000"}]}}
@@ -251,9 +257,11 @@ test "a count channel skips column resolution entirely" {
   // the histogram shape: a binned x with a row-count y.
   let spec = @chart.format_vega_lite(
     channel_df(),
-    @chart.ChartSpec::bar(
-      @chart.field("val", bin=@chart.VegaBin::On),
-      @chart.field("nox", aggregate=Count),
+    @chart.Chart::of(
+      @chart.ChartSpec::bar(
+        @chart.field("val", bin=@chart.VegaBin::On),
+        @chart.field("nox", aggregate=Count),
+      ),
     ),
   )
   assert_eq(y_key(spec, "aggregate"), "count")
@@ -268,33 +276,37 @@ test "each VegaBin form emits its own shape" {
   // `On` is the bare boolean; `Params` the object with every set field.
   let on = @chart.format_vega_lite(
     df,
-    @chart.ChartSpec::bar(
-      @chart.field("val", bin=@chart.VegaBin::On),
-      @chart.VegaChannel::count(),
+    @chart.Chart::of(
+      @chart.ChartSpec::bar(
+        @chart.field("val", bin=@chart.VegaBin::On),
+        @chart.VegaChannel::count(),
+      ),
     ),
   )
   assert_eq(channel_key(on, "x", "bin"), "true")
   let params = @chart.format_vega_lite(
     df,
-    @chart.ChartSpec::bar(
-      @chart.field(
-        "val",
-        bin=@chart.VegaBin::Params(
-          @chart.VegaBinParams::VegaBinParams(
-            maxbins=20,
-            anchor=0.0,
-            base=10,
-            nice=true,
-            step=5.0,
-            minstep=1.0,
-            binned=false,
-            extent=(0.0, 100.0),
-            divide=[5.0, 2.0],
-            steps=[1.0, 2.0, 5.0],
+    @chart.Chart::of(
+      @chart.ChartSpec::bar(
+        @chart.field(
+          "val",
+          bin=@chart.VegaBin::Params(
+            @chart.VegaBinParams::VegaBinParams(
+              maxbins=20,
+              anchor=0.0,
+              base=10,
+              nice=true,
+              step=5.0,
+              minstep=1.0,
+              binned=false,
+              extent=(0.0, 100.0),
+              divide=[5.0, 2.0],
+              steps=[1.0, 2.0, 5.0],
+            ),
           ),
         ),
+        @chart.VegaChannel::count(),
       ),
-      @chart.VegaChannel::count(),
     ),
   )
   let parsed = @json.parse(params) catch { _ => Json::null() }
@@ -329,9 +341,11 @@ test "each VegaBin form emits its own shape" {
   // `Binned` is the marker string: the data is already binned.
   let binned = @chart.format_vega_lite(
     df,
-    @chart.ChartSpec::bar(
-      @chart.field("val", bin=@chart.VegaBin::Binned),
-      @chart.field("val"),
+    @chart.Chart::of(
+      @chart.ChartSpec::bar(
+        @chart.field("val", bin=@chart.VegaBin::Binned),
+        @chart.field("val"),
+      ),
     ),
   )
   assert_eq(channel_key(binned, "x", "bin"), "binned")
@@ -342,46 +356,57 @@ test "each VegaChannelSort form emits its own shape" {
   let df = channel_df()
   let bare = @chart.format_vega_lite(
     df,
-    @chart.ChartSpec::bar(
-      @chart.field("cat", sort=@chart.VegaChannelSort::Ascending),
-      @chart.field("val", sort=@chart.VegaChannelSort::Descending),
+    @chart.Chart::of(
+      @chart.ChartSpec::bar(
+        @chart.field("cat", sort=@chart.VegaChannelSort::Ascending),
+        @chart.field("val", sort=@chart.VegaChannelSort::Descending),
+      ),
     ),
   )
   assert_eq(channel_key(bare, "x", "sort"), "ascending")
   assert_eq(y_key(bare, "sort"), "descending")
   let by_channel = @chart.format_vega_lite(
     df,
-    @chart.ChartSpec::bar(
-      @chart.field(
-        "cat",
-        sort=ByChannel(@chart.VegaSortChannel::Size, Some(true)),
+    @chart.Chart::of(
+      @chart.ChartSpec::bar(
+        @chart.field(
+          "cat",
+          sort=ByChannel(@chart.VegaSortChannel::Size, Some(true)),
+        ),
+        @chart.field("val"),
       ),
-      @chart.field("val"),
     ),
   )
   assert_eq(channel_key(by_channel, "x", "sort"), "-size")
   let plain_channel = @chart.format_vega_lite(
     df,
-    @chart.ChartSpec::bar(
-      @chart.field(
-        "cat",
-        sort=@chart.VegaChannelSort::ByChannel(@chart.VegaSortChannel::X, None),
+    @chart.Chart::of(
+      @chart.ChartSpec::bar(
+        @chart.field(
+          "cat",
+          sort=@chart.VegaChannelSort::ByChannel(
+            @chart.VegaSortChannel::X,
+            None,
+          ),
+        ),
+        @chart.field("val"),
       ),
-      @chart.field("val"),
     ),
   )
   assert_eq(channel_key(plain_channel, "x", "sort"), "x")
   let by_field = @chart.format_vega_lite(
     df,
-    @chart.ChartSpec::bar(
-      @chart.field(
-        "cat",
-        sort=@chart.VegaChannelSort::ByField(
-          "val",
-          Some(@chart.VegaSort::Descending),
+    @chart.Chart::of(
+      @chart.ChartSpec::bar(
+        @chart.field(
+          "cat",
+          sort=@chart.VegaChannelSort::ByField(
+            "val",
+            Some(@chart.VegaSort::Descending),
+          ),
         ),
+        @chart.field("val"),
       ),
-      @chart.field("val"),
     ),
   )
   let by_field_sort = @json.parse(by_field) catch { _ => Json::null() }
@@ -407,9 +432,11 @@ test "each VegaChannelSort form emits its own shape" {
   )
   let off = @chart.format_vega_lite(
     df,
-    @chart.ChartSpec::bar(
-      @chart.field("cat", sort=@chart.VegaChannelSort::Off),
-      @chart.field("val"),
+    @chart.Chart::of(
+      @chart.ChartSpec::bar(
+        @chart.field("cat", sort=@chart.VegaChannelSort::Off),
+        @chart.field("val"),
+      ),
     ),
   )
   // `null` reads back as the JSON null, which the key reader spells
@@ -455,12 +482,14 @@ test "each VegaSortChannel variant emits the schema's channel name" {
     let (channel, expected) = case
     let spec = @chart.format_vega_lite(
       df,
-      @chart.ChartSpec::bar(
-        @chart.field(
-          "cat",
-          sort=@chart.VegaChannelSort::ByChannel(channel, None),
+      @chart.Chart::of(
+        @chart.ChartSpec::bar(
+          @chart.field(
+            "cat",
+            sort=@chart.VegaChannelSort::ByChannel(channel, None),
+          ),
+          @chart.field("val"),
         ),
-        @chart.field("val"),
       ),
     )
     assert_eq(channel_key(spec, "x", "sort"), expected)
@@ -477,7 +506,7 @@ test "a Values sort emits the caller's list, copied" {
   // Mutating the caller's array after the build cannot move the spec —
   // the builder copied it.
   order.set(0, Json::string("zzz"))
-  let emitted = @chart.format_vega_lite(channel_df(), spec)
+  let emitted = @chart.format_vega_lite(channel_df(), @chart.Chart::of(spec))
   let parsed = @json.parse(emitted) catch { _ => Json::null() }
   let sort = match parsed {
     Object(obj) =>
@@ -524,12 +553,14 @@ test "constant and datum channels emit value and datum definitions" {
   let df = channel_df()
   let spec = @chart.format_vega_lite(
     df,
-    @chart.ChartSpec::of(
-      Point,
-      x=@chart.field("val"),
-      y=@chart.field("val"),
-      color=@chart.constant(Json::string("steelblue")),
-      size=@chart.datum(Json::number(60.0)),
+    @chart.Chart::of(
+      @chart.ChartSpec::of(
+        Point,
+        x=@chart.field("val"),
+        y=@chart.field("val"),
+        color=@chart.constant(Json::string("steelblue")),
+        size=@chart.datum(Json::number(60.0)),
+      ),
     ),
   )
   assert_eq(channel_key(spec, "color", "value"), "steelblue")
@@ -568,15 +599,19 @@ test "stack overrides emit the schema's stack strings and null" {
     let (stack, expected) = case
     let spec = @chart.format_vega_lite(
       df,
-      @chart.ChartSpec::bar(@chart.field("cat"), @chart.field("val", stack~)),
+      @chart.Chart::of(
+        @chart.ChartSpec::bar(@chart.field("cat"), @chart.field("val", stack~)),
+      ),
     )
     assert_eq(y_key(spec, "stack"), expected)
   }
   let off = @chart.format_vega_lite(
     df,
-    @chart.ChartSpec::bar(
-      @chart.field("cat"),
-      @chart.field("val", stack=@chart.VegaStack::Off),
+    @chart.Chart::of(
+      @chart.ChartSpec::bar(
+        @chart.field("cat"),
+        @chart.field("val", stack=@chart.VegaStack::Off),
+      ),
     ),
   )
   let parsed = @json.parse(off) catch { _ => Json::null() }
@@ -613,11 +648,13 @@ test "each VegaAutoSize variant emits the schema's autosize string" {
     let (autosize, expected) = case
     let spec = @chart.format_vega_lite(
       df,
-      @chart.ChartSpec::of(
-        Bar,
-        x=@chart.field("cat"),
-        y=@chart.field("val"),
-        autosize~,
+      @chart.Chart::of(
+        @chart.ChartSpec::of(
+          Bar,
+          x=@chart.field("cat"),
+          y=@chart.field("val"),
+          autosize~,
+        ),
       ),
     )
     let got = match @json.parse(spec) {
@@ -639,11 +676,13 @@ test "a channel title rides any field definition, format the string family" {
   // format set on y is dropped rather than emitted into an invalid spec.
   let spec = @chart.format_vega_lite(
     channel_df(),
-    @chart.ChartSpec::of(
-      @chart.ChartKind::Bar,
-      x=@chart.field("cat"),
-      y=@chart.field("val", title="Revenue €", format=".2f"),
-      tooltip=@chart.field("val", format=".2f"),
+    @chart.Chart::of(
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Bar,
+        x=@chart.field("cat"),
+        y=@chart.field("val", title="Revenue €", format=".2f"),
+        tooltip=@chart.field("val", format=".2f"),
+      ),
     ),
   )
   assert_eq(y_key(spec, "title"), "Revenue €")
@@ -659,11 +698,13 @@ test "padding's two forms and a band position complete their arms" {
   // and the plain-number form unexercised.
   let px = @chart.format_vega_lite(
     df,
-    @chart.ChartSpec::of(
-      @chart.ChartKind::Bar,
-      x=@chart.field("cat"),
-      y=@chart.field("val"),
-      padding=@chart.VegaPadding::Px(8),
+    @chart.Chart::of(
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Bar,
+        x=@chart.field("cat"),
+        y=@chart.field("val"),
+        padding=@chart.VegaPadding::Px(8),
+      ),
     ),
   )
   let px_padding = match @json.parse(px) {
@@ -677,12 +718,14 @@ test "padding's two forms and a band position complete their arms" {
   assert_eq(px_padding, "8")
   let full_sides = @chart.format_vega_lite(
     df,
-    @chart.ChartSpec::of(
-      @chart.ChartKind::Bar,
-      x=@chart.field("cat"),
-      y=@chart.field("val"),
-      padding=@chart.VegaPadding::Sides(
-        @chart.VegaSides::VegaSides(top=1, right=2, bottom=3, left=4),
+    @chart.Chart::of(
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Bar,
+        x=@chart.field("cat"),
+        y=@chart.field("val"),
+        padding=@chart.VegaPadding::Sides(
+          @chart.VegaSides::VegaSides(top=1, right=2, bottom=3, left=4),
+        ),
       ),
     ),
   )
@@ -698,13 +741,15 @@ test "padding's two forms and a band position complete their arms" {
   // A by-field sort with the ascending order spelled, and a band position.
   let spec = @chart.format_vega_lite(
     df,
-    @chart.ChartSpec::bar(
-      @chart.field(
-        "cat",
-        sort=@chart.VegaChannelSort::ByField("val", Some(Ascending)),
-        band_position=0.5,
+    @chart.Chart::of(
+      @chart.ChartSpec::bar(
+        @chart.field(
+          "cat",
+          sort=@chart.VegaChannelSort::ByField("val", Some(Ascending)),
+          band_position=0.5,
+        ),
+        @chart.field("val"),
       ),
-      @chart.field("val"),
     ),
   )
   let ascending_sort = @json.parse(spec) catch { _ => Json::null() }

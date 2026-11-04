@@ -143,6 +143,34 @@ fn vega_axis_orient_string(v : VegaAxisOrient) -> String {
 }
 
 ///|
+/// A side: `Left → "left"`, `Right → "right"`, `Top → "top"`,
+/// `Bottom → "bottom"` (a header's orientation and title side).
+#derive(Eq, Debug)
+pub(all) enum VegaOrient {
+  Left
+  Right
+  Top
+  Bottom
+}
+
+///|
+pub extend VegaOrient with Eq::{equal, not_equal}
+
+///|
+pub extend VegaOrient with Debug::{to_repr}
+
+///|
+/// The schema string for each variant, one arm per variant.
+fn vega_orient_string(v : VegaOrient) -> String {
+  match v {
+    Left => "left"
+    Right => "right"
+    Top => "top"
+    Bottom => "bottom"
+  }
+}
+
+///|
 /// A legend orientation: a side or a corner (or `None`, no legend).
 #derive(Eq, Debug)
 pub(all) enum VegaLegendOrient {

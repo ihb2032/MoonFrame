@@ -57,7 +57,9 @@ test "format_vega_lite: bar chart emits a complete Vega-Lite v6 spec" {
   inspect(
     @chart.format_vega_lite(
       catval_df(),
-      @chart.ChartSpec::bar(@chart.field("cat"), @chart.field("val")),
+      @chart.Chart::of(
+        @chart.ChartSpec::bar(@chart.field("cat"), @chart.field("val")),
+      ),
     ),
     content=(
       #|{"$schema":"https://vega.github.io/schema/vega-lite/v6.json","mark":"bar","encoding":{"x":{"field":"cat","type":"nominal"},"y":{"field":"val","type":"quantitative"}},"data":{"values":[{"cat":"x","val":1}]}}
@@ -76,7 +78,9 @@ test "format_vega_lite: quotes in a column name are escaped in the Vega field pa
   ])
   let spec = @chart.format_vega_lite(
     df,
-    @chart.ChartSpec::bar(@chart.field("cat"), @chart.field("it's \"q\"")),
+    @chart.Chart::of(
+      @chart.ChartSpec::bar(@chart.field("cat"), @chart.field("it's \"q\"")),
+    ),
   )
   let field = match @json.parse(spec) {
     Object(obj) =>
@@ -111,7 +115,9 @@ test "format_vega_lite: a `.` in a column name is escaped in the Vega field path
     @json.parse(
       @chart.format_vega_lite(
         df,
-        @chart.ChartSpec::bar(@chart.field("cat"), @chart.field("price.usd")),
+        @chart.Chart::of(
+          @chart.ChartSpec::bar(@chart.field("cat"), @chart.field("price.usd")),
+        ),
       ),
     ) {
     Object(obj) =>
@@ -155,10 +161,12 @@ test "format_vega_lite: a type_override replaces the color channel's inferred ty
     let (vt, expected) = case
     let spec = @chart.format_vega_lite(
       df,
-      @chart.ChartSpec::point(
-        @chart.field("cat"),
-        @chart.field("val"),
-        color=@chart.field("g", type_override=vt),
+      @chart.Chart::of(
+        @chart.ChartSpec::point(
+          @chart.field("cat"),
+          @chart.field("val"),
+          color=@chart.field("g", type_override=vt),
+        ),
       ),
     )
     assert_eq(channel_key(spec, "color", "type"), expected)
@@ -229,7 +237,8 @@ test "format_vega_lite: each ChartKind maps to its Vega-Lite mark" {
   ]
   for case in cases {
     let (spec, expected_mark) = case
-    let mark = match @json.parse(@chart.format_vega_lite(df, spec)) {
+    let mark = match
+      @json.parse(@chart.format_vega_lite(df, @chart.Chart::of(spec))) {
       Object(obj) =>
         match obj.get("mark") {
           Some(String(m)) => m
@@ -246,10 +255,12 @@ test "format_vega_lite: title injects a top-level title" {
   inspect(
     @chart.format_vega_lite(
       catval_df(),
-      @chart.ChartSpec::bar(
-        @chart.field("cat"),
-        @chart.field("val"),
-        title="Sales",
+      @chart.Chart::of(
+        @chart.ChartSpec::bar(
+          @chart.field("cat"),
+          @chart.field("val"),
+          title="Sales",
+        ),
       ),
     ),
     content=(
@@ -266,12 +277,14 @@ test "format_vega_lite: the three width / height forms emit their own shapes" {
   inspect(
     @chart.format_vega_lite(
       catval_df(),
-      @chart.ChartSpec::bar(
-        @chart.field("cat"),
-        @chart.field("val"),
-        title="Sales",
-        width=@chart.VegaExtent::Px(320),
-        height=@chart.VegaExtent::Step(24),
+      @chart.Chart::of(
+        @chart.ChartSpec::bar(
+          @chart.field("cat"),
+          @chart.field("val"),
+          title="Sales",
+          width=@chart.VegaExtent::Px(320),
+          height=@chart.VegaExtent::Step(24),
+        ),
       ),
     ),
     content=(
@@ -280,11 +293,13 @@ test "format_vega_lite: the three width / height forms emit their own shapes" {
   )
   let container = @chart.format_vega_lite(
     catval_df(),
-    @chart.ChartSpec::of(
-      @chart.ChartKind::Point,
-      x=@chart.field("cat"),
-      y=@chart.field("val"),
-      width=@chart.VegaExtent::Container,
+    @chart.Chart::of(
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Point,
+        x=@chart.field("cat"),
+        y=@chart.field("val"),
+        width=@chart.VegaExtent::Container,
+      ),
     ),
   )
   let width = match @json.parse(container) {
@@ -306,17 +321,19 @@ test "format_vega_lite: the top-level chrome emits in its fixed order" {
   inspect(
     @chart.format_vega_lite(
       catval_df(),
-      @chart.ChartSpec::of(
-        @chart.ChartKind::Bar,
-        x=@chart.field("cat"),
-        y=@chart.field("val"),
-        name="revenue-chart",
-        description="Revenue by region",
-        title=@chart.VegaTitle::Text("Revenue"),
-        autosize=@chart.VegaAutoSize::FitX,
-        background="#f8f8f8",
-        padding=@chart.VegaPadding::Sides(
-          @chart.VegaSides::VegaSides(top=10, left=5),
+      @chart.Chart::of(
+        @chart.ChartSpec::of(
+          @chart.ChartKind::Bar,
+          x=@chart.field("cat"),
+          y=@chart.field("val"),
+          name="revenue-chart",
+          description="Revenue by region",
+          title=@chart.VegaTitle::Text("Revenue"),
+          autosize=@chart.VegaAutoSize::FitX,
+          background="#f8f8f8",
+          padding=@chart.VegaPadding::Sides(
+            @chart.VegaSides::VegaSides(top=10, left=5),
+          ),
         ),
       ),
     ),
@@ -331,10 +348,12 @@ test "format_vega_lite: color adds a color encoding channel" {
   inspect(
     @chart.format_vega_lite(
       catvalgrp_df(),
-      @chart.ChartSpec::bar(
-        @chart.field("cat"),
-        @chart.field("val"),
-        color=@chart.field("grp"),
+      @chart.Chart::of(
+        @chart.ChartSpec::bar(
+          @chart.field("cat"),
+          @chart.field("val"),
+          color=@chart.field("grp"),
+        ),
       ),
     ),
     content=(
@@ -351,13 +370,15 @@ test "format_vega_lite: size, opacity, tooltip, and detail channels follow color
   inspect(
     @chart.format_vega_lite(
       catvalgrp_df(),
-      @chart.ChartSpec::point(
-        @chart.field("cat"),
-        @chart.field("val"),
-        size=@chart.field("val"),
-        opacity=@chart.field("val"),
-        tooltip=@chart.field("grp"),
-        detail=@chart.field("grp"),
+      @chart.Chart::of(
+        @chart.ChartSpec::point(
+          @chart.field("cat"),
+          @chart.field("val"),
+          size=@chart.field("val"),
+          opacity=@chart.field("val"),
+          tooltip=@chart.field("grp"),
+          detail=@chart.field("grp"),
+        ),
       ),
     ),
     content=(
@@ -371,11 +392,13 @@ test "format_vega_lite: x2 and y2 emit the ranged-mark end channels" {
   inspect(
     @chart.format_vega_lite(
       catvalgrp_df(),
-      @chart.ChartSpec::rect(
-        @chart.field("cat"),
-        @chart.field("val"),
-        x2=@chart.field("grp"),
-        y2=@chart.field("val"),
+      @chart.Chart::of(
+        @chart.ChartSpec::rect(
+          @chart.field("cat"),
+          @chart.field("val"),
+          x2=@chart.field("grp"),
+          y2=@chart.field("val"),
+        ),
       ),
     ),
     content=(
@@ -399,32 +422,34 @@ test "format_vega_lite: the error, offset, geo, and prop channels ride ChartSpec
   ])
   let spec = @chart.format_vega_lite(
     df,
-    @chart.ChartSpec::of(
-      @chart.ChartKind::Point,
-      x=@chart.field("cat"),
-      y=@chart.field("val"),
-      x_error=@chart.field("err"),
-      x_error2=@chart.field("err"),
-      y_error=@chart.field("err"),
-      y_error2=@chart.field("err"),
-      x_offset=@chart.field("err"),
-      y_offset=@chart.field("err"),
-      longitude=@chart.field("lon"),
-      latitude=@chart.field("lat"),
-      fill=@chart.field("cat"),
-      stroke=@chart.field("cat"),
-      fill_opacity=@chart.field("val"),
-      stroke_opacity=@chart.field("val"),
-      stroke_width=@chart.field("val"),
-      stroke_dash=@chart.field("val"),
-      shape=@chart.field("cat"),
-      angle=@chart.field("val"),
-      time=@chart.field("ts"),
-      href=@chart.field("cat"),
-      url=@chart.field("cat"),
-      description_channel=@chart.field("cat"),
-      key=@chart.field("cat"),
-      order=@chart.field("val"),
+    @chart.Chart::of(
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Point,
+        x=@chart.field("cat"),
+        y=@chart.field("val"),
+        x_error=@chart.field("err"),
+        x_error2=@chart.field("err"),
+        y_error=@chart.field("err"),
+        y_error2=@chart.field("err"),
+        x_offset=@chart.field("err"),
+        y_offset=@chart.field("err"),
+        longitude=@chart.field("lon"),
+        latitude=@chart.field("lat"),
+        fill=@chart.field("cat"),
+        stroke=@chart.field("cat"),
+        fill_opacity=@chart.field("val"),
+        stroke_opacity=@chart.field("val"),
+        stroke_width=@chart.field("val"),
+        stroke_dash=@chart.field("val"),
+        shape=@chart.field("cat"),
+        angle=@chart.field("val"),
+        time=@chart.field("ts"),
+        href=@chart.field("cat"),
+        url=@chart.field("cat"),
+        description_channel=@chart.field("cat"),
+        key=@chart.field("cat"),
+        order=@chart.field("val"),
+      ),
     ),
   )
   let encoding = match @json.parse(spec) {
@@ -460,7 +485,9 @@ test "format_vega_lite: field type follows column dtype (Float→quantitative, B
   inspect(
     @chart.format_vega_lite(
       df,
-      @chart.ChartSpec::point(@chart.field("ratio"), @chart.field("flag")),
+      @chart.Chart::of(
+        @chart.ChartSpec::point(@chart.field("ratio"), @chart.field("flag")),
+      ),
     ),
     content=(
       #|{"$schema":"https://vega.github.io/schema/vega-lite/v6.json","mark":"point","encoding":{"x":{"field":"ratio","type":"quantitative"},"y":{"field":"flag","type":"nominal"}},"data":{"values":[{"ratio":1.5,"flag":true}]}}
@@ -487,7 +514,9 @@ test "format_vega_lite: null and non-finite float cells become JSON null" {
   inspect(
     @chart.format_vega_lite(
       df,
-      @chart.ChartSpec::bar(@chart.field("label"), @chart.field("amount")),
+      @chart.Chart::of(
+        @chart.ChartSpec::bar(@chart.field("label"), @chart.field("amount")),
+      ),
     ),
     content=(
       #|{"$schema":"https://vega.github.io/schema/vega-lite/v6.json","mark":"bar","encoding":{"x":{"field":"label","type":"nominal"},"y":{"field":"amount","type":"quantitative"}},"data":{"values":[{"label":"a","amount":1.5},{"label":"b","amount":null},{"label":"c","amount":null},{"label":"d","amount":null}]}}
@@ -505,7 +534,9 @@ test "format_vega_lite: a frame with columns but no rows yields empty data.value
   inspect(
     @chart.format_vega_lite(
       empty,
-      @chart.ChartSpec::bar(@chart.field("cat"), @chart.field("val")),
+      @chart.Chart::of(
+        @chart.ChartSpec::bar(@chart.field("cat"), @chart.field("val")),
+      ),
     ),
     content=(
       #|{"$schema":"https://vega.github.io/schema/vega-lite/v6.json","mark":"bar","encoding":{"x":{"field":"cat","type":"nominal"},"y":{"field":"val","type":"quantitative"}},"data":{"values":[]}}
@@ -519,11 +550,13 @@ test "format_vega_lite: output is well-formed JSON (parses back to an object)" {
   // JSON reader, self-certifying it is a legal Vega-Lite v6 document.
   let spec = @chart.format_vega_lite(
     catvalgrp_df(),
-    @chart.ChartSpec::area(
-      @chart.field("cat"),
-      @chart.field("val"),
-      title="T",
-      color=@chart.field("grp"),
+    @chart.Chart::of(
+      @chart.ChartSpec::area(
+        @chart.field("cat"),
+        @chart.field("val"),
+        title="T",
+        color=@chart.field("grp"),
+      ),
     ),
   )
   assert_true((Ok(@json.parse(spec)) catch { e => Err(e) }) is Ok(Object(_)))
@@ -539,7 +572,9 @@ test "format_vega_lite: an unknown x column raises ColumnNotFound first" {
     Ok(
       @chart.format_vega_lite(
         df,
-        @chart.ChartSpec::bar(@chart.field("nox"), @chart.field("noy")),
+        @chart.Chart::of(
+          @chart.ChartSpec::bar(@chart.field("nox"), @chart.field("noy")),
+        ),
       ),
     ) catch {
       e => Err(e)
@@ -555,7 +590,9 @@ test "format_vega_lite: an unknown y column raises ColumnNotFound" {
     Ok(
       @chart.format_vega_lite(
         df,
-        @chart.ChartSpec::bar(@chart.field("cat"), @chart.field("noy")),
+        @chart.Chart::of(
+          @chart.ChartSpec::bar(@chart.field("cat"), @chart.field("noy")),
+        ),
       ),
     ) catch {
       e => Err(e)
@@ -571,10 +608,12 @@ test "format_vega_lite: an unknown color column raises ColumnNotFound" {
     Ok(
       @chart.format_vega_lite(
         df,
-        @chart.ChartSpec::bar(
-          @chart.field("cat"),
-          @chart.field("val"),
-          color=@chart.field("nocolor"),
+        @chart.Chart::of(
+          @chart.ChartSpec::bar(
+            @chart.field("cat"),
+            @chart.field("val"),
+            color=@chart.field("nocolor"),
+          ),
         ),
       ),
     ) catch {
@@ -593,10 +632,12 @@ test "format_vega_lite: y is validated before the color column" {
     Ok(
       @chart.format_vega_lite(
         df,
-        @chart.ChartSpec::bar(
-          @chart.field("cat"),
-          @chart.field("noy"),
-          color=@chart.field("nocolor"),
+        @chart.Chart::of(
+          @chart.ChartSpec::bar(
+            @chart.field("cat"),
+            @chart.field("noy"),
+            color=@chart.field("nocolor"),
+          ),
         ),
       ),
     ) catch {
@@ -615,11 +656,13 @@ test "format_vega_lite: color is validated before the size column" {
     Ok(
       @chart.format_vega_lite(
         df,
-        @chart.ChartSpec::bar(
-          @chart.field("cat"),
-          @chart.field("val"),
-          color=@chart.field("nocolor"),
-          size=@chart.field("nosize"),
+        @chart.Chart::of(
+          @chart.ChartSpec::bar(
+            @chart.field("cat"),
+            @chart.field("val"),
+            color=@chart.field("nocolor"),
+            size=@chart.field("nosize"),
+          ),
         ),
       ),
     ) catch {
@@ -638,12 +681,14 @@ test "format_vega_lite: an unknown detail column raises after size and opacity" 
     Ok(
       @chart.format_vega_lite(
         df,
-        @chart.ChartSpec::line(
-          @chart.field("cat"),
-          @chart.field("val"),
-          size=@chart.field("val"),
-          opacity=@chart.field("val"),
-          detail=@chart.field("nodetail"),
+        @chart.Chart::of(
+          @chart.ChartSpec::line(
+            @chart.field("cat"),
+            @chart.field("val"),
+            size=@chart.field("val"),
+            opacity=@chart.field("val"),
+            detail=@chart.field("nodetail"),
+          ),
         ),
       ),
     ) catch {
@@ -664,10 +709,10 @@ test "write_vega_lite writes the spec to disk verbatim" {
     @chart.field("val"),
     title="Disk",
   )
-  @chart.write_vega_lite(path, df, spec)
+  @chart.write_vega_lite(path, df, @chart.Chart::of(spec))
   // The file holds exactly what `format_vega_lite` produces.
   let on_disk = @fs.read_file_to_string(path)
-  assert_eq(on_disk, @chart.format_vega_lite(df, spec))
+  assert_eq(on_disk, @chart.format_vega_lite(df, @chart.Chart::of(spec)))
 }
 
 ///|
@@ -680,7 +725,9 @@ test "write_vega_lite: invalid path surfaces as IoError" {
     @chart.write_vega_lite(
       "_build/no_such_dir_io_chart_test/file.json",
       df,
-      @chart.ChartSpec::bar(@chart.field("cat"), @chart.field("val")),
+      @chart.Chart::of(
+        @chart.ChartSpec::bar(@chart.field("cat"), @chart.field("val")),
+      ),
     ),
   ) catch {
     e => Err(e)
@@ -704,7 +751,9 @@ test "a Date channel encodes as temporal" {
   )
   let json = @chart.format_vega_lite(
     df,
-    @chart.ChartSpec::line(@chart.field("d"), @chart.field("v")),
+    @chart.Chart::of(
+      @chart.ChartSpec::line(@chart.field("d"), @chart.field("v")),
+    ),
   )
   assert_true(json.contains("\"type\":\"temporal\""))
   // `temporal` is only correct if the data cells are ISO date strings — that
@@ -726,7 +775,9 @@ test "a Duration channel encodes as temporal" {
   ])
   let spec = @chart.format_vega_lite(
     df,
-    @chart.ChartSpec::line(@chart.field("dur"), @chart.field("val")),
+    @chart.Chart::of(
+      @chart.ChartSpec::line(@chart.field("dur"), @chart.field("val")),
+    ),
   )
   assert_eq(channel_key(spec, "x", "type"), "temporal")
 }
@@ -772,7 +823,9 @@ test "format_vega_lite: a Timestamp axis is temporal, a Decimal measure quantita
   ])
   let ts_spec = @chart.format_vega_lite(
     ts_df,
-    @chart.ChartSpec::line(@chart.field("ts"), @chart.field("val")),
+    @chart.Chart::of(
+      @chart.ChartSpec::line(@chart.field("ts"), @chart.field("val")),
+    ),
   )
   assert_eq(channel_key(ts_spec, "x", "type"), "temporal")
   assert_eq(channel_key(ts_spec, "y", "type"), "quantitative")
@@ -782,7 +835,9 @@ test "format_vega_lite: a Timestamp axis is temporal, a Decimal measure quantita
   ])
   let dec_spec = @chart.format_vega_lite(
     dec_df,
-    @chart.ChartSpec::bar(@chart.field("cat"), @chart.field("val")),
+    @chart.Chart::of(
+      @chart.ChartSpec::bar(@chart.field("cat"), @chart.field("val")),
+    ),
   )
   assert_eq(channel_key(dec_spec, "y", "type"), "quantitative")
 }
@@ -802,7 +857,9 @@ test "format_vega_lite: brackets and a trailing backslash in a column name are e
   ])
   let spec = @chart.format_vega_lite(
     df,
-    @chart.ChartSpec::bar(@chart.field("cat"), @chart.field(bracket)),
+    @chart.Chart::of(
+      @chart.ChartSpec::bar(@chart.field("cat"), @chart.field(bracket)),
+    ),
   )
   let field = match @json.parse(spec) {
     Object(obj) =>
@@ -823,7 +880,9 @@ test "format_vega_lite: brackets and a trailing backslash in a column name are e
   assert_eq(field, "a\\[0\\]\\.b")
   let spec2 = @chart.format_vega_lite(
     df,
-    @chart.ChartSpec::bar(@chart.field("cat"), @chart.field("trail\\")),
+    @chart.Chart::of(
+      @chart.ChartSpec::bar(@chart.field("cat"), @chart.field("trail\\")),
+    ),
   )
   let field2 = match @json.parse(spec2) {
     Object(obj) =>

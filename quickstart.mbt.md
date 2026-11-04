@@ -309,7 +309,7 @@ test "quickstart: render to HTML" {
 
 ## Export a Vega-Lite chart spec
 
-`format_vega_lite(df, spec)` produces a complete Vega-Lite v6 specification — a
+`format_vega_lite(df, Chart::of(spec))` produces a complete Vega-Lite v6 specification — a
 JSON string you can paste into the [Vega editor](https://vega.github.io/editor/)
 or hand to any Vega-Lite runtime. A mark-named `ChartSpec` constructor (`bar` /
 `line` / `point` / `area` / … / `arc`, `text`, `boxplot`) chooses the mark, and
@@ -330,7 +330,13 @@ test "quickstart: export a Vega-Lite chart spec" {
   ])
   let spec = format_vega_lite(
     sales,
-    ChartSpec::bar(field("region"), field("revenue"), title="Revenue by region"),
+    Chart::of(
+      ChartSpec::bar(
+        field("region"),
+        field("revenue"),
+        title="Revenue by region",
+      ),
+    ),
   )
   inspect(
     spec,

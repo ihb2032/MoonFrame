@@ -331,3 +331,17 @@ test "each VegaProjectionType variant emits the schema's own string" {
     assert_eq(vega_projection_type_string(v), expected)
   }
 }
+
+///|
+test "each VegaOrient variant emits the schema's own string" {
+  let cases = [
+    (VegaOrient::Left, "left"),
+    (VegaOrient::Right, "right"),
+    (VegaOrient::Top, "top"),
+    (VegaOrient::Bottom, "bottom"),
+  ]
+  for c in cases {
+    let (v, expected) = c
+    assert_eq(vega_orient_string(v), expected)
+  }
+}

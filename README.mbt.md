@@ -171,7 +171,9 @@ same way.
 - **Summarize** — `describe()` for a per-column summary, or single statistics
   (`sum` / `mean` / `min` / `max` / …).
 - **Export** — `to_markdown()` / `to_html()`, `format_vega_lite` (a Vega-Lite
-  v5 chart spec), and — through the `io` package — the string-level
+  v5 chart spec: thirteen marks, channels built with `field("name")`, and
+  per-channel `aggregate` / `bin` / `sort` for the Vega-Lite runtime to
+  compute), and — through the `io` package — the string-level
   `format_csv` / `format_json` / `format_ndjson`.
 
 For example, summarise the same data by region (another doc test, in-memory
@@ -210,8 +212,8 @@ test "readme: summarise by region" {
 The same frame also exports as a styled HTML `<table>` via
 `summary.to_html(options=HtmlOptions::HtmlOptions(caption="Summary"))`, or as a
 [Vega-Lite v5](https://vega.github.io/vega-lite/) chart spec via
-`format_vega_lite(summary, ChartSpec::bar("region", "revenue"))` — ready to
-paste into the [Vega editor](https://vega.github.io/editor/).
+`format_vega_lite(summary, ChartSpec::bar(field("region"), field("revenue")))`
+— ready to paste into the [Vega editor](https://vega.github.io/editor/).
 
 ## Error handling
 
@@ -317,7 +319,7 @@ series/     Series + column-level stats + the shared reduction / rebuild / key-c
 expr/       opaque Expr handle — constructors, operators, when/then/otherwise builders, to_string rendering
 frame/      DataFrame + the operators (usually one per file) + group_by + join + the expression evaluator (with_columns / select / filter / agg) + to_markdown / to_html
 io/         CSV (NyaCSV-backed), JSON, NDJSON read / write + their options types
-chart/      Vega-Lite export — ChartSpec / ChartKind / VegaType builders, format_vega_lite / write_vega_lite (shares io's JSON cell conventions)
+chart/      Vega-Lite export — ChartSpec mark-named builders over VegaChannel (field / VegaAggregate / VegaSort / VegaType), format_vega_lite / write_vega_lite (shares io's JSON cell conventions)
 lazy/       deferred query plan — LazyFrame builders, collect / explain, predicate + projection pushdown
 moonframe.mbt   the root package — facade over the public API (fluent-chain intermediates stay in their sub-packages)
 ```

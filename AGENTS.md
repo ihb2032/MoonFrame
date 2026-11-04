@@ -180,8 +180,9 @@ the sweep to the push.
   chart package is a deliberate two-way exception to "every public type
   rides the facade": its **main face** (the spec type, the mark enum, the
   channel family and its builders — the `chart_main` list in the guard) is
-  re-exported, and its **deep mirror family** (the spec-object trees the
-  later mirror stages add: scales, axes, legends, transforms, config) is
+  re-exported, and its **deep mirror family** (the spec-object trees:
+  scales, axes, legends, projection, title parameters — and the
+  transforms / params / config stages still landing) is
   reached through `@chart` qualification, the io string-serialiser
   precedent widened to a package. The pin holds both directions: a
   `chart_main` name off the facade fails, a deep name on it fails, a list

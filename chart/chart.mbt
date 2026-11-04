@@ -110,7 +110,7 @@ pub struct ChartSpec {
   key : VegaChannel?
   detail : VegaChannel?
   order : VegaChannel?
-  title : String?
+  title : VegaTitle?
   width : VegaExtent?
   height : VegaExtent?
   name : String?
@@ -118,6 +118,8 @@ pub struct ChartSpec {
   autosize : VegaAutoSize?
   padding : VegaPadding?
   background : String?
+  projection : VegaProjection?
+  view : VegaViewBackground?
 }
 
 ///|
@@ -179,6 +181,8 @@ fn empty_channel_spec(kind : ChartKind) -> ChartSpec {
     autosize: None,
     padding: None,
     background: None,
+    projection: None,
+    view: None,
   }
 }
 
@@ -213,7 +217,10 @@ pub fn ChartSpec::bar(
     detail,
     x2,
     y2,
-    title,
+    title: match title {
+      Some(t) => Some(VegaTitle::Text(t))
+      None => None
+    },
     width,
     height,
   }
@@ -245,7 +252,10 @@ pub fn ChartSpec::line(
     opacity,
     tooltip,
     detail,
-    title,
+    title: match title {
+      Some(t) => Some(VegaTitle::Text(t))
+      None => None
+    },
     width,
     height,
   }
@@ -278,7 +288,10 @@ pub fn ChartSpec::point(
     opacity,
     tooltip,
     detail,
-    title,
+    title: match title {
+      Some(t) => Some(VegaTitle::Text(t))
+      None => None
+    },
     width,
     height,
   }
@@ -314,7 +327,10 @@ pub fn ChartSpec::area(
     detail,
     x2,
     y2,
-    title,
+    title: match title {
+      Some(t) => Some(VegaTitle::Text(t))
+      None => None
+    },
     width,
     height,
   }
@@ -347,7 +363,10 @@ pub fn ChartSpec::tick(
     opacity,
     tooltip,
     detail,
-    title,
+    title: match title {
+      Some(t) => Some(VegaTitle::Text(t))
+      None => None
+    },
     width,
     height,
   }
@@ -384,7 +403,10 @@ pub fn ChartSpec::rect(
     detail,
     x2,
     y2,
-    title,
+    title: match title {
+      Some(t) => Some(VegaTitle::Text(t))
+      None => None
+    },
     width,
     height,
   }
@@ -422,7 +444,10 @@ pub fn ChartSpec::rule(
     detail,
     x2,
     y2,
-    title,
+    title: match title {
+      Some(t) => Some(VegaTitle::Text(t))
+      None => None
+    },
     width,
     height,
   }
@@ -454,7 +479,10 @@ pub fn ChartSpec::circle(
     opacity,
     tooltip,
     detail,
-    title,
+    title: match title {
+      Some(t) => Some(VegaTitle::Text(t))
+      None => None
+    },
     width,
     height,
   }
@@ -486,7 +514,10 @@ pub fn ChartSpec::square(
     opacity,
     tooltip,
     detail,
-    title,
+    title: match title {
+      Some(t) => Some(VegaTitle::Text(t))
+      None => None
+    },
     width,
     height,
   }
@@ -518,7 +549,10 @@ pub fn ChartSpec::trail(
     opacity,
     tooltip,
     detail,
-    title,
+    title: match title {
+      Some(t) => Some(VegaTitle::Text(t))
+      None => None
+    },
     width,
     height,
   }
@@ -551,7 +585,10 @@ pub fn ChartSpec::text(
     size,
     opacity,
     tooltip,
-    title,
+    title: match title {
+      Some(t) => Some(VegaTitle::Text(t))
+      None => None
+    },
     width,
     height,
   }
@@ -583,7 +620,10 @@ pub fn ChartSpec::arc(
     tooltip,
     radius,
     radius2,
-    title,
+    title: match title {
+      Some(t) => Some(VegaTitle::Text(t))
+      None => None
+    },
     width,
     height,
   }
@@ -611,7 +651,10 @@ pub fn ChartSpec::image(
     url: Some(url),
     opacity,
     tooltip,
-    title,
+    title: match title {
+      Some(t) => Some(VegaTitle::Text(t))
+      None => None
+    },
     width,
     height,
   }
@@ -638,7 +681,10 @@ pub fn ChartSpec::geoshape(
     color,
     opacity,
     tooltip,
-    title,
+    title: match title {
+      Some(t) => Some(VegaTitle::Text(t))
+      None => None
+    },
     width,
     height,
   }
@@ -669,7 +715,10 @@ pub fn ChartSpec::boxplot(
     size,
     opacity,
     tooltip,
-    title,
+    title: match title {
+      Some(t) => Some(VegaTitle::Text(t))
+      None => None
+    },
     width,
     height,
   }
@@ -710,7 +759,10 @@ pub fn ChartSpec::errorbar(
     size,
     opacity,
     tooltip,
-    title,
+    title: match title {
+      Some(t) => Some(VegaTitle::Text(t))
+      None => None
+    },
     width,
     height,
   }
@@ -751,7 +803,10 @@ pub fn ChartSpec::errorband(
     opacity,
     tooltip,
     detail,
-    title,
+    title: match title {
+      Some(t) => Some(VegaTitle::Text(t))
+      None => None
+    },
     width,
     height,
   }
@@ -804,7 +859,7 @@ pub fn ChartSpec::of(
   key? : VegaChannel,
   detail? : VegaChannel,
   order? : VegaChannel,
-  title? : String,
+  title? : VegaTitle,
   width? : VegaExtent,
   height? : VegaExtent,
   name? : String,
@@ -812,6 +867,8 @@ pub fn ChartSpec::of(
   autosize? : VegaAutoSize,
   padding? : VegaPadding,
   background? : String,
+  projection? : VegaProjection,
+  view? : VegaViewBackground,
 ) -> ChartSpec {
   {
     ..empty_channel_spec(kind),
@@ -861,6 +918,8 @@ pub fn ChartSpec::of(
     autosize,
     padding,
     background,
+    projection,
+    view,
   }
 }
 
@@ -910,7 +969,7 @@ pub fn format_vega_lite(
     obj["description"] = Json::string(description)
   }
   if spec.title is Some(title) {
-    obj["title"] = Json::string(title)
+    obj["title"] = vega_title_emit_json(title)
   }
   if spec.autosize is Some(autosize) {
     obj["autosize"] = autosize_json(autosize)
@@ -926,6 +985,12 @@ pub fn format_vega_lite(
   }
   if spec.height is Some(height) {
     obj["height"] = extent_json(height)
+  }
+  if spec.view is Some(view) {
+    obj["view"] = vega_view_background_emit_json(view)
+  }
+  if spec.projection is Some(projection) {
+    obj["projection"] = vega_projection_emit_json(projection)
   }
   // The Vega-Lite `mark` string for the chart kind.
   obj["mark"] = Json::string(mark_string(spec.kind))

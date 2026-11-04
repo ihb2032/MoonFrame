@@ -45,10 +45,15 @@ Source-level note:
   (the schema's eighty-unit closure), and the full `sort` union, and the
   spec gained the top-level chrome (`name`, `description`, `autosize`,
   `padding`, `background`) with `width` / `height` as a `VegaExtent`
-  (`Px(320)` / `Container` / `Step(24)`). The mirror's later stages
-  (scales, axes, legends, transforms, config) land in the same release;
-  their types are reached through `@chart` qualification rather than the
-  facade.
+  (`Px(320)` / `Container` / `Step(24)`), a parameterised `title`
+  (`@chart.VegaTitle::Params` — with subtitle, anchor, and font styling),
+  a geographic `projection`, and a `view` background. The guide trees are
+  mirrored too — `@chart.VegaScale` (with its domain / range / scheme /
+  nice / bins unions), `@chart.VegaAxis`, `@chart.VegaLegend`, and
+  `@chart.VegaTitleParams`, each carried by the channel or the spec it
+  guides — and the deep mirror types (these, and the transforms / config
+  / params stages still landing) are reached through `@chart`
+  qualification rather than the facade.
 
 What has landed on `main`:
 

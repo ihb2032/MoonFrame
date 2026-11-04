@@ -47,7 +47,7 @@ fn corpus_specs() -> Array[(String, @chart.ChartSpec)] {
         y=@chart.field("val"),
         name="revenue-chart",
         description="Revenue by region",
-        title="Revenue",
+        title=@chart.VegaTitle::Text("Revenue"),
         autosize=@chart.VegaAutoSize::FitX,
         background="#f8f8f8",
         padding=@chart.VegaPadding::Sides(
@@ -177,6 +177,100 @@ fn corpus_specs() -> Array[(String, @chart.ChartSpec)] {
         y=@chart.field("val", stack=@chart.VegaStack::Normalize, format="d"),
         color=@chart.constant(Json::string("steelblue")),
         size=@chart.datum(Json::number(60.0)),
+      ),
+    ),
+    (
+      "scale_axis.json",
+      @chart.ChartSpec::bar(
+        @chart.field(
+          "cat",
+          scale=@chart.VegaScaleRef::Config(
+            @chart.VegaScale::VegaScale(
+              type_=@chart.VegaScaleType::Band,
+              padding_inner=0.3,
+            ),
+          ),
+          axis=@chart.VegaAxisRef::Config(
+            @chart.VegaAxis::VegaAxis(
+              orient=@chart.VegaAxisOrient::Bottom,
+              grid=false,
+              label_angle=-30.0,
+              label_overlap=@chart.VegaLabelOverlap::Parity,
+              tick_count=@chart.VegaTickInterval::Step(
+                @chart.VegaTimeInterval::Month,
+                2,
+              ),
+            ),
+          ),
+        ),
+        @chart.field(
+          "val",
+          scale=@chart.VegaScaleRef::Config(
+            @chart.VegaScale::VegaScale(
+              type_=@chart.VegaScaleType::Log,
+              base=10,
+              clamp=true,
+              zero=false,
+              nice=@chart.VegaNice::Ticks(7),
+            ),
+          ),
+        ),
+      ),
+    ),
+    (
+      "legend_scheme.json",
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Point,
+        x=@chart.field("val"),
+        y=@chart.field("val", aggregate=Mean),
+        color=@chart.field(
+          "val",
+          scale=@chart.VegaScaleRef::Config(
+            @chart.VegaScale::VegaScale(
+              scheme=@chart.VegaScheme::Params(
+                @chart.VegaSchemeParams::VegaSchemeParams(
+                  name="viridis",
+                  count=7,
+                ),
+              ),
+            ),
+          ),
+          legend=@chart.VegaLegendRef::Config(
+            @chart.VegaLegend::VegaLegend(
+              type_=@chart.VegaLegendType::Gradient,
+              orient=@chart.VegaLegendOrient::TopRight,
+              gradient_length=200,
+              title="Mean value",
+              format=".1f",
+            ),
+          ),
+        ),
+      ),
+    ),
+    (
+      "title_view_projection.json",
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Geoshape,
+        shape=@chart.field("grp", type_override=@chart.VegaType::Geojson),
+        title=@chart.VegaTitle::Params(
+          @chart.VegaTitleParams::VegaTitleParams(
+            text="Regions",
+            subtitle="by revenue",
+            anchor=@chart.VegaAnchor::End,
+            offset=10,
+          ),
+        ),
+        view=@chart.VegaViewBackground::VegaViewBackground(
+          fill="#ffffff",
+          stroke="#dddddd",
+          stroke_dash=[4.0, 2.0],
+          corner_radius=4,
+        ),
+        projection=@chart.VegaProjection::VegaProjection(
+          type_=@chart.VegaProjectionType::Mercator,
+          center=(0.0, 0.0),
+          scale=120,
+        ),
       ),
     ),
     (

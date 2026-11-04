@@ -312,7 +312,7 @@ test "format_vega_lite: the top-level chrome emits in its fixed order" {
         y=@chart.field("val"),
         name="revenue-chart",
         description="Revenue by region",
-        title="Revenue",
+        title=@chart.VegaTitle::Text("Revenue"),
         autosize=@chart.VegaAutoSize::FitX,
         background="#f8f8f8",
         padding=@chart.VegaPadding::Sides(

@@ -85,6 +85,15 @@ fn encoding_channel(
   if channel.format is Some(format) && allows_format_key(key) {
     ch["format"] = Json::string(format)
   }
+  if channel.scale is Some(scale) && allows_scale_key(key) {
+    ch["scale"] = vega_scale_ref_emit_json(scale)
+  }
+  if channel.axis is Some(axis) && allows_axis_key(key) {
+    ch["axis"] = vega_axis_ref_emit_json(axis)
+  }
+  if channel.legend is Some(legend) && allows_legend_key(key) {
+    ch["legend"] = vega_legend_ref_emit_json(legend)
+  }
   if !is_secondary_key(key) {
     ch["type"] = Json::string(channel_type_string(channel, dtype))
   }
@@ -126,6 +135,54 @@ fn allows_format_key(key : String) -> Bool {
 /// `y`) and the polar angles / radii (`theta`, `radius`).
 fn allows_stack_key(key : String) -> Bool {
   key == "x" || key == "y" || key == "theta" || key == "radius"
+}
+
+///|
+/// The channels whose field definition may carry a `scale` — the
+/// positions (`x`, `y`, the offsets, the polar pair) and the mark
+/// properties (`color`, `fill`, `stroke`, the opacities and widths,
+/// `size`, `shape`, `angle`).
+fn allows_scale_key(key : String) -> Bool {
+  allows_stack_key(key) ||
+  key == "xOffset" ||
+  key == "yOffset" ||
+  key == "color" ||
+  key == "fill" ||
+  key == "stroke" ||
+  key == "opacity" ||
+  key == "fillOpacity" ||
+  key == "strokeOpacity" ||
+  key == "strokeWidth" ||
+  key == "strokeDash" ||
+  key == "size" ||
+  key == "shape" ||
+  key == "angle"
+}
+
+///|
+/// The channels an `axis` belongs to — the two primary positions alone
+/// (`x`, `y`); every other channel guides its values with a legend or
+/// nothing.
+fn allows_axis_key(key : String) -> Bool {
+  key == "x" || key == "y"
+}
+
+///|
+/// The channels a `legend` belongs to — the mark properties (`color`,
+/// `fill`, `stroke`, the opacities and widths, `size`, `shape`,
+/// `angle`), which draw a legend swatch; positions draw axes instead.
+fn allows_legend_key(key : String) -> Bool {
+  key == "color" ||
+  key == "fill" ||
+  key == "stroke" ||
+  key == "opacity" ||
+  key == "fillOpacity" ||
+  key == "strokeOpacity" ||
+  key == "strokeWidth" ||
+  key == "strokeDash" ||
+  key == "size" ||
+  key == "shape" ||
+  key == "angle"
 }
 
 ///|

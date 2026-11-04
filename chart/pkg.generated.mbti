@@ -112,6 +112,7 @@ pub struct ChartSpec {
   background : String?
   projection : VegaProjection?
   view : VegaViewBackground?
+  // private fields
 }
 pub fn ChartSpec::arc(VegaChannel, color? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, radius? : VegaChannel, radius2? : VegaChannel, title? : String, width? : VegaExtent, height? : VegaExtent) -> Self
 pub fn ChartSpec::area(VegaChannel, VegaChannel, color? : VegaChannel, size? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, detail? : VegaChannel, x2? : VegaChannel, y2? : VegaChannel, title? : String, width? : VegaExtent, height? : VegaExtent) -> Self
@@ -125,7 +126,7 @@ pub fn ChartSpec::geoshape(VegaChannel, color? : VegaChannel, opacity? : VegaCha
 pub fn ChartSpec::image(VegaChannel, VegaChannel, VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, title? : String, width? : VegaExtent, height? : VegaExtent) -> Self
 pub fn ChartSpec::line(VegaChannel, VegaChannel, color? : VegaChannel, size? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, detail? : VegaChannel, title? : String, width? : VegaExtent, height? : VegaExtent) -> Self
 pub fn ChartSpec::not_equal(Self, Self) -> Bool
-pub fn ChartSpec::of(ChartKind, x? : VegaChannel, y? : VegaChannel, x2? : VegaChannel, y2? : VegaChannel, x_error? : VegaChannel, x_error2? : VegaChannel, y_error? : VegaChannel, y_error2? : VegaChannel, x_offset? : VegaChannel, y_offset? : VegaChannel, longitude? : VegaChannel, longitude2? : VegaChannel, latitude? : VegaChannel, latitude2? : VegaChannel, theta? : VegaChannel, theta2? : VegaChannel, radius? : VegaChannel, radius2? : VegaChannel, color? : VegaChannel, fill? : VegaChannel, stroke? : VegaChannel, opacity? : VegaChannel, fill_opacity? : VegaChannel, stroke_opacity? : VegaChannel, stroke_width? : VegaChannel, stroke_dash? : VegaChannel, size? : VegaChannel, shape? : VegaChannel, angle? : VegaChannel, time? : VegaChannel, text? : VegaChannel, tooltip? : VegaChannel, href? : VegaChannel, url? : VegaChannel, description_channel? : VegaChannel, key? : VegaChannel, detail? : VegaChannel, order? : VegaChannel, title? : VegaTitle, width? : VegaExtent, height? : VegaExtent, name? : String, description? : String, autosize? : VegaAutoSize, padding? : VegaPadding, background? : String, projection? : VegaProjection, view? : VegaViewBackground) -> Self
+pub fn ChartSpec::of(ChartKind, x? : VegaChannel, y? : VegaChannel, x2? : VegaChannel, y2? : VegaChannel, x_error? : VegaChannel, x_error2? : VegaChannel, y_error? : VegaChannel, y_error2? : VegaChannel, x_offset? : VegaChannel, y_offset? : VegaChannel, longitude? : VegaChannel, longitude2? : VegaChannel, latitude? : VegaChannel, latitude2? : VegaChannel, theta? : VegaChannel, theta2? : VegaChannel, radius? : VegaChannel, radius2? : VegaChannel, color? : VegaChannel, fill? : VegaChannel, stroke? : VegaChannel, opacity? : VegaChannel, fill_opacity? : VegaChannel, stroke_opacity? : VegaChannel, stroke_width? : VegaChannel, stroke_dash? : VegaChannel, size? : VegaChannel, shape? : VegaChannel, angle? : VegaChannel, time? : VegaChannel, text? : VegaChannel, tooltip? : VegaChannel, href? : VegaChannel, url? : VegaChannel, description_channel? : VegaChannel, key? : VegaChannel, detail? : VegaChannel, order? : VegaChannel, title? : VegaTitle, width? : VegaExtent, height? : VegaExtent, name? : String, description? : String, autosize? : VegaAutoSize, padding? : VegaPadding, background? : String, projection? : VegaProjection, view? : VegaViewBackground, transform? : Array[VegaTransform]) -> Self
 pub fn ChartSpec::point(VegaChannel, VegaChannel, color? : VegaChannel, size? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, detail? : VegaChannel, title? : String, width? : VegaExtent, height? : VegaExtent) -> Self
 pub fn ChartSpec::rect(VegaChannel, VegaChannel, color? : VegaChannel, size? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, detail? : VegaChannel, x2? : VegaChannel, y2? : VegaChannel, title? : String, width? : VegaExtent, height? : VegaExtent) -> Self
 pub fn ChartSpec::rule(VegaChannel, VegaChannel, color? : VegaChannel, size? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, detail? : VegaChannel, x2? : VegaChannel, y2? : VegaChannel, title? : String, width? : VegaExtent, height? : VegaExtent) -> Self
@@ -134,6 +135,18 @@ pub fn ChartSpec::text(VegaChannel, VegaChannel, VegaChannel, color? : VegaChann
 pub fn ChartSpec::tick(VegaChannel, VegaChannel, color? : VegaChannel, size? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, detail? : VegaChannel, title? : String, width? : VegaExtent, height? : VegaExtent) -> Self
 pub fn ChartSpec::to_repr(Self) -> @debug.Repr
 pub fn ChartSpec::trail(VegaChannel, VegaChannel, color? : VegaChannel, size? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, detail? : VegaChannel, title? : String, width? : VegaExtent, height? : VegaExtent) -> Self
+pub fn ChartSpec::transform(Self) -> Array[VegaTransform]?
+
+#derive(Eq, @debug.Debug)
+pub struct VegaAggField {
+  op : VegaAggregate
+  field : String?
+  as_ : String
+}
+pub fn VegaAggField::VegaAggField(op~ : VegaAggregate, as_~ : String, field? : String) -> Self
+pub fn VegaAggField::equal(Self, Self) -> Bool
+pub fn VegaAggField::not_equal(Self, Self) -> Bool
+pub fn VegaAggField::to_repr(Self) -> @debug.Repr
 
 #derive(Eq, @debug.Debug)
 pub(all) enum VegaAggregate {
@@ -168,6 +181,17 @@ pub fn VegaAggregate::not_equal(Self, Self) -> Bool
 pub fn VegaAggregate::to_repr(Self) -> @debug.Repr
 
 #derive(Eq, @debug.Debug)
+pub struct VegaAggregateTransform {
+  // private fields
+}
+pub fn VegaAggregateTransform::VegaAggregateTransform(aggregate~ : Array[VegaAggField], groupby? : Array[String]) -> Self
+pub fn VegaAggregateTransform::aggregate(Self) -> Array[VegaAggField]
+pub fn VegaAggregateTransform::equal(Self, Self) -> Bool
+pub fn VegaAggregateTransform::groupby(Self) -> Array[String]?
+pub fn VegaAggregateTransform::not_equal(Self, Self) -> Bool
+pub fn VegaAggregateTransform::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
 pub(all) enum VegaAlign {
   Left
   Center
@@ -195,6 +219,15 @@ pub(all) enum VegaAnchor {
 pub fn VegaAnchor::equal(Self, Self) -> Bool
 pub fn VegaAnchor::not_equal(Self, Self) -> Bool
 pub fn VegaAnchor::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
+pub(all) enum VegaAsField {
+  One(String)
+  Pair(String, String)
+}
+pub fn VegaAsField::equal(Self, Self) -> Bool
+pub fn VegaAsField::not_equal(Self, Self) -> Bool
+pub fn VegaAsField::to_repr(Self) -> @debug.Repr
 
 #derive(Eq, @debug.Debug)
 pub(all) enum VegaAutoSize {
@@ -368,6 +401,17 @@ pub fn VegaBinParams::steps(Self) -> Array[Double]?
 pub fn VegaBinParams::to_repr(Self) -> @debug.Repr
 
 #derive(Eq, @debug.Debug)
+pub struct VegaBinTransform {
+  bin : VegaBin
+  field : String
+  as_ : VegaAsField
+}
+pub fn VegaBinTransform::VegaBinTransform(bin~ : VegaBin, field~ : String, as_~ : VegaAsField) -> Self
+pub fn VegaBinTransform::equal(Self, Self) -> Bool
+pub fn VegaBinTransform::not_equal(Self, Self) -> Bool
+pub fn VegaBinTransform::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
 pub(all) enum VegaBins {
   Values(Array[Double])
   Params(VegaBinsParams)
@@ -395,6 +439,16 @@ pub(all) enum VegaBounds {
 pub fn VegaBounds::equal(Self, Self) -> Bool
 pub fn VegaBounds::not_equal(Self, Self) -> Bool
 pub fn VegaBounds::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
+pub struct VegaCalculateTransform {
+  calculate : String
+  as_ : String
+}
+pub fn VegaCalculateTransform::VegaCalculateTransform(calculate~ : String, as_~ : String) -> Self
+pub fn VegaCalculateTransform::equal(Self, Self) -> Bool
+pub fn VegaCalculateTransform::not_equal(Self, Self) -> Bool
+pub fn VegaCalculateTransform::to_repr(Self) -> @debug.Repr
 
 #derive(Eq, @debug.Debug)
 pub(all) enum VegaCap {
@@ -465,7 +519,7 @@ pub struct VegaConcat {
   resolve : VegaResolve?
   // private fields
 }
-pub fn VegaConcat::VegaConcat(Array[Chart], align? : VegaAlignMode, bounds? : VegaBounds, center? : VegaCenter, spacing? : VegaSpacing, columns? : Double, title? : VegaTitle, name? : String, description? : String, resolve? : VegaResolve) -> Self
+pub fn VegaConcat::VegaConcat(Array[Chart], align? : VegaAlignMode, bounds? : VegaBounds, center? : VegaCenter, spacing? : VegaSpacing, columns? : Double, title? : VegaTitle, name? : String, description? : String, resolve? : VegaResolve, transform? : Array[VegaTransform]) -> Self
 pub fn VegaConcat::concat(Self) -> Array[Chart]
 pub fn VegaConcat::equal(Self, Self) -> Bool
 pub fn VegaConcat::not_equal(Self, Self) -> Bool
@@ -515,6 +569,25 @@ pub fn VegaCursor::not_equal(Self, Self) -> Bool
 pub fn VegaCursor::to_repr(Self) -> @debug.Repr
 
 #derive(Eq, @debug.Debug)
+pub struct VegaDensityTransform {
+  density : String
+  bandwidth : Double?
+  counts : Bool?
+  cumulative : Bool?
+  steps : Double?
+  minsteps : Double?
+  maxsteps : Double?
+  // private fields
+}
+pub fn VegaDensityTransform::VegaDensityTransform(density~ : String, as_? : Array[String], bandwidth? : Double, counts? : Bool, cumulative? : Bool, extent? : Array[Double], groupby? : Array[String], steps? : Double, minsteps? : Double, maxsteps? : Double) -> Self
+pub fn VegaDensityTransform::as_(Self) -> Array[String]?
+pub fn VegaDensityTransform::equal(Self, Self) -> Bool
+pub fn VegaDensityTransform::extent(Self) -> Array[Double]?
+pub fn VegaDensityTransform::groupby(Self) -> Array[String]?
+pub fn VegaDensityTransform::not_equal(Self, Self) -> Bool
+pub fn VegaDensityTransform::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
 pub(all) enum VegaDirection {
   Horizontal
   Vertical
@@ -543,6 +616,16 @@ pub fn VegaExtent::not_equal(Self, Self) -> Bool
 pub fn VegaExtent::to_repr(Self) -> @debug.Repr
 
 #derive(Eq, @debug.Debug)
+pub struct VegaExtentTransform {
+  extent : String
+  param : String
+}
+pub fn VegaExtentTransform::VegaExtentTransform(extent~ : String, param~ : String) -> Self
+pub fn VegaExtentTransform::equal(Self, Self) -> Bool
+pub fn VegaExtentTransform::not_equal(Self, Self) -> Bool
+pub fn VegaExtentTransform::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
 pub struct VegaFacet {
   row : VegaFacetChannel?
   column : VegaFacetChannel?
@@ -556,8 +639,9 @@ pub struct VegaFacet {
   name : String?
   description : String?
   resolve : VegaResolve?
+  // private fields
 }
-pub fn VegaFacet::VegaFacet(Chart, row? : VegaFacetChannel, column? : VegaFacetChannel, align? : VegaAlignMode, bounds? : VegaBounds, center? : VegaCenter, spacing? : VegaSpacing, columns? : Double, title? : VegaTitle, name? : String, description? : String, resolve? : VegaResolve) -> Self
+pub fn VegaFacet::VegaFacet(Chart, row? : VegaFacetChannel, column? : VegaFacetChannel, align? : VegaAlignMode, bounds? : VegaBounds, center? : VegaCenter, spacing? : VegaSpacing, columns? : Double, title? : VegaTitle, name? : String, description? : String, resolve? : VegaResolve, transform? : Array[VegaTransform]) -> Self
 pub fn VegaFacet::equal(Self, Self) -> Bool
 pub fn VegaFacet::not_equal(Self, Self) -> Bool
 pub fn VegaFacet::to_repr(Self) -> @debug.Repr
@@ -583,6 +667,37 @@ pub fn VegaFacetChannel::not_equal(Self, Self) -> Bool
 pub fn VegaFacetChannel::to_repr(Self) -> @debug.Repr
 
 #derive(Eq, @debug.Debug)
+pub struct VegaFilterTransform {
+  filter : VegaPredicate
+}
+pub fn VegaFilterTransform::VegaFilterTransform(filter~ : VegaPredicate) -> Self
+pub fn VegaFilterTransform::equal(Self, Self) -> Bool
+pub fn VegaFilterTransform::not_equal(Self, Self) -> Bool
+pub fn VegaFilterTransform::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
+pub struct VegaFlattenTransform {
+  // private fields
+}
+pub fn VegaFlattenTransform::VegaFlattenTransform(flatten~ : Array[String], as_? : Array[String]) -> Self
+pub fn VegaFlattenTransform::as_(Self) -> Array[String]?
+pub fn VegaFlattenTransform::equal(Self, Self) -> Bool
+pub fn VegaFlattenTransform::flatten(Self) -> Array[String]
+pub fn VegaFlattenTransform::not_equal(Self, Self) -> Bool
+pub fn VegaFlattenTransform::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
+pub struct VegaFoldTransform {
+  // private fields
+}
+pub fn VegaFoldTransform::VegaFoldTransform(fold~ : Array[String], as_? : Array[String]) -> Self
+pub fn VegaFoldTransform::as_(Self) -> Array[String]?
+pub fn VegaFoldTransform::equal(Self, Self) -> Bool
+pub fn VegaFoldTransform::fold(Self) -> Array[String]
+pub fn VegaFoldTransform::not_equal(Self, Self) -> Bool
+pub fn VegaFoldTransform::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
 pub(all) enum VegaFontWeight {
   Normal
   Bold
@@ -593,6 +708,15 @@ pub(all) enum VegaFontWeight {
 pub fn VegaFontWeight::equal(Self, Self) -> Bool
 pub fn VegaFontWeight::not_equal(Self, Self) -> Bool
 pub fn VegaFontWeight::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
+pub(all) enum VegaFrameLimit {
+  Num(Double)
+  Open
+}
+pub fn VegaFrameLimit::equal(Self, Self) -> Bool
+pub fn VegaFrameLimit::not_equal(Self, Self) -> Bool
+pub fn VegaFrameLimit::to_repr(Self) -> @debug.Repr
 
 #derive(Eq, @debug.Debug)
 pub struct VegaHeader {
@@ -633,6 +757,34 @@ pub fn VegaHeader::VegaHeader(format? : String, format_type? : String, label_ali
 pub fn VegaHeader::equal(Self, Self) -> Bool
 pub fn VegaHeader::not_equal(Self, Self) -> Bool
 pub fn VegaHeader::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
+pub struct VegaImputeSequence {
+  start : Double?
+  stop : Double
+  step : Double?
+}
+pub fn VegaImputeSequence::VegaImputeSequence(stop~ : Double, start? : Double, step? : Double) -> Self
+pub fn VegaImputeSequence::equal(Self, Self) -> Bool
+pub fn VegaImputeSequence::not_equal(Self, Self) -> Bool
+pub fn VegaImputeSequence::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
+pub struct VegaImputeTransform {
+  impute : String
+  key : String
+  keyvals_sequence : VegaImputeSequence?
+  method_ : String?
+  value : @json.Json?
+  // private fields
+}
+pub fn VegaImputeTransform::VegaImputeTransform(impute~ : String, key~ : String, keyvals? : Array[@json.Json], keyvals_sequence? : VegaImputeSequence, method_? : String, value? : @json.Json, groupby? : Array[String], frame? : Array[Double]) -> Self
+pub fn VegaImputeTransform::equal(Self, Self) -> Bool
+pub fn VegaImputeTransform::frame(Self) -> Array[Double]?
+pub fn VegaImputeTransform::groupby(Self) -> Array[String]?
+pub fn VegaImputeTransform::keyvals(Self) -> Array[@json.Json]?
+pub fn VegaImputeTransform::not_equal(Self, Self) -> Bool
+pub fn VegaImputeTransform::to_repr(Self) -> @debug.Repr
 
 #derive(Eq, @debug.Debug)
 pub(all) enum VegaInterpolate {
@@ -679,6 +831,17 @@ pub fn VegaJoin::not_equal(Self, Self) -> Bool
 pub fn VegaJoin::to_repr(Self) -> @debug.Repr
 
 #derive(Eq, @debug.Debug)
+pub struct VegaJoinAggregateTransform {
+  // private fields
+}
+pub fn VegaJoinAggregateTransform::VegaJoinAggregateTransform(joinaggregate~ : Array[VegaAggField], groupby? : Array[String]) -> Self
+pub fn VegaJoinAggregateTransform::equal(Self, Self) -> Bool
+pub fn VegaJoinAggregateTransform::groupby(Self) -> Array[String]?
+pub fn VegaJoinAggregateTransform::joinaggregate(Self) -> Array[VegaAggField]
+pub fn VegaJoinAggregateTransform::not_equal(Self, Self) -> Bool
+pub fn VegaJoinAggregateTransform::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
 pub(all) enum VegaLabelBound {
   Bool(Bool)
   Amount(Double)
@@ -719,7 +882,7 @@ pub struct VegaLayer {
   resolve : VegaResolve?
   // private fields
 }
-pub fn VegaLayer::VegaLayer(Array[Chart], title? : VegaTitle, name? : String, description? : String, width? : VegaExtent, height? : VegaExtent, view? : VegaViewBackground, projection? : VegaProjection, resolve? : VegaResolve) -> Self
+pub fn VegaLayer::VegaLayer(Array[Chart], title? : VegaTitle, name? : String, description? : String, width? : VegaExtent, height? : VegaExtent, view? : VegaViewBackground, projection? : VegaProjection, resolve? : VegaResolve, transform? : Array[VegaTransform]) -> Self
 pub fn VegaLayer::equal(Self, Self) -> Bool
 pub fn VegaLayer::layer(Self) -> Array[Chart]
 pub fn VegaLayer::not_equal(Self, Self) -> Bool
@@ -864,6 +1027,53 @@ pub fn VegaLegendType::not_equal(Self, Self) -> Bool
 pub fn VegaLegendType::to_repr(Self) -> @debug.Repr
 
 #derive(Eq, @debug.Debug)
+pub struct VegaLoessTransform {
+  loess : String
+  on : String
+  bandwidth : Double?
+  // private fields
+}
+pub fn VegaLoessTransform::VegaLoessTransform(loess~ : String, on~ : String, as_? : Array[String], bandwidth? : Double, groupby? : Array[String]) -> Self
+pub fn VegaLoessTransform::as_(Self) -> Array[String]?
+pub fn VegaLoessTransform::equal(Self, Self) -> Bool
+pub fn VegaLoessTransform::groupby(Self) -> Array[String]?
+pub fn VegaLoessTransform::not_equal(Self, Self) -> Bool
+pub fn VegaLoessTransform::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
+pub struct VegaLookupData {
+  data : String
+  key : String
+  // private fields
+}
+pub fn VegaLookupData::VegaLookupData(data~ : String, key~ : String, fields? : Array[String]) -> Self
+pub fn VegaLookupData::equal(Self, Self) -> Bool
+pub fn VegaLookupData::fields(Self) -> Array[String]?
+pub fn VegaLookupData::not_equal(Self, Self) -> Bool
+pub fn VegaLookupData::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
+pub(all) enum VegaLookupFrom {
+  Data(VegaLookupData)
+  Param(String)
+}
+pub fn VegaLookupFrom::equal(Self, Self) -> Bool
+pub fn VegaLookupFrom::not_equal(Self, Self) -> Bool
+pub fn VegaLookupFrom::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
+pub struct VegaLookupTransform {
+  lookup : String
+  from_ : VegaLookupFrom
+  as_ : VegaAsField?
+  default : @json.Json?
+}
+pub fn VegaLookupTransform::VegaLookupTransform(lookup~ : String, from_~ : VegaLookupFrom, as_? : VegaAsField, default? : @json.Json) -> Self
+pub fn VegaLookupTransform::equal(Self, Self) -> Bool
+pub fn VegaLookupTransform::not_equal(Self, Self) -> Bool
+pub fn VegaLookupTransform::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
 pub(all) enum VegaNice {
   Bool(Bool)
   Ticks(Double)
@@ -893,6 +1103,43 @@ pub(all) enum VegaPadding {
 pub fn VegaPadding::equal(Self, Self) -> Bool
 pub fn VegaPadding::not_equal(Self, Self) -> Bool
 pub fn VegaPadding::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
+pub struct VegaPivotTransform {
+  pivot : String
+  value : String
+  limit : Double?
+  op : VegaAggregate?
+  // private fields
+}
+pub fn VegaPivotTransform::VegaPivotTransform(pivot~ : String, value~ : String, groupby? : Array[String], limit? : Double, op? : VegaAggregate) -> Self
+pub fn VegaPivotTransform::equal(Self, Self) -> Bool
+pub fn VegaPivotTransform::groupby(Self) -> Array[String]?
+pub fn VegaPivotTransform::not_equal(Self, Self) -> Bool
+pub fn VegaPivotTransform::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
+pub(all) enum VegaPredicate {
+  Expr(String)
+  Param(String)
+  Equal(String, @json.Json, VegaTimeUnit?)
+  Lt(String, Double, VegaTimeUnit?)
+  Lte(String, Double, VegaTimeUnit?)
+  Gt(String, Double, VegaTimeUnit?)
+  Gte(String, Double, VegaTimeUnit?)
+  Range(String, (Double, Double), VegaTimeUnit?)
+  OneOf(String, Array[@json.Json], VegaTimeUnit?)
+  Valid(String, Bool, VegaTimeUnit?)
+  Not(VegaPredicate)
+  And(Array[VegaPredicate])
+  Or(Array[VegaPredicate])
+}
+pub fn VegaPredicate::all_of(Array[Self]) -> Self
+pub fn VegaPredicate::any_of(Array[Self]) -> Self
+pub fn VegaPredicate::equal(Self, Self) -> Bool
+pub fn VegaPredicate::not_equal(Self, Self) -> Bool
+pub fn VegaPredicate::one_of(String, Array[@json.Json], time_unit? : VegaTimeUnit) -> Self
+pub fn VegaPredicate::to_repr(Self) -> @debug.Repr
 
 #derive(Eq, @debug.Debug)
 pub struct VegaProjection {
@@ -950,6 +1197,20 @@ pub fn VegaProjectionType::not_equal(Self, Self) -> Bool
 pub fn VegaProjectionType::to_repr(Self) -> @debug.Repr
 
 #derive(Eq, @debug.Debug)
+pub struct VegaQuantileTransform {
+  quantile : String
+  step : Double?
+  // private fields
+}
+pub fn VegaQuantileTransform::VegaQuantileTransform(quantile~ : String, as_? : Array[String], probs? : Array[Double], step? : Double, groupby? : Array[String]) -> Self
+pub fn VegaQuantileTransform::as_(Self) -> Array[String]?
+pub fn VegaQuantileTransform::equal(Self, Self) -> Bool
+pub fn VegaQuantileTransform::groupby(Self) -> Array[String]?
+pub fn VegaQuantileTransform::not_equal(Self, Self) -> Bool
+pub fn VegaQuantileTransform::probs(Self) -> Array[Double]?
+pub fn VegaQuantileTransform::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
 pub(all) enum VegaRange {
   Named(VegaRangeName)
   Values(Array[@json.Json])
@@ -983,6 +1244,23 @@ pub fn VegaRangeName::not_equal(Self, Self) -> Bool
 pub fn VegaRangeName::to_repr(Self) -> @debug.Repr
 
 #derive(Eq, @debug.Debug)
+pub struct VegaRegressionTransform {
+  regression : String
+  on : String
+  method_ : String?
+  order : Double?
+  params : Bool?
+  // private fields
+}
+pub fn VegaRegressionTransform::VegaRegressionTransform(regression~ : String, on~ : String, as_? : Array[String], extent? : Array[Double], method_? : String, order? : Double, groupby? : Array[String], params? : Bool) -> Self
+pub fn VegaRegressionTransform::as_(Self) -> Array[String]?
+pub fn VegaRegressionTransform::equal(Self, Self) -> Bool
+pub fn VegaRegressionTransform::extent(Self) -> Array[Double]?
+pub fn VegaRegressionTransform::groupby(Self) -> Array[String]?
+pub fn VegaRegressionTransform::not_equal(Self, Self) -> Bool
+pub fn VegaRegressionTransform::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
 pub struct VegaRepeat {
   spec : Chart
   align : VegaAlignMode?
@@ -996,7 +1274,7 @@ pub struct VegaRepeat {
   resolve : VegaResolve?
   // private fields
 }
-pub fn VegaRepeat::VegaRepeat(Chart, row? : Array[String], column? : Array[String], align? : VegaAlignMode, bounds? : VegaBounds, center? : VegaCenter, spacing? : VegaSpacing, columns? : Double, title? : VegaTitle, name? : String, description? : String, resolve? : VegaResolve) -> Self
+pub fn VegaRepeat::VegaRepeat(Chart, row? : Array[String], column? : Array[String], align? : VegaAlignMode, bounds? : VegaBounds, center? : VegaCenter, spacing? : VegaSpacing, columns? : Double, title? : VegaTitle, name? : String, description? : String, resolve? : VegaResolve, transform? : Array[VegaTransform]) -> Self
 pub fn VegaRepeat::column(Self) -> Array[String]?
 pub fn VegaRepeat::equal(Self, Self) -> Bool
 pub fn VegaRepeat::not_equal(Self, Self) -> Bool
@@ -1061,6 +1339,15 @@ pub fn VegaRowColDouble::VegaRowColDouble(row? : Double, column? : Double) -> Se
 pub fn VegaRowColDouble::equal(Self, Self) -> Bool
 pub fn VegaRowColDouble::not_equal(Self, Self) -> Bool
 pub fn VegaRowColDouble::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
+pub struct VegaSampleTransform {
+  sample : Double
+}
+pub fn VegaSampleTransform::VegaSampleTransform(sample~ : Double) -> Self
+pub fn VegaSampleTransform::equal(Self, Self) -> Bool
+pub fn VegaSampleTransform::not_equal(Self, Self) -> Bool
+pub fn VegaSampleTransform::to_repr(Self) -> @debug.Repr
 
 #derive(Eq, @debug.Debug)
 pub struct VegaScale {
@@ -1212,6 +1499,16 @@ pub fn VegaSortChannel::not_equal(Self, Self) -> Bool
 pub fn VegaSortChannel::to_repr(Self) -> @debug.Repr
 
 #derive(Eq, @debug.Debug)
+pub struct VegaSortField {
+  field : String
+  order : VegaSort?
+}
+pub fn VegaSortField::VegaSortField(field~ : String, order? : VegaSort) -> Self
+pub fn VegaSortField::equal(Self, Self) -> Bool
+pub fn VegaSortField::not_equal(Self, Self) -> Bool
+pub fn VegaSortField::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
 pub(all) enum VegaSpacing {
   Px(Double)
   Sides(VegaRowColDouble)
@@ -1230,6 +1527,20 @@ pub(all) enum VegaStack {
 pub fn VegaStack::equal(Self, Self) -> Bool
 pub fn VegaStack::not_equal(Self, Self) -> Bool
 pub fn VegaStack::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
+pub struct VegaStackTransform {
+  stack : String
+  as_ : VegaAsField
+  offset : String?
+  // private fields
+}
+pub fn VegaStackTransform::VegaStackTransform(stack~ : String, groupby~ : Array[String], as_~ : VegaAsField, offset? : String, sort? : Array[VegaSortField]) -> Self
+pub fn VegaStackTransform::equal(Self, Self) -> Bool
+pub fn VegaStackTransform::groupby(Self) -> Array[String]
+pub fn VegaStackTransform::not_equal(Self, Self) -> Bool
+pub fn VegaStackTransform::sort(Self) -> Array[VegaSortField]?
+pub fn VegaStackTransform::to_repr(Self) -> @debug.Repr
 
 #derive(Eq, @debug.Debug)
 pub(all) enum VegaTickBand {
@@ -1353,6 +1664,17 @@ pub fn VegaTimeUnit::not_equal(Self, Self) -> Bool
 pub fn VegaTimeUnit::to_repr(Self) -> @debug.Repr
 
 #derive(Eq, @debug.Debug)
+pub struct VegaTimeUnitTransform {
+  time_unit : VegaTimeUnit
+  field : String
+  as_ : String
+}
+pub fn VegaTimeUnitTransform::VegaTimeUnitTransform(time_unit~ : VegaTimeUnit, field~ : String, as_~ : String) -> Self
+pub fn VegaTimeUnitTransform::equal(Self, Self) -> Bool
+pub fn VegaTimeUnitTransform::not_equal(Self, Self) -> Bool
+pub fn VegaTimeUnitTransform::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
 pub(all) enum VegaTitle {
   Text(String)
   Params(VegaTitleParams)
@@ -1419,6 +1741,32 @@ pub fn VegaTitleParams::not_equal(Self, Self) -> Bool
 pub fn VegaTitleParams::to_repr(Self) -> @debug.Repr
 
 #derive(Eq, @debug.Debug)
+pub(all) enum VegaTransform {
+  Aggregate(VegaAggregateTransform)
+  Bin(VegaBinTransform)
+  Calculate(VegaCalculateTransform)
+  Density(VegaDensityTransform)
+  Extent(VegaExtentTransform)
+  Filter(VegaFilterTransform)
+  Flatten(VegaFlattenTransform)
+  Fold(VegaFoldTransform)
+  Impute(VegaImputeTransform)
+  JoinAggregate(VegaJoinAggregateTransform)
+  Loess(VegaLoessTransform)
+  Lookup(VegaLookupTransform)
+  Pivot(VegaPivotTransform)
+  Quantile(VegaQuantileTransform)
+  Regression(VegaRegressionTransform)
+  Sample(VegaSampleTransform)
+  Stack(VegaStackTransform)
+  TimeUnit(VegaTimeUnitTransform)
+  Window(VegaWindowTransform)
+}
+pub fn VegaTransform::equal(Self, Self) -> Bool
+pub fn VegaTransform::not_equal(Self, Self) -> Bool
+pub fn VegaTransform::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
 pub(all) enum VegaType {
   Quantitative
   Nominal
@@ -1452,6 +1800,31 @@ pub fn VegaViewBackground::equal(Self, Self) -> Bool
 pub fn VegaViewBackground::not_equal(Self, Self) -> Bool
 pub fn VegaViewBackground::stroke_dash(Self) -> Array[Double]?
 pub fn VegaViewBackground::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
+pub struct VegaWindowField {
+  op : VegaAggregate
+  field : String?
+  as_ : String
+}
+pub fn VegaWindowField::VegaWindowField(op~ : VegaAggregate, as_~ : String, field? : String) -> Self
+pub fn VegaWindowField::equal(Self, Self) -> Bool
+pub fn VegaWindowField::not_equal(Self, Self) -> Bool
+pub fn VegaWindowField::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
+pub struct VegaWindowTransform {
+  frame : (VegaFrameLimit, VegaFrameLimit)?
+  ignore_peers : Bool?
+  // private fields
+}
+pub fn VegaWindowTransform::VegaWindowTransform(window~ : Array[VegaWindowField], groupby? : Array[String], sort? : Array[VegaSortField], frame? : (VegaFrameLimit, VegaFrameLimit), ignore_peers? : Bool) -> Self
+pub fn VegaWindowTransform::equal(Self, Self) -> Bool
+pub fn VegaWindowTransform::groupby(Self) -> Array[String]?
+pub fn VegaWindowTransform::not_equal(Self, Self) -> Bool
+pub fn VegaWindowTransform::sort(Self) -> Array[VegaSortField]?
+pub fn VegaWindowTransform::to_repr(Self) -> @debug.Repr
+pub fn VegaWindowTransform::window(Self) -> Array[VegaWindowField]
 
 // Type aliases
 

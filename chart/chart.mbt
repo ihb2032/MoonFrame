@@ -120,6 +120,7 @@ pub struct ChartSpec {
   background : String?
   projection : VegaProjection?
   view : VegaViewBackground?
+  priv transform : Array[VegaTransform]?
 }
 
 ///|
@@ -127,6 +128,16 @@ pub extend ChartSpec with Eq::{equal, not_equal}
 
 ///|
 pub extend ChartSpec with Debug::{to_repr}
+
+///|
+/// The transform pipeline, copied — reading the field itself would
+/// hand the caller the array the spec holds.
+pub fn ChartSpec::transform(self : ChartSpec) -> Array[VegaTransform]? {
+  match self.transform {
+    Some(ts) => Some(ts.copy())
+    None => None
+  }
+}
 
 ///|
 /// The blank a constructor fills in: a spec of the given kind with every
@@ -183,6 +194,7 @@ fn empty_channel_spec(kind : ChartKind) -> ChartSpec {
     background: None,
     projection: None,
     view: None,
+    transform: None,
   }
 }
 
@@ -869,6 +881,7 @@ pub fn ChartSpec::of(
   background? : String,
   projection? : VegaProjection,
   view? : VegaViewBackground,
+  transform? : Array[VegaTransform],
 ) -> ChartSpec {
   {
     ..empty_channel_spec(kind),
@@ -920,6 +933,10 @@ pub fn ChartSpec::of(
     background,
     projection,
     view,
+    transform: match transform {
+      Some(ts) => Some(ts.copy())
+      None => None
+    },
   }
 }
 
@@ -1080,6 +1097,9 @@ fn put_layer_chrome(layer : VegaLayer, obj : Map[String, Json]) -> Unit {
   if layer.resolve is Some(resolve) {
     obj["resolve"] = vega_resolve_emit_json(resolve)
   }
+  if layer.transform is Some(transforms) {
+    obj["transform"] = vega_transforms_emit_json(transforms)
+  }
 }
 
 ///|
@@ -1119,6 +1139,9 @@ fn put_concat_chrome(
   if concat.resolve is Some(resolve) {
     obj["resolve"] = vega_resolve_emit_json(resolve)
   }
+  if concat.transform is Some(transforms) {
+    obj["transform"] = vega_transforms_emit_json(transforms)
+  }
 }
 
 ///|
@@ -1153,6 +1176,9 @@ fn put_facet_chrome(facet : VegaFacet, obj : Map[String, Json]) -> Unit {
   if facet.resolve is Some(resolve) {
     obj["resolve"] = vega_resolve_emit_json(resolve)
   }
+  if facet.transform is Some(transforms) {
+    obj["transform"] = vega_transforms_emit_json(transforms)
+  }
 }
 
 ///|
@@ -1184,6 +1210,9 @@ fn put_repeat_chrome(repeat : VegaRepeat, obj : Map[String, Json]) -> Unit {
   }
   if repeat.resolve is Some(resolve) {
     obj["resolve"] = vega_resolve_emit_json(resolve)
+  }
+  if repeat.transform is Some(transforms) {
+    obj["transform"] = vega_transforms_emit_json(transforms)
   }
 }
 
@@ -1306,6 +1335,9 @@ fn unit_emit(
   }
   if spec.projection is Some(projection) {
     obj["projection"] = vega_projection_emit_json(projection)
+  }
+  if spec.transform is Some(transforms) {
+    obj["transform"] = vega_transforms_emit_json(transforms)
   }
   // The Vega-Lite `mark` string for the chart kind.
   obj["mark"] = Json::string(mark_string(spec.kind))
